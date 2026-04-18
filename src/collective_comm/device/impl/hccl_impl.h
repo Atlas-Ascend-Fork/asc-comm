@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #if __NPU_ARCH__ == 2201
 #include "platform_v220/hccl_aicpu.h"
 #elif __NPU_ARCH__ == 3510
-#include "platform_v220/hccl_aicpu.h"
+#include "platform_v310/hccl_aicpu.h"
 #include "platform_v310/hccl_ccu_v0.h"
 #endif
 #include "../common/hccl_impl_dfx.h"
