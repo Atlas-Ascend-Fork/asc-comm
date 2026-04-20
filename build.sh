@@ -102,7 +102,7 @@ function build_package(){
 function build_device(){
     cmake_config
     log "Info: build_device"
-    TARGET_LIST="hccp_service.bin rs net_co ccl_kernel_plf ccl_kernel_plf_a ccl_kernel aicpu_custom_json aicpu_custom scatter_aicpu_kernel"
+    TARGET_LIST="hccp_service.bin rs net_co ccl_kernel_plf ccl_kernel_plf_a ccl_kernel aicpu_custom_json aicpu_custom mc2_server"
     echo "TARGET_LIST=${TARGET_LIST}"
     PKG_TARGET_LIST="generate_device_hccp_package generate_device_aicpu_package"
     echo "PKG_TARGET_LIST=${PKG_TARGET_LIST}"
@@ -227,7 +227,7 @@ function build_test() {
 function build_kernel() {
     cmake_config
     log "Info: build_kernel"
-    build ccl_kernel_plf ccl_kernel_plf_a ccl_kernel aicpu_custom_json aicpu_custom scatter_aicpu_kernel
+    build ccl_kernel_plf ccl_kernel_plf_a ccl_kernel aicpu_custom_json aicpu_custom mc2_server
 }
 
 function mk_dir() {
@@ -433,7 +433,6 @@ while [[ $# -gt 0 ]]; do
     -s|--st)
         ENABLE_TEST="on"
         ENABLE_ST="on"
-        TEST="all"
         shift
         ;;
     -t|--test)
