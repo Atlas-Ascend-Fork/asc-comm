@@ -12,12 +12,12 @@
  * \file hccl_tiling.cpp
  * \brief
  */
-#include "include/adv_api/hccl/hccl_tiling.h"
-#include "include/adv_api/hccl/hccl_common.h"
+#include "include/collective_comm/host/hccl_tiling.h"
+#include "include/collective_comm/hccl_common.h"
 #include "securec.h"
 #include "../../detail/host_log.h"
-#include "include/adv_api/hccl/internal/hccl_msg.h"
-#include "include/adv_api/hccl/internal/hccl_tiling_msg.h"
+#include "include/collective_comm/device/hccl_msg.h"
+#include "include/collective_comm/host/hccl_tiling_msg.h"
 #include "tiling/platform/platform_ascendc.h"
 #include "hccl_symbol_loader.h"
 

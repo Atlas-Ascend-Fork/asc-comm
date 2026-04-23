@@ -22,8 +22,8 @@
 #define LIB_HCCL_HCCL_H
 
 #include "kernel_basic_intf.h"
-#include "hccl_common.h"
-#include "../../../impl/adv_api/detail/hccl/impl/hccl_impl_def.h"
+#include "../hccl_common.h"
+#include "../../../src/collective_comm/device/impl/hccl_impl_def.h"
 
 namespace AscendC {
 static constexpr HcclServerConfig DEFAULT_CFG = {CoreType::DEFAULT, 0};
@@ -406,7 +406,7 @@ private:
 };
 }  // namespace AscendC
 
-#include "../../../impl/adv_api/detail/hccl/impl/hccl_impl.h"
+#include "../../../src/collective_comm/device/impl/hccl_impl.h"
 #endif  // LIB_HCCL_HCCL_H
 
 #if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCCL_H__)

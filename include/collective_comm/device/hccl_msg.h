@@ -22,7 +22,7 @@
 #define IMPL_HCCL_HCCL_MSG_H
 
 #include <cstdint>
-#include "include/adv_api/hccl/hccl_common.h"
+#include "include/collective_comm/hccl_common.h"
 
 namespace HcclApi {
 constexpr uint32_t HCCL_MSG_VALID_MASK = 0x5CDF123A;

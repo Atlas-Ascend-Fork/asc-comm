@@ -17,7 +17,7 @@
 
 #include "hccl_tilingdata.h"
 #include "kernel_tiling/kernel_tiling.h"
-#include "../../../impl/adv_api/tiling/hccl/hccl_tiling_impl_def.h"
+#include "../../../src/collective_comm/device/impl/hccl_impl_def.h"
 
 namespace AscendC {
 

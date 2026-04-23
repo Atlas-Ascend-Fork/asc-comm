@@ -16,7 +16,7 @@
 #define IMPL_HCCL_CCU_V0_PREEPARE_H
 
 #include "hccl_ccu_xn_utils.h"
-#include "../impl/platform_v310/hccl_ccu_v0_def.h"
+#include "src\collective_comm\device\impl\platform_v310\hccl_ccu_v0_def.h"
 
 namespace AscendC {
 template <const auto& config>
