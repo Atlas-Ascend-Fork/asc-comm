@@ -1,0 +1,470 @@
+/**
+* Copyright (c) 2025 Huawei Technologies Co., Ltd.
+* This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+* CANN Open Software License Agreement Version 2.0 (the "License").
+* Please refer to the License for details. You may not use this file except in compliance with the License.
+* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+* INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+* See LICENSE in the root of the software repository for the full text of the License.
+*/
+#include "thread.h"
+#include "cpu_ts_thread.h"
+#include "aicpu_ts_thread.h"
+#include "sal_pub.h"
+#include "stream_lite.h"
+#include "task_info.h"
+#include "aicpu_launch_manager.h"
+using namespace std;
+
+namespace hccl {
+static unordered_map<ThreadHandle, shared_ptr<Thread>> g_ThreadMap;
+static unordered_map<ThreadHandle, ThreadHandle> g_ThreadD2HMap;
+static mutex g_ThreadMapMtx;
+
+HcclResult CreateThread(CommEngine engine, StreamType streamType,
+    uint32_t notifyNum, NotifyLoadType loadType, shared_ptr<Thread>& out_thread)  
+{
+    out_thread = nullptr;  // 初始化出参
+ 
+    if (engine == COMM_ENGINE_CPU_TS || engine == COMM_ENGINE_CPU
+        || engine == COMM_ENGINE_CCU) {
+        EXECEPTION_CATCH(out_thread = make_shared<CpuTsThread>(streamType, notifyNum, loadType), return HCCL_E_PTR);
+    } else if (engine == COMM_ENGINE_AICPU_TS || engine == COMM_ENGINE_AICPU) {
+        EXECEPTION_CATCH(out_thread = make_shared<AicpuTsThread>(streamType, notifyNum, loadType), return HCCL_E_PTR);
+    } else {
+        return HCCL_E_NOT_SUPPORT;
+    }
+ 
+    return HCCL_SUCCESS;
+}
+
+HcclResult CommHostEngineToNotifyLoadType(CommEngine engine, NotifyLoadType &type)
+{
+    switch (engine) {
+        case COMM_ENGINE_CPU:
+        case COMM_ENGINE_CPU_TS:
+        case COMM_ENGINE_CCU:
+            type =  NotifyLoadType::HOST_NOTIFY;
+            break;
+        default:
+            HCCL_ERROR("[ThreadMgr] Unsupported comm engine type: %d", engine);
+            return HCCL_E_PARA;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult CommEngineToNotifyLoadType(CommEngine engine, NotifyLoadType &type)
+{
+    switch (engine) {
+        case COMM_ENGINE_CPU:
+        case COMM_ENGINE_CPU_TS:
+        case COMM_ENGINE_CCU:
+            type =  NotifyLoadType::HOST_NOTIFY;
+            break;
+        case COMM_ENGINE_AICPU:
+        case COMM_ENGINE_AICPU_TS:
+            type =  NotifyLoadType::DEVICE_NOTIFY;
+            break;
+        default:
+            HCCL_ERROR("[ThreadMgr] Unknown comm engine type: %d", engine);
+            return HCCL_E_PARA;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult CommEngineToStreamType(CommEngine engine, StreamType &type)
+{
+    switch (engine) {
+        case COMM_ENGINE_CPU:
+        case COMM_ENGINE_CPU_TS:
+        case COMM_ENGINE_CCU:
+            type = StreamType::STREAM_TYPE_ONLINE; // 单算子使用online，图模式使用offine
+            break;
+        case COMM_ENGINE_AICPU:
+        case COMM_ENGINE_AICPU_TS:
+            type = StreamType::STREAM_TYPE_DEVICE;
+            break;
+        // 暂不支持AIV
+        case COMM_ENGINE_AIV:
+        default:
+            HCCL_ERROR("[ThreadMgr] Unknown comm engine type: %d", engine);
+            return HCCL_E_PARA;
+    }
+    return HCCL_SUCCESS;
+}
+
+#ifndef CCL_KERNEL_AICPU
+HcclResult ValidateThreadParams(uint32_t threadNum, uint32_t notifyNumPerThread) 
+{
+    if (threadNum == 0 || threadNum > HCOMM_THREADNUM_MAX_NUM) {
+        HCCL_ERROR("[%s] Validate thread params failed. ThreadNum %u, range (0, %u]",
+            __func__, threadNum, HCOMM_THREADNUM_MAX_NUM);
+        return HCCL_E_PARA;
+    }
+    if (notifyNumPerThread > HCOMM_NOTIFY_MAX_NUM) {
+        HCCL_ERROR("[%s] Validate thread params failed. notifyNumPerThread %u, range [0, %u]",
+            __func__, notifyNumPerThread, HCOMM_NOTIFY_MAX_NUM);
+        return HCCL_E_PARA;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult SaveThreads(const vector<shared_ptr<Thread>> &newThreads) {
+    lock_guard<mutex> lock(g_ThreadMapMtx);
+    for (const auto &threadPtr : newThreads) {
+        ThreadHandle handle = reinterpret_cast<ThreadHandle>(threadPtr.get());
+
+        if (g_ThreadMap.find(handle) != g_ThreadMap.end()) {
+            HCCL_ERROR("[%s] thread handle already exists [0x%llx] in ThreadMap", __func__, handle);
+            return HCCL_E_INTERNAL;
+        }
+        if (g_ThreadD2HMap.find(handle) != g_ThreadD2HMap.end()) {
+            HCCL_ERROR("[%s] thread handle already exists [0x%llx] in g_ThreadD2HMap", __func__, handle);
+            return HCCL_E_INTERNAL;
+        }
+
+        g_ThreadMap.emplace(handle, threadPtr);
+        g_ThreadD2HMap.emplace(handle, handle);
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult CreateAndInitThreads(const ThreadCreateParams& params,
+    vector<shared_ptr<Thread>>& outThreads) 
+{
+    HCCL_INFO("[%s] Creating threads with params: engine[%d], threadNum[%u], "
+              "notifyNumPerThread[%u], notifyLoadType[%u], streamType[%u]",
+              __func__, params.engine, params.threadNum, params.notifyNumPerThread,
+              static_cast<int32_t>(params.notifyLoadType), 
+              static_cast<int32_t>(params.streamType));
+    outThreads.reserve(params.threadNum);
+
+    for (uint32_t i = 0; i < params.threadNum; ++i) {
+        shared_ptr<Thread> threadPtr;
+        // 创建线程
+        HcclResult ret = CreateThread(params.engine, params.streamType, 
+                                      params.notifyNumPerThread, 
+                                      params.notifyLoadType, threadPtr);
+        CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[%s] Failed to create thread at index %u, error: %d", 
+            __func__, i, ret), ret);
+
+        // 初始化线程
+        ret = threadPtr->Init();
+        CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[%s] Failed to initialize thread at index %u, error: %d", 
+            __func__, i, ret), ret);
+
+        // 添加到输出列表
+        outThreads.emplace_back(move(threadPtr));
+    }
+    HCCL_INFO("[%s] Successfully created and initialized %u threads", 
+              __func__, params.threadNum);
+    return HCCL_SUCCESS;
+}
+
+HcclResult FillThreadD2HMap(ThreadHandle *deviceThreadHandles,
+    ThreadHandle *hostThreadHandles, uint32_t listNum)
+{
+    lock_guard<mutex> lock(g_ThreadMapMtx);
+    for (uint32_t idx = 0; idx < listNum; idx++) {
+        auto deviceThreadHandle = deviceThreadHandles[idx];
+        auto hostThreadHandle = hostThreadHandles[idx];
+        HCCL_INFO("%s deviceThreadHandle[0x%llx], hostThreadHandle[0x%llx]",
+            __func__,
+            deviceThreadHandle,
+            hostThreadHandle);
+        g_ThreadD2HMap.emplace(deviceThreadHandle, hostThreadHandle);
+    }
+
+    return HCCL_SUCCESS;
+}
+
+HcclResult StoreThreadHandles(vector<shared_ptr<Thread>>& newThreads,
+    ThreadHandle* threads, CommEngine engine, aclrtBinHandle binHandle)
+{
+    CHK_PTR_NULL(threads);
+    if (engine == COMM_ENGINE_AICPU || engine == COMM_ENGINE_AICPU_TS) {
+        // AICPU引擎处理逻辑
+        unique_ptr<ThreadHandle[]> aicpuHandle;
+        EXECEPTION_CATCH(aicpuHandle = make_unique<ThreadHandle[]>(newThreads.size()),
+                         return HCCL_E_PTR);
+        CHK_PTR_NULL(binHandle);
+        HcclResult ret = AicpuLaunchMgr::ThreadKernelLaunchForBase(
+            newThreads, aicpuHandle, binHandle);
+
+        CHK_PRT_RET(ret != HCCL_SUCCESS,
+            HCCL_ERROR("[StoreThreadHandles] AiCpuKernelLaunch failed, engine[%d], return[%d].", 
+                      engine, ret), ret);
+
+        // 保存并映射AICPU线程句柄
+        for (size_t i = 0; i < newThreads.size(); ++i) {
+            threads[i] = aicpuHandle[i];
+            ThreadHandle hostHandle = reinterpret_cast<ThreadHandle>(newThreads[i].get());
+            CHK_RET(FillThreadD2HMap(&aicpuHandle[i], &hostHandle, 1));
+            HCCL_INFO("[StoreThreadHandles] AICPU engine[%d] threadArray[%zu] = [%lu]", 
+                      engine, i, threads[i]);
+        }
+    } else {
+        for (size_t i = 0; i < newThreads.size(); ++i) {
+            threads[i] = reinterpret_cast<ThreadHandle>(newThreads[i].get());
+            HCCL_INFO("[StoreThreadHandles] Host engine[%d] threadArray[%zu] = [%lu]", 
+                      engine, i, threads[i]);
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+static HcclResult FreeThreadHandlesLocked(const ThreadHandle *threads, uint32_t threadNum, 
+    vector<ThreadHandle>& deviceHandles)
+{
+    lock_guard<mutex> lock(g_ThreadMapMtx);
+    for (uint32_t i = 0; i < threadNum; ++i) {
+        const ThreadHandle inHandle = threads[i];
+
+        // 1) 先做 D2H 映射（统一销毁入口 handle）
+        auto itH = g_ThreadD2HMap.find(inHandle);
+        if (itH == g_ThreadD2HMap.end()) {
+            HCCL_ERROR(
+                "[%s] failed to find handle mapping in g_ThreadD2HMap, inHandle[0x%llx].", __func__, inHandle);
+            return HcclResult::HCCL_E_NOT_FOUND;
+        }
+        const ThreadHandle mappedHandle = itH->second;
+
+        // 2) 从 ThreadMap 查找对应的thread对象
+        auto itC = g_ThreadMap.find(mappedHandle);
+        if (itC == g_ThreadMap.end()) {
+            HCCL_ERROR("[%s] failed to find thread in g_ThreadMap, inHandle[0x%llx], mappedHandle[0x%llx].",
+                __func__, inHandle, mappedHandle);
+            return HcclResult::HCCL_E_NOT_FOUND;
+        }
+        if (inHandle != mappedHandle) {
+            // handle不相等表示inhandle为deviceHandle
+            deviceHandles.push_back(inHandle); 
+        }
+
+        // 3) 先 erase ThreadMap（unique_ptr 释放对象）
+        HCCL_INFO("[%s] erase thread: inHandle[0x%llx], mappedHandle[0x%llx], ptr[%p]",
+            __func__, inHandle, mappedHandle, itC->second.get());
+        g_ThreadMap.erase(itC);
+
+        // 4) 清理 D2HMap 中所有指向 mappedHandle 的映射，避免残留导致后续查到“已销毁”
+        for (auto it = g_ThreadD2HMap.begin(); it != g_ThreadD2HMap.end();) {
+            if (it->second == mappedHandle) {
+                it = g_ThreadD2HMap.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult FreeThreads(const ThreadHandle *threads, uint32_t threadNum, aclrtBinHandle binHandle)
+{
+    CHK_PRT_RET(threads == nullptr, HCCL_ERROR("[HcommThreadfree] threads is null."), HCCL_E_PARA);
+    if (threadNum == 0 || threadNum > HCOMM_THREADNUM_MAX_NUM) {
+        HCCL_ERROR("[%s] Validate thread params failed. ThreadNum %u, range (0, %u]",
+            __func__, threadNum, HCOMM_THREADNUM_MAX_NUM);
+        return HCCL_E_PARA;
+    }
+    HCCL_INFO("[%s] begin to free %u threads", __func__, threadNum);
+
+    vector<ThreadHandle> deviceHandles; // 存放device侧的handle
+
+    CHK_RET(FreeThreadHandlesLocked(threads, threadNum, deviceHandles));
+
+    // 如果有需要销毁的deviceThread，调用销毁kernel
+    if (!deviceHandles.empty()) {
+        CHK_RET(AicpuLaunchMgr::ThreadKernelLaunchDestroy(deviceHandles.data(), deviceHandles.size(), binHandle));
+    }
+    HCCL_INFO("[%s] %u threads freed successfully.", __func__, threadNum);
+    return HCCL_SUCCESS;
+}
+#endif
+
+HcclResult Thread::AddThreadHandleToMap(CommEngine commEngine, ThreadHandle threadHandle)
+{
+    if (threadHandleMap_.find(commEngine) != threadHandleMap_.end() && threadHandleMap_[commEngine] != threadHandle) {
+        HCCL_ERROR("[Thread][%s]Mapping already exists:commEngine[%d], threadHandle[%lu], new threadHandle[%lu]",
+                   __func__, threadHandleMap_[commEngine], threadHandle);
+    }
+
+    threadHandleMap_[commEngine] = threadHandle;
+    return HCCL_SUCCESS;
+}
+
+Thread *Thread::FindThreadByCommEngine(CommEngine commEngine)
+{
+    if (threadHandleMap_.find(commEngine) != threadHandleMap_.end()) {
+        return reinterpret_cast<Thread *>(threadHandleMap_[commEngine]);
+    }
+
+    return nullptr;
+}
+
+HcclResult Thread::ReportAicpuNotifyWaitTask(u64 notifyId, u64 beginTime, u32 taskId, u32 sqId) const
+{
+    Hccl::TaskParam taskParam{};
+    taskParam.taskType                 = Hccl::TaskParamType::TASK_NOTIFY_WAIT;
+    taskParam.beginTime                = beginTime;
+    taskParam.taskPara.Notify.notifyID = notifyId;
+    taskParam.taskPara.Notify.value    = 1;
+    taskParam.endTime                = ProfGetCurCpuTimestamp();
+    CHK_PTR_NULL(callback_);
+    CHK_RET(callback_(sqId, taskId, taskParam, INVALID_U64));
+    HCCL_INFO("[Thread][%s] sqId[%u], taskId[%u], notifyId[%llu], %s", __func__, sqId, taskId,
+        notifyId, taskParam.Describe().c_str());
+    return HCCL_SUCCESS;
+}
+
+HcclResult Thread::ReportHostNotifyWaitTask(u64 notifyId, u64 beginTime, bool isMaster) const
+{
+    #ifndef CCL_KERNEL_AICPU
+    Hccl::TaskParam taskParam{};
+    taskParam.taskType                 = Hccl::TaskParamType::TASK_NOTIFY_WAIT;
+    taskParam.beginTime                = beginTime;
+    taskParam.taskPara.Notify.notifyID = notifyId;
+    taskParam.taskPara.Notify.value    = 1;
+    taskParam.isMaster = isMaster;
+    u32 taskId = 0;
+    u32 streamId = 0;
+    hrtGetTaskIdAndStreamID(taskId, streamId);
+    taskParam.endTime                = Hccl::DlProfFunction::GetInstance().dlMsprofSysCycleTime();
+    HCCL_INFO("[ReportHostNotifyWaitTask] time is %llu", taskParam.endTime);
+    CHK_PTR_NULL(callback_);
+    CHK_RET(callback_(streamId, taskId, taskParam, INVALID_U64));
+    HCCL_INFO("[Thread][%s] streamId[%u], taskId[%u], notifyId[%llu], %s", __func__, streamId, taskId,
+        notifyId, taskParam.Describe().c_str());
+    #endif
+    return HCCL_SUCCESS;
+}
+
+HcclResult Thread::ReportAicpuNotifyRecordTask(u64 notifyId, u64 beginTime, u32 taskId, u32 sqId) const
+{
+    Hccl::TaskParam taskParam{};
+    taskParam.taskType                 = Hccl::TaskParamType::TASK_NOTIFY_RECORD;
+    taskParam.beginTime                = beginTime;
+    taskParam.taskPara.Notify.notifyID = notifyId;
+    taskParam.taskPara.Notify.value    = 1;
+    taskParam.endTime  = ProfGetCurCpuTimestamp();
+    CHK_PTR_NULL(callback_);
+    CHK_RET(callback_(sqId, taskId, taskParam, INVALID_U64));
+    HCCL_INFO("[Thread][%s] sqId[%u], taskId[%u], notifyId[%llu], %s", __func__, sqId, taskId,
+        notifyId, taskParam.Describe().c_str());
+    return HCCL_SUCCESS;
+}
+
+HcclResult Thread::ReportHostNotifyRecordTask(u64 notifyId, u64 beginTime, bool isMaster) const
+{
+#ifndef CCL_KERNEL_AICPU
+    Hccl::TaskParam taskParam{};
+    taskParam.taskType                 = Hccl::TaskParamType::TASK_NOTIFY_RECORD;
+    taskParam.beginTime                = beginTime;
+    taskParam.taskPara.Notify.notifyID = notifyId;
+    taskParam.taskPara.Notify.value    = 1;
+    taskParam.isMaster = isMaster;
+    u32 taskId = 0;
+    u32 streamId = 0;
+    hrtGetTaskIdAndStreamID(taskId, streamId);
+    taskParam.endTime                = Hccl::DlProfFunction::GetInstance().dlMsprofSysCycleTime();
+    HCCL_INFO("[ReportHostNotifyRecordTask] time is %llu", taskParam.endTime);
+    CHK_PTR_NULL(callback_);
+    CHK_RET(callback_(streamId, taskId, taskParam, INVALID_U64));
+    HCCL_INFO("[Thread][%s] streamId[%u], taskId[%u], notifyId[%llu], %s", __func__, streamId, taskId,
+        notifyId, taskParam.Describe().c_str());
+#endif
+    return HCCL_SUCCESS;
+}
+
+
+HcclResult Thread::ReportHostLocalCopyTask(void *dst, const void *src, uint64_t sizeByte, u64 beginTime, bool isMaster) const
+{
+#ifndef CCL_KERNEL_AICPU
+    Hccl::TaskParam taskParam{};
+    taskParam.taskType                 = Hccl::TaskParamType::TASK_SDMA;
+    taskParam.beginTime                = beginTime;
+    taskParam.taskPara.DMA.src      = src;
+    taskParam.taskPara.DMA.dst      = dst;
+    taskParam.taskPara.DMA.size     = sizeByte;
+    taskParam.taskPara.DMA.notifyID = INVALID_U64;
+    taskParam.taskPara.DMA.linkType = Hccl::DfxLinkType::ONCHIP;
+    taskParam.taskPara.DMA.dmaOp    = Hccl::DmaOp::HCCL_DMA_READ;
+
+    u32 taskId = 0;
+    u32 streamId = 0;
+    hrtGetTaskIdAndStreamID(taskId, streamId);
+    taskParam.endTime  = Hccl::DlProfFunction::GetInstance().dlMsprofSysCycleTime();
+    CHK_PTR_NULL(callback_);
+    CHK_RET(callback_(streamId, taskId, taskParam, INVALID_U64));
+    HCCL_INFO("[Thread][%s] streamId[%u], taskId[%u], src[%p], dst[%p], len[%llu] %s", __func__, streamId, taskId,
+        src, dst, sizeByte, taskParam.Describe().c_str());
+#endif
+    return HCCL_SUCCESS;
+}
+
+HcclResult Thread::ReportAicpuLocalCopyTask(void *dst, const void *src, uint64_t sizeByte, u64 beginTime, u32 taskId,u32 sqId) const
+{
+    Hccl::TaskParam taskParam{};
+    taskParam.taskType              = Hccl::TaskParamType::TASK_SDMA;
+    taskParam.beginTime             = beginTime;
+    taskParam.taskPara.DMA.src      = src;
+    taskParam.taskPara.DMA.dst      = dst;
+    taskParam.taskPara.DMA.size     = sizeByte;
+    taskParam.taskPara.DMA.notifyID = INVALID_U64;
+    taskParam.taskPara.DMA.linkType = Hccl::DfxLinkType::ONCHIP;
+    taskParam.taskPara.DMA.dmaOp    = Hccl::DmaOp::HCCL_DMA_READ;
+    taskParam.endTime  = ProfGetCurCpuTimestamp();
+    CHK_PTR_NULL(callback_);
+    CHK_RET(callback_(sqId, taskId, taskParam, INVALID_U64));
+    HCCL_INFO("[Thread][%s] sqId[%u], taskId[%u], src[%p], dst[%p], len[%llu] %s", __func__, sqId, taskId,
+        src, dst, sizeByte, taskParam.Describe().c_str());
+    return HCCL_SUCCESS;
+}
+
+HcclResult Thread::ReportAicpuLocalReduceTask(void *dst, const void *src, uint64_t sizeByte, HcommDataType dataType,
+    HcommReduceOp reduceOp, u64 beginTime, u32 taskId,u32 sqId) const
+{
+    Hccl::TaskParam taskParam{};
+    taskParam.taskType = Hccl::TaskParamType::TASK_REDUCE_INLINE;
+    taskParam.beginTime = beginTime;
+    taskParam.taskPara.Reduce.src = src;
+    taskParam.taskPara.Reduce.dst = dst;
+    taskParam.taskPara.Reduce.size = sizeByte;
+    taskParam.taskPara.Reduce.notifyID = INVALID_U64;
+    taskParam.taskPara.Reduce.linkType = Hccl::DfxLinkType::ONCHIP;
+    taskParam.taskPara.Reduce.dataType = static_cast<HcclDataType>(dataType);
+    taskParam.taskPara.Reduce.reduceOp = static_cast<HcclReduceOp>(reduceOp);
+    CHK_PTR_NULL(callback_);
+    CHK_RET(callback_(sqId, taskId, taskParam, INVALID_U64));
+    HCCL_INFO("[Thread][%s] sqId[%u], taskId[%u], src[%p], dst[%p], len[%llu], dataType[%d], reduceOp[%d], %s",
+        __func__, sqId, taskId, src, dst, sizeByte, dataType, reduceOp, taskParam.Describe().c_str());
+    return HCCL_SUCCESS;
+}
+
+HcclResult Thread::ReportHostLocalReduceTask(void *dst, const void *src, uint64_t sizeByte, HcommDataType dataType,
+    HcommReduceOp reduceOp, u64 beginTime, bool isMaster) const
+{
+#ifndef CCL_KERNEL_AICPU
+    Hccl::TaskParam taskParam{};
+    taskParam.taskType                 = Hccl::TaskParamType::TASK_REDUCE_INLINE;
+    taskParam.beginTime                = beginTime;
+    taskParam.taskPara.Reduce.src      = src;
+    taskParam.taskPara.Reduce.dst      = dst;
+    taskParam.taskPara.Reduce.size     = sizeByte;
+    taskParam.taskPara.Reduce.notifyID = INVALID_U64;
+    taskParam.taskPara.Reduce.linkType = Hccl::DfxLinkType::ONCHIP;
+    taskParam.taskPara.Reduce.dataType = static_cast<HcclDataType>(dataType);
+    taskParam.taskPara.Reduce.reduceOp = static_cast<HcclReduceOp>(reduceOp);
+    taskParam.isMaster = isMaster;
+    u32 taskId = 0;
+    u32 streamId = 0;
+    hrtGetTaskIdAndStreamID(taskId, streamId);
+    taskParam.endTime  = Hccl::DlProfFunction::GetInstance().dlMsprofSysCycleTime();
+
+    CHK_RET(callback_(streamId, taskId, taskParam, INVALID_U64));
+    HCCL_INFO("[Thread][%s] streamId[%u], taskId[%u], src[%p], dst[%p], len[%llu], dataType[%d], reduceOp[%d] %s",
+        __func__, streamId, taskId, src, dst, sizeByte, dataType, reduceOp, taskParam.Describe().c_str());
+#endif
+    return HCCL_SUCCESS;
+}
+
+}  // namespace hccl
