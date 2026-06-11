@@ -1,0 +1,170 @@
+cmake_minimum_required(VERSION 3.16)
+
+project(asccomm_ut LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(ASCCOMM_UT_ROOT ${CMAKE_CURRENT_LIST_DIR})
+get_filename_component(ASCCOMM_ROOT ${ASCCOMM_UT_ROOT}/../.. ABSOLUTE)
+
+set(PRODUCT_TYPE_LIST "ascend910B1_AIC;ascend950pr_9599_AIV" CACHE STRING "MC2 UT product types")
+set(TEST_MOD "all" CACHE STRING "Comma-separated UT targets to build and run, or all")
+option(ASCCOMM_UT_RUN_AFTER_BUILD "Run UT targets after build" ON)
+
+if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
+    set(_ASCEND_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
+elseif(DEFINED ASCEND_CANN_PACKAGE_PATH)
+    set(_ASCEND_CANN_PACKAGE_PATH "${ASCEND_CANN_PACKAGE_PATH}")
+elseif(DEFINED ENV{ASCEND_CANN_PACKAGE_PATH})
+    set(_ASCEND_CANN_PACKAGE_PATH "$ENV{ASCEND_CANN_PACKAGE_PATH}")
+elseif(DEFINED ENV{ASCEND_HOME_PATH})
+    set(_ASCEND_CANN_PACKAGE_PATH "$ENV{ASCEND_HOME_PATH}")
+elseif(DEFINED ENV{ASCEND_OPP_PATH})
+    get_filename_component(_ASCEND_CANN_PACKAGE_PATH "$ENV{ASCEND_OPP_PATH}/.." ABSOLUTE)
+else()
+    set(_ASCEND_CANN_PACKAGE_PATH "/usr/local/Ascend/cann")
+endif()
+set(ASCEND_CANN_PACKAGE_PATH "${_ASCEND_CANN_PACKAGE_PATH}" CACHE PATH "CANN package path")
+
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
+    set(ASCCOMM_CANN_ARCH "aarch64-linux")
+else()
+    set(ASCCOMM_CANN_ARCH "x86_64-linux")
+endif()
+
+set(ASCEND_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${ASCCOMM_CANN_ARCH}")
+if(NOT EXISTS "${ASCEND_CANN_ARCH_DIR}")
+    set(ASCEND_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux")
+endif()
+set(ASCENDC_DIR "${ASCEND_CANN_ARCH_DIR}/asc" CACHE PATH "AscendC headers path")
+
+set(ASCCOMM_CANN_INCLUDE_DIRS
+    ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_ARCH_DIR}/include
+    ${ASCEND_CANN_ARCH_DIR}/include/acl
+    ${ASCEND_CANN_ARCH_DIR}/include/hccl
+    ${ASCEND_CANN_ARCH_DIR}/include/hcomm
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/hccl
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/hcomm/ccu
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/mmpa
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/profiling
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime/runtime
+    ${ASCENDC_DIR}
+    ${ASCENDC_DIR}/include
+    ${ASCENDC_DIR}/include/basic_api
+    ${ASCENDC_DIR}/include/simt_api
+    ${ASCENDC_DIR}/include/adv_api
+    ${ASCENDC_DIR}/include/utils
+    ${ASCENDC_DIR}/include/utils/tiling
+    ${ASCENDC_DIR}/impl
+    ${ASCENDC_DIR}/impl/basic_api
+    ${ASCENDC_DIR}/impl/simt_api
+)
+set(ASCCOMM_TIKICPU_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/tikicpulib/lib)
+set(ASCCOMM_TIKICPU_INCLUDE_DIR ${ASCCOMM_TIKICPU_DIR}/include)
+
+link_directories(
+    ${ASCEND_CANN_PACKAGE_PATH}/lib64
+    ${ASCEND_CANN_ARCH_DIR}/lib64
+)
+
+find_package(GTest QUIET)
+if(TARGET GTest::gtest)
+    set(ASCCOMM_GTEST_TARGET GTest::gtest)
+    set(ASCCOMM_GTEST_USES_CXX11_ABI0 OFF)
+elseif(CANN_3RD_LIB_PATH AND EXISTS "${CANN_3RD_LIB_PATH}/gtest/include/gtest/gtest.h")
+    add_library(asccomm_gtest STATIC IMPORTED)
+    set_target_properties(asccomm_gtest PROPERTIES
+        IMPORTED_LOCATION "${CANN_3RD_LIB_PATH}/gtest/lib64/libgtest.a"
+        INTERFACE_INCLUDE_DIRECTORIES "${CANN_3RD_LIB_PATH}/gtest/include"
+    )
+    set(ASCCOMM_GTEST_TARGET asccomm_gtest)
+    set(ASCCOMM_GTEST_USES_CXX11_ABI0 ON)
+else()
+    message(FATAL_ERROR "GTest not found. Install GTest or set CANN_3RD_LIB_PATH to the CANN third_party directory.")
+endif()
+
+add_library(intf_llt_pub_basic INTERFACE)
+target_compile_definitions(intf_llt_pub_basic INTERFACE
+    CFG_BUILD_DEBUG
+    $<$<BOOL:${ASCCOMM_GTEST_USES_CXX11_ABI0}>:_GLIBCXX_USE_CXX11_ABI=0>
+)
+target_compile_options(intf_llt_pub_basic INTERFACE
+    -g
+    -w
+    -fPIC
+    -pipe
+    -Werror
+)
+target_link_libraries(intf_llt_pub_basic INTERFACE
+    ${ASCCOMM_GTEST_TARGET}
+    pthread
+)
+
+find_package(Python3 COMPONENTS Interpreter QUIET)
+add_library(kernel_tiling INTERFACE)
+target_include_directories(kernel_tiling INTERFACE ${CMAKE_BINARY_DIR})
+set(KERNEL_TILING_FILE ${CMAKE_BINARY_DIR}/kernel_tiling/kernel_tiling.h)
+set(GEN_TILING_SCRIPT ${ASCENDC_DIR}/impl/adv_api/cmake/scripts/gen_kernel_tiling_data_def.py)
+set(TILING_DEF_DIR ${ASCENDC_DIR}/include/adv_api)
+if(Python3_Interpreter_FOUND AND EXISTS "${GEN_TILING_SCRIPT}" AND EXISTS "${TILING_DEF_DIR}")
+    add_custom_command(
+        OUTPUT ${KERNEL_TILING_FILE}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/kernel_tiling
+        COMMAND ${Python3_EXECUTABLE} ${GEN_TILING_SCRIPT} ${TILING_DEF_DIR} ${KERNEL_TILING_FILE}
+        DEPENDS ${GEN_TILING_SCRIPT} ${TILING_DEF_DIR}
+        COMMENT "Generating kernel tiling configuration header"
+    )
+else()
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/kernel_tiling)
+    file(WRITE ${KERNEL_TILING_FILE} "#pragma once\n")
+endif()
+add_custom_target(generate_kernel_headers ALL DEPENDS ${KERNEL_TILING_FILE})
+add_dependencies(kernel_tiling generate_kernel_headers)
+
+function(run_llt_test)
+    cmake_parse_arguments(LLT "" "TARGET;TASK_NUM;ENV_FILE" "" ${ARGN})
+    if(NOT ASCCOMM_UT_RUN_AFTER_BUILD)
+        return()
+    endif()
+
+    string(REPLACE "," ";" TARGET_LIST "${TEST_MOD}")
+    list(REMOVE_ITEM TARGET_LIST "")
+    if(NOT "${TEST_MOD}" STREQUAL "all" AND NOT ${LLT_TARGET} IN_LIST TARGET_LIST)
+        return()
+    endif()
+
+    if(LLT_ENV_FILE)
+        set(ENV_PREFIX . ${LLT_ENV_FILE} &&)
+    else()
+        set(ENV_PREFIX "")
+    endif()
+
+    add_custom_command(
+        TARGET ${LLT_TARGET} POST_BUILD
+        COMMAND ${ENV_PREFIX} ${CMAKE_COMMAND} -E env LD_LIBRARY_PATH=$ENV{LD_LIBRARY_PATH} $<TARGET_FILE:${LLT_TARGET}>
+        COMMENT "Run ${LLT_TARGET}"
+    )
+endfunction()
+
+function(asccomm_mc2_add_product_definitions target_name product_type)
+    target_compile_definitions(${target_name} PRIVATE
+        UT_TEST
+        ASCENDC_OOM=1
+        ASCENDC_DUMP=0
+        __disable_kernel_type_autoinfer__=
+        $<$<STREQUAL:${product_type},ascend310p>:__NPU_ARCH__=2002;__DAV_M200__>
+        $<$<STREQUAL:${product_type},ascend610>:__NPU_ARCH__=2002;__DAV_M200__>
+        $<$<STREQUAL:${product_type},ascend910B1_AIC>:__NPU_ARCH__=2201;__DAV_C220__;__DAV_C220_CUBE__;__DAV_CUBE__>
+        $<$<STREQUAL:${product_type},ascend910B1_AIV>:__NPU_ARCH__=2201;__DAV_C220__;__DAV_C220_VEC__;__DAV_VEC__>
+        $<$<STREQUAL:${product_type},ascend950pr_9599_AIC>:__NPU_ARCH__=3510;__DAV_C310__;__DAV_C310_CUBE__>
+        $<$<STREQUAL:${product_type},ascend950pr_9599_AIV>:__NPU_ARCH__=3510;__DAV_C310__;__DAV_C310_VEC__>
+        $<$<STREQUAL:${product_type},ascend310B1>:__NPU_ARCH__=3002;__DAV_M300__>
+    )
+endfunction()
+
+add_subdirectory(mc2)
