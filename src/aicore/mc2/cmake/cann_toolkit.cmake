@@ -93,23 +93,6 @@ function(asccomm_add_header_target target_name)
     endif()
 endfunction()
 
-foreach(target_name IN ITEMS
-    runtime_headers
-    acl_rt_headers
-    ascend_hal_headers
-    atrace_headers
-    error_manager_headers
-    c_sec_headers
-    kernel_tiling_headers
-    metadef_headers
-    slog_headers
-    msprof_headers
-    npu_runtime_headers
-    mmpa_headers
-    ofed_headers
-)
-    asccomm_add_header_target(${target_name})
-endforeach()
 
 if(NOT TARGET hcomm)
     add_library(hcomm INTERFACE)
