@@ -1,0 +1,31 @@
+/* Export symbols should be added below according to
+   Documentation/versioning.md document. */
+hns_1.0 {
+	global:
+		ibv_exp_create_qp;
+		ibv_exp_query_notify;
+		ibv_exp_post_send;
+		ibv_exp_create_cq;
+		ibv_create_ext_cq;
+		ibv_ext_post_send;
+		ibv_exp_reg_mr;
+		roce_set_tsqp_depth;
+		roce_get_tsqp_depth;
+		roce_get_roce_dev_data;
+		ibv_ext_query_cap;
+		ibv_exp_query_device;
+		roce_init_mem_pool;
+		roce_deinit_mem_pool;
+		roce_query_qpc;
+		ibv_exp_create_ah;
+		roce_mmap_ai_db_reg;
+		roce_unmmap_ai_db_reg;
+		roce_get_cq_data_plane_info;
+		roce_get_qp_data_plane_info;
+		hns_roce_open_slog_so;
+		hns_roce_slog_api_init;
+		hns_roce_close_slog_so;
+		roce_remap_mr;
+		roce_get_api_version;
+	local: *;
+};
