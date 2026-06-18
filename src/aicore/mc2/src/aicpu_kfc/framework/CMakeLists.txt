@@ -113,6 +113,7 @@ set(hccl_include_list
     ${HCCL_BASE_DIR}/framework/next/comms/ccu/ccu_transport/
     ${HCCL_BASE_DIR}/framework/next/comms/ccu/ccu_kernel
 )
+list(REMOVE_DUPLICATES hccl_include_list)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -177,7 +178,6 @@ if(NOT BUILD_OPEN_PROJECT OR (BUILD_OPEN_PROJECT AND KERNEL_MODE))
         ${HCCL_BASE_DIR}/algorithm/base/alg_template/nonuniform_bruck_base.cc
         ${HCCL_BASE_DIR}/algorithm/base/alg_template/asymmetric_hierarchical_concatenate_base.cc
         ${HCCL_BASE_DIR}/algorithm/base/alg_template/asymmetric_hierarchical_concatenate_alg_template_base.cc
-        ${HCCL_BASE_DIR}/algorithm/base/alg_template/asymmetric_hierarchical_concatenate_base.cc
         ${HCCL_BASE_DIR}/algorithm/base/alg_template/asymmetric_hierarchical_concatenate_nslb.cc
         ${HCCL_BASE_DIR}/algorithm/base/alg_template/recursive_halvingdoubling_base.cc
 
@@ -450,6 +450,8 @@ if(NOT BUILD_OPEN_PROJECT OR (BUILD_OPEN_PROJECT AND KERNEL_MODE))
         ${HCCL_BASE_DIR}/framework/communicator/impl/independent_op/hccl_independent_rank_graph.cc
         ${HCCL_BASE_DIR}/framework/communicator/impl/one_sided_service/i_hccl_one_sided_service.cc
     )
+    list(REMOVE_DUPLICATES CCL_KERNEL_SRC_LIST)
+
     target_sources(asc_ccl_kernel PRIVATE
         ${CCL_KERNEL_SRC_LIST}
     )
@@ -619,6 +621,7 @@ if(NOT BUILD_OPEN_PROJECT OR (BUILD_OPEN_PROJECT AND KERNEL_MODE))
         ${HCCL_BASE_DIR}/framework/next/coll_comms/communicator/aicpu
         ${HCCL_BASE_DIR}/framework/next/coll_comms/dfx
     )
+    list(REMOVE_DUPLICATES CCL_KERNEL_INCLUDE_LIST)
 
     target_include_directories(asc_ccl_kernel PRIVATE
         ${CCL_KERNEL_INCLUDE_LIST}
@@ -756,7 +759,6 @@ if(NOT BUILD_OPEN_PROJECT)
         ${TOP_DIR}/inc/driver
         ${TOP_DIR}/metadef/inc/external
         ${TOP_DIR}/metadef/pkg_inc
-        ${TOP_DIR}/metadef/pkg_inc
         ${TOP_DIR}/open_source/json/include
         ${TOP_DIR}/inc/aicpu/
         ${TOP_DIR}/atc/opcompiler/ascendc_compiler/api
@@ -816,7 +818,6 @@ if(NOT BUILD_OPEN_PROJECT)
             ${TOP_DIR}/inc
             ${TOP_DIR}/inc/driver
             ${TOP_DIR}/metadef/inc/external
-            ${TOP_DIR}/metadef/pkg_inc
             ${TOP_DIR}/metadef/pkg_inc
             ${TOP_DIR}/open_source/json/include
             ${TOP_DIR}/inc/aicpu/

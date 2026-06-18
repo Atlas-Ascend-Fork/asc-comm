@@ -95,7 +95,6 @@ target_compile_options(ccl_kernel_decoupler_open PRIVATE
 target_include_directories(ccl_kernel_decoupler_open BEFORE PRIVATE
     ${HCCL_HCOMM_HEADER_DIR}/../
     ${OPEN_HCCL_SRC_ROOT}/ops/op_common/inc
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/inc
     ${OPEN_HCCL_SRC_ROOT}/common
     ${OPEN_HCCL_SRC_ROOT}/common/hcomm_dlsym
     ${HCCL_HCOMM_HEADER_DIR}/pkg_inc/hcomm/ccu
@@ -133,13 +132,6 @@ target_include_directories(ccl_kernel_decoupler_open_exec BEFORE PRIVATE
     ${OPEN_HCCL_SRC_ROOT}/ops/op_common/template
     ${OPEN_HCCL_SRC_ROOT}/ops/op_common/template/registry
     ${OPEN_HCCL_SRC_ROOT}/ops/op_common/template/wrapper
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/inc
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/topo
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/executor
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/executor/channel
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/executor/registry
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/template
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/template/registry
     ${OPEN_HCCL_SRC_ROOT}/common
     ${OPEN_HCCL_SRC_ROOT}/common/hcomm_dlsym
 
@@ -173,14 +165,6 @@ target_include_directories(ccl_kernel_decoupler_open_exec_impl BEFORE PRIVATE
     ${HCCL_HCOMM_HEADER_DIR}/../
     ${HCCL_HCOMM_HEADER_DIR}
     ${HCCL_HCOMM_HEADER_DIR}/hccl
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/inc
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/topo
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/executor
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/executor/channel
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/executor/registry
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/template
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/template/registry
-    ${OPEN_HCCL_SRC_ROOT}/ops/op_common/template/wrapper
     ${OPEN_HCCL_SRC_ROOT}/ops/op_common/inc
     ${OPEN_HCCL_SRC_ROOT}/ops/op_common/topo
     ${OPEN_HCCL_SRC_ROOT}/ops/op_common/executor

@@ -145,6 +145,7 @@ set(include_list
     ${HCCL_BASE_DIR}/framework/next/comms/endpoints/
     ${HCCL_BASE_DIR}/framework/next/comms/endpoint_pairs/
 )
+list(REMOVE_DUPLICATES include_list)
 
 # 指定ccl_kernel_plf所需包含文件搜索路径
 if(BUILD_OPEN_PROJECT)
@@ -186,8 +187,6 @@ if(BUILD_OPEN_PROJECT)
         ${HCCL_HCOMM_HEADER_DIR}/hccl
         ${HCCL_HCOMM_HEADER_DIR}/pkg_inc
         ${HCCL_HCOMM_HEADER_DIR}/pkg_inc/hccl
-        ${HCCL_HCOMM_HEADER_DIR}
-        ${HCCL_HCOMM_HEADER_DIR}
         ${HCCL_BASE_DIR}/pub_inc
         ${HCCL_BASE_DIR}/pub_inc/aicpu
         ${HCCL_BASE_DIR}/pub_inc/inner
@@ -225,6 +224,7 @@ set(ccl_kernel_plf_include_list
     ${HCCL_BASE_DIR}/common/debug/profiling/inc/aicpu
     ${HCCL_BASE_DIR}/framework/common/src/aicpu
 )
+list(REMOVE_DUPLICATES ccl_kernel_plf_include_list)
 
 # 指定ccl_kernel_plf所需头文件搜索路径
 target_include_directories(asc_ccl_kernel_plf PRIVATE
