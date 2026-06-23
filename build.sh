@@ -29,10 +29,48 @@ dotted_line="----------------------------------------"
 
 TEST=false
 
+LOG_LEVEL=0
+
+# log level map
+declare -A LOG_LEVEL_MAP=(
+    ["DEBUG"]=0
+    ["INFO"]=1
+    ["ERROR"]=2
+)
+
+COLOR_DEBUG="\033[34m"   # 34 = 前景蓝色
+COLOR_INFO="\033[32m"    # 32 = 前景绿色
+COLOR_ERROR="\033[31m"   # 31 = 前景红色
+COLOR_RESET="\033[0m"    # 0 = 重置所有样式（恢复黑白默认）
+
+# 用法：log "DEBUG" "content"
 log() {
+    local level="$1"
     local time_str
+    shift
+    local msg="$*"
+    local level_num=${LOG_LEVEL_MAP[$[$level]]}
+
+    # 屏蔽低于 LOG_LEVEL 等级的日志
+    if [[ $level_num -lt $LOG_LEVEL ]]; then
+        return 0
+    fi
+
     time_str=$(date "+%Y-%m-%d %H:%M:%S")
-    echo "[${time_str}] $1"
+
+    # 日志内容
+    local plain_log="[${time_str}] [${level}] ${msg}"
+
+    local color=""
+    case "${level}" in
+        DEBUG) color="$COLOR_DEBUG" ;;
+        INFO) color="$COLOR_INFO" ;;
+        ERROR) color="$COLOR_ERROR" ;;
+        *) color="" ;;
+    esac
+    
+    # 带颜色的日志内容
+    echo -e "${color}${plain_log}${COLOR_RESET}"
 }
 
 usage() {
@@ -60,7 +98,7 @@ parse_args() {
                 shift
                 ;;
             *)
-                log "[ERROR] 未知参数：$1"
+                log "ERROR" "未知参数：$1"
                 usage
                 exit 1
                 ;;
@@ -70,16 +108,16 @@ parse_args() {
 
 set_env() {
     if [ -z "${ASCEND_HOME_PATH}" ]; then
-        log "[ERROR] 未配置 CANN 环境，请先source set_env.sh"
+        log "ERROR" "未配置 CANN 环境，请先source set_env.sh"
         exit 1
     fi
-    log "the path of cann package is ${ASCEND_HOME_PATH}" 
+    log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}" 
     Ascend_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
 }
 
 clean_build() {
-    log "clean the build dir: ${BUILD_DIR}"
+    log "INFO" "clean the build dir: ${BUILD_DIR}"
     rm -rf "${BUILD_DIR}"
 }
 
