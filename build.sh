@@ -2,7 +2,6 @@
 
 SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 
-SRC_DIR="${SCRIPT_DIR}/src/aicore/mc2"
 UT_DIR="${SCRIPT_DIR}/tests/ut"
 
 # 构建目录（源码外构建）
@@ -10,7 +9,6 @@ BUILD_DIR="${SCRIPT_DIR}/build"
 
 CUSTOM_OPTION=(
     "-Wno-dev"
-    "-DBUILD_OPEN_PROJECT=ON"
 )
 CPU_CORES=$(grep -c "^processor" /proc/cpuinfo)
 # 默认编译线程数
@@ -49,7 +47,7 @@ log() {
     local time_str
     shift
     local msg="$*"
-    local level_num=${LOG_LEVEL_MAP[$[$level]]}
+    local level_num=${LOG_LEVEL_MAP[$level]}
 
     # 屏蔽低于 LOG_LEVEL 等级的日志
     if [[ $level_num -lt $LOG_LEVEL ]]; then
@@ -107,7 +105,7 @@ parse_args() {
 }
 
 set_env() {
-    if [ -z "${ASCEND_HOME_PATH}" ]; then
+    if [ -z "${ASCEND_HOME_PATH:-}" ]; then
         log "ERROR" "未配置 CANN 环境，请先source set_env.sh"
         exit 1
     fi
@@ -131,7 +129,7 @@ function cmake_config () {
 
 function build () { 
     echo "cmake --build $1 -j ${THREAD_NUM}"
-    cmake --build $1 -j ${THREAD_NUM}
+    cmake --build "$1" -j ${THREAD_NUM}
 }
 
 main(){
@@ -139,28 +137,15 @@ main(){
     parse_args "$@"
     set_env
     echo "${CUSTOM_OPTION[@]}"
-    local host_build_dir="${BUILD_DIR}/mc2-host"
-    local device_build_dir="${BUILD_DIR}/mc2-device"
-    local ut_build_dir="${BUILD_DIR}/ut-mc2"
-    
-    cmake_config ${SRC_DIR} ${host_build_dir} ${CUSTOM_OPTION}
-    cmake_config "${SRC_DIR}" "${device_build_dir}" "${CUSTOM_OPTION} -DKERNEL_MODE=ON"
+    local ut_build_dir="${BUILD_DIR}/ut-hcomm"
 
-    if [[ "${TEST}" == true ]]; then
-        # 只编译 ut
-        cmake_config "${UT_DIR}" "${ut_build_dir}" "-Wno-dev" "-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}"
-        build ${ut_build_dir}
-    else
-        # 编译构建 host 和 device
-        cmake_config ${SRC_DIR} ${host_build_dir} ${CUSTOM_OPTION}
-        cmake_config "${SRC_DIR}" "${device_build_dir}" "${CUSTOM_OPTION} -DKERNEL_MODE=ON"
-
-        build ${host_build_dir}
-        build ${device_build_dir}
+    if [[ "${TEST}" != true ]]; then
+        log "INFO" "only-aicore is header-only; use -t/--test to build hcomm UT"
+        exit 0
     fi
-
+    
+    cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
+    build "${ut_build_dir}"
 }
 
 main "$@"
-
-

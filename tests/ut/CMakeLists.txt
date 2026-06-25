@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(asccomm_ut LANGUAGES C CXX)
+project(asccomm_hcomm_ut LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,9 +8,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(ASCCOMM_UT_ROOT ${CMAKE_CURRENT_LIST_DIR})
 get_filename_component(ASCCOMM_ROOT ${ASCCOMM_UT_ROOT}/../.. ABSOLUTE)
 
-set(PRODUCT_TYPE_LIST "ascend910B1_AIC;ascend950pr_9599_AIV" CACHE STRING "MC2 UT product types")
+set(PRODUCT_TYPE_LIST "ascend950pr_9599_AIV;ascend910B1_AIC" CACHE STRING "Hcomm UT product types")
 set(TEST_MOD "all" CACHE STRING "Comma-separated UT targets to build and run, or all")
-option(ASCCOMM_UT_RUN_AFTER_BUILD "Run UT targets after build" ON)
+option(ASCCOMM_UT_RUN_AFTER_BUILD "Run UT targets after build" OFF)
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCEND_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
@@ -43,12 +43,8 @@ set(ASCCOMM_CANN_INCLUDE_DIRS
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/acl
-    ${ASCEND_CANN_ARCH_DIR}/include/hccl
-    ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/hccl
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/hcomm/ccu
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/mmpa
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/profiling
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
@@ -66,6 +62,17 @@ set(ASCCOMM_CANN_INCLUDE_DIRS
 )
 set(ASCCOMM_TIKICPU_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/tikicpulib/lib)
 set(ASCCOMM_TIKICPU_INCLUDE_DIR ${ASCCOMM_TIKICPU_DIR}/include)
+set(ASCCOMM_TIKICPU_LIB64_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/tikicpulib/lib64)
+set(ASCCOMM_CPUDEBUG_LIB64_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/cpudebug/lib64)
+set(ASCCOMM_UT_RUNTIME_DIRS
+    ${ASCEND_CANN_PACKAGE_PATH}/lib64
+    ${ASCEND_CANN_ARCH_DIR}/lib64
+    ${ASCEND_CANN_ARCH_DIR}/devlib/device
+    ${ASCCOMM_TIKICPU_DIR}
+    ${ASCCOMM_TIKICPU_LIB64_DIR}
+    ${ASCCOMM_CPUDEBUG_LIB64_DIR}
+)
+string(REPLACE ";" ":" ASCCOMM_UT_LD_LIBRARY_PATH "${ASCCOMM_UT_RUNTIME_DIRS}")
 
 link_directories(
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
@@ -127,7 +134,7 @@ add_custom_target(generate_kernel_headers ALL DEPENDS ${KERNEL_TILING_FILE})
 add_dependencies(kernel_tiling generate_kernel_headers)
 
 function(run_llt_test)
-    cmake_parse_arguments(LLT "" "TARGET;TASK_NUM;ENV_FILE" "" ${ARGN})
+    cmake_parse_arguments(LLT "" "TARGET;TASK_NUM;ENV_FILE" "FILTERS;RUNTIME_DIRS" ${ARGN})
     if(NOT ASCCOMM_UT_RUN_AFTER_BUILD)
         return()
     endif()
@@ -144,14 +151,32 @@ function(run_llt_test)
         set(ENV_PREFIX "")
     endif()
 
+    set(_llt_runtime_dirs ${ASCCOMM_UT_RUNTIME_DIRS})
+    if(LLT_RUNTIME_DIRS)
+        set(_llt_runtime_dirs ${LLT_RUNTIME_DIRS})
+    endif()
+    string(REPLACE ";" ":" _llt_ld_library_path "${_llt_runtime_dirs}")
+
+    if(LLT_FILTERS)
+        foreach(test_filter ${LLT_FILTERS})
+            add_custom_command(
+                TARGET ${LLT_TARGET} POST_BUILD
+                COMMAND ${ENV_PREFIX} ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${_llt_ld_library_path}:$ENV{LD_LIBRARY_PATH}" $<TARGET_FILE:${LLT_TARGET}> --gtest_filter=${test_filter}
+                COMMENT "Run ${LLT_TARGET} ${test_filter}"
+            )
+        endforeach()
+        return()
+    endif()
+
     add_custom_command(
         TARGET ${LLT_TARGET} POST_BUILD
-        COMMAND ${ENV_PREFIX} ${CMAKE_COMMAND} -E env LD_LIBRARY_PATH=$ENV{LD_LIBRARY_PATH} $<TARGET_FILE:${LLT_TARGET}>
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${LLT_WORK_DIR}
+        COMMAND ${ENV_PREFIX} ${CMAKE_COMMAND} -E chdir ${LLT_WORK_DIR} ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${_llt_ld_library_path}:$ENV{LD_LIBRARY_PATH}" $<TARGET_FILE:${LLT_TARGET}>
         COMMENT "Run ${LLT_TARGET}"
     )
 endfunction()
 
-function(asccomm_mc2_add_product_definitions target_name product_type)
+function(asccomm_add_product_definitions target_name product_type)
     target_compile_definitions(${target_name} PRIVATE
         UT_TEST
         ASCENDC_OOM=1
@@ -167,4 +192,4 @@ function(asccomm_mc2_add_product_definitions target_name product_type)
     )
 endfunction()
 
-add_subdirectory(mc2)
+add_subdirectory(aicore/hcomm)
