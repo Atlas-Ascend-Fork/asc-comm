@@ -221,9 +221,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ uint8_
 #endif
     wqeItem_.SetAddr(addr);
     cqeItem_ = wqeItem_[HCOMM_URMA_WQE_U32_NUM];
-    sqPI_ = cqeItem_[HCOMM_URMA_CQE_U32_NUM];
-    sqCI_ = sqPI_[8];
-    cqCI_ = sqCI_[8];
     return HCOMM_SUCCESS;
 }
 
@@ -236,19 +233,14 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(const LocalTens
 
     wqeItem_ = buff.template ReinterpretCast<uint32_t>();
     cqeItem_ = wqeItem_[HCOMM_URMA_WQE_U32_NUM];
-    sqPI_ = cqeItem_[HCOMM_URMA_CQE_U32_NUM];
-    sqCI_ = sqPI_[8];
-    cqCI_ = sqCI_[8];
     return HCOMM_SUCCESS;
 }
 
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflow(
     ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t curHead)
 {
-    AscendC::GlobalTensor<uint32_t> sqCIGlobal;
-    sqCIGlobal.SetGlobalBuffer((__gm__ uint32_t*)sqCtx.contextInfo.ubJfs.tailAddr);
-    Gm2Ub(sqCI_, sqCIGlobal, 1);
-    uint32_t curTail = sqCI_.GetValue(0);
+    __gm__ uint32_t* sqTailAddr = reinterpret_cast<__gm__ uint32_t*> (sqCtx.contextInfo.ubJfs.tailAddr);
+    uint32_t curTail = static_cast<uint32_t>(ld_dev(sqTailAddr, 0));
     constexpr uint32_t POLL_CQ_THRESHOLD = 10;
     constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
     uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
@@ -276,10 +268,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     }
 
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    AscendC::GlobalTensor<uint32_t> sqPIGlobal;
-    sqPIGlobal.SetGlobalBuffer((__gm__ uint32_t*)sqCtx.contextInfo.ubJfs.headAddr);
-    Gm2Ub(sqPI_, sqPIGlobal, 1);
-    uint32_t curHead = sqPI_.GetValue(0);
+    __gm__ uint32_t* headAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    uint32_t curHead = static_cast<uint32_t>(ld_dev(headAddr, 0));
     KERNEL_LOG(KERNEL_INFO, "Hcomm URMA PostSend resolved remoteIdx=%d curHead=%u sqDepth=%u", remoteIdx,
         curHead, sqCtx.contextInfo.ubJfs.sqDepth);
 
@@ -308,19 +298,18 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     __gm__ uint8_t* sqeAddr = (__gm__ uint8_t*)(sqBaseAddr + wqeSize * (curHead % baseBlockCount));
     AscendC::GlobalTensor<uint32_t> sqeGlobal;
     sqeGlobal.SetGlobalBuffer((__gm__ uint32_t*)sqeAddr);
-    PipeBarrier<PIPE_ALL>();
     constexpr uint32_t wqeBbCnt = opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY ? 2U : 1U;
+    SyncAction<HardEvent::S_MTE3>();
     DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
-    PipeBarrier<PIPE_ALL>();
+    SyncAction<HardEvent::MTE3_S>();
 
     curHead += wqeBbCnt;
-    sqPI_.SetValue(0, curHead);
-    Ub2Gm<uint32_t>(sqPIGlobal, sqPI_, 1);
+    st_dev(curHead, headAddr, 0);
+
     if constexpr (commit) {
-        Commit(channel);
+        st_dev(curHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
     }
     HcommUrmaDumpWqeCtx(sqeCtx);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm URMA PostSend finish new curHead=%u wqeBbCnt=%u", curHead, wqeBbCnt);
     return HCOMM_SUCCESS;
 }
 
@@ -332,10 +321,8 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
     }
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    AscendC::GlobalTensor<uint32_t> cqCIGlobal;
-    cqCIGlobal.SetGlobalBuffer((__gm__ uint32_t*)cqCtx.contextInfo.ubJfc.tailAddr);
-    Gm2Ub(cqCI_, cqCIGlobal, 1);
-    uint32_t curTail = cqCI_.GetValue(0);
+    __gm__ uint32_t* tailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
+    uint32_t curTail = static_cast<uint32_t>(ld_dev(tailAddr, 0));
 
     uint64_t cqBaseAddr = cqCtx.contextInfo.ubJfc.scqVa;
     uint32_t cqeSize = cqCtx.contextInfo.ubJfc.cqeSize;
@@ -352,9 +339,9 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
         bool validOwner = (curTail / cqDepth) & 1;
         uint32_t times = 0;
         while ((validOwner ^ cqeUb->owner) == 0 && times < HCOMM_URMA_MAX_RETRY_TIMES) {
-            PipeBarrier<PIPE_ALL>();
+            SyncAction<HardEvent::S_MTE2>();
             DataCopy(cqeItem_, cqeGlobal, cqeSize / sizeof(uint32_t));
-            PipeBarrier<PIPE_ALL>();
+            SyncAction<HardEvent::MTE2_S>();
             times++;
         }
         if (times >= HCOMM_URMA_MAX_RETRY_TIMES) {
@@ -376,19 +363,15 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
 #endif
 
     // update CQ tail
-    cqCI_.SetValue(0, curTail);
-    Ub2Gm<uint32_t>(cqCIGlobal, cqCI_, 1);
+    st_dev(curTail, tailAddr, 0);
 
     // ring CQ doorbell
     st_dev(curTail & 0xFFFFFFU, (__gm__ uint32_t*)cqCtx.contextInfo.ubJfc.dbVa, 0);
 
     // update WQ tail
-    AscendC::GlobalTensor<uint32_t> sqCIGlobal;
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    sqCIGlobal.SetGlobalBuffer((__gm__ uint32_t*)sqCtx.contextInfo.ubJfs.tailAddr);
-    sqCI_.SetValue(0, curTail);
-    Ub2Gm<uint32_t>(sqCIGlobal, sqCI_, 1);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm URMA PollCq finish expectIdx=%u curTail=%u", expectIdx, curTail);
+    __gm__ uint32_t* sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr);
+    st_dev(curTail, sqTailAddr, 0);
     return HCOMM_SUCCESS;
 }
 
@@ -420,14 +403,11 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    AscendC::GlobalTensor<uint32_t> sqPIGlobal;
-    sqPIGlobal.SetGlobalBuffer((__gm__ uint32_t*)sqCtx.contextInfo.ubJfs.headAddr);
-    Gm2Ub(sqPI_, sqPIGlobal, 1);
-    uint32_t curHead = sqPI_.GetValue(0);
+    __gm__ uint32_t* headAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    uint32_t curHead = static_cast<uint32_t>(ld_dev(headAddr, 0));
 
     st_dev(curHead, (__gm__ uint32_t*)sqCtx.contextInfo.ubJfs.dbVa, 0);
 
-    KERNEL_LOG(KERNEL_INFO, "Hcomm URMA Commit by channel finish channel=%lu curHead=%u", channel, curHead);
     return HCOMM_SUCCESS;
 }
 
@@ -437,17 +417,14 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle 
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    AscendC::GlobalTensor<uint32_t> sqPIGlobal;
-    sqPIGlobal.SetGlobalBuffer((__gm__ uint32_t*)sqCtx.contextInfo.ubJfs.headAddr);
-    Gm2Ub(sqPI_, sqPIGlobal, 1);
-    uint32_t curHead = sqPI_.GetValue(0);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm URMA Drain by channel enter channel=%lu curHead=%u", channel, curHead);
+    __gm__ uint32_t* headAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    uint32_t curHead = static_cast<uint32_t>(ld_dev(headAddr, 0));
+
     uint32_t ret = PollCq(channel, curHead);
     if (ret != HCOMM_SUCCESS) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Drain by channel failed channel=%lu pollRet=%u", channel, ret);
         return HCOMM_FAILED;
     }
-    KERNEL_LOG(KERNEL_INFO, "Hcomm URMA Drain by channel finish channel=%lu curHead=%u", channel, curHead);
     return HCOMM_SUCCESS;
 }
 
