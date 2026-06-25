@@ -2,7 +2,6 @@
 
 SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 
-SRC_DIR="${SCRIPT_DIR}/src/aicore/mc2"
 UT_DIR="${SCRIPT_DIR}/tests/ut"
 
 # 构建目录（源码外构建）
@@ -131,7 +130,7 @@ function cmake_config () {
 
 function build () { 
     echo "cmake --build $1 -j ${THREAD_NUM}"
-    cmake --build $1 -j ${THREAD_NUM}
+    cmake --build "$1" -j ${THREAD_NUM}
 }
 
 main(){
@@ -139,9 +138,7 @@ main(){
     parse_args "$@"
     set_env
     echo "${CUSTOM_OPTION[@]}"
-    local host_build_dir="${BUILD_DIR}/mc2-host"
-    local device_build_dir="${BUILD_DIR}/mc2-device"
-    local ut_build_dir="${BUILD_DIR}/ut-mc2"
+    local ut_build_dir="${BUILD_DIR}/ut-hcomm"
     
     cmake_config ${SRC_DIR} ${host_build_dir} ${CUSTOM_OPTION}
     cmake_config "${SRC_DIR}" "${device_build_dir}" "${CUSTOM_OPTION} -DKERNEL_MODE=ON"
@@ -162,5 +159,4 @@ main(){
 }
 
 main "$@"
-
 
