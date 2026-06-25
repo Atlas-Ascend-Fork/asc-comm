@@ -23,43 +23,57 @@
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V220_HCOMM_AIV_DEF_H
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V220_HCOMM_AIV_DEF_H
 
+#include "../../common/hcomm_inner_def.h"
+
 namespace AscendC {
 
 enum class HCOMM_OP_TYPE : uint32_t { WRITE = 3U, READ = 5U };
 
 template <>
-class HcommImpl<CommEngine::AIV, CommProtocol::ROCE> {
+class HcommImpl<COMM_PROTOCOL_ROCE> {
 public:
     __aicore__ inline HcommImpl();
 
     __aicore__ inline ~HcommImpl();
 
-    template <bool commit = true, pipe_t commitPipe = PIPE_MTE3, pipe_t reqPipe = PIPE_MTE3>
-    __aicore__ inline HcommHandle Write(ChannelHandle channelHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
-
-    template <bool commit = true, pipe_t commitPipe = PIPE_MTE3, pipe_t reqPipe = PIPE_MTE3>
-    __aicore__ inline HcommHandle Read(ChannelHandle channelHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
-
-    template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t Commit(HcommHandle handleId)
+    __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len)
     {
-        return 0;
+        (void)buff;
+        (void)len;
+        return HCOMM_FAILED;
+    }
+
+    template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const &config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const &config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const &config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteWithNotifyNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src,
+        uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+
+    template <pipe_t pipe = PIPE_S>
+    __aicore__ inline int32_t Commit(ChannelHandle channel)
+    {
+        return HCOMM_FAILED;
     }
 
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t Wait(HcommHandle handleId)
+    __aicore__ inline int32_t Drain(ChannelHandle channel)
     {
-        return 0;
+        return HCOMM_FAILED;
     }
 
 private:
     __aicore__ inline void PostSend(ChannelHandle channelHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, bool isRead);
 
-    __aicore__ inline void doorBell(__gm__ Channel* channelPtr, uint64_t curHead);
+    __aicore__ inline void doorBell(__gm__ ChannelEntity* channel, uint64_t curHead);
 
 private:
-    HcommHandle curHandleId_ = static_cast<int8_t>(-1);
-    TPipe pipe_;
     LocalTensor<uint64_t> ubLocal_;
     LocalTensor<uint32_t> ubLocalHead_;
 };

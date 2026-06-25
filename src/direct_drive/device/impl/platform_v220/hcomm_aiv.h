@@ -29,51 +29,69 @@
 
 namespace AscendC {
 
-__aicore__ inline HcommImpl<CommEngine::AIV, CommProtocol::ROCE>::HcommImpl()
+__aicore__ inline HcommImpl<COMM_PROTOCOL_ROCE>::HcommImpl()
 {
     TBuf<TPosition::VECOUT> rdmaInBuf;
-    pipe_.InitBuffer(rdmaInBuf, HCOMM_MEM_BLOCK_SIZE);
+    GetTPipePtr()->InitBuffer(rdmaInBuf, ONE_BLK_SIZE);
     ubLocal_ = rdmaInBuf.Get<uint64_t>();
 
     TBuf<TPosition::VECOUT> rdmaInBuf2;
-    pipe_.InitBuffer(rdmaInBuf2, HCOMM_MEM_BLOCK_SIZE);
+    GetTPipePtr()->InitBuffer(rdmaInBuf2, ONE_BLK_SIZE);
     ubLocalHead_ = rdmaInBuf2.Get<uint32_t>();
 }
 
-__aicore__ inline HcommImpl<CommEngine::AIV, CommProtocol::ROCE>::~HcommImpl() {}
+__aicore__ inline HcommImpl<COMM_PROTOCOL_ROCE>::~HcommImpl() {}
 
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe>
-__aicore__ inline HcommHandle HcommImpl<CommEngine::AIV, CommProtocol::ROCE>::Write(
-    ChannelHandle channelHandle, GM_ADDR dst, GM_ADDR src, uint64_t len)
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteNbi(
+    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Write channelHandle:%llu, dst:%p, src:%p, len:%llu", channelHandle, dst, src, len);
-    HcommHandle handleId = ++curHandleId_;
-    PostSend(channelHandle, dst, src, len, false);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Write complete handleId:%u", handleId);
-    return handleId;
+    (void)config;
+    KERNEL_LOG(KERNEL_INFO, "Hcomm Write channel:%llu, dst:%p, src:%p, len:%llu", channel, dst, src, len);
+    PostSend(channel, dst, src, len, false);
+    KERNEL_LOG(KERNEL_INFO, "Hcomm Write complete");
+    return HCOMM_SUCCESS;
 }
 
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe>
-__aicore__ inline HcommHandle HcommImpl<CommEngine::AIV, CommProtocol::ROCE>::Read(
-    ChannelHandle channelHandle, GM_ADDR dst, GM_ADDR src, uint64_t len)
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::ReadNbi(
+    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Read channelHandle:%llu, dst:%p, src:%p, len:%llu", channelHandle, dst, src, len);
-    HcommHandle handleId = ++curHandleId_;
-    PostSend(channelHandle, dst, src, len, true);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Read complete handleId:%u", handleId);
-    return handleId;
+    (void)config;
+    KERNEL_LOG(KERNEL_INFO, "Hcomm Read channel:%llu, dst:%p, src:%p, len:%llu", channel, dst, src, len);
+    PostSend(channel, dst, src, len, true);
+    KERNEL_LOG(KERNEL_INFO, "Hcomm Read complete");
+    return HCOMM_SUCCESS;
 }
 
-__aicore__ inline void HcommImpl<CommEngine::AIV, CommProtocol::ROCE>::doorBell(
-    __gm__ Channel* channelPtr, uint64_t curHead)
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteWithNotifyNbi(
+    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
+{
+    (void)commit;
+    (void)commitPipe;
+    (void)reqPipe;
+    (void)config;
+    (void)channel;
+    (void)dst;
+    (void)src;
+    (void)len;
+    (void)notifyAddr;
+    (void)notifyVal;
+    KERNEL_LOG(KERNEL_ERROR, "Hcomm ROCE WriteWithNotifyNbi is not supported");
+    return HCOMM_FAILED;
+}
+
+__aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::doorBell(
+    __gm__ ChannelEntity* channel, uint64_t curHead)
 {
     uint64_t doorBellInfo = 0;
-    doorBellInfo |= channelPtr->sqContextAddr->ctx.rdmaSqContext.qpn; // [0:23] DB_TAG (qp_num)
+    doorBellInfo |= channel->sqContextAddr[0].contextInfo.roceSq.qpn; // [0:23] DB_TAG (qp_num)
     doorBellInfo |= 0UL << 24UL;                                      // [24:27] DB_CMD = HNS_ROCE_V2_SQ_DB (0)
     doorBellInfo |= (curHead % 65536UL) << 32UL;                      // [32:47] DB_PI = sq.head
-    doorBellInfo |= (uint64_t)(channelPtr->sqContextAddr->ctx.rdmaSqContext.sl) << 48UL; // [48:50] DB_SL = qp.sl
+    doorBellInfo |= (uint64_t)(channel->sqContextAddr[0].contextInfo.roceSq.sl) << 48UL; // [48:50] DB_SL = qp.sl
 
-    __gm__ uint64_t* doorBellAddr = (__gm__ uint64_t*)(channelPtr->sqContextAddr->ctx.rdmaSqContext.dbVa);
+    __gm__ uint64_t* doorBellAddr = (__gm__ uint64_t*)(channel->sqContextAddr[0].contextInfo.roceSq.dbVa);
     KERNEL_LOG(KERNEL_INFO, "Hcomm doorBell doorBellAddr:%p, doorBellInfo:%llu", doorBellAddr, doorBellInfo);
 
     ubLocal_.SetValue(0, doorBellInfo);
@@ -83,20 +101,20 @@ __aicore__ inline void HcommImpl<CommEngine::AIV, CommProtocol::ROCE>::doorBell(
     AscendC::DataCopyPad(DBGlobalTensor, ubLocal_, copyParams);
 }
 
-__aicore__ inline void HcommImpl<CommEngine::AIV, CommProtocol::ROCE>::PostSend(
+__aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
     ChannelHandle channelHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, bool isRead)
 {
-    __gm__ Channel* channelPtr = (__gm__ Channel*)channelHandle;
-    auto qpNum = channelPtr->sqContextAddr->ctx.rdmaSqContext.qpn;
-    auto sqBaseAddr = channelPtr->sqContextAddr->ctx.rdmaSqContext.sqVa;
-    auto wqeSize = channelPtr->sqContextAddr->ctx.rdmaSqContext.wqeSize;
-    auto curHardwareHead = channelPtr->sqContextAddr->ctx.rdmaSqContext.headAddr;
+    __gm__ ChannelEntity* channel = (__gm__ ChannelEntity*)channelHandle;
+    auto qpNum = channel->sqContextAddr[0].contextInfo.roceSq.qpn;
+    auto sqBaseAddr = channel->sqContextAddr[0].contextInfo.roceSq.sqVa;
+    auto wqeSize = channel->sqContextAddr[0].contextInfo.roceSq.wqeSize;
+    auto curHardwareHead = channel->sqContextAddr[0].contextInfo.roceSq.headAddr;
     CacheWriteThrough(reinterpret_cast<__gm__ uint8_t*>(curHardwareHead), 8);
     uint64_t curHead = *(__gm__ uint32_t*)(curHardwareHead);
 
-    auto curHardwareTailAddr = channelPtr->sqContextAddr->ctx.rdmaSqContext.tailAddr;
+    auto curHardwareTailAddr = channel->sqContextAddr[0].contextInfo.roceSq.tailAddr;
     uint64_t shift = 15U;
-    auto qpDepth = channelPtr->sqContextAddr->ctx.rdmaSqContext.depth;
+    auto qpDepth = channel->sqContextAddr[0].contextInfo.roceSq.depth;
 
     KERNEL_LOG(
         KERNEL_INFO, "Hcomm doorBell qpNum:%d, sqBaseAddr:%p, wqeSize:%d, curHead:%d, qpDepth:%d", qpNum, sqBaseAddr,
@@ -127,14 +145,16 @@ __aicore__ inline void HcommImpl<CommEngine::AIV, CommProtocol::ROCE>::PostSend(
     *(__gm__ uint32_t*)(wqeAddr + 8) = 0;          // immtdata is always 0 till we provide poll CQ flow in AIV
     *(__gm__ uint32_t*)(wqeAddr + 12) = 1U << 24U; // [120:127] num_sge = 1
     *(__gm__ uint32_t*)(wqeAddr + 16) = 0;         // [128:151] start_sge_idx = 0;
-    *(__gm__ uint32_t*)(wqeAddr + 20) = channelPtr->remoteBufferAddr->pti.rdmaMemProtectionInfo.rkey;
+    *(__gm__ uint32_t*)(wqeAddr + 20) =
+        channel->remoteBufferAddr[0].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
     *(__gm__ uint64_t*)(wqeAddr + 24) = (uint64_t)dst; // destination VA
 
     constexpr uint32_t sgeAddrOffset = 32;
     __gm__ uint8_t* sgeAddr = wqeAddr + sgeAddrOffset;
     KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend sgeAddr:%p", sgeAddr);
     *(__gm__ uint32_t*)(sgeAddr) = len;
-    *(__gm__ uint32_t*)(sgeAddr + sizeof(uint32_t)) = channelPtr->localBufferAddr->pti.rdmaMemProtectionInfo.lkey;
+    *(__gm__ uint32_t*)(sgeAddr + sizeof(uint32_t)) =
+        channel->localBufferAddr[0].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
     *(__gm__ uint64_t*)(sgeAddr + 2 * sizeof(uint32_t)) = (uint64_t)src; // src VA addr memory registered by RNIC
 
     constexpr uint32_t wqeAddrWriteLength = 48;
@@ -143,7 +163,7 @@ __aicore__ inline void HcommImpl<CommEngine::AIV, CommProtocol::ROCE>::PostSend(
     curHead++;
 
     // Post doorbell
-    doorBell(channelPtr, curHead);
+    doorBell(channel, curHead);
 
     ubLocalHead_.SetValue(0, (uint32_t)curHead);
     AscendC::GlobalTensor<uint32_t> HeadGlobalTensor;

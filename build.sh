@@ -2,7 +2,6 @@
 
 SCRIPT_DIR=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
 
-SRC_DIR="${SCRIPT_DIR}/src/aicore/mc2"
 UT_DIR="${SCRIPT_DIR}/tests/ut"
 
 # 构建目录（源码外构建）
@@ -10,7 +9,6 @@ BUILD_DIR="${SCRIPT_DIR}/build"
 
 CUSTOM_OPTION=(
     "-Wno-dev"
-    "-DBUILD_OPEN_PROJECT=ON"
     # "-DASCEND_CANN_PACKAGE_PATH=/home/developer/Ascend/cann"
 )
 CPU_CORES=$(grep -c "^processor" /proc/cpuinfo)
@@ -35,7 +33,7 @@ log() {
 }
 
 set_env() {
-    if [ -z ${ASCEND_HOME_PATH} ]; then
+    if [ -z "${ASCEND_HOME_PATH:-}" ]; then
         log "Please set the env of the cann package"
         exit 0
     fi
@@ -65,27 +63,19 @@ function build () {
     # log "Info: build target: $@ ${JOB_NUM}"
     # cmake --build . --target "$@" -j ${THREAD_NUM} 
     echo "cmake --build $1 -j ${THREAD_NUM}"
-    cmake --build $1 -j ${THREAD_NUM}
+    cmake --build "$1" -j ${THREAD_NUM}
 }
 
 main(){
     clean_build
     set_env
     echo "${CUSTOM_OPTION[@]}"
-    local host_build_dir="${BUILD_DIR}/mc2-host"
-    local device_build_dir="${BUILD_DIR}/mc2-device"
-    local ut_build_dir="${BUILD_DIR}/ut-mc2"
+    local ut_build_dir="${BUILD_DIR}/ut-hcomm"
     
-    cmake_config ${SRC_DIR} ${host_build_dir} ${CUSTOM_OPTION}
-    cmake_config "${SRC_DIR}" "${device_build_dir}" "${CUSTOM_OPTION} -DKERNEL_MODE=ON"
-    # cmake_config "${SRC_DIR}/../../../test_cmake" "${BUILD_DIR}/hello" -DKERNEL_MODE=ON -DFLAG=1
-    cmake_config "${UT_DIR}" "${ut_build_dir}" "-Wno-dev" "-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}"
+    cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
 
-    build ${host_build_dir}
-    build ${device_build_dir}
-    build ${ut_build_dir}
+    build "${ut_build_dir}"
 }
 
 main "$@"
-
 
