@@ -20,7 +20,7 @@ get_filename_component(ASCCOMM_ROOT ${ASCCOMM_UT_ROOT}/../.. ABSOLUTE)
 
 set(PRODUCT_TYPE_LIST "ascend950pr_9599_AIV;ascend910B1_AIC" CACHE STRING "Hcomm UT product types")
 set(TEST_MOD "all" CACHE STRING "Comma-separated UT targets to build and run, or all")
-option(ASCCOMM_UT_RUN_AFTER_BUILD "Run UT targets after build" OFF)
+option(ASCCOMM_UT_RUN_AFTER_BUILD "Run UT targets after build" ON)
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCEND_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
