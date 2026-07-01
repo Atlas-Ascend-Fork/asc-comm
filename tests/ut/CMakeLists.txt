@@ -10,13 +10,19 @@
 
 cmake_minimum_required(VERSION 3.16)
 
+set(ASCCOMM_UT_ROOT ${CMAKE_CURRENT_LIST_DIR})
+get_filename_component(ASCCOMM_ROOT ${ASCCOMM_UT_ROOT}/../.. ABSOLUTE)
+if(NOT CANN_3RD_LIB_PATH)
+    set(CANN_3RD_LIB_PATH "${ASCCOMM_ROOT}/third_party" CACHE PATH "CANN third_party path" FORCE)
+endif()
+
+include("${ASCCOMM_ROOT}/cmake/fetch_cann_cmake.cmake")
+
 project(asccomm_hcomm_ut LANGUAGES C CXX)
+init_cann_project(PREPEND_MODULE_PATH)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-set(ASCCOMM_UT_ROOT ${CMAKE_CURRENT_LIST_DIR})
-get_filename_component(ASCCOMM_ROOT ${ASCCOMM_UT_ROOT}/../.. ABSOLUTE)
 
 set(PRODUCT_TYPE_LIST "ascend950pr_9599_AIV;ascend910B1_AIC" CACHE STRING "Hcomm UT product types")
 set(TEST_MOD "all" CACHE STRING "Comma-separated UT targets to build and run, or all")
@@ -52,58 +58,24 @@ set(ASCENDC_DIR "${ASCEND_CANN_ARCH_DIR}/asc" CACHE PATH "AscendC headers path")
 
 set(ASCCOMM_CANN_INCLUDE_DIRS
     ${ASCEND_CANN_PACKAGE_PATH}/include
-    ${ASCEND_CANN_ARCH_DIR}/include
-    ${ASCEND_CANN_ARCH_DIR}/include/acl
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/mmpa
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/profiling
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime/runtime
     ${ASCENDC_DIR}
     ${ASCENDC_DIR}/include
     ${ASCENDC_DIR}/include/basic_api
-    ${ASCENDC_DIR}/include/simt_api
-    ${ASCENDC_DIR}/include/adv_api
-    ${ASCENDC_DIR}/include/utils
-    ${ASCENDC_DIR}/include/utils/tiling
-    ${ASCENDC_DIR}/impl
     ${ASCENDC_DIR}/impl/basic_api
-    ${ASCENDC_DIR}/impl/simt_api
 )
 set(ASCCOMM_TIKICPU_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/tikicpulib/lib)
 set(ASCCOMM_TIKICPU_INCLUDE_DIR ${ASCCOMM_TIKICPU_DIR}/include)
 set(ASCCOMM_TIKICPU_LIB64_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/tikicpulib/lib64)
 set(ASCCOMM_CPUDEBUG_LIB64_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/cpudebug/lib64)
-set(ASCCOMM_UT_RUNTIME_DIRS
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64
-    ${ASCEND_CANN_ARCH_DIR}/lib64
-    ${ASCEND_CANN_ARCH_DIR}/devlib/device
-    ${ASCCOMM_TIKICPU_DIR}
-    ${ASCCOMM_TIKICPU_LIB64_DIR}
-    ${ASCCOMM_CPUDEBUG_LIB64_DIR}
-)
-string(REPLACE ";" ":" ASCCOMM_UT_LD_LIBRARY_PATH "${ASCCOMM_UT_RUNTIME_DIRS}")
-
-link_directories(
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64
-    ${ASCEND_CANN_ARCH_DIR}/lib64
-)
 
 find_package(GTest QUIET)
 if(TARGET GTest::gtest)
     set(ASCCOMM_GTEST_TARGET GTest::gtest)
     set(ASCCOMM_GTEST_USES_CXX11_ABI0 OFF)
-elseif(CANN_3RD_LIB_PATH AND EXISTS "${CANN_3RD_LIB_PATH}/gtest/include/gtest/gtest.h")
-    add_library(asccomm_gtest STATIC IMPORTED)
-    set_target_properties(asccomm_gtest PROPERTIES
-        IMPORTED_LOCATION "${CANN_3RD_LIB_PATH}/gtest/lib64/libgtest.a"
-        INTERFACE_INCLUDE_DIRECTORIES "${CANN_3RD_LIB_PATH}/gtest/include"
-    )
-    set(ASCCOMM_GTEST_TARGET asccomm_gtest)
-    set(ASCCOMM_GTEST_USES_CXX11_ABI0 ON)
 else()
-    message(FATAL_ERROR "GTest not found. Install GTest or set CANN_3RD_LIB_PATH to the CANN third_party directory.")
+    add_cann_third_party(gtest)
+    set(ASCCOMM_GTEST_TARGET GTest::gtest)
+    set(ASCCOMM_GTEST_USES_CXX11_ABI0 ON)
 endif()
 
 add_library(intf_llt_pub_basic INTERFACE)
@@ -187,10 +159,7 @@ function(run_llt_test)
         set(ENV_PREFIX "")
     endif()
 
-    set(_llt_runtime_dirs ${ASCCOMM_UT_RUNTIME_DIRS})
-    if(LLT_RUNTIME_DIRS)
-        set(_llt_runtime_dirs ${LLT_RUNTIME_DIRS})
-    endif()
+    set(_llt_runtime_dirs ${LLT_RUNTIME_DIRS})
     string(REPLACE ";" ":" _llt_ld_library_path "${_llt_runtime_dirs}")
 
     if(LLT_FILTERS)

@@ -24,6 +24,7 @@ CPU_CORES=$(grep -c "^processor" /proc/cpuinfo)
 THREAD_NUM="${CPU_CORES}"
 
 Ascend_CANN_PACKAGE_PATH=""
+CANN_3RD_LIB_PATH="${SCRIPT_DIR}/third_party"
 
 # 默认构建类型：Release / Debug
 BUILD_TYPE="Release"
@@ -91,6 +92,8 @@ usage() {
     echo "    -t, --test           Build and run all unit tests"
     echo "    --cov                Enable code coverage for unit tests"
     echo "    --make_clean         Clean build artifacts"
+    echo "    --cann_3rd_lib_path=<PATH>"
+    echo "                         Set CANN third_party package install path, Default:./third_party"
     echo "    --build-type=<TYPE>"
     echo "                         Specify build type (TYPE options: Release/Debug), Default:Release"
 }
@@ -114,6 +117,10 @@ parse_args() {
                 clean_build
                 exit 0
                 ;;
+            --cann_3rd_lib_path=*)
+                CANN_3RD_LIB_PATH="$(realpath "${1#*=}")"
+                shift
+                ;;
             *)
                 log "ERROR" "未知参数：$1"
                 usage
@@ -136,6 +143,7 @@ set_env() {
     log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}" 
     Ascend_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
+    CUSTOM_OPTION+=("-DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
 }
 
 clean_build() {
