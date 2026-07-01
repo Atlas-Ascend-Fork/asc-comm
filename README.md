@@ -16,6 +16,13 @@
 └── tests                         # asc-comm API UT 用例
 ```
 
+## 文档
+
+- [文档入口](./docs/README.md)
+- [API 参考](./docs/api/README.md)
+- [Hcomm 使用说明](./docs/guide/hcomm_usage.md)
+- [构建与测试](./docs/guide/build_and_test.md)
+
 ## 许可证
 
 本仓库源码及相关文档遵循 [CANN Open Software License Agreement Version 2.0](./LICENSE)，免责声明以 LICENSE 中的相关条款为准。
