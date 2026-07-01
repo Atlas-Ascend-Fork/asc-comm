@@ -51,43 +51,15 @@ set(ASCENDC_DIR "${ASCEND_CANN_ARCH_DIR}/asc" CACHE PATH "AscendC headers path")
 
 set(ASCCOMM_CANN_INCLUDE_DIRS
     ${ASCEND_CANN_PACKAGE_PATH}/include
-    ${ASCEND_CANN_ARCH_DIR}/include
-    ${ASCEND_CANN_ARCH_DIR}/include/acl
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/mmpa
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/profiling
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime/runtime
     ${ASCENDC_DIR}
     ${ASCENDC_DIR}/include
     ${ASCENDC_DIR}/include/basic_api
-    ${ASCENDC_DIR}/include/simt_api
-    ${ASCENDC_DIR}/include/adv_api
-    ${ASCENDC_DIR}/include/utils
-    ${ASCENDC_DIR}/include/utils/tiling
-    ${ASCENDC_DIR}/impl
     ${ASCENDC_DIR}/impl/basic_api
-    ${ASCENDC_DIR}/impl/simt_api
 )
 set(ASCCOMM_TIKICPU_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/tikicpulib/lib)
 set(ASCCOMM_TIKICPU_INCLUDE_DIR ${ASCCOMM_TIKICPU_DIR}/include)
 set(ASCCOMM_TIKICPU_LIB64_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/tikicpulib/lib64)
 set(ASCCOMM_CPUDEBUG_LIB64_DIR ${ASCEND_CANN_PACKAGE_PATH}/tools/cpudebug/lib64)
-set(ASCCOMM_UT_RUNTIME_DIRS
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64
-    ${ASCEND_CANN_ARCH_DIR}/lib64
-    ${ASCEND_CANN_ARCH_DIR}/devlib/device
-    ${ASCCOMM_TIKICPU_DIR}
-    ${ASCCOMM_TIKICPU_LIB64_DIR}
-    ${ASCCOMM_CPUDEBUG_LIB64_DIR}
-)
-string(REPLACE ";" ":" ASCCOMM_UT_LD_LIBRARY_PATH "${ASCCOMM_UT_RUNTIME_DIRS}")
-
-link_directories(
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64
-    ${ASCEND_CANN_ARCH_DIR}/lib64
-)
 
 find_package(GTest QUIET)
 if(TARGET GTest::gtest)
@@ -161,10 +133,7 @@ function(run_llt_test)
         set(ENV_PREFIX "")
     endif()
 
-    set(_llt_runtime_dirs ${ASCCOMM_UT_RUNTIME_DIRS})
-    if(LLT_RUNTIME_DIRS)
-        set(_llt_runtime_dirs ${LLT_RUNTIME_DIRS})
-    endif()
+    set(_llt_runtime_dirs ${LLT_RUNTIME_DIRS})
     string(REPLACE ";" ":" _llt_ld_library_path "${_llt_runtime_dirs}")
 
     if(LLT_FILTERS)
