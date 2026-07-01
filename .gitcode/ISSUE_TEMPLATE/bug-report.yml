@@ -1,0 +1,47 @@
+name: Bug-Report|缺陷反馈
+description: 当您发现 asc-comm 缺陷，需要向社区反馈时，请使用此模板。
+title: "[Bug-Report|缺陷反馈]: "
+labels: ["bug-report"]
+type: "缺陷"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for sending an issue! Please fill in the following template to help quickly solve your problem.
+  - type: textarea
+    attributes:
+      label: Describe the current behavior / 问题描述 (Mandatory / 必填)
+      description: 请描述 Hcomm API、构建、UT、样例或文档中出现的问题。
+      placeholder: ""
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Environment / 环境信息 (Mandatory / 必填)
+      description: 请提供分支/提交号、CANN 版本、NPU 型号、操作系统、编译器版本和 GTest/三方依赖配置。
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to reproduce the issue / 重现步骤 (Mandatory / 必填)
+      description: 请提供复现命令，例如 `bash build.sh -t`、CMake 命令、GTest 过滤项或样例路径。
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Describe the expected behavior / 预期结果 (Mandatory / 必填)
+      description: 描述期望行为或预期输出。
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Related log / screenshot / 日志 / 截图 (Mandatory / 必填)
+      description: 请提供完整错误日志、返回码、断言失败信息或截图。
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Special notes for this issue / 备注 (Optional / 选填)
+      description: 如涉及 `COMM_PROTOCOL_ROCE`、`COMM_PROTOCOL_UBC_CTP`、hcomm/devkit 集成边界，请在此补充。
+    validations:
+      required: false

@@ -1,0 +1,16 @@
+name: Question|问题咨询
+description: 如果您需要咨询或讨论 asc-comm 使用问题，请使用此模板。
+title: "[Question|问题咨询]: "
+labels: ["question"]
+type: "咨询"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Welcome to ask questions and discuss with other members.
+  - type: textarea
+    attributes:
+      label: 问题描述
+      description: 请描述您的问题、已参考的文档、已执行的命令，以及是否涉及 hcomm/devkit/CANN 外部集成。
+    validations:
+      required: true
