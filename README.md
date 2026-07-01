@@ -9,12 +9,26 @@
 ├── include                       # asc-comm API 声明源代码
 |   ├── aicore
 │   ├── ain
-│   ├── collective_comm
 │   └── direct_drive
 ├── scripts                       # 脚本
 ├── src                           # asc-comm API 实现源代码
 └── tests                         # asc-comm API UT 用例
 ```
+
+## 文档
+
+- [文档入口](./docs/README.md)
+- [快速开始](./docs/quick_start.md)
+- [API 参考](./docs/api/README.md)
+- [Hcomm 使用说明](./docs/guide/hcomm_usage.md)
+- [构建与测试](./docs/guide/build_and_test.md)
+- [三方依赖与兼容性](./docs/guide/dependencies.md)
+- [贡献指南](./CONTRIBUTING.md)
+- [更新日志](./CHANGELOG.md)
+
+## 样例
+
+- [AICore Hcomm 点对点通信 Kernel 样例](./examples/aicore/hcomm_p2p_kernel/README.md)
 
 ## 许可证
 
