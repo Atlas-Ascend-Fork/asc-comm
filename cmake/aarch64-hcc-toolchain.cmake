@@ -17,10 +17,21 @@ set(TARGET_LINUX_DISTRIBUTOR_RELEASE 2.8)
 if(NOT TOOLCHAIN_DIR)
     if(DEFINED ENV{TOOLCHAIN_DIR})
         set(TOOLCHAIN_DIR "$ENV{TOOLCHAIN_DIR}")
+    elseif(ASCEND_CANN_PACKAGE_PATH)
+        set(TOOLCHAIN_DIR "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
+    elseif(ASCEND_INSTALL_PATH)
+        set(TOOLCHAIN_DIR "${ASCEND_INSTALL_PATH}/toolkit/toolchain/hcc")
     else()
         message(FATAL_ERROR "TOOLCHAIN_DIR is not set")
     endif()
 endif()
+set(TOOLCHAIN_DIR "${TOOLCHAIN_DIR}" CACHE PATH "HCC toolchain directory")
+set(CMAKE_TRY_COMPILE_PLATFORM_VARIABLES
+    TOOLCHAIN_DIR
+    ASCEND_CANN_PACKAGE_PATH
+    ASCEND_INSTALL_PATH
+    ${CMAKE_TRY_COMPILE_PLATFORM_VARIABLES}
+)
 
 set(CPU_TYPE aarch64)
 set(CMAKE_C_COMPILER     "${TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc"     CACHE PATH "C Compiler")
