@@ -10,6 +10,7 @@
 
 set(HCOMM_UT_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${ASCCOMM_UT_ROOT}/common
     ${ASCCOMM_ROOT}/include/aicore
     ${ASCCOMM_TIKICPU_INCLUDE_DIR}
     ${ASCCOMM_CANN_INCLUDE_DIRS}
@@ -18,7 +19,7 @@ set(HCOMM_UT_INCLUDE_DIRS
 function(add_hcomm_ut target_name product_type tikicpu_product_dir)
     add_executable(${target_name}
         ${ASCCOMM_UT_ROOT}/main_global.cpp
-        k3_pvwrap.cpp
+        ${ASCCOMM_UT_ROOT}/common/k3_pvwrap.cpp
         ${ARGN}
     )
 
