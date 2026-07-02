@@ -36,6 +36,7 @@ dotted_line="----------------------------------------"
 
 TEST=false
 COV=false
+AICPU_DATA_PLANE=true
 
 LOG_LEVEL=0
 
@@ -90,6 +91,8 @@ usage() {
     echo "    -h, --help           Display help information"
     echo "    -t, --test           Build and run all unit tests"
     echo "    --cov                Enable code coverage for unit tests"
+    echo "    --no-aicpu-data-plane"
+    echo "                         Skip AICPU data-plane shared object build"
     echo "    --make_clean         Clean build artifacts"
     echo "    --build-type=<TYPE>"
     echo "                         Specify build type (TYPE options: Release/Debug), Default:Release"
@@ -114,6 +117,10 @@ parse_args() {
                 clean_build
                 exit 0
                 ;;
+            --no-aicpu-data-plane)
+                AICPU_DATA_PLANE=false
+                shift
+                ;;
             *)
                 log "ERROR" "未知参数：$1"
                 usage
@@ -135,7 +142,10 @@ set_env() {
     fi
     log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}" 
     Ascend_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
+    export TOOLCHAIN_DIR="${Ascend_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc"
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
+    CUSTOM_OPTION+=("-DCANN_3RD_LIB_PATH=${SCRIPT_DIR}/third_party")
+    CUSTOM_OPTION+=("-DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/cmake/aarch64-hcc-toolchain.cmake")
 }
 
 clean_build() {
@@ -163,7 +173,11 @@ main(){
     clean_build
     set_env
     echo "${CUSTOM_OPTION[@]}"
-    local ut_build_dir="${BUILD_DIR}/ut-hcomm"
+    if [[ "${AICPU_DATA_PLANE}" == true ]]; then
+        local aicpu_build_dir="${BUILD_DIR}/aicpu-data-plane"
+        cmake_config "${SCRIPT_DIR}" "${aicpu_build_dir}" "${CUSTOM_OPTION[@]}"
+        build "${aicpu_build_dir}"
+    fi
 
     if [[ "${TEST}" != true ]]; then
         log "INFO" "use -t/--test to build hcomm UT"
@@ -184,6 +198,11 @@ main(){
     build "${ut_build_dir}" ${TARGETS}
     if [[ "${COV}" == true ]]; then
         log "INFO" "coverage report generated at ${ut_build_dir}/cov_report/index.html"
+    fi
+    if [[ "${TEST}" == true ]]; then
+        local ut_build_dir="${BUILD_DIR}/ut-hcomm"
+        cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
+        build "${ut_build_dir}"
     fi
 }
 
