@@ -30,6 +30,37 @@ if(NOT ASCEND_INSTALL_PATH)
 endif()
 set(ASCEND_INSTALL_PATH "${ASCEND_INSTALL_PATH}" CACHE PATH "Ascend install path" FORCE)
 
+function(_hcomm_append_cann_prefix_path cann_root)
+    if(NOT cann_root)
+        return()
+    endif()
+
+    get_filename_component(cann_root_abs "${cann_root}" ABSOLUTE)
+    set(cann_prefix_candidates "${cann_root_abs}")
+    foreach(cann_arch ${CMAKE_SYSTEM_PROCESSOR} ${CMAKE_HOST_SYSTEM_PROCESSOR} aarch64 arm64 x86_64)
+        if(cann_arch)
+            list(APPEND cann_prefix_candidates "${cann_root_abs}/${cann_arch}-linux")
+        endif()
+    endforeach()
+
+    set(cann_prefix_paths)
+    foreach(cann_prefix ${cann_prefix_candidates})
+        if(IS_DIRECTORY "${cann_prefix}")
+            list(APPEND cann_prefix_paths "${cann_prefix}")
+        endif()
+    endforeach()
+    list(REMOVE_DUPLICATES cann_prefix_paths)
+
+    if(cann_prefix_paths)
+        list(PREPEND CMAKE_PREFIX_PATH ${cann_prefix_paths})
+        list(REMOVE_DUPLICATES CMAKE_PREFIX_PATH)
+        set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH}" PARENT_SCOPE)
+    endif()
+endfunction()
+
+_hcomm_append_cann_prefix_path("${ASCEND_INSTALL_PATH}")
+_hcomm_append_cann_prefix_path("${ASCEND_CANN_PACKAGE_PATH}")
+
 set(ASCEND_MOCKCPP_PACKAGE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (CMAKE_INSTALL_PREFIX STREQUAL /usr/local)
