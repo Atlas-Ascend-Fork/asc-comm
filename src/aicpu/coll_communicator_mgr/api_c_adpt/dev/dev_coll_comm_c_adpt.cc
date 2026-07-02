@@ -1,0 +1,27 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+#include "hccl/hccl_comm.h"
+#include "aicpu_indop_process.h"
+#include "coll_comm_aicpu_mgr.h"
+
+using namespace hccl;
+
+HcclResult HcclCommGetStatus(const char * commId, HcclCommStatus *status)
+{
+    CHK_PTR_NULL(commId);
+    CHK_PTR_NULL(status);
+    *status = HcclCommStatus::HCCL_COMM_STATUS_READY;
+    CollCommAicpuMgr *hcclComm = AicpuIndopProcess::AicpuGetComm(commId);
+    CHK_PRT_RET(!hcclComm, HCCL_ERROR("%s AicpuGetCommMgrbyGroup is null, commId[%s]", __func__, commId), HCCL_E_PTR);
+    CollCommAicpu* collCommAicpu = hcclComm->GetCollCommAicpu();
+    CHK_PRT_RET(!collCommAicpu, HCCL_ERROR("%s GetCollCommAicpu is null, commId[%s]", __func__, commId), HCCL_E_PTR);
+    *status = collCommAicpu->GetCommmStatus();
+    return HCCL_SUCCESS;
+}
