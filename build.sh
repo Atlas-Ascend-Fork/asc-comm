@@ -26,6 +26,7 @@ CMAKE_EXTRA_ARGS=""
 dotted_line="----------------------------------------"
 
 TEST=false
+AICPU_DATA_PLANE=true
 
 LOG_LEVEL=0
 
@@ -79,6 +80,8 @@ usage() {
     echo "$dotted_line"
     echo "    -h, --help           Display help information"
     echo "    -t, --test           Build and run all unit tests"
+    echo "    --no-aicpu-data-plane"
+    echo "                         Skip AICPU data-plane shared object build"
     echo "    --make_clean         Clean build artifacts"
     echo "    --build-type=<TYPE>"
     echo "                         Specify build type (TYPE options: Release/Debug), Default:Release"
@@ -93,6 +96,10 @@ parse_args() {
                 ;;
             -t|--test)
                 TEST=true
+                shift
+                ;;
+            --no-aicpu-data-plane)
+                AICPU_DATA_PLANE=false
                 shift
                 ;;
             *)
@@ -111,7 +118,10 @@ set_env() {
     fi
     log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}" 
     Ascend_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
+    export TOOLCHAIN_DIR="${Ascend_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc"
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
+    CUSTOM_OPTION+=("-DCANN_3RD_LIB_PATH=${SCRIPT_DIR}/third_party")
+    CUSTOM_OPTION+=("-DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/cmake/aarch64-hcc-toolchain.cmake")
 }
 
 clean_build() {
@@ -133,19 +143,21 @@ function build () {
 }
 
 main(){
-    clean_build
     parse_args "$@"
+    clean_build
     set_env
     echo "${CUSTOM_OPTION[@]}"
-    local ut_build_dir="${BUILD_DIR}/ut-hcomm"
-
-    if [[ "${TEST}" != true ]]; then
-        log "INFO" "only-aicore is header-only; use -t/--test to build hcomm UT"
-        exit 0
+    if [[ "${AICPU_DATA_PLANE}" == true ]]; then
+        local aicpu_build_dir="${BUILD_DIR}/aicpu-data-plane"
+        cmake_config "${SCRIPT_DIR}" "${aicpu_build_dir}" "${CUSTOM_OPTION[@]}"
+        build "${aicpu_build_dir}"
     fi
-    
-    cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
-    build "${ut_build_dir}"
+
+    if [[ "${TEST}" == true ]]; then
+        local ut_build_dir="${BUILD_DIR}/ut-hcomm"
+        cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
+        build "${ut_build_dir}"
+    fi
 }
 
 main "$@"
