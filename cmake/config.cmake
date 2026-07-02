@@ -24,9 +24,19 @@ elseif(DEFINED ENV{ASCEND_OPP_PATH})
 else()
     set(ASCEND_CANN_PACKAGE_PATH  "/usr/local/Ascend/ascend-toolkit/latest")
 endif()
+get_filename_component(ASCEND_CANN_PACKAGE_PATH "${ASCEND_CANN_PACKAGE_PATH}" ABSOLUTE)
+get_filename_component(ASCEND_CANN_PACKAGE_PATH_NAME "${ASCEND_CANN_PACKAGE_PATH}" NAME)
+if(ASCEND_CANN_PACKAGE_PATH_NAME MATCHES "^(aarch64|arm64|x86_64)-linux$")
+    get_filename_component(ASCEND_CANN_PACKAGE_PATH "${ASCEND_CANN_PACKAGE_PATH}" DIRECTORY)
+endif()
 set(ASCEND_CANN_PACKAGE_PATH "${ASCEND_CANN_PACKAGE_PATH}" CACHE PATH "Ascend CANN package path" FORCE)
 if(NOT ASCEND_INSTALL_PATH)
     set(ASCEND_INSTALL_PATH "${ASCEND_CANN_PACKAGE_PATH}")
+endif()
+get_filename_component(ASCEND_INSTALL_PATH "${ASCEND_INSTALL_PATH}" ABSOLUTE)
+get_filename_component(ASCEND_INSTALL_PATH_NAME "${ASCEND_INSTALL_PATH}" NAME)
+if(ASCEND_INSTALL_PATH_NAME MATCHES "^(aarch64|arm64|x86_64)-linux$")
+    get_filename_component(ASCEND_INSTALL_PATH "${ASCEND_INSTALL_PATH}" DIRECTORY)
 endif()
 set(ASCEND_INSTALL_PATH "${ASCEND_INSTALL_PATH}" CACHE PATH "Ascend install path" FORCE)
 
@@ -36,17 +46,26 @@ function(_hcomm_append_cann_prefix_path cann_root)
     endif()
 
     get_filename_component(cann_root_abs "${cann_root}" ABSOLUTE)
+    set(cann_search_roots "${cann_root_abs}")
+    get_filename_component(cann_root_name "${cann_root_abs}" NAME)
+    if(cann_root_name MATCHES "^(aarch64|arm64|x86_64)-linux$")
+        get_filename_component(cann_parent_root "${cann_root_abs}" DIRECTORY)
+        list(APPEND cann_search_roots "${cann_parent_root}")
+    endif()
+
     if(PRODUCT_SIDE STREQUAL "device")
         set(cann_arch_candidates aarch64 arm64 ${CMAKE_SYSTEM_PROCESSOR} ${CMAKE_HOST_SYSTEM_PROCESSOR})
     else()
         set(cann_arch_candidates ${CMAKE_SYSTEM_PROCESSOR} ${CMAKE_HOST_SYSTEM_PROCESSOR} x86_64 aarch64 arm64)
     endif()
-    foreach(cann_arch ${cann_arch_candidates})
-        if(cann_arch)
-            list(APPEND cann_prefix_candidates "${cann_root_abs}/${cann_arch}-linux")
-        endif()
+    foreach(cann_search_root ${cann_search_roots})
+        foreach(cann_arch ${cann_arch_candidates})
+            if(cann_arch)
+                list(APPEND cann_prefix_candidates "${cann_search_root}/${cann_arch}-linux")
+            endif()
+        endforeach()
+        list(APPEND cann_prefix_candidates "${cann_search_root}")
     endforeach()
-    list(APPEND cann_prefix_candidates "${cann_root_abs}")
 
     set(cann_prefix_paths)
     foreach(cann_prefix ${cann_prefix_candidates})
@@ -65,6 +84,63 @@ endfunction()
 
 _hcomm_append_cann_prefix_path("${ASCEND_INSTALL_PATH}")
 _hcomm_append_cann_prefix_path("${ASCEND_CANN_PACKAGE_PATH}")
+
+function(_hcomm_resolve_acl_rt)
+    set(acl_rt_include_candidates)
+    set(acl_rt_library_candidates)
+
+    foreach(cann_prefix ${CMAKE_PREFIX_PATH})
+        list(APPEND acl_rt_include_candidates
+            "${cann_prefix}/include"
+            "${cann_prefix}/runtime/include"
+            "${cann_prefix}/acllib/include"
+            "${cann_prefix}/fwkacllib/include"
+        )
+        if(PRODUCT_SIDE STREQUAL "device")
+            list(APPEND acl_rt_library_candidates
+                "${cann_prefix}/lib64/libacl_rt.so"
+                "${cann_prefix}/runtime/lib64/libacl_rt.so"
+                "${cann_prefix}/devlib/linux/aarch64/libacl_rt.so"
+                "${cann_prefix}/devlib/libacl_rt.so"
+            )
+        else()
+            list(APPEND acl_rt_library_candidates
+                "${cann_prefix}/devlib/linux/${CMAKE_HOST_SYSTEM_PROCESSOR}/libacl_rt.so"
+                "${cann_prefix}/devlib/linux/x86_64/libacl_rt.so"
+                "${cann_prefix}/devlib/libacl_rt.so"
+            )
+        endif()
+        list(APPEND acl_rt_library_candidates
+            "${cann_prefix}/lib64/stub/libacl_rt.so"
+            "${cann_prefix}/runtime/lib64/stub/libacl_rt.so"
+            "${cann_prefix}/acllib/lib64/libacl_rt.so"
+            "${cann_prefix}/fwkacllib/lib64/libacl_rt.so"
+            "${cann_prefix}/lib64/libacl_rt.so"
+            "${cann_prefix}/runtime/lib64/libacl_rt.so"
+        )
+    endforeach()
+
+    foreach(acl_rt_include ${acl_rt_include_candidates})
+        if(EXISTS "${acl_rt_include}/acl/acl.h" OR EXISTS "${acl_rt_include}/acl/acl_rt.h")
+            set(_CANN_ACL_RT_INCLUDE_DIR "${acl_rt_include}" CACHE PATH "CANN acl_rt include directory" FORCE)
+            break()
+        endif()
+    endforeach()
+
+    foreach(acl_rt_library ${acl_rt_library_candidates})
+        if(EXISTS "${acl_rt_library}")
+            set(_CANN_acl_rt_SHARED_LIBRARY "${acl_rt_library}" CACHE FILEPATH "CANN acl_rt shared library" FORCE)
+            break()
+        endif()
+    endforeach()
+
+    if(_CANN_ACL_RT_INCLUDE_DIR OR _CANN_acl_rt_SHARED_LIBRARY)
+        message(STATUS "Resolved acl_rt include: ${_CANN_ACL_RT_INCLUDE_DIR}")
+        message(STATUS "Resolved acl_rt library: ${_CANN_acl_rt_SHARED_LIBRARY}")
+    endif()
+endfunction()
+
+_hcomm_resolve_acl_rt()
 
 set(ASCEND_MOCKCPP_PACKAGE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
