@@ -27,7 +27,8 @@ endif()
 
 set(HCOMM_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(ASC_COMM_AICPU_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu")
-set(ASC_COMM_AICPU_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu")
+set(ASC_COMM_AICPU_INCLUDE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu")
+set(ASC_COMM_AICPU_INCLUDE_DIR "${ASC_COMM_AICPU_INCLUDE_ROOT_DIR}/hcomm")
 set(HCC_TOOLCHAIN_DIR "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
 set(HCC_CXX_COMPILER "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
 set(HCC_C_COMPILER "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
@@ -68,6 +69,7 @@ include(cmake/aicpu_data_plane_sources.cmake)
 # The source list is the A5 AICPU data-plane build closure only.
 
 set(ASC_COMM_AICPU_INCLUDE_LIST
+    ${ASC_COMM_AICPU_INCLUDE_ROOT_DIR}
     ${ASC_COMM_AICPU_INCLUDE_DIR}
     ${ASC_COMM_AICPU_INCLUDE_DIR}/hccl
     ${ASC_COMM_AICPU_INCLUDE_DIR}/tsch
