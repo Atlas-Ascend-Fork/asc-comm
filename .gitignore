@@ -1,3 +1,7 @@
 build/
 oat_reports/
 log/
+AGENTS.md
+.claude/
+.opencode/
+.cursor/
