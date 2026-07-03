@@ -35,6 +35,7 @@ CMAKE_EXTRA_ARGS=""
 dotted_line="----------------------------------------"
 
 TEST=false
+COV=false
 
 LOG_LEVEL=0
 
@@ -88,6 +89,7 @@ usage() {
     echo "$dotted_line"
     echo "    -h, --help           Display help information"
     echo "    -t, --test           Build and run all unit tests"
+    echo "    --cov                Enable code coverage for unit tests"
     echo "    --make_clean         Clean build artifacts"
     echo "    --build-type=<TYPE>"
     echo "                         Specify build type (TYPE options: Release/Debug), Default:Release"
@@ -104,6 +106,14 @@ parse_args() {
                 TEST=true
                 shift
                 ;;
+            --cov)
+                COV=true
+                shift
+                ;;
+            --make_clean)
+                clean_build
+                exit 0
+                ;;
             *)
                 log "ERROR" "未知参数：$1"
                 usage
@@ -111,6 +121,11 @@ parse_args() {
                 ;;
         esac
     done
+    if [[ "${COV}" == true && "${TEST}" != true ]]; then
+        log "ERROR" "--cov must be used with -t/--test"
+        usage
+        exit 1
+    fi
 }
 
 set_env() {
@@ -137,24 +152,39 @@ function cmake_config () {
 }
 
 function build () { 
-    echo "cmake --build $1 -j ${THREAD_NUM}"
-    cmake --build "$1" -j ${THREAD_NUM}
+    local build_dir="$1"
+    shift
+    echo "cmake --build ${build_dir} $* -j ${THREAD_NUM}"
+    cmake --build "${build_dir}" "$@" -j "${THREAD_NUM}"
 }
 
 main(){
-    clean_build
     parse_args "$@"
+    clean_build
     set_env
     echo "${CUSTOM_OPTION[@]}"
     local ut_build_dir="${BUILD_DIR}/ut-hcomm"
 
     if [[ "${TEST}" != true ]]; then
-        log "INFO" "only-aicore is header-only; use -t/--test to build hcomm UT"
+        log "INFO" "use -t/--test to build hcomm UT"
         exit 0
     fi
+
+    if [[ "${COV}" == true ]]; then
+        CUSTOM_OPTION+=("-DENABLE_GCOV=ON")
+    fi
     
+    if [[ "${COV}" == true ]]; then
+        TARGETS="--target collect_coverage_data"
+    else
+        TARGETS=""
+    fi
+
     cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
-    build "${ut_build_dir}"
+    build "${ut_build_dir}" ${TARGETS}
+    if [[ "${COV}" == true ]]; then
+        log "INFO" "coverage report generated at ${ut_build_dir}/cov_report/index.html"
+    fi
 }
 
 main "$@"
