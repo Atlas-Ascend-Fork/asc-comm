@@ -21,6 +21,7 @@ get_filename_component(ASCCOMM_ROOT ${ASCCOMM_UT_ROOT}/../.. ABSOLUTE)
 set(PRODUCT_TYPE_LIST "ascend950pr_9599_AIV;ascend910B1_AIC" CACHE STRING "Hcomm UT product types")
 set(TEST_MOD "all" CACHE STRING "Comma-separated UT targets to build and run, or all")
 option(ASCCOMM_UT_RUN_AFTER_BUILD "Run UT targets after build" ON)
+option(ENABLE_GCOV "Enable gcov coverage for UT targets" OFF)
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCEND_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
@@ -113,13 +114,18 @@ target_compile_definitions(intf_llt_pub_basic INTERFACE
 target_compile_options(intf_llt_pub_basic INTERFACE
     -g
     -w
+    $<$<BOOL:${ENABLE_GCOV}>:-fprofile-arcs -ftest-coverage>
     -fPIC
     -pipe
     -Werror
 )
+target_link_options(intf_llt_pub_basic INTERFACE
+    $<$<BOOL:${ENABLE_GCOV}>:-fprofile-arcs -ftest-coverage>
+)
 target_link_libraries(intf_llt_pub_basic INTERFACE
     ${ASCCOMM_GTEST_TARGET}
     pthread
+    $<$<BOOL:${ENABLE_GCOV}>:-lgcov>
 )
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
@@ -145,13 +151,33 @@ add_dependencies(kernel_tiling generate_kernel_headers)
 
 function(run_llt_test)
     cmake_parse_arguments(LLT "" "TARGET;TASK_NUM;ENV_FILE" "FILTERS;RUNTIME_DIRS" ${ARGN})
-    if(NOT ASCCOMM_UT_RUN_AFTER_BUILD)
-        return()
-    endif()
 
     string(REPLACE "," ";" TARGET_LIST "${TEST_MOD}")
     list(REMOVE_ITEM TARGET_LIST "")
     if(NOT "${TEST_MOD}" STREQUAL "all" AND NOT ${LLT_TARGET} IN_LIST TARGET_LIST)
+        return()
+    endif()
+
+    if(ENABLE_GCOV)
+        set(_collect_coverage_data_target collect_coverage_data)
+
+        get_filename_component(_build_parent_dir ${CMAKE_BINARY_DIR} DIRECTORY)
+        get_filename_component(_pkg_path "${ASCEND_CANN_PACKAGE_PATH}/../" REALPATH)
+        set(_cov_report ${CMAKE_BINARY_DIR}/cov_report)
+        set(_cov_html ${_cov_report})
+        set(_cov_data ${_cov_report}/coverage.info)
+
+        if(NOT TARGET ${_collect_coverage_data_target})
+            add_custom_target(${_collect_coverage_data_target} ALL
+                COMMAND bash ${ASCCOMM_COVERAGE_SCRIPT} ${_build_parent_dir} ${_cov_data} ${_cov_html} ${_pkg_path}
+                COMMENT "Run collect coverage data"
+            )
+        endif()
+
+        add_dependencies(${_collect_coverage_data_target} ${LLT_TARGET})
+    endif()
+
+    if(NOT ASCCOMM_UT_RUN_AFTER_BUILD)
         return()
     endif()
 
@@ -185,6 +211,8 @@ function(run_llt_test)
         COMMENT "Run ${LLT_TARGET}"
     )
 endfunction()
+
+set(ASCCOMM_COVERAGE_SCRIPT ${ASCCOMM_ROOT}/scripts/generate_cpp_cov.sh)
 
 function(asccomm_add_product_definitions target_name product_type)
     target_compile_definitions(${target_name} PRIVATE
