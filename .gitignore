@@ -1,3 +1,5 @@
 build/
 oat_reports/
 log/
+.claude/
+.opencode/
