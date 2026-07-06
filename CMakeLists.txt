@@ -1,0 +1,34 @@
+cmake_minimum_required(VERSION 3.16)
+
+project(asc_comm LANGUAGES C CXX)
+
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+option(ASCCOMM_BUILD_CCU "Build migrated CCU compile-check targets" ON)
+set(ASCCOMM_HCOMM_SOURCE_DIR "/mnt/workspace/gitCode/cann/hcomm" CACHE PATH "Original hcomm source tree")
+set(ASCCOMM_HCCL_SOURCE_DIR "/mnt/workspace/gitCode/cann/hccl" CACHE PATH "Original hccl source tree")
+
+if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
+    set(ASCEND_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
+elseif(NOT ASCEND_CANN_PACKAGE_PATH)
+    if(DEFINED ENV{ASCEND_CANN_PACKAGE_PATH})
+        set(ASCEND_CANN_PACKAGE_PATH "$ENV{ASCEND_CANN_PACKAGE_PATH}")
+    elseif(DEFINED ENV{ASCEND_HOME_PATH})
+        set(ASCEND_CANN_PACKAGE_PATH "$ENV{ASCEND_HOME_PATH}")
+    elseif(EXISTS "/mnt/workspace/gitCode/cann/Ascend/cann-9.1.0")
+        set(ASCEND_CANN_PACKAGE_PATH "/mnt/workspace/gitCode/cann/Ascend/cann-9.1.0")
+    else()
+        set(ASCEND_CANN_PACKAGE_PATH "/usr/local/Ascend/cann")
+    endif()
+endif()
+
+if(NOT CANN_3RD_LIB_PATH)
+    set(CANN_3RD_LIB_PATH "/mnt/workspace/gitCode/cann" CACHE PATH "CANN third-party source root")
+endif()
+
+if(ASCCOMM_BUILD_CCU)
+    add_subdirectory(src/ccu)
+endif()
