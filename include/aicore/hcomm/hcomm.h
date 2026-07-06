@@ -17,7 +17,7 @@
 
 #include "kernel_basic_intf.h"
 #include "hcomm_common.h"
-#include "detail/impl/hcomm_impl_def.h"
+#include "hcomm/detail/impl/hcomm_impl_def.h"
 
 namespace AscendC {
 
@@ -145,6 +145,6 @@ private:
 };
 } // namespace AscendC
 
-#include "detail/impl/hcomm_impl.h"
+#include "hcomm/detail/impl/hcomm_impl.h"
 
 #endif // #endif  // LIB_HCCL_HCCL_H
