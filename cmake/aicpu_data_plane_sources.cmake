@@ -14,6 +14,7 @@ set(ASC_COMM_CCL_KERNEL_SOURCES
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/endpoint_pairs/channels/aicpu/device/dev_aicpu_ts_roce_channel.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/endpoint_pairs/channels/aicpu/device/dev_aicpu_ts_roce_channel_v2.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/api_c_adpt/coll_comm_rank_graph_a_adpt.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/api_c_adpt/dev/aicpu_compat_kernel_interface.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/api_c_adpt/dev/dev_coll_comm_c_adpt.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/communicator/device/aicpu_indop_process.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/communicator/device/coll_comm_aicpu.cc
