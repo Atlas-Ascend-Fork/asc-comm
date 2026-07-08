@@ -92,7 +92,7 @@ struct HcclKernelParamLite {
 constexpr u32 KERNEL_PARAM_NAME_SIZE = 32;
 struct HcclKernelLaunchParam {
     HcclKernelParamLite kernel;
-    char                soName[32]                         = "libccl_kernel.so";
+    char                soName[32]                         = "libaicpu_data_plane.so";
     char                kernelName[KERNEL_PARAM_NAME_SIZE] = "HcclKernelEntrance";
     char                opName[32]                         = "LoadWithOpBasedMode";
 };

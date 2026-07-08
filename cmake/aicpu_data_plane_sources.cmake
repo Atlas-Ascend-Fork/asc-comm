@@ -1,20 +1,17 @@
-set(ASC_COMM_CCL_KERNEL_SOURCES
+set(ASC_COMM_AICPU_DATA_PLANE_SOURCES
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/common/device/aicpu_indop_env.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/primitives/api_c_adpt/aicpu_ts_primitives_c_adpt.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/primitives/api_c_adpt/aicpu_ts_sync_data_a_adpt.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/primitives/launch_context.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/comm_engine_res/threads/aicpu_ts_thread.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/comm_engine_res/threads/device/aicpu_thread_kernel.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/comm_engine_res/threads/device/aicpu_thread_process.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/comm_engine_res/threads/thread.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/endpoint_pairs/channels/aicpu/device/aicpu_channel_process.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/endpoint_pairs/channels/aicpu/device/aicpu_ts_urma_channel_kernel.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/endpoint_pairs/channels/aicpu/device/dev_aicpu_ts_channel_mgr.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/endpoint_pairs/channels/aicpu/device/dev_aicpu_ts_hccs_channel.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/endpoint_pairs/channels/aicpu/device/dev_aicpu_ts_roce_channel.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/endpoint_pairs/channels/aicpu/device/dev_aicpu_ts_roce_channel_v2.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/api_c_adpt/coll_comm_rank_graph_a_adpt.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/api_c_adpt/dev/aicpu_compat_kernel_interface.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/api_c_adpt/dev/dev_coll_comm_c_adpt.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/communicator/device/aicpu_indop_process.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/communicator/device/coll_comm_aicpu.cc
@@ -25,7 +22,6 @@ set(ASC_COMM_CCL_KERNEL_SOURCES
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/dfx/hcclCommOp.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/dfx/ns_recovery/aicpu/ns_recovery_func_lite.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/dfx/ns_recovery/aicpu/ns_recovery_lite.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/dfx/profiling/aicpu/aicpu_ts_urma_dfx_kernel.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/dfx/profiling/aicpu/hcclCommProfilingLite.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/dfx/taskException/aicpu/hcclCommTaskExceptionLite.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/common/exception/exception_defination.cc
@@ -41,7 +37,6 @@ set(ASC_COMM_CCL_KERNEL_SOURCES
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/framework/communicator/aicpu/daemon/aicpu_daemon_service.cpp
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/framework/communicator/aicpu/hccl_mc2_ex.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/framework/communicator/aicpu/hdc_lite.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/framework/communicator/aicpu/kernel_entrance.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/framework/communicator/aicpu/ns_recovery_handler_func.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/framework/communicator/aicpu/one_sided_component/one_sided_component_lite.cpp
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/framework/communicator/hccl_params_pub.cc
