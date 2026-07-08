@@ -36,8 +36,8 @@ __aicore__ inline uint32_t HtoNL(uint32_t x)
     constexpr uint32_t byteShift = 8;
     constexpr uint32_t wordShift = 24;
 
-    return (((x & byte3Mask) >> wordShift) | ((x & byte2Mask) >> byteShift) | ((x & byte1Mask) << byteShift) |
-        ((x & byte0Mask) << wordShift));
+    return (((x & byte3Mask) >> wordShift) | ((x & byte2Mask) >> byteShift) | ((x & byte1Mask) << byteShift)
+            | ((x & byte0Mask) << wordShift));
 }
 
 __aicore__ inline uint64_t HtoNLL(uint64_t x)
@@ -56,30 +56,32 @@ __aicore__ inline uint64_t HtoNLL(uint64_t x)
     constexpr uint64_t shift40 = 40;
     constexpr uint64_t shift56 = 56;
 
-    return (((x & byte0Mask) << shift56) | ((x & byte1Mask) << shift40) |
-            ((x & byte2Mask) << shift24) | ((x & byte3Mask) << shift8) |
-            ((x & byte4Mask) >> shift8) | ((x & byte5Mask) >> shift24) |
-            ((x & byte6Mask) >> shift40) | ((x & byte7Mask) >> shift56));
+    return (((x & byte0Mask) << shift56) | ((x & byte1Mask) << shift40) | ((x & byte2Mask) << shift24)
+            | ((x & byte3Mask) << shift8) | ((x & byte4Mask) >> shift8) | ((x & byte5Mask) >> shift24)
+            | ((x & byte6Mask) >> shift40) | ((x & byte7Mask) >> shift56));
 }
 
-template<HardEvent event>
-__aicore__ inline void SyncAction()
+template <HardEvent event> __aicore__ inline void SyncAction()
 {
-    TEventID eventID = GetTPipePtr()->FetchEventID(event);
+    auto tPipePtr = GetTPipePtr();
+    TEventID eventID = 0;
+    if (tPipePtr != nullptr) {
+        eventID = tPipePtr->FetchEventID(event);
+    }
     SetFlag<event>(eventID);
     WaitFlag<event>(eventID);
 }
-__aicore__ inline __ubuf__ uint8_t* AlignAddrTo32Bytes(__ubuf__ uint8_t* buff)
+__aicore__ inline __ubuf__ uint8_t *AlignAddrTo32Bytes(__ubuf__ uint8_t *buff)
 {
     uintptr_t addr = reinterpret_cast<uintptr_t>(buff);
     const uintptr_t alignment = 32;
     uintptr_t alignedAddr = (addr + alignment - 1) & ~(alignment - 1);
-    return reinterpret_cast<__ubuf__ uint8_t*>(alignedAddr);
+    return reinterpret_cast<__ubuf__ uint8_t *>(alignedAddr);
 }
 
 template <typename T>
 __aicore__ inline void Gm2Ub(
-    const AscendC::LocalTensor<T>& dstLocal, const AscendC::GlobalTensor<T>& srcGlobal, int32_t length)
+    const AscendC::LocalTensor<T> &dstLocal, const AscendC::GlobalTensor<T> &srcGlobal, int32_t length)
 {
     AscendC::DataCopyExtParams copyParams{1, (uint32_t)(length * sizeof(T)), 0, 0, 0};
     AscendC::DataCopyPadExtParams<T> padParams{true, 0, (ONE_BLK_SIZE - sizeof(T)) / sizeof(T), 0};
@@ -91,7 +93,7 @@ __aicore__ inline void Gm2Ub(
 
 template <typename T>
 __aicore__ inline void Ub2Gm(
-    const AscendC::GlobalTensor<T>& dstGlobal, const AscendC::LocalTensor<T>& srcLocal, int32_t length)
+    const AscendC::GlobalTensor<T> &dstGlobal, const AscendC::LocalTensor<T> &srcLocal, int32_t length)
 {
     AscendC::DataCopyExtParams copyParams{1, (uint32_t)(length * sizeof(T)), 0, 0, 0};
     PipeBarrier<PIPE_ALL>();
@@ -100,7 +102,7 @@ __aicore__ inline void Ub2Gm(
 }
 
 __aicore__ inline int32_t HcommFindBufferIdx(
-    RegedBufferEntity* bufferAddr, uint32_t bufferNum, GM_ADDR addr, uint64_t len)
+    RegedBufferEntity *bufferAddr, uint32_t bufferNum, GM_ADDR addr, uint64_t len)
 {
     if (bufferAddr == nullptr) {
         KERNEL_LOG(KERNEL_ERROR, "HcommFindBufferIdx failed with null bufferAddr, bufferNum=%u\n", bufferNum);
@@ -115,9 +117,11 @@ __aicore__ inline int32_t HcommFindBufferIdx(
         }
         uint64_t offset = targetAddr - baseAddr;
         if (offset <= bufferSize && len <= bufferSize - offset) {
-            KERNEL_LOG(KERNEL_INFO, "HcommFindBufferIdx hit idx=%u addr=%llu len=%llu base=%llu size=%llu\n", i,
-                static_cast<uint64_t>(targetAddr), static_cast<uint64_t>(len),
-                static_cast<uint64_t>(baseAddr), static_cast<uint64_t>(bufferSize));
+            KERNEL_LOG(KERNEL_INFO,
+                "HcommFindBufferIdx hit idx=%u addr=%llu len=%llu base=%llu "
+                "size=%llu\n",
+                i, static_cast<uint64_t>(targetAddr), static_cast<uint64_t>(len), static_cast<uint64_t>(baseAddr),
+                static_cast<uint64_t>(bufferSize));
             return static_cast<int32_t>(i);
         }
     }
@@ -126,14 +130,13 @@ __aicore__ inline int32_t HcommFindBufferIdx(
     return HCOMM_FAILED;
 }
 
-template <typename T>
-__aicore__ inline void CacheWriteThrough(__gm__ T* sourceAddr, uint64_t length)
+template <typename T> __aicore__ inline void CacheWriteThrough(__gm__ T *sourceAddr, uint64_t length)
 {
     if (length == 0) {
         return;
     }
-    __gm__ T* start = (__gm__ T*)((uint64_t)sourceAddr / CACHE_LINE_SIZE * CACHE_LINE_SIZE);
-    __gm__ T* end = (__gm__ T*)(((uint64_t)sourceAddr + length) / CACHE_LINE_SIZE * CACHE_LINE_SIZE);
+    __gm__ T *start = (__gm__ T *)((uint64_t)sourceAddr / CACHE_LINE_SIZE * CACHE_LINE_SIZE);
+    __gm__ T *end = (__gm__ T *)(((uint64_t)sourceAddr + length) / CACHE_LINE_SIZE * CACHE_LINE_SIZE);
     GlobalTensor<T> global;
     global.SetGlobalBuffer(start);
     for (uint32_t i = 0; i <= end - start; i += CACHE_LINE_SIZE) {
