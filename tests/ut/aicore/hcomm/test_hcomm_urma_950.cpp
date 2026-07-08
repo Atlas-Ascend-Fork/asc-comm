@@ -1,11 +1,13 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
+ * This program is free software, you can redistribute it and/or modify it under
+ * the terms and conditions of CANN Open Software License Agreement Version 2.0
+ * (the "License"). Please refer to the License for details. You may not use
+ * this file except in compliance with the License. THIS SOFTWARE IS PROVIDED ON
+ * AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS
+ * FOR A PARTICULAR PURPOSE. See LICENSE in the root of the software repository
+ * for the full text of the License.
  */
 
 #include <array>
@@ -178,7 +180,8 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithNotify)
 }
 
 // WriteWithNotifyNbi occupies 2 BBs, WriteNbi occupies 1 BB
-// Verified by reading sqHead from channel's headAddr (where st_dev writes curHead)
+// Verified by reading sqHead from channel's headAddr (where st_dev writes
+// curHead)
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithNotify_WqeBbCnt)
 {
     UrmaChannelResource channel;
@@ -206,6 +209,29 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithNotify_WqeBbCnt)
     EXPECT_EQ(channel.GetSqHead(), 4U);
 }
 
+// Atomic FAA/CAS occupy 2 BBs each and can be committed/drained as a batch
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_Atomic)
+{
+    UrmaChannelResource channel;
+
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
+
+    int32_t ret = hcomm.AtomicFAA<uint32_t, false>(
+        channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1008), reinterpret_cast<GM_ADDR>(0x2008), 1);
+    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(channel.GetSqHead(), 2U);
+
+    ret = hcomm.AtomicCAS<uint64_t, false>(
+        channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x3008), reinterpret_cast<GM_ADDR>(0x5008), 1, 2);
+    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(channel.GetSqHead(), 4U);
+
+    EXPECT_EQ(hcomm.Commit(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    channel.CompleteCurrentSq();
+    EXPECT_EQ(hcomm.Drain(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+}
+
 // Remote buffer lookup failure when address is out of range
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_RemoteBufferNotFound)
 {
@@ -214,7 +240,8 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_RemoteBufferNotFound)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
     EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
 
-    // Address completely outside any remote buffer range (remote buffers are at 0x1000-0x2000 and 0x3000-0x4000)
+    // Address completely outside any remote buffer range (remote buffers are at
+    // 0x1000-0x2000 and 0x3000-0x4000)
     int32_t h = hcomm.WriteWithNotifyNbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x9000), reinterpret_cast<GM_ADDR>(0x5008), 8,
         reinterpret_cast<GM_ADDR>(0x33), 1);
@@ -250,7 +277,8 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchCommitDrain)
     EXPECT_EQ(hcomm.Drain(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
 }
 
-// Init with LocalTensor overload: uses LocalTensor directly without TBuffAddr/SetAddr
+// Init with LocalTensor overload: uses LocalTensor directly without
+// TBuffAddr/SetAddr
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_InitLocalTensor)
 {
     UrmaChannelResource channel;
