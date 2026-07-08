@@ -11,10 +11,7 @@
 #include "aicpu_ts_thread.h"
 #include "sal_pub.h"
 #include "stream_lite.h"
-#include "task_info.h"
 #include "aicpu_launch_manager.h"
-#include "profiling_handler_lite.h"
-#include "aicpu_indop_env.h"
 #include "adapter_rts_common.h"
 
 using namespace std;
@@ -346,6 +343,7 @@ Thread *Thread::FindThreadByCommEngine(CommEngine commEngine)
     return nullptr;
 }
 
+#ifndef CCL_KERNEL_AICPU
 HcclResult Thread::ReportAicpuNotifyWaitTask(u64 notifyId, u64 beginTime, u32 taskId, u32 sqId) const
 {
     if (!IsReportTask()) {
@@ -526,10 +524,8 @@ HcclResult Thread::ReportHostLocalReduceTask(void *dst, const void *src, uint64_
 
 bool Thread::IsReportTask() const
 {
-#ifdef CCL_KERNEL_AICPU
-    return hcomm::GetTaskExceptionEnable() || Hccl::ProfilingHandlerLite::GetInstance().GetProfL1State();
-#endif
     return true;
 }
+#endif
 
 }  // namespace hccl

@@ -12,7 +12,6 @@
 #ifndef __AICPU_THREAD_PROCESS_H__
 #define __AICPU_THREAD_PROCESS_H__
 
-#include "common.h"
 #include "aicpu_launch_manager.h"
 #include "aicpu_ts_thread.h"
 

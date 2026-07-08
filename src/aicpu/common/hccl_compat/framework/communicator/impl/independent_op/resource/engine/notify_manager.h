@@ -15,7 +15,9 @@
 #include "hccl_common.h"
 #include "hccl/hccl_res.h"
 #include "hccl_independent_common.h"
+#ifndef CCL_KERNEL_AICPU
 #include "manager_common.h"
+#endif
 
 namespace hccl {
 

@@ -20,7 +20,6 @@
 #include "reg_mem_manager.h"
 #include "comm_mem_manager.h"
 #include "comm_engine_res_manager.h"
-#include "rank_graph.h"
 #include "comm_config_pub.h"
 #include "independent_op_context_manager.h"
 #include "channel_manager.h"
