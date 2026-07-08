@@ -44,8 +44,8 @@ set(ROOT_DIR "${CMAKE_CURRENT_LIST_DIR}/..")
 #   # With custom tar root directory
 #   pack_targets_and_files(
 #       OUTPUT aicpu_hcomm.tar.gz
-#       TARGETS ccl_kernel
-#       FILES ${CCL_KERNEL_TAR_LIBS}
+#       TARGETS aicpu_data_plane
+#       FILES ${AICPU_DATA_PLANE_TAR_LIBS}
 #       MANIFEST "bin_hash.cfg"
 #       TAR_ROOT_DIR "aicpu_kernels_device"
 #   )
