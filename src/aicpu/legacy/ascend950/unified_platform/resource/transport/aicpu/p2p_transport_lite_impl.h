@@ -18,7 +18,6 @@
 #include "task_param.h"
 #include "rmt_rma_buf_slice_lite.h"
 #include "rma_conn_lite.h"
-#include "kernel_param_lite.h"
 
 namespace Hccl {
 

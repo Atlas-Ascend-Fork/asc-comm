@@ -12,12 +12,10 @@
 #ifndef __AICPU_INDOP_PROCESS_H__
 #define __AICPU_INDOP_PROCESS_H__
 
-#include "common.h"
 #include "channel_param.h"
 #include "aicpu_launch_manager.h"
 #include "aicpu_init_param.h"
 #include "coll_comm_aicpu_mgr.h"
-#include "hccl_diag.h"
 class AicpuIndopProcess {
 public:
     ~AicpuIndopProcess() = default;
@@ -26,7 +24,6 @@ public:
     static HcclResult AicpuIndOpThreadInit(ThreadMgrAicpuParam *param);
     static HcclResult AicpuIndOpNotifyInit(NotifyMgrAicpuParam *param);
     static HcclResult AicpuIndOpCommInit(CommAicpuParam *commAicpuParam);
-    static HcclResult AicpuDfxOpInfoInit(HcclDfxOpInfo *aicpuDfxInfo, const std::string& commTag);
 
     static HcclResult AcquireAicpuCommMgr(const std::string &group, CollCommAicpuMgr **aicpuCommMgrPtr);
     static CollCommAicpuMgr *AicpuGetCommMgrbyGroup(const std::string &group);
@@ -35,9 +32,5 @@ public:
     static ReadWriteLockBase& AicpuGetCommMutex();
     static HcclResult AicpuGetCommAll(std::vector<std::pair<std::string, CollCommAicpuMgr *>> &aicpuCommInfo);
     static HcclResult AicpuDestroyCommbyGroup(const std::string &group);
-
-    static HcclResult ProfilingReportDeviceOp(const std::string &group);
-    static HcclResult ReportAllTasks(const std::string &group);
-    static HcclResult UpdateTask(const std::string &group);
 };
 #endif // __AICPU_INDOP_PROCESS_H__
