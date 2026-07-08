@@ -78,7 +78,7 @@ foreach(include_root
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr
     # Header-only HCCL compatibility dependency kept by the A5 AICPU data-plane
-    # closure. No non-A5 source files are built into libccl_kernel.so.
+    # closure. No non-A5 source files are built into libaicpu_data_plane.so.
     ${ASC_COMM_AICPU_SRC_DIR}/common/hccl_compat
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950
 )
@@ -113,17 +113,17 @@ set(ASC_COMM_AICPU_COMPILE_OPTIONS
     -std=c++17
 )
 
-add_library(ccl_kernel SHARED ${ASC_COMM_CCL_KERNEL_SOURCES})
-target_compile_definitions(ccl_kernel PRIVATE ${ASC_COMM_AICPU_COMPILE_DEFINITIONS})
-target_compile_options(ccl_kernel PRIVATE ${ASC_COMM_AICPU_COMPILE_OPTIONS})
-target_link_options(ccl_kernel PRIVATE
+add_library(aicpu_data_plane SHARED ${ASC_COMM_AICPU_DATA_PLANE_SOURCES})
+target_compile_definitions(aicpu_data_plane PRIVATE ${ASC_COMM_AICPU_COMPILE_DEFINITIONS})
+target_compile_options(aicpu_data_plane PRIVATE ${ASC_COMM_AICPU_COMPILE_OPTIONS})
+target_link_options(aicpu_data_plane PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
     -Wl,-z,noexecstack
     -s
 )
-target_include_directories(ccl_kernel PRIVATE ${ASC_COMM_AICPU_INCLUDE_LIST})
-target_link_libraries(ccl_kernel PRIVATE
+target_include_directories(aicpu_data_plane PRIVATE ${ASC_COMM_AICPU_INCLUDE_LIST})
+target_link_libraries(aicpu_data_plane PRIVATE
     $<BUILD_INTERFACE:acl_rt_headers>
     $<BUILD_INTERFACE:asc_host_headers>
     $<BUILD_INTERFACE:asc_kernel_headers>
@@ -145,22 +145,6 @@ target_link_libraries(ccl_kernel PRIVATE
     -lpthread
 )
 
-add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ccl_kernel.json
-    COMMAND ${HI_PYTHON} ${HCOMM_DIR}/cmake/scripts/parser_ini.py
-                         ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/framework/communicator/aicpu/ccl_kernel.ini
-                         ${CMAKE_CURRENT_BINARY_DIR}/ccl_kernel.json
-    WORKING_DIRECTORY ${HCOMM_DIR}
-    COMMENT "Generating ccl_kernel.json"
-    VERBATIM
-)
-add_custom_target(ccl_kernel_json ALL
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/ccl_kernel.json
-)
-
-install(TARGETS ccl_kernel
+install(TARGETS aicpu_data_plane
     LIBRARY DESTINATION ${INSTALL_DEVICE_LIBRARY_DIR} ${INSTALL_OPTIONAL}
-)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ccl_kernel.json
-    DESTINATION ${INSTALL_CCL_KERNEL_JSON_DIR}/config ${INSTALL_OPTIONAL}
 )
