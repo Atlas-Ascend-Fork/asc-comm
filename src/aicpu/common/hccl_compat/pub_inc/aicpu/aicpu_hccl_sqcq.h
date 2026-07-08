@@ -710,11 +710,6 @@ extern HcclResult QuerySqBaseAddr(uint32_t devId, uint32_t sqId, u64 &outVal);
 using CqeStatus = dfx::CqeStatus;
 using CqeQueryInput = dfx::CqeQueryInput;
 extern CqeStatus CqReportRecv(const CqeQueryInput& cqeQueryInput, rtLogicCqReport_t &cqeException);
-extern void PrintTaskException(const rtLogicCqReport_t &reportOfOne);
 extern HcclResult StreamsKill(const uint32_t devId);
 extern HcclResult DeviceQuery(const uint32_t devId, const uint32_t step, const uint32_t timeout);
-namespace hccl_plf {
-    HcclResult SendTaskExceptionByMBox(const u32 localDeviceId, const u32 notifyId, const u32 tsId,
-        const s32 userStreamId, const u32 cqeErrCode);
-}
 #endif  // __AICPU_HCCL_SQCQ_H__

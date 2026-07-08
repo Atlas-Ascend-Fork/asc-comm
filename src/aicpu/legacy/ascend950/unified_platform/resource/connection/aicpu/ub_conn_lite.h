@@ -18,7 +18,6 @@
 #include "rmt_rma_buf_slice_lite.h"
 #include "rma_conn_lite.h"
 #include "udma_data_struct.h"
-#include "kernel_param_lite.h"
 #include "stream_lite.h"
 
 namespace Hccl {
