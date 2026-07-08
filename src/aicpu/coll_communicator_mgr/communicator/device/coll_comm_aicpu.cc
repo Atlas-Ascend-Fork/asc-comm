@@ -9,20 +9,12 @@
  */
 
 #include "coll_comm_aicpu.h"
-#include "aicpu_operator_pub.h"
 #include "adapter_hal_pub.h"
 #include "aicpu_ts_thread.h"
 #include "aicpu_res_package_helper.h"
 #include "ub_transport_lite_impl.h"
 #include "notify_manager.h"
-#include "aicpu_hccl_def.h"
-#include "ns_recovery/aicpu/ns_recovery_func_lite.h"
 #include "dlhal_function_v2.h"
-#include "profiling_command_handle_lite.h"
-#include "aicpu_daemon_service.h"
-#include "hcclCommTaskExceptionLite.h"
-#include "coll_comm_aicpu_destroy_func.h"
-#include "aicpu_indop_env.h"
 
 constexpr u32 NOTIFY_SIZE_EIGHT = 8;
 
@@ -30,9 +22,6 @@ CollCommAicpu::~CollCommAicpu()
 {
     ReadWriteLock rwLock(threadMutex_);
     rwLock.writeLock();
-    for (auto& thread : threads_) {
-        HcommThreadRegisterCheckExecStatus(reinterpret_cast<ThreadHandle>(thread.get()), nullptr);
-    }
     threads_.clear();
     rwLock.writeUnlock();
     HCCL_RUN_INFO("[CollCommAicpu][%s]Group[%s] destroy success", __func__, identifier_.c_str());
@@ -58,19 +47,10 @@ HcclResult CollCommAicpu::InitAicpuIndOp(CommAicpuParam *commAicpuParam)
     CHK_RET(hrtSetlocalDevice(topoInfo_.deviceLogicId));
     CHK_RET(hrtSetlocalDeviceType(topoInfo_.deviceType));
     CHK_RET(hrtDrvGetLocalDevIDByHostDevID(topoInfo_.devicePhyId, &devId_));
-    CHK_RET(dfx_.Init(devId_, identifier_));
-    CHK_RET(RegisterProfCallBack());
-    CHK_RET(InitHDCommunicate(commAicpuParam));
-
-    EXCEPTION_CATCH(nsRecoveryLitePtr_ = std::make_shared<NsRecoveryLite>(), return HCCL_E_PTR);
-    nsRecoveryLitePtr_->Init(kfcControlTransferH2D_, kfcStatusTransferD2H_);
 
     CHK_RET(Hccl::DlHalFunctionV2::GetInstance().DlHalFunctionInit());
 
     commStatus_ = HcclCommStatus::HCCL_COMM_STATUS_READY;
-
-    static std::once_flag initBackGround;
-    std::call_once(initBackGround, [this]() { this->InitBackGroundThread();} );
 
     static std::once_flag initEnv;
     std::call_once(initEnv, [this, commAicpuParam]() { this->InitIndopEnv(commAicpuParam);} );
@@ -80,26 +60,9 @@ HcclResult CollCommAicpu::InitAicpuIndOp(CommAicpuParam *commAicpuParam)
     return HCCL_SUCCESS;
 }
 
-HcclResult CollCommAicpu::InitHDCommunicate(CommAicpuParam *commAicpuParam)
-{
-    if (commAicpuParam->kfcControlTransferH2DParams.buffLen != 0 && kfcControlTransferH2D_ == nullptr) {
-        EXCEPTION_CATCH((kfcControlTransferH2D_ = std::make_shared<hccl::HDCommunicate>()), return HCCL_E_PTR);
-        CHK_SMART_PTR_NULL(kfcControlTransferH2D_);
-        CHK_RET(kfcControlTransferH2D_->InitDevice(commAicpuParam->kfcControlTransferH2DParams));
-    }
-    if (commAicpuParam->kfcStatusTransferD2HParams.buffLen != 0 && kfcStatusTransferD2H_ == nullptr) {
-        EXCEPTION_CATCH((kfcStatusTransferD2H_ = std::make_shared<hccl::HDCommunicate>()), return HCCL_E_PTR);
-        CHK_SMART_PTR_NULL(kfcStatusTransferD2H_);
-        CHK_RET(kfcStatusTransferD2H_->InitDevice(commAicpuParam->kfcStatusTransferD2HParams));
-    }
-    return HCCL_SUCCESS;
-}
-
 void CollCommAicpu::InitIndopEnv(CommAicpuParam *commAicpuParam)
 {
-    hcomm::SetTaskExceptionEnable(commAicpuParam->commConfig.taskExceptionEnable);
-    HCCL_RUN_INFO("[%s]Env: taskExceptionEnable[%d], notifyWaitTimeout[%u]",
-        __func__, commAicpuParam->commConfig.taskExceptionEnable, commAicpuParam->commConfig.notifyWaitTimeout);
+    HCCL_RUN_INFO("[%s]Env: notifyWaitTimeout[%u]", __func__, commAicpuParam->commConfig.notifyWaitTimeout);
 }
 
 void CollCommAicpu::SetCommmStatus(HcclCommStatus status)
@@ -142,7 +105,6 @@ HcclResult CollCommAicpu::InitThreads(ThreadMgrAicpuParam *param)
     for (size_t i = 0; i < outThreads.size(); ++i) {
         threadArray[i] = reinterpret_cast<ThreadHandle>(outThreads[i].get());  // 拷贝裸指针
         HCCL_INFO("[CollCommAicpu][%s] threadArray[%u] = [%lu]", __func__, i, threadArray[i]);
-        CHK_RET(RegisterThreadAddDfxTaskInfo(threadArray[i]));
     }
     ReadWriteLock rwLock(threadMutex_);
     rwLock.writeLock();
@@ -152,27 +114,6 @@ HcclResult CollCommAicpu::InitThreads(ThreadMgrAicpuParam *param)
     HCCL_INFO("[CollCommAicpu][%s] comm identifier[%s], init threads num[%u] success",
         __func__, hcomId.c_str(), threadNum);
     return HCCL_SUCCESS;
-}
-
-HcclResult CollCommAicpu::RegisterThreadAddDfxTaskInfo(ThreadHandle thread) 
-{
-    int32_t ret = HcommThreadRegisterDfx(thread, dfx_.GetCallback());
-    if (ret != 0) {
-        HCCL_ERROR("[%s] HcommThreadRegisterDfx failed, ret[%d], thread[0x%llx], dfx_.GetCallback[%p]",
-            __func__, ret, thread, dfx_.GetCallback());
-        return HCCL_E_PTR;
-    }
-
-    std::function<HcclResult(bool)> checkExecStatusCallback = [this](bool isTimeout) {
-        return this->CheckIndOpExecStatus(isTimeout);
-    };
-    ret = HcommThreadRegisterCheckExecStatus(thread, checkExecStatusCallback);
-    if (ret != 0) {
-        HCCL_ERROR("[%s]HcommThreadRegisterCheckExecStatus failed, ret[%d], thread[0x%llx], checkExecStatusCallback[%p]",
-            __func__, ret, thread, checkExecStatusCallback);
-        return HCCL_E_PTR;
-    }
- 	return HCCL_SUCCESS;
 }
 
 HcclResult CollCommAicpu::AllocChannelResource(HcclChannelUrmaRes *commParam)
@@ -218,8 +159,6 @@ HcclResult CollCommAicpu::ProcessUrmaRes(HcclChannelUrmaRes *commParam, bool isI
             CHK_RET(ParsePackData(dataVec[resType].data, channelHandle));
             // 恢复出的channelHandle回填到commParam中
             channelList[index] = channelHandle;
-            CHK_RET(RegisterChannelAddDfxTaskInfo(channelHandle));
-            dfx_.AddChannelRemoteRankId(channelHandle, commParam->remoteRankList[index]);
         } else {
             channelHandle = channelList[index];
             if (!ubTransportMap_.count(channelHandle)) {
@@ -259,7 +198,6 @@ HcclResult CollCommAicpu::ParsePackData(std::vector<char> &data, ChannelHandle &
         EXCEPTION_CATCH((ubTransportLiteImpl = std::make_unique<Hccl::UbTransportLiteImpl>(transpUniqueId)),
             return HCCL_E_PTR);
         CHK_SMART_PTR_NULL(ubTransportLiteImpl);
-        ubTransportLiteImpl->SetTaskExceptionEnable(hcomm::GetTaskExceptionEnable());
         handle = reinterpret_cast<uint64_t>(ubTransportLiteImpl.get());
         ubTransportMap_.insert({handle, std::move(ubTransportLiteImpl)});
     } else if (transType == Hccl::TransportType::P2P) {
@@ -283,11 +221,6 @@ HcclResult CollCommAicpu::ParsePackData(std::vector<char> &data, ChannelHandle &
     }
 
     return HCCL_SUCCESS;
-}
-
-HcclResult CollCommAicpu::RegisterChannelAddDfxTaskInfo(ChannelHandle channel) {
-    int hert = HcommChannelRegisterDfx(channel, dfx_.GetCallback());
-    return static_cast<HcclResult>(hert);
 }
 
 HcclResult CollCommAicpu::NotifyFree(NotifyMgrAicpuParam *param)
@@ -356,11 +289,6 @@ HcclResult CollCommAicpu::NotifyAlloc(NotifyMgrAicpuParam *param)
     return HCCL_SUCCESS;
 }
 
-hccl::NsRecoveryLitePtr CollCommAicpu::GetNsRecoveryLitePtr()
-{
-    return nsRecoveryLitePtr_;
-}
-
 HcclResult CollCommAicpu::Clean()
 {
     for (auto& transPort : ubTransportMap_) {
@@ -386,89 +314,9 @@ HcclResult CollCommAicpu::Resume(HcclChannelUrmaRes *commParam)
 {
     CHK_PTR_NULL(commParam);
     CHK_RET(ProcessUrmaRes(commParam, false));
-    nsRecoveryLitePtr_->SetNeedClean(false);
 
-    SetErrorReported(false);
     commStatus_ = HcclCommStatus::HCCL_COMM_STATUS_READY;
     
-    return HCCL_SUCCESS;
-}
-
-HcclResult CollCommAicpu::CheckIndOpExecStatus(bool timeout)
-{
-    if (timeout) {
-        HCCL_ERROR("[%s]comm[%s] op launch timeout, print taskException", __func__, identifier_.c_str());
-        // 先打印本通信域的taskException，再打印其他通信域的taskException
-        hcomm::HcclCommTaskExceptionLite::GetInstance().PrintCommTaskException(this);
-        hcomm::HcclCommTaskExceptionLite::GetInstance().PrintAllCommTaskException();
-        return HCCL_E_INTERNAL;
-    } else if (commStatus_ != HCCL_COMM_STATUS_READY) {
-        HCCL_ERROR("[%s]comm[%s] commStatus[%d] is not ready, return fail", __func__, identifier_.c_str(), commStatus_);
-        return HCCL_E_INTERNAL;
-    }
-    return HCCL_SUCCESS;
-}
-
-void CollCommAicpu::InitBackGroundThread()
-{
-    static auto commandToBackGroud = Hccl::CommandToBackGroud::Default;
-    static auto daemonServiceRun = [](void *info) {
-        Hccl::AicpuDaemonService::GetInstance().ServiceRun(info);
-    };
-    static auto daemonServiceStop = [](void *info) {
-        Hccl::AicpuDaemonService::GetInstance().ServiceStop(info);
-    };
-
-    // 注册守护进程函数
-    hcomm::HcclCommTaskExceptionLite::GetInstance().Init(devId_);
-    Hccl::AicpuDaemonService::GetInstance().Register(&hcomm::HcclCommTaskExceptionLite::GetInstance());
-    Hccl::AicpuDaemonService::GetInstance().Register(&hccl::CollCommAicpuDestroyFunc::GetInstance());
-    Hccl::AicpuDaemonService::GetInstance().Register(&NsRecoveryFuncLite::GetInstance());
-
-    // 启动背景线程
-    if (Hccl::StartMC2MaintenanceThread != nullptr) {
-        Hccl::StartMC2MaintenanceThread(daemonServiceRun, &commandToBackGroud, daemonServiceStop, &commandToBackGroud);
-        HCCL_RUN_INFO("[%s]start BackGround thread success.", __func__);
-    } else {
-        HCCL_WARNING("[%s]StartMC2MaintenanceThread func is nullptr", __func__);
-    }
-}
-
-HcclResult CollCommAicpu::BackGroundGetCmd(Hccl::KfcCommand &cmd)
-{
-    CHK_SMART_PTR_NULL(kfcControlTransferH2D_);
-    HcclResult ret = kfcControlTransferH2D_->Get(0, sizeof(Hccl::KfcCommand), reinterpret_cast<uint8_t *>(&cmd));
-    CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[%s]fail, group[%s]", __func__, identifier_.c_str()), ret);
-    return HCCL_SUCCESS;
-}
-
-HcclResult CollCommAicpu::BackGroundSetStatus(Hccl::KfcStatus state)
-{
-    Hccl::KfcExecStatus status;
-    status.kfcStatus = state;
-    HCCL_INFO("[%s]group[%s], state[%u]", __func__, identifier_.c_str(), state);
-    HcclResult ret = kfcStatusTransferD2H_->Put(0, sizeof(status.kfcStatus), reinterpret_cast<uint8_t *>(&status));
-    CHK_PRT_RET(ret != HCCL_SUCCESS, HCCL_ERROR("[%s]fail, group[%s]", __func__, identifier_.c_str()), ret);
-    return HCCL_SUCCESS;
-}
-
-HcclResult CollCommAicpu::SendErrorMessageReportToHost(Hccl::ErrorMessageReport& errMsgInfo)
-{
-    CHK_SMART_PTR_NULL(kfcStatusTransferD2H_);
-    CHK_RET(kfcStatusTransferD2H_->Put(sizeof(Hccl::KfcStatus) + sizeof(Hccl::KfcErrType), sizeof(errMsgInfo),
-        reinterpret_cast<uint8_t *>(&errMsgInfo)));
-    return HCCL_SUCCESS;
-}
-
-HcclResult CollCommAicpu::RegisterProfCallBack()
-{
-    if (MsprofRegisterCallback != nullptr) {
-        HCCL_INFO("RegisterProfCallBack not null");
-        int32_t ret = MsprofRegisterCallback(AICPU, &Hccl::DeviceCommandHandle);
-        CHK_PRT_RET((ret != 0), HCCL_ERROR("[%s] failed. ret = [%d]", __func__, ret), HCCL_E_PARA);
-    } else {
-        HCCL_INFO("RegisterProfCallBack is null");
-    }
     return HCCL_SUCCESS;
 }
 

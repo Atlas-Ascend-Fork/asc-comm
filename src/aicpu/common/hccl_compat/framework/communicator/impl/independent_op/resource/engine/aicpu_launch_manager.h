@@ -12,7 +12,6 @@
 
 #include "hccl_common.h"
 #include "stream_pub.h"
-#include "aicpu_operator_pub.h"
 #include "thread.h"
 #include "hccl/hccl_res.h"
 #include "hccl_independent_common.h"

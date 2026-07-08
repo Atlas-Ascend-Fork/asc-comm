@@ -82,8 +82,6 @@ void SetProfConfig(u64 profConfig);
 
 const u32& GetExternalInputHcclIfBasePort();
 
-const u32& GetExternalInputTaskExceptionSwitch();
-
 const u32& GetExternalInputIntraRoceSwitch();
 
 const u32& GetExternalInputHcclEnableWhitelist();

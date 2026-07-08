@@ -18,7 +18,6 @@
 #include "stream_lite.h"
 #include "rma_buffer_lite.h"
 #include "buffer.h"
-#include "kernel_param_lite.h"
 
 namespace Hccl {
 

@@ -12,7 +12,9 @@
 #define LOCAL_NOTIFY_H
 
 #include "stream_pub.h"
+#ifndef CCL_KERNEL_AICPU
 #include "dispatcher.h"
+#endif
 #include "hccl_common.h"
 
 namespace hccl {
