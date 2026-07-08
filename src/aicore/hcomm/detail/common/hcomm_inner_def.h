@@ -34,20 +34,21 @@ constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
 
 #pragma pack(push, 1)
 struct UrmaWqeEntry {
-    uint32_t odr : 3;       // ordering, request ordering strength (0=unordered, 5=strongly ordered)
-    uint32_t fence : 1;     // fence, 1=current WQE waits for all prior WQEs to complete
-    uint32_t se : 1;        // solicited event, 1=trigger remote event notification on completion
-    uint32_t cqe : 1;       // completion queue entry, 1=generate CQE on completion
-    uint32_t inlineEn : 1;  // inline enable, 1=data inlined in WQE instead of SGE reference
+    uint32_t odr : 3;      // ordering, request ordering strength (0=unordered,
+                           // 5=strongly ordered)
+    uint32_t fence : 1;    // fence, 1=current WQE waits for all prior WQEs to complete
+    uint32_t se : 1;       // solicited event, 1=trigger remote event notification on completion
+    uint32_t cqe : 1;      // completion queue entry, 1=generate CQE on completion
+    uint32_t inlineEn : 1; // inline enable, 1=data inlined in WQE instead of SGE reference
 } __attribute__((packed));
 #pragma pack(pop)
 
 static constexpr UrmaWqeEntry URMA_DEFAULT_CFG = {
-    .odr        = 5,
-    .fence      = 1,
-    .se         = 0,
-    .cqe        = 1,
-    .inlineEn   = 0,
+    .odr = 5,
+    .fence = 1,
+    .se = 0,
+    .cqe = 1,
+    .inlineEn = 0,
 };
 
 typedef enum {
@@ -222,13 +223,14 @@ typedef struct {
     uint32_t remoteBufferNum;
     uint32_t sqNum;
     uint32_t cqNum;
-    RegedNotifyEntity* localNotifyAddr;
-    RegedNotifyEntity* remoteNotifyAddr;
-    RegedBufferEntity* localBufferAddr;
-    RegedBufferEntity* remoteBufferAddr;
-    SqContext* sqContextAddr;
-    CqContext* cqContextAddr;
-    uint8_t reserve[160];
+    RegedNotifyEntity *localNotifyAddr;
+    RegedNotifyEntity *remoteNotifyAddr;
+    RegedBufferEntity *localBufferAddr;
+    RegedBufferEntity *remoteBufferAddr;
+    SqContext *sqContextAddr;
+    CqContext *cqContextAddr;
+    uint32_t wqeCnt;
+    uint8_t reserve[156];
 } ChannelEntity;
 
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
@@ -319,20 +321,20 @@ typedef struct {
 typedef struct {
     union {
         struct {
-            uint64_t qpn: 20;
-            uint64_t ctxSize: 2;
-            uint64_t r: 1;
-            uint64_t c: 1;
-            uint64_t cos: 3;
-            uint64_t type: 5;
+            uint64_t qpn : 20;
+            uint64_t ctxSize : 2;
+            uint64_t r : 1;
+            uint64_t c : 1;
+            uint64_t cos : 3;
+            uint64_t type : 5;
 
-            uint64_t pi: 8;
-            uint64_t resv: 8;
-            uint64_t xrcVld: 1;
-            uint64_t rsvd: 1;
-            uint64_t mtuShift: 3;
-            uint64_t sgidIdx: 7;
-            uint64_t subType: 4;
+            uint64_t pi : 8;
+            uint64_t resv : 8;
+            uint64_t xrcVld : 1;
+            uint64_t rsvd : 1;
+            uint64_t mtuShift : 3;
+            uint64_t sgidIdx : 7;
+            uint64_t subType : 4;
         } bs;
         uint64_t value;
     } dw0;
