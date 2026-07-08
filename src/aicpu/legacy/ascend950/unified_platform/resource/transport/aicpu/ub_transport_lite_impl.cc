@@ -15,10 +15,9 @@
 #include "exception_util.h"
 #include "internal_exception.h"
 #include "sal.h"
-#include "communicator_impl_lite_manager.h"
-#include "profiling_handler_lite.h"
 
 namespace Hccl {
+constexpr u32 DEFAULT_HCCL_EXEC_TIMEOUT = 1836;
 constexpr u32 UB_WQE_MAX_SIZE      = 128; // 针对WriteWithNotify类型WQE，最大是128Byte
 constexpr u32 UB_INLINE_WRITE_SIZE = 4;
 constexpr u32 UB_RELAX_ORDER       = 0X01; // Relax Order表示当前SQE与后续Strong Order SQE有保序要求
@@ -381,7 +380,7 @@ void UbTransportLiteImpl::Post(u32 index, const StreamLite &stream)
 
 void UbTransportLiteImpl::Wait(u32 index, const StreamLite &stream)
 {
-    WaitWithTimeout(index, stream, CommunicatorImplLiteMgr::GetInstance().GetEnvConfig().hcclExecTimeout);
+    WaitWithTimeout(index, stream, DEFAULT_HCCL_EXEC_TIMEOUT);
 }
 
 void UbTransportLiteImpl::WaitWithTimeout(u32 index, const StreamLite &stream, u32 timeout)
@@ -1039,7 +1038,6 @@ void UbTransportLiteImpl::SetFenceConfig(SqeConfigLite &cfg)
 
 bool UbTransportLiteImpl::IsReportTask()
 {
-    return (taskExceptionEnable_ || ProfilingHandlerLite::GetInstance().GetProfL1State()) &&
-           (callback_ != nullptr || newCallback_ != nullptr);
+    return false;
 }
 } // namespace Hccl

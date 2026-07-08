@@ -13,9 +13,9 @@
 #include "binary_stream.h"
 #include "exception_util.h"
 #include "sal.h"
-#include "communicator_impl_lite_manager.h"
 
 namespace Hccl {
+constexpr u32 DEFAULT_HCCL_EXEC_TIMEOUT = 1836;
 constexpr u32 NOTIFY_RECORD_WRITE_VALUE = 1;
 P2PTransportLiteImpl::P2PTransportLiteImpl(
     std::vector<char> &uniqueId, std::function<void(u32 streamId, u32 taskId, const TaskParam &taskParam)> callback)
@@ -377,7 +377,7 @@ void P2PTransportLiteImpl::Post(u32 index, const StreamLite &stream)
 
 void P2PTransportLiteImpl::Wait(u32 index, const StreamLite &stream)
 {
-    WaitWithTimeout(index, stream, CommunicatorImplLiteMgr::GetInstance().GetEnvConfig().hcclExecTimeout);
+    WaitWithTimeout(index, stream, DEFAULT_HCCL_EXEC_TIMEOUT);
 }
 
 void P2PTransportLiteImpl::WaitWithTimeout(u32 index, const StreamLite &stream, u32 timeout)

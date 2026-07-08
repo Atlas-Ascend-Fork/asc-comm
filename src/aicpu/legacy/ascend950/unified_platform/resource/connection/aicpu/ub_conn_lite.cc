@@ -16,7 +16,6 @@
 #include "string_util.h"
 #include "binary_stream.h"
 #include "data_type.h"
-#include "communicator_impl_lite_manager.h"
 
 constexpr u32 MAX_LOG_TIMEOUT_MS        = 500;
 namespace Hccl {

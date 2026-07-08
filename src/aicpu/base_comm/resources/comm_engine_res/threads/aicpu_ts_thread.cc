@@ -148,15 +148,19 @@ HcclResult AicpuTsThread::LocalNotifyWait(uint32_t notifyId) const
 
 HcclResult AicpuTsThread::LocalNotifyRecord(uint32_t notifyId) const
 {
+#ifndef CCL_KERNEL_AICPU
     u64 beginTime = ProfGetCurCpuTimestamp();
     void *streamLitePtr = GetStreamLitePtr();
     Hccl::StreamLite *streamLite = static_cast<Hccl::StreamLite *>(streamLitePtr);
     Hccl::RtsqBase *rtsq = streamLite->GetRtsq();
     u32 taskId = rtsq->GetTaskId();
+#endif
 
     CHK_RET(pImpl_->NotifyRecordLoc(notifyId));
 
+#ifndef CCL_KERNEL_AICPU
     CHK_RET(ReportAicpuNotifyRecordTask(notifyId, beginTime, taskId, streamLite->GetSqId()));
+#endif
     return HCCL_SUCCESS;
 }
 
@@ -168,15 +172,19 @@ HcclResult AicpuTsThread::LocalNotifyRecord(ThreadHandle dstThread, uint32_t dst
 
 HcclResult AicpuTsThread::LocalNotifyWait(uint32_t notifyId, uint32_t timeout) const
 {
+#ifndef CCL_KERNEL_AICPU
     u64 beginTime = ProfGetCurCpuTimestamp();
     void *streamLitePtr = GetStreamLitePtr();
     Hccl::StreamLite *streamLite = static_cast<Hccl::StreamLite *>(streamLitePtr);
     Hccl::RtsqBase *rtsq = streamLite->GetRtsq();
     u32 taskId = rtsq->GetTaskId();
+#endif
 
     CHK_RET(pImpl_->NotifyWait(notifyId, timeout));
 
+#ifndef CCL_KERNEL_AICPU
     CHK_RET(ReportAicpuNotifyWaitTask(notifyId, beginTime, taskId, streamLite->GetSqId()));
+#endif
     
     return HCCL_SUCCESS;
 }
@@ -185,25 +193,34 @@ template <typename Operation, typename ReportOp>
 HcclResult AicpuTsThread::LocalProcess(
     void *dst, const void *src, uint64_t sizeByte, Operation &&op, ReportOp &&reportOp) const
 {
+#ifndef CCL_KERNEL_AICPU
     void *streamLitePtr = GetStreamLitePtr();
     Hccl::StreamLite *streamLite = static_cast<Hccl::StreamLite *>(streamLitePtr);
     Hccl::RtsqBase *rtsq = streamLite->GetRtsq();
+#endif
+    (void)reportOp;
 
     uint64_t dstAddr = reinterpret_cast<uint64_t>(dst);
     uint64_t srcAddr = reinterpret_cast<uint64_t>(src);
+#ifndef CCL_KERNEL_AICPU
     uint8_t *dstByte = static_cast<uint8_t *>(dst);
     const uint8_t *srcByte = static_cast<const uint8_t *>(src);
+#endif
 
     uint64_t remainSize = sizeByte;
     uint64_t doneSize = 0;
 
     while (remainSize > 0) {
         uint64_t realSize = remainSize > SDMA_SEND_MAX_SIZE ? SDMA_SEND_MAX_SIZE : remainSize;
+#ifndef CCL_KERNEL_AICPU
         u64 beginTime = ProfGetCurCpuTimestamp();
         u32 taskId = rtsq->GetTaskId();
+#endif
 
         CHK_RET(op(dstAddr + doneSize, srcAddr + doneSize, realSize));
+#ifndef CCL_KERNEL_AICPU
         CHK_RET(reportOp(dstByte + doneSize, srcByte + doneSize, realSize, beginTime, taskId, streamLite->GetSqId()));
+#endif
 
         doneSize += realSize;
         remainSize -= realSize;
@@ -218,8 +235,8 @@ HcclResult AicpuTsThread::LocalCopy(void *dst, const void *src, uint64_t size) c
         [this](uint64_t dst, uint64_t src, uint64_t size) {
             return pImpl_->SdmaCopy(dst, src, size);
         },
-        [this](void *dst, const void *src, uint64_t size, uint64_t beginTime, uint32_t taskId, uint32_t sqId) {
-            return ReportAicpuLocalCopyTask(dst, src, size, beginTime, taskId, sqId);
+        [](void *, const void *, uint64_t, uint64_t, uint32_t, uint32_t) {
+            return HCCL_SUCCESS;
         });
 }
 
@@ -233,8 +250,8 @@ HcclResult AicpuTsThread::LocalReduce(
         [this, &dataTypeRaw, &reduceOpRaw](uint64_t d, uint64_t s, uint64_t size) {
             return pImpl_->SdmaReduce(d, s, size, dataTypeRaw, reduceOpRaw);
         },
-        [this, &dataType, &reduceOp](void *dst, const void *src, uint64_t size, uint64_t beginTime, uint32_t taskId,uint32_t sqId) {
-            return ReportAicpuLocalReduceTask(dst, src, size, dataType, reduceOp, beginTime, taskId, sqId);
+        [](void *, const void *, uint64_t, uint64_t, uint32_t, uint32_t) {
+            return HCCL_SUCCESS;
         });
 }
 
@@ -415,13 +432,4 @@ HcclResult AicpuTsThread::SupplementNotify(u32 notifyNum, const std::string &not
     return HCCL_SUCCESS;
 }
 
-HcclResult AicpuTsThread::SetCheckExecStatusCallback(std::function<HcclResult(bool)> callback)
-{
-    Hccl::StreamLite *streamLite = static_cast<Hccl::StreamLite *>(GetStreamLitePtr());
-    CHK_PTR_NULL(streamLite);
-    Hccl::RtsqBase *rtsq = streamLite->GetRtsq();
-    CHK_PTR_NULL(rtsq);
-    rtsq->SetCheckExecStatusCallback(callback);
-    return HCCL_SUCCESS;
-}
 } // namespace hccl

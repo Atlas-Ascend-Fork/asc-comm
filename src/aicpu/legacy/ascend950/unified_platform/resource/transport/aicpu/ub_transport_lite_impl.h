@@ -19,7 +19,6 @@
 #include "task_param.h"
 #include "rmt_rma_buf_slice_lite.h"
 #include "rma_conn_lite.h"
-#include "kernel_param_lite.h"
 #include "hcomm_primitives.h"
 
 namespace Hccl {
@@ -80,7 +79,6 @@ public:
 
     HcclResult Clean();
     HcclResult Resume(std::vector<char> &uniqueId);
-    void SetTaskExceptionEnable(bool flag) { taskExceptionEnable_ = flag; }
 
     HcclResult ExecuteBatchTransfer(StreamLite *streamLitePtr, const HcommBatchTransferDesc *transferDescs,
                         uint32_t transferDescNum);
@@ -90,7 +88,6 @@ private:
     u32 rmtbufferNum{0};
     u32 connNum{0};
     bool fence_{false};
-    bool taskExceptionEnable_{true};
 
     struct RmtUbBufLite {
         u64         addr;
