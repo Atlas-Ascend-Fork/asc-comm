@@ -8,14 +8,13 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "sqe_build_a5.h"
-#include "communicator_impl_lite_manager.h"
 
 namespace Hccl {
+constexpr u32 DEFAULT_HCCL_EXEC_TIMEOUT = 1836;
 
 u32 GetKernelExecTimeoutFromEnvConfig()
 {
-    const u32 envTimeout  = CommunicatorImplLiteMgr::GetInstance().GetEnvConfig().hcclExecTimeout;
-    return envTimeout;
+    return DEFAULT_HCCL_EXEC_TIMEOUT;
 }
 
 namespace 

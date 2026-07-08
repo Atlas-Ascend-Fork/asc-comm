@@ -18,7 +18,6 @@
 #include "reduce_op.h"
 #include "ip_address.h"
 #include "ub_jetty_lite.h"
-#include "kernel_param_lite.h"
 #include "stream_lite.h"
 namespace Hccl {
 MAKE_ENUM(RmaConnLiteType, P2P, RDMA, UB, CCU) // 需要和RmaConnType一一对应
