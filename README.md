@@ -9,8 +9,7 @@
 ├── include                       # asc-comm API 声明源代码
 |   ├── aicore
 │   ├── ain
-│   ├── collective_comm
-│   └── direct_drive
+│   └── collective_comm
 ├── scripts                       # 脚本
 ├── src                           # asc-comm API 实现源代码
 └── tests                         # asc-comm API UT 用例
