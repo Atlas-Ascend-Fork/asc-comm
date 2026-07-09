@@ -87,7 +87,10 @@
 
 - 校验机制：
 
-  - Host预初始化seg0时填充基于`rankId`的确定性pattern（`(rankId + 1) & 0xFF`），通信后可区分数据来源。
+  <!-- - Host预初始化seg0时填充基于`rankId`的确定性pattern（`(rankId + 1) & 0xFF`），通信后可区分数据来源。 -->
+  - Host预初始化seg0时填充做的两次数学计算，目的是生成用于通信校验的随机数据
+    - `0x9E3779B9U` (Knuth 的乘法哈希常数，黄金分割常数)
+    - `1664525U` 和 `1013904223U` 线性同余生成器（LCG）参数
   - Kernel校验seg1（对端`WriteNbi`写入）和seg2（本卡`ReadNbi`读回）是否都为对端pattern，结果写入`CommContext::testResult`。
   - Host侧通过`aclrtMemcpy`回读`testResult`，为0时打印`test pass!`。
 
