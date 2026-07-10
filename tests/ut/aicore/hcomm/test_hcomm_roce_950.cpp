@@ -17,43 +17,70 @@
 using namespace std;
 using namespace AscendC;
 
+namespace {
+
+constexpr uint32_t ROCE_VALID_TMP_BUF_SIZE = AscendC::HCOMM_UB_BUF_SIZE;
+constexpr uint32_t ROCE_INVALID_TMP_BUF_SIZE = ROCE_VALID_TMP_BUF_SIZE / 2;
+constexpr uint32_t ROCE_SQ_NUM = 1;
+constexpr uint32_t ROCE_CQ_NUM = 1;
+constexpr uint32_t ROCE_SQ_WQE_SIZE = 48;
+constexpr uint32_t ROCE_CQE_SIZE = 32;
+constexpr uint32_t ROCE_QUEUE_DEPTH = 10;
+constexpr uint32_t ROCE_QPN = 1;
+constexpr uint32_t ROCE_CQN = 1;
+constexpr uint32_t ROCE_DB_MODE = 0;
+constexpr uint32_t ROCE_SERVICE_LEVEL = 1;
+constexpr uint32_t ROCE_BUFFER_NUM = 1;
+constexpr uint32_t ROCE_SQ_BUFFER_SIZE = 100;
+constexpr uint32_t ROCE_DB_BUFFER_SIZE = 8;
+constexpr uint64_t ROCE_LOCAL_BUFFER_ADDR = 0x100;
+constexpr uint64_t ROCE_REMOTE_BUFFER_ADDR = 0x200;
+constexpr uint64_t ROCE_NOTIFY_ADDR = 0x310;
+constexpr uint32_t ROCE_LOCAL_BUFFER_OFFSET = 0x10;
+constexpr uint32_t ROCE_REMOTE_BUFFER_OFFSET = 0x20;
+constexpr uint32_t ROCE_BUFFER_SIZE = 100;
+constexpr uint32_t ROCE_TRANSFER_SIZE = 10;
+constexpr uint32_t ROCE_NOTIFY_SIZE = 10;
+constexpr uint32_t ROCE_LKEY = 123456;
+constexpr uint32_t ROCE_RKEY = 123456;
+
 class HcommRoCETestSuite : public testing::Test {
 protected:
     virtual void SetUp()
     {
         blockIdxBak_ = block_idx;
-        pipe_.InitBuffer(hcommBuf_, 512);
+        pipe_.InitBuffer(hcommBuf_, ROCE_VALID_TMP_BUF_SIZE);
         tempTensor_ = hcommBuf_.Get<uint8_t>();
         addr_ = (uint64_t)(tempTensor_.GetPhyAddr());
-        channel_.sqNum = 1;
-        channel_.cqNum = 1;
+        channel_.sqNum = ROCE_SQ_NUM;
+        channel_.cqNum = ROCE_CQ_NUM;
         sqCtx_.contextInfo.roceSq.sqVa = (uint64_t)sqVa_;
         sqCtx_.contextInfo.roceSq.dbVa = (uint64_t)dbVa_;
-        sqCtx_.contextInfo.roceSq.wqeSize = 48;
-        sqCtx_.contextInfo.roceSq.depth = 10;
-        sqCtx_.contextInfo.roceSq.qpn = 1;
+        sqCtx_.contextInfo.roceSq.wqeSize = ROCE_SQ_WQE_SIZE;
+        sqCtx_.contextInfo.roceSq.depth = ROCE_QUEUE_DEPTH;
+        sqCtx_.contextInfo.roceSq.qpn = ROCE_QPN;
         sqCtx_.contextInfo.roceSq.headAddr = (uint64_t)(&head_);
         sqCtx_.contextInfo.roceSq.tailAddr = (uint64_t)(&tail_);
-        sqCtx_.contextInfo.roceSq.dbMode = 0;
-        sqCtx_.contextInfo.roceSq.sl = 1;
+        sqCtx_.contextInfo.roceSq.dbMode = ROCE_DB_MODE;
+        sqCtx_.contextInfo.roceSq.sl = ROCE_SERVICE_LEVEL;
         channel_.sqContextAddr = &sqCtx_;
         cqCtx_.contextInfo.roceCq.cqVa = (uint64_t)sqVa_;
-        cqCtx_.contextInfo.roceCq.cqeSize = 32;
-        cqCtx_.contextInfo.roceCq.cqDepth = 10;
-        cqCtx_.contextInfo.roceCq.cqn = 1;
+        cqCtx_.contextInfo.roceCq.cqeSize = ROCE_CQE_SIZE;
+        cqCtx_.contextInfo.roceCq.cqDepth = ROCE_QUEUE_DEPTH;
+        cqCtx_.contextInfo.roceCq.cqn = ROCE_CQN;
         cqCtx_.contextInfo.roceCq.tailAddr = (uint64_t)(&tail_);
         channel_.cqContextAddr = &cqCtx_;
-        channel_.localBufferNum = 1;
+        channel_.localBufferNum = ROCE_BUFFER_NUM;
         localBuff_.type = RegedBufferType::REGED_BUFFER_RMA;
-        localBuff_.bufferInfo.rma.addr = 0x100;
-        localBuff_.bufferInfo.rma.size = 100;
-        localBuff_.bufferInfo.rma.protectionInfo.memInfo.roce.lkey = 123456;
+        localBuff_.bufferInfo.rma.addr = ROCE_LOCAL_BUFFER_ADDR;
+        localBuff_.bufferInfo.rma.size = ROCE_BUFFER_SIZE;
+        localBuff_.bufferInfo.rma.protectionInfo.memInfo.roce.lkey = ROCE_LKEY;
         channel_.localBufferAddr = &localBuff_;
-        channel_.remoteBufferNum = 1;
+        channel_.remoteBufferNum = ROCE_BUFFER_NUM;
         remoteBuff_.type = RegedBufferType::REGED_BUFFER_RMA;
-        remoteBuff_.bufferInfo.rma.addr = 0x200;
-        remoteBuff_.bufferInfo.rma.size = 100;
-        remoteBuff_.bufferInfo.rma.protectionInfo.memInfo.roce.rkey = 123456;
+        remoteBuff_.bufferInfo.rma.addr = ROCE_REMOTE_BUFFER_ADDR;
+        remoteBuff_.bufferInfo.rma.size = ROCE_BUFFER_SIZE;
+        remoteBuff_.bufferInfo.rma.protectionInfo.memInfo.roce.rkey = ROCE_RKEY;
         channel_.remoteBufferAddr = &remoteBuff_;
     }
     virtual void TearDown()
@@ -71,8 +98,8 @@ private:
     ChannelEntity channel_;
     SqContext sqCtx_;
     CqContext cqCtx_;
-    uint8_t sqVa_[100] = {0};
-    uint8_t dbVa_[8] = {0};
+    uint8_t sqVa_[ROCE_SQ_BUFFER_SIZE] = {0};
+    uint8_t dbVa_[ROCE_DB_BUFFER_SIZE] = {0};
     uint32_t head_ = 0;
     uint32_t tail_ = 0;
     RegedBufferEntity localBuff_;
@@ -82,39 +109,47 @@ private:
 TEST_F(HcommRoCETestSuite, Init_ReadNbi_Drain)
 {
     Hcomm<AscendC::COMM_PROTOCOL_ROCE> hcomm;
-    EXPECT_EQ(hcomm.Init((__ubuf__ uint8_t*)(addr_), 256), -1);
-    EXPECT_EQ(hcomm.Init((__ubuf__ uint8_t*)(addr_), 512), 0);
+    EXPECT_EQ(hcomm.Init((__ubuf__ uint8_t *)(addr_), ROCE_INVALID_TMP_BUF_SIZE), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(hcomm.Init((__ubuf__ uint8_t *)(addr_), ROCE_VALID_TMP_BUF_SIZE), AscendC::HCOMM_SUCCESS);
     ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
-    int32_t ret = hcomm.ReadNbi(channelHandle, reinterpret_cast<GM_ADDR>(0x110), reinterpret_cast<GM_ADDR>(0x220), 10);
-    EXPECT_EQ(ret, 0);
+    int32_t ret
+        = hcomm.ReadNbi(channelHandle, reinterpret_cast<GM_ADDR>(ROCE_LOCAL_BUFFER_ADDR + ROCE_LOCAL_BUFFER_OFFSET),
+            reinterpret_cast<GM_ADDR>(ROCE_REMOTE_BUFFER_ADDR + ROCE_REMOTE_BUFFER_OFFSET), ROCE_TRANSFER_SIZE);
+    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
     ret = hcomm.Drain(channelHandle);
-    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
 }
 
 TEST_F(HcommRoCETestSuite, Init_WriteNbi_Drain)
 {
     Hcomm<AscendC::COMM_PROTOCOL_ROCE> hcomm;
-    EXPECT_EQ(hcomm.Init(tempTensor_, 256), -1);
-    EXPECT_EQ(hcomm.Init(tempTensor_, 512), 0);
+    EXPECT_EQ(hcomm.Init(tempTensor_, ROCE_INVALID_TMP_BUF_SIZE), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(hcomm.Init(tempTensor_, ROCE_VALID_TMP_BUF_SIZE), AscendC::HCOMM_SUCCESS);
     ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
-    int32_t ret =
-        hcomm.WriteNbi<false>(channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
-    EXPECT_EQ(ret, 0);
-    ret = hcomm.WriteNbi<false>(channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
-    EXPECT_EQ(ret, 0);
+    int32_t ret = hcomm.WriteNbi<false>(channelHandle,
+        reinterpret_cast<GM_ADDR>(ROCE_REMOTE_BUFFER_ADDR + ROCE_REMOTE_BUFFER_OFFSET),
+        reinterpret_cast<GM_ADDR>(ROCE_LOCAL_BUFFER_ADDR + ROCE_LOCAL_BUFFER_OFFSET), ROCE_TRANSFER_SIZE);
+    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
+    ret = hcomm.WriteNbi<false>(channelHandle,
+        reinterpret_cast<GM_ADDR>(ROCE_REMOTE_BUFFER_ADDR + ROCE_REMOTE_BUFFER_OFFSET),
+        reinterpret_cast<GM_ADDR>(ROCE_LOCAL_BUFFER_ADDR + ROCE_LOCAL_BUFFER_OFFSET), ROCE_TRANSFER_SIZE);
+    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
     ret = hcomm.Commit(channelHandle);
-    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
     ret = hcomm.Drain(channelHandle);
-    EXPECT_EQ(ret, 0);
+    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
 }
 
 TEST_F(HcommRoCETestSuite, Init_WriteWithNotifyNbi)
 {
     Hcomm<AscendC::COMM_PROTOCOL_ROCE> hcomm;
-    EXPECT_EQ(hcomm.Init(tempTensor_, 512), 0);
+    EXPECT_EQ(hcomm.Init(tempTensor_, ROCE_VALID_TMP_BUF_SIZE), AscendC::HCOMM_SUCCESS);
     ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
-    int32_t ret = hcomm.WriteWithNotifyNbi<false>(
-        channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10,
-        reinterpret_cast<GM_ADDR>(0x310), 10);
-    EXPECT_EQ(ret, -1);
+    int32_t ret = hcomm.WriteWithNotifyNbi<false>(channelHandle,
+        reinterpret_cast<GM_ADDR>(ROCE_REMOTE_BUFFER_ADDR + ROCE_REMOTE_BUFFER_OFFSET),
+        reinterpret_cast<GM_ADDR>(ROCE_LOCAL_BUFFER_ADDR + ROCE_LOCAL_BUFFER_OFFSET), ROCE_TRANSFER_SIZE,
+        reinterpret_cast<GM_ADDR>(ROCE_NOTIFY_ADDR), ROCE_NOTIFY_SIZE);
+    EXPECT_EQ(ret, AscendC::HCOMM_FAILED);
 }
+
+} // namespace
