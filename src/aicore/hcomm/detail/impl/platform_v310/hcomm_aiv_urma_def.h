@@ -13,11 +13,10 @@
  * \brief Hcomm AIV URMA definition for V310
  */
 
-#if !defined(__ASCENDC_INCLUDE_INTERNAL_HEADERS__)
-#pragma message( \
-    "impl/adv_api/detail/hcomm/impl/platform_v310/hcomm_aiv_urma_def.h is an internal header file and must not be used directly. Functions or variables defined in this file may be removed in the future. Please use public interface headers.")
-#define __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H__
+#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal Hcomm header. Please include hcomm/hcomm.h instead.")
+#define HCOMM_INCLUDE_INTERNAL_HEADERS
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H
 #endif
 
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_DEF_H
@@ -81,13 +80,33 @@ public:
     template <pipe_t pipe = PIPE_MTE3> __aicore__ inline int32_t Drain(ChannelHandle channel);
 
 private:
+    struct UrmaCqState {
+        __gm__ ChannelEntity *channelEntity;
+        CqContext cqCtx;
+        __gm__ uint32_t *tailAddr;
+        uint32_t curTail;
+        uint64_t cqBaseAddr;
+        uint32_t cqeSize;
+        uint32_t cqDepth;
+        __ubuf__ HcommUrmaJfcCqeCtx *cqeUb;
+    };
+
     template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE, auto const &config = URMA_DEFAULT_CFG, typename T = uint64_t>
     __aicore__ inline int32_t PostSend(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len,
         GM_ADDR notifyAddr = nullptr, const UdmaParams<T> &params = UdmaParams<T>{});
+    template <HcommUrmaOpCode opCode, auto const &config, typename T>
+    __aicore__ inline void FillPostSendWqe(__gm__ ChannelEntity *channelEntity, const SqContext &sqCtx,
+        int32_t remoteIdx, uint32_t curHead, GM_ADDR remoteAddr, GM_ADDR localAddr, uint64_t len, GM_ADDR notifyAddr,
+        const UdmaParams<T> &params, __ubuf__ HcommUrmaSqeCtx *sqeCtx);
+    template <HcommUrmaOpCode opCode>
+    __aicore__ inline uint32_t CopyPostSendWqe(const SqContext &sqCtx, uint32_t curHead);
     __aicore__ inline void PollCqWhenSqOverflow(
         ChannelHandle channel, const SqContext &sqCtx, const CqContext &cqCtx, uint32_t sqHead);
     __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail);
+    __aicore__ inline UrmaCqState LoadUrmaCqState(ChannelHandle channel);
+    __aicore__ inline uint32_t PollOneUrmaCqe(UrmaCqState &state, uint32_t expectIdx);
+    __aicore__ inline void UpdateUrmaCqState(const UrmaCqState &state);
 
 private:
     LocalTensor<uint32_t> wqeItem_;
@@ -96,7 +115,7 @@ private:
 } // namespace AscendC
 
 #endif
-#if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H__)
-#undef __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#undef __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H__
+#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H)
+#undef HCOMM_INCLUDE_INTERNAL_HEADERS
+#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H
 #endif

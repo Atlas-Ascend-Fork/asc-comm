@@ -17,6 +17,12 @@
 
 #include "kernel_basic_intf.h"
 #include "hcomm_common.h"
+
+#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
+#define HCOMM_INCLUDE_INTERNAL_HEADERS
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H
+#endif
+
 #include "hcomm/detail/impl/hcomm_impl_def.h"
 
 namespace AscendC {
@@ -177,9 +183,14 @@ private:
 };
 } // namespace AscendC
 
-#if defined(__NPU_ARCH__) && \
-    (__NPU_ARCH__ == 3510 || __NPU_ARCH__ == 1001 || __NPU_ARCH__ == 2002 || __NPU_ARCH__ == 2201)
+#if defined(__NPU_ARCH__) \
+    && (__NPU_ARCH__ == 3510 || __NPU_ARCH__ == 1001 || __NPU_ARCH__ == 2002 || __NPU_ARCH__ == 2201)
 #include "hcomm/detail/impl/hcomm_impl.h"
+#endif
+
+#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H)
+#undef HCOMM_INCLUDE_INTERNAL_HEADERS
+#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H
 #endif
 
 #endif // #endif  // LIB_HCCL_HCCL_H
