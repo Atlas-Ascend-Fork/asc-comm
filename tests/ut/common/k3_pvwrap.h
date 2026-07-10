@@ -45,10 +45,8 @@ void set_read_record();
 bool pv_reg_read(uint32_t reg_type, uint32_t reg_id, svOpenArrayHandle buf, uint32_t sub_core_id, uint32_t core_id = 0);
 bool pv_reg_write(uint32_t reg_type, uint32_t reg_id, svOpenArrayHandle buf, uint32_t sub_core_id,
     uint32_t core_id = 0);
-bool pv_mem_read(uint32_t mem_type, uint64_t addr, uint64_t size, svOpenArrayHandle buf, uint32_t sub_core_id,
-    uint32_t core_id = 0);
-bool pv_mem_write(uint32_t mem_type, uint64_t addr, uint64_t size, svOpenArrayHandle buf, uint32_t sub_core_id,
-    uint32_t core_id = 0);
+bool pv_mem_read(uint32_t mem_type, uint64_t addr, uint64_t size, svOpenArrayHandle buf, uint32_t sub_core_id);
+bool pv_mem_write(uint32_t mem_type, uint64_t addr, uint64_t size, svOpenArrayHandle buf, uint32_t sub_core_id);
 }
 
 #endif // _STUB_K3_PVWRAP_H_

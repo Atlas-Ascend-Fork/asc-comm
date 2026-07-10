@@ -13,11 +13,10 @@
  * \brief Hcomm AIV RoCE definition for V310
  */
 
-#if !defined(__ASCENDC_INCLUDE_INTERNAL_HEADERS__)
-#pragma message( \
-    "impl/adv_api/detail/hcomm/impl/platform_v310/hcomm_aiv_roce_def.h is an internal header file and must not be used directly. Functions or variables defined in this file may be removed in the future. Please use \"#include \"adv_api/activation/simplesoftmax.h\"\" and use public functions or variables defined in interface headers files.")
-#define __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_ROCE_DEF_H__
+#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
+#define HCOMM_INCLUDE_INTERNAL_HEADERS
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_ROCE_DEF_H
 #endif
 
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_ROCE_DEF_H
@@ -56,12 +55,40 @@ public:
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
 private:
+    struct RoceSqState {
+        uint64_t sqPIAddr;
+        uint64_t sqCIAddr;
+        uint32_t sqHead;
+        uint32_t sqTail;
+        uint32_t sqDepth;
+        uint32_t cqDepth;
+    };
+    struct RoceCqState {
+        uint64_t sqCIAddr;
+        uint64_t cqCIAddr;
+        uint32_t cqeSize;
+        uint32_t cqDepth;
+        uint32_t qpn;
+        uint32_t cqTail;
+        uint32_t sqTail;
+        __gm__ uint8_t* cqBaseBuf;
+    };
+
     template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3>
     __aicore__ inline int32_t PostSend(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType);
     template <pipe_t pipe>
     __aicore__ inline void KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead);
     __aicore__ inline int32_t PollCq(__gm__ ChannelEntity* chnlPtr, uint32_t expectIdx);
+    __aicore__ inline bool IsInvalidChannel(__gm__ ChannelEntity* chnlPtr);
+    __aicore__ inline RoceSqState LoadSqState(__gm__ ChannelEntity* chnlPtr);
+    __aicore__ inline int32_t PollCqWhenSqAlmostFull(
+        __gm__ ChannelEntity* chnlPtr, uint32_t sqHead, uint32_t sqTail, uint32_t cqDepth);
+    __aicore__ inline void UpdateSqHead(uint64_t sqPIAddr, uint32_t sqHead);
+    __aicore__ inline RoceCqState LoadCqState(__gm__ ChannelEntity* chnlPtr);
+    __aicore__ inline int32_t PollOneCqe(RoceCqState &state, AscendC::GlobalTensor<uint8_t> &cqeGlobalTensor,
+        __ubuf__ RoceCqeEntry* cqePtr, uint32_t expectIdx);
+    __aicore__ inline void UpdateCqState(const RoceCqState &state);
     __aicore__ inline int32_t MakeWqe(__gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src, uint64_t len,
         uint32_t opType, uint32_t sqHead, uint32_t sqDepth);
     __aicore__ inline uint64_t GetDbValue(uint32_t qpn);
@@ -77,7 +104,7 @@ private:
 } // namespace AscendC
 
 #endif
-#if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_ROCE_DEF_H__)
-#undef __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#undef __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_ROCE_DEF_H__
+#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_ROCE_DEF_H)
+#undef HCOMM_INCLUDE_INTERNAL_HEADERS
+#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_ROCE_DEF_H
 #endif
