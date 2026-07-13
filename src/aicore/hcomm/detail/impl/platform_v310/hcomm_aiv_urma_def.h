@@ -80,33 +80,15 @@ public:
     template <pipe_t pipe = PIPE_MTE3> __aicore__ inline int32_t Drain(ChannelHandle channel);
 
 private:
-    struct UrmaCqState {
-        __gm__ ChannelEntity *channelEntity;
-        CqContext cqCtx;
-        __gm__ uint32_t *tailAddr;
-        uint32_t curTail;
-        uint64_t cqBaseAddr;
-        uint32_t cqeSize;
-        uint32_t cqDepth;
-        __ubuf__ HcommUrmaJfcCqeCtx *cqeUb;
-    };
-
     template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE, auto const &config = URMA_DEFAULT_CFG, typename T = uint64_t>
     __aicore__ inline int32_t PostSend(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len,
         GM_ADDR notifyAddr = nullptr, const UdmaParams<T> &params = UdmaParams<T>{});
-    template <HcommUrmaOpCode opCode, auto const &config, typename T>
-    __aicore__ inline void FillPostSendWqe(__gm__ ChannelEntity *channelEntity, const SqContext &sqCtx,
-        int32_t remoteIdx, uint32_t curHead, GM_ADDR remoteAddr, GM_ADDR localAddr, uint64_t len, GM_ADDR notifyAddr,
-        const UdmaParams<T> &params, __ubuf__ HcommUrmaSqeCtx *sqeCtx);
-    template <HcommUrmaOpCode opCode>
-    __aicore__ inline uint32_t CopyPostSendWqe(const SqContext &sqCtx, uint32_t curHead);
     __aicore__ inline void PollCqWhenSqOverflow(
         ChannelHandle channel, const SqContext &sqCtx, const CqContext &cqCtx, uint32_t sqHead);
     __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail);
-    __aicore__ inline UrmaCqState LoadUrmaCqState(ChannelHandle channel);
-    __aicore__ inline uint32_t PollOneUrmaCqe(UrmaCqState &state, uint32_t expectIdx);
-    __aicore__ inline void UpdateUrmaCqState(const UrmaCqState &state);
+    __aicore__ inline void UpdateCqState(
+        __gm__ ChannelEntity *channelEntity, const CqContext &cqCtx, __gm__ uint32_t *tailAddr, uint32_t curTail);
 
 private:
     LocalTensor<uint32_t> wqeItem_;
