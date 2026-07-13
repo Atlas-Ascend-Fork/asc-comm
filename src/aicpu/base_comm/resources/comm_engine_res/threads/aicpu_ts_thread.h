@@ -31,6 +31,11 @@ public:
     HcclResult SupplementNotify(uint32_t notifyNum) override;
     HcclResult SupplementNotify(u32 notifyNum, const std::string &notifyDesc);
 
+    bool IsDeviceA5() const override
+    {
+        return true;
+    }
+
     Stream *GetStream() const override;
 
     inline void *GetStreamLitePtr() const override

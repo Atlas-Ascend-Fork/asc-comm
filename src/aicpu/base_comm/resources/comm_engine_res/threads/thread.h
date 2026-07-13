@@ -75,6 +75,7 @@ public:
     virtual LocalNotify *GetNotify(uint32_t index) const = 0;
     virtual HcclResult SupplementNotify(uint32_t notifyNum) = 0;
 
+    virtual bool IsDeviceA5() const = 0;
     virtual Stream *GetStream() const = 0;
     virtual void *GetStreamLitePtr() const = 0;
     virtual void LaunchTask() const = 0;
