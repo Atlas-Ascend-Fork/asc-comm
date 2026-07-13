@@ -69,11 +69,8 @@ public:
 
 private:
     __aicore__ inline void PostSend(ChannelHandle channelHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, bool isRead);
-    __aicore__ inline void WaitSqAvailable(__gm__ ChannelEntity* channel, uint64_t curHead, uint32_t qpDepth);
-    __aicore__ inline void WriteWqeCtrl(__gm__ ChannelEntity* channel, __gm__ uint8_t* wqeAddr, GM_ADDR dst,
+    __aicore__ inline void WriteWqe(__gm__ ChannelEntity* channel, __gm__ uint8_t* wqeAddr, GM_ADDR dst, GM_ADDR src,
         uint64_t len, uint64_t curHead, bool isRead);
-    __aicore__ inline void WriteSge(__gm__ ChannelEntity* channel, __gm__ uint8_t* wqeAddr, GM_ADDR src, uint64_t len);
-    __aicore__ inline void UpdateHead(uint64_t curHardwareHead, uint64_t curHead);
 
     __aicore__ inline void doorBell(__gm__ ChannelEntity* channel, uint64_t curHead);
 
