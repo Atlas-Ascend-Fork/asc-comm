@@ -377,3 +377,30 @@ CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t *tokenInfo
 
     return CcuResult::CCU_SUCCESS;
 }
+extern "C" {
+
+CcuResult AsccommCcuKernelRegisterStart(CcuInsHandle insHandle) {
+    return HcommCcuKernelRegisterStart(insHandle);
+}
+
+CcuResult AsccommCcuKernelRegister(CcuInsHandle insHandle, uint32_t dieId,
+    const char *kernelFuncName, const void *kernelFunc,
+    const void **kernelArgs, uint32_t argNum, CcuKernelHandle *kernelHandle) {
+    return HcommCcuKernelRegister(insHandle, dieId, kernelFuncName, kernelFunc,
+        kernelArgs, argNum, kernelHandle);
+}
+
+CcuResult AsccommCcuKernelRegisterEnd(CcuInsHandle insHandle) {
+    return HcommCcuKernelRegisterEnd(insHandle);
+}
+
+CcuResult AsccommCcuKernelLaunch(ThreadHandle threadHandle,
+    CcuKernelHandle kernelHandle, const void *taskArgs, uint32_t argSize) {
+    return HcommCcuKernelLaunch(threadHandle, kernelHandle, taskArgs, argSize);
+}
+
+CcuResult AsccommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t *tokenInfo) {
+    return HcommCcuGetMemToken(srcVa, size, tokenInfo);
+}
+
+}
