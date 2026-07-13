@@ -37,6 +37,10 @@ typedef uint64_t ChannelHandle;
 typedef uint64_t ThreadHandle;
 #endif
 
+#ifndef HCOMM_TIMEOUT_FLOAT_TYPE
+#define HCOMM_TIMEOUT_FLOAT_TYPE 1
+#endif
+
 typedef enum {
     HCOMM_REDUCE_SUM = 0,    /**< sum */
     HCOMM_REDUCE_PROD = 1,   /**< prod */
@@ -507,7 +511,7 @@ extern int32_t HcommChannelFence(ChannelHandle channel);
  * @return int32_t 执行结果状态码
  * @note 当前仅支持AICPU模式
  */
-extern int32_t HcommSetNotifyWaitTimeOut(uint32_t timeOut);
+extern int32_t HcommSetNotifyWaitTimeOut(float timeOut);
 
 /**
  * @brief 设置线程资源获取超时时间
@@ -515,7 +519,7 @@ extern int32_t HcommSetNotifyWaitTimeOut(uint32_t timeOut);
  * @return int32_t 执行结果状态码
  * @note 当前仅支持AICPU模式
  */
-extern int32_t HcommThreadResAcquireTimeOut(uint32_t timeOut);
+extern int32_t HcommThreadResAcquireTimeOut(float timeOut);
 
 /**
  * @brief 等待通知事件
