@@ -13,6 +13,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <functional>
 #include "hccl_types.h"
 #include "hccl_common.h"
 #include "hcomm_primitives.h"
@@ -21,6 +22,7 @@
 #include "acl/acl_rt.h"
 #include "adapter_hal_pub.h"
 #include "device_capacity.h"
+#include "task_param.h"
 #include "sal_pub.h"
 #include "stream_lite.h"
 #ifndef CCL_KERNEL_AICPU
@@ -96,6 +98,20 @@ public:
 
     HcclResult AddThreadHandleToMap(CommEngine commEngine, ThreadHandle threadHandle);
     Thread *FindThreadByCommEngine(CommEngine commEngine);
+    HcclResult SetAddTaskInfoCallback(std::function<HcclResult(u32, u32, const Hccl::TaskParam&, u64)> callback)
+    {
+        CHK_PTR_NULL(callback);
+        callback_ = callback;
+        return HCCL_SUCCESS;
+    }
+    std::function<HcclResult(u32, u32, const Hccl::TaskParam&, u64)> GetCallback()
+    {
+        return callback_;
+    }
+    virtual HcclResult SetCheckExecStatusCallback(std::function<HcclResult(bool)> callback)
+    {
+        return HCCL_SUCCESS;
+    }
 protected:
 #ifndef CCL_KERNEL_AICPU
     HcclResult ReportAicpuNotifyWaitTask(u64 notifyId, u64 beginTime, u32 taskId, u32 sqId) const;
@@ -112,6 +128,7 @@ protected:
 #endif
 private:
     std::unordered_map<CommEngine, ThreadHandle> threadHandleMap_; // CPU_TS上的ThreadHandle与其他引擎上的ThreadHandle的映射
+    std::function<HcclResult(u32, u32, const Hccl::TaskParam&, u64)> callback_; // 上报task信息的回调函数
 };
 
 inline Stream *GetStream(uint64_t thread)
