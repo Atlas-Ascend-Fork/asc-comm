@@ -55,40 +55,12 @@ public:
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
 private:
-    struct RoceSqState {
-        uint64_t sqPIAddr;
-        uint64_t sqCIAddr;
-        uint32_t sqHead;
-        uint32_t sqTail;
-        uint32_t sqDepth;
-        uint32_t cqDepth;
-    };
-    struct RoceCqState {
-        uint64_t sqCIAddr;
-        uint64_t cqCIAddr;
-        uint32_t cqeSize;
-        uint32_t cqDepth;
-        uint32_t qpn;
-        uint32_t cqTail;
-        uint32_t sqTail;
-        __gm__ uint8_t* cqBaseBuf;
-    };
-
     template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3>
     __aicore__ inline int32_t PostSend(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType);
     template <pipe_t pipe>
     __aicore__ inline void KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead);
     __aicore__ inline int32_t PollCq(__gm__ ChannelEntity* chnlPtr, uint32_t expectIdx);
-    __aicore__ inline bool IsInvalidChannel(__gm__ ChannelEntity* chnlPtr);
-    __aicore__ inline RoceSqState LoadSqState(__gm__ ChannelEntity* chnlPtr);
-    __aicore__ inline int32_t PollCqWhenSqAlmostFull(
-        __gm__ ChannelEntity* chnlPtr, uint32_t sqHead, uint32_t sqTail, uint32_t cqDepth);
-    __aicore__ inline void UpdateSqHead(uint64_t sqPIAddr, uint32_t sqHead);
-    __aicore__ inline RoceCqState LoadCqState(__gm__ ChannelEntity* chnlPtr);
-    __aicore__ inline int32_t PollOneCqe(RoceCqState &state, AscendC::GlobalTensor<uint8_t> &cqeGlobalTensor,
-        __ubuf__ RoceCqeEntry* cqePtr, uint32_t expectIdx);
-    __aicore__ inline void UpdateCqState(const RoceCqState &state);
     __aicore__ inline int32_t MakeWqe(__gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src, uint64_t len,
         uint32_t opType, uint32_t sqHead, uint32_t sqDepth);
     __aicore__ inline uint64_t GetDbValue(uint32_t qpn);
