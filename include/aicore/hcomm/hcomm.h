@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -18,9 +18,9 @@
 #include "kernel_basic_intf.h"
 #include "hcomm_common.h"
 
-#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H
+#if !defined(__ASCENDC_INCLUDE_INTERNAL_HEADERS__)
+#define __ASCENDC_INCLUDE_INTERNAL_HEADERS__
+#define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_H__
 #endif
 
 #include "hcomm/detail/impl/hcomm_impl_def.h"
@@ -31,7 +31,7 @@ namespace AscendC {
  * @class Hcomm
  * @brief This class mainly provides a series of point-to-point communication primitive interfaces,
  *        benchmarking against Huawei's point-to-point communication C++ interface,
- *        including WriteNbi、ReadNbi and so on.
+ *        including WriteNbi銆丷eadNbi and so on.
  *        The typical usage of this class is as follows:
  *          1) Create Hcomm object.
  *          2) Initialize communication channel.
@@ -188,9 +188,9 @@ private:
 #include "hcomm/detail/impl/hcomm_impl.h"
 #endif
 
-#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H)
-#undef HCOMM_INCLUDE_INTERNAL_HEADERS
-#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H
+#if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_H__)
+#undef __ASCENDC_INCLUDE_INTERNAL_HEADERS__
+#undef __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_H__
 #endif
 
 #endif // #endif  // LIB_HCCL_HCCL_H
