@@ -62,6 +62,7 @@ public:
     bool GetMaster() const override;
     void SetIsMaster(bool isMaster) override;
 
+    HcclResult SetCheckExecStatusCallback(std::function<HcclResult(bool)> callback) override;
 private:
     bool isMaster_{false};
     struct HcclStreamInfo {
