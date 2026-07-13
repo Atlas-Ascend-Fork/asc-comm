@@ -120,6 +120,7 @@ target_link_options(aicpu_data_plane PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
     -Wl,-z,noexecstack
+    -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/aicpu_data_plane_exports.map
     -s
 )
 target_include_directories(aicpu_data_plane PRIVATE ${ASC_COMM_AICPU_INCLUDE_LIST})

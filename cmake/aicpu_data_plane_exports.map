@@ -1,0 +1,6 @@
+{
+    global:
+        Hcomm*;
+    local:
+        *;
+};
