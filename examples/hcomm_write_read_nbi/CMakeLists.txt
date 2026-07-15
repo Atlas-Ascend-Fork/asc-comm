@@ -22,11 +22,15 @@ project(kernel_samples LANGUAGES ASC CXX)
 
 set_source_files_properties(
     utils.cpp
+    hcomm_write_read_nbi_kernel.cpp
+    hcomm_rw_def.h
     PROPERTIES LANGUAGE ASC
 )
 
 add_executable(demo
     hcomm_write_read_nbi.asc
+    hcomm_write_read_nbi_kernel.cpp
+    hcomm_rw_def.h
     utils.cpp
 )
 

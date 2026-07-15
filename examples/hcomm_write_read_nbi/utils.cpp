@@ -1,5 +1,13 @@
 #include "utils.h"
 #include <stdexcept>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+// close、usleep
+#include <unistd.h>
+// strerror
+#include <string.h>
 
 // 解析tcp://<ip>:<port>格式的endpoint，提取ip和port
 bool ParseEndpoint(const std::string &endpoint, std::string &ip, uint16_t &port)
@@ -35,4 +43,92 @@ bool ParseEndpoint(const std::string &endpoint, std::string &ip, uint16_t &port)
     if (port_temp <= 0 || port_temp > 65535) return false;
     port = static_cast<uint16_t>(port_temp);
     return !ip.empty();
+}
+
+// rank 0作为server监听，rank 1作为client连接，建立TCP通道
+int32_t ConnectPeer(uint32_t rank, const std::string &ip, uint16_t port, int32_t &sock)
+{
+    if (rank == 0) {
+        int32_t listenSock = socket(AF_INET, SOCK_STREAM, 0);
+        if (listenSock < 0) {
+            return -1;
+        }
+        int32_t opt = 1;
+        setsockopt(listenSock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+        struct sockaddr_in addr = {};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(port);
+        inet_pton(AF_INET, ip.c_str(), &addr.sin_addr);
+        if (bind(listenSock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0 ||
+            listen(listenSock, 1) < 0) {
+            close(listenSock);
+            return -1;
+        }
+        sock = accept(listenSock, nullptr, nullptr);
+        close(listenSock);
+        return sock < 0 ? -1 : 0;
+    } else {
+        sock = socket(AF_INET, SOCK_STREAM, 0);
+        if (sock < 0) {
+            return -1;
+        }
+        struct sockaddr_in addr = {};
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(port);
+        inet_pton(AF_INET, ip.c_str(), &addr.sin_addr);
+        // 重试连接，等待rank 0的server就绪
+        for (int32_t i = 0; i < 100; i++) {
+            if (connect(sock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) == 0) {
+                return 0;
+            }
+            usleep(100000); // 100ms
+        }
+        close(sock);
+        return -1;
+    }
+}
+
+// 通过socket收发完整数据
+int32_t SendAll(int32_t sock, const void *buf, size_t len)
+{
+    size_t sent = 0;
+    while (sent < len) {
+        ssize_t n = send(sock, static_cast<const char*>(buf) + sent, len - sent, 0);
+        if (n <= 0) {
+            return -1;
+        }
+        sent += static_cast<size_t>(n);
+    }
+    return 0;
+}
+
+int32_t RecvAll(int32_t sock, void *buf, size_t len)
+{
+    size_t received = 0;
+    while (received < len) {
+        ssize_t n = recv(sock, static_cast<char*>(buf) + received, len - received, 0);
+        fprintf(stderr, "[INFO] recvall recv %zd bytes\n", n);
+        if (n <= 0) {
+            int code = errno;
+            fprintf(stderr, "[ERROR] recvall code=%s\n", strerror(code));
+            return -1;
+        }
+        received += static_cast<size_t>(n);
+    }
+    return 0;
+}
+
+int32_t TcpBarrier(int32_t sock)
+{
+    int32_t flag = 1;
+    if (SendAll(sock, &flag, sizeof(flag)) != 0) {
+        fprintf(stderr, "[ERROR] TcpBarrier sendall failed\n");
+        return -1;
+    }
+    int32_t recv = 0;
+    if (RecvAll(sock, &recv, sizeof(recv)) != 0) {
+        fprintf(stderr, "[ERROR] TcpBarrier recvall failed\n");
+        return -1;
+    };
+    return 0;
 }
