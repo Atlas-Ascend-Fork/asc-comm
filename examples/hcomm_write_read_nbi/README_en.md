@@ -1,149 +1,149 @@
-# hcomm_write_read_nbi Sample
+# Hcomm WriteNbi/ReadNbi Point-to-Point Communication Sample (AIV Direct-Drive URMA)
 
 ## Overview
 
-This sample demonstrates how to use the `WriteNbi` and `ReadNbi` interfaces of the `Hcomm` class in an Ascend C kernel to implement point-to-point (P2P) communication between NPUs, along with the complete communicator creation workflow. Both cards symmetrically execute `WriteNbi` + `ReadNbi`, distinguishing data segments by address offsets, writing to and reading from each other, and finally verifying that the results match.
+This sample demonstrates how to implement ultra-low latency point-to-point (P2P) communication between NPUs in an Ascend C Kernel using the **`WriteNbi`** and **`ReadNbi`** APIs of the `Hcomm` class, based on the **AIV Direct-Drive URMA** architecture. In this sample, two cards symmetrically execute `WriteNbi` + `ReadNbi`, differentiate data segments via address offsets, mutually write and read data, and finally validate the consistency of the results on the Host side.
 
-## Supported Products and CANN Software Version
+## Supported Products and CANN Software Versions
 
 | Product | CANN Software Version |
 |---------|-----------------------|
-| Ascend 950PR/Ascend 950DT | >= CANN 9.1.0 |
+| Ascend 950PR / Ascend 950DT | >= CANN 9.1.0 |
 
 ## Directory Structure
 
 ```text
 ├── hcomm_write_read_nbi
-│   ├── CMakeLists.txt              // Build project file
+│   ├── CMakeLists.txt              // CMake build file
 │   ├── README.md                   // Sample documentation
 │   └── hcomm_write_read_nbi.asc    // Ascend C sample implementation (Kernel + Host)
 ```
 
 ## Sample Description
 
-- Sample function:
+### Sample Functionality
+This sample focuses on demonstrating P2P communication interfaces under the **AIV Direct-Drive URMA** architecture. Unlike traditional collective communication (e.g., `AlltoAll`) or communication routed through complex software protocol stacks, **`WriteNbi` and `ReadNbi` are the core underlying non-blocking communication APIs provided by AIV Direct-Drive URMA**. They allow the NPU hardware to directly initiate RDMA operations to the target NPU, bypassing traditional software protocol stacks and achieving direct Global Memory (GM) to GM access with ultra-low latency. This feature is highly suitable for latency-sensitive distributed training scenarios such as MoE (Dispatch/Combine) and Pipeline Parallelism.
 
-  This sample demonstrates P2P communication interfaces symmetrically across two cards: each card executes both `WriteNbi` and `ReadNbi`, splitting the communication buffer into three segments (seg0/seg1/seg2) by address offset to achieve mutual write and read between the two cards. Unlike collective communication (such as `AlltoAll`), P2P communication initiates RDMA operations directly to the target NPU without waiting for all ranks to synchronize, providing lower latency. It is suitable for scenarios such as MoE Dispatch/Combine and pipeline parallelism.
+| API | Data Flow | Semantic Description (AIV Direct-Drive URMA) |
+|-----|-----------|---------------------------------------------|
+| `WriteNbi` | Local GM → Remote GM | **AIV Direct-Drive URMA Write API**: Directly writes local Global Memory data to a specified address on the remote NPU, without requiring remote CPU intervention. |
+| `ReadNbi` | Remote GM → Local GM | **AIV Direct-Drive URMA Read API**: Directly reads data from a specified address on the remote NPU into local Global Memory, without requiring remote CPU intervention. |
 
-  | Interface | Data Flow | Semantics |
-  |-----------|-----------|-----------|
-  | `WriteNbi` | Local to remote | Writes local GM data to a specified address on the remote NPU |
-  | `ReadNbi` | Remote to local | Reads data from a specified address on the remote NPU to the local GM |
+### Sample Implementation
 
-- Sample implementation:
+#### 1. Host-Side Communication Domain Preparation
+On the Ascend 950 series, the communication domain must be created in a multi-process manner (each process corresponds to one rank). The key steps are as follows, highlighting the AIV direct-drive configuration:
 
-  - Host-side communicator preparation
+1. **Exchange RootInfo**: Rank 0 calls `HcclGetRootInfo` to obtain root information and sends it to Rank 1 via TCP.
+2. **Create Communication Domain**: Each rank calls `HcclCommInitRootInfoConfig` to create the communication domain. **Note: In AIV direct-drive mode, there is no need to configure `hcclOpExpansionMode`.**
+3. **Register Communication Memory**: Call `HcclCommMemReg` to register the local communication buffer with the communication domain. This memory information is automatically exchanged with the peer during channel creation.
+4. **Obtain Link Endpoints**: Use `HcclRankGraphGetLayers` and `HcclRankGraphGetLinks` to obtain the physical link endpoint information from the local rank to the peer rank.
+5. **Acquire P2P Channel (AIV Direct-Drive)**: Call `HcclChannelAcquire` to create the P2P channel to the peer. You must explicitly specify the engine as `COMM_ENGINE_AIV` and the protocol as `COMM_PROTOCOL_UBC_CTP` (i.e., the URMA protocol), along with the notification count and the memory handles to be exchanged.
+6. **Obtain Remote Memory Address**: Call `HcclChannelGetRemoteMems` to retrieve the memory address registered by the peer, which serves as the remote target address for `WriteNbi`/`ReadNbi` in the Kernel.
+7. **Download Context**: The Host pre-initializes seg0 (filling it with a pseudo-random pattern based on `rankId`), encapsulates the `ChannelHandle` and buffer addresses into `CommContext`, and downloads it to the GM of each card.
 
-    On the 950, the communicator must be created in multi-process mode: each process corresponds to one rank, and rootInfo is exchanged over TCP before each rank calls `HcclCommInitRootInfoConfig`. Key steps:
+```cpp
+// 1. Each rank creates the communication domain (AIV direct-drive mode does NOT require hcclOpExpansionMode)
+HcclCommConfig config;
+HcclCommConfigInit(&config);
+config.hcclWorldRankID = rank;
+HcclCommInitRootInfoConfig(nranks, &rootInfo, rank, &config, &comm);
 
-    1. Rank 0 calls `HcclGetRootInfo` to obtain the root information and sends it to rank 1 over TCP.
-    2. Each rank calls `HcclCommInitRootInfoConfig` to create the communicator.
-    3. `HcclCommMemReg` registers the local communication buffer with the communicator. When a channel is created, this memory information is exchanged with the peer.
-    4. `HcclRankGraphGetLayers` and `HcclRankGraphGetLinks` obtain the link endpoint information from the local rank to the peer.
-    5. `HcclChannelAcquire` creates a P2P channel to the peer, specifying the remote rank, protocol (`COMM_PROTOCOL_UBC_CTP` for URMA), endpoint, notify count, and memory handle to exchange.
-    6. `HcclChannelGetRemoteMems` obtains the memory address registered by the peer, which serves as the remote address for the kernel-side `WriteNbi`/`ReadNbi`.
-    7. Host pre-initializes seg0 (fills with a pattern based on `rankId`), then encapsulates the `ChannelHandle` and buffer address into `CommContext` and writes it to the GM of each card.
+// 2. Register communication memory
+HcclCommMemReg(comm, "shareBuf", &regMem, &memHandle);
 
-    ```cpp
-    // Multi-process: rank 0 generates rootInfo and sends it over TCP; rank 1 receives it
-    HcclGetRootInfo(&rootInfo);  // rank 0
-    // Each rank creates the communicator
-    HcclCommConfigInit(&config);
-    config.hcclWorldRankID = rank;
-    HcclCommInitRootInfoConfig(nranks, &rootInfo, rank, &config, &comm);
-    // Register communication memory
-    HcclCommMemReg(comm, "shareBuf", &regMem, &memHandle);
-    // Obtain the link endpoint
-    HcclRankGraphGetLinks(comm, layerId, rank, peerRank, &links, &linkNum);
-    // Create the P2P channel
-    channelDesc.notifyNum = 3;
-    HcclChannelAcquire(comm, COMM_ENGINE_AIV, &channelDesc, 1, &channel);
-    // Obtain the peer memory address
-    HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMems, &memTags);
-    ```
+// 3. Obtain link endpoints
+HcclRankGraphGetLinks(comm, layerId, rank, peerRank, &links, &linkNum);
 
-  - Kernel-side execution
+// 4. Acquire AIV Direct-Drive URMA P2P Channel
+channelDesc.remoteRank = peerRank;
+channelDesc.channelProtocol = COMM_PROTOCOL_UBC_CTP; // URMA protocol
+channelDesc.memHandles = &memHandle;
+channelDesc.memHandleNum = 1;
+HcclChannelAcquire(comm, COMM_ENGINE_AIV, &channelDesc, 1, &channel); // Specify COMM_ENGINE_AIV
 
-    The communication flow consists of three steps: `Init()` -> `WriteNbi()`/`ReadNbi()` -> `Drain()`. Both cards execute the same kernel logic, distinguishing three segments by address offset:
+// 5. Obtain remote memory address
+HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMems, &memTags);
+```
 
-    - seg0 `[0, DATA_SIZE)`: local pattern (Host pre-initialized)
-    - seg1 `[DATA_SIZE, 2*DATA_SIZE)`: receives data written by the peer using `WriteNbi`
-    - seg2 `[2*DATA_SIZE, 3*DATA_SIZE)`: receives data read back from the peer's seg0 using `ReadNbi`
+#### 2. Kernel-Side Execution
+The communication process consists of three steps: `Init()` → `WriteNbi()`/`ReadNbi()` → `Drain()`. Both cards execute the same Kernel logic, differentiating the three data segments via address offsets:
+- **seg0** `[0, DATA_SIZE)`: Local pattern (pre-initialized by the Host).
+- **seg1** `[DATA_SIZE, 2*DATA_SIZE)`: Receives data written by the peer's `WriteNbi`.
+- **seg2** `[2*DATA_SIZE, 3*DATA_SIZE)`: Receives data read back from the peer's seg0 by the local `ReadNbi`.
 
-    - `Init`: Allocates a UB workspace (>= 512 bytes) to store internal state such as WQE/CQE.
-    - `WriteNbi`/`ReadNbi`: Enqueues communication tasks to the SQ. By default, `commit=true` triggers a doorbell immediately after enqueue. For batch optimization, use `commit=false` to enqueue multiple tasks and then call `Commit()` once.
-    - `Drain`: Polls the CQ to wait for communication tasks to complete. Data visibility is guaranteed only after this call returns.
+- **`Init`**: Allocates a Unified Buffer (UB) workspace (>= 512 bytes) to store internal Hcomm states such as WQE/CQE.
+- **`WriteNbi` / `ReadNbi`**: Invokes the **AIV Direct-Drive URMA APIs** to enqueue communication tasks into the Send Queue (SQ). By default, `commit=true` triggers the doorbell immediately after enqueueing. For batch optimization, you can use `commit=false` to enqueue multiple tasks and call `Commit()` uniformly.
+- **`Drain`**: Polls the Completion Queue (CQ) to wait for the communication tasks to finish, ensuring data visibility upon return.
 
-    ```cpp
-    // Both cards symmetric: local seg0 -> remote seg1, remote seg0 -> local seg2
-    hcomm_.WriteNbi(channel, remoteBuf + DATA_SIZE, localBuf, DATA_SIZE);
-    hcomm_.ReadNbi(channel, localBuf + 2*DATA_SIZE, remoteBuf, DATA_SIZE);
-    hcomm_.Drain(channel);
-    ```
+```cpp
+// Symmetric execution on both cards using AIV Direct-Drive URMA:
+// 1. Local seg0 → Peer seg1 (WriteNbi)
+hcomm_.WriteNbi(channel, remoteBuf + DATA_SIZE, localBuf, DATA_SIZE);
 
-  - Invocation implementation
+// 2. Peer seg0 → Local seg2 (ReadNbi)
+hcomm_.ReadNbi(channel, localBuf + 2 * DATA_SIZE, remoteBuf, DATA_SIZE);
 
-    The sample executes symmetrically in multi-process mode: both cards launch the kernel simultaneously without staged synchronization. After pre-initializing seg0, the host uses `TcpBarrier` to ensure both cards are ready before each launches the kernel. The kernel is invoked using the `<<<>>>` kernel invocation operator.
+// 3. Wait for AIV hardware communication tasks to complete
+hcomm_.Drain(channel);
+```
 
-- Verification mechanism:
+#### 3. Invocation Implementation
+Multi-process symmetric execution: Both cards launch the kernel simultaneously without requiring phased synchronization. After the Host pre-initializes seg0, it uses `TcpBarrier` to ensure both cards are ready before invoking the kernel using the `<<<>>>` kernel launch syntax.
 
-  - The host pre-initializes seg0 with a deterministic pattern based on `rankId` (`(rankId + 1) & 0xFF`), so the data source can be distinguished after communication.
-  - The kernel verifies seg1 (written by the peer using `WriteNbi`) and seg2 (read back by the local rank using `ReadNbi`). Both segments must match the peer pattern. The result is written to `CommContext::testResult`.
-  - The host reads back `testResult` using `aclrtMemcpy` and prints `test pass!` when the value is 0.
+### Validation Mechanism
+- During Host pre-initialization of seg0, a pseudo-random pattern is generated using a Linear Congruential Generator (LCG, utilizing Knuth's multiplicative hash constant `0x9E3779B9U` and other parameters) to ensure the data source is distinguishable.
+- After Kernel execution, the Host reads back `CommContext::testResult` via `aclrtMemcpy`.
+- The Host further validates whether the data in seg1 (written by peer's `WriteNbi`) and seg2 (read by local `ReadNbi`) perfectly matches the peer's pattern. If the result is 0, it prints `test pass!`.
 
-## Build and Run
+## Compilation and Execution
 
-Perform the following steps in the sample root directory to build and run the sample.
+Follow the steps below in the root directory of this sample to compile and run it.
 
-- Configuring environment variables
+### 1. Configure Environment Variables
+Configure the environment variables according to the installation method of the CANN development kit on your current environment:
+```bash
+source ${install_path}/cann/set_env.sh
+```
+> **Note:** `${install_path}` is the CANN package installation directory. If not specified, it defaults to `/usr/local/Ascend`.
 
-  Configure the environment variables according to the [installation method](../../../../../docs/quick_start.md#prepare&install) of the CANN development kit on the current environment.
+### 2. Build the Project
+Execute the following commands in the sample directory:
+```bash
+mkdir -p build && cd build
+cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+make -j
+```
 
-  ```bash
-  source ${install_path}/cann/set_env.sh
-  ```
+### 3. Execute the Sample
+This sample supports two execution methods:
 
-  > **Note:** `${install_path}` indicates the CANN installation directory. If no installation directory is specified, the package is installed in `/usr/local/Ascend` by default.
+**Method 1: Auto-Fork Multi-Process (Recommended)**
+Execute directly. The main process will automatically fork two child processes (symmetrically executing WriteNbi + ReadNbi on two cards):
+```bash
+./demo
+```
 
-- Running the sample
+**Method 2: Manual Single-Process Execution with Arguments**
+You can manually start Rank 0 and Rank 1 in two separate terminals:
+```bash
+# Terminal 1: Start rank 0 (bound to device 0)
+./demo 0 2 tcp://127.0.0.1:29621
 
-  Run the following commands in the sample directory.
+# Terminal 2: Start rank 1 (bound to device 1)
+./demo 1 2 tcp://127.0.0.1:29621
+```
 
-  ```bash
-  mkdir -p build && cd build;                                               # Create and enter the build directory
-  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..;make -j;                      # Build the project
-  ```
+### 4. Build Options Description
+| Option | Allowed Values | Description |
+|--------|----------------|-------------|
+| `CMAKE_ASC_ARCHITECTURES` | `dav-3510` (default) | NPU Architecture: `dav-3510` corresponds to Ascend 950PR / Ascend 950DT |
 
-  This sample runs in multi-process mode. Running the binary directly forks two child processes (both cards symmetrically execute WriteNbi + ReadNbi):
-
-  ```bash
-  ./demo
-  ```
-
-  You can also manually specify parameters to run a single rank:
-
-  ```bash
-  # Terminal 1: start rank 0 (card 0)
-  ./demo 0 2 tcp://127.0.0.1:29621
-
-  # Terminal 2: start rank 1 (card 1)
-  ./demo 1 2 tcp://127.0.0.1:29621
-  ```
-
-- Build options
-
-  | Option | Value | Description |
-  |--------|-------|-------------|
-  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` (default) | NPU architecture: dav-3510 corresponds to Ascend 950PR/Ascend 950DT |
-
-- Execution result
-
-  The following output indicates successful communication (both cards symmetrically write and read, and the results match).
-
-  ```text
-  rank 0 test pass!
-  rank 1 test pass!
-  test pass!
-  ```
-
-  A single-card environment supports only build verification. At least 2 NPUs are required to run the sample.
+### 5. Expected Output
+Upon successful execution, the terminal will output the following, indicating that the AIV Direct-Drive URMA communication was successful (symmetric write/read on both cards with consistent results):
+```text
+rank 0 test pass!
+rank 1 test pass!
+test pass!
+```
+> **Note:** A single-card environment only supports compilation verification. Running this sample requires at least 2 NPUs.
