@@ -1,0 +1,56 @@
+/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+#include "ccu_rep_loc_wait_notify.h"
+
+#include <climits>
+
+#include "string_util.h"
+#include "exception_util.h"
+#include "ccu_api_exception.h"
+
+namespace hcomm {
+namespace CcuRep {
+
+CcuRepLocWaitNotify::CcuRepLocWaitNotify(const LocalNotify &notify, const uint32_t mask, bool isProfiling)
+    : notify_(notify), mask_(mask), isProfiling_(isProfiling)
+{
+    type       = CcuRepType::LOC_WAIT_EVENT;
+    instrCount = 1;
+}
+
+bool CcuRepLocWaitNotify::Translate(CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
+{
+    this->instrId = instrId;
+    translated    = true;
+
+    // SetCKEInstr支持硬件profiling功能
+    if (isProfiling_) {
+        SetCKEInstr(instr++, 0, 0, notify_.Id(), mask_, 1);
+    } else {
+        ClearCKEInstr(instr++, 0, 0, notify_.Id(), mask_, 1);
+    }
+
+    CHK_PRT_THROW((instrId > UINT16_MAX - instrCount),
+        HCCL_ERROR("[CcuRepLocWaitNotify::Translate]uint16 integer overflow occurs, "
+            "instrId = [%hu], instrCount = [%hu]", instrId, instrCount),
+        Hccl::CcuApiException, "integer overflow");
+
+    instrId += instrCount;
+    return translated;
+}
+
+std::string CcuRepLocWaitNotify::Describe()
+{
+    return Hccl::StringFormat("CcuRepLocWaitNotify=id[%u], mask[%04x]", notify_.Id(), mask_);
+}
+
+}; // namespace CcuRep
+}; // namespace hcomm
