@@ -11,6 +11,8 @@
 set(ASCCOMM_CCU_ROOT ${CMAKE_CURRENT_LIST_DIR})
 get_filename_component(ASCCOMM_ROOT ${ASCCOMM_CCU_ROOT}/../.. ABSOLUTE)
 
+option(ASCCOMM_BUILD_CCU_DATAPLANE_SO "Build standalone asc-comm CCU dataplane shared library." ON)
+
 function(asccomm_collect_header_dirs out_var)
     set(_dirs)
     foreach(_root IN LISTS ARGN)
@@ -149,14 +151,25 @@ target_include_directories(asccomm_hcomm_obj PRIVATE
 add_subdirectory(dataplane/hcomm/base_comm/primitives/api_c_adpt/ccu)
 add_subdirectory(dataplane/hcomm/base_comm/resources/ccu)
 
-add_library(asccomm_ccu_dataplane SHARED
-    $<TARGET_OBJECTS:asccomm_hcomm_obj>
-)
-set_target_properties(asccomm_ccu_dataplane PROPERTIES
-    OUTPUT_NAME asccomm_ccu_dataplane
-)
-target_link_libraries(asccomm_ccu_dataplane PRIVATE asccomm_ccu_headers)
+if(ASCCOMM_BUILD_CCU_DATAPLANE_SO)
+    add_library(asccomm_ccu_dataplane SHARED
+        $<TARGET_OBJECTS:asccomm_hcomm_obj>
+    )
+    set_target_properties(asccomm_ccu_dataplane PROPERTIES
+        OUTPUT_NAME asccomm_ccu_dataplane
+    )
+    target_link_libraries(asccomm_ccu_dataplane PRIVATE asccomm_ccu_headers)
+    install(TARGETS asccomm_ccu_dataplane
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    )
 
-add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
-add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
-add_custom_target(asccomm_ccu_compile_check DEPENDS asccomm_ccu_dataplane)
+    add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
+    add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
+    add_custom_target(asccomm_ccu_compile_check DEPENDS asccomm_ccu_dataplane)
+else()
+    add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_hcomm_obj)
+    add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_hcomm_obj)
+    add_custom_target(asccomm_ccu_compile_check DEPENDS asccomm_hcomm_obj)
+endif()
