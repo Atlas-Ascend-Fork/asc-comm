@@ -35,7 +35,9 @@
 
 #include "ccu_assist_v1.h"
 
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 CcuResult HcommCcuInsCreate(const void *resDesc, uint32_t descNum, CcuInsHandle *insHandle)
 {
     CCU_CHK_PTR_NULL(resDesc);
@@ -165,6 +167,9 @@ CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle insHandle)
 
     return CcuResult::CCU_SUCCESS;
 }
+#ifdef __cplusplus
+}
+#endif
 
 static std::shared_ptr<std::vector<Hccl::CcuProfilingInfo>> ConstructCcuDetailInfo(
     const std::vector<hcomm::CcuProfilingInfo> &allCcuProfilingInfo, bool isSaveProfilingData)
