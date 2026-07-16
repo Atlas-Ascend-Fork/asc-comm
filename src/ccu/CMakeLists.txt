@@ -149,14 +149,16 @@ target_include_directories(asccomm_hcomm_obj PRIVATE
 add_subdirectory(dataplane/hcomm/base_comm/primitives/api_c_adpt/ccu)
 add_subdirectory(dataplane/hcomm/base_comm/resources/ccu)
 
-add_library(asccomm_ccu_dataplane SHARED
-    $<TARGET_OBJECTS:asccomm_hcomm_obj>
-)
-set_target_properties(asccomm_ccu_dataplane PROPERTIES
-    OUTPUT_NAME asccomm_ccu_dataplane
-)
-target_link_libraries(asccomm_ccu_dataplane PRIVATE asccomm_ccu_headers)
+if(NOT ASCCOMM_CCU_EMBED_IN_HCOMM)
+    add_library(asccomm_ccu_dataplane SHARED
+        $<TARGET_OBJECTS:asccomm_hcomm_obj>
+    )
+    set_target_properties(asccomm_ccu_dataplane PROPERTIES
+        OUTPUT_NAME asccomm_ccu_dataplane
+    )
+    target_link_libraries(asccomm_ccu_dataplane PRIVATE asccomm_ccu_headers)
+endif()
 
-add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
-add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
-add_custom_target(asccomm_ccu_compile_check DEPENDS asccomm_ccu_dataplane)
+add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_hcomm_obj)
+add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_hcomm_obj)
+add_custom_target(asccomm_ccu_compile_check DEPENDS asccomm_hcomm_obj)
