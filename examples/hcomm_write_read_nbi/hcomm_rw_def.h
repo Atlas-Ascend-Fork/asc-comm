@@ -20,7 +20,7 @@ constexpr CommProtocol TARGET_COMM_PROTOCOL = COMM_PROTOCOL_UBC_CTP;
 // 最少的卡数
 constexpr uint16_t MIN_RANKS = 2U;
 // UBC_CTP通道需要的notify资源数量，需在HcclChannelAcquire前写入channelDesc
-constexpr uint32_t CHANNEL_NOTIFY_NUM = 3U;
+// constexpr uint32_t CHANNEL_NOTIFY_NUM = 3U;
 // Hcomm工作空间大小下限，小于此值Init返回失败
 constexpr uint32_t HCOMM_WORKSPACE_SIZE = 512U;
 
