@@ -7,6 +7,7 @@
 | 样例 | 说明 | 支持产品 |
 | --- | --- | --- |
 | [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示两卡场景下使用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`完成点对点通信，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
+| [custom_ccu_allgather](./custom_ccu_allgather/README.md) | 演示基于 HCCL 通信接口和 CCU_SCHED 通信引擎实现 AllGather 集合通信操作。 | Ascend 950PR/Ascend 950DT |
 
 ## hcomm_write_read_nbi
 
@@ -48,3 +49,16 @@ make -j
 - 样例支持Ascend 950PR/Ascend 950DT，CANN软件版本要求为9.1.0或以上。
 - 样例运行需要至少2张NPU；单卡环境仅支持编译验证。
 - 样例编译依赖CANN ASC CMake能力，并在链接阶段依赖`hcomm`库。
+
+## custom_ccu_allgather
+
+`custom_ccu_allgather` 展示如何将 CCU AllGather 样例直接编译为可执行文件，并依赖 hcomm+asc-comm 联合构建包中的 `libhcomm.so`、`libhccl.so` 和 `libasccomm_ccu_dataplane.so` 运行。
+
+进入样例目录后执行：
+
+```bash
+source ${ASCEND_HOME_PATH}/set_env.sh
+export HCCL_OP_EXPANSION_MODE=CCU_SCHED
+cd custom_ccu_allgather
+bash run.sh
+```
