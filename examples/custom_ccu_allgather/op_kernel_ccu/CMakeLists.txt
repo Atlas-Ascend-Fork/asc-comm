@@ -1,4 +1,4 @@
-# -----------------------------------------------------------------------------------------------------------
+ # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
@@ -8,11 +8,11 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-set(op_host_src_list
-    ${CMAKE_CURRENT_SOURCE_DIR}/allgather.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/utils.cc
+set(op_kernel_ccu_src_list
+    ${CMAKE_CURRENT_SOURCE_DIR}/ccu_kernel.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/exec_op.cc
 )
 
-target_sources(hccl_custom_allgather PRIVATE
-    ${op_host_src_list}
+target_sources(custom_allgather_ccu PRIVATE
+    ${op_kernel_ccu_src_list}
 )
