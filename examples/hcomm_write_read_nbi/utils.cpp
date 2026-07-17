@@ -11,6 +11,7 @@
 #include "utils.h"
 #include <stdexcept>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -34,25 +35,43 @@ bool ParseEndpoint(const std::string &endpoint, std::string &ip, uint16_t &port)
     ip = addr.substr(0, colonPos);
     int port_temp;
     size_t port_str_len;
-    try{
+    try {
         port_temp = std::stoi(addr.substr(colonPos + 1), &port_str_len);
-    }
-    catch (const std::invalid_argument& e)
-    {
+    } catch (const std::invalid_argument& e) {
         // 字符串无法转为数字
         return false;
-    }
-    catch (const std::out_of_range& e)
-    {
+    } catch (const std::out_of_range& e) {
         // 数值超出int范围
         return false;
     }
     // 末尾有非数字字符
-    if (port_str_len != addr.substr(colonPos + 1).size()) return false;
+    if (port_str_len != addr.substr(colonPos + 1).size()) 
+        return false;
     // 合法性检查
-    if (port_temp <= 0 || port_temp > 65535) return false;
+    if (port_temp <= 0 || port_temp > 65535) 
+        return false;
     port = static_cast<uint16_t>(port_temp);
     return !ip.empty();
+}
+
+int set_sock_timeout(int fd, int sec, int usec)
+{
+    // struct timeval tv = {3, 0}; // 3秒
+    struct timeval tv;
+    tv.tv_sec = sec;
+    tv.tv_usec = usec;
+
+    // 接收超时
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
+    {
+        return -1;
+    }
+    // 发送超时
+    if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0)
+    {
+        return -1;
+    }
+    return 0;
 }
 
 // rank 0作为server监听，rank 1作为client连接，建立TCP通道
@@ -76,10 +95,26 @@ int32_t ConnectPeer(uint32_t rank, const std::string &ip, uint16_t port, int32_t
         }
         sock = accept(listenSock, nullptr, nullptr);
         close(listenSock);
+
+        // 设置5s超时，0微秒
+        if (set_sock_timeout(sock, 5, 0) < 0)
+        {
+            fprintf(stderr, "[ERROR] setsockopt timeout\n");
+            close(sock);
+            return -1;
+        }
+
         return sock < 0 ? -1 : 0;
     } else {
         sock = socket(AF_INET, SOCK_STREAM, 0);
         if (sock < 0) {
+            return -1;
+        }
+        // 设置5s超时，0微秒
+        if (set_sock_timeout(sock, 5, 0) < 0)
+        {
+            fprintf(stderr, "[ERROR] setsockopt timeout\n");
+            close(sock);
             return -1;
         }
         struct sockaddr_in addr = {};
