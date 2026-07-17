@@ -28,7 +28,14 @@ target_include_directories(custom_allgather_ccu PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
     ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_ccu
     ${ASCEND_HOME_PATH}/include
+    ${ASCEND_HOME_PATH}/include/ccu
+    ${ASCEND_HOME_PATH}/include/ccu/hcomm
+    ${ASCEND_HOME_PATH}/include/ccu/hcomm/ccu
+    ${ASCEND_HOME_PATH}/include/hccl
+    ${ASCEND_HOME_PATH}/include/hcomm
     ${ASCEND_HOME_PATH}/pkg_inc
+    ${ASCEND_HOME_PATH}/pkg_inc/hccl
+    ${ASCEND_HOME_PATH}/pkg_inc/hcomm
 )
 
 target_compile_options(custom_allgather_ccu PRIVATE
@@ -57,10 +64,9 @@ target_link_directories(custom_allgather_ccu PRIVATE
     ${ASCEND_HOME_PATH}/lib64
 )
 target_link_libraries(custom_allgather_ccu PRIVATE
-    -Wl,--no-as-needed
     hcomm
+    hccl
     asccomm_ccu_dataplane
-    -Wl,--as-needed
     ascendcl
     acl_rt
     c_sec
