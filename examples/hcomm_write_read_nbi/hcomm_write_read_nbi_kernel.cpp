@@ -89,11 +89,11 @@ private:
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm_;
     __gm__ CommContext* context_{nullptr};
     AscendC::ChannelHandle channel_{0};
-    __gm__ uint8_t* localBuf_{nullptr};
+    GM_ADDR localBuf_{nullptr};
     GM_ADDR remoteBuf_{nullptr};
     uint32_t rankId_{0};
     uint32_t worldSize_{0};
-    bool initOk_{true};
+    bool initOk_{false};
 };
 
 } // namespace HcommExample

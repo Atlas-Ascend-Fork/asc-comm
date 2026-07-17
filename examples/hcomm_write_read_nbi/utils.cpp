@@ -14,10 +14,7 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-
-// close、usleep
 #include <unistd.h>
-// strerror
 #include <string.h>
 
 // 解析tcp://<ip>:<port>格式的endpoint，提取ip和port
@@ -45,11 +42,13 @@ bool ParseEndpoint(const std::string &endpoint, std::string &ip, uint16_t &port)
         return false;
     }
     // 末尾有非数字字符
-    if (port_str_len != addr.substr(colonPos + 1).size()) 
+    if (port_str_len != addr.substr(colonPos + 1).size()) {
         return false;
+    }
     // 合法性检查
-    if (port_temp <= 0 || port_temp > 65535) 
+    if (port_temp <= 0 || port_temp > 65535) {
         return false;
+    }
     port = static_cast<uint16_t>(port_temp);
     return !ip.empty();
 }
@@ -62,13 +61,11 @@ int set_sock_timeout(int fd, int sec, int usec)
     tv.tv_usec = usec;
 
     // 接收超时
-    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
-    {
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0) {
         return -1;
     }
     // 发送超时
-    if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0)
-    {
+    if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0) {
         return -1;
     }
     return 0;
@@ -97,8 +94,7 @@ int32_t ConnectPeer(uint32_t rank, const std::string &ip, uint16_t port, int32_t
         close(listenSock);
 
         // 设置5s超时，0微秒
-        if (set_sock_timeout(sock, 5, 0) < 0)
-        {
+        if (set_sock_timeout(sock, 5, 0) < 0) {
             fprintf(stderr, "[ERROR] setsockopt timeout\n");
             close(sock);
             return -1;
@@ -111,8 +107,7 @@ int32_t ConnectPeer(uint32_t rank, const std::string &ip, uint16_t port, int32_t
             return -1;
         }
         // 设置5s超时，0微秒
-        if (set_sock_timeout(sock, 5, 0) < 0)
-        {
+        if (set_sock_timeout(sock, 5, 0) < 0) {
             fprintf(stderr, "[ERROR] setsockopt timeout\n");
             close(sock);
             return -1;

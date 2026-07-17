@@ -94,7 +94,7 @@ Multi-process symmetric execution: Both cards launch the kernel simultaneously w
 ### Validation Mechanism
 - During Host pre-initialization of seg0, a pseudo-random pattern is generated using a Linear Congruential Generator (LCG, utilizing Knuth's multiplicative hash constant `0x9E3779B9U` and other parameters) to ensure the data source is distinguishable.
 - After Kernel execution, the Host reads back `CommContext::testResult` via `aclrtMemcpy`.
-- The Host further validates whether the data in seg1 (written by peer's `WriteNbi`) and seg2 (read by local `ReadNbi`) perfectly matches the peer's pattern. If the result is 0, it prints `test pass!`.
+- The Host further validates whether the data in seg1 (written by peer's `WriteNbi`) and seg2 (read by local `ReadNbi`) perfectly matches the peer's pattern. when the result code testResult == 0 (i.e. seg1/seg2 match the peer pattern), it prints test pass!.
 
 ## Compilation and Execution
 

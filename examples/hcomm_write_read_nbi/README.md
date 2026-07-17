@@ -96,7 +96,7 @@ hcomm_.Drain(channel);
 ### 校验机制
 - Host 预初始化 seg0 时，通过两次线性同余伪随机数生成器（LCG，使用 Knuth 乘法哈希常数 `0x9E3779B9U` 等参数）生成用于通信校验的随机 pattern，确保数据来源可区分。
 - Kernel 执行完毕后，Host 侧通过 `aclrtMemcpy` 回读 `CommContext::testResult`。
-- Host 侧进一步校验 seg1（对端 `WriteNbi` 写入）和 seg2（本卡 `ReadNbi` 读回）的数据是否与对端 pattern 完全一致。若全为 0，则打印 `test pass!`。
+- Host 侧进一步校验 seg1（对端 `WriteNbi` 写入）和 seg2（本卡 `ReadNbi` 读回）的数据是否与对端 pattern 完全一致。当校验结果码 testResult 为 0（即 seg1/seg2 数据与对端 pattern 完全一致）时，打印 test pass!。
 
 ## 编译与运行
 
