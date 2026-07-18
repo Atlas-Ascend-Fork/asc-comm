@@ -134,19 +134,43 @@ git diff --check
 
 | 目标 | 当前阻塞 | 处理方向 |
 | --- | --- | --- |
-| `reps/common` | `CcuRepContext` 在同一 `.cc` 中同时实现纯 REP context 与 `CcuUrmaChannel` profiling。 | 将纯 context 与 channel profiling 拆分为独立实现；common 仅编译纯 context。 |
+| `reps/common` | `CcuRepContext` 在同一 `.cc` 中同时实现 REP context 与 `CcuUrmaChannel` profiling。 | 保持产品源码不变；在 UT 目标中引入 `${CCU_IMPL_INCLUDE_DIRS}` 并链接测试桩。 |
 | `reps/data` | remote 数据路径需要可配置的 `CcuUrmaChannel` fake；测试中的 `HcommChannelGet` 与公共 stub 存在符号冲突。 | 将 channel 查询 fake 从 `exception_stub.cc` 拆出，提供真实派生的可配置 `CcuUrmaChannel` fake。 |
 | `reps/control` | translator 路径仍引用 `CcuDevMgrImp::GetXnBaseAddr`。 | 将 host 资源获取与纯 REP translation 分离，或定义数据面窄资源接口。 |
 | `interface` | `ccu_interface_assist.cc` 直接依赖 `CcuKernel` RTTI；且与 context stub 定义的 `AppendToContext/CreateVariable` 冲突。 | 将不依赖 kernel 的辅助逻辑拆分，隔离 kernel 适配逻辑，并统一 context fake 的所有权。 |
 
-`context/ut_ccu_rep_context_test.cc` 目前没有独立 CMake 入口。完成 context 拆分后，应新增独立 target，并用该 target 覆盖纯 context 行为。
+`context/ut_ccu_rep_context_test.cc` 已有独立 CMake 入口，目标为 `hccl_utest_comms_ccu_rep_context`。
 
 ## 5. 下一阶段顺序
 
-1. 拆分 `CcuRepContext` 的纯 REP 实现和 channel profiling 实现，优先使 `reps/common` 独立通过。
+1. 保持 `CcuRepContext` 产品源码不变，继续通过测试侧 include 和 stub 支持已注册的 common/context UT。
 2. 建立可配置的 channel fake，适配 `reps/data` 的 local/remote 路径。
 3. 隔离 translator 的 `CcuDevMgrImp` 资源获取，适配 `reps/control`。
-4. 拆分 interface assist 的 kernel 依赖并统一 context fake，适配 `interface`。
-5. 为 `context` 增加独立 CMake target；随后运行全部已启用 CCU 数据面目标。
+4. 在测试侧处理 interface assist 的 kernel 依赖与 context fake 符号冲突，适配 `interface`。
+5. 运行全部已启用 CCU 数据面目标。
 
 在上述工作完成前，不应通过重新定义全量 `asccomm_ccu_impl` 来使目标“暂时可编译”，否则会重新掩盖 hcomm 控制面依赖。
+
+## 6. Context UT 适配执行结果
+
+本阶段不修改 `src/` 下的 context 产品源码。`CcuRepContext` 保持原有 channel profiling 实现；UT 通过测试侧 CMake 和 stub 适配其编译、链接依赖。
+
+同时新增并注册独立 context UT：
+
+```text
+tests/ccu/hcomm/ccu_representation/context/CMakeLists.txt
+tests/ccu/hcomm/ccu_representation/context/main.cc
+```
+
+该目标仍直接编译原始 `ccu_rep_context.cc`，并在测试目标中补充 `${CCU_IMPL_INCLUDE_DIRS}`，使 hcomm channel 头文件可被解析。链接时使用 `asccomm_ccu_llt_stub` 提供的测试桩。
+
+`exception_stub.cc` 增加最小 `memset_s` 实现，满足 `CcuProfilingInfo` 初始化和无 channel 的 profiling 路径。
+
+验证结果：
+
+| 目标 | 结果 |
+| --- | --- |
+| `hccl_utest_comms_ccu_rep_common` | 28 项通过 |
+| `hccl_utest_comms_ccu_rep_context` | 25 项通过 |
+
+至此，`reps/common` 和 `context` 均可在不修改产品源码的前提下独立运行。下一步可在 `tests/` 侧处理 `reps/data` 的可配置 channel fake。

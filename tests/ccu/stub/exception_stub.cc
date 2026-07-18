@@ -10,6 +10,7 @@
 
 #include <string>
 #include <cstdarg>
+#include <cstring>
 #include "exception_defination.h"
 
 // securec 桩
@@ -20,6 +21,15 @@ extern "C" int snprintf_s(char *strDest, size_t destMax, size_t count, const cha
     int ret = vsnprintf(strDest, destMax, format, args);
     va_end(args);
     return ret;
+}
+
+extern "C" int memset_s(void *dest, size_t destMax, int value, size_t count)
+{
+    if (dest == nullptr || count > destMax) {
+        return -1;
+    }
+    (void)memset(dest, value, count);
+    return 0;
 }
 
 // hcomm logging 桩
