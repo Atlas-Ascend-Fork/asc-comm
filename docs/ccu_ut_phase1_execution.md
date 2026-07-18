@@ -186,3 +186,7 @@ tests/ccu/hcomm/ccu_representation/context/main.cc
 `reps/control` 已通过显式补齐 loop、loadarg 和 microcode assist 源码闭包，并使用测试侧 `CcuDevMgrImp::GetXnBaseAddr()` 窄桩满足 translator 的链接依赖。
 
 `hccl_utest_comms_ccu_rep_control` 已构建并通过 32 项测试。该资源桩不创建或验证设备控制面资源，详细记录见 `docs/ccu_ut_control_adaptation.md`。
+
+## 9. Interface UT 适配执行结果
+
+`reps/interface` 已使用测试侧 assist 静态库和最小 `CcuKernel` RTTI 桩解决 production assist 的重定义与链接依赖，并通过 32 项测试。详细记录见 `docs/ccu_ut_interface_adaptation.md`。

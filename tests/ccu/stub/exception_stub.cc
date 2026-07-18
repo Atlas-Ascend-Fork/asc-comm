@@ -45,13 +45,6 @@ extern "C" int memcpy_s(void *dest, size_t destMax, const void *src, size_t coun
 bool HcclCheckLogLevel(int logType, int moduleId) { return false; }
 bool IsErrorToWarn() { return false; }
 
-// CcuRep context 桩（ccu_datatype.cc 等调用）
-#include "ccu_rep_context_v1.h"
-namespace hcomm { namespace CcuRep {
-void AppendToContext(CcuRepContext *context, std::shared_ptr<CcuRepBase> rep) {}
-uint64_t CreateVariable(CcuRepContext *context) { return 0; }
-} } // namespace
-
 namespace Hccl {
 std::string ExceptionInfo::GetErrorMsg(const ExceptionType &type)
 {

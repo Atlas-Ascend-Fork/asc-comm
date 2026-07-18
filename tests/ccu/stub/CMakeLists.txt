@@ -17,6 +17,9 @@ add_library(asccomm_ccu_llt_stub STATIC
     ccu_dev_mgr_stub.cc
     ccu_rts_stub.cc
 )
+add_library(asccomm_ccu_rep_assist_stub STATIC
+    ccu_rep_assist_stub.cc
+)
 target_include_directories(asccomm_ccu_llt_stub PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
@@ -25,6 +28,17 @@ target_include_directories(asccomm_ccu_llt_stub PRIVATE
     ${CCU_IMPL_INCLUDE_DIRS}
     ${ASCEND_CANN_PACKAGE_PATH}/include
 )
+target_include_directories(asccomm_ccu_rep_assist_stub PRIVATE
+    ${UT_COMMON_INCLUDE_LIST}
+    ${CCU_IMPL_INCLUDE_DIRS}
+)
+target_link_libraries(asccomm_ccu_rep_assist_stub PRIVATE
+    $<BUILD_INTERFACE:json>
+)
+target_sources(asccomm_ccu_llt_stub PRIVATE
+    ccu_kernel_stub.cc
+)
 target_link_libraries(asccomm_ccu_llt_stub PRIVATE
     $<BUILD_INTERFACE:json>
+    asccomm_ccu_rep_assist_stub
 )
