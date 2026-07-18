@@ -190,3 +190,27 @@ tests/ccu/hcomm/ccu_representation/context/main.cc
 ## 9. Interface UT 适配执行结果
 
 `reps/interface` 已使用测试侧 assist 静态库和最小 `CcuKernel` RTTI 桩解决 production assist 的重定义与链接依赖，并通过 32 项测试。详细记录见 `docs/ccu_ut_interface_adaptation.md`。
+
+## 10. 全量 CCU UT 验证
+
+完成所有已启用 CCU 目标的构建后，使用以下命令执行 CTest：
+
+```bash
+ctest --test-dir build/ut-hcomm/ccu_hcomm --output-on-failure
+```
+
+注意：顶层 `build/ut-hcomm` 没有注册 CCU 测试；CCU 使用相对 `add_subdirectory` 生成在 `ccu_hcomm` 子构建目录。
+
+验证结果：9/9 通过。
+
+```text
+hccl_utest_comms_ccu_rep_sync
+hccl_utest_comms_ccu_rep_control
+hccl_utest_comms_ccu_rep_common
+hccl_utest_comms_ccu_rep_data
+hccl_utest_comms_ccu_rep_arithmetic
+hccl_utest_comms_ccu_rep_loop
+hccl_utest_comms_ccu_rep_context
+hccl_utest_comms_ccu_rep_interface
+hccl_utest_comms_ccu_microcode
+```

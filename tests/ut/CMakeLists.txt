@@ -124,6 +124,18 @@ endif()
 add_custom_target(generate_kernel_headers ALL DEPENDS ${KERNEL_TILING_FILE})
 add_dependencies(kernel_tiling generate_kernel_headers)
 
+set(ASCCOMM_COVERAGE_SCRIPT ${ASCCOMM_ROOT}/scripts/generate_cpp_cov.sh)
+if(ENABLE_GCOV)
+    get_filename_component(_coverage_build_parent_dir ${CMAKE_BINARY_DIR} DIRECTORY)
+    get_filename_component(_coverage_package_path "${ASCEND_CANN_PACKAGE_PATH}/../" REALPATH)
+    set(_coverage_report ${CMAKE_BINARY_DIR}/cov_report)
+    set(_coverage_data ${_coverage_report}/coverage.info)
+    add_custom_target(collect_coverage_data
+        COMMAND bash ${ASCCOMM_COVERAGE_SCRIPT} ${_coverage_build_parent_dir} ${_coverage_data} ${_coverage_report} ${_coverage_package_path}
+        COMMENT "Run collect coverage data"
+    )
+endif()
+
 function(run_llt_test)
     cmake_parse_arguments(LLT "" "TARGET;TASK_NUM;ENV_FILE" "FILTERS;RUNTIME_DIRS" ${ARGN})
 
@@ -133,23 +145,8 @@ function(run_llt_test)
         return()
     endif()
 
-    if(ENABLE_GCOV)
-        set(_collect_coverage_data_target collect_coverage_data)
-
-        get_filename_component(_build_parent_dir ${CMAKE_BINARY_DIR} DIRECTORY)
-        get_filename_component(_pkg_path "${ASCEND_CANN_PACKAGE_PATH}/../" REALPATH)
-        set(_cov_report ${CMAKE_BINARY_DIR}/cov_report)
-        set(_cov_html ${_cov_report})
-        set(_cov_data ${_cov_report}/coverage.info)
-
-        if(NOT TARGET ${_collect_coverage_data_target})
-            add_custom_target(${_collect_coverage_data_target} ALL
-                COMMAND bash ${ASCCOMM_COVERAGE_SCRIPT} ${_build_parent_dir} ${_cov_data} ${_cov_html} ${_pkg_path}
-                COMMENT "Run collect coverage data"
-            )
-        endif()
-
-        add_dependencies(${_collect_coverage_data_target} ${LLT_TARGET})
+    if(ENABLE_GCOV AND TARGET collect_coverage_data)
+        add_dependencies(collect_coverage_data ${LLT_TARGET})
     endif()
 
     if(NOT ASCCOMM_UT_RUN_AFTER_BUILD)
@@ -184,8 +181,6 @@ function(run_llt_test)
     )
 endfunction()
 
-set(ASCCOMM_COVERAGE_SCRIPT ${ASCCOMM_ROOT}/scripts/generate_cpp_cov.sh)
-
 function(asccomm_add_product_definitions target_name product_type)
     target_compile_definitions(${target_name} PRIVATE
         UT_TEST
@@ -202,7 +197,7 @@ function(asccomm_add_product_definitions target_name product_type)
     )
 endfunction()
 
-# # add_subdirectory(aicore/hcomm)
+# add_subdirectory(aicore/hcomm)
 
 # --- CCU UT 变量定义 ---
 # 自动探测 hcomm 源码树（与根 CMakeLists.txt 逻辑一致）
