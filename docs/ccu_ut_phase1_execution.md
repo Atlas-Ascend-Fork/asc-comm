@@ -180,3 +180,9 @@ tests/ccu/hcomm/ccu_representation/context/main.cc
 `reps/data` 的 `HcommChannelGet` 已收敛为 `tests/ccu/stub/ccu_channel_get_stub.cc` 中唯一的全局实现。data UT 注册真实类型的 `CcuUrmaChannel` 测试对象，避免测试本地伪对象与产品 `dynamic_cast` 不兼容。
 
 `hccl_utest_comms_ccu_rep_data` 已构建并通过 33 项测试。现有 remote `Translate` 用例大多仍只校验类型，详细覆盖缺口见 `docs/ccu_ut_data_adaptation.md`。
+
+## 8. Control UT 适配执行结果
+
+`reps/control` 已通过显式补齐 loop、loadarg 和 microcode assist 源码闭包，并使用测试侧 `CcuDevMgrImp::GetXnBaseAddr()` 窄桩满足 translator 的链接依赖。
+
+`hccl_utest_comms_ccu_rep_control` 已构建并通过 32 项测试。该资源桩不创建或验证设备控制面资源，详细记录见 `docs/ccu_ut_control_adaptation.md`。

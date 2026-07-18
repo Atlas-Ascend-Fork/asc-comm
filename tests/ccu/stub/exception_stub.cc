@@ -32,6 +32,15 @@ extern "C" int memset_s(void *dest, size_t destMax, int value, size_t count)
     return 0;
 }
 
+extern "C" int memcpy_s(void *dest, size_t destMax, const void *src, size_t count)
+{
+    if (dest == nullptr || src == nullptr || count > destMax) {
+        return -1;
+    }
+    (void)memcpy(dest, src, count);
+    return 0;
+}
+
 // hcomm logging 桩
 bool HcclCheckLogLevel(int logType, int moduleId) { return false; }
 bool IsErrorToWarn() { return false; }
