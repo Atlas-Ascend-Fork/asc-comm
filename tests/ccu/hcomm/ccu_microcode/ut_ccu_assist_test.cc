@@ -12,18 +12,12 @@
 #include "ccu_microcode_v1.h"
 #include "ccu_api_exception.h"
 #include <gtest/gtest.h>
-#include <mockcpp/mockcpp.hpp>
 
 namespace hcomm {
 namespace CcuRep {
 namespace {
 
-class CcuAssistTest : public ::testing::Test {
-protected:
-    void TearDown() override {
-        GlobalMockObject::verify();
-    }
-};
+class CcuAssistTest : public ::testing::Test {};
 
 TEST_F(CcuAssistTest, GetLoopParam)
 {
@@ -55,6 +49,11 @@ TEST_F(CcuAssistTest, GetToken_ValidZero)
 {
     uint64_t result = GetToken(0, 0, 0);
     EXPECT_EQ(result, 0);
+}
+
+TEST_F(CcuAssistTest, GetTokenInfo_EncodesQueriedToken)
+{
+    EXPECT_EQ(GetTokenInfo(0, 0), 1ULL << 52);
 }
 
 TEST_F(CcuAssistTest, GetCcuReduceType_SUM)

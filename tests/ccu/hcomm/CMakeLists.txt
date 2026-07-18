@@ -46,12 +46,12 @@ enable_testing()
 
 add_subdirectory(../stub stub)
 
-# 轻依赖子目标（sync 已完成适配，其余待适配）
+# CCU 数据面子目标
 add_subdirectory(ccu_representation/reps/sync)
-# add_subdirectory(ccu_representation/reps/control)
-# add_subdirectory(ccu_representation/reps/common)
-# add_subdirectory(ccu_representation/reps/data)
-# add_subdirectory(ccu_representation/reps/arithmetic)
-# add_subdirectory(ccu_representation/reps/loop)
-# add_subdirectory(ccu_representation/interface)
-# add_subdirectory(ccu_microcode)
+add_subdirectory(ccu_representation/reps/control)
+add_subdirectory(ccu_representation/reps/common)
+add_subdirectory(ccu_representation/reps/data)
+add_subdirectory(ccu_representation/reps/arithmetic)
+add_subdirectory(ccu_representation/reps/loop)
+add_subdirectory(ccu_representation/interface)
+add_subdirectory(ccu_microcode)

@@ -11,6 +11,24 @@
 set(src_to_test_list
     main.cc
     ut_ccu_rep_data_test.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/data/ccu_rep_buflocread.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/data/ccu_rep_buflocwrite.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/data/ccu_rep_bufread.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/data/ccu_rep_bufreduce.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/data/ccu_rep_bufwrite.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/data/ccu_rep_loccpy.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/data/ccu_rep_read.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/data/ccu_rep_remMem.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/data/ccu_rep_write.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common/ccu_rep_base.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common/ccu_rep_block.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common/ccu_rep_nop.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/context/ccu_rep_context.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/interface/ccu_datatype.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic/ccu_rep_add.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic/ccu_rep_assign.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_microcode.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_assist.cc
 )
 
 add_executable(hccl_utest_comms_ccu_rep_data ${src_to_test_list})
@@ -48,14 +66,13 @@ target_link_libraries(hccl_utest_comms_ccu_rep_data PRIVATE
     $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
     intf_llt_pub_basic
     -pthread
-    $<TARGET_OBJECTS:asccomm_ccu_impl>
     asccomm_ccu_llt_stub
     -lgcov
     -lrt
     -ldl
 )
 
-add_dependencies(hccl_utest_comms_ccu_rep_data asccomm_ccu_llt_stub asccomm_ccu_impl)
+add_dependencies(hccl_utest_comms_ccu_rep_data asccomm_ccu_llt_stub)
 
 enable_testing()
 add_test(NAME hccl_utest_comms_ccu_rep_data COMMAND hccl_utest_comms_ccu_rep_data)

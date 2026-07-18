@@ -11,14 +11,18 @@
 set(src_to_test_list
     main.cc
     ut_ccu_rep_arithmetic_test.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic/ccu_rep_add.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic/ccu_rep_assign.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic/ccu_operator.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common/ccu_rep_base.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/interface/ccu_datatype.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_microcode.cc
 )
 
 add_executable(hccl_utest_comms_ccu_rep_arithmetic ${src_to_test_list})
 
 target_include_directories(hccl_utest_comms_ccu_rep_arithmetic PRIVATE
     ${UT_COMMON_INCLUDE_LIST}
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/reps/arithmetic
-    ${HCCL_CODE_ROOT}/pkg_inc/hcomm/ccu
 )
 
 target_compile_definitions(hccl_utest_comms_ccu_rep_arithmetic PRIVATE
@@ -39,14 +43,13 @@ target_link_libraries(hccl_utest_comms_ccu_rep_arithmetic PRIVATE
     $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
     intf_llt_pub_basic
     -pthread
-    $<TARGET_OBJECTS:asccomm_ccu_impl>
     asccomm_ccu_llt_stub
     -lgcov
     -lrt
     -ldl
 )
 
-add_dependencies(hccl_utest_comms_ccu_rep_arithmetic asccomm_ccu_llt_stub asccomm_ccu_impl)
+add_dependencies(hccl_utest_comms_ccu_rep_arithmetic asccomm_ccu_llt_stub)
 
 enable_testing()
 add_test(NAME hccl_utest_comms_ccu_rep_arithmetic COMMAND hccl_utest_comms_ccu_rep_arithmetic)
