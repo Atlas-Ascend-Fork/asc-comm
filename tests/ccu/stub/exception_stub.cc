@@ -36,13 +36,6 @@ extern "C" int memset_s(void *dest, size_t destMax, int value, size_t count)
 bool HcclCheckLogLevel(int logType, int moduleId) { return false; }
 bool IsErrorToWarn() { return false; }
 
-// HcommChannelGet 桩（ccu_rep_rempostvar/remwaitsem/rempostsem 调用）
-#include "hcomm_c_adpt.h"
-HcommResult HcommChannelGet(ChannelHandle channelHandle, void **channel)
-{
-    return static_cast<HcommResult>(0);
-}
-
 // CcuRep context 桩（ccu_datatype.cc 等调用）
 #include "ccu_rep_context_v1.h"
 namespace hcomm { namespace CcuRep {

@@ -13,6 +13,7 @@ add_library(asccomm_ccu_llt_stub STATIC
     llt_hccl_stub_min.cc
     exception_stub.cc
     ccu_channel_stub.cc
+    ccu_channel_get_stub.cc
     ccu_rts_stub.cc
 )
 target_include_directories(asccomm_ccu_llt_stub PUBLIC

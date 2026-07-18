@@ -35,6 +35,7 @@ add_executable(hccl_utest_comms_ccu_rep_data ${src_to_test_list})
 
 target_include_directories(hccl_utest_comms_ccu_rep_data PRIVATE
     ${UT_COMMON_INCLUDE_LIST}
+    ${CCU_IMPL_INCLUDE_DIRS}
     ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation
     ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/context
     ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/interface

@@ -174,3 +174,9 @@ tests/ccu/hcomm/ccu_representation/context/main.cc
 | `hccl_utest_comms_ccu_rep_context` | 25 项通过 |
 
 至此，`reps/common` 和 `context` 均可在不修改产品源码的前提下独立运行。下一步可在 `tests/` 侧处理 `reps/data` 的可配置 channel fake。
+
+## 7. Data UT 适配执行结果
+
+`reps/data` 的 `HcommChannelGet` 已收敛为 `tests/ccu/stub/ccu_channel_get_stub.cc` 中唯一的全局实现。data UT 注册真实类型的 `CcuUrmaChannel` 测试对象，避免测试本地伪对象与产品 `dynamic_cast` 不兼容。
+
+`hccl_utest_comms_ccu_rep_data` 已构建并通过 33 项测试。现有 remote `Translate` 用例大多仍只校验类型，详细覆盖缺口见 `docs/ccu_ut_data_adaptation.md`。
