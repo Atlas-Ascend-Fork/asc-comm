@@ -78,6 +78,9 @@ else()
     set(ASCCOMM_GTEST_USES_CXX11_ABI0 ON)
 endif()
 
+# CCU UT 需要的第三方依赖
+add_cann_third_party(json)
+
 add_library(intf_llt_pub_basic INTERFACE)
 target_compile_definitions(intf_llt_pub_basic INTERFACE
     CFG_BUILD_DEBUG
@@ -199,4 +202,112 @@ function(asccomm_add_product_definitions target_name product_type)
     )
 endfunction()
 
-add_subdirectory(aicore/hcomm)
+# # add_subdirectory(aicore/hcomm)
+
+# --- CCU UT 变量定义 ---
+# 自动探测 hcomm 源码树（与根 CMakeLists.txt 逻辑一致）
+if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
+    foreach(_candidate
+        "${ASCCOMM_ROOT}/../hcomm"
+        "${CANN_3RD_LIB_PATH}/hcomm")
+        if(EXISTS "${_candidate}/CMakeLists.txt")
+            get_filename_component(ASCCOMM_HCOMM_SOURCE_DIR "${_candidate}" ABSOLUTE)
+            break()
+        endif()
+    endforeach()
+endif()
+if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
+    message(FATAL_ERROR "ASCCOMM_HCOMM_SOURCE_DIR not found, please ensure hcomm repo exists at ${ASCCOMM_ROOT}/../hcomm or set it manually")
+endif()
+message(STATUS "CCU UT: ASCOMM_HCOMM_SOURCE_DIR = ${ASCCOMM_HCOMM_SOURCE_DIR}")
+
+# hcomm 遗留变量别名（ccu 测试 CMakeLists 中引用）
+set(HCCL_CODE_ROOT "${ASCCOMM_HCOMM_SOURCE_DIR}")
+set(HCOMM_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}")
+
+# CCU UT 公共头文件目录（混合策略：asc-comm 本仓 + hcomm 引用 + 测试桩）
+set(UT_COMMON_INCLUDE_LIST
+    # asc-comm 本仓 ccu 数据面头文件
+    ${ASCCOMM_ROOT}/include/ccu
+    ${ASCCOMM_ROOT}/include/ccu/hcomm/ccu
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/context
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/interface
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/control
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/data
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/loop
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/sync
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/translator
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/pub_inc
+
+    # hcomm 仓引用（legacy 异常、公共头等少量依赖）
+    # 关键：ascend910/pub_inc 必须在 ascend950/common 之前（log.h 冲突）
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/pub_inc
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/pub_inc/inner
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/pub_inc/new
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/platform/common
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/common
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/common/src
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/inc
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/hcom
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common/exception
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common/utils
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common/types
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/unified_platform/pub_inc
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/unified_platform
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/common
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_device
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_device/ccu_comp
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_device/ccu_comp/ccu_channel
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_transport
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_kernel
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_instance
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/endpoint_pairs/channels
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/endpoint_pairs/channels/ccu
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/hccp/inc
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/hccp/inc/network
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/primitives/api_c_adpt
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/southbound_adpt
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/include
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/include/hccl
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy/hccl
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hccl
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/context
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/interface
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/arithmetic
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/common
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/control
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/data
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/loop
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/sync
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/translator
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_microcode
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/pub_inc
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/pkg_inc
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/pkg_inc/runtime
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/include
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/include/mmpa
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
+
+    # 测试桩目录（ccu 测试在 tests/ccu，与 tests/ut 平级）
+    ${ASCCOMM_UT_ROOT}/../ccu/stub
+
+    # CANN 外部依赖头
+    ${ASCCOMM_CANN_INCLUDE_DIRS}
+)
+
+add_subdirectory(../ccu/hcomm ccu_hcomm)

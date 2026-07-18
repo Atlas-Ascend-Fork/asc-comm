@@ -31,7 +31,6 @@ target_include_directories(hccl_utest_comms_ccu_rep_control PRIVATE
 )
 
 target_compile_definitions(hccl_utest_comms_ccu_rep_control PRIVATE
-    _GLIBCXX_USE_CXX11_ABI=0
     google=ascend_private
     -DOPEN_HCCL_TEST
     OPEN_BUILD_PROJECT
@@ -46,19 +45,17 @@ target_compile_options(hccl_utest_comms_ccu_rep_control PRIVATE
 )
 
 target_link_libraries(hccl_utest_comms_ccu_rep_control PRIVATE
-    $<BUILD_INTERFACE:intf_pub>
-    $<BUILD_INTERFACE:rdma_core_headers>
     $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
+    intf_llt_pub_basic
     -pthread
-    hccl_llt
-    -Wl,--whole-archive
-    -Wl,--no-whole-archi
+    $<TARGET_OBJECTS:asccomm_ccu_impl>
+    asccomm_ccu_llt_stub
     -lgcov
     -lrt
     -ldl
 )
 
-add_dependencies(hccl_utest_comms_ccu_rep_control hccl_llt)
+add_dependencies(hccl_utest_comms_ccu_rep_control asccomm_ccu_llt_stub asccomm_ccu_impl)
 
 enable_testing()
 add_test(NAME hccl_utest_comms_ccu_rep_control COMMAND hccl_utest_comms_ccu_rep_control)

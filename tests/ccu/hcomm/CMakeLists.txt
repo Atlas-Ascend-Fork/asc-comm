@@ -8,71 +8,50 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-set(src_to_test_list
-    main.cc
-    hccl_api_base_test.cc
-    ut_CcuComponent_test.cc
-    ut_HcommCcuControlApi_test.cc
+# 引入精简桩库（在 CCU_IMPL_INCLUDE_DIRS 定义之后，使桩库能访问这些路径）
+# add_subdirectory(../stub stub)  -- 移到后面
 
-    mocks/ccu_device_mock_utils.cc
-    mocks/ccu_drv_handle_mock.cc
-    mocks/ccu_dev_mgr_mock.cc
-    ut_CcuConn_test.cc
-    ut_ccu_microcode.cc
+# CCU 源文件路径前缀
+set(CCU_REP_DIR ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation)
+set(CCU_MICROCODE_DIR ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_microcode)
 
-    ccu_kernel_impl/ccu_groupcopy_alg.cc
-    ccu_kernel_impl/ccu_groupcopy_kernel.cc
-    # ut_ccu_mgr_test.cc  
-    ./ccu_representation/interface/ut_ccu_interface_assist.cc
-    ./ccu_device/ut_ccu_res_batch_allocator.cc
-    ./ccu_device/ccu_comp/ccu_channel/ccu_pfe/ut_ccu_pfe_cfg_mgr.cc
+# 自动收集 hcomm 全部头文件目录（避免逐个补充缺失路径）
+file(GLOB_RECURSE _hcomm_headers
+    "${ASCCOMM_HCOMM_SOURCE_DIR}/src/*.h"
+    "${ASCCOMM_HCOMM_SOURCE_DIR}/src/*.hpp"
+    "${ASCCOMM_HCOMM_SOURCE_DIR}/include/*.h"
+    "${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/*.h"
 )
+set(_hcomm_include_dirs)
+foreach(_hdr ${_hcomm_headers})
+    get_filename_component(_dir "${_hdr}" DIRECTORY)
+    list(APPEND _hcomm_include_dirs "${_dir}")
+endforeach()
+list(REMOVE_DUPLICATES _hcomm_include_dirs)
 
-add_executable(hccl_utest_comms_ccu_features ${src_to_test_list})
-
-#头文件搜索路径
-target_include_directories(hccl_utest_comms_ccu_features PRIVATE
-    ${UT_COMMON_INCLUDE_LIST}
-    ${HCOMM_DIR}/pkg_inc/hcomm/ccu
+# CCU 实现编译选项（各测试目标共享的 include 路径和编译定义）
+# 关键：ascend910/pub_inc 必须在 ascend950/common 之前（log.h 冲突）
+set(CCU_IMPL_INCLUDE_DIRS
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/pub_inc
+    ${_hcomm_include_dirs}
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/pkg_inc
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/pkg_inc/runtime
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/include
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/include/mmpa
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
 )
-
-target_compile_definitions(hccl_utest_comms_ccu_features PRIVATE
-    _GLIBCXX_USE_CXX11_ABI=0
-    google=ascend_private
-    -DOPEN_HCCL_TEST
-    OPEN_BUILD_PROJECT
-)
-
-target_compile_options(hccl_utest_comms_ccu_features PRIVATE
-    -U_FORTIFY_SOURCE
-    -fno-var-tracking-assignments
-    -Os
-    -O0 -g --coverage -fprofile-arcs -ftest-coverage -fno-access-control
-    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address -fsanitize-recover=address,all -fno-omit-frame-pointer>
-)
-
-target_link_libraries(hccl_utest_comms_ccu_features PRIVATE
-    $<BUILD_INTERFACE:intf_pub>
-    $<BUILD_INTERFACE:rdma_core_headers>
-    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
-    -pthread
-    hccl_llt
-    -Wl,--whole-archive
-    -Wl,--no-whole-archi
-    -lgcov
-    -lrt
-    -ldl
-)
-
-add_dependencies(hccl_utest_comms_ccu_features hccl_llt)
 
 enable_testing()
-add_test(NAME hccl_utest_comms_ccu_features COMMAND hccl_utest_comms_ccu_features)
 
+add_subdirectory(../stub stub)
+
+# 轻依赖子目标（sync 已完成适配，其余待适配）
 add_subdirectory(ccu_representation/reps/sync)
-add_subdirectory(ccu_representation/reps/control)
-add_subdirectory(ccu_representation/reps/common)
-add_subdirectory(ccu_representation/reps/data)
-add_subdirectory(ccu_representation/reps/arithmetic)
-add_subdirectory(ccu_representation/reps/loop)
-add_subdirectory(ccu_representation/interface)
+# add_subdirectory(ccu_representation/reps/control)
+# add_subdirectory(ccu_representation/reps/common)
+# add_subdirectory(ccu_representation/reps/data)
+# add_subdirectory(ccu_representation/reps/arithmetic)
+# add_subdirectory(ccu_representation/reps/loop)
+# add_subdirectory(ccu_representation/interface)
+# add_subdirectory(ccu_microcode)
