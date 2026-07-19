@@ -250,13 +250,11 @@ set(UT_COMMON_INCLUDE_LIST
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/southbound_adpt
     ${ASCCOMM_HCOMM_SOURCE_DIR}/include
     ${ASCCOMM_HCOMM_SOURCE_DIR}/include/hccl
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hccl
     ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/pkg_inc
     ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/pkg_inc/runtime
     ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/include
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/include/mmpa
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
 

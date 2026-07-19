@@ -152,3 +152,46 @@ cmake --build build/ut-hcomm --target collect_coverage_data -j 64
 - `build/ut-hcomm/cov_report/index.html` 生成成功。
 - 覆盖率信息包含 `task_param.h`，证明该保留路径被 arithmetic 和 loop 目标实际使用。
 - 本轮覆盖率为：行 51.8%，函数 63.3%。
+
+## 6. 第二批候选分析
+
+第一批后的剩余待定路径及 `.d` 编译依赖结论如下：
+
+| 路径 | 证据 | 结论 |
+| --- | --- | --- |
+| `src/legacy/ascend950` | `ccu_device_pub.h` 通过 `unified_platform/pub_inc/ccu/ccu_dev_mgr.h` 前缀包含 | 保留 |
+| `src/legacy/ascend950/common` | 命中 `ip_address.h`、`binary_stream.h`、`log.h` 等 | 保留 |
+| `pkg_inc` | 未直接命中根目录文件，但可能用于 `hccl/`、`hcomm/` 前缀 include | 待单独验证 |
+| `pkg_inc/hccl` | 命中 `hccl_diag.h` | 保留 |
+| `test/stub/depends/pkg_inc` | 命中 `profiling/aprof_pub.h` | 保留 |
+| `test/stub/depends/include/mmpa` | 未命中 `mmpa_api.h` 或其子目录头文件 | 删除并验证 |
+
+本批先删除 `src/legacy/ascend950` 与 `test/stub/depends/include/mmpa`。前者验证失败：`ccu_device_pub.h` 包含 `unified_platform/pub_inc/ccu/ccu_dev_mgr.h`，必须通过 ascend950 根目录解析，现已恢复。后者尚未命中编译依赖，待在前者恢复后继续验证；其余路径不因未完成的前缀 include 分析而提前删除。
+
+恢复 ascend950 根目录后重新执行 `bash build.sh -t`，9 个 CCU target 全部构建并通过 CTest。由此确认 `test/stub/depends/include/mmpa` 可删除，第二批净删除 1 个目录。
+
+## 7. 第三批候选分析
+
+`pkg_inc` 根目录未出现在当前 CCU target 的 `.d` 编译依赖中；其下 `hcomm/` 目录也未被当前 CCU 源码或测试以 `hcomm/` 前缀引用。已启用 CCU 目标实际需要的 package 头文件由下列更精确路径提供：
+
+- `pkg_inc/legacy`：`hccl/base.h`、`dtype_common.h`、`hcom.h`、`workflow.h`。
+- `pkg_inc/hccl`：`hccl_diag.h`。
+
+当前 AICore UT 入口保持注释，`pkg_inc` 根目录只可能用于该未启用路径。本批从 CCU UT include 列表删除 `pkg_inc`，并以 9 项 CCU target 构建和 CTest 验证。
+
+验证命令：
+
+```bash
+bash build.sh -t
+```
+
+结果：9 个 CCU target 均构建成功，CTest 9/9 通过。因此，在当前仅启用 CCU UT 的配置下，`pkg_inc` 根目录可删除。
+
+## 8. 当前结论
+
+`UT_COMMON_INCLUDE_LIST` 的 hcomm 直接 include 路径已由 55 项收敛为 15 项：
+
+- 已删除并验证：40 项，其中第一批 38 项、第二批 `test/stub/depends/include/mmpa`、第三批 `pkg_inc`。
+- 必须保留：`src/legacy/ascend950`、`src/legacy/ascend950/common`、`include`、`include/hccl`、`pkg_inc/legacy`、`pkg_inc/hccl`、测试桩 runtime/pkg/include 路径，以及前述异常、类型和 southbound 路径。
+
+若重新启用 AICore UT，应单独验证其 `hcomm/hcomm.h` 前缀 include 是否仍需要 `pkg_inc` 根目录；该结论不应由当前 CCU 验证外推。
