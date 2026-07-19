@@ -241,56 +241,18 @@ set(UT_COMMON_INCLUDE_LIST
     # hcomm 仓引用（legacy 异常、公共头等少量依赖）
     # 关键：ascend910/pub_inc 必须在 ascend950/common 之前（log.h 冲突）
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/pub_inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/pub_inc/inner
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/pub_inc/new
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/platform/common
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/common
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/common/src
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/hcom
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common/exception
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common/utils
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common/types
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/unified_platform/pub_inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/unified_platform
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/common
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_device
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_device/ccu_comp
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_device/ccu_comp/ccu_channel
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_transport
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_kernel
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_instance
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/endpoint_pairs/channels
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/endpoint_pairs/channels/ccu
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/hccp/inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/hccp/inc/network
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/primitives/api_c_adpt
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/southbound_adpt
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src
     ${ASCCOMM_HCOMM_SOURCE_DIR}/include
     ${ASCCOMM_HCOMM_SOURCE_DIR}/include/hccl
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy/hccl
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hccl
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/context
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/interface
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/arithmetic
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/common
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/control
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/data
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/loop
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/sync
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_representation/reps/translator
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/ccu_microcode
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/ccu/pub_inc
     ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/pkg_inc
     ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/pkg_inc/runtime
     ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/include
