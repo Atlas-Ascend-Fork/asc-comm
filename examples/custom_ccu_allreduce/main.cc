@@ -70,7 +70,7 @@ int Sample(void *arg)
     void *sendBuf = nullptr;
     void *recvBuf = nullptr;
     uint32_t device = ctx->device;
-    uint64_t sendCount = ctx->devCount;
+    uint64_t sendCount = ctx->devCount > 16 ? 16 : ctx->devCount;
     uint64_t recvCount = sendCount;
     size_t sendSize = sendCount * sizeof(float);
     size_t recvSize = recvCount * sizeof(float);
@@ -94,7 +94,7 @@ int Sample(void *arg)
     ACLCHECK(aclrtMallocHost(&hostBuf, sendSize));
     float *tmpHostBuff = static_cast<float *>(hostBuf);
     for (uint64_t i = 0; i < sendCount; ++i) {
-        tmpHostBuff[i] = static_cast<float>(i + device * 2);
+        tmpHostBuff[i] = static_cast<float>(i + device * sendCount);
     }
     std::cout << "rankId: " << device << ", input: [";
     for (uint64_t i = 0; i < sendCount; ++i) {
