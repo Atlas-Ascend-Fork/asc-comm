@@ -30,7 +30,6 @@ add_executable(hccl_utest_comms_ccu_rep_common ${src_to_test_list})
 
 target_include_directories(hccl_utest_comms_ccu_rep_common PRIVATE
     ${UT_COMMON_INCLUDE_LIST}
-    ${CCU_IMPL_INCLUDE_DIRS}
 )
 
 target_compile_definitions(hccl_utest_comms_ccu_rep_common PRIVATE
