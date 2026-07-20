@@ -60,11 +60,15 @@ UT会优先查找系统GTest。若系统中没有GTest，可以通过`CANN_3RD_L
 cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<path-to-third-party>
 ```
 
-`build.sh -t`当前未暴露`CANN_3RD_LIB_PATH`参数；需要指定离线GTest路径时，建议直接使用上述CMake命令构建UT。
+也可以通过构建脚本传入CANN third_party目录：
+
+```bash
+bash build.sh -t --cann_3rd_lib_path=<path-to-third-party>
+```
 
 ## 样例构建与运行
 
-`examples/hcomm_write_read_nbi`提供Hcomm `WriteNbi`和`ReadNbi`点对点通信样例。该样例使用独立CMake工程构建：
+`examples/hcomm_write_read_nbi`提供AIV直驱URMA `WriteNbi`和`ReadNbi`点对点通信样例。该样例使用独立CMake工程构建：
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
