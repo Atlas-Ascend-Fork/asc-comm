@@ -39,6 +39,7 @@ target_compile_options(hccl_utest_comms_ccu_microcode PRIVATE
 )
 
 target_link_libraries(hccl_utest_comms_ccu_microcode PRIVATE
+    asccomm_ccu_hcomm_compat
     $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
     intf_llt_pub_basic
     -pthread

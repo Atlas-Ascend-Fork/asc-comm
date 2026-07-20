@@ -15,6 +15,7 @@ add_library(asccomm_ccu_llt_stub STATIC
     ccu_channel_stub.cc
     ccu_channel_get_stub.cc
     ccu_dev_mgr_stub.cc
+    ccu_kernel_stub.cc
     ccu_rts_stub.cc
 )
 add_library(asccomm_ccu_rep_assist_stub STATIC
@@ -25,20 +26,17 @@ target_include_directories(asccomm_ccu_llt_stub PUBLIC
 )
 target_include_directories(asccomm_ccu_llt_stub PRIVATE
     ${UT_COMMON_INCLUDE_LIST}
-    ${CCU_IMPL_INCLUDE_DIRS}
     ${ASCEND_CANN_PACKAGE_PATH}/include
 )
 target_include_directories(asccomm_ccu_rep_assist_stub PRIVATE
     ${UT_COMMON_INCLUDE_LIST}
-    ${CCU_IMPL_INCLUDE_DIRS}
 )
 target_link_libraries(asccomm_ccu_rep_assist_stub PRIVATE
+    asccomm_ccu_hcomm_compat
     $<BUILD_INTERFACE:json>
 )
-target_sources(asccomm_ccu_llt_stub PRIVATE
-    ccu_kernel_stub.cc
-)
-target_link_libraries(asccomm_ccu_llt_stub PRIVATE
+target_link_libraries(asccomm_ccu_llt_stub PUBLIC
+    asccomm_ccu_hcomm_compat
     $<BUILD_INTERFACE:json>
     asccomm_ccu_rep_assist_stub
 )

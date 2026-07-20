@@ -199,28 +199,7 @@ endfunction()
 
 # add_subdirectory(aicore/hcomm)
 
-# --- CCU UT 变量定义 ---
-# 自动探测 hcomm 源码树（与根 CMakeLists.txt 逻辑一致）
-if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
-    foreach(_candidate
-        "${ASCCOMM_ROOT}/../hcomm"
-        "${CANN_3RD_LIB_PATH}/hcomm")
-        if(EXISTS "${_candidate}/CMakeLists.txt")
-            get_filename_component(ASCCOMM_HCOMM_SOURCE_DIR "${_candidate}" ABSOLUTE)
-            break()
-        endif()
-    endforeach()
-endif()
-if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
-    message(FATAL_ERROR "ASCCOMM_HCOMM_SOURCE_DIR not found, please ensure hcomm repo exists at ${ASCCOMM_ROOT}/../hcomm or set it manually")
-endif()
-message(STATUS "CCU UT: ASCOMM_HCOMM_SOURCE_DIR = ${ASCCOMM_HCOMM_SOURCE_DIR}")
-
-# hcomm 遗留变量别名（ccu 测试 CMakeLists 中引用）
-set(HCCL_CODE_ROOT "${ASCCOMM_HCOMM_SOURCE_DIR}")
-set(HCOMM_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}")
-
-# CCU UT 公共头文件目录（混合策略：asc-comm 本仓 + hcomm 引用 + 测试桩）
+# CCU UT 公共头文件目录：仅限本仓、测试兼容层和 CANN 安装包。
 set(UT_COMMON_INCLUDE_LIST
     # asc-comm 本仓 ccu 数据面头文件
     ${ASCCOMM_ROOT}/include/ccu
@@ -238,28 +217,12 @@ set(UT_COMMON_INCLUDE_LIST
     ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode
     ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/pub_inc
 
-    # hcomm 仓引用（legacy 异常、公共头等少量依赖）
-    # 关键：ascend910/pub_inc 必须在 ascend950/common 之前（log.h 冲突）
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/pub_inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common/exception
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common/utils
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common/types
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/unified_platform/pub_inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/southbound_adpt
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include/hccl
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hccl
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/pkg_inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/pkg_inc/runtime
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/stub/depends/include
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
 
-    # 测试桩目录（ccu 测试在 tests/ccu，与 tests/ut 平级）
+    # 测试桩和 hcomm 私有契约兼容层。
     ${ASCCOMM_UT_ROOT}/../ccu/stub
+    ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/include
 
     # CANN 外部依赖头
     ${ASCCOMM_CANN_INCLUDE_DIRS}

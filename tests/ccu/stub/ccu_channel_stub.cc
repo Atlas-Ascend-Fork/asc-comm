@@ -8,9 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_urma_channel.h"
-#include "ccu_transport_.h"
-#include "ccu_conn.h"
+#include "ccu_urma_channel_compat.h"
 
 namespace hcomm {
 CcuTransport::~CcuTransport() {}

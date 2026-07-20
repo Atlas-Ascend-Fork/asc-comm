@@ -23,8 +23,6 @@ set(CCU_SYNC_IMPL_SOURCES
     ${CCU_REP_DIR}/reps/arithmetic/ccu_operator.cc
     ${CCU_REP_DIR}/interface/ccu_datatype.cc
     ${CCU_MICROCODE_DIR}/ccu_microcode.cc
-    # 桩
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../../stub/ccu_res_specs_stub.cc
 )
 
 set(src_to_test_list
@@ -37,7 +35,6 @@ add_executable(hccl_utest_comms_ccu_rep_sync ${src_to_test_list})
 
 target_include_directories(hccl_utest_comms_ccu_rep_sync PRIVATE
     ${UT_COMMON_INCLUDE_LIST}
-    ${CCU_IMPL_INCLUDE_DIRS}
 )
 
 target_compile_definitions(hccl_utest_comms_ccu_rep_sync PRIVATE
