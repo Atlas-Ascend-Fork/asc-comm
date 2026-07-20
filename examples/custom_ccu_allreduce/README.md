@@ -12,14 +12,6 @@
 - 单机多卡 mesh 通信，每个 rank 最终得到相同的逐元素求和结果
 - 使用 `HCCL_OP_EXPANSION_MODE=CCU_SCHED` 运行
 
-算法流程：
-
-1. 每个 rank 按 allgather 样例的方式获取一个 CCU token。
-2. 每个 rank 将本地 input 复制到本地 output，作为本 rank 对结果的初始贡献。
-3. 所有 rank 同步，确保每个 output 都已经初始化。
-4. 每个 rank 使用 `ccu::WriteReduce(..., HCCL_REDUCE_SUM, ...)` 将本地 input 累加写入其它 rank 的 output。
-5. 所有 rank 同步完成后，每个 rank 的 output 都是所有 rank 输入的逐元素和。
-
 ## 目录结构
 
 ```text
@@ -65,16 +57,29 @@ exec "${BUILD_DIR}/custom_allreduce_ccu"
 
 ## 结果示例
 
-测试程序中，每个 rank 的输入数据都初始化为 `[0, 1, ..., devCount-1]`。因此 8 卡场景下，AllReduce SUM 后每个 rank 的输出都是：
+测试程序中，每个 rank 的输入数据都初始化为 `[rankId * sendCount, rankId * sendCount + 1, ..., rankId * sendCount + sendCount - 1]`。因此 8 卡场景下，各 rank 输入为：
 
 ```text
 Found 8 NPU device(s) available
-rankId: 0, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 1, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 2, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 3, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 4, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 5, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 6, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 7, output: [ 0 8 16 24 32 40 48 56 ]
+rankId: 0, input: [ 0 1 2 3 4 5 6 7 ]
+rankId: 1, input: [ 8 9 10 11 12 13 14 15 ]
+rankId: 2, input: [ 16 17 18 19 20 21 22 23 ]
+rankId: 3, input: [ 24 25 26 27 28 29 30 31 ]
+rankId: 4, input: [ 32 33 34 35 36 37 38 39 ]
+rankId: 5, input: [ 40 41 42 43 44 45 46 47 ]
+rankId: 6, input: [ 48 49 50 51 52 53 54 55 ]
+rankId: 7, input: [ 56 57 58 59 60 61 62 63 ]
+```
+
+AllReduce SUM 后，每个 rank 的输出都是：
+
+```text
+rankId: 0, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 1, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 2, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 3, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 4, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 5, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 6, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 7, output: [ 224 232 240 248 256 264 272 280 ]
 ```
