@@ -24,7 +24,7 @@
 ## 样例描述
 
 ### 样例功能
-本样例重点演示 **AIV直驱URMA** 场景下的 P2P 通信接口。与传统的集合通信（如 `AlltoAll`）或经过复杂协议栈的通信不同，**`WriteNbi` 和 `ReadNbi` 是 AIV 直驱 URMA 提供的底层非阻塞（Non-blocking）通信 API**。它们允许 NPU 硬件直接向目标 NPU 发起 RDMA 操作，绕过传统软件协议栈，实现显存到显存的直接访问，具有极低的通信延迟。此特性非常适用于 MoE (Dispatch/Combine)、Pipeline 并行等对延迟敏感的分布式训练场景。
+本样例重点演示 **AIV 直驱 URMA** 场景下的 P2P 通信接口。与传统的集合通信（如 `AlltoAll`）不同，他们都是由 Host 发起通信，**但 AIV 直驱 URMA 的每次数据面的通信不再需要 Host 参与**。它们允许 NPU 硬件直接向目标 NPU 发起 URMA 操作，绕过传统软件协议栈，实现显存到显存的直接访问，具有极低的通信延迟。此特性非常适用于 MoE (Dispatch/Combine)、Pipeline 并行等对延迟敏感的分布式训练场景。
 
 | API | 数据流向 | 语义说明 (AIV直驱URMA) |
 |------|---------|------|

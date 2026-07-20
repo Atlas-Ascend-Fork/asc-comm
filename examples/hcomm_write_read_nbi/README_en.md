@@ -22,7 +22,7 @@ This sample demonstrates how to implement ultra-low latency point-to-point (P2P)
 ## Sample Description
 
 ### Sample Functionality
-This sample focuses on demonstrating P2P communication interfaces under the **AIV Direct-Drive URMA** architecture. Unlike traditional collective communication (e.g., `AlltoAll`) or communication routed through complex software protocol stacks, **`WriteNbi` and `ReadNbi` are the core underlying non-blocking communication APIs provided by AIV Direct-Drive URMA**. They allow the NPU hardware to directly initiate RDMA operations to the target NPU, bypassing traditional software protocol stacks and achieving direct Global Memory (GM) to GM access with ultra-low latency. This feature is highly suitable for latency-sensitive distributed training scenarios such as MoE (Dispatch/Combine) and Pipeline Parallelism.
+This sample focuses on demonstrating P2P communication interfaces under the **AIV Direct-Drive URMA** architecture. Unlike collective communication primitives (e.g., AlltoAll) that are initiated by the Host, **every data-plane communication in AIV Direct-Driven URMA no longer requires Host involvement**. They allow the NPU hardware to directly initiate URMA operations to the target NPU, bypassing traditional software protocol stacks and achieving direct Global Memory (GM) to GM access with ultra-low latency. This feature is highly suitable for latency-sensitive distributed training scenarios such as MoE (Dispatch/Combine) and Pipeline Parallelism.
 
 | API | Data Flow | Semantic Description (AIV Direct-Drive URMA) |
 |-----|-----------|---------------------------------------------|
