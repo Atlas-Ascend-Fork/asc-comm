@@ -45,3 +45,7 @@ __aicore__ inline int32_t ReadNbi(
 
 - 调用前通信通道需已完成初始化。
 - `COMM_PROTOCOL_UBC_CTP`路径下，`src`需要落在通道注册的远端buffer范围内，`dst`为本端目标地址。
+
+## 相关样例
+
+参考[hcomm_write_read_nbi](../../../../examples/hcomm_write_read_nbi/README.md)中的AIV直驱URMA两卡读写流程。

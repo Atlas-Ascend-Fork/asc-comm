@@ -1,8 +1,8 @@
-# Hcomm WriteNbi/ReadNbi 点对点通信样例 (AIV直驱URMA)
+# Hcomm AIV 直驱 URMA WriteNbi/ReadNbi 点对点通信样例
 
 ## 概述
 
-本样例展示如何在 Ascend C Kernel 中，基于 **AIV直驱URMA** 架构，使用 `Hcomm` 类的 **`WriteNbi`** 和 **`ReadNbi`** API 实现 NPU 间极低延迟的点对点（P2P）通信。样例中两张卡对称执行 `WriteNbi` + `ReadNbi`，通过地址偏移区分数据段，相互写入并读出数据，最后在 Host 侧校验结果一致性。
+本样例展示如何在Ascend C AIV Kernel中，基于**AIV直驱URMA**架构，使用`Hcomm`类的`WriteNbi`和`ReadNbi`接口实现NPU间低时延的点对点（P2P）通信。两张卡对称执行`WriteNbi`和`ReadNbi`，通过地址偏移区分数据段，最后在Host侧校验通信结果。
 
 ## 支持的产品及 CANN 软件版本
 
@@ -16,7 +16,10 @@
 ├── hcomm_write_read_nbi
 │   ├── CMakeLists.txt              // 编译工程文件
 │   ├── README.md                   // 样例说明文档
-│   ├── hcomm_write_read_nbi.asc    // Ascend C 样例实现（Kernel + Host）
+│   ├── README_en.md                // 英文样例说明文档
+│   ├── hcomm_write_read_nbi.asc         // Host侧资源准备与Kernel调用
+│   ├── hcomm_write_read_nbi_kernel.cpp  // AIV Kernel侧Hcomm调用
+│   ├── hcomm_rw_def.h              // Host与Kernel共享定义
 │   ├── utils.cpp                   // 工具函数实现
 │   └── utils.h                     // 工具函数声明
 ```
@@ -24,7 +27,7 @@
 ## 样例描述
 
 ### 样例功能
-本样例重点演示 **AIV 直驱 URMA** 场景下的 P2P 通信接口。与传统的集合通信（如 `AlltoAll`）不同，他们都是由 Host 发起通信，**但 AIV 直驱 URMA 的每次数据面的通信不再需要 Host 参与**。它们允许 NPU 硬件直接向目标 NPU 发起 URMA 操作，绕过传统软件协议栈，实现显存到显存的直接访问，具有极低的通信延迟。此特性非常适用于 MoE (Dispatch/Combine)、Pipeline 并行等对延迟敏感的分布式训练场景。
+本样例重点演示**AIV直驱URMA**场景下的P2P通信接口。Host侧只负责创建通信域、注册通信内存和建立通道；通信任务由AIV Kernel直接提交，数据面执行期间不需要Host逐次参与。该模式适用于MoE Dispatch/Combine、Pipeline并行等对通信时延敏感的场景。
 
 | API | 数据流向 | 语义说明 (AIV直驱URMA) |
 |------|---------|------|
@@ -40,7 +43,7 @@
 2. **创建通信域**：各 Rank 调用 `HcclCommInitRootInfoConfig` 创建通信域。**注意：AIV 直驱模式下，无需配置 `hcclOpExpansionMode`。**
 3. **注册通信内存**：调用 `HcclCommMemReg` 向通信域注册本卡的通信 buffer，Channel 创建时该内存信息会自动交换给对端。
 4. **获取链路 Endpoint**：通过 `HcclRankGraphGetLayers` 和 `HcclRankGraphGetLinks` 获取本 Rank 到对端的物理链路 Endpoint 信息。
-5. **创建 P2P 通道 (AIV直驱)**：调用 `HcclChannelAcquire` 创建到对端的 P2P 通道。此处需明确指定引擎为 `COMM_ENGINE_AIV`，协议为 `COMM_PROTOCOL_UBC_CTP`（即 URMA 协议），并传入通知数量和待交换的内存句柄。
+5. **创建P2P通道（AIV直驱）**：调用`HcclChannelAcquire`创建到对端的P2P通道。此处需明确指定引擎为`COMM_ENGINE_AIV`、协议为`COMM_PROTOCOL_UBC_CTP`（URMA协议），并传入待交换的内存句柄。
 6. **获取对端内存地址**：调用 `HcclChannelGetRemoteMems` 获取对端注册的内存地址，作为 Kernel 侧 `WriteNbi`/`ReadNbi` 的远端目标地址。
 7. **下发 Context**：Host 预初始化 seg0（填充基于 rankId 的伪随机 pattern），将 `ChannelHandle` 和 buffer 地址封装到 `CommContext` 并下发到各卡 GM。
 
@@ -94,7 +97,7 @@ hcomm_.Drain(channel);
 多进程对称执行：两卡同时 launch kernel，无需分阶段同步。Host 侧预初始化 seg0 后通过 `TcpBarrier` 确保两卡就绪，再各自调用 Kernel。使用内核调用符 `<<<>>>` 调用核函数。
 
 ### 校验机制
-- Host 预初始化 seg0 时，通过两次线性同余伪随机数生成器（LCG，使用 Knuth 乘法哈希常数 `0x9E3779B9U` 等参数）生成用于通信校验的随机 pattern，确保数据来源可区分。
+- 每个rank在Host侧预初始化seg0时，通过线性同余生成器（LCG，使用Knuth乘法哈希常数`0x9E3779B9U`等参数）生成用于通信校验的随机pattern，确保不同rank的数据来源可区分。
 - Kernel 执行完毕后，Host 侧通过 `aclrtMemcpy` 回读 `CommContext::testResult`。
 - Host 侧进一步校验 seg1（对端 `WriteNbi` 写入）和 seg2（本卡 `ReadNbi` 读回）的数据是否与对端 pattern 完全一致。当校验结果码 testResult 为 0（即 seg1/seg2 数据与对端 pattern 完全一致）时，打印 test pass!。
 
@@ -110,6 +113,7 @@ source ${install_path}/cann/set_env.sh
 > **说明：** `${install_path}` 为 CANN 包安装目录，未指定安装目录时默认安装至 `/usr/local/Ascend` 下。
 
 ### 2. 编译工程
+
 在本样例目录下执行如下命令：
 ```bash
 mkdir -p build && cd build

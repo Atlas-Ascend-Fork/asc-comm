@@ -1,8 +1,8 @@
-# Hcomm WriteNbi/ReadNbi Point-to-Point Communication Sample (AIV Direct-Drive URMA)
+# Hcomm AIV Direct-Drive URMA WriteNbi/ReadNbi Point-to-Point Communication Sample
 
 ## Overview
 
-This sample demonstrates how to implement ultra-low latency point-to-point (P2P) communication between NPUs in an Ascend C Kernel using the **`WriteNbi`** and **`ReadNbi`** APIs of the `Hcomm` class, based on the **AIV Direct-Drive URMA** architecture. In this sample, two cards symmetrically execute `WriteNbi` + `ReadNbi`, differentiate data segments via address offsets, mutually write and read data, and finally validate the consistency of the results on the Host side.
+This sample demonstrates low-latency point-to-point (P2P) communication between NPUs from an Ascend C AIV Kernel. It uses the `WriteNbi` and `ReadNbi` APIs of `Hcomm` over the AIV direct-drive URMA path. Two devices execute the same write-and-read sequence, use address offsets to separate data segments, and validate the communication results on the Host.
 
 ## Supported Products and CANN Software Versions
 
@@ -16,13 +16,18 @@ This sample demonstrates how to implement ultra-low latency point-to-point (P2P)
 ├── hcomm_write_read_nbi
 │   ├── CMakeLists.txt              // CMake build file
 │   ├── README.md                   // Sample documentation
-│   └── hcomm_write_read_nbi.asc    // Ascend C sample implementation (Kernel + Host)
+│   ├── README_en.md                // English sample documentation
+│   ├── hcomm_write_read_nbi.asc         // Host resource setup and Kernel invocation
+│   ├── hcomm_write_read_nbi_kernel.cpp  // Hcomm calls from the AIV Kernel
+│   ├── hcomm_rw_def.h              // Definitions shared by Host and Kernel
+│   ├── utils.cpp                   // TCP helper implementation
+│   └── utils.h                     // TCP helper declarations
 ```
 
 ## Sample Description
 
 ### Sample Functionality
-This sample focuses on demonstrating P2P communication interfaces under the **AIV Direct-Drive URMA** architecture. Unlike collective communication primitives (e.g., AlltoAll) that are initiated by the Host, **every data-plane communication in AIV Direct-Driven URMA no longer requires Host involvement**. They allow the NPU hardware to directly initiate URMA operations to the target NPU, bypassing traditional software protocol stacks and achieving direct Global Memory (GM) to GM access with ultra-low latency. This feature is highly suitable for latency-sensitive distributed training scenarios such as MoE (Dispatch/Combine) and Pipeline Parallelism.
+This sample focuses on P2P communication over the **AIV direct-drive URMA** path. The Host creates the communication domain, registers communication memory, and acquires the channel. The AIV Kernel then submits the communication operations directly, without requiring the Host to participate in each data-plane transfer. This mode is suitable for latency-sensitive workloads such as MoE Dispatch/Combine and pipeline parallelism.
 
 | API | Data Flow | Semantic Description (AIV Direct-Drive URMA) |
 |-----|-----------|---------------------------------------------|
@@ -38,7 +43,7 @@ On the Ascend 950 series, the communication domain must be created in a multi-pr
 2. **Create Communication Domain**: Each rank calls `HcclCommInitRootInfoConfig` to create the communication domain. **Note: In AIV direct-drive mode, there is no need to configure `hcclOpExpansionMode`.**
 3. **Register Communication Memory**: Call `HcclCommMemReg` to register the local communication buffer with the communication domain. This memory information is automatically exchanged with the peer during channel creation.
 4. **Obtain Link Endpoints**: Use `HcclRankGraphGetLayers` and `HcclRankGraphGetLinks` to obtain the physical link endpoint information from the local rank to the peer rank.
-5. **Acquire P2P Channel (AIV Direct-Drive)**: Call `HcclChannelAcquire` to create the P2P channel to the peer. You must explicitly specify the engine as `COMM_ENGINE_AIV` and the protocol as `COMM_PROTOCOL_UBC_CTP` (i.e., the URMA protocol), along with the notification count and the memory handles to be exchanged.
+5. **Acquire P2P Channel (AIV Direct-Drive)**: Call `HcclChannelAcquire` to create the P2P channel to the peer. Specify `COMM_ENGINE_AIV` as the engine and `COMM_PROTOCOL_UBC_CTP` as the URMA protocol, and pass the memory handles to be exchanged.
 6. **Obtain Remote Memory Address**: Call `HcclChannelGetRemoteMems` to retrieve the memory address registered by the peer, which serves as the remote target address for `WriteNbi`/`ReadNbi` in the Kernel.
 7. **Download Context**: The Host pre-initializes seg0 (filling it with a pseudo-random pattern based on `rankId`), encapsulates the `ChannelHandle` and buffer addresses into `CommContext`, and downloads it to the GM of each card.
 
@@ -94,7 +99,7 @@ Multi-process symmetric execution: Both cards launch the kernel simultaneously w
 ### Validation Mechanism
 - During Host pre-initialization of seg0, a pseudo-random pattern is generated using a Linear Congruential Generator (LCG, utilizing Knuth's multiplicative hash constant `0x9E3779B9U` and other parameters) to ensure the data source is distinguishable.
 - After Kernel execution, the Host reads back `CommContext::testResult` via `aclrtMemcpy`.
-- The Host further validates whether the data in seg1 (written by peer's `WriteNbi`) and seg2 (read by local `ReadNbi`) perfectly matches the peer's pattern. when the result code testResult == 0 (i.e. seg1/seg2 match the peer pattern), it prints test pass!.
+- The Host then checks that seg1 (written by the peer's `WriteNbi`) and seg2 (read by the local `ReadNbi`) match the peer's pattern. When `testResult` is 0, it prints `test pass!`.
 
 ## Compilation and Execution
 
@@ -108,6 +113,7 @@ source ${install_path}/cann/set_env.sh
 > **Note:** `${install_path}` is the CANN package installation directory. If not specified, it defaults to `/usr/local/Ascend`.
 
 ### 2. Build the Project
+
 Execute the following commands in the sample directory:
 ```bash
 mkdir -p build && cd build

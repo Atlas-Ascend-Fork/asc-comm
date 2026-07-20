@@ -2,7 +2,7 @@
 
 ## 概述
 
-Hcomm是asc-comm当前提供的AICore侧点对点通信接口。使用方通过`AscendC::Hcomm`模板选择通信协议，并通过`ChannelHandle`指定通信通道。当前主要覆盖RoCE和UBC_CTP/URMA两条路径。
+Hcomm是asc-comm当前提供的AICore侧点对点通信接口。使用方通过`AscendC::Hcomm`模板选择通信协议，并通过`ChannelHandle`指定通信通道。当前仓库重点承载AIV直驱实现，覆盖RoCE和UBC_CTP/URMA两条路径。
 
 ## 基本流程
 
@@ -67,7 +67,7 @@ ret = hcomm.Drain(channel);
 
 ## 样例
 
-可参考[asc-comm样例](../../examples/README.md)中的`hcomm_write_read_nbi`了解Kernel侧接口调用方式和Host侧通信资源创建流程。
+可参考[hcomm_write_read_nbi](../../examples/hcomm_write_read_nbi/README.md)了解AIV Kernel侧接口调用方式和Host侧通信资源创建流程。该样例固定使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UBC_CTP`，不覆盖RoCE路径。
 
 该样例在两卡场景下对称执行`WriteNbi`和`ReadNbi`：
 
