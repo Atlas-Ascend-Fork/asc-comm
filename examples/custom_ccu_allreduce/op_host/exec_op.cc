@@ -21,69 +21,6 @@ using namespace ops_hccl_ar;
 namespace ops_hccl_ar {
 constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024; // UB 协议单次传输最大字节数
 
-static constexpr uint64_t SetBits(uint16_t end)
-{
-    return ((uint64_t(1) << (end + 1)) - uint64_t(1));
-}
-
-static uint64_t GetMaxLoopIterNum()
-{
-    constexpr uint16_t loopNumBitNum = 12;
-    return SetBits(loopNumBitNum);
-}
-
-static uint64_t GetParallelParam(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t totalLoopNum)
-{
-    constexpr uint16_t repeatBitNum       = 7;
-    constexpr uint16_t repeatNumShiftBit  = 55;
-    constexpr uint16_t repeatLoopBitNum   = 7;
-    constexpr uint16_t repeatLoopShiftBit = 48;
-    constexpr uint16_t totalLoopBitNum    = 7;
-    constexpr uint16_t totalLoopShiftBit  = 41;
-    return ((repeatNum & SetBits(repeatBitNum)) << repeatNumShiftBit)
-           | ((repeatLoopIndex & SetBits(repeatLoopBitNum)) << repeatLoopShiftBit)
-           | ((totalLoopNum & SetBits(totalLoopBitNum)) << totalLoopShiftBit);
-}
-
-static std::vector<uint64_t> CalGoSize(uint64_t size, const LoopGroupConfig &config)
-{
-    uint64_t loopSize = config.loopCount * config.memSlice;
-    uint64_t maxSize  = loopSize * (GetMaxLoopIterNum() + 1);
-
-    uint64_t m = size / loopSize;
-    uint64_t n = (size - m * loopSize) / config.memSlice;
-    uint64_t p = size - m * loopSize - n * config.memSlice;
-
-    if (size == maxSize) {
-        m = GetMaxLoopIterNum();
-        n = config.loopCount - 1;
-        p = config.memSlice;
-    }
-
-    uint64_t offset      = config.memSlice * config.loopCount * m;
-    uint64_t loopIterNum = m;
-
-    uint64_t loopExtendNum = 0;
-    uint64_t tailSize      = 0;
-    uint64_t LoopNumTwo    = 2;
-
-    if (n == 0 && p == 0) {
-        loopExtendNum = 0;
-        tailSize      = 0;
-    } else if (n != 0 && p == 0) {
-        loopExtendNum = GetParallelParam(n - 1, 0, 1);
-        tailSize      = config.memSlice;
-    } else if (n == 0 && p != 0) {
-        loopExtendNum = GetParallelParam(0, 0, 1);
-        tailSize      = p;
-    } else {
-        loopExtendNum = GetParallelParam(n - 1, 1, LoopNumTwo);
-        tailSize      = p;
-    }
-
-    return {offset, loopIterNum, loopExtendNum, tailSize};
-}
-
 static HcclResult LaunchCcuKernelSlice(const AlgResourceCtx &resCtx,
                                         uint64_t inputAddr, uint64_t outputAddr,
                                         uint64_t token, uint64_t sliceCount,
@@ -91,26 +28,11 @@ static HcclResult LaunchCcuKernelSlice(const AlgResourceCtx &resCtx,
 {
     uint64_t sliceSize = sliceCount * dataTypeSize;
 
-    uint64_t currentRankSliceInputOffset = 0;
-    uint64_t currentRankSliceOutputOffset = 0;
-
-    LoopGroupConfig config{};
-    config.msInterleave = CCU_MS_INTERLEAVE;
-    config.loopCount    = CCU_MS_LOCAL_COPY_LOOP_COUNT;
-    config.memSlice     = CCU_MS_SIZE * CCU_LOCAL_COPY_MS_PER_LOOP;
-    auto goSize         = CalGoSize(sliceSize, config);
-
     std::vector<uint64_t> taskArgs = {
         inputAddr,
         outputAddr,
         token,
-        currentRankSliceInputOffset,
-        currentRankSliceOutputOffset,
         sliceSize,
-        goSize[0],
-        goSize[1],
-        goSize[2],
-        goSize[3],
     };
 
     CcuResult launchRet = HcommCcuKernelLaunch(resCtx.threads[0], resCtx.ccuKernels[0],
@@ -164,7 +86,5 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
     return HCCL_SUCCESS;
 }
 } // namespace ops_hccl_ar
-
-
 
 
