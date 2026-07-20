@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
  
+#ifndef UTILS_H  
+#define UTILS_H
+
 #include <string>
 #include <cstdint>
 // 解析tcp://<ip>:<port>格式的endpoint，提取ip和port
@@ -22,3 +25,5 @@ int32_t RecvAll(int32_t sock, void *buf, size_t len);
 
 // TCP barrier：双方各发一个int再收一个int，确保同时到达同步点
 int32_t TcpBarrier(int32_t sock);
+
+#endif // UTILS_H

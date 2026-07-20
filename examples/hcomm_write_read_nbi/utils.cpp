@@ -15,7 +15,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <string.h>
+#include <cstring>
+#include <cstdint>
 
 // 解析tcp://<ip>:<port>格式的endpoint，提取ip和port
 bool ParseEndpoint(const std::string &endpoint, std::string &ip, uint16_t &port)
@@ -45,15 +46,16 @@ bool ParseEndpoint(const std::string &endpoint, std::string &ip, uint16_t &port)
     if (portStrLen != addr.substr(colonPos + 1).size()) {
         return false;
     }
+    uint16_t maxPortNum = 65535;
     // 合法性检查
-    if (portTemp <= 0 || portTemp > 65535) {
+    if (portTemp <= 0 || portTemp > maxPortNum) {
         return false;
     }
     port = static_cast<uint16_t>(portTemp);
     return !ip.empty();
 }
 
-int SetSockTimeout(int fd, int sec, int usec)
+static int SetSockTimeout(int fd, int sec, int usec)
 {
     // struct timeval tv = {3, 0}; // 3秒
     struct timeval tv;
@@ -85,7 +87,7 @@ int32_t ConnectPeer(uint32_t rank, const std::string &ip, uint16_t port, int32_t
         addr.sin_family = AF_INET;
         addr.sin_port = htons(port);
         inet_pton(AF_INET, ip.c_str(), &addr.sin_addr);
-        if (bind(listenSock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0 ||
+        if (bind(listenSock, static_cast<struct sockaddr*>(&addr), sizeof(addr)) < 0 ||
             listen(listenSock, 1) < 0) {
             close(listenSock);
             return -1;
@@ -116,12 +118,14 @@ int32_t ConnectPeer(uint32_t rank, const std::string &ip, uint16_t port, int32_t
         addr.sin_family = AF_INET;
         addr.sin_port = htons(port);
         inet_pton(AF_INET, ip.c_str(), &addr.sin_addr);
+        uint32_t usec = 100000; // 100ms
+        uint16_t maxTryTimes = 100;
         // 重试连接，等待rank 0的server就绪
-        for (int32_t i = 0; i < 100; i++) {
-            if (connect(sock, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) == 0) {
+        for (int32_t i = 0; i < maxTryTimes; i++) {
+            if (connect(sock, static_cast<struct sockaddr*>(&addr), sizeof(addr)) == 0) {
                 return 0;
             }
-            usleep(100000); // 100ms
+            usleep(usec); 
         }
         close(sock);
         return -1;
@@ -133,7 +137,7 @@ int32_t SendAll(int32_t sock, const void *buf, size_t len)
 {
     size_t sent = 0;
     while (sent < len) {
-        ssize_t n = send(sock, static_cast<const char*>(buf) + sent, len - sent, 0);
+        ssize_t n = send(sock, static_cast<const uint8_t*>(buf) + sent, len - sent, 0);
         if (n <= 0) {
             return -1;
         }
@@ -146,7 +150,7 @@ int32_t RecvAll(int32_t sock, void *buf, size_t len)
 {
     size_t received = 0;
     while (received < len) {
-        ssize_t n = recv(sock, static_cast<char*>(buf) + received, len - received, 0);
+        ssize_t n = recv(sock, static_cast<uint8_t*>(buf) + received, len - received, 0);
         fprintf(stderr, "[INFO] recvall recv %zd bytes\n", n);
         if (n <= 0) {
             int code = errno;

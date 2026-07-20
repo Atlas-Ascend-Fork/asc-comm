@@ -61,7 +61,7 @@ private:
         GM_ADDR localSrc = reinterpret_cast<GM_ADDR>(localBuf_);
         GM_ADDR remoteDst = remoteBuf_ + DATA_SIZE;
         if (hcomm_.WriteNbi(channel_, remoteDst, localSrc, DATA_SIZE) != AscendC::HCOMM_SUCCESS) {
-            Fail(2);
+            Fail(ResCode::WriteError);
             return;
         }
 
@@ -69,18 +69,25 @@ private:
         __gm__ uint8_t* readDst = localBuf_ + 2 * DATA_SIZE;
         GM_ADDR localDst = reinterpret_cast<GM_ADDR>(readDst);
         if (hcomm_.ReadNbi(channel_, localDst, remoteBuf_, DATA_SIZE) != AscendC::HCOMM_SUCCESS) {
-            Fail(3);
+            Fail(ResCode::ReadError);
             return;
         }
 
         // Drain轮询CQ等待通信任务完成，返回后数据可见性才有保证
         if (hcomm_.Drain(channel_) != AscendC::HCOMM_SUCCESS) {
-            Fail(4);
+            Fail(ResCode::DrainError);
             return;
         }
     }
 
-    __aicore__ inline void Fail(uint32_t code) { context_->testResult = code; }
+    enum class ResCode : uint32_t {
+        Success = 0,
+        WriteError = 2,
+        ReadError = 3, 
+        DrainError = 4,
+    };
+
+    __aicore__ inline void Fail(ResCode code) { context_->testResult = static_cast<uint32_t>(code); }
 
     AscendC::TPipe *tpipe_{nullptr};
     AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf_;
