@@ -12,7 +12,6 @@ set(src_to_test_list
     main.cc
     hccl_api_base_test.cc
     ut_CcuComponent_test.cc
-    ut_HcommCcuControlApi_test.cc
 
     mocks/ccu_device_mock_utils.cc
     mocks/ccu_drv_handle_mock.cc

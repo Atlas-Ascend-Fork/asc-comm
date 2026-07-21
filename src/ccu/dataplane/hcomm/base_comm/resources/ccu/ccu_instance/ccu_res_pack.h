@@ -10,20 +10,22 @@
 #ifndef CCU_RES_PACK_H
 #define CCU_RES_PACK_H
 
+#include "ccu_dataplane_abi.h"
 #include "ccu_types.h"
-#include "ccu_device_pub.h"
+#include "ccu_provider_internal.h"
 
 namespace hcomm {
 
-class CcuResPack{
+class CcuResPack {
 public:
-    explicit CcuResPack(CcuInstanceType insType) : insType_(insType) {};
-    ~CcuResPack();
+    CcuResPack() = default;
+    ~CcuResPack() = default;
 
-    CcuResult Init();
+    CcuResult Init(const AscCommCcuInstanceCreateParam &param, const AscCommCcuResourceRequest &translatorRequest);
     CcuResult Reset();
 
     CcuResRepository &GetCcuResRepo();
+    const CcuResRepository &GetTranslatorResRepo() const;
 
 private:
     CcuResPack(const CcuResPack &that) = delete;
@@ -31,12 +33,11 @@ private:
     CcuResPack(CcuResPack &&that) = delete;
     CcuResPack &operator=(CcuResPack &&that) = delete;
 
-    int32_t devLogicId_{0};
-    CcuInstanceType insType_{CcuInstanceType::CCU_UNUSED};
-    CcuResHandle resHandle_{nullptr};
+    CcuResRepository initialResRepo_{};
     CcuResRepository resRepo_{};
+    CcuResRepository translatorResRepo_{};
 };
 
 } // namespace hcomm
 
-# endif // CCU_RES_PACK_H
+#endif // CCU_RES_PACK_H

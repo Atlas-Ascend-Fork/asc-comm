@@ -11,7 +11,7 @@
 #ifndef CCU_TYPES_H
 #define CCU_TYPES_H
 
-#include <cstdint>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,6 +24,7 @@ typedef enum {
     CCU_SUCCESS = 0,               /**< success */
     CCU_E_PARA = 1,                /**< parameter error */
     CCU_E_PTR = 2,                 /**< empty pointer */
+    CCU_E_NOT_INITIALIZED = 3,     /**< component is not initialized */
     CCU_E_INTERNAL = 4,            /**< internal error */
     CCU_E_NOT_SUPPORT = 5,         /**< not support feature */
     CCU_E_NOT_FOUND = 6,           /**< not found specific resource */
@@ -67,6 +68,22 @@ typedef struct {
 } CcuLoopGroupConfig;
 
 typedef uint64_t CcuInsHandle;
+
+#ifndef CCU_INSTANCE_TYPES_DEFINED
+#define CCU_INSTANCE_TYPES_DEFINED
+typedef enum {
+    CCU_DEFAULT = 0,
+    CCU_SCHED = 1,
+    CCU_MS = 2,
+    CCU_UNUSED = 254,
+    CCU_RESERVED = 255
+} CcuInstanceType;
+
+typedef struct {
+    uint32_t dieId;
+    CcuInstanceType insType;
+} CcuResDesc;
+#endif
 
 typedef uint64_t CcuKernelHandle;
 

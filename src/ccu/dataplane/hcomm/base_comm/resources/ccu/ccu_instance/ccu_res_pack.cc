@@ -10,54 +10,107 @@
 
 #include "ccu_res_pack.h"
 
+#include <algorithm>
+
 #include "ccu_log.h"
 
 namespace hcomm {
+namespace {
 
-CcuResPack::~CcuResPack()
+    std::vector<ResInfo> *SelectResource(CcuResRepository &repository, uint32_t type, uint32_t dieId)
+    {
+        switch (type) {
+            case ASCCOMM_CCU_RES_LOOP:
+                return &repository.loopEngine[dieId];
+            case ASCCOMM_CCU_RES_BLOCK_LOOP:
+                return &repository.blockLoopEngine[dieId];
+            case ASCCOMM_CCU_RES_MS:
+                return &repository.ms[dieId];
+            case ASCCOMM_CCU_RES_BLOCK_MS:
+                return &repository.blockMs[dieId];
+            case ASCCOMM_CCU_RES_CKE:
+                return &repository.cke[dieId];
+            case ASCCOMM_CCU_RES_BLOCK_CKE:
+                return &repository.blockCke[dieId];
+            case ASCCOMM_CCU_RES_CONTINUOUS_XN:
+                return &repository.continuousXn[dieId];
+            case ASCCOMM_CCU_RES_XN:
+                return &repository.xn[dieId];
+            case ASCCOMM_CCU_RES_GSA:
+                return &repository.gsa[dieId];
+            case ASCCOMM_CCU_RES_MISSION:
+                return &repository.mission.mission[dieId];
+            default:
+                return nullptr;
+        }
+    }
+
+    uint64_t ResourceCount(const std::vector<ResInfo> &resources)
+    {
+        uint64_t count = 0;
+        for (const auto &resource : resources)
+            count += resource.num;
+        return count;
+    }
+
+    CcuResult TakeResources(std::vector<ResInfo> &source, uint32_t count, std::vector<ResInfo> &destination)
+    {
+        if (ResourceCount(source) < count)
+            return CCU_E_UNAVAIL;
+        while (count != 0) {
+            ResInfo &last = source.back();
+            const uint32_t take = std::min(count, last.num);
+            destination.emplace_back(last.startId + last.num - take, take);
+            last.num -= take;
+            count -= take;
+            if (last.num == 0)
+                source.pop_back();
+        }
+        std::reverse(destination.begin(), destination.end());
+        return CCU_SUCCESS;
+    }
+
+} // namespace
+
+CcuResult CcuResPack::Init(
+    const AscCommCcuInstanceCreateParam &param, const AscCommCcuResourceRequest &translatorRequest)
 {
-    if (resHandle_ == 0) {
-        return;
+    initialResRepo_ = {};
+    translatorResRepo_ = {};
+    initialResRepo_.mission.reqType = static_cast<MissionReqType>(param.missionRequestType);
+    translatorResRepo_.mission.reqType = initialResRepo_.mission.reqType;
+    for (uint32_t index = 0; index < param.resourceEntryCount; ++index) {
+        const auto &entry = param.resourceEntries[index];
+        if (entry.type >= ASCCOMM_CCU_RES_TYPE_COUNT || entry.dieId >= CCU_MAX_IODIE_NUM || entry.count == 0) {
+            return CCU_E_PARA;
+        }
+        auto *resources = SelectResource(initialResRepo_, entry.type, entry.dieId);
+        if (resources == nullptr)
+            return CCU_E_INTERNAL;
+        resources->emplace_back(entry.startId, entry.count);
     }
 
-    auto ret = CcuReleaseResHandle(devLogicId_, resHandle_);
-    if (ret != HcclResult::HCCL_SUCCESS) {
-        HCCL_ERROR("[CcuResPack][%s] failed, resHandle[0x%llx] devLogicId[%d].",
-            __func__, resHandle_, devLogicId_);
+    for (uint32_t type = 0; type < ASCCOMM_CCU_RES_TYPE_COUNT; ++type) {
+        for (uint32_t die = 0; die < CCU_MAX_IODIE_NUM; ++die) {
+            auto *source = SelectResource(initialResRepo_, type, die);
+            auto *destination = SelectResource(translatorResRepo_, type, die);
+            if (source == nullptr || destination == nullptr)
+                return CCU_E_INTERNAL;
+            CCU_CHK_RET(TakeResources(*source, translatorRequest.count[type][die], *destination));
+        }
     }
-    resHandle_ = 0;
-}
-
-CcuResult CcuResPack::Init()
-{
-    devLogicId_ = HcclGetThreadDeviceId();
-    if (insType_ == CcuInstanceType::CCU_UNUSED) {
-        HCCL_ERROR("[CcuResPack][%s] failed, error ccu instance type[%d].",
-            __func__, static_cast<int32_t>(insType_));
-        return CcuResult::CCU_E_PARA;
-    }
-
-    // 根据通信域算子展开模式申请资源
-    // 如果资源不足，返回HCCL_E_UNAVAIL，表示需要回退
-    auto ret = CcuAllocResHandleByInsType(devLogicId_, insType_, resHandle_);
-    if (ret == CcuResult::CCU_E_UNAVAIL) {
-        HCCL_RUN_WARNING("[%s] failed but passed, resource is not enough, "
-            "devLogicId[%d], ccuInsType[%d].", __func__, devLogicId_, insType_);
-        return ret;
-    }
-    CCU_CHK_RET(ret);
-    CCU_CHK_RET(Reset());
-    return CcuResult::CCU_SUCCESS;
+    return Reset();
 }
 
 CcuResult CcuResPack::Reset()
 {
-    if (!resHandle_) {
-        return CcuResult::CCU_SUCCESS;
-    }
+    resRepo_ = initialResRepo_;
+    return CCU_SUCCESS;
+}
 
-    CCU_CHK_RET(CcuCheckResource(devLogicId_, resHandle_, resRepo_));
-    return CcuResult::CCU_SUCCESS;
+const CcuResRepository &CcuResPack::GetTranslatorResRepo() const
+{
+    return translatorResRepo_;
 }
 
 CcuResRepository &CcuResPack::GetCcuResRepo()

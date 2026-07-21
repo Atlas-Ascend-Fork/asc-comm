@@ -6,9 +6,11 @@
 
 #include "ccu_assist_v1.h"
 
+#include <map>
+
 #include "ccu_microcode_v1.h"
 
-#include "hcomm_adapter_rts.h"
+#include "ccu_provider_internal.h"
 
 #include "exception_util.h" // todo: 需要统一整改为不抛异常
 #include "ccu_api_exception.h"
@@ -156,13 +158,12 @@ uint16_t GetUBDataType(Hccl::DataType dataType)
 
 uint64_t GetTokenInfo(uint64_t va, uint64_t size)
 {
-    rtMemUbTokenInfo info{};
-    info.va   = va;
-    info.size = size;
-    if (RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, info) != HcclResult::HCCL_SUCCESS) {
+    uint64_t tokenId = 0;
+    uint64_t tokenValue = 0;
+    if (CcuQueryMemoryToken(va, size, tokenId, tokenValue) != CcuResult::CCU_SUCCESS) {
         Hccl::THROW<Hccl::CcuApiException>("failed to query tokenInfo.");
     }
-    return CcuRep::GetToken(info.tokenId, info.tokenValue, 1);
+    return CcuRep::GetToken(tokenId, tokenValue, 1);
 }
 
 }; // namespace CcuRep

@@ -27,7 +27,7 @@ public:
     CcuResult Init();
     CcuResult Deinit();
 
-    CcuResult Create(CcuInstanceType insType, CcuInsHandle &insHandle);
+    CcuResult Create(const AscCommCcuInstanceCreateParam &param, CcuInsHandle &insHandle);
     CcuInstance *Get(CcuInsHandle insHandle) const;
     CcuResult Destroy(CcuInsHandle insHandle);
 
@@ -41,7 +41,7 @@ private:
 private:
     bool initializedFlag_{false};
     int32_t devLogicId_{-1};
-    CcuInsHandle instanceId_{0};
+    uint32_t instanceId_{0};
     mutable std::shared_timed_mutex insMapMutex_;
     std::unordered_map<CcuInsHandle, std::unique_ptr<CcuInstance>> insMap_{};
 };
