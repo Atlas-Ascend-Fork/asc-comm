@@ -1,32 +1,33 @@
-# CCU Migration Notes
+# CCU data plane
 
-This directory contains the migrated CCU code collected from:
+`libasccomm_ccu_dataplane.so` owns CCU Kernel registration, REP generation,
+translation, launch, memory-token lookup and all `Ccu*` primitives. These
+public symbols are exported directly by the data-plane library. Applications
+must link both `libhcomm.so` and `libasccomm_ccu_dataplane.so`.
 
-- `../hcomm`
+`HcommCcuInsCreateLegacy` and `HcommCcuInsDestroyLegacy` remain in hcomm. hcomm
+uses the versioned, size-tagged `AscCommCcuGetDataPlaneV1` private ABI only for
+legacy instance lifecycle and Channel snapshot synchronization. The public
+resource-description APIs, including `HcommCcuInsCreate` and
+`HcommCcuInsDestroy`, are owned by asc-comm. The table contains no public
+register, launch, token or primitive forwarding entry.
 
-The public CCU headers live in `include/ccu`. Migrated implementation files
-are split by runtime responsibility instead of source repository:
+hcomm owns `CcuUrmaChannel` and its transport objects. Once a CCU Channel is
+connected, hcomm copies the die/channel identifiers, CKE/XN identifiers and
+remote-buffer address, size and token into asc-comm. REP generation resolves a
+`ChannelHandle` only against that local snapshot. No Channel pointer, transport
+object or C++ RTTI crosses the component boundary.
 
-- `src/ccu/dataplane/hcomm`: hcomm CCU primitive, REP, microcode, kernel,
-  resource, and URMA-channel execution support migrated from `hcomm`.
+hcomm keeps the CCU allocator and instruction-submission implementation.
+asc-comm requests instance, translator and instruction resources at the points
+where Register consumes them, through private C resource symbols whose
+structured arguments are opaque pointers at the component boundary. Resource
+handles are released by the side that requested them; no hcomm allocator object
+is transferred to asc-comm. This intentionally preserves a runtime dependency
+on hcomm while avoiding a shared CCU public-type header.
 
-The build produces one standalone data-plane shared-library target:
-
-- `asccomm_ccu_dataplane`: CCU data-plane execution support, primitive C API,
-  launch/token ABI, CCU kernel/template code, and device-side CCU headers. This
-  target builds `libasccomm_ccu_dataplane.so`.
-
-Control-plane entry points such as hcomm communicator/resource selection and
-resource query remain in hcomm. `HcommCcuKernelRegister*`,
-`HcommCcuKernelLaunch`, and `HcommCcuGetMemToken` are exported by this
-data-plane SO.
-
-Build checks:
-
-```bash
-cmake -S . -B build/ccu-check -DASCCOMM_BUILD_CCU=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build build/ccu-check --target asccomm_ccu_dataplane_compile_check -j 8
-```
-
-`asccomm_ccu_compile_check` and `asccomm_ccu_dataplane_compile_check` both
-validate the standalone data-plane SO.
+`instanceCreate` passes device properties but no physical-resource snapshot.
+Its minimal process-level host-service table contains only user-memory token,
+launch-context and task-report callbacks. Launch executes `rtCCULaunch` inside
+asc-comm and reports successful tasks through that table for profiling and task
+callbacks.

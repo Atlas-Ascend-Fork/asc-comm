@@ -12,8 +12,7 @@
 #include "ccu_rep_assign_v1.h"
 #include "const_val.h"
 
-#include "hcomm_c_adpt.h"  // 需优化
-#include "../../../endpoint_pairs/channels/ccu/ccu_urma_channel.h"  // 需优化
+#include "ccu_channel.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -174,9 +173,8 @@ int32_t CcuRepContext::AddProfiling(const std::string &name, uint32_t mask)
 
 int32_t CcuRepContext::AddProfiling(const ChannelHandle channel, const std::string &name, uint32_t signalIndex, uint32_t mask)
 {
-    void *channelPtr{nullptr};
-    CHK_RET(static_cast<HcclResult>(HcommChannelGet(channel, &channelPtr)));
-    auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
+    CcuChannel channelView(channel);
+    auto *channelImpl = &channelView;
 
     ccuProfilingInfoCache.type     = (uint8_t)CcuProfilinType::CCU_WAITCKE_PROFILING;
     ccuProfilingInfoCache.name     = name;
@@ -207,10 +205,8 @@ int32_t CcuRepContext::AddProfiling(const ChannelHandle *channels, uint32_t chan
     CHK_SAFETY_FUNC_RET(memset_s(ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId),
                                 INVALID_VALUE_CHANNELID, sizeof(ccuProfilingInfoCache.channelId)));
     for (u32 i = 0; i < channelNum; i++) {
-        void *channelPtr{nullptr};
-        CHK_RET(static_cast<HcclResult>(HcommChannelGet(channels[i], &channelPtr)));
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
+        CcuChannel channelView(channels[i]);
+        auto *channelImpl = &channelView;
         ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
         ccuProfilingInfoCache.channelHandle[i] = channels[i];
         HCCL_INFO("[%s]type[%d], name[%s], missionId[%u], channelHandle[0x%llx], channelId[%u]",
@@ -243,10 +239,8 @@ int32_t CcuRepContext::AddProfiling(const ChannelHandle *channels, uint32_t chan
     CHK_SAFETY_FUNC_RET(memset_s(ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId),
                                     INVALID_VALUE_CHANNELID, sizeof(ccuProfilingInfoCache.channelId)));
     for (u32 i = 0; i < channelNum; ++i) {
-        void *channelPtr{nullptr};
-        CHK_RET(static_cast<HcclResult>(HcommChannelGet(channels[i], &channelPtr)));
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
+        CcuChannel channelView(channels[i]);
+        auto *channelImpl = &channelView;
         ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
         ccuProfilingInfoCache.channelHandle[i] = channels[i];
         HCCL_INFO("[%s]type[%d], name[%s], opType[%d], dataType[%d], outputDataType[%d], missionId[%u], "
