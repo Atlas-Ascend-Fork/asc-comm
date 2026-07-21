@@ -13,9 +13,15 @@
 
 #include "ccu_launch.h"
 
+#ifndef HCOMM_WEAK_SYMBOL
+#define HCOMM_WEAK_SYMBOL __attribute__((weak))
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
+
+#pragma GCC visibility push(default)
 
 typedef struct {
     uint32_t numBlocks;  // mission个数
@@ -41,6 +47,8 @@ typedef struct {
 extern CcuResult HcommCcuHostKernelLaunch(const void *kernelFunc,
     const HcommCcuHostKernelLaunchCfg *cfg,
     const HcommCcuHostKernelArgs *args) HCOMM_WEAK_SYMBOL;
+
+#pragma GCC visibility pop
 
 #ifdef __cplusplus
 }

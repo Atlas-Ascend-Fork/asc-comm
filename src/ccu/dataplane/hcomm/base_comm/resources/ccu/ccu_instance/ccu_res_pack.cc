@@ -13,51 +13,32 @@
 #include "ccu_log.h"
 
 namespace hcomm {
-
 CcuResPack::~CcuResPack()
 {
-    if (resHandle_ == 0) {
-        return;
+    if (resourceHandle_ != nullptr) {
+        const HcclResult result = CcuReleaseResHandle(deviceLogicId_, resourceHandle_);
+        if (result != HCCL_SUCCESS) {
+            HCCL_ERROR("[CcuResPack][%s] failed, resourceHandle[%p] deviceLogicId[%d].",
+                __func__, resourceHandle_, deviceLogicId_);
+        }
+        resourceHandle_ = nullptr;
     }
-
-    auto ret = CcuReleaseResHandle(devLogicId_, resHandle_);
-    if (ret != HcclResult::HCCL_SUCCESS) {
-        HCCL_ERROR("[CcuResPack][%s] failed, resHandle[0x%llx] devLogicId[%d].",
-            __func__, resHandle_, devLogicId_);
-    }
-    resHandle_ = 0;
 }
 
-CcuResult CcuResPack::Init()
+CcuResult CcuResPack::Init(int32_t deviceLogicId)
 {
-    devLogicId_ = HcclGetThreadDeviceId();
-    if (insType_ == CcuInstanceType::CCU_UNUSED) {
-        HCCL_ERROR("[CcuResPack][%s] failed, error ccu instance type[%d].",
-            __func__, static_cast<int32_t>(insType_));
-        return CcuResult::CCU_E_PARA;
-    }
-
-    // 根据通信域算子展开模式申请资源
-    // 如果资源不足，返回HCCL_E_UNAVAIL，表示需要回退
-    auto ret = CcuAllocResHandleByInsType(devLogicId_, insType_, resHandle_);
-    if (ret == CcuResult::CCU_E_UNAVAIL) {
-        HCCL_RUN_WARNING("[%s] failed but passed, resource is not enough, "
-            "devLogicId[%d], ccuInsType[%d].", __func__, devLogicId_, insType_);
-        return ret;
-    }
-    CCU_CHK_RET(ret);
-    CCU_CHK_RET(Reset());
-    return CcuResult::CCU_SUCCESS;
+    deviceLogicId_ = deviceLogicId;
+    if (instanceType_ >= CCU_UNUSED)
+        return CCU_E_PARA;
+    CCU_CHK_RET(CcuAllocResHandleByInsType(deviceLogicId_, instanceType_, resourceHandle_));
+    return Reset();
 }
 
 CcuResult CcuResPack::Reset()
 {
-    if (!resHandle_) {
-        return CcuResult::CCU_SUCCESS;
-    }
-
-    CCU_CHK_RET(CcuCheckResource(devLogicId_, resHandle_, resRepo_));
-    return CcuResult::CCU_SUCCESS;
+    if (resourceHandle_ == nullptr)
+        return CCU_SUCCESS;
+    return CcuCheckResource(deviceLogicId_, resourceHandle_, resRepo_);
 }
 
 CcuResRepository &CcuResPack::GetCcuResRepo()
