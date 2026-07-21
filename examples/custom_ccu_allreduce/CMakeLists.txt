@@ -64,7 +64,6 @@ target_link_directories(custom_allreduce_ccu PRIVATE
 )
 target_link_libraries(custom_allreduce_ccu PRIVATE
     hcomm
-    hccl
     asccomm_ccu_dataplane
     ascendcl
     acl_rt
@@ -74,4 +73,3 @@ target_link_libraries(custom_allreduce_ccu PRIVATE
 
 add_subdirectory(op_host)
 add_subdirectory(op_kernel_ccu)
-

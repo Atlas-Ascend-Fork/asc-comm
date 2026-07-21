@@ -16,15 +16,12 @@
 #include "ccu_types.h"
 #include "exception_util.h"
 #include "ccu_api_exception.h"
-#include "ccu_dev_mgr_imp.h"
-#include "env_config.h"
+#include "ccu_provider_internal.h"
 #include "ccu_rep_type_v1.h"
-
-#include "hcomm_c_adpt.h"
 
 #include "ccu_rep_context_v1.h"
 #include "ccu_rep_funccall_v1.h"
-#include "../../endpoint_pairs/channels/ccu/ccu_urma_channel.h"
+#include "ccu_channel.h"
 
 #include "ccu_log.h"
 
@@ -58,12 +55,13 @@ std::vector<T> CcuKernel::CreateBlockResAssist(
     const uint32_t count,
     std::array<std::vector<T>, CCU_MAX_IODIE_NUM> &resRecord)
 {
+    constexpr uint16_t CCU_BLOCK_RES_ID_BASE = 0x1000; // block 批量分配资源 id 基址，与单资源 id 区间隔离便于 DFX 定位
     std::vector<T> block;
     block.reserve(count);
     constexpr uint32_t dieId = 0; // 先填个预留的dieId，后续分配
     for (size_t i = 0; i < count; i++) {
         block.emplace_back(this);
-        block.back().Reset(resRecord[dieId].size() + i, dieId);
+        block.back().Reset(static_cast<uint16_t>(CCU_BLOCK_RES_ID_BASE + resRecord[dieId].size() + i), dieId);
     }
     resRecord[dieId].insert(resRecord[dieId].end(), block.begin(), block.end());
     return block;
@@ -75,21 +73,15 @@ CcuKernel::~CcuKernel()
 
 static HcclResult GetDieIdByChannel(const ChannelHandle channel, uint32_t &dieId)
 {
-    void *channelPtr{nullptr};
-    CHK_RET(static_cast<HcclResult>(HcommChannelGet(channel, &channelPtr)));
-    auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-    if (channelImpl == nullptr) {
-        HCCL_ERROR("[%s] failed to cast channel[0x%llx] to CcuUrmaChannel", __func__, channel);
-        return HcclResult::HCCL_E_PTR;
-    }
-    dieId = channelImpl->GetDieId();
-    return HcclResult::HCCL_SUCCESS;
+    CcuChannel channelView(channel);
+    return channelView.GetDieId(dieId);
 }
 
 static HcclResult GetDieIdByChannels(const std::unordered_set<ChannelHandle> &channels, uint32_t &dieId)
 {
     if (channels.empty()) {
-        int32_t devLogicId = HcclGetThreadDeviceId();
+        uint32_t devLogicId = 0;
+        CHK_RET(static_cast<HcclResult>(CcuGetCurrentDevice(devLogicId)));
         for (uint32_t die = 0; die < CCU_MAX_IODIE_NUM; die++) {
             bool enableFlag = false;
             CHK_RET(static_cast<HcclResult>(CcuGetDieEnableInfo(devLogicId, die, enableFlag)));
@@ -283,16 +275,13 @@ HcclResult CcuKernel::CreateVariable(const ChannelHandle channel, uint32_t varIn
 {
     channels_.insert(channel);
 
-    void *channelPtr{nullptr};
-    CHK_RET(static_cast<HcclResult>(HcommChannelGet(channel, &channelPtr)));
-    auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-    if (channelImpl == nullptr) {
-        HCCL_ERROR("[%s] failed to cast channel[0x%llx] to CcuUrmaChannel", __func__, channel);
-        return HcclResult::HCCL_E_PTR;
-    }
+    CcuChannel channelView(channel);
+    auto *channelImpl = &channelView;
     uint32_t locXnId{0};
     CHK_RET(channelImpl->GetLocXnByIndex(varIndex, locXnId));
-    var->Reset(locXnId, channelImpl->GetDieId());
+    uint32_t dieId = 0;
+    CHK_RET(channelImpl->GetDieId(dieId));
+    var->Reset(locXnId, dieId);
     return HcclResult::HCCL_SUCCESS;
 }
 
@@ -527,7 +516,7 @@ CcuResult CcuKernel::LocalNotifyRecord(const char *notifyTag, const uint32_t mas
     }
     if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
         HCCL_ERROR("[CcuKernel][%s] is not supported in loop block, please check.", __func__);
-        return CcuResult::CCU_E_NOT_SUPPORT;
+        return LatchBodyError(CcuResult::CCU_E_NOT_SUPPORT);
     }
 
     const std::string tagKey(notifyTag);
@@ -567,6 +556,10 @@ CcuResult CcuKernel::LocalNotifyWait(const char *notifyTag, const uint32_t mask)
 CcuResult CcuKernel::NotifyRecord(const ChannelHandle channel,
     uint32_t remoteNotifyIdx, uint32_t mask)
 {
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
+        HCCL_ERROR("[%s] NotifyRecord is not allowed inside a ccu::Loop body", __func__);
+        return LatchBodyError(CcuResult::CCU_E_NOT_SUPPORT);
+    }
     channels_.insert(channel);
     Append(std::make_shared<CcuRep::CcuRepRemPostSem>(channel, remoteNotifyIdx, mask));
     return CCU_SUCCESS;
@@ -586,6 +579,10 @@ CcuResult CcuKernel::NotifyWait(const ChannelHandle channel, uint32_t localNotif
 CcuResult CcuKernel::WriteVariableWithNotify(const ChannelHandle channel, CcuVariableHandle varHandle,
     uint32_t remoteVarIdx, uint32_t remoteNotifyIdx, uint32_t mask)
 {
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
+        HCCL_ERROR("[%s] WriteVariableWithNotify is not allowed inside a ccu::Loop body", __func__);
+        return LatchBodyError(CcuResult::CCU_E_NOT_SUPPORT);
+    }
     channels_.insert(channel);
     CcuRep::Variable *var{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &var));
@@ -893,10 +890,10 @@ void CcuKernel::Append(std::shared_ptr<CcuRep::CcuRepBase> rep)
 CcuResult CcuKernel::IfBegin(CcuVariableHandle varHandle, uint64_t immediate,
     CcuConditionType condType, const char *label)
 {
-    if (loopBodyDepth_ > 0) {
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
         HCCL_ERROR("[%s] CCU_IF is not allowed inside a ccu::Loop body (label='%s')",
             __func__, label != nullptr ? label : "(null)");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
     CcuRep::Variable *variable{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &variable));
@@ -943,10 +940,10 @@ CcuResult CcuKernel::IfBegin(CcuVariableHandle varHandle, uint64_t immediate,
 
 CcuResult CcuKernel::IfElse(const char *label)
 {
-    if (loopBodyDepth_ > 0) {
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
         HCCL_ERROR("[%s] CCU_ELSE is not allowed inside a ccu::Loop body (label='%s')",
             __func__, label != nullptr ? label : "(null)");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
 
     std::string labelStr(label);
@@ -1002,10 +999,10 @@ CcuResult CcuKernel::IfEnd(const char *label)
 CcuResult CcuKernel::WhileBegin(CcuVariableHandle varHandle, uint64_t immediate,
     CcuConditionType condType, const char *label)
 {
-    if (loopBodyDepth_ > 0) {
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
         HCCL_ERROR("[%s] CCU_WHILE is not allowed inside a ccu::Loop body (label='%s')",
             __func__, label != nullptr ? label : "(null)");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
 
     CcuRep::Variable *variable{nullptr};
@@ -1077,10 +1074,10 @@ CcuResult CcuKernel::WhileEnd(const char *label)
 
 CcuResult CcuKernel::DoWhileBegin(const char *label)
 {
-    if (loopBodyDepth_ > 0) {
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
         HCCL_ERROR("[%s] CCU_DO is not allowed inside a ccu::Loop body (label='%s')",
             __func__, label != nullptr ? label : "(null)");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
 
     std::string labelStr(label);
@@ -1185,20 +1182,37 @@ const char *CcuKernel::IfLabelStackPop()
 
 void CcuKernel::DoWhileLabelStackPush(const char *label)
 {
-    doWhileLabelStack_.push_back(label);
+    DoWhileLabelEntry entry;
+    entry.label = label;
+    entry.snapshotBlock = CurrentBlock();
+    entry.snapshotRepCount = (entry.snapshotBlock != nullptr)
+        ? entry.snapshotBlock->GetReps().size()
+        : 0;
+    doWhileLabelStack_.push_back(std::move(entry));
 }
 
 const char *CcuKernel::DoWhileLabelStackPopForWhile()
 {
-    if (loopBodyDepth_ > 0) {
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
         return nullptr;
     }
     if (doWhileLabelStack_.empty()) {
         return nullptr;
     }
-    const char *label = doWhileLabelStack_.back();
+    DoWhileLabelEntry entry = doWhileLabelStack_.back();
     doWhileLabelStack_.pop_back();
-    return label;
+
+    auto currentBlock = CurrentBlock();
+    size_t currentRepCount = (currentBlock != nullptr) ? currentBlock->GetReps().size() : 0;
+    if (currentBlock != entry.snapshotBlock || currentRepCount != entry.snapshotRepCount) {
+        HCCL_ERROR("[CcuKernel::DoWhileLabelStackPopForWhile] dangling CCU calls between CCU_DO end "
+                   "and CCU_WHILE (label='%s', snapRep=%zu, curRep=%zu, blockChanged=%d); they must "
+                   "be syntactically adjacent, otherwise the code in between is pulled into the body.",
+                   entry.label != nullptr ? entry.label : "(null)", entry.snapshotRepCount,
+                   currentRepCount, currentBlock != entry.snapshotBlock ? 1 : 0);
+        return nullptr;
+    }
+    return entry.label;
 }
 
 CcuResult CcuKernel::GetAddressByHandle(CcuAddressHandle addrHandle, CcuRep::Address **address)
@@ -1317,10 +1331,13 @@ HcclResult CcuKernel::RecordEvent(CcuRep::CompletedEvent event, uint32_t mask)
 {
     if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
         HCCL_ERROR("[CcuKernel][%s] is not supported in loop block, please check.", __func__);
+        LatchBodyError(HCCL_TO_CCU_RET(HcclResult::HCCL_E_NOT_SUPPORT));
         return HcclResult::HCCL_E_NOT_SUPPORT;
     }
 
-    Append(std::make_shared<CcuRep::CcuRepLocRecordEvent>(event, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepLocRecordEvent>(event, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
@@ -1331,7 +1348,9 @@ HcclResult CcuKernel::WaitEvent(CcuRep::CompletedEvent event, uint32_t mask)
     if (isProfiling) {
         CHK_RET(static_cast<HcclResult>(AddProfiling("WaitEvent", rep->GetMask())));
     }
- 	Append(rep);
+    rep->SetDependencyInfo(GetDependencyInfo(event.Id()));
+    EraseDependencyInfo(event.Id());
+    Append(rep);
     return HCCL_SUCCESS;
 }
 
@@ -1359,7 +1378,9 @@ HcclResult CcuKernel::ReadNb(const ChannelHandle channel, const CcuRep::CcuBuf &
                       const CcuRep::Variable &len, CcuRep::CompletedEvent event, uint32_t mask)
 {
     channels_.insert(channel);
-    Append(std::make_shared<CcuRep::CcuRepBufRead>(channel, rem, loc, len, event, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepBufRead>(channel, rem, loc, len, event, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
@@ -1368,7 +1389,9 @@ HcclResult CcuKernel::WriteNb(const ChannelHandle channel, const CcuRep::RemoteA
                        const CcuRep::Variable &len, CcuRep::CompletedEvent event, uint32_t mask)
 {
     channels_.insert(channel);
-    Append(std::make_shared<CcuRep::CcuRepBufWrite>(channel, loc, rem, len, event, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepBufWrite>(channel, loc, rem, len, event, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
@@ -1454,9 +1477,10 @@ HcclResult CcuKernel::LocalReduceNb(const CcuRep::CcuBuf *bufs, uint32_t count, 
         ccuBufs[i] = bufs[i];
     }
 
-    Append(std::make_shared<CcuRep::CcuRepBufReduce>(ccuBufs, count, CcuRep::GetCcuDataType(dataType_, opType_),
-                                                     CcuRep::GetCcuDataType(outputDataType_, opType_),
-                                                     CcuRep::GetCcuReduceType(opType_), event, len, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepBufReduce>(ccuBufs, count, CcuRep::GetCcuDataType(dataType_, opType_),
+        CcuRep::GetCcuDataType(outputDataType_, opType_), CcuRep::GetCcuReduceType(opType_), event, len, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
@@ -1465,7 +1489,9 @@ HcclResult CcuKernel::ReadNb(const ChannelHandle channel, const CcuRep::LocalAdd
                       const CcuRep::Variable &len, CcuRep::CompletedEvent event, uint32_t mask)
 {
     channels_.insert(channel);
-    Append(std::make_shared<CcuRep::CcuRepRead>(channel, loc, rem, len, event, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepRead>(channel, loc, rem, len, event, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
@@ -1478,8 +1504,10 @@ HcclResult CcuKernel::ReadReduceNb(const ChannelHandle channel, const CcuRep::Lo
     auto opType_ = HcommReduceOpToHcclReduceOp(opType);
     auto dataType_ = HcommDataTypeToHcclDataType(dataType);
 
-    Append(std::make_shared<CcuRep::CcuRepRead>(channel, loc, rem, len, CcuRep::GetUBDataType(dataType_),
-                                                CcuRep::GetUBReduceType(opType_), event, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepRead>(channel, loc, rem, len, CcuRep::GetUBDataType(dataType_),
+        CcuRep::GetUBReduceType(opType_), event, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
@@ -1488,7 +1516,9 @@ HcclResult CcuKernel::WriteNb(const ChannelHandle channel, const CcuRep::RemoteA
                        const CcuRep::Variable &len, CcuRep::CompletedEvent event, uint32_t mask)
 {
     channels_.insert(channel);
-    Append(std::make_shared<CcuRep::CcuRepWrite>(channel, rem, loc, len, event, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepWrite>(channel, rem, loc, len, event, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
@@ -1500,8 +1530,10 @@ HcclResult CcuKernel::WriteReduceNb(const ChannelHandle channel, const CcuRep::R
     auto opType_ = HcommReduceOpToHcclReduceOp(opType);
     auto dataType_ = HcommDataTypeToHcclDataType(dataType);
 
-    Append(std::make_shared<CcuRep::CcuRepWrite>(channel, rem, loc, len, CcuRep::GetUBDataType(dataType_),
-                                                 CcuRep::GetUBReduceType(opType_), event, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepWrite>(
+        channel, rem, loc, len, CcuRep::GetUBDataType(dataType_), CcuRep::GetUBReduceType(opType_), event, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
@@ -1513,21 +1545,27 @@ CcuResult CcuKernel::GetBufferByHandle(CcuBufferHandle bufferHandle, CcuRep::Ccu
 HcclResult CcuKernel::LocalCopyNb(const CcuRep::LocalAddr &dst, const CcuRep::LocalAddr &src, const CcuRep::Variable &len,
                            CcuRep::CompletedEvent event, uint32_t mask)
 {
-    Append(std::make_shared<CcuRep::CcuRepLocCpy>(dst, src, len, event, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepLocCpy>(dst, src, len, event, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
 HcclResult CcuKernel::LocalCopyNb(const CcuRep::CcuBuf &dst, const CcuRep::LocalAddr &src, const CcuRep::Variable &len,
                            CcuRep::CompletedEvent event, uint32_t mask)
 {
-    Append(std::make_shared<CcuRep::CcuRepBufLocRead>(src, dst, len, event, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepBufLocRead>(src, dst, len, event, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
 HcclResult CcuKernel::LocalCopyNb(const CcuRep::LocalAddr &dst, const CcuRep::CcuBuf &src, const CcuRep::Variable &len,
                            CcuRep::CompletedEvent event, uint32_t mask)
 {
-    Append(std::make_shared<CcuRep::CcuRepBufLocWrite>(src, dst, len, event, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepBufLocWrite>(src, dst, len, event, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
@@ -1537,8 +1575,10 @@ HcclResult CcuKernel::LocalReduceNb(const CcuRep::LocalAddr &dst, const CcuRep::
     auto opType_ = HcommReduceOpToHcclReduceOp(opType);
     auto dataType_ = HcommDataTypeToHcclDataType(dataType);
 
-    Append(std::make_shared<CcuRep::CcuRepLocCpy>(dst, src, len, CcuRep::GetUBDataType(dataType_), CcuRep::GetUBReduceType(opType_),
-                                                  event, mask));
+    auto rep = std::make_shared<CcuRep::CcuRepLocCpy>(dst, src, len, CcuRep::GetUBDataType(dataType_),
+        CcuRep::GetUBReduceType(opType_), event, mask);
+    Append(rep);
+    SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
 }
 
@@ -1563,14 +1603,13 @@ CcuResult CcuKernel::LoopCreate(CcuLoop *loop)
         HCCL_ERROR("[CcuKernel::LoopCreate] null pointer");
         return CcuResult::CCU_E_PTR;
     }
-    if (loopBodyDepth_ > 0) {
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
         HCCL_ERROR("[CcuKernel::LoopCreate] cannot create loop inside a loop body");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
     if (inFuncBody_) {
-        funcBodyError_ = true;
         HCCL_ERROR("[CcuKernel::LoopCreate] cannot create loop inside a func body");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
 
     CcuLoop handle = ++loopHandleCounter_;
@@ -1583,6 +1622,15 @@ CcuResult CcuKernel::LoopCreate(CcuLoop *loop)
     loopMap_[handle] = std::move(desc);
     *loop = handle;
     return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuKernel::LatchBodyError(CcuResult err)
+{
+    if ((CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK || inFuncBody_)
+        && bodyError_ == CcuResult::CCU_SUCCESS) {
+        bodyError_ = err;
+    }
+    return err;
 }
 
 CcuResult CcuKernel::LoopBodyEnter(CcuLoop loop)
@@ -1602,6 +1650,7 @@ CcuResult CcuKernel::LoopBodyEnter(CcuLoop loop)
     desc.prevActiveBlock = CurrentBlock();
     SetCurrentBlock(desc.repLoopBlock);
     ++loopBodyDepth_;
+    bodyError_ = CcuResult::CCU_SUCCESS;
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -1619,6 +1668,13 @@ CcuResult CcuKernel::LoopBodyExit(CcuLoop loop)
     desc.bodyDefined = true;
     --loopBodyDepth_;
 
+    if (bodyError_ != CcuResult::CCU_SUCCESS) {
+        const CcuResult err = bodyError_;
+        HCCL_ERROR("[CcuKernel::LoopBodyExit] illegal operation inside loop body, err=%d", err);
+        bodyError_ = CcuResult::CCU_SUCCESS;
+        return err;
+    }
+
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -1628,12 +1684,9 @@ CcuResult CcuKernel::FuncBlockLookup(const void *funcPtr, uint64_t *outHandle)
         HCCL_ERROR("[CcuKernel::FuncBlockLookup] null pointer");
         return CcuResult::CCU_E_PTR;
     }
-    if (loopBodyDepth_ > 0 || inFuncBody_) {
-        if (inFuncBody_) {
-            funcBodyError_ = true;
-        }
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK || inFuncBody_) {
         HCCL_ERROR("[CcuKernel::FuncBlockLookup] ccu::CallFunc only allowed at top level");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
 
     auto it = funcInstanceMap_.find(funcPtr);
@@ -1647,12 +1700,9 @@ CcuResult CcuKernel::FuncBlockBegin(const void *funcPtr, uint64_t *outHandle)
         HCCL_ERROR("[CcuKernel::FuncBlockBegin] null pointer");
         return CcuResult::CCU_E_PTR;
     }
-    if (loopBodyDepth_ > 0 || inFuncBody_) {
-        if (inFuncBody_) {
-            funcBodyError_ = true;
-        }
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK || inFuncBody_) {
         HCCL_ERROR("[CcuKernel::FuncBlockBegin] ccu::CallFunc only allowed at top level");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
 
     auto exist = funcInstanceMap_.find(funcPtr);
@@ -1673,7 +1723,7 @@ CcuResult CcuKernel::FuncBlockBegin(const void *funcPtr, uint64_t *outHandle)
     funcMap_[handle] = desc;
     SetCurrentBlock(desc.repFuncBlock);
     inFuncBody_ = true;
-    funcBodyError_ = false;
+    bodyError_ = CcuResult::CCU_SUCCESS;
     *outHandle = handle;
     return CcuResult::CCU_SUCCESS;
 }
@@ -1690,11 +1740,12 @@ CcuResult CcuKernel::FuncBlockEnd(uint64_t handle)
     SetCurrentBlock(desc.prevActiveBlock);
     inFuncBody_ = false;
 
-    if (funcBodyError_) {
-        HCCL_ERROR("[CcuKernel::FuncBlockEnd] ccu::CallFunc only allowed at top level");
-        funcBodyError_ = false;
+    if (bodyError_ != CcuResult::CCU_SUCCESS) {
+        const CcuResult err = bodyError_;
+        HCCL_ERROR("[CcuKernel::FuncBlockEnd] illegal operation inside func body, err=%d", err);
+        bodyError_ = CcuResult::CCU_SUCCESS;
         funcMap_.erase(it);
-        return CcuResult::CCU_E_INTERNAL;
+        return err;
     }
 
     Append(desc.repFuncBlock);
@@ -1719,12 +1770,9 @@ CcuResult CcuKernel::FuncDefineInArg(uint64_t handle, CcuVariableHandle formal)
 
 CcuResult CcuKernel::FuncCall(uint64_t handle, const CcuVariableHandle *inArgs, uint32_t numIn)
 {
-    if (loopBodyDepth_ > 0 || inFuncBody_) {
-        if (inFuncBody_) {
-            funcBodyError_ = true;
-        }
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK || inFuncBody_) {
         HCCL_ERROR("[CcuKernel::FuncCall] ccu::CallFunc only allowed at top level");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
     if (numIn > 0 && inArgs == nullptr) {
         HCCL_ERROR("[CcuKernel::FuncCall] null input args");
@@ -1776,14 +1824,13 @@ CcuResult CcuKernel::LoopGroupCreate(CcuLoopGroup *group, uint32_t maxLoopNum,
         HCCL_ERROR("[CcuKernel::LoopGroupCreate] null pointer");
         return CcuResult::CCU_E_PTR;
     }
-    if (loopBodyDepth_ > 0) {
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
         HCCL_ERROR("[CcuKernel::LoopGroupCreate] cannot create loop group inside a loop body");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
     if (inFuncBody_) {
-        funcBodyError_ = true;
         HCCL_ERROR("[CcuKernel::LoopGroupCreate] cannot create loop group inside a func body");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
 
     // 按需扩 LoopEngine 池；池足够则复用低位 executorId，跨组共享。
@@ -1814,14 +1861,13 @@ CcuResult CcuKernel::LoopGroupCreateFromVar(CcuLoopGroup *group, uint32_t maxLoo
         HCCL_ERROR("[CcuKernel::LoopGroupCreateFromVar] null pointer for group");
         return CcuResult::CCU_E_PTR;
     }
-    if (loopBodyDepth_ > 0) {
+    if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
         HCCL_ERROR("[CcuKernel::LoopGroupCreateFromVar] cannot create loop group inside a loop body");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
     if (inFuncBody_) {
-        funcBodyError_ = true;
         HCCL_ERROR("[CcuKernel::LoopGroupCreateFromVar] cannot create loop group inside a func body");
-        return CcuResult::CCU_E_INTERNAL;
+        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
 
     CCU_CHK_RET(EnsureLoopEnginePool(maxLoopNum));
@@ -2322,10 +2368,8 @@ HcclResult CcuKernel::AddProfilingInfo(const ChannelHandle *channels, uint32_t c
     CHK_SAFETY_FUNC_RET(memset_s(ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId),
                                     INVALID_VALUE_CHANNELID, sizeof(ccuProfilingInfoCache.channelId)));
     for (uint32_t i = 0; i < channelNum; i++) {
-        void *channelPtr{nullptr};
-        CHK_RET(static_cast<HcclResult>(HcommChannelGet(channels[i], &channelPtr)));
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
+        CcuChannel channelView(channels[i]);
+        auto *channelImpl = &channelView;
         ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
         ccuProfilingInfoCache.channelHandle[i] = channels[i];
         HCCL_INFO("[%s]type[%d], name[%s], opType[%d], dataType[%d], outputDataType[%d], missionId[%u], "
