@@ -12,9 +12,7 @@
 
 #include "exception_util.h"
 #include "ccu_api_exception.h"
-#include "hcomm_c_adpt.h"
-
-#include "../../../../endpoint_pairs/channels/ccu/ccu_urma_channel.h"
+#include "ccu_channel.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -31,19 +29,10 @@ bool CcuRepRemMem::Translate(CcuInstr *&instr, uint16_t &instrId, const TransDep
     this->instrId = instrId;
     translated    = true;
 
-    void *channelPtr{nullptr};
-    auto ret = HcommChannelGet(channel, &channelPtr);
-    if (ret != HcclResult::HCCL_SUCCESS) {
-        Hccl::THROW<Hccl::CcuApiException>("failed to get ccu channel, type[%d]", type);
-    }
-
     uint64_t addr{0};
     uint32_t size{0}, tokenId{0}, tokenValue{0};
-    auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-    if (channelImpl == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("[%s] failed to cast channel[0x%llx] to CcuUrmaChannel",
-            __func__, channel);
-    }
+    CcuChannel channelView(channel);
+    auto *channelImpl = &channelView;
     CHK_PRT_THROW(channelImpl->GetRmtBuffer(addr, size, tokenId, tokenValue) != HcclResult::HCCL_SUCCESS,
         HCCL_ERROR("[CcuRepRemMem][%s] failed to get remote buffer, channelHandle[0x%llx].",
             __func__, channel),
