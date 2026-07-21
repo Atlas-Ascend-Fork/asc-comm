@@ -18,6 +18,132 @@ constexpr int CKE_IDX_0 = 0;
 constexpr int INIT_SYNC_ID = 3;
 constexpr int POST_SYNC_ID = 4;
 
+static constexpr uint64_t SetBits(uint16_t end)
+{
+    return ((uint64_t(1) << (end + 1)) - uint64_t(1));
+}
+
+static uint64_t GetLoopParam(uint64_t loopCtxId, uint64_t gsaOffset, uint64_t loopIterNum)
+{
+    constexpr uint16_t ctxIdBitNum = 8;
+    constexpr uint16_t ctxIdShiftBit = 45;
+    constexpr uint16_t gsaBitNum = 32;
+    constexpr uint16_t gsaShiftBit = 13;
+    constexpr uint16_t loopNumBitNum = 13;
+    return ((loopCtxId & SetBits(ctxIdBitNum)) << ctxIdShiftBit)
+           | ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit)
+           | (loopIterNum & SetBits(loopNumBitNum));
+}
+
+static uint64_t GetParallelParam(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t totalLoopNum)
+{
+    constexpr uint16_t repeatBitNum = 7;
+    constexpr uint16_t repeatNumShiftBit = 55;
+    constexpr uint16_t repeatLoopBitNum = 7;
+    constexpr uint16_t repeatLoopShiftBit = 48;
+    constexpr uint16_t totalLoopBitNum = 7;
+    constexpr uint16_t totalLoopShiftBit = 41;
+    return ((repeatNum & SetBits(repeatBitNum)) << repeatNumShiftBit)
+           | ((repeatLoopIndex & SetBits(repeatLoopBitNum)) << repeatLoopShiftBit)
+           | ((totalLoopNum & SetBits(totalLoopBitNum)) << totalLoopShiftBit);
+}
+
+static uint64_t GetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uint64_t ckeOffset)
+{
+    constexpr uint16_t gsaBitNum = 32;
+    constexpr uint16_t gsaShiftBit = 21;
+    constexpr uint16_t msBitNum = 11;
+    constexpr uint16_t msShiftBit = 10;
+    constexpr uint16_t ckeBitNum = 10;
+    return ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit)
+           | ((msOffset & SetBits(msBitNum)) << msShiftBit)
+           | (ckeOffset & SetBits(ckeBitNum));
+}
+
+static CcuResult CreateGroupCopy(AllReduceMesh1DMem2MemContext &ctx)
+{
+    if (!ctx.resourceAllocated) {
+        ctx.moConfig.msInterleave = CCU_MS_INTERLEAVE;
+        ctx.moConfig.loopCount = CCU_MS_LOCAL_COPY_LOOP_COUNT;
+        ctx.moConfig.memSlice = CCU_LOCAL_COPY_MS_PER_LOOP * CCU_MS_SIZE;
+        ctx.moRes.eventCount = ctx.moConfig.loopCount;
+        ctx.moRes.completedEvent = ccu::Array<ccu::Event>(ctx.moRes.eventCount);
+        ctx.moRes.bufCount = ctx.moConfig.loopCount * ctx.moConfig.msInterleave;
+        ctx.moRes.ccuBuf = ccu::Array<ccu::CcuBuffer>(ctx.moRes.bufCount);
+        ctx.resourceAllocated = true;
+    }
+
+    if (ctx.groupCopyRegistered) {
+        return CCU_SUCCESS;
+    }
+
+    for (uint32_t index = 0; index < 2; index++) {
+        ccu::Event loopEvt = ctx.moRes.completedEvent[index];
+        ccu::CcuBuffer &buf = ctx.moRes.ccuBuf[index * ctx.moConfig.msInterleave];
+        ctx.copyBody[index].reset(new ccu::Func(
+            [&ctx, index, buf, loopEvt]() {
+                ccu::LocalCopy(buf, ctx.loopSrc[index], ctx.loopLen[index], loopEvt, 1);
+                ccu::EventWait(loopEvt, 1);
+                ccu::LocalCopy(ctx.loopDst[index], buf, ctx.loopLen[index], loopEvt, 1);
+                ccu::EventWait(loopEvt, 1);
+            }));
+        ctx.copyLoops[index].reset(new ccu::Loop(ctx.copyLoopParam[index], *ctx.copyBody[index]));
+    }
+    ctx.groupCopyRegistered = true;
+    return CCU_SUCCESS;
+}
+
+static CcuResult GroupCopy(AllReduceMesh1DMem2MemContext &ctx, ccu::LocalAddr dst, ccu::LocalAddr src,
+                           GroupOpSizeVars &goSize)
+{
+    RETURN_IF_CCU_FAIL(CreateGroupCopy(ctx));
+
+    CCU_IF(goSize.addrOffset != 0)
+    {
+        ccu::Variable loopParam;
+        loopParam = GetLoopParam(0, ctx.moConfig.memSlice * ctx.moConfig.loopCount, 0);
+        loopParam += goSize.loopParam;
+        ctx.loopSrc[0] = src;
+        ctx.loopDst[0] = dst;
+        ctx.loopLen[0] = ctx.moConfig.memSlice;
+        ctx.copyLoopParam[0] = loopParam;
+
+        ccu::Variable parallelCfg;
+        parallelCfg = GetParallelParam(ctx.moConfig.loopCount - 1, 0, 1);
+        ccu::Variable offsetCfg;
+        offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
+        std::vector<ccu::Loop> loops{*ctx.copyLoops[0]};
+        ccu::LoopGroup group(parallelCfg, offsetCfg, 1, loops);
+    }
+
+    CCU_IF(goSize.parallelParam != 0)
+    {
+        src.addr += goSize.addrOffset;
+        dst.addr += goSize.addrOffset;
+        ctx.loopSrc[0] = src;
+        ctx.loopDst[0] = dst;
+        ctx.loopLen[0] = goSize.residual;
+
+        src.addr += goSize.residual;
+        dst.addr += goSize.residual;
+        ctx.loopSrc[1] = src;
+        ctx.loopDst[1] = dst;
+        ctx.loopLen[1] = ctx.moConfig.memSlice;
+
+        ccu::Variable loopCfg0;
+        loopCfg0 = GetLoopParam(0, 0, 1);
+        ccu::Variable loopCfg1;
+        loopCfg1 = GetLoopParam(0, 0, 1);
+        ctx.copyLoopParam[0] = loopCfg0;
+        ctx.copyLoopParam[1] = loopCfg1;
+        ccu::Variable offsetCfg;
+        offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
+        std::vector<ccu::Loop> loops{*ctx.copyLoops[0], *ctx.copyLoops[1]};
+        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, 2, loops);
+    }
+    return CCU_SUCCESS;
+}
+
 static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext &ctx)
 {
     ccu::LocalAddr src;
@@ -42,7 +168,8 @@ static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext &ctx)
     CCU_IF(ctx.sliceSize != 0)
     {
         const uint16_t selfMask = 1 << ctx.arg->rankId;
-        RETURN_IF_CCU_FAIL(ccu::LocalCopy(localDst, src, ctx.sliceSize, ctx.event, selfMask));
+        RETURN_IF_CCU_FAIL(GroupCopy(ctx, localDst, src, ctx.goSize));
+        RETURN_IF_CCU_FAIL(ccu::EventRecord(ctx.event, selfMask));
         RETURN_IF_CCU_FAIL(ccu::EventWait(ctx.event, selfMask));
 
         for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
@@ -99,6 +226,10 @@ CcuResult CcuAllReduceMesh1DMem2MemKernel(CcuKernelArg arg)
     RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.output[ctx.arg->rankId], argId++));
     RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.token[ctx.arg->rankId], argId++));
     RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.sliceSize, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.goSize.addrOffset, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.goSize.loopParam, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.goSize.parallelParam, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.goSize.residual, argId++));
 
     // 3. 前置同步
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {

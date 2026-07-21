@@ -33,6 +33,10 @@ namespace ops_hccl_ar {
     } while (0)
 
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
+constexpr uint64_t CCU_MS_INTERLEAVE = 8;
+constexpr uint64_t CCU_MS_SIZE = 4096;
+constexpr uint32_t CCU_LOCAL_COPY_MS_PER_LOOP = 8;
+constexpr uint32_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
 
 struct CcuKernelArgBase {
     ChannelHandle channels[CCU_MAX_RANK_SIZE];
@@ -60,6 +64,26 @@ struct CcuKernelArgAllReduceMesh1DMem2Mem : public CcuKernelArgBase {
     uint32_t rankId;
 };
 
+struct LoopGroupConfig {
+    uint32_t msInterleave;
+    uint32_t loopCount;
+    uint64_t memSlice;
+};
+
+struct LoopGroupResource {
+    ccu::Array<ccu::Event> completedEvent{0};
+    ccu::Array<ccu::CcuBuffer> ccuBuf{0};
+    uint32_t eventCount;
+    uint32_t bufCount;
+};
+
+struct GroupOpSizeVars {
+    ccu::Variable addrOffset;
+    ccu::Variable loopParam;
+    ccu::Variable parallelParam;
+    ccu::Variable residual;
+};
+
 struct AllReduceMesh1DMem2MemContext {
     const CcuKernelArgAllReduceMesh1DMem2Mem* arg;
 
@@ -68,6 +92,19 @@ struct AllReduceMesh1DMem2MemContext {
     std::vector<ccu::Variable> token;
     ccu::Variable sliceSize;
     ccu::Event event;
+
+    GroupOpSizeVars goSize;
+    LoopGroupConfig moConfig;
+    LoopGroupResource moRes;
+    bool resourceAllocated = false;
+    bool groupCopyRegistered = false;
+
+    std::unique_ptr<ccu::Func> copyBody[2];
+    std::unique_ptr<ccu::Loop> copyLoops[2];
+    ccu::Variable copyLoopParam[2];
+    ccu::LocalAddr loopSrc[2];
+    ccu::LocalAddr loopDst[2];
+    ccu::Variable loopLen[2];
 };
 
 CcuResult CcuAllReduceMesh1DMem2MemKernel(CcuKernelArg arg);
@@ -75,4 +112,3 @@ CcuResult CcuAllReduceMesh1DMem2MemKernel(CcuKernelArg arg);
 } // namespace ops_hccl_ar
 
 #endif // HCCL_CCU_KERNEL_ALL_REDUCE_MESH_1D_MEM2MEM_H
-
