@@ -11,6 +11,7 @@
 #include <iostream>
 #include <vector>
 #include <thread>
+#include <chrono>
 #include <cstdio>
 
 #include <acl/acl_rt.h>
@@ -113,6 +114,7 @@ int Sample(void *arg)
     ACLCHECK(aclrtSynchronizeStream(stream));
 
     // 将 Device 侧结果拷贝回 Host，并打印结果
+    std::this_thread::sleep_for(std::chrono::seconds(ctx->device));
     void *resultBuff;
     ACLCHECK(aclrtMallocHost(&resultBuff, recvSize));
     ACLCHECK(aclrtMemcpy(resultBuff, recvSize, recvBuf, recvSize, ACL_MEMCPY_DEVICE_TO_HOST));
@@ -172,5 +174,4 @@ int main()
     ACLCHECK(aclFinalize());               // ACL 去初始化
     return 0;
 }
-
 

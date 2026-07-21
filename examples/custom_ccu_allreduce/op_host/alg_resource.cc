@@ -82,19 +82,19 @@ static HcclResult AllocThreadAndChannelResource(HcclComm comm, const OpParam &pa
 static HcclResult RegisterAllReduceKernel(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost,
                                           const std::vector<ChannelHandle> &kernelChannels)
 {
-    CcuKernelInfo kernelInfo;
-    strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllReduceMesh1DMem2MemKernel");
-    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllReduceMesh1DMem2MemKernel);
-
     auto kernelArg = std::make_shared<CcuKernelArgAllReduceMesh1DMem2Mem>();
     kernelArg->rankSize = param.rankSize;
     kernelArg->rankId = param.myRank;
-    kernelInfo.setKernelArg(kernelArg);
-
     for (uint32_t i = 0; i < kernelChannels.size(); ++i) {
         kernelArg->channels[i] = kernelChannels[i];  // 将 channel handle 保存到 kernel 参数
     }
     kernelArg->channelCount = static_cast<uint32_t>(kernelChannels.size());
+
+    CcuKernelInfo kernelInfo;
+    strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName),
+        "CcuAllReduceMesh1DMem2MemKernel");
+    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuAllReduceMesh1DMem2MemKernel);
+    kernelInfo.setKernelArg(kernelArg);
 
     CcuInsHandle insHandle{0};
     uint32_t insNum = 0;
@@ -103,26 +103,21 @@ static HcclResult RegisterAllReduceKernel(HcclComm comm, const OpParam &param, A
         return HCCL_E_INTERNAL;
     }
 
-    resCtxHost.ccuKernels.resize(1); // 只注册一个 kernel
+    resCtxHost.ccuKernels.resize(1);
 
     CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle);
     if (regStartRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
 
-    CcuKernelHandle kernelHandle;
-    const void *kernelArgs[] = {kernelInfo.kernelArg};
-
     constexpr uint32_t dieId = 0; // 预留接口，暂无含义
     constexpr uint32_t kernelArgNum = 1;
+    const void *kernelArgs[] = {kernelInfo.kernelArg};
     CcuResult regRet = HcommCcuKernelRegister(insHandle, dieId, kernelInfo.kernelFuncName,
-                                                reinterpret_cast<void*>(kernelInfo.kernelFunc),
-                                                kernelArgs, kernelArgNum, &kernelHandle); // 注册 kernel
-
+        kernelInfo.kernelFunc, kernelArgs, kernelArgNum, &resCtxHost.ccuKernels[0]);
     if (regRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
-    resCtxHost.ccuKernels[0] = kernelHandle;
 
     CcuResult regEndRet = HcommCcuKernelRegisterEnd(insHandle);
     if (regEndRet != CCU_SUCCESS) {
@@ -146,6 +141,3 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtx 
 }
 
 } // namespace ops_hccl_ar
-
-
-

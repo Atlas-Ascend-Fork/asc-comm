@@ -12,7 +12,9 @@
 #define HCCL_CCU_KERNEL_ALL_REDUCE_MESH_1D_MEM2MEM_H
 
 #include <cstdint>
+#include <map>
 #include <memory>
+#include <string>
 #include <vector>
 #include <ccu/ccu_types.h>
 #include <ccu/ccu_variable.hpp>
@@ -33,6 +35,10 @@ namespace ops_hccl_ar {
     } while (0)
 
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
+constexpr uint64_t CCU_MS_INTERLEAVE = 8;
+constexpr uint64_t CCU_MS_SIZE = 4096;
+constexpr uint32_t CCU_LOCAL_COPY_MS_PER_LOOP = 8;
+constexpr uint32_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
 
 struct CcuKernelArgBase {
     ChannelHandle channels[CCU_MAX_RANK_SIZE];
@@ -60,14 +66,56 @@ struct CcuKernelArgAllReduceMesh1DMem2Mem : public CcuKernelArgBase {
     uint32_t rankId;
 };
 
+struct LoopGroupConfig {
+    uint32_t msInterleave;
+    uint32_t loopCount;
+    uint64_t memSlice;
+};
+
+struct LoopGroupResource {
+    ccu::Array<ccu::Event> completedEvent{0};
+    ccu::Array<ccu::CcuBuffer> ccuBuf{0};
+    uint32_t eventCount;
+    uint32_t bufCount;
+};
+
+struct GroupOpSizeVars {
+    ccu::Variable addrOffset;
+    ccu::Variable loopParam;
+    ccu::Variable parallelParam;
+    ccu::Variable residual;
+};
+
+struct CcuLoopEntity {
+    std::unique_ptr<ccu::Func> body[2];
+    std::unique_ptr<ccu::Loop> loops[2];
+    ccu::Variable loopParam[2];
+};
+
 struct AllReduceMesh1DMem2MemContext {
     const CcuKernelArgAllReduceMesh1DMem2Mem* arg;
 
     ccu::Variable input;
+    ccu::Variable inputToken;
     std::vector<ccu::Variable> output;
-    std::vector<ccu::Variable> token;
+    std::vector<ccu::Variable> outputToken;
     ccu::Variable sliceSize;
     ccu::Event event;
+
+    GroupOpSizeVars goSize;
+    LoopGroupConfig moConfig;
+    LoopGroupResource moRes;
+    bool resourceAllocated = false;
+
+    std::map<std::string, CcuLoopEntity> loopMap;
+
+    void CreateLoopEntity(std::string loopStr) {
+        loopMap.emplace(loopStr, CcuLoopEntity());
+    }
+
+    bool IsLoopEntityRegistered(std::string loopStr) {
+        return loopMap.count(loopStr) != 0;
+    }
 };
 
 CcuResult CcuAllReduceMesh1DMem2MemKernel(CcuKernelArg arg);
@@ -75,4 +123,3 @@ CcuResult CcuAllReduceMesh1DMem2MemKernel(CcuKernelArg arg);
 } // namespace ops_hccl_ar
 
 #endif // HCCL_CCU_KERNEL_ALL_REDUCE_MESH_1D_MEM2MEM_H
-

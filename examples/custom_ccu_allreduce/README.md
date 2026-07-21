@@ -12,13 +12,20 @@
 - 单机多卡 mesh 通信，每个 rank 最终得到相同的逐元素求和结果
 - 使用 `HCCL_OP_EXPANSION_MODE=CCU_SCHED` 运行
 
-算法流程：
+当前版本用于对比定位 `GroupCopy + WriteReduce` 在 AllReduce 与 ReduceScatter
+中的行为差异，其结构尽量与 `custom_ccu_reduce_scatter` 保持一致：
 
-1. 每个 rank 按 allgather 样例的方式获取一个 CCU token。
-2. 每个 rank 将本地 input 复制到本地 output，作为本 rank 对结果的初始贡献。
-3. 所有 rank 同步，确保每个 output 都已经初始化。
-4. 每个 rank 使用 `ccu::WriteReduce(..., HCCL_REDUCE_SUM, ...)` 将本地 input 累加写入其它 rank 的 output。
-5. 所有 rank 同步完成后，每个 rank 的 output 都是所有 rank 输入的逐元素和。
+1. 每个 rank 获取本地 input 和 output 的 CCU token。
+2. rank 间交换 output 地址和 output token，并等待所有远端参数到齐。
+3. 使用 `GroupCopy` 将本地完整 input 复制到本地 output，作为本地贡献。
+4. 等待 GroupCopy 和所有 rank 的初始化同步完成。
+5. 使用 `ccu::WriteReduce` 将本地完整 input 累加到每个远端 output。
+6. 所有远端写完成后执行后置同步。
+
+它与 ReduceScatter 的核心区别是源地址：ReduceScatter 针对目标 rank 选择
+`input + rankIdx * rankSliceSize`，而 AllReduce 始终使用完整 input 的起始地址。
+该版本此前在两卡测试中出现过只保留本地 GroupCopy 结果的现象，用于继续分析
+LoopGroup 与后续 WriteReduce 的生成及执行顺序。
 
 ## 目录结构
 
@@ -65,16 +72,26 @@ exec "${BUILD_DIR}/custom_allreduce_ccu"
 
 ## 结果示例
 
-测试程序中，每个 rank 的输入数据都初始化为 `[0, 1, ..., devCount-1]`。因此 8 卡场景下，AllReduce SUM 后每个 rank 的输出都是：
+测试程序中，rank `r` 的第 `i` 个输入初始化为 `r * sendCount + i`。
+两卡场景下输入和输出为：
+
+```text
+rankId: 0, input: [ 0 1 ]
+rankId: 1, input: [ 2 3 ]
+rankId: 0, output: [ 2 4 ]
+rankId: 1, output: [ 2 4 ]
+```
+
+8 卡场景下，每个 rank 的输出都是：
 
 ```text
 Found 8 NPU device(s) available
-rankId: 0, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 1, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 2, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 3, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 4, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 5, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 6, output: [ 0 8 16 24 32 40 48 56 ]
-rankId: 7, output: [ 0 8 16 24 32 40 48 56 ]
+rankId: 0, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 1, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 2, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 3, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 4, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 5, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 6, output: [ 224 232 240 248 256 264 272 280 ]
+rankId: 7, output: [ 224 232 240 248 256 264 272 280 ]
 ```
