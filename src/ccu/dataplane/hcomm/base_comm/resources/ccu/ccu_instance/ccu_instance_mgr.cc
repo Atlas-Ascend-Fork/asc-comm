@@ -11,8 +11,6 @@
 #include "ccu_instance_mgr.h"
 
 #include "ccu_log.h"
-#include "string_util.h"
-#include "framework/entrance/hccl_common_v2.h"
 
 namespace hcomm {
 
@@ -32,7 +30,8 @@ CcuInstanceMgr &CcuInstanceMgr::GetInstance(const int32_t deviceLogicId)
     int32_t devLogicId = deviceLogicId;
     if (devLogicId < 0 || static_cast<uint32_t>(devLogicId) >= MAX_MODULE_DEVICE_NUM) {
         HCCL_WARNING("[CcuInstanceMgr][%s] use the backup device, devLogicId[%d] should be "
-            "less than %u.", __func__, devLogicId, MAX_MODULE_DEVICE_NUM);
+                     "less than %u.",
+            __func__, devLogicId, MAX_MODULE_DEVICE_NUM);
         devLogicId = MAX_MODULE_DEVICE_NUM; // 使用备份设备
     }
 
@@ -60,21 +59,22 @@ CcuResult CcuInstanceMgr::Deinit()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuInstanceMgr::Create(
-    CcuInstanceType insType, CcuInsHandle &insHandle)
+CcuResult CcuInstanceMgr::Create(const AscCommCcuInstanceCreateParam &param, CcuInsHandle &insHandle)
 {
     std::unique_lock<std::shared_timed_mutex> lock(insMapMutex_);
 
     std::unique_ptr<CcuInstance> instance{nullptr};
-    EXCEPTION_CATCH(
-        instance = std::make_unique<CcuInstance>(insType),
-        return CcuResult::CCU_E_PTR);
+    try {
+        instance = std::make_unique<CcuInstance>();
+    } catch (const std::bad_alloc &) {
+        return CcuResult::CCU_E_PTR;
+    }
 
-    CCU_CHK_RET(instance->Init());
+    CCU_CHK_RET(instance->Init(param));
 
     instanceId_ += 1;
-    insMap_.emplace(instanceId_, std::move(instance));
-    insHandle = instanceId_;
+    insHandle = (static_cast<uint64_t>(static_cast<uint32_t>(devLogicId_) + 1U) << 32U) | instanceId_;
+    insMap_.emplace(insHandle, std::move(instance));
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -83,8 +83,7 @@ CcuInstance *CcuInstanceMgr::Get(CcuInsHandle insHandle) const
     std::shared_lock<std::shared_timed_mutex> lock(insMapMutex_);
     auto it = insMap_.find(insHandle);
     if (it == insMap_.end()) {
-        HCCL_ERROR("[CcuInstanceMgr][%s] handle[%llx] is not existed.",
-            __func__, insHandle);
+        HCCL_ERROR("[CcuInstanceMgr][%s] handle[%llx] is not existed.", __func__, insHandle);
         return nullptr;
     }
 
@@ -96,8 +95,7 @@ CcuResult CcuInstanceMgr::Destroy(CcuInsHandle insHandle)
     std::unique_lock<std::shared_timed_mutex> lock(insMapMutex_);
     auto it = insMap_.find(insHandle);
     if (it == insMap_.end()) {
-        HCCL_ERROR("[CcuInstanceMgr][%s] handle[%llx] is not existed.",
-            __func__, insHandle);
+        HCCL_ERROR("[CcuInstanceMgr][%s] handle[%llx] is not existed.", __func__, insHandle);
         return CcuResult::CCU_E_NOT_FOUND;
     }
 

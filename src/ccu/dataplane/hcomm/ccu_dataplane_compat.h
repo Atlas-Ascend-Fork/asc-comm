@@ -5,29 +5,26 @@
 #ifndef ASCCOMM_CCU_DATAPLANE_COMPAT_H
 #define ASCCOMM_CCU_DATAPLANE_COMPAT_H
 
-#include "log.h"
-#include "hccl_exception.h"
+#include <cstdint>
+#include <string>
 
-using Hccl::CallDlog;
-using Hccl::CallDlogInvalidType;
-using Hccl::CallDlogMemError;
-using Hccl::CallDlogNoSzFormat;
-using Hccl::CallDlogPrintError;
-using Hccl::HCCL_LOG_DEBUG;
-using Hccl::HCCL_LOG_ERROR;
-using Hccl::HCCL_LOG_INFO;
-using Hccl::HCCL_LOG_OPLOG;
-using Hccl::HCCL_LOG_RUN_INFO;
-using Hccl::HCCL_LOG_WARN;
-using Hccl::HCCL_MODULE_ID;
-using Hccl::HcclSubModuleID;
-using Hccl::HcclCheckLogLevel;
-using Hccl::LOG_TMPBUF_SIZE;
-using Hccl::SYSTEM_RESERVE_ERROR;
-using Hccl::HcclException;
+#include "exception_util.h"
+#include "log.h"
+
+using s8 = int8_t;
+using u8 = uint8_t;
+using s16 = int16_t;
+using u16 = uint16_t;
+using s32 = int32_t;
+using u32 = uint32_t;
+using s64 = int64_t;
+using u64 = uint64_t;
 using std::string;
 
-extern s32 HcclGetThreadDeviceId();
+namespace hcomm {
+constexpr uint16_t CCU_RESOURCE_XN_PER_SIZE = 8;
+constexpr uint32_t MAX_MODULE_DEVICE_NUM = 65;
+}
 
 #ifndef HCCL_RUN_WARNING
 #define HCCL_RUN_WARNING(...) HCCL_WARNING(__VA_ARGS__)
