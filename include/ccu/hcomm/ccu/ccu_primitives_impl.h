@@ -25,6 +25,8 @@
 extern "C" {
 #endif // __cplusplus
 
+#pragma GCC visibility push(default)
+
 //Alloc 相关接口
 extern CcuResult CcuVariableAlloc(CcuVariableHandle *varHandle);
 extern CcuResult CcuAddressAlloc(CcuAddressHandle *addrHandle);
@@ -134,6 +136,8 @@ extern CcuResult CcuLoopGroupAddLoop(CcuLoopGroup group,
     CcuLoop loop, const CcuLoopConfig *config);
 extern CcuResult CcuLoopGroupAddLoopFromVar(CcuLoopGroup group,
     CcuLoop loop, CcuVariableHandle loopParamVar);
+
+#pragma GCC visibility pop
 
 #ifdef __cplusplus
 }

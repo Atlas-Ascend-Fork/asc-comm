@@ -13,11 +13,11 @@ set(src_list
     ccu_kernel_mgr.cc
 )
 
-if(TARGET asccomm_hcomm_obj)
-    target_sources(asccomm_hcomm_obj PRIVATE
+if(TARGET asccomm_ccu_core_obj)
+    target_sources(asccomm_ccu_core_obj PRIVATE
         ${src_list}
     )
-    target_include_directories(asccomm_hcomm_obj PRIVATE
+    target_include_directories(asccomm_ccu_core_obj PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
     )
 endif()

@@ -26,6 +26,21 @@ CcuRepLocWaitEvent::CcuRepLocWaitEvent(const CompletedEvent &event, uint32_t mas
     instrCount = 1;
 }
 
+void CcuRepLocWaitEvent::SetDependencyInfo(
+    const std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>> &depInfo)
+{
+    depInfo_ = depInfo;
+}
+
+std::vector<std::shared_ptr<CcuRepBase>> CcuRepLocWaitEvent::GetDependencyInfo(uint32_t bit)
+{
+    auto it = depInfo_.find(bit);
+    if (it != depInfo_.end()) {
+        return it->second;
+    }
+    return {};
+}
+
 bool CcuRepLocWaitEvent::Translate(CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
 {
     this->instrId = instrId;
