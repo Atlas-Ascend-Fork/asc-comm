@@ -11,16 +11,16 @@
 #define CCU_RES_PACK_H
 
 #include "ccu_types.h"
-#include "ccu_device_pub.h"
+#include "ccu_provider_internal.h"
 
 namespace hcomm {
 
-class CcuResPack{
+class CcuResPack {
 public:
-    explicit CcuResPack(CcuInstanceType insType) : insType_(insType) {};
+    explicit CcuResPack(CcuInstanceType instanceType) : instanceType_(instanceType) {}
     ~CcuResPack();
 
-    CcuResult Init();
+    CcuResult Init(int32_t deviceLogicId);
     CcuResult Reset();
 
     CcuResRepository &GetCcuResRepo();
@@ -31,12 +31,12 @@ private:
     CcuResPack(CcuResPack &&that) = delete;
     CcuResPack &operator=(CcuResPack &&that) = delete;
 
-    int32_t devLogicId_{0};
-    CcuInstanceType insType_{CcuInstanceType::CCU_UNUSED};
-    CcuResHandle resHandle_{nullptr};
+    int32_t deviceLogicId_{0};
+    CcuInstanceType instanceType_{CCU_UNUSED};
+    CcuResHandle resourceHandle_{nullptr};
     CcuResRepository resRepo_{};
 };
 
 } // namespace hcomm
 
-# endif // CCU_RES_PACK_H
+#endif // CCU_RES_PACK_H

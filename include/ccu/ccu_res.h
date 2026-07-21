@@ -11,11 +11,41 @@
 #ifndef CCU_RES_H
 #define CCU_RES_H
 
+#include "ccu_res_defs.h"
 #include "ccu_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
+
+#pragma GCC visibility push(default)
+
+extern CcuResult HcommCcuInsResDescCreate(uint32_t dieId, HcommCcuResDescHandle *resDesc);
+
+extern CcuResult HcommCcuInsResDescDestroy(HcommCcuResDescHandle resDesc);
+
+extern CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle resDesc, uint32_t *dieId);
+
+extern CcuResult HcommCcuInsResDescSetNum(
+    HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t resNum);
+
+extern CcuResult HcommCcuInsResDescQueryNum(
+    HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t *resNum);
+
+extern CcuResult HcommCcuInsCreate(
+    const HcommCcuResDescHandle *resDescs, uint32_t resDescNum, CcuInsHandle *ccuInsHandle);
+
+extern CcuResult HcommCcuInsCreateDefault(
+    const uint32_t *dieIds, uint32_t dieNum, CcuInsHandle *ccuInsHandle);
+
+extern CcuResult HcommCcuInsDestroy(CcuInsHandle ccuInsHandle);
+
+extern CcuResult HcommCcuInsQueryResDesc(CcuInsHandle ccuInsHandle, HcommCcuResDescHandle resDesc);
+
+extern CcuResult HcommCcuQueryRemainResDesc(HcommCcuResDescHandle resDesc);
+
+extern CcuResult HcommCcuKernelQueryResReq(
+    const void *kernelFunc, const void **kernelArgs, uint32_t argNum, HcommCcuResDescHandle resDesc);
 
 /**
  * @brief 查询/计算一段本端内存区域的 CCU 访问 token，供 host 端组装 LocalAddr/RemoteAddr 使用。
@@ -28,6 +58,8 @@ extern "C" {
  *       其生命周期与对应内存注册绑定。跨 rank 场景下本端 token 需经带外通道交换给对端组装 RemoteAddr。
  */
 extern CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t *tokenInfo);
+
+#pragma GCC visibility pop
 
 #ifdef __cplusplus
 }

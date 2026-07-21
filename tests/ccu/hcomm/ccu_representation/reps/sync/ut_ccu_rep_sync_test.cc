@@ -17,6 +17,7 @@
 #include "ccu_rep_loc_wait_notify.h"
 #include "ccu_rep_loc_record_event.h"
 #include "ccu_rep_record_shared_notify.h"
+#include "ccu_rep_nop_v1.h"
 #include "ccu_rep_rempostsem_v1.h"
 #include "ccu_rep_rempostvar_v1.h"
 #include "ccu_rep_remwaitsem_v1.h"
@@ -130,6 +131,111 @@ TEST_F(CcuRepLocWaitEventTest, Describe)
 
     EXPECT_NE(desc.find("CcuRepLocWaitEvent"), std::string::npos);
     EXPECT_NE(desc.find("mask"), std::string::npos);
+}
+
+TEST_F(CcuRepLocWaitEventTest, SetAndGetDependencyInfoSingleBit)
+{
+    CompletedEvent event;
+    CcuRepLocWaitEvent rep(event, 0x3, true);
+    std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>> depInfo;
+    auto depRep = std::make_shared<CcuRepNop>();
+    depInfo[0x1].push_back(depRep);
+    rep.SetDependencyInfo(depInfo);
+    auto result = rep.GetDependencyInfo(0x1);
+    EXPECT_EQ(result.size(), 1U);
+    EXPECT_EQ(result[0], depRep);
+}
+
+TEST_F(CcuRepLocWaitEventTest, GetDependencyInfoNotFoundReturnsEmpty)
+{
+    CompletedEvent event;
+    CcuRepLocWaitEvent rep(event, 0x3, true);
+    auto result = rep.GetDependencyInfo(0x2);
+    EXPECT_TRUE(result.empty());
+}
+
+TEST(CcuRepContextDepTest, SetDependencyInfoSingleBitMask)
+{
+    CcuRepContext context;
+    auto rep = std::make_shared<CcuRepNop>();
+    context.SetDependencyInfo(1, 0x1, rep);
+    auto dep = context.GetDependencyInfo(1);
+    EXPECT_EQ(dep.size(), 1U);
+    EXPECT_EQ(dep.count(0x1), 1U);
+    EXPECT_EQ(dep[0x1].size(), 1U);
+    EXPECT_EQ(dep[0x1][0], rep);
+}
+
+TEST(CcuRepContextDepTest, SetDependencyInfoMultiBitMaskSplitsToSingleBitKeys)
+{
+    CcuRepContext context;
+    auto rep = std::make_shared<CcuRepNop>();
+    context.SetDependencyInfo(1, 0x3, rep);
+    auto dep = context.GetDependencyInfo(1);
+    EXPECT_EQ(dep.size(), 2U);
+    EXPECT_EQ(dep.count(0x1), 1U);
+    EXPECT_EQ(dep.count(0x2), 1U);
+    EXPECT_EQ(dep[0x1][0], rep);
+    EXPECT_EQ(dep[0x2][0], rep);
+}
+
+TEST(CcuRepContextDepTest, SetDependencyInfoHighBitMaskRegistersAllBits)
+{
+    CcuRepContext context;
+    auto rep = std::make_shared<CcuRepNop>();
+    context.SetDependencyInfo(7, 0xABCD, rep);
+    auto dep = context.GetDependencyInfo(7);
+    EXPECT_EQ(dep.size(), 10U);
+}
+
+TEST(CcuRepContextDepTest, SetDependencyInfoZeroMaskAddsNothing)
+{
+    CcuRepContext context;
+    context.SetDependencyInfo(1, 0, std::make_shared<CcuRepNop>());
+    EXPECT_TRUE(context.GetDependencyInfo(1).empty());
+}
+
+TEST(CcuRepContextDepTest, GetDependencyInfoNotFoundReturnsEmpty)
+{
+    CcuRepContext context;
+    EXPECT_TRUE(context.GetDependencyInfo(999).empty());
+}
+
+TEST(CcuRepContextDepTest, SetDependencyInfoMultipleRepsSameBitAppendsInOrder)
+{
+    CcuRepContext context;
+    auto rep1 = std::make_shared<CcuRepNop>();
+    auto rep2 = std::make_shared<CcuRepNop>();
+    context.SetDependencyInfo(1, 0x1, rep1);
+    context.SetDependencyInfo(1, 0x1, rep2);
+    auto dep = context.GetDependencyInfo(1);
+    EXPECT_EQ(dep[0x1].size(), 2U);
+    EXPECT_EQ(dep[0x1][0], rep1);
+    EXPECT_EQ(dep[0x1][1], rep2);
+}
+
+TEST(CcuRepContextDepTest, EraseDependencyInfoOnlyErasesSpecifiedId)
+{
+    CcuRepContext context;
+    auto repA = std::make_shared<CcuRepNop>();
+    auto repB = std::make_shared<CcuRepNop>();
+    context.SetDependencyInfo(1, 0x1, repA);
+    context.SetDependencyInfo(2, 0x2, repB);
+    context.EraseDependencyInfo(1);
+    auto depB = context.GetDependencyInfo(2);
+    EXPECT_EQ(depB.size(), 1U);
+    EXPECT_EQ(depB[0x2][0], repB);
+    EXPECT_TRUE(context.GetDependencyInfo(1).empty());
+}
+
+TEST(CcuRepContextDepTest, ClearDependencyInfoRemovesAll)
+{
+    CcuRepContext context;
+    context.SetDependencyInfo(1, 0x1, std::make_shared<CcuRepNop>());
+    context.SetDependencyInfo(2, 0x2, std::make_shared<CcuRepNop>());
+    context.ClearDependencyInfo();
+    EXPECT_TRUE(context.GetDependencyInfo(1).empty());
+    EXPECT_TRUE(context.GetDependencyInfo(2).empty());
 }
 
 TEST_F(CcuRepLocWaitNotifyTest, ConstructorInitializesCorrectly)

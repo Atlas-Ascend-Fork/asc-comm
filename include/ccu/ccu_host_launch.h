@@ -13,6 +13,10 @@
 
 #include "ccu_launch.h"
 
+#ifndef HCOMM_WEAK_SYMBOL
+#define HCOMM_WEAK_SYMBOL __attribute__((weak))
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus

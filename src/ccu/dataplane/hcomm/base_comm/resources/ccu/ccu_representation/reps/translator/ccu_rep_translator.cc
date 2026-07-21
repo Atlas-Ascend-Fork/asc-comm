@@ -17,14 +17,14 @@
 #include "ccu_rep_loadarg_v1.h"
 #include "ccu_assist_v1.h"
 
-#include "ccu_dev_mgr_imp.h"
+#include "ccu_provider_internal.h"
 
 namespace hcomm {
 namespace CcuRep {
 
 template <typename T> bool CheckType(const std::shared_ptr<CcuRepBlock> &refer)
 {
-    HCCL_INFO("[ChechType] refer->Type() = %d", refer->Type());
+    HCCL_INFO("[CheckType] refer->Type() = %d", refer->Type());
     return false;
 }
 
