@@ -17,7 +17,7 @@
 #include "ccu_rep_loadarg_v1.h"
 #include "ccu_assist_v1.h"
 
-#include "ccu_dev_mgr_imp.h"
+#include "ccu_provider_internal.h"
 
 namespace hcomm {
 namespace CcuRep {

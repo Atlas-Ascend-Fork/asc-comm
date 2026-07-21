@@ -17,7 +17,7 @@
 #include "ccu_kernel.h"
 #include "../ccu_instance/ccu_res_pack.h"
 
-#include "ccu_dev_mgr_imp.h"
+#include "ccu_provider_internal.h"
 #include "../ccu_representation/reps/translator/ccu_rep_translator_v1.h"
 
 namespace hcomm {
@@ -30,12 +30,13 @@ public:
 
     HcclResult Init();
     HcclResult Deinit();
+    static CcuResult GetTranslatorResourceRequest(AscCommCcuResourceRequest &request);
 
     CcuResult Register(CcuResPack &resPack, const char *kernelFuncName,
         const void *kernelFunc, const void **kernelArgs, const uint32_t argNum,
         CcuKernelHandle &kernelHandle);
 
-    CcuResult Translate(const std::vector<CcuKernelHandle> &kernelHandles);
+    CcuResult Translate(const std::vector<CcuKernelHandle> &kernelHandles, const CcuResPack &resPack);
 
     CcuKernel *GetKernel(CcuKernelHandle kernelHandle);
     CcuResult UnRegister(CcuKernelHandle kernelHandle);
@@ -50,20 +51,12 @@ private:
     CcuKernelMgr &operator=(const CcuKernelMgr &that) = delete;
 
 private:
-    struct CcuTranslatResPack {
-        std::vector<CcuResHandle> handles{};
-    };
-
-private:
     CcuResult AllocRes(CcuResPack &resPack);
 
-    HcclResult InstantiationTranslator(const uint16_t dieId);
+    HcclResult InstantiationTranslator(const uint16_t dieId, const CcuResPack &resPack);
     HcclResult TransRepSequenceToMicrocode(const std::vector<CcuKernel *> &kernels,
         bool isFuncBlock);
     HcclResult LoadInstruction(const CcuRep::CcuInstrInfo &instrInfo, const uint32_t dieId);
-
-    HcclResult GetResPackTotalResRepository(const CcuTranslatResPack &resPack,
-        CcuResRepository &totalRes) const;
 
 private:
     bool initializedFlag_{false};
@@ -72,12 +65,8 @@ private:
     std::mutex translateMutex_{};
     CcuKernelHandle kernelId_ = 0;
     std::unordered_map<CcuKernelHandle, std::unique_ptr<CcuKernel>> kernelMap_{};
-    void *instructionLoadDevMem_{nullptr};
-
     std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<CcuRepTranslator>>> translators;
     std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<CcuRepReferenceManager>>> referenceMgrs;
-    CcuTranslatResPack translatorResPack{};
-
     std::unique_ptr<CcuKernel> currKernel_{nullptr};
 };
 }; // namespace hcomm
