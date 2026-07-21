@@ -1,0 +1,201 @@
+﻿/**
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+#include <iostream>
+#include <vector>
+#include <thread>
+#include <chrono>
+#include <cstdio>
+
+#include <acl/acl_rt.h>
+#include <hccl/hccl_comm.h>
+#include <hccl/hccl_res.h>
+#include <hccl/hccl_types.h>
+#include "alg_resource.h"
+#include "exec_op.h"
+
+using namespace ops_hccl_a2a;
+
+#define ACLCHECK(ret)                                                                          \
+    do {                                                                                       \
+        if (ret != ACL_SUCCESS) {                                                              \
+            printf("acl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
+            return ret;                                                                        \
+        }                                                                                      \
+    } while (0)
+
+#define HCCLCHECK(ret)                                                                          \
+    do {                                                                                        \
+        if (ret != HCCL_SUCCESS) {                                                              \
+            printf("hccl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
+            return ret;                                                                         \
+        }                                                                                       \
+    } while (0)
+
+struct ThreadContext {
+    HcclRootInfo *rootInfo;
+    uint32_t device;
+    uint32_t devCount;
+};
+
+static HcclResult HcclAllToAllCustom(void *sendBuf, void *recvBuf, uint64_t perCount,
+                                    HcclDataType dataType, HcclComm comm, aclrtStream stream)
+{
+    if (sendBuf == nullptr || recvBuf == nullptr || comm == nullptr || stream == nullptr) {
+        return HCCL_E_PTR;
+    }
+    if (dataType != HCCL_DATA_TYPE_FP32) {
+        return HCCL_E_NOT_SUPPORT;
+    }
+
+    OpParam param;
+    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param.myRank));
+    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param.rankSize));
+    if (param.rankSize == 0 || param.rankSize > MAX_RANK_SIZE) {
+        return HCCL_E_NOT_SUPPORT;
+    }
+
+    param.stream = stream;
+    param.inputPtr = sendBuf;
+    param.outputPtr = recvBuf;
+    param.perCount = perCount;
+    param.dataType = dataType;
+
+    AlgResourceCtx resCtxHost;
+    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param, resCtxHost));
+    RETURN_IF_HCCL_FAIL(ExecOp(param, resCtxHost));
+
+    return HCCL_SUCCESS;
+}
+
+int Sample(void *arg)
+{
+    ThreadContext *ctx = (ThreadContext *)arg;
+    void *sendBuf = nullptr;
+    void *recvBuf = nullptr;
+    uint32_t device = ctx->device;
+    constexpr uint64_t perCount = 2;
+    uint64_t totalCount = perCount * ctx->devCount;
+    size_t sendSize = totalCount * sizeof(float);
+    size_t recvSize = totalCount * sizeof(float);
+    // 设置当前线程使用的 device
+    ACLCHECK(aclrtSetDevice(static_cast<int32_t>(device)));
+
+    // 初始化 HCCL 通信域
+    HcclComm hcclComm;
+    HCCLCHECK(HcclCommInitRootInfo(ctx->devCount, ctx->rootInfo, device, &hcclComm));
+
+    // 创建任务流
+    aclrtStream stream;
+    ACLCHECK(aclrtCreateStream(&stream));
+
+    // 申请 Device 侧输入和输出内存
+    ACLCHECK(aclrtMalloc(&sendBuf, sendSize, ACL_MEM_MALLOC_HUGE_ONLY));
+    ACLCHECK(aclrtMalloc(&recvBuf, recvSize, ACL_MEM_MALLOC_HUGE_ONLY));
+
+    // 输入按目标 rank 分段，数值同时编码源 rank 和段内位置。
+    void *hostBuf = nullptr;
+    ACLCHECK(aclrtMallocHost(&hostBuf, sendSize));
+    float *tmpHostBuff = static_cast<float *>(hostBuf);
+    for (uint64_t i = 0; i < totalCount; ++i) {
+        tmpHostBuff[i] = static_cast<float>(device * 100 + i);
+    }
+    std::cout << "rankId: " << device << ", input: [";
+    for (uint64_t i = 0; i < totalCount; ++i) {
+        std::cout << " " << tmpHostBuff[i];
+    }
+    std::cout << " ]" << std::endl;
+
+    // 将 Host 输入数据拷贝到 Device
+    ACLCHECK(aclrtMemcpy(sendBuf, sendSize, hostBuf, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
+    // 释放 Host 侧输入内存
+    ACLCHECK(aclrtFreeHost(hostBuf));
+
+    // 每个 rank 向所有目标 rank 各发送 perCount 个元素。
+    HCCLCHECK(HcclAllToAllCustom(sendBuf, recvBuf, perCount, HCCL_DATA_TYPE_FP32,
+                                 hcclComm, stream));
+    // 等待 stream 中任务执行完成
+    ACLCHECK(aclrtSynchronizeStream(stream));
+
+    // 将 Device 侧结果拷贝回 Host，并打印结果
+    std::this_thread::sleep_for(std::chrono::seconds(ctx->device));
+    void *resultBuff;
+    ACLCHECK(aclrtMallocHost(&resultBuff, recvSize));
+    ACLCHECK(aclrtMemcpy(resultBuff, recvSize, recvBuf, recvSize, ACL_MEMCPY_DEVICE_TO_HOST));
+    float *tmpResBuff = static_cast<float *>(resultBuff);
+    bool passed = true;
+    std::cout << "rankId: " << ctx->device << ", output: [";
+    for (uint64_t i = 0; i < totalCount; ++i) {
+        std::cout << " " << tmpResBuff[i];
+        uint64_t srcRank = i / perCount;
+        uint64_t elementIdx = i % perCount;
+        float expected = static_cast<float>(srcRank * 100 + ctx->device * perCount + elementIdx);
+        passed = passed && (tmpResBuff[i] == expected);
+    }
+    std::cout << " ]" << std::endl;
+    std::cout << "rankId: " << ctx->device << (passed ? " PASS" : " FAIL") << std::endl;
+    ACLCHECK(aclrtFreeHost(resultBuff));
+
+    // 释放资源
+    HCCLCHECK(HcclCommDestroy(hcclComm));  // 销毁通信域
+    if (sendBuf) {
+        ACLCHECK(aclrtFree(sendBuf));      // 释放 Device 侧输入内存
+    }
+    if (recvBuf) {
+        ACLCHECK(aclrtFree(recvBuf));      // 释放 Device 侧输出内存
+    }
+    ACLCHECK(aclrtDestroyStream(stream));  // 销毁任务流
+    ACLCHECK(aclrtResetDevice(device));    // 重置 device
+    return passed ? 0 : 1;
+}
+
+int main()
+{
+    // 初始化 ACL
+    ACLCHECK(aclInit(NULL));
+    // 查询 device 数量
+    uint32_t devCount;
+    ACLCHECK(aclrtGetDeviceCount(&devCount));
+    std::cout << "Found " << devCount << " NPU device(s) available" << std::endl;
+
+    int32_t rootRank = 0;
+    ACLCHECK(aclrtSetDevice(rootRank));
+    // 生成 root 节点信息，各线程使用同一份 RootInfo
+    void *rootInfoBuf = nullptr;
+    ACLCHECK(aclrtMallocHost(&rootInfoBuf, sizeof(HcclRootInfo)));
+    HcclRootInfo *rootInfo = (HcclRootInfo *)rootInfoBuf;
+    HCCLCHECK(HcclGetRootInfo(rootInfo));
+
+    // 启动线程执行集合通信操作
+    std::vector<std::thread> threads(devCount);
+    std::vector<int> results(devCount, 1);
+    std::vector<ThreadContext> args(devCount);
+    for (uint32_t i = 0; i < devCount; i++) {
+        args[i].rootInfo = rootInfo;
+        args[i].device = i;
+        args[i].devCount = devCount;
+        threads[i] = std::thread([&args, &results, i]() {
+            results[i] = Sample(static_cast<void *>(&args[i]));
+        });
+    }
+    for (uint32_t i = 0; i < devCount; i++) {
+        threads[i].join();
+    }
+
+    // 释放资源
+    ACLCHECK(aclrtFreeHost(rootInfoBuf));  // 释放 Host 内存
+    ACLCHECK(aclFinalize());               // ACL 去初始化
+    for (int result : results) {
+        if (result != 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
