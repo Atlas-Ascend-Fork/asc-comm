@@ -11,7 +11,8 @@
 #ifndef CCU_TYPES_H
 #define CCU_TYPES_H
 
-#include <cstdint>
+#include <stdint.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,6 +25,7 @@ typedef enum {
     CCU_SUCCESS = 0,               /**< success */
     CCU_E_PARA = 1,                /**< parameter error */
     CCU_E_PTR = 2,                 /**< empty pointer */
+    CCU_E_NOT_INITIALIZED = 3,     /**< component is not initialized */
     CCU_E_INTERNAL = 4,            /**< internal error */
     CCU_E_NOT_SUPPORT = 5,         /**< not support feature */
     CCU_E_NOT_FOUND = 6,           /**< not found specific resource */
@@ -68,6 +70,22 @@ typedef struct {
 
 typedef uint64_t CcuInsHandle;
 
+#ifndef CCU_INSTANCE_TYPES_DEFINED
+#define CCU_INSTANCE_TYPES_DEFINED
+typedef enum {
+    CCU_DEFAULT = 0,
+    CCU_SCHED = 1,
+    CCU_MS = 2,
+    CCU_UNUSED = 254,
+    CCU_RESERVED = 255
+} CcuInstanceType;
+
+typedef struct {
+    uint32_t dieId;
+    CcuInstanceType insType;
+} CcuResDesc;
+#endif
+
 typedef uint64_t CcuKernelHandle;
 
 typedef uint64_t CcuVariableHandle;
@@ -86,6 +104,25 @@ typedef void *CcuKernelArg;
 
 #ifdef __cplusplus
 }
+
+static_assert(sizeof(CcuResult) == sizeof(uint32_t), "CcuResult ABI changed");
+static_assert(sizeof(CcuInsHandle) == sizeof(uint64_t), "CcuInsHandle ABI changed");
+static_assert(sizeof(CcuKernelHandle) == sizeof(uint64_t), "CcuKernelHandle ABI changed");
+static_assert(sizeof(CcuVariableHandle) == sizeof(uint64_t), "CcuVariableHandle ABI changed");
+static_assert(sizeof(CcuAddressHandle) == sizeof(uint64_t), "CcuAddressHandle ABI changed");
+static_assert(sizeof(CcuEventHandle) == sizeof(uint64_t), "CcuEventHandle ABI changed");
+static_assert(sizeof(CcuBufferHandle) == sizeof(uint64_t), "CcuBufferHandle ABI changed");
+static_assert(sizeof(CcuLocalAddrHandle) == sizeof(uint64_t), "CcuLocalAddrHandle ABI changed");
+static_assert(sizeof(CcuRemoteAddrHandle) == sizeof(uint64_t), "CcuRemoteAddrHandle ABI changed");
+static_assert(sizeof(CcuInstanceType) == sizeof(uint32_t), "CcuInstanceType ABI changed");
+static_assert(sizeof(CcuResDesc) == 8, "CcuResDesc ABI changed");
+static_assert(alignof(CcuResDesc) == alignof(uint32_t), "CcuResDesc alignment changed");
+static_assert(offsetof(CcuResDesc, dieId) == 0 && offsetof(CcuResDesc, insType) == 4,
+    "CcuResDesc layout changed");
+static_assert(CCU_SUCCESS == 0 && CCU_E_NOT_INITIALIZED == 3 && CCU_E_NOT_SUPPORT == 5,
+    "CcuResult values changed");
+static_assert(CCU_DEFAULT == 0 && CCU_SCHED == 1 && CCU_MS == 2 && CCU_UNUSED == 254 && CCU_RESERVED == 255,
+    "CcuInstanceType values changed");
 #endif // __cplusplus
 
 #endif // CCU_TYPES_H

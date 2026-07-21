@@ -17,6 +17,8 @@
 extern "C" {
 #endif // __cplusplus
 
+#pragma GCC visibility push(default)
+
 /**
  * @brief 查询/计算一段本端内存区域的 CCU 访问 token，供 host 端组装 LocalAddr/RemoteAddr 使用。
  * @param[in]  srcVa     内存区域起始虚地址（VA），必须为已注册的合法地址，不可为 0。
@@ -28,6 +30,8 @@ extern "C" {
  *       其生命周期与对应内存注册绑定。跨 rank 场景下本端 token 需经带外通道交换给对端组装 RemoteAddr。
  */
 extern CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t *tokenInfo);
+
+#pragma GCC visibility pop
 
 #ifdef __cplusplus
 }
