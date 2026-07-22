@@ -11,6 +11,7 @@
 set(src_list
     ccu_primitives_impl.cc
     ccu_launch.cc
+    ccu_host_launch.cc
 )
 
 if(TARGET asccomm_hcomm_obj)
