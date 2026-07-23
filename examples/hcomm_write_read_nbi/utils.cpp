@@ -78,9 +78,9 @@ int32_t ConnectPeer(uint32_t rank, const char *ip, uint16_t port, int32_t &sock)
     addr.sin_port = htons(port);
     inet_pton(AF_INET, ip, &addr.sin_addr);
     uint16_t retryTimes = 100;
-    uint16_t interval = 100000;
+    int32_t interval = 100000;
     for (int32_t i = 0; i < retryTimes; i++) {
-        if (connect(sock, static_cast<struct sockaddr *>(&addr), sizeof(addr)) == 0) {
+        if (connect(sock, reinterpret_cast<struct sockaddr *>(&addr), sizeof(addr)) == 0) {
             return 0;
         }
         usleep(interval);
