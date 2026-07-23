@@ -67,7 +67,6 @@ target_link_directories(custom_all_to_all_ccu PRIVATE
 )
 target_link_libraries(custom_all_to_all_ccu PRIVATE
     hcomm
-    hccl
     asccomm_ccu_dataplane
     ascendcl
     acl_rt
