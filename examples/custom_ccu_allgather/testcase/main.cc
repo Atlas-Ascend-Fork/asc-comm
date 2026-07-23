@@ -49,8 +49,8 @@ int Sample(void *arg)
     void *sendBuf = nullptr;
     void *recvBuf = nullptr;
     uint32_t device = ctx->device;
-    uint64_t sendCount = 1U;
-    uint64_t recvCount = ctx->devCount;
+    uint64_t sendCount = ctx->devCount;
+    uint64_t recvCount = sendCount * ctx->devCount;
     size_t sendSize = sendCount * sizeof(float);
     size_t recvSize = recvCount * sizeof(float);
     // 设置当前线程操作的设备

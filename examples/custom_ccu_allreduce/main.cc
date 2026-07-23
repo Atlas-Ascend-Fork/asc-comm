@@ -70,7 +70,7 @@ int Sample(void *arg)
     void *sendBuf = nullptr;
     void *recvBuf = nullptr;
     uint32_t device = ctx->device;
-    uint64_t sendCount = ctx->devCount > 16 ? 16 : ctx->devCount;
+    uint64_t sendCount = ctx->devCount;
     uint64_t recvCount = sendCount;
     size_t sendSize = sendCount * sizeof(float);
     size_t recvSize = recvCount * sizeof(float);
@@ -172,5 +172,4 @@ int main()
     ACLCHECK(aclFinalize());               // ACL 去初始化
     return 0;
 }
-
 
