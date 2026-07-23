@@ -1,0 +1,41 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+ * Description: ccu representation base header file
+ * Create: 2025-02-18
+ */
+
+#ifndef HCOMM_CCU_REPRESENTATION_LOOP_H
+#define HCOMM_CCU_REPRESENTATION_LOOP_H
+
+#include <memory>
+
+#include "ccu_datatype_v1.h"
+#include "ccu_rep_base_v1.h"
+#include "ccu_rep_loopblock_v1.h"
+
+namespace hcomm {
+namespace CcuRep {
+
+class CcuRepLoop : public CcuRepBase {
+public:
+    explicit CcuRepLoop(const std::string &label, const Variable &loopParam);
+    bool               Translate(CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
+    std::string        Describe() override;
+    const std::string &GetLabel() const;
+
+    void                        Reference(std::shared_ptr<CcuRepLoopBlock> refRep);
+    std::shared_ptr<CcuRepBase> SetLoopParam(Executor executor, Variable var);
+    CcuRepLoopBlock* GetLoopBlock() { return loopBlock.get(); }
+    Variable* GetLoopParam() { return &loopParam; }
+
+private:
+    std::string                      label;
+    std::shared_ptr<CcuRepLoopBlock> loopBlock{nullptr};
+
+    Variable loopParam;
+    CcuInstr *instr{nullptr};
+};
+
+}; // namespace CcuRep
+}; // namespace hcomm
+#endif // HCCL_CCU_REPRESENTATION_LOOP_H
