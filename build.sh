@@ -77,7 +77,7 @@ log() {
         ERROR) color="$COLOR_ERROR" ;;
         *) color="" ;;
     esac
-    
+
     # 带颜色的日志内容
     echo -e "${color}${plain_log}${COLOR_RESET}"
 }
@@ -166,6 +166,26 @@ function build () {
     cmake --build "${build_dir}" "$@" -j "${THREAD_NUM}"
 }
 
+function run_ccu_ut() {
+    local ut_build_dir="$1"
+    local ccu_ctest_dir="${ut_build_dir}/ccu_hcomm"
+
+    if [[ ! -f "${ccu_ctest_dir}/CTestTestfile.cmake" ]]; then
+        log "ERROR" "CCU CTest registration not found: ${ccu_ctest_dir}"
+        return 1
+    fi
+
+    log "INFO" "run CCU UT through CTest"
+    ctest --test-dir "${ccu_ctest_dir}" --output-on-failure
+}
+
+function collect_coverage() {
+    local ut_build_dir="$1"
+
+    log "INFO" "collect UT coverage report"
+    cmake --build "${ut_build_dir}" --target collect_coverage_data -j "${THREAD_NUM}"
+}
+
 main(){
     parse_args "$@"
     clean_build
@@ -181,16 +201,12 @@ main(){
     if [[ "${COV}" == true ]]; then
         CUSTOM_OPTION+=("-DENABLE_GCOV=ON")
     fi
-    
-    if [[ "${COV}" == true ]]; then
-        TARGETS="--target collect_coverage_data"
-    else
-        TARGETS=""
-    fi
 
     cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
-    build "${ut_build_dir}" ${TARGETS}
+    build "${ut_build_dir}"
+    run_ccu_ut "${ut_build_dir}"
     if [[ "${COV}" == true ]]; then
+        collect_coverage "${ut_build_dir}"
         log "INFO" "coverage report generated at ${ut_build_dir}/cov_report/index.html"
     fi
 }
