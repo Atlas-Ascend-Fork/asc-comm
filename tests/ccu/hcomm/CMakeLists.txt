@@ -8,71 +8,55 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-set(src_to_test_list
-    main.cc
-    hccl_api_base_test.cc
-    ut_CcuComponent_test.cc
-    ut_HcommCcuControlApi_test.cc
+# CCU 源文件路径前缀
+set(CCU_REP_DIR ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation)
+set(CCU_MICROCODE_DIR ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode)
 
-    mocks/ccu_device_mock_utils.cc
-    mocks/ccu_drv_handle_mock.cc
-    mocks/ccu_dev_mgr_mock.cc
-    ut_CcuConn_test.cc
-    ut_ccu_microcode.cc
-
-    ccu_kernel_impl/ccu_groupcopy_alg.cc
-    ccu_kernel_impl/ccu_groupcopy_kernel.cc
-    # ut_ccu_mgr_test.cc  
-    ./ccu_representation/interface/ut_ccu_interface_assist.cc
-    ./ccu_device/ut_ccu_res_batch_allocator.cc
-    ./ccu_device/ccu_comp/ccu_channel/ccu_pfe/ut_ccu_pfe_cfg_mgr.cc
+# CCU UT 公共头文件目录：仅限本仓、测试兼容层和 CANN 安装包。
+set(UT_COMMON_INCLUDE_LIST
+    ${ASCCOMM_ROOT}/include/ccu
+    ${ASCCOMM_ROOT}/include/ccu/hcomm/ccu
+    ${CCU_REP_DIR}
+    ${CCU_REP_DIR}/context
+    ${CCU_REP_DIR}/interface
+    ${CCU_REP_DIR}/reps/arithmetic
+    ${CCU_REP_DIR}/reps/common
+    ${CCU_REP_DIR}/reps/control
+    ${CCU_REP_DIR}/reps/data
+    ${CCU_REP_DIR}/reps/loop
+    ${CCU_REP_DIR}/reps/sync
+    ${CCU_REP_DIR}/reps/translator
+    ${CCU_MICROCODE_DIR}
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/pub_inc
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
+    ${ASCCOMM_UT_ROOT}/../ccu/stub
+    ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/include
+    ${ASCCOMM_CANN_INCLUDE_DIRS}
 )
-
-add_executable(hccl_utest_comms_ccu_features ${src_to_test_list})
-
-#头文件搜索路径
-target_include_directories(hccl_utest_comms_ccu_features PRIVATE
-    ${UT_COMMON_INCLUDE_LIST}
-    ${HCOMM_DIR}/pkg_inc/hcomm/ccu
-)
-
-target_compile_definitions(hccl_utest_comms_ccu_features PRIVATE
-    _GLIBCXX_USE_CXX11_ABI=0
-    google=ascend_private
-    -DOPEN_HCCL_TEST
-    OPEN_BUILD_PROJECT
-)
-
-target_compile_options(hccl_utest_comms_ccu_features PRIVATE
-    -U_FORTIFY_SOURCE
-    -fno-var-tracking-assignments
-    -Os
-    -O0 -g --coverage -fprofile-arcs -ftest-coverage -fno-access-control
-    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address -fsanitize-recover=address,all -fno-omit-frame-pointer>
-)
-
-target_link_libraries(hccl_utest_comms_ccu_features PRIVATE
-    $<BUILD_INTERFACE:intf_pub>
-    $<BUILD_INTERFACE:rdma_core_headers>
-    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
-    -pthread
-    hccl_llt
-    -Wl,--whole-archive
-    -Wl,--no-whole-archi
-    -lgcov
-    -lrt
-    -ldl
-)
-
-add_dependencies(hccl_utest_comms_ccu_features hccl_llt)
 
 enable_testing()
-add_test(NAME hccl_utest_comms_ccu_features COMMAND hccl_utest_comms_ccu_features)
 
+add_library(asccomm_ccu_hcomm_compat INTERFACE)
+target_include_directories(asccomm_ccu_hcomm_compat INTERFACE
+    ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/include
+    ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/source/base_comm/resources/ccu/ccu_representation/context
+    ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/source/base_comm/resources/ccu/ccu_representation/reps/data
+    ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/source/base_comm/resources/ccu/ccu_representation/reps/sync
+)
+target_compile_options(asccomm_ccu_hcomm_compat INTERFACE
+    -include ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/include/ccu_ut_legacy_compat.h
+)
+
+add_subdirectory(../stub stub)
+
+# CCU 数据面子目标
 add_subdirectory(ccu_representation/reps/sync)
 add_subdirectory(ccu_representation/reps/control)
 add_subdirectory(ccu_representation/reps/common)
 add_subdirectory(ccu_representation/reps/data)
 add_subdirectory(ccu_representation/reps/arithmetic)
 add_subdirectory(ccu_representation/reps/loop)
+add_subdirectory(ccu_representation/context)
 add_subdirectory(ccu_representation/interface)
+add_subdirectory(ccu_microcode)
