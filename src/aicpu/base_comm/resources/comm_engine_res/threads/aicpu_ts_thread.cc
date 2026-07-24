@@ -11,7 +11,6 @@
 #include "aicpu_ts_thread.h"
 #include "hccl_common.h"
 #include "aicpu/aicpu_hccl_sqcq.h"
-#include "types/dev_type.h"
 #include "device_capacity.h"
 
 namespace hccl {

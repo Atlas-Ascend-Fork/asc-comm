@@ -13,6 +13,7 @@
 
 #include <hccl/hccl_types.h>
 
+// NOTE: exception_defination.h 通过该路径依赖 HcclResult。
 namespace Hccl {
 } // namespace Hccl
 

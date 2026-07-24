@@ -18,13 +18,10 @@
 #include "const_val.h"
 #include "enum_factory.h"
 #include "ip_address.h"
-#include "op_type.h"
 
 namespace Hccl {
 
 MAKE_ENUM(DmaOp, HCCL_DMA_READ, HCCL_DMA_WRITE, HCCL_DMA_NOTIFY_WAIT)
-
-MAKE_ENUM(AlgType, NOT_SPECIFIED, RING, MULTI_RING, MESH, RECURSIVE_HD, BINARY_HD, PAIR_WISE, INVALID_VAL)
 
 MAKE_ENUM(TaskParamType, TASK_SDMA, TASK_RDMA, TASK_REDUCE_INLINE, TASK_REDUCE_TBE, TASK_NOTIFY_RECORD, TASK_NOTIFY_WAIT,
     TASK_SEND_NOTIFY, TASK_SEND_PAYLOAD, TASK_WRITE_WITH_NOTIFY, TASK_WRITE_REDUCE_WITH_NOTIFY, TASK_CCU, TASK_AICPU_KERNEL, TASK_AICPU_REDUCE, TASK_AIV, TASK_UB_INLINE_WRITE, TASK_UB_REDUCE_INLINE, TASK_UB,
@@ -116,6 +113,7 @@ struct ParaAiv{
     HcclDataType dataType;
 };
 
+// NOTE: Thread 和 transport 的任务回调依赖该结构布局。
 struct TaskParam {
     TaskParamType taskType;
     u64           beginTime;
@@ -189,28 +187,6 @@ private:
         }
         return result;
     }
-};
-
-const std::map<HcclCMDType, std::pair<Hccl::OpType, std::string>> CMD_OP_TYPE_INFO_MAP = {
-    {HcclCMDType::HCCL_CMD_ALLREDUCE, {Hccl::OpType::ALLREDUCE, "OpType::ALLREDUCE"}},
-    {HcclCMDType::HCCL_CMD_ALLGATHER, {Hccl::OpType::ALLGATHER, "OpType::ALLGATHER"}},
-    {HcclCMDType::HCCL_CMD_REDUCE_SCATTER, {Hccl::OpType::REDUCESCATTER, "OpType::REDUCESCATTER"}},
-    {HcclCMDType::HCCL_CMD_SEND, {Hccl::OpType::SEND, "OpType::SEND"}},
-    {HcclCMDType::HCCL_CMD_RECEIVE, {Hccl::OpType::RECV, "OpType::RECV"}},
-    {HcclCMDType::HCCL_CMD_ALLTOALL, {Hccl::OpType::ALLTOALL, "OpType::ALLTOALL"}},
-    {HcclCMDType::HCCL_CMD_ALLTOALLV, {Hccl::OpType::ALLTOALLV, "OpType::ALLTOALLV"}},
-    {HcclCMDType::HCCL_CMD_BROADCAST, {Hccl::OpType::BROADCAST, "OpType::BROADCAST"}},
-    {HcclCMDType::HCCL_CMD_ALLGATHER_V, {Hccl::OpType::ALLGATHERV, "OpType::ALLGATHERV"}},
-    {HcclCMDType::HCCL_CMD_REDUCE_SCATTER_V, {Hccl::OpType::REDUCESCATTERV, "OpType::REDUCESCATTERV"}},
-    {HcclCMDType::HCCL_CMD_REDUCE, {Hccl::OpType::REDUCE, "OpType::REDUCE"}},
-    {HcclCMDType::HCCL_CMD_ALLTOALLVC, {Hccl::OpType::ALLTOALLVC, "OpType::ALLTOALLVC"}},
-    {HcclCMDType::HCCL_CMD_SCATTER, {Hccl::OpType::SCATTER, "OpType::SCATTER"}},
-    {HcclCMDType::HCCL_CMD_BATCH_SEND_RECV, {Hccl::OpType::BATCHSENDRECV, "OpType::BATCHSENDRECV"}},
-    {HcclCMDType::HCCL_CMD_HALF_ALLTOALLV, {Hccl::OpType::HALFALLTOALLV, "OpType::HALFALLTOALLV"}},
-    {HcclCMDType::HCCL_CMD_BARRIER, {Hccl::OpType::BARRIER, "OpType::BARRIER"}},
-    {HcclCMDType::HCCL_CMD_GATHER, {Hccl::OpType::GATHER, "OpType::GATHER"}},
-    {HcclCMDType::HCCL_CMD_BATCH_GET, {Hccl::OpType::BATCHGET, "OpType::BATCHGET"}},
-    {HcclCMDType::HCCL_CMD_BATCH_PUT, {Hccl::OpType::BATCHPUT, "OpType::BATCHPUT"}},
 };
 
 } // namespace Hccl
