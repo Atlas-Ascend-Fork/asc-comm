@@ -9,6 +9,9 @@
  */
 #ifndef HCCLV2_RMT_RMA_BUF_SLICE_LITE_H
 #define HCCLV2_RMT_RMA_BUF_SLICE_LITE_H
+
+#include <string>
+
 #include "hccl/base.h"
 
 namespace Hccl {
