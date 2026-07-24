@@ -9,7 +9,9 @@
  */
 
 #include "ccu_rep_context_v1.h"
+#include "ccu_rep_assign_v1.h"
 #include "ccu_rep_loopgroup_bundle_v1.h"
+#include "ccu_rep_nop_v1.h"
 #include "ccu_types.h"
 #include <gtest/gtest.h>
 #include <memory>
@@ -172,17 +174,18 @@ TEST_F(CcuRepContextTest, CollectProfilingReps_LoopGroup)
     Variable offsetParam(nullptr);
     auto loopGroupPtr = std::make_shared<CcuRepLoopGroupBundle>(grpCfg, parallelParam, offsetParam);
     context.CollectProfilingReps(loopGroupPtr);
-    EXPECT_EQ(context.GetLGProfilingInfo().lgProfilingReps.size(), 1U);
+    EXPECT_EQ(context.allLgProfilingReps.size(), 1U);
 }
 
 TEST_F(CcuRepContextTest, AddSqeProfiling)
 {
     CcuRepContext context;
     context.SetDieId(3);
-    context.AddSqeProfiling();
+    context.AddSqeProfiling("context_kernel");
     EXPECT_EQ(context.GetProfilingInfo().size(), 1U);
     EXPECT_EQ(context.GetProfilingInfo()[0].type, static_cast<uint8_t>(CcuProfilinType::CCU_TASK_PROFILING));
-    EXPECT_EQ(context.GetProfilingInfo()[0].dieId, 3U);
+    EXPECT_EQ(context.GetProfilingInfo()[0].dieId, 0U);
+    EXPECT_EQ(context.GetProfilingInfo()[0].name, "context_kernel");
 }
 
 TEST_F(CcuRepContextTest, AddProfiling_Simple)
