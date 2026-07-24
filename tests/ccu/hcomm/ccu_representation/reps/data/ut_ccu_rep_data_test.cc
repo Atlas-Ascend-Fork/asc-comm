@@ -18,10 +18,13 @@
 #include "ccu_rep_loccpy_v1.h"
 #include "ccu_rep_remMem_v1.h"
 #include "ccu_api_exception.h"
+#include "ccu_channel_get_stub.h"
+#include "ccu_urma_channel.h"
 
 #include "hcomm_c_adpt.h"
 
 #include <gtest/gtest.h>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -29,99 +32,26 @@ namespace hcomm {
 namespace CcuRep {
 namespace {
 
-class MockCcuUrmaChannel {
-public:
-    MockCcuUrmaChannel(uint16_t channelId = 101, uint32_t dieId = 0)
-        : channelId_(channelId), dieId_(dieId) {}
-    uint16_t GetChannelId() { return channelId_; }
-    uint32_t GetDieId() { return dieId_; }
-    HcclResult GetRmtBuffer(uint64_t& addr, uint32_t& size, uint32_t& tokenId, uint32_t& tokenValue)
+class CcuRepChannelTest : public ::testing::Test {
+protected:
+    void SetUp() override
     {
-        addr = 0x1000;
-        size = 256;
-        tokenId = 1;
-        tokenValue = 100;
-        return HCCL_SUCCESS;
+        HcommChannelDesc channelDesc{};
+        channel = std::make_unique<CcuUrmaChannel>(nullptr, channelDesc);
+        SetHcommChannelGetStub(channel.get());
     }
-private:
-    uint16_t channelId_;
-    uint32_t dieId_;
+    void TearDown() override
+    {
+        ResetHcommChannelGetStub();
+        channel.reset();
+    }
+    std::unique_ptr<CcuUrmaChannel> channel;
 };
 
-static MockCcuUrmaChannel* g_mockChannel = nullptr;
-
-HcclResult HcommChannelGet(ChannelHandle channel, void** channelPtr)
-{
-    if (channelPtr == nullptr) return HCCL_E_PTR;
-    *channelPtr = g_mockChannel;
-    return HCCL_SUCCESS;
-}
-
-void SetMockCcuUrmaChannel(MockCcuUrmaChannel* channel)
-{
-    g_mockChannel = channel;
-}
-
-void ResetStubs()
-{
-    g_mockChannel = nullptr;
-}
-
-class CcuRepReadTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        ResetStubs();
-        mockChannel = new MockCcuUrmaChannel(100, 0);
-        SetMockCcuUrmaChannel(mockChannel);
-    }
-    void TearDown() override {
-        ResetStubs();
-        delete mockChannel;
-    }
-    MockCcuUrmaChannel* mockChannel = nullptr;
-};
-
-class CcuRepWriteTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        ResetStubs();
-        mockChannel = new MockCcuUrmaChannel(100, 0);
-        SetMockCcuUrmaChannel(mockChannel);
-    }
-    void TearDown() override {
-        ResetStubs();
-        delete mockChannel;
-    }
-    MockCcuUrmaChannel* mockChannel = nullptr;
-};
-
-class CcuRepBufReadTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        ResetStubs();
-        mockChannel = new MockCcuUrmaChannel(100, 0);
-        SetMockCcuUrmaChannel(mockChannel);
-    }
-    void TearDown() override {
-        ResetStubs();
-        delete mockChannel;
-    }
-    MockCcuUrmaChannel* mockChannel = nullptr;
-};
-
-class CcuRepBufWriteTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        ResetStubs();
-        mockChannel = new MockCcuUrmaChannel(100, 0);
-        SetMockCcuUrmaChannel(mockChannel);
-    }
-    void TearDown() override {
-        ResetStubs();
-        delete mockChannel;
-    }
-    MockCcuUrmaChannel* mockChannel = nullptr;
-};
+class CcuRepReadTest : public CcuRepChannelTest {};
+class CcuRepWriteTest : public CcuRepChannelTest {};
+class CcuRepBufReadTest : public CcuRepChannelTest {};
+class CcuRepBufWriteTest : public CcuRepChannelTest {};
 
 class CcuRepBufLocReadTest : public ::testing::Test {
 protected:
@@ -147,19 +77,7 @@ protected:
     void TearDown() override {}
 };
 
-class CcuRepRemMemTest : public ::testing::Test {
-protected:
-    void SetUp() override {
-        ResetStubs();
-        mockChannel = new MockCcuUrmaChannel(100, 0);
-        SetMockCcuUrmaChannel(mockChannel);
-    }
-    void TearDown() override {
-        ResetStubs();
-        delete mockChannel;
-    }
-    MockCcuUrmaChannel* mockChannel = nullptr;
-};
+class CcuRepRemMemTest : public CcuRepChannelTest {};
 
 TEST_F(CcuRepReadTest, Constructor_Basic)
 {
