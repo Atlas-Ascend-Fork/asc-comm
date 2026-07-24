@@ -11,27 +11,39 @@
 set(src_to_test_list
     main.cc
     ut_ccu_rep_interface_test.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/interface/ccu_datatype.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/interface/ccu_funcblock.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/interface/ccu_funccall.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/interface/ccu_interface_assist.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/interface/ccu_loopblock.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/interface/ccu_loopcall.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/context/ccu_rep_context.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common/ccu_rep_base.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common/ccu_rep_block.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common/ccu_rep_loadarg.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common/ccu_rep_nop.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/control/ccu_rep_funcblock.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/control/ccu_rep_funccall.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/loop/ccu_rep_loopblock.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/loop/ccu_rep_loopcall.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/loop/ccu_rep_loop.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/loop/ccu_rep_setloop.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/translator/ccu_rep_reference_manager.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/translator/ccu_rep_translator.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic/ccu_rep_add.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic/ccu_rep_assign.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic/ccu_operator.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_microcode.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_assist.cc
 )
 
 add_executable(hccl_utest_comms_ccu_rep_interface ${src_to_test_list})
 
 target_include_directories(hccl_utest_comms_ccu_rep_interface PRIVATE
     ${UT_COMMON_INCLUDE_LIST}
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/context
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/interface
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/reps
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/reps/arithmetic
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/reps/common
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/reps/control
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/reps/data
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/reps/loop
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/reps/sync
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/reps/translator
 )
 
 target_compile_definitions(hccl_utest_comms_ccu_rep_interface PRIVATE
-    _GLIBCXX_USE_CXX11_ABI=0
     google=ascend_private
     -DOPEN_HCCL_TEST
     OPEN_BUILD_PROJECT
@@ -46,19 +58,16 @@ target_compile_options(hccl_utest_comms_ccu_rep_interface PRIVATE
 )
 
 target_link_libraries(hccl_utest_comms_ccu_rep_interface PRIVATE
-    $<BUILD_INTERFACE:intf_pub>
-    $<BUILD_INTERFACE:rdma_core_headers>
     $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
+    intf_llt_pub_basic
     -pthread
-    hccl_llt
-    -Wl,--whole-archive
-    -Wl,--no-whole-archi
+    asccomm_ccu_llt_stub
     -lgcov
     -lrt
     -ldl
 )
 
-add_dependencies(hccl_utest_comms_ccu_rep_interface hccl_llt)
+add_dependencies(hccl_utest_comms_ccu_rep_interface asccomm_ccu_llt_stub)
 
 enable_testing()
 add_test(NAME hccl_utest_comms_ccu_rep_interface COMMAND hccl_utest_comms_ccu_rep_interface)

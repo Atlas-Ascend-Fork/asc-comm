@@ -13,17 +13,18 @@ set(src_to_test_list
     ut_ccu_microcode_v1_test.cc
     ut_ccu_microcode_v2_test.cc
     ut_ccu_assist_test.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_microcode.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_microcode_v2_.cc
+    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_assist.cc
 )
 
 add_executable(hccl_utest_comms_ccu_microcode ${src_to_test_list})
 
 target_include_directories(hccl_utest_comms_ccu_microcode PRIVATE
     ${UT_COMMON_INCLUDE_LIST}
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_microcode
 )
 
 target_compile_definitions(hccl_utest_comms_ccu_microcode PRIVATE
-    _GLIBCXX_USE_CXX11_ABI=0
     google=ascend_private
     -DOPEN_HCCL_TEST
     OPEN_BUILD_PROJECT
@@ -38,19 +39,17 @@ target_compile_options(hccl_utest_comms_ccu_microcode PRIVATE
 )
 
 target_link_libraries(hccl_utest_comms_ccu_microcode PRIVATE
-    $<BUILD_INTERFACE:intf_pub>
-    $<BUILD_INTERFACE:rdma_core_headers>
+    asccomm_ccu_hcomm_compat
     $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
+    intf_llt_pub_basic
     -pthread
-    hccl_llt
-    -Wl,--whole-archive
-    -Wl,--no-whole-archi
+    asccomm_ccu_llt_stub
     -lgcov
     -lrt
     -ldl
 )
 
-add_dependencies(hccl_utest_comms_ccu_microcode hccl_llt)
+add_dependencies(hccl_utest_comms_ccu_microcode asccomm_ccu_llt_stub)
 
 enable_testing()
 add_test(NAME hccl_utest_comms_ccu_microcode COMMAND hccl_utest_comms_ccu_microcode)
