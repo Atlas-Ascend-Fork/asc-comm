@@ -6,11 +6,11 @@
 
 | 样例 | 说明 | 支持产品 |
 | --- | --- | --- |
-| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示两卡场景下使用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`完成点对点通信，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
+| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示两卡场景下AIV Kernel通过URMA路径调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
 
 ## hcomm_write_read_nbi
 
-`hcomm_write_read_nbi`展示完整的Hcomm点对点通信流程，包括Host侧通信域创建、通信内存注册、P2P通道创建、Kernel侧`Init`、`WriteNbi`、`ReadNbi`和`Drain`调用。
+`hcomm_write_read_nbi`展示AIV直驱URMA点对点通信流程，包括Host侧通信域创建、通信内存注册、AIV P2P通道创建，以及Kernel侧`Init`、`WriteNbi`、`ReadNbi`和`Drain`调用。该样例不覆盖RoCE路径。
 
 样例采用两卡对称执行方式：
 
@@ -47,4 +47,4 @@ make -j
 
 - 样例支持Ascend 950PR/Ascend 950DT，CANN软件版本要求为9.1.0或以上。
 - 样例运行需要至少2张NPU；单卡环境仅支持编译验证。
-- 样例编译依赖CANN ASC CMake能力，并在链接阶段依赖`hcomm`库。
+- 样例编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

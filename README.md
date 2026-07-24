@@ -20,13 +20,13 @@
 - 提供AICore侧Hcomm点对点通信接口，覆盖`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。
 - 提供AIV直驱Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/detail/`。
 - 提供Hcomm UT工程，覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。
-- 提供`hcomm_write_read_nbi`样例，演示AICore Kernel侧`WriteNbi`和`ReadNbi`点对点通信流程，并包含运行样例所需的Host侧资源准备流程。
+- 提供`hcomm_write_read_nbi`样例，演示AIV直驱URMA场景下`WriteNbi`和`ReadNbi`点对点通信流程，并包含运行样例所需的Host侧资源准备流程。
 
 ### 📖 资料文档
 
 - 新增[快速开始](./docs/quick_start.md)、[构建与测试](./docs/guide/build_and_test.md)、[三方依赖与兼容性](./docs/guide/dependencies.md)说明。
 - 新增[Hcomm使用说明](./docs/guide/hcomm_usage.md)和[API参考](./docs/api/README.md)，覆盖当前公开的Hcomm接口。
-- 新增[样例目录](./examples/README.md)，提供Hcomm Kernel侧调用和端到端通信样例入口。
+- 新增[样例目录](./examples/README.md)，提供Hcomm AIV直驱调用和端到端通信样例入口。
 
 有关所有历史版本及更新的详细信息，请参阅[CHANGELOG.md](./CHANGELOG.md)。
 
@@ -42,10 +42,10 @@ asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载A
 | --- | --- |
 | AICore Hcomm公开接口 | 已提供Kernel侧`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。 |
 | AIV直驱实现 | 已提供Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/detail/`。 |
-| 样例配套流程 | `hcomm_write_read_nbi`包含运行样例所需的通信域创建、通信内存注册、P2P通道创建和远端内存获取流程。 |
+| AIV直驱样例配套流程 | `hcomm_write_read_nbi`包含AIV直驱URMA通信所需的通信域创建、通信内存注册、P2P通道创建和远端内存获取流程。 |
 | 协议能力 | `COMM_PROTOCOL_ROCE`支持读写、提交和等待；`COMM_PROTOCOL_UBC_CTP`支持读写、写通知、原子操作、提交和等待。 |
 | UT验证 | UT覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
-| 样例 | 提供`hcomm_write_read_nbi`样例，覆盖两卡`WriteNbi`/`ReadNbi`对称通信和结果校验流程。 |
+| AIV直驱样例 | 提供`hcomm_write_read_nbi`样例，覆盖两卡AIV直驱URMA `WriteNbi`/`ReadNbi`对称通信和结果校验流程。 |
 
 ### 如何使用Hcomm接口
 
@@ -80,7 +80,7 @@ Hcomm Kernel侧使用时包含如下头文件：
 ├── cmake                         # asc-comm CMake辅助模块
 ├── docs                          # 项目文档介绍
 ├── examples                      # asc-comm API样例目录
-│   └── hcomm_write_read_nbi      # Hcomm WriteNbi/ReadNbi两卡P2P通信样例
+│   └── hcomm_write_read_nbi      # Hcomm AIV直驱URMA两卡P2P通信样例
 ├── include                       # asc-comm API声明源代码
 │   ├── aicore/hcomm              # AICore侧Hcomm公开接口
 │   ├── ain                       # AIN相关API预留目录
@@ -122,7 +122,7 @@ cmake --build build/ut-hcomm
 
 更多环境准备、Docker、CANN包安装和UT依赖说明请参考[快速开始](./docs/quick_start.md)和[构建与测试](./docs/guide/build_and_test.md)。
 
-## 🧰clangd/IDE 支持
+## 🧰clangd/IDE支持
 
 - 安装clangd，推荐使用15或以上版本。
 - 配置本地IDE时，需要将CANN头文件目录和本仓`include/`目录加入索引路径。
@@ -163,7 +163,7 @@ cmake --build build/ut-hcomm
 
 ## 📌相关规划
 
-- 持续补充AICore Hcomm端到端样例，覆盖更多协议路径和通信接口。
+- 持续补充AIV直驱Hcomm端到端样例，覆盖更多协议路径和通信接口。
 - 持续完善不同产品、协议路径下的构建验证和UT覆盖。
 - 持续补充API约束、使用说明和常见问题。
 

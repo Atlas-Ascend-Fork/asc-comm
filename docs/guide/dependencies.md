@@ -9,7 +9,7 @@ asc-comm当前仓内构建主要用于环境检查、AICore Hcomm接口UT验证�
 | 依赖 | 要求 | 说明 |
 | --- | --- | --- |
 | CANN Toolkit | 与当前分支或Tag配套 | 执行`build.sh`前必须先`source ${install_path}/cann/set_env.sh`，脚本会检查`ASCEND_HOME_PATH`。 |
-| CANN Runtime/HCCL/Hcomm | CANN 9.1.0或以上 | `hcomm_write_read_nbi`样例需要通信域创建、内存注册和P2P通道创建能力，并在链接阶段依赖`hcomm`库。 |
+| CANN Runtime/HCCL/Hcomm | CANN 9.1.0或以上 | `hcomm_write_read_nbi`样例需要通信域创建、内存注册和AIV P2P通道创建能力，并在链接阶段依赖Host侧`hcomm`库。 |
 | CMake | >= 3.16 | UT CMake入口为`tests/ut/CMakeLists.txt`。 |
 | C++ 编译器 | 支持C++17 | UT目标使用`CMAKE_CXX_STANDARD 17`，建议`gcc/g++ >= 7.3.0`且版本一致。 |
 | Python | Python 3 | UT可用于生成tiling头文件；OAT钩子要求Python 3.7+。源码和examples环境建议Python >= 3.9.0。 |
@@ -27,7 +27,7 @@ asc-comm当前仓内构建主要用于环境检查、AICore Hcomm接口UT验证�
 
 ## 样例运行依赖
 
-`examples/hcomm_write_read_nbi`样例支持Ascend 950PR/Ascend 950DT，运行时需要至少2张NPU。单卡环境可完成编译验证，但无法完成两卡点对点通信运行验证。
+`examples/hcomm_write_read_nbi`样例支持Ascend 950PR/Ascend 950DT，运行时需要至少2张NPU。单卡环境可完成编译验证，但无法完成两卡点对点通信运行验证。该样例固定使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UBC_CTP`，不覆盖RoCE路径。
 
 样例编译命令如下：
 
@@ -57,7 +57,11 @@ cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<third_party>
 cmake --build build/ut-hcomm
 ```
 
-`build.sh -t`会调用UT构建，但当前脚本未暴露`CANN_3RD_LIB_PATH`参数；需要指定离线GTest路径时，建议直接使用上面的CMake命令。
+`build.sh -t`会调用UT构建。需要指定离线GTest路径时，可以直接使用上面的CMake命令，也可以通过构建脚本传入：
+
+```bash
+bash build.sh -t --cann_3rd_lib_path=<third_party>
+```
 
 ## 集成依赖边界
 
