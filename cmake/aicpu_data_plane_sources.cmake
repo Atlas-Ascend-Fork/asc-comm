@@ -13,9 +13,7 @@ set(ASC_COMM_AICPU_DATA_PLANE_SOURCES
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/common/exception/hccl_exception.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/interface/aicpu_ts_thread_interface.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/framework/communicator/aicpu/aicpu_res_package_helper.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/common/dev_capability.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/common/dlhal_function_v2.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/common/orion_adapter_hal.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/buffer/aicpu/rma_buf_slice_lite.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/buffer/aicpu/rma_buffer_lite.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/buffer/aicpu/rmt_rma_buf_slice_lite.cc
@@ -25,17 +23,11 @@ set(ASC_COMM_AICPU_DATA_PLANE_SOURCES
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/connection/aicpu/rma_conn_lite.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/connection/aicpu/ub_conn_lite.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/connection/aicpu/ub_conn_lite_mgr.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/notify/aicpu/cnt_1ton_notify_lite.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/notify/aicpu/cnt_nto1_notify_lite.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/notify/aicpu/notify_lite.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/stream/aicpu/hccl_sqe.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/stream/aicpu/hccl_sqe_v82.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/stream/aicpu/rtsq_a5.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/stream/aicpu/rtsq_base.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/stream/aicpu/sqe_build_a5.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/stream/aicpu/sqe_mgr.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/stream/aicpu/stream_lite.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/transport/aicpu/mem_transport_lite.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/transport/aicpu/p2p_transport_lite_impl.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/transport/aicpu/roce_transport_lite_impl.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/resource/transport/aicpu/ub_transport_lite_impl.cc

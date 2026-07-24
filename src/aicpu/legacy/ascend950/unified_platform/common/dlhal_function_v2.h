@@ -19,6 +19,7 @@
 #include <hccl/hccl_types.h>
 
 namespace Hccl {
+// NOTE: CollCommAicpu::InitAicpuIndOp 依赖该类，成员布局与 HCOMM 保持一致。
 class DlHalFunctionV2 {
 public:
     virtual ~DlHalFunctionV2();
