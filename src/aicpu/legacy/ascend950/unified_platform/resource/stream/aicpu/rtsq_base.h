@@ -11,7 +11,6 @@
 #define HCCLV2_RTSQ_BASE_H
 #include <vector>
 #include <functional>
-#include <queue>
 #include "types.h"
 #include "buffer.h"
 #include "notify_lite.h"
@@ -229,7 +228,7 @@ public:
         return false;
     }
 
-    HcclResult GetStreamIdAndTaskIdBySqIdx(u32 sqIdx, uint16_t& streamId, uint16_t& taskId);
+    HcclResult GetStreamIdAndTaskIdBySqIdx(u32 sqIdx, uint16_t& streamId, uint16_t& taskId) const;
 
 protected:
     u32 devPhyId_{0};
@@ -257,9 +256,8 @@ protected:
 
     inline void SetTaskIdBySqeId()
     {
-        if (taskId_ < taskIdEnd_) {
-            taskId_++;
-        } else {
+        taskId_++; // taskId_的范围是aicpu::GetSqeId返回的[start, end), taskId累加到end时重新向aicpu申请, 不会翻转
+        if (UNLIKELY(taskId_ >= taskIdEnd_)) { // taskEnd_视为未申请的taskId，不可使用
             constexpr u32 PER_GET_SQE_ID_NUM = 1024; // 一次性申请sqeId数量
             aicpu::GetSqeId(PER_GET_SQE_ID_NUM, taskId_, taskIdEnd_); // aicpu框架保证 taskId_ < taskIdEnd_
         }
@@ -271,7 +269,7 @@ private:
     u32 QueryCqeStatus() const;
 
     u32 QuerySqStatusByType(drvSqCqPropType_t givenType) const;
-    void ConfigSqStatusByType(drvSqCqPropType_t givenType, u32 value);
+    void ConfigSqStatusByType(drvSqCqPropType_t givenType, u32 value) const;
 };
 
 } // namespace Hccl

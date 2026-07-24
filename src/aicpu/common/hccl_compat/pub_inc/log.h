@@ -25,6 +25,7 @@
 #define T_DESC(_msg, _y) ((_y) ? true : false)
 #endif
 
+// NOTE: 以下日志和校验能力被 AICPU 数据面各模块依赖。
 #if T_DESC("日志处理适配", true)
 
 enum class HcclSubModuleID {

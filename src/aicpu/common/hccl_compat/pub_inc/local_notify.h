@@ -12,13 +12,11 @@
 #define LOCAL_NOTIFY_H
 
 #include "stream_pub.h"
-#ifndef CCL_KERNEL_AICPU
-#include "dispatcher.h"
-#endif
 #include "hccl_common.h"
 
 namespace hccl {
 class LocalNotifyImpl;
+// NOTE: LocalNotify 被 AicpuTsThread、CollCommAicpu 和 NotifyManager 依赖。
 class LocalNotify {
 public:
     LocalNotify();

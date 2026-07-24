@@ -14,7 +14,6 @@
 #include <limits>
 
 #include "stream_lite.h"
-#include "rtsq_a5.h"
 #include "sqe_build_a5.h"
 
 namespace Hccl {
@@ -123,7 +122,7 @@ HcclResult IAicpuTsThread::SdmaCopy(uint64_t dstAddr, uint64_t srcAddr, uint64_t
 {
     // SDMA单个任务最大支持4GB的数据量，超过4GB需要分多次提交
     // 为了避免不必要的依赖和复杂性，这里不直接使用DeviceCapacity中定义的SDMA_SEND_MAX_SIZE，而是直接使用4GB的值
-    if (sizeByte > 0x100000000ULL) {  
+    if (sizeByte > 0x100000000ULL) {
         HCCL_ERROR("[%s] sizeByte [%ld] exceeds 4GB", __func__, sizeByte);
         return HCCL_E_PARA;
     }

@@ -31,38 +31,6 @@
 
 namespace hccl {
 
-struct ThreadCreateParams {
-    CommEngine engine;                    // 通信引擎类型
-    uint32_t threadNum;                    // 线程数量
-    uint32_t notifyNumPerThread;           // 每个线程的通知量数量
-    NotifyLoadType notifyLoadType;   // 通知量加载类型
-    StreamType streamType;           // 流类型
-    
-    // 默认构造函数
-    ThreadCreateParams() 
-        : engine(COMM_ENGINE_RESERVED)
-        , threadNum(0)
-        , notifyNumPerThread(0)
-        , notifyLoadType(NotifyLoadType::HOST_NOTIFY)
-        , streamType(StreamType::STREAM_TYPE_RESERVED) {
-    }
-
-    // 带参数的构造函数
-    ThreadCreateParams(CommEngine engine, 
-                       uint32_t tNum,
-                       uint32_t nNum,
-                       NotifyLoadType nType,
-                       StreamType sType)
-        : engine(engine)
-        , threadNum(tNum)
-        , notifyNumPerThread(nNum)
-        , notifyLoadType(nType)
-        , streamType(sType) {
-    }
-};
-
-constexpr u32 HCOMM_NOTIFY_MAX_NUM = 64;
-constexpr u32 HCOMM_THREADNUM_MAX_NUM = 1000;
 constexpr u32 HCCL_THREAD_NOTIFY_MAX_NUM = 65536;
 /**
  * @note 职责：通信引擎的Thread的C++抽象接口类，表达并行资源，内部包含thread间的同步Notify。
@@ -131,39 +99,5 @@ private:
     std::function<HcclResult(u32, u32, const Hccl::TaskParam&, u64)> callback_; // 上报task信息的回调函数
 };
 
-inline Stream *GetStream(uint64_t thread)
-{
-    Thread *threadPtr = reinterpret_cast<Thread *>(thread);
-    if (UNLIKELY(threadPtr == nullptr)) {
-        HCCL_ERROR("[Thread][GetStream]thread is nullptr");
-        return nullptr;
-    }
-    return threadPtr->GetStream();
-}
-
-inline LocalNotify *GetNotify(uint64_t thread, uint32_t index)
-{
-    Thread *threadPtr = reinterpret_cast<Thread *>(thread);
-    if (UNLIKELY(threadPtr == nullptr)) {
-        HCCL_ERROR("[Thread][GetStream]thread is nullptr");
-        return nullptr;
-    }
-    return threadPtr->GetNotify(index);
-}
-
-HcclResult CreateThread(CommEngine engine, StreamType streamType, uint32_t notifyNum,
-                        NotifyLoadType loadType, std::shared_ptr<Thread>& out_thread);
-HcclResult CommEngineToNotifyLoadType(CommEngine engine, NotifyLoadType &type);
-HcclResult CommHostEngineToNotifyLoadType(CommEngine engine, NotifyLoadType &type);
-HcclResult CommEngineToStreamType(CommEngine engine, StreamType &type);
-HcclResult GetNotifyLoadType(CommEngine engine, ThreadType threadType, NotifyLoadType &type);
-HcclResult GetStreamType(CommEngine engine, ThreadType threadType, StreamType &type);
-HcclResult ValidateThreadParams(uint32_t threadNum, uint32_t notifyNumPerThread);
-HcclResult SaveThreads(const std::vector<std::shared_ptr<hccl::Thread>> &newThreads);
-HcclResult CreateAndInitThreads(const ThreadCreateParams& params,
-    std::vector<std::shared_ptr<hccl::Thread>>& outThreads);
-HcclResult StoreThreadHandles(std::vector<std::shared_ptr<hccl::Thread>>& newThreads,
-    ThreadHandle* threads, CommEngine engine, aclrtBinHandle binHandle);
-HcclResult FreeThreads(const ThreadHandle *threads, uint32_t threadNum, aclrtBinHandle binHandle);
 }  // namespace hccl
 #endif  // THREAD_H

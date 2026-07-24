@@ -15,6 +15,7 @@
 #include "hccl/base.h"
 
 namespace hccl {
+// NOTE: DeviceMem 被 AicpuTsThread 依赖。
 class DeviceMem {
 public:
     /* * 默认构造函数, 只生成无效的DeviceMem对象 */

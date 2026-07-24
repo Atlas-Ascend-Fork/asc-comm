@@ -1,18 +1,18 @@
 set(ASC_COMM_AICPU_DATA_PLANE_SOURCES
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/primitives/api_c_adpt/aicpu_ts_primitives_c_adpt.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/base_comm/primitives/api_c_adpt/aicpu_ts_sync_data_a_adpt.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/base_comm/primitives/api_c_adpt/aicpu_ts_sync_data_c_adpt.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/primitives/launch_context.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/comm_engine_res/threads/aicpu_ts_thread.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/comm_engine_res/threads/device/aicpu_thread_process.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/comm_engine_res/threads/thread.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/communicator/device/aicpu_indop_process.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/communicator/device/coll_comm_aicpu.cc
     ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/communicator/device/coll_comm_aicpu_mgr.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr/resource_mgr/local/my_rank/comm_engine_reses/notify/notify_manager.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/common/utils/hash_utils.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/common/exception/exception_defination.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/common/exception/hccl_exception.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/interface/aicpu_ts_thread_interface.cc
-    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/common/aicpu_res_package_helper.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/framework/communicator/aicpu/aicpu_res_package_helper.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/common/dev_capability.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/common/dlhal_function_v2.cc
     ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950/unified_platform/common/orion_adapter_hal.cc

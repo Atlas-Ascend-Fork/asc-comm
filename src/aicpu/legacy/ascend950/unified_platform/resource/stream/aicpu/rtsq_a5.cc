@@ -10,12 +10,9 @@
 #include <chrono>
 #include <unordered_map>
 #include "rtsq_a5.h"
-#include "ascend_hal.h"
 #include "log.h"
-#include "drv_api_exception.h"
 #include "exception_util.h"
 #include "internal_exception.h"
-#include "sqe_v82.h"
 #include "sqe_build_a5.h"
 #include "sqe.h"
 #ifdef CCL_KERNEL_AICPU
@@ -110,8 +107,13 @@ void RtsqA5::CheckLaunchTaskStatus(const std::chrono::steady_clock::time_point &
             sqFullTimeout_, sqId_, sqHead_, sqTail_, pendingSqeCnt);
     }
 
-    // step2 调用回调检查执行状态：1、如果超时，打印taskException；2、如果通信域不可用，终止launch
     HcclResult checkRet = (checkExecStatusCallback_ != nullptr) ? checkExecStatusCallback_(isTimeout) : HCCL_SUCCESS;
+    // step2 通信域状态为HCCL_COMM_STATUS_SUSPENDING状态，则终止launch不抛异
+    if (UNLIKELY(checkRet == HCCL_E_SUSPENDING)) {
+        pendingSqeCnt = 0;
+        return;
+    }
+    // step3 调用回调检查执行状态：1、如果超时，打印taskException；2、如果通信域不可用，终止launch
     if (UNLIKELY(isTimeout || checkRet != HCCL_SUCCESS)) {
         THROW<InternalException>(StringFormat("[%s]stop launch Task, isTimeout[%d], checkRet[%d]",
             __func__, isTimeout, checkRet));
@@ -124,14 +126,14 @@ void RtsqA5::CopyLocBufToSq()
     if (sqTail_ >= sqHead_) {
         u32 depthLeft = sqDepth_ - sqTail_;
         if (pendingSqeCnt <= depthLeft) { // 没有回绕
-            HCCL_INFO("RtsqA5::%s copy sqe from sqe buffer, sqId_: %u, streamId_: %u, cur head: %u, cur tail: %u, size: %u, depth remain: %u", 
+            HCCL_INFO("RtsqA5::%s copy sqe from sqe buffer, sqId_: %u, streamId_: %u, cur head: %u, cur tail: %u, size: %u, depth remain: %u",
                 __func__, sqId_, streamId_, sqHead_, sqTail_, pendingSqeCnt, depthLeft);
             int ret = memcpy_sp(sqCurrAddr, pendingSqeCnt * AC_SQE_SIZE, locBuf, pendingSqeCnt * RTSQ_SQE_SIZE);
             if (UNLIKELY(ret != 0)) {
                 THROW<InternalException>(StringFormat("RtsqA5::%s sqe memcpy_sp failed, ret = %d", __func__, ret));
             }
         } else {
-            HCCL_INFO("RtsqA5::%s copy sqe twice, sqId_: %u, streamId_: %u, cur head: %u, cur tail: %u, cnt: %u, depth remain: %u", 
+            HCCL_INFO("RtsqA5::%s copy sqe twice, sqId_: %u, streamId_: %u, cur head: %u, cur tail: %u, cnt: %u, depth remain: %u",
                 __func__, sqId_, streamId_, sqHead_, sqTail_, pendingSqeCnt, depthLeft);
             // 先拷贝rtsq里剩余空间大小
             int ret = memcpy_sp(sqCurrAddr, depthLeft * AC_SQE_SIZE, locBuf, depthLeft * RTSQ_SQE_SIZE);
@@ -148,7 +150,7 @@ void RtsqA5::CopyLocBufToSq()
             }
         }
     } else {
-        HCCL_INFO("RtsqA5::%s copy sqe from sqe buffer, tail < head, sqId_: %u, streamId_: %u, cur head: %u, cur tail: %u, size: %u", 
+        HCCL_INFO("RtsqA5::%s copy sqe from sqe buffer, tail < head, sqId_: %u, streamId_: %u, cur head: %u, cur tail: %u, size: %u",
                 __func__, sqId_, streamId_, sqHead_, sqTail_, pendingSqeCnt);
         int ret = memcpy_sp(sqCurrAddr, pendingSqeCnt * AC_SQE_SIZE, locBuf, pendingSqeCnt * RTSQ_SQE_SIZE);
         if (UNLIKELY(ret != 0)) {
@@ -218,7 +220,7 @@ void RtsqA5::RefreshInfo()
 {
     SetTaskIdBySqeId();
     pendingSqeCnt++;
-    
+
 #ifdef CCL_KERNEL_AICPU
     if (launchFlag_ && !IsBatchLaunchMode()) {
         LaunchTask();
@@ -338,13 +340,13 @@ bool RtsqA5::IsRtsqQueueSpaceSufficient()
     return (availableSpace > pendingSqeCnt + 1);
 }
 
-HcclResult RtsqA5::SetPreStreamSyncReady() 
+HcclResult RtsqA5::SetPreStreamSyncReady()
 {
     isPreStreamSync = true;
     return HCCL_SUCCESS;
 }
 
-HcclResult RtsqA5::SetPreStreamSyncFin() 
+HcclResult RtsqA5::SetPreStreamSyncFin()
 {
     isPreStreamSync = false;
     return HCCL_SUCCESS;
@@ -366,8 +368,8 @@ void RtsqA5::UbDbSend(const UbJettyLiteId &jettyLiteId, u16 piValue)
 void RtsqA5::RdmaDbSend(const uint64_t &dbAddr, const uint64_t &dbValue)
 {
     BuildA5SqeRdmaDbSend(streamId_, taskId_, dbAddr, dbValue, GetCurrSqeBuffer());
-    HCCL_INFO("RtsqA5::RdmaDbSend: RdmaDbSend Sqe: %s, dbValue(dbValue):%llx, SqTail(Rtsq Pi):%u",
-        Bytes2hex(GetCurrSqeBuffer(), RTSQ_SQE_SIZE).c_str(), dbAddr, sqTail_);
+    HCCL_INFO("RtsqA5::RdmaDbSend: RdmaDbSend Sqe: %s, dbAddr:0x%llx, dbValue:0x%llx, SqTail(Rtsq Pi):%u",
+        Bytes2hex(GetCurrSqeBuffer(), RTSQ_SQE_SIZE).c_str(), dbAddr, dbValue, sqTail_);
     RefreshInfo();
 }
 

@@ -161,6 +161,16 @@ public:
         (void)stream;
     }
 
+    virtual void Drain(const StreamLite &stream)
+    {
+        (void)stream;
+    }
+
+    virtual HcclResult Fence()
+    {
+        return HCCL_SUCCESS;
+    }
+
     // 自定义算子流程上报task的Callback
     HcclResult SetAddTaskInfoCallback(std::function<HcclResult(u32, u32, const TaskParam&, u64)> callback)
     {

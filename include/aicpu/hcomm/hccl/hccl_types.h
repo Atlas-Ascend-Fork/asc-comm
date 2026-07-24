@@ -150,7 +150,7 @@ typedef struct HcclCommConfigDef {
     uint32_t hcclRdmaServiceLevel;
     uint32_t hcclWorldRankID;
     uint64_t hcclJobID;
-    uint8_t aclGraphZeroCopyEnable; ///< 只有Reduce类算子(单算子和AclGraph下算法选择不一致)受此配置影响 0:默认值，关闭aclgraph零拷贝(结果与单算子一致优先) 1:开启aclgraph零拷贝(性能优先) 
+    uint8_t aclGraphZeroCopyEnable; ///< 只有Reduce类算子(单算子和AclGraph下算法选择不一致)受此配置影响 0:默认值，关闭aclgraph零拷贝(结果与单算子一致优先) 1:开启aclgraph零拷贝(性能优先)
     int32_t hcclExecTimeOut; // hccl执行超时时间
     char hcclAlgo[HCCL_COMM_ALGO_MAX_LENGTH];
     char hcclRetryEnable[HCCL_COMM_RETRY_ENABLE_MAX_LENGTH];
@@ -225,6 +225,14 @@ typedef enum {
     HCCL_COMM_STATUS_INVALID = 254,
     HCCL_COMM_STATUS_RESERVED = 255
 } HcclCommStatus;
+
+typedef enum {
+    HCCL_COMM_STATE_PHASE_INVALID = -1,
+    HCCL_COMM_STATE_PHASE_DESTROY_PRE = 0,   /* 调用通信域销毁HcclCommDestroy前 */
+    HCCL_COMM_STATE_PHASE_DESTROY_POST = 1,  /* 调用通信域销毁HcclCommDestroy后 */
+    HCCL_COMM_STATE_PHASE_RESUME_PRE = 2,    /* 调用step快恢恢复通信域资源HcclCommResume前 */
+    HCCL_COMM_STATE_PHASE_RESUME_POST = 3    /* 调用step快恢恢复通信域资源HcclCommResume后 */
+} HcclCommStatePhase;
 
 #ifdef __cplusplus
 }

@@ -119,13 +119,13 @@
 
 namespace Hccl {
 
-template <typename EXCEPTION> inline void THROW(const std::string &msg)
+template <typename EXCEPTION> [[noreturn]] inline void THROW(const std::string &msg)
 {
     HCCL_ERROR("%s", msg.c_str());
     throw EXCEPTION(msg);
 }
 
-template <typename EXCEPTION, typename... Args> inline void THROW(const char *format, Args... args)
+template <typename EXCEPTION, typename... Args> [[noreturn]] inline void THROW(const char *format, Args... args)
 {
     auto msg = StringFormat(format, args...);
     HCCL_ERROR("%s", msg.c_str());
