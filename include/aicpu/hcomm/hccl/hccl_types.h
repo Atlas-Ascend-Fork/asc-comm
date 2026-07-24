@@ -17,6 +17,9 @@
 extern "C" {
 #endif // __cplusplus
 
+// NOTE: HcclResult 被数据面错误处理依赖；HcclReduceOp、HcclDataType 和 HcclCMDType
+// 被 task_param 及类型转换代码依赖；
+// HcclCommStatus 被 CollCommAicpu 依赖。
 /**
  * @brief HCCL functions return value definition
  */
@@ -49,21 +52,6 @@ typedef enum {
     HCCL_E_IN_STATUS = 1041,        /**< The error information is in the status. */
     HCCL_E_RESERVED                 /**< reserved */
 } HcclResult;
-
-/**
- * @brief handle to HCCL communicator
- */
-typedef void *HcclComm;
-
-/**
- * @brief handle to HCCL Connection
- */
-typedef void *HcclConn;
-
-/**
- * @brief handle to HCCL Window
- */
-typedef void *HcclCommSymWindow;
 
 /**
  * @brief HCCL Reduction operation
@@ -101,96 +89,6 @@ typedef enum {
 } HcclDataType;
 
 typedef enum {
-    HCCL_DETERMINISTIC = 0,     /**< 0: non-deterministic, 1: deterministic */
-    HCCL_CONFIG_RESERVED
-} HcclConfig;
-
-union HcclConfigValue {
-    int32_t value;
-};
-
-const uint32_t HCCL_ROOT_INFO_BYTES =  4108; // 4108: root info length
-const uint32_t COMM_NAME_MAX_LENGTH = 128; // group name max length
-const uint32_t BUFFER_NAME_MAX_LENGTH = 128; // cclbuffer name max length
-const uint32_t UDI_MAX_LENGTH = 128; // UDI max length
-const uint32_t HCCL_COMM_ALGO_MAX_LENGTH = 1600; // hccl algo max length
-const uint32_t HCCL_COMM_RETRY_ENABLE_MAX_LENGTH = 50; // hccl_retry_enable max length
-const uint32_t HCCL_COMM_RETRY_PARAMS_MAX_LENGTH = 128; // hccl_retry_params max length
-/**
- * @brief HCCL root info
- */
-typedef struct HcclRootInfoDef {
-    char internal[HCCL_ROOT_INFO_BYTES];
-} HcclRootInfo;
-
-const uint32_t HCCL_COMM_CONFIG_INFO_BYTES = 24;
-const uint32_t HCCL_COMM_CONFIG_MAGIC_WORD = 0xf0f0f0f0;
-const uint32_t HCCL_COMM_CONFIG_VERSION = 10;
-const uint32_t HCCL_COMM_DEFAULT_BUFFSIZE = 200;
-const uint32_t HCCL_COMM_BUFFSIZE_CONFIG_NOT_SET = 0xffffffff;
-const uint32_t HCCL_COMM_DEFAULT_DETERMINISTIC = 0;
-const uint32_t HCCL_COMM_DETERMINISTIC_CONFIG_NOT_SET = 0xffffffff;
-const uint32_t HCCL_COMM_DEFAULT_OP_EXPANSION_MODE = 0;
-// 0xffffffff表示用户未配置TC或SL
-const uint32_t HCCL_COMM_TRAFFIC_CLASS_CONFIG_NOT_SET = 0xffffffff;
-const uint32_t HCCL_COMM_SERVICE_LEVEL_CONFIG_NOT_SET = 0xffffffff;
-const int32_t HCCL_COMM_EXECTIMEOUT_CONFIG_NOT_SET = 0xffffffff;
-// 0xffffffff表示用户未配置QoS
-const uint32_t HCCL_COMM_QOS_CONFIG_NOT_SET = 0xffffffff;
-const uint64_t HCCL_DEFAULT_SYMMETRIC_MEMORY_STRIDE = 16ULL;
-
-typedef struct HcclCommConfigDef {
-    char reserved[HCCL_COMM_CONFIG_INFO_BYTES];
-    uint32_t hcclBufferSize;
-    uint32_t hcclDeterministic;
-    char hcclCommName[COMM_NAME_MAX_LENGTH];
-    char hcclUdi[UDI_MAX_LENGTH];
-    uint32_t hcclOpExpansionMode;   // 0:默认值  1:host  2:aicpu  3:aiv
-    uint32_t hcclRdmaTrafficClass;
-    uint32_t hcclRdmaServiceLevel;
-    uint32_t hcclWorldRankID;
-    uint64_t hcclJobID;
-    uint8_t aclGraphZeroCopyEnable; ///< 只有Reduce类算子(单算子和AclGraph下算法选择不一致)受此配置影响 0:默认值，关闭aclgraph零拷贝(结果与单算子一致优先) 1:开启aclgraph零拷贝(性能优先)
-    int32_t hcclExecTimeOut; // hccl执行超时时间
-    char hcclAlgo[HCCL_COMM_ALGO_MAX_LENGTH];
-    char hcclRetryEnable[HCCL_COMM_RETRY_ENABLE_MAX_LENGTH];
-    char hcclRetryParams[HCCL_COMM_RETRY_PARAMS_MAX_LENGTH];
-    char hcclBufferName[BUFFER_NAME_MAX_LENGTH];
-    uint32_t hcclQos;
-    uint64_t hcclSymWinMaxMemSizePerRank; // 对称内存预留VA大小, 单位GB
-} HcclCommConfig;
-
-typedef enum {
-    HCCL_COMM_CONFIG_BUFFER_SIZE = 0,
-    HCCL_COMM_CONFIG_DETERMINISTIC = 1,
-    HCCL_COMM_CONFIG_COMM_NAME = 2,
-    HCCL_COMM_CONFIG_OP_EXPANSION_MODE = 3,
-    HCCL_COMM_CONFIG_SUPPORT_INIT_BY_ENV = 4,
-    HCCL_COMM_CONFIG_WORLD_RANKID = 5,
-    HCCL_COMM_CONFIG_JOBID = 6,
-    HCCL_COMM_CONFIG_ACLGRAPH_ZEROCOPY_ENABLE = 7,
-    HCCL_COMM_CONFIG_EXEC_TIMEOUT = 8,
-    HCCL_COMM_CONFIG_ALGO = 9,
-    HCCL_COMM_CONFIG_RETRY = 10,
-    HCCL_COMM_CONFIG_BUFFER_NAME = 11,
-    HCCL_COMM_CONFIG_RESERVED
-} HcclCommConfigCapability;
-
-typedef enum {
-    HCCL_SEND = 0,
-    HCCL_RECV = 1,
-    HCCL_SEND_RECV_RESERVED
-} HcclSendRecvType;
-
-typedef struct HcclSendRecvItemDef {
-    HcclSendRecvType sendRecvType;
-    void *buf;
-    uint64_t count;
-    HcclDataType dataType;
-    uint32_t remoteRank;
-} HcclSendRecvItem;
-
-typedef enum {
     HCCL_CMD_INVALID = 0,
     HCCL_CMD_BROADCAST = 1,
     HCCL_CMD_ALLREDUCE,
@@ -225,14 +123,6 @@ typedef enum {
     HCCL_COMM_STATUS_INVALID = 254,
     HCCL_COMM_STATUS_RESERVED = 255
 } HcclCommStatus;
-
-typedef enum {
-    HCCL_COMM_STATE_PHASE_INVALID = -1,
-    HCCL_COMM_STATE_PHASE_DESTROY_PRE = 0,   /* 调用通信域销毁HcclCommDestroy前 */
-    HCCL_COMM_STATE_PHASE_DESTROY_POST = 1,  /* 调用通信域销毁HcclCommDestroy后 */
-    HCCL_COMM_STATE_PHASE_RESUME_PRE = 2,    /* 调用step快恢恢复通信域资源HcclCommResume前 */
-    HCCL_COMM_STATE_PHASE_RESUME_POST = 3    /* 调用step快恢恢复通信域资源HcclCommResume后 */
-} HcclCommStatePhase;
 
 #ifdef __cplusplus
 }

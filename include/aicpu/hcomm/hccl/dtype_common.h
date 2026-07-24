@@ -11,9 +11,10 @@
 #ifndef DTYPE_COMMON_H
 #define DTYPE_COMMON_H
 
-#include <unordered_map>
 #include "hccl/base.h"
 
+// NOTE: SIZE_TABLE 被 aicpu_ts_primitives_c_adpt 依赖；DevType 被 AicpuTsThread、AicpuTopoInfo、
+// CollCommAicpu 和 adapter_rts_common 依赖；hrtGetDeviceType 被 AicpuTsThread 依赖。
 // 2 is sizeof(float16), 8 is sizeof(float64), 2 is sizeof(bfloat16)..
 constexpr u32 SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(s8), sizeof(s16), sizeof(s32),
     2, sizeof(float), sizeof(s64), sizeof(u64), sizeof(u8), sizeof(u16), sizeof(u32),

@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <algorithm>
+#include <string>
 
 #include "hccl/base.h"
 #include "exception_util.h"
