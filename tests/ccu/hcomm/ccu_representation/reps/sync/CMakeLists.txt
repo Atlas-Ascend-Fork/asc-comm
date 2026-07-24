@@ -8,23 +8,36 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
+# sync 测试需要的 CCU 实现源文件（按需编译，避免拉入不需要的重依赖）
+set(CCU_SYNC_IMPL_SOURCES
+    ${CCU_REP_DIR}/reps/sync/ccu_rep_loc_wait_event.cc
+    ${CCU_REP_DIR}/reps/sync/ccu_rep_loc_wait_notify.cc
+    ${CCU_REP_DIR}/reps/sync/ccu_rep_loc_record_event.cc
+    ${CCU_REP_DIR}/reps/sync/ccu_rep_record_shared_notify.cc
+    ${CCU_REP_DIR}/reps/sync/ccu_rep_rempostsem.cc
+    ${CCU_REP_DIR}/reps/sync/ccu_rep_rempostvar.cc
+    ${CCU_REP_DIR}/reps/sync/ccu_rep_remwaitsem.cc
+    ${CCU_REP_DIR}/reps/common/ccu_rep_base.cc
+    ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_assign.cc
+    ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_add.cc
+    ${CCU_REP_DIR}/reps/arithmetic/ccu_operator.cc
+    ${CCU_REP_DIR}/interface/ccu_datatype.cc
+    ${CCU_MICROCODE_DIR}/ccu_microcode.cc
+)
+
 set(src_to_test_list
     main.cc
     ut_ccu_rep_sync_test.cc
+    ${CCU_SYNC_IMPL_SOURCES}
 )
 
 add_executable(hccl_utest_comms_ccu_rep_sync ${src_to_test_list})
 
 target_include_directories(hccl_utest_comms_ccu_rep_sync PRIVATE
     ${UT_COMMON_INCLUDE_LIST}
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/context
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/interface
-    ${HCCL_CODE_ROOT}/src/base_comm/resources/ccu/ccu_representation/reps/sync
 )
 
 target_compile_definitions(hccl_utest_comms_ccu_rep_sync PRIVATE
-    _GLIBCXX_USE_CXX11_ABI=0
     google=ascend_private
     -DOPEN_HCCL_TEST
     OPEN_BUILD_PROJECT
@@ -34,24 +47,20 @@ target_compile_options(hccl_utest_comms_ccu_rep_sync PRIVATE
     -U_FORTIFY_SOURCE
     -fno-var-tracking-assignments
     -Os
-    -O0 -g --coverage -fprofile-arcs -ftest-coverage -fno-access-control
-    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address -fsanitize-recover=address,all -fno-omit-frame-pointer>
+    -O0 -g -fno-access-control
+    -w
 )
 
 target_link_libraries(hccl_utest_comms_ccu_rep_sync PRIVATE
-    $<BUILD_INTERFACE:intf_pub>
-    $<BUILD_INTERFACE:rdma_core_headers>
-    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
+    intf_llt_pub_basic
     -pthread
-    hccl_llt
-    -Wl,--whole-archive
-    -Wl,--no-whole-archi
-    -lgcov
+    asccomm_ccu_llt_stub
+    $<BUILD_INTERFACE:json>
     -lrt
     -ldl
 )
 
-add_dependencies(hccl_utest_comms_ccu_rep_sync hccl_llt)
+add_dependencies(hccl_utest_comms_ccu_rep_sync asccomm_ccu_llt_stub)
 
 enable_testing()
 add_test(NAME hccl_utest_comms_ccu_rep_sync COMMAND hccl_utest_comms_ccu_rep_sync)

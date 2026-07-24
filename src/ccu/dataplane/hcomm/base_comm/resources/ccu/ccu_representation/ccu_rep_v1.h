@@ -54,7 +54,6 @@
 #include "ccu_interface_assist_v1.h"
 #include "ccu_rep_load_v1.h"
 #include "ccu_rep_store_v1.h"
-#include "../ccu_device/ccu_res_specs.h"
 #include "ccu_rep_load_var_v1.h"
 #include "ccu_rep_store_var_v1.h"
 
@@ -62,5 +61,9 @@
 #include "ccu_microcode_v1.h"
 
 #include "hccl_res.h"
+
+namespace hcomm {
+constexpr uint16_t CCU_RESOURCE_XN_PER_SIZE = 8;
+}
 
 #endif // HCCL_CCU_REPRESENTATION
