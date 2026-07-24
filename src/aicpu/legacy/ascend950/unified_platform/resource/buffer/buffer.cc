@@ -11,7 +11,6 @@
 #include "buffer.h"
 #include "range_utils.h"
 #include "log.h"
-#include "internal_exception.h"
 #include "string_util.h"
 namespace Hccl {
 

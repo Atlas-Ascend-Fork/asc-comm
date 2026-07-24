@@ -22,6 +22,7 @@
 
 namespace Hccl {
 
+enum class SlicePosition { ONLY = 0, FIRST = 1, MIDDLE = 2, LAST = 3 };
 struct UbConnLiteParam {
     u32 dieId;
     u32 funcId;
@@ -38,6 +39,9 @@ struct UbConnLiteParam {
     Eid rmtEid;
     Eid locEid;
 
+    u32 maxReadSize;
+    u32 maxWriteSize;
+
     UbConnLiteParam(std::vector<char> &uniqueId);
 
     std::string Describe() const;
@@ -45,17 +49,14 @@ struct UbConnLiteParam {
 
 class UbConnLite : public RmaConnLite {
 public:
-    UbConnLite(const UbJettyLiteId &id, const UbJettyLiteAttr &attr, const Eid &rmtInfo)
-        : RmaConnLite(id, attr, rmtInfo)
-    {
-    }
+    UbConnLite(const UbJettyLiteId &id, const UbJettyLiteAttr &attr, const Eid &rmtInfo);
 
     explicit UbConnLite(const UbConnLiteParam &liteParam);
 
     std::string Describe() final;
 
     void FillCommSqe(UdmaSqeCommon *sqe, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg, u32 opCode,
-                     u32 cqeEnable = 1);
+                     SlicePosition slicePos = SlicePosition::ONLY);
 
     void Read(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
               const StreamLite &stream, ConnLiteOperationOut &out) override;
@@ -83,16 +84,16 @@ public:
                                const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg, const StreamLite &stream,
                                ConnLiteOperationOut &out, const RmtRmaBufSliceLite &notify, u64 notifyData) override;
 
-    void CustomizeSqeByOneSidedComm(UdmaSqeCommon *sqe, bool isLostWqe) const;
+    void CustomizeSqeByOneSidedComm(UdmaSqeCommon *sqe, bool isLastWqe) const;
 
     void FillBatchOneWqe(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
-                         bool isLostWqe, u32 opCode, const StreamLite &stream);
+                         bool isLastWqe, u32 opCode, const StreamLite &stream);
 
     void BatchProcessOneSlice(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
-                              bool isLastSlice, u32 opCode, const StreamLite &stream);
+                              u32 maxSliceSize, bool isLastSlice, u32 opCode, const StreamLite &stream);
 
     void BatchCommDataProcess(const vector<RmaBufSliceLite> &loc, const vector<RmtRmaBufSliceLite> &rmt,
-                              const SqeConfigLite &cfg, u32 opCode, const StreamLite &stream);
+                              const SqeConfigLite &cfg, u32 maxSliceSize, u32 opCode, const StreamLite &stream);
 
     void BatchOneSidedRead(const vector<RmaBufSliceLite> &loc, const vector<RmtRmaBufSliceLite> &rmt,
                            const SqeConfigLite &cfg, const StreamLite &stream, ConnLiteOperationOut &out) override;
@@ -100,24 +101,26 @@ public:
                             const SqeConfigLite &cfg, const StreamLite &stream, ConnLiteOperationOut &out) override;
 private:
     u16  pi{0};
-    u16  ci{0}; 
+    u16  ci{0};
     u32  piDetourCount{0};
     u32  ciDetourCount{0};
-    void ProcessSlices(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
-                       std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, u32)> processOneSlice,
-                       DataType dataType = DataType::INVALID) const;
+    u32  maxReadSize{0};
+    u32  maxWriteSize{0};
+    void ProcessSlices(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, u32 maxSliceSize,
+        std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
+        DataType dataType = DataType::INVALID) const;
     void ProcessSlicesWithNotify(
-        const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
-        std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, u32)> processOneSlice,
-        std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &)> processOneSliceWithNotify,
+        const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, u32 maxSliceSize,
+        std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
+        std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSliceWithNotify,
         DataType                                                                 dataType = DataType::INVALID) const;
     void ProcessOneWqe(UdmaSqeWrite *sqe, UdmaSqOpcode opCode, const StreamLite &stream);
     void ProcessOneWqeWithNotify(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
                                  UdmaSqeWriteWithNotify *sqe, const RmtRmaBufSliceLite &notify, u64 notifyData,
-                                 u32 opCode, const StreamLite &stream);
+                                 u32 opCode, SlicePosition slicePos, const StreamLite &stream);
     void FillCommSqeReduceInfo(UdmaSqeCommon &sqeComm, ReduceOp reduceOp, DataType dataType, u32 udfType = 0) const;
     void FillOneSqeWrite(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
-                         UdmaSqeWrite *sqe, UdmaSqOpcode opCode, u32 cqeEnable = 1);
+                         UdmaSqeWrite *sqe, UdmaSqOpcode opCode, SlicePosition slicePos);
     void MemorySetAndCopy(u8 *va, u32 sqeSize, void *sqe);
 };
 } // namespace Hccl

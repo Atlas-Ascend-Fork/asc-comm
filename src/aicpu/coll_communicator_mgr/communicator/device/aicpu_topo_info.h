@@ -14,6 +14,7 @@
 
 namespace hccl {
 
+// NOTE: AicpuTopoInfo 被 coll_comm_aicpu 依赖。
 struct AicpuTopoInfo {
     u32 userRank{0};
     u32 userRankSize{0};

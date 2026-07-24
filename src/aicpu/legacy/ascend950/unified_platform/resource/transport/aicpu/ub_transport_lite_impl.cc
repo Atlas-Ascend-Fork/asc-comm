@@ -10,7 +10,6 @@
 
 #include "ub_transport_lite_impl.h"
 #include "binary_stream.h"
-#include "ub_conn_lite.h"
 #include "ub_conn_lite_mgr.h"
 #include "exception_util.h"
 #include "internal_exception.h"
@@ -68,15 +67,15 @@ void UbTransportLiteImpl::Init(std::vector<char> &uniqueId)
     binaryStream >> bufferNum;
     binaryStream >> rmtbufferNum;
     binaryStream >> connNum;
- 
+
     std::vector<char> notifyUniqueIds;
     binaryStream >> notifyUniqueIds;
     ParseLocNotifyVec(notifyUniqueIds);
- 
+
     std::vector<char> rmtNotifyUniqueIds;
     binaryStream >> rmtNotifyUniqueIds;
     ParseRmtBufferVec(rmtNotifyUniqueIds, RmaUbBufType::NOTIFY);
- 
+
     std::vector<char> locBufferUniqueIds;
     binaryStream >> locBufferUniqueIds;
     ParseLocBufferMap(locBufferUniqueIds);
@@ -84,6 +83,11 @@ void UbTransportLiteImpl::Init(std::vector<char> &uniqueId)
     std::vector<char> rmtBufferUniqueIds;
     binaryStream >> rmtBufferUniqueIds;
     ParseRmtBufferVec(rmtBufferUniqueIds, RmaUbBufType::BUFFER);
+
+    // 解析drain相关的资源信息
+    std::vector<char> drainBufferUniqueIds;
+    binaryStream >> drainBufferUniqueIds;
+    ParseDrainResource(drainBufferUniqueIds);
 
     std::vector<char> connUniqueIds;
     binaryStream >> connUniqueIds;
@@ -188,16 +192,16 @@ void UbTransportLiteImpl::ParseRmtBufferVec(std::vector<char> &data, RmaUbBufTyp
 void UbTransportLiteImpl::ParseLocBufferMap(std::vector<char> &data)
 {
     u32 num = bufferNum;
- 
+
     if (num == 0) {
         HCCL_WARNING("UbTransportLiteImpl::ParseLocBufferMap num is 0");
         return;
     }
- 
+
     u32 rmtBufferSizePerDto = data.size() / num;
     HCCL_INFO("ParseLocBufferMap num=%u, sizePerDto=%u", num, rmtBufferSizePerDto);
     BinaryStream binaryStream(data);
- 
+
     for (u32 idx = 0; idx < num; idx++) {
         LocUbBufLite ubBufLite;
         binaryStream >> ubBufLite.addr;
@@ -207,6 +211,29 @@ void UbTransportLiteImpl::ParseLocBufferMap(std::vector<char> &data)
         HCCL_INFO("idx=%u, LocBuffer %s", idx, ubBufLite.Describe().c_str());
         locBufferMap[static_cast<uintptr_t>(ubBufLite.addr)] = ubBufLite;
     }
+}
+
+void UbTransportLiteImpl::ParseDrainResource(std::vector<char> &data)
+{
+    if (data.size() == 0) {
+        HCCL_WARNING("UbTransportLiteImpl::ParseDrainResource is null");
+        return;
+    }
+
+    BinaryStream binaryStream(data);
+    binaryStream >> drainNotify_.addr;
+    binaryStream >> drainNotify_.size;
+    binaryStream >> drainNotify_.tokenId;
+    binaryStream >> drainNotify_.tokenValue;
+    binaryStream >> drainNotify_.notifyId;
+    HCCL_INFO("drain notify %s", drainNotify_.Describe().c_str());
+
+    binaryStream >> rmtDrainBuffer_.addr;
+    binaryStream >> rmtDrainBuffer_.size;
+    binaryStream >> rmtDrainBuffer_.tokenId;
+    binaryStream >> rmtDrainBuffer_.tokenValue;
+    binaryStream >> rmtDrainBuffer_.notifyId;
+    HCCL_INFO("drain remote buffer %s", rmtDrainBuffer_.Describe().c_str());
 }
 
 void UbTransportLiteImpl::ParseConnVec(std::vector<char> &data)
@@ -572,7 +599,7 @@ void UbTransportLiteImpl::WriteReduce(const RmaBufferLite &loc, const Buffer &rm
                             locRmaBufSlicelite.GetSize(), reduceIn, stream, taskId);
 }
 
-void UbTransportLiteImpl::ExecProfiling(const std::vector<RmaBufferLite> &loc, const std::vector<Buffer> &rmt, 
+void UbTransportLiteImpl::ExecProfiling(const std::vector<RmaBufferLite> &loc, const std::vector<Buffer> &rmt,
                 const std::vector<BaseTransportLiteImpl::TransferOp> &transferOp, const StreamLite &stream, u32 taskId)
 {
     u32 insNum = loc.size();
@@ -595,7 +622,7 @@ void UbTransportLiteImpl::ExecProfiling(const std::vector<RmaBufferLite> &loc, c
     }
 }
 
-void UbTransportLiteImpl::ExecProfilingAll(const std::vector<RmaBufferLite> &loc, const std::vector<Buffer> &rmt, 
+void UbTransportLiteImpl::ExecProfilingAll(const std::vector<RmaBufferLite> &loc, const std::vector<Buffer> &rmt,
                 const std::vector<BaseTransportLiteImpl::TransferOp> &transferOp, const StreamLite &stream, u32 taskId,
                 const std::vector<uint32_t> &notifyIdxs)
 {
@@ -653,7 +680,7 @@ void UbTransportLiteImpl::BatchTransfer(const std::vector<RmaBufferLite> &loc, c
         auto localBuffer  = GetRmaBufSlicelite(loc[i]);
         auto remoteBuffer = GetRmtRmaBufSliceLite(rmt[i]);
         if (transferOp[i].transType == TransferType::WRITE) {
-            connVec[0]->Write(localBuffer, remoteBuffer, cfg, stream, connOut); // 当前只有一个connection，对应一个jetty 
+            connVec[0]->Write(localBuffer, remoteBuffer, cfg, stream, connOut); // 当前只有一个connection，对应一个jetty
         } else if (transferOp[i].transType == TransferType::WRITE_REDUCE) { // write reduce
             connVec[0]->WriteReduce(transferOp[i].reduceIn.dataType, transferOp[i].reduceIn.reduceOp, localBuffer,
                         stream, remoteBuffer, cfg, connOut);
@@ -721,7 +748,7 @@ constexpr u32 SIZE_TABLE[HCCL_DATA_TYPE_RESERVED] = {sizeof(s8), sizeof(s16), si
     2, sizeof(float), sizeof(s64), sizeof(u64), sizeof(u8), sizeof(u16), sizeof(u32),
     8, 2, 16, 2, 1, 1, 1, 1};
 
-static HcclResult ParasReduceData(const HcommBatchTransferDesc &transferDesc, uint64_t &len, 
+static HcclResult ParasReduceData(const HcommBatchTransferDesc &transferDesc, uint64_t &len,
  	                                     HcommDataType &dataType, HcommReduceOp &reduceOp)
 {
     len = transferDesc.transferInfo.reduce.count;
@@ -777,7 +804,7 @@ static HcclResult ParseData(const HcommBatchTransferDesc &transferDesc, void* &r
     } else {
         HCCL_ERROR("[%s] unsupported transType[%d]", __func__, transferDesc.transType);
         return HCCL_E_NOT_SUPPORT;
-    }   
+    }
     if (reduceOp != HcommReduceOp::HCOMM_REDUCE_RESERVED) { // 对于规约类型, size = count * sizeof(datatype)
         len = len * SIZE_TABLE[dataType];
     }
@@ -812,7 +839,7 @@ HcclResult UbTransportLiteImpl::ExecuteBatchTransfer(StreamLite *streamLitePtr,
             CHK_PTR_NULL(loc);
             HcclResult ret = BuildLocRmaBufferLite(reinterpret_cast<uintptr_t>(loc), len, locRmaBuf);
             CHK_PRT_RET(ret != HCCL_SUCCESS,
-                HCCL_ERROR("[%s] FAIL at BuildLocRmaBufferLite for index %u. rmt[0x%llx], loc[0x%llx], len[0x%llx], tfType[%u], dataType[%d], reduceOp[%d].",
+                HCCL_ERROR("[%s] FAIL at BuildLocRmaBufferLite for index %u. rmt[%p], loc[%p], len[0x%llx], tfType[%u], dataType[%d], reduceOp[%d].",
                 __func__, i, rmt, loc, len, tfType, dataType, reduceOp), ret);
         }
         if (tfType == Hccl::TransferType::NOTIFY_RECORD || tfType == Hccl::TransferType::WRITE_WITH_NOTIFY
@@ -831,7 +858,7 @@ HcclResult UbTransportLiteImpl::ExecuteBatchTransfer(StreamLite *streamLitePtr,
 
         transferOps.push_back(Hccl::BaseTransportLiteImpl::TransferOp{tfType, reduceIn});
 
-        HCCL_DEBUG("[%s] Prepared transfer op for index %u. rmt[0x%llx], loc[0x%llx], len[0x%llx], tfType[%u], dataType[%d], reduceOp[%d].",
+        HCCL_DEBUG("[%s] Prepared transfer op for index %u. rmt[%p], loc[%p], len[0x%llx], tfType[%u], dataType[%d], reduceOp[%d].",
             __func__, i, rmt, loc, len, tfType, dataType, reduceOp);
     }
     EXCEPTION_CATCH(BatchTransferAll(locSlices, rmtSlices, transferOps, notifyIdxs, *streamLitePtr), return HCCL_E_INTERNAL);
@@ -887,6 +914,29 @@ void UbTransportLiteImpl::BatchTransferAll(const std::vector<RmaBufferLite> &loc
     BuildUbDbSendTask(stream, connVec[0]->GetUbJettyLiteId(), connOut.pi); // 约束使用一批wqe的个数不会导致反压
 
     ExecProfilingAll(loc, rmt, transferOp, stream, taskId, notifyIdxs);
+}
+
+void UbTransportLiteImpl::Drain(const StreamLite &stream)
+{
+    std::lock_guard<std::mutex> lock(drainMtx_);
+    if (drainNotify_.size == 0 || rmtDrainBuffer_.size == 0) {
+        HCCL_WARNING("[UbTransportLiteImpl::%s] drain resource is null skip", __func__);
+        return;
+    }
+
+    SqeConfigLite cfg;
+    Fence();
+    SetFenceConfig(cfg);
+
+    // 当前使用1个connection,下标为0
+    auto drainNotifyBufSlice = RmaBufSliceLite(drainNotify_.addr, drainNotify_.size, 0,
+        drainNotify_.tokenId);
+    auto drainConstBufSlice = RmtRmaBufSliceLite(rmtDrainBuffer_.addr, rmtDrainBuffer_.size, 0,
+        rmtDrainBuffer_.tokenId, rmtDrainBuffer_.tokenValue, UINT32_MAX);
+    connVec[0]->Read(drainNotifyBufSlice, drainConstBufSlice, cfg, stream, connOut);
+    BuildUbDbSendTask(stream, connVec[0]->GetUbJettyLiteId(), connOut.pi);
+
+    BuildNotifyWaitTask(stream, drainNotify_.notifyId);
 }
 
 void UbTransportLiteImpl::WriteWithNotify(const RmaBufferLite &loc, const Buffer &rmt, const WithNotifyIn &withNotify,
@@ -984,7 +1034,7 @@ void UbTransportLiteImpl::BatchOneSidedWrite(const vector<RmaBufSliceLite> &loc,
     BuildUbDbSendTask(stream, connVec[0]->GetUbJettyLiteId(), connOut.pi);
 }
 
- 
+
 Eid UbTransportLiteImpl::GetLocEid() const
 {
     return connVec[0]->GetLocEid();

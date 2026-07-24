@@ -24,8 +24,11 @@ extern "C" {
 static const uint32_t COMM_ADDR_EID_LEN = 16U;
 static const uint32_t HCOMM_CHANNEL_MAGIC_WORD = 0x0fcf0f0fU;
 static const uint32_t HCOMM_CHANNEL_VERSION_ONE = 1U;
-/** ABI v2：在 union 之后增加与协议解耦的通信域 qos（uint32_t）等布局变更 */
-static const uint32_t HCOMM_CHANNEL_VERSION = 2u;
+/** ABI v3：相比 v1 增加 uint32_t qos 与 const char *channelName（channel 业务匹配标识） */
+static const uint32_t HCOMM_CHANNEL_VERSION = 3U;
+
+// channelName标识最大长度（字节）
+static const uint32_t HCOMM_CHANNEL_NAME_MAX_LEN = 191U;
 
 typedef int32_t HcommResult;
 
@@ -131,6 +134,7 @@ typedef enum {
     COMM_PROTOCOL_UB_MEM = 6,     ///< UB_MEM
     COMM_PROTOCOL_UBOE = 7,       ///< UBoE
     COMM_PROTOCOL_HCCS_ONLY = 8,  ///< 一卡双DIE使用HCCS
+    COMM_PROTOCOL_UBG = 9,        ///< UBG
 } CommProtocol;
 
 /**
@@ -232,7 +236,7 @@ typedef enum {
  * @brief 通道描述参数
  * @note 结构体末尾扩展需要自增版本号，并补充兼容处理逻辑。
  *       ABI v1：HCOMM_CHANNEL_VERSION_ONE，无 union 之后的 qos 字段，见 HCOMM_CHANNEL_DESC_ABI_V1_SIZE。
- *       ABI v2：HCOMM_CHANNEL_VERSION，在 union 之后增加 uint32_t qos（通信域 QoS，与协议解耦）。
+ *       ABI v3：HCOMM_CHANNEL_VERSION，相比 v1 增加 uint32_t qos 与 const char *channelName（channel 业务匹配标识）。
  */
 typedef struct {
     CommAbiHeader header;            ///< ABI头部，包含版本等信息
@@ -262,6 +266,7 @@ typedef struct {
         } ubAttr;
     };
     uint32_t qos;             ///< 通信域QoS 与协议解耦
+    const char *channelName;  ///< channel业务匹配标识，两端需相同；NULL表示匿名channel
 } HcommChannelDesc;
 
 /** v1 描述符在内存中的长度（不含 union 之后的 trailing qos），用于兼容校验 */
@@ -283,14 +288,14 @@ static inline HcommResult EndpointDescInit(EndpointDesc *endpoint, uint32_t num)
             return hcommEPointer;
         }
 
-        // 用0xFF填充整个结构体 
+        // 用0xFF填充整个结构体
         (void)memset_s(endpoint, sizeof(EndpointDesc), 0xFF, sizeof(EndpointDesc));
 
-        // 显式设置关键字段为无效值 
+        // 显式设置关键字段为无效值
         endpoint->protocol = COMM_PROTOCOL_RESERVED;
         endpoint->commAddr.type = COMM_ADDR_TYPE_RESERVED;
         endpoint->loc.locType = ENDPOINT_LOC_TYPE_RESERVED;
-        ++endpoint; // 移动到下一个描述符 
+        ++endpoint; // 移动到下一个描述符
     }
 
     return 0;
@@ -312,7 +317,7 @@ static inline HcommResult HcommChannelDescInit(HcommChannelDesc *channelDesc, ui
         if (channelDesc == NULL) {
             return hcommEPointer;
         }
-        
+
         (void)memset_s(channelDesc, sizeof(HcommChannelDesc), 0xFF, sizeof(HcommChannelDesc));
         channelDesc->header.version = HCOMM_CHANNEL_VERSION;
         channelDesc->header.magicWord = HCOMM_CHANNEL_MAGIC_WORD;
@@ -325,6 +330,7 @@ static inline HcommResult HcommChannelDescInit(HcommChannelDesc *channelDesc, ui
         channelDesc->socket = NULL;
         channelDesc->role = HCOMM_SOCKET_ROLE_RESERVED;
         channelDesc->port = 0;
+        channelDesc->channelName = NULL;
         if (EndpointDescInit(&channelDesc->remoteEndpoint, 1) != 0) {
             return hcommEInternal;
         }

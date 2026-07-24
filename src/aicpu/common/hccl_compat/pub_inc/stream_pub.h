@@ -21,6 +21,8 @@
 #include "hccl_common.h"
 
 namespace hccl {
+
+// NOTE: Stream 及相关类型被 aicpu_ts_thread 和 local_notify 依赖。
 constexpr int32_t HCCL_STREAM_PRIORITY_LOW = 0;
 constexpr int32_t HCCL_STREAM_PRIORITY_HIGH = 0;
 constexpr uint32_t HCCL_SQE_MAX_CNT = 2048U; // 一次mc2算子一个流上最大下发sqe数量

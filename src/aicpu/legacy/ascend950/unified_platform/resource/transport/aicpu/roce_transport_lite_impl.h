@@ -34,19 +34,33 @@ public:
     HcclResult BuildLocRmaBufferLite(const uintptr_t addr, const size_t size, RmaBufferLite &rmaBufferLite) override;
 
     // ========== RMA 数据传输接口 ==========
+    void Read(const RmaBufferLite &loc, const Buffer &rmt, const StreamLite &stream) override;
     void Write(const RmaBufferLite &loc, const Buffer &rmt, const StreamLite &stream) override;
-
+    void WriteReduce(const RmaBufferLite &loc, const Buffer &rmt, const ReduceIn &reduceIn,
+                     const StreamLite &stream) override;
     void WriteWithNotify(const RmaBufferLite &loc, const Buffer &rmt, const WithNotifyIn &withNotify,
                          const StreamLite &stream) override;
+    void WriteReduceWithNotify(const RmaBufferLite &loc, const Buffer &rmt, const ReduceIn &reduceIn,
+                               const WithNotifyIn &withNotify, const StreamLite &stream) override;
 
     // ========== 同步 / Notify 接口 ==========
+    HcclResult Fence() override;
     void Post(u32 index, const StreamLite &stream) override;
     void WaitWithTimeout(u32 index, const StreamLite &stream, u32 timeout) override;
+
+    // ========== 错误上报 接口 ==========
+    HcclResult PollCq(int32_t numEntries, int32_t timeOut, std::vector<int32_t> &errList);
+
+    // 设置TaskException开关
+    void SetTaskExceptionEnable(bool flag) { taskExceptionEnable_ = flag; }
 
 private:
     u32 notifyNum_{0};
     u32 bufferNum_{0};
     u32 connNum_{0};
+
+    bool fence_{false};
+    bool taskExceptionEnable_{true};
 
     std::vector<std::unique_ptr<NotifyLite>> localNotifies_{};
     std::vector<RmtRmaBufferLite> remoteNotifies_{};
@@ -60,6 +74,7 @@ private:
     RmaBufSliceLite GetNotifySlicelite(u32 index) const;
     RmtRmaBufSliceLite GetRmtRmaBufSliceLite(const Buffer &rmtBuf) const;
     RmtRmaBufSliceLite GetRmtNotifySliceLite(u32 index) const;
+    void SetFenceConfig(SqeConfigLite &cfg);
 
     void ParseLocNotifyVec(std::vector<char> &data);
     void ParseRmtNotifyVec(std::vector<char> &data);
@@ -69,8 +84,17 @@ private:
     void ParseConnVec(std::vector<char> &data);
 
     // ========== 底层 Task 构造接口(rtsq) ==========
-    void BuildRdmaDbSendTask(const StreamLite &stream, u64 remoteAddr, u64 dbValue);
+    void BuildRdmaDbSendTask(const StreamLite &stream, u64 remoteAddr, u64 dbValue) const;
     void BuildNotifyWaitTask(u32 notifyId, const StreamLite &stream, u32 timeout) const;
+
+    // ========== Profiling接口 ==========
+    void ReportDmaTask(const void *src, const void *dst, u64 size, const StreamLite &stream, u32 taskId,
+                       TaskParamType taskType, DmaOp dmaOp, u64 notifyId, u32 notifyValue, const char *funcName);
+    void ReportReduceTask(const void *src, const void *dst, u64 size, const ReduceIn &reduceIn,
+                          const StreamLite &stream, u32 taskId, TaskParamType taskType, u64 notifyId,
+                          u32 notifyValue, const char *funcName);
+    void ReportNotifyWaitTask(u64 notifyId, const StreamLite &stream, u32 taskId);
+    bool IsReportTask();
 };
 
 } // namespace Hccl

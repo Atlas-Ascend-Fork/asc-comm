@@ -29,6 +29,8 @@ constexpr u32 PI_NUM_TWO                 = 2;
 constexpr u32 WRITE_WITH_NOTIFY_OPCODE   = 0x5;
 constexpr u32 ADDR_BIT_LOW               = 0xffffffff;
 constexpr u32 UB_DMA_MAX_READ_WEITE_SIZE = 256 * 1024 * 1024; // Byte, UB协议一次传输的最大size
+constexpr u32 UB_RELAX_ORDER             = 0x1; // Relax Order表示当前SQE与后续Strong Order SQE有保序要求
+constexpr u32 UB_STRONG_ORDER            = 0x2; // Strong Order表示当前SQE有保序要求，该SQE不能超越前面的Relax Order SQE
 
 static std::map<DataType, u32> g_ubmaDataTypeMap
     = {{DataType::INT8, 0x0},   {DataType::INT16, 0x1},   {DataType::INT32, 0x2}, {DataType::UINT8, 0x3},
@@ -38,18 +40,25 @@ static std::map<DataType, u32> g_ubmaDataTypeMap
 static std::map<ReduceOp, u32> g_ubmaDataOpMap = {{ReduceOp::SUM, 0xA}, {ReduceOp::MAX, 0x8}, {ReduceOp::MIN, 0x9}};
 
 void UbConnLite::FillCommSqe(UdmaSqeCommon *sqe, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg, u32 opCode,
-                             u32 cqeEnable)
+                             SlicePosition slicePos)
 {
-    u32 cqeEn = cfg.cqeEn ? cqeEnable : 0; // BatchTransfer输入cfg.cqeEn=false时，不使能cqe
+    u32 cqeEn = (cfg.cqeEn && (slicePos == SlicePosition::LAST || slicePos == SlicePosition::ONLY)) ? 1 : 0;
     sqe->cqe       = cqeEn;
     sqe->owner     = (pi == (sqDepth_ - 1)) ? 1 : 0;
     sqe->opcode    = opCode;
     sqe->tpn       = tpn_;
-    sqe->placeOdr  = cfg.placeOdr; // 保序要求，0->不保序  待验证
-    sqe->compOrder = cfg.compOrder;
-    // 表示是否使能fence保序。为1时表示使能，为0时表示不使能。对于send/write/atomic SQE
-    // 当fence为1时需要等待前面所有read和Atomic完成才开始执行，即等待前面发出的read或Atomic接收到所有response。
-    sqe->fence = cfg.fence;
+
+    // 当前片是ONLY片(只有一片的情况)和最后一片的情况，全严格保序
+    if (slicePos == SlicePosition::ONLY || slicePos == SlicePosition::LAST) {
+        sqe->placeOdr = UB_STRONG_ORDER;
+        sqe->compOrder = 1;
+        sqe->fence = 1;
+    } else {
+        // 中间片写死配置，第一片由全局cfg配置
+        sqe->placeOdr = (slicePos == SlicePosition::MIDDLE) ? UB_RELAX_ORDER : cfg.placeOdr;
+        sqe->compOrder = (slicePos == SlicePosition::MIDDLE) ? 0 : cfg.compOrder;
+        sqe->fence = (slicePos == SlicePosition::MIDDLE) ? 0 : cfg.fence;
+    }
 
     sqe->se           = 1; // 表示是否使能solicited event
     sqe->rmtJettyType = 1; // 00 JFR  01:JETTY  10:jettyGroup 11:reserved
@@ -66,10 +75,10 @@ void UbConnLite::FillCommSqe(UdmaSqeCommon *sqe, const RmtRmaBufSliceLite &rmt, 
     sqe->rmtTokenValue = rmt.GetTokenValue();
     sqe->rmtAddrLow    = rmt.GetAddr() & ADDR_BIT_LOW;
     sqe->rmtAddrHigh   = rmt.GetAddr() >> ADDR_BIT_OFFSET;
-    HCCL_INFO("UbConnLite FillCommSqe UdmaSqeCommon sqe->cqe = %u, sqe->owner = %u sqe->opcode = %u, "
+    HCCL_INFO("UbConnLite FillCommSqe UdmaSqeCommon slicePos[%d] sqe->cqe = %u, sqe->owner = %u sqe->opcode = %u, "
               "sqe->tpn = %u, sqe->rmtObjId = %u, sqe->rmtAddrLow = %u, sqe->rmtAddrHigh = %u, sqe->placeOdr = %u, "
-              "sqe->compOrder = %u, sqe->fence = %u", sqe->cqe, sqe->owner, sqe->opcode, sqe->tpn, sqe->rmtObjId,
-              sqe->rmtAddrLow, sqe->rmtAddrHigh, sqe->placeOdr, sqe->compOrder, sqe->fence);
+              "sqe->compOrder = %u, sqe->fence = %u", slicePos, sqe->cqe, sqe->owner, sqe->opcode, sqe->tpn,
+              sqe->rmtObjId, sqe->rmtAddrLow, sqe->rmtAddrHigh, sqe->placeOdr, sqe->compOrder, sqe->fence);
 }
 
 void UbConnLite::FillCommSqeReduceInfo(UdmaSqeCommon &sqeComm, ReduceOp reduceOp, DataType dataType, u32 udfType) const
@@ -84,7 +93,7 @@ void UbConnLite::FillCommSqeReduceInfo(UdmaSqeCommon &sqeComm, ReduceOp reduceOp
     } else {
         THROW<InvalidParamsException>(StringFormat("%s reduceOp[%s] or type[%s] is not supported.", __func__, reduceOp.Describe().c_str(), dataType.Describe().c_str()));
     }
-    
+
     // udf字段是否有效
     sqeComm.udfFlag = 1;
 
@@ -92,12 +101,13 @@ void UbConnLite::FillCommSqeReduceInfo(UdmaSqeCommon &sqeComm, ReduceOp reduceOp
               dataType.Describe().c_str());
 }
 
-void UbConnLite::ProcessSlices(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
-                               std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, u32)> processOneSlice,
-                               DataType                                                                      dataType) const
+void UbConnLite::ProcessSlices(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, u32 maxSliceSize,
+    std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
+    DataType dataType) const
 {
+    (void)dataType;
     // reduce操作需要保证切片大小是数据类型大小的整数倍
-    u64 sliceSize = UB_DMA_MAX_READ_WEITE_SIZE;
+    u64 sliceSize = static_cast<u64>(maxSliceSize);
 
     u64 locBufSize    = loc.GetSize();
     u64 sliceNum      = locBufSize / sliceSize;
@@ -117,12 +127,16 @@ void UbConnLite::ProcessSlices(const RmaBufSliceLite &loc, const RmtRmaBufSliceL
                     __func__, sliceIdx, offset, locAddr, rmtAddr, sliceSize);
 
         RmaBufSliceLite locSlice(locAddr, sliceSize, 0, loc.GetTokenId());
-        
+
         RmtRmaBufSliceLite rmtSlice(rmtAddr, sliceSize, 0, rmt.GetTokenId(),
                                     rmt.GetTokenValue(), UINT32_MAX);
-        // 当前是最后一片，且没有lastSlice时，启用cqe
-        u32 cqeEnable = (sliceIdx == sliceNum - 1 && lastSliceSize == 0) ? 1 : 0;
-        processOneSlice(locSlice, rmtSlice, cqeEnable);
+        SlicePosition slicePos;
+        slicePos = (sliceIdx == 0) ? SlicePosition::FIRST : SlicePosition::MIDDLE;
+        if ((sliceIdx == sliceNum - 1) && lastSliceSize == 0) {
+            // SlicePosition::ONLY表示既是首片又是尾片的情况，只有一片的情况
+            slicePos = (sliceIdx == 0) ? SlicePosition::ONLY : SlicePosition::LAST;
+        }
+        processOneSlice(locSlice, rmtSlice, slicePos);
     }
 
     if (lastSliceSize > 0) {
@@ -130,7 +144,9 @@ void UbConnLite::ProcessSlices(const RmaBufSliceLite &loc, const RmtRmaBufSliceL
 
         RmtRmaBufSliceLite lastRmtSlice(rmt.GetAddr() + sliceNum * sliceSize, lastSliceSize, 0, rmt.GetTokenId(),
                                         rmt.GetTokenValue(), UINT32_MAX);
-        processOneSlice(lastLocSlice, lastRmtSlice, 1);
+        SlicePosition slicePos;
+        slicePos = (sliceNum == 0) ? SlicePosition::ONLY : SlicePosition::LAST;
+        processOneSlice(lastLocSlice, lastRmtSlice, slicePos);
         sliceNum++;
     }
 
@@ -139,18 +155,18 @@ void UbConnLite::ProcessSlices(const RmaBufSliceLite &loc, const RmtRmaBufSliceL
 }
 
 void UbConnLite::ProcessSlicesWithNotify(
-    const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
-    std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, u32)> processOneSlice,
-    std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &)> processOneSliceWithNotify,
+    const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, u32 maxSliceSize,
+    std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
+    std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSliceWithNotify,
     DataType                                                                 dataType) const
 {
     HCCL_INFO("[UbConnLite::%s] start", __func__);
 
     // reduce操作需要保证切片大小是数据类型大小的整数倍
-    u32 sliceSize = UB_DMA_MAX_READ_WEITE_SIZE;
+    u32 sliceSize = maxSliceSize;
     if (dataType != DataType::INVALID) {
         u32 dataTypeSize = DATA_TYPE_SIZE_MAP.at(dataType);
-        sliceSize        = UB_DMA_MAX_READ_WEITE_SIZE / dataTypeSize * dataTypeSize;
+        sliceSize        = maxSliceSize / dataTypeSize * dataTypeSize;
     }
 
     u32 locBufSize    = loc.GetSize();
@@ -169,8 +185,9 @@ void UbConnLite::ProcessSlicesWithNotify(
 
         RmtRmaBufSliceLite rmtSlice(rmt.GetAddr() + sliceIdx * sliceSize, sliceSize, 0, rmt.GetTokenId(),
                                     rmt.GetTokenValue(), UINT32_MAX);
-        // 固定会有lastSlice，则前面的cqe都不启用
-        processOneSlice(locSlice, rmtSlice, 0);
+        SlicePosition slicePos;
+        slicePos = (sliceIdx == 0) ? SlicePosition::FIRST : SlicePosition::MIDDLE;
+        processOneSlice(locSlice, rmtSlice, slicePos);
     }
 
     if (lastSliceSize > 0) {
@@ -178,7 +195,9 @@ void UbConnLite::ProcessSlicesWithNotify(
 
         RmtRmaBufSliceLite lastRmtSlice(rmt.GetAddr() + sliceNum * sliceSize, lastSliceSize, 0, rmt.GetTokenId(),
                                         rmt.GetTokenValue(), UINT32_MAX);
-        processOneSliceWithNotify(lastLocSlice, lastRmtSlice);
+        SlicePosition slicePos;
+        slicePos = (sliceNum == 0) ? SlicePosition::ONLY : SlicePosition::LAST;
+        processOneSliceWithNotify(lastLocSlice, lastRmtSlice, slicePos);
     }
 
     HCCL_INFO("[UbConnLite::%s] end, locBufSize[%u], sliceNUm[%u], sliceSize[%u], lastSliceSize[%u]", __func__,
@@ -186,12 +205,12 @@ void UbConnLite::ProcessSlicesWithNotify(
 }
 
 void UbConnLite::FillOneSqeWrite(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
-                                 UdmaSqeWrite *sqe, UdmaSqOpcode opCode, u32 cqeEnable)
+                                  UdmaSqeWrite *sqe, UdmaSqOpcode opCode, SlicePosition slicePos)
 {
     HCCL_INFO("[UbConnLite::%s] start, loc size[%llu]", __func__, loc.GetSize());
 
     sqe->comm.inlineEn = 0;
-    FillCommSqe(&(sqe->comm), rmt, cfg, opCode, cqeEnable);
+    FillCommSqe(&(sqe->comm), rmt, cfg, opCode, slicePos);
     FillLocalSgeSqe(&(sqe->u.sge), loc);
     if (sqe->u.sge.length == 0) {
         sqe->comm.sgeNum = 0;
@@ -228,21 +247,21 @@ void UbConnLite::ProcessOneWqe(UdmaSqeWrite *sqe, UdmaSqOpcode opCode, const Str
 void UbConnLite::ProcessOneWqeWithNotify(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
                                          const SqeConfigLite &cfg, UdmaSqeWriteWithNotify *sqe,
                                          const RmtRmaBufSliceLite &notify, u64 notifyData, u32 opCode,
-                                         const StreamLite &stream)
+                                         SlicePosition slicePos, const StreamLite &stream)
 {
     (void)stream;
     HCCL_INFO("[UbConnLite::%s] start, locSize[%u], opCode[%u]", __func__, loc.GetSize(), opCode);
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
-    u32 sqOffset = pi % sqDepth_; 
+    u32 sqOffset = pi % sqDepth_;
     if (sqOffset < sqDepth_ && (sqOffset + PI_NUM_TWO) >= sqDepth_) {
         piDetourCount++;
     }
     // pi维护用于传入DB Send用于Rtsq 敲door bell，要求u16数据结构并且自然增长
-    pi = pi + PI_NUM_TWO; 
+    pi = pi + PI_NUM_TWO;
     // 填充sqe
     sqe->comm.inlineEn = 0;
-    FillCommSqe(&(sqe->comm), rmt, cfg, WRITE_WITH_NOTIFY_OPCODE);
+    FillCommSqe(&(sqe->comm), rmt, cfg, WRITE_WITH_NOTIFY_OPCODE, slicePos);
     FillNotifySqe(&(sqe->notify), notify, notifyData);
     FillLocalSgeSqe(&(sqe->localU.sge), loc);
     if (sqe->localU.sge.length == 0) {
@@ -283,9 +302,10 @@ void UbConnLite::Read(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
 {
     HCCL_INFO("[UbConnLite::%s] start", __func__);
 
-    ProcessSlices(loc, rmt, [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, u32 cqeEnable) {
+    ProcessSlices(loc, rmt, maxReadSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
         UdmaSqeWrite sqe{};
-        FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_READ, cqeEnable);
+        FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_READ, slicePos);
         ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_READ, stream);
     });
 
@@ -298,11 +318,10 @@ void UbConnLite::ReadReduce(ReduceIn reduceIn, const RmaBufSliceLite &loc, const
 {
     HCCL_INFO("[UbConnLite::%s] start", __func__);
 
-    ProcessSlices(
-        loc, rmt,
-        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, u32 cqeEnable) {
+    ProcessSlices(loc, rmt, maxReadSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
             UdmaSqeWrite sqe{};
-            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_READ, cqeEnable);
+            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_READ, slicePos);
             FillCommSqeReduceInfo(sqe.comm, reduceIn.reduceOp, reduceIn.dataType);
             ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_READ, stream);
         },
@@ -317,9 +336,10 @@ void UbConnLite::Write(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt
 {
     HCCL_INFO("[UbConnLite::%s] start, loc size = %llu", __func__, loc.GetSize());
 
-    ProcessSlices(loc, rmt, [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, u32 cqeEnable) {
+    ProcessSlices(loc, rmt, maxWriteSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
         UdmaSqeWrite sqe{};
-        FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, cqeEnable);
+        FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
         ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE, stream);
     });
 
@@ -382,12 +402,11 @@ void UbConnLite::WriteReduce(DataType dataType, ReduceOp reduceOp, const RmaBufS
               "rmt.addr = %llu, cfg.cqeEn = %u, out.pi = %u",
               __func__, dataType, reduceOp, loc.GetAddr(), rmt.GetAddr(), cfg.cqeEn, out.pi);
 
-    ProcessSlices(
-        loc, rmt,
-        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, u32 cqeEnable) {
+    ProcessSlices(loc, rmt, maxWriteSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
             UdmaSqeWrite sqe{};
             FillCommSqeReduceInfo(sqe.comm, reduceOp, dataType);
-            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, cqeEnable);
+            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
             ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE, stream);
         },
         dataType);
@@ -403,15 +422,16 @@ void UbConnLite::WriteWithNotify(const RmaBufSliceLite &loc, const RmtRmaBufSlic
     HCCL_INFO("[UbConnLite::%s] start", __func__);
 
     ProcessSlicesWithNotify(
-        loc, rmt,
-        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, u32 cqeEnable) {
+        loc, rmt, maxWriteSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
             UdmaSqeWrite sqe{};
-            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, cqeEnable);
+            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
             ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE, stream);
         },
-        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice) {
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
             UdmaSqeWriteWithNotify sqe{};
-            ProcessOneWqeWithNotify(locSlice, rmtSlice, cfg, &sqe, notify, notifyData, WRITE_WITH_NOTIFY_OPCODE, stream);
+            ProcessOneWqeWithNotify(locSlice, rmtSlice, cfg, &sqe, notify, notifyData,
+                                    WRITE_WITH_NOTIFY_OPCODE, slicePos, stream);
         });
 
     out.pi = pi;
@@ -425,17 +445,18 @@ void UbConnLite::WriteReduceWithNotify(DataType dataType, ReduceOp reduceOp, con
     HCCL_INFO("[UbConnLite::%s] start", __func__);
 
     ProcessSlicesWithNotify(
-        loc, rmt,
-        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, u32 cqeEnable) {
+        loc, rmt, maxWriteSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
             UdmaSqeWrite sqe{};
             FillCommSqeReduceInfo(sqe.comm, reduceOp, dataType);
-            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, cqeEnable);
+            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
             ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE, stream);
         },
-        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice) {
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
             UdmaSqeWriteWithNotify sqe{};
             FillCommSqeReduceInfo(sqe.comm, reduceOp, dataType);
-            ProcessOneWqeWithNotify(locSlice, rmtSlice, cfg, &sqe, notify, notifyData, WRITE_WITH_NOTIFY_OPCODE, stream);
+            ProcessOneWqeWithNotify(locSlice, rmtSlice, cfg, &sqe, notify, notifyData,
+                                    WRITE_WITH_NOTIFY_OPCODE, slicePos, stream);
         },
         dataType);
 
@@ -443,17 +464,17 @@ void UbConnLite::WriteReduceWithNotify(DataType dataType, ReduceOp reduceOp, con
     HCCL_INFO("[UbConnLite::%s] end, ConnLiteOperationOut.pi = %u, conn[%s]", __func__, out.pi, Describe().c_str());
 }
 
-void UbConnLite::CustomizeSqeByOneSidedComm(UdmaSqeCommon *sqe, bool isLostWqe) const
+void UbConnLite::CustomizeSqeByOneSidedComm(UdmaSqeCommon *sqe, bool isLastWqe) const
 {
     /* 表示SQE是否需要上报CQE:为1表示此SQE需要上报CQE，为0表示不需要 */
-    sqe->cqe = isLostWqe;
+    sqe->cqe = isLastWqe;
 
     /* 2’b00:No order，表示当前报文与其他报文无保序要求
        2’b01:Relax Order，表示当前报文与后续的Strong Order报文有保序要求，strong order报文不能超越relax order报文执行。
        2’b10：Strong Order，表示当前报文有保序要求，该报文与前面的Relax Order报文有保序要求。
        2’b11：Reserved。
     */
-    sqe->placeOdr = (isLostWqe == true ? 0x02 : 0x01);
+    sqe->placeOdr = (isLastWqe == true ? 0x02 : 0x01);
 
     /* ODR[2]表示请求报文在目的端的completion order属性，表示当前报文和前面报文是否存在completion序：
        1’b0 :no order，表示当前报文和前面报文没有completion序要求，报文对应的CQE可以乱序上报。
@@ -464,7 +485,7 @@ void UbConnLite::CustomizeSqeByOneSidedComm(UdmaSqeCommon *sqe, bool isLostWqe) 
     /* 表示是否使能fence保序。为1时表示使能，为0时表示不使能。对于send/write/atomic SQE
        当fence为1时需要等待前面所有read和Atomic完成才开始执行，即等待前面发出的read或Atomic接收到所有response
     */
-    sqe->fence = 0;
+    sqe->fence = (isLastWqe == true ? 0x01 : 0x00);
 
     HCCL_INFO(
         "UbConnLite CustomizeSqeByOneSidedComm sqe->cqe =%u, sqe->placeOdr = %u sqe->compOrder =%u, sqe->fence = %u",
@@ -472,7 +493,7 @@ void UbConnLite::CustomizeSqeByOneSidedComm(UdmaSqeCommon *sqe, bool isLostWqe) 
 }
 
 void UbConnLite::FillBatchOneWqe(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
-                                 bool isLostWqe, u32 opCode, const StreamLite &stream)
+                                 bool isLastWqe, u32 opCode, const StreamLite &stream)
 {
     (void)stream;
     HCCL_INFO("UbConnLite FillBatchOneWqe start, loc[%s], rmt[%s]", loc.Describe().c_str(), rmt.Describe().c_str());
@@ -493,7 +514,7 @@ void UbConnLite::FillBatchOneWqe(const RmaBufSliceLite &loc, const RmtRmaBufSlic
         sqe.comm.sgeNum = 0;
     }
 
-    CustomizeSqeByOneSidedComm(&(sqe.comm), isLostWqe);
+    CustomizeSqeByOneSidedComm(&(sqe.comm), isLastWqe);
 
     HCCL_INFO("UbConnLite BatchWrite cp data to va %llu, pi %u", sqVa_, pi);
     u8 *va = reinterpret_cast<u8 *>(sqVa_ + sqOffset * SQE_SIZE_64);
@@ -507,8 +528,8 @@ void UbConnLite::FillBatchOneWqe(const RmaBufSliceLite &loc, const RmtRmaBufSlic
     HCCL_INFO("UbConnLite BatchWrite cp data to va end va(%p)", va);
 }
 
-void UbConnLite::BatchProcessOneSlice(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
-                                      const SqeConfigLite &cfg, bool isLastSlice, u32 opCode, const StreamLite &stream)
+void UbConnLite::BatchProcessOneSlice(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                                      u32 maxSliceSize, bool isLastSlice, u32 opCode, const StreamLite &stream)
 {
     u64 dataSize = loc.GetSize();
     // 按照UDMA能力切分数据
@@ -516,10 +537,10 @@ void UbConnLite::BatchProcessOneSlice(const RmaBufSliceLite &loc, const RmtRmaBu
     u64  offset = 0;
 
     // 使用整数除法和取余运算优化循环
-    int numIterations = dataSize / UB_DMA_MAX_READ_WEITE_SIZE;
-    int remainingSize = dataSize % UB_DMA_MAX_READ_WEITE_SIZE;
+    u64 numIterations = dataSize / maxSliceSize;
+    u64 remainingSize = dataSize % maxSliceSize;
 
-    for (int i = 0; i < numIterations; ++i) {
+    for (u64 i = 0; i < numIterations; ++i) {
         isLastWqe = false;
         if ((remainingSize == 0) && (i == numIterations - 1) && isLastSlice) {
             isLastWqe = true;
@@ -547,12 +568,12 @@ void UbConnLite::BatchProcessOneSlice(const RmaBufSliceLite &loc, const RmtRmaBu
 }
 
 void UbConnLite::BatchCommDataProcess(const vector<RmaBufSliceLite> &loc, const vector<RmtRmaBufSliceLite> &rmt,
-                                      const SqeConfigLite &cfg, u32 opCode, const StreamLite &stream)
+                                      const SqeConfigLite &cfg, u32 maxSliceSize, u32 opCode, const StreamLite &stream)
 {
     u64 siliceSize = loc.size();
     // 按照UDMA能力切分数据, 组装wqe
     for (u64 i = 0; i < siliceSize; i++) {
-        BatchProcessOneSlice(loc[i], rmt[i], cfg, (i == (siliceSize - 1)), opCode, stream);
+        BatchProcessOneSlice(loc[i], rmt[i], cfg, maxSliceSize, (i == (siliceSize - 1)), opCode, stream);
     }
 
     return;
@@ -562,7 +583,7 @@ void UbConnLite::BatchOneSidedRead(const vector<RmaBufSliceLite> &loc, const vec
                                    const SqeConfigLite &cfg, const StreamLite &stream, ConnLiteOperationOut &out)
 {
     // 按照UDMA能力切分数据, 组装wqe
-    BatchCommDataProcess(loc, rmt, cfg, UdmaSqOpcode::UDMA_OPC_READ, stream);
+    BatchCommDataProcess(loc, rmt, cfg, maxReadSize, UdmaSqOpcode::UDMA_OPC_READ, stream);
 
     // 更新connlite的输出信息
     out.pi = pi;
@@ -573,7 +594,7 @@ void UbConnLite::BatchOneSidedWrite(const vector<RmaBufSliceLite> &loc, const ve
                                     const SqeConfigLite &cfg, const StreamLite &stream, ConnLiteOperationOut &out)
 {
     // 按照UDMA能力切分数据, 组装wqe
-    BatchCommDataProcess(loc, rmt, cfg, UdmaSqOpcode::UDMA_OPC_WRITE, stream);
+    BatchCommDataProcess(loc, rmt, cfg, maxWriteSize, UdmaSqOpcode::UDMA_OPC_WRITE, stream);
 
     // 更新connlite的输出信息
     out.pi = pi;
@@ -585,7 +606,7 @@ std::string UbConnLite::Describe()
     return StringFormat("UbConnLite[dieId=%u, funcId=%u, jettyId=%u, dbAddr=0x%llx, sqVa=0x%llx, sqDepth=%u, "
                         "jfcPollMode=%u, tpn=%u, dwqeCacheLocked=%d, locEid=%s, rmtEid=%s,jettyPi=%u, jettyCi=%u]",
                         dieId_, funcId_, jettyId_, dbAddr_, sqVa_, sqDepth_, jfcPollMode_, tpn_, dwqeCacheLocked_,
-                        Bytes2hex(locEid_.raw, sizeof(locEid_.raw)).c_str(), Bytes2hex(rmtEid_.raw, sizeof(rmtEid_.raw)).c_str(), 
+                        Bytes2hex(locEid_.raw, sizeof(locEid_.raw)).c_str(), Bytes2hex(rmtEid_.raw, sizeof(rmtEid_.raw)).c_str(),
                         pi, ci);
 }
 
@@ -604,17 +625,29 @@ UbConnLite::UbConnLite(const UbConnLiteParam &liteParam)
     jfcPollMode_     = liteParam.jfcPollMode;
     tpn_             = liteParam.tpn;
 
+    maxReadSize = liteParam.maxReadSize;
+    maxWriteSize = liteParam.maxWriteSize;
+
     (void)memcpy_sp(rmtEid_.raw, URMA_EID_LEN, liteParam.rmtEid.raw, URMA_EID_LEN);
     (void)memcpy_sp(locEid_.raw, URMA_EID_LEN, liteParam.locEid.raw, URMA_EID_LEN);
     HCCL_INFO("%s", Describe().c_str());
 }
 
+UbConnLite::UbConnLite(const UbJettyLiteId &id, const UbJettyLiteAttr &attr, const Eid &rmtInfo)
+    : RmaConnLite(id, attr, rmtInfo),
+      maxReadSize(UB_DMA_MAX_READ_WEITE_SIZE),
+      maxWriteSize(UB_DMA_MAX_READ_WEITE_SIZE)
+{
+}
+
 std::string UbConnLiteParam::Describe() const
 {
      return StringFormat("UbConnLiteParam[dieId=%u, funcId=%u, jettyId=%u, dbAddr=0x%llx, sqVa=0x%llx, sqDepth=%u, "
-                        "jfcPollMode=%u, tpn=%u, dwqeCacheLocked=%d, sqCiAddr=0x%llx, rmtEid=%s, localEid=%s]",
+                        "jfcPollMode=%u, tpn=%u, dwqeCacheLocked=%d, sqCiAddr=0x%llx, rmtEid=%s, localEid=%s, "
+                        "maxReadSize=%u, maxWriteSize=%u]",
                         dieId, funcId, jettyId, dbAddr, sqVa, sqDepth, jfcPollMode, tpn, dwqeCacheLocked, sqCiAddr,
-                        Bytes2hex(rmtEid.raw, sizeof(rmtEid.raw)).c_str(), Bytes2hex(locEid.raw, sizeof(locEid.raw)).c_str());
+                        Bytes2hex(rmtEid.raw, sizeof(rmtEid.raw)).c_str(), Bytes2hex(locEid.raw, sizeof(locEid.raw)).c_str(),
+                        maxReadSize, maxWriteSize);
 }
 
 UbConnLiteParam::UbConnLiteParam(std::vector<char> &uniqueId)
@@ -633,11 +666,13 @@ UbConnLiteParam::UbConnLiteParam(std::vector<char> &uniqueId)
     binaryStream >> tpn;
     binaryStream >> rmtEid.raw;
     binaryStream >> locEid.raw;
+    binaryStream >> maxReadSize;
+    binaryStream >> maxWriteSize;
 
     static auto lastPrintTime = std::chrono::steady_clock::now();
     const auto now = std::chrono::steady_clock::now();
     const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastPrintTime).count();
-    if (UNLIKELY(duration >= MAX_LOG_TIMEOUT_MS)) { 
+    if (UNLIKELY(duration >= MAX_LOG_TIMEOUT_MS)) {
         HCCL_INFO("%s", Describe().c_str());
         lastPrintTime = now;
     }

@@ -21,7 +21,7 @@ HcclResult CollCommAicpuMgr::AcquireCollCommAicpu()
     return HCCL_SUCCESS;
 }
 
-HcclResult CollCommAicpuMgr::InitAicpuIndOp(CommAicpuParam *commAicpuParam) 
+HcclResult CollCommAicpuMgr::InitAicpuIndOp(CommAicpuParam *commAicpuParam)
 {
     CHK_PTR_NULL(collCommAicpu_);
     return collCommAicpu_->InitAicpuIndOp(commAicpuParam);
@@ -59,15 +59,13 @@ HcclResult CollCommAicpuMgr::NotifyAlloc(NotifyMgrAicpuParam *param)
 
 bool CollCommAicpuMgr::IsUsed()
 {
-    ReadWriteLock rwlock(isUsedMutex_);
-    rwlock.readLock();
+    std::shared_lock<std::shared_mutex> rwlock(isUsedMutex_);
     return isUsed_;
 }
 
-void CollCommAicpuMgr::SetUsed(bool used) 
+void CollCommAicpuMgr::SetUsed(bool used)
 {
-    ReadWriteLock rwlock(isUsedMutex_);
-    rwlock.writeLock();
+    std::unique_lock<std::shared_mutex> rwlock(isUsedMutex_);
     isUsed_ = used;
 }
 

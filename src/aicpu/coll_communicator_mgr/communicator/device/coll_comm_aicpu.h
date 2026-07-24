@@ -23,6 +23,7 @@
 #include "aicpu_launch_manager.h"
 #include "channel_param.h"
 #include <atomic>
+#include <shared_mutex>
 #include "roce_transport_lite_impl.h"
 #include "hccl/hccl_types.h"
 
@@ -40,7 +41,7 @@ public:
     const hccl::AicpuTopoInfo& GetTopoInfo() { return topoInfo_; }
     const std::string& GetIdentifier() { return identifier_; }
 
-    ReadWriteLockBase& GetThreadMutex() { return threadMutex_; }
+    std::shared_mutex& GetThreadMutex() { return threadMutex_; }
 
     u32 UpdateIndex();
 
@@ -64,7 +65,7 @@ private:
     std::string identifier_;
     HcclCommStatus commStatus_{HcclCommStatus::HCCL_COMM_STATUS_INVALID};
     hccl::AicpuTopoInfo topoInfo_;
-    ReadWriteLockBase threadMutex_;
+    std::shared_mutex threadMutex_;
     std::vector<std::shared_ptr<Thread>> threads_;
     std::vector<std::unique_ptr<LocalNotify>> notifys_;
     // A5 独立算子

@@ -34,7 +34,7 @@ typedef enum {
     HOROVOD_REDUCE_ADASUM = 2,  /**< adasum */
     HOROVOD_REDUCE_MIN = 3,     /**< min */
     HOROVOD_REDUCE_MAX = 4,     /**< max */
-    HOROVOD_REDUCE_PROD = 5,    /**< proo */
+    HOROVOD_REDUCE_PROD = 5,    /**< prod */
     HOROVOD_REDUCE_RESERVED     /**< reserved */
 } HorovodReduceOp;
 
