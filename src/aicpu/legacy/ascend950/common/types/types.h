@@ -12,6 +12,7 @@
 #define HCCLV2_TYPES_H
 
 #include <cstdint>
+#include <string>
 #include <unordered_map>
 #include "hccl/base.h"
 #include "enum_factory.h"

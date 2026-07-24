@@ -13,6 +13,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <string>
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <securec.h>
