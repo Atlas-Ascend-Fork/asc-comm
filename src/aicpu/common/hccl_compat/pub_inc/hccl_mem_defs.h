@@ -18,6 +18,7 @@
 extern "C" {
 #endif // __cplusplus
 
+// NOTE: 以下内存类型被 A5 Buffer 依赖。
 /**
  * @enum HcclMemType
  * @brief 兼容的内存类型枚举定义

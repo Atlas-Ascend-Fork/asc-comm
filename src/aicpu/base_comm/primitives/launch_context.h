@@ -16,7 +16,9 @@
 #include <string>
 #include <mutex>
 #include <algorithm>
+#include "hccl_common.h"
 #include "hccl_api_data.h"
+#include "hcomm_primitives.h"
 #include "log.h"
 #include "rtsq_base.h"
 

@@ -30,7 +30,7 @@ public:
 private:
     void* oldA5Comm_{nullptr};
     std::unique_ptr<CollCommAicpu> collCommAicpu_{nullptr};
-    ReadWriteLockBase isUsedMutex_;
+    std::shared_mutex isUsedMutex_;
     bool isUsed_{false};
 };
 

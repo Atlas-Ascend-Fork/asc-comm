@@ -191,7 +191,7 @@ const u64 HCCL_MODULE_ID       = 5;
 /* 检查函数返回值, 并返回指定错误码 */
 #define CHK_RET(call)                                                                                                  \
     do {                                                                                                               \
-        HcclResult hcclRet = (HcclResult)(call);                                                                       \
+        HcclResult hcclRet = static_cast<HcclResult>(call);                                                                       \
         if (UNLIKELY(hcclRet != HcclResult::HCCL_SUCCESS)) {                                                           \
             if (hcclRet == HcclResult::HCCL_E_AGAIN) {                                                                 \
                 HCCL_WARNING("[%s]call trace: hcclRet -> %d", __func__, hcclRet);                                      \

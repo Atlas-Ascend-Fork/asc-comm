@@ -18,6 +18,8 @@
 #include "adapter_rts_common.h"
 
 namespace hccl {
+
+// NOTE: 以下任务逻辑参数被 stream_pub 依赖。
 enum class UserMemType {
     INPUT_MEM,
     OUTPUT_MEM,

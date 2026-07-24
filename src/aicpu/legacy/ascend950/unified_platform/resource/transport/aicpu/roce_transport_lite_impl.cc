@@ -11,6 +11,7 @@
 #include "roce_transport_lite_impl.h"
 #include "binary_stream.h"
 #include "log.h"
+#include "sal.h"
 
 namespace Hccl {
 
@@ -198,8 +199,8 @@ RmaBufSliceLite RoceTransportLiteImpl::GetNotifySlicelite(u32 index) const
 {
     (void)index;
     return RmaBufSliceLite(
-        notifyValueBuffer_->GetAddr(), 
-        notifyValueBuffer_->GetSize(), 
+        notifyValueBuffer_->GetAddr(),
+        notifyValueBuffer_->GetSize(),
         notifyValueBuffer_->GetLkey(), 0);
 }
 
@@ -267,7 +268,7 @@ HcclResult RoceTransportLiteImpl::BuildLocRmaBufferLite(const uintptr_t addr, co
 {
     HCCL_INFO("[RoceTransportLiteImpl::%s] start to find addr[0x%llx], size[0x%llx] in locBufferVec, whose size is %zu. ",
         __func__, addr, size, locBufferVec_.size());
-    
+
     if (locBufferVec_.empty()) {
         HCCL_ERROR("[RoceTransportLiteImpl::%s] locBufferVec is empty.", __func__);
         return HCCL_E_INTERNAL;
@@ -293,55 +294,232 @@ HcclResult RoceTransportLiteImpl::BuildLocRmaBufferLite(const uintptr_t addr, co
     return HCCL_SUCCESS;
 }
 
+void RoceTransportLiteImpl::Read(const RmaBufferLite &loc, const Buffer &rmt, const StreamLite &stream)
+{
+    u64 dbAddr = 0;
+    u64 dbValue = 0;
+    // 获取Profiling任务ID
+    auto taskId = stream.GetRtsq()->GetTaskId();
+
+    // 获取本端和远端Buffer切片
+    SqeConfigLite cfg;
+    SetFenceConfig(cfg);
+    auto locRmaBufSliceLite = GetRmaBufSlicelite(loc);
+    auto rmtRmaBufSliceLite = GetRmtRmaBufSliceLite(rmt);
+
+    // Post Wqe && return dbValue
+    connVec_[0]->Read(locRmaBufSliceLite, rmtRmaBufSliceLite, cfg, dbAddr, dbValue);
+
+    // Ring Doorbell
+    BuildRdmaDbSendTask(stream, dbAddr, dbValue);
+
+    // 上报Profiling任务
+    ReportDmaTask(
+        reinterpret_cast<const void *>(locRmaBufSliceLite.GetAddr()),
+        reinterpret_cast<const void *>(rmtRmaBufSliceLite.GetAddr()), locRmaBufSliceLite.GetSize(), stream,
+        taskId, TaskParamType::TASK_RDMA, DmaOp::HCCL_DMA_READ, INVALID_VALUE_NOTIFYID, UINT32_MAX, __func__);
+
+    // Poll Cq
+    constexpr int32_t POLL_NUM = 1;         // poll cqe num
+    constexpr int32_t POLL_TIMEOUT = 5;     // 5 ms
+    std::vector<int32_t> errList = {};
+    connVec_[0]->PollCq(POLL_NUM, POLL_TIMEOUT, errList, dbAddr, dbValue);
+}
+
 void RoceTransportLiteImpl::Write(const RmaBufferLite &loc, const Buffer &rmt, const StreamLite &stream)
 {
     u64 dbAddr = 0;
     u64 dbValue = 0;
+    // 获取Profiling任务ID
+    auto taskId = stream.GetRtsq()->GetTaskId();
+
+    // 获取本端和远端Buffer切片
+    auto locRmaBufSliceLite = GetRmaBufSlicelite(loc);
+    auto rmtRmaBufSliceLite = GetRmtRmaBufSliceLite(rmt);
+    SqeConfigLite cfg;
+    SetFenceConfig(cfg);
 
     // Post Wqe && return dbValue
-    connVec_[0]->Write(
-        GetRmaBufSlicelite(loc), GetRmtRmaBufSliceLite(rmt), dbAddr, dbValue);
+    connVec_[0]->Write(locRmaBufSliceLite, rmtRmaBufSliceLite, cfg, dbAddr, dbValue);
 
     // Ring Doorbell
     BuildRdmaDbSendTask(stream, dbAddr, dbValue);
+
+    // 上报Profiling任务
+    ReportDmaTask(
+        reinterpret_cast<const void *>(locRmaBufSliceLite.GetAddr()),
+        reinterpret_cast<const void *>(rmtRmaBufSliceLite.GetAddr()), locRmaBufSliceLite.GetSize(), stream,
+        taskId, TaskParamType::TASK_RDMA, DmaOp::HCCL_DMA_WRITE, INVALID_VALUE_NOTIFYID, UINT32_MAX, __func__);
+
+    // Poll Cq
+    constexpr int32_t POLL_NUM = 1;         // poll cqe num
+    constexpr int32_t POLL_TIMEOUT = 5;     // 5 ms
+    std::vector<int32_t> errList = {};
+    connVec_[0]->PollCq(POLL_NUM, POLL_TIMEOUT, errList, dbAddr, dbValue);
 }
 
-void RoceTransportLiteImpl::WriteWithNotify(const RmaBufferLite &loc, const Buffer &rmt, const WithNotifyIn &withNotify, const StreamLite &stream)
+void RoceTransportLiteImpl::WriteReduce(const RmaBufferLite &loc, const Buffer &rmt, const ReduceIn &reduceIn,
+                                        const StreamLite &stream)
 {
     u64 dbAddr = 0;
     u64 dbValue = 0;
-    u32 notifyIdx = withNotify.index_;
+    auto taskId = stream.GetRtsq()->GetTaskId();
+
+    SqeConfigLite cfg;
+    SetFenceConfig(cfg);
+    auto locRmaBufSliceLite = GetRmaBufSlicelite(loc);
+    auto rmtRmaBufSliceLite = GetRmtRmaBufSliceLite(rmt);
 
     // Post Wqe && return dbValue
-    connVec_[0]->WriteWithNotify(
-        GetRmaBufSlicelite(loc), GetRmtRmaBufSliceLite(rmt),
-        GetNotifySlicelite(notifyIdx), GetRmtNotifySliceLite(notifyIdx), dbAddr, dbValue);
+    connVec_[0]->WriteReduce(locRmaBufSliceLite, rmtRmaBufSliceLite, cfg, reduceIn.dataType, reduceIn.reduceOp,
+                             dbAddr, dbValue);
 
     // Ring Doorbell
     BuildRdmaDbSendTask(stream, dbAddr, dbValue);
+
+    // 上报Profiling任务
+    ReportReduceTask(
+        reinterpret_cast<const void *>(locRmaBufSliceLite.GetAddr()),
+        reinterpret_cast<const void *>(rmtRmaBufSliceLite.GetAddr()), locRmaBufSliceLite.GetSize(), reduceIn, stream,
+        taskId, TaskParamType::TASK_REDUCE_INLINE, INVALID_VALUE_NOTIFYID, UINT32_MAX, __func__);
+
+    // Poll Cq
+    constexpr int32_t POLL_NUM = 1;         // poll cqe num
+    constexpr int32_t POLL_TIMEOUT = 5;     // 5 ms
+    std::vector<int32_t> errList = {};
+    connVec_[0]->PollCq(POLL_NUM, POLL_TIMEOUT, errList, dbAddr, dbValue);
+}
+
+void RoceTransportLiteImpl::WriteWithNotify(const RmaBufferLite &loc, const Buffer &rmt,
+                                            const WithNotifyIn &withNotify, const StreamLite &stream)
+{
+    auto taskId = stream.GetRtsq()->GetTaskId();
+    u64 dbAddr = 0;
+    u64 dbValue = 0;
+
+    SqeConfigLite cfg;
+    SetFenceConfig(cfg);
+    auto locRmaBufSliceLite = GetRmaBufSlicelite(loc);
+    auto rmtRmaBufSliceLite = GetRmtRmaBufSliceLite(rmt);
+    auto locNotifySliceLite = GetNotifySlicelite(withNotify.index_);        // 普通Notify
+    auto rmtNotifySliceLite = GetRmtNotifySliceLite(withNotify.index_);
+
+    // Post Wqe && return dbValue
+    connVec_[0]->WriteWithNotify(locRmaBufSliceLite, rmtRmaBufSliceLite, locNotifySliceLite, rmtNotifySliceLite,
+                                 cfg, dbAddr, dbValue);
+
+    // Ring Doorbell
+    BuildRdmaDbSendTask(stream, dbAddr, dbValue);
+
+    // 上报Profiling任务
+    ReportDmaTask(
+        reinterpret_cast<const void *>(locRmaBufSliceLite.GetAddr()),
+        reinterpret_cast<const void *>(rmtRmaBufSliceLite.GetAddr()), locRmaBufSliceLite.GetSize(), stream, taskId,
+        TaskParamType::TASK_WRITE_WITH_NOTIFY, DmaOp::HCCL_DMA_WRITE, rmtNotifySliceLite.GetNotifyId(), 1, __func__);
+
+    // Poll Cq
+    constexpr int32_t POLL_NUM = 2;         // poll cqe num
+    constexpr int32_t POLL_TIMEOUT = 5;     // 5 ms
+    std::vector<int32_t> errList = {};
+    connVec_[0]->PollCq(POLL_NUM, POLL_TIMEOUT, errList, dbAddr, dbValue);
+}
+
+void RoceTransportLiteImpl::WriteReduceWithNotify(const RmaBufferLite &loc, const Buffer &rmt, const ReduceIn &reduceIn,
+                                                   const WithNotifyIn &withNotify, const StreamLite &stream)
+{
+    u64 dbAddr = 0;
+    u64 dbValue = 0;
+    auto taskId = stream.GetRtsq()->GetTaskId();
+
+    auto locRmaBufSliceLite = GetRmaBufSlicelite(loc);
+    auto rmtRmaBufSliceLite = GetRmtRmaBufSliceLite(rmt);
+    auto locNotifySliceLite = GetNotifySlicelite(withNotify.index_);    // 普通Notify
+    auto rmtNotifySliceLite = GetRmtNotifySliceLite(withNotify.index_);
+    SqeConfigLite cfg;
+    SetFenceConfig(cfg);
+
+    // Post Wqe && return dbValue
+    connVec_[0]->WriteReduceWithNotify(locRmaBufSliceLite, rmtRmaBufSliceLite, locNotifySliceLite,
+                                       rmtNotifySliceLite, cfg, reduceIn.dataType, reduceIn.reduceOp, dbAddr, dbValue);
+
+    // Ring Doorbell
+    BuildRdmaDbSendTask(stream, dbAddr, dbValue);
+
+    // 上报Profiling任务
+    ReportReduceTask(
+        reinterpret_cast<const void *>(locRmaBufSliceLite.GetAddr()),
+        reinterpret_cast<const void *>(rmtRmaBufSliceLite.GetAddr()), locRmaBufSliceLite.GetSize(), reduceIn, stream,
+        taskId, TaskParamType::TASK_WRITE_REDUCE_WITH_NOTIFY, rmtNotifySliceLite.GetNotifyId(), 1, __func__);
+
+    // Poll Cq
+    constexpr int32_t POLL_NUM = 2;         // poll cqe num
+    constexpr int32_t POLL_TIMEOUT = 5;     // 5 ms
+    std::vector<int32_t> errList = {};
+    connVec_[0]->PollCq(POLL_NUM, POLL_TIMEOUT, errList, dbAddr, dbValue);
+}
+
+HcclResult RoceTransportLiteImpl::Fence()
+{
+    fence_ = true;
+    HCCL_INFO("[%s] SUCCESS. fence[%d]", __func__, fence_);
+    return HCCL_SUCCESS;
 }
 
 void RoceTransportLiteImpl::Post(u32 index, const StreamLite &stream)
 {
     u64 dbAddr = 0;
     u64 dbValue = 0;
+    auto taskId = stream.GetRtsq()->GetTaskId();
+
+    SqeConfigLite cfg;
+    SetFenceConfig(cfg);
+    auto locNotifySliceLite = GetNotifySlicelite(index);
+    auto rmtNotifySliceLite = GetRmtNotifySliceLite(index);
 
     // Post Wqe && return dbValue
-    connVec_[0]->Write(
-        GetNotifySlicelite(index), GetRmtNotifySliceLite(index), dbAddr, dbValue);
+    connVec_[0]->Write(locNotifySliceLite, rmtNotifySliceLite, cfg, dbAddr, dbValue);
 
     // Ring Doorbell
     BuildRdmaDbSendTask(stream, dbAddr, dbValue);
+
+    // 上报Profiling任务
+    ReportDmaTask(
+        reinterpret_cast<const void *>(locNotifySliceLite.GetAddr()),
+        reinterpret_cast<const void *>(rmtNotifySliceLite.GetAddr()), locNotifySliceLite.GetSize(), stream, taskId,
+        TaskParamType::TASK_RDMA, DmaOp::HCCL_DMA_WRITE, rmtNotifySliceLite.GetNotifyId(), 1, __func__);
+
+    // Poll Cq
+    constexpr int32_t POLL_NUM = 1;         // poll cqe num
+    constexpr int32_t POLL_TIMEOUT = 5;     // 5 ms
+    std::vector<int32_t> errList = {};
+    connVec_[0]->PollCq(POLL_NUM, POLL_TIMEOUT, errList, dbAddr, dbValue);
+}
+
+HcclResult RoceTransportLiteImpl::PollCq(
+    int32_t numEntries, int32_t timeOut, std::vector<int32_t> &errList)
+{
+    u64 dbAddr = 0;
+    u64 cqDbValue = 0;
+    HcclResult ret = HCCL_SUCCESS;
+
+    // Poll numEntries个Cqe, 返回异常的status, 同时返回cq的db
+    ret = connVec_[0]->PollCq(numEntries, timeOut, errList, dbAddr, cqDbValue);
+
+    return ret;
 }
 
 void RoceTransportLiteImpl::WaitWithTimeout(u32 index, const StreamLite &stream, u32 timeout)
 {
+    auto taskId = stream.GetRtsq()->GetTaskId();
     auto notifyId = localNotifies_[index]->GetId();
     BuildNotifyWaitTask(notifyId, stream, timeout);
+
+    // 上报Profiling任务
+    ReportNotifyWaitTask(notifyId, stream, taskId);
 }
 
 // 下发Rtsq sqe, 敲DB
-void RoceTransportLiteImpl::BuildRdmaDbSendTask(const StreamLite &stream, u64 remoteAddr, u64 dbValue)
+void RoceTransportLiteImpl::BuildRdmaDbSendTask(const StreamLite &stream, u64 remoteAddr, u64 dbValue) const
 {
     stream.GetRtsq()->RdmaDbSend(remoteAddr, dbValue);
 }
@@ -351,4 +529,109 @@ void RoceTransportLiteImpl::BuildNotifyWaitTask(u32 notifyId, const StreamLite &
 {
     stream.GetRtsq()->NotifyWait(notifyId, timeout);
 }
+
+void RoceTransportLiteImpl::SetFenceConfig(SqeConfigLite &cfg)
+{
+    cfg.cqeEn = true;
+    cfg.fence = fence_ ? 1 : 0;
+    fence_ = false;
+}
+
+void RoceTransportLiteImpl::ReportDmaTask(const void *src, const void *dst, u64 size, const StreamLite &stream,
+                                          u32 taskId, TaskParamType taskType, DmaOp dmaOp, u64 notifyId,
+                                          u32 notifyValue, const char *funcName)
+{
+    // 未开启任务上报时直接返回
+    if (!IsReportTask()) {
+        return;
+    }
+
+    // 填充DMA任务信息
+    TaskParam taskParam{};
+    taskParam.taskType                 = taskType;
+    taskParam.beginTime                = ProfGetCurCpuTimestamp();
+    taskParam.taskPara.DMA.src         = src;
+    taskParam.taskPara.DMA.dst         = dst;
+    taskParam.taskPara.DMA.size        = size;
+    taskParam.taskPara.DMA.notifyID    = notifyId;
+    taskParam.taskPara.DMA.notifyValue = notifyValue;
+    taskParam.taskPara.DMA.linkType    = DfxLinkType::ROCE;
+    taskParam.taskPara.DMA.dmaOp       = dmaOp;
+
+    HCCL_INFO("[RoceTransportLiteImpl::%s][ProfilingTaskParam] sqId[%u], taskId[%u], taskType[%s], "
+              "beginTime[%llu], src[%p], dst[%p], size[%zu], notifyId[%llu], notifyValue[%u], linkType[%s], "
+              "dmaOp[%s]",
+              funcName, stream.GetSqId(), taskId, taskParam.taskType.Describe().c_str(), taskParam.beginTime,
+              taskParam.taskPara.DMA.src, taskParam.taskPara.DMA.dst, taskParam.taskPara.DMA.size,
+              taskParam.taskPara.DMA.notifyID, taskParam.taskPara.DMA.notifyValue,
+              taskParam.taskPara.DMA.linkType.Describe().c_str(), taskParam.taskPara.DMA.dmaOp.Describe().c_str());
+
+    // 保存任务信息
+    newCallback_(stream.GetSqId(), taskId, taskParam, reinterpret_cast<u64>(this));
+}
+
+void RoceTransportLiteImpl::ReportReduceTask(const void *src, const void *dst, u64 size, const ReduceIn &reduceIn,
+                                             const StreamLite &stream, u32 taskId, TaskParamType taskType, u64 notifyId,
+                                             u32 notifyValue, const char *funcName)
+{
+    // 未开启任务上报时直接返回
+    if (!IsReportTask()) {
+        return;
+    }
+
+    // 填充Reduce任务信息
+    TaskParam taskParam{};
+    taskParam.taskType                       = taskType;
+    taskParam.beginTime                      = ProfGetCurCpuTimestamp();
+    taskParam.taskPara.Reduce.src            = src;
+    taskParam.taskPara.Reduce.dst            = dst;
+    taskParam.taskPara.Reduce.size           = size;
+    taskParam.taskPara.Reduce.notifyID       = notifyId;
+    taskParam.taskPara.Reduce.notifyValue    = notifyValue;
+    taskParam.taskPara.Reduce.linkType       = DfxLinkType::ROCE;
+    taskParam.taskPara.Reduce.reduceOp       = ConvertReduceOpToHcclReduceOp(reduceIn.reduceOp);
+    taskParam.taskPara.Reduce.dataType       = DataTypeToHcclDataType(reduceIn.dataType);
+
+    HCCL_INFO("[RoceTransportLiteImpl::%s][ProfilingTaskParam] sqId[%u], taskId[%u], taskType[%s], "
+              "beginTime[%llu], src[%p], dst[%p], size[%zu], notifyId[%llu], notifyValue[%u], linkType[%s], "
+              "dataType[%d], reduceOp[%d]",
+              funcName, stream.GetSqId(), taskId, taskParam.taskType.Describe().c_str(), taskParam.beginTime,
+              taskParam.taskPara.Reduce.src, taskParam.taskPara.Reduce.dst, taskParam.taskPara.Reduce.size,
+              taskParam.taskPara.Reduce.notifyID, taskParam.taskPara.Reduce.notifyValue,
+              taskParam.taskPara.Reduce.linkType.Describe().c_str(),
+              static_cast<int>(taskParam.taskPara.Reduce.dataType),
+              static_cast<int>(taskParam.taskPara.Reduce.reduceOp));
+
+    // 保存任务信息
+    newCallback_(stream.GetSqId(), taskId, taskParam, reinterpret_cast<u64>(this));
+}
+
+void RoceTransportLiteImpl::ReportNotifyWaitTask(u64 notifyId, const StreamLite &stream, u32 taskId)
+{
+    // 未开启任务上报时直接返回
+    if (!IsReportTask()) {
+        return;
+    }
+
+    // 填充Wait任务信息
+    TaskParam taskParam{};
+    taskParam.taskType                 = TaskParamType::TASK_NOTIFY_WAIT;
+    taskParam.beginTime                = ProfGetCurCpuTimestamp();
+    taskParam.taskPara.Notify.notifyID = notifyId;
+    taskParam.taskPara.Notify.value    = 1;
+
+    HCCL_INFO("[RoceTransportLiteImpl::%s][ProfilingTaskParam] sqId[%u], taskId[%u], taskType[%s], "
+              "beginTime[%llu], notifyId[%llu], notifyValue[%u]",
+              __func__, stream.GetSqId(), taskId, taskParam.taskType.Describe().c_str(), taskParam.beginTime,
+              taskParam.taskPara.Notify.notifyID, taskParam.taskPara.Notify.value);
+
+    // 保存任务信息
+    newCallback_(stream.GetSqId(), taskId, taskParam, reinterpret_cast<u64>(this));
+}
+
+bool RoceTransportLiteImpl::IsReportTask()
+{
+    return taskExceptionEnable_ && newCallback_ != nullptr;
+}
+
 } // namespace Hccl

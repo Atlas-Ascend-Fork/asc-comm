@@ -12,6 +12,7 @@
 #include "adapter_hal_pub.h"
 #include "aicpu_ts_thread.h"
 #include "aicpu_res_package_helper.h"
+#include "hccl_independent_common.h"
 #include "ub_transport_lite_impl.h"
 #include "notify_manager.h"
 #include "dlhal_function_v2.h"
@@ -20,10 +21,8 @@ constexpr u32 NOTIFY_SIZE_EIGHT = 8;
 
 CollCommAicpu::~CollCommAicpu()
 {
-    ReadWriteLock rwLock(threadMutex_);
-    rwLock.writeLock();
+    std::unique_lock<std::shared_mutex> rwLock(threadMutex_);
     threads_.clear();
-    rwLock.writeUnlock();
     HCCL_RUN_INFO("[CollCommAicpu][%s]Group[%s] destroy success", __func__, identifier_.c_str());
 }
 
@@ -40,7 +39,7 @@ HcclResult CollCommAicpu::InitAicpuIndOp(CommAicpuParam *commAicpuParam)
     topoInfo_.deviceType = static_cast<DevType>(commAicpuParam->deviceType);
     identifier_ = std::string(commAicpuParam->hcomId);
     topoInfo_.userRankSize = commAicpuParam->userRankSize;
-    topoInfo_.userRank = commAicpuParam->userRank; 
+    topoInfo_.userRank = commAicpuParam->userRank;
     notifys_.reserve(hccl::HCCL_THREAD_NOTIFY_MAX_NUM);
 
     CHK_RET(hrtSetWorkModeAicpu(true));
@@ -106,11 +105,9 @@ HcclResult CollCommAicpu::InitThreads(ThreadMgrAicpuParam *param)
         threadArray[i] = reinterpret_cast<ThreadHandle>(outThreads[i].get());  // 拷贝裸指针
         HCCL_INFO("[CollCommAicpu][%s] threadArray[%u] = [%lu]", __func__, i, threadArray[i]);
     }
-    ReadWriteLock rwLock(threadMutex_);
-    rwLock.writeLock();
+    std::unique_lock<std::shared_mutex> rwLock(threadMutex_);
     threads_.insert(threads_.end(), std::make_move_iterator(outThreads.begin()),
         std::make_move_iterator(outThreads.end()));
-    rwLock.writeUnlock();
     HCCL_INFO("[CollCommAicpu][%s] comm identifier[%s], init threads num[%u] success",
         __func__, hcomId.c_str(), threadNum);
     return HCCL_SUCCESS;
@@ -167,7 +164,7 @@ HcclResult CollCommAicpu::ProcessUrmaRes(HcclChannelUrmaRes *commParam, bool isI
             }
             CHK_RET(ResumePackData(dataVec[resType].data, channelHandle));
         }
-        
+
         // 打印
         HCCL_INFO("[CollCommAicpu][%s] index[%u], currentSrcAddr[%p], channelSizeAddr[%p], channelHandle[0x%llx]",
             __func__, index, currentSrcAddr, commParam->channelSizeAddr, channelHandle);
@@ -295,7 +292,7 @@ HcclResult CollCommAicpu::Clean()
         CHK_RET(transPort.second->Clean());
     }
     HCCL_INFO("CollCommAicpu::Clean() finished");
-    
+
     return HCCL_SUCCESS;
 }
 
@@ -316,7 +313,7 @@ HcclResult CollCommAicpu::Resume(HcclChannelUrmaRes *commParam)
     CHK_RET(ProcessUrmaRes(commParam, false));
 
     commStatus_ = HcclCommStatus::HCCL_COMM_STATUS_READY;
-    
+
     return HCCL_SUCCESS;
 }
 
