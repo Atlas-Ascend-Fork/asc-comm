@@ -9,8 +9,6 @@
  */
 #include "dlhal_function_v2.h"
 
-#include <string>
-#include <map>
 #include "log.h"
 #include <dlfcn.h>
 

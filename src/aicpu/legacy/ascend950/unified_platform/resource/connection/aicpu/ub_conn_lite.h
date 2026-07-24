@@ -11,7 +11,6 @@
 #ifndef HCCLV2_UB_CONN_LITE_H_
 #define HCCLV2_UB_CONN_LITE_H_
 
-#include <queue>
 #include "data_type.h"
 #include "reduce_op.h"
 #include "rma_buf_slice_lite.h"

@@ -41,6 +41,7 @@ constexpr uint32_t EID_WORD_SHIFT_0 = 48;  // EID 64位值中第0个16位字的�
 constexpr uint32_t EID_WORD_SHIFT_1 = 32;  // EID 64位值中第1个16位字的右移位数
 constexpr uint32_t EID_WORD_SHIFT_2 = 16;  // EID 64位值中第2个16位字的右移位数
 
+// NOTE: Eid 被 AICPU UB 建链参数、任务信息和传输实现依赖。
 union Eid {
     uint8_t raw[URMA_EID_LEN]{0};
     struct {

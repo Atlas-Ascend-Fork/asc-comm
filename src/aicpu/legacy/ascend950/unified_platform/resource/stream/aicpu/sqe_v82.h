@@ -40,15 +40,6 @@ enum class Rt91095StarsSqeType {
     RT_91095_SQE_TYPE_END             = 21,
 };
  
-/* stars send interrupt direction */
-MAKE_ENUM(RtStarsSqeIntDirType,
-    RT_STARS_SQE_INT_DIR_NO           , // send no interrupt
-    RT_STARS_SQE_INT_DIR_TO_TSCPU     , // to tscpu
-    RT_STARS_SQE_INT_DIR_TO_CTRLCPU   , // to ctrlcpu
-    RT_STARS_SQE_INT_DIR_TO_HOST      , // to host
-    RT_STARS_SQE_INT_DIR_END          
-)
- 
 MAKE_ENUM(Rt91095UbDmaSqeMode,
     RT_91095_SQE_DIRECTWQE_MODE        , // direct wqe
     RT_91095_SQE_DOORBELL_MODE         , // doorbell
