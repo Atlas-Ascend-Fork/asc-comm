@@ -81,7 +81,7 @@ int Sample(void *arg)
     void *sendBuf = nullptr;
     void *recvBuf = nullptr;
     uint32_t device = ctx->device;
-    constexpr uint64_t perCount = 2;
+    const uint64_t perCount = ctx->devCount;
     uint64_t totalCount = perCount * ctx->devCount;
     size_t sendSize = totalCount * sizeof(float);
     size_t recvSize = totalCount * sizeof(float);

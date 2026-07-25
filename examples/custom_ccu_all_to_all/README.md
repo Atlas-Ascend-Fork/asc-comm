@@ -60,7 +60,7 @@ bash run.sh
 
 ## 结果示例
 
-测试固定使用 `perCount = 2`，rank `d` 的输入元素 `i` 初始化为 `d * 100 + i`。两卡场景下：
+测试使用 `perCount = rankSize`，rank `d` 的输入元素 `i` 初始化为 `d * 100 + i`。两卡场景下：
 
 ```text
 rankId: 0, input: [ 0 1 2 3 ]
