@@ -28,7 +28,6 @@ add_executable(demo
 )
 
 target_include_directories(demo PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_ccu
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/ccu
