@@ -18,10 +18,6 @@ rank p recvBuf = [segment_0 | segment_1 | ... | segment_N-1]
 01_allgather/
 ├── CMakeLists.txt
 ├── README.md
-├── inc/
-│   ├── binary_stream.h
-│   ├── common.h
-│   └── log.h
 ├── op_kernel_ccu/
 │   ├── CMakeLists.txt
 │   ├── ccu_kernel.cc
