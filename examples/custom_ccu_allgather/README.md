@@ -69,12 +69,12 @@ exec "${BUILD_DIR}/custom_allgather_ccu"
 
 ## 结果示例
 
-所有 rank 的输入数据初始化为该 rank 的 DeviceId。运行成功后，终端会输出类似以下信息：
+每个 rank 发送 `rankSize` 个元素，输入数据初始化为该 rank 的 DeviceId。运行成功后，终端会输出类似以下信息：
 
 ```text
 Found 2 NPU device(s) available
-rankId: 0, input: [ 0 ]
-rankId: 1, input: [ 1 ]
-rankId: 0, output: [ 0 1 ]
-rankId: 1, output: [ 0 1 ]
+rankId: 0, input: [ 0 0 ]
+rankId: 1, input: [ 1 1 ]
+rankId: 0, output: [ 0 0 1 1 ]
+rankId: 1, output: [ 0 0 1 1 ]
 ```
