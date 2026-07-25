@@ -65,7 +65,6 @@ target_link_directories(custom_allgather_ccu PRIVATE
 )
 target_link_libraries(custom_allgather_ccu PRIVATE
     hcomm
-    hccl
     asccomm_ccu_dataplane
     ascendcl
     acl_rt
