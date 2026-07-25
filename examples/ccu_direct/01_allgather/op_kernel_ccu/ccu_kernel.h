@@ -11,18 +11,34 @@
 #ifndef HCCL_CCU_KERNEL_ALL_GATHER_MESH_1D_MEM2MEM_H
 #define HCCL_CCU_KERNEL_ALL_GATHER_MESH_1D_MEM2MEM_H
 
-#include <ios>
-#include "common.h"
-#include "log.h"
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include <hccl/hccl_res.h>
+#include <ccu/ccu_types.h>
+#include <ccu/ccu_variable.hpp>
+#include <ccu/ccu_event.hpp>
+#include <ccu/ccu_primitives.hpp>
 
 namespace ccu = ::AscendC::ccu;
 
 namespace ops_comm_ag {
 
+#define CCU_CHK_RET(call)                                                   \
+    do {                                                                    \
+        CcuResult ccuRet = static_cast<CcuResult>(call);                    \
+        if (ccuRet != CCU_SUCCESS) {                                        \
+            return ccuRet;                                                  \
+        }                                                                   \
+    } while (0)
+
 constexpr uint64_t CCU_MS_INTERLEAVE = 8;
 constexpr uint64_t CCU_MS_SIZE = 4096;
 constexpr uint32_t CCU_LOCAL_COPY_MS_PER_LOOP = 8;
 constexpr uint32_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
+constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 
 struct LoopGroupConfig {
     uint32_t msInterleave;
@@ -50,7 +66,9 @@ struct CcuLoopEntity {
     ccu::Variable              loopParam[2];
 };
 
-struct CcuKernelArgAllGatherMesh1DMem2Mem : public CcuKernelArgBase {
+struct CcuKernelArgAllGatherMesh1DMem2Mem {
+    ChannelHandle channels[CCU_MAX_RANK_SIZE];
+    uint32_t channelCount;
     uint64_t rankSize;
     uint32_t rankId;
 };
