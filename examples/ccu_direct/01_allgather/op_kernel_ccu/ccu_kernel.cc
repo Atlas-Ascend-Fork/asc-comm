@@ -226,7 +226,6 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
     ctx.arg = kernelArg;
 
     if (ctx.arg->channelCount == 0) {
-        HCCL_ERROR("[CcuKernelAllGatherMesh1DMem2Mem] channels is empty!");
         return CcuResult::CCU_E_INTERNAL;
     }
 
