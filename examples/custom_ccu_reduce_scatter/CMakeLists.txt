@@ -67,7 +67,6 @@ target_link_directories(custom_reduce_scatter_ccu PRIVATE
 )
 target_link_libraries(custom_reduce_scatter_ccu PRIVATE
     hcomm
-    hccl
     asccomm_ccu_dataplane
     ascendcl
     acl_rt
