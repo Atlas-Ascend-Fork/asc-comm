@@ -193,9 +193,6 @@ main(){
 
     if [[ "${COV}" == true ]]; then
         CUSTOM_OPTION+=("-DENABLE_GCOV=ON")
-    fi
-    
-    if [[ "${COV}" == true ]]; then
         TARGETS="--target collect_coverage_data"
     else
         TARGETS=""
