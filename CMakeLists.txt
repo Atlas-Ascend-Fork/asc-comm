@@ -10,9 +10,6 @@
 
 cmake_minimum_required(VERSION 3.16.0)
 
-option(BUILD_OPEN_PROJECT "Build open asc-comm project." ON)
-option(ENABLE_AICPU_DATA_PLANE "Build A5 AICPU data-plane shared objects." ON)
-
 if(NOT DEFINED PRODUCT_SIDE)
     set(PRODUCT_SIDE "device")
 endif()
@@ -25,39 +22,19 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     endif()
 endif()
 
-set(HCOMM_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 set(ASC_COMM_AICPU_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu")
 set(ASC_COMM_AICPU_INCLUDE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu")
 set(ASC_COMM_AICPU_INCLUDE_DIR "${ASC_COMM_AICPU_INCLUDE_ROOT_DIR}/hcomm")
-set(HCC_TOOLCHAIN_DIR "${ASCEND_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc")
-set(HCC_CXX_COMPILER "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-g++")
-set(HCC_C_COMPILER "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-gcc")
-set(HCC_C_AR "${HCC_TOOLCHAIN_DIR}/bin/aarch64-target-linux-gnu-ar")
 
 include(cmake/fetch_cann_cmake.cmake)
-project(asc_comm_aicpu_data_plane)
+project(asc_comm_aicpu_data_plane LANGUAGES CXX)
 init_cann_project(PREPEND_MODULE_PATH)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_C_FLAGS_RELEASE "")
-set(CMAKE_CXX_FLAGS_RELEASE "")
 
-add_cann_third_party(json)
-add_cann_third_party(openssl)
-add_cann_third_party(rdma-core)
-
-find_cann_package(acl_rt MODULE REQUIRED)
-find_cann_package(aicpu_sharder MODULE REQUIRED)
-find_cann_package(asc_devkit MODULE REQUIRED)
 find_cann_package(ascend_hal MODULE REQUIRED)
-find_cann_package(atrace MODULE REQUIRED)
-find_cann_package(error_manager MODULE REQUIRED)
-find_cann_package(mmpa MODULE REQUIRED)
-find_cann_package(msprof MODULE REQUIRED)
-find_cann_package(runtime MODULE REQUIRED)
 find_cann_package(securec MODULE REQUIRED)
-find_cann_package(tsdclient MODULE REQUIRED)
 find_cann_package(unified_dlog MODULE REQUIRED)
 
 include(cmake/aicpu_data_plane_sources.cmake)
@@ -94,7 +71,7 @@ set(ASC_COMM_AICPU_COMPILE_DEFINITIONS
     HCCD
     CCL_KERNEL_AICPU
     OPEN_BUILD_PROJECT
-    -D_GLIBCXX_USE_CXX11_ABI=1
+    _GLIBCXX_USE_CXX11_ABI=1
 )
 
 set(ASC_COMM_AICPU_COMPILE_OPTIONS
@@ -106,7 +83,6 @@ set(ASC_COMM_AICPU_COMPILE_OPTIONS
     -fno-strict-aliasing
     -pipe
     -O3
-    -std=c++17
 )
 
 add_library(aicpu_data_plane SHARED ${ASC_COMM_AICPU_DATA_PLANE_SOURCES})
@@ -120,23 +96,10 @@ target_link_options(aicpu_data_plane PRIVATE
 )
 target_include_directories(aicpu_data_plane PRIVATE ${ASC_COMM_AICPU_INCLUDE_LIST})
 target_link_libraries(aicpu_data_plane PRIVATE
-    $<BUILD_INTERFACE:acl_rt_headers>
-    $<BUILD_INTERFACE:asc_host_headers>
-    $<BUILD_INTERFACE:asc_kernel_headers>
-    $<BUILD_INTERFACE:ascend_hal_headers>
-    $<BUILD_INTERFACE:kernel_tiling_headers>
-    $<BUILD_INTERFACE:slog_headers>
-    $<BUILD_INTERFACE:atrace_headers>
-    $<BUILD_INTERFACE:mmpa_headers>
-    $<BUILD_INTERFACE:runtime_headers>
-    $<BUILD_INTERFACE:rdma_core_headers>
-    $<BUILD_INTERFACE:json>
-    -Wl,--no-as-needed
+    slog_headers
     ascend_hal
     c_sec
-    mmpa
-    -Wl,--as-needed
-    -lrt
-    -ldl
-    -lpthread
+    dl
+    pthread
 )
+set_target_properties(aicpu_data_plane PROPERTIES SKIP_BUILD_RPATH TRUE)
