@@ -43,10 +43,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_FLAGS_RELEASE "")
 set(CMAKE_CXX_FLAGS_RELEASE "")
 
-include(cmake/config.cmake)
-include(cmake/hcomm_utils.cmake)
-include(cmake/third_party/ubengine.cmake)
-
 add_cann_third_party(json)
 add_cann_third_party(openssl)
 add_cann_third_party(rdma-core)
@@ -71,7 +67,8 @@ include(cmake/aicpu_data_plane_sources.cmake)
 set(ASC_COMM_AICPU_INCLUDE_LIST
     ${ASC_COMM_AICPU_INCLUDE_ROOT_DIR}
     ${ASC_COMM_AICPU_INCLUDE_DIR}
-    ${ASC_COMM_AICPU_INCLUDE_DIR}/hccl
+    ${ASC_COMM_AICPU_SRC_DIR}/common/hcomm_compat
+    ${ASC_COMM_AICPU_SRC_DIR}/common/hcomm_compat/hccl
 )
 foreach(include_root
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm
@@ -142,8 +139,4 @@ target_link_libraries(aicpu_data_plane PRIVATE
     -lrt
     -ldl
     -lpthread
-)
-
-install(TARGETS aicpu_data_plane
-    LIBRARY DESTINATION ${INSTALL_DEVICE_LIBRARY_DIR} ${INSTALL_OPTIONAL}
 )
