@@ -21,8 +21,8 @@
 - Supplies the `hcomm_write_read_nbi` sample, demonstrating the point-to-point communication workflow of `WriteNbi` and `ReadNbi` under the AIV direct-driven URMA scenario, including Host-side resource preparation required to run the sample.
 
 ### 📖 Documentation
-- Added [Quick Start](./docs/quick_start_en.md), [Build & Test](./docs/guide/en/build_and_test_en.md), [Third-party Dependencies & Compatibility](./docs/guide/en/dependencies_en.md).
-- Added [Hcomm Usage Guide](./docs/guide/en/hcomm_usage_en.md) and [API Reference](./docs/api/README_en.md), covering all currently published Hcomm interfaces.
+- Added [Quick Start](./docs/quick_start_en.md), [Build & Test](./docs/guide/build_and_test_en.md), [Third-party Dependencies & Compatibility](./docs/guide/dependencies_en.md).
+- Added [Hcomm Usage Guide](./docs/guide/hcomm_usage_en.md) and [API Reference](./docs/api/README_en.md), covering all currently published Hcomm interfaces.
 - Added [Samples Directory](./examples/README_en.md), serving as the entry for AIV direct-drive Hcomm invocations and end-to-end communication samples.
 
 For detailed information on all historical releases and updates, please refer to [CHANGELOG.md](./CHANGELOG_en.md).
@@ -61,7 +61,7 @@ Protocol capability matrix:
 | `COMM_PROTOCOL_ROCE` | RoCE point-to-point path. Supports `ReadNbi`, `WriteNbi`, `Commit`, `Drain`. `WriteWithNotifyNbi` is not supported. |
 | `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA point-to-point path. Supports `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, `Drain`. |
 
-Refer to [Hcomm Usage Guide](./docs/guide/en/hcomm_usage_en.md) and [API Reference](./docs/api/README_en.md) for detailed parameter constraints and return value descriptions.
+Refer to [Hcomm Usage Guide](./docs/guide/hcomm_usage_en.md) and [API Reference](./docs/api/README_en.md) for detailed parameter constraints and return value descriptions.
 
 ## 🔍 Directory Layout
 This repository contains AICore communication data plane APIs, device-side implementations, samples, documentation and UT cases for asc-comm. The structure is as follows:
@@ -104,7 +104,7 @@ cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<third_party_path>
 cmake --build build/ut-hcomm
 ```
 
-See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/guide/en/build_and_test_en.md) for more details about environment setup, Docker, CANN package installation and UT dependencies.
+See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/guide/build_and_test_en.md) for more details about environment setup, Docker, CANN package installation and UT dependencies.
 
 ## 🧰 Clangd / IDE Support
 - Install clangd (version 15 or newer recommended).
@@ -120,9 +120,9 @@ See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/guide/en/b
   | [Documentation Index](./docs/README_en.md) | Main entry for asc-comm documentation. |
   | [Quick Start](./docs/quick_start_en.md) | Environment setup, source compilation and UT verification. |
   | [API Reference](./docs/api/README_en.md) | List of published asc-comm interfaces. |
-  | [Hcomm Usage Guide](./docs/guide/en/hcomm_usage_en.md) | Basic workflow for Hcomm point-to-point communication interfaces. |
-  | [Build & Test](./docs/guide/en/build_and_test_en.md) | CANN environment, build scripts, UT and sample build instructions. |
-  | [Third-party Dependencies & Compatibility](./docs/guide/en/dependencies_en.md) | Direct dependencies, sample runtime dependencies, installation configuration and integration boundaries. |
+  | [Hcomm Usage Guide](./docs/guide/hcomm_usage_en.md) | Basic workflow for Hcomm point-to-point communication interfaces. |
+  | [Build & Test](./docs/guide/build_and_test_en.md) | CANN environment, build scripts, UT and sample build instructions. |
+  | [Third-party Dependencies & Compatibility](./docs/guide/dependencies_en.md) | Direct dependencies, sample runtime dependencies, installation configuration and integration boundaries. |
   | [Samples Directory](./examples/README_en.md) | Entry point for asc-comm API samples. |
 
 - **Contribution Guides**
