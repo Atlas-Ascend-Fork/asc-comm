@@ -27,7 +27,7 @@
 ## 函数原型
 
 ```cpp
-int32_t HcommChannelDrainOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t timeout)
+int32_t HcommChannelDrainOnThread(ThreadHandle thread, ChannelHandle channel)
 ```
 
 ## 参数说明
@@ -36,9 +36,8 @@ int32_t HcommChannelDrainOnThread(ThreadHandle thread, ChannelHandle channel, ui
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。Host CPU侧调用时，该参数无作用，传入0即可。<br>ThreadHandle类型的定义可参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
-| channel | 输入 | 通信通道句柄，为[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
-| timeout | 输入 | 超时时间。 |
+| thread | 输入 | 通信线程句柄。取值为0或通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄；Host CPU侧调用时，该参数无作用，传入0即可。<br>ThreadHandle类型的定义可参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| channel | 输入 | 通信通道句柄，取值为[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 
 ## 返回值
 
@@ -84,8 +83,7 @@ uint64_t len = std::min(localBufferSize, remoteBufferSize);
 // 将对端内存的内容读到本端内存上。
 HcommReadOnThread(thread, channel, localBuffer, remoteBuffer, len);
 
-uint32_t timeout = 120;
-HcommChannelDrainOnThread(thread, channel, timeout);
+HcommChannelDrainOnThread(thread, channel);
 ```
 
 示例中目标接口返回0表示调用成功，返回其他值表示调用失败。

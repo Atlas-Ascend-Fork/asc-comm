@@ -37,9 +37,9 @@ int32_t HcommBatchTransferOnThread(ThreadHandle thread, ChannelHandle channel,
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。<br>ThreadHandle类型的定义可参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
-| channel | 输入 | 通信通道句柄。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
-| transferDescs | 输入 | 批量传输描述符数组，数组中每个元素描述一个传输任务，按数组顺序依次提交。描述符定义参见[HcommBatchTransferDesc](../公共类型/HcommBatchTransferDesc.md)。 |
+| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>ThreadHandle类型的定义可参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| channel | 输入 | 通信通道句柄，取值为通过[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
+| transferDescs | 输入 | 批量传输描述符数组，不能为NULL，数组元素数量至少为transferDescNum。数组中每个元素描述一个传输任务，按数组顺序依次提交。描述符定义参见[HcommBatchTransferDesc](../公共类型/HcommBatchTransferDesc.md)。 |
 | transferDescNum | 输入 | 描述符数量，须大于0。 |
 
 ## 返回值
