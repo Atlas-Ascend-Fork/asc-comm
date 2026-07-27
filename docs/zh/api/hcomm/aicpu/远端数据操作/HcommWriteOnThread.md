@@ -32,7 +32,7 @@ int32_t HcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void *dst
 
 ## 参数说明
 
-表 1  参数说明
+表1 参数说明
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
@@ -43,7 +43,7 @@ int32_t HcommWriteOnThread(ThreadHandle thread, ChannelHandle channel, void *dst
 | len | 输入 | 数据长度（字节）。有效范围由源内存和目的内存的可用长度决定，不得超过两者中较小的可用长度。 |
 ## 返回值
 
-表 2  返回值说明
+表2 返回值说明
 
 | 返回值类型 | 含义 |
 | --- | --- |

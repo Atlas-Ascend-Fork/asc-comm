@@ -32,7 +32,7 @@ int32_t HcommWriteReduceWithNotifyOnThread(ThreadHandle thread, ChannelHandle ch
 
 ## 参数说明
 
-表 1  参数说明
+表1 参数说明
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
@@ -40,7 +40,7 @@ int32_t HcommWriteReduceWithNotifyOnThread(ThreadHandle thread, ChannelHandle ch
 | channel | 输入 | 通信通道句柄，取值为通过[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 | dst | 输出 | 目的内存地址，使用指定channel对端的HCCL通信内存。 |
 | src | 输入 | 源内存地址，使用通信域中本端rank的HCCL通信内存。 |
-| count | 输入 | 元素个数。有效范围由源内存和目的内存的可用长度决定，`count * sizeof(dataType)`不得超过两者中较小的可用长度。 |
+| count | 输入 | 元素个数。有效范围由源内存和目的内存的可用长度决定，$count \times \operatorname{sizeof}(dataType)$不得超过两者中较小的可用长度。 |
 | dataType | 输入 | 数据类型。取值范围以对应产品支持的数据类型为准，详细请参见[dataType说明](#dataType说明)。<br>HcommDataType类型的定义请参见[HcommDataType](../公共类型/HcommDataType.md)。|
 | reduceOp | 输入 | 归约操作类型，取值范围：sum、max、min。<br>HcommReduceOp类型的定义请参见[HcommReduceOp](../公共类型/HcommReduceOp.md)。 |
 | remoteNotifyIdx | 输入 | 通信通道另一端的Notify索引。<br>取值范围：[0, [HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口传入的channelDescs参数中的notifyNum)。 |
@@ -53,7 +53,7 @@ int32_t HcommWriteReduceWithNotifyOnThread(ThreadHandle thread, ChannelHandle ch
 
 ## 返回值
 
-表 2  返回值说明
+表2 返回值说明
 
 | 返回值类型 | 含义 |
 | --- | --- |

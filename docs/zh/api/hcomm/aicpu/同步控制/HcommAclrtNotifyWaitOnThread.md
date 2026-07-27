@@ -32,7 +32,7 @@ int32_t HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uin
 
 ## 参数说明
 
-表 1  参数说明
+表1 参数说明
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
@@ -42,7 +42,7 @@ int32_t HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uin
 
 ## 返回值
 
-表 2  返回值说明
+表2 返回值说明
 
 | 返回值类型 | 含义 |
 | --- | --- |
