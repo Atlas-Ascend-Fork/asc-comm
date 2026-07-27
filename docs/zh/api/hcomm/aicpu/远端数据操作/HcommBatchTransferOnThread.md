@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 在指定线程和通道上异步提交一组传输任务。每个传输任务由[HcommBatchTransferDesc](../公共类型/HcommBatchTransferDesc.md)描述，支持单边写、单边读、写规约、带通知的写以及通知记录/等待等操作类型。
 
 ## 函数原型

@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 在AICPU侧阻塞等待指定通道和线程中所有已提交的读/写操作自然完成，直到任务队列为空。
 
 ## 函数原型
@@ -35,7 +37,7 @@ int32_t HcommChannelDrainOnThread(ThreadHandle thread, ChannelHandle channel, ui
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
 | thread | 输入 | 通信线程句柄。Host CPU侧调用时，该参数无作用，传入0即可。<br>ThreadHandle类型的定义可参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
-| channel | 输入 | 通信通道句柄，为[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
+| channel | 输入 | 通信通道句柄，为[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 | timeout | 输入 | 超时时间。 |
 
 ## 返回值

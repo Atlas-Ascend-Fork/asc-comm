@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 等待同步信号，阻塞等待指定Channel上的Notify完成。**使用通过HcommSetNotifyWaitTimeOut设置的默认超时时间**，无需手动传入超时参数。
 
 ## 函数原型
@@ -35,13 +37,13 @@ int32_t HcommChannelNotifyWaitOnThreadWithDefaultTimeout(ThreadHandle thread, Ch
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
 | thread | 输入 | 通信线程句柄。<br>ThreadHandle类型的定义可参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
-| channel | 输入 | 通信通道句柄，为通过[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
-| localNotifyIdx | 输入 | 本地Notify索引。<br>取值范围：[0, notifyNum)。<br>notifyNum为[HcommChannelCreate](../../../control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口传入的channelDesc参数中的notifyNum。 |
+| channel | 输入 | 通信通道句柄，为通过[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
+| localNotifyIdx | 输入 | 本地Notify索引。<br>取值范围：[0, notifyNum)。<br>notifyNum为[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口传入的channelDesc参数中的notifyNum。 |
 
 <!-- npu="950" id7 -->
 **补充说明**：
 
-**thread参数**：针对Ascend 950PR/Ascend 950DT，CPU引擎RoCE场景，“thread”参数无作用，传入0即可；CPU_TS/AICPU_TS场景，“thread”参数为通过[HcclThreadAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。
+**thread参数**：针对Ascend 950PR/Ascend 950DT，CPU引擎RoCE场景，“thread”参数无作用，传入0即可；CPU_TS/AICPU_TS场景，“thread”参数为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。
 <!-- end id7 -->
 
 ## 返回值

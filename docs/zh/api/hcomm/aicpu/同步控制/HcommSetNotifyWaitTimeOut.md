@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 设置通知等待的默认超时时间。该超时时间将应用于后续调用的[HcommChannelNotifyWaitOnThreadWithDefaultTimeout](./HcommChannelNotifyWaitOnThreadWithDefaultTimeout.md)和[HcommThreadNotifyWaitOnThreadWithDefaultTimeout](./HcommThreadNotifyWaitOnThreadWithDefaultTimeout.md)接口。
 
 ## 函数原型

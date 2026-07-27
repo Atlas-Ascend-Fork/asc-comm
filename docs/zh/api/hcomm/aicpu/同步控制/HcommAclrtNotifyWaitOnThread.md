@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 基于acl接口创建的Notify等待同步信号，须与[HcommAclrtNotifyRecordOnThread](HcommAclrtNotifyRecordOnThread.md)配对使用。
 
 ## 函数原型
@@ -34,7 +36,7 @@ int32_t HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uin
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 线程句柄，为通过[HcclThreadAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| thread | 输入 | 线程句柄，为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
 | notifyId | 输入 | 同步信号ID，为通过aclrtGetNotifyId接口获取到的notifyId。 |
 | timeOut | 输入 | 超时时间，单位：毫秒。<br>- 0：表示永久等待。<br>- >0：配置的具体超时时间。 |
 

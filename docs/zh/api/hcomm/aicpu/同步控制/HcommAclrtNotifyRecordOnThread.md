@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 基于acl接口创建的Notify发送同步信号，需与HcommAclrtNotifyWaitOnThread配对使用。
 
 ## 函数原型
@@ -34,7 +36,7 @@ int32_t HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 线程句柄，为通过[HcclThreadAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| thread | 输入 | 线程句柄，为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
 | dstNotifyId | 输入 | 同步信号ID，为通过aclrtGetNotifyId接口获取到的notifyId。 |
 
 ## 返回值

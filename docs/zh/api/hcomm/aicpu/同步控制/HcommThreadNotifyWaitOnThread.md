@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 等待同步信号，该接口会阻塞等待Thread的运行，直到指定的Notify被record完成。
 
 ## 函数原型
@@ -34,8 +36,8 @@ int32_t HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, u
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 线程句柄，为通过[HcclThreadAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
-| notifyIdx | 输入 | 需等待的Notify通知索引。<br>取值范围为：[0, [HcclThreadAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口传入的notifyNumPerThread参数的值)。 |
+| thread | 输入 | 线程句柄，为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| notifyIdx | 输入 | 需等待的Notify通知索引。<br>取值范围为：[0, [HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口传入的notifyNumPerThread参数的值)。 |
 | timeout | 输入 | 超时时间，单位：秒。<br>- 0：表示永久等待。<br>- >0：配置的具体超时时间。<br> |
 
 ## 返回值

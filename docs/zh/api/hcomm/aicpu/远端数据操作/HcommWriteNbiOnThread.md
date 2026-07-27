@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 向channel上的指定内存写数据，将src中长度为len的内存数据写入dst所指向的相同长度的内存区域。接口调用方为src所在节点，该接口为非阻塞接口。
 
 ## 函数原型
@@ -35,9 +37,9 @@ int32_t HcommWriteNbiOnThread(ThreadHandle thread, ChannelHandle channel, void *
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
 | thread | 输入 | 通信线程句柄，当前无作用，传入0即可。 |
-| channel | 输入 | 通信通道句柄，为通过[HcommChannelCreate](../../../control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。关于channel的约束参见约束说明。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
-| dst | 输出 | 目的内存地址。基础通信场景下，写发起端应使用通过[HcommMemImport](../../../control_plane_api/basic_resource_mgmt/HcommMemImport.md)导入的对端内存地址；集合通信场景下，为使用[HcclChannelGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的对端通信内存地址。 |
-| src | 输入 | 源内存地址。基础通信场景下，为通过[HcommMemReg](../../../control_plane_api/basic_resource_mgmt/HcommMemReg.md)注册的本端内存地址；集合通信场景下，为使用[HcclGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclGetHcclBuffer.md)、[HcclChannelGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的本端内存地址。 |
+| channel | 输入 | 通信通道句柄，为通过[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。关于channel的约束参见约束说明。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
+| dst | 输出 | 目的内存地址。基础通信场景下，写发起端应使用通过[HcommMemImport](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommMemImport.md)导入的对端内存地址；集合通信场景下，为使用[HcclChannelGetHcclBuffer](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的对端通信内存地址。 |
+| src | 输入 | 源内存地址。基础通信场景下，为通过[HcommMemReg](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommMemReg.md)注册的本端内存地址；集合通信场景下，为使用[HcclGetHcclBuffer](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclGetHcclBuffer.md)、[HcclChannelGetHcclBuffer](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的本端内存地址。 |
 | len | 输入 | 数据长度（字节），需大于0。 |
 
 ## 返回值
@@ -51,7 +53,7 @@ int32_t HcommWriteNbiOnThread(ThreadHandle thread, ChannelHandle channel, void *
 ## 约束说明
 
 <!-- npu="950" id6 -->
-- 针对Ascend 950PR/Ascend 950DT，本接口仅支持在Host CPU上调用。调用[HcommChannelCreate](../../../control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)申请入参channel时，需传入`engine = COMM_ENGINE_CPU`，且`channelDesc.remoteEndpoint.protocol`需为`COMM_PROTOCOL_ROCE`、`COMM_PROTOCOL_UBC_TP`或`COMM_PROTOCOL_UBC_CTP`。其中，NBI读接口（HcommReadNbiOnThread）和NBI写接口（HcommWriteNbiOnThread）仅支持RoCE协议（需配置DPU/1825网卡），不支持UBC_CTP和UBC_TP协议。
+- 针对Ascend 950PR/Ascend 950DT，本接口仅支持在Host CPU上调用。调用[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)申请入参channel时，需传入`engine = COMM_ENGINE_CPU`，且`channelDesc.remoteEndpoint.protocol`需为`COMM_PROTOCOL_ROCE`、`COMM_PROTOCOL_UBC_TP`或`COMM_PROTOCOL_UBC_CTP`。其中，NBI读接口（HcommReadNbiOnThread）和NBI写接口（HcommWriteNbiOnThread）仅支持RoCE协议（需配置DPU/1825网卡），不支持UBC_CTP和UBC_TP协议。
 <!-- end id6 -->
 - Host CPU侧调用时，`thread`参数无作用，可传入0。
 - `[src, src + len)`必须落在本端已注册或获取的内存范围内，`[dst, dst + len)`必须落在对端已导入或获取的内存范围内。

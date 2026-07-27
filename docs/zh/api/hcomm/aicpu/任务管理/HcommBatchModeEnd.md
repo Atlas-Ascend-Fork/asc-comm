@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 该接口用于提交并触发批量模式下缓存的所有操作的执行。所有在HcommBatchModeStart和HcommBatchModeEnd之间的数据面接口调用操作将在此时统一执行。
 
 ## 函数原型

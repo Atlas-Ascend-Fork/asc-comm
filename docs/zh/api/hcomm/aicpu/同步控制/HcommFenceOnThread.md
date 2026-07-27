@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 在Host CPU侧触发数据面全局Fence操作，对当前已初始化的内部Flush资源执行Flush并等待完成。
 
 该接口不绑定具体通信通道。如需等待指定通信通道上已提交的读写操作完成，应先调用[HcommChannelFenceOnThread](HcommChannelFenceOnThread.md)。

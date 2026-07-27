@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 根据传入的commId获取对应通信域，并对该通信域加锁，防止该通信域被重复获取。
 
 ## 函数原型

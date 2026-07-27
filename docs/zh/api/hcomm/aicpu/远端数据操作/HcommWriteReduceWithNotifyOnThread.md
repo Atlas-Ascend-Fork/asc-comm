@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 向channel上的指定内存写数据，将src中长度为$count \times \operatorname{sizeof}(dataType)$的内存数据，与dst所指向的相同长度的内存数据进行reduceOp操作，并将结果输出到dst中，并向dst所在节点发送同步信号。接口调用方为src所在节点，该接口为异步接口。
 
 ## 函数原型
@@ -34,14 +36,14 @@ int32_t HcommWriteReduceWithNotifyOnThread(ThreadHandle thread, ChannelHandle ch
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为通过[HcclThreadAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义可参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
-| channel | 输入 | 通信通道句柄，为通过[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
+| thread | 输入 | 通信线程句柄，为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义可参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| channel | 输入 | 通信通道句柄，为通过[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 | dst | 输出 | 目的内存地址，使用指定channel对端的HCCL通信内存。 |
 | src | 输入 | 源内存地址，使用通信域中本端rank的HCCL通信内存。 |
 | count | 输入 | 元素个数。 |
 | dataType | 输入 | 数据类型。<br>HcommDataType类型的定义请参见[HcommDataType](../公共类型/HcommDataType.md)。<br>不同产品型号支持的数据类型定义不同，详细请参见[dataType说明](#dataType说明)。|
 | reduceOp | 输入 | 归约操作类型，支持：sum、max、min。<br>HcommReduceOp类型的定义请参见[HcommReduceOp](../公共类型/HcommReduceOp.md)。 |
-| remoteNotifyIdx | 输入 | 通信通道另一端的Notify索引。<br>取值范围：[0, [HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口传入的channelDescs参数中的notifyNum)。 |
+| remoteNotifyIdx | 输入 | 通信通道另一端的Notify索引。<br>取值范围：[0, [HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口传入的channelDescs参数中的notifyNum)。 |
 
 ### dataType说明
 

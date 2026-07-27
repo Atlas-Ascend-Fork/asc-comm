@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 提供本地归约操作，将src指向的长度为$count \times \operatorname{sizeof}(dataType)$的内存数据，与dst所指向的相同长度的内存数据进行reduceOp操作，并将结果输出到dst中。
 
 ## 函数原型
@@ -34,7 +36,7 @@ int32_t HcommLocalReduceOnThread(ThreadHandle thread, void *dst, const void *src
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为通过[HcclThreadAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| thread | 输入 | 通信线程句柄，为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
 | dst | 输出 | 目的地址，Device内存。 |
 | src | 输入 | 源地址，Device内存。 |
 | count | 输入 | 元素个数。 |

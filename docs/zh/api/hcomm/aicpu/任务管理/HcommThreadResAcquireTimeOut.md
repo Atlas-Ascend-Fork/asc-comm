@@ -20,6 +20,8 @@
 
 ## 功能说明
 
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
 设置线程资源获取的超时时间。该超时时间应用于RTSQ（Remote Transport Sequence Queue）的队列满等待场景。当RTSQ队列已满时，会等待直到有可用空间或超时。
 
 ## 函数原型
