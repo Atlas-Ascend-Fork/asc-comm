@@ -27,11 +27,14 @@ CcuResult CcuIfDemoKernel(CcuKernelArg arg)
     ccu::Variable var;
     var = args->value;
 
-    CCU_IF(var == args->expected) {
+    CCU_IF(var == args->expected)
+    {
         ccu::Variable thenResult, thenAddend;
         thenAddend = 100;
         thenResult = var + thenAddend;
-    } CCU_ELSE {
+    }
+    CCU_ELSE
+    {
         ccu::Variable elseResult, elseAddend;
         elseAddend = 200;
         elseResult = var + elseAddend;
@@ -39,7 +42,6 @@ CcuResult CcuIfDemoKernel(CcuKernelArg arg)
 
     return CcuResult::CCU_SUCCESS;
 }
-
 // ======================== CCU IF (without else) Demo ========================
 
 struct CcuIfNoElseDemoKernelArg {
@@ -60,7 +62,8 @@ CcuResult CcuIfNoElseDemoKernel(CcuKernelArg arg)
     ccu::Variable addend;
     addend = 100;
 
-    CCU_IF(var == args->threshold) {
+    CCU_IF(var == args->threshold)
+    {
         result = var + addend;
     }
 
@@ -91,14 +94,18 @@ CcuResult CcuNestedIfOuterElseDemoKernel(CcuKernelArg arg)
 
     ccu::Variable addend;
 
-    CCU_IF(outerVar == args->outerExpected) {
-        CCU_IF(innerVar == args->innerExpected) {
+    CCU_IF(outerVar == args->outerExpected)
+    {
+        CCU_IF(innerVar == args->innerExpected)
+        {
             addend = 10;
             result = result + addend;
         }
         addend = 20;
         result = result + addend;
-    } CCU_ELSE {
+    }
+    CCU_ELSE
+    {
         addend = 30;
         result = result + addend;
     }
@@ -130,11 +137,15 @@ CcuResult CcuNestedIfInnerElseDemoKernel(CcuKernelArg arg)
 
     ccu::Variable addend;
 
-    CCU_IF(outerVar == args->outerExpected) {
-        CCU_IF(innerVar == args->innerExpected) {
+    CCU_IF(outerVar == args->outerExpected)
+    {
+        CCU_IF(innerVar == args->innerExpected)
+        {
             addend = 10;
             result = result + addend;
-        } CCU_ELSE {
+        }
+        CCU_ELSE
+        {
             addend = 20;
             result = result + addend;
         }
@@ -169,12 +180,13 @@ CcuResult CcuNestedIfIfDemoKernel(CcuKernelArg arg)
 
     ccu::Variable addend;
 
-    CCU_IF(outerVar == args->outerExpected) {
+    CCU_IF(outerVar == args->outerExpected)
+    {
         addend = 10;
         result = result + addend;
-
     }
-    CCU_IF(innerVar == args->innerExpected) {
+    CCU_IF(innerVar == args->innerExpected)
+    {
         addend = 20;
         result = result + addend;
     }
@@ -207,7 +219,8 @@ CcuResult CcuWhileDemoKernel(CcuKernelArg arg)
     ccu::Variable step;
     step = 10;
 
-    CCU_WHILE(counter != args->loopCount) {
+    CCU_WHILE(counter != args->loopCount)
+    {
         accumulator = accumulator + step;
         counter = counter + one;
     }
@@ -239,14 +252,17 @@ CcuResult CcuDoWhileWhileDemoKernel(CcuKernelArg arg)
     ccu::Variable step;
     step = 10;
 
-    CCU_DO {
-        CCU_WHILE(counter_2 != args->loopCount) {
+    CCU_DO
+    {
+        CCU_WHILE(counter_2 != args->loopCount)
+        {
             accumulator = accumulator + step;
             counter_2 = counter_2 + one;
         }
         accumulator = accumulator + step;
         counter_1 = counter_1 + one;
-    } CCU_WHILE(counter_1 != args->loopCount);
+    }
+    CCU_WHILE(counter_1 != args->loopCount);
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -272,10 +288,12 @@ CcuResult CcuDoWhileUnifiedDemoKernel(CcuKernelArg arg)
     ccu::Variable step;
     step = 10;
 
-    CCU_DO {
+    CCU_DO
+    {
         accumulator = accumulator + step;
         counter = counter + one;
-    } CCU_WHILE(counter != args->loopCount);
+    }
+    CCU_WHILE(counter != args->loopCount);
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -309,12 +327,15 @@ CcuResult CcuNestedInIfIfDemoKernel(CcuKernelArg arg)
 
     ccu::Variable addend;
 
-    CCU_IF(outerVar == args->outerExpected) {
-        CCU_IF(innerVar_1 == args->innerExpected_1) {
+    CCU_IF(outerVar == args->outerExpected)
+    {
+        CCU_IF(innerVar_1 == args->innerExpected_1)
+        {
             addend = 10;
             result = result + addend;
         }
-        CCU_IF(innerVar_2 == args->innerExpected_2) {
+        CCU_IF(innerVar_2 == args->innerExpected_2)
+        {
             addend = 20;
             result = result + addend;
         }
