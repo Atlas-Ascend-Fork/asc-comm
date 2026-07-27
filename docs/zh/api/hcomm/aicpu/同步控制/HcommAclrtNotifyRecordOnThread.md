@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-基于acl接口创建的Notify发送同步信号，需与HcommAclrtNotifyWaitOnThread配对使用。
+基于acl接口创建的Notify发送同步信号，需与[HcommAclrtNotifyWaitOnThread](HcommAclrtNotifyWaitOnThread.md)配对使用。
 
 ## 函数原型
 

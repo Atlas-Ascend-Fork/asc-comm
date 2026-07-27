@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-等待同步信号，阻塞等待指定Channel上的Notify完成。**使用通过HcommSetNotifyWaitTimeOut设置的默认超时时间**，无需手动传入超时参数。
+等待同步信号，阻塞等待指定Channel上的Notify完成。**使用通过[HcommSetNotifyWaitTimeOut](HcommSetNotifyWaitTimeOut.md)设置的默认超时时间**，无需手动传入超时参数。
 
 ## 函数原型
 

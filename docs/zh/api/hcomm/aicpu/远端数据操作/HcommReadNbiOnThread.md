@@ -53,7 +53,7 @@ int32_t HcommReadNbiOnThread(ThreadHandle thread, ChannelHandle channel, void *d
 ## 约束说明
 
 <!-- npu="950" id6 -->
-- 针对Ascend 950PR/Ascend 950DT，本接口仅支持在Host CPU上调用。调用[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)申请入参channel时，需传入`engine = COMM_ENGINE_CPU`，且`channelDesc.remoteEndpoint.protocol`需为`COMM_PROTOCOL_ROCE`、`COMM_PROTOCOL_UBC_TP`或`COMM_PROTOCOL_UBC_CTP`。其中，NBI读接口（HcommReadNbiOnThread）和NBI写接口（HcommWriteNbiOnThread）仅支持RoCE协议（需配置DPU/1825网卡），不支持UBC_CTP和UBC_TP协议。
+- 针对Ascend 950PR/Ascend 950DT，本接口仅支持在Host CPU上调用。调用[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)申请入参channel时，需传入`engine = COMM_ENGINE_CPU`，且`channelDesc.remoteEndpoint.protocol`需为`COMM_PROTOCOL_ROCE`、`COMM_PROTOCOL_UBC_TP`或`COMM_PROTOCOL_UBC_CTP`。其中，NBI读接口（本接口）和NBI写接口（[HcommWriteNbiOnThread](HcommWriteNbiOnThread.md)）仅支持RoCE协议（需配置DPU/1825网卡），不支持UBC_CTP和UBC_TP协议。
 <!-- end id6 -->
 - Host CPU侧调用时，`thread`参数无作用，可传入0。
 - `[dst, dst + len)`必须落在本端已注册或获取的内存范围内，`[src, src + len)`必须落在对端已导入或获取的内存范围内。
