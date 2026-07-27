@@ -1,86 +1,67 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
- * Description: ccu representation implementation file
- * Author: sunzhepeng
- * Create: 2024-06-17
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #include "ccu_rep_v1.h"
-
+#include "ccu_ins_generater_v1.h"
 #include "string_util.h"
 #include "exception_util.h"
 #include "ccu_api_exception.h"
+#include "ccu_kernel.h"
 
 namespace hcomm {
 namespace CcuRep {
 
-CcuRepAssign::CcuRepAssign(const Variable &varA, uint64_t immediate)
-    : subType(AssignSubType::IMD_TO_VARIABLE), immediate(immediate), varA(varA)
+void CcuRepAssign::SetCommonInfo()
 {
     type       = CcuRepType::ASSIGN;
     instrCount = 1;
 }
 
-CcuRepAssign::CcuRepAssign(const Address &addrA, uint64_t immediate)
-    : subType(AssignSubType::IMD_TO_ADDR), immediate(immediate), addrA(addrA)
+CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable &varA, uint64_t immediate)
+    : insGenPtr(insGenPtr), subType(AssignSubType::IMD_TO_VARIABLE), immediate(immediate), varA(varA)
 {
-    type       = CcuRepType::ASSIGN;
-    instrCount = 1;
+    SetCommonInfo();
 }
 
-CcuRepAssign::CcuRepAssign(const Address &addrA, const Variable &varA)
-    : subType(AssignSubType::VAR_TO_ADDR), immediate(0), varA(varA), addrA(addrA)
+CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address &addrA, uint64_t immediate)
+    : insGenPtr(insGenPtr), subType(AssignSubType::IMD_TO_ADDR), immediate(immediate), addrA(addrA)
 {
-    type       = CcuRepType::ASSIGN;
-    instrCount = 1;
+    SetCommonInfo();
 }
 
-CcuRepAssign::CcuRepAssign(const Address &addrB, const Address &addrA)
-    : subType(AssignSubType::ADDR_TO_ADDR), immediate(0), addrA(addrA), addrB(addrB)
+CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address &addrA, const Variable &varA)
+    : insGenPtr(insGenPtr), subType(AssignSubType::VAR_TO_ADDR), immediate(0), varA(varA), addrA(addrA)
 {
-    type       = CcuRepType::ASSIGN;
-    instrCount = 1;
+    SetCommonInfo();
 }
 
-CcuRepAssign::CcuRepAssign(const Variable &varB, const Variable &varA)
-    : subType(AssignSubType::VAR_TO_VAR), immediate(0), varA(varA), varB(varB)
+CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address &addrB, const Address &addrA)
+    : insGenPtr(insGenPtr), subType(AssignSubType::ADDR_TO_ADDR), immediate(0), addrA(addrA), addrB(addrB)
 {
-    type       = CcuRepType::ASSIGN;
-    instrCount = 1;
+    SetCommonInfo();
 }
 
-bool CcuRepAssign::Translate(CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
+CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable &varB, const Variable &varA)
+    : insGenPtr(insGenPtr), subType(AssignSubType::VAR_TO_VAR), immediate(0), varA(varA), varB(varB)
+{
+    SetCommonInfo();
+}
+
+bool CcuRepAssign::Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
 {
     Hccl::CHECK_NULLPTR(instr, "[CcuRepAssign::Translate] instr is nullptr!");
     this->instrId = instrId;
     translated    = true;
 
-    switch (subType) {
-        case AssignSubType::IMD_TO_VARIABLE: {
-            LoadImdToXnInstr(instr++, varA.Id(), immediate);
-            break;
-        }
-        case AssignSubType::IMD_TO_ADDR: {
-            LoadImdToGSAInstr(instr++, addrA.Id(), immediate);
-            break;
-        }
-        case AssignSubType::VAR_TO_ADDR: {
-            LoadGSAXnInstr(instr++, addrA.Id(), dep.reserveGsaId, varA.Id());
-            break;
-        }
-        case AssignSubType::ADDR_TO_ADDR: {
-            LoadGSAGSAInstr(instr++, addrB.Id(), addrA.Id(), dep.reserveGsaId);
-            break;
-        }
-        case AssignSubType::VAR_TO_VAR: {
-            LoadXXInstr(instr++, varB.Id(), varA.Id(), dep.reserveXnId);
-            break;
-        }
-        default: {
-            Hccl::THROW<Hccl::CcuApiException>("Invalid Assign");
-        }
-    }
-    
+    insGenPtr->CcuRepAssignTranslate(ccuKernel, instr, this, dep);
+
     CHK_PRT_THROW((instrId > UINT16_MAX - instrCount),
                         HCCL_ERROR("[CcuRepAssign::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instrId, instrCount),
                           Hccl::InternalException, "integer overflow");
@@ -113,5 +94,34 @@ std::string CcuRepAssign::Describe()
     }
 }
 
+Address CcuRepAssign::GetAddrA()
+{
+    return addrA;
+}
+
+Address CcuRepAssign::GetAddrB()
+{
+    return addrB;
+}
+
+Variable CcuRepAssign::GetVarA()
+{
+    return varA;
+}
+
+Variable CcuRepAssign::GetVarB()
+{
+    return varB;
+}
+
+uint64_t CcuRepAssign::GetImmed()
+{
+    return immediate;
+}
+
+AssignSubType CcuRepAssign::GetSubType()
+{
+    return subType;
+}
 }; // namespace CcuRep
 }; // namespace hcomm

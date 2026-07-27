@@ -1,7 +1,11 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- * Description: ccu context header file
- * Create: 2025-02-18
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #include "ccu_assist_v1.h"
@@ -49,6 +53,19 @@ uint64_t GetParallelParam(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t
     return ((repeatNum & SetBits(repeatBitNum)) << repeatNumShiftBit)
            | ((repeatLoopIndex & SetBits(repeatLoopBitNum)) << repeatLoopShiftBit)
            | ((totalLoopNum & SetBits(totalLoopBitNum)) << totalLoopShiftBit);
+}
+
+uint64_t GetParallelParamV2(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t totalLoopNum)
+{
+    constexpr uint16_t loopNumBitNum      = 10;
+    constexpr uint16_t loopNumShiftBit    = 0;
+    constexpr uint16_t repeatLoopBitNum   = 9;
+    constexpr uint16_t repeatLoopShiftBit = 10;
+    constexpr uint16_t extendBitNum       = 9;
+    constexpr uint16_t extendShiftBit     = 19;
+    return ((totalLoopNum & SetBits(loopNumBitNum)) << loopNumShiftBit)
+           | ((repeatLoopIndex & SetBits(repeatLoopBitNum)) << repeatLoopShiftBit)
+           | ((repeatNum & SetBits(extendBitNum)) << extendShiftBit);
 }
 
 uint64_t GetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uint64_t ckeOffset)

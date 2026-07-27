@@ -1,7 +1,11 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- * Description: ccu context header file
- * Create: 2025-02-18
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #ifndef CCU_REP_CTX_H
@@ -68,6 +72,11 @@ public:
     int32_t AddProfiling(const ChannelHandle *channels, uint32_t channelNum);
     int32_t AddProfiling(const ChannelHandle *channels, uint32_t channelNum, HcommDataType hcommDataType,
         HcommDataType hcommOutputDataType, HcommReduceOp hcommOpType);
+
+    void SetDependencyInfo(uint32_t id, uint32_t mask, const std::shared_ptr<CcuRepBase> &rep);
+    std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>> GetDependencyInfo(uint32_t id);
+    void EraseDependencyInfo(uint32_t id);
+    void ClearDependencyInfo();
 public:
     // CCU Profiling相关数据
     CcuProfilingInfo ccuProfilingInfoCache;
@@ -75,14 +84,27 @@ public:
     LoopGroupProfilingInfo lgProfilingInfo; // LoopGroup相关profiling缓存信息
     std::vector<std::shared_ptr<CcuRepBase>> waitCkeProfilingReps; // waitCKE相关REP缓存
     std::vector<CcuProfilingInfo> profilingInfo; // context全部profiling缓存信息
+    // 需要校验返回值是否为nullptr
+    CcuInsGeneraterBase* GetInsGenerator()
+    {
+        return insGenerator;
+    }
+
+    void SetInsGenerater(CcuInsGeneraterBase* insGeneraterBase)
+    {
+        insGenerator = insGeneraterBase;
+    }
+
 protected:
     std::set<std::string> registeredLoop;
+    CcuInsGeneraterBase* insGenerator{nullptr};
+    std::unordered_map<uint32_t, std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>>> depInfo;
 
 private:
     std::shared_ptr<CcuRep::CcuRepBlock> activeBlock{nullptr};
     std::shared_ptr<CcuRep::CcuRepBlock> mainBlock{nullptr};
 
-    uint32_t             dieId{CCU_MAX_IODIE_NUM};
+    uint32_t             dieId{UINT32_MAX};
     uint32_t             missionId{UINT32_MAX};
     uint32_t             missionKey{0};
 };

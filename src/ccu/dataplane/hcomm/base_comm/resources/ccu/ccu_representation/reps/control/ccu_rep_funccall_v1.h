@@ -1,7 +1,11 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- * Description: ccu representation base header file
- * Create: 2025-02-18
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #ifndef CCU_REPRESENTATION_FUNC_CALL_H
@@ -16,9 +20,9 @@ namespace CcuRep {
 
 class CcuRepFuncCall : public CcuRepBase {
 public:
-    explicit CcuRepFuncCall(const std::string &label);
-    explicit CcuRepFuncCall(const Variable &funcAddrVar);
-    bool               Translate(CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
+    explicit CcuRepFuncCall(CcuInsGeneraterBase* insGenPtr, const std::string &label);
+    explicit CcuRepFuncCall(CcuInsGeneraterBase* insGenPtr, const Variable &funcAddrVar);
+    bool               Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
     std::string        Describe() override;
     uint16_t InstrCount() override;
     const std::string &GetLabel() const;
@@ -33,8 +37,18 @@ public:
 
     int32_t GetCallLayer();
 
+    CcuRepReferenceManager* GetFuncManager() { return funcManager; }
+    std::shared_ptr<CcuRepFuncBlock>& GetFuncBlock() { return funcBlock; }
+    Variable GetFuncAddrVar() { return funcAddrVar; }
+    std::vector<CcuRepArg>& GetInArgs() { return inArgs; }
+    std::vector<CcuRepArg>& GetOutArgs() { return outArgs; }
+    uint32_t GetInArgCount() { return inArgCount; }
+    uint32_t GetOutArgCount() { return outArgCount; }
+    CcuInstr* GetInstr() { return instr; }
+
 private:
-    CcuRepReferenceManager *funcManager{nullptr};
+    CcuInsGeneraterBase*    insGeneratorPtr_;
+    CcuRepReferenceManager* funcManager{nullptr};
 
     std::string                      label;
     std::shared_ptr<CcuRepFuncBlock> funcBlock{nullptr};

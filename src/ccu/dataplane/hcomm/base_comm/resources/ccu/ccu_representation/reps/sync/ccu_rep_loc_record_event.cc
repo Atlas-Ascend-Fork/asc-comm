@@ -1,37 +1,35 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #include "ccu_rep_loc_record_event.h"
-
 #include <climits>
-
-#include "string_util.h"
 #include "exception_util.h"
 #include "ccu_api_exception.h"
+#include "ccu_ins_generater_base.h"
 
 namespace hcomm {
 namespace CcuRep {
 
-CcuRepLocRecordEvent::CcuRepLocRecordEvent(const CompletedEvent &event, uint32_t mask)
-    : event_(event), mask_(mask)
+CcuRepLocRecordEvent::CcuRepLocRecordEvent(CcuInsGeneraterBase* insGenPtr, const CompletedEvent &event, uint32_t mask)
+    : insGenPtr(insGenPtr), event_(event), mask_(mask)
 {
     type       = CcuRepType::LOC_RECORD_EVENT;
-    instrCount = 1;
+    instrCount = insGenPtr->GetInstrCount(type);
 }
 
-bool CcuRepLocRecordEvent::Translate(CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
+bool CcuRepLocRecordEvent::Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
 {
     this->instrId = instrId;
     translated    = true;
 
-    SetCKEInstr(instr++, event_.Id(), mask_, 0, 0, 1);
+    insGenPtr->CcuRepLocRecordEventTranslate(ccuKernel, instr, this);
 
     CHK_PRT_THROW(instrId > USHRT_MAX - instrCount,
         HCCL_ERROR("[CcuRepLocRecordEvent][Translate] instrId[%u] + instrCount[%u] "

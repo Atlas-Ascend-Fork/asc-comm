@@ -1,8 +1,11 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
- * Description: ccu representation implementation file
- * Author: sunzhepeng
- * Create: 2024-06-17
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #include "ccu_rep_v1.h"
@@ -10,24 +13,28 @@
 #include <climits>
 
 #include "string_util.h"
+#include "exception_util.h"
+#include "ccu_api_exception.h"
+#include "ccu_ins_generater_base.h"
+#include "ccu_ins_generater_v1.h"
+#include "ccu_kernel.h"
 
 namespace hcomm {
 namespace CcuRep {
 
-CcuRepSetLoop::CcuRepSetLoop(const Variable &loopParam, const Executor &executor, const Variable &var)
-    : loopParam(loopParam), executor(executor), var(var)
+using namespace Hccl;
+
+CcuRepSetLoop::CcuRepSetLoop(CcuInsGeneraterBase* insGeneratorPtr, const Variable &loopParam, const Executor &executor, const Variable &var)
+    : insGeneratorPtr_(insGeneratorPtr), loopParam(loopParam), executor(executor), var(var)
 {
     type       = CcuRepType::SET_LOOP;
-    instrCount = 2;  // set loop 指令数量为2
+    instrCount = insGeneratorPtr_->GetInstrCount(type);  // set loop 指令数量为2
 }
 
-bool CcuRepSetLoop::Translate(CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
+bool CcuRepSetLoop::Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
 {
     this->instrId = instrId;
     translated    = true;
-
-    LoadImdToXnInstr(instr++, loopParam.Id(), GetLoopParam(executor.Id(), 0, 0));
-    LoadXXInstr(instr++, loopParam.Id(), loopParam.Id(), var.Id());
 
     if (instrId > USHRT_MAX - instrCount) {
         Hccl::THROW<Hccl::InternalException>(Hccl::StringFormat("[CcuRepSetLoop][Translate] instrId[%u] + instrCount[%u] exceeds the "

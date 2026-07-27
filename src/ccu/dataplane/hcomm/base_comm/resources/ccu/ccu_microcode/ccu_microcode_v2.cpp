@@ -1,15 +1,17 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- * Description: ccu instruction implement file
- * Author: sunzhepeng
- * Create: 2025-06-07
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
-
-#include "ccu_microcode_v1.h"
 
 #include <unordered_map>
 
-#include "log.h"
+#include "string_util.h"
+#include "ccu_microcode.h"
 
 namespace {
 constexpr uint16_t LOAD_TYPE = 0x0;
@@ -60,7 +62,7 @@ constexpr uint16_t REDUCE_MAX_CODE = 0x1;
 constexpr uint16_t REDUCE_MIN_CODE = 0x2;
 } // namespace
 
-namespace hcomm {
+namespace Hccl {
 namespace CcuRep {
 namespace CcuV2 {
 // *XnId = *sqeArgsId
@@ -430,4 +432,4 @@ void ReduceMin(CcuInstr *instr, uint16_t *ms, uint16_t count, uint16_t dataType,
 }; // namespace CcuV2
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace Hccl

@@ -1,7 +1,11 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- * Description: ccu representation base header file
- * Create: 2025-02-18
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #ifndef HCOMM_CCU_REPRESENTATION_WRITE_H
@@ -15,10 +19,10 @@ namespace CcuRep {
 
 class CcuRepWrite : public CcuRepBase {
 public:
-    CcuRepWrite(const ChannelHandle channel, RemoteAddr rem, LocalAddr loc, Variable len, CompletedEvent sem, uint16_t mask);
-    CcuRepWrite(const ChannelHandle channel, RemoteAddr rem, LocalAddr loc, Variable len, uint16_t dataType, uint16_t opType,
+    CcuRepWrite(CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem, LocalAddr loc, Variable len, CompletedEvent sem, uint16_t mask);
+    CcuRepWrite(CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem, LocalAddr loc, Variable len, uint16_t dataType, uint16_t opType,
                 CompletedEvent sem, uint16_t mask);
-    bool        Translate(CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
+    bool        Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
     std::string Describe() override;
 
     uint16_t GetLocAddrId() { return loc.addr.Id(); }
@@ -27,10 +31,19 @@ public:
     uint16_t GetRemTokenId() { return rem.token.Id(); }
     uint16_t GetLenId() { return len.Id(); }
     uint16_t GetSemId() { return sem.Id(); }
-    uint32_t GetMask() { return mask; }
     uint32_t GetChannelId() { return channelId; }
+    ChannelHandle GetChannel() { return channel; }
+    LocalAddr GetLoc() { return loc; }
+    RemoteAddr GetRem() { return rem; }
+    Variable GetLen() { return len; }
+    CompletedEvent GetSem() { return sem; }
+    uint16_t GetMask() { return mask; }
+    uint16_t GetDataType() { return dataType; }
+    uint16_t GetOpType() { return opType; }
+    uint16_t GetReduceFlag() { return reduceFlag; }
 
 private:
+    CcuInsGeneraterBase* insGenPtr{nullptr};
     ChannelHandle channel;
     uint32_t channelId{0};
     RemoteAddr   rem;

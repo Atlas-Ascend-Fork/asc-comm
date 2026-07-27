@@ -1,20 +1,26 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
- * Description: ccu representation implementation file
- * Author: sunzhepeng
- * Create: 2024-06-17
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #include "ccu_rep_v1.h"
-
+#include "ccu_ins_generater_base.h"
 #include "string_util.h"
+#include "ccu_kernel.h"
 
 namespace hcomm{
 namespace CcuRep {
 
-CcuRepBlock::CcuRepBlock(const std::string &label) : label(label)
+CcuRepBlock::CcuRepBlock(CcuInsGeneraterBase* insGenPtr, const std::string &label) :
+    insGeneratorPtr_(insGenPtr), label(label)
 {
     type = CcuRepType::BLOCK;
+    instrCount = 0;
 }
 
 std::vector<std::shared_ptr<CcuRepBase>> &CcuRepBlock::GetReps()
@@ -41,13 +47,18 @@ uint16_t CcuRepBlock::InstrCount()
     return instrCount;
 }
 
-bool CcuRepBlock::Translate(CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
+bool CcuRepBlock::Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
 {
     this->instrId = instrId;
     translated    = true;
 
-    for (const auto &repInBlock : GetReps()) {
-        repInBlock->Translate(instr, instrId, dep);
+    constexpr uint16_t numberTwo = 2;  // 暂定repBlock中的rep遍历2次，后续优化
+    for (uint16_t i = 0; i < numberTwo; i++) {
+        for (const auto &repInBlock : GetReps()) {
+            if (!repInBlock->Translated()) {
+                repInBlock->Translate(ccuKernel, instr, instrId, dep);
+            }
+        }
     }
 
     return translated;
