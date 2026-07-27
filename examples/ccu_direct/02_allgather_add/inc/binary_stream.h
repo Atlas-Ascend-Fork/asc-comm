@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #ifndef OPS_HCCL_SERIALIZATION
 #define OPS_HCCL_SERIALIZATION
@@ -22,7 +22,7 @@ class BinaryStream {
 public:
     static constexpr std::ios_base::openmode DEFAULT_IOS_MODE = std::ios_base::in | std::ios_base::out;
 
-    explicit BinaryStream(std::ios_base::openmode mode = DEFAULT_IOS_MODE) : stream(mode | std::ios_base::binary){};
+    explicit BinaryStream(std::ios_base::openmode mode = DEFAULT_IOS_MODE) : stream(mode | std::ios_base::binary) {};
 
     explicit BinaryStream(std::vector<char> &buf, std::ios_base::openmode mode = DEFAULT_IOS_MODE)
         : stream(mode | std::ios_base::binary)
@@ -30,21 +30,19 @@ public:
         stream.rdbuf()->pubsetbuf(buf.data(), buf.size());
     }
 
-    template <typename T>
-    BinaryStream &operator<<(const T &t)
+    template <typename T> BinaryStream &operator<<(const T &t)
     {
         stream.write(reinterpret_cast<const char *>(&t), sizeof(T));
         return *this;
     }
 
     // 多级vector递归序列化
-    template <typename T>
-    BinaryStream &operator<<(const std::vector<T> &vec)
+    template <typename T> BinaryStream &operator<<(const std::vector<T> &vec)
     {
         size_t size = vec.size();
         *this << size;
         for (const auto &elem : vec) {
-           *this << elem;
+            *this << elem;
         }
         return *this;
     }
@@ -53,13 +51,12 @@ public:
     BinaryStream &operator<<(const std::string &s)
     {
         size_t size = s.size();
-        stream.write(reinterpret_cast<const char*>(&size), sizeof(size_t)); // 写入长度
-        stream.write(s.data(), size); // 写入字符数据
+        stream.write(reinterpret_cast<const char *>(&size), sizeof(size_t)); // 写入长度
+        stream.write(s.data(), size);                                        // 写入字符数据
         return *this;
     }
 
-    template <typename T>
-    BinaryStream &operator>>(T &t)
+    template <typename T> BinaryStream &operator>>(T &t)
     {
         stream.read(reinterpret_cast<char *>(&t), sizeof(T));
         return *this;
@@ -69,28 +66,26 @@ public:
     BinaryStream &operator>>(std::string &s)
     {
         size_t size;
-        stream.read(reinterpret_cast<char *>(&size), sizeof(size));       // 先从流中读取字符串长度
-        s.resize(size);       // 为string分配足够空间
-        stream.read(&s[0], size); // 直接读取数据到string的缓冲区中，无需再分配内存
+        stream.read(reinterpret_cast<char *>(&size), sizeof(size)); // 先从流中读取字符串长度
+        s.resize(size);                                             // 为string分配足够空间
+        stream.read(&s[0], size);                                   // 直接读取数据到string的缓冲区中，无需再分配内存
         return *this;
     }
 
     // 多级vector递归反序列化
-    template <typename T>
-    BinaryStream &operator>>(std::vector<T> &vec)
+    template <typename T> BinaryStream &operator>>(std::vector<T> &vec)
     {
         size_t size;
         *this >> size;
         vec.resize(size);
         for (auto &elem : vec) {
-           *this >> elem;
+            *this >> elem;
         }
         return *this;
     }
 
     // map序列化
-    template <typename T1, typename T2>
-    BinaryStream &operator<<(const std::map<T1, T2> &m)
+    template <typename T1, typename T2> BinaryStream &operator<<(const std::map<T1, T2> &m)
     {
         size_t size = m.size();
         *this << size;
@@ -102,8 +97,7 @@ public:
     }
 
     // map反序列化
-    template <typename T1, typename T2>
-    BinaryStream &operator>>(std::map<T1, T2> &m)
+    template <typename T1, typename T2> BinaryStream &operator>>(std::map<T1, T2> &m)
     {
         size_t size;
         *this >> size;
@@ -143,7 +137,8 @@ public:
         return stream.str();
     }
 
-    std::string SplictStream(uint64_t& start, uint64_t& end){
+    std::string SplictStream(uint64_t &start, uint64_t &end)
+    {
         std::string temp = stream.str();
         if (start >= temp.length()) {
             HCCL_ERROR("[SplictStream]start[%lu] is bigger than stream length[%lu]", start, temp.length());
