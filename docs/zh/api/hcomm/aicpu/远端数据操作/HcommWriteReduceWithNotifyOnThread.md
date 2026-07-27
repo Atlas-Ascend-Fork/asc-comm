@@ -41,19 +41,33 @@ int32_t HcommWriteReduceWithNotifyOnThread(ThreadHandle thread, ChannelHandle ch
 | dst | 输出 | 目的内存地址，使用指定channel对端的HCCL通信内存。 |
 | src | 输入 | 源内存地址，使用通信域中本端rank的HCCL通信内存。 |
 | count | 输入 | 元素个数。有效范围由源内存和目的内存的可用长度决定，$count \times \operatorname{sizeof}(dataType)$不得超过两者中较小的可用长度。 |
-| dataType | 输入 | 数据类型。取值范围以对应产品支持的数据类型为准，详细请参见[dataType说明](#dataType说明)。<br>HcommDataType类型的定义请参见[HcommDataType](../公共类型/HcommDataType.md)。|
+| dataType | 输入 | 数据类型。支持的数据类型请参见[数据类型](#section_hcommwritereducewithnotifyonthread_datatype)。<br>HcommDataType类型的定义请参见[HcommDataType](../公共类型/HcommDataType.md)。 |
 | reduceOp | 输入 | 归约操作类型，取值范围：sum、max、min。<br>HcommReduceOp类型的定义请参见[HcommReduceOp](../公共类型/HcommReduceOp.md)。 |
 | remoteNotifyIdx | 输入 | 通信通道另一端的Notify索引。<br>取值范围：[0, notifyNum)。<br>notifyNum为[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口传入的channelDescs参数中的notifyNum。 |
 
-### dataType说明
+### 数据类型<a id="section_hcommwritereducewithnotifyonthread_datatype"></a>
 
 <!-- npu="950" id6 -->
-针对Ascend 950PR/Ascend 950DT，支持的数据类型：int8、int16、int32、uint8、uint16、uint32、float16、float32、bfp16。
+针对Ascend 950PR/Ascend 950DT，`dataType`参数支持的`HcommDataType`枚举值见表2。
+
+表2 数据类型
+
+| `HcommDataType`枚举值 | 数据类型 |
+| --- | --- |
+| `HCOMM_DATA_TYPE_INT8` | int8 |
+| `HCOMM_DATA_TYPE_INT16` | int16 |
+| `HCOMM_DATA_TYPE_INT32` | int32 |
+| `HCOMM_DATA_TYPE_UINT8` | uint8 |
+| `HCOMM_DATA_TYPE_UINT16` | uint16 |
+| `HCOMM_DATA_TYPE_UINT32` | uint32 |
+| `HCOMM_DATA_TYPE_FP16` | float16 |
+| `HCOMM_DATA_TYPE_FP32` | float32 |
+| `HCOMM_DATA_TYPE_BFP16` | bfp16 |
 <!-- end id6 -->
 
 ## 返回值
 
-表2 返回值说明
+表3 返回值说明
 
 | 返回值类型 | 含义 |
 | --- | --- |

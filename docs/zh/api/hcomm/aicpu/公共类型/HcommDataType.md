@@ -31,8 +31,8 @@ typedef enum {
     HCOMM_DATA_TYPE_INT8 = 0,      /* int8 */
     HCOMM_DATA_TYPE_INT16 = 1,     /* int16 */
     HCOMM_DATA_TYPE_INT32 = 2,     /* int32 */
-    HCOMM_DATA_TYPE_FP16 = 3,      /* fp16 */
-    HCOMM_DATA_TYPE_FP32 = 4,      /* fp32 */
+    HCOMM_DATA_TYPE_FP16 = 3,      /* float16 */
+    HCOMM_DATA_TYPE_FP32 = 4,      /* float32 */
     HCOMM_DATA_TYPE_INT64 = 5,     /* int64 */
     HCOMM_DATA_TYPE_UINT64 = 6,    /* uint64 */
     HCOMM_DATA_TYPE_UINT8 = 7,     /* uint8 */

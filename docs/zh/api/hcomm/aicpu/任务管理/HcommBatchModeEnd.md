@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-该接口用于提交并触发批量模式下缓存的所有操作的执行。所有在HcommBatchModeStart和HcommBatchModeEnd之间的数据面接口调用操作将在此时统一执行。
+该接口用于结束由[HcommBatchModeStart](HcommBatchModeStart.md)开启的批量模式。调用该接口时，将统一提交并触发自[HcommBatchModeStart](HcommBatchModeStart.md)调用后暂存的数据面操作。
 
 ## 函数原型
 
@@ -36,7 +36,7 @@ int32_t HcommBatchModeEnd(const char *batchTag)
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| batchTag | 输入 | 批量任务标识符，需要与HcommBatchModeStart中传入的batchTag保持一致。 |
+| batchTag | 输入 | 批量任务标识符，需要与[HcommBatchModeStart](HcommBatchModeStart.md)中传入的batchTag保持一致。 |
 
 ## 返回值
 
@@ -48,7 +48,7 @@ int32_t HcommBatchModeEnd(const char *batchTag)
 
 ## 约束说明
 
-- HcommBatchModeStart和HcommBatchModeEnd必须成对调用，且需要在同一线程中执行。
+- 本接口必须与[HcommBatchModeStart](HcommBatchModeStart.md)成对调用，且需要在同一线程中执行。
 
 <!-- npu="950" id6 -->
 - 仅Ascend 950PR/Ascend 950DT支持批量模式和立即执行模式（不调用批量接口），其他产品必须使用批量模式。

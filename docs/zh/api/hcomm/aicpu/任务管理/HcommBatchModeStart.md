@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-该接口用于开启批量模式，在HcommBatchModeStart和HcommBatchModeEnd之间的所有数据面接口调用（如HcommLocalCopy、HcommWrite等）将被缓存，不会立即执行。所有操作将在调用HcommBatchModeEnd时统一提交并执行。
+该接口用于开启批量模式。调用该接口后、调用[HcommBatchModeEnd](HcommBatchModeEnd.md)前发起的数据面接口调用（如[HcommLocalCopyOnThread](../本地数据操作/HcommLocalCopyOnThread.md)、[HcommWriteOnThread](../远端数据操作/HcommWriteOnThread.md)）将被暂存，不会立即提交执行。调用[HcommBatchModeEnd](HcommBatchModeEnd.md)时，这些操作将作为一个批次统一提交并触发执行。
 
 ## 函数原型
 
@@ -36,7 +36,7 @@ int32_t HcommBatchModeStart(const char *batchTag)
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| batchTag | 输入 | 批量任务标识符（可选）。若传入NULL或空字符串，表示该任务为临时批量任务，执行后不会被缓存；若传入非空字符串，则用于后续批量任务的标识与管理。<br>需要注意，在通信引擎为AI CPU+TS的场景下，当前暂未完全支持基于非空标识符的任务缓存管理功能。 |
+| batchTag | 输入 | 批量任务标识符（可选）：<br>&nbsp;&nbsp;&bull; NULL或空字符串：表示该任务为临时批量任务，执行后不会被缓存；<br>&nbsp;&nbsp;&bull; 非空字符串：用于后续批量任务的标识与管理。<br>需要注意，在通信引擎为AI CPU+TS的场景下，当前暂未完全支持基于非空标识符的任务缓存管理功能。 |
 
 ## 返回值
 
@@ -48,8 +48,8 @@ int32_t HcommBatchModeStart(const char *batchTag)
 
 ## 约束说明
 
-- HcommBatchModeStart和HcommBatchModeEnd必须成对调用，且需在同一线程中执行。
-- 批量模式下缓存的操作需在HcommBatchModeEnd调用后才会实际执行。
+- 本接口和[HcommBatchModeEnd](HcommBatchModeEnd.md)必须成对调用，且需在同一线程中执行。
+- 批量模式下暂存的操作需在调用[HcommBatchModeEnd](HcommBatchModeEnd.md)后才会提交执行。
 - 仅Ascend 950PR/Ascend 950DT支持批量模式和立即执行模式（不调用批量接口），其他产品必须使用批量模式。
 
 ## 调用示例

@@ -62,8 +62,8 @@ int32_t HcommLocalReduceOnThread(ThreadHandle thread, void *dst, const void *src
 | `HCOMM_DATA_TYPE_INT8` | int8 |
 | `HCOMM_DATA_TYPE_INT16` | int16 |
 | `HCOMM_DATA_TYPE_INT32` | int32 |
-| `HCOMM_DATA_TYPE_FP16` | fp16 |
-| `HCOMM_DATA_TYPE_FP32` | fp32 |
+| `HCOMM_DATA_TYPE_FP16` | float16 |
+| `HCOMM_DATA_TYPE_FP32` | float32 |
 | `HCOMM_DATA_TYPE_BFP16` | bfp16 |
 
 ## 返回值
