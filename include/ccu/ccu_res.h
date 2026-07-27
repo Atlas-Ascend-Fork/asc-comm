@@ -7,15 +7,112 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
- 
+
 #ifndef CCU_RES_H
 #define CCU_RES_H
 
+#include "ccu_res_defs.h"
 #include "ccu_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
+
+/**
+ * @brief 创建空白 CCU 资源描述符。
+ * @param[in] dieId CCU 资源描述符归属的 ioDie ID。
+ * @param[out] resDesc 创建成功后返回的资源描述符句柄，不可为 nullptr。
+ * @return CcuResult。
+ */
+extern CcuResult HcommCcuInsResDescCreate(uint32_t dieId, HcommCcuResDescHandle *resDesc);
+
+/**
+ * @brief 销毁 CCU 资源描述符。
+ * @param[in] resDesc 资源描述符句柄。
+ * @return CcuResult。
+ */
+extern CcuResult HcommCcuInsResDescDestroy(HcommCcuResDescHandle resDesc);
+
+/**
+ * @brief 查询 CCU 资源描述符归属的 ioDie ID。
+ * @param[in] resDesc 资源描述符句柄。
+ * @param[out] dieId 查询成功后返回 ioDie ID，不可为 nullptr。
+ * @return CcuResult。
+ */
+extern CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle resDesc, uint32_t *dieId);
+
+/**
+ * @brief 设置指定 CCU 资源描述符内指定资源类型的资源数量。
+ * @param[in] resDesc 资源描述符句柄。
+ * @param[in] resType 资源类型。
+ * @param[in] resNum 资源数量。
+ * @return CcuResult。
+ */
+extern CcuResult HcommCcuInsResDescSetNum(
+    HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t resNum);
+
+/**
+ * @brief 查询指定 CCU 资源描述符内指定资源类型的资源数量。
+ * @param[in] resDesc 资源描述符句柄。
+ * @param[in] resType 资源类型。
+ * @param[out] resNum 查询成功后返回资源数量，不可为 nullptr。
+ * @return CcuResult。
+ */
+extern CcuResult HcommCcuInsResDescQueryNum(
+    HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t *resNum);
+
+/**
+ * @brief 基于资源描述符创建 CCU 实例。
+ * @param[in] resDescs 资源描述符句柄数组。
+ * @param[in] resDescNum 资源描述符数量。
+ * @param[out] ccuInsHandle 创建成功后返回的 CCU 实例句柄，不可为 nullptr。
+ * @return CcuResult。
+ */
+extern CcuResult HcommCcuInsCreate(
+    const HcommCcuResDescHandle *resDescs, uint32_t resDescNum, CcuInsHandle *ccuInsHandle);
+
+/**
+ * @brief 使用指定 ioDie 上的默认资源创建 CCU 实例。
+ * @param[in] dieIds ioDie ID 数组。
+ * @param[in] dieNum ioDie 数量。
+ * @param[out] ccuInsHandle 创建成功后返回的 CCU 实例句柄，不可为 nullptr。
+ * @return CcuResult。
+ */
+extern CcuResult HcommCcuInsCreateDefault(
+    const uint32_t *dieIds, uint32_t dieNum, CcuInsHandle *ccuInsHandle);
+
+/**
+ * @brief 销毁 CCU 实例。
+ * @param[in] ccuInsHandle CCU 实例句柄。
+ * @return CcuResult。
+ */
+extern CcuResult HcommCcuInsDestroy(CcuInsHandle ccuInsHandle);
+
+/**
+ * @brief 查询 CCU 实例在资源描述符所属 ioDie 上占用的资源。
+ * @param[in] ccuInsHandle CCU 实例句柄。
+ * @param[in,out] resDesc 调用方基于待查询 ioDie 创建的资源描述符句柄，查询成功后写入该 ioDie 上的占用资源数量。
+ * @return CcuResult。
+ */
+extern CcuResult HcommCcuInsQueryResDesc(CcuInsHandle ccuInsHandle, HcommCcuResDescHandle resDesc);
+
+/**
+ * @brief 查询资源描述符所属 ioDie 上的剩余 CCU 资源。
+ * @param[in,out] resDesc 调用方基于待查询 ioDie 创建的资源描述符句柄，查询成功后写入该 ioDie 上的剩余资源数量。
+ * @return CcuResult。
+ */
+extern CcuResult HcommCcuQueryRemainResDesc(HcommCcuResDescHandle resDesc);
+
+/**
+ * @brief 查询 CCU Kernel 的资源诉求。
+ * @param[in] kernelFunc CCU Kernel 函数指针，不可为 nullptr。
+ * @param[in] kernelArgs CCU Kernel 参数数组；argNum 为 0 时可为 nullptr。
+ * @param[in] argNum CCU Kernel 参数数量。
+ * @param[in,out] resDesc 调用方创建的资源描述符句柄，查询成功后写入资源诉求。
+ * @return CcuResult。
+ */
+extern CcuResult HcommCcuKernelQueryResReq(
+    const void *kernelFunc, const void **kernelArgs, uint32_t argNum, HcommCcuResDescHandle resDesc);
 
 /**
  * @brief 查询/计算一段本端内存区域的 CCU 访问 token，供 host 端组装 LocalAddr/RemoteAddr 使用。
