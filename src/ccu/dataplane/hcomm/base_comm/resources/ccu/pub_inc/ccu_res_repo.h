@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #ifndef CCU_RES_REPO_H
 #define CCU_RES_REPO_H
@@ -25,7 +25,7 @@ namespace hcomm {
  * FUSION_MULTIPLE_DIE missionid连续，跨die的missionid相同
  * FUSION_ONE_DIE missionid连续，单die
  * NO_FUSION_ONE_DIE missionid不要求连续，单die
-*/
+ */
 enum class MissionReqType {
     COMM_ENGINE_RESERVED = -1,
     FUSION_MULTIPLE_DIE = 0,
@@ -35,12 +35,13 @@ enum class MissionReqType {
 
 class ResInfo {
 public:
-    ResInfo(): startId(0), num(0){};
-    ResInfo(uint32_t startId, uint32_t num) : startId(startId), num(num){};
+    ResInfo() : startId(0), num(0) {};
+    ResInfo(uint32_t startId, uint32_t num) : startId(startId), num(num) {};
     uint32_t startId{0};
     uint32_t num{0};
 
-    std::string Describe() const {
+    std::string Describe() const
+    {
         std::ostringstream oss;
         oss << "ResInfo[startId=" << startId << ", num=" << num << "]";
         return oss.str();
