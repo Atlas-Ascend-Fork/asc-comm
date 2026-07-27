@@ -1,5 +1,5 @@
 ﻿/**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -23,20 +23,20 @@
 
 using namespace ops_hccl_rs;
 
-#define ACLCHECK(ret)                                                                          \
-    do {                                                                                       \
-        if (ret != ACL_SUCCESS) {                                                              \
+#define ACLCHECK(ret) \
+    do { \
+        if (ret != ACL_SUCCESS) { \
             printf("acl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
-            return ret;                                                                        \
-        }                                                                                      \
+            return ret; \
+        } \
     } while (0)
 
-#define HCCLCHECK(ret)                                                                          \
-    do {                                                                                        \
-        if (ret != HCCL_SUCCESS) {                                                              \
+#define HCCLCHECK(ret) \
+    do { \
+        if (ret != HCCL_SUCCESS) { \
             printf("hccl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
-            return ret;                                                                         \
-        }                                                                                       \
+            return ret; \
+        } \
     } while (0)
 
 struct ThreadContext {
@@ -45,9 +45,8 @@ struct ThreadContext {
     uint32_t devCount;
 };
 
-static HcclResult HcclReduceScatterCustom(void *sendBuf, void *recvBuf, uint64_t recvCount,
-                                         HcclDataType dataType, HcclReduceOp reduceOp,
-                                         HcclComm comm, aclrtStream stream)
+static HcclResult HcclReduceScatterCustom(void *sendBuf, void *recvBuf, uint64_t recvCount, HcclDataType dataType,
+    HcclReduceOp reduceOp, HcclComm comm, aclrtStream stream)
 {
     if (sendBuf == nullptr || recvBuf == nullptr || comm == nullptr || stream == nullptr) {
         return HCCL_E_PTR;
@@ -121,8 +120,8 @@ int Sample(void *arg)
     ACLCHECK(aclrtFreeHost(hostBuf));
 
     // 输入按 rank 分段，rank r 接收所有 rank 输入中第 r 段的逐元素和。
-    HCCLCHECK(HcclReduceScatterCustom(sendBuf, recvBuf, recvCount, HCCL_DATA_TYPE_FP32,
-                                     HCCL_REDUCE_SUM, hcclComm, stream));
+    HCCLCHECK(
+        HcclReduceScatterCustom(sendBuf, recvBuf, recvCount, HCCL_DATA_TYPE_FP32, HCCL_REDUCE_SUM, hcclComm, stream));
     // 等待 stream 中任务执行完成
     ACLCHECK(aclrtSynchronizeStream(stream));
 
@@ -136,8 +135,8 @@ int Sample(void *arg)
     std::cout << "rankId: " << ctx->device << ", output: [";
     for (uint32_t i = 0; i < recvCount; ++i) {
         std::cout << " " << tmpResBuff[i];
-        float expected = static_cast<float>(100 * ctx->devCount * (ctx->devCount - 1) / 2 +
-                                            ctx->devCount * (ctx->device * recvCount + i));
+        float expected = static_cast<float>(
+            100 * ctx->devCount * (ctx->devCount - 1) / 2 + ctx->devCount * (ctx->device * recvCount + i));
         passed = passed && (tmpResBuff[i] == expected);
     }
     std::cout << " ]" << std::endl;
@@ -145,15 +144,15 @@ int Sample(void *arg)
     ACLCHECK(aclrtFreeHost(resultBuff));
 
     // 释放资源
-    HCCLCHECK(HcclCommDestroy(hcclComm));  // 销毁通信域
+    HCCLCHECK(HcclCommDestroy(hcclComm)); // 销毁通信域
     if (sendBuf) {
-        ACLCHECK(aclrtFree(sendBuf));      // 释放 Device 侧输入内存
+        ACLCHECK(aclrtFree(sendBuf)); // 释放 Device 侧输入内存
     }
     if (recvBuf) {
-        ACLCHECK(aclrtFree(recvBuf));      // 释放 Device 侧输出内存
+        ACLCHECK(aclrtFree(recvBuf)); // 释放 Device 侧输出内存
     }
-    ACLCHECK(aclrtDestroyStream(stream));  // 销毁任务流
-    ACLCHECK(aclrtResetDevice(device));    // 重置 device
+    ACLCHECK(aclrtDestroyStream(stream)); // 销毁任务流
+    ACLCHECK(aclrtResetDevice(device));   // 重置 device
     return passed ? 0 : 1;
 }
 
@@ -191,8 +190,8 @@ int main()
     }
 
     // 释放资源
-    ACLCHECK(aclrtFreeHost(rootInfoBuf));  // 释放 Host 内存
-    ACLCHECK(aclFinalize());               // ACL 去初始化
+    ACLCHECK(aclrtFreeHost(rootInfoBuf)); // 释放 Host 内存
+    ACLCHECK(aclFinalize());              // ACL 去初始化
     for (int result : results) {
         if (result != 0) {
             return 1;

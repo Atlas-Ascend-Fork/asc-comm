@@ -1,17 +1,17 @@
 /**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #include "adapter_hccp.h"
 #include "ccu_primitives.hpp"
 #include "ccu_types.h"
-#include "ccu_log.h" 
+#include "ccu_log.h"
 #include <vector>
 
 namespace ccu = ::AscendC::ccu;
@@ -22,10 +22,11 @@ struct CcuVarAddKernelArg {
     ChannelHandle channelHandle{0};
 };
 
-void test_method(std::vector<ccu::RemoteAddr> &loopsrc){
+void test_method(std::vector<ccu::RemoteAddr> &loopsrc)
+{
     for (int i = 0; i < 1; i++) {
         ccu::LocalAddr localAddr1;
-        loopsrc.emplace_back(*reinterpret_cast<ccu::RemoteAddr*>(&localAddr1));
+        loopsrc.emplace_back(*reinterpret_cast<ccu::RemoteAddr *>(&localAddr1));
     }
 }
 CcuResult CcuAssignDemoKernel(CcuKernelArg arg)
@@ -43,17 +44,21 @@ CcuResult CcuAssignDemoKernel(CcuKernelArg arg)
 CcuResult CcuAllocDemoKernel(CcuKernelArg arg)
 {
     auto *args = static_cast<CcuVarAddKernelArg *>(arg);
-    ccu::Variable varA, varB, result;
-    varA  = 1024;
+    ccu::Variable varA;
+    ccu::Variable varB;
+    ccu::Variable result;
+    varA = 1024;
     varB = 2048;
-    result=varA + varB;
-    ccu::LoadArg(varA,0);
-    ccu::LoadArg(varB,1);
+    result = varA + varB;
+    ccu::LoadArg(varA, 0);
+    ccu::LoadArg(varB, 1);
 
-    ccu::Variable varC = ccu::GetResByChannel<ccu::Variable>(args->channelHandle, 0);
+    ccu::Variable varC = ccu::GetResByChannel<ccu::Variable>(args->channelHandle; ccu::Variable 0);
     varA = varC;
 
-    ccu::Address addrA, addrB, addrResult;
+    ccu::Address addrA;
+    ccu::Address addrB;
+    ccu::Address addrResult;
     addrA = 0x80000000;
     addrB = 0x90000000;
     addrResult = addrA + addrB;
@@ -95,20 +100,23 @@ CcuResult CcuRemoteAddrDemoKernel(CcuKernelArg arg)
 CcuResult CcuLoadStoreDemoKernel(CcuKernelArg arg)
 {
     auto *args = static_cast<CcuVarAddKernelArg *>(arg);
-    ccu::Variable varA, varB, result;
-    ccu::Variable srcAddr, dstAddr;
-    srcAddr= 0x30000000;
-    dstAddr= 0x40000000;
+    ccu::Variable varA;
+    ccu::Variable varB;
+    ccu::Variable result;
+    ccu::Variable srcAddr;
+    ccu::Variable dstAddr;
+    srcAddr = 0x30000000;
+    dstAddr = 0x40000000;
     ccu::Load(0x10000000, varA);
     ccu::Store(0x20000000, varB);
     ccu::Load(srcAddr, varA);
     ccu::Store(dstAddr, varB);
     ccu::Array<ccu::Variable> varArr(2);
     ccu::Array<ccu::Variable> varArr2(2);
-    ccu::Load(0x10000000, varArr,2);
-    ccu::Store(0x20000000, varArr2,2);
-    ccu::Load(srcAddr, varArr,2);
-    ccu::Store(dstAddr, varArr2,2);
+    ccu::Load(0x10000000, varArr, 2);
+    ccu::Store(0x20000000, varArr2, 2);
+    ccu::Load(srcAddr, varArr, 2);
+    ccu::Store(dstAddr, varArr2, 2);
     return CcuResult::CCU_SUCCESS;
 }
 CcuResult CcuNotifyDemoKernel(CcuKernelArg arg)
@@ -147,7 +155,8 @@ CcuResult CcuLocalNotifyDemoKernel(CcuKernelArg arg)
 CcuResult CcuLocalCopyKernel(CcuKernelArg arg)
 {
     auto *args = static_cast<CcuVarAddKernelArg *>(arg);
-    ccu::LocalAddr src, dst;
+    ccu::LocalAddr src;
+    ccu::LocalAddr dst;
     src.addr = 0x10000000;
     src.token = 0x20000000;
     dst.addr = 0x30000000;
@@ -167,7 +176,8 @@ CcuResult CcuLocalCopyKernel(CcuKernelArg arg)
 CcuResult CcuLocalReduceKernel(CcuKernelArg arg)
 {
     auto *args = static_cast<CcuVarAddKernelArg *>(arg);
-    ccu::LocalAddr src, dst;
+    ccu::LocalAddr src;
+    ccu::LocalAddr dst;
     src.addr = 0x10000000;
     src.token = 0x20000000;
     dst.addr = 0x30000000;
