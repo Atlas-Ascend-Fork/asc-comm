@@ -40,7 +40,7 @@ typedef struct {
 
 extern CcuResult HcommCcuHostKernelLaunch(const void *kernelFunc,
     const HcommCcuHostKernelLaunchCfg *cfg,
-    const HcommCcuHostKernelArgs *args) HCOMM_WEAK_SYMBOL;
+    const HcommCcuHostKernelArgs *args);
 
 #ifdef __cplusplus
 }
