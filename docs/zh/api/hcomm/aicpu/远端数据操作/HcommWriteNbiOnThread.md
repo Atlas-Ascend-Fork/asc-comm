@@ -11,11 +11,11 @@
 <!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
+<!-- npu="310p" id4 -->
 - Atlas 推理系列产品：不支持
+<!-- end id4 -->
+<!-- npu="910" id5 -->
+- Atlas 训练系列产品：不支持
 <!-- end id5 -->
 
 ## 功能说明
@@ -24,23 +24,29 @@
 
 ## 函数原型
 
-```c
+```cpp
 int32_t HcommWriteNbiOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
 ```
 
 ## 参数说明
 
-| 参数名 | 输入/输出 | 描述 |
+表 1  参数说明
+
+| 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，当前无作用，传入0 即可。 |
-| channel | 输入 | 通信通道句柄，为通过[HcommChannelCreate](../../../control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。关于channel的约束参见约束说明。<br>ChannelHandle类型的定义可参见[ChannelHandle](../../../datatype_definition/ChannelHandle.md)。 |
+| thread | 输入 | 通信线程句柄，当前无作用，传入0即可。 |
+| channel | 输入 | 通信通道句柄，为通过[HcommChannelCreate](../../../control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。关于channel的约束参见约束说明。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 | dst | 输出 | 目的内存地址。基础通信场景下，写发起端应使用通过[HcommMemImport](../../../control_plane_api/basic_resource_mgmt/HcommMemImport.md)导入的对端内存地址；集合通信场景下，为使用[HcclChannelGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的对端通信内存地址。 |
 | src | 输入 | 源内存地址。基础通信场景下，为通过[HcommMemReg](../../../control_plane_api/basic_resource_mgmt/HcommMemReg.md)注册的本端内存地址；集合通信场景下，为使用[HcclGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclGetHcclBuffer.md)、[HcclChannelGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的本端内存地址。 |
 | len | 输入 | 数据长度（字节），需大于0。 |
 
 ## 返回值
 
-int32_t：接口成功返回0，其他失败。
+表 2  返回值说明
+
+| 返回值类型 | 含义 |
+| --- | --- |
+| `int32_t` | 接口成功返回0，其他值表示失败。 |
 
 ## 约束说明
 
@@ -49,16 +55,16 @@ int32_t：接口成功返回0，其他失败。
 <!-- end id6 -->
 - Host CPU侧调用时，`thread`参数无作用，可传入0。
 - `[src, src + len)`必须落在本端已注册或获取的内存范围内，`[dst, dst + len)`必须落在对端已导入或获取的内存范围内。
-- 该接口返回成功仅表示写请求提交成功。如需确认写操作完成，调用方应调用[HcommChannelFenceOnThread](HcommChannelFenceOnThread.md)等待通道上已提交的写操作完成。
+- 该接口返回成功仅表示写请求提交成功。如需确认写操作完成，调用方应调用[HcommChannelFenceOnThread](../同步控制/HcommChannelFenceOnThread.md)等待通道上已提交的写操作完成。
 
 ## 调用示例
 
 ### 集合通信示例
 
-```c
-// 省略：创建通信域句柄comm
+```cpp
+// 省略：创建通信域句柄comm。
 
-// 申请通信通道资源
+// 申请通信通道资源。
 CommEngine engine = CommEngine::COMM_ENGINE_CPU;
 uint32_t channelNum = 1;
 HcclChannelDesc channelDesc;
@@ -66,25 +72,25 @@ HcclResult result = HcclChannelDescInit(&channelDesc, channelNum);
 channelDesc.channelProtocol = COMM_PROTOCOL_ROCE;
 channelDesc.localEndpoint.protocol = COMM_PROTOCOL_ROCE;
 channelDesc.remoteEndpoint.protocol = COMM_PROTOCOL_ROCE;
-// 省略：channelDesc填充其他信息
+// 省略：channelDesc填充其他信息。
 ChannelHandle channel;
 result = HcclChannelAcquire(comm, engine, &channelDesc, channelNum, &channel);
 
-// 获取本端通信内存信息
+// 获取本端通信内存信息。
 void * localBuffer;
 uint64_t localBufferSize;
 result = HcclGetHcclBuffer(comm, &localBuffer, &localBufferSize);
 
-// 获取对端通信内存信息
+// 获取对端通信内存信息。
 void * remoteBuffer;
 uint64_t remoteBufferSize;
 result = HcclChannelGetHcclBuffer(comm, channel, &remoteBuffer, &remoteBufferSize);
 uint64_t len = std::min(localBufferSize, remoteBufferSize);
 
-// 将本端内存的内容写到对端内存上
+// 将本端内存的内容写到对端内存上。
 int32_t ret = HcommWriteNbiOnThread(0, channel, remoteBuffer, localBuffer, len);
 
-// 等待通信通道上已提交的写操作完成
+// 等待通信通道上已提交的写操作完成。
 ret = HcommChannelFenceOnThread(0, channel);
 ```
 
@@ -95,8 +101,8 @@ Client端为写发起端，提供Host源内存；Server端为写入目标端，�
 
 #### Server端
 
-```c
-// 申请Server端Endpoint资源
+```cpp
+// 申请Server端Endpoint资源。
 const EndpointDesc serverEndpointDesc = {
     .protocol = COMM_PROTOCOL_ROCE,
     .commAddr = {
@@ -111,7 +117,7 @@ const EndpointDesc serverEndpointDesc = {
 EndpointHandle serverEndpointHandle = nullptr;
 HcommResult result = HcommEndpointCreate(&serverEndpointDesc, &serverEndpointHandle);
 
-// 注册Server端内存
+// 注册Server端内存。
 CommMem serverDeviceMem = {
     .type = COMM_MEM_TYPE_DEVICE,
     .addr = serverDeviceAddr,
@@ -120,16 +126,16 @@ CommMem serverDeviceMem = {
 HcommMemHandle serverMemHandle = nullptr;
 result = HcommMemReg(serverEndpointHandle, "server_device_mem", &serverDeviceMem, &serverMemHandle);
 
-// 导出Server端内存描述
+// 导出Server端内存描述。
 void *serverMemDesc = nullptr;
 uint32_t serverMemDescLen = 0;
 result = HcommMemExport(serverEndpointHandle, serverMemHandle, &serverMemDesc, &serverMemDescLen);
 
 // 省略：
-// Server端将serverEndpointDesc、serverMemDesc、serverMemDescLen发送给Client端
-// Server端获取clientEndpointDesc
+// Server端将serverEndpointDesc、serverMemDesc、serverMemDescLen发送给Client端。
+// Server端获取clientEndpointDesc。
 
-// 申请Server端通信通道资源
+// 申请Server端通信通道资源。
 HcommChannelDesc serverChannelDesc = {};
 result = HcommChannelDescInit(&serverChannelDesc, 1);
 serverChannelDesc.remoteEndpoint = clientEndpointDesc;
@@ -143,8 +149,8 @@ result = HcommChannelCreate(serverEndpointHandle, COMM_ENGINE_CPU, &serverChanne
 
 #### Client端
 
-```c
-// 申请Client端Endpoint资源
+```cpp
+// 申请Client端Endpoint资源。
 const EndpointDesc clientEndpointDesc = {
     .protocol = COMM_PROTOCOL_ROCE,
     .commAddr = {
@@ -159,7 +165,7 @@ const EndpointDesc clientEndpointDesc = {
 EndpointHandle clientEndpointHandle = nullptr;
 result = HcommEndpointCreate(&clientEndpointDesc, &clientEndpointHandle);
 
-// 注册Client端内存
+// 注册Client端内存。
 CommMem clientHostMem = {
     .type = COMM_MEM_TYPE_HOST,
     .addr = clientHostAddr,
@@ -169,14 +175,14 @@ HcommMemHandle clientMemHandle = nullptr;
 result = HcommMemReg(clientEndpointHandle, "client_host_mem", &clientHostMem, &clientMemHandle);
 
 // 省略：
-// Client端将clientEndpointDesc发送给Server端
-// Client端获取serverEndpointDesc、serverMemDesc、serverMemDescLen
+// Client端将clientEndpointDesc发送给Server端。
+// Client端获取serverEndpointDesc、serverMemDesc、serverMemDescLen。
 
-// 导入Server端内存描述
+// 导入Server端内存描述。
 CommMem importedServerDeviceMem = {};
 result = HcommMemImport(clientEndpointHandle, serverMemDesc, serverMemDescLen, &importedServerDeviceMem);
 
-// 申请Client端通信通道资源
+// 申请Client端通信通道资源。
 HcommChannelDesc clientChannelDesc = {};
 result = HcommChannelDescInit(&clientChannelDesc, 1);
 clientChannelDesc.remoteEndpoint = serverEndpointDesc;
@@ -187,9 +193,11 @@ clientChannelDesc.roceAttr.queueNum = 1;
 ChannelHandle clientChannel = 0;
 result = HcommChannelCreate(clientEndpointHandle, COMM_ENGINE_CPU, &clientChannelDesc, 1, &clientChannel);
 
-// 将Client端内存写入Server端内存
+// 将Client端内存写入Server端内存。
 int32_t ret = HcommWriteNbiOnThread(0, clientChannel, importedServerDeviceMem.addr, clientHostMem.addr, dataLen);
 
-// 等待通信通道上已提交的写操作完成
+// 等待通信通道上已提交的写操作完成。
 ret = HcommChannelFenceOnThread(0, clientChannel);
 ```
+
+示例中目标接口返回0表示调用成功，返回其他值表示调用失败。

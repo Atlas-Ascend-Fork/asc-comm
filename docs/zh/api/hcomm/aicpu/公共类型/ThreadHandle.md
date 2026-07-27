@@ -6,6 +6,6 @@
 
 ## 定义原型
 
-```c
+```cpp
 typedef uint64_t ThreadHandle;
 ```

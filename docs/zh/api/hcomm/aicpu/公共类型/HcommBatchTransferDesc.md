@@ -6,7 +6,7 @@
 
 ## 定义原型
 
-```c
+```cpp
 typedef struct {
     HcommTransferType transType;    /* 传输类型，参见HcommTransferType */
     uint8_t reserved[4];            /* 保留字段 */

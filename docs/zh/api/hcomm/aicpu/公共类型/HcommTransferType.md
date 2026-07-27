@@ -6,7 +6,7 @@
 
 ## 定义原型
 
-```c
+```cpp
 typedef enum {
     HCOMM_TRANSFER_TYPE_INVALID = -1,                       /* 无效传输类型 */
     HCOMM_TRANSFER_TYPE_WRITE = 0,                          /* 单边写，对应transferInfo.write */

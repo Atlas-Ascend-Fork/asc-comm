@@ -11,11 +11,11 @@
 <!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
+<!-- npu="310p" id4 -->
 - Atlas 推理系列产品：不支持
+<!-- end id4 -->
+<!-- npu="910" id5 -->
+- Atlas 训练系列产品：不支持
 <!-- end id5 -->
 
 ## 功能说明
@@ -24,16 +24,18 @@
 
 ## 函数原型
 
-```c
+```cpp
 int32_t HcommWriteWithNotifyNbi(ChannelHandle channel, void *dst, const void *src, uint64_t len,
     uint32_t remoteNotifyIdx)
 ```
 
 ## 参数说明
 
-| 参数名 | 输入/输出 | 描述 |
+表 1  参数说明
+
+| 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| channel | 输入 | 通信通道句柄，为通过[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。关于channel的约束参见约束说明。<br>ChannelHandle类型的定义可参见[ChannelHandle](../../../datatype_definition/ChannelHandle.md)。 |
+| channel | 输入 | 通信通道句柄，为通过[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。关于channel的约束参见约束说明。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 | dst | 输出 | 目的内存地址，使用[HcclGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclGetHcclBuffer.md)、[HcclChannelGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的对端内存地址。 |
 | src | 输入 | 源内存地址，使用[HcclGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclGetHcclBuffer.md)、[HcclChannelGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的本端内存地址。 |
 | len | 输入 | 数据长度（字节），需大于0。 |
@@ -41,7 +43,11 @@ int32_t HcommWriteWithNotifyNbi(ChannelHandle channel, void *dst, const void *sr
 
 ## 返回值
 
-int32_t：接口成功返回0，其他失败。
+表 2  返回值说明
+
+| 返回值类型 | 含义 |
+| --- | --- |
+| `int32_t` | 接口成功返回0，其他值表示失败。 |
 
 ## 约束说明
 
@@ -51,15 +57,15 @@ int32_t：接口成功返回0，其他失败。
 <!-- end id6 -->
 - `[src, src + len)`必须落在本端已注册或获取的内存范围内，`[dst, dst + len)`必须落在对端已导入或获取的内存范围内。
 - `remoteNotifyIdx`必须小于通信通道另一端的Notify数量，且通信通道创建时的`notifyNum`需大于0。
-- 写入目标端应调用[HcommChannelNotifyWait](HcommChannelNotifyWait.md)等待同步信号。
-- 该接口返回成功仅表示带通知写请求提交成功。如需确认本端通道上已提交的写操作完成，请调用[HcommChannelFence](HcommChannelFence.md)。
+- 写入目标端应调用[HcommChannelNotifyWait](../同步控制/HcommChannelNotifyWait.md)等待同步信号。
+- 该接口返回成功仅表示带通知写请求提交成功。如需确认本端通道上已提交的写操作完成，请调用[HcommChannelFence](../同步控制/HcommChannelFence.md)。
 
 ## 调用示例
 
-```c
-// 省略：创建通信域句柄comm
+```cpp
+// 省略：创建通信域句柄comm。
 
-// 申请通信通道资源
+// 申请通信通道资源。
 CommEngine engine = CommEngine::COMM_ENGINE_CPU;
 uint32_t channelNum = 1;
 HcclChannelDesc channelDesc;
@@ -68,36 +74,38 @@ channelDesc.channelProtocol = COMM_PROTOCOL_ROCE;
 channelDesc.localEndpoint.protocol = COMM_PROTOCOL_ROCE;
 channelDesc.remoteEndpoint.protocol = COMM_PROTOCOL_ROCE;
 channelDesc.notifyNum = 1;
-// 省略：channelDesc填充其他信息
+// 省略：channelDesc填充其他信息。
 ChannelHandle channel;
 result = HcclChannelAcquire(comm, engine, &channelDesc, channelNum, &channel);
 
-// 获取本端通信内存信息
+// 获取本端通信内存信息。
 void * localBuffer;
 uint64_t localBufferSize;
 result = HcclGetHcclBuffer(comm, &localBuffer, &localBufferSize);
 
-// 获取对端通信内存信息
+// 获取对端通信内存信息。
 void * remoteBuffer;
 uint64_t remoteBufferSize;
 result = HcclChannelGetHcclBuffer(comm, channel, &remoteBuffer, &remoteBufferSize);
 uint64_t len = std::min(localBufferSize, remoteBufferSize);
 
-// 将本端内存的内容写到对端内存上并通知对端
+// 将本端内存的内容写到对端内存上并通知对端。
 uint32_t rmtNotifyIdx = 0;
 int32_t ret = HcommWriteWithNotifyNbi(channel, remoteBuffer, localBuffer, len, rmtNotifyIdx);
 
-// 等待通信通道上已提交的写操作完成
+// 等待通信通道上已提交的写操作完成。
 ret = HcommChannelFence(channel);
 ```
 
 以下代码在写入目标端调用，等待写发起端发送的同步信号。
 
-```c
-// 省略：资源创建
+```cpp
+// 省略：资源创建。
 
-// 使用本地Notify索引等待写发起端发送的同步信号
+// 使用本地Notify索引等待写发起端发送的同步信号。
 uint32_t lclNotifyIdx = 0;
 uint32_t notifyTimeout = 1800;
 int32_t ret = HcommChannelNotifyWait(channel, lclNotifyIdx, notifyTimeout);
 ```
+
+示例中目标接口返回0表示调用成功，返回其他值表示调用失败。

@@ -11,11 +11,11 @@
 <!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
+<!-- npu="310p" id4 -->
 - Atlas 推理系列产品：不支持
+<!-- end id4 -->
+<!-- npu="910" id5 -->
+- Atlas 训练系列产品：不支持
 <!-- end id5 -->
 
 ## 功能说明
@@ -26,19 +26,25 @@
 
 ## 函数原型
 
-```c
+```cpp
 int32_t HcommFenceOnThread(ThreadHandle thread)
 ```
 
 ## 参数说明
 
-| 参数名 | 输入/输出 | 描述 |
+表 1  参数说明
+
+| 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。Host CPU侧调用时，该参数无作用，传入0即可。<br>ThreadHandle类型的定义可参见[ThreadHandle](../../../datatype_definition/ThreadHandle.md)。 |
+| thread | 输入 | 通信线程句柄。Host CPU侧调用时，该参数无作用，传入0即可。<br>ThreadHandle类型的定义可参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
 
 ## 返回值
 
-int32_t：接口成功返回0，其他失败。
+表 2  返回值说明
+
+| 返回值类型 | 含义 |
+| --- | --- |
+| `int32_t` | 接口成功返回0，其他值表示失败。 |
 
 ## 约束说明
 
@@ -53,8 +59,8 @@ int32_t：接口成功返回0，其他失败。
 
 ### 集合通信示例
 
-```c
-// 申请通信通道资源
+```cpp
+// 申请通信通道资源。
 CommEngine engine = CommEngine::COMM_ENGINE_CPU;
 uint32_t channelNum = 1;
 HcclChannelDesc channelDesc;
@@ -63,21 +69,23 @@ HcclComm comm;
 ChannelHandle channel;
 HcclChannelAcquire(comm, engine, &channelDesc, channelNum, &channel);
 
-// 获取本端通信内存信息
+// 获取本端通信内存信息。
 void * localBuffer;
 uint64_t localBufferSize;
 HcclGetHcclBuffer(comm, &localBuffer, &localBufferSize);
 
-// 获取对端通信内存信息
+// 获取对端通信内存信息。
 void * remoteBuffer;
 uint64_t remoteBufferSize;
 HcclChannelGetHcclBuffer(comm, channel, &remoteBuffer, &remoteBufferSize);
 uint64_t len = std::min(localBufferSize, remoteBufferSize);
 
-// 将本端内存的内容写到对端内存上
+// 将本端内存的内容写到对端内存上。
 int32_t ret = HcommWriteNbiOnThread(0, channel, remoteBuffer, localBuffer, len);
 ret = HcommChannelFenceOnThread(0, channel);
 
-// 执行Host CPU侧数据面Flush并等待完成
+// 执行Host CPU侧数据面Flush并等待完成。
 ret = HcommFenceOnThread(0);
 ```
+
+示例中目标接口返回0表示调用成功，返回其他值表示调用失败。

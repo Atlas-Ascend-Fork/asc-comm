@@ -11,11 +11,11 @@
 <!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
+<!-- npu="310p" id4 -->
 - Atlas 推理系列产品：不支持
+<!-- end id4 -->
+<!-- npu="910" id5 -->
+- Atlas 训练系列产品：不支持
 <!-- end id5 -->
 
 ## 功能说明
@@ -24,34 +24,40 @@
 
 ## 函数原型
 
-```c
+```cpp
 int32_t HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
 ```
 
 ## 参数说明
 
-| 参数名 | 输入/输出 | 描述 |
+表 1  参数说明
+
+| 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 线程句柄，为通过[HcclThreadAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义请参见[ThreadHandle](../../../datatype_definition/ThreadHandle.md)。 |
+| thread | 输入 | 线程句柄，为通过[HcclThreadAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
 | notifyId | 输入 | 同步信号ID，为通过aclrtGetNotifyId接口获取到的notifyId。 |
-| timeOut | 输入 | 超时时间，单位：毫秒。<br>  - 0：表示永久等待。<br>  - >0：配置的具体超时时间。 |
+| timeOut | 输入 | 超时时间，单位：毫秒。<br>- 0：表示永久等待。<br>- >0：配置的具体超时时间。 |
 
 ## 返回值
 
-int32_t：接口成功返回0，其他失败。
+表 2  返回值说明
+
+| 返回值类型 | 含义 |
+| --- | --- |
+| `int32_t` | 接口成功返回0，其他值表示失败。 |
 
 ## 约束说明
 
-无
+无特殊约束。
 
 ## 调用示例
 
-```c
+```cpp
 HcclComm comm;
 CommEngine engine = COMM_ENGINE_CPU_TS;
 aclrtStream streams[2];
 ThreadHandle threads[2];
-// 申请2条流，每条流2个Notify
+// 申请2条流，每条流2个Notify。
 aclrtCreateStream(&streams[0]);
 aclrtCreateStream(&streams[1]);
 HcclResult result = HcclThreadAcquireWithStream(comm, engine, streams[0], 2, &threads[0]);
@@ -60,9 +66,11 @@ aclrtNotify notify;
 uint64_t notifyId;
 aclrtCreateNotify(&(notify), ACL_NOTIFY_DEFAULT);
 aclrtGetNotifyId(notify, &(notifyId));
-// 发送同步信号
+// 发送同步信号。
 HcommAclrtNotifyRecordOnThread(threads[0], notifyId);
-// 等待同步信号
+// 等待同步信号。
 uint32_t timeout = 1;
 HcommAclrtNotifyWaitOnThread(threads[1], notifyId, timeout);
 ```
+
+示例中目标接口返回0表示调用成功，返回其他值表示调用失败。

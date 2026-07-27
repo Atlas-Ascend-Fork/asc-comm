@@ -6,7 +6,7 @@
 
 ## 定义原型
 
-```c
+```cpp
 typedef enum {
     HCOMM_REDUCE_SUM = 0,    /* sum */
     HCOMM_REDUCE_PROD = 1,   /* prod */

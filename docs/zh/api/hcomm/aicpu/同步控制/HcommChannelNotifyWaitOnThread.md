@@ -11,11 +11,11 @@
 <!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
+<!-- npu="310p" id4 -->
 - Atlas 推理系列产品：不支持
+<!-- end id4 -->
+<!-- npu="910" id5 -->
+- Atlas 训练系列产品：不支持
 <!-- end id5 -->
 
 ## 功能说明
@@ -24,16 +24,18 @@
 
 ## 函数原型
 
-```c
+```cpp
 int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeout)
 ```
 
 ## 参数说明
 
-| 参数名 | 输入/输出 | 描述 |
+表 1  参数说明
+
+| 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。<br>ThreadHandle类型的定义可参见[ThreadHandle](../../../datatype_definition/ThreadHandle.md)。 |
-| channel | 输入 | 通信通道句柄，为通过[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。关于channel的约束参见约束说明。<br>ChannelHandle类型的定义可参见[ChannelHandle](../../../datatype_definition/ChannelHandle.md)。 |
+| thread | 输入 | 通信线程句柄。<br>ThreadHandle类型的定义可参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| channel | 输入 | 通信通道句柄，为通过[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。关于channel的约束参见约束说明。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 | localNotifyIdx | 输入 | 本地Notify索引。<br>取值范围：[0, notifyNum)。<br>notifyNum为[HcommChannelCreate](../../../control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口传入的channelDesc参数中的notifyNum。 |
 | timeout | 输入 | 超时时间，单位：秒。<br> - 0：表示永久等待。<br> - >0：配置的具体超时时间。|
 
@@ -51,7 +53,11 @@ int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channe
 
 ## 返回值
 
-int32_t：接口成功返回0，其他失败。
+表 2  返回值说明
+
+| 返回值类型 | 含义 |
+| --- | --- |
+| `int32_t` | 接口成功返回0，其他值表示失败。 |
 
 ## 约束说明
 
@@ -65,32 +71,34 @@ int32_t：接口成功返回0，其他失败。
 
 ## 调用示例
 
-```c
-// 申请通信线程资源
+```cpp
+// 申请通信线程资源。
 CommEngine engine = CommEngine::COMM_ENGINE_CPU_TS;
-CommEngine engine = CommEngine::COMM_ENGINE_AICPU_TS;  // Ascend 950PR/Ascend 950DT时配置
+// Ascend 950PR/Ascend 950DT场景下，将engine设置为CommEngine::COMM_ENGINE_AICPU_TS。
 uint32_t threadNum = 1;
 uint32_t notifyNumPerThread = 1;
 ThreadHandle thread;
 HcclComm comm;
 HcclThreadAcquire(comm, engine, threadNum, notifyNumPerThread, &thread);
 
-// 申请通信通道资源
+// 申请通信通道资源。
 uint32_t channelNum = 1;
 HcclChannelDesc channelDesc;
 HcclChannelDescInit(&channelDesc, channelNum);
 ChannelHandle channel;
 HcclChannelAcquire(comm, engine, &channelDesc, channelNum, &channel);
 
-// 针对Ascend 950PR/Ascend 950DT，需要在Device侧调用以下接口
+// 针对Ascend 950PR/Ascend 950DT，需要在Device侧调用以下接口。
 
-// 通知对端
+// 通知对端。
 HcommChannelNotifyRecordOnThread(thread, channel, 0);
 
-// 数据面操作
+// 数据面操作。
 // ...
 
-// 等待对端通知本端
+// 等待对端通知本端。
 uint32_t notifyTimeout = 1800;
 HcommChannelNotifyWaitOnThread(thread, channel, 0, notifyTimeout);
 ```
+
+示例中目标接口返回0表示调用成功，返回其他值表示调用失败。

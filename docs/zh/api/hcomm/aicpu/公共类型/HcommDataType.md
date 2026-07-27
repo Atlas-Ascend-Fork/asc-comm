@@ -6,7 +6,7 @@
 
 ## 定义原型
 
-```c
+```cpp
 typedef enum {
     HCOMM_DATA_TYPE_INT8 = 0,      /* int8 */
     HCOMM_DATA_TYPE_INT16 = 1,     /* int16 */
