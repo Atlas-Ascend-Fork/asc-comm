@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -31,10 +31,10 @@ struct LoopGroupConfig {
 };
 
 struct LoopGroupResource {
-    ccu::Array<ccu::Event>     completedEvent{0};
+    ccu::Array<ccu::Event> completedEvent{0};
     ccu::Array<ccu::CcuBuffer> ccuBuf{0};
-    uint32_t  eventCount;
-    uint32_t  bufCount;
+    uint32_t eventCount;
+    uint32_t bufCount;
 };
 
 struct GroupOpSizeVars {
@@ -47,7 +47,7 @@ struct GroupOpSizeVars {
 struct CcuLoopEntity {
     std::unique_ptr<ccu::Func> body[2];
     std::unique_ptr<ccu::Loop> loops[2];
-    ccu::Variable              loopParam[2];
+    ccu::Variable loopParam[2];
 };
 
 struct CcuKernelArgAllGatherMesh1DMem2Mem : public CcuKernelArgBase {
@@ -56,8 +56,8 @@ struct CcuKernelArgAllGatherMesh1DMem2Mem : public CcuKernelArgBase {
 };
 
 struct AllGatherMesh1DMem2MemContext {
-    const CcuKernelArgAllGatherMesh1DMem2Mem* arg;
-    
+    const CcuKernelArgAllGatherMesh1DMem2Mem *arg;
+
     ccu::Variable input;
     std::vector<ccu::Variable> output;
     std::vector<ccu::Variable> token;
@@ -67,17 +67,19 @@ struct AllGatherMesh1DMem2MemContext {
     ccu::Event event;
 
     GroupOpSizeVars goSize;
-    LoopGroupConfig   moConfig;
+    LoopGroupConfig moConfig;
     LoopGroupResource moRes;
     bool resourceAllocated = false;
 
     std::map<std::string, CcuLoopEntity> loopMap;
 
-    void CreateLoopEntity(std::string loopStr) {
+    void CreateLoopEntity(std::string loopStr)
+    {
         loopMap.emplace(loopStr, CcuLoopEntity());
     }
 
-    bool IsLoopEntityRegistered(std::string loopStr) {
+    bool IsLoopEntityRegistered(std::string loopStr)
+    {
         return loopMap.count(loopStr) != 0;
     }
 };
