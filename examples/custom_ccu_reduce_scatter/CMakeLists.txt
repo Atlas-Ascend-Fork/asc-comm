@@ -66,8 +66,10 @@ target_link_directories(custom_reduce_scatter_ccu PRIVATE
     ${ASCEND_HOME_PATH}/lib64
 )
 target_link_libraries(custom_reduce_scatter_ccu PRIVATE
+    -Wl,--no-as-needed
     hcomm
     asccomm_ccu_dataplane
+    -Wl,--as-needed
     ascendcl
     acl_rt
     c_sec

@@ -37,7 +37,10 @@ add_executable(demo
 # 链接 hcomm 库：Host 侧通信域创建(HcclCommInitRootInfo)、内存注册(HcclCommMemReg)、
 # 通道创建(HcclChannelAcquire)等接口由 libhcomm.so 提供。
 target_link_libraries(demo PRIVATE
+    -Wl,--no-as-needed
     hcomm
+    asccomm_ccu_dataplane
+    -Wl,--as-needed
 )
 
 target_compile_options(demo PRIVATE

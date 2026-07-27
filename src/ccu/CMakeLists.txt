@@ -34,6 +34,12 @@ asccomm_collect_header_dirs(ASCCOMM_HCOMM_HEADER_DIRS
     ${ASCCOMM_HCOMM_SOURCE_DIR}/include
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
 )
+asccomm_collect_header_dirs(ASCCOMM_CANN_HEADER_DIRS
+    ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
+    ${ASCCOMM_CANN_ARCH_DIR}/include
+    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc
+)
 
 add_library(asccomm_ccu_headers INTERFACE)
 target_include_directories(asccomm_ccu_headers INTERFACE
@@ -47,11 +53,12 @@ target_include_directories(asccomm_ccu_headers INTERFACE
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy/hccl
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/third_party/json/include
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/third_party/json/single_include
 )
 
-add_library(asccomm_hcomm_obj OBJECT)
-add_library(asccomm_ccu_hcomm ALIAS asccomm_hcomm_obj)
-target_link_libraries(asccomm_hcomm_obj PRIVATE
+add_library(asccomm_ccu_dataplane_obj OBJECT)
+target_link_libraries(asccomm_ccu_dataplane_obj PRIVATE
     asccomm_ccu_headers
     $<BUILD_INTERFACE:intf_pub>
     $<BUILD_INTERFACE:error_manager_headers>
@@ -68,7 +75,7 @@ target_link_libraries(asccomm_hcomm_obj PRIVATE
     $<BUILD_INTERFACE:c_sec_headers>
     $<BUILD_INTERFACE:unified_dlog>
 )
-target_include_directories(asccomm_hcomm_obj PRIVATE
+target_include_directories(asccomm_ccu_dataplane_obj PRIVATE
     ${ASCCOMM_ROOT}/include
     ${ASCCOMM_ROOT}/include/ccu
     ${ASCCOMM_ROOT}/include/ccu/hcomm
@@ -80,15 +87,22 @@ target_include_directories(asccomm_hcomm_obj PRIVATE
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy/hccl
 )
-target_compile_definitions(asccomm_hcomm_obj PRIVATE
+target_include_directories(asccomm_ccu_dataplane_obj SYSTEM PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
+    ${ASCCOMM_CANN_ARCH_DIR}/include
+    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc
+    ${ASCCOMM_CANN_HEADER_DIRS}
+)
+target_compile_definitions(asccomm_ccu_dataplane_obj PRIVATE
     BUILD_OPEN_PROJECT
     CANN_VERSION_NUM=90100000
 )
-target_compile_options(asccomm_hcomm_obj PRIVATE -w -fPIC)
-target_compile_options(asccomm_hcomm_obj PRIVATE
+target_compile_options(asccomm_ccu_dataplane_obj PRIVATE -w -fPIC)
+target_compile_options(asccomm_ccu_dataplane_obj PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:-include ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/ccu_dataplane_compat.h>
 )
-target_include_directories(asccomm_hcomm_obj PRIVATE
+target_include_directories(asccomm_ccu_dataplane_obj PRIVATE
     ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/primitives/api_c_adpt/ccu
     ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu
     ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/pub_inc
@@ -150,12 +164,31 @@ add_subdirectory(dataplane/hcomm/base_comm/primitives/api_c_adpt/ccu)
 add_subdirectory(dataplane/hcomm/base_comm/resources/ccu)
 
 add_library(asccomm_ccu_dataplane SHARED
-    $<TARGET_OBJECTS:asccomm_hcomm_obj>
+    $<TARGET_OBJECTS:asccomm_ccu_dataplane_obj>
 )
 set_target_properties(asccomm_ccu_dataplane PROPERTIES
     OUTPUT_NAME asccomm_ccu_dataplane
 )
 target_link_libraries(asccomm_ccu_dataplane PRIVATE asccomm_ccu_headers)
+
+if(TARGET hcomm)
+    add_executable(asccomm_ccu_link_smoke
+        ${ASCCOMM_ROOT}/tests/ccu/hcomm_link_smoke.cc
+    )
+    target_link_options(asccomm_ccu_link_smoke PRIVATE -Wl,-z,now)
+    target_link_libraries(asccomm_ccu_link_smoke PRIVATE
+        -Wl,--no-as-needed
+        hcomm
+        asccomm_ccu_dataplane
+        -Wl,--as-needed
+    )
+    add_custom_target(asccomm_ccu_link_smoke_check
+        COMMAND ${CMAKE_COMMAND} -E env
+            "LD_LIBRARY_PATH=$<TARGET_FILE_DIR:hcomm>:$<TARGET_FILE_DIR:asccomm_ccu_dataplane>:$<TARGET_FILE_DIR:hccl_alg>:$<TARGET_FILE_DIR:hccl_plf>:$<TARGET_FILE_DIR:hccl_v2>:$<TARGET_FILE_DIR:topoaddrinfo>:${ASCEND_CANN_PACKAGE_PATH}/lib64:$ENV{LD_LIBRARY_PATH}"
+            $<TARGET_FILE:asccomm_ccu_link_smoke>
+        DEPENDS asccomm_ccu_link_smoke
+    )
+endif()
 
 add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
 add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)

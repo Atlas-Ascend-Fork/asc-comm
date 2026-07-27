@@ -39,7 +39,6 @@ CcuResult CcuIfDemoKernel(CcuKernelArg arg)
 
     return CcuResult::CCU_SUCCESS;
 }
-
 // ======================== CCU IF (without else) Demo ========================
 
 struct CcuIfNoElseDemoKernelArg {

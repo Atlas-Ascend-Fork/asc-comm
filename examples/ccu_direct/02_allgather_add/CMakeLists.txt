@@ -69,8 +69,10 @@ target_link_directories(demo PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 target_link_libraries(demo PRIVATE
+    -Wl,--no-as-needed
     hcomm
     asccomm_ccu_dataplane
+    -Wl,--as-needed
     c_sec
     ascendcl
     acl_rt

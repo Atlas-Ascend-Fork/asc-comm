@@ -9,40 +9,50 @@
  */
 
 #include "ccu_rep_loc_wait_event.h"
-
 #include <climits>
-
+#include "ccu_rep_v1.h"
 #include "string_util.h"
 #include "exception_util.h"
 #include "ccu_api_exception.h"
-
+#include "ccu_ins_generater_v1.h"
+#include "ccu_kernel.h"
 namespace hcomm {
 namespace CcuRep {
 
-CcuRepLocWaitEvent::CcuRepLocWaitEvent(const CompletedEvent &event, uint32_t mask, bool isProfiling)
-    : event_(event), mask_(mask), isProfiling_(isProfiling)
+CcuRepLocWaitEvent::CcuRepLocWaitEvent(CcuInsGeneraterBase* insGenPtr, const CompletedEvent &event, uint32_t mask, bool isProfiling)
+    : insGenPtr(insGenPtr), event_(event), mask_(mask), isProfiling_(isProfiling)
 {
     type       = CcuRepType::LOC_WAIT_EVENT;
-    instrCount = 1;
+    instrCount = insGenPtr->GetInstrCount(type);
 }
 
-bool CcuRepLocWaitEvent::Translate(CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
+void CcuRepLocWaitEvent::SetDependencyInfo(const std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>>& depInfo)
+{
+    depInfo_ = depInfo;
+}
+
+std::vector<std::shared_ptr<CcuRepBase>> CcuRepLocWaitEvent::GetDependencyInfo(uint32_t bit) {
+    // 查找给定 bit 是否存在于 depInfo_ 中
+    auto it = depInfo_.find(bit);
+    // 如果找到 bit，返回与之关联的 vector
+    if (it != depInfo_.end()) {
+        return it->second;
+    }
+    // 如果未找到 bit，返回一个空的 vector
+    return std::vector<std::shared_ptr<CcuRepBase>>();
+}
+
+bool CcuRepLocWaitEvent::Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
 {
     this->instrId = instrId;
     translated    = true;
 
-    // SetCKEInstr支持硬件profiling功能
-    if (isProfiling_) {
-        SetCKEInstr(instr++, 0, 0, event_.Id(), mask_, 1);
-    } else {
-        ClearCKEInstr(instr++, 0, 0, event_.Id(), mask_, 1);
-    }
+    insGenPtr->CcuRepLocWaitEventTranslate(ccuKernel, instr, this);
 
     CHK_PRT_THROW((instrId > UINT16_MAX - instrCount),
         HCCL_ERROR("[CcuRepLocWaitEvent::Translate]uint16 integer overflow occurs, "
             "instrId = [%hu], instrCount = [%hu]", instrId, instrCount),
         Hccl::CcuApiException, "integer overflow");
-
     instrId += instrCount;
     return translated;
 }

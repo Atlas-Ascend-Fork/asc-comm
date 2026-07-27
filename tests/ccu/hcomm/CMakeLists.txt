@@ -23,7 +23,9 @@ set(UT_COMMON_INCLUDE_LIST
     ${CCU_REP_DIR}/reps/common
     ${CCU_REP_DIR}/reps/control
     ${CCU_REP_DIR}/reps/data
+    ${CCU_REP_DIR}/reps/logical
     ${CCU_REP_DIR}/reps/loop
+    ${CCU_REP_DIR}/reps/shift
     ${CCU_REP_DIR}/reps/sync
     ${CCU_REP_DIR}/reps/translator
     ${CCU_MICROCODE_DIR}

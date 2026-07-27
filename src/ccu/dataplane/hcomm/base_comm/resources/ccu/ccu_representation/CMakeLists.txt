@@ -10,12 +10,12 @@
 
 file(GLOB_RECURSE CCU_REP_SOURCES "*.cc")
 
-if(TARGET asccomm_hcomm_obj)
-    target_sources(asccomm_hcomm_obj
+if(TARGET asccomm_ccu_dataplane_obj)
+    target_sources(asccomm_ccu_dataplane_obj
         PRIVATE
         ${CCU_REP_SOURCES}
     )
-    target_include_directories(asccomm_hcomm_obj PRIVATE 
+    target_include_directories(asccomm_ccu_dataplane_obj PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/interface
         ${CMAKE_CURRENT_SOURCE_DIR}/context
@@ -24,7 +24,9 @@ if(TARGET asccomm_hcomm_obj)
         ${CMAKE_CURRENT_SOURCE_DIR}/reps/common
         ${CMAKE_CURRENT_SOURCE_DIR}/reps/control
         ${CMAKE_CURRENT_SOURCE_DIR}/reps/data
+        ${CMAKE_CURRENT_SOURCE_DIR}/reps/logical
         ${CMAKE_CURRENT_SOURCE_DIR}/reps/loop
+        ${CMAKE_CURRENT_SOURCE_DIR}/reps/shift
         ${CMAKE_CURRENT_SOURCE_DIR}/reps/sync
         ${CMAKE_CURRENT_SOURCE_DIR}/reps/translator
         ${CMAKE_CURRENT_SOURCE_DIR}/../ccu_microcode
