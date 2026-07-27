@@ -15,9 +15,9 @@ namespace CcuRep {
 
 class CcuRepLoopBlock : public CcuRepBlock {
 public:
-    explicit CcuRepLoopBlock(const std::string &label);
+    explicit CcuRepLoopBlock(CcuInsGeneraterBase* insGenPtr, const std::string &label);
     std::string Describe() override;
- 
+
     void DefineArg(Variable var);
     void DefineArg(Memory mem);
     void DefineArg(LocalAddr addr);
@@ -29,7 +29,7 @@ public:
     void DefineArg(const std::vector<RemoteAddr> addrList);
 
     CcuRepArg &GetArg(uint16_t index);
- 
+
 private:
     std::vector<CcuRepArg> args;
 };

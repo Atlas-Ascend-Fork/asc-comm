@@ -8,14 +8,13 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-if(TARGET asccomm_hcomm_obj)
-    target_sources(asccomm_hcomm_obj
+if(TARGET asccomm_ccu_dataplane_obj)
+    target_sources(asccomm_ccu_dataplane_obj
         PRIVATE
         ccu_microcode.cc
-        ccu_microcode_v2_.cc
         ccu_assist.cc
     )
-    target_include_directories(asccomm_hcomm_obj PRIVATE
+    target_include_directories(asccomm_ccu_dataplane_obj PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}
     )
 endif()

@@ -36,6 +36,7 @@
 #include "ccu_interface_assist_v1.h"
 
 #include "ccu_res_repo.h"
+#include "ccu_dev_mgr_imp.h" // CcuVersion
 
 // 暂时引用方便算法开发
 #include "ccu_repeat_v1.h"
@@ -87,6 +88,8 @@ public:
     CcuResult GeneTaskParams(const uint64_t *taskArgs, uint32_t argNum,
         std::vector<CcuTaskParam> &taskParams);
 
+    void SetInsGenerater(CcuRep::CcuInsGeneraterBase* insGeneraterBase);
+    void SetCcuVersion(CcuVersion version) { ccuVersion_ = version; }
     // 该友元函数用于在context类外创建Variable并被context内的资源管理器管理
     friend CcuRep::Variable CcuRep::CreateVariable(CcuRep::CcuRepContext *context);
 
@@ -101,6 +104,10 @@ public:
         std::vector<CcuProfilingInfo> &allCcuProfilingInfo);
 
     const std::vector<CcuProfilingInfo> &GetAllCcuProfilingInfo() { return allCcuProfilingInfos_; };
+
+    // process const values
+    std::unordered_map<uint64_t, CcuRep::Variable>& GetConstValue2VarMap() { return constValue2VarMap; }
+    HcclResult Add2ConstValue2VarMap(std::vector<uint64_t> &values);
 
     const std::unordered_set<ChannelHandle> &GetChannels() { return channels_; }
 
@@ -150,17 +157,27 @@ public:
     //运算重载 相关接口
     CcuResult VariableAssignImm(CcuVariableHandle var, uint64_t immediate);
     CcuResult VariableAssignVar(CcuVariableHandle var, CcuVariableHandle varA);
-    CcuResult VariableAddVarToVar(CcuVariableHandle resVar,CcuVariableHandle varA, CcuVariableHandle varB);
+    CcuResult VariableAddVarToVar(CcuVariableHandle varHandle,CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableSubVarToVar(CcuVariableHandle varHandle,CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableMulVarToVar(CcuVariableHandle varHandle,CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableAddImmToVar(CcuVariableHandle varHandle,CcuVariableHandle varAHandle, uint16_t immediate);
+    CcuResult VariableSubImmToVar(CcuVariableHandle varHandle,CcuVariableHandle varAHandle, uint16_t immediate);
+    CcuResult VariableMulImmToVar(CcuVariableHandle varHandle,CcuVariableHandle varAHandle, uint16_t immediate);
+    CcuResult VariableAndVarToVar(CcuVariableHandle varHandle,CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableOrVarToVar(CcuVariableHandle varHandle,CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableXorVarToVar(CcuVariableHandle varHandle,CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableNotVar(CcuVariableHandle varHandle,CcuVariableHandle varAHandle);
     CcuResult AddressAssignImm(CcuAddressHandle addr, uint64_t immediate);
     CcuResult AddressAssignVar(CcuAddressHandle addrHandle, CcuVariableHandle varHandle);
     CcuResult AddressAssignAddr(CcuAddressHandle dstAddrHandle, CcuAddressHandle srcAddrHandle);
     CcuResult AddressAddVarToAddr(CcuAddressHandle resAddr, CcuAddressHandle lhsAddr, CcuVariableHandle rhsVar);
     CcuResult AddressAddAddrToAddr(CcuAddressHandle resAddrHandle, CcuAddressHandle addrAHandle, CcuAddressHandle addrBHandle);
     CcuResult AddressAddAssignVar(CcuAddressHandle addr, CcuVariableHandle var);
-    CcuResult AddressAddAssignAddr(CcuAddressHandle addr, CcuAddressHandle otherAddr);
+    CcuResult AddressAddAssignAddr(CcuAddressHandle addrHandle, CcuAddressHandle otherHandle);
+    CcuResult AddressAddImmToAddr(CcuAddressHandle resAddr, CcuAddressHandle addrA, uint16_t imm);
 
     // 远端数据传输操作
-        
+
     CcuResult ReadMemToMem(ChannelHandle channel, CcuLocalAddrHandle localHandle, CcuRemoteAddrHandle remoteHandle, CcuVariableHandle lenHandle, CcuEventHandle eventHandle, uint32_t mask);
     CcuResult ReadMemToBuffer(ChannelHandle channel, CcuBufferHandle localHandle, CcuRemoteAddrHandle remoteHandle, CcuVariableHandle lenHandle, CcuEventHandle eventHandle, uint32_t mask);
     CcuResult ReadMemToMemReduce(ChannelHandle channel, CcuLocalAddrHandle localHandle, CcuRemoteAddrHandle remoteHandle, CcuVariableHandle lenHandle, HcclDataType dataType, HcclReduceOp opType, CcuEventHandle eventHandle, uint32_t mask);
@@ -171,10 +188,11 @@ public:
 
     CcuResult IfBegin(CcuVariableHandle var, uint64_t immediate,
         CcuConditionType condType, const char *label);
+    CcuResult IfBeginVar(CcuVariableHandle lhsHandle, CcuVariableHandle rhsHandle,
+        CcuConditionType condType, const char *label);
     CcuResult IfElse(const char *label);
     CcuResult IfEnd(const char *label);
 
-    // 控制流标签栈嵌套类型：作为 CcuKernel 的成员，与 kernel 同生命周期。
     void        IfLabelStackPush(const char *label);
     void        IfLabelStackMarkBodyDone();
     const char *IfLabelStackPopForElse();
@@ -188,9 +206,13 @@ public:
     void Append(std::shared_ptr<CcuRep::CcuRepBase> rep) override;
     CcuResult WhileBegin(CcuVariableHandle var, uint64_t immediate,
         CcuConditionType condType, const char *label);
+    CcuResult WhileBeginVar(CcuVariableHandle lhsHandle, CcuVariableHandle rhsHandle,
+        CcuConditionType condType, const char *label);
     CcuResult WhileEnd(const char *label);
     CcuResult DoWhileBegin(const char *label);
     CcuResult DoWhileEnd(CcuVariableHandle var, uint64_t immediate,
+        CcuConditionType condType, const char *label);
+    CcuResult DoWhileEndVar(CcuVariableHandle lhsHandle, CcuVariableHandle rhsHandle,
         CcuConditionType condType, const char *label);
 
     CcuResult LoopCreate(CcuLoop *loop);
@@ -200,10 +222,14 @@ public:
         const CcuLoopGroupConfig *config);
     CcuResult LoopGroupCreateFromVar(CcuLoopGroup *group, uint32_t maxLoopNum,
         CcuVariableHandle parallelVarHandle, CcuVariableHandle offsetVarHandle);
+    CcuResult LoopGroupCreateFromVarV2(CcuLoopGroup *group, uint32_t maxLoopNum,
+        CcuVariableHandle parallelVarV2, CcuVariableHandle offsetVarV2, CcuVariableHandle varOffsetVar);
     CcuResult LoopGroupAddLoop(CcuLoopGroup group,
         CcuLoop loop, const CcuLoopConfig *config);
     CcuResult LoopGroupAddLoopFromVar(CcuLoopGroup group,
         CcuLoop loop, CcuVariableHandle loopParamVar);
+    CcuResult LoopGroupAddLoopFromVarV2(CcuLoopGroup group,
+        CcuLoop loop, CcuVariableHandle iterNumVar, CcuVariableHandle addrOffsetVar, CcuVariableHandle ctxIdVar);
 
     CcuResult FuncBlockLookup(const void *funcPtr, uint64_t *outHandle);
     CcuResult FuncBlockBegin(const void *funcPtr, uint64_t *outHandle);
@@ -211,10 +237,11 @@ public:
     CcuResult FuncDefineInArg(uint64_t handle, CcuVariableHandle formal);
     CcuResult FuncCall(uint64_t handle, const CcuVariableHandle *inArgs, uint32_t numIn);
 
-   
+
 private:
     CcuResult GetVariableByHandle(CcuVariableHandle varHandle, CcuRep::Variable **variable);
     CcuResult GetEventByHandle(CcuEventHandle eventHandle, CcuRep::CompletedEvent **event);
+    CcuResult LatchBodyError(CcuResult err);
     // 按需扩容 res_.blockExecutor[0]：不足 maxLoopNum 时补足，足够则不动；
     // 由 LoopGroupCreate / LoopGroupCreateFromVar 在 LoopGroup 创建时调用。
     CcuResult EnsureLoopEnginePool(uint32_t maxLoopNum);
@@ -258,8 +285,13 @@ private:
         const char *label{nullptr};
         bool        bodyDone{false};
     };
-    std::vector<IfLabelEntry> iflabelStack_;
-    std::vector<const char *> doWhileLabelStack_;
+    struct DoWhileLabelEntry {
+        const char *label{nullptr};
+        std::shared_ptr<CcuRep::CcuRepBlock> snapshotBlock{nullptr};
+        size_t snapshotRepCount{0};
+    };
+    std::vector<IfLabelEntry>       iflabelStack_;
+    std::vector<DoWhileLabelEntry>  doWhileLabelStack_;
     bool isFlushing_ = false;
 
 
@@ -389,11 +421,15 @@ private:
 
     uint32_t loadArgIndex_{0};
 
+    CcuVersion ccuVersion_{CcuVersion::CCU_INVALID};
+
     CcuSharedResource exportedRes_{};
     CcuSharedResource importedRes_{};
-
     std::vector<GroupInfo> groupOpSizeInfo_;
     std::vector<CcuProfilingInfo> allCcuProfilingInfos_;
+
+    // 记录每个kernel所需常量，适用于A6场景
+    std::unordered_map<uint64_t, CcuRep::Variable> constValue2VarMap;
 
     struct LoopDescriptor {
         std::string label;
@@ -402,14 +438,23 @@ private:
         bool bodyDefined{false};
     };
 
+    struct VersionV2LoopRecord {
+        CcuRep::Variable iterNumVar;
+        CcuRep::Variable addrOffsetVar;
+        CcuRep::Variable ctxIdVar;
+    };
+
     struct LoopGroupDescriptor {
         CcuLoopGroupConfig config;
         uint64_t totalLoopNum{0};
         uint32_t loopCount{0};
         CcuRep::Variable parallelVar;
         CcuRep::Variable offsetVar;
+        CcuRep::Variable xnOffsetVar;
         std::shared_ptr<CcuRep::CcuRepBase> bundleRep;
         bool isVarBased{false};
+        bool isVersionV2{false};
+        std::vector<VersionV2LoopRecord> versionV2Loops;
     };
 
     struct FuncDescriptor {
@@ -422,6 +467,9 @@ private:
 
     std::unordered_map<CcuLoop, LoopDescriptor> loopMap_;
     std::unordered_map<CcuLoopGroup, LoopGroupDescriptor> loopGroupMap_;
+    CcuResult LookupLoopGroupAndLoop(CcuLoopGroup group, CcuLoop loop, const char *fnName,
+                                     const char *createFnName, LoopGroupDescriptor *&grpDesc,
+                                     LoopDescriptor *&loopDesc, uint32_t &loopIdx);
     uint32_t loopHandleCounter_{0};
     uint32_t loopGroupHandleCounter_{0};
     uint32_t loopBodyDepth_{0};
@@ -430,7 +478,8 @@ private:
     std::unordered_map<const void *, uint64_t> funcInstanceMap_;
     uint64_t funcHandleCounter_{0};
     bool inFuncBody_{false};
-    bool funcBodyError_{false};
+    // loop/func body 内首个非法错误的粘性闩，退出 body 时上抛（void body 无法直接回传）。
+    CcuResult bodyError_{CcuResult::CCU_SUCCESS};
 
     std::unordered_map<CcuLoopExecutors, std::vector<CcuRep::Executor>> loopEnginePools_;
     uint32_t loopEnginePoolCounter_{0};

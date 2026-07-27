@@ -35,8 +35,10 @@
 
 #include "ccu_assist_v1.h"
 
+#include "unified_platform/pub_inc/config_plf_log.h"
+using Hccl::PLF_TASK;
 
-CcuResult HcommCcuInsCreate(const void *resDesc, uint32_t descNum, CcuInsHandle *insHandle)
+CcuResult HcommCcuInsCreateLegacy(const void *resDesc, uint32_t descNum, CcuInsHandle *insHandle)
 {
     CCU_CHK_PTR_NULL(resDesc);
     CCU_CHK_PTR_NULL(insHandle);
@@ -58,14 +60,34 @@ CcuResult HcommCcuInsCreate(const void *resDesc, uint32_t descNum, CcuInsHandle 
     return CcuResult::CCU_SUCCESS;
 }
 
+CcuResult HcommCcuInsCreate(const HcommCcuResDescHandle *, uint32_t, CcuInsHandle *)
+{
+    return CcuResult::CCU_E_NOT_SUPPORT;
+}
+
+CcuResult HcommCcuInsCreateDefault(const uint32_t *, uint32_t, CcuInsHandle *)
+{
+    return CcuResult::CCU_E_NOT_SUPPORT;
+}
+
+CcuResult HcommCcuInsDestroy(CcuInsHandle)
+{
+    return CcuResult::CCU_E_NOT_SUPPORT;
+}
+
+CcuResult HcommCcuInsQueryResDesc(CcuInsHandle, HcommCcuResDescHandle)
+{
+    return CcuResult::CCU_E_NOT_SUPPORT;
+}
+
 /**
  * @brief 关闭CCU特性，解初始化CCU平台层
  *
- * @param deviceLogicId 设备逻辑ID
- * @return HcclResult 返回HcclResult类型的结果
- * @note 资源不足时返回HCCL_E_UNAVIL，其余非HCCL_SUCCESS结果属于错误
+ * @param insHandle CCU实例句柄
+ * @param curDeviceLogicId 当前设备逻辑ID
+ * @return CcuResult 执行结果状态码，CCU_SUCCESS表示成功，其他值表示失败
  */
-CcuResult HcommCcuInsDestroy(CcuInsHandle insHandle, int32_t curDeviceLogicId)
+CcuResult HcommCcuInsDestroyLegacy(CcuInsHandle insHandle, int32_t curDeviceLogicId)
 {
     // 获取当前线程的 DeviceId（线程变量）
     const int32_t threadDevId = HcclGetThreadDeviceId();
@@ -108,6 +130,19 @@ CcuResult HcommCcuKernelRegisterStart(CcuInsHandle insHandle)
     return CcuResult::CCU_SUCCESS;
 }
 
+static CcuResult CcuKernelTryRegister(hcomm::CcuInstance *ccuIns, hcomm::CcuResPack *resPack,
+    uint32_t devLogicId, const char *kernelFuncName, const void *kernelFunc,
+    const void **kernelArgs, uint32_t argNum, CcuKernelHandle &newHandle)
+{
+    CCU_EXCEPTION_HANDLE_BEGIN
+    auto &kernelMgr = hcomm::CcuKernelMgr::GetInstance(devLogicId);
+    CCU_CHK_RET(kernelMgr.Register(*resPack, kernelFuncName,
+        kernelFunc, kernelArgs, argNum, newHandle));
+    CCU_CHK_RET(ccuIns->SaveKernel(newHandle));
+    CCU_EXCEPTION_HANDLE_END
+    return CcuResult::CCU_SUCCESS;
+}
+
 CcuResult HcommCcuKernelRegister(CcuInsHandle insHandle, uint32_t dieId,
     const char *kernelFuncName, const void *kernelFunc,
     const void **kernelArgs, uint32_t argNum,
@@ -135,12 +170,20 @@ CcuResult HcommCcuKernelRegister(CcuInsHandle insHandle, uint32_t dieId,
     CCU_CHK_PTR_NULL(resPack);
 
     CcuKernelHandle newHandle{0};
-    CCU_EXCEPTION_HANDLE_BEGIN
-    auto &kernelMgr = hcomm::CcuKernelMgr::GetInstance(devLogicId);
-    CCU_CHK_RET(kernelMgr.Register(*resPack, kernelFuncName,
-        kernelFunc, kernelArgs, argNum, newHandle));
-    CCU_CHK_RET(ccuIns->SaveKernel(newHandle));
-    CCU_EXCEPTION_HANDLE_END
+    CcuResult ret = CcuKernelTryRegister(ccuIns, resPack, devLogicId, kernelFuncName,
+        kernelFunc, kernelArgs, argNum, newHandle);
+    if (ret != CcuResult::CCU_SUCCESS) {
+        ccuIns->AbortRegister();
+        if (CCU_CHK_RES_UNAVAIL(ret)) {
+            HCCL_WARNING("[%s] register kernel resource unavailable[%d], current register round aborted.",
+                __func__, ret);
+            return CcuResult::CCU_E_UNAVAIL;
+        } else {
+            HCCL_ERROR("[%s] failed, register kernel failed[%d], current register round aborted.",
+                __func__, ret);
+            return ret;
+        }
+    }
 
     *kernelHandle = newHandle;
     HCCL_INFO("[%s] success, take time [%lld]us.",
@@ -223,7 +266,7 @@ static void LogCcuTaskInfo(const std::vector<hcomm::CcuTaskParam> &ccuParams,
     const uint32_t execTimeOutSec = Hccl::EnvConfig::GetInstance().GetRtsConfig().GetExecTimeOut();
     for (u32 idx = 0; idx < ccuParams.size(); idx++) {
         const auto &param = ccuParams[idx];
-        HCCL_INFO("[%s] start ccu task, dieId[%u], missionId[%u], execMissionId[%u], instStartId[%u], instCnt[%u], "
+        PLF_CONFIG_INFO(PLF_TASK, "[%s] start ccu task, dieId[%u], missionId[%u], execMissionId[%u], instStartId[%u], instCnt[%u], "
           "argSize[%u], timeout[%u]s, executeId[0x%llx], ccuKernelHandle[0x%llx]",
           __func__, param.dieId, param.missionId, param.missionId,
           param.instStartId, param.instCnt, param.argSize, execTimeOutSec,
@@ -312,6 +355,8 @@ CcuResult HcommCcuKernelLaunch(ThreadHandle threadHandle,
     CHK_PRT_RET(threadHandle == 0, HCCL_ERROR("[%s] failed, thread handle is empty.", __func__), CcuResult::CCU_E_PARA);
     CHK_PRT_RET(kernelHandle == 0, HCCL_ERROR("[%s] failed, kernel handle is empty.", __func__), CcuResult::CCU_E_PARA);
     CHK_PRT_RET(argNum > 0 && taskArgs == nullptr, HCCL_ERROR("[%s] failed, taskArgs is nullptr while argNum[%u] > 0.", __func__, argNum), CcuResult::CCU_E_PTR);
+
+    PLF_CONFIG_INFO(PLF_TASK, "[HcommCcuKernelLaunch] threadHandle[0x%llx] kernelHandle[0x%llx].", threadHandle, kernelHandle);
 
     const auto *rtsThread = reinterpret_cast<hccl::Thread *>(threadHandle);
     const auto *threadStream = rtsThread->GetStream();
