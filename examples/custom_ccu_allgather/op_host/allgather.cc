@@ -21,8 +21,8 @@
 using namespace std;
 using namespace ops_hccl_ag;
 
-static HcclResult InitAlgResourceCtx(HcclComm comm, OpParam &param,
-                                      std::unique_ptr<AlgResourceCtxSerializable> &resCtxHost)
+static HcclResult InitAlgResourceCtx(
+    HcclComm comm, OpParam &param, std::unique_ptr<AlgResourceCtxSerializable> &resCtxHost)
 {
     void *ctx = nullptr;
     uint64_t size = 0;
@@ -53,8 +53,8 @@ static HcclResult InitAlgResourceCtx(HcclComm comm, OpParam &param,
     return HCCL_SUCCESS;
 }
 
-HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, 
-                                HcclComm comm, aclrtStream stream)
+HcclResult HcclAllGatherCustom(
+    void *sendBuf, void *recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm, aclrtStream stream)
 {
     HCCL_INFO("Start to execute HcclAllGatherCustom");
 
@@ -66,7 +66,7 @@ HcclResult HcclAllGatherCustom(void *sendBuf, void *recvBuf, uint64_t sendCount,
 
     // 2.获取算子参数信息
     OpParam param;
-    
+
     CHK_RET(HcclGetRankId(comm, &param.myRank));
     CHK_RET(HcclGetRankSize(comm, &param.rankSize));
 
