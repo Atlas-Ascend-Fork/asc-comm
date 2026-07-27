@@ -78,7 +78,7 @@ descs[0].transferInfo.write.len = 4096;
 descs[0].transferInfo.write.dst = remoteBuffer;    // 远端地址。
 descs[0].transferInfo.write.src = localBuffer;     // 本地地址。
 
-// 描述符2：单边写（带通知）。
+// 描述符2：单边写（带通知），仅Ascend 950PR/Ascend 950DT支持。
 descs[1].transType = HCOMM_TRANSFER_TYPE_WRITE_WITH_NOTIFY;
 descs[1].transferInfo.writeWithNotify.len = 8192;
 descs[1].transferInfo.writeWithNotify.dst = remoteBuffer2;    // 远端地址。

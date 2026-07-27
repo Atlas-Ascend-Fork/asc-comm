@@ -55,7 +55,7 @@ int32_t HcommBatchModeStart(const char *batchTag)
 ## 调用示例
 
 ```cpp
-char *tag = "";
+const char *tag = "";
 // 启动批量模式（临时批量任务）。
 HcommBatchModeStart(tag);
 

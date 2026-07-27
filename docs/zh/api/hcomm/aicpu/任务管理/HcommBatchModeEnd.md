@@ -57,7 +57,7 @@ HcommBatchModeStart和HcommBatchModeEnd必须成对调用，且需要在同一�
 ## 调用示例
 
 ```cpp
-char *tag = "";
+const char *tag = "";
 // 启动批量模式（临时批量任务）。
 HcommBatchModeStart(tag);
 

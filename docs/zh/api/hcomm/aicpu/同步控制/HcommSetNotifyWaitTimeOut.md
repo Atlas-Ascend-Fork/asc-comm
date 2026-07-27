@@ -50,7 +50,7 @@ int32_t HcommSetNotifyWaitTimeOut(float timeOut)
 
 1. **默认超时时间**
    - 如果未调用本接口设置，默认超时时间为1836秒（约30分钟）
-   
+
 2. **超时生效条件**
    - 本接口设置的超时时间将应用于后续的`*WithDefaultTimeout`系列接口
    - 已调用`HcommChannelNotifyWaitOnThread`或`HcommThreadNotifyWaitOnThread`设置的超时不受本接口影响

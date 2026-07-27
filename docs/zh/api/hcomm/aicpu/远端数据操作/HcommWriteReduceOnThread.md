@@ -43,6 +43,7 @@ int32_t HcommWriteReduceOnThread(ThreadHandle thread, ChannelHandle channel, voi
 | count | 输入 | 元素个数。有效范围由源内存和目的内存的可用长度决定，$count \times \operatorname{sizeof}(dataType)$不得超过两者中较小的可用长度。 |
 | dataType | 输入 | 数据类型。取值范围以对应产品支持的数据类型为准，详细请参见[dataType说明](#dataType说明)。<br>HcommDataType类型的定义请参见[HcommDataType](../公共类型/HcommDataType.md)。|
 | reduceOp | 输入 | 归约操作类型，取值范围：sum、max、min。<br>HcommReduceOp类型的定义请参见[HcommReduceOp](../公共类型/HcommReduceOp.md)。 |
+
 ### dataType说明
 
 <!-- npu="950" id6 -->
@@ -94,7 +95,7 @@ HcclGetHcclBuffer(comm, &localBuffer, &localBufferSize);
 void * remoteBuffer;
 uint64_t remoteBufferSize;
 HcclChannelGetHcclBuffer(comm, channel, &remoteBuffer, &remoteBufferSize);
-uint64_t count = std::min(localBufferSize/sizeof(uint64_t), remoteBufferSize/sizeof(uint64_t));
+uint64_t count = std::min(localBufferSize / sizeof(int32_t), remoteBufferSize / sizeof(int32_t));
 
 // 将本端内存和对端内存数据进行reduce，输出到对端内存上。
 HcommWriteReduceOnThread(thread, channel, remoteBuffer, localBuffer, count, HCOMM_DATA_TYPE_INT32, HCOMM_REDUCE_SUM);
