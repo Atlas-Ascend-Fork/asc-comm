@@ -1,8 +1,28 @@
 # HcommBatchTransferDesc
 
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR/Ascend 950DT：支持
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3 训练系列产品/Atlas A3 推理系列产品：支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2 训练系列产品/Atlas A2 推理系列产品：支持
+<!-- end id3 -->
+<!-- npu="310p" id4 -->
+- Atlas 推理系列产品：不支持
+<!-- end id4 -->
+<!-- npu="910" id5 -->
+- Atlas 训练系列产品：不支持
+<!-- end id5 -->
+
 ## 功能说明
 
-批量传输描述符结构体，用于描述单个传输任务的参数。通过transType指定传输类型，由transferInfo联合体提供对应类型的详细参数。
+头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
+
+定义批量传输描述符结构体，用于描述单个传输任务。通过`transType`指定传输类型，由`transferInfo`联合体提供对应类型的详细参数。
 
 ## 定义原型
 
@@ -49,3 +69,11 @@ typedef struct {
     } transferInfo;
 } HcommBatchTransferDesc;
 ```
+
+
+## 约束说明
+
+- `transType`必须使用[HcommTransferType](HcommTransferType.md)中有效的传输类型，并按该类型填写对应的`transferInfo`联合体成员；
+- `src`、`dst`、`len`、`count`和`notifyIdx`必须满足目标数据面接口对地址范围、数据长度、数据类型、通知资源及通信通道的约束。相关地址和资源需在接口规定的执行周期内保持有效。
+- 将描述符数组传入HcommBatchTransferOnThread时，数组指针必须有效且描述符数量必须大于0。
+- Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品仅支持RoCE协议，且`transType`仅支持`HCOMM_TRANSFER_TYPE_WRITE`和`HCOMM_TRANSFER_TYPE_READ`。
