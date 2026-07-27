@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-提供本地内存拷贝功能，将src指向的长度为len的内存数据，拷贝到dst所指向的相同长度的内存中。
+提供本地内存拷贝功能，将源地址`src`中长度为`len`的数据拷贝到目的地址`dst`中。
 
 ## 函数原型
 
@@ -39,7 +39,7 @@ int32_t HcommLocalCopyOnThread(ThreadHandle thread, void *dst, const void *src, 
 | thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>ThreadHandle的类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
 | dst | 输出 | 目的内存地址，操作地址范围必须位于有效Device内存范围内。 |
 | src | 输入 | 源内存地址，操作地址范围必须位于有效Device内存范围内。 |
-| len | 输入 | 数据长度（字节）。有效范围由源内存和目的内存的可用长度决定，不得超过两者中较小的可用长度。 |
+| len | 输入 | 待拷贝的数据长度。单位：字节。有效范围由源内存和目的内存的可用长度决定，不得超过两者中较小的可用长度。 |
 
 ## 返回值
 
@@ -51,10 +51,10 @@ int32_t HcommLocalCopyOnThread(ThreadHandle thread, void *dst, const void *src, 
 
 ## 约束说明
 
-dst、src内存是申请的device内存。
+- `src`和`dst`必须为已申请的Device内存地址。
 
 <!-- npu="950" id6 -->
-在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
+- 在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
 <!-- end id6 -->
 
 ## 调用示例

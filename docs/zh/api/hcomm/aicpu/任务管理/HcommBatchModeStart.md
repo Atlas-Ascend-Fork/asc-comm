@@ -48,9 +48,9 @@ int32_t HcommBatchModeStart(const char *batchTag)
 
 ## 约束说明
 
-1. HcommBatchModeStart和HcommBatchModeEnd必须成对调用，且需在同一线程中执行。
-2. 批量模式下缓存的操作需在HcommBatchModeEnd调用后才会实际执行。
-3. 仅Ascend 950PR/Ascend 950DT支持批量模式和立即执行模式（不调用批量接口），其他产品必须使用批量模式。
+- HcommBatchModeStart和HcommBatchModeEnd必须成对调用，且需在同一线程中执行。
+- 批量模式下缓存的操作需在HcommBatchModeEnd调用后才会实际执行。
+- 仅Ascend 950PR/Ascend 950DT支持批量模式和立即执行模式（不调用批量接口），其他产品必须使用批量模式。
 
 ## 调用示例
 

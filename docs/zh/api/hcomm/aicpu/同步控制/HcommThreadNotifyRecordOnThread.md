@@ -50,10 +50,10 @@ int32_t HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThr
 
 ## 约束说明
 
-该接口需要配合[HcommThreadNotifyWaitOnThread](HcommThreadNotifyWaitOnThread.md)使用。
+- 该接口需要配合[HcommThreadNotifyWaitOnThread](HcommThreadNotifyWaitOnThread.md)使用。
 
 <!-- npu="950" id6 -->
-在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
+- 在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
 <!-- end id6 -->
 
 ## 调用示例

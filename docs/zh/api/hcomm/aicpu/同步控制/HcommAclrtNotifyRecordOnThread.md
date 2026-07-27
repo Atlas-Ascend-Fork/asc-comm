@@ -49,7 +49,7 @@ int32_t HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId
 
 ## 约束说明
 
-无特殊约束。
+- 无特殊约束。
 
 ## 调用示例
 

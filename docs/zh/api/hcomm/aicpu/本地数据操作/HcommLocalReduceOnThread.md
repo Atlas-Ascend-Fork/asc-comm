@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-提供本地归约操作，将src指向的长度为$count \times \operatorname{sizeof}(dataType)$的内存数据，与dst所指向的相同长度的内存数据进行reduceOp操作，并将结果输出到dst中。
+提供本地归约操作，将源地址`src`中长度为$count \times \operatorname{sizeof}(dataType)$的数据与目的地址`dst`中相同长度的数据进行reduceOp操作，并将结果写入目的地址`dst`。
 
 ## 函数原型
 
@@ -37,15 +37,38 @@ int32_t HcommLocalReduceOnThread(ThreadHandle thread, void *dst, const void *src
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
 | thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>ThreadHandle类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
-| dst | 输出 | 目的地址，不能为NULL，且操作地址范围必须位于有效Device内存范围内。 |
-| src | 输入 | 源地址，不能为NULL，且操作地址范围必须位于有效Device内存范围内。 |
+| dst | 输出 | 目的地址，操作地址范围必须位于有效Device内存范围内。 |
+| src | 输入 | 源地址，操作地址范围必须位于有效Device内存范围内。 |
 | count | 输入 | 元素个数。有效范围由源内存和目的内存的可用长度决定，$count \times \operatorname{sizeof}(dataType)$不得超过两者中较小的可用长度。 |
-| dataType | 输入 | 数据类型，取值范围：int8、int16、int32、float16、float32、bfp16。<br>HcommDataType类型的定义请参见[HcommDataType](../公共类型/HcommDataType.md)。 |
+| dataType | 输入 | 数据类型。支持的数据类型请参见[数据类型](#section_hcommlocalreduceonthread_datatype)。<br>HcommDataType类型的定义请参见[HcommDataType](../公共类型/HcommDataType.md)。 |
 | reduceOp | 输入 | 归约操作类型，取值范围：sum、max、min。<br>HcommReduceOp类型的定义请参见[HcommReduceOp](../公共类型/HcommReduceOp.md)。 |
+
+### 数据类型<a id="section_hcommlocalreduceonthread_datatype"></a>
+
+<!-- npu="950" id8 -->
+针对Ascend 950PR/Ascend 950DT，`dataType`参数支持的`HcommDataType`枚举值见表2。
+<!-- end id8 -->
+<!-- npu="A3" id9 -->
+针对Atlas A3 训练系列产品/Atlas A3 推理系列产品，`dataType`参数支持的`HcommDataType`枚举值见表2。
+<!-- end id9 -->
+<!-- npu="910b" id10 -->
+针对Atlas A2 训练系列产品/Atlas A2 推理系列产品，`dataType`参数支持的`HcommDataType`枚举值见表2。
+<!-- end id10 -->
+
+表2 支持的数据类型
+
+| `HcommDataType`枚举值 | 数据类型 |
+| --- | --- |
+| `HCOMM_DATA_TYPE_INT8` | int8 |
+| `HCOMM_DATA_TYPE_INT16` | int16 |
+| `HCOMM_DATA_TYPE_INT32` | int32 |
+| `HCOMM_DATA_TYPE_FP16` | fp16 |
+| `HCOMM_DATA_TYPE_FP32` | fp32 |
+| `HCOMM_DATA_TYPE_BFP16` | bfp16 |
 
 ## 返回值
 
-表2 返回值说明
+表3 返回值说明
 
 | 返回值类型 | 含义 |
 | --- | --- |
@@ -53,10 +76,10 @@ int32_t HcommLocalReduceOnThread(ThreadHandle thread, void *dst, const void *src
 
 ## 约束说明
 
-dst、src内存需要为device内存。
+- `src`和`dst`必须为已申请的Device内存地址。
 
 <!-- npu="950" id6 -->
-在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
+- 在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
 <!-- end id6 -->
 
 ## 调用示例

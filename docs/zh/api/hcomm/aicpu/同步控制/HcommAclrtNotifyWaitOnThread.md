@@ -50,7 +50,7 @@ int32_t HcommAclrtNotifyWaitOnThread(ThreadHandle thread, uint64_t notifyId, uin
 
 ## 约束说明
 
-无特殊约束。
+- 无特殊约束。
 
 ## 调用示例
 

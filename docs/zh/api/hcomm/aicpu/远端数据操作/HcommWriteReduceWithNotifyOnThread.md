@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-向channel上的指定内存写数据，将src中长度为$count \times \operatorname{sizeof}(dataType)$的内存数据，与dst所指向的相同长度的内存数据进行reduceOp操作，并将结果输出到dst中，并向dst所在节点发送同步信号。接口调用方为src所在节点，该接口为异步接口。
+向channel上的指定内存写数据，将源地址`src`中长度为$count \times \operatorname{sizeof}(dataType)$的数据与目的地址`dst`中相同长度的数据进行reduceOp操作，并将结果写入目的地址`dst`，同时向目的地址`dst`所在节点发送同步信号。接口调用方为源地址`src`所在节点，该接口为异步接口。
 
 ## 函数原型
 
@@ -61,9 +61,9 @@ int32_t HcommWriteReduceWithNotifyOnThread(ThreadHandle thread, ChannelHandle ch
 
 ## 约束说明
 
-该接口需要配合[HcommChannelNotifyWaitOnThread](../同步控制/HcommChannelNotifyWaitOnThread.md)使用。
+- 该接口需要配合[HcommChannelNotifyWaitOnThread](../同步控制/HcommChannelNotifyWaitOnThread.md)使用。
 
-在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
+- 在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
 
 ## 调用示例
 

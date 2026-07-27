@@ -53,7 +53,7 @@ int32_t HcommBatchTransferOnThread(ThreadHandle thread, ChannelHandle channel,
 ## 约束说明
 
 <!-- npu="A3,910b" id6 -->
-针对如下产品，该接口仅支持通信协议RoCE，且transType仅支持HCOMM_TRANSFER_TYPE_WRITE和HCOMM_TRANSFER_TYPE_READ类型，其他类型返回HCCL_E_NOT_SUPPORT。
+- 针对如下产品，该接口仅支持通信协议RoCE，且transType仅支持HCOMM_TRANSFER_TYPE_WRITE和HCOMM_TRANSFER_TYPE_READ类型，其他类型返回HCCL_E_NOT_SUPPORT。
 
 <!-- npu="A3" id7 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品

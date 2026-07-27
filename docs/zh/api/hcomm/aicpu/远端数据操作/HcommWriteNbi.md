@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-向channel上的指定内存写数据，将src中长度为len的内存数据写入dst所指向的相同长度的内存区域。接口调用方为src所在节点，该接口为非阻塞接口。
+向channel上的指定内存写数据，将源地址`src`中长度为`len`的数据写入目的地址`dst`。接口调用方为源地址`src`所在节点，该接口为非阻塞接口。
 
 ## 函数原型
 
@@ -39,7 +39,7 @@ int32_t HcommWriteNbi(ChannelHandle channel, void *dst, const void *src, uint64_
 | channel | 输入 | 通信通道句柄，取值为通过[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。关于channel的约束参见约束说明。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 | dst | 输出 | 目的内存地址。基础通信场景下，写发起端应使用通过[HcommMemImport](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommMemImport.md)导入的对端内存地址；集合通信场景下，为使用[HcclChannelGetHcclBuffer](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的对端通信内存地址。 |
 | src | 输入 | 源内存地址。基础通信场景下，为通过[HcommMemReg](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommMemReg.md)注册的本端内存地址；集合通信场景下，为使用[HcclGetHcclBuffer](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclGetHcclBuffer.md)、[HcclChannelGetHcclBuffer](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的本端内存地址。 |
-| len | 输入 | 数据长度（字节），需大于0。 |
+| len | 输入 | 待写入的数据长度。单位：字节。需大于0。 |
 
 ## 返回值
 
