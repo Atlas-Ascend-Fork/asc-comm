@@ -19,6 +19,7 @@
 #include "hcomm_primitives.h"
 #include "local_notify.h"
 #include "stream_pub.h"
+#include "acl/acl_rt.h"
 #include "adapter_hal_pub.h"
 #include "device_capacity.h"
 #include "task_param.h"

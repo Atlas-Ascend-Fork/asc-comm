@@ -33,6 +33,7 @@ init_cann_project(PREPEND_MODULE_PATH)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_cann_package(acl_rt MODULE REQUIRED)
 find_cann_package(ascend_hal MODULE REQUIRED)
 find_cann_package(securec MODULE REQUIRED)
 find_cann_package(unified_dlog MODULE REQUIRED)
@@ -96,6 +97,7 @@ target_link_options(aicpu_data_plane PRIVATE
 )
 target_include_directories(aicpu_data_plane PRIVATE ${ASC_COMM_AICPU_INCLUDE_LIST})
 target_link_libraries(aicpu_data_plane PRIVATE
+    acl_rt_headers
     slog_headers
     ascend_hal
     c_sec
