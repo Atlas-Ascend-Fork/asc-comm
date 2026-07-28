@@ -13,15 +13,14 @@
  * \brief Hcomm AIV implementation for V310
  */
 
-#if !defined(__ASCENDC_INCLUDE_INTERNAL_HEADERS__)
-#pragma message( \
-    "This is an internal Hcomm header. Include \"hcomm/hcomm.h\" instead.")
-#define __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_H__
+#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
+#define HCOMM_INCLUDE_INTERNAL_HEADERS
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_V310_H
 #endif
 
-#ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_ROCE_H
-#define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_ROCE_H
+#ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_ROCE_V310_H
+#define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_ROCE_V310_H
 
 #include "hcomm_roce_def.h"
 #include "../../../base_comm/hcomm_utils.h"
@@ -333,7 +332,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Drain(ChannelHandle cha
 } // namespace AscendC
 
 #endif
-#if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_H__)
-#undef __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#undef __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_H__
+#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_V310_H)
+#undef HCOMM_INCLUDE_INTERNAL_HEADERS
+#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_V310_H
 #endif

@@ -13,15 +13,14 @@
  * \brief Hcomm AIV definition for V220
  */
 
-#if !defined(__ASCENDC_INCLUDE_INTERNAL_HEADERS__)
-#pragma message( \
-    "This is an internal Hcomm header. Include \"hcomm/hcomm.h\" instead.")
-#define __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_DEF_H__
+#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
+#define HCOMM_INCLUDE_INTERNAL_HEADERS
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_V220_DEF_H
 #endif
 
-#ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V220_HCOMM_ROCE_DEF_H
-#define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V220_HCOMM_ROCE_DEF_H
+#ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V220_HCOMM_ROCE_V220_DEF_H
+#define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V220_HCOMM_ROCE_V220_DEF_H
 
 #include "../../../base_comm/hcomm_inner_def.h"
 
@@ -70,6 +69,8 @@ public:
 
 private:
     __aicore__ inline void PostSend(ChannelHandle channelHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, bool isRead);
+    __aicore__ inline void WriteWqe(__gm__ ChannelEntity* channel, __gm__ uint8_t* wqeAddr, GM_ADDR dst, GM_ADDR src,
+        uint64_t len, uint64_t curHead, bool isRead);
 
     __aicore__ inline void doorBell(__gm__ ChannelEntity* channel, uint64_t curHead);
 
@@ -80,8 +81,8 @@ private:
 
 } // namespace AscendC
 
-#endif // IMPL_V220_HCOMM_ROCE_DEF_H
-#if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_DEF_H__)
-#undef __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#undef __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_DEF_H__
+#endif // IMPL_V220_HCOMM_ROCE_V220_DEF_H
+#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_V220_DEF_H)
+#undef HCOMM_INCLUDE_INTERNAL_HEADERS
+#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_ROCE_V220_DEF_H
 #endif

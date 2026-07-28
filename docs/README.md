@@ -23,4 +23,4 @@ docs/
 | [API文档贡献指南](./api_contributing.md) | 新增或修改API文档时的结构、约束和检查要求。 |
 | [资料贡献指南](./doc_contributing.md) | README、docs、examples等资料文档的补充规范。 |
 | [贡献指南](../CONTRIBUTING.md) | Issue、开发、检查和PR提交流程。 |
-| [样例](../examples/README.md) | asc-comm API使用样例入口，包含Hcomm WriteNbi/ReadNbi点对点通信样例。 |
+| [样例](../examples/README.md) | asc-comm API使用样例入口，包含AIV直驱URMA WriteNbi/ReadNbi点对点通信样例。 |

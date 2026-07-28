@@ -61,3 +61,7 @@ class Hcomm;
 - `WriteWithNotifyNbi`仅支持`COMM_PROTOCOL_UBC_CTP`路径，`COMM_PROTOCOL_ROCE`路径会返回失败。
 - `AtomicFAA`和`AtomicCAS`仅支持`COMM_PROTOCOL_UBC_CTP`路径，数据类型仅支持`int32_t`、`uint32_t`、`int64_t`、`uint64_t`。
 - 传入的`ChannelHandle`需要指向与协议匹配的通道实体。
+
+## 相关样例
+
+[hcomm_write_read_nbi](../../../../examples/hcomm_write_read_nbi/README.md)演示两卡场景下，AIV Kernel通过`COMM_PROTOCOL_UBC_CTP`路径调用`WriteNbi`和`ReadNbi`。该样例不覆盖RoCE路径。

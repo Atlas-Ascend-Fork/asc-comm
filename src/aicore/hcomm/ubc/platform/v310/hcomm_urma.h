@@ -13,15 +13,14 @@
  * \brief Hcomm AIV URMA implementation for V310
  */
 
-#if !defined(__ASCENDC_INCLUDE_INTERNAL_HEADERS__)
-#pragma message( \
-    "This is an internal Hcomm header. Include \"hcomm/hcomm.h\" instead.")
-#define __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_URMA_H__
+#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal Hcomm header. Please include hcomm/hcomm.h instead.")
+#define HCOMM_INCLUDE_INTERNAL_HEADERS
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_URMA_V310_H
 #endif
 
-#ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_URMA_H
-#define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_URMA_H
+#ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_URMA_V310_H
+#define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_URMA_V310_H
 
 #include "hcomm_urma_def.h"
 
@@ -341,19 +340,31 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(ChannelHand
                                       ? 2U
                                       : 1U;
     SyncAction<HardEvent::S_MTE3>();
-
     DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
     SyncAction<HardEvent::MTE3_S>();
-
     channelEntity->wqeCnt++;
     curHead += wqeBbCnt;
     st_dev(curHead, headAddr, 0);
-
     if constexpr (commit) {
         st_dev(curHead, reinterpret_cast<__gm__ uint32_t *>(sqCtx.contextInfo.ubJfs.dbVa), 0);
     }
     HcommUrmaDumpWqeCtx(sqeCtx, sizeof(T));
     return HCOMM_SUCCESS;
+}
+
+__aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::UpdateCqState(
+    __gm__ ChannelEntity *channelEntity, const CqContext &cqCtx, __gm__ uint32_t *tailAddr, uint32_t curTail)
+{
+    // update CQ tail
+    st_dev(curTail, tailAddr, 0);
+
+    // ring CQ doorbell
+    st_dev(curTail & 0xFFFFFFU, (__gm__ uint32_t *)cqCtx.contextInfo.ubJfc.dbVa, 0);
+
+    // update WQ tail
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    __gm__ uint32_t *sqTailAddr = reinterpret_cast<__gm__ uint32_t *>(sqCtx.contextInfo.ubJfs.tailAddr);
+    st_dev(curTail, sqTailAddr, 0);
 }
 
 __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandle channel, uint32_t expectIdx)
@@ -370,8 +381,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
     uint32_t cqeSize = cqCtx.contextInfo.ubJfc.cqeSize;
     uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
     __ubuf__ HcommUrmaJfcCqeCtx *cqeUb = (__ubuf__ HcommUrmaJfcCqeCtx *)cqeItem_.GetPhyAddr();
-    KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA PollCq enter expectIdx=%u curTail=%u cqDepth=%u \n", expectIdx, curTail, cqDepth);
+    KERNEL_LOG(KERNEL_INFO, "Hcomm URMA PollCq enter expectIdx=%u curTail=%u cqDepth=%u \n", expectIdx, curTail, cqDepth);
 #if defined(UT_TEST)
     curTail = expectIdx;
 #else
@@ -395,7 +405,6 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
             HcommUrmaDumpCqeCtx(cqeUb);
             return 0xFFU;
         }
-        // check CQE status
         uint8_t status = cqeUb->status & 0xFFU;
         uint8_t subStatus = cqeUb->substatus & 0xFFU;
         constexpr uint8_t statusShift = 8;
@@ -408,16 +417,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
     }
 #endif
 
-    // update CQ tail
-    st_dev(curTail, tailAddr, 0);
-
-    // ring CQ doorbell
-    st_dev(curTail & 0xFFFFFFU, (__gm__ uint32_t *)cqCtx.contextInfo.ubJfc.dbVa, 0);
-
-    // update WQ tail
-    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    __gm__ uint32_t *sqTailAddr = reinterpret_cast<__gm__ uint32_t *>(sqCtx.contextInfo.ubJfs.tailAddr);
-    st_dev(curTail, sqTailAddr, 0);
+    UpdateCqState(channelEntity, cqCtx, tailAddr, curTail);
     return HCOMM_SUCCESS;
 }
 
@@ -499,7 +499,7 @@ template <pipe_t pipe> __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP
 } // namespace AscendC
 
 #endif
-#if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_URMA_H__)
-#undef __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#undef __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_URMA_H__
+#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_URMA_V310_H)
+#undef HCOMM_INCLUDE_INTERNAL_HEADERS
+#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_URMA_V310_H
 #endif

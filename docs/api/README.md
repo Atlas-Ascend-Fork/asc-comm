@@ -19,3 +19,8 @@
 ```cpp
 #include "hcomm/hcomm.h"
 ```
+
+## 相关文档
+
+- [Hcomm使用说明](../guide/hcomm_usage.md)
+- [AIV直驱URMA WriteNbi/ReadNbi样例](../../examples/hcomm_write_read_nbi/README.md)
