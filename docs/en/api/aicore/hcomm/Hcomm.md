@@ -1,4 +1,5 @@
 # Hcomm
+
 ## Function Description
 Header file:
 ```cpp
@@ -31,14 +32,14 @@ class Hcomm;
 ## Common APIs
 | API | Description |
 | --- | --- |
-| [Init](./Init_en.md) | Initialize Hcomm temporary workspace. |
-| [ReadNbi](./ReadNbi_en.md) | Submit a read task via the specified channel. |
-| [WriteNbi](./WriteNbi_en.md) | Submit a write task via the specified channel. |
-| [WriteWithNotifyNbi](./WriteWithNotifyNbi_en.md) | Submit a write task and write a notification value. |
-| [AtomicFAA](./AtomicFAA_en.md) | Submit a Fetch-and-add atomic operation task. |
-| [AtomicCAS](./AtomicCAS_en.md) | Submit a Compare-and-swap atomic operation task. |
-| [Commit](./Commit_en.md) | Explicitly submit pending tasks on the channel. |
-| [Drain](./Drain_en.md) | Wait for all communication tasks on the channel to complete. |
+| [Init](./Init.md) | Initialize Hcomm temporary workspace. |
+| [ReadNbi](./ReadNbi.md) | Submit a read task via the specified channel. |
+| [WriteNbi](./WriteNbi.md) | Submit a write task via the specified channel. |
+| [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | Submit a write task and write a notification value. |
+| [AtomicFAA](./AtomicFAA.md) | Submit a Fetch-and-add atomic operation task. |
+| [AtomicCAS](./AtomicCAS.md) | Submit a Compare-and-swap atomic operation task. |
+| [Commit](./Commit.md) | Explicitly submit pending tasks on the channel. |
+| [Drain](./Drain.md) | Wait for all communication tasks on the channel to complete. |
 
 ## Return Value
 | Return Value | Description |

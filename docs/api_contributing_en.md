@@ -1,4 +1,5 @@
 # API Documentation Contribution Guide
+
 This document specifies requirements for supplementing and modifying asc-comm API documentation. When adding or modifying public APIs, corresponding API references, usage guides, samples and test descriptions shall be updated synchronously.
 
 ## Scope

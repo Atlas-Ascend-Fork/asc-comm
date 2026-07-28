@@ -1,4 +1,5 @@
 # Commit
+
 ## Function Description
 Notifies the specified channel that submitted communication tasks can start execution. It is typically invoked explicitly when `commit` is set to `false` in calls to `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA` or `AtomicCAS`.
 
@@ -21,5 +22,5 @@ __aicore__ inline int32_t Commit(AscendC::ChannelHandle channel);
 ## Return Value
 | Return Value | Description |
 | --- | --- |
-| `0` | Commit succeeded. |
-| `-1` | Commit failed. |
+| `0` | Task submission succeeded. |
+| `-1` | Task submission failed. |

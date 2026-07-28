@@ -24,8 +24,8 @@
 
 ### 📖 资料文档
 
-- 新增[快速开始](./docs/quick_start.md)、[构建与测试](./docs/guide/build_and_test.md)、[三方依赖与兼容性](./docs/guide/dependencies.md)说明。
-- 新增[Hcomm使用说明](./docs/guide/hcomm_usage.md)和[API参考](./docs/api/README.md)，覆盖当前公开的Hcomm接口。
+- 新增[快速开始](./docs/quick_start.md)、[构建与测试](./docs/zh/guide/build_and_test.md)、[三方依赖与兼容性](./docs/zh/guide/dependencies.md)说明。
+- 新增[Hcomm使用说明](./docs/zh/guide/hcomm_usage.md)和[API参考](./docs/zh/api/README.md)，覆盖当前公开的Hcomm接口。
 - 新增[样例目录](./examples/README.md)，提供Hcomm AIV直驱调用和端到端通信样例入口。
 
 有关所有历史版本及更新的详细信息，请参阅[CHANGELOG.md](./CHANGELOG.md)。
@@ -70,7 +70,7 @@ Hcomm Kernel侧使用时包含如下头文件：
 | `COMM_PROTOCOL_ROCE` | RoCE点对点通信路径，支持`ReadNbi`、`WriteNbi`、`Commit`、`Drain`，不支持`WriteWithNotifyNbi`。 |
 | `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA点对点通信路径，支持`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。 |
 
-详细参数约束和返回值说明请参考[Hcomm使用说明](./docs/guide/hcomm_usage.md)和[API参考](./docs/api/README.md)。
+详细参数约束和返回值说明请参考[Hcomm使用说明](./docs/zh/guide/hcomm_usage.md)和[API参考](./docs/zh/api/README.md)。
 
 ## 🔍目录结构说明
 
@@ -120,7 +120,7 @@ cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<third_party_path>
 cmake --build build/ut-hcomm
 ```
 
-更多环境准备、Docker、CANN包安装和UT依赖说明请参考[快速开始](./docs/quick_start.md)和[构建与测试](./docs/guide/build_and_test.md)。
+更多环境准备、Docker、CANN包安装和UT依赖说明请参考[快速开始](./docs/quick_start.md)和[构建与测试](./docs/zh/guide/build_and_test.md)。
 
 ## 🧰clangd/IDE支持
 
@@ -137,10 +137,10 @@ cmake --build build/ut-hcomm
   | --- | --- |
   | [文档入口](./docs/README.md) | asc-comm文档总入口。 |
   | [快速开始](./docs/quick_start.md) | 环境准备、源码编译和UT验证。 |
-  | [API参考](./docs/api/README.md) | asc-comm当前公开接口列表。 |
-  | [Hcomm使用说明](./docs/guide/hcomm_usage.md) | Hcomm点对点通信接口的基本使用流程。 |
-  | [构建与测试](./docs/guide/build_and_test.md) | CANN环境、构建脚本、UT构建和样例构建说明。 |
-  | [三方依赖与兼容性](./docs/guide/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
+  | [API参考](./docs/zh/api/README.md) | asc-comm当前公开接口列表。 |
+  | [Hcomm使用说明](./docs/zh/guide/hcomm_usage.md) | Hcomm点对点通信接口的基本使用流程。 |
+  | [构建与测试](./docs/zh/guide/build_and_test.md) | CANN环境、构建脚本、UT构建和样例构建说明。 |
+  | [三方依赖与兼容性](./docs/zh/guide/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
   | [样例目录](./examples/README.md) | asc-comm API样例入口。 |
 
 - **贡献指南**

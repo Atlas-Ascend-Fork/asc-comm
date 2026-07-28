@@ -1,4 +1,5 @@
 # Contribution Guide
+
 All developers are welcome to try out and contribute to this project. Before participating in community contributions, please refer to [cann-community](https://gitcode.com/cann/community) to review the code of conduct, sign the CLA, and learn about the contribution workflow for source repositories.
 
 Please pay attention to the following key points when preparing local code and submitting pull requests (PRs):

@@ -1,4 +1,5 @@
 # Quick Start
+
 ## 🛠️ Environment Preparation<a name="prepare-install"></a>
 Select the corresponding environment setup method according to **whether local NPU devices are available** and your usage goals:
 
@@ -164,7 +165,7 @@ Verify environment and driver health:
     cat /usr/local/Ascend/cann/$(uname -m)-linux/ascend_toolkit_install.info
     ```
 
-## ⚡️ Environment Variable Setup<a name="cann-env-setup"></a>
+## ⚡ Environment Variable Setup<a name="cann-env-setup"></a>
 > [!NOTE]
 > Precondition
 > Cloud development environments and official CANN Docker images configure environment variables automatically; skip this section.

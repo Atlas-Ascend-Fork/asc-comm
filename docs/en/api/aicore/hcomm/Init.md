@@ -1,4 +1,5 @@
 # Init
+
 ## Function Description
 Initializes the temporary workspace for Hcomm. Both `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP` paths require this API to configure the temporary workspace before submitting any communication tasks.
 

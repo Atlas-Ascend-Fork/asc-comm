@@ -1,4 +1,5 @@
 # Third-party Dependencies & Compatibility
+
 ## Scope
 The in-repository build of asc-comm is mainly used for environment verification, AICore Hcomm interface UT validation and Hcomm sample validation. This document describes the direct dependencies integrated into the repository build, verification and sample workflows.
 

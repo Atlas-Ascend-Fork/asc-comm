@@ -1,4 +1,5 @@
 # Build & Test
+
 ## Environment Preparation
 Before executing `build.sh`, source the CANN environment script to set environment variables (`build.sh` checks `ASCEND_HOME_PATH`, which must be configured whether building UTs or not).
 
@@ -9,7 +10,7 @@ source /usr/local/Ascend/cann/set_env.sh
 # source ${install_path}/cann/set_env.sh
 ```
 
-Refer to [Third-party Dependencies & Compatibility](./dependencies_en.md) for the list of basic environment and third-party dependencies.
+Refer to [Third-party Dependencies & Compatibility](./dependencies.md) for the list of basic environment and third-party dependencies.
 
 ## Build Instructions
 When running the build script directly, it will perform basic environment checks. UT building must be triggered separately via dedicated build arguments.
