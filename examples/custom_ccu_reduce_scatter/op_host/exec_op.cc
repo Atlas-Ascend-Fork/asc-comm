@@ -10,10 +10,10 @@
 
 #include <vector>
 #include <algorithm>
-#include <ccu/ccu_types.h>
+#include <ccu/hcomm/ccu_types.h>
 #include <hccl/hcomm_primitives.h>
-#include "ccu_launch.h"
-#include "ccu_res.h"
+#include "ccu/hcomm/ccu_launch.h"
+#include "ccu/hcomm/ccu_res.h"
 #include "alg_resource.h"
 #include "ccu_kernel.h"
 using namespace ops_hccl_rs;

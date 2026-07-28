@@ -10,12 +10,12 @@
 
 #include <vector>
 #include <memory>
-#include <ccu/ccu_types.h>
+#include <ccu/hcomm/ccu_types.h>
 #include <hccl/hccl_res.h>
 #include <hccl/hccl_rank_graph.h>
 #include "alg_resource.h"
 #include "ccu_kernel.h"
-#include "ccu_launch.h"
+#include "ccu/hcomm/ccu_launch.h"
 
 extern "C" HcclResult HcclCommQueryCcuIns(HcclComm comm, CcuInsHandle *insHandles, uint32_t *insNum);
 
@@ -119,7 +119,6 @@ static HcclResult RegisterAllToAllVKernel(
     constexpr uint32_t kernelArgNum = 1;
     CcuResult regRet = HcommCcuKernelRegister(insHandle, dieId, kernelInfo.kernelFuncName,
         reinterpret_cast<void *>(kernelInfo.kernelFunc), kernelArgs, kernelArgNum, &kernelHandle); // 注册 kernel
-
     if (regRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }

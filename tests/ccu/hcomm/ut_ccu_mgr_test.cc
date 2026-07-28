@@ -16,12 +16,12 @@
 
 #include "hccl_ccu_res.h"
 #include "hccl_types.h"
-#include "ccu_kernel.h"
+#include "hcomm/resource/kernel/ccu_kernel.h"
 
-#include "src/base_comm/resources/ccu/ccu_instance/ccu_res_pack.h"
-#include "ccu_kernel_mgr.h"
-#include "ccu_res_repo.h"
-#include "ccu_common.h"
+#include "hcomm/resource/instance/ccu_res_pack.h"
+#include "hcomm/resource/kernel/ccu_kernel_mgr.h"
+#include "hcomm/resource/common/ccu_res_repo.h"
+#include "hcomm/common/ccu_common.h"
 
 #undef private
 #undef protected
