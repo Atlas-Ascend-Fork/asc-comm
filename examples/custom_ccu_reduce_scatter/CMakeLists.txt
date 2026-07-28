@@ -1,12 +1,12 @@
-﻿# ----------------------------------------------------------------------------------------------------------
-# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+﻿# -----------------------------------------------------------------------------------------------------------
+# Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
-# ----------------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------------------------
 
 cmake_minimum_required(VERSION 3.16.0)
 project(asccomm_examples_custom_ccu_reduce_scatter)
@@ -27,17 +27,8 @@ target_include_directories(custom_reduce_scatter_ccu PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
     ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_ccu
     ${CMAKE_CURRENT_SOURCE_DIR}/../../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/ccu
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/ccu/hcomm/ccu
     ${ASCEND_HOME_PATH}/include
-    ${ASCEND_HOME_PATH}/include/ccu
-    ${ASCEND_HOME_PATH}/include/ccu/hcomm
-    ${ASCEND_HOME_PATH}/include/ccu/hcomm/ccu
-    ${ASCEND_HOME_PATH}/include/hccl
-    ${ASCEND_HOME_PATH}/include/hcomm
     ${ASCEND_HOME_PATH}/pkg_inc
-    ${ASCEND_HOME_PATH}/pkg_inc/hccl
-    ${ASCEND_HOME_PATH}/pkg_inc/hcomm
 )
 
 target_compile_options(custom_reduce_scatter_ccu PRIVATE
