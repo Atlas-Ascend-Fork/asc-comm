@@ -36,13 +36,13 @@ int32_t HcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channel, void
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>ThreadHandle类型的定义可参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
-| channel | 输入 | 通信通道句柄，取值为通过[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>ChannelHandle类型的定义可参见[ChannelHandle](../公共类型/ChannelHandle.md)。 |
+| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>[ThreadHandle](../公共类型/ThreadHandle.md)类型的定义可参见对应公共类型文档。 |
+| channel | 输入 | 通信通道句柄，取值为通过[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>[ChannelHandle](../公共类型/ChannelHandle.md)类型的定义可参见对应公共类型文档。 |
 | dst | 输出 | 目的内存地址，使用[HcclGetHcclBuffer](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclGetHcclBuffer.md)、[HcclChannelGetHcclBuffer](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的内存。 |
 | src | 输入 | 源内存地址，使用[HcclGetHcclBuffer](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclGetHcclBuffer.md)、[HcclChannelGetHcclBuffer](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的内存。 |
 | count | 输入 | 元素个数。有效范围由源内存和目的内存的可用长度决定，$count \times \operatorname{sizeof}(dataType)$不得超过两者中较小的可用长度。 |
-| dataType | 输入 | 数据类型。支持的数据类型请参见[数据类型](#section_hcommreadreduceonthread_datatype)。<br>HcommDataType类型的定义请参见[HcommDataType](../公共类型/HcommDataType.md)。 |
-| reduceOp | 输入 | 归约操作类型，取值范围：sum、max、min。<br>HcommReduceOp类型的定义请参见[HcommReduceOp](../公共类型/HcommReduceOp.md)。 |
+| dataType | 输入 | 数据类型。支持的数据类型请参见[数据类型](#section_hcommreadreduceonthread_datatype)。<br>[HcommDataType](../公共类型/HcommDataType.md)类型的定义请参见对应公共类型文档。 |
+| reduceOp | 输入 | 归约操作类型，取值范围：sum、max、min。<br>[HcommReduceOp](../公共类型/HcommReduceOp.md)类型的定义请参见对应公共类型文档。 |
 
 ### 数据类型<a id="section_hcommreadreduceonthread_datatype"></a>
 

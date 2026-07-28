@@ -34,5 +34,5 @@ typedef uint64_t ThreadHandle;
 
 - 除接口明确说明`thread`参数无作用且可传入`0`的场景外，`0`不是有效的ThreadHandle。
 - 必须使用[HcommThreadAlloc](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommThreadAlloc.md)、[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)或相关线程资源获取接口成功返回的句柄，不允许自行构造或修改句柄值。
-- 对于HcommThreadAlloc返回的句柄，使用完成后需要通过[HcommThreadFree](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommThreadFree.md)释放；HcclThreadAcquire及相关接口返回的句柄由库内管理，调用者不得释放。
+- 对于[HcommThreadAlloc](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommThreadAlloc.md)返回的句柄，使用完成后需要通过[HcommThreadFree](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommThreadFree.md)释放；[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)及相关接口返回的句柄由库内管理，调用者不得释放。
 - 将句柄传入数据面接口时，句柄关联的通信引擎必须符合该接口的约束。
