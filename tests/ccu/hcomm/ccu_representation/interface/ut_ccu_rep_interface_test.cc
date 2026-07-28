@@ -8,16 +8,16 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_rep_v1.h"
-#include "ccu_datatype_v1.h"
-#include "ccu_funcblock_v1.h"
-#include "ccu_funccall_v1.h"
-#include "ccu_loopblock_v1.h"
-#include "ccu_loopcall_v1.h"
-#include "ccu_condition_v1.h"
-#include "ccu_repeat_v1.h"
-#include "ccu_interface_assist_v1.h"
-#include "ccu_ins_generater_v1.h"
+#include "hcomm/resource/representation/ccu_rep_v1.h"
+#include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
+#include "hcomm/resource/representation/interface/ccu_funcblock_v1.h"
+#include "hcomm/resource/representation/interface/ccu_funccall_v1.h"
+#include "hcomm/resource/representation/interface/ccu_loopblock_v1.h"
+#include "hcomm/resource/representation/interface/ccu_loopcall_v1.h"
+#include "hcomm/resource/representation/interface/ccu_condition_v1.h"
+#include "hcomm/resource/representation/interface/ccu_repeat_v1.h"
+#include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
 #include "ccu_api_exception.h"
 

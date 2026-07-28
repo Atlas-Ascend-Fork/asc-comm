@@ -44,11 +44,7 @@ asccomm_collect_header_dirs(ASCCOMM_CANN_HEADER_DIRS
 add_library(asccomm_ccu_headers INTERFACE)
 target_include_directories(asccomm_ccu_headers INTERFACE
     ${ASCCOMM_ROOT}/include
-    ${ASCCOMM_ROOT}/include/ccu
-    ${ASCCOMM_ROOT}/include/ccu/hcomm
-    ${ASCCOMM_ROOT}/include/ccu/hcomm/ccu
     ${ASCCOMM_HCOMM_SOURCE_DIR}/include
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include/ccu
     ${ASCCOMM_HCOMM_SOURCE_DIR}/include/hccl
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy
@@ -76,57 +72,7 @@ target_link_libraries(asccomm_ccu_dataplane_obj PRIVATE
     $<BUILD_INTERFACE:unified_dlog>
 )
 target_include_directories(asccomm_ccu_dataplane_obj PRIVATE
-    ${ASCCOMM_ROOT}/include
-    ${ASCCOMM_ROOT}/include/ccu
-    ${ASCCOMM_ROOT}/include/ccu/hcomm
-    ${ASCCOMM_ROOT}/include/ccu/hcomm/ccu
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include/ccu
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include/hccl
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy/hccl
-)
-target_include_directories(asccomm_ccu_dataplane_obj SYSTEM PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/include
-    ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
-    ${ASCCOMM_CANN_ARCH_DIR}/include
-    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc
-    ${ASCCOMM_CANN_HEADER_DIRS}
-)
-target_compile_definitions(asccomm_ccu_dataplane_obj PRIVATE
-    BUILD_OPEN_PROJECT
-    CANN_VERSION_NUM=90100000
-)
-target_compile_options(asccomm_ccu_dataplane_obj PRIVATE -w -fPIC)
-target_compile_options(asccomm_ccu_dataplane_obj PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:-include ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/ccu_dataplane_compat.h>
-)
-target_include_directories(asccomm_ccu_dataplane_obj PRIVATE
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/primitives/api_c_adpt/ccu
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/pub_inc
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_device
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_device/ccu_comp
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_device/ccu_comp/ccu_channel
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_device/ccu_comp/ccu_channel/ccu_channel_ctx_v1
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_device/ccu_comp/ccu_channel/ccu_pfe
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_instance
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_kernel
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_representation
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/context
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/interface
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/control
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/data
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/loop
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/sync
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/translator
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/ccu/ccu_transport
-    ${ASCCOMM_CCU_ROOT}/dataplane/hcomm/base_comm/resources/endpoint_pairs/channels/ccu
+    ${ASCCOMM_CCU_ROOT}
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm
     ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/common
@@ -159,9 +105,23 @@ target_include_directories(asccomm_ccu_dataplane_obj PRIVATE
     ${ASCCOMM_HCOMM_SOURCE_DIR}/test/ut/platform/hccp/rdma_service_normal/include
     ${ASCCOMM_HCOMM_HEADER_DIRS}
 )
+target_include_directories(asccomm_ccu_dataplane_obj SYSTEM PRIVATE
+    ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
+    ${ASCCOMM_CANN_ARCH_DIR}/include
+    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc
+    ${ASCCOMM_CANN_HEADER_DIRS}
+)
+target_compile_definitions(asccomm_ccu_dataplane_obj PRIVATE
+    BUILD_OPEN_PROJECT
+    CANN_VERSION_NUM=90100000
+)
+target_compile_options(asccomm_ccu_dataplane_obj PRIVATE -w -fPIC)
+target_compile_options(asccomm_ccu_dataplane_obj PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:-include ${ASCCOMM_CCU_ROOT}/hcomm/common/ccu_dataplane_compat.h>
+)
 
-add_subdirectory(dataplane/hcomm/base_comm/primitives/api_c_adpt/ccu)
-add_subdirectory(dataplane/hcomm/base_comm/resources/ccu)
+add_subdirectory(hcomm)
 
 add_library(asccomm_ccu_dataplane SHARED
     $<TARGET_OBJECTS:asccomm_ccu_dataplane_obj>
