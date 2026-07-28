@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-发送同步信号，在指定Channel上记录一个Notify。该接口为异步接口，主要用于Channel两端同步等待场景。
+该接口用于Channel两端的同步，通过指定通信线程向指定Channel的对端发送Notify同步信号。对端可调用[HcommChannelNotifyWaitOnThread](HcommChannelNotifyWaitOnThread.md)等待该信号。该接口为异步接口，返回成功仅表示发送任务已提交。
 
 ## 函数原型
 
@@ -52,9 +52,9 @@ int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle chan
 
 - 该接口需要配合[HcommChannelNotifyWaitOnThread](HcommChannelNotifyWaitOnThread.md)使用。
 <!-- npu="950" id6 -->
-- 针对Ascend 950PR/Ascend 950DT，支持AICPU_TS场景在Device侧调用，也支持CPU引擎RoCE场景在Host CPU侧调用。
-- 针对Ascend 950PR/Ascend 950DT的CPU引擎RoCE场景，调用[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)申请入参channel时，需传入`engine = COMM_ENGINE_CPU`，且`channelDesc.remoteEndpoint.protocol = COMM_PROTOCOL_ROCE`。URMA/UBC等协议通道当前不支持该接口。
-- 针对Ascend 950PR/Ascend 950DT的CPU引擎RoCE场景，`remoteNotifyIdx`必须小于通信通道另一端的Notify数量，且通信通道创建时的`notifyNum`需大于0。
+- 针对Ascend 950PR/Ascend 950DT，支持AICPU_TS场景在Device侧调用，也支持在Host CPU侧调用。
+- Host CPU侧调用时，仅支持通信协议RoCE。
+- `remoteNotifyIdx`必须小于通信通道另一端的Notify数量，且通信通道创建时的`notifyNum`需大于0。
 <!-- end id6 -->
 - Host CPU侧调用时，`thread`参数无作用，可传入0。
 

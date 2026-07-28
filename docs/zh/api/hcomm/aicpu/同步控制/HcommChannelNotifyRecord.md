@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-发送同步信号，在指定Channel上记录一个Notify。该接口为异步接口，主要用于Channel两端同步等待场景。
+该接口用于Channel两端的同步，向指定Channel的对端发送Notify同步信号，无需指定通信线程。对端可调用[HcommChannelNotifyWait](HcommChannelNotifyWait.md)等待该信号。该接口为异步接口，返回成功仅表示发送请求已提交。
 
 ## 函数原型
 
@@ -51,10 +51,10 @@ int32_t HcommChannelNotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx
 
 <!-- npu="950" id6 -->
 - 针对Ascend 950PR/Ascend 950DT，本接口仅支持在Host CPU上调用，不支持在AICPU侧调用。
-- 调用[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)申请入参channel时，需传入`engine = COMM_ENGINE_CPU`，且`channelDesc.remoteEndpoint.protocol = COMM_PROTOCOL_ROCE`。URMA/UBC等协议通道当前不支持本接口。
+- Host CPU侧调用时，仅支持通信协议RoCE。
 - `remoteNotifyIdx`必须小于通信通道另一端的Notify数量，且通信通道创建时的`notifyNum`需大于0。
-<!-- end id6 -->
 - 本接口需要配合[HcommChannelNotifyWait](HcommChannelNotifyWait.md)使用。
+<!-- end id6 -->
 
 ## 调用示例
 

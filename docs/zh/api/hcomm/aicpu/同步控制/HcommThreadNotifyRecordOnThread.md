@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-向其他Thread发送同步信号，主要用于多Thread之间的同步等待场景。
+该接口用于通信线程之间的同步，通过指定通信线程向目标通信线程的指定Notify发送同步信号。目标通信线程可调用[HcommThreadNotifyWaitOnThread](HcommThreadNotifyWaitOnThread.md)等待该信号。
 
 ## 函数原型
 

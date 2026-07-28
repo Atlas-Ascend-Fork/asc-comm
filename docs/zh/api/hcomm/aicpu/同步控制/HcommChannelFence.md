@@ -49,8 +49,8 @@ int32_t HcommChannelFence(ChannelHandle channel)
 ## 约束说明
 
 <!-- npu="950" id6 -->
-- 针对Ascend 950PR/Ascend 950DT，本接口仅支持在Host CPU上调用，不支持在AICPU侧调用。
-- 调用[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)申请入参channel时，需传入`engine = COMM_ENGINE_CPU`，且`channelDesc.remoteEndpoint.protocol`需为`COMM_PROTOCOL_ROCE`、`COMM_PROTOCOL_UBC_TP`或`COMM_PROTOCOL_UBC_CTP`。
+- 针对Ascend 950PR/Ascend 950DT，本接口仅支持在Host CPU侧调用，不支持在AICPU侧调用。
+- Host CPU侧调用时，支持通信协议UB_RTP、UB_CTP、RoCE。
 <!-- end id6 -->
 
 ## 调用示例

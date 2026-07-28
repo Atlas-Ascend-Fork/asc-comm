@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-等待其他Thread发送的同步信号，主要用于多Thread之间的同步等待场景。**使用通过[HcommSetNotifyWaitTimeOut](./HcommSetNotifyWaitTimeOut.md)设置的默认超时时间**，无需手动传入超时参数。
+该接口用于通信线程之间的同步，通过指定通信线程等待该线程上指定Notify的同步信号。其他通信线程可调用[HcommThreadNotifyRecordOnThread](HcommThreadNotifyRecordOnThread.md)发送该信号。该接口使用[HcommSetNotifyWaitTimeOut](HcommSetNotifyWaitTimeOut.md)设置的默认超时时间，无需传入超时参数。
 
 ## 函数原型
 

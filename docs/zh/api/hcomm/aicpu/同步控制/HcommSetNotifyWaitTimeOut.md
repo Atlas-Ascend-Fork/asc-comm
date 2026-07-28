@@ -36,7 +36,7 @@ int32_t HcommSetNotifyWaitTimeOut(float timeOut)
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | -------------- |
-| timeOut | 输入 | 通知等待超时时间。<br>单位：秒。<br>取值说明：<br>- 0：表示永久等待，不超时。<br>- >0：具体的超时时间（秒）。<br>默认值：1836秒（约30分钟）。<br>当前只支持整数传入。 |
+| timeOut | 输入 | 通知等待超时时间。单位：秒。<br>取值说明：<br>&nbsp;&nbsp;&bull; 0：表示永久等待；<br>&nbsp;&nbsp;&bull; 非0（正整数）：配置的等待超时时间。<br>&nbsp;&nbsp;&bull; 默认值：1836秒（约30分钟）。|
 
 ## 返回值
 
@@ -52,8 +52,8 @@ int32_t HcommSetNotifyWaitTimeOut(float timeOut)
    - 如果未调用本接口设置，默认超时时间为1836秒（约30分钟）
 
 2. **超时生效条件**
-   - 本接口设置的超时时间将应用于后续的`*WithDefaultTimeout`系列接口
-   - 已调用`HcommChannelNotifyWaitOnThread`或`HcommThreadNotifyWaitOnThread`设置的超时不受本接口影响
+   - 本接口设置的超时时间将应用于后续调用的[HcommChannelNotifyWaitOnThreadWithDefaultTimeout](./HcommChannelNotifyWaitOnThreadWithDefaultTimeout.md)和[HcommThreadNotifyWaitOnThreadWithDefaultTimeout](./HcommThreadNotifyWaitOnThreadWithDefaultTimeout.md)接口
+   - 调用[HcommChannelNotifyWaitOnThread](./HcommChannelNotifyWaitOnThread.md)或[HcommThreadNotifyWaitOnThread](./HcommThreadNotifyWaitOnThread.md)时手动传入的超时时间不受本接口影响
 
 3. **非AICPU模式特殊处理**
    - 在非AICPU模式下，如果未调用本接口设置默认超时时间
@@ -61,8 +61,8 @@ int32_t HcommSetNotifyWaitTimeOut(float timeOut)
 
 ## 约束说明
 
-- 本接口设置的超时时间仅对`*WithDefaultTimeout`系列接口生效。
-- 手动传入超时时间的`HcommChannelNotifyWaitOnThread`和`HcommThreadNotifyWaitOnThread`不受本接口影响。
+- 本接口设置的超时时间仅对[HcommChannelNotifyWaitOnThreadWithDefaultTimeout](./HcommChannelNotifyWaitOnThreadWithDefaultTimeout.md)和[HcommThreadNotifyWaitOnThreadWithDefaultTimeout](./HcommThreadNotifyWaitOnThreadWithDefaultTimeout.md)接口生效。
+- 手动传入超时时间的[HcommChannelNotifyWaitOnThread](./HcommChannelNotifyWaitOnThread.md)和[HcommThreadNotifyWaitOnThread](./HcommThreadNotifyWaitOnThread.md)接口不受本接口影响。
 - 建议在数据面操作开始前设置默认超时时间。
 - 当前只支持整数传入`timeOut`，不支持小数传入。
 

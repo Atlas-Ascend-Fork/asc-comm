@@ -53,7 +53,7 @@ int32_t HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel)
 - 针对Ascend 950PR/Ascend 950DT，支持AICPU侧和Host CPU侧调用。
 
 - AICPU侧调用时，通信引擎为AICPU_TS，支持通信协议UBC_TP、UBC_CTP、UBoE。
-- Host CPU侧调用时，调用[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)申请入参channel时，需传入`engine = COMM_ENGINE_CPU`，且`channelDesc.remoteEndpoint.protocol`需为`COMM_PROTOCOL_ROCE`、`COMM_PROTOCOL_UBC_TP`或`COMM_PROTOCOL_UBC_CTP`。
+- Host CPU侧调用时，支持通信协议UB_RTP、UB_CTP、RoCE。
 - Host CPU侧调用时，`thread`参数无作用，可传入0。
 <!-- end id6 -->
 

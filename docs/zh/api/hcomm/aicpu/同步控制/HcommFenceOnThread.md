@@ -22,9 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-在Host CPU侧触发数据面全局Fence操作，对当前已初始化的内部Flush资源执行Flush并等待完成。
-
-该接口不绑定具体通信通道。如需等待指定通信通道上已提交的读写操作完成，应先调用[HcommChannelFenceOnThread](HcommChannelFenceOnThread.md)。
+在Host CPU侧对当前已初始化的所有数据面Flush资源执行全局Flush，并等待Flush完成。该接口不绑定具体通信线程或通信通道；如需等待指定通信通道上已提交的读写操作完成，应先调用[HcommChannelFenceOnThread](HcommChannelFenceOnThread.md)。
 
 ## 函数原型
 
@@ -53,7 +51,7 @@ int32_t HcommFenceOnThread(ThreadHandle thread)
 <!-- npu="950" id6 -->
 - 针对Ascend 950PR/Ascend 950DT，仅支持Host CPU侧调用。
 <!-- end id6 -->
-- Host CPU侧调用时，通信引擎为CPU，支持通信协议RoCE，`thread`参数无作用，可传入0。
+- Host CPU侧调用时，仅支持通信协议RoCE，`thread`参数无作用，可传入0。
 - 该接口用于Host CPU侧数据面Flush，不等待指定通信通道上的读写操作完成。如需等待通道上已提交的读写操作完成，应先调用[HcommChannelFenceOnThread](HcommChannelFenceOnThread.md)。
 - 当前没有需要执行Flush的内部资源时，接口返回成功。
 
