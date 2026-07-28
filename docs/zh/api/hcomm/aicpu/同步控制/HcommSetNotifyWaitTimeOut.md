@@ -36,7 +36,7 @@ int32_t HcommSetNotifyWaitTimeOut(float timeOut)
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | -------------- |
-| timeOut | 输入 | 通知等待超时时间。单位：秒。<br>取值说明：<br>&nbsp;&nbsp;&bull; 0：表示永久等待；<br>&nbsp;&nbsp;&bull; 非0（正整数）：配置的等待超时时间。<br>&nbsp;&nbsp;&bull; 默认值：1836秒（约30分钟）。|
+| timeOut | 输入 | 通知等待超时时间。单位：秒。取值范围为[0, `UINT32_MAX`]<br>取值说明：<br>&nbsp;&nbsp;&bull; 0：表示永久等待；<br>&nbsp;&nbsp;&bull; 非0（正整数）：配置的等待超时时间。|
 
 ## 返回值
 
@@ -46,25 +46,25 @@ int32_t HcommSetNotifyWaitTimeOut(float timeOut)
 | --- | --- |
 | `int32_t` | 接口成功返回0，其他值表示失败。 |
 
-## 超时机制说明
-
-1. **默认超时时间**
-   - 如果未调用本接口设置，默认超时时间为1836秒（约30分钟）
-
-2. **超时生效条件**
-   - 本接口设置的超时时间将应用于后续调用的[HcommChannelNotifyWaitOnThreadWithDefaultTimeout](./HcommChannelNotifyWaitOnThreadWithDefaultTimeout.md)和[HcommThreadNotifyWaitOnThreadWithDefaultTimeout](./HcommThreadNotifyWaitOnThreadWithDefaultTimeout.md)接口
-   - 调用[HcommChannelNotifyWaitOnThread](./HcommChannelNotifyWaitOnThread.md)或[HcommThreadNotifyWaitOnThread](./HcommThreadNotifyWaitOnThread.md)时手动传入的超时时间不受本接口影响
-
-3. **非AICPU模式特殊处理**
-   - 在非AICPU模式下，如果未调用本接口设置默认超时时间
-   - 系统会自动在默认值基础上增加50秒的偏移量作为安全缓冲
-
 ## 约束说明
 
 - 本接口设置的超时时间仅对[HcommChannelNotifyWaitOnThreadWithDefaultTimeout](./HcommChannelNotifyWaitOnThreadWithDefaultTimeout.md)和[HcommThreadNotifyWaitOnThreadWithDefaultTimeout](./HcommThreadNotifyWaitOnThreadWithDefaultTimeout.md)接口生效。
 - 手动传入超时时间的[HcommChannelNotifyWaitOnThread](./HcommChannelNotifyWaitOnThread.md)和[HcommThreadNotifyWaitOnThread](./HcommThreadNotifyWaitOnThread.md)接口不受本接口影响。
+- `timeOut`传入小数时会转换为`uint32_t`类型，小数部分会被截去，建议传入整数。取值范围为[0, `UINT32_MAX`]，单位为秒。0表示永久等待，非0值表示具体的等待超时时间。
+
 - 建议在数据面操作开始前设置默认超时时间。
-- 当前只支持整数传入`timeOut`，不支持小数传入。
+<!-- npu="950" id6 -->
+针对Ascend 950PR/Ascend 950DT：
+
+- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
+- CPU_TS场景下，未调用本接口时的默认超时时间为1886秒；AICPU_TS场景下，未调用本接口时的默认超时时间为1836秒。
+<!-- end id6 -->
+<!-- npu="A3,910b" id7 -->
+针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
+
+- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
+- CPU_TS场景下，未调用本接口时的默认超时时间为1886秒；AICPU_TS场景下，未调用本接口时的默认超时时间为1836秒。
+<!-- end id7 -->
 
 ## 调用示例
 
