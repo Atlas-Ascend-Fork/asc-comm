@@ -13,17 +13,17 @@
 #include <string>
 #include <climits>
 
-#include "ccu_ins_generater_v1.h"
-#include "ccu_rep_loc_wait_event.h"
-#include "ccu_rep_loc_wait_notify.h"
-#include "ccu_rep_loc_record_event.h"
-#include "ccu_rep_record_shared_notify.h"
-#include "ccu_rep_nop_v1.h"
-#include "ccu_rep_rempostsem_v1.h"
-#include "ccu_rep_rempostvar_v1.h"
-#include "ccu_rep_remwaitsem_v1.h"
-#include "ccu_datatype_v1.h"
-#include "ccu_rep_context_v1.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
+#include "hcomm/resource/representation/reps/sync/ccu_rep_loc_wait_event.h"
+#include "hcomm/resource/representation/reps/sync/ccu_rep_loc_wait_notify.h"
+#include "hcomm/resource/representation/reps/sync/ccu_rep_loc_record_event.h"
+#include "hcomm/resource/representation/reps/sync/ccu_rep_record_shared_notify.h"
+#include "hcomm/resource/representation/reps/common/ccu_rep_nop_v1.h"
+#include "hcomm/resource/representation/reps/sync/ccu_rep_rempostsem_v1.h"
+#include "hcomm/resource/representation/reps/sync/ccu_rep_rempostvar_v1.h"
+#include "hcomm/resource/representation/reps/sync/ccu_rep_remwaitsem_v1.h"
+#include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
+#include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
 namespace hcomm {
 namespace CcuRep {
