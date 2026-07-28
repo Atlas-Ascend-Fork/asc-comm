@@ -51,18 +51,27 @@ int32_t HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThr
 ## 约束说明
 
 - 该接口需要配合[HcommThreadNotifyWaitOnThread](HcommThreadNotifyWaitOnThread.md)使用。
+
 - `thread`和`dstThread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄。
+
 - `dstNotifyIdx`必须小于目标通信线程的Notify数量，即获取`dstThread`时传入的`notifyNumPerThread`。
 
 <!-- npu="950" id6 -->
-针对Ascend 950PR/Ascend 950DT：
-
-- 仅支持AICPU_TS场景在Device侧调用。
+- 针对Ascend 950PR/Ascend 950DT，仅支持AICPU_TS场景在Device侧调用。
 <!-- end id6 -->
-<!-- npu="A3,910b" id8 -->
-针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
 
-- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
+<!-- npu="A3,910b" id8 -->
+- 针对如下产品型号：
+
+    <!-- npu="A3" id9 -->
+    Atlas A3 训练系列产品/Atlas A3 推理系列产品；
+    <!-- end id9 -->
+
+    <!-- npu="910b" id10 -->
+    Atlas A2 训练系列产品/Atlas A2 推理系列产品；
+    <!-- end id10 -->
+
+    支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
 <!-- end id8 -->
 
 ## 调用示例

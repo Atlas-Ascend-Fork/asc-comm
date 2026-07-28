@@ -49,21 +49,29 @@ int32_t HcommSetNotifyWaitTimeOut(float timeOut)
 ## 约束说明
 
 - 本接口设置的超时时间仅对[HcommChannelNotifyWaitOnThreadWithDefaultTimeout](./HcommChannelNotifyWaitOnThreadWithDefaultTimeout.md)和[HcommThreadNotifyWaitOnThreadWithDefaultTimeout](./HcommThreadNotifyWaitOnThreadWithDefaultTimeout.md)接口生效。
+
 - 手动传入超时时间的[HcommChannelNotifyWaitOnThread](./HcommChannelNotifyWaitOnThread.md)和[HcommThreadNotifyWaitOnThread](./HcommThreadNotifyWaitOnThread.md)接口不受本接口影响。
+
 - `timeOut`传入小数时会转换为`uint32_t`类型，小数部分会被截去，建议传入整数。取值范围为[0, `UINT32_MAX`]，单位为秒。0表示永久等待，非0值表示具体的等待超时时间。
 
 - 建议在数据面操作开始前设置默认超时时间。
+
 <!-- npu="950" id6 -->
-针对Ascend 950PR/Ascend 950DT：
-
-- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
-- CPU_TS场景下，未调用本接口时的默认超时时间为1886秒；AICPU_TS场景下，未调用本接口时的默认超时时间为1836秒。
+- 针对Ascend 950PR/Ascend 950DT，支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。CPU_TS场景下，未调用本接口时的默认超时时间为1886秒；AICPU_TS场景下，未调用本接口时的默认超时时间为1836秒。
 <!-- end id6 -->
-<!-- npu="A3,910b" id7 -->
-针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
 
-- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
-- CPU_TS场景下，未调用本接口时的默认超时时间为1886秒；AICPU_TS场景下，未调用本接口时的默认超时时间为1836秒。
+<!-- npu="A3,910b" id7 -->
+- 针对如下产品型号：
+
+    <!-- npu="A3" id8 -->
+    Atlas A3 训练系列产品/Atlas A3 推理系列产品；
+    <!-- end id8 -->
+
+    <!-- npu="910b" id9 -->
+    Atlas A2 训练系列产品/Atlas A2 推理系列产品；
+    <!-- end id9 -->
+
+    支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。CPU_TS场景下，未调用本接口时的默认超时时间为1886秒；AICPU_TS场景下，未调用本接口时的默认超时时间为1836秒。
 <!-- end id7 -->
 
 ## 调用示例

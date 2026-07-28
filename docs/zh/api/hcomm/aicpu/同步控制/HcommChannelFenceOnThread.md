@@ -50,10 +50,7 @@ int32_t HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel)
 ## 约束说明
 
 <!-- npu="950" id6 -->
-- 针对Ascend 950PR/Ascend 950DT，支持AICPU侧和Host CPU侧调用。
-
-- AICPU侧调用时，通信引擎为AICPU_TS，支持通信协议UB_CTP、UB_RTP、UBOE、RoCE，`thread`必须为有效的通信线程句柄。
-- Host CPU侧调用时，通信引擎为CPU，支持通信协议UB_CTP、UB_RTP、RoCE，`thread`参数无作用，可传入0。
+- 本接口仅支持Ascend 950PR/Ascend 950DT。针对上述产品，支持AICPU侧和Host CPU侧调用。AICPU侧调用时，通信引擎为AICPU_TS，支持通信协议UB_CTP、UB_RTP、UBOE、RoCE，`thread`必须为有效的通信线程句柄；Host CPU侧调用时，通信引擎为CPU，支持通信协议UB_CTP、UB_RTP、RoCE，`thread`参数无作用，可传入0。
 <!-- end id6 -->
 
 ## 调用示例

@@ -52,19 +52,25 @@ int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channe
 ## 约束说明
 
 - 该接口需要配合[HcommChannelNotifyRecordOnThread](HcommChannelNotifyRecordOnThread.md)使用。
+
 - `localNotifyIdx`必须小于本端通信通道的Notify数量，且通信通道创建时的`notifyNum`需大于0。
+
 <!-- npu="950" id6 -->
-针对Ascend 950PR/Ascend 950DT：
-
-- 支持AICPU_TS场景在Device侧调用，也支持在Host CPU侧调用。
-- AICPU_TS场景支持通信协议UB_CTP、UB_RTP、UBOE、RoCE，`thread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄。
-- Host CPU侧调用时，通信引擎为CPU，仅支持通信协议RoCE；`thread`参数无作用，可传入0；`timeOut`需大于0。
+- 针对Ascend 950PR/Ascend 950DT，支持AICPU_TS场景在Device侧调用，也支持在Host CPU侧调用。AICPU_TS场景支持通信协议UB_CTP、UB_RTP、UBOE、RoCE，`thread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄；Host CPU侧调用时，通信引擎为CPU，仅支持通信协议RoCE，`thread`参数无作用，可传入0，`timeOut`需大于0。
 <!-- end id6 -->
-<!-- npu="A3,910b" id7 -->
-针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
 
-- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
-- CPU_TS和AICPU_TS场景均支持通信协议HCCS、HCCS_ONLY、RoCE，`thread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄。
+<!-- npu="A3,910b" id7 -->
+- 针对如下产品型号：
+
+    <!-- npu="A3" id8 -->
+    Atlas A3 训练系列产品/Atlas A3 推理系列产品；
+    <!-- end id8 -->
+
+    <!-- npu="910b" id9 -->
+    Atlas A2 训练系列产品/Atlas A2 推理系列产品；
+    <!-- end id9 -->
+
+    支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。CPU_TS和AICPU_TS场景均支持通信协议HCCS、HCCS_ONLY、RoCE，`thread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄。
 <!-- end id7 -->
 
 ## 调用示例

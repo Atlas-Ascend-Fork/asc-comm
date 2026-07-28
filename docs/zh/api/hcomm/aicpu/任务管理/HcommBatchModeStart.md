@@ -49,13 +49,25 @@ int32_t HcommBatchModeStart(const char *batchTag)
 ## 约束说明
 
 - 本接口和[HcommBatchModeEnd](HcommBatchModeEnd.md)必须成对调用，且需在同一线程中执行。
+
 - 批量模式下暂存的操作需在调用[HcommBatchModeEnd](HcommBatchModeEnd.md)后才会提交执行。
 
 <!-- npu="950" id6 -->
-- Ascend 950PR/Ascend 950DT支持批量模式和立即执行模式（不调用批量接口）。
+- 针对Ascend 950PR/Ascend 950DT，支持批量模式和立即执行模式（不调用批量接口）。
 <!-- end id6 -->
+
 <!-- npu="A3,910b" id7 -->
-- Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品必须使用批量模式。
+- 针对如下产品型号：
+
+    <!-- npu="A3" id8 -->
+    Atlas A3 训练系列产品/Atlas A3 推理系列产品；
+    <!-- end id8 -->
+
+    <!-- npu="910b" id9 -->
+    Atlas A2 训练系列产品/Atlas A2 推理系列产品；
+    <!-- end id9 -->
+
+    必须使用批量模式。
 <!-- end id7 -->
 
 ## 调用示例

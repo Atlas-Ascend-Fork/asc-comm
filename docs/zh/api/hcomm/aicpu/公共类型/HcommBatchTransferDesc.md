@@ -73,5 +73,18 @@ typedef struct {
 
 ## 约束说明
 
-- `transType`必须使用[HcommTransferType](HcommTransferType.md)中有效的传输类型，并按该类型填写对应的`transferInfo`联合体成员；
-- Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品仅支持RoCE协议，且`transType`仅支持`HCOMM_TRANSFER_TYPE_WRITE`和`HCOMM_TRANSFER_TYPE_READ`。
+- `transType`必须使用[HcommTransferType](HcommTransferType.md)中有效的传输类型，并按该类型填写对应的`transferInfo`联合体成员。
+
+<!-- npu="A3,910b" id6 -->
+- 针对如下产品型号：
+
+    <!-- npu="A3" id7 -->
+    Atlas A3 训练系列产品/Atlas A3 推理系列产品；
+    <!-- end id7 -->
+
+    <!-- npu="910b" id8 -->
+    Atlas A2 训练系列产品/Atlas A2 推理系列产品；
+    <!-- end id8 -->
+
+    仅支持RoCE协议，且`transType`仅支持`HCOMM_TRANSFER_TYPE_WRITE`和`HCOMM_TRANSFER_TYPE_READ`。
+<!-- end id6 -->

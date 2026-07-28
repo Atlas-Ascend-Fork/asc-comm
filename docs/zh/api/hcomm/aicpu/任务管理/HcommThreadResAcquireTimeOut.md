@@ -67,8 +67,11 @@ int32_t HcommThreadResAcquireTimeOut(float timeOut)
 ## 约束说明
 
 - 本接口仅支持AICPU_TS模式下在Device侧调用。
+
 - 建议在AICPU调用数据面接口前设置合适的超时时间。
+
 - 超时值为0时会一直等待，可能导致死锁风险，请谨慎使用。
+
 - `timeOut`仅支持0或正整数，不支持负数或小数。
 
 ## 调用示例

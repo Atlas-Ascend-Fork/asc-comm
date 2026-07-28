@@ -50,7 +50,17 @@ int32_t HcommChannelDrainOnThread(ThreadHandle thread, ChannelHandle channel)
 ## 约束说明
 
 <!-- npu="A3,910b" id6 -->
-- Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用，通信协议仅支持RoCE。
+- 针对如下产品型号：
+
+    <!-- npu="A3" id7 -->
+    Atlas A3 训练系列产品/Atlas A3 推理系列产品；
+    <!-- end id7 -->
+
+    <!-- npu="910b" id8 -->
+    Atlas A2 训练系列产品/Atlas A2 推理系列产品；
+    <!-- end id8 -->
+
+    支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用，通信协议仅支持RoCE。
 <!-- end id6 -->
 
 ## 调用示例

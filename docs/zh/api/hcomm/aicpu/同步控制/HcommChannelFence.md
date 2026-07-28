@@ -49,8 +49,7 @@ int32_t HcommChannelFence(ChannelHandle channel)
 ## 约束说明
 
 <!-- npu="950" id6 -->
-- 针对Ascend 950PR/Ascend 950DT，本接口仅支持在Host CPU侧调用，不支持在AICPU侧调用。
-- Host CPU侧调用时，支持通信协议UB_RTP、UB_CTP、RoCE。
+- 本接口仅支持Ascend 950PR/Ascend 950DT。针对上述产品，本接口仅支持在Host CPU侧调用，不支持在AICPU侧调用，支持通信协议UB_RTP、UB_CTP、RoCE。
 <!-- end id6 -->
 
 ## 调用示例

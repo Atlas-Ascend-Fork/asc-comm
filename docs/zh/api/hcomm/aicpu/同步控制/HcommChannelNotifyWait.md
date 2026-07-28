@@ -51,11 +51,12 @@ int32_t HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, u
 ## 约束说明
 
 <!-- npu="950" id6 -->
-接口仅支持Ascend 950PR/Ascend 950DT。针对Ascend 950PR/Ascend 950DT：
-- 本接口仅支持在Host CPU上调用，不支持在AICPU侧调用。
-- Host CPU侧调用时，仅支持通信协议RoCE。
-- `localNotifyIdx`必须小于本端通信通道的Notify数量，且通信通道创建时的`notifyNum`需大于0；
--  `timeOut`需大于0。
+- 本接口仅支持Ascend 950PR/Ascend 950DT。针对上述产品，本接口仅支持在Host CPU上调用，不支持在AICPU侧调用，仅支持通信协议RoCE。
+
+- `localNotifyIdx`必须小于本端通信通道的Notify数量，且通信通道创建时的`notifyNum`需大于0。
+
+- `timeOut`需大于0。
+
 - 本接口需要配合[HcommChannelNotifyRecord](HcommChannelNotifyRecord.md)使用。
 <!-- end id6 -->
 

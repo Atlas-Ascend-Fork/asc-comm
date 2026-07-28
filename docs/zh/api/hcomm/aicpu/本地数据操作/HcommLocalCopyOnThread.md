@@ -54,7 +54,7 @@ int32_t HcommLocalCopyOnThread(ThreadHandle thread, void *dst, const void *src, 
 - `src`和`dst`必须为已申请的Device内存地址。
 
 <!-- npu="950" id6 -->
-- 在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
+- 针对Ascend 950PR/Ascend 950DT，仅支持AICPU_TS模式下在Device侧调用该接口。
 <!-- end id6 -->
 
 ## 调用示例

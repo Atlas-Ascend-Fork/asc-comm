@@ -49,6 +49,7 @@ int32_t HcommAcquireComm(const char* commId)
 ## 约束说明
 
 - 仅支持AI CPU模式下，在Device侧调用该接口。
+
 - 本接口和[HcommReleaseComm](HcommReleaseComm.md)分别对应加锁和解锁动作，必须成对调用。接口内部会拦截重复加锁场景，避免同一个通信域被多个线程同时占用。
 
 ## 调用示例

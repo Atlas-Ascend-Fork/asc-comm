@@ -40,5 +40,19 @@ typedef enum {
 ```
 
 ## 约束说明
+
 - `transType`必须与实际填写的`transferInfo`联合体成员一致，映射关系见[定义原型](#section_hcommtransfertype_definition)。
-- Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品使用批量传输接口时，仅支持`HCOMM_TRANSFER_TYPE_WRITE`和`HCOMM_TRANSFER_TYPE_READ`，其他类型返回不支持。
+
+<!-- npu="A3,910b" id6 -->
+- 针对如下产品型号：
+
+    <!-- npu="A3" id7 -->
+    Atlas A3 训练系列产品/Atlas A3 推理系列产品；
+    <!-- end id7 -->
+
+    <!-- npu="910b" id8 -->
+    Atlas A2 训练系列产品/Atlas A2 推理系列产品；
+    <!-- end id8 -->
+
+    使用批量传输接口时，仅支持`HCOMM_TRANSFER_TYPE_WRITE`和`HCOMM_TRANSFER_TYPE_READ`，其他类型返回不支持。
+<!-- end id6 -->

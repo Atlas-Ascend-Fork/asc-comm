@@ -64,18 +64,29 @@ int32_t HcommThreadNotifyWaitOnThreadWithDefaultTimeout(ThreadHandle thread, uin
 ## 约束说明
 
 - 该接口需要配合[HcommThreadNotifyRecordOnThread](./HcommThreadNotifyRecordOnThread.md)使用。
+
 - `thread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄。
+
 - `notifyIdx`必须小于当前通信线程的Notify数量，即获取`thread`时传入的`notifyNumPerThread`。
+
 - 默认超时时间由同侧调用上下文中的[HcommSetNotifyWaitTimeOut](./HcommSetNotifyWaitTimeOut.md)设置；CPU_TS场景需在Host侧设置，AICPU_TS场景需在Device侧设置。未设置时，CPU_TS场景的默认值为1886秒，AICPU_TS场景的默认值为1836秒。
+
 <!-- npu="950" id6 -->
-针对Ascend 950PR/Ascend 950DT：
-
-- 仅支持AICPU_TS场景在Device侧调用。
+- 针对Ascend 950PR/Ascend 950DT，仅支持AICPU_TS场景在Device侧调用。
 <!-- end id6 -->
-<!-- npu="A3,910b" id7 -->
-针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
 
-- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
+<!-- npu="A3,910b" id7 -->
+- 针对如下产品型号：
+
+    <!-- npu="A3" id10 -->
+    Atlas A3 训练系列产品/Atlas A3 推理系列产品；
+    <!-- end id10 -->
+
+    <!-- npu="910b" id11 -->
+    Atlas A2 训练系列产品/Atlas A2 推理系列产品；
+    <!-- end id11 -->
+
+    支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
 <!-- end id7 -->
 
 ## 调用示例
