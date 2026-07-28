@@ -12,7 +12,7 @@
 #include <mockcpp/mockcpp.hpp>
 #include <mockcpp/mokc.h>
 
-#include "ccu_microcode_v1.h"
+#include "hcomm/resource/microcode/ccu_microcode_v1.h"
 #include "log.h"
 
 using namespace hcomm;
