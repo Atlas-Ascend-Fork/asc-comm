@@ -27,17 +27,8 @@ target_include_directories(custom_all_to_all_ccu PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
     ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_ccu
     ${CMAKE_CURRENT_SOURCE_DIR}/../../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/ccu
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/ccu/hcomm/ccu
     ${ASCEND_HOME_PATH}/include
-    ${ASCEND_HOME_PATH}/include/ccu
-    ${ASCEND_HOME_PATH}/include/ccu/hcomm
-    ${ASCEND_HOME_PATH}/include/ccu/hcomm/ccu
-    ${ASCEND_HOME_PATH}/include/hccl
-    ${ASCEND_HOME_PATH}/include/hcomm
     ${ASCEND_HOME_PATH}/pkg_inc
-    ${ASCEND_HOME_PATH}/pkg_inc/hccl
-    ${ASCEND_HOME_PATH}/pkg_inc/hcomm
 )
 
 target_compile_options(custom_all_to_all_ccu PRIVATE

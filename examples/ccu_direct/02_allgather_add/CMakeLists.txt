@@ -31,14 +31,8 @@ target_include_directories(demo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_ccu
     ${ASCEND_CANN_PACKAGE_PATH}/include
-    ${ASCEND_CANN_PACKAGE_PATH}/include/ccu
-    ${ASCEND_CANN_PACKAGE_PATH}/include/ccu/hcomm
-    ${ASCEND_CANN_PACKAGE_PATH}/include/ccu/hcomm/ccu
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
-    ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu
 )
 
 target_compile_features(demo PRIVATE cxx_std_14)

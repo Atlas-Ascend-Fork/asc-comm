@@ -10,13 +10,13 @@
 
 #include <vector>
 #include <memory>
-#include <ccu/ccu_types.h>
+#include <ccu/hcomm/ccu_types.h>
 #include <hccl/hccl_res.h>
 #include <hccl/hccl_rank_graph.h>
 #include "alg_resource.h"
 #include "ccu_kernel.h"
-#include "ccu_launch.h"
-#include "hccl_ccu_res.h"
+#include "ccu/hcomm/ccu_launch.h"
+#include <hccl/hccl_ccu_res.h>
 
 namespace ops_hccl_ar {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
@@ -118,7 +118,6 @@ static HcclResult RegisterAllReduceKernel(
     constexpr uint32_t kernelArgNum = 1;
     CcuResult regRet = HcommCcuKernelRegister(insHandle, dieId, kernelInfo.kernelFuncName,
         reinterpret_cast<void *>(kernelInfo.kernelFunc), kernelArgs, kernelArgNum, &kernelHandle); // 注册 kernel
-
     if (regRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }

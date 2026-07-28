@@ -13,8 +13,8 @@
 #include "log.h"
 #include "common.h"
 #include "ccu_kernel.h"
-#include "ccu_launch.h"
-#include "hccl_ccu_res.h"
+#include "ccu/hcomm/ccu_launch.h"
+#include <hccl/hccl_ccu_res.h>
 
 namespace ops_hccl_ag {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
@@ -129,8 +129,9 @@ HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSeria
     CcuInsHandle insHandle{0};
     uint32_t insNum = 0;
     CHK_RET(HcclCommQueryCcuIns(comm, &insHandle, &insNum));
-    CHK_PRT_RET(insNum != 1; insNum HCCL_ERROR("[GetCcuKernel] HcclCommQueryCcuIns fail! insNum is [%u]", insNum);
-        insNum HCCL_E_INTERNAL);
+    CHK_PRT_RET(insNum != 1,
+        HCCL_ERROR("[GetCcuKernel] HcclCommQueryCcuIns fail! insNum is [%u]", insNum),
+        HCCL_E_INTERNAL);
 
     resCtxHost.ccuKernels.resize(1); // 只注册1个kernel
 
@@ -147,7 +148,6 @@ HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSeria
     constexpr uint32_t kernelArgNum = 1;
     CcuResult regRet = HcommCcuKernelRegister(insHandle, dieId, kernelInfo.kernelFuncName,
         reinterpret_cast<void *>(kernelInfo.kernelFunc), kernelArgs, kernelArgNum, &kernelHandle); // 注册kernel
-
     if (regRet != CCU_SUCCESS) {
         HCCL_ERROR("ccu kernel register failed: ccuRet -> %d", regRet);
         return ConvertCcuToHccl(regRet);

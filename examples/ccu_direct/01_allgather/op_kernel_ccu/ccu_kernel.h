@@ -17,10 +17,10 @@
 #include <vector>
 
 #include <hccl/hccl_res.h>
-#include <ccu/ccu_types.h>
-#include <ccu/ccu_variable.hpp>
-#include <ccu/ccu_event.hpp>
-#include <ccu/ccu_primitives.hpp>
+#include <ccu/hcomm/ccu_types.h>
+#include <ccu/hcomm/ccu_variable.hpp>
+#include <ccu/hcomm/ccu_event.hpp>
+#include <ccu/hcomm/ccu_primitives.hpp>
 
 namespace ccu = ::AscendC::ccu;
 
