@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-该接口用于Channel两端的同步，等待指定Channel上的Notify同步信号，无需指定通信线程。对端可调用[HcommChannelNotifyRecord](HcommChannelNotifyRecord.md)发送该信号。该接口支持设置本次等待的超时时间。
+该接口用于Channel两端的同步，等待指定Channel上的Notify同步信号。对端可调用[HcommChannelNotifyRecord](HcommChannelNotifyRecord.md)发送该信号。该接口支持设置本次等待的超时时间。
 
 ## 函数原型
 
@@ -36,9 +36,9 @@ int32_t HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, u
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| channel | 输入 | 通信通道句柄，取值为通过[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>[ChannelHandle](../公共类型/ChannelHandle.md)类型的定义可参见对应公共类型文档。 |
+| channel | 输入 | 通信通道句柄，取值为通过[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>ChannelHandle类型定义可参考[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 | localNotifyIdx | 输入 | 本地Notify索引。<br>取值范围：[0, notifyNum)。<br>notifyNum为[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口传入的channelDesc参数中的notifyNum。 |
-| timeOut | 输入 | 超时时间，单位：秒。针对Ascend 950PR/Ascend 950DT的CPU引擎RoCE场景，需配置大于0的超时时间。 |
+| timeOut | 输入 | 超时时间，单位：秒。无默认值，需传入非零正整数。|
 
 ## 返回值
 
@@ -51,11 +51,13 @@ int32_t HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, u
 ## 约束说明
 
 <!-- npu="950" id6 -->
-- 针对Ascend 950PR/Ascend 950DT，本接口仅支持在Host CPU上调用，不支持在AICPU侧调用。
+接口仅支持Ascend 950PR/Ascend 950DT。针对Ascend 950PR/Ascend 950DT：
+- 本接口仅支持在Host CPU上调用，不支持在AICPU侧调用。
 - Host CPU侧调用时，仅支持通信协议RoCE。
-- `localNotifyIdx`必须小于本端通信通道的Notify数量，且通信通道创建时的`notifyNum`需大于0；`timeOut`需大于0。
-<!-- end id6 -->
+- `localNotifyIdx`必须小于本端通信通道的Notify数量，且通信通道创建时的`notifyNum`需大于0；
+-  `timeOut`需大于0。
 - 本接口需要配合[HcommChannelNotifyRecord](HcommChannelNotifyRecord.md)使用。
+<!-- end id6 -->
 
 ## 调用示例
 
