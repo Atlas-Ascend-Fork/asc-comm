@@ -103,18 +103,25 @@ int32_t HcommWriteReduceOnThread(ThreadHandle thread, ChannelHandle channel, voi
 ## 约束说明
 
 - `count * sizeof(dataType)`不得超过本端源内存和对端目的内存的可用长度。
+
 - `dataType`支持的枚举值请参见[数据类型](#section_hcommwritereduceonthread_datatype)；`reduceOp`仅支持`HCOMM_REDUCE_SUM`、`HCOMM_REDUCE_MAX`、`HCOMM_REDUCE_MIN`。
+
 <!-- npu="950" id9 -->
-针对Ascend 950PR/Ascend 950DT：
-
-- 仅支持AICPU_TS场景在Device侧调用。
-- 仅支持通信协议UB_CTP、UB_RTP、UBOE，不支持RoCE。
+- 针对Ascend 950PR/Ascend 950DT，仅支持AICPU_TS场景在Device侧调用，仅支持通信协议UB_CTP、UB_RTP、UBOE，不支持RoCE。
 <!-- end id9 -->
-<!-- npu="A3,910b" id10 -->
-针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
 
-- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
-- CPU_TS和AICPU_TS场景均仅支持通信协议HCCS、HCCS_ONLY，不支持RoCE。
+<!-- npu="A3,910b" id10 -->
+- 针对如下产品型号：
+
+    <!-- npu="A3" id11 -->
+    Atlas A3 训练系列产品/Atlas A3 推理系列产品；
+    <!-- end id11 -->
+
+    <!-- npu="910b" id12 -->
+    Atlas A2 训练系列产品/Atlas A2 推理系列产品；
+    <!-- end id12 -->
+
+    支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。CPU_TS和AICPU_TS场景均仅支持通信协议HCCS、HCCS_ONLY，不支持RoCE。
 <!-- end id10 -->
 
 ## 调用示例

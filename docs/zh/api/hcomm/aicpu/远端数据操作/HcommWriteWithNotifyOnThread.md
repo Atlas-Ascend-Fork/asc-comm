@@ -54,12 +54,12 @@ int32_t HcommWriteWithNotifyOnThread(ThreadHandle thread, ChannelHandle channel,
 ## 约束说明
 
 <!-- npu="950" id6 -->
-接口仅支持Ascend 950PR/Ascend 950DT，针对Ascend 950PR/Ascend 950DT：
+- 本接口仅支持Ascend 950PR/Ascend 950DT。针对上述产品，本接口仅支持AICPU_TS场景在Device侧调用，支持通信协议UB_CTP、UB_RTP、UBOE、RoCE。
 
-- 仅支持AICPU_TS场景在Device侧调用。
-- 支持通信协议UB_CTP、UB_RTP、UBOE、RoCE。
 - 该接口需要配合[HcommChannelNotifyWaitOnThread](../同步控制/HcommChannelNotifyWaitOnThread.md)使用。
+
 - `[src, src + len)`必须落在本端已注册或获取的内存范围内，`[dst, dst + len)`必须落在对端已导入或获取的内存范围内。
+
 - `remoteNotifyIdx`必须小于通信通道另一端的Notify数量，且通信通道创建时的`notifyNum`需大于0。
 <!-- end id6 -->
 

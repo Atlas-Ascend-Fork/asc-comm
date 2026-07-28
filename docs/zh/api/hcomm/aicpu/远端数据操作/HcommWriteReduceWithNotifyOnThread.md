@@ -76,14 +76,15 @@ int32_t HcommWriteReduceWithNotifyOnThread(ThreadHandle thread, ChannelHandle ch
 ## 约束说明
 
 - 该接口需要配合[HcommChannelNotifyWaitOnThread](../同步控制/HcommChannelNotifyWaitOnThread.md)使用。
-- `count * sizeof(dataType)`不得超过本端源内存和对端目的内存的可用长度。
-- `dataType`支持的枚举值请参见[数据类型](#section_hcommwritereducewithnotifyonthread_datatype)；`reduceOp`仅支持`HCOMM_REDUCE_SUM`、`HCOMM_REDUCE_MAX`、`HCOMM_REDUCE_MIN`。
-- `remoteNotifyIdx`必须小于通信通道另一端的Notify数量，且通信通道创建时的`notifyNum`需大于0。
-<!-- npu="950" id7 -->
-接口仅支持Ascend 950PR/Ascend 950DT，针对Ascend 950PR/Ascend 950DT：
 
-- 仅支持AICPU_TS场景在Device侧调用。
-- 支持通信协议UB_CTP、UB_RTP、UBOE、RoCE。
+- `count * sizeof(dataType)`不得超过本端源内存和对端目的内存的可用长度。
+
+- `dataType`支持的枚举值请参见[数据类型](#section_hcommwritereducewithnotifyonthread_datatype)；`reduceOp`仅支持`HCOMM_REDUCE_SUM`、`HCOMM_REDUCE_MAX`、`HCOMM_REDUCE_MIN`。
+
+- `remoteNotifyIdx`必须小于通信通道另一端的Notify数量，且通信通道创建时的`notifyNum`需大于0。
+
+<!-- npu="950" id7 -->
+- 本接口仅支持Ascend 950PR/Ascend 950DT。针对上述产品，本接口仅支持AICPU_TS场景在Device侧调用，支持通信协议UB_CTP、UB_RTP、UBOE、RoCE。
 <!-- end id7 -->
 
 ## 调用示例

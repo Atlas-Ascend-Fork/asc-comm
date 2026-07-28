@@ -53,19 +53,23 @@ int32_t HcommBatchTransferOnThread(ThreadHandle thread, ChannelHandle channel,
 ## 约束说明
 
 - `transferDescs`不能为NULL，`transferDescNum`必须大于0。
+
 <!-- npu="950" id6 -->
-针对Ascend 950PR/Ascend 950DT：
-
-- 仅支持AICPU_TS场景在Device侧调用。
-- 支持通信协议UB_CTP、UB_RTP、UBOE。
-- `transType`支持`HCOMM_TRANSFER_TYPE_WRITE`、`HCOMM_TRANSFER_TYPE_READ`、`HCOMM_TRANSFER_TYPE_WRITE_REDUCE`、`HCOMM_TRANSFER_TYPE_READ_REDUCE`、`HCOMM_TRANSFER_TYPE_WRITE_WITH_NOTIFY`、`HCOMM_TRANSFER_TYPE_WRITE_REDUCE_WITH_NOTIFY`、`HCOMM_TRANSFER_TYPE_NOTIFY_RECORD`。
+- 针对Ascend 950PR/Ascend 950DT，仅支持AICPU_TS场景在Device侧调用，支持通信协议UB_CTP、UB_RTP、UBOE。`transType`支持`HCOMM_TRANSFER_TYPE_WRITE`、`HCOMM_TRANSFER_TYPE_READ`、`HCOMM_TRANSFER_TYPE_WRITE_REDUCE`、`HCOMM_TRANSFER_TYPE_READ_REDUCE`、`HCOMM_TRANSFER_TYPE_WRITE_WITH_NOTIFY`、`HCOMM_TRANSFER_TYPE_WRITE_REDUCE_WITH_NOTIFY`、`HCOMM_TRANSFER_TYPE_NOTIFY_RECORD`。
 <!-- end id6 -->
-<!-- npu="A3,910b" id7 -->
-针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
 
-- 仅支持AICPU_TS场景在Device侧调用。
-- 仅支持通信协议RoCE。
-- `transType`仅支持`HCOMM_TRANSFER_TYPE_WRITE`和`HCOMM_TRANSFER_TYPE_READ`，其他类型返回`HCCL_E_NOT_SUPPORT`。
+<!-- npu="A3,910b" id7 -->
+- 针对如下产品型号：
+
+    <!-- npu="A3" id8 -->
+    Atlas A3 训练系列产品/Atlas A3 推理系列产品；
+    <!-- end id8 -->
+
+    <!-- npu="910b" id9 -->
+    Atlas A2 训练系列产品/Atlas A2 推理系列产品；
+    <!-- end id9 -->
+
+    仅支持AICPU_TS场景在Device侧调用，仅支持通信协议RoCE。`transType`仅支持`HCOMM_TRANSFER_TYPE_WRITE`和`HCOMM_TRANSFER_TYPE_READ`，其他类型返回`HCCL_E_NOT_SUPPORT`。
 <!-- end id7 -->
 
 ## 调用示例

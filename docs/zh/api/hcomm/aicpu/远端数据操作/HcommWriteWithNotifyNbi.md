@@ -54,14 +54,15 @@ int32_t HcommWriteWithNotifyNbi(ChannelHandle channel, void *dst, const void *sr
 ## 约束说明
 
 <!-- npu="950" id6 -->
-接口仅支持Ascend 950PR/Ascend 950DT，针对Ascend 950PR/Ascend 950DT：
-
-- 仅支持在Host CPU上调用，通信引擎为CPU。
-- 仅支持通信协议RoCE。
+- 本接口仅支持Ascend 950PR/Ascend 950DT。针对上述产品，本接口仅支持在Host CPU上调用，通信引擎为CPU，仅支持通信协议RoCE。
 <!-- end id6 -->
+
 - `[src, src + len)`必须落在本端已注册或获取的内存范围内，`[dst, dst + len)`必须落在对端已导入或获取的内存范围内。
+
 - `remoteNotifyIdx`必须小于通信通道另一端的Notify数量，且通信通道创建时的`notifyNum`需大于0。
+
 - 写入目标端应调用[HcommChannelNotifyWait](../同步控制/HcommChannelNotifyWait.md)等待同步信号。
+
 - 该接口返回成功仅表示带通知写请求提交成功。如需确认本端通道上已提交的写操作完成，请调用[HcommChannelFence](../同步控制/HcommChannelFence.md)。
 
 ## 调用示例

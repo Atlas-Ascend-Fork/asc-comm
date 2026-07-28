@@ -53,17 +53,23 @@ int32_t HcommReadOnThread(ThreadHandle thread, ChannelHandle channel, void *dst,
 ## 约束说明
 
 - `[dst, dst + len)`必须落在本端已注册或获取的内存范围内，`[src, src + len)`必须落在对端已导入或获取的内存范围内。
+
 <!-- npu="950" id6 -->
-针对Ascend 950PR/Ascend 950DT：
-
-- 仅支持AICPU_TS场景在Device侧调用。
-- 支持通信协议UB_CTP、UB_RTP、UBOE、RoCE。
+- 针对Ascend 950PR/Ascend 950DT，仅支持AICPU_TS场景在Device侧调用，支持通信协议UB_CTP、UB_RTP、UBOE、RoCE。
 <!-- end id6 -->
-<!-- npu="A3,910b" id7 -->
-针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
 
-- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
-- CPU_TS和AICPU_TS场景均支持通信协议HCCS、HCCS_ONLY、RoCE。
+<!-- npu="A3,910b" id7 -->
+- 针对如下产品型号：
+
+    <!-- npu="A3" id8 -->
+    Atlas A3 训练系列产品/Atlas A3 推理系列产品；
+    <!-- end id8 -->
+
+    <!-- npu="910b" id9 -->
+    Atlas A2 训练系列产品/Atlas A2 推理系列产品；
+    <!-- end id9 -->
+
+    支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。CPU_TS和AICPU_TS场景均支持通信协议HCCS、HCCS_ONLY、RoCE。
 <!-- end id7 -->
 
 ## 调用示例

@@ -53,12 +53,11 @@ int32_t HcommReadNbiOnThread(ThreadHandle thread, ChannelHandle channel, void *d
 ## 约束说明
 
 <!-- npu="950" id6 -->
-接口仅支持Ascend 950PR/Ascend 950DT，针对Ascend 950PR/Ascend 950DT：
-
-- 仅支持在Host CPU上调用，通信引擎为CPU；`thread`参数无作用，可传入0。
-- 仅支持通信协议RoCE。
+- 本接口仅支持Ascend 950PR/Ascend 950DT。针对上述产品，本接口仅支持在Host CPU上调用，通信引擎为CPU；`thread`参数无作用，可传入0；仅支持通信协议RoCE。
 <!-- end id6 -->
+
 - `[dst, dst + len)`必须落在本端已注册或获取的内存范围内，`[src, src + len)`必须落在对端已导入或获取的内存范围内。
+
 - 该接口返回成功仅表示读请求提交成功。如需确认读操作完成，调用方应调用[HcommChannelFenceOnThread](../同步控制/HcommChannelFenceOnThread.md)等待通道上已提交的读操作完成。
 
 ## 调用示例
