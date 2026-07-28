@@ -22,7 +22,8 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-基于acl接口创建的Notify发送同步信号，需与[HcommAclrtNotifyWaitOnThread](HcommAclrtNotifyWaitOnThread.md)配对使用。
+用于在通信线程的前序任务执行完成后，触发由ACL Runtime创建的Notify，向Host Stream或其他通信线程发送同步信号。可与[HcommAclrtNotifyWaitOnThread](HcommAclrtNotifyWaitOnThread.md)配合实现通信线程与其他执行流之间的同步。
+
 
 ## 函数原型
 
@@ -49,7 +50,7 @@ int32_t HcommAclrtNotifyRecordOnThread(ThreadHandle thread, uint64_t dstNotifyId
 
 ## 约束说明
 
-- 无特殊约束。
+- 无。
 
 ## 调用示例
 
