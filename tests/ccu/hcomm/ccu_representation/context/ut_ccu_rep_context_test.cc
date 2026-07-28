@@ -8,12 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_rep_context_v1.h"
-#include "ccu_rep_assign_v1.h"
-#include "ccu_rep_loopgroup_bundle_v1.h"
-#include "ccu_rep_nop_v1.h"
-#include "ccu_ins_generater_v1.h"
-#include "ccu_types.h"
+#include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
+#include "hcomm/resource/representation/reps/arithmetic/ccu_rep_assign_v1.h"
+#include "hcomm/resource/representation/reps/loop/ccu_rep_loopgroup_bundle_v1.h"
+#include "hcomm/resource/representation/reps/common/ccu_rep_nop_v1.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
+#include "ccu/hcomm/ccu_types.h"
 #include <gtest/gtest.h>
 #include <memory>
 #include <string>

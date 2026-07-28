@@ -13,8 +13,8 @@
 #include <vector>
 #include <hccl/hcomm_primitives.h>
 #include "log.h"
-#include "ccu_launch.h"
-#include "ccu_res.h"
+#include "ccu/hcomm/ccu_launch.h"
+#include "ccu/hcomm/ccu_res.h"
 #include "common.h"
 #include "ccu_kernel.h"
 #include "utils.h"

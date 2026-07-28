@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_primitives.hpp"
-#include "ccu_types.h"
+#include "ccu/hcomm/ccu_primitives.hpp"
+#include "ccu/hcomm/ccu_types.h"
 
 namespace ccu = ::AscendC::ccu;
 
