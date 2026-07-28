@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_microcode_v1.h"
+#include "hcomm/resource/microcode/ccu_microcode_v1.h"
 #include <gtest/gtest.h>
 
 namespace hcomm {
