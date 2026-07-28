@@ -11,9 +11,9 @@
 #ifndef CCU_GROUPCOPY_DEMO_H
 #define CCU_GROUPCOPY_DEMO_H
 
-#include "ccu_primitives.hpp"
-#include "ccu_types.h"
-#include "ccu_log.h" // demo演示使用，hccl仓需要另外实现
+#include "ccu/hcomm/ccu_primitives.hpp"
+#include "ccu/hcomm/ccu_types.h"
+#include "hcomm/common/ccu_log.h" // demo演示使用，hccl仓需要另外实现
 
 #include <cstdint>
 #include <climits>

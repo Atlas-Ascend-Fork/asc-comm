@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_rep_v1.h"
-#include "ccu_ins_generater_v1.h"
+#include "hcomm/resource/representation/ccu_rep_v1.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "ccu_api_exception.h"
 #include <gtest/gtest.h>
 #include <string>
