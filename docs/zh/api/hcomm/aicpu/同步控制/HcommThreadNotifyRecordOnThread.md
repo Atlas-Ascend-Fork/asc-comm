@@ -36,8 +36,8 @@ int32_t HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThr
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>[ThreadHandle](../公共类型/ThreadHandle.md)类型的定义请参见对应公共类型文档。 |
-| dstThread | 输入 | 目标通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>[ThreadHandle](../公共类型/ThreadHandle.md)类型的定义请参见对应公共类型文档。 |
+| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>ThreadHandle类型定义可参考[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| dstThread | 输入 | 目标通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。 |
 | dstNotifyIdx | 输入 | 目标Notify索引。<br>取值范围为：[0, notifyNumPerThread)。<br>notifyNumPerThread为[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口传入的同名参数。 |
 
 ## 返回值
@@ -51,10 +51,19 @@ int32_t HcommThreadNotifyRecordOnThread(ThreadHandle thread, ThreadHandle dstThr
 ## 约束说明
 
 - 该接口需要配合[HcommThreadNotifyWaitOnThread](HcommThreadNotifyWaitOnThread.md)使用。
+- `thread`和`dstThread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄。
+- `dstNotifyIdx`必须小于目标通信线程的Notify数量，即获取`dstThread`时传入的`notifyNumPerThread`。
 
 <!-- npu="950" id6 -->
-- 在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
+针对Ascend 950PR/Ascend 950DT：
+
+- 仅支持AICPU_TS场景在Device侧调用。
 <!-- end id6 -->
+<!-- npu="A3,910b" id8 -->
+针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
+
+- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
+<!-- end id8 -->
 
 ## 调用示例
 
