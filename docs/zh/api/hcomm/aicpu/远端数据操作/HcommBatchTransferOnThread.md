@@ -37,9 +37,9 @@ int32_t HcommBatchTransferOnThread(ThreadHandle thread, ChannelHandle channel,
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>[ThreadHandle](../公共类型/ThreadHandle.md)类型的定义可参见对应公共类型文档。 |
-| channel | 输入 | 通信通道句柄，取值为通过[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>[ChannelHandle](../公共类型/ChannelHandle.md)类型的定义可参见对应公共类型文档。 |
-| transferDescs | 输入 | 批量传输描述符数组，不能为NULL，数组元素数量至少为transferDescNum。数组中每个元素描述一个传输任务，按数组顺序依次提交。描述符定义参见[HcommBatchTransferDesc](../公共类型/HcommBatchTransferDesc.md)。 |
+| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>ThreadHandle类型定义可参考[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| channel | 输入 | 通信通道句柄，取值为通过[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>ChannelHandle类型定义可参考[ChannelHandle](../公共类型/ChannelHandle.md)。 |
+| transferDescs | 输入 | 批量传输描述符数组，不能为NULL，数组元素数量至少为transferDescNum。数组中每个元素描述一个传输任务，按数组顺序依次提交。描述符定义参考[HcommBatchTransferDesc](../公共类型/HcommBatchTransferDesc.md)。 |
 | transferDescNum | 输入 | 描述符数量，须大于0。 |
 
 ## 返回值
@@ -52,16 +52,21 @@ int32_t HcommBatchTransferOnThread(ThreadHandle thread, ChannelHandle channel,
 
 ## 约束说明
 
-<!-- npu="A3,910b" id6 -->
-- 针对如下产品，该接口仅支持通信协议RoCE，且transType仅支持HCOMM_TRANSFER_TYPE_WRITE和HCOMM_TRANSFER_TYPE_READ类型，其他类型返回HCCL_E_NOT_SUPPORT。
+- `transferDescs`不能为NULL，`transferDescNum`必须大于0。
+<!-- npu="950" id6 -->
+针对Ascend 950PR/Ascend 950DT：
 
-<!-- npu="A3" id7 -->
-- Atlas A3 训练系列产品/Atlas A3 推理系列产品
-<!-- end id7 -->
-<!-- npu="910b" id8 -->
-- Atlas A2 训练系列产品/Atlas A2 推理系列产品
-<!-- end id8 -->
+- 仅支持AICPU_TS场景在Device侧调用。
+- 支持通信协议UB_CTP、UB_RTP、UBOE。
+- `transType`支持`HCOMM_TRANSFER_TYPE_WRITE`、`HCOMM_TRANSFER_TYPE_READ`、`HCOMM_TRANSFER_TYPE_WRITE_REDUCE`、`HCOMM_TRANSFER_TYPE_READ_REDUCE`、`HCOMM_TRANSFER_TYPE_WRITE_WITH_NOTIFY`、`HCOMM_TRANSFER_TYPE_WRITE_REDUCE_WITH_NOTIFY`、`HCOMM_TRANSFER_TYPE_NOTIFY_RECORD`。
 <!-- end id6 -->
+<!-- npu="A3,910b" id7 -->
+针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
+
+- 仅支持AICPU_TS场景在Device侧调用。
+- 仅支持通信协议RoCE。
+- `transType`仅支持`HCOMM_TRANSFER_TYPE_WRITE`和`HCOMM_TRANSFER_TYPE_READ`，其他类型返回`HCCL_E_NOT_SUPPORT`。
+<!-- end id7 -->
 
 ## 调用示例
 
