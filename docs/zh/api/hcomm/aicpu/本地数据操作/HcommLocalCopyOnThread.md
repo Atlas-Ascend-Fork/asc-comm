@@ -36,7 +36,7 @@ int32_t HcommLocalCopyOnThread(ThreadHandle thread, void *dst, const void *src, 
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>[ThreadHandle](../公共类型/ThreadHandle.md)的类型的定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>ThreadHandle的类型定义请参见[ThreadHandle](../公共类型/ThreadHandle.md)。 |
 | dst | 输出 | 目的内存地址，操作地址范围必须位于有效Device内存范围内。 |
 | src | 输入 | 源内存地址，操作地址范围必须位于有效Device内存范围内。 |
 | len | 输入 | 待拷贝的数据长度。单位：字节。有效范围由源内存和目的内存的可用长度决定，不得超过两者中较小的可用长度。 |
