@@ -9,31 +9,17 @@
 # ----------------------------------------------------------------------------------------------------------
 
 # CCU 源文件路径前缀
-set(CCU_REP_DIR ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation)
-set(CCU_MICROCODE_DIR ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode)
+set(CCU_REP_DIR ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation)
+set(CCU_MICROCODE_DIR ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode)
 
 # CCU UT 公共头文件目录：仅限本仓、测试兼容层和 CANN 安装包。
 set(UT_COMMON_INCLUDE_LIST
-    ${ASCCOMM_ROOT}/include/ccu
-    ${ASCCOMM_ROOT}/include/ccu/hcomm/ccu
-    ${CCU_REP_DIR}
-    ${CCU_REP_DIR}/context
-    ${CCU_REP_DIR}/interface
-    ${CCU_REP_DIR}/reps/arithmetic
-    ${CCU_REP_DIR}/reps/common
-    ${CCU_REP_DIR}/reps/control
-    ${CCU_REP_DIR}/reps/data
-    ${CCU_REP_DIR}/reps/logical
-    ${CCU_REP_DIR}/reps/loop
-    ${CCU_REP_DIR}/reps/shift
-    ${CCU_REP_DIR}/reps/sync
-    ${CCU_REP_DIR}/reps/translator
-    ${CCU_MICROCODE_DIR}
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/pub_inc
+    ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/include
+    ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/src/ccu
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
     ${ASCCOMM_UT_ROOT}/../ccu/stub
-    ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/include
     ${ASCCOMM_CANN_INCLUDE_DIRS}
 )
 
@@ -42,9 +28,6 @@ enable_testing()
 add_library(asccomm_ccu_hcomm_compat INTERFACE)
 target_include_directories(asccomm_ccu_hcomm_compat INTERFACE
     ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/include
-    ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/source/base_comm/resources/ccu/ccu_representation/context
-    ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/source/base_comm/resources/ccu/ccu_representation/reps/data
-    ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/source/base_comm/resources/ccu/ccu_representation/reps/sync
 )
 target_compile_options(asccomm_ccu_hcomm_compat INTERFACE
     -include ${ASCCOMM_UT_ROOT}/../ccu/hcomm_compat/include/ccu_ut_legacy_compat.h

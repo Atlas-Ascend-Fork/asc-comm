@@ -13,8 +13,8 @@
 #include "log.h"
 #include "common.h"
 #include "ccu_kernel.h"
-#include "ccu_launch.h"
-#include "hccl_ccu_res.h"
+#include "ccu/hcomm/ccu_launch.h"
+#include <hccl/hccl_ccu_res.h>
 
 namespace ops_hccl_ag {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
@@ -147,7 +147,6 @@ HcclResult GetCcuKernel(HcclComm comm, const OpParam &param, AlgResourceCtxSeria
     constexpr uint32_t kernelArgNum = 1;
     CcuResult regRet = HcommCcuKernelRegister(insHandle, dieId, kernelInfo.kernelFuncName,
         reinterpret_cast<void *>(kernelInfo.kernelFunc), kernelArgs, kernelArgNum, &kernelHandle); // 注册kernel
-
     if (regRet != CCU_SUCCESS) {
         HCCL_ERROR("ccu kernel register failed: ccuRet -> %d", regRet);
         return ConvertCcuToHccl(regRet);

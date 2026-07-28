@@ -13,9 +13,9 @@ set(src_to_test_list
     ut_ccu_microcode_v1_test.cc
     ut_ccu_microcode_v2_test.cc
     ut_ccu_assist_test.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_microcode.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_microcode_v2_.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_assist.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_microcode.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_microcode_v2_.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_assist.cc
 )
 
 add_executable(hccl_utest_comms_ccu_microcode ${src_to_test_list})
