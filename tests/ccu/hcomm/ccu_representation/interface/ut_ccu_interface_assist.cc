@@ -11,10 +11,10 @@
 #include "gtest/gtest.h"
 #include <mockcpp/mockcpp.hpp>
 
-#include "ccu_kernel.h"
+#include "hcomm/resource/kernel/ccu_kernel.h"
 #include "exception_util.h"
 #include "ccu_api_exception.h"
-#include "ccu_ins_generater_v1.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
 using namespace hcomm;
 

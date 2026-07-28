@@ -8,16 +8,16 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_rep_add_v1.h"
-#include "ccu_rep_assign_v1.h"
-#include "ccu_datatype_v1.h"
-#include "ccu_microcode_v1.h"
-#include "ccu_rep_base_v1.h"
-#include "ccu_rep_type_v1.h"
-#include "ccu_operator_v1.h"
-#include "ccu_rep_mul_v1.h"
-#include "ccu_rep_sub_v1.h"
-#include "ccu_ins_generater_v1.h"
+#include "hcomm/resource/representation/reps/arithmetic/ccu_rep_add_v1.h"
+#include "hcomm/resource/representation/reps/arithmetic/ccu_rep_assign_v1.h"
+#include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
+#include "hcomm/resource/microcode/ccu_microcode_v1.h"
+#include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
+#include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
+#include "hcomm/resource/representation/reps/arithmetic/ccu_operator_v1.h"
+#include "hcomm/resource/representation/reps/arithmetic/ccu_rep_mul_v1.h"
+#include "hcomm/resource/representation/reps/arithmetic/ccu_rep_sub_v1.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include <gtest/gtest.h>
 #include <string>
 
