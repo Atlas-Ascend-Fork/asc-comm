@@ -22,7 +22,7 @@
 
 头文件：[`#include "hcomm_primitives.h"`](https://gitcode.com/cann/hcomm/blob/master/include/hcomm_primitives.h)。
 
-该接口用于设置通信线程向RTSQ（Remote Transport Sequence Queue）提交任务时，RTSQ队列满等待可用空间的超时时间。RTSQ队列已满时，通信线程将阻塞等待；队列出现可用空间后继续提交任务，达到设置的非0超时时间后仍无可用空间时，对应的数据面接口返回错误。
+该接口在AICPU侧调用，用于设置当前AICPU执行上下文中，通信线程向RTSQ（Remote Transport Sequence Queue）提交任务时等待队列可用空间的超时时间。AICPU执行后续数据面接口并向RTSQ写入任务时，如果RTSQ队列已满，则阻塞等待；队列出现可用空间后继续提交任务，达到设置的非0超时时间后仍无可用空间时，对应的数据面接口返回错误。
 
 ## 函数原型
 
@@ -46,42 +46,51 @@ int32_t HcommThreadResAcquireTimeOut(float timeOut)
 | --- | --- |
 | `int32_t` | 接口成功返回0，其他值表示失败。 |
 
-## 超时机制应用场景
+## 超时机制说明
 
-当数据面操作向RTSQ提交任务时，如果队列已满，通信线程将等待队列释放空间，从而实现队列背压和流量控制。该机制适用于任务提交较快、RTSQ可能暂时无可用空间的场景；设置非0超时时间可以限制最长等待时间，避免通信线程无限等待。
+1. **调用和生效范围**
+   - 本接口仅支持在AICPU_TS模式下的Device侧调用。
+   - 设置的超时时间保存在当前AICPU执行上下文中，对该上下文后续数据面任务获取RTSQ可用空间的操作生效。
+
+2. **触发机制**
+   - AICPU向RTSQ写入任务时，如果队列可用空间不足，则等待RTSQ中的已有任务被消费并释放空间。
+   - `timeOut`为非0值时，等待达到该时间后仍无可用空间，对应的数据面接口返回错误。
+   - `timeOut`为0时不进行超时判断，AICPU持续等待直至RTSQ有可用空间。
+
+3. **默认值**
+   - 未调用本接口时，默认超时时间为1856秒（约30分钟）。
+
+## 应用场景
+
+该接口适用于AICPU连续下发多个数据面任务、RTSQ可能暂时没有可用空间的场景。通过设置合理的等待时间，可以避免AICPU因RTSQ长时间无法释放空间而持续阻塞。
 
 ## 约束说明
 
-- 该接口设置的超时时间会影响所有线程的资源获取操作。
-- 建议在初始化阶段或资源申请前设置合适的超时值。
+- 本接口仅支持AICPU_TS模式下在Device侧调用。
+- 建议在AICPU调用数据面接口前设置合适的超时时间。
 - 超时值为0时会一直等待，可能导致死锁风险，请谨慎使用。
 - `timeOut`仅支持0或正整数，不支持负数或小数。
 
 ## 调用示例
 
+通信线程、通道等资源需由Host侧预先申请。本示例仅展示在AICPU Kernel中设置超时时间：
+
 ```cpp
-// 1. 设置RTSQ队列满等待超时时间（例如设置为10分钟）。
-float timeout = 600;  // 600秒 = 10分钟。
-HcommThreadResAcquireTimeOut(timeout);
+// 在AICPU上执行的Kernel函数。
 
-// 或者设置为永不超时（0表示永不超时）。
+// 设置RTSQ队列满时的等待超时时间为10分钟。
+float timeout = 600;
+if (HcommThreadResAcquireTimeOut(timeout) != HCCL_SUCCESS) {
+    return 1;
+}
+
+// 或者设置为永不超时
 float timeoutNever = 0;
-HcommThreadResAcquireTimeOut(timeoutNever);
+if (HcommThreadResAcquireTimeOut(timeoutNever) != HCCL_SUCCESS) {
+    return 1;
+}
+// 后续数据面接口向RTSQ提交任务时，使用上述超时时间。
 
-// 2. 申请通信线程资源。
-CommEngine engine = COMM_ENGINE_AICPU_TS;
-uint32_t threadNum = 1;
-uint32_t notifyNumPerThread = 1;
-ThreadHandle thread;
-HcclComm comm;
-HcclThreadAcquire(comm, engine, threadNum, notifyNumPerThread, &thread);
-
-// 3. 数据面操作（RTSQ满时会等待可用空间或超时）。
-// ... 执行数据发送操作 ...。
 ```
 
 示例中目标接口返回0表示调用成功，返回其他值表示调用失败。
-
-## 相关接口
-
-[HcommSetNotifyWaitTimeOut](../同步控制/HcommSetNotifyWaitTimeOut.md)：设置通知等待超时时间。
