@@ -1,5 +1,5 @@
 ﻿/**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -23,20 +23,20 @@
 
 using namespace ops_hccl_a2a;
 
-#define ACLCHECK(ret) \
-    do { \
-        if (ret != ACL_SUCCESS) { \
+#define ACLCHECK(ret)                                                                          \
+    do {                                                                                       \
+        if (ret != ACL_SUCCESS) {                                                              \
             printf("acl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
-            return ret; \
-        } \
+            return ret;                                                                        \
+        }                                                                                      \
     } while (0)
 
-#define HCCLCHECK(ret) \
-    do { \
-        if (ret != HCCL_SUCCESS) { \
+#define HCCLCHECK(ret)                                                                          \
+    do {                                                                                        \
+        if (ret != HCCL_SUCCESS) {                                                              \
             printf("hccl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, ret); \
-            return ret; \
-        } \
+            return ret;                                                                         \
+        }                                                                                       \
     } while (0)
 
 struct ThreadContext {
@@ -45,8 +45,8 @@ struct ThreadContext {
     uint32_t devCount;
 };
 
-static HcclResult HcclAllToAllCustom(
-    void *sendBuf, void *recvBuf, uint64_t perCount, HcclDataType dataType, HcclComm comm, aclrtStream stream)
+static HcclResult HcclAllToAllCustom(void *sendBuf, void *recvBuf, uint64_t perCount,
+                                    HcclDataType dataType, HcclComm comm, aclrtStream stream)
 {
     if (sendBuf == nullptr || recvBuf == nullptr || comm == nullptr || stream == nullptr) {
         return HCCL_E_PTR;
@@ -119,7 +119,8 @@ int Sample(void *arg)
     ACLCHECK(aclrtFreeHost(hostBuf));
 
     // 每个 rank 向所有目标 rank 各发送 perCount 个元素。
-    HCCLCHECK(HcclAllToAllCustom(sendBuf, recvBuf, perCount, HCCL_DATA_TYPE_FP32, hcclComm, stream));
+    HCCLCHECK(HcclAllToAllCustom(sendBuf, recvBuf, perCount, HCCL_DATA_TYPE_FP32,
+                                 hcclComm, stream));
     // 等待 stream 中任务执行完成
     ACLCHECK(aclrtSynchronizeStream(stream));
 
@@ -143,15 +144,15 @@ int Sample(void *arg)
     ACLCHECK(aclrtFreeHost(resultBuff));
 
     // 释放资源
-    HCCLCHECK(HcclCommDestroy(hcclComm)); // 销毁通信域
+    HCCLCHECK(HcclCommDestroy(hcclComm));  // 销毁通信域
     if (sendBuf) {
-        ACLCHECK(aclrtFree(sendBuf)); // 释放 Device 侧输入内存
+        ACLCHECK(aclrtFree(sendBuf));      // 释放 Device 侧输入内存
     }
     if (recvBuf) {
-        ACLCHECK(aclrtFree(recvBuf)); // 释放 Device 侧输出内存
+        ACLCHECK(aclrtFree(recvBuf));      // 释放 Device 侧输出内存
     }
-    ACLCHECK(aclrtDestroyStream(stream)); // 销毁任务流
-    ACLCHECK(aclrtResetDevice(device));   // 重置 device
+    ACLCHECK(aclrtDestroyStream(stream));  // 销毁任务流
+    ACLCHECK(aclrtResetDevice(device));    // 重置 device
     return passed ? 0 : 1;
 }
 
@@ -189,8 +190,8 @@ int main()
     }
 
     // 释放资源
-    ACLCHECK(aclrtFreeHost(rootInfoBuf)); // 释放 Host 内存
-    ACLCHECK(aclFinalize());              // ACL 去初始化
+    ACLCHECK(aclrtFreeHost(rootInfoBuf));  // 释放 Host 内存
+    ACLCHECK(aclFinalize());               // ACL 去初始化
     for (int result : results) {
         if (result != 0) {
             return 1;

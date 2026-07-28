@@ -10,10 +10,10 @@
 
 #include <algorithm>
 #include <vector>
-#include <ccu/ccu_types.h>
+#include <ccu/hcomm/ccu_types.h>
 #include <hccl/hcomm_primitives.h>
-#include "ccu_launch.h"
-#include "ccu_res.h"
+#include "ccu/hcomm/ccu_launch.h"
+#include "ccu/hcomm/ccu_res.h"
 #include "alg_resource.h"
 
 namespace ops_hccl_a2av {
