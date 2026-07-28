@@ -1,0 +1,27 @@
+set(ASC_COMM_AICPU_HCOMM_RESOURCE_SOURCES
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/buffer/buffer.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/buffer/rma_buf_slice_lite.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/buffer/rma_buffer_lite.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/buffer/rmt_rma_buf_slice_lite.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/buffer/rmt_rma_buffer_lite.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/communicator/aicpu_indop_process.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/communicator/aicpu_res_package_helper.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/communicator/coll_comm_aicpu.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/communicator/coll_comm_aicpu_mgr.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/connection/rdma_conn_lite_v2.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/connection/rma_conn_lite.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/connection/ub_conn_lite.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/connection/ub_conn_lite_mgr.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/notify/notify_lite.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/notify/notify_manager.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/stream/rtsq_a5.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/stream/rtsq_base.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/stream/sqe_build_a5.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/stream/stream_lite.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/thread/aicpu_ts_thread.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/thread/aicpu_ts_thread_interface.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/thread/thread.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/transport/p2p/p2p_transport_lite_impl.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/transport/roce/roce_transport_lite_impl.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/transport/ubc/ub_transport_lite_impl.cc
+)

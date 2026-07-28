@@ -22,7 +22,8 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     endif()
 endif()
 
-set(ASC_COMM_AICPU_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu")
+set(ASC_COMM_AICPU_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu/hcomm")
+set(ASC_COMM_DFX_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/common/dfx")
 set(ASC_COMM_AICPU_INCLUDE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu")
 set(ASC_COMM_AICPU_INCLUDE_DIR "${ASC_COMM_AICPU_INCLUDE_ROOT_DIR}/hcomm")
 
@@ -38,6 +39,9 @@ find_cann_package(ascend_hal MODULE REQUIRED)
 find_cann_package(securec MODULE REQUIRED)
 find_cann_package(unified_dlog MODULE REQUIRED)
 
+add_library(asc_comm_dfx INTERFACE)
+target_include_directories(asc_comm_dfx INTERFACE ${ASC_COMM_DFX_SRC_DIR})
+
 include(cmake/aicpu_data_plane_sources.cmake)
 
 # The source list is the A5 AICPU data-plane build closure only.
@@ -45,28 +49,30 @@ include(cmake/aicpu_data_plane_sources.cmake)
 set(ASC_COMM_AICPU_INCLUDE_LIST
     ${ASC_COMM_AICPU_INCLUDE_ROOT_DIR}
     ${ASC_COMM_AICPU_INCLUDE_DIR}
-    ${ASC_COMM_AICPU_SRC_DIR}/common/hcomm_compat
-    ${ASC_COMM_AICPU_SRC_DIR}/common/hcomm_compat/hccl
+    ${ASC_COMM_AICPU_SRC_DIR}/common/compat
+    ${ASC_COMM_AICPU_SRC_DIR}/common/compat/hcomm
+    ${ASC_COMM_AICPU_SRC_DIR}/common/compat/hcomm/hccl
+    ${ASC_COMM_AICPU_SRC_DIR}/common/compat/hccl/framework/inc
+    ${ASC_COMM_AICPU_SRC_DIR}/common/compat/hccl/pub_inc
+    ${ASC_COMM_AICPU_SRC_DIR}/common/exception
+    ${ASC_COMM_AICPU_SRC_DIR}/common/platform/ascend950
+    ${ASC_COMM_AICPU_SRC_DIR}/common/types
+    ${ASC_COMM_AICPU_SRC_DIR}/common/utils
+    ${ASC_COMM_AICPU_SRC_DIR}/primitives/api_c_adpt
+    ${ASC_COMM_AICPU_SRC_DIR}/primitives/launch
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/buffer
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/channel
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/common
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/communicator
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/connection
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/notify
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/stream
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/thread
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/transport/common
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/transport/p2p
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/transport/roce
+    ${ASC_COMM_AICPU_SRC_DIR}/resource/transport/ubc
 )
-foreach(include_root
-    ${ASC_COMM_AICPU_SRC_DIR}/base_comm
-    ${ASC_COMM_AICPU_SRC_DIR}/coll_communicator_mgr
-    # Header-only HCCL compatibility dependency kept by the A5 AICPU data-plane
-    # closure. No non-A5 source files are built into libaicpu_data_plane.so.
-    ${ASC_COMM_AICPU_SRC_DIR}/common/hccl_compat
-    ${ASC_COMM_AICPU_SRC_DIR}/legacy/ascend950
-)
-    if(EXISTS "${include_root}")
-        file(GLOB_RECURSE include_dirs FOLLOW_SYMLINKS LIST_DIRECTORIES TRUE "${include_root}/*")
-        list(APPEND ASC_COMM_AICPU_INCLUDE_LIST ${include_root})
-        foreach(dir ${include_dirs})
-            if(IS_DIRECTORY "${dir}")
-                list(APPEND ASC_COMM_AICPU_INCLUDE_LIST "${dir}")
-            endif()
-        endforeach()
-    endif()
-endforeach()
-list(REMOVE_DUPLICATES ASC_COMM_AICPU_INCLUDE_LIST)
 
 set(ASC_COMM_AICPU_COMPILE_DEFINITIONS
     HCCD
@@ -97,6 +103,7 @@ target_link_options(aicpu_data_plane PRIVATE
 )
 target_include_directories(aicpu_data_plane PRIVATE ${ASC_COMM_AICPU_INCLUDE_LIST})
 target_link_libraries(aicpu_data_plane PRIVATE
+    asc_comm_dfx
     acl_rt_headers
     slog_headers
     ascend_hal

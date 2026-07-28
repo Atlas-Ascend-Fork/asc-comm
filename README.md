@@ -18,7 +18,8 @@
 ### 🚀 当前能力
 
 - 提供AICore侧Hcomm点对点通信接口，覆盖`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。
-- 提供AIV直驱Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/detail/`。
+- 提供AIV直驱Hcomm RoCE和UBC_CTP/URMA相关实现，按协议位于`src/aicore/hcomm/roce`和`src/aicore/hcomm/ubc`。
+- 提供AICPU Hcomm数据面实现，按原语、资源和公共能力组织在`src/aicpu/hcomm`。
 - 提供Hcomm UT工程，覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。
 - 提供`hcomm_write_read_nbi`样例，演示AICore Kernel侧`WriteNbi`和`ReadNbi`点对点通信流程，并包含运行样例所需的Host侧资源准备流程。
 
@@ -41,7 +42,8 @@ asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载A
 | 能力 | 当前状态 |
 | --- | --- |
 | AICore Hcomm公开接口 | 已提供Kernel侧`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。 |
-| AIV直驱实现 | 已提供Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/detail/`。 |
+| AIV直驱实现 | 已提供Hcomm RoCE和UBC_CTP/URMA相关实现，分别位于`src/aicore/hcomm/roce`和`src/aicore/hcomm/ubc`。 |
+| AICPU数据面 | 已提供AICPU通信原语、通信资源和兼容层实现，位于`src/aicpu/hcomm`。 |
 | 样例配套流程 | `hcomm_write_read_nbi`包含运行样例所需的通信域创建、通信内存注册、P2P通道创建和远端内存获取流程。 |
 | 协议能力 | `COMM_PROTOCOL_ROCE`支持读写、提交和等待；`COMM_PROTOCOL_UBC_CTP`支持读写、写通知、原子操作、提交和等待。 |
 | UT验证 | UT覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
@@ -86,9 +88,15 @@ Hcomm Kernel侧使用时包含如下头文件：
 │   ├── ain                       # AIN相关API预留目录
 ├── scripts                       # 脚本
 ├── src                           # asc-comm API实现源代码
-│   ├── aicore/hcomm/detail       # AICore侧Hcomm实现细节
-│   │   ├── common                # Hcomm公共定义和工具
-│   │   └── impl                  # Hcomm协议实现与平台差异代码
+│   ├── aicpu/hcomm               # AICPU侧Hcomm数据面实现
+│   │   ├── primitives            # 通信原语及C接口适配
+│   │   ├── resource              # 通信资源及生命周期管理
+│   │   └── common                # AICPU公共定义、工具和兼容层
+│   ├── aicore/hcomm              # AICore侧Hcomm直驱实现
+│   │   ├── base_comm             # 基础通信层及协议选择
+│   │   ├── roce                  # RoCE协议及平台实现
+│   │   └── ubc                   # UBC_CTP/URMA协议实现
+│   └── common/dfx                # 跨模块DFX基础能力
 └── tests                         # asc-comm API UT用例
     └── ut/aicore/hcomm           # AICore Hcomm UT工程
 ```

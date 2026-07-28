@@ -17,7 +17,7 @@
 
 #include "kernel_basic_intf.h"
 #include "hcomm_common.h"
-#include "hcomm/detail/impl/hcomm_impl_def.h"
+#include "hcomm/base_comm/hcomm_impl_def.h"
 
 namespace AscendC {
 
@@ -179,7 +179,7 @@ private:
 
 #if defined(__NPU_ARCH__) && \
     (__NPU_ARCH__ == 3510 || __NPU_ARCH__ == 1001 || __NPU_ARCH__ == 2002 || __NPU_ARCH__ == 2201)
-#include "hcomm/detail/impl/hcomm_impl.h"
+#include "hcomm/base_comm/hcomm_impl.h"
 #endif
 
 #endif // #endif  // LIB_HCCL_HCCL_H

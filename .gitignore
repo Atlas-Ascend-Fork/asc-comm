@@ -1,6 +1,8 @@
 build/
 oat_reports/
 log/
+!src/common/dfx/log/
+!src/common/dfx/log/**
 AGENTS.md
 .claude/
 .opencode/
