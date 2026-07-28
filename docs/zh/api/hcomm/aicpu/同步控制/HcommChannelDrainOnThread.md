@@ -36,8 +36,8 @@ int32_t HcommChannelDrainOnThread(ThreadHandle thread, ChannelHandle channel)
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。取值为0或通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄；Host CPU侧调用时，该参数无作用，传入0即可。<br>[ThreadHandle](../公共类型/ThreadHandle.md)类型的定义可参见对应公共类型文档。 |
-| channel | 输入 | 通信通道句柄，取值为[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>[ChannelHandle](../公共类型/ChannelHandle.md)类型的定义可参见对应公共类型文档。 |
+| thread | 输入 | 通信线程句柄。取值为0或通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄；Host CPU侧调用时，该参数无作用，传入0即可。<br>ThreadHandle类型定义可参考[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| channel | 输入 | 通信通道句柄，取值为[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>ChannelHandle类型定义可参考[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 
 ## 返回值
 
@@ -49,8 +49,9 @@ int32_t HcommChannelDrainOnThread(ThreadHandle thread, ChannelHandle channel)
 
 ## 约束说明
 
-- AICPU侧调用时，通信引擎为AICPU_TS。
-- 仅支持通信协议RoCE。
+<!-- npu="A3,910b" id6 -->
+- Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用，通信协议仅支持RoCE。
+<!-- end id6 -->
 
 ## 调用示例
 
