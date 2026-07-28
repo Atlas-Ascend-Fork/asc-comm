@@ -11,19 +11,19 @@
 set(src_to_test_list
     main.cc
     ut_ccu_rep_loop_test.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/loop/ccu_rep_loop.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/loop/ccu_rep_loopblock.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/loop/ccu_rep_loopcall.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/loop/ccu_rep_loopgroup_bundle.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/loop/ccu_rep_setloop.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common/ccu_rep_base.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common/ccu_rep_block.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/common/ccu_rep_nop.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/interface/ccu_datatype.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic/ccu_rep_add.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_representation/reps/arithmetic/ccu_rep_assign.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_microcode.cc
-    ${ASCCOMM_ROOT}/src/ccu/dataplane/hcomm/base_comm/resources/ccu/ccu_microcode/ccu_assist.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loop.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loopblock.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loopcall.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loopgroup_bundle.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_setloop.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_base.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_block.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_nop.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/interface/ccu_datatype.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/arithmetic/ccu_rep_add.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/arithmetic/ccu_rep_assign.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_microcode.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_assist.cc
 )
 
 add_executable(hccl_utest_comms_ccu_rep_loop ${src_to_test_list})

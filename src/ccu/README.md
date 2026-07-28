@@ -1,14 +1,11 @@
-# CCU Migration Notes
+# CCU Data Plane
 
-This directory contains the migrated CCU code collected from:
+The asc-comm CCU data plane is organized by responsibility:
 
-- `../hcomm`
-
-The public CCU headers live in `include/ccu`. Migrated implementation files
-are split by runtime responsibility instead of source repository:
-
-- `src/ccu/dataplane/hcomm`: hcomm CCU primitive, REP, microcode, kernel,
-  resource, and URMA-channel execution support migrated from `hcomm`.
+- `include/ccu/hcomm`: public CCU headers.
+- `src/ccu/hcomm/primitives`: primitive and launch API implementations.
+- `src/ccu/hcomm/resource`: instance, kernel, microcode, and representation implementations.
+- `src/ccu/hcomm/common`: data-plane compatibility and logging helpers.
 
 The build produces one standalone data-plane shared-library target:
 
@@ -16,8 +13,8 @@ The build produces one standalone data-plane shared-library target:
   launch/token ABI, CCU kernel/template code, and device-side CCU headers. This
   target builds `libasccomm_ccu_dataplane.so`.
 
-Control-plane entry points such as hcomm communicator/resource selection and
-resource query remain in hcomm. `HcommCcuKernelRegister*`,
+Control-plane entry points such as hcomm communicator/resource selection,
+device/channel management, DFX, and resource query remain in hcomm. `HcommCcuKernelRegister*`,
 `HcommCcuKernelLaunch`, and `HcommCcuGetMemToken` are exported by this
 data-plane SO.
 

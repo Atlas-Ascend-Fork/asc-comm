@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_rep_context_v1.h"
-#include "ccu_datatype_v1.h"
+#include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
+#include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
 namespace hcomm {
 namespace CcuRep {
