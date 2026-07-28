@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
@@ -30,7 +30,8 @@ static uint64_t GetLoopParam(uint64_t loopCtxId, uint64_t gsaOffset, uint64_t lo
     constexpr uint16_t gsaShiftBit = 13;
     constexpr uint16_t loopNumBitNum = 13;
     constexpr uint16_t loopNumShiftBit = 0;
-    return ((loopCtxId & SetBits(ctxIdBitNum)) << ctxIdShiftBit) | ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit)
+    return ((loopCtxId & SetBits(ctxIdBitNum)) << ctxIdShiftBit)
+           | ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit)
            | ((loopIterNum & SetBits(loopNumBitNum)) << loopNumShiftBit);
 }
 
@@ -55,12 +56,13 @@ static uint64_t GetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uint64_t c
     constexpr uint16_t msShiftBit = 10;
     constexpr uint16_t ckeBitNum = 10;
     constexpr uint16_t ckeShiftBit = 0;
-    return ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit) | ((msOffset & SetBits(msBitNum)) << msShiftBit)
+    return ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit)
+           | ((msOffset & SetBits(msBitNum)) << msShiftBit)
            | ((ckeOffset & SetBits(ckeBitNum)) << ckeShiftBit);
 }
 
-static void InitGroupCopyResources(
-    AllGatherMesh1DMem2MemContext &ctx, ccu::LocalAddr *loopSrc, ccu::LocalAddr *loopDst, ccu::Variable *loopLen)
+static void InitGroupCopyResources(AllGatherMesh1DMem2MemContext &ctx, ccu::LocalAddr *loopSrc,
+                                    ccu::LocalAddr *loopDst, ccu::Variable *loopLen)
 {
     if (!ctx.resourceAllocated) {
         ctx.moConfig.msInterleave = CCU_MS_INTERLEAVE;
@@ -83,19 +85,21 @@ static void InitGroupCopyResources(
         for (uint32_t index = 0; index < 2; index++) {
             uint32_t bufBase = index * ctx.moConfig.msInterleave;
             ccu::Event loopEvt = ctx.moRes.completedEvent[index];
-            entity.body[index].reset(new ccu::Func([&ctx, index, bufBase, loopEvt, loopSrc, loopDst, loopLen]() {
-                ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
-                ccu::EventWait(loopEvt, 1);
-                ccu::LocalCopy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
-                ccu::EventWait(loopEvt, 1);
-            }));
-            entity.loops[index].reset(new ccu::Loop(entity.loopParam[index], *entity.body[index]));
+            entity.body[index].reset(new ccu::Func(
+                [&ctx, index, bufBase, loopEvt, loopSrc, loopDst, loopLen]() {
+                    ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
+                    ccu::EventWait(loopEvt, 1);
+                    ccu::LocalCopy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
+                    ccu::EventWait(loopEvt, 1);
+                }));
+            entity.loops[index].reset(
+                new ccu::Loop(entity.loopParam[index], *entity.body[index]));
         }
     }
 }
 
-static CcuResult GroupCopy(
-    AllGatherMesh1DMem2MemContext &ctx, ccu::LocalAddr dst, ccu::LocalAddr src, GroupOpSizeVars goSize)
+static CcuResult GroupCopy(AllGatherMesh1DMem2MemContext &ctx, ccu::LocalAddr dst, ccu::LocalAddr src,
+                            GroupOpSizeVars goSize)
 {
     ccu::LocalAddr loopSrc[2];
     ccu::LocalAddr loopDst[2];
@@ -126,7 +130,7 @@ static CcuResult GroupCopy(
 
         ccu::Variable offsetCfg;
         offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
-        std::vector<ccu::Loop> grpLoops{*loops.loops[0]};
+        std::vector<ccu::Loop> grpLoops{ *loops.loops[0] };
         ccu::LoopGroup group(paraCfg, offsetCfg, ctx.moConfig.loopCount, grpLoops);
     }
 
@@ -162,7 +166,7 @@ static CcuResult GroupCopy(
 
         loops.loopParam[0] = loopCfg0;
         loops.loopParam[1] = loopCfg1;
-        std::vector<ccu::Loop> grpLoops{*loops.loops[0], *loops.loops[1]};
+        std::vector<ccu::Loop> grpLoops{ *loops.loops[0], *loops.loops[1] };
         ccu::LoopGroup group(goSize.parallelParam, offsetCfg, ctx.moConfig.loopCount, grpLoops);
     }
 
@@ -199,8 +203,7 @@ static CcuResult ExecuteAllGatherTransfer(AllGatherMesh1DMem2MemContext &ctx)
         for (uint64_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
             const uint16_t mask = 1 << rankIdx;
             if (rankIdx != ctx.arg->rankId) {
-                CCU_CHK_RET(ccu::Write(ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, ctx.event,
-                    mask)); // 本卡数据写入远端地址
+                CCU_CHK_RET(ccu::Write(ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, ctx.event, mask)); // 本卡数据写入远端地址
                 channelId++;
             }
         }
@@ -254,10 +257,10 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
 
     // 3.前同步
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_RET(ccu::WriteVariableWithNotify(
-            ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID));
-        CCU_CHK_RET(ccu::WriteVariableWithNotify(
-            ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID));
+        CCU_CHK_RET(ccu::WriteVariableWithNotify(ctx.arg->channels[i], ctx.output[ctx.arg->rankId],
+            OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID));
+        CCU_CHK_RET(ccu::WriteVariableWithNotify(ctx.arg->channels[i], ctx.token[ctx.arg->rankId],
+            TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID));
     }
 
     uint32_t allBit = (1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID);
