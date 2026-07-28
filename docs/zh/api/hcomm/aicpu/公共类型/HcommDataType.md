@@ -52,4 +52,4 @@ typedef enum {
 
 ## 约束说明
 
-- `HCOMM_DATA_TYPE_RESERVED`和未定义的枚举值（包括13）不可作为有效数据类型传入接口。
+ 无额外约束

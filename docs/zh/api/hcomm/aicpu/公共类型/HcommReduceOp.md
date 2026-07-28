@@ -39,4 +39,4 @@ typedef enum {
 
 ## 约束说明
 
-- `HCOMM_REDUCE_RESERVED`和未定义的枚举值不可作为有效归约操作类型传入接口。
+无额外约束
