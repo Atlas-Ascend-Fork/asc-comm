@@ -36,15 +36,9 @@ int32_t HcommChannelNotifyWaitOnThreadWithDefaultTimeout(ThreadHandle thread, Ch
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>[ThreadHandle](../公共类型/ThreadHandle.md)类型的定义可参见对应公共类型文档。 |
-| channel | 输入 | 通信通道句柄，取值为通过[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>[ChannelHandle](../公共类型/ChannelHandle.md)类型的定义可参见对应公共类型文档。 |
+| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>[ThreadHandle](../公共类型/ThreadHandle.md)类型定义可参考对应公共类型文档。 |
+| channel | 输入 | 通信通道句柄，取值为通过[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>[ChannelHandle](../公共类型/ChannelHandle.md)类型定义可参考对应公共类型文档。 |
 | localNotifyIdx | 输入 | 本地Notify索引。<br>取值范围：[0, notifyNum)。<br>notifyNum为[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口传入的channelDesc参数中的notifyNum。 |
-
-<!-- npu="950" id7 -->
-**补充说明**：
-
-**thread参数**：针对Ascend 950PR/Ascend 950DT，CPU引擎RoCE场景，“thread”参数无作用，传入0即可；CPU_TS/AICPU_TS场景，“thread”参数为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。
-<!-- end id7 -->
 
 ## 返回值
 
@@ -54,21 +48,24 @@ int32_t HcommChannelNotifyWaitOnThreadWithDefaultTimeout(ThreadHandle thread, Ch
 | --- | --- |
 | `int32_t` | 接口成功返回0，其他值表示失败。 |
 
-## 默认超时时间说明
-
-- 默认超时时间通过[HcommSetNotifyWaitTimeOut](./HcommSetNotifyWaitTimeOut.md)接口设置
-- 如果未设置，AICPU_TS模式下，Device侧默认超时时间为1836秒
-- 设置为0表示永久等待
-- 设置大于0表示具体的超时时间（单位：秒）
 
 ## 约束说明
 
 - 该接口需要配合[HcommChannelNotifyRecordOnThread](HcommChannelNotifyRecordOnThread.md)使用。
+- `localNotifyIdx`必须小于本端通信通道的Notify数量，且通信通道创建时的`notifyNum`需大于0。
+- 本接口的超时时间由[HcommSetNotifyWaitTimeOut](HcommSetNotifyWaitTimeOut.md)设置；未设置时，Device侧默认超时时间为1836秒。
 <!-- npu="950" id6 -->
-- 在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
-- AICPU_TS模式下，在Device侧调用该接口前，如需设置超时时间，需要调用[HcommSetNotifyWaitTimeOut](./HcommSetNotifyWaitTimeOut.md)设置，不调用设置接口则默认超时时间为1836秒。
-- 针对Ascend 950PR/Ascend 950DT的AICPU_TS模式，`localNotifyIdx`必须小于本端通信通道的Notify数量，且通信通道创建时的`notifyNum`需大于0。
+针对Ascend 950PR/Ascend 950DT：
+
+- 仅支持AICPU_TS场景在Device侧调用。
+- 支持通信协议UB_CTP、UB_RTP、UBOE、RoCE，`thread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄。
 <!-- end id6 -->
+<!-- npu="A3,910b" id7 -->
+针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
+
+- 仅支持AICPU_TS场景在Device侧调用。
+- 支持通信协议HCCS、HCCS_ONLY、RoCE，`thread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄。
+<!-- end id7 -->
 
 ## 调用示例
 
