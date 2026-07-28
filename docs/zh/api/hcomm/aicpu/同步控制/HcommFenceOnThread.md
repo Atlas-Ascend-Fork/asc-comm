@@ -36,7 +36,7 @@ int32_t HcommFenceOnThread(ThreadHandle thread)
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。取值为0或通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄；Host CPU侧调用时，该参数无作用，传入0即可。<br>[ThreadHandle](../公共类型/ThreadHandle.md)类型的定义可参见对应公共类型文档。 |
+| thread | 输入 | 通信线程句柄。取值为0或通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄；Host CPU侧调用时，该参数无作用，传入0即可。<br>[ThreadHandle](../公共类型/ThreadHandle.md)类型定义可参考对应公共类型文档。 |
 
 ## 返回值
 
@@ -49,12 +49,11 @@ int32_t HcommFenceOnThread(ThreadHandle thread)
 ## 约束说明
 
 <!-- npu="950" id6 -->
-- 针对Ascend 950PR/Ascend 950DT，仅支持Host CPU侧调用。
-<!-- end id6 -->
+- 接口仅支持Ascend 950PR/Ascend 950DT，仅支持Host CPU侧调用。
 - Host CPU侧调用时，仅支持通信协议RoCE，`thread`参数无作用，可传入0。
 - 该接口用于Host CPU侧数据面Flush，不等待指定通信通道上的读写操作完成。如需等待通道上已提交的读写操作完成，应先调用[HcommChannelFenceOnThread](HcommChannelFenceOnThread.md)。
 - 当前没有需要执行Flush的内部资源时，接口返回成功。
-
+<!-- end id6 -->
 ## 调用示例
 
 ### 集合通信示例
