@@ -176,7 +176,7 @@ function run_ccu_ut() {
     fi
 
     log "INFO" "run CCU UT through CTest"
-    ctest --test-dir "${ccu_ctest_dir}" --output-on-failure
+    (cd "${ccu_ctest_dir}" && ctest --output-on-failure)
 }
 
 function collect_coverage() {

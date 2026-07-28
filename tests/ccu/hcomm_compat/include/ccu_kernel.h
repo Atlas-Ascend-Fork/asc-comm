@@ -4,6 +4,7 @@
 
 #include "ccu_rep_context_v1.h"
 #include "ccu_datatype_v1.h"
+#include "ccu_interface_assist_v1.h"
 
 namespace hcomm {
 class CcuKernel : public CcuRep::CcuRepContext {
