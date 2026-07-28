@@ -11,8 +11,8 @@
 #ifndef CCU_FUNC_CALL_DEMO_H
 #define CCU_FUNC_CALL_DEMO_H
 
-#include "ccu_primitives.hpp"
-#include "ccu_types.h"
+#include "ccu/hcomm/ccu_primitives.hpp"
+#include "ccu/hcomm/ccu_types.h"
 
 namespace ccu = ::AscendC::ccu;
 

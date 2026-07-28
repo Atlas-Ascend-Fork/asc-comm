@@ -11,8 +11,8 @@
 #ifndef CCU_REDUCE_SCATTER_MESH1D_DEMO_H
 #define CCU_REDUCE_SCATTER_MESH1D_DEMO_H
 
-#include "ccu_primitives.hpp"
-#include "ccu_types.h"
+#include "ccu/hcomm/ccu_primitives.hpp"
+#include "ccu/hcomm/ccu_types.h"
 
 #include <cstdint>
 #include <climits>

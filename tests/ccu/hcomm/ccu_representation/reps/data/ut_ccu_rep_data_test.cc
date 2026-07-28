@@ -8,19 +8,19 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "ccu_rep_read_v1.h"
-#include "ccu_rep_write_v1.h"
-#include "ccu_rep_bufread_v1.h"
-#include "ccu_rep_bufwrite_v1.h"
-#include "ccu_rep_buflocread_v1.h"
-#include "ccu_rep_buflocwrite_v1.h"
-#include "ccu_rep_bufreduce_v1.h"
-#include "ccu_rep_loccpy_v1.h"
-#include "ccu_rep_remMem_v1.h"
+#include "hcomm/resource/representation/reps/data/ccu_rep_read_v1.h"
+#include "hcomm/resource/representation/reps/data/ccu_rep_write_v1.h"
+#include "hcomm/resource/representation/reps/data/ccu_rep_bufread_v1.h"
+#include "hcomm/resource/representation/reps/data/ccu_rep_bufwrite_v1.h"
+#include "hcomm/resource/representation/reps/data/ccu_rep_buflocread_v1.h"
+#include "hcomm/resource/representation/reps/data/ccu_rep_buflocwrite_v1.h"
+#include "hcomm/resource/representation/reps/data/ccu_rep_bufreduce_v1.h"
+#include "hcomm/resource/representation/reps/data/ccu_rep_loccpy_v1.h"
+#include "hcomm/resource/representation/reps/data/ccu_rep_remMem_v1.h"
 #include "ccu_api_exception.h"
 #include "ccu_channel_get_stub.h"
 #include "ccu_urma_channel.h"
-#include "ccu_ins_generater_v1.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
 #include "hcomm_c_adpt.h"
 

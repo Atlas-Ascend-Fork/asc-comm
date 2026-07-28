@@ -13,23 +13,23 @@
 #include <string>
 #include <climits>
 
-#include "ccu_ins_generater_v1.h"
-#include "ccu_rep_base_v1.h"
-#include "ccu_rep_block_v1.h"
-#include "ccu_rep_nop_v1.h"
-#include "ccu_rep_arg_v1.h"
-#include "ccu_rep_loopblock_v1.h"
-#include "ccu_rep_loopcall_v1.h"
-#include "ccu_rep_loop_v1.h"
-#include "ccu_rep_loopgroup_bundle_v1.h"
-#include "ccu_rep_setloop_v1.h"
-#include "ccu_datatype_v1.h"
-#include "ccu_microcode_v1.h"
-#include "ccu_assist_v1.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
+#include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
+#include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
+#include "hcomm/resource/representation/reps/common/ccu_rep_nop_v1.h"
+#include "hcomm/resource/representation/reps/common/ccu_rep_arg_v1.h"
+#include "hcomm/resource/representation/reps/loop/ccu_rep_loopblock_v1.h"
+#include "hcomm/resource/representation/reps/loop/ccu_rep_loopcall_v1.h"
+#include "hcomm/resource/representation/reps/loop/ccu_rep_loop_v1.h"
+#include "hcomm/resource/representation/reps/loop/ccu_rep_loopgroup_bundle_v1.h"
+#include "hcomm/resource/representation/reps/loop/ccu_rep_setloop_v1.h"
+#include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
+#include "hcomm/resource/microcode/ccu_microcode_v1.h"
+#include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "ccu_api_exception.h"
 #include "null_ptr_exception.h"
 #include "internal_exception.h"
-#include "ccu_types.h"
+#include "ccu/hcomm/ccu_types.h"
 
 namespace hcomm {
 namespace CcuRep {
