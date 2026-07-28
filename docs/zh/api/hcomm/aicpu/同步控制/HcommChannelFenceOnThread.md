@@ -36,8 +36,8 @@ int32_t HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel)
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。取值为0或通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄；Host CPU侧调用时，该参数无作用，传入0即可。<br>[ThreadHandle](../公共类型/ThreadHandle.md)类型的定义可参见对应公共类型文档。 |
-| channel | 输入 | 通信通道句柄，取值为通过[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>[ChannelHandle](../公共类型/ChannelHandle.md)类型的定义可参见对应公共类型文档。 |
+| thread | 输入 | 通信线程句柄。取值为0或通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄；<br>Host CPU侧调用时，该参数无作用，传入0即可。<br>ThreadHandle类型定义可参考[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| channel | 输入 | 通信通道句柄，取值为通过[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>ChannelHandle类型定义可参考[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 
 ## 返回值
 
@@ -52,9 +52,8 @@ int32_t HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel)
 <!-- npu="950" id6 -->
 - 针对Ascend 950PR/Ascend 950DT，支持AICPU侧和Host CPU侧调用。
 
-- AICPU侧调用时，通信引擎为AICPU_TS，支持通信协议UBC_TP、UBC_CTP、UBoE。
-- Host CPU侧调用时，支持通信协议UB_RTP、UB_CTP、RoCE。
-- Host CPU侧调用时，`thread`参数无作用，可传入0。
+- AICPU侧调用时，通信引擎为AICPU_TS，支持通信协议UB_CTP、UB_RTP、UBOE、RoCE，`thread`必须为有效的通信线程句柄。
+- Host CPU侧调用时，通信引擎为CPU，支持通信协议UB_CTP、UB_RTP、RoCE，`thread`参数无作用，可传入0。
 <!-- end id6 -->
 
 ## 调用示例
