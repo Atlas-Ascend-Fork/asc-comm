@@ -36,22 +36,10 @@ int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channe
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。取值为0或通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄；Host CPU侧调用时，该参数无作用，可传入0。<br>ThreadHandle类型定义可参考[ThreadHandle](../公共类型/ThreadHandle.md)。 |
+| thread | 输入 | 通信线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。Ascend 950PR/Ascend 950DT的Host CPU侧调用场景参见约束说明。<br>ThreadHandle类型定义可参考[ThreadHandle](../公共类型/ThreadHandle.md)。 |
 | channel | 输入 | 通信通道句柄，取值为通过[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的有效通信通道句柄。<br>ChannelHandle类型定义可参考[ChannelHandle](../公共类型/ChannelHandle.md)。 |
 | localNotifyIdx | 输入 | 本地Notify索引。<br>取值范围：[0, notifyNum)。<br>notifyNum为[HcommChannelCreate](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/basic_resource_mgmt/HcommChannelCreate.md)或[HcclChannelAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口传入的channelDesc参数中的notifyNum。 |
 | timeOut | 输入 | 超时时间，单位：秒。<br>&nbsp;&nbsp;&bull; 0：表示永久等待；<br>&nbsp;&nbsp;&bull; 非0（正整数）：配置的等待超时时间。|
-
-<!-- npu="950" id7 -->
-**补充说明**：
-
-- thread参数：
-
-  针对Ascend 950PR/Ascend 950DT，CPU引擎RoCE场景下，“thread”参数无作用，传入0即可。CPU_TS/AICPU_TS场景下，“thread”参数为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。
-
-- timeOut参数：
-
-  针对Ascend 950PR/Ascend 950DT的CPU引擎RoCE场景，需配置大于0的超时时间。
-<!-- end id7 -->
 
 ## 返回值
 
@@ -64,11 +52,20 @@ int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channe
 ## 约束说明
 
 - 该接口需要配合[HcommChannelNotifyRecordOnThread](HcommChannelNotifyRecordOnThread.md)使用。
+- `localNotifyIdx`必须小于本端通信通道的Notify数量，且通信通道创建时的`notifyNum`需大于0。
 <!-- npu="950" id6 -->
-- 针对Ascend 950PR/Ascend 950DT，支持AICPU_TS场景在Device侧调用，也支持在Host CPU侧调用。
-- Host CPU侧调用时，仅支持通信协议RoCE。
+针对Ascend 950PR/Ascend 950DT：
+
+- 支持AICPU_TS场景在Device侧调用，也支持在Host CPU侧调用。
+- AICPU_TS场景支持通信协议UB_CTP、UB_RTP、UBOE、RoCE，`thread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄。
+- Host CPU侧调用时，通信引擎为CPU，仅支持通信协议RoCE；`thread`参数无作用，可传入0；`timeOut`需大于0。
 <!-- end id6 -->
-- Host CPU侧调用时，`thread`参数无作用，可传入0。
+<!-- npu="A3,910b" id7 -->
+针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
+
+- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
+- CPU_TS和AICPU_TS场景均支持通信协议HCCS、HCCS_ONLY、RoCE，`thread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄。
+<!-- end id7 -->
 
 ## 调用示例
 
