@@ -51,6 +51,81 @@ target_compile_options(asccomm_ccu_hcomm_compat INTERFACE
 add_subdirectory(../stub stub)
 
 # CCU 数据面子目标
+# mockcpp + ABI=0 gtest for features target (ut_ccu_microcode.cc /
+# ut_ccu_interface_assist.cc use mockcpp which is built with CXX11_ABI=0; the
+# system gtest from intf_llt_pub_basic is ABI=1 and incompatible, so features
+# links its own ABI=0 gtest from the third_party cache).
+set(ASCCOMM_MOCKCPP_ROOT ${ASCCOMM_ROOT}/third_party/lib_cache/mockcpp)
+add_library(asccomm_mockcpp STATIC IMPORTED)
+set_target_properties(asccomm_mockcpp PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${ASCCOMM_MOCKCPP_ROOT}/include;${ASCCOMM_ROOT}/third_party/boost"
+    IMPORTED_LOCATION "${ASCCOMM_MOCKCPP_ROOT}/lib/libmockcpp.a"
+)
+
+set(ASCCOMM_GTEST_ROOT ${ASCCOMM_ROOT}/third_party/lib_cache/gtest)
+add_library(asccomm_gtest_abi0 STATIC IMPORTED)
+set_target_properties(asccomm_gtest_abi0 PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${ASCCOMM_GTEST_ROOT}/include"
+    IMPORTED_LOCATION "${ASCCOMM_GTEST_ROOT}/lib/libgtest.a"
+)
+
+# CCU features target (f8c8fd2 baseline): ut_ccu_microcode + ut_ccu_interface_assist
+# + groupcopy demo. groupcopy has no tests but is part of the f8c8fd2 features target.
+set(CCU_FEATURES_IMPL_SOURCES
+    ${CCU_MICROCODE_DIR}/ccu_microcode.cc
+    ${CCU_REP_DIR}/context/ccu_rep_context.cc
+    ${CCU_REP_DIR}/interface/ccu_interface_assist.cc
+    ${CCU_REP_DIR}/interface/ccu_datatype.cc
+    ${CCU_REP_DIR}/reps/common/ccu_rep_base.cc
+    ${CCU_REP_DIR}/reps/common/ccu_rep_block.cc
+    ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_add.cc
+    ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_assign.cc
+)
+
+set(src_to_test_list
+    main.cc
+    ut_ccu_microcode.cc
+    ./ccu_representation/interface/ut_ccu_interface_assist.cc
+    ${CCU_FEATURES_IMPL_SOURCES}
+)
+
+add_executable(hccl_utest_comms_ccu_features ${src_to_test_list})
+
+target_include_directories(hccl_utest_comms_ccu_features PRIVATE
+    ${UT_COMMON_INCLUDE_LIST}
+)
+
+target_compile_definitions(hccl_utest_comms_ccu_features PRIVATE
+    _GLIBCXX_USE_CXX11_ABI=0
+    google=ascend_private
+    -DOPEN_HCCL_TEST
+    OPEN_BUILD_PROJECT
+)
+
+target_compile_options(hccl_utest_comms_ccu_features PRIVATE
+    -U_FORTIFY_SOURCE
+    -fno-var-tracking-assignments
+    -Os
+    -O0 -g --coverage -fprofile-arcs -ftest-coverage -fno-access-control
+    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address -fsanitize-recover=address,all -fno-omit-frame-pointer>
+)
+
+target_link_libraries(hccl_utest_comms_ccu_features PRIVATE
+    asccomm_ccu_hcomm_compat
+    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
+    asccomm_gtest_abi0
+    asccomm_mockcpp
+    -pthread
+    asccomm_ccu_llt_stub
+    -lgcov
+    -lrt
+    -ldl
+)
+
+add_dependencies(hccl_utest_comms_ccu_features asccomm_ccu_llt_stub)
+
+add_test(NAME hccl_utest_comms_ccu_features COMMAND hccl_utest_comms_ccu_features)
+
 add_subdirectory(ccu_representation/reps/sync)
 add_subdirectory(ccu_representation/reps/control)
 add_subdirectory(ccu_representation/reps/common)

@@ -24,17 +24,29 @@ namespace CcuRep {
 
 template <typename T> bool CheckType(const std::shared_ptr<CcuRepBlock> &refer)
 {
+    if (refer == nullptr) {
+        HCCL_ERROR("input refer is nullptr");
+        return false;
+    }
     HCCL_INFO("[ChechType] refer->Type() = %d", refer->Type());
     return false;
 }
 
 template <> bool CheckType<CcuRepFuncBlock>(const std::shared_ptr<CcuRepBlock> &refer)
 {
+    if (refer == nullptr) {
+        HCCL_ERROR("input refer is nullptr");
+        return false;
+    }
     return refer->Type() == CcuRepType::FUNC_BLOCK ? true : false;
 }
 
 template <> bool CheckType<CcuRepLoopBlock>(const std::shared_ptr<CcuRepBlock> &refer)
 {
+    if (refer == nullptr) {
+        HCCL_ERROR("input refer is nullptr");
+        return false;
+    }
     return refer->Type() == CcuRepType::LOOP_BLOCK ? true : false;
 }
 
