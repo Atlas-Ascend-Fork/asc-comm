@@ -36,7 +36,7 @@ int32_t HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, u
 
 | 参数名称 | 输入/输出 | 含义 |
 | --- | --- | --- |
-| thread | 输入 | 线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>[ThreadHandle](../公共类型/ThreadHandle.md)类型的定义请参见对应公共类型文档。 |
+| thread | 输入 | 线程句柄，取值为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效线程句柄。<br>ThreadHandle类型定义可参考[ThreadHandle](../公共类型/ThreadHandle.md)。 |
 | notifyIdx | 输入 | 需等待的Notify通知索引。<br>取值范围为：[0, notifyNumPerThread)。<br>notifyNumPerThread为[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口传入的同名参数。 |
 | timeOut | 输入 | 超时时间，单位：秒。<br>取值说明：<br>&nbsp;&nbsp;&bull; 0：表示永久等待；<br>&nbsp;&nbsp;&bull; 非0（正整数）：配置的等待超时时间。<br> |
 
@@ -51,10 +51,20 @@ int32_t HcommThreadNotifyWaitOnThread(ThreadHandle thread, uint32_t notifyIdx, u
 ## 约束说明
 
 - 该接口需要配合[HcommThreadNotifyRecordOnThread](HcommThreadNotifyRecordOnThread.md)使用。
+- `thread`必须为通过[HcclThreadAcquire](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的有效通信线程句柄。
+- `notifyIdx`必须小于当前通信线程的Notify数量，即获取`thread`时传入的`notifyNumPerThread`。
+- `timeOut`的单位为秒；传入0表示永久等待，传入非0正整数表示具体的等待超时时间。
 
 <!-- npu="950" id6 -->
-- 在Ascend 950PR/Ascend 950DT上，仅支持AICPU_TS模式下、在Device侧调用该接口。
+针对Ascend 950PR/Ascend 950DT：
+
+- 仅支持AICPU_TS场景在Device侧调用。
 <!-- end id6 -->
+<!-- npu="A3,910b" id8 -->
+针对Atlas A3 训练系列产品/Atlas A3 推理系列产品和Atlas A2 训练系列产品/Atlas A2 推理系列产品：
+
+- 支持CPU_TS场景在Host侧调用，也支持AICPU_TS场景在Device侧调用。
+<!-- end id8 -->
 
 ## 调用示例
 
