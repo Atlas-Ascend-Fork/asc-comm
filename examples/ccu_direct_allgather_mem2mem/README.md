@@ -26,8 +26,56 @@ per-rank 循环内无 `CCU_IF`。无 repeat 循环、无 `isInputOutputEqual` �
 ## 与 examples/custom_ccu_allgather 的区别
 
 两者都是「host 直驱 CCU AllGather、只做数据面、注册 + `HcommCcuKernelLaunch`」。
-custom 是单发 + 单 event；本样例对齐 pr_4261 KFC 参照，用 event 数组 + write/wait
-分离（>16 rank 也正确）。主要区别：
+
+### 算法路径：相同
+
+两者算法完全一致（Mesh1D Mem2Mem AllGather），device 侧 kernel 主干相同，
+唯一区别在第 4 步「数据搬运」的组织方式：
+
+```text
+  建域 / 取 channel / 取 token (host) → 注册 kernel → HcommCcuKernelLaunch
+        │
+        ▼  device 侧 CCU kernel
+  1. InitResource   取远端 output/token（GetResByChannel）
+  2. LoadArgs       读入 taskArgs
+  3. PreSync        交换地址+token（WriteVariableWithNotify + NotifyWait）
+  4. 【数据搬运】   ← 唯一区别在这一步（见下）
+  5. PostSync       NotifyRecord / NotifyWait
+```
+
+数据流也相同：每张卡把自己的输入**远程写**（`ccu::Write`）到所有 peer 的
+output 对应段，**本地拷贝**（`GroupCopy`）到自己的 output 段。
+
+### 数据搬运（第 4 步）：唯一区别
+
+```text
+  custom_ccu_allgather (单 event + 交错)      本样例 (event 数组 + write/wait 分离)
+  ────────────────────────────────────       ──────────────────────────────────────
+  event: 单个 ccu::Event                      events: std::vector<ccu::Event>
+                                              （每 16 rank 一个，bit = rank%16）
+  CCU_IF(sliceSize != 0):                     ┌ DoAllGatherWrite ────────────┐
+    for peer:                                 │  for peer:                    │
+      Write(peer, event, mask=1<<peer) ┐交错  │    Write(peer, events[peer/16],│ ①全发
+    GroupCopy(自己段)                   │      │          bit=peer%16)         │
+    EventRecord(event, 1<<self)         ┘      │  (self) EventRecord(...)      │
+  EventWait(event, totalMask)                 └───────────────────────────────┘
+                                              GroupCopy(自己段)                  ②拷贝
+                                              ┌ DoAllGatherWait ─────────────┐
+                                              │  for eventIdx: EventWait(...) │ ③全等
+                                              └───────────────────────────────┘
+  rank 上限：≤ 16（mask 16 位）               rank 上限：任意（event 数组扩展）
+```
+
+- **custom**：单 event，靠 `mask = 1<<rankIdx` 区分每 rank 完成位 → 最多 16 rank；
+  Write / 本地拷贝 / EventRecord 交错在一起。
+- **本样例（KFC 对齐）**：event 数组按 rank 分组（`eventIdx = rank/16`、
+  `bit = rank%16`）→ 支持 >16 rank；搬运三段分离：**先全发 → 再本地拷贝 → 最后
+  统一等**。
+
+双卡小规模下两者行为等价（只用 `events[0]` 低位、只 1 个 peer）；差异要到
+>16 rank 或高并发才体现。
+
+### 工程封装区别
 
 | 维度 | custom_ccu_allgather | 本样例（ccu_direct_allgather_mem2mem） |
 |---|---|---|
