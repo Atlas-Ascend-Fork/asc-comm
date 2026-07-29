@@ -37,6 +37,7 @@ dotted_line="----------------------------------------"
 
 TEST=false
 COV=false
+PACKAGE=false
 
 LOG_LEVEL=0
 
@@ -90,6 +91,7 @@ usage() {
     echo "$dotted_line"
     echo "    -h, --help           Display help information"
     echo "    -t, --test           Build and run all unit tests"
+    echo "    --pkg, --package     Build an asc-comm development run package"
     echo "    --cov                Enable code coverage for unit tests"
     echo "    --make_clean         Clean build artifacts"
     echo "    --cann_3rd_lib_path=<PATH>"
@@ -107,6 +109,10 @@ parse_args() {
                 ;;
             -t|--test)
                 TEST=true
+                shift
+                ;;
+            --pkg|--package)
+                PACKAGE=true
                 shift
                 ;;
             --cov)
@@ -168,13 +174,22 @@ function build () {
 
 main(){
     parse_args "$@"
-    clean_build
+    if [[ "${TEST}" == true || "${PACKAGE}" != true ]]; then
+        clean_build
+    fi
     set_env
     echo "${CUSTOM_OPTION[@]}"
     local ut_build_dir="${BUILD_DIR}/ut-hcomm"
 
+    if [[ "${PACKAGE}" == true ]]; then
+        bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \
+            --cann-path="${Ascend_CANN_PACKAGE_PATH}"
+    fi
+
     if [[ "${TEST}" != true ]]; then
-        log "INFO" "use -t/--test to build hcomm UT"
+        if [[ "${PACKAGE}" != true ]]; then
+            log "INFO" "use -t/--test to build hcomm UT"
+        fi
         exit 0
     fi
 
