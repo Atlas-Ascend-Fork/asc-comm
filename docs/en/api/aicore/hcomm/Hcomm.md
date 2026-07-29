@@ -55,4 +55,4 @@ class Hcomm;
 - The passed `ChannelHandle` must point to a channel entity matching the selected protocol.
 
 ## Related Sample
-[hcomm_write_read_nbi](/examples/hcomm_write_read_nbi/README_en.md) demonstrates that the AIV Kernel invokes `WriteNbi` and `ReadNbi` over the `COMM_PROTOCOL_UBC_CTP` path in a two-card scenario. This sample does not cover the RoCE path.
+[hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README_en.md) demonstrates that the AIV Kernel invokes `WriteNbi` and `ReadNbi` over the `COMM_PROTOCOL_UBC_CTP` path in a two-card scenario. This sample does not cover the RoCE path.

@@ -3,7 +3,7 @@
 This document specifies requirements for supplementing and modifying asc-comm API documentation. When adding or modifying public APIs, corresponding API references, usage guides, samples and test descriptions shall be updated synchronously.
 
 ## Scope
-Applicable to public API reference documents under `docs/api/`, as well as usage guides and sample documents directly related to API behaviors.
+Applicable to public API reference documents under `docs/en/api/`, as well as usage guides and sample documents directly related to API behaviors.
 
 ## Document Structure
 New API documents are recommended to contain the following sections:

@@ -56,7 +56,7 @@ ret = hcomm.Drain(channel);
 - Return value `0` indicates success; `-1` indicates failure.
 
 ## Sample
-Refer to [hcomm_write_read_nbi](/examples/hcomm_write_read_nbi/README_en.md) to learn about AIV Kernel-side API invocation and Host-side communication resource creation workflow. This sample uses `COMM_ENGINE_AIV` and `COMM_PROTOCOL_UBC_CTP` exclusively and does not cover the RoCE path.
+Refer to [hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README_en.md) to learn about AIV Kernel-side API invocation and Host-side communication resource creation workflow. This sample uses `COMM_ENGINE_AIV` and `COMM_PROTOCOL_UBC_CTP` exclusively and does not cover the RoCE path.
 
 This sample executes symmetric `WriteNbi` and `ReadNbi` in a two-card scenario:
 ```cpp

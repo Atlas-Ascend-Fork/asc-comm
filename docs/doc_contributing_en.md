@@ -5,12 +5,12 @@ The asc-comm documentation system covers repository overview, Quick Start, Build
 
 | Document Type | Content | Directory |
 | --- | --- | --- |
-| Repository Homepage | Project overview, directory structure, entry links to major documents | `README.md` |
-| Quick Start | Environment preparation, source download, build and UT verification | `docs/quick_start.md` |
-| Build & Dependencies | Build scripts, CMake entry, third-party dependency descriptions | `docs/guide/` |
-| API References | API functionality, prototypes, parameters, return values and constraints | `docs/api/` |
-| Usage Guides | API invocation workflow, protocol capabilities and notes | `docs/guide/` |
-| Sample Documentation | Sample directory entry, runtime prerequisites and verification instructions | `examples/` |
+| Repository Homepage | Project overview, directory structure, entry links to major documents | `README_en.md` |
+| Quick Start | Environment preparation, source download, build and UT verification | `docs/quick_start_en.md` |
+| Build & Dependencies | Build scripts, CMake entry, third-party dependency descriptions | `docs/en/guide/` |
+| API References | API functionality, prototypes, parameters, return values and constraints | `docs/en/api/` |
+| Usage Guides | API invocation workflow, protocol capabilities and notes | `docs/en/guide/` |
+| Sample Documentation | Sample directory entry, runtime prerequisites and verification instructions | `examples/README_en.md`, `examples/*/README_en.md` |
 
 ## Contribution Scenarios
 ### Document Correction
@@ -60,10 +60,10 @@ Sample documentation shall cover:
 
 ## Common Modification Scenarios
 - New APIs: Update API references, usage guides, sample documentation and document entry pages synchronously.
-- New samples: Update `examples/README.md` with sample purpose, prerequisites and verification steps.
+- New samples: Update `examples/README_en.md` with sample purpose, prerequisites and verification steps.
 - Build workflow changes: Update Quick Start and Build & Test documents.
 - New dependencies: Update third-party dependency documentation, third-party software inventory and Notice file.
-- Directory restructuring: Update README, docs entry pages and all affected relative links.
+- Directory restructuring: Update `README_en.md`, docs entry pages and all affected relative links.
 
 ## Pre-PR Self-check Checklist
 - [ ] Document descriptions align with current repository code, directories and scripts.
@@ -78,18 +78,25 @@ Sample documentation shall cover:
 ## Documentation Navigation & Link Relationships
 asc-comm documents form a navigation network consisting of entry pages, guides, API references and sample materials. When adding or modifying documents, follow the principle: **who references content owned by another document adds the corresponding link**.
 ```text
-README.md ──Quick Start──→ docs/quick_start.md
-          ──Build & Test──→ docs/guide/build_and_test.md
-          ──API Reference──→ docs/api/
-          ──Samples──→ examples/README.md
+README_en.md ──Documentation Index──→ docs/README_en.md
+             ──Quick Start──→ docs/quick_start_en.md
+             ──Build & Test──→ docs/en/guide/build_and_test.md
+             ──API Reference──→ docs/en/api/README.md
+             ──Samples──→ examples/README_en.md
 
-docs/guide/ ──First API reference──→ docs/api/
-             ──Sample reference──→ examples/README.md
+docs/README_en.md ──Quick Start──→ docs/quick_start_en.md
+                  ──Usage Guide──→ docs/en/guide/hcomm_usage.md
+                  ──Build & Test──→ docs/en/guide/build_and_test.md
+                  ──API Reference──→ docs/en/api/README.md
+                  ──Samples──→ examples/README_en.md
 
-docs/api/ ──Usage workflow──→ docs/guide/
-           ──Invocation sample──→ examples/README.md
+docs/en/guide/ ──First API reference──→ docs/en/api/README.md
+                ──Sample reference──→ examples/README_en.md
+
+docs/en/api/ ──Usage workflow──→ docs/en/guide/hcomm_usage.md
+             ──Invocation sample──→ examples/hcomm_write_read_nbi/README_en.md
 ```
 
 ## More Information
-- API Documentation Contribution Guide: [api_contributing.md](./api_contributing_en.md)
-- asc-comm Contribution Guide: [CONTRIBUTING.md](../CONTRIBUTING_en.md)
+- API Documentation Contribution Guide: [api_contributing_en.md](./api_contributing_en.md)
+- asc-comm Contribution Guide: [CONTRIBUTING_en.md](../CONTRIBUTING_en.md)

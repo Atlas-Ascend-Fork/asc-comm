@@ -41,4 +41,4 @@ __aicore__ inline int32_t WriteNbi(
 - Under the `COMM_PROTOCOL_UBC_CTP` path, `dst` must be within the range of the remote buffer registered for the channel, and `src` is the local source address.
 
 ## Related Sample
-Refer to the two-card read/write workflow for AIV direct-driven URMA in [hcomm_write_read_nbi](/examples/hcomm_write_read_nbi/README_en.md).
+Refer to the two-card read/write workflow for AIV direct-driven URMA in [hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README_en.md).
