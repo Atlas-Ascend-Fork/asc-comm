@@ -1,6 +1,6 @@
-﻿# 快速开始
+# 快速开始
 
-## 🛠️ 环境准备<a name="prepare&install"></a>
+## 🛠️ 环境准备<a name="prepare-install"></a>
 
 根据**本地是否有NPU设备**和**使用目标**选择对应的环境准备方式：
 
@@ -46,7 +46,8 @@
 
    <p align="center"><img src="./figures/webIDE.png" alt="云平台" width="1000px" height="150px"></p>
 
-> [!NOTE] 使用说明
+> [!NOTE]
+> 使用说明
 >
 > - 环境默认安装了最新的商用版NPU驱动和固件、CANN包，源码下载时注意与软件配套。
 > - 如需下载特定版本的CANN包，请参考[下载安装CANN包](#cann-install)。
@@ -72,7 +73,8 @@
     docker pull <ascend/cann:tag>
     ```
 
-    > [!NOTE] 使用说明
+    > [!NOTE]
+    > 使用说明
     > - 镜像默认安装了对应版本的CANN包，源码下载时注意与软件配套。
     > - 镜像文件比较大，正常网速下，下载时间约为5～10分钟，请您耐心等待。
 
@@ -147,8 +149,10 @@ CANN包分为CANN toolkit包和CANN ops包。
     ./Ascend-cann-${soc_name}-ops_${cann_version}_linux-$(uname -m).run --install --install-path=${install_path}
     ```
 
-    > [!IMPORTANT] 安装说明
+    > [!IMPORTANT]
+    > 安装说明
     > 当前[Hcomm AIV直驱URMA样例](../examples/hcomm_write_read_nbi/README.md)不依赖ops包；仅在后续使用依赖算子包的功能时按需安装。
+
 
 | 参数 | 说明 |
 | :--- | :--- |
@@ -158,7 +162,8 @@ CANN包分为CANN toolkit包和CANN ops包。
 
 ## ✅ 环境验证<a name="cann-verify"></a>
 
-> [!NOTE] 使用前须知
+> [!NOTE]
+> 使用前须知
 > 云开发环境和CANN官方Docker镜像已预装CANN包，可直接执行以下命令验证。
 
 验证环境和驱动是否正常：
@@ -179,7 +184,8 @@ CANN包分为CANN toolkit包和CANN ops包。
 
 ## ⚙️ 环境变量配置<a name="cann-env-setup"></a>
 
-> [!NOTE] 使用前须知
+> [!NOTE]
+> 使用前须知
 > 云开发环境和CANN官方Docker镜像已自动配置环境变量，可跳过此步骤。
 
 按需选择合适的命令使环境变量生效：
@@ -204,7 +210,8 @@ cd asc-comm
 
 ### 📦 依赖检查<a name="dependency-check"></a>
 
-> [!NOTE] 使用前须知
+> [!NOTE]
+> 使用前须知
 > 如您使用**容器化技术**，容器中已为您安装好依赖，可跳过此步骤。
 
 以下为本开源仓源码编译和UT验证的基础依赖条件：
@@ -213,7 +220,7 @@ cd asc-comm
 - gcc/g++支持C++17
 - cmake >= 3.16.0
 
-### ⚡ 编译安装<a name="compile&install"></a>
+### ⚡ 编译安装<a name="compile-install"></a>
 
 进入本开源仓代码根目录，执行如下命令：
 
