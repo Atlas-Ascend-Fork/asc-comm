@@ -15,12 +15,14 @@ namespace HcommExample {
 
 class KernelHcommWriteRead {
 public:
-    __aicore__ inline KernelHcommWriteRead() {}
+    __aicore__ inline KernelHcommWriteRead()
+    {
+    }
 
     __aicore__ inline void Init(GM_ADDR context, AscendC::TPipe *pipe)
     {
         tpipe_ = pipe;
-        context_ = reinterpret_cast<__gm__ CommContext*>(context);
+        context_ = reinterpret_cast<__gm__ CommContext *>(context);
         channel_ = context_->channelHandle;
         localBuf_ = reinterpret_cast<GM_ADDR>(context_->localBufferAddr);
         remoteBuf_ = reinterpret_cast<GM_ADDR>(context_->remoteBufferAddr);
@@ -30,8 +32,8 @@ public:
         // Hcomm内部WQE/CQE队列需要一块UB空间存放，调用Init分配并初始化工作空间
         tpipe_->InitBuffer(hcommBuf_, HCOMM_WORKSPACE_SIZE);
         hcommTensor_ = hcommBuf_.Get<uint8_t>();
-        if (hcomm_.Init(hcommTensor_, HCOMM_WORKSPACE_SIZE) != AscendC::HCOMM_SUCCESS) {
-            initOk_ = false;
+        if (hcomm_.Init(hcommTensor_, HCOMM_WORKSPACE_SIZE) == AscendC::HCOMM_SUCCESS) {
+            initOk_ = true;
         }
     }
 
@@ -66,7 +68,7 @@ private:
         }
 
         // ReadNbi(channel, dst=本地seg2, src=远端seg0, len)：从对端seg0读回pattern到本地seg2
-        __gm__ uint8_t* readDst = localBuf_ + 2 * DATA_SIZE;
+        __gm__ uint8_t *readDst = localBuf_ + 2 * DATA_SIZE;
         GM_ADDR localDst = reinterpret_cast<GM_ADDR>(readDst);
         if (hcomm_.ReadNbi(channel_, localDst, remoteBuf_, DATA_SIZE) != AscendC::HCOMM_SUCCESS) {
             Fail(3);
@@ -80,14 +82,17 @@ private:
         }
     }
 
-    __aicore__ inline void Fail(uint32_t code) { context_->testResult = code; }
+    __aicore__ inline void Fail(uint32_t code)
+    {
+        context_->testResult = code;
+    }
 
     AscendC::TPipe *tpipe_{nullptr};
     AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf_;
     AscendC::LocalTensor<uint8_t> hcommTensor_;
     // COMM_PROTOCOL_UBC_CTP（URMA协议）适用于Ascend 950系列；RoCE协议使用COMM_PROTOCOL_ROCE
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm_;
-    __gm__ CommContext* context_{nullptr};
+    __gm__ CommContext *context_{nullptr};
     AscendC::ChannelHandle channel_{0};
     GM_ADDR localBuf_{nullptr};
     GM_ADDR remoteBuf_{nullptr};
@@ -99,7 +104,7 @@ private:
 } // namespace HcommExample
 
 // Kernel入口
-extern "C" __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context)
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context)
 {
     AscendC::TPipe pipe;
     HcommExample::KernelHcommWriteRead op;
