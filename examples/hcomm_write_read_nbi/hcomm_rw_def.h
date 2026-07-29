@@ -24,6 +24,8 @@ constexpr uint64_t WRITE_RESULT_OFFSET = DATA_SIZE;
 constexpr uint64_t READ_RESULT_OFFSET = 2U * DATA_SIZE;
 
 constexpr uint32_t NRANKS = 2U;
+constexpr uint16_t BASE_PORT = 29620U;
+constexpr uint32_t ROOT_SERVER_RANK = 0U;
 constexpr CommProtocol HOST_COMM_PROTOCOL = COMM_PROTOCOL_UBC_CTP;
 constexpr AscendC::CommProtocol KERNEL_COMM_PROTOCOL = AscendC::COMM_PROTOCOL_UBC_CTP;
 static_assert(static_cast<int32_t>(HOST_COMM_PROTOCOL) == static_cast<int32_t>(KERNEL_COMM_PROTOCOL),
@@ -36,6 +38,10 @@ constexpr uint32_t TEST_WRITE_FAILED = 2U;
 constexpr uint32_t TEST_READ_FAILED = 3U;
 constexpr uint32_t TEST_DRAIN_FAILED = 4U;
 
+constexpr uint32_t HCOMM_READ_ONLY = 0x01U;
+constexpr uint32_t HCOMM_WRITE_ONLY = 0x02U;
+constexpr uint32_t HCOMM_READ_WRITE = HCOMM_READ_ONLY | HCOMM_WRITE_ONLY;
+
 namespace HcommExample {
 
 struct CommContext {
@@ -47,6 +53,6 @@ struct CommContext {
 
 } // namespace HcommExample
 
-extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context);
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context, uint32_t operationType);
 
 #endif // HCOMM_RW_DEF_H

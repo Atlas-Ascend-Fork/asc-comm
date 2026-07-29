@@ -8,6 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <cstdint>
+
 #include "kernel_operator.h"
 #include "hcomm_rw_def.h"
 
@@ -29,7 +31,7 @@ public:
         }
     }
 
-    __aicore__ inline void Process()
+    __aicore__ inline void Process(uint32_t operationType)
     {
         context_->testResult = TEST_SUCCESS;
         if (!initOk_) {
@@ -37,29 +39,41 @@ public:
             return;
         }
 
-        DoWriteAndRead();
+        if (operationType & HCOMM_WRITE_ONLY) {
+            DoWrite();
+            if (context_->testResult != TEST_SUCCESS) {
+                return;
+            }
+        }
+
+        if (operationType & HCOMM_READ_ONLY) {
+            DoRead();
+            if (context_->testResult != TEST_SUCCESS) {
+                return;
+            }
+        }
+
+        if (hcomm_.Drain(channel_) != AscendC::HCOMM_SUCCESS) {
+            Fail(TEST_DRAIN_FAILED);
+        }
     }
 
 private:
-    __aicore__ inline void DoWriteAndRead()
+    __aicore__ inline void DoWrite()
     {
         GM_ADDR writeSrc = localBuffer_ + SEND_DATA_OFFSET;
         GM_ADDR writeDst = remoteBuffer_ + WRITE_RESULT_OFFSET;
         if (hcomm_.WriteNbi(channel_, writeDst, writeSrc, DATA_SIZE) != AscendC::HCOMM_SUCCESS) {
             Fail(TEST_WRITE_FAILED);
-            return;
         }
+    }
 
+    __aicore__ inline void DoRead()
+    {
         GM_ADDR readDst = localBuffer_ + READ_RESULT_OFFSET;
         GM_ADDR readSrc = remoteBuffer_ + SEND_DATA_OFFSET;
         if (hcomm_.ReadNbi(channel_, readDst, readSrc, DATA_SIZE) != AscendC::HCOMM_SUCCESS) {
             Fail(TEST_READ_FAILED);
-            return;
-        }
-
-        if (hcomm_.Drain(channel_) != AscendC::HCOMM_SUCCESS) {
-            Fail(TEST_DRAIN_FAILED);
-            return;
         }
     }
 
@@ -80,10 +94,10 @@ private:
 
 } // namespace HcommExample
 
-extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context)
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context, uint32_t operationType)
 {
     AscendC::TPipe pipe;
     HcommExample::KernelHcommWriteRead op;
     op.Init(context, &pipe);
-    op.Process();
+    op.Process(operationType);
 }
