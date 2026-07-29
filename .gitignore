@@ -1,4 +1,5 @@
 build/
+build_out/
 oat_reports/
 log/
 AGENTS.md
