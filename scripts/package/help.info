@@ -1,0 +1,10 @@
+asc-comm development patch package
+
+  --install                       Install or update the Hcomm headers
+  --uninstall                     Restore the headers saved before first install
+  --install-path=<CANN_ROOT>       Select a CANN installation root
+  --force                         Override version or file consistency checks
+
+The default install path is ASCEND_HOME_PATH. This package is intended only for
+local development verification. Recompile the target Ascend C kernel after it
+is installed.

@@ -35,6 +35,59 @@ bash build.sh -t
 build/ut-hcomm
 ```
 
+## 构建开发验证run包
+
+本地修改Hcomm头文件后，可生成轻量开发验证包，将当前工作树中的修改安装到已有CANN环境，无需重新生成完整toolkit包：
+
+```bash
+bash build.sh --pkg
+```
+
+生成文件默认位于`build_out/`：
+
+```text
+Ascend-asccomm_1.0.0_linux-<arch>.run
+```
+
+安装到当前`ASCEND_HOME_PATH`：
+
+```bash
+./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --install
+```
+
+也可以明确指定CANN根目录。`--install-path`应指向包含`asc/`和`share/info/asc-devkit/`的实际CANN目录：
+
+```bash
+./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run \
+    --install --install-path=/path/to/cann
+```
+
+安装器只替换与CANN中asc-devkit布局一致的Hcomm头文件：公开头文件安装到`asc/include/adv_api/hcomm/`，detail头文件安装到`asc/impl/adv_api/detail/hcomm/`。原文件在首次安装时保存到目标CANN的`var/asc-comm-dev-patch/`，重复安装不会覆盖这份原始基线。
+
+恢复安装前的文件：
+
+```bash
+./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --uninstall
+```
+
+制包时会记录asc-devkit版本和系统架构，安装时默认要求目标环境一致。仅在明确了解兼容性风险时使用`--force`跳过版本或已安装文件一致性检查。安装完成后需要重新编译待验证的Ascend C Kernel，已有`.o`或`.bin`不会自动更新。
+
+可以直接调用制包脚本指定版本、输出目录和制包所用CANN：
+
+```bash
+bash scripts/package/build_package.sh \
+    --cann-path=/path/to/cann \
+    --package-version=1.0.0 \
+    --output-dir=/path/to/output
+```
+
+在临时构造的CANN目录中验证安装、重复安装、文件保护和卸载恢复：
+
+```bash
+bash tests/package/test_run_package.sh \
+    build_out/Ascend-asccomm_1.0.0_linux-<arch>.run
+```
+
 ## CMake入口
 
 UT的CMake入口为：

@@ -113,6 +113,15 @@ bash build.sh
 bash build.sh -t
 ```
 
+将当前Hcomm头文件修改制作为开发验证run包：
+
+```bash
+bash build.sh --pkg
+./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --install
+```
+
+run包会保存目标CANN中的原始文件，并支持通过同一个包的`--uninstall`参数恢复。详细说明见[构建与测试](./docs/guide/build_and_test.md)。
+
 如需直接使用CMake构建UT，可指定CANN三方依赖目录：
 
 ```bash
