@@ -30,8 +30,8 @@ public:
         // Hcomm内部WQE/CQE队列需要一块UB空间存放，调用Init分配并初始化工作空间
         tpipe_->InitBuffer(hcommBuf_, HCOMM_WORKSPACE_SIZE);
         hcommTensor_ = hcommBuf_.Get<uint8_t>();
-        if (hcomm_.Init(hcommTensor_, HCOMM_WORKSPACE_SIZE) != AscendC::HCOMM_SUCCESS) {
-            initOk_ = false;
+        if (hcomm_.Init(hcommTensor_, HCOMM_WORKSPACE_SIZE) == AscendC::HCOMM_SUCCESS) {
+            initOk_ = true;
         }
     }
 
@@ -99,7 +99,7 @@ private:
 } // namespace HcommExample
 
 // Kernel入口
-extern "C" __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context)
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context)
 {
     AscendC::TPipe pipe;
     HcommExample::KernelHcommWriteRead op;
