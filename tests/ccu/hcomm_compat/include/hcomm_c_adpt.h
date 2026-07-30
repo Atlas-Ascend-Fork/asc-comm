@@ -16,6 +16,5 @@
 #include "hcomm_primitives.h"
 
 typedef HcclResult HcommResult;
-HcommResult HcommChannelGet(ChannelHandle channelHandle, void** channel);
 
 #endif

@@ -1,8 +1,11 @@
-/*
- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
- * Description: ccu representation implementation file
- * Author: sunzhepeng
- * Create: 2025-05-21
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
@@ -14,38 +17,32 @@
 #include "ccu_api_exception.h"
 #include "hcomm_c_adpt.h"
 
-#include "ccu_urma_channel.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
 namespace hcomm {
 namespace CcuRep {
 
-    CcuRepRemMem::CcuRepRemMem(CcuInsGeneratorBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem)
-        : insGenPtr(insGenPtr),
-          channel(channel),
-          rem(rem)
-    {
-        type = CcuRepType::REM_MEM;
-        instrCount = insGenPtr->GetInstrCount(type);
-    }
+CcuRepRemMem::CcuRepRemMem(CcuInsGeneratorBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem)
+    : insGenPtr(insGenPtr), channel(channel), rem(rem)
+{
+    type = CcuRepType::REM_MEM;
+    instrCount = 2; // 指令数为2个
+}
 
-    bool CcuRepRemMem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
-    {
-        this->instrId = instrId;
-        translated = true;
+bool CcuRepRemMem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+{
+    this->instrId = instrId;
+    translated = true;
 
-        instrCount = insGenPtr->GetInstrCount(type);
-        insGenPtr->CcuRepRemMemTranslate(ccuKernel, instr, this);
-        instrId += instrCount;
+    instrCount = insGenPtr->GetInstrCount(type);
+    insGenPtr->CcuRepRemMemTranslate(ccuKernel, instr, this);
+    instrId += instrCount;
 
-        return translated;
-    }
+    return translated;
+}
 
-    std::string CcuRepRemMem::Describe()
-    {
-        return Hccl::StringFormat("Get Remote Buffer Addr and TokenInfo By Transport");
-    }
+std::string CcuRepRemMem::Describe() { return Hccl::StringFormat("Get Remote Buffer Addr and TokenInfo By Transport"); }
 
 }; // namespace CcuRep
 }; // namespace hcomm
