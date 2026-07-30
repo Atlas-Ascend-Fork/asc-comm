@@ -66,11 +66,6 @@ struct ChannelInfo {
     CommBuffer remoteCclMem;
 };
 
-struct CcuKernelArgBase {
-    ChannelHandle channels[CCU_MAX_RANK_SIZE];
-    uint32_t channelCount;
-};
-
 // ccu kernel register所需信息
 struct CcuKernelInfo {
     // kernel名称
@@ -81,13 +76,13 @@ struct CcuKernelInfo {
     void* kernelArg;
 
 private:
-    std::shared_ptr<CcuKernelArgBase> kernelArgSmartPtr;
+    std::shared_ptr<void> kernelArgSmartPtr;
 
 public:
     template <typename T>
     void setKernelArg(std::shared_ptr<T> arg)
     {
-        kernelArgSmartPtr = std::static_pointer_cast<CcuKernelArgBase>(arg);
+        kernelArgSmartPtr = arg;
         kernelArg = static_cast<void*>(arg.get());
     }
 };

@@ -125,18 +125,11 @@ HcclResult GetCcuKernel(
     auto kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>();
     kernelArg->rankSize = param.rankSize;
     kernelArg->rankId = param.myRank;
-    kernelInfo.setKernelArg(kernelArg);
-
-    auto* kernelArgBase = static_cast<CcuKernelArgBase*>(kernelInfo.kernelArg);
-    if (!kernelArgBase) {
-        HCCL_ERROR("[GetCcuKernel] kernelArg ptr is err.");
-        return HCCL_E_INTERNAL;
-    }
-
     for (uint32_t i = 0; i < kernelChannels.size(); ++i) {
-        kernelArgBase->channels[i] = kernelChannels[i]; // 将channelhandle保存在kernelArgBase中
+        kernelArg->channels[i] = kernelChannels[i];
     }
-    kernelArgBase->channelCount = static_cast<uint32_t>(kernelChannels.size());
+    kernelArg->channelCount = static_cast<uint32_t>(kernelChannels.size());
+    kernelInfo.setKernelArg(kernelArg);
 
     CcuInsHandle insHandle{0};
     CHK_RET(asccomm_examples::GetOrCreateCcuInstance(comm, insHandle));
