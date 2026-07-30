@@ -52,6 +52,13 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(ChannelHandle channel, G
 }
 
 template <CommProtocol commProtocol>
+template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteWithValueNbi(ChannelHandle channel, GM_ADDR dst, T value)
+{
+    return impl_.template WriteWithValueNbi<T, commit, commitPipe, reqPipe, config>(channel, dst, value);
+}
+
+template <CommProtocol commProtocol>
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
