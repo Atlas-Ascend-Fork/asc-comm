@@ -14,7 +14,7 @@
 #include "ccu_api_exception.h"
 #include "hcomm_c_adpt.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
-#include "ccu_urma_channel.h"
+#include "hcomm/resource/channel/ccu_channel.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -49,16 +49,9 @@ namespace CcuRep {
 
     std::string CcuRepBufWrite::Describe()
     {
-        void *channelPtr{nullptr};
-        auto ret = HcommChannelGet(channel, &channelPtr);
-        if (ret != HcclResult::HCCL_SUCCESS) {
+        CcuChannel channelImpl(channel);
+        if (channelImpl.GetResult() != HcclResult::HCCL_SUCCESS) {
             Hccl::THROW<Hccl::CcuApiException>("failed to get ccu channel, type[%d]", type);
-        }
-
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-        if (channelImpl == nullptr) {
-            Hccl::THROW<Hccl::CcuApiException>(
-                "[%s] failed to cast channel[0x%llx] to CcuUrmaChannel", __func__, channel);
         }
         return Hccl::StringFormat("Write CcuBuf[%u] To Rmt Mem[%u], len[%u], ChannalId[%u], sem[%u], mask[%04x]",
             src.Id(), dst.addr.Id(), len.Id(), channelImpl->GetChannelId(), sem.Id(), mask);
