@@ -121,6 +121,24 @@ endif()
 add_custom_target(generate_kernel_headers ALL DEPENDS ${KERNEL_TILING_FILE})
 add_dependencies(kernel_tiling generate_kernel_headers)
 
+add_library(asccomm_ccu_host_launch STATIC
+    ${ASCCOMM_ROOT}/src/ccu/ccu_host_launch.cc
+)
+target_include_directories(asccomm_ccu_host_launch
+    PUBLIC
+        ${ASCCOMM_ROOT}/include
+    PRIVATE
+        ${ASCEND_CANN_ARCH_DIR}/include
+        ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
+        ${ASCEND_CANN_ARCH_DIR}/include/hccl
+)
+target_compile_features(asccomm_ccu_host_launch PUBLIC cxx_std_17)
+target_compile_options(asccomm_ccu_host_launch PRIVATE
+    -fPIC
+    -Wall
+    -Werror
+)
+
 function(run_llt_test)
     cmake_parse_arguments(LLT "" "TARGET;TASK_NUM;ENV_FILE" "FILTERS;RUNTIME_DIRS" ${ARGN})
 
