@@ -25,6 +25,7 @@
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 #include "hcomm/resource/representation/reps/control/ccu_rep_funccall_v1.h"
 #include "hcomm/resource/instance/ccu_var_event_res_mgr.h"
+#include "hcomm/resource/channel/ccu_channel.h"
 #include "ccu_urma_channel.h"
 
 #include "hcomm/common/ccu_log.h"
@@ -83,13 +84,8 @@ CcuKernel::~CcuKernel() {}
 
 static HcclResult GetDieIdByChannel(const ChannelHandle channel, uint32_t& dieId)
 {
-    void* channelPtr{nullptr};
-    CHK_RET(static_cast<HcclResult>(HcommChannelGet(channel, &channelPtr)));
-    auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
-    if (channelImpl == nullptr) {
-        HCCL_ERROR("[%s] failed to cast channel[0x%llx] to CcuUrmaChannel", __func__, channel);
-        return HcclResult::HCCL_E_PTR;
-    }
+    CcuChannel channelImpl(channel);
+    CHK_RET(channelImpl.GetResult());
     dieId = channelImpl->GetDieId();
     HCCL_INFO("[%s], channelHandle[0x%llx], dieId[%u]", __func__, channel, dieId);
     return HcclResult::HCCL_SUCCESS;
@@ -293,13 +289,8 @@ HcclResult CcuKernel::CreateVariable(const ChannelHandle channel, uint32_t varIn
 {
     channels_.insert(channel);
 
-    void* channelPtr{nullptr};
-    CHK_RET(static_cast<HcclResult>(HcommChannelGet(channel, &channelPtr)));
-    auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
-    if (channelImpl == nullptr) {
-        HCCL_ERROR("[%s] failed to cast channel[0x%llx] to CcuUrmaChannel", __func__, channel);
-        return HcclResult::HCCL_E_PTR;
-    }
+    CcuChannel channelImpl(channel);
+    CHK_RET(channelImpl.GetResult());
     uint32_t locXnId{0};
     CHK_RET(channelImpl->GetLocXnByIndex(varIndex, locXnId));
     var->Reset(locXnId, channelImpl->GetDieId());
@@ -2933,10 +2924,8 @@ HcclResult CcuKernel::AddProfilingInfo(
         ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId), INVALID_VALUE_CHANNELID,
         sizeof(ccuProfilingInfoCache.channelId)));
     for (uint32_t i = 0; i < channelNum; i++) {
-        void* channelPtr{nullptr};
-        CHK_RET(static_cast<HcclResult>(HcommChannelGet(channels[i], &channelPtr)));
-        auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
+        CcuChannel channelImpl(channels[i]);
+        CHK_RET(channelImpl.GetResult());
         ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
         ccuProfilingInfoCache.channelHandle[i] = channels[i];
         HCCL_INFO(

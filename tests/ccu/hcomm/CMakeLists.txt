@@ -19,6 +19,8 @@ set(UT_COMMON_INCLUDE_LIST
     ${ASCCOMM_ROOT}/src/ccu
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/include
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
     ${ASCCOMM_UT_ROOT}/../ccu/stub
     ${ASCCOMM_CANN_INCLUDE_DIRS}
 )
@@ -122,3 +124,4 @@ add_subdirectory(ccu_representation/reps/loop)
 add_subdirectory(ccu_representation/context)
 add_subdirectory(ccu_representation/interface)
 add_subdirectory(ccu_microcode)
+add_subdirectory(resource/channel)
