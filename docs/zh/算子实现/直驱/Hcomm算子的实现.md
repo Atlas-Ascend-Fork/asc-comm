@@ -184,264 +184,273 @@ for (uint32_t remoteRank = 0;
 }
 ```
 
-## 3. 选择通信算法
+## 3. 算法选择
 
-### 背景
+### 选择策略
 
-集合通信通常存在多种算法实现。不同算法对拓扑、数据量、Channel数量、并发Thread数量和临时通信内存的要求不同。为了获得稳定的功能和性能，需根据具体场景，选择合适的通信算法。
+通信算法的选择在很大程度上决定了通信算子的整体性能表现，为应对不同的网络拓扑、通信数据量以及硬件资源，一个通信算子往往具有多种算法实现。在实际分布式集群场景中，需要根据具体场景，综合考量选择拓扑亲和的通信算法，以实现通信效率的最大化。
 
-### 算法选择依据
+<p align="center"><img src="./figures/aicpu_algo_select.png" alt="通信算法选择示意图"></p>
 
-| 选择依据 | 说明 |
-| --- | --- |
-| 算子语义 | AllGather、AllReduce和Broadcast等集合通信需要不同的数据关系。 |
-| 拓扑结构 | Mesh、Ring以及跨Server拓扑适用的算法不同。 |
-| 数据量和数据类型 | 影响分片方式、传输次数、规约能力和临时内存需求。 |
-| 数据面发起方 | AICPU_TS、AIV等发起方支持的接口和并发模型不同。 |
-| Channel协议 | 不同协议支持的数据操作、地址类型和同步能力不同。 |
-| 资源上限 | Thread、Notify、Channel和通信内存必须满足算法需求。 |
+如上图所示，通信算子支持多种算法实现，开发者可以根据拓扑信息选择最优通信算法：
 
-如果算子只支持一种拓扑和一种固定算法，可以省略多算法选择，但仍需要校验产品、执行引擎和通信协议是否满足该实现的约束。
+- Ring算法实现：算法编排在AI CPU侧，适用于Server内物理拓扑为Ring的场景。
+- Mesh算法实现：算法编排在AI CPU侧，适用于Server内物理拓扑为Mesh的场景。
 
-### 基础示例
+> [!NOTE]说明
+>
+>1. 如果通信算子只有一种算法实现，那么可以跳过本节的算法选择步骤。
+>2. 本章所述的算法是开发者自行实现的算法，HCCL\_ALGO环境变量配置的算法是HCCL内置算法。HCCL内置算法可参考《HCCL集合通信库用户指南》的相关参考 \> 集合通信算法介绍。
 
-下面展示一个简化的算法选择过程。实际实现还需要结合产品能力、数据量和协议进行判断。
+### 代码示例
 
-```cpp
-HcclResult SelectAlgorithm(
-    CommEngine engine, CommTopo topoType,
-    std::string &algorithmName)
-{
-    if (engine != CommEngine::COMM_ENGINE_AICPU_TS) {
-        return HCCL_E_NOT_SUPPORT;
-    }
+以[选择策略](#选择策略)介绍的算法选择策略为例，对应的算法选择代码片段如下：
 
-    if (topoType == CommTopo::COMM_TOPO_1DMESH) {
-        algorithmName = "AicpuMesh";
-        return HCCL_SUCCESS;
-    }
+```c
+if (algType == ALG_LEVEL0_NP_DOUBLE_RING || algType == ALG_LEVEL0_NP_SINGLE_RING) {
+    algName = "Ring";  // 根据拓扑信息选择使用Ring算法
+} else if (algType == ALG_LEVEL0_NP_MESH) {
+    algName = "Mesh";  // 根据拓扑信息选择使用Mesh算法
+} else {
     return HCCL_E_NOT_SUPPORT;
 }
 ```
 
-### AllGather算子示例
 
-AllGather样例只提供AICPU Mesh实现，没有独立的算法注册和选择模块。Host侧通过产品校验、固定算法Tag和`UBC_CTP`链路选择限定实现范围。
+## 4. 创建资源
 
-```cpp
-CHK_RET(GetDeviceType(&param.devType));
-if (param.devType != DEVICE_TYPE_A5) {
-    return HCCL_E_INTERNAL;
-}
+### 通信资源计算
 
-int ret = sprintf_s(
-    param.tag, sizeof(param.tag), "%s",
-    "hccl_custom_allgather");
-if (ret <= 0) {
-    return HCCL_E_INTERNAL;
-}
+通信算子在执行时依赖底层的硬件通信资源，因此在算子任务编排下发前，首先需要申请所需的通信资源。HCCL通信资源主要分为三类：
 
-param.opType = HcclCMDType::HCCL_CMD_ALLGATHER;
-```
+- **Thread**：用于表达单个rank内的并发关系，相同Thread上的task严格顺序执行，不同Thread上的task可以并发执行。无论何种展开模式，Thread均可分为1个主Thread和若干个从Thread，由该主Thread来控制这些从Thread上的任务的开始和结束，其中主Thread必须申请，从Thread的申请数量由每个通信算法单独计算。
+- **Notify**：用于实现同步机制，包括rank内Thread间同步和rank间同步。
+- **Channel**：用于跨rank传输数据的通道。
 
-该Tag同时用于批量任务标识和通信引擎上下文复用。扩展为多算法后，不同资源需求的算法应使用不同Tag，避免错误复用资源上下文。
+不同的通信算法所需的通信资源数量往往不相同。下面以单机4卡的拓扑组网、使用AI CPU通信引擎为例，分别讲解Ring环状通信算法、Mesh全连接通信算法所需通信资源数量的计算逻辑。
 
-## 4. 创建通信资源
+- **Ring环状通信算法**
 
-### 背景
+  Ring算法的硬件拓扑如下图所示，每个rank从上一个rank接收数据，同时将数据发送到下一个rank。
 
-Hcomm数据面接口不在Kernel中临时创建拓扑和通信资源。Host侧需要根据算法并发关系计算资源，使用HCOMM控制面完成申请，再将AICPU执行需要的资源信息放入Device可访问的Context。
+  <p align="center"><img src="./figures/ring.png" alt="Ring算法拓扑示例"></p>
 
-### 通信资源
+  上述组网中Ring环状通信算法所需要的通信资源数量如下：
 
-| 资源 | 作用 |
-| --- | --- |
-| Context | 保存Thread、Channel、Notify和通信内存等资源信息，并支持按Tag复用。 |
-| Thread | 承载通信任务。同一Thread上的任务按序执行，不同Thread可以并行执行。 |
-| Thread Notify | 用于本Rank内Thread之间，以及Host执行流与AICPU控制Thread之间的同步。 |
-| Channel | 连接本Rank和对端Rank，承载远端数据操作和Channel同步。 |
-| Channel Notify | 用于Channel两端的数据就绪和传输完成同步。 |
-| 通信内存 | 包括本端通信内存和通过Channel取得的对端通信内存。 |
+  - Thread：每个rank分别跟左右两个rank进行通信，且左右两端通信可以异步执行，因此每个rank需要2个Thread资源。
+  - Thread Notify：Thread上的Notify用于Thread之间的同步， 对于1个Thread来说，只需要1个Notify来接受另1个Thread的POST信号，因此2个Thread只需要1个Notify。
+  - Channel：每个rank分别跟左右两个rank进行通信，因此每个rank需要建立2条Channel通信链路。
+  - Channel Notify：每个rank分别跟左右两个rank进行同步，同步操作分为Record和Wait，二者需要配对使用，因此每个Channel上需要2个Notify资源，每个rank的2条Channel上共需要4个Notify资源。
 
-Thread Notify和Channel Notify的作用域不同，需要分别计算。资源申请数量和最大Notify索引必须覆盖算法实际使用范围。
+- **Mesh全连接通信算法**
 
-### 基础示例
+  Mesh算法的硬件拓扑如下图所示，每个rank与其他所有rank直接通信。
 
-1. 申请通信Thread。
+  <p align="center"><img src="./figures/mesh.png" alt="Mesh算法硬件拓扑示例"></p>
 
-    ```cpp
-    uint32_t threadNum = 2;
-    uint32_t notifyNumPerThread = 2;
-    std::vector<ThreadHandle> threads(threadNum);
+  上述组网中Mesh全连接通信算法所需要的通信资源数量如下：
 
-    CHK_RET(HcclThreadAcquire(
-        comm, COMM_ENGINE_AICPU_TS,
-        threadNum, notifyNumPerThread, threads.data()));
-    ```
+  - Thread：每个rank跟其他所有rank进行通信，且所有通信可以异步执行，因此每个rank一共需要3个Thread资源。
+  - Thread Notify：Thread上的Notify用于Thread之间的同步， 对于1个Thread来说，他只需要1个Notify来接受另1个Thread的POST信号，因此3个Thread只需要2个Notify。
+  - Channel：每个rank跟其他所有rank进行通信，因此每个rank一共需要建立3条Channel通信通道。
+  - Channel Notify：每个rank跟其他所有rank进行同步，同步操作分为前同步和后同步（前同步即是告诉远端rank自己已经准备好数据或者内存，可被远端Rank读写；后同步即是告诉远端Rank自己已经读写完毕），二者需要配对使用，因此每个rank各3条Channel一共需要6个Notify资源。
 
-2. 根据Channel描述申请Channel，并取得对端通信内存。
+综上所述，针对Ring环状通信算法、Mesh全连接通信算法，每个rank所需的通信资源数量如下表所示。
 
-    ```cpp
-    ChannelHandle channel;
-    CHK_RET(HcclChannelAcquire(
-        comm, COMM_ENGINE_AICPU_TS,
-        &channelDesc, 1, &channel));
+单机4卡拓扑中，算法所需各类通信资源的数量对比如下表所示。
 
-    void *remoteAddr = nullptr;
-    uint64_t remoteSize = 0;
-    CHK_RET(HcclChannelGetHcclBuffer(
-        comm, channel, &remoteAddr, &remoteSize));
-    ```
-
-3. 创建通信引擎Context并复制资源信息。
-
-    ```cpp
-    void *deviceCtx = nullptr;
-    CHK_RET(HcclEngineCtxCreate(
-        comm, algorithmTag, COMM_ENGINE_AICPU_TS,
-        contextSize, &deviceCtx));
-    CHK_RET(HcclEngineCtxCopy(
-        comm, COMM_ENGINE_AICPU_TS, algorithmTag,
-        hostContext, contextSize, 0));
-    ```
-
-### AllGather算子示例
-
-Mesh AllGather为每个对端Rank创建一个Channel，并使用一个通信Thread承载一条对端通信路径。`rankSize`大于1时，Thread和Channel数量均为`rankSize - 1`。
-
-```cpp
-HcclResult HcclAllocAlgResourceAICPU(
-    HcclComm comm, const OpParam &param,
-    AlgResourceCtx &resCtx)
-{
-    void *cclBufferAddr = nullptr;
-    uint64_t cclBufferSize = 0;
-    CHK_RET(HcclGetHcclBuffer(
-        comm, &cclBufferAddr, &cclBufferSize));
-    resCtx.cclMem = CommBuffer{cclBufferAddr, cclBufferSize};
-
-    uint32_t threadNum =
-        param.rankSize > 1 ? param.rankSize - 1 : 1;
-    resCtx.slaveThreadNum = threadNum - 1;
-    resCtx.notifyNumOnMainThread = resCtx.slaveThreadNum;
-    resCtx.notifyNumPerThread =
-        std::vector<uint32_t>(resCtx.slaveThreadNum, 1);
-
-    CHK_RET(HcclGetThreadAICPU(comm, param, resCtx));
-    CHK_RET(HcclGetChannelAICPU(comm, param, resCtx));
-    return HCCL_SUCCESS;
-}
-```
-
-资源首次创建后，Host侧将`AlgResourceCtx`序列化并复制到AICPU通信引擎Context。后续调用先查询Context，存在时直接复用通信域级资源。
-
-```cpp
-void *deviceCtx = nullptr;
-uint64_t contextSize = 0;
-if (HcclEngineCtxGet(
-        comm, param.tag, COMM_ENGINE_AICPU_TS,
-        &deviceCtx, &contextSize) == HCCL_SUCCESS) {
-    param.resCtxDevice = deviceCtx;
-    param.ctxSize = contextSize;
-} else {
-    AlgResourceCtx resCtx;
-    CHK_RET(HcclAllocAlgResourceAICPU(comm, param, resCtx));
-    CHK_RET(HcclMemcpyCtxHostToDevice(
-        comm, param, resCtx,
-        &param.resCtxDevice, &param.ctxSize));
-}
-```
-
-与当前Runtime执行流绑定的CPU_TS Thread不属于上述可复用Context，需要在每次算子调用时重新获取并导出到AICPU_TS通信引擎。
-
-## 5. 实现任务编排
-
-### 背景
-
-任务编排是把通信算法转换为不同通信Thread上的数据操作和同步操作。数据操作通常异步提交，因此编排不仅要描述“搬运什么数据”，还需要明确本Rank内Thread依赖、Channel两端同步和数据完成条件。
-
-### Hcomm数据面接口
-
-本章样例主要使用以下接口：
-
-| 类别 | 接口 | 作用 |
+| 通信资源 | Ring算法 | Mesh算法 |
 | --- | --- | --- |
-| 任务管理 | [HcommBatchModeStart](../../api/hcomm/aicpu/任务管理/HcommBatchModeStart.md)、[HcommBatchModeEnd](../../api/hcomm/aicpu/任务管理/HcommBatchModeEnd.md) | 批量组织和提交本次数据面任务。 |
-| 本地数据操作 | [HcommLocalCopyOnThread](../../api/hcomm/aicpu/本地数据操作/HcommLocalCopyOnThread.md) | 在本地Device内存之间复制数据。 |
-| 远端数据操作 | [HcommWriteOnThread](../../api/hcomm/aicpu/远端数据操作/HcommWriteOnThread.md) | 将本端通信内存写入对端通信内存。 |
-| Thread同步 | [HcommThreadNotifyRecordOnThread](../../api/hcomm/aicpu/同步控制/HcommThreadNotifyRecordOnThread.md)、[HcommThreadNotifyWaitOnThread](../../api/hcomm/aicpu/同步控制/HcommThreadNotifyWaitOnThread.md) | 协调本Rank内通信Thread和Host执行流。 |
-| Channel同步 | [HcommChannelNotifyRecordOnThread](../../api/hcomm/aicpu/同步控制/HcommChannelNotifyRecordOnThread.md)、[HcommChannelNotifyWaitOnThread](../../api/hcomm/aicpu/同步控制/HcommChannelNotifyWaitOnThread.md) | 协调Channel两端的数据就绪和传输完成状态。 |
+| Thread | 2 | 3 |
+| Notify | 4 | 6 |
+| Channel | 2 | 3 |
 
-具体算法还可以根据需要使用远端读、远端规约、带Notify写、批量传输或Fence等接口。
+### 代码示例
 
-### 基础示例
+下面以基于Mesh算法的自定义AllGather算子为例，介绍其在Host侧创建通信资源的核心代码。该算法需要与其他所有Rank并发交换数据，因此每个Rank申请`rankSize - 1`个Thread，并与其他每个Rank分别建立一条Channel。申请到的资源统一保存在`AlgResourceCtx`中，随后复制到AICPU侧的Context内存，供Kernel执行任务编排时使用。
 
-以下代码展示如何在指定通信Thread上执行本地数据复制。
+1. 获取本端HCCL Buffer，并根据Rank数计算和申请资源。
 
-```cpp
-CHK_RET(HcommLocalCopyOnThread(
-    thread, localCommunicationBuffer,
-    inputBuffer, dataSize));
-```
+    ```cpp
+    HcclResult HcclAllocAlgResourceAICPU(
+        HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost)
+    {
+        void *cclBufferAddr;
+        uint64_t cclBufferSize;
+        CHK_RET(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
+        resCtxHost.cclMem = CommBuffer{cclBufferAddr, cclBufferSize};
 
-### AllGather算子示例
+        uint32_t threadNum = param.rankSize > 1 ? param.rankSize - 1 : 1;
+        resCtxHost.slaveThreadNum = threadNum - 1;
+        resCtxHost.notifyNumOnMainThread = resCtxHost.slaveThreadNum;
+        resCtxHost.notifyNumPerThread =
+            std::vector<uint32_t>(resCtxHost.slaveThreadNum, 1);
 
-AllGather样例使用Mesh方式交换数据。每个Rank先把本地输入复制到HCCL Buffer中属于本Rank的分片，再把该分片写入所有对端Rank的相同位置。所有远端写完成后，本地HCCL Buffer包含全部Rank的数据。
+        CHK_RET(HcclGetThreadAICPU(comm, param, resCtxHost));
+        CHK_RET(HcclGetChannelAICPU(comm, param, resCtxHost));
+        return HCCL_SUCCESS;
+    }
+    ```
 
-```text
-HCCL Buffer: [Rank 0分片][Rank 1分片] ... [Rank N-1分片]
-```
+2. 申请AICPU通信Thread。`threads[0]`为主Thread，其余为从Thread；在算法需要的Notify之外，额外预留一个Notify用于Host与Device同步。
 
-`ExecOp`中单轮分片的核心编排如下。代码省略分片上限计算和统一错误处理。
+    ```cpp
+    HcclResult HcclGetThreadAICPU(
+        HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost)
+    {
+        uint32_t threadNum = resCtxHost.slaveThreadNum + 1;
+        uint32_t maxNotifyNum = resCtxHost.notifyNumOnMainThread;
+        std::vector<ThreadHandle> threads(threadNum);
 
-```cpp
-uint32_t dataTypeSize = SIZE_TABLE[param.dataType];
-uint64_t dataSize = param.count * dataTypeSize;
-uint64_t inputOffset = processedDataCount * dataTypeSize;
-uint8_t *cclBuffer = static_cast<uint8_t *>(resCtx.cclMem.addr);
-void *localSlice = cclBuffer + sliceSize * param.myRank;
-void *inputSlice =
-    static_cast<uint8_t *>(param.inputPtr) + inputOffset;
+        CHK_RET(HcclThreadAcquire(
+            comm, COMM_ENGINE_AICPU_TS, threadNum,
+            maxNotifyNum + 1, threads.data()));
+        for (uint32_t i = 0; i < threadNum; i++) {
+            resCtxHost.threads.push_back(threads[i]);
+        }
+        return HCCL_SUCCESS;
+    }
+    ```
 
-HcommLocalCopyOnThread(
-    resCtx.threads[0], localSlice, inputSlice, sliceSize);
-ThreadSyncBefore(resCtx.threads);
+3. 遍历除本Rank外的所有Rank，根据拓扑链路信息填写Channel描述并批量申请Channel；申请完成后，再获取每条Channel对应的远端HCCL Buffer地址。
 
-for (uint32_t i = 0; i < resCtx.channels.size(); i++) {
-    ThreadHandle thread = resCtx.threads[i];
-    ChannelHandle channel = resCtx.channels[i].handle;
-    void *remoteSlice = static_cast<uint8_t *>(
-        resCtx.channels[i].remoteCclMem.addr) +
-        sliceSize * param.myRank;
+    ```cpp
+    constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 
-    HcommChannelNotifyRecordOnThread(
-        thread, channel, NOTIFY_IDX_ACK);
-    HcommChannelNotifyWaitOnThread(
-        thread, channel, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT);
+    HcclResult HcclGetChannelAICPU(
+        HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost)
+    {
+        uint32_t channelNum = param.rankSize - 1;
+        std::vector<HcclChannelDesc> descs(channelNum);
+        std::vector<ChannelHandle> channels(channelNum);
+        std::vector<uint32_t> remoteRanks(channelNum);
 
-    HcommWriteOnThread(
-        thread, channel, remoteSlice, localSlice, sliceSize);
+        uint32_t idx = 0;
+        for (uint32_t remoteRank = 0; remoteRank < param.rankSize; remoteRank++) {
+            if (remoteRank == param.myRank) {
+                continue;
+            }
+            CHK_RET(FillChannelDesc(
+                comm, param.myRank, remoteRank, descs[idx]));
+            remoteRanks[idx++] = remoteRank;
+        }
 
-    HcommChannelNotifyRecordOnThread(
-        thread, channel, NOTIFY_IDX_DATA_SIGNAL);
-    HcommChannelNotifyWaitOnThread(
-        thread, channel, NOTIFY_IDX_DATA_SIGNAL,
-        CUSTOM_TIMEOUT);
-}
+        CHK_RET(HcclChannelAcquire(
+            comm, COMM_ENGINE_AICPU_TS,
+            descs.data(), channelNum, channels.data()));
 
-ThreadSyncAfter(resCtx.threads);
-for (uint32_t rank = 0; rank < param.rankSize; rank++) {
-    void *cclSlice = cclBuffer + sliceSize * rank;
-    uint64_t outputOffset =
-        rank * dataSize + processedDataCount * dataTypeSize;
-    void *outputSlice =
-        static_cast<uint8_t *>(param.outputPtr) + outputOffset;
+        for (uint32_t i = 0; i < channelNum; i++) {
+            ChannelInfo channel;
+            channel.remoteRank = remoteRanks[i];
+            channel.handle = channels[i];
+            channel.notifyNum = CHANNEL_NOTIFY_NUM;
+
+            void *cclBuf;
+            uint64_t cclBufSize;
+            CHK_RET(HcclChannelGetHcclBuffer(
+                comm, channels[i], &cclBuf, &cclBufSize));
+            channel.remoteCclMem = CommBuffer{cclBuf, cclBufSize};
+            resCtxHost.channels.push_back(channel);
+        }
+        return HCCL_SUCCESS;
+    }
+    ```
+
+    其中，`FillChannelDesc`通过`HcclRankGraphGetLinks`查询本Rank到对端Rank的链路，并填写`remoteRank`、`notifyNum`、通信协议及本端和远端Endpoint等信息。
+
+4. 将`AlgResourceCtx`序列化，创建AICPU通信引擎的Context内存，并把资源信息复制到Device侧。Kernel收到`resCtxDevice`和`ctxSize`后，即可反序列化并使用这些资源。
+
+    ```cpp
+    HcclResult HcclMemcpyCtxHostToDevice(
+        HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost,
+        void **resCtxSequence, uint64_t *ctxSize)
+    {
+        std::vector<char> seq = resCtxHost.Serialize();
+        uint64_t size = seq.size();
+        void *ctx = nullptr;
+
+        CHK_RET(HcclEngineCtxCreate(
+            comm, param.tag, COMM_ENGINE_AICPU_TS, size, &ctx));
+        CHK_RET(HcclEngineCtxCopy(
+            comm, COMM_ENGINE_AICPU_TS,
+            param.tag, seq.data(), size, 0));
+
+        *resCtxSequence = ctx;
+        *ctxSize = size;
+        return HCCL_SUCCESS;
+    }
+    ```
+
+## 5. 任务编排
+
+### 编排步骤
+
+参与集合通信的各个rank协调有序地进行同步与数据搬运，完成一个集合通信操作的过程，称为任务编排。任务编排的主要目的是将不同通信线程上的任务并行执行，实现资源的最大化利用，从而提升整体性能。
+
+任务编排主要包含以下几个步骤：
+
+1. 获取本端通信内存，在HCCL中称其为HCCL Buffer。
+2. 拷贝算子输入数据到HCCL Buffer中本Rank对应的分片，常用的数据面接口为[HcommLocalCopyOnThread](../../api/hcomm/aicpu/本地数据操作/HcommLocalCopyOnThread.md)。
+
+   > [!NOTE]说明
+   > HCCL Buffer是HCCL每个通信域所管理的一块Device上的锁页内存（Pinned Memory），由于通信任务是异步执行的，为确保用户输入的数据在通信任务实际执行时依然有效，因此需要首先将输入数据拷贝到拥有固定内存地址的HCCL Buffer中。
+
+3. 切分输入数据，计算各Rank的数据分片及输入、输出偏移量。
+
+    HCCL Buffer容量有限，若输入数据无法一次完成通信，则需要切分成多个数据块，分别进行处理。
+
+4. 前同步，主Thread通知从Thread启动任务，从Thread等待主Thread通知。常用的数据面接口为[HcommThreadNotifyRecordOnThread](../../api/hcomm/aicpu/同步控制/HcommThreadNotifyRecordOnThread.md)和[HcommThreadNotifyWaitOnThread](../../api/hcomm/aicpu/同步控制/HcommThreadNotifyWaitOnThread.md)。
+5. 进行数据交换，各通信Thread先与对应的远端Rank完成数据就绪同步，再按照集合通信算法执行远端读、远端写或远端规约。AllGather样例使用[HcommWriteOnThread](../../api/hcomm/aicpu/远端数据操作/HcommWriteOnThread.md)，将本Rank的数据分片并行写入其他Rank的HCCL Buffer。
+6. 后同步，各Rank确认当前数据块的交换已经完成，从Thread通知主Thread任务完成，主Thread等待所有从Thread通知。
+7. 拷贝HCCL Buffer中的集合通信结果到算子输出内存。常用的数据面接口为[HcommLocalCopyOnThread](../../api/hcomm/aicpu/本地数据操作/HcommLocalCopyOnThread.md)。
+
+### 代码示例
+
+- 以自定义AllGather算子为例，其在AI CPU侧的任务编排代码片段如下：
+
+    ```c
+    // 1. 将本Rank输入拷贝到本地HCCL Buffer的对应分片
     HcommLocalCopyOnThread(
-        resCtx.threads[0], outputSlice, cclSlice, sliceSize);
-}
-```
+        resCtx.threads[0], curCclBuffAddr, curInputAddr, sliceSize);
 
-其中，`ThreadSyncBefore`保证先完成本地输入拷贝，再启动从Thread上的通信任务；`ThreadSyncAfter`保证主Thread在所有对端任务完成后再整理输出。
+    // 2. 主Thread通知从Thread开始当前轮次的通信任务
+    ThreadSyncBefore(resCtx.threads);
+
+    // 3. 将本Rank分片并行写入其他Rank的HCCL Buffer
+    for (uint32_t i = 0; i < resCtx.threads.size(); i++) {
+        ChannelHandle channel = resCtx.channels[i].handle;
+        void *remoteCclBuffAddr = static_cast<uint8_t *>(
+            resCtx.channels[i].remoteCclMem.addr) + sliceSize * param.myRank;
+
+        HcommChannelNotifyRecordOnThread(
+            resCtx.threads[i], channel, NOTIFY_IDX_ACK);
+        HcommChannelNotifyWaitOnThread(
+            resCtx.threads[i], channel, NOTIFY_IDX_ACK, CUSTOM_TIMEOUT);
+        HcommWriteOnThread(
+            resCtx.threads[i], channel,
+            remoteCclBuffAddr, curCclBuffAddr, sliceSize);
+        HcommChannelNotifyRecordOnThread(
+            resCtx.threads[i], channel, NOTIFY_IDX_DATA_SIGNAL);
+        HcommChannelNotifyWaitOnThread(
+            resCtx.threads[i], channel,
+            NOTIFY_IDX_DATA_SIGNAL, CUSTOM_TIMEOUT);
+    }
+
+    // 4. 主Thread等待所有从Thread完成
+    ThreadSyncAfter(resCtx.threads);
+
+    // 5. 将按Rank排列的AllGather结果拷贝到输出内存
+    for (uint32_t rankId = 0; rankId < param.rankSize; rankId++) {
+        void *curCclBuffAddr = static_cast<uint8_t *>(resCtx.cclMem.addr) +
+            sliceSize * rankId;
+        uint64_t outputOffset = processedDataCount * dataTypeSize +
+            rankId * dataSize;
+        void *curOutputAddr = static_cast<uint8_t *>(param.outputPtr) +
+            outputOffset;
+        HcommLocalCopyOnThread(
+            resCtx.threads[0], curOutputAddr, curCclBuffAddr, sliceSize);
+    }
+    ```
 
 ## 6. 下发AICPU Kernel
 
