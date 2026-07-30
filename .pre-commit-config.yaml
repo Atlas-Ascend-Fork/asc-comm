@@ -30,7 +30,6 @@ repos:
       - id: clang-format
         types_or: [file]
         files: \.(c|h|cpp|hpp|cc|hh|cxx|hxx|asc)$
-        exclude: ^(tests/python/aclrt_launch_kernel/stub_files/|include/utils/)
         args:
           - "--style=file"
           - "--verbose"
