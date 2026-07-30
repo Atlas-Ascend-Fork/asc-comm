@@ -121,6 +121,26 @@ endif()
 add_custom_target(generate_kernel_headers ALL DEPENDS ${KERNEL_TILING_FILE})
 add_dependencies(kernel_tiling generate_kernel_headers)
 
+add_library(asccomm_ccu_launch_kernel STATIC
+    ${ASCCOMM_ROOT}/src/ccu/ccu_launch_kernel.cc
+)
+target_include_directories(asccomm_ccu_launch_kernel
+    PUBLIC
+        ${ASCCOMM_ROOT}/include
+    PRIVATE
+        ${ASCEND_CANN_ARCH_DIR}/include
+        ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
+        ${ASCEND_CANN_ARCH_DIR}/include/hccl
+)
+target_compile_features(asccomm_ccu_launch_kernel PUBLIC cxx_std_17)
+target_compile_options(asccomm_ccu_launch_kernel PRIVATE
+    -fPIC
+    -Wall
+    -Werror
+)
+
+set(ASCCOMM_COVERAGE_SCRIPT ${ASCCOMM_ROOT}/scripts/generate_cpp_cov.sh)
+
 function(run_llt_test)
     cmake_parse_arguments(LLT "" "TARGET;TASK_NUM;ENV_FILE" "FILTERS;RUNTIME_DIRS" ${ARGN})
 
@@ -181,7 +201,31 @@ function(run_llt_test)
     )
 endfunction()
 
-set(ASCCOMM_COVERAGE_SCRIPT ${ASCCOMM_ROOT}/scripts/generate_cpp_cov.sh)
+add_executable(asccomm_ut_ccu_launch_kernel
+    ${ASCCOMM_UT_ROOT}/ccu/test_ccu_launch_kernel.cpp
+)
+target_include_directories(asccomm_ut_ccu_launch_kernel PRIVATE
+    ${ASCCOMM_ROOT}/include
+    ${ASCEND_CANN_ARCH_DIR}/include
+    ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
+    ${ASCEND_CANN_ARCH_DIR}/include/hccl
+)
+target_compile_features(asccomm_ut_ccu_launch_kernel PRIVATE cxx_std_17)
+target_compile_options(asccomm_ut_ccu_launch_kernel PRIVATE
+    -fPIC
+    -Wall
+    -Werror
+)
+target_link_libraries(asccomm_ut_ccu_launch_kernel PRIVATE
+    intf_llt_pub_basic
+    asccomm_ccu_launch_kernel
+)
+
+run_llt_test(
+    TARGET asccomm_ut_ccu_launch_kernel
+    TASK_NUM 1
+    FILTERS AscCommCcuLaunchKernelTest.*
+)
 
 function(asccomm_add_product_definitions target_name product_type)
     target_compile_definitions(${target_name} PRIVATE
