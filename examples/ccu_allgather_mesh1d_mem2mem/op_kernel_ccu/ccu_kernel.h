@@ -1,13 +1,14 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * Licensed under the CANN Open Software License Agreement Version 2.0.
- *
- * AllGather Mesh1D Mem2Mem CCU kernel, ported from
- * asc-devkit/pr_4261 ccu_kernel_all_gather_mesh1d_mem2mem, rewritten against
- * asc-comm's ccu:: free-function representation API (same style as ccu_direct).
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef ASC_COMM_EXAMPLE_CCU_AG_MEM2MEM_KERNEL_H
-#define ASC_COMM_EXAMPLE_CCU_AG_MEM2MEM_KERNEL_H
+#ifndef ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_KERNEL_H
+#define ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_KERNEL_H
 
 #include <cstdint>
 #include <map>
@@ -17,14 +18,22 @@
 
 #include <ccu/ccu_event.hpp>
 #include <ccu/ccu_primitives.hpp>
+#include <ccu/ccu_types.h>
 #include <ccu/ccu_variable.hpp>
+#include <hccl/hccl_res.h>
 
-#include "common.h"
 #include "log.h"
 
 namespace ccu = ::AscendC::ccu;
 
 namespace ccu_ag_mem2mem {
+
+constexpr uint32_t CCU_MAX_RANK_SIZE = 16;
+
+struct CcuKernelArgBase {
+    ChannelHandle channels[CCU_MAX_RANK_SIZE]{};
+    uint32_t channelCount{0};
+};
 
 // Group-copy tiling constants. Must stay consistent between CalGoSize (host)
 // and the kernel-side GroupCopy resource config.
@@ -111,4 +120,4 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg);
 
 }  // namespace ccu_ag_mem2mem
 
-#endif  // ASC_COMM_EXAMPLE_CCU_AG_MEM2MEM_KERNEL_H
+#endif  // ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_KERNEL_H

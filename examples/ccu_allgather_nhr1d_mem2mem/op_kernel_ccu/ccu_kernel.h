@@ -1,14 +1,14 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * Licensed under the CANN Open Software License Agreement Version 2.0.
- *
- * AllGather NHR1D Mem2Mem CCU kernel. The NHR scheduling and data forwarding
- * are ported from asc-devkit/pr_4261
- * ccu_kernel_all_gather_nhr1d_mem2mem.{h,cc}. The implementation is adapted to
- * asc-comm's direct-launch ccu:: free-function representation API.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef ASC_COMM_EXAMPLE_CCU_AG_NHR1D_MEM2MEM_KERNEL_H
-#define ASC_COMM_EXAMPLE_CCU_AG_NHR1D_MEM2MEM_KERNEL_H
+#ifndef ASC_COMM_EXAMPLE_CCU_ALLGATHER_NHR1D_MEM2MEM_KERNEL_H
+#define ASC_COMM_EXAMPLE_CCU_ALLGATHER_NHR1D_MEM2MEM_KERNEL_H
 
 #include <cstdint>
 #include <map>
@@ -18,14 +18,22 @@
 
 #include <ccu/ccu_event.hpp>
 #include <ccu/ccu_primitives.hpp>
+#include <ccu/ccu_types.h>
 #include <ccu/ccu_variable.hpp>
+#include <hccl/hccl_res.h>
 
-#include "common.h"
 #include "log.h"
 
 namespace ccu = ::AscendC::ccu;
 
 namespace ccu_ag_nhr1d_mem2mem {
+
+constexpr uint32_t CCU_MAX_RANK_SIZE = 16;
+
+struct CcuKernelArgBase {
+    ChannelHandle channels[CCU_MAX_RANK_SIZE]{};
+    uint32_t channelCount{0};
+};
 
 // Group-copy tiling constants. These must stay consistent with host CalGoSize.
 constexpr uint64_t CCU_MS_INTERLEAVE = 8;
@@ -80,8 +88,6 @@ struct CcuLoopEntity {
     ccu::Variable loopParam[2];
 };
 
-// Static registration-time arguments. stepInfoVector and rank2ChannelIdx are
-// generated on the host with the same modulo NHR schedule as PR-4261.
 struct CcuKernelArgAllGatherNhr1DMem2Mem : public CcuKernelArgBase {
     uint32_t rankSize;
     uint32_t rankId;
@@ -121,4 +127,4 @@ CcuResult CcuAllGatherNhr1DMem2MemKernel(CcuKernelArg arg);
 
 }  // namespace ccu_ag_nhr1d_mem2mem
 
-#endif  // ASC_COMM_EXAMPLE_CCU_AG_NHR1D_MEM2MEM_KERNEL_H
+#endif  // ASC_COMM_EXAMPLE_CCU_ALLGATHER_NHR1D_MEM2MEM_KERNEL_H

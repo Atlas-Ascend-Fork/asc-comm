@@ -1,9 +1,14 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * Licensed under the CANN Open Software License Agreement Version 2.0.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef ASC_COMM_EXAMPLE_CCU_DIRECT_COMMON_H
-#define ASC_COMM_EXAMPLE_CCU_DIRECT_COMMON_H
+#ifndef ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_ALG_RESOURCE_H
+#define ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_ALG_RESOURCE_H
 
 #include <cstdint>
 #include <vector>
@@ -16,16 +21,9 @@
 
 using CcuKernelHandle = uint64_t;
 
-constexpr uint32_t CCU_MAX_RANK_SIZE = 16;
-
 struct CommBuffer {
     void *addr{nullptr};
     uint64_t size{0};
-};
-
-struct CcuKernelArgBase {
-    ChannelHandle channels[CCU_MAX_RANK_SIZE]{};
-    uint32_t channelCount{0};
 };
 
 struct AlgResourceCtxSerializable {
@@ -85,4 +83,4 @@ inline HcclResult ConvertCcuToHccl(CcuResult result)
     }
 }
 
-#endif  // ASC_COMM_EXAMPLE_CCU_DIRECT_COMMON_H
+#endif  // ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_ALG_RESOURCE_H

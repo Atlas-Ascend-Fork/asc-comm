@@ -1,12 +1,16 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * Licensed under the CANN Open Software License Agreement Version 2.0.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "ccu_kernel.h"
 
 namespace ccu_ag_nhr1d_mem2mem {
 
-// Keep the XN/CKE layout aligned with the PR-4261 NHR1D Mem2Mem kernel.
 constexpr int OUTPUT_XN_ID = 0;
 constexpr int TOKEN_XN_ID = 1;
 constexpr int POST_SYNC_ID = 2;

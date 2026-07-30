@@ -1,11 +1,11 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * Licensed under the CANN Open Software License Agreement Version 2.0.
- *
- * AllGather Mesh1D Mem2Mem CCU kernel. Data-plane logic ported from
- * asc-devkit/pr_4261 ccu_kernel_all_gather_mesh1d_mem2mem.cc; group-copy and
- * bit-packing helpers reused from asc-comm ccu_direct/01_allgather. Rewritten
- * against asc-comm's ccu:: free-function representation API.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "ccu_kernel.h"
 
@@ -185,9 +185,6 @@ static CcuResult InitResource(AllGatherMesh1DMem2MemContext &ctx)
     ctx.output.resize(ctx.arg->rankSize);
     ctx.token.resize(ctx.arg->rankSize);
 
-    // Remote slots come from the peer channels; local slots (output[rankId]/
-    // token[rankId]/input) are filled by LoadArgs. Mirrors the KFC reference
-    // kernel (asc-devkit pr_4261 ccu_kernel_kfc_all_gather_mesh1d_mem2mem).
     uint32_t channelIdx = 0;
     for (uint32_t peerId = 0; peerId < ctx.arg->rankSize; peerId++) {
         if (peerId != ctx.arg->rankId) {
@@ -199,7 +196,6 @@ static CcuResult InitResource(AllGatherMesh1DMem2MemContext &ctx)
         }
     }
 
-    // One event per 16 ranks; each rank records its own bit within its event.
     const uint32_t eventNum = (ctx.arg->rankSize + BITS_PER_EVENT - 1) / BITS_PER_EVENT;
     ctx.events.resize(eventNum);
     return CcuResult::CCU_SUCCESS;
@@ -243,13 +239,6 @@ static void PostSync(AllGatherMesh1DMem2MemContext &ctx)
     }
 }
 
-// Aligned to the KFC reference kernel (asc-devkit pr_4261
-// ccu_kernel_kfc_all_gather_mesh1d_mem2mem.cc): write/wait split with an event
-// array grouped by rank (one event per 16 ranks, each rank records its own bit).
-// Single mission, out-of-place.
-
-// Phase 1: fire all remote writes + record self's event bit. No CCU_IF inside
-// the per-rank loop (plain C++ if selects self vs peer).
 static CcuResult DoAllGatherWrite(AllGatherMesh1DMem2MemContext &ctx,
     const ccu::LocalAddr &src, const std::vector<ccu::RemoteAddr> &dst)
 {
@@ -268,7 +257,6 @@ static CcuResult DoAllGatherWrite(AllGatherMesh1DMem2MemContext &ctx,
     return CCU_SUCCESS;
 }
 
-// Phase 2: wait every event's rank bits.
 static CcuResult DoAllGatherWait(AllGatherMesh1DMem2MemContext &ctx)
 {
     const uint32_t eventNum = static_cast<uint32_t>(ctx.events.size());
@@ -311,7 +299,7 @@ static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext &ctx)
         dst[rankIdx].token = ctx.token[rankIdx];
     }
 
-    // Fire all writes → local copy → wait all (KFC reference ordering).
+    // Preserve write -> local copy -> wait ordering.
     CCU_CHK_RET(DoAllGatherWrite(ctx, src, dst));
     GroupCopy(ctx, localDst, src, ctx.goSize);
     CCU_CHK_RET(DoAllGatherWait(ctx));
