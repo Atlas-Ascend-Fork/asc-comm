@@ -83,6 +83,28 @@ public:
 
     /*!
      * @class Hcomm
+     * @brief The task launching interface of the write-with-reduce point-to-point communication operator.
+     *        The source data is reduced into the destination data on the remote side.
+     * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
+     * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
+     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @param [in] channel: The handle of the communication channel.
+     * @param [out] dst: The remote destination address of the reduction.
+     * @param [in] src: The local source address of the reduction.
+     * @param [in] len: The length of the data to reduce, using byte as the basic unit.
+     * @param [in] dataType: The element data type.
+     * @param [in] reduceOp: The reduction operation.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note Only the UBC_CTP/URMA path supports this interface.
+     */
+    template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const &config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteReduceNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len,
+        HcommDataType dataType, HcommReduceOp reduceOp);
+
+    /*!
+     * @class Hcomm
      * @brief @brief The task launching interface of the Write-with-notify point-to-point communication operator.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.

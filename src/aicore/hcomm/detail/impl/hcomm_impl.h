@@ -53,6 +53,15 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(ChannelHandle channel, G
 
 template <CommProtocol commProtocol>
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteReduceNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src,
+    uint64_t len, HcommDataType dataType, HcommReduceOp reduceOp)
+{
+    return impl_.template WriteReduceNbi<commit, commitPipe, reqPipe, config>(
+        channel, dst, src, len, dataType, reduceOp);
+}
+
+template <CommProtocol commProtocol>
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
 {

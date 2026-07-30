@@ -36,6 +36,42 @@ typedef enum {
     COMM_PROTOCOL_HCCS_ONLY = 8, ///< 一卡双DIE使用HCCS
 } CommProtocol;
 
+/**
+ * @brief Reduction operation used by WriteReduceNbi.
+ */
+typedef enum {
+    HCOMM_REDUCE_SUM = 0,
+    HCOMM_REDUCE_PROD = 1,
+    HCOMM_REDUCE_MAX = 2,
+    HCOMM_REDUCE_MIN = 3,
+    HCOMM_REDUCE_RESERVED = 255
+} HcommReduceOp;
+
+/**
+ * @brief Data type used by WriteReduceNbi.
+ */
+typedef enum {
+    HCOMM_DATA_TYPE_INT8 = 0,
+    HCOMM_DATA_TYPE_INT16 = 1,
+    HCOMM_DATA_TYPE_INT32 = 2,
+    HCOMM_DATA_TYPE_FP16 = 3,
+    HCOMM_DATA_TYPE_FP32 = 4,
+    HCOMM_DATA_TYPE_INT64 = 5,
+    HCOMM_DATA_TYPE_UINT64 = 6,
+    HCOMM_DATA_TYPE_UINT8 = 7,
+    HCOMM_DATA_TYPE_UINT16 = 8,
+    HCOMM_DATA_TYPE_UINT32 = 9,
+    HCOMM_DATA_TYPE_FP64 = 10,
+    HCOMM_DATA_TYPE_BFP16 = 11,
+    HCOMM_DATA_TYPE_INT128 = 12,
+    HCOMM_DATA_TYPE_HIF8 = 14,
+    HCOMM_DATA_TYPE_FP8E4M3 = 15,
+    HCOMM_DATA_TYPE_FP8E5M2 = 16,
+    HCOMM_DATA_TYPE_FP8E8M0 = 17,
+    HCOMM_DATA_TYPE_MXFP8 = 18,
+    HCOMM_DATA_TYPE_RESERVED = 255
+} HcommDataType;
+
 } // namespace AscendC
 
 #endif // LIB_HCOMM_HCOMM_COMMON_H

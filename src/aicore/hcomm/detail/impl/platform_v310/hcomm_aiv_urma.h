@@ -48,11 +48,13 @@ __aicore__ inline void HcommUrmaFillNotifyCtx(__ubuf__ HcommUrmaNotifyCtx *notif
 template <HcommUrmaOpCode opCode, auto const &config, typename T>
 __aicore__ inline void HcommUrmaFillSqeCtx(__ubuf__ HcommUrmaSqeCtx *sqeCtx, __gm__ uint8_t *remoteAddr,
     const SqContext &sqCtx, const RegedBufferEntity &remoteMemInfo, uint32_t curHead, GM_ADDR notifyAddr = nullptr,
-    T value = 0)
+    const UdmaParams<T> &params = UdmaParams<T>{})
 {
-    sqeCtx->opcode = static_cast<uint32_t>(opCode);
+    sqeCtx->opcode = static_cast<uint32_t>(
+        opCode == HcommUrmaOpCode::WRITE_WITH_REDUCE ? HcommUrmaOpCode::WRITE : opCode);
     sqeCtx->flag = (config.odr & 0x7U) | ((config.fence & 0x1U) << 3U) | ((config.se & 0x1U) << 4U)
-                   | ((config.cqe & 0x1U) << 5U) | ((config.inlineEn & 0x1U) << 6U) | (0 & 0x1U << 7U);
+                   | ((config.cqe & 0x1U) << 5U) | ((config.inlineEn & 0x1U) << 6U)
+                   | (opCode == HcommUrmaOpCode::WRITE_WITH_REDUCE ? HCOMM_URMA_UDF_FLAG : 0U);
     sqeCtx->nf = 0;
     sqeCtx->tokenEn = 1;
     sqeCtx->rmtJettyType = 1;
@@ -70,10 +72,68 @@ __aicore__ inline void HcommUrmaFillSqeCtx(__ubuf__ HcommUrmaSqeCtx *sqeCtx, __g
     auto rmtEid = reinterpret_cast<const uint64_t *>(sqCtx.contextInfo.ubJfs.remoteEID);
     sqeCtx->rmtEidL = rmtEid[0];
     sqeCtx->rmtEidH = rmtEid[1];
+    sqeCtx->udfType = 0;
+    sqeCtx->reduceDataType = 0;
+    sqeCtx->reduceOpcode = 0;
     if constexpr (opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY) {
         __ubuf__ HcommUrmaNotifyCtx *notifyCtx
             = (__ubuf__ HcommUrmaNotifyCtx *)((__ubuf__ uint8_t *)sqeCtx + sizeof(HcommUrmaSqeCtx));
-        HcommUrmaFillNotifyCtx(notifyCtx, remoteMemInfo, notifyAddr, value);
+        HcommUrmaFillNotifyCtx(notifyCtx, remoteMemInfo, notifyAddr, params.value);
+    } else if constexpr (opCode == HcommUrmaOpCode::WRITE_WITH_REDUCE) {
+        sqeCtx->reduceDataType = params.reduceDataType;
+        sqeCtx->reduceOpcode = params.reduceOpcode;
+    }
+}
+
+__aicore__ inline bool HcommUrmaGetReduceDataType(HcommDataType dataType, uint32_t &reduceDataType)
+{
+    switch (dataType) {
+        case HCOMM_DATA_TYPE_INT8:
+            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::INT8);
+            return true;
+        case HCOMM_DATA_TYPE_INT16:
+            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::INT16);
+            return true;
+        case HCOMM_DATA_TYPE_INT32:
+            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::INT32);
+            return true;
+        case HCOMM_DATA_TYPE_UINT8:
+            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::UINT8);
+            return true;
+        case HCOMM_DATA_TYPE_UINT16:
+            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::UINT16);
+            return true;
+        case HCOMM_DATA_TYPE_UINT32:
+            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::UINT32);
+            return true;
+        case HCOMM_DATA_TYPE_FP16:
+            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::FP16);
+            return true;
+        case HCOMM_DATA_TYPE_FP32:
+            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::FP32);
+            return true;
+        case HCOMM_DATA_TYPE_BFP16:
+            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::BFP16);
+            return true;
+        default:
+            return false;
+    }
+}
+
+__aicore__ inline bool HcommUrmaGetReduceOpcode(HcommReduceOp reduceOp, uint32_t &reduceOpcode)
+{
+    switch (reduceOp) {
+        case HCOMM_REDUCE_SUM:
+            reduceOpcode = static_cast<uint32_t>(HcommUrmaReduceOpCode::SUM);
+            return true;
+        case HCOMM_REDUCE_MAX:
+            reduceOpcode = static_cast<uint32_t>(HcommUrmaReduceOpCode::MAX);
+            return true;
+        case HCOMM_REDUCE_MIN:
+            reduceOpcode = static_cast<uint32_t>(HcommUrmaReduceOpCode::MIN);
+            return true;
+        default:
+            return false;
     }
 }
 
@@ -317,7 +377,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(ChannelHand
     __ubuf__ HcommUrmaSqeCtx *sqeCtx = (__ubuf__ HcommUrmaSqeCtx *)wqeItem_.GetPhyAddr();
     auto remoteMemInfo = channelEntity->remoteBufferAddr[remoteIdx];
     HcommUrmaFillSqeCtx<opCode, config>(
-        sqeCtx, (__gm__ uint8_t *)remoteAddr, sqCtx, remoteMemInfo, curHead, notifyAddr, params.value);
+        sqeCtx, (__gm__ uint8_t *)remoteAddr, sqCtx, remoteMemInfo, curHead, notifyAddr, params);
 
     // write SGE
     __ubuf__ uint8_t *sgeAddr = (__ubuf__ uint8_t *)sqeCtx + sizeof(HcommUrmaSqeCtx);
@@ -429,6 +489,21 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
 }
 
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteReduceNbi(ChannelHandle channel, GM_ADDR dst,
+    GM_ADDR src, uint64_t len, HcommDataType dataType, HcommReduceOp reduceOp)
+{
+    UdmaParams<uint64_t> params{};
+    if (!HcommUrmaGetReduceDataType(dataType, params.reduceDataType)
+        || !HcommUrmaGetReduceOpcode(reduceOp, params.reduceOpcode)) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA WriteReduceNbi does not support dataType=%d reduceOp=%d\n",
+            static_cast<int32_t>(dataType), static_cast<int32_t>(reduceOp));
+        return HCOMM_FAILED;
+    }
+    return PostSend<commit, commitPipe, reqPipe, HcommUrmaOpCode::WRITE_WITH_REDUCE, config>(
+        channel, dst, src, len, nullptr, params);
+}
+
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
@@ -439,7 +514,7 @@ template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
-    UdmaParams<uint64_t> params{notifyVal, 0};
+    UdmaParams<uint64_t> params{notifyVal, 0, 0, 0};
     return PostSend<commit, commitPipe, reqPipe, HcommUrmaOpCode::WRITE_WITH_NOTIFY, config>(
         channel, dst, src, len, notifyAddr, params);
 }
@@ -451,7 +526,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicFAA(
     static_assert(std::is_same<T, int32_t>::value || std::is_same<T, uint32_t>::value || std::is_same<T, int64_t>::value
                       || std::is_same<T, uint64_t>::value,
         "AtomicFAA only supports int32_t, uint32_t, int64_t, uint64_t");
-    UdmaParams<T> params{addVal, 0};
+    UdmaParams<T> params{addVal, 0, 0, 0};
     return PostSend<commit, commitPipe, reqPipe, HcommUrmaOpCode::FAA, config>(
         channel, dst, fetchAddr, sizeof(T), nullptr, params);
 }
@@ -463,7 +538,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
     static_assert(std::is_same<T, int32_t>::value || std::is_same<T, uint32_t>::value || std::is_same<T, int64_t>::value
                       || std::is_same<T, uint64_t>::value,
         "AtomicCAS only supports int32_t, uint32_t, int64_t, uint64_t");
-    UdmaParams<T> params{swapVal, compareVal};
+    UdmaParams<T> params{swapVal, compareVal, 0, 0};
     return PostSend<commit, commitPipe, reqPipe, HcommUrmaOpCode::CAS, config>(
         channel, dst, fetchAddr, sizeof(T), nullptr, params);
 }
