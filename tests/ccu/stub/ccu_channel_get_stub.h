@@ -11,11 +11,17 @@
 #ifndef ASCCOMM_CCU_CHANNEL_GET_STUB_H
 #define ASCCOMM_CCU_CHANNEL_GET_STUB_H
 
-namespace hcomm {
-class Channel;
+#include <vector>
 
-void SetHcommChannelGetStub(Channel* channel);
-void ResetHcommChannelGetStub();
+#include "hccl/hccl_types.h"
+#include "hcomm_ccu_channel.h"
+
+namespace hcomm {
+
+void SetHcommCcuChannelGetPodStub(const HcommCcuChannelPod &channelPod,
+    const std::vector<HcommCcuChannelResourcePod> &resources);
+void SetHcommCcuChannelGetPodStubResults(HcommResult firstQueryResult, HcommResult secondQueryResult);
+void ResetHcommCcuChannelGetPodStub();
 } // namespace hcomm
 
 #endif
