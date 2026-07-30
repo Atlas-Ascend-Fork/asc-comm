@@ -1,96 +1,71 @@
-Language: Cpp
+# Usage:
+#   Using clang-format to reformat a file:
+#     clang-format -i -style=Google <file>
+
+BasedOnStyle: Google
+ColumnLimit: 120
 AccessModifierOffset: -4
-AlignConsecutiveAssignments: false
-AlignConsecutiveDeclarations: false
-AlignEscapedNewlines: DontAlign
+SortIncludes: false
+BreakBeforeBraces:  Custom
+
+# 大括号换行配置
+BraceWrapping:
+    AfterCaseLabel: false
+    AfterClass: false
+    AfterControlStatement: false
+    # AfterEnum: false (紧凑模式，左大括号和enum同行, enum Color {...), AfterEnum: true (左大括号和enum换行).
+    AfterEnum: false
+    AfterFunction: true
+    AfterNamespace: false
+    AfterStruct: false
+    AfterUnion: false
+    AfterExternBlock: false
+    BeforeCatch: false
+    BeforeElse: false
+    IndentBraces: false
+    SplitEmptyFunction: false
+    SplitEmptyRecord: true
+    SplitEmptyNamespace: true
+
+# Align
+AlignAfterOpenBracket: AlwaysBreak
+AlignEscapedNewlines: Left
 AlignOperands: true
 AlignTrailingComments: true
 AllowAllArgumentsOnNextLine: true
-AllowShortLambdasOnASingleLine: Empty
-AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: true
+AlwaysBreakBeforeMultilineStrings: false
+AlwaysBreakTemplateDeclarations: true
+AttributeMacros:
+    - __global__
+    - __aicore__
+    - __cube__
+    - __vector__
+    - __mix__
+    - __host__
+    - __aicpu__
+    - __simd_vf__
+    - __simt_vf__
+    - __gm__
+    - __ubuf__
+    - __kfc_workspace__
+
+BinPackArguments: true
+BreakBeforeTernaryOperators: false
+SpacesBeforeTrailingComments: 1
+
+# poniter aligment
+DerivePointerAlignment: false
+PointerAlignment: Left
+
+# single line layout
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
-AllowShortFunctionsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
-AlwaysBreakAfterDefinitionReturnType: None
-AlwaysBreakBeforeMultilineStrings: false
-AlwaysBreakTemplateDeclarations: MultiLine
-BinPackArguments: true
-BinPackParameters: true
-AlignAfterOpenBracket: DontAlign
 
-BraceWrapping:
-  AfterCaseLabel: false
-  AfterClass: false
-  AfterControlStatement: Never
-  AfterEnum: false
-  AfterFunction: true
-  AfterNamespace: false
-  AfterStruct: false
-  AfterUnion: false
-  AfterExternBlock: false
-  BeforeCatch: false
-  BeforeElse: false
-  IndentBraces: false
-  SplitEmptyFunction: true
-  SplitEmptyRecord: true
-  SplitEmptyNamespace: true
-
-BreakBeforeBinaryOperators: All
-BreakBeforeBraces: Custom
-BreakBeforeTernaryOperators: true
-BreakConstructorInitializersBeforeComma: false
-BreakInheritanceList: AfterColon
-ColumnLimit: 120
-CommentPragmas: '^ IWYU pragma:'
-PackConstructorInitializers: CurrentLine
-ConstructorInitializerIndentWidth: 4
-ContinuationIndentWidth: 4
-Cpp11BracedListStyle: true
-DerivePointerAlignment: false
-DisableFormat: false
-ExperimentalAutoDetectBinPacking: false
-ForEachMacros: [ foreach ]
-
-IncludeCategories:
-  - Regex: '^<'
-    Priority: 3
-  - Regex: '^"hccl'
-    Priority: 2
-  - Regex: '.*'
-    Priority: 1
-
-IndentCaseLabels: true
-IndentWidth: 4
-IndentWrappedFunctionNames: false
-KeepEmptyLinesAtTheStartOfBlocks: false
-MacroBlockBegin: ''
-MacroBlockEnd: ''
-MaxEmptyLinesToKeep: 1
-NamespaceIndentation: Inner
-
-PenaltyBreakBeforeFirstCallParameter: 19
-PenaltyBreakComment: 300
-PenaltyBreakFirstLessLess: 120
-PenaltyBreakString: 1000
-PenaltyExcessCharacter: 1000000
-PenaltyReturnTypeOnItsOwnLine: 60
-
-PointerAlignment: Right
-ReflowComments: true
-SortIncludes: false
-SpaceAfterCStyleCast: false
-SpaceBeforeAssignmentOperators: true
-SpaceBeforeParens: ControlStatements
-SpaceInEmptyParentheses: false
-SpacesBeforeTrailingComments: 1
-SpacesInAngles: false
-SpacesInContainerLiterals: true
-SpacesInCStyleCastParentheses: false
-SpacesInParentheses: false
-SpacesInSquareBrackets: false
-Standard: Latest
-TabWidth: 4
+# tab space
 UseTab: Never
-UseCRLF: false
+IndentWidth:  4
+TabWidth: 4
