@@ -42,7 +42,8 @@ namespace AscendC {
  * comm task.
  * @tparam commProtocol: The communication protocol to use, ROCE supported as default.
  */
-template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP> class Hcomm {
+template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
+class Hcomm {
 public:
     /*!
      * @brief Initialize Hcomm workspace.
@@ -51,7 +52,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note URMA uses buff as its temporary workspace after 32-byte alignment.
      */
-    __aicore__ inline int32_t Init(__ubuf__ uint8_t *buff, uint32_t len);
+    __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
     /*!
      * @brief Initialize Hcomm workspace using LocalTensor.
@@ -60,7 +61,8 @@ public:
      * @param [in] len: The buffer length in bytes.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <typename T> __aicore__ inline int32_t Init(const LocalTensor<T> &buff, uint32_t len);
+    template <typename T>
+    __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
 
     /*!
      * @class Hcomm
@@ -68,7 +70,7 @@ public:
      *        (task content: Write data of length len from src to dst through the specified channel.)
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
-     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -77,16 +79,38 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
      */
-    template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const &config = URMA_DEFAULT_CFG>
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    /*!
+     * @class Hcomm
+     * @brief The task launching interface of the inline Write point-to-point communication operator.
+     *        The source data is provided by value and carried inline in the WQE.
+     * @tparam T: The value type to write.
+     * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
+     * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: strongly ordered + fence + CQE + inline enabled.
+     * @param [in] channel: The handle of the communication channel.
+     * @param [out] dst: The destination address of the data.
+     * @param [in] value: The inline value to write.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note Must be called after channel initialization.
+     */
+    template <
+        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_INLINE_CFG>
+    __aicore__ inline int32_t WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value);
 
     /*!
      * @class Hcomm
      * @brief @brief The task launching interface of the Write-with-notify point-to-point communication operator.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
-     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -97,8 +121,9 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
      */
-    template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const &config = URMA_DEFAULT_CFG>
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
 
@@ -108,7 +133,7 @@ public:
      * @tparam T: The data type of the atomic operation. Only int32_t, uint32_t, int64_t, uint64_t is supported.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
-     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -117,8 +142,9 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
      */
-    template <typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const &config = URMA_DEFAULT_CFG>
+    template <
+        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t AtomicFAA(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T addVal);
 
     /*!
@@ -127,7 +153,7 @@ public:
      * @tparam T: The data type of the atomic operation. Only int32_t, uint32_t, int64_t, uint64_t is supported.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
-     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -137,8 +163,9 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
      */
-    template <typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const &config = URMA_DEFAULT_CFG>
+    template <
+        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t AtomicCAS(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T compareVal, T swapVal);
 
     /*!
@@ -147,7 +174,7 @@ public:
      *        (task content: Read data of length len from src to dst through the specified channel.)
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
-     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -156,8 +183,9 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
      */
-    template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const &config = URMA_DEFAULT_CFG>
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
@@ -167,7 +195,8 @@ public:
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <pipe_t pipe = PIPE_S> __aicore__ inline int32_t Commit(ChannelHandle channel);
+    template <pipe_t pipe = PIPE_S>
+    __aicore__ inline int32_t Commit(ChannelHandle channel);
 
     /*!
      * @class Hcomm
@@ -176,15 +205,16 @@ public:
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <pipe_t pipe = PIPE_MTE3> __aicore__ inline int32_t Drain(ChannelHandle channel);
+    template <pipe_t pipe = PIPE_MTE3>
+    __aicore__ inline int32_t Drain(ChannelHandle channel);
 
 private:
     HcommImpl<commProtocol> impl_;
 };
 } // namespace AscendC
 
-#if defined(__NPU_ARCH__) \
-    && (__NPU_ARCH__ == 3510 || __NPU_ARCH__ == 1001 || __NPU_ARCH__ == 2002 || __NPU_ARCH__ == 2201)
+#if defined(__NPU_ARCH__) && \
+    (__NPU_ARCH__ == 3510 || __NPU_ARCH__ == 1001 || __NPU_ARCH__ == 2002 || __NPU_ARCH__ == 2201)
 #include "hcomm/detail/impl/hcomm_impl.h"
 #endif
 
