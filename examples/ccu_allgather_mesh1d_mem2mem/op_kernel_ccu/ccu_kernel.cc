@@ -11,7 +11,7 @@
 
 #include <algorithm>
 
-namespace ccu_ag_mem2mem {
+namespace CcuAgMem2mem {
 
 constexpr int OUTPUT_XN_ID = 1;
 constexpr int TOKEN_XN_ID = 2;
@@ -301,7 +301,7 @@ static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext &ctx)
 
     // Preserve write -> local copy -> wait ordering.
     CCU_CHK_RET(DoAllGatherWrite(ctx, src, dst));
-    GroupCopy(ctx, localDst, src, ctx.goSize);
+    CCU_CHK_RET(GroupCopy(ctx, localDst, src, ctx.goSize));
     CCU_CHK_RET(DoAllGatherWait(ctx));
     return CCU_SUCCESS;
 }
@@ -318,10 +318,10 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
     PreSync(ctx);
     CCU_IF(ctx.chunkSize != 0)
     {
-        DoAllGather(ctx);
+        CCU_CHK_RET(DoAllGather(ctx));
     }
     PostSync(ctx);
     return CcuResult::CCU_SUCCESS;
 }
 
-}  // namespace ccu_ag_mem2mem
+}  // namespace CcuAgMem2mem

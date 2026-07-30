@@ -13,7 +13,7 @@
 #include <iostream>
 #include <limits>
 
-namespace ccu_ag_nhr1d_mem2mem {
+namespace CcuAgNhr1dMem2mem {
 
 bool CalculateBufferSizes(
     uint64_t count, uint32_t rankSize, uint64_t& inputBytes,
@@ -68,4 +68,4 @@ bool VerifyAllGatherResult(
     return true;
 }
 
-}  // namespace ccu_ag_nhr1d_mem2mem
+}  // namespace CcuAgNhr1dMem2mem

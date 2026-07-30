@@ -26,7 +26,7 @@
 
 namespace ccu = ::AscendC::ccu;
 
-namespace ccu_ag_mem2mem {
+namespace CcuAgMem2mem {
 
 constexpr uint32_t CCU_MAX_RANK_SIZE = 16;
 
@@ -118,6 +118,6 @@ struct AllGatherMesh1DMem2MemContext {
 
 CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg);
 
-}  // namespace ccu_ag_mem2mem
+}  // namespace CcuAgMem2mem
 
 #endif  // ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_KERNEL_H
