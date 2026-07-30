@@ -27,7 +27,8 @@ public:
     explicit BinaryStream(std::vector<char> &buf, std::ios_base::openmode mode = DEFAULT_IOS_MODE)
         : stream(mode | std::ios_base::binary)
     {
-        stream.rdbuf()->pubsetbuf(buf.data(), buf.size());
+        stream.write(buf.data(), static_cast<std::streamsize>(buf.size()));
+        stream.seekg(0);
     }
 
     template <typename T>

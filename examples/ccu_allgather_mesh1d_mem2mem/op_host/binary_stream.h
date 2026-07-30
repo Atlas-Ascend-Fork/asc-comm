@@ -30,7 +30,8 @@ public:
         std::ios_base::openmode mode = DEFAULT_IOS_MODE)
         : stream_(mode | std::ios_base::binary)
     {
-        stream_.rdbuf()->pubsetbuf(buffer.data(), buffer.size());
+        stream_.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+        stream_.seekg(0);
     }
 
     template <typename T>
