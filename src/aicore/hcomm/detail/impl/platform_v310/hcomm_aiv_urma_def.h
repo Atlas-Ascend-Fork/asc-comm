@@ -31,11 +31,25 @@ constexpr uint32_t HCOMM_URMA_DEFAULT_QP_IDX = 0;
 constexpr uint32_t HCOMM_URMA_TMP_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_URMA_WQE_U32_NUM = 32;
 constexpr uint32_t HCOMM_URMA_CQE_U32_NUM = 16;
+constexpr uint32_t HCOMM_URMA_UDF_FLAG = 0x80U;
+constexpr uint32_t HCOMM_URMA_REDUCE_DATA_TYPE_SIZE[] = {
+    sizeof(int8_t),   // INT8, 0x0
+    sizeof(int16_t),  // INT16, 0x1
+    sizeof(int32_t),  // INT32, 0x2
+    0U,               // 0x3, unsupported
+    0U,               // 0x4, unsupported
+    sizeof(uint32_t), // UINT32, 0x5
+    sizeof(uint16_t), // FP16, 0x6
+    sizeof(float),    // FP32, 0x7
+    sizeof(uint16_t), // BFP16, 0x8
+};
 
 template <typename T>
 struct UdmaParams {
     T value;
     T cond;
+    uint32_t reduceDataType;
+    uint32_t reduceOpcode;
 };
 
 enum class HcommUrmaOpCode : uint32_t {
@@ -67,6 +81,10 @@ public:
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG, HcommUrmaDataType dataType, HcommUrmaReduceOp reduceOp>
+    __aicore__ inline int32_t WriteReduceNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count);
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
