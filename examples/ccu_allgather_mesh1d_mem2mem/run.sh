@@ -5,7 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${BUILD_DIR:-${SCRIPT_DIR}/build}"
 DEVICES="${DEVICES:-0,1}"
 COUNT="${COUNT:-256}"
-TIMEOUT_MS="${TIMEOUT_MS:-30000}"
 
 if [[ -z "${ASCEND_HOME_PATH:-}" ]]; then
     echo "ASCEND_HOME_PATH is not set; source CANN 9.1+ set_env.sh first." >&2
@@ -36,5 +35,5 @@ if [[ "${BUILD_ONLY:-0}" == "1" ]]; then
     exit 0
 fi
 
-exec "${BUILD_DIR}/ccu_direct_allgather_mem2mem" \
-    --devices "${DEVICES}" --count "${COUNT}" --timeout-ms "${TIMEOUT_MS}"
+exec "${BUILD_DIR}/ccu_allgather_mesh1d_mem2mem" \
+    --devices "${DEVICES}" --count "${COUNT}"

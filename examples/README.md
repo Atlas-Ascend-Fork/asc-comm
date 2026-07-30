@@ -6,7 +6,8 @@
 
 | 样例 | 说明 | 支持产品 |
 | --- | --- | --- |
-| [ccu_direct_allgather_mem2mem](./ccu_direct_allgather_mem2mem/README.md) | 演示 CCU 直驱 launch（HcommCcuHostKernelLaunch）跑 Mesh1D Mem2Mem AllGather 的数据面，含 repeat/尾块/in-out-equal。 | Ascend 950PR/Ascend 950DT |
+| [ccu_allgather_mesh1d_mem2mem](./ccu_allgather_mesh1d_mem2mem/README.md) | 演示使用CCU Kernel实现Mesh1D Mem2Mem AllGather数据面。 | Ascend 950PR/Ascend 950DT |
+| [ccu_allgather_nhr1d_mem2mem](./ccu_allgather_nhr1d_mem2mem/README.md) | 演示使用CCU Kernel实现NHR1D Mem2Mem AllGather数据面和多步转发。 | Ascend 950PR/Ascend 950DT |
 | [custom_ccu_allgather](./custom_ccu_allgather/README.md) | 演示基于 HCCL 通信接口和 CCU_SCHED 通信引擎实现 AllGather 集合通信操作。 | Ascend 950PR/Ascend 950DT |
 | [custom_ccu_allreduce](./custom_ccu_allreduce/README.md) | 演示基于 HCCL 通信接口和 CCU_SCHED 通信引擎实现 AllReduce SUM 集合通信操作。 | Ascend 950PR/Ascend 950DT |
 | [custom_ccu_reduce_scatter](./custom_ccu_reduce_scatter/README.md) | 演示基于 CCU 数据面 kernel 实现 ReduceScatter SUM 集合通信操作。 | Ascend 950PR/Ascend 950DT |
