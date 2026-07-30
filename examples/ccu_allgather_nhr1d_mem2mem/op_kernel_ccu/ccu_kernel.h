@@ -16,6 +16,10 @@
 #include <string>
 #include <vector>
 
+#include <ccu/ccu_event.hpp>
+#include <ccu/ccu_primitives.hpp>
+#include <ccu/ccu_variable.hpp>
+
 #include "common.h"
 #include "log.h"
 
@@ -28,6 +32,22 @@ constexpr uint64_t CCU_MS_INTERLEAVE = 8;
 constexpr uint64_t CCU_MS_SIZE = 4096;
 constexpr uint32_t CCU_LOCAL_COPY_MS_PER_LOOP = 8;
 constexpr uint32_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
+
+enum TaskArgIndex : uint32_t {
+    TASK_INPUT_ADDR = 0,
+    TASK_OUTPUT_ADDR,
+    TASK_TOKEN,
+    TASK_INPUT_SLICE_STRIDE,
+    TASK_OUTPUT_SLICE_STRIDE,
+    TASK_CHUNK_SIZE,
+    TASK_GO_ADDR_OFFSET,
+    TASK_GO_LOOP_PARAM,
+    TASK_GO_PARALLEL_PARAM,
+    TASK_GO_RESIDUAL,
+};
+
+constexpr uint32_t TASK_ARG_NUM = 10;
+static_assert(TASK_GO_RESIDUAL + 1 == TASK_ARG_NUM);
 
 struct NhrStepInfo {
     uint32_t step = 0;
@@ -45,8 +65,6 @@ struct LoopGroupConfig {
 struct LoopGroupResource {
     ccu::Array<ccu::Event> completedEvent{0};
     ccu::Array<ccu::CcuBuffer> ccuBuf{0};
-    uint32_t eventCount;
-    uint32_t bufCount;
 };
 
 struct GroupOpSizeVars {
@@ -77,7 +95,9 @@ struct AllGatherNhr1DMem2MemContext {
     ccu::Variable input;
     std::vector<ccu::Variable> output;
     std::vector<ccu::Variable> token;
-    ccu::Variable sliceSize;
+    ccu::Variable inputSliceStride;
+    ccu::Variable outputSliceStride;
+    ccu::Variable chunkSize;
     ccu::Event transferEvent;
 
     GroupOpSizeVars goSize;

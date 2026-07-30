@@ -35,5 +35,5 @@ if [[ "${BUILD_ONLY:-0}" == "1" ]]; then
     exit 0
 fi
 
-exec "${BUILD_DIR}/ccu_direct_allgather_nhr1d_mem2mem" \
+exec "${BUILD_DIR}/ccu_allgather_mesh1d_mem2mem" \
     --devices "${DEVICES}" --count "${COUNT}"

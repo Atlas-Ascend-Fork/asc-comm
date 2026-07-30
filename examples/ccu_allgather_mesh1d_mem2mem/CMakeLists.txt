@@ -5,7 +5,7 @@
 
 cmake_minimum_required(VERSION 3.16.0)
 find_package(ASC REQUIRED)
-project(asccomm_ccu_direct_allgather_nhr1d_mem2mem LANGUAGES CXX ASC)
+project(asccomm_ccu_allgather_mesh1d_mem2mem LANGUAGES CXX ASC)
 
 if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     if(DEFINED ENV{ASCEND_HOME_PATH})
@@ -17,13 +17,13 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     endif()
 endif()
 
-add_executable(ccu_direct_allgather_nhr1d_mem2mem
+add_executable(ccu_allgather_mesh1d_mem2mem
     testcase/main.asc
     op_kernel_ccu/ccu_kernel.cc
     op_host/data_utils.cc
 )
 
-target_include_directories(ccu_direct_allgather_nhr1d_mem2mem PRIVATE
+target_include_directories(ccu_allgather_mesh1d_mem2mem PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/inc
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
     ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_ccu
@@ -38,33 +38,33 @@ target_include_directories(ccu_direct_allgather_nhr1d_mem2mem PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu
 )
 
-target_compile_features(ccu_direct_allgather_nhr1d_mem2mem PRIVATE cxx_std_17)
-target_compile_options(ccu_direct_allgather_nhr1d_mem2mem PRIVATE
+target_compile_features(ccu_allgather_mesh1d_mem2mem PRIVATE cxx_std_17)
+target_compile_options(ccu_allgather_mesh1d_mem2mem PRIVATE
     -Werror
     -fstack-protector-strong
     -fPIE
     -O2
 )
 set(CMAKE_ASC_ARCHITECTURES "dav-3510" CACHE STRING "CMAKE_ASC_ARCHITECTURES, e.g. dav-3510")
-target_compile_options(ccu_direct_allgather_nhr1d_mem2mem PRIVATE
+target_compile_options(ccu_allgather_mesh1d_mem2mem PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
 )
 
-target_compile_definitions(ccu_direct_allgather_nhr1d_mem2mem PRIVATE
+target_compile_definitions(ccu_allgather_mesh1d_mem2mem PRIVATE
     HOST_COMPILE
     _GLIBCXX_USE_CXX11_ABI=0
 )
-target_link_options(ccu_direct_allgather_nhr1d_mem2mem PRIVATE
+target_link_options(ccu_allgather_mesh1d_mem2mem PRIVATE
     -pie
     -Wl,-z,relro
     -Wl,-z,now
     -Wl,-z,noexecstack
     -Wl,--copy-dt-needed-entries
 )
-target_link_directories(ccu_direct_allgather_nhr1d_mem2mem PRIVATE
+target_link_directories(ccu_allgather_mesh1d_mem2mem PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
-target_link_libraries(ccu_direct_allgather_nhr1d_mem2mem PRIVATE
+target_link_libraries(ccu_allgather_mesh1d_mem2mem PRIVATE
     hcomm
     asccomm_ccu_dataplane
     c_sec

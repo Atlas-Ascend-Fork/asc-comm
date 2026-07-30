@@ -64,10 +64,9 @@ static void InitGroupCopyResources(AllGatherNhr1DMem2MemContext &ctx, ccu::Local
         ctx.moConfig.loopCount = CCU_MS_LOCAL_COPY_LOOP_COUNT;
         ctx.moConfig.memSlice = CCU_LOCAL_COPY_MS_PER_LOOP * CCU_MS_SIZE;
 
-        ctx.moRes.eventCount = ctx.moConfig.loopCount;
-        ctx.moRes.completedEvent = ccu::Array<ccu::Event>(ctx.moRes.eventCount);
-        ctx.moRes.bufCount = ctx.moConfig.loopCount * ctx.moConfig.msInterleave;
-        ctx.moRes.ccuBuf = ccu::Array<ccu::CcuBuffer>(ctx.moRes.bufCount);
+        ctx.moRes.completedEvent = ccu::Array<ccu::Event>(ctx.moConfig.loopCount);
+        ctx.moRes.ccuBuf = ccu::Array<ccu::CcuBuffer>(
+            ctx.moConfig.loopCount * ctx.moConfig.msInterleave);
         ctx.resourceAllocated = true;
     }
 
@@ -193,15 +192,16 @@ static CcuResult InitResource(AllGatherNhr1DMem2MemContext &ctx)
 
 static void LoadArgs(AllGatherNhr1DMem2MemContext &ctx)
 {
-    uint32_t argId = 0;
-    ccu::LoadArg(ctx.input, argId++);
-    ccu::LoadArg(ctx.output[ctx.arg->rankId], argId++);
-    ccu::LoadArg(ctx.token[ctx.arg->rankId], argId++);
-    ccu::LoadArg(ctx.sliceSize, argId++);
-    ccu::LoadArg(ctx.goSize.addrOffset, argId++);
-    ccu::LoadArg(ctx.goSize.loopParam, argId++);
-    ccu::LoadArg(ctx.goSize.parallelParam, argId++);
-    ccu::LoadArg(ctx.goSize.residual, argId++);
+    ccu::LoadArg(ctx.input, TASK_INPUT_ADDR);
+    ccu::LoadArg(ctx.output[ctx.arg->rankId], TASK_OUTPUT_ADDR);
+    ccu::LoadArg(ctx.token[ctx.arg->rankId], TASK_TOKEN);
+    ccu::LoadArg(ctx.inputSliceStride, TASK_INPUT_SLICE_STRIDE);
+    ccu::LoadArg(ctx.outputSliceStride, TASK_OUTPUT_SLICE_STRIDE);
+    ccu::LoadArg(ctx.chunkSize, TASK_CHUNK_SIZE);
+    ccu::LoadArg(ctx.goSize.addrOffset, TASK_GO_ADDR_OFFSET);
+    ccu::LoadArg(ctx.goSize.loopParam, TASK_GO_LOOP_PARAM);
+    ccu::LoadArg(ctx.goSize.parallelParam, TASK_GO_PARALLEL_PARAM);
+    ccu::LoadArg(ctx.goSize.residual, TASK_GO_RESIDUAL);
 }
 
 static void PreSync(AllGatherNhr1DMem2MemContext &ctx)
@@ -232,12 +232,15 @@ static CcuResult CopyLocalSlice(AllGatherNhr1DMem2MemContext &ctx)
 {
     ccu::LocalAddr src;
     src.addr = ctx.input;
+    for (uint32_t i = 0; i < ctx.arg->rankId; i++) {
+        src.addr += ctx.inputSliceStride;
+    }
     src.token = ctx.token[ctx.arg->rankId];
 
     ccu::LocalAddr dst;
     dst.addr = ctx.output[ctx.arg->rankId];
     for (uint32_t i = 0; i < ctx.arg->rankId; i++) {
-        dst.addr += ctx.sliceSize;
+        dst.addr += ctx.outputSliceStride;
     }
     dst.token = ctx.token[ctx.arg->rankId];
     return GroupCopy(ctx, dst, src, ctx.goSize);
@@ -262,10 +265,13 @@ static CcuResult RunNhrStep(AllGatherNhr1DMem2MemContext &ctx,
         ccu::LocalAddr src;
         if (stepInfo.step == 0) {
             src.addr = ctx.input;
+            for (uint32_t i = 0; i < ctx.arg->rankId; i++) {
+                src.addr += ctx.inputSliceStride;
+            }
         } else {
             src.addr = ctx.output[ctx.arg->rankId];
             for (uint32_t i = 0; i < sliceIdx; i++) {
-                src.addr += ctx.sliceSize;
+                src.addr += ctx.outputSliceStride;
             }
         }
         src.token = ctx.token[ctx.arg->rankId];
@@ -273,11 +279,11 @@ static CcuResult RunNhrStep(AllGatherNhr1DMem2MemContext &ctx,
         ccu::RemoteAddr dst;
         dst.addr = ctx.output[stepInfo.toRank];
         for (uint32_t i = 0; i < sliceIdx; i++) {
-            dst.addr += ctx.sliceSize;
+            dst.addr += ctx.outputSliceStride;
         }
         dst.token = ctx.token[stepInfo.toRank];
 
-        ccu::Write(sendChannel, dst, src, ctx.sliceSize, ctx.transferEvent,
+        ccu::Write(sendChannel, dst, src, ctx.chunkSize, ctx.transferEvent,
             TRANSFER_EVENT_MASK);
         ccu::EventWait(ctx.transferEvent, TRANSFER_EVENT_MASK);
     }

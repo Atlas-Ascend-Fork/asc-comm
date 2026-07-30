@@ -9,6 +9,8 @@
  */
 #include "ccu_kernel.h"
 
+#include <algorithm>
+
 namespace ccu_ag_mem2mem {
 
 constexpr int OUTPUT_XN_ID = 1;
@@ -28,10 +30,9 @@ static uint64_t GetLoopParam(uint64_t loopCtxId, uint64_t gsaOffset, uint64_t lo
     constexpr uint16_t gsaBitNum = 32;
     constexpr uint16_t gsaShiftBit = 13;
     constexpr uint16_t loopNumBitNum = 13;
-    constexpr uint16_t loopNumShiftBit = 0;
     return ((loopCtxId & SetBits(ctxIdBitNum)) << ctxIdShiftBit)
            | ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit)
-           | ((loopIterNum & SetBits(loopNumBitNum)) << loopNumShiftBit);
+           | (loopIterNum & SetBits(loopNumBitNum));
 }
 
 static uint64_t GetParallelParam(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t totalLoopNum)
@@ -54,10 +55,9 @@ static uint64_t GetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uint64_t c
     constexpr uint16_t msBitNum = 11;
     constexpr uint16_t msShiftBit = 10;
     constexpr uint16_t ckeBitNum = 10;
-    constexpr uint16_t ckeShiftBit = 0;
     return ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit)
            | ((msOffset & SetBits(msBitNum)) << msShiftBit)
-           | ((ckeOffset & SetBits(ckeBitNum)) << ckeShiftBit);
+           | (ckeOffset & SetBits(ckeBitNum));
 }
 
 static void InitGroupCopyResources(AllGatherMesh1DMem2MemContext &ctx, ccu::LocalAddr *loopSrc,
@@ -68,11 +68,9 @@ static void InitGroupCopyResources(AllGatherMesh1DMem2MemContext &ctx, ccu::Loca
         ctx.moConfig.loopCount = CCU_MS_LOCAL_COPY_LOOP_COUNT;
         ctx.moConfig.memSlice = CCU_LOCAL_COPY_MS_PER_LOOP * CCU_MS_SIZE;
 
-        ctx.moRes.eventCount = ctx.moConfig.loopCount;
-        ctx.moRes.completedEvent = ccu::Array<ccu::Event>(ctx.moRes.eventCount);
-
-        ctx.moRes.bufCount = ctx.moConfig.loopCount * ctx.moConfig.msInterleave;
-        ctx.moRes.ccuBuf = ccu::Array<ccu::CcuBuffer>(ctx.moRes.bufCount);
+        ctx.moRes.completedEvent = ccu::Array<ccu::Event>(ctx.moConfig.loopCount);
+        ctx.moRes.ccuBuf = ccu::Array<ccu::CcuBuffer>(
+            ctx.moConfig.loopCount * ctx.moConfig.msInterleave);
 
         ctx.resourceAllocated = true;
     }
@@ -176,9 +174,13 @@ constexpr uint32_t BITS_PER_EVENT = 16;
 
 static CcuResult InitResource(AllGatherMesh1DMem2MemContext &ctx)
 {
-    if (ctx.arg->channelCount == 0) {
-        HCCL_ERROR("[CcuAllGatherMesh1DMem2Mem] channels is empty!");
-        return CcuResult::CCU_E_INTERNAL;
+    if (ctx.arg->rankSize < 2 || ctx.arg->rankId >= ctx.arg->rankSize ||
+        ctx.arg->channelCount != ctx.arg->rankSize - 1) {
+        HCCL_ERROR(
+            "[CcuAllGatherMesh1DMem2Mem] invalid rank/channel, "
+            "rankSize[%u], rankId[%u], channelCount[%u]",
+            ctx.arg->rankSize, ctx.arg->rankId, ctx.arg->channelCount);
+        return CcuResult::CCU_E_PARA;
     }
     ctx.output.resize(ctx.arg->rankSize);
     ctx.token.resize(ctx.arg->rankSize);
@@ -205,22 +207,16 @@ static CcuResult InitResource(AllGatherMesh1DMem2MemContext &ctx)
 
 static void LoadArgs(AllGatherMesh1DMem2MemContext &ctx)
 {
-    uint32_t argId = 0;
-    ccu::LoadArg(ctx.input, argId++);
-    ccu::LoadArg(ctx.output[ctx.arg->rankId], argId++);
-    ccu::LoadArg(ctx.token[ctx.arg->rankId], argId++);
-    ccu::LoadArg(ctx.currentRankSliceInputOffset, argId++);
-    ccu::LoadArg(ctx.currentRankSliceOutputOffset, argId++);
-    ccu::LoadArg(ctx.tmpRepeatNum, argId++);
-    ccu::LoadArg(ctx.inputRepeatStride, argId++);
-    ccu::LoadArg(ctx.outputRepeatStride, argId++);
-    ccu::LoadArg(ctx.normalSliceSize, argId++);
-    ccu::LoadArg(ctx.lastSliceSize, argId++);
-    ccu::LoadArg(ctx.isInputOutputEqual, argId++);
-    ccu::LoadArg(ctx.goSize.addrOffset, argId++);
-    ccu::LoadArg(ctx.goSize.loopParam, argId++);
-    ccu::LoadArg(ctx.goSize.parallelParam, argId++);
-    ccu::LoadArg(ctx.goSize.residual, argId++);
+    ccu::LoadArg(ctx.input, TASK_INPUT_ADDR);
+    ccu::LoadArg(ctx.output[ctx.arg->rankId], TASK_OUTPUT_ADDR);
+    ccu::LoadArg(ctx.token[ctx.arg->rankId], TASK_TOKEN);
+    ccu::LoadArg(ctx.inputSliceStride, TASK_INPUT_SLICE_STRIDE);
+    ccu::LoadArg(ctx.outputSliceStride, TASK_OUTPUT_SLICE_STRIDE);
+    ccu::LoadArg(ctx.chunkSize, TASK_CHUNK_SIZE);
+    ccu::LoadArg(ctx.goSize.addrOffset, TASK_GO_ADDR_OFFSET);
+    ccu::LoadArg(ctx.goSize.loopParam, TASK_GO_LOOP_PARAM);
+    ccu::LoadArg(ctx.goSize.parallelParam, TASK_GO_PARALLEL_PARAM);
+    ccu::LoadArg(ctx.goSize.residual, TASK_GO_RESIDUAL);
 }
 
 static void PreSync(AllGatherMesh1DMem2MemContext &ctx)
@@ -250,7 +246,7 @@ static void PostSync(AllGatherMesh1DMem2MemContext &ctx)
 // Aligned to the KFC reference kernel (asc-devkit pr_4261
 // ccu_kernel_kfc_all_gather_mesh1d_mem2mem.cc): write/wait split with an event
 // array grouped by rank (one event per 16 ranks, each rank records its own bit).
-// No repeat loop, no isInputOutputEqual branch. Single mission, in != out.
+// Single mission, out-of-place.
 
 // Phase 1: fire all remote writes + record self's event bit. No CCU_IF inside
 // the per-rank loop (plain C++ if selects self vs peer).
@@ -266,7 +262,7 @@ static CcuResult DoAllGatherWrite(AllGatherMesh1DMem2MemContext &ctx,
             continue;
         }
         ccu::Write(ctx.arg->channels[channelIdx], dst[rankIdx], src,
-                   ctx.normalSliceSize, ctx.events[eventIdx], rankMask);
+                   ctx.chunkSize, ctx.events[eventIdx], rankMask);
         channelIdx++;
     }
     return CCU_SUCCESS;
@@ -291,12 +287,16 @@ static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext &ctx)
 {
     ccu::LocalAddr src;
     src.addr = ctx.input;
-    src.addr += ctx.currentRankSliceInputOffset;
+    for (uint32_t i = 0; i < ctx.arg->rankId; i++) {
+        src.addr += ctx.inputSliceStride;
+    }
     src.token = ctx.token[ctx.arg->rankId];
 
     ccu::LocalAddr localDst;
     localDst.addr = ctx.output[ctx.arg->rankId];
-    localDst.addr += ctx.currentRankSliceOutputOffset;
+    for (uint32_t i = 0; i < ctx.arg->rankId; i++) {
+        localDst.addr += ctx.outputSliceStride;
+    }
     localDst.token = ctx.token[ctx.arg->rankId];
 
     std::vector<ccu::RemoteAddr> dst(ctx.arg->rankSize);
@@ -305,7 +305,9 @@ static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext &ctx)
             continue;
         }
         dst[rankIdx].addr = ctx.output[rankIdx];
-        dst[rankIdx].addr += ctx.currentRankSliceOutputOffset;
+        for (uint32_t i = 0; i < ctx.arg->rankId; i++) {
+            dst[rankIdx].addr += ctx.outputSliceStride;
+        }
         dst[rankIdx].token = ctx.token[rankIdx];
     }
 
@@ -326,7 +328,7 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
     CCU_CHK_RET(InitResource(ctx));
     LoadArgs(ctx);
     PreSync(ctx);
-    CCU_IF(ctx.normalSliceSize != 0)
+    CCU_IF(ctx.chunkSize != 0)
     {
         DoAllGather(ctx);
     }
