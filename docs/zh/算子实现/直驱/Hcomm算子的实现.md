@@ -452,62 +452,13 @@ if (algType == ALG_LEVEL0_NP_DOUBLE_RING || algType == ALG_LEVEL0_NP_SINGLE_RING
     }
     ```
 
-## 6. 下发AICPU Kernel
+## 6. 算子下发
 
-### 背景
+开发者完成通信算子任务编排后，需要将Kernel函数下发给具体的通信引擎执行。
 
-任务编排代码实现完成后，需要编译为AICPU Kernel，并由Host通过Runtime下发。开发顺序上可以先实现任务编排再实现Kernel下发；运行时则是Host先下发Kernel，Kernel启动后才调用任务编排函数。
+对于AI CPU通信引擎，开发者需首先声明算子信息库文件，文件格式为json，文件内容如下：
 
-### Kernel描述和下发流程
-
-AICPU Kernel描述文件需要给出Kernel动态库和入口函数的映射关系，例如：
-
-```json
-{
-  "<aicpu_kernel_name>": {
-    "opInfo": {
-      "opKernelLib": "AICPUKernel",
-      "kernelSo": "<aicpu_kernel_so>",
-      "functionName": "<aicpu_kernel_name>"
-    }
-  }
-}
-```
-
-Host侧下发主要包含以下步骤：
-
-1. 加载Kernel描述文件并取得二进制句柄。
-2. 根据函数名取得Kernel函数句柄。
-3. 初始化参数句柄并追加Kernel参数。
-4. 设置Kernel属性并下发到Runtime执行流。
-
-### 基础示例
-
-下面展示通过ACL Runtime取得Kernel函数、封装参数并下发的基本过程。
-
-```cpp
-aclrtFuncHandle functionHandle;
-aclrtArgsHandle argsHandle;
-aclrtParamHandle paramHandle;
-
-ACLCHECK(aclrtBinaryGetFunction(
-    binaryHandle, kernelName, &functionHandle));
-ACLCHECK(aclrtKernelArgsInit(
-    functionHandle, &argsHandle));
-ACLCHECK(aclrtKernelArgsAppend(
-    argsHandle, kernelParam, kernelParamSize, &paramHandle));
-ACLCHECK(aclrtKernelArgsFinalize(argsHandle));
-
-ACLCHECK(aclrtLaunchKernelWithConfig(
-    functionHandle, 1, stream,
-    &launchConfig, argsHandle, nullptr));
-```
-
-### AllGather算子示例
-
-AllGather样例将Kernel名称`HcclLaunchCustomAllGatherAicpuKernel`映射到`libcustom_allgather_aicpu_kernel.so`：
-
-```json
+```c
 {
   "HcclLaunchCustomAllGatherAicpuKernel": {
     "opInfo": {
@@ -519,74 +470,95 @@ AllGather样例将Kernel名称`HcclLaunchCustomAllGatherAicpuKernel`映射到`li
 }
 ```
 
-Host侧在Kernel下发前向AICPU主Thread提交启动通知，下发后在CPU_TS Thread上等待AICPU返回完成通知。
+定义AI CPU Kernel函数，函数名必须与算子信息库文件（json文件）中的functionName字段保持一致。
 
-```cpp
-HcclResult LaunchKernelWithAclrt(
-    OpParam &param, aclrtStream stream)
+```c
+extern "C" unsigned int HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
 {
-    CHK_RET(LoadAICPUKernel());
-
-    CHK_RET(HcommThreadNotifyRecordOnThread(
-        param.cpuThread, param.aicpuThreadOnCpu,
-        param.aicpuRecordCpuIdx));
-
-    aclrtFuncHandle functionHandle;
-    aclrtArgsHandle argsHandle;
-    aclrtParamHandle paramHandle;
-    ACLCHECK(aclrtBinaryGetFunction(
-        g_binKernelHandle,
-        "HcclLaunchCustomAllGatherAicpuKernel",
-        &functionHandle));
-    ACLCHECK(aclrtKernelArgsInit(
-        functionHandle, &argsHandle));
-    ACLCHECK(aclrtKernelArgsAppend(
-        argsHandle, &param, sizeof(OpParam), &paramHandle));
-    ACLCHECK(aclrtKernelArgsFinalize(argsHandle));
-
-    aclrtLaunchKernelAttr attr;
-    attr.id = ACL_RT_LAUNCH_KERNEL_ATTR_TIMEOUT;
-    attr.value.timeout = CUSTOM_TIMEOUT;
-    aclrtLaunchKernelCfg config;
-    config.numAttrs = 1;
-    config.attrs = &attr;
-    ACLCHECK(aclrtLaunchKernelWithConfig(
-        functionHandle, 1, stream,
-        &config, argsHandle, nullptr));
-
-    CHK_RET(HcommThreadNotifyWaitOnThread(
-        param.cpuThread, 0, CUSTOM_TIMEOUT));
-    return HCCL_SUCCESS;
+    // Kernel 实现
 }
 ```
 
-AICPU Kernel入口反序列化资源Context，等待Host启动通知，调用`ExecOp`进行任务编排，再向Host返回完成通知。
+### 代码示例
 
-```cpp
-extern "C" unsigned int
-HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
+以自定义AllGather算子为例，使用AI CPU通信引擎时，Host侧下发AI CPU Kernel函数的代码片段如下：
+
+```c
+// 加载AICPU Kernel，获取AICPU侧动态库句柄
+CHK_RET(LoadAICPUKernel());
+
+// Host stream通知Device主thread
+CHK_RET(HcommThreadNotifyRecordOnThread(
+    param.cpuThread, param.aicpuThreadOnCpu,
+    param.aicpuRecordCpuIdx));
+
+// 根据Kernel名称获取函数句柄
+std::string kernelName = "HcclLaunchCustomAllGatherAicpuKernel";
+aclrtFuncHandle funcHandle;
+aclrtArgsHandle argsHandle;
+ACLCHECK(aclrtBinaryGetFunction(
+    g_binKernelHandle, kernelName.c_str(), &funcHandle));
+
+// 初始化参数句柄，并将AllGather算子参数传递给Kernel
+ACLCHECK(aclrtKernelArgsInit(funcHandle, &argsHandle));
+aclrtParamHandle paraHandle;
+ACLCHECK(aclrtKernelArgsAppend(
+    argsHandle, &param, sizeof(OpParam), &paraHandle));
+ACLCHECK(aclrtKernelArgsFinalize(argsHandle));
+
+// 配置Kernel超时时间
+uint16_t NOTIFY_DEFAULT_WAIT_TIME = 27 * 68;
+aclrtLaunchKernelCfg cfg;
+aclrtLaunchKernelAttr attr;
+attr.id = ACL_RT_LAUNCH_KERNEL_ATTR_TIMEOUT;
+attr.value.timeout = NOTIFY_DEFAULT_WAIT_TIME;
+cfg.numAttrs = 1;
+cfg.attrs = &attr;
+constexpr uint32_t numBlocks = 1;
+
+// 下发Kernel，在Device侧执行AllGather任务编排
+ACLCHECK(aclrtLaunchKernelWithConfig(
+    funcHandle, numBlocks, stream, &cfg, argsHandle, nullptr));
+
+// Host stream等待Device的通知
+CHK_RET(HcommThreadNotifyWaitOnThread(
+    param.cpuThread, 0, CUSTOM_TIMEOUT));
+```
+
+在AI CPU侧需要定义Kernel函数入口，该函数需编译到Device侧。`OpParam`和`AlgResourceCtx`的定义在此省略：
+
+```c
+// 在AI CPU上执行的Kernel函数
+extern "C" unsigned int HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
 {
-    AlgResourceCtx resCtx;
+    AlgResourceCtx resCtxDevice;
     char *ctx = static_cast<char *>(param->resCtxDevice);
-    std::vector<char> sequence(ctx, ctx + param->ctxSize);
-    resCtx.DeSerialize(sequence);
+    std::vector<char> seq(ctx, ctx + param->ctxSize);
+    resCtxDevice.DeSerialize(seq);
 
     if (HcommBatchModeStart(param->tag) != HCCL_SUCCESS) {
         return 1;
     }
+
+    // 主thread等待Host stream的通知
     if (HcommThreadNotifyWaitOnThread(
-            resCtx.threads[0], param->aicpuRecordCpuIdx,
+            resCtxDevice.threads[0], param->aicpuRecordCpuIdx,
             CUSTOM_TIMEOUT) != HCCL_SUCCESS) {
         return 1;
     }
-    if (ExecOp(*param, resCtx) != HCCL_SUCCESS) {
+
+    // 执行AllGather任务编排
+    if (ExecOp(*param, resCtxDevice) != HCCL_SUCCESS) {
         return 1;
     }
+
+    // 主thread通知Host stream
     if (HcommThreadNotifyRecordOnThread(
-            resCtx.threads[0], param->cpuThreadOnAicpu,
+            resCtxDevice.threads[0], param->cpuThreadOnAicpu,
             0) != HCCL_SUCCESS) {
         return 1;
     }
+
     if (HcommBatchModeEnd(param->tag) != HCCL_SUCCESS) {
         return 1;
     }
@@ -596,120 +568,53 @@ HcclLaunchCustomAllGatherAicpuKernel(OpParam *param)
 
 ## 7. 处理完成与资源生命周期
 
-### 背景
+Hcomm数据面接口通常采用异步提交语义，接口返回成功只表示任务已经提交到通信Thread。算子下发完成后，还需要正确处理Device任务完成、Host执行流同步以及通信资源的复用和释放。
 
-Hcomm数据面接口通常采用异步提交语义，接口返回成功只表示任务已经提交到通信Thread。算子需要区分任务提交、数据操作完成、对端可见和Runtime执行流完成等状态。
+### 处理步骤
 
-### 完成与同步方式
+算子执行完成与资源生命周期主要包含以下几个步骤：
 
-| 同步范围 | 常用方式 |
-| --- | --- |
-| 本Rank内通信Thread之间 | Thread Notify。 |
-| Channel两端之间 | Channel Notify。 |
-| 指定Channel上的数据操作完成 | Channel Fence或接口定义的完成机制。 |
-| Host执行流与AICPU之间 | 导出的控制Thread及Thread Notify。 |
-| 应用程序等待整个执行流 | `aclrtSynchronizeStream`。 |
+1. AI CPU完成任务编排后，主Thread通过[HcommThreadNotifyRecordOnThread](../../api/hcomm/aicpu/同步控制/HcommThreadNotifyRecordOnThread.md)向Host执行流发送完成通知。
+2. Host侧通过[HcommThreadNotifyWaitOnThread](../../api/hcomm/aicpu/同步控制/HcommThreadNotifyWaitOnThread.md)等待AI CPU完成通知，将通信任务与Host执行流建立顺序依赖。
+3. 调用方在读取输出数据前调用`aclrtSynchronizeStream`同步执行流，确保通信任务和结果搬运均已完成。
+4. 同一通信域内重复调用相同算子时，Thread、Channel和通信引擎Context等通信域级资源可以复用；与执行流绑定的资源需要在每次调用时重新获取。
+5. 所有通信任务完成后，依次销毁通信域、释放输入输出内存、销毁执行流并重置Device。
 
-调用方在读取输出、销毁通信域或释放输入输出内存前，需要同步Runtime执行流。Thread、Channel、通信内存和通信引擎Context的释放方式取决于其创建接口和所属通信域，不能使用普通内存释放接口处理通信资源。
+> [!NOTE]说明
+> 通信算子接口返回成功不表示输出数据已经可用。在读取输出、释放输入输出内存或销毁通信域之前，必须先完成执行流同步。
 
-### 基础示例
+### 代码示例
 
-Host与AICPU分别持有对端可访问的Thread Handle，通过两个方向的Notify建立启动和完成关系。
+以自定义AllGather算子为例，测试程序连续调用两次算子，分别验证首次创建通信资源和后续复用通信资源的执行路径。其完成等待和资源释放代码片段如下：
 
-```cpp
-// Host侧：通知AICPU开始，再等待AICPU完成。
-HcommThreadNotifyRecordOnThread(
-    cpuThread, aicpuThreadOnCpu, startNotifyIdx);
-HcommThreadNotifyWaitOnThread(
-    cpuThread, finishNotifyIdx, timeout);
-
-// AICPU侧：等待Host开始，再通知Host完成。
-HcommThreadNotifyWaitOnThread(
-    aicpuThread, startNotifyIdx, timeout);
-HcommThreadNotifyRecordOnThread(
-    aicpuThread, cpuThreadOnAicpu, finishNotifyIdx);
-```
-
-### AllGather算子示例
-
-测试程序在调用AllGather后同步执行流，只有同步成功后才读取输出和销毁资源。连续调用两次用于同时验证首次创建Context和后续资源复用路径。
-
-```cpp
+```c
+// 第一次调用：创建通信资源并下发AllGather任务
 HCCLCHECK(HcclAllGatherCustom(
     sendBuf, recvBuf, count, HCCL_DATA_TYPE_FP32,
     hcclComm, stream));
 ACLCHECK(aclrtSynchronizeStream(stream));
 
+// 第二次调用：复用同一通信域中的通信资源
 HCCLCHECK(HcclAllGatherCustom(
     sendBuf, recvBuf, count, HCCL_DATA_TYPE_FP32,
     hcclComm, stream));
 ACLCHECK(aclrtSynchronizeStream(stream));
 
+// 同步完成后，将AllGather结果拷贝到Host内存
+void *resultHostBuf = nullptr;
+ACLCHECK(aclrtMallocHost(&resultHostBuf, outputSize));
 ACLCHECK(aclrtMemcpy(
     resultHostBuf, outputSize,
     recvBuf, outputSize, ACL_MEMCPY_DEVICE_TO_HOST));
+ACLCHECK(aclrtFreeHost(resultHostBuf));
 
+// 释放通信域、业务内存和Runtime资源
 HCCLCHECK(HcclCommDestroy(hcclComm));
 ACLCHECK(aclrtFree(sendBuf));
 ACLCHECK(aclrtFree(recvBuf));
 ACLCHECK(aclrtDestroyStream(stream));
+ACLCHECK(aclrtResetDevice(device));
 ```
 
 ## 8. 编译部署和验证
 
-### 背景
-
-Hcomm算子同时包含Host和AICPU侧代码。两侧需要使用配套工具链分别编译，并将公共参数、Host动态库、Kernel描述和AICPU Kernel包部署到运行环境。
-
-### 工程产物
-
-| 产物 | 作用 |
-| --- | --- |
-| 对外头文件 | 向应用程序提供自定义通信算子接口。 |
-| Host动态库 | 实现拓扑查询、资源创建、参数准备和Kernel下发。 |
-| Kernel描述文件 | 建立Kernel名称、AICPU动态库和入口函数的映射。 |
-| AICPU Kernel包 | 包含AICPU入口和任务编排实现。 |
-| 测试程序 | 初始化通信域，构造输入并验证结果和同步。 |
-
-Host和AICPU侧必须保持公共参数结构的字段顺序、大小和ABI一致。AICPU Kernel包还需要满足运行环境的部署、白名单和安全验签要求。
-
-### 基础示例
-
-HCCL自定义算子构建工程通过`vendor`、`ops`和工程路径构建算子安装包：
-
-```bash
-cd hccl
-bash build.sh --vendor=<vendor> --ops=<ops> \
-    --custom_ops_path=<ops_project_path>
-
-./build_out/cann-hccl_custom_<ops>_linux-<arch>.run \
-    --install
-```
-
-### AllGather算子示例
-
-AllGather样例的编译、安装和测试命令如下：
-
-```bash
-cd hccl
-bash build.sh --vendor=cust --ops=allgather_aicpu \
-    --custom_ops_path=./examples/05_custom_ops_allgather/aicpu
-
-./build_out/cann-hccl_custom_allgather_aicpu_linux-<arch>.run \
-    --install
-
-cd examples/05_custom_ops_allgather/aicpu/testcase
-make
-make test
-```
-
-功能验证至少覆盖以下内容：
-
-- 不同Rank规模和数据量下的通信结果及输出布局。
-- 各Rank参数不一致、非法地址和不支持拓扑等错误场景。
-- Thread Notify、Channel Notify和完成等待是否存在超时。
-- 大数据分片、通信内存复用和边界数据量。
-- 同一通信域重复调用时的资源首次创建和后续复用。
-- 执行流同步、通信域销毁和业务内存释放的先后顺序。
-
-完整工程请参见HCCL仓中的[AICPU AllGather自定义通信算子样例](https://gitcode.com/cann/hccl/tree/master/examples/05_custom_ops_allgather/aicpu)。样例用于说明各阶段如何组合，不应作为其他Hcomm算子的固定算法模板。
