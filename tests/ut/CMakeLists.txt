@@ -200,3 +200,4 @@ function(asccomm_add_product_definitions target_name product_type)
 endfunction()
 
 add_subdirectory(aicore/hcomm)
+add_subdirectory(aicore/ain)
