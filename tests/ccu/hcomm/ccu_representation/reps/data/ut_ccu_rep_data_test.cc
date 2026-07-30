@@ -19,7 +19,6 @@
 #include "hcomm/resource/representation/reps/data/ccu_rep_remMem_v1.h"
 #include "ccu_api_exception.h"
 #include "ccu_channel_get_stub.h"
-#include "ccu_urma_channel.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
 #include "hcomm_c_adpt.h"
@@ -38,16 +37,16 @@ protected:
     CcuInsGeneraterV1 insGen {};
     void SetUp() override
     {
-        HcommChannelDesc channelDesc{};
-        channel = std::make_unique<CcuUrmaChannel>(nullptr, channelDesc);
-        SetHcommChannelGetStub(channel.get());
+        HcommCcuChannelPod channelPod{};
+        ASSERT_EQ(HcommCcuChannelPodInit(&channelPod), HCCL_SUCCESS);
+        channelPod.resourceNum = 1;
+        channelPod.remoteBufferSize = 1;
+        SetHcommCcuChannelGetPodStub(channelPod, std::vector<HcommCcuChannelResourcePod>(1));
     }
     void TearDown() override
     {
-        ResetHcommChannelGetStub();
-        channel.reset();
+        ResetHcommCcuChannelGetPodStub();
     }
-    std::unique_ptr<CcuUrmaChannel> channel;
 };
 
 class CcuRepReadTest : public CcuRepChannelTest {};
