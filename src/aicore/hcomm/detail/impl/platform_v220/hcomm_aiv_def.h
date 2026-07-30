@@ -28,14 +28,13 @@ namespace AscendC {
 
 enum class HCOMM_OP_TYPE : uint32_t { WRITE = 3U, READ = 5U };
 
-template <>
-class HcommImpl<COMM_PROTOCOL_ROCE> {
+template <> class HcommImpl<COMM_PROTOCOL_ROCE> {
 public:
     __aicore__ inline HcommImpl();
 
     __aicore__ inline ~HcommImpl();
 
-    __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len)
+    __aicore__ inline int32_t Init(__ubuf__ uint8_t *buff, uint32_t len)
     {
         (void)buff;
         (void)len;
@@ -50,29 +49,29 @@ public:
         auto const &config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
+    template <typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const &config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteWithValueNbi(ChannelHandle channel, GM_ADDR dst, T value);
+
     template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const &config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteWithNotifyNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src,
-        uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
 
-    template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t Commit(ChannelHandle channel)
+    template <pipe_t pipe = PIPE_S> __aicore__ inline int32_t Commit(ChannelHandle channel)
     {
         return HCOMM_FAILED;
     }
 
-    template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t Drain(ChannelHandle channel)
+    template <pipe_t pipe = PIPE_MTE3> __aicore__ inline int32_t Drain(ChannelHandle channel)
     {
         return HCOMM_FAILED;
     }
 
 private:
     __aicore__ inline void PostSend(ChannelHandle channelHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, bool isRead);
-    __aicore__ inline void WriteWqe(__gm__ ChannelEntity* channel, __gm__ uint8_t* wqeAddr, GM_ADDR dst, GM_ADDR src,
-        uint64_t len, uint64_t curHead, bool isRead);
 
-    __aicore__ inline void doorBell(__gm__ ChannelEntity* channel, uint64_t curHead);
+    __aicore__ inline void doorBell(__gm__ ChannelEntity *channel, uint64_t curHead);
 
 private:
     LocalTensor<uint64_t> ubLocal_;
