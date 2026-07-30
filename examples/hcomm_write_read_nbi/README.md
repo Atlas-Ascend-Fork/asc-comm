@@ -2,7 +2,7 @@
 
 ## 概述
 
-本样例展示如何在Ascend C AIV Kernel中，基于**AIV直驱URMA**架构，使用`Hcomm`类的`WriteNbi`和`ReadNbi`接口实现NPU间低时延的点对点（P2P）通信。两张卡对称执行`WriteNbi`和`ReadNbi`，通过地址偏移区分数据段，最后在Host侧校验通信结果。
+本样例展示如何在Ascend C AIV Kernel中，基于**AIV直驱URMA**架构，使用`Hcomm`类的`WriteNbi`和`ReadNbi`接口实现NPU间低时延的点对点（P2P）通信。样例进程数由`./demo [nranks]`指定；不传入参数时默认启动双卡。每个rank在环形拓扑中与前后相邻rank建立P2P通道，通过地址偏移区分数据段，最后在Host侧校验通信结果。
 
 ## 支持的产品及CANN软件版本
 
@@ -39,13 +39,14 @@
 #### 1. Host侧通信域准备
 在Ascend 950系列上，通信域需以多进程方式创建（每个进程对应一个rank）。关键步骤如下，重点体现AIV直驱模式的配置：
 
-1. **交换RootInfo**：Rank 0调用`HcclGetRootInfo`获取root信息，通过TCP发送给Rank 1。
+1. **交换RootInfo**：Rank 0调用`HcclGetRootInfo`获取root信息，通过TCP发送给其他rank。
 2. **创建通信域**：各Rank调用`HcclCommInitRootInfoConfig`创建通信域。**注意：AIV直驱模式下，无需配置`hcclOpExpansionMode`。**
 3. **注册通信内存**：调用`HcclCommMemReg`向通信域注册本卡的通信buffer，Channel创建时该内存信息会自动交换给对端。
-4. **获取链路Endpoint**：通过`HcclRankGraphGetLayers`和`HcclRankGraphGetLinks`获取本Rank到对端的物理链路Endpoint信息。
-5. **创建P2P通道（AIV直驱）**：调用`HcclChannelAcquire`创建到对端的P2P通道。此处需明确指定引擎为`COMM_ENGINE_AIV`、协议为`COMM_PROTOCOL_UBC_CTP`（URMA协议），并传入待交换的内存句柄。
-6. **获取对端内存地址**：调用`HcclChannelGetRemoteMems`获取对端注册的内存地址，作为Kernel侧`WriteNbi`/`ReadNbi`的远端目标地址。
-7. **下发Context**：Host预初始化seg0（填充基于rankId的伪随机pattern），将`ChannelHandle`和buffer地址封装到`CommContext`并下发到各卡GM。
+4. **建立TCP环形拓扑**：每个rank监听`BASE_PORT + rank`，主动连接`next = (rank + 1) % nranks`，同时接受来自`prev = (rank - 1 + nranks) % nranks`的连接。该环形连接用于RootInfo交换后的Host侧barrier，确保各rank在关键阶段同步推进。
+5. **获取链路Endpoint**：通过`HcclRankGraphGetLayers`和`HcclRankGraphGetLinks`分别获取本Rank到`prev`和`next`的物理链路Endpoint信息。
+6. **创建P2P通道（AIV直驱）**：调用`HcclChannelAcquire`创建到相邻rank的P2P通道。此处需明确指定引擎为`COMM_ENGINE_AIV`、协议为`COMM_PROTOCOL_UBC_CTP`（URMA协议），并传入待交换的内存句柄。
+7. **获取对端内存地址**：调用`HcclChannelGetRemoteMems`获取相邻rank注册的内存地址，作为Kernel侧`WriteNbi`/`ReadNbi`的远端目标地址。
+8. **下发Context**：Host预初始化seg0（填充基于rankId的伪随机pattern），将`ChannelHandle`和buffer地址封装到`CommContext`并下发到各卡GM。
 
 ```cpp
 // 1. 各rank各自创建通信域 (AIV直驱模式无需配置hcclOpExpansionMode)
@@ -72,7 +73,7 @@ HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMems, &memTags);
 ```
 
 #### 2. Kernel侧执行
-通信流程分为三步：`Init()` → `WriteNbi()`/`ReadNbi()` → `Drain()`。两卡执行相同的Kernel逻辑，通过地址偏移区分三段数据：
+通信流程分为三步：`Init()` → `WriteNbi()`/`ReadNbi()` → `Drain()`。各rank执行相同的Kernel逻辑，通过地址偏移区分三段数据：
 - **seg0** `[0, DATA_SIZE)`：本卡pattern（Host预初始化）
 - **seg1** `[DATA_SIZE, 2*DATA_SIZE)`：接收对端`WriteNbi`写入的数据
 - **seg2** `[2*DATA_SIZE, 3*DATA_SIZE)`：接收本卡`ReadNbi`从对端seg0读回的数据
@@ -82,7 +83,7 @@ HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMems, &memTags);
 - **`Drain`**：轮询CQ等待通信任务完成，返回后数据可见性才有保证。
 
 ```cpp
-// 两卡对称执行AIV直驱URMA通信：
+// 单个rank上的AIV直驱URMA通信操作示例：
 // 1. 本卡seg0 → 对端seg1 (WriteNbi)
 hcomm_.WriteNbi(channel, remoteBuf + DATA_SIZE, localBuf, DATA_SIZE);
 
@@ -93,8 +94,14 @@ hcomm_.ReadNbi(channel, localBuf + 2 * DATA_SIZE, remoteBuf, DATA_SIZE);
 hcomm_.Drain(channel);
 ```
 
-#### 3. 调用实现
-多进程对称执行：两卡同时launch kernel，无需分阶段同步。Host侧预初始化seg0后通过`TcpBarrier`确保两卡就绪，再各自调用Kernel。使用内核调用符`<<<>>>`调用核函数。
+#### 3. 环形拓扑通信过程
+运行时rank数量为`nranks`。每个rank计算相邻节点：
+- `prev = (rank - 1 + nranks) % nranks`
+- `next = (rank + 1) % nranks`
+
+Host侧为`prev`和`next`分别准备通信上下文。Kernel执行时，默认将本卡seg0通过`WriteNbi`写入`next`的seg1，并通过`ReadNbi`从`prev`的seg0读到本卡seg2；因此每个rank最终校验的数据都来自`prev`。当`nranks == 2`时，`prev`和`next`都指向同一个对端rank，样例会复用同一对端方向执行写和读。
+
+Host侧在Kernel执行前后通过TCP环形barrier同步所有rank，避免某个rank提前校验尚未完成的通信结果。
 
 ### 校验机制
 - 每个rank在Host侧预初始化seg0时，通过线性同余生成器（LCG，使用Knuth乘法哈希常数`0x9E3779B9U`等参数）生成用于通信校验的随机pattern，确保不同rank的数据来源可区分。
@@ -122,22 +129,23 @@ make -j
 ```
 
 ### 3. 样例执行
-本样例支持两种执行方式：
+本样例使用自动Fork多进程方式启动，命令格式如下：
 
-**方式一：自动Fork多进程（推荐）**
-直接执行即可，主进程会自动fork两个子进程（两卡对称执行WriteNbi + ReadNbi）：
 ```bash
-./demo
+./demo [nranks]
 ```
 
-**方式二：手动指定参数单进程运行**
-可在两个不同的终端中分别手动启动Rank 0和Rank 1：
-```bash
-# 终端1：启动rank 0（绑定卡0）
-./demo 0 2 tcp://127.0.0.1:29621
+`nranks`表示启动的rank数量，必须大于等于2，并且不应超过当前可用NPU数量。不传入参数时，默认启动双卡：
 
-# 终端2：启动rank 1（绑定卡1）
-./demo 1 2 tcp://127.0.0.1:29621
+```bash
+# 默认双卡
+./demo
+
+# 显式指定双卡
+./demo 2
+
+# 指定4卡环形拓扑
+./demo 4
 ```
 
 ### 4. 编译选项说明
@@ -146,7 +154,7 @@ make -j
 | `CMAKE_ASC_ARCHITECTURES` | `dav-3510`（默认） | NPU架构：`dav-3510`对应Ascend 950PR / Ascend 950DT |
 
 ### 5. 执行结果
-执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（两卡对称写入读出、结果一致）：
+双卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
 ```text
 rank 0 test pass!
 rank 1 test pass!
