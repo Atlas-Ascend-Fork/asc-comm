@@ -68,7 +68,7 @@ public:
      *        (task content: Write data of length len from src to dst through the specified channel.)
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
-     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -83,10 +83,30 @@ public:
 
     /*!
      * @class Hcomm
+     * @brief The task launching interface of the inline Write point-to-point communication operator.
+     *        The source data is provided by value and carried inline in the WQE.
+     * @tparam T: The value type to write.
+     * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
+     * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: strongly ordered + fence + CQE + inline enabled.
+     * @param [in] channel: The handle of the communication channel.
+     * @param [out] dst: The destination address of the data.
+     * @param [in] value: The inline value to write.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note Must be called after channel initialization.
+     */
+    template <typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const &config = URMA_INLINE_CFG>
+    __aicore__ inline int32_t WriteWithValueNbi(ChannelHandle channel, GM_ADDR dst, T value);
+
+    /*!
+     * @class Hcomm
      * @brief @brief The task launching interface of the Write-with-notify point-to-point communication operator.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
-     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -108,7 +128,7 @@ public:
      * @tparam T: The data type of the atomic operation. Only int32_t, uint32_t, int64_t, uint64_t is supported.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
-     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -127,7 +147,7 @@ public:
      * @tparam T: The data type of the atomic operation. Only int32_t, uint32_t, int64_t, uint64_t is supported.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
-     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -147,7 +167,7 @@ public:
      *        (task content: Read data of length len from src to dst through the specified channel.)
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
-     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
