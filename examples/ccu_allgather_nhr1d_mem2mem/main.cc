@@ -52,55 +52,57 @@ static std::vector<uint32_t> ParseDevices(const std::string &value)
 static int RunRank(HcclRootInfo *rootInfo, uint32_t rankId, uint32_t rankSize,
     uint32_t device, uint64_t count)
 {
+    int ret = 1;
+    HcclComm comm = nullptr;
+    aclrtStream stream = nullptr;
+    void *input = nullptr;
+    void *output = nullptr;
+
     if (aclrtSetDevice(static_cast<int32_t>(device)) != ACL_SUCCESS) {
         return 1;
     }
 
-    HcclComm comm = nullptr;
     if (HcclCommInitRootInfo(rankSize, rootInfo, rankId, &comm) != HCCL_SUCCESS) {
-        return 1;
+        goto cleanup;
     }
 
-    aclrtStream stream = nullptr;
     if (aclrtCreateStream(&stream) != ACL_SUCCESS) {
-        return 1;
+        goto cleanup;
     }
 
     uint64_t inputBytes = 0;
     uint64_t outputBytes = 0;
     if (!CalculateBufferSizes(count, rankSize, inputBytes, outputBytes)) {
         std::cerr << "count too large for rankSize " << rankSize << "\n";
-        return 1;
+        goto cleanup;
     }
     const uint64_t inputAlloc = std::max<uint64_t>(inputBytes, sizeof(float));
     const uint64_t outputAlloc = std::max<uint64_t>(outputBytes, sizeof(float));
-    void *input = nullptr;
-    void *output = nullptr;
     if (aclrtMalloc(&input, inputAlloc, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
-        return 1;
+        goto cleanup;
     }
     if (aclrtMalloc(&output, outputAlloc, ACL_MEM_MALLOC_HUGE_FIRST) != ACL_SUCCESS) {
-        return 1;
+        goto cleanup;
     }
 
     const auto hostInput = MakeRankInput(rankId, count);
     if (count != 0 &&
         aclrtMemcpy(input, inputBytes, hostInput.data(), inputBytes,
             ACL_MEMCPY_HOST_TO_DEVICE) != ACL_SUCCESS) {
-        return 1;
+        goto cleanup;
     }
     if (aclrtMemset(output, outputAlloc, 0, outputAlloc) != ACL_SUCCESS) {
-        return 1;
+        goto cleanup;
     }
 
     if (AllGatherNhr1D(input, output, count, comm, stream) != HCCL_SUCCESS) {
         std::cerr << "rank " << rankId << " AllGatherNhr1D failed\n";
-        return 1;
+        goto cleanup;
     }
     std::cout << "rank " << rankId << ": launched, waiting for stream" << std::endl;
     if (aclrtSynchronizeStream(stream) != ACL_SUCCESS) {
         std::cerr << "rank " << rankId << " stream sync failed\n";
-        return 1;
+        goto cleanup;
     }
     std::cout << "rank " << rankId << ": stream completed" << std::endl;
 
@@ -108,7 +110,7 @@ static int RunRank(HcclRootInfo *rootInfo, uint32_t rankId, uint32_t rankSize,
     if (!result.empty() &&
         aclrtMemcpy(result.data(), outputBytes, output, outputBytes,
             ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
-        return 1;
+        goto cleanup;
     }
 
     constexpr uint64_t dumpCount = 16;
@@ -133,17 +135,20 @@ static int RunRank(HcclRootInfo *rootInfo, uint32_t rankId, uint32_t rankSize,
     std::cout << os.str() << std::endl;
 
     if (!VerifyAllGatherResult(rankId, rankSize, count, result)) {
-        return 1;
+        std::cerr << "rank " << rankId << " verification failed\n";
+        goto cleanup;
     }
     std::cout << "rank " << rankId << " verified " << count
               << " FP32 elements from each of " << rankSize << " ranks\n";
+    ret = 0;
 
-    (void)aclrtFree(output);
-    (void)aclrtFree(input);
-    (void)aclrtDestroyStream(stream);
-    (void)HcclCommDestroy(comm);
+cleanup:
+    if (output) { (void)aclrtFree(output); }
+    if (input) { (void)aclrtFree(input); }
+    if (stream) { (void)aclrtDestroyStream(stream); }
+    if (comm) { (void)HcclCommDestroy(comm); }
     (void)aclrtResetDevice(static_cast<int32_t>(device));
-    return 0;
+    return ret;
 }
 
 static Options ParseOptions(int argc, char **argv)
