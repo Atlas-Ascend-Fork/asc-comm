@@ -66,6 +66,9 @@ public:
     template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const &config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    template <typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const &config = URMA_INLINE_CFG>
+    __aicore__ inline int32_t WriteWithValueNbi(ChannelHandle channel, GM_ADDR dst, T value);
     template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const &config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
@@ -87,8 +90,6 @@ private:
     __aicore__ inline void PollCqWhenSqOverflow(
         ChannelHandle channel, const SqContext &sqCtx, const CqContext &cqCtx, uint32_t sqHead);
     __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail);
-    __aicore__ inline void UpdateCqState(
-        __gm__ ChannelEntity *channelEntity, const CqContext &cqCtx, __gm__ uint32_t *tailAddr, uint32_t curTail);
 
 private:
     LocalTensor<uint32_t> wqeItem_;
