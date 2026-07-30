@@ -15,7 +15,6 @@
 #include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-#include "ccu_urma_channel.h"
 
 namespace hcomm {
 namespace CcuRep {

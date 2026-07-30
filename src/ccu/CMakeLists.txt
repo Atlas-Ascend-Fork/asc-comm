@@ -129,7 +129,7 @@ add_library(asccomm_ccu_dataplane SHARED
 set_target_properties(asccomm_ccu_dataplane PROPERTIES
     OUTPUT_NAME asccomm_ccu_dataplane
 )
-target_link_libraries(asccomm_ccu_dataplane PRIVATE asccomm_ccu_headers)
+target_link_libraries(asccomm_ccu_dataplane PRIVATE asccomm_ccu_headers hcomm)
 
 add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
 add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
