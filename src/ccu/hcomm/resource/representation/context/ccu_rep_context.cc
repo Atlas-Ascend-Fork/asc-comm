@@ -16,7 +16,7 @@
 #include "const_val.h"
 
 #include "hcomm_c_adpt.h" // 需优化
-#include "ccu_urma_channel.h"
+#include "hcomm/resource/channel/ccu_channel.h"
 #include "ccu_dev_mgr_imp.h"
 
 namespace hcomm {
@@ -155,9 +155,8 @@ int32_t CcuRepContext::AddProfiling(const std::string& name, uint32_t mask)
 int32_t CcuRepContext::AddProfiling(
     const ChannelHandle channel, const std::string& name, uint32_t signalIndex, uint32_t mask)
 {
-    void* channelPtr{nullptr};
-    CHK_RET(static_cast<HcclResult>(HcommChannelGet(channel, &channelPtr)));
-    auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
+    CcuChannel channelImpl(channel);
+    CHK_RET(channelImpl.GetResult());
 
     ccuProfilingInfoCache.type = (uint8_t)CcuProfilinType::CCU_WAITCKE_PROFILING;
     ccuProfilingInfoCache.name = name;
@@ -191,10 +190,8 @@ int32_t CcuRepContext::AddProfiling(const ChannelHandle* channels, uint32_t chan
         ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId), INVALID_VALUE_CHANNELID,
         sizeof(ccuProfilingInfoCache.channelId)));
     for (u32 i = 0; i < channelNum; i++) {
-        void* channelPtr{nullptr};
-        CHK_RET(static_cast<HcclResult>(HcommChannelGet(channels[i], &channelPtr)));
-        auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
+        CcuChannel channelImpl(channels[i]);
+        CHK_RET(channelImpl.GetResult());
         ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
         ccuProfilingInfoCache.channelHandle[i] = channels[i];
         HCCL_INFO(
@@ -230,10 +227,8 @@ int32_t CcuRepContext::AddProfiling(
         ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId), INVALID_VALUE_CHANNELID,
         sizeof(ccuProfilingInfoCache.channelId)));
     for (u32 i = 0; i < channelNum; ++i) {
-        void* channelPtr{nullptr};
-        CHK_RET(static_cast<HcclResult>(HcommChannelGet(channels[i], &channelPtr)));
-        auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
+        CcuChannel channelImpl(channels[i]);
+        CHK_RET(channelImpl.GetResult());
         ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
         ccuProfilingInfoCache.channelHandle[i] = channels[i];
         HCCL_INFO(

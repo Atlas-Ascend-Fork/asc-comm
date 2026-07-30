@@ -12,6 +12,7 @@
 #define HCCL_CCU_KERNEL_ALL_GATHER_MESH_1D_MEM2MEM_H
 
 #include <ios>
+#include <type_traits>
 #include "common.h"
 #include "log.h"
 
@@ -50,10 +51,17 @@ struct CcuLoopEntity {
     ccu::Variable loopParam[2];
 };
 
-struct CcuKernelArgAllGatherMesh1DMem2Mem : public CcuKernelArgBase {
+struct CcuKernelArgAllGatherMesh1DMem2Mem {
+    ChannelHandle channels[CCU_MAX_RANK_SIZE];
+    uint32_t channelCount;
     uint64_t rankSize;
     uint32_t rankId;
 };
+
+static_assert(std::is_standard_layout<CcuKernelArgAllGatherMesh1DMem2Mem>::value,
+    "CcuKernelArgAllGatherMesh1DMem2Mem must be standard-layout");
+static_assert(std::is_trivially_copyable<CcuKernelArgAllGatherMesh1DMem2Mem>::value,
+    "CcuKernelArgAllGatherMesh1DMem2Mem must be trivially copyable");
 
 struct AllGatherMesh1DMem2MemContext {
     const CcuKernelArgAllGatherMesh1DMem2Mem* arg;
