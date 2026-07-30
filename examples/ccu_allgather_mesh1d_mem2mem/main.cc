@@ -27,7 +27,7 @@
 #include "data_utils.h"
 #include "exec_op.h"
 
-namespace ccu_ag_mem2mem {
+namespace CcuAgMem2mem {
 
 constexpr uint64_t MAX_RANKS = 16;
 
@@ -220,9 +220,9 @@ static int Run(int argc, char **argv)
     return std::any_of(status.begin(), status.end(), [](int value) { return value != 0; }) ? 1 : 0;
 }
 
-}  // namespace ccu_ag_mem2mem
+}  // namespace CcuAgMem2mem
 
 int main(int argc, char **argv)
 {
-    return ccu_ag_mem2mem::Run(argc, argv);
+    return CcuAgMem2mem::Run(argc, argv);
 }

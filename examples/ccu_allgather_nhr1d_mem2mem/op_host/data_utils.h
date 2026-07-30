@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace ccu_ag_nhr1d_mem2mem {
+namespace CcuAgNhr1dMem2mem {
 
 bool CalculateBufferSizes(
     uint64_t count, uint32_t rankSize, uint64_t& inputBytes,
@@ -25,6 +25,6 @@ bool VerifyAllGatherResult(
     uint32_t rankId, uint32_t rankSize, uint64_t count,
     const std::vector<float>& result);
 
-}  // namespace ccu_ag_nhr1d_mem2mem
+}  // namespace CcuAgNhr1dMem2mem
 
 #endif  // ASC_COMM_EXAMPLE_CCU_ALLGATHER_NHR1D_MEM2MEM_DATA_UTILS_H

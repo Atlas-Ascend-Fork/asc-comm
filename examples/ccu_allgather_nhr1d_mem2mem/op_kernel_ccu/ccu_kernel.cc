@@ -9,7 +9,7 @@
  */
 #include "ccu_kernel.h"
 
-namespace ccu_ag_nhr1d_mem2mem {
+namespace CcuAgNhr1dMem2mem {
 
 constexpr int OUTPUT_XN_ID = 0;
 constexpr int TOKEN_XN_ID = 1;
@@ -325,4 +325,4 @@ CcuResult CcuAllGatherNhr1DMem2MemKernel(CcuKernelArg arg)
     return CcuResult::CCU_SUCCESS;
 }
 
-}  // namespace ccu_ag_nhr1d_mem2mem
+}  // namespace CcuAgNhr1dMem2mem

@@ -11,7 +11,7 @@
 
 #include <algorithm>
 
-namespace ccu_ag_mem2mem {
+namespace CcuAgMem2mem {
 
 constexpr int OUTPUT_XN_ID = 1;
 constexpr int TOKEN_XN_ID = 2;
@@ -324,4 +324,4 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
     return CcuResult::CCU_SUCCESS;
 }
 
-}  // namespace ccu_ag_mem2mem
+}  // namespace CcuAgMem2mem

@@ -2,7 +2,7 @@
 
 本样例使用Host直接注册并下发CCU Kernel，演示Mesh1D Mem2Mem AllGather数据面。
 
-## 执行流程
+## 样例介绍
 
 ```text
 初始化HCCL通信域
@@ -43,26 +43,6 @@ cd examples/ccu_allgather_mesh1d_mem2mem
 
 ```bash
 env DEVICES=0,1 COUNT=256 ./run.sh
-```
-
-构建和运行分开：
-
-```bash
-env BUILD_ONLY=1 ./run.sh
-
-qrun env HCCL_OP_EXPANSION_MODE=CCU_SCHED \
-  ./build/ccu_allgather_mesh1d_mem2mem \
-  --devices 0,1 \
-  --count 256
-```
-
-`--devices`指定设备列表，列表长度即rank数；`--count`指定每个rank输入的`float`
-元素数量。`run.sh`默认使用设备0、1，每个rank输入256个元素。
-
-`run.sh`将CANN进程日志写入：
-
-```text
-log/debug/plog/
 ```
 
 ## 输入和校验
