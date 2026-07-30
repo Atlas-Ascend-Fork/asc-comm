@@ -21,21 +21,17 @@ find_package(ASC REQUIRED)
 project(kernel_samples LANGUAGES ASC CXX)
 
 set_source_files_properties(
-    utils.cpp
     hcomm_write_read_nbi_kernel.cpp
-    hcomm_rw_def.h
+    utils.cpp
     PROPERTIES LANGUAGE ASC
 )
 
 add_executable(demo
     hcomm_write_read_nbi.asc
     hcomm_write_read_nbi_kernel.cpp
-    hcomm_rw_def.h
     utils.cpp
 )
 
-# 链接 hcomm 库：Host 侧通信域创建(HcclCommInitRootInfo)、内存注册(HcclCommMemReg)、
-# 通道创建(HcclChannelAcquire)等接口由 libhcomm.so 提供。
 target_link_libraries(demo PRIVATE
     hcomm
 )
