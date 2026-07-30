@@ -56,6 +56,22 @@ if(NOT EXISTS "${ASCEND_CANN_ARCH_DIR}")
 endif()
 set(ASCENDC_DIR "${ASCEND_CANN_ARCH_DIR}/asc" CACHE PATH "AscendC headers path")
 
+if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
+    foreach(_candidate
+        "${ASCCOMM_ROOT}/../hcomm"
+        "${ASCCOMM_ROOT}/../../hcomm"
+        "${CANN_3RD_LIB_PATH}/hcomm")
+        if(EXISTS "${_candidate}/pkg_inc/hcomm/hcomm_ccu_channel.h")
+            get_filename_component(ASCCOMM_HCOMM_SOURCE_DIR "${_candidate}" ABSOLUTE)
+            break()
+        endif()
+    endforeach()
+endif()
+set(ASCCOMM_HCOMM_SOURCE_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}" CACHE PATH "hcomm source tree for package headers")
+if(NOT EXISTS "${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hcomm/hcomm_ccu_channel.h")
+    message(FATAL_ERROR "ASCCOMM_HCOMM_SOURCE_DIR must provide pkg_inc/hcomm/hcomm_ccu_channel.h")
+endif()
+
 set(ASCCOMM_CANN_INCLUDE_DIRS
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCENDC_DIR}

@@ -10,7 +10,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm_c_adpt.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
-#include "ccu_urma_channel.h"
+#include "hcomm/resource/channel/ccu_channel.h"
 #include "ccu_api_exception.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "hcomm/common/ccu_log.h"
@@ -72,13 +72,10 @@ namespace CcuRep {
         UNUSED(ccuKernel);
         UNUSED(dep);
         CHK_PTR_NULL(repBufRead);
-        void *channelPtr{nullptr};
+        CcuChannel channelImpl(repBufRead->GetChannel());
         CHK_PRT_RET(
-            static_cast<HcclResult>(HcommChannelGet(repBufRead->GetChannel(), &channelPtr)) != HcclResult::HCCL_SUCCESS,
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
             HCCL_ERROR("failed to get ccu channel, type[%d]", repBufRead->Type()), HCCL_E_INTERNAL);
-
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
 
         TransRmtMemToLocMSInstr(instr++, repBufRead->GetDst().Id(), repBufRead->GetSrc().addr.Id(),
             repBufRead->GetSrc().token.Id(), repBufRead->GetLen().Id(), channelImpl->GetChannelId(),
@@ -91,13 +88,10 @@ namespace CcuRep {
     {
         UNUSED(ccuKernel);
         CHK_PTR_NULL(repWrite);
-        void *channelPtr{nullptr};
+        CcuChannel channelImpl(repWrite->GetChannel());
         CHK_PRT_RET(
-            static_cast<HcclResult>(HcommChannelGet(repWrite->GetChannel(), &channelPtr)) != HcclResult::HCCL_SUCCESS,
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
             HCCL_ERROR("failed to get ccu channel, type[%d]", repWrite->Type()), HCCL_E_INTERNAL);
-
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
         TransLocMemToRmtMemInstr(instr++, repWrite->GetRem().addr.Id(), repWrite->GetRem().token.Id(),
             repWrite->GetLoc().addr.Id(), repWrite->GetLoc().token.Id(), repWrite->GetLen().Id(),
             channelImpl->GetChannelId(), repWrite->GetDataType(), repWrite->GetOpType(), repWrite->GetSem().Id(),
@@ -110,13 +104,10 @@ namespace CcuRep {
     {
         UNUSED(ccuKernel);
         CHK_PTR_NULL(repRead);
-        void *channelPtr{nullptr};
+        CcuChannel channelImpl(repRead->GetChannel());
         CHK_PRT_RET(
-            static_cast<HcclResult>(HcommChannelGet(repRead->GetChannel(), &channelPtr)) != HcclResult::HCCL_SUCCESS,
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
             HCCL_ERROR("failed to get ccu channel, type[%d]", repRead->Type()), HCCL_E_INTERNAL);
-
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
         TransRmtMemToLocMemInstr(instr++, repRead->GetLoc().addr.Id(), repRead->GetLoc().token.Id(),
             repRead->GetRem().addr.Id(), repRead->GetRem().token.Id(), repRead->GetLen().Id(),
             channelImpl->GetChannelId(), repRead->GetDataType(), repRead->GetOpType(), repRead->GetSem().Id(),
@@ -129,17 +120,14 @@ namespace CcuRep {
     {
         UNUSED(ccuKernel);
         CHK_PTR_NULL(repRemMem);
-        void *channelPtr{nullptr};
+        CcuChannel channelImpl(repRemMem->GetChannel());
         CHK_PRT_RET(
-            static_cast<HcclResult>(HcommChannelGet(repRemMem->GetChannel(), &channelPtr)) != HcclResult::HCCL_SUCCESS,
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
             HCCL_ERROR("failed to get ccu channel, type[%d]", repRemMem->Type()), HCCL_E_INTERNAL);
-
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
         uint32_t size{0};
         uint32_t tokenId{0};
         uint32_t tokenValue{0};
         uint64_t addr{0};
-        CHK_PTR_NULL(channelImpl);
         CHK_PRT_RET(channelImpl->GetRmtBuffer(addr, size, tokenId, tokenValue) != HcclResult::HCCL_SUCCESS,
             HCCL_ERROR("[CcuRepRemMem][%s] failed to get remote buffer, channelHandle[0x%llx].", __func__,
                 repRemMem->GetChannel()),
@@ -179,13 +167,9 @@ namespace CcuRep {
         UNUSED(ccuKernel);
         UNUSED(dep);
         CHK_PTR_NULL(ccuRepBufWrite);
-        void *channelPtr{nullptr};
-        CHK_PRT_RET(static_cast<HcclResult>(HcommChannelGet(ccuRepBufWrite->GetChannel(), &channelPtr))
-                        != HcclResult::HCCL_SUCCESS,
+        CcuChannel channelImpl(ccuRepBufWrite->GetChannel());
+        CHK_PRT_RET(channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
             HCCL_ERROR("failed to get ccu channel, type[%d]", ccuRepBufWrite->Type()), HCCL_E_INTERNAL);
-
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
         TransLocMSToRmtMemInstr(instr++, ccuRepBufWrite->GetDst().addr.Id(), ccuRepBufWrite->GetDst().token.Id(),
             ccuRepBufWrite->GetSrc().Id(), ccuRepBufWrite->GetLen().Id(), channelImpl->GetChannelId(),
             ccuRepBufWrite->GetSem().Id(), ccuRepBufWrite->GetMask(), 0, 0, 1, 1);
@@ -296,13 +280,9 @@ namespace CcuRep {
     {
         UNUSED(ccuKernel);
         CHK_PTR_NULL(cuRepRemWaitSem);
-        void *channelPtr{nullptr};
-        CHK_PRT_RET(static_cast<HcclResult>(HcommChannelGet(cuRepRemWaitSem->GetChannel(), &channelPtr))
-                        != HcclResult::HCCL_SUCCESS,
+        CcuChannel channelImpl(cuRepRemWaitSem->GetChannel());
+        CHK_PRT_RET(channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
             HCCL_ERROR("failed to get ccu channel, type[%d]", cuRepRemWaitSem->Type()), HCCL_E_INTERNAL);
-
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
         uint32_t locCkeId{0};
         CHK_PRT_RET(channelImpl->GetLocCkeByIndex(cuRepRemWaitSem->GetSemIndex(), locCkeId) != HcclResult::HCCL_SUCCESS,
             HCCL_ERROR("[CcuRepRemWaitSem][%s] failed to get to loc cke id.", __func__), HCCL_E_UNAVAIL);
@@ -322,13 +302,9 @@ namespace CcuRep {
     {
         UNUSED(ccuKernel);
         CHK_PTR_NULL(ccuRepRemPostVar);
-        void *channelPtr{nullptr};
-        CHK_PRT_RET(static_cast<HcclResult>(HcommChannelGet(ccuRepRemPostVar->GetChannel(), &channelPtr))
-                        != HcclResult::HCCL_SUCCESS,
+        CcuChannel channelImpl(ccuRepRemPostVar->GetChannel());
+        CHK_PRT_RET(channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
             HCCL_ERROR("failed to get ccu channel, type[%d]", ccuRepRemPostVar->Type()), HCCL_E_INTERNAL);
-
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
         uint32_t rmtXnId{0};
         CHK_PRT_RET(
             channelImpl->GetRmtXnByIndex(ccuRepRemPostVar->GetParamIndex(), rmtXnId) != HcclResult::HCCL_SUCCESS,
@@ -354,13 +330,9 @@ namespace CcuRep {
     {
         UNUSED(ccuKernel);
         CHK_PTR_NULL(ccuRepRemPostSem);
-        void *channelPtr{nullptr};
-        CHK_PRT_RET(static_cast<HcclResult>(HcommChannelGet(ccuRepRemPostSem->GetChannel(), &channelPtr))
-                        != HcclResult::HCCL_SUCCESS,
+        CcuChannel channelImpl(ccuRepRemPostSem->GetChannel());
+        CHK_PRT_RET(channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
             HCCL_ERROR("failed to get ccu channel, type[%d]", ccuRepRemPostSem->Type()), HCCL_E_INTERNAL);
-
-        auto *channelImpl = dynamic_cast<CcuUrmaChannel *>(static_cast<Channel *>(channelPtr));
-        CHK_PTR_NULL(channelImpl);
         uint32_t rmtCkeId{0};
         CHK_PRT_RET(
             channelImpl->GetRmtCkeByIndex(ccuRepRemPostSem->GetSemIndex(), rmtCkeId) != HcclResult::HCCL_SUCCESS,
