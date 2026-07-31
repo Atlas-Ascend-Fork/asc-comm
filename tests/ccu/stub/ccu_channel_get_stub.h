@@ -14,7 +14,7 @@
 namespace hcomm {
 class Channel;
 
-void SetHcommChannelGetStub(Channel *channel);
+void SetHcommChannelGetStub(Channel* channel);
 void ResetHcommChannelGetStub();
 } // namespace hcomm
 

@@ -28,8 +28,8 @@ struct AlgResourceCtx {
 
 struct OpParam {
     aclrtStream stream;
-    void *inputPtr = nullptr;
-    void *outputPtr = nullptr;
+    void* inputPtr = nullptr;
+    void* outputPtr = nullptr;
     std::vector<uint64_t> sendCounts;
     std::vector<uint64_t> sendDispls;
     std::vector<uint64_t> recvCounts;
@@ -39,11 +39,11 @@ struct OpParam {
     uint32_t rankSize = 0;
 };
 
-HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost);
+HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost);
 
 } // namespace ops_hccl_a2av
 
-#define RETURN_IF_HCCL_FAIL(call)                      \
+#define RETURN_IF_HCCL_FAIL(call)                       \
     do {                                                \
         HcclResult ret = static_cast<HcclResult>(call); \
         if (ret != HCCL_SUCCESS) {                      \

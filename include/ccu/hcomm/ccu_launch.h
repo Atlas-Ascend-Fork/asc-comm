@@ -21,13 +21,14 @@ extern "C" {
 
 extern CcuResult HcommCcuKernelRegisterStart(CcuInsHandle insHandle);
 
-extern CcuResult HcommCcuKernelRegister(CcuInsHandle insHandle, uint32_t dieId, const char *kernelFuncName,
-    const void *kernelFunc, const void **kernelArgs, uint32_t argNum, CcuKernelHandle *kernelHandle);
+extern CcuResult HcommCcuKernelRegister(
+    CcuInsHandle insHandle, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
+    uint32_t argNum, CcuKernelHandle* kernelHandle);
 
 extern CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle insHandle);
 
 extern CcuResult HcommCcuKernelLaunch(
-    ThreadHandle threadHandle, CcuKernelHandle kernelHandle, const void *taskArgs, uint32_t argNum);
+    ThreadHandle threadHandle, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum);
 
 #ifdef __cplusplus
 }

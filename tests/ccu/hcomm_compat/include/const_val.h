@@ -23,11 +23,11 @@ constexpr uint32_t INVALID_U32 = UINT32_MAX;
 
 class InternalException : public std::runtime_error {
 public:
-    explicit InternalException(const std::string &message) : std::runtime_error(message) {}
+    explicit InternalException(const std::string& message) : std::runtime_error(message) {}
 };
 
 template <typename T>
-inline void CHECK_NULLPTR(const T &pointer, const char *message)
+inline void CHECK_NULLPTR(const T& pointer, const char* message)
 {
     if (pointer == nullptr) {
         throw NullPtrException(message);

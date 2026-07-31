@@ -17,18 +17,18 @@
 #include "ccu_kernel.h"
 #include "ccu/hcomm/ccu_launch.h"
 
-extern "C" HcclResult HcclCommQueryCcuIns(HcclComm comm, CcuInsHandle *insHandles, uint32_t *insNum);
+extern "C" HcclResult HcclCommQueryCcuIns(HcclComm comm, CcuInsHandle* insHandles, uint32_t* insNum);
 
 namespace ops_hccl_rs {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 
-static HcclResult AllocThreadAndChannelResource(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost,
-                                                std::vector<ChannelHandle> &kernelChannels)
+static HcclResult AllocThreadAndChannelResource(
+    HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost, std::vector<ChannelHandle>& kernelChannels)
 {
     ThreadHandle thread;
     constexpr uint32_t notifyNumOnMainThread = 0;
-    RETURN_IF_HCCL_FAIL(HcclThreadAcquireWithStream(comm, CommEngine::COMM_ENGINE_CCU, param.stream,
-        notifyNumOnMainThread, &thread));
+    RETURN_IF_HCCL_FAIL(
+        HcclThreadAcquireWithStream(comm, CommEngine::COMM_ENGINE_CCU, param.stream, notifyNumOnMainThread, &thread));
     resCtxHost.threads.push_back(thread);
 
     if (param.rankSize == 1) {
@@ -39,15 +39,16 @@ static HcclResult AllocThreadAndChannelResource(HcclComm comm, const OpParam &pa
     kernelChannels.resize(channelNum);
 
     uint32_t channelIndex = 0;
-    for(uint32_t remoteRank = 0; remoteRank < param.rankSize; remoteRank++) {
+    for (uint32_t remoteRank = 0; remoteRank < param.rankSize; remoteRank++) {
         if (remoteRank == param.myRank) {
             continue;
         }
 
         uint32_t netLayer = 0, listSize = 0;
-        CommLink *linkList = nullptr;
-        RETURN_IF_HCCL_FAIL(HcclRankGraphGetLinks(comm, netLayer, param.myRank, remoteRank, &linkList,
-                                      &listSize)); // 获取 srcRank 和 dstRank 间的 link 信息
+        CommLink* linkList = nullptr;
+        RETURN_IF_HCCL_FAIL(HcclRankGraphGetLinks(
+            comm, netLayer, param.myRank, remoteRank, &linkList,
+            &listSize)); // 获取 srcRank 和 dstRank 间的 link 信息
 
         HcclChannelDesc desc;
         RETURN_IF_HCCL_FAIL(HcclChannelDescInit(&desc, 1));
@@ -72,7 +73,8 @@ static HcclResult AllocThreadAndChannelResource(HcclComm comm, const OpParam &pa
         if (!protocolExists) {
             return HCCL_E_NOT_FOUND;
         }
-        RETURN_IF_HCCL_FAIL(HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_CCU, &desc, 1,
+        RETURN_IF_HCCL_FAIL(HcclChannelAcquire(
+            comm, CommEngine::COMM_ENGINE_CCU, &desc, 1,
             &kernelChannels[channelIndex])); // 获取 channel handle
         channelIndex++;
     }
@@ -80,12 +82,12 @@ static HcclResult AllocThreadAndChannelResource(HcclComm comm, const OpParam &pa
     return HCCL_SUCCESS;
 }
 
-static HcclResult RegisterReduceScatterKernel(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost,
-                                          const std::vector<ChannelHandle> &kernelChannels)
+static HcclResult RegisterReduceScatterKernel(
+    HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost, const std::vector<ChannelHandle>& kernelChannels)
 {
     CcuKernelInfo kernelInfo;
     strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuReduceScatterMesh1DMem2MemKernel");
-    kernelInfo.kernelFunc = reinterpret_cast<void *>(CcuReduceScatterMesh1DMem2MemKernel);
+    kernelInfo.kernelFunc = reinterpret_cast<void*>(CcuReduceScatterMesh1DMem2MemKernel);
 
     auto kernelArg = std::make_shared<CcuKernelArgReduceScatterMesh1DMem2Mem>();
     kernelArg->rankSize = param.rankSize;
@@ -93,7 +95,7 @@ static HcclResult RegisterReduceScatterKernel(HcclComm comm, const OpParam &para
     kernelInfo.setKernelArg(kernelArg);
 
     for (uint32_t i = 0; i < kernelChannels.size(); ++i) {
-        kernelArg->channels[i] = kernelChannels[i];  // 将 channel handle 保存到 kernel 参数
+        kernelArg->channels[i] = kernelChannels[i]; // 将 channel handle 保存到 kernel 参数
     }
     kernelArg->channelCount = static_cast<uint32_t>(kernelChannels.size());
 
@@ -112,13 +114,13 @@ static HcclResult RegisterReduceScatterKernel(HcclComm comm, const OpParam &para
     }
 
     CcuKernelHandle kernelHandle;
-    const void *kernelArgs[] = {kernelInfo.kernelArg};
+    const void* kernelArgs[] = {kernelInfo.kernelArg};
 
     constexpr uint32_t dieId = 0; // 预留接口，暂无含义
     constexpr uint32_t kernelArgNum = 1;
-    CcuResult regRet = HcommCcuKernelRegister(insHandle, dieId, kernelInfo.kernelFuncName,
-                                                reinterpret_cast<void*>(kernelInfo.kernelFunc),
-                                                kernelArgs, kernelArgNum, &kernelHandle); // 注册 kernel
+    CcuResult regRet = HcommCcuKernelRegister(
+        insHandle, dieId, kernelInfo.kernelFuncName, reinterpret_cast<void*>(kernelInfo.kernelFunc), kernelArgs,
+        kernelArgNum, &kernelHandle); // 注册 kernel
 
     if (regRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
@@ -133,7 +135,7 @@ static HcclResult RegisterReduceScatterKernel(HcclComm comm, const OpParam &para
     return HCCL_SUCCESS;
 }
 
-HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost)
+HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost)
 {
     std::vector<ChannelHandle> kernelChannels;
     RETURN_IF_HCCL_FAIL(AllocThreadAndChannelResource(comm, param, resCtxHost, kernelChannels));

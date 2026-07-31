@@ -22,40 +22,37 @@
 namespace hcomm {
 namespace CcuRep {
 
-    using namespace Hccl;
+using namespace Hccl;
 
-    CcuRepSetLoop::CcuRepSetLoop(
-        CcuInsGeneraterBase *insGeneratorPtr, const Variable &loopParam, const Executor &executor, const Variable &var)
-        : insGeneratorPtr_(insGeneratorPtr),
-          loopParam(loopParam),
-          executor(executor),
-          var(var)
-    {
-        type = CcuRepType::SET_LOOP;
-        instrCount = insGeneratorPtr_->GetInstrCount(type); // set loop 指令数量为2
+CcuRepSetLoop::CcuRepSetLoop(
+    CcuInsGeneraterBase* insGeneratorPtr, const Variable& loopParam, const Executor& executor, const Variable& var)
+    : insGeneratorPtr_(insGeneratorPtr), loopParam(loopParam), executor(executor), var(var)
+{
+    type = CcuRepType::SET_LOOP;
+    instrCount = insGeneratorPtr_->GetInstrCount(type); // set loop 指令数量为2
+}
+
+bool CcuRepSetLoop::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+{
+    this->instrId = instrId;
+    translated = true;
+
+    if (instrId > USHRT_MAX - instrCount) {
+        Hccl::THROW<Hccl::InternalException>(Hccl::StringFormat(
+            "[CcuRepSetLoop][Translate] instrId[%u] + instrCount[%u] exceeds the "
+            "maximum value of unsigned short int.",
+            instrId, instrCount));
     }
+    instrId += instrCount;
 
-    bool CcuRepSetLoop::Translate(CcuKernel *ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
-    {
-        this->instrId = instrId;
-        translated = true;
+    return translated;
+}
 
-        if (instrId > USHRT_MAX - instrCount) {
-            Hccl::THROW<Hccl::InternalException>(
-                Hccl::StringFormat("[CcuRepSetLoop][Translate] instrId[%u] + instrCount[%u] exceeds the "
-                                   "maximum value of unsigned short int.",
-                    instrId, instrCount));
-        }
-        instrId += instrCount;
-
-        return translated;
-    }
-
-    std::string CcuRepSetLoop::Describe()
-    {
-        return Hccl::StringFormat(
-            "loopParam[%u] = var[%u], execute on LoopEngine[%u]", loopParam.Id(), var.Id(), executor.Id());
-    }
+std::string CcuRepSetLoop::Describe()
+{
+    return Hccl::StringFormat(
+        "loopParam[%u] = var[%u], execute on LoopEngine[%u]", loopParam.Id(), var.Id(), executor.Id());
+}
 
 }; // namespace CcuRep
 }; // namespace hcomm
