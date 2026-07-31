@@ -28,7 +28,7 @@ struct AlgResourceCtx {
 
 struct OpParam {
     aclrtStream stream;
-    void *buffer = nullptr;
+    void* buffer = nullptr;
     uint64_t count = 0;
     HcclDataType dataType;
     uint32_t rootRank = 0;
@@ -36,11 +36,11 @@ struct OpParam {
     uint32_t rankSize = 0;
 };
 
-HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost);
+HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost);
 
 } // namespace ops_hccl_bcast
 
-#define RETURN_IF_HCCL_FAIL(call)                      \
+#define RETURN_IF_HCCL_FAIL(call)                       \
     do {                                                \
         HcclResult ret = static_cast<HcclResult>(call); \
         if (ret != HCCL_SUCCESS) {                      \

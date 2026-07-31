@@ -19,7 +19,9 @@ CcuRepReferenceManager::CcuRepReferenceManager(uint8_t deiId) : dieId(deiId)
 {
     funcInVar.resize(FUNC_ARG_MAX);
     funcOutVar.resize(FUNC_ARG_MAX);
-    funcCallVar.resize(1 + FUNC_NEST_MAX + 1); // FUNC_NEST_MAX个xn存放返回地址，1个xn存放block的起始地址和1个xn存放函数地址调用时返回地址
+    funcCallVar.resize(
+        1 + FUNC_NEST_MAX +
+        1); // FUNC_NEST_MAX个xn存放返回地址，1个xn存放block的起始地址和1个xn存放函数地址调用时返回地址
 }
 
 CcuResReq CcuRepReferenceManager::GetResReq(uint8_t reqDieId)
@@ -30,27 +32,24 @@ CcuResReq CcuRepReferenceManager::GetResReq(uint8_t reqDieId)
     return resReq;
 }
 
-void CcuRepReferenceManager::GetRes(CcuRepResource &res)
+void CcuRepReferenceManager::GetRes(CcuRepResource& res)
 {
-    res.continuousVariable[dieId].insert(res.continuousVariable[dieId].end(),
-        funcInVar.begin(), funcInVar.end());
-    res.continuousVariable[dieId].insert(res.continuousVariable[dieId].end(),
-        funcOutVar.begin(), funcOutVar.end());
-    res.continuousVariable[dieId].insert(res.continuousVariable[dieId].end(),
-        funcCallVar.begin(), funcCallVar.end());
+    res.continuousVariable[dieId].insert(res.continuousVariable[dieId].end(), funcInVar.begin(), funcInVar.end());
+    res.continuousVariable[dieId].insert(res.continuousVariable[dieId].end(), funcOutVar.begin(), funcOutVar.end());
+    res.continuousVariable[dieId].insert(res.continuousVariable[dieId].end(), funcCallVar.begin(), funcCallVar.end());
 }
 
-bool CcuRepReferenceManager::CheckValid(const std::string &label)
+bool CcuRepReferenceManager::CheckValid(const std::string& label)
 {
     return (referenceMap.find(label) != referenceMap.end());
 }
 
-bool CcuRepReferenceManager::CheckUnique(const std::string &label)
+bool CcuRepReferenceManager::CheckUnique(const std::string& label)
 {
     return (referenceMap.find(label) == referenceMap.end());
 }
 
-std::shared_ptr<CcuRepBlock> CcuRepReferenceManager::GetRefBlock(const std::string &label)
+std::shared_ptr<CcuRepBlock> CcuRepReferenceManager::GetRefBlock(const std::string& label)
 {
     if (!CheckValid(label)) {
         Hccl::THROW<Hccl::CcuApiException>("Invalid Reference: %s", label.c_str());
@@ -58,7 +57,7 @@ std::shared_ptr<CcuRepBlock> CcuRepReferenceManager::GetRefBlock(const std::stri
     return referenceMap[label];
 }
 
-void CcuRepReferenceManager::SetRefBlock(const std::string &label, std::shared_ptr<CcuRepBlock> refBlock)
+void CcuRepReferenceManager::SetRefBlock(const std::string& label, std::shared_ptr<CcuRepBlock> refBlock)
 {
     if (!CheckUnique(label)) {
         Hccl::THROW<Hccl::CcuApiException>("Duplicate Definition: %s", label.c_str());
@@ -66,7 +65,7 @@ void CcuRepReferenceManager::SetRefBlock(const std::string &label, std::shared_p
     referenceMap[label] = refBlock;
 }
 
-uint16_t CcuRepReferenceManager::GetFuncAddr(const std::string &label)
+uint16_t CcuRepReferenceManager::GetFuncAddr(const std::string& label)
 {
     if (!CheckValid(label)) {
         Hccl::THROW<Hccl::CcuApiException>("Invalid Reference: %s", label.c_str());
@@ -79,12 +78,9 @@ uint16_t CcuRepReferenceManager::GetFuncAddr(const std::string &label)
     return referenceMap[label]->StartInstrId();
 }
 
-const Variable &CcuRepReferenceManager::GetFuncCall()
-{
-    return funcCallVar[0];
-}
+const Variable& CcuRepReferenceManager::GetFuncCall() { return funcCallVar[0]; }
 
-const Variable &CcuRepReferenceManager::GetFuncRet(uint16_t callLayer)
+const Variable& CcuRepReferenceManager::GetFuncRet(uint16_t callLayer)
 {
     if (callLayer > FUNC_NEST_MAX) {
         Hccl::THROW<Hccl::CcuApiException>("Max Func Call Nest Num is %u, callLayer = %u", FUNC_NEST_MAX, callLayer);
@@ -92,27 +88,18 @@ const Variable &CcuRepReferenceManager::GetFuncRet(uint16_t callLayer)
     return funcCallVar[callLayer + 1];
 }
 
-const std::vector<Variable> &CcuRepReferenceManager::GetFuncIn()
-{
-    return funcInVar;
-}
+const std::vector<Variable>& CcuRepReferenceManager::GetFuncIn() { return funcInVar; }
 
-const std::vector<Variable> &CcuRepReferenceManager::GetFuncOut()
-{
-    return funcOutVar;
-}
+const std::vector<Variable>& CcuRepReferenceManager::GetFuncOut() { return funcOutVar; }
 
 void CcuRepReferenceManager::Dump() const
 {
-    for (const auto &kv : referenceMap) {
+    for (const auto& kv : referenceMap) {
         HCCL_INFO("refBlock[%s]:", kv.first.c_str());
     }
 }
 
-void CcuRepReferenceManager::ClearRepReference()
-{
-    referenceMap.clear();
-}
+void CcuRepReferenceManager::ClearRepReference() { referenceMap.clear(); }
 
 }; // namespace CcuRep
 }; // namespace hcomm

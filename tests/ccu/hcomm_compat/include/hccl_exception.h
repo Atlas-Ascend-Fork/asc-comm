@@ -18,7 +18,7 @@ namespace Hccl {
 
 class HcclException : public std::runtime_error {
 public:
-    explicit HcclException(const std::string &message) : std::runtime_error(message) {}
+    explicit HcclException(const std::string& message) : std::runtime_error(message) {}
 };
 
 } // namespace Hccl

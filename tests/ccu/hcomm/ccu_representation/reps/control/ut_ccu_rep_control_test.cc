@@ -21,32 +21,32 @@ namespace {
 
 class CcuRepControlTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
     void TearDown() override {}
 };
 
 class CcuRepFuncBlockTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepFuncCallTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepJumpTest : public ::testing::Test {
 protected:
     void SetUp() override {}
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
 };
 
 class CcuRepJumpLabelTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
@@ -230,7 +230,7 @@ TEST_F(CcuRepJumpTest, Translate_WithJumpLabel)
     jump.Reference(jumpLabelPtr);
 
     CcuInstr instr[2] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.reserveXnId = 1;
@@ -275,7 +275,7 @@ TEST_F(CcuRepJumpTest, Translate_JumpNE_WithJumpLabel)
     jumpNE.Reference(jumpLabelPtr);
 
     CcuInstr instr[2] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.reserveXnId = 1;
@@ -319,7 +319,7 @@ TEST_F(CcuRepJumpTest, Translate_JumpEQ_WithJumpLabel)
     jumpEQ.Reference(jumpLabelPtr);
 
     CcuInstr instr[5] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.reserveXnId = 1;
@@ -365,7 +365,7 @@ TEST_F(CcuRepControlTest, CcuRepJumpBase_Reference)
     jump.Reference(jumpLabelPtr);
 
     CcuInstr instr[2] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.reserveXnId = 1;
@@ -389,7 +389,7 @@ TEST_F(CcuRepControlTest, CcuRepTranslator_CheckTypeNullptr_Throw)
     funcBlock.SetFuncManager(&funcManager);
 
     CcuInstr instr[128] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.reserveXnId = 1;
@@ -397,6 +397,6 @@ TEST_F(CcuRepControlTest, CcuRepTranslator_CheckTypeNullptr_Throw)
     EXPECT_THROW(funcBlock.Translate(nullptr, instrPtr, instrId, dep), Hccl::CcuApiException);
 }
 
-}
-}
-}
+} // namespace
+} // namespace CcuRep
+} // namespace hcomm

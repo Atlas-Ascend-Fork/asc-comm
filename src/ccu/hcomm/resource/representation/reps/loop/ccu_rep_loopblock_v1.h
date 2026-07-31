@@ -17,26 +17,26 @@
 namespace hcomm {
 namespace CcuRep {
 
-    class CcuRepLoopBlock : public CcuRepBlock {
-    public:
-        explicit CcuRepLoopBlock(CcuInsGeneraterBase *insGenPtr, const std::string &label);
-        std::string Describe() override;
+class CcuRepLoopBlock : public CcuRepBlock {
+public:
+    explicit CcuRepLoopBlock(CcuInsGeneraterBase* insGenPtr, const std::string& label);
+    std::string Describe() override;
 
-        void DefineArg(Variable var);
-        void DefineArg(Memory mem);
-        void DefineArg(LocalAddr addr);
-        void DefineArg(RemoteAddr addr);
+    void DefineArg(Variable var);
+    void DefineArg(Memory mem);
+    void DefineArg(LocalAddr addr);
+    void DefineArg(RemoteAddr addr);
 
-        void DefineArg(const std::vector<Variable> varList);
-        void DefineArg(const std::vector<Memory> memList);
-        void DefineArg(const std::vector<LocalAddr> addrList);
-        void DefineArg(const std::vector<RemoteAddr> addrList);
+    void DefineArg(const std::vector<Variable> varList);
+    void DefineArg(const std::vector<Memory> memList);
+    void DefineArg(const std::vector<LocalAddr> addrList);
+    void DefineArg(const std::vector<RemoteAddr> addrList);
 
-        CcuRepArg &GetArg(uint16_t index);
+    CcuRepArg& GetArg(uint16_t index);
 
-    private:
-        std::vector<CcuRepArg> args;
-    };
+private:
+    std::vector<CcuRepArg> args;
+};
 
 }; // namespace CcuRep
 }; // namespace hcomm
