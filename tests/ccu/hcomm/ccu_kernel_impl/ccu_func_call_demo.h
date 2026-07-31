@@ -26,9 +26,7 @@ ccu::Func CcuFuncCallNestedInnerFunc([](ccu::Variable x) {
     tmp = x + x;
 });
 
-ccu::Func CcuFuncCallNestedOuterFunc([](ccu::Variable x) {
-    (void)ccu::CallFunc<CcuFuncCallNestedInnerFunc>(x);
-});
+ccu::Func CcuFuncCallNestedOuterFunc([](ccu::Variable x) { (void)ccu::CallFunc<CcuFuncCallNestedInnerFunc>(x); });
 
 inline CcuResult CcuFuncCallBasicDemoKernel(CcuKernelArg arg)
 {
@@ -55,9 +53,7 @@ inline CcuResult CcuFuncCallInLoopInvalidDemoKernel(CcuKernelArg arg)
     x = 3;
 
     CcuResult bodyRet = CcuResult::CCU_SUCCESS;
-    ccu::Func body([&]() {
-        bodyRet = ccu::CallFunc<CcuFuncCallBasicFunc>(x);
-    });
+    ccu::Func body([&]() { bodyRet = ccu::CallFunc<CcuFuncCallBasicFunc>(x); });
     ccu::LoopConfig dummyCfg{};
     ccu::Loop loop(dummyCfg, body);
     return bodyRet;

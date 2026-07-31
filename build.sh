@@ -140,7 +140,7 @@ set_env() {
         log "ERROR" "未配置 CANN 环境，请先source set_env.sh"
         exit 1
     fi
-    log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}" 
+    log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}"
     Ascend_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
     CUSTOM_OPTION+=("-DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
@@ -159,7 +159,7 @@ function cmake_config () {
     cmake -S "${src_dir}" -B "${build_dir}" "$@"
 }
 
-function build () { 
+function build () {
     local build_dir="$1"
     shift
     echo "cmake --build ${build_dir} $* -j ${THREAD_NUM}"

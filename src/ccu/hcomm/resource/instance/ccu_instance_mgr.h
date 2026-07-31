@@ -22,21 +22,21 @@ namespace hcomm {
 
 class CcuInstanceMgr {
 public:
-    static CcuInstanceMgr &GetInstance(const int32_t deviceLogicId);
+    static CcuInstanceMgr& GetInstance(const int32_t deviceLogicId);
 
     CcuResult Init();
     CcuResult Deinit();
 
-    CcuResult Create(CcuInstanceType insType, CcuInsHandle &insHandle);
-    CcuInstance *Get(CcuInsHandle insHandle) const;
+    CcuResult Create(CcuInstanceType insType, CcuInsHandle& insHandle);
+    CcuInstance* Get(CcuInsHandle insHandle) const;
     CcuResult Destroy(CcuInsHandle insHandle);
 
 private:
     explicit CcuInstanceMgr() = default;
     ~CcuInstanceMgr();
 
-    CcuInstanceMgr(const CcuInstanceMgr &that) = delete;
-    CcuInstanceMgr &operator=(const CcuInstanceMgr &that) = delete;
+    CcuInstanceMgr(const CcuInstanceMgr& that) = delete;
+    CcuInstanceMgr& operator=(const CcuInstanceMgr& that) = delete;
 
 private:
     bool initializedFlag_{false};

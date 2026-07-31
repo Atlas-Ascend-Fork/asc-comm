@@ -19,21 +19,12 @@ namespace CcuRep {
 
 class CcuRepNot : public CcuRepBase {
 public:
-    CcuRepNot(CcuInsGeneraterBase* insGenPtr, const Variable &varC, const Variable &varB);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &curInstrId, const TransDep &dep) override;
-    Variable GetVarB()
-    {
-        return varB;
-    }
-    Variable GetVarC()
-    {
-        return varC;
-    }
+    CcuRepNot(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varB);
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep) override;
+    Variable GetVarB() { return varB; }
+    Variable GetVarC() { return varC; }
 
-    NotSubType GetSubType()
-    {
-        return subType;
-    }
+    NotSubType GetSubType() { return subType; }
 
     std::string Describe() override;
 

@@ -19,9 +19,9 @@ namespace CcuRep {
 
 class CcuRepXor : public CcuRepBase {
 public:
-    CcuRepXor(CcuInsGeneraterBase* insGenPtr, const Variable &varC, const Variable &varA, const Variable &varB);
-    CcuRepXor(CcuInsGeneraterBase* insGenPtr, const Variable &varC, const Variable &varB);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &curInstrId, const TransDep &dep) override;
+    CcuRepXor(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, const Variable& varB);
+    CcuRepXor(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varB);
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep) override;
 
     Variable GetVarA() { return varA; }
     Variable GetVarB() { return varB; }

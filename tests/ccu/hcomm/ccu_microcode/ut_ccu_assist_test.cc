@@ -51,10 +51,7 @@ TEST_F(CcuAssistTest, GetToken_ValidZero)
     EXPECT_EQ(result, 0);
 }
 
-TEST_F(CcuAssistTest, GetTokenInfo_EncodesQueriedToken)
-{
-    EXPECT_EQ(GetTokenInfo(0, 0), 1ULL << 52);
-}
+TEST_F(CcuAssistTest, GetTokenInfo_EncodesQueriedToken) { EXPECT_EQ(GetTokenInfo(0, 0), 1ULL << 52); }
 
 TEST_F(CcuAssistTest, GetCcuReduceType_SUM)
 {
@@ -165,6 +162,6 @@ TEST_F(CcuAssistTest, GetUBDataType_Unsupported)
     EXPECT_THROW(GetUBDataType(Hccl::DataType::HIF8), Hccl::CcuApiException);
 }
 
-}
-}
-}
+} // namespace
+} // namespace CcuRep
+} // namespace hcomm
