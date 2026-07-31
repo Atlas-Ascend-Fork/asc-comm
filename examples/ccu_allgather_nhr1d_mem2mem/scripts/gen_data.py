@@ -21,7 +21,8 @@ MAX_RANKS = 16
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Generate FP32 input and golden data for CCU AllGather.")
+        description="Generate FP32 input and golden data for CCU AllGather."
+    )
     parser.add_argument("--rank-size", type=int, required=True)
     parser.add_argument("--count", type=int, required=True)
     parser.add_argument("--input-dir", type=Path, default=Path("./input"))
@@ -54,7 +55,8 @@ def main():
     golden.tofile(args.output_dir / "golden.bin")
     print(
         f"generated {args.rank_size} rank inputs and golden data, "
-        f"{args.count} FP32 elements per rank")
+        f"{args.count} FP32 elements per rank"
+    )
 
 
 if __name__ == "__main__":

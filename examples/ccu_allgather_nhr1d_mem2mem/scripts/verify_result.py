@@ -22,7 +22,8 @@ MAX_RANKS = 16
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Verify CCU AllGather output against golden data.")
+        description="Verify CCU AllGather output against golden data."
+    )
     parser.add_argument("--rank-size", type=int, required=True)
     parser.add_argument("--count", type=int, required=True)
     parser.add_argument("--output-dir", type=Path, default=Path("./output"))
@@ -41,7 +42,8 @@ def main():
     golden = np.fromfile(args.golden, dtype=np.float32)
     if golden.size != expected_size:
         raise ValueError(
-            f"golden size mismatch: expected {expected_size}, got {golden.size}")
+            f"golden size mismatch: expected {expected_size}, got {golden.size}"
+        )
 
     for rank_id in range(args.rank_size):
         output_path = args.output_dir / f"output_rank_{rank_id}.bin"
@@ -49,13 +51,15 @@ def main():
         if output.size != expected_size:
             raise ValueError(
                 f"rank {rank_id} output size mismatch: "
-                f"expected {expected_size}, got {output.size}")
+                f"expected {expected_size}, got {output.size}"
+            )
         mismatch = np.flatnonzero(output != golden)
         if mismatch.size != 0:
             index = int(mismatch[0])
             raise ValueError(
                 f"rank {rank_id} mismatch at {index}: "
-                f"expected {golden[index]}, got {output[index]}")
+                f"expected {golden[index]}, got {output[index]}"
+            )
         print(f"rank {rank_id} verify pass")
 
     print("test pass!")
