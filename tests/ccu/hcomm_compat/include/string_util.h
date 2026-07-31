@@ -18,7 +18,7 @@
 namespace Hccl {
 
 template <typename... Args>
-inline std::string StringFormat(const char *format, Args... args)
+inline std::string StringFormat(const char* format, Args... args)
 {
     const int required = std::snprintf(nullptr, 0, format, args...);
     if (required < 0) {

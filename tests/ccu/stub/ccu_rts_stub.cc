@@ -12,12 +12,12 @@
 
 namespace hcomm {
 
-HcclResult RtsUbDevQueryInfo(const rtUbDevQueryCmd cmd, rtMemUbTokenInfo &devInfo)
+HcclResult RtsUbDevQueryInfo(const rtUbDevQueryCmd cmd, rtMemUbTokenInfo& devInfo)
 {
     if (cmd != QUERY_PROCESS_TOKEN) {
         return HcclResult::HCCL_E_PARA;
     }
-    devInfo.tokenId    = 0;
+    devInfo.tokenId = 0;
     devInfo.tokenValue = 0;
     return HcclResult::HCCL_SUCCESS;
 }

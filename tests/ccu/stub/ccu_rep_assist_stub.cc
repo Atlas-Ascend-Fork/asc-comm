@@ -14,12 +14,9 @@
 namespace hcomm {
 namespace CcuRep {
 
-void AppendToContext(CcuRepContext *context, std::shared_ptr<CcuRepBase> rep) {}
+void AppendToContext(CcuRepContext* context, std::shared_ptr<CcuRepBase> rep) {}
 
-Variable CreateVariable(CcuRepContext *context)
-{
-    return Variable(context);
-}
+Variable CreateVariable(CcuRepContext* context) { return Variable(context); }
 
 } // namespace CcuRep
 } // namespace hcomm

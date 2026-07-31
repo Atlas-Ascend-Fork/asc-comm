@@ -20,49 +20,38 @@
 namespace hcomm {
 namespace CcuRep {
 
-    class CcuRepLoop : public CcuRepBase {
-    public:
-        explicit CcuRepLoop(CcuInsGeneraterBase *insGeneratorPtr, const std::string &label, const Variable &loopParam);
-        explicit CcuRepLoop(CcuInsGeneraterBase *insGeneratorPtr, const std::string &label, const Variable &loopParam,
-            const Variable &loopIterNum, const Variable &loopGsaOffset);
-        bool Translate(CcuKernel *ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
-        std::string Describe() override;
-        const std::string &GetLabel() const;
+class CcuRepLoop : public CcuRepBase {
+public:
+    explicit CcuRepLoop(CcuInsGeneraterBase* insGeneratorPtr, const std::string& label, const Variable& loopParam);
+    explicit CcuRepLoop(
+        CcuInsGeneraterBase* insGeneratorPtr, const std::string& label, const Variable& loopParam,
+        const Variable& loopIterNum, const Variable& loopGsaOffset);
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+    std::string Describe() override;
+    const std::string& GetLabel() const;
 
-        void Reference(std::shared_ptr<CcuRepLoopBlock> refRep);
-        std::shared_ptr<CcuRepBase> SetLoopParam(Executor executor, Variable var);
-        CcuRepLoopBlock *GetLoopBlock()
-        {
-            return loopBlock.get();
-        }
+    void Reference(std::shared_ptr<CcuRepLoopBlock> refRep);
+    std::shared_ptr<CcuRepBase> SetLoopParam(Executor executor, Variable var);
+    CcuRepLoopBlock* GetLoopBlock() { return loopBlock.get(); }
 
-        Variable *GetLoopParam()
-        {
-            return &loopParam;
-        }
-        Variable GetLoopIterNum()
-        {
-            return loopIterNum;
-        }
-        Variable GetLoopGsaOffset()
-        {
-            return loopGsaOffset;
-        }
+    Variable* GetLoopParam() { return &loopParam; }
+    Variable GetLoopIterNum() { return loopIterNum; }
+    Variable GetLoopGsaOffset() { return loopGsaOffset; }
 
-    private:
-        void ValidateInsGeneratorForLoop();
+private:
+    void ValidateInsGeneratorForLoop();
 
-        CcuInsGeneraterBase *insGeneratorPtr_;
-        std::string label;
-        std::shared_ptr<CcuRepLoopBlock> loopBlock{nullptr};
+    CcuInsGeneraterBase* insGeneratorPtr_;
+    std::string label;
+    std::shared_ptr<CcuRepLoopBlock> loopBlock{nullptr};
 
-        Variable loopParam;
-        Variable loopIterNum;
-        Variable loopGsaOffset;
-        CcuInstr *instr{nullptr};
+    Variable loopParam;
+    Variable loopIterNum;
+    Variable loopGsaOffset;
+    CcuInstr* instr{nullptr};
 
-        bool supportCcuV1{false};
-    };
+    bool supportCcuV1{false};
+};
 
 }; // namespace CcuRep
 }; // namespace hcomm

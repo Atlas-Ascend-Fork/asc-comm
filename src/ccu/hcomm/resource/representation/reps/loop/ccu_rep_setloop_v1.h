@@ -17,22 +17,22 @@
 namespace hcomm {
 namespace CcuRep {
 
-    class CcuRepSetLoop : public CcuRepBase {
-    public:
-        CcuRepSetLoop(CcuInsGeneraterBase *insGeneratorPtr, const Variable &loopParam, const Executor &executor,
-            const Variable &var);
+class CcuRepSetLoop : public CcuRepBase {
+public:
+    CcuRepSetLoop(
+        CcuInsGeneraterBase* insGeneratorPtr, const Variable& loopParam, const Executor& executor, const Variable& var);
 
-        bool Translate(CcuKernel *ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
-        std::string Describe() override;
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+    std::string Describe() override;
 
-    private:
-        CcuInsGeneraterBase *insGeneratorPtr_{nullptr};
+private:
+    CcuInsGeneraterBase* insGeneratorPtr_{nullptr};
 
-    public:
-        Variable loopParam;
-        Executor executor;
-        Variable var;
-    };
+public:
+    Variable loopParam;
+    Executor executor;
+    Variable var;
+};
 
 }; // namespace CcuRep
 }; // namespace hcomm

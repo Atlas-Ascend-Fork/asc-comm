@@ -16,7 +16,7 @@
 namespace hcomm {
 namespace CcuRep {
 
-LoopCall::LoopCall(CcuRepContext *context, const std::string &label) : context(context), label(label)
+LoopCall::LoopCall(CcuRepContext* context, const std::string& label) : context(context), label(label)
 {
     // repLoopCall = std::make_shared<CcuRepLoopCall>(label);
 }

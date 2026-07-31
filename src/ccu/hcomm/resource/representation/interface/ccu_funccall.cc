@@ -21,14 +21,14 @@
 namespace hcomm {
 namespace CcuRep {
 
-FuncCall::FuncCall(CcuRepContext *context, std::string label) : context(context), label(label)
+FuncCall::FuncCall(CcuRepContext* context, std::string label) : context(context), label(label)
 {
     CcuInsGeneraterBase* insGenPtr = context->GetInsGenerator();
     Hccl::CHECK_NULLPTR(insGenPtr, "[FuncCall::FuncCall](label) insGenPtr is nullptr!");
     repFuncCall = std::make_shared<CcuRepFuncCall>(insGenPtr, label);
 }
 
-FuncCall::FuncCall(CcuRepContext *context, const Variable &funcAddr) : context(context)
+FuncCall::FuncCall(CcuRepContext* context, const Variable& funcAddr) : context(context)
 {
     CcuInsGeneraterBase* insGenPtr = context->GetInsGenerator();
     Hccl::CHECK_NULLPTR(insGenPtr, "[FuncCall::FuncCall](funcAddr) insGenPtr is nullptr!");

@@ -27,20 +27,19 @@ typedef struct {
     HcommCcuSchd ccuSchd;
     CcuInsHandle ccuIns;
     ThreadHandle thread;
-    void *attrs; // 预留参数
-    const char *kernelName;
+    void* attrs; // 预留参数
+    const char* kernelName;
 } HcommCcuHostKernelLaunchCfg;
 
 typedef struct {
-    const void **kernelArgs;
+    const void** kernelArgs;
     uint32_t kernelArgNum;
-    const void *taskArgs;
+    const void* taskArgs;
     uint32_t taskArgNum;
 } HcommCcuHostKernelArgs;
 
-extern CcuResult HcommCcuHostKernelLaunch(const void *kernelFunc,
-    const HcommCcuHostKernelLaunchCfg *cfg,
-    const HcommCcuHostKernelArgs *args);
+extern CcuResult HcommCcuHostKernelLaunch(
+    const void* kernelFunc, const HcommCcuHostKernelLaunchCfg* cfg, const HcommCcuHostKernelArgs* args);
 
 #ifdef __cplusplus
 }

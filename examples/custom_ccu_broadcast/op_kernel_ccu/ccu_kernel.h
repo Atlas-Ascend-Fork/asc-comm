@@ -25,11 +25,11 @@ namespace ccu = ::AscendC::ccu;
 namespace ops_hccl_bcast {
 
 #define RETURN_IF_CCU_FAIL(call)  \
-    do {                           \
-        CcuResult ret = (call);    \
-        if (ret != CCU_SUCCESS) {  \
-            return ret;            \
-        }                          \
+    do {                          \
+        CcuResult ret = (call);   \
+        if (ret != CCU_SUCCESS) { \
+            return ret;           \
+        }                         \
     } while (0)
 
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
@@ -41,18 +41,18 @@ struct CcuKernelArgBase {
 
 struct CcuKernelInfo {
     char kernelFuncName[64];
-    void *kernelFunc;
-    void *kernelArg;
+    void* kernelFunc;
+    void* kernelArg;
 
 private:
     std::shared_ptr<CcuKernelArgBase> kernelArgSmartPtr;
 
 public:
-    template<typename T>
+    template <typename T>
     void setKernelArg(std::shared_ptr<T> arg)
     {
         kernelArgSmartPtr = std::static_pointer_cast<CcuKernelArgBase>(arg);
-        kernelArg = static_cast<void *>(arg.get());
+        kernelArg = static_cast<void*>(arg.get());
     }
 };
 
@@ -63,7 +63,7 @@ struct CcuKernelArgBroadcastMesh1D : public CcuKernelArgBase {
 };
 
 struct BroadcastMesh1DContext {
-    const CcuKernelArgBroadcastMesh1D *arg;
+    const CcuKernelArgBroadcastMesh1D* arg;
     ccu::Variable localBuffer;
     ccu::Variable localToken;
     ccu::Variable dataSize;

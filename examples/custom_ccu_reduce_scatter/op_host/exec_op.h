@@ -15,7 +15,7 @@
 
 namespace ops_hccl_rs {
 
-HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx);
+HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx);
 
 } // namespace ops_hccl_rs
 
