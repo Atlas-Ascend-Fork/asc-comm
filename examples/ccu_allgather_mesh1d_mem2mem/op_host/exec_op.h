@@ -8,6 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/**
+ * @brief 声明 Mesh1D Mem2Mem AllGather 的 Host 侧入口。
+ *
+ * 该接口接收 Device Buffer、单 Rank 元素数量、HCCL 通信域及 CCU 任务下发所用
+ * Stream。
+ */
 #ifndef ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_EXEC_OP_H
 #define ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_EXEC_OP_H
 

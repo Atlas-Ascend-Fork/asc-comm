@@ -15,8 +15,10 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <limits>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -24,7 +26,6 @@
 #include <thread>
 #include <vector>
 
-#include "data_utils.h"
 #include "exec_op.h"
 
 namespace CcuAgMem2mem {
@@ -34,7 +35,94 @@ constexpr uint64_t MAX_RANKS = 16;
 struct Options {
     std::vector<uint32_t> devices{0, 1};
     uint64_t count{256};
+    std::string inputDir{"./input"};
+    std::string outputDir{"./output"};
 };
+
+static bool CalculateBufferSizes(uint64_t count, uint32_t rankSize,
+    uint64_t &inputBytes, uint64_t &outputBytes)
+{
+    inputBytes = 0;
+    outputBytes = 0;
+    if (rankSize == 0 ||
+        count > std::numeric_limits<uint64_t>::max() / sizeof(float)) {
+        return false;
+    }
+    inputBytes = count * sizeof(float);
+    if (inputBytes != 0 &&
+        rankSize > std::numeric_limits<uint64_t>::max() / inputBytes) {
+        inputBytes = 0;
+        return false;
+    }
+    outputBytes = inputBytes * rankSize;
+    return outputBytes <= std::numeric_limits<size_t>::max();
+}
+
+static bool ReadFloatData(const std::string &filePath, uint64_t count,
+    std::vector<float> &data)
+{
+    if (count > std::numeric_limits<size_t>::max() / sizeof(float) ||
+        count > static_cast<uint64_t>(
+            std::numeric_limits<std::streamsize>::max()) / sizeof(float)) {
+        std::cerr << "input data is too large: " << filePath << "\n";
+        return false;
+    }
+
+    std::ifstream input(filePath, std::ios::binary | std::ios::ate);
+    if (!input.is_open()) {
+        std::cerr << "failed to open input file: " << filePath << "\n";
+        return false;
+    }
+
+    const uint64_t expectedBytes = count * sizeof(float);
+    const std::streampos fileSize = input.tellg();
+    if (fileSize < 0 || static_cast<uint64_t>(fileSize) != expectedBytes) {
+        std::cerr << "input file size mismatch: " << filePath
+                  << ", expected " << expectedBytes << " bytes, got "
+                  << fileSize << " bytes\n";
+        return false;
+    }
+
+    input.seekg(0, std::ios::beg);
+    data.resize(static_cast<size_t>(count));
+    if (expectedBytes != 0 &&
+        !input.read(reinterpret_cast<char *>(data.data()),
+            static_cast<std::streamsize>(expectedBytes))) {
+        std::cerr << "failed to read input file: " << filePath << "\n";
+        return false;
+    }
+    return input.good() || input.eof();
+}
+
+static bool WriteFloatData(
+    const std::string &filePath, const std::vector<float> &data)
+{
+    if (data.size() >
+        static_cast<size_t>(std::numeric_limits<std::streamsize>::max()) /
+            sizeof(float)) {
+        std::cerr << "output data is too large: " << filePath << "\n";
+        return false;
+    }
+
+    std::ofstream output(
+        filePath, std::ios::binary | std::ios::trunc);
+    if (!output.is_open()) {
+        std::cerr << "failed to open output file: " << filePath << "\n";
+        return false;
+    }
+
+    const auto bytes =
+        static_cast<std::streamsize>(data.size() * sizeof(float));
+    if (bytes != 0) {
+        output.write(
+            reinterpret_cast<const char *>(data.data()), bytes);
+    }
+    if (!output.good()) {
+        std::cerr << "failed to write output file: " << filePath << "\n";
+        return false;
+    }
+    return true;
+}
 
 static std::vector<uint32_t> ParseDevices(const std::string &value)
 {
@@ -50,7 +138,8 @@ static std::vector<uint32_t> ParseDevices(const std::string &value)
 }
 
 static int RunRank(HcclRootInfo *rootInfo, uint32_t rankId, uint32_t rankSize,
-    uint32_t device, uint64_t count)
+    uint32_t device, uint64_t count, const std::string &inputDir,
+    const std::string &outputDir)
 {
     int ret = 1;
     HcclComm comm = nullptr;
@@ -86,7 +175,12 @@ static int RunRank(HcclRootInfo *rootInfo, uint32_t rankId, uint32_t rankSize,
             goto cleanup;
         }
 
-        const auto hostInput = MakeRankInput(rankId, count);
+        std::vector<float> hostInput;
+        const std::string inputPath =
+            inputDir + "/input_rank_" + std::to_string(rankId) + ".bin";
+        if (!ReadFloatData(inputPath, count, hostInput)) {
+            goto cleanup;
+        }
         if (count != 0 &&
             aclrtMemcpy(input, inputBytes, hostInput.data(), inputBytes,
                 ACL_MEMCPY_HOST_TO_DEVICE) != ACL_SUCCESS) {
@@ -135,12 +229,13 @@ static int RunRank(HcclRootInfo *rootInfo, uint32_t rankId, uint32_t rankSize,
         os << " ]";
         std::cout << os.str() << std::endl;
 
-        if (!VerifyAllGatherResult(rankId, rankSize, count, result)) {
-            std::cerr << "rank " << rankId << " verification failed\n";
+        const std::string outputPath =
+            outputDir + "/output_rank_" + std::to_string(rankId) + ".bin";
+        if (!WriteFloatData(outputPath, result)) {
             goto cleanup;
         }
-        std::cout << "rank " << rankId << " verified " << count
-                  << " FP32 elements from each of " << rankSize << " ranks\n";
+        std::cout << "rank " << rankId << ": output saved to "
+                  << outputPath << "\n";
         ret = 0;
     }
 
@@ -162,10 +257,15 @@ static Options ParseOptions(int argc, char **argv)
             options.devices = ParseDevices(argv[++i]);
         } else if (arg == "--count" && i + 1 < argc) {
             options.count = std::stoull(argv[++i]);
+        } else if (arg == "--input-dir" && i + 1 < argc) {
+            options.inputDir = argv[++i];
+        } else if (arg == "--output-dir" && i + 1 < argc) {
+            options.outputDir = argv[++i];
         } else {
             throw std::invalid_argument(
                 "usage: ccu_allgather_mesh1d_mem2mem [--devices 0,1] "
-                "[--count 256]");
+                "[--count 256] [--input-dir ./input] "
+                "[--output-dir ./output]");
         }
     }
     return options;
@@ -215,7 +315,9 @@ static int Run(int argc, char **argv)
     std::vector<int> status(rankSize, 1);
     for (uint32_t rank = 0; rank < rankSize; ++rank) {
         workers.emplace_back([&, rank]() {
-            status[rank] = RunRank(rootInfo, rank, rankSize, options.devices[rank], options.count);
+            status[rank] = RunRank(rootInfo, rank, rankSize,
+                options.devices[rank], options.count, options.inputDir,
+                options.outputDir);
         });
     }
     for (auto &worker : workers) {

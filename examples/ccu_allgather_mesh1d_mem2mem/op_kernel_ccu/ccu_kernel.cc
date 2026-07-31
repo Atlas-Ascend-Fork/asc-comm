@@ -176,10 +176,6 @@ static CcuResult InitResource(AllGatherMesh1DMem2MemContext &ctx)
 {
     if (ctx.arg->rankSize < 2 || ctx.arg->rankId >= ctx.arg->rankSize ||
         ctx.arg->channelCount != ctx.arg->rankSize - 1) {
-        HCCL_ERROR(
-            "[CcuAllGatherMesh1DMem2Mem] invalid rank/channel, "
-            "rankSize[%u], rankId[%u], channelCount[%u]",
-            ctx.arg->rankSize, ctx.arg->rankId, ctx.arg->channelCount);
         return CcuResult::CCU_E_PARA;
     }
     ctx.output.resize(ctx.arg->rankSize);
@@ -300,9 +296,9 @@ static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext &ctx)
     }
 
     // Preserve write -> local copy -> wait ordering.
-    CCU_CHK_RET(DoAllGatherWrite(ctx, src, dst));
-    CCU_CHK_RET(GroupCopy(ctx, localDst, src, ctx.goSize));
-    CCU_CHK_RET(DoAllGatherWait(ctx));
+    RETURN_IF_CCU_FAIL(DoAllGatherWrite(ctx, src, dst));
+    RETURN_IF_CCU_FAIL(GroupCopy(ctx, localDst, src, ctx.goSize));
+    RETURN_IF_CCU_FAIL(DoAllGatherWait(ctx));
     return CCU_SUCCESS;
 }
 
@@ -313,12 +309,12 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
     AllGatherMesh1DMem2MemContext ctx;
     ctx.arg = kernelArg;
 
-    CCU_CHK_RET(InitResource(ctx));
+    RETURN_IF_CCU_FAIL(InitResource(ctx));
     LoadArgs(ctx);
     PreSync(ctx);
     CCU_IF(ctx.chunkSize != 0)
     {
-        CCU_CHK_RET(DoAllGather(ctx));
+        RETURN_IF_CCU_FAIL(DoAllGather(ctx));
     }
     PostSync(ctx);
     return CcuResult::CCU_SUCCESS;

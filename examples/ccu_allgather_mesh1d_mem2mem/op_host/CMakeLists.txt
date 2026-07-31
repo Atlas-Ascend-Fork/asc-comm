@@ -8,7 +8,8 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
+# 将 Host 侧资源管理和 AllGather 任务下发代码加入样例可执行文件。
 target_sources(ccu_allgather_mesh1d_mem2mem PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/data_utils.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/alg_resource.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/exec_op.asc
 )
