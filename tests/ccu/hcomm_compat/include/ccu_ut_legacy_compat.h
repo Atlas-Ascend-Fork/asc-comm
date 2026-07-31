@@ -21,41 +21,41 @@
 using u32 = uint32_t;
 
 #define CHK_PRT_THROW(condition, log_action, exception, message) \
-    do { \
-        if (condition) { \
-            log_action; \
-            throw exception(message); \
-        } \
+    do {                                                         \
+        if (condition) {                                         \
+            log_action;                                          \
+            throw exception(message);                            \
+        }                                                        \
     } while (0)
 
 #define CHK_PRT_RET(condition, log_action, result) \
-    do { \
-        if (condition) { \
-            log_action; \
-            return result; \
-        } \
+    do {                                           \
+        if (condition) {                           \
+            log_action;                            \
+            return result;                         \
+        }                                          \
     } while (0)
 
-#define CHK_RET(expression) \
-    do { \
-        const HcclResult result = (expression); \
-        if (result != HCCL_SUCCESS) { \
+#define CHK_RET(expression)                      \
+    do {                                         \
+        const HcclResult result = (expression);  \
+        if (result != HCCL_SUCCESS) {            \
             return static_cast<int32_t>(result); \
-        } \
+        }                                        \
     } while (0)
 
-#define CHK_SAFETY_FUNC_RET(expression) \
-    do { \
-        if ((expression) != 0) { \
+#define CHK_SAFETY_FUNC_RET(expression)                   \
+    do {                                                  \
+        if ((expression) != 0) {                          \
             return static_cast<int32_t>(HCCL_E_INTERNAL); \
-        } \
+        }                                                 \
     } while (0)
 
-#define CHK_PTR_NULL(pointer) \
-    do { \
-        if ((pointer) == nullptr) { \
+#define CHK_PTR_NULL(pointer)                        \
+    do {                                             \
+        if ((pointer) == nullptr) {                  \
             return static_cast<int32_t>(HCCL_E_PTR); \
-        } \
+        }                                            \
     } while (0)
 
 #endif

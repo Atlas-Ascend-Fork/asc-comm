@@ -28,13 +28,13 @@ CcuRepRemMem::CcuRepRemMem(CcuInsGeneraterBase* insGenPtr, const ChannelHandle c
     : insGenPtr(insGenPtr), channel(channel), rem(rem)
 {
     type = CcuRepType::REM_MEM;
-    instrCount = 2;  // 指令数为2个
+    instrCount = 2; // 指令数为2个
 }
 
-bool CcuRepRemMem::Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
+bool CcuRepRemMem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
     this->instrId = instrId;
-    translated    = true;
+    translated = true;
 
     instrCount = insGenPtr->GetInstrCount(type);
     insGenPtr->CcuRepRemMemTranslate(ccuKernel, instr, this);
@@ -43,10 +43,7 @@ bool CcuRepRemMem::Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &i
     return translated;
 }
 
-std::string CcuRepRemMem::Describe()
-{
-    return Hccl::StringFormat("Get Remote Buffer Addr and TokenInfo By Transport");
-}
+std::string CcuRepRemMem::Describe() { return Hccl::StringFormat("Get Remote Buffer Addr and TokenInfo By Transport"); }
 
 }; // namespace CcuRep
 }; // namespace hcomm

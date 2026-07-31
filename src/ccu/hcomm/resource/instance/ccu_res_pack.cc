@@ -39,8 +39,9 @@ CcuResult CcuResPack::Init()
     // 如果资源不足，返回HCCL_E_UNAVAIL，表示需要回退
     auto ret = CcuAllocResHandleByInsType(devLogicId_, insType_, resHandle_);
     if (ret == CcuResult::CCU_E_UNAVAIL) {
-        HCCL_RUN_WARNING("[%s] failed but passed, resource is not enough, "
-                         "devLogicId[%d], ccuInsType[%d].",
+        HCCL_RUN_WARNING(
+            "[%s] failed but passed, resource is not enough, "
+            "devLogicId[%d], ccuInsType[%d].",
             __func__, devLogicId_, insType_);
         return ret;
     }
@@ -59,9 +60,6 @@ CcuResult CcuResPack::Reset()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResRepository &CcuResPack::GetCcuResRepo()
-{
-    return resRepo_;
-}
+CcuResRepository& CcuResPack::GetCcuResRepo() { return resRepo_; }
 
 } // namespace hcomm

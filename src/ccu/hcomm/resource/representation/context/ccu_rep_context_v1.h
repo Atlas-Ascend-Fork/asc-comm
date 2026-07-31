@@ -33,82 +33,77 @@ enum class CcuProfilinType { CCU_TASK_PROFILING, CCU_WAITCKE_PROFILING, CCU_LOOP
 using CcuProfilingInfo = Hccl::CcuProfilingInfo;
 namespace CcuRep {
 
-    struct LoopGroupProfilingInfo {
-        std::vector<CcuProfilingInfo> ccuProfilingInfos;
-        std::unordered_map<std::shared_ptr<CcuRep::CcuRepBase>, uint32_t> loadRep2ArgIdxMap; // loadArg rep -> argIdx
-        std::vector<std::shared_ptr<CcuRepBase>> assignProfilingReps;                        // assign rep
-        std::vector<std::shared_ptr<CcuRepBase>> lgProfilingReps;                            // loopgroup rep
-    };
+struct LoopGroupProfilingInfo {
+    std::vector<CcuProfilingInfo> ccuProfilingInfos;
+    std::unordered_map<std::shared_ptr<CcuRep::CcuRepBase>, uint32_t> loadRep2ArgIdxMap; // loadArg rep -> argIdx
+    std::vector<std::shared_ptr<CcuRepBase>> assignProfilingReps;                        // assign rep
+    std::vector<std::shared_ptr<CcuRepBase>> lgProfilingReps;                            // loopgroup rep
+};
 
-    class CcuRepContext {
-    public:
-        explicit CcuRepContext();
-        virtual ~CcuRepContext();
+class CcuRepContext {
+public:
+    explicit CcuRepContext();
+    virtual ~CcuRepContext();
 
-        // 平台层内部使用
-        std::shared_ptr<CcuRep::CcuRepBlock> CurrentBlock();
-        void SetCurrentBlock(std::shared_ptr<CcuRep::CcuRepBlock> repBlock);
-        virtual void Append(std::shared_ptr<CcuRep::CcuRepBase> rep);
-        const std::vector<std::shared_ptr<CcuRep::CcuRepBase>> &GetRepSequence();
-        std::shared_ptr<CcuRep::CcuRepBase> GetRepByInstrId(uint16_t instrId);
-        void DumpReprestation();
+    // 平台层内部使用
+    std::shared_ptr<CcuRep::CcuRepBlock> CurrentBlock();
+    void SetCurrentBlock(std::shared_ptr<CcuRep::CcuRepBlock> repBlock);
+    virtual void Append(std::shared_ptr<CcuRep::CcuRepBase> rep);
+    const std::vector<std::shared_ptr<CcuRep::CcuRepBase>>& GetRepSequence();
+    std::shared_ptr<CcuRep::CcuRepBase> GetRepByInstrId(uint16_t instrId);
+    void DumpReprestation();
 
-        void SetDieId(uint32_t dieId);
-        uint32_t GetDieId() const;
-        void SetMissionId(uint32_t missionId);
-        uint32_t GetMissionId() const;
-        void SetMissionKey(uint32_t missionKey);
-        uint32_t GetMissionKey() const;
+    void SetDieId(uint32_t dieId);
+    uint32_t GetDieId() const;
+    void SetMissionId(uint32_t missionId);
+    uint32_t GetMissionId() const;
+    void SetMissionKey(uint32_t missionKey);
+    uint32_t GetMissionKey() const;
 
-        // ccu profiling相关接口
-        std::vector<CcuProfilingInfo> &GetProfilingInfo();
-        CcuRep::LoopGroupProfilingInfo &GetLGProfilingInfo();
-        const std::vector<std::shared_ptr<CcuRep::CcuRepBase>> &GetWaiteCkeProfilingReps() const;
-        void CollectProfilingReps(std::shared_ptr<CcuRep::CcuRepBase> rep);
+    // ccu profiling相关接口
+    std::vector<CcuProfilingInfo>& GetProfilingInfo();
+    CcuRep::LoopGroupProfilingInfo& GetLGProfilingInfo();
+    const std::vector<std::shared_ptr<CcuRep::CcuRepBase>>& GetWaiteCkeProfilingReps() const;
+    void CollectProfilingReps(std::shared_ptr<CcuRep::CcuRepBase> rep);
 
-        void AddSqeProfiling(const std::string &kernelName);
-        int32_t AddProfiling(const std::string &name, uint32_t mask);
-        int32_t AddProfiling(const ChannelHandle channel, const std::string &name, uint32_t signalIndex, uint32_t mask);
-        int32_t AddProfiling(const ChannelHandle *channels, uint32_t channelNum);
-        int32_t AddProfiling(const ChannelHandle *channels, uint32_t channelNum, HcommDataType hcommDataType,
-            HcommDataType hcommOutputDataType, HcommReduceOp hcommOpType);
+    void AddSqeProfiling(const std::string& kernelName);
+    int32_t AddProfiling(const std::string& name, uint32_t mask);
+    int32_t AddProfiling(const ChannelHandle channel, const std::string& name, uint32_t signalIndex, uint32_t mask);
+    int32_t AddProfiling(const ChannelHandle* channels, uint32_t channelNum);
+    int32_t AddProfiling(
+        const ChannelHandle* channels, uint32_t channelNum, HcommDataType hcommDataType,
+        HcommDataType hcommOutputDataType, HcommReduceOp hcommOpType);
 
-        void SetDependencyInfo(uint32_t id, uint32_t mask, const std::shared_ptr<CcuRepBase> &rep);
-        std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>> GetDependencyInfo(uint32_t id);
-        void EraseDependencyInfo(uint32_t id);
-        void ClearDependencyInfo();
+    void SetDependencyInfo(uint32_t id, uint32_t mask, const std::shared_ptr<CcuRepBase>& rep);
+    std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>> GetDependencyInfo(uint32_t id);
+    void EraseDependencyInfo(uint32_t id);
+    void ClearDependencyInfo();
 
-    public:
-        // CCU Profiling相关数据
-        CcuProfilingInfo ccuProfilingInfoCache;
-        std::vector<std::shared_ptr<CcuRepBase>> allLgProfilingReps;   // 当前所有的loopGroup Rep
-        LoopGroupProfilingInfo lgProfilingInfo;                        // LoopGroup相关profiling缓存信息
-        std::vector<std::shared_ptr<CcuRepBase>> waitCkeProfilingReps; // waitCKE相关REP缓存
-        std::vector<CcuProfilingInfo> profilingInfo;                   // context全部profiling缓存信息
-        // 需要校验返回值是否为nullptr
-        CcuInsGeneraterBase *GetInsGenerator()
-        {
-            return insGenerator;
-        }
+public:
+    // CCU Profiling相关数据
+    CcuProfilingInfo ccuProfilingInfoCache;
+    std::vector<std::shared_ptr<CcuRepBase>> allLgProfilingReps;   // 当前所有的loopGroup Rep
+    LoopGroupProfilingInfo lgProfilingInfo;                        // LoopGroup相关profiling缓存信息
+    std::vector<std::shared_ptr<CcuRepBase>> waitCkeProfilingReps; // waitCKE相关REP缓存
+    std::vector<CcuProfilingInfo> profilingInfo;                   // context全部profiling缓存信息
+    // 需要校验返回值是否为nullptr
+    CcuInsGeneraterBase* GetInsGenerator() { return insGenerator; }
 
-        void SetInsGenerater(CcuInsGeneraterBase *insGeneraterBase)
-        {
-            insGenerator = insGeneraterBase;
-        }
+    void SetInsGenerater(CcuInsGeneraterBase* insGeneraterBase) { insGenerator = insGeneraterBase; }
 
-    protected:
-        std::set<std::string> registeredLoop;
-        CcuInsGeneraterBase *insGenerator{nullptr};
-        std::unordered_map<uint32_t, std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>>> depInfo;
+protected:
+    std::set<std::string> registeredLoop;
+    CcuInsGeneraterBase* insGenerator{nullptr};
+    std::unordered_map<uint32_t, std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>>> depInfo;
 
-    private:
-        std::shared_ptr<CcuRep::CcuRepBlock> activeBlock{nullptr};
-        std::shared_ptr<CcuRep::CcuRepBlock> mainBlock{nullptr};
+private:
+    std::shared_ptr<CcuRep::CcuRepBlock> activeBlock{nullptr};
+    std::shared_ptr<CcuRep::CcuRepBlock> mainBlock{nullptr};
 
-        uint32_t dieId{UINT32_MAX};
-        uint32_t missionId{UINT32_MAX};
-        uint32_t missionKey{0};
-    };
+    uint32_t dieId{UINT32_MAX};
+    uint32_t missionId{UINT32_MAX};
+    uint32_t missionKey{0};
+};
 
 }; // namespace CcuRep
 }; // namespace hcomm

@@ -25,14 +25,15 @@ CcuInstanceMgr::~CcuInstanceMgr()
     (void)Deinit();
 }
 
-CcuInstanceMgr &CcuInstanceMgr::GetInstance(const int32_t deviceLogicId)
+CcuInstanceMgr& CcuInstanceMgr::GetInstance(const int32_t deviceLogicId)
 {
     static CcuInstanceMgr instanceMgrs[MAX_MODULE_DEVICE_NUM + 1];
 
     int32_t devLogicId = deviceLogicId;
     if (devLogicId < 0 || static_cast<uint32_t>(devLogicId) >= MAX_MODULE_DEVICE_NUM) {
-        HCCL_WARNING("[CcuInstanceMgr][%s] use the backup device, devLogicId[%d] should be "
-                     "less than %u.",
+        HCCL_WARNING(
+            "[CcuInstanceMgr][%s] use the backup device, devLogicId[%d] should be "
+            "less than %u.",
             __func__, devLogicId, MAX_MODULE_DEVICE_NUM);
         devLogicId = MAX_MODULE_DEVICE_NUM; // 使用备份设备
     }
@@ -61,7 +62,7 @@ CcuResult CcuInstanceMgr::Deinit()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuInstanceMgr::Create(CcuInstanceType insType, CcuInsHandle &insHandle)
+CcuResult CcuInstanceMgr::Create(CcuInstanceType insType, CcuInsHandle& insHandle)
 {
     std::unique_lock<std::shared_timed_mutex> lock(insMapMutex_);
 
@@ -76,7 +77,7 @@ CcuResult CcuInstanceMgr::Create(CcuInstanceType insType, CcuInsHandle &insHandl
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuInstance *CcuInstanceMgr::Get(CcuInsHandle insHandle) const
+CcuInstance* CcuInstanceMgr::Get(CcuInsHandle insHandle) const
 {
     std::shared_lock<std::shared_timed_mutex> lock(insMapMutex_);
     auto it = insMap_.find(insHandle);

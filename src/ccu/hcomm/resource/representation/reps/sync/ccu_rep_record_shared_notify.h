@@ -17,30 +17,21 @@
 namespace hcomm {
 namespace CcuRep {
 
-    class CcuRepRecordSharedNotify : public CcuRepBase {
-    public:
-        CcuRepRecordSharedNotify(CcuInsGeneraterBase *insGenPtr, const LocalNotify &notify, uint16_t mask);
-        bool Translate(CcuKernel *ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
-        std::string Describe() override;
-        uint16_t GetNotifyId()
-        {
-            return notify_.Id();
-        }
-        LocalNotify GetNotify()
-        {
-            return notify_;
-        }
+class CcuRepRecordSharedNotify : public CcuRepBase {
+public:
+    CcuRepRecordSharedNotify(CcuInsGeneraterBase* insGenPtr, const LocalNotify& notify, uint16_t mask);
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+    std::string Describe() override;
+    uint16_t GetNotifyId() { return notify_.Id(); }
+    LocalNotify GetNotify() { return notify_; }
 
-        uint16_t GetMask()
-        {
-            return mask_;
-        }
+    uint16_t GetMask() { return mask_; }
 
-    private:
-        CcuInsGeneraterBase *insGenPtr{nullptr};
-        LocalNotify notify_{};
-        uint16_t mask_{0};
-    };
+private:
+    CcuInsGeneraterBase* insGenPtr{nullptr};
+    LocalNotify notify_{};
+    uint16_t mask_{0};
+};
 
 }; // namespace CcuRep
 }; // namespace hcomm
