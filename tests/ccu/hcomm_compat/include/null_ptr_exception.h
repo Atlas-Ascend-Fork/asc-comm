@@ -16,7 +16,7 @@
 namespace Hccl {
 class NullPtrException : public HcclException {
 public:
-    explicit NullPtrException(const std::string &message) : HcclException(message) {}
+    explicit NullPtrException(const std::string& message) : HcclException(message) {}
 };
 } // namespace Hccl
 

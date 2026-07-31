@@ -18,28 +18,18 @@
 namespace hcomm {
 namespace CcuRep {
 
-Repeat::Repeat(CcuRepContext *context, CcuRelationalOperator<Variable, uint64_t> rel) : context(context)
+Repeat::Repeat(CcuRepContext* context, CcuRelationalOperator<Variable, uint64_t> rel) : context(context)
 {
     std::string label = "Repeat";
 }
 
-Repeat::~Repeat()
-{
-}
+Repeat::~Repeat() {}
 
-void Repeat::Break()
-{
-}
+void Repeat::Break() {}
 
-bool Repeat::Check() const
-{
-    return !isExecuted;
-}
+bool Repeat::Check() const { return !isExecuted; }
 
-void Repeat::Run()
-{
-    isExecuted = true;
-}
+void Repeat::Run() { isExecuted = true; }
 
 }; // namespace CcuRep
 }; // namespace hcomm

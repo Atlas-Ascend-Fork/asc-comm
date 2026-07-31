@@ -20,39 +20,35 @@
 namespace hcomm {
 namespace CcuRep {
 
-    using namespace Hccl;
+using namespace Hccl;
 
-    CcuRepStoreVar::CcuRepStoreVar(
-        CcuInsGeneraterBase *insGeneratorPtr, const Variable &var, const Variable &dst, uint32_t num, bool hscbFlag)
-        : insGeneratorPtr_(insGeneratorPtr),
-          var(var),
-          dst(dst),
-          num(num),
-          hscbFlag(hscbFlag)
-    {
-        // for A6 only
-        type = CcuRepType::STORE_VAR;
-        instrCount = insGeneratorPtr_->GetInstrCount(type);
-    }
+CcuRepStoreVar::CcuRepStoreVar(
+    CcuInsGeneraterBase* insGeneratorPtr, const Variable& var, const Variable& dst, uint32_t num, bool hscbFlag)
+    : insGeneratorPtr_(insGeneratorPtr), var(var), dst(dst), num(num), hscbFlag(hscbFlag)
+{
+    // for A6 only
+    type = CcuRepType::STORE_VAR;
+    instrCount = insGeneratorPtr_->GetInstrCount(type);
+}
 
-    bool CcuRepStoreVar::Translate(CcuKernel *ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
-    {
-        this->instrId = instrId;
-        translated = true;
+bool CcuRepStoreVar::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+{
+    this->instrId = instrId;
+    translated = true;
 
-        CHK_RET_THROW(Hccl::CcuApiException,
-            Hccl::StringFormat(
-                "[CcuRepStoreVar][%s] failed to translate repStoreVar for instrId[%u] ", __func__, instrId),
-            insGeneratorPtr_->CcuRepStoreVarTranslate(ccuKernel, instr, instrId, this, dep));
+    CHK_RET_THROW(
+        Hccl::CcuApiException,
+        Hccl::StringFormat("[CcuRepStoreVar][%s] failed to translate repStoreVar for instrId[%u] ", __func__, instrId),
+        insGeneratorPtr_->CcuRepStoreVarTranslate(ccuKernel, instr, instrId, this, dep));
 
-        instrId += instrCount;
-        return translated;
-    }
+    instrId += instrCount;
+    return translated;
+}
 
-    std::string CcuRepStoreVar::Describe()
-    {
-        return Hccl::StringFormat("Store Var([%u], [%u], [%u])", var.Id(), dst.Id(), num);
-    }
+std::string CcuRepStoreVar::Describe()
+{
+    return Hccl::StringFormat("Store Var([%u], [%u], [%u])", var.Id(), dst.Id(), num);
+}
 
 }; // namespace CcuRep
 }; // namespace hcomm

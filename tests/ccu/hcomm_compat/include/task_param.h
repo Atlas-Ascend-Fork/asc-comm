@@ -41,8 +41,16 @@ struct CcuProfilingInfo {
     uint64_t channelHandle[CCU_MAX_CHANNEL_NUM];
 
     CcuProfilingInfo()
-        : type(0), dieId(0), missionId(0), instrId(0), reduceOpType(0), inputDataType(0), outputDataType(0),
-          dataSize(0), ckeId(0), mask(0)
+        : type(0),
+          dieId(0),
+          missionId(0),
+          instrId(0),
+          reduceOpType(0),
+          inputDataType(0),
+          outputDataType(0),
+          dataSize(0),
+          ckeId(0),
+          mask(0)
     {
         (void)memset_s(channelId, sizeof(channelId), 0xFF, sizeof(channelId));
         for (uint32_t index = 0; index < CCU_MAX_CHANNEL_NUM; ++index) {
