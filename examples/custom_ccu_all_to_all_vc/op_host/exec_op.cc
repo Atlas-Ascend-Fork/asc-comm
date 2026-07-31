@@ -20,8 +20,7 @@ namespace ops_hccl_a2avc {
 
 constexpr uint64_t MAX_TRANSFER_BYTES = 256ULL * 1024 * 1024;
 
-static uint64_t GetBufferElements(const std::vector<uint64_t> &counts,
-                                  const std::vector<uint64_t> &displs)
+static uint64_t GetBufferElements(const std::vector<uint64_t>& counts, const std::vector<uint64_t>& displs)
 {
     uint64_t elements = 0;
     for (uint32_t i = 0; i < counts.size(); i++) {
@@ -32,7 +31,7 @@ static uint64_t GetBufferElements(const std::vector<uint64_t> &counts,
     return elements;
 }
 
-HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
+HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx)
 {
     constexpr uint64_t dataTypeSize = sizeof(float);
     const uint64_t inputSize = GetBufferElements(param.sendCounts, param.sendDispls) * dataTypeSize;
@@ -44,10 +43,10 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
         if (param.sendCounts[0] == 0) {
             return HCCL_SUCCESS;
         }
-        auto *src = static_cast<char *>(param.inputPtr) + param.sendDispls[0] * dataTypeSize;
-        auto *dst = static_cast<char *>(param.outputPtr) + param.recvDispls[0] * dataTypeSize;
-        return static_cast<HcclResult>(HcommLocalCopyOnThread(
-            resCtx.threads[0], dst, src, param.sendCounts[0] * dataTypeSize));
+        auto* src = static_cast<char*>(param.inputPtr) + param.sendDispls[0] * dataTypeSize;
+        auto* dst = static_cast<char*>(param.outputPtr) + param.recvDispls[0] * dataTypeSize;
+        return static_cast<HcclResult>(
+            HcommLocalCopyOnThread(resCtx.threads[0], dst, src, param.sendCounts[0] * dataTypeSize));
     }
 
     uint64_t inputToken = 0;
@@ -70,8 +69,8 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
         taskArgs.push_back(param.recvDispls[rankIdx] * dataTypeSize);
     }
 
-    CcuResult launchRet = HcommCcuKernelLaunch(resCtx.threads[0], resCtx.ccuKernels[0],
-        taskArgs.data(), taskArgs.size());
+    CcuResult launchRet =
+        HcommCcuKernelLaunch(resCtx.threads[0], resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
     return launchRet == CCU_SUCCESS ? HCCL_SUCCESS : HCCL_E_INTERNAL;
 }
 

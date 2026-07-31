@@ -18,7 +18,7 @@ constexpr int CKE_IDX_0 = 0;
 constexpr int INIT_SYNC_ID = 3;
 constexpr int POST_SYNC_ID = 4;
 
-static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext &ctx)
+static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext& ctx)
 {
     ccu::LocalAddr src;
     ccu::LocalAddr localDst;
@@ -57,8 +57,9 @@ static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext &ctx)
         for (uint64_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
             const uint16_t mask = 1 << rankIdx;
             if (rankIdx != ctx.arg->rankId) {
-                RETURN_IF_CCU_FAIL(ccu::WriteReduce(ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize,
-                    HcclDataType::HCCL_DATA_TYPE_FP32, HcclReduceOp::HCCL_REDUCE_SUM, ctx.event, mask));
+                RETURN_IF_CCU_FAIL(ccu::WriteReduce(
+                    ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, HcclDataType::HCCL_DATA_TYPE_FP32,
+                    HcclReduceOp::HCCL_REDUCE_SUM, ctx.event, mask));
                 remoteMask |= mask;
                 channelId++;
             }
@@ -71,7 +72,7 @@ static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext &ctx)
 
 CcuResult CcuAllReduceMesh1DMem2MemKernel(CcuKernelArg arg)
 {
-    auto *kernelArg = static_cast<CcuKernelArgAllReduceMesh1DMem2Mem *>(arg);
+    auto* kernelArg = static_cast<CcuKernelArgAllReduceMesh1DMem2Mem*>(arg);
 
     AllReduceMesh1DMem2MemContext ctx;
     ctx.arg = kernelArg;
@@ -102,10 +103,10 @@ CcuResult CcuAllReduceMesh1DMem2MemKernel(CcuKernelArg arg)
 
     // 3. 前置同步
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(ctx.arg->channels[i], ctx.output[ctx.arg->rankId],
-            OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID));
-        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(ctx.arg->channels[i], ctx.token[ctx.arg->rankId],
-            TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID));
+        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(
+            ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID));
+        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(
+            ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID));
     }
 
     uint32_t allBit = (1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID);

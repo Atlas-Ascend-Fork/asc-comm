@@ -80,7 +80,7 @@ typedef uint64_t CcuLocalAddrHandle;
 
 typedef uint64_t CcuRemoteAddrHandle;
 
-typedef void *CcuKernelArg;
+typedef void* CcuKernelArg;
 
 #ifdef __cplusplus
 }

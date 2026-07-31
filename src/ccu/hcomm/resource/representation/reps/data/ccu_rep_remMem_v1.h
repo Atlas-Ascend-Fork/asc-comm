@@ -17,27 +17,21 @@
 namespace hcomm {
 namespace CcuRep {
 
-    class CcuRepRemMem : public CcuRepBase {
-    public:
-        CcuRepRemMem(CcuInsGeneraterBase *insGenPtr, const ChannelHandle channel, RemoteAddr rem);
-        bool Translate(CcuKernel *ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
-        std::string Describe() override;
+class CcuRepRemMem : public CcuRepBase {
+public:
+    CcuRepRemMem(CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem);
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+    std::string Describe() override;
 
-        ChannelHandle GetChannel()
-        {
-            return channel;
-        }
-        RemoteAddr GetRem()
-        {
-            return rem;
-        }
+    ChannelHandle GetChannel() { return channel; }
+    RemoteAddr GetRem() { return rem; }
 
-    private:
-        CcuInsGeneraterBase *insGenPtr{nullptr};
-        ChannelHandle channel;
+private:
+    CcuInsGeneraterBase* insGenPtr{nullptr};
+    ChannelHandle channel;
 
-        RemoteAddr rem{};
-    };
+    RemoteAddr rem{};
+};
 
 }; // namespace CcuRep
 }; // namespace hcomm

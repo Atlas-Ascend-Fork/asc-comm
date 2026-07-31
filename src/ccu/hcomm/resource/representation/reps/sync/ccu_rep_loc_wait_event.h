@@ -17,41 +17,29 @@
 namespace hcomm {
 namespace CcuRep {
 
-    class CcuRepLocWaitEvent : public CcuRepBase {
-    public:
-        // mask 由调用方显式传入（与 CompletedEvent 解耦）。
-        CcuRepLocWaitEvent(
-            CcuInsGeneraterBase *insGenPtr, const CompletedEvent &event, uint32_t mask, bool isProfiling = true);
-        bool Translate(CcuKernel *ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
-        std::string Describe() override;
-        uint32_t GetMask()
-        {
-            return mask_;
-        };
-        uint32_t GetEventId()
-        {
-            return event_.Id();
-        };
+class CcuRepLocWaitEvent : public CcuRepBase {
+public:
+    // mask 由调用方显式传入（与 CompletedEvent 解耦）。
+    CcuRepLocWaitEvent(
+        CcuInsGeneraterBase* insGenPtr, const CompletedEvent& event, uint32_t mask, bool isProfiling = true);
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+    std::string Describe() override;
+    uint32_t GetMask() { return mask_; };
+    uint32_t GetEventId() { return event_.Id(); };
 
-        CompletedEvent GetEvent()
-        {
-            return event_;
-        }
+    CompletedEvent GetEvent() { return event_; }
 
-        bool GetIsProfiling()
-        {
-            return isProfiling_;
-        }
-        void SetDependencyInfo(const std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>> &depInfo);
-        std::vector<std::shared_ptr<CcuRepBase>> GetDependencyInfo(uint32_t bit);
+    bool GetIsProfiling() { return isProfiling_; }
+    void SetDependencyInfo(const std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>>& depInfo);
+    std::vector<std::shared_ptr<CcuRepBase>> GetDependencyInfo(uint32_t bit);
 
-    private:
-        CcuInsGeneraterBase *insGenPtr{nullptr};
-        CompletedEvent event_{};
-        uint32_t mask_{1};
-        bool isProfiling_{true};
-        std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>> depInfo_;
-    };
+private:
+    CcuInsGeneraterBase* insGenPtr{nullptr};
+    CompletedEvent event_{};
+    uint32_t mask_{1};
+    bool isProfiling_{true};
+    std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>> depInfo_;
+};
 
 }; // namespace CcuRep
 }; // namespace hcomm
