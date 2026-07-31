@@ -41,62 +41,55 @@ constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 
 class BinaryStream {
 public:
-    static constexpr std::ios_base::openmode DEFAULT_IOS_MODE =
-        std::ios_base::in | std::ios_base::out;
+    static constexpr std::ios_base::openmode DEFAULT_IOS_MODE = std::ios_base::in | std::ios_base::out;
 
-    explicit BinaryStream(std::ios_base::openmode mode = DEFAULT_IOS_MODE)
+    explicit BinaryStream(std::ios_base::openmode mode = DEFAULT_IOS_MODE) : stream_(mode | std::ios_base::binary) {}
+
+    explicit BinaryStream(std::vector<char>& buffer, std::ios_base::openmode mode = DEFAULT_IOS_MODE)
         : stream_(mode | std::ios_base::binary)
     {
-    }
-
-    explicit BinaryStream(
-        std::vector<char> &buffer,
-        std::ios_base::openmode mode = DEFAULT_IOS_MODE)
-        : stream_(mode | std::ios_base::binary)
-    {
-        stream_.write(buffer.data(),
-            static_cast<std::streamsize>(buffer.size()));
+        stream_.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
         stream_.seekg(0);
     }
 
     template <typename T>
-    BinaryStream &operator<<(const T &value)
+    BinaryStream& operator<<(const T& value)
     {
-        stream_.write(reinterpret_cast<const char *>(&value), sizeof(T));
+        stream_.write(reinterpret_cast<const char*>(&value), sizeof(T));
         return *this;
     }
 
     template <typename T>
-    BinaryStream &operator<<(const std::vector<T> &values)
+    BinaryStream& operator<<(const std::vector<T>& values)
     {
         const size_t size = values.size();
         *this << size;
-        for (const auto &value : values) {
+        for (const auto& value : values) {
             *this << value;
         }
         return *this;
     }
 
     template <typename T>
-    BinaryStream &operator>>(T &value)
+    BinaryStream& operator>>(T& value)
     {
-        stream_.read(reinterpret_cast<char *>(&value), sizeof(T));
+        stream_.read(reinterpret_cast<char*>(&value), sizeof(T));
         return *this;
     }
 
     template <typename T>
-    BinaryStream &operator>>(std::vector<T> &values)
+    BinaryStream& operator>>(std::vector<T>& values)
     {
         size_t size = 0;
         *this >> size;
         values.resize(size);
-        for (auto &value : values) {
+        for (auto& value : values) {
             *this >> value;
         }
         return *this;
     }
 
-    void Dump(std::vector<char> &result)
+    void Dump(std::vector<char>& result)
     {
         const std::string buffer = stream_.str();
         result.assign(buffer.begin(), buffer.end());
@@ -109,27 +102,23 @@ private:
 uint32_t GetNhrStepNum(uint32_t rankSize)
 {
     uint32_t stepNum = 0;
-    for (uint32_t value = rankSize - 1;
-         value != 0; value >>= 1, ++stepNum) {
+    for (uint32_t value = rankSize - 1; value != 0; value >>= 1, ++stepNum) {
     }
     return stepNum;
 }
 
-void AddPeer(uint32_t peerRank, std::vector<uint32_t> &peerRanks,
-    std::map<uint32_t, uint32_t> &rank2ChannelIdx)
+void AddPeer(uint32_t peerRank, std::vector<uint32_t>& peerRanks, std::map<uint32_t, uint32_t>& rank2ChannelIdx)
 {
     if (rank2ChannelIdx.count(peerRank) != 0) {
         return;
     }
-    rank2ChannelIdx[peerRank] =
-        static_cast<uint32_t>(peerRanks.size());
+    rank2ChannelIdx[peerRank] = static_cast<uint32_t>(peerRanks.size());
     peerRanks.push_back(peerRank);
 }
 
-HcclResult BuildNhrSchedule(uint32_t myRank, uint32_t rankSize,
-    std::vector<NhrStepInfo> &steps,
-    std::vector<uint32_t> &peerRanks,
-    std::map<uint32_t, uint32_t> &rank2ChannelIdx)
+HcclResult BuildNhrSchedule(
+    uint32_t myRank, uint32_t rankSize, std::vector<NhrStepInfo>& steps, std::vector<uint32_t>& peerRanks,
+    std::map<uint32_t, uint32_t>& rank2ChannelIdx)
 {
     if (rankSize < 2 || myRank >= rankSize) {
         return HCCL_E_PARA;
@@ -140,25 +129,18 @@ HcclResult BuildNhrSchedule(uint32_t myRank, uint32_t rankSize,
         NhrStepInfo stepInfo;
         stepInfo.step = step;
 
-        const uint32_t deltaRank =
-            1U << (stepNum - 1 - step);
+        const uint32_t deltaRank = 1U << (stepNum - 1 - step);
         stepInfo.toRank = (myRank + deltaRank) % rankSize;
-        stepInfo.fromRank =
-            (myRank + rankSize - deltaRank) % rankSize;
+        stepInfo.fromRank = (myRank + rankSize - deltaRank) % rankSize;
 
-        const uint32_t sliceNumerator =
-            rankSize - 1 + deltaRank;
-        const uint32_t sliceDenominator =
-            1U << (stepNum - step);
-        const uint32_t sliceNum =
-            sliceNumerator / sliceDenominator;
-        const uint32_t deltaSliceIndex =
-            1U << (stepNum - step);
+        const uint32_t sliceNumerator = rankSize - 1 + deltaRank;
+        const uint32_t sliceDenominator = 1U << (stepNum - step);
+        const uint32_t sliceNum = sliceNumerator / sliceDenominator;
+        const uint32_t deltaSliceIndex = 1U << (stepNum - step);
         uint32_t txSliceIdx = myRank;
         for (uint32_t index = 0; index < sliceNum; ++index) {
             stepInfo.txSliceIdxs.push_back(txSliceIdx);
-            txSliceIdx =
-                (txSliceIdx + rankSize - deltaSliceIndex) % rankSize;
+            txSliceIdx = (txSliceIdx + rankSize - deltaSliceIndex) % rankSize;
         }
         steps.push_back(stepInfo);
 
@@ -168,11 +150,9 @@ HcclResult BuildNhrSchedule(uint32_t myRank, uint32_t rankSize,
 
     std::ostringstream output;
     output << "rank " << myRank << " NHR schedule:";
-    for (const auto &step : steps) {
-        output << " step" << step.step << "(to=" << step.toRank
-               << ",from=" << step.fromRank << ",tx=[";
-        for (uint32_t index = 0;
-             index < step.txSliceIdxs.size(); ++index) {
+    for (const auto& step : steps) {
+        output << " step" << step.step << "(to=" << step.toRank << ",from=" << step.fromRank << ",tx=[";
+        for (uint32_t index = 0; index < step.txSliceIdxs.size(); ++index) {
             if (index != 0) {
                 output << ",";
             }
@@ -184,79 +164,62 @@ HcclResult BuildNhrSchedule(uint32_t myRank, uint32_t rankSize,
     return HCCL_SUCCESS;
 }
 
-HcclResult GetChannelForCcu(HcclComm comm, uint32_t myRank,
-    const std::vector<uint32_t> &peerRanks,
-    std::vector<ChannelHandle> &kernelChannels)
+HcclResult GetChannelForCcu(
+    HcclComm comm, uint32_t myRank, const std::vector<uint32_t>& peerRanks, std::vector<ChannelHandle>& kernelChannels)
 {
-    const uint32_t channelNum =
-        static_cast<uint32_t>(peerRanks.size());
+    const uint32_t channelNum = static_cast<uint32_t>(peerRanks.size());
     std::vector<HcclChannelDesc> channelDescs(channelNum);
     kernelChannels.resize(channelNum);
 
-    uint32_t *netLayers = nullptr;
+    uint32_t* netLayers = nullptr;
     uint32_t netLayerNum = 0;
-    RETURN_IF_HCCL_FAIL(HcclRankGraphGetLayers(
-        comm, &netLayers, &netLayerNum));
+    RETURN_IF_HCCL_FAIL(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
 
-    for (uint32_t channelIndex = 0;
-         channelIndex < channelNum; ++channelIndex) {
+    for (uint32_t channelIndex = 0; channelIndex < channelNum; ++channelIndex) {
         const uint32_t remoteRank = peerRanks[channelIndex];
-        HcclChannelDesc &desc = channelDescs[channelIndex];
+        HcclChannelDesc& desc = channelDescs[channelIndex];
         RETURN_IF_HCCL_FAIL(HcclChannelDescInit(&desc, 1));
 
         bool found = false;
-        for (uint32_t layerIndex = 0;
-             layerIndex < netLayerNum && !found; ++layerIndex) {
+        for (uint32_t layerIndex = 0; layerIndex < netLayerNum && !found; ++layerIndex) {
             uint32_t listSize = 0;
-            CommLink *linkList = nullptr;
-            RETURN_IF_HCCL_FAIL(HcclRankGraphGetLinks(
-                comm, netLayers[layerIndex], myRank, remoteRank,
-                &linkList, &listSize));
-            for (uint32_t linkIndex = 0;
-                 linkIndex < listSize; ++linkIndex) {
-                const CommLink &link = linkList[linkIndex];
-                if (link.linkAttr.linkProtocol !=
-                    CommProtocol::COMM_PROTOCOL_UBC_CTP) {
+            CommLink* linkList = nullptr;
+            RETURN_IF_HCCL_FAIL(
+                HcclRankGraphGetLinks(comm, netLayers[layerIndex], myRank, remoteRank, &linkList, &listSize));
+            for (uint32_t linkIndex = 0; linkIndex < listSize; ++linkIndex) {
+                const CommLink& link = linkList[linkIndex];
+                if (link.linkAttr.linkProtocol != CommProtocol::COMM_PROTOCOL_UBC_CTP) {
                     continue;
                 }
                 desc.remoteRank = remoteRank;
                 desc.notifyNum = CHANNEL_NOTIFY_NUM;
                 desc.channelProtocol = link.linkAttr.linkProtocol;
-                desc.localEndpoint.protocol =
-                    link.srcEndpointDesc.protocol;
-                desc.localEndpoint.commAddr =
-                    link.srcEndpointDesc.commAddr;
+                desc.localEndpoint.protocol = link.srcEndpointDesc.protocol;
+                desc.localEndpoint.commAddr = link.srcEndpointDesc.commAddr;
                 desc.localEndpoint.loc = link.srcEndpointDesc.loc;
-                desc.remoteEndpoint.protocol =
-                    link.dstEndpointDesc.protocol;
-                desc.remoteEndpoint.commAddr =
-                    link.dstEndpointDesc.commAddr;
+                desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
+                desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
                 desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
                 found = true;
                 break;
             }
         }
         if (!found) {
-            std::cerr << "no UBC_CTP link from rank " << myRank
-                      << " to rank " << remoteRank << "\n";
+            std::cerr << "no UBC_CTP link from rank " << myRank << " to rank " << remoteRank << "\n";
             return HCCL_E_NOT_FOUND;
         }
     }
 
-    RETURN_IF_HCCL_FAIL(HcclChannelAcquire(
-        comm, CommEngine::COMM_ENGINE_CCU,
-        channelDescs.data(), channelNum, kernelChannels.data()));
+    RETURN_IF_HCCL_FAIL(
+        HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_CCU, channelDescs.data(), channelNum, kernelChannels.data()));
     return HCCL_SUCCESS;
 }
 
-HcclResult RegisterCcuKernel(HcclComm comm, uint32_t myRank,
-    uint32_t rankSize, const std::vector<ChannelHandle> &channels,
-    const std::vector<NhrStepInfo> &steps,
-    const std::map<uint32_t, uint32_t> &rank2ChannelIdx,
-    AlgResourceCtx &resCtx)
+HcclResult RegisterCcuKernel(
+    HcclComm comm, uint32_t myRank, uint32_t rankSize, const std::vector<ChannelHandle>& channels,
+    const std::vector<NhrStepInfo>& steps, const std::map<uint32_t, uint32_t>& rank2ChannelIdx, AlgResourceCtx& resCtx)
 {
-    auto kernelArg =
-        std::make_shared<CcuKernelArgAllGatherNhr1DMem2Mem>();
+    auto kernelArg = std::make_shared<CcuKernelArgAllGatherNhr1DMem2Mem>();
     kernelArg->rankSize = rankSize;
     kernelArg->rankId = myRank;
     kernelArg->stepInfoVector = steps;
@@ -264,52 +227,44 @@ HcclResult RegisterCcuKernel(HcclComm comm, uint32_t myRank,
     for (uint32_t index = 0; index < channels.size(); ++index) {
         kernelArg->channels[index] = channels[index];
     }
-    kernelArg->channelCount =
-        static_cast<uint32_t>(channels.size());
+    kernelArg->channelCount = static_cast<uint32_t>(channels.size());
 
     CcuInsHandle insHandle = 0;
     uint32_t insNum = 0;
-    RETURN_IF_HCCL_FAIL(HcclCommQueryCcuIns(
-        comm, &insHandle, &insNum));
+    RETURN_IF_HCCL_FAIL(HcclCommQueryCcuIns(comm, &insHandle, &insNum));
     if (insNum != 1) {
-        std::cerr << "HcclCommQueryCcuIns returned " << insNum
-                  << " CCU instances\n";
+        std::cerr << "HcclCommQueryCcuIns returned " << insNum << " CCU instances\n";
         return HCCL_E_INTERNAL;
     }
 
     resCtx.ccuKernels.resize(1);
-    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(
-        HcommCcuKernelRegisterStart(insHandle)));
+    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(HcommCcuKernelRegisterStart(insHandle)));
 
     CcuKernelHandle kernelHandle = 0;
-    const void *kernelArgs[] = {kernelArg.get()};
+    const void* kernelArgs[] = {kernelArg.get()};
     constexpr uint32_t dieId = 0;
     constexpr uint32_t kernelArgNum = 1;
     RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(HcommCcuKernelRegister(
-        insHandle, dieId, "CcuAllGatherNhr1DMem2MemKernel",
-        reinterpret_cast<void *>(CcuAllGatherNhr1DMem2MemKernel),
+        insHandle, dieId, "CcuAllGatherNhr1DMem2MemKernel", reinterpret_cast<void*>(CcuAllGatherNhr1DMem2MemKernel),
         kernelArgs, kernelArgNum, &kernelHandle)));
     resCtx.ccuKernels[0] = kernelHandle;
 
-    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(
-        HcommCcuKernelRegisterEnd(insHandle)));
+    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(HcommCcuKernelRegisterEnd(insHandle)));
     resCtx.ccuKernelNum = {1};
     return HCCL_SUCCESS;
 }
 
-HcclResult AllocAlgResource(HcclComm comm, uint32_t myRank,
-    uint32_t rankSize, aclrtStream stream, AlgResourceCtx &resCtx)
+HcclResult AllocAlgResource(
+    HcclComm comm, uint32_t myRank, uint32_t rankSize, aclrtStream stream, AlgResourceCtx& resCtx)
 {
-    void *cclBufferAddr = nullptr;
+    void* cclBufferAddr = nullptr;
     uint64_t cclBufferSize = 0;
-    RETURN_IF_HCCL_FAIL(HcclGetHcclBuffer(
-        comm, &cclBufferAddr, &cclBufferSize));
+    RETURN_IF_HCCL_FAIL(HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize));
     resCtx.cclMem = CommBuffer{cclBufferAddr, cclBufferSize};
 
     ThreadHandle thread = 0;
-    RETURN_IF_HCCL_FAIL(HcclThreadAcquireWithStream(
-        comm, CommEngine::COMM_ENGINE_CCU, stream,
-        resCtx.notifyNumOnMainThread, &thread));
+    RETURN_IF_HCCL_FAIL(
+        HcclThreadAcquireWithStream(comm, CommEngine::COMM_ENGINE_CCU, stream, resCtx.notifyNumOnMainThread, &thread));
     resCtx.threads.push_back(thread);
 
     if (rankSize == 1) {
@@ -320,18 +275,15 @@ HcclResult AllocAlgResource(HcclComm comm, uint32_t myRank,
     std::vector<NhrStepInfo> steps;
     std::vector<uint32_t> peerRanks;
     std::map<uint32_t, uint32_t> rank2ChannelIdx;
-    RETURN_IF_HCCL_FAIL(BuildNhrSchedule(
-        myRank, rankSize, steps, peerRanks, rank2ChannelIdx));
+    RETURN_IF_HCCL_FAIL(BuildNhrSchedule(myRank, rankSize, steps, peerRanks, rank2ChannelIdx));
 
-    RETURN_IF_HCCL_FAIL(GetChannelForCcu(
-        comm, myRank, peerRanks, resCtx.kernelChannels));
-    RETURN_IF_HCCL_FAIL(RegisterCcuKernel(
-        comm, myRank, rankSize, resCtx.kernelChannels,
-        steps, rank2ChannelIdx, resCtx));
+    RETURN_IF_HCCL_FAIL(GetChannelForCcu(comm, myRank, peerRanks, resCtx.kernelChannels));
+    RETURN_IF_HCCL_FAIL(
+        RegisterCcuKernel(comm, myRank, rankSize, resCtx.kernelChannels, steps, rank2ChannelIdx, resCtx));
     return HCCL_SUCCESS;
 }
 
-}  // namespace
+} // namespace
 
 std::vector<char> AlgResourceCtx::Serialize() const
 {
@@ -348,7 +300,7 @@ std::vector<char> AlgResourceCtx::Serialize() const
     return result;
 }
 
-void AlgResourceCtx::Deserialize(std::vector<char> &data)
+void AlgResourceCtx::Deserialize(std::vector<char>& data)
 {
     BinaryStream stream(data);
     stream >> cclMem;
@@ -381,30 +333,23 @@ HcclResult ConvertCcuToHccl(CcuResult result)
     }
 }
 
-HcclResult InitAlgResourceCtx(HcclComm comm, const char *tag,
-    uint32_t myRank, uint32_t rankSize, aclrtStream stream,
-    AlgResourceCtx &resCtx)
+HcclResult InitAlgResourceCtx(
+    HcclComm comm, const char* tag, uint32_t myRank, uint32_t rankSize, aclrtStream stream, AlgResourceCtx& resCtx)
 {
-    void *ctx = nullptr;
+    void* ctx = nullptr;
     uint64_t size = 0;
-    if (HcclEngineCtxGet(
-        comm, tag, CommEngine::COMM_ENGINE_CCU, &ctx, &size) ==
-        HCCL_SUCCESS) {
-        std::vector<char> data(
-            static_cast<char *>(ctx), static_cast<char *>(ctx) + size);
+    if (HcclEngineCtxGet(comm, tag, CommEngine::COMM_ENGINE_CCU, &ctx, &size) == HCCL_SUCCESS) {
+        std::vector<char> data(static_cast<char*>(ctx), static_cast<char*>(ctx) + size);
         resCtx.Deserialize(data);
         return HCCL_SUCCESS;
     }
 
-    RETURN_IF_HCCL_FAIL(AllocAlgResource(
-        comm, myRank, rankSize, stream, resCtx));
+    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, myRank, rankSize, stream, resCtx));
     const std::vector<char> data = resCtx.Serialize();
-    void *newCtx = nullptr;
-    RETURN_IF_HCCL_FAIL(HcclEngineCtxCreate(
-        comm, tag, CommEngine::COMM_ENGINE_CCU,
-        data.size(), &newCtx));
+    void* newCtx = nullptr;
+    RETURN_IF_HCCL_FAIL(HcclEngineCtxCreate(comm, tag, CommEngine::COMM_ENGINE_CCU, data.size(), &newCtx));
     std::memcpy(newCtx, data.data(), data.size());
     return HCCL_SUCCESS;
 }
 
-}  // namespace CcuAgNhr1dMem2mem
+} // namespace CcuAgNhr1dMem2mem

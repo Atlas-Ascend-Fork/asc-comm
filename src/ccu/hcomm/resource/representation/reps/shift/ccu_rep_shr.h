@@ -19,40 +19,22 @@ namespace CcuRep {
 
 class CcuRepShR : public CcuRepBase {
 public:
-    CcuRepShR(CcuInsGeneraterBase* insGenPtr, const Variable &varD, const Variable &varN, const Variable &varM);
-    CcuRepShR(CcuInsGeneraterBase* insGenPtr, const Variable &varD, const Variable &varM);
-    CcuRepShR(CcuInsGeneraterBase* insGenPtr, const Address &addrD, const Variable &varN, const Variable &varM);
-    CcuRepShR(CcuInsGeneraterBase* insGenPtr, const Address &addrD, const Variable &varM);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &curInstrId, const TransDep &dep) override;
-    ShiftSubType GetShiftSubType()
-    {
-        return subType;
-    }
+    CcuRepShR(CcuInsGeneraterBase* insGenPtr, const Variable& varD, const Variable& varN, const Variable& varM);
+    CcuRepShR(CcuInsGeneraterBase* insGenPtr, const Variable& varD, const Variable& varM);
+    CcuRepShR(CcuInsGeneraterBase* insGenPtr, const Address& addrD, const Variable& varN, const Variable& varM);
+    CcuRepShR(CcuInsGeneraterBase* insGenPtr, const Address& addrD, const Variable& varM);
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep) override;
+    ShiftSubType GetShiftSubType() { return subType; }
 
-    ShiftType GetShiftType()
-    {
-        return shiftType;
-    }
+    ShiftType GetShiftType() { return shiftType; }
 
-    Variable GetVarN()
-    {
-        return varN;
-    }
+    Variable GetVarN() { return varN; }
 
-    Variable GetVarM()
-    {
-        return varM;
-    }
+    Variable GetVarM() { return varM; }
 
-    Variable GetVarD()
-    {
-        return varD;
-    }
+    Variable GetVarD() { return varD; }
 
-    Address GetAddressD()
-    {
-        return addrD;
-    }
+    Address GetAddressD() { return addrD; }
 
     std::string Describe() override;
 
@@ -69,6 +51,6 @@ private:
     CcuInsGeneraterBase* insGenPtr{nullptr};
 };
 
-};     // namespace CcuRep
-};     // namespace hcomm
+}; // namespace CcuRep
+}; // namespace hcomm
 #endif // HCCL_CCU_REPRESENTATION_SHR_H

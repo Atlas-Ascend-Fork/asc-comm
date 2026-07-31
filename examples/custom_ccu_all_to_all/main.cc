@@ -40,13 +40,13 @@ using namespace ops_hccl_a2a;
     } while (0)
 
 struct ThreadContext {
-    HcclRootInfo *rootInfo;
+    HcclRootInfo* rootInfo;
     uint32_t device;
     uint32_t devCount;
 };
 
-static HcclResult HcclAllToAllCustom(void *sendBuf, void *recvBuf, uint64_t perCount,
-                                    HcclDataType dataType, HcclComm comm, aclrtStream stream)
+static HcclResult HcclAllToAllCustom(
+    void* sendBuf, void* recvBuf, uint64_t perCount, HcclDataType dataType, HcclComm comm, aclrtStream stream)
 {
     if (sendBuf == nullptr || recvBuf == nullptr || comm == nullptr || stream == nullptr) {
         return HCCL_E_PTR;
@@ -75,11 +75,11 @@ static HcclResult HcclAllToAllCustom(void *sendBuf, void *recvBuf, uint64_t perC
     return HCCL_SUCCESS;
 }
 
-int Sample(void *arg)
+int Sample(void* arg)
 {
-    ThreadContext *ctx = (ThreadContext *)arg;
-    void *sendBuf = nullptr;
-    void *recvBuf = nullptr;
+    ThreadContext* ctx = (ThreadContext*)arg;
+    void* sendBuf = nullptr;
+    void* recvBuf = nullptr;
     uint32_t device = ctx->device;
     const uint64_t perCount = ctx->devCount;
     uint64_t totalCount = perCount * ctx->devCount;
@@ -101,9 +101,9 @@ int Sample(void *arg)
     ACLCHECK(aclrtMalloc(&recvBuf, recvSize, ACL_MEM_MALLOC_HUGE_ONLY));
 
     // 输入按目标 rank 分段，数值同时编码源 rank 和段内位置。
-    void *hostBuf = nullptr;
+    void* hostBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&hostBuf, sendSize));
-    float *tmpHostBuff = static_cast<float *>(hostBuf);
+    float* tmpHostBuff = static_cast<float*>(hostBuf);
     for (uint64_t i = 0; i < totalCount; ++i) {
         tmpHostBuff[i] = static_cast<float>(device * 100 + i);
     }
@@ -119,17 +119,16 @@ int Sample(void *arg)
     ACLCHECK(aclrtFreeHost(hostBuf));
 
     // 每个 rank 向所有目标 rank 各发送 perCount 个元素。
-    HCCLCHECK(HcclAllToAllCustom(sendBuf, recvBuf, perCount, HCCL_DATA_TYPE_FP32,
-                                 hcclComm, stream));
+    HCCLCHECK(HcclAllToAllCustom(sendBuf, recvBuf, perCount, HCCL_DATA_TYPE_FP32, hcclComm, stream));
     // 等待 stream 中任务执行完成
     ACLCHECK(aclrtSynchronizeStream(stream));
 
     // 将 Device 侧结果拷贝回 Host，并打印结果
     std::this_thread::sleep_for(std::chrono::seconds(ctx->device));
-    void *resultBuff;
+    void* resultBuff;
     ACLCHECK(aclrtMallocHost(&resultBuff, recvSize));
     ACLCHECK(aclrtMemcpy(resultBuff, recvSize, recvBuf, recvSize, ACL_MEMCPY_DEVICE_TO_HOST));
-    float *tmpResBuff = static_cast<float *>(resultBuff);
+    float* tmpResBuff = static_cast<float*>(resultBuff);
     bool passed = true;
     std::cout << "rankId: " << ctx->device << ", output: [";
     for (uint64_t i = 0; i < totalCount; ++i) {
@@ -144,15 +143,15 @@ int Sample(void *arg)
     ACLCHECK(aclrtFreeHost(resultBuff));
 
     // 释放资源
-    HCCLCHECK(HcclCommDestroy(hcclComm));  // 销毁通信域
+    HCCLCHECK(HcclCommDestroy(hcclComm)); // 销毁通信域
     if (sendBuf) {
-        ACLCHECK(aclrtFree(sendBuf));      // 释放 Device 侧输入内存
+        ACLCHECK(aclrtFree(sendBuf)); // 释放 Device 侧输入内存
     }
     if (recvBuf) {
-        ACLCHECK(aclrtFree(recvBuf));      // 释放 Device 侧输出内存
+        ACLCHECK(aclrtFree(recvBuf)); // 释放 Device 侧输出内存
     }
-    ACLCHECK(aclrtDestroyStream(stream));  // 销毁任务流
-    ACLCHECK(aclrtResetDevice(device));    // 重置 device
+    ACLCHECK(aclrtDestroyStream(stream)); // 销毁任务流
+    ACLCHECK(aclrtResetDevice(device));   // 重置 device
     return passed ? 0 : 1;
 }
 
@@ -168,9 +167,9 @@ int main()
     int32_t rootRank = 0;
     ACLCHECK(aclrtSetDevice(rootRank));
     // 生成 root 节点信息，各线程使用同一份 RootInfo
-    void *rootInfoBuf = nullptr;
+    void* rootInfoBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&rootInfoBuf, sizeof(HcclRootInfo)));
-    HcclRootInfo *rootInfo = (HcclRootInfo *)rootInfoBuf;
+    HcclRootInfo* rootInfo = (HcclRootInfo*)rootInfoBuf;
     HCCLCHECK(HcclGetRootInfo(rootInfo));
 
     // 启动线程执行集合通信操作
@@ -181,17 +180,15 @@ int main()
         args[i].rootInfo = rootInfo;
         args[i].device = i;
         args[i].devCount = devCount;
-        threads[i] = std::thread([&args, &results, i]() {
-            results[i] = Sample(static_cast<void *>(&args[i]));
-        });
+        threads[i] = std::thread([&args, &results, i]() { results[i] = Sample(static_cast<void*>(&args[i])); });
     }
     for (uint32_t i = 0; i < devCount; i++) {
         threads[i].join();
     }
 
     // 释放资源
-    ACLCHECK(aclrtFreeHost(rootInfoBuf));  // 释放 Host 内存
-    ACLCHECK(aclFinalize());               // ACL 去初始化
+    ACLCHECK(aclrtFreeHost(rootInfoBuf)); // 释放 Host 内存
+    ACLCHECK(aclFinalize());              // ACL 去初始化
     for (int result : results) {
         if (result != 0) {
             return 1;

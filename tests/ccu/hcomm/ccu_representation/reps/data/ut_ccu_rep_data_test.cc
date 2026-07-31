@@ -35,7 +35,7 @@ namespace {
 
 class CcuRepChannelTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override
     {
         HcommChannelDesc channelDesc{};
@@ -57,14 +57,14 @@ class CcuRepBufWriteTest : public CcuRepChannelTest {};
 
 class CcuRepBufLocReadTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
     void TearDown() override {}
 };
 
 class CcuRepBufLocWriteTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
     void TearDown() override {}
 };
@@ -73,14 +73,14 @@ class CcuRepBufReduceTest : public ::testing::Test {
 protected:
     void SetUp() override {}
     void TearDown() override {}
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
 };
 
 class CcuRepLocCpyTest : public ::testing::Test {
 protected:
     void SetUp() override {}
     void TearDown() override {}
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
 };
 
 class CcuRepRemMemTest : public CcuRepChannelTest {};
@@ -605,6 +605,6 @@ TEST_F(CcuRepRemMemTest, Translate)
     EXPECT_EQ(rep.Type(), CcuRepType::REM_MEM);
 }
 
-}
-}
-}
+} // namespace
+} // namespace CcuRep
+} // namespace hcomm

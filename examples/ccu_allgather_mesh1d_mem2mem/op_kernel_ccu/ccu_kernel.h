@@ -26,12 +26,12 @@ namespace ccu = ::AscendC::ccu;
 
 namespace CcuAgMem2mem {
 
-#define RETURN_IF_CCU_FAIL(call)      \
-    do {                              \
-        CcuResult result = (call);    \
-        if (result != CCU_SUCCESS) {  \
-            return result;            \
-        }                             \
+#define RETURN_IF_CCU_FAIL(call)     \
+    do {                             \
+        CcuResult result = (call);   \
+        if (result != CCU_SUCCESS) { \
+            return result;           \
+        }                            \
     } while (0)
 
 constexpr uint32_t CCU_MAX_RANK_SIZE = 16;
@@ -111,19 +111,13 @@ struct AllGatherMesh1DMem2MemContext {
 
     std::map<std::string, CcuLoopEntity> loopMap;
 
-    void CreateLoopEntity(const std::string &loopStr)
-    {
-        loopMap.emplace(loopStr, CcuLoopEntity());
-    }
+    void CreateLoopEntity(const std::string& loopStr) { loopMap.emplace(loopStr, CcuLoopEntity()); }
 
-    bool IsLoopEntityRegistered(const std::string &loopStr) const
-    {
-        return loopMap.count(loopStr) != 0;
-    }
+    bool IsLoopEntityRegistered(const std::string& loopStr) const { return loopMap.count(loopStr) != 0; }
 };
 
 CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg);
 
-}  // namespace CcuAgMem2mem
+} // namespace CcuAgMem2mem
 
-#endif  // ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_KERNEL_H
+#endif // ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_KERNEL_H

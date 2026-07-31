@@ -30,7 +30,7 @@ namespace CcuAgMem2mem {
 using CcuKernelHandle = uint64_t;
 
 struct CommBuffer {
-    void *addr{nullptr};
+    void* addr{nullptr};
     uint64_t size{0};
 };
 
@@ -43,23 +43,22 @@ struct AlgResourceCtx {
     std::vector<CcuKernelHandle> ccuKernels;
 
     std::vector<char> Serialize() const;
-    void Deserialize(std::vector<char> &data);
+    void Deserialize(std::vector<char>& data);
 };
 
 HcclResult ConvertCcuToHccl(CcuResult result);
 
-HcclResult InitAlgResourceCtx(HcclComm comm, const char *tag,
-    uint32_t myRank, uint32_t rankSize, aclrtStream stream,
-    AlgResourceCtx &resCtx);
+HcclResult InitAlgResourceCtx(
+    HcclComm comm, const char* tag, uint32_t myRank, uint32_t rankSize, aclrtStream stream, AlgResourceCtx& resCtx);
 
-}  // namespace CcuAgMem2mem
+} // namespace CcuAgMem2mem
 
-#define RETURN_IF_HCCL_FAIL(call)                                       \
-    do {                                                                \
-        const HcclResult result = static_cast<HcclResult>(call);         \
-        if (result != HCCL_SUCCESS) {                                    \
-            return result;                                              \
-        }                                                               \
+#define RETURN_IF_HCCL_FAIL(call)                                \
+    do {                                                         \
+        const HcclResult result = static_cast<HcclResult>(call); \
+        if (result != HCCL_SUCCESS) {                            \
+            return result;                                       \
+        }                                                        \
     } while (0)
 
-#endif  // ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_ALG_RESOURCE_H
+#endif // ASC_COMM_EXAMPLE_CCU_ALLGATHER_MESH1D_MEM2MEM_ALG_RESOURCE_H

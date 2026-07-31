@@ -23,28 +23,26 @@ using namespace Hccl;
 
 CcuRepNop::CcuRepNop(CcuInsGeneraterBase* insGeneratorPtr) : insGeneratorPtr_(insGeneratorPtr)
 {
-    type       = CcuRepType::NOP;
+    type = CcuRepType::NOP;
     instrCount = 1;
 }
 
-bool CcuRepNop::Translate(CcuKernel* ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep)
+bool CcuRepNop::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
     this->instrId = instrId;
-    translated    = true;
+    translated = true;
 
-    CHK_RET_THROW(Hccl::CcuApiException,
+    CHK_RET_THROW(
+        Hccl::CcuApiException,
         Hccl::StringFormat("[CcuRepNop][%s] failed to translate repNop for instrId[%u] ", __func__, instrId),
-            insGeneratorPtr_->CcuRepNopTranslate(ccuKernel, instr, instrId, this, dep));
+        insGeneratorPtr_->CcuRepNopTranslate(ccuKernel, instr, instrId, this, dep));
 
     instrId += instrCount;
 
     return translated;
 }
 
-std::string CcuRepNop::Describe()
-{
-    return Hccl::StringFormat("Nop");
-}
+std::string CcuRepNop::Describe() { return Hccl::StringFormat("Nop"); }
 
 }; // namespace CcuRep
 }; // namespace hcomm

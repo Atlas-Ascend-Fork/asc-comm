@@ -14,7 +14,7 @@
 #include "exception_defination.h"
 
 // securec 桩
-extern "C" int snprintf_s(char *strDest, size_t destMax, size_t count, const char *format, ...)
+extern "C" int snprintf_s(char* strDest, size_t destMax, size_t count, const char* format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -23,7 +23,7 @@ extern "C" int snprintf_s(char *strDest, size_t destMax, size_t count, const cha
     return ret;
 }
 
-extern "C" int memset_s(void *dest, size_t destMax, int value, size_t count)
+extern "C" int memset_s(void* dest, size_t destMax, int value, size_t count)
 {
     if (dest == nullptr || count > destMax) {
         return -1;
@@ -32,7 +32,7 @@ extern "C" int memset_s(void *dest, size_t destMax, int value, size_t count)
     return 0;
 }
 
-extern "C" int memcpy_s(void *dest, size_t destMax, const void *src, size_t count)
+extern "C" int memcpy_s(void* dest, size_t destMax, const void* src, size_t count)
 {
     if (dest == nullptr || src == nullptr || count > destMax) {
         return -1;
@@ -46,15 +46,9 @@ bool HcclCheckLogLevel(int logType, int moduleId) { return false; }
 bool IsErrorToWarn() { return false; }
 
 namespace Hccl {
-std::string ExceptionInfo::GetErrorMsg(const ExceptionType &type)
-{
-    return "";
-}
+std::string ExceptionInfo::GetErrorMsg(const ExceptionType& type) { return ""; }
 
-HcclResult ExceptionInfo::GetErrorCode(const ExceptionType &type)
-{
-    return static_cast<HcclResult>(0);
-}
+HcclResult ExceptionInfo::GetErrorCode(const ExceptionType& type) { return static_cast<HcclResult>(0); }
 
 std::map<ExceptionType, std::string> ExceptionInfo::errorMsgMap;
 std::map<ExceptionType, HcclResult> ExceptionInfo::errorCodeMap;

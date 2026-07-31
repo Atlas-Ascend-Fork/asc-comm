@@ -17,13 +17,13 @@ constexpr int TOKEN_XN_ID = 2;
 constexpr int CKE_IDX_0 = 0;
 constexpr int POST_SYNC_ID = 3;
 
-static CcuResult ExchangeBuffers(BroadcastMesh1DContext &ctx)
+static CcuResult ExchangeBuffers(BroadcastMesh1DContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(ctx.arg->channels[i], ctx.localBuffer,
-            BUFFER_XN_ID, CKE_IDX_0, 1 << BUFFER_XN_ID));
-        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(ctx.arg->channels[i], ctx.localToken,
-            TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID));
+        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(
+            ctx.arg->channels[i], ctx.localBuffer, BUFFER_XN_ID, CKE_IDX_0, 1 << BUFFER_XN_ID));
+        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(
+            ctx.arg->channels[i], ctx.localToken, TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID));
     }
     const uint32_t allBits = (1 << BUFFER_XN_ID) | (1 << TOKEN_XN_ID);
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
@@ -32,7 +32,7 @@ static CcuResult ExchangeBuffers(BroadcastMesh1DContext &ctx)
     return CCU_SUCCESS;
 }
 
-static CcuResult BroadcastFromRoot(BroadcastMesh1DContext &ctx)
+static CcuResult BroadcastFromRoot(BroadcastMesh1DContext& ctx)
 {
     if (ctx.arg->rankId != ctx.arg->rootId) {
         return CCU_SUCCESS;
@@ -51,8 +51,7 @@ static CcuResult BroadcastFromRoot(BroadcastMesh1DContext &ctx)
         ccu::RemoteAddr dst;
         dst.addr = ctx.remoteBuffer[rankIdx];
         dst.token = ctx.remoteToken[rankIdx];
-        RETURN_IF_CCU_FAIL(ccu::Write(ctx.arg->channels[channelId], dst, src,
-            ctx.dataSize, ctx.event, mask));
+        RETURN_IF_CCU_FAIL(ccu::Write(ctx.arg->channels[channelId], dst, src, ctx.dataSize, ctx.event, mask));
         remoteMask |= mask;
         channelId++;
     }
@@ -62,7 +61,7 @@ static CcuResult BroadcastFromRoot(BroadcastMesh1DContext &ctx)
 
 CcuResult CcuBroadcastMesh1DKernel(CcuKernelArg arg)
 {
-    auto *kernelArg = static_cast<CcuKernelArgBroadcastMesh1D *>(arg);
+    auto* kernelArg = static_cast<CcuKernelArgBroadcastMesh1D*>(arg);
     BroadcastMesh1DContext ctx;
     ctx.arg = kernelArg;
     if (ctx.arg->channelCount == 0) {
@@ -74,10 +73,8 @@ CcuResult CcuBroadcastMesh1DKernel(CcuKernelArg arg)
     uint32_t channelId = 0;
     for (uint32_t peerId = 0; peerId < ctx.arg->rankSize; peerId++) {
         if (peerId != ctx.arg->rankId) {
-            ctx.remoteBuffer[peerId] = ccu::GetResByChannel<ccu::Variable>(
-                ctx.arg->channels[channelId], BUFFER_XN_ID);
-            ctx.remoteToken[peerId] = ccu::GetResByChannel<ccu::Variable>(
-                ctx.arg->channels[channelId], TOKEN_XN_ID);
+            ctx.remoteBuffer[peerId] = ccu::GetResByChannel<ccu::Variable>(ctx.arg->channels[channelId], BUFFER_XN_ID);
+            ctx.remoteToken[peerId] = ccu::GetResByChannel<ccu::Variable>(ctx.arg->channels[channelId], TOKEN_XN_ID);
             channelId++;
         }
     }

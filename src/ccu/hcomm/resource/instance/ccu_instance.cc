@@ -23,7 +23,7 @@ namespace hcomm {
 CcuInstance::~CcuInstance()
 {
     // 主动释放资源保证时序，不得随意调整顺序
-    for (auto &kernelHandle : kernelHandles_) {
+    for (auto& kernelHandle : kernelHandles_) {
         if (kernelHandle != 0) {
             (void)CcuKernelMgr::GetInstance(devLogicId_).UnRegister(kernelHandle);
             kernelHandle = 0;
@@ -72,10 +72,7 @@ CcuResult CcuInstance::Reset()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResPack *CcuInstance::GetResPack()
-{
-    return resPack_.get();
-}
+CcuResPack* CcuInstance::GetResPack() { return resPack_.get(); }
 
 CcuResult CcuInstance::SaveKernel(const CcuKernelHandle kernelHandle)
 {
@@ -84,16 +81,14 @@ CcuResult CcuInstance::SaveKernel(const CcuKernelHandle kernelHandle)
     return CcuResult::CCU_SUCCESS;
 }
 
-const std::vector<CcuKernelHandle> &CcuInstance::GetUntranslatedKernels()
-{
-    return untranslatedKernelHandles_;
-}
+const std::vector<CcuKernelHandle>& CcuInstance::GetUntranslatedKernels() { return untranslatedKernelHandles_; }
 
 CcuResult CcuInstance::BeginRegister()
 {
     if (registerState_ == RegisterState::REGISTERING) {
-        HCCL_ERROR("[CcuInstance][%s] failed, previous register round is not ended, "
-                   "HcommCcuKernelRegisterEnd is missing before a new HcommCcuKernelRegisterStart.",
+        HCCL_ERROR(
+            "[CcuInstance][%s] failed, previous register round is not ended, "
+            "HcommCcuKernelRegisterEnd is missing before a new HcommCcuKernelRegisterStart.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
@@ -104,8 +99,9 @@ CcuResult CcuInstance::BeginRegister()
 CcuResult CcuInstance::CheckRegistering() const
 {
     if (registerState_ != RegisterState::REGISTERING) {
-        HCCL_ERROR("[CcuInstance][%s] failed, HcommCcuKernelRegister must be called between "
-                   "HcommCcuKernelRegisterStart and HcommCcuKernelRegisterEnd.",
+        HCCL_ERROR(
+            "[CcuInstance][%s] failed, HcommCcuKernelRegister must be called between "
+            "HcommCcuKernelRegisterStart and HcommCcuKernelRegisterEnd.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
@@ -115,14 +111,16 @@ CcuResult CcuInstance::CheckRegistering() const
 CcuResult CcuInstance::EndRegister()
 {
     if (registerState_ == RegisterState::IDLE) {
-        HCCL_ERROR("[CcuInstance][%s] failed, HcommCcuKernelRegisterEnd is called without a matching "
-                   "HcommCcuKernelRegisterStart.",
+        HCCL_ERROR(
+            "[CcuInstance][%s] failed, HcommCcuKernelRegisterEnd is called without a matching "
+            "HcommCcuKernelRegisterStart.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
     if (registerState_ == RegisterState::REGISTER_ABORTED) {
-        HCCL_WARNING("[CcuInstance][%s] previous register round was aborted due to error, "
-                     "close it to keep Start/End paired, no kernel will be translated.",
+        HCCL_WARNING(
+            "[CcuInstance][%s] previous register round was aborted due to error, "
+            "close it to keep Start/End paired, no kernel will be translated.",
             __func__);
     }
     registerState_ = RegisterState::IDLE;

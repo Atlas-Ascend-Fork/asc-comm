@@ -17,35 +17,35 @@
 namespace hcomm {
 namespace CcuRep {
 
-    class CcuRepAssign : public CcuRepBase {
-    public:
-        explicit CcuRepAssign(CcuInsGeneraterBase *insGenPtr, const Variable &varA, uint64_t immediate);
-        explicit CcuRepAssign(CcuInsGeneraterBase *insGenPtr, const Address &addrA, uint64_t immediate);
-        explicit CcuRepAssign(CcuInsGeneraterBase *insGenPtr, const Address &addrA, const Variable &varA);
-        explicit CcuRepAssign(CcuInsGeneraterBase *insGenPtr, const Address &addrB, const Address &addrA);
-        explicit CcuRepAssign(CcuInsGeneraterBase *insGenPtr, const Variable &varB, const Variable &varA);
+class CcuRepAssign : public CcuRepBase {
+public:
+    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable& varA, uint64_t immediate);
+    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrA, uint64_t immediate);
+    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const Variable& varA);
+    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrB, const Address& addrA);
+    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable& varB, const Variable& varA);
 
-        bool Translate(CcuKernel *ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
-        std::string Describe() override;
-        Address GetAddrA();
-        Address GetAddrB();
-        Variable GetVarA();
-        Variable GetVarB();
-        uint64_t GetImmed();
-        AssignSubType GetSubType();
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+    std::string Describe() override;
+    Address GetAddrA();
+    Address GetAddrB();
+    Variable GetVarA();
+    Variable GetVarB();
+    uint64_t GetImmed();
+    AssignSubType GetSubType();
 
-    private:
-        void SetCommonInfo();
-        CcuInsGeneraterBase *insGenPtr{nullptr};
-        AssignSubType subType{AssignSubType::INVALID};
-        uint64_t immediate{0};
+private:
+    void SetCommonInfo();
+    CcuInsGeneraterBase* insGenPtr{nullptr};
+    AssignSubType subType{AssignSubType::INVALID};
+    uint64_t immediate{0};
 
-        Variable varA;
-        Variable varB;
+    Variable varA;
+    Variable varB;
 
-        Address addrA;
-        Address addrB;
-    };
+    Address addrA;
+    Address addrB;
+};
 
 }; // namespace CcuRep
 }; // namespace hcomm
