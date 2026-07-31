@@ -22,21 +22,32 @@
 
 using namespace ops_hccl_a2av;
 
-#define ACLCHECK(call) do { auto ret = (call); if (ret != ACL_SUCCESS) { \
-    printf("ACL error %s:%d, ret=%d\n", __FILE__, __LINE__, ret); return ret; } } while (0)
-#define HCCLCHECK(call) do { auto ret = (call); if (ret != HCCL_SUCCESS) { \
-    printf("HCCL error %s:%d, ret=%d\n", __FILE__, __LINE__, ret); return ret; } } while (0)
+#define ACLCHECK(call)                                                    \
+    do {                                                                  \
+        auto ret = (call);                                                \
+        if (ret != ACL_SUCCESS) {                                         \
+            printf("ACL error %s:%d, ret=%d\n", __FILE__, __LINE__, ret); \
+            return ret;                                                   \
+        }                                                                 \
+    } while (0)
+#define HCCLCHECK(call)                                                    \
+    do {                                                                   \
+        auto ret = (call);                                                 \
+        if (ret != HCCL_SUCCESS) {                                         \
+            printf("HCCL error %s:%d, ret=%d\n", __FILE__, __LINE__, ret); \
+            return ret;                                                    \
+        }                                                                  \
+    } while (0)
 
 struct ThreadContext {
-    HcclRootInfo *rootInfo;
+    HcclRootInfo* rootInfo;
     uint32_t device;
     uint32_t devCount;
 };
 
-static HcclResult HcclAllToAllVCustom(void *sendBuf, const uint64_t *sendCounts,
-    const uint64_t *sendDispls, HcclDataType sendType, void *recvBuf,
-    const uint64_t *recvCounts, const uint64_t *recvDispls, HcclDataType recvType,
-    HcclComm comm, aclrtStream stream)
+static HcclResult HcclAllToAllVCustom(
+    void* sendBuf, const uint64_t* sendCounts, const uint64_t* sendDispls, HcclDataType sendType, void* recvBuf,
+    const uint64_t* recvCounts, const uint64_t* recvDispls, HcclDataType recvType, HcclComm comm, aclrtStream stream)
 {
     if (sendBuf == nullptr || recvBuf == nullptr || sendCounts == nullptr || sendDispls == nullptr ||
         recvCounts == nullptr || recvDispls == nullptr || comm == nullptr || stream == nullptr) {
@@ -49,8 +60,7 @@ static HcclResult HcclAllToAllVCustom(void *sendBuf, const uint64_t *sendCounts,
     OpParam param;
     RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param.myRank));
     RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param.rankSize));
-    if (param.rankSize == 0 || param.rankSize > MAX_RANK_SIZE ||
-        sendCounts[param.myRank] != recvCounts[param.myRank]) {
+    if (param.rankSize == 0 || param.rankSize > MAX_RANK_SIZE || sendCounts[param.myRank] != recvCounts[param.myRank]) {
         return HCCL_E_NOT_SUPPORT;
     }
     param.stream = stream;
@@ -67,9 +77,9 @@ static HcclResult HcclAllToAllVCustom(void *sendBuf, const uint64_t *sendCounts,
     return ExecOp(param, resources);
 }
 
-static int Sample(void *arg)
+static int Sample(void* arg)
 {
-    auto *ctx = static_cast<ThreadContext *>(arg);
+    auto* ctx = static_cast<ThreadContext*>(arg);
     ACLCHECK(aclrtSetDevice(static_cast<int32_t>(ctx->device)));
 
     HcclComm comm;
@@ -92,16 +102,16 @@ static int Sample(void *arg)
         recvTotal += recvCounts[peer];
     }
 
-    void *sendBuf = nullptr;
-    void *recvBuf = nullptr;
+    void* sendBuf = nullptr;
+    void* recvBuf = nullptr;
     const size_t sendSize = sendTotal * sizeof(float);
     const size_t recvSize = recvTotal * sizeof(float);
     ACLCHECK(aclrtMalloc(&sendBuf, sendSize, ACL_MEM_MALLOC_HUGE_ONLY));
     ACLCHECK(aclrtMalloc(&recvBuf, recvSize, ACL_MEM_MALLOC_HUGE_ONLY));
 
-    void *hostBuf = nullptr;
+    void* hostBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&hostBuf, sendSize));
-    auto *input = static_cast<float *>(hostBuf);
+    auto* input = static_cast<float*>(hostBuf);
     for (uint32_t dst = 0; dst < ctx->devCount; dst++) {
         for (uint64_t i = 0; i < sendCounts[dst]; i++) {
             input[sendDispls[dst] + i] = static_cast<float>(ctx->device * 1000 + dst * 100 + i);
@@ -110,15 +120,16 @@ static int Sample(void *arg)
     ACLCHECK(aclrtMemcpy(sendBuf, sendSize, hostBuf, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
     ACLCHECK(aclrtFreeHost(hostBuf));
 
-    HCCLCHECK(HcclAllToAllVCustom(sendBuf, sendCounts.data(), sendDispls.data(), HCCL_DATA_TYPE_FP32,
-        recvBuf, recvCounts.data(), recvDispls.data(), HCCL_DATA_TYPE_FP32, comm, stream));
+    HCCLCHECK(HcclAllToAllVCustom(
+        sendBuf, sendCounts.data(), sendDispls.data(), HCCL_DATA_TYPE_FP32, recvBuf, recvCounts.data(),
+        recvDispls.data(), HCCL_DATA_TYPE_FP32, comm, stream));
     ACLCHECK(aclrtSynchronizeStream(stream));
 
     std::this_thread::sleep_for(std::chrono::seconds(ctx->device));
-    void *resultHost = nullptr;
+    void* resultHost = nullptr;
     ACLCHECK(aclrtMallocHost(&resultHost, recvSize));
     ACLCHECK(aclrtMemcpy(resultHost, recvSize, recvBuf, recvSize, ACL_MEMCPY_DEVICE_TO_HOST));
-    auto *output = static_cast<float *>(resultHost);
+    auto* output = static_cast<float*>(resultHost);
     bool passed = true;
     std::cout << "rankId: " << ctx->device << ", output: [";
     for (uint32_t src = 0; src < ctx->devCount; src++) {
@@ -149,9 +160,9 @@ int main()
     std::cout << "Found " << deviceCount << " NPU device(s) available" << std::endl;
 
     ACLCHECK(aclrtSetDevice(0));
-    void *rootInfoBuf = nullptr;
+    void* rootInfoBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&rootInfoBuf, sizeof(HcclRootInfo)));
-    auto *rootInfo = static_cast<HcclRootInfo *>(rootInfoBuf);
+    auto* rootInfo = static_cast<HcclRootInfo*>(rootInfoBuf);
     HCCLCHECK(HcclGetRootInfo(rootInfo));
 
     std::vector<std::thread> threads(deviceCount);
@@ -159,11 +170,9 @@ int main()
     std::vector<int> results(deviceCount, 1);
     for (uint32_t rank = 0; rank < deviceCount; rank++) {
         contexts[rank] = {rootInfo, rank, deviceCount};
-        threads[rank] = std::thread([&contexts, &results, rank]() {
-            results[rank] = Sample(&contexts[rank]);
-        });
+        threads[rank] = std::thread([&contexts, &results, rank]() { results[rank] = Sample(&contexts[rank]); });
     }
-    for (auto &thread : threads) {
+    for (auto& thread : threads) {
         thread.join();
     }
 

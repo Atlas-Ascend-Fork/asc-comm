@@ -28,27 +28,28 @@ using namespace CcuRep;
 
 class CcuKernelMgr {
 public:
-    static CcuKernelMgr &GetInstance(const s32 deviceLogicId);
+    static CcuKernelMgr& GetInstance(const s32 deviceLogicId);
 
     HcclResult Init();
     HcclResult Deinit();
 
-    CcuResult Register(CcuResPack &resPack, const char *kernelFuncName, const void *kernelFunc, const void **kernelArgs,
-        const uint32_t argNum, CcuKernelHandle &kernelHandle);
+    CcuResult Register(
+        CcuResPack& resPack, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
+        const uint32_t argNum, CcuKernelHandle& kernelHandle);
 
-    CcuResult Translate(const std::vector<CcuKernelHandle> &kernelHandles);
+    CcuResult Translate(const std::vector<CcuKernelHandle>& kernelHandles);
 
-    CcuKernel *GetKernel(CcuKernelHandle kernelHandle);
+    CcuKernel* GetKernel(CcuKernelHandle kernelHandle);
     CcuResult UnRegister(CcuKernelHandle kernelHandle);
 
-    CcuKernel *GetCurrentKernel();
+    CcuKernel* GetCurrentKernel();
 
 private:
     explicit CcuKernelMgr() = default;
     ~CcuKernelMgr();
 
-    CcuKernelMgr(const CcuKernelMgr &that) = delete;
-    CcuKernelMgr &operator=(const CcuKernelMgr &that) = delete;
+    CcuKernelMgr(const CcuKernelMgr& that) = delete;
+    CcuKernelMgr& operator=(const CcuKernelMgr& that) = delete;
 
 private:
     struct CcuTranslatResPack {
@@ -57,13 +58,13 @@ private:
 
 private:
     CcuResult PrepareConstValueResources();
-    CcuResult AllocRes(CcuResPack &resPack);
+    CcuResult AllocRes(CcuResPack& resPack);
 
     HcclResult InstantiationTranslator(const uint16_t dieId);
-    HcclResult TransRepSequenceToMicrocode(const std::vector<CcuKernel *> &kernels, bool isFuncBlock);
-    HcclResult LoadInstruction(const CcuRep::CcuInstrInfo &instrInfo, const uint32_t dieId);
+    HcclResult TransRepSequenceToMicrocode(const std::vector<CcuKernel*>& kernels, bool isFuncBlock);
+    HcclResult LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, const uint32_t dieId);
 
-    HcclResult GetResPackTotalResRepository(const CcuTranslatResPack &resPack, CcuResRepository &totalRes) const;
+    HcclResult GetResPackTotalResRepository(const CcuTranslatResPack& resPack, CcuResRepository& totalRes) const;
 
 private:
     bool initializedFlag_{false};
@@ -72,7 +73,7 @@ private:
     std::mutex translateMutex_{};
     CcuKernelHandle kernelId_ = 0;
     std::unordered_map<CcuKernelHandle, std::unique_ptr<CcuKernel>> kernelMap_{};
-    void *instructionLoadDevMem_{nullptr};
+    void* instructionLoadDevMem_{nullptr};
 
     std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<CcuRep::CcuRepTranslator>>> translators;
     std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<CcuRep::CcuRepReferenceManager>>>

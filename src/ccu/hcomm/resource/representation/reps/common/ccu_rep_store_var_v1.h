@@ -17,42 +17,28 @@
 namespace hcomm {
 namespace CcuRep {
 
-    class CcuRepStoreVar : public CcuRepBase {
-    public:
-        CcuRepStoreVar(CcuInsGeneraterBase *insGeneratorPtr, const Variable &var, const Variable &dst, uint32_t num = 1,
-            bool hscbFlag = false);
-        bool Translate(CcuKernel *ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
-        std::string Describe() override;
+class CcuRepStoreVar : public CcuRepBase {
+public:
+    CcuRepStoreVar(
+        CcuInsGeneraterBase* insGeneratorPtr, const Variable& var, const Variable& dst, uint32_t num = 1,
+        bool hscbFlag = false);
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+    std::string Describe() override;
 
-        Variable GetVar()
-        {
-            return var;
-        }
-        Variable GetDst()
-        {
-            return dst;
-        }
-        uint32_t GetNum()
-        {
-            return num;
-        }
-        uint16_t GetMask()
-        {
-            return mask;
-        }
-        bool GetHscbFlag()
-        {
-            return hscbFlag;
-        }
+    Variable GetVar() { return var; }
+    Variable GetDst() { return dst; }
+    uint32_t GetNum() { return num; }
+    uint16_t GetMask() { return mask; }
+    bool GetHscbFlag() { return hscbFlag; }
 
-    private:
-        CcuInsGeneraterBase *insGeneratorPtr_{nullptr};
-        Variable var;
-        Variable dst;
-        uint32_t num;
-        uint16_t mask{1};
-        bool hscbFlag{false};
-    };
+private:
+    CcuInsGeneraterBase* insGeneratorPtr_{nullptr};
+    Variable var;
+    Variable dst;
+    uint32_t num;
+    uint16_t mask{1};
+    bool hscbFlag{false};
+};
 
 }; // namespace CcuRep
 }; // namespace hcomm

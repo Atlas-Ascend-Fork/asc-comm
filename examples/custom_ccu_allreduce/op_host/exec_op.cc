@@ -19,12 +19,11 @@
 using namespace ops_hccl_ar;
 
 namespace ops_hccl_ar {
-constexpr uint64_t UB_MAX_DATA_SIZE = 256*1024*1024; // UB 协议单次传输最大字节数
+constexpr uint64_t UB_MAX_DATA_SIZE = 256 * 1024 * 1024; // UB 协议单次传输最大字节数
 
-static HcclResult LaunchCcuKernelSlice(const AlgResourceCtx &resCtx,
-                                        uint64_t inputAddr, uint64_t outputAddr,
-                                        uint64_t token, uint64_t sliceCount,
-                                        uint64_t dataTypeSize)
+static HcclResult LaunchCcuKernelSlice(
+    const AlgResourceCtx& resCtx, uint64_t inputAddr, uint64_t outputAddr, uint64_t token, uint64_t sliceCount,
+    uint64_t dataTypeSize)
 {
     uint64_t sliceSize = sliceCount * dataTypeSize;
 
@@ -35,8 +34,8 @@ static HcclResult LaunchCcuKernelSlice(const AlgResourceCtx &resCtx,
         sliceSize,
     };
 
-    CcuResult launchRet = HcommCcuKernelLaunch(resCtx.threads[0], resCtx.ccuKernels[0],
-                                                taskArgs.data(), taskArgs.size());
+    CcuResult launchRet =
+        HcommCcuKernelLaunch(resCtx.threads[0], resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
     if (launchRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
@@ -44,7 +43,7 @@ static HcclResult LaunchCcuKernelSlice(const AlgResourceCtx &resCtx,
     return HCCL_SUCCESS;
 }
 
-HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
+HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx)
 {
     constexpr uint64_t dataTypeSize = sizeof(float);
     uint64_t dataSize = param.count * dataTypeSize;
@@ -55,13 +54,15 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
     }
 
     if (param.rankSize == 1) { // 单卡场景直接本地拷贝
-        RETURN_IF_HCCL_FAIL(static_cast<HcclResult>(HcommLocalCopyOnThread(resCtx.threads[0], param.outputPtr, param.inputPtr, dataSize)));
+        RETURN_IF_HCCL_FAIL(static_cast<HcclResult>(
+            HcommLocalCopyOnThread(resCtx.threads[0], param.outputPtr, param.inputPtr, dataSize)));
         return HCCL_SUCCESS;
     }
 
     uint64_t maxDataSizePerLoop = UB_MAX_DATA_SIZE;
     uint64_t maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
-    uint64_t loopCount = count / maxDataCountPerLoop + static_cast<uint64_t>(count % maxDataCountPerLoop != 0); // 计算分片处理次数
+    uint64_t loopCount =
+        count / maxDataCountPerLoop + static_cast<uint64_t>(count % maxDataCountPerLoop != 0); // 计算分片处理次数
     uint64_t processedDataCount = 0;
 
     uint64_t token = 0;

@@ -30,9 +30,9 @@ public:
     ~CcuInstance();
     CcuResult Init();
     CcuResult Reset();
-    CcuResPack *GetResPack();
+    CcuResPack* GetResPack();
     CcuResult SaveKernel(const CcuKernelHandle kernelHandle);
-    const std::vector<CcuKernelHandle> &GetUntranslatedKernels();
+    const std::vector<CcuKernelHandle>& GetUntranslatedKernels();
 
     CcuResult BeginRegister();
     CcuResult CheckRegistering() const;

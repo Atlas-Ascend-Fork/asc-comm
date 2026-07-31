@@ -10,37 +10,25 @@
 
 #include "ccu/hcomm/ccu_res.h"
 
-CcuResult HcommCcuInsResDescCreate(uint32_t, HcommCcuResDescHandle *)
-{
-    return CcuResult::CCU_E_NOT_SUPPORT;
-}
+CcuResult HcommCcuInsResDescCreate(uint32_t, HcommCcuResDescHandle*) { return CcuResult::CCU_E_NOT_SUPPORT; }
 
-CcuResult HcommCcuInsResDescDestroy(HcommCcuResDescHandle)
-{
-    return CcuResult::CCU_E_NOT_SUPPORT;
-}
+CcuResult HcommCcuInsResDescDestroy(HcommCcuResDescHandle) { return CcuResult::CCU_E_NOT_SUPPORT; }
 
-CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle, uint32_t *)
-{
-    return CcuResult::CCU_E_NOT_SUPPORT;
-}
+CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle, uint32_t*) { return CcuResult::CCU_E_NOT_SUPPORT; }
 
 CcuResult HcommCcuInsResDescSetNum(HcommCcuResDescHandle, HcommCcuResType, uint32_t)
 {
     return CcuResult::CCU_E_NOT_SUPPORT;
 }
 
-CcuResult HcommCcuInsResDescQueryNum(HcommCcuResDescHandle, HcommCcuResType, uint32_t *)
+CcuResult HcommCcuInsResDescQueryNum(HcommCcuResDescHandle, HcommCcuResType, uint32_t*)
 {
     return CcuResult::CCU_E_NOT_SUPPORT;
 }
 
-CcuResult HcommCcuQueryRemainResDesc(HcommCcuResDescHandle)
-{
-    return CcuResult::CCU_E_NOT_SUPPORT;
-}
+CcuResult HcommCcuQueryRemainResDesc(HcommCcuResDescHandle) { return CcuResult::CCU_E_NOT_SUPPORT; }
 
-CcuResult HcommCcuKernelQueryResReq(const void *, const void **, uint32_t, HcommCcuResDescHandle)
+CcuResult HcommCcuKernelQueryResReq(const void*, const void**, uint32_t, HcommCcuResDescHandle)
 {
     return CcuResult::CCU_E_NOT_SUPPORT;
 }

@@ -17,63 +17,33 @@
 namespace hcomm {
 namespace CcuRep {
 
-    class CcuRepBufLocWrite : public CcuRepBase {
-    public:
-        CcuRepBufLocWrite(
-            CcuInsGeneraterBase *insGenPtr, CcuBuf src, LocalAddr dst, Variable len, CompletedEvent sem, uint32_t mask);
-        bool Translate(CcuKernel *ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
-        std::string Describe() override;
-        uint16_t GetSrcAddrId()
-        {
-            return src.Id();
-        }
-        uint16_t GetDstTokenId()
-        {
-            return dst.token.Id();
-        }
-        uint16_t GetDstAddrId()
-        {
-            return dst.addr.Id();
-        }
-        uint16_t GetLenId()
-        {
-            return len.Id();
-        }
-        uint16_t GetSemId()
-        {
-            return sem.Id();
-        }
+class CcuRepBufLocWrite : public CcuRepBase {
+public:
+    CcuRepBufLocWrite(
+        CcuInsGeneraterBase* insGenPtr, CcuBuf src, LocalAddr dst, Variable len, CompletedEvent sem, uint32_t mask);
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+    std::string Describe() override;
+    uint16_t GetSrcAddrId() { return src.Id(); }
+    uint16_t GetDstTokenId() { return dst.token.Id(); }
+    uint16_t GetDstAddrId() { return dst.addr.Id(); }
+    uint16_t GetLenId() { return len.Id(); }
+    uint16_t GetSemId() { return sem.Id(); }
 
-        Variable GetLen()
-        {
-            return len;
-        }
-        CcuBuf GetSrc()
-        {
-            return src;
-        }
-        LocalAddr GetDst()
-        {
-            return dst;
-        }
-        CompletedEvent GetSem()
-        {
-            return sem;
-        }
-        uint16_t GetMask()
-        {
-            return mask;
-        }
+    Variable GetLen() { return len; }
+    CcuBuf GetSrc() { return src; }
+    LocalAddr GetDst() { return dst; }
+    CompletedEvent GetSem() { return sem; }
+    uint16_t GetMask() { return mask; }
 
-    private:
-        CcuInsGeneraterBase *insGenPtr{nullptr};
-        CcuBuf src;
-        LocalAddr dst;
-        Variable len;
+private:
+    CcuInsGeneraterBase* insGenPtr{nullptr};
+    CcuBuf src;
+    LocalAddr dst;
+    Variable len;
 
-        CompletedEvent sem;
-        uint32_t mask{0};
-    };
+    CompletedEvent sem;
+    uint32_t mask{0};
+};
 
 }; // namespace CcuRep
 }; // namespace hcomm
