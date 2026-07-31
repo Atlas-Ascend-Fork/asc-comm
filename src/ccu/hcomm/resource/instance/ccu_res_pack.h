@@ -24,13 +24,13 @@ public:
     CcuResult Init();
     CcuResult Reset();
 
-    CcuResRepository &GetCcuResRepo();
+    CcuResRepository& GetCcuResRepo();
 
 private:
-    CcuResPack(const CcuResPack &that) = delete;
-    CcuResPack &operator=(const CcuResPack &that) = delete;
-    CcuResPack(CcuResPack &&that) = delete;
-    CcuResPack &operator=(CcuResPack &&that) = delete;
+    CcuResPack(const CcuResPack& that) = delete;
+    CcuResPack& operator=(const CcuResPack& that) = delete;
+    CcuResPack(CcuResPack&& that) = delete;
+    CcuResPack& operator=(CcuResPack&& that) = delete;
 
     int32_t devLogicId_{0};
     CcuInstanceType insType_{CcuInstanceType::CCU_UNUSED};

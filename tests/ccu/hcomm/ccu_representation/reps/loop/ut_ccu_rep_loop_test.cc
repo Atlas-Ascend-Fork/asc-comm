@@ -37,9 +37,8 @@ namespace {
 
 class CcuRepLoopTest : public ::testing::Test {
 protected:
-    void SetUp() override {
-    }
-    CcuInsGeneraterV1 insGen {};
+    void SetUp() override {}
+    CcuInsGeneraterV1 insGen{};
 };
 
 TEST_F(CcuRepLoopTest, Constructor)
@@ -102,10 +101,10 @@ TEST_F(CcuRepLoopTest, Translate)
     loopBlock->Append(std::make_shared<CcuRepNop>(&insGen));
     loop.Reference(loopBlock);
 
-    CcuInstr instr[2] {};
+    CcuInstr instr[2]{};
     CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
-    TransDep dep {};
+    TransDep dep{};
 
     loopBlock->Translate(nullptr, instrPtr, instrId, dep);
     instrPtr = instr;
@@ -125,10 +124,10 @@ TEST_F(CcuRepLoopTest, Translate_EmptyLoopBlock)
     auto loopBlock = std::make_shared<CcuRepLoopBlock>(&insGen, "loop_block");
     loop.Reference(loopBlock);
 
-    CcuInstr instr {};
+    CcuInstr instr{};
     CcuInstr* instrPtr = &instr;
     uint16_t instrId = 0;
-    TransDep dep {};
+    TransDep dep{};
 
     loopBlock->Translate(nullptr, instrPtr, instrId, dep);
     instrPtr = &instr;
@@ -143,10 +142,10 @@ TEST_F(CcuRepLoopTest, Translate_NullLoopBlock)
     Variable loopParam(nullptr);
     CcuRepLoop loop(&insGen, "test_loop", loopParam);
 
-    CcuInstr instr {};
+    CcuInstr instr{};
     CcuInstr* instrPtr = &instr;
     uint16_t instrId = 0;
-    TransDep dep {};
+    TransDep dep{};
 
     EXPECT_THROW(loop.Translate(nullptr, instrPtr, instrId, dep), Hccl::NullPtrException);
 }
@@ -160,10 +159,10 @@ TEST_F(CcuRepLoopTest, Translate_UntranslatedLoopBlock)
     loopBlock->Append(std::make_shared<CcuRepNop>(&insGen));
     loop.Reference(loopBlock);
 
-    CcuInstr instr {};
+    CcuInstr instr{};
     CcuInstr* instrPtr = &instr;
     uint16_t instrId = 0;
-    TransDep dep {};
+    TransDep dep{};
 
     EXPECT_THROW(loop.Translate(nullptr, instrPtr, instrId, dep), Hccl::CcuApiException);
 }
@@ -177,10 +176,10 @@ TEST_F(CcuRepLoopTest, Translate_InstrIdOverflow)
     loopBlock->Append(std::make_shared<CcuRepNop>(&insGen));
     loop.Reference(loopBlock);
 
-    CcuInstr instr[2] {};
+    CcuInstr instr[2]{};
     CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
-    TransDep dep {};
+    TransDep dep{};
 
     loopBlock->Translate(nullptr, instrPtr, instrId, dep);
     instrPtr = instr;
@@ -192,9 +191,8 @@ TEST_F(CcuRepLoopTest, Translate_InstrIdOverflow)
 
 class CcuRepLoopBlockTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
-    void SetUp() override {
-    }
+    CcuInsGeneraterV1 insGen{};
+    void SetUp() override {}
 };
 
 TEST_F(CcuRepLoopBlockTest, Constructor)
@@ -326,9 +324,8 @@ TEST_F(CcuRepLoopBlockTest, GetArg_OutOfRange)
 
 class CcuRepLoopCallTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
-    void SetUp() override {
-    }
+    CcuInsGeneraterV1 insGen{};
+    void SetUp() override {}
 };
 
 TEST_F(CcuRepLoopCallTest, Constructor)
@@ -467,7 +464,7 @@ TEST_F(CcuRepLoopCallTest, Translate)
     CcuInstr instr[10] = {};
     CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
-    TransDep dep {0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
+    TransDep dep{0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
 
     loopBlock->Translate(nullptr, instrPtr, instrId, dep);
     instrPtr = instr;
@@ -480,9 +477,8 @@ TEST_F(CcuRepLoopCallTest, Translate)
 
 class CcuRepLoopGroupBundleTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
-    void SetUp() override {
-    }
+    CcuInsGeneraterV1 insGen{};
+    void SetUp() override {}
 
     static CcuRepLoopGroupBundle::LoopEntry MakeTranslatedLoopEntry()
     {
@@ -495,10 +491,10 @@ protected:
         entry.loopParamVar = Variable(nullptr);
         entry.layout = CcuRepLoopGroupBundle::Layout::Config;
 
-        CcuInstr blockInstr[1] {};
+        CcuInstr blockInstr[1]{};
         CcuInstr* blockPtr = blockInstr;
         uint16_t blockInstrId = 0;
-        TransDep blockDep {0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
+        TransDep blockDep{0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
         entry.repLoopBlock->Translate(nullptr, blockPtr, blockInstrId, blockDep);
         return entry;
     }
@@ -536,7 +532,7 @@ TEST_F(CcuRepLoopGroupBundleTest, Translate)
     CcuInstr instr[kExpectedInstrCount] = {};
     CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
-    TransDep dep {0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
+    TransDep dep{0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
 
     bool result = bundle.Translate(nullptr, instrPtr, instrId, dep);
 
@@ -556,7 +552,7 @@ TEST_F(CcuRepLoopGroupBundleTest, GetStartLoopInstrId)
     CcuInstr instr[kBundleInstrCount] = {};
     CcuInstr* instrPtr = instr;
     uint16_t instrId = 10;
-    TransDep dep {0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
+    TransDep dep{0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
 
     bundle.Translate(nullptr, instrPtr, instrId, dep);
 
@@ -576,9 +572,8 @@ TEST_F(CcuRepLoopGroupBundleTest, Describe)
 
 class CcuRepSetLoopTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
-    void SetUp() override {
-    }
+    CcuInsGeneraterV1 insGen{};
+    void SetUp() override {}
 };
 
 TEST_F(CcuRepSetLoopTest, Constructor)
@@ -605,7 +600,7 @@ TEST_F(CcuRepSetLoopTest, Translate)
     CcuInstr instr[2] = {};
     CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
-    TransDep dep {0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
+    TransDep dep{0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
 
     bool result = setLoop.Translate(nullptr, instrPtr, instrId, dep);
 
@@ -625,6 +620,6 @@ TEST_F(CcuRepSetLoopTest, Describe)
     EXPECT_NE(desc.find("var"), std::string::npos);
 }
 
-}
-}
-}
+} // namespace
+} // namespace CcuRep
+} // namespace hcomm

@@ -13,21 +13,15 @@
 #include "hcomm_c_adpt.h"
 
 namespace hcomm {
-Channel *channelStub = nullptr;
+Channel* channelStub = nullptr;
 
-void SetHcommChannelGetStub(Channel *channel)
-{
-    channelStub = channel;
-}
+void SetHcommChannelGetStub(Channel* channel) { channelStub = channel; }
 
-void ResetHcommChannelGetStub()
-{
-    channelStub = nullptr;
-}
+void ResetHcommChannelGetStub() { channelStub = nullptr; }
 
 } // namespace hcomm
 
-HcommResult HcommChannelGet(ChannelHandle channelHandle, void **channel)
+HcommResult HcommChannelGet(ChannelHandle channelHandle, void** channel)
 {
     if (channel == nullptr || hcomm::channelStub == nullptr) {
         return HCCL_E_PTR;

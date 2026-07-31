@@ -35,7 +35,8 @@ template <typename C, typename R, typename... A>
 struct FunctorTraits<R (C::*)(A...) const> {
     static constexpr std::size_t Arity = sizeof...(A);
     using ReturnT = R;
-    template <std::size_t I> struct Arg {
+    template <std::size_t I>
+    struct Arg {
         using type = typename std::tuple_element<I, std::tuple<A...>>::type;
     };
 };
@@ -50,9 +51,7 @@ struct FunctorTraits<R (C::*)(A...)> {
 template <typename Lambda, std::size_t... Is>
 inline std::function<void(Variable*)> MakeBodyImpl(Lambda body, std::index_sequence<Is...>)
 {
-    return [body](Variable* formals) {
-        body(formals[Is]...);
-    };
+    return [body](Variable* formals) { body(formals[Is]...); };
 }
 
 template <typename Lambda, std::size_t N>
@@ -72,21 +71,22 @@ public:
         : numIn_(internal::FunctorTraits<Lambda>::Arity),
           body_(internal::MakeBody<Lambda, internal::FunctorTraits<Lambda>::Arity>(body))
     {
-        static_assert(std::is_same<typename internal::FunctorTraits<Lambda>::ReturnT, void>::value,
-                      "ccu::Func: lambda must return void (no return value supported)");
+        static_assert(
+            std::is_same<typename internal::FunctorTraits<Lambda>::ReturnT, void>::value,
+            "ccu::Func: lambda must return void (no return value supported)");
     }
 
-    Func(const Func&)            = delete;
+    Func(const Func&) = delete;
     Func& operator=(const Func&) = delete;
 
-    uint32_t    NumIn() const { return numIn_; }
-    const void* Key() const   { return static_cast<const void*>(this); }
+    uint32_t NumIn() const { return numIn_; }
+    const void* Key() const { return static_cast<const void*>(this); }
 
     // 在合成模式下调用：把 N 个 formal Variable 展开传给原 lambda。
     void RunBody(Variable* formals) const { body_(formals); }
 
 private:
-    uint32_t                      numIn_{0};
+    uint32_t numIn_{0};
     std::function<void(Variable*)> body_;
 };
 
@@ -101,27 +101,22 @@ inline CcuResult CallFunc(Args... args)
     }
 
     uint64_t handle = 0;
-    CCU_THROW_IF_FAILED(::CcuFuncBlockLookup(Obj.Key(), &handle),
-        "CallFunc: CcuFuncBlockLookup failed");
+    CCU_THROW_IF_FAILED(::CcuFuncBlockLookup(Obj.Key(), &handle), "CallFunc: CcuFuncBlockLookup failed");
     if (handle == 0) {
         // 第一次进入：合成 FuncBlock
-        CCU_THROW_IF_FAILED(::CcuFuncBlockBegin(Obj.Key(), &handle),
-            "CallFunc: CcuFuncBlockBegin failed");
+        CCU_THROW_IF_FAILED(::CcuFuncBlockBegin(Obj.Key(), &handle), "CallFunc: CcuFuncBlockBegin failed");
 
         // 形参：按 lambda 形参个数 alloc，并注册为 FuncBlock 的 in args
         std::vector<Variable> formals(Obj.NumIn());
         for (uint32_t i = 0; i < Obj.NumIn(); i++) {
-            CCU_THROW_IF_FAILED(::CcuVariableAlloc(&formals[i].handle),
-                "CallFunc: CcuVariableAlloc failed");
-            CCU_THROW_IF_FAILED(::CcuFuncDefineInArg(handle, formals[i].handle),
-                "CallFunc: CcuFuncDefineInArg failed");
+            CCU_THROW_IF_FAILED(::CcuVariableAlloc(&formals[i].handle), "CallFunc: CcuVariableAlloc failed");
+            CCU_THROW_IF_FAILED(::CcuFuncDefineInArg(handle, formals[i].handle), "CallFunc: CcuFuncDefineInArg failed");
         }
 
         // 执行 lambda（在合成模式下 emit 到 FuncBlock）
         Obj.RunBody(formals.empty() ? nullptr : formals.data());
 
-        CCU_THROW_IF_FAILED(::CcuFuncBlockEnd(handle),
-            "CallFunc: CcuFuncBlockEnd failed");
+        CCU_THROW_IF_FAILED(::CcuFuncBlockEnd(handle), "CallFunc: CcuFuncBlockEnd failed");
     }
 
     // emit 一条 FuncCall 跳转

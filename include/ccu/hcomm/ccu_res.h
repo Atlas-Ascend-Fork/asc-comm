@@ -24,7 +24,7 @@ extern "C" {
  * @param[out] resDesc 创建成功后返回的资源描述符句柄，不可为 nullptr。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescCreate(uint32_t dieId, HcommCcuResDescHandle *resDesc);
+extern CcuResult HcommCcuInsResDescCreate(uint32_t dieId, HcommCcuResDescHandle* resDesc);
 
 /**
  * @brief 销毁 CCU 资源描述符。
@@ -39,7 +39,7 @@ extern CcuResult HcommCcuInsResDescDestroy(HcommCcuResDescHandle resDesc);
  * @param[out] dieId 查询成功后返回 ioDie ID，不可为 nullptr。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle resDesc, uint32_t *dieId);
+extern CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle resDesc, uint32_t* dieId);
 
 /**
  * @brief 设置指定 CCU 资源描述符内指定资源类型的资源数量。
@@ -48,8 +48,7 @@ extern CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle resDesc, uin
  * @param[in] resNum 资源数量。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescSetNum(
-    HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t resNum);
+extern CcuResult HcommCcuInsResDescSetNum(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t resNum);
 
 /**
  * @brief 查询指定 CCU 资源描述符内指定资源类型的资源数量。
@@ -58,8 +57,7 @@ extern CcuResult HcommCcuInsResDescSetNum(
  * @param[out] resNum 查询成功后返回资源数量，不可为 nullptr。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescQueryNum(
-    HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t *resNum);
+extern CcuResult HcommCcuInsResDescQueryNum(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t* resNum);
 
 /**
  * @brief 基于资源描述符创建 CCU 实例。
@@ -69,7 +67,7 @@ extern CcuResult HcommCcuInsResDescQueryNum(
  * @return CcuResult。
  */
 extern CcuResult HcommCcuInsCreate(
-    const HcommCcuResDescHandle *resDescs, uint32_t resDescNum, CcuInsHandle *ccuInsHandle);
+    const HcommCcuResDescHandle* resDescs, uint32_t resDescNum, CcuInsHandle* ccuInsHandle);
 
 /**
  * @brief 使用指定 ioDie 上的默认资源创建 CCU 实例。
@@ -78,8 +76,7 @@ extern CcuResult HcommCcuInsCreate(
  * @param[out] ccuInsHandle 创建成功后返回的 CCU 实例句柄，不可为 nullptr。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsCreateDefault(
-    const uint32_t *dieIds, uint32_t dieNum, CcuInsHandle *ccuInsHandle);
+extern CcuResult HcommCcuInsCreateDefault(const uint32_t* dieIds, uint32_t dieNum, CcuInsHandle* ccuInsHandle);
 
 /**
  * @brief 销毁 CCU 实例。
@@ -112,7 +109,7 @@ extern CcuResult HcommCcuQueryRemainResDesc(HcommCcuResDescHandle resDesc);
  * @return CcuResult。
  */
 extern CcuResult HcommCcuKernelQueryResReq(
-    const void *kernelFunc, const void **kernelArgs, uint32_t argNum, HcommCcuResDescHandle resDesc);
+    const void* kernelFunc, const void** kernelArgs, uint32_t argNum, HcommCcuResDescHandle resDesc);
 
 /**
  * @brief 查询/计算一段本端内存区域的 CCU 访问 token，供 host 端组装 LocalAddr/RemoteAddr 使用。
@@ -124,7 +121,7 @@ extern CcuResult HcommCcuKernelQueryResReq(
  * @note 仅可在 host 端调用，不能在 kernel 函数体内调用。token 属安全信息，调用方不应打印；
  *       其生命周期与对应内存注册绑定。跨 rank 场景下本端 token 需经带外通道交换给对端组装 RemoteAddr。
  */
-extern CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t *tokenInfo);
+extern CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo);
 
 #ifdef __cplusplus
 }

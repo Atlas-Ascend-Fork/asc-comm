@@ -21,7 +21,7 @@ struct CcuLoopAddKernelArg {
 CcuResult CcuLoopAddDemoKernel(CcuKernelArg arg)
 {
     using namespace ccu;
-    auto *args = static_cast<CcuLoopAddKernelArg *>(arg);
+    auto* args = static_cast<CcuLoopAddKernelArg*>(arg);
 
     Variable r1{};
     Variable r2{};
@@ -39,33 +39,27 @@ CcuResult CcuLoopAddDemoKernel(CcuKernelArg arg)
     r1 = numA + numB;
 
     // ========== LoopGroup 1 (config-based): two config loops, no unroll ==========
-    Func body1([&]() {
-        r2 = numA + numB;
-    });
-    Func body2([&]() {
-        r3 = numA + numB;
-    });
+    Func body1([&]() { r2 = numA + numB; });
+    Func body2([&]() { r3 = numA + numB; });
 
     LoopConfig cfg1 = {.addrOffset = 0, .iterNum = 2};
     LoopConfig cfg2 = {.addrOffset = 0, .iterNum = 2};
     Loop loop1(cfg1, body1);
     Loop loop2(cfg2, body2);
 
-    LoopGroupConfig grpCfg1
-        = {.cloneNum = 0, .cloneLoopOffset = 0, .addrOffset = 0, .ccuBufferOffset = 0, .eventOffset = 0};
+    LoopGroupConfig grpCfg1 = {
+        .cloneNum = 0, .cloneLoopOffset = 0, .addrOffset = 0, .ccuBufferOffset = 0, .eventOffset = 0};
     LoopGroup group1(grpCfg1, /* maxLoopNum= */ 2, {loop1, loop2});
 
     r4 = numA + numB;
 
     // ========== LoopGroup 2: reuse loop2 + offset loop3 ==========
-    Func body3([&]() {
-        r5 = numA + numB;
-    });
+    Func body3([&]() { r5 = numA + numB; });
     LoopConfig cfg3 = {.addrOffset = 4096, .iterNum = 4};
     Loop loop3(cfg3, body3);
 
-    LoopGroupConfig grpCfg2
-        = {.cloneNum = 3, .cloneLoopOffset = 1, .addrOffset = 4096, .ccuBufferOffset = 1, .eventOffset = 1};
+    LoopGroupConfig grpCfg2 = {
+        .cloneNum = 3, .cloneLoopOffset = 1, .addrOffset = 4096, .ccuBufferOffset = 1, .eventOffset = 1};
     LoopGroup group2(grpCfg2, /* maxLoopNum= */ 2, {loop2, loop3});
 
     // ========== LoopGroup 3 (var-based): variable group with two distinct var-loops ==========
@@ -79,12 +73,8 @@ CcuResult CcuLoopAddDemoKernel(CcuKernelArg arg)
     varParallel = 0x0002000100020000ULL;
     varOffset = 0x1000000100010000ULL;
 
-    Func body4([&]() {
-        r6 = numA + numB;
-    });
-    Func body5([&]() {
-        r7 = numA + numB;
-    });
+    Func body4([&]() { r6 = numA + numB; });
+    Func body5([&]() { r7 = numA + numB; });
     Loop loop4(varLoopParam4, body4);
     Loop loop5(varLoopParam5, body5);
 
@@ -113,12 +103,8 @@ CcuResult CcuV2CompatLoopGroupDemoKernel(CcuKernelArg arg)
     varParallel = 0x0002000100020000ULL;
     varOffset = 0x1000000100010000ULL;
 
-    Func body1([&]() {
-        r1 = numA + numB;
-    });
-    Func body2([&]() {
-        r1 = numA + numB;
-    });
+    Func body1([&]() { r1 = numA + numB; });
+    Func body2([&]() { r1 = numA + numB; });
 
     Loop loop1(varLoopParam1, body1);
     Loop loop2(varLoopParam2, body2);
@@ -140,20 +126,16 @@ CcuResult CcuV2ConfigLoopGroupDemoKernel(CcuKernelArg arg)
     numA = 3;
     numB = 4;
 
-    Func body1([&]() {
-        r1 = numA + numB;
-    });
-    Func body2([&]() {
-        r2 = numA + numB;
-    });
+    Func body1([&]() { r1 = numA + numB; });
+    Func body2([&]() { r2 = numA + numB; });
 
     LoopConfig cfg1 = {.addrOffset = 0, .iterNum = 2};
     LoopConfig cfg2 = {.addrOffset = 4096, .iterNum = 4};
     Loop loop1(cfg1, body1);
     Loop loop2(cfg2, body2);
 
-    LoopGroupConfig grpCfg
-        = {.cloneNum = 3, .cloneLoopOffset = 1, .addrOffset = 4096, .ccuBufferOffset = 1, .eventOffset = 1};
+    LoopGroupConfig grpCfg = {
+        .cloneNum = 3, .cloneLoopOffset = 1, .addrOffset = 4096, .ccuBufferOffset = 1, .eventOffset = 1};
     LoopGroup group(grpCfg, /* maxLoopNum= */ 2, {loop1, loop2});
 
     return CcuResult::CCU_SUCCESS;
@@ -182,9 +164,7 @@ inline CcuResult CcuNotifyRecordInLoopInvalidDemoKernel(CcuKernelArg arg)
     using namespace ccu;
     (void)arg;
     ChannelHandle ch = 0;
-    Func body([&]() {
-        (void)NotifyRecord(ch, 0);
-    });
+    Func body([&]() { (void)NotifyRecord(ch, 0); });
     LoopConfig dummyCfg{};
     Loop loop(dummyCfg, body);
     return CcuResult::CCU_SUCCESS;
@@ -197,9 +177,7 @@ inline CcuResult CcuWriteVarWithNotifyInLoopInvalidDemoKernel(CcuKernelArg arg)
     ChannelHandle ch = 0;
     Variable v{};
     v = 1;
-    Func body([&]() {
-        (void)WriteVariableWithNotify(ch, v, 0, 0);
-    });
+    Func body([&]() { (void)WriteVariableWithNotify(ch, v, 0, 0); });
     LoopConfig dummyCfg{};
     Loop loop(dummyCfg, body);
     return CcuResult::CCU_SUCCESS;
@@ -209,9 +187,7 @@ inline CcuResult CcuEventRecordTagInLoopInvalidDemoKernel(CcuKernelArg arg)
 {
     using namespace ccu;
     (void)arg;
-    Func body([&]() {
-        (void)EventRecord("evt_tag", 1);
-    });
+    Func body([&]() { (void)EventRecord("evt_tag", 1); });
     LoopConfig dummyCfg{};
     Loop loop(dummyCfg, body);
     return CcuResult::CCU_SUCCESS;
@@ -222,9 +198,7 @@ inline CcuResult CcuEventRecordInLoopInvalidDemoKernel(CcuKernelArg arg)
     using namespace ccu;
     (void)arg;
     Event evt{};
-    Func body([&]() {
-        (void)EventRecord(evt, 1);
-    });
+    Func body([&]() { (void)EventRecord(evt, 1); });
     LoopConfig dummyCfg{};
     Loop loop(dummyCfg, body);
     return CcuResult::CCU_SUCCESS;
@@ -251,24 +225,12 @@ CcuResult CcuLoopCfgDemoKernel(CcuKernelArg arg)
     Variable s4{};
     Variable s5{};
     Variable s6{};
-    Func body1([&]() {
-        s1 = a + b;
-    });
-    Func body2([&]() {
-        s2 = a + b;
-    });
-    Func body3([&]() {
-        s3 = a + b;
-    });
-    Func body4([&]() {
-        s4 = a + b;
-    });
-    Func body5([&]() {
-        s5 = a + b;
-    });
-    Func body6([&]() {
-        s6 = a + b;
-    });
+    Func body1([&]() { s1 = a + b; });
+    Func body2([&]() { s2 = a + b; });
+    Func body3([&]() { s3 = a + b; });
+    Func body4([&]() { s4 = a + b; });
+    Func body5([&]() { s5 = a + b; });
+    Func body6([&]() { s6 = a + b; });
 
     // config 型 loop
     LoopConfig cfg = {.addrOffset = 0, .iterNum = 2};
@@ -287,8 +249,8 @@ CcuResult CcuLoopCfgDemoKernel(CcuKernelArg arg)
     Loop lv2(lp2, body5);
     Loop lv3(lp3, body6);
 
-    LoopGroupConfig cfgGrp
-        = {.cloneNum = 0, .cloneLoopOffset = 0, .addrOffset = 0, .ccuBufferOffset = 0, .eventOffset = 0};
+    LoopGroupConfig cfgGrp = {
+        .cloneNum = 0, .cloneLoopOffset = 0, .addrOffset = 0, .ccuBufferOffset = 0, .eventOffset = 0};
 
     // ===== config 型 group（totalLoopNum 以立即数编码，必须等于 loop 总数）=====
     // 1) config group + config loops  -> loops=2, totalLoopNum=2

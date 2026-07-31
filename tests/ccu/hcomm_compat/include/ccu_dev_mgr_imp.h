@@ -18,7 +18,7 @@
 namespace hcomm {
 class CcuDevMgrImp {
 public:
-    static HcclResult GetXnBaseAddr(uint32_t devLogicId, uint8_t dieId, uint64_t &xnBaseAddr);
+    static HcclResult GetXnBaseAddr(uint32_t devLogicId, uint8_t dieId, uint64_t& xnBaseAddr);
 };
 } // namespace hcomm
 
