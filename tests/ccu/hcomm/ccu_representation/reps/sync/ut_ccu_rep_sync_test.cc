@@ -32,42 +32,42 @@ namespace {
 class CcuRepLocWaitEventTest : public ::testing::Test {
 protected:
     void SetUp() override {}
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
 };
 
 class CcuRepLocWaitNotifyTest : public ::testing::Test {
 protected:
     void SetUp() override {}
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
 };
 
 class CcuRepLocRecordEventTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepRecordSharedNotifyTest : public ::testing::Test {
 protected:
     void SetUp() override {}
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
 };
 
 class CcuRepRemPostSemTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepRemPostVarTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepRemWaitSemTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
@@ -164,7 +164,7 @@ TEST_F(CcuRepLocWaitEventTest, GetDependencyInfo_NotFound_ReturnsEmpty)
 
 class CcuRepContextDepTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
@@ -443,6 +443,6 @@ TEST_F(CcuRepRecordSharedNotifyTest, Describe)
     EXPECT_NE(desc.find("mask"), std::string::npos);
 }
 
-}
-}
-}
+} // namespace
+} // namespace CcuRep
+} // namespace hcomm

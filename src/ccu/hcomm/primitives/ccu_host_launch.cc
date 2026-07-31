@@ -12,9 +12,8 @@
 
 #include "hcomm/common/ccu_log.h"
 
-CcuResult HcommCcuHostKernelLaunch(const void *kernelFunc,
-    const HcommCcuHostKernelLaunchCfg *cfg,
-    const HcommCcuHostKernelArgs *args)
+CcuResult HcommCcuHostKernelLaunch(
+    const void* kernelFunc, const HcommCcuHostKernelLaunchCfg* cfg, const HcommCcuHostKernelArgs* args)
 {
     CCU_CHK_PTR_NULL(kernelFunc);
     CCU_CHK_PTR_NULL(cfg);
@@ -35,8 +34,9 @@ CcuResult HcommCcuHostKernelLaunch(const void *kernelFunc,
     }
 
     CcuKernelHandle kernelHandle{0};
-    ret = HcommCcuKernelRegister(cfg->ccuIns, cfg->ccuSchd.phyDieMask, cfg->kernelName,
-        kernelFunc, args->kernelArgs, args->kernelArgNum, &kernelHandle);
+    ret = HcommCcuKernelRegister(
+        cfg->ccuIns, cfg->ccuSchd.phyDieMask, cfg->kernelName, kernelFunc, args->kernelArgs, args->kernelArgNum,
+        &kernelHandle);
     if (ret != CCU_SUCCESS) {
         HCCL_ERROR("[%s] HcommCcuKernelRegister failed, ccuRet[%d].", __func__, ret);
         (void)HcommCcuKernelRegisterEnd(cfg->ccuIns);

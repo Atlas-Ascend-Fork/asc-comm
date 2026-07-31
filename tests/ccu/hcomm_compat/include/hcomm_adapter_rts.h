@@ -28,7 +28,7 @@ struct rtMemUbTokenInfo {
     uint32_t tokenValue;
 };
 
-HcclResult RtsUbDevQueryInfo(rtUbDevQueryCmd cmd, rtMemUbTokenInfo &devInfo);
+HcclResult RtsUbDevQueryInfo(rtUbDevQueryCmd cmd, rtMemUbTokenInfo& devInfo);
 
 } // namespace hcomm
 

@@ -16,38 +16,26 @@
 namespace hcomm {
 namespace CcuRep {
 
-    class CcuRepRemPostSem : public CcuRepBase {
-    public:
-        CcuRepRemPostSem(CcuInsGeneraterBase *insGenPtr, const ChannelHandle channel, uint16_t semIndex, uint16_t mask);
-        bool Translate(CcuKernel *ccuKernel, CcuInstr *&instr, uint16_t &instrId, const TransDep &dep) override;
-        std::string Describe() override;
-        uint32_t GetId() override;
-        uint32_t GetChannelId()
-        {
-            return channelId;
-        }
+class CcuRepRemPostSem : public CcuRepBase {
+public:
+    CcuRepRemPostSem(CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, uint16_t semIndex, uint16_t mask);
+    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+    std::string Describe() override;
+    uint32_t GetId() override;
+    uint32_t GetChannelId() { return channelId; }
 
-        ChannelHandle GetChannel()
-        {
-            return channel;
-        }
-        uint16_t GetSemIndex()
-        {
-            return semIndex;
-        }
-        uint16_t GetMask()
-        {
-            return mask;
-        }
+    ChannelHandle GetChannel() { return channel; }
+    uint16_t GetSemIndex() { return semIndex; }
+    uint16_t GetMask() { return mask; }
 
-    private:
-        CcuInsGeneraterBase *insGenPtr{nullptr};
-        ChannelHandle channel;
-        uint32_t channelId{0};
-        uint16_t semIndex{0};
-        uint16_t mask{0};
-        uint32_t signalId{0};
-    };
+private:
+    CcuInsGeneraterBase* insGenPtr{nullptr};
+    ChannelHandle channel;
+    uint32_t channelId{0};
+    uint16_t semIndex{0};
+    uint16_t mask{0};
+    uint32_t signalId{0};
+};
 
 }; // namespace CcuRep
 }; // namespace hcomm

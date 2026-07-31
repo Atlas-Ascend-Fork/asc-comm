@@ -10,7 +10,7 @@
 
 #include "ccu_groupcopy_demo.h"
 
-CcuResult AgCreateMultiOpCopy(AllGatherContext &ctx)
+CcuResult AgCreateMultiOpCopy(AllGatherContext& ctx)
 {
     CCU_CHK_RET(AgAllocGoResource(
         ctx.moConfig, ctx.moRes, ctx.resourceAllocated, AG_CCU_MS_LOCAL_COPY_LOOP_COUNT, AG_LOCAL_COPY_MS_PER_LOOP));
@@ -21,7 +21,7 @@ CcuResult AgCreateMultiOpCopy(AllGatherContext &ctx)
 
     for (uint32_t index = 0; index < 2; index++) {
         ccu::Event loopEvt = ctx.moRes.completedEvent[index];
-        ccu::CcuBuffer &buf = ctx.moRes.ccuBuf[index * ctx.moConfig.msInterleave];
+        ccu::CcuBuffer& buf = ctx.moRes.ccuBuf[index * ctx.moConfig.msInterleave];
 
         ctx.copyBody[index].reset(new ccu::Func([&ctx, index, buf, loopEvt]() {
             ccu::LocalCopy(buf, ctx.loopSrc[index], ctx.loopLen[index], loopEvt, 1);
@@ -36,7 +36,7 @@ CcuResult AgCreateMultiOpCopy(AllGatherContext &ctx)
     return CCU_SUCCESS;
 }
 
-CcuResult AgGroupCopy(AllGatherContext &ctx, ccu::LocalAddr dst, ccu::LocalAddr src, GroupCopyGoSizeVars &goSize)
+CcuResult AgGroupCopy(AllGatherContext& ctx, ccu::LocalAddr dst, ccu::LocalAddr src, GroupCopyGoSizeVars& goSize)
 {
     CCU_CHK_RET(AgCreateMultiOpCopy(ctx));
 

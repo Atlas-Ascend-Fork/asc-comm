@@ -24,7 +24,7 @@ namespace {
 
 class CcuRepContextTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
@@ -249,6 +249,6 @@ TEST_F(CcuRepContextTest, MultipleBlocks_SetCurrentBlock)
     EXPECT_EQ(block2->GetReps().size(), 1U);
 }
 
-}
-}
-}
+} // namespace
+} // namespace CcuRep
+} // namespace hcomm

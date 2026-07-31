@@ -14,14 +14,8 @@ namespace hcomm {
 
 CcuKernel::~CcuKernel() = default;
 
-void CcuKernel::Append(std::shared_ptr<CcuRep::CcuRepBase> rep)
-{
-    CcuRepContext::Append(rep);
-}
+void CcuKernel::Append(std::shared_ptr<CcuRep::CcuRepBase> rep) { CcuRepContext::Append(rep); }
 
-CcuRep::Variable CcuKernel::CreateVariable()
-{
-    return CcuRep::Variable(this);
-}
+CcuRep::Variable CcuKernel::CreateVariable() { return CcuRep::Variable(this); }
 
 } // namespace hcomm

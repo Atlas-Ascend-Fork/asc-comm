@@ -21,50 +21,50 @@ namespace {
 
 class CcuRepCommonBaseTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
     void TearDown() override {}
 };
 
 class CcuRepBlockTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepLoadTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepLoadArgTest : public ::testing::Test {
 protected:
     void SetUp() override {}
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
 };
 
 class CcuRepLoadVarTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepNopTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepStoreTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepStoreVarTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen {};
+    CcuInsGeneraterV1 insGen{};
     void SetUp() override {}
 };
 
@@ -139,7 +139,7 @@ TEST_F(CcuRepBlockTest, Translate_SetsTranslated)
     CcuRepBlock block(&insGen, "testBlock");
     block.Append(std::make_shared<CcuRepNop>(&insGen));
     CcuInstr instr[10] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.reserveXnId = 1;
@@ -176,7 +176,7 @@ TEST_F(CcuRepLoadTest, Translate)
     var.Reset(1);
     CcuRepLoad load(&insGen, 0x1000, var, 1);
     CcuInstr instr[10] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.xnBaseAddr[0] = 0x100000;
@@ -225,7 +225,7 @@ TEST_F(CcuRepLoadArgTest, Translate_IsFuncBlock)
     var.Reset(2);
     CcuRepLoadArg loadArg(&insGen, var, 1, 1);
     CcuInstr instr[5] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.isFuncBlock = true;
@@ -244,7 +244,7 @@ TEST_F(CcuRepLoadArgTest, Translate_NotFuncBlock)
     var.Reset(2);
     CcuRepLoadArg loadArg(&insGen, var, 1, 1);
     CcuInstr instr[5] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.isFuncBlock = false;
@@ -288,7 +288,7 @@ TEST_F(CcuRepLoadVarTest, Translate)
     var.Reset(2);
     CcuRepLoadVar loadVar(&insGen, src, var);
     CcuInstr instr[10] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.xnBaseAddr[0] = 0x100000;
@@ -327,7 +327,7 @@ TEST_F(CcuRepNopTest, Translate)
     CcuInsGeneraterV1 insGen;
     CcuRepNop nop(&insGen);
     CcuInstr instr[5] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 10;
     TransDep dep = {};
     dep.reserveXnId = 1;
@@ -366,7 +366,7 @@ TEST_F(CcuRepStoreTest, Translate)
     var.Reset(1);
     CcuRepStore store(&insGen, var, 0x2000);
     CcuInstr instr[10] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.xnBaseAddr[0] = 0x100000;
@@ -419,7 +419,7 @@ TEST_F(CcuRepStoreVarTest, Translate)
     dst.Reset(2);
     CcuRepStoreVar storeVar(&insGen, var, dst);
     CcuInstr instr[10] = {};
-    CcuInstr *instrPtr = instr;
+    CcuInstr* instrPtr = instr;
     uint16_t instrId = 0;
     TransDep dep = {};
     dep.xnBaseAddr[0] = 0x100000;
@@ -438,6 +438,6 @@ TEST_F(CcuRepStoreVarTest, Translate)
     EXPECT_TRUE(storeVar.Translated());
 }
 
-}
-}
-}
+} // namespace
+} // namespace CcuRep
+} // namespace hcomm

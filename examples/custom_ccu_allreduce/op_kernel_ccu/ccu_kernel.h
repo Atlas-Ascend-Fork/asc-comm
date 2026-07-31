@@ -24,32 +24,33 @@ namespace ccu = ::AscendC::ccu;
 
 namespace ops_hccl_ar {
 
-#define RETURN_IF_CCU_FAIL(call)      \
-    do {                               \
-        CcuResult ret = (call);        \
-        if (ret != CCU_SUCCESS) {      \
-            return ret;                \
-        }                              \
+#define RETURN_IF_CCU_FAIL(call)  \
+    do {                          \
+        CcuResult ret = (call);   \
+        if (ret != CCU_SUCCESS) { \
+            return ret;           \
+        }                         \
     } while (0)
 
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 
 struct CcuKernelArgBase {
     ChannelHandle channels[CCU_MAX_RANK_SIZE];
-    uint32_t      channelCount;
+    uint32_t channelCount;
 };
 
 struct CcuKernelInfo {
     char kernelFuncName[64];
     void* kernelFunc;
-    void *kernelArg;
+    void* kernelArg;
 
 private:
     std::shared_ptr<CcuKernelArgBase> kernelArgSmartPtr;
 
 public:
-    template<typename T>
-    void setKernelArg(std::shared_ptr<T> arg) {
+    template <typename T>
+    void setKernelArg(std::shared_ptr<T> arg)
+    {
         kernelArgSmartPtr = std::static_pointer_cast<CcuKernelArgBase>(arg);
         kernelArg = static_cast<void*>(arg.get());
     }

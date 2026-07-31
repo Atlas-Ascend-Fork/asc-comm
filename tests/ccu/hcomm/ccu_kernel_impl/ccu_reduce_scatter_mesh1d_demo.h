@@ -84,10 +84,7 @@ struct LoopGroupResource {
 // Bit-packing 辅助函数（对应 ccu_kernel_utils.cc）
 // ============================================================================
 
-static inline constexpr uint64_t SetBits(uint16_t end)
-{
-    return ((uint64_t(1) << (end + 1)) - uint64_t(1));
-}
+static inline constexpr uint64_t SetBits(uint16_t end) { return ((uint64_t(1) << (end + 1)) - uint64_t(1)); }
 
 static inline uint64_t GetMaxLoopIterNum()
 {
@@ -103,8 +100,8 @@ static inline uint64_t GetLoopParam(uint64_t loopCtxId, uint64_t gsaOffset, uint
     constexpr uint16_t gsaShiftBit = 13;
     constexpr uint16_t loopNumBitNum = 13;
     constexpr uint16_t loopNumShiftBit = 0;
-    return ((loopCtxId & SetBits(ctxIdBitNum)) << ctxIdShiftBit) | ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit)
-           | ((loopIterNum & SetBits(loopNumBitNum)) << loopNumShiftBit);
+    return ((loopCtxId & SetBits(ctxIdBitNum)) << ctxIdShiftBit) | ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit) |
+           ((loopIterNum & SetBits(loopNumBitNum)) << loopNumShiftBit);
 }
 
 static inline uint64_t GetParallelParam(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t totalLoopNum)
@@ -115,9 +112,9 @@ static inline uint64_t GetParallelParam(uint64_t repeatNum, uint64_t repeatLoopI
     constexpr uint16_t repeatLoopShiftBit = 48;
     constexpr uint16_t totalLoopBitNum = 7;
     constexpr uint16_t totalLoopShiftBit = 41;
-    return ((repeatNum & SetBits(repeatBitNum)) << repeatNumShiftBit)
-           | ((repeatLoopIndex & SetBits(repeatLoopBitNum)) << repeatLoopShiftBit)
-           | ((totalLoopNum & SetBits(totalLoopBitNum)) << totalLoopShiftBit);
+    return ((repeatNum & SetBits(repeatBitNum)) << repeatNumShiftBit) |
+           ((repeatLoopIndex & SetBits(repeatLoopBitNum)) << repeatLoopShiftBit) |
+           ((totalLoopNum & SetBits(totalLoopBitNum)) << totalLoopShiftBit);
 }
 
 static inline uint64_t GetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uint64_t ckeOffset)
@@ -128,8 +125,8 @@ static inline uint64_t GetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uin
     constexpr uint16_t msShiftBit = 10;
     constexpr uint16_t ckeBitNum = 10;
     constexpr uint16_t ckeShiftBit = 0;
-    return ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit) | ((msOffset & SetBits(msBitNum)) << msShiftBit)
-           | ((ckeOffset & SetBits(ckeBitNum)) << ckeShiftBit);
+    return ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit) | ((msOffset & SetBits(msBitNum)) << msShiftBit) |
+           ((ckeOffset & SetBits(ckeBitNum)) << ckeShiftBit);
 }
 
 static inline uint64_t GetExpansionParam(uint64_t expansionNum)
@@ -153,7 +150,7 @@ static inline uint32_t GetReduceExpansionNum(HcclReduceOp reduceOp, HcclDataType
 // CalGoSize（对应 CcuKernelAlgBase::CalGoSize，host 侧调用）
 // ============================================================================
 
-static inline std::vector<uint64_t> CalGoSize(uint64_t size, const LoopGroupConfig &config)
+static inline std::vector<uint64_t> CalGoSize(uint64_t size, const LoopGroupConfig& config)
 {
     uint64_t loopSize = config.loopCount * config.memSlice;
     uint64_t maxSize = loopSize * (GetMaxLoopIterNum() + 1);
@@ -195,7 +192,8 @@ static inline std::vector<uint64_t> CalGoSize(uint64_t size, const LoopGroupConf
 // AllocGoResource（对应 CcuKernelAlgBase::AllocGoResource）
 // ============================================================================
 
-static inline CcuResult AllocGoResource(LoopGroupConfig &config, LoopGroupResource &res, bool &allocated,
+static inline CcuResult AllocGoResource(
+    LoopGroupConfig& config, LoopGroupResource& res, bool& allocated,
     uint32_t parallelDim = RS_CCU_MS_DEFAULT_LOOP_COUNT, uint32_t msPerLoop = 1)
 {
     if (allocated) {
@@ -221,7 +219,7 @@ static inline CcuResult AllocGoResource(LoopGroupConfig &config, LoopGroupResour
 // ============================================================================
 
 struct ReduceScatterContext {
-    const ReduceScatterKernelArg *arg;
+    const ReduceScatterKernelArg* arg;
 
     ccu::Variable input[RS_MAX_RANK_SIZE];
     ccu::Variable scratch[RS_MAX_RANK_SIZE];
@@ -264,9 +262,9 @@ struct ReduceScatterContext {
     ccu::Variable loopLenExp[2];
 };
 
-static CcuResult InitResource(ReduceScatterContext &ctx)
+static CcuResult InitResource(ReduceScatterContext& ctx)
 {
-    const auto *arg = ctx.arg;
+    const auto* arg = ctx.arg;
     uint32_t channelIdx = 0;
 
     if (arg->channelCount == 0) {
@@ -301,9 +299,9 @@ static CcuResult InitResource(ReduceScatterContext &ctx)
 // LoadArgs
 // ============================================================================
 
-static CcuResult LoadArgs(ReduceScatterContext &ctx)
+static CcuResult LoadArgs(ReduceScatterContext& ctx)
 {
-    const auto *arg = ctx.arg;
+    const auto* arg = ctx.arg;
 
     uint32_t argId = 0;
     CCU_CHK_RET(ccu::LoadArg(ctx.input[arg->rankId], argId++));
@@ -330,9 +328,9 @@ static CcuResult LoadArgs(ReduceScatterContext &ctx)
 // PreSync / PostSync
 // ============================================================================
 
-static void PreSync(ReduceScatterContext &ctx)
+static void PreSync(ReduceScatterContext& ctx)
 {
-    const auto *arg = ctx.arg;
+    const auto* arg = ctx.arg;
 
     for (uint32_t i = 0; i < arg->channelCount; i++) {
         ccu::WriteVariableWithNotify(
@@ -349,9 +347,9 @@ static void PreSync(ReduceScatterContext &ctx)
     }
 }
 
-static void PostSync(ReduceScatterContext &ctx)
+static void PostSync(ReduceScatterContext& ctx)
 {
-    const auto *arg = ctx.arg;
+    const auto* arg = ctx.arg;
 
     for (uint32_t i = 0; i < arg->channelCount; i++) {
         ccu::NotifyRecord(arg->channels[i], RS_CKE_IDX_0, 1 << RS_POST_SYNC_ID);
@@ -365,9 +363,9 @@ static void PostSync(ReduceScatterContext &ctx)
 // CreateReduceLoop
 // ============================================================================
 
-static CcuResult CreateReduceLoop(ReduceScatterContext &ctx)
+static CcuResult CreateReduceLoop(ReduceScatterContext& ctx)
 {
-    const auto *arg = ctx.arg;
+    const auto* arg = ctx.arg;
     const uint32_t size = arg->rankSize;
 
     constexpr uint32_t LOOP_NUM = 16;
@@ -399,14 +397,16 @@ static CcuResult CreateReduceLoop(ReduceScatterContext &ctx)
                     ccu::LocalCopy(
                         ctx.moRes.ccuBuf[bufBase + i], ctx.loopSrc[index], ctx.loopLen[index], loopEvt, copyMask);
                 } else {
-                    ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase + i], ctx.loopScratch[index][i], ctx.loopLen[index],
-                        loopEvt, copyMask);
+                    ccu::LocalCopy(
+                        ctx.moRes.ccuBuf[bufBase + i], ctx.loopScratch[index][i], ctx.loopLen[index], loopEvt,
+                        copyMask);
                 }
             }
             ccu::EventWait(loopEvt, (1 << size) - 1);
 
             if (size > 1) {
-                ccu::LocalReduce(&ctx.moRes.ccuBuf[bufBase], size, arg->dataType, arg->outputDataType, arg->reduceOp,
+                ccu::LocalReduce(
+                    &ctx.moRes.ccuBuf[bufBase], size, arg->dataType, arg->outputDataType, arg->reduceOp,
                     ctx.loopLen[index], loopEvt, 1);
                 ccu::EventWait(loopEvt, 1);
             }
@@ -425,10 +425,11 @@ static CcuResult CreateReduceLoop(ReduceScatterContext &ctx)
 // ReduceLoopGroup
 // ============================================================================
 
-static CcuResult ReduceLoopGroup(ReduceScatterContext &ctx, ccu::LocalAddr outDstOrg, ccu::LocalAddr srcOrg,
-    ccu::LocalAddr *scratchOrg, uint32_t scratchCount, GroupOpSizeVars &goSize)
+static CcuResult ReduceLoopGroup(
+    ReduceScatterContext& ctx, ccu::LocalAddr outDstOrg, ccu::LocalAddr srcOrg, ccu::LocalAddr* scratchOrg,
+    uint32_t scratchCount, GroupOpSizeVars& goSize)
 {
-    const auto *arg = ctx.arg;
+    const auto* arg = ctx.arg;
     const uint32_t size = scratchCount;
 
     ccu::LocalAddr dst;
@@ -568,9 +569,9 @@ static CcuResult ReduceLoopGroup(ReduceScatterContext &ctx, ccu::LocalAddr outDs
 // DoReduceScatter
 // ============================================================================
 
-static CcuResult DoReduceScatter(ReduceScatterContext &ctx)
+static CcuResult DoReduceScatter(ReduceScatterContext& ctx)
 {
-    const auto *arg = ctx.arg;
+    const auto* arg = ctx.arg;
     uint32_t channelId = 0;
 
     ccu::LocalAddr myOutput;
@@ -589,8 +590,9 @@ static CcuResult DoReduceScatter(ReduceScatterContext &ctx)
             if (rankIdx == arg->rankId) {
                 ccu::EventRecord(ctx.event, rankMask);
             } else {
-                ccu::Read(arg->channels[channelId], ctx.scratchMem[rankIdx], ctx.remoteInput[rankIdx], sliceSize,
-                    ctx.event, rankMask);
+                ccu::Read(
+                    arg->channels[channelId], ctx.scratchMem[rankIdx], ctx.remoteInput[rankIdx], sliceSize, ctx.event,
+                    rankMask);
                 channelId++;
             }
         }
@@ -607,9 +609,9 @@ static CcuResult DoReduceScatter(ReduceScatterContext &ctx)
 // DoRepeatReduceScatter
 // ============================================================================
 
-static CcuResult DoRepeatReduceScatter(ReduceScatterContext &ctx)
+static CcuResult DoRepeatReduceScatter(ReduceScatterContext& ctx)
 {
-    const auto *arg = ctx.arg;
+    const auto* arg = ctx.arg;
 
     ccu::Variable scratchOffset;
     scratchOffset = 0;
@@ -665,7 +667,7 @@ static CcuResult DoRepeatReduceScatter(ReduceScatterContext &ctx)
 
 CcuResult CcuReduceScatterMesh1dKernel(CcuKernelArg arg)
 {
-    auto *kernelArg = static_cast<ReduceScatterKernelArg *>(arg);
+    auto* kernelArg = static_cast<ReduceScatterKernelArg*>(arg);
 
     ReduceScatterContext ctx;
     ctx.arg = kernelArg;
