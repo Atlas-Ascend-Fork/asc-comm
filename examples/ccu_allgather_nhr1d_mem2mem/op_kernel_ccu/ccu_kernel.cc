@@ -167,11 +167,6 @@ static CcuResult InitResource(AllGatherNhr1DMem2MemContext &ctx)
 {
     if (ctx.arg->rankSize < 2 || ctx.arg->rankId >= ctx.arg->rankSize ||
         ctx.arg->channelCount != ctx.arg->rank2ChannelIdx.size()) {
-        HCCL_ERROR(
-            "[CcuAllGatherNhr1DMem2Mem] invalid rank/channel, rankSize[%u], rankId[%u], "
-            "channelCount[%u], peerMapSize[%zu]",
-            ctx.arg->rankSize, ctx.arg->rankId, ctx.arg->channelCount,
-            ctx.arg->rank2ChannelIdx.size());
         return CcuResult::CCU_E_PARA;
     }
 
@@ -181,9 +176,6 @@ static CcuResult InitResource(AllGatherNhr1DMem2MemContext &ctx)
         const uint32_t peerRank = rankAndChannel.first;
         const uint32_t channelIdx = rankAndChannel.second;
         if (peerRank >= ctx.arg->rankSize || channelIdx >= ctx.arg->channelCount) {
-            HCCL_ERROR(
-                "[CcuAllGatherNhr1DMem2Mem] invalid peer mapping, peer[%u], channel[%u]",
-                peerRank, channelIdx);
             return CcuResult::CCU_E_PARA;
         }
         ctx.output[peerRank] =
@@ -303,10 +295,11 @@ static CcuResult RunNhrStep(AllGatherNhr1DMem2MemContext &ctx,
 
 static CcuResult DoAllGather(AllGatherNhr1DMem2MemContext &ctx)
 {
-    CCU_CHK_RET(CopyLocalSlice(ctx));
+    RETURN_IF_CCU_FAIL(CopyLocalSlice(ctx));
     for (uint32_t stepIdx = 0; stepIdx < ctx.arg->stepInfoVector.size(); stepIdx++) {
         const bool isLastStep = (stepIdx + 1 == ctx.arg->stepInfoVector.size());
-        CCU_CHK_RET(RunNhrStep(ctx, ctx.arg->stepInfoVector[stepIdx], isLastStep));
+        RETURN_IF_CCU_FAIL(RunNhrStep(
+            ctx, ctx.arg->stepInfoVector[stepIdx], isLastStep));
     }
     return CcuResult::CCU_SUCCESS;
 }
@@ -317,10 +310,10 @@ CcuResult CcuAllGatherNhr1DMem2MemKernel(CcuKernelArg arg)
     AllGatherNhr1DMem2MemContext ctx;
     ctx.arg = kernelArg;
 
-    CCU_CHK_RET(InitResource(ctx));
+    RETURN_IF_CCU_FAIL(InitResource(ctx));
     LoadArgs(ctx);
     PreSync(ctx);
-    CCU_CHK_RET(DoAllGather(ctx));
+    RETURN_IF_CCU_FAIL(DoAllGather(ctx));
     PostSync(ctx);
     return CcuResult::CCU_SUCCESS;
 }
