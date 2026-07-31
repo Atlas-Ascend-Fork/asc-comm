@@ -18,7 +18,7 @@ namespace ops_hccl_bcast {
 
 constexpr uint64_t MAX_TRANSFER_BYTES = 256ULL * 1024 * 1024;
 
-HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
+HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx)
 {
     const uint64_t dataSize = param.count * sizeof(float);
     if (dataSize == 0 || param.rankSize == 1) {
@@ -34,8 +34,8 @@ HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx)
         return HCCL_E_INTERNAL;
     }
     std::vector<uint64_t> taskArgs = {bufferAddr, token, dataSize};
-    CcuResult launchRet = HcommCcuKernelLaunch(resCtx.threads[0], resCtx.ccuKernels[0],
-        taskArgs.data(), taskArgs.size());
+    CcuResult launchRet =
+        HcommCcuKernelLaunch(resCtx.threads[0], resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
     return launchRet == CCU_SUCCESS ? HCCL_SUCCESS : HCCL_E_INTERNAL;
 }
 

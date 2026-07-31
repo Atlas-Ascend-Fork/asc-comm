@@ -16,13 +16,13 @@
 namespace Hccl {
 
 template <typename Exception, typename... Args>
-[[noreturn]] inline void THROW(const char *format, Args... args)
+[[noreturn]] inline void THROW(const char* format, Args... args)
 {
     throw Exception(StringFormat(format, args...));
 }
 
 template <typename Exception>
-[[noreturn]] inline void THROW(const std::string &message)
+[[noreturn]] inline void THROW(const std::string& message)
 {
     throw Exception(message);
 }

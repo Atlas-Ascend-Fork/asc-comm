@@ -14,7 +14,7 @@
 #include "alg_resource.h"
 
 namespace ops_hccl_bcast {
-HcclResult ExecOp(const OpParam &param, const AlgResourceCtx &resCtx);
+HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx);
 }
 
 #endif

@@ -37,16 +37,16 @@ struct OpParam {
     uint32_t rankSize = 0;
 };
 
-HcclResult AllocAlgResource(HcclComm comm, const OpParam &param, AlgResourceCtx &resCtxHost);
+HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost);
 
 } // namespace ops_hccl_a2a
 
-#define RETURN_IF_HCCL_FAIL(call)                 \
-    do {                                           \
+#define RETURN_IF_HCCL_FAIL(call)                       \
+    do {                                                \
         HcclResult ret = static_cast<HcclResult>(call); \
-        if (ret != HCCL_SUCCESS) {                 \
-            return ret;                            \
-        }                                          \
+        if (ret != HCCL_SUCCESS) {                      \
+            return ret;                                 \
+        }                                               \
     } while (0)
 
 #endif // OPS_HCCL_ALG_RESOURCE_H

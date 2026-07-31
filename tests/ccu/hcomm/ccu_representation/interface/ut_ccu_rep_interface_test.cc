@@ -125,10 +125,7 @@ TEST_F(CcuRepInterfaceTest, AppendToContext_NullContext)
     EXPECT_THROW(AppendToContext(nullptr, nop), Hccl::CcuApiException);
 }
 
-TEST_F(CcuRepInterfaceTest, CurrentBlock_NullContext)
-{
-    EXPECT_THROW(CurrentBlock(nullptr), Hccl::CcuApiException);
-}
+TEST_F(CcuRepInterfaceTest, CurrentBlock_NullContext) { EXPECT_THROW(CurrentBlock(nullptr), Hccl::CcuApiException); }
 
 TEST_F(CcuRepInterfaceTest, SetCurrentBlock_NullContext)
 {
@@ -383,6 +380,6 @@ TEST_F(CcuRepInterfaceTest, Address_AddressAndVariableAssignment)
     addrA = varB;
 }
 
-}
-}
-}
+} // namespace
+} // namespace CcuRep
+} // namespace hcomm

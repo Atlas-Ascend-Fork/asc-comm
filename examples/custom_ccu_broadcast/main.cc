@@ -22,19 +22,31 @@
 
 using namespace ops_hccl_bcast;
 
-#define ACLCHECK(call) do { auto ret = (call); if (ret != ACL_SUCCESS) { \
-    printf("ACL error %s:%d, ret=%d\n", __FILE__, __LINE__, ret); return ret; } } while (0)
-#define HCCLCHECK(call) do { auto ret = (call); if (ret != HCCL_SUCCESS) { \
-    printf("HCCL error %s:%d, ret=%d\n", __FILE__, __LINE__, ret); return ret; } } while (0)
+#define ACLCHECK(call)                                                    \
+    do {                                                                  \
+        auto ret = (call);                                                \
+        if (ret != ACL_SUCCESS) {                                         \
+            printf("ACL error %s:%d, ret=%d\n", __FILE__, __LINE__, ret); \
+            return ret;                                                   \
+        }                                                                 \
+    } while (0)
+#define HCCLCHECK(call)                                                    \
+    do {                                                                   \
+        auto ret = (call);                                                 \
+        if (ret != HCCL_SUCCESS) {                                         \
+            printf("HCCL error %s:%d, ret=%d\n", __FILE__, __LINE__, ret); \
+            return ret;                                                    \
+        }                                                                  \
+    } while (0)
 
 struct ThreadContext {
-    HcclRootInfo *rootInfo;
+    HcclRootInfo* rootInfo;
     uint32_t device;
     uint32_t devCount;
 };
 
-static HcclResult HcclBroadcastCustom(void *buffer, uint64_t count, HcclDataType dataType,
-    uint32_t rootRank, HcclComm comm, aclrtStream stream)
+static HcclResult HcclBroadcastCustom(
+    void* buffer, uint64_t count, HcclDataType dataType, uint32_t rootRank, HcclComm comm, aclrtStream stream)
 {
     if (buffer == nullptr || comm == nullptr || stream == nullptr) {
         return HCCL_E_PTR;
@@ -60,9 +72,9 @@ static HcclResult HcclBroadcastCustom(void *buffer, uint64_t count, HcclDataType
     return ExecOp(param, resources);
 }
 
-static int Sample(void *arg)
+static int Sample(void* arg)
 {
-    auto *ctx = static_cast<ThreadContext *>(arg);
+    auto* ctx = static_cast<ThreadContext*>(arg);
     constexpr uint32_t rootRank = 0;
     const uint64_t count = ctx->devCount;
     const size_t dataSize = count * sizeof(float);
@@ -73,11 +85,11 @@ static int Sample(void *arg)
     aclrtStream stream;
     ACLCHECK(aclrtCreateStream(&stream));
 
-    void *buffer = nullptr;
+    void* buffer = nullptr;
     ACLCHECK(aclrtMalloc(&buffer, dataSize, ACL_MEM_MALLOC_HUGE_ONLY));
-    void *hostBuffer = nullptr;
+    void* hostBuffer = nullptr;
     ACLCHECK(aclrtMallocHost(&hostBuffer, dataSize));
-    auto *input = static_cast<float *>(hostBuffer);
+    auto* input = static_cast<float*>(hostBuffer);
     for (uint64_t i = 0; i < count; i++) {
         input[i] = ctx->device == rootRank ? static_cast<float>(i) : -1.0F;
     }
@@ -88,10 +100,10 @@ static int Sample(void *arg)
     ACLCHECK(aclrtSynchronizeStream(stream));
 
     std::this_thread::sleep_for(std::chrono::seconds(ctx->device));
-    void *resultHost = nullptr;
+    void* resultHost = nullptr;
     ACLCHECK(aclrtMallocHost(&resultHost, dataSize));
     ACLCHECK(aclrtMemcpy(resultHost, dataSize, buffer, dataSize, ACL_MEMCPY_DEVICE_TO_HOST));
-    auto *output = static_cast<float *>(resultHost);
+    auto* output = static_cast<float*>(resultHost);
     bool passed = true;
     std::cout << "rankId: " << ctx->device << ", output: [";
     for (uint64_t i = 0; i < count; i++) {
@@ -117,9 +129,9 @@ int main()
     std::cout << "Found " << deviceCount << " NPU device(s) available" << std::endl;
 
     ACLCHECK(aclrtSetDevice(0));
-    void *rootInfoBuf = nullptr;
+    void* rootInfoBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&rootInfoBuf, sizeof(HcclRootInfo)));
-    auto *rootInfo = static_cast<HcclRootInfo *>(rootInfoBuf);
+    auto* rootInfo = static_cast<HcclRootInfo*>(rootInfoBuf);
     HCCLCHECK(HcclGetRootInfo(rootInfo));
 
     std::vector<std::thread> threads(deviceCount);
@@ -127,11 +139,9 @@ int main()
     std::vector<int> results(deviceCount, 1);
     for (uint32_t rank = 0; rank < deviceCount; rank++) {
         contexts[rank] = {rootInfo, rank, deviceCount};
-        threads[rank] = std::thread([&contexts, &results, rank]() {
-            results[rank] = Sample(&contexts[rank]);
-        });
+        threads[rank] = std::thread([&contexts, &results, rank]() { results[rank] = Sample(&contexts[rank]); });
     }
-    for (auto &thread : threads) {
+    for (auto& thread : threads) {
         thread.join();
     }
 
