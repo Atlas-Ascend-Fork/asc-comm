@@ -8,7 +8,7 @@
 #include "hcomm/hcomm.h"
 ```
 
-`AscendC::Hcomm`是AICore侧点对点通信接口模板。普通接口通过`ChannelHandle`提交单个读、写、写通知和原子操作任务，并通过`Commit`和`Drain`控制任务提交与完成等待。UBC_CTP路径还提供BatchHandle接口，既支持单通道批量提交，也支持通过MultiChannelHandle`在共享Jetty上为多个逻辑通道准备WQE，再通过`BatchCommit`一次提交。
+`AscendC::Hcomm`是AICore侧点对点通信接口模板。普通接口通过`ChannelHandle`提交单个读、写、写通知和原子操作任务，并通过`Commit`和`Drain`控制任务提交与完成等待。Ascend 950的UBC_CTP/URMA路径还支持通过`Lock`和`Unlock`保护多个AI Core共享的普通通道状态。UBC_CTP路径另外提供BatchHandle接口，既支持单通道批量提交，也支持通过`MultiChannelHandle`在共享Jetty上为多个逻辑通道准备WQE，再通过`BatchCommit`一次提交。
 
 ## 模板参数
 
@@ -28,6 +28,8 @@ class Hcomm;
 | 接口 | `COMM_PROTOCOL_ROCE` | `COMM_PROTOCOL_UBC_CTP` |
 | --- | --- | --- |
 | `Init` | 支持，用于普通接口的UB临时工作区。 | 支持，用于普通接口的URMA临时工作区。 |
+| `Lock` | 不支持。 | 支持，仅限Ascend 950平台的AIV。 |
+| `Unlock` | 不支持。 | 支持，仅限Ascend 950平台的AIV。 |
 | 普通`ReadNbi` | 支持。 | 支持。 |
 | 普通`WriteNbi` | 支持。 | 支持。 |
 | 普通`WriteWithNotifyNbi` | 不支持，调用会返回失败。 | 支持。 |
@@ -50,6 +52,8 @@ class Hcomm;
 | [Init](./Init.md) | 初始化普通Hcomm接口使用的临时工作区。 |
 | [MakeBatchHandle](./MakeBatchHandle.md) | 创建批量句柄并绑定批量WQE的UB缓冲区。 |
 | [GetHandleRef](./GetHandleRef.md) | 从共享Jetty多通道批量句柄中选择逻辑通道。 |
+| [Lock](./Lock.md) | 获取通信通道的跨AI Core锁。 |
+| [Unlock](./Unlock.md) | 发布通道状态并释放跨AI Core锁。 |
 | [ReadNbi](./ReadNbi.md) | 通过普通通道提交读任务，或在BatchHandle中准备读WQE。 |
 | [WriteNbi](./WriteNbi.md) | 通过普通通道提交写任务，或在BatchHandle中准备写WQE。 |
 | [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | 通过普通通道提交写通知任务，或在BatchHandle中准备写通知WQE。 |
@@ -69,7 +73,10 @@ class Hcomm;
 - 普通`ChannelHandle`接口需要先通过`Init`提供临时工作区。BatchHandle调用链不依赖`Init`，其UB工作区由`MakeBatchHandle`提供。
 - `WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`的普通重载仅支持`COMM_PROTOCOL_UBC_CTP`路径。
 - 当前批量接口仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
-- 普通接口和批量接口使用不同的队列状态管理方式。BatchHandle缓存创建时的SQ/CQ上下文和队列计数，使用期间必须独占对应单通道或共享Jetty，不能混用普通接口或并发使用多个BatchHandle。
+- `Lock`和`Unlock`仅支持Ascend 950平台的AIV和`COMM_PROTOCOL_UBC_CTP`路径。多个AI Core共享同一通道时，所有会更新通道状态的访问都需要置于`Lock`和`Unlock`之间。
+- 通道锁不可重入，没有超时和公平性保证。成功获取锁后，所有退出路径都需要由获取锁的同一AI Core释放锁。
+- 通道锁只同步同一设备上共享同一通道的AI Core，不提供跨Rank或跨设备同步。`Unlock`只发布通道counter状态，不负责刷新任意用户GM地址。
+- 普通接口和批量接口使用不同的队列状态管理方式。BatchHandle缓存创建时的SQ/CQ上下文和队列计数，在其整个生命周期内必须独占对应单通道或共享Jetty，不能混用普通接口或并发使用多个BatchHandle。对单次批量操作调用`Lock`和`Unlock`不能解除该约束。
 - 传入的`ChannelHandle`需要指向与协议匹配的通道实体。
 - 若普通接口`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续`PostSend`将因SQ溢出而失败。
 - 普通接口批量提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应产生CQE（即中间任务的`config.cqe`设为0，最后一次设为1）。
@@ -78,4 +85,4 @@ class Hcomm;
 
 ## 相关样例
 
-[hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README.md)演示两卡场景下，AIV Kernel通过`COMM_PROTOCOL_UBC_CTP`路径调用普通`WriteNbi`和`ReadNbi`。该样例不覆盖RoCE路径和BatchHandle流程。
+[hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README.md)演示两卡场景下，AIV Kernel通过`COMM_PROTOCOL_UBC_CTP`路径调用普通`WriteNbi`和`ReadNbi`。该样例不覆盖RoCE、BatchHandle或`Lock`/`Unlock`流程。共享Jetty批量流程请参考[hcomm_batch_write](../../../../../examples/hcomm_batch_write/README.md)。

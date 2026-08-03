@@ -132,8 +132,27 @@ ret = hcomm.Drain(multiBatchHandle);
 
 | 协议 | 说明 |
 | --- | --- |
-| `COMM_PROTOCOL_ROCE` | 支持普通`ReadNbi`、`WriteNbi`、`Commit`和`Drain`，不支持BatchHandle接口。 |
-| `COMM_PROTOCOL_UBC_CTP` | 支持普通读、写、写通知、原子、提交和等待接口；Ascend 950还支持批量读、写、写通知、`BatchCommit`和批量`Drain`。 |
+| `COMM_PROTOCOL_ROCE` | 支持普通`ReadNbi`、`WriteNbi`、`Commit`和`Drain`，不支持`WriteWithNotifyNbi`和BatchHandle接口。 |
+| `COMM_PROTOCOL_UBC_CTP` | 支持普通读、写、写通知、原子、提交和等待接口；Ascend 950平台的AIV还支持`Lock`、`Unlock`、批量读、批量写、批量写通知、`BatchCommit`和批量`Drain`。 |
+
+## 多AI Core共享通道
+
+Ascend 950平台上，多个AIV共享同一个`COMM_PROTOCOL_UBC_CTP`通道时，需要通过[Lock](../api/aicore/hcomm/Lock.md)和[Unlock](../api/aicore/hcomm/Unlock.md)保护会更新通道状态的访问。每个AI Core可以使用独立的Hcomm对象和UB临时工作区，但传入相同的`ChannelHandle`。
+
+```cpp
+int32_t lockRet = hcomm.Lock(channel);
+if (lockRet == 0) {
+    int32_t opRet = hcomm.WriteNbi(channel, dst, src, len);
+
+    // 即使通信接口返回失败，也必须释放已经成功获取的锁。
+    int32_t unlockRet = hcomm.Unlock(channel);
+    // 分别处理opRet和unlockRet。
+}
+```
+
+锁只同步同一设备上共享该通道的AI Core，不同步不同Rank或不同设备。`Unlock`只写回并失效通道counter所在的缓存行，不能替代任意用户GM数据所需的同步和cache维护操作。
+
+BatchHandle会在创建时缓存SQ/CQ队列游标，因此调用方必须在BatchHandle整个生命周期内独占对应单通道或共享Jetty。对单次批量操作调用`Lock`和`Unlock`，不能使普通接口与BatchHandle接口混用或多个BatchHandle并发变得安全。
 
 ## 注意事项
 
@@ -145,10 +164,14 @@ ret = hcomm.Drain(multiBatchHandle);
 - 批量接口的单次数据长度不能大于`UINT32_MAX`。
 - `WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`普通接口仅支持`COMM_PROTOCOL_UBC_CTP`路径。
 - 原子操作的数据类型仅支持`int32_t`、`uint32_t`、`int64_t`和`uint64_t`。
+- `COMM_PROTOCOL_UBC_CTP`路径中，`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`单任务占用2个WQE block，普通`ReadNbi`/`WriteNbi`占用1个WQE block。
+- `Lock`和`Unlock`仅支持Ascend 950平台的AIV和`COMM_PROTOCOL_UBC_CTP`路径。调用前需要确保通道锁已初始化为FREE。
+- 通道锁不可重入，没有超时和公平性保证。每次成功调用`Lock`后，所有退出路径都必须由获取锁的同一AI Core调用`Unlock`。
+- 返回值为`0`表示成功，`-1`表示失败。
 
 ## 样例
 
-可参考[hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README.md)了解普通接口的AIV Kernel侧调用方式和Host侧通信资源创建流程；参考[hcomm_batch_write](../../../examples/hcomm_batch_write/README.md)了解共享Jetty批量写流程。
+可参考[hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README.md)了解普通接口的AIV Kernel侧调用方式和Host侧通信资源创建流程，该样例不覆盖`Lock`和`Unlock`；参考[hcomm_batch_write](../../../examples/hcomm_batch_write/README.md)了解共享Jetty批量写流程。
 
 该样例在两卡场景下对称执行普通`WriteNbi`和`ReadNbi`：
 
