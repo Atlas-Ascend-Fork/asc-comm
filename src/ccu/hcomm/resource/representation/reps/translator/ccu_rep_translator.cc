@@ -171,7 +171,7 @@ void CcuRepTranslator::GetRes(CcuRepResource& res)
         res.address[transDep.dieId].push_back(addr[i]);
     }
     for (int i = 0; i < CKE_NUM; i++) {
-        res.localNotify[transDep.dieId].push_back(signal[i]);
+        res.completedEvent[transDep.dieId].push_back(signal[i]);
     }
 }
 
