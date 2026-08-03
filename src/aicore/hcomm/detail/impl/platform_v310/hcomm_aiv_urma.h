@@ -466,6 +466,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteReduceNbi(
     static_assert(
         reduceOp == HcommUrmaReduceOp::MAX || reduceOp == HcommUrmaReduceOp::MIN || reduceOp == HcommUrmaReduceOp::SUM,
         "WriteReduceNbi only supports MAX, MIN and SUM");
+    static_assert(config.inlineEn == 0, "WriteReduceNbi does not support inline data in WQE");
     UdmaParams<uint32_t> params{};
     params.reduceDataType = reduceDataType;
     params.reduceOpcode = static_cast<uint32_t>(reduceOp);
