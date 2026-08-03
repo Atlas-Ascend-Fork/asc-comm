@@ -38,9 +38,10 @@ namespace AscendC {
  *          3) Launch comm tasks asynchronously through the corresponding interface,
  *             and the server starts assembling and launching comm tasks as soon as it listens.
  *          4) If commit is false when launching task, call the Commit interface to notify the execution of the
- * corresponding comm task. 5) Call the Drain interface (blocking) to wait for the server to complete the corresponding
- * comm task.
- * @tparam commProtocol: The communication protocol to use, ROCE supported as default.
+ *             corresponding comm task.
+ *          5) Call the Drain interface (blocking) to wait for the server to complete the corresponding comm task.
+ * @tparam commProtocol: The communication protocol to use. COMM_PROTOCOL_UBC_CTP (implemented through URMA) is used
+ *                       by default.
  */
 template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
 class Hcomm {

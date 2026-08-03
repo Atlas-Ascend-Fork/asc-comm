@@ -49,6 +49,14 @@ static constexpr UrmaWqeEntry URMA_DEFAULT_CFG = {
     .inlineEn = 0,
 };
 
+static constexpr UrmaWqeEntry URMA_NO_CQE_CFG = {
+    .odr = 5,
+    .fence = 1,
+    .se = 0,
+    .cqe = 0,
+    .inlineEn = 0,
+};
+
 static constexpr UrmaWqeEntry URMA_INLINE_CFG = {
     .odr = 5,
     .fence = 1,
@@ -236,7 +244,11 @@ typedef struct {
     RegedBufferEntity* remoteBufferAddr;
     SqContext* sqContextAddr;
     CqContext* cqContextAddr;
-    uint8_t reserve[160];
+    uint32_t sqHead;
+    uint32_t sqTail;
+    uint32_t cqHead;
+    uint32_t cqTail;
+    uint8_t reserve[144];
 } ChannelEntity;
 
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
