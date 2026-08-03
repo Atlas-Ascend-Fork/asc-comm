@@ -15,7 +15,10 @@
 
 namespace hcomm {
 
+#ifndef HCOMM_CCU_MAX_IODIE_NUM_DEFINED
+#define HCOMM_CCU_MAX_IODIE_NUM_DEFINED
 constexpr uint8_t CCU_MAX_IODIE_NUM = 2;
+#endif
 
 } // namespace hcomm
 

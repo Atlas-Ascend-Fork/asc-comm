@@ -35,7 +35,7 @@
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
-#include "hcomm/resource/common/ccu_res_repo.h"
+#include "hcomm/resource/common/asc_ccu_res_repository_local.h"
 #include "ccu_dev_mgr_imp.h" // CcuVersion
 
 // 暂时引用方便算法开发
@@ -75,15 +75,16 @@ public:
     ~CcuKernel() override;
 
     HcclResult SetupProfilingInfo(const char* kernelFuncName);
-    HcclResult SelectDie();
+    HcclResult ApplyDieFromChannels();
+    HcclResult ValidateAndApplyDie(uint32_t targetDieId);
 
-    CcuResReq GetResourceRequest();
-    CcuResRepository& GetResRepository();
+    HcommCcuResRequestPod GetResourceRequest();
+    AscCcuResRepository& GetResRepository();
     CcuRepResource& GetResource();
     CcuSharedResource& GetExportedRes();
     CcuSharedResource& GetImportedRes();
 
-    void SetResRepository(const CcuResRepository& resRepo);
+    void SetResRepository(const AscCcuResRepository& resRepo);
     void SetInstrId(uint32_t instrId);
     uint32_t GetInstrId() const;
     uint32_t GetInstrCount();
@@ -466,7 +467,7 @@ private:
 
 private:
     CcuRepResource res_{};
-    CcuResRepository resRepo_{};
+    AscCcuResRepository resRepo_{};
 
     std::unordered_set<ChannelHandle> channels_{};
 
