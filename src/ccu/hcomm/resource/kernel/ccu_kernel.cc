@@ -317,18 +317,19 @@ CcuResReq CcuKernel::GetResourceRequest()
     req.loopEngineReq[dieId] = res_.executor[dieId].size();
     req.blockLoopEngineReq[dieId] = res_.blockExecutor[dieId].size();
     req.gsaReq[dieId] = res_.address[dieId].size();
+    req.blockGsaReq[dieId] = res_.blockAddress[dieId].size();
     req.xnReq[dieId] = res_.variable[dieId].size();
-    req.continuousXnReq[dieId] = res_.continuousVariable[dieId].size();
+    req.blockXnReq[dieId] = res_.continuousVariable[dieId].size();
 
     req.missionReq.reqType = MissionReqType::FUSION_MULTIPLE_DIE;
     req.missionReq.req[dieId] = 1;
 
     auto info = Hccl::StringFormat(
         "resource request: dieId[%u], ms[%u], blockMs[%u], cke[%u], blockCke[%u], "
-        "loopEngine[%u], blockLoopEngine[%u], gsa[%u], xn[%u], continuous xn[%u], missionId[%u]",
+        "loopEngine[%u], blockLoopEngine[%u], gsa[%u], blockGsa[%u], xn[%u], blockXn[%u], missionId[%u]",
         dieId, req.msReq[dieId], req.blockMsReq[dieId], req.ckeReq[dieId], req.blockCkeReq[dieId],
-        req.loopEngineReq[dieId], req.blockLoopEngineReq[dieId], req.gsaReq[dieId], req.xnReq[dieId],
-        req.continuousXnReq[dieId], req.missionReq.req[dieId]);
+        req.loopEngineReq[dieId], req.blockLoopEngineReq[dieId], req.gsaReq[dieId], req.blockGsaReq[dieId],
+        req.xnReq[dieId], req.blockXnReq[dieId], req.missionReq.req[dieId]);
 
     HCCL_INFO("%s", info.c_str());
 

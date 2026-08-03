@@ -10,6 +10,19 @@
 
 #include "ccu/hcomm/ccu_res.h"
 
+#include "hcomm/resource/instance/ccu_instance_mgr.h"
+#include "hcomm/common/ccu_log.h"
+#include "hcom_common.h"
+
+CcuResult HcommCcuInsCreateLegacy(const CcuInstanceType insType, CcuInsHandle *ccuInsHandle)
+{
+    CCU_CHK_PTR_NULL(ccuInsHandle);
+
+    const int32_t devLogicId = HcclGetThreadDeviceId();
+    CCU_CHK_RET(hcomm::CcuInstanceMgr::GetInstance(devLogicId).Create(insType, *ccuInsHandle));
+    return CcuResult::CCU_SUCCESS;
+}
+
 CcuResult HcommCcuInsResDescCreate(uint32_t, HcommCcuResDescHandle*) { return CcuResult::CCU_E_NOT_SUPPORT; }
 
 CcuResult HcommCcuInsResDescDestroy(HcommCcuResDescHandle) { return CcuResult::CCU_E_NOT_SUPPORT; }
