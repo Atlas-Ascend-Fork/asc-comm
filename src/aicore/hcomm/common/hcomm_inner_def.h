@@ -30,6 +30,8 @@ enum class MultiChannelHandle : uint64_t {};
 
 constexpr int32_t HCOMM_FAILED = -1;
 constexpr int32_t HCOMM_SUCCESS = 0;
+constexpr uint32_t HCOMM_LOCK_FREE = 0U;
+constexpr uint32_t HCOMM_LOCK_HELD = 1U;
 constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
 
