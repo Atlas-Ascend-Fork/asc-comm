@@ -78,7 +78,7 @@ log() {
         ERROR) color="$COLOR_ERROR" ;;
         *) color="" ;;
     esac
-    
+
     # 带颜色的日志内容
     echo -e "${color}${plain_log}${COLOR_RESET}"
 }
@@ -146,7 +146,7 @@ set_env() {
         log "ERROR" "未配置 CANN 环境，请先source set_env.sh"
         exit 1
     fi
-    log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}" 
+    log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}"
     Ascend_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
     CUSTOM_OPTION+=("-DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
@@ -165,7 +165,7 @@ function cmake_config () {
     cmake -S "${src_dir}" -B "${build_dir}" "$@"
 }
 
-function build () { 
+function build () {
     local build_dir="$1"
     shift
     echo "cmake --build ${build_dir} $* -j ${THREAD_NUM}"
@@ -183,7 +183,7 @@ main(){
 
     if [[ "${PACKAGE}" == true ]]; then
         bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \
-            --cann-path="${Ascend_CANN_PACKAGE_PATH}"
+            --cann-path="${Ascend_CANN_PACKAGE_PATH}" || return $?
     fi
 
     if [[ "${TEST}" != true ]]; then
@@ -196,7 +196,7 @@ main(){
     if [[ "${COV}" == true ]]; then
         CUSTOM_OPTION+=("-DENABLE_GCOV=ON")
     fi
-    
+
     if [[ "${COV}" == true ]]; then
         TARGETS="--target collect_coverage_data"
     else

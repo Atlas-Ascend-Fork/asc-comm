@@ -23,6 +23,7 @@
             </filefilter>
             <filefilter name="defaultPolicyFilter" desc="Filters for compatibility, license header policies">
                 <filteritem type="filename" name="*.gitignore" desc="git ignore file"/>
+                <filteritem type="filename" name="*.info" desc="metadata file"/>
                 <filteritem type="filename" name="*.md" desc="documentation file"/>
                 <filteritem type="filename" name="*.xml" desc="configuration file"/>
                 <filteritem type="filename" name="*.yaml" desc="configuration file"/>
@@ -36,6 +37,7 @@
             </filefilter>
             <filefilter name="copyrightPolicyFilter" desc="Filters for copyright header policies">
                 <filteritem type="filename" name="*.gitignore" desc="git ignore file"/>
+                <filteritem type="filename" name="*.info" desc="metadata file"/>
                 <filteritem type="filename" name="*.md" desc="documentation file"/>
                 <filteritem type="filename" name="*.xml" desc="configuration file"/>
                 <filteritem type="filename" name="*.yaml" desc="configuration file"/>
