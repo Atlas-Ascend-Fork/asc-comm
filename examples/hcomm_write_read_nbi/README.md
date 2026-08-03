@@ -154,7 +154,7 @@ make -j
 | `CMAKE_ASC_ARCHITECTURES` | `dav-3510`（默认） | NPU架构：`dav-3510`对应Ascend 950PR / Ascend 950DT |
 
 ### 5. 执行结果
-双卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
+多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
 ```text
 rank 0 test pass!
 rank 1 test pass!

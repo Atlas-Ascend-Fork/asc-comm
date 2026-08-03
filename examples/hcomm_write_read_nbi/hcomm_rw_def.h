@@ -33,11 +33,14 @@ static_assert(
     "Host and Kernel communication protocols must match");
 constexpr uint32_t HCOMM_WORKSPACE_SIZE = 512U;
 
-constexpr uint32_t TEST_SUCCESS = 0U;
-constexpr uint32_t TEST_HCOMM_INIT_FAILED = 1U;
-constexpr uint32_t TEST_WRITE_FAILED = 2U;
-constexpr uint32_t TEST_READ_FAILED = 3U;
-constexpr uint32_t TEST_DRAIN_FAILED = 4U;
+enum TestResult : uint32_t {
+    TEST_SUCCESS = 0U,
+    TEST_HCOMM_INIT_FAILED = 1U,
+    TEST_WRITE_FAILED = 2U,
+    TEST_READ_FAILED = 3U,
+    TEST_DRAIN_FAILED = 4U,
+};
+static_assert(sizeof(TestResult) == sizeof(uint32_t), "TestResult must remain uint32_t-sized");
 
 constexpr uint32_t HCOMM_READ_ONLY = 0x01U;
 constexpr uint32_t HCOMM_WRITE_ONLY = 0x02U;
@@ -49,7 +52,7 @@ struct CommContext {
     uint64_t channelHandle;
     uint64_t localBufferAddr;
     uint64_t remoteBufferAddr;
-    uint32_t testResult;
+    TestResult testResult;
 };
 
 } // namespace HcommExample
