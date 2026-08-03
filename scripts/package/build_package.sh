@@ -191,9 +191,6 @@ build_package()
         "${STAGING_DIR}/payload/asc/include/adv_api/hcomm"
     copy_headers \
         "${PROJECT_ROOT}/src/aicore/hcomm/detail" \
-        "${STAGING_DIR}/payload/asc/include/adv_api/hcomm/detail"
-    copy_headers \
-        "${PROJECT_ROOT}/src/aicore/hcomm/detail" \
         "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm"
 
     write_manifest
