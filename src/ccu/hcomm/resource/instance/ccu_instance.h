@@ -16,7 +16,6 @@
 
 #include "ccu/hcomm/ccu_types.h"
 #include "hcomm/resource/instance/ccu_res_pack.h"
-#include "ccu_drv_handle.h"
 #include "ccu_device_res.h"
 
 namespace hcomm {
@@ -30,6 +29,7 @@ public:
     explicit CcuInstance(std::vector<CcuResDescSnapshot> resDescs) : resDescs_(std::move(resDescs)) {};
     ~CcuInstance();
     CcuResult Init();
+    CcuResult LoadRegisterContext(const HcommCcuRegisterContextPod &context);
     CcuResult Reset();
     CcuResPack* GetResPack();
     CcuResult SaveKernel(const CcuKernelHandle kernelHandle);
@@ -49,7 +49,6 @@ private:
     std::vector<CcuResDescSnapshot> resDescs_{};
     int32_t devLogicId_{INT32_MAX};
     CcuInsHandle insHandle_{0};
-    std::shared_ptr<hcomm::CcuDrvHandle> ccuDrvHandle_{};
     std::unique_ptr<CcuResPack> resPack_{};
     std::vector<CcuKernelHandle> kernelHandles_{};
     std::vector<CcuKernelHandle> untranslatedKernelHandles_{};

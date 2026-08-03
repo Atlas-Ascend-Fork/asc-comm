@@ -52,7 +52,8 @@ CcuResult HcommCcuHostKernelLaunch(
     uint32_t dieId = 0;
     CCU_CHK_RET(PhyDieMaskToDieId(cfg->ccuSchd.phyDieMask, dieId));
 
-    CcuResult ret = HcommCcuKernelRegisterStart(cfg->ccuIns);
+    CCU_CHK_PTR_NULL(cfg->registerContext);
+    CcuResult ret = HcommCcuKernelRegisterStart(cfg->ccuIns, cfg->registerContext);
     if (ret != CCU_SUCCESS) {
         HCCL_ERROR("[%s] HcommCcuKernelRegisterStart failed, ccuRet[%d].", __func__, ret);
         return ret;
