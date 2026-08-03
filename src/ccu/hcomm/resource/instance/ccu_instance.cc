@@ -34,44 +34,36 @@ CcuInstance::~CcuInstance()
 
     (void)CcuVarEventResMgr::GetInstance(devLogicId_).ReleaseByInstance(insHandle_);
 
-    resPack_ = nullptr; // 释放通信域持有CCU资源
-    if (ccuDrvHandle_) {
-        ccuDrvHandle_ = nullptr; // 先减少引用计数，再尝试关闭
-        (void)CcuDeinitFeature(devLogicId_);
-        // 尝试关闭CCU功能，最后一个通信域调用时会关闭CCU驱动
-    }
+    resPack_ = nullptr;
 }
 
 CcuResult CcuInstance::Init()
 {
-    if (resDescs_.empty() && insType_ >= CcuInstanceType::CCU_UNUSED) {
+    if (insType_ >= CcuInstanceType::CCU_UNUSED) {
         HCCL_ERROR("[CcuInstance][%s] failed, CcuInstanceType[%d] is invalid.", __func__, insType_);
         return CcuResult::CCU_E_PARA;
     }
 
-    devLogicId_ = HcclGetThreadDeviceId();
+    return CcuResult::CCU_SUCCESS;
+}
 
-    if (!ccuDrvHandle_) {
-        CCU_CHK_RET(CcuInitFeature(devLogicId_, ccuDrvHandle_));
-    }
-
+CcuResult CcuInstance::LoadRegisterContext(const HcommCcuRegisterContextPod &context)
+{
+    CCU_EXCEPTION_HANDLE_BEGIN
     if (!resPack_) {
-        if (resDescs_.empty()) {
-            resPack_.reset(new (std::nothrow) CcuResPack(insType_));
-        } else {
-            resPack_.reset(new (std::nothrow) CcuResPack(resDescs_));
-        }
+        resPack_.reset(new (std::nothrow) CcuResPack());
         CCU_CHK_PTR_NULL(resPack_);
-        CCU_CHK_RET(resPack_->Init());
     }
-
+    CCU_CHK_RET(resPack_->Load(context));
+    devLogicId_ = context.deviceLogicId;
+    CCU_EXCEPTION_HANDLE_END
     return CcuResult::CCU_SUCCESS;
 }
 
 CcuResult CcuInstance::Reset()
 {
     if (!resPack_) {
-        return CcuResult::CCU_SUCCESS;
+        return CcuResult::CCU_E_UNAVAIL;
     }
 
     untranslatedKernelHandles_.clear();
