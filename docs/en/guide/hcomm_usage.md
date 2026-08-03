@@ -43,7 +43,24 @@ ret = hcomm.Drain(channel);
 | Protocol | Description |
 | --- | --- |
 | `COMM_PROTOCOL_ROCE` | RoCE point-to-point communication path. Supports `ReadNbi`, `WriteNbi`, `Commit`, `Drain`. `WriteWithNotifyNbi` is not supported. |
-| `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA path. Supports `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, `Drain`. |
+| `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA path. Supports `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, `Drain`. AIV on Ascend 950 also supports `Lock` and `Unlock`. |
+
+## Sharing a Channel Across AI Cores
+
+On Ascend 950, when multiple AIVs share the same `COMM_PROTOCOL_UBC_CTP` channel, use [Lock](../api/aicore/hcomm/Lock.md) and [Unlock](../api/aicore/hcomm/Unlock.md) to protect accesses that update channel state. Each AI Core may use an independent Hcomm object and UB temporary workspace while passing the same `ChannelHandle`.
+
+```cpp
+int32_t lockRet = hcomm.Lock(channel);
+if (lockRet == 0) {
+    int32_t opRet = hcomm.WriteNbi(channel, dst, src, len);
+
+    // A successfully acquired lock must be released even if the communication API fails.
+    int32_t unlockRet = hcomm.Unlock(channel);
+    // Handle opRet and unlockRet separately.
+}
+```
+
+The lock synchronizes only AI Cores sharing the channel on the same device. It does not synchronize different ranks or devices. `Unlock` writes back and invalidates only the cache line containing the channel counters and does not replace synchronization or cache maintenance required for arbitrary user GM data.
 
 ## Notes
 - Both `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP` paths require a temporary workspace allocated via `Init`. The minimum workspace size is currently 512 bytes.
@@ -53,10 +70,12 @@ ret = hcomm.Drain(channel);
 - `WriteWithNotifyNbi`, `AtomicFAA` and `AtomicCAS` are only available for the `COMM_PROTOCOL_UBC_CTP` path.
 - Supported data types for atomic operations are limited to `int32_t`, `uint32_t`, `int64_t` and `uint64_t`.
 - For the `COMM_PROTOCOL_UBC_CTP` path: a single `WriteWithNotifyNbi`, `AtomicFAA` or `AtomicCAS` task occupies 2 WQE blocks; regular `ReadNbi` / `WriteNbi` tasks occupy 1 WQE block.
+- `Lock` and `Unlock` are available only to AIV on Ascend 950 over the `COMM_PROTOCOL_UBC_CTP` path. Before use, ensure that the channel lock is initialized to FREE.
+- The channel lock is not reentrant and provides neither a timeout nor a fairness guarantee. After every successful `Lock`, all exit paths must call `Unlock` on the same AI Core that acquired the lock.
 - Return value `0` indicates success; `-1` indicates failure.
 
 ## Sample
-Refer to [hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README_en.md) to learn about AIV Kernel-side API invocation and Host-side communication resource creation workflow. This sample uses `COMM_ENGINE_AIV` and `COMM_PROTOCOL_UBC_CTP` exclusively and does not cover the RoCE path.
+Refer to [hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README_en.md) to learn about AIV Kernel-side API invocation and Host-side communication resource creation workflow. This sample uses `COMM_ENGINE_AIV` and `COMM_PROTOCOL_UBC_CTP` exclusively and covers neither the RoCE path nor the `Lock`/`Unlock` APIs.
 
 This sample executes symmetric `WriteNbi` and `ReadNbi` in a two-card scenario:
 ```cpp

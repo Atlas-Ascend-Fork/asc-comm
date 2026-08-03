@@ -22,12 +22,15 @@
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_INNER_DEF_H
 #define IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_INNER_DEF_H
 
+#include <cstddef>
 #include <cstdint>
 
 namespace AscendC {
 
 constexpr int32_t HCOMM_FAILED = -1;
 constexpr int32_t HCOMM_SUCCESS = 0;
+constexpr uint32_t HCOMM_LOCK_FREE = 0U;
+constexpr uint32_t HCOMM_LOCK_HELD = 1U;
 constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
 
@@ -240,9 +243,18 @@ typedef struct {
     uint32_t sqTail; // Submitted WQE count, reserved for future use
     uint32_t cqHead; // Number of expected CQEs
     uint32_t cqTail; // Number of consumed CQEs
-    uint8_t reserve[144];
+    uint8_t reserveBeforeLock[80];
+    uint32_t lock;
+    uint8_t reserveAfterLock[60];
 } ChannelEntity;
 
+static_assert(offsetof(ChannelEntity, sqHead) == 96, "ChannelEntity sqHead offset must remain unchanged");
+static_assert(offsetof(ChannelEntity, lock) == 192, "ChannelEntity lock offset must remain unchanged");
+static_assert(
+    offsetof(ChannelEntity, lock) - (offsetof(ChannelEntity, cqTail) + sizeof(uint32_t)) >= 64,
+    "ChannelEntity lock must be isolated from the counter cache line");
+static_assert(
+    offsetof(ChannelEntity, lock) % alignof(uint32_t) == 0, "ChannelEntity lock must meet uint32_t alignment");
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
 
 // RoCE WQE, CQE, DB struct

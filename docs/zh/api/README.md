@@ -6,6 +6,8 @@
 | --- | --- |
 | [Hcomm](./aicore/hcomm/Hcomm.md) | AICore侧点对点通信接口模板总览、协议能力和使用约束。 |
 | [Init](./aicore/hcomm/Init.md) | 初始化Hcomm临时工作区。 |
+| [Lock](./aicore/hcomm/Lock.md) | 获取通信通道的跨AI Core锁。 |
+| [Unlock](./aicore/hcomm/Unlock.md) | 发布通道状态并释放跨AI Core锁。 |
 | [ReadNbi](./aicore/hcomm/ReadNbi.md) | 通过指定通道提交点对点读任务。 |
 | [WriteNbi](./aicore/hcomm/WriteNbi.md) | 通过指定通道提交点对点写任务。 |
 | [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | 提交写任务并写远端通知值。 |

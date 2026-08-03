@@ -5,6 +5,8 @@
 | --- | --- |
 | [Hcomm](./aicore/hcomm/Hcomm.md) | Overview of AICore-side point-to-point communication interface template, protocol capabilities and usage constraints. |
 | [Init](./aicore/hcomm/Init.md) | Initialize the temporary workspace for Hcomm. |
+| [Lock](./aicore/hcomm/Lock.md) | Acquire the cross-AI-Core lock of a communication channel. |
+| [Unlock](./aicore/hcomm/Unlock.md) | Publish channel state and release the cross-AI-Core lock. |
 | [ReadNbi](./aicore/hcomm/ReadNbi.md) | Submit a point-to-point read task via the specified channel. |
 | [WriteNbi](./aicore/hcomm/WriteNbi.md) | Submit a point-to-point write task via the specified channel. |
 | [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | Submit a write task and write a remote notification value. |

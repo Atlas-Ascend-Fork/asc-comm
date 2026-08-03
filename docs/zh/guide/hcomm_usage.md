@@ -52,7 +52,24 @@ ret = hcomm.Drain(channel);
 | 协议 | 说明 |
 | --- | --- |
 | `COMM_PROTOCOL_ROCE` | RoCE点对点通信路径，支持`ReadNbi`、`WriteNbi`、`Commit`、`Drain`，不支持`WriteWithNotifyNbi`。 |
-| `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA路径，支持`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。 |
+| `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA路径，支持`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`；Ascend 950平台的AIV还支持`Lock`和`Unlock`。 |
+
+## 多AI Core共享通道
+
+Ascend 950平台上，多个AIV共享同一个`COMM_PROTOCOL_UBC_CTP`通道时，需要通过[Lock](../api/aicore/hcomm/Lock.md)和[Unlock](../api/aicore/hcomm/Unlock.md)保护会更新通道状态的访问。每个AI Core可以使用独立的Hcomm对象和UB临时工作区，但传入相同的`ChannelHandle`。
+
+```cpp
+int32_t lockRet = hcomm.Lock(channel);
+if (lockRet == 0) {
+    int32_t opRet = hcomm.WriteNbi(channel, dst, src, len);
+
+    // 即使通信接口返回失败，也必须释放已经成功获取的锁。
+    int32_t unlockRet = hcomm.Unlock(channel);
+    // 分别处理opRet和unlockRet。
+}
+```
+
+锁只同步同一设备上共享该通道的AI Core，不同步不同Rank或不同设备。`Unlock`只写回并失效通道counter所在的缓存行，不能替代任意用户GM数据所需的同步和cache维护操作。
 
 ## 注意事项
 
@@ -63,11 +80,13 @@ ret = hcomm.Drain(channel);
 - `WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`仅支持`COMM_PROTOCOL_UBC_CTP`路径。
 - 原子操作的数据类型仅支持`int32_t`、`uint32_t`、`int64_t`和`uint64_t`。
 - `COMM_PROTOCOL_UBC_CTP`路径中，`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`单任务占用2个WQE block，普通`ReadNbi`/`WriteNbi`占用1个WQE block。
+- `Lock`和`Unlock`仅支持Ascend 950平台的AIV和`COMM_PROTOCOL_UBC_CTP`路径。调用前需要确保通道锁已初始化为FREE。
+- 通道锁不可重入，没有超时和公平性保证。每次成功调用`Lock`后，所有退出路径都必须由获取锁的同一AI Core调用`Unlock`。
 - 返回值为`0`表示成功，`-1`表示失败。
 
 ## 样例
 
-可参考[hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README.md)了解AIV Kernel侧接口调用方式和Host侧通信资源创建流程。该样例固定使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UBC_CTP`，不覆盖RoCE路径。
+可参考[hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README.md)了解AIV Kernel侧接口调用方式和Host侧通信资源创建流程。该样例固定使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UBC_CTP`，不覆盖RoCE路径及`Lock`/`Unlock`接口。
 
 该样例在两卡场景下对称执行`WriteNbi`和`ReadNbi`：
 
