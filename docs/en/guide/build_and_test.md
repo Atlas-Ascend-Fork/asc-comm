@@ -31,7 +31,7 @@ build/ut-hcomm
 
 ## Build a Development Run Package
 
-After modifying Hcomm headers locally, build a lightweight development package to install the headers from the current worktree into an existing CANN environment without rebuilding the complete toolkit package:
+After modifying AICore headers locally, build a lightweight development package to install the public and detail headers from the current worktree into an existing CANN environment without rebuilding the complete toolkit package:
 
 ```bash
 bash build.sh --pkg
@@ -43,23 +43,22 @@ The generated file is placed in `build_out/` by default:
 Ascend-asccomm_1.0.0_linux-<arch>.run
 ```
 
-`<arch>` is `aarch64` or `x86_64`. At packaging time, all `.h` files currently present under the following two directories are collected recursively. File names and the file count are not fixed, and subdirectory paths relative to each scan root are retained:
+`<arch>` is `aarch64` or `x86_64`. At packaging time, every `.h` file under `include/aicore/` and every `.h` file in each module's `detail/` directory under `src/aicore/` is collected recursively. Module names, file names, and file counts are not fixed:
 
 | Repository scan directory | CANN installation directory |
 | --- | --- |
-| `include/aicore/hcomm/` | `asc/include/adv_api/hcomm/` |
-| `src/aicore/hcomm/detail/` | `asc/include/adv_api/hcomm/detail/` |
-| `src/aicore/hcomm/detail/` | `asc/impl/adv_api/detail/hcomm/` |
+| `include/aicore/<module>/` | `asc/include/adv_api/<module>/` |
+| `src/aicore/<module>/detail/` | `asc/impl/adv_api/detail/<module>/` |
 
-For example, `include/aicore/hcomm/hcomm.h` is installed as `asc/include/adv_api/hcomm/hcomm.h`. `src/aicore/hcomm/detail/common/hcomm_base.h` is installed as both `asc/include/adv_api/hcomm/detail/common/hcomm_base.h` and `asc/impl/adv_api/detail/hcomm/common/hcomm_base.h`. This dual-directory layout matches the asc-devkit integration packaging rules for asc-comm: the former resolves `hcomm/detail/...` references in asc-comm public headers, while the latter preserves the existing CANN detail installation path.
+For example, Hcomm headers retain their existing destinations under `asc/include/adv_api/hcomm/` and `asc/impl/adv_api/detail/hcomm/`. After adding `include/aicore/ain/ain.h` and `src/aicore/ain/detail/impl/ain_impl.h`, they are automatically installed as `asc/include/adv_api/ain/ain.h` and `asc/impl/adv_api/detail/ain/impl/ain_impl.h`. Module names and module-relative subdirectories are preserved.
 
-Consequently, a new `.h` file under either scan directory is automatically included the next time the package is built, and each new detail header automatically produces two installation targets. File names, source file counts, and installed file counts are not fixed; other file types are excluded. The package manifest describes only headers present at packaging time and does not represent a complete mirror of the target directories. On a first installation, a path already deleted or renamed in the repository is absent from the manifest, so the installer cannot remove the corresponding old path from CANN. Do not rely solely on this run package to verify the final directory state of deletions or renames.
+Consequently, a new `.h` file under either scan directory is automatically included the next time the package is built. File names, source file counts, and installed file counts are not fixed; other file types are excluded. The package manifest describes only headers present at packaging time and does not represent a complete mirror of the target directories. On a first installation, a path already deleted or renamed in the repository is absent from the manifest, so the installer cannot remove the corresponding old path from CANN. Do not rely solely on this run package to verify the final directory state of deletions or renames.
 
 Common options are listed below:
 
 | Option | Description |
 | --- | --- |
-| `--install` | Install or update all Hcomm headers in the package. |
+| `--full` | Install or update all AICore headers in the package in full mode. |
 | `--uninstall` | Restore original files from the baseline and remove files that were previously absent. |
 | `--check` | Verify the run archive and payload without modifying CANN. |
 | `--install-path=<PATH>` | Select an absolute path for installation or uninstallation; defaults to `ASCEND_HOME_PATH`. |
@@ -67,7 +66,7 @@ Common options are listed below:
 | `--list` | List files in the run package; provided by the makeself wrapper. |
 | `-h`, `--help` | Display help information. |
 
-`--install`, `--uninstall`, and `--check` are mutually exclusive operations; specify exactly one at a time.
+`--full`, `--uninstall`, and `--check` are mutually exclusive operations; specify exactly one at a time.
 
 ### Inspect the Package
 
@@ -88,14 +87,14 @@ List the files embedded in the run package:
 Install into the current `ASCEND_HOME_PATH`:
 
 ```bash
-./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --install
+./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --full
 ```
 
 Alternatively, select an installation location with an absolute path:
 
 ```bash
 ./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run \
-    --install --install-path=/path/to/cann
+    --full --install-path=/path/to/cann
 ```
 
 The installer tries the `--install-path` value itself, `<install-path>/cann`, and `<install-path>/ascend-toolkit/latest` as the CANN root. The resolved directory must contain `asc/include/adv_api/`, `asc/impl/adv_api/detail/`, and `share/info/asc-devkit/version.info`. The current user must own the resolved CANN root.
@@ -108,8 +107,8 @@ var/asc-comm-dev-patch/baseline/
 
 - If a target file already exists, the installer saves the original before replacement. Uninstallation restores the original file and its permissions.
 - If a target file does not exist, the installer records it as `absent` before creating it. Uninstallation removes that file.
-- Repeated installations into the same CANN directory retain the baseline from before each path was first managed by the patch. Files from a previous patch installation never overwrite that baseline.
-- If a path from the previous asc-comm patch is absent from a new package, repeated installation restores that recorded path to its original state. The installer cannot handle an old CANN file that was never recorded by a patch and is also absent from the current package.
+- On repeated installation into the same CANN directory, the installer first restores the previous patch and then rebuilds the baseline for the new package from the restored CANN tree. Files from the previous patch are never saved as originals.
+- If a path from the previous asc-comm patch is absent from a new package, repeated installation restores that path and stops managing it; later uninstallation does not touch it. The installer cannot handle an old CANN file that was never recorded by a patch and is also absent from the current package.
 
 Restore the files to their pre-installation state. If `--install-path` was used for installation, pass the same path when uninstalling:
 
