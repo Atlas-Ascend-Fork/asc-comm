@@ -51,6 +51,8 @@ target_include_directories(asccomm_ccu_headers INTERFACE
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy/hccl
     ${ASCCOMM_HCOMM_SOURCE_DIR}/third_party/json/include
     ${ASCCOMM_HCOMM_SOURCE_DIR}/third_party/json/single_include
+    ${ASCCOMM_ROOT}/third_party/json/include
+    ${ASCCOMM_ROOT}/third_party/json/single_include
 )
 
 add_library(asccomm_ccu_dataplane_obj OBJECT)

@@ -32,10 +32,11 @@ public:
 
     HcclResult Init();
     HcclResult Deinit();
+    CcuResult Configure(CcuResPack &resPack);
 
     CcuResult Register(
-        CcuResPack& resPack, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
-        const uint32_t argNum, CcuKernelHandle& kernelHandle);
+        CcuResPack& resPack, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc,
+        const void** kernelArgs, const uint32_t argNum, CcuKernelHandle& kernelHandle);
 
     CcuResult Translate(const std::vector<CcuKernelHandle>& kernelHandles);
 
@@ -53,19 +54,12 @@ private:
     CcuKernelMgr& operator=(const CcuKernelMgr& that) = delete;
 
 private:
-    struct CcuTranslatResPack {
-        std::vector<CcuResHandle> handles{};
-    };
-
-private:
     CcuResult PrepareConstValueResources();
     CcuResult AllocRes(CcuResPack& resPack);
 
-    HcclResult InstantiationTranslator(const uint16_t dieId);
+    HcclResult InstantiationTranslator(uint16_t dieId, const CcuResPack &resPack);
     HcclResult TransRepSequenceToMicrocode(const std::vector<CcuKernel*>& kernels, bool isFuncBlock);
     HcclResult LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, const uint32_t dieId);
-
-    HcclResult GetResPackTotalResRepository(const CcuTranslatResPack& resPack, CcuResRepository& totalRes) const;
 
 private:
     bool initializedFlag_{false};
@@ -75,14 +69,16 @@ private:
     CcuKernelHandle kernelId_ = 0;
     std::unordered_map<CcuKernelHandle, std::unique_ptr<CcuKernel>> kernelMap_{};
     void* instructionLoadDevMem_{nullptr};
+    uint64_t instructionLoadDevMemSize_{0};
 
     std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<CcuRep::CcuRepTranslator>>> translators;
     std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<CcuRep::CcuRepReferenceManager>>>
         referenceMgrs;
-    CcuTranslatResPack translatorResPack{};
     std::unique_ptr<CcuKernel> currKernel_{nullptr};
     std::shared_ptr<CcuInsGeneraterBase> insGenePtr;
     CcuVersion ccuVersion_{CcuVersion::CCU_INVALID};
+    uint64_t activeGeneration_{0};
+    std::array<uint32_t, HCOMM_CCU_MAX_DIE_NUM> missionKeys_{};
 };
 }; // namespace hcomm
 #endif // HCOMM_CCU_KERNEL_MGR_IMP_H
