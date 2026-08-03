@@ -37,38 +37,6 @@
 #include "unified_platform/pub_inc/config_plf_log.h"
 using Hccl::PLF_TASK;
 
-CcuResult HcommCcuInsCreateLegacy(const void* resDesc, uint32_t descNum, CcuInsHandle* insHandle)
-{
-    CCU_CHK_PTR_NULL(resDesc);
-    CCU_CHK_PTR_NULL(insHandle);
-    if (descNum != 1) {
-        HCCL_ERROR("[%s] failed, desc num[%u] is more than expected[1].", __func__, descNum);
-        return CcuResult::CCU_E_PARA;
-    }
-
-    auto* resDescPtr = static_cast<const CcuResDesc*>(resDesc);
-    if (resDescPtr->dieId != hcomm::CCU_MAX_IODIE_NUM) {
-        HCCL_ERROR("[%s] failed, ccu instance cannot be created with die id now.", __func__);
-        return CcuResult::CCU_E_PARA;
-    }
-
-    const uint32_t devLogicId = HcclGetThreadDeviceId();
-    CCU_CHK_RET(hcomm::CcuInstanceMgr::GetInstance(devLogicId).Create(resDescPtr->insType, *insHandle));
-
-    return CcuResult::CCU_SUCCESS;
-}
-
-CcuResult HcommCcuInsCreate(const HcommCcuResDescHandle*, uint32_t, CcuInsHandle*)
-{
-    return CcuResult::CCU_E_NOT_SUPPORT;
-}
-
-CcuResult HcommCcuInsCreateDefault(const uint32_t*, uint32_t, CcuInsHandle*) { return CcuResult::CCU_E_NOT_SUPPORT; }
-
-CcuResult HcommCcuInsDestroy(CcuInsHandle) { return CcuResult::CCU_E_NOT_SUPPORT; }
-
-CcuResult HcommCcuInsQueryResDesc(CcuInsHandle, HcommCcuResDescHandle) { return CcuResult::CCU_E_NOT_SUPPORT; }
-
 /**
  * @brief 关闭CCU特性，解初始化CCU平台层
  *
