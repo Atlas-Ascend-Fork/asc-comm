@@ -85,55 +85,63 @@ __aicore__ inline void HcommUrmaFillSqeCtx(__ubuf__ HcommUrmaSqeCtx *sqeCtx, __g
     }
 }
 
-__aicore__ inline bool HcommUrmaGetReduceDataType(HcommDataType dataType, uint32_t &reduceDataType)
+template <HcommDataType dataType> __aicore__ inline uint32_t HcommUrmaGetReduceDataType()
 {
-    switch (dataType) {
-        case HCOMM_DATA_TYPE_INT8:
-            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::INT8);
-            return true;
-        case HCOMM_DATA_TYPE_INT16:
-            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::INT16);
-            return true;
-        case HCOMM_DATA_TYPE_INT32:
-            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::INT32);
-            return true;
-        case HCOMM_DATA_TYPE_UINT8:
-            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::UINT8);
-            return true;
-        case HCOMM_DATA_TYPE_UINT16:
-            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::UINT16);
-            return true;
-        case HCOMM_DATA_TYPE_UINT32:
-            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::UINT32);
-            return true;
-        case HCOMM_DATA_TYPE_FP16:
-            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::FP16);
-            return true;
-        case HCOMM_DATA_TYPE_FP32:
-            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::FP32);
-            return true;
-        case HCOMM_DATA_TYPE_BFP16:
-            reduceDataType = static_cast<uint32_t>(HcommUrmaReduceDataType::BFP16);
-            return true;
-        default:
-            return false;
+    static_assert(dataType == HCOMM_DATA_TYPE_INT8 || dataType == HCOMM_DATA_TYPE_INT16
+                      || dataType == HCOMM_DATA_TYPE_INT32 || dataType == HCOMM_DATA_TYPE_UINT8
+                      || dataType == HCOMM_DATA_TYPE_UINT16 || dataType == HCOMM_DATA_TYPE_UINT32
+                      || dataType == HCOMM_DATA_TYPE_FP16 || dataType == HCOMM_DATA_TYPE_FP32
+                      || dataType == HCOMM_DATA_TYPE_BFP16,
+        "WriteReduceNbi does not support this data type");
+    if constexpr (dataType == HCOMM_DATA_TYPE_INT8) {
+        return static_cast<uint32_t>(HcommUrmaReduceDataType::INT8);
+    } else if constexpr (dataType == HCOMM_DATA_TYPE_INT16) {
+        return static_cast<uint32_t>(HcommUrmaReduceDataType::INT16);
+    } else if constexpr (dataType == HCOMM_DATA_TYPE_INT32) {
+        return static_cast<uint32_t>(HcommUrmaReduceDataType::INT32);
+    } else if constexpr (dataType == HCOMM_DATA_TYPE_UINT8) {
+        return static_cast<uint32_t>(HcommUrmaReduceDataType::UINT8);
+    } else if constexpr (dataType == HCOMM_DATA_TYPE_UINT16) {
+        return static_cast<uint32_t>(HcommUrmaReduceDataType::UINT16);
+    } else if constexpr (dataType == HCOMM_DATA_TYPE_UINT32) {
+        return static_cast<uint32_t>(HcommUrmaReduceDataType::UINT32);
+    } else if constexpr (dataType == HCOMM_DATA_TYPE_FP16) {
+        return static_cast<uint32_t>(HcommUrmaReduceDataType::FP16);
+    } else if constexpr (dataType == HCOMM_DATA_TYPE_FP32) {
+        return static_cast<uint32_t>(HcommUrmaReduceDataType::FP32);
+    } else {
+        return static_cast<uint32_t>(HcommUrmaReduceDataType::BFP16);
     }
 }
 
-__aicore__ inline bool HcommUrmaGetReduceOpcode(HcommReduceOp reduceOp, uint32_t &reduceOpcode)
+template <HcommReduceOp reduceOp> __aicore__ inline uint32_t HcommUrmaGetReduceOpcode()
 {
-    switch (reduceOp) {
-        case HCOMM_REDUCE_SUM:
-            reduceOpcode = static_cast<uint32_t>(HcommUrmaReduceOpCode::SUM);
-            return true;
-        case HCOMM_REDUCE_MAX:
-            reduceOpcode = static_cast<uint32_t>(HcommUrmaReduceOpCode::MAX);
-            return true;
-        case HCOMM_REDUCE_MIN:
-            reduceOpcode = static_cast<uint32_t>(HcommUrmaReduceOpCode::MIN);
-            return true;
-        default:
-            return false;
+    static_assert(reduceOp == HCOMM_REDUCE_SUM || reduceOp == HCOMM_REDUCE_MAX || reduceOp == HCOMM_REDUCE_MIN,
+        "WriteReduceNbi does not support this reduction operation");
+    if constexpr (reduceOp == HCOMM_REDUCE_SUM) {
+        return static_cast<uint32_t>(HcommUrmaReduceOpCode::SUM);
+    } else if constexpr (reduceOp == HCOMM_REDUCE_MAX) {
+        return static_cast<uint32_t>(HcommUrmaReduceOpCode::MAX);
+    } else {
+        return static_cast<uint32_t>(HcommUrmaReduceOpCode::MIN);
+    }
+}
+
+template <HcommDataType dataType> __aicore__ inline uint32_t HcommUrmaGetReduceDataTypeSize()
+{
+    static_assert(dataType == HCOMM_DATA_TYPE_INT8 || dataType == HCOMM_DATA_TYPE_INT16
+                      || dataType == HCOMM_DATA_TYPE_INT32 || dataType == HCOMM_DATA_TYPE_UINT8
+                      || dataType == HCOMM_DATA_TYPE_UINT16 || dataType == HCOMM_DATA_TYPE_UINT32
+                      || dataType == HCOMM_DATA_TYPE_FP16 || dataType == HCOMM_DATA_TYPE_FP32
+                      || dataType == HCOMM_DATA_TYPE_BFP16,
+        "WriteReduceNbi does not support this data type");
+    if constexpr (dataType == HCOMM_DATA_TYPE_INT8 || dataType == HCOMM_DATA_TYPE_UINT8) {
+        return sizeof(uint8_t);
+    } else if constexpr (dataType == HCOMM_DATA_TYPE_INT16 || dataType == HCOMM_DATA_TYPE_UINT16
+                         || dataType == HCOMM_DATA_TYPE_FP16 || dataType == HCOMM_DATA_TYPE_BFP16) {
+        return sizeof(uint16_t);
+    } else {
+        return sizeof(uint32_t);
     }
 }
 
@@ -488,17 +496,15 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
     return PostSend<commit, commitPipe, reqPipe, HcommUrmaOpCode::WRITE, config>(channel, dst, src, len);
 }
 
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteReduceNbi(ChannelHandle channel, GM_ADDR dst,
-    GM_ADDR src, uint64_t len, HcommDataType dataType, HcommReduceOp reduceOp)
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config, HcommDataType dataType,
+    HcommReduceOp reduceOp>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteReduceNbi(
+    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
 {
     UdmaParams<uint64_t> params{};
-    if (!HcommUrmaGetReduceDataType(dataType, params.reduceDataType)
-        || !HcommUrmaGetReduceOpcode(reduceOp, params.reduceOpcode)) {
-        KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA WriteReduceNbi does not support dataType=%d reduceOp=%d\n",
-            static_cast<int32_t>(dataType), static_cast<int32_t>(reduceOp));
-        return HCOMM_FAILED;
-    }
+    params.reduceDataType = HcommUrmaGetReduceDataType<dataType>();
+    params.reduceOpcode = HcommUrmaGetReduceOpcode<reduceOp>();
+    uint64_t len = count * HcommUrmaGetReduceDataTypeSize<dataType>();
     return PostSend<commit, commitPipe, reqPipe, HcommUrmaOpCode::WRITE_WITH_REDUCE, config>(
         channel, dst, src, len, nullptr, params);
 }
