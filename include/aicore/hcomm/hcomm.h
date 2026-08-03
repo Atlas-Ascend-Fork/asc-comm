@@ -340,6 +340,25 @@ public:
     template <pipe_t pipe = PIPE_MTE3, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t Drain(T& batchHandle);
 
+    /*!
+     * @brief Acquire the cross-AI-Core lock of a channel.
+     * @param [in] channel: The handle of the communication channel.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note This interface is supported only by COMM_PROTOCOL_UBC_CTP on Ascend 950. It blocks until the lock is
+     *       acquired and does not guarantee acquisition order among AI Cores. All accesses that update the channel
+     *       state must be protected by Lock and Unlock.
+     */
+    __aicore__ inline int32_t Lock(ChannelHandle channel);
+
+    /*!
+     * @brief Flush the channel state and release its cross-AI-Core lock.
+     * @param [in] channel: The handle of the communication channel.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note This interface is supported only by COMM_PROTOCOL_UBC_CTP on Ascend 950. It must be called by the AI Core
+     *       that successfully acquired the channel lock, after the last operation that updates the channel state.
+     */
+    __aicore__ inline int32_t Unlock(ChannelHandle channel);
+
 private:
     HcommImpl<commProtocol> impl_;
 };
