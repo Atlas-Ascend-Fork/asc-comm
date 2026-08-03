@@ -989,6 +989,51 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpMultiBat
     return Drain<pipe>(batchHandle.handle);
 }
 
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle channel)
+{
+    if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    __gm__ uint64_t* cqContextsAddrField = reinterpret_cast<__gm__ uint64_t*>(
+        reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, cqContextAddr));
+    uint64_t cqContextsAddr = ld_dev(cqContextsAddrField, 0);
+    __gm__ CqContext* cqContext =
+        reinterpret_cast<__gm__ CqContext*>(cqContextsAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
+    uint64_t lockAddrValue = cqContext->contextInfo.ubJfc.headAddr;
+    __gm__ uint32_t* lockAddr =
+        reinterpret_cast<__gm__ uint32_t*>(lockAddrValue);
+    while (AtomicCas(lockAddr, HCOMM_LOCK_FREE, HCOMM_LOCK_HELD) != HCOMM_LOCK_FREE) {
+        Nop<800>();
+    }
+    DataSyncBarrier<MemDsbT::DDR>();
+    return HCOMM_SUCCESS;
+}
+
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Unlock(ChannelHandle channel)
+{
+    if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    __gm__ uint8_t* counterAddr = reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, sqHead);
+    CacheWriteThrough<uint8_t>(counterAddr, 4U * sizeof(uint32_t));
+    DataSyncBarrier<MemDsbT::DDR>();
+
+    __gm__ uint64_t* cqContextsAddrField = reinterpret_cast<__gm__ uint64_t*>(
+        reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, cqContextAddr));
+    uint64_t cqContextsAddr = ld_dev(cqContextsAddrField, 0);
+    __gm__ CqContext* cqContext =
+        reinterpret_cast<__gm__ CqContext*>(cqContextsAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
+    uint64_t lockAddrValue = cqContext->contextInfo.ubJfc.headAddr;
+    __gm__ uint32_t* lockAddr =
+        reinterpret_cast<__gm__ uint32_t*>(lockAddrValue);
+    uint32_t oldValue = AtomicExch(lockAddr, HCOMM_LOCK_FREE);
+    return oldValue == HCOMM_LOCK_HELD ? HCOMM_SUCCESS : HCOMM_FAILED;
+}
+
 } // namespace AscendC
 
 #endif

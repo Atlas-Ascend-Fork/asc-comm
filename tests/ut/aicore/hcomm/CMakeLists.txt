@@ -82,6 +82,9 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
         )
     elseif(target_name MATCHES "urma")
         set(test_filters
+            HcommUrmaTestSuite.Aiv_Urma_LockUnlock
+            HcommUrmaTestSuite.Aiv_Urma_UnlockWithoutLock
+            HcommUrmaTestSuite.Aiv_Urma_LockUnlockInvalidChannel
             HcommUrmaTestSuite.Aiv_Urma_Read
             HcommUrmaTestSuite.Aiv_Urma_Write
             HcommUrmaTestSuite.Aiv_Urma_WriteReduce_MaxInt8

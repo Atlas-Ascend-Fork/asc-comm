@@ -28,6 +28,8 @@ class Hcomm;
 | API | `COMM_PROTOCOL_ROCE` | `COMM_PROTOCOL_UBC_CTP` |
 | --- | --- | --- |
 | `Init` | Supported for the UB temporary workspace used by ordinary interfaces. | Supported for the URMA temporary workspace used by ordinary interfaces. |
+| `Lock` | Not supported. | Supported only by AIV on Ascend 950. |
+| `Unlock` | Not supported. | Supported only by AIV on Ascend 950. |
 | Ordinary `ReadNbi` | Supported. | Supported. |
 | Ordinary `WriteNbi` | Supported. | Supported. |
 | Ordinary `WriteWithNotifyNbi` | Not supported; invocation returns failure. | Supported. |
@@ -50,6 +52,8 @@ class Hcomm;
 | [Init](./Init.md) | Initialize the temporary workspace used by ordinary Hcomm interfaces. |
 | [MakeBatchHandle](./MakeBatchHandle.md) | Create a batch handle and bind its UB buffer for batched WQEs. |
 | [GetHandleRef](./GetHandleRef.md) | Select a logical channel from a shared-Jetty multi-channel batch handle. |
+| [Lock](./Lock.md) | Acquire the cross-AI-Core lock of a communication channel. |
+| [Unlock](./Unlock.md) | Release the cross-AI-Core lock of a communication channel. |
 | [ReadNbi](./ReadNbi.md) | Submit an ordinary read task or prepare a read WQE in a BatchHandle. |
 | [WriteNbi](./WriteNbi.md) | Submit an ordinary write task or prepare a write WQE in a BatchHandle. |
 | [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or prepare one in a BatchHandle. |
