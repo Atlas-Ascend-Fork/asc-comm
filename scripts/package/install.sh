@@ -30,10 +30,10 @@ COMMITTED=false
 usage()
 {
     cat <<EOF
-Usage: $0 --install|--uninstall|--check [OPTION]...
+Usage: $0 --full|--uninstall|--check [OPTION]...
 
 Options:
-  --install               Install or update the asc-comm development patch
+  --full                  Install or update the asc-comm development patch
   --uninstall             Restore the files saved before the first installation
   --check                 Verify the package payload without modifying CANN
   --install-path=<PATH>   CANN root; defaults to ASCEND_HOME_PATH
@@ -64,7 +64,7 @@ parse_args()
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --install|--uninstall|--check)
+            --full|--uninstall|--check)
                 [[ -z "${ACTION}" ]] || fail "specify exactly one operation"
                 ACTION=$1
                 ;;
@@ -87,7 +87,7 @@ parse_args()
         shift
     done
 
-    [[ -n "${ACTION}" ]] || fail "specify --install or --uninstall"
+    [[ -n "${ACTION}" ]] || fail "specify --full, --uninstall, or --check"
     [[ "${ACTION}" == "--check" ]] && return 0
     [[ -n "${INSTALL_PATH}" ]] || fail "CANN path is not set; source set_env.sh or use --install-path"
     [[ "${INSTALL_PATH}" = /* ]] || fail "CANN path must be absolute: ${INSTALL_PATH}"
@@ -159,14 +159,66 @@ is_allowed_path()
 {
     local path=$1
     case "${path}" in
-        asc/include/adv_api/hcomm/*.h|asc/impl/adv_api/detail/hcomm/*.h)
+        asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h)
             ;;
         *)
             return 1
             ;;
     esac
-    [[ "${path}" != /* && "${path}" != *"/../"* && "${path}" != ../* && \
+    [[ "${path}" != /* && "${path}" != *"/../"* && "${path}" != *"/.." && \
+        "${path}" != ../* && "${path}" != *"/./"* && "${path}" != *"/." && \
         "${path}" != *"//"* && "${path}" != *$'\t'* ]]
+}
+
+is_allowed_directory_path()
+{
+    local path=$1
+    case "${path}" in
+        asc/include/adv_api/*|asc/impl/adv_api/detail/*)
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+    [[ "${path}" != /* && "${path}" != *"/../"* && "${path}" != *"/.." && \
+        "${path}" != ../* && "${path}" != *"/./"* && "${path}" != *"/." && \
+        "${path}" != *"//"* && "${path}" != *$'\t'* ]]
+}
+
+collect_managed_directories()
+{
+    local paths_file=$1
+    local output=$2
+    local path
+    local relative_path
+    local module
+    local directory
+    local managed_root
+
+    : > "${output}"
+    while IFS= read -r path; do
+        is_allowed_path "${path}" || fail "unsafe managed path: ${path}"
+        case "${path}" in
+            asc/include/adv_api/*)
+                relative_path=${path#asc/include/adv_api/}
+                module=${relative_path%%/*}
+                managed_root="asc/include/adv_api/${module}"
+                ;;
+            asc/impl/adv_api/detail/*)
+                relative_path=${path#asc/impl/adv_api/detail/}
+                module=${relative_path%%/*}
+                managed_root="asc/impl/adv_api/detail/${module}"
+                ;;
+        esac
+
+        directory=$(dirname -- "${path}")
+        while [[ "${directory}" == "${managed_root}" || "${directory}" == "${managed_root}/"* ]]; do
+            printf '%s\n' "${directory}" >> "${output}"
+            [[ "${directory}" == "${managed_root}" ]] && break
+            directory=$(dirname -- "${directory}")
+        done
+    done < "${paths_file}"
+    sort -u -o "${output}" "${output}"
 }
 
 collect_checksum_paths()
@@ -218,6 +270,18 @@ collect_baseline_paths()
     [[ $(sort -u "${output}" | wc -l) -eq ${count} ]] || fail "duplicate path in ${manifest}"
 }
 
+validate_baseline_coverage()
+{
+    local active_paths=$1
+    local baseline_paths=$2
+    local path
+
+    while IFS= read -r path; do
+        grep -Fqx -- "${path}" "${baseline_paths}" || \
+            fail "baseline does not cover installed patch path: ${path}"
+    done < "${active_paths}"
+}
+
 verify_checksums()
 {
     local root=$1
@@ -251,21 +315,164 @@ validate_package()
     fi
 }
 
+check_target_parent()
+{
+    local target=$1
+    local parent
+    local resolved_parent
+
+    parent=$(dirname -- "${target}")
+    resolved_parent=$(readlink -m -- "${parent}") || \
+        fail "failed to resolve target parent directory: ${parent}"
+    if [[ "${CANN_ROOT}" != "/" && \
+        "${resolved_parent}" != "${CANN_ROOT}" && \
+        "${resolved_parent}" != "${CANN_ROOT}/"* ]]; then
+        fail "target path resolves outside CANN root: ${target}"
+    fi
+}
+
+directory_path_has_symlink()
+{
+    local path=$1
+    local current="${CANN_ROOT}"
+    local component
+    local components=()
+
+    IFS='/' read -r -a components <<< "${path}"
+    for component in "${components[@]}"; do
+        current="${current}/${component}"
+        [[ -L "${current}" ]] && return 0
+    done
+    return 1
+}
+
+validate_directory_mode_manifest()
+{
+    local manifest=$1
+    local mode
+    local path
+    local extra
+
+    [[ -e "${manifest}" ]] || return 0
+    [[ -f "${manifest}" && ! -L "${manifest}" ]] || \
+        fail "directory mode manifest is invalid: ${manifest}"
+    while IFS=$'\t' read -r mode path extra; do
+        [[ -z "${extra:-}" ]] || fail "invalid directory mode entry in ${manifest}"
+        [[ "${mode}" =~ ^[0-7]{1,4}$ ]] || fail "invalid directory mode in ${manifest}: ${mode}"
+        is_allowed_directory_path "${path}" || fail "unsafe directory path in ${manifest}: ${path}"
+    done < "${manifest}"
+}
+
+validate_state_format()
+{
+    local state_info="${STATE_DIR}/state.info"
+    local directory_manifest="${STATE_DIR}/baseline/directories.tsv"
+    local format_version
+
+    [[ -f "${state_info}" && ! -L "${state_info}" ]] || fail "patch state metadata is invalid: ${state_info}"
+    format_version=$(read_info_value "FormatVersion" "${state_info}")
+    case "${format_version}" in
+        1)
+            ;;
+        2)
+            [[ -f "${directory_manifest}" && ! -L "${directory_manifest}" ]] || \
+                fail "directory mode manifest is missing from patch state: ${directory_manifest}"
+            ;;
+        *)
+            fail "unsupported patch state format: ${format_version:-missing}"
+            ;;
+    esac
+}
+
+record_directory_modes()
+{
+    local directories_file=$1
+    local manifest=$2
+    local path
+    local target
+
+    : > "${manifest}"
+    while IFS= read -r path; do
+        is_allowed_directory_path "${path}" || fail "unsafe managed directory path: ${path}"
+        target="${CANN_ROOT}/${path}"
+        check_target_parent "${target}"
+        if [[ -d "${target}" && ! -L "${target}" ]] && ! directory_path_has_symlink "${path}"; then
+            printf '%s\t%s\n' "$(stat -c %a -- "${target}")" "${path}" >> "${manifest}"
+        fi
+    done < "${directories_file}"
+}
+
+restore_directory_modes()
+{
+    local manifest=$1
+    local mode
+    local path
+    local target
+
+    [[ -f "${manifest}" ]] || return 0
+    while IFS=$'\t' read -r mode path; do
+        [[ "${mode}" =~ ^[0-7]{1,4}$ ]] || return 1
+        is_allowed_directory_path "${path}" || return 1
+        target="${CANN_ROOT}/${path}"
+        check_target_parent "${target}" || return 1
+        [[ -d "${target}" && ! -L "${target}" ]] || return 1
+        directory_path_has_symlink "${path}" && return 1
+        chmod "${mode}" "${target}" || return 1
+    done < "${manifest}"
+}
+
+apply_directory_modes()
+{
+    local directories_file=$1
+    local path
+    local target
+
+    while IFS= read -r path; do
+        is_allowed_directory_path "${path}" || fail "unsafe managed directory path: ${path}"
+        target="${CANN_ROOT}/${path}"
+        check_target_parent "${target}"
+        if [[ -d "${target}" && ! -L "${target}" ]] && ! directory_path_has_symlink "${path}"; then
+            chmod 750 "${target}"
+        fi
+    done < "${directories_file}"
+}
+
+validate_state_dir()
+{
+    check_target_parent "${STATE_DIR}"
+    if [[ -L "${STATE_DIR}" || (-e "${STATE_DIR}" && ! -d "${STATE_DIR}") ]]; then
+        fail "backup state path is invalid; expected a directory or an absent path: ${STATE_DIR}"
+    fi
+}
+
 check_regular_target()
 {
     local target=$1
+
+    check_target_parent "${target}"
     if [[ -L "${target}" || (-e "${target}" && ! -f "${target}") ]]; then
         fail "refusing to replace a non-regular file: ${target}"
     fi
 }
 
-snapshot_transaction()
+validate_target_paths()
 {
     local paths_file=$1
     local path
+
+    while IFS= read -r path; do
+        check_regular_target "${CANN_ROOT}/${path}"
+    done < "${paths_file}"
+}
+
+snapshot_transaction()
+{
+    local paths_file=$1
+    local directories_file=$2
+    local path
     local target
 
-    [[ ! -L "${STATE_DIR}" ]] || fail "state path must not be a symbolic link: ${STATE_DIR}"
+    validate_state_dir
     mkdir -p "${CANN_ROOT}/var"
     TRANSACTION_DIR=$(mktemp -d "${CANN_ROOT}/var/.asc-comm-transaction.XXXXXX")
     : > "${TRANSACTION_DIR}/targets.tsv"
@@ -286,6 +493,8 @@ snapshot_transaction()
             printf 'absent\t%s\n' "${path}" >> "${TRANSACTION_DIR}/targets.tsv"
         fi
     done < "${paths_file}"
+
+    record_directory_modes "${directories_file}" "${TRANSACTION_DIR}/directories.tsv"
 
     MUTATION_STARTED=true
 }
@@ -309,6 +518,8 @@ rollback_transaction()
             fi
         done < "${TRANSACTION_DIR}/targets.tsv"
     fi
+
+    restore_directory_modes "${TRANSACTION_DIR}/directories.tsv"
 
     rm -rf -- "${STATE_DIR}"
     if [[ -f "${TRANSACTION_DIR}/state.existed" ]]; then
@@ -336,14 +547,22 @@ handle_exit()
 
 restore_baseline()
 {
+    local paths_file=$1
     local manifest="${STATE_DIR}/baseline/manifest.tsv"
     local status
     local path
     local target
 
-    [[ -f "${manifest}" ]] || return 0
-    while IFS=$'\t' read -r status path; do
+    [[ -f "${manifest}" ]] || {
+        [[ ! -s "${paths_file}" ]] && return 0
+        fail "baseline manifest not found: ${manifest}"
+    }
+    while IFS= read -r path; do
+        status=$(awk -F '\t' -v path="${path}" '$2 == path {print $1; exit}' "${manifest}")
+        [[ "${status}" == "present" || "${status}" == "absent" ]] || \
+            fail "baseline does not cover installed patch path: ${path}"
         target="${CANN_ROOT}/${path}"
+        check_regular_target "${target}"
         if [[ "${status}" == "present" ]]; then
             mkdir -p "$(dirname -- "${target}")"
             rm -f -- "${target}"
@@ -351,13 +570,15 @@ restore_baseline()
         else
             rm -f -- "${target}"
         fi
-    done < "${manifest}"
+    done < "${paths_file}"
 }
 
 record_new_baselines()
 {
     local paths_file=$1
+    local directories_file=$2
     local manifest="${STATE_DIR}/baseline/manifest.tsv"
+    local directory_manifest="${STATE_DIR}/baseline/directories.tsv"
     local path
     local target
 
@@ -379,11 +600,14 @@ record_new_baselines()
         fi
     done < "${paths_file}"
     chmod 440 "${manifest}"
+    record_directory_modes "${directories_file}" "${directory_manifest}"
+    chmod 440 "${directory_manifest}"
 }
 
 install_payload()
 {
     local paths_file=$1
+    local directories_file=$2
     local path
     local target
 
@@ -391,11 +615,11 @@ install_payload()
         [[ -f "${PAYLOAD_DIR}/${path}" && ! -L "${PAYLOAD_DIR}/${path}" ]] || \
             fail "payload file is missing or invalid: ${path}"
         target="${CANN_ROOT}/${path}"
+        check_regular_target "${target}"
         install -D -m 550 "${PAYLOAD_DIR}/${path}" "${target}"
     done < "${paths_file}"
 
-    find "${CANN_ROOT}/asc/include/adv_api/hcomm" -type d -exec chmod 750 {} +
-    find "${CANN_ROOT}/asc/impl/adv_api/detail/hcomm" -type d -exec chmod 750 {} +
+    apply_directory_modes "${directories_file}"
 }
 
 install_patch()
@@ -404,6 +628,9 @@ install_patch()
     local baseline_paths
     local active_paths
     local touched_paths
+    local package_directories
+    local touched_directories
+    local directory_manifest="${STATE_DIR}/baseline/directories.tsv"
 
     validate_package
     WORK_DIR=$(mktemp -d)
@@ -411,15 +638,21 @@ install_patch()
     baseline_paths="${WORK_DIR}/baseline.paths"
     active_paths="${WORK_DIR}/active.paths"
     touched_paths="${WORK_DIR}/touched.paths"
+    package_directories="${WORK_DIR}/package.directories"
+    touched_directories="${WORK_DIR}/touched.directories"
 
     collect_checksum_paths "${PACKAGE_MANIFEST}" "${package_paths}"
+    collect_managed_directories "${package_paths}" "${package_directories}"
     verify_checksums "${PAYLOAD_DIR}" "${PACKAGE_MANIFEST}" || fail "package payload checksum verification failed"
     : > "${baseline_paths}"
     : > "${active_paths}"
 
     if [[ -d "${STATE_DIR}" ]]; then
+        validate_state_format
         collect_baseline_paths "${STATE_DIR}/baseline/manifest.tsv" "${baseline_paths}"
         collect_checksum_paths "${STATE_DIR}/active.manifest.sha256" "${active_paths}"
+        validate_directory_mode_manifest "${directory_manifest}"
+        validate_baseline_coverage "${active_paths}" "${baseline_paths}"
         if ! verify_checksums "${CANN_ROOT}" "${STATE_DIR}/active.manifest.sha256"; then
             if [[ "${FORCE}" == true ]]; then
                 log "WARNING" "installed patch files were changed; --force will overwrite them"
@@ -434,15 +667,19 @@ install_patch()
     log "INFO" "Target CANN: ${CANN_ROOT}; asc-devkit version: $(read_info_value Version "${CANN_ROOT}/share/info/asc-devkit/version.info")"
     log "INFO" "Files to replace: $(wc -l < "${package_paths}"); original files backup: ${STATE_DIR}/baseline"
 
-    sort -u "${package_paths}" "${baseline_paths}" "${active_paths}" > "${touched_paths}"
-    snapshot_transaction "${touched_paths}"
-    restore_baseline
-    record_new_baselines "${package_paths}"
-    install_payload "${package_paths}"
+    sort -u "${package_paths}" "${active_paths}" > "${touched_paths}"
+    collect_managed_directories "${touched_paths}" "${touched_directories}"
+    validate_target_paths "${touched_paths}"
+    snapshot_transaction "${touched_paths}" "${touched_directories}"
+    restore_baseline "${active_paths}"
+    restore_directory_modes "${directory_manifest}" || fail "failed to restore original directory permissions"
+    rm -rf -- "${STATE_DIR}"
+    record_new_baselines "${package_paths}" "${package_directories}"
+    install_payload "${package_paths}" "${package_directories}"
 
     install -m 440 "${PACKAGE_MANIFEST}" "${STATE_DIR}/active.manifest.sha256"
     install -m 440 "${PACKAGE_INFO}" "${STATE_DIR}/version.info"
-    printf 'FormatVersion=1\n' > "${WORK_DIR}/state.info"
+    printf 'FormatVersion=2\n' > "${WORK_DIR}/state.info"
     install -m 440 "${WORK_DIR}/state.info" "${STATE_DIR}/state.info"
     chmod 750 "${STATE_DIR}" "${STATE_DIR}/baseline"
 
@@ -474,15 +711,21 @@ uninstall_patch()
     local baseline_paths
     local active_paths
     local touched_paths
+    local touched_directories
+    local directory_manifest="${STATE_DIR}/baseline/directories.tsv"
 
     [[ -d "${STATE_DIR}" ]] || fail "no asc-comm development patch is installed in ${CANN_ROOT}"
     WORK_DIR=$(mktemp -d)
     baseline_paths="${WORK_DIR}/baseline.paths"
     active_paths="${WORK_DIR}/active.paths"
     touched_paths="${WORK_DIR}/touched.paths"
+    touched_directories="${WORK_DIR}/touched.directories"
 
+    validate_state_format
     collect_baseline_paths "${STATE_DIR}/baseline/manifest.tsv" "${baseline_paths}"
     collect_checksum_paths "${STATE_DIR}/active.manifest.sha256" "${active_paths}"
+    validate_directory_mode_manifest "${directory_manifest}"
+    validate_baseline_coverage "${active_paths}" "${baseline_paths}"
     if ! verify_checksums "${CANN_ROOT}" "${STATE_DIR}/active.manifest.sha256"; then
         if [[ "${FORCE}" == true ]]; then
             log "WARNING" "installed patch files were changed; --force will discard those changes"
@@ -492,11 +735,14 @@ uninstall_patch()
     fi
 
     log "INFO" "Start uninstalling asc-comm development patch from ${CANN_ROOT}."
-    log "INFO" "Installed package version: $(read_info_value PackageVersion "${STATE_DIR}/version.info"); files to restore or remove: $(wc -l < "${baseline_paths}")"
+    log "INFO" "Installed package version: $(read_info_value PackageVersion "${STATE_DIR}/version.info"); files to restore or remove: $(wc -l < "${active_paths}")"
 
-    sort -u "${baseline_paths}" "${active_paths}" > "${touched_paths}"
-    snapshot_transaction "${touched_paths}"
-    restore_baseline
+    sort -u "${active_paths}" > "${touched_paths}"
+    collect_managed_directories "${touched_paths}" "${touched_directories}"
+    validate_target_paths "${touched_paths}"
+    snapshot_transaction "${touched_paths}" "${touched_directories}"
+    restore_baseline "${active_paths}"
+    restore_directory_modes "${directory_manifest}" || fail "failed to restore original directory permissions"
     rm -rf -- "${STATE_DIR}"
 
     COMMITTED=true
@@ -516,8 +762,9 @@ main()
 
     resolve_cann_root
     check_owner
+    validate_state_dir
 
-    if [[ "${ACTION}" == "--install" ]]; then
+    if [[ "${ACTION}" == "--full" ]]; then
         install_patch
     else
         uninstall_patch

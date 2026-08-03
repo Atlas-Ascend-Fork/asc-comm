@@ -127,14 +127,14 @@ Build and execute Hcomm and Ain unit tests:
 bash build.sh -t
 ```
 
-Build all current Hcomm headers into a development run package and install it into an existing CANN environment:
+Build the current Hcomm public and implementation headers into a development run package and install it into an existing CANN environment:
 
 ```bash
 bash build.sh --pkg
-./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --install
+./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --full
 ```
 
-The packaging script recursively collects the current Hcomm public and detail headers; file names and the file count are not fixed. Installation backs up existing target files, while files that did not exist before installation are removed during uninstallation. See [Build & Test](./docs/en/guide/build_and_test.md) for directory mappings, options, and limitations.
+The packaging script recursively collects public headers under `include/aicore/hcomm/` and implementation headers under `src/aicore/hcomm/`. Its directory mapping matches the current asc-devkit Hcomm packaging logic, and Ain is not included. Installation backs up existing target files, while files that did not exist before installation are removed during uninstallation. See [Build & Test](./docs/en/guide/build_and_test.md) for directory mappings, options, and limitations.
 
 To build UTs directly via CMake, specify the CANN third-party library path:
 ```bash

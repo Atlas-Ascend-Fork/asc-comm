@@ -18,6 +18,12 @@ CANN_PATH=${ASCEND_HOME_PATH:-}
 OUTPUT_DIR="${PROJECT_ROOT}/build_out"
 PACKAGE_VERSION=${ASCCOMM_PACKAGE_VERSION:-1.0.0}
 STAGING_DIR="${PROJECT_ROOT}/build/package/asc-comm"
+PACKAGE_INPUT_PATHS=(
+    build.sh
+    include/aicore/hcomm
+    src/aicore/hcomm
+    scripts/package
+)
 
 usage()
 {
@@ -148,7 +154,7 @@ write_version_info()
     if git -C "${PROJECT_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         commit=$(git -C "${PROJECT_ROOT}" rev-parse HEAD)
         if [[ -z "$(git -C "${PROJECT_ROOT}" status --porcelain --untracked-files=all -- \
-            include/aicore/hcomm src/aicore/hcomm/detail)" ]]; then
+            "${PACKAGE_INPUT_PATHS[@]}")" ]]; then
             dirty="false"
         fi
     fi
@@ -185,15 +191,12 @@ build_package()
     rm -rf -- "${STAGING_DIR}"
     mkdir -p "${STAGING_DIR}/payload"
 
-    # Keep these mappings aligned with the asc-comm integration in asc-devkit PR 3186.
+    # Match the Hcomm layout installed by asc-devkit's asc-comm integration.
     copy_headers \
         "${PROJECT_ROOT}/include/aicore/hcomm" \
         "${STAGING_DIR}/payload/asc/include/adv_api/hcomm"
     copy_headers \
-        "${PROJECT_ROOT}/src/aicore/hcomm/detail" \
-        "${STAGING_DIR}/payload/asc/include/adv_api/hcomm/detail"
-    copy_headers \
-        "${PROJECT_ROOT}/src/aicore/hcomm/detail" \
+        "${PROJECT_ROOT}/src/aicore/hcomm" \
         "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm"
 
     write_manifest
