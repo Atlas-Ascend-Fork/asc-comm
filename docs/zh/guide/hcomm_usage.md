@@ -133,7 +133,24 @@ ret = hcomm.Drain(multiBatchHandle);
 | 协议 | 说明 |
 | --- | --- |
 | `COMM_PROTOCOL_ROCE` | 支持普通`ReadNbi`、`WriteNbi`、`Commit`和`Drain`，不支持BatchHandle接口。 |
-| `COMM_PROTOCOL_UBC_CTP` | 支持普通读、写、写通知、原子、提交和等待接口；Ascend 950还支持批量读、写、写通知、`BatchCommit`和批量`Drain`。 |
+| `COMM_PROTOCOL_UBC_CTP` | 支持普通读、写、写通知、原子、提交和等待接口；Ascend 950平台的AIV还支持`Lock`、`Unlock`、批量读、批量写、批量写通知、`BatchCommit`和批量`Drain`。 |
+
+## 多AI Core共享通道
+
+Ascend 950平台上，多个AIV共享同一个`COMM_PROTOCOL_UBC_CTP`通道时，需要通过[Lock](../api/aicore/hcomm/Lock.md)和[Unlock](../api/aicore/hcomm/Unlock.md)保护会更新通道状态的访问。每个AI Core可以使用独立的Hcomm对象和UB临时工作区，但传入相同的`ChannelHandle`。
+
+```cpp
+int32_t lockRet = hcomm.Lock(channel);
+if (lockRet == 0) {
+    int32_t opRet = hcomm.WriteNbi(channel, dst, src, len);
+
+    // 即使通信接口返回失败，也必须释放已经成功获取的锁。
+    int32_t unlockRet = hcomm.Unlock(channel);
+    // 分别处理opRet和unlockRet。
+}
+```
+
+锁不可重入。每次成功调用`Lock`后都必须由同一AI Core调用`Unlock`，错误退出路径也需要释放锁。接口仅同步同一设备上共享同一通道的AI Core。
 
 ## 注意事项
 
