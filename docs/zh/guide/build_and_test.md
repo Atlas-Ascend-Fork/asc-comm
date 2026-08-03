@@ -37,7 +37,7 @@ build/ut-hcomm
 
 ## 构建开发验证run包
 
-本地修改Hcomm头文件后，可生成轻量开发验证包，将当前工作树中的Hcomm头文件安装到已有CANN环境，无需重新生成完整toolkit包：
+本地修改AICore头文件后，可生成轻量开发验证包，将当前工作树中的公开头文件和detail头文件安装到已有CANN环境，无需重新生成完整toolkit包：
 
 ```bash
 bash build.sh --pkg
@@ -49,23 +49,22 @@ bash build.sh --pkg
 Ascend-asccomm_1.0.0_linux-<arch>.run
 ```
 
-其中`<arch>`为`aarch64`或`x86_64`。制包时会递归扫描以下两个目录中当前存在的全部`.h`文件，不指定固定文件名或文件数量，并保留各文件相对于扫描根目录的子目录结构：
+其中`<arch>`为`aarch64`或`x86_64`。制包时会递归扫描`include/aicore/`下的全部`.h`文件，以及`src/aicore/`下各模块`detail/`目录中的全部`.h`文件，不指定固定模块、文件名或文件数量：
 
 | 仓库扫描目录 | CANN安装目录 |
 | --- | --- |
-| `include/aicore/hcomm/` | `asc/include/adv_api/hcomm/` |
-| `src/aicore/hcomm/detail/` | `asc/include/adv_api/hcomm/detail/` |
-| `src/aicore/hcomm/detail/` | `asc/impl/adv_api/detail/hcomm/` |
+| `include/aicore/<module>/` | `asc/include/adv_api/<module>/` |
+| `src/aicore/<module>/detail/` | `asc/impl/adv_api/detail/<module>/` |
 
-例如，`include/aicore/hcomm/hcomm.h`安装为`asc/include/adv_api/hcomm/hcomm.h`。`src/aicore/hcomm/detail/common/hcomm_base.h`会同时安装为`asc/include/adv_api/hcomm/detail/common/hcomm_base.h`和`asc/impl/adv_api/detail/hcomm/common/hcomm_base.h`。双目录布局与asc-devkit集成asc-comm的打包规则一致：前者用于解析asc-comm公开头文件中的`hcomm/detail/...`引用，后者保留CANN原有的detail安装路径。
+例如，Hcomm头文件按原有规则安装到`asc/include/adv_api/hcomm/`和`asc/impl/adv_api/detail/hcomm/`。新增`include/aicore/ain/ain.h`与`src/aicore/ain/detail/impl/ain_impl.h`后，会自动安装为`asc/include/adv_api/ain/ain.h`与`asc/impl/adv_api/detail/ain/impl/ain_impl.h`。模块名和模块内部子目录结构都会保留。
 
-因此，在上述扫描目录中新增`.h`文件后重新制包，新文件会自动进入run包；新增的detail头文件也会自动生成两个安装目标。文件名、源码文件数量和安装文件数量均不固定，其他类型的文件不会进入包。run包清单只描述制包时存在的头文件，不是目标目录的完整镜像。首次安装时，仓库中已经删除或重命名的路径不会出现在清单中，安装器无法据此删除CANN中原有的旧路径文件。涉及删除或重命名时，不应仅依赖该run包验证目录最终状态。
+因此，在上述扫描目录中新增`.h`文件后重新制包，新文件会自动进入run包。文件名、源码文件数量和安装文件数量均不固定，其他类型的文件不会进入包。run包清单只描述制包时存在的头文件，不是目标目录的完整镜像。首次安装时，仓库中已经删除或重命名的路径不会出现在清单中，安装器无法据此删除CANN中原有的旧路径文件。涉及删除或重命名时，不应仅依赖该run包验证目录最终状态。
 
 常用参数如下：
 
 | 参数 | 说明 |
 | --- | --- |
-| `--install` | 安装或更新包内全部Hcomm头文件。 |
+| `--full` | 以full模式安装或更新包内全部AICore头文件。 |
 | `--uninstall` | 恢复基线中的原文件，并删除安装前不存在的文件。 |
 | `--check` | 校验run包归档和payload，不修改CANN。 |
 | `--install-path=<PATH>` | 指定安装或卸载使用的绝对路径；默认使用`ASCEND_HOME_PATH`。 |
@@ -73,7 +72,7 @@ Ascend-asccomm_1.0.0_linux-<arch>.run
 | `--list` | 列出run包中的文件，由run包的makeself外层提供。 |
 | `-h`、`--help` | 显示帮助信息。 |
 
-`--install`、`--uninstall`和`--check`是互斥操作，一次只能指定一个。
+`--full`、`--uninstall`和`--check`是互斥操作，一次只能指定一个。
 
 ### 检查包内容
 
@@ -94,14 +93,14 @@ Ascend-asccomm_1.0.0_linux-<arch>.run
 安装到当前`ASCEND_HOME_PATH`：
 
 ```bash
-./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --install
+./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --full
 ```
 
 也可以通过绝对路径明确指定安装位置：
 
 ```bash
 ./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run \
-    --install --install-path=/path/to/cann
+    --full --install-path=/path/to/cann
 ```
 
 安装器依次尝试将`--install-path`本身、`<install-path>/cann`或`<install-path>/ascend-toolkit/latest`解析为CANN根目录。解析后的目录必须包含`asc/include/adv_api/`、`asc/impl/adv_api/detail/`和`share/info/asc-devkit/version.info`，且当前用户必须是该CANN根目录的属主。
