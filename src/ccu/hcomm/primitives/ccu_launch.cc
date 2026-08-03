@@ -37,47 +37,6 @@
 #include "unified_platform/pub_inc/config_plf_log.h"
 using Hccl::PLF_TASK;
 
-CcuResult HcommCcuInsCreateLegacy(const void *resDesc, uint32_t descNum, CcuInsHandle *insHandle)
-{
-    CCU_CHK_PTR_NULL(resDesc);
-    CCU_CHK_PTR_NULL(insHandle);
-    if (descNum != 1) {
-        HCCL_ERROR("[%s] failed, desc num[%u] is more than expected[1].", __func__, descNum);
-        return CcuResult::CCU_E_PARA;
-    }
-
-    auto *resDescPtr = static_cast<const CcuResDesc *>(resDesc);
-    if (resDescPtr->dieId != hcomm::CCU_MAX_IODIE_NUM) {
-        HCCL_ERROR("[%s] failed, ccu instance cannot be created with die id now.", __func__);
-        return CcuResult::CCU_E_PARA;
-    }
-
-    const uint32_t devLogicId = HcclGetThreadDeviceId();
-    CCU_CHK_RET(hcomm::CcuInstanceMgr::GetInstance(devLogicId).Create(resDescPtr->insType, *insHandle));
-
-    return CcuResult::CCU_SUCCESS;
-}
-
-CcuResult HcommCcuInsCreate(const HcommCcuResDescHandle *, uint32_t, CcuInsHandle *)
-{
-    return CcuResult::CCU_E_NOT_SUPPORT;
-}
-
-CcuResult HcommCcuInsCreateDefault(const uint32_t *, uint32_t, CcuInsHandle *)
-{
-    return CcuResult::CCU_E_NOT_SUPPORT;
-}
-
-CcuResult HcommCcuInsDestroy(CcuInsHandle)
-{
-    return CcuResult::CCU_E_NOT_SUPPORT;
-}
-
-CcuResult HcommCcuInsQueryResDesc(CcuInsHandle, HcommCcuResDescHandle)
-{
-    return CcuResult::CCU_E_NOT_SUPPORT;
-}
-
 /**
  * @brief 关闭CCU特性，解初始化CCU平台层
  *
@@ -129,12 +88,12 @@ CcuResult HcommCcuKernelRegisterStart(CcuInsHandle insHandle)
 }
 
 static CcuResult CcuKernelTryRegister(hcomm::CcuInstance *ccuIns, hcomm::CcuResPack *resPack, uint32_t devLogicId,
-    const char *kernelFuncName, const void *kernelFunc, const void **kernelArgs, uint32_t argNum,
+    uint32_t dieId, const char *kernelFuncName, const void *kernelFunc, const void **kernelArgs, uint32_t argNum,
     CcuKernelHandle &newHandle)
 {
     CCU_EXCEPTION_HANDLE_BEGIN
     auto &kernelMgr = hcomm::CcuKernelMgr::GetInstance(devLogicId);
-    CCU_CHK_RET(kernelMgr.Register(*resPack, kernelFuncName, kernelFunc, kernelArgs, argNum, newHandle));
+    CCU_CHK_RET(kernelMgr.Register(*resPack, dieId, kernelFuncName, kernelFunc, kernelArgs, argNum, newHandle));
     CCU_CHK_RET(ccuIns->SaveKernel(newHandle));
     CCU_EXCEPTION_HANDLE_END
     return CcuResult::CCU_SUCCESS;
@@ -153,8 +112,6 @@ CcuResult HcommCcuKernelRegister(CcuInsHandle insHandle, uint32_t dieId, const c
         CCU_CHK_PTR_NULL(kernelArgs);
     }
 
-    (void)dieId; // dieId 当前预留不使用
-
     const uint32_t devLogicId = HcclGetThreadDeviceId();
     auto *ccuIns = hcomm::CcuInstanceMgr::GetInstance(devLogicId).Get(insHandle);
     CCU_CHK_PTR_NULL(ccuIns);
@@ -166,7 +123,8 @@ CcuResult HcommCcuKernelRegister(CcuInsHandle insHandle, uint32_t dieId, const c
 
     CcuKernelHandle newHandle{0};
     CcuResult ret
-        = CcuKernelTryRegister(ccuIns, resPack, devLogicId, kernelFuncName, kernelFunc, kernelArgs, argNum, newHandle);
+        = CcuKernelTryRegister(ccuIns, resPack, devLogicId, dieId, kernelFuncName, kernelFunc, kernelArgs, argNum,
+            newHandle);
     if (ret != CcuResult::CCU_SUCCESS) {
         ccuIns->AbortRegister();
         if (CCU_CHK_RES_UNAVAIL(ret)) {
@@ -180,7 +138,7 @@ CcuResult HcommCcuKernelRegister(CcuInsHandle insHandle, uint32_t dieId, const c
     }
 
     *kernelHandle = newHandle;
-    HCCL_INFO("[%s] success, take time [%lld]us.", __func__, DURATION_US(TIME_NOW() - startut));
+    HCCL_INFO("[%s] success, take time [%lld]us.", __func__, DURATION_US(TIME_NOW() - startut).count());
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -275,7 +233,7 @@ static void ConstructProfilingInfoLog(const std::vector<hcomm::CcuProfilingInfo>
             if (profInfo.channelId[idx] == hcomm::INVALID_VALUE_CHANNELID) {
                 break;
             }
-            HCCL_INFO("[%s]idx[%u]: channelId[%u], channelHandle[0x%llx]", __func__, idx, profInfo.channelId[idx],
+            HCCL_INFO("[%s]idx[%d]: channelId[%u], channelHandle[0x%llx]", __func__, idx, profInfo.channelId[idx],
                 profInfo.channelHandle[idx]);
         }
     }
@@ -389,7 +347,7 @@ CcuResult HcommCcuKernelLaunch(
         CCU_CHK_RET(ReportCcuTaskDfx(threadHandle, taskParam));
     }
     CCU_EXCEPTION_HANDLE_END
-    HCCL_INFO("[%s] success, take time [%lld]us.", __func__, DURATION_US(TIME_NOW() - startus));
+    HCCL_INFO("[%s] success, take time [%lld]us.", __func__, DURATION_US(TIME_NOW() - startus).count());
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -398,7 +356,8 @@ CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t *tokenInfo
     CCU_CHK_PTR_NULL(tokenInfo);
 
     if (srcVa == 0 || size == 0) {
-        HCCL_ERROR("[%s] failed, srcVa[%llx] size[%llu] should not be 0.", __func__, srcVa, size);
+        HCCL_ERROR("[%s] failed, srcVa[0x%llx] size[%llu] should not be 0.", __func__,
+            static_cast<unsigned long long>(srcVa), static_cast<unsigned long long>(size));
         return CcuResult::CCU_E_PARA;
     }
     // 注意token信息属于安全信息，均不允许打印

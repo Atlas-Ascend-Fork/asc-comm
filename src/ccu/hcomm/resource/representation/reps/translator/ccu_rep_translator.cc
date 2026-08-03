@@ -142,12 +142,12 @@ namespace CcuRep {
 
     CcuResReq CcuRepTranslator::GetResReq(uint8_t dieId)
     {
-        // xn 资源统一从 continuousXn 池子申请，离散 xn 帐户已废弃
+        // 申请离散 xn 资源
         // 需要申请若干xn、gsa、cke设置为固定值用于通用操作
         CcuResReq resReq;
         int varNum = XN_NUM;
         int gsaNum = ccuVersion == CcuVersion::CCU_V1 ? GSA_NUM : 0;
-        resReq.continuousXnReq[dieId] = varNum;
+        resReq.xnReq[dieId] = varNum;
         resReq.gsaReq[dieId] = gsaNum;
         resReq.ckeReq[dieId] = CKE_NUM;
         return resReq;
@@ -158,13 +158,13 @@ namespace CcuRep {
         int varNum = XN_NUM;
         int gsaNum = ccuVersion == CcuVersion::CCU_V1 ? GSA_NUM : 0;
         for (int i = 0; i < varNum; i++) {
-            res.continuousVariable[transDep.dieId].push_back(var[i]);
+            res.variable[transDep.dieId].push_back(var[i]);
         }
         for (int i = 0; i < gsaNum; i++) {
             res.address[transDep.dieId].push_back(addr[i]);
         }
         for (int i = 0; i < CKE_NUM; i++) {
-            res.localNotify[transDep.dieId].push_back(signal[i]);
+            res.completedEvent[transDep.dieId].push_back(signal[i]);
         }
     }
 

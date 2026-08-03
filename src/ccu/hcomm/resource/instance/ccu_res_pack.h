@@ -12,7 +12,9 @@
 #define CCU_RES_PACK_H
 
 #include "ccu/hcomm/ccu_types.h"
-#include "ccu_device_pub.h"
+#include "ccu_device_res.h"
+#include "hcomm/resource/common/ccu_res_repo.h"
+#include "hcomm_ccu_res.h"
 
 namespace hcomm {
 
@@ -34,7 +36,7 @@ private:
 
     int32_t devLogicId_{0};
     CcuInstanceType insType_{CcuInstanceType::CCU_UNUSED};
-    CcuResHandle resHandle_{nullptr};
+    HcommCcuResHandle resHandle_{0};
     CcuResRepository resRepo_{};
 };
 
