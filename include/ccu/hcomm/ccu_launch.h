@@ -14,12 +14,14 @@
 #include "hccl/hccl_types.h"
 #include "ccu/hcomm/ccu_types.h"
 #include "hccl/hccl_res.h"
+#include "hcomm/hcomm_ccu_res.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 
-extern CcuResult HcommCcuKernelRegisterStart(CcuInsHandle insHandle);
+extern CcuResult HcommCcuKernelRegisterStart(
+    CcuInsHandle insHandle, const HcommCcuRegisterContextPod *context);
 
 extern CcuResult HcommCcuKernelRegister(
     CcuInsHandle insHandle, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,

@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/resource/representation/ccu_rep_v1.h"
@@ -24,20 +24,19 @@
 
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 #include "hcomm/resource/representation/reps/control/ccu_rep_funccall_v1.h"
+#include "hcomm/resource/common/ccu_var_event_res_mgr.h"
 #include "hcomm/resource/channel/ccu_channel.h"
 #include "ccu_urma_channel.h"
-#include "hcomm/resource/instance/ccu_var_event_res_mgr.h"
 
 #include "hcomm/common/ccu_log.h"
 
-#include "hcom_common.h"
-
 // todo: 引入头文件需要检查
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
-#include "hccl_comm_pub.h"
-#include "hcclCommDfx.h"
-#include "task_info.h"
-#include "task_param.h"
+// 以下头文件引入的类型在本文件中未使用，控制面头已移回 hcomm，后续统一清理
+// #include "hccl_comm_pub.h"
+// #include "hcclCommDfx.h"
+// #include "task_info.h"
+// #include "task_param.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
@@ -66,8 +65,8 @@ T CcuKernel::CreateResAssist(std::array<std::vector<T>, CCU_MAX_IODIE_NUM>& resR
 }
 
 template <typename T>
-std::vector<T>
-CcuKernel::CreateBlockResAssist(const uint32_t count, std::array<std::vector<T>, CCU_MAX_IODIE_NUM>& resRecord)
+std::vector<T> CcuKernel::CreateBlockResAssist(
+    const uint32_t count, std::array<std::vector<T>, CCU_MAX_IODIE_NUM>& resRecord)
 {
     constexpr uint16_t CCU_BLOCK_RES_ID_BASE = 0x1000; // block 批量分配资源 id 基址，与单资源 id 区间隔离便于 DFX 定位
     std::vector<T> block;
@@ -95,7 +94,7 @@ static HcclResult GetDieIdByChannel(const ChannelHandle channel, uint32_t& dieId
 static HcclResult GetDieIdByChannels(const std::unordered_set<ChannelHandle>& channels, uint32_t& dieId)
 {
     if (channels.empty()) {
-        int32_t devLogicId = HcclGetThreadDeviceId();
+        int32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
         for (uint32_t die = 0; die < CCU_MAX_IODIE_NUM; die++) {
             bool enableFlag = false;
             CHK_RET(static_cast<HcclResult>(CcuGetDieEnableInfo(devLogicId, die, enableFlag)));
@@ -183,8 +182,8 @@ HcclResult CcuKernel::SetupProfilingInfo(const char* kernelFuncName)
     return HcclResult::HCCL_SUCCESS;
 }
 
-static HcclResult
-UpdateProfilingInfo(std::vector<CcuProfilingInfo>& profilingInfos, uint32_t dieId, const std::string& kernelName)
+static HcclResult UpdateProfilingInfo(
+    std::vector<CcuProfilingInfo>& profilingInfos, uint32_t dieId, const std::string& kernelName)
 {
     if (dieId == 0) {
         // 与默认dieId相同，不需要修改
@@ -230,7 +229,7 @@ HcclResult CcuKernel::ValidateAndApplyDie(const uint32_t targetDieId)
             "[CcuKernel][%s] failed, dieId[%u] should be less than [%u].", __func__, targetDieId, CCU_MAX_IODIE_NUM),
         HcclResult::HCCL_E_PARA);
 
-    const int32_t devLogicId = HcclGetThreadDeviceId();
+    const int32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
     bool enableFlag = false;
     CHK_RET(static_cast<HcclResult>(CcuGetDieEnableInfo(devLogicId, static_cast<uint8_t>(targetDieId), enableFlag)));
     CHK_PRT_RET(
@@ -243,11 +242,10 @@ HcclResult CcuKernel::ValidateAndApplyDie(const uint32_t targetDieId)
     SetDieId(targetDieId);
     MoveResourcesToDie(res_, targetDieId);
     (void)UpdateProfilingInfo(profilingInfo, targetDieId, name_);
-
     return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuKernel::SetInsGenerater(CcuInsGeneratorBase* insGeneratorBase) { insGenerator = insGeneratorBase; }
+void CcuKernel::SetInsGenerater(CcuInsGeneratorBase* insGeneraterBase) { insGenerator = insGeneraterBase; }
 
 CcuResult CcuKernel::ValidateTaskArgs(const uint64_t* taskArgs, uint32_t argsNum) const
 {
@@ -306,8 +304,8 @@ CcuResult CcuKernel::GeneTaskParams(const uint64_t* taskArgs, uint32_t argsNum, 
 
     // 如果agrs数量超过sqe arg的最大数量，则返回多个TaskParam，前面几个只从sqe中加载args;
     // args数量大于等于0、小于等于最大值时，返回1个TaskParam
-    const uint32_t seqNum
-        = (argsNum / CCU_SQE_ARGS_LEN) + ((argsNum % CCU_SQE_ARGS_LEN) == 0 ? 0 : 1) + (argsNum == 0 ? 1 : 0);
+    const uint32_t seqNum =
+        (argsNum / CCU_SQE_ARGS_LEN) + ((argsNum % CCU_SQE_ARGS_LEN) == 0 ? 0 : 1) + (argsNum == 0 ? 1 : 0);
 
     const uint32_t preMissonSqeInsCnt = (seqNum - 1) * CCU_SQE_ARGS_LEN;
     if (instrInfo_.missionInstrCount < preMissonSqeInsCnt) {
@@ -340,31 +338,33 @@ HcclResult CcuKernel::CreateVariable(const ChannelHandle channel, uint32_t varIn
 
 CcuRepResource& CcuKernel::GetResource() { return res_; }
 
-CcuResReq CcuKernel::GetResourceRequest()
+HcommCcuResRequestPod CcuKernel::GetResourceRequest()
 {
-    CcuResReq req;
+    HcommCcuResRequestPod req{};
     uint32_t dieId = GetDieId();
-    req.msReq[dieId] = res_.ccubufs[dieId].size();
-    req.blockMsReq[dieId] = res_.blockCcubufs[dieId].size();
-    req.ckeReq[dieId] = res_.completedEvent[dieId].size();
-    req.blockCkeReq[dieId] = res_.blockCompletedEvent[dieId].size() + res_.localNotify[dieId].size();
-    req.loopEngineReq[dieId] = res_.executor[dieId].size();
-    req.blockLoopEngineReq[dieId] = res_.blockExecutor[dieId].size();
-    req.gsaReq[dieId] = res_.address[dieId].size();
-    req.blockGsaReq[dieId] = res_.blockAddress[dieId].size();
-    req.xnReq[dieId] = res_.variable[dieId].size();
-    req.blockXnReq[dieId] = res_.continuousVariable[dieId].size();
-
-    req.missionReq.reqType = MissionReqType::FUSION_MULTIPLE_DIE;
-    req.missionReq.req[dieId] = 1;
+    req.count[HCOMM_CCU_BATCH_RES_MS][dieId] = res_.ccubufs[dieId].size();
+    req.count[HCOMM_CCU_BATCH_RES_BLOCK_MS][dieId] = res_.blockCcubufs[dieId].size();
+    req.count[HCOMM_CCU_BATCH_RES_CKE][dieId] = res_.completedEvent[dieId].size();
+    req.count[HCOMM_CCU_BATCH_RES_BLOCK_CKE][dieId] =
+        res_.blockCompletedEvent[dieId].size() + res_.localNotify[dieId].size();
+    req.count[HCOMM_CCU_BATCH_RES_LOOP][dieId] = res_.executor[dieId].size();
+    req.count[HCOMM_CCU_BATCH_RES_BLOCK_LOOP][dieId] = res_.blockExecutor[dieId].size();
+    req.count[HCOMM_CCU_BATCH_RES_GSA][dieId] = res_.address[dieId].size();
+    req.count[HCOMM_CCU_BATCH_RES_BLOCK_GSA][dieId] = res_.blockAddress[dieId].size();
+    req.count[HCOMM_CCU_BATCH_RES_XN][dieId] = res_.variable[dieId].size();
+    req.count[HCOMM_CCU_BATCH_RES_BLOCK_XN][dieId] = res_.continuousVariable[dieId].size();
+    req.missionReqType = HCOMM_CCU_MISSION_REQ_FUSION_MULTIPLE_DIE;
+    req.count[HCOMM_CCU_BATCH_RES_MISSION][dieId] = 1;
 
     auto info = Hccl::StringFormat(
         "resource request: dieId[%u], ms[%u], blockMs[%u], cke[%u], blockCke[%u], "
-        "loopEngine[%u], blockLoopEngine[%u], gsa[%u], blockGsa[%u], xn[%u], blockXn[%u], "
-        "missionId[%u]",
-        dieId, req.msReq[dieId], req.blockMsReq[dieId], req.ckeReq[dieId], req.blockCkeReq[dieId],
-        req.loopEngineReq[dieId], req.blockLoopEngineReq[dieId], req.gsaReq[dieId], req.blockGsaReq[dieId],
-        req.xnReq[dieId], req.blockXnReq[dieId], req.missionReq.req[dieId]);
+        "loopEngine[%u], blockLoopEngine[%u], gsa[%u], blockGsa[%u], xn[%u], blockXn[%u], missionId[%u]",
+        dieId, req.count[HCOMM_CCU_BATCH_RES_MS][dieId], req.count[HCOMM_CCU_BATCH_RES_BLOCK_MS][dieId],
+        req.count[HCOMM_CCU_BATCH_RES_CKE][dieId], req.count[HCOMM_CCU_BATCH_RES_BLOCK_CKE][dieId],
+        req.count[HCOMM_CCU_BATCH_RES_LOOP][dieId], req.count[HCOMM_CCU_BATCH_RES_BLOCK_LOOP][dieId],
+        req.count[HCOMM_CCU_BATCH_RES_GSA][dieId], req.count[HCOMM_CCU_BATCH_RES_BLOCK_GSA][dieId],
+        req.count[HCOMM_CCU_BATCH_RES_XN][dieId], req.count[HCOMM_CCU_BATCH_RES_BLOCK_XN][dieId],
+        req.count[HCOMM_CCU_BATCH_RES_MISSION][dieId]);
 
     HCCL_INFO("%s", info.c_str());
 
@@ -395,9 +395,9 @@ CcuResult CcuKernel::GetVariableByHandle(CcuVariableHandle varHandle, CcuRep::Va
 CcuResult CcuKernel::VariableAlloc(CcuVariableHandle* varHandle)
 {
     PLF_CONFIG_INFO(PLF_DATA_OP, "[VariableAlloc]");
-    const auto& var = CreateBlockResAssist(1, res_.continuousVariable);
+    const auto& var = CreateResAssist(res_.continuousVariable);
     CcuVariableHandle handle = ccuVarMap_.size();
-    ccuVarMap_.emplace(handle, var[0]);
+    ccuVarMap_.emplace(handle, var);
 
     *varHandle = handle;
     return CcuResult::CCU_SUCCESS;
@@ -423,9 +423,9 @@ CcuResult CcuKernel::EventAlloc(CcuEventHandle* eventHandle)
 CcuResult CcuKernel::BufferAlloc(CcuBufferHandle* bufHandle)
 {
     PLF_CONFIG_INFO(PLF_DATA_OP, "[BufferAlloc]");
-    const auto& buffer = CreateBlockResAssist(1, res_.blockCcubufs);
+    const auto& buf = CreateResAssist(res_.blockCcubufs);
     CcuBufferHandle handle = ccuBufferMap_.size();
-    ccuBufferMap_.emplace(handle, buffer[0]);
+    ccuBufferMap_.emplace(handle, buf);
     *bufHandle = handle;
     return CcuResult::CCU_SUCCESS;
 }
@@ -518,11 +518,13 @@ CcuResult CcuKernel::VariableCreateByChannel(ChannelHandle channel, uint32_t var
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernel::VariableCreateByAcquire(CcuVariableHandle acqHandle, uint32_t index, CcuVariableHandle* varHandle)
+CcuResult CcuKernel::VariableCreateByAcquire(CcuVariableHandle acqHandle, uint32_t index,
+    CcuVariableHandle *varHandle)
 {
     uint8_t dieId = 0;
     uint32_t xnId = 0;
-    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(HcclGetThreadDeviceId()).GetVariableXnId(acqHandle, index, dieId, xnId));
+    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(hcomm::GetCurrentCcuDeviceLogicId())
+        .GetVariableXnId(acqHandle, index, dieId, xnId));
 
     CcuRep::Variable var(this);
     var.Reset(static_cast<uint16_t>(xnId), static_cast<uint16_t>(dieId));
@@ -532,11 +534,13 @@ CcuResult CcuKernel::VariableCreateByAcquire(CcuVariableHandle acqHandle, uint32
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernel::EventCreateByAcquire(CcuEventHandle acqHandle, uint32_t index, CcuEventHandle* eventHandle)
+CcuResult CcuKernel::EventCreateByAcquire(CcuEventHandle acqHandle, uint32_t index,
+    CcuEventHandle *eventHandle)
 {
     uint8_t dieId = 0;
     uint32_t ckeId = 0;
-    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(HcclGetThreadDeviceId()).GetEventCkeId(acqHandle, index, dieId, ckeId));
+    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(hcomm::GetCurrentCcuDeviceLogicId())
+        .GetEventCkeId(acqHandle, index, dieId, ckeId));
 
     CcuRep::CompletedEvent event(this);
     event.Reset(static_cast<uint16_t>(ckeId), static_cast<uint16_t>(dieId));
@@ -569,13 +573,15 @@ CcuResult CcuKernel::VariableAssignVar(CcuVariableHandle varHandle, CcuVariableH
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult
-CcuKernel::VariableAddVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
+CcuResult CcuKernel::VariableAddVarToVar(
+    CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
 {
     PLF_CONFIG_INFO(
         PLF_DATA_OP, "[VariableAddVarToVar] varHandle=%llu, varAHandle=%llu, varBHandle=%llu", varHandle, varAHandle,
         varBHandle);
-    CcuRep::Variable *resVar{nullptr}, *leftVar{nullptr}, *rightVar{nullptr};
+    CcuRep::Variable* resVar{nullptr};
+    CcuRep::Variable* leftVar{nullptr};
+    CcuRep::Variable* rightVar{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &resVar));
     CCU_CHK_RET(GetVariableByHandle(varAHandle, &leftVar));
     CCU_CHK_RET(GetVariableByHandle(varBHandle, &rightVar));
@@ -585,10 +591,12 @@ CcuKernel::VariableAddVarToVar(CcuVariableHandle varHandle, CcuVariableHandle va
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult
-CcuKernel::VariableSubVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
+CcuResult CcuKernel::VariableSubVarToVar(
+    CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
 {
-    CcuRep::Variable *resVar{nullptr}, *leftVar{nullptr}, *rightVar{nullptr};
+    CcuRep::Variable* resVar{nullptr};
+    CcuRep::Variable* leftVar{nullptr};
+    CcuRep::Variable* rightVar{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &resVar));
     CCU_CHK_RET(GetVariableByHandle(varAHandle, &leftVar));
     CCU_CHK_RET(GetVariableByHandle(varBHandle, &rightVar));
@@ -597,10 +605,12 @@ CcuKernel::VariableSubVarToVar(CcuVariableHandle varHandle, CcuVariableHandle va
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult
-CcuKernel::VariableMulVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
+CcuResult CcuKernel::VariableMulVarToVar(
+    CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
 {
-    CcuRep::Variable *resVar{nullptr}, *leftVar{nullptr}, *rightVar{nullptr};
+    CcuRep::Variable* resVar{nullptr};
+    CcuRep::Variable* leftVar{nullptr};
+    CcuRep::Variable* rightVar{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &resVar));
     CCU_CHK_RET(GetVariableByHandle(varAHandle, &leftVar));
     CCU_CHK_RET(GetVariableByHandle(varBHandle, &rightVar));
@@ -611,7 +621,8 @@ CcuKernel::VariableMulVarToVar(CcuVariableHandle varHandle, CcuVariableHandle va
 
 CcuResult CcuKernel::VariableAddImmToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, uint16_t immediate)
 {
-    CcuRep::Variable *resVar{nullptr}, *leftVar{nullptr};
+    CcuRep::Variable* resVar{nullptr};
+    CcuRep::Variable* leftVar{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &resVar));
     CCU_CHK_RET(GetVariableByHandle(varAHandle, &leftVar));
 
@@ -621,7 +632,8 @@ CcuResult CcuKernel::VariableAddImmToVar(CcuVariableHandle varHandle, CcuVariabl
 
 CcuResult CcuKernel::VariableSubImmToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, uint16_t immediate)
 {
-    CcuRep::Variable *resVar{nullptr}, *leftVar{nullptr};
+    CcuRep::Variable* resVar{nullptr};
+    CcuRep::Variable* leftVar{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &resVar));
     CCU_CHK_RET(GetVariableByHandle(varAHandle, &leftVar));
 
@@ -631,7 +643,8 @@ CcuResult CcuKernel::VariableSubImmToVar(CcuVariableHandle varHandle, CcuVariabl
 
 CcuResult CcuKernel::VariableMulImmToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, uint16_t immediate)
 {
-    CcuRep::Variable *resVar{nullptr}, *leftVar{nullptr};
+    CcuRep::Variable* resVar{nullptr};
+    CcuRep::Variable* leftVar{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &resVar));
     CCU_CHK_RET(GetVariableByHandle(varAHandle, &leftVar));
 
@@ -639,10 +652,12 @@ CcuResult CcuKernel::VariableMulImmToVar(CcuVariableHandle varHandle, CcuVariabl
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult
-CcuKernel::VariableAndVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
+CcuResult CcuKernel::VariableAndVarToVar(
+    CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
 {
-    CcuRep::Variable *resVar{nullptr}, *leftVar{nullptr}, *rightVar{nullptr};
+    CcuRep::Variable* resVar{nullptr};
+    CcuRep::Variable* leftVar{nullptr};
+    CcuRep::Variable* rightVar{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &resVar));
     CCU_CHK_RET(GetVariableByHandle(varAHandle, &leftVar));
     CCU_CHK_RET(GetVariableByHandle(varBHandle, &rightVar));
@@ -651,10 +666,12 @@ CcuKernel::VariableAndVarToVar(CcuVariableHandle varHandle, CcuVariableHandle va
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult
-CcuKernel::VariableOrVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
+CcuResult CcuKernel::VariableOrVarToVar(
+    CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
 {
-    CcuRep::Variable *resVar{nullptr}, *leftVar{nullptr}, *rightVar{nullptr};
+    CcuRep::Variable* resVar{nullptr};
+    CcuRep::Variable* leftVar{nullptr};
+    CcuRep::Variable* rightVar{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &resVar));
     CCU_CHK_RET(GetVariableByHandle(varAHandle, &leftVar));
     CCU_CHK_RET(GetVariableByHandle(varBHandle, &rightVar));
@@ -663,10 +680,12 @@ CcuKernel::VariableOrVarToVar(CcuVariableHandle varHandle, CcuVariableHandle var
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult
-CcuKernel::VariableXorVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
+CcuResult CcuKernel::VariableXorVarToVar(
+    CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle)
 {
-    CcuRep::Variable *resVar{nullptr}, *leftVar{nullptr}, *rightVar{nullptr};
+    CcuRep::Variable* resVar{nullptr};
+    CcuRep::Variable* leftVar{nullptr};
+    CcuRep::Variable* rightVar{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &resVar));
     CCU_CHK_RET(GetVariableByHandle(varAHandle, &leftVar));
     CCU_CHK_RET(GetVariableByHandle(varBHandle, &rightVar));
@@ -677,7 +696,8 @@ CcuKernel::VariableXorVarToVar(CcuVariableHandle varHandle, CcuVariableHandle va
 
 CcuResult CcuKernel::VariableNotVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle)
 {
-    CcuRep::Variable *resVar{nullptr}, *leftVar{nullptr};
+    CcuRep::Variable* resVar{nullptr};
+    CcuRep::Variable* leftVar{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &resVar));
     CCU_CHK_RET(GetVariableByHandle(varAHandle, &leftVar));
 
@@ -685,7 +705,7 @@ CcuResult CcuKernel::VariableNotVar(CcuVariableHandle varHandle, CcuVariableHand
     return CcuResult::CCU_SUCCESS;
 }
 
-/*========== Event信号同步类 相关接口 ==========*/
+/* ========== Event信号同步类 相关接口 ========== */
 CcuResult CcuKernel::EventRecord(CcuEventHandle eventHandle, uint32_t mask)
 {
     PLF_CONFIG_INFO(PLF_DATA_OP, "[EventRecord] eventHandle=%llu, mask=%u", eventHandle, mask);
@@ -748,8 +768,9 @@ CcuResult CcuKernel::LocalNotifyWait(const char* notifyTag, const uint32_t mask)
     }
 
     bool isProfiling = CurrentBlock()->Type() != CcuRep::CcuRepType::LOOP_BLOCK;
-    Append(std::make_shared<CcuRep::CcuRepLocWaitNotify>(
-        insGenerator, exportedRes_.sharedNotifies.at(tagKey), mask, isProfiling));
+    Append(
+        std::make_shared<CcuRep::CcuRepLocWaitNotify>(
+            insGenerator, exportedRes_.sharedNotifies.at(tagKey), mask, isProfiling));
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -815,18 +836,16 @@ CcuResult CcuKernel::LoadArg(CcuVariableHandle varHandle, uint32_t argId)
 
 CcuResult CcuKernel::GetCcuKernelInfo(CcuKernelInfo& info) const
 {
-    uint32_t maxTaskArgsNum = 0;
-    // 如果没有LoadArg指令，则说明不需要传入参数，直接返回0
     if (loadArgUsedSet_.empty()) {
         info.maxTaskArgsNum = 0;
         return CcuResult::CCU_SUCCESS;
     }
-    // 遍历loadArgUsedSet_，获取最大的argId，加1得到最大任务参数数量（argId从0连续）
+
+    uint32_t maxTaskArgsNum = 0;
     for (const auto& argId : loadArgUsedSet_) {
         maxTaskArgsNum = std::max(maxTaskArgsNum, argId);
     }
-    maxTaskArgsNum += 1;
-    info.maxTaskArgsNum = maxTaskArgsNum;
+    info.maxTaskArgsNum = maxTaskArgsNum + 1;
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -1011,7 +1030,7 @@ CcuResult CcuKernel::LocalBufferReduce(
     return HCCL_TO_CCU_RET(ret);
 }
 
-/*========== 远端数据传输操作 ==========*/
+/* ========== 远端数据传输操作 ========== */
 
 CcuResult CcuKernel::ResolveBufRemoteLenEvent(
     CcuBufferHandle bufHandle, CcuRemoteAddrHandle remoteHandle, CcuVariableHandle lenHandle,
@@ -1191,63 +1210,43 @@ void CcuKernel::Append(std::shared_ptr<CcuRep::CcuRepBase> rep)
 }
 
 namespace {
-    std::shared_ptr<CcuRep::CcuRepJumpBase> MakeInvertedCondJumpImm(
-        CcuInsGeneratorBase* insGenerator, const std::string& destLabelStr, const CcuRep::Variable& targetVar,
-        const CcuRep::Variable& expectVar, const CcuRep::Variable& variable, uint64_t immediate,
-        CcuConditionType condType, const char* funcName)
-    {
-        switch (condType) {
-            case CCU_CONDITION_EQ:
-                return std::make_shared<CcuRep::CcuRepJumpNE>(
-                    insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
-            case CCU_CONDITION_NE:
-                return std::make_shared<CcuRep::CcuRepJumpEQ>(
-                    insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
-            case CCU_CONDITION_LT:
-                return std::make_shared<CcuRep::CcuRepJumpGE>(
-                    insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
-            case CCU_CONDITION_LE:
-                return std::make_shared<CcuRep::CcuRepJumpGT>(
-                    insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
-            case CCU_CONDITION_GT:
-                return std::make_shared<CcuRep::CcuRepJumpLE>(
-                    insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
-            case CCU_CONDITION_GE:
-                return std::make_shared<CcuRep::CcuRepJumpLT>(
-                    insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
-            default:
-                HCCL_ERROR("[%s] unsupported condition type: %d", funcName, condType);
-                return nullptr;
-        }
+std::shared_ptr<CcuRep::CcuRepJumpBase> MakeInvertedCondJumpImm(
+    CcuInsGeneratorBase* insGenerator, const std::string& destLabelStr, const CcuRep::Variable& targetVar,
+    const CcuRep::Variable& expectVar, const CcuRep::Variable& variable, uint64_t immediate, CcuConditionType condType,
+    const char* funcName)
+{
+    switch (condType) {
+        case CCU_CONDITION_EQ:
+            return std::make_shared<CcuRep::CcuRepJumpNE>(
+                insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
+        case CCU_CONDITION_NE:
+            return std::make_shared<CcuRep::CcuRepJumpEQ>(
+                insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
+        default:
+            HCCL_ERROR("[%s] unsupported condition type: %d", funcName, condType);
+            return nullptr;
     }
+}
 
-    // 双变量版本：当 (lhsVar OP rhsVar) 为假时跳转到 destLabelStr。
-    std::shared_ptr<CcuRep::CcuRepJumpBase> MakeInvertedCondJumpVar(
-        CcuInsGeneratorBase* insGenerator, const std::string& destLabelStr, const CcuRep::Variable& targetVar,
-        const CcuRep::Variable& lhsVar, const CcuRep::Variable& rhsVar, CcuConditionType condType, const char* funcName)
-    {
-        switch (condType) {
-            case CCU_CONDITION_EQ:
-                return std::make_shared<CcuRep::CcuRepJumpNE>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
-            case CCU_CONDITION_NE:
-                return std::make_shared<CcuRep::CcuRepJumpEQ>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
-            case CCU_CONDITION_LT:
-                return std::make_shared<CcuRep::CcuRepJumpGE>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
-            case CCU_CONDITION_LE:
-                return std::make_shared<CcuRep::CcuRepJumpGT>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
-            case CCU_CONDITION_GT:
-                return std::make_shared<CcuRep::CcuRepJumpLE>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
-            case CCU_CONDITION_GE:
-                return std::make_shared<CcuRep::CcuRepJumpLT>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
-            default:
-                HCCL_ERROR("[%s] unsupported condition type: %d", funcName, condType);
-                return nullptr;
-        }
+// 双变量版本：当 (lhsVar OP rhsVar) 为假时跳转到 destLabelStr。
+std::shared_ptr<CcuRep::CcuRepJumpBase> MakeInvertedCondJumpVar(
+    CcuInsGeneratorBase* insGenerator, const std::string& destLabelStr, const CcuRep::Variable& targetVar,
+    const CcuRep::Variable& lhsVar, const CcuRep::Variable& rhsVar, CcuConditionType condType, const char* funcName)
+{
+    switch (condType) {
+        case CCU_CONDITION_EQ:
+            return std::make_shared<CcuRep::CcuRepJumpNE>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
+        case CCU_CONDITION_NE:
+            return std::make_shared<CcuRep::CcuRepJumpEQ>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
+        default:
+            HCCL_ERROR("[%s] unsupported condition type: %d", funcName, condType);
+            return nullptr;
     }
+}
 } // namespace
 
-CcuResult
-CcuKernel::IfBegin(CcuVariableHandle varHandle, uint64_t immediate, CcuConditionType condType, const char* label)
+CcuResult CcuKernel::IfBegin(
+    CcuVariableHandle varHandle, uint64_t immediate, CcuConditionType condType, const char* label)
 {
     PLF_CONFIG_INFO(
         PLF_DATA_OP, "[IfBegin] varHandle=%llu, immediate=%llu, condType=%d, label=%s", varHandle, immediate, condType,
@@ -1398,8 +1397,8 @@ CcuResult CcuKernel::IfEnd(const char* label)
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult
-CcuKernel::WhileBegin(CcuVariableHandle varHandle, uint64_t immediate, CcuConditionType condType, const char* label)
+CcuResult CcuKernel::WhileBegin(
+    CcuVariableHandle varHandle, uint64_t immediate, CcuConditionType condType, const char* label)
 {
     PLF_CONFIG_INFO(
         PLF_DATA_OP, "[WhileBegin] varHandle=%llu, immediate=%llu, condType=%d, label=%s", varHandle, immediate,
@@ -1545,8 +1544,8 @@ CcuResult CcuKernel::DoWhileBegin(const char* label)
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult
-CcuKernel::DoWhileEnd(CcuVariableHandle varHandle, uint64_t immediate, CcuConditionType condType, const char* label)
+CcuResult CcuKernel::DoWhileEnd(
+    CcuVariableHandle varHandle, uint64_t immediate, CcuConditionType condType, const char* label)
 {
     PLF_CONFIG_INFO(
         PLF_DATA_OP, "[DoWhileEnd] varHandle=%llu, immediate=%llu, condType=%d, label=%s", varHandle, immediate,
@@ -1572,18 +1571,6 @@ CcuKernel::DoWhileEnd(CcuVariableHandle varHandle, uint64_t immediate, CcuCondit
             insGenerator, beginLabelStr, targetVar, expectVar, *variable, immediate);
     } else if (condType == CCU_CONDITION_NE) {
         jump = std::make_shared<CcuRep::CcuRepJumpNE>(
-            insGenerator, beginLabelStr, targetVar, expectVar, *variable, immediate);
-    } else if (condType == CCU_CONDITION_LT) {
-        jump = std::make_shared<CcuRep::CcuRepJumpLT>(
-            insGenerator, beginLabelStr, targetVar, expectVar, *variable, immediate);
-    } else if (condType == CCU_CONDITION_LE) {
-        jump = std::make_shared<CcuRep::CcuRepJumpLE>(
-            insGenerator, beginLabelStr, targetVar, expectVar, *variable, immediate);
-    } else if (condType == CCU_CONDITION_GT) {
-        jump = std::make_shared<CcuRep::CcuRepJumpGT>(
-            insGenerator, beginLabelStr, targetVar, expectVar, *variable, immediate);
-    } else if (condType == CCU_CONDITION_GE) {
-        jump = std::make_shared<CcuRep::CcuRepJumpGE>(
             insGenerator, beginLabelStr, targetVar, expectVar, *variable, immediate);
     } else {
         HCCL_ERROR("[%s] unsupported condition type: %d", __func__, condType);
@@ -1621,14 +1608,6 @@ CcuResult CcuKernel::DoWhileEndVar(
         jump = std::make_shared<CcuRep::CcuRepJumpEQ>(insGenerator, beginLabelStr, targetVar, *lhsVar, *rhsVar);
     } else if (condType == CCU_CONDITION_NE) {
         jump = std::make_shared<CcuRep::CcuRepJumpNE>(insGenerator, beginLabelStr, targetVar, *lhsVar, *rhsVar);
-    } else if (condType == CCU_CONDITION_LT) {
-        jump = std::make_shared<CcuRep::CcuRepJumpLT>(insGenerator, beginLabelStr, targetVar, *lhsVar, *rhsVar);
-    } else if (condType == CCU_CONDITION_LE) {
-        jump = std::make_shared<CcuRep::CcuRepJumpLE>(insGenerator, beginLabelStr, targetVar, *lhsVar, *rhsVar);
-    } else if (condType == CCU_CONDITION_GT) {
-        jump = std::make_shared<CcuRep::CcuRepJumpGT>(insGenerator, beginLabelStr, targetVar, *lhsVar, *rhsVar);
-    } else if (condType == CCU_CONDITION_GE) {
-        jump = std::make_shared<CcuRep::CcuRepJumpGE>(insGenerator, beginLabelStr, targetVar, *lhsVar, *rhsVar);
     } else {
         HCCL_ERROR("[%s] unsupported condition type: %d", __func__, condType);
         return CcuResult::CCU_E_PARA;
@@ -1655,8 +1634,9 @@ void CcuKernel::IfLabelStackMarkBodyDone()
 const char* CcuKernel::IfLabelStackPopForElse()
 {
     if (iflabelStack_.empty()) {
-        HCCL_ERROR("[CcuKernel::IfLabelStack][PopForElse] orphan CCU_ELSE: "
-                   "no matching CCU_IF on the stack");
+        HCCL_ERROR(
+            "[CcuKernel::IfLabelStack][PopForElse] orphan CCU_ELSE: "
+            "no matching CCU_IF on the stack");
         return nullptr;
     }
     if (!iflabelStack_.back().bodyDone) {
@@ -1766,7 +1746,8 @@ CcuResult CcuKernel::AddressAddVarToAddr(
     PLF_CONFIG_INFO(
         PLF_DATA_OP, "[AddressAddVarToAddr] resAddrHandle=%llu, lhsAddrHandle=%llu, rhsVarHandle=%llu", resAddrHandle,
         lhsAddrHandle, rhsVarHandle);
-    CcuRep::Address *resAddr{nullptr}, *lhsAddr{nullptr};
+    CcuRep::Address* resAddr{nullptr};
+    CcuRep::Address* lhsAddr{nullptr};
     CCU_CHK_RET(GetAddressByHandle(resAddrHandle, &resAddr));
     CCU_CHK_RET(GetAddressByHandle(lhsAddrHandle, &lhsAddr));
 
@@ -1784,7 +1765,9 @@ CcuResult CcuKernel::AddressAddAddrToAddr(
     PLF_CONFIG_INFO(
         PLF_DATA_OP, "[AddressAddAddrToAddr] resAddrHandle=%llu, addrAHandle=%llu, addrBHandle=%llu", resAddrHandle,
         addrAHandle, addrBHandle);
-    CcuRep::Address *resAddr{nullptr}, *addrA{nullptr}, *addrB{nullptr};
+    CcuRep::Address* resAddr{nullptr};
+    CcuRep::Address* addrA{nullptr};
+    CcuRep::Address* addrB{nullptr};
     CCU_CHK_RET(GetAddressByHandle(resAddrHandle, &resAddr));
     CCU_CHK_RET(GetAddressByHandle(addrAHandle, &addrA));
     CCU_CHK_RET(GetAddressByHandle(addrBHandle, &addrB));
@@ -1823,7 +1806,8 @@ CcuResult CcuKernel::AddressAddAssignAddr(CcuAddressHandle addrHandle, CcuAddres
 
 CcuResult CcuKernel::AddressAddImmToAddr(CcuAddressHandle resAddrHandle, CcuAddressHandle addrAHandle, uint16_t imm)
 {
-    CcuRep::Address *resAddr{nullptr}, *addrA{nullptr};
+    CcuRep::Address* resAddr{nullptr};
+    CcuRep::Address* addrA{nullptr};
     CCU_CHK_RET(GetAddressByHandle(resAddrHandle, &resAddr));
     CCU_CHK_RET(GetAddressByHandle(addrAHandle, &addrA));
 
@@ -1895,7 +1879,7 @@ CcuResult CcuKernel::GetRemoteAddrByHandle(CcuRemoteAddrHandle handle, CcuRep::R
     return GetResourceByHandle(ccuRemoteAddrMap_, handle, remoteAddr, "remoteAddr");
 }
 
-/*Read新接口*/
+/* Read新接口 */
 HcclResult CcuKernel::ReadNb(
     const ChannelHandle channel, const CcuRep::CcuBuf& loc, const CcuRep::RemoteAddr& rem, const CcuRep::Variable& len,
     CcuRep::CompletedEvent event, uint32_t mask)
@@ -1907,7 +1891,7 @@ HcclResult CcuKernel::ReadNb(
     return HCCL_SUCCESS;
 }
 
-/*Write新接口*/
+/* Write新接口 */
 HcclResult CcuKernel::WriteNb(
     const ChannelHandle channel, const CcuRep::RemoteAddr& rem, const CcuRep::CcuBuf& loc, const CcuRep::Variable& len,
     CcuRep::CompletedEvent event, uint32_t mask)
@@ -1921,8 +1905,8 @@ HcclResult CcuKernel::WriteNb(
 
 static bool isLowPrecisionIn(Hccl::DataType dataType)
 {
-    return dataType == Hccl::DataType::INT8 || dataType == Hccl::DataType::HIF8 || dataType == Hccl::DataType::FP8E4M3
-           || dataType == Hccl::DataType::FP8E5M2;
+    return dataType == Hccl::DataType::INT8 || dataType == Hccl::DataType::HIF8 ||
+           dataType == Hccl::DataType::FP8E4M3 || dataType == Hccl::DataType::FP8E5M2;
 }
 
 static bool isLowPrecisionOut(Hccl::DataType dataType)
@@ -1932,15 +1916,15 @@ static bool isLowPrecisionOut(Hccl::DataType dataType)
 
 constexpr uint32_t MAX_DATA_TYPE = 17;
 
-const Hccl::DataType orionDataTypes[]
-    = {Hccl::DataType::INT8,   Hccl::DataType::INT16,   Hccl::DataType::INT32,
-       Hccl::DataType::FP16,   Hccl::DataType::FP32,    Hccl::DataType::INT64,
-       Hccl::DataType::UINT64, Hccl::DataType::UINT8,   Hccl::DataType::UINT16,
-       Hccl::DataType::UINT32, Hccl::DataType::FP64,    Hccl::DataType::BFP16,
-       Hccl::DataType::INT128,
+const Hccl::DataType orionDataTypes[] = {
+    Hccl::DataType::INT8,   Hccl::DataType::INT16,   Hccl::DataType::INT32,
+    Hccl::DataType::FP16,   Hccl::DataType::FP32,    Hccl::DataType::INT64,
+    Hccl::DataType::UINT64, Hccl::DataType::UINT8,   Hccl::DataType::UINT16,
+    Hccl::DataType::UINT32, Hccl::DataType::FP64,    Hccl::DataType::BFP16,
+    Hccl::DataType::INT128,
 #if !defined(OPEN_BUILD_PROJECT) || defined(ORION_MODE)
-       Hccl::DataType::HIF8,   Hccl::DataType::FP8E4M3, Hccl::DataType::FP8E5M2,
-       Hccl::DataType::FP8E8M0
+    Hccl::DataType::HIF8,   Hccl::DataType::FP8E4M3, Hccl::DataType::FP8E5M2,
+    Hccl::DataType::FP8E8M0
 #endif
 };
 
@@ -1979,10 +1963,9 @@ HcclResult CcuKernel::LocalReduceNb(
     auto opType_ = HcommReduceOpToHcclReduceOp(opType);
     auto dataType_ = HcommDataTypeToHcclDataType(dataType);
     auto outputDataType_ = HcommDataTypeToHcclDataType(outputDataType);
-
-    if ((opType_ == Hccl::ReduceOp::SUM && isLowPrecisionIn(dataType_) && !isLowPrecisionOut(outputDataType_))
-        || (opType_ == Hccl::ReduceOp::SUM && !isLowPrecisionIn(dataType_) && dataType_ != outputDataType_)
-        || (opType_ != Hccl::ReduceOp::SUM && dataType_ != outputDataType_)) {
+    if ((opType_ == Hccl::ReduceOp::SUM && isLowPrecisionIn(dataType_) && !isLowPrecisionOut(outputDataType_)) ||
+        (opType_ == Hccl::ReduceOp::SUM && !isLowPrecisionIn(dataType_) && dataType_ != outputDataType_) ||
+        (opType_ != Hccl::ReduceOp::SUM && dataType_ != outputDataType_)) {
         return HCCL_E_NOT_SUPPORT;
     }
 
@@ -1999,7 +1982,7 @@ HcclResult CcuKernel::LocalReduceNb(
     return HCCL_SUCCESS;
 }
 
-/*Read新接口*/
+/* Read新接口 */
 HcclResult CcuKernel::ReadNb(
     const ChannelHandle channel, const CcuRep::LocalAddr& loc, const CcuRep::RemoteAddr& rem,
     const CcuRep::Variable& len, CcuRep::CompletedEvent event, uint32_t mask)
@@ -2011,7 +1994,7 @@ HcclResult CcuKernel::ReadNb(
     return HCCL_SUCCESS;
 }
 
-/*ReadReduce新接口*/
+/* ReadReduce新接口 */
 HcclResult CcuKernel::ReadReduceNb(
     const ChannelHandle channel, const CcuRep::LocalAddr& loc, const CcuRep::RemoteAddr& rem,
     const CcuRep::Variable& len, HcclDataType dataType, HcclReduceOp opType, CcuRep::CompletedEvent event,
@@ -2029,7 +2012,7 @@ HcclResult CcuKernel::ReadReduceNb(
     return HCCL_SUCCESS;
 }
 
-/*Write新接口*/
+/* Write新接口 */
 HcclResult CcuKernel::WriteNb(
     const ChannelHandle channel, const CcuRep::RemoteAddr& rem, const CcuRep::LocalAddr& loc,
     const CcuRep::Variable& len, CcuRep::CompletedEvent event, uint32_t mask)
@@ -2143,8 +2126,8 @@ CcuResult CcuKernel::LoopCreate(CcuLoop* loop)
 
 CcuResult CcuKernel::LatchBodyError(CcuResult err)
 {
-    if ((CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK || inFuncBody_)
-        && bodyError_ == CcuResult::CCU_SUCCESS) {
+    if ((CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK || inFuncBody_) &&
+        bodyError_ == CcuResult::CCU_SUCCESS) {
         bodyError_ = err;
     }
     return err;
@@ -2320,8 +2303,8 @@ CcuResult CcuKernel::FuncCall(uint64_t handle, const CcuVariableHandle* inArgs, 
 }
 
 // 按 maxLoopNum 把 res_.blockExecutor[0] 扩容到至少 maxLoopNum 个 LoopEngine。
-// 与 CreateBlockResAssist 对齐：所有 LoopEngine 资源先落在 die0 池，待实际 die 确定后
-// 再由 MoveResourcesToDie 迁移到目标 die。
+// 与 CreateBlockResAssist 对齐：所有 LoopEngine 资源先落在 die0 池，待
+// 实际 die 确定后再由 MoveResourcesToDie 迁移到目标 die。
 // 不同 LoopGroup 通过 local loopIdx 复用同一池低位 executorId，所以这里只
 // "补足"而不是"累加"。
 CcuResult CcuKernel::EnsureLoopEnginePool(uint32_t maxLoopNum)
@@ -2341,10 +2324,10 @@ CcuResult CcuKernel::EnsureLoopEnginePool(uint32_t maxLoopNum)
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernel::LoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupCfg* cfg)
+CcuResult CcuKernel::LoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupConfig* config)
 {
     PLF_CONFIG_INFO(PLF_DATA_OP, "[LoopGroupCreate] maxLoopNum=%u", maxLoopNum);
-    if (group == nullptr || cfg == nullptr) {
+    if (group == nullptr || config == nullptr) {
         HCCL_ERROR("[CcuKernel::LoopGroupCreate] null pointer");
         return CcuResult::CCU_E_PTR;
     }
@@ -2363,12 +2346,13 @@ CcuResult CcuKernel::LoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, c
     CcuLoopGroup handle = ++loopGroupHandleCounter_;
 
     LoopGroupDescriptor desc;
-    desc.config = *cfg;
+    desc.config = *config;
     desc.parallelVar = CreateVariable();
     desc.offsetVar = CreateVariable();
     desc.isVarBased = false;
 
-    auto bundle = std::make_shared<CcuRep::CcuRepLoopGroupBundle>(insGenerator, *cfg, desc.parallelVar, desc.offsetVar);
+    auto bundle =
+        std::make_shared<CcuRep::CcuRepLoopGroupBundle>(insGenerator, *config, desc.parallelVar, desc.offsetVar);
     if (ccuVersion_ == CcuVersion::CCU_V2) {
         bundle->SetXnOffsetVar(CreateVariable());
     }
@@ -2439,10 +2423,10 @@ CcuResult CcuKernel::LoopGroupCreateFromVarV2(
     }
     if (CurrentBlock()->Type() == CcuRep::CcuRepType::LOOP_BLOCK) {
         HCCL_ERROR("[CcuKernel::LoopGroupCreateFromVarV2] cannot create loop group inside a loop body");
-        return LatchBodyError(CcuResult::CCU_E_INTERNAL);
+        return CcuResult::CCU_E_INTERNAL;
     }
     if (inFuncBody_) {
-        HCCL_ERROR("[CcuKernel::LoopGroupCreateFromVarV2] cannot create loop group inside a func body");
+        HCCL_ERROR("[CcuKernel::LoopGroupCreateFromVar] cannot create loop group inside a func body");
         return LatchBodyError(CcuResult::CCU_E_INTERNAL);
     }
 
@@ -2510,13 +2494,14 @@ CcuResult CcuKernel::LookupLoopGroupAndLoop(
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernel::LoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopCfg* cfg)
+CcuResult CcuKernel::LoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopConfig* config)
 {
     PLF_CONFIG_INFO(PLF_DATA_OP, "[LoopGroupAddLoop] group=%llu, loop=%llu", group, loop);
-    if (cfg == nullptr) {
-        HCCL_ERROR("[CcuKernel::LoopGroupAddLoop] null pointer for cfg");
+    if (config == nullptr) {
+        HCCL_ERROR("[CcuKernel::LoopGroupAddLoop] null pointer for config");
         return CcuResult::CCU_E_PTR;
     }
+
     LoopGroupDescriptor* grpDesc = nullptr;
     LoopDescriptor* loopDesc = nullptr;
     uint32_t loopIdx = 0;
@@ -2528,7 +2513,7 @@ CcuResult CcuKernel::LoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const Cc
     grpDesc->totalLoopNum = grpDesc->loopCount;
 
     CcuRep::CcuRepLoopGroupBundle::LoopEntry entry;
-    entry.config = *cfg;
+    entry.config = *config;
     entry.executor = loopEnginePool[loopIdx];
     entry.repLoopBlock = loopDesc->repLoopBlock;
     entry.loopParamVar = CreateVariable();
@@ -2658,17 +2643,12 @@ uint32_t CcuKernel::GetInstrCount()
 
 void CcuKernel::SetCcuInstrInfo(const CcuRep::CcuInstrInfo& instrInfo) { this->instrInfo_ = instrInfo; }
 
-CcuRep::Variable CcuKernel::CreateVariable()
-{
-    const auto& var = CreateBlockResAssist(1, res_.continuousVariable);
-    return var[0];
-}
+CcuRep::Variable CcuKernel::CreateVariable() { return CreateResAssist(res_.continuousVariable); }
 
 CcuRep::Variable CcuKernel::CreateExpectVar()
 {
-    // v2(A6) 的 jump 只支持 var-var 比较，需要真实 XN 承载立即数；
-    // v1(A5) 的 jump 直接支持 var-imm，expectVar 不参与翻译，
-    // 用不进 res_ 账本的壳 Variable 即可，避免 v1 资源虚高。
+    // v2(A6) jump compares two variables and needs a real XN for the immediate value.
+    // v1(A5) compares with the immediate directly, so keep the placeholder out of the resource ledger.
     if (ccuVersion_ == CcuVersion::CCU_V2) {
         return CreateVariable();
     }
@@ -2688,11 +2668,7 @@ CcuRep::LocalNotify CcuKernel::CreateLocalNotify() { return CreateResAssist(res_
 
 CcuRep::CompletedEvent CcuKernel::CreateCompletedEvent() { return CreateResAssist(res_.blockCompletedEvent); }
 
-CcuRep::CcuBuf CcuKernel::CreateCcuBuf()
-{
-    const auto& buffer = CreateBlockResAssist(1, res_.blockCcubufs);
-    return buffer[0];
-}
+CcuRep::CcuBuf CcuKernel::CreateCcuBuf() { return CreateResAssist(res_.blockCcubufs); }
 
 CcuRep::Executor CcuKernel::CreateExecutor() { return CreateResAssist(res_.blockExecutor); }
 
@@ -2750,9 +2726,11 @@ HcclResult CcuKernel::CreateBlockCompletedEvent(const uint32_t count, CcuRep::Co
     return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuKernel::SetResRepository(const CcuResRepository& resRepo) { resRepo_ = resRepo; }
+void CcuKernel::SetResRepository(const AscCcuResRepository& resRepo) { resRepo_ = resRepo; }
 
-CcuResRepository& CcuKernel::GetResRepository() { return resRepo_; }
+void CcuKernel::SetResRepository(AscCcuResRepository&& resRepo) { resRepo_ = std::move(resRepo); }
+
+AscCcuResRepository& CcuKernel::GetResRepository() { return resRepo_; }
 
 CcuSharedResource& CcuKernel::GetExportedRes() { return exportedRes_; }
 
@@ -2929,8 +2907,8 @@ HcclResult CcuKernel::CollectLoopGroupProfilingInfo(
 
         if (loopParam != 0) {
             lgProfInfo.ccuProfilingInfos[i].dataSize = loopParam * moConfig_.loopCount * moConfig_.memSlice;
-            lgProfInfo.ccuProfilingInfos[i].instrId
-                = dynamic_cast<CcuRep::CcuRepLoopGroupBundle*>(lgProfInfo.lgProfilingReps[i].get())->StartInstrId();
+            lgProfInfo.ccuProfilingInfos[i].instrId =
+                dynamic_cast<CcuRep::CcuRepLoopGroupBundle*>(lgProfInfo.lgProfilingReps[i].get())->StartInstrId();
             allCcuProfilingInfos_.push_back(lgProfInfo.ccuProfilingInfos[i]);
         }
 
@@ -2941,8 +2919,8 @@ HcclResult CcuKernel::CollectLoopGroupProfilingInfo(
                 varId2VarIdMap, varId2ArgIndexMap, taskArgs, argSize, groupOpSizeInfo_[i].residualId, residual));
             uint64_t repeatNum = ParseRepeatNumFromParallelParam(parallelParam);
             lgProfInfo.ccuProfilingInfos[i].dataSize = repeatNum * moConfig_.memSlice + residual;
-            lgProfInfo.ccuProfilingInfos[i].instrId
-                = dynamic_cast<CcuRep::CcuRepLoopGroupBundle*>(lgProfInfo.lgProfilingReps[i + 1].get())->StartInstrId();
+            lgProfInfo.ccuProfilingInfos[i].instrId =
+                dynamic_cast<CcuRep::CcuRepLoopGroupBundle*>(lgProfInfo.lgProfilingReps[i + 1].get())->StartInstrId();
             allCcuProfilingInfos_.push_back(lgProfInfo.ccuProfilingInfos[i]);
         }
     }

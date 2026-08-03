@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #ifndef HCOMM_CCU_KERNEL_H
 #define HCOMM_CCU_KERNEL_H
@@ -35,7 +35,7 @@
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
-#include "hcomm/resource/common/ccu_res_repo.h"
+#include "hcomm/resource/common/asc_ccu_res_repository_local.h"
 #include "ccu_dev_mgr_imp.h" // CcuVersion
 
 // 暂时引用方便算法开发
@@ -65,10 +65,8 @@ struct GroupOpConfig {
     uint64_t memSlice;
 };
 
-// Kernel 查询信息结构体，由 CcuKernel::GetCcuKernelInfo 在锁内填充。
-// 后续新增查询字段时只需在此结构体中添加，无需新增接口。
 struct CcuKernelInfo {
-    uint32_t maxTaskArgsNum{0}; // taskArgs数组所需的元素个数，注册期间由LoadArg的argId推算: max(argId)+1，空则为0
+    uint32_t maxTaskArgsNum{0};
 };
 
 class CcuKernel : public CcuRep::CcuRepContext {
@@ -80,21 +78,22 @@ public:
     HcclResult ApplyDieFromChannels();
     HcclResult ValidateAndApplyDie(uint32_t targetDieId);
 
-    CcuResReq GetResourceRequest();
-    CcuResRepository& GetResRepository();
+    HcommCcuResRequestPod GetResourceRequest();
+    AscCcuResRepository& GetResRepository();
     CcuRepResource& GetResource();
     CcuSharedResource& GetExportedRes();
     CcuSharedResource& GetImportedRes();
 
-    void SetResRepository(const CcuResRepository& resRepo);
+    void SetResRepository(const AscCcuResRepository& resRepo);
+    void SetResRepository(AscCcuResRepository&& resRepo);
     void SetInstrId(uint32_t instrId);
     uint32_t GetInstrId() const;
     uint32_t GetInstrCount();
     void SetCcuInstrInfo(const CcuRep::CcuInstrInfo& instrInfo);
 
-    CcuResult GeneTaskParams(const uint64_t* taskArgs, uint32_t argsNum, std::vector<CcuTaskParam>& taskParams);
+    CcuResult GeneTaskParams(const uint64_t* taskArgs, uint32_t argNum, std::vector<CcuTaskParam>& taskParams);
 
-    void SetInsGenerater(CcuRep::CcuInsGeneratorBase* insGeneratorBase);
+    void SetInsGenerater(CcuRep::CcuInsGeneratorBase* insGeneraterBase);
     void SetCcuVersion(CcuVersion version) { ccuVersion_ = version; }
     // 该友元函数用于在context类外创建Variable并被context内的资源管理器管理
     friend CcuRep::Variable CcuRep::CreateVariable(CcuRep::CcuRepContext* context);
@@ -109,8 +108,8 @@ public:
     HcclResult AddCcuProfiling(
         const ChannelHandle* channels, uint32_t channelNum, HcclDataType dataType, HcclDataType outputDataType,
         HcclReduceOp opType, const std::string& opName);
-    HcclResult
-    GetCcuProfilingInfo(const uint64_t* taskArgs, uint32_t argSize, std::vector<CcuProfilingInfo>& allCcuProfilingInfo);
+    HcclResult GetCcuProfilingInfo(
+        const uint64_t* taskArgs, uint32_t argSize, std::vector<CcuProfilingInfo>& allCcuProfilingInfo);
 
     const std::vector<CcuProfilingInfo>& GetAllCcuProfilingInfo() { return allCcuProfilingInfos_; };
 
@@ -126,20 +125,19 @@ public:
     CcuResult AddressAlloc(CcuAddressHandle* addrHandle);
     CcuResult EventAlloc(CcuEventHandle* eventHandle);
     CcuResult BufferAlloc(CcuBufferHandle* bufHandle);
-    CcuResult
-    LocalAddrAlloc(CcuLocalAddrHandle* localAddrHandle, CcuAddressHandle* addrHandle, CcuVariableHandle* tokenHandle);
+    CcuResult LocalAddrAlloc(
+        CcuLocalAddrHandle* localAddrHandle, CcuAddressHandle* addrHandle, CcuVariableHandle* tokenHandle);
     CcuResult RemoteAddrAlloc(
         CcuRemoteAddrHandle* remoteAddrHandle, CcuAddressHandle* addrHandle, CcuVariableHandle* tokenHandle);
     CcuResult BlockVariableAlloc(CcuVariableHandle* varHandles, uint32_t count);
     CcuResult BlockEventAlloc(CcuEventHandle* eventHandles, uint32_t count);
     CcuResult BlockBufferAlloc(CcuBufferHandle* bufHandles, uint32_t count);
     CcuResult VariableCreateByChannel(ChannelHandle channel, uint32_t varIndex, CcuVariableHandle* varHandle);
-    CcuResult VariableCreateByAcquire(CcuVariableHandle acqHandle, uint32_t index, CcuVariableHandle* varHandle);
-    CcuResult EventCreateByAcquire(CcuEventHandle acqHandle, uint32_t index, CcuEventHandle* eventHandle);
+    CcuResult VariableCreateByAcquire(CcuVariableHandle acqHandle, uint32_t index, CcuVariableHandle *varHandle);
+    CcuResult EventCreateByAcquire(CcuEventHandle acqHandle, uint32_t index, CcuEventHandle *eventHandle);
 
     // 参数加载类 相关接口
     CcuResult LoadArg(CcuVariableHandle varHandle, uint32_t argId);
-    // 在锁内填充 Kernel 查询信息；当前包含 maxTaskArgsNum。
     CcuResult GetCcuKernelInfo(CcuKernelInfo& info) const;
     CcuResult LoadVar(uint64_t addr, CcuVariableHandle varHandle, uint32_t num);
     CcuResult CcuLoadVarFromVarAddr(CcuVariableHandle addrHandle, CcuVariableHandle varHandle, uint32_t num);
@@ -183,28 +181,28 @@ public:
     // 运算重载 相关接口
     CcuResult VariableAssignImm(CcuVariableHandle var, uint64_t immediate);
     CcuResult VariableAssignVar(CcuVariableHandle var, CcuVariableHandle varA);
-    CcuResult
-    VariableAddVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
-    CcuResult
-    VariableSubVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
-    CcuResult
-    VariableMulVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableAddVarToVar(
+        CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableSubVarToVar(
+        CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableMulVarToVar(
+        CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
     CcuResult VariableAddImmToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, uint16_t immediate);
     CcuResult VariableSubImmToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, uint16_t immediate);
     CcuResult VariableMulImmToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, uint16_t immediate);
-    CcuResult
-    VariableAndVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
-    CcuResult
-    VariableOrVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
-    CcuResult
-    VariableXorVarToVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableAndVarToVar(
+        CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableOrVarToVar(
+        CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
+    CcuResult VariableXorVarToVar(
+        CcuVariableHandle varHandle, CcuVariableHandle varAHandle, CcuVariableHandle varBHandle);
     CcuResult VariableNotVar(CcuVariableHandle varHandle, CcuVariableHandle varAHandle);
     CcuResult AddressAssignImm(CcuAddressHandle addr, uint64_t immediate);
     CcuResult AddressAssignVar(CcuAddressHandle addrHandle, CcuVariableHandle varHandle);
     CcuResult AddressAssignAddr(CcuAddressHandle dstAddrHandle, CcuAddressHandle srcAddrHandle);
     CcuResult AddressAddVarToAddr(CcuAddressHandle resAddr, CcuAddressHandle lhsAddr, CcuVariableHandle rhsVar);
-    CcuResult
-    AddressAddAddrToAddr(CcuAddressHandle resAddrHandle, CcuAddressHandle addrAHandle, CcuAddressHandle addrBHandle);
+    CcuResult AddressAddAddrToAddr(
+        CcuAddressHandle resAddrHandle, CcuAddressHandle addrAHandle, CcuAddressHandle addrBHandle);
     CcuResult AddressAddAssignVar(CcuAddressHandle addr, CcuVariableHandle var);
     CcuResult AddressAddAssignAddr(CcuAddressHandle addrHandle, CcuAddressHandle otherHandle);
     CcuResult AddressAddImmToAddr(CcuAddressHandle resAddr, CcuAddressHandle addrA, uint16_t imm);
@@ -232,9 +230,9 @@ public:
         CcuVariableHandle lenHandle, HcclDataType dataType, HcclReduceOp opType, CcuEventHandle eventHandle,
         uint32_t mask);
 
-    CcuResult IfBegin(CcuVariableHandle varHandle, uint64_t immediate, CcuConditionType condType, const char* label);
-    CcuResult
-    IfBeginVar(CcuVariableHandle lhsHandle, CcuVariableHandle rhsHandle, CcuConditionType condType, const char* label);
+    CcuResult IfBegin(CcuVariableHandle var, uint64_t immediate, CcuConditionType condType, const char* label);
+    CcuResult IfBeginVar(
+        CcuVariableHandle lhsHandle, CcuVariableHandle rhsHandle, CcuConditionType condType, const char* label);
     CcuResult IfElse(const char* label);
     CcuResult IfEnd(const char* label);
 
@@ -249,27 +247,26 @@ public:
 
     void FlushClosablePendingIfs();
     void Append(std::shared_ptr<CcuRep::CcuRepBase> rep) override;
-    CcuResult WhileBegin(CcuVariableHandle varHandle, uint64_t immediate, CcuConditionType condType, const char* label);
+    CcuResult WhileBegin(CcuVariableHandle var, uint64_t immediate, CcuConditionType condType, const char* label);
     CcuResult WhileBeginVar(
         CcuVariableHandle lhsHandle, CcuVariableHandle rhsHandle, CcuConditionType condType, const char* label);
     CcuResult WhileEnd(const char* label);
     CcuResult DoWhileBegin(const char* label);
-    CcuResult DoWhileEnd(CcuVariableHandle varHandle, uint64_t immediate, CcuConditionType condType, const char* label);
+    CcuResult DoWhileEnd(CcuVariableHandle var, uint64_t immediate, CcuConditionType condType, const char* label);
     CcuResult DoWhileEndVar(
         CcuVariableHandle lhsHandle, CcuVariableHandle rhsHandle, CcuConditionType condType, const char* label);
 
     CcuResult LoopCreate(CcuLoop* loop);
     CcuResult LoopBodyEnter(CcuLoop loop);
     CcuResult LoopBodyExit(CcuLoop loop);
-    // 建组/加环统一以版本化 cfg 为准;旧 config 的转换在 C ABI 适配层完成。
-    CcuResult LoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupCfg* cfg);
+    CcuResult LoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupConfig* config);
     CcuResult LoopGroupCreateFromVar(
         CcuLoopGroup* group, uint32_t maxLoopNum, CcuVariableHandle parallelVarHandle,
         CcuVariableHandle offsetVarHandle);
     CcuResult LoopGroupCreateFromVarV2(
         CcuLoopGroup* group, uint32_t maxLoopNum, CcuVariableHandle parallelVarV2, CcuVariableHandle offsetVarV2,
         CcuVariableHandle varOffsetVar);
-    CcuResult LoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopCfg* cfg);
+    CcuResult LoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopConfig* config);
     CcuResult LoopGroupAddLoopFromVar(CcuLoopGroup group, CcuLoop loop, CcuVariableHandle loopParamVar);
     CcuResult LoopGroupAddLoopFromVarV2(
         CcuLoopGroup group, CcuLoop loop, CcuVariableHandle iterNumVar, CcuVariableHandle addrOffsetVar,
@@ -471,7 +468,7 @@ private:
 
 private:
     CcuRepResource res_{};
-    CcuResRepository resRepo_{};
+    AscCcuResRepository resRepo_{};
 
     std::unordered_set<ChannelHandle> channels_{};
 
@@ -503,7 +500,7 @@ private:
     };
 
     struct LoopGroupDescriptor {
-        CcuLoopGroupCfg config;
+        CcuLoopGroupConfig config;
         uint64_t totalLoopNum{0};
         uint32_t loopCount{0};
         CcuRep::Variable parallelVar;
