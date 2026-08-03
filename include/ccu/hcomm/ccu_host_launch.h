@@ -29,6 +29,7 @@ typedef struct {
     ThreadHandle thread;
     void* attrs; // 预留参数
     const char* kernelName;
+    const HcommCcuRegisterContextPod* registerContext;
 } HcommCcuHostKernelLaunchCfg;
 
 typedef struct {

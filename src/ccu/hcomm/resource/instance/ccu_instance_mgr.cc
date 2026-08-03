@@ -10,6 +10,8 @@
 
 #include "hcomm/resource/instance/ccu_instance_mgr.h"
 
+#include <algorithm>
+
 #include "hcomm/common/ccu_log.h"
 #include "string_util.h"
 #include "framework/entrance/hccl_common_v2.h"
