@@ -34,7 +34,7 @@ public:
     HcclResult Deinit();
 
     CcuResult Register(
-        CcuResPack& resPack, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
+        CcuResPack& resPack, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
         const uint32_t argNum, CcuKernelHandle& kernelHandle);
 
     CcuResult Translate(const std::vector<CcuKernelHandle>& kernelHandles);
@@ -54,7 +54,7 @@ private:
 
 private:
     struct CcuTranslatResPack {
-        std::vector<CcuResHandle> handles{};
+        std::vector<HcommCcuResHandle> handles{};
     };
 
 private:

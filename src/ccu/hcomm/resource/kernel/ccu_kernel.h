@@ -75,7 +75,8 @@ public:
     ~CcuKernel() override;
 
     HcclResult SetupProfilingInfo(const char* kernelFuncName);
-    HcclResult SelectDie();
+    HcclResult ApplyDieFromChannels();
+    HcclResult ValidateAndApplyDie(uint32_t targetDieId);
 
     CcuResReq GetResourceRequest();
     CcuResRepository& GetResRepository();

@@ -10,6 +10,8 @@
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 
+#include <acl/acl.h>
+
 #include "string_util.h"
 #include "exception_handler.h"
 #include "adapter_rts.h"
@@ -17,6 +19,7 @@
 #include "dev_buffer.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "ccu_dev_mgr_imp.h"
+#include "hcomm/resource/common/ccu_res_pod_adpt.h"
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
@@ -28,6 +31,21 @@
 #include "hcomm/resource/common/ccu_kernel_func.h"
 
 namespace hcomm {
+
+namespace {
+HcclResult GetHcclVersionForCcuKernelMgr(int &hcclVersion)
+{
+    char hcclPkgName[] = "hccl";
+    const aclError aclRet = aclsysGetVersionNum(hcclPkgName, &hcclVersion);
+    CHK_PRT_RET(aclRet != ACL_SUCCESS,
+        HCCL_ERROR("[%s] aclsysGetVersionNum failed, aclRet[%d].", __func__, aclRet),
+        HcclResult::HCCL_E_INTERNAL);
+    HCCL_RUN_INFO("[%s] hccl version is %d.", __func__, hcclVersion);
+    return HcclResult::HCCL_SUCCESS;
+}
+
+constexpr int MAX_HCCL_VERSION_USING_CCU_RES_STATIC_ALLOC = 90100000;
+} // namespace
 
 CcuKernelMgr::~CcuKernelMgr()
 {
@@ -105,7 +123,8 @@ HcclResult CcuKernelMgr::Deinit()
 }
 
 CcuResult CcuKernelMgr::Register(
-    CcuResPack& resPack, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
+    CcuResPack& resPack, const uint32_t dieId, const char* kernelFuncName, const void* kernelFunc,
+    const void** kernelArgs,
     const uint32_t argNum, CcuKernelHandle& kernelHandle)
 {
     // 允许kernelFuncName未空，此时传递默认名称
@@ -121,7 +140,7 @@ CcuResult CcuKernelMgr::Register(
     // 注意处理时序，需要先重置后处理rep
     std::unique_lock<std::mutex> lock(kernelMapMutex_);
     currKernel_ = std::make_unique<CcuKernel>(); // 重置待注册kernel
-    currKernel_->SetDieId(0);                    // 默认填0值，后续SelectDie选择真实id
+    currKernel_->SetDieId(0); // 资源先记在 die 0，确定实际 die 后再迁移
     CCU_CHK_RET(currKernel_->SetupProfilingInfo(kernelFuncName));
 
     // 初始化翻译器（需在执行kernel func前设置，因为func执行时会创建rep对象）
@@ -140,8 +159,14 @@ CcuResult CcuKernelMgr::Register(
         CCU_CHK_RET(ccuKernelFunc(ccuKernelArg)); // 执行算法流程，生成rep和计算资源占用
     }
 
-    currKernel_->FlushClosablePendingIfs();    // 处理未闭合的if
-    CCU_CHK_RET(currKernel_->SelectDie());     // 先处理rep，后选择die
+    currKernel_->FlushClosablePendingIfs(); // 处理未闭合的if
+    int hcclVersion = 0;
+    CCU_CHK_RET(GetHcclVersionForCcuKernelMgr(hcclVersion));
+    if (hcclVersion <= MAX_HCCL_VERSION_USING_CCU_RES_STATIC_ALLOC) {
+        CCU_CHK_RET(currKernel_->ApplyDieFromChannels());
+    } else {
+        CCU_CHK_RET(currKernel_->ValidateAndApplyDie(dieId));
+    }
     CCU_CHK_RET(PrepareConstValueResources()); // 记录翻译过程所需常量并申请对应资源
 
     CcuResult ret = AllocRes(resPack);
@@ -312,7 +337,7 @@ static CcuResult AllocInstrRes(std::unique_ptr<CcuKernel>& kernel, const int32_t
         kernel->GetInstrCount() + CcuRep::CcuRepTranslator::GetInstrNum() + kernel->GetConstValue2VarMap().size();
     const uint32_t dieId = kernel->GetDieId();
     ResInfo insInfo(0, 0);
-    CCU_CHK_RET(CcuDevMgrImp::AllocIns(devLogicId, dieId, instrCount, insInfo));
+    CCU_CHK_RET(CcuResPodAdapter::AllocInstruction(devLogicId, dieId, instrCount, insInfo));
     HCCL_INFO(
         "[CcuKernelMgr][%s]: devLogicId[%d], dieId[%u], startId[%u], count[%u]", __func__, devLogicId, dieId,
         insInfo.startId, insInfo.num);
@@ -402,8 +427,8 @@ static HcclResult ResetRepResourceToResRepository(
         CHK_RET(ResetRepResourceTemplate(totalRepRes.completedEvent[i], totalResRepository.cke[i]));
         CHK_RET(ResetRepResourceTemplate(totalRepRes.blockCompletedEvent[i], totalResRepository.blockCke[i]));
         CHK_RET(ResetRepResourceTemplate(
-            totalRepRes.localNotify[i], totalResRepository.cke[i],
-            totalRepRes.completedEvent[i].size())); // 两类资源都使用cke，需要调整起始分配位置
+            totalRepRes.localNotify[i], totalResRepository.blockCke[i],
+            totalRepRes.blockCompletedEvent[i].size())); // 两类资源都使用block cke，需要调整起始分配位置
         CHK_RET(ResetRepResourceTemplate(totalRepRes.address[i], totalResRepository.gsa[i]));
         CHK_RET(ResetRepResourceTemplate(totalRepRes.blockAddress[i], totalResRepository.blockGsa[i]));
         CHK_RET(ResetRepResourceTemplate(totalRepRes.variable[i], totalResRepository.xn[i]));
@@ -599,7 +624,7 @@ static HcclResult ReleaseInstrRes(CcuKernel* kernel, const int32_t devLogicId)
     HCCL_INFO(
         "[CcuKernelMgr][%s] devLogicId[%d], dieId[%u], startId[%u], count[%u]", __func__, devLogicId, dieId,
         insInfo.startId, insInfo.num);
-    CHK_RET(CcuDevMgrImp::ReleaseIns(devLogicId, dieId, insInfo));
+    CHK_RET(static_cast<HcclResult>(CcuResPodAdapter::ReleaseInstruction(devLogicId, dieId, insInfo)));
 
     return HcclResult::HCCL_SUCCESS;
 }
@@ -626,10 +651,10 @@ HcclResult CcuKernelMgr::GetResPackTotalResRepository(
 {
     CcuResRepository tmpResRepository{};
     // 获取通信域当前所持有的资源
-    for (CcuResHandle resHandle : resPack.handles) {
-        CHK_RET(CcuDevMgrImp::GetResource(devLogicId_, resHandle, tmpResRepository));
+    for (HcommCcuResHandle resHandle : resPack.handles) {
+        CHK_RET(static_cast<HcclResult>(CcuResPodAdapter::GetRepository(resHandle, tmpResRepository)));
         ExpandResRepo(totalRes, tmpResRepository);
-        HCCL_INFO("[%s] succeed, deviceLogicId[%d] resHandle[%p].", __func__, devLogicId_, resHandle);
+        HCCL_INFO("[%s] succeed, deviceLogicId[%d] resHandle[%llu].", __func__, devLogicId_, resHandle);
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -700,8 +725,8 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId)
     DumpResReqInfo(totalResReq);
 
     // 为refManager和translaotr申请物理资源
-    CcuResHandle handle;
-    CHK_RET(CcuDevMgrImp::AllocResHandle(devLogicId_, totalResReq, handle));
+    HcommCcuResHandle handle = 0;
+    CHK_RET(static_cast<HcclResult>(CcuResPodAdapter::Alloc(devLogicId_, totalResReq, handle)));
     translatorResPack.handles.push_back(handle);
 
     CcuRepResource translatorRepRes;

@@ -10,6 +10,8 @@
 
 #include "ccu/hcomm/ccu_res.h"
 
+#include "ccu_device_res.h"
+
 #include "hcomm/resource/instance/ccu_instance_mgr.h"
 #include "hcomm/common/ccu_log.h"
 #include "hcom_common.h"
