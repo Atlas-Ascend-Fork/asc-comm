@@ -304,81 +304,6 @@ extern int32_t HcommReadReduceOnThread(ThreadHandle thread, ChannelHandle channe
     HcommDataType dataType, HcommReduceOp reduceOp);
 
 /**
- * @brief 单边写操作
- * @param[in] thread 线程句柄
- * @param[in] channel 通道句柄
- * @param[out] dst 目标内存地址
- * @param[in] src 源内存地址
- * @param[in] len 数据长度（字节）
- * @return int32_t 执行结果状态码
- */
-extern int32_t HcommWriteNbiOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len);
-
-/**
- * @brief 单边写操作
- * @param[in] channel 通道句柄
- * @param[out] dst 目标内存地址
- * @param[in] src 源内存地址
- * @param[in] len 数据长度（字节）
- * @return int32_t 执行结果状态码
- *
- * WARNING: experimental API, No compatibility is currently guaranteed for this API
- */
-extern int32_t HcommWriteNbi(ChannelHandle channel, void *dst, const void *src, uint64_t len);
-
-/**
- * @brief 带通知的单边写操作
- * @param[in] thread 线程句柄
- * @param[in] channel 通道句柄
- * @param[out] dst 目标内存地址
- * @param[in] src 源内存地址
- * @param[in] len 数据长度（字节）
- * @param[in] notifyIdx 远端通知索引
- * @return int32_t 执行结果状态码
- * @note 当前在A5上主要支持
- */
-extern int32_t HcommWriteWithNotifyNbiOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
-    uint64_t len, uint32_t remoteNotifyIdx);
-
-/**
- * @brief 带通知的单边写操作
- * @param[in] channel 通道句柄
- * @param[out] dst 目标内存地址
- * @param[in] src 源内存地址
- * @param[in] len 数据长度（字节）
- * @param[in] notifyIdx 远端通知索引
- * @return int32_t 执行结果状态码
- * @note 当前在A5上主要支持
- *
- * WARNING: experimental API, No compatibility is currently guaranteed for this API
- */
-extern int32_t HcommWriteWithNotifyNbi(ChannelHandle channel, void *dst, const void *src,
-    uint64_t len, uint32_t remoteNotifyIdx);
-
-/**
- * @brief 单边读操作
- * @param[in] thread 线程句柄
- * @param[in] channel 通道句柄
- * @param[out] dst 目标内存地址
- * @param[in] src 源内存地址
- * @param[in] len 数据长度（字节）
- * @return int32_t 执行结果状态码
- */
-extern int32_t HcommReadNbiOnThread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len);
-
-/**
- * @brief 单边读操作
- * @param[in] channel 通道句柄
- * @param[out] dst 目标内存地址
- * @param[in] src 源内存地址
- * @param[in] len 数据长度（字节）
- * @return int32_t 执行结果状态码
- *
- * WARNING: experimental API, No compatibility is currently guaranteed for this API
- */
-extern int32_t HcommReadNbi(ChannelHandle channel, void *dst, const void *src, uint64_t len);
-
-/**
  * @brief 批量传输操作
  * @param[in] thread 线程句柄
  * @param[in] channel 通道句柄
@@ -407,16 +332,6 @@ extern int32_t HcommBatchTransferOnThread(ThreadHandle thread, ChannelHandle cha
 extern int32_t HcommChannelNotifyRecordOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx);
 
 /**
- * @brief 记录通知事件
- * @param[in] channel 通道句柄
- * @param[in] remoteNotifyIdx 远端通知索引
- * @return int32_t 执行结果状态码
- *
- * WARNING: experimental API, No compatibility is currently guaranteed for this API
- */
-extern int32_t HcommChannelNotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx);
-
-/**
  * @brief 等待通知事件
  * @param[in] thread 线程句柄
  * @param[in] channel 通道句柄
@@ -425,17 +340,6 @@ extern int32_t HcommChannelNotifyRecord(ChannelHandle channel, uint32_t remoteNo
  * @return int32_t 执行结果状态码
  */
 extern int32_t HcommChannelNotifyWaitOnThread(ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeOut);
-
-/**
- * @brief 等待通知事件
- * @param[in] channel 通道句柄
- * @param[in] localNotifyIdx 本地通知索引
- * @param[in] timeOut 超时时间(秒)
- * @return int32_t 执行结果状态码
- *
- * WARNING: experimental API, No compatibility is currently guaranteed for this API
- */
-extern int32_t HcommChannelNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeOut);
 
 /** @} */  // 通知
 
@@ -482,28 +386,12 @@ extern int32_t HcommAcquireComm(const char* commId);
 extern int32_t HcommReleaseComm(const char* commId);
 
 /**
- * @brief DPU 数据面 Fence 接口
- * @param[in] thread 线程句柄
- * @return int32_t 执行结果状态码
- */
-extern int32_t HcommFenceOnThread(ThreadHandle thread);
-
-/**
  * @brief 通信通道级内存屏障操作
  * @param[in] thread 线程句柄
  * @param[in] channel 通道句柄
  * @return int32_t 执行结果状态码
  */
 extern int32_t HcommChannelFenceOnThread(ThreadHandle thread, ChannelHandle channel);
-
-/**
- * @brief 通信通道级内存屏障操作
- * @param[in] channel 通道句柄
- * @return int32_t 执行结果状态码
- *
- * WARNING: experimental API, No compatibility is currently guaranteed for this API
- */
-extern int32_t HcommChannelFence(ChannelHandle channel);
 
 /**
  * @brief 设置通知等待超时时间
