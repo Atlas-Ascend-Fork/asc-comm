@@ -10,16 +10,29 @@
 
 #include "ccu/hcomm/ccu_res.h"
 
+#include "ccu_device_res.h"
+
 #include "hcomm/resource/instance/ccu_instance_mgr.h"
 #include "hcomm/common/ccu_log.h"
 #include "hcom_common.h"
 
-CcuResult HcommCcuInsCreateLegacy(const CcuInstanceType insType, CcuInsHandle* ccuInsHandle)
+CcuResult HcommCcuInsCreateOnDevice(
+    const CcuInstanceType insType, int32_t deviceLogicId, CcuInsHandle* ccuInsHandle)
 {
     CCU_CHK_PTR_NULL(ccuInsHandle);
+    CCU_CHK_RET(hcomm::CcuInstanceMgr::GetInstance(deviceLogicId).Create(insType, *ccuInsHandle));
+    return CcuResult::CCU_SUCCESS;
+}
 
-    const int32_t devLogicId = HcclGetThreadDeviceId();
-    CCU_CHK_RET(hcomm::CcuInstanceMgr::GetInstance(devLogicId).Create(insType, *ccuInsHandle));
+CcuResult HcommCcuInsDestroyOnDevice(CcuInsHandle ccuInsHandle, int32_t deviceLogicId)
+{
+    return hcomm::CcuInstanceMgr::GetInstance(deviceLogicId).Destroy(ccuInsHandle);
+}
+
+CcuResult HcommCcuInsExistsOnDevice(CcuInsHandle ccuInsHandle, int32_t deviceLogicId, uint32_t* exists)
+{
+    CCU_CHK_PTR_NULL(exists);
+    *exists = hcomm::CcuInstanceMgr::GetInstance(deviceLogicId).Get(ccuInsHandle) == nullptr ? 0U : 1U;
     return CcuResult::CCU_SUCCESS;
 }
 
