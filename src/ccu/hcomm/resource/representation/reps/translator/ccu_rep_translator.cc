@@ -85,59 +85,15 @@ void CcuRepTranslator::BuildReference(const std::shared_ptr<CcuRepBase>& rep)
     }
 }
 
-CcuRepTranslator::CcuRepTranslator(
-    int32_t deviceLogicId, uint8_t dieId, std::shared_ptr<CcuRepReferenceManager> refManager,
-    std::array<uint16_t, CCU_MAX_IODIE_NUM>& reserverChannalId, std::pair<uint64_t, uint64_t>& ccuTokenInfo,
-    uint64_t hbmTokenInfo)
-    : refManager(refManager)
-{
-    transDep.logicalId = deviceLogicId;
-    transDep.dieId = dieId;
-    s32 result = memcpy_s(
-        transDep.reserveChannalId, sizeof(transDep.reserveChannalId), reserverChannalId.data(),
-        sizeof(reserverChannalId));
-    if (result != 0) {
-        Hccl::THROW<Hccl::InternalException>(
-            Hccl::StringFormat("[NsRecovery] CcuRepTranslator::CcuRepTranslator: memcpy_s failed, ret = %d", result));
-    }
-    // 获取xn起始地址
-    HcclResult ret = CcuDevMgrImp::GetXnBaseAddr(deviceLogicId, dieId, transDep.xnBaseAddr[dieId]);
-    if (ret != HcclResult::HCCL_SUCCESS) {
-        Hccl::THROW<Hccl::CcuApiException>(
-            "Failed to get xn base address. deviceLogicId = %d, dieId = %u, ret = %d", deviceLogicId, dieId, ret);
-    }
-    transDep.ccuResSpaceTokenInfo = CcuRep::GetToken(ccuTokenInfo.first, ccuTokenInfo.second, 1);
-    // 获取hbm token信息
-    transDep.memTokenInfo = hbmTokenInfo;
-
-    ret = CcuDevMgrImp::GetCcuVersion(transDep.logicalId, ccuVersion);
-    if (ret != HcclResult::HCCL_SUCCESS || ccuVersion == CcuVersion::CCU_INVALID) {
-        Hccl::THROW<Hccl::CcuApiException>("[CcuRepTranslator] Constructor: Invalid CCU Type!");
-    }
-
-// 单Udie环境下暂不获取另一个die的信息
-#ifdef OPEN_GET_ANOTHER_DIE_XN_ADDR
-    if (ccuVersion == CcuVersion::CCU_V2) {
-        uint8_t anotherDieId = dieId == 0 ? 1 : 0;
-        ret = CcuDevMgrImp::GetXnBaseAddr(deviceLogicId, anotherDieId, transDep.xnBaseAddr[anotherDieId]);
-        if (ret != HcclResult::HCCL_SUCCESS) {
-            Hccl::THROW<Hccl::CcuApiException>(
-                "Failed to get xn base address. deviceLogicId = %d, dieId = %u, "
-                "ret = %d",
-                deviceLogicId, anotherDieId, ret);
-        }
-    }
-#endif
-}
-
 CcuRepTranslator::CcuRepTranslator(std::shared_ptr<CcuRepReferenceManager> refManager, const TransDep& transDep)
     : refManager(refManager), transDep(transDep)
 {
-    HcclResult ret = CcuDevMgrImp::GetCcuVersion(transDep.logicalId, ccuVersion);
-    if (ret != HcclResult::HCCL_SUCCESS || ccuVersion == CcuVersion::CCU_INVALID) {
+    if (ccuVersion == CcuVersion::CCU_INVALID) {
         Hccl::THROW<Hccl::CcuApiException>("[CcuRepTranslator] Constructor: Invalid CCU Type!");
     }
 }
+
+void CcuRepTranslator::SetCcuVersion(CcuVersion version) { ccuVersion = version; }
 
 uint32_t CcuRepTranslator::GetInstrNum()
 {
@@ -147,16 +103,17 @@ uint32_t CcuRepTranslator::GetInstrNum()
                13; // 13:翻译器翻译过程中额外需要的指令空间大小(插入3条通用操作指令+1条终止指令+9条repJump)
 }
 
-CcuResReq CcuRepTranslator::GetResReq(uint8_t dieId)
+HcommCcuResRequestPod CcuRepTranslator::GetResReq(uint8_t dieId)
 {
     // 申请离散 xn 资源
     // 需要申请若干xn、gsa、cke设置为固定值用于通用操作
-    CcuResReq resReq;
+    HcommCcuResRequestPod resReq{};
+    resReq.missionReqType = HCOMM_CCU_MISSION_REQ_FUSION_MULTIPLE_DIE;
     int varNum = XN_NUM;
     int gsaNum = ccuVersion == CcuVersion::CCU_V1 ? GSA_NUM : 0;
-    resReq.xnReq[dieId] = varNum;
-    resReq.gsaReq[dieId] = gsaNum;
-    resReq.ckeReq[dieId] = CKE_NUM;
+    resReq.count[HCOMM_CCU_BATCH_RES_XN][dieId] = varNum;
+    resReq.count[HCOMM_CCU_BATCH_RES_GSA][dieId] = gsaNum;
+    resReq.count[HCOMM_CCU_BATCH_RES_CKE][dieId] = CKE_NUM;
     return resReq;
 }
 
@@ -171,7 +128,7 @@ void CcuRepTranslator::GetRes(CcuRepResource& res)
         res.address[transDep.dieId].push_back(addr[i]);
     }
     for (int i = 0; i < CKE_NUM; i++) {
-        res.localNotify[transDep.dieId].push_back(signal[i]);
+        res.completedEvent[transDep.dieId].push_back(signal[i]);
     }
 }
 
