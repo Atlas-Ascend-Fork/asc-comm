@@ -16,6 +16,7 @@
 #include "alg_resource.h"
 #include "ccu_kernel.h"
 #include "ccu/hcomm/ccu_launch.h"
+#include "../../common/ccu_register_context.h"
 
 extern "C" HcclResult HcclCommQueryCcuIns(HcclComm comm, CcuInsHandle* insHandles, uint32_t* insNum);
 
@@ -109,7 +110,9 @@ static HcclResult RegisterBroadcastKernel(
 
     resCtxHost.ccuKernels.resize(1); // 只注册一个 kernel
 
-    CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle);
+    asccomm_examples::CcuRegisterContextStorage contextStorage;
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, contextStorage));
+    CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle, &contextStorage.context);
     if (regStartRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
