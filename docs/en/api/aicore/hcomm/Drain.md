@@ -23,4 +23,4 @@ __aicore__ inline int32_t Drain(AscendC::ChannelHandle channel);
 | Return Value | Description |
 | --- | --- |
 | `0` | Waiting succeeded. |
-| `-1` | Waiting failed. |
+| Non-zero | Waiting failed. The `COMM_PROTOCOL_UBC_CTP` path returns the underlying CQ polling error code directly: `0xFF` indicates a polling timeout, while other positive values combine the CQE status and substatus. Other protocols may return `-1`. |
