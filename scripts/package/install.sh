@@ -30,10 +30,10 @@ COMMITTED=false
 usage()
 {
     cat <<EOF
-Usage: $0 --install|--uninstall|--check [OPTION]...
+Usage: $0 --full|--uninstall|--check [OPTION]...
 
 Options:
-  --install               Install or update the asc-comm development patch
+  --full                  Install or update the asc-comm development patch
   --uninstall             Restore the files saved before the first installation
   --check                 Verify the package payload without modifying CANN
   --install-path=<PATH>   CANN root; defaults to ASCEND_HOME_PATH
@@ -64,7 +64,7 @@ parse_args()
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --install|--uninstall|--check)
+            --full|--uninstall|--check)
                 [[ -z "${ACTION}" ]] || fail "specify exactly one operation"
                 ACTION=$1
                 ;;
@@ -87,7 +87,7 @@ parse_args()
         shift
     done
 
-    [[ -n "${ACTION}" ]] || fail "specify --install or --uninstall"
+    [[ -n "${ACTION}" ]] || fail "specify --full, --uninstall, or --check"
     [[ "${ACTION}" == "--check" ]] && return 0
     [[ -n "${INSTALL_PATH}" ]] || fail "CANN path is not set; source set_env.sh or use --install-path"
     [[ "${INSTALL_PATH}" = /* ]] || fail "CANN path must be absolute: ${INSTALL_PATH}"
@@ -159,7 +159,7 @@ is_allowed_path()
 {
     local path=$1
     case "${path}" in
-        asc/include/adv_api/hcomm/*.h|asc/impl/adv_api/detail/hcomm/*.h)
+        asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h)
             ;;
         *)
             return 1
@@ -385,17 +385,34 @@ install_payload()
 {
     local paths_file=$1
     local path
+    local relative_path
+    local module
     local target
+    local managed_root
+    declare -A managed_roots=()
 
     while IFS= read -r path; do
         [[ -f "${PAYLOAD_DIR}/${path}" && ! -L "${PAYLOAD_DIR}/${path}" ]] || \
             fail "payload file is missing or invalid: ${path}"
         target="${CANN_ROOT}/${path}"
         install -D -m 550 "${PAYLOAD_DIR}/${path}" "${target}"
+        case "${path}" in
+            asc/include/adv_api/*)
+                relative_path=${path#asc/include/adv_api/}
+                module=${relative_path%%/*}
+                managed_roots["${CANN_ROOT}/asc/include/adv_api/${module}"]=1
+                ;;
+            asc/impl/adv_api/detail/*)
+                relative_path=${path#asc/impl/adv_api/detail/}
+                module=${relative_path%%/*}
+                managed_roots["${CANN_ROOT}/asc/impl/adv_api/detail/${module}"]=1
+                ;;
+        esac
     done < "${paths_file}"
 
-    find "${CANN_ROOT}/asc/include/adv_api/hcomm" -type d -exec chmod 750 {} +
-    find "${CANN_ROOT}/asc/impl/adv_api/detail/hcomm" -type d -exec chmod 750 {} +
+    for managed_root in "${!managed_roots[@]}"; do
+        find "${managed_root}" -type d -exec chmod 750 {} +
+    done
 }
 
 install_patch()
@@ -517,7 +534,7 @@ main()
     resolve_cann_root
     check_owner
 
-    if [[ "${ACTION}" == "--install" ]]; then
+    if [[ "${ACTION}" == "--full" ]]; then
         install_patch
     else
         uninstall_patch
