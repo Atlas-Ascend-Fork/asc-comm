@@ -131,7 +131,7 @@ protected:
 
         AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
         ASSERT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
-        int32_t ret = hcomm.WriteReduceNbi<false, PIPE_S, PIPE_MTE3, AscendC::URMA_DEFAULT_CFG, T, reduceOp>(
+        int32_t ret = hcomm.WriteReduceNbi<T, reduceOp, false>(
             channel.GetHandle(), reinterpret_cast<GM_ADDR>(remoteAddr), reinterpret_cast<GM_ADDR>(localAddr), count);
         ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
         EXPECT_EQ(channel.GetSqHead(), 1U);

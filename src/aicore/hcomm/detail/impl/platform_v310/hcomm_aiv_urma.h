@@ -455,7 +455,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
     return PostSend<commit, commitPipe, reqPipe, HcommUrmaOpCode::WRITE, config>(channel, dst, src, len);
 }
 
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config, typename T, HcommUrmaReduceOp reduceOp>
+template <typename T, HcommUrmaReduceOp reduceOp, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteReduceNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
 {
@@ -466,6 +466,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteReduceNbi(
     static_assert(
         reduceOp == HcommUrmaReduceOp::MAX || reduceOp == HcommUrmaReduceOp::MIN || reduceOp == HcommUrmaReduceOp::SUM,
         "WriteReduceNbi only supports MAX, MIN and SUM");
+    static_assert(config.inlineEn == 0, "WriteReduceNbi does not support inline data in WQE");
     UdmaParams<uint32_t> params{};
     params.reduceDataType = reduceDataType;
     params.reduceOpcode = static_cast<uint32_t>(reduceOp);
