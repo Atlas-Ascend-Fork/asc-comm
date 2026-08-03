@@ -137,7 +137,24 @@ reference for batch read and write operations, and use the outer multi-channel b
 | Protocol | Description |
 | --- | --- |
 | `COMM_PROTOCOL_ROCE` | Supports ordinary `ReadNbi`, `WriteNbi`, `Commit`, and `Drain`. BatchHandle interfaces are not supported. |
-| `COMM_PROTOCOL_UBC_CTP` | Supports ordinary read, write, write-with-notify, atomic, commit, and drain interfaces. Ascend 950 also supports batch read, write, write-with-notify, `BatchCommit`, and batch `Drain`. |
+| `COMM_PROTOCOL_UBC_CTP` | Supports ordinary read, write, write-with-notify, atomic, commit, and drain interfaces. AIV on Ascend 950 also supports `Lock`, `Unlock`, batch read, batch write, batch write-with-notify, `BatchCommit`, and batch `Drain`. |
+
+## Sharing a Channel Across AI Cores
+
+On Ascend 950, when multiple AIVs share the same `COMM_PROTOCOL_UBC_CTP` channel, use [Lock](../api/aicore/hcomm/Lock.md) and [Unlock](../api/aicore/hcomm/Unlock.md) to protect accesses that update channel state. Each AI Core may use an independent Hcomm object and UB temporary workspace while passing the same `ChannelHandle`.
+
+```cpp
+int32_t lockRet = hcomm.Lock(channel);
+if (lockRet == 0) {
+    int32_t opRet = hcomm.WriteNbi(channel, dst, src, len);
+
+    // A successfully acquired lock must be released even if the communication API fails.
+    int32_t unlockRet = hcomm.Unlock(channel);
+    // Handle opRet and unlockRet separately.
+}
+```
+
+The lock is not reentrant. Every successful `Lock` must be paired with `Unlock` on the same AI Core, including on error paths. These interfaces synchronize only AI Cores sharing the same channel on the same device.
 
 ## Notes
 

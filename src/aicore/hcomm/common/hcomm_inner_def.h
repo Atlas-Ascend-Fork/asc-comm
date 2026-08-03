@@ -22,6 +22,7 @@
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_INNER_DEF_H
 #define IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_INNER_DEF_H
 
+#include <cstddef>
 #include <cstdint>
 
 namespace AscendC {
@@ -30,6 +31,8 @@ enum class MultiChannelHandle : uint64_t {};
 
 constexpr int32_t HCOMM_FAILED = -1;
 constexpr int32_t HCOMM_SUCCESS = 0;
+constexpr uint32_t HCOMM_LOCK_FREE = 0U;
+constexpr uint32_t HCOMM_LOCK_HELD = 1U;
 constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
 
@@ -245,6 +248,7 @@ typedef struct {
     uint8_t reserve[144];
 } ChannelEntity;
 
+static_assert(offsetof(ChannelEntity, sqHead) == 96, "ChannelEntity sqHead offset must remain unchanged");
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
 
 typedef struct {
