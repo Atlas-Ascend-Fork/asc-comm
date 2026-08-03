@@ -38,9 +38,10 @@ namespace AscendC {
  *          3) Launch comm tasks asynchronously through the corresponding interface,
  *             and the server starts assembling and launching comm tasks as soon as it listens.
  *          4) If commit is false when launching task, call the Commit interface to notify the execution of the
- * corresponding comm task. 5) Call the Drain interface (blocking) to wait for the server to complete the corresponding
- * comm task.
- * @tparam commProtocol: The communication protocol to use, ROCE supported as default.
+ *             corresponding comm task.
+ *          5) Call the Drain interface (blocking) to wait for the server to complete the corresponding comm task.
+ * @tparam commProtocol: The communication protocol to use. COMM_PROTOCOL_UBC_CTP (implemented through URMA) is used
+ *                       by default.
  */
 template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
 class Hcomm {
@@ -203,7 +204,8 @@ public:
      * @brief Block Aicore and drain comm tasks submitted on channel until finish processing.
      * @tparam pipe: The pipe type to use for drain, PIPE_MTE3 supported as default.
      * @param [in] channel: The handle of the communication channel.
-     * @return 0 indicates success and -1 indicates failure.
+     * @return 0 indicates success. A non-zero value indicates failure. For COMM_PROTOCOL_UBC_CTP, the underlying
+     *         CQ polling error code is returned directly.
      */
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
