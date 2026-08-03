@@ -17,6 +17,7 @@
 #include "dev_buffer.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "ccu_dev_mgr_imp.h"
+#include "hcomm/resource/common/ccu_res_pod_adpt.h"
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
@@ -304,7 +305,7 @@ static CcuResult AllocInstrRes(std::unique_ptr<CcuKernel> &kernel, const int32_t
         = kernel->GetInstrCount() + CcuRep::CcuRepTranslator::GetInstrNum() + kernel->GetConstValue2VarMap().size();
     const uint32_t dieId = kernel->GetDieId();
     ResInfo insInfo(0, 0);
-    CCU_CHK_RET(CcuDevMgrImp::AllocIns(devLogicId, dieId, instrCount, insInfo));
+    CCU_CHK_RET(CcuResPodAdapter::AllocInstruction(devLogicId, dieId, instrCount, insInfo));
     HCCL_INFO("[CcuKernelMgr][%s]: devLogicId[%d], dieId[%u], startId[%u], count[%u]", __func__, devLogicId, dieId,
         insInfo.startId, insInfo.num);
     kernel->SetInstrId(insInfo.startId);
@@ -582,7 +583,7 @@ static HcclResult ReleaseInstrRes(CcuKernel *kernel, const int32_t devLogicId)
     const uint8_t dieId = static_cast<uint8_t>(kernel->GetDieId());
     HCCL_INFO("[CcuKernelMgr][%s] devLogicId[%d], dieId[%u], startId[%u], count[%u]", __func__, devLogicId, dieId,
         insInfo.startId, insInfo.num);
-    CHK_RET(CcuDevMgrImp::ReleaseIns(devLogicId, dieId, insInfo));
+    CHK_RET(static_cast<HcclResult>(CcuResPodAdapter::ReleaseInstruction(devLogicId, dieId, insInfo)));
 
     return HcclResult::HCCL_SUCCESS;
 }
@@ -608,10 +609,10 @@ HcclResult CcuKernelMgr::GetResPackTotalResRepository(
 {
     CcuResRepository tmpResRepository{};
     // 获取通信域当前所持有的资源
-    for (CcuResHandle resHandle : resPack.handles) {
-        CHK_RET(CcuDevMgrImp::GetResource(devLogicId_, resHandle, tmpResRepository));
+    for (HcommCcuResHandle resHandle : resPack.handles) {
+        CHK_RET(static_cast<HcclResult>(CcuResPodAdapter::GetRepository(resHandle, tmpResRepository)));
         ExpandResRepo(totalRes, tmpResRepository);
-        HCCL_INFO("[%s] succeed, deviceLogicId[%d] resHandle[%p].", __func__, devLogicId_, resHandle);
+        HCCL_INFO("[%s] succeed, deviceLogicId[%d] resHandle[%llu].", __func__, devLogicId_, resHandle);
     }
     return HcclResult::HCCL_SUCCESS;
 }
@@ -681,8 +682,8 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId)
     DumpResReqInfo(totalResReq);
 
     // 为refManager和translaotr申请物理资源
-    CcuResHandle handle;
-    CHK_RET(CcuDevMgrImp::AllocResHandle(devLogicId_, totalResReq, handle));
+    HcommCcuResHandle handle = 0;
+    CHK_RET(static_cast<HcclResult>(CcuResPodAdapter::Alloc(devLogicId_, totalResReq, handle)));
     translatorResPack.handles.push_back(handle);
 
     CcuRepResource translatorRepRes;

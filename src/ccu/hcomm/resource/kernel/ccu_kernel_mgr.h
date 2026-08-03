@@ -52,7 +52,7 @@ private:
 
 private:
     struct CcuTranslatResPack {
-        std::vector<CcuResHandle> handles{};
+        std::vector<HcommCcuResHandle> handles{};
     };
 
 private:
