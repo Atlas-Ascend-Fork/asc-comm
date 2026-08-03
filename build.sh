@@ -183,7 +183,7 @@ main(){
 
     if [[ "${PACKAGE}" == true ]]; then
         bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \
-            --cann-path="${Ascend_CANN_PACKAGE_PATH}"
+            --cann-path="${Ascend_CANN_PACKAGE_PATH}" || return $?
     fi
 
     if [[ "${TEST}" != true ]]; then
