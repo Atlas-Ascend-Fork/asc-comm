@@ -6,6 +6,7 @@
 
 ### 新增
 
+- 新增asc-comm开发验证run包，支持按AICore模块将当前公开头文件和detail头文件备份替换到已有CANN环境并卸载恢复。
 - 新增项目文档入口、快速开始、构建与测试、三方依赖与兼容性说明。
 - 新增AICore Hcomm点对点通信接口API参考文档，覆盖`Hcomm`、`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。
 - 新增AIV直驱URMA Hcomm `hcomm_write_read_nbi`样例，覆盖`WriteNbi`和`ReadNbi`两卡点对点通信流程。
