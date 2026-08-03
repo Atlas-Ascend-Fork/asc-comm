@@ -1,6 +1,6 @@
 asc-comm development patch package
 
-  --install                       Install or update all packaged Hcomm headers
+  --full                          Install or update all packaged Hcomm headers
   --uninstall                     Restore first-install originals and remove new files
   --check                         Verify the archive and payload without modifying CANN
   --install-path=<CANN_ROOT>       Select the CANN root; default: ASCEND_HOME_PATH

@@ -117,7 +117,7 @@ bash build.sh -t
 
 ```bash
 bash build.sh --pkg
-./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --install
+./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --full
 ```
 
 制包脚本会递归收集当前Hcomm公开头文件和detail头文件，不固定文件名或数量。安装时会备份目标CANN中的原文件；对于安装前不存在的新增文件，卸载时会将其删除。详细的目录映射、参数和限制见[构建与测试](./docs/zh/guide/build_and_test.md)。

@@ -82,7 +82,10 @@ chmod 540 \
     "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm/common/hcomm_base.h"
 cp -a "${FAKE_CANN}/asc" "${BASELINE_DIR}/asc"
 
-"${RUN_FILE}" --install --install-path="${FAKE_CANN}"
+expect_failure "${RUN_FILE}" --install --install-path="${FAKE_CANN}"
+[[ ! -e "${FAKE_CANN}/var/asc-comm-dev-patch" ]]
+
+"${RUN_FILE}" --full --install-path="${FAKE_CANN}"
 
 while read -r _ path; do
     cmp "${EXTRACT_DIR}/payload/${path}" "${FAKE_CANN}/${path}"
@@ -96,13 +99,13 @@ printf 'external change\n' > "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
 expect_failure "${RUN_FILE}" --uninstall --install-path="${FAKE_CANN}"
 grep -q '^external change$' "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
 [[ -d "${FAKE_CANN}/var/asc-comm-dev-patch" ]]
-expect_failure "${RUN_FILE}" --install --install-path="${FAKE_CANN}"
+expect_failure "${RUN_FILE}" --full --install-path="${FAKE_CANN}"
 grep -q '^external change$' "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
 
-"${RUN_FILE}" --install --install-path="${FAKE_CANN}" --force
+"${RUN_FILE}" --full --install-path="${FAKE_CANN}" --force
 
 # Reinstalling must retain the original baseline rather than backing up patched files.
-"${RUN_FILE}" --install --install-path="${FAKE_CANN}"
+"${RUN_FILE}" --full --install-path="${FAKE_CANN}"
 "${RUN_FILE}" --uninstall --install-path="${FAKE_CANN}"
 
 cmp "${BASELINE_DIR}/asc/include/adv_api/hcomm/hcomm.h" \
@@ -128,7 +131,7 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 
 # A compatibility failure must not touch the CANN tree.
 printf 'Version=0.0.0\n' > "${FAKE_CANN}/share/info/asc-devkit/version.info"
-expect_failure "${RUN_FILE}" --install --install-path="${FAKE_CANN}"
+expect_failure "${RUN_FILE}" --full --install-path="${FAKE_CANN}"
 cmp "${BASELINE_DIR}/asc/include/adv_api/hcomm/hcomm.h" \
     "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
 [[ ! -e "${FAKE_CANN}/var/asc-comm-dev-patch" ]]

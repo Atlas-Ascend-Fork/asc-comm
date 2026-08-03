@@ -65,7 +65,7 @@ Ascend-asccomm_1.0.0_linux-<arch>.run
 
 | 参数 | 说明 |
 | --- | --- |
-| `--install` | 安装或更新包内全部Hcomm头文件。 |
+| `--full` | 以full模式安装或更新包内全部Hcomm头文件。 |
 | `--uninstall` | 恢复基线中的原文件，并删除安装前不存在的文件。 |
 | `--check` | 校验run包归档和payload，不修改CANN。 |
 | `--install-path=<PATH>` | 指定安装或卸载使用的绝对路径；默认使用`ASCEND_HOME_PATH`。 |
@@ -73,7 +73,7 @@ Ascend-asccomm_1.0.0_linux-<arch>.run
 | `--list` | 列出run包中的文件，由run包的makeself外层提供。 |
 | `-h`、`--help` | 显示帮助信息。 |
 
-`--install`、`--uninstall`和`--check`是互斥操作，一次只能指定一个。
+`--full`、`--uninstall`和`--check`是互斥操作，一次只能指定一个。
 
 ### 检查包内容
 
@@ -94,14 +94,14 @@ Ascend-asccomm_1.0.0_linux-<arch>.run
 安装到当前`ASCEND_HOME_PATH`：
 
 ```bash
-./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --install
+./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --full
 ```
 
 也可以通过绝对路径明确指定安装位置：
 
 ```bash
 ./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run \
-    --install --install-path=/path/to/cann
+    --full --install-path=/path/to/cann
 ```
 
 安装器依次尝试将`--install-path`本身、`<install-path>/cann`或`<install-path>/ascend-toolkit/latest`解析为CANN根目录。解析后的目录必须包含`asc/include/adv_api/`、`asc/impl/adv_api/detail/`和`share/info/asc-devkit/version.info`，且当前用户必须是该CANN根目录的属主。

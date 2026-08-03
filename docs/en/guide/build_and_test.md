@@ -59,7 +59,7 @@ Common options are listed below:
 
 | Option | Description |
 | --- | --- |
-| `--install` | Install or update all Hcomm headers in the package. |
+| `--full` | Install or update all Hcomm headers in the package in full mode. |
 | `--uninstall` | Restore original files from the baseline and remove files that were previously absent. |
 | `--check` | Verify the run archive and payload without modifying CANN. |
 | `--install-path=<PATH>` | Select an absolute path for installation or uninstallation; defaults to `ASCEND_HOME_PATH`. |
@@ -67,7 +67,7 @@ Common options are listed below:
 | `--list` | List files in the run package; provided by the makeself wrapper. |
 | `-h`, `--help` | Display help information. |
 
-`--install`, `--uninstall`, and `--check` are mutually exclusive operations; specify exactly one at a time.
+`--full`, `--uninstall`, and `--check` are mutually exclusive operations; specify exactly one at a time.
 
 ### Inspect the Package
 
@@ -88,14 +88,14 @@ List the files embedded in the run package:
 Install into the current `ASCEND_HOME_PATH`:
 
 ```bash
-./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --install
+./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --full
 ```
 
 Alternatively, select an installation location with an absolute path:
 
 ```bash
 ./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run \
-    --install --install-path=/path/to/cann
+    --full --install-path=/path/to/cann
 ```
 
 The installer tries the `--install-path` value itself, `<install-path>/cann`, and `<install-path>/ascend-toolkit/latest` as the CANN root. The resolved directory must contain `asc/include/adv_api/`, `asc/impl/adv_api/detail/`, and `share/info/asc-devkit/version.info`. The current user must own the resolved CANN root.
