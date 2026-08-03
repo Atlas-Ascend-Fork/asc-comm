@@ -15,7 +15,7 @@
 #include <vector>
 #include <memory>
 
-#include "hcomm/resource/common/ccu_res_repo.h"
+#include "hcomm_ccu_res.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/common/ccu_kernel_resource.h"
 
@@ -32,7 +32,7 @@ constexpr uint16_t FUNC_CALL_LAYER_INVALID = 0xFFFF;
 class CcuRepReferenceManager {
 public:
     explicit CcuRepReferenceManager(uint8_t deiId);
-    static CcuResReq GetResReq(uint8_t reqDieId);
+    static HcommCcuResRequestPod GetResReq(uint8_t reqDieId);
     void GetRes(CcuRepResource& res);
     std::shared_ptr<CcuRepBlock> GetRefBlock(const std::string& label);
     void SetRefBlock(const std::string& label, std::shared_ptr<CcuRepBlock> refBlock);
