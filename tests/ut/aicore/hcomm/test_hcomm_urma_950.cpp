@@ -10,6 +10,7 @@
 
 #include <array>
 #include <gtest/gtest.h>
+#include <mockcpp/mockcpp.hpp>
 #include <vector>
 #define private public
 #include "kernel_operator.h"
@@ -23,6 +24,40 @@ constexpr uint32_t URMA_SQ_DEPTH = 10;
 constexpr uint32_t URMA_WQE_SIZE = 64;
 constexpr uint32_t URMA_CQE_SIZE = 64;
 constexpr uint32_t URMA_BUFFER_NUM = 2;
+
+static_assert(offsetof(AscendC::ChannelEntity, sqHead) == 96);
+static_assert(offsetof(AscendC::ChannelEntity, lock) == 192);
+static_assert(
+    offsetof(AscendC::ChannelEntity, lock) -
+        (offsetof(AscendC::ChannelEntity, cqTail) + sizeof(uint32_t)) >=
+    AscendC::CACHE_LINE_SIZE);
+static_assert(sizeof(AscendC::ChannelEntity) == 256);
+
+uint32_t AtomicCasSuccessStub(__gm__ uint32_t* address, uint32_t compare, uint32_t value)
+{
+    uint32_t oldValue = *address;
+    if (oldValue == compare) {
+        *address = value;
+    }
+    return oldValue;
+}
+
+uint32_t atomicCasCallCount = 0;
+
+uint32_t AtomicCasContendedOnceStub(__gm__ uint32_t* address, uint32_t compare, uint32_t value)
+{
+    if (atomicCasCallCount++ == 0U) {
+        return HCOMM_LOCK_HELD;
+    }
+    return AtomicCasSuccessStub(address, compare, value);
+}
+
+uint32_t AtomicExchStub(__gm__ uint32_t* address, uint32_t value)
+{
+    uint32_t oldValue = *address;
+    *address = value;
+    return oldValue;
+}
 
 class UrmaChannelResource {
 public:
@@ -67,6 +102,8 @@ public:
     AscendC::ChannelHandle GetHandle() { return reinterpret_cast<AscendC::ChannelHandle>(&channel_); }
 
     uint32_t GetSqHead() const { return channel_.sqHead; }
+
+    uint32_t GetLock() const { return channel_.lock; }
 
     void CompleteCurrentSq() { channel_.cqTail = channel_.cqHead; }
 
@@ -122,6 +159,65 @@ private:
     AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf_;
     int64_t blockIdxBak_;
 };
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockUnlock)
+{
+    UrmaChannelResource channel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+    MOCKER_CPP(atomicCAS, uint32_t(__gm__ uint32_t*, uint32_t, uint32_t))
+        .times(1)
+        .will(invoke(AtomicCasSuccessStub));
+    EXPECT_EQ(hcomm.Lock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_HELD);
+
+    MOCKER_CPP(atomicExch, uint32_t(__gm__ uint32_t*, uint32_t)).times(1).will(invoke(AtomicExchStub));
+    EXPECT_EQ(hcomm.Unlock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+    GlobalMockObject::verify();
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockContendedOnce)
+{
+    UrmaChannelResource channel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+    atomicCasCallCount = 0U;
+
+    MOCKER_CPP(atomicCAS, uint32_t(__gm__ uint32_t*, uint32_t, uint32_t))
+        .times(2)
+        .will(invoke(AtomicCasContendedOnceStub));
+    EXPECT_EQ(hcomm.Lock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(atomicCasCallCount, 2U);
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_HELD);
+
+    MOCKER_CPP(atomicExch, uint32_t(__gm__ uint32_t*, uint32_t)).times(1).will(invoke(AtomicExchStub));
+    EXPECT_EQ(hcomm.Unlock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    GlobalMockObject::verify();
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_UnlockWithoutLock)
+{
+    UrmaChannelResource channel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+
+    MOCKER_CPP(atomicExch, uint32_t(__gm__ uint32_t*, uint32_t)).times(1).will(invoke(AtomicExchStub));
+    EXPECT_EQ(hcomm.Unlock(channel.GetHandle()), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+    GlobalMockObject::verify();
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockUnlockInvalidChannel)
+{
+    UrmaChannelResource channel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+    ChannelHandle misalignedChannel = channel.GetHandle() + 1U;
+
+    EXPECT_EQ(hcomm.Lock(0U), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(hcomm.Unlock(0U), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(hcomm.Lock(misalignedChannel), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(hcomm.Unlock(misalignedChannel), AscendC::HCOMM_FAILED);
+}
 
 // ReadNbi with default commit=true: auto-commit internally, then Drain succeeds
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_Read)
