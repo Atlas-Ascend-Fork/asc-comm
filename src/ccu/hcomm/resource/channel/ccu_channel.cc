@@ -21,6 +21,7 @@ CcuChannel::CcuChannel(ChannelHandle channel)
 
 CcuChannel *CcuChannel::operator->()
 {
+    // 保留迁移前 channel->GetXxx() 的调用形式；当前对象本身已是 asc 本地值对象，不再包装 hcomm 指针。
     return this;
 }
 
@@ -32,12 +33,12 @@ const CcuChannel *CcuChannel::operator->() const
 HcclResult CcuChannel::Init(ChannelHandle channel)
 {
     ChannelEntity queryEntity{};
-    HcommResult ret = HcommCcuChannelEntityInit(&queryEntity);
-    if (ret != HCCL_SUCCESS) {
-        return static_cast<HcclResult>(ret);
-    }
+    queryEntity.abiHeader.version = HCOMM_CHANNEL_VERSION;
+    queryEntity.abiHeader.magicWord = HCOMM_CHANNEL_MAGIC_WORD;
+    queryEntity.abiHeader.size = sizeof(ChannelEntity);
 
-    ret = HcommCcuChannelGetPod(channel, &queryEntity);
+    // 第一阶段不传数组地址，只查询 CKE、XN 和远端 Buffer 所需的元素数量。
+    HcommResult ret = HcommCcuChannelGetPod(channel, &queryEntity);
     if (ret != HCCL_SUCCESS) {
         return static_cast<HcclResult>(ret);
     }
@@ -48,6 +49,7 @@ HcclResult CcuChannel::Init(ChannelHandle channel)
         return HCCL_E_INTERNAL;
     }
 
+    // 资源数在同一个 Channel 快照中必须一一对应；先校验数量，再按精确容量分配本地容器。
     try {
         localCkes_.resize(queryEntity.localNotifyNum);
         remoteCkes_.resize(queryEntity.remoteNotifyNum);
@@ -58,6 +60,7 @@ HcclResult CcuChannel::Init(ChannelHandle channel)
         return HCCL_E_MEMORY;
     }
 
+    // 第二阶段把本地容器作为输出缓冲区交给 hcomm。hcomm 只在调用期间借用这些地址。
     queryEntity.localNotifyNum = static_cast<uint32_t>(localCkes_.size());
     queryEntity.remoteNotifyNum = static_cast<uint32_t>(remoteCkes_.size());
     queryEntity.remoteBufferNum = static_cast<uint32_t>(remoteBuffers_.size());
@@ -93,6 +96,7 @@ HcclResult CcuChannel::Init(ChannelHandle channel)
         return HCCL_E_INTERNAL;
     }
 
+    // 变长数据已经由 vector 持有，标量快照中的借用指针必须清空，避免后续误认为其拥有内存。
     channelEntity_ = queryEntity;
     channelEntity_.localNotifyAddr = nullptr;
     channelEntity_.remoteNotifyAddr = nullptr;
