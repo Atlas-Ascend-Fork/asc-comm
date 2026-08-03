@@ -28,6 +28,8 @@ class Hcomm;
 | 接口 | `COMM_PROTOCOL_ROCE` | `COMM_PROTOCOL_UBC_CTP` |
 | --- | --- | --- |
 | `Init` | 支持，用于普通接口的UB临时工作区。 | 支持，用于普通接口的URMA临时工作区。 |
+| `Lock` | 不支持。 | 支持，仅限Ascend 950平台的AIV。 |
+| `Unlock` | 不支持。 | 支持，仅限Ascend 950平台的AIV。 |
 | 普通`ReadNbi` | 支持。 | 支持。 |
 | 普通`WriteNbi` | 支持。 | 支持。 |
 | 普通`WriteWithNotifyNbi` | 不支持，调用会返回失败。 | 支持。 |
@@ -50,6 +52,8 @@ class Hcomm;
 | [Init](./Init.md) | 初始化普通Hcomm接口使用的临时工作区。 |
 | [MakeBatchHandle](./MakeBatchHandle.md) | 创建批量句柄并绑定批量WQE的UB缓冲区。 |
 | [GetHandleRef](./GetHandleRef.md) | 从共享Jetty多通道批量句柄中选择逻辑通道。 |
+| [Lock](./Lock.md) | 获取通信通道的跨AI Core锁。 |
+| [Unlock](./Unlock.md) | 释放通信通道的跨AI Core锁。 |
 | [ReadNbi](./ReadNbi.md) | 通过普通通道提交读任务，或在BatchHandle中准备读WQE。 |
 | [WriteNbi](./WriteNbi.md) | 通过普通通道提交写任务，或在BatchHandle中准备写WQE。 |
 | [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | 通过普通通道提交写通知任务，或在BatchHandle中准备写通知WQE。 |

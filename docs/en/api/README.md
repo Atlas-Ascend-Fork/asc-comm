@@ -13,6 +13,8 @@
 | [Init](./aicore/hcomm/Init.md) | Initialize the temporary workspace used by ordinary Hcomm interfaces. |
 | [MakeBatchHandle](./aicore/hcomm/MakeBatchHandle.md) | Create a batch handle and bind its UB buffer for batched WQEs. |
 | [GetHandleRef](./aicore/hcomm/GetHandleRef.md) | Select a logical channel from a shared-Jetty multi-channel batch handle. |
+| [Lock](./aicore/hcomm/Lock.md) | Acquire the cross-AI-Core lock of a communication channel. |
+| [Unlock](./aicore/hcomm/Unlock.md) | Release the cross-AI-Core lock of a communication channel. |
 | [ReadNbi](./aicore/hcomm/ReadNbi.md) | Submit an ordinary read task or prepare a read WQE in a BatchHandle. |
 | [WriteNbi](./aicore/hcomm/WriteNbi.md) | Submit an ordinary write task or prepare a write WQE in a BatchHandle. |
 | [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or prepare one in a BatchHandle. |
