@@ -146,14 +146,14 @@ bash build.sh
 bash build.sh -t
 ```
 
-将仓库中当前全部Hcomm头文件制作为开发验证run包，并安装到已有CANN环境：
+将仓库中当前Hcomm公开头文件和实现头文件制作为开发验证run包，并安装到已有CANN环境：
 
 ```bash
 bash build.sh --pkg
-./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --install
+./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --full
 ```
 
-制包脚本会递归收集当前Hcomm公开头文件和detail头文件，不固定文件名或数量。安装时会备份目标CANN中的原文件；对于安装前不存在的新增文件，卸载时会将其删除。详细的目录映射、参数和限制见[构建与测试](./docs/zh/guide/build_and_test.md)。
+制包脚本会递归收集`include/aicore/hcomm/`中的公开头文件和`src/aicore/hcomm/`中的实现头文件，目录映射与asc-devkit当前的Hcomm出包逻辑一致，不包含Ain。安装时会备份目标CANN中的原文件；对于安装前不存在的新增文件，卸载时会将其删除。详细的目录映射、参数和限制见[构建与测试](./docs/zh/guide/build_and_test.md)。
 
 如需直接使用CMake构建UT，可指定CANN三方依赖目录：
 
