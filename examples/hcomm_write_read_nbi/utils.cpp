@@ -18,7 +18,7 @@
 #include <string.h>
 
 // 解析tcp://<ip>:<port>格式的endpoint，提取ip和port
-bool ParseEndpoint(const std::string &endpoint, std::string &ip, uint16_t &port)
+bool ParseEndpoint(const std::string& endpoint, std::string& ip, uint16_t& port)
 {
     const std::string prefix = "tcp://";
     if (endpoint.find(prefix) != 0) {
@@ -72,7 +72,7 @@ int SetSockTimeout(int fd, int sec, int usec)
 }
 
 // rank 0作为server监听，rank 1作为client连接，建立TCP通道
-int32_t ConnectPeer(uint32_t rank, const std::string &ip, uint16_t port, int32_t &sock)
+int32_t ConnectPeer(uint32_t rank, const std::string& ip, uint16_t port, int32_t& sock)
 {
     if (rank == 0) {
         int32_t listenSock = socket(AF_INET, SOCK_STREAM, 0);
@@ -129,7 +129,7 @@ int32_t ConnectPeer(uint32_t rank, const std::string &ip, uint16_t port, int32_t
 }
 
 // 通过socket收发完整数据
-int32_t SendAll(int32_t sock, const void *buf, size_t len)
+int32_t SendAll(int32_t sock, const void* buf, size_t len)
 {
     size_t sent = 0;
     while (sent < len) {
@@ -142,7 +142,7 @@ int32_t SendAll(int32_t sock, const void *buf, size_t len)
     return 0;
 }
 
-int32_t RecvAll(int32_t sock, void *buf, size_t len)
+int32_t RecvAll(int32_t sock, void* buf, size_t len)
 {
     size_t received = 0;
     while (received < len) {

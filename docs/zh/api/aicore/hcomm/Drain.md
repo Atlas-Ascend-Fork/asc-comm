@@ -28,4 +28,4 @@ __aicore__ inline int32_t Drain(AscendC::ChannelHandle channel);
 | 返回值 | 说明 |
 | --- | --- |
 | `0` | 等待成功。 |
-| `-1` | 等待失败。 |
+| 非`0` | 等待失败。`COMM_PROTOCOL_UBC_CTP`路径直接返回底层CQ轮询错误码：`0xFF`表示轮询超时，其他正值由CQE的status和substatus组合而成；其他协议可能返回`-1`。 |

@@ -365,8 +365,8 @@ CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo
 
     if (srcVa == 0 || size == 0) {
         HCCL_ERROR(
-            "[%s] failed, srcVa[0x%llx] size[%llu] should not be 0.", __func__,
-            static_cast<unsigned long long>(srcVa), static_cast<unsigned long long>(size));
+            "[%s] failed, srcVa[0x%llx] size[%llu] should not be 0.", __func__, static_cast<unsigned long long>(srcVa),
+            static_cast<unsigned long long>(size));
         return CcuResult::CCU_E_PARA;
     }
     // 注意token信息属于安全信息，均不允许打印

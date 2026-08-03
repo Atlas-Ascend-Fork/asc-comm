@@ -14,7 +14,7 @@
 #include "hcomm/common/ccu_log.h"
 #include "hcom_common.h"
 
-CcuResult HcommCcuInsCreateLegacy(const CcuInstanceType insType, CcuInsHandle *ccuInsHandle)
+CcuResult HcommCcuInsCreateLegacy(const CcuInstanceType insType, CcuInsHandle* ccuInsHandle)
 {
     CCU_CHK_PTR_NULL(ccuInsHandle);
 
@@ -28,17 +28,11 @@ CcuResult HcommCcuInsCreate(const HcommCcuResDescHandle*, uint32_t, CcuInsHandle
     return CcuResult::CCU_E_NOT_SUPPORT;
 }
 
-CcuResult HcommCcuInsCreateDefault(const uint32_t*, uint32_t, CcuInsHandle*)
-{
-    return CcuResult::CCU_E_NOT_SUPPORT;
-}
+CcuResult HcommCcuInsCreateDefault(const uint32_t*, uint32_t, CcuInsHandle*) { return CcuResult::CCU_E_NOT_SUPPORT; }
 
 CcuResult HcommCcuInsDestroy(CcuInsHandle) { return CcuResult::CCU_E_NOT_SUPPORT; }
 
-CcuResult HcommCcuInsQueryResDesc(CcuInsHandle, HcommCcuResDescHandle)
-{
-    return CcuResult::CCU_E_NOT_SUPPORT;
-}
+CcuResult HcommCcuInsQueryResDesc(CcuInsHandle, HcommCcuResDescHandle) { return CcuResult::CCU_E_NOT_SUPPORT; }
 
 CcuResult HcommCcuInsResDescCreate(uint32_t, HcommCcuResDescHandle*) { return CcuResult::CCU_E_NOT_SUPPORT; }
 
