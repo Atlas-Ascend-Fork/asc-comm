@@ -11,6 +11,7 @@
 #include "hcomm/resource/instance/ccu_res_pack.h"
 
 #include "hcomm/common/ccu_log.h"
+#include "hcomm/resource/common/ccu_res_pod_adpt.h"
 
 namespace hcomm {
 
@@ -20,9 +21,11 @@ CcuResPack::~CcuResPack()
         return;
     }
 
-    auto ret = CcuReleaseResHandle(devLogicId_, resHandle_);
-    if (ret != HcclResult::HCCL_SUCCESS) {
-        HCCL_ERROR("[CcuResPack][%s] failed, resHandle[%p] devLogicId[%d].", __func__, resHandle_, devLogicId_);
+    auto ret = CcuResPodAdapter::Release(resHandle_);
+    if (ret != CcuResult::CCU_SUCCESS) {
+        HCCL_ERROR(
+            "[CcuResPack][%s] failed, resHandle[0x%llx] devLogicId[%d].", __func__,
+            static_cast<unsigned long long>(resHandle_), devLogicId_);
     }
     resHandle_ = 0;
 }
@@ -37,7 +40,7 @@ CcuResult CcuResPack::Init()
 
     // 根据通信域算子展开模式申请资源
     // 如果资源不足，返回HCCL_E_UNAVAIL，表示需要回退
-    auto ret = CcuAllocResHandleByInsType(devLogicId_, insType_, resHandle_);
+    auto ret = CcuResPodAdapter::AllocByInstanceType(devLogicId_, static_cast<uint32_t>(insType_), resHandle_);
     if (ret == CcuResult::CCU_E_UNAVAIL) {
         HCCL_RUN_WARNING(
             "[%s] failed but passed, resource is not enough, "
@@ -56,10 +59,10 @@ CcuResult CcuResPack::Reset()
         return CcuResult::CCU_SUCCESS;
     }
 
-    CCU_CHK_RET(CcuCheckResource(devLogicId_, resHandle_, resRepo_));
+    CCU_CHK_RET(CcuResPodAdapter::GetRepository(resHandle_, resRepo_));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResRepository& CcuResPack::GetCcuResRepo() { return resRepo_; }
+AscCcuResRepository& CcuResPack::GetCcuResRepo() { return resRepo_; }
 
 } // namespace hcomm

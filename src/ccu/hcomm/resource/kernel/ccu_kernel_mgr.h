@@ -34,8 +34,8 @@ public:
     HcclResult Deinit();
 
     CcuResult Register(
-        CcuResPack& resPack, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
-        const uint32_t argNum, CcuKernelHandle& kernelHandle);
+        CcuResPack& resPack, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc,
+        const void** kernelArgs, const uint32_t argNum, CcuKernelHandle& kernelHandle);
 
     CcuResult Translate(const std::vector<CcuKernelHandle>& kernelHandles);
 
@@ -54,7 +54,7 @@ private:
 
 private:
     struct CcuTranslatResPack {
-        std::vector<CcuResHandle> handles{};
+        std::vector<HcommCcuResHandle> handles{};
     };
 
 private:
@@ -65,7 +65,7 @@ private:
     HcclResult TransRepSequenceToMicrocode(const std::vector<CcuKernel*>& kernels, bool isFuncBlock);
     HcclResult LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, const uint32_t dieId);
 
-    HcclResult GetResPackTotalResRepository(const CcuTranslatResPack& resPack, CcuResRepository& totalRes) const;
+    HcclResult GetResPackTotalResRepository(const CcuTranslatResPack& resPack, AscCcuResRepository& totalRes) const;
 
 private:
     bool initializedFlag_{false};

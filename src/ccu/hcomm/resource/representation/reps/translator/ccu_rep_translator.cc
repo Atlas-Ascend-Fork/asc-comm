@@ -147,16 +147,17 @@ uint32_t CcuRepTranslator::GetInstrNum()
                13; // 13:翻译器翻译过程中额外需要的指令空间大小(插入3条通用操作指令+1条终止指令+9条repJump)
 }
 
-CcuResReq CcuRepTranslator::GetResReq(uint8_t dieId)
+HcommCcuResRequestPod CcuRepTranslator::GetResReq(uint8_t dieId)
 {
     // 申请离散 xn 资源
     // 需要申请若干xn、gsa、cke设置为固定值用于通用操作
-    CcuResReq resReq;
+    HcommCcuResRequestPod resReq{};
+    resReq.missionReqType = HCOMM_CCU_MISSION_REQ_FUSION_MULTIPLE_DIE;
     int varNum = XN_NUM;
     int gsaNum = ccuVersion == CcuVersion::CCU_V1 ? GSA_NUM : 0;
-    resReq.xnReq[dieId] = varNum;
-    resReq.gsaReq[dieId] = gsaNum;
-    resReq.ckeReq[dieId] = CKE_NUM;
+    resReq.count[HCOMM_CCU_BATCH_RES_XN][dieId] = varNum;
+    resReq.count[HCOMM_CCU_BATCH_RES_GSA][dieId] = gsaNum;
+    resReq.count[HCOMM_CCU_BATCH_RES_CKE][dieId] = CKE_NUM;
     return resReq;
 }
 
@@ -171,7 +172,7 @@ void CcuRepTranslator::GetRes(CcuRepResource& res)
         res.address[transDep.dieId].push_back(addr[i]);
     }
     for (int i = 0; i < CKE_NUM; i++) {
-        res.localNotify[transDep.dieId].push_back(signal[i]);
+        res.completedEvent[transDep.dieId].push_back(signal[i]);
     }
 }
 
