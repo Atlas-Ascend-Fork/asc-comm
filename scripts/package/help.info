@@ -1,14 +1,14 @@
 asc-comm development patch package
 
-  --install                       Install or update all packaged Hcomm headers
+  --full                          Install or update all packaged Hcomm headers
   --uninstall                     Restore first-install originals and remove new files
   --check                         Verify the archive and payload without modifying CANN
   --install-path=<CANN_ROOT>       Select the CANN root; default: ASCEND_HOME_PATH
   --force                         Override version or installed-file consistency checks
 
 Public headers are installed under asc/include/adv_api/hcomm/. Detail headers
-are installed under both asc/include/adv_api/hcomm/detail/ and
-asc/impl/adv_api/detail/hcomm/, matching the asc-devkit integration layout.
+are installed under asc/impl/adv_api/detail/hcomm/, matching the asc-devkit
+integration layout.
 Existing files are backed up under var/asc-comm-dev-patch/baseline/. This
 package is intended only for local development verification. Recompile the
 target Ascend C kernel after installation. Only paths present in the package

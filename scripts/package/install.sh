@@ -30,10 +30,10 @@ COMMITTED=false
 usage()
 {
     cat <<EOF
-Usage: $0 --install|--uninstall|--check [OPTION]...
+Usage: $0 --full|--uninstall|--check [OPTION]...
 
 Options:
-  --install               Install or update the asc-comm development patch
+  --full                  Install or update the asc-comm development patch
   --uninstall             Restore the files saved before the first installation
   --check                 Verify the package payload without modifying CANN
   --install-path=<PATH>   CANN root; defaults to ASCEND_HOME_PATH
@@ -64,7 +64,7 @@ parse_args()
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --install|--uninstall|--check)
+            --full|--uninstall|--check)
                 [[ -z "${ACTION}" ]] || fail "specify exactly one operation"
                 ACTION=$1
                 ;;
@@ -87,7 +87,7 @@ parse_args()
         shift
     done
 
-    [[ -n "${ACTION}" ]] || fail "specify --install or --uninstall"
+    [[ -n "${ACTION}" ]] || fail "specify --full, --uninstall, or --check"
     [[ "${ACTION}" == "--check" ]] && return 0
     [[ -n "${INSTALL_PATH}" ]] || fail "CANN path is not set; source set_env.sh or use --install-path"
     [[ "${INSTALL_PATH}" = /* ]] || fail "CANN path must be absolute: ${INSTALL_PATH}"
@@ -517,7 +517,7 @@ main()
     resolve_cann_root
     check_owner
 
-    if [[ "${ACTION}" == "--install" ]]; then
+    if [[ "${ACTION}" == "--full" ]]; then
         install_patch
     else
         uninstall_patch
