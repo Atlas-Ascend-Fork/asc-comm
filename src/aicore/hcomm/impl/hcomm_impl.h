@@ -172,6 +172,19 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(T& batchHandle)
     return impl_.template Drain<pipe>(batchHandle);
 }
 
+template <CommProtocol commProtocol>
+__aicore__ inline int32_t Hcomm<commProtocol>::Lock(ChannelHandle channel)
+{
+    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "Lock only supports COMM_PROTOCOL_UBC_CTP");
+    return impl_.Lock(channel);
+}
+
+template <CommProtocol commProtocol>
+__aicore__ inline int32_t Hcomm<commProtocol>::Unlock(ChannelHandle channel)
+{
+    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "Unlock only supports COMM_PROTOCOL_UBC_CTP");
+    return impl_.Unlock(channel);
+}
 } // namespace AscendC
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H
