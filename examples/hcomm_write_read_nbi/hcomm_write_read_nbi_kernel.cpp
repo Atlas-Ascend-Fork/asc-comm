@@ -35,7 +35,7 @@ public:
     {
         context_->testResult = TEST_SUCCESS;
         if (!initOk_) {
-            Fail(TEST_HCOMM_INIT_FAILED);
+            context_->testResult = TEST_HCOMM_INIT_FAILED;
             return;
         }
 
@@ -54,7 +54,7 @@ public:
         }
 
         if (hcomm_.Drain(channel_) != AscendC::HCOMM_SUCCESS) {
-            Fail(TEST_DRAIN_FAILED);
+            context_->testResult = TEST_DRAIN_FAILED;
         }
     }
 
@@ -64,7 +64,7 @@ private:
         GM_ADDR writeSrc = localBuffer_ + SEND_DATA_OFFSET;
         GM_ADDR writeDst = remoteBuffer_ + WRITE_RESULT_OFFSET;
         if (hcomm_.WriteNbi(channel_, writeDst, writeSrc, DATA_SIZE) != AscendC::HCOMM_SUCCESS) {
-            Fail(TEST_WRITE_FAILED);
+            context_->testResult = TEST_WRITE_FAILED;
         }
     }
 
@@ -73,11 +73,9 @@ private:
         GM_ADDR readDst = localBuffer_ + READ_RESULT_OFFSET;
         GM_ADDR readSrc = remoteBuffer_ + SEND_DATA_OFFSET;
         if (hcomm_.ReadNbi(channel_, readDst, readSrc, DATA_SIZE) != AscendC::HCOMM_SUCCESS) {
-            Fail(TEST_READ_FAILED);
+            context_->testResult = TEST_READ_FAILED;
         }
     }
-
-    __aicore__ inline void Fail(uint32_t code) { context_->testResult = code; }
 
     AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf_;
     AscendC::LocalTensor<uint8_t> hcommTensor_;

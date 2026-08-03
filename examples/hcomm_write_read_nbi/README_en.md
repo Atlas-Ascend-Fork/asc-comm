@@ -154,7 +154,7 @@ This sample starts ranks through automatic multi-process fork. The command forma
 | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` (default) | NPU Architecture: `dav-3510` corresponds to Ascend 950PR / Ascend 950DT |
 
 ### 5. Expected Output
-For a successful two-rank run, the terminal will output the following, indicating that AIV Direct-Drive URMA communication completed successfully and the write/read results are consistent:
+For a successful multiple-rank run, the terminal will output the following, indicating that AIV Direct-Drive URMA communication completed successfully and the write/read results are consistent:
 ```text
 rank 0 test pass!
 rank 1 test pass!
