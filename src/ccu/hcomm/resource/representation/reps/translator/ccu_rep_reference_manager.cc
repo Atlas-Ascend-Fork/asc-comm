@@ -26,17 +26,17 @@ CcuRepReferenceManager::CcuRepReferenceManager(uint8_t deiId) : dieId(deiId)
 
 CcuResReq CcuRepReferenceManager::GetResReq(uint8_t reqDieId)
 {
-    // xn 资源统一从 continuousXn 池子申请，离散 xn 帐户已废弃
+    // 申请离散 xn 资源
     CcuResReq resReq;
-    resReq.continuousXnReq[reqDieId] = FUNC_ARG_MAX + FUNC_ARG_MAX + 1 + FUNC_NEST_MAX + 1;
+    resReq.xnReq[reqDieId] = FUNC_ARG_MAX + FUNC_ARG_MAX + 1 + FUNC_NEST_MAX + 1;
     return resReq;
 }
 
 void CcuRepReferenceManager::GetRes(CcuRepResource& res)
 {
-    res.continuousVariable[dieId].insert(res.continuousVariable[dieId].end(), funcInVar.begin(), funcInVar.end());
-    res.continuousVariable[dieId].insert(res.continuousVariable[dieId].end(), funcOutVar.begin(), funcOutVar.end());
-    res.continuousVariable[dieId].insert(res.continuousVariable[dieId].end(), funcCallVar.begin(), funcCallVar.end());
+    res.variable[dieId].insert(res.variable[dieId].end(), funcInVar.begin(), funcInVar.end());
+    res.variable[dieId].insert(res.variable[dieId].end(), funcOutVar.begin(), funcOutVar.end());
+    res.variable[dieId].insert(res.variable[dieId].end(), funcCallVar.begin(), funcCallVar.end());
 }
 
 bool CcuRepReferenceManager::CheckValid(const std::string& label)
