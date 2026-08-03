@@ -127,6 +127,8 @@ public:
     __aicore__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(UbcCtpMultiBatchHandle& batchHandle);
+    __aicore__ inline int32_t Lock(ChannelHandle channel);
+    __aicore__ inline int32_t Unlock(ChannelHandle channel);
 
 private:
     template <
