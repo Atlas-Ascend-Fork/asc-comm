@@ -127,6 +127,25 @@ copy_headers()
     [[ ${count} -gt 0 ]] || fail "no header files found under ${source_root}"
 }
 
+copy_detail_headers()
+{
+    local source_root=$1
+    local destination_root=$2
+    local detail_root
+    local module
+    local count=0
+
+    while IFS= read -r -d '' detail_root; do
+        module=${detail_root#"${source_root}/"}
+        module=${module%/detail}
+        [[ -n "${module}" && "${module}" != */* ]] || fail "invalid AICore module path: ${detail_root}"
+        copy_headers "${detail_root}" "${destination_root}/${module}"
+        count=$((count + 1))
+    done < <(find "${source_root}" -mindepth 2 -maxdepth 2 -type d -name detail -print0 | sort -z)
+
+    [[ ${count} -gt 0 ]] || fail "no AICore detail header directories found under ${source_root}"
+}
+
 write_manifest()
 {
     local file
@@ -148,7 +167,7 @@ write_version_info()
     if git -C "${PROJECT_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         commit=$(git -C "${PROJECT_ROOT}" rev-parse HEAD)
         if [[ -z "$(git -C "${PROJECT_ROOT}" status --porcelain --untracked-files=all -- \
-            include/aicore/hcomm src/aicore/hcomm/detail)" ]]; then
+            include/aicore src/aicore)" ]]; then
             dirty="false"
         fi
     fi
@@ -185,16 +204,13 @@ build_package()
     rm -rf -- "${STAGING_DIR}"
     mkdir -p "${STAGING_DIR}/payload"
 
-    # Keep these mappings aligned with the asc-comm integration in asc-devkit PR 3186.
+    # Preserve each AICore module name while converting source layout to CANN installation layout.
     copy_headers \
-        "${PROJECT_ROOT}/include/aicore/hcomm" \
-        "${STAGING_DIR}/payload/asc/include/adv_api/hcomm"
-    copy_headers \
-        "${PROJECT_ROOT}/src/aicore/hcomm/detail" \
-        "${STAGING_DIR}/payload/asc/include/adv_api/hcomm/detail"
-    copy_headers \
-        "${PROJECT_ROOT}/src/aicore/hcomm/detail" \
-        "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm"
+        "${PROJECT_ROOT}/include/aicore" \
+        "${STAGING_DIR}/payload/asc/include/adv_api"
+    copy_detail_headers \
+        "${PROJECT_ROOT}/src/aicore" \
+        "${STAGING_DIR}/payload/asc/impl/adv_api/detail"
 
     write_manifest
     write_version_info "${arch}" "${required_version}"
