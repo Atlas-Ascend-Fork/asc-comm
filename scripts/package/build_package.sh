@@ -18,6 +18,14 @@ CANN_PATH=${ASCEND_HOME_PATH:-}
 OUTPUT_DIR="${PROJECT_ROOT}/build_out"
 PACKAGE_VERSION=${ASCCOMM_PACKAGE_VERSION:-1.0.0}
 STAGING_DIR="${PROJECT_ROOT}/build/package/asc-comm"
+PACKAGE_INPUT_PATHS=(
+    build.sh
+    include/aicore/ain
+    include/aicore/hcomm
+    src/aicore/ain
+    src/aicore/hcomm
+    scripts/package
+)
 
 usage()
 {
@@ -100,27 +108,58 @@ find_makeself_dir()
     fail "makeself was not found under CANN path: ${CANN_PATH}"
 }
 
-read_asc_devkit_version()
+find_version_checker_dir()
 {
-    local version_file="${CANN_PATH}/share/info/asc-devkit/version.info"
+    local package
+    local candidate_dir
+
+    for package in asc-devkit hcomm runtime; do
+        candidate_dir="${CANN_PATH}/share/info/${package}/script"
+        if [[ -f "${candidate_dir}/version_compatiable.inc" && \
+            -f "${candidate_dir}/check_version_required.awk" ]]; then
+            echo "${candidate_dir}"
+            return 0
+        fi
+    done
+    fail "CANN package version compatibility scripts were not found under: ${CANN_PATH}/share/info"
+}
+
+read_package_version()
+{
+    local package=$1
+    local version_file="${CANN_PATH}/share/info/${package}/version.info"
     local version
-    [[ -f "${version_file}" ]] || fail "asc-devkit version file not found: ${version_file}"
+    [[ -f "${version_file}" ]] || fail "${package} version file not found: ${version_file}"
     version=$(awk -F= '$1 == "Version" {print $2; exit}' "${version_file}")
-    [[ -n "${version}" ]] || fail "failed to read asc-devkit version from ${version_file}"
+    [[ -n "${version}" ]] || fail "failed to read ${package} version from ${version_file}"
     echo "${version}"
+}
+
+read_package_compat_version()
+{
+    local package=$1
+    local version
+    local compat_version
+
+    version=$(read_package_version "${package}")
+    compat_version=$(echo "${version%%-*}" | cut -d. -f1-2)
+    [[ "${compat_version}" == *.* ]] || \
+        fail "failed to derive ${package} compatibility version from ${version}"
+    echo "${compat_version}"
 }
 
 copy_headers()
 {
     local source_root=$1
     local destination_root=$2
+    local mode=$3
     local source_file
     local relative_path
     local count=0
 
     while IFS= read -r -d '' source_file; do
         relative_path=${source_file#"${source_root}/"}
-        install -D -m 550 "${source_file}" "${destination_root}/${relative_path}"
+        install -D -m "${mode}" "${source_file}" "${destination_root}/${relative_path}"
         count=$((count + 1))
     done < <(find "${source_root}" -type f -name '*.h' -print0 | sort -z)
 
@@ -138,28 +177,42 @@ write_manifest()
     ) > "${STAGING_DIR}/manifest.sha256"
 }
 
+write_link_manifest()
+{
+    cat > "${STAGING_DIR}/links.tsv" <<EOF
+asc/include/comm_api/aicore/hcomm	../../adv_api/hcomm
+asc/impl/comm_api/aicore/hcomm	../../adv_api/detail/hcomm
+EOF
+}
+
 write_version_info()
 {
     local arch=$1
-    local required_version=$2
+    local required_asc_devkit_version=$2
+    local required_hcomm_version=$3
+    local required_runtime_version=$4
     local commit="unknown"
     local dirty="true"
 
     if git -C "${PROJECT_ROOT}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         commit=$(git -C "${PROJECT_ROOT}" rev-parse HEAD)
         if [[ -z "$(git -C "${PROJECT_ROOT}" status --porcelain --untracked-files=all -- \
-            include/aicore/hcomm src/aicore/hcomm/detail)" ]]; then
+            "${PACKAGE_INPUT_PATHS[@]}")" ]]; then
             dirty="false"
         fi
     fi
 
     cat > "${STAGING_DIR}/version.info" <<EOF
-PackageName=asc-comm-dev-patch
+PackageName=cann-asc-comm
 PackageVersion=${PACKAGE_VERSION}
+Version=${PACKAGE_VERSION}
+version_dir=cann
 Arch=${arch}
 GitCommit=${commit}
 GitDirty=${dirty}
-RequiredAscDevkitVersion=${required_version}
+required_package_asc-devkit_version="${required_asc_devkit_version}"
+required_package_hcomm_version="${required_hcomm_version}"
+required_package_runtime_version="${required_runtime_version}"
 BuildTime=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 EOF
 }
@@ -167,8 +220,11 @@ EOF
 build_package()
 {
     local arch
-    local required_version
+    local required_asc_devkit_version
+    local required_hcomm_version
+    local required_runtime_version
     local makeself_dir
+    local version_checker_dir
     local run_file
 
     [[ -n "${CANN_PATH}" ]] || fail "CANN path is not set; source set_env.sh or use --cann-path"
@@ -178,38 +234,58 @@ build_package()
     [[ "${PACKAGE_VERSION}" =~ ^[0-9A-Za-z._+-]+$ ]] || fail "invalid package version: ${PACKAGE_VERSION}"
 
     arch=$(normalize_arch)
-    required_version=$(read_asc_devkit_version)
+    required_asc_devkit_version=$(read_package_compat_version "asc-devkit")
+    required_hcomm_version=$(read_package_compat_version "hcomm")
+    required_runtime_version=$(read_package_compat_version "runtime")
     makeself_dir=$(find_makeself_dir)
+    version_checker_dir=$(find_version_checker_dir)
 
     mkdir -p "$(dirname -- "${STAGING_DIR}")" "${OUTPUT_DIR}"
     rm -rf -- "${STAGING_DIR}"
     mkdir -p "${STAGING_DIR}/payload"
 
-    # Keep these mappings aligned with the asc-comm integration in asc-devkit PR 3186.
+    # Match the Hcomm layout installed by asc-devkit's asc-comm integration.
     copy_headers \
         "${PROJECT_ROOT}/include/aicore/hcomm" \
-        "${STAGING_DIR}/payload/asc/include/adv_api/hcomm"
+        "${STAGING_DIR}/payload/asc/include/adv_api/hcomm" \
+        550
     copy_headers \
-        "${PROJECT_ROOT}/src/aicore/hcomm/detail" \
-        "${STAGING_DIR}/payload/asc/include/adv_api/hcomm/detail"
+        "${PROJECT_ROOT}/src/aicore/hcomm" \
+        "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm" \
+        550
     copy_headers \
-        "${PROJECT_ROOT}/src/aicore/hcomm/detail" \
-        "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm"
-
+        "${PROJECT_ROOT}/include/aicore/ain" \
+        "${STAGING_DIR}/payload/asc/include/comm_api/aicore/ain" \
+        550
+    copy_headers \
+        "${PROJECT_ROOT}/src/aicore/ain" \
+        "${STAGING_DIR}/payload/asc/impl/comm_api/aicore/ain" \
+        550
     write_manifest
-    write_version_info "${arch}" "${required_version}"
+    write_link_manifest
+    write_version_info \
+        "${arch}" \
+        "${required_asc_devkit_version}" \
+        "${required_hcomm_version}" \
+        "${required_runtime_version}"
     install -m 550 "${SCRIPT_DIR}/install.sh" "${STAGING_DIR}/install.sh"
+    install -D -m 440 \
+        "${version_checker_dir}/version_compatiable.inc" \
+        "${STAGING_DIR}/script/version_compatiable.inc"
+    install -m 440 \
+        "${version_checker_dir}/check_version_required.awk" \
+        "${STAGING_DIR}/script/check_version_required.awk"
 
-    run_file="${OUTPUT_DIR}/Ascend-asccomm_${PACKAGE_VERSION}_linux-${arch}.run"
+    run_file="${OUTPUT_DIR}/cann-asc-comm_${PACKAGE_VERSION}_linux-${arch}.run"
     rm -f -- "${run_file}"
     "${makeself_dir}/makeself.sh" \
         --header "${makeself_dir}/makeself-header.sh" \
         --help-header "${SCRIPT_DIR}/help.info" \
         --gzip --complevel 4 --nomd5 --sha256 --chown \
-        "${STAGING_DIR}" "${run_file}" "asc-comm development patch" ./install.sh
+        "${STAGING_DIR}" "${run_file}" "cann-asc-comm development patch" ./install.sh
 
     log "generated ${run_file}"
-    log "required asc-devkit version: ${required_version}"
+    log "required package versions: asc-devkit=${required_asc_devkit_version}, hcomm=${required_hcomm_version}, runtime=${required_runtime_version}"
 }
 
 parse_args "$@"
