@@ -1191,7 +1191,7 @@ CcuResult CcuKernel::IfBegin(
     auto elseLabel = std::make_shared<CcuRep::CcuRepJumpLabel>(insGenerator, elseLabelStr);
     auto endLabel = std::make_shared<CcuRep::CcuRepJumpLabel>(insGenerator, endLabelStr);
     auto targetVar = CcuRep::CreateVariable(this);
-    auto expectVar = CcuRep::CreateVariable(this);
+    auto expectVar = CreateExpectVar();
 
     // 反转条件："if <cond>, 执行块" 等价于 "!<cond> 时跳过块"。
     auto jump = MakeInvertedCondJumpImm(
@@ -1345,7 +1345,7 @@ CcuResult CcuKernel::WhileBegin(
     Append(beginLabel);
 
     auto targetVar = CcuRep::CreateVariable(this);
-    auto expectVar = CcuRep::CreateVariable(this);
+    auto expectVar = CreateExpectVar();
     auto jump = MakeInvertedCondJumpImm(
         insGenerator, endLabelStr, targetVar, expectVar, *variable, immediate, condType, __func__);
     if (jump == nullptr) {
@@ -1480,7 +1480,7 @@ CcuResult CcuKernel::DoWhileEnd(
 
     std::string beginLabelStr = labelStr + "_begin";
     auto targetVar = CcuRep::CreateVariable(this);
-    auto expectVar = CcuRep::CreateVariable(this);
+    auto expectVar = CreateExpectVar();
     std::shared_ptr<CcuRep::CcuRepJumpBase> jump{nullptr};
 
     // "condition true => continue looping" means jump back to begin when condition holds
@@ -2561,6 +2561,16 @@ uint32_t CcuKernel::GetInstrCount()
 void CcuKernel::SetCcuInstrInfo(const CcuRep::CcuInstrInfo& instrInfo) { this->instrInfo_ = instrInfo; }
 
 CcuRep::Variable CcuKernel::CreateVariable() { return CreateResAssist(res_.continuousVariable); }
+
+CcuRep::Variable CcuKernel::CreateExpectVar()
+{
+    // v2(A6) jump compares two variables and needs a real XN for the immediate value.
+    // v1(A5) compares with the immediate directly, so keep the placeholder out of the resource ledger.
+    if (ccuVersion_ == CcuVersion::CCU_V2) {
+        return CreateVariable();
+    }
+    return CcuRep::Variable(this);
+}
 
 CcuRep::Address CcuKernel::CreateAddress()
 {
