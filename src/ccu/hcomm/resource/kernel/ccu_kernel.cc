@@ -767,6 +767,21 @@ CcuResult CcuKernel::LoadArg(CcuVariableHandle varHandle, uint32_t argId)
     return CcuResult::CCU_SUCCESS;
 }
 
+CcuResult CcuKernel::GetCcuKernelInfo(CcuKernelInfo& info) const
+{
+    if (loadArgUsedSet_.empty()) {
+        info.maxTaskArgsNum = 0;
+        return CcuResult::CCU_SUCCESS;
+    }
+
+    uint32_t maxTaskArgsNum = 0;
+    for (const auto& argId : loadArgUsedSet_) {
+        maxTaskArgsNum = std::max(maxTaskArgsNum, argId);
+    }
+    info.maxTaskArgsNum = maxTaskArgsNum + 1;
+    return CcuResult::CCU_SUCCESS;
+}
+
 CcuResult CcuKernel::CheckContinuousVariables(
     CcuVariableHandle varHandle, uint32_t num, const CcuRep::Variable& baseVar, const char* tag)
 {
