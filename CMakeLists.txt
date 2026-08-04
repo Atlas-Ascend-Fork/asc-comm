@@ -72,6 +72,10 @@ set(ASC_COMM_AICPU_INCLUDE_LIST
     ${ASC_COMM_AICPU_SRC_DIR}/resource/transport/p2p
     ${ASC_COMM_AICPU_SRC_DIR}/resource/transport/roce
     ${ASC_COMM_AICPU_SRC_DIR}/resource/transport/ubc
+    ${CMAKE_CURRENT_SOURCE_DIR}/pod_only/include/aicpu
+    ${CMAKE_CURRENT_SOURCE_DIR}/pod_only/include/aicpu/hcomm
+    ${CMAKE_CURRENT_SOURCE_DIR}/pod_only/src/aicpu/hcomm/primitives/launch
+    ${CMAKE_CURRENT_SOURCE_DIR}/pod_only/src/aicpu/hcomm/resource/common
 )
 
 set(ASC_COMM_AICPU_COMPILE_DEFINITIONS
