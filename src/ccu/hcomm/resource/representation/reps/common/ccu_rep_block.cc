@@ -10,7 +10,6 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
-#include "string_util.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
 namespace hcomm {
@@ -55,7 +54,7 @@ bool CcuRepBlock::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& in
     return translated;
 }
 
-std::string CcuRepBlock::Describe() { return Hccl::StringFormat("RepBlock"); }
+std::string CcuRepBlock::Describe() { return hcomm::StringFormat("RepBlock"); }
 
 std::shared_ptr<CcuRepBase> CcuRepBlock::GetRepByInstrId(uint16_t instrId)
 {

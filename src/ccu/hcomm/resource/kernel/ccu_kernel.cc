@@ -14,10 +14,7 @@
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 
 #include "ccu/hcomm/ccu_types.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "ccu_dev_mgr_imp.h"
-#include "env_config.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
 
 #include "hcomm_c_adpt.h"
@@ -29,6 +26,7 @@
 #include "ccu_urma_channel.h"
 
 #include "hcomm/common/ccu_log.h"
+#include "hcomm/common/ccu_runtime.h"
 
 // todo: 引入头文件需要检查
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
@@ -356,7 +354,7 @@ HcommCcuResRequestPod CcuKernel::GetResourceRequest()
     req.missionReqType = HCOMM_CCU_MISSION_REQ_FUSION_MULTIPLE_DIE;
     req.count[HCOMM_CCU_BATCH_RES_MISSION][dieId] = 1;
 
-    auto info = Hccl::StringFormat(
+    auto info = hcomm::StringFormat(
         "resource request: dieId[%u], ms[%u], blockMs[%u], cke[%u], blockCke[%u], "
         "loopEngine[%u], blockLoopEngine[%u], gsa[%u], blockGsa[%u], xn[%u], blockXn[%u], missionId[%u]",
         dieId, req.count[HCOMM_CCU_BATCH_RES_MS][dieId], req.count[HCOMM_CCU_BATCH_RES_BLOCK_MS][dieId],
@@ -1903,54 +1901,54 @@ HcclResult CcuKernel::WriteNb(
     return HCCL_SUCCESS;
 }
 
-static bool isLowPrecisionIn(Hccl::DataType dataType)
+static bool isLowPrecisionIn(hcomm::DataType dataType)
 {
-    return dataType == Hccl::DataType::INT8 || dataType == Hccl::DataType::HIF8 ||
-           dataType == Hccl::DataType::FP8E4M3 || dataType == Hccl::DataType::FP8E5M2;
+    return dataType == hcomm::DataType::INT8 || dataType == hcomm::DataType::HIF8 ||
+           dataType == hcomm::DataType::FP8E4M3 || dataType == hcomm::DataType::FP8E5M2;
 }
 
-static bool isLowPrecisionOut(Hccl::DataType dataType)
+static bool isLowPrecisionOut(hcomm::DataType dataType)
 {
-    return dataType == Hccl::DataType::FP16 || dataType == Hccl::DataType::BFP16 || dataType == Hccl::DataType::FP32;
+    return dataType == hcomm::DataType::FP16 || dataType == hcomm::DataType::BFP16 || dataType == hcomm::DataType::FP32;
 }
 
 constexpr uint32_t MAX_DATA_TYPE = 17;
 
-const Hccl::DataType orionDataTypes[] = {
-    Hccl::DataType::INT8,   Hccl::DataType::INT16,   Hccl::DataType::INT32,
-    Hccl::DataType::FP16,   Hccl::DataType::FP32,    Hccl::DataType::INT64,
-    Hccl::DataType::UINT64, Hccl::DataType::UINT8,   Hccl::DataType::UINT16,
-    Hccl::DataType::UINT32, Hccl::DataType::FP64,    Hccl::DataType::BFP16,
-    Hccl::DataType::INT128,
+const hcomm::DataType orionDataTypes[] = {
+    hcomm::DataType::INT8,   hcomm::DataType::INT16,   hcomm::DataType::INT32,
+    hcomm::DataType::FP16,   hcomm::DataType::FP32,    hcomm::DataType::INT64,
+    hcomm::DataType::UINT64, hcomm::DataType::UINT8,   hcomm::DataType::UINT16,
+    hcomm::DataType::UINT32, hcomm::DataType::FP64,    hcomm::DataType::BFP16,
+    hcomm::DataType::INT128,
 #if !defined(OPEN_BUILD_PROJECT) || defined(ORION_MODE)
-    Hccl::DataType::HIF8,   Hccl::DataType::FP8E4M3, Hccl::DataType::FP8E5M2,
-    Hccl::DataType::FP8E8M0
+    hcomm::DataType::HIF8,   hcomm::DataType::FP8E4M3, hcomm::DataType::FP8E5M2,
+    hcomm::DataType::FP8E8M0
 #endif
 };
 
-static Hccl::DataType HcommDataTypeToHcclDataType(const HcclDataType dataType)
+static hcomm::DataType HcommDataTypeToHcclDataType(const HcclDataType dataType)
 {
     const auto dataTypeNum = static_cast<uint32_t>(dataType);
     if (dataTypeNum > MAX_DATA_TYPE) {
-        return Hccl::DataType::INVALID;
+        return hcomm::DataType::INVALID;
     }
 
     return orionDataTypes[dataTypeNum];
 }
 
 constexpr uint32_t MAX_REDUCE_TYPE = 4;
-const Hccl::ReduceOp orionReduceOps[] = {
-    Hccl::ReduceOp::SUM,
-    Hccl::ReduceOp::PROD,
-    Hccl::ReduceOp::MAX,
-    Hccl::ReduceOp::MIN,
+const hcomm::ReduceOp orionReduceOps[] = {
+    hcomm::ReduceOp::SUM,
+    hcomm::ReduceOp::PROD,
+    hcomm::ReduceOp::MAX,
+    hcomm::ReduceOp::MIN,
 };
 
-static Hccl::ReduceOp HcommReduceOpToHcclReduceOp(const HcclReduceOp reduceOp)
+static hcomm::ReduceOp HcommReduceOpToHcclReduceOp(const HcclReduceOp reduceOp)
 {
     const auto reduceOpNum = static_cast<uint32_t>(reduceOp);
     if (reduceOpNum > MAX_REDUCE_TYPE) {
-        return Hccl::ReduceOp::INVALID;
+        return hcomm::ReduceOp::INVALID;
     }
 
     return orionReduceOps[reduceOpNum];
@@ -1963,9 +1961,9 @@ HcclResult CcuKernel::LocalReduceNb(
     auto opType_ = HcommReduceOpToHcclReduceOp(opType);
     auto dataType_ = HcommDataTypeToHcclDataType(dataType);
     auto outputDataType_ = HcommDataTypeToHcclDataType(outputDataType);
-    if ((opType_ == Hccl::ReduceOp::SUM && isLowPrecisionIn(dataType_) && !isLowPrecisionOut(outputDataType_)) ||
-        (opType_ == Hccl::ReduceOp::SUM && !isLowPrecisionIn(dataType_) && dataType_ != outputDataType_) ||
-        (opType_ != Hccl::ReduceOp::SUM && dataType_ != outputDataType_)) {
+    if ((opType_ == hcomm::ReduceOp::SUM && isLowPrecisionIn(dataType_) && !isLowPrecisionOut(outputDataType_)) ||
+        (opType_ == hcomm::ReduceOp::SUM && !isLowPrecisionIn(dataType_) && dataType_ != outputDataType_) ||
+        (opType_ != hcomm::ReduceOp::SUM && dataType_ != outputDataType_)) {
         return HCCL_E_NOT_SUPPORT;
     }
 
