@@ -19,6 +19,10 @@ Public consumers that only need the POD API can include:
 The original `hcomm_primitives.h` declarations remain available for source
 compatibility. Both headers can be included in the same translation unit.
 
+`pod_only` is an independent CANN CMake project at the same build level as
+`asc-comm`. It uses its own copy of the CANN CMake bootstrap and toolchain files,
+and does not include build files or source files from the parent directory.
+
 Standalone build:
 
 ```bash

@@ -1,9 +1,8 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.16.0)
 
-project(asc_comm_pod_data_plane LANGUAGES CXX)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+if(NOT DEFINED PRODUCT_SIDE)
+    set(PRODUCT_SIDE "device")
+endif()
 
 if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     if(DEFINED ENV{ASCEND_HOME_PATH})
@@ -14,17 +13,26 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
 endif()
 
 set(POD_HCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu/hcomm")
+set(POD_DFX_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/common/dfx")
 
-set(POD_SOURCES
-    src/aicpu/hcomm/primitives/api_c_adpt/aicpu_ts_pod_primitives_c_adpt.cc
-    src/aicpu/hcomm/primitives/launch/hcomm_pod_launch.cc
-    src/aicpu/hcomm/resource/common/hcomm_pod_runtime.cc
-    src/aicpu/hcomm/resource/common/hcomm_pod_transport.cc
-    src/aicpu/hcomm/resource/connection/ub_conn_lite.cc
-    src/aicpu/hcomm/resource/stream/sqe_build_a5.cc
-)
+include(cmake/fetch_cann_cmake.cmake)
+project(asc_comm_pod_data_plane LANGUAGES CXX)
+init_cann_project(PREPEND_MODULE_PATH)
 
-add_library(aicpu_pod_data_plane SHARED ${POD_SOURCES})
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+find_cann_package(acl_rt MODULE REQUIRED)
+find_cann_package(ascend_hal MODULE REQUIRED)
+find_cann_package(securec MODULE REQUIRED)
+find_cann_package(unified_dlog MODULE REQUIRED)
+
+add_library(asc_comm_pod_dfx INTERFACE)
+target_include_directories(asc_comm_pod_dfx INTERFACE ${POD_DFX_SRC_DIR})
+
+include(cmake/aicpu_hcomm_pod.cmake)
+
+add_library(aicpu_pod_data_plane SHARED ${ASC_COMM_AICPU_HCOMM_POD_SOURCES})
 
 target_compile_definitions(aicpu_pod_data_plane PRIVATE
     HCCD
@@ -61,40 +69,14 @@ target_include_directories(aicpu_pod_data_plane PRIVATE
     ${POD_HCOMM_ROOT}/resource/common
     ${POD_HCOMM_ROOT}/resource/connection
     ${POD_HCOMM_ROOT}/resource/stream
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common/dfx
-    ${ASCEND_CANN_PACKAGE_PATH}/include
-    ${ASCEND_CANN_PACKAGE_PATH}/include/acl
-    ${ASCEND_CANN_PACKAGE_PATH}/include/driver
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base
 )
 
-if(TARGET ascend_hal)
-    set(POD_ASCEND_HAL ascend_hal)
-else()
-    find_library(POD_ASCEND_HAL ascend_hal
-        HINTS
-            ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
-            ${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux/devlib/device
-        REQUIRED
-        NO_DEFAULT_PATH
-    )
-endif()
-
-if(TARGET c_sec)
-    set(POD_SECUREC c_sec)
-else()
-    find_library(POD_SECUREC c_sec
-        HINTS
-            ${ASCEND_CANN_PACKAGE_PATH}/lib64/device/lib64
-            ${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux/lib64/device/lib64
-        REQUIRED
-        NO_DEFAULT_PATH
-    )
-endif()
-
 target_link_libraries(aicpu_pod_data_plane PRIVATE
-    ${POD_ASCEND_HAL}
-    ${POD_SECUREC}
+    asc_comm_pod_dfx
+    acl_rt_headers
+    slog_headers
+    ascend_hal
+    c_sec
     dl
     pthread
 )
