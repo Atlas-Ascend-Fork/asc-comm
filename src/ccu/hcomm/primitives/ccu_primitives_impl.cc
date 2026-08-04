@@ -13,6 +13,7 @@
 #include "ccu/hcomm/ccu_primitives_impl.h"
 
 #include "hcomm/common/ccu_log.h"
+#include "hcomm/common/ccu_device_context.h"   // GetCurrentCcuDeviceLogicId
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 

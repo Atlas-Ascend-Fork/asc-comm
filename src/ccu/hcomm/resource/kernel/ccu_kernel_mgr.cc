@@ -12,8 +12,7 @@
 
 #include <acl/acl.h>
 
-#include "string_util.h"
-#include "exception_handler.h"
+#include "hcomm/common/ccu_log.h"
 #include "adapter_rts.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "dev_buffer.h"
@@ -783,14 +782,14 @@ HcclResult CcuKernelMgr::TransRepSequenceToMicrocode(const std::vector<CcuKernel
         const uint32_t dieId = kernel->GetDieId();
         const uint32_t missionId = kernel->GetMissionId();
 
-        EXCEPTION_HANDLE_BEGIN
+        CCU_EXCEPTION_HANDLE_BEGIN
         const auto& instrInfo = translators[dieId][missionId]->Translate(
             kernel, kernel->GetRepSequence(), kernel->GetInstrId(), isFuncBlock);
 
         CHK_RET(LoadInstruction(instrInfo, dieId));
 
         kernel->SetCcuInstrInfo(instrInfo); // 指令下发成功后可以对kernel进行launch
-        EXCEPTION_HANDLE_END
+        CCU_EXCEPTION_HANDLE_END
     }
 
     return HcclResult::HCCL_SUCCESS;

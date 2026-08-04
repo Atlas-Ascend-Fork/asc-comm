@@ -9,9 +9,6 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 namespace hcomm {
@@ -33,7 +30,7 @@ CcuRepOr::CcuRepOr(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const V
 
 bool CcuRepOr::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep)
 {
-    Hccl::CHECK_NULLPTR(instr, "[CcuRepOr::Translate] instr is nullptr!");
+    hcomm::CHECK_NULLPTR(instr, "[CcuRepOr::Translate] instr is nullptr!");
     this->instrId = curInstrId;
     translated = true;
     instrCount = insGenPtr->GetInstrCount(type);
@@ -43,7 +40,7 @@ bool CcuRepOr::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curIn
         HCCL_ERROR(
             "[CcuRepOr::Translate]uint16 integer overflow occurs, curInstrId = [%hu], instrCount = [%hu]", curInstrId,
             instrCount),
-        Hccl::InternalException, "integer overflow");
+        hcomm::InternalException, "integer overflow");
     curInstrId += instrCount;
     return translated;
 }
@@ -52,13 +49,13 @@ std::string CcuRepOr::Describe()
 {
     switch (subType) {
         case OrSubType::VAR_OR_VAR_TO_VAR: {
-            return Hccl::StringFormat("Variable[%u] = Variable[%u] | Variable[%u]", varC.Id(), varA.Id(), varB.Id());
+            return hcomm::StringFormat("Variable[%u] = Variable[%u] | Variable[%u]", varC.Id(), varA.Id(), varB.Id());
         }
         case OrSubType::SELF_OR_VAR_VARIABLE: {
-            return Hccl::StringFormat("Variable[%u] |= Variable[%u]", varC.Id(), varB.Id());
+            return hcomm::StringFormat("Variable[%u] |= Variable[%u]", varC.Id(), varB.Id());
         }
         default: {
-            return Hccl::StringFormat("Invalid Or");
+            return hcomm::StringFormat("Invalid Or");
         }
     }
 }

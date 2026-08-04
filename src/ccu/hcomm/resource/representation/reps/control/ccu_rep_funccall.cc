@@ -11,10 +11,6 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
 
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
-
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -52,7 +48,7 @@ void CcuRepFuncCall::SetOutArg(const Variable& var)
 {
     outArgCount++;
     if (outArgCount > FUNC_ARG_MAX) {
-        Hccl::THROW<Hccl::CcuApiException>("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
+        hcomm::THROW<hcomm::CcuApiException>("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
     }
     outArgs.push_back(CcuRepArg(var));
 }
@@ -67,7 +63,7 @@ void CcuRepFuncCall::SetOutArg(const std::vector<Variable>& varList)
 {
     outArgCount += varList.size();
     if (outArgCount > FUNC_ARG_MAX) {
-        Hccl::THROW<Hccl::CcuApiException>("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
+        hcomm::THROW<hcomm::CcuApiException>("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
     }
     outArgs.push_back(CcuRepArg(varList));
 }
@@ -82,7 +78,7 @@ uint16_t CcuRepFuncCall::InstrCount()
 bool CcuRepFuncCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
     if (funcManager == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("funcManager is nullptr");
+        hcomm::THROW<hcomm::CcuApiException>("funcManager is nullptr");
     }
     // 未实现, FuncCall和FuncBlock中的args个数校验
 
@@ -101,13 +97,13 @@ bool CcuRepFuncCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
 
     CHK_RET_THROW(
         CcuApiException,
-        Hccl::StringFormat("[CcuRepFuncCall][%s] failed to translate functionCall for instrId[%u] ", __func__, instrId),
+        hcomm::StringFormat("[CcuRepFuncCall][%s] failed to translate functionCall for instrId[%u] ", __func__, instrId),
         insGeneratorPtr_->CcuRepFuncCallTranslate(ccuKernel, instr, instrId, this, dep));
 
     return translated;
 }
 
-std::string CcuRepFuncCall::Describe() { return Hccl::StringFormat("FuncCall[%s]", label.c_str()); }
+std::string CcuRepFuncCall::Describe() { return hcomm::StringFormat("FuncCall[%s]", label.c_str()); }
 
 int32_t CcuRepFuncCall::GetCallLayer() { return funcBlock == nullptr ? FUNC_NEST_MAX : funcBlock->GetCallLayer(); }
 
