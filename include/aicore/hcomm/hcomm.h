@@ -86,6 +86,34 @@ public:
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
+     * @brief Prepare a Write WQE in a caller-provided UB batch buffer without flushing it to SQ.
+     * @tparam config: URMA WQE control config. CQE must be enabled and inline data must be disabled.
+     * @param [in] channel: The handle of the communication channel.
+     * @param [out] dst: The destination address of the data.
+     * @param [in] src: The source address of the data.
+     * @param [in] len: The length of the data to write in bytes.
+     * @param [in] buff: A 32-byte-aligned VECOUT UB buffer. Clear it before first use.
+     * @param [in] buffLen: The batch buffer length in bytes.
+     * @return HCOMM_SUCCESS, HCOMM_PREPARE_BUFFER_FULL, HCOMM_PREPARE_QUEUE_FULL, or HCOMM_FAILED.
+     * @note Supported only by the 3510 COMM_PROTOCOL_UBC_CTP path. The caller must serialize all operations on the
+     *       same channel while a batch is active. config must enable CQE and disable inline data.
+     * @note Before first use, clear buff. A valid buffer is 32-byte aligned and contains at least a 32-byte internal
+     *       header followed by one 64-byte WQE.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbiPrepare(
+        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, __ubuf__ uint8_t* buff, uint32_t buffLen);
+
+    /*!
+     * @brief Flush all Write WQEs prepared in buff to SQ without ringing the SQ doorbell.
+     * @param [in] channel: The handle bound to the active batch.
+     * @param [in] buff: The UB batch buffer passed to WriteNbiPrepare.
+     * @return HCOMM_SUCCESS on success and HCOMM_FAILED on failure.
+     * @note This API publishes the prepared WQEs to SQ but does not ring the doorbell. Call Commit explicitly.
+     */
+    __aicore__ inline int32_t WriteNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff);
+
+    /*!
      * @class Hcomm
      * @brief The task launching interface of the inline Write point-to-point communication operator.
      *        The source data is provided by value and carried inline in the WQE.
