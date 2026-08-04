@@ -11,8 +11,8 @@
 #ifndef CCU_LOG_H
 #define CCU_LOG_H
 
-#include "log.h"
-#include "exception_handler.h"
+#include "asccomm_log.h"
+#include "asccomm_exception.h"
 
 #define HCCL_TO_CCU_RET(hcclRet) static_cast<CcuResult>(hcclRet)
 
@@ -48,7 +48,7 @@
 #define CCU_EXCEPTION_HANDLE_BEGIN try {
 #define CCU_EXCEPTION_HANDLE_END_INFO(func_name) \
     }                                            \
-    catch (...) { return HCCL_TO_CCU_RET(hccl::ExceptionHandler::HandleException(func_name)); }
+    catch (...) { return HCCL_TO_CCU_RET(::hcomm::ExceptionHandler::HandleException(func_name)); }
 
 #define CCU_EXCEPTION_HANDLE_END CCU_EXCEPTION_HANDLE_END_INFO(__func__)
 

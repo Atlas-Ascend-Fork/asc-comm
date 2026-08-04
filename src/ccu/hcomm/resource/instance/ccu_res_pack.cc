@@ -11,6 +11,7 @@
 #include "hcomm/resource/instance/ccu_res_pack.h"
 
 #include "hcomm/common/ccu_log.h"
+#include "hcomm/common/ccu_runtime.h"
 #include "hcomm/resource/common/ccu_res_pod_adpt.h"
 
 namespace hcomm {
@@ -32,7 +33,7 @@ CcuResPack::~CcuResPack()
 
 CcuResult CcuResPack::Init()
 {
-    devLogicId_ = HcclGetThreadDeviceId();
+    devLogicId_ = AsccommGetDevice();
     if (insType_ == CcuInstanceType::CCU_UNUSED) {
         HCCL_ERROR("[CcuResPack][%s] failed, error ccu instance type[%d].", __func__, static_cast<int32_t>(insType_));
         return CcuResult::CCU_E_PARA;

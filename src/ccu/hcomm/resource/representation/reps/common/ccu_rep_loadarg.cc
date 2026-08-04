@@ -9,9 +9,6 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
@@ -34,8 +31,8 @@ bool CcuRepLoadArg::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& 
     translated = true;
 
     CHK_RET_THROW(
-        Hccl::CcuApiException,
-        Hccl::StringFormat("[CcuRepLoadArg][%s] failed to translate repLoadArg for instrId[%u] ", __func__, instrId),
+        hcomm::CcuApiException,
+        hcomm::StringFormat("[CcuRepLoadArg][%s] failed to translate repLoadArg for instrId[%u] ", __func__, instrId),
         insGeneratorPtr_->CcuRepLoadArgTranslate(ccuKernel, instr, instrId, this, dep));
 
     instrId += instrCount;
@@ -45,7 +42,7 @@ bool CcuRepLoadArg::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& 
 
 std::string CcuRepLoadArg::Describe()
 {
-    return Hccl::StringFormat("Variable[%u] = Arg[%u] (slot=%u)", var.Id(), fullArgId, argId);
+    return hcomm::StringFormat("Variable[%u] = Arg[%u] (slot=%u)", var.Id(), fullArgId, argId);
 }
 
 }; // namespace CcuRep

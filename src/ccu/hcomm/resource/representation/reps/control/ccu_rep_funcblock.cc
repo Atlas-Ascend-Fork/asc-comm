@@ -12,10 +12,6 @@
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_translator_v1.h"
 
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
-
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -31,7 +27,7 @@ CcuRepFuncBlock::CcuRepFuncBlock(CcuInsGeneraterBase* insGenPtr, const std::stri
     instrCount = 0;
 }
 
-std::string CcuRepFuncBlock::Describe() { return Hccl::StringFormat("FuncBlock[%s]", GetLabel().c_str()); }
+std::string CcuRepFuncBlock::Describe() { return hcomm::StringFormat("FuncBlock[%s]", GetLabel().c_str()); }
 
 void CcuRepFuncBlock::SetFuncManager(CcuRepReferenceManager* funcManager) { this->funcManager = funcManager; }
 
@@ -50,7 +46,7 @@ void CcuRepFuncBlock::SetCallLayer(uint16_t callLayer)
         }
     }
     if (this->callLayer > FUNC_NEST_MAX - 1) {
-        Hccl::THROW<Hccl::CcuApiException>("Max Func Call Nest Num is %u", FUNC_NEST_MAX);
+        hcomm::THROW<hcomm::CcuApiException>("Max Func Call Nest Num is %u", FUNC_NEST_MAX);
     }
 }
 
@@ -67,7 +63,7 @@ void CcuRepFuncBlock::DefineOutArg(const Variable& var)
 {
     outArgCount++;
     if (outArgCount > FUNC_ARG_MAX) {
-        Hccl::THROW<Hccl::CcuApiException>("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
+        hcomm::THROW<hcomm::CcuApiException>("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
     }
     outArgs.push_back(CcuRepArg(var));
     HCCL_INFO("Define Output Arg: Index[%u], Type[Variable] Id[%u]", outArgs.size(), var.Id());
@@ -87,7 +83,7 @@ void CcuRepFuncBlock::DefineOutArg(const std::vector<Variable>& varList)
 {
     outArgCount += varList.size();
     if (outArgCount > FUNC_ARG_MAX) {
-        Hccl::THROW<Hccl::CcuApiException>("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
+        hcomm::THROW<hcomm::CcuApiException>("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
     }
     outArgs.push_back(CcuRepArg(varList));
     HCCL_INFO("Define Output Arg: Index[%u], Type[Variable List]: ", outArgs.size());
@@ -118,15 +114,15 @@ uint16_t CcuRepFuncBlock::InstrCount()
 bool CcuRepFuncBlock::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
     if (funcManager == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("funcManager is nullptr");
+        hcomm::THROW<hcomm::CcuApiException>("funcManager is nullptr");
     }
 
     this->instrId = instrId;
     translated = true;
 
     CHK_RET_THROW(
-        Hccl::CcuApiException,
-        Hccl::StringFormat(
+        hcomm::CcuApiException,
+        hcomm::StringFormat(
             "[CcuRepFuncBlock][%s] failed to translate inArgs processing for instrId[%u] ", __func__, instrId),
         insGeneratorPtr_->CcuRepFuncBlockTranslate(ccuKernel, instr, instrId, this, dep, 0));
     // 使用空实现的自定义删除器，避免智能指针析构时释放对象
@@ -136,8 +132,8 @@ bool CcuRepFuncBlock::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t
         ccuKernel, GetReps(), instr, instrId, [](std::shared_ptr<CcuRepBase> rep) -> bool { return true; });
 
     CHK_RET_THROW(
-        Hccl::CcuApiException,
-        Hccl::StringFormat(
+        hcomm::CcuApiException,
+        hcomm::StringFormat(
             "[CcuRepFuncBlock][%s] failed to translate outArgs processing for instrId[%u] ", __func__, instrId),
         insGeneratorPtr_->CcuRepFuncBlockTranslate(ccuKernel, instr, instrId, this, dep, 1));
 

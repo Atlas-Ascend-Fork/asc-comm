@@ -12,8 +12,6 @@
 
 #include <algorithm>
 
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopcall_v1.h"
 #include "hcomm/resource/representation/reps/control/ccu_rep_funccall_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
@@ -81,7 +79,7 @@ void CcuRepTranslator::BuildReference(const std::shared_ptr<CcuRepBase>& rep)
     if (CheckType<T2>(refer)) {
         caller->Reference(std::static_pointer_cast<T2>(refer));
     } else {
-        Hccl::THROW<Hccl::CcuApiException>("Invalid Reference: %s", label.c_str());
+        hcomm::THROW<hcomm::CcuApiException>("Invalid Reference: %s", label.c_str());
     }
 }
 
@@ -97,13 +95,13 @@ CcuRepTranslator::CcuRepTranslator(
         transDep.reserveChannalId, sizeof(transDep.reserveChannalId), reserverChannalId.data(),
         sizeof(reserverChannalId));
     if (result != 0) {
-        Hccl::THROW<Hccl::InternalException>(
-            Hccl::StringFormat("[NsRecovery] CcuRepTranslator::CcuRepTranslator: memcpy_s failed, ret = %d", result));
+        hcomm::THROW<hcomm::InternalException>(
+            hcomm::StringFormat("[NsRecovery] CcuRepTranslator::CcuRepTranslator: memcpy_s failed, ret = %d", result));
     }
     // 获取xn起始地址
     HcclResult ret = CcuDevMgrImp::GetXnBaseAddr(deviceLogicId, dieId, transDep.xnBaseAddr[dieId]);
     if (ret != HcclResult::HCCL_SUCCESS) {
-        Hccl::THROW<Hccl::CcuApiException>(
+        hcomm::THROW<hcomm::CcuApiException>(
             "Failed to get xn base address. deviceLogicId = %d, dieId = %u, ret = %d", deviceLogicId, dieId, ret);
     }
     transDep.ccuResSpaceTokenInfo = CcuRep::GetToken(ccuTokenInfo.first, ccuTokenInfo.second, 1);
@@ -112,7 +110,7 @@ CcuRepTranslator::CcuRepTranslator(
 
     ret = CcuDevMgrImp::GetCcuVersion(transDep.logicalId, ccuVersion);
     if (ret != HcclResult::HCCL_SUCCESS || ccuVersion == CcuVersion::CCU_INVALID) {
-        Hccl::THROW<Hccl::CcuApiException>("[CcuRepTranslator] Constructor: Invalid CCU Type!");
+        hcomm::THROW<hcomm::CcuApiException>("[CcuRepTranslator] Constructor: Invalid CCU Type!");
     }
 
 // 单Udie环境下暂不获取另一个die的信息
@@ -121,7 +119,7 @@ CcuRepTranslator::CcuRepTranslator(
         uint8_t anotherDieId = dieId == 0 ? 1 : 0;
         ret = CcuDevMgrImp::GetXnBaseAddr(deviceLogicId, anotherDieId, transDep.xnBaseAddr[anotherDieId]);
         if (ret != HcclResult::HCCL_SUCCESS) {
-            Hccl::THROW<Hccl::CcuApiException>(
+            hcomm::THROW<hcomm::CcuApiException>(
                 "Failed to get xn base address. deviceLogicId = %d, dieId = %u, "
                 "ret = %d",
                 deviceLogicId, anotherDieId, ret);
@@ -135,7 +133,7 @@ CcuRepTranslator::CcuRepTranslator(std::shared_ptr<CcuRepReferenceManager> refMa
 {
     HcclResult ret = CcuDevMgrImp::GetCcuVersion(transDep.logicalId, ccuVersion);
     if (ret != HcclResult::HCCL_SUCCESS || ccuVersion == CcuVersion::CCU_INVALID) {
-        Hccl::THROW<Hccl::CcuApiException>("[CcuRepTranslator] Constructor: Invalid CCU Type!");
+        hcomm::THROW<hcomm::CcuApiException>("[CcuRepTranslator] Constructor: Invalid CCU Type!");
     }
 }
 
@@ -239,7 +237,7 @@ void CcuRepTranslator::Translate(
                 HCCL_ERROR("index[%u], %s", index, repVec[index]->Describe().c_str());
             }
         }
-        Hccl::THROW<Hccl::CcuApiException>("Translation Failed");
+        hcomm::THROW<hcomm::CcuApiException>("Translation Failed");
     }
 }
 
@@ -323,7 +321,7 @@ void CcuRepTranslator::CommonProcess(CcuKernel* ccuKernel, CcuInstr*& instr, uin
 
     u32 instrNum = 3 + constValueNum;
     if (instrId > UINT16_MAX - instrNum) {
-        Hccl::THROW<Hccl::InternalException>("integer overflow occurs");
+        hcomm::THROW<hcomm::InternalException>("integer overflow occurs");
     }
     instrId += instrNum; // 插入3条指令
 }
@@ -338,7 +336,7 @@ void CcuRepTranslator::FinishMainBlock(CcuInstr*& instr, uint16_t& instrId)
     instrId++;
 
     if (instrId > UINT16_MAX - 1) {
-        Hccl::THROW<Hccl::InternalException>("integer overflow occurs");
+        hcomm::THROW<hcomm::InternalException>("integer overflow occurs");
     }
 }
 

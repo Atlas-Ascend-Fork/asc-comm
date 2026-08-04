@@ -9,8 +9,6 @@
  */
 
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -52,7 +50,7 @@ bool CcuRepReferenceManager::CheckUnique(const std::string& label)
 std::shared_ptr<CcuRepBlock> CcuRepReferenceManager::GetRefBlock(const std::string& label)
 {
     if (!CheckValid(label)) {
-        Hccl::THROW<Hccl::CcuApiException>("Invalid Reference: %s", label.c_str());
+        hcomm::THROW<hcomm::CcuApiException>("Invalid Reference: %s", label.c_str());
     }
     return referenceMap[label];
 }
@@ -60,7 +58,7 @@ std::shared_ptr<CcuRepBlock> CcuRepReferenceManager::GetRefBlock(const std::stri
 void CcuRepReferenceManager::SetRefBlock(const std::string& label, std::shared_ptr<CcuRepBlock> refBlock)
 {
     if (!CheckUnique(label)) {
-        Hccl::THROW<Hccl::CcuApiException>("Duplicate Definition: %s", label.c_str());
+        hcomm::THROW<hcomm::CcuApiException>("Duplicate Definition: %s", label.c_str());
     }
     referenceMap[label] = refBlock;
 }
@@ -68,11 +66,11 @@ void CcuRepReferenceManager::SetRefBlock(const std::string& label, std::shared_p
 uint16_t CcuRepReferenceManager::GetFuncAddr(const std::string& label)
 {
     if (!CheckValid(label)) {
-        Hccl::THROW<Hccl::CcuApiException>("Invalid Reference: %s", label.c_str());
+        hcomm::THROW<hcomm::CcuApiException>("Invalid Reference: %s", label.c_str());
     }
 
     if (referenceMap[label]->Type() != CcuRepType::FUNC_BLOCK) {
-        Hccl::THROW<Hccl::CcuApiException>("Invalid Type, %s Must be FuncBlock", label.c_str());
+        hcomm::THROW<hcomm::CcuApiException>("Invalid Type, %s Must be FuncBlock", label.c_str());
     }
 
     return referenceMap[label]->StartInstrId();
@@ -83,7 +81,7 @@ const Variable& CcuRepReferenceManager::GetFuncCall() { return funcCallVar[0]; }
 const Variable& CcuRepReferenceManager::GetFuncRet(uint16_t callLayer)
 {
     if (callLayer > FUNC_NEST_MAX) {
-        Hccl::THROW<Hccl::CcuApiException>("Max Func Call Nest Num is %u, callLayer = %u", FUNC_NEST_MAX, callLayer);
+        hcomm::THROW<hcomm::CcuApiException>("Max Func Call Nest Num is %u, callLayer = %u", FUNC_NEST_MAX, callLayer);
     }
     return funcCallVar[callLayer + 1];
 }

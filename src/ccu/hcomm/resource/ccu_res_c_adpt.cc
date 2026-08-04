@@ -14,13 +14,13 @@
 
 #include "hcomm/resource/instance/ccu_instance_mgr.h"
 #include "hcomm/common/ccu_log.h"
-#include "hcom_common.h"
+#include "hcomm/common/ccu_runtime.h"
 
 CcuResult HcommCcuInsCreateLegacy(const CcuInstanceType insType, CcuInsHandle* ccuInsHandle)
 {
     CCU_CHK_PTR_NULL(ccuInsHandle);
 
-    const int32_t devLogicId = HcclGetThreadDeviceId();
+    const int32_t devLogicId = hcomm::AsccommGetDevice();
     CCU_CHK_RET(hcomm::CcuInstanceMgr::GetInstance(devLogicId).Create(insType, *ccuInsHandle));
     return CcuResult::CCU_SUCCESS;
 }
