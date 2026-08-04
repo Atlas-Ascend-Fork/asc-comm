@@ -2,7 +2,7 @@
 
 # asc-comm
 
-<h4>面向昇腾AI处理器通信场景，提供Hcomm点对点与Ain单边通信API、AIV直驱实现、样例和验证用例</h4>
+<h4>面向昇腾AI处理器通信场景，提供Hcomm与Ain通信API、AIV直驱实现、样例和验证用例</h4>
 
 [![docs](https://img.shields.io/badge/docs-repo-blue.svg?style=flat)](./docs)
 [![examples](https://img.shields.io/badge/examples-repo-orange.svg?style=flat)](./examples)
@@ -118,7 +118,6 @@ Ain Kernel侧使用时包含如下头文件：
 │   │   ├── common                # Hcomm公共定义和工具
 │   │   └── impl                  # Hcomm协议实现与平台差异代码
 │   └── aicore/ain/detail         # AICore侧Ain实现细节
-│       ├── common                # Ain公共定义
 │       └── impl                  # Ain单边通信原语实现
 └── tests                         # asc-comm API UT用例
     └── ut/aicore

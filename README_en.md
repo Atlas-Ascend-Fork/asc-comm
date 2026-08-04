@@ -2,7 +2,7 @@
 
 # asc-comm
 
-<h4>Provides Hcomm point-to-point and Ain one-sided communication APIs, AIV direct drive implementation, samples and verification cases for communication scenarios on Ascend AI Processors</h4>
+<h4>Provides Hcomm and Ain communication APIs, AIV direct drive implementation, samples and verification cases for communication scenarios on Ascend AI Processors</h4>
 
 [![docs](https://img.shields.io/badge/docs-repo-blue.svg?style=flat)](./docs)
 [![examples](https://img.shields.io/badge/examples-repo-orange.svg?style=flat)](./examples)
@@ -103,7 +103,6 @@ This repository contains AICore communication data plane APIs, device-side imple
 │   │   ├── common                # Common definitions and utilities for Hcomm
 │   │   └── impl                  # Protocol implementations and platform-specific logic
 │   └── aicore/ain/detail         # Internal implementation of AICore Ain
-│       ├── common                # Common definitions for Ain
 │       └── impl                  # One-sided communication primitive implementations
 └── tests                         # asc-comm API unit tests
     └── ut/aicore
