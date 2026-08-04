@@ -68,20 +68,29 @@ target_include_directories(aicpu_pod_data_plane PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/base
 )
 
-find_library(POD_ASCEND_HAL ascend_hal
-    HINTS
-        ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
-        ${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux/devlib/device
-    REQUIRED
-    NO_DEFAULT_PATH
-)
-find_library(POD_SECUREC c_sec
-    HINTS
-        ${ASCEND_CANN_PACKAGE_PATH}/lib64/device/lib64
-        ${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux/lib64/device/lib64
-    REQUIRED
-    NO_DEFAULT_PATH
-)
+if(TARGET ascend_hal)
+    set(POD_ASCEND_HAL ascend_hal)
+else()
+    find_library(POD_ASCEND_HAL ascend_hal
+        HINTS
+            ${ASCEND_CANN_PACKAGE_PATH}/devlib/device
+            ${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux/devlib/device
+        REQUIRED
+        NO_DEFAULT_PATH
+    )
+endif()
+
+if(TARGET c_sec)
+    set(POD_SECUREC c_sec)
+else()
+    find_library(POD_SECUREC c_sec
+        HINTS
+            ${ASCEND_CANN_PACKAGE_PATH}/lib64/device/lib64
+            ${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux/lib64/device/lib64
+        REQUIRED
+        NO_DEFAULT_PATH
+    )
+endif()
 
 target_link_libraries(aicpu_pod_data_plane PRIVATE
     ${POD_ASCEND_HAL}
