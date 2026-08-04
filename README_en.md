@@ -2,7 +2,7 @@
 
 # asc-comm
 
-<h4>Provides Hcomm point-to-point and Ain one-sided communication APIs, AIV direct drive implementation, samples and verification cases for communication scenarios on Ascend AI Processors</h4>
+<h4>Provides Hcomm and Ain communication APIs, AIV direct drive implementation, samples and verification cases for communication scenarios on Ascend AI Processors</h4>
 
 [![docs](https://img.shields.io/badge/docs-repo-blue.svg?style=flat)](./docs)
 [![examples](https://img.shields.io/badge/examples-repo-orange.svg?style=flat)](./examples)
@@ -75,9 +75,10 @@ Include the following header when invoking Ain on the Kernel side:
 Basic invocation workflow:
 1. Instantiate an `AscendC::Ain` object, binding it to a communication context index.
 2. Issue one-sided read/write via `Put`/`PutValue`/`Get`, or a remote atomic signal operation via `Signal`.
-3. If `AIN_COMMIT_DELAYED` is set at submission, submission is deferred until a subsequent `AIN_COMMIT_IMMED` task rings the doorbell; otherwise the task is submitted immediately. Completion can be awaited via `Flush` or `FlushAsync` + `Wait`.
-4. Read or wait on local signals via `ReadSignal`/`WaitSignal`.
-5. For collective synchronization, use `AinBarrierSession::Sync` to perform a team-level barrier.
+3. If `AIN_COMMIT_DELAYED` is set at submission, submission is deferred until a subsequent `AIN_COMMIT_IMMED` task rings the doorbell; otherwise the task is submitted immediately.
+4. Completion can be awaited via `Flush` or `FlushAsync` + `Wait`.
+5. Read or wait on local signals via `ReadSignal`/`WaitSignal`.
+6. For collective synchronization, use `AinBarrierSession::Sync` to perform a team-level barrier.
 
 Commit mode matrix:
 | Mode | Behavior |
@@ -103,7 +104,6 @@ This repository contains AICore communication data plane APIs, device-side imple
 │   │   ├── common                # Common definitions and utilities for Hcomm
 │   │   └── impl                  # Protocol implementations and platform-specific logic
 │   └── aicore/ain/detail         # Internal implementation of AICore Ain
-│       ├── common                # Common definitions for Ain
 │       └── impl                  # One-sided communication primitive implementations
 └── tests                         # asc-comm API unit tests
     └── ut/aicore

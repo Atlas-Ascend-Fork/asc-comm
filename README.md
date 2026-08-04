@@ -2,7 +2,7 @@
 
 # asc-comm
 
-<h4>面向昇腾AI处理器通信场景，提供Hcomm点对点与Ain单边通信API、AIV直驱实现、样例和验证用例</h4>
+<h4>面向昇腾AI处理器通信场景，提供Hcomm与Ain通信API、AIV直驱实现、样例和验证用例</h4>
 
 [![docs](https://img.shields.io/badge/docs-repo-blue.svg?style=flat)](./docs)
 [![examples](https://img.shields.io/badge/examples-repo-orange.svg?style=flat)](./examples)
@@ -87,9 +87,10 @@ Ain Kernel侧使用时包含如下头文件：
 
 1. 创建`AscendC::Ain`对象，绑定通信上下文索引。
 2. 通过`Put`/`PutValue`/`Get`发起单边读写，或通过`Signal`发起远端原子信号操作。
-3. 如果提交任务时设置`AIN_COMMIT_DELAYED`，提交将被延迟，直到后续`AIN_COMMIT_IMMED`任务触发敲门铃；否则立即提交。完成等待可通过`Flush`或`FlushAsync`+`Wait`管理。
-4. 通过`ReadSignal`/`WaitSignal`读取或等待本地信号。
-5. 如需集合同步，通过`AinBarrierSession`的`Sync`完成同步。
+3. 如果提交任务时设置`AIN_COMMIT_DELAYED`，提交将被延迟，直到后续`AIN_COMMIT_IMMED`任务触发敲门铃；否则立即提交。
+4. 完成等待可通过`Flush`或`FlushAsync`+`Wait`管理。
+5. 通过`ReadSignal`/`WaitSignal`读取或等待本地信号。
+6. 如需集合同步，通过`AinBarrierSession`的`Sync`完成同步。
 
 提交模式说明：
 
@@ -118,7 +119,6 @@ Ain Kernel侧使用时包含如下头文件：
 │   │   ├── common                # Hcomm公共定义和工具
 │   │   └── impl                  # Hcomm协议实现与平台差异代码
 │   └── aicore/ain/detail         # AICore侧Ain实现细节
-│       ├── common                # Ain公共定义
 │       └── impl                  # Ain单边通信原语实现
 └── tests                         # asc-comm API UT用例
     └── ut/aicore
