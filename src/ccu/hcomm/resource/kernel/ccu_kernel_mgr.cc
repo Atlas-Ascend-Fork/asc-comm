@@ -792,6 +792,18 @@ CcuKernel* CcuKernelMgr::GetKernel(const CcuKernelHandle kernelHandle)
     return it->second.get();
 }
 
+CcuResult CcuKernelMgr::GetCcuKernelInfo(const CcuKernelHandle kernelHandle, CcuKernelInfo& info)
+{
+    std::unique_lock<std::mutex> lock(kernelMapMutex_);
+    auto it = kernelMap_.find(kernelHandle);
+    if (it == kernelMap_.end()) {
+        HCCL_ERROR("[CcuKernelMgr][%s] handle[%llx] is not existed.", __func__, kernelHandle);
+        return CcuResult::CCU_E_NOT_FOUND;
+    }
+    CCU_CHK_RET(it->second->GetCcuKernelInfo(info));
+    return CcuResult::CCU_SUCCESS;
+}
+
 CcuKernel* CcuKernelMgr::GetCurrentKernel() { return currKernel_.get(); }
 
 } // namespace hcomm
