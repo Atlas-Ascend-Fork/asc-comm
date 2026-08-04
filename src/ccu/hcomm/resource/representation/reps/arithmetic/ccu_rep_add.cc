@@ -10,9 +10,6 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
 namespace hcomm {
@@ -121,13 +118,13 @@ void CcuRepAdd::ValidateInsGenPtrForAdd()
     CHK_PRT_THROW(
         (tmpPtrV1 && !supportCcuV1),
         HCCL_ERROR("[CcuRepAdd][%s]Cannot translate CcuRepAdd for A5 when supportCcuV1 is false", __func__),
-        Hccl::CcuApiException, "tmpPtrV1 does not match supportCcuV1");
+        hcomm::CcuApiException, "tmpPtrV1 does not match supportCcuV1");
 }
 
 bool CcuRepAdd::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
     ValidateInsGenPtrForAdd();
-    Hccl::CHECK_NULLPTR(instr, "[CcuRepAdd::Translate] instr is nullptr!");
+    hcomm::CHECK_NULLPTR(instr, "[CcuRepAdd::Translate] instr is nullptr!");
     this->instrId = instrId;
     translated = true;
 
@@ -137,7 +134,7 @@ bool CcuRepAdd::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& inst
         HCCL_ERROR(
             "[CcuRepAdd::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instrId,
             instrCount),
-        Hccl::InternalException, "integer overflow");
+        hcomm::InternalException, "integer overflow");
     instrId += instrCount;
     return translated;
 }
@@ -146,43 +143,43 @@ std::string CcuRepAdd::Describe()
 {
     switch (subType) {
         case AddSubType::ADDR_PLUS_VAR_TO_ADDR: {
-            return Hccl::StringFormat("Address[%u] = Address[%u] + Variable[%u]", addrC.Id(), addrA.Id(), varB.Id());
+            return hcomm::StringFormat("Address[%u] = Address[%u] + Variable[%u]", addrC.Id(), addrA.Id(), varB.Id());
         }
         case AddSubType::ADDR_PLUS_ADDR_TO_ADDR: {
-            return Hccl::StringFormat("Address[%u] = Address[%u] + Address[%u]", addrC.Id(), addrA.Id(), addrB.Id());
+            return hcomm::StringFormat("Address[%u] = Address[%u] + Address[%u]", addrC.Id(), addrA.Id(), addrB.Id());
         }
         case AddSubType::VAR_PLUS_VAR_TO_VAR: {
-            return Hccl::StringFormat("Variable[%u] = Variable[%u] + Variable[%u]", varC.Id(), varA.Id(), varB.Id());
+            return hcomm::StringFormat("Variable[%u] = Variable[%u] + Variable[%u]", varC.Id(), varA.Id(), varB.Id());
         }
         case AddSubType::SELF_ADD_ADDRESS: {
-            return Hccl::StringFormat("Address[%u] += Variable[%u]", addrA.Id(), varB.Id());
+            return hcomm::StringFormat("Address[%u] += Variable[%u]", addrA.Id(), varB.Id());
         }
         case AddSubType::SELF_ADD_VARIABLE: {
-            return Hccl::StringFormat("Variable[%u] += Variable[%u]", varA.Id(), varB.Id());
+            return hcomm::StringFormat("Variable[%u] += Variable[%u]", varA.Id(), varB.Id());
         }
         case AddSubType::SELF_ADD_IMMED_VARIABLE: {
-            return Hccl::StringFormat("Variable[%u] += Immed[%u]", varA.Id(), immedB);
+            return hcomm::StringFormat("Variable[%u] += Immed[%u]", varA.Id(), immedB);
         }
         case AddSubType::VAR_PLUS_IMMED_TO_VAR: {
-            return Hccl::StringFormat("Variable[%u] = Variable[%u] + Immed[%u]", varC.Id(), varA.Id(), immedB);
+            return hcomm::StringFormat("Variable[%u] = Variable[%u] + Immed[%u]", varC.Id(), varA.Id(), immedB);
         }
         case AddSubType::ADDR_PLUS_IMMED_TO_ADDR: {
-            return Hccl::StringFormat("Address[%u] += Address[%u] + Immed[%hu]", addrC.Id(), addrA.Id(), immedB);
+            return hcomm::StringFormat("Address[%u] += Address[%u] + Immed[%hu]", addrC.Id(), addrA.Id(), immedB);
         }
         case AddSubType::VAR_PLUS_VAR_TO_ADDR: {
-            return Hccl::StringFormat("Address[%u] = Variable[%u] + Variable[%u]", addrC.Id(), varA.Id(), varB.Id());
+            return hcomm::StringFormat("Address[%u] = Variable[%u] + Variable[%u]", addrC.Id(), varA.Id(), varB.Id());
         }
         case AddSubType::SELF_ADD_IMMED_ADDRESS: {
-            return Hccl::StringFormat("Address[%u] += Immed[%u]", addrA.Id(), immedB);
+            return hcomm::StringFormat("Address[%u] += Immed[%u]", addrA.Id(), immedB);
         }
         case AddSubType::VAR_PLUS_IMMED_TO_ADDR: {
-            return Hccl::StringFormat("Address[%u] += varA[%u] + Immed[%hu]", addrC.Id(), varA.Id(), immedB);
+            return hcomm::StringFormat("Address[%u] += varA[%u] + Immed[%hu]", addrC.Id(), varA.Id(), immedB);
         }
         case AddSubType::ADDR_PLUS_IMMED_TO_VAR: {
-            return Hccl::StringFormat("Variable[%u] = Address[%u] + Immed[%u]", varC.Id(), addrA.Id(), immedB);
+            return hcomm::StringFormat("Variable[%u] = Address[%u] + Immed[%u]", varC.Id(), addrA.Id(), immedB);
         }
         default: {
-            return Hccl::StringFormat("Invalid Add");
+            return hcomm::StringFormat("Invalid Add");
         }
     }
 }

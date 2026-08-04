@@ -10,7 +10,7 @@
 
 #include <unordered_map>
 
-#include "string_util.h"
+#include "hcomm/common/asccomm_string_util.h"
 #include "ccu_microcode.h"
 
 namespace {

@@ -10,8 +10,6 @@
 
 #include "hcomm/resource/representation/reps/sync/ccu_rep_loc_record_event.h"
 #include <climits>
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
 namespace hcomm {
@@ -37,7 +35,7 @@ bool CcuRepLocRecordEvent::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uin
             "[CcuRepLocRecordEvent][Translate] instrId[%u] + instrCount[%u] "
             "exceeds the maximum value of unsigned short int.",
             instrId, instrCount),
-        Hccl::CcuApiException, "integer overflow");
+        hcomm::CcuApiException, "integer overflow");
 
     instrId += instrCount;
     return translated;
@@ -45,7 +43,7 @@ bool CcuRepLocRecordEvent::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uin
 
 std::string CcuRepLocRecordEvent::Describe()
 {
-    return Hccl::StringFormat("CcuRepLocRecordEvent=id[%u], mask[%04x]", event_.Id(), mask_);
+    return hcomm::StringFormat("CcuRepLocRecordEvent=id[%u], mask[%04x]", event_.Id(), mask_);
 }
 
 }; // namespace CcuRep
