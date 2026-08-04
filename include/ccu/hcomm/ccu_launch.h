@@ -27,6 +27,8 @@ extern CcuResult HcommCcuKernelRegister(
 
 extern CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle insHandle);
 
+extern CcuResult HcommCcuGetTaskArgsNum(CcuKernelHandle kernelHandle, uint32_t* taskArgsNum);
+
 extern CcuResult HcommCcuKernelLaunch(
     ThreadHandle threadHandle, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum);
 
