@@ -99,14 +99,21 @@ hcomm_.Drain(channel);
 - `prev = (rank - 1 + nranks) % nranks`
 - `next = (rank + 1) % nranks`
 
-Host侧为`prev`和`next`分别准备通信上下文。Kernel执行时，默认将本卡seg0通过`WriteNbi`写入`next`的seg1，并通过`ReadNbi`从`prev`的seg0读到本卡seg2；因此每个rank最终校验的数据都来自`prev`。当`nranks == 2`时，`prev`和`next`都指向同一个对端rank，样例会复用同一对端方向执行写和读。
+Host侧为`prev`和`next`分别准备通信上下文。当前样例的数据面只使用`next`方向：Kernel执行时，将本卡seg0通过`WriteNbi`写入`next`的seg1，并通过`ReadNbi`从`next`的seg0读到本卡seg2。因此，每个rank的seg1来自`prev`写入，seg2来自`next`读取。当`nranks == 2`时，`prev`和`next`都指向同一个对端rank，seg1和seg2会校验同一个对端pattern。
 
 Host侧在Kernel执行前后通过TCP环形barrier同步所有rank，避免某个rank提前校验尚未完成的通信结果。
+
+#### 4. 如何扩展为all-to-neighbor
+当前样例已经建立了`prev`和`next`两个方向的P2P通道，但默认只执行`next`方向的数据面操作。若要扩展为完整的all-to-neighbor通信，可以复用已建立的`prev`通道，让每个rank同时覆盖“对前驱读”和“向后继写”两个方向。
+
+一种直接实现方式是执行两次Kernel：第一次使用`prev`通道执行`ReadNbi`，从`prev`的seg0读到本卡seg2；第二次使用`next`通道执行`WriteNbi`，将本卡seg0写入`next`的seg1。这样每个rank的seg1由`prev`通过`WriteNbi`写入，seg2由本rank通过`ReadNbi`从`prev`读回，两段数据都应匹配`prev`的pattern。Host侧需要分别回读两次Kernel对应通信上下文中的`testResult`，并继续校验seg1和seg2的pattern。
+
+扩展时建议保留Kernel前后的Host侧barrier：Kernel前确保所有rank完成内存注册、通道建立和context初始化；Kernel后确保所有rank完成对应方向的`Drain`后再回读`testResult`并校验数据。若新增或调整数据段偏移，需要同步更新Host侧pattern校验的期望rank和offset。
 
 ### 校验机制
 - 每个rank在Host侧预初始化seg0时，通过线性同余生成器（LCG，使用Knuth乘法哈希常数`0x9E3779B9U`等参数）生成用于通信校验的随机pattern，确保不同rank的数据来源可区分。
 - Kernel执行完毕后，Host侧通过`aclrtMemcpy`回读`CommContext::testResult`。
-- Host侧进一步校验seg1（对端`WriteNbi`写入）和seg2（本卡`ReadNbi`读回）的数据是否与对端pattern完全一致。当校验结果码testResult为0（即seg1/seg2数据与对端pattern完全一致）时，打印test pass!。
+- Host侧进一步校验seg1（`prev`通过`WriteNbi`写入）和seg2（本卡通过`ReadNbi`从`next`读回）的数据是否与对应对端pattern完全一致。当校验结果码testResult为0（即seg1/seg2数据与对端pattern完全一致）时，打印test pass!。
 
 ## 编译与运行
 

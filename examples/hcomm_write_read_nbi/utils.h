@@ -15,7 +15,7 @@
 constexpr int32_t SUCCESS = 0;
 constexpr int32_t FAIL = -1;
 
-#define CHECK(rank, expect, call)                                                          \
+#define CHECK(call, expect, rank)                                                          \
     do {                                                                                   \
         auto _check_ret = (call);                                                          \
         auto _check_expect = (expect);                                                     \

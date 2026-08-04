@@ -99,14 +99,21 @@ The runtime rank count is `nranks`. Each rank computes its neighbors as follows:
 - `prev = (rank - 1 + nranks) % nranks`
 - `next = (rank + 1) % nranks`
 
-The Host prepares communication contexts for both `prev` and `next`. During Kernel execution, each rank normally writes its local seg0 to `next`'s seg1 through `WriteNbi`, and reads `prev`'s seg0 into its local seg2 through `ReadNbi`. Therefore, each rank validates data that originated from `prev`. When `nranks == 2`, `prev` and `next` refer to the same peer rank, and the sample uses that same peer direction for both write and read.
+The Host prepares communication contexts for both `prev` and `next`. The current sample uses only the `next` direction in the data plane: during Kernel execution, each rank writes its local seg0 to `next`'s seg1 through `WriteNbi`, and reads `next`'s seg0 into its local seg2 through `ReadNbi`. Therefore, seg1 is written by `prev`, while seg2 is read from `next`. When `nranks == 2`, `prev` and `next` refer to the same peer rank, so seg1 and seg2 are validated against the same peer pattern.
 
 The Host runs TCP ring barriers before and after Kernel execution so that no rank validates data before all ranks have reached the same communication phase.
+
+#### 4. How to Extend to All-to-Neighbor
+The sample already establishes P2P channels in both the `prev` and `next` directions, but its default data plane only uses the `next` direction. To extend it into full all-to-neighbor communication, reuse the established `prev` channel so that each rank covers both "read from predecessor" and "write to successor" directions.
+
+One direct implementation is to launch the Kernel twice: first use the `prev` channel to execute `ReadNbi`, reading `prev`'s seg0 into the local seg2; then use the `next` channel to execute `WriteNbi`, writing the local seg0 into `next`'s seg1. With this flow, each rank's seg1 is written by `prev` through `WriteNbi`, and seg2 is read from `prev` by the local `ReadNbi`; both segments should match `prev`'s pattern. The Host should read back the `testResult` from the communication context used by each Kernel launch and continue validating the seg1/seg2 patterns.
+
+Keep the Host-side barriers before and after Kernel execution when extending the sample. The pre-Kernel barrier ensures all ranks have completed memory registration, channel acquisition, and context initialization. The post-Kernel barrier ensures all ranks have completed `Drain` for the corresponding direction before the Host reads back `testResult` and validates data. If new data segment offsets are added or existing offsets are changed, update the Host-side expected rank and offset used by pattern validation accordingly.
 
 ### Validation Mechanism
 - During Host pre-initialization of seg0, a pseudo-random pattern is generated using a Linear Congruential Generator (LCG, utilizing Knuth's multiplicative hash constant `0x9E3779B9U` and other parameters) to ensure the data source is distinguishable.
 - After Kernel execution, the Host reads back `CommContext::testResult` via `aclrtMemcpy`.
-- The Host then checks that seg1 (written by the peer's `WriteNbi`) and seg2 (read by the local `ReadNbi`) match the peer's pattern. When `testResult` is 0, it prints `test pass!`.
+- The Host then checks that seg1 (written by `prev` through `WriteNbi`) and seg2 (read from `next` by the local `ReadNbi`) match the corresponding peer patterns. When `testResult` is 0, it prints `test pass!`.
 
 ## Compilation and Execution
 

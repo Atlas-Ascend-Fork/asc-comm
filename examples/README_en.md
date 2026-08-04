@@ -15,7 +15,7 @@ The sample starts ranks through automatic multi-process fork. It uses two ranks 
 1. The Host creates a communication domain and registers communication buffers for each rank.
 2. The Host builds a TCP ring topology: `prev = (rank - 1 + nranks) % nranks`, `next = (rank + 1) % nranks`.
 3. AIV P2P channels to neighboring ranks are established via `HcclChannelAcquire`.
-4. The Kernel writes local data to `next` through `WriteNbi`, and reads data from `prev` through `ReadNbi`.
+4. The Kernel writes local data to `next` through `WriteNbi`, and reads data from `next` through `ReadNbi`.
 5. The Host reads back and verifies results. `test pass!` is printed if all ranks pass validation.
 
 ## Build & Run

@@ -17,7 +17,7 @@
 1. Host侧为每个rank创建通信域并注册通信buffer。
 2. Host侧建立TCP环形拓扑：`prev = (rank - 1 + nranks) % nranks`，`next = (rank + 1) % nranks`。
 3. 通过`HcclChannelAcquire`创建到相邻rank的AIV P2P通道。
-4. Kernel侧将本卡数据通过`WriteNbi`写入`next`，并通过`ReadNbi`从`prev`读回数据。
+4. Kernel侧将本卡数据通过`WriteNbi`写入`next`，并通过`ReadNbi`从`next`读回数据。
 5. Host侧回读校验结果，所有rank均通过时输出`test pass!`。
 
 ## 编译运行
