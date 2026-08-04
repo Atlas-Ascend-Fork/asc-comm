@@ -18,14 +18,15 @@
 ### 🚀 当前能力
 
 - 提供AICore侧Hcomm点对点通信接口，覆盖`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。
-- 提供AIV直驱Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/detail/`。
+- 提供AIV直驱Hcomm RoCE和UBC_CTP/URMA相关实现，按协议位于`src/aicore/hcomm/roce`和`src/aicore/hcomm/ubc`。
+- 提供AICPU Hcomm数据面实现，按原语、资源和公共能力组织在`src/aicpu/hcomm`。
 - 提供Hcomm UT工程，覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。
 - 提供`hcomm_write_read_nbi`样例，演示AIV直驱URMA场景下`WriteNbi`和`ReadNbi`点对点通信流程，并包含运行样例所需的Host侧资源准备流程。
 
 ### 📖 资料文档
 
-- 新增[快速开始](./docs/quick_start.md)、[构建与测试](./docs/zh/guide/build_and_test.md)、[三方依赖与兼容性](./docs/zh/guide/dependencies.md)说明。
-- 新增[Hcomm使用说明](./docs/zh/guide/hcomm_usage.md)和[API参考](./docs/zh/api/README.md)，覆盖当前公开的Hcomm接口。
+- 新增[快速开始](./docs/quick_start.md)、[构建与测试](./docs/guide/build_and_test.md)、[三方依赖与兼容性](./docs/guide/dependencies.md)说明。
+- 新增[Hcomm使用说明](./docs/guide/hcomm_usage.md)和[API参考](./docs/api/README.md)，覆盖当前公开的Hcomm接口。
 - 新增[样例目录](./examples/README.md)，提供Hcomm AIV直驱调用和端到端通信样例入口。
 
 有关所有历史版本及更新的详细信息，请参阅[CHANGELOG.md](./CHANGELOG.md)。
@@ -41,7 +42,8 @@ asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载A
 | 能力 | 当前状态 |
 | --- | --- |
 | AICore Hcomm公开接口 | 已提供Kernel侧`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。 |
-| AIV直驱实现 | 已提供Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/detail/`。 |
+| AIV直驱实现 | 已提供Hcomm RoCE和UBC_CTP/URMA相关实现，分别位于`src/aicore/hcomm/roce`和`src/aicore/hcomm/ubc`。 |
+| AICPU数据面 | 已提供AICPU通信原语、通信资源和兼容层实现，位于`src/aicpu/hcomm`。 |
 | AIV直驱样例配套流程 | `hcomm_write_read_nbi`包含AIV直驱URMA通信所需的通信域创建、通信内存注册、P2P通道创建和远端内存获取流程。 |
 | 协议能力 | `COMM_PROTOCOL_ROCE`支持读写、提交和等待；`COMM_PROTOCOL_UBC_CTP`支持读写、写通知、原子操作、提交和等待。 |
 | UT验证 | UT覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
@@ -70,7 +72,7 @@ Hcomm Kernel侧使用时包含如下头文件：
 | `COMM_PROTOCOL_ROCE` | RoCE点对点通信路径，支持`ReadNbi`、`WriteNbi`、`Commit`、`Drain`，不支持`WriteWithNotifyNbi`。 |
 | `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA点对点通信路径，支持`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。 |
 
-详细参数约束和返回值说明请参考[Hcomm使用说明](./docs/zh/guide/hcomm_usage.md)和[API参考](./docs/zh/api/README.md)。
+详细参数约束和返回值说明请参考[Hcomm使用说明](./docs/guide/hcomm_usage.md)和[API参考](./docs/api/README.md)。
 
 ## 🔍目录结构说明
 
@@ -86,9 +88,15 @@ Hcomm Kernel侧使用时包含如下头文件：
 │   ├── ain                       # AIN相关API预留目录
 ├── scripts                       # 脚本
 ├── src                           # asc-comm API实现源代码
-│   ├── aicore/hcomm/detail       # AICore侧Hcomm实现细节
-│   │   ├── common                # Hcomm公共定义和工具
-│   │   └── impl                  # Hcomm协议实现与平台差异代码
+│   ├── aicpu/hcomm               # AICPU侧Hcomm数据面实现
+│   │   ├── primitives            # 通信原语及C接口适配
+│   │   ├── resource              # 通信资源及生命周期管理
+│   │   └── common                # AICPU公共定义、工具和兼容层
+│   ├── aicore/hcomm              # AICore侧Hcomm直驱实现
+│   │   ├── base_comm             # 基础通信层及协议选择
+│   │   ├── roce                  # RoCE协议及平台实现
+│   │   └── ubc                   # UBC_CTP/URMA协议实现
+│   └── common/dfx                # 跨模块DFX基础能力
 └── tests                         # asc-comm API UT用例
     └── ut/aicore/hcomm           # AICore Hcomm UT工程
 ```
@@ -120,7 +128,7 @@ cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<third_party_path>
 cmake --build build/ut-hcomm
 ```
 
-更多环境准备、Docker、CANN包安装和UT依赖说明请参考[快速开始](./docs/quick_start.md)和[构建与测试](./docs/zh/guide/build_and_test.md)。
+更多环境准备、Docker、CANN包安装和UT依赖说明请参考[快速开始](./docs/quick_start.md)和[构建与测试](./docs/guide/build_and_test.md)。
 
 ## 🧰clangd/IDE支持
 
@@ -137,10 +145,10 @@ cmake --build build/ut-hcomm
   | --- | --- |
   | [文档入口](./docs/README.md) | asc-comm文档总入口。 |
   | [快速开始](./docs/quick_start.md) | 环境准备、源码编译和UT验证。 |
-  | [API参考](./docs/zh/api/README.md) | asc-comm当前公开接口列表。 |
-  | [Hcomm使用说明](./docs/zh/guide/hcomm_usage.md) | Hcomm点对点通信接口的基本使用流程。 |
-  | [构建与测试](./docs/zh/guide/build_and_test.md) | CANN环境、构建脚本、UT构建和样例构建说明。 |
-  | [三方依赖与兼容性](./docs/zh/guide/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
+  | [API参考](./docs/api/README.md) | asc-comm当前公开接口列表。 |
+  | [Hcomm使用说明](./docs/guide/hcomm_usage.md) | Hcomm点对点通信接口的基本使用流程。 |
+  | [构建与测试](./docs/guide/build_and_test.md) | CANN环境、构建脚本、UT构建和样例构建说明。 |
+  | [三方依赖与兼容性](./docs/guide/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
   | [样例目录](./examples/README.md) | asc-comm API样例入口。 |
 
 - **贡献指南**
