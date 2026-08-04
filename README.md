@@ -46,6 +46,9 @@ asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载A
 | 协议能力 | `COMM_PROTOCOL_ROCE`支持读写、提交和等待；`COMM_PROTOCOL_UBC_CTP`支持读写、写通知、原子操作、提交和等待。 |
 | UT验证 | UT覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
 | AIV直驱样例 | 提供`hcomm_write_read_nbi`样例，覆盖两卡AIV直驱URMA `WriteNbi`/`ReadNbi`对称通信和结果校验流程。 |
+| SIMT Hcomm公开接口 | 已提供Kernel侧`Init`、`WriteNbi`、`ReadNbi`、`Drain`，接口声明位于`include/aicore/hcomm/hcomm_simt.h`。SIMT无`Commit`接口，延迟提交的任务由后续`commit=true`的任务带出。 |
+| SIMT直驱实现 | 已提供UBC_CTP/URMA实现，仅支持v310平台，主实现位于`src/aicore/hcomm/detail/`。`WriteValueNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`尚未实现。 |
+| SIMT直驱样例 | 提供`simt_write`样例，覆盖两卡单向URMA `WriteNbi`的三种提交方式和结果校验流程。 |
 
 ### 如何使用Hcomm接口
 
@@ -62,6 +65,8 @@ Hcomm Kernel侧使用时包含如下头文件：
 3. 通过`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`或`AtomicCAS`提交通信任务。
 4. 如果提交任务时设置`commit = false`，调用`Commit`显式提交通信任务。
 5. 调用`Drain`等待通道上的通信任务完成。
+
+SIMT Kernel侧改为包含`hcomm/hcomm_simt.h`，使用`AscendC::simt::Hcomm`，调用流程与上述一致，区别在于：SIMT没有`Commit`接口，设置`commit = false`提交的任务由后续一次`commit = true`的任务带出；同一通道不能同时由`AscendC::Hcomm`和`AscendC::simt::Hcomm`驱动，两者的队列状态保存位置不同。
 
 协议能力说明：
 
@@ -80,9 +85,10 @@ Hcomm Kernel侧使用时包含如下头文件：
 ├── cmake                         # asc-comm CMake辅助模块
 ├── docs                          # 项目文档介绍
 ├── examples                      # asc-comm API样例目录
-│   └── hcomm_write_read_nbi      # Hcomm AIV直驱URMA两卡P2P通信样例
+│   ├── hcomm_write_read_nbi      # Hcomm AIV直驱URMA两卡P2P通信样例
+│   └── simt_write                # Hcomm SIMT直驱URMA两卡WriteNbi样例
 ├── include                       # asc-comm API声明源代码
-│   ├── aicore/hcomm              # AICore侧Hcomm公开接口
+│   ├── aicore/hcomm              # AICore侧Hcomm公开接口（含SIMT接口hcomm_simt.h）
 │   ├── ain                       # AIN相关API预留目录
 ├── scripts                       # 脚本
 ├── src                           # asc-comm API实现源代码

@@ -7,6 +7,7 @@
 | 样例 | 说明 | 支持产品 |
 | --- | --- | --- |
 | [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示两卡场景下AIV Kernel通过URMA路径调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
+| [simt_write](./simt_write/README.md) | 演示两卡场景下SIMT Kernel通过URMA路径调用`simt::Hcomm::WriteNbi`的三种提交方式，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
 
 ## hcomm_write_read_nbi
 
@@ -42,6 +43,14 @@ make -j
 # 终端2：rank 1
 ./demo 1 2 tcp://127.0.0.1:29621
 ```
+
+## simt_write
+
+`simt_write`展示SIMT Kernel直驱URMA点对点通信流程，Host侧流程与`hcomm_write_read_nbi`一致，Kernel侧改用`AscendC::simt::Hcomm`。样例覆盖`WriteNbi`的三种提交方式：单次立即提交、单线程批量延迟提交后由末次提交带出、多线程并发延迟提交后由lane 0提交。
+
+与`hcomm_write_read_nbi`不同，本样例流量是单向的：rank 0为唯一发起方，rank 1不启动Kernel、由网卡被动落地数据并在Host侧校验。
+
+编译运行方式参见[simt_write/README.md](./simt_write/README.md)。
 
 ## 运行约束
 
