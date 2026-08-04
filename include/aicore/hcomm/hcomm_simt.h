@@ -40,8 +40,8 @@ namespace AscendC::simt {
  *          3) Call the Drain interface (blocking) to wait for completion of the comm tasks.
  * @tparam commProtocol: The communication protocol to use, UBC_CTP supported as default.
  * @note Unlike the SIMD path, the doorbell is rung by copying a 128-byte DWQE rather than writing
- *       a scalar register, so an immediate post occupies two SQ basic blocks while a deferred one
- *       occupies a single block.
+ *       a scalar register. A deferred Write/Read occupies one SQ basic block, while an immediate
+ *       Write/Read and the two-BB Notify/atomic WQEs occupy two.
  * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
@@ -132,7 +132,6 @@ public:
      * @param [in] notifyAddr: The remote notify address.
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Not implemented yet.
      */
     template <bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteWithNotifyNbi(
@@ -151,7 +150,6 @@ public:
      * @param [out] fetchAddr: The address to store the old value before atomic add.
      * @param [in] addVal: The remote add value.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Not implemented yet.
      */
     template <
         typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
@@ -170,7 +168,6 @@ public:
      * @param [in] compareVal: The value to compare against the value at the destination address.
      * @param [in] swapVal: The value to swap into the destination address if comparison succeeds.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Not implemented yet.
      */
     template <
         typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>

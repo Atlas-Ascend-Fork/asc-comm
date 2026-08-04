@@ -46,8 +46,8 @@ asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载A
 | 协议能力 | `COMM_PROTOCOL_ROCE`支持读写、提交和等待；`COMM_PROTOCOL_UBC_CTP`支持读写、写通知、原子操作、提交和等待。 |
 | UT验证 | UT覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
 | AIV直驱样例 | 提供`hcomm_write_read_nbi`样例，覆盖两卡AIV直驱URMA `WriteNbi`/`ReadNbi`对称通信和结果校验流程。 |
-| SIMT Hcomm公开接口 | 已提供Kernel侧`Init`、`WriteNbi`、`ReadNbi`、`Drain`，接口声明位于`include/aicore/hcomm/hcomm_simt.h`。SIMT无`Commit`接口，延迟提交的任务由后续`commit=true`的任务带出。 |
-| SIMT直驱实现 | 已提供UBC_CTP/URMA实现，仅支持v310平台，主实现位于`src/aicore/hcomm/detail/`。`WriteValueNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`尚未实现。 |
+| SIMT Hcomm公开接口 | 已提供Kernel侧`Init`、`WriteNbi`、`ReadNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Drain`，接口声明位于`include/aicore/hcomm/hcomm_simt.h`。SIMT无`Commit`接口，延迟提交的任务由后续`commit=true`的任务带出。 |
+| SIMT直驱实现 | 已提供UBC_CTP/URMA实现，仅支持v310平台，主实现位于`src/aicore/hcomm/detail/`。`WriteValueNbi`尚未实现。 |
 | SIMT直驱样例 | 提供`simt_write`样例，覆盖两卡单向URMA `WriteNbi`的三种提交方式和结果校验流程。 |
 
 ### 如何使用Hcomm接口
