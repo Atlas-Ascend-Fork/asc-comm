@@ -65,6 +65,10 @@ struct GroupOpConfig {
     uint64_t memSlice;
 };
 
+struct CcuKernelInfo {
+    uint32_t maxTaskArgsNum{0};
+};
+
 class CcuKernel : public CcuRep::CcuRepContext {
 public:
     CcuKernel() = default;
@@ -130,6 +134,7 @@ public:
 
     // 参数加载类 相关接口
     CcuResult LoadArg(CcuVariableHandle varHandle, uint32_t argId);
+    CcuResult GetCcuKernelInfo(CcuKernelInfo& info) const;
     CcuResult LoadVar(uint64_t addr, CcuVariableHandle varHandle, uint32_t num);
     CcuResult CcuLoadVarFromVarAddr(CcuVariableHandle addrHandle, CcuVariableHandle varHandle, uint32_t num);
     CcuResult StoreVar(uint64_t addr, CcuVariableHandle varHandle, uint32_t num);
@@ -371,6 +376,7 @@ protected:
     // 使用channel中的Variable
     HcclResult CreateVariable(const ChannelHandle channel, uint32_t varIndex, CcuRep::Variable* var);
     CcuRep::Variable CreateVariable();
+    CcuRep::Variable CreateExpectVar();
     CcuRep::Variable CreateContinuousVariable();
     CcuRep::LocalAddr CreateLocalAddr();
     CcuRep::RemoteAddr CreateRemoteAddr();

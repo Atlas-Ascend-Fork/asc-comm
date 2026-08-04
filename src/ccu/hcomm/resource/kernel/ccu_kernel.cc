@@ -144,6 +144,7 @@ static void MoveResourcesToDie(CcuRepResource& res, uint32_t targetDieId)
     moveAndSet(res.completedEvent);
     moveAndSet(res.blockCompletedEvent);
     moveAndSet(res.address);
+    moveAndSet(res.blockAddress);
     moveAndSet(res.continuousVariable);
     moveAndSet(res.variable);
     moveAndSet(res.localNotify);
@@ -317,18 +318,19 @@ CcuResReq CcuKernel::GetResourceRequest()
     req.loopEngineReq[dieId] = res_.executor[dieId].size();
     req.blockLoopEngineReq[dieId] = res_.blockExecutor[dieId].size();
     req.gsaReq[dieId] = res_.address[dieId].size();
+    req.blockGsaReq[dieId] = res_.blockAddress[dieId].size();
     req.xnReq[dieId] = res_.variable[dieId].size();
-    req.continuousXnReq[dieId] = res_.continuousVariable[dieId].size();
+    req.blockXnReq[dieId] = res_.continuousVariable[dieId].size();
 
     req.missionReq.reqType = MissionReqType::FUSION_MULTIPLE_DIE;
     req.missionReq.req[dieId] = 1;
 
     auto info = Hccl::StringFormat(
         "resource request: dieId[%u], ms[%u], blockMs[%u], cke[%u], blockCke[%u], "
-        "loopEngine[%u], blockLoopEngine[%u], gsa[%u], xn[%u], continuous xn[%u], missionId[%u]",
+        "loopEngine[%u], blockLoopEngine[%u], gsa[%u], blockGsa[%u], xn[%u], blockXn[%u], missionId[%u]",
         dieId, req.msReq[dieId], req.blockMsReq[dieId], req.ckeReq[dieId], req.blockCkeReq[dieId],
-        req.loopEngineReq[dieId], req.blockLoopEngineReq[dieId], req.gsaReq[dieId], req.xnReq[dieId],
-        req.continuousXnReq[dieId], req.missionReq.req[dieId]);
+        req.loopEngineReq[dieId], req.blockLoopEngineReq[dieId], req.gsaReq[dieId], req.blockGsaReq[dieId],
+        req.xnReq[dieId], req.blockXnReq[dieId], req.missionReq.req[dieId]);
 
     HCCL_INFO("%s", info.c_str());
 
@@ -765,6 +767,21 @@ CcuResult CcuKernel::LoadArg(CcuVariableHandle varHandle, uint32_t argId)
     return CcuResult::CCU_SUCCESS;
 }
 
+CcuResult CcuKernel::GetCcuKernelInfo(CcuKernelInfo& info) const
+{
+    if (loadArgUsedSet_.empty()) {
+        info.maxTaskArgsNum = 0;
+        return CcuResult::CCU_SUCCESS;
+    }
+
+    uint32_t maxTaskArgsNum = 0;
+    for (const auto& argId : loadArgUsedSet_) {
+        maxTaskArgsNum = std::max(maxTaskArgsNum, argId);
+    }
+    info.maxTaskArgsNum = maxTaskArgsNum + 1;
+    return CcuResult::CCU_SUCCESS;
+}
+
 CcuResult CcuKernel::CheckContinuousVariables(
     CcuVariableHandle varHandle, uint32_t num, const CcuRep::Variable& baseVar, const char* tag)
 {
@@ -1189,7 +1206,7 @@ CcuResult CcuKernel::IfBegin(
     auto elseLabel = std::make_shared<CcuRep::CcuRepJumpLabel>(insGenerator, elseLabelStr);
     auto endLabel = std::make_shared<CcuRep::CcuRepJumpLabel>(insGenerator, endLabelStr);
     auto targetVar = CcuRep::CreateVariable(this);
-    auto expectVar = CcuRep::CreateVariable(this);
+    auto expectVar = CreateExpectVar();
 
     // 反转条件："if <cond>, 执行块" 等价于 "!<cond> 时跳过块"。
     auto jump = MakeInvertedCondJumpImm(
@@ -1343,7 +1360,7 @@ CcuResult CcuKernel::WhileBegin(
     Append(beginLabel);
 
     auto targetVar = CcuRep::CreateVariable(this);
-    auto expectVar = CcuRep::CreateVariable(this);
+    auto expectVar = CreateExpectVar();
     auto jump = MakeInvertedCondJumpImm(
         insGenerator, endLabelStr, targetVar, expectVar, *variable, immediate, condType, __func__);
     if (jump == nullptr) {
@@ -1478,7 +1495,7 @@ CcuResult CcuKernel::DoWhileEnd(
 
     std::string beginLabelStr = labelStr + "_begin";
     auto targetVar = CcuRep::CreateVariable(this);
-    auto expectVar = CcuRep::CreateVariable(this);
+    auto expectVar = CreateExpectVar();
     std::shared_ptr<CcuRep::CcuRepJumpBase> jump{nullptr};
 
     // "condition true => continue looping" means jump back to begin when condition holds
@@ -2559,6 +2576,16 @@ uint32_t CcuKernel::GetInstrCount()
 void CcuKernel::SetCcuInstrInfo(const CcuRep::CcuInstrInfo& instrInfo) { this->instrInfo_ = instrInfo; }
 
 CcuRep::Variable CcuKernel::CreateVariable() { return CreateResAssist(res_.continuousVariable); }
+
+CcuRep::Variable CcuKernel::CreateExpectVar()
+{
+    // v2(A6) jump compares two variables and needs a real XN for the immediate value.
+    // v1(A5) compares with the immediate directly, so keep the placeholder out of the resource ledger.
+    if (ccuVersion_ == CcuVersion::CCU_V2) {
+        return CreateVariable();
+    }
+    return CcuRep::Variable(this);
+}
 
 CcuRep::Address CcuKernel::CreateAddress()
 {
