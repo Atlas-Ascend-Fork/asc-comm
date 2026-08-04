@@ -48,4 +48,4 @@ __aicore__ inline int32_t WriteNbi(
 
 ## 相关样例
 
-参考[hcomm_write_read_nbi](../../../../examples/hcomm_write_read_nbi/README.md)中的AIV直驱URMA两卡读写流程。
+参考[hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README.md)中的AIV直驱URMA两卡读写流程。
