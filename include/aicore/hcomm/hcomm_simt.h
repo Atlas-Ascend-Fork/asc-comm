@@ -24,7 +24,7 @@
 #define HCOMM_INCLUDE_INTERNAL_HEADERS
 #define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_H
 #endif
-#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_simt_impl_def.h"
+#include "../../../src/aicore/hcomm/impl/hcomm_simt_impl_def.h"
 
 namespace AscendC::simt {
 
@@ -209,7 +209,7 @@ __simt_callee__ inline __gm__ uint8_t* RemoteBufferAddr(ChannelHandle channel, u
 
 } // namespace AscendC::simt
 
-#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_simt_impl.h"
+#include "../../../src/aicore/hcomm/impl/hcomm_simt_impl.h"
 
 #if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_H)
 #undef HCOMM_INCLUDE_INTERNAL_HEADERS
