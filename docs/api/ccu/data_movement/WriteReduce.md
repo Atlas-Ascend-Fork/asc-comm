@@ -2,30 +2,32 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
+
+头文件为：`#include "include/ccu/ccu_primitives.hpp"`
+
+抽象语义为：
+
+$$remote \leftarrow \operatorname{reduce}(remote, local, opType)$$
 
 在CCU kernel内发起跨rank写并对端原地归约操作，通过已建链的`ChannelHandle`将本端HBM数据发送至对端，并与对端HBM现有数据按指定算子合并（`remote = reduce(remote, local, opType)`），硬件完成时自动将`event`的第`mask`位置1。本接口为异步接口。
 
 注意：
 
-- 参数顺序遵循"目的端在前，源端在后"约定：`WriteReduce(ch, remote, local, ...)`，即`remote`（目的，归约的对端累加端）在第二位，`local`（源，本端）在第三位。
-- 同一kernel内使用的所有`ChannelHandle`必须属于同一die。本接口在调用处不做die校验，因此不会因die不一致而失败（调用处仍可能因无注册中kernel返回`CCU_E_PTR`、或句柄无效返回`CCU_E_NOT_FOUND`，详见返回值表）；die一致性由`HcommCcuKernelRegister`统一校验（依据本kernel期间用到的全部channel），不一致时由`HcommCcuKernelRegister`返回`CCU_E_PARA`，而非本接口的返回值。
+
+参数顺序遵循"目的端在前，源端在后"约定：`WriteReduce(ch, remote, local, ...)`，即`remote`（目的，归约的对端累加端）在第二位，`local`（源，本端）在第三位。
+
+同一kernel内使用的所有`ChannelHandle`必须属于同一die。本接口在调用处不做die校验，因此不会因die不一致而失败（调用处仍可能因无注册中kernel返回`CCU_E_PTR`、或句柄无效返回`CCU_E_NOT_FOUND`，详见返回值表）；die一致性由`HcommCcuKernelRegister`统一校验（依据本kernel期间用到的全部channel），不一致时由`HcommCcuKernelRegister`返回`CCU_E_PARA`，而非本接口的返回值。
 
 ## 函数原型
 
@@ -52,9 +54,9 @@ CcuResult WriteReduce(ChannelHandle ch, RemoteAddr remote, LocalAddr local,
 | event | 输入 | 完成事件对象。硬件归约写完成时自动置位`event[mask]`，下游调用`EventWait(event, mask)`等待。 |
 | mask | 输入 | 16位事件掩码。默认值为`1`（即bit0）。 |
 
-## 返回值
+## 返回值说明
 
-[CcuResult](../../../datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`CcuResult`：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |

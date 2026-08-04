@@ -2,23 +2,23 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
+
+头文件为：`#include "include/ccu/ccu_primitives.hpp"`
+
+抽象语义为：
+
+$$event.mask \leftarrow event.mask \lor mask$$
 
 在CCU kernel内显式标记本地Event的指定掩码位完成。
 
@@ -42,9 +42,9 @@ CcuResult EventRecord(Event e, uint16_t mask = 1);
 | e | 输入 | 本地Event对象。`Event`类构造时申请CKE虚拟句柄（物理资源在`HcommCcuKernelRegister`阶段分配），无需手动分配。 |
 | mask | 输入 | 16位事件掩码，指定要置位的bit。默认值为`1`（即bit0）。同一个`Event`对象的不同bit相互独立，可承载多组配对。 |
 
-## 返回值
+## 返回值说明
 
-[CcuResult](../../../datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`CcuResult`：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |

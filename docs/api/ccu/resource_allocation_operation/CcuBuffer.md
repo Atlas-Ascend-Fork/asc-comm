@@ -2,35 +2,37 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
 
+头文件为：`#include "include/ccu/ccu_buffer.hpp"`
+
+抽象语义为：
+
+$$CcuBuffer \equiv \langle CcuBufferHandle \rangle$$
+
 `ccu::CcuBuffer`是CCU kernel内片上Memory Slice（MS）的C++包装类，每个MS切片固定大小为4096字节。
 
-- 构造即分配：默认构造函数自动申请1块MS虚拟句柄。
-- 析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU实例生命周期统一管理、回收。
+
+构造即分配：默认构造函数自动申请1块MS虚拟句柄。
+
+析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU实例生命周期统一管理、回收。
 
 MS切片是CCU die内的片上高速暂存区，用于在HBM与对端之间中转数据，或作为多Buffer归约（一次最多8 路MS）的操作数。
 
 > [!NOTE]说明
 > C++类名保留`Ccu`前缀（类名为`CcuBuffer`而非`Buffer`），与命名空间合写为`ccu::CcuBuffer`。
 
-## 类声明
+## 函数原型
 
 ```cpp
 namespace AscendC {
@@ -53,7 +55,7 @@ public:
 > [!CAUTION]注意
 > `CcuBuffer` 类有copy / move 构造函数，它们只拷贝 `handle` 字段、不申请新的MS 切片——`CcuBuffer b2 = b1;` 后 `b1` 和 `b2` 指向同一块MS 切片。如需独立的CcuBuffer，必须显式 `CcuBuffer b2;` 默认构造（或用 `Array<CcuBuffer>` 申请物理连续的多块）。
 
-构造失败时抛出异常（携带[CcuResult](../../../datatype_definition/CcuResult.md)错误码）。
+构造失败时抛出异常（携带`CcuResult`错误码）。
 
 ## 约束说明
 

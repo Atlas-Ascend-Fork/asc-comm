@@ -2,23 +2,23 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
+
+头文件为：`#include "include/ccu/ccu_primitives.hpp"`
+
+抽象语义为：
+
+$$remoteVar[remoteVarIdx] \leftarrow var,\quad notify[remoteNotifyIdx] \leftarrow notify[remoteNotifyIdx] \lor mask$$
 
 在CCU kernel内将"写远端Variable值"与"触发远端Notify信号"合并为单条原子操作，硬件保证"先写值后发Notify"的完成顺序。
 
@@ -43,15 +43,15 @@ CcuResult WriteVariableWithNotify(ChannelHandle channel, Variable var,
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| channel | 输入 | 通信通道句柄，为通过建链流程获取的通道资源。`ChannelHandle`类型的定义可参见[ChannelHandle](../../../datatype_definition/ChannelHandle.md)。channel绑定的die必须与本kernel当前die一致。 |
+| channel | 输入 | 通信通道句柄，为通过建链流程获取的通道资源。`ChannelHandle`类型的定义可参见`ChannelHandle`。channel绑定的die必须与本kernel当前die一致。 |
 | var | 输入 | 本端Variable对象，其当前值将被写入远端channel-bound Variable槽位。 |
 | remoteVarIdx | 输入 | 远端Variable槽位索引（0-based），为channel两端协商约定的编号。消费侧通过`GetResByChannel<Variable>(channel, remoteVarIdx)`引用同一槽位。 |
 | remoteNotifyIdx | 输入 | 远端notify槽位索引（0-based），为channel两端协商约定的编号。必须与消费侧`NotifyWait`的`localNotifyIdx`数值完全一致。 |
 | mask | 输入 | 16位事件掩码，指定要置位的bit。默认值为`1`。必须与消费侧`NotifyWait`的`mask`一致。 |
 
-## 返回值
+## 返回值说明
 
-[CcuResult](../../../datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`CcuResult`：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |

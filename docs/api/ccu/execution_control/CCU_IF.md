@@ -2,29 +2,29 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
+
+头文件为：`#include "include/ccu/ccu_control_flow_macro.h"`
+
+抽象语义为：
+
+$$body = \begin{cases}then, & condExpr = true\\ else, & condExpr = false\end{cases}$$
 
 在CCU kernel内开始一个软件条件分支块。条件在运行期由CCU硬件计算，条件不满足时跳转至`CCU_ELSE`分支或if块出口。
 
 `CCU_IF`是一个预处理器宏，可单独使用，也可紧跟一个可选的`CCU_ELSE`分支。`CCU_IF`与`CCU_ELSE`通过宏内部的状态管理自动配对，用户只需按宏语法书写。
 
-## 宏语法
+## 函数原型
 
 ```cpp
 CCU_IF(condExpr) {
@@ -45,9 +45,9 @@ CCU_IF(condExpr) {
 | --- | --- |
 | condExpr | 条件表达式，类型为`AscendC::ccu::CondExpr`。通过`ccu::Variable`的`operator==(uint64_t)`或`operator!=(uint64_t)`产生，例如`v == 0`或`v != limit`。条件在运行期由CCU硬件计算。 |
 
-## 返回值
+## 返回值说明
 
-`CCU_IF`为预处理器宏，本身不返回[CcuResult](../../../datatype_definition/CcuResult.md)。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`CCU_E_PARA`/`CCU_E_NOT_FOUND`，此时宏不抛异常、也不阻断注册：失败时body会被跳过，但注册仍然成功。这与"`CCU_ELSE`无法配对时body被跳过"属于同一类情况——错误不通过返回值反馈，调试时需留意。
+`CCU_IF`为预处理器宏，本身不返回`CcuResult`。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`CCU_E_PARA`/`CCU_E_NOT_FOUND`，此时宏不抛异常、也不阻断注册：失败时body会被跳过，但注册仍然成功。这与"`CCU_ELSE`无法配对时body被跳过"属于同一类情况——错误不通过返回值反馈，调试时需留意。
 
 ## 约束说明
 

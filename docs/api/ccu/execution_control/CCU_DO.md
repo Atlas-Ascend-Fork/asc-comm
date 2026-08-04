@@ -2,23 +2,23 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
+
+头文件为：`#include "include/ccu/ccu_control_flow_macro.h"`
+
+抽象语义为：
+
+$$\mathrm{do}\ \{body\}\ \mathrm{while}(condExpr)$$
 
 在CCU kernel内开始一个do-while循环块：body至少执行一次，然后由配套的`CCU_WHILE`判断是否继续。
 
@@ -31,7 +31,7 @@ CCU_DO { body } CCU_WHILE(condExpr);
 > [!CAUTION]注意
 > `CCU_DO`必须配`CCU_WHILE(cond);`收尾。漏写收尾不会产生编译错误，但运行期行为错误：body仅执行一次后顺序向下，且会影响后续的`CCU_WHILE`，导致循环跳转错乱，极难调试。
 
-## 宏语法
+## 函数原型
 
 ```cpp
 CCU_DO {
@@ -43,9 +43,9 @@ CCU_DO {
 
 `CCU_DO`无参数。`CCU_WHILE(condExpr)`的`condExpr`定义与生成方式请参见[CCU_IF](CCU_IF.md#参数说明)。
 
-## 返回值
+## 返回值说明
 
-`CCU_DO`为预处理器宏，本身不返回[CcuResult](../../../datatype_definition/CcuResult.md)；在正常用法下不会失败。
+`CCU_DO`为预处理器宏，本身不返回`CcuResult`；在正常用法下不会失败。
 
 ## 约束说明
 

@@ -2,23 +2,23 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
+
+头文件为：`#include "include/ccu/ccu_loop.hpp"`
+
+抽象语义为：
+
+$$addr_i = addr_0 + i \times addrOffset,\quad 0 \le i < iterNum$$
 
 CCU kernel内的硬件Loop类，将循环body交由CCU LoopEngine硬件单元自动迭代。构造`ccu::Loop`对象时立即记录body（构造时body lambda执行一次），运行期由硬件自动推进迭代，无需在body内手写地址自增或计数器更新逻辑。
 
@@ -27,7 +27,7 @@ CCU kernel内的硬件Loop类，将循环body交由CCU LoopEngine硬件单元自
 > [!CAUTION]注意
 > `ccu::Loop` 单独构造只完成body录制，并不会真正下发硬件循环指令。必须把`Loop`加入[`ccu::LoopGroup`](LoopGroup.md)，由 `LoopGroup` 在注册阶段将`iterNum / addrOffset`等参数写入并合成硬件循环指令，硬件才真正按配置迭代。直接`Loop l(cfg, body);`然后不加入任何LoopGroup的写法，body只会被执行一次（注册期录制时），运行期不产生循环效果。
 
-## 类定义
+## 函数原型
 
 ```cpp
 namespace AscendC {
@@ -73,7 +73,7 @@ config-based构造使用的参数结构，字段如下：
 
 ## 异常
 
-`ccu::Loop`构造失败时抛出异常（携带[CcuResult](../../../datatype_definition/CcuResult.md)错误码）。常见原因：
+`ccu::Loop`构造失败时抛出异常（携带`CcuResult`错误码）。常见原因：
 
 | 原因 | 错误码 |
 | --- | --- |

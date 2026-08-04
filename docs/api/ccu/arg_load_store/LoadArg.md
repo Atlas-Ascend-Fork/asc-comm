@@ -2,23 +2,23 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
+
+头文件为：`#include "include/ccu/ccu_primitives.hpp"`
+
+抽象语义为：
+
+$$v \leftarrow \mathrm{taskArgs}[argId]$$
 
 在CCU kernel注册阶段，声明"在运行期将`HcommCcuKernelLaunch`的`taskArgs[argId]`加载到指定Variable"。注册时仅记录该声明，运行期由硬件完成实际加载。
 
@@ -44,9 +44,9 @@ CcuResult LoadArg(Variable v, uint32_t argId);
 | v | 输入 | 目标Variable对象。运行期硬件将`taskArgs[argId]`（`uint64_t`）写入该Variable对应的硬件寄存器。 |
 | argId | 输入 | `taskArgs`数组的索引（从0起）。同一kernel内所有`LoadArg`调用的`argId`须全局唯一且从0连续编号。 |
 
-## 返回值
+## 返回值说明
 
-[CcuResult](../../../datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`CcuResult`：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |

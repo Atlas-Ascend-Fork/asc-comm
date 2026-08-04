@@ -2,29 +2,32 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
 
+头文件为：`#include "include/ccu/ccu_array.hpp"`
+
+抽象语义为：
+
+$$Array<T> \equiv \{T_i\}_{i=0}^{count-1}$$
+
 `ccu::Array<T>`是CCU kernel内批量申请物理连续资源的C++模板类。
 
-- 构造即批量分配：构造时一次性申请`count`个物理连续的虚拟句柄。
-- 析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU实例生命周期统一管理、回收。
-- 仅可移动：禁止拷贝，允许移动。
+
+构造即批量分配：构造时一次性申请`count`个物理连续的虚拟句柄。
+
+析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU实例生命周期统一管理、回收。
+
+仅可移动：禁止拷贝，允许移动。
 
 物理连续是某些接口的前置条件：`Load(addr, vArr, num)`/`Store`批量加载/存储、`LocalReduce(buffers*, count, ...)`（2 ≤ count ≤ 8，详见 [LocalReduce](../data_movement/LocalReduce.md)）都要求参数物理连续，必须通过`Array<T>`申请，单独声明多个对象不保证物理连续。
 
@@ -38,7 +41,7 @@
 
 对其他类型实例化`Array<T>`将在编译期报错（仅支持上述三种特化类型）。
 
-## 类声明
+## 函数原型
 
 ```cpp
 namespace AscendC {
@@ -70,7 +73,7 @@ public:
 | `Array<Event> evts(n);` | 申请`n`个物理连续CKE句柄。 |
 | `Array<CcuBuffer> bufs(n);` | 申请`n`个物理连续MS句柄。 |
 
-`count`可以为0（`size() == 0`），此时不分配硬件资源。构造失败时抛出异常（携带[CcuResult](../../../datatype_definition/CcuResult.md)错误码）。
+`count`可以为0（`size() == 0`），此时不分配硬件资源。构造失败时抛出异常（携带`CcuResult`错误码）。
 
 ## 成员函数说明
 

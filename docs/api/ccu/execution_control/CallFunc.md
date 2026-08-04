@@ -2,29 +2,29 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
+
+头文件为：`#include "include/ccu/ccu_func.hpp"`
+
+抽象语义为：
+
+$$CallFunc(Func, args) \Rightarrow Func(args)$$
 
 `ccu::CallFunc<Obj>(args...)`是FuncBlock机制的调用点接口，与[Func](Func.md)配合使用：首次调用时合成`Obj`对应的FuncBlock段并追加一条`Call`指令；后续对同一`Obj`的调用直接追加`Call`指令，复用已有的FuncBlock段，从而将一段重复使用的逻辑只生成一份指令，多处调用均通过`Call`指令跳转，节省SRAM。
 
 FuncBlock定义（`ccu::Func`）的说明请参见[Func](Func.md)。
 
-## 模板函数
+## 函数原型
 
 ```cpp
 namespace AscendC {
@@ -46,9 +46,9 @@ CcuResult CallFunc(Args... args);
 | Obj | 模板非类型参数（NTTP），必须为`global`或`static`存储的`ccu::Func`对象的引用。 |
 | args... | 实参列表，个数必须与`Obj`的lambda形参个数一致，每个参数类型必须为`ccu::Variable`。 |
 
-## 返回值
+## 返回值说明
 
-[CcuResult](../../../datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`CcuResult`：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
@@ -61,7 +61,7 @@ CcuResult CallFunc(Args... args);
 
 ## 异常
 
-`CallFunc`调用失败时会抛出异常（携带[CcuResult](../../../datatype_definition/CcuResult.md)错误码），常见情形：
+`CallFunc`调用失败时会抛出异常（携带`CcuResult`错误码），常见情形：
 
 | 情形 | 异常携带的错误码 |
 | --- | --- |

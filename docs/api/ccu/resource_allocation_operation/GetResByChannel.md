@@ -2,23 +2,23 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
+
+头文件为：`#include "include/ccu/ccu_primitives.hpp"`
+
+抽象语义为：
+
+$$resource \leftarrow channel.resources[index]$$
 
 在CCU kernel内获取指向channel共享Variable槽位的句柄。
 
@@ -51,7 +51,7 @@ Variable GetResByChannel<Variable>(ChannelHandle channel, uint32_t varIndex);
 | channel | 输入 | 跨rank通道句柄（`ChannelHandle`）。channel须已完成建链，其预分配的Variable池须包含`varIndex`对应的槽位。 |
 | varIndex | 输入 | 通道内变量索引（0起），对应channel在建链时预分配的Variable数组中的某个槽位。 |
 
-## 返回值
+## 返回值说明
 
 返回一个`Variable`对象，其`handle`指向channel的第`varIndex`个共享Variable槽位。该Variable不消耗新的XN，其释放权归channel所有，不随返回的Variable析构。
 

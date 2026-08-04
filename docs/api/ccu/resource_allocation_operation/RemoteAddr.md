@@ -2,32 +2,34 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
 
+头文件为：`#include "include/ccu/ccu_remote_addr.hpp"`
+
+抽象语义为：
+
+$$RemoteAddr \equiv \langle addr, token \rangle$$
+
 `ccu::RemoteAddr`是CCU kernel内对端HBM地址的C++包装类，是"地址（`Address`）+ token（`Variable`）"的复合对象，结构与[LocalAddr](LocalAddr.md)镜像。
 
-- 构造即分配：默认构造函数一次性申请1个GSA（用于`addr`）和1个XN（用于`token`）。
-- 析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU 实例生命周期统一管理、回收。
+
+构造即分配：默认构造函数一次性申请1个GSA（用于`addr`）和1个XN（用于`token`）。
+
+析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU 实例生命周期统一管理、回收。
 
 `RemoteAddr`专供跨rank读写（`Read`/`Write`/`ReadReduce`/`WriteReduce`）使用，承载对端rank目标内存的物理地址与安全token。`addr`和`token`必须来自对端rank，不可与本端的`LocalAddr`字段混用。
 
-## 类声明
+## 函数原型
 
 ```cpp
 namespace AscendC {

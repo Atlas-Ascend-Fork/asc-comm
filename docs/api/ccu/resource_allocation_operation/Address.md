@@ -2,36 +2,39 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
 
+头文件为：`#include "include/ccu/ccu_address.hpp"`
+
+抽象语义为：
+
+$$Address \equiv \langle CcuAddressHandle \rangle$$
+
 `ccu::Address`是CCU kernel内地址寄存器（GSA）的C++包装类。
 
-- 构造即分配：默认构造函数自动申请1个GSA虚拟句柄。
-- 析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU 实例生命周期统一管理、回收。
-- 运算符即device操作：Address上的赋值与算术运算符描述的是device端（硬件）执行的操作，而非host端立即计算，运行期操作对应的GSA寄存器。
+
+构造即分配：默认构造函数自动申请1个GSA虚拟句柄。
+
+析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU 实例生命周期统一管理、回收。
+
+运算符即device操作：Address上的赋值与算术运算符描述的是device端（硬件）执行的操作，而非host端立即计算，运行期操作对应的GSA寄存器。
 
 与`Variable`（标量值）不同，`Address`专门承载地址值（HBM物理地址）。典型用法是将基地址与偏移量相加得到目标地址，供数据搬运接口使用。
 
 > [!NOTE]说明
 > `Address`承载device端地址值，不能在host端直接解引用。Address不能被赋值到Variable（不提供反向赋值API），但Variable可以赋值到Address（`addr = var;`）。
 
-## 类声明
+## 函数原型
 
 ```cpp
 namespace AscendC {
@@ -63,7 +66,7 @@ public:
 > [!CAUTION]注意
 > `Address`类有copy/move构造函数，它们只拷贝`handle`字段、不申请新的GSA——`Address a2 = a1;` 后`a1`和`a2`指向同一个地址寄存器。如需独立的Address，必须显式`Address a2;`默认构造。`operator=(const Address&)`则会发出device端寄存器赋值指令，操作的是两个独立寄存器之间的值搬移。
 
-构造失败时抛出异常（携带[CcuResult](../../../datatype_definition/CcuResult.md)错误码）。
+构造失败时抛出异常（携带`CcuResult`错误码）。
 
 ## 运算符说明
 

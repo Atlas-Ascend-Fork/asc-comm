@@ -2,23 +2,23 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
+
+头文件为：`#include "include/ccu/ccu_primitives.hpp"`
+
+抽象语义为：
+
+$$notifyTag.mask \leftarrow notifyTag.mask \lor mask$$
 
 在CCU kernel内发出同die内跨kernel同步信号的生产者侧接口，以字符串tag标识配对：相同tag的生产/消费两侧自动绑定到同一同步资源。
 
@@ -43,9 +43,9 @@ CcuResult EventRecord(const char *notifyTag, uint16_t mask = 1);
 | notifyTag | 输入 | 字符串tag，与消费侧`LocalNotifyWait`的`notifyTag`保持一致即可完成配对，无需提前分配编号。不可为空指针。必须在kernel注册期间保持有效（需为字符串字面量或kernel内的`static`存储），不可使用栈上临时数组。 |
 | mask | 输入 | 16位事件掩码，指定要置位的bit。默认值为`1`。同一tag的不同bit相互独立。 |
 
-## 返回值
+## 返回值说明
 
-[CcuResult](../../../datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+`CcuResult`：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |

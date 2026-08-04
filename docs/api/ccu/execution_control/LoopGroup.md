@@ -2,29 +2,29 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
+
+头文件为：`#include "include/ccu/ccu_loop.hpp"`
+
+抽象语义为：
+
+$$LoopGroup \equiv \{Loop_i\}_{i=0}^{maxLoopNum-1}$$
 
 CCU kernel内的硬件LoopGroup类，将多个`ccu::Loop`对象组织为一组，共享同一份LoopEngine资源池，避免多个独立`Loop`各自独占LoopEngine导致资源耗尽。
 
 构造`ccu::LoopGroup`时，自动将传入的`loops`列表中的每个`Loop`加入该Group。
 
-## 类定义
+## 函数原型
 
 ```cpp
 namespace AscendC {
@@ -78,7 +78,7 @@ config-based构造使用的参数结构，字段如下：
 
 ## 异常
 
-`ccu::LoopGroup`构造失败时抛出异常（携带[CcuResult](../../../datatype_definition/CcuResult.md)错误码）。常见原因：
+`ccu::LoopGroup`构造失败时抛出异常（携带`CcuResult`错误码）。常见原因：
 
 | 原因 | 错误码 |
 | --- | --- |

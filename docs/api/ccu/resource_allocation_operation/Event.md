@@ -2,32 +2,34 @@
 
 ## 产品支持情况
 
-<!-- npu="950" id1 -->
 - Ascend 950PR/Ascend 950DT：支持
-<!-- end id1 -->
-<!-- npu="A3" id2 -->
 - Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-<!-- end id2 -->
-<!-- npu="910b" id3 -->
 - Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
-<!-- end id3 -->
-<!-- npu="910" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
 - Atlas 训练系列产品：不支持
-<!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas 推理系列产品：不支持
-<!-- end id5 -->
+- Kirin X90：不支持
+- Kirin 9030：不支持
 
 ## 功能说明
 
+头文件为：`#include "include/ccu/ccu_event.hpp"`
+
+抽象语义为：
+
+$$Event \equiv \langle CcuEventHandle \rangle$$
+
 `ccu::Event`是CCU kernel内完成事件位（CKE）的C++包装类。
 
-- 构造即分配：默认构造函数自动申请1个CKE虚拟句柄。
-- 析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU实例生命周期统一管理、回收。
+
+构造即分配：默认构造函数自动申请1个CKE虚拟句柄。
+
+析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU实例生命周期统一管理、回收。
 
 Event用于标记异步操作（如数据搬运）的完成状态。数据搬运接口的末位参数`(event, mask)`由硬件在搬运完成时自动置位`event[mask]`，下游通过`EventWait(event, mask)`等待该位被置位。Event本身不持有`mask`字段，mask在每次`EventRecord`/`EventWait`调用时独立传入。
 
-## 类声明
+## 函数原型
 
 ```cpp
 namespace AscendC {
@@ -50,9 +52,9 @@ public:
 > [!CAUTION]注意
 > `Event` 类有copy/move构造函数，它们只拷贝`handle`字段、不申请新的CKE——`Event e2 = e1;` 后`e1`和`e2`指向同一个CKE，对任一对象`EventRecord`/`EventWait`操作的是同一份硬件状态位。如需独立Event，必须显式`Event e2;`默认构造（或用`Array<Event>`）。
 
-构造失败时抛出异常（携带[CcuResult](../../../datatype_definition/CcuResult.md)错误码）。
+构造失败时抛出异常（携带`CcuResult`错误码）。
 
-## 返回值
+## 返回值说明
 
 构造成功后，`e.handle`字段持有分配到的虚拟句柄。句柄值由框架在注册阶段分配（首个Event 的handle 为 `0`，后续递增），不要用"`handle != 0`"判断有效性。
 
