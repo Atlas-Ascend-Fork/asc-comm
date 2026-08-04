@@ -31,22 +31,26 @@ public:
         }
     }
 
-    __aicore__ inline void Process(uint32_t operationType)
+    template <uint32_t operationType>
+    __aicore__ inline void Process()
     {
+        static_assert(
+            operationType == HCOMM_READ_ONLY || operationType == HCOMM_WRITE_ONLY || operationType == HCOMM_READ_WRITE,
+            "Unsupported Hcomm operation type");
         context_->testResult = TEST_SUCCESS;
         if (!initOk_) {
             context_->testResult = TEST_HCOMM_INIT_FAILED;
             return;
         }
 
-        if (operationType & HCOMM_WRITE_ONLY) {
+        if constexpr ((operationType & HCOMM_WRITE_ONLY) != 0U) {
             DoWrite();
             if (context_->testResult != TEST_SUCCESS) {
                 return;
             }
         }
 
-        if (operationType & HCOMM_READ_ONLY) {
+        if constexpr ((operationType & HCOMM_READ_ONLY) != 0U) {
             DoRead();
             if (context_->testResult != TEST_SUCCESS) {
                 return;
@@ -87,12 +91,28 @@ private:
     bool initOk_{false};
 };
 
-} // namespace HcommExample
-
-extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context, uint32_t operationType)
+template <uint32_t operationType>
+__aicore__ inline void RunHcommKernel(GM_ADDR context)
 {
     AscendC::TPipe pipe;
-    HcommExample::KernelHcommWriteRead op;
+    KernelHcommWriteRead op;
     op.Init(context, &pipe);
-    op.Process(operationType);
+    op.Process<operationType>();
+}
+
+} // namespace HcommExample
+
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_read_nbi(GM_ADDR context)
+{
+    HcommExample::RunHcommKernel<HCOMM_READ_ONLY>(context);
+}
+
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_nbi(GM_ADDR context)
+{
+    HcommExample::RunHcommKernel<HCOMM_WRITE_ONLY>(context);
+}
+
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context)
+{
+    HcommExample::RunHcommKernel<HCOMM_READ_WRITE>(context);
 }

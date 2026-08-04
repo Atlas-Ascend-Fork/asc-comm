@@ -57,6 +57,10 @@ struct CommContext {
 
 } // namespace HcommExample
 
-extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context, uint32_t operationType);
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_read_nbi(GM_ADDR context);
+
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_nbi(GM_ADDR context);
+
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context);
 
 #endif // HCOMM_RW_DEF_H
