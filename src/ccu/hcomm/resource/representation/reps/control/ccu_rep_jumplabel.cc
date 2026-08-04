@@ -10,7 +10,6 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
-#include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
 namespace hcomm {
@@ -23,7 +22,7 @@ CcuRepJumpLabel::CcuRepJumpLabel(CcuInsGeneraterBase* insGeneratorPtr, const std
     Append(std::make_shared<CcuRepNop>(insGeneratorPtr));
 }
 
-std::string CcuRepJumpLabel::Describe() { return Hccl::StringFormat("JumpLabel[%s]", GetLabel().c_str()); }
+std::string CcuRepJumpLabel::Describe() { return hcomm::StringFormat("JumpLabel[%s]", GetLabel().c_str()); }
 
 }; // namespace CcuRep
 }; // namespace hcomm

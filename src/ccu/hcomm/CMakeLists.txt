@@ -16,6 +16,7 @@ target_sources(asccomm_ccu_dataplane_obj PRIVATE
 )
 
 target_sources(asccomm_ccu_dataplane_obj PRIVATE
+    common/ccu_runtime.cc
     resource/ccu_res_c_adpt.cc
     resource/channel/ccu_channel.cc
     resource/instance/ccu_res_pack.cc
