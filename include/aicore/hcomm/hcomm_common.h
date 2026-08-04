@@ -36,6 +36,12 @@ typedef enum {
     COMM_PROTOCOL_HCCS_ONLY = 8, ///< 一卡双DIE使用HCCS
 } CommProtocol;
 
+enum class HcommUrmaReduceOp : uint32_t {
+    MAX = 0x8U,
+    MIN = 0x9U,
+    SUM = 0xAU,
+};
+
 } // namespace AscendC
 
 #endif // LIB_HCOMM_HCOMM_COMMON_H
