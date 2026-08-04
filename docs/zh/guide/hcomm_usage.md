@@ -67,7 +67,7 @@ ret = hcomm.Drain(channel);
 
 ## 样例
 
-可参考[hcomm_write_read_nbi](../../examples/hcomm_write_read_nbi/README.md)了解AIV Kernel侧接口调用方式和Host侧通信资源创建流程。该样例固定使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UBC_CTP`，不覆盖RoCE路径。
+可参考[hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README.md)了解AIV Kernel侧接口调用方式和Host侧通信资源创建流程。该样例固定使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UBC_CTP`，不覆盖RoCE路径。
 
 该样例在两卡场景下对称执行`WriteNbi`和`ReadNbi`：
 
