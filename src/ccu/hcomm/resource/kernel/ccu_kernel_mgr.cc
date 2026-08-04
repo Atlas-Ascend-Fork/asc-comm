@@ -736,8 +736,8 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId)
     CHK_RET(ret);
 
     std::pair<uint64_t, uint64_t> ccuTokenInfo(tokenId, tokenValue);
-    Hccl::DevBuffer tmpDevMem{1}; // 临时申请device hbm内存用于查询token信息
-    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(tmpDevMem.GetAddr(), 1);
+    //Hccl::DevBuffer tmpDevMem{1}; // 临时申请device hbm内存用于查询token信息, 虚拟地址为0
+    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(0, 1);
 
     HcommCcuResRequestPod totalResReq{};
     // 实例化CcuRepReferenceManager和CcuRepTranslator，并为CcuRepReferenceManager绑定物理资源
@@ -794,7 +794,7 @@ HcclResult CcuKernelMgr::LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, 
     CustomChannelInfoOut outBuff{};
 
     // 设置操作码和通道数据
-    inBuff.op = CcuOpcodeType::CCU_U_OP_SET_INSTRUCTION;
+    inBuff.op = CCU_U_OP_SET_INSTRUCTION;
     inBuff.offsetStartIdx = instrInfo.startInstrId;
     inBuff.data.dataInfo.udieIdx = dieId;
     inBuff.data.dataInfo.dataArraySize = 1;
