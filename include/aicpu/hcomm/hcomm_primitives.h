@@ -41,8 +41,6 @@ typedef uint64_t ThreadHandle;
 #define HCOMM_TIMEOUT_FLOAT_TYPE 1
 #endif
 
-#ifndef HCOMM_REDUCE_TYPES_DEFINED
-#define HCOMM_REDUCE_TYPES_DEFINED
 typedef enum {
     HCOMM_REDUCE_SUM = 0,    /**< sum */
     HCOMM_REDUCE_PROD = 1,   /**< prod */
@@ -71,10 +69,7 @@ typedef enum {
     HCOMM_DATA_TYPE_FP8E8M0 = 17,  /**< fp8e8m0 */
     HCOMM_DATA_TYPE_RESERVED = 255 /**< reserved */
 } HcommDataType;
-#endif
 
-#ifndef HCOMM_BATCH_TRANSFER_TYPES_DEFINED
-#define HCOMM_BATCH_TRANSFER_TYPES_DEFINED
 /**
  * @brief 传输类型枚举
  */
@@ -133,7 +128,6 @@ typedef struct {
         } writeReduceWithNotify;
     } transferInfo;
 } HcommBatchTransferDesc;
-#endif
 
 /**
  * @defgroup 数据面编程接口
@@ -439,44 +433,6 @@ extern int32_t HcommThreadNotifyWaitOnThreadWithDefaultTimeout(ThreadHandle thre
  * @return int32_t 执行结果状态码
  */
 extern int32_t HcommChannelDrainOnThread(ThreadHandle thread, ChannelHandle channel);
-
-/**
- * @name POD资源句柄接口
- * @note 以下接口仅接受指向HcommThreadEntity和HcommChannelEntity的句柄。
- * @{
- */
-extern int32_t HcommLocalCopyOnThreadPod(ThreadHandle thread, void *dst, const void *src, uint64_t len);
-extern int32_t HcommLocalReduceOnThreadPod(ThreadHandle thread, void *dst, const void *src, uint64_t count,
-    HcommDataType dataType, HcommReduceOp reduceOp);
-extern int32_t HcommThreadNotifyRecordOnThreadPod(
-    ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx);
-extern int32_t HcommThreadNotifyWaitOnThreadPod(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut);
-extern int32_t HcommAclrtNotifyRecordOnThreadPod(ThreadHandle thread, uint64_t dstNotifyId);
-extern int32_t HcommAclrtNotifyWaitOnThreadPod(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut);
-extern int32_t HcommWriteOnThreadPod(
-    ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len);
-extern int32_t HcommWriteReduceOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
-    uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp);
-extern int32_t HcommWriteWithNotifyOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
-    uint64_t len, uint32_t remoteNotifyIdx);
-extern int32_t HcommWriteReduceWithNotifyOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst,
-    const void *src, uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp, uint32_t remoteNotifyIdx);
-extern int32_t HcommReadOnThreadPod(
-    ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len);
-extern int32_t HcommReadReduceOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
-    uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp);
-extern int32_t HcommBatchTransferOnThreadPod(ThreadHandle thread, ChannelHandle channel,
-    const HcommBatchTransferDesc *transferDescs, uint32_t transferDescNum);
-extern int32_t HcommChannelNotifyRecordOnThreadPod(
-    ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx);
-extern int32_t HcommChannelNotifyWaitOnThreadPod(
-    ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeOut);
-extern int32_t HcommChannelFenceOnThreadPod(ThreadHandle thread, ChannelHandle channel);
-extern int32_t HcommChannelNotifyWaitOnThreadWithDefaultTimeoutPod(
-    ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx);
-extern int32_t HcommThreadNotifyWaitOnThreadWithDefaultTimeoutPod(ThreadHandle thread, uint32_t notifyIdx);
-extern int32_t HcommChannelDrainOnThreadPod(ThreadHandle thread, ChannelHandle channel);
-/** @} */
 
 /** @} */  // 算子编程接口
 #ifdef __cplusplus

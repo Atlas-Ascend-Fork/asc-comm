@@ -69,15 +69,12 @@ typedef enum {
 static const uint32_t HCOMM_THREAD_CONFIG_MAGIC_WORD = 0x0f0f0f2f;
 static const uint32_t HCOMM_THREAD_CONFIG_VERSION = 1;
 
-#ifndef HCOMM_COMM_ABI_HEADER_DEFINED
-#define HCOMM_COMM_ABI_HEADER_DEFINED
 typedef struct {
     uint32_t version;
     uint32_t magicWord;
     uint32_t size;
     uint32_t reserved;
 } CommAbiHeader;
-#endif
 
 typedef struct {
     CommAbiHeader header;
@@ -113,8 +110,6 @@ static inline HcommResult ThreadConfigInit(ThreadConfig *config, uint32_t num)
 /**
  * @brief 通信引擎类型枚举
  */
-#ifndef HCOMM_COMM_ENGINE_DEFINED
-#define HCOMM_COMM_ENGINE_DEFINED
 typedef enum {
     COMM_ENGINE_RESERVED = -1,    ///< 保留的通信引擎
     COMM_ENGINE_CPU = 0,          ///< HOST CPU引擎
@@ -124,13 +119,10 @@ typedef enum {
     COMM_ENGINE_AIV = 4,          ///< AIV引擎
     COMM_ENGINE_CCU = 5,          ///< CCU引擎
 } CommEngine;
-#endif
 
 /**
  * @brief 通信协议类型枚举
  */
-#ifndef HCOMM_COMM_PROTOCOL_DEFINED
-#define HCOMM_COMM_PROTOCOL_DEFINED
 typedef enum {
     COMM_PROTOCOL_RESERVED = -1,  ///< 保留协议类型
     COMM_PROTOCOL_HCCS = 0,       ///< HCCS协议
@@ -144,7 +136,6 @@ typedef enum {
     COMM_PROTOCOL_HCCS_ONLY = 8,  ///< 一卡双DIE使用HCCS
     COMM_PROTOCOL_UBG = 9,        ///< UBG
 } CommProtocol;
-#endif
 
 /**
  * @brief 通信设备地址类别
