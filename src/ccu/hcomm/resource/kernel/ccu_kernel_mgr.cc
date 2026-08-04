@@ -794,7 +794,7 @@ HcclResult CcuKernelMgr::LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, 
     CustomChannelInfoOut outBuff{};
 
     // 设置操作码和通道数据
-    inBuff.op = CcuOpcodeType::CCU_U_OP_SET_INSTRUCTION;
+    inBuff.op = CCU_U_OP_SET_INSTRUCTION;
     inBuff.offsetStartIdx = instrInfo.startInstrId;
     inBuff.data.dataInfo.udieIdx = dieId;
     inBuff.data.dataInfo.dataArraySize = 1;

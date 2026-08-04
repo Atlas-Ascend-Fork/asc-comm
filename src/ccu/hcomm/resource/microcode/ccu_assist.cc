@@ -12,7 +12,7 @@
 
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 
-#include "hcomm_adapter_rts.h"
+#include "hcomm_ub_token.h"
 
 #include "exception_util.h" // todo: 需要统一整改为不抛异常
 #include "ccu_api_exception.h"
@@ -178,7 +178,7 @@ uint64_t GetTokenInfo(uint64_t va, uint64_t size)
     rtMemUbTokenInfo info{};
     info.va = va;
     info.size = size;
-    if (RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, info) != HcclResult::HCCL_SUCCESS) {
+    if (RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, &info) != HcclResult::HCCL_SUCCESS) {
         Hccl::THROW<Hccl::CcuApiException>("failed to query tokenInfo.");
     }
     return CcuRep::GetToken(info.tokenId, info.tokenValue, 1);
