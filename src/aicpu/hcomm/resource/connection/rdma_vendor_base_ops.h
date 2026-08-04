@@ -94,6 +94,24 @@ public:
         : sqContext_(sqContext), cqContext_(cqContext) {}
     virtual ~RdmaBaseOps() = default;
 
+    void ImportQueueState(u32 sqHead, u32 sqTail, u32 cqHead, u32 cqTail, bool cqDbFlush)
+    {
+        sqHead_ = sqHead;
+        sqTail_ = sqTail;
+        cqHead_ = cqHead;
+        cqTail_ = cqTail;
+        cqDbFlush_ = cqDbFlush;
+    }
+
+    void ExportQueueState(u32 &sqHead, u32 &sqTail, u32 &cqHead, u32 &cqTail, bool &cqDbFlush) const
+    {
+        sqHead = sqHead_;
+        sqTail = sqTail_;
+        cqHead = cqHead_;
+        cqTail = cqTail_;
+        cqDbFlush = cqDbFlush_;
+    }
+
     // 上层接口，不关心具体vendor类型
     HcclResult Read(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg)
     {

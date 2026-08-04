@@ -219,9 +219,8 @@ void UbConnLite::FillOneSqeWrite(const RmaBufSliceLite &loc, const RmtRmaBufSlic
     HCCL_INFO("[UbConnLite::%s] end", __func__);
 }
 
-void UbConnLite::ProcessOneWqe(UdmaSqeWrite *sqe, UdmaSqOpcode opCode, const StreamLite &stream)
+void UbConnLite::ProcessOneWqe(UdmaSqeWrite *sqe, UdmaSqOpcode opCode)
 {
-    (void)stream;
     HCCL_INFO("[UbConnLite::%s] start, opCode[%s]", __func__, opCode.Describe().c_str());
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
@@ -247,9 +246,8 @@ void UbConnLite::ProcessOneWqe(UdmaSqeWrite *sqe, UdmaSqOpcode opCode, const Str
 void UbConnLite::ProcessOneWqeWithNotify(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
                                          const SqeConfigLite &cfg, UdmaSqeWriteWithNotify *sqe,
                                          const RmtRmaBufSliceLite &notify, u64 notifyData, u32 opCode,
-                                         SlicePosition slicePos, const StreamLite &stream)
+                                         SlicePosition slicePos)
 {
-    (void)stream;
     HCCL_INFO("[UbConnLite::%s] start, locSize[%u], opCode[%u]", __func__, loc.GetSize(), opCode);
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
@@ -306,7 +304,7 @@ void UbConnLite::Read(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
         [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
         UdmaSqeWrite sqe{};
         FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_READ, slicePos);
-        ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_READ, stream);
+        ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_READ);
     });
 
     out.pi = pi;
@@ -323,7 +321,7 @@ void UbConnLite::ReadReduce(ReduceIn reduceIn, const RmaBufSliceLite &loc, const
             UdmaSqeWrite sqe{};
             FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_READ, slicePos);
             FillCommSqeReduceInfo(sqe.comm, reduceIn.reduceOp, reduceIn.dataType);
-            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_READ, stream);
+            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_READ);
         },
         reduceIn.dataType);
 
@@ -340,7 +338,7 @@ void UbConnLite::Write(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt
         [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
         UdmaSqeWrite sqe{};
         FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
-        ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE, stream);
+        ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
     });
 
     out.pi = pi;
@@ -363,7 +361,7 @@ void UbConnLite::InlineWrite(const u8 *data, u16 size, const RmtRmaBufSliceLite 
     }
 
     // 写wqe到va
-    ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE, stream);
+    ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
 
     out.pi = pi;
     HCCL_INFO("[UbConnLite::%s] end, ConnLiteOperationOut.pi = %u, ConnLiteOperationOut.datasize = %u, conn[%s]",
@@ -407,7 +405,7 @@ void UbConnLite::WriteReduce(DataType dataType, ReduceOp reduceOp, const RmaBufS
             UdmaSqeWrite sqe{};
             FillCommSqeReduceInfo(sqe.comm, reduceOp, dataType);
             FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
-            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE, stream);
+            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
         },
         dataType);
 
@@ -426,12 +424,12 @@ void UbConnLite::WriteWithNotify(const RmaBufSliceLite &loc, const RmtRmaBufSlic
         [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
             UdmaSqeWrite sqe{};
             FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
-            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE, stream);
+            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
         },
         [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
             UdmaSqeWriteWithNotify sqe{};
             ProcessOneWqeWithNotify(locSlice, rmtSlice, cfg, &sqe, notify, notifyData,
-                                    WRITE_WITH_NOTIFY_OPCODE, slicePos, stream);
+                                    WRITE_WITH_NOTIFY_OPCODE, slicePos);
         });
 
     out.pi = pi;
@@ -450,18 +448,124 @@ void UbConnLite::WriteReduceWithNotify(DataType dataType, ReduceOp reduceOp, con
             UdmaSqeWrite sqe{};
             FillCommSqeReduceInfo(sqe.comm, reduceOp, dataType);
             FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
-            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE, stream);
+            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
         },
         [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
             UdmaSqeWriteWithNotify sqe{};
             FillCommSqeReduceInfo(sqe.comm, reduceOp, dataType);
             ProcessOneWqeWithNotify(locSlice, rmtSlice, cfg, &sqe, notify, notifyData,
-                                    WRITE_WITH_NOTIFY_OPCODE, slicePos, stream);
+                                    WRITE_WITH_NOTIFY_OPCODE, slicePos);
         },
         dataType);
 
     out.pi = pi;
     HCCL_INFO("[UbConnLite::%s] end, ConnLiteOperationOut.pi = %u, conn[%s]", __func__, out.pi, Describe().c_str());
+}
+
+void UbConnLite::ReadPod(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                         const SqeConfigLite &cfg, ConnLiteOperationOut &out)
+{
+    ProcessSlices(loc, rmt, maxReadSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_READ, slicePos);
+            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_READ);
+        });
+    out.pi = pi;
+}
+
+void UbConnLite::ReadReducePod(ReduceIn reduceIn, const RmaBufSliceLite &loc,
+                               const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                               ConnLiteOperationOut &out)
+{
+    ProcessSlices(loc, rmt, maxReadSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_READ, slicePos);
+            FillCommSqeReduceInfo(sqe.comm, reduceIn.reduceOp, reduceIn.dataType);
+            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_READ);
+        }, reduceIn.dataType);
+    out.pi = pi;
+}
+
+void UbConnLite::WritePod(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                          const SqeConfigLite &cfg, ConnLiteOperationOut &out)
+{
+    ProcessSlices(loc, rmt, maxWriteSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
+            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
+        });
+    out.pi = pi;
+}
+
+void UbConnLite::InlineWritePod(const u8 *data, u16 size, const RmtRmaBufSliceLite &rmt,
+                                const SqeConfigLite &cfg, ConnLiteOperationOut &out)
+{
+    UdmaSqeWrite sqe{};
+    sqe.comm.inlineEn = 1;
+    sqe.comm.inlineMsgLen = size;
+    FillCommSqe(&sqe.comm, rmt, cfg, UdmaSqOpcode::UDMA_OPC_WRITE);
+    auto ret = memcpy_sp(sqe.u.inlineData.data, SQE_INLINE_DATA_SIZE, data, size);
+    if (UNLIKELY(ret != 0)) {
+        THROW<InternalException>(StringFormat("[UbConnLite::%s] memcpy_sp failed, ret = %d", __func__, ret));
+    }
+    ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
+    out.pi = pi;
+}
+
+void UbConnLite::WriteReducePod(DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite &loc,
+                                const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                                ConnLiteOperationOut &out)
+{
+    ProcessSlices(loc, rmt, maxWriteSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            FillCommSqeReduceInfo(sqe.comm, reduceOp, dataType);
+            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
+            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
+        }, dataType);
+    out.pi = pi;
+}
+
+void UbConnLite::WriteWithNotifyPod(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                                    const SqeConfigLite &cfg, ConnLiteOperationOut &out,
+                                    const RmtRmaBufSliceLite &notify, u64 notifyData)
+{
+    ProcessSlicesWithNotify(loc, rmt, maxWriteSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
+            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
+        },
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWriteWithNotify sqe{};
+            ProcessOneWqeWithNotify(locSlice, rmtSlice, cfg, &sqe, notify, notifyData,
+                                    WRITE_WITH_NOTIFY_OPCODE, slicePos);
+        });
+    out.pi = pi;
+}
+
+void UbConnLite::WriteReduceWithNotifyPod(DataType dataType, ReduceOp reduceOp,
+                                          const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                                          const SqeConfigLite &cfg, ConnLiteOperationOut &out,
+                                          const RmtRmaBufSliceLite &notify, u64 notifyData)
+{
+    ProcessSlicesWithNotify(loc, rmt, maxWriteSize,
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            FillCommSqeReduceInfo(sqe.comm, reduceOp, dataType);
+            FillOneSqeWrite(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
+            ProcessOneWqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
+        },
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWriteWithNotify sqe{};
+            FillCommSqeReduceInfo(sqe.comm, reduceOp, dataType);
+            ProcessOneWqeWithNotify(locSlice, rmtSlice, cfg, &sqe, notify, notifyData,
+                                    WRITE_WITH_NOTIFY_OPCODE, slicePos);
+        }, dataType);
+    out.pi = pi;
 }
 
 void UbConnLite::CustomizeSqeByOneSidedComm(UdmaSqeCommon *sqe, bool isLastWqe) const
@@ -631,6 +735,41 @@ UbConnLite::UbConnLite(const UbConnLiteParam &liteParam)
     (void)memcpy_sp(rmtEid_.raw, URMA_EID_LEN, liteParam.rmtEid.raw, URMA_EID_LEN);
     (void)memcpy_sp(locEid_.raw, URMA_EID_LEN, liteParam.locEid.raw, URMA_EID_LEN);
     HCCL_INFO("%s", Describe().c_str());
+}
+
+void UbConnLite::ImportPodContext(const UbConnLiteParam &liteParam)
+{
+    dieId_ = liteParam.dieId;
+    funcId_ = liteParam.funcId;
+    jettyId_ = liteParam.jettyId;
+    dbAddr_ = liteParam.dbAddr;
+    sqVa_ = liteParam.sqVa;
+    sqDepth_ = liteParam.sqDepth;
+    dwqeCacheLocked_ = liteParam.dwqeCacheLocked;
+    jfcPollMode_ = liteParam.jfcPollMode;
+    tpn_ = liteParam.tpn;
+    maxReadSize = liteParam.maxReadSize;
+    maxWriteSize = liteParam.maxWriteSize;
+    (void)memcpy_sp(rmtEid_.raw, URMA_EID_LEN, liteParam.rmtEid.raw, URMA_EID_LEN);
+    (void)memcpy_sp(locEid_.raw, URMA_EID_LEN, liteParam.locEid.raw, URMA_EID_LEN);
+}
+
+void UbConnLite::ImportQueueState(u16 queuePi, u16 queueCi, u32 queuePiDetourCount,
+                                  u32 queueCiDetourCount)
+{
+    pi = queuePi;
+    ci = queueCi;
+    piDetourCount = queuePiDetourCount;
+    ciDetourCount = queueCiDetourCount;
+}
+
+void UbConnLite::ExportQueueState(u16 &queuePi, u16 &queueCi, u32 &queuePiDetourCount,
+                                  u32 &queueCiDetourCount) const
+{
+    queuePi = pi;
+    queueCi = ci;
+    queuePiDetourCount = piDetourCount;
+    queueCiDetourCount = ciDetourCount;
 }
 
 UbConnLite::UbConnLite(const UbJettyLiteId &id, const UbJettyLiteAttr &attr, const Eid &rmtInfo)

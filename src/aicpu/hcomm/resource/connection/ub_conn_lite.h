@@ -41,6 +41,7 @@ struct UbConnLiteParam {
     u32 maxReadSize;
     u32 maxWriteSize;
 
+    UbConnLiteParam() = default;
     UbConnLiteParam(std::vector<char> &uniqueId);
 
     std::string Describe() const;
@@ -48,9 +49,31 @@ struct UbConnLiteParam {
 
 class UbConnLite : public RmaConnLite {
 public:
+    UbConnLite() = default;
     UbConnLite(const UbJettyLiteId &id, const UbJettyLiteAttr &attr, const Eid &rmtInfo);
 
     explicit UbConnLite(const UbConnLiteParam &liteParam);
+    void ImportPodContext(const UbConnLiteParam &liteParam);
+
+    void ImportQueueState(u16 queuePi, u16 queueCi, u32 queuePiDetourCount, u32 queueCiDetourCount);
+    void ExportQueueState(u16 &queuePi, u16 &queueCi, u32 &queuePiDetourCount, u32 &queueCiDetourCount) const;
+
+    void ReadPod(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                 ConnLiteOperationOut &out);
+    void ReadReducePod(ReduceIn reduceIn, const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                       const SqeConfigLite &cfg, ConnLiteOperationOut &out);
+    void WritePod(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                  ConnLiteOperationOut &out);
+    void InlineWritePod(const u8 *data, u16 size, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                        ConnLiteOperationOut &out);
+    void WriteReducePod(DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite &loc,
+                        const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg, ConnLiteOperationOut &out);
+    void WriteWithNotifyPod(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                            const SqeConfigLite &cfg, ConnLiteOperationOut &out,
+                            const RmtRmaBufSliceLite &notify, u64 notifyData);
+    void WriteReduceWithNotifyPod(DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite &loc,
+                                  const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                                  ConnLiteOperationOut &out, const RmtRmaBufSliceLite &notify, u64 notifyData);
 
     std::string Describe() final;
 
@@ -113,10 +136,10 @@ private:
         std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
         std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSliceWithNotify,
         DataType                                                                 dataType = DataType::INVALID) const;
-    void ProcessOneWqe(UdmaSqeWrite *sqe, UdmaSqOpcode opCode, const StreamLite &stream);
+    void ProcessOneWqe(UdmaSqeWrite *sqe, UdmaSqOpcode opCode);
     void ProcessOneWqeWithNotify(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
                                  UdmaSqeWriteWithNotify *sqe, const RmtRmaBufSliceLite &notify, u64 notifyData,
-                                 u32 opCode, SlicePosition slicePos, const StreamLite &stream);
+                                 u32 opCode, SlicePosition slicePos);
     void FillCommSqeReduceInfo(UdmaSqeCommon &sqeComm, ReduceOp reduceOp, DataType dataType, u32 udfType = 0) const;
     void FillOneSqeWrite(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
                          UdmaSqeWrite *sqe, UdmaSqOpcode opCode, SlicePosition slicePos);
