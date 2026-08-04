@@ -23,7 +23,7 @@
 #define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H
 #endif
 
-#include "../../../impl/adv_api/detail/hcomm/impl/hcomm_impl_def.h"
+#include "hcomm/base_comm/hcomm_impl_def.h"
 
 namespace AscendC {
 
@@ -217,7 +217,7 @@ private:
 
 #if defined(__NPU_ARCH__) && \
     (__NPU_ARCH__ == 3510 || __NPU_ARCH__ == 1001 || __NPU_ARCH__ == 2002 || __NPU_ARCH__ == 2201)
-#include "../../../impl/adv_api/detail/hcomm/impl/hcomm_impl.h"
+#include "hcomm/base_comm/hcomm_impl.h"
 #endif
 
 #if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H)
