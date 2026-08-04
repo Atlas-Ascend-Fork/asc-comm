@@ -12,8 +12,8 @@
 
 #include <algorithm>
 
-#include "log.h"
 #include "hcomm/common/ccu_log.h"
+#include "hcomm/common/ccu_runtime.h"
 
 #include "hcomm/resource/common/asc_ccu_res_snapshot.h"
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"

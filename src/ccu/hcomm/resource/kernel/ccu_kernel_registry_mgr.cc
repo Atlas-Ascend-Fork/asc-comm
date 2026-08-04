@@ -13,7 +13,6 @@
 #include <algorithm>
 
 #include "hcomm/common/ccu_log.h"
-#include "string_util.h"
 #include "framework/entrance/hccl_common_v2.h"
 
 namespace hcomm {

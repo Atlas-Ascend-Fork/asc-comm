@@ -8,8 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm_c_adpt.h"
 #include "hcomm/resource/channel/ccu_channel.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
@@ -41,9 +39,9 @@ std::string CcuRepBufRead::Describe()
 {
     CcuChannel channelImpl(channel);
     if (channelImpl.GetResult() != HcclResult::HCCL_SUCCESS) {
-        Hccl::THROW<Hccl::CcuApiException>("failed to get ccu channel, type[%d]", type);
+        hcomm::THROW<hcomm::CcuApiException>("failed to get ccu channel, type[%d]", type);
     }
-    return Hccl::StringFormat(
+    return hcomm::StringFormat(
         "Read Rmt Mem[%u] To CcuBuf[%u], len[%u], ChannalId[%u], sem[%u], mask[%04x]", src.addr.Id(), dst.Id(),
         len.Id(), channelImpl->GetChannelId(), sem.Id(), mask);
 }

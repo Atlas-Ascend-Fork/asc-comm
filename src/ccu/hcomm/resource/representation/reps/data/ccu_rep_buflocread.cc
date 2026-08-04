@@ -10,7 +10,6 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
-#include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -38,7 +37,7 @@ bool CcuRepBufLocRead::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_
 
 std::string CcuRepBufLocRead::Describe()
 {
-    return Hccl::StringFormat(
+    return hcomm::StringFormat(
         "Read Loc Mem[%u] To CcuBuf[%u], len[%u], sem[%u], mask[%04x]", src.addr.Id(), dst.Id(), len.Id(), sem.Id(),
         mask);
 }
