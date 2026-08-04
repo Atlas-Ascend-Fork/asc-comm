@@ -12,10 +12,6 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
-
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
 namespace hcomm {
@@ -24,21 +20,21 @@ namespace CcuRep {
 FuncCall::FuncCall(CcuRepContext* context, std::string label) : context(context), label(label)
 {
     CcuInsGeneraterBase* insGenPtr = context->GetInsGenerator();
-    Hccl::CHECK_NULLPTR(insGenPtr, "[FuncCall::FuncCall](label) insGenPtr is nullptr!");
+    hcomm::CHECK_NULLPTR(insGenPtr, "[FuncCall::FuncCall](label) insGenPtr is nullptr!");
     repFuncCall = std::make_shared<CcuRepFuncCall>(insGenPtr, label);
 }
 
 FuncCall::FuncCall(CcuRepContext* context, const Variable& funcAddr) : context(context)
 {
     CcuInsGeneraterBase* insGenPtr = context->GetInsGenerator();
-    Hccl::CHECK_NULLPTR(insGenPtr, "[FuncCall::FuncCall](funcAddr) insGenPtr is nullptr!");
+    hcomm::CHECK_NULLPTR(insGenPtr, "[FuncCall::FuncCall](funcAddr) insGenPtr is nullptr!");
     repFuncCall = std::make_shared<CcuRepFuncCall>(insGenPtr, funcAddr);
 }
 
 void FuncCall::AppendToContext()
 {
     if (context == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("context is nullptr, func call, append to context");
+        hcomm::THROW<hcomm::CcuApiException>("context is nullptr, func call, append to context");
     }
     return context->Append(repFuncCall);
 }

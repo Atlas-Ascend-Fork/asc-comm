@@ -14,7 +14,7 @@
 
 #include "hcomm/resource/instance/ccu_instance_mgr.h"
 #include "hcomm/common/ccu_log.h"
-#include "hcom_common.h"
+#include "hcomm/common/ccu_runtime.h"
 
 CcuResult HcommCcuInsCreateOnDevice(
     const CcuInstanceType insType, int32_t deviceLogicId, CcuInsHandle* ccuInsHandle)

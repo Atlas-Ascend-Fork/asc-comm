@@ -36,7 +36,7 @@ public:
     }
     void Check() const
     {
-        // Hccl::THROW<Hccl::CcuApiException>("Invalid Arithmetic Operator");
+        // hcomm::THROW<hcomm::CcuApiException>("Invalid Arithmetic Operator");
         throw std::runtime_error("Invalid Arithmetic Operator");
     }
 
@@ -55,7 +55,7 @@ public:
     }
     void Check() const
     {
-        // Hccl::THROW<Hccl::CcuApiException>("Invalid Relational Operator");
+        // hcomm::THROW<hcomm::CcuApiException>("Invalid Relational Operator");
         throw std::runtime_error("Invalid Relational Operator");
     }
 

@@ -12,11 +12,10 @@
 
 #include <acl/acl.h>
 
-#include "string_util.h"
-#include "exception_handler.h"
+#include "hcomm/common/ccu_log.h"
+#include "hcomm/common/ccu_runtime.h"
 #include "adapter_rts.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
-#include "dev_buffer.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
@@ -690,8 +689,9 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, const Ccu
 {
     const HcommCcuDieMetadataPod *metadata = resPack.GetDieMetadata(dieId);
     CHK_PTR_NULL(metadata);
-    Hccl::DevBuffer tmpDevMem{1}; // 临时申请device hbm内存用于查询token信息
-    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(tmpDevMem.GetAddr(), 1);
+    AsccommDevBuffer tmpDevMem; // 临时申请device hbm内存用于查询token信息
+    CHK_RET(tmpDevMem.Alloc(1));
+    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(tmpDevMem.Get(), 1);
     CcuRep::TransDep transDep{};
     transDep.logicalId = resPack.GetDeviceLogicId();
     transDep.dieId = dieId;
@@ -783,14 +783,14 @@ HcclResult CcuKernelMgr::TransRepSequenceToMicrocode(const std::vector<CcuKernel
         const uint32_t dieId = kernel->GetDieId();
         const uint32_t missionId = kernel->GetMissionId();
 
-        EXCEPTION_HANDLE_BEGIN
+        CCU_EXCEPTION_HANDLE_BEGIN
         const auto& instrInfo = translators[dieId][missionId]->Translate(
             kernel, kernel->GetRepSequence(), kernel->GetInstrId(), isFuncBlock);
 
         CHK_RET(LoadInstruction(instrInfo, dieId));
 
         kernel->SetCcuInstrInfo(instrInfo); // 指令下发成功后可以对kernel进行launch
-        EXCEPTION_HANDLE_END
+        CCU_EXCEPTION_HANDLE_END
     }
 
     return HcclResult::HCCL_SUCCESS;
