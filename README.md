@@ -48,7 +48,7 @@ asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载A
 | AIV直驱样例 | 提供`hcomm_write_read_nbi`样例，覆盖两卡AIV直驱URMA `WriteNbi`/`ReadNbi`对称通信和结果校验流程。 |
 | SIMT Hcomm公开接口 | 已提供Kernel侧`Init`、`WriteNbi`、`ReadNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Drain`，接口声明位于`include/aicore/hcomm/hcomm_simt.h`。SIMT无`Commit`接口，延迟提交的任务由后续`commit=true`的任务带出。 |
 | SIMT直驱实现 | 已提供UBC_CTP/URMA实现，仅支持v310平台，主实现位于`src/aicore/hcomm/detail/`。`WriteValueNbi`尚未实现。 |
-| SIMT直驱样例 | 提供`simt_write`样例，覆盖两卡单向URMA `WriteNbi`的三种提交方式和结果校验流程。 |
+| SIMT直驱样例 | 提供`simt_write`和`simt_notify_atomic`样例，覆盖两卡单向URMA的数据写、通知及原子操作。 |
 
 ### 如何使用Hcomm接口
 
@@ -86,7 +86,8 @@ SIMT Kernel侧改为包含`hcomm/hcomm_simt.h`，使用`AscendC::simt::Hcomm`，
 ├── docs                          # 项目文档介绍
 ├── examples                      # asc-comm API样例目录
 │   ├── hcomm_write_read_nbi      # Hcomm AIV直驱URMA两卡P2P通信样例
-│   └── simt_write                # Hcomm SIMT直驱URMA两卡WriteNbi样例
+│   ├── simt_write                # Hcomm SIMT直驱URMA两卡WriteNbi样例
+│   └── simt_notify_atomic        # Hcomm SIMT直驱URMA Notify/FAA/CAS样例
 ├── include                       # asc-comm API声明源代码
 │   ├── aicore/hcomm              # AICore侧Hcomm公开接口（含SIMT接口hcomm_simt.h）
 │   ├── ain                       # AIN相关API预留目录

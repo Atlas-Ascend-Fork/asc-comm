@@ -5,6 +5,7 @@ This directory contains usage samples for asc-comm APIs.
 ## Sample List
 | Sample | Description | Supported Products |
 | --- | --- | --- |
+| [simt_notify_atomic](./simt_notify_atomic/README.md) | Demonstrates and validates SIMT URMA `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS` with immediate, batched, and multi-lane submission. | Ascend 950PR / Ascend 950DT |
 | [hcomm_write_read_nbi](./hcomm_write_read_nbi/README_en.md) | Demonstrates AIV Kernel invoking `Hcomm::WriteNbi` and `Hcomm::ReadNbi` over the URMA path in a two-card scenario, with communication result verification. | Ascend 950PR / Ascend 950DT |
 
 ## hcomm_write_read_nbi
@@ -36,6 +37,12 @@ You can also launch the two ranks manually:
 # Terminal 2: rank 1
 ./demo 1 2 tcp://127.0.0.1:29621
 ```
+
+## simt_notify_atomic
+
+`simt_notify_atomic` validates SIMT URMA `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`. It includes three isolated interface cases plus serialized, batch-last, and multi-lane submission scenarios.
+
+See [simt_notify_atomic/README.md](./simt_notify_atomic/README.md) for build and run instructions.
 
 ## Runtime Constraints
 - Supported chips: Ascend 950PR / Ascend 950DT. CANN version 9.1.0 or later is required.
