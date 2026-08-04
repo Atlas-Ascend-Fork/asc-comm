@@ -10,9 +10,6 @@
 
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopgroup_bundle_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
-#include "ccu_api_exception.h"
-#include "exception_util.h"
-#include "string_util.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -68,8 +65,8 @@ bool CcuRepLoopGroupBundle::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, ui
     translated = true;
 
     CHK_RET_THROW(
-        Hccl::CcuApiException,
-        Hccl::StringFormat("[CcuRepLoopGroupBundle][%s] failed to translate for instrId[%u]", __func__, instrId),
+        hcomm::CcuApiException,
+        hcomm::StringFormat("[CcuRepLoopGroupBundle][%s] failed to translate for instrId[%u]", __func__, instrId),
         insGenPtr_->CcuRepLoopGroupBundleTranslate(ccuKernel, instr, instrId, this, dep));
 
     return translated;
@@ -77,7 +74,7 @@ bool CcuRepLoopGroupBundle::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, ui
 
 std::string CcuRepLoopGroupBundle::Describe()
 {
-    return Hccl::StringFormat("LoopGroupBundle[loops=%zu, totalLoopNum=%lu]", loops_.size(), totalLoopNum_);
+    return hcomm::StringFormat("LoopGroupBundle[loops=%zu, totalLoopNum=%lu]", loops_.size(), totalLoopNum_);
 }
 
 }; // namespace CcuRep

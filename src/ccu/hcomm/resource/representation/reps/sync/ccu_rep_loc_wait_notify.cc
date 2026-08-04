@@ -11,9 +11,6 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/sync/ccu_rep_loc_wait_notify.h"
 #include <climits>
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 namespace hcomm {
@@ -39,7 +36,7 @@ bool CcuRepLocWaitNotify::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint
             "[CcuRepLocWaitNotify::Translate]uint16 integer overflow occurs, "
             "instrId = [%hu], instrCount = [%hu]",
             instrId, instrCount),
-        Hccl::CcuApiException, "integer overflow");
+        hcomm::CcuApiException, "integer overflow");
 
     instrId += instrCount;
     return translated;
@@ -47,7 +44,7 @@ bool CcuRepLocWaitNotify::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint
 
 std::string CcuRepLocWaitNotify::Describe()
 {
-    return Hccl::StringFormat("CcuRepLocWaitNotify=id[%u], mask[%04x]", notify_.Id(), mask_);
+    return hcomm::StringFormat("CcuRepLocWaitNotify=id[%u], mask[%04x]", notify_.Id(), mask_);
 }
 
 }; // namespace CcuRep
