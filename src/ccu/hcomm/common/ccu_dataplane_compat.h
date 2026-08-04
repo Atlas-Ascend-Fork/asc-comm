@@ -9,49 +9,20 @@
  */
 
 /*
- * Compatibility glue for building migrated hcomm CCU data-plane sources
- * outside the original hcomm target.
+ * 本地化兼容胶水：asc-comm CCU 数据面自持日志/异常/字符串/类型基础设施。
+ * 不再 include hcomm 的 log.h/hccl_exception.h；全部指向 asc-comm 自有实现。
+ * force-include 注入本头后，所有 .cc 可直接使用 HCCL_* 宏、hcomm::THROW、
+ * hcomm::StringFormat、hcomm::DataType/ReduceOp 等。
  */
 #ifndef ASCCOMM_CCU_DATAPLANE_COMPAT_H
 #define ASCCOMM_CCU_DATAPLANE_COMPAT_H
 
-#include "log.h"
-#include "hccl_exception.h"
+#include "asccomm_log.h"
+#include "asccomm_string_util.h"
+#include "asccomm_exception.h"
+#include "asccomm_types.h"
 #include "hcomm/common/ccu_device_context.h"
 
-using Hccl::CallDlog;
-using Hccl::CallDlogInvalidType;
-using Hccl::CallDlogMemError;
-using Hccl::CallDlogNoSzFormat;
-using Hccl::CallDlogPrintError;
-using Hccl::HCCL_LOG_DEBUG;
-using Hccl::HCCL_LOG_ERROR;
-using Hccl::HCCL_LOG_INFO;
-using Hccl::HCCL_LOG_OPLOG;
-using Hccl::HCCL_LOG_RUN_INFO;
-using Hccl::HCCL_LOG_WARN;
-using Hccl::HCCL_MODULE_ID;
-using Hccl::HcclCheckLogLevel;
-using Hccl::HcclException;
-using Hccl::HcclSubModuleID;
-using Hccl::LOG_TMPBUF_SIZE;
-using Hccl::SYSTEM_RESERVE_ERROR;
 using std::string;
-
-#ifndef HCCL_RUN_WARNING
-#define HCCL_RUN_WARNING(...) HCCL_WARNING(__VA_ARGS__)
-#endif
-
-#ifndef HCCL_CONFIG_DEBUG
-#define HCCL_CONFIG_DEBUG(config, ...) HCCL_DEBUG(__VA_ARGS__)
-#endif
-
-#ifndef HCCL_CONFIG_INFO
-#define HCCL_CONFIG_INFO(config, ...) HCCL_INFO(__VA_ARGS__)
-#endif
-
-#ifndef HCCL_ENTRY_INFO
-#define HCCL_ENTRY_INFO(opEntry, ...) HCCL_INFO(__VA_ARGS__)
-#endif
 
 #endif // ASCCOMM_CCU_DATAPLANE_COMPAT_H
