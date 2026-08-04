@@ -28,8 +28,32 @@ namespace AscendC {
 
 constexpr int32_t HCOMM_FAILED = -1;
 constexpr int32_t HCOMM_SUCCESS = 0;
+constexpr int32_t HCOMM_PREPARE_BUFFER_FULL = 1;
+constexpr int32_t HCOMM_PREPARE_QUEUE_FULL = 2;
+
 constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
+
+constexpr uint32_t HCOMM_WRITE_PREPARE_MAGIC = 0x48575042U;
+
+struct alignas(32) HcommWritePrepareHeader {
+    uint32_t magic;
+    uint32_t preparedCount;
+    uint64_t channel;
+    uint32_t startSqHead;
+    uint32_t startCqHead;
+    uint32_t buffLen;
+    uint32_t queueBudget;
+};
+
+static_assert(sizeof(HcommWritePrepareHeader) == 32, "HcommWritePrepareHeader must be 32 bytes");
+
+struct HcommWriteCopyPlan {
+    uint32_t firstCount;
+    uint32_t secondCount;
+    uint32_t firstElemCount;
+    uint32_t secondElemCount;
+};
 
 #pragma pack(push, 1)
 struct UrmaWqeEntry {

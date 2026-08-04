@@ -52,6 +52,38 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(ChannelHandle channel, G
 }
 
 template <CommProtocol commProtocol>
+template <auto const& config>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbiPrepare(
+    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, __ubuf__ uint8_t* buff, uint32_t buffLen)
+{
+#if __NPU_ARCH__ == 3510
+    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
+        return impl_.template WriteNbiPrepare<config>(channel, dst, src, len, buff, buffLen);
+    }
+#endif
+    (void)channel;
+    (void)dst;
+    (void)src;
+    (void)len;
+    (void)buff;
+    (void)buffLen;
+    return HCOMM_FAILED;
+}
+
+template <CommProtocol commProtocol>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff)
+{
+#if __NPU_ARCH__ == 3510
+    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
+        return impl_.WriteNbiPrepareEnd(channel, buff);
+    }
+#endif
+    (void)channel;
+    (void)buff;
+    return HCOMM_FAILED;
+}
+
+template <CommProtocol commProtocol>
 template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value)
 {
