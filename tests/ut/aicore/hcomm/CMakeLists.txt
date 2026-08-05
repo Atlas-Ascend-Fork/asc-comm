@@ -107,6 +107,9 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
         set(test_filters
             HcommUrmaTestSuite.Aiv_Urma_Read
             HcommUrmaTestSuite.Aiv_Urma_Write
+            HcommUrmaTestSuite.Aiv_Urma_WriteReduce_MaxInt8
+            HcommUrmaTestSuite.Aiv_Urma_WriteReduce_MinHalf
+            HcommUrmaTestSuite.Aiv_Urma_WriteReduce_SumFloat
             HcommUrmaTestSuite.Aiv_Urma_WriteWithNotify
             HcommUrmaTestSuite.Aiv_Urma_WriteWithNotify_WqeBbCnt
             HcommUrmaTestSuite.Aiv_Urma_RemoteBufferNotFound

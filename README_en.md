@@ -2,7 +2,7 @@
 
 # asc-comm
 
-<h4>Provides Hcomm communication APIs, AIV direct drive implementation, samples and verification cases for communication scenarios on Ascend AI Processors</h4>
+<h4>Provides Hcomm and Ain communication APIs, AIV direct drive implementation, samples and verification cases for communication scenarios on Ascend AI Processors</h4>
 
 [![docs](https://img.shields.io/badge/docs-repo-blue.svg?style=flat)](./docs)
 [![examples](https://img.shields.io/badge/examples-repo-orange.svg?style=flat)](./examples)
@@ -17,7 +17,9 @@
 ### 🚀 Current Capabilities
 - Exposes AICore-side Hcomm point-to-point communication interfaces, covering `Init`, `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, `Drain`.
 - Provides AIV direct-drive implementations for Hcomm RoCE and UBC_CTP/URMA. Core implementations are located under `src/aicore/hcomm/detail/`.
+- Exposes AICore-side Ain one-sided communication interfaces, covering `Put`, `PutValue`, `Get`, `Signal`, `ReadSignal`, `WaitSignal`, `Flush`, `FlushAsync`, `Wait`, and the `AinBarrierSession` collective synchronization primitive. Core implementations are located under `src/aicore/ain/detail/`.
 - Delivers Hcomm UT projects covering RoCE/URMA paths for `ascend950pr_9599_AIV` and basic interface test cases for `ascend910B1_AIC`.
+- Delivers Ain UT project covering `Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession` test cases on the `ascend950pr_9599_AIV` URMA path.
 - Supplies the `hcomm_write_read_nbi` sample, demonstrating the point-to-point communication workflow of `WriteNbi` and `ReadNbi` under the AIV direct-driven URMA scenario, including Host-side resource preparation required to run the sample.
 
 ### 📖 Documentation
@@ -30,16 +32,17 @@ For detailed information on all historical releases and updates, please refer to
 ## 🚀 Overview
 asc-comm is an open-source repository targeting communication scenarios on Ascend AI Processors. It hosts publicly exposed AICore APIs, AIV direct-drive device-side implementations, API documentation, samples and verification suites.
 
-The primary public capability is `AscendC::Hcomm`, designed for point-to-point data communication paths on operator Kernel side. Users select communication protocols via the `AscendC::Hcomm` template, specify communication channels with `ChannelHandle`, and submit communication tasks using non-blocking read/write interfaces. Tasks can be explicitly `Commit`ted on demand, and completion can be awaited via `Drain`.
+The public capabilities include `AscendC::Hcomm` point-to-point communication and `AscendC::Ain` one-sided communication, targeting communication data paths on the operator Kernel side. For Hcomm, users select a communication protocol via the `AscendC::Hcomm` template, specify a communication channel with `ChannelHandle`, and submit communication tasks using non-blocking read/write interfaces. Tasks can be explicitly `Commit`ted on demand, and completion can be awaited via `Drain`. For Ain, users issue one-sided `Put`/`Get`/`Signal` operations on symmetric windows via the `AscendC::Ain` template, and manage completion through `Flush` or `FlushAsync` + `Wait`.
 
 ### Data Plane Capabilities
 | Capability | Status |
 | --- | --- |
 | Public AICore Hcomm Interfaces | Kernel-side `Init`, `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, `Drain` available. |
-| AIV Direct Drive Implementation | Implementations for Hcomm RoCE and UBC_CTP/URMA are provided; core code resides in `src/aicore/hcomm/detail/`. |
+| Public AICore Ain Interfaces | Kernel-side `Put`, `PutValue`, `Get`, `Signal`, `ReadSignal`, `WaitSignal`, `Flush`, `FlushAsync`, `Wait`, and `AinBarrierSession` synchronization primitive available. |
+| AIV Direct Drive Implementation | Implementations for Hcomm RoCE and UBC_CTP/URMA are provided; core code resides in `src/aicore/hcomm/detail/`. Ain implementation resides in `src/aicore/ain/detail/`. |
 | AIV Direct-drive Sample Supporting Workflow | `hcomm_write_read_nbi` includes communication domain creation, communication memory registration, P2P channel creation and remote memory acquisition required for AIV direct-driven URMA communication. |
 | Protocol Features | `COMM_PROTOCOL_ROCE`: read/write, commit and wait; `COMM_PROTOCOL_UBC_CTP`: read/write, write-with-notify, atomic operations, commit and wait. |
-| UT Verification | UTs cover RoCE/URMA paths on `ascend950pr_9599_AIV` and basic interface cases for `ascend910B1_AIC`. |
+| UT Verification | UTs cover Hcomm RoCE/URMA paths and the Ain URMA path on `ascend950pr_9599_AIV`, plus basic interface cases for `ascend910B1_AIC`. |
 | AIV Direct-drive Samples | `hcomm_write_read_nbi` demonstrates symmetric two-card AIV direct-driven URMA `WriteNbi`/`ReadNbi` communication and result validation. |
 
 ### How to Use Hcomm Interfaces
@@ -63,6 +66,28 @@ Protocol capability matrix:
 
 Refer to [Hcomm Usage Guide](./docs/en/guide/hcomm_usage.md) and [API Reference](./docs/en/api/README.md) for detailed parameter constraints and return value descriptions.
 
+### How to Use Ain Interfaces
+Include the following header when invoking Ain on the Kernel side:
+```cpp
+#include "ain/ain.h"
+```
+
+Basic invocation workflow:
+1. Instantiate an `AscendC::Ain` object, binding it to a communication context index.
+2. Issue one-sided read/write via `Put`/`PutValue`/`Get`, or a remote atomic signal operation via `Signal`.
+3. If `AIN_COMMIT_DELAYED` is set at submission, submission is deferred until a subsequent `AIN_COMMIT_IMMED` task rings the doorbell; otherwise the task is submitted immediately.
+4. Completion can be awaited via `Flush` or `FlushAsync` + `Wait`.
+5. Read or wait on local signals via `ReadSignal`/`WaitSignal`.
+6. For collective synchronization, use `AinBarrierSession::Sync` to perform a team-level barrier.
+
+Commit mode matrix:
+| Mode | Behavior |
+| --- | --- |
+| `AIN_COMMIT_IMMED` | Assembles the communication task and rings the doorbell immediately, submitting it to the underlying engine. |
+| `AIN_COMMIT_DELAYED` | Only assembles the communication task without ringing the doorbell; submission is deferred until a subsequent `AIN_COMMIT_IMMED` task. |
+
+Refer to [API Reference](./docs/en/api/README.md) for detailed parameter constraints and return value descriptions.
+
 ## 🔍 Directory Layout
 This repository contains AICore communication data plane APIs, device-side implementations, samples, documentation and UT cases for asc-comm. The structure is as follows:
 ```text
@@ -72,28 +97,32 @@ This repository contains AICore communication data plane APIs, device-side imple
 │   └── hcomm_write_read_nbi      # Two-card P2P communication sample for AIV direct-driven URMA Hcomm
 ├── include                       # asc-comm API declarations
 │   ├── aicore/hcomm              # Public AICore Hcomm interfaces
-│   ├── ain                       # Reserved directory for AIN-related APIs
+│   └── aicore/ain                # Public AICore Ain one-sided communication interfaces
 ├── scripts                       # Utility scripts
 ├── src                           # asc-comm API implementations
 │   ├── aicore/hcomm/detail       # Internal implementation of AICore Hcomm
 │   │   ├── common                # Common definitions and utilities for Hcomm
 │   │   └── impl                  # Protocol implementations and platform-specific logic
+│   └── aicore/ain/detail         # Internal implementation of AICore Ain
+│       └── impl                  # One-sided communication primitive implementations
 └── tests                         # asc-comm API unit tests
-    └── ut/aicore/hcomm           # AICore Hcomm UT project
+    └── ut/aicore
+        ├── hcomm                 # AICore Hcomm UT project
+        └── ain                   # AICore Ain UT project
 ```
 
 ## ⚡️ Quick Start
-To quickly build the project and run Hcomm UTs, configure the CANN environment first:
+To quickly build the project and run UTs, configure the CANN environment first:
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
 ```
 
-Default build for basic environment validation. AICore Hcomm is header-only; no standalone library will be generated for non-UT builds:
+Default build for basic environment validation. AICore Hcomm and Ain are header-only; no standalone library will be generated for non-UT builds:
 ```bash
 bash build.sh
 ```
 
-Build and execute Hcomm unit tests:
+Build and execute Hcomm and Ain unit tests:
 ```bash
 bash build.sh -t
 ```
