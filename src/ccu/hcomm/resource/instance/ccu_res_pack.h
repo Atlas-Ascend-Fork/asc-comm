@@ -11,48 +11,33 @@
 #ifndef CCU_RES_PACK_H
 #define CCU_RES_PACK_H
 
-#include <array>
-#include <cstdint>
-
 #include "ccu/hcomm/ccu_types.h"
-#include "hcomm_ccu_res.h"
+#include "ccu_device_res.h"
 #include "hcomm/resource/common/asc_ccu_res_repository_local.h"
+#include "hcomm_ccu_res.h"
 
 namespace hcomm {
 
 class CcuResPack {
 public:
-    CcuResPack() = default;
-    ~CcuResPack() = default;
+    explicit CcuResPack(CcuInstanceType insType) : insType_(insType) {};
+    ~CcuResPack();
 
-    CcuResult Load(const HcommCcuRegisterContextPod &context);
+    CcuResult Init();
     CcuResult Reset();
-    CcuResult AllocateInstruction(uint32_t dieId, uint32_t count, HcommCcuResRangePod &range);
 
-    AscCcuResRepository &GetCcuResRepo();
-    const AscCcuResRepository &GetTranslatorResRepo() const;
-    const HcommCcuDieMetadataPod *GetDieMetadata(uint32_t dieId) const;
-    uint64_t GetGeneration() const;
-    int32_t GetDeviceLogicId() const;
-    uint32_t GetCcuVersion() const;
-    uint32_t GetValidDieMask() const;
+    AscCcuResRepository& GetCcuResRepo();
 
 private:
-    CcuResPack(const CcuResPack &that) = delete;
-    CcuResPack &operator=(const CcuResPack &that) = delete;
-    CcuResPack(CcuResPack &&that) = delete;
-    CcuResPack &operator=(CcuResPack &&that) = delete;
+    CcuResPack(const CcuResPack& that) = delete;
+    CcuResPack& operator=(const CcuResPack& that) = delete;
+    CcuResPack(CcuResPack&& that) = delete;
+    CcuResPack& operator=(CcuResPack&& that) = delete;
 
-    uint64_t generation_{0};
-    int32_t deviceLogicId_{0};
-    uint32_t ccuVersion_{0};
-    uint32_t validDieMask_{0};
-    AscCcuResRepository initialRepo_{};
+    int32_t devLogicId_{0};
+    CcuInstanceType insType_{CcuInstanceType::CCU_UNUSED};
+    HcommCcuResHandle resHandle_{0};
     AscCcuResRepository resRepo_{};
-    AscCcuResRepository translatorRepo_{};
-    std::array<HcommCcuResRangePod, HCOMM_CCU_MAX_DIE_NUM> instructionPools_{};
-    std::array<uint32_t, HCOMM_CCU_MAX_DIE_NUM> instructionUsed_{};
-    std::array<HcommCcuDieMetadataPod, HCOMM_CCU_MAX_DIE_NUM> dieMetadata_{};
 };
 
 } // namespace hcomm

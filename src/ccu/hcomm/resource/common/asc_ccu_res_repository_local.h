@@ -20,7 +20,7 @@ namespace hcomm {
 
 using AscCcuResRanges = std::array<std::vector<HcommCcuResRangePod>, HCOMM_CCU_MAX_DIE_NUM>;
 
-// 该聚合结构只属于 asc-comm；跨 SO 传递的仅是其中的 range POD 元素，不传递 vector 本身。
+// This aggregation is private to asc-comm. Only its POD elements cross the SO boundary.
 struct AscCcuResRepository {
     AscCcuResRanges loopEngine{};
     AscCcuResRanges blockLoopEngine{};

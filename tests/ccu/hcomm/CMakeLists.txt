@@ -113,19 +113,6 @@ add_dependencies(hccl_utest_comms_ccu_features asccomm_ccu_llt_stub)
 
 add_test(NAME hccl_utest_comms_ccu_features COMMAND hccl_utest_comms_ccu_features)
 
-add_executable(hccl_utest_comms_ccu_res_pack
-    ccu_res_pack_main.cc
-    ut_ccu_res_pack.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/instance/ccu_res_pack.cc
-)
-target_include_directories(hccl_utest_comms_ccu_res_pack PRIVATE
-    ${UT_COMMON_INCLUDE_LIST}
-)
-target_link_libraries(hccl_utest_comms_ccu_res_pack PRIVATE
-    intf_llt_pub_basic
-)
-add_test(NAME hccl_utest_comms_ccu_res_pack COMMAND hccl_utest_comms_ccu_res_pack)
-
 add_subdirectory(ccu_representation/reps/sync)
 add_subdirectory(ccu_representation/reps/control)
 add_subdirectory(ccu_representation/reps/common)

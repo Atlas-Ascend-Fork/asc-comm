@@ -29,7 +29,6 @@
 #include <hccl/hcomm_primitives.h>
 
 #include <ccu/hcomm/ccu_launch.h>
-#include "../../common/ccu_register_context.h"
 #include <ccu/hcomm/ccu_res.h>
 #include <hccl/hccl_ccu_res.h>
 
@@ -239,9 +238,7 @@ HcclResult RegisterCcuKernel(
     }
 
     resCtx.ccuKernels.resize(1);
-    asccomm_examples::CcuRegisterContextStorage contextStorage;
-    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, contextStorage));
-    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(HcommCcuKernelRegisterStart(insHandle, &contextStorage.context)));
+    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(HcommCcuKernelRegisterStart(insHandle)));
 
     CcuKernelHandle kernelHandle = 0;
     const void* kernelArgs[] = {kernelArg.get()};

@@ -11,30 +11,10 @@
 #ifndef ASCCOMM_CCU_UT_REDUCE_OP_H
 #define ASCCOMM_CCU_UT_REDUCE_OP_H
 
-#include <map>
-#include <string>
+#include "hcomm_reduce_op.h"
 
 namespace Hccl {
-
-class ReduceOp {
-public:
-    enum Value { SUM, PROD, MAX, MIN, EQUAL, INVALID };
-
-    constexpr ReduceOp(Value value) : value_(value) {}
-
-    bool operator<(const ReduceOp& other) const { return value_ < other.value_; }
-    bool operator==(const ReduceOp& other) const { return value_ == other.value_; }
-
-    std::string Describe() const
-    {
-        static constexpr const char* names[] = {"SUM", "PROD", "MAX", "MIN", "EQUAL", "INVALID"};
-        return names[static_cast<unsigned int>(value_)];
-    }
-
-private:
-    Value value_;
-};
-
+using ::ReduceOp;
 } // namespace Hccl
 
 #endif

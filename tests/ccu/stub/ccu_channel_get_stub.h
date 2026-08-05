@@ -14,7 +14,7 @@
 #include <vector>
 
 #include "hccl/hccl_types.h"
-#include "hcomm/hcomm_ccu_channel_api.h"
+#include "hcomm_ccu_channel.h"
 
 namespace hcomm {
 
