@@ -6,6 +6,7 @@
 
 | 样例 | 说明 | 支持产品 |
 | --- | --- | --- |
+| [simt_notify_atomic](./simt_notify_atomic/README.md) | 演示并验证 SIMT URMA `WriteWithNotifyNbi`、`AtomicFAA` 和 `AtomicCAS` 的单次、批量及多 lane 提交。 | Ascend 950PR / Ascend 950DT |
 | [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示两卡场景下AIV Kernel通过URMA路径调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
 | [simt_write](./simt_write/README.md) | 演示两卡场景下SIMT Kernel通过URMA路径调用`simt::Hcomm::WriteNbi`的三种提交方式，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
 
@@ -51,6 +52,12 @@ make -j
 与`hcomm_write_read_nbi`不同，本样例流量是单向的：rank 0为唯一发起方，rank 1不启动Kernel、由网卡被动落地数据并在Host侧校验。
 
 编译运行方式参见[simt_write/README.md](./simt_write/README.md)。
+
+## simt_notify_atomic
+
+`simt_notify_atomic`验证SIMT Kernel通过URMA路径调用`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`。样例包含三个单接口用例，以及串行提交、batch-last和多lane批量提交场景。
+
+编译运行方式参见[simt_notify_atomic/README.md](./simt_notify_atomic/README.md)。
 
 ## 运行约束
 
