@@ -21,7 +21,7 @@ add_custom_target(prepare_hcomm_header_layout
         "${ASCCOMM_ROOT}/include/aicore/hcomm"
         "${HCOMM_STAGE_INCLUDE_DIR}/hcomm"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/src/aicore/hcomm/detail"
+        "${ASCCOMM_ROOT}/src/aicore/hcomm"
         "${HCOMM_STAGE_DETAIL_DIR}"
     COMMENT "Preparing Hcomm headers in the installed package layout"
 )

@@ -10,10 +10,9 @@
 
 # ain.h uses CANN virtual-layout relative includes:
 #   ../hcomm/hcomm.h                              -> include/aicore/hcomm/hcomm.h (exists in new layout)
-#   ../../../impl/adv_api/detail/ain/impl/*.h     -> src/aicore/hcomm/detail/detail/impl/*.h
+#   ../../../impl/adv_api/detail/ain/impl/*.h     -> src/aicore/ain/detail/impl/*.h
 # ain_impl_def.h uses:
-#   ../../hcomm/impl/hcomm_impl_def.h             -> src/aicore/hcomm/detail/impl/hcomm_impl_def.h
-#   ../common/ain_inner_def.h                     -> src/aicore/hcomm/detail/detail/common/ain_inner_def.h (exists)
+#   ../../hcomm/impl/hcomm_impl_def.h             -> src/aicore/hcomm/impl/hcomm_impl_def.h
 # Build a virtual include tree under build dir to bridge these relative paths.
 set(AIN_VIRTUAL_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/virtual_inc)
 
@@ -39,56 +38,51 @@ file(CREATE_LINK
     ${ASCCOMM_ROOT}/src/aicore/ain/detail/impl/ain_impl.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/ain/impl/ain_impl.h SYMBOLIC)
 
-# impl/adv_api/detail/ain/common/* <- src/aicore/hcomm/detail/detail/common/*
+# impl/adv_api/detail/hcomm/impl/* <- src/aicore/hcomm/impl/*
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/detail/common/ain_inner_def.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/ain/common/ain_inner_def.h SYMBOLIC)
-
-# impl/adv_api/detail/hcomm/impl/* <- src/aicore/hcomm/detail/impl/*
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/impl/hcomm_impl_def.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/hcomm_impl_def.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/impl/hcomm_impl_def.h SYMBOLIC)
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/impl/hcomm_impl.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/hcomm_impl.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/impl/hcomm_impl.h SYMBOLIC)
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/impl/hcomm_v220_impl.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/hcomm_v220_impl.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/impl/hcomm_v220_impl.h SYMBOLIC)
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/impl/hcomm_v310_impl.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/hcomm_v310_impl.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/impl/hcomm_v310_impl.h SYMBOLIC)
 
-# impl/adv_api/detail/hcomm/common/* <- src/aicore/hcomm/detail/common/*
+# impl/adv_api/detail/hcomm/common/* <- src/aicore/hcomm/common/*
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/common/hcomm_base.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/common/hcomm_base.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/common/hcomm_base.h SYMBOLIC)
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/common/hcomm_inner_def.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/common/hcomm_inner_def.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/common/hcomm_inner_def.h SYMBOLIC)
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/common/hcomm_utils.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/common/hcomm_utils.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/common/hcomm_utils.h SYMBOLIC)
 
-# impl/adv_api/detail/hcomm/impl/platform_v220/* <- src/aicore/hcomm/detail/impl/platform_v220/*
+# impl/adv_api/detail/hcomm/impl/platform_v220/* <- src/aicore/hcomm/impl/platform_v220/*
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/impl/platform_v220/hcomm_aiv.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v220/hcomm_aiv.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/impl/platform_v220/hcomm_aiv.h SYMBOLIC)
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/impl/platform_v220/hcomm_aiv_def.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v220/hcomm_aiv_def.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/impl/platform_v220/hcomm_aiv_def.h SYMBOLIC)
 
-# impl/adv_api/detail/hcomm/impl/platform_v310/* <- src/aicore/hcomm/detail/impl/platform_v310/*
+# impl/adv_api/detail/hcomm/impl/platform_v310/* <- src/aicore/hcomm/impl/platform_v310/*
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/impl/platform_v310/hcomm_aiv_roce.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v310/hcomm_aiv_roce.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/impl/platform_v310/hcomm_aiv_roce.h SYMBOLIC)
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/impl/platform_v310/hcomm_aiv_roce_def.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v310/hcomm_aiv_roce_def.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/impl/platform_v310/hcomm_aiv_roce_def.h SYMBOLIC)
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/impl/platform_v310/hcomm_aiv_urma.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v310/hcomm_aiv_urma.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/impl/platform_v310/hcomm_aiv_urma.h SYMBOLIC)
 file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/impl/platform_v310/hcomm_aiv_urma_def.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v310/hcomm_aiv_urma_def.h
     ${AIN_VIRTUAL_INCLUDE_DIR}/impl/adv_api/detail/hcomm/impl/platform_v310/hcomm_aiv_urma_def.h SYMBOLIC)
 
 set(AIN_UT_INCLUDE_DIRS
