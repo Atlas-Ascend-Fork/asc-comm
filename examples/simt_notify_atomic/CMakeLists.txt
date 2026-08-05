@@ -22,25 +22,44 @@ project(simt_notify_atomic LANGUAGES ASC CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# Only the kernel is compiled as ASC. main.cpp remains on the host C++ toolchain.
 set_source_files_properties(
     op_kernel.cpp
-    simt_notify_atomic_common.h
     PROPERTIES LANGUAGE ASC
 )
 
 add_executable(simt_notify_atomic
     main.cpp
     op_kernel.cpp
-    simt_notify_atomic_common.h
 )
 
-target_include_directories(simt_notify_atomic PRIVATE
+set_target_properties(simt_notify_atomic PROPERTIES
+    LINKER_LANGUAGE ASC
+)
+
+target_include_directories(simt_notify_atomic BEFORE PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/aicore
     ${CMAKE_CURRENT_SOURCE_DIR}
+    $ENV{ASCEND_HOME_PATH}/include
+)
+
+# Host-side communication-domain, memory-registration and channel APIs are provided by libhcomm.so.
+target_link_directories(simt_notify_atomic PRIVATE
+    $ENV{ASCEND_HOME_PATH}/lib64
+    $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/lib64
 )
 
 target_link_libraries(simt_notify_atomic PRIVATE
     hcomm
+    hccl
+    ascendcl
+    acl_rt
+    runtime
+    c_sec
+    dl
+    pthread
 )
 
 target_compile_options(simt_notify_atomic PRIVATE
