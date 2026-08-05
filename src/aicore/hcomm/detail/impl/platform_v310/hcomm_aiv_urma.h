@@ -293,8 +293,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(const LocalTens
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflow(
     ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt)
 {
-    __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
-    uint32_t cqTail = channelEntity->cqTail;
+    __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
+    uint32_t cqTail = static_cast<uint32_t>(ld_dev(cqTailAddr, 0));
     constexpr uint32_t POLL_CQ_THRESHOLD = 10;
     constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
     uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
@@ -326,14 +326,31 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     }
 
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    uint32_t curHead = channelEntity->sqHead;
-    uint32_t cqeCnt = channelEntity->cqHead;
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    // Temporary diagnostics for comparing the resources behind shared-queue logical channels.
+    KERNEL_LOG(
+        KERNEL_INFO, "[shared-queue-debug] channel=%lu sqCtx=%p cqCtx=%p \n", channel,
+        channelEntity->sqContextAddr, channelEntity->cqContextAddr);
+    KERNEL_LOG(
+        KERNEL_INFO,
+        "[shared-queue-debug] JFS id=%u sqVa=0x%llx dbVa=0x%llx piAddr=0x%llx ciAddr=0x%llx depth=%u \n",
+        sqCtx.contextInfo.ubJfs.jfsID, sqCtx.contextInfo.ubJfs.sqVa, sqCtx.contextInfo.ubJfs.dbVa,
+        sqCtx.contextInfo.ubJfs.headAddr, sqCtx.contextInfo.ubJfs.tailAddr, sqCtx.contextInfo.ubJfs.sqDepth);
+    KERNEL_LOG(
+        KERNEL_INFO,
+        "[shared-queue-debug] JFC id=%u scqVa=0x%llx dbVa=0x%llx piAddr=0x%llx ciAddr=0x%llx depth=%u \n",
+        cqCtx.contextInfo.ubJfc.jfcID, cqCtx.contextInfo.ubJfc.scqVa, cqCtx.contextInfo.ubJfc.dbVa,
+        cqCtx.contextInfo.ubJfc.headAddr, cqCtx.contextInfo.ubJfc.tailAddr, cqCtx.contextInfo.ubJfc.cqDepth);
+    // Queue index addresses are shared by all channels that share a Jetty.
+    __gm__ uint32_t* sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    __gm__ uint32_t* cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    uint32_t curHead = static_cast<uint32_t>(ld_dev(sqHeadAddr, 0));
+    uint32_t cqeCnt = static_cast<uint32_t>(ld_dev(cqHeadAddr, 0));
     KERNEL_LOG(
         KERNEL_INFO, "Hcomm URMA PostSend resolved remoteIdx=%d curHead=%u sqDepth=%u \n", remoteIdx, curHead,
         sqCtx.contextInfo.ubJfs.sqDepth);
 
     // poll CQ if CQ or SQ is nearly full
-    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     PollCqWhenSqOverflow(channel, sqCtx, cqCtx, curHead, cqeCnt);
 
     // write SQE
@@ -371,9 +388,11 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
 
     if constexpr (config.cqe != 0) {
         cqeCnt++;
+        st_dev(cqeCnt, cqHeadAddr, 0);
         channelEntity->cqHead = cqeCnt;
     }
     curHead += wqeBbCnt;
+    st_dev(curHead, sqHeadAddr, 0);
     channelEntity->sqHead = curHead;
 
     if constexpr (commit) {
@@ -390,7 +409,8 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
     }
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    uint32_t curTail = channelEntity->cqTail;
+    __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
+    uint32_t curTail = static_cast<uint32_t>(ld_dev(cqTailAddr, 0));
 
     uint64_t cqBaseAddr = cqCtx.contextInfo.ubJfc.scqVa;
     uint32_t cqeSize = cqCtx.contextInfo.ubJfc.cqeSize;
@@ -435,6 +455,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
 #endif
 
     // update CQ tail
+    st_dev(curTail, cqTailAddr, 0);
     channelEntity->cqTail = curTail;
 
     // ring CQ doorbell
@@ -527,7 +548,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    uint32_t curHead = channelEntity->sqHead;
+    __gm__ uint32_t* sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    uint32_t curHead = static_cast<uint32_t>(ld_dev(sqHeadAddr, 0));
 
     st_dev(curHead, (__gm__ uint32_t*)sqCtx.contextInfo.ubJfs.dbVa, 0);
 
@@ -539,7 +561,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle 
 {
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
-    uint32_t ret = PollCq(channel, channelEntity->cqHead);
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    __gm__ uint32_t* cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    uint32_t expectIdx = static_cast<uint32_t>(ld_dev(cqHeadAddr, 0));
+    uint32_t ret = PollCq(channel, expectIdx);
     if (ret != HCOMM_SUCCESS) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Drain by channel failed channel=%lu pollRet=%u \n", channel, ret);
         return ret;
