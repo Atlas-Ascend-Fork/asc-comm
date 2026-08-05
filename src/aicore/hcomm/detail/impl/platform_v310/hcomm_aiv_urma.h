@@ -23,6 +23,7 @@
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_H
 
 #include "hcomm_aiv_urma_def.h"
+#include "utils/debug/asc_printf.h"
 
 #include "../../common/hcomm_inner_def.h"
 #include "../../common/hcomm_utils.h"
@@ -33,6 +34,52 @@ typedef AscendC::HcommUrmaNotifyCtx HcommUrmaNotifyCtx;
 typedef AscendC::HcommUrmaJfcCqeCtx HcommUrmaJfcCqeCtx;
 
 namespace AscendC {
+namespace {
+constexpr uint64_t HCOMM_URMA_ENTITY_ALIGN_SIZE = 64U;
+constexpr uint64_t HCOMM_URMA_QUEUE_INDEX_MEM_UNIT_SIZE = sizeof(uint64_t);
+
+struct HcommUrmaPrivateQueueIndexAddrs {
+    uint64_t sqPi;
+    uint64_t sqCi;
+    uint64_t cqPi;
+    uint64_t cqCi;
+};
+
+__aicore__ inline uint64_t HcommUrmaAlignEntityAddr(uint64_t addr)
+{
+    return (addr + HCOMM_URMA_ENTITY_ALIGN_SIZE - 1U) & ~(HCOMM_URMA_ENTITY_ALIGN_SIZE - 1U);
+}
+
+__aicore__ inline HcommUrmaPrivateQueueIndexAddrs HcommUrmaGetPrivateQueueIndexAddrs(
+    __gm__ ChannelEntity* channelEntity)
+{
+    uint64_t sqPi = HcommUrmaAlignEntityAddr(
+        reinterpret_cast<uint64_t>(channelEntity->cqContextAddr) +
+        static_cast<uint64_t>(channelEntity->cqNum) * sizeof(CqContext));
+    uint64_t sqCi = HcommUrmaAlignEntityAddr(
+        sqPi + static_cast<uint64_t>(channelEntity->sqNum) * HCOMM_URMA_QUEUE_INDEX_MEM_UNIT_SIZE);
+    uint64_t cqPi = HcommUrmaAlignEntityAddr(
+        sqCi + static_cast<uint64_t>(channelEntity->sqNum) * HCOMM_URMA_QUEUE_INDEX_MEM_UNIT_SIZE);
+    uint64_t cqCi = HcommUrmaAlignEntityAddr(
+        cqPi + static_cast<uint64_t>(channelEntity->cqNum) * HCOMM_URMA_QUEUE_INDEX_MEM_UNIT_SIZE);
+    return {sqPi, sqCi, cqPi, cqCi};
+}
+
+__aicore__ inline bool HcommUrmaUsesSharedSqIndices(
+    const SqContext& sqCtx, const HcommUrmaPrivateQueueIndexAddrs& privateAddrs)
+{
+    return sqCtx.contextInfo.ubJfs.headAddr != privateAddrs.sqPi ||
+           sqCtx.contextInfo.ubJfs.tailAddr != privateAddrs.sqCi;
+}
+
+__aicore__ inline bool HcommUrmaUsesSharedCqIndices(
+    const CqContext& cqCtx, const HcommUrmaPrivateQueueIndexAddrs& privateAddrs)
+{
+    return cqCtx.contextInfo.ubJfc.headAddr != privateAddrs.cqPi ||
+           cqCtx.contextInfo.ubJfc.tailAddr != privateAddrs.cqCi;
+}
+} // namespace
+
 __aicore__ inline void HcommUrmaFillNotifyCtx(
     __ubuf__ HcommUrmaNotifyCtx* notifyCtx, const RegedBufferEntity& remoteMemInfo, GM_ADDR notifyAddr,
     uint64_t notifyVal)
@@ -294,7 +341,10 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflow(
     ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt)
 {
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
-    uint32_t cqTail = channelEntity->cqTail;
+    auto privateAddrs = HcommUrmaGetPrivateQueueIndexAddrs(channelEntity);
+    bool sharedCq = HcommUrmaUsesSharedCqIndices(cqCtx, privateAddrs);
+    __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
+    uint32_t cqTail = sharedCq ? static_cast<uint32_t>(ld_dev(cqTailAddr, 0)) : channelEntity->cqTail;
     constexpr uint32_t POLL_CQ_THRESHOLD = 10;
     constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
     uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
@@ -326,14 +376,36 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     }
 
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    uint32_t curHead = channelEntity->sqHead;
-    uint32_t cqeCnt = channelEntity->cqHead;
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto privateAddrs = HcommUrmaGetPrivateQueueIndexAddrs(channelEntity);
+    bool sharedSq = HcommUrmaUsesSharedSqIndices(sqCtx, privateAddrs);
+    bool sharedCq = HcommUrmaUsesSharedCqIndices(cqCtx, privateAddrs);
+    // Temporary diagnostics for comparing the resources behind shared-queue logical channels.
+    __asc_aicore::printf(
+        "[shared-queue-debug] channel=%lu sqCtx=%p cqCtx=%p \n", channel,
+        channelEntity->sqContextAddr, channelEntity->cqContextAddr);
+    __asc_aicore::printf(
+        "[shared-queue-debug] JFS id=%u sqVa=0x%llx dbVa=0x%llx piAddr=0x%llx ciAddr=0x%llx depth=%u \n",
+        sqCtx.contextInfo.ubJfs.jfsID, sqCtx.contextInfo.ubJfs.sqVa, sqCtx.contextInfo.ubJfs.dbVa,
+        sqCtx.contextInfo.ubJfs.headAddr, sqCtx.contextInfo.ubJfs.tailAddr, sqCtx.contextInfo.ubJfs.sqDepth);
+    __asc_aicore::printf(
+        "[shared-queue-debug] JFC id=%u scqVa=0x%llx dbVa=0x%llx piAddr=0x%llx ciAddr=0x%llx depth=%u \n",
+        cqCtx.contextInfo.ubJfc.jfcID, cqCtx.contextInfo.ubJfc.scqVa, cqCtx.contextInfo.ubJfc.dbVa,
+        cqCtx.contextInfo.ubJfc.headAddr, cqCtx.contextInfo.ubJfc.tailAddr, cqCtx.contextInfo.ubJfc.cqDepth);
+    __asc_aicore::printf(
+        "[shared-queue-debug] sharedSq=%u sharedCq=%u privateSqPi=0x%llx privateSqCi=0x%llx "
+        "privateCqPi=0x%llx privateCqCi=0x%llx \n",
+        static_cast<uint32_t>(sharedSq), static_cast<uint32_t>(sharedCq), privateAddrs.sqPi, privateAddrs.sqCi,
+        privateAddrs.cqPi, privateAddrs.cqCi);
+    __gm__ uint32_t* sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    __gm__ uint32_t* cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    uint32_t curHead = sharedSq ? static_cast<uint32_t>(ld_dev(sqHeadAddr, 0)) : channelEntity->sqHead;
+    uint32_t cqeCnt = sharedCq ? static_cast<uint32_t>(ld_dev(cqHeadAddr, 0)) : channelEntity->cqHead;
     KERNEL_LOG(
         KERNEL_INFO, "Hcomm URMA PostSend resolved remoteIdx=%d curHead=%u sqDepth=%u \n", remoteIdx, curHead,
         sqCtx.contextInfo.ubJfs.sqDepth);
 
     // poll CQ if CQ or SQ is nearly full
-    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     PollCqWhenSqOverflow(channel, sqCtx, cqCtx, curHead, cqeCnt);
 
     // write SQE
@@ -371,9 +443,15 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
 
     if constexpr (config.cqe != 0) {
         cqeCnt++;
+        if (sharedCq) {
+            st_dev(cqeCnt, cqHeadAddr, 0);
+        }
         channelEntity->cqHead = cqeCnt;
     }
     curHead += wqeBbCnt;
+    if (sharedSq) {
+        st_dev(curHead, sqHeadAddr, 0);
+    }
     channelEntity->sqHead = curHead;
 
     if constexpr (commit) {
@@ -390,7 +468,10 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
     }
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    uint32_t curTail = channelEntity->cqTail;
+    auto privateAddrs = HcommUrmaGetPrivateQueueIndexAddrs(channelEntity);
+    bool sharedCq = HcommUrmaUsesSharedCqIndices(cqCtx, privateAddrs);
+    __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
+    uint32_t curTail = sharedCq ? static_cast<uint32_t>(ld_dev(cqTailAddr, 0)) : channelEntity->cqTail;
 
     uint64_t cqBaseAddr = cqCtx.contextInfo.ubJfc.scqVa;
     uint32_t cqeSize = cqCtx.contextInfo.ubJfc.cqeSize;
@@ -435,6 +516,9 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
 #endif
 
     // update CQ tail
+    if (sharedCq) {
+        st_dev(curTail, cqTailAddr, 0);
+    }
     channelEntity->cqTail = curTail;
 
     // ring CQ doorbell
@@ -527,7 +611,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    uint32_t curHead = channelEntity->sqHead;
+    auto privateAddrs = HcommUrmaGetPrivateQueueIndexAddrs(channelEntity);
+    bool sharedSq = HcommUrmaUsesSharedSqIndices(sqCtx, privateAddrs);
+    __gm__ uint32_t* sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    uint32_t curHead = sharedSq ? static_cast<uint32_t>(ld_dev(sqHeadAddr, 0)) : channelEntity->sqHead;
 
     st_dev(curHead, (__gm__ uint32_t*)sqCtx.contextInfo.ubJfs.dbVa, 0);
 
@@ -539,7 +626,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle 
 {
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
-    uint32_t ret = PollCq(channel, channelEntity->cqHead);
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto privateAddrs = HcommUrmaGetPrivateQueueIndexAddrs(channelEntity);
+    bool sharedCq = HcommUrmaUsesSharedCqIndices(cqCtx, privateAddrs);
+    __gm__ uint32_t* cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    uint32_t expectIdx = sharedCq ? static_cast<uint32_t>(ld_dev(cqHeadAddr, 0)) : channelEntity->cqHead;
+    uint32_t ret = PollCq(channel, expectIdx);
     if (ret != HCOMM_SUCCESS) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Drain by channel failed channel=%lu pollRet=%u \n", channel, ret);
         return ret;
