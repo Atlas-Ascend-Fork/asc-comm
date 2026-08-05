@@ -77,7 +77,7 @@ log() {
         ERROR) color="$COLOR_ERROR" ;;
         *) color="" ;;
     esac
-    
+
     # 带颜色的日志内容
     echo -e "${color}${plain_log}${COLOR_RESET}"
 }
@@ -140,7 +140,7 @@ set_env() {
         log "ERROR" "未配置 CANN 环境，请先source set_env.sh"
         exit 1
     fi
-    log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}" 
+    log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}"
     Ascend_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
     CUSTOM_OPTION+=("-DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
@@ -159,11 +159,31 @@ function cmake_config () {
     cmake -S "${src_dir}" -B "${build_dir}" "$@"
 }
 
-function build () { 
+function build () {
     local build_dir="$1"
     shift
     echo "cmake --build ${build_dir} $* -j ${THREAD_NUM}"
     cmake --build "${build_dir}" "$@" -j "${THREAD_NUM}"
+}
+
+function run_ccu_ut() {
+    local ut_build_dir="$1"
+    local ccu_ctest_dir="${ut_build_dir}/ccu_hcomm"
+
+    if [[ ! -f "${ccu_ctest_dir}/CTestTestfile.cmake" ]]; then
+        log "ERROR" "CCU CTest registration not found: ${ccu_ctest_dir}"
+        return 1
+    fi
+
+    log "INFO" "run CCU UT through CTest"
+    (cd "${ccu_ctest_dir}" && ctest --output-on-failure)
+}
+
+function collect_coverage() {
+    local ut_build_dir="$1"
+
+    log "INFO" "collect UT coverage report"
+    cmake --build "${ut_build_dir}" --target collect_coverage_data -j "${THREAD_NUM}"
 }
 
 main(){
@@ -181,16 +201,12 @@ main(){
     if [[ "${COV}" == true ]]; then
         CUSTOM_OPTION+=("-DENABLE_GCOV=ON")
     fi
-    
-    if [[ "${COV}" == true ]]; then
-        TARGETS="--target collect_coverage_data"
-    else
-        TARGETS=""
-    fi
 
     cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
-    build "${ut_build_dir}" ${TARGETS}
+    build "${ut_build_dir}"
+    run_ccu_ut "${ut_build_dir}"
     if [[ "${COV}" == true ]]; then
+        collect_coverage "${ut_build_dir}"
         log "INFO" "coverage report generated at ${ut_build_dir}/cov_report/index.html"
     fi
 }
