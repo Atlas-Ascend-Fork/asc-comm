@@ -1,0 +1,182 @@
+# Hcomm Multi-Channel Shared-Queue Sample
+
+## Overview
+
+This sample demonstrates how to create a multi-rank communication domain from `HcclRootInfo` and use
+`HcclChannelAcquireWithConfig` to let multiple logical Channels under the same local Endpoint share communication
+queues. The Host registers communication memory, queries RankGraph, groups and acquires Channels. The AIV Kernel then
+uses these Channels to write data to different peers, and the Host verifies the results.
+
+The sample does not require a ranktable JSON file. Rank 0 creates `HcclRootInfo` and distributes it to the other
+ranks over an independent TCP bootstrap connection. TCP is not used for HCCL data transfer.
+
+## Supported Products and Versions
+
+| Product | CANN Software Version |
+|---------|-----------------------|
+| Ascend 950PR / Ascend 950DT | >= CANN 9.1.0 |
+
+## Directory Structure
+
+```text
+├── hcomm_shared_queue_multi_channel
+│   ├── CMakeLists.txt                          // CMake build file
+│   ├── README.md                               // Chinese documentation
+│   ├── README_en.md                            // English documentation
+│   ├── hcomm_shared_queue_multi_channel.asc    // AIV Kernel and launch wrapper
+│   ├── hcomm_shared_queue_multi_channel.cpp    // Host control plane and validation
+│   └── run.sh                                  // Multi-process build and run script
+```
+
+## Sample Description
+
+### Resource Model
+
+```text
+Local rank
+  Endpoint group 0
+    Channel(peer A) --+
+    Channel(peer B) --+-- shared queue group 0
+
+  Endpoint group 1
+    Channel(peer C) ----- queue group 1
+```
+
+The control plane selects the nearest `COMM_PROTOCOL_UBC_CTP` link for every peer from RankGraph and groups links by
+their local Endpoint. Endpoint identity is determined by `protocol`, `commAddr.type`, and `commAddr.eid`.
+
+- All `HcclChannelDesc` objects in one group have the same `localEndpoint`. They are acquired in one
+  `HcclChannelAcquireWithConfig` call and share communication queues.
+- Groups with different local Endpoints must be acquired by separate shared-queue calls.
+- A group containing one peer uses the same flow, but its shared queues serve only one Channel.
+
+The essential shared-queue configuration is:
+
+```cpp
+HcclChannelConfig config = nullptr;
+HcclChannelConfigCreate(&config);
+HcclChannelConfigSetInt(config, HCCL_CHANNEL_CONFIG_TYPE_IS_SHARED_QUEUE, 1);
+HcclChannelConfigSetStr(config, HCCL_CHANNEL_CONFIG_TYPE_SHARED_QUEUE_TAG, sharedTag);
+HcclChannelAcquireWithConfig(
+    comm, COMM_ENGINE_AIV, channelDescs, channelNum, config, channels);
+HcclChannelConfigDestroy(config);
+```
+
+### Execution Flow
+
+```text
+Rank 0 calls HcclGetRootInfo
+  -> Distribute the same HcclRootInfo over TCP
+  -> Each rank calls HcclCommInitRootInfo
+  -> Register the receive buffer and notify with HcclCommMemReg
+  -> Query RankGraph and select one UBC_CTP link for every peer
+  -> Group Channel descriptors by localEndpoint
+  -> Acquire logical Channels sharing communication queues for every group
+  -> Use the Channels to all peers in sequence for two cycles
+  -> Wait for the remote notify and validate received data in every round
+```
+
+The Kernel uses `COMM_PROTOCOL_UBC_CTP`, while the control plane uses `COMM_ENGINE_AIV`. After
+`WriteWithNotifyNbi<false>`, the Kernel calls `Commit` and `Drain`. The remote Host polls the notify in registered
+memory and validates the received data.
+
+The sample calls `HcclBarrier` before and after every transfer so that all ranks clear their receive buffers and
+notifications before the next round. It does not force a communication-operator expansion mode and uses the HCCL
+defaults. `HcclBarrier` is resolved from `libhcomm.so` to avoid binding a same-named weak symbol from a different
+implementation because of link order.
+
+### Multi-Channel Validation
+
+The sample creates a Channel from the local rank to every peer and runs two all-peer transfer cycles. In every cycle,
+rank `i` writes to `(i + offset) % rankSize` and receives from `(i - offset + rankSize) % rankSize`. With three ranks,
+each rank uses its Channels in the order `peer A -> peer B -> peer A -> peer B`, exercising logical Channel switching
+over the same shared communication queues.
+
+## Build and Run
+
+### 1. Configure the Environment
+
+```bash
+source ${install_path}/cann/set_env.sh
+```
+
+`${install_path}` is the CANN installation directory. The default installation location is usually
+`/usr/local/Ascend`.
+
+### 2. Run on Multiple Devices in One Host
+
+Run the following commands in the sample directory:
+
+```bash
+cd examples/hcomm_shared_queue_multi_channel
+bash run.sh
+```
+
+`run.sh` accepts the following arguments:
+
+| Argument | Description |
+|----------|-------------|
+| `$1` | Global rank count. The default is `3`. |
+| `$2` | Bytes transferred in each operation. The default is `4096`. |
+| `$3` | TCP address used by rank 0 to distribute RootInfo. The default is `tcp://127.0.0.1:8899`. |
+| `$4` | First global rank started on this host. The default is `0`. |
+| `$5` | Number of ranks started on this host. The default is `$1`. |
+
+For example, run on four devices:
+
+```bash
+bash run.sh 4 4096
+```
+
+On one host, global ranks map to devices with the same index. You can also build and start each rank manually:
+
+```bash
+cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510
+cmake --build build -j
+
+./build/demo 3 0 0 4096 &
+./build/demo 3 1 1 4096 &
+./build/demo 3 2 2 4096 &
+wait
+```
+
+The `demo` arguments are `<rank_size> <rank> <device> <bytes> [ipport]`.
+
+### 3. Run on Multiple Hosts
+
+Use the same `rank_size`, transfer size, RootInfo address, and program version on all hosts. The last two `run.sh`
+arguments specify the global rank range assigned to the current host. Local device numbering starts from `0`.
+
+For example, when two hosts run two ranks each and rank 0 is on `192.168.1.10`:
+
+```bash
+# Host A: global ranks 0-1
+bash run.sh 4 4096 tcp://192.168.1.10:8899 0 2
+
+# Host B: global ranks 2-3
+bash run.sh 4 4096 tcp://192.168.1.10:8899 2 2
+```
+
+Start the host containing rank 0 first. Other ranks retry their connection to rank 0 for a limited period.
+
+### 4. Expected Output
+
+After every rank completes two Channel-switching cycles and validates the data, output similar to the following is
+displayed:
+
+```text
+rank 0: round 1/4 pass, send peer 1, receive peer 2, channel ...
+...
+rank 0 pass, exercised 2 peer channels for 2 cycles, bytes 4096.
+ranks 0-2 run success.
+```
+
+## Runtime Constraints
+
+- `rank_size` must be at least 2. At least three ranks are required for one rank to exercise multiple peer Channels
+  sharing communication queues.
+- Whether multiple Channels share queues depends on RankGraph returning links with the same local Endpoint. The
+  sample does not merge different Endpoints.
+- For multi-host execution, global rank ranges must not overlap and must completely cover `0..rank_size-1`.
+- All ranks must use the same RootInfo, rank count, and program version.
+- A usable CANN, HCCL, and NPU environment is required at runtime.
