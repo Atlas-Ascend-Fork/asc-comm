@@ -13,11 +13,10 @@
  * \brief Hcomm AIV implementation for V220
  */
 
-#if !defined(__ASCENDC_INCLUDE_INTERNAL_HEADERS__)
-#pragma message( \
-    "impl/adv_api/detail/hcomm/impl/platform_v220/hcomm_aiv.h is an internal header file and must not be used directly. Functions or variables defined in this file may be removed in the future. Please use \"#include \"adv_api/activation/simplesoftmax.h\"\" and use public functions or variables defined in interface headers files.")
-#define __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H__
+#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
+#define HCOMM_INCLUDE_INTERNAL_HEADERS
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H
 #endif
 
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V220_HCOMM_AIV_H
@@ -42,7 +41,7 @@ __aicore__ inline HcommImpl<COMM_PROTOCOL_ROCE>::HcommImpl()
 
 __aicore__ inline HcommImpl<COMM_PROTOCOL_ROCE>::~HcommImpl() {}
 
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
@@ -53,7 +52,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteNbi(
     return HCOMM_SUCCESS;
 }
 
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::ReadNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
@@ -64,7 +63,21 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::ReadNbi(
     return HCOMM_SUCCESS;
 }
 
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value)
+{
+    (void)commit;
+    (void)commitPipe;
+    (void)reqPipe;
+    (void)config;
+    (void)channel;
+    (void)dst;
+    (void)value;
+    KERNEL_LOG(KERNEL_ERROR, "Hcomm ROCE WriteValueNbi is not supported.");
+    return HCOMM_FAILED;
+}
+
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteWithNotifyNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
@@ -82,8 +95,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteWithNotifyNbi(
     return HCOMM_FAILED;
 }
 
-__aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::doorBell(
-    __gm__ ChannelEntity* channel, uint64_t curHead)
+__aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::doorBell(__gm__ ChannelEntity* channel, uint64_t curHead)
 {
     uint64_t doorBellInfo = 0;
     doorBellInfo |= channel->sqContextAddr[0].contextInfo.roceSq.qpn; // [0:23] DB_TAG (qp_num)
@@ -91,7 +103,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::doorBell(
     doorBellInfo |= (curHead % 65536UL) << 32UL;                      // [32:47] DB_PI = sq.head
     doorBellInfo |= (uint64_t)(channel->sqContextAddr[0].contextInfo.roceSq.sl) << 48UL; // [48:50] DB_SL = qp.sl
 
-    __gm__ uint64_t* doorBellAddr = (__gm__ uint64_t*)(channel->sqContextAddr[0].contextInfo.roceSq.dbVa);
+    __gm__ uint64_t* doorBellAddr = (__gm__ uint64_t*)(channel->sqContextAddr[0].contextInfo.roceSq.dbHwVa);
     KERNEL_LOG(KERNEL_INFO, "Hcomm doorBell doorBellAddr:%p, doorBellInfo:%llu", doorBellAddr, doorBellInfo);
 
     ubLocal_.SetValue(0, doorBellInfo);
@@ -145,8 +157,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
     *(__gm__ uint32_t*)(wqeAddr + 8) = 0;          // immtdata is always 0 till we provide poll CQ flow in AIV
     *(__gm__ uint32_t*)(wqeAddr + 12) = 1U << 24U; // [120:127] num_sge = 1
     *(__gm__ uint32_t*)(wqeAddr + 16) = 0;         // [128:151] start_sge_idx = 0;
-    *(__gm__ uint32_t*)(wqeAddr + 20) =
-        channel->remoteBufferAddr[0].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
+    *(__gm__ uint32_t*)(wqeAddr + 20) = channel->remoteBufferAddr[0].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
     *(__gm__ uint64_t*)(wqeAddr + 24) = (uint64_t)dst; // destination VA
 
     constexpr uint32_t sgeAddrOffset = 32;
@@ -176,7 +187,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
 } // namespace AscendC
 
 #endif // IMPL_V220_HCOMM_AIV_H
-#if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H__)
-#undef __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#undef __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H__
+#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H)
+#undef HCOMM_INCLUDE_INTERNAL_HEADERS
+#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H
 #endif

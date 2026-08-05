@@ -1,6 +1,6 @@
-﻿# 快速开始
+# 快速开始
 
-## 🛠️ 环境准备<a name="prepare&install"></a>
+## 🛠️ 环境准备<a name="prepare-install"></a>
 
 根据**本地是否有NPU设备**和**使用目标**选择对应的环境准备方式：
 
@@ -29,7 +29,7 @@
 >
 > - 为了保障开发体验环境的质量，推荐用户基于**容器化技术**完成**环境准备**。
 > - 如不希望使用容器，也可在带NPU设备的主机上完成**环境准备**，请参考[CANN软件安装指南 - 在物理机上安装](https://www.hiascend.com/cann/download)。
-> - 针对仅体验"编译本开源仓 + 编译验证样例"的用户，不要求主机带NPU设备，可跳过安装NPU驱动和固件，直接安装CANN包，请参考[下载安装CANN包](#cann-install)。`hcomm_write_read_nbi`样例运行需要至少2张NPU。
+> - 针对仅体验“编译本开源仓 + 编译验证样例”的用户，不要求主机带NPU设备，可跳过安装NPU驱动和固件，直接安装CANN包，请参考[下载安装CANN包](#cann-install)。`hcomm_write_read_nbi`样例运行需要至少2张NPU。
 
 ### 1️⃣ 云开发环境<a name="cloud-dev-env"></a>
 
@@ -42,11 +42,12 @@
 
    <p align="center"><img src="./figures/cloudIDE.png" alt="云平台" width="750px" height="90px"></p>
 
-2. 根据页面提示创建NPU环境并配置规格，启动云开发环境后，单击"`连接 > WebIDE 或 Visual Studio Code`"进入一站式开发平台。开源项目的资源默认在`/mnt/workspace`目录下。
+2. 根据页面提示创建NPU环境并配置规格，启动云开发环境后，单击"`连接 > WebIDE或Visual Studio Code`"进入一站式开发平台。开源项目的资源默认在`/mnt/workspace`目录下。
 
    <p align="center"><img src="./figures/webIDE.png" alt="云平台" width="1000px" height="150px"></p>
 
-> [!NOTE] 使用说明
+> [!NOTE]
+> 使用说明
 >
 > - 环境默认安装了最新的商用版NPU驱动和固件、CANN包，源码下载时注意与软件配套。
 > - 如需下载特定版本的CANN包，请参考[下载安装CANN包](#cann-install)。
@@ -72,7 +73,8 @@
     docker pull <ascend/cann:tag>
     ```
 
-    > [!NOTE] 使用说明
+    > [!NOTE]
+    > 使用说明
     > - 镜像默认安装了对应版本的CANN包，源码下载时注意与软件配套。
     > - 镜像文件比较大，正常网速下，下载时间约为5～10分钟，请您耐心等待。
 
@@ -84,6 +86,7 @@
     docker run --name <cann_container> \
         --ipc=host --net=host --privileged \
         --device /dev/davinci0 \
+        --device /dev/davinci1 \
         --device /dev/davinci_manager \
         --device /dev/devmm_svm \
         --device /dev/hisi_hdc \
@@ -102,7 +105,7 @@
     | `--ipc=host` | 与宿主机共享IPC命名空间，NPU进程间通信（共享内存、信号量）所需 | - |
     | `--net=host` | 使用宿主机网络栈，避免容器网络转发带来的通信延迟 | - |
     | `--privileged` | 赋予容器完整设备访问权限，NPU驱动正常工作所需 | - |
-    | `--device /dev/davinci0` | 将宿主机的NPU设备卡映射到容器内，可指定映射多张NPU设备卡 | 必须根据实际情况调整：`davinci0`对应系统中的第0张NPU卡。请先在宿主机执行`npu-smi info`命令，根据输出显示的设备号（如`NPU 0`, `NPU 1`）来修改此编号 |
+    | `--device /dev/davinci<N>` | 将指定的NPU设备映射到容器内；如需使用多张设备，可多次使用`--device`参数 | 根据`npu-smi info`显示的设备号调整。运行`hcomm_write_read_nbi`样例时至少映射两张Ascend 950PR/Ascend 950DT设备。 |
     | `--device /dev/davinci_manager` | 映射NPU设备管理接口 | - |
     | `--device /dev/devmm_svm` | 映射设备内存管理接口 | - |
     | `--device /dev/hisi_hdc` | 映射主机与设备间的通信接口 | - |
@@ -146,8 +149,10 @@ CANN包分为CANN toolkit包和CANN ops包。
     ./Ascend-cann-${soc_name}-ops_${cann_version}_linux-$(uname -m).run --install --install-path=${install_path}
     ```
 
-    > [!IMPORTANT] 安装说明
-    > [examples](../examples)中部分算子样例的编译运行依赖本包，若想完整体验样例编译运行流程，建议安装此包。
+    > [!IMPORTANT]
+    > 安装说明
+    > 当前[Hcomm AIV直驱URMA样例](../examples/hcomm_write_read_nbi/README.md)不依赖ops包；仅在后续使用依赖算子包的功能时按需安装。
+
 
 | 参数 | 说明 |
 | :--- | :--- |
@@ -157,7 +162,8 @@ CANN包分为CANN toolkit包和CANN ops包。
 
 ## ✅ 环境验证<a name="cann-verify"></a>
 
-> [!NOTE] 使用前须知
+> [!NOTE]
+> 使用前须知
 > 云开发环境和CANN官方Docker镜像已预装CANN包，可直接执行以下命令验证。
 
 验证环境和驱动是否正常：
@@ -178,7 +184,8 @@ CANN包分为CANN toolkit包和CANN ops包。
 
 ## ⚙️ 环境变量配置<a name="cann-env-setup"></a>
 
-> [!NOTE] 使用前须知
+> [!NOTE]
+> 使用前须知
 > 云开发环境和CANN官方Docker镜像已自动配置环境变量，可跳过此步骤。
 
 按需选择合适的命令使环境变量生效：
@@ -203,7 +210,8 @@ cd asc-comm
 
 ### 📦 依赖检查<a name="dependency-check"></a>
 
-> [!NOTE] 使用前须知
+> [!NOTE]
+> 使用前须知
 > 如您使用**容器化技术**，容器中已为您安装好依赖，可跳过此步骤。
 
 以下为本开源仓源码编译和UT验证的基础依赖条件：
@@ -212,7 +220,7 @@ cd asc-comm
 - gcc/g++支持C++17
 - cmake >= 3.16.0
 
-### ⚡ 编译安装<a name="compile&install"></a>
+### ⚡ 编译安装<a name="compile-install"></a>
 
 进入本开源仓代码根目录，执行如下命令：
 
@@ -234,6 +242,12 @@ UT依赖googletest。若系统中没有GTest，可以通过`CANN_3RD_LIB_PATH`�
 bash build.sh -t
 ```
 
+需要指定CANN third_party目录时执行：
+
+```bash
+bash build.sh -t --cann_3rd_lib_path=<path-to-third-party>
+```
+
 方式二：用户也可直接使用CMake命令指定离线GTest路径。
 
 ```bash
@@ -251,7 +265,7 @@ cmake --build build/ut-hcomm
 
 ### 🧩 样例验证<a name="sample-verify"></a>
 
-`examples/hcomm_write_read_nbi`提供Hcomm `WriteNbi`和`ReadNbi`点对点通信样例。样例支持Ascend 950PR/Ascend 950DT，要求CANN 9.1.0或以上版本。运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+[hcomm_write_read_nbi](../examples/hcomm_write_read_nbi/README.md)提供AIV直驱URMA `WriteNbi`和`ReadNbi`点对点通信样例。样例支持Ascend 950PR/Ascend 950DT，要求CANN 9.1.0或以上版本。运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 
 进入样例目录后执行：
 

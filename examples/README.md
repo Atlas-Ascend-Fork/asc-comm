@@ -1,50 +1,18 @@
-# asc-comm样例
+﻿# asc-comm 样例
 
-本目录提供asc-comm API的使用样例。
+本目录提供 asc-comm API 的使用样例。
 
 ## 样例列表
 
 | 样例 | 说明 | 支持产品 |
 | --- | --- | --- |
-| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示两卡场景下使用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`完成点对点通信，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
-
-## hcomm_write_read_nbi
-
-`hcomm_write_read_nbi`展示完整的Hcomm点对点通信流程，包括Host侧通信域创建、通信内存注册、P2P通道创建、Kernel侧`Init`、`WriteNbi`、`ReadNbi`和`Drain`调用。
-
-样例采用两卡对称执行方式：
-
-1. Host侧为每个rank创建通信域并注册通信buffer。
-2. 通过`HcclChannelAcquire`创建到对端rank的P2P通道。
-3. Kernel侧将本卡数据通过`WriteNbi`写入对端buffer。
-4. Kernel侧通过`ReadNbi`从对端buffer读回数据。
-5. Host侧回读校验结果，两个rank均通过时输出`test pass!`。
-
-## 编译运行
-
-进入样例目录后执行：
-
-```bash
-source /usr/local/Ascend/cann/set_env.sh
-mkdir -p build
-cd build
-cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
-make -j
-./demo
-```
-
-也可以手动启动两个rank：
-
-```bash
-# 终端1：rank 0
-./demo 0 2 tcp://127.0.0.1:29621
-
-# 终端2：rank 1
-./demo 1 2 tcp://127.0.0.1:29621
-```
-
-## 运行约束
-
-- 样例支持Ascend 950PR/Ascend 950DT，CANN软件版本要求为9.1.0或以上。
-- 样例运行需要至少2张NPU；单卡环境仅支持编译验证。
-- 样例编译依赖CANN ASC CMake能力，并在链接阶段依赖`hcomm`库。
+| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示两卡场景下AIV Kernel通过URMA路径调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
+| [custom_ccu_allgather](./custom_ccu_allgather/README.md) | 演示基于 HCCL 通信接口和 CCU_SCHED 通信引擎实现 AllGather 集合通信操作。 | Ascend 950PR/Ascend 950DT |
+| [custom_ccu_allreduce](./custom_ccu_allreduce/README.md) | 演示基于 HCCL 通信接口和 CCU_SCHED 通信引擎实现 AllReduce SUM 集合通信操作。 | Ascend 950PR/Ascend 950DT |
+| [custom_ccu_reduce_scatter](./custom_ccu_reduce_scatter/README.md) | 演示基于 CCU 数据面 kernel 实现 ReduceScatter SUM 集合通信操作。 | Ascend 950PR/Ascend 950DT |
+| [custom_ccu_all_to_all](./custom_ccu_all_to_all/README.md) | 演示基于 CCU 数据面 kernel 实现等长 AllToAll 集合通信操作。 | Ascend 950PR/Ascend 950DT |
+| [ccu_allgather_mesh1d_mem2mem](./ccu_allgather_mesh1d_mem2mem/README.md) | 演示 Host 直接注册并下发 CCU Kernel，实现 Mesh1D Mem2Mem AllGather。 | Ascend 950PR/Ascend 950DT |
+| [ccu_allgather_nhr1d_mem2mem](./ccu_allgather_nhr1d_mem2mem/README.md) | 演示 Host 直接注册并下发 CCU Kernel，实现 NHR1D 多步转发 Mem2Mem AllGather。 | Ascend 950PR/Ascend 950DT |
+| [ccu_direct/01_allgather](./ccu_direct/01_allgather/README.md) | 演示如何基于 HCCL 通信域和 CCU 数据面接口，并以直调第一阶段方式实现 AllGather 集合通信操作。 | Ascend 950PR/Ascend 950DT |
+| [ccu_direct/02_allgather_add](./ccu_direct/02_allgather_add/README.md) | 演示如何先以直调第一阶段方式通过 CCU 完成 AllGather 通信，再通过 AICore vector kernel 对 AllGather 结果执行 AICore Add 计算。 | Ascend 950PR/Ascend 950DT |
+| [ccu_direct/03_add_allgather](./ccu_direct/03_add_allgather/README.md) | 演示先通过 AICore vector kernel 执行 AICore Add 计算，再以计算结果作为输入以直调第一阶段方式执行 CCU AllGather 通信。 | Ascend 950PR/Ascend 950DT |

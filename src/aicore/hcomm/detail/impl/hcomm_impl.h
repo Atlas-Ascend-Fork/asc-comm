@@ -13,11 +13,10 @@
  * \brief Hcomm implementation
  */
 
-#if !defined(__ASCENDC_INCLUDE_INTERNAL_HEADERS__)
-#pragma message( \
-    "impl/adv_api/detail/hcomm/impl/hcomm_impl.h is an internal header file and must not be used directly. Functions or variables defined in this file may be removed in the future. Please use \"#include \"adv_api/activation/simplesoftmax.h\"\" and use public functions or variables defined in interface headers files.")
-#define __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H__
+#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
+#define HCOMM_INCLUDE_INTERNAL_HEADERS
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H
 #endif
 
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H
@@ -33,27 +32,34 @@
 namespace AscendC {
 
 template <CommProtocol commProtocol>
-__aicore__ inline int32_t Hcomm<commProtocol>::Init(__ubuf__ uint8_t *buff, uint32_t len)
+__aicore__ inline int32_t Hcomm<commProtocol>::Init(__ubuf__ uint8_t* buff, uint32_t len)
 {
     return impl_.Init(buff, len);
 }
 
 template <CommProtocol commProtocol>
 template <typename T>
-__aicore__ inline int32_t Hcomm<commProtocol>::Init(const LocalTensor<T> &buff, uint32_t len)
+__aicore__ inline int32_t Hcomm<commProtocol>::Init(const LocalTensor<T>& buff, uint32_t len)
 {
     return impl_.Init(buff, len);
 }
 
 template <CommProtocol commProtocol>
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     return impl_.template WriteNbi<commit, commitPipe, reqPipe, config>(channel, dst, src, len);
 }
 
 template <CommProtocol commProtocol>
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value)
+{
+    return impl_.template WriteValueNbi<T, commit, commitPipe, reqPipe, config>(channel, dst, value);
+}
+
+template <CommProtocol commProtocol>
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
@@ -62,14 +68,14 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
 }
 
 template <CommProtocol commProtocol>
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     return impl_.template ReadNbi<commit, commitPipe, reqPipe, config>(channel, dst, src, len);
 }
 
 template <CommProtocol commProtocol>
-template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::AtomicFAA(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T addVal)
 {
@@ -77,7 +83,7 @@ __aicore__ inline int32_t Hcomm<commProtocol>::AtomicFAA(
 }
 
 template <CommProtocol commProtocol>
-template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const &config>
+template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::AtomicCAS(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T compareVal, T swapVal)
 {
@@ -101,7 +107,7 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 } // namespace AscendC
 
 #endif // IMPL_HCOMM_HCOMM_IMPL_H
-#if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H__)
-#undef __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#undef __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H__
+#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H)
+#undef HCOMM_INCLUDE_INTERNAL_HEADERS
+#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H
 #endif
