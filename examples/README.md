@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示两卡场景下AIV Kernel通过URMA路径调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
 | [one_multi_path](./one_multi_path/README.md) | 查询`UB_MEM`链路，为每个peer创建one path/multi path Channel，逐个处理peer，并通过双Stream并发搬运和校验该peer的远端数据。 | Ascend 950PR/Ascend 950DT |
+| [hcomm_shared_queue_multi_channel](./hcomm_shared_queue_multi_channel/README.md) | 演示基于RootInfo创建多卡通信域，并让同一本地Endpoint group的多个Channel共享通信队列。 | Ascend 950PR/Ascend 950DT |
 
 ## hcomm_write_read_nbi
 

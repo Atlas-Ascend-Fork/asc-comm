@@ -7,6 +7,7 @@ This directory contains usage samples for asc-comm APIs.
 | --- | --- | --- |
 | [hcomm_write_read_nbi](./hcomm_write_read_nbi/README_en.md) | Demonstrates AIV Kernel invoking `Hcomm::WriteNbi` and `Hcomm::ReadNbi` over the URMA path in a two-card scenario, with communication result verification. | Ascend 950PR / Ascend 950DT |
 | [one_multi_path](./one_multi_path/README_en.md) | Queries a `UB_MEM` link, creates one path/multi path channels for every peer, processes peers serially, and concurrently moves and verifies each peer's remote data over two streams. | Ascend 950PR / Ascend 950DT |
+| [hcomm_shared_queue_multi_channel](./hcomm_shared_queue_multi_channel/README_en.md) | Demonstrates a RootInfo-based multi-rank communication domain where Channels in the same local Endpoint group share communication queues. | Ascend 950PR / Ascend 950DT |
 
 ## hcomm_write_read_nbi
 `hcomm_write_read_nbi` demonstrates the complete AIV direct-driven URMA point-to-point communication workflow, including Host-side communication domain creation, communication memory registration, AIV P2P channel establishment, and Kernel-side invocations of `Init`, `WriteNbi`, `ReadNbi` and `Drain`. This sample does not cover the RoCE path.
