@@ -20,6 +20,7 @@
 #include "utils.h"
 #include "hcomm_rw_def.h"
 
+// 设置 socket 地址复用，以及收发超时时间，避免异常场景下永久阻塞
 static int32_t SetSockTimeout(int32_t fd, int32_t sec, int32_t usec)
 {
     int32_t opt = 1;
@@ -40,6 +41,7 @@ static int32_t SetSockTimeout(int32_t fd, int32_t sec, int32_t usec)
     return SUCCESS;
 }
 
+// 循环发送直到 len 字节全部写出，处理 send 的部分发送
 int32_t SendAll(int32_t sock, const void* buf, size_t len)
 {
     size_t sent = 0;
@@ -53,6 +55,7 @@ int32_t SendAll(int32_t sock, const void* buf, size_t len)
     return SUCCESS;
 }
 
+// 循环接收直到 len 字节全部读满，处理 recv 的部分接收
 int32_t RecvAll(int32_t sock, void* buf, size_t len)
 {
     size_t received = 0;
@@ -68,6 +71,7 @@ int32_t RecvAll(int32_t sock, void* buf, size_t len)
     return SUCCESS;
 }
 
+// 环形拓扑上的同步屏障：先向 prev/next 发送标记，再分别收齐两侧标记
 int32_t RingBarrier(int32_t prevSocket, int32_t nextSocket, uint32_t nranks)
 {
     if (nranks <= 1U) {
@@ -97,8 +101,10 @@ int32_t RingBarrier(int32_t prevSocket, int32_t nextSocket, uint32_t nranks)
     return SUCCESS;
 }
 
+// 计算环上的下一个 rank
 static uint32_t GetNextRank(uint32_t rank, uint32_t nranks) { return (rank + 1U) % nranks; }
 
+// 在指定 ip:port 上创建监听 socket，失败时释放已创建的 fd
 static int32_t CreateListenSocket(const char* ip, uint16_t port, int32_t& listenSock)
 {
     listenSock = socket(AF_INET, SOCK_STREAM, 0);
@@ -125,6 +131,7 @@ static int32_t CreateListenSocket(const char* ip, uint16_t port, int32_t& listen
     return SUCCESS;
 }
 
+// 连接指定 ip:port，对端未就绪时按固定间隔重试，最多重试 retryTimes 次
 static int32_t ConnectWithRetry(const char* ip, uint16_t port, int32_t& sock, uint16_t retryTimes = 100)
 {
     sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -155,6 +162,7 @@ static int32_t ConnectWithRetry(const char* ip, uint16_t port, int32_t& sock, ui
     return FAIL;
 }
 
+// 建立 host 侧 TCP 环：本节点监听自身端口等待 prev 接入，同时主动连接 next
 int32_t SetupRingTopo(uint32_t rank, uint32_t nranks, const char* ip, int32_t& prevSocket, int32_t& nextSocket)
 {
     uint16_t myPort = static_cast<uint16_t>(BASE_PORT + rank);
@@ -194,6 +202,7 @@ int32_t SetupRingTopo(uint32_t rank, uint32_t nranks, const char* ip, int32_t& p
     return SUCCESS;
 }
 
+// 同步 rootInfo：root 节点逐个接受连接并下发，其他节点连接 root 后接收
 int32_t ExchangeRootInfoRing(
     uint32_t rank, uint32_t nranks, const char* ip, uint16_t rootPort, void* rootInfo, uint32_t rootInfoSize)
 {
