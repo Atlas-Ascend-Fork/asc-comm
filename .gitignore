@@ -1,6 +1,8 @@
 build/
 oat_reports/
 log/
+!pod_only/src/common/dfx/log/
+!pod_only/src/common/dfx/log/hcomm_log.h
 AGENTS.md
 .claude/
 .opencode/
