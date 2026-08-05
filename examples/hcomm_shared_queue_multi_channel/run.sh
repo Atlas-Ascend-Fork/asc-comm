@@ -12,14 +12,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 
-RANK_SIZE="${1:-3}"
+RANK_SIZE="${1:-2}"
 BYTES="${2:-4096}"
 IP_PORT="${3:-tcp://127.0.0.1:8899}"
 RANK_START="${4:-0}"
 LOCAL_RANK_SIZE="${5:-${RANK_SIZE}}"
 
-if [[ ! "${RANK_SIZE}" =~ ^[0-9]+$ ]] || ((RANK_SIZE < 2)); then
-    echo "rank_size must be an integer greater than or equal to 2." >&2
+if [[ "${RANK_SIZE}" != "2" ]]; then
+    echo "this temporary shared-queue debug sample requires rank_size=2." >&2
     exit 1
 fi
 if [[ ! "${BYTES}" =~ ^[0-9]+$ ]] || ((BYTES == 0)); then
