@@ -23,7 +23,7 @@
 #ifndef IMPL_ADV_API_DETAIL_AIN_IMPL_AIN_IMPL_DEF_H
 #define IMPL_ADV_API_DETAIL_AIN_IMPL_AIN_IMPL_DEF_H
 
-#include "../../hcomm/impl/hcomm_impl_def.h"
+#include "../../adv_api/detail/hcomm/impl/hcomm_impl_def.h"
 #include "hcomm/hcomm_team_entity_defs.h"
 
 namespace AscendC {

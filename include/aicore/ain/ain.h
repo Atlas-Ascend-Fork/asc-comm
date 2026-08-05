@@ -20,9 +20,9 @@
 #ifndef INCLUDE_ADV_API_AIN_AIN_H
 #define INCLUDE_ADV_API_AIN_AIN_H
 
-#include "../hcomm/hcomm.h"
+#include "../adv_api/hcomm/hcomm.h"
 #include "ain_common.h"
-#include "../../../impl/adv_api/detail/ain/impl/ain_impl_def.h"
+#include "../../../impl/comm_api/ain/impl/ain_impl_def.h"
 
 namespace AscendC {
 
