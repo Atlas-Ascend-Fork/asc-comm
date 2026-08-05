@@ -68,6 +68,15 @@ private:
         auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t PostSend(
         ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len);
+    template <bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t PostWriteWithNotify(
+        ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
+        __gm__ uint8_t* notifyAddr, uint64_t notifyVal);
+    template <
+        typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0,
+        HcommUrmaOpCode opCode = HcommUrmaOpCode::FAA, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t PostAtomic(
+        ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* fetchAddr, T value, T cond);
     __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
 };
 
