@@ -36,6 +36,15 @@ CcuResult HcommCcuInsExistsOnDevice(CcuInsHandle ccuInsHandle, int32_t deviceLog
     return CcuResult::CCU_SUCCESS;
 }
 
+CcuResult HcommCcuInsCreateLegacy(const CcuInstanceType insType, CcuInsHandle* ccuInsHandle)
+{
+    CCU_CHK_PTR_NULL(ccuInsHandle);
+
+    const int32_t devLogicId = HcclGetThreadDeviceId();
+    CCU_CHK_RET(hcomm::CcuInstanceMgr::GetInstance(devLogicId).Create(insType, *ccuInsHandle));
+    return CcuResult::CCU_SUCCESS;
+}
+
 CcuResult HcommCcuInsCreate(const HcommCcuResDescHandle*, uint32_t, CcuInsHandle*)
 {
     return CcuResult::CCU_E_NOT_SUPPORT;
