@@ -31,7 +31,12 @@ CcuInstance::~CcuInstance()
     }
     kernelHandles_.clear();
 
-    resPack_ = nullptr;
+    resPack_ = nullptr; // 释放通信域持有CCU资源
+    if (ccuDrvHandle_) {
+        ccuDrvHandle_ = nullptr; // 先减少引用计数，再尝试关闭
+        (void)CcuDeinitFeature(devLogicId_);
+        // 尝试关闭CCU功能，最后一个通信域调用时会关闭CCU驱动
+    }
 }
 
 CcuResult CcuInstance::Init()
@@ -41,26 +46,25 @@ CcuResult CcuInstance::Init()
         return CcuResult::CCU_E_PARA;
     }
 
-    return CcuResult::CCU_SUCCESS;
-}
+    devLogicId_ = HcclGetThreadDeviceId();
 
-CcuResult CcuInstance::LoadRegisterContext(const HcommCcuRegisterContextPod &context)
-{
-    CCU_EXCEPTION_HANDLE_BEGIN
-    if (!resPack_) {
-        resPack_.reset(new (std::nothrow) CcuResPack());
-        CCU_CHK_PTR_NULL(resPack_);
+    if (!ccuDrvHandle_) {
+        CCU_CHK_RET(CcuInitFeature(devLogicId_, ccuDrvHandle_));
     }
-    CCU_CHK_RET(resPack_->Load(context));
-    devLogicId_ = context.deviceLogicId;
-    CCU_EXCEPTION_HANDLE_END
+
+    if (!resPack_) {
+        resPack_.reset(new (std::nothrow) CcuResPack(insType_));
+        CCU_CHK_PTR_NULL(resPack_);
+        CCU_CHK_RET(resPack_->Init());
+    }
+
     return CcuResult::CCU_SUCCESS;
 }
 
 CcuResult CcuInstance::Reset()
 {
     if (!resPack_) {
-        return CcuResult::CCU_E_UNAVAIL;
+        return CcuResult::CCU_SUCCESS;
     }
 
     untranslatedKernelHandles_.clear();

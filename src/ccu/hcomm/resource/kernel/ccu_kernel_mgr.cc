@@ -18,6 +18,8 @@
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "dev_buffer.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
+#include "ccu_dev_mgr_imp.h"
+#include "hcomm/resource/common/ccu_res_pod_adpt.h"
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
@@ -56,7 +58,6 @@ CcuKernelMgr::~CcuKernelMgr()
             "[CcuKernelMgr][~CcuKernelMgr]: deviceLogicId[%d], free addr[%p]", devLogicId_, instructionLoadDevMem_);
         (void)hrtFree(instructionLoadDevMem_);
         instructionLoadDevMem_ = nullptr;
-        instructionLoadDevMemSize_ = 0;
     }
 
     (void)Deinit();
@@ -82,44 +83,39 @@ CcuKernelMgr& CcuKernelMgr::GetInstance(const int32_t deviceLogicId)
 HcclResult CcuKernelMgr::Init()
 {
     std::unique_lock<std::mutex> lock(kernelMapMutex_);
-    initializedFlag_ = true;
-    kernelMap_.clear();
-    return HcclResult::HCCL_SUCCESS;
-}
-
-CcuResult CcuKernelMgr::Configure(CcuResPack &resPack)
-{
-    std::unique_lock<std::mutex> lock(kernelMapMutex_);
-    devLogicId_ = resPack.GetDeviceLogicId();
-    if (activeGeneration_ == resPack.GetGeneration()) {
-        return CcuResult::CCU_SUCCESS;
+    if (initializedFlag_) {
+        return HcclResult::HCCL_SUCCESS;
     }
 
-    translators.clear();
-    referenceMgrs.clear();
-    ccuVersion_ = resPack.GetCcuVersion() == 0 ? CcuVersion::CCU_V1 : CcuVersion::CCU_V2;
-    CcuRep::CcuRepTranslator::SetCcuVersion(ccuVersion_);
-    for (uint32_t dieId = 0; dieId < HCOMM_CCU_MAX_DIE_NUM; ++dieId) {
-        if ((resPack.GetValidDieMask() & (1U << dieId)) == 0) {
+    for (uint8_t dieId = 0; dieId < CCU_MAX_IODIE_NUM; dieId++) {
+        bool enableFlag = false;
+        CHK_RET(static_cast<HcclResult>(CcuGetDieEnableInfo(devLogicId_, dieId, enableFlag)));
+        if (!enableFlag) {
             continue;
         }
-        const HcommCcuDieMetadataPod *metadata = resPack.GetDieMetadata(dieId);
-        CCU_CHK_PTR_NULL(metadata);
-        missionKeys_[dieId] = metadata->missionKey;
-        CCU_CHK_RET(static_cast<CcuResult>(InstantiationTranslator(static_cast<uint16_t>(dieId), resPack)));
+
+        CHK_RET(InstantiationTranslator(dieId));
     }
-    insGenePtr = std::make_shared<CcuRep::CcuInsGeneraterV1>();
+
     initializedFlag_ = true;
-    activeGeneration_ = resPack.GetGeneration();
-    return CcuResult::CCU_SUCCESS;
+    kernelMap_.clear();
+
+    CHK_RET(CcuDevMgrImp::GetCcuVersion(devLogicId_, ccuVersion_));
+    if (ccuVersion_ == CcuVersion::INVALID) {
+        HCCL_RUN_WARNING("[CcuKernelMgr][%s] Invalid chip type.", __func__);
+    }
+
+    HCCL_INFO("[CcuKernelMgr] Init CcuInsGeneraterV1");
+    insGenePtr = std::make_shared<CcuRep::CcuInsGeneraterV1>();
+    return HcclResult::HCCL_SUCCESS;
 }
 
 HcclResult CcuKernelMgr::Deinit()
 {
     // 不需要主动释放CCU指令空间等资源，因为设备管理与kernelMgr都为静态，生命周期一致
     std::unique_lock<std::mutex> lock(kernelMapMutex_);
+    translatorResPack.handles.clear();
     initializedFlag_ = false;
-    activeGeneration_ = 0;
     kernelMap_.clear();
     translators.clear();
     referenceMgrs.clear();
@@ -223,7 +219,7 @@ static void GetResNumFromResPack(CcuResPack& resPack, HcommCcuResRequestPod& tot
     // 获取通信域当前所持有的资源
     const auto& tmpResRepository = resPack.GetCcuResRepo();
 
-    // repository 保存的是若干离散区间，这里按“资源类型 + DIE”求和，转换成定长 POD 计数矩阵。
+    // 合并获取的所持有的资源信息, 按照类型合并资源总和到totalRes的第0个vector中
     for (u32 i = 0; i < CCU_MAX_IODIE_NUM; i++) {
         totalRes.count[HCOMM_CCU_BATCH_RES_MS][i] += GetResTotalNum(tmpResRepository.ms[i]);
         totalRes.count[HCOMM_CCU_BATCH_RES_BLOCK_MS][i] += GetResTotalNum(tmpResRepository.blockMs[i]);
@@ -344,7 +340,6 @@ static void LoadRes(std::unique_ptr<CcuKernel>& kernel, CcuResPack& resPack)
     AscCcuResRepository& totalResRepo = resPack.GetCcuResRepo();
     AscCcuResRepository kernelResRepo{};
 
-    // 按 kernel 请求数量从通信域资源池切分区间；切出的区间归 kernel，剩余区间留在 resPack。
     for (uint8_t i = 0; i < CCU_MAX_IODIE_NUM; i++) { // todo: 建议改成dieId
         MoveResInfo(kernelResRepo.loopEngine[i], totalResRepo.loopEngine[i], resReq.count[HCOMM_CCU_BATCH_RES_LOOP][i]);
         MoveResInfo(
@@ -366,16 +361,15 @@ static void LoadRes(std::unique_ptr<CcuKernel>& kernel, CcuResPack& resPack)
     kernel->SetResRepository(kernelResRepo);
 }
 
-static CcuResult AllocInstrRes(std::unique_ptr<CcuKernel>& kernel, CcuResPack &resPack)
+static CcuResult AllocInstrRes(std::unique_ptr<CcuKernel>& kernel, const int32_t devLogicId)
 {
     const uint32_t instrCount =
         kernel->GetInstrCount() + CcuRep::CcuRepTranslator::GetInstrNum() + kernel->GetConstValue2VarMap().size();
     const uint32_t dieId = kernel->GetDieId();
     HcommCcuResRangePod insInfo{};
-    CCU_CHK_RET(resPack.AllocateInstruction(dieId, instrCount, insInfo));
+    CCU_CHK_RET(CcuResPodAdapter::AllocInstruction(devLogicId, dieId, instrCount, insInfo));
     HCCL_INFO(
-        "[CcuKernelMgr][%s]: devLogicId[%d], dieId[%u], startId[%u], count[%u]", __func__,
-        resPack.GetDeviceLogicId(), dieId,
+        "[CcuKernelMgr][%s]: devLogicId[%d], dieId[%u], startId[%u], count[%u]", __func__, devLogicId, dieId,
         insInfo.startId, insInfo.count);
     kernel->SetInstrId(insInfo.startId);
 
@@ -424,13 +418,10 @@ CcuResult CcuKernelMgr::AllocRes(CcuResPack& resPack)
     }
 
     // 申请指令空间资源
-    CCU_CHK_RET(AllocInstrRes(currKernel_, resPack));
+    CCU_CHK_RET(AllocInstrRes(currKernel_, devLogicId_));
 
     // 资源从respack转移至kernel
     LoadRes(currKernel_, resPack);
-    const HcommCcuDieMetadataPod *metadata = resPack.GetDieMetadata(currKernel_->GetDieId());
-    CCU_CHK_PTR_NULL(metadata);
-    currKernel_->SetMissionKey(metadata->missionKey);
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -477,12 +468,18 @@ static HcclResult ResetRepResourceToResRepository(
 }
 
 using DieResInfos = std::array<std::vector<HcommCcuResRangePod>, CCU_MAX_IODIE_NUM>;
-static HcclResult SaveKernelMissionInfo(CcuKernel* kernel, const DieResInfos& missionId)
+static HcclResult SaveKernelMissionInfo(CcuKernel* kernel, const DieResInfos& missionId, const int32_t devLogicId)
 {
     const uint32_t dieId = kernel->GetDieId();
+    uint32_t missionKey{0};
+    CHK_RET(CcuDevMgrImp::GetMissionKey(devLogicId, dieId, missionKey));
+
+    HCCL_INFO("[CcuKernelMgr][%s] deviceLogicId[%d] dieId[%u]", __func__, devLogicId, dieId);
+
+    kernel->SetMissionKey(missionKey);
     // 从missionId中获取一个元素并从missionId中删除，当前应只有一个元素，且无需删除
     if (missionId[dieId].empty()) {
-        HCCL_ERROR("[%s] failed, dieId[%u] does not have missions.", __func__, dieId);
+        HCCL_ERROR("[%s] failed, devLogicId[%d] dieId[%u] do not have missions.", __func__, devLogicId, dieId);
         return HcclResult::HCCL_E_INTERNAL;
     }
 
@@ -594,7 +591,7 @@ static HcclResult ProcessInterCtxRes(const std::vector<CcuKernel*>& kernels)
     return HcclResult::HCCL_SUCCESS;
 }
 
-static HcclResult TransRepResToPhyRes(const std::vector<CcuKernel*>& kernels)
+static HcclResult TransRepResToPhyRes(const std::vector<CcuKernel*>& kernels, const int32_t devLogicId)
 {
     for (auto kernel : kernels) {
         const auto& totalResRepository = kernel->GetResRepository();
@@ -605,7 +602,7 @@ static HcclResult TransRepResToPhyRes(const std::vector<CcuKernel*>& kernels)
         ExpandResRepo(expandedResRepo, totalResRepository);
         CHK_RET(ResetRepResourceToResRepository(totalRepRes, expandedResRepo));
 
-        CHK_RET(SaveKernelMissionInfo(kernel, totalResRepository.mission));
+        CHK_RET(SaveKernelMissionInfo(kernel, totalResRepository.mission, devLogicId));
     }
 
     CHK_RET(ProcessInterCtxRes(kernels));
@@ -637,7 +634,7 @@ CcuResult CcuKernelMgr::Translate(const std::vector<CcuKernelHandle>& kernelHand
     constexpr bool isFuncBlock = false; // 当前不支持MC2
 
     std::unique_lock<std::mutex> translateLock(translateMutex_);
-    CCU_CHK_RET(TransRepResToPhyRes(kernels));
+    CCU_CHK_RET(TransRepResToPhyRes(kernels, devLogicId_));
     CCU_CHK_RET(TransRepSequenceToMicrocode(kernels, isFuncBlock));
 
     for (auto& referenceMgrMap : referenceMgrs) {
@@ -646,6 +643,20 @@ CcuResult CcuKernelMgr::Translate(const std::vector<CcuKernelHandle>& kernelHand
         }
     }
     return CcuResult::CCU_SUCCESS;
+}
+
+static HcclResult ReleaseInstrRes(CcuKernel* kernel, const int32_t devLogicId)
+{
+    const uint32_t instrCount =
+        kernel->GetInstrCount() + CcuRep::CcuRepTranslator::GetInstrNum() + kernel->GetConstValue2VarMap().size();
+    const uint8_t dieId = static_cast<uint8_t>(kernel->GetDieId());
+    const HcommCcuResRangePod insInfo{HCOMM_CCU_RES_INSTRUCTION, dieId, kernel->GetInstrId(), instrCount};
+    HCCL_INFO(
+        "[CcuKernelMgr][%s] devLogicId[%d], dieId[%u], startId[%u], count[%u]", __func__, devLogicId, dieId,
+        insInfo.startId, insInfo.count);
+    CHK_RET(static_cast<HcclResult>(CcuResPodAdapter::ReleaseInstruction(devLogicId, dieId, insInfo)));
+
+    return HcclResult::HCCL_SUCCESS;
 }
 
 CcuResult CcuKernelMgr::UnRegister(const CcuKernelHandle kernelHandle)
@@ -659,14 +670,28 @@ CcuResult CcuKernelMgr::UnRegister(const CcuKernelHandle kernelHandle)
         HCCL_ERROR("[CcuKernelMgr][%s] kernelHandle [%llu] does not exist", __func__, kernelHandle),
         CcuResult::CCU_E_NOT_FOUND);
 
+    auto kernel = it->second.get();
+    CCU_CHK_RET(ReleaseInstrRes(kernel, devLogicId_));
     kernelMap_.erase(kernelHandle);
     return CcuResult::CCU_SUCCESS;
 }
 
+HcclResult CcuKernelMgr::GetResPackTotalResRepository(
+    const CcuKernelMgr::CcuTranslatResPack& resPack, AscCcuResRepository& totalRes) const
+{
+    AscCcuResRepository tmpResRepository{};
+    // 获取通信域当前所持有的资源
+    for (HcommCcuResHandle resHandle : resPack.handles) {
+        CHK_RET(static_cast<HcclResult>(CcuResPodAdapter::GetRepository(resHandle, tmpResRepository)));
+        ExpandResRepo(totalRes, tmpResRepository);
+        HCCL_INFO("[%s] succeed, deviceLogicId[%d] resHandle[%llu].", __func__, devLogicId_, resHandle);
+    }
+    return HcclResult::HCCL_SUCCESS;
+}
+
 static void MergeCcuResReq(HcommCcuResRequestPod& resReqA, const HcommCcuResRequestPod& resReqB)
 {
-    // 多个 translator/reference manager 共用一次批量申请，按“资源类型 + DIE”累加请求数量。
-    // 仅当本次确实申请 mission 时才传播其模式，避免空请求覆盖已有模式。
+    // 合并获取的所持有的资源信息, 按照类型合并资源总和到totalRes的第0个vector中
     for (uint32_t i = 0; i < CCU_MAX_IODIE_NUM; i++) {
         resReqA.count[HCOMM_CCU_BATCH_RES_MS][i] += resReqB.count[HCOMM_CCU_BATCH_RES_MS][i];
         resReqA.count[HCOMM_CCU_BATCH_RES_BLOCK_MS][i] += resReqB.count[HCOMM_CCU_BATCH_RES_BLOCK_MS][i];
@@ -686,33 +711,53 @@ static void MergeCcuResReq(HcommCcuResRequestPod& resReqA, const HcommCcuResRequ
     }
 }
 
-HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, const CcuResPack &resPack)
+HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId)
 {
-    const HcommCcuDieMetadataPod *metadata = resPack.GetDieMetadata(dieId);
-    CHK_PTR_NULL(metadata);
-    Hccl::DevBuffer tmpDevMem{1}; // 临时申请device hbm内存用于查询token信息
-    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(tmpDevMem.GetAddr(), 1);
-    CcuRep::TransDep transDep{};
-    transDep.logicalId = resPack.GetDeviceLogicId();
-    transDep.dieId = dieId;
-    transDep.reserveChannalId[0] = static_cast<uint16_t>(metadata->innerDieLoopChannelId);
-    transDep.reserveChannalId[1] = static_cast<uint16_t>(metadata->interDieLoopChannelId);
-    for (uint32_t metadataDie = 0; metadataDie < HCOMM_CCU_MAX_DIE_NUM; ++metadataDie) {
-        const HcommCcuDieMetadataPod *dieMetadata = resPack.GetDieMetadata(metadataDie);
-        if (dieMetadata != nullptr) {
-            transDep.xnBaseAddr[metadataDie] = dieMetadata->xnBaseAddr;
-        }
+    if (translators.find(dieId) != translators.end()) {
+        return HcclResult::HCCL_SUCCESS;
     }
-    transDep.ccuResSpaceTokenInfo = CcuRep::GetToken(
-        metadata->resourceSpaceTokenId, metadata->resourceSpaceTokenValue, 1);
-    transDep.memTokenInfo = hbmTokenInfo;
 
+    std::array<uint16_t, CCU_MAX_IODIE_NUM> tmpChannelId{};
+    uint32_t channelId = 0;
+    // 获取innerDieChannelId
+    auto ret = CcuDevMgrImp::GetLoopChannelId(devLogicId_, dieId, dieId, channelId);
+    CHK_RET(ret);
+
+    tmpChannelId[0] = channelId;
+    // 获取interDieChannelId
+    uint8_t dstDieId = ((dieId == 0) ? 1 : 0);
+    ret = CcuDevMgrImp::GetLoopChannelId(devLogicId_, dieId, dstDieId, channelId);
+    CHK_RET(ret);
+    tmpChannelId[1] = channelId;
+
+    uint64_t tokenId = 0;
+    uint64_t tokenValue = 0;
+    ret = CcuDevMgrImp::GetCcuResourceSpaceTokenInfo(devLogicId_, dieId, tokenId, tokenValue);
+    CHK_RET(ret);
+
+    std::pair<uint64_t, uint64_t> ccuTokenInfo(tokenId, tokenValue);
+    //Hccl::DevBuffer tmpDevMem{1}; // 临时申请device hbm内存用于查询token信息, 虚拟地址为0
+    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(0, 1);
+
+    HcommCcuResRequestPod totalResReq{};
     // 实例化CcuRepReferenceManager和CcuRepTranslator，并为CcuRepReferenceManager绑定物理资源
     for (uint32_t i = 0; i < 16; i++) { // mgr有16个
         referenceMgrs[dieId][i] = std::make_shared<hcomm::CcuRep::CcuRepReferenceManager>(dieId);
-        translators[dieId][i] =
-            std::make_shared<hcomm::CcuRep::CcuRepTranslator>(referenceMgrs[dieId][i], transDep);
+        translators[dieId][i] = std::make_shared<hcomm::CcuRep::CcuRepTranslator>(
+            devLogicId_, dieId, referenceMgrs[dieId][i], tmpChannelId, ccuTokenInfo, hbmTokenInfo);
+
+        // 统计&合并refManager和translaotr所有资源REQ
+        auto refMangerResReq = CcuRep::CcuRepReferenceManager::GetResReq(dieId);
+        auto transLatorResReq = CcuRep::CcuRepTranslator::GetResReq(dieId);
+        MergeCcuResReq(totalResReq, refMangerResReq);
+        MergeCcuResReq(totalResReq, transLatorResReq);
     }
+    DumpResReqInfo(totalResReq);
+
+    // 为refManager和translaotr申请物理资源
+    HcommCcuResHandle handle = 0;
+    CHK_RET(static_cast<HcclResult>(CcuResPodAdapter::Alloc(devLogicId_, totalResReq, handle)));
+    translatorResPack.handles.push_back(handle);
 
     CcuRepResource translatorRepRes;
     for (uint32_t i = 0; i < 16; i++) { // mgr有16个
@@ -721,7 +766,7 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, const Ccu
     }
 
     AscCcuResRepository totalResRepository;
-    CHK_RET(ExpandResRepo(totalResRepository, resPack.GetTranslatorResRepo()));
+    CHK_RET(GetResPackTotalResRepository(translatorResPack, totalResRepository));
     // 将kernel中的rep虚拟资源按类型进行和CCU物理资源映射
     CHK_RET(ResetRepResourceToResRepository(translatorRepRes, totalResRepository));
     return HcclResult::HCCL_SUCCESS;
@@ -731,17 +776,11 @@ HcclResult CcuKernelMgr::LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, 
 {
     const uint64_t instrInfoSize = instrInfo.instrVec.size() * sizeof(hcomm::CcuRep::CcuInstr);
 
-    if (instrInfoSize == 0) {
-        return HcclResult::HCCL_E_PARA;
-    }
-    if (instructionLoadDevMemSize_ < instrInfoSize) {
-        if (instructionLoadDevMem_ != nullptr) {
-            CHK_RET(hrtFree(instructionLoadDevMem_));
-            instructionLoadDevMem_ = nullptr;
-            instructionLoadDevMemSize_ = 0;
-        }
-        CHK_RET(hrtMalloc(&instructionLoadDevMem_, instrInfoSize));
-        instructionLoadDevMemSize_ = instrInfoSize;
+    if (!instructionLoadDevMem_) {
+        uint32_t instrNum = 0;
+        CHK_RET(CcuDevMgrImp::GetResSpecsInstructionNum(devLogicId_, 0, instrNum));
+        HCCL_INFO("[CcuKernelMgr]LoadInstruction: deviceLogicId[%d], instrNum[%u]", devLogicId_, instrNum);
+        CHK_RET(hrtMalloc(&instructionLoadDevMem_, instrNum * sizeof(hcomm::CcuRep::CcuInstr)));
     }
 
     CHK_RET(hrtMemcpy(
@@ -755,7 +794,7 @@ HcclResult CcuKernelMgr::LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, 
     CustomChannelInfoOut outBuff{};
 
     // 设置操作码和通道数据
-    inBuff.op = CcuOpcodeType::CCU_U_OP_SET_INSTRUCTION;
+    inBuff.op = CCU_U_OP_SET_INSTRUCTION;
     inBuff.offsetStartIdx = instrInfo.startInstrId;
     inBuff.data.dataInfo.udieIdx = dieId;
     inBuff.data.dataInfo.dataArraySize = 1;

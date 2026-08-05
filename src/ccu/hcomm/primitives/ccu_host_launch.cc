@@ -27,8 +27,7 @@ CcuResult HcommCcuHostKernelLaunch(
         CCU_CHK_PTR_NULL(args->taskArgs);
     }
 
-    CCU_CHK_PTR_NULL(cfg->registerContext);
-    CcuResult ret = HcommCcuKernelRegisterStart(cfg->ccuIns, cfg->registerContext);
+    CcuResult ret = HcommCcuKernelRegisterStart(cfg->ccuIns);
     if (ret != CCU_SUCCESS) {
         HCCL_ERROR("[%s] HcommCcuKernelRegisterStart failed, ccuRet[%d].", __func__, ret);
         return ret;

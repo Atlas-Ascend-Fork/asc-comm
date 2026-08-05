@@ -55,88 +55,88 @@ TEST_F(CcuAssistTest, GetTokenInfo_EncodesQueriedToken) { EXPECT_EQ(GetTokenInfo
 
 TEST_F(CcuAssistTest, GetCcuReduceType_SUM)
 {
-    uint16_t result = GetCcuReduceType(Hccl::ReduceOp::SUM);
+    uint16_t result = GetCcuReduceType(HCCL_REDUCE_OP_SUM);
     EXPECT_EQ(result, CCU_REDUCE_SUM);
 }
 
 TEST_F(CcuAssistTest, GetCcuReduceType_MAX)
 {
-    uint16_t result = GetCcuReduceType(Hccl::ReduceOp::MAX);
+    uint16_t result = GetCcuReduceType(HCCL_REDUCE_OP_MAX);
     EXPECT_EQ(result, CCU_REDUCE_MAX);
 }
 
 TEST_F(CcuAssistTest, GetCcuReduceType_MIN)
 {
-    uint16_t result = GetCcuReduceType(Hccl::ReduceOp::MIN);
+    uint16_t result = GetCcuReduceType(HCCL_REDUCE_OP_MIN);
     EXPECT_EQ(result, CCU_REDUCE_MIN);
 }
 
 TEST_F(CcuAssistTest, GetCcuReduceType_Unsupported)
 {
-    EXPECT_THROW(GetCcuReduceType(Hccl::ReduceOp::PROD), Hccl::CcuApiException);
+    EXPECT_THROW(GetCcuReduceType(HCCL_REDUCE_OP_PROD), Hccl::CcuApiException);
 }
 
 TEST_F(CcuAssistTest, GetCcuDataType_FP32_SUM)
 {
-    uint16_t result = GetCcuDataType(Hccl::DataType::FP32, Hccl::ReduceOp::SUM);
+    uint16_t result = GetCcuDataType(Hccl::DataType::FP32, HCCL_REDUCE_OP_SUM);
     EXPECT_EQ(result, 0);
 }
 
 TEST_F(CcuAssistTest, GetCcuDataType_FP16_SUM)
 {
-    uint16_t result = GetCcuDataType(Hccl::DataType::FP16, Hccl::ReduceOp::SUM);
+    uint16_t result = GetCcuDataType(Hccl::DataType::FP16, HCCL_REDUCE_OP_SUM);
     EXPECT_EQ(result, 1);
 }
 
 TEST_F(CcuAssistTest, GetCcuDataType_INT32_SUM)
 {
-    uint16_t result = GetCcuDataType(Hccl::DataType::INT32, Hccl::ReduceOp::SUM);
+    uint16_t result = GetCcuDataType(Hccl::DataType::INT32, HCCL_REDUCE_OP_SUM);
     EXPECT_EQ(result, 9);
 }
 
 TEST_F(CcuAssistTest, GetCcuDataType_FP32_MAX)
 {
-    uint16_t result = GetCcuDataType(Hccl::DataType::FP32, Hccl::ReduceOp::MAX);
+    uint16_t result = GetCcuDataType(Hccl::DataType::FP32, HCCL_REDUCE_OP_MAX);
     EXPECT_EQ(result, 0);
 }
 
 TEST_F(CcuAssistTest, GetCcuDataType_INT32_MAX)
 {
-    uint16_t result = GetCcuDataType(Hccl::DataType::INT32, Hccl::ReduceOp::MAX);
+    uint16_t result = GetCcuDataType(Hccl::DataType::INT32, HCCL_REDUCE_OP_MAX);
     EXPECT_EQ(result, 9);
 }
 
 TEST_F(CcuAssistTest, GetCcuDataType_UnsupportedType_SUM)
 {
-    EXPECT_THROW(GetCcuDataType(Hccl::DataType::BF16_SAT, Hccl::ReduceOp::SUM), Hccl::CcuApiException);
+    EXPECT_THROW(GetCcuDataType(Hccl::DataType::BF16_SAT, HCCL_REDUCE_OP_SUM), Hccl::CcuApiException);
 }
 
 TEST_F(CcuAssistTest, GetCcuDataType_UnsupportedType_MAX)
 {
-    EXPECT_THROW(GetCcuDataType(Hccl::DataType::FP8E4M3, Hccl::ReduceOp::MAX), Hccl::CcuApiException);
+    EXPECT_THROW(GetCcuDataType(Hccl::DataType::FP8E4M3, HCCL_REDUCE_OP_MAX), Hccl::CcuApiException);
 }
 
 TEST_F(CcuAssistTest, GetUBReduceType_SUM)
 {
-    uint16_t result = GetUBReduceType(Hccl::ReduceOp::SUM);
+    uint16_t result = GetUBReduceType(HCCL_REDUCE_OP_SUM);
     EXPECT_EQ(result, 10);
 }
 
 TEST_F(CcuAssistTest, GetUBReduceType_MAX)
 {
-    uint16_t result = GetUBReduceType(Hccl::ReduceOp::MAX);
+    uint16_t result = GetUBReduceType(HCCL_REDUCE_OP_MAX);
     EXPECT_EQ(result, 8);
 }
 
 TEST_F(CcuAssistTest, GetUBReduceType_MIN)
 {
-    uint16_t result = GetUBReduceType(Hccl::ReduceOp::MIN);
+    uint16_t result = GetUBReduceType(HCCL_REDUCE_OP_MIN);
     EXPECT_EQ(result, 9);
 }
 
 TEST_F(CcuAssistTest, GetUBReduceType_Unsupported)
 {
-    EXPECT_THROW(GetUBReduceType(Hccl::ReduceOp::PROD), Hccl::CcuApiException);
+    EXPECT_THROW(GetUBReduceType(HCCL_REDUCE_OP_PROD), Hccl::CcuApiException);
 }
 
 TEST_F(CcuAssistTest, GetUBDataType_FP32)

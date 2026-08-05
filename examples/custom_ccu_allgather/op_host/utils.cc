@@ -14,7 +14,6 @@
 #include "common.h"
 #include "ccu_kernel.h"
 #include "ccu/hcomm/ccu_launch.h"
-#include "../../common/ccu_register_context.h"
 #include <hccl/hccl_ccu_res.h>
 
 namespace ops_hccl_ag {
@@ -131,9 +130,7 @@ HcclResult GetCcuKernel(
 
     resCtxHost.ccuKernels.resize(1); // 只注册1个kernel
 
-    asccomm_examples::CcuRegisterContextStorage contextStorage;
-    CHK_RET(asccomm_examples::QueryCcuRegisterContext(comm, contextStorage));
-    CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle, &contextStorage.context);
+    CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle);
     if (regStartRet != CCU_SUCCESS) {
         HCCL_ERROR("ccu kernel register start failed: ccuRet -> %d", regStartRet);
         return ConvertCcuToHccl(regStartRet);

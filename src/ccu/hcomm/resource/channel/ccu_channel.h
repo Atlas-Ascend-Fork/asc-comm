@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "hccl/hccl_types.h"
-#include "hcomm/hcomm_ccu_channel_api.h"
+#include "hcomm_ccu_channel.h"
 
 namespace hcomm {
 
@@ -37,8 +37,6 @@ public:
 private:
     HcclResult Init(ChannelHandle channel);
 
-    // channelEntity_ 只保留定长标量快照；所有变长数据均深拷贝到下列本地容器。
-    // 这样 CcuChannel 的生命周期不依赖 hcomm 查询时借用的输出指针。
     ChannelEntity channelEntity_{};
     std::vector<RegedNotifyEntity> localCkes_{};
     std::vector<RegedNotifyEntity> remoteCkes_{};

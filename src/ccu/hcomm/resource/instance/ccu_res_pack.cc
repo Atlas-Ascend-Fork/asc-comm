@@ -10,201 +10,59 @@
 
 #include "hcomm/resource/instance/ccu_res_pack.h"
 
-#include <algorithm>
-#include <limits>
-#include <vector>
+#include "hcomm/common/ccu_log.h"
+#include "hcomm/resource/common/ccu_res_pod_adpt.h"
 
 namespace hcomm {
-namespace {
 
-std::vector<HcommCcuResRangePod> *GetRanges(
-    AscCcuResRepository &repository, uint32_t resourceType, uint32_t dieId)
+CcuResPack::~CcuResPack()
 {
-    switch (resourceType) {
-        case HCOMM_CCU_BATCH_RES_LOOP: return &repository.loopEngine[dieId];
-        case HCOMM_CCU_BATCH_RES_BLOCK_LOOP: return &repository.blockLoopEngine[dieId];
-        case HCOMM_CCU_BATCH_RES_MS: return &repository.ms[dieId];
-        case HCOMM_CCU_BATCH_RES_BLOCK_MS: return &repository.blockMs[dieId];
-        case HCOMM_CCU_BATCH_RES_CKE: return &repository.cke[dieId];
-        case HCOMM_CCU_BATCH_RES_BLOCK_CKE: return &repository.blockCke[dieId];
-        case HCOMM_CCU_BATCH_RES_XN: return &repository.xn[dieId];
-        case HCOMM_CCU_BATCH_RES_BLOCK_XN: return &repository.blockXn[dieId];
-        case HCOMM_CCU_BATCH_RES_GSA: return &repository.gsa[dieId];
-        case HCOMM_CCU_BATCH_RES_BLOCK_GSA: return &repository.blockGsa[dieId];
-        case HCOMM_CCU_BATCH_RES_MISSION: return &repository.mission[dieId];
-        default: return nullptr;
+    if (resHandle_ == 0) {
+        return;
     }
-}
 
-bool IsHeaderValid(const HcommCcuRegisterContextPod &context)
-{
-    return context.header.version == HCOMM_CCU_RES_ABI_VERSION &&
-        context.header.magicWord == HCOMM_CCU_REGISTER_CONTEXT_MAGIC_WORD &&
-        context.header.size == sizeof(HcommCcuRegisterContextPod) && context.header.reserved == 0;
-}
-
-bool IsViewShapeValid(const HcommCcuResRangeViewPod &view)
-{
-    return view.reserved == 0 && (view.count == 0 || view.ranges != nullptr);
-}
-
-bool IsDisabledDieMetadataValid(const HcommCcuDieMetadataPod &metadata)
-{
-    return metadata.enabled == 0 && metadata.missionKey == 0 && metadata.innerDieLoopChannelId == 0 &&
-        metadata.interDieLoopChannelId == 0 && metadata.xnBaseAddr == 0 && metadata.resourceSpaceTokenId == 0 &&
-        metadata.resourceSpaceTokenValue == 0 && metadata.instructionCapacity == 0 && metadata.reserved == 0;
-}
-
-bool RangesOverlap(const HcommCcuResRangePod &left, const HcommCcuResRangePod &right)
-{
-    if (left.resourceType != right.resourceType || left.dieId != right.dieId) {
-        return false;
+    auto ret = CcuResPodAdapter::Release(resHandle_);
+    if (ret != CcuResult::CCU_SUCCESS) {
+        HCCL_ERROR(
+            "[CcuResPack][%s] failed, resHandle[0x%llx] devLogicId[%d].", __func__,
+            static_cast<unsigned long long>(resHandle_), devLogicId_);
     }
-    const uint64_t leftEnd = static_cast<uint64_t>(left.startId) + left.count;
-    const uint64_t rightEnd = static_cast<uint64_t>(right.startId) + right.count;
-    return static_cast<uint64_t>(left.startId) < rightEnd && static_cast<uint64_t>(right.startId) < leftEnd;
+    resHandle_ = 0;
 }
 
-CcuResult ValidateAndAppend(const HcommCcuResRangeViewPod &view, bool instruction,
-    uint32_t validDieMask, std::vector<HcommCcuResRangePod> &allRanges, AscCcuResRepository &repository,
-    std::array<HcommCcuResRangePod, HCOMM_CCU_MAX_DIE_NUM> *instructionPools)
+CcuResult CcuResPack::Init()
 {
-    for (uint32_t index = 0; index < view.count; ++index) {
-        const HcommCcuResRangePod &range = view.ranges[index];
-        if (range.dieId >= HCOMM_CCU_MAX_DIE_NUM || (validDieMask & (1U << range.dieId)) == 0 || range.count == 0 ||
-            static_cast<uint64_t>(range.startId) + range.count >
-                static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1U) {
-            return CcuResult::CCU_E_PARA;
-        }
-        if ((instruction && range.resourceType != HCOMM_CCU_RES_INSTRUCTION) ||
-            (!instruction && range.resourceType >= HCOMM_CCU_BATCH_RES_TYPE_COUNT)) {
-            return CcuResult::CCU_E_PARA;
-        }
-        for (const auto &existing : allRanges) {
-            if (RangesOverlap(existing, range)) {
-                return CcuResult::CCU_E_PARA;
-            }
-        }
-        allRanges.push_back(range);
-        if (instruction) {
-            HcommCcuResRangePod &pool = (*instructionPools)[range.dieId];
-            if (pool.count != 0) {
-                return CcuResult::CCU_E_PARA;
-            }
-            pool = range;
-            continue;
-        }
-        auto *destination = GetRanges(repository, range.resourceType, range.dieId);
-        if (destination == nullptr) {
-            return CcuResult::CCU_E_PARA;
-        }
-        destination->push_back(range);
-    }
-    return CcuResult::CCU_SUCCESS;
-}
-
-} // namespace
-
-CcuResult CcuResPack::Load(const HcommCcuRegisterContextPod &context)
-{
-    if (!IsHeaderValid(context) || context.generation == 0 || context.deviceLogicId < 0 || context.ccuVersion > 1 ||
-        context.dieNum != HCOMM_CCU_MAX_DIE_NUM ||
-        context.validDieMask == 0 || (context.validDieMask & ~((1U << HCOMM_CCU_MAX_DIE_NUM) - 1U)) != 0 ||
-        context.reserved[0] != 0 || context.reserved[1] != 0 ||
-        !IsViewShapeValid(context.instanceResources) || !IsViewShapeValid(context.translatorResources) ||
-        !IsViewShapeValid(context.instructionResources)) {
-        return CcuResult::CCU_E_PARA;
-    }
-    if (generation_ != 0 && generation_ != context.generation) {
+    devLogicId_ = HcclGetThreadDeviceId();
+    if (insType_ == CcuInstanceType::CCU_UNUSED) {
+        HCCL_ERROR("[CcuResPack][%s] failed, error ccu instance type[%d].", __func__, static_cast<int32_t>(insType_));
         return CcuResult::CCU_E_PARA;
     }
 
-    AscCcuResRepository instanceSnapshot{};
-    AscCcuResRepository translatorSnapshot{};
-    std::array<HcommCcuResRangePod, HCOMM_CCU_MAX_DIE_NUM> instructionPools{};
-    std::vector<HcommCcuResRangePod> allRanges;
-    allRanges.reserve(context.instanceResources.count + context.translatorResources.count +
-        context.instructionResources.count);
-
-    CcuResult ret = ValidateAndAppend(context.instanceResources, false, context.validDieMask, allRanges,
-        instanceSnapshot, nullptr);
-    if (ret != CcuResult::CCU_SUCCESS) {
+    // 根据通信域算子展开模式申请资源
+    // 如果资源不足，返回HCCL_E_UNAVAIL，表示需要回退
+    auto ret = CcuResPodAdapter::AllocByInstanceType(devLogicId_, static_cast<uint32_t>(insType_), resHandle_);
+    if (ret == CcuResult::CCU_E_UNAVAIL) {
+        HCCL_RUN_WARNING(
+            "[%s] failed but passed, resource is not enough, "
+            "devLogicId[%d], ccuInsType[%d].",
+            __func__, devLogicId_, insType_);
         return ret;
     }
-    ret = ValidateAndAppend(context.translatorResources, false, context.validDieMask, allRanges,
-        translatorSnapshot, nullptr);
-    if (ret != CcuResult::CCU_SUCCESS) {
-        return ret;
-    }
-    ret = ValidateAndAppend(context.instructionResources, true, context.validDieMask, allRanges,
-        translatorSnapshot, &instructionPools);
-    if (ret != CcuResult::CCU_SUCCESS) {
-        return ret;
-    }
-
-    for (uint32_t dieId = 0; dieId < HCOMM_CCU_MAX_DIE_NUM; ++dieId) {
-        const bool enabled = (context.validDieMask & (1U << dieId)) != 0;
-        const HcommCcuDieMetadataPod &metadata = context.die[dieId];
-        if (metadata.enabled > 1 || (metadata.enabled != 0) != enabled || metadata.reserved != 0 ||
-            (!enabled && !IsDisabledDieMetadataValid(metadata)) ||
-            (enabled && (instructionPools[dieId].count == 0 ||
-                instructionPools[dieId].count != metadata.instructionCapacity))) {
-            return CcuResult::CCU_E_PARA;
-        }
-    }
-
-    AscCcuResRepository currentRepo = instanceSnapshot;
-    generation_ = context.generation;
-    deviceLogicId_ = context.deviceLogicId;
-    ccuVersion_ = context.ccuVersion;
-    validDieMask_ = context.validDieMask;
-    initialRepo_ = std::move(instanceSnapshot);
-    resRepo_ = std::move(currentRepo);
-    translatorRepo_ = std::move(translatorSnapshot);
-    instructionPools_ = instructionPools;
-    dieMetadata_[0] = context.die[0];
-    dieMetadata_[1] = context.die[1];
+    CCU_CHK_RET(ret);
+    CCU_CHK_RET(Reset());
     return CcuResult::CCU_SUCCESS;
 }
 
 CcuResult CcuResPack::Reset()
 {
-    if (generation_ == 0) {
-        return CcuResult::CCU_E_UNAVAIL;
+    if (!resHandle_) {
+        return CcuResult::CCU_SUCCESS;
     }
-    resRepo_ = initialRepo_;
+
+    CCU_CHK_RET(CcuResPodAdapter::GetRepository(resHandle_, resRepo_));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuResPack::AllocateInstruction(uint32_t dieId, uint32_t count, HcommCcuResRangePod &range)
-{
-    if (dieId >= HCOMM_CCU_MAX_DIE_NUM || count == 0 || (validDieMask_ & (1U << dieId)) == 0) {
-        return CcuResult::CCU_E_PARA;
-    }
-    const HcommCcuResRangePod &pool = instructionPools_[dieId];
-    if (instructionUsed_[dieId] > pool.count || count > pool.count - instructionUsed_[dieId]) {
-        return CcuResult::CCU_E_UNAVAIL;
-    }
-    range = {HCOMM_CCU_RES_INSTRUCTION, dieId, pool.startId + instructionUsed_[dieId], count};
-    instructionUsed_[dieId] += count;
-    return CcuResult::CCU_SUCCESS;
-}
-
-AscCcuResRepository &CcuResPack::GetCcuResRepo() { return resRepo_; }
-
-const AscCcuResRepository &CcuResPack::GetTranslatorResRepo() const { return translatorRepo_; }
-
-const HcommCcuDieMetadataPod *CcuResPack::GetDieMetadata(uint32_t dieId) const
-{
-    return dieId < HCOMM_CCU_MAX_DIE_NUM && (validDieMask_ & (1U << dieId)) != 0 ? &dieMetadata_[dieId] : nullptr;
-}
-
-uint64_t CcuResPack::GetGeneration() const { return generation_; }
-
-int32_t CcuResPack::GetDeviceLogicId() const { return deviceLogicId_; }
-
-uint32_t CcuResPack::GetCcuVersion() const { return ccuVersion_; }
-
-uint32_t CcuResPack::GetValidDieMask() const { return validDieMask_; }
+AscCcuResRepository& CcuResPack::GetCcuResRepo() { return resRepo_; }
 
 } // namespace hcomm

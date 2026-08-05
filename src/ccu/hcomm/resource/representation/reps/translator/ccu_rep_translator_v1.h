@@ -21,14 +21,19 @@
 #include "hcomm/resource/common/ccu_kernel_resource.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
+#include "ccu_dev_mgr_imp.h"
 
 namespace hcomm {
 namespace CcuRep {
 
 class CcuRepTranslator {
 public:
+    CcuRepTranslator(
+        int32_t deviceLogicId, uint8_t dieId, std::shared_ptr<CcuRepReferenceManager> refManager,
+        std::array<uint16_t, CCU_MAX_IODIE_NUM>& reserverChannalId, std::pair<uint64_t, uint64_t>& ccuTokenInfo,
+        uint64_t hbmTokenInfo);
+
     CcuRepTranslator(std::shared_ptr<CcuRepReferenceManager> refManager, const TransDep& transDep);
-    static void SetCcuVersion(CcuVersion version);
     static uint32_t GetInstrNum();
     static HcommCcuResRequestPod GetResReq(uint8_t dieId);
     void GetRes(CcuRepResource& res);

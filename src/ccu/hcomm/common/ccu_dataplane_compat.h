@@ -17,7 +17,6 @@
 
 #include "log.h"
 #include "hccl_exception.h"
-#include "hcomm/common/ccu_device_context.h"
 
 using Hccl::CallDlog;
 using Hccl::CallDlogInvalidType;
@@ -37,6 +36,8 @@ using Hccl::HcclSubModuleID;
 using Hccl::LOG_TMPBUF_SIZE;
 using Hccl::SYSTEM_RESERVE_ERROR;
 using std::string;
+
+extern s32 HcclGetThreadDeviceId();
 
 #ifndef HCCL_RUN_WARNING
 #define HCCL_RUN_WARNING(...) HCCL_WARNING(__VA_ARGS__)
