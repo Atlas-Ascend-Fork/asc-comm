@@ -365,8 +365,18 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
                                       2U :
                                       1U;
     SyncAction<HardEvent::S_MTE3>();
+    if (unlikely(
+        ((curHead % baseBlockCount) == baseBlockCount - 1) && 
+        (wqeBbCnt == 2)
+    )) {
+        AscendC::GlobalTensor<uint32_t> sqeBaseGlobal;
+        sqeBaseGlobal.SetGlobalBuffer((__gm__ uint32_t*)sqBaseAddr);
 
-    DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
+        DataCopy(sqeGlobal, wqeItem_, wqeSize * 1 / sizeof(uint32_t));
+        DataCopy(sqeBaseGlobal, wqeItem_[wqeSize / sizeof(uint32_t)], wqeSize * 1 / sizeof(uint32_t));
+    } else {
+        DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
+    }
     SyncAction<HardEvent::MTE3_S>();
 
     if constexpr (config.cqe != 0) {
