@@ -117,6 +117,34 @@ protected:
         return hcomm.Init(bufPtr, AscendC::HCOMM_URMA_TMP_BUF_SIZE);
     }
 
+    template <typename T, AscendC::HcommUrmaReduceOp reduceOp>
+    void CheckWriteReduce(uint32_t expectedDataType, uint32_t expectedReduceOpcode)
+    {
+        constexpr uint64_t count = 3;
+        constexpr uint64_t remoteAddr = 0x1008;
+        constexpr uint64_t localAddr = 0x2008;
+        UrmaChannelResource channel;
+
+        AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+        ASSERT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
+        int32_t ret = hcomm.WriteReduceNbi<T, reduceOp, false>(
+            channel.GetHandle(), reinterpret_cast<GM_ADDR>(remoteAddr), reinterpret_cast<GM_ADDR>(localAddr), count);
+        ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
+        EXPECT_EQ(channel.GetSqHead(), 1U);
+
+        const auto* sqeCtx = reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(hcomm.impl_.wqeItem_.GetPhyAddr());
+        EXPECT_EQ(sqeCtx->opcode, static_cast<uint32_t>(AscendC::HcommUrmaOpCode::WRITE));
+        EXPECT_EQ(sqeCtx->flag & AscendC::HCOMM_URMA_UDF_FLAG, AscendC::HCOMM_URMA_UDF_FLAG);
+        EXPECT_EQ(sqeCtx->reduceDataType, expectedDataType);
+        EXPECT_EQ(sqeCtx->reduceOpcode, expectedReduceOpcode);
+        EXPECT_EQ(sqeCtx->sgeNum, 1U);
+
+        const auto* sgeCtx = reinterpret_cast<const AscendC::HcommUrmaSgeCtx*>(
+            reinterpret_cast<const uint8_t*>(sqeCtx) + sizeof(AscendC::HcommUrmaSqeCtx));
+        EXPECT_EQ(sgeCtx->len, count * sizeof(T));
+        EXPECT_EQ(sgeCtx->va, localAddr);
+    }
+
 private:
     AscendC::TPipe pipe_;
     AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf_;
@@ -153,6 +181,21 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_Write)
     channel.CompleteCurrentSq();
     ret = hcomm.Drain(channel.GetHandle());
     EXPECT_EQ(ret, 0);
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteReduce_MaxInt8)
+{
+    CheckWriteReduce<int8_t, AscendC::HcommUrmaReduceOp::MAX>(0x0U, 0x8U);
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteReduce_MinHalf)
+{
+    CheckWriteReduce<half, AscendC::HcommUrmaReduceOp::MIN>(0x6U, 0x9U);
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteReduce_SumFloat)
+{
+    CheckWriteReduce<float, AscendC::HcommUrmaReduceOp::SUM>(0x7U, 0xAU);
 }
 
 // WriteWithNotifyNbi with commit=false: explicit Commit then Drain succeeds

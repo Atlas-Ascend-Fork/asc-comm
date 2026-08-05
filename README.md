@@ -2,7 +2,7 @@
 
 # asc-comm
 
-<h4>面向昇腾AI处理器通信场景，提供Hcomm通信API、AIV直驱实现、样例和验证用例</h4>
+<h4>面向昇腾AI处理器通信场景，提供Hcomm与Ain通信API、AIV直驱实现、样例和验证用例</h4>
 
 [![docs](https://img.shields.io/badge/docs-repo-blue.svg?style=flat)](./docs)
 [![examples](https://img.shields.io/badge/examples-repo-orange.svg?style=flat)](./examples)
@@ -19,7 +19,9 @@
 
 - 提供AICore侧Hcomm点对点通信接口，覆盖`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。
 - 提供AIV直驱Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/detail/`。
+- 提供AICore侧Ain单边通信接口，覆盖`Put`、`PutValue`、`Get`、`Signal`、`ReadSignal`、`WaitSignal`、`Flush`、`FlushAsync`、`Wait`，以及`AinBarrierSession`集合通信同步原语，主实现位于`src/aicore/ain/detail/`。
 - 提供Hcomm UT工程，覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。
+- 提供Ain UT工程，覆盖`ascend950pr_9599_AIV`的URMA路径下`Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession`接口用例。
 - 提供`hcomm_write_read_nbi`样例，演示AIV直驱URMA场景下`WriteNbi`和`ReadNbi`点对点通信流程，并包含运行样例所需的Host侧资源准备流程。
 
 ### 📖 资料文档
@@ -34,17 +36,18 @@
 
 asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载AICore侧公开API、AIV直驱设备侧实现、API文档、样例和验证能力。
 
-当前公开能力以`AscendC::Hcomm`为主，面向算子Kernel侧点对点通信数据路径。使用方通过`AscendC::Hcomm`模板选择通信协议，通过`ChannelHandle`指定通信通道，并调用非阻塞读写接口提交通信任务。任务可按需显式`Commit`提交，并通过`Drain`等待完成。
+当前公开能力包括`AscendC::Hcomm`点对点通信和`AscendC::Ain`单边通信，面向算子Kernel侧通信数据路径。Hcomm侧使用方通过`AscendC::Hcomm`模板选择通信协议，通过`ChannelHandle`指定通信通道，并调用非阻塞读写接口提交通信任务，任务可按需显式`Commit`提交，并通过`Drain`等待完成。Ain侧使用方通过`AscendC::Ain`模板基于对称窗口（Symmetric Window）发起`Put`/`Get`/`Signal`等单边操作，通过`Flush`或`FlushAsync`+`Wait`管理完成等待。
 
 ### 数据面能力
 
 | 能力 | 当前状态 |
 | --- | --- |
 | AICore Hcomm公开接口 | 已提供Kernel侧`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。 |
-| AIV直驱实现 | 已提供Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/detail/`。 |
+| AICore Ain公开接口 | 已提供Kernel侧`Put`、`PutValue`、`Get`、`Signal`、`ReadSignal`、`WaitSignal`、`Flush`、`FlushAsync`、`Wait`，以及`AinBarrierSession`同步原语。 |
+| AIV直驱实现 | 已提供Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/detail/`；Ain实现位于`src/aicore/ain/detail/`。 |
 | AIV直驱样例配套流程 | `hcomm_write_read_nbi`包含AIV直驱URMA通信所需的通信域创建、通信内存注册、P2P通道创建和远端内存获取流程。 |
 | 协议能力 | `COMM_PROTOCOL_ROCE`支持读写、提交和等待；`COMM_PROTOCOL_UBC_CTP`支持读写、写通知、原子操作、提交和等待。 |
-| UT验证 | UT覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
+| UT验证 | UT覆盖`ascend950pr_9599_AIV`的Hcomm RoCE/URMA路径与Ain URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
 | AIV直驱样例 | 提供`hcomm_write_read_nbi`样例，覆盖两卡AIV直驱URMA `WriteNbi`/`ReadNbi`对称通信和结果校验流程。 |
 
 ### 如何使用Hcomm接口
@@ -72,6 +75,32 @@ Hcomm Kernel侧使用时包含如下头文件：
 
 详细参数约束和返回值说明请参考[Hcomm使用说明](./docs/zh/guide/hcomm_usage.md)和[API参考](./docs/zh/api/README.md)。
 
+### 如何使用Ain接口
+
+Ain Kernel侧使用时包含如下头文件：
+
+```cpp
+#include "ain/ain.h"
+```
+
+基本调用流程如下：
+
+1. 创建`AscendC::Ain`对象，绑定通信上下文索引。
+2. 通过`Put`/`PutValue`/`Get`发起单边读写，或通过`Signal`发起远端原子信号操作。
+3. 如果提交任务时设置`AIN_COMMIT_DELAYED`，提交将被延迟，直到后续`AIN_COMMIT_IMMED`任务触发敲门铃；否则立即提交。
+4. 完成等待可通过`Flush`或`FlushAsync`+`Wait`管理。
+5. 通过`ReadSignal`/`WaitSignal`读取或等待本地信号。
+6. 如需集合同步，通过`AinBarrierSession`的`Sync`完成同步。
+
+提交模式说明：
+
+| 模式 | 行为说明 |
+| --- | --- |
+| `AIN_COMMIT_IMMED` | 组装通信任务后立即敲响门铃，提交给底层引擎执行。 |
+| `AIN_COMMIT_DELAYED` | 仅组装通信任务，不敲门铃；延迟到后续`AIN_COMMIT_IMMED`任务触发提交。 |
+
+详细参数约束和返回值说明请参考[API参考](./docs/zh/api/README.md)。
+
 ## 🔍目录结构说明
 
 本仓主要包含asc-comm AICore侧通信数据面API、设备侧实现、样例、文档和UT用例，目录结构如下：
@@ -83,31 +112,35 @@ Hcomm Kernel侧使用时包含如下头文件：
 │   └── hcomm_write_read_nbi      # Hcomm AIV直驱URMA两卡P2P通信样例
 ├── include                       # asc-comm API声明源代码
 │   ├── aicore/hcomm              # AICore侧Hcomm公开接口
-│   ├── ain                       # AIN相关API预留目录
+│   └── aicore/ain                # AICore侧Ain单边通信公开接口
 ├── scripts                       # 脚本
 ├── src                           # asc-comm API实现源代码
 │   ├── aicore/hcomm/detail       # AICore侧Hcomm实现细节
 │   │   ├── common                # Hcomm公共定义和工具
 │   │   └── impl                  # Hcomm协议实现与平台差异代码
+│   └── aicore/ain/detail         # AICore侧Ain实现细节
+│       └── impl                  # Ain单边通信原语实现
 └── tests                         # asc-comm API UT用例
-    └── ut/aicore/hcomm           # AICore Hcomm UT工程
+    └── ut/aicore
+        ├── hcomm                 # AICore Hcomm UT工程
+        └── ain                   # AICore Ain UT工程
 ```
 
 ## ⚡️快速入门
 
-若您希望快速体验项目构建和Hcomm UT验证，请先配置CANN环境：
+若您希望快速体验项目构建和UT验证，请先配置CANN环境：
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
 ```
 
-默认构建用于检查基础环境。当前AICore Hcomm代码以头文件形式集成，非UT构建不会生成独立库：
+默认构建用于检查基础环境。当前AICore Hcomm与Ain代码以头文件形式集成，非UT构建不会生成独立库：
 
 ```bash
 bash build.sh
 ```
 
-构建并运行Hcomm UT：
+构建并运行Hcomm与Ain UT：
 
 ```bash
 bash build.sh -t
