@@ -364,7 +364,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
                                    opCode == HcommUrmaOpCode::CAS) ?
                                       2U :
                                       1U;
-    SyncAction<HardEvent::S_MTE3>();
+    Mutex::Lock<PIPE_MTE3>(29);
     if constexpr (wqeBbCnt == 2) {
         if (unlikely((curHead % baseBlockCount) == baseBlockCount - 1)) {
             AscendC::GlobalTensor<uint32_t> sqeBaseGlobal;
@@ -379,7 +379,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     } else {
         DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
     }
-    SyncAction<HardEvent::MTE3_S>();
+    Mutex::Unlock<PIPE_MTE3>(29);
 
     if constexpr (config.cqe != 0) {
         cqeCnt++;
@@ -389,7 +389,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     channelEntity->sqHead = curHead;
 
     if constexpr (commit) {
+        Mutex::Lock<PIPE_S>(29);
         st_dev(curHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+        Mutex::Unlock<PIPE_S>(29);
     }
     HcommUrmaDumpWqeCtx(sqeCtx, sizeof(T));
     return HCOMM_SUCCESS;
@@ -417,15 +419,15 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
         __gm__ uint8_t* cqeAddr = (__gm__ uint8_t*)(cqBaseAddr + cqeSize * (curTail & (cqDepth - 1)));
         AscendC::GlobalTensor<uint32_t> cqeGlobal;
         cqeGlobal.SetGlobalBuffer((__gm__ uint32_t*)cqeAddr);
-        SyncAction<HardEvent::S_MTE2>();
+        Mutex::Lock<PIPE_MTE2>(29);
         DataCopy(cqeItem_, cqeGlobal, cqeSize / sizeof(uint32_t));
-        SyncAction<HardEvent::MTE2_S>();
+        Mutex::Unlock<PIPE_MTE2>(29);
         bool validOwner = (curTail / cqDepth) & 1;
         uint32_t times = 0;
         while ((validOwner ^ cqeUb->owner) == 0 && times < HCOMM_URMA_MAX_RETRY_TIMES) {
-            SyncAction<HardEvent::S_MTE2>();
+            Mutex::Lock<PIPE_MTE2>(29);
             DataCopy(cqeItem_, cqeGlobal, cqeSize / sizeof(uint32_t));
-            SyncAction<HardEvent::MTE2_S>();
+            Mutex::Unlock<PIPE_MTE2>(29);
             times++;
         }
         if (times >= HCOMM_URMA_MAX_RETRY_TIMES) {
@@ -450,7 +452,9 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
     channelEntity->cqTail = curTail;
 
     // ring CQ doorbell
+    Mutex::Lock<PIPE_S>(29);
     st_dev(curTail & 0xFFFFFFU, (__gm__ uint32_t*)cqCtx.contextInfo.ubJfc.dbVa, 0);
+    Mutex::Unlock<PIPE_S>(29);
 
     return HCOMM_SUCCESS;
 }
@@ -541,7 +545,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     uint32_t curHead = channelEntity->sqHead;
 
+    Mutex::Lock<PIPE_S>(29);
     st_dev(curHead, (__gm__ uint32_t*)sqCtx.contextInfo.ubJfs.dbVa, 0);
+    Mutex::Unlock<PIPE_S>(29);
 
     return HCOMM_SUCCESS;
 }
