@@ -1,0 +1,132 @@
+# Temporary TCP Barrier variant. Apply from the asc-comm repository root with:
+# git apply examples/hcomm_shared_queue_multi_channel/tcp_barrier.tmp.patch
+
+diff --git a/examples/hcomm_shared_queue_multi_channel/hcomm_shared_queue_multi_channel.cpp b/examples/hcomm_shared_queue_multi_channel/hcomm_shared_queue_multi_channel.cpp
+index 33022c4..93fcbfb 100644
+--- a/examples/hcomm_shared_queue_multi_channel/hcomm_shared_queue_multi_channel.cpp
++++ b/examples/hcomm_shared_queue_multi_channel/hcomm_shared_queue_multi_channel.cpp
+@@ -112,7 +112,7 @@ bool ParseIpPort(const std::string& ipPort, std::string* host, uint16_t* port)
+     char* end = nullptr;
+     errno = 0;
+     const long parsedPort = std::strtol(portText.c_str(), &end, 10);
+-    if (errno != 0 || end == nullptr || *end != '\0' || parsedPort <= 0 || parsedPort > 65535) {
++    if (errno != 0 || end == nullptr || *end != '\0' || parsedPort <= 0 || parsedPort > 65534) {
+         return false;
+     }
+
+@@ -180,7 +180,7 @@ int CreateListenSocket(const std::string& host, uint16_t port)
+     return fd;
+ }
+
+-int ConnectToRoot(const std::string& host, uint16_t port)
++int ConnectToServer(const std::string& host, uint16_t port)
+ {
+     for (int retry = 0; retry < ROOT_INFO_CONNECT_RETRY_TIMES; ++retry) {
+         const int fd = socket(AF_INET, SOCK_STREAM, 0);
+@@ -247,7 +247,7 @@ HcclResult ExchangeRootInfo(uint32_t rank, uint32_t rankSize, const std::string&
+         return HCCL_SUCCESS;
+     }
+
+-    const int fd = ConnectToRoot(host, port);
++    const int fd = ConnectToServer(host, port);
+     if (fd < 0) {
+         std::fprintf(stderr, "connect ipport failed: %s.\n", ipPort.c_str());
+         return HCCL_E_INTERNAL;
+@@ -261,6 +261,60 @@ HcclResult ExchangeRootInfo(uint32_t rank, uint32_t rankSize, const std::string&
+     return HCCL_SUCCESS;
+ }
+
++HcclResult TcpBarrier(uint32_t rank, uint32_t rankSize, const std::string& ipPort)
++{
++    std::string host;
++    uint16_t rootPort = 0;
++    if (!ParseIpPort(ipPort, &host, &rootPort)) {
++        return HCCL_E_PARA;
++    }
++
++    const uint16_t barrierPort = static_cast<uint16_t>(rootPort + 1);
++    char token = 1;
++    if (rank == 0) {
++        const int listenFd = CreateListenSocket(host, barrierPort);
++        if (listenFd < 0) {
++            return HCCL_E_INTERNAL;
++        }
++
++        std::vector<int> peerFds;
++        bool success = true;
++        for (uint32_t peer = 1; peer < rankSize; ++peer) {
++            const int fd = accept(listenFd, nullptr, nullptr);
++            if (fd < 0 || !RecvAll(fd, &token, sizeof(token))) {
++                if (fd >= 0) {
++                    close(fd);
++                }
++                success = false;
++                break;
++            }
++            peerFds.push_back(fd);
++        }
++
++        if (success) {
++            for (int fd : peerFds) {
++                if (!SendAll(fd, &token, sizeof(token))) {
++                    success = false;
++                    break;
++                }
++            }
++        }
++        for (int fd : peerFds) {
++            close(fd);
++        }
++        close(listenFd);
++        return success ? HCCL_SUCCESS : HCCL_E_INTERNAL;
++    }
++
++    const int fd = ConnectToServer(host, barrierPort);
++    if (fd < 0) {
++        return HCCL_E_TIMEOUT;
++    }
++    const bool success = SendAll(fd, &token, sizeof(token)) && RecvAll(fd, &token, sizeof(token));
++    close(fd);
++    return success ? HCCL_SUCCESS : HCCL_E_INTERNAL;
++}
++
+ const CommLink* FindUbcCtpLink(const CommLink* links, uint32_t linkNum)
+ {
+     for (uint32_t i = 0; i < linkNum; ++i) {
+@@ -592,7 +646,8 @@ HcclResult SynchronizeRanks(
+
+ HcclResult RunAllPeerTransfers(
+     HcclComm comm, uint32_t rankSize, uint32_t rank, const std::vector<PeerChannel>& peerChannels, uint8_t* sendAddr,
+-    uint8_t* recvAddr, uint8_t* localNotifyAddr, uint64_t remoteMemBytes, uint64_t bytes, aclrtStream stream)
++    uint8_t* recvAddr, uint8_t* localNotifyAddr, uint64_t remoteMemBytes, uint64_t bytes, aclrtStream stream,
++    const std::string& ipPort)
+ {
+     if (rankSize != REQUIRED_RANK_SIZE || peerChannels.size() != CHANNELS_PER_PEER) {
+         std::fprintf(
+@@ -620,7 +675,7 @@ HcclResult RunAllPeerTransfers(
+             HCCLCHECK(FillDeviceBuffer(sendAddr, bytes, sendValue));
+             HCCLCHECK(FillDeviceBuffer(recvAddr, bytes, 0));
+             ACLCHECK(aclrtMemset(localNotifyAddr, NOTIFY_BYTES, 0, NOTIFY_BYTES));
+-            HCCLCHECK(SynchronizeRanks(comm, stream, rank, round, totalRounds, "before-transfer"));
++            HCCLCHECK(TcpBarrier(rank, rankSize, ipPort));
+
+             uint8_t* remoteAddr = nullptr;
+             HCCLCHECK(GetRemoteMemByTag(comm, peerChannel.channel, RECV_MEM_TAG, remoteMemBytes, &remoteAddr));
+@@ -635,7 +690,7 @@ HcclResult RunAllPeerTransfers(
+                 "rank %u: round %u/%u pass, peer %u, logical channel %u/%u, handle %llu.\n", rank, round + 1,
+                 totalRounds, peer, channelIndex + 1, CHANNELS_PER_PEER,
+                 static_cast<unsigned long long>(peerChannel.channel));
+-            HCCLCHECK(SynchronizeRanks(comm, stream, rank, round, totalRounds, "after-transfer"));
++            HCCLCHECK(TcpBarrier(rank, rankSize, ipPort));
+         }
+     }
+     return HCCL_SUCCESS;
+@@ -684,7 +739,7 @@ HcclResult RunSample(uint32_t rankSize, uint32_t rank, uint32_t device, uint64_t
+     HCCLCHECK(CreateSharedQueueMultiPeerChannels(comm, &recvMemHandle, 1, &peerChannels));
+
+     HCCLCHECK(RunAllPeerTransfers(
+-        comm, rankSize, rank, peerChannels, sendAddr, recvAddr, recvNotifyAddr, remoteMemBytes, bytes, stream));
++        comm, rankSize, rank, peerChannels, sendAddr, recvAddr, recvNotifyAddr, remoteMemBytes, bytes, stream, ipPort));
+
+     HCCLCHECK(HcclCommDestroy(comm));
+     ACLCHECK(aclrtFree(commBufferAddr));

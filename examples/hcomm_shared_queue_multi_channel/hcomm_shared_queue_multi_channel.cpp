@@ -62,6 +62,7 @@ struct PeerLink {
 
 struct PeerChannel {
     uint32_t peerRank;
+    uint32_t channelIndex;
     ChannelHandle channel;
 };
 
@@ -85,6 +86,8 @@ constexpr uint64_t NOTIFY_VALUE = 1;
 constexpr uint64_t NOTIFY_BYTES = sizeof(uint64_t);
 constexpr uint32_t NOTIFY_WAIT_TIMEOUT_MS = 30000;
 constexpr uint32_t NOTIFY_POLL_INTERVAL_MS = 1;
+constexpr uint32_t REQUIRED_RANK_SIZE = 2;
+constexpr uint32_t CHANNELS_PER_PEER = 2;
 constexpr uint32_t TRANSFER_CYCLES = 2;
 
 bool ParseIpPort(const std::string& ipPort, std::string* host, uint16_t* port)
@@ -360,6 +363,7 @@ HcclResult AcquireSharedChannels(
     HcclComm comm, const std::vector<HcclChannelDesc>& descs, const std::string& tag,
     std::vector<ChannelHandle>* channels)
 {
+#if 0
     HcclChannelConfig config = nullptr;
     HcclResult ret = HcclChannelConfigCreate(&config);
     if (ret == HCCL_SUCCESS) {
@@ -374,6 +378,11 @@ HcclResult AcquireSharedChannels(
     }
     const HcclResult destroyRet = HcclChannelConfigDestroy(config);
     return ret != HCCL_SUCCESS ? ret : destroyRet;
+#else
+    (void)tag;
+    return HcclChannelAcquire(
+        comm, COMM_ENGINE_AIV, descs.data(), static_cast<uint32_t>(descs.size()), channels->data());
+#endif
 }
 
 HcclResult AcquireEndpointGroup(
@@ -381,19 +390,31 @@ HcclResult AcquireEndpointGroup(
     std::vector<PeerChannel>* peerChannels)
 {
     std::vector<HcclChannelDesc> descs;
-    descs.reserve(group.peerLinks.size());
+    descs.reserve(group.peerLinks.size() * CHANNELS_PER_PEER);
     for (const PeerLink& peerLink : group.peerLinks) {
-        descs.push_back(peerLink.desc);
+        for (uint32_t channelIndex = 0; channelIndex < CHANNELS_PER_PEER; ++channelIndex) {
+            descs.push_back(peerLink.desc);
+        }
     }
 
     const std::string tag =
-        std::string(SHARED_QUEUE_TAG_PREFIX) + "_" + std::to_string(selfRank) + "_" + std::to_string(groupIndex);
+        std::string(SHARED_QUEUE_TAG_PREFIX) + "_group_" + std::to_string(groupIndex);
     std::vector<ChannelHandle> channels(descs.size(), 0);
     HCCLCHECK(AcquireSharedChannels(comm, descs, tag, &channels));
-
-    for (std::size_t i = 0; i < group.peerLinks.size(); ++i) {
-        peerChannels->push_back(PeerChannel{group.peerLinks[i].peerRank, channels[i]});
+    const std::unordered_set<ChannelHandle> uniqueChannels(channels.begin(), channels.end());
+    if (uniqueChannels.count(0) != 0 || uniqueChannels.size() != channels.size()) {
+        std::fprintf(stderr, "rank %u: shared acquire did not return two distinct logical channels.\n", selfRank);
+        return HCCL_E_INTERNAL;
     }
+
+    std::size_t channelOffset = 0;
+    for (const PeerLink& peerLink : group.peerLinks) {
+        for (uint32_t channelIndex = 0; channelIndex < CHANNELS_PER_PEER; ++channelIndex) {
+            peerChannels->push_back(PeerChannel{peerLink.peerRank, channelIndex, channels[channelOffset++]});
+        }
+    }
+    std::printf(
+        "rank %u: acquired %zu logical channels with shared tag %s.\n", selfRank, channels.size(), tag.c_str());
     return HCCL_SUCCESS;
 }
 
@@ -406,22 +427,28 @@ HcclResult CreateSharedQueueMultiPeerChannels(
 
     std::vector<PeerLink> peerLinks;
     HCCLCHECK(FindNearestAllPeerLinks(comm, memHandles, memHandleNum, &peerLinks));
-    if (peerLinks.empty()) {
+    if (peerLinks.size() != 1) {
+        std::fprintf(stderr, "rank must resolve exactly one peer link, actual=%zu.\n", peerLinks.size());
         return HCCL_E_NOT_FOUND;
     }
 
     std::vector<EndpointGroup> groups;
     GroupPeerLinks(peerLinks, &groups);
+    if (groups.size() != 1) {
+        std::fprintf(stderr, "rank must resolve exactly one local Endpoint group, actual=%zu.\n", groups.size());
+        return HCCL_E_INTERNAL;
+    }
 
     uint32_t selfRank = 0;
     HCCLCHECK(HcclGetRankId(comm, &selfRank));
-    peerChannels->reserve(peerLinks.size());
+    peerChannels->reserve(CHANNELS_PER_PEER);
     for (std::size_t groupIndex = 0; groupIndex < groups.size(); ++groupIndex) {
         HCCLCHECK(AcquireEndpointGroup(comm, selfRank, groupIndex, groups[groupIndex], peerChannels));
     }
 
     std::printf(
-        "rank %u: created %zu channels in %zu shared-queue groups.\n", selfRank, peerChannels->size(), groups.size());
+        "rank %u: created %zu channels for one peer in one shared-queue group.\n", selfRank,
+        peerChannels->size());
     return HCCL_SUCCESS;
 }
 
@@ -490,16 +517,6 @@ HcclResult GetRemoteMemByTag(
 
     std::fprintf(stderr, "remote mem tag %s not found.\n", memTag);
     return HCCL_E_NOT_FOUND;
-}
-
-const PeerChannel* FindPeerChannel(const std::vector<PeerChannel>& peerChannels, uint32_t peer)
-{
-    for (const PeerChannel& peerChannel : peerChannels) {
-        if (peerChannel.peerRank == peer) {
-            return &peerChannel;
-        }
-    }
-    return nullptr;
 }
 
 uint8_t GetTransferValue(uint32_t rank, uint32_t round)
@@ -582,44 +599,47 @@ HcclResult RunAllPeerTransfers(
     HcclComm comm, uint32_t rankSize, uint32_t rank, const std::vector<PeerChannel>& peerChannels, uint8_t* sendAddr,
     uint8_t* recvAddr, uint8_t* localNotifyAddr, uint64_t remoteMemBytes, uint64_t bytes, aclrtStream stream)
 {
-    if (peerChannels.size() != rankSize - 1) {
+    if (rankSize != REQUIRED_RANK_SIZE || peerChannels.size() != CHANNELS_PER_PEER) {
         std::fprintf(
-            stderr, "rank %u: expected %u peer channels, but created %zu.\n", rank, rankSize - 1, peerChannels.size());
-        return HCCL_E_NOT_FOUND;
+            stderr, "rank %u: expected rank size %u and %u peer channels, actual rank size %u and %zu channels.\n",
+            rank, REQUIRED_RANK_SIZE, CHANNELS_PER_PEER, rankSize, peerChannels.size());
+        return HCCL_E_PARA;
     }
 
-    const uint32_t roundsPerCycle = rankSize - 1;
-    const uint32_t totalRounds = TRANSFER_CYCLES * roundsPerCycle;
-    for (uint32_t cycle = 0; cycle < TRANSFER_CYCLES; ++cycle) {
-        for (uint32_t offset = 1; offset < rankSize; ++offset) {
-            const uint32_t round = cycle * roundsPerCycle + offset - 1;
-            const uint32_t sendPeer = (rank + offset) % rankSize;
-            const uint32_t recvPeer = (rank + rankSize - offset) % rankSize;
-            const PeerChannel* peerChannel = FindPeerChannel(peerChannels, sendPeer);
-            if (peerChannel == nullptr) {
-                std::fprintf(stderr, "rank %u: peer %u channel not found.\n", rank, sendPeer);
-                return HCCL_E_NOT_FOUND;
-            }
+    const uint32_t peer = 1U - rank;
+    for (uint32_t channelIndex = 0; channelIndex < CHANNELS_PER_PEER; ++channelIndex) {
+        if (peerChannels[channelIndex].peerRank != peer || peerChannels[channelIndex].channelIndex != channelIndex ||
+            peerChannels[channelIndex].channel == 0) {
+            std::fprintf(stderr, "rank %u: invalid peer channel at index %u.\n", rank, channelIndex);
+            return HCCL_E_INTERNAL;
+        }
+    }
 
+    const uint32_t totalRounds = TRANSFER_CYCLES * CHANNELS_PER_PEER;
+    for (uint32_t cycle = 0; cycle < TRANSFER_CYCLES; ++cycle) {
+        for (uint32_t channelIndex = 0; channelIndex < CHANNELS_PER_PEER; ++channelIndex) {
+            const uint32_t round = cycle * CHANNELS_PER_PEER + channelIndex;
+            const PeerChannel& peerChannel = peerChannels[channelIndex];
             const uint8_t sendValue = GetTransferValue(rank, round);
-            const uint8_t expectedValue = GetTransferValue(recvPeer, round);
+            const uint8_t expectedValue = GetTransferValue(peer, round);
             HCCLCHECK(FillDeviceBuffer(sendAddr, bytes, sendValue));
             HCCLCHECK(FillDeviceBuffer(recvAddr, bytes, 0));
             ACLCHECK(aclrtMemset(localNotifyAddr, NOTIFY_BYTES, 0, NOTIFY_BYTES));
             HCCLCHECK(SynchronizeRanks(comm, stream, rank, round, totalRounds, "before-transfer"));
 
             uint8_t* remoteAddr = nullptr;
-            HCCLCHECK(GetRemoteMemByTag(comm, peerChannel->channel, RECV_MEM_TAG, remoteMemBytes, &remoteAddr));
+            HCCLCHECK(GetRemoteMemByTag(comm, peerChannel.channel, RECV_MEM_TAG, remoteMemBytes, &remoteAddr));
             uint8_t* remoteNotifyAddr = remoteAddr + remoteMemBytes - NOTIFY_BYTES;
             run_hcomm_shared_queue_multi_channel(
-                peerChannel->channel, sendAddr, remoteAddr, remoteNotifyAddr, bytes, stream);
+                peerChannel.channel, sendAddr, remoteAddr, remoteNotifyAddr, bytes, stream);
             ACLCHECK(aclrtSynchronizeStream(stream));
             HCCLCHECK(WaitForNotifyValue(localNotifyAddr, NOTIFY_VALUE));
             HCCLCHECK(VerifyDeviceBuffer(recvAddr, bytes, expectedValue));
 
             std::printf(
-                "rank %u: round %u/%u pass, send peer %u, receive peer %u, channel %llu.\n", rank, round + 1,
-                totalRounds, sendPeer, recvPeer, static_cast<unsigned long long>(peerChannel->channel));
+                "rank %u: round %u/%u pass, peer %u, logical channel %u/%u, handle %llu.\n", rank, round + 1,
+                totalRounds, peer, channelIndex + 1, CHANNELS_PER_PEER,
+                static_cast<unsigned long long>(peerChannel.channel));
             HCCLCHECK(SynchronizeRanks(comm, stream, rank, round, totalRounds, "after-transfer"));
         }
     }
@@ -696,7 +716,8 @@ int main(int argc, char** argv)
     const uint64_t bytes = static_cast<uint64_t>(std::strtoull(argv[argIndex++], nullptr, 10));
     const std::string ipPort = argc == 6 ? argv[argIndex] : DEFAULT_ROOT_INFO_IP_PORT;
 
-    if (rankSizeArg < 2 || rankArg < 0 || rankArg >= rankSizeArg || deviceArg < 0 || bytes == 0) {
+    if (rankSizeArg != static_cast<int>(REQUIRED_RANK_SIZE) || rankArg < 0 || rankArg >= rankSizeArg ||
+        deviceArg < 0 || bytes == 0) {
         std::fprintf(stderr, "invalid arguments.\n");
         return 1;
     }
