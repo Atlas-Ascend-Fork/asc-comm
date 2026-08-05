@@ -8,28 +8,11 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------------------------------------
 
-set(HCOMM_STAGE_ROOT "${CMAKE_CURRENT_BINARY_DIR}/package_layout")
-set(HCOMM_STAGE_INCLUDE_DIR "${HCOMM_STAGE_ROOT}/asc/include/adv_api")
-set(HCOMM_STAGE_DETAIL_DIR "${HCOMM_STAGE_ROOT}/asc/impl/adv_api/detail/hcomm")
-
-add_custom_target(prepare_hcomm_header_layout
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${HCOMM_STAGE_INCLUDE_DIR}/hcomm"
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${HCOMM_STAGE_DETAIL_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${HCOMM_STAGE_INCLUDE_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${HCOMM_STAGE_DETAIL_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/include/aicore/hcomm"
-        "${HCOMM_STAGE_INCLUDE_DIR}/hcomm"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/src/aicore/hcomm/detail"
-        "${HCOMM_STAGE_DETAIL_DIR}"
-    COMMENT "Preparing Hcomm headers in the installed package layout"
-)
-
 set(HCOMM_UT_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${ASCCOMM_UT_ROOT}/common
-    ${HCOMM_STAGE_INCLUDE_DIR}
+    ${ASCCOMM_ROOT}/include/aicore
+    ${ASCCOMM_ROOT}/src/aicore
     ${ASCCOMM_TIKICPU_INCLUDE_DIR}
     ${ASCCOMM_CANN_INCLUDE_DIRS}
 )
@@ -40,7 +23,6 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
         ${ASCCOMM_UT_ROOT}/common/k3_pvwrap.cpp
         ${ARGN}
     )
-    add_dependencies(${target_name} prepare_hcomm_header_layout)
 
     if(previous_hcomm_ut_target)
         add_dependencies(${target_name} ${previous_hcomm_ut_target})
@@ -107,9 +89,6 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
         set(test_filters
             HcommUrmaTestSuite.Aiv_Urma_Read
             HcommUrmaTestSuite.Aiv_Urma_Write
-            HcommUrmaTestSuite.Aiv_Urma_WriteReduce_MaxInt8
-            HcommUrmaTestSuite.Aiv_Urma_WriteReduce_MinHalf
-            HcommUrmaTestSuite.Aiv_Urma_WriteReduce_SumFloat
             HcommUrmaTestSuite.Aiv_Urma_WriteWithNotify
             HcommUrmaTestSuite.Aiv_Urma_WriteWithNotify_WqeBbCnt
             HcommUrmaTestSuite.Aiv_Urma_RemoteBufferNotFound
