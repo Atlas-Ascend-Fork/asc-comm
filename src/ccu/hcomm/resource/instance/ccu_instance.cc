@@ -44,7 +44,7 @@ CcuInstance::~CcuInstance()
 
 CcuResult CcuInstance::Init()
 {
-    if (insType_ >= CcuInstanceType::CCU_UNUSED) {
+    if (resDescs_.empty() && insType_ >= CcuInstanceType::CCU_UNUSED) {
         HCCL_ERROR("[CcuInstance][%s] failed, CcuInstanceType[%d] is invalid.", __func__, insType_);
         return CcuResult::CCU_E_PARA;
     }
@@ -56,7 +56,11 @@ CcuResult CcuInstance::Init()
     }
 
     if (!resPack_) {
-        resPack_.reset(new (std::nothrow) CcuResPack(insType_));
+        if (resDescs_.empty()) {
+            resPack_.reset(new (std::nothrow) CcuResPack(insType_));
+        } else {
+            resPack_.reset(new (std::nothrow) CcuResPack(resDescs_));
+        }
         CCU_CHK_PTR_NULL(resPack_);
         CCU_CHK_RET(resPack_->Init());
     }
