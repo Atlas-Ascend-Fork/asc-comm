@@ -365,13 +365,17 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
                                       2U :
                                       1U;
     SyncAction<HardEvent::S_MTE3>();
-    if (unlikely(((curHead % baseBlockCount) == baseBlockCount - 1) && (wqeBbCnt == 2))) {
-        AscendC::GlobalTensor<uint32_t> sqeBaseGlobal;
-        sqeBaseGlobal.SetGlobalBuffer((__gm__ uint32_t*)sqBaseAddr);
+    if constexpr (wqeBbCnt == 2) {
+        if (unlikely((curHead % baseBlockCount) == baseBlockCount - 1)) {
+            AscendC::GlobalTensor<uint32_t> sqeBaseGlobal;
+            sqeBaseGlobal.SetGlobalBuffer((__gm__ uint32_t*)sqBaseAddr);
 
-        uint32_t wqeSizePerU32 = wqeSize / sizeof(uint32_t);
-        DataCopy(sqeGlobal, wqeItem_, wqeSizePerU32);
-        DataCopy(sqeBaseGlobal, wqeItem_[wqeSizePerU32], wqeSizePerU32);
+            uint32_t wqeSizePerU32 = wqeSize / sizeof(uint32_t);
+            DataCopy(sqeGlobal, wqeItem_, wqeSizePerU32);
+            DataCopy(sqeBaseGlobal, wqeItem_[wqeSizePerU32], wqeSizePerU32);
+        } else {
+            DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
+        }
     } else {
         DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
     }
