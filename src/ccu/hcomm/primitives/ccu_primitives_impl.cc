@@ -110,7 +110,7 @@ CcuResult CcuVariableCreateByChannel(ChannelHandle channel, uint32_t varIndex, C
 CcuResult CcuVariableGetByIndex(CcuVariableHandle acqHandle, uint32_t index, CcuVariableHandle *varHandle)
 {
     CCU_CHK_PTR_NULL(varHandle);
-    const uint32_t devLogicId = HcclGetThreadDeviceId();
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
     auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
     CCU_CHK_PTR_NULL(kernel);
     CCU_CHK_RET(kernel->VariableCreateByAcquire(acqHandle, index, varHandle));
@@ -120,7 +120,7 @@ CcuResult CcuVariableGetByIndex(CcuVariableHandle acqHandle, uint32_t index, Ccu
 CcuResult CcuEventGetByIndex(CcuEventHandle acqHandle, uint32_t index, CcuEventHandle *eventHandle)
 {
     CCU_CHK_PTR_NULL(eventHandle);
-    const uint32_t devLogicId = HcclGetThreadDeviceId();
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
     auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
     CCU_CHK_PTR_NULL(kernel);
     CCU_CHK_RET(kernel->EventCreateByAcquire(acqHandle, index, eventHandle));
