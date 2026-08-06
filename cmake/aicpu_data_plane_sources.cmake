@@ -1,6 +1,7 @@
 set(ASC_COMM_AICPU_DATA_PLANE_SOURCES
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/primitives/api_c_adpt/aicpu_ts_primitives_c_adpt.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/primitives/api_c_adpt/aicpu_ts_sync_data_c_adpt.cc
+    ${ASC_COMM_AICPU_SRC_DIR}/base_comm/primitives/api_c_adpt/hcomm_pod_resource_converter.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/primitives/launch_context.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/comm_engine_res/threads/aicpu_ts_thread.cc
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm/resources/comm_engine_res/threads/thread.cc
