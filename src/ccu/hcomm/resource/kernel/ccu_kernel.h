@@ -85,6 +85,7 @@ public:
     CcuSharedResource& GetImportedRes();
 
     void SetResRepository(const AscCcuResRepository& resRepo);
+    void SetResRepository(AscCcuResRepository&& resRepo);
     void SetInstrId(uint32_t instrId);
     uint32_t GetInstrId() const;
     uint32_t GetInstrCount();
