@@ -12,8 +12,8 @@
  * \file hccl_common.h
  * \brief Hcomm common definitions
  */
-#ifndef INCLUDE_ADV_API_HCOMM_HCOMM_COMMON_H
-#define INCLUDE_ADV_API_HCOMM_HCOMM_COMMON_H
+#ifndef INCLUDE_COMM_API_AICORE_HCOMM_HCOMM_COMMON_H
+#define INCLUDE_COMM_API_AICORE_HCOMM_HCOMM_COMMON_H
 
 #include <cstdint>
 
@@ -44,4 +44,4 @@ enum class HcommUrmaReduceOp : uint32_t {
 
 } // namespace AscendC
 
-#endif // LIB_HCOMM_HCOMM_COMMON_H
+#endif // INCLUDE_COMM_API_AICORE_HCOMM_HCOMM_COMMON_H
