@@ -21,6 +21,7 @@ target_sources(asccomm_ccu_dataplane_obj PRIVATE
     resource/instance/ccu_instance_mgr.cc
     resource/instance/ccu_var_event_res_mgr.cc
     resource/kernel/ccu_kernel.cc
+    resource/kernel/ccu_kernel_res_allocator.cc
     resource/kernel/ccu_kernel_mgr.cc
     resource/microcode/ccu_microcode.cc
     resource/microcode/ccu_assist.cc

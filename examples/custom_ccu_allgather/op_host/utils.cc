@@ -159,6 +159,7 @@ HcclResult GetCcuKernel(
 
     if (regRet != CCU_SUCCESS) {
         HCCL_ERROR("ccu kernel register failed: ccuRet -> %d", regRet);
+        (void)HcommCcuKernelRegisterEnd(insHandle);
         return ConvertCcuToHccl(regRet);
     }
     resCtxHost.ccuKernels[0] = kernelHandle;
