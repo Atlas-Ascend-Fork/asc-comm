@@ -26,7 +26,6 @@ namespace hcomm {
 class CcuInstance {
 public:
     explicit CcuInstance(CcuInstanceType insType) : insType_(insType) {};
-    explicit CcuInstance(std::vector<CcuResDescSnapshot> resDescs) : resDescs_(std::move(resDescs)) {};
     ~CcuInstance();
     CcuResult Init();
     CcuResult LoadRegisterContext(const HcommCcuRegisterContextPod &context);
@@ -46,7 +45,6 @@ private:
     RegisterState registerState_{RegisterState::IDLE};
 
     CcuInstanceType insType_{CcuInstanceType::CCU_UNUSED};
-    std::vector<CcuResDescSnapshot> resDescs_{};
     int32_t devLogicId_{INT32_MAX};
     CcuInsHandle insHandle_{0};
     std::unique_ptr<CcuResPack> resPack_{};
