@@ -15,7 +15,7 @@
 #include <unordered_map>
 
 #include "hcomm/resource/kernel/ccu_kernel.h"
-#include "hcomm/resource/instance/ccu_res_pack.h"
+#include "hcomm/resource/common/asc_ccu_res_snapshot.h"
 
 #include "ccu_dev_mgr_imp.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_translator_v1.h"
@@ -32,10 +32,10 @@ public:
 
     HcclResult Init();
     HcclResult Deinit();
-    CcuResult Configure(CcuResPack &resPack);
+    CcuResult Configure(AscCcuResSnapshot &resPack);
 
     CcuResult Register(
-        CcuResPack& resPack, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc,
+        AscCcuResSnapshot& resPack, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc,
         const void** kernelArgs, const uint32_t argNum, CcuKernelHandle& kernelHandle);
 
     CcuResult Translate(const std::vector<CcuKernelHandle>& kernelHandles);
@@ -55,9 +55,9 @@ private:
 
 private:
     CcuResult PrepareConstValueResources();
-    CcuResult AllocRes(CcuResPack& resPack);
+    CcuResult AllocRes(AscCcuResSnapshot& resPack);
 
-    HcclResult InstantiationTranslator(uint16_t dieId, const CcuResPack &resPack);
+    HcclResult InstantiationTranslator(uint16_t dieId, const AscCcuResSnapshot &resPack);
     HcclResult TransRepSequenceToMicrocode(const std::vector<CcuKernel*>& kernels, bool isFuncBlock);
     HcclResult LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, const uint32_t dieId);
 

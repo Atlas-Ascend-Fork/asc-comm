@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm/resource/instance/ccu_var_event_res_mgr.h"
+#include "hcomm/resource/common/ccu_var_event_res_mgr.h"
 
 #include <mutex>
 
@@ -550,7 +550,7 @@ static void RemoveRangeFromPool(std::vector<HcommCcuResRangePod> &pool, uint32_t
 
 CcuResult CcuVarEventResMgr::ExcludeAllocatedFromRepo(CcuInsHandle insHandle) const
 {
-    // shared_lock 用于只读遍历 resMap_；被修改的 *pool 属于该 insHandle 自己的 CcuResPack，
+    // shared_lock 用于只读遍历 resMap_；被修改的 *pool 属于该 insHandle 自己的 AscCcuResSnapshot，
     // 其并发安全由“同一 instance 单线程串行访问”契约保证，详见头文件线程安全契约说明
     std::shared_lock<std::shared_timed_mutex> lock(mapMutex_);
     for (const auto &kv : resMap_) {
