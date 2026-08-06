@@ -28,6 +28,7 @@ public:
     CcuResult Deinit();
 
     CcuResult Create(CcuInstanceType insType, CcuInsHandle& insHandle);
+    CcuResult Create(const std::vector<CcuResDescSnapshot>& resDescs, CcuInsHandle& insHandle);
     CcuInstance* Get(CcuInsHandle insHandle) const;
     CcuResult Destroy(CcuInsHandle insHandle);
 

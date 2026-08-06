@@ -173,13 +173,14 @@ HcclResult RegisterCcuKernel(
     CcuKernelHandle kernelHandle = 0;
     const void* kernelArgs[] = {kernelArg.get()};
     constexpr uint32_t kernelArgNum = 1;
-    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(HcommCcuKernelRegister(
+    CcuResult regRet = HcommCcuKernelRegister(
         insHandle, kernelDie, "CcuAllGatherMesh1DMem2MemKernel",
-        reinterpret_cast<void*>(CcuAllGatherMesh1DMem2MemKernel),
-        kernelArgs, kernelArgNum, &kernelHandle)));
-    resCtx.ccuKernels[0] = kernelHandle;
+        reinterpret_cast<void*>(CcuAllGatherMesh1DMem2MemKernel), kernelArgs, kernelArgNum, &kernelHandle);
 
-    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(HcommCcuKernelRegisterEnd(insHandle)));
+    CcuResult regEndRet = HcommCcuKernelRegisterEnd(insHandle);
+    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(regRet));
+    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(regEndRet));
+    resCtx.ccuKernels[0] = kernelHandle;
     resCtx.ccuKernelNum = {1};
     return HCCL_SUCCESS;
 }
