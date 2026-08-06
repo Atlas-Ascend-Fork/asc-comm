@@ -34,6 +34,10 @@ template <>
 struct CcuArrayTraits<Variable> {
     using Handle = CcuVariableHandle;
     static CcuResult BlockAlloc(Handle* h, uint32_t n) { return CcuBlockVariableAlloc(h, n); }
+    static CcuResult CreateByAcquire(Handle acqHandle, uint32_t index, Handle* h)
+    {
+        return CcuVariableGetByIndex(acqHandle, index, h);
+    }
     static void SetHandle(Variable& v, Handle h) { v.handle = h; }
 };
 
@@ -41,6 +45,10 @@ template <>
 struct CcuArrayTraits<Event> {
     using Handle = CcuEventHandle;
     static CcuResult BlockAlloc(Handle* h, uint32_t n) { return CcuBlockEventAlloc(h, n); }
+    static CcuResult CreateByAcquire(Handle acqHandle, uint32_t index, Handle* h)
+    {
+        return CcuEventGetByIndex(acqHandle, index, h);
+    }
     static void SetHandle(Event& e, Handle h) { e.handle = h; }
 };
 
@@ -79,6 +87,35 @@ public:
         }
         for (uint32_t i = 0; i < count; ++i) {
             CcuArrayTraits<T>::SetHandle(elems_[i], handles[i]);
+        }
+    }
+
+    Array(typename CcuArrayTraits<T>::Handle acqHandle, uint32_t count) : count_(count)
+    {
+        if (count == 0) {
+            return;
+        }
+        using H = typename CcuArrayTraits<T>::Handle;
+        elems_ = static_cast<T*>(::operator new(sizeof(T) * count));
+        for (uint32_t i = 0; i < count; ++i) {
+            ::new (static_cast<void*>(&elems_[i])) T(detail::NoAllocTag{});
+        }
+        for (uint32_t i = 0; i < count; ++i) {
+            H handle{};
+            auto ret = CcuArrayTraits<T>::CreateByAcquire(acqHandle, i, &handle);
+            if (ret != CcuResult::CCU_SUCCESS) {
+                std::string errMsg = "Array creation failed at index " + std::to_string(i) +
+                    ", requested count=" + std::to_string(count) +
+                    "; the acquire handle likely holds fewer resources than count";
+                for (uint32_t j = 0; j < count; ++j) {
+                    elems_[j].~T();
+                }
+                ::operator delete(elems_);
+                elems_ = nullptr;
+                count_ = 0;
+                throw ::AscendC::ccu::detail::CcuException(ret, errMsg.c_str());
+            }
+            CcuArrayTraits<T>::SetHandle(elems_[i], handle);
         }
     }
 

@@ -23,6 +23,7 @@
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 #include "hcomm/resource/instance/ccu_instance_mgr.h"
+#include "hcomm/resource/instance/ccu_var_event_res_mgr.h"
 
 #include "thread.h"
 
@@ -391,6 +392,64 @@ CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo
     info.size = size;
     CCU_CHK_RET(hcomm::RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, info));
     *tokenInfo = hcomm::CcuRep::CcuCombineTokenInfo(info.tokenId, info.tokenValue, 1);
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+// 定位实例资源仓后转发给 CcuVarEventResMgr；预约、地址映射与失败回滚均由该类内部完成
+static CcuResult CcuAllocVarEventRes(CcuInsHandle insHandle, hcomm::CcuVarEventType type,
+    uint8_t dieId, uint32_t num, uint64_t &outHandle)
+{
+    const uint32_t devLogicId = HcclGetThreadDeviceId();
+    auto *ccuIns = hcomm::CcuInstanceMgr::GetInstance(devLogicId).Get(insHandle);
+    CCU_CHK_PTR_NULL(ccuIns);
+
+    auto *resPack = ccuIns->GetResPack();
+    CCU_CHK_PTR_NULL(resPack);
+
+    CCU_CHK_RET(hcomm::CcuVarEventResMgr::GetInstance(devLogicId).Acquire(
+        insHandle, resPack->GetCcuResRepo(), type, dieId, num, outHandle));
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult HcommCcuVariableAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
+    CcuVariableHandle *varHandle)
+{
+    CCU_CHK_PTR_NULL(varHandle);
+    *varHandle = 0;
+    CCU_CHK_RET(CcuAllocVarEventRes(insHandle, hcomm::CcuVarEventType::VARIABLE,
+        dieId, num, *varHandle));
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult HcommCcuEventAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
+    CcuEventHandle *eventHandle)
+{
+    CCU_CHK_PTR_NULL(eventHandle);
+    *eventHandle = 0;
+    CCU_CHK_RET(CcuAllocVarEventRes(insHandle, hcomm::CcuVarEventType::EVENT,
+        dieId, num, *eventHandle));
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult HcommCcuVariableGetAddr(CcuVariableHandle varHandle, uint32_t index, uint64_t *va)
+{
+    CCU_CHK_PTR_NULL(va);
+
+    const uint32_t devLogicId = HcclGetThreadDeviceId();
+    CCU_CHK_RET(hcomm::CcuVarEventResMgr::GetInstance(devLogicId).GetSavedAddr(
+        hcomm::CcuVarEventType::VARIABLE, varHandle, index, *va));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult HcommCcuEventGetAddr(CcuEventHandle eventHandle, uint32_t index, uint64_t *va)
+{
+    CCU_CHK_PTR_NULL(va);
+
+    const uint32_t devLogicId = HcclGetThreadDeviceId();
+    CCU_CHK_RET(hcomm::CcuVarEventResMgr::GetInstance(devLogicId).GetSavedAddr(
+        hcomm::CcuVarEventType::EVENT, eventHandle, index, *va));
 
     return CcuResult::CCU_SUCCESS;
 }

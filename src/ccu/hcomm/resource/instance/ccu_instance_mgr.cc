@@ -72,6 +72,7 @@ CcuResult CcuInstanceMgr::Create(CcuInstanceType insType, CcuInsHandle& insHandl
     CCU_CHK_RET(instance->Init());
 
     instanceId_ += 1;
+    instance->SetHandle(instanceId_);
     insMap_.emplace(instanceId_, std::move(instance));
     insHandle = instanceId_;
     return CcuResult::CCU_SUCCESS;
