@@ -11,14 +11,15 @@
 #ifndef CCU_KERNEL_RES_ALLOCATOR_H
 #define CCU_KERNEL_RES_ALLOCATOR_H
 
-#include "hcomm/resource/common/ccu_res_repo.h"
 #include "ccu/hcomm/ccu_types.h"
+#include "hcomm_ccu_res.h"
+#include "hcomm/resource/common/asc_ccu_res_repository_local.h"
 
 namespace hcomm {
 
 CcuResult PlanKernelResources(
-    const CcuResRepository& available, const CcuResReq& request, CcuResRepository& remaining,
-    CcuResRepository& allocated);
+    const AscCcuResRepository& available, const HcommCcuResRequestPod& request, AscCcuResRepository& remaining,
+    AscCcuResRepository& allocated);
 
 } // namespace hcomm
 
