@@ -9,6 +9,7 @@
  */
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
+#include "hcomm/resource/kernel/ccu_kernel_res_allocator.h"
 
 #include "string_util.h"
 #include "exception_handler.h"
@@ -169,8 +170,8 @@ static void DumpResReqInfo(const CcuResReq& totalRes)
                 "loopEngineReq[%u], blockLoopEngineReq[%u], gsaReq[%u], blockGsaReq[%u], xnReq[%u], "
                 "blockXnReq[%u], missionReq[%u]",
                 i, totalRes.msReq[i], totalRes.blockMsReq[i], totalRes.ckeReq[i], totalRes.blockCkeReq[i],
-                totalRes.loopEngineReq[i], totalRes.blockLoopEngineReq[i], totalRes.gsaReq[i],
-                totalRes.blockGsaReq[i], totalRes.xnReq[i], totalRes.blockXnReq[i], totalRes.missionReq.req[i]);
+                totalRes.loopEngineReq[i], totalRes.blockLoopEngineReq[i], totalRes.gsaReq[i], totalRes.blockGsaReq[i],
+                totalRes.xnReq[i], totalRes.blockXnReq[i], totalRes.missionReq.req[i]);
         }
     }
 }
@@ -238,9 +239,8 @@ static bool CheckResIfAvailable(const CcuResReq& totalRes, const CcuResReq& resR
 
         if (needResReq.msReq[i] != 0 || needResReq.blockMsReq[i] != 0 || needResReq.ckeReq[i] != 0 ||
             needResReq.blockCkeReq[i] != 0 || needResReq.loopEngineReq[i] != 0 ||
-            needResReq.blockLoopEngineReq[i] != 0 || needResReq.gsaReq[i] != 0 ||
-            needResReq.blockGsaReq[i] != 0 || needResReq.xnReq[i] != 0 ||
-            needResReq.blockXnReq[i] != 0 || needResReq.missionReq.req[i] != 0) {
+            needResReq.blockLoopEngineReq[i] != 0 || needResReq.gsaReq[i] != 0 || needResReq.blockGsaReq[i] != 0 ||
+            needResReq.xnReq[i] != 0 || needResReq.blockXnReq[i] != 0 || needResReq.missionReq.req[i] != 0) {
             HCCL_WARNING(
                 "[CcuKernelMgr][%s] dieId[%u] not enough, msReq[%u] blockMsReq[%u] ckeReq[%u]"
                 "blockCkeReq[%u] loopEngineReq[%u] blockLoopEngineReq[%u] gsaReq[%u] blockGsaReq[%u]"
@@ -353,21 +353,20 @@ CcuResult CcuKernelMgr::PrepareConstValueResources()
 
 CcuResult CcuKernelMgr::AllocRes(CcuResPack& resPack)
 {
-    CcuResReq leftRes{};
-    GetResNumFromResPack(resPack, leftRes);
-
     const CcuResReq& resReq = currKernel_->GetResourceRequest();
-    // todo： 需要整改，传递资源不足的信息
-    if (!CheckResIfAvailable(leftRes, resReq)) {
+    CcuResRepository remaining{};
+    CcuResRepository allocated{};
+    CcuResult planRet = PlanKernelResources(resPack.GetCcuResRepo(), resReq, remaining, allocated);
+    if (planRet != CcuResult::CCU_SUCCESS) {
+        DumpResReqInfo(resReq);
         HCCL_WARNING("[CcuKernelMgr][%s] resource is not enough.", __func__);
-        return CcuResult::CCU_E_UNAVAIL;
+        return planRet;
     }
 
-    // 申请指令空间资源
     CCU_CHK_RET(AllocInstrRes(currKernel_, devLogicId_));
 
-    // 资源从respack转移至kernel
-    LoadRes(currKernel_, resPack);
+    resPack.GetCcuResRepo() = std::move(remaining);
+    currKernel_->SetResRepository(std::move(allocated));
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -438,9 +437,8 @@ static void DumpResRepositoryInfo(const CcuResRepository& resRepo)
     for (uint32_t i = 0; i < CCU_MAX_IODIE_NUM; i++) {
         if (resRepo.ms[i].size() != 0 || resRepo.blockMs[i].size() != 0 || resRepo.cke[i].size() != 0 ||
             resRepo.blockCke[i].size() != 0 || resRepo.loopEngine[i].size() != 0 ||
-            resRepo.blockLoopEngine[i].size() != 0 || resRepo.gsa[i].size() != 0 ||
-            resRepo.blockGsa[i].size() != 0 || resRepo.xn[i].size() != 0 || resRepo.blockXn[i].size() != 0 ||
-            resRepo.mission.mission[i].size() != 0) {
+            resRepo.blockLoopEngine[i].size() != 0 || resRepo.gsa[i].size() != 0 || resRepo.blockGsa[i].size() != 0 ||
+            resRepo.xn[i].size() != 0 || resRepo.blockXn[i].size() != 0 || resRepo.mission.mission[i].size() != 0) {
             HCCL_INFO(
                 "DumpResRepository: dieId[%u], ms size[%u], blockMs size[%u], cke size[%u], blockCke size[%u], "
                 "loopEngine size[%u], blockLoopEngine size[%u], gsa size[%u], blockGsa size[%u], xn size[%u], "

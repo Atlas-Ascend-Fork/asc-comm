@@ -70,7 +70,9 @@ set(CCU_FEATURES_IMPL_SOURCES
 set(src_to_test_list
     main.cc
     ut_ccu_microcode.cc
+    ut_ccu_kernel_res_allocator.cc
     ./ccu_representation/interface/ut_ccu_interface_assist.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/kernel/ccu_kernel_res_allocator.cc
     ${CCU_FEATURES_IMPL_SOURCES}
 )
 
