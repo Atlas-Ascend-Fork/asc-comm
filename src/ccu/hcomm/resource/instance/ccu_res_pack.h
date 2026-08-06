@@ -11,14 +11,24 @@
 #ifndef CCU_RES_PACK_H
 #define CCU_RES_PACK_H
 
+#include <array>
+#include <utility>
+#include <vector>
+
 #include "ccu/hcomm/ccu_types.h"
 #include "ccu_device_pub.h"
 
 namespace hcomm {
 
+struct CcuResDescSnapshot {
+    uint32_t dieId{CCU_MAX_IODIE_NUM};
+    std::array<uint32_t, 8> resNum{};
+};
+
 class CcuResPack {
 public:
     explicit CcuResPack(CcuInstanceType insType) : insType_(insType) {};
+    explicit CcuResPack(std::vector<CcuResDescSnapshot> resDescs) : resDescs_(std::move(resDescs)) {};
     ~CcuResPack();
 
     CcuResult Init();
@@ -34,6 +44,7 @@ private:
 
     int32_t devLogicId_{0};
     CcuInstanceType insType_{CcuInstanceType::CCU_UNUSED};
+    std::vector<CcuResDescSnapshot> resDescs_{};
     CcuResHandle resHandle_{nullptr};
     CcuResRepository resRepo_{};
 };
