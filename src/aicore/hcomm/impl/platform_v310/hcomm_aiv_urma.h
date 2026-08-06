@@ -433,6 +433,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepare(
     return HCOMM_SUCCESS;
 }
 
+template <bool commit>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepareEnd(
     ChannelHandle channel, __ubuf__ uint8_t* buff)
 {
@@ -520,8 +521,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepareEnd(
     }
     SyncAction<HardEvent::MTE3_S>();
 
-    channelEntity->cqHead = header->startCqHead + header->preparedCount;
-    channelEntity->sqHead = header->startSqHead + header->preparedCount;
+    uint32_t newCqHead = header->startCqHead + header->preparedCount;
+    uint32_t newSqHead = header->startSqHead + header->preparedCount;
+    channelEntity->cqHead = newCqHead;
+    channelEntity->sqHead = newSqHead;
+    if constexpr (commit) {
+        st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+    }
     header->magic = 0;
     return HCOMM_SUCCESS;
 }
