@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm/resource/instance/ccu_instance_mgr.h"
+#include "hcomm/resource/kernel/ccu_kernel_registry_mgr.h"
 
 #include <algorithm>
 
@@ -18,7 +18,7 @@
 
 namespace hcomm {
 
-CcuInstanceMgr::~CcuInstanceMgr()
+CcuKernelRegistryMgr::~CcuKernelRegistryMgr()
 {
     if (!initializedFlag_) {
         return;
@@ -27,14 +27,14 @@ CcuInstanceMgr::~CcuInstanceMgr()
     (void)Deinit();
 }
 
-CcuInstanceMgr& CcuInstanceMgr::GetInstance(const int32_t deviceLogicId)
+CcuKernelRegistryMgr& CcuKernelRegistryMgr::GetInstance(const int32_t deviceLogicId)
 {
-    static CcuInstanceMgr instanceMgrs[MAX_MODULE_DEVICE_NUM + 1];
+    static CcuKernelRegistryMgr instanceMgrs[MAX_MODULE_DEVICE_NUM + 1];
 
     int32_t devLogicId = deviceLogicId;
     if (devLogicId < 0 || static_cast<uint32_t>(devLogicId) >= MAX_MODULE_DEVICE_NUM) {
         HCCL_WARNING(
-            "[CcuInstanceMgr][%s] use the backup device, devLogicId[%d] should be "
+            "[CcuKernelRegistryMgr][%s] use the backup device, devLogicId[%d] should be "
             "less than %u.",
             __func__, devLogicId, MAX_MODULE_DEVICE_NUM);
         devLogicId = MAX_MODULE_DEVICE_NUM; // 使用备份设备
@@ -44,7 +44,7 @@ CcuInstanceMgr& CcuInstanceMgr::GetInstance(const int32_t deviceLogicId)
     return instanceMgrs[devLogicId];
 }
 
-CcuResult CcuInstanceMgr::Init()
+CcuResult CcuKernelRegistryMgr::Init()
 {
     std::unique_lock<std::shared_timed_mutex> lock(insMapMutex_);
     if (initializedFlag_) {
@@ -56,7 +56,7 @@ CcuResult CcuInstanceMgr::Init()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuInstanceMgr::Deinit()
+CcuResult CcuKernelRegistryMgr::Deinit()
 {
     std::unique_lock<std::shared_timed_mutex> lock(insMapMutex_);
     insMap_.clear();
@@ -64,14 +64,14 @@ CcuResult CcuInstanceMgr::Deinit()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuInstanceMgr::Create(CcuInstanceType insType, CcuInsHandle& insHandle)
+CcuResult CcuKernelRegistryMgr::Create(int32_t deviceLogicId, CcuInsHandle& insHandle)
 {
     std::unique_lock<std::shared_timed_mutex> lock(insMapMutex_);
 
-    std::unique_ptr<CcuInstance> instance{nullptr};
-    EXCEPTION_CATCH(instance = std::make_unique<CcuInstance>(insType), return CcuResult::CCU_E_PTR);
+    std::unique_ptr<CcuKernelRegistry> instance{nullptr};
+    EXCEPTION_CATCH(instance = std::make_unique<CcuKernelRegistry>(), return CcuResult::CCU_E_PTR);
 
-    CCU_CHK_RET(instance->Init());
+    CCU_CHK_RET(instance->Init(deviceLogicId));
 
     instanceId_ += 1;
     insMap_.emplace(instanceId_, std::move(instance));
@@ -79,24 +79,30 @@ CcuResult CcuInstanceMgr::Create(CcuInstanceType insType, CcuInsHandle& insHandl
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuInstance* CcuInstanceMgr::Get(CcuInsHandle insHandle) const
+CcuKernelRegistry* CcuKernelRegistryMgr::Get(CcuInsHandle insHandle) const
 {
     std::shared_lock<std::shared_timed_mutex> lock(insMapMutex_);
     auto it = insMap_.find(insHandle);
     if (it == insMap_.end()) {
-        HCCL_ERROR("[CcuInstanceMgr][%s] handle[%llx] is not existed.", __func__, insHandle);
+        HCCL_ERROR("[CcuKernelRegistryMgr][%s] handle[%llx] is not existed.", __func__, insHandle);
         return nullptr;
     }
 
     return it->second.get();
 }
 
-CcuResult CcuInstanceMgr::Destroy(CcuInsHandle insHandle)
+bool CcuKernelRegistryMgr::Exists(CcuInsHandle insHandle) const
+{
+    std::shared_lock<std::shared_timed_mutex> lock(insMapMutex_);
+    return insMap_.find(insHandle) != insMap_.end();
+}
+
+CcuResult CcuKernelRegistryMgr::Destroy(CcuInsHandle insHandle)
 {
     std::unique_lock<std::shared_timed_mutex> lock(insMapMutex_);
     auto it = insMap_.find(insHandle);
     if (it == insMap_.end()) {
-        HCCL_ERROR("[CcuInstanceMgr][%s] handle[%llx] is not existed.", __func__, insHandle);
+        HCCL_ERROR("[CcuKernelRegistryMgr][%s] handle[%llx] is not existed.", __func__, insHandle);
         return CcuResult::CCU_E_NOT_FOUND;
     }
 

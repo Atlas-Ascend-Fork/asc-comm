@@ -8,19 +8,19 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm/resource/instance/ccu_instance.h"
+#include "hcomm/resource/kernel/ccu_kernel_registry.h"
 
 #include <algorithm>
 
 #include "log.h"
 #include "hcomm/common/ccu_log.h"
 
-#include "hcomm/resource/instance/ccu_res_pack.h"
+#include "hcomm/resource/common/asc_ccu_res_snapshot.h"
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 
 namespace hcomm {
 
-CcuInstance::~CcuInstance()
+CcuKernelRegistry::~CcuKernelRegistry()
 {
     // 主动释放资源保证时序，不得随意调整顺序
     for (auto& kernelHandle : kernelHandles_) {
@@ -31,59 +31,63 @@ CcuInstance::~CcuInstance()
     }
     kernelHandles_.clear();
 
-    resPack_ = nullptr;
+    resSnapshot_ = nullptr;
 }
 
-CcuResult CcuInstance::Init()
+CcuResult CcuKernelRegistry::Init(int32_t deviceLogicId)
 {
-    if (insType_ >= CcuInstanceType::CCU_UNUSED) {
-        HCCL_ERROR("[CcuInstance][%s] failed, CcuInstanceType[%d] is invalid.", __func__, insType_);
-        return CcuResult::CCU_E_PARA;
-    }
-
+    // 先于 LoadRegisterContext 落定设备号：实例可能在未加载上下文的情况下被销毁，
+    // 此时析构仍需按正确设备定位 CcuKernelMgr。
+    devLogicId_ = deviceLogicId;
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuInstance::LoadRegisterContext(const HcommCcuRegisterContextPod &context)
+CcuResult CcuKernelRegistry::LoadRegisterContext(const HcommCcuRegisterContextPod &context)
 {
     CCU_EXCEPTION_HANDLE_BEGIN
-    if (!resPack_) {
-        resPack_.reset(new (std::nothrow) CcuResPack());
-        CCU_CHK_PTR_NULL(resPack_);
+    if (!resSnapshot_) {
+        resSnapshot_.reset(new (std::nothrow) AscCcuResSnapshot());
+        CCU_CHK_PTR_NULL(resSnapshot_);
     }
-    CCU_CHK_RET(resPack_->Load(context));
-    devLogicId_ = context.deviceLogicId;
+    // 上下文的设备号必须与创建时传入的一致，否则说明调用方把上下文用在了错误的实例上。
+    if (context.deviceLogicId != devLogicId_) {
+        HCCL_ERROR(
+            "[CcuKernelRegistry][%s] failed, context deviceLogicId[%d] mismatches instance deviceLogicId[%d].", __func__,
+            context.deviceLogicId, devLogicId_);
+        return CcuResult::CCU_E_PARA;
+    }
+    CCU_CHK_RET(resSnapshot_->Load(context));
     CCU_EXCEPTION_HANDLE_END
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuInstance::Reset()
+CcuResult CcuKernelRegistry::Reset()
 {
-    if (!resPack_) {
+    if (!resSnapshot_) {
         return CcuResult::CCU_E_UNAVAIL;
     }
 
     untranslatedKernelHandles_.clear();
-    CCU_CHK_RET(resPack_->Reset());
+    CCU_CHK_RET(resSnapshot_->Reset());
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResPack* CcuInstance::GetResPack() { return resPack_.get(); }
+AscCcuResSnapshot* CcuKernelRegistry::GetResSnapshot() { return resSnapshot_.get(); }
 
-CcuResult CcuInstance::SaveKernel(const CcuKernelHandle kernelHandle)
+CcuResult CcuKernelRegistry::SaveKernel(const CcuKernelHandle kernelHandle)
 {
     kernelHandles_.push_back(kernelHandle);
     untranslatedKernelHandles_.push_back(kernelHandle);
     return CcuResult::CCU_SUCCESS;
 }
 
-const std::vector<CcuKernelHandle>& CcuInstance::GetUntranslatedKernels() { return untranslatedKernelHandles_; }
+const std::vector<CcuKernelHandle>& CcuKernelRegistry::GetUntranslatedKernels() { return untranslatedKernelHandles_; }
 
-CcuResult CcuInstance::BeginRegister()
+CcuResult CcuKernelRegistry::BeginRegister()
 {
     if (registerState_ == RegisterState::REGISTERING) {
         HCCL_ERROR(
-            "[CcuInstance][%s] failed, previous register round is not ended, "
+            "[CcuKernelRegistry][%s] failed, previous register round is not ended, "
             "HcommCcuKernelRegisterEnd is missing before a new HcommCcuKernelRegisterStart.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
@@ -92,11 +96,11 @@ CcuResult CcuInstance::BeginRegister()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuInstance::CheckRegistering() const
+CcuResult CcuKernelRegistry::CheckRegistering() const
 {
     if (registerState_ != RegisterState::REGISTERING) {
         HCCL_ERROR(
-            "[CcuInstance][%s] failed, HcommCcuKernelRegister must be called between "
+            "[CcuKernelRegistry][%s] failed, HcommCcuKernelRegister must be called between "
             "HcommCcuKernelRegisterStart and HcommCcuKernelRegisterEnd.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
@@ -104,18 +108,18 @@ CcuResult CcuInstance::CheckRegistering() const
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuInstance::EndRegister()
+CcuResult CcuKernelRegistry::EndRegister()
 {
     if (registerState_ == RegisterState::IDLE) {
         HCCL_ERROR(
-            "[CcuInstance][%s] failed, HcommCcuKernelRegisterEnd is called without a matching "
+            "[CcuKernelRegistry][%s] failed, HcommCcuKernelRegisterEnd is called without a matching "
             "HcommCcuKernelRegisterStart.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
     if (registerState_ == RegisterState::REGISTER_ABORTED) {
         HCCL_WARNING(
-            "[CcuInstance][%s] previous register round was aborted due to error, "
+            "[CcuKernelRegistry][%s] previous register round was aborted due to error, "
             "close it to keep Start/End paired, no kernel will be translated.",
             __func__);
     }
@@ -123,7 +127,7 @@ CcuResult CcuInstance::EndRegister()
     return CcuResult::CCU_SUCCESS;
 }
 
-void CcuInstance::AbortRegister()
+void CcuKernelRegistry::AbortRegister()
 {
     for (auto kernelHandle : untranslatedKernelHandles_) {
         if (kernelHandle == 0) {
