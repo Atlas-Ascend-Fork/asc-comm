@@ -11,6 +11,7 @@
 #include "hcomm/resource/instance/ccu_res_pack.h"
 
 #include "hcomm/common/ccu_log.h"
+#include "ccu_res_desc.h"
 
 namespace hcomm {
 
@@ -30,6 +31,26 @@ CcuResPack::~CcuResPack()
 CcuResult CcuResPack::Init()
 {
     devLogicId_ = HcclGetThreadDeviceId();
+    if (!resDescs_.empty()) {
+        std::vector<CcuResDesc> internalDescs;
+        internalDescs.reserve(resDescs_.size());
+        for (const auto& snapshot : resDescs_) {
+            CcuResDesc desc;
+            desc.dieId = snapshot.dieId;
+            desc.resNum = snapshot.resNum;
+            internalDescs.push_back(desc);
+        }
+        std::vector<const CcuResDesc*> descPtrs;
+        descPtrs.reserve(internalDescs.size());
+        for (const auto& desc : internalDescs) {
+            descPtrs.push_back(&desc);
+        }
+        CCU_CHK_RET(CcuAllocResHandleByResDescs(
+            devLogicId_, descPtrs.data(), static_cast<uint32_t>(descPtrs.size()), resHandle_));
+        CCU_CHK_RET(Reset());
+        return CcuResult::CCU_SUCCESS;
+    }
+
     if (insType_ == CcuInstanceType::CCU_UNUSED) {
         HCCL_ERROR("[CcuResPack][%s] failed, error ccu instance type[%d].", __func__, static_cast<int32_t>(insType_));
         return CcuResult::CCU_E_PARA;
