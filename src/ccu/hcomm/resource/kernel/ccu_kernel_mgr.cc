@@ -11,8 +11,6 @@
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 #include "hcomm/resource/kernel/ccu_kernel_res_allocator.h"
 
-#include <acl/acl.h>
-
 #include "string_util.h"
 #include "exception_handler.h"
 #include "adapter_rts.h"
