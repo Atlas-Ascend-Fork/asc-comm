@@ -372,7 +372,7 @@ CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo
 static CcuResult CcuAllocVarEventRes(CcuInsHandle insHandle, hcomm::CcuVarEventType type,
     uint8_t dieId, uint32_t num, uint64_t &outHandle)
 {
-    const uint32_t devLogicId = HcclGetThreadDeviceId();
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
     auto *ccuIns = hcomm::CcuInstanceMgr::GetInstance(devLogicId).Get(insHandle);
     CCU_CHK_PTR_NULL(ccuIns);
 
@@ -408,7 +408,7 @@ CcuResult HcommCcuVariableGetAddr(CcuVariableHandle varHandle, uint32_t index, u
 {
     CCU_CHK_PTR_NULL(va);
 
-    const uint32_t devLogicId = HcclGetThreadDeviceId();
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
     CCU_CHK_RET(hcomm::CcuVarEventResMgr::GetInstance(devLogicId).GetSavedAddr(
         hcomm::CcuVarEventType::VARIABLE, varHandle, index, *va));
 
@@ -419,7 +419,7 @@ CcuResult HcommCcuEventGetAddr(CcuEventHandle eventHandle, uint32_t index, uint6
 {
     CCU_CHK_PTR_NULL(va);
 
-    const uint32_t devLogicId = HcclGetThreadDeviceId();
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
     CCU_CHK_RET(hcomm::CcuVarEventResMgr::GetInstance(devLogicId).GetSavedAddr(
         hcomm::CcuVarEventType::EVENT, eventHandle, index, *va));
 
