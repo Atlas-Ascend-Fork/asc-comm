@@ -29,6 +29,13 @@ constexpr uint16_t FUNC_ARG_MAX = 1;
 constexpr uint16_t FUNC_NEST_MAX = 1;
 constexpr uint16_t FUNC_CALL_LAYER_INVALID = 0xFFFF;
 
+// GetResReq 申请的 XN 数必须与 hcomm 侧 RegisterContext 为 reference manager 预留的数量一致，
+// 否则 translatorResources 数量不匹配会导致资源映射错位且不报错。
+// 提升 FUNC_ARG_MAX 或 FUNC_NEST_MAX 时，必须同步修改 pkg_inc/hcomm/hcomm_ccu_res.h 中的
+// HCOMM_CCU_REFERENCE_MANAGER_XN_NUM。
+static_assert(FUNC_ARG_MAX + FUNC_ARG_MAX + 1 + FUNC_NEST_MAX + 1 == HCOMM_CCU_REFERENCE_MANAGER_XN_NUM,
+    "reference manager XN count must match HCOMM_CCU_REFERENCE_MANAGER_XN_NUM in hcomm_ccu_res.h");
+
 class CcuRepReferenceManager {
 public:
     explicit CcuRepReferenceManager(uint8_t deiId);

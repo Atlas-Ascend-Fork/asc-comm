@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm/resource/instance/ccu_res_pack.h"
+#include "hcomm/resource/common/asc_ccu_res_snapshot.h"
 
 #include <algorithm>
 #include <limits>
@@ -105,7 +105,7 @@ CcuResult ValidateAndAppend(const HcommCcuResRangeViewPod &view, bool instructio
 
 } // namespace
 
-CcuResult CcuResPack::Load(const HcommCcuRegisterContextPod &context)
+CcuResult AscCcuResSnapshot::Load(const HcommCcuRegisterContextPod &context)
 {
     if (!IsHeaderValid(context) || context.generation == 0 || context.deviceLogicId < 0 || context.ccuVersion > 1 ||
         context.dieNum != HCOMM_CCU_MAX_DIE_NUM ||
@@ -167,7 +167,7 @@ CcuResult CcuResPack::Load(const HcommCcuRegisterContextPod &context)
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuResPack::Reset()
+CcuResult AscCcuResSnapshot::Reset()
 {
     if (generation_ == 0) {
         return CcuResult::CCU_E_UNAVAIL;
@@ -176,7 +176,7 @@ CcuResult CcuResPack::Reset()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuResPack::AllocateInstruction(uint32_t dieId, uint32_t count, HcommCcuResRangePod &range)
+CcuResult AscCcuResSnapshot::AllocateInstruction(uint32_t dieId, uint32_t count, HcommCcuResRangePod &range)
 {
     if (dieId >= HCOMM_CCU_MAX_DIE_NUM || count == 0 || (validDieMask_ & (1U << dieId)) == 0) {
         return CcuResult::CCU_E_PARA;
@@ -190,21 +190,21 @@ CcuResult CcuResPack::AllocateInstruction(uint32_t dieId, uint32_t count, HcommC
     return CcuResult::CCU_SUCCESS;
 }
 
-AscCcuResRepository &CcuResPack::GetCcuResRepo() { return resRepo_; }
+AscCcuResRepository &AscCcuResSnapshot::GetCcuResRepo() { return resRepo_; }
 
-const AscCcuResRepository &CcuResPack::GetTranslatorResRepo() const { return translatorRepo_; }
+const AscCcuResRepository &AscCcuResSnapshot::GetTranslatorResRepo() const { return translatorRepo_; }
 
-const HcommCcuDieMetadataPod *CcuResPack::GetDieMetadata(uint32_t dieId) const
+const HcommCcuDieMetadataPod *AscCcuResSnapshot::GetDieMetadata(uint32_t dieId) const
 {
     return dieId < HCOMM_CCU_MAX_DIE_NUM && (validDieMask_ & (1U << dieId)) != 0 ? &dieMetadata_[dieId] : nullptr;
 }
 
-uint64_t CcuResPack::GetGeneration() const { return generation_; }
+uint64_t AscCcuResSnapshot::GetGeneration() const { return generation_; }
 
-int32_t CcuResPack::GetDeviceLogicId() const { return deviceLogicId_; }
+int32_t AscCcuResSnapshot::GetDeviceLogicId() const { return deviceLogicId_; }
 
-uint32_t CcuResPack::GetCcuVersion() const { return ccuVersion_; }
+uint32_t AscCcuResSnapshot::GetCcuVersion() const { return ccuVersion_; }
 
-uint32_t CcuResPack::GetValidDieMask() const { return validDieMask_; }
+uint32_t AscCcuResSnapshot::GetValidDieMask() const { return validDieMask_; }
 
 } // namespace hcomm
