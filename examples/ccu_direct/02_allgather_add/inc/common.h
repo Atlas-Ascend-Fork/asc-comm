@@ -42,7 +42,7 @@ constexpr uint32_t OP_ALG_LENGTH = 128;
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 
 // 算子执行模式
-enum class OpMode { OPBASE = 0, OFFLOAD = 1 };
+enum class OpMode { OPBASE = 0, OFFLOAD = 1, ACLGRAPH = 2 };
 
 // 设备类型
 enum DeviceType {
@@ -94,6 +94,7 @@ struct AlgResourceCtxSerializable {
     std::vector<ThreadHandle> threads;
     // ccu
     std::vector<ChannelHandle> kernelChannels;
+    uint32_t kernelDie = 0;
     std::vector<uint32_t> ccuKernelNum;
     std::vector<CcuKernelHandle> ccuKernels;
 
@@ -105,6 +106,7 @@ struct AlgResourceCtxSerializable {
         binaryStream << notifyNumOnMainThread;
         binaryStream << threads;
         binaryStream << kernelChannels;
+        binaryStream << kernelDie;
         binaryStream << ccuKernelNum;
         binaryStream << ccuKernels;
         std::vector<char> result;
@@ -120,6 +122,7 @@ struct AlgResourceCtxSerializable {
         binaryStream >> notifyNumOnMainThread;
         binaryStream >> threads;
         binaryStream >> kernelChannels;
+        binaryStream >> kernelDie;
         binaryStream >> ccuKernelNum;
         binaryStream >> ccuKernels;
     }

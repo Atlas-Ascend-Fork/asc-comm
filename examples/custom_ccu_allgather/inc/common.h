@@ -42,7 +42,7 @@ constexpr uint32_t OP_ALG_LENGTH = 128;
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
 
 // 算子执行模式
-enum class OpMode { OPBASE = 0, OFFLOAD = 1 };
+enum class OpMode { OPBASE = 0, OFFLOAD = 1, ACLGRAPH = 2 };
 
 // 设备类型
 enum DeviceType {

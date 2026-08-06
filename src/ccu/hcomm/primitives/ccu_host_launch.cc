@@ -12,6 +12,28 @@
 
 #include "hcomm/common/ccu_log.h"
 
+namespace {
+
+CcuResult PhyDieMaskToDieId(uint64_t phyDieMask, uint32_t& dieId)
+{
+    if (phyDieMask == 0 || (phyDieMask & (phyDieMask - 1)) != 0) {
+        HCCL_ERROR("[%s] phyDieMask[0x%llx] must contain exactly one bit.", __func__, phyDieMask);
+        return CcuResult::CCU_E_PARA;
+    }
+    dieId = 0;
+    while ((phyDieMask >>= 1) != 0) {
+        ++dieId;
+    }
+    constexpr uint32_t maxDieNum = 2;
+    if (dieId >= maxDieNum) {
+        HCCL_ERROR("[%s] dieId[%u] is out of range.", __func__, dieId);
+        return CcuResult::CCU_E_PARA;
+    }
+    return CcuResult::CCU_SUCCESS;
+}
+
+} // namespace
+
 CcuResult HcommCcuHostKernelLaunch(
     const void* kernelFunc, const HcommCcuHostKernelLaunchCfg* cfg, const HcommCcuHostKernelArgs* args)
 {
@@ -27,6 +49,9 @@ CcuResult HcommCcuHostKernelLaunch(
         CCU_CHK_PTR_NULL(args->taskArgs);
     }
 
+    uint32_t dieId = 0;
+    CCU_CHK_RET(PhyDieMaskToDieId(cfg->ccuSchd.phyDieMask, dieId));
+
     CcuResult ret = HcommCcuKernelRegisterStart(cfg->ccuIns);
     if (ret != CCU_SUCCESS) {
         HCCL_ERROR("[%s] HcommCcuKernelRegisterStart failed, ccuRet[%d].", __func__, ret);
@@ -35,7 +60,7 @@ CcuResult HcommCcuHostKernelLaunch(
 
     CcuKernelHandle kernelHandle{0};
     ret = HcommCcuKernelRegister(
-        cfg->ccuIns, cfg->ccuSchd.phyDieMask, cfg->kernelName, kernelFunc, args->kernelArgs, args->kernelArgNum,
+        cfg->ccuIns, dieId, cfg->kernelName, kernelFunc, args->kernelArgs, args->kernelArgNum,
         &kernelHandle);
     if (ret != CCU_SUCCESS) {
         HCCL_ERROR("[%s] HcommCcuKernelRegister failed, ccuRet[%d].", __func__, ret);
