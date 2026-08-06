@@ -25,6 +25,16 @@ namespace {
 constexpr uint32_t CCU_MAX_DIE_NUM = 2;
 constexpr uint32_t CCU_RES_TYPE_NUM = 7;
 
+enum InternalResIndex : size_t {
+    INTERNAL_LOOP = 0,
+    INTERNAL_MS = 1,
+    INTERNAL_CKE = 2,
+    INTERNAL_XN = 3,
+    INTERNAL_GSA = 5,
+    INTERNAL_INS = 6,
+    INTERNAL_MISSION = 7,
+};
+
 struct CcuResourceDesc {
     uint32_t dieId;
     std::array<uint32_t, CCU_RES_TYPE_NUM> nums{};
@@ -74,20 +84,38 @@ CcuResult HcommCcuInsCreate(
         return CcuResult::CCU_E_PARA;
     }
 
-    std::unordered_set<uint32_t> dieIds;
+    std::vector<CcuResourceDesc> snapshots;
+    snapshots.reserve(resDescNum);
     {
+        std::unordered_set<uint32_t> dieIds;
         std::lock_guard<std::mutex> lock(g_descMutex);
         for (uint32_t i = 0; i < resDescNum; ++i) {
             auto it = g_descs.find(resDescs[i]);
             if (it == g_descs.end() || !dieIds.insert(it->second.dieId).second) {
                 return CcuResult::CCU_E_PARA;
             }
-            CCU_CHK_RET(IsDieEnabled(it->second.dieId));
+            snapshots.push_back(it->second);
         }
     }
 
+    std::vector<hcomm::CcuResDescSnapshot> internalDescs;
+    internalDescs.reserve(snapshots.size());
+    for (const auto& snapshot : snapshots) {
+        CCU_CHK_RET(IsDieEnabled(snapshot.dieId));
+        hcomm::CcuResDescSnapshot desc;
+        desc.dieId = snapshot.dieId;
+        desc.resNum[INTERNAL_LOOP] = snapshot.nums[HCOMM_CCU_RES_TYPE_LOOP];
+        desc.resNum[INTERNAL_MS] = snapshot.nums[HCOMM_CCU_RES_TYPE_CCU_BUF];
+        desc.resNum[INTERNAL_CKE] = snapshot.nums[HCOMM_CCU_RES_TYPE_VARIABLE];
+        desc.resNum[INTERNAL_XN] = snapshot.nums[HCOMM_CCU_RES_TYPE_ADDRESS];
+        desc.resNum[INTERNAL_GSA] = snapshot.nums[HCOMM_CCU_RES_TYPE_EVENT];
+        desc.resNum[INTERNAL_MISSION] = snapshot.nums[HCOMM_CCU_RES_TYPE_CCU_THREAD];
+        desc.resNum[INTERNAL_INS] = snapshot.nums[HCOMM_CCU_RES_TYPE_INSTRUCTION];
+        internalDescs.push_back(desc);
+    }
+
     const int32_t devLogicId = HcclGetThreadDeviceId();
-    return hcomm::CcuInstanceMgr::GetInstance(devLogicId).Create(CcuInstanceType::CCU_SCHED, *ccuInsHandle);
+    return hcomm::CcuInstanceMgr::GetInstance(devLogicId).Create(internalDescs, *ccuInsHandle);
 }
 
 CcuResult HcommCcuInsCreateDefault(const uint32_t* dieIds, uint32_t dieNum, CcuInsHandle* ccuInsHandle)
