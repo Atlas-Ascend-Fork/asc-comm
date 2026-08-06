@@ -39,6 +39,11 @@ class Variable final {
 public:
     Variable() { CCU_THROW_IF_FAILED(CcuVariableAlloc(&this->handle), "CcuVariableAlloc: failed"); }
 
+    explicit Variable(CcuVariableHandle varHandle, uint32_t index = 0) {
+        CCU_THROW_IF_FAILED(CcuVariableGetByIndex(varHandle, index, &this->handle),
+            "CcuVariableGetByIndex: failed");
+    }
+
     Variable(const Variable& other) { this->handle = other.handle; }
 
     Variable(Variable&& other) noexcept { this->handle = other.handle; }
