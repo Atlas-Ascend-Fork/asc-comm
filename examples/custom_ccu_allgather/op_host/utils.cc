@@ -133,7 +133,7 @@ HcclResult GetCcuKernel(
     kernelInfo.setKernelArg(kernelArg);
 
     CcuInsHandle insHandle{0};
-    CHK_RET(asccomm_examples::GetOrCreateCcuInstance(comm, insHandle));
+    CHK_RET(asccomm_examples::QueryCcuInstance(comm, insHandle));
 
     resCtxHost.ccuKernels.resize(1); // 只注册1个kernel
 

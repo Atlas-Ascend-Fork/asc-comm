@@ -13,7 +13,11 @@
 
 #include <vector>
 
-#include <hccl/hccl_ccu_res.h>
+#include <hccl/hccl_types.h>
+#include <hcomm/hcomm_ccu_res.h>
+
+extern "C" HcclResult HcclCommQueryCcuRegisterContext(
+    HcclComm comm, HcommCcuRegisterContextPod* context);
 
 namespace asccomm_examples {
 

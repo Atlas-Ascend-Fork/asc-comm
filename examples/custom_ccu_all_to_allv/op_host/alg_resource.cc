@@ -111,7 +111,7 @@ static HcclResult RegisterAllToAllVKernel(
     kernelArg->channelCount = static_cast<uint32_t>(kernelChannels.size());
 
     CcuInsHandle insHandle{0};
-    RETURN_IF_HCCL_FAIL(asccomm_examples::GetOrCreateCcuInstance(comm, insHandle));
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, insHandle));
 
     resCtxHost.ccuKernels.resize(1); // 只注册一个 kernel
 
