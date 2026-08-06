@@ -15,6 +15,7 @@
 #include "ccu_kernel.h"
 #include "ccu/hcomm/ccu_launch.h"
 #include <hccl/hccl_ccu_res.h>
+#include "../../common/ccu_instance.h"
 
 namespace ops_hccl_ag {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
@@ -55,12 +56,14 @@ HcclResult GetThreadForCcu(HcclComm comm, const OpParam& param, AlgResourceCtxSe
     return HCCL_SUCCESS;
 }
 
-HcclResult GetChannelForCcu(HcclComm comm, const OpParam& param, std::vector<ChannelHandle>& kernelChannels)
+HcclResult GetChannelForCcu(
+    HcclComm comm, const OpParam& param, std::vector<ChannelHandle>& kernelChannels, uint32_t& kernelDie)
 {
     uint32_t channelNum = param.rankSize - 1;
     kernelChannels.resize(channelNum);
 
     uint32_t channelIndex = 0;
+    bool hasKernelDie = false;
     for (uint32_t remoteRank = 0; remoteRank < param.rankSize; remoteRank++) {
         if (remoteRank == param.myRank) {
             continue;
@@ -88,6 +91,9 @@ HcclResult GetChannelForCcu(HcclComm comm, const OpParam& param, std::vector<Cha
                 desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
                 desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
                 desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+                uint32_t channelDie = 0;
+                CHK_RET(asccomm_examples::QueryEndpointDie(comm, param.myRank, link.srcEndpointDesc, channelDie));
+                CHK_RET(asccomm_examples::MergeKernelDie(channelDie, hasKernelDie, kernelDie));
                 protocolExists = true;
                 break;
             }
@@ -107,10 +113,13 @@ HcclResult GetChannelForCcu(HcclComm comm, const OpParam& param, std::vector<Cha
 
 HcclResult GetCcuKernel(
     HcclComm comm, const OpParam& param, AlgResourceCtxSerializable& resCtxHost,
-    const std::vector<ChannelHandle>& kernelChannels, CcuKernelInfo& kernelInfo)
+    const std::vector<ChannelHandle>& kernelChannels, uint32_t kernelDie, CcuKernelInfo& kernelInfo)
 {
     // 设置kernel函数名和函数指针
-    strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllGatherMesh1DMem2MemKernel");
+    if (strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName),
+        "CcuAllGatherMesh1DMem2MemKernel") != EOK) {
+        return HCCL_E_INTERNAL;
+    }
     kernelInfo.kernelFunc = reinterpret_cast<void*>(CcuAllGatherMesh1DMem2MemKernel);
 
     auto kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>();
@@ -130,10 +139,7 @@ HcclResult GetCcuKernel(
     kernelArgBase->channelCount = static_cast<uint32_t>(kernelChannels.size());
 
     CcuInsHandle insHandle{0};
-    uint32_t insNum = 0;
-    CHK_RET(HcclCommQueryCcuIns(comm, &insHandle, &insNum));
-    CHK_PRT_RET(
-        insNum != 1, HCCL_ERROR("[GetCcuKernel] HcclCommQueryCcuIns fail! insNum is [%u]", insNum), HCCL_E_INTERNAL);
+    CHK_RET(asccomm_examples::GetOrCreateCcuInstance(comm, insHandle));
 
     resCtxHost.ccuKernels.resize(1); // 只注册1个kernel
 
@@ -146,10 +152,9 @@ HcclResult GetCcuKernel(
     CcuKernelHandle kernelHandle;
     const void* kernelArgs[] = {kernelInfo.kernelArg};
 
-    constexpr uint32_t dieId = 0; // 预留接口，暂无含义
     constexpr uint32_t kernelArgNum = 1;
     CcuResult regRet = HcommCcuKernelRegister(
-        insHandle, dieId, kernelInfo.kernelFuncName, reinterpret_cast<void*>(kernelInfo.kernelFunc), kernelArgs,
+        insHandle, kernelDie, kernelInfo.kernelFuncName, reinterpret_cast<void*>(kernelInfo.kernelFunc), kernelArgs,
         kernelArgNum, &kernelHandle); // 注册kernel
 
     if (regRet != CCU_SUCCESS) {
@@ -160,7 +165,7 @@ HcclResult GetCcuKernel(
 
     CcuResult regEndRet = HcommCcuKernelRegisterEnd(insHandle);
     if (regEndRet != CCU_SUCCESS) {
-        HCCL_ERROR("ccu kernel register start failed: ccuRet -> %d", regEndRet);
+        HCCL_ERROR("ccu kernel register end failed: ccuRet -> %d", regEndRet);
         return ConvertCcuToHccl(regEndRet);
     }
     resCtxHost.ccuKernelNum = {1};
@@ -187,10 +192,11 @@ HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceCtxS
     }
 
     std::vector<ChannelHandle> kernelChannels;
-    CHK_RET(GetChannelForCcu(comm, param, kernelChannels)); // 申请channel资源
+    uint32_t kernelDie = 0;
+    CHK_RET(GetChannelForCcu(comm, param, kernelChannels, kernelDie)); // 申请channel资源
 
     CcuKernelInfo kernelInfo;
-    CHK_RET(GetCcuKernel(comm, param, resCtxHost, kernelChannels, kernelInfo)); // 注册kernel
+    CHK_RET(GetCcuKernel(comm, param, resCtxHost, kernelChannels, kernelDie, kernelInfo)); // 注册kernel
 
     HCCL_INFO("End to execute AllocAlgResourceCCU success.");
     return HCCL_SUCCESS;

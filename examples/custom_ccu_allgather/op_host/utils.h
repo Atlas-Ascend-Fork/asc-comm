@@ -22,11 +22,12 @@ HcclResult GetDeviceType(DeviceType* deviceType);
 
 HcclResult GetThreadForCcu(HcclComm comm, const OpParam& param, AlgResourceCtxSerializable& resCtxHost);
 
-HcclResult GetChannelForCcu(HcclComm comm, const OpParam& param, std::vector<ChannelHandle>& kernelChannels);
+HcclResult GetChannelForCcu(
+    HcclComm comm, const OpParam& param, std::vector<ChannelHandle>& kernelChannels, uint32_t& kernelDie);
 
 HcclResult GetCcuKernel(
     HcclComm comm, const OpParam& param, AlgResourceCtxSerializable& resCtxHost,
-    const std::vector<ChannelHandle>& kernelChannels, CcuKernelInfo& kernelInfo);
+    const std::vector<ChannelHandle>& kernelChannels, uint32_t kernelDie, CcuKernelInfo& kernelInfo);
 
 HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceCtxSerializable& resCtxHost);
 
