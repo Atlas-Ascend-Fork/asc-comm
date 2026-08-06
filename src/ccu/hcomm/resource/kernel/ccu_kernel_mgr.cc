@@ -9,6 +9,7 @@
  */
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
+#include "hcomm/resource/kernel/ccu_kernel_res_allocator.h"
 
 #include <acl/acl.h>
 
@@ -413,21 +414,20 @@ CcuResult CcuKernelMgr::PrepareConstValueResources()
 
 CcuResult CcuKernelMgr::AllocRes(CcuResPack& resPack)
 {
-    HcommCcuResRequestPod leftRes{};
-    GetResNumFromResPack(resPack, leftRes);
-
     const HcommCcuResRequestPod& resReq = currKernel_->GetResourceRequest();
-    // todo： 需要整改，传递资源不足的信息
-    if (!CheckResIfAvailable(leftRes, resReq)) {
+    AscCcuResRepository remaining{};
+    AscCcuResRepository allocated{};
+    CcuResult planRet = PlanKernelResources(resPack.GetCcuResRepo(), resReq, remaining, allocated);
+    if (planRet != CcuResult::CCU_SUCCESS) {
+        DumpResReqInfo(resReq);
         HCCL_WARNING("[CcuKernelMgr][%s] resource is not enough.", __func__);
-        return CcuResult::CCU_E_UNAVAIL;
+        return planRet;
     }
 
-    // 申请指令空间资源
     CCU_CHK_RET(AllocInstrRes(currKernel_, resPack));
 
-    // 资源从respack转移至kernel
-    LoadRes(currKernel_, resPack);
+    resPack.GetCcuResRepo() = std::move(remaining);
+    currKernel_->SetResRepository(std::move(allocated));
     const HcommCcuDieMetadataPod *metadata = resPack.GetDieMetadata(currKernel_->GetDieId());
     CCU_CHK_PTR_NULL(metadata);
     currKernel_->SetMissionKey(metadata->missionKey);
