@@ -14,7 +14,6 @@
 
 #include <vector>
 
-#include "ccu_device_res.h"
 
 #include "hcomm/common/ccu_log.h"
 #include "ccu/hcomm/ccu_types.h"
@@ -22,7 +21,7 @@
 #include "hcom_common.h"
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
-#include "hcomm/resource/instance/ccu_instance_mgr.h"
+#include "hcomm/resource/kernel/ccu_kernel_registry_mgr.h"
 
 #include "thread.h"
 
@@ -41,15 +40,15 @@ CcuResult HcommCcuKernelRegisterStart(
     CcuInsHandle insHandle, const HcommCcuRegisterContextPod *context)
 {
     CCU_CHK_PTR_NULL(context);
-    auto *ccuIns = hcomm::CcuInstanceMgr::GetInstance(context->deviceLogicId).Get(insHandle);
+    auto *ccuIns = hcomm::CcuKernelRegistryMgr::GetInstance(context->deviceLogicId).Get(insHandle);
     CCU_CHK_PTR_NULL(ccuIns);
     CCU_CHK_RET(ccuIns->BeginRegister());
 
     CcuResult ret = ccuIns->LoadRegisterContext(*context);
     if (ret == CcuResult::CCU_SUCCESS) {
-        auto *resPack = ccuIns->GetResPack();
-        CCU_CHK_PTR_NULL(resPack);
-        ret = hcomm::CcuKernelMgr::GetInstance(context->deviceLogicId).Configure(*resPack);
+        auto *resSnapshot = ccuIns->GetResSnapshot();
+        CCU_CHK_PTR_NULL(resSnapshot);
+        ret = hcomm::CcuKernelMgr::GetInstance(context->deviceLogicId).Configure(*resSnapshot);
     }
     if (ret != CcuResult::CCU_SUCCESS) {
         (void)ccuIns->EndRegister();
@@ -61,13 +60,13 @@ CcuResult HcommCcuKernelRegisterStart(
 }
 
 static CcuResult CcuKernelTryRegister(
-    hcomm::CcuInstance* ccuIns, hcomm::CcuResPack* resPack, uint32_t devLogicId, uint32_t dieId,
+    hcomm::CcuKernelRegistry* ccuIns, hcomm::AscCcuResSnapshot* resSnapshot, uint32_t devLogicId, uint32_t dieId,
     const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs, uint32_t argNum,
     CcuKernelHandle& newHandle)
 {
     CCU_EXCEPTION_HANDLE_BEGIN
     auto& kernelMgr = hcomm::CcuKernelMgr::GetInstance(devLogicId);
-    CCU_CHK_RET(kernelMgr.Register(*resPack, dieId, kernelFuncName, kernelFunc, kernelArgs, argNum, newHandle));
+    CCU_CHK_RET(kernelMgr.Register(*resSnapshot, dieId, kernelFuncName, kernelFunc, kernelArgs, argNum, newHandle));
     CCU_CHK_RET(ccuIns->SaveKernel(newHandle));
     CCU_EXCEPTION_HANDLE_END
     return CcuResult::CCU_SUCCESS;
@@ -88,17 +87,17 @@ CcuResult HcommCcuKernelRegister(
     }
 
     const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
-    auto* ccuIns = hcomm::CcuInstanceMgr::GetInstance(devLogicId).Get(insHandle);
+    auto* ccuIns = hcomm::CcuKernelRegistryMgr::GetInstance(devLogicId).Get(insHandle);
     CCU_CHK_PTR_NULL(ccuIns);
 
     CCU_CHK_RET(ccuIns->CheckRegistering());
 
-    auto* resPack = ccuIns->GetResPack();
-    CCU_CHK_PTR_NULL(resPack);
+    auto* resSnapshot = ccuIns->GetResSnapshot();
+    CCU_CHK_PTR_NULL(resSnapshot);
 
     CcuKernelHandle newHandle{0};
     CcuResult ret = CcuKernelTryRegister(
-        ccuIns, resPack, devLogicId, dieId, kernelFuncName, kernelFunc, kernelArgs, argNum, newHandle);
+        ccuIns, resSnapshot, devLogicId, dieId, kernelFuncName, kernelFunc, kernelArgs, argNum, newHandle);
     if (ret != CcuResult::CCU_SUCCESS) {
         ccuIns->AbortRegister();
         if (CCU_CHK_RES_UNAVAIL(ret)) {
@@ -119,7 +118,7 @@ CcuResult HcommCcuKernelRegister(
 CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle insHandle)
 {
     const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
-    auto* ccuIns = hcomm::CcuInstanceMgr::GetInstance(devLogicId).Get(insHandle);
+    auto* ccuIns = hcomm::CcuKernelRegistryMgr::GetInstance(devLogicId).Get(insHandle);
     CCU_CHK_PTR_NULL(ccuIns);
 
     CCU_CHK_RET(ccuIns->EndRegister());
