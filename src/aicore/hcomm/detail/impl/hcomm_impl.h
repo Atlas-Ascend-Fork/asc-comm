@@ -71,11 +71,12 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbiPrepare(
 }
 
 template <CommProtocol commProtocol>
+template <bool commit>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff)
 {
 #if __NPU_ARCH__ == 3510
     if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
-        return impl_.WriteNbiPrepareEnd(channel, buff);
+        return impl_.template WriteNbiPrepareEnd<commit>(channel, buff);
     }
 #endif
     (void)channel;

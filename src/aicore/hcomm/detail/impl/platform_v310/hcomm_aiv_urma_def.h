@@ -87,6 +87,7 @@ public:
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbiPrepare(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, __ubuf__ uint8_t* buff, uint32_t buffLen);
+    template <bool commit = true>
     __aicore__ inline int32_t WriteNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff);
     template <
         typename T, HcommUrmaReduceOp reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,

@@ -105,12 +105,14 @@ public:
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, __ubuf__ uint8_t* buff, uint32_t buffLen);
 
     /*!
-     * @brief Flush all Write WQEs prepared in buff to SQ without ringing the SQ doorbell.
+     * @brief Flush all Write WQEs prepared in buff to SQ and optionally ring the SQ doorbell.
+     * @tparam commit: true: commit the batch immediately; false: do not commit immediately.
      * @param [in] channel: The handle bound to the active batch.
      * @param [in] buff: The UB batch buffer passed to WriteNbiPrepare.
      * @return HCOMM_SUCCESS on success and HCOMM_FAILED on failure.
-     * @note This API publishes the prepared WQEs to SQ but does not ring the doorbell. Call Commit explicitly.
+     * @note If commit is false, this API only publishes the prepared WQEs to SQ. Call Commit explicitly.
      */
+    template <bool commit = true>
     __aicore__ inline int32_t WriteNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff);
 
     /*!
