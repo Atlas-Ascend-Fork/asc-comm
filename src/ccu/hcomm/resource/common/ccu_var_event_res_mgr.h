@@ -32,10 +32,10 @@ struct CcuVarEventRes {
     uint8_t dieId{0};
     CcuVarEventType type{CcuVarEventType::VARIABLE};
     std::vector<HcommCcuResRangePod> resRanges{};
-    // 借用指针，指向发起预约的 CcuInstance 名下 CcuResPack 持有的资源仓，本类不持有所有权。
-    // 有效性依赖既定时序：~CcuInstance 中 ReleaseByInstance 先于 resPack_ 置空执行，
-    // CcuInstance::Reset 调 ExcludeAllocatedFromRepo 时资源仓亦仍存活。
-    // 新增读写该指针的路径时，须确认调用点仍在 CcuResPack 析构之前。
+    // 借用指针，指向发起预约的 CcuKernelRegistry 名下 AscCcuResSnapshot 持有的资源仓，本类不持有所有权。
+    // 有效性依赖既定时序：~CcuKernelRegistry 中 ReleaseByInstance 先于 resSnapshot_ 置空执行，
+    // CcuKernelRegistry::Reset 调 ExcludeAllocatedFromRepo 时资源仓亦仍存活。
+    // 新增读写该指针的路径时，须确认调用点仍在 AscCcuResSnapshot 析构之前。
     AscCcuResRepository *resRepo{nullptr};
     // 申请时对每个资源注册好的进程可访问 VA，下标与资源 index 一一对应
     std::vector<uint64_t> vaList{};
@@ -56,9 +56,9 @@ struct CcuVarEventRes {
 // 中做二次切分，无 capacity 概念。两者数据结构语义相反，不存在替代关系。
 //
 // 线程安全契约：
-// 1) resMap_ 与 handleSeed_ 为 per-device、跨 CcuInstance 共享，全部读写均由 mapMutex_ 保护；
-// 2) CcuVarEventRes::resRepo 指向的资源池由发起预约的 CcuInstance（经其 CcuResPack）持有，
-//    不在 mapMutex_ 的保护范围内。CcuInstance 自身不含锁，约定同一 instance 只由单线程串行
+// 1) resMap_ 与 handleSeed_ 为 per-device、跨 CcuKernelRegistry 共享，全部读写均由 mapMutex_ 保护；
+// 2) CcuVarEventRes::resRepo 指向的资源池由发起预约的 CcuKernelRegistry（经其 AscCcuResSnapshot）持有，
+//    不在 mapMutex_ 的保护范围内。CcuKernelRegistry 自身不含锁，约定同一 instance 只由单线程串行
 //    访问，池的并发安全由该约定保证；不同 instance 的池互不相交，跨 instance 并发是安全的。
 // 因此 ExcludeAllocatedFromRepo 取 shared_lock 是为遍历 resMap_，而非保护池。
 class CcuVarEventResMgr {
