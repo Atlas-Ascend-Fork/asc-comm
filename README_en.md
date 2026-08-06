@@ -16,8 +16,8 @@
 
 ### 🚀 Current Capabilities
 - Exposes AICore-side Hcomm point-to-point communication interfaces, covering `Init`, `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, `Drain`.
-- Provides AIV direct-drive implementations for Hcomm RoCE and UBC_CTP/URMA. Core implementations are located under `src/aicore/hcomm/detail/`.
-- Exposes AICore-side Ain one-sided communication interfaces, covering `Put`, `PutValue`, `Get`, `Signal`, `ReadSignal`, `WaitSignal`, `Flush`, `FlushAsync`, `Wait`, and the `AinBarrierSession` collective synchronization primitive. Core implementations are located under `src/aicore/ain/detail/`.
+- Provides AIV direct-drive implementations for Hcomm RoCE and UBC_CTP/URMA. Core implementations are located under `src/aicore/hcomm/`.
+- Exposes AICore-side Ain one-sided communication interfaces, covering `Put`, `PutValue`, `Get`, `Signal`, `ReadSignal`, `WaitSignal`, `Flush`, `FlushAsync`, `Wait`, and the `AinBarrierSession` collective synchronization primitive. Core implementations are located under `src/aicore/ain/`.
 - Delivers Hcomm UT projects covering RoCE/URMA paths for `ascend950pr_9599_AIV` and basic interface test cases for `ascend910B1_AIC`.
 - Delivers Ain UT project covering `Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession` test cases on the `ascend950pr_9599_AIV` URMA path.
 - Supplies the `hcomm_write_read_nbi` sample, demonstrating the point-to-point communication workflow of `WriteNbi` and `ReadNbi` under the AIV direct-driven URMA scenario, including Host-side resource preparation required to run the sample.
@@ -39,7 +39,7 @@ The public capabilities include `AscendC::Hcomm` point-to-point communication an
 | --- | --- |
 | Public AICore Hcomm Interfaces | Kernel-side `Init`, `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, `Drain` available. |
 | Public AICore Ain Interfaces | Kernel-side `Put`, `PutValue`, `Get`, `Signal`, `ReadSignal`, `WaitSignal`, `Flush`, `FlushAsync`, `Wait`, and `AinBarrierSession` synchronization primitive available. |
-| AIV Direct Drive Implementation | Implementations for Hcomm RoCE and UBC_CTP/URMA are provided; core code resides in `src/aicore/hcomm/detail/`. Ain implementation resides in `src/aicore/ain/detail/`. |
+| AIV Direct Drive Implementation | Implementations for Hcomm RoCE and UBC_CTP/URMA are provided; core code resides in `src/aicore/hcomm/`. Ain implementation resides in `src/aicore/ain/`. |
 | AIV Direct-drive Sample Supporting Workflow | `hcomm_write_read_nbi` includes communication domain creation, communication memory registration, P2P channel creation and remote memory acquisition required for AIV direct-driven URMA communication. |
 | Protocol Features | `COMM_PROTOCOL_ROCE`: read/write, commit and wait; `COMM_PROTOCOL_UBC_CTP`: read/write, write-with-notify, atomic operations, commit and wait. |
 | UT Verification | UTs cover Hcomm RoCE/URMA paths and the Ain URMA path on `ascend950pr_9599_AIV`, plus basic interface cases for `ascend910B1_AIC`. |
@@ -100,10 +100,10 @@ This repository contains AICore communication data plane APIs, device-side imple
 │   └── aicore/ain                # Public AICore Ain one-sided communication interfaces
 ├── scripts                       # Utility scripts
 ├── src                           # asc-comm API implementations
-│   ├── aicore/hcomm/detail       # Internal implementation of AICore Hcomm
+│   ├── aicore/hcomm              # Internal implementation of AICore Hcomm
 │   │   ├── common                # Common definitions and utilities for Hcomm
 │   │   └── impl                  # Protocol implementations and platform-specific logic
-│   └── aicore/ain/detail         # Internal implementation of AICore Ain
+│   └── aicore/ain                # Internal implementation of AICore Ain
 │       └── impl                  # One-sided communication primitive implementations
 └── tests                         # asc-comm API unit tests
     └── ut/aicore

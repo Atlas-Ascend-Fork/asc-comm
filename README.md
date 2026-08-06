@@ -18,8 +18,8 @@
 ### 🚀 当前能力
 
 - 提供AICore侧Hcomm点对点通信接口，覆盖`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。
-- 提供AIV直驱Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/detail/`。
-- 提供AICore侧Ain单边通信接口，覆盖`Put`、`PutValue`、`Get`、`Signal`、`ReadSignal`、`WaitSignal`、`Flush`、`FlushAsync`、`Wait`，以及`AinBarrierSession`集合通信同步原语，主实现位于`src/aicore/ain/detail/`。
+- 提供AIV直驱Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/`。
+- 提供AICore侧Ain单边通信接口，覆盖`Put`、`PutValue`、`Get`、`Signal`、`ReadSignal`、`WaitSignal`、`Flush`、`FlushAsync`、`Wait`，以及`AinBarrierSession`集合通信同步原语，主实现位于`src/aicore/ain/`。
 - 提供Hcomm UT工程，覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。
 - 提供Ain UT工程，覆盖`ascend950pr_9599_AIV`的URMA路径下`Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession`接口用例。
 - 提供`hcomm_write_read_nbi`样例，演示AIV直驱URMA场景下`WriteNbi`和`ReadNbi`点对点通信流程，并包含运行样例所需的Host侧资源准备流程。
@@ -44,7 +44,7 @@ asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载A
 | --- | --- |
 | AICore Hcomm公开接口 | 已提供Kernel侧`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。 |
 | AICore Ain公开接口 | 已提供Kernel侧`Put`、`PutValue`、`Get`、`Signal`、`ReadSignal`、`WaitSignal`、`Flush`、`FlushAsync`、`Wait`，以及`AinBarrierSession`同步原语。 |
-| AIV直驱实现 | 已提供Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/detail/`；Ain实现位于`src/aicore/ain/detail/`。 |
+| AIV直驱实现 | 已提供Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/`；Ain实现位于`src/aicore/ain/`。 |
 | AIV直驱样例配套流程 | `hcomm_write_read_nbi`包含AIV直驱URMA通信所需的通信域创建、通信内存注册、P2P通道创建和远端内存获取流程。 |
 | 协议能力 | `COMM_PROTOCOL_ROCE`支持读写、提交和等待；`COMM_PROTOCOL_UBC_CTP`支持读写、写通知、原子操作、提交和等待。 |
 | UT验证 | UT覆盖`ascend950pr_9599_AIV`的Hcomm RoCE/URMA路径与Ain URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
@@ -115,10 +115,10 @@ Ain Kernel侧使用时包含如下头文件：
 │   └── aicore/ain                # AICore侧Ain单边通信公开接口
 ├── scripts                       # 脚本
 ├── src                           # asc-comm API实现源代码
-│   ├── aicore/hcomm/detail       # AICore侧Hcomm实现细节
+│   ├── aicore/hcomm              # AICore侧Hcomm实现细节
 │   │   ├── common                # Hcomm公共定义和工具
 │   │   └── impl                  # Hcomm协议实现与平台差异代码
-│   └── aicore/ain/detail         # AICore侧Ain实现细节
+│   └── aicore/ain                # AICore侧Ain实现细节
 │       └── impl                  # Ain单边通信原语实现
 └── tests                         # asc-comm API UT用例
     └── ut/aicore
