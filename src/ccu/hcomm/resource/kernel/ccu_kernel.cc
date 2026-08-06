@@ -2695,6 +2695,8 @@ HcclResult CcuKernel::CreateBlockCompletedEvent(const uint32_t count, CcuRep::Co
 
 void CcuKernel::SetResRepository(const CcuResRepository& resRepo) { resRepo_ = resRepo; }
 
+void CcuKernel::SetResRepository(CcuResRepository&& resRepo) { resRepo_ = std::move(resRepo); }
+
 CcuResRepository& CcuKernel::GetResRepository() { return resRepo_; }
 
 CcuSharedResource& CcuKernel::GetExportedRes() { return exportedRes_; }

@@ -78,6 +78,21 @@ CcuResult CcuInstanceMgr::Create(CcuInstanceType insType, CcuInsHandle& insHandl
     return CcuResult::CCU_SUCCESS;
 }
 
+CcuResult CcuInstanceMgr::Create(const std::vector<CcuResDescSnapshot>& resDescs, CcuInsHandle& insHandle)
+{
+    std::unique_lock<std::shared_timed_mutex> lock(insMapMutex_);
+
+    std::unique_ptr<CcuInstance> instance{nullptr};
+    EXCEPTION_CATCH(instance = std::make_unique<CcuInstance>(resDescs), return CcuResult::CCU_E_PTR);
+    CCU_CHK_RET(instance->Init());
+
+    instanceId_ += 1;
+    instance->SetHandle(instanceId_);
+    insMap_.emplace(instanceId_, std::move(instance));
+    insHandle = instanceId_;
+    return CcuResult::CCU_SUCCESS;
+}
+
 CcuInstance* CcuInstanceMgr::Get(CcuInsHandle insHandle) const
 {
     std::shared_lock<std::shared_timed_mutex> lock(insMapMutex_);

@@ -126,6 +126,7 @@ static HcclResult RegisterAllToAllVKernel(
         kernelArgNum, &kernelHandle); // 注册 kernel
 
     if (regRet != CCU_SUCCESS) {
+        (void)HcommCcuKernelRegisterEnd(insHandle);
         return HCCL_E_INTERNAL;
     }
     resCtxHost.ccuKernels[0] = kernelHandle;
