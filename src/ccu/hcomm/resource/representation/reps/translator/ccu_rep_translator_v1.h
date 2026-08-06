@@ -15,6 +15,7 @@
 #include <vector>
 #include <functional>
 
+#include "hcomm_ccu_res.h"
 #include "hcomm/resource/microcode/ccu_instr_info_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
@@ -52,9 +53,11 @@ private:
     void BindResource(bool isFuncBlock);
 
 private:
-    static const int XN_NUM = 4;  // 4: Xn资源个数
-    static const int GSA_NUM = 3; // 3: GSA资源个数
-    static const int CKE_NUM = 2; // 2: CKE资源个数
+    // 资源个数取自 pkg_inc/hcomm/hcomm_ccu_res.h，与 hcomm 侧 RegisterContext 申请
+    // translatorResources 时使用同一组常量，不得在此另写字面量。
+    static const int XN_NUM = HCOMM_CCU_TRANSLATOR_XN_NUM;
+    static const int GSA_NUM = HCOMM_CCU_TRANSLATOR_GSA_NUM;
+    static const int CKE_NUM = HCOMM_CCU_TRANSLATOR_CKE_NUM;
     std::shared_ptr<CcuRepReferenceManager> refManager{nullptr};
     Variable var[XN_NUM];
     Address addr[GSA_NUM];

@@ -14,7 +14,7 @@
 #include <limits>
 #include <vector>
 
-#include "hcomm/resource/instance/ccu_res_pack.h"
+#include "hcomm/resource/common/asc_ccu_res_snapshot.h"
 
 namespace hcomm {
 namespace {
@@ -47,10 +47,10 @@ struct ContextStorage {
     }
 };
 
-TEST(CcuResPackTest, DeepCopiesAndResetsOrdinaryResources)
+TEST(AscCcuResSnapshotTest, DeepCopiesAndResetsOrdinaryResources)
 {
     ContextStorage storage;
-    CcuResPack pack;
+    AscCcuResSnapshot pack;
     ASSERT_EQ(pack.Load(storage.context), CcuResult::CCU_SUCCESS);
 
     storage.instance[0].startId = 999;
@@ -61,10 +61,10 @@ TEST(CcuResPackTest, DeepCopiesAndResetsOrdinaryResources)
     EXPECT_EQ(pack.GetCcuResRepo().loopEngine[0][0].startId, 10U);
 }
 
-TEST(CcuResPackTest, KeepsInstructionAccountingAcrossRegisterRounds)
+TEST(AscCcuResSnapshotTest, KeepsInstructionAccountingAcrossRegisterRounds)
 {
     ContextStorage storage;
-    CcuResPack pack;
+    AscCcuResSnapshot pack;
     ASSERT_EQ(pack.Load(storage.context), CcuResult::CCU_SUCCESS);
 
     HcommCcuResRangePod first{};
@@ -80,77 +80,77 @@ TEST(CcuResPackTest, KeepsInstructionAccountingAcrossRegisterRounds)
     EXPECT_EQ(pack.AllocateInstruction(0, 1, second), CcuResult::CCU_E_UNAVAIL);
 }
 
-TEST(CcuResPackTest, RejectsInvalidAbiDieTypeOverflowAndOverlap)
+TEST(AscCcuResSnapshotTest, RejectsInvalidAbiDieTypeOverflowAndOverlap)
 {
     {
         ContextStorage storage;
         storage.context.header.magicWord = 0;
-        CcuResPack pack;
+        AscCcuResSnapshot pack;
         EXPECT_EQ(pack.Load(storage.context), CcuResult::CCU_E_PARA);
     }
     {
         ContextStorage storage;
         storage.instance[0].dieId = HCOMM_CCU_MAX_DIE_NUM;
-        CcuResPack pack;
+        AscCcuResSnapshot pack;
         EXPECT_EQ(pack.Load(storage.context), CcuResult::CCU_E_PARA);
     }
     {
         ContextStorage storage;
         storage.translator[0].resourceType = HCOMM_CCU_RES_INSTRUCTION;
-        CcuResPack pack;
+        AscCcuResSnapshot pack;
         EXPECT_EQ(pack.Load(storage.context), CcuResult::CCU_E_PARA);
     }
     {
         ContextStorage storage;
         storage.instance[0].startId = std::numeric_limits<uint32_t>::max();
         storage.instance[0].count = 2;
-        CcuResPack pack;
+        AscCcuResSnapshot pack;
         EXPECT_EQ(pack.Load(storage.context), CcuResult::CCU_E_PARA);
     }
     {
         ContextStorage storage;
         storage.instance.push_back({HCOMM_CCU_BATCH_RES_LOOP, 0, 12, 4});
         storage.RefreshViews();
-        CcuResPack pack;
+        AscCcuResSnapshot pack;
         EXPECT_EQ(pack.Load(storage.context), CcuResult::CCU_E_PARA);
     }
 }
 
-TEST(CcuResPackTest, RejectsGenerationChange)
+TEST(AscCcuResSnapshotTest, RejectsGenerationChange)
 {
     ContextStorage storage;
-    CcuResPack pack;
+    AscCcuResSnapshot pack;
     ASSERT_EQ(pack.Load(storage.context), CcuResult::CCU_SUCCESS);
     storage.context.generation = 2;
     EXPECT_EQ(pack.Load(storage.context), CcuResult::CCU_E_PARA);
 }
 
-TEST(CcuResPackTest, RejectsReservedAndInvalidDisabledDieMetadata)
+TEST(AscCcuResSnapshotTest, RejectsReservedAndInvalidDisabledDieMetadata)
 {
     {
         ContextStorage storage;
         storage.context.reserved[0] = 1;
-        CcuResPack pack;
+        AscCcuResSnapshot pack;
         EXPECT_EQ(pack.Load(storage.context), CcuResult::CCU_E_PARA);
     }
     {
         ContextStorage storage;
         storage.context.die[0].enabled = 2;
-        CcuResPack pack;
+        AscCcuResSnapshot pack;
         EXPECT_EQ(pack.Load(storage.context), CcuResult::CCU_E_PARA);
     }
     {
         ContextStorage storage;
         storage.context.die[1].missionKey = 1;
-        CcuResPack pack;
+        AscCcuResSnapshot pack;
         EXPECT_EQ(pack.Load(storage.context), CcuResult::CCU_E_PARA);
     }
 }
 
-TEST(CcuResPackTest, FailedLoadDoesNotReplaceActiveSnapshot)
+TEST(AscCcuResSnapshotTest, FailedLoadDoesNotReplaceActiveSnapshot)
 {
     ContextStorage storage;
-    CcuResPack pack;
+    AscCcuResSnapshot pack;
     ASSERT_EQ(pack.Load(storage.context), CcuResult::CCU_SUCCESS);
 
     storage.instance[0].startId = std::numeric_limits<uint32_t>::max();
@@ -161,7 +161,7 @@ TEST(CcuResPackTest, FailedLoadDoesNotReplaceActiveSnapshot)
     EXPECT_EQ(pack.GetGeneration(), 1U);
 }
 
-TEST(CcuResPackTest, SupportsIndependentInstructionPoolsOnTwoDies)
+TEST(AscCcuResSnapshotTest, SupportsIndependentInstructionPoolsOnTwoDies)
 {
     ContextStorage storage;
     storage.context.validDieMask = 3;
@@ -170,7 +170,7 @@ TEST(CcuResPackTest, SupportsIndependentInstructionPoolsOnTwoDies)
     storage.instruction.push_back({HCOMM_CCU_RES_INSTRUCTION, 1, 200, 4});
     storage.RefreshViews();
 
-    CcuResPack pack;
+    AscCcuResSnapshot pack;
     ASSERT_EQ(pack.Load(storage.context), CcuResult::CCU_SUCCESS);
     HcommCcuResRangePod range{};
     ASSERT_EQ(pack.AllocateInstruction(1, 4, range), CcuResult::CCU_SUCCESS);
