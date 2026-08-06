@@ -51,14 +51,13 @@ inline HcclResult SetCcuSchedResourceNums(HcommCcuResDescHandle desc)
         HcommCcuResType type;
         uint32_t num;
     };
-    constexpr std::array<ResourceNum, 7> resourceNums = {{
+    constexpr std::array<ResourceNum, 6> resourceNums = {{
         {HCOMM_CCU_RES_TYPE_LOOP, 16},
         {HCOMM_CCU_RES_TYPE_CCU_BUF, 128},
         {HCOMM_CCU_RES_TYPE_VARIABLE, 400},
         {HCOMM_CCU_RES_TYPE_ADDRESS, 400},
         {HCOMM_CCU_RES_TYPE_EVENT, 48},
         {HCOMM_CCU_RES_TYPE_CCU_THREAD, 2},
-        {HCOMM_CCU_RES_TYPE_INSTRUCTION, 0},
     }};
     for (const auto &resource : resourceNums) {
         CcuResult ret = HcommCcuInsResDescSetNum(desc, resource.type, resource.num);
@@ -76,17 +75,8 @@ inline void DestroyCcuResourceDescs(const std::vector<HcommCcuResDescHandle> &de
     }
 }
 
-inline HcclResult GetOrCreateCcuInstance(HcclComm comm, CcuInsHandle &insHandle)
+inline HcclResult CreateCcuInsWithEnabledDies(CcuInsHandle &insHandle)
 {
-    uint32_t insNum = 0;
-    HcclResult queryRet = HcclCommQueryCcuIns(comm, &insHandle, &insNum);
-    if (queryRet == HCCL_SUCCESS) {
-        return insNum == 1 ? HCCL_SUCCESS : HCCL_E_INTERNAL;
-    }
-    if (queryRet != HCCL_E_UNAVAIL) {
-        return queryRet;
-    }
-
     std::vector<HcommCcuResDescHandle> descs;
     for (uint32_t dieId = 0; dieId < CCU_MAX_DIE_NUM; ++dieId) {
         HcommCcuResDescHandle desc = 0;
@@ -114,13 +104,31 @@ inline HcclResult GetOrCreateCcuInstance(HcclComm comm, CcuInsHandle &insHandle)
         descs.push_back(desc);
     }
     if (descs.empty()) {
-        return HCCL_E_UNAVAIL;
+        return HCCL_E_INTERNAL;
     }
 
     CcuResult createRet = HcommCcuInsCreate(descs.data(), static_cast<uint32_t>(descs.size()), &insHandle);
     DestroyCcuResourceDescs(descs);
     if (createRet != CCU_SUCCESS) {
         return ConvertCcuResult(createRet);
+    }
+    return HCCL_SUCCESS;
+}
+
+inline HcclResult GetOrCreateCcuInstance(HcclComm comm, CcuInsHandle &insHandle)
+{
+    uint32_t insNum = 0;
+    HcclResult queryRet = HcclCommQueryCcuIns(comm, &insHandle, &insNum);
+    if (queryRet == HCCL_SUCCESS) {
+        return insNum == 1 ? HCCL_SUCCESS : HCCL_E_INTERNAL;
+    }
+    if (queryRet != HCCL_E_UNAVAIL) {
+        return queryRet;
+    }
+
+    HcclResult createRet = CreateCcuInsWithEnabledDies(insHandle);
+    if (createRet != HCCL_SUCCESS) {
+        return createRet;
     }
 
     HcclResult assignRet = HcclCommAssignCcuIns(comm, insHandle);
