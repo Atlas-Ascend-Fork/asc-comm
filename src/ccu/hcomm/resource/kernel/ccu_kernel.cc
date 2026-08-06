@@ -523,7 +523,7 @@ CcuResult CcuKernel::VariableCreateByAcquire(CcuVariableHandle acqHandle, uint32
 {
     uint8_t dieId = 0;
     uint32_t xnId = 0;
-    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(HcclGetThreadDeviceId())
+    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(hcomm::GetCurrentCcuDeviceLogicId())
         .GetVariableXnId(acqHandle, index, dieId, xnId));
 
     CcuRep::Variable var(this);
@@ -539,7 +539,7 @@ CcuResult CcuKernel::EventCreateByAcquire(CcuEventHandle acqHandle, uint32_t ind
 {
     uint8_t dieId = 0;
     uint32_t ckeId = 0;
-    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(HcclGetThreadDeviceId())
+    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(hcomm::GetCurrentCcuDeviceLogicId())
         .GetEventCkeId(acqHandle, index, dieId, ckeId));
 
     CcuRep::CompletedEvent event(this);
