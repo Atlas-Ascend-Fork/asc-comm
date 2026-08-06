@@ -36,6 +36,27 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyVf(
         static_cast<uint64_t>(hcomm.Drain(channel));
 }
 
+// Reproduces the immediate-post burst used by the performance benchmark: one lane rings
+// the DWQE doorbell for every 2-BB Notify WQE, then calls Drain only after the whole burst.
+__simt_vf__ __launch_bounds__(1024) inline void SimtNotifyImmediateRepeatVf(
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
+        return;
+    }
+    __gm__ uint8_t *local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
+    __gm__ uint8_t *remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+
+    AscendC::simt::Hcomm<> hcomm;
+    for (uint32_t i = 0; i < kNotifyImmediateRepeatCount; ++i) {
+        (void)hcomm.WriteWithNotifyNbi<true>(
+            channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes,
+            remote + kNotifySignalSlot * kSlotBytes, kNotifySignal);
+    }
+    reinterpret_cast<__gm__ uint64_t *>(local)[kNotifyDrainSlot] =
+        static_cast<uint64_t>(hcomm.Drain(channel));
+}
+
 // Isolated FAA case: verifies both the remote sum and the fetched old value.
 __simt_vf__ __launch_bounds__(1024) inline void SimtFaaVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
@@ -176,6 +197,13 @@ extern "C" __global__ __vector__ void SimtFaa(
         dim3(1), channel, sendBufIdx, recvBufIdx);
 }
 
+extern "C" __global__ __vector__ void SimtNotifyImmediateRepeat(
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    asc_vf_call<SimtNotifyImmediateRepeatVf>(
+        dim3(1), channel, sendBufIdx, recvBufIdx);
+}
+
 extern "C" __global__ __vector__ void SimtCas(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
@@ -209,6 +237,8 @@ void LaunchSimtNotifyAtomic(
 {
     if (mode == simt_notify_atomic::kModeNotify) {
         SimtNotify<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
+    } else if (mode == simt_notify_atomic::kModeNotifyImmediateRepeat) {
+        SimtNotifyImmediateRepeat<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
     } else if (mode == simt_notify_atomic::kModeFaa) {
         SimtFaa<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
     } else if (mode == simt_notify_atomic::kModeCas) {

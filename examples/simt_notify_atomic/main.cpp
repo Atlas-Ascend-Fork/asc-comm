@@ -96,6 +96,10 @@ bool ParseMode(const char* arg, uint32_t& mode)
         mode = kModeMultiLane;
         return true;
     }
+    if (name == "notify_immediate_repeat") {
+        mode = kModeNotifyImmediateRepeat;
+        return true;
+    }
     return false;
 }
 
@@ -115,6 +119,9 @@ const char* ModeName(uint32_t mode)
     }
     if (mode == kModeMultiLane) {
         return "multi_lane";
+    }
+    if (mode == kModeNotifyImmediateRepeat) {
+        return "notify_immediate_repeat";
     }
     return "single";
 }
@@ -319,7 +326,7 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
         kNotifyData, kNotifySignal, kFaaInitial + kFaaAdd, kCasSwap, 0U, 0U};
     const uint64_t expectedMultiLane[kSlotCount] = {
         kNotifyData, kNotifySignal, kFaaInitial + kFaaAdd, kCasSwap, kNotifyData, kFinalNotifySignal};
-    if (mode == kModeNotify) {
+    if (mode == kModeNotify || mode == kModeNotifyImmediateRepeat) {
         return CheckWords(recvBuf, expectedNotify, "receiver target");
     }
     if (mode == kModeFaa) {
@@ -340,7 +347,8 @@ int main(int argc, char* argv[])
 {
     if (argc < 4) {
         std::cout << "Usage: " << argv[0] << " <rank> <nranks> <rank_table_file> [mode]" << std::endl;
-        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane" << std::endl;
+        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane"
+                     " | notify_immediate_repeat" << std::endl;
         return 1;
     }
 
@@ -355,7 +363,8 @@ int main(int argc, char* argv[])
     uint32_t mode = kModeSingle;
     if (argc > 4 && !ParseMode(argv[4], mode)) {
         std::cout << "Unknown mode: " << argv[4] << std::endl;
-        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane" << std::endl;
+        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane"
+                     " | notify_immediate_repeat" << std::endl;
         return 1;
     }
 

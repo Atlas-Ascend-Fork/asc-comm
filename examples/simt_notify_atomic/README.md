@@ -10,6 +10,7 @@
 - `single`：串行提交Notify、FAA和CAS，每次操作后分别调用`Drain`。
 - `batch_last`：Notify和FAA使用`commit=false`延迟提交，最后通过`commit=true`的CAS提交整个批次。
 - `multi_lane`：三个lane分别延迟提交Notify、FAA和CAS；同步后由lane 0追加一次Notify并提交整个批次。
+- `notify_immediate_repeat`：单lane连续提交100个`WriteWithNotifyNbi<true>`，每个WQE立即敲DB，最后统一调用一次`Drain`；用于覆盖连续立即提交场景。
 
 ## 准备开发验证环境
 
@@ -44,6 +45,7 @@ bash run.sh 2 /path/to/rank_table.json cas
 bash run.sh 2 /path/to/rank_table.json single
 bash run.sh 2 /path/to/rank_table.json batch_last
 bash run.sh 2 /path/to/rank_table.json multi_lane
+bash run.sh 2 /path/to/rank_table.json notify_immediate_repeat
 ```
 
 每种模式的预期输出如下：

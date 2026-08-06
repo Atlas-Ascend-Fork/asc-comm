@@ -48,7 +48,9 @@ constexpr uint32_t kModeMultiLane = 2U;
 constexpr uint32_t kModeNotify = 3U;
 constexpr uint32_t kModeFaa = 4U;
 constexpr uint32_t kModeCas = 5U;
+constexpr uint32_t kModeNotifyImmediateRepeat = 6U;
 constexpr uint32_t kMultiLaneCount = 3U;
+constexpr uint32_t kNotifyImmediateRepeatCount = 100U;
 
 } // namespace simt_notify_atomic
 
