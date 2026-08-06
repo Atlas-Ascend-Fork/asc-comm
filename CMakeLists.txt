@@ -25,6 +25,8 @@ endif()
 set(ASC_COMM_AICPU_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu")
 set(ASC_COMM_AICPU_INCLUDE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu")
 set(ASC_COMM_AICPU_INCLUDE_DIR "${ASC_COMM_AICPU_INCLUDE_ROOT_DIR}/hcomm")
+# POD资源ABI头所在的独立工程目录；本工程只引用其头文件，不编译其源文件
+set(ASC_COMM_POD_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/pod_only")
 
 include(cmake/fetch_cann_cmake.cmake)
 project(asc_comm_aicpu_data_plane LANGUAGES CXX)
@@ -47,6 +49,8 @@ set(ASC_COMM_AICPU_INCLUDE_LIST
     ${ASC_COMM_AICPU_INCLUDE_DIR}
     ${ASC_COMM_AICPU_SRC_DIR}/common/hcomm_compat
     ${ASC_COMM_AICPU_SRC_DIR}/common/hcomm_compat/hccl
+    # POD资源ABI头，供legacy->POD资源转换及其依赖的导出接口使用
+    ${ASC_COMM_POD_ROOT}/include/aicpu/hcomm
 )
 foreach(include_root
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm
