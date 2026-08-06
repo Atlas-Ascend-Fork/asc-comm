@@ -372,7 +372,7 @@ static CcuResult CcuAllocVarEventRes(CcuInsHandle insHandle, hcomm::CcuVarEventT
     uint8_t dieId, uint32_t num, uint64_t &outHandle)
 {
     const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
-    auto *ccuIns = hcomm::CcuKernelRegistryMgr::GetInstance(devLogicId).Get(insHandle);
+auto *ccuIns = hcomm::CcuKernelRegistryMgr::GetInstance(devLogicId).Get(insHandle);
     CCU_CHK_PTR_NULL(ccuIns);
 
     auto *resPack = ccuIns->GetResSnapshot();
