@@ -45,7 +45,9 @@ static HcclResult InitAlgResourceCtx(
 
         void* newCtx = nullptr;
         CHK_RET(HcclEngineCtxCreate(comm, param.tag, param.engine, ctxSize, &newCtx));
-        memcpy_s(newCtx, ctxSize, seq.data(), ctxSize);
+        if (memcpy_s(newCtx, ctxSize, seq.data(), ctxSize) != EOK) {
+            return HCCL_E_INTERNAL;
+        }
         param.ctxSize = ctxSize;
         HCCL_INFO("Execute GetAlgResCCU success.");
     }

@@ -30,6 +30,7 @@
 #include <ccu/hcomm/ccu_launch.h>
 #include <ccu/hcomm/ccu_res.h>
 #include <hccl/hccl_ccu_res.h>
+#include "../../common/ccu_instance.h"
 
 namespace CcuAgMem2mem {
 namespace {
@@ -97,13 +98,15 @@ private:
 };
 
 HcclResult GetChannelForCcu(
-    HcclComm comm, uint32_t myRank, uint32_t rankSize, std::vector<ChannelHandle>& kernelChannels)
+    HcclComm comm, uint32_t myRank, uint32_t rankSize, std::vector<ChannelHandle>& kernelChannels,
+    uint32_t& kernelDie)
 {
     const uint32_t channelNum = rankSize - 1;
     std::vector<HcclChannelDesc> channelDescs(channelNum);
     kernelChannels.resize(channelNum);
 
     uint32_t channelIndex = 0;
+    bool hasKernelDie = false;
     for (uint32_t remoteRank = 0; remoteRank < rankSize; ++remoteRank) {
         if (remoteRank == myRank) {
             continue;
@@ -131,6 +134,9 @@ HcclResult GetChannelForCcu(
             desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
             desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
             desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+            uint32_t channelDie = 0;
+            RETURN_IF_HCCL_FAIL(asccomm_examples::QueryEndpointDie(comm, myRank, link.srcEndpointDesc, channelDie));
+            RETURN_IF_HCCL_FAIL(asccomm_examples::MergeKernelDie(channelDie, hasKernelDie, kernelDie));
             found = true;
             break;
         }
@@ -148,7 +154,7 @@ HcclResult GetChannelForCcu(
 
 HcclResult RegisterCcuKernel(
     HcclComm comm, uint32_t myRank, uint32_t rankSize, const std::vector<ChannelHandle>& channels,
-    AlgResourceCtx& resCtx)
+    uint32_t kernelDie, AlgResourceCtx& resCtx)
 {
     auto kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>();
     kernelArg->rankSize = rankSize;
@@ -159,22 +165,17 @@ HcclResult RegisterCcuKernel(
     kernelArg->channelCount = static_cast<uint32_t>(channels.size());
 
     CcuInsHandle insHandle = 0;
-    uint32_t insNum = 0;
-    RETURN_IF_HCCL_FAIL(HcclCommQueryCcuIns(comm, &insHandle, &insNum));
-    if (insNum != 1) {
-        std::cerr << "HcclCommQueryCcuIns returned " << insNum << " CCU instances\n";
-        return HCCL_E_INTERNAL;
-    }
+    RETURN_IF_HCCL_FAIL(asccomm_examples::GetOrCreateCcuInstance(comm, insHandle));
 
     resCtx.ccuKernels.resize(1);
     RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(HcommCcuKernelRegisterStart(insHandle)));
 
     CcuKernelHandle kernelHandle = 0;
     const void* kernelArgs[] = {kernelArg.get()};
-    constexpr uint32_t dieId = 0;
     constexpr uint32_t kernelArgNum = 1;
     RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(HcommCcuKernelRegister(
-        insHandle, dieId, "CcuAllGatherMesh1DMem2MemKernel", reinterpret_cast<void*>(CcuAllGatherMesh1DMem2MemKernel),
+        insHandle, kernelDie, "CcuAllGatherMesh1DMem2MemKernel",
+        reinterpret_cast<void*>(CcuAllGatherMesh1DMem2MemKernel),
         kernelArgs, kernelArgNum, &kernelHandle)));
     resCtx.ccuKernels[0] = kernelHandle;
 
@@ -201,8 +202,9 @@ HcclResult AllocAlgResource(
         return HCCL_SUCCESS;
     }
 
-    RETURN_IF_HCCL_FAIL(GetChannelForCcu(comm, myRank, rankSize, resCtx.kernelChannels));
-    RETURN_IF_HCCL_FAIL(RegisterCcuKernel(comm, myRank, rankSize, resCtx.kernelChannels, resCtx));
+    uint32_t kernelDie = 0;
+    RETURN_IF_HCCL_FAIL(GetChannelForCcu(comm, myRank, rankSize, resCtx.kernelChannels, kernelDie));
+    RETURN_IF_HCCL_FAIL(RegisterCcuKernel(comm, myRank, rankSize, resCtx.kernelChannels, kernelDie, resCtx));
     return HCCL_SUCCESS;
 }
 
