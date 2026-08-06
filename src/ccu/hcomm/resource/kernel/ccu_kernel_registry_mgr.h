@@ -8,43 +8,46 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_INSTANCE_MGR_H
-#define HCOMM_CCU_INSTANCE_MGR_H
+#ifndef CCU_KERNEL_REGISTRY_MGR_H
+#define CCU_KERNEL_REGISTRY_MGR_H
 
 #include <mutex>
 #include <shared_mutex>
 #include <unordered_map>
 
 #include "ccu/hcomm/ccu_types.h"
-#include "hcomm/resource/instance/ccu_instance.h"
+#include "hcomm/resource/kernel/ccu_kernel_registry.h"
 
 namespace hcomm {
 
-class CcuInstanceMgr {
+class CcuKernelRegistryMgr {
 public:
-    static CcuInstanceMgr& GetInstance(const int32_t deviceLogicId);
+    static CcuKernelRegistryMgr& GetInstance(const int32_t deviceLogicId);
 
     CcuResult Init();
     CcuResult Deinit();
 
-    CcuResult Create(CcuInstanceType insType, CcuInsHandle& insHandle);
-    CcuInstance* Get(CcuInsHandle insHandle) const;
+    // deviceLogicId 由调用方显式传入，不从线程当前设备推断，理由见 CcuKernelRegistry::Init。
+    CcuResult Create(int32_t deviceLogicId, CcuInsHandle& insHandle);
+    CcuKernelRegistry* Get(CcuInsHandle insHandle) const;
+    // 查询句柄是否存在。与 Get 不同，句柄不存在属于正常查询结果，不记录错误日志。
+    bool Exists(CcuInsHandle insHandle) const;
     CcuResult Destroy(CcuInsHandle insHandle);
 
 private:
-    explicit CcuInstanceMgr() = default;
-    ~CcuInstanceMgr();
+    explicit CcuKernelRegistryMgr() = default;
+    ~CcuKernelRegistryMgr();
 
-    CcuInstanceMgr(const CcuInstanceMgr& that) = delete;
-    CcuInstanceMgr& operator=(const CcuInstanceMgr& that) = delete;
+    CcuKernelRegistryMgr(const CcuKernelRegistryMgr& that) = delete;
+    CcuKernelRegistryMgr& operator=(const CcuKernelRegistryMgr& that) = delete;
 
 private:
     bool initializedFlag_{false};
     int32_t devLogicId_{-1};
     CcuInsHandle instanceId_{0};
     mutable std::shared_timed_mutex insMapMutex_;
-    std::unordered_map<CcuInsHandle, std::unique_ptr<CcuInstance>> insMap_{};
+    std::unordered_map<CcuInsHandle, std::unique_ptr<CcuKernelRegistry>> insMap_{};
 };
 }; // namespace hcomm
 
-#endif // HCOMM_CCU_INSTANCE_MGR_H
+#endif // CCU_KERNEL_REGISTRY_MGR_H

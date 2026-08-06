@@ -11,12 +11,23 @@
 #ifndef CCU_RES_H
 #define CCU_RES_H
 
+#include <stdint.h>
+
 #include "ccu/hcomm/ccu_res_defs.h"
 #include "ccu/hcomm/ccu_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
+
+/** CCU 实例类型，决定通信域的算子展开模式与资源规格。 */
+typedef enum {
+    CCU_DEFAULT = 0,   /**< default, now is scheduler mode */
+    CCU_SCHED = 1,     /**< scheduler mode, with less loop resource */
+    CCU_MS = 2,        /**< memory slices mode, with more loop resouce */
+    CCU_UNUSED = 254,
+    CCU_RESERVED = 255 /**< reserved */
+} CcuInstanceType;
 
 /**
  * @brief 在指定 CCU 实例上预约一段连续的 Variable(XN) 资源，并在申请期完成地址映射。
@@ -69,92 +80,42 @@ extern CcuResult HcommCcuEventGetAddr(CcuEventHandle eventHandle, uint32_t index
  * @param[out] resDesc 创建成功后返回的资源描述符句柄，不可为 nullptr。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescCreate(uint32_t dieId, HcommCcuResDescHandle* resDesc);
 
 /**
- * @brief 销毁 CCU 资源描述符。
- * @param[in] resDesc 资源描述符句柄。
+ * @brief 为指定设备上的通信域建立 kernel 注册上下文。
+ *
+ * 由 hcomm 在建立通信域时调用。本接口只分配一个 CcuInsHandle 并建立数据面注册状态槽位，
+ * 不拉起驱动、不申请硬件资源——二者属控制面，由 hcomm 的 CCU feature 与 RegisterContext 负责。
+ *
+ * deviceLogicId 必须显式传入：CcuInsHandle 由 per-device 计数器分配且各自从 0 起，
+ * 跨设备会重号，仅凭 handle 无法定位注册上下文，也不得依赖线程当前设备推断。
+ *
+ * @param[in] deviceLogicId 目标设备逻辑 ID。
+ * @param[out] handle 成功后返回的注册上下文句柄，不可为 nullptr。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescDestroy(HcommCcuResDescHandle resDesc);
+extern CcuResult HcommCcuKernelRegistryCreate(int32_t deviceLogicId, CcuInsHandle* handle);
 
 /**
- * @brief 查询 CCU 资源描述符归属的 ioDie ID。
- * @param[in] resDesc 资源描述符句柄。
- * @param[out] dieId 查询成功后返回 ioDie ID，不可为 nullptr。
+ * @brief 销毁指定设备上的 kernel 注册上下文。
+ *
+ * 注销该上下文名下已注册的全部 kernel 并归还其指令区间，然后丢弃资源快照。
+ * 调用方需保证目标设备可被切换，本接口内部会切换并恢复设备上下文。
+ *
+ * @param[in] handle 注册上下文句柄。
+ * @param[in] deviceLogicId 上下文所属设备逻辑 ID。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle resDesc, uint32_t* dieId);
+extern CcuResult HcommCcuKernelRegistryDestroy(CcuInsHandle handle, int32_t deviceLogicId);
 
 /**
- * @brief 设置指定 CCU 资源描述符内指定资源类型的资源数量。
- * @param[in] resDesc 资源描述符句柄。
- * @param[in] resType 资源类型。
- * @param[in] resNum 资源数量。
+ * @brief 查询指定设备上的 kernel 注册上下文是否存在。
+ * @param[in] handle 注册上下文句柄。
+ * @param[in] deviceLogicId 上下文所属设备逻辑 ID。
+ * @param[out] exists 存在回填 1，不存在回填 0，不可为 nullptr。句柄不存在不视为错误。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescSetNum(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t resNum);
-
-/**
- * @brief 查询指定 CCU 资源描述符内指定资源类型的资源数量。
- * @param[in] resDesc 资源描述符句柄。
- * @param[in] resType 资源类型。
- * @param[out] resNum 查询成功后返回资源数量，不可为 nullptr。
- * @return CcuResult。
- */
-extern CcuResult HcommCcuInsResDescQueryNum(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t* resNum);
-
-/**
- * @brief 基于资源描述符创建 CCU 实例。
- * @param[in] resDescs 资源描述符句柄数组。
- * @param[in] resDescNum 资源描述符数量。
- * @param[out] ccuInsHandle 创建成功后返回的 CCU 实例句柄，不可为 nullptr。
- * @return CcuResult。
- */
-extern CcuResult HcommCcuInsCreate(
-    const HcommCcuResDescHandle* resDescs, uint32_t resDescNum, CcuInsHandle* ccuInsHandle);
-
-/**
- * @brief 使用指定 ioDie 上的默认资源创建 CCU 实例。
- * @param[in] dieIds ioDie ID 数组。
- * @param[in] dieNum ioDie 数量。
- * @param[out] ccuInsHandle 创建成功后返回的 CCU 实例句柄，不可为 nullptr。
- * @return CcuResult。
- */
-extern CcuResult HcommCcuInsCreateDefault(const uint32_t* dieIds, uint32_t dieNum, CcuInsHandle* ccuInsHandle);
-
-/**
- * @brief 销毁 CCU 实例。
- * @param[in] ccuInsHandle CCU 实例句柄。
- * @return CcuResult。
- */
-extern CcuResult HcommCcuInsDestroy(CcuInsHandle ccuInsHandle);
-
-/**
- * @brief 查询 CCU 实例在资源描述符所属 ioDie 上占用的资源。
- * @param[in] ccuInsHandle CCU 实例句柄。
- * @param[in,out] resDesc 调用方基于待查询 ioDie 创建的资源描述符句柄，查询成功后写入该 ioDie 上的占用资源数量。
- * @return CcuResult。
- */
-extern CcuResult HcommCcuInsQueryResDesc(CcuInsHandle ccuInsHandle, HcommCcuResDescHandle resDesc);
-
-/**
- * @brief 查询资源描述符所属 ioDie 上的剩余 CCU 资源。
- * @param[in,out] resDesc 调用方基于待查询 ioDie 创建的资源描述符句柄，查询成功后写入该 ioDie 上的剩余资源数量。
- * @return CcuResult。
- */
-extern CcuResult HcommCcuQueryRemainResDesc(HcommCcuResDescHandle resDesc);
-
-/**
- * @brief 查询 CCU Kernel 的资源诉求。
- * @param[in] kernelFunc CCU Kernel 函数指针，不可为 nullptr。
- * @param[in] kernelArgs CCU Kernel 参数数组；argNum 为 0 时可为 nullptr。
- * @param[in] argNum CCU Kernel 参数数量。
- * @param[in,out] resDesc 调用方创建的资源描述符句柄，查询成功后写入资源诉求。
- * @return CcuResult。
- */
-extern CcuResult HcommCcuKernelQueryResReq(
-    const void* kernelFunc, const void** kernelArgs, uint32_t argNum, HcommCcuResDescHandle resDesc);
+extern CcuResult HcommCcuKernelRegistryExists(CcuInsHandle handle, int32_t deviceLogicId, uint32_t* exists);
 
 /**
  * @brief 查询/计算一段本端内存区域的 CCU 访问 token，供 host 端组装 LocalAddr/RemoteAddr 使用。

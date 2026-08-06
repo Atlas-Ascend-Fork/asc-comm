@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef CCU_RES_PACK_H
-#define CCU_RES_PACK_H
+#ifndef ASC_CCU_RES_SNAPSHOT_H
+#define ASC_CCU_RES_SNAPSHOT_H
 
 #include <array>
 #include <cstdint>
@@ -20,10 +20,20 @@
 
 namespace hcomm {
 
-class CcuResPack {
+/**
+ * @note 职责：RegisterContext 的 asc 侧本地快照。
+ *
+ * 资源实体由 hcomm 的 RegisterContext 持有与释放，本类只保存其快照，不持有任何跨 SO 句柄。
+ * 其中两项为本地可变状态：resRepo_ 是被 kernel 注册消耗的余量池（见 MoveResInfo），
+ * instructionUsed_ 是指令池的本地切分游标。
+ *
+ * 命名以 Asc 前缀区分：hcomm legacy 另有同名的 struct CcuResPack
+ * （legacy/ascend950/unified_platform/pub_inc/ccu/ccu_res_pack.h），二者无关。
+ */
+class AscCcuResSnapshot {
 public:
-    CcuResPack() = default;
-    ~CcuResPack() = default;
+    AscCcuResSnapshot() = default;
+    ~AscCcuResSnapshot() = default;
 
     CcuResult Load(const HcommCcuRegisterContextPod &context);
     CcuResult Reset();
@@ -38,10 +48,10 @@ public:
     uint32_t GetValidDieMask() const;
 
 private:
-    CcuResPack(const CcuResPack &that) = delete;
-    CcuResPack &operator=(const CcuResPack &that) = delete;
-    CcuResPack(CcuResPack &&that) = delete;
-    CcuResPack &operator=(CcuResPack &&that) = delete;
+    AscCcuResSnapshot(const AscCcuResSnapshot &that) = delete;
+    AscCcuResSnapshot &operator=(const AscCcuResSnapshot &that) = delete;
+    AscCcuResSnapshot(AscCcuResSnapshot &&that) = delete;
+    AscCcuResSnapshot &operator=(AscCcuResSnapshot &&that) = delete;
 
     uint64_t generation_{0};
     int32_t deviceLogicId_{0};
@@ -57,4 +67,4 @@ private:
 
 } // namespace hcomm
 
-#endif // CCU_RES_PACK_H
+#endif // ASC_CCU_RES_SNAPSHOT_H
