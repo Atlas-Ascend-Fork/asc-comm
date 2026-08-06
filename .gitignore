@@ -1,5 +1,6 @@
 build/
 build_out/
+examples/simt_notify_atomic_perf/results/
 oat_reports/
 log/
 AGENTS.md
