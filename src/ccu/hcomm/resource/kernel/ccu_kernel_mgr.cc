@@ -11,8 +11,6 @@
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 #include "hcomm/resource/kernel/ccu_kernel_res_allocator.h"
 
-#include <acl/acl.h>
-
 #include "string_util.h"
 #include "exception_handler.h"
 #include "adapter_rts.h"
@@ -30,21 +28,6 @@
 #include "hcomm/resource/common/ccu_kernel_func.h"
 
 namespace hcomm {
-
-namespace {
-HcclResult GetHcclVersionForCcuKernelMgr(int& hcclVersion)
-{
-    char hcclPkgName[] = "hccl";
-    const aclError aclRet = aclsysGetVersionNum(hcclPkgName, &hcclVersion);
-    CHK_PRT_RET(
-        aclRet != ACL_SUCCESS, HCCL_ERROR("[%s] aclsysGetVersionNum failed, aclRet[%d].", __func__, aclRet),
-        HcclResult::HCCL_E_INTERNAL);
-    HCCL_RUN_INFO("[%s] hccl version is %d.", __func__, hcclVersion);
-    return HcclResult::HCCL_SUCCESS;
-}
-
-constexpr int MAX_HCCL_VERSION_USING_CCU_RES_STATIC_ALLOC = 90100000;
-} // namespace
 
 CcuKernelMgr::~CcuKernelMgr()
 {
@@ -164,13 +147,7 @@ CcuResult CcuKernelMgr::Register(
     }
 
     currKernel_->FlushClosablePendingIfs(); // 处理未闭合的if
-    int hcclVersion = 0;
-    CCU_CHK_RET(GetHcclVersionForCcuKernelMgr(hcclVersion));
-    if (hcclVersion <= MAX_HCCL_VERSION_USING_CCU_RES_STATIC_ALLOC) {
-        CCU_CHK_RET(currKernel_->ApplyDieFromChannels());
-    } else {
-        CCU_CHK_RET(currKernel_->ValidateAndApplyDie(dieId));
-    }
+    CCU_CHK_RET(currKernel_->ValidateAndApplyDie(dieId));
     CCU_CHK_RET(PrepareConstValueResources()); // 记录翻译过程所需常量并申请对应资源
 
     CcuResult ret = AllocRes(resPack);
