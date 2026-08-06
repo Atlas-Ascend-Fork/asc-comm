@@ -33,6 +33,7 @@ public:
     CcuResPack* GetResPack();
     CcuResult SaveKernel(const CcuKernelHandle kernelHandle);
     const std::vector<CcuKernelHandle>& GetUntranslatedKernels();
+    void SetHandle(CcuInsHandle insHandle);
 
     CcuResult BeginRegister();
     CcuResult CheckRegistering() const;
@@ -45,6 +46,7 @@ private:
 
     CcuInstanceType insType_{CcuInstanceType::CCU_UNUSED};
     int32_t devLogicId_{INT32_MAX};
+    CcuInsHandle insHandle_{0};
     std::shared_ptr<hcomm::CcuDrvHandle> ccuDrvHandle_{};
     std::unique_ptr<CcuResPack> resPack_{};
     std::vector<CcuKernelHandle> kernelHandles_{};
