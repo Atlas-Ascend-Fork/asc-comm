@@ -16,13 +16,15 @@
 #include "alg_resource.h"
 #include "ccu_kernel.h"
 #include "ccu/hcomm/ccu_launch.h"
+#include "../../common/ccu_instance.h"
 #include <hccl/hccl_ccu_res.h>
 
 namespace ops_hccl_ar {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 
 static HcclResult AllocThreadAndChannelResource(
-    HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost, std::vector<ChannelHandle>& kernelChannels)
+    HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost, std::vector<ChannelHandle>& kernelChannels,
+    uint32_t& kernelDie)
 {
     ThreadHandle thread;
     constexpr uint32_t notifyNumOnMainThread = 0;
@@ -38,6 +40,7 @@ static HcclResult AllocThreadAndChannelResource(
     kernelChannels.resize(channelNum);
 
     uint32_t channelIndex = 0;
+    bool hasKernelDie = false;
     for (uint32_t remoteRank = 0; remoteRank < param.rankSize; remoteRank++) {
         if (remoteRank == param.myRank) {
             continue;
@@ -65,6 +68,10 @@ static HcclResult AllocThreadAndChannelResource(
                 desc.remoteEndpoint.protocol = link.dstEndpointDesc.protocol;
                 desc.remoteEndpoint.commAddr = link.dstEndpointDesc.commAddr;
                 desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
+                uint32_t channelDie = 0;
+                RETURN_IF_HCCL_FAIL(
+                    asccomm_examples::QueryEndpointDie(comm, param.myRank, link.srcEndpointDesc, channelDie));
+                RETURN_IF_HCCL_FAIL(asccomm_examples::MergeKernelDie(channelDie, hasKernelDie, kernelDie));
                 protocolExists = true;
                 break;
             }
@@ -82,10 +89,13 @@ static HcclResult AllocThreadAndChannelResource(
 }
 
 static HcclResult RegisterAllReduceKernel(
-    HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost, const std::vector<ChannelHandle>& kernelChannels)
+    HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost,
+    const std::vector<ChannelHandle>& kernelChannels, uint32_t kernelDie)
 {
     CcuKernelInfo kernelInfo;
-    strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllReduceMesh1DMem2MemKernel");
+    if (strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllReduceMesh1DMem2MemKernel") != EOK) {
+        return HCCL_E_INTERNAL;
+    }
     kernelInfo.kernelFunc = reinterpret_cast<void*>(CcuAllReduceMesh1DMem2MemKernel);
 
     auto kernelArg = std::make_shared<CcuKernelArgAllReduceMesh1DMem2Mem>();
@@ -99,11 +109,7 @@ static HcclResult RegisterAllReduceKernel(
     kernelArg->channelCount = static_cast<uint32_t>(kernelChannels.size());
 
     CcuInsHandle insHandle{0};
-    uint32_t insNum = 0;
-    RETURN_IF_HCCL_FAIL(HcclCommQueryCcuIns(comm, &insHandle, &insNum));
-    if (insNum != 1) {
-        return HCCL_E_INTERNAL;
-    }
+    RETURN_IF_HCCL_FAIL(asccomm_examples::GetOrCreateCcuInstance(comm, insHandle));
 
     resCtxHost.ccuKernels.resize(1); // 只注册一个 kernel
 
@@ -115,10 +121,9 @@ static HcclResult RegisterAllReduceKernel(
     CcuKernelHandle kernelHandle;
     const void* kernelArgs[] = {kernelInfo.kernelArg};
 
-    constexpr uint32_t dieId = 0; // 预留接口，暂无含义
     constexpr uint32_t kernelArgNum = 1;
     CcuResult regRet = HcommCcuKernelRegister(
-        insHandle, dieId, kernelInfo.kernelFuncName, reinterpret_cast<void*>(kernelInfo.kernelFunc), kernelArgs,
+        insHandle, kernelDie, kernelInfo.kernelFuncName, reinterpret_cast<void*>(kernelInfo.kernelFunc), kernelArgs,
         kernelArgNum, &kernelHandle); // 注册 kernel
 
     if (regRet != CCU_SUCCESS) {
@@ -137,13 +142,14 @@ static HcclResult RegisterAllReduceKernel(
 HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost)
 {
     std::vector<ChannelHandle> kernelChannels;
-    RETURN_IF_HCCL_FAIL(AllocThreadAndChannelResource(comm, param, resCtxHost, kernelChannels));
+    uint32_t kernelDie = 0;
+    RETURN_IF_HCCL_FAIL(AllocThreadAndChannelResource(comm, param, resCtxHost, kernelChannels, kernelDie));
 
     if (param.rankSize == 1) {
         return HCCL_SUCCESS;
     }
 
-    RETURN_IF_HCCL_FAIL(RegisterAllReduceKernel(comm, param, resCtxHost, kernelChannels));
+    RETURN_IF_HCCL_FAIL(RegisterAllReduceKernel(comm, param, resCtxHost, kernelChannels, kernelDie));
     return HCCL_SUCCESS;
 }
 
