@@ -46,6 +46,6 @@ exclude = [
 ]
 
 exclude_path = [
-    "^tests/api/adv_api/hccl/cc/st/algorithm/README\\.md$",
-    "^tests/api/adv_api/hccl/cc/st/algorithm/README_en\\.md$",
+    "^tests/api/comm_api/hccl/cc/st/algorithm/README\\.md$",
+    "^tests/api/comm_api/hccl/cc/st/algorithm/README_en\\.md$",
 ]

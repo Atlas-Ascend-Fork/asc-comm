@@ -104,8 +104,8 @@ find_package(Python3 COMPONENTS Interpreter QUIET)
 add_library(kernel_tiling INTERFACE)
 target_include_directories(kernel_tiling INTERFACE ${CMAKE_BINARY_DIR})
 set(KERNEL_TILING_FILE ${CMAKE_BINARY_DIR}/kernel_tiling/kernel_tiling.h)
-set(GEN_TILING_SCRIPT ${ASCENDC_DIR}/impl/adv_api/cmake/scripts/gen_kernel_tiling_data_def.py)
-set(TILING_DEF_DIR ${ASCENDC_DIR}/include/adv_api)
+set(GEN_TILING_SCRIPT ${ASCENDC_DIR}/impl/comm_api/cmake/scripts/gen_kernel_tiling_data_def.py)
+set(TILING_DEF_DIR ${ASCENDC_DIR}/include/comm_api)
 if(Python3_Interpreter_FOUND AND EXISTS "${GEN_TILING_SCRIPT}" AND EXISTS "${TILING_DEF_DIR}")
     add_custom_command(
         OUTPUT ${KERNEL_TILING_FILE}
