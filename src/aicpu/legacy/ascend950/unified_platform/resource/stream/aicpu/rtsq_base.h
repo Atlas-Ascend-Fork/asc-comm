@@ -59,6 +59,36 @@ public:
         return taskId_;
     }
 
+    inline u32 GetTaskIdEnd() const
+    {
+        return taskIdEnd_;
+    }
+
+    inline u32 GetDevPhyId() const
+    {
+        return devPhyId_;
+    }
+
+    inline u32 GetLocalDevId() const
+    {
+        return localDevId_;
+    }
+
+    inline u32 GetStreamId() const
+    {
+        return streamId_;
+    }
+
+    inline u32 GetSqId() const
+    {
+        return sqId_;
+    }
+
+    inline u64 GetSqBaseAddr() const
+    {
+        return sqBaseAddr_;
+    }
+
     void SetOpExecStatusCallback(std::function<void()> callback)
     {
         checkOpExecStatusCallback_ = callback;

@@ -24,6 +24,28 @@ constexpr u32 UB_STRONG_ORDER      = 0X02; // Strong Order表示当前SQE有保�
 constexpr u32 UB_NO_COMPLETION     = 0;    // 表示当前报文和前面报文没有completion序要求，报文对应的CQE可以乱序上报
 constexpr u32 UB_COMPLETION        = 1;    // 表示当前报文和前面报文有completion序要求，报文对应的CQE需要保序上报
 constexpr u8  UB_FENCE_ENABLED     = 1;    // fence使能
+
+namespace {
+void FillUrmaProtection(HcommProtectionInfo &protection, u64 addr, u64 size, u32 tokenId, u32 tokenValue)
+{
+    protection = {};
+    protection.type = HCOMM_PROTECTION_TYPE_URMA;
+    protection.addr = addr;
+    protection.length = size;
+    protection.protection.urma.tokenId = tokenId;
+    protection.protection.urma.tokenValue = tokenValue;
+}
+
+void FillPodNotify(HcommNotify &notify, u64 addr, u64 size, u32 tokenId, u32 tokenValue, u32 notifyId)
+{
+    notify = {};
+    notify.notify.rma.address = addr;
+    notify.notify.rma.notifyId = static_cast<int32_t>(notifyId);
+    notify.notify.rma.size = static_cast<u32>(size);
+    FillUrmaProtection(notify.notify.rma.protectionInfo, addr, size, tokenId, tokenValue);
+}
+} // namespace
+
 UbTransportLiteImpl::UbTransportLiteImpl(
     std::vector<char> &uniqueId, std::function<void(u32 streamId, u32 taskId, const TaskParam &taskParam)> callback)
 {
@@ -99,6 +121,78 @@ UbTransportLiteImpl::~UbTransportLiteImpl()
     for (auto &it : connUniqueIdVec) {
        DECTOR_TRY_CATCH("UbTransportLiteImpl",  UbConnLiteMgr::GetInstance().Clear(it));
     }
+}
+
+HcclResult UbTransportLiteImpl::ExportPodResource(HcommChannelEntity &entity,
+    std::vector<HcommNotify> &localNotifies, std::vector<HcommNotify> &remoteNotifies,
+    std::vector<HcommProtectionInfo> &localBuffers, std::vector<HcommProtectionInfo> &remoteBuffers,
+    std::vector<HcommSqContext> &sqContexts) const
+{
+    CHK_PRT_RET(connVec.empty() || connVec[0] == nullptr,
+        HCCL_ERROR("[UbTransportLiteImpl::%s] connection is empty.", __func__), HCCL_E_INTERNAL);
+
+    entity = {};
+    localNotifies.resize(locNotifyVec.size());
+    for (size_t index = 0; index < locNotifyVec.size(); ++index) {
+        CHK_PTR_NULL(locNotifyVec[index]);
+        // 本端notify仅用于Wait，POD侧只取notifyId
+        FillPodNotify(localNotifies[index], 0, sizeof(u32), 0, 0, locNotifyVec[index]->GetId());
+    }
+
+    remoteNotifies.resize(rmtNotifyVec.size());
+    for (size_t index = 0; index < rmtNotifyVec.size(); ++index) {
+        const auto &resource = rmtNotifyVec[index];
+        FillPodNotify(remoteNotifies[index], resource.addr, resource.size, resource.tokenId,
+            resource.tokenValue, resource.notifyId);
+    }
+
+    localBuffers.resize(locBufferMap.size());
+    size_t index = 0;
+    for (const auto &item : locBufferMap) {
+        const auto &resource = item.second;
+        FillUrmaProtection(localBuffers[index++], resource.addr, resource.size,
+            resource.tokenId, resource.tokenValue);
+    }
+
+    remoteBuffers.resize(rmtBufferVec.size());
+    for (index = 0; index < rmtBufferVec.size(); ++index) {
+        const auto &resource = rmtBufferVec[index];
+        FillUrmaProtection(remoteBuffers[index], resource.addr, resource.size,
+            resource.tokenId, resource.tokenValue);
+    }
+
+    sqContexts.resize(1);
+    sqContexts[0] = {};
+    const auto *connection = static_cast<const UbConnLite *>(connVec[0]);
+    connection->ExportPodContext(sqContexts[0].context.jfs);
+
+    entity.localNotifyNum = static_cast<u32>(localNotifies.size());
+    entity.localNotifyAddr = localNotifies.empty() ? nullptr : localNotifies.data();
+    entity.remoteNotifyNum = static_cast<u32>(remoteNotifies.size());
+    entity.remoteNotifyAddr = remoteNotifies.empty() ? nullptr : remoteNotifies.data();
+    entity.localBufferNum = static_cast<u32>(localBuffers.size());
+    entity.localBufferAddr = localBuffers.empty() ? nullptr : localBuffers.data();
+    entity.remoteBufferNum = static_cast<u32>(remoteBuffers.size());
+    entity.remoteBufferAddr = remoteBuffers.empty() ? nullptr : remoteBuffers.data();
+    entity.sqNum = static_cast<u32>(sqContexts.size());
+    entity.sqContextAddr = sqContexts.data();
+    entity.fence = fence_ ? 1 : 0;
+
+    if (drainNotify_.size != 0) {
+        entity.drainNotify.address = drainNotify_.addr;
+        entity.drainNotify.notifyId = static_cast<int32_t>(drainNotify_.notifyId);
+        entity.drainNotify.size = static_cast<u32>(drainNotify_.size);
+        FillUrmaProtection(entity.drainNotify.protectionInfo, drainNotify_.addr, drainNotify_.size,
+            drainNotify_.tokenId, drainNotify_.tokenValue);
+    }
+    if (rmtDrainBuffer_.size != 0) {
+        entity.remoteDrainBuffer.address = rmtDrainBuffer_.addr;
+        entity.remoteDrainBuffer.notifyId = static_cast<int32_t>(rmtDrainBuffer_.notifyId);
+        entity.remoteDrainBuffer.size = static_cast<u32>(rmtDrainBuffer_.size);
+        FillUrmaProtection(entity.remoteDrainBuffer.protectionInfo, rmtDrainBuffer_.addr, rmtDrainBuffer_.size,
+            rmtDrainBuffer_.tokenId, rmtDrainBuffer_.tokenValue);
+    }
+    return HCCL_SUCCESS;
 }
 
 std::string UbTransportLiteImpl::Describe() const

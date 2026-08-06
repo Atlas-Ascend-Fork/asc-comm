@@ -17,6 +17,7 @@
 #include "rmt_rma_buf_slice_lite.h"
 #include "rma_conn_lite.h"
 #include "udma_data_struct.h"
+#include "hcomm_pod_resource.h"
 #include "stream_lite.h"
 
 namespace Hccl {
@@ -98,6 +99,9 @@ public:
                            const SqeConfigLite &cfg, const StreamLite &stream, ConnLiteOperationOut &out) override;
     void BatchOneSidedWrite(const vector<RmaBufSliceLite> &loc, const vector<RmtRmaBufSliceLite> &rmt,
                             const SqeConfigLite &cfg, const StreamLite &stream, ConnLiteOperationOut &out) override;
+
+    // 将本连接的UB Jetty资源导出为POD ABI格式，供legacy->POD资源转换使用
+    void ExportPodContext(HcommJfsContext &jfs) const;
 private:
     u16  pi{0};
     u16  ci{0};
