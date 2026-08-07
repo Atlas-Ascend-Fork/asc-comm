@@ -9,23 +9,31 @@
  */
 
 /*!
- * \file hcomm_v220_impl.h
- * \brief Hcomm implementation for V220
+ * \file hcomm_impl_def.h
+ * \brief Hcomm implementation definition
  */
 
 #if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
 #pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
 #define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_V220_IMPL_H
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_DEF_H
 #endif
 
-#ifndef IMPL_COMM_API_AICORE_HCOMM_IMPL_HCOMM_V220_IMPL_H
-#define IMPL_COMM_API_AICORE_HCOMM_IMPL_HCOMM_V220_IMPL_H
+#ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_DEF_H
+#define IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_DEF_H
 
-#include "platform_v220/hcomm_aiv_def.h"
+#include "../common/hcomm_base.h"
+
+#if defined(__NPU_ARCH__) && __NPU_ARCH__ == 2201
+#include "hcomm_v220_impl.h"
+#endif
+
+#if defined(__NPU_ARCH__) && __NPU_ARCH__ == 3510
+#include "hcomm_v310_impl.h"
+#endif
 
 #endif
-#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_V220_IMPL_H)
+#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_DEF_H)
 #undef HCOMM_INCLUDE_INTERNAL_HEADERS
-#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_V220_IMPL_H
+#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_DEF_H
 #endif

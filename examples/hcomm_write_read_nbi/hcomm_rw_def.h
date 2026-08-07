@@ -13,10 +13,11 @@
 
 #include <cstdint>
 
-#include "comm_api/aicore/hcomm/hcomm.h"
+#include "adv_api/hcomm/hcomm.h"
 #include "hccl/hccl.h"
 // CommProtocol、COMM_PROTOCOL_UBC_CTP
 #include "hccl/hccl_comm.h"
+
 
 // 单次通信数据量（字节），需32字节对齐
 constexpr uint32_t DATA_SIZE = 256U;
