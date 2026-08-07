@@ -559,45 +559,56 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle 
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle channel)
+__aicore__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetQueueIndexAddrs(
+    ChannelHandle channel, QueueIndexAddrs& addrs)
 {
     if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA invalid channel=%lu \n", channel);
+        return false;
+    }
+    addrs.channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    auto sqCtx = addrs.channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto cqCtx = addrs.channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    addrs.sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    addrs.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr);
+    addrs.cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    addrs.cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
+    return true;
+}
+
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle channel)
+{
+    QueueIndexAddrs addrs;
+    if (!GetQueueIndexAddrs(channel, addrs)) {
         return HCOMM_FAILED;
     }
 
-    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
-    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    __gm__ uint32_t* sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
-    __gm__ uint32_t* sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr);
-    __gm__ uint32_t* cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
-    __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
-
-    channelEntity->sqHead = static_cast<uint32_t>(ld_dev(sqHeadAddr, 0));
-    channelEntity->sqTail = static_cast<uint32_t>(ld_dev(sqTailAddr, 0));
-    channelEntity->cqHead = static_cast<uint32_t>(ld_dev(cqHeadAddr, 0));
-    channelEntity->cqTail = static_cast<uint32_t>(ld_dev(cqTailAddr, 0));
+    CacheWriteThrough(addrs.sqHeadAddr, sizeof(uint32_t));
+    CacheWriteThrough(addrs.sqTailAddr, sizeof(uint32_t));
+    CacheWriteThrough(addrs.cqHeadAddr, sizeof(uint32_t));
+    CacheWriteThrough(addrs.cqTailAddr, sizeof(uint32_t));
+    addrs.channelEntity->sqHead = static_cast<uint32_t>(ld_dev(addrs.sqHeadAddr, 0));
+    addrs.channelEntity->sqTail = static_cast<uint32_t>(ld_dev(addrs.sqTailAddr, 0));
+    addrs.channelEntity->cqHead = static_cast<uint32_t>(ld_dev(addrs.cqHeadAddr, 0));
+    addrs.channelEntity->cqTail = static_cast<uint32_t>(ld_dev(addrs.cqTailAddr, 0));
     return HCOMM_SUCCESS;
 }
 
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Unlock(ChannelHandle channel)
 {
-    if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+    QueueIndexAddrs addrs;
+    if (!GetQueueIndexAddrs(channel, addrs)) {
         return HCOMM_FAILED;
     }
 
-    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
-    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    __gm__ uint32_t* sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
-    __gm__ uint32_t* sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr);
-    __gm__ uint32_t* cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
-    __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
-
-    st_dev(channelEntity->sqHead, sqHeadAddr, 0);
-    st_dev(channelEntity->sqTail, sqTailAddr, 0);
-    st_dev(channelEntity->cqHead, cqHeadAddr, 0);
-    st_dev(channelEntity->cqTail, cqTailAddr, 0);
+    CacheWriteThrough(addrs.sqHeadAddr, sizeof(uint32_t));
+    CacheWriteThrough(addrs.sqTailAddr, sizeof(uint32_t));
+    CacheWriteThrough(addrs.cqHeadAddr, sizeof(uint32_t));
+    CacheWriteThrough(addrs.cqTailAddr, sizeof(uint32_t));
+    st_dev(addrs.channelEntity->sqHead, addrs.sqHeadAddr, 0);
+    st_dev(addrs.channelEntity->sqTail, addrs.sqTailAddr, 0);
+    st_dev(addrs.channelEntity->cqHead, addrs.cqHeadAddr, 0);
+    st_dev(addrs.channelEntity->cqTail, addrs.cqTailAddr, 0);
     DataSyncBarrier<MemDsbT::DDR>();
     return HCOMM_SUCCESS;
 }
