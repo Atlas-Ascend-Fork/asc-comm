@@ -18,7 +18,6 @@
 // CommProtocol、COMM_PROTOCOL_UBC_CTP
 #include "hccl/hccl_comm.h"
 
-
 // 单次通信数据量（字节），需32字节对齐
 constexpr uint32_t DATA_SIZE = 256U;
 // 每张卡的通信窗口大小：4段DATA_SIZE（seg0/seg1/seg2/expected）< COMM_BUF_SIZE
