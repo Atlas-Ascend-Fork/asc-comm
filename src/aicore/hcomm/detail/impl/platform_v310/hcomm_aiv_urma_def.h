@@ -111,6 +111,8 @@ public:
     __aicore__ inline int32_t Commit(ChannelHandle channel);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
+    __aicore__ inline int32_t Lock(ChannelHandle channel);
+    __aicore__ inline int32_t Unlock(ChannelHandle channel);
 
 private:
     template <
