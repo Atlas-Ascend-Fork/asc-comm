@@ -3,7 +3,8 @@
 ## 概述
 
 本样例演示如何通过HCCL Resource API查询`COMM_PROTOCOL_UB_MEM`链路，在同一个通信域中为每个peer创建
-`pathMode=2`和`pathMode=3`两条Channel，并通过两个Stream并发搬运不同的数据分片。
+`pathMode=2`和`pathMode=3`两条Channel。各peer按顺序处理；处理单个peer时，通过两个Stream并发搬运
+不同的数据分片。
 
 样例采用一进程一Device的运行方式。每个rank使用自己的rank ID填充本端HCCL Buffer，再从其他rank读取
 4 KB数据并校验。`run.sh`负责启动本机rank进程，rank 0进程负责分发`HcclRootInfo`。
@@ -51,7 +52,8 @@ peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端�
 3. 每个rank遍历RankGraph各层，为每个peer筛选一条`COMM_PROTOCOL_UB_MEM`链路。
 4. 每个peer基于同一组Endpoint构造`pathMode=2`和`pathMode=3`两个描述。
 5. 将所有peer的Channel描述一次性传入`HcclChannelAcquire`，批量创建Channel。
-6. 每个peer对应的两条Channel分别在两个Stream上读取前后两个2 KB分片，两个Kernel均下发后再同步Stream。
+6. 各peer按顺序处理；单个peer的两条Channel分别在两个Stream上读取前后两个2 KB分片，两个Kernel均下发后
+   再同步Stream，因此并发范围仅限同一peer的两条path。
 7. 将本端校验Buffer拷贝到Host，检查每个字节是否等于对端rank ID。
 8. 所有peer的数据校验完成后执行`HcclBarrier`，确保全部rank完成远端读取后再销毁通信资源。
 
@@ -86,8 +88,8 @@ peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端�
 
   | 参数 | 默认值 | 说明 |
   | --- | --- | --- |
-  | `-pes` | `2` | 通信域中的总rank数，必须为不小于2的偶数 |
-  | `-ipport` | `tcp://127.0.0.1:8899` | rank 0分发`HcclRootInfo`使用的地址 |
+  | `-pes` | `2` | 通信域中的总rank数，必须为不小于2的整数 |
+  | `-ipport` | `tcp://127.0.0.1:8899` | rank 0分发`HcclRootInfo`使用的地址；IPv6地址使用`tcp://[地址]:端口`格式 |
   | `-gnpus` | `2` | 当前机器启动的rank进程数 |
   | `-fpe` | `0` | 当前机器的起始rank ID |
   | `-fnpu` | `0` | 当前机器的起始Device ID |

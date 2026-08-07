@@ -2,9 +2,9 @@
 
 ## Overview
 
-This sample demonstrates how to query a `COMM_PROTOCOL_UB_MEM` link through HCCL Resource APIs, create two
-channels with `pathMode=2` and `pathMode=3` for every peer in one communication domain, and copy separate data
-shards concurrently on two streams.
+This sample demonstrates how to query a `COMM_PROTOCOL_UB_MEM` link through HCCL Resource APIs and create two
+channels with `pathMode=2` and `pathMode=3` for every peer in one communication domain. Peers are processed
+serially; for each peer, separate data shards are copied concurrently on two streams.
 
 The sample uses one process per device. Each rank fills its local HCCL Buffer with its rank ID, reads 4 KB from
 every peer, and verifies the data. `run.sh` starts the local rank processes, and rank 0 distributes
@@ -56,8 +56,9 @@ For the same peer, the two channels use the same communication endpoints and are
 3. Each rank scans the RankGraph layers and selects one `COMM_PROTOCOL_UB_MEM` link for every peer.
 4. For every peer, the sample builds two descriptors with the same endpoints and `pathMode=2` and `pathMode=3`.
 5. All peer channel descriptors are passed to one `HcclChannelAcquire` call to create the channels in one batch.
-6. For each peer, the two channels read the first and second 2 KB shards on separate streams. Both kernels are
-   submitted before either stream is synchronized.
+6. Peers are processed serially. For each peer, the two channels read the first and second 2 KB shards on
+   separate streams, and both kernels are submitted before either stream is synchronized. Concurrency is limited
+   to the two paths of that peer.
 7. The local verification buffer is copied to the host, where every byte is checked against the peer rank ID.
 8. After all peer data is verified, `HcclBarrier` ensures that every rank has completed its remote reads before
    communication resources are destroyed.
@@ -95,8 +96,8 @@ Perform the following steps in the sample root directory. This sample supports N
 
   | Option | Default | Description |
   | --- | --- | --- |
-  | `-pes` | `2` | Total number of ranks; it must be an even integer greater than or equal to 2 |
-  | `-ipport` | `tcp://127.0.0.1:8899` | Address used by rank 0 to distribute `HcclRootInfo` |
+  | `-pes` | `2` | Total number of ranks; it must be an integer greater than or equal to 2 |
+  | `-ipport` | `tcp://127.0.0.1:8899` | Address used by rank 0 to distribute `HcclRootInfo`; use `tcp://[address]:port` for IPv6 |
   | `-gnpus` | `2` | Number of rank processes started on the current host |
   | `-fpe` | `0` | First rank ID on the current host |
   | `-fnpu` | `0` | First device ID on the current host |

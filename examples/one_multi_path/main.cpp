@@ -15,14 +15,14 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <thread>
 #include <vector>
 
-#include <arpa/inet.h>
 #include <netdb.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "acl/acl.h"
@@ -60,6 +60,7 @@ constexpr uint8_t PATH_MODE_ONE = 2;
 constexpr uint8_t PATH_MODE_MULTI = 3;
 constexpr CommProtocol TARGET_PROTOCOL = COMM_PROTOCOL_UB_MEM;
 constexpr uint32_t PATH_COUNT = 2;
+constexpr time_t SOCKET_IO_TIMEOUT_SECONDS = 30;
 constexpr uint8_t TARGET_PATH_MODES[PATH_COUNT] = {PATH_MODE_ONE, PATH_MODE_MULTI};
 static_assert(VERIFY_BYTES % PATH_COUNT == 0, "VERIFY_BYTES must be divisible by PATH_COUNT");
 
@@ -90,7 +91,6 @@ int TestDualPath(const Options& options, const HcclRootInfo& rootInfo)
     CommResources resources;
     HcclMemHandle memHandle = nullptr;
     std::vector<uint32_t> peerRanks;
-    std::vector<ChannelHandle> channels;
 
     // Initialize the communication domain and prepare data in the local HCCL Buffer.
     int result = HcclCommInitRootInfo(options.rankSize, &rootInfo, options.rank, &resources.comm);
@@ -132,7 +132,6 @@ int TestDualPath(const Options& options, const HcclRootInfo& rootInfo)
 
     // Acquire all peer channels in one batch.
     peerRanks.reserve(options.rankSize - 1);
-    channels.resize(options.rankSize * PATH_COUNT, 0);
     std::vector<HcclChannelDesc> allChannelDescs;
     allChannelDescs.reserve((options.rankSize - 1) * PATH_COUNT);
     for (uint32_t peerRank = 0; peerRank < options.rankSize; ++peerRank) {
@@ -152,19 +151,16 @@ int TestDualPath(const Options& options, const HcclRootInfo& rootInfo)
         peerRanks.push_back(peerRank);
     }
     const uint32_t channelDescNum = static_cast<uint32_t>(allChannelDescs.size());
-    std::vector<ChannelHandle> acquiredChannels(channelDescNum, 0);
-    result = HcclChannelAcquire(
-        resources.comm, COMM_ENGINE_AIV, allChannelDescs.data(), channelDescNum, acquiredChannels.data());
+    std::vector<ChannelHandle> channels(channelDescNum, 0);
+    result =
+        HcclChannelAcquire(resources.comm, COMM_ENGINE_AIV, allChannelDescs.data(), channelDescNum, channels.data());
     if (result != HCCL_SUCCESS) {
         std::cerr << "rank " << options.rank << ": HcclChannelAcquire failed, ret=" << result << std::endl;
         return CleanupCommRes(resources, result);
     }
-    for (uint32_t peerIndex = 0; peerIndex < peerRanks.size(); ++peerIndex) {
+    for (size_t peerIndex = 0; peerIndex < peerRanks.size(); ++peerIndex) {
         const uint32_t peerRank = peerRanks[peerIndex];
-        ChannelHandle* peerChannels = channels.data() + peerRank * PATH_COUNT;
-        for (uint32_t pathIndex = 0; pathIndex < PATH_COUNT; ++pathIndex) {
-            peerChannels[pathIndex] = acquiredChannels[peerIndex * PATH_COUNT + pathIndex];
-        }
+        const ChannelHandle* peerChannels = channels.data() + peerIndex * PATH_COUNT;
         if (peerChannels[0] == peerChannels[1]) {
             std::cerr << "rank " << options.rank << ": duplicate channel handles for rank " << peerRank << std::endl;
             return CleanupCommRes(resources, HCCL_E_INTERNAL);
@@ -182,10 +178,11 @@ int TestDualPath(const Options& options, const HcclRootInfo& rootInfo)
         return CleanupCommRes(resources, ReportError(options.rank, "aclrtMalloc verify buffer", result));
     }
 
-    // Copy disjoint shards through both channels before synchronizing either stream.
-    for (uint32_t peerRank : peerRanks) {
+    // Process peers serially; for each peer, submit both path shards before synchronizing either stream.
+    for (size_t peerIndex = 0; peerIndex < peerRanks.size(); ++peerIndex) {
+        const uint32_t peerRank = peerRanks[peerIndex];
         result = TransferAndVerifyShards(
-            options.rank, peerRank, resources.comm, channels.data() + peerRank * PATH_COUNT, resources);
+            options.rank, peerRank, resources.comm, channels.data() + peerIndex * PATH_COUNT, resources);
         if (result != HCCL_SUCCESS) {
             return CleanupCommRes(resources, result);
         }
@@ -332,27 +329,60 @@ int TransferAndVerifyShards(
     return HCCL_SUCCESS;
 }
 
+void RecordCleanupError(const char* operation, int result, int& firstError)
+{
+    if (result == 0) {
+        return;
+    }
+
+    std::cerr << operation << " failed during cleanup, ret=" << result << std::endl;
+    if (firstError == 0) {
+        firstError = result;
+    }
+}
+
 int CleanupCommRes(CommResources& resources, int status)
 {
+    int cleanupStatus = 0;
     for (uint32_t pathIndex = 0; pathIndex < PATH_COUNT; ++pathIndex) {
         if (resources.streams[pathIndex] != nullptr) {
-            status |= aclrtDestroyStream(resources.streams[pathIndex]);
+            const int cleanupResult = aclrtDestroyStream(resources.streams[pathIndex]);
+            RecordCleanupError("aclrtDestroyStream", cleanupResult, cleanupStatus);
         }
     }
 
     bool commDestroyed = true;
     if (resources.comm != nullptr) {
-        int cleanupResult = HcclCommDestroy(resources.comm);
+        const int cleanupResult = HcclCommDestroy(resources.comm);
         commDestroyed = cleanupResult == HCCL_SUCCESS;
-        status |= cleanupResult;
+        RecordCleanupError("HcclCommDestroy", cleanupResult, cleanupStatus);
     }
     if (resources.verifyBuffer != nullptr) {
-        status |= aclrtFree(resources.verifyBuffer);
+        const int cleanupResult = aclrtFree(resources.verifyBuffer);
+        RecordCleanupError("aclrtFree verify buffer", cleanupResult, cleanupStatus);
     }
     if (resources.channelMemory != nullptr && commDestroyed) {
-        status |= aclrtFree(resources.channelMemory);
+        const int cleanupResult = aclrtFree(resources.channelMemory);
+        RecordCleanupError("aclrtFree channel memory", cleanupResult, cleanupStatus);
     }
-    return status;
+    return status != HCCL_SUCCESS ? status : cleanupStatus;
+}
+
+bool ParseNonNegativeInt(const char* text, int& value)
+{
+    if (text == nullptr || *text == '\0') {
+        return false;
+    }
+
+    char* parseEnd = nullptr;
+    errno = 0;
+    const long parsed = std::strtol(text, &parseEnd, 10);
+    if (errno == ERANGE || parseEnd == text || *parseEnd != '\0' || parsed < 0 ||
+        parsed > std::numeric_limits<int>::max()) {
+        return false;
+    }
+    value = static_cast<int>(parsed);
+    return true;
 }
 
 bool ParseIpPort(const std::string& ipPort, std::string& host, uint16_t& port)
@@ -377,6 +407,12 @@ bool ParseIpPort(const std::string& ipPort, std::string& host, uint16_t& port)
         return false;
     }
     host = value.substr(0, separator);
+    if (host.front() == '[') {
+        if (host.size() < 3 || host.back() != ']') {
+            return false;
+        }
+        host = host.substr(1, host.size() - 2);
+    }
     port = static_cast<uint16_t>(parsedPort);
     return true;
 }
@@ -386,8 +422,16 @@ bool SendAll(int fd, const void* data, size_t size)
     const char* buffer = static_cast<const char*>(data);
     size_t sent = 0;
     while (sent < size) {
-        ssize_t count = send(fd, buffer + sent, size - sent, 0);
-        if (count <= 0) {
+        const ssize_t count = send(fd, buffer + sent, size - sent, MSG_NOSIGNAL);
+        if (count < 0 && errno == EINTR) {
+            continue;
+        }
+        if (count < 0) {
+            std::cerr << "send failed, errno=" << errno << std::endl;
+            return false;
+        }
+        if (count == 0) {
+            std::cerr << "send returned 0 before all data was sent" << std::endl;
             return false;
         }
         sent += static_cast<size_t>(count);
@@ -400,8 +444,16 @@ bool RecvAll(int fd, void* data, size_t size)
     char* buffer = static_cast<char*>(data);
     size_t received = 0;
     while (received < size) {
-        ssize_t count = recv(fd, buffer + received, size - received, 0);
-        if (count <= 0) {
+        const ssize_t count = recv(fd, buffer + received, size - received, 0);
+        if (count < 0 && errno == EINTR) {
+            continue;
+        }
+        if (count < 0) {
+            std::cerr << "recv failed, errno=" << errno << std::endl;
+            return false;
+        }
+        if (count == 0) {
+            std::cerr << "peer closed the connection before all data was received" << std::endl;
             return false;
         }
         received += static_cast<size_t>(count);
@@ -409,35 +461,67 @@ bool RecvAll(int fd, void* data, size_t size)
     return true;
 }
 
+bool SetSocketTimeouts(int fd)
+{
+    timeval timeout{};
+    timeout.tv_sec = SOCKET_IO_TIMEOUT_SECONDS;
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) != 0) {
+        std::cerr << "setsockopt SO_RCVTIMEO failed, errno=" << errno << std::endl;
+        return false;
+    }
+    if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) != 0) {
+        std::cerr << "setsockopt SO_SNDTIMEO failed, errno=" << errno << std::endl;
+        return false;
+    }
+    return true;
+}
+
 int CreateListenSocket(const std::string& host, uint16_t port)
 {
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) {
-        std::cerr << "socket failed, errno=" << errno << std::endl;
+    addrinfo hints{};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+    const std::string portText = std::to_string(port);
+    addrinfo* addresses = nullptr;
+    const int resolveResult = getaddrinfo(host.c_str(), portText.c_str(), &hints, &addresses);
+    if (resolveResult != 0) {
+        std::cerr << "getaddrinfo for listen address failed: " << gai_strerror(resolveResult) << std::endl;
         return -1;
     }
 
-    int reuseAddress = 1;
-    (void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress));
-
-    sockaddr_in address{};
-    address.sin_family = AF_INET;
-    address.sin_port = htons(port);
-    if (inet_pton(AF_INET, host.c_str(), &address.sin_addr) != 1) {
-        address.sin_addr.s_addr = INADDR_ANY;
+    int listenFd = -1;
+    int lastError = 0;
+    for (const addrinfo* address = addresses; address != nullptr; address = address->ai_next) {
+        int fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
+        if (fd < 0) {
+            lastError = errno;
+            continue;
+        }
+        if (!SetSocketTimeouts(fd)) {
+            lastError = errno;
+            close(fd);
+            continue;
+        }
+        int reuseAddress = 1;
+        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress)) != 0) {
+            lastError = errno;
+            close(fd);
+            continue;
+        }
+        if (bind(fd, address->ai_addr, address->ai_addrlen) != 0 || listen(fd, 64) != 0) {
+            lastError = errno;
+            close(fd);
+            continue;
+        }
+        listenFd = fd;
+        break;
     }
-
-    if (bind(fd, reinterpret_cast<sockaddr*>(&address), sizeof(address)) != 0) {
-        std::cerr << "bind " << host << ":" << port << " failed, errno=" << errno << std::endl;
-        close(fd);
-        return -1;
+    freeaddrinfo(addresses);
+    if (listenFd < 0) {
+        std::cerr << "listen on " << host << ":" << port << " failed, errno=" << lastError << std::endl;
     }
-    if (listen(fd, 64) != 0) {
-        std::cerr << "listen failed, errno=" << errno << std::endl;
-        close(fd);
-        return -1;
-    }
-    return fd;
+    return listenFd;
 }
 
 int ConnectToRoot(const std::string& host, uint16_t port)
@@ -445,30 +529,38 @@ int ConnectToRoot(const std::string& host, uint16_t port)
     constexpr int RETRY_TIMES = 300;
     constexpr int RETRY_INTERVAL_MS = 100;
 
-    for (int retry = 0; retry < RETRY_TIMES; ++retry) {
-        int fd = socket(AF_INET, SOCK_STREAM, 0);
-        if (fd < 0) {
-            return -1;
-        }
-
-        sockaddr_in address{};
-        address.sin_family = AF_INET;
-        address.sin_port = htons(port);
-        if (inet_pton(AF_INET, host.c_str(), &address.sin_addr) != 1) {
-            hostent* hostEntry = gethostbyname(host.c_str());
-            if (hostEntry == nullptr || hostEntry->h_addr_list == nullptr || hostEntry->h_addr_list[0] == nullptr) {
-                close(fd);
-                return -1;
-            }
-            std::memcpy(&address.sin_addr, hostEntry->h_addr_list[0], sizeof(address.sin_addr));
-        }
-
-        if (connect(fd, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == 0) {
-            return fd;
-        }
-        close(fd);
-        std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_INTERVAL_MS));
+    addrinfo hints{};
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    const std::string portText = std::to_string(port);
+    addrinfo* addresses = nullptr;
+    const int resolveResult = getaddrinfo(host.c_str(), portText.c_str(), &hints, &addresses);
+    if (resolveResult != 0) {
+        std::cerr << "getaddrinfo for root address failed: " << gai_strerror(resolveResult) << std::endl;
+        return -1;
     }
+
+    for (int retry = 0; retry < RETRY_TIMES; ++retry) {
+        for (const addrinfo* address = addresses; address != nullptr; address = address->ai_next) {
+            int fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
+            if (fd < 0) {
+                continue;
+            }
+            if (!SetSocketTimeouts(fd)) {
+                close(fd);
+                continue;
+            }
+            if (connect(fd, address->ai_addr, address->ai_addrlen) == 0) {
+                freeaddrinfo(addresses);
+                return fd;
+            }
+            close(fd);
+        }
+        if (retry + 1 < RETRY_TIMES) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_INTERVAL_MS));
+        }
+    }
+    freeaddrinfo(addresses);
     return -1;
 }
 
@@ -487,9 +579,17 @@ int ExchangeRootInfo(uint32_t rank, uint32_t rankSize, const std::string& ipPort
             return -1;
         }
         for (uint32_t peer = 1; peer < rankSize; ++peer) {
-            int connectionFd = accept(listenFd, nullptr, nullptr);
+            int connectionFd = -1;
+            do {
+                connectionFd = accept(listenFd, nullptr, nullptr);
+            } while (connectionFd < 0 && errno == EINTR);
             if (connectionFd < 0) {
                 std::cerr << "accept failed, errno=" << errno << std::endl;
+                close(listenFd);
+                return -1;
+            }
+            if (!SetSocketTimeouts(connectionFd)) {
+                close(connectionFd);
                 close(listenFd);
                 return -1;
             }
@@ -528,11 +628,14 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    int rankSize = std::atoi(argv[1]);
-    int rank = std::atoi(argv[2]);
-    int device = std::atoi(argv[4]);
-    if (rankSize < 2 || rankSize % 2 != 0 || rank < 0 || rank >= rankSize || device < 0) {
-        std::cerr << "invalid arguments" << std::endl;
+    int rankSize = 0;
+    int rank = 0;
+    int device = 0;
+    if (!ParseNonNegativeInt(argv[1], rankSize) || !ParseNonNegativeInt(argv[2], rank) ||
+        !ParseNonNegativeInt(argv[4], device) || rankSize < 2 || rank >= rankSize) {
+        std::cerr << "invalid arguments: rank_size must be at least 2, rank must be in [0, rank_size), and device "
+                     "must be a non-negative integer"
+                  << std::endl;
         return 1;
     }
     Options options{
@@ -563,7 +666,11 @@ int main(int argc, char* argv[])
         }
     }
 
-    status |= aclrtResetDevice(static_cast<int32_t>(options.device));
-    status |= aclFinalize();
+    int cleanupStatus = 0;
+    RecordCleanupError("aclrtResetDevice", aclrtResetDevice(static_cast<int32_t>(options.device)), cleanupStatus);
+    RecordCleanupError("aclFinalize", aclFinalize(), cleanupStatus);
+    if (status == HCCL_SUCCESS) {
+        status = cleanupStatus;
+    }
     return status == HCCL_SUCCESS ? 0 : 1;
 }
