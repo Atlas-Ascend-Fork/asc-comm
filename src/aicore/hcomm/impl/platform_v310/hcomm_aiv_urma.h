@@ -19,8 +19,8 @@
 #define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_H
 #endif
 
-#ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_H
-#define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_H
+#ifndef IMPL_COMM_API_AICORE_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_H
+#define IMPL_COMM_API_AICORE_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_H
 
 #include "hcomm_aiv_urma_def.h"
 
@@ -365,8 +365,20 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
                                       2U :
                                       1U;
     SyncAction<HardEvent::S_MTE3>();
+    if constexpr (wqeBbCnt == 2) {
+        if (unlikely((curHead % baseBlockCount) == baseBlockCount - 1)) {
+            AscendC::GlobalTensor<uint32_t> sqeBaseGlobal;
+            sqeBaseGlobal.SetGlobalBuffer((__gm__ uint32_t*)sqBaseAddr);
 
-    DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
+            uint32_t wqeSizePerU32 = wqeSize / sizeof(uint32_t);
+            DataCopy(sqeGlobal, wqeItem_, wqeSizePerU32);
+            DataCopy(sqeBaseGlobal, wqeItem_[wqeSizePerU32], wqeSizePerU32);
+        } else {
+            DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
+        }
+    } else {
+        DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
+    }
     SyncAction<HardEvent::MTE3_S>();
 
     if constexpr (config.cqe != 0) {
