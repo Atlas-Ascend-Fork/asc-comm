@@ -872,13 +872,13 @@ HcclResult CcuInsGeneraterV1::CcuRepLoadTranslate(
     UNUSED(ccuKernel);
     (void)curInstrId;
     CHK_PTR_NULL(loadPtr);
-    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + CCU_RESOURCE_XN_PER_SIZE * loadPtr->GetVar().Id();
+    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + hcomm::CCU_RESOURCE_XN_PER_SIZE * loadPtr->GetVar().Id();
 
     LoadImdToGSAInstr(instr++, dep.commGsa[0], varAddr);
     LoadImdToGSAInstr(instr++, dep.commGsa[1], loadPtr->GetAddr());
     LoadImdToXnInstr(instr++, dep.commXn[0], dep.ccuResSpaceTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
     LoadImdToXnInstr(instr++, dep.commXn[1], dep.memTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[2], CCU_RESOURCE_XN_PER_SIZE * loadPtr->GetNum());
+    LoadImdToXnInstr(instr++, dep.commXn[2], hcomm::CCU_RESOURCE_XN_PER_SIZE * loadPtr->GetNum());
     TransLocMemToLocMemInstr(
         instr++, dep.commGsa[0], dep.commXn[0], dep.commGsa[1], dep.commXn[1], dep.commXn[2], dep.reserveChannalId[0],
         dep.commSignal, loadPtr->GetMask(), 0, 0, 1, 1);
@@ -893,12 +893,12 @@ HcclResult CcuInsGeneraterV1::CcuRepLoadVarTranslate(
     UNUSED(ccuKernel);
     (void)curInstrId;
     CHK_PTR_NULL(loadVarPtr);
-    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + CCU_RESOURCE_XN_PER_SIZE * loadVarPtr->GetVar().Id();
+    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + hcomm::CCU_RESOURCE_XN_PER_SIZE * loadVarPtr->GetVar().Id();
     LoadImdToGSAInstr(instr++, dep.commGsa[0], varAddr);
     LoadGSAXnInstr(instr++, dep.commGsa[1], dep.reserveGsaId, loadVarPtr->GetSrc().Id());
     LoadImdToXnInstr(instr++, dep.commXn[0], dep.ccuResSpaceTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
     LoadImdToXnInstr(instr++, dep.commXn[1], dep.memTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[2], CCU_RESOURCE_XN_PER_SIZE * loadVarPtr->GetNum());
+    LoadImdToXnInstr(instr++, dep.commXn[2], hcomm::CCU_RESOURCE_XN_PER_SIZE * loadVarPtr->GetNum());
     TransLocMemToLocMemInstr(
         instr++, dep.commGsa[0], dep.commXn[0], dep.commGsa[1], dep.commXn[1], dep.commXn[2], dep.reserveChannalId[0],
         dep.commSignal, loadVarPtr->GetMask(), 0, 0, 1, 1);
@@ -940,13 +940,13 @@ HcclResult CcuInsGeneraterV1::CcuRepStoreTranslate(
     UNUSED(ccuKernel);
     (void)curInstrId;
     CHK_PTR_NULL(storePtr);
-    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + CCU_RESOURCE_XN_PER_SIZE * storePtr->GetVar().Id();
+    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + hcomm::CCU_RESOURCE_XN_PER_SIZE * storePtr->GetVar().Id();
 
     LoadImdToGSAInstr(instr++, dep.commGsa[0], storePtr->GetAddr());
     LoadImdToGSAInstr(instr++, dep.commGsa[1], varAddr);
     LoadImdToXnInstr(instr++, dep.commXn[0], dep.memTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
     LoadImdToXnInstr(instr++, dep.commXn[1], dep.ccuResSpaceTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[2], CCU_RESOURCE_XN_PER_SIZE * storePtr->GetNum());
+    LoadImdToXnInstr(instr++, dep.commXn[2], hcomm::CCU_RESOURCE_XN_PER_SIZE * storePtr->GetNum());
     TransLocMemToLocMemInstr(
         instr++, dep.commGsa[0], dep.commXn[0], dep.commGsa[1], dep.commXn[1], dep.commXn[2], dep.reserveChannalId[0],
         dep.commSignal, storePtr->GetMask(), 0, 0, 1, 1);
@@ -961,13 +961,13 @@ HcclResult CcuInsGeneraterV1::CcuRepStoreVarTranslate(
     UNUSED(ccuKernel);
     (void)curInstrId;
     CHK_PTR_NULL(storeVarPtr);
-    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + CCU_RESOURCE_XN_PER_SIZE * storeVarPtr->GetVar().Id();
+    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + hcomm::CCU_RESOURCE_XN_PER_SIZE * storeVarPtr->GetVar().Id();
 
     LoadImdToGSAInstr(instr++, dep.commGsa[0], varAddr);
     LoadGSAXnInstr(instr++, dep.commGsa[1], dep.reserveGsaId, storeVarPtr->GetDst().Id());
     LoadImdToXnInstr(instr++, dep.commXn[0], dep.memTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
     LoadImdToXnInstr(instr++, dep.commXn[1], dep.ccuResSpaceTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[2], CCU_RESOURCE_XN_PER_SIZE * storeVarPtr->GetNum());
+    LoadImdToXnInstr(instr++, dep.commXn[2], hcomm::CCU_RESOURCE_XN_PER_SIZE * storeVarPtr->GetNum());
     TransLocMemToLocMemInstr(
         instr++, dep.commGsa[1], dep.commXn[0], dep.commGsa[0], dep.commXn[1], dep.commXn[2], dep.reserveChannalId[0],
         dep.commSignal, storeVarPtr->GetMask(), 0, 0, 1, 1);

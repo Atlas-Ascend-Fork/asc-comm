@@ -101,7 +101,7 @@ CcuRepTranslator::CcuRepTranslator(
             Hccl::StringFormat("[NsRecovery] CcuRepTranslator::CcuRepTranslator: memcpy_s failed, ret = %d", result));
     }
     // 获取xn起始地址
-    HcclResult ret = CcuDevMgrImp::GetXnBaseAddr(deviceLogicId, dieId, transDep.xnBaseAddr[dieId]);
+    HcclResult ret = hcomm::CcuDevMgrImp::GetXnBaseAddr(deviceLogicId, dieId, transDep.xnBaseAddr[dieId]);
     if (ret != HcclResult::HCCL_SUCCESS) {
         Hccl::THROW<Hccl::CcuApiException>(
             "Failed to get xn base address. deviceLogicId = %d, dieId = %u, ret = %d", deviceLogicId, dieId, ret);
@@ -110,7 +110,7 @@ CcuRepTranslator::CcuRepTranslator(
     // 获取hbm token信息
     transDep.memTokenInfo = hbmTokenInfo;
 
-    ret = CcuDevMgrImp::GetCcuVersion(transDep.logicalId, ccuVersion);
+    ret = hcomm::CcuDevMgrImp::GetCcuVersion(transDep.logicalId, ccuVersion);
     if (ret != HcclResult::HCCL_SUCCESS || ccuVersion == hcomm::CcuVersion::CCU_INVALID) {
         Hccl::THROW<Hccl::CcuApiException>("[CcuRepTranslator] Constructor: Invalid CCU Type!");
     }
@@ -119,7 +119,7 @@ CcuRepTranslator::CcuRepTranslator(
 #ifdef OPEN_GET_ANOTHER_DIE_XN_ADDR
     if (ccuVersion == hcomm::CcuVersion::CCU_V2) {
         uint8_t anotherDieId = dieId == 0 ? 1 : 0;
-        ret = CcuDevMgrImp::GetXnBaseAddr(deviceLogicId, anotherDieId, transDep.xnBaseAddr[anotherDieId]);
+        ret = hcomm::CcuDevMgrImp::GetXnBaseAddr(deviceLogicId, anotherDieId, transDep.xnBaseAddr[anotherDieId]);
         if (ret != HcclResult::HCCL_SUCCESS) {
             Hccl::THROW<Hccl::CcuApiException>(
                 "Failed to get xn base address. deviceLogicId = %d, dieId = %u, "
@@ -133,7 +133,7 @@ CcuRepTranslator::CcuRepTranslator(
 CcuRepTranslator::CcuRepTranslator(std::shared_ptr<CcuRepReferenceManager> refManager, const TransDep& transDep)
     : refManager(refManager), transDep(transDep)
 {
-    HcclResult ret = CcuDevMgrImp::GetCcuVersion(transDep.logicalId, ccuVersion);
+    HcclResult ret = hcomm::CcuDevMgrImp::GetCcuVersion(transDep.logicalId, ccuVersion);
     if (ret != HcclResult::HCCL_SUCCESS || ccuVersion == hcomm::CcuVersion::CCU_INVALID) {
         Hccl::THROW<Hccl::CcuApiException>("[CcuRepTranslator] Constructor: Invalid CCU Type!");
     }
