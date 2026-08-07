@@ -75,9 +75,10 @@ Rank 0 calls HcclGetRootInfo
   -> Wait for the remote notify and validate received data in every round
 ```
 
-The Kernel uses `COMM_PROTOCOL_UBC_CTP`, while the control plane uses `COMM_ENGINE_AIV`. After
-`WriteWithNotifyNbi<false>`, the Kernel calls `Commit` and `Drain`. The remote Host polls the notify in registered
-memory and validates the received data.
+The Kernel uses `COMM_PROTOCOL_UBC_CTP`, while the control plane uses `COMM_ENGINE_AIV`. It calls `Lock` to acquire
+the shared queue lock and load the queue indices, then calls `Unlock` to store the indices and release the lock after
+`WriteWithNotifyNbi<false>`, `Commit`, and `Drain`. The Kernel reports its result to the Host, and the remote Host polls
+the notify in registered memory and validates the received data.
 
 The sample calls `HcclBarrier` before and after every transfer so that all ranks clear their receive buffers and
 notifications before the next round.
@@ -169,8 +170,7 @@ ranks 0-2 run success.
 
 ## Runtime Constraints
 
-- `rank_size` must be at least 2. At least three ranks are required for one rank to exercise multiple peer Channels
-  sharing communication queues.
+- `rank_size` must be at least 3, and at least two peer Channels must belong to the same local Endpoint group.
 - RankGraph links are grouped by local Endpoint. Channels in the same group share communication queues.
 - For multi-host execution, global rank ranges must not overlap and must completely cover `0..rank_size-1`.
 - All ranks must use the same RootInfo, rank count, and program version.
