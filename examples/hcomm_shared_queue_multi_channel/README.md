@@ -75,8 +75,9 @@ rank 0 调用 HcclGetRootInfo
   -> 每轮等待远端 notify 并校验接收数据
 ```
 
-Kernel 使用 `COMM_PROTOCOL_UBC_CTP`，控制面使用 `COMM_ENGINE_AIV`。Kernel 调用
-`WriteWithNotifyNbi<false>` 后执行 `Commit` 和 `Drain`，远端 Host 轮询注册内存中的 notify 并校验数据。
+Kernel 使用 `COMM_PROTOCOL_UBC_CTP`，控制面使用 `COMM_ENGINE_AIV`。Kernel 调用 `Lock` 获取共享队列锁并
+加载队列索引，在 `WriteWithNotifyNbi<false>`、`Commit` 和 `Drain` 完成后调用 `Unlock` 写回索引并释放锁。
+Kernel 将执行结果写回 Host，远端 Host 轮询注册内存中的 notify 并校验数据。
 
 每轮数据传输前后调用 `HcclBarrier`，确保所有 rank 已经清零接收区和 notify。
 
@@ -166,7 +167,7 @@ ranks 0-2 run success.
 
 ## 运行约束
 
-- `rank_size` 必须大于等于 2；至少 3 个 rank 才能在单个 rank 上覆盖多个 peer Channel 共享通信队列。
+- `rank_size` 必须大于等于 3，并且至少有两个 peer Channel 属于同一个本地 Endpoint group。
 - RankGraph 返回的 link 按本地 Endpoint 分组，同一 group 内的 Channel 共享通信队列。
 - 跨节点运行时，各机器的全局 rank 区间不能重叠，并且必须完整覆盖 `0..rank_size-1`。
 - 所有 rank 必须使用相同的 RootInfo、rank 数量和程序版本。
