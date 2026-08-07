@@ -43,6 +43,14 @@ __simt_callee__ inline int32_t Hcomm<commProtocol>::Init(__ubuf__ uint8_t* buff,
 }
 
 template <CommProtocol commProtocol>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::ReserveDwqeBatch(
+    ChannelHandle channel, __ubuf__ uint32_t* state, bool active,
+    uint32_t activeWqeCnt, uint32_t commitLane)
+{
+    return impl_.ReserveDwqeBatch(channel, state, active, activeWqeCnt, commitLane);
+}
+
+template <CommProtocol commProtocol>
 template <bool commit, auto commitPipe, auto reqPipe, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol>::WriteNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)

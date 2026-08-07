@@ -41,6 +41,9 @@ public:
     __simt_callee__ inline HcommImpl();
     __simt_callee__ inline ~HcommImpl();
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
+    __simt_callee__ inline int32_t ReserveDwqeBatch(
+        ChannelHandle channel, __ubuf__ uint32_t* state, bool active,
+        uint32_t activeWqeCnt, uint32_t commitLane);
     template <bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <
@@ -63,6 +66,16 @@ public:
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
 
 private:
+    bool hasReservedDwqeSlot_ = false;
+    uint32_t reservedDwqeHead_ = 0U;
+    bool hasDeferredDwqeBatch_ = false;
+    uint64_t deferredDwqeHeadVal_ = 0U;
+    uint32_t deferredDwqeBbCnt_ = 0U;
+    uint32_t deferredDwqeCqeCnt_ = 0U;
+#if defined(HCOMM_SIMT_UB_STAGING_EXPERIMENT)
+    __ubuf__ uint8_t* wqeItem_;
+#endif
+
     template <
         bool commit = true, auto commitPipe = 0, auto reqPipe = 0, HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE,
         auto const& config = URMA_DEFAULT_CFG>
@@ -77,6 +90,7 @@ private:
         HcommUrmaOpCode opCode = HcommUrmaOpCode::FAA, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t PostAtomic(
         ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* fetchAddr, T value, T cond);
+    __simt_callee__ inline int32_t PublishDwqeBatch(__gm__ uint64_t* headAddr);
     __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
 };
 

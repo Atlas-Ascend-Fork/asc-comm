@@ -2,6 +2,8 @@
 
 本样例用于验证SIMT URMA路径下的`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`接口。rank 0负责提交通信操作，rank 1负责校验远端执行结果。
 
+当前验证版本启用 `HCOMM_SIMT_UB_STAGING_EXPERIMENT`：每个SIMT lane在共享UB中使用独立的128B WQE暂存区，再将完整WQE写入SQ和DWQE。该宏只由本样例开启，不改变其他调用方的默认GM组装路径。
+
 ## 测试模式
 
 - `notify`：提交一次Notify操作并调用`Drain`。
