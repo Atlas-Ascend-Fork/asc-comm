@@ -42,8 +42,7 @@ rank 0 生成 `HcclRootInfo` 并通过 TCP 分发给其他 rank，各 rank 使�
     Channel(peer C) ----- queue group 1
 ```
 
-控制面从 RankGraph 中为每个 peer 选择最近层的一条 `COMM_PROTOCOL_UBC_CTP` link，并按照 link 的
-本地 Endpoint 分组。Endpoint 是否相同由 `protocol`、`commAddr.type` 和 `commAddr.eid` 共同确定。
+控制面从 RankGraph 中为每个 peer 选择最近层的一条 `COMM_PROTOCOL_UBC_CTP` link，并按照 link 的本地 Endpoint 分组。Endpoint 是否相同由 `protocol`、`commAddr.type` 和 `commAddr.eid` 共同确定。
 
 - 同一 group 的所有 `HcclChannelDesc` 具有相同的 `localEndpoint`，通过一次
   `HcclChannelAcquireWithConfig` 批量创建并共享通信队列。
@@ -75,17 +74,15 @@ rank 0 调用 HcclGetRootInfo
   -> 每轮等待远端 notify 并校验接收数据
 ```
 
-Kernel 使用 `COMM_PROTOCOL_UBC_CTP`，控制面使用 `COMM_ENGINE_AIV`。Kernel 调用
-`WriteWithNotifyNbi<false>` 后执行 `Commit` 和 `Drain`，远端 Host 轮询注册内存中的 notify 并校验数据。
+Kernel 使用 `COMM_PROTOCOL_UBC_CTP`，控制面使用 `COMM_ENGINE_AIV`。Kernel 调用 `Lock` 获取共享队列锁并加载队列索引，在 `WriteWithNotifyNbi<false>`、`Commit` 和 `Drain` 完成后调用 `Unlock` 写回索引并释放锁。
+Kernel 将执行结果写回 Host，远端 Host 轮询注册内存中的 notify 并校验数据。
 
 每轮数据传输前后调用 `HcclBarrier`，确保所有 rank 已经清零接收区和 notify。
 
 ### 多 Channel 验证方式
 
-样例创建本 rank 到所有 peer 的 Channel，并执行两轮 all-peer 数据面验证。每轮按统一 offset 调度：rank
-`i` 写入 `(i + offset) % rankSize`，同时接收 `(i - offset + rankSize) % rankSize` 的数据。以 3 个 rank
-为例，每个 rank 的 Channel 使用顺序为 `peer A -> peer B -> peer A -> peer B`，从而覆盖共享通信队列
-上的逻辑 Channel 切换。
+样例创建本 rank 到所有 peer 的 Channel，并执行两轮 all-peer 数据面验证。每轮按统一 offset 调度：rank `i` 写入 `(i + offset) % rankSize`，同时接收 `(i - offset + rankSize) % rankSize` 的数据。以 3 个 rank
+为例，每个 rank 的 Channel 使用顺序为 `peer A -> peer B -> peer A -> peer B`，从而覆盖共享通信队列上的逻辑 Channel 切换。
 
 ## 编译运行
 
@@ -138,8 +135,7 @@ wait
 
 ### 3. 多机运行
 
-各机器使用相同的 `rank_size`、通信字节数、RootInfo 地址和程序版本，并通过 `run.sh` 的后两个参数
-指定本机负责的全局 rank 区间。本机 device 从 `0` 开始映射。
+各机器使用相同的 `rank_size`、通信字节数、RootInfo 地址和程序版本，并通过 `run.sh` 的后两个参数指定本机负责的全局 rank 区间。本机 device 从 `0` 开始映射。
 
 例如两台机器各运行两个 rank，rank 0 所在机器的 IP 为 `192.168.1.10`：
 
@@ -166,7 +162,7 @@ ranks 0-2 run success.
 
 ## 运行约束
 
-- `rank_size` 必须大于等于 2；至少 3 个 rank 才能在单个 rank 上覆盖多个 peer Channel 共享通信队列。
+- `rank_size` 必须大于等于 3，并且至少有两个 peer Channel 属于同一个本地 Endpoint group。
 - RankGraph 返回的 link 按本地 Endpoint 分组，同一 group 内的 Channel 共享通信队列。
 - 跨节点运行时，各机器的全局 rank 区间不能重叠，并且必须完整覆盖 `0..rank_size-1`。
 - 所有 rank 必须使用相同的 RootInfo、rank 数量和程序版本。
