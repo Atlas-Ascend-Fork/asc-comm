@@ -12,7 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 
-RANK_SIZE="${1:-3}"
+RANK_SIZE="${1:-2}"
 BYTES="${2:-4096}"
 IP_PORT="${3:-tcp://127.0.0.1:8899}"
 RANK_START="${4:-0}"
