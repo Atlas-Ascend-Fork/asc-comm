@@ -355,8 +355,8 @@ CcuResult hcomm_ccu_kernel_launch(
     }
     bool isProfilingEnabledL1 = Hccl::ProfilingHandler::GetInstance().GetHcclL1State();
     bool isProfilingEnabledL0 = Hccl::ProfilingHandler::GetInstance().GetHcclL0State();
-    bool isCached = Hccl::ProfilingHandler::GetInstance().GetCachedFlag();
-    bool isSaveProfilingData = isProfilingEnabledL1 || isProfilingEnabledL0 || isCached;
+    bool isOpbase = Hccl::ProfilingHandler::GetInstance().GetIsOpbase();
+    bool isSaveProfilingData = !(!isProfilingEnabledL1 && !isProfilingEnabledL0 && isOpbase);
 
     std::vector<asccomm::CcuProfilingInfo> allCcuProfilingInfo;
     CCU_CHK_RET(ConstructProfilingInfo(
