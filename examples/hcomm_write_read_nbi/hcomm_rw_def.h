@@ -15,42 +15,52 @@
 
 #include "adv_api/hcomm/hcomm.h"
 #include "hccl/hccl.h"
-// CommProtocol、COMM_PROTOCOL_UBC_CTP
 #include "hccl/hccl_comm.h"
 
-// 单次通信数据量（字节），需32字节对齐
 constexpr uint32_t DATA_SIZE = 256U;
-// 每张卡的通信窗口大小：4段DATA_SIZE（seg0/seg1/seg2/expected）< COMM_BUF_SIZE
 constexpr uint64_t COMM_BUF_SIZE = 4096U;
-// 通信卡数：样例简化为2卡点对点，可扩展为星形拓扑支持N卡
+constexpr uint64_t SEND_DATA_OFFSET = 0U;
+constexpr uint64_t WRITE_RESULT_OFFSET = DATA_SIZE;
+constexpr uint64_t READ_RESULT_OFFSET = 2U * DATA_SIZE;
+
 constexpr uint32_t NRANKS = 2U;
-// Host侧建链协议需与Kernel侧Hcomm模板协议保持一致
-constexpr CommProtocol TARGET_COMM_PROTOCOL = COMM_PROTOCOL_UBC_CTP;
-// 最少的卡数
-constexpr uint16_t MIN_RANKS = 2U;
-// UBC_CTP通道需要的notify资源数量，需在HcclChannelAcquire前写入channelDesc
-// constexpr uint32_t CHANNEL_NOTIFY_NUM = 3U;
-// Hcomm工作空间大小下限，小于此值Init返回失败
+constexpr uint16_t BASE_PORT = 29620U;
+constexpr uint32_t ROOT_SERVER_RANK = 0U;
+constexpr CommProtocol HOST_COMM_PROTOCOL = COMM_PROTOCOL_UBC_CTP;
+constexpr AscendC::CommProtocol KERNEL_COMM_PROTOCOL = AscendC::COMM_PROTOCOL_UBC_CTP;
+static_assert(
+    static_cast<int32_t>(HOST_COMM_PROTOCOL) == static_cast<int32_t>(KERNEL_COMM_PROTOCOL),
+    "Host and Kernel communication protocols must match");
 constexpr uint32_t HCOMM_WORKSPACE_SIZE = 512U;
+
+enum TestResult : uint32_t {
+    TEST_SUCCESS = 0U,
+    TEST_HCOMM_INIT_FAILED = 1U,
+    TEST_WRITE_FAILED = 2U,
+    TEST_READ_FAILED = 3U,
+    TEST_DRAIN_FAILED = 4U,
+};
+static_assert(sizeof(TestResult) == sizeof(uint32_t), "TestResult must remain uint32_t-sized");
+
+constexpr uint32_t HCOMM_READ_ONLY = 0x01U;
+constexpr uint32_t HCOMM_WRITE_ONLY = 0x02U;
+constexpr uint32_t HCOMM_READ_WRITE = HCOMM_READ_ONLY | HCOMM_WRITE_ONLY;
 
 namespace HcommExample {
 
-// Kernel与Host共享的通信上下文，存放在GM上
-// Host侧构造后通过aclrtMemcpy下发到各卡GM，Kernel侧Init时从GM读取
 struct CommContext {
-    uint64_t channelHandle; // 本rank到对端的通道句柄
-    uint64_t localBufferAddr; // 本rank的通信buffer基址（4段：seg0=本地pattern, seg1=WriteNbi目的, seg2=ReadNbi目的,
-                              // seg3=对端pattern期望值）
-    uint64_t remoteBufferAddr; // 对端的通信buffer基址
-    uint32_t rankId;           // 本rank编号
-    uint32_t worldSize;        // 通信域rank总数
-    // 校验结果：kernel写入，host读回。0=通过，非0=失败
-    uint32_t testResult;
-    uint32_t mismatchIndex;
-    uint32_t actualValue;
-    uint32_t expectedValue;
+    uint64_t channelHandle;
+    uint64_t localBufferAddr;
+    uint64_t remoteBufferAddr;
+    TestResult testResult;
 };
 
 } // namespace HcommExample
+
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_read_nbi(GM_ADDR context);
+
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_nbi(GM_ADDR context);
+
+extern "C" __vector__ __global__ __aicore__ void kernel_hcomm_write_read_nbi(GM_ADDR context);
 
 #endif // HCOMM_RW_DEF_H
