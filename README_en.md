@@ -101,10 +101,13 @@ This repository contains AICore communication data plane APIs, device-side imple
 │   ├── simt_notify_atomic        # Hcomm SIMT URMA Notify/FAA/CAS functional sample
 │   └── simt_notify_atomic_perf   # Hcomm SIMT URMA Notify/FAA/CAS performance sample
 ├── include                       # asc-comm API declarations
+│   ├── aicpu/hcomm               # Public AICPU legacy and POD data-plane interfaces
 │   ├── aicore/hcomm              # Public AICore Hcomm interfaces
 │   └── aicore/ain                # Public AICore Ain one-sided communication interfaces
+├── pod_only                      # Standalone POD data-plane project preserving the original usage
 ├── scripts                       # Utility scripts
 ├── src                           # asc-comm API implementations
+│   ├── aicpu                     # AICPU legacy and POD data-plane implementations
 │   ├── aicore/hcomm              # Internal implementation of AICore Hcomm
 │   │   ├── common                # Common definitions and utilities for Hcomm
 │   │   └── impl                  # Protocol implementations and platform-specific logic
@@ -122,7 +125,8 @@ To quickly build the project and run UTs, configure the CANN environment first:
 source /usr/local/Ascend/cann/set_env.sh
 ```
 
-Default build for basic environment validation. AICore Hcomm and Ain are header-only; no standalone library will be generated for non-UT builds:
+The default build produces `build/aicpu-data-plane/libaicpu_data_plane.so`. The library contains the legacy data
+plane, POD primitives, and legacy-to-POD resource converters. Existing `Hcomm*OnThreadPod` signatures remain unchanged:
 ```bash
 bash build.sh
 ```
@@ -132,6 +136,9 @@ The default build reuses the existing `build/` directory and does not remove bui
 ```bash
 bash build.sh --make_clean
 ```
+
+The original standalone POD build and link flow remains available under `pod_only`, producing
+`libaicpu_pod_data_plane.so`; see the [pod_only README](./pod_only/README.md).
 
 Build and execute Hcomm and Ain unit tests:
 ```bash
