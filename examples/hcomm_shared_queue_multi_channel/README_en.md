@@ -75,9 +75,10 @@ Rank 0 calls HcclGetRootInfo
   -> Wait for the remote notify and validate received data in every round
 ```
 
-The Kernel uses `COMM_PROTOCOL_UBC_CTP`, while the control plane uses `COMM_ENGINE_AIV`. After
-`WriteWithNotifyNbi<false>`, the Kernel calls `Commit` and `Drain`. The remote Host polls the notify in registered
-memory and validates the received data.
+The Kernel uses `COMM_PROTOCOL_UBC_CTP`, while the control plane uses `COMM_ENGINE_AIV`. It calls `Lock` to acquire
+the shared queue lock and load the queue indices, then calls `Unlock` to store the indices and release the lock after
+`WriteWithNotifyNbi<false>`, `Commit`, and `Drain`. The Kernel reports its result to the Host, and the remote Host polls
+the notify in registered memory and validates the received data.
 
 The sample calls `HcclBarrier` before and after every transfer so that all ranks clear their receive buffers and
 notifications before the next round.
@@ -85,9 +86,9 @@ notifications before the next round.
 ### Multi-Channel Validation
 
 The sample creates a Channel from the local rank to every peer and runs two all-peer transfer cycles. In every cycle,
-rank `i` writes to `(i + offset) % rankSize` and receives from `(i - offset + rankSize) % rankSize`. With three ranks,
-each rank uses its Channels in the order `peer A -> peer B -> peer A -> peer B`, exercising logical Channel switching
-over the same shared communication queues.
+rank `i` writes to `(i + offset) % rankSize` and receives from `(i - offset + rankSize) % rankSize`. When shared queues
+are present, multiple Channels in the same group are used alternately, exercising logical Channel switching over the
+shared communication queues.
 
 ## Build and Run
 
@@ -113,7 +114,7 @@ bash run.sh
 
 | Argument | Description |
 |----------|-------------|
-| `$1` | Global rank count. The default is `3`. |
+| `$1` | Global rank count. The default is `2`. |
 | `$2` | Bytes transferred in each operation. The default is `4096`. |
 | `$3` | TCP address used by rank 0 to distribute RootInfo. The default is `tcp://127.0.0.1:8899`. |
 | `$4` | First global rank started on this host. The default is `0`. |
@@ -131,9 +132,8 @@ On one host, global ranks map to devices with the same index. You can also build
 cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510
 cmake --build build -j
 
-./build/demo 3 0 0 4096 &
-./build/demo 3 1 1 4096 &
-./build/demo 3 2 2 4096 &
+./build/demo 2 0 0 4096 &
+./build/demo 2 1 1 4096 &
 wait
 ```
 
@@ -158,20 +158,18 @@ Start the host containing rank 0 first. Other ranks retry their connection to ra
 
 ### 4. Expected Output
 
-After every rank completes two Channel-switching cycles and validates the data, each rank prints one result line:
+After every rank completes two data validation cycles, each rank prints one result line:
 
 ```text
-rank 0 pass, exercised 2 peer channels for 2 cycles, bytes 4096.
-rank 1 pass, exercised 2 peer channels for 2 cycles, bytes 4096.
-rank 2 pass, exercised 2 peer channels for 2 cycles, bytes 4096.
-ranks 0-2 run success.
+rank 0 pass, exercised 1 peer channels for 2 cycles, bytes 4096.
+rank 1 pass, exercised 1 peer channels for 2 cycles, bytes 4096.
+ranks 0-1 run success.
 ```
 
 ## Runtime Constraints
 
-- `rank_size` must be at least 2. At least three ranks are required for one rank to exercise multiple peer Channels
-  sharing communication queues.
-- RankGraph links are grouped by local Endpoint. Channels in the same group share communication queues.
+- `rank_size` must be at least 2.
+- Channels under the same local Endpoint share communication queues. RankGraph links are grouped by local Endpoint; Channels in the same group share communication queues.
 - For multi-host execution, global rank ranges must not overlap and must completely cover `0..rank_size-1`.
 - All ranks must use the same RootInfo, rank count, and program version.
 - A usable CANN, HCCL, and NPU environment is required at runtime.
