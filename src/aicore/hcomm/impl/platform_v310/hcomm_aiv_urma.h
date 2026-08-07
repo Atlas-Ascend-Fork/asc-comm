@@ -559,6 +559,49 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle 
     return HCOMM_SUCCESS;
 }
 
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle channel)
+{
+    if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    __gm__ uint32_t* sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    __gm__ uint32_t* sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr);
+    __gm__ uint32_t* cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
+
+    channelEntity->sqHead = static_cast<uint32_t>(ld_dev(sqHeadAddr, 0));
+    channelEntity->sqTail = static_cast<uint32_t>(ld_dev(sqTailAddr, 0));
+    channelEntity->cqHead = static_cast<uint32_t>(ld_dev(cqHeadAddr, 0));
+    channelEntity->cqTail = static_cast<uint32_t>(ld_dev(cqTailAddr, 0));
+    return HCOMM_SUCCESS;
+}
+
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Unlock(ChannelHandle channel)
+{
+    if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    __gm__ uint32_t* sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
+    __gm__ uint32_t* sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr);
+    __gm__ uint32_t* cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
+    __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
+
+    st_dev(channelEntity->sqHead, sqHeadAddr, 0);
+    st_dev(channelEntity->sqTail, sqTailAddr, 0);
+    st_dev(channelEntity->cqHead, cqHeadAddr, 0);
+    st_dev(channelEntity->cqTail, cqTailAddr, 0);
+    DataSyncBarrier<MemDsbT::DDR>();
+    return HCOMM_SUCCESS;
+}
+
 } // namespace AscendC
 
 #endif
