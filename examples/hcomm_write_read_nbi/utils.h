@@ -7,18 +7,38 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
- 
-#include <string>
+
+#include <cstddef>
 #include <cstdint>
-// 解析tcp://<ip>:<port>格式的endpoint，提取ip和port
-bool ParseEndpoint(const std::string &endpoint, std::string &ip, uint16_t &port);
+#include <cstdio>
 
-// rank 0作为server监听，rank 1作为client连接，建立TCP通道
-int32_t ConnectPeer(uint32_t rank, const std::string &ip, uint16_t port, int32_t &sock);
+constexpr int32_t SUCCESS = 0;
+constexpr int32_t FAIL = -1;
 
-int32_t SendAll(int32_t sock, const void *buf, size_t len);
+#define CHECK(call, expect, rank)                                                          \
+    do {                                                                                   \
+        auto _check_ret = (call);                                                          \
+        auto _check_expect = (expect);                                                     \
+        if (_check_ret != _check_expect) {                                                 \
+            fprintf(                                                                       \
+                stderr,                                                                    \
+                "[CHECK ERROR][rank=%u] %s\n"                                              \
+                "  Expect   : %lld (ret = %lld)\n"                                         \
+                "  Function : %s\n"                                                        \
+                "  Location : %s:%d\n",                                                    \
+                static_cast<unsigned>(rank), #call, static_cast<long long>(_check_expect), \
+                static_cast<long long>(_check_ret), __func__, __FILE__, __LINE__);         \
+            return FAIL;                                                                   \
+        }                                                                                  \
+    } while (0)
 
-int32_t RecvAll(int32_t sock, void *buf, size_t len);
+int32_t SendAll(int32_t sock, const void* buf, size_t len);
 
-// TCP barrier：双方各发一个int再收一个int，确保同时到达同步点
-int32_t TcpBarrier(int32_t sock);
+int32_t RecvAll(int32_t sock, void* buf, size_t len);
+
+int32_t RingBarrier(int32_t prevSocket, int32_t nextSocket, uint32_t nranks);
+
+int32_t SetupRingTopo(uint32_t rank, uint32_t nranks, const char* ip, int32_t& prevSocket, int32_t& nextSocket);
+
+int32_t ExchangeRootInfoRing(
+    uint32_t rank, uint32_t nranks, const char* ip, uint16_t rootPort, void* rootInfo, uint32_t rootInfoSize);
