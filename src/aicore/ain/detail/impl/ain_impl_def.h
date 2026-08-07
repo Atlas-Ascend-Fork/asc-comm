@@ -20,8 +20,8 @@
 #define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_IMPL_DEF_H__
 #endif
 
-#ifndef IMPL_COMM_API_AICORE_AIN_IMPL_AIN_IMPL_DEF_H
-#define IMPL_COMM_API_AICORE_AIN_IMPL_AIN_IMPL_DEF_H
+#ifndef IMPL_ADV_API_DETAIL_AIN_IMPL_AIN_IMPL_DEF_H
+#define IMPL_ADV_API_DETAIL_AIN_IMPL_AIN_IMPL_DEF_H
 
 #include "../../hcomm/impl/hcomm_impl_def.h"
 #include "hcomm/hcomm_team_entity_defs.h"
@@ -70,7 +70,7 @@ public:
 
 } // namespace AscendC
 
-#endif // IMPL_COMM_API_AICORE_AIN_IMPL_AIN_IMPL_DEF_H
+#endif // IMPL_ADV_API_DETAIL_AIN_IMPL_AIN_IMPL_DEF_H
 
 #if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_IMPL_DEF_H__)
 #undef __ASCENDC_INCLUDE_INTERNAL_HEADERS__

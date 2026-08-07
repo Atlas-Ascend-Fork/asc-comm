@@ -12,8 +12,8 @@
  * \file hcomm.h
  * \brief Hcomm interface
  */
-#ifndef INCLUDE_COMM_API_AICORE_HCOMM_HCOMM_H
-#define INCLUDE_COMM_API_AICORE_HCOMM_HCOMM_H
+#ifndef INCLUDE_ADV_API_HCOMM_HCOMM_H
+#define INCLUDE_ADV_API_HCOMM_HCOMM_H
 
 #include "kernel_basic_intf.h"
 #include "hcomm_common.h"
@@ -23,7 +23,7 @@
 #define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H
 #endif
 
-#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_impl_def.h"
+#include "../../../impl/adv_api/detail/hcomm/impl/hcomm_impl_def.h"
 
 namespace AscendC {
 
@@ -239,7 +239,7 @@ private:
 
 #if defined(__NPU_ARCH__) && \
     (__NPU_ARCH__ == 3510 || __NPU_ARCH__ == 1001 || __NPU_ARCH__ == 2002 || __NPU_ARCH__ == 2201)
-#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_impl.h"
+#include "../../../impl/adv_api/detail/hcomm/impl/hcomm_impl.h"
 #endif
 
 #if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H)
@@ -247,4 +247,4 @@ private:
 #undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H
 #endif
 
-#endif // INCLUDE_COMM_API_AICORE_HCOMM_HCOMM_H
+#endif // #endif  // LIB_HCCL_HCCL_H

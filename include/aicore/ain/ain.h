@@ -17,12 +17,12 @@
 #define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_H__
 #endif
 
-#ifndef INCLUDE_COMM_API_AICORE_AIN_AIN_H
-#define INCLUDE_COMM_API_AICORE_AIN_AIN_H
+#ifndef INCLUDE_ADV_API_AIN_AIN_H
+#define INCLUDE_ADV_API_AIN_AIN_H
 
 #include "../hcomm/hcomm.h"
 #include "ain_common.h"
-#include "../../../impl/comm_api/aicore/ain/impl/ain_impl_def.h"
+#include "../../../impl/adv_api/detail/ain/impl/ain_impl_def.h"
 
 namespace AscendC {
 
@@ -31,8 +31,7 @@ namespace AscendC {
  * @brief This class provides device-side one-sided communication primitives (put/get) layered on top
  *        of the Hcomm point-to-point engine. It resolves the per-peer communication channel from the
  *        device communication table, translates symmetric-window handles into remote/local addresses,
- *        and submits tasks immediately or defers submission until a subsequent immediate-commit task.
- *        Pending tasks can be awaited via Flush() or FlushAsync()/Wait().
+ *        and either rings the doorbell immediately or leaves tasks to be completed by a later Flush().
  */
 template <unsigned CommEngineMask = AIN_MASK_DEFAULT>
 class Ain {
@@ -222,9 +221,9 @@ private:
 
 } // namespace AscendC
 
-#include "../../../impl/comm_api/aicore/ain/impl/ain_impl.h"
+#include "../../../impl/adv_api/detail/ain/impl/ain_impl.h"
 
-#endif // INCLUDE_COMM_API_AICORE_AIN_AIN_H
+#endif // INCLUDE_ADV_API_AIN_AIN_H
 
 #if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_H__)
 #undef __ASCENDC_INCLUDE_INTERNAL_HEADERS__
