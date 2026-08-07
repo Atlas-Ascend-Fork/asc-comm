@@ -18,8 +18,8 @@ IP_PORT="${3:-tcp://127.0.0.1:8899}"
 RANK_START="${4:-0}"
 LOCAL_RANK_SIZE="${5:-${RANK_SIZE}}"
 
-if [[ ! "${RANK_SIZE}" =~ ^[0-9]+$ ]] || ((RANK_SIZE < 2)); then
-    echo "rank_size must be an integer greater than or equal to 2." >&2
+if [[ ! "${RANK_SIZE}" =~ ^[0-9]+$ ]] || ((RANK_SIZE < 3)); then
+    echo "rank_size must be an integer greater than or equal to 3." >&2
     exit 1
 fi
 if [[ ! "${BYTES}" =~ ^[0-9]+$ ]] || ((BYTES == 0)); then
