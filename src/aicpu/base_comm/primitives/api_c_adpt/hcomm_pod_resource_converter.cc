@@ -82,19 +82,7 @@ HcclResult BuildThreadStorage(ThreadHandle legacyThread, PodThreadStorage &stora
         storage.notifies[index].notify.rma.size = sizeof(uint32_t);
     }
 
-    storage.rtsq = {};
-    storage.rtsq.devPhyId = rtsq->GetDevPhyId();
-    storage.rtsq.localDevId = rtsq->GetLocalDevId();
-    storage.rtsq.streamId = rtsq->GetStreamId();
-    storage.rtsq.sqId = rtsq->GetSqId();
-    storage.rtsq.sqDepth = rtsq->GetSqDepth();
-    storage.rtsq.sqHead = rtsq->GetHead();
-    storage.rtsq.sqTail = rtsq->GetTail();
-    storage.rtsq.taskId = rtsq->GetTaskId();
-    storage.rtsq.taskIdEnd = rtsq->GetTaskIdEnd();
-    storage.rtsq.sqFullTimeout = Hccl::RTSQ_FULL_TIMEOUT_DEFAULT;
-    storage.rtsq.sqBaseAddr = rtsq->GetSqBaseAddr();
-    storage.rtsq.launchFlag = 1;
+    CHK_RET(rtsq->ExportPodResource(storage.rtsq));
 
     storage.entity = {};
     storage.entity.abiHeader = {
