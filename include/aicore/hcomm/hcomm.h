@@ -233,20 +233,20 @@ public:
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
     /*!
-     * @brief Load the shared queue indices into the channel state.
+     * @class Hcomm
+     * @brief Load shared queue indices into the specified channel before accessing the shared queue.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
-     * @note This interface is supported only by COMM_PROTOCOL_UBC_CTP on Ascend 950. The caller must serialize
-     *       accesses to the shared queue.
+     * @note Call Unlock with the same channel after the access is complete.
      */
     __aicore__ inline int32_t Lock(ChannelHandle channel);
 
     /*!
-     * @brief Store the channel state into the shared queue indices.
+     * @class Hcomm
+     * @brief Store the specified channel's queue indices after accessing the shared queue.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
-     * @note This interface is supported only by COMM_PROTOCOL_UBC_CTP on Ascend 950. It must be called with the same
-     *       channel after a successful Lock. Accesses to the shared queue must be serialized by the caller.
+     * @note It must be called with the same channel after a successful Lock.
      */
     __aicore__ inline int32_t Unlock(ChannelHandle channel);
 

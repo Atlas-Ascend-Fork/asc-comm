@@ -115,6 +115,15 @@ public:
     __aicore__ inline int32_t Unlock(ChannelHandle channel);
 
 private:
+    struct QueueIndexAddrs {
+        __gm__ ChannelEntity* channelEntity;
+        __gm__ uint32_t* sqHeadAddr;
+        __gm__ uint32_t* cqHeadAddr;
+        __gm__ uint32_t* cqTailAddr;
+    };
+    __aicore__ inline bool GetQueueIndexAddrs(ChannelHandle channel, QueueIndexAddrs& addrs);
+
+private:
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE, auto const& config = URMA_DEFAULT_CFG, typename T = uint64_t>
