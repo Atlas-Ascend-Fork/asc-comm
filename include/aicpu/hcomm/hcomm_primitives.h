@@ -41,6 +41,8 @@ typedef uint64_t ThreadHandle;
 #define HCOMM_TIMEOUT_FLOAT_TYPE 1
 #endif
 
+#ifndef HCOMM_REDUCE_TYPES_DEFINED
+#define HCOMM_REDUCE_TYPES_DEFINED
 typedef enum {
     HCOMM_REDUCE_SUM = 0,    /**< sum */
     HCOMM_REDUCE_PROD = 1,   /**< prod */
@@ -69,10 +71,13 @@ typedef enum {
     HCOMM_DATA_TYPE_FP8E8M0 = 17,  /**< fp8e8m0 */
     HCOMM_DATA_TYPE_RESERVED = 255 /**< reserved */
 } HcommDataType;
+#endif
 
 /**
  * @brief 传输类型枚举
  */
+#ifndef HCOMM_BATCH_TRANSFER_TYPES_DEFINED
+#define HCOMM_BATCH_TRANSFER_TYPES_DEFINED
 typedef enum {
     HCOMM_TRANSFER_TYPE_INVALID = -1,
     HCOMM_TRANSFER_TYPE_WRITE = 0,
@@ -128,6 +133,7 @@ typedef struct {
         } writeReduceWithNotify;
     } transferInfo;
 } HcommBatchTransferDesc;
+#endif
 
 /**
  * @defgroup 数据面编程接口

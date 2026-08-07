@@ -25,8 +25,8 @@ endif()
 set(ASC_COMM_AICPU_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu")
 set(ASC_COMM_AICPU_INCLUDE_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu")
 set(ASC_COMM_AICPU_INCLUDE_DIR "${ASC_COMM_AICPU_INCLUDE_ROOT_DIR}/hcomm")
-# POD资源ABI头所在的独立工程目录；本工程只引用其头文件，不编译其源文件
-set(ASC_COMM_POD_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/pod_only")
+set(ASC_COMM_POD_SRC_DIR "${ASC_COMM_AICPU_SRC_DIR}/hcomm")
+set(ASC_COMM_POD_DFX_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/common/dfx")
 
 include(cmake/fetch_cann_cmake.cmake)
 project(asc_comm_aicpu_data_plane LANGUAGES CXX)
@@ -41,6 +41,7 @@ find_cann_package(securec MODULE REQUIRED)
 find_cann_package(unified_dlog MODULE REQUIRED)
 
 include(cmake/aicpu_data_plane_sources.cmake)
+include(cmake/aicpu_hcomm_pod.cmake)
 
 # The source list is the A5 AICPU data-plane build closure only.
 
@@ -49,8 +50,6 @@ set(ASC_COMM_AICPU_INCLUDE_LIST
     ${ASC_COMM_AICPU_INCLUDE_DIR}
     ${ASC_COMM_AICPU_SRC_DIR}/common/hcomm_compat
     ${ASC_COMM_AICPU_SRC_DIR}/common/hcomm_compat/hccl
-    # POD资源ABI头，供legacy->POD资源转换及其依赖的导出接口使用
-    ${ASC_COMM_POD_ROOT}/include/aicpu/hcomm
 )
 foreach(include_root
     ${ASC_COMM_AICPU_SRC_DIR}/base_comm
@@ -90,7 +89,40 @@ set(ASC_COMM_AICPU_COMPILE_OPTIONS
     -O3
 )
 
+add_library(asc_comm_pod_objects OBJECT ${ASC_COMM_AICPU_HCOMM_POD_SOURCES})
+set_target_properties(asc_comm_pod_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_definitions(asc_comm_pod_objects PRIVATE ${ASC_COMM_AICPU_COMPILE_DEFINITIONS})
+target_compile_options(asc_comm_pod_objects PRIVATE
+    ${ASC_COMM_AICPU_COMPILE_OPTIONS}
+    -ffunction-sections
+    -fdata-sections
+    -fvisibility=hidden
+    -fvisibility-inlines-hidden
+)
+target_include_directories(asc_comm_pod_objects PRIVATE
+    ${ASC_COMM_AICPU_INCLUDE_ROOT_DIR}
+    ${ASC_COMM_AICPU_INCLUDE_DIR}
+    ${ASC_COMM_POD_SRC_DIR}/primitives/api_c_adpt
+    ${ASC_COMM_POD_SRC_DIR}/primitives/launch
+    ${ASC_COMM_POD_SRC_DIR}/common/compat/hcomm
+    ${ASC_COMM_POD_SRC_DIR}/common/compat/hcomm/hccl
+    ${ASC_COMM_POD_SRC_DIR}/common/exception
+    ${ASC_COMM_POD_SRC_DIR}/common/utils
+    ${ASC_COMM_POD_SRC_DIR}/resource/buffer
+    ${ASC_COMM_POD_SRC_DIR}/resource/common
+    ${ASC_COMM_POD_SRC_DIR}/resource/connection
+    ${ASC_COMM_POD_SRC_DIR}/resource/stream
+    ${ASC_COMM_POD_DFX_SRC_DIR}
+)
+target_link_libraries(asc_comm_pod_objects PRIVATE
+    acl_rt_headers
+    slog_headers
+    ascend_hal
+    c_sec
+)
+
 add_library(aicpu_data_plane SHARED ${ASC_COMM_AICPU_DATA_PLANE_SOURCES})
+target_sources(aicpu_data_plane PRIVATE $<TARGET_OBJECTS:asc_comm_pod_objects>)
 target_compile_definitions(aicpu_data_plane PRIVATE ${ASC_COMM_AICPU_COMPILE_DEFINITIONS})
 target_compile_options(aicpu_data_plane PRIVATE ${ASC_COMM_AICPU_COMPILE_OPTIONS})
 target_link_options(aicpu_data_plane PRIVATE
