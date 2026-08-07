@@ -9,33 +9,36 @@
  */
 
 /*!
- * \file hcomm_aiv_def.h
- * \brief Hcomm AIV definition for V220
+ * \file hcomm_base.h
+ * \brief Hcomm base class
  */
 
 #if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
 #pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
 #define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_DEF_H
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_BASE_H
 #endif
 
-#ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V220_HCOMM_AIV_DEF_H
-#define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V220_HCOMM_AIV_DEF_H
+#ifndef IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_BASE_H
+#define IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_BASE_H
 
-#include "../../common/hcomm_inner_def.h"
+#include "hcomm_inner_def.h"
 
 namespace AscendC {
-
-enum class HCOMM_OP_TYPE : uint32_t { WRITE = 3U, READ = 5U };
-
-template <>
-class HcommImpl<COMM_PROTOCOL_ROCE> {
+template <CommProtocol commProtocol>
+class HcommImpl {
 public:
-    __aicore__ inline HcommImpl();
-
-    __aicore__ inline ~HcommImpl();
-
+    __aicore__ inline HcommImpl(){};
+    __aicore__ inline ~HcommImpl(){};
     __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len)
+    {
+        (void)buff;
+        (void)len;
+        return HCOMM_FAILED;
+    }
+
+    template <typename T>
+    __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len)
     {
         (void)buff;
         (void)len;
@@ -45,23 +48,43 @@ public:
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+    {
+        return HCOMM_FAILED;
+    }
+
+    template <
+        typename T, HcommUrmaReduceOp reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,
+        pipe_t reqPipe = PIPE_MTE3, auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteReduceNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
+    {
+        return HCOMM_FAILED;
+    }
 
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+    {
+        return HCOMM_FAILED;
+    }
 
     template <
         typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value);
+        auto const& config = URMA_INLINE_CFG>
+    __aicore__ inline int32_t WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value)
+    {
+        return HCOMM_FAILED;
+    }
 
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
-        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
+    {
+        return HCOMM_FAILED;
+    }
 
     template <pipe_t pipe = PIPE_S>
     __aicore__ inline int32_t Commit(ChannelHandle channel)
@@ -74,21 +97,11 @@ public:
     {
         return HCOMM_FAILED;
     }
-
-private:
-    __aicore__ inline void PostSend(ChannelHandle channelHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, bool isRead);
-
-    __aicore__ inline void doorBell(__gm__ ChannelEntity* channel, uint64_t curHead);
-
-private:
-    LocalTensor<uint64_t> ubLocal_;
-    LocalTensor<uint32_t> ubLocalHead_;
 };
-
 } // namespace AscendC
 
-#endif // IMPL_V220_HCOMM_AIV_DEF_H
-#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_DEF_H)
+#endif // IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_BASE_H
+#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_BASE_H)
 #undef HCOMM_INCLUDE_INTERNAL_HEADERS
-#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_DEF_H
+#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_BASE_H
 #endif
