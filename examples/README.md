@@ -6,19 +6,19 @@
 
 | 样例 | 说明 | 支持产品 |
 | --- | --- | --- |
-| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示两卡场景下AIV Kernel通过URMA路径调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
+| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示AIV Kernel通过URMA路径在环形拓扑中调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
 
 ## hcomm_write_read_nbi
 
 `hcomm_write_read_nbi`展示AIV直驱URMA点对点通信流程，包括Host侧通信域创建、通信内存注册、AIV P2P通道创建，以及Kernel侧`Init`、`WriteNbi`、`ReadNbi`和`Drain`调用。该样例不覆盖RoCE路径。
 
-样例采用两卡对称执行方式：
+样例采用自动Fork多进程方式启动，默认双卡，也可以通过`./demo [nranks]`指定rank数量。运行时每个rank与环形拓扑中的前后相邻rank建立通信关系：
 
 1. Host侧为每个rank创建通信域并注册通信buffer。
-2. 通过`HcclChannelAcquire`创建到对端rank的P2P通道。
-3. Kernel侧将本卡数据通过`WriteNbi`写入对端buffer。
-4. Kernel侧通过`ReadNbi`从对端buffer读回数据。
-5. Host侧回读校验结果，两个rank均通过时输出`test pass!`。
+2. Host侧建立TCP环形拓扑：`prev = (rank - 1 + nranks) % nranks`，`next = (rank + 1) % nranks`。
+3. 通过`HcclChannelAcquire`创建到相邻rank的AIV P2P通道。
+4. Kernel侧将本卡数据通过`WriteNbi`写入`next`，并通过`ReadNbi`从`next`读回数据。
+5. Host侧回读校验结果，所有rank均通过时输出`test pass!`。
 
 ## 编译运行
 
@@ -33,14 +33,14 @@ make -j
 ./demo
 ```
 
-也可以手动启动两个rank：
+也可以指定rank数量：
 
 ```bash
-# 终端1：rank 0
-./demo 0 2 tcp://127.0.0.1:29621
+# 显式指定双卡
+./demo 2
 
-# 终端2：rank 1
-./demo 1 2 tcp://127.0.0.1:29621
+# 指定4卡环形拓扑
+./demo 4
 ```
 
 ## 运行约束

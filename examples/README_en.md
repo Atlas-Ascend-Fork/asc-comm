@@ -5,17 +5,18 @@ This directory contains usage samples for asc-comm APIs.
 ## Sample List
 | Sample | Description | Supported Products |
 | --- | --- | --- |
-| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README_en.md) | Demonstrates AIV Kernel invoking `Hcomm::WriteNbi` and `Hcomm::ReadNbi` over the URMA path in a two-card scenario, with communication result verification. | Ascend 950PR / Ascend 950DT |
+| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README_en.md) | Demonstrates AIV Kernel invoking `Hcomm::WriteNbi` and `Hcomm::ReadNbi` over the URMA path in a ring topology, with communication result verification. | Ascend 950PR / Ascend 950DT |
 
 ## hcomm_write_read_nbi
 `hcomm_write_read_nbi` demonstrates the complete AIV direct-driven URMA point-to-point communication workflow, including Host-side communication domain creation, communication memory registration, AIV P2P channel establishment, and Kernel-side invocations of `Init`, `WriteNbi`, `ReadNbi` and `Drain`. This sample does not cover the RoCE path.
 
-The sample runs symmetrically on two cards:
+The sample starts ranks through automatic multi-process fork. It uses two ranks by default, and the rank count can be specified with `./demo [nranks]`. At runtime, each rank communicates with its previous and next neighbors in a ring topology:
+
 1. The Host creates a communication domain and registers communication buffers for each rank.
-2. Establish a P2P channel to the peer rank via `HcclChannelAcquire`.
-3. The Kernel writes local data to the remote buffer using `WriteNbi`.
-4. The Kernel reads data back from the remote buffer using `ReadNbi`.
-5. The Host reads back and verifies results. `test pass!` is printed if both ranks pass validation.
+2. The Host builds a TCP ring topology: `prev = (rank - 1 + nranks) % nranks`, `next = (rank + 1) % nranks`.
+3. AIV P2P channels to neighboring ranks are established via `HcclChannelAcquire`.
+4. The Kernel writes local data to `next` through `WriteNbi`, and reads data from `next` through `ReadNbi`.
+5. The Host reads back and verifies results. `test pass!` is printed if all ranks pass validation.
 
 ## Build & Run
 Navigate to the sample directory and execute:
@@ -28,13 +29,14 @@ make -j
 ./demo
 ```
 
-You can also launch the two ranks manually:
-```bash
-# Terminal 1: rank 0
-./demo 0 2 tcp://127.0.0.1:29621
+You can also specify the rank count:
 
-# Terminal 2: rank 1
-./demo 1 2 tcp://127.0.0.1:29621
+```bash
+# Explicit two-rank run
+./demo 2
+
+# Four-rank ring topology
+./demo 4
 ```
 
 ## Runtime Constraints
