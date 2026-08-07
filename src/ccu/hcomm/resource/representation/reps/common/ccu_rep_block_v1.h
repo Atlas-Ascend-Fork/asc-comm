@@ -16,7 +16,7 @@
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class CcuRepBlock : public CcuRepBase {
@@ -39,5 +39,5 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // _CCU_REPRESENTATION_BLOCK_H

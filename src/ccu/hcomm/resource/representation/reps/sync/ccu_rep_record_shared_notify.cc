@@ -12,7 +12,7 @@
 #include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepRecordSharedNotify::CcuRepRecordSharedNotify(
@@ -47,4 +47,4 @@ std::string CcuRepRecordSharedNotify::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

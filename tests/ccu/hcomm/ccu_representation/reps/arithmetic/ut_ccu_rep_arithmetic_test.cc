@@ -21,7 +21,7 @@
 #include <gtest/gtest.h>
 #include <string>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 namespace {
 
@@ -877,4 +877,4 @@ TEST_F(CcuRepSubTest, Translate_AllSubTypes)
 
 } // namespace
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

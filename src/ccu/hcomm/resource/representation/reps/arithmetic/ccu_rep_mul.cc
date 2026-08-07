@@ -15,7 +15,7 @@
 #include "ccu_api_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 void CcuRepMul::SetCommonInfo()
 {
@@ -176,4 +176,4 @@ uint16_t CcuRepMul::GetImmedB() { return immedB; }
 
 MulSubType CcuRepMul::GetSubType() { return subType; }
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

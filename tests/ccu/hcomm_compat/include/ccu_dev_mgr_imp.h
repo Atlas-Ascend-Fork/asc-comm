@@ -15,11 +15,11 @@
 
 #include <hccl/hccl_types.h>
 
-namespace hcomm {
+namespace asccomm {
 class CcuDevMgrImp {
 public:
     static HcclResult GetXnBaseAddr(uint32_t devLogicId, uint8_t dieId, uint64_t& xnBaseAddr);
 };
-} // namespace hcomm
+} // namespace asccomm
 
 #endif

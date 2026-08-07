@@ -13,7 +13,7 @@
 #include "ccu_api_exception.h"
 #include <gtest/gtest.h>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 namespace {
 
@@ -164,4 +164,4 @@ TEST_F(CcuAssistTest, GetUBDataType_Unsupported)
 
 } // namespace
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

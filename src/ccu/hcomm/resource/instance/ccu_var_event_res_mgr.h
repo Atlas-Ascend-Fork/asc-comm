@@ -19,7 +19,7 @@
 
 #include "hcomm/resource/common/ccu_res_repo.h"
 
-namespace hcomm {
+namespace asccomm {
 
 enum class CcuVarEventType {
     VARIABLE = 0,
@@ -105,6 +105,6 @@ private:
     std::unordered_map<uint64_t, CcuVarEventRes> resMap_{};
 };
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // HCOMM_CCU_VAR_EVENT_RES_MGR_H

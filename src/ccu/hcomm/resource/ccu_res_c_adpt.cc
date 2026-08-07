@@ -66,16 +66,16 @@ CcuResult IsDieEnabled(uint32_t dieId)
 
 } // namespace
 
-CcuResult HcommCcuInsCreateLegacy(const CcuInstanceType insType, CcuInsHandle *ccuInsHandle)
+CcuResult hcomm_ccu_ins_create_legacy(const CcuInstanceType insType, CcuInsHandle *ccuInsHandle)
 {
     CCU_CHK_PTR_NULL(ccuInsHandle);
 
     const int32_t devLogicId = HcclGetThreadDeviceId();
-    CCU_CHK_RET(hcomm::CcuInstanceMgr::GetInstance(devLogicId).Create(insType, *ccuInsHandle));
+    CCU_CHK_RET(asccomm::CcuInstanceMgr::GetInstance(devLogicId).Create(insType, *ccuInsHandle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuInsCreate(
+CcuResult hcomm_ccu_ins_create(
     const HcommCcuResDescHandle* resDescs, uint32_t resDescNum, CcuInsHandle* ccuInsHandle)
 {
     CCU_CHK_PTR_NULL(resDescs);
@@ -98,11 +98,11 @@ CcuResult HcommCcuInsCreate(
         }
     }
 
-    std::vector<hcomm::CcuResDescSnapshot> internalDescs;
+    std::vector<asccomm::CcuResDescSnapshot> internalDescs;
     internalDescs.reserve(snapshots.size());
     for (const auto& snapshot : snapshots) {
         CCU_CHK_RET(IsDieEnabled(snapshot.dieId));
-        hcomm::CcuResDescSnapshot desc;
+        asccomm::CcuResDescSnapshot desc;
         desc.dieId = snapshot.dieId;
         desc.resNum[INTERNAL_LOOP] = snapshot.nums[HCOMM_CCU_RES_TYPE_LOOP];
         desc.resNum[INTERNAL_MS] = snapshot.nums[HCOMM_CCU_RES_TYPE_CCU_BUF];
@@ -115,30 +115,30 @@ CcuResult HcommCcuInsCreate(
     }
 
     const int32_t devLogicId = HcclGetThreadDeviceId();
-    return hcomm::CcuInstanceMgr::GetInstance(devLogicId).Create(internalDescs, *ccuInsHandle);
+    return asccomm::CcuInstanceMgr::GetInstance(devLogicId).Create(internalDescs, *ccuInsHandle);
 }
 
-CcuResult HcommCcuInsCreateDefault(const uint32_t* dieIds, uint32_t dieNum, CcuInsHandle* ccuInsHandle)
+CcuResult hcomm_ccu_ins_create_default(const uint32_t* dieIds, uint32_t dieNum, CcuInsHandle* ccuInsHandle)
 {
     (void)dieIds;
     (void)dieNum;
     CCU_CHK_PTR_NULL(ccuInsHandle);
     const int32_t devLogicId = HcclGetThreadDeviceId();
-    return hcomm::CcuInstanceMgr::GetInstance(devLogicId).Create(CcuInstanceType::CCU_SCHED, *ccuInsHandle);
+    return asccomm::CcuInstanceMgr::GetInstance(devLogicId).Create(CcuInstanceType::CCU_SCHED, *ccuInsHandle);
 }
 
-CcuResult HcommCcuInsDestroy(CcuInsHandle insHandle)
+CcuResult hcomm_ccu_ins_destroy(CcuInsHandle insHandle)
 {
     const int32_t devLogicId = HcclGetThreadDeviceId();
-    return hcomm::CcuInstanceMgr::GetInstance(devLogicId).Destroy(insHandle);
+    return asccomm::CcuInstanceMgr::GetInstance(devLogicId).Destroy(insHandle);
 }
 
-CcuResult HcommCcuInsQueryResDesc(CcuInsHandle, HcommCcuResDescHandle)
+CcuResult hcomm_ccu_ins_query_res_desc(CcuInsHandle, HcommCcuResDescHandle)
 {
     return CcuResult::CCU_E_NOT_SUPPORT;
 }
 
-CcuResult HcommCcuInsResDescCreate(uint32_t dieId, HcommCcuResDescHandle* resDesc)
+CcuResult hcomm_ccu_ins_res_desc_create(uint32_t dieId, HcommCcuResDescHandle* resDesc)
 {
     CCU_CHK_PTR_NULL(resDesc);
     if (dieId >= CCU_MAX_DIE_NUM) {
@@ -150,13 +150,13 @@ CcuResult HcommCcuInsResDescCreate(uint32_t dieId, HcommCcuResDescHandle* resDes
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuInsResDescDestroy(HcommCcuResDescHandle resDesc)
+CcuResult hcomm_ccu_ins_res_desc_destroy(HcommCcuResDescHandle resDesc)
 {
     std::lock_guard<std::mutex> lock(g_descMutex);
     return g_descs.erase(resDesc) == 1 ? CcuResult::CCU_SUCCESS : CcuResult::CCU_E_NOT_FOUND;
 }
 
-CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle resDesc, uint32_t* dieId)
+CcuResult hcomm_ccu_ins_res_desc_query_die_id(HcommCcuResDescHandle resDesc, uint32_t* dieId)
 {
     CCU_CHK_PTR_NULL(dieId);
     std::lock_guard<std::mutex> lock(g_descMutex);
@@ -168,7 +168,7 @@ CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle resDesc, uint32_t* 
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuInsResDescSetNum(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t resNum)
+CcuResult hcomm_ccu_ins_res_desc_set_num(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t resNum)
 {
     if (!IsValidResType(resType)) {
         return CcuResult::CCU_E_PARA;
@@ -182,7 +182,7 @@ CcuResult HcommCcuInsResDescSetNum(HcommCcuResDescHandle resDesc, HcommCcuResTyp
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuInsResDescQueryNum(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t* resNum)
+CcuResult hcomm_ccu_ins_res_desc_query_num(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t* resNum)
 {
     CCU_CHK_PTR_NULL(resNum);
     if (!IsValidResType(resType)) {
@@ -197,14 +197,14 @@ CcuResult HcommCcuInsResDescQueryNum(HcommCcuResDescHandle resDesc, HcommCcuResT
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuQueryRemainResDesc(HcommCcuResDescHandle resDesc)
+CcuResult hcomm_ccu_query_remain_res_desc(HcommCcuResDescHandle resDesc)
 {
     uint32_t dieId = 0;
-    CCU_CHK_RET(HcommCcuInsResDescQueryDieId(resDesc, &dieId));
+    CCU_CHK_RET(hcomm_ccu_ins_res_desc_query_die_id(resDesc, &dieId));
     return IsDieEnabled(dieId);
 }
 
-CcuResult HcommCcuKernelQueryResReq(const void*, const void**, uint32_t, HcommCcuResDescHandle)
+CcuResult hcomm_ccu_kernel_query_res_req(const void*, const void**, uint32_t, HcommCcuResDescHandle)
 {
     return CcuResult::CCU_E_NOT_SUPPORT;
 }

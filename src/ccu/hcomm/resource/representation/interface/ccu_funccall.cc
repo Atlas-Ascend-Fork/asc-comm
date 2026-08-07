@@ -18,7 +18,7 @@
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 FuncCall::FuncCall(CcuRepContext* context, std::string label) : context(context), label(label)
@@ -44,4 +44,4 @@ void FuncCall::AppendToContext()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

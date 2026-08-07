@@ -16,7 +16,7 @@
 #include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
-using namespace hcomm;
+using namespace asccomm;
 
 class AppendToContextTest : public testing::Test {
 protected:

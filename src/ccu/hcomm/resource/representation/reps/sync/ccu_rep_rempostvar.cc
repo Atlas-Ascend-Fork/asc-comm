@@ -17,7 +17,7 @@
 #include "ccu_urma_channel.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepRemPostVar::CcuRepRemPostVar(
@@ -53,4 +53,4 @@ std::string CcuRepRemPostVar::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

@@ -16,7 +16,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 using namespace Hccl;
@@ -113,4 +113,4 @@ bool CcuRepLoopCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
 std::string CcuRepLoopCall::Describe() { return Hccl::StringFormat("LoopCall[%s]", label.c_str()); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

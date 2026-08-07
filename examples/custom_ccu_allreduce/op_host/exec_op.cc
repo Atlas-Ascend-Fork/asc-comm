@@ -35,7 +35,7 @@ static HcclResult LaunchCcuKernelSlice(
     };
 
     CcuResult launchRet =
-        HcommCcuKernelLaunch(resCtx.threads[0], resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
+        hcomm_ccu_kernel_launch(resCtx.threads[0], resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
     if (launchRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
@@ -69,9 +69,9 @@ HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx)
     uint64_t baseInputAddr = reinterpret_cast<uint64_t>(param.inputPtr);
     uint64_t baseOutputAddr = reinterpret_cast<uint64_t>(param.outputPtr);
     if (param.inputPtr != nullptr) {
-        HcommCcuGetMemToken(baseInputAddr, static_cast<uint64_t>(dataSize), &token);
+        hcomm_ccu_get_mem_token(baseInputAddr, static_cast<uint64_t>(dataSize), &token);
     } else if (param.outputPtr != nullptr) {
-        HcommCcuGetMemToken(baseOutputAddr, static_cast<uint64_t>(dataSize), &token);
+        hcomm_ccu_get_mem_token(baseOutputAddr, static_cast<uint64_t>(dataSize), &token);
     }
 
     for (uint64_t loop = 0; loop < loopCount; loop++) {

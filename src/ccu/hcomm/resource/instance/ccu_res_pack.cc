@@ -13,7 +13,7 @@
 #include "hcomm/common/ccu_log.h"
 #include "ccu_res_desc.h"
 
-namespace hcomm {
+namespace asccomm {
 
 CcuResPack::~CcuResPack()
 {
@@ -21,7 +21,7 @@ CcuResPack::~CcuResPack()
         return;
     }
 
-    auto ret = CcuReleaseResHandle(devLogicId_, resHandle_);
+    auto ret = hcomm::CcuReleaseResHandle(devLogicId_, resHandle_);
     if (ret != HcclResult::HCCL_SUCCESS) {
         HCCL_ERROR("[CcuResPack][%s] failed, resHandle[%p] devLogicId[%d].", __func__, resHandle_, devLogicId_);
     }
@@ -32,20 +32,20 @@ CcuResult CcuResPack::Init()
 {
     devLogicId_ = HcclGetThreadDeviceId();
     if (!resDescs_.empty()) {
-        std::vector<CcuResDesc> internalDescs;
+        std::vector<hcomm::CcuResDesc> internalDescs;
         internalDescs.reserve(resDescs_.size());
         for (const auto& snapshot : resDescs_) {
-            CcuResDesc desc;
+            hcomm::CcuResDesc desc;
             desc.dieId = snapshot.dieId;
             desc.resNum = snapshot.resNum;
             internalDescs.push_back(desc);
         }
-        std::vector<const CcuResDesc*> descPtrs;
+        std::vector<const hcomm::CcuResDesc*> descPtrs;
         descPtrs.reserve(internalDescs.size());
         for (const auto& desc : internalDescs) {
             descPtrs.push_back(&desc);
         }
-        CCU_CHK_RET(CcuAllocResHandleByResDescs(
+        CCU_CHK_RET(hcomm::CcuAllocResHandleByResDescs(
             devLogicId_, descPtrs.data(), static_cast<uint32_t>(descPtrs.size()), resHandle_));
         CCU_CHK_RET(Reset());
         return CcuResult::CCU_SUCCESS;
@@ -58,7 +58,7 @@ CcuResult CcuResPack::Init()
 
     // 根据通信域算子展开模式申请资源
     // 如果资源不足，返回HCCL_E_UNAVAIL，表示需要回退
-    auto ret = CcuAllocResHandleByInsType(devLogicId_, insType_, resHandle_);
+    auto ret = hcomm::CcuAllocResHandleByInsType(devLogicId_, insType_, resHandle_);
     if (ret == CcuResult::CCU_E_UNAVAIL) {
         HCCL_RUN_WARNING(
             "[%s] failed but passed, resource is not enough, "
@@ -77,10 +77,10 @@ CcuResult CcuResPack::Reset()
         return CcuResult::CCU_SUCCESS;
     }
 
-    CCU_CHK_RET(CcuCheckResource(devLogicId_, resHandle_, resRepo_));
+    CCU_CHK_RET(hcomm::CcuCheckResource(devLogicId_, resHandle_, resRepo_));
     return CcuResult::CCU_SUCCESS;
 }
 
 CcuResRepository& CcuResPack::GetCcuResRepo() { return resRepo_; }
 
-} // namespace hcomm
+} // namespace asccomm

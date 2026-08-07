@@ -18,7 +18,7 @@
 #include "ccu/hcomm/ccu_types.h"
 #include "ccu_device_pub.h"
 
-namespace hcomm {
+namespace asccomm {
 
 struct CcuResDescSnapshot {
     uint32_t dieId{CCU_MAX_IODIE_NUM};
@@ -45,10 +45,10 @@ private:
     int32_t devLogicId_{0};
     CcuInstanceType insType_{CcuInstanceType::CCU_UNUSED};
     std::vector<CcuResDescSnapshot> resDescs_{};
-    CcuResHandle resHandle_{nullptr};
+    hcomm::CcuResHandle resHandle_{nullptr};
     CcuResRepository resRepo_{};
 };
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // CCU_RES_PACK_H

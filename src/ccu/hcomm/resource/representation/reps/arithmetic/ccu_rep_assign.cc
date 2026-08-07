@@ -15,7 +15,7 @@
 #include "ccu_api_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 void CcuRepAssign::SetCommonInfo()
@@ -109,4 +109,4 @@ uint64_t CcuRepAssign::GetImmed() { return immediate; }
 
 AssignSubType CcuRepAssign::GetSubType() { return subType; }
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

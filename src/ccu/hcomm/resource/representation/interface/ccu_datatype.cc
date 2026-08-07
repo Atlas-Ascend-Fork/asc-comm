@@ -16,7 +16,7 @@
 #include "exception_util.h"
 #include "ccu_api_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 uint16_t CcuPhyRes::Id() const { return id; }
@@ -390,4 +390,4 @@ Executor::Executor(CcuRepContext* context) : CcuVirRes(context) {}
 CompletedEvent::CompletedEvent(CcuRepContext* context) : CcuVirRes(context) {}
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

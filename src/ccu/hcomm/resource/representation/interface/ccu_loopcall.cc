@@ -13,7 +13,7 @@
 #include "exception_util.h"
 #include "ccu_api_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 LoopCall::LoopCall(CcuRepContext* context, const std::string& label) : context(context), label(label)
@@ -30,4 +30,4 @@ void LoopCall::AppendToContext()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

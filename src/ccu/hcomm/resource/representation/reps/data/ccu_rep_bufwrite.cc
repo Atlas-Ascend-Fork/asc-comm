@@ -18,7 +18,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepBufWrite::CcuRepBufWrite(
@@ -50,9 +50,9 @@ std::string CcuRepBufWrite::Describe()
         Hccl::THROW<Hccl::CcuApiException>("failed to get ccu channel, type[%d]", type);
     }
 
-    auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
+    auto* channelImpl = dynamic_cast<hcomm::CcuUrmaChannel*>(static_cast<hcomm::Channel*>(channelPtr));
     if (channelImpl == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("[%s] failed to cast channel[0x%llx] to CcuUrmaChannel", __func__, channel);
+        Hccl::THROW<Hccl::CcuApiException>("[%s] failed to cast channel[0x%llx] to hcomm::CcuUrmaChannel", __func__, channel);
     }
     return Hccl::StringFormat(
         "Write CcuBuf[%u] To Rmt Mem[%u], len[%u], ChannalId[%u], sem[%u], mask[%04x]", src.Id(), dst.addr.Id(),
@@ -60,4 +60,4 @@ std::string CcuRepBufWrite::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

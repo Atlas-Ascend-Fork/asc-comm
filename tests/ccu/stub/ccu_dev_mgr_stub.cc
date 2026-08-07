@@ -10,7 +10,7 @@
 
 #include "ccu_dev_mgr_imp.h"
 
-namespace hcomm {
+namespace asccomm {
 
 HcclResult CcuDevMgrImp::GetXnBaseAddr(const uint32_t devLogicId, const uint8_t dieId, uint64_t& xnBaseAddr)
 {
@@ -20,4 +20,4 @@ HcclResult CcuDevMgrImp::GetXnBaseAddr(const uint32_t devLogicId, const uint8_t 
     return HcclResult::HCCL_SUCCESS;
 }
 
-} // namespace hcomm
+} // namespace asccomm

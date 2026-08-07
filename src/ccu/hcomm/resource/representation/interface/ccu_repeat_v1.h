@@ -15,7 +15,7 @@
 #include "hcomm/resource/representation/reps/control/ccu_rep_jumplabel_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 #define CCU_WHILE(x) \
@@ -40,5 +40,5 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // _CCU_REPEAT_H

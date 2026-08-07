@@ -10,7 +10,7 @@
 
 #include "hcomm_adapter_rts.h"
 
-namespace hcomm {
+namespace asccomm {
 
 HcclResult RtsUbDevQueryInfo(const rtUbDevQueryCmd cmd, rtMemUbTokenInfo& devInfo)
 {
@@ -22,4 +22,4 @@ HcclResult RtsUbDevQueryInfo(const rtUbDevQueryCmd cmd, rtMemUbTokenInfo& devInf
     return HcclResult::HCCL_SUCCESS;
 }
 
-} // namespace hcomm
+} // namespace asccomm

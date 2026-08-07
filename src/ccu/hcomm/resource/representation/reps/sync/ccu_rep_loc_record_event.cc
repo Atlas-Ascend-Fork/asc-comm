@@ -14,7 +14,7 @@
 #include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLocRecordEvent::CcuRepLocRecordEvent(CcuInsGeneraterBase* insGenPtr, const CompletedEvent& event, uint32_t mask)
@@ -49,4 +49,4 @@ std::string CcuRepLocRecordEvent::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

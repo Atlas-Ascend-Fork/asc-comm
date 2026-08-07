@@ -23,7 +23,7 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "ccu_dev_mgr_imp.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class CcuRepTranslator {
@@ -65,9 +65,9 @@ private:
     Address addr[GSA_NUM];
     LocalNotify signal[CKE_NUM];
     TransDep transDep{0};
-    static CcuVersion ccuVersion;
+    static hcomm::CcuVersion ccuVersion;
 };
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // HCCL_CCU_REP_TRANSLATOR_H

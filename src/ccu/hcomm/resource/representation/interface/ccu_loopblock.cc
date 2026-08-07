@@ -14,7 +14,7 @@
 #include "string_util.h"
 #include "ccu_api_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 LoopBlock::LoopBlock(CcuRepContext* context, std::string label) : context(context), label(label) {}
@@ -22,4 +22,4 @@ LoopBlock::LoopBlock(CcuRepContext* context, std::string label) : context(contex
 LoopBlock::~LoopBlock() { SetCurrentBlock(context, curActiveBlock); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

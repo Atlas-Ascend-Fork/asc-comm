@@ -15,7 +15,7 @@
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include <cstdint>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class CcuRepStore : public CcuRepBase {
@@ -38,5 +38,5 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // HCCL_CCU_REPRESENTATION_STORE_H

@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-namespace hcomm {
+namespace asccomm {
 
 constexpr uint32_t CCU_SQE_ARGS_LEN = 13;
 
@@ -28,6 +28,6 @@ struct CcuTaskParam {
     uint64_t args[CCU_SQE_ARGS_LEN];
 };
 
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // _CCU_TASK_PARAM_H

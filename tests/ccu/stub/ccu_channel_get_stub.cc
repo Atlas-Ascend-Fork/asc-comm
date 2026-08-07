@@ -12,20 +12,20 @@
 
 #include "hcomm_c_adpt.h"
 
-namespace hcomm {
+namespace asccomm {
 Channel* channelStub = nullptr;
 
 void SetHcommChannelGetStub(Channel* channel) { channelStub = channel; }
 
 void ResetHcommChannelGetStub() { channelStub = nullptr; }
 
-} // namespace hcomm
+} // namespace asccomm
 
 HcommResult HcommChannelGet(ChannelHandle channelHandle, void** channel)
 {
-    if (channel == nullptr || hcomm::channelStub == nullptr) {
+    if (channel == nullptr || asccomm::channelStub == nullptr) {
         return HCCL_E_PTR;
     }
-    *channel = hcomm::channelStub;
+    *channel = asccomm::channelStub;
     return HCCL_SUCCESS;
 }

@@ -14,12 +14,12 @@
 #include "hcomm/resource/common/ccu_res_repo.h"
 #include "ccu/hcomm/ccu_types.h"
 
-namespace hcomm {
+namespace asccomm {
 
 CcuResult PlanKernelResources(
     const CcuResRepository& available, const CcuResReq& request, CcuResRepository& remaining,
     CcuResRepository& allocated);
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // CCU_KERNEL_RES_ALLOCATOR_H

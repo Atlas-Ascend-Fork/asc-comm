@@ -25,7 +25,7 @@
 #include <string>
 #include <memory>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 namespace {
 
@@ -382,4 +382,4 @@ TEST_F(CcuRepInterfaceTest, Address_AddressAndVariableAssignment)
 
 } // namespace
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

@@ -143,7 +143,7 @@ HcclResult GetCcuKernel(
 
     resCtxHost.ccuKernels.resize(1); // 只注册1个kernel
 
-    CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle);
+    CcuResult regStartRet = hcomm_ccu_kernel_register_start(insHandle);
     if (regStartRet != CCU_SUCCESS) {
         HCCL_ERROR("ccu kernel register start failed: ccuRet -> %d", regStartRet);
         return ConvertCcuToHccl(regStartRet);
@@ -153,18 +153,18 @@ HcclResult GetCcuKernel(
     const void* kernelArgs[] = {kernelInfo.kernelArg};
 
     constexpr uint32_t kernelArgNum = 1;
-    CcuResult regRet = HcommCcuKernelRegister(
+    CcuResult regRet = hcomm_ccu_kernel_register(
         insHandle, kernelDie, kernelInfo.kernelFuncName, reinterpret_cast<void*>(kernelInfo.kernelFunc), kernelArgs,
         kernelArgNum, &kernelHandle); // 注册kernel
 
     if (regRet != CCU_SUCCESS) {
         HCCL_ERROR("ccu kernel register failed: ccuRet -> %d", regRet);
-        (void)HcommCcuKernelRegisterEnd(insHandle);
+        (void)hcomm_ccu_kernel_register_end(insHandle);
         return ConvertCcuToHccl(regRet);
     }
     resCtxHost.ccuKernels[0] = kernelHandle;
 
-    CcuResult regEndRet = HcommCcuKernelRegisterEnd(insHandle);
+    CcuResult regEndRet = hcomm_ccu_kernel_register_end(insHandle);
     if (regEndRet != CCU_SUCCESS) {
         HCCL_ERROR("ccu kernel register end failed: ccuRet -> %d", regEndRet);
         return ConvertCcuToHccl(regEndRet);

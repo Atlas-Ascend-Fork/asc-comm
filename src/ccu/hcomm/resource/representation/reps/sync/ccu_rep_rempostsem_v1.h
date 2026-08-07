@@ -13,7 +13,7 @@
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class CcuRepRemPostSem : public CcuRepBase {
@@ -38,5 +38,5 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // HCOMM_CCU_REPRESENTATION_REMPOSTSEM_H

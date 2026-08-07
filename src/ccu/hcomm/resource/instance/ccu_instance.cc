@@ -19,7 +19,7 @@
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 #include "hcomm/resource/instance/ccu_var_event_res_mgr.h"
 
-namespace hcomm {
+namespace asccomm {
 
 CcuInstance::~CcuInstance()
 {
@@ -37,7 +37,7 @@ CcuInstance::~CcuInstance()
     resPack_ = nullptr; // 释放通信域持有CCU资源
     if (ccuDrvHandle_) {
         ccuDrvHandle_ = nullptr; // 先减少引用计数，再尝试关闭
-        (void)CcuDeinitFeature(devLogicId_);
+        (void)hcomm::CcuDeinitFeature(devLogicId_);
         // 尝试关闭CCU功能，最后一个通信域调用时会关闭CCU驱动
     }
 }
@@ -52,7 +52,7 @@ CcuResult CcuInstance::Init()
     devLogicId_ = HcclGetThreadDeviceId();
 
     if (!ccuDrvHandle_) {
-        CCU_CHK_RET(CcuInitFeature(devLogicId_, ccuDrvHandle_));
+        CCU_CHK_RET(hcomm::CcuInitFeature(devLogicId_, ccuDrvHandle_));
     }
 
     if (!resPack_) {
@@ -102,7 +102,7 @@ CcuResult CcuInstance::BeginRegister()
     if (registerState_ == RegisterState::REGISTERING) {
         HCCL_ERROR(
             "[CcuInstance][%s] failed, previous register round is not ended, "
-            "HcommCcuKernelRegisterEnd is missing before a new HcommCcuKernelRegisterStart.",
+            "hcomm_ccu_kernel_register_end is missing before a new hcomm_ccu_kernel_register_start.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
@@ -114,8 +114,8 @@ CcuResult CcuInstance::CheckRegistering() const
 {
     if (registerState_ != RegisterState::REGISTERING) {
         HCCL_ERROR(
-            "[CcuInstance][%s] failed, HcommCcuKernelRegister must be called between "
-            "HcommCcuKernelRegisterStart and HcommCcuKernelRegisterEnd.",
+            "[CcuInstance][%s] failed, hcomm_ccu_kernel_register must be called between "
+            "hcomm_ccu_kernel_register_start and hcomm_ccu_kernel_register_end.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
@@ -126,8 +126,8 @@ CcuResult CcuInstance::EndRegister()
 {
     if (registerState_ == RegisterState::IDLE) {
         HCCL_ERROR(
-            "[CcuInstance][%s] failed, HcommCcuKernelRegisterEnd is called without a matching "
-            "HcommCcuKernelRegisterStart.",
+            "[CcuInstance][%s] failed, hcomm_ccu_kernel_register_end is called without a matching "
+            "hcomm_ccu_kernel_register_start.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
@@ -157,4 +157,4 @@ void CcuInstance::AbortRegister()
     registerState_ = RegisterState::REGISTER_ABORTED;
 }
 
-} // namespace hcomm
+} // namespace asccomm

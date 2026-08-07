@@ -10,7 +10,7 @@
 
 #include "ccu_res_specs.h"
 
-namespace hcomm {
+namespace asccomm {
 HcclResult CcuResSpecifications::GetResourceAddr(const uint8_t dieId, uint64_t& resourceAddr) const
 {
     return HCCL_SUCCESS;
@@ -29,4 +29,4 @@ HcclResult CcuResSpecifications::GetChannelNum(const uint8_t dieId, uint32_t& ch
 HcclResult CcuResSpecifications::GetJettyNum(const uint8_t dieId, uint32_t& jettyNum) const { return HCCL_SUCCESS; }
 HcclResult CcuResSpecifications::GetPfeNum(const uint8_t dieId, uint32_t& pfeNum) const { return HCCL_SUCCESS; }
 HcclResult CcuResSpecifications::GetWqeBBNum(const uint8_t dieId, uint32_t& wqeBBNum) const { return HCCL_SUCCESS; }
-} // namespace hcomm
+} // namespace asccomm

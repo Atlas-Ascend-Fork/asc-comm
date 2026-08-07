@@ -17,7 +17,7 @@
 #include "hcomm/resource/representation/reps/arithmetic/ccu_operator_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class Variable;
@@ -257,5 +257,5 @@ public:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // HCOMM_CCU_DATATYPE_H

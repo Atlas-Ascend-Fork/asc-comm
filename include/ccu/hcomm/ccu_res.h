@@ -26,42 +26,42 @@ extern "C" {
  * @param[out] varHandle 预约句柄，不可为 nullptr；失败时置 0。
  * @return CcuResult。CCU_E_PARA：dieId 或 num 非法；CCU_E_UNAVAIL：无满足 num 的连续块；
  *         CCU_E_PTR：varHandle 为 nullptr；CCU_E_RUNTIME：地址映射失败。
- * @note 句柄生命周期与 insHandle 绑定，无显式释放接口，由 HcommCcuInsDestroy 统一解映射并还池。
+ * @note 句柄生命周期与 insHandle 绑定，无显式释放接口，由 hcomm_ccu_ins_destroy 统一解映射并还池。
  */
-extern CcuResult HcommCcuVariableAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
+extern CcuResult hcomm_ccu_variable_alloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
     CcuVariableHandle *varHandle);
 
 /**
- * @brief 预约一段连续的 Event(CKE) 资源，参数与生命周期约束同 HcommCcuVariableAlloc。
+ * @brief 预约一段连续的 Event(CKE) 资源，参数与生命周期约束同 hcomm_ccu_variable_alloc。
  * @param[in] insHandle CCU 实例句柄。
  * @param[in] dieId 资源归属的 ioDie ID，取值范围 [0, CCU_MAX_IODIE_NUM)。
  * @param[in] num 预约的连续资源个数，须大于 0。
  * @param[out] eventHandle 预约句柄，不可为 nullptr；失败时置 0。
- * @return CcuResult，错误码语义同 HcommCcuVariableAlloc。
+ * @return CcuResult，错误码语义同 hcomm_ccu_variable_alloc。
  * @note CKE 池与 kernel 自身的完成事件共用且单 die 容量有限，大 num 可能总量足够却无连续块。
  */
-extern CcuResult HcommCcuEventAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
+extern CcuResult hcomm_ccu_event_alloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
     CcuEventHandle *eventHandle);
 
 /**
  * @brief 查询预约句柄名下第 index 个 Variable(XN) 的进程可访问虚拟地址。
- * @param[in] varHandle HcommCcuVariableAlloc 返回的预约句柄。
+ * @param[in] varHandle hcomm_ccu_variable_alloc 返回的预约句柄。
  * @param[in] index 预约段内序号，取值范围 [0, num)。
  * @param[out] va 该资源的进程可访问虚拟地址，不可为 nullptr。
  * @return CcuResult。CCU_E_NOT_FOUND：句柄不存在；CCU_E_PARA：句柄类型不符或 index 越界；
  *         CCU_E_PTR：va 为 nullptr。
  * @note 地址已在 Alloc 阶段映射并缓存，此处为纯查表；VA 供 CCU 外模块访问，有效期同句柄。
  */
-extern CcuResult HcommCcuVariableGetAddr(CcuVariableHandle varHandle, uint32_t index, uint64_t *va);
+extern CcuResult hcomm_ccu_variable_get_addr(CcuVariableHandle varHandle, uint32_t index, uint64_t *va);
 
 /**
  * @brief 查询预约句柄名下第 index 个 Event(CKE) 的进程可访问虚拟地址。
- * @param[in] eventHandle HcommCcuEventAlloc 返回的预约句柄。
+ * @param[in] eventHandle hcomm_ccu_event_alloc 返回的预约句柄。
  * @param[in] index 预约段内序号，取值范围 [0, num)。
  * @param[out] va 该资源的进程可访问虚拟地址，不可为 nullptr。
- * @return CcuResult，错误码与约束同 HcommCcuVariableGetAddr。
+ * @return CcuResult，错误码与约束同 hcomm_ccu_variable_get_addr。
  */
-extern CcuResult HcommCcuEventGetAddr(CcuEventHandle eventHandle, uint32_t index, uint64_t *va);
+extern CcuResult hcomm_ccu_event_get_addr(CcuEventHandle eventHandle, uint32_t index, uint64_t *va);
 
 /**
  * @brief 创建空白 CCU 资源描述符。
@@ -69,14 +69,14 @@ extern CcuResult HcommCcuEventGetAddr(CcuEventHandle eventHandle, uint32_t index
  * @param[out] resDesc 创建成功后返回的资源描述符句柄，不可为 nullptr。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescCreate(uint32_t dieId, HcommCcuResDescHandle* resDesc);
+extern CcuResult hcomm_ccu_ins_res_desc_create(uint32_t dieId, HcommCcuResDescHandle* resDesc);
 
 /**
  * @brief 销毁 CCU 资源描述符。
  * @param[in] resDesc 资源描述符句柄。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescDestroy(HcommCcuResDescHandle resDesc);
+extern CcuResult hcomm_ccu_ins_res_desc_destroy(HcommCcuResDescHandle resDesc);
 
 /**
  * @brief 查询 CCU 资源描述符归属的 ioDie ID。
@@ -84,7 +84,7 @@ extern CcuResult HcommCcuInsResDescDestroy(HcommCcuResDescHandle resDesc);
  * @param[out] dieId 查询成功后返回 ioDie ID，不可为 nullptr。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle resDesc, uint32_t* dieId);
+extern CcuResult hcomm_ccu_ins_res_desc_query_die_id(HcommCcuResDescHandle resDesc, uint32_t* dieId);
 
 /**
  * @brief 设置指定 CCU 资源描述符内指定资源类型的资源数量。
@@ -93,7 +93,7 @@ extern CcuResult HcommCcuInsResDescQueryDieId(HcommCcuResDescHandle resDesc, uin
  * @param[in] resNum 资源数量。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescSetNum(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t resNum);
+extern CcuResult hcomm_ccu_ins_res_desc_set_num(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t resNum);
 
 /**
  * @brief 查询指定 CCU 资源描述符内指定资源类型的资源数量。
@@ -102,7 +102,7 @@ extern CcuResult HcommCcuInsResDescSetNum(HcommCcuResDescHandle resDesc, HcommCc
  * @param[out] resNum 查询成功后返回资源数量，不可为 nullptr。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsResDescQueryNum(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t* resNum);
+extern CcuResult hcomm_ccu_ins_res_desc_query_num(HcommCcuResDescHandle resDesc, HcommCcuResType resType, uint32_t* resNum);
 
 /**
  * @brief 基于资源描述符创建 CCU 实例。
@@ -111,7 +111,7 @@ extern CcuResult HcommCcuInsResDescQueryNum(HcommCcuResDescHandle resDesc, Hcomm
  * @param[out] ccuInsHandle 创建成功后返回的 CCU 实例句柄，不可为 nullptr。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsCreate(
+extern CcuResult hcomm_ccu_ins_create(
     const HcommCcuResDescHandle* resDescs, uint32_t resDescNum, CcuInsHandle* ccuInsHandle);
 
 /**
@@ -121,14 +121,14 @@ extern CcuResult HcommCcuInsCreate(
  * @param[out] ccuInsHandle 创建成功后返回的 CCU 实例句柄，不可为 nullptr。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsCreateDefault(const uint32_t* dieIds, uint32_t dieNum, CcuInsHandle* ccuInsHandle);
+extern CcuResult hcomm_ccu_ins_create_default(const uint32_t* dieIds, uint32_t dieNum, CcuInsHandle* ccuInsHandle);
 
 /**
  * @brief 销毁 CCU 实例。
  * @param[in] ccuInsHandle CCU 实例句柄。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsDestroy(CcuInsHandle ccuInsHandle);
+extern CcuResult hcomm_ccu_ins_destroy(CcuInsHandle ccuInsHandle);
 
 /**
  * @brief 查询 CCU 实例在资源描述符所属 ioDie 上占用的资源。
@@ -136,14 +136,14 @@ extern CcuResult HcommCcuInsDestroy(CcuInsHandle ccuInsHandle);
  * @param[in,out] resDesc 调用方基于待查询 ioDie 创建的资源描述符句柄，查询成功后写入该 ioDie 上的占用资源数量。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuInsQueryResDesc(CcuInsHandle ccuInsHandle, HcommCcuResDescHandle resDesc);
+extern CcuResult hcomm_ccu_ins_query_res_desc(CcuInsHandle ccuInsHandle, HcommCcuResDescHandle resDesc);
 
 /**
  * @brief 查询资源描述符所属 ioDie 上的剩余 CCU 资源。
  * @param[in,out] resDesc 调用方基于待查询 ioDie 创建的资源描述符句柄，查询成功后写入该 ioDie 上的剩余资源数量。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuQueryRemainResDesc(HcommCcuResDescHandle resDesc);
+extern CcuResult hcomm_ccu_query_remain_res_desc(HcommCcuResDescHandle resDesc);
 
 /**
  * @brief 查询 CCU Kernel 的资源诉求。
@@ -153,7 +153,7 @@ extern CcuResult HcommCcuQueryRemainResDesc(HcommCcuResDescHandle resDesc);
  * @param[in,out] resDesc 调用方创建的资源描述符句柄，查询成功后写入资源诉求。
  * @return CcuResult。
  */
-extern CcuResult HcommCcuKernelQueryResReq(
+extern CcuResult hcomm_ccu_kernel_query_res_req(
     const void* kernelFunc, const void** kernelArgs, uint32_t argNum, HcommCcuResDescHandle resDesc);
 
 /**
@@ -166,7 +166,7 @@ extern CcuResult HcommCcuKernelQueryResReq(
  * @note 仅可在 host 端调用，不能在 kernel 函数体内调用。token 属安全信息，调用方不应打印；
  *       其生命周期与对应内存注册绑定。跨 rank 场景下本端 token 需经带外通道交换给对端组装 RemoteAddr。
  */
-extern CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo);
+extern CcuResult hcomm_ccu_get_mem_token(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo);
 
 #ifdef __cplusplus
 }

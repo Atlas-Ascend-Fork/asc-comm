@@ -18,7 +18,7 @@
 #include <memory>
 #include <string>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 namespace {
 
@@ -251,4 +251,4 @@ TEST_F(CcuRepContextTest, MultipleBlocks_SetCurrentBlock)
 
 } // namespace
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

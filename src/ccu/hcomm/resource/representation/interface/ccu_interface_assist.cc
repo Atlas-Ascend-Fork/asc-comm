@@ -14,7 +14,7 @@
 #include "exception_util.h"
 #include "ccu_api_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 void AppendToContext(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBase> rep)
@@ -55,4 +55,4 @@ Variable CreateVariable(CcuRepContext* context)
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

@@ -13,10 +13,10 @@
 
 #include <cstdint>
 
-namespace hcomm {
+namespace asccomm {
 
 constexpr uint8_t CCU_MAX_IODIE_NUM = 2;
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // CCU_COMMON_H

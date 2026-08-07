@@ -10,7 +10,7 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepBase::CcuRepBase() {}
@@ -25,4 +25,4 @@ uint16_t CcuRepBase::StartInstrId() const { return instrId; }
 uint16_t CcuRepBase::InstrCount() { return instrCount; }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

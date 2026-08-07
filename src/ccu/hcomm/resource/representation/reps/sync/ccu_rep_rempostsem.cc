@@ -13,7 +13,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "internal_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepRemPostSem::CcuRepRemPostSem(
@@ -49,4 +49,4 @@ std::string CcuRepRemPostSem::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

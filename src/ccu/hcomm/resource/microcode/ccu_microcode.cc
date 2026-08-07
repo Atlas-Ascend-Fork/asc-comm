@@ -54,7 +54,7 @@ constexpr uint16_t MAX_CODE = 0x1;
 constexpr uint16_t MIN_CODE = 0x2;
 } // namespace
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 // *GSAId = *sqeArgsId
@@ -1094,4 +1094,4 @@ std::string ParseInstr(const CcuInstr* instr)
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

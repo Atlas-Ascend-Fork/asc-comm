@@ -60,7 +60,7 @@ inline HcclResult SetCcuSchedResourceNums(HcommCcuResDescHandle desc)
         {HCOMM_CCU_RES_TYPE_CCU_THREAD, 2},
     }};
     for (const auto &resource : resourceNums) {
-        CcuResult ret = HcommCcuInsResDescSetNum(desc, resource.type, resource.num);
+        CcuResult ret = hcomm_ccu_ins_res_desc_set_num(desc, resource.type, resource.num);
         if (ret != CCU_SUCCESS) {
             return ConvertCcuResult(ret);
         }
@@ -71,7 +71,7 @@ inline HcclResult SetCcuSchedResourceNums(HcommCcuResDescHandle desc)
 inline void DestroyCcuResourceDescs(const std::vector<HcommCcuResDescHandle> &descs)
 {
     for (auto desc : descs) {
-        (void)HcommCcuInsResDescDestroy(desc);
+        (void)hcomm_ccu_ins_res_desc_destroy(desc);
     }
 }
 
@@ -80,24 +80,24 @@ inline HcclResult CreateCcuInsWithEnabledDies(CcuInsHandle &insHandle)
     std::vector<HcommCcuResDescHandle> descs;
     for (uint32_t dieId = 0; dieId < CCU_MAX_DIE_NUM; ++dieId) {
         HcommCcuResDescHandle desc = 0;
-        CcuResult ret = HcommCcuInsResDescCreate(dieId, &desc);
+        CcuResult ret = hcomm_ccu_ins_res_desc_create(dieId, &desc);
         if (ret != CCU_SUCCESS) {
             DestroyCcuResourceDescs(descs);
             return ConvertCcuResult(ret);
         }
-        ret = HcommCcuQueryRemainResDesc(desc);
+        ret = hcomm_ccu_query_remain_res_desc(desc);
         if (ret == CCU_E_UNAVAIL) {
-            (void)HcommCcuInsResDescDestroy(desc);
+            (void)hcomm_ccu_ins_res_desc_destroy(desc);
             continue;
         }
         if (ret != CCU_SUCCESS) {
-            (void)HcommCcuInsResDescDestroy(desc);
+            (void)hcomm_ccu_ins_res_desc_destroy(desc);
             DestroyCcuResourceDescs(descs);
             return ConvertCcuResult(ret);
         }
         HcclResult setRet = SetCcuSchedResourceNums(desc);
         if (setRet != HCCL_SUCCESS) {
-            (void)HcommCcuInsResDescDestroy(desc);
+            (void)hcomm_ccu_ins_res_desc_destroy(desc);
             DestroyCcuResourceDescs(descs);
             return setRet;
         }
@@ -107,7 +107,7 @@ inline HcclResult CreateCcuInsWithEnabledDies(CcuInsHandle &insHandle)
         return HCCL_E_INTERNAL;
     }
 
-    CcuResult createRet = HcommCcuInsCreate(descs.data(), static_cast<uint32_t>(descs.size()), &insHandle);
+    CcuResult createRet = hcomm_ccu_ins_create(descs.data(), static_cast<uint32_t>(descs.size()), &insHandle);
     DestroyCcuResourceDescs(descs);
     if (createRet != CCU_SUCCESS) {
         return ConvertCcuResult(createRet);
@@ -133,7 +133,7 @@ inline HcclResult GetOrCreateCcuInstance(HcclComm comm, CcuInsHandle &insHandle)
 
     HcclResult assignRet = HcclCommAssignCcuIns(comm, insHandle);
     if (assignRet != HCCL_SUCCESS) {
-        (void)HcommCcuInsDestroy(insHandle);
+        (void)hcomm_ccu_ins_destroy(insHandle);
         insHandle = 0;
         return assignRet;
     }

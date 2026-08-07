@@ -14,7 +14,7 @@
 #include "string_util.h"
 #include "framework/entrance/hccl_common_v2.h"
 
-namespace hcomm {
+namespace asccomm {
 
 CcuInstanceMgr::~CcuInstanceMgr()
 {
@@ -118,4 +118,4 @@ CcuResult CcuInstanceMgr::Destroy(CcuInsHandle insHandle)
     return CcuResult::CCU_SUCCESS;
 }
 
-} // namespace hcomm
+} // namespace asccomm

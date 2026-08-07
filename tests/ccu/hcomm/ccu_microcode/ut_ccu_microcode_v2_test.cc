@@ -11,7 +11,7 @@
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 #include <gtest/gtest.h>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 namespace CcuV2 {
 namespace {
@@ -458,4 +458,4 @@ TEST_F(CcuMicrocodeV2Test, ReduceMin)
 } // namespace
 } // namespace CcuV2
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

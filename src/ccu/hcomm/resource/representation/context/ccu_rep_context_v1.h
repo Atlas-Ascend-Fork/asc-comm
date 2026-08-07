@@ -22,7 +22,7 @@
 #include "hcomm/common/ccu_common.h"
 #include "task_param.h"
 
-namespace hcomm {
+namespace asccomm {
 constexpr uint16_t CCU_MAX_CHANNEL_NUM = 16;                    // 最多16条link
 constexpr uint16_t INVALID_CKE_ID = 0xFFFF;                     // CKE ID非法值
 constexpr uint16_t INVALID_VALUE_CHANNELID = 0xFFFF;            // channel id非法值
@@ -106,6 +106,6 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // _CCU_REP_CTX_H

@@ -18,7 +18,7 @@
 #include "data_type.h"
 #include "reduce_op.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 // 辅助函数
@@ -39,6 +39,6 @@ uint64_t GetParallelParamV2(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64
 uint64_t GetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uint64_t ckeOffset);
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // HCCL_CCU_CONTEXT_ASSIST_H

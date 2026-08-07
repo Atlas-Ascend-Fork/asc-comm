@@ -19,7 +19,7 @@
 #include "ccu_drv_handle.h"
 #include "ccu_device_res.h"
 
-namespace hcomm {
+namespace asccomm {
 
 /**
  * @note 职责：管理通信域持有的CCU资源
@@ -55,5 +55,5 @@ private:
     std::vector<CcuKernelHandle> untranslatedKernelHandles_{};
 };
 
-} // namespace hcomm
+} // namespace asccomm
 #endif // CCU_RES_CONTAINER_H

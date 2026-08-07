@@ -12,7 +12,7 @@
 #include "exception_util.h"
 #include "ccu_api_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepReferenceManager::CcuRepReferenceManager(uint8_t deiId) : dieId(deiId)
@@ -102,4 +102,4 @@ void CcuRepReferenceManager::Dump() const
 void CcuRepReferenceManager::ClearRepReference() { referenceMap.clear(); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

@@ -29,7 +29,7 @@
 #include <string>
 #include <vector>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 namespace {
 
@@ -607,4 +607,4 @@ TEST_F(CcuRepRemMemTest, Translate)
 
 } // namespace
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

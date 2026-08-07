@@ -30,12 +30,12 @@
 
 #include "unified_platform/pub_inc/config_plf_log.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 using Hccl::PLF_TASK;
 
-CcuVersion CcuRepTranslator::ccuVersion = CcuVersion::CCU_INVALID;
+hcomm::CcuVersion CcuRepTranslator::ccuVersion = hcomm::CcuVersion::CCU_INVALID;
 
 template <typename T>
 bool CheckType(const std::shared_ptr<CcuRepBlock>& refer)
@@ -111,13 +111,13 @@ CcuRepTranslator::CcuRepTranslator(
     transDep.memTokenInfo = hbmTokenInfo;
 
     ret = CcuDevMgrImp::GetCcuVersion(transDep.logicalId, ccuVersion);
-    if (ret != HcclResult::HCCL_SUCCESS || ccuVersion == CcuVersion::CCU_INVALID) {
+    if (ret != HcclResult::HCCL_SUCCESS || ccuVersion == hcomm::CcuVersion::CCU_INVALID) {
         Hccl::THROW<Hccl::CcuApiException>("[CcuRepTranslator] Constructor: Invalid CCU Type!");
     }
 
 // 单Udie环境下暂不获取另一个die的信息
 #ifdef OPEN_GET_ANOTHER_DIE_XN_ADDR
-    if (ccuVersion == CcuVersion::CCU_V2) {
+    if (ccuVersion == hcomm::CcuVersion::CCU_V2) {
         uint8_t anotherDieId = dieId == 0 ? 1 : 0;
         ret = CcuDevMgrImp::GetXnBaseAddr(deviceLogicId, anotherDieId, transDep.xnBaseAddr[anotherDieId]);
         if (ret != HcclResult::HCCL_SUCCESS) {
@@ -134,14 +134,14 @@ CcuRepTranslator::CcuRepTranslator(std::shared_ptr<CcuRepReferenceManager> refMa
     : refManager(refManager), transDep(transDep)
 {
     HcclResult ret = CcuDevMgrImp::GetCcuVersion(transDep.logicalId, ccuVersion);
-    if (ret != HcclResult::HCCL_SUCCESS || ccuVersion == CcuVersion::CCU_INVALID) {
+    if (ret != HcclResult::HCCL_SUCCESS || ccuVersion == hcomm::CcuVersion::CCU_INVALID) {
         Hccl::THROW<Hccl::CcuApiException>("[CcuRepTranslator] Constructor: Invalid CCU Type!");
     }
 }
 
 uint32_t CcuRepTranslator::GetInstrNum()
 {
-    return ccuVersion == CcuVersion::CCU_V1 ?
+    return ccuVersion == hcomm::CcuVersion::CCU_V1 ?
                4 // 4:翻译器翻译过程中额外需要的指令空间大小(插入3条通用操作指令+1条终止指令)
                :
                13; // 13:翻译器翻译过程中额外需要的指令空间大小(插入3条通用操作指令+1条终止指令+9条repJump)
@@ -153,7 +153,7 @@ CcuResReq CcuRepTranslator::GetResReq(uint8_t dieId)
     // 需要申请若干xn、gsa、cke设置为固定值用于通用操作
     CcuResReq resReq;
     int varNum = XN_NUM;
-    int gsaNum = ccuVersion == CcuVersion::CCU_V1 ? GSA_NUM : 0;
+    int gsaNum = ccuVersion == hcomm::CcuVersion::CCU_V1 ? GSA_NUM : 0;
     resReq.xnReq[dieId] = varNum;
     resReq.gsaReq[dieId] = gsaNum;
     resReq.ckeReq[dieId] = CKE_NUM;
@@ -163,7 +163,7 @@ CcuResReq CcuRepTranslator::GetResReq(uint8_t dieId)
 void CcuRepTranslator::GetRes(CcuRepResource& res)
 {
     int varNum = XN_NUM;
-    int gsaNum = ccuVersion == CcuVersion::CCU_V1 ? GSA_NUM : 0;
+    int gsaNum = ccuVersion == hcomm::CcuVersion::CCU_V1 ? GSA_NUM : 0;
     for (int i = 0; i < varNum; i++) {
         res.variable[transDep.dieId].push_back(var[i]);
     }
@@ -400,4 +400,4 @@ void CcuRepTranslator::BindResource(bool isFuncBlock)
         transDep.reserveChannalId[0], transDep.reserveChannalId[1]);
 }
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

@@ -22,7 +22,7 @@
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace hcomm {
+namespace asccomm {
 
 using namespace CcuRep;
 
@@ -54,7 +54,7 @@ private:
 
 private:
     struct CcuTranslatResPack {
-        std::vector<CcuResHandle> handles{};
+        std::vector<hcomm::CcuResHandle> handles{};
     };
 
 private:
@@ -82,7 +82,7 @@ private:
     CcuTranslatResPack translatorResPack{};
     std::unique_ptr<CcuKernel> currKernel_{nullptr};
     std::shared_ptr<CcuInsGeneraterBase> insGenePtr;
-    CcuVersion ccuVersion_{CcuVersion::CCU_INVALID};
+    hcomm::CcuVersion ccuVersion_{hcomm::CcuVersion::CCU_INVALID};
 };
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // HCOMM_CCU_KERNEL_MGR_IMP_H

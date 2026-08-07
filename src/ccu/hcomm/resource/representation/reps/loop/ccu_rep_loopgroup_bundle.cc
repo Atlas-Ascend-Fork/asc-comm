@@ -14,7 +14,7 @@
 #include "exception_util.h"
 #include "string_util.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 using namespace Hccl;
@@ -81,4 +81,4 @@ std::string CcuRepLoopGroupBundle::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

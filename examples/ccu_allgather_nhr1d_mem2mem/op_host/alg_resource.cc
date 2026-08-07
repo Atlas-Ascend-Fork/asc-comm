@@ -241,16 +241,16 @@ HcclResult RegisterCcuKernel(
     RETURN_IF_HCCL_FAIL(asccomm_examples::GetOrCreateCcuInstance(comm, insHandle));
 
     resCtx.ccuKernels.resize(1);
-    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(HcommCcuKernelRegisterStart(insHandle)));
+    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(hcomm_ccu_kernel_register_start(insHandle)));
 
     CcuKernelHandle kernelHandle = 0;
     const void* kernelArgs[] = {kernelArg.get()};
     constexpr uint32_t kernelArgNum = 1;
-    CcuResult regRet = HcommCcuKernelRegister(
+    CcuResult regRet = hcomm_ccu_kernel_register(
         insHandle, kernelDie, "CcuAllGatherNhr1DMem2MemKernel", reinterpret_cast<void*>(CcuAllGatherNhr1DMem2MemKernel),
         kernelArgs, kernelArgNum, &kernelHandle);
 
-    CcuResult regEndRet = HcommCcuKernelRegisterEnd(insHandle);
+    CcuResult regEndRet = hcomm_ccu_kernel_register_end(insHandle);
     RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(regRet));
     RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(regEndRet));
     resCtx.ccuKernels[0] = kernelHandle;

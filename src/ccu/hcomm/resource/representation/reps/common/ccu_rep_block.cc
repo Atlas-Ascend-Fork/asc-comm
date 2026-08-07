@@ -13,7 +13,7 @@
 #include "string_util.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepBlock::CcuRepBlock(CcuInsGeneraterBase* insGenPtr, const std::string& label)
@@ -74,4 +74,4 @@ std::shared_ptr<CcuRepBase> CcuRepBlock::GetRepByInstrId(uint16_t instrId)
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

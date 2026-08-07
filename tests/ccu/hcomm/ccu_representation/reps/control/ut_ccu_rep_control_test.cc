@@ -15,7 +15,7 @@
 #include <string>
 #include <memory>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 namespace {
 
@@ -399,4 +399,4 @@ TEST_F(CcuRepControlTest, CcuRepTranslator_CheckTypeNullptr_Throw)
 
 } // namespace
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

@@ -16,7 +16,7 @@
 
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 enum class CcuArgType {
@@ -58,5 +58,5 @@ struct CcuRepArg {
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // HCOMM_CCU_REPRESENTATION_ARG_H

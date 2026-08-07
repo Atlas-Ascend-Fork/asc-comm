@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <utility>
 
-namespace hcomm {
+namespace asccomm {
 namespace {
 
 bool TakeContiguous(std::vector<ResInfo>& source, uint32_t count, std::vector<ResInfo>& destination)
@@ -107,4 +107,4 @@ CcuResult PlanKernelResources(
     return CcuResult::CCU_SUCCESS;
 }
 
-} // namespace hcomm
+} // namespace asccomm
