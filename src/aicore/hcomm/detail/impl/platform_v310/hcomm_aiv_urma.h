@@ -562,6 +562,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle 
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle channel)
 {
     if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Lock invalid channel=%lu \n", channel);
         return HCOMM_FAILED;
     }
 
@@ -573,6 +574,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle c
     __gm__ uint32_t* cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
     __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
 
+    CacheWriteThrough(sqHeadAddr, sizeof(uint32_t));
+    CacheWriteThrough(sqTailAddr, sizeof(uint32_t));
+    CacheWriteThrough(cqHeadAddr, sizeof(uint32_t));
+    CacheWriteThrough(cqTailAddr, sizeof(uint32_t));
     channelEntity->sqHead = static_cast<uint32_t>(ld_dev(sqHeadAddr, 0));
     channelEntity->sqTail = static_cast<uint32_t>(ld_dev(sqTailAddr, 0));
     channelEntity->cqHead = static_cast<uint32_t>(ld_dev(cqHeadAddr, 0));
@@ -583,6 +588,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle c
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Unlock(ChannelHandle channel)
 {
     if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Unlock invalid channel=%lu \n", channel);
         return HCOMM_FAILED;
     }
 
@@ -594,6 +600,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Unlock(ChannelHandle
     __gm__ uint32_t* cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
     __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
 
+    CacheWriteThrough(sqHeadAddr, sizeof(uint32_t));
+    CacheWriteThrough(sqTailAddr, sizeof(uint32_t));
+    CacheWriteThrough(cqHeadAddr, sizeof(uint32_t));
+    CacheWriteThrough(cqTailAddr, sizeof(uint32_t));
     st_dev(channelEntity->sqHead, sqHeadAddr, 0);
     st_dev(channelEntity->sqTail, sqTailAddr, 0);
     st_dev(channelEntity->cqHead, cqHeadAddr, 0);
