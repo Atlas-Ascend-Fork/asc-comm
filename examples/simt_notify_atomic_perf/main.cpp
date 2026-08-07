@@ -55,6 +55,13 @@
 extern void LaunchSimtNotifyPerf(void* stream, uint64_t channel, uint32_t sendBufIdx,
     uint32_t recvBufIdx, void* timing, uint32_t payloadBytes,
     uint32_t iterations, uint32_t warmup);
+extern void LaunchSimtNotifyBatchPerf(void* stream, uint64_t channel,
+    uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing,
+    uint32_t payloadBytes, uint32_t iterations, uint32_t warmup,
+    uint32_t laneCount);
+extern void LaunchAivNotifyPerf(void* stream, uint64_t channel,
+    uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing,
+    uint32_t payloadBytes, uint32_t iterations, uint32_t warmup);
 
 namespace {
 
@@ -231,27 +238,34 @@ HcclResult AcquirePeerChannel(
     return HCCL_E_INTERNAL;
 }
 
-bool CheckReceiver(void* recvBuf, uint32_t payloadBytes, size_t bufferBytes)
+bool CheckReceiver(
+    void* recvBuf, uint32_t payloadBytes, uint32_t laneCount, size_t bufferBytes)
 {
     std::vector<uint8_t> actual(bufferBytes, 0U);
     if (aclrtMemcpy(actual.data(), bufferBytes, recvBuf, bufferBytes,
         ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
         return false;
     }
-    for (uint32_t i = 0U; i < payloadBytes; ++i) {
-        if (actual[i] != 0x5AU) {
-            std::cout << "receiver payload byte " << i
-                      << " actual=" << static_cast<uint32_t>(actual[i])
-                      << " expected=90" << std::endl;
+    const size_t laneStride = AlignUp(payloadBytes, sizeof(uint64_t)) + sizeof(uint64_t);
+    for (uint32_t lane = 0U; lane < laneCount; ++lane) {
+        size_t laneOffset = static_cast<size_t>(lane) * laneStride;
+        for (uint32_t i = 0U; i < payloadBytes; ++i) {
+            if (actual[laneOffset + i] != 0x5AU) {
+                std::cout << "receiver lane " << lane << " payload byte " << i
+                          << " actual=" << static_cast<uint32_t>(actual[laneOffset + i])
+                          << " expected=90" << std::endl;
+                return false;
+            }
+        }
+        uint64_t signal = 0U;
+        std::memcpy(&signal,
+            actual.data() + laneOffset + AlignUp(payloadBytes, sizeof(uint64_t)),
+            sizeof(signal));
+        if (signal != kNotifySignal) {
+            std::cout << "receiver lane " << lane << " signal actual=" << signal
+                      << " expected=" << kNotifySignal << std::endl;
             return false;
         }
-    }
-    uint64_t signal = 0U;
-    std::memcpy(&signal, actual.data() + AlignUp(payloadBytes, sizeof(uint64_t)), sizeof(signal));
-    if (signal != kNotifySignal) {
-        std::cout << "receiver signal actual=" << signal
-                  << " expected=" << kNotifySignal << std::endl;
-        return false;
     }
     return true;
 }
@@ -262,7 +276,7 @@ int main(int argc, char* argv[])
 {
     if (argc != 10) {
         std::cout << "Usage: " << argv[0]
-                  << " <rank> <nranks> <rank_table_file> simt notify"
+                  << " <rank> <nranks> <rank_table_file> <simt|aiv-mte3> notify"
                      " <iterations> <warmup> <payload_bytes> <lanes>"
                   << std::endl;
         return 1;
@@ -276,21 +290,33 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    if (std::strcmp(argv[4], "simt") != 0 || std::strcmp(argv[5], "notify") != 0) {
-        std::cout << "This minimal benchmark currently supports only simt/notify" << std::endl;
+    const bool useSimt = std::strcmp(argv[4], "simt") == 0;
+    const bool useAivMte3 = std::strcmp(argv[4], "aiv-mte3") == 0;
+    if ((!useSimt && !useAivMte3) || std::strcmp(argv[5], "notify") != 0) {
+        std::cout << "This benchmark supports simt/notify and aiv-mte3/notify" << std::endl;
         return 1;
     }
     const uint32_t iterations = static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10));
     const uint32_t warmup = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
     const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
     const uint32_t laneCount = static_cast<uint32_t>(std::strtoul(argv[9], nullptr, 10));
-    if (iterations == 0U || payloadBytes == 0U || laneCount != 1U) {
-        std::cout << "iterations and payload_bytes must be positive; this minimal benchmark requires lanes=1"
+    const bool validSimtLanes = laneCount == 1U || laneCount == 32U || laneCount == 1024U;
+    if (iterations == 0U || payloadBytes == 0U ||
+        (useSimt && !validSimtLanes) || (useAivMte3 && laneCount != 1U)) {
+        std::cout << "iterations and payload_bytes must be positive; SIMT lanes must be 1, 32, or 1024; "
+                     "AIV-MTE3 requires lanes=1"
                   << std::endl;
         return 1;
     }
 
-    const size_t bufferBytes = AlignUp(payloadBytes, sizeof(uint64_t)) + sizeof(uint64_t);
+    const size_t laneStride = AlignUp(payloadBytes, sizeof(uint64_t)) + sizeof(uint64_t);
+    const uint32_t timedLaneCount = useSimt ?
+        (iterations < laneCount ? iterations : laneCount) : 1U;
+    const uint32_t warmupLaneCount = useSimt ?
+        (warmup < laneCount ? warmup : laneCount) : 1U;
+    const uint32_t bufferLaneCount =
+        timedLaneCount > warmupLaneCount ? timedLaneCount : warmupLaneCount;
+    const size_t bufferBytes = laneStride * bufferLaneCount;
 
     ACLCHECK(aclInit(nullptr));
     ACLCHECK(aclrtSetDevice(rank));
@@ -326,7 +352,7 @@ int main(int argc, char* argv[])
     HCCLCHECK(HostFileBarrier(rank, nranks, "ready"));
 
     void* timingBuf = nullptr;
-    constexpr size_t kTimingBytes = 3U * sizeof(uint64_t);
+    constexpr size_t kTimingBytes = 4U * sizeof(uint64_t);
     bool senderDrainPass = true;
     if (rank == kSenderRank) {
         ACLCHECK(aclrtMalloc(&timingBuf, kTimingBytes, ACL_MEM_MALLOC_HUGE_FIRST));
@@ -335,13 +361,24 @@ int main(int argc, char* argv[])
     // Only kSenderRank drives traffic. Every other rank just holds its registered buffers
     // open so the sender's WQEs have a valid target.
     if (rank == kSenderRank) {
-        std::cout << "[rank " << rank << "] 路径=SIMT"
+        const char* pathName = useSimt ? "SIMT" : "AIV-MTE3";
+        std::cout << "[rank " << rank << "] 路径=" << pathName
                   << " 接口=notify"
                   << "，发送到 rank " << kReceiverRank << std::endl;
-        uint64_t timing[3] = {};
-        LaunchSimtNotifyPerf(
-            stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf,
-            payloadBytes, iterations, warmup);
+        uint64_t timing[4] = {};
+        if (useAivMte3) {
+            LaunchAivNotifyPerf(
+                stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf,
+                payloadBytes, iterations, warmup);
+        } else if (laneCount == 1U) {
+            LaunchSimtNotifyPerf(
+                stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf,
+                payloadBytes, iterations, warmup);
+        } else {
+            LaunchSimtNotifyBatchPerf(
+                stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf,
+                payloadBytes, iterations, warmup, laneCount);
+        }
         ACLCHECK(aclrtSynchronizeStream(stream));
         ACLCHECK(aclrtMemcpy(
             timing, kTimingBytes, timingBuf, kTimingBytes, ACL_MEMCPY_DEVICE_TO_HOST));
@@ -350,13 +387,21 @@ int main(int argc, char* argv[])
         const double averageNs = static_cast<double>(timing[0]) / iterations;
         const double packetRate = totalUs == 0.0 ? 0.0 :
             static_cast<double>(iterations) / totalUs;
-        const double issueBandwidth = averageNs == 0.0 ? 0.0 :
-            static_cast<double>(payloadBytes) / averageNs;
-        const uint32_t doorbellCount = iterations;
+        const double completionUs = static_cast<double>(timing[3]) / 1000.0;
+        const double completionAverageNs = static_cast<double>(timing[3]) / iterations;
+        const double completionBandwidth = completionAverageNs == 0.0 ? 0.0 :
+            static_cast<double>(payloadBytes) / completionAverageNs;
+        const uint32_t doorbellCount = useSimt ?
+            (iterations + laneCount - 1U) / laneCount : iterations;
+        const std::string resultPath = useSimt ?
+            "SIMT-t" + std::to_string(laneCount) : "AIV-MTE3";
         std::cout << std::fixed << std::setprecision(6)
                   << "RESULT | Path="
-                  << "SIMT-t1"
+                  << resultPath
                   << " | API=notify"
+#if defined(HCOMM_SIMT_UB_STAGING_EXPERIMENT)
+                  << " | WqeStaging=" << (useSimt ? "UB" : "AIV-UB")
+#endif
                   << " | DataSize/B=" << payloadBytes
                   << " | Npus=" << nranks
                   << " | WqeCount=" << iterations
@@ -365,7 +410,9 @@ int main(int argc, char* argv[])
                   << " | TotalTime/us=" << totalUs
                   << " | AverageWqe/ns=" << averageNs
                   << " | PacketRate/Mpps=" << packetRate
-                  << " | IssueBandwidth/GB/s=" << issueBandwidth
+                  << " | CompletionTime/us=" << completionUs
+                  << " | CompletionAverageWqe/ns=" << completionAverageNs
+                  << " | CompletionBandwidth/GB/s=" << completionBandwidth
                   << " | DrainStatus=" << static_cast<int64_t>(timing[1])
                   << " | Completed=" << timing[2] << std::endl;
     }
@@ -380,10 +427,10 @@ int main(int argc, char* argv[])
     if (rank == kSenderRank) {
         pass = senderDrainPass;
     } else if (rank == kReceiverRank) {
-        pass = CheckReceiver(recvBuf, payloadBytes, bufferBytes);
+        pass = CheckReceiver(recvBuf, payloadBytes, timedLaneCount, bufferBytes);
     }
     if (rank == kSenderRank || rank == kReceiverRank) {
-        std::cout << "[rank " << rank << "] SIMT notify"
+        std::cout << "[rank " << rank << "] " << argv[4] << " notify"
                   << " 性能用例" << (pass ? "通过" : "失败") << std::endl;
     }
 

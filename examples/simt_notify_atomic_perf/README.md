@@ -1,15 +1,17 @@
-# SIMT Notify 单 lane 下发性能测试
+# Notify WQE 下发性能测试
 
-本样例统计单 QP、单 lane 连续执行 `WriteWithNotifyNbi<true>` 时，“填写 WQE + 敲 DB”的耗时。预热后的 `Drain` 和正式测试后的 `Drain/PollCq` 均位于计时区间外。
+本样例按 `udma_perftest --metric lat` 和 DesignDocs 第10节的口径，统计单 QP 下“填写 WQE + 敲 DB”的耗时；同时额外记录从开始提交到正式测试 `Drain` 返回的完成耗时和完成带宽。
 
-当前版本优先保证性能计时建立在已验证的功能路径上，因此仅支持：
+当前验证版本启用 `HCOMM_SIMT_UB_STAGING_EXPERIMENT`：每个 SIMT lane 在共享 UB 中使用独立的128B WQE暂存区，组装完成后分别写入SQ和DWQE。结果日志中的`WqeStaging=UB`用于确认该路径已经启用。
+
+当前支持：
 
 - 接口：`Notify`
-- 路径：`SIMT`
-- lane 数：`t=1`
-- 提交方式：每个 WQE 使用 `commit=true`，每次提交均敲一次 DB，最后统一 `Drain`
+- `SIMT-t1`：每个 WQE 使用 `commit=true`，每个 WQE 敲一次 DB
+- `SIMT-t32` / `SIMT-t1024`：每组由多个 lane 填写 WQE，每个lane使用独立的payload和notify区域；仅最后一个WQE使用 `commit=true`，每组敲一次 DB
+- `AIV-MTE3`：AIV 在 UB 中组装 WQE，经 MTE3 写入 SQ，再由 Scalar 敲 DB
 
-多 lane 分组提交、FAA/CAS 性能测试和 AIV 基线将在该路径稳定后分别补充。
+所有路径都先预热并 `Drain`，再一次性提交正式 WQE。下发指标在调用正式测试 `Drain` 前结束计时，完成指标则在 `Drain` 返回后结束计时。当前 asc-comm 的 AIV 实现会忽略 `reqPipe`，尚无可独立选择的纯 Scalar WQE 填写路径，因此不输出伪 Scalar 对照数据。
 
 ## 编译
 
@@ -20,9 +22,17 @@ bash examples/simt_notify_atomic_perf/build.sh
 
 `build.sh` 会先清理本样例的 `build` 目录，再重新配置和编译。
 
+默认使用每个 lane 独立的 128B UB WQE 暂存区；可用下面命令关闭它，保持相同的 SIMT lane 与 DWQE 批提交逻辑，用于定位 UB staging 对 t1024 的影响：
+
+```bash
+bash examples/simt_notify_atomic_perf/build.sh --ub-staging off
+```
+
+重新启用则执行 `bash examples/simt_notify_atomic_perf/build.sh --ub-staging on`。`off` 仅用于对照验证，性能数据应使用默认的 `on` 构建结果。
+
 ## 快速功能验证
 
-先使用 8B 数据、100 次预热和 1 次正式提交确认执行流程：
+先使用 8B 数据、100 次预热和1次正式提交确认 SIMT-t1：
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
@@ -42,16 +52,16 @@ DrainStatus=0 | Completed=1
 
 ## 性能运行
 
-扫描 8B 到 128KiB，每个长度正式提交 1024 个 WQE，并预热 100 个 WQE：
+扫描 8B 到 128KiB，每个长度、每条路径正式提交1024个WQE，并预热100个WQE：
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
     2 /path/to/rank_table.json notify \
     --loop-count 1024 \
     --warmup 100 \
-    --threads 1 \
-    --exponent-range 3 17 \
-    --simt-only
+    --threads 1,32,1024 \
+    --paths simt,aiv-mte3 \
+    --exponent-range 3 17
 ```
 
 只测试 4096B：
@@ -61,27 +71,49 @@ bash examples/simt_notify_atomic_perf/run.sh \
     2 /path/to/rank_table.json notify \
     --loop-count 1024 \
     --warmup 100 \
-    --threads 1 \
-    --exponent-range 12 12 \
-    --simt-only
+    --threads 1,32,1024 \
+    --paths simt,aiv-mte3 \
+    --exponent-range 12 12
 ```
 
-脚本默认将完整输出保存到 `results/notify_<时间>.log`，也可以通过 `--log FILE` 指定路径。`--simt-only` 在当前版本中为兼容参数，因为当前阶段本身只运行 SIMT。
+脚本默认将完整输出保存到 `results/notify_<时间>.log`，也可以通过 `--log FILE` 指定路径。只测 SIMT 时可使用 `--simt-only`；`--threads` 目前支持 `1,32,1024` 的任意组合。
 
 ## 输出指标
 
 普通运行提示使用中文。为了保持绘图脚本兼容，机器可读的 `RESULT` 行继续使用英文键名：
 
 ```text
-RESULT | Path=SIMT-t1 | API=notify | DataSize/B=4096 | Npus=2 | WqeCount=1024 | DoorbellCount=1024 | Warmup=100 | TotalTime/us=5375.956000 | AverageWqe/ns=5249.957031 | PacketRate/Mpps=0.190478 | IssueBandwidth/GB/s=0.780197 | DrainStatus=0 | Completed=1024
+RESULT | Path=SIMT-t1 | API=notify | WqeStaging=UB | DataSize/B=4096 | Npus=2 | WqeCount=1024 | DoorbellCount=1024 | Warmup=100 | TotalTime/us=5375.956000 | AverageWqe/ns=5249.957031 | PacketRate/Mpps=0.190478 | CompletionTime/us=5400.000000 | CompletionAverageWqe/ns=5273.437500 | CompletionBandwidth/GB/s=0.776722 | DrainStatus=0 | Completed=1024
 ```
 
 - `TotalTime/us`：填写全部 WQE 并敲 DB 的总耗时。
 - `AverageWqe/ns = TotalTime / WqeCount`：平均单个 WQE 的下发时延。
 - `PacketRate/Mpps = WqeCount / TotalTime(us)`：每秒百万 WQE 数。
-- `IssueBandwidth/GB/s = DataSize(B) / AverageWqe(ns)`：软件下发带宽，不是网络完成带宽。
-- `DoorbellCount`：当前 `t=1` 路径等于 `WqeCount`。
+- `CompletionTime/us`：从开始填写正式 WQE 到 `Drain` 返回的总耗时。
+- `CompletionAverageWqe/ns = CompletionTime / WqeCount`：包含任务完成等待的平均耗时。
+- `CompletionBandwidth/GB/s = DataSize(B) / CompletionAverageWqe(ns)`：实际完成口径的有效载荷带宽，可用于和链路带宽上限比较。
+- `DoorbellCount`：`SIMT-tN` 为 `ceil(WqeCount/N)`；AIV-MTE3等于`WqeCount`。
 - `DrainStatus=0` 且 `Completed=WqeCount`：计时后的统一完成检查成功。
+
+## 生成第10节格式的汇总表
+
+默认汇总4096B数据，并在终端输出Markdown表格：
+
+```bash
+python3 examples/simt_notify_atomic_perf/summarize.py \
+    examples/simt_notify_atomic_perf/results/notify_*.log
+```
+
+汇总全部数据长度并写入文件：
+
+```bash
+python3 examples/simt_notify_atomic_perf/summarize.py \
+    examples/simt_notify_atomic_perf/results/notify_*.log \
+    --all-sizes \
+    -o examples/simt_notify_atomic_perf/results/notify_summary.md
+```
+
+脚本只统计`DrainStatus=0`且`Completed=WqeCount`的有效结果；失败样本会单独打印，不会混入平均值。传入多个日志时，同一路径、同一数据长度的有效结果取平均值。
 
 ## 已验证结果与当前性能差异
 
@@ -108,11 +140,12 @@ python3 examples/simt_notify_atomic_perf/plot.py \
     -o examples/simt_notify_atomic_perf/results/notify_bandwidth.svg
 ```
 
-横轴为数据大小（B，对数刻度），纵轴为 `IssueBandwidth/GB/s`。当前日志只包含 `SIMT-t1` 曲线。
+横轴为数据大小（B，对数刻度），上述命令的纵轴为 `CompletionBandwidth/GB/s`。同一日志中的 `SIMT-t1/t32/t1024` 和 `AIV-MTE3` 会分别生成曲线。
 
-也可以绘制平均 WQE 时延或包率：
+也可以绘制完成时延、下发时延或包率：
 
 ```bash
+python3 examples/simt_notify_atomic_perf/plot.py results/*.log --metric completion-latency
 python3 examples/simt_notify_atomic_perf/plot.py results/*.log --metric latency
 python3 examples/simt_notify_atomic_perf/plot.py results/*.log --metric packet-rate
 ```

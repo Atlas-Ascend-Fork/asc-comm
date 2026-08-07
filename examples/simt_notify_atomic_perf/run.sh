@@ -18,9 +18,10 @@ Usage:
 Options:
   --loop-count N             Timed WQE count, default: 1024
   --warmup N                 Warmup WQE count, default: 100
-  --threads 1                Only the validated single-lane path is enabled
+  --threads LIST             SIMT lane counts, default: 1,32,1024
+  --paths LIST               Paths to run: simt,aiv-mte3 (default: both)
   --exponent-range MIN MAX   Notify payload range 2^MIN..2^MAX B, default: 3 17
-  --simt-only                Accepted for compatibility; this stage is SIMT-only
+  --simt-only                Run only the SIMT paths
   --log FILE                 Output log path
 EOF
 }
@@ -37,7 +38,8 @@ shift 3
 
 loop_count=1024
 warmup=100
-threads="1"
+threads="1,32,1024"
+paths="simt,aiv-mte3"
 min_exp=3
 max_exp=17
 log_file=""
@@ -56,6 +58,10 @@ while [ "$#" -gt 0 ]; do
             threads="$2"
             shift 2
             ;;
+        --paths)
+            paths="$2"
+            shift 2
+            ;;
         --exponent-range)
             min_exp="$2"
             max_exp="$3"
@@ -66,6 +72,7 @@ while [ "$#" -gt 0 ]; do
             shift 2
             ;;
         --simt-only)
+            paths="simt"
             shift
             ;;
         -h|--help)
@@ -111,10 +118,24 @@ if [ "${#lane_values[@]}" -eq 0 ]; then
     echo "--threads must contain at least one lane count"
     exit 1
 fi
-if [ "${#lane_values[@]}" -ne 1 ] || [ "${lane_values[0]}" != "1" ]; then
-    echo "this minimal benchmark requires --threads 1"
+for lanes in "${lane_values[@]}"; do
+    case "$lanes" in
+        1|32|1024) ;;
+        *) echo "--threads only supports 1,32,1024"; exit 1 ;;
+    esac
+done
+
+IFS=',' read -r -a path_values <<< "$paths"
+if [ "${#path_values[@]}" -eq 0 ]; then
+    echo "--paths must contain at least one path"
     exit 1
 fi
+for path in "${path_values[@]}"; do
+    case "$path" in
+        simt|aiv-mte3) ;;
+        *) echo "--paths only supports simt,aiv-mte3"; exit 1 ;;
+    esac
+done
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 binary="${script_dir}/build/simt_notify_atomic_perf"
@@ -175,11 +196,19 @@ run_case() {
 }
 
 echo "计时范围：仅统计WQE填写和敲DB；预热Drain及最终Drain/PollCq不计入耗时。"
-echo "WQE数量：$loop_count；预热次数：$warmup；SIMT lane数：$threads"
+echo "WQE数量：$loop_count；预热次数：$warmup；SIMT lane数：$threads；路径：$paths"
 
 for ((exp = min_exp; exp <= max_exp; ++exp)); do
     bytes=$((1 << exp))
-    run_case simt notify "$bytes" 1
+    for path in "${path_values[@]}"; do
+        if [ "$path" = "simt" ]; then
+            for lanes in "${lane_values[@]}"; do
+                run_case simt notify "$bytes" "$lanes"
+            done
+        else
+            run_case aiv-mte3 notify "$bytes" 1
+        fi
+    done
     echo
 done
 

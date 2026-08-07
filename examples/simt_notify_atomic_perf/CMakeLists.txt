@@ -23,19 +23,32 @@ project(simt_notify_atomic_perf LANGUAGES ASC CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+option(SIMT_NOTIFY_ATOMIC_UB_STAGING "Enable per-lane UB WQE staging for the SIMT notify benchmark" ON)
 
 # Only the kernel is compiled as ASC. main.cpp remains on the host C++ toolchain.
 set_source_files_properties(
     op_kernel.cpp
+    op_kernel_aiv.cpp
     PROPERTIES LANGUAGE ASC
 )
 
 add_executable(simt_notify_atomic_perf
     main.cpp
     op_kernel.cpp
+    op_kernel_aiv.cpp
 )
 
-target_compile_definitions(simt_notify_atomic_perf PRIVATE USE_SIMT)
+target_compile_definitions(simt_notify_atomic_perf PRIVATE
+    USE_SIMT
+)
+
+if(SIMT_NOTIFY_ATOMIC_UB_STAGING)
+    target_compile_definitions(simt_notify_atomic_perf PRIVATE HCOMM_SIMT_UB_STAGING_EXPERIMENT)
+else()
+    # An upper-level build may inject this macro globally. Explicitly undefine it
+    # so the off configuration always uses the direct-GM staging path.
+    target_compile_options(simt_notify_atomic_perf PRIVATE -UHCOMM_SIMT_UB_STAGING_EXPERIMENT)
+endif()
 
 set_target_properties(simt_notify_atomic_perf PROPERTIES
     LINKER_LANGUAGE ASC

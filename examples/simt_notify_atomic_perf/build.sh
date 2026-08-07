@@ -10,6 +10,37 @@
 # ----------------------------------------------------------------------------------------------------------
 set -euo pipefail
 
+usage() {
+    cat <<'EOF'
+Usage: build.sh [--ub-staging on|off]
+
+Options:
+  --ub-staging on|off  Enable or disable per-lane 128B UB WQE staging (default: on)
+EOF
+}
+
+ub_staging="ON"
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --ub-staging)
+            case "${2:-}" in
+                on) ub_staging="ON" ;;
+                off) ub_staging="OFF" ;;
+                *) echo "--ub-staging must be on or off" >&2; exit 1 ;;
+            esac
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            usage >&2
+            exit 1
+            ;;
+    esac
+done
+
 if [[ -z "${ASCEND_HOME_PATH:-}" ]]; then
     echo "ASCEND_HOME_PATH is not set. Source the CANN environment first:" >&2
     echo "  source /usr/local/Ascend/cann/set_env.sh" >&2
@@ -20,11 +51,13 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 build_dir="${script_dir}/build"
 build_jobs="${BUILD_JOBS:-$(nproc)}"
 
+echo "SIMT UB WQE staging: ${ub_staging}"
 rm -rf -- "${build_dir}"
 
 cmake \
     -S "${script_dir}" \
     -B "${build_dir}" \
-    -DCMAKE_ASC_ARCHITECTURES=dav-3510
+    -DCMAKE_ASC_ARCHITECTURES=dav-3510 \
+    -DSIMT_NOTIFY_ATOMIC_UB_STAGING="${ub_staging}"
 
 cmake --build "${build_dir}" --verbose --parallel "${build_jobs}"
