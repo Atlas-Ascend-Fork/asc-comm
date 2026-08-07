@@ -17,6 +17,10 @@ if(NOT CMAKE_ASC_ARCHITECTURES STREQUAL "dav-3510")
         "hcomm_shared_queue_multi_channel only supports dav-3510, but got ${CMAKE_ASC_ARCHITECTURES}")
 endif()
 
+if(NOT DEFINED ENV{ASCEND_HOME_PATH} OR "$ENV{ASCEND_HOME_PATH}" STREQUAL "")
+    message(FATAL_ERROR "ASCEND_HOME_PATH is not set. Source the CANN environment before building the sample.")
+endif()
+
 find_package(ASC REQUIRED)
 
 project(hcomm_shared_queue_multi_channel LANGUAGES ASC CXX)
