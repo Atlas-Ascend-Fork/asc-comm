@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <limits>
 #include <string>
 #include <thread>
 #include <vector>
@@ -355,6 +356,23 @@ int CleanupCommRes(CommResources& resources, int status)
     return status;
 }
 
+bool ParseNonNegativeInt(const char* text, int& value)
+{
+    if (text == nullptr || *text == '\0') {
+        return false;
+    }
+
+    char* parseEnd = nullptr;
+    errno = 0;
+    const long parsed = std::strtol(text, &parseEnd, 10);
+    if (errno == ERANGE || parseEnd == text || *parseEnd != '\0' || parsed < 0 ||
+        parsed > std::numeric_limits<int>::max()) {
+        return false;
+    }
+    value = static_cast<int>(parsed);
+    return true;
+}
+
 bool ParseIpPort(const std::string& ipPort, std::string& host, uint16_t& port)
 {
     constexpr const char* TCP_PREFIX = "tcp://";
@@ -528,11 +546,14 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    int rankSize = std::atoi(argv[1]);
-    int rank = std::atoi(argv[2]);
-    int device = std::atoi(argv[4]);
-    if (rankSize < 2 || rankSize % 2 != 0 || rank < 0 || rank >= rankSize || device < 0) {
-        std::cerr << "invalid arguments" << std::endl;
+    int rankSize = 0;
+    int rank = 0;
+    int device = 0;
+    if (!ParseNonNegativeInt(argv[1], rankSize) || !ParseNonNegativeInt(argv[2], rank) ||
+        !ParseNonNegativeInt(argv[4], device) || rankSize < 2 || rank >= rankSize) {
+        std::cerr << "invalid arguments: rank_size must be at least 2, rank must be in [0, rank_size), and device "
+                     "must be a non-negative integer"
+                  << std::endl;
         return 1;
     }
     Options options{

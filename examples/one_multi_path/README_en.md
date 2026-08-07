@@ -95,7 +95,7 @@ Perform the following steps in the sample root directory. This sample supports N
 
   | Option | Default | Description |
   | --- | --- | --- |
-  | `-pes` | `2` | Total number of ranks; it must be an even integer greater than or equal to 2 |
+  | `-pes` | `2` | Total number of ranks; it must be an integer greater than or equal to 2 |
   | `-ipport` | `tcp://127.0.0.1:8899` | Address used by rank 0 to distribute `HcclRootInfo` |
   | `-gnpus` | `2` | Number of rank processes started on the current host |
   | `-fpe` | `0` | First rank ID on the current host |
