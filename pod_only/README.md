@@ -22,6 +22,9 @@ compatibility. Both headers can be included in the same translation unit.
 `pod_only` is an independent CANN CMake project at the same build level as
 `asc-comm`. It uses its own copy of the CANN CMake bootstrap and toolchain files,
 and does not include build files or source files from the parent directory.
+The parent project also builds the same POD API into `libaicpu_data_plane.so`;
+this standalone target remains available for existing consumers that link
+`libaicpu_pod_data_plane.so` directly.
 
 Standalone build:
 
