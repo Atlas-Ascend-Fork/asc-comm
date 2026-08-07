@@ -71,7 +71,7 @@ HcclResult CcuKernelMgr::Init()
     return HcclResult::HCCL_SUCCESS;
 }
 
-CcuResult CcuKernelMgr::Configure(CcuResPack &resPack)
+CcuResult CcuKernelMgr::Configure(AscCcuResSnapshot &resPack)
 {
     std::unique_lock<std::mutex> lock(kernelMapMutex_);
     devLogicId_ = resPack.GetDeviceLogicId();
@@ -111,7 +111,7 @@ HcclResult CcuKernelMgr::Deinit()
 }
 
 CcuResult CcuKernelMgr::Register(
-    CcuResPack& resPack, const uint32_t dieId, const char* kernelFuncName, const void* kernelFunc,
+    AscCcuResSnapshot& resPack, const uint32_t dieId, const char* kernelFuncName, const void* kernelFunc,
     const void** kernelArgs, const uint32_t argNum, CcuKernelHandle& kernelHandle)
 {
     // 允许kernelFuncName未空，此时传递默认名称
@@ -196,7 +196,7 @@ inline int32_t GetResTotalNum(const std::vector<HcommCcuResRangePod>& resInfos)
     return resNum;
 }
 
-static void GetResNumFromResPack(CcuResPack& resPack, HcommCcuResRequestPod& totalRes)
+static void GetResNumFromResPack(AscCcuResSnapshot& resPack, HcommCcuResRequestPod& totalRes)
 {
     // 获取通信域当前所持有的资源
     const auto& tmpResRepository = resPack.GetCcuResRepo();
@@ -316,7 +316,7 @@ static void MoveResInfo(
     }
 }
 
-static void LoadRes(std::unique_ptr<CcuKernel>& kernel, CcuResPack& resPack)
+static void LoadRes(std::unique_ptr<CcuKernel>& kernel, AscCcuResSnapshot& resPack)
 {
     const HcommCcuResRequestPod& resReq = kernel->GetResourceRequest();
     AscCcuResRepository& totalResRepo = resPack.GetCcuResRepo();
@@ -344,7 +344,7 @@ static void LoadRes(std::unique_ptr<CcuKernel>& kernel, CcuResPack& resPack)
     kernel->SetResRepository(kernelResRepo);
 }
 
-static CcuResult AllocInstrRes(std::unique_ptr<CcuKernel>& kernel, CcuResPack &resPack)
+static CcuResult AllocInstrRes(std::unique_ptr<CcuKernel>& kernel, AscCcuResSnapshot &resPack)
 {
     const uint32_t instrCount =
         kernel->GetInstrCount() + CcuRep::CcuRepTranslator::GetInstrNum() + kernel->GetConstValue2VarMap().size();
@@ -389,7 +389,7 @@ CcuResult CcuKernelMgr::PrepareConstValueResources()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernelMgr::AllocRes(CcuResPack& resPack)
+CcuResult CcuKernelMgr::AllocRes(AscCcuResSnapshot& resPack)
 {
     const HcommCcuResRequestPod& resReq = currKernel_->GetResourceRequest();
     AscCcuResRepository remaining{};
@@ -663,7 +663,7 @@ static void MergeCcuResReq(HcommCcuResRequestPod& resReqA, const HcommCcuResRequ
     }
 }
 
-HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, const CcuResPack &resPack)
+HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, const AscCcuResSnapshot &resPack)
 {
     const HcommCcuDieMetadataPod *metadata = resPack.GetDieMetadata(dieId);
     CHK_PTR_NULL(metadata);
@@ -685,14 +685,14 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, const Ccu
     transDep.memTokenInfo = hbmTokenInfo;
 
     // 实例化CcuRepReferenceManager和CcuRepTranslator，并为CcuRepReferenceManager绑定物理资源
-    for (uint32_t i = 0; i < 16; i++) { // mgr有16个
+    for (uint32_t i = 0; i < HCOMM_CCU_TRANSLATOR_GROUP_NUM; i++) {
         referenceMgrs[dieId][i] = std::make_shared<hcomm::CcuRep::CcuRepReferenceManager>(dieId);
         translators[dieId][i] =
             std::make_shared<hcomm::CcuRep::CcuRepTranslator>(referenceMgrs[dieId][i], transDep);
     }
 
     CcuRepResource translatorRepRes;
-    for (uint32_t i = 0; i < 16; i++) { // mgr有16个
+    for (uint32_t i = 0; i < HCOMM_CCU_TRANSLATOR_GROUP_NUM; i++) {
         referenceMgrs[dieId][i]->GetRes(translatorRepRes);
         translators[dieId][i]->GetRes(translatorRepRes);
     }

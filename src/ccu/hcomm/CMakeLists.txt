@@ -16,12 +16,12 @@ target_sources(asccomm_ccu_dataplane_obj PRIVATE
 )
 
 target_sources(asccomm_ccu_dataplane_obj PRIVATE
-    resource/ccu_res_c_adpt.cc
+    resource/kernel/ccu_kernel_registry_c_adpt.cc
     resource/channel/ccu_channel.cc
-    resource/instance/ccu_res_pack.cc
-    resource/instance/ccu_instance.cc
-    resource/instance/ccu_instance_mgr.cc
-    resource/instance/ccu_var_event_res_mgr.cc
+    resource/common/asc_ccu_res_snapshot.cc
+    resource/common/ccu_var_event_res_mgr.cc
+    resource/kernel/ccu_kernel_registry.cc
+    resource/kernel/ccu_kernel_registry_mgr.cc
     resource/kernel/ccu_kernel.cc
     resource/kernel/ccu_kernel_res_allocator.cc
     resource/kernel/ccu_kernel_mgr.cc
