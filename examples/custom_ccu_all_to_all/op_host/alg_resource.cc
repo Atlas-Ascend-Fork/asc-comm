@@ -112,7 +112,7 @@ static HcclResult RegisterAllToAllKernel(
 
     resCtxHost.ccuKernels.resize(1); // 只注册一个 kernel
 
-    CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle);
+    CcuResult regStartRet = hcomm_ccu_kernel_register_start(insHandle);
     if (regStartRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
@@ -121,17 +121,17 @@ static HcclResult RegisterAllToAllKernel(
     const void* kernelArgs[] = {kernelInfo.kernelArg};
 
     constexpr uint32_t kernelArgNum = 1;
-    CcuResult regRet = HcommCcuKernelRegister(
+    CcuResult regRet = hcomm_ccu_kernel_register(
         insHandle, kernelDie, kernelInfo.kernelFuncName, reinterpret_cast<void*>(kernelInfo.kernelFunc), kernelArgs,
         kernelArgNum, &kernelHandle); // 注册 kernel
 
     if (regRet != CCU_SUCCESS) {
-        (void)HcommCcuKernelRegisterEnd(insHandle);
+        (void)hcomm_ccu_kernel_register_end(insHandle);
         return HCCL_E_INTERNAL;
     }
     resCtxHost.ccuKernels[0] = kernelHandle;
 
-    CcuResult regEndRet = HcommCcuKernelRegisterEnd(insHandle);
+    CcuResult regEndRet = hcomm_ccu_kernel_register_end(insHandle);
     if (regEndRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }

@@ -19,7 +19,7 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepWrite::CcuRepWrite(
@@ -68,4 +68,4 @@ std::string CcuRepWrite::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

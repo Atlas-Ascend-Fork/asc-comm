@@ -14,7 +14,7 @@
 #include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepNot::CcuRepNot(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varB)
@@ -54,4 +54,4 @@ std::string CcuRepNot::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

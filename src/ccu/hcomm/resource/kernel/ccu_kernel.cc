@@ -41,7 +41,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "unified_platform/pub_inc/config_plf_log.h"
 
-namespace hcomm {
+namespace asccomm {
 
 using Hccl::PLF_DATA_OP;
 
@@ -85,9 +85,9 @@ static HcclResult GetDieIdByChannel(const ChannelHandle channel, uint32_t& dieId
 {
     void* channelPtr{nullptr};
     CHK_RET(static_cast<HcclResult>(HcommChannelGet(channel, &channelPtr)));
-    auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
+    auto* channelImpl = dynamic_cast<hcomm::CcuUrmaChannel*>(static_cast<hcomm::Channel*>(channelPtr));
     if (channelImpl == nullptr) {
-        HCCL_ERROR("[%s] failed to cast channel[0x%llx] to CcuUrmaChannel", __func__, channel);
+        HCCL_ERROR("[%s] failed to cast channel[0x%llx] to hcomm::CcuUrmaChannel", __func__, channel);
         return HcclResult::HCCL_E_PTR;
     }
     dieId = channelImpl->GetDieId();
@@ -101,7 +101,7 @@ static HcclResult GetDieIdByChannels(const std::unordered_set<ChannelHandle>& ch
         int32_t devLogicId = HcclGetThreadDeviceId();
         for (uint32_t die = 0; die < CCU_MAX_IODIE_NUM; die++) {
             bool enableFlag = false;
-            CHK_RET(static_cast<HcclResult>(CcuGetDieEnableInfo(devLogicId, die, enableFlag)));
+            CHK_RET(static_cast<HcclResult>(hcomm::CcuGetDieEnableInfo(devLogicId, die, enableFlag)));
             if (enableFlag) {
                 dieId = die;
                 return HcclResult::HCCL_SUCCESS;
@@ -295,9 +295,9 @@ HcclResult CcuKernel::CreateVariable(const ChannelHandle channel, uint32_t varIn
 
     void* channelPtr{nullptr};
     CHK_RET(static_cast<HcclResult>(HcommChannelGet(channel, &channelPtr)));
-    auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
+    auto* channelImpl = dynamic_cast<hcomm::CcuUrmaChannel*>(static_cast<hcomm::Channel*>(channelPtr));
     if (channelImpl == nullptr) {
-        HCCL_ERROR("[%s] failed to cast channel[0x%llx] to CcuUrmaChannel", __func__, channel);
+        HCCL_ERROR("[%s] failed to cast channel[0x%llx] to hcomm::CcuUrmaChannel", __func__, channel);
         return HcclResult::HCCL_E_PTR;
     }
     uint32_t locXnId{0};
@@ -522,7 +522,7 @@ CcuResult CcuKernel::VariableAssignImm(CcuVariableHandle varHandle, uint64_t imm
     PLF_CONFIG_INFO(PLF_DATA_OP, "[VariableAssignImm] varHandle=%llu, immediate=%llu", varHandle, immediate);
     CcuRep::Variable* variable{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &variable));
-    // 通过符号重载实现，内部记录rep；异常由入口 HcommCcuKernelRegister 的
+    // 通过符号重载实现，内部记录rep；异常由入口 hcomm_ccu_kernel_register 的
     // CCU_EXCEPTION_HANDLE_BEGIN/END 统一接住，无需在此局部 try/catch。
     (*variable) = immediate;
     return CcuResult::CCU_SUCCESS;
@@ -2318,7 +2318,7 @@ CcuResult CcuKernel::LoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, c
 
     auto bundle =
         std::make_shared<CcuRep::CcuRepLoopGroupBundle>(insGenerator, *config, desc.parallelVar, desc.offsetVar);
-    if (ccuVersion_ == CcuVersion::CCU_V2) {
+    if (ccuVersion_ == hcomm::CcuVersion::CCU_V2) {
         bundle->SetXnOffsetVar(CreateVariable());
     }
     desc.bundleRep = bundle;
@@ -2363,7 +2363,7 @@ CcuResult CcuKernel::LoopGroupCreateFromVar(
     desc.isVarBased = true;
 
     auto bundle = std::make_shared<CcuRep::CcuRepLoopGroupBundle>(insGenerator, desc.parallelVar, desc.offsetVar);
-    if (ccuVersion_ == CcuVersion::CCU_V2) {
+    if (ccuVersion_ == hcomm::CcuVersion::CCU_V2) {
         bundle->SetCompatRemapVars(CreateVariable(), CreateVariable());
     }
     desc.bundleRep = bundle;
@@ -2378,7 +2378,7 @@ CcuResult CcuKernel::LoopGroupCreateFromVarV2(
     CcuLoopGroup* group, uint32_t maxLoopNum, CcuVariableHandle parallelVarV2Handle,
     CcuVariableHandle offsetVarV2Handle, CcuVariableHandle varOffsetVarHandle)
 {
-    if (ccuVersion_ != CcuVersion::CCU_V2) {
+    if (ccuVersion_ != hcomm::CcuVersion::CCU_V2) {
         HCCL_ERROR("[CcuKernel::LoopGroupCreateFromVarV2] only supported on V2");
         return CcuResult::CCU_E_NOT_SUPPORT;
     }
@@ -2483,7 +2483,7 @@ CcuResult CcuKernel::LoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const Cc
     entry.repLoopBlock = loopDesc->repLoopBlock;
     entry.loopParamVar = CreateVariable();
     entry.layout = CcuRep::CcuRepLoopGroupBundle::Layout::Config;
-    if (ccuVersion_ == CcuVersion::CCU_V2) {
+    if (ccuVersion_ == hcomm::CcuVersion::CCU_V2) {
         entry.iterNumVar = CreateVariable();
         entry.addrOffsetVar = CreateVariable();
         entry.ctxIdVar = CreateVariable();
@@ -2520,7 +2520,7 @@ CcuResult CcuKernel::LoopGroupAddLoopFromVar(CcuLoopGroup group, CcuLoop loop, C
     entry.repLoopBlock = loopDesc->repLoopBlock;
     entry.loopParamVar = CcuRep::Variable(*loopParamVarPtr);
     entry.layout = CcuRep::CcuRepLoopGroupBundle::Layout::PackedVar;
-    if (ccuVersion_ == CcuVersion::CCU_V2) {
+    if (ccuVersion_ == hcomm::CcuVersion::CCU_V2) {
         entry.iterNumVar = CreateVariable();
         entry.addrOffsetVar = CreateVariable();
         entry.ctxIdVar = CreateVariable();
@@ -2544,7 +2544,7 @@ CcuResult CcuKernel::LoopGroupAddLoopFromVarV2(
     CcuLoopGroup group, CcuLoop loop, CcuVariableHandle iterNumVarHandle, CcuVariableHandle addrOffsetVarHandle,
     CcuVariableHandle ctxIdVarHandle)
 {
-    if (ccuVersion_ != CcuVersion::CCU_V2) {
+    if (ccuVersion_ != hcomm::CcuVersion::CCU_V2) {
         HCCL_ERROR("[CcuKernel::LoopGroupAddLoopFromVarV2] only supported on V2");
         return CcuResult::CCU_E_NOT_SUPPORT;
     }
@@ -2614,7 +2614,7 @@ CcuRep::Variable CcuKernel::CreateExpectVar()
 {
     // v2(A6) jump compares two variables and needs a real XN for the immediate value.
     // v1(A5) compares with the immediate directly, so keep the placeholder out of the resource ledger.
-    if (ccuVersion_ == CcuVersion::CCU_V2) {
+    if (ccuVersion_ == hcomm::CcuVersion::CCU_V2) {
         return CreateVariable();
     }
     return CcuRep::Variable(this);
@@ -2794,7 +2794,7 @@ HcclResult CcuKernel::CollectSqeAndWaitCkeProfilingInfo()
     HCCL_INFO("[GetCcuProfilingInfo] Process sqe&waitcke profiling info start.");
     for (auto& profInfo : ccuProfilingCache) {
         profInfo.missionId = GetMissionId();
-        if (profInfo.type == static_cast<uint8_t>(hcomm::CcuProfilinType::CCU_TASK_PROFILING)) {
+        if (profInfo.type == static_cast<uint8_t>(asccomm::CcuProfilinType::CCU_TASK_PROFILING)) {
             profInfo.instrId = GetInstrId();
             allCcuProfilingInfos_.push_back(profInfo);
             continue;
@@ -2935,7 +2935,7 @@ HcclResult CcuKernel::AddProfilingInfo(
     for (uint32_t i = 0; i < channelNum; i++) {
         void* channelPtr{nullptr};
         CHK_RET(static_cast<HcclResult>(HcommChannelGet(channels[i], &channelPtr)));
-        auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
+        auto* channelImpl = dynamic_cast<hcomm::CcuUrmaChannel*>(static_cast<hcomm::Channel*>(channelPtr));
         CHK_PTR_NULL(channelImpl);
         ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
         ccuProfilingInfoCache.channelHandle[i] = channels[i];
@@ -2980,4 +2980,4 @@ HcclResult CcuKernel::Add2ConstValue2VarMap(std::vector<uint64_t>& values)
     return HCCL_SUCCESS;
 }
 
-}; // namespace hcomm
+}; // namespace asccomm

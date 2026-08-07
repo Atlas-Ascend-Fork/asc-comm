@@ -15,8 +15,8 @@
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 #include "log.h"
 
-using namespace hcomm;
-using namespace hcomm::CcuRep;
+using namespace asccomm;
+using namespace asccomm::CcuRep;
 
 class CcuMicroCodeTest : public testing::Test {
 protected:

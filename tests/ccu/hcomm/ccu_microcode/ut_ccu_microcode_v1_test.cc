@@ -12,7 +12,7 @@
 #include <gtest/gtest.h>
 #include <string>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 namespace {
 
@@ -517,4 +517,4 @@ TEST_F(CcuMicrocodeV1Test, ParseJumpInstr)
 
 } // namespace
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

@@ -10,7 +10,7 @@
 
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 
 CcuKernel::~CcuKernel() = default;
 
@@ -18,4 +18,4 @@ void CcuKernel::Append(std::shared_ptr<CcuRep::CcuRepBase> rep) { CcuRepContext:
 
 CcuRep::Variable CcuKernel::CreateVariable() { return CcuRep::Variable(this); }
 
-} // namespace hcomm
+} // namespace asccomm

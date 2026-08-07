@@ -14,7 +14,7 @@ libhcomm.so / libhccl.so:
   提供 HCCL 通信域、CCU 控制面和资源申请相关接口。
 
 libasccomm_ccu_dataplane.so:
-  提供 HcommCcuKernelRegister*、HcommCcuKernelLaunch、HcommCcuGetMemToken 等 CCU 数据面接口。
+  提供 hcomm_ccu_kernel_register*、hcomm_ccu_kernel_launch、hcomm_ccu_get_mem_token 等 CCU 数据面接口。
 ```
 
 ## 目录结构

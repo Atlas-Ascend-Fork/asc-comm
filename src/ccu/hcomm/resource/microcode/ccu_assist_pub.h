@@ -13,13 +13,13 @@
 
 #include <cstdint>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 // 辅助函数
 uint64_t GetTokenInfo(uint64_t va, uint64_t size);
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // _CCU_CONTEXT_ASSIST_PUB_H

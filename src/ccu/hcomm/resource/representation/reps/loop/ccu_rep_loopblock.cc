@@ -14,7 +14,7 @@
 #include "exception_util.h"
 #include "ccu_api_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLoopBlock::CcuRepLoopBlock(CcuInsGeneraterBase* insGenPtr, const std::string& label)
@@ -101,4 +101,4 @@ CcuRepArg& CcuRepLoopBlock::GetArg(uint16_t index)
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

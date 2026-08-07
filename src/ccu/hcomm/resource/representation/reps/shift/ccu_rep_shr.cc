@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepShR::CcuRepShR(CcuInsGeneraterBase* insGenPtr, const Variable& varD, const Variable& varN, const Variable& varM)
@@ -107,4 +107,4 @@ std::string CcuRepShR::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

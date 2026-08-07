@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class CcuRepShL : public CcuRepBase {
@@ -47,5 +47,5 @@ public:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // HCCL_CCU_REPRESENTATION_SHL_H

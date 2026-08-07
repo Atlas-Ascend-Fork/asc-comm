@@ -18,7 +18,7 @@
 
 #include "rt_external.h"
 
-namespace hcomm {
+namespace asccomm {
 
 CcuVarEventResMgr &CcuVarEventResMgr::GetInstance(const int32_t deviceLogicId)
 {
@@ -570,4 +570,4 @@ CcuResult CcuVarEventResMgr::ExcludeAllocatedFromRepo(CcuInsHandle insHandle) co
     return CCU_SUCCESS;
 }
 
-} // namespace hcomm
+} // namespace asccomm

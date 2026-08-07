@@ -12,7 +12,7 @@
 
 #include "hcomm/resource/kernel/ccu_kernel_res_allocator.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace {
 
 TEST(CcuKernelResAllocatorTest, NormalRequestFallsBackToBlockPool)
@@ -99,4 +99,4 @@ TEST(CcuKernelResAllocatorTest, NormalRequestPreservesReservedGap)
 }
 
 } // namespace
-} // namespace hcomm
+} // namespace asccomm

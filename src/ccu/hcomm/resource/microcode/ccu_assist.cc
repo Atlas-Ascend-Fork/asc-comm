@@ -17,7 +17,7 @@
 #include "exception_util.h" // todo: 需要统一整改为不抛异常
 #include "ccu_api_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 constexpr uint64_t SetBits(uint16_t start, uint16_t end)
@@ -175,14 +175,14 @@ uint16_t GetUBDataType(Hccl::DataType dataType)
 
 uint64_t GetTokenInfo(uint64_t va, uint64_t size)
 {
-    rtMemUbTokenInfo info{};
+    hcomm::rtMemUbTokenInfo info{};
     info.va = va;
     info.size = size;
-    if (RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, info) != HcclResult::HCCL_SUCCESS) {
+    if (hcomm::RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, info) != HcclResult::HCCL_SUCCESS) {
         Hccl::THROW<Hccl::CcuApiException>("failed to query tokenInfo.");
     }
     return CcuRep::GetToken(info.tokenId, info.tokenValue, 1);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

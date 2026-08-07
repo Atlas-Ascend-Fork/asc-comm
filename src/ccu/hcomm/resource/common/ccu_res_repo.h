@@ -18,7 +18,7 @@
 
 #include "hcomm/common/ccu_common.h"
 
-namespace hcomm {
+namespace asccomm {
 
 /*
  * MissionReqType 申请Mission资源的策略类型，当前只按FUSION_MULTIPLE_DIE处理
@@ -86,5 +86,5 @@ struct CcuResReq {
     MissionReq missionReq{};
 };
 
-} // namespace hcomm
+} // namespace asccomm
 #endif // CCU_RES_REPO_H

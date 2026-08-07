@@ -13,7 +13,7 @@
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class CcuRepJumpLabel : public CcuRepBlock {
@@ -23,5 +23,5 @@ public:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // _CCU_REPRESENTATION_JUMPLABEL_H

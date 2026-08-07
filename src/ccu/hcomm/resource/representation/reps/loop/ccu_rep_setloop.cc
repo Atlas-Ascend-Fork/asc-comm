@@ -19,7 +19,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 using namespace Hccl;
@@ -55,4 +55,4 @@ std::string CcuRepSetLoop::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

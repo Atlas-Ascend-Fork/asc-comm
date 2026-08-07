@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 using namespace Hccl;
@@ -379,4 +379,4 @@ std::string CcuRepJumpLT::Describe()
         "Jump To Label[%s], When Condition[%u] < Expected[%lu]", label.c_str(), condition.Id(), expected);
 }
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

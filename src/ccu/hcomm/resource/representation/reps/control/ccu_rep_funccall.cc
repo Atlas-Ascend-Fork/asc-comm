@@ -18,7 +18,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 using namespace Hccl;
@@ -112,4 +112,4 @@ std::string CcuRepFuncCall::Describe() { return Hccl::StringFormat("FuncCall[%s]
 int32_t CcuRepFuncCall::GetCallLayer() { return funcBlock == nullptr ? FUNC_NEST_MAX : funcBlock->GetCallLayer(); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

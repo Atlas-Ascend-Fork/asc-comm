@@ -15,13 +15,13 @@
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 class CcuKernel : public CcuRep::CcuRepContext {
 public:
     ~CcuKernel() override;
     void Append(std::shared_ptr<CcuRep::CcuRepBase> rep) override;
     CcuRep::Variable CreateVariable();
 };
-} // namespace hcomm
+} // namespace asccomm
 
 #endif

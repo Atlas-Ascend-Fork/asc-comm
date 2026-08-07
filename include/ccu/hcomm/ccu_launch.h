@@ -19,17 +19,17 @@
 extern "C" {
 #endif // __cplusplus
 
-extern CcuResult HcommCcuKernelRegisterStart(CcuInsHandle insHandle);
+extern CcuResult hcomm_ccu_kernel_register_start(CcuInsHandle insHandle);
 
-extern CcuResult HcommCcuKernelRegister(
+extern CcuResult hcomm_ccu_kernel_register(
     CcuInsHandle insHandle, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
     uint32_t argNum, CcuKernelHandle* kernelHandle);
 
-extern CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle insHandle);
+extern CcuResult hcomm_ccu_kernel_register_end(CcuInsHandle insHandle);
 
-extern CcuResult HcommCcuGetTaskArgsNum(CcuKernelHandle kernelHandle, uint32_t* taskArgsNum);
+extern CcuResult hcomm_ccu_get_task_args_num(CcuKernelHandle kernelHandle, uint32_t* taskArgsNum);
 
-extern CcuResult HcommCcuKernelLaunch(
+extern CcuResult hcomm_ccu_kernel_launch(
     ThreadHandle threadHandle, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum);
 
 #ifdef __cplusplus

@@ -21,7 +21,7 @@ namespace hccl {
 class DeviceMem;
 }
 
-namespace hcomm {
+namespace asccomm {
 using EndpointHandle = void*;
 struct HcommChannelDesc {};
 struct HcommMemHandle {};
@@ -72,6 +72,6 @@ public:
     HcclResult GetLocXnByIndex(uint32_t index, uint32_t& locXnId) const;
     HcclResult GetRmtBuffer(uint64_t& addr, uint32_t& size, uint32_t& tokenId, uint32_t& tokenValue) const;
 };
-} // namespace hcomm
+} // namespace asccomm
 
 #endif

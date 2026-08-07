@@ -13,7 +13,7 @@
 
 #include <stdexcept>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 template <typename lhsT, typename rhsT>
@@ -100,6 +100,6 @@ public:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // _CCU_OPERATOR

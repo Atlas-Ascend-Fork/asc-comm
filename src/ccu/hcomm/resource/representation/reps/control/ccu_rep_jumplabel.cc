@@ -13,7 +13,7 @@
 #include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepJumpLabel::CcuRepJumpLabel(CcuInsGeneraterBase* insGeneratorPtr, const std::string& label)
@@ -26,4 +26,4 @@ CcuRepJumpLabel::CcuRepJumpLabel(CcuInsGeneraterBase* insGeneratorPtr, const std
 std::string CcuRepJumpLabel::Describe() { return Hccl::StringFormat("JumpLabel[%s]", GetLabel().c_str()); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

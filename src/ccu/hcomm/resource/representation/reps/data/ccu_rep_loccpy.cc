@@ -16,7 +16,7 @@
 
 #include "ccu_api_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLocCpy::CcuRepLocCpy(
@@ -90,4 +90,4 @@ std::string CcuRepLocCpy::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

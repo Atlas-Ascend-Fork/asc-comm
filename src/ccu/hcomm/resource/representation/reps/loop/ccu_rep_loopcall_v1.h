@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopblock_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class CcuRepLoopCall : public CcuRepBase {
@@ -54,5 +54,5 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // HCOMM_CCU_REPRESENTATION_LOOP_CALL_H

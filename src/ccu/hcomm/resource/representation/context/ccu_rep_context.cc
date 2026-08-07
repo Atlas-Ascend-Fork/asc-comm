@@ -19,7 +19,7 @@
 #include "ccu_urma_channel.h"
 #include "ccu_dev_mgr_imp.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepContext::CcuRepContext()
@@ -157,7 +157,7 @@ int32_t CcuRepContext::AddProfiling(
 {
     void* channelPtr{nullptr};
     CHK_RET(static_cast<HcclResult>(HcommChannelGet(channel, &channelPtr)));
-    auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
+    auto* channelImpl = dynamic_cast<hcomm::CcuUrmaChannel*>(static_cast<hcomm::Channel*>(channelPtr));
 
     ccuProfilingInfoCache.type = (uint8_t)CcuProfilinType::CCU_WAITCKE_PROFILING;
     ccuProfilingInfoCache.name = name;
@@ -193,7 +193,7 @@ int32_t CcuRepContext::AddProfiling(const ChannelHandle* channels, uint32_t chan
     for (u32 i = 0; i < channelNum; i++) {
         void* channelPtr{nullptr};
         CHK_RET(static_cast<HcclResult>(HcommChannelGet(channels[i], &channelPtr)));
-        auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
+        auto* channelImpl = dynamic_cast<hcomm::CcuUrmaChannel*>(static_cast<hcomm::Channel*>(channelPtr));
         CHK_PTR_NULL(channelImpl);
         ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
         ccuProfilingInfoCache.channelHandle[i] = channels[i];
@@ -232,7 +232,7 @@ int32_t CcuRepContext::AddProfiling(
     for (u32 i = 0; i < channelNum; ++i) {
         void* channelPtr{nullptr};
         CHK_RET(static_cast<HcclResult>(HcommChannelGet(channels[i], &channelPtr)));
-        auto* channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
+        auto* channelImpl = dynamic_cast<hcomm::CcuUrmaChannel*>(static_cast<hcomm::Channel*>(channelPtr));
         CHK_PTR_NULL(channelImpl);
         ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
         ccuProfilingInfoCache.channelHandle[i] = channels[i];
@@ -279,4 +279,4 @@ void CcuRepContext::EraseDependencyInfo(uint32_t id) { depInfo.erase(id); }
 void CcuRepContext::ClearDependencyInfo() { depInfo.clear(); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

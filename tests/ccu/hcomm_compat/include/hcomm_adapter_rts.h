@@ -19,7 +19,7 @@ enum rtUbDevQueryCmd {
     QUERY_PROCESS_TOKEN = 0,
 };
 
-namespace hcomm {
+namespace asccomm {
 
 struct rtMemUbTokenInfo {
     uint64_t va;
@@ -30,6 +30,6 @@ struct rtMemUbTokenInfo {
 
 HcclResult RtsUbDevQueryInfo(rtUbDevQueryCmd cmd, rtMemUbTokenInfo& devInfo);
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif

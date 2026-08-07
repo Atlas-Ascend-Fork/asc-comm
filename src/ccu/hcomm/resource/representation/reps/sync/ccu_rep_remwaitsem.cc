@@ -17,7 +17,7 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "ccu_urma_channel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepRemWaitSem::CcuRepRemWaitSem(
@@ -55,4 +55,4 @@ std::string CcuRepRemWaitSem::Describe()
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

@@ -14,7 +14,7 @@
 #include <vector>
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 struct CcuInstrInfo {
@@ -26,6 +26,6 @@ struct CcuInstrInfo {
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // _CCU_INSTR_INFO_H

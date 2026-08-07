@@ -13,7 +13,7 @@
 #include <iostream>
 #include <string>
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class CcuInsGeneraterV1 : public CcuInsGeneraterBase {
@@ -191,6 +191,6 @@ private:
 };
 
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm
 
 #endif

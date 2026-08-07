@@ -11,7 +11,7 @@
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 void AppendToContext(CcuRepContext* context, std::shared_ptr<CcuRepBase> rep) {}
@@ -19,4 +19,4 @@ void AppendToContext(CcuRepContext* context, std::shared_ptr<CcuRepBase> rep) {}
 Variable CreateVariable(CcuRepContext* context) { return Variable(context); }
 
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

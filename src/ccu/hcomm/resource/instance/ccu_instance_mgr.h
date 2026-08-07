@@ -18,7 +18,7 @@
 #include "ccu/hcomm/ccu_types.h"
 #include "hcomm/resource/instance/ccu_instance.h"
 
-namespace hcomm {
+namespace asccomm {
 
 class CcuInstanceMgr {
 public:
@@ -46,6 +46,6 @@ private:
     mutable std::shared_timed_mutex insMapMutex_;
     std::unordered_map<CcuInsHandle, std::unique_ptr<CcuInstance>> insMap_{};
 };
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // HCOMM_CCU_INSTANCE_MGR_H

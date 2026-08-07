@@ -11,11 +11,11 @@
 #ifndef ASCCOMM_CCU_CHANNEL_GET_STUB_H
 #define ASCCOMM_CCU_CHANNEL_GET_STUB_H
 
-namespace hcomm {
+namespace asccomm {
 class Channel;
 
 void SetHcommChannelGetStub(Channel* channel);
 void ResetHcommChannelGetStub();
-} // namespace hcomm
+} // namespace asccomm
 
 #endif

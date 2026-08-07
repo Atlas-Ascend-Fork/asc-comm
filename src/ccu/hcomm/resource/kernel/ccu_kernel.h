@@ -36,7 +36,7 @@
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
 #include "hcomm/resource/common/ccu_res_repo.h"
-#include "ccu_dev_mgr_imp.h" // CcuVersion
+#include "ccu_dev_mgr_imp.h" // hcomm::CcuVersion
 
 // 暂时引用方便算法开发
 #include "hcomm/resource/representation/interface/ccu_repeat_v1.h"
@@ -51,7 +51,7 @@
 #endif
 #include "ccu/hcomm/ccu_types.h"
 
-namespace hcomm {
+namespace asccomm {
 
 struct GroupInfo {
     uint16_t loopParamId;
@@ -93,7 +93,7 @@ public:
     CcuResult GeneTaskParams(const uint64_t* taskArgs, uint32_t argNum, std::vector<CcuTaskParam>& taskParams);
 
     void SetInsGenerater(CcuRep::CcuInsGeneraterBase* insGeneraterBase);
-    void SetCcuVersion(CcuVersion version) { ccuVersion_ = version; }
+    void SetCcuVersion(hcomm::CcuVersion version) { ccuVersion_ = version; }
     // 该友元函数用于在context类外创建Variable并被context内的资源管理器管理
     friend CcuRep::Variable CcuRep::CreateVariable(CcuRep::CcuRepContext* context);
 
@@ -475,7 +475,7 @@ private:
 
     uint32_t loadArgIndex_{0};
 
-    CcuVersion ccuVersion_{CcuVersion::CCU_INVALID};
+    hcomm::CcuVersion ccuVersion_{hcomm::CcuVersion::CCU_INVALID};
 
     CcuSharedResource exportedRes_{};
     CcuSharedResource importedRes_{};
@@ -541,6 +541,6 @@ private:
     std::string name_{};
 };
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // HCOMM_CCU_KERNEL_H

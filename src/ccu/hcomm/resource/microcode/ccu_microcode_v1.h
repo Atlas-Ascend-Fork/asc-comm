@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <string>
 #include <unordered_map>
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 constexpr uint16_t CCU_REDUCE_SUM = 0;
@@ -1032,6 +1032,6 @@ std::string ParseInstrV2(const CcuInstr* instr);
 }; // namespace CcuV2
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // CCU_MICROCODE_H

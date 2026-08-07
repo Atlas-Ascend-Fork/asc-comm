@@ -31,7 +31,7 @@
 #include "internal_exception.h"
 #include "ccu/hcomm/ccu_types.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 namespace {
 
@@ -622,4 +622,4 @@ TEST_F(CcuRepSetLoopTest, Describe)
 
 } // namespace
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

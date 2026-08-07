@@ -25,7 +25,7 @@
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 namespace {
 
@@ -445,4 +445,4 @@ TEST_F(CcuRepRecordSharedNotifyTest, Describe)
 
 } // namespace
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

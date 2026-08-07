@@ -11,13 +11,13 @@
 #ifndef HCOMM_CCU_TASK_ARG_H
 #define HCOMM_CCU_TASK_ARG_H
 
-namespace hcomm {
+namespace asccomm {
 
 class CcuTaskArg {
 public:
     explicit CcuTaskArg() = default;
     virtual ~CcuTaskArg() = default;
 };
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // HCOMM_CCU_TASK_ARG_H

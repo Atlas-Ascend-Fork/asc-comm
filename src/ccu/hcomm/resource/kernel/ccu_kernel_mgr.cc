@@ -28,7 +28,7 @@
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/resource/common/ccu_kernel_func.h"
 
-namespace hcomm {
+namespace asccomm {
 
 CcuKernelMgr::~CcuKernelMgr()
 {
@@ -72,7 +72,7 @@ HcclResult CcuKernelMgr::Init()
 
     for (uint8_t dieId = 0; dieId < CCU_MAX_IODIE_NUM; dieId++) {
         bool enableFlag = false;
-        CHK_RET(static_cast<HcclResult>(CcuGetDieEnableInfo(devLogicId_, dieId, enableFlag)));
+        CHK_RET(static_cast<HcclResult>(hcomm::CcuGetDieEnableInfo(devLogicId_, dieId, enableFlag)));
         if (!enableFlag) {
             continue;
         }
@@ -84,7 +84,7 @@ HcclResult CcuKernelMgr::Init()
     kernelMap_.clear();
 
     CHK_RET(CcuDevMgrImp::GetCcuVersion(devLogicId_, ccuVersion_));
-    if (ccuVersion_ == CcuVersion::INVALID) {
+    if (ccuVersion_ == hcomm::CcuVersion::INVALID) {
         HCCL_RUN_WARNING("[CcuKernelMgr][%s] Invalid chip type.", __func__);
     }
 
@@ -626,7 +626,7 @@ HcclResult CcuKernelMgr::GetResPackTotalResRepository(
 {
     CcuResRepository tmpResRepository{};
     // 获取通信域当前所持有的资源
-    for (CcuResHandle resHandle : resPack.handles) {
+    for (hcomm::CcuResHandle resHandle : resPack.handles) {
         CHK_RET(CcuDevMgrImp::GetResource(devLogicId_, resHandle, tmpResRepository));
         ExpandResRepo(totalRes, tmpResRepository);
         HCCL_INFO("[%s] succeed, deviceLogicId[%d] resHandle[%p].", __func__, devLogicId_, resHandle);
@@ -682,13 +682,13 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId)
 
     std::pair<uint64_t, uint64_t> ccuTokenInfo(tokenId, tokenValue);
     Hccl::DevBuffer tmpDevMem{1}; // 临时申请device hbm内存用于查询token信息
-    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(tmpDevMem.GetAddr(), 1);
+    auto hbmTokenInfo = asccomm::CcuRep::GetTokenInfo(tmpDevMem.GetAddr(), 1);
 
     CcuResReq totalResReq{};
     // 实例化CcuRepReferenceManager和CcuRepTranslator，并为CcuRepReferenceManager绑定物理资源
     for (uint32_t i = 0; i < 16; i++) { // mgr有16个
-        referenceMgrs[dieId][i] = std::make_shared<hcomm::CcuRep::CcuRepReferenceManager>(dieId);
-        translators[dieId][i] = std::make_shared<hcomm::CcuRep::CcuRepTranslator>(
+        referenceMgrs[dieId][i] = std::make_shared<asccomm::CcuRep::CcuRepReferenceManager>(dieId);
+        translators[dieId][i] = std::make_shared<asccomm::CcuRep::CcuRepTranslator>(
             devLogicId_, dieId, referenceMgrs[dieId][i], tmpChannelId, ccuTokenInfo, hbmTokenInfo);
 
         // 统计&合并refManager和translaotr所有资源REQ
@@ -700,7 +700,7 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId)
     DumpResReqInfo(totalResReq);
 
     // 为refManager和translaotr申请物理资源
-    CcuResHandle handle;
+    hcomm::CcuResHandle handle;
     CHK_RET(CcuDevMgrImp::AllocResHandle(devLogicId_, totalResReq, handle));
     translatorResPack.handles.push_back(handle);
 
@@ -719,13 +719,13 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId)
 
 HcclResult CcuKernelMgr::LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, const uint32_t dieId)
 {
-    const uint64_t instrInfoSize = instrInfo.instrVec.size() * sizeof(hcomm::CcuRep::CcuInstr);
+    const uint64_t instrInfoSize = instrInfo.instrVec.size() * sizeof(asccomm::CcuRep::CcuInstr);
 
     if (!instructionLoadDevMem_) {
         uint32_t instrNum = 0;
         CHK_RET(CcuDevMgrImp::GetResSpecsInstructionNum(devLogicId_, 0, instrNum));
         HCCL_INFO("[CcuKernelMgr]LoadInstruction: deviceLogicId[%d], instrNum[%u]", devLogicId_, instrNum);
-        CHK_RET(hrtMalloc(&instructionLoadDevMem_, instrNum * sizeof(hcomm::CcuRep::CcuInstr)));
+        CHK_RET(hrtMalloc(&instructionLoadDevMem_, instrNum * sizeof(asccomm::CcuRep::CcuInstr)));
     }
 
     CHK_RET(hrtMemcpy(
@@ -806,4 +806,4 @@ CcuResult CcuKernelMgr::GetCcuKernelInfo(const CcuKernelHandle kernelHandle, Ccu
 
 CcuKernel* CcuKernelMgr::GetCurrentKernel() { return currKernel_.get(); }
 
-} // namespace hcomm
+} // namespace asccomm
