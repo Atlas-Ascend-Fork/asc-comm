@@ -44,4 +44,4 @@ enum class HcommUrmaReduceOp : uint32_t {
 
 } // namespace AscendC
 
-#endif // LIB_HCOMM_HCOMM_COMMON_H
+#endif // INCLUDE_ADV_API_HCOMM_HCOMM_COMMON_H

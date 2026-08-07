@@ -40,8 +40,7 @@ exclude = [
     "^https://gitee\\.com/ascend/samples/tree/master/operator/ascendc/0_introduction/3_add_kernellaunch/AddKernelInvocationNeo$",
     "^https://gitee\\.com/ascend/ascendc-api-adv/tree/master/examples$",
     "^https://github\\.com/ImageMagick/ImageMagick-Windows/releases$",
-    "^https://docs\\.docker\\.com/$",
-    "^https://docs\\.docker\\.com/reference/cli/docker/buildx/$",
+    "^https://docs\\.docker\\.com/.*",
     "^https://ccache\\.dev/documentation\\.html$",
 ]
 
