@@ -232,6 +232,24 @@ public:
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
+    /*!
+     * @brief Acquire the shared queue lock and load its queue indices.
+     * @param [in] channel: The handle of the communication channel.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note This interface is supported only by COMM_PROTOCOL_UBC_CTP on Ascend 950. It blocks until the lock is
+     *       acquired. Calls that update a shared queue must be protected by Lock and Unlock.
+     */
+    __aicore__ inline int32_t Lock(ChannelHandle channel);
+
+    /*!
+     * @brief Store the shared queue indices and release its lock.
+     * @param [in] channel: The handle of the communication channel.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note This interface is supported only by COMM_PROTOCOL_UBC_CTP on Ascend 950. It must be called after a
+     *       successful Lock by the same AI Core.
+     */
+    __aicore__ inline int32_t Unlock(ChannelHandle channel);
+
 private:
     HcommImpl<commProtocol> impl_;
 };

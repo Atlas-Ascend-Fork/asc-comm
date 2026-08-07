@@ -32,6 +32,10 @@ constexpr uint32_t HCOMM_URMA_TMP_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_URMA_WQE_U32_NUM = 32;
 constexpr uint32_t HCOMM_URMA_CQE_U32_NUM = 16;
 constexpr uint32_t HCOMM_URMA_UDF_FLAG = 0x80U;
+constexpr uint32_t HCOMM_URMA_LOCK_FREE = 0U;
+constexpr uint32_t HCOMM_URMA_LOCK_HELD = 1U;
+// Queue index storage is 8 bytes. The low uint32_t stores sqHead and the high uint32_t stores the shared lock.
+constexpr uint32_t HCOMM_URMA_LOCK_INDEX = 1U;
 
 constexpr uint32_t HCOMM_URMA_INVALID_REDUCE_DATA_TYPE = 0xFFFFFFFFU;
 template <typename T>
@@ -111,6 +115,8 @@ public:
     __aicore__ inline int32_t Commit(ChannelHandle channel);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
+    __aicore__ inline int32_t Lock(ChannelHandle channel);
+    __aicore__ inline int32_t Unlock(ChannelHandle channel);
 
 private:
     template <
