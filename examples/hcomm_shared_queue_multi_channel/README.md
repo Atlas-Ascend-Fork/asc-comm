@@ -2,13 +2,9 @@
 
 ## 概述
 
-本样例展示如何基于 `HcclRootInfo` 创建多卡通信域，并通过
-`HcclChannelAcquireWithConfig` 让同一本地 Endpoint 下的多个逻辑 Channel 共享通信队列。Host
-侧完成通信内存注册、RankGraph 查询、Channel 分组和创建；AIV Kernel 依次使用这些 Channel 向不同
-peer 写入数据，并在 Host 侧校验结果。
+本样例展示如何基于 `HcclRootInfo` 创建多卡通信域，并通过 `HcclChannelAcquireWithConfig` 让同一本地 Endpoint 下的多个逻辑 Channel 共享通信队列。Host 侧完成通信内存注册、RankGraph 查询、Channel 分组和创建；AIV Kernel 依次使用这些 Channel 向不同 peer 写入数据，并在 Host 侧校验结果。
 
-rank 0 生成 `HcclRootInfo` 并通过 TCP 分发给其他 rank，各 rank 使用同一份
-`HcclRootInfo` 初始化通信域。
+rank 0 生成 `HcclRootInfo` 并通过 TCP 分发给其他 rank，各 rank 使用同一份 `HcclRootInfo` 初始化通信域。
 
 ## 支持的产品及版本
 
@@ -42,11 +38,9 @@ rank 0 生成 `HcclRootInfo` 并通过 TCP 分发给其他 rank，各 rank 使�
     Channel(peer C) ----- queue group 1
 ```
 
-控制面从 RankGraph 中为每个 peer 选择最近层的一条 `COMM_PROTOCOL_UBC_CTP` link，并按照 link 的
-本地 Endpoint 分组。Endpoint 是否相同由 `protocol`、`commAddr.type` 和 `commAddr.eid` 共同确定。
+控制面从 RankGraph 中为每个 peer 选择最近层的一条 `COMM_PROTOCOL_UBC_CTP` link，并按照 link 的本地 Endpoint 分组。Endpoint 是否相同由 `protocol`、`commAddr.type` 和 `commAddr.eid` 共同确定。
 
-- 同一 group 的所有 `HcclChannelDesc` 具有相同的 `localEndpoint`，通过一次
-  `HcclChannelAcquireWithConfig` 批量创建并共享通信队列。
+- 同一 group 的所有 `HcclChannelDesc` 具有相同的 `localEndpoint`，通过一次 `HcclChannelAcquireWithConfig` 批量创建并共享通信队列。
 - 每个本地 Endpoint group 分别调用一次 `HcclChannelAcquireWithConfig`。
 
 共享队列的关键配置如下：
@@ -75,17 +69,13 @@ rank 0 调用 HcclGetRootInfo
   -> 每轮等待远端 notify 并校验接收数据
 ```
 
-Kernel 使用 `COMM_PROTOCOL_UBC_CTP`，控制面使用 `COMM_ENGINE_AIV`。Kernel 调用
-`WriteWithNotifyNbi<false>` 后执行 `Commit` 和 `Drain`，远端 Host 轮询注册内存中的 notify 并校验数据。
+Kernel 使用 `COMM_PROTOCOL_UBC_CTP`，控制面使用 `COMM_ENGINE_AIV`。Kernel 调用 `Lock` 获取共享队列锁并加载队列索引，在 `WriteWithNotifyNbi<false>`、`Commit` 和 `Drain` 完成后调用 `Unlock` 写回索引并释放锁。Kernel 将执行结果写回 Host，远端 Host 轮询注册内存中的 notify 并校验数据。
 
 每轮数据传输前后调用 `HcclBarrier`，确保所有 rank 已经清零接收区和 notify。
 
 ### 多 Channel 验证方式
 
-样例创建本 rank 到所有 peer 的 Channel，并执行两轮 all-peer 数据面验证。每轮按统一 offset 调度：rank
-`i` 写入 `(i + offset) % rankSize`，同时接收 `(i - offset + rankSize) % rankSize` 的数据。以 3 个 rank
-为例，每个 rank 的 Channel 使用顺序为 `peer A -> peer B -> peer A -> peer B`，从而覆盖共享通信队列
-上的逻辑 Channel 切换。
+样例创建本 rank 到所有 peer 的 Channel，并执行两轮 all-peer 数据面验证。每轮按统一 offset 调度：rank `i` 写入 `(i + offset) % rankSize`，同时接收 `(i - offset + rankSize) % rankSize` 的数据。当存在共享队列时，同一 group 内的多个 Channel 交替使用，覆盖共享通信队列上的逻辑 Channel 切换。
 
 ## 编译运行
 
@@ -110,7 +100,7 @@ bash run.sh
 
 | 参数 | 说明 |
 |------|------|
-| `$1` | 全局 rank 数量，默认 `3` |
+| `$1` | 全局 rank 数量，默认 `2` |
 | `$2` | 单次通信字节数，默认 `4096` |
 | `$3` | rank 0 分发 RootInfo 的 TCP 地址，默认 `tcp://127.0.0.1:8899` |
 | `$4` | 当前机器启动的第一个全局 rank，默认 `0` |
@@ -128,9 +118,8 @@ bash run.sh 4 4096
 cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510
 cmake --build build -j
 
-./build/demo 3 0 0 4096 &
-./build/demo 3 1 1 4096 &
-./build/demo 3 2 2 4096 &
+./build/demo 2 0 0 4096 &
+./build/demo 2 1 1 4096 &
 wait
 ```
 
@@ -138,8 +127,7 @@ wait
 
 ### 3. 多机运行
 
-各机器使用相同的 `rank_size`、通信字节数、RootInfo 地址和程序版本，并通过 `run.sh` 的后两个参数
-指定本机负责的全局 rank 区间。本机 device 从 `0` 开始映射。
+各机器使用相同的 `rank_size`、通信字节数、RootInfo 地址和程序版本，并通过 `run.sh` 的后两个参数指定本机负责的全局 rank 区间。本机 device 从 `0` 开始映射。
 
 例如两台机器各运行两个 rank，rank 0 所在机器的 IP 为 `192.168.1.10`：
 
@@ -155,19 +143,18 @@ bash run.sh 4 4096 tcp://192.168.1.10:8899 2 2
 
 ### 4. 预期输出
 
-各 rank 完成两轮 Channel 切换和数据校验后，每个 rank 输出一行结果：
+各 rank 完成两轮数据校验后，每个 rank 输出一行结果：
 
 ```text
-rank 0 pass, exercised 2 peer channels for 2 cycles, bytes 4096.
-rank 1 pass, exercised 2 peer channels for 2 cycles, bytes 4096.
-rank 2 pass, exercised 2 peer channels for 2 cycles, bytes 4096.
-ranks 0-2 run success.
+rank 0 pass, exercised 1 peer channels for 2 cycles, bytes 4096.
+rank 1 pass, exercised 1 peer channels for 2 cycles, bytes 4096.
+ranks 0-1 run success.
 ```
 
 ## 运行约束
 
-- `rank_size` 必须大于等于 2；至少 3 个 rank 才能在单个 rank 上覆盖多个 peer Channel 共享通信队列。
-- RankGraph 返回的 link 按本地 Endpoint 分组，同一 group 内的 Channel 共享通信队列。
+- `rank_size` 必须大于等于 2。
+- 同一 local Endpoint 下的多个 Channel 会共享通信队列；RankGraph 返回的 link 按本地 Endpoint 分组，同一 group 内的 Channel 共享通信队列。
 - 跨节点运行时，各机器的全局 rank 区间不能重叠，并且必须完整覆盖 `0..rank_size-1`。
 - 所有 rank 必须使用相同的 RootInfo、rank 数量和程序版本。
 - 实际运行需要可用的 CANN、HCCL 和 NPU 环境。
