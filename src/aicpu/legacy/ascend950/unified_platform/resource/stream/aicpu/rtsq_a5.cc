@@ -24,6 +24,11 @@ using namespace std;
 constexpr u32 RTSQ_A5_PART_ID   = 0;
 constexpr u32 PRINT_INTERVAL  = 30;
 
+static_assert(RTSQ_SQE_SIZE == HCOMM_POD_RTSQ_SQE_SIZE,
+    "RtsqA5 SQE size must match HcommRtsqContext");
+static_assert(PER_LAUNCH_SQE_CNT == HCOMM_POD_RTSQ_BATCH_SIZE,
+    "RtsqA5 batch size must match HcommRtsqContext");
+
 RtsqA5::RtsqA5(u32 devPhyId, u32 streamId, u32 sqId) : RtsqBase(devPhyId, streamId, sqId)
 {
     SetTaskIdBySqeId();
@@ -33,6 +38,30 @@ RtsqA5::RtsqA5(u32 devPhyId, u32 streamId, u32 sqId, bool launchFlag) : RtsqBase
 {
     SetTaskIdBySqeId();
     launchFlag_ = launchFlag;
+}
+
+HcclResult RtsqA5::ExportPodResource(HcommRtsqContext &context) const
+{
+    static_assert(sizeof(context.localSqeBuffer) == sizeof(locBuf),
+        "RtsqA5 local SQE buffer must match HcommRtsqContext");
+    context = {};
+    context.devPhyId = devPhyId_;
+    context.localDevId = localDevId_;
+    context.streamId = streamId_;
+    context.sqId = sqId_;
+    context.sqDepth = sqDepth_;
+    context.sqHead = sqHead_;
+    context.sqTail = sqTail_;
+    context.taskId = taskId_;
+    context.taskIdEnd = taskIdEnd_;
+    context.pendingSqeCnt = pendingSqeCnt;
+    context.sqFullTimeout = sqFullTimeout_;
+    context.sqBaseAddr = sqBaseAddr_;
+    context.launchFlag = launchFlag_ ? 1 : 0;
+    const s32 ret = memcpy_s(context.localSqeBuffer, sizeof(context.localSqeBuffer), locBuf, sizeof(locBuf));
+    CHK_PRT_RET(ret != EOK,
+        HCCL_ERROR("[RtsqA5::%s] copy local SQE buffer failed, ret[%d].", __func__, ret), HCCL_E_INTERNAL);
+    return HCCL_SUCCESS;
 }
 
 void RtsqA5::Reset()

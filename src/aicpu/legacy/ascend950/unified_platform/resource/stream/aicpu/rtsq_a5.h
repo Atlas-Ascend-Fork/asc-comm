@@ -75,6 +75,8 @@ public:
 
     bool GetPreStreamSyncStatus() override;
 
+    HcclResult ExportPodResource(HcommRtsqContext &context) const override;
+
 private:
     u32 pendingSqeCnt{0};
 

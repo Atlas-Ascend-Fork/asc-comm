@@ -19,6 +19,7 @@
 #include "reduce_in.h"
 #include "not_support_exception.h"
 #include "ub_jetty_lite.h"
+#include "hcomm_pod_resource.h"
 
 #include "ascend_hal.h"
 namespace aicpu {
@@ -256,6 +257,12 @@ public:
     virtual bool GetPreStreamSyncStatus()
     {
         return false;
+    }
+
+    virtual HcclResult ExportPodResource(HcommRtsqContext &context) const
+    {
+        (void)context;
+        return HCCL_E_NOT_SUPPORT;
     }
 
     HcclResult GetStreamIdAndTaskIdBySqIdx(u32 sqIdx, uint16_t& streamId, uint16_t& taskId) const;
