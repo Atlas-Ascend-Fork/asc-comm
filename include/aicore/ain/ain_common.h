@@ -12,8 +12,8 @@
  * \file ain_common.h
  * \brief Ain common definitions
  */
-#ifndef INCLUDE_ADV_API_AIN_AIN_COMMON_H
-#define INCLUDE_ADV_API_AIN_AIN_COMMON_H
+#ifndef INCLUDE_COMM_API_AICORE_AIN_AIN_COMMON_H
+#define INCLUDE_COMM_API_AICORE_AIN_AIN_COMMON_H
 
 #ifndef AIN_DEVICE
 /*!
@@ -98,4 +98,4 @@ enum AinCommEngineMask { AIN_MASK_DEFAULT };
 
 } // namespace AscendC
 
-#endif // INCLUDE_ADV_API_AIN_AIN_COMMON_H
+#endif // INCLUDE_COMM_API_AICORE_AIN_AIN_COMMON_H
