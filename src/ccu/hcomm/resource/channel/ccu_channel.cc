@@ -12,6 +12,8 @@
 
 #include <new>
 
+#include "ccu_res_specs.h"
+
 namespace hcomm {
 
 CcuChannel::CcuChannel(ChannelHandle channel)
@@ -184,6 +186,51 @@ HcclResult CcuChannel::GetRmtBuffer(uint64_t &addr, uint32_t &size, uint32_t &to
     size = static_cast<uint32_t>(remoteBuffer.size);
     tokenId = remoteBuffer.protectionInfo.memInfo.ub.tokenId;
     tokenValue = remoteBuffer.protectionInfo.memInfo.ub.tokenValue;
+    return HCCL_SUCCESS;
+}
+
+HcclResult CcuChannel::GetRmtCcuBufferTokenInfo(uint32_t &rmtTokenId, uint32_t &rmtTokenValue) const
+{
+    if (result_ != HCCL_SUCCESS) {
+        return result_;
+    }
+    rmtTokenId = channelEntity_.ccuInfo.rmtCcuBufTokenId;
+    rmtTokenValue = channelEntity_.ccuInfo.rmtCcuBufTokenValue;
+    return HCCL_SUCCESS;
+}
+
+HcclResult CcuChannel::GetRmtVarAddrByIndex(uint32_t index, uint64_t &rmtXnAddr) const
+{
+    if (result_ != HCCL_SUCCESS) {
+        return result_;
+    }
+    if (index >= remoteXns_.size()) {
+        return HCCL_E_PARA;
+    }
+    if (channelEntity_.ccuInfo.rmtXnBaseAddr > UINT64_MAX -
+        static_cast<uint64_t>(remoteXns_[index]) * CCU_RESOURCE_XN_PER_SIZE) {
+        return HCCL_E_INTERNAL;
+    }
+    rmtXnAddr = channelEntity_.ccuInfo.rmtXnBaseAddr +
+        static_cast<uint64_t>(remoteXns_[index]) * CCU_RESOURCE_XN_PER_SIZE;
+    return HCCL_SUCCESS;
+}
+
+HcclResult CcuChannel::GetRmtSignalAddrByIndex(uint32_t index, uint64_t &rmtCkeAddr) const
+{
+    if (result_ != HCCL_SUCCESS) {
+        return result_;
+    }
+    if (index >= remoteCkes_.size()) {
+        return HCCL_E_PARA;
+    }
+    const uint64_t rmtCkeId = remoteCkes_[index].notifyInfo.ccuCke.ckeId;
+    if (channelEntity_.ccuInfo.rmtCkeBaseAddr > UINT64_MAX -
+        static_cast<uint64_t>(rmtCkeId) * CCU_RESOURCE_CKE_PER_SIZE) {
+        return HCCL_E_INTERNAL;
+    }
+    rmtCkeAddr = channelEntity_.ccuInfo.rmtCkeBaseAddr +
+        static_cast<uint64_t>(rmtCkeId) * CCU_RESOURCE_CKE_PER_SIZE;
     return HCCL_SUCCESS;
 }
 

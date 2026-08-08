@@ -8,9 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v2.h"
-#include "hcomm_c_adpt.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
-#include "ccu_urma_channel.h"
+#include "hcomm/resource/channel/ccu_channel.h"
 #include "ccu_api_exception.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "hcom_common.h"
@@ -53,20 +52,10 @@ namespace CcuRep {
             }
             return HcclResult::HCCL_SUCCESS;
         }
-        HcclResult GetUrmaChannel(ChannelHandle channelHandle, CcuUrmaChannel*& channelImpl)
-        {
-            void* channelPtr{nullptr};
-            CHK_RET(static_cast<HcclResult>(HcommChannelGet(channelHandle, &channelPtr)));
-            channelImpl = dynamic_cast<CcuUrmaChannel*>(static_cast<Channel*>(channelPtr));
-            CHK_PTR_NULL(channelImpl);
-            return HcclResult::HCCL_SUCCESS;
-        }
-
-        HcclResult GetRmtToken(CcuUrmaChannel* channelImpl, uint64_t& rmtToken)
+        HcclResult GetRmtToken(CcuChannel& channelImpl, uint64_t& rmtToken)
         {
             uint32_t rmtTokenId{0};
             uint32_t rmtTokenValue{0};
-            CHK_PTR_NULL(channelImpl);
             CHK_RET(channelImpl->GetRmtCcuBufferTokenInfo(rmtTokenId, rmtTokenValue));
             rmtToken = CcuRep::GetToken(rmtTokenId, rmtTokenValue, 1);
             return HcclResult::HCCL_SUCCESS;
@@ -114,8 +103,10 @@ namespace CcuRep {
     {
         CHK_PTR_NULL(repBufRead);
         CHK_PTR_NULL(ccuKernel);
-        CcuUrmaChannel* channelImpl{nullptr};
-        CHK_RET(GetUrmaChannel(repBufRead->GetChannel(), channelImpl));
+        CcuChannel channelImpl(repBufRead->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repBufRead->Type()), HCCL_E_INTERNAL);
 
         CcuV2::TransMemNotifyInfo notify = {};
         CcuV2::TransMemReduceInfo reduce = {};
@@ -139,8 +130,10 @@ namespace CcuRep {
     {
         CHK_PTR_NULL(repWrite);
         CHK_PTR_NULL(ccuKernel);
-        CcuUrmaChannel* channelImpl{nullptr};
-        CHK_RET(GetUrmaChannel(repWrite->GetChannel(), channelImpl));
+        CcuChannel channelImpl(repWrite->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repWrite->Type()), HCCL_E_INTERNAL);
         CcuV2::TransMemNotifyInfo notify = {};
         CcuV2::TransMemReduceInfo reduce = {};
         CcuV2::TransMemConfig config = {};
@@ -172,8 +165,10 @@ namespace CcuRep {
     {
         CHK_PTR_NULL(repRead);
         CHK_PTR_NULL(ccuKernel);
-        CcuUrmaChannel* channelImpl{nullptr};
-        CHK_RET(GetUrmaChannel(repRead->GetChannel(), channelImpl));
+        CcuChannel channelImpl(repRead->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repRead->Type()), HCCL_E_INTERNAL);
 
         CcuV2::TransMemNotifyInfo notify = {};
         CcuV2::TransMemReduceInfo reduce = {};
@@ -199,8 +194,10 @@ namespace CcuRep {
     HcclResult CcuInsGeneratorV2::CcuRepRemMemTranslate(CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepRemMem* repRemMem)
     {
         CHK_PTR_NULL(repRemMem);
-        CcuUrmaChannel* channelImpl{nullptr};
-        CHK_RET(GetUrmaChannel(repRemMem->GetChannel(), channelImpl));
+        CcuChannel channelImpl(repRemMem->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repRemMem->Type()), HCCL_E_INTERNAL);
 
         uint64_t addr{0};
         uint32_t size{0}, tokenId{0}, tokenValue{0};
@@ -263,8 +260,10 @@ namespace CcuRep {
         config.src_mode = 0;                  // 不偏移
         config.dst_mode = 1;                  // 偏移 256K
         config.msIdMode = 1;                  // 使用msId模式
-        CcuUrmaChannel* channelImpl{nullptr};
-        CHK_RET(GetUrmaChannel(ccuRepBufWrite->GetChannel(), channelImpl));
+        CcuChannel channelImpl(ccuRepBufWrite->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", ccuRepBufWrite->Type()), HCCL_E_INTERNAL);
 
         uint32_t channelId = channelImpl->GetChannelId();
         const auto& constValue2VarMap = ccuKernel->GetConstValue2VarMap();
@@ -375,8 +374,10 @@ namespace CcuRep {
         CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepRemWaitSem* ccuRepRemWaitSem)
     {
         CHK_PTR_NULL(ccuRepRemWaitSem);
-        CcuUrmaChannel* channelImpl{nullptr};
-        CHK_RET(GetUrmaChannel(ccuRepRemWaitSem->GetChannel(), channelImpl));
+        CcuChannel channelImpl(ccuRepRemWaitSem->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", ccuRepRemWaitSem->Type()), HCCL_E_INTERNAL);
 
         uint32_t locCkeId{0};
         CHK_PRT_RET(
@@ -398,8 +399,10 @@ namespace CcuRep {
     {
         CHK_PTR_NULL(ccuRepRemPostVar);
         CHK_PTR_NULL(ccuKernel);
-        CcuUrmaChannel* channelImpl{nullptr};
-        CHK_RET(GetUrmaChannel(ccuRepRemPostVar->GetChannel(), channelImpl));
+        CcuChannel channelImpl(ccuRepRemPostVar->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", ccuRepRemPostVar->Type()), HCCL_E_INTERNAL);
 
         uint32_t channelId = channelImpl->GetChannelId();
         uint64_t rmtSignalAddr{0};
@@ -439,8 +442,10 @@ namespace CcuRep {
     {
         CHK_PTR_NULL(ccuRepRemPostSem);
         CHK_PTR_NULL(ccuKernel);
-        CcuUrmaChannel* channelImpl{nullptr};
-        CHK_RET(GetUrmaChannel(ccuRepRemPostSem->GetChannel(), channelImpl));
+        CcuChannel channelImpl(ccuRepRemPostSem->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", ccuRepRemPostSem->Type()), HCCL_E_INTERNAL);
 
         uint64_t rmtSignalAddr{0};
         uint32_t channelId = channelImpl->GetChannelId();
@@ -1373,8 +1378,10 @@ namespace CcuRep {
     {
         CcuRepRemPostSem* repRemPostSemPtr = dynamic_cast<CcuRepRemPostSem*>(repPtr);
         CHK_PTR_NULL(repRemPostSemPtr);
-        CcuUrmaChannel* channelImpl{};
-        CHK_RET(GetUrmaChannel(repRemPostSemPtr->GetChannel(), channelImpl));
+        CcuChannel channelImpl(repRemPostSemPtr->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repRemPostSemPtr->Type()), HCCL_E_INTERNAL);
         uint64_t rmtSignalAddr{0};
         CHK_PRT_RET(
             channelImpl->GetRmtSignalAddrByIndex(repRemPostSemPtr->GetSemIndex(), rmtSignalAddr)
@@ -1394,8 +1401,10 @@ namespace CcuRep {
     {
         CcuRepRemPostVar* repRemPostVarPtr = dynamic_cast<CcuRepRemPostVar*>(repPtr);
         CHK_PTR_NULL(repRemPostVarPtr);
-        CcuUrmaChannel* channelImpl{};
-        CHK_RET(GetUrmaChannel(repRemPostVarPtr->GetChannel(), channelImpl));
+        CcuChannel channelImpl(repRemPostVarPtr->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repRemPostVarPtr->Type()), HCCL_E_INTERNAL);
         uint64_t rmtSignalAddr{0};
         uint64_t rmtVarAddr{0};
         CHK_PRT_RET(
@@ -1422,8 +1431,10 @@ namespace CcuRep {
     {
         CcuRepWrite* repWritePtr = dynamic_cast<CcuRepWrite*>(repPtr);
         CHK_PTR_NULL(repWritePtr);
-        CcuUrmaChannel* channelImpl{};
-        CHK_RET(GetUrmaChannel(repWritePtr->GetChannel(), channelImpl));
+        CcuChannel channelImpl(repWritePtr->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repWritePtr->Type()), HCCL_E_INTERNAL);
         uint64_t rmtToken{};
         CHK_RET(GetRmtToken(channelImpl, rmtToken));
         std::vector<uint64_t> values = {channelImpl->GetChannelId(), rmtToken};
@@ -1434,8 +1445,10 @@ namespace CcuRep {
     {
         CcuRepRead* repReadPtr = dynamic_cast<CcuRepRead*>(repPtr);
         CHK_PTR_NULL(repReadPtr);
-        CcuUrmaChannel* channelImpl{};
-        CHK_RET(GetUrmaChannel(repReadPtr->GetChannel(), channelImpl));
+        CcuChannel channelImpl(repReadPtr->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repReadPtr->Type()), HCCL_E_INTERNAL);
         std::vector<uint64_t> values = {channelImpl->GetChannelId()};
         return ccuKernel->Add2ConstValue2VarMap(values);
     }
@@ -1445,8 +1458,10 @@ namespace CcuRep {
     {
         CcuRepBufWrite* repBufWritePtr = dynamic_cast<CcuRepBufWrite*>(repPtr);
         CHK_PTR_NULL(repBufWritePtr);
-        CcuUrmaChannel* channelImpl{};
-        CHK_RET(GetUrmaChannel(repBufWritePtr->GetChannel(), channelImpl));
+        CcuChannel channelImpl(repBufWritePtr->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repBufWritePtr->Type()), HCCL_E_INTERNAL);
         uint64_t rmtToken{};
         CHK_RET(GetRmtToken(channelImpl, rmtToken));
         std::vector<uint64_t> values = {channelImpl->GetChannelId(), rmtToken, dep.ccuResSpaceTokenInfo};
@@ -1458,8 +1473,10 @@ namespace CcuRep {
     {
         CcuRepBufRead* repBufReadPtr = dynamic_cast<CcuRepBufRead*>(repPtr);
         CHK_PTR_NULL(repBufReadPtr);
-        CcuUrmaChannel* channelImpl{};
-        CHK_RET(GetUrmaChannel(repBufReadPtr->GetChannel(), channelImpl));
+        CcuChannel channelImpl(repBufReadPtr->GetChannel());
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repBufReadPtr->Type()), HCCL_E_INTERNAL);
         std::vector<uint64_t> values = {channelImpl->GetChannelId(), dep.ccuResSpaceTokenInfo};
         return ccuKernel->Add2ConstValue2VarMap(values);
     }
