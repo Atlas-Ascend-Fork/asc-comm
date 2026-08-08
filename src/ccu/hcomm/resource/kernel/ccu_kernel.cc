@@ -1940,17 +1940,17 @@ static Hccl::DataType HcommDataTypeToHcclDataType(const HcclDataType dataType)
 
 constexpr uint32_t MAX_REDUCE_TYPE = 4;
 const Hccl::ReduceOp orionReduceOps[] = {
-    Hccl::ReduceOp::SUM,
-    Hccl::ReduceOp::PROD,
-    Hccl::ReduceOp::MAX,
-    Hccl::ReduceOp::MIN,
+    HCCL_REDUCE_OP_SUM,
+    HCCL_REDUCE_OP_PROD,
+    HCCL_REDUCE_OP_MAX,
+    HCCL_REDUCE_OP_MIN,
 };
 
 static Hccl::ReduceOp HcommReduceOpToHcclReduceOp(const HcclReduceOp reduceOp)
 {
     const auto reduceOpNum = static_cast<uint32_t>(reduceOp);
     if (reduceOpNum > MAX_REDUCE_TYPE) {
-        return Hccl::ReduceOp::INVALID;
+        return HCCL_REDUCE_OP_INVALID;
     }
 
     return orionReduceOps[reduceOpNum];
@@ -1963,9 +1963,9 @@ HcclResult CcuKernel::LocalReduceNb(
     auto opType_ = HcommReduceOpToHcclReduceOp(opType);
     auto dataType_ = HcommDataTypeToHcclDataType(dataType);
     auto outputDataType_ = HcommDataTypeToHcclDataType(outputDataType);
-    if ((opType_ == Hccl::ReduceOp::SUM && isLowPrecisionIn(dataType_) && !isLowPrecisionOut(outputDataType_)) ||
-        (opType_ == Hccl::ReduceOp::SUM && !isLowPrecisionIn(dataType_) && dataType_ != outputDataType_) ||
-        (opType_ != Hccl::ReduceOp::SUM && dataType_ != outputDataType_)) {
+    if ((opType_ == HCCL_REDUCE_OP_SUM && isLowPrecisionIn(dataType_) && !isLowPrecisionOut(outputDataType_)) ||
+        (opType_ == HCCL_REDUCE_OP_SUM && !isLowPrecisionIn(dataType_) && dataType_ != outputDataType_) ||
+        (opType_ != HCCL_REDUCE_OP_SUM && dataType_ != outputDataType_)) {
         return HCCL_E_NOT_SUPPORT;
     }
 

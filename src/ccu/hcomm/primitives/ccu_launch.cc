@@ -58,7 +58,7 @@ CcuResult HcommCcuInsDestroyLegacy(CcuInsHandle insHandle, int32_t curDeviceLogi
     }
 
     // 销毁 CcuInstance
-    CcuResult ret = hcomm::CcuInstanceMgr::GetInstance(curDeviceLogicId).Destroy(insHandle);
+    CcuResult ret = hcomm::CcuKernelRegistryMgr::GetInstance(curDeviceLogicId).Destroy(insHandle);
     if (ret != CCU_SUCCESS) {
         HCCL_ERROR("[%s] Destroy CcuInstance failed, ret[%d]", __func__, ret);
     }
@@ -391,10 +391,10 @@ CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo
         return CcuResult::CCU_E_PARA;
     }
     // 注意token信息属于安全信息，均不允许打印
-    rtMemUbTokenInfo info{};
+    hcomm::rtMemUbTokenInfo info{};
     info.va = srcVa;
     info.size = size;
-    CCU_CHK_RET(RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, &info));
+    CCU_CHK_RET(hcomm::RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, info));
     *tokenInfo = hcomm::CcuRep::CcuCombineTokenInfo(info.tokenId, info.tokenValue, 1);
 
     return CcuResult::CCU_SUCCESS;
