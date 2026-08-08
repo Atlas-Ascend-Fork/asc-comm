@@ -10,6 +10,7 @@
 
 set(op_kernel_ccu_src_list
     ${CMAKE_CURRENT_SOURCE_DIR}/ccu_kernel.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/exec_op.cc
 )
 
 target_sources(custom_allgather_ccu PRIVATE

@@ -16,6 +16,29 @@
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 
+namespace {
+// strict 校验:magic 不符 / version 越界 / size 不匹配当前版本一律拒绝。
+CcuResult ValidateCcuCfgHeader(const CcuCfgHeader* header, uint32_t expectSize, uint32_t maxVersion)
+{
+    if (header == nullptr) {
+        return CcuResult::CCU_E_PTR;
+    }
+    if (header->magic != CCU_CFG_MAGIC_WORD) {
+        HCCL_ERROR("[ValidateCcuCfgHeader] bad magic 0x%x", header->magic);
+        return CcuResult::CCU_E_PARA;
+    }
+    if (header->version == 0 || header->version > maxVersion) {
+        HCCL_ERROR("[ValidateCcuCfgHeader] bad version %u (max %u)", header->version, maxVersion);
+        return CcuResult::CCU_E_PARA;
+    }
+    if (header->size != expectSize) {
+        HCCL_ERROR("[ValidateCcuCfgHeader] bad size %u (expect %u)", header->size, expectSize);
+        return CcuResult::CCU_E_PARA;
+    }
+    return CcuResult::CCU_SUCCESS;
+}
+} // namespace
+
 // Alloc 相关接口
 CcuResult CcuVariableAlloc(CcuVariableHandle* varHandle)
 {
@@ -160,6 +183,96 @@ CcuResult CcuVariableAddVarToVar(CcuVariableHandle resVar, CcuVariableHandle var
 /*
 Address 相关接口
 */
+CcuResult CcuVariableSubVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->VariableSubVarToVar(resVar, varA, varB));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuVariableMulVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->VariableMulVarToVar(resVar, varA, varB));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuVariableAddImmToVar(CcuVariableHandle resVar, CcuVariableHandle varA, uint16_t immediate)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->VariableAddImmToVar(resVar, varA, immediate));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuVariableSubImmToVar(CcuVariableHandle resVar, CcuVariableHandle varA, uint16_t immediate)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->VariableSubImmToVar(resVar, varA, immediate));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuVariableMulImmToVar(CcuVariableHandle resVar, CcuVariableHandle varA, uint16_t immediate)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->VariableMulImmToVar(resVar, varA, immediate));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuVariableAndVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->VariableAndVarToVar(resVar, varA, varB));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuVariableOrVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->VariableOrVarToVar(resVar, varA, varB));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuVariableXorVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->VariableXorVarToVar(resVar, varA, varB));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuVariableNotVar(CcuVariableHandle resVar, CcuVariableHandle varA)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->VariableNotVar(resVar, varA));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
 CcuResult CcuAddressAssignImm(CcuAddressHandle addr, uint64_t immediate)
 {
     const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
@@ -215,6 +328,15 @@ CcuResult CcuAddressAddAssignVar(CcuAddressHandle addr, CcuVariableHandle var)
 }
 
 // 参数加载类 相关接口
+CcuResult CcuAddressAddImmToAddr(CcuAddressHandle resAddr, CcuAddressHandle addrA, uint16_t imm)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->AddressAddImmToAddr(resAddr, addrA, imm));
+    return CcuResult::CCU_SUCCESS;
+}
+
 CcuResult CcuLoadArg(CcuVariableHandle varHandle, uint32_t argId)
 {
     const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
@@ -541,6 +663,36 @@ CcuResult CcuDoWhileEnd(CcuVariableHandle var, uint64_t immediate, CcuConditionT
     return CcuResult::CCU_SUCCESS;
 }
 
+CcuResult CcuIfBeginVar(CcuVariableHandle lhs, CcuVariableHandle rhs, CcuConditionType condType, const char* label)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->IfBeginVar(lhs, rhs, condType, label));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuWhileBeginVar(CcuVariableHandle lhs, CcuVariableHandle rhs, CcuConditionType condType, const char* label)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->WhileBeginVar(lhs, rhs, condType, label));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuDoWhileEndVar(CcuVariableHandle lhs, CcuVariableHandle rhs, CcuConditionType condType, const char* label)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->DoWhileEndVar(lhs, rhs, condType, label));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
 /* ========== 函数调用操作 ========== */
 CcuResult CcuFuncBlockLookup(const void* funcPtr, uint64_t* outHandle)
 {
@@ -668,6 +820,54 @@ CcuResult CcuLoopGroupAddLoopFromVar(CcuLoopGroup group, CcuLoop loop, CcuVariab
     auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
     CCU_CHK_PTR_NULL(kernel);
     CCU_CHK_RET(kernel->LoopGroupAddLoopFromVar(group, loop, loopParamVar));
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuLoopGroupCreateCfg(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupCfg* cfg)
+{
+    if (cfg == nullptr) {
+        return CcuResult::CCU_E_PTR;
+    }
+    CCU_CHK_RET(ValidateCcuCfgHeader(&cfg->header, sizeof(CcuLoopGroupCfg), CCU_LOOPGROUP_CFG_VERSION));
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->LoopGroupCreate(group, maxLoopNum, cfg));
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuLoopGroupCreateFromVarV2(
+    CcuLoopGroup* group, uint32_t maxLoopNum, CcuVariableHandle parallelVarV2, CcuVariableHandle offsetVarV2,
+    CcuVariableHandle varOffsetVar)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->LoopGroupCreateFromVarV2(group, maxLoopNum, parallelVarV2, offsetVarV2, varOffsetVar));
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuLoopGroupAddLoopCfg(CcuLoopGroup group, CcuLoop loop, const CcuLoopCfg* cfg)
+{
+    if (cfg == nullptr) {
+        return CcuResult::CCU_E_PTR;
+    }
+    CCU_CHK_RET(ValidateCcuCfgHeader(&cfg->header, sizeof(CcuLoopCfg), CCU_LOOP_CFG_VERSION));
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->LoopGroupAddLoop(group, loop, cfg));
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult CcuLoopGroupAddLoopFromVarV2(
+    CcuLoopGroup group, CcuLoop loop, CcuVariableHandle iterNumVar, CcuVariableHandle addrOffsetVar,
+    CcuVariableHandle ctxIdVar)
+{
+    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->LoopGroupAddLoopFromVarV2(group, loop, iterNumVar, addrOffsetVar, ctxIdVar));
     return CcuResult::CCU_SUCCESS;
 }
 
