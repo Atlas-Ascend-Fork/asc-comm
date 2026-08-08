@@ -7,9 +7,6 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -26,7 +23,7 @@ namespace CcuRep {
         for (const auto& rep : GetReps()) {
             HCCL_INFO(" Rep: %s", rep->Describe().c_str());
         }
-        return Hccl::StringFormat("LoopBlock[%s]", GetLabel().c_str());
+        return hcomm::StringFormat("LoopBlock[%s]", GetLabel().c_str());
     }
 
     void CcuRepLoopBlock::DefineArg(Variable var)
@@ -92,7 +89,7 @@ namespace CcuRep {
     CcuRepArg& CcuRepLoopBlock::GetArg(uint16_t index)
     {
         if (index >= args.size()) {
-            Hccl::THROW<Hccl::CcuApiException>("CcuLoopBlock Arg Index[%u] Out of Range", index);
+            hcomm::THROW<hcomm::CcuApiException>("CcuLoopBlock Arg Index[%u] Out of Range", index);
         }
         return args[index];
     }

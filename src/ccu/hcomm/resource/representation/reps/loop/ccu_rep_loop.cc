@@ -8,8 +8,6 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include <climits>
 
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v2.h"
@@ -51,11 +49,11 @@ namespace CcuRep {
         CcuInsGeneratorV2* tmpPtrV2 = dynamic_cast<CcuInsGeneratorV2*>(insGeneratorPtr_);
         if (tmpPtrV1 && !supportCcuV1) {
             // 在A5场景下没有使用A5的loop调用方式
-            Hccl::THROW<Hccl::CcuApiException>("Cannot translate CcuRepLoop when supportCcuV1 is false!");
+            hcomm::THROW<hcomm::CcuApiException>("Cannot translate CcuRepLoop when supportCcuV1 is false!");
         }
         if (tmpPtrV2 && !supportCcuV2) {
             // 在A5场景下没有使用A6的loop调用方式
-            Hccl::THROW<Hccl::CcuApiException>("Cannot translate CcuRepLoop when supportCcuV2 is false!");
+            hcomm::THROW<hcomm::CcuApiException>("Cannot translate CcuRepLoop when supportCcuV2 is false!");
         }
     }
 
@@ -76,10 +74,10 @@ namespace CcuRep {
         this->instrId = instrId;
         translated = true;
 
-        Hccl::CHECK_NULLPTR(loopBlock, "[CcuRepLoop::Translate] LoopBlock is nullptr!");
+        hcomm::CHECK_NULLPTR(loopBlock, "[CcuRepLoop::Translate] LoopBlock is nullptr!");
 
         if (!loopBlock->Translated()) {
-            Hccl::THROW<Hccl::CcuApiException>("Reference To Invalid LoopBlock");
+            hcomm::THROW<hcomm::CcuApiException>("Reference To Invalid LoopBlock");
         }
 
         uint16_t startInstrId = loopBlock->StartInstrId();
@@ -113,7 +111,7 @@ namespace CcuRep {
         return translated;
     }
 
-    std::string CcuRepLoop::Describe() { return Hccl::StringFormat("Loop reference to [%s]", label.c_str()); }
+    std::string CcuRepLoop::Describe() { return hcomm::StringFormat("Loop reference to [%s]", label.c_str()); }
 
 }; // namespace CcuRep
 }; // namespace hcomm

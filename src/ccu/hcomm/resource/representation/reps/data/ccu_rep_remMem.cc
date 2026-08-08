@@ -11,10 +11,6 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 
-#include "string_util.h"
-
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm_c_adpt.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
@@ -42,7 +38,7 @@ bool CcuRepRemMem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& i
     return translated;
 }
 
-std::string CcuRepRemMem::Describe() { return Hccl::StringFormat("Get Remote Buffer Addr and TokenInfo By Transport"); }
+std::string CcuRepRemMem::Describe() { return hcomm::StringFormat("Get Remote Buffer Addr and TokenInfo By Transport"); }
 
 }; // namespace CcuRep
 }; // namespace hcomm

@@ -5,9 +5,6 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
@@ -32,15 +29,15 @@ namespace CcuRep {
         this->instrId = instrId;
         translated = true;
         CHK_RET_THROW(
-            Hccl::CcuApiException,
-            Hccl::StringFormat("[CcuRepStore][%s] failed to translate repStore for instrId[%u] ", __func__, instrId),
+            hcomm::CcuApiException,
+            hcomm::StringFormat("[CcuRepStore][%s] failed to translate repStore for instrId[%u] ", __func__, instrId),
             insGeneratorPtr_->CcuRepStoreTranslate(ccuKernel, instr, instrId, this, dep));
         instrId += instrCount;
 
         return translated;
     }
 
-    std::string CcuRepStore::Describe() { return Hccl::StringFormat("Store([%u], [%llu], [%u])", var.Id(), addr, num); }
+    std::string CcuRepStore::Describe() { return hcomm::StringFormat("Store([%u], [%llu], [%u])", var.Id(), addr, num); }
 
 }; // namespace CcuRep
 }; // namespace hcomm

@@ -9,7 +9,6 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 namespace hcomm {
@@ -38,7 +37,7 @@ namespace CcuRep {
                 "[CcuRepRecordSharedNotify::Translate]uint16 integer overflow occurs, "
                 "instrId = [%hu], instrCount = [%hu]",
                 instrId, instrCount),
-            Hccl::InternalException, "integer overflow");
+            hcomm::InternalException, "integer overflow");
         instrId += instrCount;
 
         return translated;
@@ -46,7 +45,7 @@ namespace CcuRep {
 
     std::string CcuRepRecordSharedNotify::Describe()
     {
-        return Hccl::StringFormat("Post, Use semIndex[%u] and mask[%04x]", notify_.Id(), mask_);
+        return hcomm::StringFormat("Post, Use semIndex[%u] and mask[%04x]", notify_.Id(), mask_);
     }
 
 }; // namespace CcuRep

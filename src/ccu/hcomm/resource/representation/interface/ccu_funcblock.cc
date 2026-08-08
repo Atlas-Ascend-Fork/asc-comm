@@ -12,9 +12,6 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
-#include "string_util.h"
-#include "ccu_api_exception.h"
-
 namespace hcomm {
 namespace CcuRep {
 

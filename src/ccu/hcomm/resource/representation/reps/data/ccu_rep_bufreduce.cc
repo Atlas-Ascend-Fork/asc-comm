@@ -6,10 +6,7 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -46,7 +43,7 @@ namespace CcuRep {
         return translated;
     }
 
-    std::string CcuRepBufReduce::Describe() { return Hccl::StringFormat("Reduce"); }
+    std::string CcuRepBufReduce::Describe() { return hcomm::StringFormat("Reduce"); }
 
 }; // namespace CcuRep
 }; // namespace hcomm

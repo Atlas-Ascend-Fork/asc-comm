@@ -6,7 +6,6 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "exception_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "internal_exception.h"
 
@@ -35,7 +34,7 @@ namespace CcuRep {
             HCCL_ERROR(
                 "[CcuRepRemPostSem::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]",
                 instrId, instrCount),
-            Hccl::InternalException, "integer overflow");
+            hcomm::InternalException, "integer overflow");
         instrId += instrCount;
 
         return translated;
@@ -43,7 +42,7 @@ namespace CcuRep {
 
     std::string CcuRepRemPostSem::Describe()
     {
-        return Hccl::StringFormat("Post, Use semIndex[%u] and mask[%04x]", semIndex, mask);
+        return hcomm::StringFormat("Post, Use semIndex[%u] and mask[%04x]", semIndex, mask);
     }
 
 }; // namespace CcuRep
