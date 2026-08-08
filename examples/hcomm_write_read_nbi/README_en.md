@@ -2,7 +2,7 @@
 
 ## Overview
 
-This sample demonstrates low-latency point-to-point (P2P) communication between NPUs from an Ascend C AIV Kernel. It uses the `WriteNbi` and `ReadNbi` APIs of `Hcomm` over the AIV direct-drive URMA path. Two devices execute the same write-and-read sequence, use address offsets to separate data segments, and validate the communication results on the Host.
+This sample demonstrates low-latency point-to-point (P2P) communication between NPUs from an Ascend C AIV Kernel. It uses the `WriteNbi` and `ReadNbi` APIs of `Hcomm` over the AIV direct-drive URMA path. The number of ranks is specified by `./demo [nranks]`; when no argument is provided, the sample starts two ranks by default. Each rank builds P2P channels to its neighboring ranks in a ring topology, uses address offsets to separate data segments, and validates the communication results on the Host.
 
 ## Supported Products and CANN Software Versions
 
@@ -39,13 +39,14 @@ This sample focuses on P2P communication over the **AIV direct-drive URMA** path
 #### 1. Host-Side Communication Domain Preparation
 On the Ascend 950 series, the communication domain must be created in a multi-process manner (each process corresponds to one rank). The key steps are as follows, highlighting the AIV direct-drive configuration:
 
-1. **Exchange RootInfo**: Rank 0 calls `HcclGetRootInfo` to obtain root information and sends it to Rank 1 via TCP.
+1. **Exchange RootInfo**: Rank 0 calls `HcclGetRootInfo` to obtain root information and sends it to the other ranks via TCP.
 2. **Create Communication Domain**: Each rank calls `HcclCommInitRootInfoConfig` to create the communication domain. **Note: In AIV direct-drive mode, there is no need to configure `hcclOpExpansionMode`.**
 3. **Register Communication Memory**: Call `HcclCommMemReg` to register the local communication buffer with the communication domain. This memory information is automatically exchanged with the peer during channel creation.
-4. **Obtain Link Endpoints**: Use `HcclRankGraphGetLayers` and `HcclRankGraphGetLinks` to obtain the physical link endpoint information from the local rank to the peer rank.
-5. **Acquire P2P Channel (AIV Direct-Drive)**: Call `HcclChannelAcquire` to create the P2P channel to the peer. Specify `COMM_ENGINE_AIV` as the engine and `COMM_PROTOCOL_UBC_CTP` as the URMA protocol, and pass the memory handles to be exchanged.
-6. **Obtain Remote Memory Address**: Call `HcclChannelGetRemoteMems` to retrieve the memory address registered by the peer, which serves as the remote target address for `WriteNbi`/`ReadNbi` in the Kernel.
-7. **Download Context**: The Host pre-initializes seg0 (filling it with a pseudo-random pattern based on `rankId`), encapsulates the `ChannelHandle` and buffer addresses into `CommContext`, and downloads it to the GM of each card.
+4. **Build the TCP Ring Topology**: Each rank listens on `BASE_PORT + rank`, actively connects to `next = (rank + 1) % nranks`, and accepts the connection from `prev = (rank - 1 + nranks) % nranks`. This ring is used for Host-side barriers after RootInfo exchange, ensuring that all ranks advance through key phases together.
+5. **Obtain Link Endpoints**: Use `HcclRankGraphGetLayers` and `HcclRankGraphGetLinks` to obtain physical link endpoint information from the local rank to both `prev` and `next`.
+6. **Acquire P2P Channels (AIV Direct-Drive)**: Call `HcclChannelAcquire` to create P2P channels to neighboring ranks. Specify `COMM_ENGINE_AIV` as the engine and `COMM_PROTOCOL_UBC_CTP` as the URMA protocol, and pass the memory handles to be exchanged.
+7. **Obtain Remote Memory Address**: Call `HcclChannelGetRemoteMems` to retrieve the memory addresses registered by neighboring ranks, which serve as remote target addresses for `WriteNbi`/`ReadNbi` in the Kernel.
+8. **Download Context**: The Host pre-initializes seg0 (filling it with a pseudo-random pattern based on `rankId`), encapsulates the `ChannelHandle` and buffer addresses into `CommContext`, and downloads it to the GM of each card.
 
 ```cpp
 // 1. Each rank creates the communication domain (AIV direct-drive mode does NOT require hcclOpExpansionMode)
@@ -72,7 +73,7 @@ HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMems, &memTags);
 ```
 
 #### 2. Kernel-Side Execution
-The communication process consists of three steps: `Init()` → `WriteNbi()`/`ReadNbi()` → `Drain()`. Both cards execute the same Kernel logic, differentiating the three data segments via address offsets:
+The communication process consists of three steps: `Init()` → `WriteNbi()`/`ReadNbi()` → `Drain()`. Each rank executes the same Kernel logic, differentiating the three data segments via address offsets:
 - **seg0** `[0, DATA_SIZE)`: Local pattern (pre-initialized by the Host).
 - **seg1** `[DATA_SIZE, 2*DATA_SIZE)`: Receives data written by the peer's `WriteNbi`.
 - **seg2** `[2*DATA_SIZE, 3*DATA_SIZE)`: Receives data read back from the peer's seg0 by the local `ReadNbi`.
@@ -82,7 +83,7 @@ The communication process consists of three steps: `Init()` → `WriteNbi()`/`Re
 - **`Drain`**: Polls the Completion Queue (CQ) to wait for the communication tasks to finish, ensuring data visibility upon return.
 
 ```cpp
-// Symmetric execution on both cards using AIV Direct-Drive URMA:
+// Example AIV Direct-Drive URMA operations on one rank:
 // 1. Local seg0 → Peer seg1 (WriteNbi)
 hcomm_.WriteNbi(channel, remoteBuf + DATA_SIZE, localBuf, DATA_SIZE);
 
@@ -93,13 +94,26 @@ hcomm_.ReadNbi(channel, localBuf + 2 * DATA_SIZE, remoteBuf, DATA_SIZE);
 hcomm_.Drain(channel);
 ```
 
-#### 3. Invocation Implementation
-Multi-process symmetric execution: Both cards launch the kernel simultaneously without requiring phased synchronization. After the Host pre-initializes seg0, it uses `TcpBarrier` to ensure both cards are ready before invoking the kernel using the `<<<>>>` kernel launch syntax.
+#### 3. Ring Topology Communication Flow
+The runtime rank count is `nranks`. Each rank computes its neighbors as follows:
+- `prev = (rank - 1 + nranks) % nranks`
+- `next = (rank + 1) % nranks`
+
+The Host prepares communication contexts for both `prev` and `next`. The current sample uses only the `next` direction in the data plane: during Kernel execution, each rank writes its local seg0 to `next`'s seg1 through `WriteNbi`, and reads `next`'s seg0 into its local seg2 through `ReadNbi`. Therefore, seg1 is written by `prev`, while seg2 is read from `next`. When `nranks == 2`, `prev` and `next` refer to the same peer rank, so seg1 and seg2 are validated against the same peer pattern.
+
+The Host runs TCP ring barriers before and after Kernel execution so that no rank validates data before all ranks have reached the same communication phase.
+
+#### 4. How to Extend to All-to-Neighbor
+The sample already establishes P2P channels in both the `prev` and `next` directions, but its default data plane only uses the `next` direction. To extend it into full all-to-neighbor communication, reuse the established `prev` channel so that each rank covers both "read from predecessor" and "write to successor" directions.
+
+One direct implementation is to launch the Kernel twice: first use the `prev` channel to execute `ReadNbi`, reading `prev`'s seg0 into the local seg2; then use the `next` channel to execute `WriteNbi`, writing the local seg0 into `next`'s seg1. With this flow, each rank's seg1 is written by `prev` through `WriteNbi`, and seg2 is read from `prev` by the local `ReadNbi`; both segments should match `prev`'s pattern. The Host should read back the `testResult` from the communication context used by each Kernel launch and continue validating the seg1/seg2 patterns.
+
+Keep the Host-side barriers before and after Kernel execution when extending the sample. The pre-Kernel barrier ensures all ranks have completed memory registration, channel acquisition, and context initialization. The post-Kernel barrier ensures all ranks have completed `Drain` for the corresponding direction before the Host reads back `testResult` and validates data. If new data segment offsets are added or existing offsets are changed, update the Host-side expected rank and offset used by pattern validation accordingly.
 
 ### Validation Mechanism
 - During Host pre-initialization of seg0, a pseudo-random pattern is generated using a Linear Congruential Generator (LCG, utilizing Knuth's multiplicative hash constant `0x9E3779B9U` and other parameters) to ensure the data source is distinguishable.
 - After Kernel execution, the Host reads back `CommContext::testResult` via `aclrtMemcpy`.
-- The Host then checks that seg1 (written by the peer's `WriteNbi`) and seg2 (read by the local `ReadNbi`) match the peer's pattern. When `testResult` is 0, it prints `test pass!`.
+- The Host then checks that seg1 (written by `prev` through `WriteNbi`) and seg2 (read from `next` by the local `ReadNbi`) match the corresponding peer patterns. When `testResult` is 0, it prints `test pass!`.
 
 ## Compilation and Execution
 
@@ -122,22 +136,23 @@ make -j
 ```
 
 ### 3. Execute the Sample
-This sample supports two execution methods:
+This sample starts ranks through automatic multi-process fork. The command format is:
 
-**Method 1: Auto-Fork Multi-Process (Recommended)**
-Execute directly. The main process will automatically fork two child processes (symmetrically executing WriteNbi + ReadNbi on two cards):
 ```bash
-./demo
+./demo [nranks]
 ```
 
-**Method 2: Manual Single-Process Execution with Arguments**
-You can manually start Rank 0 and Rank 1 in two separate terminals:
-```bash
-# Terminal 1: Start rank 0 (bound to device 0)
-./demo 0 2 tcp://127.0.0.1:29621
+`nranks` is the number of ranks to start. It must be greater than or equal to 2 and should not exceed the number of available NPUs. If omitted, the sample starts two ranks by default:
 
-# Terminal 2: Start rank 1 (bound to device 1)
-./demo 1 2 tcp://127.0.0.1:29621
+```bash
+# Default two-rank run
+./demo
+
+# Explicit two-rank run
+./demo 2
+
+# Four-rank ring topology
+./demo 4
 ```
 
 ### 4. Build Options Description
@@ -146,7 +161,7 @@ You can manually start Rank 0 and Rank 1 in two separate terminals:
 | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` (default) | NPU Architecture: `dav-3510` corresponds to Ascend 950PR / Ascend 950DT |
 
 ### 5. Expected Output
-Upon successful execution, the terminal will output the following, indicating that the AIV Direct-Drive URMA communication was successful (symmetric write/read on both cards with consistent results):
+For a successful multiple-rank run, the terminal will output the following, indicating that AIV Direct-Drive URMA communication completed successfully and the write/read results are consistent:
 ```text
 rank 0 test pass!
 rank 1 test pass!

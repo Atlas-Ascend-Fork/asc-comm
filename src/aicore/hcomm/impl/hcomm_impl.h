@@ -114,7 +114,7 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 }
 } // namespace AscendC
 
-#endif // IMPL_HCOMM_HCOMM_IMPL_H
+#endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H
 #if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H)
 #undef HCOMM_INCLUDE_INTERNAL_HEADERS
 #undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H
