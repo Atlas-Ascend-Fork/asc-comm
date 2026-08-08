@@ -11,7 +11,6 @@
 #include "hcomm_c_adpt.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/channel/ccu_channel.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "hcomm/common/ccu_log.h"
 
@@ -244,7 +243,7 @@ namespace CcuRep {
     uint32_t CcuInsGeneratorV1::GetInstrCount(CcuRepType repType)
     {
         if (repTypeInstrCount.find(repType) == repTypeInstrCount.end()) {
-            Hccl::THROW<Hccl::CcuApiException>("[%s] Unsupported repType[%d]", __func__, repType);
+            hcomm::THROW<hcomm::CcuApiException>("[%s] Unsupported repType[%d]", __func__, repType);
         }
         return repTypeInstrCount[repType];
     }
@@ -1025,7 +1024,7 @@ namespace CcuRep {
     uint16_t CcuInsGeneratorV1::CcuRepLoopGroupBundleInstrCount(CcuRepLoopGroupBundle* bundlePtr)
     {
         if (bundlePtr == nullptr) {
-            Hccl::THROW<Hccl::CcuApiException>("[%s] bundlePtr is nullptr", __func__);
+            hcomm::THROW<hcomm::CcuApiException>("[%s] bundlePtr is nullptr", __func__);
         }
         const auto& loops = bundlePtr->GetLoops();
         const uint16_t loopCount = static_cast<uint16_t>(loops.size());

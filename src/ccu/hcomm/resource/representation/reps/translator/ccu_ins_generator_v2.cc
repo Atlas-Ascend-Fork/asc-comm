@@ -65,7 +65,7 @@ namespace CcuRep {
     uint32_t CcuInsGeneratorV2::GetInstrCount(CcuRepType repType)
     {
         if (repTypeInstrCount.find(repType) == repTypeInstrCount.end()) {
-            Hccl::THROW<Hccl::CcuApiException>("[%s] Unsupported repType[%d]", __func__, repType);
+            hcomm::THROW<hcomm::CcuApiException>("[%s] Unsupported repType[%d]", __func__, repType);
         }
         return repTypeInstrCount[repType];
     }
@@ -1638,7 +1638,7 @@ namespace CcuRep {
     uint16_t CcuInsGeneratorV2::CcuRepLoopGroupBundleInstrCount(CcuRepLoopGroupBundle* bundlePtr)
     {
         if (bundlePtr == nullptr) {
-            Hccl::THROW<Hccl::CcuApiException>("[%s] bundlePtr is nullptr", __func__);
+            hcomm::THROW<hcomm::CcuApiException>("[%s] bundlePtr is nullptr", __func__);
         }
         uint16_t total = 0;
         // 每 loop 按自身构造方式计条数

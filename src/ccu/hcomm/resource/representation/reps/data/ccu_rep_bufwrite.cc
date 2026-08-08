@@ -9,9 +9,6 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm_c_adpt.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
 #include "hcomm/resource/channel/ccu_channel.h"
@@ -46,9 +43,9 @@ std::string CcuRepBufWrite::Describe()
 {
     CcuChannel channelImpl(channel);
     if (channelImpl.GetResult() != HcclResult::HCCL_SUCCESS) {
-        Hccl::THROW<Hccl::CcuApiException>("failed to get ccu channel, type[%d]", type);
+        hcomm::THROW<hcomm::CcuApiException>("failed to get ccu channel, type[%d]", type);
     }
-    return Hccl::StringFormat(
+    return hcomm::StringFormat(
         "Write CcuBuf[%u] To Rmt Mem[%u], len[%u], ChannalId[%u], sem[%u], mask[%04x]", src.Id(), dst.addr.Id(),
         len.Id(), channelImpl->GetChannelId(), sem.Id(), mask);
 }

@@ -7,7 +7,6 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
-#include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -40,7 +39,7 @@ namespace CcuRep {
 
     std::string CcuRepBufLocWrite::Describe()
     {
-        return Hccl::StringFormat(
+        return hcomm::StringFormat(
             "Write CcuBuf[%u] To Loc Mem[%u], len[%u], sem[%u], mask[%04x]", src.Id(), dst.addr.Id(), len.Id(),
             sem.Id(), mask);
     }

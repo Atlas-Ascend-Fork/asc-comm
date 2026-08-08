@@ -5,11 +5,8 @@
  * Create: 2024-06-17
  */
 
-#include "string_util.h"
-#include "exception_util.h"
 #include "hcomm_c_adpt.h"
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -40,7 +37,7 @@ namespace CcuRep {
             HCCL_ERROR(
                 "[CcuRepRemWaitSem::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]",
                 instrId, instrCount),
-            Hccl::InternalException, "integer overflow");
+            hcomm::InternalException, "integer overflow");
 
         instrId += instrCount;
 
@@ -49,7 +46,7 @@ namespace CcuRep {
 
     std::string CcuRepRemWaitSem::Describe()
     {
-        return Hccl::StringFormat("Wait, Use semIndex[%u] and mask[%04x]", semIndex, mask);
+        return hcomm::StringFormat("Wait, Use semIndex[%u] and mask[%04x]", semIndex, mask);
     }
 
 }; // namespace CcuRep

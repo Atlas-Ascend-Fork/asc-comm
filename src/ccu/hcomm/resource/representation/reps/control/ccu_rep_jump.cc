@@ -6,8 +6,6 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
 
@@ -41,7 +39,7 @@ namespace CcuRep {
         CcuInsGeneratorV1* tmpPtrV1 = dynamic_cast<CcuInsGeneratorV1*>(insGeneratorPtr_);
         if (tmpPtrV1 && !supportCcuV1) {
             // 当右值只传入var没有立即数时，无法在A5上翻译
-            Hccl::THROW<Hccl::CcuApiException>(
+            hcomm::THROW<hcomm::CcuApiException>(
                 "Cannot translate %s for A5 when supportCcuV1 is false!", this->Describe().c_str());
         }
     }
@@ -69,13 +67,13 @@ namespace CcuRep {
     bool CcuRepJump::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
     {
         if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-            Hccl::THROW<Hccl::CcuApiException>("instr is empty!");
+            hcomm::THROW<hcomm::CcuApiException>("instr is empty!");
         }
 
         if (jumpLabel->Translated()) {
             CHK_RET_THROW(
-                Hccl::CcuApiException,
-                Hccl::StringFormat("[CcuRepJump][%s] failed to translate repJump for instrId[%u] ", __func__, instrId),
+                hcomm::CcuApiException,
+                hcomm::StringFormat("[CcuRepJump][%s] failed to translate repJump for instrId[%u] ", __func__, instrId),
                 insGeneratorPtr_->CcuRepJumpTranslate(ccuKernel, instr, instrId, this, dep));
             translated = true;
         }
@@ -83,7 +81,7 @@ namespace CcuRep {
         return translated;
     }
 
-    std::string CcuRepJump::Describe() { return Hccl::StringFormat("Jump To Label[%s]", label.c_str()); }
+    std::string CcuRepJump::Describe() { return hcomm::StringFormat("Jump To Label[%s]", label.c_str()); }
 
     // jumpNE
     CcuRepJumpNE::CcuRepJumpNE(
@@ -115,13 +113,13 @@ namespace CcuRep {
         ValidateInsGeneratorForJump();
 
         if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-            Hccl::THROW<Hccl::CcuApiException>("instr is empty!");
+            hcomm::THROW<hcomm::CcuApiException>("instr is empty!");
         }
 
         if (jumpLabel->Translated()) {
             CHK_RET_THROW(
-                Hccl::CcuApiException,
-                Hccl::StringFormat(
+                hcomm::CcuApiException,
+                hcomm::StringFormat(
                     "[CcuRepJumpNE][%s] failed to translate repJumpNE for instrId[%u] ", __func__, instrId),
                 insGeneratorPtr_->CcuRepJumpNETranslate(ccuKernel, instr, instrId, this, dep));
             translated = true;
@@ -132,7 +130,7 @@ namespace CcuRep {
 
     std::string CcuRepJumpNE::Describe()
     {
-        return Hccl::StringFormat(
+        return hcomm::StringFormat(
             "Jump To Label[%s], When Condition[%u] Not equal to Expected[%lu]", label.c_str(), condition.Id(),
             expected);
     }
@@ -165,13 +163,13 @@ namespace CcuRep {
     {
         ValidateInsGeneratorForJump();
         if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-            Hccl::THROW<Hccl::CcuApiException>("instr is empty!");
+            hcomm::THROW<hcomm::CcuApiException>("instr is empty!");
         }
 
         if (jumpLabel->Translated()) {
             CHK_RET_THROW(
-                Hccl::CcuApiException,
-                Hccl::StringFormat(
+                hcomm::CcuApiException,
+                hcomm::StringFormat(
                     "[CcuRepJumpEQ][%s] failed to translate repJumpEQ for instrId[%u] ", __func__, instrId),
                 insGeneratorPtr_->CcuRepJumpEQTranslate(ccuKernel, instr, instrId, this, dep));
             translated = true;
@@ -182,7 +180,7 @@ namespace CcuRep {
 
     std::string CcuRepJumpEQ::Describe()
     {
-        return Hccl::StringFormat(
+        return hcomm::StringFormat(
             "Jump To Label[%s], When Condition[%u] Be equal to Expected[%lu]", label.c_str(), condition.Id(), expected);
     }
 
@@ -215,13 +213,13 @@ namespace CcuRep {
         ValidateInsGeneratorForJump();
 
         if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-            Hccl::THROW<Hccl::CcuApiException>("instr is empty!");
+            hcomm::THROW<hcomm::CcuApiException>("instr is empty!");
         }
 
         if (jumpLabel->Translated()) {
             CHK_RET_THROW(
-                Hccl::CcuApiException,
-                Hccl::StringFormat(
+                hcomm::CcuApiException,
+                hcomm::StringFormat(
                     "[CcuRepJumpLE][%s] failed to translate repJumpLE for instrId[%u] ", __func__, instrId),
                 insGeneratorPtr_->CcuRepJumpLETranslate(ccuKernel, instr, instrId, this, dep));
             translated = true;
@@ -232,7 +230,7 @@ namespace CcuRep {
 
     std::string CcuRepJumpLE::Describe()
     {
-        return Hccl::StringFormat(
+        return hcomm::StringFormat(
             "Jump To Label[%s], When Condition[%u] <= Expected[%lu]", label.c_str(), condition.Id(), expected);
     }
 
@@ -265,13 +263,13 @@ namespace CcuRep {
         ValidateInsGeneratorForJump();
 
         if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-            Hccl::THROW<Hccl::CcuApiException>("instr is empty!");
+            hcomm::THROW<hcomm::CcuApiException>("instr is empty!");
         }
 
         if (jumpLabel->Translated()) {
             CHK_RET_THROW(
-                Hccl::CcuApiException,
-                Hccl::StringFormat(
+                hcomm::CcuApiException,
+                hcomm::StringFormat(
                     "[CcuRepJumpGE][%s] failed to translate repJumpGE for instrId[%u] ", __func__, instrId),
                 insGeneratorPtr_->CcuRepJumpGETranslate(ccuKernel, instr, instrId, this, dep));
 
@@ -283,7 +281,7 @@ namespace CcuRep {
 
     std::string CcuRepJumpGE::Describe()
     {
-        return Hccl::StringFormat(
+        return hcomm::StringFormat(
             "Jump To Label[%s], When Condition[%u] >= Expected[%lu]", label.c_str(), condition.Id(), expected);
     }
 
@@ -315,12 +313,12 @@ namespace CcuRep {
     {
         ValidateInsGeneratorForJump();
         if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-            Hccl::THROW<Hccl::CcuApiException>("instr is empty!");
+            hcomm::THROW<hcomm::CcuApiException>("instr is empty!");
         }
         if (jumpLabel->Translated()) {
             CHK_RET_THROW(
-                Hccl::CcuApiException,
-                Hccl::StringFormat(
+                hcomm::CcuApiException,
+                hcomm::StringFormat(
                     "[CcuRepJumpGT][%s] failed to translate repJumpGT for instrId[%u] ", __func__, instrId),
                 insGeneratorPtr_->CcuRepJumpGTTranslate(ccuKernel, instr, instrId, this, dep));
 
@@ -332,7 +330,7 @@ namespace CcuRep {
 
     std::string CcuRepJumpGT::Describe()
     {
-        return Hccl::StringFormat(
+        return hcomm::StringFormat(
             "Jump To Label[%s], When Condition[%u] > Expected[%lu]", label.c_str(), condition.Id(), expected);
     }
 
@@ -364,13 +362,13 @@ namespace CcuRep {
     {
         ValidateInsGeneratorForJump();
         if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-            Hccl::THROW<Hccl::CcuApiException>("instr is empty!");
+            hcomm::THROW<hcomm::CcuApiException>("instr is empty!");
         }
 
         if (jumpLabel->Translated()) {
             CHK_RET_THROW(
-                Hccl::CcuApiException,
-                Hccl::StringFormat(
+                hcomm::CcuApiException,
+                hcomm::StringFormat(
                     "[CcuRepJumpLT][%s] failed to translate repJumpLT for instrId[%u] ", __func__, instrId),
                 insGeneratorPtr_->CcuRepJumpLTTranslate(ccuKernel, instr, instrId, this, dep));
 
@@ -382,7 +380,7 @@ namespace CcuRep {
 
     std::string CcuRepJumpLT::Describe()
     {
-        return Hccl::StringFormat(
+        return hcomm::StringFormat(
             "Jump To Label[%s], When Condition[%u] < Expected[%lu]", label.c_str(), condition.Id(), expected);
     }
 }; // namespace CcuRep
