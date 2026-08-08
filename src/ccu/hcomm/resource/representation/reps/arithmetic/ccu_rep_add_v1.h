@@ -1,11 +1,7 @@
-/**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+ * Description: ccu representation base header file
+ * Create: 2025-02-18
  */
 
 #ifndef HCOMM_CCU_REPRESENTATION_ADD_H
@@ -17,65 +13,65 @@
 namespace hcomm {
 namespace CcuRep {
 
-class CcuRepAdd : public CcuRepBase {
-public:
-    // support ccuV1 & ccuV2
-    explicit CcuRepAdd(
-        CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Address& addrA, const Variable& varB);
-    explicit CcuRepAdd(
-        CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Address& addrA, const Address& addrB);
-    explicit CcuRepAdd(
-        CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, const Variable& varB);
-    explicit CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const Variable& offset);
-    explicit CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Variable& varA, const Variable& offset);
+    class CcuRepAdd : public CcuRepBase {
+    public:
+        // support ccuV1 & ccuV2
+        explicit CcuRepAdd(
+            CcuInsGeneratorBase* insGenPtr, const Address& addrC, const Address& addrA, const Variable& varB);
+        explicit CcuRepAdd(
+            CcuInsGeneratorBase* insGenPtr, const Address& addrC, const Address& addrA, const Address& addrB);
+        explicit CcuRepAdd(
+            CcuInsGeneratorBase* insGenPtr, const Variable& varC, const Variable& varA, const Variable& varB);
+        explicit CcuRepAdd(CcuInsGeneratorBase* insGenPtr, const Address& addrA, const Variable& offset);
+        explicit CcuRepAdd(CcuInsGeneratorBase* insGenPtr, const Variable& varA, const Variable& offset);
 
-    // only support ccuV2
-    explicit CcuRepAdd(
-        CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, const uint16_t immedB);
-    explicit CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Variable& varA, const uint16_t immedB);
-    explicit CcuRepAdd(
-        CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Address& addrA, const uint16_t immedB);
-    explicit CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const uint16_t immedB);
-    explicit CcuRepAdd(
-        CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Variable& varA, const uint16_t immedB);
-    explicit CcuRepAdd(
-        CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Address& addrA, const uint16_t immedB);
-    explicit CcuRepAdd(
-        CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Address& addrA, const Address& addrB);
-    explicit CcuRepAdd(
-        CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Variable& varA, const Variable& varB);
+        // only support ccuV2
+        explicit CcuRepAdd(
+            CcuInsGeneratorBase* insGenPtr, const Variable& varC, const Variable& varA, const uint16_t immedB);
+        explicit CcuRepAdd(CcuInsGeneratorBase* insGenPtr, const Variable& varA, const uint16_t immedB);
+        explicit CcuRepAdd(
+            CcuInsGeneratorBase* insGenPtr, const Address& addrC, const Address& addrA, const uint16_t immedB);
+        explicit CcuRepAdd(CcuInsGeneratorBase* insGenPtr, const Address& addrA, const uint16_t immedB);
+        explicit CcuRepAdd(
+            CcuInsGeneratorBase* insGenPtr, const Address& addrC, const Variable& varA, const uint16_t immedB);
+        explicit CcuRepAdd(
+            CcuInsGeneratorBase* insGenPtr, const Variable& varC, const Address& addrA, const uint16_t immedB);
+        explicit CcuRepAdd(
+            CcuInsGeneratorBase* insGenPtr, const Variable& varC, const Address& addrA, const Address& addrB);
+        explicit CcuRepAdd(
+            CcuInsGeneratorBase* insGenPtr, const Address& addrC, const Variable& varA, const Variable& varB);
 
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+        bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+        std::string Describe() override;
 
-    Address GetAddrA();
-    Address GetAddrB();
-    Address GetAddrC();
-    Variable GetVarA();
-    Variable GetVarB();
-    Variable GetVarC();
-    uint16_t GetImmedB();
-    AddSubType GetSubType();
+        Address GetAddrA();
+        Address GetAddrB();
+        Address GetAddrC();
+        Variable GetVarA();
+        Variable GetVarB();
+        Variable GetVarC();
+        uint16_t GetImmedB();
+        AddSubType GetSubType();
 
-private:
-    void ValidateInsGenPtrForAdd();
-    void SetCommonInfo();
+    private:
+        void ValidateInsGenPtrForAdd();
+        void SetCommonInfo();
 
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    AddSubType subType{AddSubType::INVALID};
+        CcuInsGeneratorBase* insGenPtr{nullptr};
+        AddSubType subType{AddSubType::INVALID};
 
-    Address addrA;
-    Address addrB;
-    Address addrC;
+        Address addrA;
+        Address addrB;
+        Address addrC;
 
-    Variable varA;
-    Variable varB;
-    Variable varC;
+        Variable varA;
+        Variable varB;
+        Variable varC;
 
-    uint16_t immedB{0};
+        uint16_t immedB{0};
 
-    bool supportCcuV1{false};
-};
+        bool supportCcuV1{false};
+    };
 
 }; // namespace CcuRep
 }; // namespace hcomm

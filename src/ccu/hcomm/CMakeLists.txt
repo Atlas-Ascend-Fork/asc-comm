@@ -25,6 +25,7 @@ target_sources(asccomm_ccu_dataplane_obj PRIVATE
     resource/kernel/ccu_kernel_mgr.cc
     resource/microcode/ccu_microcode.cc
     resource/microcode/ccu_assist.cc
+    resource/microcode/ccu_microcode_v2.cpp
 )
 
 target_sources(asccomm_ccu_dataplane_obj PRIVATE
@@ -81,7 +82,8 @@ target_sources(asccomm_ccu_dataplane_obj PRIVATE
     resource/representation/reps/sync/ccu_rep_rempostsem.cc
     resource/representation/reps/sync/ccu_rep_rempostvar.cc
     resource/representation/reps/sync/ccu_rep_remwaitsem.cc
-    resource/representation/reps/translator/ccu_ins_generater_v1.cc
+    resource/representation/reps/translator/ccu_ins_generator_v1.cc
+    resource/representation/reps/translator/ccu_ins_generator_v2.cc
     resource/representation/reps/translator/ccu_rep_reference_manager.cc
     resource/representation/reps/translator/ccu_rep_translator.cc
 )

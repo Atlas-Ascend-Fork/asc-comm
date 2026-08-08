@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 #ifndef HCOMM_CCU_KERNEL_MGR_H
 #define HCOMM_CCU_KERNEL_MGR_H
@@ -20,7 +20,7 @@
 #include "ccu_dev_mgr_imp.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_translator_v1.h"
 
-#include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 
 namespace hcomm {
 
@@ -34,12 +34,17 @@ public:
     HcclResult Deinit();
 
     CcuResult Register(
-        CcuResPack& resPack, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
-        const uint32_t argNum, CcuKernelHandle& kernelHandle);
+        CcuResPack& resPack, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc,
+        const void** kernelArgs, const uint32_t argNum, CcuKernelHandle& kernelHandle);
+
+    CcuResult GetKernelResourceRequest(
+        uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs, uint32_t argNum,
+        CcuResReq& resReq, uint32_t& instrCount);
 
     CcuResult Translate(const std::vector<CcuKernelHandle>& kernelHandles);
 
     CcuKernel* GetKernel(CcuKernelHandle kernelHandle);
+    // 在锁内查找 kernel 并填充 CcuKernelInfo，裸指针不逃逸锁。
     CcuResult GetCcuKernelInfo(CcuKernelHandle kernelHandle, CcuKernelInfo& info);
     CcuResult UnRegister(CcuKernelHandle kernelHandle);
 
@@ -58,6 +63,8 @@ private:
     };
 
 private:
+    CcuResult BuildKernel(
+        uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs, uint32_t argNum);
     CcuResult PrepareConstValueResources();
     CcuResult AllocRes(CcuResPack& resPack);
 
@@ -81,7 +88,7 @@ private:
         referenceMgrs;
     CcuTranslatResPack translatorResPack{};
     std::unique_ptr<CcuKernel> currKernel_{nullptr};
-    std::shared_ptr<CcuInsGeneraterBase> insGenePtr;
+    std::shared_ptr<CcuInsGeneratorBase> insGenePtr;
     CcuVersion ccuVersion_{CcuVersion::CCU_INVALID};
 };
 }; // namespace hcomm

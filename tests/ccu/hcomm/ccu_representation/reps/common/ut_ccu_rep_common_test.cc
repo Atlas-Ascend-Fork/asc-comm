@@ -21,50 +21,50 @@ namespace {
 
 class CcuRepCommonBaseTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
     void TearDown() override {}
 };
 
 class CcuRepBlockTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepLoadTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepLoadArgTest : public ::testing::Test {
 protected:
     void SetUp() override {}
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
 };
 
 class CcuRepLoadVarTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepNopTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepStoreTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepStoreVarTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
@@ -135,7 +135,7 @@ TEST_F(CcuRepBlockTest, GetRepByInstrId_NotFound)
 
 TEST_F(CcuRepBlockTest, Translate_SetsTranslated)
 {
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     CcuRepBlock block(&insGen, "testBlock");
     block.Append(std::make_shared<CcuRepNop>(&insGen));
     CcuInstr instr[10] = {};
@@ -170,7 +170,7 @@ TEST_F(CcuRepLoadTest, Describe)
 
 TEST_F(CcuRepLoadTest, Translate)
 {
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     CcuRepContext context;
     Variable var(&context);
     var.Reset(1);
@@ -280,7 +280,7 @@ TEST_F(CcuRepLoadVarTest, Describe)
 
 TEST_F(CcuRepLoadVarTest, Translate)
 {
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     CcuRepContext context;
     Variable src(&context);
     src.Reset(1);
@@ -324,7 +324,7 @@ TEST_F(CcuRepNopTest, Describe)
 
 TEST_F(CcuRepNopTest, Translate)
 {
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     CcuRepNop nop(&insGen);
     CcuInstr instr[5] = {};
     CcuInstr* instrPtr = instr;
@@ -360,7 +360,7 @@ TEST_F(CcuRepStoreTest, Describe)
 
 TEST_F(CcuRepStoreTest, Translate)
 {
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     CcuRepContext context;
     Variable var(&context);
     var.Reset(1);
@@ -411,7 +411,7 @@ TEST_F(CcuRepStoreVarTest, Describe)
 
 TEST_F(CcuRepStoreVarTest, Translate)
 {
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     CcuRepContext context;
     Variable var(&context);
     var.Reset(1);

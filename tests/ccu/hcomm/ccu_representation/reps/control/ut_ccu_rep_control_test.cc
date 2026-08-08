@@ -21,32 +21,32 @@ namespace {
 
 class CcuRepControlTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
     void TearDown() override {}
 };
 
 class CcuRepFuncBlockTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepFuncCallTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepJumpTest : public ::testing::Test {
 protected:
     void SetUp() override {}
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
 };
 
 class CcuRepJumpLabelTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
@@ -355,7 +355,7 @@ TEST_F(CcuRepJumpLabelTest, AppendRep)
 
 TEST_F(CcuRepControlTest, CcuRepJumpBase_Reference)
 {
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     CcuRepContext context;
     Variable targetInstrId(&context);
     CcuRepJumpLabel jumpLabel(&insGen, "testLabel");

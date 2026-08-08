@@ -167,7 +167,7 @@ TEST_F(CcuRepInterfaceTest, FuncBlock_ConstructorAndDestructor)
 TEST_F(CcuRepInterfaceTest, FuncCall_ConstructorWithLabel)
 {
     CcuRepContext context;
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     context.SetInsGenerater(&insGen);
     FuncCall funcCall(&context, "testCall");
     funcCall.AppendToContext();
@@ -179,7 +179,7 @@ TEST_F(CcuRepInterfaceTest, FuncCall_ConstructorWithLabel)
 TEST_F(CcuRepInterfaceTest, FuncCall_ConstructorWithVariable)
 {
     CcuRepContext context;
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     context.SetInsGenerater(&insGen);
     Variable funcAddr(&context);
     FuncCall funcCall(&context, funcAddr);
@@ -288,7 +288,7 @@ TEST_F(CcuRepInterfaceTest, LoopBlock_OperatorParentheses)
 TEST_F(CcuRepInterfaceTest, FuncCall_OperatorParentheses)
 {
     CcuRepContext context;
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     context.SetInsGenerater(&insGen);
     FuncCall funcCall(&context, "testCall");
     funcCall();
