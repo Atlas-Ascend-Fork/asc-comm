@@ -294,19 +294,22 @@ __aicore__ inline bool HcommUrmaIsPowerOfTwo(uint32_t value) { return value != 0
 
 template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepare(
-    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, __ubuf__ uint8_t* buff, uint32_t buffLen)
+    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal,
+    __ubuf__ uint8_t* buff, uint32_t buffLen)
 {
     static_assert(config.cqe == 1, "WriteNbiPrepare requires CQE generation");
     static_assert(config.inlineEn == 0, "WriteNbiPrepare does not support inline data");
     static_assert(
-        sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaSgeCtx) == HCOMM_URMA_PLAIN_WRITE_WQE_SIZE,
-        "Plain Write WQE must occupy exactly one 64-byte WQEBB");
+        sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaNotifyCtx) + sizeof(HcommUrmaSgeCtx) <=
+            HCOMM_URMA_WRITE_NOTIFY_TASK_SIZE,
+        "Write-with-notify WQE must fit in exactly two 64-byte WQEBBs");
 
     constexpr uint32_t headerSize = sizeof(HcommWritePrepareHeader);
-    constexpr uint32_t wqeWords = HCOMM_URMA_PLAIN_WRITE_WQE_SIZE / sizeof(uint32_t);
-    if (channel == 0 || dst == nullptr || src == nullptr || buff == nullptr || len == 0 || len > UINT32_MAX ||
+    constexpr uint32_t taskWords = HCOMM_URMA_WRITE_NOTIFY_TASK_SIZE / sizeof(uint32_t);
+    if (channel == 0 || dst == nullptr || src == nullptr || notifyAddr == nullptr || buff == nullptr || len == 0 ||
+        len > UINT32_MAX ||
         (reinterpret_cast<uintptr_t>(buff) & (headerSize - 1)) != 0 ||
-        buffLen < headerSize + HCOMM_URMA_PLAIN_WRITE_WQE_SIZE) {
+        buffLen < headerSize + HCOMM_URMA_WRITE_NOTIFY_TASK_SIZE) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm WriteNbiPrepare failed with invalid argument\n");
         return HCOMM_FAILED;
     }
@@ -329,7 +332,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepare(
         uint32_t headerBuffLen = header->buffLen;
         uint32_t headerPreparedCount = header->preparedCount;
         uint32_t headerQueueBudget = header->queueBudget;
-        uint32_t bufferCapacity = (buffLen - headerSize) / HCOMM_URMA_PLAIN_WRITE_WQE_SIZE;
+        uint32_t bufferCapacity = (buffLen - headerSize) / HCOMM_URMA_WRITE_NOTIFY_TASK_SIZE;
         if (headerChannel != channel || headerBuffLen != buffLen || headerPreparedCount == 0 ||
             headerQueueBudget == 0 || headerPreparedCount > bufferCapacity ||
             headerPreparedCount > headerQueueBudget) {
@@ -363,7 +366,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepare(
         uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
         uint32_t wqeSize = sqCtx.contextInfo.ubJfs.wqeSize;
         if (sqCtx.type != SQ_CONTEXT_TYPE_UB_JFS || cqCtx.type != CQ_CONTEXT_TYPE_UB_JFC ||
-            wqeSize != HCOMM_URMA_PLAIN_WRITE_WQE_SIZE || !HcommUrmaIsPowerOfTwo(sqDepth) ||
+            wqeSize != HCOMM_URMA_WQEBB_SIZE || !HcommUrmaIsPowerOfTwo(sqDepth) ||
             !HcommUrmaIsPowerOfTwo(cqDepth) || sqDepth <= HCOMM_URMA_POLL_CQ_THRESHOLD ||
             cqDepth <= HCOMM_URMA_POLL_CQ_THRESHOLD || sqCtx.contextInfo.ubJfs.sqVa == 0) {
             KERNEL_LOG(KERNEL_ERROR, "Hcomm WriteNbiPrepare failed with unsupported queue layout\n");
@@ -373,22 +376,27 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepare(
         startSqHead = channelEntity->sqHead;
         startCqHead = channelEntity->cqHead;
         uint32_t completedCq = channelEntity->cqTail;
-        if (startSqHead != startCqHead) {
+        if (startSqHead != startCqHead * HCOMM_URMA_WRITE_NOTIFY_WQEBB_COUNT) {
             KERNEL_LOG(
-                KERNEL_ERROR, "Hcomm WriteNbiPrepare failed with mismatched sqHead=%u cqHead=%u\n", startSqHead,
+                KERNEL_ERROR, "Hcomm WriteNbiPrepare failed with incompatible sqHead=%u cqHead=%u\n", startSqHead,
                 startCqHead);
             return HCOMM_FAILED;
         }
 
         uint32_t usableSq = sqDepth - HCOMM_URMA_POLL_CQ_THRESHOLD;
         uint32_t usableCq = cqDepth - HCOMM_URMA_POLL_CQ_THRESHOLD;
-        uint32_t outstanding = startCqHead - completedCq;
-        if (outstanding > usableSq || outstanding > usableCq) {
-            KERNEL_LOG(KERNEL_ERROR, "Hcomm WriteNbiPrepare failed with invalid outstanding=%u\n", outstanding);
+        uint32_t completedSq = completedCq * HCOMM_URMA_WRITE_NOTIFY_WQEBB_COUNT;
+        uint32_t outstandingSq = startSqHead - completedSq;
+        uint32_t outstandingCq = startCqHead - completedCq;
+        if (outstandingSq > usableSq || outstandingCq > usableCq) {
+            KERNEL_LOG(
+                KERNEL_ERROR, "Hcomm WriteNbiPrepare failed with invalid SQ/CQ outstanding=%u/%u\n",
+                outstandingSq, outstandingCq);
             return HCOMM_FAILED;
         }
-        uint32_t sqBudget = usableSq - outstanding;
-        uint32_t cqBudget = usableCq - outstanding;
+        uint32_t sqBudget =
+            (usableSq - outstandingSq) / HCOMM_URMA_WRITE_NOTIFY_WQEBB_COUNT;
+        uint32_t cqBudget = usableCq - outstandingCq;
         queueBudget = sqBudget < cqBudget ? sqBudget : cqBudget;
         if (queueBudget == 0) {
             return HCOMM_PREPARE_QUEUE_FULL;
@@ -402,22 +410,23 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepare(
         return HCOMM_FAILED;
     }
 
-    uint64_t wqeOffset = static_cast<uint64_t>(preparedCount) * HCOMM_URMA_PLAIN_WRITE_WQE_SIZE;
+    uint64_t wqeOffset = static_cast<uint64_t>(preparedCount) * HCOMM_URMA_WRITE_NOTIFY_TASK_SIZE;
     __ubuf__ uint8_t* currentWqe = buff + headerSize + wqeOffset;
     __ubuf__ uint32_t* words = reinterpret_cast<__ubuf__ uint32_t*>(currentWqe);
-    for (uint32_t i = 0; i < wqeWords; ++i) {
+    for (uint32_t i = 0; i < taskWords; ++i) {
         words[i] = 0;
     }
 
-    uint32_t logicalHead = startSqHead + preparedCount;
+    uint32_t logicalHead = startSqHead + preparedCount * HCOMM_URMA_WRITE_NOTIFY_WQEBB_COUNT;
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqe);
     auto remoteMemInfo = channelEntity->remoteBufferAddr[remoteIdx];
-    HcommUrmaFillSqeCtx<HcommUrmaOpCode::WRITE, config, uint64_t>(
-        sqeCtx, reinterpret_cast<__gm__ uint8_t*>(dst), sqCtx, remoteMemInfo, logicalHead);
-    __ubuf__ HcommUrmaSgeCtx* sgeCtx =
-        reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(currentWqe + sizeof(HcommUrmaSqeCtx));
-    HcommUrmaFillSgeCtx<HcommUrmaOpCode::WRITE>(
-        sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(src), UdmaParams<uint64_t>{});
+    UdmaParams<uint64_t> params{notifyVal, 0, 0, 0};
+    HcommUrmaFillSqeCtx<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config, uint64_t>(
+        sqeCtx, reinterpret_cast<__gm__ uint8_t*>(dst), sqCtx, remoteMemInfo, logicalHead, notifyAddr, params);
+    __ubuf__ uint8_t* sgeAddr = currentWqe + sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaNotifyCtx);
+    __ubuf__ HcommUrmaSgeCtx* sgeCtx = reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(sgeAddr);
+    HcommUrmaFillSgeCtx<HcommUrmaOpCode::WRITE_WITH_NOTIFY>(
+        sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(src), params);
 
     if (isNewBatch) {
         header->channel = channel;
@@ -446,7 +455,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepareEnd(
     __ubuf__ HcommWritePrepareHeader* header = reinterpret_cast<__ubuf__ HcommWritePrepareHeader*>(buff);
     if (header->magic != HCOMM_WRITE_PREPARE_MAGIC || header->channel != channel || header->preparedCount == 0 ||
         header->queueBudget == 0 || header->preparedCount > header->queueBudget ||
-        header->startSqHead != header->startCqHead || header->buffLen < headerSize + HCOMM_URMA_PLAIN_WRITE_WQE_SIZE) {
+        header->startSqHead != header->startCqHead * HCOMM_URMA_WRITE_NOTIFY_WQEBB_COUNT ||
+        header->buffLen < headerSize + HCOMM_URMA_WRITE_NOTIFY_TASK_SIZE) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm WriteNbiPrepareEnd failed with invalid batch state\n");
         return HCOMM_FAILED;
     }
@@ -463,7 +473,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepareEnd(
     uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
     uint32_t wqeSize = sqCtx.contextInfo.ubJfs.wqeSize;
     if (sqCtx.type != SQ_CONTEXT_TYPE_UB_JFS || cqCtx.type != CQ_CONTEXT_TYPE_UB_JFC ||
-        wqeSize != HCOMM_URMA_PLAIN_WRITE_WQE_SIZE || !HcommUrmaIsPowerOfTwo(sqDepth) ||
+        wqeSize != HCOMM_URMA_WQEBB_SIZE || !HcommUrmaIsPowerOfTwo(sqDepth) ||
         !HcommUrmaIsPowerOfTwo(cqDepth) || sqDepth <= HCOMM_URMA_POLL_CQ_THRESHOLD ||
         cqDepth <= HCOMM_URMA_POLL_CQ_THRESHOLD || sqCtx.contextInfo.ubJfs.sqVa == 0 ||
         channelEntity->sqHead != header->startSqHead || channelEntity->cqHead != header->startCqHead) {
@@ -471,12 +481,14 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepareEnd(
         return HCOMM_FAILED;
     }
 
-    uint32_t maxQueueBudget = sqDepth - HCOMM_URMA_POLL_CQ_THRESHOLD;
+    uint32_t maxQueueBudget =
+        (sqDepth - HCOMM_URMA_POLL_CQ_THRESHOLD) / HCOMM_URMA_WRITE_NOTIFY_WQEBB_COUNT;
     uint32_t maxCqBudget = cqDepth - HCOMM_URMA_POLL_CQ_THRESHOLD;
     if (maxCqBudget < maxQueueBudget) {
         maxQueueBudget = maxCqBudget;
     }
-    uint64_t preparedBytes = static_cast<uint64_t>(header->preparedCount) * wqeSize;
+    uint64_t preparedBytes =
+        static_cast<uint64_t>(header->preparedCount) * wqeSize * HCOMM_URMA_WRITE_NOTIFY_WQEBB_COUNT;
     if (header->queueBudget > maxQueueBudget || preparedBytes + headerSize > header->buffLen) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm WriteNbiPrepareEnd failed with invalid batch range\n");
         return HCOMM_FAILED;
@@ -485,9 +497,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepareEnd(
     HcommWriteCopyPlan plan{};
     uint32_t startSlot = header->startSqHead % sqDepth;
     uint32_t tailCount = sqDepth - startSlot;
-    plan.firstCount = header->preparedCount < tailCount ? header->preparedCount : tailCount;
-    plan.secondCount = header->preparedCount - plan.firstCount;
-    constexpr uint32_t wqeWords = HCOMM_URMA_PLAIN_WRITE_WQE_SIZE / sizeof(uint32_t);
+    uint32_t preparedBbCount = header->preparedCount * HCOMM_URMA_WRITE_NOTIFY_WQEBB_COUNT;
+    plan.firstCount = preparedBbCount < tailCount ? preparedBbCount : tailCount;
+    plan.secondCount = preparedBbCount - plan.firstCount;
+    constexpr uint32_t wqeWords = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
     if (plan.firstCount > UINT32_MAX / wqeWords || plan.secondCount > UINT32_MAX / wqeWords) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm WriteNbiPrepareEnd failed with DataCopy length overflow\n");
         return HCOMM_FAILED;
@@ -522,7 +535,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbiPrepareEnd(
     SyncAction<HardEvent::MTE3_S>();
 
     uint32_t newCqHead = header->startCqHead + header->preparedCount;
-    uint32_t newSqHead = header->startSqHead + header->preparedCount;
+    uint32_t newSqHead =
+        header->startSqHead + header->preparedCount * HCOMM_URMA_WRITE_NOTIFY_WQEBB_COUNT;
     channelEntity->cqHead = newCqHead;
     channelEntity->sqHead = newSqHead;
     if constexpr (commit) {

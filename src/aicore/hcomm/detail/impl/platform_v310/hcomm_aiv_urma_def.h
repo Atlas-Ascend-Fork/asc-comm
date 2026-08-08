@@ -32,7 +32,10 @@ constexpr uint32_t HCOMM_URMA_TMP_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_URMA_WQE_U32_NUM = 32;
 constexpr uint32_t HCOMM_URMA_CQE_U32_NUM = 16;
 constexpr uint32_t HCOMM_URMA_UDF_FLAG = 0x80U;
-constexpr uint32_t HCOMM_URMA_PLAIN_WRITE_WQE_SIZE = 64;
+constexpr uint32_t HCOMM_URMA_WQEBB_SIZE = 64;
+constexpr uint32_t HCOMM_URMA_WRITE_NOTIFY_WQEBB_COUNT = 2;
+constexpr uint32_t HCOMM_URMA_WRITE_NOTIFY_TASK_SIZE =
+    HCOMM_URMA_WQEBB_SIZE * HCOMM_URMA_WRITE_NOTIFY_WQEBB_COUNT;
 constexpr uint32_t HCOMM_URMA_POLL_CQ_THRESHOLD = 10;
 
 constexpr uint32_t HCOMM_URMA_INVALID_REDUCE_DATA_TYPE = 0xFFFFFFFFU;
@@ -86,7 +89,8 @@ public:
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbiPrepare(
-        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, __ubuf__ uint8_t* buff, uint32_t buffLen);
+        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal,
+        __ubuf__ uint8_t* buff, uint32_t buffLen);
     template <bool commit = true>
     __aicore__ inline int32_t WriteNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff);
     template <

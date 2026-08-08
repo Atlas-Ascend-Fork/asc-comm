@@ -54,17 +54,21 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(ChannelHandle channel, G
 template <CommProtocol commProtocol>
 template <auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbiPrepare(
-    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, __ubuf__ uint8_t* buff, uint32_t buffLen)
+    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal,
+    __ubuf__ uint8_t* buff, uint32_t buffLen)
 {
 #if __NPU_ARCH__ == 3510
     if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
-        return impl_.template WriteNbiPrepare<config>(channel, dst, src, len, buff, buffLen);
+        return impl_.template WriteNbiPrepare<config>(
+            channel, dst, src, len, notifyAddr, notifyVal, buff, buffLen);
     }
 #endif
     (void)channel;
     (void)dst;
     (void)src;
     (void)len;
+    (void)notifyAddr;
+    (void)notifyVal;
     (void)buff;
     (void)buffLen;
     return HCOMM_FAILED;

@@ -86,26 +86,29 @@ public:
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
-     * @brief Prepare a Write WQE in a caller-provided UB batch buffer without flushing it to SQ.
+     * @brief Prepare a Write-with-notify WQE in a caller-provided UB batch buffer without flushing it to SQ.
      * @tparam config: URMA WQE control config. CQE must be enabled and inline data must be disabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
      * @param [in] len: The length of the data to write in bytes.
+     * @param [in] notifyAddr: The remote notify address.
+     * @param [in] notifyVal: The remote notify value.
      * @param [in] buff: A 32-byte-aligned VECOUT UB buffer. Clear it before first use.
      * @param [in] buffLen: The batch buffer length in bytes.
      * @return HCOMM_SUCCESS, HCOMM_PREPARE_BUFFER_FULL, HCOMM_PREPARE_QUEUE_FULL, or HCOMM_FAILED.
      * @note Supported only by the 3510 COMM_PROTOCOL_UBC_CTP path. The caller must serialize all operations on the
      *       same channel while a batch is active. config must enable CQE and disable inline data.
      * @note Before first use, clear buff. A valid buffer is 32-byte aligned and contains at least a 32-byte internal
-     *       header followed by one 64-byte WQE.
+     *       header followed by one 128-byte Write-with-notify WQE.
      */
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbiPrepare(
-        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, __ubuf__ uint8_t* buff, uint32_t buffLen);
+        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal,
+        __ubuf__ uint8_t* buff, uint32_t buffLen);
 
     /*!
-     * @brief Flush all Write WQEs prepared in buff to SQ and optionally ring the SQ doorbell.
+     * @brief Flush all Write-with-notify WQEs prepared in buff to SQ and optionally ring the SQ doorbell.
      * @tparam commit: true: commit the batch immediately; false: do not commit immediately.
      * @param [in] channel: The handle bound to the active batch.
      * @param [in] buff: The UB batch buffer passed to WriteNbiPrepare.
