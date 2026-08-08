@@ -6,6 +6,7 @@
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
+ * Description: ccu representation store var header file
  */
 
 #ifndef HCOMM_CCU_REPRESENTATION_STORE_VAR_H_V1
@@ -17,28 +18,28 @@
 namespace hcomm {
 namespace CcuRep {
 
-class CcuRepStoreVar : public CcuRepBase {
-public:
-    CcuRepStoreVar(
-        CcuInsGeneraterBase* insGeneratorPtr, const Variable& var, const Variable& dst, uint32_t num = 1,
-        bool hscbFlag = false);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    class CcuRepStoreVar : public CcuRepBase {
+    public:
+        CcuRepStoreVar(
+            CcuInsGeneratorBase* insGeneratorPtr, const Variable& var, const Variable& dst, uint32_t num = 1,
+            bool hscbFlag = false);
+        bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+        std::string Describe() override;
 
-    Variable GetVar() { return var; }
-    Variable GetDst() { return dst; }
-    uint32_t GetNum() { return num; }
-    uint16_t GetMask() { return mask; }
-    bool GetHscbFlag() { return hscbFlag; }
+        Variable GetVar() { return var; }
+        Variable GetDst() { return dst; }
+        uint32_t GetNum() { return num; }
+        uint16_t GetMask() { return mask; }
+        bool GetHscbFlag() { return hscbFlag; }
 
-private:
-    CcuInsGeneraterBase* insGeneratorPtr_{nullptr};
-    Variable var;
-    Variable dst;
-    uint32_t num;
-    uint16_t mask{1};
-    bool hscbFlag{false};
-};
+    private:
+        CcuInsGeneratorBase* insGeneratorPtr_{nullptr};
+        Variable var;
+        Variable dst;
+        uint32_t num;
+        uint16_t mask{1};
+        bool hscbFlag{false};
+    };
 
 }; // namespace CcuRep
 }; // namespace hcomm

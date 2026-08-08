@@ -1,11 +1,7 @@
-/**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
+ * Description: ccu representation base header file
+ * Create: 2025-02-18
  */
 
 #ifndef HCOMM_CCU_REPRESENTATION_ASSIGN_H
@@ -17,35 +13,35 @@
 namespace hcomm {
 namespace CcuRep {
 
-class CcuRepAssign : public CcuRepBase {
-public:
-    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable& varA, uint64_t immediate);
-    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrA, uint64_t immediate);
-    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const Variable& varA);
-    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrB, const Address& addrA);
-    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable& varB, const Variable& varA);
+    class CcuRepAssign : public CcuRepBase {
+    public:
+        explicit CcuRepAssign(CcuInsGeneratorBase* insGenPtr, const Variable& varA, uint64_t immediate);
+        explicit CcuRepAssign(CcuInsGeneratorBase* insGenPtr, const Address& addrA, uint64_t immediate);
+        explicit CcuRepAssign(CcuInsGeneratorBase* insGenPtr, const Address& addrA, const Variable& varA);
+        explicit CcuRepAssign(CcuInsGeneratorBase* insGenPtr, const Address& addrB, const Address& addrA);
+        explicit CcuRepAssign(CcuInsGeneratorBase* insGenPtr, const Variable& varB, const Variable& varA);
 
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    Address GetAddrA();
-    Address GetAddrB();
-    Variable GetVarA();
-    Variable GetVarB();
-    uint64_t GetImmed();
-    AssignSubType GetSubType();
+        bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
+        std::string Describe() override;
+        Address GetAddrA();
+        Address GetAddrB();
+        Variable GetVarA();
+        Variable GetVarB();
+        uint64_t GetImmed();
+        AssignSubType GetSubType();
 
-private:
-    void SetCommonInfo();
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    AssignSubType subType{AssignSubType::INVALID};
-    uint64_t immediate{0};
+    private:
+        void SetCommonInfo();
+        CcuInsGeneratorBase* insGenPtr{nullptr};
+        AssignSubType subType{AssignSubType::INVALID};
+        uint64_t immediate{0};
 
-    Variable varA;
-    Variable varB;
+        Variable varA;
+        Variable varB;
 
-    Address addrA;
-    Address addrB;
-};
+        Address addrA;
+        Address addrB;
+    };
 
 }; // namespace CcuRep
 }; // namespace hcomm

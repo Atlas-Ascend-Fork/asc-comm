@@ -17,3 +17,9 @@
 | [ccu_direct/01_allgather](./ccu_direct/01_allgather/README.md) | 演示如何基于 HCCL 通信域和 CCU 数据面接口，并以直调第一阶段方式实现 AllGather 集合通信操作。 | Ascend 950PR/Ascend 950DT |
 | [ccu_direct/02_allgather_add](./ccu_direct/02_allgather_add/README.md) | 演示如何先以直调第一阶段方式通过 CCU 完成 AllGather 通信，再通过 AICore vector kernel 对 AllGather 结果执行 AICore Add 计算。 | Ascend 950PR/Ascend 950DT |
 | [ccu_direct/03_add_allgather](./ccu_direct/03_add_allgather/README.md) | 演示先通过 AICore vector kernel 执行 AICore Add 计算，再以计算结果作为输入以直调第一阶段方式执行 CCU AllGather 通信。 | Ascend 950PR/Ascend 950DT |
+
+## 运行约束
+
+- 样例支持Ascend 950PR/Ascend 950DT，CANN软件版本要求为9.1.0或以上。
+- 样例运行需要至少2张NPU；单卡环境仅支持编译验证。
+- 样例编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

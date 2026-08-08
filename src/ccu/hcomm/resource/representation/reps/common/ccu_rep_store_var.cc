@@ -6,6 +6,7 @@
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
+ * Description: ccu representation store var implementation file
  */
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_store_var_v1.h"
@@ -14,41 +15,46 @@
 #include "exception_util.h"
 #include "ccu_api_exception.h"
 
-#include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
 namespace hcomm {
 namespace CcuRep {
 
-using namespace Hccl;
+    using namespace Hccl;
 
-CcuRepStoreVar::CcuRepStoreVar(
-    CcuInsGeneraterBase* insGeneratorPtr, const Variable& var, const Variable& dst, uint32_t num, bool hscbFlag)
-    : insGeneratorPtr_(insGeneratorPtr), var(var), dst(dst), num(num), hscbFlag(hscbFlag)
-{
-    // for A6 only
-    type = CcuRepType::STORE_VAR;
-    instrCount = insGeneratorPtr_->GetInstrCount(type);
-}
+    CcuRepStoreVar::CcuRepStoreVar(
+        CcuInsGeneratorBase* insGeneratorPtr, const Variable& var, const Variable& dst, uint32_t num, bool hscbFlag)
+        : insGeneratorPtr_(insGeneratorPtr),
+          var(var),
+          dst(dst),
+          num(num),
+          hscbFlag(hscbFlag)
+    {
+        // for A6 only
+        type = CcuRepType::STORE_VAR;
+        instrCount = insGeneratorPtr_->GetInstrCount(type);
+    }
 
-bool CcuRepStoreVar::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
-{
-    this->instrId = instrId;
-    translated = true;
+    bool CcuRepStoreVar::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+    {
+        this->instrId = instrId;
+        translated = true;
 
-    CHK_RET_THROW(
-        Hccl::CcuApiException,
-        Hccl::StringFormat("[CcuRepStoreVar][%s] failed to translate repStoreVar for instrId[%u] ", __func__, instrId),
-        insGeneratorPtr_->CcuRepStoreVarTranslate(ccuKernel, instr, instrId, this, dep));
+        CHK_RET_THROW(
+            Hccl::CcuApiException,
+            Hccl::StringFormat(
+                "[CcuRepStoreVar][%s] failed to translate repStoreVar for instrId[%u] ", __func__, instrId),
+            insGeneratorPtr_->CcuRepStoreVarTranslate(ccuKernel, instr, instrId, this, dep));
 
-    instrId += instrCount;
-    return translated;
-}
+        instrId += instrCount;
+        return translated;
+    }
 
-std::string CcuRepStoreVar::Describe()
-{
-    return Hccl::StringFormat("Store Var([%u], [%u], [%u])", var.Id(), dst.Id(), num);
-}
+    std::string CcuRepStoreVar::Describe()
+    {
+        return Hccl::StringFormat("Store Var([%u], [%u], [%u])", var.Id(), dst.Id(), num);
+    }
 
 }; // namespace CcuRep
 }; // namespace hcomm

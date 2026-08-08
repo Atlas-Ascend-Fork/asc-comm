@@ -35,7 +35,7 @@ namespace {
 
 class CcuRepChannelTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override
     {
         HcommChannelDesc channelDesc{};
@@ -57,14 +57,14 @@ class CcuRepBufWriteTest : public CcuRepChannelTest {};
 
 class CcuRepBufLocReadTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
     void TearDown() override {}
 };
 
 class CcuRepBufLocWriteTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
     void TearDown() override {}
 };
@@ -73,14 +73,14 @@ class CcuRepBufReduceTest : public ::testing::Test {
 protected:
     void SetUp() override {}
     void TearDown() override {}
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
 };
 
 class CcuRepLocCpyTest : public ::testing::Test {
 protected:
     void SetUp() override {}
     void TearDown() override {}
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
 };
 
 class CcuRepRemMemTest : public CcuRepChannelTest {};
@@ -321,7 +321,7 @@ TEST_F(CcuRepBufLocReadTest, Describe)
 
 TEST_F(CcuRepBufLocReadTest, Translate)
 {
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     CcuRepContext context;
     Variable len{&context};
     CompletedEvent sem{&context};
@@ -374,7 +374,7 @@ TEST_F(CcuRepBufLocWriteTest, Describe)
 
 TEST_F(CcuRepBufLocWriteTest, Translate)
 {
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     CcuRepContext context;
     Variable len{&context};
     CompletedEvent sem{&context};

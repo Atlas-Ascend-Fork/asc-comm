@@ -24,7 +24,7 @@ namespace {
 
 class CcuRepContextTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 

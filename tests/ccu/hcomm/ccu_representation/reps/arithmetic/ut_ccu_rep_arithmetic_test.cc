@@ -27,7 +27,7 @@ namespace {
 
 class CcuRepAddTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     CcuInstr instr{};
     uint16_t instrId{0};
     TransDep dep{};
@@ -280,7 +280,7 @@ TEST_F(CcuRepAddTest, Describe_SelfAddVariable)
 
 class CcuRepAssignTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     CcuInstr instr{};
     uint16_t instrId{0};
     TransDep dep{};
@@ -578,7 +578,7 @@ TEST_F(CcuOperatorTest, VariableEqualImmediate)
 
 class CcuRepMulTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
@@ -695,7 +695,7 @@ TEST_F(CcuRepMulTest, Getters)
 
 class CcuRepSubTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 

@@ -38,7 +38,7 @@ namespace {
 class CcuRepLoopTest : public ::testing::Test {
 protected:
     void SetUp() override {}
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
 };
 
 TEST_F(CcuRepLoopTest, Constructor)
@@ -191,7 +191,7 @@ TEST_F(CcuRepLoopTest, Translate_InstrIdOverflow)
 
 class CcuRepLoopBlockTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
@@ -324,7 +324,7 @@ TEST_F(CcuRepLoopBlockTest, GetArg_OutOfRange)
 
 class CcuRepLoopCallTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
@@ -448,7 +448,7 @@ TEST_F(CcuRepLoopCallTest, Describe)
 
 TEST_F(CcuRepLoopCallTest, Translate)
 {
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     auto loopBlock = std::make_shared<CcuRepLoopBlock>(&insGen, "loop_block");
     Address addr(nullptr);
     Variable token(nullptr);
@@ -477,12 +477,12 @@ TEST_F(CcuRepLoopCallTest, Translate)
 
 class CcuRepLoopGroupBundleTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 
     static CcuRepLoopGroupBundle::LoopEntry MakeTranslatedLoopEntry()
     {
-        CcuInsGeneraterV1 insGen;
+        CcuInsGeneratorV1 insGen;
         CcuRepLoopGroupBundle::LoopEntry entry;
         entry.config = CcuLoopConfig{};
         entry.executor = Executor(nullptr);
@@ -572,7 +572,7 @@ TEST_F(CcuRepLoopGroupBundleTest, Describe)
 
 class CcuRepSetLoopTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    CcuInsGeneratorV1 insGen{};
     void SetUp() override {}
 };
 
@@ -591,7 +591,7 @@ TEST_F(CcuRepSetLoopTest, Constructor)
 
 TEST_F(CcuRepSetLoopTest, Translate)
 {
-    CcuInsGeneraterV1 insGen;
+    CcuInsGeneratorV1 insGen;
     Variable loopParam(nullptr);
     Executor executor(nullptr);
     Variable var(nullptr);
