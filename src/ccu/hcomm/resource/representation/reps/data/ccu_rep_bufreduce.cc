@@ -1,0 +1,49 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2024-2024. All rights reserved.
+ * Description: ccu representation implementation file
+ * Author: sunzhepeng
+ * Create: 2024-06-17
+ */
+
+#include "hcomm/resource/representation/ccu_rep_v1.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
+#include "hcomm/resource/kernel/ccu_kernel.h"
+
+namespace hcomm {
+namespace CcuRep {
+
+    CcuRepBufReduce::CcuRepBufReduce(
+        CcuInsGeneratorBase* insGenPtr, const std::vector<CcuBuf>& mem, uint16_t count, uint16_t dataType,
+        uint16_t outputDataType, uint16_t opType, CompletedEvent sem, const CcuRep::Variable& len, uint16_t mask)
+        : insGenPtr(insGenPtr),
+          mem(mem),
+          count(count),
+          dataType(dataType),
+          outputDataType(outputDataType),
+          opType(opType),
+          sem(sem),
+          xnIdLength_(len),
+          mask(mask)
+    {
+        type = CcuRepType::BUF_REDUCE;
+        instrCount = insGenPtr->GetInstrCount(type);
+    }
+
+    bool CcuRepBufReduce::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+    {
+        this->instrId = instrId;
+        translated = true;
+
+        instrCount = insGenPtr->GetInstrCount(type);
+        insGenPtr->CcuRepBufReduceTranslate(ccuKernel, instr, this);
+
+        instrId += instrCount;
+
+        return translated;
+    }
+
+    std::string CcuRepBufReduce::Describe() { return hcomm::StringFormat("Reduce"); }
+
+}; // namespace CcuRep
+}; // namespace hcomm

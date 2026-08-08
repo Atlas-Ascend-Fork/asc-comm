@@ -1,16 +1,12 @@
-# asc-comm样例
+﻿# asc-comm 样例
 
-本目录提供asc-comm API的使用样例。
+本目录提供 asc-comm API 的使用样例。
 
 ## 样例列表
 
 | 样例 | 说明 | 支持产品 |
 | --- | --- | --- |
-| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示多卡场景下AIV Kernel通过URMA路径调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
+| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示两卡场景下AIV Kernel通过URMA路径调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
 | [one_multi_path](./one_multi_path/README.md) | 查询`UB_MEM`链路，为每个peer创建one path/multi path Channel，逐个处理peer，并通过双Stream并发搬运和校验该peer的远端数据。 | Ascend 950PR/Ascend 950DT |
-
-## 运行约束
-
-- 样例支持Ascend 950PR/Ascend 950DT，CANN软件版本要求为9.1.0或以上。
-- 样例运行需要至少2张NPU；单卡环境仅支持编译验证。
-- 样例编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。
+| [custom_ccu_allgather](./custom_ccu_allgather/README.md) | 演示基于 HCCL 通信接口和 CCU_SCHED 通信引擎实现 AllGather 集合通信操作。 | Ascend 950PR/Ascend 950DT |
+| [custom_ccu_allreduce](./custom_ccu_allreduce/README.md) | 演示基于 HCCL 通信接口和 CCU_SCHED 通信引擎实现 AllReduce SUM 集合通信操作。 | Ascend 950PR/Ascend 950DT |
