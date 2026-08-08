@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include "hcomm_primitives.h"
 #include "ccu/hcomm/ccu_primitives_impl.h"
 
 #include "hcomm/common/ccu_log.h"
