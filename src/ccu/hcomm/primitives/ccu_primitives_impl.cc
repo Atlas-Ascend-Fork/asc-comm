@@ -617,10 +617,22 @@ CcuResult _CcuLoopBodyExit(CcuLoop loop)
 
 CcuResult CcuLoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupConfig* config)
 {
+    if (config == nullptr) {
+        return CcuResult::CCU_E_PTR;
+    }
+    // 旧 config 无 varOffset,在边界归一化为 cfg(varOffset=0),kernel 只认 cfg。
+    CcuLoopGroupCfg cfg{};
+    CcuLoopGroupCfgInit(&cfg);
+    cfg.cloneNum = config->cloneNum;
+    cfg.cloneLoopOffset = config->cloneLoopOffset;
+    cfg.addrOffset = config->addrOffset;
+    cfg.ccuBufferOffset = config->ccuBufferOffset;
+    cfg.eventOffset = config->eventOffset;
+    cfg.varOffset = 0;
     const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
     auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LoopGroupCreate(group, maxLoopNum, config));
+    CCU_CHK_RET(kernel->LoopGroupCreate(group, maxLoopNum, &cfg));
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -636,10 +648,17 @@ CcuResult CcuLoopGroupCreateFromVar(
 
 CcuResult CcuLoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopConfig* config)
 {
+    if (config == nullptr) {
+        return CcuResult::CCU_E_PTR;
+    }
+    CcuLoopCfg cfg{};
+    CcuLoopCfgInit(&cfg);
+    cfg.addrOffset = config->addrOffset;
+    cfg.iterNum = config->iterNum;
     const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
     auto kernel = hcomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LoopGroupAddLoop(group, loop, config));
+    CCU_CHK_RET(kernel->LoopGroupAddLoop(group, loop, &cfg));
     return CcuResult::CCU_SUCCESS;
 }
 

@@ -259,14 +259,14 @@ public:
     CcuResult LoopCreate(CcuLoop* loop);
     CcuResult LoopBodyEnter(CcuLoop loop);
     CcuResult LoopBodyExit(CcuLoop loop);
-    CcuResult LoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupConfig* config);
+    CcuResult LoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupCfg* config);
     CcuResult LoopGroupCreateFromVar(
         CcuLoopGroup* group, uint32_t maxLoopNum, CcuVariableHandle parallelVarHandle,
         CcuVariableHandle offsetVarHandle);
     CcuResult LoopGroupCreateFromVarV2(
         CcuLoopGroup* group, uint32_t maxLoopNum, CcuVariableHandle parallelVarV2, CcuVariableHandle offsetVarV2,
         CcuVariableHandle varOffsetVar);
-    CcuResult LoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopConfig* config);
+    CcuResult LoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopCfg* config);
     CcuResult LoopGroupAddLoopFromVar(CcuLoopGroup group, CcuLoop loop, CcuVariableHandle loopParamVar);
     CcuResult LoopGroupAddLoopFromVarV2(
         CcuLoopGroup group, CcuLoop loop, CcuVariableHandle iterNumVar, CcuVariableHandle addrOffsetVar,
@@ -500,7 +500,7 @@ private:
     };
 
     struct LoopGroupDescriptor {
-        CcuLoopGroupConfig config;
+        CcuLoopGroupCfg config;
         uint64_t totalLoopNum{0};
         uint32_t loopCount{0};
         CcuRep::Variable parallelVar;

@@ -76,9 +76,9 @@ namespace CcuRep {
         UNUSED(dep);
         CHK_PTR_NULL(repBufRead);
         CcuChannel channelImpl(repBufRead->GetChannel());
-CHK_PRT_RET(
-    channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-    HCCL_ERROR("failed to get ccu channel, type[%d]", repBufRead->Type()), HCCL_E_INTERNAL);
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repBufRead->Type()), HCCL_E_INTERNAL);
 
         TransRmtMemToLocMSInstr(
             instr++, repBufRead->GetDst().Id(), repBufRead->GetSrc().addr.Id(), repBufRead->GetSrc().token.Id(),
@@ -93,9 +93,9 @@ CHK_PRT_RET(
         UNUSED(ccuKernel);
         CHK_PTR_NULL(repWrite);
         CcuChannel channelImpl(repWrite->GetChannel());
-CHK_PRT_RET(
-    channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-    HCCL_ERROR("failed to get ccu channel, type[%d]", repWrite->Type()), HCCL_E_INTERNAL);
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repWrite->Type()), HCCL_E_INTERNAL);
         TransLocMemToRmtMemInstr(
             instr++, repWrite->GetRem().addr.Id(), repWrite->GetRem().token.Id(), repWrite->GetLoc().addr.Id(),
             repWrite->GetLoc().token.Id(), repWrite->GetLen().Id(), channelImpl->GetChannelId(),
@@ -110,9 +110,9 @@ CHK_PRT_RET(
         UNUSED(ccuKernel);
         CHK_PTR_NULL(repRead);
         CcuChannel channelImpl(repRead->GetChannel());
-CHK_PRT_RET(
-    channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-    HCCL_ERROR("failed to get ccu channel, type[%d]", repRead->Type()), HCCL_E_INTERNAL);
+        CHK_PRT_RET(
+            channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
+            HCCL_ERROR("failed to get ccu channel, type[%d]", repRead->Type()), HCCL_E_INTERNAL);
         TransRmtMemToLocMemInstr(
             instr++, repRead->GetLoc().addr.Id(), repRead->GetLoc().token.Id(), repRead->GetRem().addr.Id(),
             repRead->GetRem().token.Id(), repRead->GetLen().Id(), channelImpl->GetChannelId(), repRead->GetDataType(),

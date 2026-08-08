@@ -17,6 +17,7 @@
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "dev_buffer.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
+#include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v2.h"
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
@@ -92,7 +93,13 @@ CcuResult CcuKernelMgr::Configure(AscCcuResSnapshot &resPack)
         missionKeys_[dieId] = metadata->missionKey;
         CCU_CHK_RET(static_cast<CcuResult>(InstantiationTranslator(static_cast<uint16_t>(dieId), resPack)));
     }
-    insGenePtr = std::make_shared<CcuRep::CcuInsGeneratorV1>();
+    if (ccuVersion_ == CcuVersion::CCU_V2) {
+        HCCL_INFO("[CcuKernelMgr] Init CcuInsGeneratorV2");
+        insGenePtr = std::make_shared<CcuRep::CcuInsGeneratorV2>();
+    } else {
+        HCCL_INFO("[CcuKernelMgr] Init CcuInsGeneratorV1");
+        insGenePtr = std::make_shared<CcuRep::CcuInsGeneratorV1>();
+    }
     initializedFlag_ = true;
     activeGeneration_ = resPack.GetGeneration();
     return CcuResult::CCU_SUCCESS;

@@ -1222,6 +1222,18 @@ std::shared_ptr<CcuRep::CcuRepJumpBase> MakeInvertedCondJumpImm(
         case CCU_CONDITION_NE:
             return std::make_shared<CcuRep::CcuRepJumpEQ>(
                 insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
+        case CCU_CONDITION_LT:
+            return std::make_shared<CcuRep::CcuRepJumpGE>(
+                insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
+        case CCU_CONDITION_LE:
+            return std::make_shared<CcuRep::CcuRepJumpGT>(
+                insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
+        case CCU_CONDITION_GT:
+            return std::make_shared<CcuRep::CcuRepJumpLE>(
+                insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
+        case CCU_CONDITION_GE:
+            return std::make_shared<CcuRep::CcuRepJumpLT>(
+                insGenerator, destLabelStr, targetVar, expectVar, variable, immediate);
         default:
             HCCL_ERROR("[%s] unsupported condition type: %d", funcName, condType);
             return nullptr;
@@ -1238,6 +1250,14 @@ std::shared_ptr<CcuRep::CcuRepJumpBase> MakeInvertedCondJumpVar(
             return std::make_shared<CcuRep::CcuRepJumpNE>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
         case CCU_CONDITION_NE:
             return std::make_shared<CcuRep::CcuRepJumpEQ>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
+        case CCU_CONDITION_LT:
+            return std::make_shared<CcuRep::CcuRepJumpGE>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
+        case CCU_CONDITION_LE:
+            return std::make_shared<CcuRep::CcuRepJumpGT>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
+        case CCU_CONDITION_GT:
+            return std::make_shared<CcuRep::CcuRepJumpLE>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
+        case CCU_CONDITION_GE:
+            return std::make_shared<CcuRep::CcuRepJumpLT>(insGenerator, destLabelStr, targetVar, lhsVar, rhsVar);
         default:
             HCCL_ERROR("[%s] unsupported condition type: %d", funcName, condType);
             return nullptr;
@@ -2324,7 +2344,7 @@ CcuResult CcuKernel::EnsureLoopEnginePool(uint32_t maxLoopNum)
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernel::LoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupConfig* config)
+CcuResult CcuKernel::LoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupCfg* config)
 {
     PLF_CONFIG_INFO(PLF_DATA_OP, "[LoopGroupCreate] maxLoopNum=%u", maxLoopNum);
     if (group == nullptr || config == nullptr) {
@@ -2494,7 +2514,7 @@ CcuResult CcuKernel::LookupLoopGroupAndLoop(
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernel::LoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopConfig* config)
+CcuResult CcuKernel::LoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopCfg* config)
 {
     PLF_CONFIG_INFO(PLF_DATA_OP, "[LoopGroupAddLoop] group=%llu, loop=%llu", group, loop);
     if (config == nullptr) {
