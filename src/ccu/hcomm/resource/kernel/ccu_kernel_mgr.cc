@@ -10,8 +10,6 @@
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 
-#include <acl/acl.h>
-
 #include "hccl_common.h"
 #include "exception_handler.h"
 #include "adapter_rts.h"
@@ -31,19 +29,6 @@
 #include "hcomm/resource/common/ccu_kernel_func.h"
 
 namespace hcomm {
-
-HcclResult GetHcclVersionForCcuKernelMgr(int& hcclVersion)
-{
-    char hcclPkgName[] = "hccl";
-    aclError aclRet = aclsysGetVersionNum(hcclPkgName, &hcclVersion);
-    CHK_PRT_RET(
-        aclRet != ACL_SUCCESS,
-        HCCL_ERROR("[GetHcclVersionForCcuKernelMgr] aclsysGetVersionNum failed, aclRet[%d].", aclRet), HCCL_E_INTERNAL);
-    HCCL_RUN_INFO("[GetHcclVersionForCcuKernelMgr] hccl version is %d.", hcclVersion);
-    return HCCL_SUCCESS;
-}
-
-constexpr int MAX_HCCL_VERSION_USING_CCU_RES_STATIC_ALLOC = 90100000;
 
 CcuKernelMgr::~CcuKernelMgr()
 {
@@ -184,15 +169,8 @@ CcuResult CcuKernelMgr::BuildKernel(
     }
 
     currKernel_->FlushClosablePendingIfs(); // 处理未闭合的if
-    int hcclVersion = 0;
-    CCU_CHK_RET(GetHcclVersionForCcuKernelMgr(hcclVersion));
-    if (hcclVersion <= MAX_HCCL_VERSION_USING_CCU_RES_STATIC_ALLOC) {
-        // 9.1.0 及之前版本的外部 dieId 始终为 0，需要从 channel 中获取实际 dieId
-        CCU_CHK_RET(currKernel_->ApplyDieFromChannels());
-    } else {
-        // 校验所有 channel 使用相同的 die，然后将资源占用从 die 0 迁移到指定 die
-        CCU_CHK_RET(currKernel_->ValidateAndApplyDie(dieId));
-    }
+    // 校验所有 channel 使用相同的 die，然后将资源占用从 die 0 迁移到指定 die
+    CCU_CHK_RET(currKernel_->ValidateAndApplyDie(dieId));
     CCU_CHK_RET(PrepareConstValueResources()); // 记录翻译过程所需常量并申请对应资源
     return CcuResult::CCU_SUCCESS;
 }
