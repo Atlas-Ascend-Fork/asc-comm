@@ -8,9 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
@@ -67,7 +64,7 @@ namespace CcuRep {
 
     bool CcuRepShR::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep)
     {
-        Hccl::CHECK_NULLPTR(instr, "[CcuRepShR::Translate] instr is nullptr!");
+        hcomm::CHECK_NULLPTR(instr, "[CcuRepShR::Translate] instr is nullptr!");
         this->instrId = curInstrId;
         translated = true;
         instrCount = insGenPtr->GetInstrCount(type);
@@ -77,7 +74,7 @@ namespace CcuRep {
             HCCL_ERROR(
                 "[CcuRepShR::Translate]uint16 integer overflow occurs, curInstrId = [%hu], instrCount = [%hu]",
                 curInstrId, instrCount),
-            Hccl::InternalException, "integer overflow");
+            hcomm::InternalException, "integer overflow");
         curInstrId += instrCount;
         return translated;
     }
@@ -87,25 +84,25 @@ namespace CcuRep {
         if (shiftType == ShiftType::LOGICAL_SHIFT) {
             switch (subType) {
                 case ShiftSubType::VAR_EQUALS_VAR_SHIFT_VAR: {
-                    return Hccl::StringFormat(
+                    return hcomm::StringFormat(
                         "Variable[%u] = Variable[%u] >> Variable[%u]", varD.Id(), varN.Id(), varM.Id());
                 }
                 case ShiftSubType::VAR_SHIFT_ASSIGN_VAR: {
-                    return Hccl::StringFormat("Variable[%u] >>= Variable[%u]", varD.Id(), varM.Id());
+                    return hcomm::StringFormat("Variable[%u] >>= Variable[%u]", varD.Id(), varM.Id());
                 }
                 case ShiftSubType::ADDR_EQUALS_VAR_SHIFT_VAR: {
-                    return Hccl::StringFormat(
+                    return hcomm::StringFormat(
                         "Address[%u] = Variable[%u] >> Variable[%u]", addrD.Id(), varN.Id(), varM.Id());
                 }
                 case ShiftSubType::ADDR_SHIFT_ASSIGN_VAR: {
-                    return Hccl::StringFormat("Address[%u] >>= Variable[%u]", addrD.Id(), varM.Id());
+                    return hcomm::StringFormat("Address[%u] >>= Variable[%u]", addrD.Id(), varM.Id());
                 }
                 default: {
-                    return Hccl::StringFormat("Invalid Shift");
+                    return hcomm::StringFormat("Invalid Shift");
                 }
             }
         }
-        return Hccl::StringFormat("Invalid Shift");
+        return hcomm::StringFormat("Invalid Shift");
     }
 
 }; // namespace CcuRep

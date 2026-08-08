@@ -11,16 +11,13 @@
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-#include "exception_util.h"
-#include "ccu_api_exception.h"
-
 namespace hcomm {
 namespace CcuRep {
 
 void AppendToContext(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBase> rep)
 {
     if (context == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("context is nullptr, AppendToContext assist[%d]", rep->Type());
+        hcomm::THROW<hcomm::CcuApiException>("context is nullptr, AppendToContext assist[%d]", rep->Type());
     } else {
         return context->Append(rep);
     }
@@ -29,7 +26,7 @@ void AppendToContext(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBase>
 std::shared_ptr<CcuRep::CcuRepBlock> CurrentBlock(CcuRepContext* context)
 {
     if (context == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("context is nullptr, currentBlock");
+        hcomm::THROW<hcomm::CcuApiException>("context is nullptr, currentBlock");
     }
     return context->CurrentBlock();
 }
@@ -37,7 +34,7 @@ std::shared_ptr<CcuRep::CcuRepBlock> CurrentBlock(CcuRepContext* context)
 void SetCurrentBlock(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBlock> repBlock)
 {
     if (context == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("context is nullptr, set currentBlock");
+        hcomm::THROW<hcomm::CcuApiException>("context is nullptr, set currentBlock");
     }
     context->SetCurrentBlock(repBlock);
 }
@@ -45,11 +42,11 @@ void SetCurrentBlock(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBlock
 Variable CreateVariable(CcuRepContext* context)
 {
     if (context == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("context is nullptr, CreateVar");
+        hcomm::THROW<hcomm::CcuApiException>("context is nullptr, CreateVar");
     }
     auto ctx = dynamic_cast<CcuKernel*>(context);
     if (ctx == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("Invalid context");
+        hcomm::THROW<hcomm::CcuApiException>("Invalid context");
     }
     return ctx->CreateVariable();
 }

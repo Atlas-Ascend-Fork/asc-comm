@@ -7,9 +7,6 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -30,8 +27,8 @@ namespace CcuRep {
         translated = true;
 
         CHK_RET_THROW(
-            Hccl::CcuApiException,
-            Hccl::StringFormat("[CcuRepNop][%s] failed to translate repNop for instrId[%u] ", __func__, instrId),
+            hcomm::CcuApiException,
+            hcomm::StringFormat("[CcuRepNop][%s] failed to translate repNop for instrId[%u] ", __func__, instrId),
             insGeneratorPtr_->CcuRepNopTranslate(ccuKernel, instr, instrId, this, dep));
 
         instrId += instrCount;
@@ -39,7 +36,7 @@ namespace CcuRep {
         return translated;
     }
 
-    std::string CcuRepNop::Describe() { return Hccl::StringFormat("Nop"); }
+    std::string CcuRepNop::Describe() { return hcomm::StringFormat("Nop"); }
 
 }; // namespace CcuRep
 }; // namespace hcomm

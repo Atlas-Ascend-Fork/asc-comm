@@ -5,9 +5,6 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
@@ -29,12 +26,12 @@ namespace CcuRep {
 
     bool CcuRepLoadVar::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
     {
-        Hccl::CHECK_NULLPTR(instr, "[CcuRepLoadVar::Translate] instr is nullptr!");
+        hcomm::CHECK_NULLPTR(instr, "[CcuRepLoadVar::Translate] instr is nullptr!");
         this->instrId = instrId;
         translated = true;
         CHK_RET_THROW(
-            Hccl::CcuApiException,
-            Hccl::StringFormat(
+            hcomm::CcuApiException,
+            hcomm::StringFormat(
                 "[CcuRepLoadVar][%s] failed to translate repLoadVar for instrId[%u] ", __func__, instrId),
             insGeneratorPtr_->CcuRepLoadVarTranslate(ccuKernel, instr, instrId, this, dep));
         CHK_PRT_THROW(
@@ -42,7 +39,7 @@ namespace CcuRep {
             HCCL_ERROR(
                 "[CcuRepLoadVar::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]",
                 instrId, instrCount),
-            Hccl::InternalException, "integer overflow");
+            hcomm::InternalException, "integer overflow");
         instrId += instrCount;
 
         return translated;
@@ -50,7 +47,7 @@ namespace CcuRep {
 
     std::string CcuRepLoadVar::Describe()
     {
-        return Hccl::StringFormat("Load Var([%llu], [%u], [%u])", src.Id(), var.Id(), num);
+        return hcomm::StringFormat("Load Var([%llu], [%u], [%u])", src.Id(), var.Id(), num);
     }
 
 }; // namespace CcuRep

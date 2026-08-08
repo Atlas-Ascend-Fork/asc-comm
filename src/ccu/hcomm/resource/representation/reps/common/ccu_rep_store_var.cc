@@ -10,10 +10,7 @@
  */
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_store_var_v1.h"
-#include "string_util.h"
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
@@ -42,8 +39,8 @@ namespace CcuRep {
         translated = true;
 
         CHK_RET_THROW(
-            Hccl::CcuApiException,
-            Hccl::StringFormat(
+            hcomm::CcuApiException,
+            hcomm::StringFormat(
                 "[CcuRepStoreVar][%s] failed to translate repStoreVar for instrId[%u] ", __func__, instrId),
             insGeneratorPtr_->CcuRepStoreVarTranslate(ccuKernel, instr, instrId, this, dep));
 
@@ -53,7 +50,7 @@ namespace CcuRep {
 
     std::string CcuRepStoreVar::Describe()
     {
-        return Hccl::StringFormat("Store Var([%u], [%u], [%u])", var.Id(), dst.Id(), num);
+        return hcomm::StringFormat("Store Var([%u], [%u], [%u])", var.Id(), dst.Id(), num);
     }
 
 }; // namespace CcuRep

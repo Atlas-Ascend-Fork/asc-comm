@@ -12,10 +12,9 @@
 
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 
-#include "hcomm_adapter_rts.h"
+#include "hcomm/common/ccu_runtime.h"   // AsccommQueryUbToken（经 pkg_inc ABI 兜底）
 
-#include "exception_util.h" // todo: 需要统一整改为不抛异常
-#include "ccu_api_exception.h"
+#include <map>
 
 namespace hcomm {
 namespace CcuRep {
@@ -95,49 +94,49 @@ uint64_t CcuCombineTokenInfo(uint64_t tokenId, uint64_t tokenValue, uint64_t tok
     return GetToken(tokenId, tokenValue, tokenValid);
 }
 
-uint16_t GetCcuReduceType(Hccl::ReduceOp reduceOp)
+uint16_t GetCcuReduceType(hcomm::ReduceOp reduceOp)
 {
-    static std::map<Hccl::ReduceOp, uint16_t> ccuReduceTypeMap = {
-        {Hccl::ReduceOp::SUM, CCU_REDUCE_SUM},
-        {Hccl::ReduceOp::MAX, CCU_REDUCE_MAX},
-        {Hccl::ReduceOp::MIN, CCU_REDUCE_MIN},
+    static std::map<hcomm::ReduceOp, uint16_t> ccuReduceTypeMap = {
+        {hcomm::ReduceOp::SUM, CCU_REDUCE_SUM},
+        {hcomm::ReduceOp::MAX, CCU_REDUCE_MAX},
+        {hcomm::ReduceOp::MIN, CCU_REDUCE_MIN},
     };
 
     if (ccuReduceTypeMap.find(reduceOp) == ccuReduceTypeMap.end()) {
-        Hccl::THROW<Hccl::CcuApiException>("Unsupported ReduceOp[%s] for Ccu", reduceOp.Describe().c_str());
+        hcomm::THROW<hcomm::CcuApiException>("Unsupported ReduceOp[%s] for Ccu", reduceOp.Describe().c_str());
     }
 
     return ccuReduceTypeMap[reduceOp];
 }
 
-uint16_t GetCcuDataType(Hccl::DataType dataType, Hccl::ReduceOp reduceOp)
+uint16_t GetCcuDataType(hcomm::DataType dataType, hcomm::ReduceOp reduceOp)
 {
-    static std::map<Hccl::DataType, uint16_t> ccuSumDataTypeMap = {
-        {Hccl::DataType::FP32, 0},  {Hccl::DataType::FP16, 1},    {Hccl::DataType::BFP16, 2},
-        {Hccl::DataType::HIF8, 3},  {Hccl::DataType::FP8E4M3, 4}, {Hccl::DataType::FP8E5M2, 5},
-        {Hccl::DataType::INT8, 6},  {Hccl::DataType::UINT8, 7},   {Hccl::DataType::INT16, 8},
-        {Hccl::DataType::INT32, 9},
+    static std::map<hcomm::DataType, uint16_t> ccuSumDataTypeMap = {
+        {hcomm::DataType::FP32, 0},  {hcomm::DataType::FP16, 1},    {hcomm::DataType::BFP16, 2},
+        {hcomm::DataType::HIF8, 3},  {hcomm::DataType::FP8E4M3, 4}, {hcomm::DataType::FP8E5M2, 5},
+        {hcomm::DataType::INT8, 6},  {hcomm::DataType::UINT8, 7},   {hcomm::DataType::INT16, 8},
+        {hcomm::DataType::INT32, 9},
     };
 
-    static std::map<Hccl::DataType, uint16_t> ccuMaxMinDataTypeMap = {
-        {Hccl::DataType::FP32, 0},  {Hccl::DataType::FP16, 1},  {Hccl::DataType::BFP16, 2}, {Hccl::DataType::INT8, 6},
-        {Hccl::DataType::UINT8, 7}, {Hccl::DataType::INT16, 8}, {Hccl::DataType::INT32, 9},
+    static std::map<hcomm::DataType, uint16_t> ccuMaxMinDataTypeMap = {
+        {hcomm::DataType::FP32, 0},  {hcomm::DataType::FP16, 1},  {hcomm::DataType::BFP16, 2}, {hcomm::DataType::INT8, 6},
+        {hcomm::DataType::UINT8, 7}, {hcomm::DataType::INT16, 8}, {hcomm::DataType::INT32, 9},
 
     };
 
     uint16_t ccuReduceType = GetCcuReduceType(reduceOp);
     if (ccuReduceType == CCU_REDUCE_SUM) {
         if (ccuSumDataTypeMap.find(dataType) == ccuSumDataTypeMap.end()) {
-            Hccl::THROW<Hccl::CcuApiException>(
-                "Unsupported Hccl::DataType[%s] for Ccu SUM", dataType.Describe().c_str());
+            hcomm::THROW<hcomm::CcuApiException>(
+                "Unsupported hcomm::DataType[%s] for Ccu SUM", dataType.Describe().c_str());
         }
         return ccuSumDataTypeMap[dataType];
     }
 
     if (ccuReduceType == CCU_REDUCE_MAX || ccuReduceType == CCU_REDUCE_MIN) {
         if (ccuMaxMinDataTypeMap.find(dataType) == ccuMaxMinDataTypeMap.end()) {
-            Hccl::THROW<Hccl::CcuApiException>(
-                "Unsupported Hccl::DataType[%s] for Ccu MAX/MIN", dataType.Describe().c_str());
+            hcomm::THROW<hcomm::CcuApiException>(
+                "Unsupported hcomm::DataType[%s] for Ccu MAX/MIN", dataType.Describe().c_str());
         }
         return ccuMaxMinDataTypeMap[dataType];
     }
@@ -145,43 +144,43 @@ uint16_t GetCcuDataType(Hccl::DataType dataType, Hccl::ReduceOp reduceOp)
     return ccuSumDataTypeMap[dataType];
 }
 
-uint16_t GetUBReduceType(Hccl::ReduceOp reduceOp)
+uint16_t GetUBReduceType(hcomm::ReduceOp reduceOp)
 {
-    static std::map<Hccl::ReduceOp, uint16_t> ubReduceTypeMap = {
-        {Hccl::ReduceOp::SUM, 10},
-        {Hccl::ReduceOp::MAX, 8},
-        {Hccl::ReduceOp::MIN, 9},
+    static std::map<hcomm::ReduceOp, uint16_t> ubReduceTypeMap = {
+        {hcomm::ReduceOp::SUM, 10},
+        {hcomm::ReduceOp::MAX, 8},
+        {hcomm::ReduceOp::MIN, 9},
     };
 
     if (ubReduceTypeMap.find(reduceOp) == ubReduceTypeMap.end()) {
-        Hccl::THROW<Hccl::CcuApiException>("Unsupported reduceOp[%s] for UB Reduce", reduceOp.Describe().c_str());
+        hcomm::THROW<hcomm::CcuApiException>("Unsupported reduceOp[%s] for UB Reduce", reduceOp.Describe().c_str());
     }
 
     return ubReduceTypeMap[reduceOp];
 }
 
-uint16_t GetUBDataType(Hccl::DataType dataType)
+uint16_t GetUBDataType(hcomm::DataType dataType)
 {
-    static std::map<Hccl::DataType, uint16_t> ubDataTypeMap = {
-        {Hccl::DataType::FP32, 7},  {Hccl::DataType::FP16, 6},   {Hccl::DataType::BFP16, 8},
-        {Hccl::DataType::INT8, 0},  {Hccl::DataType::UINT8, 3},  {Hccl::DataType::INT16, 1},
-        {Hccl::DataType::INT32, 2}, {Hccl::DataType::UINT16, 4}, {Hccl::DataType::UINT32, 5}};
+    static std::map<hcomm::DataType, uint16_t> ubDataTypeMap = {
+        {hcomm::DataType::FP32, 7},  {hcomm::DataType::FP16, 6},   {hcomm::DataType::BFP16, 8},
+        {hcomm::DataType::INT8, 0},  {hcomm::DataType::UINT8, 3},  {hcomm::DataType::INT16, 1},
+        {hcomm::DataType::INT32, 2}, {hcomm::DataType::UINT16, 4}, {hcomm::DataType::UINT32, 5}};
 
     if (ubDataTypeMap.find(dataType) == ubDataTypeMap.end()) {
-        Hccl::THROW<Hccl::CcuApiException>("Unsupported Hccl::DataType[%s] for UB Reduce", dataType.Describe().c_str());
+        hcomm::THROW<hcomm::CcuApiException>("Unsupported hcomm::DataType[%s] for UB Reduce", dataType.Describe().c_str());
     }
     return ubDataTypeMap[dataType];
 }
 
 uint64_t GetTokenInfo(uint64_t va, uint64_t size)
 {
-    rtMemUbTokenInfo info{};
-    info.va = va;
-    info.size = size;
-    if (RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, info) != HcclResult::HCCL_SUCCESS) {
-        Hccl::THROW<Hccl::CcuApiException>("failed to query tokenInfo.");
+    uint32_t tokenId = 0;
+    uint32_t tokenValue = 0;
+    CcuResult ret = AsccommQueryUbToken(va, size, tokenId, tokenValue);
+    if (ret != HcclResult::HCCL_SUCCESS) {
+        hcomm::THROW<hcomm::CcuApiException>("failed to query tokenInfo.");
     }
-    return CcuRep::GetToken(info.tokenId, info.tokenValue, 1);
+    return CcuRep::GetToken(tokenId, tokenValue, 1);
 }
 
 }; // namespace CcuRep

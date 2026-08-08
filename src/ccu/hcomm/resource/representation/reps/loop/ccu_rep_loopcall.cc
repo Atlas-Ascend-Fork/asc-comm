@@ -7,9 +7,6 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -97,10 +94,10 @@ namespace CcuRep {
         this->instrId = instrId;
         translated = true;
 
-        Hccl::CHECK_NULLPTR(loopBlock, "[CcuRepLoopCall::Translate] LoopBlock is nullptr!");
+        hcomm::CHECK_NULLPTR(loopBlock, "[CcuRepLoopCall::Translate] LoopBlock is nullptr!");
 
         if (!loopBlock->Translated()) {
-            Hccl::THROW<Hccl::CcuApiException>("Reference To Invalid LoopBlock");
+            hcomm::THROW<hcomm::CcuApiException>("Reference To Invalid LoopBlock");
         }
 
         instrId += InstrCount();
@@ -108,7 +105,7 @@ namespace CcuRep {
         return translated;
     }
 
-    std::string CcuRepLoopCall::Describe() { return Hccl::StringFormat("LoopCall[%s]", label.c_str()); }
+    std::string CcuRepLoopCall::Describe() { return hcomm::StringFormat("LoopCall[%s]", label.c_str()); }
 
 }; // namespace CcuRep
 }; // namespace hcomm

@@ -6,9 +6,6 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
@@ -35,8 +32,8 @@ namespace CcuRep {
         translated = true;
 
         CHK_RET_THROW(
-            Hccl::CcuApiException,
-            Hccl::StringFormat(
+            hcomm::CcuApiException,
+            hcomm::StringFormat(
                 "[CcuRepLoadArg][%s] failed to translate repLoadArg for instrId[%u] ", __func__, instrId),
             insGeneratorPtr_->CcuRepLoadArgTranslate(ccuKernel, instr, instrId, this, dep));
 
@@ -47,7 +44,7 @@ namespace CcuRep {
 
     std::string CcuRepLoadArg::Describe()
     {
-        return Hccl::StringFormat("Variable[%u] = Arg[%u] (slot=%u)", var.Id(), fullArgId, argId);
+        return hcomm::StringFormat("Variable[%u] = Arg[%u] (slot=%u)", var.Id(), fullArgId, argId);
     }
 
 }; // namespace CcuRep

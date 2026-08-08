@@ -10,9 +10,6 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
 namespace hcomm {
@@ -130,13 +127,13 @@ namespace CcuRep {
         CHK_PRT_THROW(
             (tmpPtrV1 && !supportCcuV1),
             HCCL_ERROR("[CcuRepSub][%s]Cannot translate CcuRepSub for A5 when supportCcuV1 is false", __func__),
-            Hccl::CcuApiException, "tmpPtrV1 does not match supportCcuV1");
+            hcomm::CcuApiException, "tmpPtrV1 does not match supportCcuV1");
     }
 
     bool CcuRepSub::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
     {
         ValidateInsGenPtrForSub();
-        Hccl::CHECK_NULLPTR(instr, "[CcuRepSub::Translate] instr is nullptr!");
+        hcomm::CHECK_NULLPTR(instr, "[CcuRepSub::Translate] instr is nullptr!");
         this->instrId = instrId;
         translated = true;
 
@@ -147,7 +144,7 @@ namespace CcuRep {
             HCCL_ERROR(
                 "[CcuRepSub::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instrId,
                 instrCount),
-            Hccl::InternalException, "integer overflow");
+            hcomm::InternalException, "integer overflow");
         instrId += instrCount;
 
         return translated;
@@ -157,39 +154,39 @@ namespace CcuRep {
     {
         switch (subType) {
             case MinusSubType::VAR_MINUS_VAR_TO_VAR: {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "Variable[%u] = Variable[%u] - Variable[%u]", varC.Id(), varA.Id(), varB.Id());
             }
             case MinusSubType::VAR_MINUS_IMMED_TO_VAR: {
-                return Hccl::StringFormat("Variable[%u] = Variable[%u] - Immed[%u]", varC.Id(), varA.Id(), immedB);
+                return hcomm::StringFormat("Variable[%u] = Variable[%u] - Immed[%u]", varC.Id(), varA.Id(), immedB);
             }
             case MinusSubType::SELF_SUB_VAR_VARIABLE: {
-                return Hccl::StringFormat("Variable[%u] -= Variable[%u]", varA.Id(), varB.Id());
+                return hcomm::StringFormat("Variable[%u] -= Variable[%u]", varA.Id(), varB.Id());
             }
             case MinusSubType::SELF_SUB_IMMED_VARIABLE: {
-                return Hccl::StringFormat("Variable[%u] -= Immed[%u]", varA.Id(), immedB);
+                return hcomm::StringFormat("Variable[%u] -= Immed[%u]", varA.Id(), immedB);
             }
             case MinusSubType::ADDR_MINUS_VAR_TO_ADDR: {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "address[%u] = address[%u] - Variable[%u]", addrC.Id(), addrA.Id(), varB.Id());
             }
             case MinusSubType::ADDR_MINUS_IMMED_TO_ADDR: {
-                return Hccl::StringFormat("address[%u] = address[%u] - Immed[%u]", addrC.Id(), addrA.Id(), immedB);
+                return hcomm::StringFormat("address[%u] = address[%u] - Immed[%u]", addrC.Id(), addrA.Id(), immedB);
             }
             case MinusSubType::SELF_SUB_VAR_ADDRESS: {
-                return Hccl::StringFormat("address[%u] -= Variable[%u]", addrA.Id(), varB.Id());
+                return hcomm::StringFormat("address[%u] -= Variable[%u]", addrA.Id(), varB.Id());
             }
             case MinusSubType::SELF_SUB_IMMED_ADDRESS: {
-                return Hccl::StringFormat("address[%u] -= Immed[%u]", addrA.Id(), immedB);
+                return hcomm::StringFormat("address[%u] -= Immed[%u]", addrA.Id(), immedB);
             }
             case MinusSubType::VAR_MINUS_IMMED_TO_ADDR: {
-                return Hccl::StringFormat("address[%u] = Variable[%u] - Immed[%u]", addrC.Id(), varA.Id(), immedB);
+                return hcomm::StringFormat("address[%u] = Variable[%u] - Immed[%u]", addrC.Id(), varA.Id(), immedB);
             }
             case MinusSubType::ADDR_MINUS_IMMED_TO_VAR: {
-                return Hccl::StringFormat("Variable[%u] = address[%u] - Immed[%u]", varC.Id(), addrA.Id(), immedB);
+                return hcomm::StringFormat("Variable[%u] = address[%u] - Immed[%u]", varC.Id(), addrA.Id(), immedB);
             }
             default: {
-                return Hccl::StringFormat("Invalid Sub");
+                return hcomm::StringFormat("Invalid Sub");
             }
         }
     }
