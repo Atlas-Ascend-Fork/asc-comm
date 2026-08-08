@@ -11,8 +11,15 @@
 #ifndef CCU_LOG_H
 #define CCU_LOG_H
 
+#ifdef ASCCOMM_CCU_DATAPLANE_COMPAT_H
+#include "asccomm_log.h"
+#include "asccomm_exception.h"
+#define CCU_EXCEPTION_TO_RESULT(func_name) ::hcomm::ExceptionHandler::HandleException(func_name)
+#else
 #include "log.h"
 #include "exception_handler.h"
+#define CCU_EXCEPTION_TO_RESULT(func_name) hccl::ExceptionHandler::HandleException(func_name)
+#endif
 
 #define HCCL_TO_CCU_RET(hcclRet) static_cast<CcuResult>(hcclRet)
 
@@ -48,7 +55,7 @@
 #define CCU_EXCEPTION_HANDLE_BEGIN try {
 #define CCU_EXCEPTION_HANDLE_END_INFO(func_name) \
     }                                            \
-    catch (...) { return HCCL_TO_CCU_RET(hccl::ExceptionHandler::HandleException(func_name)); }
+    catch (...) { return HCCL_TO_CCU_RET(CCU_EXCEPTION_TO_RESULT(func_name)); }
 
 #define CCU_EXCEPTION_HANDLE_END CCU_EXCEPTION_HANDLE_END_INFO(__func__)
 

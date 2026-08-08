@@ -11,9 +11,6 @@
 #include "hcomm/resource/representation/reps/data/ccu_rep_read_v1.h"
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
-#include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm_c_adpt.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
@@ -62,7 +59,7 @@ bool CcuRepRead::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& ins
 
 std::string CcuRepRead::Describe()
 {
-    return Hccl::StringFormat(
+    return hcomm::StringFormat(
         "Read LocalAddr[%u] To RemoteAddr[%u], length[%u], set sem[%u] with mask[%04x], dataType[%u], opType[%u]",
         rem.addr.Id(), loc.addr.Id(), len.Id(), sem.Id(), mask, dataType, opType);
 }

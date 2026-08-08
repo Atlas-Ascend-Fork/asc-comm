@@ -6,12 +6,10 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generator_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-#include "ccu_api_exception.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -70,14 +68,14 @@ namespace CcuRep {
         CcuInsGeneratorV1* tmpPtrV1 = dynamic_cast<CcuInsGeneratorV1*>(insGenPtr);
         if (tmpPtrV1 && useCcuBuffer) {
             // 使用了A6场景的ms中转搬运
-            Hccl::THROW<Hccl::CcuApiException>("Cannot translate CcuRepLocCpy for A5 when useCcuBuffer is true!");
+            hcomm::THROW<hcomm::CcuApiException>("Cannot translate CcuRepLocCpy for A5 when useCcuBuffer is true!");
         }
     }
 
     uint16_t CcuRepLocCpy::GetFirstBufId()
     {
         if (bufs.size() == 0) {
-            Hccl::THROW<Hccl::CcuApiException>("The length of CcuBuffer is 0!");
+            hcomm::THROW<hcomm::CcuApiException>("The length of CcuBuffer is 0!");
         }
         return bufs[0].Id();
     }
@@ -99,7 +97,7 @@ namespace CcuRep {
 
     std::string CcuRepLocCpy::Describe()
     {
-        return Hccl::StringFormat(
+        return hcomm::StringFormat(
             "Read LocalAddr[%u] to LocalAddr[%u], length[%u], set sem[%u] with mask[%04x], dataType[%u], opType[%u]",
             src.addr.Id(), dst.addr.Id(), len.Id(), sem.Id(), mask, dataType, opType);
     }

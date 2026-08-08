@@ -10,7 +10,6 @@
 #include <unordered_map>
 
 #include "log.h"
-#include <string_util.h>
 
 namespace {
 constexpr uint16_t LOAD_TYPE = 0x0;
@@ -631,7 +630,7 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.loadSqeArgsToX.setCKEMask;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Load SqeArg[%u] to Xn[%u], Set CKE[%u:%04x]", sqeArgsId, xnId, setCKEId, setCKEMask);
         }
 
@@ -643,7 +642,7 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.loadImdToX.setCKEMask;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Load immediate[%llu] to Xn[%u], Set CKE[%u:%04x]", immediate, xnId, setCKEId, setCKEMask);
         }
 
@@ -655,14 +654,14 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.clearX.setCKEMask;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "CleanX: xnId[%u] to xmId[%u], Set CKE[%u:%04x]", xnId, xmId, setCKEId, setCKEMask);
         }
 
         std::string ParseNop(const CcuInstr* instr)
         {
             (void)instr;
-            return Hccl::StringFormat("Nop");
+            return hcomm::StringFormat("Nop");
         }
 
         std::string ParseAdd(const CcuInstr* instr)
@@ -676,11 +675,11 @@ namespace CcuRep {
 
             // 使用 StringFormat 格式化字符串
             if (instr->v2.operate.parMode == 0) {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "AddI:xdId[%u] = xnId[%u] + immediata[%u], Set CKE[%u:%04x], parMode[%u]", xdId, xnId, xmId,
                     setCKEId, setCKEMask, parMode);
             } else {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "Add:xdId[%u] = xnId[%u] + xmId[%u], Set CKE[%u:%04x], parMode[%u]", xdId, xnId, xmId, setCKEId,
                     setCKEMask, parMode);
             }
@@ -697,11 +696,11 @@ namespace CcuRep {
 
             // 使用 StringFormat 格式化字符串
             if (instr->v2.operate.parMode == 0) {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "SubI:xdId[%u] = xnId[%u] - immediata[%u], Set CKE[%u:%04x], parMode[%u]", xdId, xnId, xmId,
                     setCKEId, setCKEMask, parMode);
             } else {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "Sub:xdId[%u] = xnId[%u] - xmId[%u], Set CKE[%u:%04x], parMode[%u]", xdId, xnId, xmId, setCKEId,
                     setCKEMask, parMode);
             }
@@ -718,11 +717,11 @@ namespace CcuRep {
 
             // 使用 StringFormat 格式化字符串
             if (instr->v2.operate.parMode == 0) {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "MulI:xdId[%u] = xnId[%u] * immediata[%u], Set CKE[%u:%04x], parMode[%u]", xdId, xnId, xmId,
                     setCKEId, setCKEMask, parMode);
             } else {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "Mul:xdId[%u] = xnId[%u] * xmId[%u], Set CKE[%u:%04x], parMode[%u]", xdId, xnId, xmId, setCKEId,
                     setCKEMask, parMode);
             }
@@ -737,7 +736,7 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.operate.setCKEMask;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "And:xdId[%u] = xnId[%u] & xmId[%u], Set CKE[%u:%04x]", xdId, xnId, xmId, setCKEId, setCKEMask);
         }
 
@@ -750,7 +749,7 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.operate.setCKEMask;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Or:xdId[%u] = xnId[%u] | xmId[%u], Set CKE[%u:%04x]", xdId, xnId, xmId, setCKEId, setCKEMask);
         }
 
@@ -763,7 +762,7 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.operate.setCKEMask;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Xor:xdId[%u] = xnId[%u] ^ xmId[%u], Set CKE[%u:%04x]", xdId, xnId, xmId, setCKEId, setCKEMask);
         }
 
@@ -775,7 +774,7 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.operate.setCKEMask;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat("Not:xdId[%u] = ~xnId[%u], Set CKE[%u:%04x]", xdId, xnId, setCKEId, setCKEMask);
+            return hcomm::StringFormat("Not:xdId[%u] = ~xnId[%u], Set CKE[%u:%04x]", xdId, xnId, setCKEId, setCKEMask);
         }
 
         std::string ParseShl(const CcuInstr* instr)
@@ -789,11 +788,11 @@ namespace CcuRep {
 
             // 使用 StringFormat 格式化字符串
             if (shiftType == 0) {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "logic left shift:xdId[%u] = xnId[%u] << xmId[%u], Set CKE[%u:%04x]", xdId, xnId, xmId, setCKEId,
                     setCKEMask);
             } else {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "arithmetic left shift:xdId[%u] = xnId[%u] << xmId[%u], Set CKE[%u:%04x]", xdId, xnId, xmId,
                     setCKEId, setCKEMask);
             }
@@ -810,11 +809,11 @@ namespace CcuRep {
 
             // 使用 StringFormat 格式化字符串
             if (shiftType == 0) {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "logic right shift:xdId[%u] = xnId[%u] >> xmId[%u], Set CKE[%u:%04x]", xdId, xnId, xmId, setCKEId,
                     setCKEMask);
             } else {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "arithmetic right shift:xdId[%u] = xnId[%u] >> xmId[%u], Set CKE[%u:%04x]", xdId, xnId, xmId,
                     setCKEId, setCKEMask);
             }
@@ -832,7 +831,7 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.load.setCKEMask;
             uint16_t dstType = instr->v2.load.dstType;
 
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "LoadFromMem: xdId[%u] xsId[%u] xstId[%u] xlId[%u], allocHint[%u], victimHint[%u], setCKEId[%u], "
                 "setCKEMask[%u] dstType[%u]",
                 xdId, xsId, xstId, xlId, allocHint, victimHint, setCKEId, setCKEMask, dstType);
@@ -855,7 +854,7 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.store.setCKEMask;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "StoreXToMem: xdId[%u] xdtId[%u], xsId[%u], xlId[%u], xhId[%u], srcType[%u], allocHint[%u], "
                 "victimHint[%u], storeType[%u], hscbType[%u], hscbBroadCastDstType[%u], set CKE[%u:%04x]",
                 xdId, xdtId, xsId, xlId, xhId, srcType, allocHint, victimHint, storeType, hscbType,
@@ -873,7 +872,7 @@ namespace CcuRep {
             uint16_t mode = instr->v2.loop.mode;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Loop From startInstrId[%u] to endInstrId[%u] with iterNumXn[%u], OffsetXn[%u], ContextIdXn[%u],"
                 "wishCKEBit[%u], mode[%u]",
                 startInstrId, endInstrId, xmId, xnId, xpId, wishCKEBit, mode);
@@ -887,7 +886,7 @@ namespace CcuRep {
             uint16_t xpId = instr->v2.loopGroup.xpId;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "LoopGroup From startLoopInstrId[%u] with loopGroupXn[%u], resOffsetXn[%u], xnOffset[%u]",
                 startLoopInstrId, xnId, xmId, xpId);
         }
@@ -900,7 +899,7 @@ namespace CcuRep {
             uint16_t conditionType = instr->v2.jmp.conditionType;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "When conditionXn[%u] condition with[%u] expectedXn[%u], Jump To RelInstrIdXn[%u]", conditionXnId,
                 conditionType, expectedXnId, relTarInstrXnId);
         }
@@ -912,14 +911,14 @@ namespace CcuRep {
             uint16_t conditionType = instr->v2.wait.conditionType;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Wait conditionXn[%u] condition with[%u] expectedXn[%u]", conditionXnId, conditionType, expectedXnId);
         }
 
         std::string ParseFence(const CcuInstr* instr)
         {
             (void)instr;
-            return Hccl::StringFormat("Fence");
+            return hcomm::StringFormat("Fence");
         }
 
         std::string ParseSetCKE(const CcuInstr* instr)
@@ -932,7 +931,7 @@ namespace CcuRep {
             uint64_t userData = instr->v2.setCKE.userData;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Wait CKE[%u:%04x], Set CKE[%u:%04x], clearType[%u], userData[%llu]", waitCKEId, waitCKEMask, setCKEId,
                 setCKEMask, clearType, userData);
         }
@@ -946,7 +945,7 @@ namespace CcuRep {
             uint16_t clearType = instr->v2.clearCKE.clearType & 0x1;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Wait CKE[%u:%04x], Clear CKE[%u:%04x], clearType[%u]", waitCKEId, waitCKEMask, clearCKEId, clearMask,
                 clearType);
         }
@@ -964,7 +963,7 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.transLocMemToLocMS.setCKEMask;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Trans LocMem[%u:%u] To LocMS[%u] With LengthXn[%u], Offset[%u], Set CKE[%u:%04x], "
                 "allocHint[%u], victimHint[%u]",
                 src, srcToken, ms, len, offset, setCKEId, setCKEMask, allocHint, victimHint);
@@ -983,7 +982,7 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.transLocMSToLocMem.setCKEMask;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Trans LocMS[%u] To LocMem[%u:%u] With LengthXn[%u], Offset[%u], Set CKE[%u:%04x], "
                 "allocHint[%u], victimHint[%u]",
                 ms, dst, dstToken, len, offset, setCKEId, setCKEMask, allocHint, victimHint);
@@ -1008,7 +1007,7 @@ namespace CcuRep {
             uint16_t setCKEMask = instr->v2.transLocMemToLocMem.setCKEMask;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Trans LocMem[%u:%u] To LocMem[%u:%u] With Length[%u], Set CKE[%u:%04x], usedMSId[%u], msNum[%u],"
                 "srcAllocHint[%u], srcVictimHint[%u], dstAllocHint[%u], dstVictimHint[%u]",
                 src, srcToken, dst, dstToken, len, setCKEId, setCKEMask, usedMSId, msNum, srcAllocHint, srcVictimHint,
@@ -1051,7 +1050,7 @@ namespace CcuRep {
             uint16_t msIdMode = instr->v2.transMem.msIdMode;
 
             // 使用 StringFormat 格式化字符串
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Trans Mem[%u:%u] To Mem[%u:%u] With Len[%u] Use Channel[%u] Set CKE[%u:%04x], notifyXnId[%u], "
                 "notifyXntId[%u], notifyValue[%u], reduceUdfType[%u], reduceDataType[%u], reduceOpCode[%u], "
                 "configOpCode[%u], Order[%u], Fence[%u], Cqe[%u], Nf[%u], UdfEnable[%u], SplitMode[%u], Se[%u], "
@@ -1081,12 +1080,12 @@ namespace CcuRep {
 
             // 使用 StringFormat 格式化字符串
             if (hasNotify) {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "Sync Xn[%u] To Mem[%u:%u] Use ChannelXn[%u], with notify[%u:%u:%04x], and Set CKE[%u:%04x], "
                     "parMode[%u]",
                     xn, dst, dstToken, channelId, notifyXnId, notifyXntId, notifyValue, setCKEId, setCKEMask, parMode);
             } else {
-                return Hccl::StringFormat(
+                return hcomm::StringFormat(
                     "Sync Xn[%u] To Mem[%u:%u] Use ChannelXn[%u], and Set CKE[%u:%04x], parMode[%u]", xn, dst, dstToken,
                     channelId, setCKEId, setCKEMask, parMode);
             }
@@ -1102,7 +1101,7 @@ namespace CcuRep {
             uint16_t setCKEId = instr->v2.syncAtX.setCKEId;
             uint16_t setCKEMask = instr->v2.syncAtX.setCKEMask;
 
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Atomic Sync xsId[%u] To Mem[%u:%u] Use ChannelXn[%u], parMode[%u], setCKEId[%u:%04x]", xsId, xdId,
                 xdtId, xcId, parMode, setCKEId, setCKEMask);
         }
@@ -1130,7 +1129,7 @@ namespace CcuRep {
             uint16_t setCKEId = instr->v2.reduce.setCKEId;
             uint16_t setCKEMask = instr->v2.reduce.setCKEMask;
 
-            return Hccl::StringFormat(
+            return hcomm::StringFormat(
                 "Reduce %s, count[%u], reduceType[%u], castEn[%u] and dataType[%u], Set CKE[%u:%04x]",
                 ParseMSListV2(instr->v2.reduce.msId, count).c_str(), count, reduceType, castEn, dataType, setCKEId,
                 setCKEMask);

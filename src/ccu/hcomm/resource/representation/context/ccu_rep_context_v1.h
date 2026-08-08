@@ -16,17 +16,46 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 
 #include "hcomm/common/ccu_common.h"
-#include "task_param.h"
 
 namespace hcomm {
 constexpr uint16_t CCU_MAX_CHANNEL_NUM = 16;                    // 最多16条link
 constexpr uint16_t INVALID_CKE_ID = 0xFFFF;                     // CKE ID非法值
 constexpr uint16_t INVALID_VALUE_CHANNELID = 0xFFFF;            // channel id非法值
 constexpr uint64_t INVALID_VALUE_NOTIFYID = 0xFFFFFFFFFFFFFFFF; // NOTIFY id非法值
+constexpr uint32_t INVALID_VALUE_RANKID = 0xFFFFFFFF;           // rank id非法值
 
 enum class CcuProfilinType { CCU_TASK_PROFILING, CCU_WAITCKE_PROFILING, CCU_LOOPGROUP_PROFILING, CCU_MAP_PROFILING };
 
-using CcuProfilingInfo = Hccl::CcuProfilingInfo;
+/*!
+ * \brief asc-comm 内部 CCU profiling 信息（不再依赖 hcomm 私有 Hccl::CcuProfilingInfo）。
+ *        字段与 hcomm legacy CcuProfilingInfo 对齐；跨 SO 边界时由 ccu_launch 转成
+ *        HcommCcuProfileDetailPod（POD，name 改定长 char[64]）。
+ */
+struct CcuProfilingInfo {
+    std::string name;
+    uint8_t  type{0};
+    uint8_t  dieId{0};
+    uint8_t  missionId{0};
+    uint16_t instrId{0};
+    uint8_t  reduceOpType{0};
+    uint8_t  inputDataType{0};
+    uint8_t  outputDataType{0};
+    uint64_t dataSize{0};
+    uint32_t ckeId{0};
+    uint32_t mask{0};
+    uint16_t channelId[CCU_MAX_CHANNEL_NUM];
+    uint32_t remoteRankId[CCU_MAX_CHANNEL_NUM];
+    uint64_t channelHandle[CCU_MAX_CHANNEL_NUM];
+
+    CcuProfilingInfo()
+    {
+        for (uint32_t i = 0; i < CCU_MAX_CHANNEL_NUM; ++i) {
+            channelId[i] = INVALID_VALUE_CHANNELID;
+            remoteRankId[i] = INVALID_VALUE_RANKID;
+            channelHandle[i] = INVALID_VALUE_NOTIFYID;
+        }
+    }
+};
 namespace CcuRep {
 
     struct LoopGroupProfilingInfo {
