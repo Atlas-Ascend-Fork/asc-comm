@@ -559,45 +559,28 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle 
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetQueueIndexAddrs(
-    ChannelHandle channel, QueueIndexAddrs& addrs)
-{
-    if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
-        KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA invalid channel=%lu \n", channel);
-        return false;
-    }
-    addrs.channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
-    auto sqCtx = addrs.channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    auto cqCtx = addrs.channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    addrs.sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr);
-    addrs.cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr);
-    addrs.cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr);
-    return true;
-}
-
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle channel)
 {
-    QueueIndexAddrs addrs;
-    if (!GetQueueIndexAddrs(channel, addrs)) {
-        return HCOMM_FAILED;
-    }
-
-    addrs.channelEntity->sqHead = static_cast<uint32_t>(ld_dev(addrs.sqHeadAddr, 0));
-    addrs.channelEntity->cqHead = static_cast<uint32_t>(ld_dev(addrs.cqHeadAddr, 0));
-    addrs.channelEntity->cqTail = static_cast<uint32_t>(ld_dev(addrs.cqTailAddr, 0));
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    channelEntity->sqHead = static_cast<uint32_t>(
+        ld_dev(reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr), 0));
+    channelEntity->cqHead = static_cast<uint32_t>(
+        ld_dev(reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr), 0));
+    channelEntity->cqTail = static_cast<uint32_t>(
+        ld_dev(reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr), 0));
     return HCOMM_SUCCESS;
 }
 
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Unlock(ChannelHandle channel)
 {
-    QueueIndexAddrs addrs;
-    if (!GetQueueIndexAddrs(channel, addrs)) {
-        return HCOMM_FAILED;
-    }
-
-    st_dev(addrs.channelEntity->sqHead, addrs.sqHeadAddr, 0);
-    st_dev(addrs.channelEntity->cqHead, addrs.cqHeadAddr, 0);
-    st_dev(addrs.channelEntity->cqTail, addrs.cqTailAddr, 0);
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    st_dev(channelEntity->sqHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr), 0);
+    st_dev(channelEntity->cqHead, reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr), 0);
+    st_dev(channelEntity->cqTail, reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr), 0);
     return HCOMM_SUCCESS;
 }
 
