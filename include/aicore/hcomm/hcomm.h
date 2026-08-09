@@ -232,6 +232,24 @@ public:
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
+    /*!
+     * @class Hcomm
+     * @brief Load shared queue indices into the specified channel before accessing the shared queue.
+     * @param [in] channel: The handle of the communication channel.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note Call Unlock with the same channel after the access is complete.
+     */
+    __aicore__ inline int32_t Lock(ChannelHandle channel);
+
+    /*!
+     * @class Hcomm
+     * @brief Store the specified channel's queue indices after accessing the shared queue.
+     * @param [in] channel: The handle of the communication channel.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note It must be called with the same channel after a successful Lock.
+     */
+    __aicore__ inline int32_t Unlock(ChannelHandle channel);
+
 private:
     HcommImpl<commProtocol> impl_;
 };
