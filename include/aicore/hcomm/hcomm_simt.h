@@ -71,6 +71,10 @@ public:
     // context points to a caller-owned 128-byte UB region. Its internal layout
     // is private to Hcomm and must not be accessed by the caller.
     __simt_callee__ inline void BindUbPostContext(__ubuf__ uint8_t* context);
+    // cache points to an opaque caller-owned UB array with one 32-byte entry per lane.
+    // Hcomm maps the calling lane to its own entry, so different lanes never update
+    // the same remote-registration cache state.
+    __simt_callee__ inline int32_t BindUbRemoteCache(__ubuf__ uint8_t* cache, uint32_t len);
     // One lane initializes the bound context; the caller synchronizes the block
     // before any lane posts through it.
     __simt_callee__ inline int32_t InitUbPostContext(ChannelHandle channel);

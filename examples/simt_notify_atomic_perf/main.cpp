@@ -399,6 +399,7 @@ int main(int argc, char* argv[])
                   << "RESULT | Path="
                   << resultPath
                   << " | API=notify"
+                  << " | RemoteCache=" << (useSimt ? "PerLaneUB" : "N/A")
                   << " | DataSize/B=" << payloadBytes
                   << " | Npus=" << nranks
                   << " | WqeCount=" << iterations

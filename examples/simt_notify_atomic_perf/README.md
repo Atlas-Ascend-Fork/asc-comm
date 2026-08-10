@@ -2,6 +2,7 @@
 
 本样例按 `udma_perftest --metric lat` 和 DesignDocs 第10节的口径，统计单 QP 下“填写 WQE + 敲 DB”的耗时；同时额外记录从开始提交到正式测试 `Drain` 返回的完成耗时和完成带宽。
 
+SIMT 路径为每个 lane 分配独立的 128B WQE 暂存区和 32B 远端注册缓存，并由一个 block 共享只读的 channel/SQ context。日志中的 `RemoteCache=PerLaneUB` 表示远端地址范围与 token 缓存已经启用；缓存命中时可跳过重复的 registered-buffer 查找和 token GM 读取。
 
 当前支持：
 

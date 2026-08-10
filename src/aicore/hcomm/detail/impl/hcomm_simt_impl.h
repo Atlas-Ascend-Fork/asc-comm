@@ -50,6 +50,12 @@ __simt_callee__ inline void Hcomm<commProtocol>::BindUbPostContext(__ubuf__ uint
 }
 
 template <CommProtocol commProtocol>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::BindUbRemoteCache(__ubuf__ uint8_t* cache, uint32_t len)
+{
+    return impl_.BindUbRemoteCache(cache, len);
+}
+
+template <CommProtocol commProtocol>
 __simt_callee__ inline int32_t Hcomm<commProtocol>::InitUbPostContext(ChannelHandle channel)
 {
     return impl_.InitUbPostContext(channel);

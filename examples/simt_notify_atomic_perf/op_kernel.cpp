@@ -25,6 +25,8 @@ constexpr uint32_t kCompletedIndex = 2U;
 constexpr uint32_t kCompletionCyclesIndex = 3U;
 constexpr uint32_t kNotifyAlignment = sizeof(uint64_t);
 constexpr uint32_t kWqeStagingWords = 128U / sizeof(uint64_t);
+// Opaque per-lane remote-registration cache required by BindUbRemoteCache.
+constexpr uint32_t kRemoteCacheWords = 32U / sizeof(uint64_t);
 constexpr uint32_t kDwqeBatchStateWords = 4U;
 // Hcomm owns the layout; the benchmark only supplies an opaque 128-byte UB region.
 constexpr uint32_t kPostContextWords = 128U / sizeof(uint64_t);
@@ -49,6 +51,7 @@ __simt_vf__ __launch_bounds__(32) inline void SimtNotifyPerfVf(
     __gm__ uint64_t *timing, uint32_t payloadBytes,
     uint32_t iterations, uint32_t warmup,
     __ubuf__ uint8_t *wqeStaging, uint32_t wqeStagingBytes,
+    __ubuf__ uint8_t *remoteCache, uint32_t remoteCacheBytes,
     __ubuf__ uint8_t *postContext)
 {
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
@@ -60,7 +63,11 @@ __simt_vf__ __launch_bounds__(32) inline void SimtNotifyPerfVf(
     uint32_t notifyOffset =
         (payloadBytes + kNotifyAlignment - 1U) & ~(kNotifyAlignment - 1U);
     AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init(wqeStaging, wqeStagingBytes) != 0) {
+    int32_t initStatus = hcomm.Init(wqeStaging, wqeStagingBytes);
+    if (initStatus == 0) {
+        initStatus = hcomm.BindUbRemoteCache(remoteCache, remoteCacheBytes);
+    }
+    if (initStatus != 0) {
         timing[kCyclesIndex] = 0U;
         timing[kDrainStatusIndex] = static_cast<uint64_t>(-1);
         timing[kCompletedIndex] = 0U;
@@ -110,11 +117,14 @@ __simt_vf__ __launch_bounds__(32) inline void SimtNotifyPerfVf(
 // 1..N-1 defer their WQEs, then lane 0 posts the final immediate WQE and rings
 // one DWQE doorbell for the whole group.
 template <uint32_t kLaneCount>
-__simt_vf__ __launch_bounds__(1024) inline void SimtNotifyBatchPerfVf(
+__simt_vf__ __launch_bounds__(kLaneCount) inline void SimtNotifyBatchPerfVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
     __gm__ uint64_t *timing, uint32_t payloadBytes,
     uint32_t iterations, uint32_t warmup,
-    __ubuf__ uint32_t *batchState)
+    __ubuf__ uint8_t *wqeStaging, uint32_t wqeStagingBytes,
+    __ubuf__ uint8_t *remoteCache, uint32_t remoteCacheBytes,
+    __ubuf__ uint32_t *batchState,
+    __ubuf__ uint8_t *postContext)
 {
     if (threadIdx.x >= kLaneCount || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
@@ -125,7 +135,32 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyBatchPerfVf(
     uint32_t notifyOffset =
         (payloadBytes + kNotifyAlignment - 1U) & ~(kNotifyAlignment - 1U);
     uint32_t lane = threadIdx.x;
+    if (wqeStagingBytes < kLaneCount * 128U || remoteCacheBytes < kLaneCount * 32U) {
+        if (lane == 0U) {
+            timing[kCyclesIndex] = 0U;
+            timing[kDrainStatusIndex] = static_cast<uint64_t>(-1);
+            timing[kCompletedIndex] = 0U;
+            timing[kCompletionCyclesIndex] = 0U;
+        }
+        return;
+    }
     AscendC::simt::Hcomm<> hcomm;
+    (void)hcomm.Init(wqeStaging, wqeStagingBytes);
+    (void)hcomm.BindUbRemoteCache(remoteCache, remoteCacheBytes);
+    hcomm.BindUbPostContext(postContext);
+    if (lane == 0U) {
+        batchState[0] = static_cast<uint32_t>(hcomm.InitUbPostContext(channel));
+    }
+    asc_syncthreads();
+    if (static_cast<int32_t>(batchState[0]) != 0) {
+        if (lane == 0U) {
+            timing[kCyclesIndex] = 0U;
+            timing[kDrainStatusIndex] = static_cast<uint64_t>(kPostContextInitFailed);
+            timing[kCompletedIndex] = 0U;
+            timing[kCompletionCyclesIndex] = 0U;
+        }
+        return;
+    }
 
     uint32_t warmupGroups = (warmup + kLaneCount - 1U) / kLaneCount;
     for (uint32_t group = 0U; group < warmupGroups; ++group) {
@@ -217,11 +252,13 @@ extern "C" __global__ __vector__ void SimtNotifyPerf(
     uint32_t iterations, uint32_t warmup)
 {
     alignas(128) __ubuf__ uint64_t wqeStaging[kWqeStagingWords];
+    alignas(32) __ubuf__ uint64_t remoteCacheStorage[kRemoteCacheWords];
     alignas(128) __ubuf__ uint64_t postContextStorage[kPostContextWords];
     asc_vf_call<SimtNotifyPerfVf>(
         dim3(1), channel, sendBufIdx, recvBufIdx,
         reinterpret_cast<__gm__ uint64_t *>(timing), payloadBytes,
         iterations, warmup, (__ubuf__ uint8_t *)wqeStaging, sizeof(wqeStaging),
+        (__ubuf__ uint8_t *)remoteCacheStorage, sizeof(remoteCacheStorage),
         (__ubuf__ uint8_t *)postContextStorage);
 }
 
@@ -238,11 +275,16 @@ extern "C" __global__ __vector__ void SimtNotifyBatchPerf32(
     __gm__ void *timing, uint32_t payloadBytes,
     uint32_t iterations, uint32_t warmup)
 {
+    __ubuf__ uint64_t wqeStaging[kWqeStagingWords * 32U];
+    alignas(32) __ubuf__ uint64_t remoteCacheStorage[kRemoteCacheWords * 32U];
     __ubuf__ uint32_t batchState[kDwqeBatchStateWords];
+    __ubuf__ uint64_t postContextStorage[kPostContextWords];
     asc_vf_call<SimtNotifyBatchPerfVf<32U>>(
         dim3(32), channel, sendBufIdx, recvBufIdx,
         reinterpret_cast<__gm__ uint64_t *>(timing), payloadBytes,
-        iterations, warmup, batchState);
+        iterations, warmup, (__ubuf__ uint8_t *)wqeStaging, sizeof(wqeStaging),
+        (__ubuf__ uint8_t *)remoteCacheStorage, sizeof(remoteCacheStorage), batchState,
+        (__ubuf__ uint8_t *)postContextStorage);
 }
 
 extern "C" __global__ __vector__ void SimtNotifyBatchPerf1024(
@@ -250,11 +292,16 @@ extern "C" __global__ __vector__ void SimtNotifyBatchPerf1024(
     __gm__ void *timing, uint32_t payloadBytes,
     uint32_t iterations, uint32_t warmup)
 {
+    __ubuf__ uint64_t wqeStaging[kWqeStagingWords * 1024U];
+    alignas(32) __ubuf__ uint64_t remoteCacheStorage[kRemoteCacheWords * 1024U];
     __ubuf__ uint32_t batchState[kDwqeBatchStateWords];
+    __ubuf__ uint64_t postContextStorage[kPostContextWords];
     asc_vf_call<SimtNotifyBatchPerfVf<1024U>>(
         dim3(1024), channel, sendBufIdx, recvBufIdx,
         reinterpret_cast<__gm__ uint64_t *>(timing), payloadBytes,
-        iterations, warmup, batchState);
+        iterations, warmup, (__ubuf__ uint8_t *)wqeStaging, sizeof(wqeStaging),
+        (__ubuf__ uint8_t *)remoteCacheStorage, sizeof(remoteCacheStorage), batchState,
+        (__ubuf__ uint8_t *)postContextStorage);
 }
 
 void LaunchSimtNotifyBatchPerf(
