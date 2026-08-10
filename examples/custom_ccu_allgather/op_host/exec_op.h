@@ -8,23 +8,15 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCL_CUSTOM_ALLGATHER_H
-#define HCCL_CUSTOM_ALLGATHER_H
+#ifndef OPS_HCCL_ALLGATHER_EXEC_OP_H
+#define OPS_HCCL_ALLGATHER_EXEC_OP_H
 
-#include <acl/acl.h>
-#include <hccl/hccl_comm.h>
-#include <hccl/hccl_res.h>
-#include <hccl/hccl_types.h>
+#include "alg_resource.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace ops_hccl_ag {
 
-HcclResult HcclAllGatherCustom(
-    void* sendBuf, void* recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm, aclrtStream stream);
+HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx);
 
-#ifdef __cplusplus
-}
-#endif
+} // namespace ops_hccl_ag
 
-#endif // HCCL_CUSTOM_ALLGATHER_H
+#endif // OPS_HCCL_ALLGATHER_EXEC_OP_H

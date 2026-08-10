@@ -16,7 +16,6 @@ target_sources(asccomm_ccu_dataplane_obj PRIVATE
 )
 
 target_sources(asccomm_ccu_dataplane_obj PRIVATE
-    resource/kernel/ccu_kernel_registry_c_adpt.cc
     resource/channel/ccu_channel.cc
     resource/common/asc_ccu_res_snapshot.cc
     resource/common/ccu_var_event_res_mgr.cc
