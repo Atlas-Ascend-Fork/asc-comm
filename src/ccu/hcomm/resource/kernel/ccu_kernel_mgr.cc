@@ -15,7 +15,6 @@
 #include <limits>
 
 #include "string_util.h"
-#include "exception_handler.h"
 #include "adapter_rts.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "hcomm/common/ccu_dev_mem.h"
@@ -670,14 +669,30 @@ HcclResult CcuKernelMgr::TransRepSequenceToMicrocode(const std::vector<CcuKernel
         const uint32_t dieId = kernel->GetDieId();
         const uint32_t missionId = kernel->GetMissionId();
 
-        EXCEPTION_HANDLE_BEGIN
-        const auto& instrInfo = translators[dieId][missionId]->Translate(
-            kernel, kernel->GetRepSequence(), kernel->GetInstrId(), isFuncBlock);
-
-        CHK_RET(LoadInstruction(instrInfo, dieId));
-
-        kernel->SetCcuInstrInfo(instrInfo); // 指令下发成功后可以对kernel进行launch
-        EXCEPTION_HANDLE_END
+        try {
+            const auto& instrInfo = translators[dieId][missionId]->Translate(
+                kernel, kernel->GetRepSequence(), kernel->GetInstrId(), isFuncBlock);
+            CHK_RET(LoadInstruction(instrInfo, dieId));
+            kernel->SetCcuInstrInfo(instrInfo); // 指令下发成功后可以对kernel进行launch
+        } catch (const ::AscendC::ccu::detail::CcuException& exception) {
+            HCCL_ERROR("[%s] exception: %s", __func__, exception.what());
+            return static_cast<HcclResult>(exception.code());
+        } catch (const std::out_of_range& exception) {
+            HCCL_ERROR("[%s] out of range: %s", __func__, exception.what());
+            return HcclResult::HCCL_E_NOT_FOUND;
+        } catch (const std::runtime_error& exception) {
+            HCCL_ERROR("[%s] runtime error: %s", __func__, exception.what());
+            return HcclResult::HCCL_E_RUNTIME;
+        } catch (const std::logic_error& exception) {
+            HCCL_ERROR("[%s] logic error: %s", __func__, exception.what());
+            return HcclResult::HCCL_E_INTERNAL;
+        } catch (const std::exception& exception) {
+            HCCL_ERROR("[%s] exception: %s", __func__, exception.what());
+            return HcclResult::HCCL_E_INTERNAL;
+        } catch (...) {
+            HCCL_ERROR("[%s] unknown exception", __func__);
+            return HcclResult::HCCL_E_INTERNAL;
+        }
     }
 
     return HcclResult::HCCL_SUCCESS;
