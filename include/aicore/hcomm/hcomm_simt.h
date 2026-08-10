@@ -62,10 +62,21 @@ public:
      * @param [in] buff: The UB buffer provided by caller.
      * @param [in] len: The buffer length in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note SIMT assembles WQEs in place in global memory, so both arguments are ignored. The
-     *       signature is kept to mirror the SIMD interface.
+     * @note SIMT assembles WQEs in place in global memory, so both arguments are ignored.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
+
+    // All block lanes call this before one fixed-2BB Notify/FAA/CAS batch.
+    // state points to five shared UB uint32_t values: BB count, CQE count,
+    // base head (low/high), and reservation status. activeWqeCnt must equal
+    // the number of active lanes in this invocation.
+    // The channel must not be posted by another block until commitLane has
+    // committed this batch, because the head update is intentionally delayed.
+    // commitLane is reserved at the batch tail and must post with commit=true;
+    // every other active lane posts with commit=false.
+    __simt_callee__ inline int32_t ReserveDwqeBatch(
+        ChannelHandle channel, __ubuf__ uint32_t* state, bool active,
+        uint32_t activeWqeCnt, uint32_t commitLane);
 
     /*!
      * @brief The task launching interface of the Write point-to-point communication operator.
