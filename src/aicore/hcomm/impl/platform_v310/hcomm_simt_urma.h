@@ -303,8 +303,13 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
     __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
     __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
     __gm__ uint64_t* headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
-    uint64_t headVal = HcommSimtReserve(headAddr, HCOMM_URMA_DWQE_BB_CNT, 1U);
-    uint32_t curHead = HcommSimtHeadIdx(headVal);
+    uint32_t curHead = 0U;
+    if (hasReservedDwqeSlot_) {
+        curHead = reservedDwqeHead_;
+        hasReservedDwqeSlot_ = false;
+    } else {
+        curHead = HcommSimtHeadIdx(HcommSimtReserve(headAddr, HCOMM_URMA_DWQE_BB_CNT, 1U));
+    }
     uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
 
     uint64_t sqBaseAddr = sqCtx->contextInfo.ubJfs.sqVa;
@@ -318,6 +323,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
         nextHead);
     if constexpr (commit) {
         HcommSimtSyncBeforeRing(headAddr, nextHead);
+        if (PublishDwqeBatch(headAddr) != HCOMM_SUCCESS) {
+            return HCOMM_FAILED;
+        }
         HcommSimtRingDwqe(sqCtx, sqeAddr);
     } else {
         asc_threadfence();
@@ -342,8 +350,13 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
     __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
     __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
     __gm__ uint64_t* headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
-    uint64_t headVal = HcommSimtReserve(headAddr, HCOMM_URMA_DWQE_BB_CNT, 1U);
-    uint32_t curHead = HcommSimtHeadIdx(headVal);
+    uint32_t curHead = 0U;
+    if (hasReservedDwqeSlot_) {
+        curHead = reservedDwqeHead_;
+        hasReservedDwqeSlot_ = false;
+    } else {
+        curHead = HcommSimtHeadIdx(HcommSimtReserve(headAddr, HCOMM_URMA_DWQE_BB_CNT, 1U));
+    }
     uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
 
     uint64_t sqBaseAddr = sqCtx->contextInfo.ubJfs.sqVa;
@@ -356,10 +369,113 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
         sqeAddr, remoteAddr, fetchAddr, value, cond, sqCtx, &remoteBuffers[remoteIdx], curHead, nextHead);
     if constexpr (commit) {
         HcommSimtSyncBeforeRing(headAddr, nextHead);
+        if (PublishDwqeBatch(headAddr) != HCOMM_SUCCESS) {
+            return HCOMM_FAILED;
+        }
         HcommSimtRingDwqe(sqCtx, sqeAddr);
     } else {
         asc_threadfence();
     }
+    return HCOMM_SUCCESS;
+}
+
+// Aggregate fixed 2-BB/1-CQE DWQE WQEs in shared UB and assign their slots
+// from a common head snapshot. Check whether this group crosses the physical
+// SQ ring before touching the shared batch allocator. Crossing groups keep the
+// original per-WQE reservation order used by the SIMT posting path.
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReserveDwqeBatch(
+    ChannelHandle channel, __ubuf__ uint32_t* state, bool active,
+    uint32_t activeWqeCnt, uint32_t commitLane)
+{
+    constexpr uint32_t kBbCnt = 0U;
+    constexpr uint32_t kCqeCnt = 1U;
+    constexpr uint32_t kHeadLo = 2U;
+    constexpr uint32_t kHeadHi = 3U;
+    constexpr uint32_t kStatus = 4U;
+    constexpr uint32_t kUseLegacyPath = 1U;
+    uint32_t linearLane = threadIdx.x + blockDim.x * (threadIdx.y + blockDim.y * threadIdx.z);
+    if (linearLane == 0U) {
+        state[kBbCnt] = 0U;
+        state[kCqeCnt] = 0U;
+        state[kHeadLo] = 0U;
+        state[kHeadHi] = 0U;
+        state[kStatus] = HCOMM_SUCCESS;
+    }
+    asc_syncthreads();
+
+    // This check must precede the shared UB atomic allocator. When the group
+    // wraps the SQ ring, subsequent Post calls must be indistinguishable from
+    // the original per-WQE path.
+    if (linearLane == 0U) {
+        __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
+        __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
+        __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
+        __gm__ uint64_t* headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
+        __gm__ uint32_t* sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx->contextInfo.ubJfs.tailAddr);
+        uint64_t headVal = *headAddr;
+        uint32_t curHead = HcommSimtHeadIdx(headVal);
+        uint32_t sqTail = *sqTailAddr;
+        uint32_t sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
+        uint32_t batchBbCnt = activeWqeCnt * HCOMM_URMA_DWQE_BB_CNT;
+        if (sqDepth == 0U || curHead - sqTail + batchBbCnt > sqDepth) {
+            state[kStatus] = HCOMM_FAILED;
+        } else if ((curHead % sqDepth) + batchBbCnt > sqDepth) {
+            state[kStatus] = kUseLegacyPath;
+        } else {
+            state[kHeadLo] = curHead;
+            state[kHeadHi] = HcommSimtWqeCnt(headVal);
+        }
+    }
+    asc_syncthreads();
+
+    if (state[kStatus] == kUseLegacyPath) {
+        if (active) {
+            hasReservedDwqeSlot_ = false;
+            hasDeferredDwqeBatch_ = false;
+        }
+        return HCOMM_SUCCESS;
+    }
+    if (state[kStatus] != HCOMM_SUCCESS) {
+        return HCOMM_FAILED;
+    }
+
+    uint32_t bbOffset = 0U;
+    if (active && linearLane != commitLane) {
+        bbOffset = asc_atomic_add(&state[kBbCnt], HCOMM_URMA_DWQE_BB_CNT);
+        (void)asc_atomic_add(&state[kCqeCnt], 1U);
+    }
+    asc_syncthreads();
+
+    if (active && linearLane == commitLane) {
+        bbOffset = state[kBbCnt];
+        state[kBbCnt] += HCOMM_URMA_DWQE_BB_CNT;
+        state[kCqeCnt] += 1U;
+    }
+    asc_syncthreads();
+
+    if (active) {
+        reservedDwqeHead_ = state[kHeadLo] + bbOffset;
+        hasReservedDwqeSlot_ = true;
+        hasDeferredDwqeBatch_ = true;
+        deferredDwqeHeadVal_ = static_cast<uint64_t>(state[kHeadLo]) |
+            (static_cast<uint64_t>(state[kHeadHi]) << 32U);
+        deferredDwqeBbCnt_ = state[kBbCnt];
+        deferredDwqeCqeCnt_ = state[kCqeCnt];
+    }
+    asc_syncthreads();
+    return HCOMM_SUCCESS;
+}
+
+// The batch head is published only after every deferred lane has fenced its
+// SQ write and reached the final commit barrier.
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PublishDwqeBatch(__gm__ uint64_t* headAddr)
+{
+    if (!hasDeferredDwqeBatch_) {
+        return HCOMM_SUCCESS;
+    }
+    (void)deferredDwqeHeadVal_;
+    (void)HcommSimtReserve(headAddr, deferredDwqeBbCnt_, deferredDwqeCqeCnt_);
+    hasDeferredDwqeBatch_ = false;
     return HCOMM_SUCCESS;
 }
 
@@ -373,6 +489,12 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
     __gm__ CqContext* cqCtx = &cqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
     __gm__ uint32_t* tailAddr = (__gm__ uint32_t*)cqCtx->contextInfo.ubJfc.tailAddr;
     uint32_t curTail = *tailAddr;
+
+    __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
+    __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
+    __gm__ uint32_t* sqTailAddr = (__gm__ uint32_t*)sqCtx->contextInfo.ubJfs.tailAddr;
+    uint32_t sqTail = *sqTailAddr;
+    uint32_t sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
 
     uint64_t cqBaseAddr = cqCtx->contextInfo.ubJfc.scqVa;
     uint32_t cqeSize = cqCtx->contextInfo.ubJfc.cqeSize;
@@ -396,6 +518,12 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
             constexpr uint8_t statusShift = 8U;
             return (static_cast<uint32_t>(status) << statusShift) | subStatus;
         }
+        if (sqDepth == 0U) {
+            return 0xFFU;
+        }
+        uint32_t sqTailSlot = sqTail % sqDepth;
+        uint32_t completedSlot = cqeAddr->entryIdx % sqDepth;
+        sqTail += (completedSlot + sqDepth - sqTailSlot) % sqDepth + 1U;
         ++curTail;
     }
 
@@ -403,10 +531,7 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
     __gm__ uint32_t* cqDbAddr = (__gm__ uint32_t*)cqCtx->contextInfo.ubJfc.dbVa;
     *cqDbAddr = curTail & 0xFFFFFFU;
 
-    __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
-    __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
-    __gm__ uint32_t* sqTailAddr = (__gm__ uint32_t*)sqCtx->contextInfo.ubJfs.tailAddr;
-    *sqTailAddr = curTail;
+    *sqTailAddr = sqTail;
     return HCOMM_SUCCESS;
 }
 
