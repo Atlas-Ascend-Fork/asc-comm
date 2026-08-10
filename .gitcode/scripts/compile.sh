@@ -71,14 +71,12 @@ LOG_HEAD "ge_st_rt2: ${ge_st_rt2}"
 
 ASCEND_3RD_LIB_PATH="/home/jenkins/opensource"
 
-if [[ "${task_name}" == *_ubuntu24 ]]; then
-    sudo update-alternatives --set gcc /usr/bin/gcc-14
-else
-    rm -rf /home/jenkins/opensource/lib_cache
-    ln -s /home/jenkins/opensource/ubuntu20/lib_cache /home/jenkins/opensource/lib_cache
-    echo "source devtoolset"
-    source /opt/rh/devtoolset-7/enable
-fi
+
+rm -rf /home/jenkins/opensource/lib_cache
+ln -s /home/jenkins/opensource/ubuntu20/lib_cache /home/jenkins/opensource/lib_cache
+echo "source devtoolset"
+source /opt/rh/devtoolset-7/enable
+
 gcc --version
 cmake --version
 

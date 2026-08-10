@@ -76,7 +76,6 @@ stages:
           package_name: 'cann-asc-comm_linux-aarch64.run'
       JOB_x86_compile_ubuntu24:
         name: Compile_x86_ubuntu24
-        needs: []
         uses: .gitcode/workflows/compile_action.yml
         with:
           task_name: 'Compile_Ascend_X86_ubuntu24'
@@ -85,23 +84,12 @@ stages:
           package_name: 'cann-asc-comm_linux-x86_64_ubuntu24.run'
       JOB_arm_compile_ubuntu24:
         name: Compile_arm_ubuntu24
-        needs: []
         uses: .gitcode/workflows/compile_action.yml
         with:
           task_name: 'Compile_Ascend_ARM_ubuntu24'
           image_version: ${{ jobs.JOB_image.outputs.Compile_Ascend_ARM_ubuntu24 }}
           arch: 'arm64'
           package_name: 'cann-asc-comm_linux-aarch64_ubuntu24.run'
-      JOB_arm_compile_openeuler:
-        name: Compile_arm_openeuler
-        needs: []
-        uses: .gitcode/workflows/compile_action.yml
-        with:
-          task_name: 'Compile_Ascend_ARM_openeuler'
-          image_version: ${{ jobs.JOB_image.outputs.Compile_Ascend_ARM_openeuler }}
-          arch: 'arm64'
-          package_name: 'cann-asc-comm_linux-aarch64_openeuler.run'
-        if: "${{ jobs.__JOB_SET_CI_BRANCH.outputs.CI_BRANCH == 'wyx_image2' }}"
       JOB_codecheck:
         name: CodeCheck
         uses: .gitcode/workflows/codecheck_action.yml
