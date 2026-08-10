@@ -322,7 +322,11 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
         sqeAddr, remoteAddr, localAddr, len, notifyAddr, notifyVal, sqCtx, &remoteBuffers[remoteIdx], curHead,
         nextHead);
     if constexpr (commit) {
-        HcommSimtSyncBeforeRing(headAddr, nextHead);
+        // A single-lane post is ordered by HcommSimtRingDwqe's thread fence.
+        // A deferred batch still needs the block barrier to wait for all SQ writes.
+        if (hasDeferredDwqeBatch_) {
+            HcommSimtSyncBeforeRing(headAddr, nextHead);
+        }
         if (PublishDwqeBatch(headAddr) != HCOMM_SUCCESS) {
             return HCOMM_FAILED;
         }
@@ -368,7 +372,11 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
     HcommSimtUrmaFillAtomicWqe<opCode, T, config>(
         sqeAddr, remoteAddr, fetchAddr, value, cond, sqCtx, &remoteBuffers[remoteIdx], curHead, nextHead);
     if constexpr (commit) {
-        HcommSimtSyncBeforeRing(headAddr, nextHead);
+        // A single-lane post is ordered by HcommSimtRingDwqe's thread fence.
+        // A deferred batch still needs the block barrier to wait for all SQ writes.
+        if (hasDeferredDwqeBatch_) {
+            HcommSimtSyncBeforeRing(headAddr, nextHead);
+        }
         if (PublishDwqeBatch(headAddr) != HCOMM_SUCCESS) {
             return HCOMM_FAILED;
         }
@@ -380,9 +388,11 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
 }
 
 // Aggregate fixed 2-BB/1-CQE DWQE WQEs in shared UB and assign their slots
-// from a common head snapshot. Check whether this group crosses the physical
-// SQ ring before touching the shared batch allocator. Crossing groups keep the
-// original per-WQE reservation order used by the SIMT posting path.
+// from a common head snapshot. The snapshot is not an atomic SQ claim, so only
+// one batch may be in flight on this SQ until PublishDwqeBatch updates the head.
+// Check whether this group crosses the physical SQ ring before touching the
+// shared batch allocator. Crossing groups keep the original per-WQE reservation
+// order used by the SIMT posting path.
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReserveDwqeBatch(
     ChannelHandle channel, __ubuf__ uint32_t* state, bool active,
     uint32_t activeWqeCnt, uint32_t commitLane)
@@ -390,15 +400,13 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReserveDwqeBatc
     constexpr uint32_t kBbCnt = 0U;
     constexpr uint32_t kCqeCnt = 1U;
     constexpr uint32_t kHeadLo = 2U;
-    constexpr uint32_t kHeadHi = 3U;
-    constexpr uint32_t kStatus = 4U;
+    constexpr uint32_t kStatus = 3U;
     constexpr uint32_t kUseLegacyPath = 1U;
     uint32_t linearLane = threadIdx.x + blockDim.x * (threadIdx.y + blockDim.y * threadIdx.z);
     if (linearLane == 0U) {
         state[kBbCnt] = 0U;
         state[kCqeCnt] = 0U;
         state[kHeadLo] = 0U;
-        state[kHeadHi] = 0U;
         state[kStatus] = HCOMM_SUCCESS;
     }
     asc_syncthreads();
@@ -423,7 +431,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReserveDwqeBatc
             state[kStatus] = kUseLegacyPath;
         } else {
             state[kHeadLo] = curHead;
-            state[kHeadHi] = HcommSimtWqeCnt(headVal);
         }
     }
     asc_syncthreads();
@@ -457,8 +464,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReserveDwqeBatc
         reservedDwqeHead_ = state[kHeadLo] + bbOffset;
         hasReservedDwqeSlot_ = true;
         hasDeferredDwqeBatch_ = true;
-        deferredDwqeHeadVal_ = static_cast<uint64_t>(state[kHeadLo]) |
-            (static_cast<uint64_t>(state[kHeadHi]) << 32U);
         deferredDwqeBbCnt_ = state[kBbCnt];
         deferredDwqeCqeCnt_ = state[kCqeCnt];
     }
@@ -466,14 +471,13 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReserveDwqeBatc
     return HCOMM_SUCCESS;
 }
 
-// The batch head is published only after every deferred lane has fenced its
-// SQ write and reached the final commit barrier.
+// The batch head is atomically advanced once, only after every deferred lane
+// has fenced its SQ write and reached the final commit barrier.
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PublishDwqeBatch(__gm__ uint64_t* headAddr)
 {
     if (!hasDeferredDwqeBatch_) {
         return HCOMM_SUCCESS;
     }
-    (void)deferredDwqeHeadVal_;
     (void)HcommSimtReserve(headAddr, deferredDwqeBbCnt_, deferredDwqeCqeCnt_);
     hasDeferredDwqeBatch_ = false;
     return HCOMM_SUCCESS;

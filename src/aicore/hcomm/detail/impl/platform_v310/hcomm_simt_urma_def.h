@@ -69,7 +69,6 @@ private:
     bool hasReservedDwqeSlot_ = false;
     uint32_t reservedDwqeHead_ = 0U;
     bool hasDeferredDwqeBatch_ = false;
-    uint64_t deferredDwqeHeadVal_ = 0U;
     uint32_t deferredDwqeBbCnt_ = 0U;
     uint32_t deferredDwqeCqeCnt_ = 0U;
     template <
