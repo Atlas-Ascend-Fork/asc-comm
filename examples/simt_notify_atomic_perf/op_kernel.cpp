@@ -24,7 +24,7 @@ constexpr uint32_t kDrainStatusIndex = 1U;
 constexpr uint32_t kCompletedIndex = 2U;
 constexpr uint32_t kCompletionCyclesIndex = 3U;
 constexpr uint32_t kNotifyAlignment = sizeof(uint64_t);
-constexpr uint32_t kDwqeBatchStateWords = 5U;
+constexpr uint32_t kDwqeBatchStateWords = 4U;
 
 template <bool commit>
 __simt_callee__ inline void SubmitNotify(AscendC::simt::Hcomm<> &hcomm,

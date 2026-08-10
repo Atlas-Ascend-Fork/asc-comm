@@ -67,11 +67,12 @@ public:
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
     // All block lanes call this before one fixed-2BB Notify/FAA/CAS batch.
-    // state points to five shared UB uint32_t values: BB count, CQE count,
-    // base head (low/high), and reservation status. activeWqeCnt must equal
+    // state points to four shared UB uint32_t values: BB count, CQE count,
+    // base head, and reservation status. activeWqeCnt must equal
     // the number of active lanes in this invocation.
-    // The channel must not be posted by another block until commitLane has
-    // committed this batch, because the head update is intentionally delayed.
+    // Only one batch may be in flight on the same SQ. The channel must not be
+    // posted or reserved by another block until commitLane has committed this
+    // batch, because the SQ head update is intentionally delayed.
     // commitLane is reserved at the batch tail and must post with commit=true;
     // every other active lane posts with commit=false.
     __simt_callee__ inline int32_t ReserveDwqeBatch(
