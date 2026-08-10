@@ -9,28 +9,24 @@
  */
 
 #include "ccu/hcomm/ccu_launch.h"
-#include "adapter_rts_common.h"
 #include "ccu/hcomm/ccu_res.h"
 
+#include <limits>
 #include <vector>
 
+#include "securec.h"
 
 #include "hcomm/common/ccu_log.h"
 #include "ccu/hcomm/ccu_types.h"
 
 #include "hcom_common.h"
+#include "hcomm/hcomm_ccu_launch_api.h"
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 #include "hcomm/resource/kernel/ccu_kernel_registry_mgr.h"
 #include "hcomm/resource/common/ccu_var_event_res_mgr.h"
 
-#include "thread.h"
-
-#include "env_config/env_config.h" // 暂时引用orion的环境变量处理模块
-
 #include "hcomm_adapter_rts.h"
-
-#include "task_param.h"
 
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 
@@ -157,18 +153,37 @@ CcuResult HcommCcuGetTaskArgsNum(CcuKernelHandle kernelHandle, uint32_t* taskArg
     return CcuResult::CCU_SUCCESS;
 }
 
-static std::shared_ptr<std::vector<Hccl::CcuProfilingInfo>> ConstructCcuDetailInfo(
-    const std::vector<hcomm::CcuProfilingInfo>& allCcuProfilingInfo, bool isSaveProfilingData)
+static bool IsLaunchContextValid(const HcommCcuLaunchContextPod& context)
 {
+    return context.header.version == HCOMM_CCU_LAUNCH_ABI_VERSION &&
+        context.header.magicWord == HCOMM_CCU_LAUNCH_MAGIC_WORD &&
+        context.header.size >= sizeof(HcommCcuLaunchContextPod) && context.runtimeStream != 0;
+}
+
+static CcuResult ConstructCcuDetailInfo(
+    const std::vector<hcomm::CcuProfilingInfo>& allCcuProfilingInfo, bool isSaveProfilingData,
+    std::vector<HcommCcuProfileDetailPod>& detailPods)
+{
+    detailPods.clear();
     if (allCcuProfilingInfo.empty() || !isSaveProfilingData) {
-        return nullptr;
+        return CcuResult::CCU_SUCCESS;
     }
 
-    std::vector<Hccl::CcuProfilingInfo> converted(allCcuProfilingInfo.size());
+    if (allCcuProfilingInfo.size() > std::numeric_limits<uint32_t>::max()) {
+        HCCL_ERROR("[%s] profiling info num[%zu] exceeds uint32 max.", __func__, allCcuProfilingInfo.size());
+        return CcuResult::CCU_E_PARA;
+    }
+    detailPods.resize(allCcuProfilingInfo.size());
     for (u32 idx = 0; idx < allCcuProfilingInfo.size(); ++idx) {
         auto& src = allCcuProfilingInfo[idx];
-        auto& dst = converted[idx];
-        dst.name = src.name;
+        if (src.name.size() >= HCOMM_CCU_PROFILE_NAME_MAX_LEN) {
+            HCCL_ERROR(
+                "[%s] profiling name at index[%u] is too long, len[%zu], max[%u].", __func__, idx, src.name.size(),
+                HCOMM_CCU_PROFILE_NAME_MAX_LEN - 1);
+            return CcuResult::CCU_E_PARA;
+        }
+        auto& dst = detailPods[idx];
+        (void)memcpy_s(dst.name, sizeof(dst.name), src.name.c_str(), src.name.size() + 1);
         dst.type = src.type;
         dst.dieId = src.dieId;
         dst.missionId = src.missionId;
@@ -179,38 +194,36 @@ static std::shared_ptr<std::vector<Hccl::CcuProfilingInfo>> ConstructCcuDetailIn
         dst.dataSize = src.dataSize;
         dst.ckeId = src.ckeId;
         dst.mask = src.mask;
-        (void)memcpy_s(dst.channelId, sizeof(dst.channelId), src.channelId, sizeof(src.channelId));
-        (void)memcpy_s(dst.channelHandle, sizeof(dst.channelHandle), src.channelHandle, sizeof(src.channelHandle));
+        (void)memcpy_s(dst.channelId, sizeof(dst.channelId), src.channelId, sizeof(dst.channelId));
+        (void)memcpy_s(dst.remoteRankId, sizeof(dst.remoteRankId), src.remoteRankId, sizeof(dst.remoteRankId));
+        (void)memcpy_s(dst.channelHandle, sizeof(dst.channelHandle), src.channelHandle, sizeof(dst.channelHandle));
     }
-    return std::make_shared<std::vector<Hccl::CcuProfilingInfo>>(std::move(converted));
+    return CcuResult::CCU_SUCCESS;
 }
 
-static Hccl::TaskParam ConstructCcuTaskParam(
+static HcommCcuTaskProfilePod ConstructCcuTaskParam(
     const hcomm::CcuTaskParam& ccuParam, const CcuKernelHandle kernelHandle,
-    const std::shared_ptr<std::vector<Hccl::CcuProfilingInfo>>& ccuDetailInfo, u64 beginTime, u64 endTime,
-    bool isMaster)
+    u64 beginTime, u64 endTime, bool isMaster)
 {
-    Hccl::TaskParam taskParam{};
+    HcommCcuTaskProfilePod taskParam{};
     taskParam.beginTime = beginTime;
     taskParam.endTime = endTime;
-    taskParam.taskType = Hccl::TaskParamType::TASK_CCU;
-    taskParam.taskPara.Ccu.dieId = ccuParam.dieId;
-    taskParam.taskPara.Ccu.missionId = ccuParam.missionId;
-    taskParam.taskPara.Ccu.execMissionId = ccuParam.missionId;
-    taskParam.taskPara.Ccu.instrId = ccuParam.instStartId;
-    taskParam.taskPara.Ccu.executeId = kernelHandle;
-    taskParam.taskPara.Ccu.ccuKernelHandle = kernelHandle;
-    taskParam.isMaster = isMaster;
-    taskParam.ccuDetailInfo = ccuDetailInfo;
+    taskParam.dieId = ccuParam.dieId;
+    taskParam.missionId = ccuParam.missionId;
+    taskParam.execMissionId = ccuParam.missionId;
+    taskParam.instrId = ccuParam.instStartId;
+    taskParam.executeId = kernelHandle;
+    taskParam.ccuKernelHandle = kernelHandle;
+    taskParam.isMaster = isMaster ? 1U : 0U;
     return taskParam;
 }
 
-static void LogCcuTaskInfo(const std::vector<hcomm::CcuTaskParam>& ccuParams, const CcuKernelHandle kernelHandle)
+static void LogCcuTaskInfo(
+    const std::vector<hcomm::CcuTaskParam>& ccuParams, const CcuKernelHandle kernelHandle, uint32_t execTimeOutSec)
 {
     if (!HcclCheckLogLevel(HCCL_LOG_INFO)) {
         return;
     }
-    const uint32_t execTimeOutSec = Hccl::EnvConfig::GetInstance().GetRtsConfig().GetExecTimeOut();
     for (u32 idx = 0; idx < ccuParams.size(); idx++) {
         const auto& param = ccuParams[idx];
         PLF_CONFIG_INFO(
@@ -255,26 +268,27 @@ static CcuResult ConstructProfilingInfo(
     return CcuResult::CCU_SUCCESS;
 }
 
-static CcuResult ReportCcuTaskDfx(const ThreadHandle threadHandle, const Hccl::TaskParam& taskParam)
+static CcuResult ReportCcuTaskDfx(
+    const HcommCcuLaunchContextPod& context, const ThreadHandle threadHandle, const HcommCcuTaskProfilePod& taskParam,
+    const std::vector<HcommCcuProfileDetailPod>& detailPods)
 {
-    auto* rtsThread = reinterpret_cast<hccl::Thread*>(threadHandle);
-    CCU_CHK_PTR_NULL(rtsThread);
-
-    auto callback = rtsThread->GetCallback();
-    if (!callback) {
+    if (context.reportTask == nullptr) {
         HCCL_WARNING("[%s] task info callback is not registered on thread, skip ccu profiling report.", __func__);
         return CcuResult::CCU_SUCCESS;
     }
-    u32 streamId = INVALID_UINT;
+
     u32 taskId = INVALID_UINT;
-    CCU_CHK_RET(hrtGetTaskIdAndStreamID(taskId, streamId));
-    CCU_CHK_RET(callback(streamId, taskId, taskParam, INVALID_U64));
+    u32 streamId = INVALID_UINT;
+    CCU_CHK_RET(HcommCcuGetTaskIdAndStreamId(&taskId, &streamId));
+    CCU_CHK_RET(context.reportTask(
+        threadHandle, streamId, taskId, &taskParam, detailPods.empty() ? nullptr : detailPods.data(),
+        static_cast<uint32_t>(detailPods.size())));
     return CcuResult::CCU_SUCCESS;
 }
 
-static HcclResult LaunchCcuTasks(const hcomm::CcuTaskParam& param, const aclrtStream stream)
+static HcclResult LaunchCcuTasks(
+    const hcomm::CcuTaskParam& param, const aclrtStream stream, const uint32_t execTimeOutSec)
 {
-    const uint32_t execTimeOutSec = Hccl::EnvConfig::GetInstance().GetRtsConfig().GetExecTimeOut();
     rtCcuTaskInfo_t taskInfo{};
     taskInfo.dieId = param.dieId;
     taskInfo.missionId = param.missionId;
@@ -308,13 +322,18 @@ CcuResult HcommCcuKernelLaunch(
     PLF_CONFIG_INFO(
         PLF_TASK, "[HcommCcuKernelLaunch] threadHandle[0x%llx] kernelHandle[0x%llx].", threadHandle, kernelHandle);
 
-    const auto* rtsThread = reinterpret_cast<hccl::Thread*>(threadHandle);
-    const auto* threadStream = rtsThread->GetStream();
-    CCU_CHK_PTR_NULL(threadStream);
-    auto* streamPtr = threadStream->ptr();
-    CCU_CHK_PTR_NULL(streamPtr);
+    HcommCcuLaunchContextPod launchContext{};
+    CCU_CHK_RET(HcommCcuThreadGetLaunchContext(threadHandle, &launchContext));
+    if (!IsLaunchContextValid(launchContext)) {
+        HCCL_ERROR(
+            "[%s] invalid launch context, version[%u], magic[0x%x], size[%u], stream[0x%llx].", __func__,
+            launchContext.header.version, launchContext.header.magicWord, launchContext.header.size,
+            launchContext.runtimeStream);
+        return CcuResult::CCU_E_PARA;
+    }
+    auto* streamPtr = reinterpret_cast<aclrtStream>(launchContext.runtimeStream);
 
-    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    const uint32_t devLogicId = static_cast<uint32_t>(launchContext.deviceLogicId);
     auto& kernelMgr = hcomm::CcuKernelMgr::GetInstance(devLogicId);
     auto* kernel = kernelMgr.GetKernel(kernelHandle);
     CCU_CHK_PTR_NULL(kernel);
@@ -331,23 +350,22 @@ CcuResult HcommCcuKernelLaunch(
         HCCL_INFO("[%s] passed, ccu params are empty.", __func__);
         return CcuResult::CCU_SUCCESS;
     }
-    bool isProfilingEnabledL1 = Hccl::ProfilingHandler::GetInstance().GetHcclL1State();
-    bool isProfilingEnabledL0 = Hccl::ProfilingHandler::GetInstance().GetHcclL0State();
-    bool isCached = Hccl::ProfilingHandler::GetInstance().GetCachedFlag();
-    bool isSaveProfilingData = isProfilingEnabledL1 || isProfilingEnabledL0 || isCached;
+    const bool isSaveProfilingData = (launchContext.profilingFlags &
+        (HCOMM_CCU_PROFILE_FLAG_L1 | HCOMM_CCU_PROFILE_FLAG_L0 | HCOMM_CCU_PROFILE_FLAG_CACHED)) != 0;
 
     std::vector<hcomm::CcuProfilingInfo> allCcuProfilingInfo;
     CCU_CHK_RET(ConstructProfilingInfo(
         kernel, static_cast<const uint64_t*>(taskArgs), argNum, allCcuProfilingInfo, isSaveProfilingData));
-    LogCcuTaskInfo(taskParams, kernelHandle);
-    auto ccuDetailInfo = ConstructCcuDetailInfo(allCcuProfilingInfo, isSaveProfilingData);
+    LogCcuTaskInfo(taskParams, kernelHandle, launchContext.timeoutSec);
+    std::vector<HcommCcuProfileDetailPod> detailPods;
+    CCU_CHK_RET(ConstructCcuDetailInfo(allCcuProfilingInfo, isSaveProfilingData, detailPods));
     for (u32 idx = 0; idx < taskParams.size(); idx++) {
-        u64 beginTime = Hccl::DlProfFunction::GetInstance().dlMsprofSysCycleTime();
-        CCU_CHK_RET(LaunchCcuTasks(taskParams[idx], streamPtr));
-        u64 endTime = Hccl::DlProfFunction::GetInstance().dlMsprofSysCycleTime();
-        Hccl::TaskParam taskParam = ConstructCcuTaskParam(
-            taskParams[idx], kernelHandle, ccuDetailInfo, beginTime, endTime, rtsThread->GetMaster());
-        CCU_CHK_RET(ReportCcuTaskDfx(threadHandle, taskParam));
+        u64 beginTime = launchContext.getCycleTime == nullptr ? 0U : launchContext.getCycleTime();
+        CCU_CHK_RET(LaunchCcuTasks(taskParams[idx], streamPtr, launchContext.timeoutSec));
+        u64 endTime = launchContext.getCycleTime == nullptr ? 0U : launchContext.getCycleTime();
+        HcommCcuTaskProfilePod taskParam = ConstructCcuTaskParam(
+            taskParams[idx], kernelHandle, beginTime, endTime, launchContext.isMaster != 0);
+        CCU_CHK_RET(ReportCcuTaskDfx(launchContext, threadHandle, taskParam, detailPods));
     }
     CCU_EXCEPTION_HANDLE_END
     HCCL_INFO("[%s] success, take time [%lld]us.", __func__, DURATION_US(TIME_NOW() - startus).count());
