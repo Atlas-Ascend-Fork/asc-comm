@@ -10,8 +10,7 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 namespace hcomm {
@@ -26,7 +25,7 @@ CcuRepNot::CcuRepNot(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const
 
 bool CcuRepNot::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep)
 {
-    Hccl::CHECK_NULLPTR(instr, "[CcuRepNot::Translate] instr is nullptr!");
+    hcomm::CheckCcuNotNull(instr, "[CcuRepNot::Translate] instr is nullptr!");
     this->instrId = curInstrId;
     translated = true;
     instrCount = insGenPtr->GetInstrCount(type);
@@ -36,7 +35,7 @@ bool CcuRepNot::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curI
         HCCL_ERROR(
             "[CcuRepNot::Translate]uint16 integer overflow occurs, curInstrId = [%hu], instrCount = [%hu]", curInstrId,
             instrCount),
-        Hccl::InternalException, "integer overflow");
+        CcuResult::CCU_E_INTERNAL, "integer overflow");
     curInstrId += instrCount;
     return translated;
 }
@@ -45,10 +44,10 @@ std::string CcuRepNot::Describe()
 {
     switch (subType) {
         case NotSubType::VAR_EQUALS_NOT_VAR: {
-            return Hccl::StringFormat("Variable[%u] = ~Variable[%u]", varC.Id(), varB.Id());
+            return hcomm::FormatCcuMessage("Variable[%u] = ~Variable[%u]", varC.Id(), varB.Id());
         }
         default: {
-            return Hccl::StringFormat("Invalid Not");
+            return hcomm::FormatCcuMessage("Invalid Not");
         }
     }
 }

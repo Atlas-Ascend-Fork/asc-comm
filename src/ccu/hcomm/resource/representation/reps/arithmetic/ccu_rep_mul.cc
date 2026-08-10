@@ -11,8 +11,7 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
 namespace hcomm {
@@ -95,13 +94,13 @@ void CcuRepMul::ValidateInsGenPtrForMul()
     CHK_PRT_THROW(
         (tmpPtrV1 && !supportCcuV1),
         HCCL_ERROR("[CcuRepMul][%s]Cannot translate CcuRepMul for A5 when supportCcuV1 is false", __func__),
-        Hccl::CcuApiException, "tmpPtrV1 does not match supportCcuV1");
+        CcuResult::CCU_E_INTERNAL, "tmpPtrV1 does not match supportCcuV1");
 }
 
 bool CcuRepMul::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
     ValidateInsGenPtrForMul();
-    Hccl::CHECK_NULLPTR(instr, "[CcuRepMul::Translate] instr is nullptr!");
+    hcomm::CheckCcuNotNull(instr, "[CcuRepMul::Translate] instr is nullptr!");
     this->instrId = instrId;
     translated = true;
 
@@ -112,7 +111,7 @@ bool CcuRepMul::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& inst
         HCCL_ERROR(
             "[CcuRepMul::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instrId,
             instrCount),
-        Hccl::InternalException, "integer overflow");
+        CcuResult::CCU_E_INTERNAL, "integer overflow");
     instrId += instrCount;
 
     return translated;
@@ -122,40 +121,40 @@ std::string CcuRepMul::Describe()
 {
     switch (subType) {
         case MulSubType::VAR_MUL_VAR_TO_VAR: {
-            return Hccl::StringFormat("Variable[%u] = Variable[%u] * Variable[%u]", varC.Id(), varA.Id(), varB.Id());
+            return hcomm::FormatCcuMessage("Variable[%u] = Variable[%u] * Variable[%u]", varC.Id(), varA.Id(), varB.Id());
         }
         case MulSubType::VAR_MUL_IMMED_TO_VAR: {
-            return Hccl::StringFormat("Variable[%u] = Variable[%u] * Immed[%u]", varC.Id(), varA.Id(), immedB);
+            return hcomm::FormatCcuMessage("Variable[%u] = Variable[%u] * Immed[%u]", varC.Id(), varA.Id(), immedB);
         }
         case MulSubType::SELF_MUL_VAR_VARIABLE: {
-            return Hccl::StringFormat("Variable[%u] *= Variable[%u]", varA.Id(), varB.Id());
+            return hcomm::FormatCcuMessage("Variable[%u] *= Variable[%u]", varA.Id(), varB.Id());
         }
         case MulSubType::SELF_MUL_IMMED_VARIABLE: {
-            return Hccl::StringFormat("Variable[%u] *= Immed[%u]", varA.Id(), immedB);
+            return hcomm::FormatCcuMessage("Variable[%u] *= Immed[%u]", varA.Id(), immedB);
         }
         case MulSubType::VAR_MUL_VAR_TO_ADDR: {
-            return Hccl::StringFormat("Address[%u] = Variable[%u] * Variable[%u]", addrC.Id(), varA.Id(), varB.Id());
+            return hcomm::FormatCcuMessage("Address[%u] = Variable[%u] * Variable[%u]", addrC.Id(), varA.Id(), varB.Id());
         }
         case MulSubType::VAR_MUL_ADDR_TO_ADDR: {
-            return Hccl::StringFormat("Address[%u] = Variable[%u] * Address[%u]", addrC.Id(), varA.Id(), addrB.Id());
+            return hcomm::FormatCcuMessage("Address[%u] = Variable[%u] * Address[%u]", addrC.Id(), varA.Id(), addrB.Id());
         }
         case MulSubType::VAR_MUL_IMMED_TO_ADDR: {
-            return Hccl::StringFormat("address[%u] = Variable[%u] * Immed[%u]", addrC.Id(), varA.Id(), immedB);
+            return hcomm::FormatCcuMessage("address[%u] = Variable[%u] * Immed[%u]", addrC.Id(), varA.Id(), immedB);
         }
         case MulSubType::ADDR_MUL_IMMED_TO_ADDR: {
-            return Hccl::StringFormat("address[%u] = address[%u] * Immed[%u]", addrC.Id(), addrA.Id(), immedB);
+            return hcomm::FormatCcuMessage("address[%u] = address[%u] * Immed[%u]", addrC.Id(), addrA.Id(), immedB);
         }
         case MulSubType::SELF_MUL_VAR_ADDRESS: {
-            return Hccl::StringFormat("address[%u] *= Variable[%u]", addrA.Id(), varB.Id());
+            return hcomm::FormatCcuMessage("address[%u] *= Variable[%u]", addrA.Id(), varB.Id());
         }
         case MulSubType::SELF_MUL_IMMED_ADDRESS: {
-            return Hccl::StringFormat("address[%u] *= Immed[%u]", addrA.Id(), immedB);
+            return hcomm::FormatCcuMessage("address[%u] *= Immed[%u]", addrA.Id(), immedB);
         }
         case MulSubType::ADDR_MUL_IMMED_TO_VAR: {
-            return Hccl::StringFormat("Variable[%u] = address[%u] * Immed[%u]", varC.Id(), addrA.Id(), immedB);
+            return hcomm::FormatCcuMessage("Variable[%u] = address[%u] * Immed[%u]", varC.Id(), addrA.Id(), immedB);
         }
         default: {
-            return Hccl::StringFormat("Invalid Mul");
+            return hcomm::FormatCcuMessage("Invalid Mul");
         }
     }
 }
