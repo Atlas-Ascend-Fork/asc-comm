@@ -12,6 +12,7 @@
 #define CCU_KERNEL_REGISTRY_MGR_H
 
 #include <mutex>
+#include <memory>
 #include <shared_mutex>
 #include <unordered_map>
 
@@ -27,12 +28,9 @@ public:
     CcuResult Init();
     CcuResult Deinit();
 
-    // deviceLogicId 由调用方显式传入，不从线程当前设备推断，理由见 CcuKernelRegistry::Init。
-    CcuResult Create(int32_t deviceLogicId, CcuInsHandle& insHandle);
+    // insHandle is hcomm-owned. asc-comm only uses it as an opaque key.
+    CcuResult GetOrCreate(int32_t deviceLogicId, CcuInsHandle insHandle, CcuKernelRegistry*& registry);
     CcuKernelRegistry* Get(CcuInsHandle insHandle) const;
-    // 查询句柄是否存在。与 Get 不同，句柄不存在属于正常查询结果，不记录错误日志。
-    bool Exists(CcuInsHandle insHandle) const;
-    CcuResult Destroy(CcuInsHandle insHandle);
 
 private:
     explicit CcuKernelRegistryMgr() = default;
@@ -44,10 +42,10 @@ private:
 private:
     bool initializedFlag_{false};
     int32_t devLogicId_{-1};
-    CcuInsHandle instanceId_{0};
     mutable std::shared_timed_mutex insMapMutex_;
     std::unordered_map<CcuInsHandle, std::unique_ptr<CcuKernelRegistry>> insMap_{};
 };
-}; // namespace hcomm
+
+} // namespace hcomm
 
 #endif // CCU_KERNEL_REGISTRY_MGR_H

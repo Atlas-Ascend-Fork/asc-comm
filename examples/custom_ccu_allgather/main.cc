@@ -8,18 +8,20 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <cstdio>
 #include <iostream>
-#include <fstream>
-#include <vector>
-#include <memory>
 #include <thread>
-#include <chrono>
-#include <atomic>
-#include <cstring>
+#include <vector>
 
 #include <acl/acl_rt.h>
+#include <hccl/hccl_comm.h>
+#include <hccl/hccl_res.h>
 #include <hccl/hccl_types.h>
-#include <hccl_custom_allgather.h>
+
+#include "alg_resource.h"
+#include "exec_op.h"
+
+using namespace ops_hccl_ag;
 
 #define ACLCHECK(ret)                                                                          \
     do {                                                                                       \
@@ -43,9 +45,29 @@ struct ThreadContext {
     uint32_t devCount;
 };
 
+static HcclResult HcclAllGatherCustom(
+    void* sendBuf, void* recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm, aclrtStream stream)
+{
+    OpParam param;
+    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param.myRank));
+    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param.rankSize));
+
+    param.stream = stream;
+    param.inputPtr = sendBuf;
+    param.outputPtr = recvBuf;
+    param.count = sendCount;
+    param.dataType = dataType;
+
+    AlgResourceCtx resCtxHost;
+    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param, resCtxHost));
+    RETURN_IF_HCCL_FAIL(ExecOp(param, resCtxHost));
+
+    return HCCL_SUCCESS;
+}
+
 int Sample(void* arg)
 {
-    ThreadContext* ctx = (ThreadContext*)arg;
+    ThreadContext* ctx = static_cast<ThreadContext*>(arg);
     void* sendBuf = nullptr;
     void* recvBuf = nullptr;
     uint32_t device = ctx->device;
@@ -53,22 +75,18 @@ int Sample(void* arg)
     uint64_t recvCount = sendCount * ctx->devCount;
     size_t sendSize = sendCount * sizeof(float);
     size_t recvSize = recvCount * sizeof(float);
-    // 设置当前线程操作的设备
+
     ACLCHECK(aclrtSetDevice(static_cast<int32_t>(device)));
 
-    // 初始化集合通信域
     HcclComm hcclComm;
     HCCLCHECK(HcclCommInitRootInfo(ctx->devCount, ctx->rootInfo, device, &hcclComm));
 
-    // 创建任务流
     aclrtStream stream;
     ACLCHECK(aclrtCreateStream(&stream));
 
-    // 申请集合通信操作的 Device 内存
     ACLCHECK(aclrtMalloc(&sendBuf, sendSize, ACL_MEM_MALLOC_HUGE_ONLY));
     ACLCHECK(aclrtMalloc(&recvBuf, recvSize, ACL_MEM_MALLOC_HUGE_ONLY));
 
-    // 申请 Host 内存用于存放输入数据，并将内容初始化为 Device ID
     void* hostBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&hostBuf, sendSize));
     float* tmpHostBuff = static_cast<float*>(hostBuf);
@@ -81,19 +99,13 @@ int Sample(void* arg)
     }
     std::cout << " ]" << std::endl;
 
-    // 将 Host 侧输入数据拷贝到 Device 侧
     ACLCHECK(aclrtMemcpy(sendBuf, sendSize, hostBuf, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
-    // 释放 Host 侧内存
     ACLCHECK(aclrtFreeHost(hostBuf));
 
-    // 执行 AllGather，将通信域内所有 rank 的 sendBuf 按照 rank_id 顺序拼接起来，再将结果发送到所有 rank 的 recvBuf
     HCCLCHECK(HcclAllGatherCustom(sendBuf, recvBuf, sendCount, HCCL_DATA_TYPE_FP32, hcclComm, stream));
-    // 阻塞等待任务流中的集合通信任务执行完成
     ACLCHECK(aclrtSynchronizeStream(stream));
 
-    // 将 Device 侧集合通信任务结果拷贝到 Host，并打印结果
-    std::this_thread::sleep_for(std::chrono::seconds(ctx->device));
-    void* resultBuff;
+    void* resultBuff = nullptr;
     ACLCHECK(aclrtMallocHost(&resultBuff, recvSize));
     ACLCHECK(aclrtMemcpy(resultBuff, recvSize, recvBuf, recvSize, ACL_MEMCPY_DEVICE_TO_HOST));
     float* tmpResBuff = static_cast<float*>(resultBuff);
@@ -104,51 +116,47 @@ int Sample(void* arg)
     std::cout << " ]" << std::endl;
     ACLCHECK(aclrtFreeHost(resultBuff));
 
-    // 释放资源
-    HCCLCHECK(HcclCommDestroy(hcclComm)); // 销毁通信域
-    if (sendBuf) {
-        ACLCHECK(aclrtFree(sendBuf)); // 释放 Device 侧内存
+    HCCLCHECK(HcclCommDestroy(hcclComm));
+    if (sendBuf != nullptr) {
+        ACLCHECK(aclrtFree(sendBuf));
     }
-    if (recvBuf) {
-        ACLCHECK(aclrtFree(recvBuf)); // 释放 Device 侧内存
+    if (recvBuf != nullptr) {
+        ACLCHECK(aclrtFree(recvBuf));
     }
-    ACLCHECK(aclrtDestroyStream(stream)); // 销毁任务流
-    ACLCHECK(aclrtResetDevice(device));   // 重置设备
+    ACLCHECK(aclrtDestroyStream(stream));
+    ACLCHECK(aclrtResetDevice(device));
     return 0;
 }
 
 int main()
 {
-    // 设备资源初始化
-    ACLCHECK(aclInit(NULL));
-    // 查询设备数量
-    uint32_t devCount;
+    ACLCHECK(aclInit(nullptr));
+
+    uint32_t devCount = 0;
     ACLCHECK(aclrtGetDeviceCount(&devCount));
     std::cout << "Found " << devCount << " NPU device(s) available" << std::endl;
 
     int32_t rootRank = 0;
     ACLCHECK(aclrtSetDevice(rootRank));
-    // 生成 Root 节点信息，各线程使用同一份 RootInfo
+
     void* rootInfoBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&rootInfoBuf, sizeof(HcclRootInfo)));
-    HcclRootInfo* rootInfo = (HcclRootInfo*)rootInfoBuf;
+    HcclRootInfo* rootInfo = static_cast<HcclRootInfo*>(rootInfoBuf);
     HCCLCHECK(HcclGetRootInfo(rootInfo));
 
-    // 启动线程执行集合通信操作
     std::vector<std::thread> threads(devCount);
     std::vector<ThreadContext> args(devCount);
     for (uint32_t i = 0; i < devCount; i++) {
         args[i].rootInfo = rootInfo;
         args[i].device = i;
         args[i].devCount = devCount;
-        threads[i] = std::thread(Sample, (void*)&args[i]);
+        threads[i] = std::thread(Sample, static_cast<void*>(&args[i]));
     }
     for (uint32_t i = 0; i < devCount; i++) {
         threads[i].join();
     }
 
-    // 释放资源
-    ACLCHECK(aclrtFreeHost(rootInfoBuf)); // 释放 Host 内存
-    ACLCHECK(aclFinalize());              // 设备去初始化
+    ACLCHECK(aclrtFreeHost(rootInfoBuf));
+    ACLCHECK(aclFinalize());
     return 0;
 }
