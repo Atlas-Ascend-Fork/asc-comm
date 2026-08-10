@@ -8,18 +8,14 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm_adapter_rts.h"
+#include "hcomm_ub_token.h"
 
-namespace hcomm {
-
-HcclResult RtsUbDevQueryInfo(const rtUbDevQueryCmd cmd, rtMemUbTokenInfo& devInfo)
+HcclResult RtsUbDevQueryInfo(const rtUbDevQueryCmd cmd, rtMemUbTokenInfo &devInfo)
 {
     if (cmd != QUERY_PROCESS_TOKEN) {
         return HcclResult::HCCL_E_PARA;
     }
-    devInfo.tokenId = 0;
+    devInfo.tokenId    = 0;
     devInfo.tokenValue = 0;
     return HcclResult::HCCL_SUCCESS;
 }
-
-} // namespace hcomm

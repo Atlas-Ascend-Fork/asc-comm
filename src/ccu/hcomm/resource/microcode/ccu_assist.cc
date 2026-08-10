@@ -12,7 +12,9 @@
 
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 
-#include "hcomm_adapter_rts.h"
+#include "hcomm_ub_token.h"
+
+#include "hcomm_reduce_op.h"
 
 #include "exception_util.h" // todo: 需要统一整改为不抛异常
 #include "ccu_api_exception.h"
@@ -98,13 +100,13 @@ uint64_t CcuCombineTokenInfo(uint64_t tokenId, uint64_t tokenValue, uint64_t tok
 uint16_t GetCcuReduceType(Hccl::ReduceOp reduceOp)
 {
     static std::map<Hccl::ReduceOp, uint16_t> ccuReduceTypeMap = {
-        {Hccl::ReduceOp::SUM, CCU_REDUCE_SUM},
-        {Hccl::ReduceOp::MAX, CCU_REDUCE_MAX},
-        {Hccl::ReduceOp::MIN, CCU_REDUCE_MIN},
+        {HCCL_REDUCE_OP_SUM, CCU_REDUCE_SUM},
+        {HCCL_REDUCE_OP_MAX, CCU_REDUCE_MAX},
+        {HCCL_REDUCE_OP_MIN, CCU_REDUCE_MIN},
     };
 
     if (ccuReduceTypeMap.find(reduceOp) == ccuReduceTypeMap.end()) {
-        Hccl::THROW<Hccl::CcuApiException>("Unsupported ReduceOp[%s] for Ccu", reduceOp.Describe().c_str());
+        Hccl::THROW<Hccl::CcuApiException>("Unsupported ReduceOp[%s] for Ccu", HcommReduceOpDescribe(reduceOp).c_str());
     }
 
     return ccuReduceTypeMap[reduceOp];
@@ -148,13 +150,13 @@ uint16_t GetCcuDataType(Hccl::DataType dataType, Hccl::ReduceOp reduceOp)
 uint16_t GetUBReduceType(Hccl::ReduceOp reduceOp)
 {
     static std::map<Hccl::ReduceOp, uint16_t> ubReduceTypeMap = {
-        {Hccl::ReduceOp::SUM, 10},
-        {Hccl::ReduceOp::MAX, 8},
-        {Hccl::ReduceOp::MIN, 9},
+        {HCCL_REDUCE_OP_SUM, 10},
+        {HCCL_REDUCE_OP_MAX, 8},
+        {HCCL_REDUCE_OP_MIN, 9},
     };
 
     if (ubReduceTypeMap.find(reduceOp) == ubReduceTypeMap.end()) {
-        Hccl::THROW<Hccl::CcuApiException>("Unsupported reduceOp[%s] for UB Reduce", reduceOp.Describe().c_str());
+        Hccl::THROW<Hccl::CcuApiException>("Unsupported reduceOp[%s] for UB Reduce", HcommReduceOpDescribe(reduceOp).c_str());
     }
 
     return ubReduceTypeMap[reduceOp];

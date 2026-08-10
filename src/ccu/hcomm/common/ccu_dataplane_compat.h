@@ -38,6 +38,8 @@ using Hccl::LOG_TMPBUF_SIZE;
 using Hccl::SYSTEM_RESERVE_ERROR;
 using std::string;
 
+extern s32 HcclGetThreadDeviceId();
+
 #ifndef HCCL_RUN_WARNING
 #define HCCL_RUN_WARNING(...) HCCL_WARNING(__VA_ARGS__)
 #endif
