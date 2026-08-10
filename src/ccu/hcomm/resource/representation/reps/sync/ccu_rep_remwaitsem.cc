@@ -9,12 +9,11 @@
  */
 
 #include "string_util.h"
-#include "exception_util.h"
 #include "hcomm_c_adpt.h"
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
+#include "hcomm/common/ccu_exception.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -41,7 +40,7 @@ bool CcuRepRemWaitSem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_
         HCCL_ERROR(
             "[CcuRepRemWaitSem::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instrId,
             instrCount),
-        Hccl::InternalException, "integer overflow");
+        CcuResult::CCU_E_INTERNAL, "integer overflow");
 
     instrId += instrCount;
 
@@ -50,7 +49,7 @@ bool CcuRepRemWaitSem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_
 
 std::string CcuRepRemWaitSem::Describe()
 {
-    return Hccl::StringFormat("Wait, Use semIndex[%u] and mask[%04x]", semIndex, mask);
+    return hcomm::FormatCcuMessage("Wait, Use semIndex[%u] and mask[%04x]", semIndex, mask);
 }
 
 }; // namespace CcuRep

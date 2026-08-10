@@ -12,8 +12,7 @@
 
 #include <algorithm>
 
-#include "exception_util.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopcall_v1.h"
 #include "hcomm/resource/representation/reps/control/ccu_rep_funccall_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
@@ -28,12 +27,10 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "ccu_res_specs.h"
 
-#include "unified_platform/pub_inc/config_plf_log.h"
 
 namespace hcomm {
 namespace CcuRep {
 
-using Hccl::PLF_TASK;
 
 CcuVersion CcuRepTranslator::ccuVersion = CcuVersion::CCU_INVALID;
 
@@ -81,7 +78,7 @@ void CcuRepTranslator::BuildReference(const std::shared_ptr<CcuRepBase>& rep)
     if (CheckType<T2>(refer)) {
         caller->Reference(std::static_pointer_cast<T2>(refer));
     } else {
-        Hccl::THROW<Hccl::CcuApiException>("Invalid Reference: %s", label.c_str());
+        hcomm::ThrowCcuInternal("Invalid Reference: %s", label.c_str());
     }
 }
 
@@ -89,7 +86,7 @@ CcuRepTranslator::CcuRepTranslator(std::shared_ptr<CcuRepReferenceManager> refMa
     : refManager(refManager), transDep(transDep)
 {
     if (ccuVersion == CcuVersion::CCU_INVALID) {
-        Hccl::THROW<Hccl::CcuApiException>("[CcuRepTranslator] Constructor: Invalid CCU Type!");
+        hcomm::ThrowCcuInternal("[CcuRepTranslator] Constructor: Invalid CCU Type!");
     }
 }
 
@@ -196,7 +193,7 @@ void CcuRepTranslator::Translate(
                 HCCL_ERROR("index[%u], %s", index, repVec[index]->Describe().c_str());
             }
         }
-        Hccl::THROW<Hccl::CcuApiException>("Translation Failed");
+        hcomm::ThrowCcuInternal("Translation Failed");
     }
 }
 
@@ -280,7 +277,7 @@ void CcuRepTranslator::CommonProcess(CcuKernel* ccuKernel, CcuInstr*& instr, uin
 
     u32 instrNum = 3 + constValueNum;
     if (instrId > UINT16_MAX - instrNum) {
-        Hccl::THROW<Hccl::InternalException>("integer overflow occurs");
+        hcomm::ThrowCcuInternal("integer overflow occurs");
     }
     instrId += instrNum; // 插入3条指令
 }
@@ -295,7 +292,7 @@ void CcuRepTranslator::FinishMainBlock(CcuInstr*& instr, uint16_t& instrId)
     instrId++;
 
     if (instrId > UINT16_MAX - 1) {
-        Hccl::THROW<Hccl::InternalException>("integer overflow occurs");
+        hcomm::ThrowCcuInternal("integer overflow occurs");
     }
 }
 
@@ -312,7 +309,7 @@ void CcuRepTranslator::DumpInstruction(const CcuInstrInfo& instrInfo) const
 void CcuRepTranslator::DumpRep(
     const std::vector<std::shared_ptr<CcuRepBase>>& repVec, const CcuInstrInfo& instrInfo) const
 {
-    PLF_CONFIG_INFO(PLF_TASK, "Translated Ccu Rep:");
+    HCCL_INFO("Translated Ccu Rep:");
     for (uint32_t index = 0; index < repVec.size(); index++) {
         uint16_t startInstrId = repVec[index]->StartInstrId();
         uint32_t sum = static_cast<uint32_t>(startInstrId) + repVec[index]->InstrCount();
@@ -323,15 +320,13 @@ void CcuRepTranslator::DumpRep(
             continue;
         }
         uint16_t endInstrId = static_cast<uint16_t>(sum);
-        PLF_CONFIG_INFO(
-            PLF_TASK, "rep[%u]: %s Instr[%u--%u]", index, repVec[index]->Describe().c_str(), startInstrId, endInstrId);
+        HCCL_INFO("rep[%u]: %s Instr[%u--%u]", index, repVec[index]->Describe().c_str(), startInstrId, endInstrId);
         for (uint16_t instrId = startInstrId; instrId < endInstrId; instrId++) {
             if (instrId < instrInfo.startInstrId) {
                 HCCL_ERROR("instrId[%u] less than startInstrId[%u]", instrId, instrInfo.startInstrId);
                 continue;
             }
-            PLF_CONFIG_INFO(
-                PLF_TASK, "microcode[%u]: %s", instrId,
+            HCCL_INFO("microcode[%u]: %s", instrId,
                 ParseInstr(instrInfo.instrVec.data() + (instrId - instrInfo.startInstrId)).c_str());
         }
     }

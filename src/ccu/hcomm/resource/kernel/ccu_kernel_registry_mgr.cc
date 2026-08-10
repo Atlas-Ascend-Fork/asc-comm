@@ -80,7 +80,9 @@ CcuResult CcuKernelRegistryMgr::GetOrCreate(int32_t deviceLogicId, CcuInsHandle 
     }
 
     std::unique_ptr<CcuKernelRegistry> instance{nullptr};
-    EXCEPTION_CATCH(instance = std::make_unique<CcuKernelRegistry>(), return CcuResult::CCU_E_PTR);
+    CCU_EXCEPTION_HANDLE_BEGIN
+    instance = std::make_unique<CcuKernelRegistry>();
+    CCU_EXCEPTION_HANDLE_END
     CCU_CHK_RET(instance->Init(deviceLogicId));
     instance->SetHandle(insHandle);
     registry = instance.get();
