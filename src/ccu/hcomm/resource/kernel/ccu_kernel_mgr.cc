@@ -12,7 +12,6 @@
 #include "hcomm/resource/kernel/ccu_kernel_res_allocator.h"
 
 #include "string_util.h"
-#include "exception_handler.h"
 #include "adapter_rts.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "dev_buffer.h"
@@ -698,7 +697,10 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, const Asc
     }
 
     AscCcuResRepository totalResRepository;
-    CHK_RET(ExpandResRepo(totalResRepository, resPack.GetTranslatorResRepo()));
+    const CcuResult expandRet = ExpandResRepo(totalResRepository, resPack.GetTranslatorResRepo());
+    if (expandRet != CcuResult::CCU_SUCCESS) {
+        return static_cast<HcclResult>(expandRet);
+    }
     // 将kernel中的rep虚拟资源按类型进行和CCU物理资源映射
     CHK_RET(ResetRepResourceToResRepository(translatorRepRes, totalResRepository));
     return HcclResult::HCCL_SUCCESS;
@@ -760,14 +762,21 @@ HcclResult CcuKernelMgr::TransRepSequenceToMicrocode(const std::vector<CcuKernel
         const uint32_t dieId = kernel->GetDieId();
         const uint32_t missionId = kernel->GetMissionId();
 
-        EXCEPTION_HANDLE_BEGIN
-        const auto& instrInfo = translators[dieId][missionId]->Translate(
-            kernel, kernel->GetRepSequence(), kernel->GetInstrId(), isFuncBlock);
-
-        CHK_RET(LoadInstruction(instrInfo, dieId));
-
-        kernel->SetCcuInstrInfo(instrInfo); // 指令下发成功后可以对kernel进行launch
-        EXCEPTION_HANDLE_END
+        try {
+            const auto& instrInfo = translators[dieId][missionId]->Translate(
+                kernel, kernel->GetRepSequence(), kernel->GetInstrId(), isFuncBlock);
+            CHK_RET(LoadInstruction(instrInfo, dieId));
+            kernel->SetCcuInstrInfo(instrInfo); // 指令下发成功后可以对kernel进行launch
+        } catch (const ::AscendC::ccu::detail::CcuException& exception) {
+            HCCL_ERROR("[%s] exception: %s", __func__, exception.what());
+            return static_cast<HcclResult>(exception.code());
+        } catch (const std::exception& exception) {
+            HCCL_ERROR("[%s] exception: %s", __func__, exception.what());
+            return HcclResult::HCCL_E_INTERNAL;
+        } catch (...) {
+            HCCL_ERROR("[%s] unknown exception", __func__);
+            return HcclResult::HCCL_E_INTERNAL;
+        }
     }
 
     return HcclResult::HCCL_SUCCESS;
