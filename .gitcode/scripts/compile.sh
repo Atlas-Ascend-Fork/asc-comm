@@ -97,3 +97,5 @@ LOG_DO bash build.sh
 BUILD_EXIT_CODE=$?
 set -e
 DP_ASSERT_CHECK_SKIP "${BUILD_EXIT_CODE}" "bash build.sh"
+mkdir build_out
+touch build_out/cann-asc-comm_linux-x86_64.run
