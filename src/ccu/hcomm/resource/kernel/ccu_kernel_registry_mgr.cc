@@ -100,4 +100,21 @@ CcuKernelRegistry* CcuKernelRegistryMgr::Get(CcuInsHandle insHandle) const
     return it->second.get();
 }
 
+CcuResult CcuKernelRegistryMgr::Destroy(CcuInsHandle insHandle)
+{
+    if (insHandle == 0) {
+        return CcuResult::CCU_E_PARA;
+    }
+
+    std::unique_lock<std::shared_timed_mutex> lock(insMapMutex_);
+    auto it = insMap_.find(insHandle);
+    if (it == insMap_.end()) {
+        HCCL_ERROR("[CcuKernelRegistryMgr][%s] handle[%llx] is not existed.", __func__, insHandle);
+        return CcuResult::CCU_E_PARA;
+    }
+
+    insMap_.erase(it);
+    return CcuResult::CCU_SUCCESS;
+}
+
 } // namespace hcomm

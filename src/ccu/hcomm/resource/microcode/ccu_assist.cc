@@ -12,13 +12,26 @@
 
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 
-#include "hcomm_adapter_rts.h"
+#include "runtime/rt_external_device.h"
+
+#include "hcomm_reduce_op.h"
 
 #include "exception_util.h" // todo: 需要统一整改为不抛异常
 #include "ccu_api_exception.h"
 
 namespace hcomm {
 namespace CcuRep {
+
+namespace {
+// UB 内存访问凭证查询结构。runtime 的 rtUbDevQueryInfo 以 void* 收参、不提供该类型定义，
+// 故由调用方按 runtime 约定的布局本地声明；字段顺序与宽度不可改动。
+struct AscUbTokenInfo {
+    uint64_t va;
+    uint64_t size;
+    uint32_t tokenId;
+    uint32_t tokenValue;
+};
+} // namespace
 
 constexpr uint64_t SetBits(uint16_t start, uint16_t end)
 {
@@ -95,33 +108,33 @@ uint64_t CcuCombineTokenInfo(uint64_t tokenId, uint64_t tokenValue, uint64_t tok
     return GetToken(tokenId, tokenValue, tokenValid);
 }
 
-uint16_t GetCcuReduceType(Hccl::ReduceOp reduceOp)
+uint16_t GetCcuReduceType(ReduceOp reduceOp)
 {
-    static std::map<Hccl::ReduceOp, uint16_t> ccuReduceTypeMap = {
-        {Hccl::ReduceOp::SUM, CCU_REDUCE_SUM},
-        {Hccl::ReduceOp::MAX, CCU_REDUCE_MAX},
-        {Hccl::ReduceOp::MIN, CCU_REDUCE_MIN},
+    static std::map<ReduceOp, uint16_t> ccuReduceTypeMap = {
+        {HCCL_REDUCE_OP_SUM, CCU_REDUCE_SUM},
+        {HCCL_REDUCE_OP_MAX, CCU_REDUCE_MAX},
+        {HCCL_REDUCE_OP_MIN, CCU_REDUCE_MIN},
     };
 
     if (ccuReduceTypeMap.find(reduceOp) == ccuReduceTypeMap.end()) {
-        Hccl::THROW<Hccl::CcuApiException>("Unsupported ReduceOp[%s] for Ccu", reduceOp.Describe().c_str());
+        Hccl::THROW<Hccl::CcuApiException>("Unsupported ReduceOp[%s] for Ccu", HcommReduceOpDescribe(reduceOp).c_str());
     }
 
     return ccuReduceTypeMap[reduceOp];
 }
 
-uint16_t GetCcuDataType(Hccl::DataType dataType, Hccl::ReduceOp reduceOp)
+uint16_t GetCcuDataType(DataType dataType, ReduceOp reduceOp)
 {
-    static std::map<Hccl::DataType, uint16_t> ccuSumDataTypeMap = {
-        {Hccl::DataType::FP32, 0},  {Hccl::DataType::FP16, 1},    {Hccl::DataType::BFP16, 2},
-        {Hccl::DataType::HIF8, 3},  {Hccl::DataType::FP8E4M3, 4}, {Hccl::DataType::FP8E5M2, 5},
-        {Hccl::DataType::INT8, 6},  {Hccl::DataType::UINT8, 7},   {Hccl::DataType::INT16, 8},
-        {Hccl::DataType::INT32, 9},
+    static std::map<DataType, uint16_t> ccuSumDataTypeMap = {
+        {CCU_DATA_TYPE_FP32, 0},  {CCU_DATA_TYPE_FP16, 1},    {CCU_DATA_TYPE_BFP16, 2},
+        {CCU_DATA_TYPE_HIF8, 3},  {CCU_DATA_TYPE_FP8E4M3, 4}, {CCU_DATA_TYPE_FP8E5M2, 5},
+        {CCU_DATA_TYPE_INT8, 6},  {CCU_DATA_TYPE_UINT8, 7},   {CCU_DATA_TYPE_INT16, 8},
+        {CCU_DATA_TYPE_INT32, 9},
     };
 
-    static std::map<Hccl::DataType, uint16_t> ccuMaxMinDataTypeMap = {
-        {Hccl::DataType::FP32, 0},  {Hccl::DataType::FP16, 1},  {Hccl::DataType::BFP16, 2}, {Hccl::DataType::INT8, 6},
-        {Hccl::DataType::UINT8, 7}, {Hccl::DataType::INT16, 8}, {Hccl::DataType::INT32, 9},
+    static std::map<DataType, uint16_t> ccuMaxMinDataTypeMap = {
+        {CCU_DATA_TYPE_FP32, 0},  {CCU_DATA_TYPE_FP16, 1},  {CCU_DATA_TYPE_BFP16, 2}, {CCU_DATA_TYPE_INT8, 6},
+        {CCU_DATA_TYPE_UINT8, 7}, {CCU_DATA_TYPE_INT16, 8}, {CCU_DATA_TYPE_INT32, 9},
 
     };
 
@@ -129,7 +142,7 @@ uint16_t GetCcuDataType(Hccl::DataType dataType, Hccl::ReduceOp reduceOp)
     if (ccuReduceType == CCU_REDUCE_SUM) {
         if (ccuSumDataTypeMap.find(dataType) == ccuSumDataTypeMap.end()) {
             Hccl::THROW<Hccl::CcuApiException>(
-                "Unsupported Hccl::DataType[%s] for Ccu SUM", dataType.Describe().c_str());
+                "Unsupported DataType[%s] for Ccu SUM", CcuDataTypeDescribe(dataType).c_str());
         }
         return ccuSumDataTypeMap[dataType];
     }
@@ -137,7 +150,7 @@ uint16_t GetCcuDataType(Hccl::DataType dataType, Hccl::ReduceOp reduceOp)
     if (ccuReduceType == CCU_REDUCE_MAX || ccuReduceType == CCU_REDUCE_MIN) {
         if (ccuMaxMinDataTypeMap.find(dataType) == ccuMaxMinDataTypeMap.end()) {
             Hccl::THROW<Hccl::CcuApiException>(
-                "Unsupported Hccl::DataType[%s] for Ccu MAX/MIN", dataType.Describe().c_str());
+                "Unsupported DataType[%s] for Ccu MAX/MIN", CcuDataTypeDescribe(dataType).c_str());
         }
         return ccuMaxMinDataTypeMap[dataType];
     }
@@ -145,42 +158,47 @@ uint16_t GetCcuDataType(Hccl::DataType dataType, Hccl::ReduceOp reduceOp)
     return ccuSumDataTypeMap[dataType];
 }
 
-uint16_t GetUBReduceType(Hccl::ReduceOp reduceOp)
+uint16_t GetUBReduceType(ReduceOp reduceOp)
 {
-    static std::map<Hccl::ReduceOp, uint16_t> ubReduceTypeMap = {
-        {Hccl::ReduceOp::SUM, 10},
-        {Hccl::ReduceOp::MAX, 8},
-        {Hccl::ReduceOp::MIN, 9},
+    static std::map<ReduceOp, uint16_t> ubReduceTypeMap = {
+        {HCCL_REDUCE_OP_SUM, 10},
+        {HCCL_REDUCE_OP_MAX, 8},
+        {HCCL_REDUCE_OP_MIN, 9},
     };
 
     if (ubReduceTypeMap.find(reduceOp) == ubReduceTypeMap.end()) {
-        Hccl::THROW<Hccl::CcuApiException>("Unsupported reduceOp[%s] for UB Reduce", reduceOp.Describe().c_str());
+        Hccl::THROW<Hccl::CcuApiException>("Unsupported reduceOp[%s] for UB Reduce", HcommReduceOpDescribe(reduceOp).c_str());
     }
 
     return ubReduceTypeMap[reduceOp];
 }
 
-uint16_t GetUBDataType(Hccl::DataType dataType)
+uint16_t GetUBDataType(DataType dataType)
 {
-    static std::map<Hccl::DataType, uint16_t> ubDataTypeMap = {
-        {Hccl::DataType::FP32, 7},  {Hccl::DataType::FP16, 6},   {Hccl::DataType::BFP16, 8},
-        {Hccl::DataType::INT8, 0},  {Hccl::DataType::UINT8, 3},  {Hccl::DataType::INT16, 1},
-        {Hccl::DataType::INT32, 2}, {Hccl::DataType::UINT16, 4}, {Hccl::DataType::UINT32, 5}};
+    static std::map<DataType, uint16_t> ubDataTypeMap = {
+        {CCU_DATA_TYPE_FP32, 7},  {CCU_DATA_TYPE_FP16, 6},   {CCU_DATA_TYPE_BFP16, 8},
+        {CCU_DATA_TYPE_INT8, 0},  {CCU_DATA_TYPE_UINT8, 3},  {CCU_DATA_TYPE_INT16, 1},
+        {CCU_DATA_TYPE_INT32, 2}, {CCU_DATA_TYPE_UINT16, 4}, {CCU_DATA_TYPE_UINT32, 5}};
 
     if (ubDataTypeMap.find(dataType) == ubDataTypeMap.end()) {
-        Hccl::THROW<Hccl::CcuApiException>("Unsupported Hccl::DataType[%s] for UB Reduce", dataType.Describe().c_str());
+        Hccl::THROW<Hccl::CcuApiException>("Unsupported DataType[%s] for UB Reduce", CcuDataTypeDescribe(dataType).c_str());
     }
     return ubDataTypeMap[dataType];
 }
 
 uint64_t GetTokenInfo(uint64_t va, uint64_t size)
 {
-    rtMemUbTokenInfo info{};
+    // runtime 的 rtUbDevQueryInfo 以 void* 收取查询结构，布局由调用方按约定解释。
+    AscUbTokenInfo info{};
     info.va = va;
     info.size = size;
-    if (RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, info) != HcclResult::HCCL_SUCCESS) {
+    if (rtUbDevQueryInfo(QUERY_PROCESS_TOKEN, &info) != RT_ERROR_NONE) {
+        // token 信息属于安全信息，失败时不打印 va/size 之外的内容
         Hccl::THROW<Hccl::CcuApiException>("failed to query tokenInfo.");
     }
+    // runtime 返回的 tokenId 低 8 位非 CCU 所用语义，需右移后再写入 token 寄存器位域
+    constexpr uint32_t tokenIdShiftBit = 8;
+    info.tokenId >>= tokenIdShiftBit;
     return CcuRep::GetToken(info.tokenId, info.tokenValue, 1);
 }
 

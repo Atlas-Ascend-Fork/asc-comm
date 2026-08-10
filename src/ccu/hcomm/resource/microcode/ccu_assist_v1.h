@@ -14,9 +14,8 @@
 #include <string>
 
 #include "hcomm/resource/microcode/ccu_assist_pub.h"
-
-#include "data_type.h"
-#include "reduce_op.h"
+#include "hcomm_reduce_op.h"
+#include "hcomm/common/ccu_data_type.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -28,10 +27,10 @@ uint64_t GetToken(uint64_t tokenId, uint64_t tokenValue, uint64_t tokenValid);
 // 与 GetToken 行为完全一致，提供更贴近 C API 调用方语义的命名，避免在 C 适配层重复实现位域逻辑。
 uint64_t CcuCombineTokenInfo(uint64_t tokenId, uint64_t tokenValue, uint64_t tokenValid);
 
-uint16_t GetCcuReduceType(Hccl::ReduceOp reduceOp);
-uint16_t GetCcuDataType(Hccl::DataType dataType, Hccl::ReduceOp reduceOp);
-uint16_t GetUBReduceType(Hccl::ReduceOp reduceOp);
-uint16_t GetUBDataType(Hccl::DataType dataType);
+uint16_t GetCcuReduceType(ReduceOp reduceOp);
+uint16_t GetCcuDataType(DataType dataType, ReduceOp reduceOp);
+uint16_t GetUBReduceType(ReduceOp reduceOp);
+uint16_t GetUBDataType(DataType dataType);
 
 uint64_t GetLoopParam(uint64_t loopCtxId, uint64_t gsaOffset, uint64_t loopIterNum);
 uint64_t GetParallelParam(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t totalLoopNum);

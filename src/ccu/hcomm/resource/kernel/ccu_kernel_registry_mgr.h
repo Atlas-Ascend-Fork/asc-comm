@@ -31,6 +31,7 @@ public:
     // insHandle is hcomm-owned. asc-comm only uses it as an opaque key.
     CcuResult GetOrCreate(int32_t deviceLogicId, CcuInsHandle insHandle, CcuKernelRegistry*& registry);
     CcuKernelRegistry* Get(CcuInsHandle insHandle) const;
+    CcuResult Destroy(CcuInsHandle insHandle);
 
 private:
     explicit CcuKernelRegistryMgr() = default;
