@@ -15,7 +15,7 @@
 #include "exception_handler.h"
 #include "adapter_rts.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
-#include "dev_buffer.h"
+#include "hcomm/common/ccu_dev_mem.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
@@ -24,6 +24,7 @@
 
 #include "hcomm_adapter_hccp.h"
 
+#include "hcomm/hcomm_ccu_instruction_api.h"
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/resource/common/ccu_kernel_func.h"
 
@@ -667,8 +668,13 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, const Asc
 {
     const HcommCcuDieMetadataPod *metadata = resPack.GetDieMetadata(dieId);
     CHK_PTR_NULL(metadata);
-    Hccl::DevBuffer tmpDevMem{1}; // 临时申请device hbm内存用于查询token信息
-    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(tmpDevMem.GetAddr(), 1);
+    // 临时申请device hbm内存用于查询token信息，由本地 RAII 对象管理生命周期
+    CcuDevMem tmpDevMem{1};
+    if (!tmpDevMem.Valid()) {
+        HCCL_ERROR("[InstantiationTranslator] alloc temp device memory for token query failed.");
+        return HcclResult::HCCL_E_MEMORY;
+    }
+    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(tmpDevMem.GetAddr(), tmpDevMem.GetSize());
     CcuRep::TransDep transDep{};
     transDep.logicalId = resPack.GetDeviceLogicId();
     transDep.dieId = dieId;
@@ -725,29 +731,25 @@ HcclResult CcuKernelMgr::LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, 
         instructionLoadDevMem_, instrInfoSize, instrInfo.instrVec.data(), instrInfoSize,
         HcclRtMemcpyKind::HCCL_RT_MEMCPY_KIND_HOST_TO_DEVICE));
 
-    uint32_t devPhyId = 0;
-    CHK_RET(hrtGetDevicePhyIdByIndex(static_cast<uint32_t>(devLogicId_), devPhyId));
+    // 只传用途明确的 instruction-load POD；opcode、CcuDataUnion 与 HCCP handle 由 hcomm 内部处理
+    HcommCcuInstructionLoadPod request{};
+    request.header.version = HCOMM_CCU_INSTRUCTION_ABI_VERSION;
+    request.header.magicWord = HCOMM_CCU_INSTRUCTION_LOAD_MAGIC_WORD;
+    request.header.size = sizeof(request);
+    request.deviceLogicId = devLogicId_;
+    request.dieId = dieId;
+    request.startInstructionId = instrInfo.startInstrId;
+    request.instructionNum = static_cast<uint32_t>(instrInfo.instrVec.size());
+    request.deviceAddress = reinterpret_cast<uint64_t>(instructionLoadDevMem_);
+    request.byteSize = instrInfoSize;
 
-    CustomChannelInfoIn inBuff{};
-    CustomChannelInfoOut outBuff{};
-
-    // 设置操作码和通道数据
-    inBuff.op = CcuOpcodeType::CCU_U_OP_SET_INSTRUCTION;
-    inBuff.offsetStartIdx = instrInfo.startInstrId;
-    inBuff.data.dataInfo.udieIdx = dieId;
-    inBuff.data.dataInfo.dataArraySize = 1;
-    inBuff.data.dataInfo.dataLen = instrInfoSize;
-
-    CcuDataTypeUnion tmp{};
-    tmp.insinfo.resourceAddr = reinterpret_cast<uint64_t>(instructionLoadDevMem_);
-    (void)memcpy_s(inBuff.data.dataInfo.dataArray, sizeof(CcuDataTypeUnion), &tmp, sizeof(CcuDataTypeUnion));
-
-    auto ret = HccpRaTlvCcuCustomChannel(devLogicId_, static_cast<void*>(&inBuff), static_cast<void*>(&outBuff));
-    if (ret != HCCL_SUCCESS) {
+    auto ret = static_cast<HcclResult>(HcommCcuLoadInstructions(&request));
+    if (ret != HcclResult::HCCL_SUCCESS) {
         HCCL_ERROR(
-            "[CcuResSpecifications][%s] failed to call ccu driver, "
-            "devLogicId[%d] devPhyId[%u] dieId[%d] op[%s] ret[%d].",
-            __func__, devLogicId_, devPhyId, dieId, "SET_INSTRUCTION", ret);
+            "[CcuKernelMgr][%s] failed to load instructions, devLogicId[%d] dieId[%u] startInstrId[%u] "
+            "instrNum[%zu] ret[%d].",
+            __func__, devLogicId_, dieId, instrInfo.startInstrId, instrInfo.instrVec.size(),
+            static_cast<int32_t>(ret));
         return ret;
     }
 
