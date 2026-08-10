@@ -54,12 +54,46 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(ChannelHandle channel, G
 template <CommProtocol commProtocol>
 template <auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbiPrepare(
+    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, __ubuf__ uint8_t* buff, uint32_t buffLen)
+{
+#if __NPU_ARCH__ == 3510
+    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
+        return impl_.template WriteNbiPrepare<config>(channel, dst, src, len, buff, buffLen);
+    }
+#endif
+    (void)channel;
+    (void)dst;
+    (void)src;
+    (void)len;
+    (void)buff;
+    (void)buffLen;
+    return HCOMM_FAILED;
+}
+
+template <CommProtocol commProtocol>
+template <bool commit>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbiPrepareEnd(
+    ChannelHandle channel, __ubuf__ uint8_t* buff)
+{
+#if __NPU_ARCH__ == 3510
+    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
+        return impl_.template WriteNbiPrepareEnd<commit>(channel, buff);
+    }
+#endif
+    (void)channel;
+    (void)buff;
+    return HCOMM_FAILED;
+}
+
+template <CommProtocol commProtocol>
+template <auto const& config>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbiPrepare(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal,
     __ubuf__ uint8_t* buff, uint32_t buffLen)
 {
 #if __NPU_ARCH__ == 3510
     if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
-        return impl_.template WriteNbiPrepare<config>(
+        return impl_.template WriteWithNotifyNbiPrepare<config>(
             channel, dst, src, len, notifyAddr, notifyVal, buff, buffLen);
     }
 #endif
@@ -76,11 +110,12 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbiPrepare(
 
 template <CommProtocol commProtocol>
 template <bool commit>
-__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff)
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbiPrepareEnd(
+    ChannelHandle channel, __ubuf__ uint8_t* buff)
 {
 #if __NPU_ARCH__ == 3510
     if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
-        return impl_.template WriteNbiPrepareEnd<commit>(channel, buff);
+        return impl_.template WriteWithNotifyNbiPrepareEnd<commit>(channel, buff);
     }
 #endif
     (void)channel;
