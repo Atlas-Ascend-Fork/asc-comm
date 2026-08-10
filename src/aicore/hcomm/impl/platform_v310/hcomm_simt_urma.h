@@ -881,6 +881,87 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
     ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
     __gm__ uint8_t* notifyAddr, uint64_t notifyVal)
 {
+    (void)commitPipe;
+    (void)reqPipe;
+
+    if (wqeItem_ == nullptr) {
+        return HCOMM_FAILED;
+    }
+
+    HcommSimtUbResolvedPost post;
+    if (ResolveUbPostContext(channel, remoteAddr, len, post) != HCOMM_SUCCESS) {
+        return HCOMM_FAILED;
+    }
+    __gm__ uint64_t* headAddr = post.headAddr;
+    uint32_t curHead = 0U;
+    bool useImmediateWarp = false;
+    bool publishImmediateWarp = false;
+    if (hasReservedDwqeSlot_) {
+        curHead = reservedDwqeHead_;
+        hasReservedDwqeSlot_ = false;
+    } else {
+        if constexpr (commit) {
+            useImmediateWarp = HcommSimtReserveImmediateWarp(
+                channel, headAddr, post.meta.sqDepth, curHead, publishImmediateWarp);
+        }
+        if (!useImmediateWarp) {
+            curHead = HcommSimtHeadIdx(HcommSimtReserve(headAddr, HCOMM_URMA_DWQE_BB_CNT, 1U));
+        }
+    }
+    uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
+
+    uint64_t sqBaseAddr = post.sqBaseAddr;
+    uint32_t wqeSize = post.sqWqeSize;
+    uint32_t sqDepth = post.meta.sqDepth;
+    __gm__ uint8_t* sqeAddr =
+        reinterpret_cast<__gm__ uint8_t*>(sqBaseAddr + wqeSize * (curHead % sqDepth));
+
+    if constexpr (commit) {
+        uint32_t blockLaneCount = blockDim.x * blockDim.y * blockDim.z;
+        if (blockLaneCount == 1U && !hasDeferredDwqeBatch_) {
+            HcommSimtUrmaFillUbWriteWithNotifyWqe<config>(
+                wqeItem_, remoteAddr, localAddr, len, notifyAddr, notifyVal,
+                post.meta, curHead, nextHead, wqeKind_);
+            HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
+            asc_threadfence();
+            HcommSimtCopyUb128ToDwqeStwt16(post.dwqeAddr, wqeItem_);
+            asc_dcci_single(post.dwqeAddr);
+            asc_dcci_single(post.dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
+            return HCOMM_SUCCESS;
+        }
+    }
+
+    if (useImmediateWarp && !publishImmediateWarp) {
+        HcommSimtPackedSqeTemplate sqeTemplate;
+        HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
+        HcommSimtStorePackedNotifyWqe<config>(
+            sqeAddr, remoteAddr, localAddr, len, notifyAddr, notifyVal,
+            sqeTemplate, curHead, nextHead);
+    } else {
+        HcommSimtUrmaFillUbWriteWithNotifyWqe<config>(
+            wqeItem_, remoteAddr, localAddr, len, notifyAddr, notifyVal, post.meta, curHead, nextHead, wqeKind_);
+        HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
+    }
+    if constexpr (commit) {
+        if (useImmediateWarp) {
+            asc_threadfence();
+            if (publishImmediateWarp) {
+                HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+            }
+            return HCOMM_SUCCESS;
+        }
+        // A single-lane post is ordered by HcommSimtRingDwqe's thread fence.
+        // A deferred batch still needs the block barrier to wait for all SQ writes.
+        if (hasDeferredDwqeBatch_) {
+            HcommSimtSyncBeforeRing(headAddr, nextHead);
+        }
+        if (PublishDwqeBatch(headAddr) != HCOMM_SUCCESS) {
+            return HCOMM_FAILED;
+        }
+        HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+    } else {
+        asc_threadfence();
+    }
     return HCOMM_SUCCESS;
 }
 
@@ -976,6 +1057,87 @@ template <typename T, bool commit, auto commitPipe, auto reqPipe, HcommUrmaOpCod
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
     ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* fetchAddr, T value, T cond)
 {
+    (void)commitPipe;
+    (void)reqPipe;
+
+    static_assert(sizeof(T) == sizeof(uint32_t) || sizeof(T) == sizeof(uint64_t),
+        "Atomic operation only supports 32-bit or 64-bit data types");
+    if (wqeItem_ == nullptr) {
+        return HCOMM_FAILED;
+    }
+    HcommSimtUbResolvedPost post;
+    if (ResolveUbPostContext(channel, remoteAddr, sizeof(T), post) != HCOMM_SUCCESS) {
+        return HCOMM_FAILED;
+    }
+    __gm__ uint64_t* headAddr = post.headAddr;
+    uint32_t curHead = 0U;
+    bool useImmediateWarp = false;
+    bool publishImmediateWarp = false;
+    if (hasReservedDwqeSlot_) {
+        curHead = reservedDwqeHead_;
+        hasReservedDwqeSlot_ = false;
+    } else {
+        if constexpr (commit) {
+            useImmediateWarp = HcommSimtReserveImmediateWarp(
+                channel, headAddr, post.meta.sqDepth, curHead, publishImmediateWarp);
+        }
+        if (!useImmediateWarp) {
+            curHead = HcommSimtHeadIdx(HcommSimtReserve(headAddr, HCOMM_URMA_DWQE_BB_CNT, 1U));
+        }
+    }
+    uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
+
+    uint64_t sqBaseAddr = post.sqBaseAddr;
+    uint32_t wqeSize = post.sqWqeSize;
+    uint32_t sqDepth = post.meta.sqDepth;
+    __gm__ uint8_t* sqeAddr =
+        reinterpret_cast<__gm__ uint8_t*>(sqBaseAddr + wqeSize * (curHead % sqDepth));
+
+    if constexpr (commit) {
+        uint32_t blockLaneCount = blockDim.x * blockDim.y * blockDim.z;
+        if (blockLaneCount == 1U && !hasDeferredDwqeBatch_) {
+            HcommSimtPackedSqeTemplate sqeTemplate;
+            HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
+            HcommSimtLocalWqeStage localStage;
+            HcommSimtBuildLocalAtomicWqe<opCode, T, config>(
+                localStage, remoteAddr, fetchAddr, value, cond,
+                sqeTemplate, curHead, nextHead);
+            HcommSimtPublishLocalWqe(sqeAddr, post.dwqeAddr, localStage);
+            return HCOMM_SUCCESS;
+        }
+    }
+
+    if (useImmediateWarp && !publishImmediateWarp) {
+        HcommSimtPackedSqeTemplate sqeTemplate;
+        HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
+        HcommSimtStorePackedAtomicWqe<opCode, T, config>(
+            sqeAddr, remoteAddr, fetchAddr, value, cond,
+            sqeTemplate, curHead, nextHead);
+    } else {
+        HcommSimtUrmaFillUbAtomicWqe<opCode, T, config>(
+            wqeItem_, remoteAddr, fetchAddr, value, cond, post.meta, curHead, nextHead, wqeKind_);
+        HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
+    }
+    if constexpr (commit) {
+        if (useImmediateWarp) {
+            asc_threadfence();
+            if (publishImmediateWarp) {
+                HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+            }
+            return HCOMM_SUCCESS;
+        }
+        // A single-lane post is ordered by HcommSimtRingDwqe's thread fence.
+        // A deferred batch still needs the block barrier to wait for all SQ writes.
+        if (hasDeferredDwqeBatch_) {
+            HcommSimtSyncBeforeRing(headAddr, nextHead);
+        }
+        if (PublishDwqeBatch(headAddr) != HCOMM_SUCCESS) {
+            return HCOMM_FAILED;
+        }
+        HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+    } else {
+        asc_threadfence();
+    }
     return HCOMM_SUCCESS;
 }
 
