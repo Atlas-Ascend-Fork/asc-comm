@@ -92,6 +92,7 @@ else
 fi
 
 set +e
+source /home/jenkins/Ascend/cann/bin/setenv.bash
 LOG_DO bash build.sh
 BUILD_EXIT_CODE=$?
 set -e
