@@ -238,12 +238,10 @@ HcclResult RegisterCcuKernel(
     }
     kernelArg->channelCount = static_cast<uint32_t>(channels.size());
 
-    CcuInsHandle insHandle = 0;
-    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, insHandle));
-
     resCtx.ccuKernels.resize(1);
     asccomm_examples::CcuRegisterContextStorage contextStorage;
     RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, contextStorage));
+    CcuInsHandle insHandle = static_cast<CcuInsHandle>(contextStorage.context.instanceHandle);
     RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(HcommCcuKernelRegisterStart(insHandle, &contextStorage.context)));
 
     CcuKernelHandle kernelHandle = 0;

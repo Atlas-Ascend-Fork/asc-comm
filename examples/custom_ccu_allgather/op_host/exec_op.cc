@@ -8,25 +8,33 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <string>
-#include <memory>
+#include <algorithm>
+#include <cstdint>
 #include <vector>
+
+#include <ccu/hcomm/ccu_types.h>
 #include <hccl/hcomm_primitives.h>
-#include "log.h"
+
+#include "alg_resource.h"
 #include "ccu/hcomm/ccu_launch.h"
 #include "ccu/hcomm/ccu_res.h"
-#include "common.h"
 #include "ccu_kernel.h"
-#include "utils.h"
-using namespace ops_hccl_ag;
 
 namespace ops_hccl_ag {
-constexpr uint64_t HCCL_MIN_SLICE_ALIGN = 128;           // 地址对齐
-constexpr uint64_t UB_MAX_DATA_SIZE = 256 * 1024 * 1024; // UB协议一次传输最大size，单位Byte
+constexpr uint64_t UB_MAX_DATA_SIZE = 256 * 1024 * 1024;
+
+static HcclResult GetDataTypeSize(HcclDataType dataType, uint32_t& dataTypeSize)
+{
+    if (dataType != HCCL_DATA_TYPE_FP32) {
+        return HCCL_E_NOT_SUPPORT;
+    }
+    dataTypeSize = sizeof(float);
+    return HCCL_SUCCESS;
+}
 
 static HcclResult LaunchCcuKernelSlice(
-    const AlgResourceCtxSerializable& resCtx, uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
-    uint64_t dataSize, uint32_t myRank, uint64_t sliceCount, uint64_t dataTypeSize)
+    const AlgResourceCtx& resCtx, uint64_t inputAddr, uint64_t outputAddr, uint64_t token, uint64_t dataSize,
+    uint32_t myRank, uint64_t sliceCount, uint64_t dataTypeSize)
 {
     uint64_t sliceSize = sliceCount * dataTypeSize;
 
@@ -37,7 +45,7 @@ static HcclResult LaunchCcuKernelSlice(
     config.msInterleave = CCU_MS_INTERLEAVE;
     config.loopCount = CCU_MS_LOCAL_COPY_LOOP_COUNT;
     config.memSlice = CCU_MS_SIZE * CCU_LOCAL_COPY_MS_PER_LOOP;
-    auto goSize = CalGoSize(sliceSize, config);
+    GroupOpSize goSize = CalGoSize(sliceSize, config);
 
     std::vector<uint64_t> taskArgs = {
         inputAddr,
@@ -46,46 +54,40 @@ static HcclResult LaunchCcuKernelSlice(
         currentRankSliceInputOffset,
         currentRankSliceOutputOffset,
         sliceSize,
-        goSize[0],
-        goSize[1],
-        goSize[2],
-        goSize[3],
+        goSize.addrOffset,
+        goSize.loopParam,
+        goSize.parallelParam,
+        goSize.residual,
     };
 
     CcuResult launchRet =
         HcommCcuKernelLaunch(resCtx.threads[0], resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
     if (launchRet != CCU_SUCCESS) {
-        HCCL_ERROR("[CcuTempAllGatherMesh1DMem2Mem::ExecOp] kernel launch failed, ccuRet -> %d", launchRet);
-        return ConvertCcuToHccl(launchRet);
+        return HCCL_E_INTERNAL;
     }
 
     return HCCL_SUCCESS;
 }
 
-HcclResult ExecOp(const OpParam& param, const AlgResourceCtxSerializable& resCtx)
+HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx)
 {
-    HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::ExecOp] start");
-
-    uint32_t dataTypeSize = SIZE_TABLE[param.dataType];
+    uint32_t dataTypeSize = 0;
+    RETURN_IF_HCCL_FAIL(GetDataTypeSize(param.dataType, dataTypeSize));
     uint64_t dataSize = param.count * dataTypeSize;
     uint64_t count = param.count;
 
-    if (count == 0) { // 数据量为0，直接返回
-        HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem] DataCount == 0, ExecOp Run Ends.");
-        return HcclResult::HCCL_SUCCESS;
-    }
-
-    if (param.rankSize == 1) { // 单卡，直接本地拷贝
-        CHK_RET(static_cast<HcclResult>(
-            HcommLocalCopyOnThread(resCtx.threads[0], param.outputPtr, param.inputPtr, dataSize)));
-        HCCL_INFO("[CcuTempAllGatherMesh1DMem2Mem] RankSize == 1, ExecOp Run Ends.");
+    if (count == 0) {
         return HCCL_SUCCESS;
     }
 
-    uint64_t maxDataSizePerLoop = UB_MAX_DATA_SIZE;
-    uint64_t maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
-    uint64_t loopCount =
-        count / maxDataCountPerLoop + static_cast<uint64_t>(count % maxDataCountPerLoop != 0); // 计算数据处理循环次数
+    if (param.rankSize == 1) {
+        RETURN_IF_HCCL_FAIL(static_cast<HcclResult>(
+            HcommLocalCopyOnThread(resCtx.threads[0], param.outputPtr, param.inputPtr, dataSize)));
+        return HCCL_SUCCESS;
+    }
+
+    uint64_t maxDataCountPerLoop = UB_MAX_DATA_SIZE / dataTypeSize;
+    uint64_t loopCount = count / maxDataCountPerLoop + static_cast<uint64_t>(count % maxDataCountPerLoop != 0);
     uint64_t processedDataCount = 0;
 
     uint64_t token = 0;
@@ -102,13 +104,13 @@ HcclResult ExecOp(const OpParam& param, const AlgResourceCtxSerializable& resCtx
         uint64_t inputAddr = baseInputAddr + processedDataCount * dataTypeSize;
         uint64_t outputAddr = baseOutputAddr + processedDataCount * dataTypeSize;
 
-        CHK_RET(LaunchCcuKernelSlice(
+        RETURN_IF_HCCL_FAIL(LaunchCcuKernelSlice(
             resCtx, inputAddr, outputAddr, token, dataSize, param.myRank, sliceCount, dataTypeSize));
 
         processedDataCount += sliceCount;
     }
 
-    HCCL_DEBUG("[CcuTempAllGatherMesh1DMem2Mem::ExecOp] end");
     return HCCL_SUCCESS;
 }
+
 } // namespace ops_hccl_ag

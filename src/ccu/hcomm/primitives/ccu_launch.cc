@@ -41,7 +41,14 @@ CcuResult HcommCcuKernelRegisterStart(
     CcuInsHandle insHandle, const HcommCcuRegisterContextPod *context)
 {
     CCU_CHK_PTR_NULL(context);
-    auto *ccuIns = hcomm::CcuKernelRegistryMgr::GetInstance(context->deviceLogicId).Get(insHandle);
+    if (context->instanceHandle != 0 && context->instanceHandle != insHandle) {
+        HCCL_ERROR("[%s] failed, context instanceHandle[%llu] mismatches input insHandle[%llu].", __func__,
+            static_cast<unsigned long long>(context->instanceHandle), static_cast<unsigned long long>(insHandle));
+        return CcuResult::CCU_E_PARA;
+    }
+    hcomm::CcuKernelRegistry *ccuIns = nullptr;
+    CCU_CHK_RET(hcomm::CcuKernelRegistryMgr::GetInstance(context->deviceLogicId).GetOrCreate(
+        context->deviceLogicId, insHandle, ccuIns));
     CCU_CHK_PTR_NULL(ccuIns);
     CCU_CHK_RET(ccuIns->BeginRegister());
 

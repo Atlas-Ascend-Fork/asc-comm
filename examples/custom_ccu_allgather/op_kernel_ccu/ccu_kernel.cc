@@ -9,7 +9,6 @@
  */
 
 #include "ccu_kernel.h"
-#include "utils.h"
 
 namespace ops_hccl_ag {
 
@@ -35,7 +34,7 @@ static void InitGroupCopyResources(
         ctx.resourceAllocated = true;
     }
 
-    std::string loopType = "localcopy";
+    const std::string loopType = "localcopy";
     if (!ctx.IsLoopEntityRegistered(loopType)) {
         ctx.CreateLoopEntity(loopType);
         auto& entity = ctx.loopMap[loopType];
@@ -158,19 +157,18 @@ static CcuResult ExecuteAllGatherTransfer(AllGatherMesh1DMem2MemContext& ctx)
         for (uint64_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
             const uint16_t mask = 1 << rankIdx;
             if (rankIdx != ctx.arg->rankId) {
-                CCU_CHK_RET(ccu::Write(
-                    ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, ctx.event,
-                    mask)); // 本卡数据写入远端地址
+                RETURN_IF_CCU_FAIL(ccu::Write(
+                    ctx.arg->channels[channelId], dst[rankIdx], src, ctx.sliceSize, ctx.event, mask));
                 channelId++;
             }
         }
     }
 
-    CCU_CHK_RET(GroupCopy(ctx, localDst, src, ctx.goSize)); // 用loop资源做本地拷贝
-    CCU_CHK_RET(ccu::EventRecord(ctx.event, 1 << ctx.arg->rankId));
+    RETURN_IF_CCU_FAIL(GroupCopy(ctx, localDst, src, ctx.goSize));
+    RETURN_IF_CCU_FAIL(ccu::EventRecord(ctx.event, 1 << ctx.arg->rankId));
 
     const uint16_t totalMask = (1 << ctx.arg->rankSize) - 1;
-    CCU_CHK_RET(ccu::EventWait(ctx.event, totalMask)); // 等待本卡数据搬运完成
+    RETURN_IF_CCU_FAIL(ccu::EventWait(ctx.event, totalMask));
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -183,11 +181,9 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
     ctx.arg = kernelArg;
 
     if (ctx.arg->channelCount == 0) {
-        HCCL_ERROR("[CcuKernelAllGatherMesh1DMem2Mem] channels is empty!");
         return CcuResult::CCU_E_INTERNAL;
     }
 
-    // 1.初始化资源
     ctx.output.resize(ctx.arg->rankSize);
     ctx.token.resize(ctx.arg->rankSize);
 
@@ -200,41 +196,37 @@ CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
         }
     }
 
-    // 2.加载参数
     uint32_t argId = 0;
-    CCU_CHK_RET(ccu::LoadArg(ctx.input, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.output[ctx.arg->rankId], argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.token[ctx.arg->rankId], argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceInputOffset, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.currentRankSliceOutputOffset, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.sliceSize, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.addrOffset, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.loopParam, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.parallelParam, argId++));
-    CCU_CHK_RET(ccu::LoadArg(ctx.goSize.residual, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.input, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.output[ctx.arg->rankId], argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.token[ctx.arg->rankId], argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.currentRankSliceInputOffset, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.currentRankSliceOutputOffset, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.sliceSize, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.goSize.addrOffset, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.goSize.loopParam, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.goSize.parallelParam, argId++));
+    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.goSize.residual, argId++));
 
-    // 3.前同步
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_RET(ccu::WriteVariableWithNotify(
+        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(
             ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID));
-        CCU_CHK_RET(ccu::WriteVariableWithNotify(
+        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(
             ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID));
     }
 
     uint32_t allBit = (1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID);
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_RET(ccu::NotifyWait(ctx.arg->channels[i], CKE_IDX_0, allBit));
+        RETURN_IF_CCU_FAIL(ccu::NotifyWait(ctx.arg->channels[i], CKE_IDX_0, allBit));
     }
 
-    // 4.执行算法
-    CCU_CHK_RET(ExecuteAllGatherTransfer(ctx));
+    RETURN_IF_CCU_FAIL(ExecuteAllGatherTransfer(ctx));
 
-    // 5.后同步
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_RET(ccu::NotifyRecord(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
+        RETURN_IF_CCU_FAIL(ccu::NotifyRecord(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
     }
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        CCU_CHK_RET(ccu::NotifyWait(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID)); // 等待远端卡数据搬运完成
+        RETURN_IF_CCU_FAIL(ccu::NotifyWait(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
     }
 
     return CcuResult::CCU_SUCCESS;

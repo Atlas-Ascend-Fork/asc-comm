@@ -64,19 +64,27 @@ CcuResult CcuKernelRegistryMgr::Deinit()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernelRegistryMgr::Create(int32_t deviceLogicId, CcuInsHandle& insHandle)
+CcuResult CcuKernelRegistryMgr::GetOrCreate(int32_t deviceLogicId, CcuInsHandle insHandle,
+    CcuKernelRegistry*& registry)
 {
+    registry = nullptr;
+    if (insHandle == 0) {
+        return CcuResult::CCU_E_PARA;
+    }
+
     std::unique_lock<std::shared_timed_mutex> lock(insMapMutex_);
+    auto it = insMap_.find(insHandle);
+    if (it != insMap_.end()) {
+        registry = it->second.get();
+        return CcuResult::CCU_SUCCESS;
+    }
 
     std::unique_ptr<CcuKernelRegistry> instance{nullptr};
     EXCEPTION_CATCH(instance = std::make_unique<CcuKernelRegistry>(), return CcuResult::CCU_E_PTR);
-
     CCU_CHK_RET(instance->Init(deviceLogicId));
-
-    instanceId_ += 1;
-    instance->SetHandle(instanceId_);
-    insMap_.emplace(instanceId_, std::move(instance));
-    insHandle = instanceId_;
+    instance->SetHandle(insHandle);
+    registry = instance.get();
+    insMap_.emplace(insHandle, std::move(instance));
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -90,25 +98,6 @@ CcuKernelRegistry* CcuKernelRegistryMgr::Get(CcuInsHandle insHandle) const
     }
 
     return it->second.get();
-}
-
-bool CcuKernelRegistryMgr::Exists(CcuInsHandle insHandle) const
-{
-    std::shared_lock<std::shared_timed_mutex> lock(insMapMutex_);
-    return insMap_.find(insHandle) != insMap_.end();
-}
-
-CcuResult CcuKernelRegistryMgr::Destroy(CcuInsHandle insHandle)
-{
-    std::unique_lock<std::shared_timed_mutex> lock(insMapMutex_);
-    auto it = insMap_.find(insHandle);
-    if (it == insMap_.end()) {
-        HCCL_ERROR("[CcuKernelRegistryMgr][%s] handle[%llx] is not existed.", __func__, insHandle);
-        return CcuResult::CCU_E_NOT_FOUND;
-    }
-
-    insMap_.erase(it);
-    return CcuResult::CCU_SUCCESS;
 }
 
 } // namespace hcomm
