@@ -28,14 +28,45 @@
 
 #include "env_config/env_config.h" // 暂时引用orion的环境变量处理模块
 
-#include "hcomm_adapter_rts.h"
-
 #include "task_param.h"
 
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 
 #include "unified_platform/pub_inc/config_plf_log.h"
 using Hccl::PLF_TASK;
+
+/**
+ * @brief 关闭CCU特性，解初始化CCU平台层
+ *
+ * @param insHandle CCU实例句柄
+ * @param curDeviceLogicId 当前设备逻辑ID
+ * @return CcuResult 执行结果状态码，CCU_SUCCESS表示成功，其他值表示失败
+ */
+CcuResult HcommCcuInsDestroyLegacy(CcuInsHandle insHandle, int32_t curDeviceLogicId)
+{
+    // 获取当前线程的 DeviceId（线程变量）
+    const int32_t threadDevId = HcclGetThreadDeviceId();
+    HCCL_INFO("[%s] curDeviceLogicId[%d], threadDevId[%d]", __func__, curDeviceLogicId, threadDevId);
+
+    // 先切换为目标 curDeviceLogicId
+    bool isDiffDevId = false;
+    if (curDeviceLogicId != threadDevId) {
+        CCU_CHK_RET(hrtSetDevice(curDeviceLogicId));
+        isDiffDevId = true;
+    }
+
+    // 销毁 CcuInstance
+    CcuResult ret = hcomm::CcuKernelRegistryMgr::GetInstance(curDeviceLogicId).Destroy(insHandle);
+    if (ret != CCU_SUCCESS) {
+        HCCL_ERROR("[%s] Destroy CcuInstance failed, ret[%d]", __func__, ret);
+    }
+
+    /// 切换回原来的 DeviceId
+    if (isDiffDevId) {
+        CCU_CHK_RET(hrtSetDevice(threadDevId));
+    }
+    return ret;
+}
 
 CcuResult HcommCcuKernelRegisterStart(
     CcuInsHandle insHandle, const HcommCcuRegisterContextPod *context)
@@ -353,16 +384,15 @@ CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo
 
     if (srcVa == 0 || size == 0) {
         HCCL_ERROR(
-            "[%s] failed, srcVa[0x%llx] size[%llu] should not be 0.", __func__,
-            static_cast<unsigned long long>(srcVa), static_cast<unsigned long long>(size));
+            "[%s] failed, srcVa[0x%llx] size[%llu] should not be 0.", __func__, static_cast<unsigned long long>(srcVa),
+            static_cast<unsigned long long>(size));
         return CcuResult::CCU_E_PARA;
     }
     // 注意token信息属于安全信息，均不允许打印
-    hcomm::rtMemUbTokenInfo info{};
-    info.va = srcVa;
-    info.size = size;
-    CCU_CHK_RET(hcomm::RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, info));
-    *tokenInfo = hcomm::CcuRep::CcuCombineTokenInfo(info.tokenId, info.tokenValue, 1);
+    // GetTokenInfo 内部完成 runtime 查询、tokenId 移位与位域合成，此处不重复实现
+    CCU_EXCEPTION_HANDLE_BEGIN
+    *tokenInfo = hcomm::CcuRep::GetTokenInfo(srcVa, size);
+    CCU_EXCEPTION_HANDLE_END
 
     return CcuResult::CCU_SUCCESS;
 }

@@ -10,6 +10,7 @@
 
 target_sources(asccomm_ccu_dataplane_obj PRIVATE
     common/ccu_device_context.cc
+    common/ccu_dev_mem.cc
     primitives/ccu_primitives_impl.cc
     primitives/ccu_launch.cc
     primitives/ccu_host_launch.cc
