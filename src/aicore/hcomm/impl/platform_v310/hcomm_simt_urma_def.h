@@ -69,6 +69,20 @@ struct HcommSimtUbPostContext {
     uint64_t remoteEidH;
 };
 
+// Mutable remote-registration state is lane-private. Keeping it outside the
+// block-shared post context avoids races when lanes target different buffers.
+struct HcommSimtUbRemoteCache {
+    uint64_t baseAddr;
+    uint64_t size;
+    uint32_t tokenId;
+    uint32_t tokenValue;
+    uint32_t valid;
+    uint32_t reserved;
+};
+
+static_assert(sizeof(HcommSimtUbRemoteCache) == 32U,
+    "SIMT per-lane remote cache entry must remain 32 bytes");
+
 struct HcommSimtUbResolvedPost {
     HcommSimtUbPostMeta meta;
     __gm__ uint64_t* headAddr;
@@ -86,6 +100,7 @@ public:
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 #if defined(HCOMM_SIMT_UB_STAGING_EXPERIMENT)
     __simt_callee__ inline void BindUbPostContext(__ubuf__ uint8_t* context);
+    __simt_callee__ inline int32_t BindUbRemoteCache(__ubuf__ uint8_t* cache, uint32_t len);
     __simt_callee__ inline int32_t InitUbPostContext(ChannelHandle channel);
 #endif
     __simt_callee__ inline int32_t ReserveDwqeBatch(
@@ -122,6 +137,7 @@ private:
     __ubuf__ uint8_t* wqeItem_;
     HcommSimtUbWqeKind wqeKind_ = HcommSimtUbWqeKind::EMPTY;
     __ubuf__ HcommSimtUbPostContext* ubPostContext_ = nullptr;
+    __ubuf__ HcommSimtUbRemoteCache* ubRemoteCache_ = nullptr;
 
     __simt_callee__ inline int32_t ResolveUbPostContext(
         ChannelHandle channel, __gm__ uint8_t* remoteAddr, uint64_t len, HcommSimtUbResolvedPost& post);
