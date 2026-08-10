@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
@@ -9,8 +9,8 @@
 # -----------------------------------------------------------------------------------------------------------
 
 set(op_host_src_list
-    ${CMAKE_CURRENT_SOURCE_DIR}/allgather.cc
-    ${CMAKE_CURRENT_SOURCE_DIR}/utils.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/alg_resource.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/exec_op.cc
 )
 
 target_sources(custom_allgather_ccu PRIVATE

@@ -1,65 +1,51 @@
-# CCU AllGather 直接执行样例
+# CCU AllGather Direct Run Sample
 
-## 样例介绍
+## Overview
 
-本样例展示如何基于CCU通信编程接口实现AllGather集合通信操作。
+This sample shows how to implement an AllGather operation with HCCL communication-domain APIs and CCU dataplane APIs.
 
-样例依赖：
-```text
-CANN包：
-cann-hcomm_9.1.0_*.run
-Ascend-cann-toolkit_9.1.0_*.run
-其中：
-libhcomm.so / libhccl.so:
-  提供 HCCL 通信域、CCU 控制面和资源申请相关接口。
+Runtime dependencies:
+- `libhcomm.so`: provides HCCL communication-domain, CCU control-plane, thread and channel resource APIs.
+- `libasccomm_ccu_dataplane.so`: provides `HcommCcuKernelRegister*`, `HcommCcuKernelLaunch`, `HcommCcuGetMemToken` and CCU dataplane programming APIs.
 
-libasccomm_ccu_dataplane.so:
-  提供 HcommCcuKernelRegister*、HcommCcuKernelLaunch、HcommCcuGetMemToken 等 CCU 数据面接口。
-```
+The sample keeps the original AllGather kernel-side `GroupCopy` implementation for the local copy path.
 
-## 目录结构
+## Directory Structure
 
 ```text
 custom_ccu_allgather/
 ├── CMakeLists.txt
 ├── README.md
 ├── run.sh
-├── inc/
-│   ├── binary_stream.h
-│   ├── common.h
-│   ├── hccl_custom_allgather.h
-│   └── log.h
+├── main.cc
 ├── op_host/
 │   ├── CMakeLists.txt
-│   ├── allgather.cc
-│   ├── utils.cc
-│   └── utils.h
-├── op_kernel_ccu/
-│   ├── CMakeLists.txt
-│   ├── ccu_kernel.cc
-│   ├── ccu_kernel.h
+│   ├── alg_resource.cc
+│   ├── alg_resource.h
 │   ├── exec_op.cc
 │   └── exec_op.h
-└── testcase/
-    └── main.cc
+└── op_kernel_ccu/
+    ├── CMakeLists.txt
+    ├── ccu_kernel.cc
+    └── ccu_kernel.h
 ```
 
-## 构建和运行
+## Build And Run
 
-执行前先设置 CANN 运行环境和 CCU 调度模式：
+Set the CANN runtime environment and CCU scheduling mode before running:
 
 ```bash
 source ${ASCEND_HOME_PATH}/set_env.sh
 export HCCL_OP_EXPANSION_MODE=CCU_SCHED
 ```
 
-然后在样例目录执行：
+Then run the sample from this directory:
 
 ```bash
 bash run.sh
 ```
 
-`run.sh` 只负责执行 CMake 配置、编译和运行：
+`run.sh` removes the old `build` directory, configures CMake, builds the executable and runs it:
 
 ```bash
 cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" -DASCEND_HOME_PATH="${ASCEND_HOME_PATH}"
@@ -67,9 +53,9 @@ cmake --build "${BUILD_DIR}" -j"$(nproc)"
 exec "${BUILD_DIR}/custom_allgather_ccu"
 ```
 
-## 结果示例
+## Result Example
 
-每个 rank 发送 `rankSize` 个元素，输入数据初始化为该 rank 的 DeviceId。运行成功后，终端会输出类似以下信息：
+Each rank sends `rankSize` FP32 elements. The input of each rank is initialized to that rank ID.
 
 ```text
 Found 2 NPU device(s) available
