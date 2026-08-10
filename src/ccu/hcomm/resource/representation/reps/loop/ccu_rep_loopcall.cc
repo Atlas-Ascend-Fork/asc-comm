@@ -11,8 +11,7 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
 #include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -99,10 +98,10 @@ bool CcuRepLoopCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
     this->instrId = instrId;
     translated = true;
 
-    Hccl::CHECK_NULLPTR(loopBlock, "[CcuRepLoopCall::Translate] LoopBlock is nullptr!");
+    hcomm::CheckCcuNotNull(loopBlock, "[CcuRepLoopCall::Translate] LoopBlock is nullptr!");
 
     if (!loopBlock->Translated()) {
-        Hccl::THROW<Hccl::CcuApiException>("Reference To Invalid LoopBlock");
+        hcomm::ThrowCcuInternal("Reference To Invalid LoopBlock");
     }
 
     instrId += InstrCount();
@@ -110,7 +109,7 @@ bool CcuRepLoopCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
     return translated;
 }
 
-std::string CcuRepLoopCall::Describe() { return Hccl::StringFormat("LoopCall[%s]", label.c_str()); }
+std::string CcuRepLoopCall::Describe() { return hcomm::FormatCcuMessage("LoopCall[%s]", label.c_str()); }
 
 }; // namespace CcuRep
 }; // namespace hcomm
