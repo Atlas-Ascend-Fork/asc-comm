@@ -13,8 +13,7 @@
 #include "hcomm/resource/common/ccu_kernel_resource.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
-#include "exception_util.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -74,7 +73,7 @@ void ArithmeticAppendToContext(CcuRepContext* context, Dst& dst, CcuArithmeticOp
             AppendToContext(context, std::make_shared<CcuRepSub>(context->GetInsGenerator(), dst, op.lhs, op.rhs));
             break;
         default:
-            Hccl::THROW<Hccl::NotSupportException>("Not supported Arithmetic operator[%d].", op.type);
+            hcomm::ThrowCcuNotSupport("Not supported Arithmetic operator[%d].", op.type);
     }
 }
 
@@ -107,7 +106,7 @@ void Variable::AddrAddrAppendToContext(CcuArithmeticOperator<Address, Address> o
             break;
         }
         default: {
-            Hccl::THROW<Hccl::NotSupportException>("Not supported Arithmetic operate in variable = addr (op) addr.");
+            hcomm::ThrowCcuNotSupport("Not supported Arithmetic operate in variable = addr (op) addr.");
         }
     }
 }
@@ -175,7 +174,7 @@ void Variable::VarVarLogicAppendToContext(CcuLogicOperator<Variable, Variable> o
             break;
         }
         default: {
-            Hccl::THROW<Hccl::NotSupportException>("Not supported Logic operate between var and var");
+            hcomm::ThrowCcuNotSupport("Not supported Logic operate between var and var");
         }
     }
 }
@@ -188,7 +187,7 @@ void Variable::AddrLogicAppendToContext(CcuLogicOperator<Variable> op)
             break;
         }
         default: {
-            Hccl::THROW<Hccl::NotSupportException>("Not supported Logic operate between addr and immedB.");
+            hcomm::ThrowCcuNotSupport("Not supported Logic operate between addr and immedB.");
         }
     }
 }
@@ -209,7 +208,7 @@ void Variable::operator=(CcuShiftOperator<Variable, Variable> op)
             break;
         }
         default: {
-            Hccl::THROW<Hccl::NotSupportException>("Not supported shift bit operate between var and immed.");
+            hcomm::ThrowCcuNotSupport("Not supported shift bit operate between var and immed.");
         }
     }
 }
@@ -267,7 +266,7 @@ void Address::VarAddrAppendToContext(CcuArithmeticOperator<Variable, Address> op
             break;
         }
         default: {
-            Hccl::THROW<Hccl::NotSupportException>("Not supported Arithmetic operate between var and addr.");
+            hcomm::ThrowCcuNotSupport("Not supported Arithmetic operate between var and addr.");
         }
     }
 }
@@ -281,7 +280,7 @@ void Address::AddrAddrAppendToContext(CcuArithmeticOperator<Address, Address> op
             break;
         }
         default: {
-            Hccl::THROW<Hccl::NotSupportException>("Not supported Arithmetic operate in addr = addr (op) addr .");
+            hcomm::ThrowCcuNotSupport("Not supported Arithmetic operate in addr = addr (op) addr .");
         }
     }
 }
@@ -312,7 +311,7 @@ void Address::VarVarAppendToContext(CcuArithmeticOperator<Variable, Variable> op
             break;
         }
         default: {
-            Hccl::THROW<Hccl::NotSupportException>("Not supported Arithmetic operate between var and var.");
+            hcomm::ThrowCcuNotSupport("Not supported Arithmetic operate between var and var.");
         }
     }
 }
@@ -361,7 +360,7 @@ void Address::operator=(CcuShiftOperator<Variable, Variable> op)
             break;
         }
         default: {
-            Hccl::THROW<Hccl::NotSupportException>("Not supported shift bit operate between var and var.");
+            hcomm::ThrowCcuNotSupport("Not supported shift bit operate between var and var.");
         }
     }
 }

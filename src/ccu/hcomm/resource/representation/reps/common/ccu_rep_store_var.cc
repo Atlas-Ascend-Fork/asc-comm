@@ -11,8 +11,7 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_store_var_v1.h"
 #include "string_util.h"
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
@@ -37,8 +36,8 @@ bool CcuRepStoreVar::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
     translated = true;
 
     CHK_RET_THROW(
-        Hccl::CcuApiException,
-        Hccl::StringFormat("[CcuRepStoreVar][%s] failed to translate repStoreVar for instrId[%u] ", __func__, instrId),
+        CcuResult::CCU_E_INTERNAL,
+        hcomm::FormatCcuMessage("[CcuRepStoreVar][%s] failed to translate repStoreVar for instrId[%u] ", __func__, instrId),
         insGeneratorPtr_->CcuRepStoreVarTranslate(ccuKernel, instr, instrId, this, dep));
 
     instrId += instrCount;
@@ -47,7 +46,7 @@ bool CcuRepStoreVar::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
 
 std::string CcuRepStoreVar::Describe()
 {
-    return Hccl::StringFormat("Store Var([%u], [%u], [%u])", var.Id(), dst.Id(), num);
+    return hcomm::FormatCcuMessage("Store Var([%u], [%u], [%u])", var.Id(), dst.Id(), num);
 }
 
 }; // namespace CcuRep
