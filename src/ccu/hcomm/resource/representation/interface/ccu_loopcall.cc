@@ -10,8 +10,7 @@
 
 #include "hcomm/resource/representation/interface/ccu_loopcall_v1.h"
 
-#include "exception_util.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -24,7 +23,7 @@ LoopCall::LoopCall(CcuRepContext* context, const std::string& label) : context(c
 void LoopCall::AppendToContext()
 {
     if (context == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("context is nullptr, loopCall");
+        hcomm::ThrowCcuInternal("context is nullptr, loopCall");
     }
     return context->Append(repLoopCall);
 }
