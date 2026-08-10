@@ -120,9 +120,8 @@ target_compile_definitions(asccomm_ccu_dataplane_obj PRIVATE
 )
 target_compile_options(asccomm_ccu_dataplane_obj PRIVATE -w -fPIC)
 target_compile_options(asccomm_ccu_dataplane_obj PRIVATE
-    $<$<COMPILE_LANGUAGE:CXX>:-include ${ASCCOMM_CCU_ROOT}/hcomm/common/ccu_dataplane_compat.h>
+    $<$<COMPILE_LANGUAGE:CXX>:-include ${ASCCOMM_CCU_ROOT}/hcomm/common/ccu_log.h>
 )
-
 add_subdirectory(hcomm)
 
 add_library(asccomm_ccu_dataplane SHARED

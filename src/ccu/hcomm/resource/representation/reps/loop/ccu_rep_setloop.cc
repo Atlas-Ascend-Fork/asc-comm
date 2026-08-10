@@ -13,8 +13,7 @@
 #include <climits>
 
 #include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
@@ -38,7 +37,7 @@ bool CcuRepSetLoop::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& 
     translated = true;
 
     if (instrId > USHRT_MAX - instrCount) {
-        Hccl::THROW<Hccl::InternalException>(Hccl::StringFormat(
+        hcomm::ThrowCcuInternal(hcomm::FormatCcuMessage(
             "[CcuRepSetLoop][Translate] instrId[%u] + instrCount[%u] exceeds the "
             "maximum value of unsigned short int.",
             instrId, instrCount));
@@ -50,7 +49,7 @@ bool CcuRepSetLoop::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& 
 
 std::string CcuRepSetLoop::Describe()
 {
-    return Hccl::StringFormat(
+    return hcomm::FormatCcuMessage(
         "loopParam[%u] = var[%u], execute on LoopEngine[%u]", loopParam.Id(), var.Id(), executor.Id());
 }
 

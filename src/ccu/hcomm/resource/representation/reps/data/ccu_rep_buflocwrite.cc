@@ -9,6 +9,7 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
+#include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
@@ -38,7 +39,7 @@ bool CcuRepBufLocWrite::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16
 
 std::string CcuRepBufLocWrite::Describe()
 {
-    return Hccl::StringFormat(
+    return hcomm::FormatCcuMessage(
         "Write CcuBuf[%u] To Loc Mem[%u], len[%u], sem[%u], mask[%04x]", src.Id(), dst.addr.Id(), len.Id(), sem.Id(),
         mask);
 }

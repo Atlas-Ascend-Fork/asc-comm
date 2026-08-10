@@ -11,8 +11,7 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -49,7 +48,7 @@ bool CcuRepBufReduce::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t
     return translated;
 }
 
-std::string CcuRepBufReduce::Describe() { return Hccl::StringFormat("Reduce"); }
+std::string CcuRepBufReduce::Describe() { return hcomm::FormatCcuMessage("Reduce"); }
 
 }; // namespace CcuRep
 }; // namespace hcomm

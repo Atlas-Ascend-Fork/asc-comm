@@ -9,11 +9,10 @@
  */
 
 #include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
+#include "hcomm/common/ccu_exception.h"
 namespace hcomm {
 namespace CcuRep {
 
@@ -65,7 +64,7 @@ CcuRepShL::CcuRepShL(CcuInsGeneraterBase* insGenPtr, const Address& addrD, const
 
 bool CcuRepShL::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep)
 {
-    Hccl::CHECK_NULLPTR(instr, "[CcuRepShL::Translate] instr is nullptr!");
+    hcomm::CheckCcuNotNull(instr, "[CcuRepShL::Translate] instr is nullptr!");
     this->instrId = curInstrId;
     translated = true;
     instrCount = insGenPtr->GetInstrCount(type);
@@ -75,7 +74,7 @@ bool CcuRepShL::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curI
         HCCL_ERROR(
             "[CcuRepShL::Translate]uint16 integer overflow occurs, curInstrId = [%hu], instrCount = [%hu]", curInstrId,
             instrCount),
-        Hccl::InternalException, "integer overflow");
+        CcuResult::CCU_E_INTERNAL, "integer overflow");
     curInstrId += instrCount;
     return translated;
 }
@@ -84,22 +83,22 @@ std::string CcuRepShL::Describe()
 {
     switch (subType) {
         case ShiftSubType::VAR_EQUALS_VAR_SHIFT_VAR: {
-            return Hccl::StringFormat("Variable[%u] = Variable[%u] << Variable[%u]", varD.Id(), varN.Id(), varM.Id());
+            return hcomm::FormatCcuMessage("Variable[%u] = Variable[%u] << Variable[%u]", varD.Id(), varN.Id(), varM.Id());
         }
         case ShiftSubType::VAR_SHIFT_ASSIGN_VAR: {
-            return Hccl::StringFormat("Variable[%u] <<= Variable[%u]", varD.Id(), varM.Id());
+            return hcomm::FormatCcuMessage("Variable[%u] <<= Variable[%u]", varD.Id(), varM.Id());
         }
         case ShiftSubType::ADDR_EQUALS_VAR_SHIFT_VAR: {
-            return Hccl::StringFormat("Address[%u] = Variable[%u] << Variable[%u]", addrD.Id(), varN.Id(), varM.Id());
+            return hcomm::FormatCcuMessage("Address[%u] = Variable[%u] << Variable[%u]", addrD.Id(), varN.Id(), varM.Id());
         }
         case ShiftSubType::ADDR_SHIFT_ASSIGN_VAR: {
-            return Hccl::StringFormat("Address[%u] <<= Variable[%u]", addrD.Id(), varM.Id());
+            return hcomm::FormatCcuMessage("Address[%u] <<= Variable[%u]", addrD.Id(), varM.Id());
         }
         default: {
-            return Hccl::StringFormat("Invalid Shift");
+            return hcomm::FormatCcuMessage("Invalid Shift");
         }
     }
-    return Hccl::StringFormat("Invalid Shift");
+    return hcomm::FormatCcuMessage("Invalid Shift");
 }
 
 }; // namespace CcuRep
