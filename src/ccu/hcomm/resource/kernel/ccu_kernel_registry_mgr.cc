@@ -18,6 +18,8 @@
 
 namespace hcomm {
 
+void EnsureCcuKernelMgrConstructed(int32_t deviceLogicId);
+
 CcuKernelRegistryMgr::~CcuKernelRegistryMgr()
 {
     if (!initializedFlag_) {
@@ -29,6 +31,9 @@ CcuKernelRegistryMgr::~CcuKernelRegistryMgr()
 
 CcuKernelRegistryMgr& CcuKernelRegistryMgr::GetInstance(const int32_t deviceLogicId)
 {
+    // Registries unregister their kernels during destruction. Construct the kernel managers first so
+    // they remain alive until every registry manager has finished tearing down.
+    EnsureCcuKernelMgrConstructed(deviceLogicId);
     static CcuKernelRegistryMgr instanceMgrs[MAX_MODULE_DEVICE_NUM + 1];
 
     int32_t devLogicId = deviceLogicId;
@@ -80,7 +85,9 @@ CcuResult CcuKernelRegistryMgr::GetOrCreate(int32_t deviceLogicId, CcuInsHandle 
     }
 
     std::unique_ptr<CcuKernelRegistry> instance{nullptr};
-    EXCEPTION_CATCH(instance = std::make_unique<CcuKernelRegistry>(), return CcuResult::CCU_E_PTR);
+    CCU_EXCEPTION_HANDLE_BEGIN
+    instance = std::make_unique<CcuKernelRegistry>();
+    CCU_EXCEPTION_HANDLE_END
     CCU_CHK_RET(instance->Init(deviceLogicId));
     instance->SetHandle(insHandle);
     registry = instance.get();

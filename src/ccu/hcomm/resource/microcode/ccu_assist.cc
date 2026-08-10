@@ -10,12 +10,13 @@
 
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 
+#include <map>
+
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 
 #include "runtime/rt_external_device.h"
 
-#include "exception_util.h" // todo: 需要统一整改为不抛异常
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -151,7 +152,7 @@ uint16_t GetCcuReduceType(HcclReduceOp reduceOp)
     };
 
     if (ccuReduceTypeMap.find(reduceOp) == ccuReduceTypeMap.end()) {
-        Hccl::THROW<Hccl::CcuApiException>("Unsupported ReduceOp[%s] for Ccu", DescribeReduceOp(reduceOp).c_str());
+        hcomm::ThrowCcuInternal("Unsupported ReduceOp[%s] for Ccu", DescribeReduceOp(reduceOp).c_str());
     }
 
     return ccuReduceTypeMap[reduceOp];
@@ -175,7 +176,7 @@ uint16_t GetCcuDataType(HcclDataType dataType, HcclReduceOp reduceOp)
     uint16_t ccuReduceType = GetCcuReduceType(reduceOp);
     if (ccuReduceType == CCU_REDUCE_SUM) {
         if (ccuSumDataTypeMap.find(dataType) == ccuSumDataTypeMap.end()) {
-            Hccl::THROW<Hccl::CcuApiException>(
+            hcomm::ThrowCcuInternal(
                 "Unsupported DataType[%s] for Ccu SUM", DescribeDataType(dataType).c_str());
         }
         return ccuSumDataTypeMap[dataType];
@@ -183,7 +184,7 @@ uint16_t GetCcuDataType(HcclDataType dataType, HcclReduceOp reduceOp)
 
     if (ccuReduceType == CCU_REDUCE_MAX || ccuReduceType == CCU_REDUCE_MIN) {
         if (ccuMaxMinDataTypeMap.find(dataType) == ccuMaxMinDataTypeMap.end()) {
-            Hccl::THROW<Hccl::CcuApiException>(
+            hcomm::ThrowCcuInternal(
                 "Unsupported DataType[%s] for Ccu MAX/MIN", DescribeDataType(dataType).c_str());
         }
         return ccuMaxMinDataTypeMap[dataType];
@@ -201,7 +202,7 @@ uint16_t GetUBReduceType(HcclReduceOp reduceOp)
     };
 
     if (ubReduceTypeMap.find(reduceOp) == ubReduceTypeMap.end()) {
-        Hccl::THROW<Hccl::CcuApiException>("Unsupported reduceOp[%s] for UB Reduce", DescribeReduceOp(reduceOp).c_str());
+        hcomm::ThrowCcuInternal("Unsupported reduceOp[%s] for UB Reduce", DescribeReduceOp(reduceOp).c_str());
     }
 
     return ubReduceTypeMap[reduceOp];
@@ -215,7 +216,7 @@ uint16_t GetUBDataType(HcclDataType dataType)
         {HCCL_DATA_TYPE_INT32, 2}, {HCCL_DATA_TYPE_UINT16, 4}, {HCCL_DATA_TYPE_UINT32, 5}};
 
     if (ubDataTypeMap.find(dataType) == ubDataTypeMap.end()) {
-        Hccl::THROW<Hccl::CcuApiException>("Unsupported DataType[%s] for UB Reduce", DescribeDataType(dataType).c_str());
+        hcomm::ThrowCcuInternal("Unsupported DataType[%s] for UB Reduce", DescribeDataType(dataType).c_str());
     }
     return ubDataTypeMap[dataType];
 }
@@ -228,7 +229,7 @@ uint64_t GetTokenInfo(uint64_t va, uint64_t size)
     info.size = size;
     if (rtUbDevQueryInfo(QUERY_PROCESS_TOKEN, &info) != RT_ERROR_NONE) {
         // token 信息属于安全信息，失败时不打印 va/size 之外的内容
-        Hccl::THROW<Hccl::CcuApiException>("failed to query tokenInfo.");
+        hcomm::ThrowCcuInternal("failed to query tokenInfo.");
     }
     // runtime 返回的 tokenId 低 8 位非 CCU 所用语义，需右移后再写入 token 寄存器位域
     constexpr uint32_t tokenIdShiftBit = 8;
