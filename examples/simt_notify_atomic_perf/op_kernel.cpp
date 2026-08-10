@@ -24,7 +24,11 @@ constexpr uint32_t kDrainStatusIndex = 1U;
 constexpr uint32_t kCompletedIndex = 2U;
 constexpr uint32_t kCompletionCyclesIndex = 3U;
 constexpr uint32_t kNotifyAlignment = sizeof(uint64_t);
+constexpr uint32_t kWqeStagingWords = 128U / sizeof(uint64_t);
 constexpr uint32_t kDwqeBatchStateWords = 4U;
+// Hcomm owns the layout; the benchmark only supplies an opaque 128-byte UB region.
+constexpr uint32_t kPostContextWords = 128U / sizeof(uint64_t);
+constexpr int64_t kPostContextInitFailed = -3;
 
 template <bool commit>
 __simt_callee__ inline void SubmitNotify(AscendC::simt::Hcomm<> &hcomm,
@@ -38,10 +42,14 @@ __simt_callee__ inline void SubmitNotify(AscendC::simt::Hcomm<> &hcomm,
 
 // This is the validated notify_immediate_repeat functional flow with timing added
 // around only the measured WQE-fill + doorbell loop.
-__simt_vf__ __launch_bounds__(1024) inline void SimtNotifyPerfVf(
+// The t1 path launches one lane. Keep the compile-time bound within the
+// 1..256 range so the compiler can use the larger per-thread register budget.
+__simt_vf__ __launch_bounds__(32) inline void SimtNotifyPerfVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
     __gm__ uint64_t *timing, uint32_t payloadBytes,
-    uint32_t iterations, uint32_t warmup)
+    uint32_t iterations, uint32_t warmup,
+    __ubuf__ uint8_t *wqeStaging, uint32_t wqeStagingBytes,
+    __ubuf__ uint8_t *postContext)
 {
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
@@ -52,6 +60,21 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyPerfVf(
     uint32_t notifyOffset =
         (payloadBytes + kNotifyAlignment - 1U) & ~(kNotifyAlignment - 1U);
     AscendC::simt::Hcomm<> hcomm;
+    if (hcomm.Init(wqeStaging, wqeStagingBytes) != 0) {
+        timing[kCyclesIndex] = 0U;
+        timing[kDrainStatusIndex] = static_cast<uint64_t>(-1);
+        timing[kCompletedIndex] = 0U;
+        timing[kCompletionCyclesIndex] = 0U;
+        return;
+    }
+    hcomm.BindUbPostContext(postContext);
+    if (hcomm.InitUbPostContext(channel) != 0) {
+        timing[kCyclesIndex] = 0U;
+        timing[kDrainStatusIndex] = static_cast<uint64_t>(kPostContextInitFailed);
+        timing[kCompletedIndex] = 0U;
+        timing[kCompletionCyclesIndex] = 0U;
+        return;
+    }
 
     for (uint32_t i = 0U; i < warmup; ++i) {
         (void)hcomm.WriteWithNotifyNbi(
@@ -193,10 +216,13 @@ extern "C" __global__ __vector__ void SimtNotifyPerf(
     __gm__ void *timing, uint32_t payloadBytes,
     uint32_t iterations, uint32_t warmup)
 {
+    alignas(128) __ubuf__ uint64_t wqeStaging[kWqeStagingWords];
+    alignas(128) __ubuf__ uint64_t postContextStorage[kPostContextWords];
     asc_vf_call<SimtNotifyPerfVf>(
         dim3(1), channel, sendBufIdx, recvBufIdx,
         reinterpret_cast<__gm__ uint64_t *>(timing), payloadBytes,
-        iterations, warmup);
+        iterations, warmup, (__ubuf__ uint8_t *)wqeStaging, sizeof(wqeStaging),
+        (__ubuf__ uint8_t *)postContextStorage);
 }
 
 void LaunchSimtNotifyPerf(
