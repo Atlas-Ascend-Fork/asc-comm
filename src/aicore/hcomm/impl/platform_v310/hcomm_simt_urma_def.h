@@ -35,12 +35,59 @@ constexpr uint32_t HCOMM_URMA_WQE_BB_CNT = 1U;
 constexpr uint32_t HCOMM_URMA_DWQE_BB_CNT = HCOMM_URMA_DWQE_SIZE / HCOMM_URMA_WQE_BB_SIZE;
 constexpr uint32_t HCOMM_SIMT_MAX_CQ_RETRY = 1000000U;
 
+#if defined(HCOMM_SIMT_UB_STAGING_EXPERIMENT)
+enum class HcommSimtUbWqeKind : uint8_t {
+    EMPTY,
+    NOTIFY,
+    ATOMIC,
+};
+
+// Immutable for one channel while a kernel is running. The remote token fields
+// are refreshed whenever the target address leaves the cached registered range.
+struct HcommSimtUbPostMeta {
+    uint32_t sqDepth = 0U;
+    uint32_t tpId = 0U;
+    uint64_t remoteEidL = 0U;
+    uint64_t remoteEidH = 0U;
+    uint32_t remoteTokenId = 0U;
+    uint32_t remoteTokenValue = 0U;
+};
+
+// One read-only copy per SIMT block. Per-WQE token fields stay lane-local in
+// HcommSimtUbPostMeta because lanes may target different registered buffers.
+struct HcommSimtUbPostContext {
+    ChannelHandle channel;
+    uint64_t remoteBuffersAddr;
+    uint64_t headAddr;
+    uint64_t dwqeAddr;
+    uint64_t sqBaseAddr;
+    uint32_t sqWqeSize;
+    uint32_t remoteBufferNum;
+    uint32_t sqDepth;
+    uint32_t tpId;
+    uint64_t remoteEidL;
+    uint64_t remoteEidH;
+};
+
+struct HcommSimtUbResolvedPost {
+    HcommSimtUbPostMeta meta;
+    __gm__ uint64_t* headAddr;
+    __gm__ uint8_t* dwqeAddr;
+    uint64_t sqBaseAddr;
+    uint32_t sqWqeSize;
+};
+#endif
+
 template <>
 class HcommImpl<COMM_PROTOCOL_UBC_CTP> {
 public:
     __simt_callee__ inline HcommImpl();
     __simt_callee__ inline ~HcommImpl();
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
+#if defined(HCOMM_SIMT_UB_STAGING_EXPERIMENT)
+    __simt_callee__ inline void BindUbPostContext(__ubuf__ uint8_t* context);
+    __simt_callee__ inline int32_t InitUbPostContext(ChannelHandle channel);
+#endif
     __simt_callee__ inline int32_t ReserveDwqeBatch(
         ChannelHandle channel, __ubuf__ uint32_t* state, bool active,
         uint32_t activeWqeCnt, uint32_t commitLane);
@@ -71,6 +118,15 @@ private:
     bool hasDeferredDwqeBatch_ = false;
     uint32_t deferredDwqeBbCnt_ = 0U;
     uint32_t deferredDwqeCqeCnt_ = 0U;
+#if defined(HCOMM_SIMT_UB_STAGING_EXPERIMENT)
+    __ubuf__ uint8_t* wqeItem_;
+    HcommSimtUbWqeKind wqeKind_ = HcommSimtUbWqeKind::EMPTY;
+    __ubuf__ HcommSimtUbPostContext* ubPostContext_ = nullptr;
+
+    __simt_callee__ inline int32_t ResolveUbPostContext(
+        ChannelHandle channel, __gm__ uint8_t* remoteAddr, uint64_t len, HcommSimtUbResolvedPost& post);
+#endif
+
     template <
         bool commit = true, auto commitPipe = 0, auto reqPipe = 0, HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE,
         auto const& config = URMA_DEFAULT_CFG>
