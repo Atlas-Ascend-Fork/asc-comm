@@ -12,7 +12,6 @@
 
 #include <algorithm>
 
-#include "log.h"
 #include "hcomm/common/ccu_log.h"
 
 #include "hcomm/resource/common/asc_ccu_res_snapshot.h"

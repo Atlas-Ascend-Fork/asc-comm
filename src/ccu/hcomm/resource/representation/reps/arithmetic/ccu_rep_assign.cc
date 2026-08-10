@@ -11,8 +11,7 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "string_util.h"
-#include "exception_util.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
 namespace hcomm {
@@ -56,7 +55,7 @@ CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable& varB,
 
 bool CcuRepAssign::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
-    Hccl::CHECK_NULLPTR(instr, "[CcuRepAssign::Translate] instr is nullptr!");
+    hcomm::CheckCcuNotNull(instr, "[CcuRepAssign::Translate] instr is nullptr!");
     this->instrId = instrId;
     translated = true;
 
@@ -67,7 +66,7 @@ bool CcuRepAssign::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& i
         HCCL_ERROR(
             "[CcuRepAssign::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instrId,
             instrCount),
-        Hccl::InternalException, "integer overflow");
+        CcuResult::CCU_E_INTERNAL, "integer overflow");
     instrId += instrCount;
 
     return translated;
@@ -77,22 +76,22 @@ std::string CcuRepAssign::Describe()
 {
     switch (subType) {
         case AssignSubType::IMD_TO_VARIABLE: {
-            return Hccl::StringFormat("Variable[%u] = Value[%lu]", varA.Id(), immediate);
+            return hcomm::FormatCcuMessage("Variable[%u] = Value[%lu]", varA.Id(), immediate);
         }
         case AssignSubType::IMD_TO_ADDR: {
-            return Hccl::StringFormat("Address[%u] = Value[%lu]", addrA.Id(), immediate);
+            return hcomm::FormatCcuMessage("Address[%u] = Value[%lu]", addrA.Id(), immediate);
         }
         case AssignSubType::VAR_TO_ADDR: {
-            return Hccl::StringFormat("Address[%u] = Variable[%u]", addrA.Id(), varA.Id());
+            return hcomm::FormatCcuMessage("Address[%u] = Variable[%u]", addrA.Id(), varA.Id());
         }
         case AssignSubType::ADDR_TO_ADDR: {
-            return Hccl::StringFormat("Address[%u] = Address[%u]", addrB.Id(), addrA.Id());
+            return hcomm::FormatCcuMessage("Address[%u] = Address[%u]", addrB.Id(), addrA.Id());
         }
         case AssignSubType::VAR_TO_VAR: {
-            return Hccl::StringFormat("Var[%u] = Var[%u]", varB.Id(), varA.Id());
+            return hcomm::FormatCcuMessage("Var[%u] = Var[%u]", varB.Id(), varA.Id());
         }
         default: {
-            return Hccl::StringFormat("Invalid Assign");
+            return hcomm::FormatCcuMessage("Invalid Assign");
         }
     }
 }
