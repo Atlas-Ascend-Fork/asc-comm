@@ -89,10 +89,15 @@ public:
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbiPrepare(
+        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, __ubuf__ uint8_t* buff, uint32_t buffLen);
+    template <bool commit = true>
+    __aicore__ inline int32_t WriteNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteWithNotifyNbiPrepare(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal,
         __ubuf__ uint8_t* buff, uint32_t buffLen);
     template <bool commit = true>
-    __aicore__ inline int32_t WriteNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff);
+    __aicore__ inline int32_t WriteWithNotifyNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff);
     template <
         typename T, HcommUrmaReduceOp reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,
         pipe_t reqPipe = PIPE_MTE3, auto const& config = URMA_DEFAULT_CFG>

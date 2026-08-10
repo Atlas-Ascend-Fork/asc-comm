@@ -35,6 +35,7 @@ constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
 
 constexpr uint32_t HCOMM_WRITE_PREPARE_MAGIC = 0x48575042U;
+constexpr uint32_t HCOMM_PLAIN_WRITE_PREPARE_MAGIC = 0x48575050U;
 
 struct alignas(32) HcommWritePrepareHeader {
     uint32_t magic;
