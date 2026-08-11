@@ -104,6 +104,7 @@ private:
     HcommThreadEntity podEntity_{};
     std::vector<HcommNotify> podNotifies_;
     HcommRtsqContext podRtsq_{};
+    bool podExported_ = false;
 };
 
 }  // namespace hccl
