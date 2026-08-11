@@ -109,11 +109,6 @@ CcuKernelMgr& CcuKernelMgr::GetInstance(const int32_t deviceLogicId)
     return kernelManager[devLogicId];
 }
 
-void EnsureCcuKernelMgrConstructed(int32_t deviceLogicId)
-{
-    (void)CcuKernelMgr::GetInstance(deviceLogicId);
-}
-
 HcclResult CcuKernelMgr::Init()
 {
     std::unique_lock<std::mutex> lock(kernelMapMutex_);
@@ -687,6 +682,15 @@ HcclResult CcuKernelMgr::TransRepSequenceToMicrocode(const std::vector<CcuKernel
         } catch (const ::AscendC::ccu::detail::CcuException& exception) {
             HCCL_ERROR("[%s] exception: %s", __func__, exception.what());
             return static_cast<HcclResult>(exception.code());
+        } catch (const std::out_of_range& exception) {
+            HCCL_ERROR("[%s] out of range: %s", __func__, exception.what());
+            return HcclResult::HCCL_E_NOT_FOUND;
+        } catch (const std::runtime_error& exception) {
+            HCCL_ERROR("[%s] runtime error: %s", __func__, exception.what());
+            return HcclResult::HCCL_E_RUNTIME;
+        } catch (const std::logic_error& exception) {
+            HCCL_ERROR("[%s] logic error: %s", __func__, exception.what());
+            return HcclResult::HCCL_E_INTERNAL;
         } catch (const std::exception& exception) {
             HCCL_ERROR("[%s] exception: %s", __func__, exception.what());
             return HcclResult::HCCL_E_INTERNAL;
