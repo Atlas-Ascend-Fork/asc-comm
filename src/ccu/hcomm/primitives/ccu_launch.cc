@@ -13,7 +13,6 @@
 #include "ccu/hcomm/ccu_res.h"
 #include "hcomm/hcomm_ccu_launch.h"
 
-#include <cstring>
 #include <vector>
 
 
@@ -30,7 +29,6 @@
 CcuResult HcommCcuKernelRegisterStart(
     CcuInsHandle insHandle, const HcommCcuRegisterContextPod *context)
 {
-    CCU_EXCEPTION_HANDLE_BEGIN
     CCU_CHK_PTR_NULL(context);
     if (context->instanceHandle != 0 && context->instanceHandle != insHandle) {
         HCCL_ERROR("[%s] failed, context instanceHandle[%llu] mismatches input insHandle[%llu].", __func__,
@@ -56,7 +54,6 @@ CcuResult HcommCcuKernelRegisterStart(
     }
     hcomm::SetCurrentCcuDeviceLogicId(context->deviceLogicId);
     return CcuResult::CCU_SUCCESS;
-    CCU_EXCEPTION_HANDLE_END
 }
 
 static CcuResult CcuKernelTryRegister(
@@ -76,7 +73,6 @@ CcuResult HcommCcuKernelRegister(
     CcuInsHandle insHandle, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
     uint32_t argNum, CcuKernelHandle* kernelHandle)
 {
-    CCU_EXCEPTION_HANDLE_BEGIN
     HCCL_RUN_INFO("Entry-%s", __func__);
     HcclUs startut = TIME_NOW();
 
@@ -114,12 +110,10 @@ CcuResult HcommCcuKernelRegister(
     *kernelHandle = newHandle;
     HCCL_INFO("[%s] success, take time [%lld]us.", __func__, DURATION_US(TIME_NOW() - startut).count());
     return CcuResult::CCU_SUCCESS;
-    CCU_EXCEPTION_HANDLE_END
 }
 
 CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle insHandle)
 {
-    CCU_EXCEPTION_HANDLE_BEGIN
     const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
     auto* ccuIns = hcomm::CcuKernelRegistryMgr::GetInstance(devLogicId).Get(insHandle);
     CCU_CHK_PTR_NULL(ccuIns);
@@ -128,15 +122,16 @@ CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle insHandle)
     const auto& newKernels = ccuIns->GetUntranslatedKernels();
 
     auto& kernelMgr = hcomm::CcuKernelMgr::GetInstance(devLogicId);
+    // 当前翻译内部流程可能抛异常
+    CCU_EXCEPTION_HANDLE_BEGIN
     CCU_CHK_RET(kernelMgr.Translate(newKernels));
+    CCU_EXCEPTION_HANDLE_END
 
     return CcuResult::CCU_SUCCESS;
-    CCU_EXCEPTION_HANDLE_END
 }
 
 CcuResult HcommCcuGetTaskArgsNum(CcuKernelHandle kernelHandle, uint32_t* taskArgsNum)
 {
-    CCU_EXCEPTION_HANDLE_BEGIN
     HCCL_INFO("Entry-%s", __func__);
     CCU_CHK_PTR_NULL(taskArgsNum);
 
@@ -149,7 +144,6 @@ CcuResult HcommCcuGetTaskArgsNum(CcuKernelHandle kernelHandle, uint32_t* taskArg
     *taskArgsNum = info.maxTaskArgsNum;
     HCCL_INFO("[%s] success, kernelHandle[%llx], taskArgsNum[%u].", __func__, kernelHandle, *taskArgsNum);
     return CcuResult::CCU_SUCCESS;
-    CCU_EXCEPTION_HANDLE_END
 }
 
 static CcuResult ConstructCcuDetailInfo(const std::vector<hcomm::CcuProfilingInfo>& allCcuProfilingInfo,
@@ -172,7 +166,7 @@ static CcuResult ConstructCcuDetailInfo(const std::vector<hcomm::CcuProfilingInf
         }
         dst.header = {HCOMM_CCU_LAUNCH_ABI_VERSION, HCOMM_CCU_PROFILE_DETAIL_MAGIC_WORD, sizeof(dst), 0};
         dst.nameLength = static_cast<uint32_t>(src.name.size());
-        (void)std::memcpy(dst.name, src.name.data(), src.name.size());
+        (void)memcpy_s(dst.name, sizeof(dst.name), src.name.data(), src.name.size());
         dst.profilingType = src.type;
         dst.dieId = src.dieId;
         dst.missionId = src.missionId;
@@ -290,7 +284,6 @@ static bool IsLaunchContextValid(const HcommCcuLaunchContextPod& context)
 CcuResult HcommCcuKernelLaunch(
     const HcommCcuLaunchContextPod *launchContext, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum)
 {
-    CCU_EXCEPTION_HANDLE_BEGIN
     const auto& startus = TIME_NOW();
 
     CCU_CHK_PTR_NULL(launchContext);
@@ -314,6 +307,7 @@ CcuResult HcommCcuKernelLaunch(
     auto* kernel = kernelMgr.GetKernel(kernelHandle);
     CCU_CHK_PTR_NULL(kernel);
 
+    CCU_EXCEPTION_HANDLE_BEGIN
     std::vector<hcomm::CcuTaskParam> taskParams{};
     auto ret = kernel->GeneTaskParams(static_cast<const uint64_t*>(taskArgs), argNum, taskParams);
     CHK_PRT_RET(
@@ -353,14 +347,13 @@ CcuResult HcommCcuKernelLaunch(
                 static_cast<uint32_t>(ccuDetailInfo.size())));
         }
     }
+    CCU_EXCEPTION_HANDLE_END
     HCCL_INFO("[%s] success, take time [%lld]us.", __func__, DURATION_US(TIME_NOW() - startus).count());
     return CcuResult::CCU_SUCCESS;
-    CCU_EXCEPTION_HANDLE_END
 }
 
 CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo)
 {
-    CCU_EXCEPTION_HANDLE_BEGIN
     CCU_CHK_PTR_NULL(tokenInfo);
 
     if (srcVa == 0 || size == 0) {
@@ -376,7 +369,6 @@ CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo
     CCU_EXCEPTION_HANDLE_END
 
     return CcuResult::CCU_SUCCESS;
-    CCU_EXCEPTION_HANDLE_END
 }
 
 // 定位实例资源仓后转发给 CcuVarEventResMgr；预约、地址映射与失败回滚均由该类内部完成
@@ -398,30 +390,25 @@ static CcuResult CcuAllocVarEventRes(CcuInsHandle insHandle, hcomm::CcuVarEventT
 CcuResult HcommCcuVariableAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
     CcuVariableHandle *varHandle)
 {
-    CCU_EXCEPTION_HANDLE_BEGIN
     CCU_CHK_PTR_NULL(varHandle);
     *varHandle = 0;
     CCU_CHK_RET(CcuAllocVarEventRes(insHandle, hcomm::CcuVarEventType::VARIABLE,
         dieId, num, *varHandle));
     return CcuResult::CCU_SUCCESS;
-    CCU_EXCEPTION_HANDLE_END
 }
 
 CcuResult HcommCcuEventAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
     CcuEventHandle *eventHandle)
 {
-    CCU_EXCEPTION_HANDLE_BEGIN
     CCU_CHK_PTR_NULL(eventHandle);
     *eventHandle = 0;
     CCU_CHK_RET(CcuAllocVarEventRes(insHandle, hcomm::CcuVarEventType::EVENT,
         dieId, num, *eventHandle));
     return CcuResult::CCU_SUCCESS;
-    CCU_EXCEPTION_HANDLE_END
 }
 
 CcuResult HcommCcuVariableGetAddr(CcuVariableHandle varHandle, uint32_t index, uint64_t *va)
 {
-    CCU_EXCEPTION_HANDLE_BEGIN
     CCU_CHK_PTR_NULL(va);
 
     const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
@@ -429,12 +416,10 @@ CcuResult HcommCcuVariableGetAddr(CcuVariableHandle varHandle, uint32_t index, u
         hcomm::CcuVarEventType::VARIABLE, varHandle, index, *va));
 
     return CcuResult::CCU_SUCCESS;
-    CCU_EXCEPTION_HANDLE_END
 }
 
 CcuResult HcommCcuEventGetAddr(CcuEventHandle eventHandle, uint32_t index, uint64_t *va)
 {
-    CCU_EXCEPTION_HANDLE_BEGIN
     CCU_CHK_PTR_NULL(va);
 
     const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
@@ -442,5 +427,4 @@ CcuResult HcommCcuEventGetAddr(CcuEventHandle eventHandle, uint32_t index, uint6
         hcomm::CcuVarEventType::EVENT, eventHandle, index, *va));
 
     return CcuResult::CCU_SUCCESS;
-    CCU_EXCEPTION_HANDLE_END
 }
