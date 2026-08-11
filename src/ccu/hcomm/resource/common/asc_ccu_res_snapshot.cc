@@ -32,6 +32,7 @@ std::vector<HcommCcuResRangePod> *GetRanges(
         case HCOMM_CCU_BATCH_RES_GSA: return &repository.gsa[dieId];
         case HCOMM_CCU_BATCH_RES_BLOCK_GSA: return &repository.blockGsa[dieId];
         case HCOMM_CCU_BATCH_RES_MISSION: return &repository.mission[dieId];
+        case HCOMM_CCU_RES_INSTRUCTION: return &repository.instruction[dieId];
         default: return nullptr;
     }
 }
@@ -65,10 +66,12 @@ bool RangesOverlap(const HcommCcuResRangePod &left, const HcommCcuResRangePod &r
     return static_cast<uint64_t>(left.startId) < rightEnd && static_cast<uint64_t>(right.startId) < leftEnd;
 }
 
-CcuResult ValidateAndAppend(const HcommCcuResRangeViewPod &view, bool instruction,
-    uint32_t validDieMask, std::vector<HcommCcuResRangePod> &allRanges, AscCcuResRepository &repository,
-    std::array<HcommCcuResRangePod, HCOMM_CCU_MAX_DIE_NUM> *instructionPools)
+CcuResult ValidateAndAppend(const HcommCcuResRangeViewPod &view,
+    uint32_t validDieMask, std::vector<HcommCcuResRangePod> &allRanges, AscCcuResRepository &repository)
 {
+    if (!IsViewShapeValid(view)) {
+        return CcuResult::CCU_E_PARA;
+    }
     for (uint32_t index = 0; index < view.count; ++index) {
         const HcommCcuResRangePod &range = view.ranges[index];
         if (range.dieId >= HCOMM_CCU_MAX_DIE_NUM || (validDieMask & (1U << range.dieId)) == 0 || range.count == 0 ||
@@ -76,8 +79,7 @@ CcuResult ValidateAndAppend(const HcommCcuResRangeViewPod &view, bool instructio
                 static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1U) {
             return CcuResult::CCU_E_PARA;
         }
-        if ((instruction && range.resourceType != HCOMM_CCU_RES_INSTRUCTION) ||
-            (!instruction && range.resourceType >= HCOMM_CCU_BATCH_RES_TYPE_COUNT)) {
+        if (range.resourceType > HCOMM_CCU_RES_INSTRUCTION) {
             return CcuResult::CCU_E_PARA;
         }
         for (const auto &existing : allRanges) {
@@ -86,14 +88,6 @@ CcuResult ValidateAndAppend(const HcommCcuResRangeViewPod &view, bool instructio
             }
         }
         allRanges.push_back(range);
-        if (instruction) {
-            HcommCcuResRangePod &pool = (*instructionPools)[range.dieId];
-            if (pool.count != 0) {
-                return CcuResult::CCU_E_PARA;
-            }
-            pool = range;
-            continue;
-        }
         auto *destination = GetRanges(repository, range.resourceType, range.dieId);
         if (destination == nullptr) {
             return CcuResult::CCU_E_PARA;
@@ -111,8 +105,7 @@ CcuResult AscCcuResSnapshot::Load(const HcommCcuRegisterContextPod &context)
         context.dieNum != HCOMM_CCU_MAX_DIE_NUM ||
         context.validDieMask == 0 || (context.validDieMask & ~((1U << HCOMM_CCU_MAX_DIE_NUM) - 1U)) != 0 ||
         context.reserved[0] != 0 || context.reserved[1] != 0 ||
-        !IsViewShapeValid(context.instanceResources) || !IsViewShapeValid(context.translatorResources) ||
-        !IsViewShapeValid(context.instructionResources)) {
+        !IsViewShapeValid(context.instanceResources)) {
         return CcuResult::CCU_E_PARA;
     }
     if (generation_ != 0 && generation_ != context.generation) {
@@ -120,24 +113,10 @@ CcuResult AscCcuResSnapshot::Load(const HcommCcuRegisterContextPod &context)
     }
 
     AscCcuResRepository instanceSnapshot{};
-    AscCcuResRepository translatorSnapshot{};
-    std::array<HcommCcuResRangePod, HCOMM_CCU_MAX_DIE_NUM> instructionPools{};
     std::vector<HcommCcuResRangePod> allRanges;
-    allRanges.reserve(context.instanceResources.count + context.translatorResources.count +
-        context.instructionResources.count);
+    allRanges.reserve(context.instanceResources.count);
 
-    CcuResult ret = ValidateAndAppend(context.instanceResources, false, context.validDieMask, allRanges,
-        instanceSnapshot, nullptr);
-    if (ret != CcuResult::CCU_SUCCESS) {
-        return ret;
-    }
-    ret = ValidateAndAppend(context.translatorResources, false, context.validDieMask, allRanges,
-        translatorSnapshot, nullptr);
-    if (ret != CcuResult::CCU_SUCCESS) {
-        return ret;
-    }
-    ret = ValidateAndAppend(context.instructionResources, true, context.validDieMask, allRanges,
-        translatorSnapshot, &instructionPools);
+    CcuResult ret = ValidateAndAppend(context.instanceResources, context.validDieMask, allRanges, instanceSnapshot);
     if (ret != CcuResult::CCU_SUCCESS) {
         return ret;
     }
@@ -146,9 +125,7 @@ CcuResult AscCcuResSnapshot::Load(const HcommCcuRegisterContextPod &context)
         const bool enabled = (context.validDieMask & (1U << dieId)) != 0;
         const HcommCcuDieMetadataPod &metadata = context.die[dieId];
         if (metadata.enabled > 1 || (metadata.enabled != 0) != enabled || metadata.reserved != 0 ||
-            (!enabled && !IsDisabledDieMetadataValid(metadata)) ||
-            (enabled && (instructionPools[dieId].count == 0 ||
-                instructionPools[dieId].count != metadata.instructionCapacity))) {
+            (!enabled && !IsDisabledDieMetadataValid(metadata))) {
             return CcuResult::CCU_E_PARA;
         }
     }
@@ -160,8 +137,6 @@ CcuResult AscCcuResSnapshot::Load(const HcommCcuRegisterContextPod &context)
     validDieMask_ = context.validDieMask;
     initialRepo_ = std::move(instanceSnapshot);
     resRepo_ = std::move(currentRepo);
-    translatorRepo_ = std::move(translatorSnapshot);
-    instructionPools_ = instructionPools;
     dieMetadata_[0] = context.die[0];
     dieMetadata_[1] = context.die[1];
     return CcuResult::CCU_SUCCESS;
@@ -176,23 +151,7 @@ CcuResult AscCcuResSnapshot::Reset()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult AscCcuResSnapshot::AllocateInstruction(uint32_t dieId, uint32_t count, HcommCcuResRangePod &range)
-{
-    if (dieId >= HCOMM_CCU_MAX_DIE_NUM || count == 0 || (validDieMask_ & (1U << dieId)) == 0) {
-        return CcuResult::CCU_E_PARA;
-    }
-    const HcommCcuResRangePod &pool = instructionPools_[dieId];
-    if (instructionUsed_[dieId] > pool.count || count > pool.count - instructionUsed_[dieId]) {
-        return CcuResult::CCU_E_UNAVAIL;
-    }
-    range = {HCOMM_CCU_RES_INSTRUCTION, dieId, pool.startId + instructionUsed_[dieId], count};
-    instructionUsed_[dieId] += count;
-    return CcuResult::CCU_SUCCESS;
-}
-
 AscCcuResRepository &AscCcuResSnapshot::GetCcuResRepo() { return resRepo_; }
-
-const AscCcuResRepository &AscCcuResSnapshot::GetTranslatorResRepo() const { return translatorRepo_; }
 
 const HcommCcuDieMetadataPod *AscCcuResSnapshot::GetDieMetadata(uint32_t dieId) const
 {

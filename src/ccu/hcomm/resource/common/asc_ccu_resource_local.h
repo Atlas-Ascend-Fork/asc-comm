@@ -8,10 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef ASC_CCU_RES_REPOSITORY_LOCAL_H
-#define ASC_CCU_RES_REPOSITORY_LOCAL_H
+#ifndef ASC_CCU_RESOURCE_LOCAL_H
+#define ASC_CCU_RESOURCE_LOCAL_H
 
 #include <array>
+#include <cstdint>
 #include <vector>
 
 #include "hcomm_ccu_res.h"
@@ -20,7 +21,12 @@ namespace hcomm {
 
 using AscCcuResRanges = std::array<std::vector<HcommCcuResRangePod>, HCOMM_CCU_MAX_DIE_NUM>;
 
-// 该聚合结构只属于 asc-comm；跨 SO 传递的仅是其中的 range POD 元素，不传递 vector 本身。
+struct AscCcuResRequest {
+    uint32_t count[HCOMM_CCU_BATCH_RES_TYPE_COUNT][HCOMM_CCU_MAX_DIE_NUM]{};
+    uint32_t instruction[HCOMM_CCU_MAX_DIE_NUM]{};
+};
+
+// This aggregate is local to asc-comm. Cross-SO transfer only uses range POD elements, not std::vector.
 struct AscCcuResRepository {
     AscCcuResRanges loopEngine{};
     AscCcuResRanges blockLoopEngine{};
@@ -33,8 +39,9 @@ struct AscCcuResRepository {
     AscCcuResRanges gsa{};
     AscCcuResRanges blockGsa{};
     AscCcuResRanges mission{};
+    AscCcuResRanges instruction{};
 };
 
 } // namespace hcomm
 
-#endif // ASC_CCU_RES_REPOSITORY_LOCAL_H
+#endif // ASC_CCU_RESOURCE_LOCAL_H

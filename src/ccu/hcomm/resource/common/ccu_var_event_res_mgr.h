@@ -17,7 +17,7 @@
 
 #include "ccu/hcomm/ccu_types.h"
 
-#include "hcomm/resource/common/asc_ccu_res_repository_local.h"
+#include "hcomm/resource/common/asc_ccu_resource_local.h"
 
 namespace hcomm {
 

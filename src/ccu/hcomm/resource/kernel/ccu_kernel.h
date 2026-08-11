@@ -24,6 +24,7 @@
 #include "hcomm/resource/kernel/ccu_task_param_v1.h"
 
 #include "hcomm/resource/common/ccu_kernel_resource.h"
+#include "hcomm/resource/common/asc_ccu_resource_local.h"
 #include "hcomm/resource/microcode/ccu_instr_info_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
@@ -35,7 +36,6 @@
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
-#include "hcomm/resource/common/asc_ccu_res_repository_local.h"
 #include "ccu_dev_mgr_imp.h" // CcuVersion
 
 // 暂时引用方便算法开发
@@ -78,7 +78,7 @@ public:
     HcclResult ApplyDieFromChannels();
     HcclResult ValidateAndApplyDie(uint32_t targetDieId);
 
-    HcommCcuResRequestPod GetResourceRequest();
+    AscCcuResRequest GetResourceRequest();
     AscCcuResRepository& GetResRepository();
     CcuRepResource& GetResource();
     CcuSharedResource& GetExportedRes();
@@ -90,6 +90,9 @@ public:
     uint32_t GetInstrId() const;
     uint32_t GetInstrCount();
     void SetCcuInstrInfo(const CcuRep::CcuInstrInfo& instrInfo);
+    void SetInstructionResource(const HcommCcuResRangePod& range);
+    bool GetInstructionResource(HcommCcuResRangePod& range) const;
+    void ClearInstructionResource();
 
     CcuResult GeneTaskParams(const uint64_t* taskArgs, uint32_t argNum, std::vector<CcuTaskParam>& taskParams);
 
@@ -473,6 +476,8 @@ private:
     std::unordered_set<ChannelHandle> channels_{};
 
     CcuRep::CcuInstrInfo instrInfo_{};
+    bool hasInstructionResource_{false};
+    HcommCcuResRangePod instructionResource_{};
 
     uint32_t loadArgIndex_{0};
 
