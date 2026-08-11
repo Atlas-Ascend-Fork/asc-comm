@@ -27,3 +27,9 @@ set_source_files_properties(${ASC_COMM_AICPU_HCOMM_POD_SOURCES} PROPERTIES
     COMPILE_OPTIONS "-ffunction-sections;-fdata-sections;-fvisibility=hidden;-fvisibility-inlines-hidden"
     INCLUDE_DIRECTORIES "${ASC_COMM_AICPU_HCOMM_POD_INCLUDE_DIRS}"
 )
+
+# Public POD primitives use plain extern declarations; keep their implementation symbols visible.
+set_property(SOURCE
+    ${CMAKE_CURRENT_LIST_DIR}/../src/aicpu/hcomm/primitives/api_c_adpt/aicpu_ts_pod_primitives_c_adpt.cc
+    APPEND PROPERTY COMPILE_OPTIONS -fvisibility=default
+)
