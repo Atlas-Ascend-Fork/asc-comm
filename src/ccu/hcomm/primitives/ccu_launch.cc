@@ -28,8 +28,6 @@
 
 #include "env_config/env_config.h" // 暂时引用orion的环境变量处理模块
 
-#include "hcomm_adapter_rts.h"
-
 #include "task_param.h"
 
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
@@ -365,11 +363,10 @@ CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo
         return CcuResult::CCU_E_PARA;
     }
     // 注意token信息属于安全信息，均不允许打印
-    hcomm::rtMemUbTokenInfo info{};
-    info.va = srcVa;
-    info.size = size;
-    CCU_CHK_RET(hcomm::RtsUbDevQueryInfo(QUERY_PROCESS_TOKEN, info));
-    *tokenInfo = hcomm::CcuRep::CcuCombineTokenInfo(info.tokenId, info.tokenValue, 1);
+    // 查询与位域拼装收敛在 GetTokenInfo 内，此处仅转发；GetTokenInfo 会抛异常，故需异常拦截
+    CCU_EXCEPTION_HANDLE_BEGIN
+    *tokenInfo = hcomm::CcuRep::GetTokenInfo(srcVa, size);
+    CCU_EXCEPTION_HANDLE_END
 
     return CcuResult::CCU_SUCCESS;
 }
