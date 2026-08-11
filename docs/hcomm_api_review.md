@@ -357,6 +357,255 @@ __aicore__ inline void MultiBatchWriteExampleV2(
 }
 ```
 
+### 3.6 单 Jetty 多对端端到端用例
+
+本节参考 `hccl_test/main.cpp` 与 `hccl_test/op_kernel.cpp` 的端到端组织方式，给出基于第 3 章推荐接口的单 Jetty 多对端批量写样例。host 侧负责 ACL/HCCL 初始化、对称内存注册、`HcclChannelDesc` 生成和 `MultiChannelHandle` 创建；device 侧在一个 kernel 内按 `remoteIndex` 获取轻量 handle ref，并将多对端写任务积攒后统一提交。
+
+#### 3.6.1 Host 侧 main.cpp 样例
+
+```cpp
+#include <cstdlib>
+#include <cstring>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "acl/acl.h"
+#include "ain/bootstrap.h"
+#include "hccl/hccl.h"
+#include "hccl/hccl_rank_graph.h"
+#include "hcomm/hcomm_res.h"
+#include "hcomm/hcomm_res_entity_defs.h"
+
+#define ACLCHECK(ret) do { \
+    if ((ret) != ACL_SUCCESS) { \
+        std::cout << "ACL failed, ret=" << (ret) << std::endl; \
+        return ret; \
+    } \
+} while (0)
+
+#define HCCLCHECK(ret) do { \
+    if ((ret) != HCCL_SUCCESS) { \
+        std::cout << "HCCL failed, ret=" << (ret) << std::endl; \
+        return ret; \
+    } \
+} while (0)
+
+extern void launch_multi_rank_batch_write(
+    uint32_t blockDim,
+    void* stream,
+    uint64_t multiChannel,
+    uint64_t* dstAddr,
+    uint64_t* srcAddr,
+    uint32_t rankDim,
+    uint32_t myRankId,
+    uint32_t elementCount);
+
+namespace {
+constexpr uint32_t kElementCount = 1024;
+constexpr uint64_t kSendOffset = 0;
+constexpr uint64_t kRecvOffset = 4096;
+constexpr uint64_t kShareBufSize = 1024 * 1024 * 1024;
+} // namespace
+
+int main(int argc, char* argv[])
+{
+    if (argc < 4) {
+        std::cout << "Usage: " << argv[0] << " <rank> <nranks> <endpoint>" << std::endl;
+        return 1;
+    }
+
+    const uint32_t rank = static_cast<uint32_t>(std::atoi(argv[1]));
+    const uint32_t nranks = static_cast<uint32_t>(std::atoi(argv[2]));
+    const std::string endpoint = argv[3];
+
+    ACLCHECK(aclInit(nullptr));
+    ACLCHECK(aclrtSetDevice(rank));
+
+    aclrtStream stream = nullptr;
+    ACLCHECK(aclrtCreateStream(&stream));
+
+    void* localRootInfoBuf = nullptr;
+    ACLCHECK(aclrtMallocHost(&localRootInfoBuf, sizeof(HcclRootInfo)));
+    auto* localRootInfo = static_cast<HcclRootInfo*>(localRootInfoBuf);
+    if (rank == 0) {
+        HCCLCHECK(HcclGetRootInfo(localRootInfo));
+    }
+
+    void* allRootInfoBuf = nullptr;
+    ACLCHECK(aclrtMallocHost(&allRootInfoBuf, sizeof(HcclRootInfo) * nranks));
+
+    ain::BootstrapOptions options;
+    options.rank = rank;
+    options.nranks = nranks;
+    options.endpoint = endpoint;
+    std::unique_ptr<ain::Bootstrap> bootstrap = std::make_unique<ain::Bootstrap>();
+    bootstrap->create(options);
+    bootstrap->all_gather(localRootInfoBuf, allRootInfoBuf, sizeof(HcclRootInfo));
+    bootstrap->barrier();
+
+    auto* allRootInfo = static_cast<HcclRootInfo*>(allRootInfoBuf);
+    HcclComm comm = nullptr;
+    HCCLCHECK(HcclCommInitRootInfo(nranks, &allRootInfo[0], rank, &comm));
+
+    uint32_t* layers = nullptr;
+    uint32_t layerNum = 0;
+    HcclRankGraphGetLayers(comm, &layers, &layerNum);
+    const uint32_t netLayer = layers[0];
+
+    void* shareBuf = nullptr;
+    ACLCHECK(aclrtMalloc(&shareBuf, kShareBufSize, ACL_MEM_MALLOC_HUGE_ONLY));
+
+    std::vector<int32_t> initData((kRecvOffset + kElementCount * sizeof(int32_t)) / sizeof(int32_t), -1);
+    for (uint32_t i = 0; i < kElementCount; ++i) {
+        initData[(kSendOffset / sizeof(int32_t)) + i] = static_cast<int32_t>(rank * kElementCount + i + 1);
+    }
+    ACLCHECK(aclrtMemcpy(shareBuf, kShareBufSize, initData.data(), initData.size() * sizeof(int32_t),
+        ACL_MEMCPY_HOST_TO_DEVICE));
+
+    CommMem regMem{COMM_MEM_TYPE_DEVICE, shareBuf, kShareBufSize};
+    HcclMemHandle memHandle = nullptr;
+    HCCLCHECK(HcclCommMemReg(comm, "MultiRankShareBuf", &regMem, &memHandle));
+
+    std::vector<HcclChannelDesc> channelDescs;
+    channelDescs.reserve(nranks - 1);
+    for (uint32_t remoteIndex = 0; remoteIndex < nranks; ++remoteIndex) {
+        if (remoteIndex == rank) {
+            continue;
+        }
+
+        CommLink* links = nullptr;
+        uint32_t linkNum = 0;
+        HcclRankGraphGetLinks(comm, netLayer, rank, remoteIndex, &links, &linkNum);
+
+        HcclChannelDesc desc;
+        HcclChannelDescInit(&desc, 1);
+        desc.remoteRank = remoteIndex;
+        desc.localEndpoint.protocol = links[0].srcEndpointDesc.protocol;
+        desc.localEndpoint.commAddr = links[0].srcEndpointDesc.commAddr;
+        desc.localEndpoint.loc = links[0].srcEndpointDesc.loc;
+        desc.remoteEndpoint.protocol = links[0].dstEndpointDesc.protocol;
+        desc.remoteEndpoint.commAddr = links[0].dstEndpointDesc.commAddr;
+        desc.remoteEndpoint.loc = links[0].dstEndpointDesc.loc;
+        desc.channelProtocol = links[0].linkAttr.linkProtocol;
+        desc.notifyNum = 3;
+        desc.memHandles = &memHandle;
+        desc.memHandleNum = 1;
+        channelDescs.push_back(desc);
+    }
+
+    MultiChannelHandle multiChannel = 0;
+    MakeMultiChannelHandle(comm, channelDescs.data(), channelDescs.size(), &multiChannel);
+
+    void* hostDstAddr = nullptr;
+    void* hostSrcAddr = nullptr;
+    void* deviceDstAddr = nullptr;
+    void* deviceSrcAddr = nullptr;
+    ACLCHECK(aclrtMallocHost(&hostDstAddr, sizeof(uint64_t) * nranks));
+    ACLCHECK(aclrtMallocHost(&hostSrcAddr, sizeof(uint64_t) * nranks));
+    ACLCHECK(aclrtMalloc(&deviceDstAddr, sizeof(uint64_t) * nranks, ACL_MEM_MALLOC_HUGE_ONLY));
+    ACLCHECK(aclrtMalloc(&deviceSrcAddr, sizeof(uint64_t) * nranks, ACL_MEM_MALLOC_HUGE_ONLY));
+
+    auto* dstAddr = static_cast<uint64_t*>(hostDstAddr);
+    auto* srcAddr = static_cast<uint64_t*>(hostSrcAddr);
+    for (uint32_t remoteIndex = 0; remoteIndex < nranks; ++remoteIndex) {
+        dstAddr[remoteIndex] = reinterpret_cast<uint64_t>(shareBuf) + kRecvOffset;
+        srcAddr[remoteIndex] = reinterpret_cast<uint64_t>(shareBuf) + kSendOffset;
+    }
+    ACLCHECK(aclrtMemcpy(deviceDstAddr, sizeof(uint64_t) * nranks, hostDstAddr,
+        sizeof(uint64_t) * nranks, ACL_MEMCPY_HOST_TO_DEVICE));
+    ACLCHECK(aclrtMemcpy(deviceSrcAddr, sizeof(uint64_t) * nranks, hostSrcAddr,
+        sizeof(uint64_t) * nranks, ACL_MEMCPY_HOST_TO_DEVICE));
+
+    launch_multi_rank_batch_write(1, stream, multiChannel,
+        static_cast<uint64_t*>(deviceDstAddr), static_cast<uint64_t*>(deviceSrcAddr),
+        nranks, rank, kElementCount);
+    ACLCHECK(aclrtSynchronizeStream(stream));
+    bootstrap->barrier();
+
+    std::vector<int32_t> result(kElementCount);
+    ACLCHECK(aclrtMemcpy(result.data(), result.size() * sizeof(int32_t),
+        static_cast<uint8_t*>(shareBuf) + kRecvOffset, result.size() * sizeof(int32_t),
+        ACL_MEMCPY_DEVICE_TO_HOST));
+
+    std::cout << "rank " << rank << " recv first value: " << result[0] << std::endl;
+
+    bootstrap->finalize();
+    ACLCHECK(aclrtFreeHost(localRootInfoBuf));
+    ACLCHECK(aclrtFreeHost(allRootInfoBuf));
+    ACLCHECK(aclrtFreeHost(hostDstAddr));
+    ACLCHECK(aclrtFreeHost(hostSrcAddr));
+    ACLCHECK(aclrtFree(deviceDstAddr));
+    ACLCHECK(aclrtFree(deviceSrcAddr));
+    ACLCHECK(aclrtFree(shareBuf));
+    HCCLCHECK(HcclCommDestroy(comm));
+    ACLCHECK(aclrtDestroyStream(stream));
+    ACLCHECK(aclFinalize());
+    return 0;
+}
+```
+
+#### 3.6.2 Device 侧 op_kernel.cpp 样例
+
+```cpp
+#include "adv_api/hcomm/hcomm.h"
+#include "kernel_operator.h"
+
+namespace {
+constexpr uint32_t kBatchBufferBytes = 8 * 1024;
+constexpr uint64_t kElementSize = sizeof(int32_t);
+
+using HcommType = AscendC::Hcomm<AscendC::CommProtocol::COMM_PROTOCOL_UBC_CTP>;
+} // namespace
+
+extern "C" [[bisheng::core_ratio(0, 1)]] __global__ __aicore__ void multi_rank_batch_write(
+    uint64_t multiChannel,
+    __gm__ uint64_t* dstAddr,
+    __gm__ uint64_t* srcAddr,
+    uint32_t rankDim,
+    uint32_t myRankId,
+    uint32_t elementCount)
+{
+    HcommType hcomm;
+
+    AscendC::TPipe pipe;
+    AscendC::TBuf<AscendC::TPosition::VECCALC> batchBuf;
+    pipe.InitBuffer(batchBuf, kBatchBufferBytes);
+    AscendC::LocalTensor<uint8_t> buff = batchBuf.Get<uint8_t>();
+
+    auto h = hcomm.MakeBatchHandle(multiChannel, buff, kBatchBufferBytes);
+    for (uint32_t remoteIndex = 0; remoteIndex < rankDim; ++remoteIndex) {
+        if (remoteIndex == myRankId) {
+            continue;
+        }
+
+        auto u = hcomm.GetHandleRef(h, remoteIndex);
+        for (uint32_t i = 0; i < elementCount; ++i) {
+            uint64_t offset = static_cast<uint64_t>(i) * kElementSize;
+            hcomm.WriteNbi(u, dstAddr[remoteIndex] + offset, srcAddr[remoteIndex] + offset, kElementSize);
+        }
+    }
+
+    hcomm.BatchCommit(h);
+    hcomm.Drain(h);
+}
+
+void launch_multi_rank_batch_write(
+    uint32_t blockDim,
+    void* stream,
+    uint64_t multiChannel,
+    uint64_t* dstAddr,
+    uint64_t* srcAddr,
+    uint32_t rankDim,
+    uint32_t myRankId,
+    uint32_t elementCount)
+{
+    multi_rank_batch_write<<<blockDim, nullptr, stream>>>(
+        multiChannel, dstAddr, srcAddr, rankDim, myRankId, elementCount);
+}
+```
+
 ---
 
 ## 4. 单 Jetty 多对端批量接口备选
