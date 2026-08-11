@@ -279,6 +279,16 @@ static CcuResult LaunchCcuTasks(
     return CcuResult::CCU_SUCCESS;
 }
 
+static bool IsLaunchContextValid(const HcommCcuLaunchContextPod& context)
+{
+    const auto& header = context.header;
+    return header.version == HCOMM_CCU_LAUNCH_ABI_VERSION
+        && header.magicWord == HCOMM_CCU_LAUNCH_CONTEXT_MAGIC_WORD
+        && header.size == sizeof(context) && header.reserved == 0
+        && context.reserved[0] == 0 && context.reserved[1] == 0
+        && context.runtimeStream != 0;
+}
+
 CcuResult HcommCcuKernelLaunch(
     ThreadHandle threadHandle, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum)
 {
@@ -296,11 +306,15 @@ CcuResult HcommCcuKernelLaunch(
     HcommCcuLaunchContextPod launchContext{};
     // hcomm 仅在同步调用期间解释 ThreadHandle；asc-comm 不感知其 C++ 类型，也不接管其生命周期。
     CCU_CHK_RET(HcommCcuGetLaunchContext(threadHandle, &launchContext));
+    // 跨动态库边界先完整校验 POD，避免按不兼容布局读取 stream、设备号和 profiling 状态。
+    CHK_PRT_RET(!IsLaunchContextValid(launchContext),
+        HCCL_ERROR("[%s] failed, launch context has an incompatible ABI header or runtime stream.", __func__),
+        CcuResult::CCU_E_PARA);
     // runtimeStream 是 hcomm 借出的运行时 stream，且仅在本次同步 launch 返回前有效。
     auto streamPtr = reinterpret_cast<aclrtStream>(launchContext.runtimeStream);
-    CCU_CHK_PTR_NULL(streamPtr);
 
-    const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
+    // launch 使用线程实际所属设备，避免依赖 asc-comm 内部设备上下文与调用线程状态一致。
+    const int32_t devLogicId = launchContext.deviceLogicId;
     auto& kernelMgr = hcomm::CcuKernelMgr::GetInstance(devLogicId);
     auto* kernel = kernelMgr.GetKernel(kernelHandle);
     CCU_CHK_PTR_NULL(kernel);
