@@ -7,9 +7,8 @@
 1. Host 侧创建 HCCL 通信域、注册内存并获取真实 `ChannelHandle`。
 2. Host 侧注册 runtime exception callback，并通过 `aclrtBinarySetExceptionCallback` 给样例 allgather kernel 绑定 `SampleAllGatherContext`。
 3. 默认使用两段式 fault 流程：先运行 `SampleAllGatherCustomKernel` 提交一条 sample allgather WQE，再运行 `SampleAllGatherCallbackFaultKernel` 通过 `trap()` 触发 runtime callback。
-4. 如需只验证正常通信路径，可使用 `--normal` 运行 `SampleAllGatherCustomKernel`。
-5. callback 内只记录异常信息；`aclrtSynchronizeStream` 返回后，在安全点调用 `AscendC::HcommDfxDumpChannelInfo`。
-6. Host 侧调用 `AscendC::HcommDfxParseAndPrintChannelInfo` 解析并打印 Channel、Buffer、SqContext/CqContext、WQE/CQE raw 采样信息。
+4. callback 内只记录异常信息；`aclrtSynchronizeStream` 返回后，在安全点调用 `AscendC::HcommDfxDumpChannelInfo`。
+5. Host 侧调用 `AscendC::HcommDfxParseAndPrintChannelInfo` 解析并打印 Channel、Buffer、SqContext/CqContext、WQE/CQE raw 采样信息。
 
 ## 目录结构
 
@@ -57,17 +56,11 @@ make -j
 ./hcomm_dfx_channel_dump_demo
 ```
 
-只验证普通 sample allgather：
-
-```bash
-./hcomm_dfx_channel_dump_demo --normal
-```
-
 也可以手动启动两个 rank：
 
 ```bash
-./hcomm_dfx_channel_dump_demo 0 2 tcp://127.0.0.1:29631 --fault
-./hcomm_dfx_channel_dump_demo 1 2 tcp://127.0.0.1:29631 --fault
+./hcomm_dfx_channel_dump_demo 0 2 tcp://127.0.0.1:29631
+./hcomm_dfx_channel_dump_demo 1 2 tcp://127.0.0.1:29631
 ```
 
 如需观察 dump 内部过程：
