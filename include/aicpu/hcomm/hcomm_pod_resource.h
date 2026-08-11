@@ -14,7 +14,7 @@
 // POD ABI resource definitions shared by resource producers and POD primitives.
 
 #include <stdint.h>
-#include "hcomm_pod_types.h"
+#include "hcomm_res_defs.h"
 
 #define HCOMM_POD_CHANNEL_VERSION 0U               ///< Channel POD ABI版本号
 #define HCOMM_POD_CHANNEL_MAGIC_WORD 0x0fcf0f5fU  ///< Channel POD合法性校验魔术字
