@@ -22,8 +22,6 @@ namespace {
 struct ContextStorage {
     HcommCcuRegisterContextPod context{};
     std::vector<HcommCcuResRangePod> instance{{HCOMM_CCU_BATCH_RES_LOOP, 0, 10, 4}};
-    std::vector<HcommCcuResRangePod> translator{{HCOMM_CCU_BATCH_RES_XN, 0, 20, 3}};
-    std::vector<HcommCcuResRangePod> instruction{{HCOMM_CCU_RES_INSTRUCTION, 0, 100, 5}};
 
     ContextStorage()
     {
@@ -35,15 +33,12 @@ struct ContextStorage {
         context.dieNum = HCOMM_CCU_MAX_DIE_NUM;
         context.validDieMask = 1;
         context.die[0].enabled = 1;
-        context.die[0].instructionCapacity = 5;
         RefreshViews();
     }
 
     void RefreshViews()
     {
         context.instanceResources = {instance.data(), static_cast<uint32_t>(instance.size()), 0};
-        context.translatorResources = {translator.data(), static_cast<uint32_t>(translator.size()), 0};
-        context.instructionResources = {instruction.data(), static_cast<uint32_t>(instruction.size()), 0};
     }
 };
 
@@ -59,25 +54,6 @@ TEST(AscCcuResSnapshotTest, DeepCopiesAndResetsOrdinaryResources)
     ASSERT_EQ(pack.Reset(), CcuResult::CCU_SUCCESS);
     ASSERT_EQ(pack.GetCcuResRepo().loopEngine[0].size(), 1U);
     EXPECT_EQ(pack.GetCcuResRepo().loopEngine[0][0].startId, 10U);
-}
-
-TEST(AscCcuResSnapshotTest, KeepsInstructionAccountingAcrossRegisterRounds)
-{
-    ContextStorage storage;
-    AscCcuResSnapshot pack;
-    ASSERT_EQ(pack.Load(storage.context), CcuResult::CCU_SUCCESS);
-
-    HcommCcuResRangePod first{};
-    ASSERT_EQ(pack.AllocateInstruction(0, 2, first), CcuResult::CCU_SUCCESS);
-    EXPECT_EQ(first.startId, 100U);
-    EXPECT_EQ(first.count, 2U);
-
-    ASSERT_EQ(pack.Load(storage.context), CcuResult::CCU_SUCCESS);
-    HcommCcuResRangePod second{};
-    ASSERT_EQ(pack.AllocateInstruction(0, 3, second), CcuResult::CCU_SUCCESS);
-    EXPECT_EQ(second.startId, 102U);
-    EXPECT_EQ(second.count, 3U);
-    EXPECT_EQ(pack.AllocateInstruction(0, 1, second), CcuResult::CCU_E_UNAVAIL);
 }
 
 TEST(AscCcuResSnapshotTest, RejectsInvalidAbiDieTypeOverflowAndOverlap)
@@ -96,7 +72,15 @@ TEST(AscCcuResSnapshotTest, RejectsInvalidAbiDieTypeOverflowAndOverlap)
     }
     {
         ContextStorage storage;
-        storage.translator[0].resourceType = HCOMM_CCU_RES_INSTRUCTION;
+        storage.instance[0].resourceType = HCOMM_CCU_RES_INSTRUCTION;
+        AscCcuResSnapshot pack;
+        ASSERT_EQ(pack.Load(storage.context), CcuResult::CCU_SUCCESS);
+        ASSERT_EQ(pack.GetCcuResRepo().instruction[0].size(), 1U);
+        EXPECT_EQ(pack.GetCcuResRepo().instruction[0][0].startId, 10U);
+    }
+    {
+        ContextStorage storage;
+        storage.instance[0].resourceType = HCOMM_CCU_RES_INSTRUCTION + 1;
         AscCcuResSnapshot pack;
         EXPECT_EQ(pack.Load(storage.context), CcuResult::CCU_E_PARA);
     }
@@ -161,23 +145,18 @@ TEST(AscCcuResSnapshotTest, FailedLoadDoesNotReplaceActiveSnapshot)
     EXPECT_EQ(pack.GetGeneration(), 1U);
 }
 
-TEST(AscCcuResSnapshotTest, SupportsIndependentInstructionPoolsOnTwoDies)
+TEST(AscCcuResSnapshotTest, SupportsTwoDies)
 {
     ContextStorage storage;
     storage.context.validDieMask = 3;
     storage.context.die[1].enabled = 1;
-    storage.context.die[1].instructionCapacity = 4;
-    storage.instruction.push_back({HCOMM_CCU_RES_INSTRUCTION, 1, 200, 4});
+    storage.instance.push_back({HCOMM_CCU_BATCH_RES_LOOP, 1, 20, 2});
     storage.RefreshViews();
 
     AscCcuResSnapshot pack;
     ASSERT_EQ(pack.Load(storage.context), CcuResult::CCU_SUCCESS);
-    HcommCcuResRangePod range{};
-    ASSERT_EQ(pack.AllocateInstruction(1, 4, range), CcuResult::CCU_SUCCESS);
-    EXPECT_EQ(range.startId, 200U);
-    EXPECT_EQ(pack.AllocateInstruction(1, 1, range), CcuResult::CCU_E_UNAVAIL);
-    EXPECT_EQ(pack.AllocateInstruction(0, 1, range), CcuResult::CCU_SUCCESS);
-    EXPECT_EQ(range.startId, 100U);
+    ASSERT_EQ(pack.GetCcuResRepo().loopEngine[1].size(), 1U);
+    EXPECT_EQ(pack.GetCcuResRepo().loopEngine[1][0].startId, 20U);
 }
 
 } // namespace

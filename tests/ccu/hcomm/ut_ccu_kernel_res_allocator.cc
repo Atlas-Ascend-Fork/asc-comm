@@ -25,7 +25,7 @@ TEST(CcuKernelResAllocatorTest, NormalRequestFallsBackToBlockPool)
     AscCcuResRepository available{};
     available.blockCke[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_CKE, 10, 48));
     available.blockGsa[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_GSA, 100, 400));
-    HcommCcuResRequestPod request{};
+    AscCcuResRequest request{};
     request.count[HCOMM_CCU_BATCH_RES_CKE][0] = 1;
     request.count[HCOMM_CCU_BATCH_RES_GSA][0] = 8;
 
@@ -51,7 +51,7 @@ TEST(CcuKernelResAllocatorTest, BlockRequestIsPlannedBeforeNormalRequest)
     AscCcuResRepository available{};
     available.cke[0].push_back(Range(HCOMM_CCU_BATCH_RES_CKE, 100, 2));
     available.blockCke[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_CKE, 0, 10));
-    HcommCcuResRequestPod request{};
+    AscCcuResRequest request{};
     request.count[HCOMM_CCU_BATCH_RES_BLOCK_CKE][0] = 8;
     request.count[HCOMM_CCU_BATCH_RES_CKE][0] = 4;
 
@@ -72,7 +72,7 @@ TEST(CcuKernelResAllocatorTest, FragmentedBlockPoolFailsWithoutChangingOutputs)
     AscCcuResRepository available{};
     available.blockCke[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_CKE, 0, 3));
     available.blockCke[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_CKE, 10, 3));
-    HcommCcuResRequestPod request{};
+    AscCcuResRequest request{};
     request.count[HCOMM_CCU_BATCH_RES_BLOCK_CKE][0] = 5;
     AscCcuResRepository remaining{};
     remaining.ms[0].push_back(Range(HCOMM_CCU_BATCH_RES_MS, 77, 1));
@@ -91,7 +91,7 @@ TEST(CcuKernelResAllocatorTest, NormalRequestPreservesReservedGap)
     AscCcuResRepository available{};
     available.blockGsa[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_GSA, 0, 4));
     available.blockGsa[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_GSA, 8, 4));
-    HcommCcuResRequestPod request{};
+    AscCcuResRequest request{};
     request.count[HCOMM_CCU_BATCH_RES_GSA][0] = 6;
 
     AscCcuResRepository remaining{};
@@ -104,6 +104,25 @@ TEST(CcuKernelResAllocatorTest, NormalRequestPreservesReservedGap)
     EXPECT_EQ(allocated.gsa[0][1].count, 2);
     ASSERT_EQ(remaining.blockGsa[0].size(), 1);
     EXPECT_EQ(remaining.blockGsa[0][0].startId, 10);
+}
+
+TEST(CcuKernelResAllocatorTest, InstructionRequestNeedsContiguousRange)
+{
+    AscCcuResRepository available{};
+    available.instruction[0].push_back(Range(HCOMM_CCU_RES_INSTRUCTION, 0, 4));
+    available.instruction[0].push_back(Range(HCOMM_CCU_RES_INSTRUCTION, 8, 8));
+    AscCcuResRequest request{};
+    request.instruction[0] = 6;
+
+    AscCcuResRepository remaining{};
+    AscCcuResRepository allocated{};
+    ASSERT_EQ(PlanKernelResources(available, request, remaining, allocated), CcuResult::CCU_SUCCESS);
+    ASSERT_EQ(allocated.instruction[0].size(), 1);
+    EXPECT_EQ(allocated.instruction[0][0].startId, 8);
+    EXPECT_EQ(allocated.instruction[0][0].count, 6);
+    ASSERT_EQ(remaining.instruction[0].size(), 2);
+    EXPECT_EQ(remaining.instruction[0][1].startId, 14);
+    EXPECT_EQ(remaining.instruction[0][1].count, 2);
 }
 
 } // namespace

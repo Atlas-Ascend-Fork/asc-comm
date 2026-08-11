@@ -13,6 +13,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/build"
 
+if [ -d "${BUILD_DIR}" ]; then
+    rm -rf "${BUILD_DIR}"
+fi
+
 if [ "${ASCEND_HOME_PATH:-}" = "" ]; then
     echo "ASCEND_HOME_PATH is not set. Please set environment before running this script." >&2
     exit 1
