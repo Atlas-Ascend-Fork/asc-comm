@@ -111,8 +111,10 @@ static HcclResult RegisterAllGatherKernel(
 
     resCtxHost.ccuKernels.resize(1);
 
+    asccomm_examples::CcuRegisterContextStorage hcommContextStorage;
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, hcommContextStorage));
     asccomm_examples::CcuUserResourceContextStorage contextStorage;
-    RETURN_IF_HCCL_FAIL(asccomm_examples::BuildDefaultUserCcuRegisterContext(comm, contextStorage));
+    RETURN_IF_HCCL_FAIL(asccomm_examples::BuildDefaultUserCcuRegisterContext(hcommContextStorage, contextStorage));
     CcuInsHandle insHandle = static_cast<CcuInsHandle>(contextStorage.context.instanceHandle);
     CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle, &contextStorage.context);
     if (regStartRet != CCU_SUCCESS) {

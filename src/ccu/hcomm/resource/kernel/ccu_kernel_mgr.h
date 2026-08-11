@@ -11,6 +11,7 @@
 #ifndef HCOMM_CCU_KERNEL_MGR_H
 #define HCOMM_CCU_KERNEL_MGR_H
 
+#include <array>
 #include <mutex>
 #include <unordered_map>
 
@@ -57,7 +58,7 @@ private:
     CcuResult PrepareConstValueResources();
     CcuResult AllocRes(AscCcuResSnapshot& resPack);
 
-    HcclResult InstantiationTranslator(uint16_t dieId, const AscCcuResSnapshot &resPack);
+    HcclResult InstantiationTranslator(uint16_t dieId, AscCcuResSnapshot &resPack);
     HcclResult TransRepSequenceToMicrocode(const std::vector<CcuKernel*>& kernels, bool isFuncBlock);
     HcclResult LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, const uint32_t dieId);
 
@@ -77,7 +78,6 @@ private:
     std::unique_ptr<CcuKernel> currKernel_{nullptr};
     std::shared_ptr<CcuInsGeneraterBase> insGenePtr;
     CcuVersion ccuVersion_{CcuVersion::CCU_INVALID};
-    uint64_t activeGeneration_{0};
     std::array<uint32_t, HCOMM_CCU_MAX_DIE_NUM> missionKeys_{};
 };
 }; // namespace hcomm
