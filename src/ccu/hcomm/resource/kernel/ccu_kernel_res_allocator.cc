@@ -74,7 +74,7 @@ bool PlanResourcePair(
 } // namespace
 
 CcuResult PlanKernelResources(
-    const AscCcuResRepository& available, const HcommCcuResRequestPod& request, AscCcuResRepository& remaining,
+    const AscCcuResRepository& available, const AscCcuResRequest& request, AscCcuResRepository& remaining,
     AscCcuResRepository& allocated)
 {
     AscCcuResRepository plannedRemaining = available;
@@ -106,7 +106,9 @@ CcuResult PlanKernelResources(
                 HCOMM_CCU_BATCH_RES_GSA, plannedAllocated.gsa[dieId], plannedAllocated.blockGsa[dieId]);
         if (!planned || TakeAny(
                             plannedRemaining.mission[dieId], request.count[HCOMM_CCU_BATCH_RES_MISSION][dieId],
-                            HCOMM_CCU_BATCH_RES_MISSION, plannedAllocated.mission[dieId]) != 0) {
+                            HCOMM_CCU_BATCH_RES_MISSION, plannedAllocated.mission[dieId]) != 0 ||
+            !TakeContiguous(
+                plannedRemaining.instruction[dieId], request.instruction[dieId], plannedAllocated.instruction[dieId])) {
             return CcuResult::CCU_E_UNAVAIL;
         }
     }

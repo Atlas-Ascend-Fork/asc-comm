@@ -16,16 +16,15 @@
 
 #include "ccu/hcomm/ccu_types.h"
 #include "hcomm_ccu_res.h"
-#include "hcomm/resource/common/asc_ccu_res_repository_local.h"
+#include "hcomm/resource/common/asc_ccu_resource_local.h"
 
 namespace hcomm {
 
 /**
  * @note 职责：RegisterContext 的 asc 侧本地快照。
  *
- * 资源实体由 hcomm 的 RegisterContext 持有与释放，本类只保存其快照，不持有任何跨 SO 句柄。
- * 其中两项为本地可变状态：resRepo_ 是被 kernel 注册消耗的余量池（见 MoveResInfo），
- * instructionUsed_ 是指令池的本地切分游标。
+ * instance 资源实体由 hcomm 的 RegisterContext 持有与释放，本类只保存其快照，不持有任何跨 SO 句柄。
+ * resRepo_ 是被 kernel 注册消耗的余量池（见 MoveResInfo）。
  *
  * 命名以 Asc 前缀区分：hcomm legacy 另有同名的 struct CcuResPack
  * （legacy/ascend950/unified_platform/pub_inc/ccu/ccu_res_pack.h），二者无关。
@@ -37,10 +36,8 @@ public:
 
     CcuResult Load(const HcommCcuRegisterContextPod &context);
     CcuResult Reset();
-    CcuResult AllocateInstruction(uint32_t dieId, uint32_t count, HcommCcuResRangePod &range);
 
     AscCcuResRepository &GetCcuResRepo();
-    const AscCcuResRepository &GetTranslatorResRepo() const;
     const HcommCcuDieMetadataPod *GetDieMetadata(uint32_t dieId) const;
     uint64_t GetGeneration() const;
     int32_t GetDeviceLogicId() const;
@@ -59,9 +56,6 @@ private:
     uint32_t validDieMask_{0};
     AscCcuResRepository initialRepo_{};
     AscCcuResRepository resRepo_{};
-    AscCcuResRepository translatorRepo_{};
-    std::array<HcommCcuResRangePod, HCOMM_CCU_MAX_DIE_NUM> instructionPools_{};
-    std::array<uint32_t, HCOMM_CCU_MAX_DIE_NUM> instructionUsed_{};
     std::array<HcommCcuDieMetadataPod, HCOMM_CCU_MAX_DIE_NUM> dieMetadata_{};
 };
 

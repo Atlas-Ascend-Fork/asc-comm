@@ -24,22 +24,17 @@ namespace CcuRep {
 
 // 支持自定义算子CCU开发资源管理优化，减少预留资源数量，避免xn耗尽。
 // FUNC_ARG_MAX：单个 ccu::Func 入参/出参上限。每提升 1，每个 die 在
-// CcuRepReferenceManager::GetResReq 中多预留 2 个 Xn（funcInVar + funcOutVar）。
+// CcuRepReferenceManager::GetRes 中多使用 2 个 Xn（funcInVar + funcOutVar）。
 constexpr uint16_t FUNC_ARG_MAX = 1;
 constexpr uint16_t FUNC_NEST_MAX = 1;
 constexpr uint16_t FUNC_CALL_LAYER_INVALID = 0xFFFF;
+constexpr uint16_t CCU_REFERENCE_MANAGER_XN_NUM = FUNC_ARG_MAX + FUNC_ARG_MAX + 1 + FUNC_NEST_MAX + 1;
 
-// GetResReq 申请的 XN 数必须与 hcomm 侧 RegisterContext 为 reference manager 预留的数量一致，
-// 否则 translatorResources 数量不匹配会导致资源映射错位且不报错。
-// 提升 FUNC_ARG_MAX 或 FUNC_NEST_MAX 时，必须同步修改 pkg_inc/hcomm/hcomm_ccu_res.h 中的
-// HCOMM_CCU_REFERENCE_MANAGER_XN_NUM。
-static_assert(FUNC_ARG_MAX + FUNC_ARG_MAX + 1 + FUNC_NEST_MAX + 1 == HCOMM_CCU_REFERENCE_MANAGER_XN_NUM,
-    "reference manager XN count must match HCOMM_CCU_REFERENCE_MANAGER_XN_NUM in hcomm_ccu_res.h");
+static_assert(CCU_REFERENCE_MANAGER_XN_NUM == 5, "reference manager XN count changed");
 
 class CcuRepReferenceManager {
 public:
     explicit CcuRepReferenceManager(uint8_t deiId);
-    static HcommCcuResRequestPod GetResReq(uint8_t reqDieId);
     void GetRes(CcuRepResource& res);
     std::shared_ptr<CcuRepBlock> GetRefBlock(const std::string& label);
     void SetRefBlock(const std::string& label, std::shared_ptr<CcuRepBlock> refBlock);

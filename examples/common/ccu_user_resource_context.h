@@ -24,7 +24,6 @@ namespace asccomm_examples {
 constexpr uint32_t CCU_CHANNEL_RESERVED_RESOURCE_START_ID = 0;
 constexpr uint32_t CCU_CHANNEL_RESERVED_XN_COUNT = 4;
 constexpr uint32_t CCU_CHANNEL_RESERVED_CKE_COUNT = 4;
-constexpr uint32_t CCU_INSTRUCTION_DEFAULT_COUNT = 32768;
 constexpr uint32_t CCU_MISSION_DEFAULT_COUNT = 16;
 constexpr uint32_t CCU_MS_DEFAULT_COUNT = 1536;
 constexpr uint32_t CCU_CKE_DEFAULT_COUNT = 1024;
@@ -41,8 +40,6 @@ struct CcuUserResourceContextStorage {
     HcommCcuRegisterContextPod context{};
     CcuRegisterContextStorage hcommContextStorage{};
     std::vector<HcommCcuResRangePod> instanceRanges;
-    std::vector<HcommCcuResRangePod> translatorRanges;
-    std::vector<HcommCcuResRangePod> instructionRanges;
 };
 
 inline void AddRange(std::vector<HcommCcuResRangePod>& ranges, uint32_t type, uint32_t dieId,
@@ -59,15 +56,8 @@ inline HcclResult AddDefaultRangesForDie(CcuUserResourceContextStorage& storage,
     const uint32_t loopCount = isV2 ? CCU_V2_LOOP_DEFAULT_COUNT : CCU_V1_LOOP_DEFAULT_COUNT;
     const uint32_t xnCount = isV2 ? CCU_V2_XN_DEFAULT_COUNT : CCU_V1_XN_DEFAULT_COUNT;
     const uint32_t gsaCount = isV2 ? CCU_V2_GSA_DEFAULT_COUNT : CCU_V1_GSA_DEFAULT_COUNT;
-    const uint32_t translatorXnCount = HCOMM_CCU_TRANSLATOR_GROUP_NUM *
-        (HCOMM_CCU_TRANSLATOR_XN_NUM + HCOMM_CCU_REFERENCE_MANAGER_XN_NUM);
-    const uint32_t translatorCkeCount = HCOMM_CCU_TRANSLATOR_GROUP_NUM * HCOMM_CCU_TRANSLATOR_CKE_NUM;
-    const uint32_t translatorGsaCount = isV2 ? 0 :
-        HCOMM_CCU_TRANSLATOR_GROUP_NUM * HCOMM_CCU_TRANSLATOR_GSA_NUM;
 
-    if (xnCount <= CCU_CHANNEL_RESERVED_XN_COUNT + translatorXnCount ||
-        CCU_CKE_DEFAULT_COUNT <= CCU_CHANNEL_RESERVED_CKE_COUNT + translatorCkeCount ||
-        gsaCount < translatorGsaCount) {
+    if (xnCount <= CCU_CHANNEL_RESERVED_XN_COUNT || CCU_CKE_DEFAULT_COUNT <= CCU_CHANNEL_RESERVED_CKE_COUNT) {
         return HCCL_E_PARA;
     }
 
@@ -75,22 +65,14 @@ inline HcclResult AddDefaultRangesForDie(CcuUserResourceContextStorage& storage,
     AddRange(storage.instanceRanges, HCOMM_CCU_BATCH_RES_BLOCK_MS, dieId, 0, CCU_MS_DEFAULT_COUNT);
     AddRange(storage.instanceRanges, HCOMM_CCU_BATCH_RES_BLOCK_XN, dieId,
         CCU_CHANNEL_RESERVED_RESOURCE_START_ID + CCU_CHANNEL_RESERVED_XN_COUNT,
-        xnCount - CCU_CHANNEL_RESERVED_XN_COUNT - translatorXnCount);
+        xnCount - CCU_CHANNEL_RESERVED_XN_COUNT);
     AddRange(storage.instanceRanges, HCOMM_CCU_BATCH_RES_BLOCK_CKE, dieId,
         CCU_CHANNEL_RESERVED_RESOURCE_START_ID + CCU_CHANNEL_RESERVED_CKE_COUNT,
-        CCU_CKE_DEFAULT_COUNT - CCU_CHANNEL_RESERVED_CKE_COUNT - translatorCkeCount);
-    AddRange(storage.instanceRanges, HCOMM_CCU_BATCH_RES_BLOCK_GSA, dieId, 0, gsaCount - translatorGsaCount);
+        CCU_CKE_DEFAULT_COUNT - CCU_CHANNEL_RESERVED_CKE_COUNT);
+    AddRange(storage.instanceRanges, HCOMM_CCU_BATCH_RES_BLOCK_GSA, dieId, 0, gsaCount);
     AddRange(storage.instanceRanges, HCOMM_CCU_BATCH_RES_MISSION, dieId, 0, CCU_MISSION_DEFAULT_COUNT);
 
-    AddRange(storage.translatorRanges, HCOMM_CCU_BATCH_RES_XN, dieId, xnCount - translatorXnCount, translatorXnCount);
-    AddRange(storage.translatorRanges, HCOMM_CCU_BATCH_RES_CKE, dieId,
-        CCU_CKE_DEFAULT_COUNT - translatorCkeCount, translatorCkeCount);
-    AddRange(storage.translatorRanges, HCOMM_CCU_BATCH_RES_GSA, dieId,
-        gsaCount - translatorGsaCount, translatorGsaCount);
-    AddRange(storage.instructionRanges, HCOMM_CCU_RES_INSTRUCTION, dieId, 0, CCU_INSTRUCTION_DEFAULT_COUNT);
-
     storage.context.die[dieId] = storage.hcommContextStorage.context.die[dieId];
-    storage.context.die[dieId].instructionCapacity = CCU_INSTRUCTION_DEFAULT_COUNT;
     return HCCL_SUCCESS;
 }
 
@@ -110,8 +92,6 @@ inline HcclResult BuildDefaultUserCcuRegisterContext(HcclComm comm, CcuUserResou
     }
 
     storage.instanceRanges.clear();
-    storage.translatorRanges.clear();
-    storage.instructionRanges.clear();
     storage.context = {};
     storage.context.header = {HCOMM_CCU_RES_ABI_VERSION, HCOMM_CCU_REGISTER_CONTEXT_MAGIC_WORD,
         sizeof(HcommCcuRegisterContextPod), 0};
@@ -135,10 +115,6 @@ inline HcclResult BuildDefaultUserCcuRegisterContext(HcclComm comm, CcuUserResou
 
     storage.context.instanceResources = {
         storage.instanceRanges.data(), static_cast<uint32_t>(storage.instanceRanges.size()), 0};
-    storage.context.translatorResources = {
-        storage.translatorRanges.data(), static_cast<uint32_t>(storage.translatorRanges.size()), 0};
-    storage.context.instructionResources = {
-        storage.instructionRanges.data(), static_cast<uint32_t>(storage.instructionRanges.size()), 0};
     return HCCL_SUCCESS;
 }
 

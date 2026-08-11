@@ -24,15 +24,6 @@ CcuRepReferenceManager::CcuRepReferenceManager(uint8_t deiId) : dieId(deiId)
         1); // FUNC_NEST_MAX个xn存放返回地址，1个xn存放block的起始地址和1个xn存放函数地址调用时返回地址
 }
 
-HcommCcuResRequestPod CcuRepReferenceManager::GetResReq(uint8_t reqDieId)
-{
-    // 申请离散 xn 资源
-    HcommCcuResRequestPod resReq{};
-    resReq.missionReqType = HCOMM_CCU_MISSION_REQ_FUSION_MULTIPLE_DIE;
-    resReq.count[HCOMM_CCU_BATCH_RES_XN][reqDieId] = FUNC_ARG_MAX + FUNC_ARG_MAX + 1 + FUNC_NEST_MAX + 1;
-    return resReq;
-}
-
 void CcuRepReferenceManager::GetRes(CcuRepResource& res)
 {
     res.variable[dieId].insert(res.variable[dieId].end(), funcInVar.begin(), funcInVar.end());

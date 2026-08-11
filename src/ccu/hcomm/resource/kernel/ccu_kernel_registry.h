@@ -22,9 +22,9 @@ namespace hcomm {
 /**
  * @note 职责：按 CcuInsHandle 持有通信域的数据面注册状态。
  *
- * 包含 kernel 注册轮次状态机、kernel 归属列表，以及该通信域的资源快照
- * （AscCcuResSnapshot，其资源实体归 hcomm 的 RegisterContext 所有）。
- * 资源申请与释放属控制面，由 hcomm 负责；本类只保存数据面状态。
+ * 包含 kernel 注册轮次状态机、kernel 归属列表，以及该通信域的资源快照。
+ * AscCcuResSnapshot 是 hcomm RegisterContext.instanceResources 的本地快照；
+ * 资源实体归 hcomm RegisterContext 所有，asc-comm 仅在本地规划和消费快照。
  */
 class CcuKernelRegistry {
 public:

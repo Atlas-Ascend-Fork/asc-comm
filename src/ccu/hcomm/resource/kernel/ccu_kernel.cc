@@ -338,9 +338,9 @@ HcclResult CcuKernel::CreateVariable(const ChannelHandle channel, uint32_t varIn
 
 CcuRepResource& CcuKernel::GetResource() { return res_; }
 
-HcommCcuResRequestPod CcuKernel::GetResourceRequest()
+AscCcuResRequest CcuKernel::GetResourceRequest()
 {
-    HcommCcuResRequestPod req{};
+    AscCcuResRequest req{};
     uint32_t dieId = GetDieId();
     req.count[HCOMM_CCU_BATCH_RES_MS][dieId] = res_.ccubufs[dieId].size();
     req.count[HCOMM_CCU_BATCH_RES_BLOCK_MS][dieId] = res_.blockCcubufs[dieId].size();
@@ -353,7 +353,6 @@ HcommCcuResRequestPod CcuKernel::GetResourceRequest()
     req.count[HCOMM_CCU_BATCH_RES_BLOCK_GSA][dieId] = res_.blockAddress[dieId].size();
     req.count[HCOMM_CCU_BATCH_RES_XN][dieId] = res_.variable[dieId].size();
     req.count[HCOMM_CCU_BATCH_RES_BLOCK_XN][dieId] = res_.continuousVariable[dieId].size();
-    req.missionReqType = HCOMM_CCU_MISSION_REQ_FUSION_MULTIPLE_DIE;
     req.count[HCOMM_CCU_BATCH_RES_MISSION][dieId] = 1;
 
     auto info = Hccl::StringFormat(
@@ -2575,6 +2574,27 @@ CcuResult CcuKernel::LoopGroupAddLoopFromVarV2(
 void CcuKernel::SetInstrId(uint32_t instrId) { instrInfo_.startInstrId = instrId; }
 
 uint32_t CcuKernel::GetInstrId() const { return instrInfo_.startInstrId; }
+
+void CcuKernel::SetInstructionResource(const HcommCcuResRangePod& range)
+{
+    instructionResource_ = range;
+    hasInstructionResource_ = true;
+}
+
+bool CcuKernel::GetInstructionResource(HcommCcuResRangePod& range) const
+{
+    if (!hasInstructionResource_) {
+        return false;
+    }
+    range = instructionResource_;
+    return true;
+}
+
+void CcuKernel::ClearInstructionResource()
+{
+    instructionResource_ = {};
+    hasInstructionResource_ = false;
+}
 
 uint32_t CcuKernel::GetInstrCount()
 {
