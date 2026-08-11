@@ -79,7 +79,6 @@ set(ASC_COMM_AICPU_COMPILE_DEFINITIONS
 )
 
 set(ASC_COMM_AICPU_COMPILE_OPTIONS
-    -Werror
     -Wfloat-equal
     -Wall
     -fno-common

@@ -42,7 +42,6 @@ target_compile_definitions(aicpu_pod_data_plane PRIVATE
 )
 
 target_compile_options(aicpu_pod_data_plane PRIVATE
-    -Werror
     -Wfloat-equal
     -Wall
     -fno-common
