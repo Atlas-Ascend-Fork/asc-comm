@@ -87,11 +87,7 @@ public:
     HcclResult ExecuteBatchTransfer(StreamLite *streamLitePtr, const HcommBatchTransferDesc *transferDescs,
                         uint32_t transferDescNum);
 
-    // 将本channel的notify/buffer/连接资源导出为POD ABI格式，供legacy->POD资源转换使用。
-    // entity内的指针成员指向传入的vector，调用方需保证这些vector的生命周期覆盖entity的使用期。
-    HcclResult ExportPodResource(HcommChannelEntity &entity, std::vector<HcommNotify> &localNotifies,
-        std::vector<HcommNotify> &remoteNotifies, std::vector<HcommProtectionInfo> &localBuffers,
-        std::vector<HcommProtectionInfo> &remoteBuffers, std::vector<HcommSqContext> &sqContexts) const;
+    HcclResult ExportPodResource(CommEngine engine, CommProtocol protocol, HcommChannelEntity *&entity);
 private:
     u32 notifyNum{0};
     u32 bufferNum{0};
@@ -165,6 +161,13 @@ private:
     std::vector<RmaConnLite *> connVec;
 
     std::function<void(u32 streamId, u32 taskId, const TaskParam &taskParam)> callback_{nullptr};
+
+    HcommChannelEntity podEntity_{};
+    std::vector<HcommNotify> podLocalNotifies_;
+    std::vector<HcommNotify> podRemoteNotifies_;
+    std::vector<HcommProtectionInfo> podLocalBuffers_;
+    std::vector<HcommProtectionInfo> podRemoteBuffers_;
+    std::vector<HcommSqContext> podSqContexts_;
 
     void ProfilingProcess(void *src, void *dst, u64 size, const StreamLite &stream, DmaOp dmaOp,
                             u32 taskId);

@@ -13,6 +13,7 @@
 #include <vector>
 #include "thread.h"
 #include "aicpu_ts_thread_interface.h"
+#include "hcomm_pod_resource.h"
 
 namespace hccl {
 class AicpuTsThread : public Thread {
@@ -42,6 +43,8 @@ public:
     {
         return pImpl_->GetStreamLitePtr();
     }
+
+    HcclResult ExportPodResource(HcommThreadEntity *&entity);
 
     void LaunchTask() const override;
     void TryLaunchTask() const override;
@@ -97,6 +100,10 @@ private:
     DeviceMem sqCqeContext_;
     DevType devType_ = DevType::DEV_TYPE_COUNT;
     std::unique_ptr<Hccl::IAicpuTsThread> pImpl_{nullptr};
+
+    HcommThreadEntity podEntity_{};
+    std::vector<HcommNotify> podNotifies_;
+    HcommRtsqContext podRtsq_{};
 };
 
 }  // namespace hccl
