@@ -1903,69 +1903,24 @@ HcclResult CcuKernel::WriteNb(
     return HCCL_SUCCESS;
 }
 
-static bool isLowPrecisionIn(Hccl::DataType dataType)
+static bool isLowPrecisionIn(HcclDataType dataType)
 {
-    return dataType == Hccl::DataType::INT8 || dataType == Hccl::DataType::HIF8 ||
-           dataType == Hccl::DataType::FP8E4M3 || dataType == Hccl::DataType::FP8E5M2;
+    return dataType == HCCL_DATA_TYPE_INT8 || dataType == HCCL_DATA_TYPE_HIF8 ||
+           dataType == HCCL_DATA_TYPE_FP8E4M3 || dataType == HCCL_DATA_TYPE_FP8E5M2;
 }
 
-static bool isLowPrecisionOut(Hccl::DataType dataType)
+static bool isLowPrecisionOut(HcclDataType dataType)
 {
-    return dataType == Hccl::DataType::FP16 || dataType == Hccl::DataType::BFP16 || dataType == Hccl::DataType::FP32;
-}
-
-constexpr uint32_t MAX_DATA_TYPE = 17;
-
-const Hccl::DataType orionDataTypes[] = {
-    Hccl::DataType::INT8,   Hccl::DataType::INT16,   Hccl::DataType::INT32,
-    Hccl::DataType::FP16,   Hccl::DataType::FP32,    Hccl::DataType::INT64,
-    Hccl::DataType::UINT64, Hccl::DataType::UINT8,   Hccl::DataType::UINT16,
-    Hccl::DataType::UINT32, Hccl::DataType::FP64,    Hccl::DataType::BFP16,
-    Hccl::DataType::INT128,
-#if !defined(OPEN_BUILD_PROJECT) || defined(ORION_MODE)
-    Hccl::DataType::HIF8,   Hccl::DataType::FP8E4M3, Hccl::DataType::FP8E5M2,
-    Hccl::DataType::FP8E8M0
-#endif
-};
-
-static Hccl::DataType HcommDataTypeToHcclDataType(const HcclDataType dataType)
-{
-    const auto dataTypeNum = static_cast<uint32_t>(dataType);
-    if (dataTypeNum > MAX_DATA_TYPE) {
-        return Hccl::DataType::INVALID;
-    }
-
-    return orionDataTypes[dataTypeNum];
-}
-
-constexpr uint32_t MAX_REDUCE_TYPE = 4;
-const Hccl::ReduceOp orionReduceOps[] = {
-    Hccl::ReduceOp::SUM,
-    Hccl::ReduceOp::PROD,
-    Hccl::ReduceOp::MAX,
-    Hccl::ReduceOp::MIN,
-};
-
-static Hccl::ReduceOp HcommReduceOpToHcclReduceOp(const HcclReduceOp reduceOp)
-{
-    const auto reduceOpNum = static_cast<uint32_t>(reduceOp);
-    if (reduceOpNum > MAX_REDUCE_TYPE) {
-        return Hccl::ReduceOp::INVALID;
-    }
-
-    return orionReduceOps[reduceOpNum];
+    return dataType == HCCL_DATA_TYPE_FP16 || dataType == HCCL_DATA_TYPE_BFP16 || dataType == HCCL_DATA_TYPE_FP32;
 }
 
 HcclResult CcuKernel::LocalReduceNb(
     const CcuRep::CcuBuf* bufs, uint32_t count, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType,
     const CcuRep::Variable& len, CcuRep::CompletedEvent event, uint32_t mask)
 {
-    auto opType_ = HcommReduceOpToHcclReduceOp(opType);
-    auto dataType_ = HcommDataTypeToHcclDataType(dataType);
-    auto outputDataType_ = HcommDataTypeToHcclDataType(outputDataType);
-    if ((opType_ == Hccl::ReduceOp::SUM && isLowPrecisionIn(dataType_) && !isLowPrecisionOut(outputDataType_)) ||
-        (opType_ == Hccl::ReduceOp::SUM && !isLowPrecisionIn(dataType_) && dataType_ != outputDataType_) ||
-        (opType_ != Hccl::ReduceOp::SUM && dataType_ != outputDataType_)) {
+    if ((opType == HCCL_REDUCE_SUM && isLowPrecisionIn(dataType) && !isLowPrecisionOut(outputDataType)) ||
+        (opType == HCCL_REDUCE_SUM && !isLowPrecisionIn(dataType) && dataType != outputDataType) ||
+        (opType != HCCL_REDUCE_SUM && dataType != outputDataType)) {
         return HCCL_E_NOT_SUPPORT;
     }
 
@@ -1975,8 +1930,8 @@ HcclResult CcuKernel::LocalReduceNb(
     }
 
     auto rep = std::make_shared<CcuRep::CcuRepBufReduce>(
-        insGenerator, ccuBufs, count, CcuRep::GetCcuDataType(dataType_, opType_),
-        CcuRep::GetCcuDataType(outputDataType_, opType_), CcuRep::GetCcuReduceType(opType_), event, len, mask);
+        insGenerator, ccuBufs, count, CcuRep::GetCcuDataType(dataType, opType),
+        CcuRep::GetCcuDataType(outputDataType, opType), CcuRep::GetCcuReduceType(opType), event, len, mask);
     Append(rep);
     SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
@@ -2001,11 +1956,8 @@ HcclResult CcuKernel::ReadReduceNb(
     uint32_t mask)
 {
     channels_.insert(channel);
-    auto opType_ = HcommReduceOpToHcclReduceOp(opType);
-    auto dataType_ = HcommDataTypeToHcclDataType(dataType);
-
     auto rep = std::make_shared<CcuRep::CcuRepRead>(
-        insGenerator, channel, loc, rem, len, CcuRep::GetUBDataType(dataType_), CcuRep::GetUBReduceType(opType_), event,
+        insGenerator, channel, loc, rem, len, CcuRep::GetUBDataType(dataType), CcuRep::GetUBReduceType(opType), event,
         mask);
     Append(rep);
     SetDependencyInfo(event.Id(), mask, rep);
@@ -2030,11 +1982,8 @@ HcclResult CcuKernel::WriteReduceNb(
     uint32_t mask)
 {
     channels_.insert(channel);
-    auto opType_ = HcommReduceOpToHcclReduceOp(opType);
-    auto dataType_ = HcommDataTypeToHcclDataType(dataType);
-
     auto rep = std::make_shared<CcuRep::CcuRepWrite>(
-        insGenerator, channel, rem, loc, len, CcuRep::GetUBDataType(dataType_), CcuRep::GetUBReduceType(opType_), event,
+        insGenerator, channel, rem, loc, len, CcuRep::GetUBDataType(dataType), CcuRep::GetUBReduceType(opType), event,
         mask);
     Append(rep);
     SetDependencyInfo(event.Id(), mask, rep);
@@ -2080,11 +2029,8 @@ HcclResult CcuKernel::LocalReduceNb(
     const CcuRep::LocalAddr& dst, const CcuRep::LocalAddr& src, const CcuRep::Variable& len, HcclDataType dataType,
     HcclReduceOp opType, CcuRep::CompletedEvent event, uint32_t mask)
 {
-    auto opType_ = HcommReduceOpToHcclReduceOp(opType);
-    auto dataType_ = HcommDataTypeToHcclDataType(dataType);
-
     auto rep = std::make_shared<CcuRep::CcuRepLocCpy>(
-        insGenerator, dst, src, len, CcuRep::GetUBDataType(dataType_), CcuRep::GetUBReduceType(opType_), event, mask);
+        insGenerator, dst, src, len, CcuRep::GetUBDataType(dataType), CcuRep::GetUBReduceType(opType), event, mask);
     Append(rep);
     SetDependencyInfo(event.Id(), mask, rep);
     return HCCL_SUCCESS;
