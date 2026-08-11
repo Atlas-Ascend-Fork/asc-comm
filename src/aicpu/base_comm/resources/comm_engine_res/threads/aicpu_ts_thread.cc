@@ -42,6 +42,9 @@ HcclResult AicpuTsThread::Init()
 
 HcclResult AicpuTsThread::DeInit()
 {
+    podEntity_ = {};
+    podNotifies_.clear();
+    podRtsq_ = {};
     streamType_ = StreamType::STREAM_TYPE_RESERVED;
     notifyNum_ = 0;
     stream_ = nullptr;
@@ -118,6 +121,35 @@ LocalNotify *AicpuTsThread::GetNotify(uint32_t index) const
         return nullptr;
     }
     return notifys_[index].get();
+}
+
+HcclResult AicpuTsThread::ExportPodResource(HcommThreadEntity *&entity)
+{
+    auto *stream = static_cast<Hccl::StreamLite *>(GetStreamLitePtr());
+    CHK_PTR_NULL(stream);
+    Hccl::RtsqBase *rtsq = stream->GetRtsq();
+    CHK_PTR_NULL(rtsq);
+
+    podNotifies_.resize(GetNotifyNum());
+    for (uint32_t index = 0; index < podNotifies_.size(); ++index) {
+        LocalNotify *notify = GetNotify(index);
+        CHK_PTR_NULL(notify);
+        podNotifies_[index] = {};
+        podNotifies_[index].notify.rma.notifyId = static_cast<int32_t>(notify->notifyId_);
+        podNotifies_[index].notify.rma.size = sizeof(uint32_t);
+    }
+
+    CHK_RET(rtsq->ExportPodResource(podRtsq_));
+
+    podEntity_ = {};
+    podEntity_.abiHeader = {
+        HCOMM_POD_THREAD_VERSION, HCOMM_POD_THREAD_MAGIC_WORD, sizeof(HcommThreadEntity), 0};
+    podEntity_.devInfo.devId = podRtsq_.devPhyId;
+    podEntity_.localNotifyNum = static_cast<uint32_t>(podNotifies_.size());
+    podEntity_.localNotifyAddr = podNotifies_.empty() ? nullptr : podNotifies_.data();
+    podEntity_.sqContextAddr = &podRtsq_;
+    entity = &podEntity_;
+    return HCCL_SUCCESS;
 }
 
 // A3 Stream

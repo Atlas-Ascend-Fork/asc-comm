@@ -123,14 +123,18 @@ UbTransportLiteImpl::~UbTransportLiteImpl()
     }
 }
 
-HcclResult UbTransportLiteImpl::ExportPodResource(HcommChannelEntity &entity,
-    std::vector<HcommNotify> &localNotifies, std::vector<HcommNotify> &remoteNotifies,
-    std::vector<HcommProtectionInfo> &localBuffers, std::vector<HcommProtectionInfo> &remoteBuffers,
-    std::vector<HcommSqContext> &sqContexts) const
+HcclResult UbTransportLiteImpl::ExportPodResource(
+    CommEngine engine, CommProtocol protocol, HcommChannelEntity *&podEntity)
 {
     CHK_PRT_RET(connVec.empty() || connVec[0] == nullptr,
         HCCL_ERROR("[UbTransportLiteImpl::%s] connection is empty.", __func__), HCCL_E_INTERNAL);
 
+    HcommChannelEntity &entity = podEntity_;
+    auto &localNotifies = podLocalNotifies_;
+    auto &remoteNotifies = podRemoteNotifies_;
+    auto &localBuffers = podLocalBuffers_;
+    auto &remoteBuffers = podRemoteBuffers_;
+    auto &sqContexts = podSqContexts_;
     entity = {};
     localNotifies.resize(locNotifyVec.size());
     for (size_t index = 0; index < locNotifyVec.size(); ++index) {
@@ -192,6 +196,14 @@ HcclResult UbTransportLiteImpl::ExportPodResource(HcommChannelEntity &entity,
         FillUrmaProtection(entity.remoteDrainBuffer.protectionInfo, rmtDrainBuffer_.addr, rmtDrainBuffer_.size,
             rmtDrainBuffer_.tokenId, rmtDrainBuffer_.tokenValue);
     }
+    entity.abiHeader = {
+        HCOMM_POD_CHANNEL_VERSION, HCOMM_POD_CHANNEL_MAGIC_WORD, sizeof(HcommChannelEntity), 0};
+    entity.engine = engine;
+    entity.protocol = protocol;
+    entity.devInfo.devId = sqContexts[0].context.jfs.dieId;
+    entity.devInfo.dieId = static_cast<uint8_t>(sqContexts[0].context.jfs.dieId);
+    entity.devInfo.funcId = static_cast<uint8_t>(sqContexts[0].context.jfs.funcId);
+    podEntity = &entity;
     return HCCL_SUCCESS;
 }
 
