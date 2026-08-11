@@ -14,6 +14,7 @@
 
 #include <ccu/hcomm/ccu_types.h>
 #include <hccl/hcomm_primitives.h>
+#include <hcomm/hcomm_ccu_launch_api.h>
 
 #include "alg_resource.h"
 #include "ccu/hcomm/ccu_launch.h"
@@ -60,8 +61,12 @@ static HcclResult LaunchCcuKernelSlice(
         goSize.residual,
     };
 
+    HcommCcuLaunchContextPod launchContext{};
+    if (HcommCcuGetLaunchContext(resCtx.threads[0], &launchContext) != HCCL_SUCCESS) {
+        return HCCL_E_INTERNAL;
+    }
     CcuResult launchRet =
-        HcommCcuKernelLaunch(resCtx.threads[0], resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
+        HcommCcuKernelLaunch(&launchContext, resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
     if (launchRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }

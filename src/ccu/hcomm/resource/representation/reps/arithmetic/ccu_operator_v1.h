@@ -36,7 +36,7 @@ public:
     }
     void Check() const
     {
-        // Hccl::THROW<Hccl::CcuApiException>("Invalid Arithmetic Operator");
+        // hcomm::ThrowCcuInternal("Invalid Arithmetic Operator");
         throw std::runtime_error("Invalid Arithmetic Operator");
     }
 
@@ -55,7 +55,7 @@ public:
     }
     void Check() const
     {
-        // Hccl::THROW<Hccl::CcuApiException>("Invalid Relational Operator");
+        // hcomm::ThrowCcuInternal("Invalid Relational Operator");
         throw std::runtime_error("Invalid Relational Operator");
     }
 
@@ -92,7 +92,7 @@ public:
     CcuShiftOperator(lhsT lhs, rhsT rhs, CcuShiftType type) : CcuOperator<lhsT, rhsT>(lhs, rhs), type(type) { Check(); }
     void Check() const
     {
-        // THROW<CcuApiException>("Invalid ShiftT Operator");
+        // THROW<CcuResult::CCU_E_INTERNAL>("Invalid ShiftT Operator");
         throw std::runtime_error("Invalid ShiftT Operator");
     }
 

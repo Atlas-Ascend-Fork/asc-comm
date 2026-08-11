@@ -10,8 +10,7 @@
 
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-#include "exception_util.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/arithmetic/ccu_rep_assign_v1.h"
 #include "const_val.h"
 
@@ -33,7 +32,7 @@ CcuRepContext::~CcuRepContext() {}
 std::shared_ptr<CcuRep::CcuRepBlock> CcuRepContext::CurrentBlock()
 {
     if (activeBlock == nullptr) {
-        Hccl::THROW<Hccl::CcuApiException>("Invalid ActiveBlock");
+        hcomm::ThrowCcuInternal("Invalid ActiveBlock");
     }
     return activeBlock;
 }

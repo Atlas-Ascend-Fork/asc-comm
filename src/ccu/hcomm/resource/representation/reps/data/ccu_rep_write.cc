@@ -11,9 +11,9 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
 #include "string_util.h"
-#include "exception_util.h"
+#include "hcomm/common/ccu_exception.h"
 #include "hcomm_c_adpt.h"
-#include "ccu_api_exception.h"
+#include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
@@ -61,7 +61,7 @@ bool CcuRepWrite::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& in
 
 std::string CcuRepWrite::Describe()
 {
-    return Hccl::StringFormat(
+    return hcomm::FormatCcuMessage(
         "Write RemoteAddr[%u] to LocalAddr[%u], length[%u], set sem[%u] with mask[%04x], dataType[%u], opType[%u]",
         loc.addr.Id(), rem.addr.Id(), len.Id(), sem.Id(), mask, dataType, opType);
 }
