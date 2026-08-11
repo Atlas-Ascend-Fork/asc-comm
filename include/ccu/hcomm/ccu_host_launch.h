@@ -12,6 +12,7 @@
 #define CCU_HOST_LAUNCH_H
 
 #include "ccu/hcomm/ccu_launch.h"
+#include "hcomm/hcomm_ccu_launch.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -26,7 +27,7 @@ typedef struct {
 typedef struct {
     HcommCcuSchd ccuSchd;
     CcuInsHandle ccuIns;
-    ThreadHandle thread;
+    const HcommCcuLaunchContextPod* launchContext;
     void* attrs; // 预留参数
     const char* kernelName;
     const HcommCcuRegisterContextPod* registerContext;

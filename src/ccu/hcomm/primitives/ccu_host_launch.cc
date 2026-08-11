@@ -41,6 +41,7 @@ CcuResult HcommCcuHostKernelLaunch(
     CCU_CHK_PTR_NULL(cfg);
     CCU_CHK_PTR_NULL(args);
     CCU_CHK_PTR_NULL(cfg->kernelName);
+    CCU_CHK_PTR_NULL(cfg->launchContext);
 
     if (args->kernelArgNum != 0) {
         CCU_CHK_PTR_NULL(args->kernelArgs);
@@ -75,7 +76,7 @@ CcuResult HcommCcuHostKernelLaunch(
         return ret;
     }
 
-    ret = HcommCcuKernelLaunch(cfg->thread, kernelHandle, args->taskArgs, args->taskArgNum);
+    ret = HcommCcuKernelLaunch(cfg->launchContext, kernelHandle, args->taskArgs, args->taskArgNum);
     if (ret != CCU_SUCCESS) {
         HCCL_ERROR("[%s] HcommCcuKernelLaunch failed, ccuRet[%d].", __func__, ret);
         return ret;
