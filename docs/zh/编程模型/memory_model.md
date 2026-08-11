@@ -6,7 +6,7 @@
 
 本文中的 Global Memory（GM）指 Device 上的 全局内存。图中的通信内存是 GM 中已纳入通信域和 Channel 管理、可用作通信操作数的内存范围，不是独立于 GM 的物理内存层级。
 
-![内存层级和通信能力](./memory_model.png)
+![内存层级和通信能力](./figures/memory_model.png)
 
 图中内存与片内资源按以下层级组织：
 
@@ -112,12 +112,6 @@ flowchart LR
 
 HComm 使用的访问凭据在 Channel 建立时由库生成、交换和保存，原语通过 `ChannelHandle` 使用对应凭据。
 
-#### 使用约束
-
-- 远端地址只对返回该地址的 Channel 有效，不得跨 Channel 或跨 rank 使用。
-- 操作地址和长度必须完整落在对端已经开放的单个内存区域内。
-- 用户注册通信内存只有被加入指定 Channel 后，才对该 Channel 的对端可见。
-- 相关通信操作完成前，本地和远端的原始内存、注册关系和 Channel 必须保持有效。
 
 ### CCU 的本地与远端可见性
 
@@ -157,12 +151,6 @@ flowchart LR
 5. Kernel 调用 [`ccu::WriteVariableWithNotify`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/data_plane_api/ccu/synchronization/WriteVariableWithNotify.md) 通过对应 Channel 将需要对端访问的本端地址和 Token 写入对端约定的 Channel Variable 槽位，并同时向对端发送 Notify。通信双方调用 [`ccu::NotifyWait`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/data_plane_api/ccu/synchronization/NotifyWait.md) 等待交换完成后，第 3 步中获取的 Channel Variable 中即为对端地址和对端 Token。
 6. Kernel 将本端地址和本端 Token 组装为 `LocalAddr`，将对端地址和对端 Token 组装为 `RemoteAddr`。然后调用 [`ccu::Read`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/data_plane_api/ccu/data_movement/Read.md) 或 [`ccu::Write`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/data_plane_api/ccu/data_movement/Write.md) 等跨 rank 读写原语，同时传入对应的 `ChannelHandle`、`LocalAddr` 和 `RemoteAddr`。
 
-#### 使用约束
-
-- `LocalAddr` 或 `RemoteAddr` 中的地址和 Token 必须对应同一段内存，不得拼接不同来源的地址和 Token。
-- `RemoteAddr`、远端 rank 和 Channel 必须匹配，不得跨 Channel 或跨 rank 使用。
-- 操作地址和长度必须完整落在查询 Token 时指定的内存范围内。
-- Token 是访问凭据，用户不应解析、修改或将 Token 打印到日志。Token 的有效期与对应内存的注册生命周期绑定，内存注销后不得继续使用。
 
 ### AIN 的本地与远端可见性
 
@@ -216,9 +204,3 @@ flowchart LR
 4. Kernel 侧创建 `AscendC::Ain` 对象，调用 `Ain::Put`、`Ain::Get` 或 `Ain::PutValue` 时传入 Team、`peer`、窗口句柄和偏移。
 5. AIN 根据 Team 和 `peer` 选择目标 member 及对应 Channel，根据 Window、当前 member 或 `peer` 与 `offset` 定位本地和远端内存，并使用该 Channel 已建立的访问授权发起远端访问。
 
-#### 使用约束
-
-- `peer` 必须是 Team 中的有效 member，Team 和 Window 必须属于同一通信关系。
-- 本地和远端的 `offset + bytes` 都必须完整落在对应窗口范围内。
-- 窗口句柄、Team 和窗口对应的原始内存必须在相关通信操作完成前保持有效。
-- 对称窗口仅提供逻辑地址命名，不表示任意 Team、任意 `peer` 或超出窗口范围的地址都可访问。
