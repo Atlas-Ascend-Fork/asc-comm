@@ -71,6 +71,25 @@ public:
             "Variable::operator=(Var+Var): CcuVariableAddVarToVar failed");
     }
 
+    void operator=(detail::CcuShiftOperator<Variable, Variable> op) const
+    {
+        switch (op.type) {
+            case detail::CcuShiftOperatorType::LEFT:
+                CCU_THROW_IF_FAILED(
+                    CcuVariableShlVarToVar(this->handle, op.lhs.handle, op.rhs.handle),
+                    "Variable::operator=(Var<<Var): CcuVariableShlVarToVar failed");
+                break;
+            case detail::CcuShiftOperatorType::RIGHT:
+                CCU_THROW_IF_FAILED(
+                    CcuVariableShrVarToVar(this->handle, op.lhs.handle, op.rhs.handle),
+                    "Variable::operator=(Var>>Var): CcuVariableShrVarToVar failed");
+                break;
+            default:
+                throw detail::CcuException(
+                    CcuResult::CCU_E_PARA, "Variable::operator=: invalid shift operator type");
+        }
+    }
+
     void operator+=(const Variable& other) const
     {
         CCU_THROW_IF_FAILED(
@@ -82,6 +101,30 @@ public:
     {
         return detail::CcuArithmeticOperator<Variable, Variable>(
             *this, that, detail::CcuArithmeticOperatorType::ADDITION);
+    }
+
+    detail::CcuShiftOperator<Variable, Variable> operator<<(const Variable& that) const
+    {
+        return detail::CcuShiftOperator<Variable, Variable>(*this, that, detail::CcuShiftOperatorType::LEFT);
+    }
+
+    detail::CcuShiftOperator<Variable, Variable> operator>>(const Variable& that) const
+    {
+        return detail::CcuShiftOperator<Variable, Variable>(*this, that, detail::CcuShiftOperatorType::RIGHT);
+    }
+
+    void operator<<=(const Variable& other) const
+    {
+        CCU_THROW_IF_FAILED(
+            CcuVariableShlVarToVar(this->handle, this->handle, other.handle),
+            "Variable::operator<<=(Variable): CcuVariableShlVarToVar failed");
+    }
+
+    void operator>>=(const Variable& other) const
+    {
+        CCU_THROW_IF_FAILED(
+            CcuVariableShrVarToVar(this->handle, this->handle, other.handle),
+            "Variable::operator>>=(Variable): CcuVariableShrVarToVar failed");
     }
 
     CondExpr operator==(uint64_t immediate) { return CondExpr{this, immediate, CCU_CONDITION_EQ}; }
@@ -105,6 +148,10 @@ private:
 
 template <>
 inline void AscendC::ccu::detail::CcuArithmeticOperator<AscendC::ccu::Variable, AscendC::ccu::Variable>::Check() const
+{}
+
+template <>
+inline void AscendC::ccu::detail::CcuShiftOperator<AscendC::ccu::Variable, AscendC::ccu::Variable>::Check() const
 {}
 
 #endif // CCU_VARIABLE_HPP

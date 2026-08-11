@@ -50,6 +50,10 @@ CcuResult CcuAllocDemoKernel(CcuKernelArg arg)
     varA = 1024;
     varB = 2048;
     result = varA + varB;
+    result = varA << varB;
+    result = varA >> varB;
+    result <<= varB;
+    result >>= varB;
     ccu::LoadArg(varA, 0);
     ccu::LoadArg(varB, 1);
 

@@ -52,6 +52,8 @@ extern CcuResult CcuEventGetByIndex(CcuEventHandle acqHandle,
 extern CcuResult CcuVariableAssignImm(CcuVariableHandle resVar, uint64_t immediate);
 extern CcuResult CcuVariableAssignVar(CcuVariableHandle dstVarHandle, CcuVariableHandle srcVarHandle);
 extern CcuResult CcuVariableAddVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB);
+extern CcuResult CcuVariableShlVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB);
+extern CcuResult CcuVariableShrVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB);
 
 // Address操作类 相关接口
 extern CcuResult CcuAddressAssignImm(CcuAddressHandle addr, uint64_t immediate);
