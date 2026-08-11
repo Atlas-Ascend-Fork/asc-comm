@@ -143,9 +143,9 @@ int32_t HcommBatchModeEndPod(const char *batchTag)
 {
     (void)batchTag;
     HcommPodSetBatchLaunchMode(false);
-    CHK_RET(HcommPodLaunchRegisteredThreads());
+    const HcclResult ret = HcommPodLaunchRegisteredThreads();
     HcommPodClearRegisteredThreads();
-    return HCCL_SUCCESS;
+    return ret;
 }
 
 int32_t HcommLocalCopyOnThreadPod(ThreadHandle thread, void *dst, const void *src, uint64_t len)
