@@ -1,6 +1,6 @@
 # 代理模式执行模型
 
-本文介绍代理模式下通信任务从准备、发布到完成的执行过程。在代理模式下，AI Core 作为通信客户端发起通信任务，AICPU_TS 或 CCU 作为通信服务端执行通信任务。本文重点说明通信客户端与通信服务端之间的任务传递、执行和完成关系，不展开 Channel 两端的跨 rank 通信过程。
+本文介绍代理模式下通信任务从准备、发布到完成的执行过程。在代理模式下，AI Core 作为通信客户端发起通信任务，AICPU_TS 或 CCU 作为通信服务端执行通信任务。本文重点说明通信客户端与通信服务端之间的任务传递、执行和完成关系。
 
 Channel、Endpoint 和通信实体之间的关系参见[代理模式通信模型](./proxy_comm_model.md)，通信地址、访问授权和通信数据的一致性参见[内存模型](./memory_model.md)。
 
@@ -13,7 +13,7 @@ Channel、Endpoint 和通信实体之间的关系参见[代理模式通信模型
 - AICPU_TS 服务端：AI Core 与 AICPU_TS 通过消息区传递任务参数、任务发布状态和完成状态。
 - CCU 服务端：AI Core 与 CCU 通过 CCU 通用寄存器传递任务参数，通过同步寄存器传递任务启动和完成状态。
 
-基于 HCCL 高阶 API 开发时，上述差异由 API 封装，用户通过相同的 Prepare、`Commit`、`Wait` 和 `Finalize` 接口管理任务。用户也可以基于 HCOMM 和 CCU 接口设计自定义客户端与服务端协议，但当前没有提供与 HCCL 高阶 API 等价的自定义代理协议封装。
+基于 HCCL 高阶 API 开发时，上述差异由 API 封装，用户通过相同的 Prepare、`Commit`、`Wait` 和 `Finalize` 接口管理任务。采用自定义客户端与服务端协议时，用户基于 HCOMM 和 CCU 接口自行实现任务格式和同步机制。
 
 ## 代理执行机制
 
@@ -35,13 +35,13 @@ Channel、Endpoint 和通信实体之间的关系参见[代理模式通信模型
 
 1. Host 侧准备通信资源和通信上下文，启动通信服务端和 AI Core Kernel。
 2. AI Core 客户端初始化通信对象，设置通信算法 Tiling，并调用集合通信 Prepare 接口准备任务。Prepare 接口记录通信类型、收发地址、数据量和数据类型等任务参数，并返回标识该任务的 `handleId`。
-3. AI Core 客户端完成源数据生产以及必要的核间同步后，调用 `Commit` 发布任务执行条件。`Commit` 表示该任务可以由服务端执行，不表示通信已经完成。
+3. AI Core 客户端完成源数据生产以及必要的核间同步后，调用 `Commit` 发布任务执行条件。服务端从该发布点开始执行任务，任务完成状态由客户端通过 `Wait` 确认。
 4. 通信服务端取得任务参数和执行条件，根据通信算法使用的 Channel 展开并执行跨 rank 通信操作。
 5. 通信任务完成后，服务端通过代理介质发布对应任务的完成状态。
-6. AI Core 客户端调用 `Wait` 等待并消费完成状态。`Wait` 返回后，客户端可以读取该任务的输出数据，并可以在没有其他使用者的前提下复用相应的源内存、目的内存和任务资源。
-7. 后续不再准备通信任务时，AI Core 客户端调用 `Finalize` 通知服务端结束当前执行周期。
+6. AI Core 客户端调用 `Wait` 等待并消费完成状态。`Wait` 返回后，客户端可以读取该任务的输出数据；所有使用者完成访问后，可以复用相应的源内存、目的内存和任务资源。
+7. AI Core 客户端完成当前执行周期的全部通信任务后，调用 `Finalize` 通知服务端结束当前执行周期。
 
-代理介质只承载通信任务参数和执行状态，不是跨 rank 传输用户数据的通信内存。通信服务端执行任务时，用户数据仍通过 Channel 对应的通信通路搬运。
+代理介质承载通信任务参数和执行状态，Channel 对应的通信通路承载跨 rank 用户数据。
 
 ## 基于 HCCL 高阶 API 的执行流程
 
@@ -63,32 +63,32 @@ Host 侧在 Kernel 启动前准备通信上下文和通信算法 Tiling。AI Cor
 
 用户调用 [`AllGather`](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/api/SIMD-API/adv_api/HCCL_communication/HCCL_Kernel/AllGather.md)、[`AllReduce`](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/api/SIMD-API/adv_api/HCCL_communication/HCCL_Kernel/AllReduce.md) 或 [`ReduceScatter`](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/api/SIMD-API/adv_api/HCCL_communication/HCCL_Kernel/ReduceScatter.md) 等 Prepare 接口准备通信任务。一次 Prepare 调用返回一个 `handleId`，后续通过该 `handleId` 发布和等待对应任务。
 
-Prepare 完成只表示任务描述已经建立，不表示服务端已经执行数据传输。两类服务端对任务描述的处理方式不同：
+Prepare 接口建立任务描述，`Commit` 发布该任务的数据传输执行条件。两类服务端对任务描述的处理方式不同：
 
-- 使用 AICPU_TS 服务端时，Prepare 接口将任务描述写入消息区，AICPU_TS 可以读取并解析任务；在收到任务发布状态前，不执行该任务对应的数据传输。
+- 使用 AICPU_TS 服务端时，Prepare 接口将任务描述写入消息区，AICPU_TS 读取并解析任务，在收到任务发布状态后执行该任务对应的数据传输。
 - 使用 CCU 服务端时，Prepare 接口记录任务描述；AI Core 调用 `Commit` 时，客户端选择可用任务槽位，将本轮任务参数写入该槽位对应的通用寄存器，并置起启动同步寄存器。
 
-源数据准备完成后，用户调用 [`Commit`](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/api/SIMD-API/adv_api/HCCL_communication/HCCL_Kernel/Commit.md) 发布任务。`Commit` 是客户端向服务端发布“任务可以执行”这一条件的接口边界。若 Prepare 接口的模板参数 `commit` 取值为 `true`，Prepare 接口会同时发布该任务，无需再单独调用 `Commit`。
+源数据准备完成后，用户调用 [`Commit`](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/api/SIMD-API/adv_api/HCCL_communication/HCCL_Kernel/Commit.md) 发布任务。`Commit` 是客户端向服务端发布“任务可以执行”这一条件的接口边界。若 Prepare 接口的模板参数 `commit` 取值为 `true`，Prepare 接口会同时完成任务发布。
 
-调用 `Commit` 前，用户必须保证该任务使用的源数据已经生成完成，并保证负责发布任务的 AI Core 可以观察到源数据已经就绪。如果源数据由其他 AI Core 生成，用户仍需要根据算子编排执行必要的核间同步；`Commit` 不替代计算核之间的数据生产同步。
+调用 `Commit` 前，用户必须保证该任务使用的源数据已经生成完成，并保证负责发布任务的 AI Core 可以观察到源数据已经就绪。如果源数据由其他 AI Core 生成，用户需要根据算子编排先完成计算核之间的数据生产同步，再调用 `Commit`。
 
-`Commit` 返回后，服务端可能正在读取源内存或写入目的内存。在对应的 `Wait` 返回前，该轮通信使用的源内存和目的内存区域必须保持有效；用户不能覆盖或释放源内存区域，也不能读取或覆盖目的内存区域，但可以执行不访问这些内存区域的其他计算。
+`Commit` 返回后，服务端可能正在读取源内存或写入目的内存。在对应的 `Wait` 返回前，该轮通信使用的源内存和目的内存区域必须保持有效，源内存区域保持内容不变，目的内存区域交由通信服务端写入。用户可以同时执行访问其他内存区域的计算。
 
 ### 任务完成与结束
 
-用户调用 [`Wait`](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/api/SIMD-API/adv_api/HCCL_communication/HCCL_Kernel/Wait.md) 阻塞当前 AI Core，直到 `handleId` 对应的一轮通信任务完成。两类服务端向用户提供相同的完成语义：`Wait` 返回表示对应的一轮通信已经完成，用户无需读取或修改底层完成状态。
+用户调用 [`Wait`](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/api/SIMD-API/adv_api/HCCL_communication/HCCL_Kernel/Wait.md) 阻塞当前 AI Core，直到 `handleId` 对应的一轮通信任务完成。两类服务端向用户提供相同的完成语义：`Wait` 返回表示对应的一轮通信已经完成，底层完成状态由 HCCL 高阶 API 管理。
 
 `Wait` 返回后，当前任务的通信输出可以由客户端读取或用于后续计算。
 
-后续无通信任务时，用户调用 [`Finalize`](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/api/SIMD-API/adv_api/HCCL_communication/HCCL_Kernel/Finalize.md) 通知服务端退出：
+完成当前执行周期的全部通信任务后，用户调用 [`Finalize`](https://gitcode.com/cann/asc-devkit/blob/master/docs/zh/api/SIMD-API/adv_api/HCCL_communication/HCCL_Kernel/Finalize.md) 通知服务端退出：
 
 - `Finalize<true>` 为默认形式，客户端等待最后一个通信任务完成后结束当前执行周期。
 - `Finalize<false>` 只发送结束通知，不等待已下发任务完成，不表示输出数据已经可用，也不保证接口返回时对端已经收到数据。
 
 > [!CAUTION]注意
-> - 调用 `Finalize` 后，当前 `Hccl` 对象不能继续准备或发布通信任务。如需继续通信，需要重新创建并初始化 `Hccl` 对象。
-> - `Wait` 和具有同步语义的 `Finalize` 只提供通信任务的完成保证，不是 AI Core 之间的同步接口。一个 AI Core 调用 `Wait` 返回，不表示其他 AI Core 已经完成各自的计算或到达同一段代码。
-> - 如果多个 AI Core 参与同一个通信执行周期，调用 `Finalize` 的 AI Core 必须先确认其他参与核不再准备、发布或等待通信任务。否则，执行较快的 AI Core 可能先调用 `Finalize` 使服务端退出，而执行较慢的 AI Core 仍在调用 `Commit` 或 `Wait`，导致后续通信无法继续。用户需要根据算子编排，在 `Finalize` 前使用 `SyncAll`、`CrossCoreSetFlag` 和 `CrossCoreWaitFlag` 等适当的核间同步接口，使相关 AI Core 完成会合。
+> - `Finalize` 结束当前 `Hccl` 对象的执行周期。后续通信需要重新创建并初始化 `Hccl` 对象。
+> - `Wait` 和具有同步语义的 `Finalize` 确认通信任务完成。AI Core 之间的计算进度和代码执行位置通过核间同步接口确认。
+> - 多个 AI Core 参与同一个通信执行周期时，需要在 `Finalize` 前使用 `SyncAll`、`CrossCoreSetFlag` 和 `CrossCoreWaitFlag` 等适当的核间同步接口，确保所有参与核均已完成任务准备、发布和等待，再由服务端结束当前执行周期。
 
 ## AICPU_TS 与 CCU 服务端的执行差异
 
@@ -102,8 +102,8 @@ HCCL 高阶 API 向用户提供统一的任务生命周期，两类服务端的�
 | 完成反馈 | AICPU_TS 更新消息区中的完成轮次 | CCU 置起任务槽位对应的完成同步寄存器 |
 | 客户端完成接口 | `Wait` 等待对应完成轮次 | `Wait` 等待对应完成轮次 |
 
-用户使用 HCCL 高阶 API 时，无需直接读写消息区或 CCU 寄存器，也不需要自行定义任务发布和完成协议。
+HCCL 高阶 API 负责读写消息区或 CCU 寄存器，并管理任务发布和完成协议，用户通过统一接口控制任务生命周期。
 
 ## 自定义客户端与服务端协议
 
-不使用 HCCL 高阶 API 时，用户可以基于已有的 HCOMM 和 CCU 接口设计 AI Core 客户端与 AICPU_TS 或 CCU 服务端之间的代理协议。暂无实现。
+采用自定义代理协议时，用户可以基于已有的 HCOMM 和 CCU 接口设计 AI Core 客户端与 AICPU_TS 或 CCU 服务端之间的任务格式和同步机制。暂无实现。
