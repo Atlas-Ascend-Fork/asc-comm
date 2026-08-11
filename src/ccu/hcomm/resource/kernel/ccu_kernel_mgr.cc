@@ -22,7 +22,7 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
 
-#include "hcomm_adapter_hccp.h"
+#include "hcomm/hcomm_ccu_instruction_api.h"
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/resource/common/ccu_kernel_func.h"
@@ -730,29 +730,24 @@ HcclResult CcuKernelMgr::LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, 
         instructionLoadDevMem_, instrInfoSize, instrInfo.instrVec.data(), instrInfoSize,
         HcclRtMemcpyKind::HCCL_RT_MEMCPY_KIND_HOST_TO_DEVICE));
 
-    uint32_t devPhyId = 0;
-    CHK_RET(hrtGetDevicePhyIdByIndex(static_cast<uint32_t>(devLogicId_), devPhyId));
+    // 只传语义参数；opcode 选择、TLV 报文组装与驱动交互均由 hcomm 在其 SO 内完成
+    HcommCcuInstructionLoadPod request{};
+    request.header.version = HCOMM_CCU_INSTRUCTION_ABI_VERSION;
+    request.header.magicWord = HCOMM_CCU_INSTRUCTION_LOAD_MAGIC_WORD;
+    request.header.size = sizeof(request);
+    request.deviceLogicId = devLogicId_;
+    request.dieId = dieId;
+    request.startInstructionId = instrInfo.startInstrId;
+    request.deviceAddress = reinterpret_cast<uint64_t>(instructionLoadDevMem_);
+    request.byteSize = instrInfoSize;
 
-    CustomChannelInfoIn inBuff{};
-    CustomChannelInfoOut outBuff{};
-
-    // 设置操作码和通道数据
-    inBuff.op = CcuOpcodeType::CCU_U_OP_SET_INSTRUCTION;
-    inBuff.offsetStartIdx = instrInfo.startInstrId;
-    inBuff.data.dataInfo.udieIdx = dieId;
-    inBuff.data.dataInfo.dataArraySize = 1;
-    inBuff.data.dataInfo.dataLen = instrInfoSize;
-
-    CcuDataTypeUnion tmp{};
-    tmp.insinfo.resourceAddr = reinterpret_cast<uint64_t>(instructionLoadDevMem_);
-    (void)memcpy_s(inBuff.data.dataInfo.dataArray, sizeof(CcuDataTypeUnion), &tmp, sizeof(CcuDataTypeUnion));
-
-    auto ret = HccpRaTlvCcuCustomChannel(devLogicId_, static_cast<void*>(&inBuff), static_cast<void*>(&outBuff));
-    if (ret != HCCL_SUCCESS) {
+    auto ret = static_cast<HcclResult>(HcommCcuLoadInstruction(&request));
+    if (ret != HcclResult::HCCL_SUCCESS) {
         HCCL_ERROR(
-            "[CcuResSpecifications][%s] failed to call ccu driver, "
-            "devLogicId[%d] devPhyId[%u] dieId[%d] op[%s] ret[%d].",
-            __func__, devLogicId_, devPhyId, dieId, "SET_INSTRUCTION", ret);
+            "[CcuKernelMgr][%s] failed to load instruction, "
+            "devLogicId[%d] dieId[%u] startInstrId[%u] byteSize[%llu] ret[%d].",
+            __func__, devLogicId_, dieId, instrInfo.startInstrId,
+            static_cast<unsigned long long>(instrInfoSize), ret);
         return ret;
     }
 
