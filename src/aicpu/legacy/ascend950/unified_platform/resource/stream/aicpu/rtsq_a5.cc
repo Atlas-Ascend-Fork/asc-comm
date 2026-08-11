@@ -40,8 +40,10 @@ RtsqA5::RtsqA5(u32 devPhyId, u32 streamId, u32 sqId, bool launchFlag) : RtsqBase
     launchFlag_ = launchFlag;
 }
 
-HcclResult RtsqA5::ExportPodResource(HcommRtsqContext &context) const
+HcclResult RtsqA5::ExportPodResource(HcommRtsqContext &context)
 {
+    CHK_PRT_RET(podExported_, HCCL_ERROR("[RtsqA5::%s] RTSQ resource has already been transferred to POD.",
+        __func__), HCCL_E_UNAVAIL);
     static_assert(sizeof(context.localSqeBuffer) == sizeof(locBuf),
         "RtsqA5 local SQE buffer must match HcommRtsqContext");
     context = {};
@@ -61,6 +63,13 @@ HcclResult RtsqA5::ExportPodResource(HcommRtsqContext &context) const
     const s32 ret = memcpy_s(context.localSqeBuffer, sizeof(context.localSqeBuffer), locBuf, sizeof(locBuf));
     CHK_PRT_RET(ret != EOK,
         HCCL_ERROR("[RtsqA5::%s] copy local SQE buffer failed, ret[%d].", __func__, ret), HCCL_E_INTERNAL);
+
+    // Pending SQEs are transferred to the POD context and must not be submitted again by the legacy object.
+    const s32 clearRet = memset_s(locBuf, sizeof(locBuf), 0, sizeof(locBuf));
+    CHK_PRT_RET(clearRet != EOK,
+        HCCL_ERROR("[RtsqA5::%s] clear local SQE buffer failed, ret[%d].", __func__, clearRet), HCCL_E_INTERNAL);
+    pendingSqeCnt = 0;
+    podExported_ = true;
     return HCCL_SUCCESS;
 }
 
@@ -242,6 +251,11 @@ void RtsqA5::TryLaunchTask()
 
 u8 *RtsqA5::GetCurrSqeBuffer()
 {
+    if (UNLIKELY(podExported_)) {
+        HCCL_ERROR("[RtsqA5::%s] legacy operation is not allowed after RTSQ resource is transferred to POD.",
+            __func__);
+        THROW<InternalException>("RTSQ resource has been transferred to POD.");
+    }
     return locBuf + pendingSqeCnt * RTSQ_SQE_SIZE;
 }
 

@@ -45,6 +45,7 @@ HcclResult AicpuTsThread::DeInit()
     podEntity_ = {};
     podNotifies_.clear();
     podRtsq_ = {};
+    podExported_ = false;
     streamType_ = StreamType::STREAM_TYPE_RESERVED;
     notifyNum_ = 0;
     stream_ = nullptr;
@@ -125,6 +126,11 @@ LocalNotify *AicpuTsThread::GetNotify(uint32_t index) const
 
 HcclResult AicpuTsThread::ExportPodResource(HcommThreadEntity *&entity)
 {
+    if (podExported_) {
+        entity = &podEntity_;
+        return HCCL_SUCCESS;
+    }
+
     auto *stream = static_cast<Hccl::StreamLite *>(GetStreamLitePtr());
     CHK_PTR_NULL(stream);
     Hccl::RtsqBase *rtsq = stream->GetRtsq();
@@ -148,6 +154,7 @@ HcclResult AicpuTsThread::ExportPodResource(HcommThreadEntity *&entity)
     podEntity_.localNotifyNum = static_cast<uint32_t>(podNotifies_.size());
     podEntity_.localNotifyAddr = podNotifies_.empty() ? nullptr : podNotifies_.data();
     podEntity_.sqContextAddr = &podRtsq_;
+    podExported_ = true;
     entity = &podEntity_;
     return HCCL_SUCCESS;
 }

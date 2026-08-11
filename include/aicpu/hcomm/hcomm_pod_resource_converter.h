@@ -21,7 +21,9 @@ extern "C" {
  * @param[in] legacyThread legacy thread句柄，由HcclThreadAcquire等接口产出
  * @param[out] podThread 指向HcommThreadEntity的句柄，可直接传给Hcomm*OnThreadPod原语
  * @return int32_t 执行结果状态码
- * @note 入参必须指向legacy Thread对象；输出entity由该Thread对象持有，随Thread资源释放而失效。
+ * @note 1、入参必须指向legacy Thread对象；输出entity由该Thread对象持有，随Thread资源释放而失效；
+ *       2、转换会将待提交RTSQ状态移交给POD entity，转换成功后legacy Thread不得再用于数据面原语；
+ *       3、同一legacy Thread重复转换返回同一POD entity，不会覆盖POD运行状态。
  *
  * WARNING: experimental API, No compatibility is currently guaranteed for this API
  */

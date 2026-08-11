@@ -259,7 +259,7 @@ public:
         return false;
     }
 
-    virtual HcclResult ExportPodResource(HcommRtsqContext &context) const
+    virtual HcclResult ExportPodResource(HcommRtsqContext &context)
     {
         (void)context;
         return HCCL_E_NOT_SUPPORT;

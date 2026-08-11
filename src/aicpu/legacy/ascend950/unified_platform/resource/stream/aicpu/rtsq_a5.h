@@ -75,7 +75,7 @@ public:
 
     bool GetPreStreamSyncStatus() override;
 
-    HcclResult ExportPodResource(HcommRtsqContext &context) const override;
+    HcclResult ExportPodResource(HcommRtsqContext &context) override;
 
 private:
     u32 pendingSqeCnt{0};
@@ -85,6 +85,8 @@ private:
     bool isPreStreamSync = false;
 
     bool launchFlag_ = false;
+
+    bool podExported_ = false;
 
     u8 locBuf[RTSQ_SQE_SIZE * PER_LAUNCH_SQE_CNT]{0};
 
