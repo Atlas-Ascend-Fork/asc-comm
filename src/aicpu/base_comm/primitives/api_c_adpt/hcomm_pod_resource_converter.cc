@@ -129,26 +129,26 @@ HcclResult BuildChannelStorage(ChannelHandle legacyChannel, PodChannelStorage &s
 
 int32_t HcommThreadConvertToPod(ThreadHandle legacyThread, ThreadHandle *podThread)
 {
-    CHK_PTR_NULL(podThread);
-    CHK_PRT_RET(legacyThread == 0, HCCL_ERROR("[%s] legacy thread is 0.", __func__), HCCL_E_PTR);
-    if (IsPodThread(legacyThread)) {
-        *podThread = legacyThread;
-        return HCCL_SUCCESS;
-    }
+    // CHK_PTR_NULL(podThread);
+    // CHK_PRT_RET(legacyThread == 0, HCCL_ERROR("[%s] legacy thread is 0.", __func__), HCCL_E_PTR);
+    // if (IsPodThread(legacyThread)) {
+    //     *podThread = legacyThread;
+    //     return HCCL_SUCCESS;
+    // }
 
-    std::lock_guard<std::mutex> lock(g_converterMutex);
-    auto cached = g_threadStorage.find(legacyThread);
-    if (cached != g_threadStorage.end()) {
-        *podThread = reinterpret_cast<ThreadHandle>(&cached->second->entity);
-        return HCCL_SUCCESS;
-    }
+    // std::lock_guard<std::mutex> lock(g_converterMutex);
+    // auto cached = g_threadStorage.find(legacyThread);
+    // if (cached != g_threadStorage.end()) {
+    //     *podThread = reinterpret_cast<ThreadHandle>(&cached->second->entity);
+    //     return HCCL_SUCCESS;
+    // }
 
-    auto storage = std::make_unique<PodThreadStorage>();
-    HcclResult ret = HCCL_SUCCESS;
-    EXCEPTION_CATCH(ret = BuildThreadStorage(legacyThread, *storage), ret = HCCL_E_INTERNAL);
-    CHK_RET(ret);
-    *podThread = reinterpret_cast<ThreadHandle>(&storage->entity);
-    g_threadStorage.emplace(legacyThread, std::move(storage));
+    // auto storage = std::make_unique<PodThreadStorage>();
+    // HcclResult ret = HCCL_SUCCESS;
+    // EXCEPTION_CATCH(ret = BuildThreadStorage(legacyThread, *storage), ret = HCCL_E_INTERNAL);
+    // CHK_RET(ret);
+    // *podThread = reinterpret_cast<ThreadHandle>(&storage->entity);
+    // g_threadStorage.emplace(legacyThread, std::move(storage));
     return HCCL_SUCCESS;
 }
 
