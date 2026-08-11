@@ -332,10 +332,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
         KERNEL_INFO, "Hcomm URMA PostSend resolved remoteIdx=%d curHead=%u sqDepth=%u \n", remoteIdx, curHead,
         sqCtx.contextInfo.ubJfs.sqDepth);
 
-    // poll CQ if CQ or SQ is nearly full
-    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    PollCqWhenSqOverflow(channel, sqCtx, cqCtx, curHead, cqeCnt);
-
     // write SQE
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = (__ubuf__ HcommUrmaSqeCtx*)wqeItem_.GetPhyAddr();
     auto remoteMemInfo = channelEntity->remoteBufferAddr[remoteIdx];
@@ -379,7 +375,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     } else {
         DataCopy(sqeGlobal, wqeItem_, wqeSize * wqeBbCnt / sizeof(uint32_t));
     }
-    SyncAction<HardEvent::MTE3_S>();
 
     if constexpr (config.cqe != 0) {
         cqeCnt++;
@@ -389,7 +384,20 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     channelEntity->sqHead = curHead;
 
     if constexpr (commit) {
-        st_dev(curHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+        auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+        uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
+        uint32_t cqTail = channelEntity->cqTail;
+        uint32_t cqLeft = (cqeCnt - cqTail) % cqDepth;
+        if (cqLeft >= 0) {
+            SyncAction<HardEvent::MTE3_S>();
+            st_dev(curHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+        } else {
+            SyncAction<HardEvent::MTE3_S>();
+            auto commitCnt = curHead - cqLeft;
+            st_dev(commitCnt, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+            PollCq(channel, commitCnt);
+            st_dev(curHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+        }
     }
     HcommUrmaDumpWqeCtx(sqeCtx, sizeof(T));
     return HCOMM_SUCCESS;
@@ -541,8 +549,20 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     uint32_t curHead = channelEntity->sqHead;
 
-    st_dev(curHead, (__gm__ uint32_t*)sqCtx.contextInfo.ubJfs.dbVa, 0);
-
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
+    uint32_t cqTail = channelEntity->cqTail;
+    uint32_t cqLeft = (cqeCnt - cqTail) % cqDepth;
+    if (cqLeft >= 0) {
+        SyncAction<HardEvent::MTE3_S>();
+        st_dev(curHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+    } else {
+        SyncAction<HardEvent::MTE3_S>();
+        auto commitCnt = curHead - cqLeft;
+        st_dev(commitCnt, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+        PollCq(channel, commitCnt);
+        st_dev(curHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+    }
     return HCOMM_SUCCESS;
 }
 
