@@ -14,6 +14,7 @@
 #include "hccl/hccl_types.h"
 #include "ccu/hcomm/ccu_types.h"
 #include "hccl/hccl_res.h"
+#include "hcomm/hcomm_ccu_launch.h"
 #include "hcomm/hcomm_ccu_res.h"
 
 #ifdef __cplusplus
@@ -32,7 +33,7 @@ extern CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle insHandle);
 extern CcuResult HcommCcuGetTaskArgsNum(CcuKernelHandle kernelHandle, uint32_t* taskArgsNum);
 
 extern CcuResult HcommCcuKernelLaunch(
-    ThreadHandle threadHandle, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum);
+    const HcommCcuLaunchContextPod *launchContext, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum);
 
 #ifdef __cplusplus
 }

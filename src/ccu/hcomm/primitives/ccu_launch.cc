@@ -11,7 +11,7 @@
 #include "ccu/hcomm/ccu_launch.h"
 #include "adapter_rts_common.h"
 #include "ccu/hcomm/ccu_res.h"
-#include "hcomm/hcomm_ccu_launch_api.h"
+#include "hcomm/hcomm_ccu_launch.h"
 
 #include <cstring>
 #include <vector>
@@ -284,35 +284,32 @@ static bool IsLaunchContextValid(const HcommCcuLaunchContextPod& context)
         && header.magicWord == HCOMM_CCU_LAUNCH_CONTEXT_MAGIC_WORD
         && header.size == sizeof(context) && header.reserved == 0
         && context.reserved[0] == 0 && context.reserved[1] == 0
-        && context.runtimeStream != 0;
+        && context.runtimeStream != 0 && context.threadHandle != 0;
 }
 
 CcuResult HcommCcuKernelLaunch(
-    ThreadHandle threadHandle, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum)
+    const HcommCcuLaunchContextPod *launchContext, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum)
 {
     CCU_EXCEPTION_HANDLE_BEGIN
     const auto& startus = TIME_NOW();
 
-    CHK_PRT_RET(threadHandle == 0, HCCL_ERROR("[%s] failed, thread handle is empty.", __func__), CcuResult::CCU_E_PARA);
+    CCU_CHK_PTR_NULL(launchContext);
     CHK_PRT_RET(kernelHandle == 0, HCCL_ERROR("[%s] failed, kernel handle is empty.", __func__), CcuResult::CCU_E_PARA);
     CHK_PRT_RET(
         argNum > 0 && taskArgs == nullptr,
         HCCL_ERROR("[%s] failed, taskArgs is nullptr while argNum[%u] > 0.", __func__, argNum), CcuResult::CCU_E_PTR);
 
-    HCCL_INFO("[HcommCcuKernelLaunch] threadHandle[0x%llx] kernelHandle[0x%llx].", threadHandle, kernelHandle);
-
-    HcommCcuLaunchContextPod launchContext{};
-    // hcomm 仅在同步调用期间解释 ThreadHandle；asc-comm 不感知其 C++ 类型，也不接管其生命周期。
-    CCU_CHK_RET(HcommCcuGetLaunchContext(threadHandle, &launchContext));
     // 跨动态库边界先完整校验 POD，避免按不兼容布局读取 stream、设备号和 profiling 状态。
-    CHK_PRT_RET(!IsLaunchContextValid(launchContext),
+    CHK_PRT_RET(!IsLaunchContextValid(*launchContext),
         HCCL_ERROR("[%s] failed, launch context has an incompatible ABI header or runtime stream.", __func__),
         CcuResult::CCU_E_PARA);
+    HCCL_INFO("[HcommCcuKernelLaunch] threadHandle[0x%llx] kernelHandle[0x%llx].",
+        launchContext->threadHandle, kernelHandle);
     // runtimeStream 是 hcomm 借出的运行时 stream，且仅在本次同步 launch 返回前有效。
-    auto streamPtr = reinterpret_cast<aclrtStream>(launchContext.runtimeStream);
+    auto streamPtr = reinterpret_cast<aclrtStream>(launchContext->runtimeStream);
 
     // launch 使用线程实际所属设备，避免依赖 asc-comm 内部设备上下文与调用线程状态一致。
-    const int32_t devLogicId = launchContext.deviceLogicId;
+    const int32_t devLogicId = launchContext->deviceLogicId;
     auto& kernelMgr = hcomm::CcuKernelMgr::GetInstance(devLogicId);
     auto* kernel = kernelMgr.GetKernel(kernelHandle);
     CCU_CHK_PTR_NULL(kernel);
@@ -321,34 +318,40 @@ CcuResult HcommCcuKernelLaunch(
     auto ret = kernel->GeneTaskParams(static_cast<const uint64_t*>(taskArgs), argNum, taskParams);
     CHK_PRT_RET(
         ret != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[%s] failed, threadHandle[0x%llx] kernelHandle[0x%llx].", __func__, threadHandle, kernelHandle),
+        HCCL_ERROR("[%s] failed, threadHandle[0x%llx] kernelHandle[0x%llx].", __func__,
+            launchContext->threadHandle, kernelHandle),
         ret);
 
     if (taskParams.empty()) {
         HCCL_INFO("[%s] passed, ccu params are empty.", __func__);
         return CcuResult::CCU_SUCCESS;
     }
-    const bool isSaveProfilingData = launchContext.profilingL1Enabled != 0
-        || launchContext.profilingL0Enabled != 0 || launchContext.profilingCached != 0;
+    const bool isSaveProfilingData = launchContext->profilingL1Enabled != 0
+        || launchContext->profilingL0Enabled != 0 || launchContext->profilingCached != 0;
 
     std::vector<hcomm::CcuProfilingInfo> allCcuProfilingInfo;
     CCU_CHK_RET(ConstructProfilingInfo(
         kernel, static_cast<const uint64_t*>(taskArgs), argNum, allCcuProfilingInfo, isSaveProfilingData));
-    LogCcuTaskInfo(taskParams, kernelHandle, launchContext.timeoutSec);
+    LogCcuTaskInfo(taskParams, kernelHandle, launchContext->timeoutSec);
     std::vector<HcommCcuProfileDetailPod> ccuDetailInfo;
     CCU_CHK_RET(ConstructCcuDetailInfo(allCcuProfilingInfo, isSaveProfilingData, ccuDetailInfo));
     for (uint32_t idx = 0; idx < taskParams.size(); idx++) {
         uint64_t beginTime = 0;
         uint64_t endTime = 0;
-        CCU_CHK_RET(HcommCcuGetProfilingCycle(&beginTime));
-        CCU_CHK_RET(LaunchCcuTasks(taskParams[idx], streamPtr, launchContext.timeoutSec));
-        CCU_CHK_RET(HcommCcuGetProfilingCycle(&endTime));
+        if (launchContext->getProfilingCycle != nullptr) {
+            CCU_CHK_RET(launchContext->getProfilingCycle(&beginTime));
+        }
+        CCU_CHK_RET(LaunchCcuTasks(taskParams[idx], streamPtr, launchContext->timeoutSec));
+        if (launchContext->getProfilingCycle != nullptr) {
+            CCU_CHK_RET(launchContext->getProfilingCycle(&endTime));
+        }
         const HcommCcuTaskProfilePod taskProfile = ConstructCcuTaskProfile(
-            taskParams[idx], kernelHandle, beginTime, endTime, launchContext.isMaster != 0);
-        // 原样回传 ThreadHandle；hcomm 在 callback 调用前转换 profiling 类型，句柄所有权始终不转移。
-        CCU_CHK_RET(HcommCcuReportTask(
-            threadHandle, &taskProfile, ccuDetailInfo.empty() ? nullptr : ccuDetailInfo.data(),
-            static_cast<uint32_t>(ccuDetailInfo.size())));
+            taskParams[idx], kernelHandle, beginTime, endTime, launchContext->isMaster != 0);
+        if (launchContext->reportTask != nullptr) {
+            CCU_CHK_RET(launchContext->reportTask(
+                launchContext->threadHandle, &taskProfile, ccuDetailInfo.empty() ? nullptr : ccuDetailInfo.data(),
+                static_cast<uint32_t>(ccuDetailInfo.size())));
+        }
     }
     HCCL_INFO("[%s] success, take time [%lld]us.", __func__, DURATION_US(TIME_NOW() - startus).count());
     return CcuResult::CCU_SUCCESS;
