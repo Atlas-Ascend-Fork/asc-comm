@@ -1,6 +1,6 @@
-# 通信模型
+# 直驱模式通信模型
 
-本文介绍 AICPU_TS 与 CCU 通信引擎在 Ascend 950 上直接执行通信任务时的通信模型，说明通信的发起方、参与通信的实体、通信协议，以及 Channel 与 Endpoint 等概念。通信的发起方与执行方分离的形态见[代理模式通信模型](../proxy_model/comm_model.md)。
+本文介绍 AICPU_TS 与 CCU 通信引擎在 Ascend 950 上直接执行通信任务时的通信模型，说明通信的发起方、参与通信的实体、通信协议，以及 Channel 与 Endpoint 等概念。通信的发起方与执行方分离的形态见[代理模式通信模型](./proxy_comm_model.md)。
 
 ## AICPU_TS 通信模型
 
