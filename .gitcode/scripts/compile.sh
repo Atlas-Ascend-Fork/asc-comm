@@ -83,7 +83,7 @@ cmake --version
 cd "${WORKSPACE}" || exit
 
 if [[ "${task_name}" =~ Compile_Ascend_X86_ubuntu24 ]]; then
-    sed -i "1i set(CMAKE_EXPORT_COMPILE_COMMANDS ON)" "CMakeLists.txt"
+    # sed -i "1i set(CMAKE_EXPORT_COMPILE_COMMANDS ON)" "CMakeLists.txt"
     echo "api-check=compile" >> "${ATOMGIT_OUTPUT}"
 else
     echo "api-check=continue" >> "${ATOMGIT_OUTPUT}"
