@@ -87,7 +87,7 @@ public:
 
     /*!
      * @brief Prepare a plain Write WQE in a caller-provided UB batch buffer without flushing it to SQ.
-     * @tparam config: URMA WQE control config. CQE must be enabled and inline data must be disabled.
+     * @tparam config: URMA WQE control config. CQE may be enabled or disabled; inline data must be disabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
@@ -95,8 +95,12 @@ public:
      * @param [in] buff: A 32-byte-aligned VECOUT UB buffer. Clear it before first use.
      * @param [in] buffLen: The batch buffer length in bytes.
      * @return HCOMM_SUCCESS, HCOMM_PREPARE_BUFFER_FULL, HCOMM_PREPARE_QUEUE_FULL, or HCOMM_FAILED.
-     * @note Supported only by the 3510 COMM_PROTOCOL_UBC_CTP path. Each task occupies one 64-byte WQEBB and
-     *       produces one CQE. config must enable CQE and disable inline data.
+     * @note Supported only by the 3510 COMM_PROTOCOL_UBC_CTP path. Each task occupies one 64-byte WQEBB. With
+     *       config.cqe == 0, no CQE is produced and cross-batch SQ availability is not checked.
+     * @note When a config.cqe != 0 batch reaches its queue budget, this API polls already submitted CQEs once and
+     *       expands the budget when space is reclaimed. HCOMM_PREPARE_QUEUE_FULL is returned if it still cannot grow.
+     * @note After submitting a config.cqe == 0 batch, use a fresh channel before submitting config.cqe != 0 batches;
+     *       the CQE-enabled batch queue model requires sqHead == cqHead.
      */
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbiPrepare(
@@ -109,13 +113,14 @@ public:
      * @param [in] buff: The UB batch buffer passed to WriteNbiPrepare.
      * @return HCOMM_SUCCESS on success and HCOMM_FAILED on failure.
      * @note If commit is false, this API only publishes the prepared WQEs to SQ. Call Commit explicitly.
+     * @note For a config.cqe == 0 batch, only sqHead advances. Drain does not wait for that batch.
      */
     template <bool commit = true>
     __aicore__ inline int32_t WriteNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff);
 
     /*!
      * @brief Prepare a Write-with-notify WQE in a caller-provided UB batch buffer without flushing it to SQ.
-     * @tparam config: URMA WQE control config. CQE must be enabled and inline data must be disabled.
+     * @tparam config: URMA WQE control config. CQE may be enabled or disabled; inline data must be disabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
@@ -126,7 +131,11 @@ public:
      * @param [in] buffLen: The batch buffer length in bytes.
      * @return HCOMM_SUCCESS, HCOMM_PREPARE_BUFFER_FULL, HCOMM_PREPARE_QUEUE_FULL, or HCOMM_FAILED.
      * @note Supported only by the 3510 COMM_PROTOCOL_UBC_CTP path. The caller must serialize all operations on the
-     *       same channel while a batch is active. config must enable CQE and disable inline data.
+     *       same channel while a batch is active. With config.cqe == 0, cross-batch SQ availability is not checked.
+     * @note When a config.cqe != 0 batch reaches its queue budget, this API polls already submitted CQEs once and
+     *       expands the budget when space is reclaimed. HCOMM_PREPARE_QUEUE_FULL is returned if it still cannot grow.
+     * @note After submitting a config.cqe == 0 batch, use a fresh channel before submitting config.cqe != 0 batches;
+     *       the CQE-enabled batch queue model requires sqHead == 2 * cqHead.
      * @note Before first use, clear buff. A valid buffer is 32-byte aligned and contains at least a 32-byte internal
      *       header followed by one 128-byte Write-with-notify WQE.
      */
@@ -142,6 +151,7 @@ public:
      * @param [in] buff: The UB batch buffer passed to WriteWithNotifyNbiPrepare.
      * @return HCOMM_SUCCESS on success and HCOMM_FAILED on failure.
      * @note If commit is false, this API only publishes the prepared WQEs to SQ. Call Commit explicitly.
+     * @note For a config.cqe == 0 batch, only sqHead advances. Drain does not wait for that batch.
      */
     template <bool commit = true>
     __aicore__ inline int32_t WriteWithNotifyNbiPrepareEnd(ChannelHandle channel, __ubuf__ uint8_t* buff);
