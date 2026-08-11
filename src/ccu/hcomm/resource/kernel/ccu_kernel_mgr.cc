@@ -15,7 +15,7 @@
 #include "exception_handler.h"
 #include "adapter_rts.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
-#include "dev_buffer.h"
+#include "hcomm/common/ccu_dev_mem.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
@@ -667,8 +667,13 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, const Asc
 {
     const HcommCcuDieMetadataPod *metadata = resPack.GetDieMetadata(dieId);
     CHK_PTR_NULL(metadata);
-    Hccl::DevBuffer tmpDevMem{1}; // 临时申请device hbm内存用于查询token信息
-    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(tmpDevMem.GetAddr(), 1);
+    // 临时申请device hbm内存用于查询token信息，由本地 RAII 对象管理生命周期
+    CcuDevMem tmpDevMem{1};
+    if (!tmpDevMem.Valid()) {
+        HCCL_ERROR("[InstantiationTranslator] alloc temp device memory for token query failed.");
+        return HcclResult::HCCL_E_MEMORY;
+    }
+    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(tmpDevMem.GetAddr(), tmpDevMem.GetSize());
     CcuRep::TransDep transDep{};
     transDep.logicalId = resPack.GetDeviceLogicId();
     transDep.dieId = dieId;
