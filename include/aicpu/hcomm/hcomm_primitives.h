@@ -16,26 +16,11 @@
 #include <securec.h>
 #include <arpa/inet.h>
 #include "acl/acl_rt.h"
+#include "hcomm_res_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
-
-#ifndef CHANNEL_HANDLE_DEFINED
-#define CHANNEL_HANDLE_DEFINED
-/**
- * @brief 通道句柄类型
- */
-typedef uint64_t ChannelHandle;
-#endif
-
-#ifndef THREAD_HANDLE_DEFINED
-#define THREAD_HANDLE_DEFINED
-/**
- * @brief 线程句柄类型
- */
-typedef uint64_t ThreadHandle;
-#endif
 
 #ifndef HCOMM_TIMEOUT_FLOAT_TYPE
 #define HCOMM_TIMEOUT_FLOAT_TYPE 1

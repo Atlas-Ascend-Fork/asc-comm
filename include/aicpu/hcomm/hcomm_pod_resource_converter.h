@@ -10,17 +10,7 @@
 #ifndef HCOMM_POD_RESOURCE_CONVERTER_H
 #define HCOMM_POD_RESOURCE_CONVERTER_H
 
-#include <stdint.h>
-
-#ifndef CHANNEL_HANDLE_DEFINED
-#define CHANNEL_HANDLE_DEFINED
-typedef uint64_t ChannelHandle;
-#endif
-
-#ifndef THREAD_HANDLE_DEFINED
-#define THREAD_HANDLE_DEFINED
-typedef uint64_t ThreadHandle;
-#endif
+#include "hcomm_res_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
