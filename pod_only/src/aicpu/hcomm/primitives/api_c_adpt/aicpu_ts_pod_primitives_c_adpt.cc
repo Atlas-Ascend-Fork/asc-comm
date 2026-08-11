@@ -132,6 +132,22 @@ HcclResult ExecutePodOperation(Operation operation)
 
 } // namespace
 
+int32_t HcommBatchModeStartPod(const char *batchTag)
+{
+    (void)batchTag;
+    HcommPodSetBatchLaunchMode(true);
+    return HCCL_SUCCESS;
+}
+
+int32_t HcommBatchModeEndPod(const char *batchTag)
+{
+    (void)batchTag;
+    HcommPodSetBatchLaunchMode(false);
+    CHK_RET(HcommPodLaunchRegisteredThreads());
+    HcommPodClearRegisteredThreads();
+    return HCCL_SUCCESS;
+}
+
 int32_t HcommLocalCopyOnThreadPod(ThreadHandle thread, void *dst, const void *src, uint64_t len)
 {
     CHK_PTR_NULL(dst);

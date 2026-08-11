@@ -19,6 +19,18 @@
 extern "C" {
 #endif
 
+/**
+ * @brief Start batching POD primitives on the current execution thread.
+ * @param[in] batchTag Reserved for compatibility; POD batching currently does not group threads by tag.
+ */
+extern int32_t HcommBatchModeStartPod(const char *batchTag);
+
+/**
+ * @brief Submit all POD threads registered since HcommBatchModeStartPod and leave batch mode.
+ * @param[in] batchTag Reserved for compatibility; POD batching currently does not group threads by tag.
+ */
+extern int32_t HcommBatchModeEndPod(const char *batchTag);
+
 extern int32_t HcommLocalCopyOnThreadPod(ThreadHandle thread, void *dst, const void *src, uint64_t len);
 extern int32_t HcommLocalReduceOnThreadPod(ThreadHandle thread, void *dst, const void *src, uint64_t count,
     HcommDataType dataType, HcommReduceOp reduceOp);
