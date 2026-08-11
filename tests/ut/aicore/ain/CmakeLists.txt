@@ -8,98 +8,55 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------------------------------------
 
-# ain.h uses CANN virtual-layout relative includes:
-#   ../hcomm/hcomm.h                              -> include/aicore/hcomm/hcomm.h (exists in new layout)
-#   ../../../impl/comm_api/aicore/ain/impl/*.h     -> src/aicore/hcomm/impl/*.h
+# ain.h uses CANN installed-package relative includes:
+#   ../hcomm/hcomm.h                             -> asc/include/comm_api/hcomm/hcomm.h
+#   ../../../impl/comm_api/aicore/ain/impl/*.h   -> asc/impl/comm_api/aicore/ain/impl/*.h
+# hcomm.h uses:
+#   ../../../impl/adv_api/detail/hcomm/impl/*.h  -> asc/impl/adv_api/detail/hcomm/impl/*.h
 # ain_impl_def.h uses:
-#   ../../hcomm/impl/hcomm_impl_def.h             -> src/aicore/hcomm/impl/hcomm_impl_def.h
-#   ../common/ain_inner_def.h                     -> src/aicore/hcomm/common/ain_inner_def.h (exists)
-# Build a virtual include tree under build dir to bridge these relative paths.
-set(AIN_VIRTUAL_INCLUDE_DIR ${CMAKE_CURRENT_BINARY_DIR}/virtual_inc)
+#   ../../hcomm/impl/hcomm_impl_def.h            -> asc/impl/comm_api/aicore/hcomm/impl/hcomm_impl_def.h
+#   hcomm/hcomm_team_entity_defs.h               -> CANN asc/include/adv_api/hccl/internal/hcomm/pkg_inc
+# Stage the repo headers into an installed-package layout under the build dir to bridge these relative paths.
+set(AIN_STAGE_ROOT "${CMAKE_CURRENT_BINARY_DIR}/package_layout")
+set(AIN_STAGE_INCLUDE_DIR "${AIN_STAGE_ROOT}/asc/include/comm_api")
+set(AIN_STAGE_DETAIL_DIR "${AIN_STAGE_ROOT}/asc/impl/adv_api/detail")
+set(AIN_STAGE_COMM_API_IMPL_DIR "${AIN_STAGE_ROOT}/asc/impl/comm_api/aicore")
 
-file(MAKE_DIRECTORY ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/ain/common)
-file(MAKE_DIRECTORY ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl)
-file(MAKE_DIRECTORY ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/common)
-file(MAKE_DIRECTORY ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/platform_v220)
-file(MAKE_DIRECTORY ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/platform_v310)
-
-# ain.h:25 ../../../impl/comm_api/aicore/ain/impl/ain_impl_def.h resolves relative to
-# include/aicore/ain/, climbing 3 levels to repo root, then impl/comm_api/aicore/ain/impl/.
-# Create impl/ symlink at repo root pointing to the virtual include dir's impl/ tree.
-file(CREATE_LINK
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl
-    ${ASCCOMM_ROOT}/impl SYMBOLIC)
-
-# impl/comm_api/aicore/ain/impl/* <- src/aicore/ain/impl/*
-file(MAKE_DIRECTORY ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/ain/impl)
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/ain/impl/ain_impl_def.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/ain/impl/ain_impl_def.h SYMBOLIC)
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/ain/impl/ain_impl.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/ain/impl/ain_impl.h SYMBOLIC)
-
-# impl/comm_api/aicore/ain/common/* <- src/aicore/hcomm/common/*
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/common/ain_inner_def.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/ain/common/ain_inner_def.h SYMBOLIC)
-
-# impl/comm_api/aicore/hcomm/impl/* <- src/aicore/hcomm/impl/*
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/hcomm_impl_def.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/hcomm_impl_def.h SYMBOLIC)
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/hcomm_impl.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/hcomm_impl.h SYMBOLIC)
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/hcomm_v220_impl.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/hcomm_v220_impl.h SYMBOLIC)
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/hcomm_v310_impl.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/hcomm_v310_impl.h SYMBOLIC)
-
-# impl/comm_api/aicore/hcomm/common/* <- src/aicore/hcomm/common/*
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/common/hcomm_base.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/common/hcomm_base.h SYMBOLIC)
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/common/hcomm_inner_def.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/common/hcomm_inner_def.h SYMBOLIC)
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/common/hcomm_utils.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/common/hcomm_utils.h SYMBOLIC)
-
-# impl/comm_api/aicore/hcomm/impl/platform_v220/* <- src/aicore/hcomm/impl/platform_v220/*
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v220/hcomm_aiv.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/platform_v220/hcomm_aiv.h SYMBOLIC)
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v220/hcomm_aiv_def.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/platform_v220/hcomm_aiv_def.h SYMBOLIC)
-
-# impl/comm_api/aicore/hcomm/impl/platform_v310/* <- src/aicore/hcomm/impl/platform_v310/*
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v310/hcomm_aiv_roce.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/platform_v310/hcomm_aiv_roce.h SYMBOLIC)
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v310/hcomm_aiv_roce_def.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/platform_v310/hcomm_aiv_roce_def.h SYMBOLIC)
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v310/hcomm_aiv_urma.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/platform_v310/hcomm_aiv_urma.h SYMBOLIC)
-file(CREATE_LINK
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/impl/platform_v310/hcomm_aiv_urma_def.h
-    ${AIN_VIRTUAL_INCLUDE_DIR}/impl/comm_api/aicore/hcomm/impl/platform_v310/hcomm_aiv_urma_def.h SYMBOLIC)
+add_custom_target(prepare_ain_header_layout
+    COMMAND ${CMAKE_COMMAND} -E remove_directory "${AIN_STAGE_INCLUDE_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E remove_directory "${AIN_STAGE_INCLUDE_DIR}/ain"
+    COMMAND ${CMAKE_COMMAND} -E remove_directory "${AIN_STAGE_DETAIL_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E remove_directory "${AIN_STAGE_COMM_API_IMPL_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E remove_directory "${AIN_STAGE_COMM_API_IMPL_DIR}/ain"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${AIN_STAGE_INCLUDE_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${AIN_STAGE_DETAIL_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${AIN_STAGE_COMM_API_IMPL_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/include/aicore/hcomm"
+        "${AIN_STAGE_INCLUDE_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/include/aicore/ain"
+        "${AIN_STAGE_INCLUDE_DIR}/ain"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/hcomm"
+        "${AIN_STAGE_DETAIL_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/hcomm"
+        "${AIN_STAGE_COMM_API_IMPL_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/ain"
+        "${AIN_STAGE_COMM_API_IMPL_DIR}/ain"
+    COMMENT "Preparing Ain headers in the installed package layout"
+)
 
 set(AIN_UT_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${ASCCOMM_UT_ROOT}/common
-    ${ASCCOMM_ROOT}/include/aicore
-    ${ASCCOMM_ROOT}/src/aicore
-    ${AIN_VIRTUAL_INCLUDE_DIR}
+    ${AIN_STAGE_INCLUDE_DIR}
     ${ASCCOMM_TIKICPU_INCLUDE_DIR}
     ${ASCCOMM_CANN_INCLUDE_DIRS}
-    ${ASCENDC_DIR}/include/comm_api
+    ${ASCENDC_DIR}/include/adv_api/hccl/internal/hcomm
+    ${ASCENDC_DIR}/include/adv_api/hccl/internal/hcomm/pkg_inc
 )
 
 function(add_ain_ut target_name product_type tikicpu_product_dir)
@@ -108,6 +65,7 @@ function(add_ain_ut target_name product_type tikicpu_product_dir)
         ${ASCCOMM_UT_ROOT}/common/k3_pvwrap.cpp
         ${ARGN}
     )
+    add_dependencies(${target_name} prepare_ain_header_layout)
 
     if(previous_hcomm_ut_target)
         add_dependencies(${target_name} ${previous_hcomm_ut_target})
