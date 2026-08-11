@@ -69,7 +69,7 @@ LOG_INFO "  repo_name=${repo_name}"
 LOG_INFO "  GIT_TARGET_BRANCH=${GIT_TARGET_BRANCH}"
 
 export PATH=/opt/buildtools/python-3.10.2/bin:$PATH
-export ASCEND_INSTALL_PATH="/home/jenkins/Ascend/ascend-toolkit/latest
+export ASCEND_INSTALL_PATH="/home/jenkins/Ascend/ascend-toolkit/latest"
 sudo update-alternatives --set gcc /usr/bin/gcc-14
 gcc --version
 cmake --version
