@@ -29,7 +29,7 @@
 #include "ccu_api_exception.h"
 #include "null_ptr_exception.h"
 #include "internal_exception.h"
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 
 namespace hcomm {
 namespace CcuRep {

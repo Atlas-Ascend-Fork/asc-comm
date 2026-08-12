@@ -12,7 +12,7 @@
 #define CCU_LOCAL_ADDR_HPP
 
 #include <type_traits>
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 #include "ccu/hcomm/ccu_variable.hpp"
 #include "ccu/hcomm/ccu_address.hpp"
 

@@ -10,7 +10,7 @@
 
 #include "adapter_hccp.h"
 #include "ccu/hcomm/ccu_primitives.hpp"
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/common/ccu_log.h"
 #include <vector>
 

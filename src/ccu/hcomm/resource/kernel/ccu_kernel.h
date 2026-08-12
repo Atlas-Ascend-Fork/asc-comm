@@ -48,7 +48,7 @@
 #ifndef CCU_PROFILING // 和hccl仓兼容性使用
 #define CCU_PROFILING
 #endif
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 
 namespace hcomm {
 

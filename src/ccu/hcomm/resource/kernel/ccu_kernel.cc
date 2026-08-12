@@ -13,7 +13,7 @@
 #include "hcomm/resource/common/ccu_kernel_resource.h"
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
 

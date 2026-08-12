@@ -16,7 +16,7 @@
 #include <shared_mutex>
 #include <unordered_map>
 
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/resource/kernel/ccu_kernel_registry.h"
 
 namespace hcomm {

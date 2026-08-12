@@ -18,7 +18,7 @@
 #endif // __cplusplus
 
 #include "hccl/hccl_types.h"
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/hcomm_primitives.h"
 
 #ifdef __cplusplus

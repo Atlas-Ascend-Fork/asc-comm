@@ -14,7 +14,7 @@
 #include <exception>
 #include <string>
 
-#include "ccu/hcomm/ccu_types.h"
+#include "hcomm/hcomm_ccu_common.h"
 
 namespace AscendC {
 namespace ccu {
