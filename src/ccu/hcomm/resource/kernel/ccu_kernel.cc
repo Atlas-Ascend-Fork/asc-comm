@@ -23,7 +23,6 @@
 #include "hcomm/resource/representation/reps/control/ccu_rep_funccall_v1.h"
 #include "hcomm/resource/common/ccu_var_event_res_mgr.h"
 #include "hcomm/resource/channel/ccu_channel.h"
-#include "ccu_urma_channel.h"
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/common/ccu_device_context.h"
