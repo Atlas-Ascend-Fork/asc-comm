@@ -14,8 +14,8 @@
 #include <cstddef>
 #include <limits>
 
-#include "string_util.h"
-#include "adapter_rts.h"
+#include "acl/acl_rt.h"
+#include "hcomm/common/ccu_device_context.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "hcomm/common/ccu_dev_mem.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
@@ -24,7 +24,7 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
 
-#include "hcomm/hcomm_ccu_instruction_api.h"
+#include "hcomm/hcomm_ccu_control.h"
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/resource/common/ccu_kernel_func.h"
@@ -84,7 +84,7 @@ CcuKernelMgr::~CcuKernelMgr()
     if (instructionLoadDevMem_) {
         HCCL_RUN_INFO(
             "[CcuKernelMgr][~CcuKernelMgr]: deviceLogicId[%d], free addr[%p]", devLogicId_, instructionLoadDevMem_);
-        (void)hrtFree(instructionLoadDevMem_);
+        (void)aclrtFree(instructionLoadDevMem_);
         instructionLoadDevMem_ = nullptr;
         instructionLoadDevMemSize_ = 0;
     }
@@ -94,15 +94,15 @@ CcuKernelMgr::~CcuKernelMgr()
 
 CcuKernelMgr& CcuKernelMgr::GetInstance(const int32_t deviceLogicId)
 {
-    static CcuKernelMgr kernelManager[MAX_MODULE_DEVICE_NUM + 1];
+    static CcuKernelMgr kernelManager[CCU_MAX_DEVICE_NUM + 1];
 
     int32_t devLogicId = deviceLogicId;
-    if (devLogicId < 0 || static_cast<uint32_t>(devLogicId) >= MAX_MODULE_DEVICE_NUM) {
+    if (devLogicId < 0 || static_cast<uint32_t>(devLogicId) >= CCU_MAX_DEVICE_NUM) {
         HCCL_WARNING(
             "[CcuKernelMgr][%s] use the backup device, devLogicId[%d] should be "
             "less than %u.",
-            __func__, devLogicId, MAX_MODULE_DEVICE_NUM);
-        devLogicId = MAX_MODULE_DEVICE_NUM; // 使用备份设备
+            __func__, devLogicId, CCU_MAX_DEVICE_NUM);
+        devLogicId = CCU_MAX_DEVICE_NUM; // 使用备份设备
     }
 
     kernelManager[devLogicId].devLogicId_ = devLogicId;
@@ -342,7 +342,7 @@ static HcclResult ResetRepResourceToResRepository(
     CcuRepResource& totalRepRes, const AscCcuResRepository& totalResRepository)
 {
     // 遍历translatorRepRes, 将每个rep的虚拟资源翻译到实际物理资源上
-    for (u32 i = 0; i < CCU_MAX_IODIE_NUM; i++) {
+    for (uint32_t i = 0; i < CCU_MAX_IODIE_NUM; i++) {
         CHK_RET(ResetRepResourceTemplate(totalRepRes.ccubufs[i], totalResRepository.ms[i]));
         CHK_RET(ResetRepResourceTemplate(totalRepRes.blockCcubufs[i], totalResRepository.blockMs[i]));
         CHK_RET(ResetRepResourceTemplate(totalRepRes.executor[i], totalResRepository.loopEngine[i]));
@@ -408,7 +408,7 @@ inline void ExpandResInfo(
 static CcuResult ExpandResRepo(AscCcuResRepository& totalRes, const AscCcuResRepository& tmpResRepository)
 {
     // 合并获取的所持有的资源信息, 按照类型合并资源总和到totalRes中
-    for (u32 i = 0; i < CCU_MAX_IODIE_NUM; i++) {
+    for (uint32_t i = 0; i < CCU_MAX_IODIE_NUM; i++) {
         ExpandResInfo(totalRes.ms[i], tmpResRepository.ms[i]);
         ExpandResInfo(totalRes.blockMs[i], tmpResRepository.blockMs[i]);
         ExpandResInfo(totalRes.loopEngine[i], tmpResRepository.loopEngine[i]);
@@ -627,17 +627,18 @@ HcclResult CcuKernelMgr::LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, 
     }
     if (instructionLoadDevMemSize_ < instrInfoSize) {
         if (instructionLoadDevMem_ != nullptr) {
-            CHK_RET(hrtFree(instructionLoadDevMem_));
+            CHK_RET(static_cast<HcclResult>(aclrtFree(instructionLoadDevMem_)));
             instructionLoadDevMem_ = nullptr;
             instructionLoadDevMemSize_ = 0;
         }
-        CHK_RET(hrtMalloc(&instructionLoadDevMem_, instrInfoSize));
+        CHK_RET(static_cast<HcclResult>(
+            aclrtMalloc(&instructionLoadDevMem_, instrInfoSize, ACL_MEM_MALLOC_HUGE_FIRST)));
         instructionLoadDevMemSize_ = instrInfoSize;
     }
 
-    CHK_RET(hrtMemcpy(
+    CHK_RET(static_cast<HcclResult>(aclrtMemcpy(
         instructionLoadDevMem_, instrInfoSize, instrInfo.instrVec.data(), instrInfoSize,
-        HcclRtMemcpyKind::HCCL_RT_MEMCPY_KIND_HOST_TO_DEVICE));
+        ACL_MEMCPY_HOST_TO_DEVICE)));
 
     // 只传语义参数；opcode 选择、TLV 报文组装与驱动交互均由 hcomm 在其 SO 内完成
     HcommCcuInstructionLoadPod request{};
@@ -650,7 +651,11 @@ HcclResult CcuKernelMgr::LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, 
     request.deviceAddress = reinterpret_cast<uint64_t>(instructionLoadDevMem_);
     request.byteSize = instrInfoSize;
 
-    auto ret = static_cast<HcclResult>(HcommCcuLoadInstruction(&request));
+    const auto loadInstruction = GetCurrentCcuControlOps().loadInstruction;
+    CHK_PRT_RET(loadInstruction == nullptr,
+        HCCL_ERROR("[CcuKernelMgr][%s] controlOps.loadInstruction is nullptr.", __func__),
+        HcclResult::HCCL_E_INTERNAL);
+    auto ret = static_cast<HcclResult>(loadInstruction(&request));
     if (ret != HcclResult::HCCL_SUCCESS) {
         HCCL_ERROR(
             "[CcuKernelMgr][%s] failed to load instruction, "

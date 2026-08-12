@@ -13,10 +13,15 @@
 namespace hcomm {
 namespace {
 thread_local int32_t currentCcuDeviceLogicId = -1;
+thread_local HcommCcuControlOpsPod currentCcuControlOps{};
 }
 
 void SetCurrentCcuDeviceLogicId(int32_t deviceLogicId) { currentCcuDeviceLogicId = deviceLogicId; }
 
 int32_t GetCurrentCcuDeviceLogicId() { return currentCcuDeviceLogicId; }
+
+void SetCurrentCcuControlOps(const HcommCcuControlOpsPod &controlOps) { currentCcuControlOps = controlOps; }
+
+const HcommCcuControlOpsPod &GetCurrentCcuControlOps() { return currentCcuControlOps; }
 
 } // namespace hcomm

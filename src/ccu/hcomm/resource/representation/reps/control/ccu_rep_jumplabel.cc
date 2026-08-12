@@ -11,7 +11,6 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
 #include "hcomm/common/ccu_exception.h"
-#include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
 namespace hcomm {

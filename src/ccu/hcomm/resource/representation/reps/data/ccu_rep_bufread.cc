@@ -9,7 +9,6 @@
  */
 
 #include "hcomm/common/ccu_exception.h"
-#include "hcomm_c_adpt.h"
 #include "hcomm/resource/channel/ccu_channel.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 

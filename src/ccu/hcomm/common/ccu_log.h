@@ -32,6 +32,7 @@
 #include <stdexcept>
 
 #include "base/dlog_pub.h"
+#include "securec.h"
 #include "ccu/hcomm/ccu_types.h"
 #include "ccu/hcomm/ccu_utils.hpp"
 
@@ -141,7 +142,7 @@ enum {
     do {                                                                                                      \
         CcuResult ccuRet = HCCL_TO_CCU_RET(call);                                                             \
         if (UNLIKELY(ccuRet != CCU_SUCCESS)) {                                                                \
-            if (ccuRet == HCCL_TO_CCU_RET(HcclResult::HCCL_E_AGAIN) || ccuRet == CCU_E_DRV_BUSY) {           \
+            if (ccuRet == CCU_E_DRV_BUSY) {                                                                 \
                 HCCL_WARNING("[%s]call trace: ccuRet -> %d", __func__, ccuRet);                               \
             } else if (ccuRet == CCU_E_UNAVAIL) {                                                             \
                 HCCL_WARNING("[%s]call trace: ccuRet resources are unavailable -> %d", __func__, ccuRet); \
@@ -168,10 +169,10 @@ enum {
         return ccuException.code();                                                                \
     } catch (const std::out_of_range& exception) {                                                 \
         HCCL_ERROR("[%s] out of range: %s", (func_name), exception.what());                        \
-        return HCCL_TO_CCU_RET(HcclResult::HCCL_E_NOT_FOUND);                                      \
+        return CcuResult::CCU_E_NOT_FOUND;                                                         \
     } catch (const std::runtime_error& exception) {                                                \
         HCCL_ERROR("[%s] runtime error: %s", (func_name), exception.what());                       \
-        return HCCL_TO_CCU_RET(HcclResult::HCCL_E_RUNTIME);                                        \
+        return CcuResult::CCU_E_RUNTIME;                                                           \
     } catch (const std::logic_error& exception) {                                                  \
         HCCL_ERROR("[%s] logic error: %s", (func_name), exception.what());                         \
         return CcuResult::CCU_E_INTERNAL;                                                          \
