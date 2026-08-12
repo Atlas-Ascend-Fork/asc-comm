@@ -112,6 +112,70 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 {
     return impl_.template Drain<pipe>(channel);
 }
+
+template <CommProtocol commProtocol>
+template <typename T>
+__aicore__ inline BatchHandle Hcomm<commProtocol>::MakeBatchHandle(
+    MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
+{
+    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
+        return impl_.MakeBatchHandle(multiChannel, buff, buffLen);
+    }
+    (void)multiChannel;
+    (void)buff;
+    (void)buffLen;
+    return BatchHandle{0U};
+}
+
+template <CommProtocol commProtocol>
+__aicore__ inline BatchHandleRef Hcomm<commProtocol>::GetHandleRef(
+    BatchHandle handle, uint32_t remoteIndex, GM_ADDR remoteAddr)
+{
+    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
+        return impl_.GetHandleRef(handle, remoteIndex, remoteAddr);
+    }
+    (void)handle;
+    (void)remoteIndex;
+    (void)remoteAddr;
+    return BatchHandleRef{0U, 0U, 0U, 0U};
+}
+
+template <CommProtocol commProtocol>
+template <auto const& config>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(
+    BatchHandleRef handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
+{
+    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
+        return impl_.template WriteNbi<config>(handleRef, dst, src, len);
+    }
+    (void)handleRef;
+    (void)dst;
+    (void)src;
+    (void)len;
+    return HCOMM_FAILED;
+}
+
+template <CommProtocol commProtocol>
+template <pipe_t pipe>
+__aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(BatchHandle handle)
+{
+    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
+        return impl_.template BatchCommit<pipe>(handle);
+    }
+    (void)handle;
+    return HCOMM_FAILED;
+}
+
+template <CommProtocol commProtocol>
+template <pipe_t pipe>
+__aicore__ inline int32_t Hcomm<commProtocol>::Drain(BatchHandle handle)
+{
+    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
+        return impl_.template Drain<pipe>(handle);
+    }
+    (void)handle;
+    return HCOMM_FAILED;
+}
 } // namespace AscendC
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H
