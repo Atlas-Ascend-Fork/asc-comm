@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "hcomm_ccu_res.h"
+#include "hcomm/hcomm_ccu_res.h"
 
 namespace hcomm {
 

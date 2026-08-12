@@ -11,7 +11,6 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/sync/ccu_rep_loc_wait_notify.h"
 #include <climits>
-#include "string_util.h"
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"

@@ -12,6 +12,8 @@
 
 #include <new>
 
+#include "hcomm/common/ccu_device_context.h"
+
 namespace hcomm {
 
 CcuChannel::CcuChannel(ChannelHandle channel)
@@ -33,12 +35,16 @@ const CcuChannel *CcuChannel::operator->() const
 HcclResult CcuChannel::Init(ChannelHandle channel)
 {
     ChannelEntity queryEntity{};
-    queryEntity.abiHeader.version = HCOMM_CHANNEL_VERSION;
-    queryEntity.abiHeader.magicWord = HCOMM_CHANNEL_MAGIC_WORD;
+    queryEntity.abiHeader.version = HCOMM_CCU_CHANNEL_VERSION;
+    queryEntity.abiHeader.magicWord = HCOMM_CCU_CHANNEL_MAGIC_WORD;
     queryEntity.abiHeader.size = sizeof(ChannelEntity);
 
     // 第一阶段不传数组地址，只查询 CKE、XN 和远端 Buffer 所需的元素数量。
-    HcommResult ret = HcommCcuChannelGetPod(channel, &queryEntity);
+    const auto channelQuery = GetCurrentCcuControlOps().channelQuery;
+    if (channelQuery == nullptr) {
+        return HCCL_E_INTERNAL;
+    }
+    int32_t ret = channelQuery(channel, &queryEntity);
     if (ret != HCCL_SUCCESS) {
         return static_cast<HcclResult>(ret);
     }
@@ -71,7 +77,7 @@ HcclResult CcuChannel::Init(ChannelHandle channel)
     queryEntity.ccuInfo.remoteXnCapacity = static_cast<uint32_t>(remoteXns_.size());
     queryEntity.ccuInfo.localXnAddr = localXns_.data();
     queryEntity.ccuInfo.remoteXnAddr = remoteXns_.data();
-    ret = HcommCcuChannelGetPod(channel, &queryEntity);
+    ret = channelQuery(channel, &queryEntity);
     if (ret != HCCL_SUCCESS) {
         return static_cast<HcclResult>(ret);
     }

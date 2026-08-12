@@ -13,8 +13,7 @@
 #include <algorithm>
 
 #include "hcomm/common/ccu_log.h"
-#include "string_util.h"
-#include "framework/entrance/hccl_common_v2.h"
+#include "hcomm/common/ccu_device_context.h"
 
 namespace hcomm {
 
@@ -29,15 +28,15 @@ CcuKernelRegistryMgr::~CcuKernelRegistryMgr()
 
 CcuKernelRegistryMgr& CcuKernelRegistryMgr::GetInstance(const int32_t deviceLogicId)
 {
-    static CcuKernelRegistryMgr instanceMgrs[MAX_MODULE_DEVICE_NUM + 1];
+    static CcuKernelRegistryMgr instanceMgrs[CCU_MAX_DEVICE_NUM + 1];
 
     int32_t devLogicId = deviceLogicId;
-    if (devLogicId < 0 || static_cast<uint32_t>(devLogicId) >= MAX_MODULE_DEVICE_NUM) {
+    if (devLogicId < 0 || static_cast<uint32_t>(devLogicId) >= CCU_MAX_DEVICE_NUM) {
         HCCL_WARNING(
             "[CcuKernelRegistryMgr][%s] use the backup device, devLogicId[%d] should be "
             "less than %u.",
-            __func__, devLogicId, MAX_MODULE_DEVICE_NUM);
-        devLogicId = MAX_MODULE_DEVICE_NUM; // 使用备份设备
+            __func__, devLogicId, CCU_MAX_DEVICE_NUM);
+        devLogicId = CCU_MAX_DEVICE_NUM; // 使用备份设备
     }
 
     instanceMgrs[devLogicId].devLogicId_ = devLogicId;

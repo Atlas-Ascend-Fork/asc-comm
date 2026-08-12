@@ -8,13 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
-#include "hcomm_c_adpt.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/channel/ccu_channel.h"
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "hcomm/common/ccu_log.h"
-#include "hcomm_ccu_res.h"
+#include "hcomm/hcomm_ccu_res.h"
 
 namespace hcomm {
 namespace CcuRep {
