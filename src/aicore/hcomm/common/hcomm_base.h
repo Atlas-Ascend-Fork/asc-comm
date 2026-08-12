@@ -108,12 +108,11 @@ public:
         return BatchHandle{0U};
     }
 
-    __aicore__ inline BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t remoteIndex, GM_ADDR remoteAddr)
+    __aicore__ inline BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t remoteIndex)
     {
         (void)handle;
         (void)remoteIndex;
-        (void)remoteAddr;
-        return BatchHandleRef{0U, 0U, 0U, 0U};
+        return BatchHandleRef{0U, 0U};
     }
 
     template <auto const& config = URMA_DEFAULT_CFG>
