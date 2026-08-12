@@ -10,8 +10,8 @@
 
 ```cpp
 auto batch = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
-auto channel0 = hcomm.GetHandleRef(batch, 0, remoteBuffer);
-auto channel1 = hcomm.GetHandleRef(batch, 1, remoteBuffer);
+auto channel0 = hcomm.GetHandleRef(batch, 0);
+auto channel1 = hcomm.GetHandleRef(batch, 1);
 
 hcomm.WriteNbi(channel0, remoteBuffer + recvOffset0, localBuffer + sendOffset0, dataSize);
 hcomm.WriteNbi(channel1, remoteBuffer + recvOffset1, localBuffer + sendOffset1, dataSize);
