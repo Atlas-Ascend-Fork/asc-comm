@@ -11,9 +11,19 @@
 set(ASCCOMM_CCU_ROOT ${CMAKE_CURRENT_LIST_DIR})
 get_filename_component(ASCCOMM_ROOT ${ASCCOMM_CCU_ROOT}/../.. ABSOLUTE)
 
+if(NOT ASCCOMM_CANN_ARCH_DIR AND ASCEND_CANN_PACKAGE_PATH)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
+        set(_ASCCOMM_CANN_ARCH "aarch64-linux")
+    else()
+        set(_ASCCOMM_CANN_ARCH "x86_64-linux")
+    endif()
+    set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}")
+endif()
+
 add_library(asccomm_ccu_headers INTERFACE)
 target_include_directories(asccomm_ccu_headers INTERFACE
     ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/include
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
 )
 

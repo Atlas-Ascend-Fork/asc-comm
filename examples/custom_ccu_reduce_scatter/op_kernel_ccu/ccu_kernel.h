@@ -16,7 +16,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <ccu/hcomm/ccu_types.h>
+#include <ccu/hcomm/ccu_api_types.h>
 #include <ccu/hcomm/ccu_variable.hpp>
 #include <ccu/hcomm/ccu_event.hpp>
 #include <ccu/hcomm/ccu_primitives.hpp>

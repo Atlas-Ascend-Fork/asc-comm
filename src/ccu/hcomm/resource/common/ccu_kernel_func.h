@@ -11,7 +11,7 @@
 #ifndef CCU_KERNEL_FUNC_H
 #define CCU_KERNEL_FUNC_H
 
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 
 #ifdef __cplusplus
 extern "C" {

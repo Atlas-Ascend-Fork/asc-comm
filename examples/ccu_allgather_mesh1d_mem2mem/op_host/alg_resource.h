@@ -21,7 +21,7 @@
 #include <vector>
 
 #include <acl/acl_rt.h>
-#include <ccu/hcomm/ccu_types.h>
+#include <ccu/hcomm/ccu_api_types.h>
 #include <hccl/hccl_res.h>
 #include <hccl/hccl_types.h>
 

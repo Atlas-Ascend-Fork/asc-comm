@@ -11,7 +11,7 @@
 #include <memory>
 #include <vector>
 
-#include <ccu/hcomm/ccu_types.h>
+#include <ccu/hcomm/ccu_api_types.h>
 #include <hccl/hccl_ccu_res.h>
 #include <hccl/hccl_rank_graph.h>
 #include <hccl/hccl_res.h>

@@ -9,7 +9,7 @@
  */
 
 #include "ccu/hcomm/ccu_launch.h"
-#include "ccu/hcomm/ccu_res.h"
+#include "ccu/hcomm/ccu_resource_api.h"
 #include "hcomm/hcomm_ccu_launch.h"
 
 #include <chrono>
@@ -19,7 +19,7 @@
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/common/ccu_device_context.h"
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 #include "hcomm/resource/kernel/ccu_kernel_registry_mgr.h"
