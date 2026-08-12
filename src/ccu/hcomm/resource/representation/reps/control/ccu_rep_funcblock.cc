@@ -12,7 +12,6 @@
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_translator_v1.h"
 
-#include "string_util.h"
 #include "hcomm/common/ccu_exception.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"

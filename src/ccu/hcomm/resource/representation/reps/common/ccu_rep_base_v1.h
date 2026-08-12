@@ -16,7 +16,6 @@
 #include "hcomm/common/ccu_common.h"
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
-#include "hcomm_primitives.h"
 
 namespace hcomm {
 

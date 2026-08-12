@@ -71,8 +71,6 @@
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 
-#include "hccl_res.h"
-
 #include "hcomm/resource/representation/reps/arithmetic/ccu_rep_add_v1.h"
 #include "hcomm/resource/representation/reps/arithmetic/ccu_rep_assign_v1.h"
 #include "hcomm/resource/representation/reps/arithmetic/ccu_rep_mul_v1.h"
