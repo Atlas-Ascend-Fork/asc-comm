@@ -129,15 +129,14 @@ __aicore__ inline BatchHandle Hcomm<commProtocol>::MakeBatchHandle(
 
 template <CommProtocol commProtocol>
 __aicore__ inline BatchHandleRef Hcomm<commProtocol>::GetHandleRef(
-    BatchHandle handle, uint32_t remoteIndex, GM_ADDR remoteAddr)
+    BatchHandle handle, uint32_t remoteIndex)
 {
     if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
-        return impl_.GetHandleRef(handle, remoteIndex, remoteAddr);
+        return impl_.GetHandleRef(handle, remoteIndex);
     }
     (void)handle;
     (void)remoteIndex;
-    (void)remoteAddr;
-    return BatchHandleRef{0U, 0U, 0U, 0U};
+    return BatchHandleRef{0U, 0U};
 }
 
 template <CommProtocol commProtocol>

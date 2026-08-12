@@ -71,22 +71,16 @@ HCOMM 共享 Channel 配置要求非空 `SHARED_QUEUE_TAG`，但评审文档的 
 2. 若要求等于全局 `rankId`，Host 侧是否应按 `rankDim` 分配数组，并为本 rank 或未建链 rank 保留空槽。
 3. 是否允许同一远端 rank 存在多个 Channel；如允许，需要额外的 Channel 索引维度。
 
-## GetHandleRef 是否传入 remoteAddr
+## GetHandleRef 不传入 remoteAddr
 
-当前 Device 接口为：
+Device 接口为：
 
 ```cpp
-BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t remoteIndex, GM_ADDR remoteAddr);
+BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t remoteIndex);
 ```
 
-相较评审文档，当前实现增加 `remoteAddr`，在创建轻量引用时定位并缓存远端 MR 下标。后续
-`WriteNbi(ref, dst, src, len)` 只校验 `dst + len` 仍位于缓存的 MR 内，避免每次写遍历远端 MR 数组。
-
-待确认：
-
-1. 是否接受 `GetHandleRef` 与某个远端 MR 绑定，而不是只与远端 Channel 绑定。
-2. 若不传 `remoteAddr`，是否由 Host 预先生成地址到 MR 的索引，或由每次 `WriteNbi` 动态查找。
-3. 同一对端写多个 MR 时，当前方案为每个 MR 获取一个轻量引用；是否需要在引用中支持多 MR。
+`BatchHandleRef` 只绑定远端 Channel，不绑定某个 MR。`WriteNbi(ref, dst, src, len)` 使用已有的 `dst + len`
+在该 Channel 的远端 MR 数组中动态查找并完成地址范围校验，然后使用匹配 MR 的 token 构造 WQE。
 
 ## 生命周期
 

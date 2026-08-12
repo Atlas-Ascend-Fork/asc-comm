@@ -246,13 +246,12 @@ public:
         MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen);
 
     /*!
-     * @brief Resolve a channel and remote memory registration for a peer in a batch handle.
+     * @brief Resolve a channel for a peer in a batch handle.
      * @param [in] handle: Multi-channel batch handle.
      * @param [in] remoteIndex: Index in the ChannelEntity array.
-     * @param [in] remoteAddr: An address in the remote registered memory to cache in the returned reference.
      * @return A lightweight handle reference. stateAddr is zero when resolution fails.
      */
-    __aicore__ inline BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t remoteIndex, GM_ADDR remoteAddr);
+    __aicore__ inline BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t remoteIndex);
 
     /*!
      * @brief Append one Write task to a multi-channel batch without accessing the shared SQ.
