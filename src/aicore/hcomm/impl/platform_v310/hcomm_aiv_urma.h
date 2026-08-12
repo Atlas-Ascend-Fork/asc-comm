@@ -362,10 +362,12 @@ __aicore__ inline BatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
     __ubuf__ uint8_t* rawBuffer = reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr());
     __ubuf__ uint8_t* alignedBuffer = AlignAddrTo32Bytes(rawBuffer);
     uint32_t alignOffset = static_cast<uint32_t>(alignedBuffer - rawBuffer);
-    if (buffLen <= alignOffset) {
+    if (buffLen <= alignOffset + HCOMM_URMA_BATCH_ALIGN_SIZE) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA MakeBatchHandle failed with insufficient aligned buffer\n");
         return invalidHandle;
     }
+    // UB offset zero is valid, but BatchHandle reserves zero as its invalid value.
+    alignedBuffer += HCOMM_URMA_BATCH_ALIGN_SIZE;
 
     auto* anchorChannel = reinterpret_cast<__gm__ ChannelEntity*>(multiChannel);
     if (anchorChannel->engine != COMM_ENGINE_AIV || anchorChannel->protocol != COMM_PROTOCOL_UBC_CTP ||
@@ -406,7 +408,7 @@ __aicore__ inline BatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
         return invalidHandle;
     }
 
-    uint32_t availableLen = buffLen - alignOffset;
+    uint32_t availableLen = buffLen - alignOffset - HCOMM_URMA_BATCH_ALIGN_SIZE;
     uint32_t cqeOffset = HcommUrmaBatchAlignUp(sizeof(HcommUrmaBatchState));
     uint32_t wqeOffset = HcommUrmaBatchAlignUp(cqeOffset + cqCtx.contextInfo.ubJfc.cqeSize);
     if (availableLen < wqeOffset + batchWqeSize) {
@@ -450,9 +452,9 @@ __aicore__ inline BatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
 }
 
 __aicore__ inline BatchHandleRef HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
-    BatchHandle handle, uint32_t remoteIndex, GM_ADDR remoteAddr)
+    BatchHandle handle, uint32_t remoteIndex)
 {
-    BatchHandleRef invalidRef{0U, 0U, 0U, 0U};
+    BatchHandleRef invalidRef{0U, 0U};
     __ubuf__ HcommUrmaBatchState* state = HcommUrmaGetBatchState(handle);
     if (!HcommUrmaIsValidBatchState(state)) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA GetHandleRef failed with invalid batch handle\n");
@@ -474,13 +476,7 @@ __aicore__ inline BatchHandleRef HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
         return invalidRef;
     }
 
-    int32_t remoteBufferIndex = HcommFindBufferIdx(channel->remoteBufferAddr, channel->remoteBufferNum, remoteAddr, 1U);
-    if (remoteBufferIndex == HCOMM_FAILED) {
-        KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA GetHandleRef failed to resolve remote memory index=%u\n", remoteIndex);
-        return invalidRef;
-    }
-    return BatchHandleRef{
-        handle.stateAddr, reinterpret_cast<ChannelHandle>(channel), static_cast<uint32_t>(remoteBufferIndex), 0U};
+    return BatchHandleRef{handle.stateAddr, reinterpret_cast<ChannelHandle>(channel)};
 }
 
 template <auto const& config>
@@ -498,8 +494,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
 
     auto* channel = reinterpret_cast<__gm__ ChannelEntity*>(handleRef.channel);
     if (channel->engine != COMM_ENGINE_AIV || channel->protocol != COMM_PROTOCOL_UBC_CTP ||
-        handleRef.remoteBufferIndex >= channel->remoteBufferNum || channel->remoteBufferAddr == nullptr ||
-        channel->sqContextAddr == nullptr || channel->cqContextAddr == nullptr) {
+        channel->remoteBufferAddr == nullptr || channel->sqContextAddr == nullptr || channel->cqContextAddr == nullptr) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA batch WriteNbi failed with invalid handle reference\n");
         return HCOMM_FAILED;
     }
@@ -510,7 +505,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
         return HCOMM_FAILED;
     }
 
-    auto remoteMemInfo = channel->remoteBufferAddr[handleRef.remoteBufferIndex];
+    int32_t remoteBufferIndex =
+        HcommFindBufferIdx(channel->remoteBufferAddr, channel->remoteBufferNum, dst, len);
+    if (remoteBufferIndex == HCOMM_FAILED) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA batch WriteNbi failed to resolve remote memory\n");
+        return HCOMM_FAILED;
+    }
+    auto remoteMemInfo = channel->remoteBufferAddr[static_cast<uint32_t>(remoteBufferIndex)];
     uint64_t targetAddr = reinterpret_cast<uint64_t>(dst);
     uint64_t remoteBase = remoteMemInfo.bufferInfo.rma.addr;
     uint64_t remoteSize = remoteMemInfo.bufferInfo.rma.size;
