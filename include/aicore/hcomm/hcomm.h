@@ -232,6 +232,55 @@ public:
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
+    /*!
+     * @brief Create a multi-channel batch handle backed by the caller-provided UB buffer.
+     * @param [in] multiChannel: Device address of a contiguous ChannelEntity array.
+     * @param [in] buff: UB buffer used to store batch state, CQE scratch space and WQEs.
+     * @param [in] buffLen: Available UB buffer length in bytes.
+     * @return A batch handle. stateAddr is zero when the parameters or shared queue are invalid.
+     * @note The first version supports COMM_PROTOCOL_UBC_CTP and one AICore accessing a batch handle serially.
+     *       Do not mix batch operations with normal operations on the same shared Jetty.
+     */
+    template <typename T>
+    __aicore__ inline BatchHandle MakeBatchHandle(
+        MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen);
+
+    /*!
+     * @brief Resolve a channel and remote memory registration for a peer in a batch handle.
+     * @param [in] handle: Multi-channel batch handle.
+     * @param [in] remoteIndex: Index in the ChannelEntity array.
+     * @param [in] remoteAddr: An address in the remote registered memory to cache in the returned reference.
+     * @return A lightweight handle reference. stateAddr is zero when resolution fails.
+     */
+    __aicore__ inline BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t remoteIndex, GM_ADDR remoteAddr);
+
+    /*!
+     * @brief Append one Write task to a multi-channel batch without accessing the shared SQ.
+     * @param [in] handleRef: Lightweight reference returned by GetHandleRef.
+     * @param [out] dst: Remote destination address.
+     * @param [in] src: Local source address.
+     * @param [in] len: Write length in bytes.
+     * @return 0 indicates success and -1 indicates failure.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(BatchHandleRef handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    /*!
+     * @brief Copy all accumulated WQEs to the shared SQ and ring its doorbell once.
+     * @param [in] handle: Multi-channel batch handle.
+     * @return 0 indicates success and -1 indicates failure.
+     */
+    template <pipe_t pipe = PIPE_S>
+    __aicore__ inline int32_t BatchCommit(BatchHandle handle);
+
+    /*!
+     * @brief Wait for all communication tasks submitted by the batch handle.
+     * @param [in] handle: Multi-channel batch handle.
+     * @return 0 indicates success. A non-zero value is the underlying CQ polling error.
+     */
+    template <pipe_t pipe = PIPE_MTE3>
+    __aicore__ inline int32_t Drain(BatchHandle handle);
+
 private:
     HcommImpl<commProtocol> impl_;
 };
