@@ -35,8 +35,8 @@ public:
             return;
         }
 
-        AscendC::BatchHandleRef channel0 = hcomm_.GetHandleRef(batch, 0U, remoteBuffer_);
-        AscendC::BatchHandleRef channel1 = hcomm_.GetHandleRef(batch, 1U, remoteBuffer_);
+        AscendC::BatchHandleRef channel0 = hcomm_.GetHandleRef(batch, 0U);
+        AscendC::BatchHandleRef channel1 = hcomm_.GetHandleRef(batch, 1U);
         if (channel0.stateAddr == 0U || channel1.stateAddr == 0U) {
             context_->result = KERNEL_GET_HANDLE_REF_FAILED;
             return;

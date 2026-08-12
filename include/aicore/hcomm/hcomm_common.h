@@ -28,8 +28,6 @@ struct BatchHandle {
 struct BatchHandleRef {
     uint64_t stateAddr;
     ChannelHandle channel;
-    uint32_t remoteBufferIndex;
-    uint32_t reserved;
 };
 
 /**

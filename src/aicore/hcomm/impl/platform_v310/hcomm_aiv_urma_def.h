@@ -145,7 +145,7 @@ public:
     template <typename T>
     __aicore__ inline BatchHandle MakeBatchHandle(
         MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen);
-    __aicore__ inline BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t remoteIndex, GM_ADDR remoteAddr);
+    __aicore__ inline BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t remoteIndex);
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(BatchHandleRef handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <pipe_t pipe = PIPE_S>
