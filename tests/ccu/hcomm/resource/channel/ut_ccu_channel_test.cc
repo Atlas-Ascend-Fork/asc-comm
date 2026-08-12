@@ -20,19 +20,18 @@ class CcuChannelTest : public testing::Test {
 protected:
     void SetUp() override
     {
-        ASSERT_EQ(HcommCcuChannelPodInit(&channelPod_), HCCL_SUCCESS);
+        channelPod_.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
+        channelPod_.header.magicWord = HCOMM_CCU_CHANNEL_MAGIC_WORD;
+        channelPod_.header.size = sizeof(HcommCcuChannelPod);
         channelPod_.dieId = 3;
         channelPod_.channelId = 17;
-        channelPod_.resourceNum = 2;
-        channelPod_.remoteBufferAddr = 0x123456789ABCDEF0ULL;
-        channelPod_.remoteBufferSize = 0x8000;
-        channelPod_.remoteTokenId = 0x51;
-        channelPod_.remoteTokenValue = 0x62;
-        resources_ = {
-            {11, 21, 31, 41},
-            {12, 22, 32, 42},
-        };
-        SetHcommCcuChannelGetPodStub(channelPod_, resources_);
+        channelPod_.xnRange = {21, 2};
+        channelPod_.ckeRange = {11, 2};
+        channelPod_.rmtCcuBufAddr = 0x123456789ABCDEF0ULL;
+        channelPod_.rmtCcuBufSize = 0x8000;
+        channelPod_.rmtCcuBufTokenId = 0x51;
+        channelPod_.rmtCcuBufTokenValue = 0x62;
+        SetHcommCcuChannelGetPodStub(channelPod_);
     }
 
     void TearDown() override
@@ -41,7 +40,6 @@ protected:
     }
 
     HcommCcuChannelPod channelPod_{};
-    std::vector<HcommCcuChannelResourcePod> resources_;
 };
 
 TEST_F(CcuChannelTest, InitCopiesAllFieldsAndResources)
@@ -57,9 +55,9 @@ TEST_F(CcuChannelTest, InitCopiesAllFieldsAndResources)
     EXPECT_EQ(channel.GetLocXnByIndex(1, value), HCCL_SUCCESS);
     EXPECT_EQ(value, 22U);
     EXPECT_EQ(channel.GetRmtCkeByIndex(0, value), HCCL_SUCCESS);
-    EXPECT_EQ(value, 31U);
+    EXPECT_EQ(value, 11U);
     EXPECT_EQ(channel.GetRmtXnByIndex(1, value), HCCL_SUCCESS);
-    EXPECT_EQ(value, 42U);
+    EXPECT_EQ(value, 22U);
 
     uint64_t addr = 0;
     uint32_t size = 0;
@@ -78,8 +76,8 @@ TEST_F(CcuChannelTest, SnapshotOwnsDeepCopy)
     ASSERT_EQ(channel.GetResult(), HCCL_SUCCESS);
 
     channelPod_.dieId = 99;
-    resources_[0].localCkeId = 999;
-    SetHcommCcuChannelGetPodStub(channelPod_, resources_);
+    channelPod_.ckeRange.startId = 999;
+    SetHcommCcuChannelGetPodStub(channelPod_);
 
     uint32_t localCkeId = 0;
     EXPECT_EQ(channel.GetDieId(), 3U);
@@ -100,7 +98,7 @@ TEST_F(CcuChannelTest, ResourceIndexOutOfRangeReturnsParameterError)
 
 TEST_F(CcuChannelTest, FirstQueryFailureIsPropagated)
 {
-    SetHcommCcuChannelGetPodStubResults(HCCL_E_UNAVAIL, HCCL_SUCCESS);
+    SetHcommCcuChannelGetPodStubResult(HCCL_E_UNAVAIL);
     CcuChannel channel(1);
     EXPECT_EQ(channel.GetResult(), HCCL_E_UNAVAIL);
 
@@ -108,17 +106,10 @@ TEST_F(CcuChannelTest, FirstQueryFailureIsPropagated)
     EXPECT_EQ(channel.GetLocCkeByIndex(0, value), HCCL_E_UNAVAIL);
 }
 
-TEST_F(CcuChannelTest, SecondQueryFailureIsPropagated)
-{
-    SetHcommCcuChannelGetPodStubResults(HCCL_SUCCESS, HCCL_E_INTERNAL);
-    CcuChannel channel(1);
-    EXPECT_EQ(channel.GetResult(), HCCL_E_INTERNAL);
-}
-
 TEST_F(CcuChannelTest, InconsistentResourceCountReturnsInternalError)
 {
-    channelPod_.resourceNum = 3;
-    SetHcommCcuChannelGetPodStub(channelPod_, resources_);
+    channelPod_.xnRange.count = 0;
+    SetHcommCcuChannelGetPodStub(channelPod_);
     CcuChannel channel(1);
     EXPECT_EQ(channel.GetResult(), HCCL_E_INTERNAL);
 }

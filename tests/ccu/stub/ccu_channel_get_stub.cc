@@ -10,68 +10,45 @@
 
 #include "ccu_channel_get_stub.h"
 
-#include <algorithm>
-
 namespace hcomm {
 namespace {
 
 HcommCcuChannelPod channelPodStub{};
-std::vector<HcommCcuChannelResourcePod> resourceStub;
-HcommResult firstQueryResultStub = HCCL_SUCCESS;
-HcommResult secondQueryResultStub = HCCL_SUCCESS;
+HcommResult queryResultStub = HCCL_SUCCESS;
 bool channelPodStubConfigured = false;
 
 } // namespace
 
-void SetHcommCcuChannelGetPodStub(const HcommCcuChannelPod &channelPod,
-    const std::vector<HcommCcuChannelResourcePod> &resources)
+void SetHcommCcuChannelGetPodStub(const HcommCcuChannelPod &channelPod)
 {
     channelPodStub = channelPod;
-    resourceStub = resources;
-    firstQueryResultStub = HCCL_SUCCESS;
-    secondQueryResultStub = HCCL_SUCCESS;
+    queryResultStub = HCCL_SUCCESS;
     channelPodStubConfigured = true;
 }
 
-void SetHcommCcuChannelGetPodStubResults(HcommResult firstQueryResult, HcommResult secondQueryResult)
+void SetHcommCcuChannelGetPodStubResult(HcommResult result)
 {
-    firstQueryResultStub = firstQueryResult;
-    secondQueryResultStub = secondQueryResult;
+    queryResultStub = result;
 }
 
 void ResetHcommCcuChannelGetPodStub()
 {
     channelPodStub = {};
-    resourceStub.clear();
-    firstQueryResultStub = HCCL_SUCCESS;
-    secondQueryResultStub = HCCL_SUCCESS;
+    queryResultStub = HCCL_SUCCESS;
     channelPodStubConfigured = false;
 }
 
 } // namespace hcomm
 
-HcommResult HcommCcuChannelGetPod(ChannelHandle, HcommCcuChannelPod *channelPod,
-    HcommCcuChannelResourcePod *resources, uint32_t *resourceNum)
+HcommResult HcommCcuChannelGetPod(ChannelHandle, HcommCcuChannelPod *channelPod)
 {
-    if (channelPod == nullptr || resourceNum == nullptr || !hcomm::channelPodStubConfigured) {
+    if (channelPod == nullptr || !hcomm::channelPodStubConfigured) {
         return HCCL_E_PTR;
     }
-
-    const bool firstQuery = resources == nullptr;
-    const HcommResult configuredResult = firstQuery ? hcomm::firstQueryResultStub : hcomm::secondQueryResultStub;
-    if (configuredResult != HCCL_SUCCESS) {
-        return configuredResult;
+    if (hcomm::queryResultStub != HCCL_SUCCESS) {
+        return hcomm::queryResultStub;
     }
 
-    const uint32_t capacity = *resourceNum;
     *channelPod = hcomm::channelPodStub;
-    *resourceNum = static_cast<uint32_t>(hcomm::resourceStub.size());
-    if (firstQuery) {
-        return HCCL_SUCCESS;
-    }
-    if (capacity < hcomm::resourceStub.size()) {
-        return HCCL_E_PARA;
-    }
-    std::copy(hcomm::resourceStub.begin(), hcomm::resourceStub.end(), resources);
     return HCCL_SUCCESS;
 }

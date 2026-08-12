@@ -12,7 +12,6 @@
 #define ASCCOMM_CCU_CHANNEL_H
 
 #include <cstdint>
-#include <vector>
 
 #include "hccl/hccl_types.h"
 #include "hcomm/hcomm_ccu_channel_api.h"
@@ -36,15 +35,9 @@ public:
 
 private:
     HcclResult Init(ChannelHandle channel);
+    HcclResult GetIdByRange(const HcommCcuIdRangePod &range, uint32_t index, uint32_t &id) const;
 
-    // channelEntity_ 只保留定长标量快照；所有变长数据均深拷贝到下列本地容器。
-    // 这样 CcuChannel 的生命周期不依赖 hcomm 查询时借用的输出指针。
-    ChannelEntity channelEntity_{};
-    std::vector<RegedNotifyEntity> localCkes_{};
-    std::vector<RegedNotifyEntity> remoteCkes_{};
-    std::vector<RegedBufferEntity> remoteBuffers_{};
-    std::vector<uint32_t> localXns_{};
-    std::vector<uint32_t> remoteXns_{};
+    HcommCcuChannelPod channelPod_{};
     HcclResult result_{HCCL_E_INTERNAL};
 };
 
