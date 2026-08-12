@@ -18,8 +18,6 @@
 namespace hcomm {
 namespace CcuRep {
 
-using namespace Hccl;
-
 CcuRepLoad::CcuRepLoad(CcuInsGeneraterBase* insGenPtr, uint64_t addr, const Variable& var, uint32_t num)
     : insGeneratorPtr_(insGenPtr), var(var), addr(addr), num(num)
 {

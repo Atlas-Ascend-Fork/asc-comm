@@ -18,8 +18,6 @@
 namespace hcomm {
 namespace CcuRep {
 
-using namespace Hccl;
-
 CcuRepLoop::CcuRepLoop(CcuInsGeneraterBase* insGeneratorPtr, const std::string& label, const Variable& loopParam)
     : insGeneratorPtr_(insGeneratorPtr), label(label), loopParam(loopParam)
 {

@@ -16,8 +16,6 @@
 namespace hcomm {
 namespace CcuRep {
 
-using namespace Hccl;
-
 CcuRepLoopGroupBundle::CcuRepLoopGroupBundle(
     CcuInsGeneraterBase* insGenPtr, const CcuLoopGroupConfig& config, const Variable& parallelVar,
     const Variable& offsetVar)

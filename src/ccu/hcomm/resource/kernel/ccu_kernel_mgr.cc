@@ -42,7 +42,7 @@ CcuResult SetRequestCount(uint32_t &target, size_t value)
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult BuildTranslatorResourceRequest(uint32_t dieId, CcuVersion ccuVersion, AscCcuResRequest &request)
+CcuResult BuildTranslatorResourceRequest(uint32_t dieId, uint32_t ccuVersion, AscCcuResRequest &request)
 {
     request = {};
     if (dieId >= HCOMM_CCU_MAX_DIE_NUM) {
@@ -56,7 +56,7 @@ CcuResult BuildTranslatorResourceRequest(uint32_t dieId, CcuVersion ccuVersion, 
 
     CCU_CHK_RET(SetRequestCount(request.count[HCOMM_CCU_BATCH_RES_XN][dieId], slotNum * xnPerSlot));
     CCU_CHK_RET(SetRequestCount(request.count[HCOMM_CCU_BATCH_RES_CKE][dieId], slotNum * ckePerSlot));
-    if (ccuVersion == CcuVersion::CCU_V1) {
+    if (ccuVersion == HCOMM_CCU_VERSION_V1) {
         CCU_CHK_RET(SetRequestCount(request.count[HCOMM_CCU_BATCH_RES_GSA][dieId], slotNum * gsaPerSlot));
     }
 
@@ -123,7 +123,7 @@ CcuResult CcuKernelMgr::Configure(AscCcuResSnapshot &resPack)
     devLogicId_ = resPack.GetDeviceLogicId();
     translators.clear();
     referenceMgrs.clear();
-    ccuVersion_ = resPack.GetCcuVersion() == 0 ? CcuVersion::CCU_V1 : CcuVersion::CCU_V2;
+    ccuVersion_ = resPack.GetCcuVersion();
     CcuRep::CcuRepTranslator::SetCcuVersion(ccuVersion_);
     for (uint32_t dieId = 0; dieId < HCOMM_CCU_MAX_DIE_NUM; ++dieId) {
         if ((resPack.GetValidDieMask() & (1U << dieId)) == 0) {
@@ -201,7 +201,7 @@ CcuResult CcuKernelMgr::Register(
     }
 
     currKernel_->FlushClosablePendingIfs(); // 处理未闭合的if
-    CCU_CHK_RET(currKernel_->ValidateAndApplyDie(dieId));
+    CCU_CHK_RET(currKernel_->ValidateAndApplyDie(dieId, resPack.GetValidDieMask()));
     CCU_CHK_RET(PrepareConstValueResources()); // 记录翻译过程所需常量并申请对应资源
 
     CcuResult ret = AllocRes(resPack);

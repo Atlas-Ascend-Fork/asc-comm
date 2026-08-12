@@ -18,8 +18,6 @@
 namespace hcomm {
 namespace CcuRep {
 
-using namespace Hccl;
-
 CcuRepLoadArg::CcuRepLoadArg(CcuInsGeneraterBase* insGenPtr, const Variable& var, uint16_t argId, uint16_t fullArgId)
     : insGeneratorPtr_(insGenPtr), var(var), argId(argId), fullArgId(fullArgId)
 {

@@ -13,8 +13,10 @@
 #include "ccu/hcomm/ccu_res.h"
 #include "hcomm/hcomm_ccu_launch.h"
 
+#include <chrono>
 #include <vector>
 
+#include "runtime/rt_external_kernel.h"
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/common/ccu_device_context.h"
@@ -25,6 +27,16 @@
 #include "hcomm/resource/common/ccu_var_event_res_mgr.h"
 
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
+
+using HcclUs = std::chrono::steady_clock::time_point;
+
+#ifndef TIME_NOW
+#define TIME_NOW() std::chrono::steady_clock::now()
+#endif
+
+#ifndef DURATION_US
+#define DURATION_US(x) (std::chrono::duration_cast<std::chrono::microseconds>(x))
+#endif
 
 CcuResult HcommCcuKernelRegisterStart(
     CcuInsHandle insHandle, const HcommCcuRegisterContextPod *context)
