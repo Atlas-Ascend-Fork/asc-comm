@@ -1,25 +1,24 @@
-# Hcomm 接口文档（批量写接口评审）
+# Hcomm 接口文档
 
 - **仓库**: [cann/asc-comm](https://gitcode.com/cann/asc-comm)
 - **接口来源**: [include/aicore/hcomm/hcomm.h (master)](https://gitcode.com/cann/asc-comm/blob/master/include/aicore/hcomm/hcomm.h)
 - **文档内容**:
-  - 第 1 章为本次评审范围与说明；
+  - 第 1 章为本次接口范围与说明；
   - 第 2 章为单 Jetty 单对端批量接口；
-  - 第 3 章为单 Jetty 多对端批量接口（算子优选）；
-  - 第 4 章为单 Jetty 多对端批量接口备选。
+  - 第 3 章为单 Jetty 多对端批量接口；
 
 ---
 
 ## 目录
 
-- [1. 评审范围](#1-评审范围)
+- [1. 接口范围](#1-评审范围)
 - [2. 单 Jetty 单对端批量接口](#2-单-jetty-单对端批量接口)
   - [2.1 MakeBatchHandle](#21-makebatchhandle)
   - [2.2 WriteNbi（批量句柄重载）](#22-writenbi批量句柄重载)
   - [2.3 BatchCommit](#23-batchcommit)
   - [2.4 Drain（批量句柄重载）](#24-drain批量句柄重载)
   - [2.5 使用样例](#25-使用样例)
-- [3. 单 Jetty 多对端批量接口（算子优选）](#3-单-jetty-多对端批量接口算子优选)
+- [3. 单 Jetty 多对端批量接口](#3-单-jetty-多对端批量接口算子优选)
   - [3.1 方案说明](#31-方案说明)
   - [3.2 MultiChannelHandle 定义](#32-multichannelhandle-定义)
   - [3.3 Host 侧接口](#33-host-侧接口)
@@ -28,16 +27,12 @@
 
 ---
 
-## 1. 评审范围
+## 1. 接口范围
 
 本次文档只保留以下接口：
 
 1. 单 Jetty 单对端批量接口，用于单通道下的 Write 积攒与提交；
-2. 单 Jetty 多对端批量接口（算子优选），用 `MultiChannelHandle` 统一 host/device 侧对象，并通过 `GetHandleRef` 获取目标端点引用；
-3. 单 Jetty 多对端批量接口备选，用于 host 侧预装配多对端上下文，device 侧按 `remoteIndex` 选择目标并批量下发。
-
-旧的“当前已有接口”“上次评审接口”以及 `URMA` 双边接口章节已移除，不再作为本版文档内容。
-
+2. 单 Jetty 多对端批量接口，用 `MultiChannelHandle` 统一 host/device 侧对象，并通过 `GetHandleRef` 获取目标端点引用；
 ---
 
 ## 2. 单 Jetty 单对端批量接口
@@ -114,14 +109,6 @@ __aicore__ inline int32_t Drain(T h);
 
 ### 2.5 使用样例
 
-讨论：
-
-1、超过buff 刷新机制
-
-2、不同opcode的刷新策略问题
-
-3、config 放到 WriteNbi 模板参数上，需要测试该方案性能
-
 ```cpp
 #include "aicore/hcomm/hcomm.h"
 
@@ -153,13 +140,11 @@ __aicore__ inline void BatchWriteExample(ChannelHandle channel, GM_ADDR remoteBa
 
 ---
 
-## 3. 单 Jetty 多对端批量接口（算子优选）
+## 3. 单 Jetty 多对端批量接口
 
 ### 3.1 方案说明
 
 本方案将 `MultiChannelHandle` 作为 host/device 两侧统一可见的多对端句柄值。host 侧通过 `MakeMultiChannelHandle` 创建 channel、申请并初始化多对端句柄；device 侧 launch 入参直接接收同一个 `MultiChannelHandle`，并通过 `GetHandleRef(h, remoteIndex)` 获取目标端点引用。
-
-与第 4 章备选方案相比，本方案仍使用 `GetHandleRef(h, remoteIndex)` 获取目标端点引用，但 host 侧通过 `MakeMultiChannelHandle` 内部完成 channel 创建、内存申请和句柄填充，host/device 类型更容易保持一致。
 
 ### 3.2 MultiChannelHandle 定义
 
