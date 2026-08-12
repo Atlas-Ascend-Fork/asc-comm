@@ -15,7 +15,7 @@
 #include <vector>
 #include <unordered_map>
 
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 
 #include "hcomm/resource/common/asc_ccu_resource_local.h"
 

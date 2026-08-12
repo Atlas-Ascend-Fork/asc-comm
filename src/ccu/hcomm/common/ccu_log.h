@@ -33,7 +33,7 @@
 
 #include "base/dlog_pub.h"
 #include "securec.h"
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 #include "ccu/hcomm/ccu_utils.hpp"
 
 enum {

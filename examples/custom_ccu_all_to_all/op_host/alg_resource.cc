@@ -10,7 +10,7 @@
 
 #include <vector>
 #include <memory>
-#include <ccu/hcomm/ccu_types.h>
+#include <ccu/hcomm/ccu_api_types.h>
 #include <hccl/hccl_res.h>
 #include <hccl/hccl_rank_graph.h>
 #include "alg_resource.h"
