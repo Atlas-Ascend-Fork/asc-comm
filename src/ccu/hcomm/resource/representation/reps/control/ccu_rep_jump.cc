@@ -16,8 +16,6 @@
 namespace hcomm {
 namespace CcuRep {
 
-using namespace Hccl;
-
 // jump基类
 CcuRepJumpBase::CcuRepJumpBase(CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId)
     : insGeneratorPtr_(insGenPtr), label(label), targetInstrId(targetInstrId)

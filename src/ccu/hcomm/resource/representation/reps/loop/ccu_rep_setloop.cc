@@ -21,8 +21,6 @@
 namespace hcomm {
 namespace CcuRep {
 
-using namespace Hccl;
-
 CcuRepSetLoop::CcuRepSetLoop(
     CcuInsGeneraterBase* insGeneratorPtr, const Variable& loopParam, const Executor& executor, const Variable& var)
     : insGeneratorPtr_(insGeneratorPtr), loopParam(loopParam), executor(executor), var(var)

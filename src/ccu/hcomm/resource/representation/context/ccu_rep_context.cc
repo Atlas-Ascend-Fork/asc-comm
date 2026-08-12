@@ -16,7 +16,6 @@
 
 #include "hcomm_c_adpt.h" // 需优化
 #include "hcomm/resource/channel/ccu_channel.h"
-#include "ccu_dev_mgr_imp.h"
 
 namespace hcomm {
 namespace CcuRep {

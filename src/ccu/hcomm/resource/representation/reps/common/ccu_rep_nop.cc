@@ -18,8 +18,6 @@
 namespace hcomm {
 namespace CcuRep {
 
-using namespace Hccl;
-
 CcuRepNop::CcuRepNop(CcuInsGeneraterBase* insGeneratorPtr) : insGeneratorPtr_(insGeneratorPtr)
 {
     type = CcuRepType::NOP;

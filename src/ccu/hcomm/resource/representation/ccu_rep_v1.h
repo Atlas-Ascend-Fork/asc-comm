@@ -66,7 +66,6 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_load_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_store_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_store_var_v1.h"
-#include "ccu_res_specs.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_load_var_v1.h"
 
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"

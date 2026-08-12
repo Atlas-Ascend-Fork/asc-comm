@@ -18,7 +18,6 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/resource/common/asc_ccu_res_snapshot.h"
 
-#include "ccu_dev_mgr_imp.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_translator_v1.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
@@ -29,7 +28,7 @@ using namespace CcuRep;
 
 class CcuKernelMgr {
 public:
-    static CcuKernelMgr& GetInstance(const s32 deviceLogicId);
+    static CcuKernelMgr& GetInstance(int32_t deviceLogicId);
 
     HcclResult Init();
     HcclResult Deinit();
@@ -77,7 +76,7 @@ private:
         referenceMgrs;
     std::unique_ptr<CcuKernel> currKernel_{nullptr};
     std::shared_ptr<CcuInsGeneraterBase> insGenePtr;
-    CcuVersion ccuVersion_{CcuVersion::CCU_INVALID};
+    uint32_t ccuVersion_{HCOMM_CCU_VERSION_INVALID};
     std::array<uint32_t, HCOMM_CCU_MAX_DIE_NUM> missionKeys_{};
 };
 }; // namespace hcomm

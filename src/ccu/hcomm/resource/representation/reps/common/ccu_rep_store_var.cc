@@ -19,8 +19,6 @@
 namespace hcomm {
 namespace CcuRep {
 
-using namespace Hccl;
-
 CcuRepStoreVar::CcuRepStoreVar(
     CcuInsGeneraterBase* insGeneratorPtr, const Variable& var, const Variable& dst, uint32_t num, bool hscbFlag)
     : insGeneratorPtr_(insGeneratorPtr), var(var), dst(dst), num(num), hscbFlag(hscbFlag)
