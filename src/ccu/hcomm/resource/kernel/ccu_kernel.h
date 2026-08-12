@@ -33,10 +33,9 @@
 
 #include "hccl_types.h"
 #include "hcomm_primitives.h"
+#include "hcomm_ccu_res.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
-
-#include "ccu_dev_mgr_imp.h" // CcuVersion
 
 // 暂时引用方便算法开发
 #include "hcomm/resource/representation/interface/ccu_repeat_v1.h"
@@ -75,8 +74,8 @@ public:
     ~CcuKernel() override;
 
     HcclResult SetupProfilingInfo(const char* kernelFuncName);
-    HcclResult ApplyDieFromChannels();
-    HcclResult ValidateAndApplyDie(uint32_t targetDieId);
+    HcclResult ApplyDieFromChannels(uint32_t validDieMask);
+    HcclResult ValidateAndApplyDie(uint32_t targetDieId, uint32_t validDieMask);
 
     AscCcuResRequest GetResourceRequest();
     AscCcuResRepository& GetResRepository();
@@ -97,7 +96,7 @@ public:
     CcuResult GeneTaskParams(const uint64_t* taskArgs, uint32_t argNum, std::vector<CcuTaskParam>& taskParams);
 
     void SetInsGenerater(CcuRep::CcuInsGeneraterBase* insGeneraterBase);
-    void SetCcuVersion(CcuVersion version) { ccuVersion_ = version; }
+    void SetCcuVersion(uint32_t version) { ccuVersion_ = version; }
     // 该友元函数用于在context类外创建Variable并被context内的资源管理器管理
     friend CcuRep::Variable CcuRep::CreateVariable(CcuRep::CcuRepContext* context);
 
@@ -485,7 +484,7 @@ private:
 
     uint32_t loadArgIndex_{0};
 
-    CcuVersion ccuVersion_{CcuVersion::CCU_INVALID};
+    uint32_t ccuVersion_{HCOMM_CCU_VERSION_INVALID};
 
     CcuSharedResource exportedRes_{};
     CcuSharedResource importedRes_{};

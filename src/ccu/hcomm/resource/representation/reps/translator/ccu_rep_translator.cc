@@ -20,19 +20,17 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_loadarg_v1.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 
-#include "ccu_dev_mgr_imp.h"
 #include "dtype_common.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
-#include "ccu_res_specs.h"
 
 
 namespace hcomm {
 namespace CcuRep {
 
 
-CcuVersion CcuRepTranslator::ccuVersion = CcuVersion::CCU_INVALID;
+uint32_t CcuRepTranslator::ccuVersion = HCOMM_CCU_VERSION_INVALID;
 
 template <typename T>
 bool CheckType(const std::shared_ptr<CcuRepBlock>& refer)
@@ -85,16 +83,16 @@ void CcuRepTranslator::BuildReference(const std::shared_ptr<CcuRepBase>& rep)
 CcuRepTranslator::CcuRepTranslator(std::shared_ptr<CcuRepReferenceManager> refManager, const TransDep& transDep)
     : refManager(refManager), transDep(transDep)
 {
-    if (ccuVersion == CcuVersion::CCU_INVALID) {
+    if (ccuVersion == HCOMM_CCU_VERSION_INVALID) {
         hcomm::ThrowCcuInternal("[CcuRepTranslator] Constructor: Invalid CCU Type!");
     }
 }
 
-void CcuRepTranslator::SetCcuVersion(CcuVersion version) { ccuVersion = version; }
+void CcuRepTranslator::SetCcuVersion(uint32_t version) { ccuVersion = version; }
 
 uint32_t CcuRepTranslator::GetInstrNum()
 {
-    return ccuVersion == CcuVersion::CCU_V1 ?
+    return ccuVersion == HCOMM_CCU_VERSION_V1 ?
                4 // 4:翻译器翻译过程中额外需要的指令空间大小(插入3条通用操作指令+1条终止指令)
                :
                13; // 13:翻译器翻译过程中额外需要的指令空间大小(插入3条通用操作指令+1条终止指令+9条repJump)
@@ -103,7 +101,7 @@ uint32_t CcuRepTranslator::GetInstrNum()
 void CcuRepTranslator::GetRes(CcuRepResource& res)
 {
     int varNum = XN_NUM;
-    int gsaNum = ccuVersion == CcuVersion::CCU_V1 ? GSA_NUM : 0;
+    int gsaNum = ccuVersion == HCOMM_CCU_VERSION_V1 ? GSA_NUM : 0;
     for (int i = 0; i < varNum; i++) {
         res.variable[transDep.dieId].push_back(var[i]);
     }

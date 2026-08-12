@@ -21,8 +21,6 @@
 namespace hcomm {
 namespace CcuRep {
 
-using namespace Hccl;
-
 CcuRepFuncBlock::CcuRepFuncBlock(CcuInsGeneraterBase* insGenPtr, const std::string& label)
     : CcuRepBlock(insGenPtr, label)
 {

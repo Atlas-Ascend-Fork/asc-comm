@@ -15,7 +15,6 @@
 
 #include "ccu/hcomm/ccu_types.h"
 #include "hcomm/common/ccu_exception.h"
-#include "ccu_dev_mgr_imp.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_type_v1.h"
 
 #include "hcomm_c_adpt.h"
@@ -87,20 +86,18 @@ static HcclResult GetDieIdByChannel(const ChannelHandle channel, uint32_t& dieId
     return HcclResult::HCCL_SUCCESS;
 }
 
-static HcclResult GetDieIdByChannels(const std::unordered_set<ChannelHandle>& channels, uint32_t& dieId)
+static HcclResult GetDieIdByChannels(
+    const std::unordered_set<ChannelHandle>& channels, uint32_t validDieMask, uint32_t& dieId)
 {
     if (channels.empty()) {
-        int32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
         for (uint32_t die = 0; die < CCU_MAX_IODIE_NUM; die++) {
-            bool enableFlag = false;
-            CHK_RET(static_cast<HcclResult>(CcuGetDieEnableInfo(devLogicId, die, enableFlag)));
-            if (enableFlag) {
+            if ((validDieMask & (1U << die)) != 0) {
                 dieId = die;
                 return HcclResult::HCCL_SUCCESS;
             }
         }
 
-        HCCL_ERROR("[CcuKernel][%s] failed, all dies are disable, devLogicId[%d].", __func__, devLogicId);
+        HCCL_ERROR("[CcuKernel][%s] failed, all dies are disabled, validDieMask[0x%x].", __func__, validDieMask);
         return HcclResult::HCCL_E_INTERNAL;
     }
 
@@ -202,10 +199,10 @@ static HcclResult UpdateProfilingInfo(
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuKernel::ApplyDieFromChannels()
+HcclResult CcuKernel::ApplyDieFromChannels(uint32_t validDieMask)
 {
     uint32_t dieId{0};
-    CHK_RET(GetDieIdByChannels(channels_, dieId));
+    CHK_RET(GetDieIdByChannels(channels_, validDieMask, dieId));
     CHK_PRT_RET(
         dieId >= CCU_MAX_IODIE_NUM,
         HCCL_ERROR("[CcuKernel][%s] failed, dieId[%u] should be less than [%u].", __func__, dieId, CCU_MAX_IODIE_NUM),
@@ -217,7 +214,7 @@ HcclResult CcuKernel::ApplyDieFromChannels()
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuKernel::ValidateAndApplyDie(const uint32_t targetDieId)
+HcclResult CcuKernel::ValidateAndApplyDie(const uint32_t targetDieId, uint32_t validDieMask)
 {
     CHK_PRT_RET(
         targetDieId >= CCU_MAX_IODIE_NUM,
@@ -225,13 +222,11 @@ HcclResult CcuKernel::ValidateAndApplyDie(const uint32_t targetDieId)
             "[CcuKernel][%s] failed, dieId[%u] should be less than [%u].", __func__, targetDieId, CCU_MAX_IODIE_NUM),
         HcclResult::HCCL_E_PARA);
 
-    const int32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
-    bool enableFlag = false;
-    CHK_RET(static_cast<HcclResult>(CcuGetDieEnableInfo(devLogicId, static_cast<uint8_t>(targetDieId), enableFlag)));
     CHK_PRT_RET(
-        !enableFlag,
+        (validDieMask & (1U << targetDieId)) == 0,
         HCCL_ERROR(
-            "[CcuKernel][%s] failed, target dieId[%u] is disabled, devLogicId[%d].", __func__, targetDieId, devLogicId),
+            "[CcuKernel][%s] failed, target dieId[%u] is disabled, validDieMask[0x%x].", __func__, targetDieId,
+            validDieMask),
         HcclResult::HCCL_E_PARA);
     CHK_RET(CheckChannelsDie(channels_, targetDieId));
 
@@ -2285,7 +2280,7 @@ CcuResult CcuKernel::LoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, c
 
     auto bundle =
         std::make_shared<CcuRep::CcuRepLoopGroupBundle>(insGenerator, *config, desc.parallelVar, desc.offsetVar);
-    if (ccuVersion_ == CcuVersion::CCU_V2) {
+    if (ccuVersion_ == HCOMM_CCU_VERSION_V2) {
         bundle->SetXnOffsetVar(CreateVariable());
     }
     desc.bundleRep = bundle;
@@ -2329,7 +2324,7 @@ CcuResult CcuKernel::LoopGroupCreateFromVar(
     desc.isVarBased = true;
 
     auto bundle = std::make_shared<CcuRep::CcuRepLoopGroupBundle>(insGenerator, desc.parallelVar, desc.offsetVar);
-    if (ccuVersion_ == CcuVersion::CCU_V2) {
+    if (ccuVersion_ == HCOMM_CCU_VERSION_V2) {
         bundle->SetCompatRemapVars(CreateVariable(), CreateVariable());
     }
     desc.bundleRep = bundle;
@@ -2344,7 +2339,7 @@ CcuResult CcuKernel::LoopGroupCreateFromVarV2(
     CcuLoopGroup* group, uint32_t maxLoopNum, CcuVariableHandle parallelVarV2Handle,
     CcuVariableHandle offsetVarV2Handle, CcuVariableHandle varOffsetVarHandle)
 {
-    if (ccuVersion_ != CcuVersion::CCU_V2) {
+    if (ccuVersion_ != HCOMM_CCU_VERSION_V2) {
         HCCL_ERROR("[CcuKernel::LoopGroupCreateFromVarV2] only supported on V2");
         return CcuResult::CCU_E_NOT_SUPPORT;
     }
@@ -2449,7 +2444,7 @@ CcuResult CcuKernel::LoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const Cc
     entry.repLoopBlock = loopDesc->repLoopBlock;
     entry.loopParamVar = CreateVariable();
     entry.layout = CcuRep::CcuRepLoopGroupBundle::Layout::Config;
-    if (ccuVersion_ == CcuVersion::CCU_V2) {
+    if (ccuVersion_ == HCOMM_CCU_VERSION_V2) {
         entry.iterNumVar = CreateVariable();
         entry.addrOffsetVar = CreateVariable();
         entry.ctxIdVar = CreateVariable();
@@ -2485,7 +2480,7 @@ CcuResult CcuKernel::LoopGroupAddLoopFromVar(CcuLoopGroup group, CcuLoop loop, C
     entry.repLoopBlock = loopDesc->repLoopBlock;
     entry.loopParamVar = CcuRep::Variable(*loopParamVarPtr);
     entry.layout = CcuRep::CcuRepLoopGroupBundle::Layout::PackedVar;
-    if (ccuVersion_ == CcuVersion::CCU_V2) {
+    if (ccuVersion_ == HCOMM_CCU_VERSION_V2) {
         entry.iterNumVar = CreateVariable();
         entry.addrOffsetVar = CreateVariable();
         entry.ctxIdVar = CreateVariable();
@@ -2509,7 +2504,7 @@ CcuResult CcuKernel::LoopGroupAddLoopFromVarV2(
     CcuLoopGroup group, CcuLoop loop, CcuVariableHandle iterNumVarHandle, CcuVariableHandle addrOffsetVarHandle,
     CcuVariableHandle ctxIdVarHandle)
 {
-    if (ccuVersion_ != CcuVersion::CCU_V2) {
+    if (ccuVersion_ != HCOMM_CCU_VERSION_V2) {
         HCCL_ERROR("[CcuKernel::LoopGroupAddLoopFromVarV2] only supported on V2");
         return CcuResult::CCU_E_NOT_SUPPORT;
     }
@@ -2600,7 +2595,7 @@ CcuRep::Variable CcuKernel::CreateExpectVar()
 {
     // v2(A6) jump compares two variables and needs a real XN for the immediate value.
     // v1(A5) compares with the immediate directly, so keep the placeholder out of the resource ledger.
-    if (ccuVersion_ == CcuVersion::CCU_V2) {
+    if (ccuVersion_ == HCOMM_CCU_VERSION_V2) {
         return CreateVariable();
     }
     return CcuRep::Variable(this);
@@ -2608,7 +2603,7 @@ CcuRep::Variable CcuKernel::CreateExpectVar()
 
 CcuRep::Address CcuKernel::CreateAddress()
 {
-    if (ccuVersion_ == CcuVersion::CCU_V2) {
+    if (ccuVersion_ == HCOMM_CCU_VERSION_V2) {
         // A6创建Address时，需要添加到Variable的列表中，但是仍以Address返回
         return CcuRep::Address(CreateResAssist(res_.continuousVariable));
     }

@@ -20,8 +20,6 @@
 namespace hcomm {
 namespace CcuRep {
 
-using namespace Hccl;
-
 CcuRepFuncCall::CcuRepFuncCall(CcuInsGeneraterBase* insGenPtr, const std::string& label)
     : insGeneratorPtr_(insGenPtr), label(label)
 {

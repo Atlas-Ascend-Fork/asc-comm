@@ -34,7 +34,7 @@ constexpr int CCU_TRANSLATOR_CKE_NUM = 2;
 class CcuRepTranslator {
 public:
     CcuRepTranslator(std::shared_ptr<CcuRepReferenceManager> refManager, const TransDep& transDep);
-    static void SetCcuVersion(CcuVersion version);
+    static void SetCcuVersion(uint32_t version);
     static uint32_t GetInstrNum();
     void GetRes(CcuRepResource& res);
     CcuInstrInfo Translate(
@@ -65,7 +65,7 @@ private:
     Address addr[GSA_NUM];
     CompletedEvent signal[CKE_NUM]; // Uses discrete CKE resources.
     TransDep transDep{0};
-    static CcuVersion ccuVersion;
+    static uint32_t ccuVersion;
 };
 }; // namespace CcuRep
 }; // namespace hcomm
