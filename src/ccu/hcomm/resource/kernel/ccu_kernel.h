@@ -31,6 +31,7 @@
 #include "hcomm/resource/representation/interface/ccu_funccall_v1.h"
 #include "hcomm/resource/representation/interface/ccu_loopcall_v1.h"
 
+// 类型（HcclResult 等）统一取自 hcomm 包内 hcomm_types.h，避免耦合 hccl 私有定义
 #include "hcomm/hcomm_ccu_channel.h"
 #include "hcomm/hcomm_ccu_res.h"
 #include "hcomm/hcomm_types.h"

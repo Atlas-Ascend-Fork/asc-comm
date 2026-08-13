@@ -119,6 +119,7 @@ private:
         return value;
     }
 
+    // 单阶段查询 Channel POD 快照：先填充 ABI 头，再调用控制面注入的 channelQuery
     bool QueryChannel(ChannelHandle handle, HcommCcuChannelPod &channel)
     {
         channel.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
@@ -136,9 +137,11 @@ private:
         HcommCcuChannelPod channel{};
         recordHandle = handle;
         id = UINT16_MAX;
+        // 查询失败时保留哨兵值 id=UINT16_MAX，交由上层按无效 channel 处理
         if (!QueryChannel(handle, channel)) {
             return;
         }
+        // channelId 收窄为 uint16_t 前先做范围校验，避免静默截断
         if (channel.channelId > std::numeric_limits<uint16_t>::max()) {
             firstError_ = firstError_ == 0 ? static_cast<int32_t>(CcuResult::CCU_E_PARA) : firstError_;
             return;
@@ -146,6 +149,7 @@ private:
         id = static_cast<uint16_t>(channel.channelId);
     }
 
+    // 从 POD 定长数组取第 index 个资源 id，收窄为 uint16_t 前做指针/越界/溢出校验
     uint16_t IdByArray(const uint32_t *ids, uint16_t index)
     {
         if (ids == nullptr || index >= HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY ||
@@ -156,6 +160,7 @@ private:
         return static_cast<uint16_t>(ids[index]);
     }
 
+    // 取本端/远端 CKE（信号量）id：remote 为 true 时读远端数组，否则读本端数组
     uint16_t ChannelSignal(ChannelHandle handle, uint16_t index, bool remote)
     {
         HcommCcuChannelPod channel{};
@@ -165,6 +170,7 @@ private:
         return IdByArray(remote ? channel.remoteCkeIds : channel.localCkeIds, index);
     }
 
+    // 取远端 XN（变量槽）id，用于分析 RV 类远程 POST 的变量地址
     uint16_t ChannelRemoteXn(ChannelHandle handle, uint16_t index)
     {
         HcommCcuChannelPod channel{};

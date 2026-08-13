@@ -77,12 +77,16 @@ target_link_libraries(asccomm_ccu_dataplane PRIVATE
     c_sec
     pthread
 )
+# 链接期校验：数据面 SO 不允许存在未定义符号（防止无意识依赖 hcomm 内部符号）
 target_link_options(asccomm_ccu_dataplane PRIVATE -Wl,--no-undefined)
 
+# 源文件归属校验：强制数据面目标的所有源文件必须位于 asc-comm 仓内，
+# 避免误引用 hcomm 源（控制面/数据面边界），保证两仓可独立构建。
 get_target_property(_ASCCOMM_CCU_SOURCES asccomm_ccu_dataplane_obj SOURCES)
 get_target_property(_ASCCOMM_CCU_SOURCE_DIR asccomm_ccu_dataplane_obj SOURCE_DIR)
 get_filename_component(_ASCCOMM_ROOT_REAL "${ASCCOMM_ROOT}" REALPATH)
 foreach(_source IN LISTS _ASCCOMM_CCU_SOURCES)
+    # 生成器表达式无法在配置期解析为真实路径，直接拒绝
     if(_source MATCHES "^\\$<")
         message(FATAL_ERROR "asccomm_ccu_dataplane_obj source ownership cannot be verified: ${_source}")
     endif()
@@ -93,6 +97,7 @@ foreach(_source IN LISTS _ASCCOMM_CCU_SOURCES)
     endif()
     get_filename_component(_source_real "${_source_path}" REALPATH)
     string(FIND "${_source_real}" "${_ASCCOMM_ROOT_REAL}/" _source_prefix)
+    # 解析后的真实路径必须位于 asc-comm 根目录下，否则视为越界源文件
     if(NOT _source_prefix EQUAL 0)
         message(FATAL_ERROR "asccomm_ccu_dataplane_obj source is outside asc-comm: ${_source_real}")
     endif()
