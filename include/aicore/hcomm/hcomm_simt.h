@@ -62,10 +62,11 @@ public:
      * @param [in] buff: The UB buffer provided by caller.
      * @param [in] len: The buffer length in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Hcomm automatically partitions the supplied UB into per-lane WQE staging, per-lane remote
-     *       registration cache and one block-shared post context. If the workspace is too small, posting
-     *       remains functional and falls back to the global-memory path. All participating lanes must call
-     *       Init when a block-shared cached workspace is supplied.
+     * @note Hcomm requires 128 bytes of WQE staging space for every lane in the block. If the workspace also
+     *       contains 32 bytes per lane and one aligned 128-byte region, Hcomm automatically enables a per-lane
+     *       remote-registration cache and one block-shared post context. The cache is optional and falls back
+     *       to global-memory lookup when absent. Every posting lane must call Init; when the full cached layout
+     *       is supplied, every lane in the block must call Init because the shared context is synchronized there.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 

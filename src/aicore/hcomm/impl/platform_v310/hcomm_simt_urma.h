@@ -38,14 +38,6 @@ __simt_callee__ inline uint32_t HcommSimtUrmaFlag()
            ((config.cqe & 0x1U) << 5U) | ((config.inlineEn & 0x1U) << 6U);
 }
 
-__simt_callee__ inline void HcommSimtClear128(__gm__ uint8_t* addr)
-{
-#pragma unroll
-    for (uint32_t i = 0; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
-        ((__gm__ uint64_t*)addr)[i] = 0U;
-    }
-}
-
 __simt_callee__ inline void HcommSimtCopy128(__gm__ uint8_t* dst, __gm__ uint8_t* src)
 {
 #pragma unroll
@@ -245,63 +237,6 @@ __simt_callee__ inline void HcommSimtUrmaFillDwqe(
 {
     HcommSimtUrmaFillSqeCtx<opCode, 2U, config>(wqeAddr, remoteAddr, sqCtx, remoteMemInfo, curHead, nextHead);
     HcommSimtUrmaFillSgeCtx<2U>(wqeAddr, localAddr, len);
-}
-
-__simt_callee__ inline void HcommSimtUrmaFillNotifyCtx(
-    __gm__ HcommUrmaNotifyCtx* notifyCtx, __gm__ const RegedBufferEntity* remoteMemInfo,
-    __gm__ uint8_t* notifyAddr, uint64_t notifyVal)
-{
-    notifyCtx->notifyTokenId = remoteMemInfo->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId & 0xFFFFFU;
-    notifyCtx->notifyTokenValue = remoteMemInfo->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
-    uint64_t notifyAddrValue = reinterpret_cast<uint64_t>(notifyAddr);
-    notifyCtx->notifyAddrL = static_cast<uint32_t>(notifyAddrValue & 0xFFFFFFFFU);
-    notifyCtx->notifyAddrH = static_cast<uint32_t>((notifyAddrValue >> 32U) & 0xFFFFFFFFU);
-    notifyCtx->notifyDataL = static_cast<uint32_t>(notifyVal & 0xFFFFFFFFU);
-    notifyCtx->notifyDataH = static_cast<uint32_t>((notifyVal >> 32U) & 0xFFFFFFFFU);
-}
-
-template <auto const& config>
-__simt_callee__ inline void HcommSimtUrmaFillWriteWithNotifyWqe(
-    __gm__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
-    __gm__ uint8_t* notifyAddr, uint64_t notifyVal, __gm__ const SqContext* sqCtx,
-    __gm__ const RegedBufferEntity* remoteMemInfo, uint32_t curHead, uint32_t nextHead)
-{
-    HcommSimtClear128(wqeAddr);
-    HcommSimtUrmaFillSqeCtx<HcommUrmaOpCode::WRITE_WITH_NOTIFY, 1U, config>(
-        wqeAddr, remoteAddr, sqCtx, remoteMemInfo, curHead, nextHead);
-
-    __gm__ HcommUrmaNotifyCtx* notifyCtx =
-        reinterpret_cast<__gm__ HcommUrmaNotifyCtx*>(wqeAddr + sizeof(HcommUrmaSqeCtx));
-    HcommSimtUrmaFillNotifyCtx(notifyCtx, remoteMemInfo, notifyAddr, notifyVal);
-
-    __gm__ HcommUrmaSgeCtx* sgeCtx = reinterpret_cast<__gm__ HcommUrmaSgeCtx*>(
-        reinterpret_cast<__gm__ uint8_t*>(notifyCtx) + sizeof(HcommUrmaNotifyCtx));
-    sgeCtx->len = static_cast<uint32_t>(len);
-    sgeCtx->tokenId = 0U;
-    sgeCtx->va = reinterpret_cast<uint64_t>(localAddr);
-}
-
-template <HcommUrmaOpCode opCode, typename T, auto const& config>
-__simt_callee__ inline void HcommSimtUrmaFillAtomicWqe(
-    __gm__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* fetchAddr, T value, T cond,
-    __gm__ const SqContext* sqCtx, __gm__ const RegedBufferEntity* remoteMemInfo, uint32_t curHead,
-    uint32_t nextHead)
-{
-    HcommSimtClear128(wqeAddr);
-    HcommSimtUrmaFillSqeCtx<opCode, 1U, config>(
-        wqeAddr, remoteAddr, sqCtx, remoteMemInfo, curHead, nextHead);
-
-    __gm__ HcommUrmaSgeCtx* sgeCtx =
-        reinterpret_cast<__gm__ HcommUrmaSgeCtx*>(wqeAddr + sizeof(HcommUrmaSqeCtx));
-    sgeCtx->len = sizeof(T);
-    sgeCtx->tokenId = 0U;
-    sgeCtx->va = reinterpret_cast<uint64_t>(fetchAddr);
-
-    __gm__ uint8_t* amoDataAddr = reinterpret_cast<__gm__ uint8_t*>(sgeCtx) + sizeof(HcommUrmaSgeCtx);
-    HcommSimtStoreValue(amoDataAddr, static_cast<uint64_t>(value), sizeof(T));
-    if constexpr (opCode == HcommUrmaOpCode::CAS) {
-        HcommSimtStoreValue(amoDataAddr + sizeof(T), static_cast<uint64_t>(cond), sizeof(T));
-    }
 }
 
 __simt_callee__ inline void HcommSimtRingDwqeAt(__gm__ uint8_t* dwqeAddr, __gm__ uint8_t* sqeAddr)
@@ -564,7 +499,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ u
     uint32_t linearLane = threadIdx.x + blockDim.x * (threadIdx.y + blockDim.y * threadIdx.z);
     uint64_t laneCount = static_cast<uint64_t>(blockDim.x) * blockDim.y * blockDim.z;
     uint64_t wqeBytes = laneCount * HCOMM_URMA_DWQE_SIZE;
-    uint64_t laneRequired = (static_cast<uint64_t>(linearLane) + 1U) * HCOMM_URMA_DWQE_SIZE;
     uint64_t cacheRequired =
         ((wqeBytes + laneCount * sizeof(HcommSimtUbRemoteCache) + HCOMM_URMA_DWQE_SIZE - 1U) &
          ~(static_cast<uint64_t>(HCOMM_URMA_DWQE_SIZE) - 1U)) +
@@ -575,8 +509,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ u
     ubPostContext_ = nullptr;
     ubRemoteCache_ = nullptr;
     ubPostContextReady_ = false;
-    if (buff == nullptr || laneRequired > len) {
-        return HCOMM_SUCCESS;
+    if (buff == nullptr || wqeBytes > len) {
+        return HCOMM_FAILED;
     }
     wqeItem_ = buff + linearLane * HCOMM_URMA_DWQE_SIZE;
     HcommSimtClearUb<HCOMM_URMA_DWQE_SIZE>(wqeItem_);
@@ -776,6 +710,10 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
     (void)commitPipe;
     (void)reqPipe;
 
+    if (wqeItem_ == nullptr) {
+        return HCOMM_FAILED;
+    }
+
     HcommSimtUbResolvedPost post;
     if (ResolveUbPostContext(channel, remoteAddr, len, post) != HCOMM_SUCCESS) {
         return HCOMM_FAILED;
@@ -806,7 +744,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
 
     if constexpr (commit) {
         uint32_t blockLaneCount = blockDim.x * blockDim.y * blockDim.z;
-        if (blockLaneCount == 1U && !hasDeferredDwqeBatch_ && wqeItem_ != nullptr) {
+        if (blockLaneCount == 1U && !hasDeferredDwqeBatch_) {
             HcommSimtUrmaFillUbWriteWithNotifyWqe<config>(
                 wqeItem_, remoteAddr, localAddr, len, notifyAddr, notifyVal,
                 post.meta, curHead, nextHead, wqeKind_);
@@ -825,29 +763,16 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
         HcommSimtStorePackedNotifyWqe<config>(
             sqeAddr, remoteAddr, localAddr, len, notifyAddr, notifyVal,
             sqeTemplate, curHead, nextHead);
-    } else if (wqeItem_ != nullptr) {
+    } else {
         HcommSimtUrmaFillUbWriteWithNotifyWqe<config>(
             wqeItem_, remoteAddr, localAddr, len, notifyAddr, notifyVal, post.meta, curHead, nextHead, wqeKind_);
         HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
-    } else {
-        __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
-        __gm__ RegedBufferEntity* remoteBuffers = HcommSimtRemoteBuffers(channel);
-        int32_t remoteIdx = HcommSimtFindBufferIdx(remoteBuffers, channelEntity->remoteBufferNum, remoteAddr, len);
-        __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
-        __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
-        HcommSimtUrmaFillWriteWithNotifyWqe<config>(
-            sqeAddr, remoteAddr, localAddr, len, notifyAddr, notifyVal, sqCtx, &remoteBuffers[remoteIdx], curHead,
-            nextHead);
     }
     if constexpr (commit) {
         if (useImmediateWarp) {
             asc_threadfence();
             if (publishImmediateWarp) {
-                if (wqeItem_ != nullptr) {
-                    HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
-                } else {
-                    HcommSimtRingDwqeAt(post.dwqeAddr, sqeAddr);
-                }
+                HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
             }
             return HCOMM_SUCCESS;
         }
@@ -859,11 +784,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
         if (PublishDwqeBatch(headAddr) != HCOMM_SUCCESS) {
             return HCOMM_FAILED;
         }
-        if (wqeItem_ != nullptr) {
-            HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
-        } else {
-            HcommSimtRingDwqeAt(post.dwqeAddr, sqeAddr);
-        }
+        HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
     } else {
         asc_threadfence();
     }
@@ -879,6 +800,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
 
     static_assert(sizeof(T) == sizeof(uint32_t) || sizeof(T) == sizeof(uint64_t),
         "Atomic operation only supports 32-bit or 64-bit data types");
+    if (wqeItem_ == nullptr) {
+        return HCOMM_FAILED;
+    }
     HcommSimtUbResolvedPost post;
     if (ResolveUbPostContext(channel, remoteAddr, sizeof(T), post) != HCOMM_SUCCESS) {
         return HCOMM_FAILED;
@@ -927,29 +851,16 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
         HcommSimtStorePackedAtomicWqe<opCode, T, config>(
             sqeAddr, remoteAddr, fetchAddr, value, cond,
             sqeTemplate, curHead, nextHead);
-    } else if (wqeItem_ != nullptr) {
+    } else {
         HcommSimtUrmaFillUbAtomicWqe<opCode, T, config>(
             wqeItem_, remoteAddr, fetchAddr, value, cond, post.meta, curHead, nextHead, wqeKind_);
         HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
-    } else {
-        __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
-        __gm__ RegedBufferEntity* remoteBuffers = HcommSimtRemoteBuffers(channel);
-        int32_t remoteIdx =
-            HcommSimtFindBufferIdx(remoteBuffers, channelEntity->remoteBufferNum, remoteAddr, sizeof(T));
-        __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
-        __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
-        HcommSimtUrmaFillAtomicWqe<opCode, T, config>(
-            sqeAddr, remoteAddr, fetchAddr, value, cond, sqCtx, &remoteBuffers[remoteIdx], curHead, nextHead);
     }
     if constexpr (commit) {
         if (useImmediateWarp) {
             asc_threadfence();
             if (publishImmediateWarp) {
-                if (wqeItem_ != nullptr) {
-                    HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
-                } else {
-                    HcommSimtRingDwqeAt(post.dwqeAddr, sqeAddr);
-                }
+                HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
             }
             return HCOMM_SUCCESS;
         }
@@ -961,11 +872,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
         if (PublishDwqeBatch(headAddr) != HCOMM_SUCCESS) {
             return HCOMM_FAILED;
         }
-        if (wqeItem_ != nullptr) {
-            HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
-        } else {
-            HcommSimtRingDwqeAt(post.dwqeAddr, sqeAddr);
-        }
+        HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
     } else {
         asc_threadfence();
     }
