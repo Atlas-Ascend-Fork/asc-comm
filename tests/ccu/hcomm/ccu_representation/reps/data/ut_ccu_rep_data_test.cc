@@ -38,10 +38,15 @@ protected:
     void SetUp() override
     {
         HcommCcuChannelPod channelPod{};
-        ASSERT_EQ(HcommCcuChannelPodInit(&channelPod), HCCL_SUCCESS);
-        channelPod.resourceNum = 1;
-        channelPod.remoteBufferSize = 1;
-        SetHcommCcuChannelGetPodStub(channelPod, std::vector<HcommCcuChannelResourcePod>(1));
+        channelPod.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
+        channelPod.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
+        channelPod.header.size = sizeof(HcommCcuChannelPod);
+        channelPod.localXnIds[0] = 0;
+        channelPod.remoteXnIds[0] = 0;
+        channelPod.localCkeIds[0] = 0;
+        channelPod.remoteCkeIds[0] = 0;
+        channelPod.rmtCcuBufSize = 1;
+        SetHcommCcuChannelGetPodStub(channelPod);
     }
     void TearDown() override
     {
