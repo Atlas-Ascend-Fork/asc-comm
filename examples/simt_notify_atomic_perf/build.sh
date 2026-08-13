@@ -11,20 +11,12 @@
 set -euo pipefail
 
 if [[ -z "${ASCEND_HOME_PATH:-}" ]]; then
-    echo "ASCEND_HOME_PATH is not set. Source the CANN environment first:" >&2
-    echo "  source /usr/local/Ascend/cann/set_env.sh" >&2
+    echo "ASCEND_HOME_PATH is not set. Run: source /usr/local/Ascend/cann/set_env.sh" >&2
     exit 1
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 build_dir="${script_dir}/build"
-build_jobs="${BUILD_JOBS:-$(nproc)}"
-
 rm -rf -- "${build_dir}"
-
-cmake \
-    -S "${script_dir}" \
-    -B "${build_dir}" \
-    -DCMAKE_ASC_ARCHITECTURES=dav-3510
-
-cmake --build "${build_dir}" --verbose --parallel "${build_jobs}"
+cmake -S "${script_dir}" -B "${build_dir}" -DCMAKE_ASC_ARCHITECTURES=dav-3510
+cmake --build "${build_dir}" --verbose --parallel "${BUILD_JOBS:-$(nproc)}"

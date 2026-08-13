@@ -8,18 +8,27 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef EXAMPLES_SIMT_NOTIFY_ATOMIC_COMMON_H
-#define EXAMPLES_SIMT_NOTIFY_ATOMIC_COMMON_H
+#ifndef EXAMPLES_SIMT_NOTIFY_ATOMIC_PERF_COMMON_H
+#define EXAMPLES_SIMT_NOTIFY_ATOMIC_PERF_COMMON_H
 
 #include <cstdint>
 
-namespace simt_notify_atomic {
+namespace simt_notify_atomic_perf {
 
 constexpr int kSenderRank = 0;
 constexpr int kReceiverRank = 1;
 
 constexpr uint64_t kNotifySignal = 0x2222222222222222ULL;
+constexpr uint64_t kFaaInitial = 10U;
+constexpr uint64_t kFaaAdd = 3U;
+constexpr uint64_t kCasInitial = 20U;
+constexpr uint64_t kCasSwap = 30U;
 
-} // namespace simt_notify_atomic
+constexpr uint32_t kIssueCyclesIndex = 0U;
+constexpr uint32_t kDrainStatusIndex = 1U;
+constexpr uint32_t kCompletedIndex = 2U;
+constexpr uint32_t kTimingWords = 3U;
 
-#endif // EXAMPLES_SIMT_NOTIFY_ATOMIC_COMMON_H
+} // namespace simt_notify_atomic_perf
+
+#endif // EXAMPLES_SIMT_NOTIFY_ATOMIC_PERF_COMMON_H

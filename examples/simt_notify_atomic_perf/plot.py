@@ -15,13 +15,9 @@ CSV_FIELDS = [
     "API",
     "DataSize/B",
     "WqeCount",
-    "DoorbellCount",
-    "TotalTime/us",
-    "AverageWqe/ns",
-    "PacketRate/Mpps",
-    "CompletionTime/us",
-    "CompletionAverageWqe/ns",
-    "CompletionBandwidth/GB/s",
+    "AverageIssue/ns",
+    "IssueTime/us",
+    "IssueBandwidth/GB/s",
 ]
 REQUIRED_FIELDS = set(CSV_FIELDS)
 COLORS = ["#3977d5", "#22a06b", "#e27830", "#8f5bd6", "#d64562", "#008c95"]
@@ -35,7 +31,7 @@ def parse_args():
     parser.add_argument("--api", choices=("notify", "faa", "cas"), default="notify")
     parser.add_argument(
         "--metric",
-        choices=("bandwidth", "latency", "packet-rate", "completion-latency"),
+        choices=("bandwidth", "latency"),
         default="bandwidth",
     )
     parser.add_argument("-o", "--output", type=Path, default=Path("notify_submit_bandwidth.svg"))
@@ -71,20 +67,15 @@ def load_rows(paths, api):
         samples.items(), key=lambda item: (item[0][2], item[0][0])
     ):
         series = path if operation == api else f"{path}-{operation}"
-        completion_times = [
-            float(value["CompletionTime/us"])
+        issue_times = [
+            float(value["IssueTime/us"])
             for value in values
-            if "CompletionTime/us" in value
+            if "IssueTime/us" in value
         ]
-        completion_latencies = [
-            float(value["CompletionAverageWqe/ns"])
+        issue_bandwidths = [
+            float(value["IssueBandwidth/GB/s"])
             for value in values
-            if "CompletionAverageWqe/ns" in value
-        ]
-        completion_bandwidths = [
-            float(value["CompletionBandwidth/GB/s"])
-            for value in values
-            if "CompletionBandwidth/GB/s" in value
+            if "IssueBandwidth/GB/s" in value
         ]
         rows.append({
             "Path": path,
@@ -92,13 +83,9 @@ def load_rows(paths, api):
             "_Series": series,
             "DataSize/B": size,
             "WqeCount": round(mean(int(value["WqeCount"]) for value in values)),
-            "DoorbellCount": round(mean(int(value["DoorbellCount"]) for value in values)),
-            "TotalTime/us": mean(float(value["TotalTime/us"]) for value in values),
-            "AverageWqe/ns": mean(float(value["AverageWqe/ns"]) for value in values),
-            "PacketRate/Mpps": mean(float(value["PacketRate/Mpps"]) for value in values),
-            "CompletionTime/us": mean(completion_times) if completion_times else None,
-            "CompletionAverageWqe/ns": mean(completion_latencies) if completion_latencies else None,
-            "CompletionBandwidth/GB/s": mean(completion_bandwidths) if completion_bandwidths else None,
+            "AverageIssue/ns": mean(float(value["AverageIssue/ns"]) for value in values),
+            "IssueTime/us": mean(issue_times) if issue_times else None,
+            "IssueBandwidth/GB/s": mean(issue_bandwidths) if issue_bandwidths else None,
         })
     return rows
 
@@ -112,13 +99,9 @@ def write_csv(rows, output):
 
 
 def metric_info(metric):
-    if metric == "completion-latency":
-        return "CompletionAverageWqe/ns", "Average completion latency (ns)", "WQE completion latency"
     if metric == "latency":
-        return "AverageWqe/ns", "Average WQE submit latency (ns)", "WQE submit latency"
-    if metric == "packet-rate":
-        return "PacketRate/Mpps", "Packet rate (Mpps)", "WQE submit packet rate"
-    return "CompletionBandwidth/GB/s", "Completion bandwidth (GB/s)", "WQE completion bandwidth"
+        return "AverageIssue/ns", "Average issue latency (ns)", "WQE issue latency"
+    return "IssueBandwidth/GB/s", "Issue bandwidth (GB/s)", "WQE issue bandwidth"
 
 
 def write_svg(rows, output, metric, api):

@@ -13,204 +13,112 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-  run.sh <nranks> <rank_table.json> notify [options]
+  run.sh <nranks> <rank_table.json> <notify|faa|cas> [options]
 
 Options:
-  --loop-count N             Timed WQE count, default: 1024
-  --warmup N                 Warmup WQE count, default: 100
-  --threads LIST             SIMT lane counts, default: 1,32,1024
-  --paths LIST               Paths to run: simt,aiv-mte3 (default: both)
-  --exponent-range MIN MAX   Notify payload range 2^MIN..2^MAX B, default: 3 17
-  --simt-only                Run only the SIMT paths
-  --log FILE                 Output log path
+  --iterations N      Timed WQE count, default: 1024
+  --warmup N          Warmup WQE count, default: 100
+  --payload-bytes N   Notify payload bytes, default: 4096; FAA/CAS always use 8B
+  --lanes N           SIMT lanes: 1, 32, or 1024; default: 1
+  --commit-mode MODE  immediate or last; default: immediate
+  --log FILE          Output log file
 EOF
 }
 
-if [ "$#" -lt 3 ]; then
+if [[ $# -lt 3 ]]; then
     usage
     exit 1
 fi
 
 nranks="$1"
-rank_table_file="$2"
-mode="$3"
+rank_table="$2"
+api="$3"
 shift 3
-
-loop_count=1024
+iterations=1024
 warmup=100
-threads="1,32,1024"
-paths="simt,aiv-mte3"
-min_exp=3
-max_exp=17
+payload_bytes=4096
+lanes=1
+commit_mode=immediate
 log_file=""
 
-while [ "$#" -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
     case "$1" in
-        --loop-count)
-            loop_count="$2"
-            shift 2
-            ;;
-        --warmup)
-            warmup="$2"
-            shift 2
-            ;;
-        --threads)
-            threads="$2"
-            shift 2
-            ;;
-        --paths)
-            paths="$2"
-            shift 2
-            ;;
-        --exponent-range)
-            min_exp="$2"
-            max_exp="$3"
-            shift 3
-            ;;
-        --log)
-            log_file="$2"
-            shift 2
-            ;;
-        --simt-only)
-            paths="simt"
-            shift
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            usage
-            exit 1
-            ;;
+        --iterations) iterations="$2"; shift 2 ;;
+        --warmup) warmup="$2"; shift 2 ;;
+        --payload-bytes) payload_bytes="$2"; shift 2 ;;
+        --lanes) lanes="$2"; shift 2 ;;
+        --commit-mode) commit_mode="$2"; shift 2 ;;
+        --log) log_file="$2"; shift 2 ;;
+        -h|--help) usage; exit 0 ;;
+        *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
     esac
 done
 
-if ! [[ "$nranks" =~ ^[0-9]+$ ]] || [ "$nranks" -lt 2 ]; then
-    echo "nranks must be an integer greater than or equal to 2"
-    exit 1
-fi
-if [ "$mode" != "notify" ]; then
-    echo "this minimal benchmark currently supports only notify"
-    exit 1
-fi
-if ! [[ "$loop_count" =~ ^[0-9]+$ ]] || [ "$loop_count" -lt 1 ]; then
-    echo "--loop-count must be a positive integer"
-    exit 1
-fi
-if ! [[ "$warmup" =~ ^[0-9]+$ ]]; then
-    echo "--warmup must be a non-negative integer"
-    exit 1
-fi
-if ! [[ "$min_exp" =~ ^[0-9]+$ ]] || ! [[ "$max_exp" =~ ^[0-9]+$ ]] || \
-    [ "$min_exp" -gt "$max_exp" ] || [ "$max_exp" -gt 30 ]; then
-    echo "exponents must satisfy 0 <= MIN <= MAX <= 30"
-    exit 1
-fi
-if [ ! -f "$rank_table_file" ]; then
-    echo "rank table file does not exist: $rank_table_file"
-    exit 1
-fi
-
-IFS=',' read -r -a lane_values <<< "$threads"
-if [ "${#lane_values[@]}" -eq 0 ]; then
-    echo "--threads must contain at least one lane count"
-    exit 1
-fi
-for lanes in "${lane_values[@]}"; do
-    case "$lanes" in
-        1|32|1024) ;;
-        *) echo "--threads only supports 1,32,1024"; exit 1 ;;
-    esac
-done
-
-IFS=',' read -r -a path_values <<< "$paths"
-if [ "${#path_values[@]}" -eq 0 ]; then
-    echo "--paths must contain at least one path"
-    exit 1
-fi
-for path in "${path_values[@]}"; do
-    case "$path" in
-        simt|aiv-mte3) ;;
-        *) echo "--paths only supports simt,aiv-mte3"; exit 1 ;;
-    esac
-done
+[[ "$api" == "notify" || "$api" == "faa" || "$api" == "cas" ]] || {
+    echo "api must be notify, faa, or cas" >&2; exit 1;
+}
+[[ "$nranks" =~ ^[0-9]+$ && "$nranks" -ge 2 ]] || {
+    echo "nranks must be an integer greater than or equal to 2" >&2; exit 1;
+}
+[[ "$iterations" =~ ^[0-9]+$ && "$iterations" -gt 0 ]] || {
+    echo "--iterations must be a positive integer" >&2; exit 1;
+}
+[[ "$warmup" =~ ^[0-9]+$ ]] || {
+    echo "--warmup must be a non-negative integer" >&2; exit 1;
+}
+[[ "$payload_bytes" =~ ^[0-9]+$ && "$payload_bytes" -gt 0 ]] || {
+    echo "--payload-bytes must be a positive integer" >&2; exit 1;
+}
+[[ "$lanes" == "1" || "$lanes" == "32" || "$lanes" == "1024" ]] || {
+    echo "--lanes must be 1, 32, or 1024" >&2; exit 1;
+}
+[[ "$commit_mode" == "immediate" || "$commit_mode" == "last" ]] || {
+    echo "--commit-mode must be immediate or last" >&2; exit 1;
+}
+[[ "$commit_mode" != "last" || "$lanes" == "1" ]] || {
+    echo "--commit-mode last currently requires --lanes 1" >&2; exit 1;
+}
+[[ -f "$rank_table" ]] || { echo "rank table not found: $rank_table" >&2; exit 1; }
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 binary="${script_dir}/build/simt_notify_atomic_perf"
-if [ ! -x "$binary" ]; then
-    echo "binary does not exist or is not executable: $binary"
-    exit 1
-fi
+[[ -x "$binary" ]] || { echo "build the example first: bash ${script_dir}/build.sh" >&2; exit 1; }
 
 mkdir -p "${script_dir}/results"
-if [ -z "$log_file" ]; then
-    log_file="${script_dir}/results/${mode}_$(date +%Y%m%d_%H%M%S).log"
+if [[ -z "$log_file" ]]; then
+    log_file="${script_dir}/results/${api}_t${lanes}_${commit_mode}_$(date +%Y%m%d_%H%M%S).log"
 fi
 mkdir -p "$(dirname "$log_file")"
-exec > >(tee "$log_file") 2>&1
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_notify_atomic_perf.XXXXXX")"
 pids=()
 cleanup() {
-    if [ "${#pids[@]}" -ne 0 ]; then
+    if [[ ${#pids[@]} -ne 0 ]]; then
         kill "${pids[@]}" 2>/dev/null || true
     fi
     rm -rf -- "$work_dir"
 }
-trap cleanup EXIT SIGINT SIGTERM
+trap cleanup EXIT INT TERM
+export SIMT_NOTIFY_ATOMIC_SYNC_DIR="$work_dir"
 
-run_case() {
-    local path="$1"
-    local operation="$2"
-    local bytes="$3"
-    local lanes="$4"
-    local case_dir="${work_dir}/${path}_${operation}_${bytes}_t${lanes}"
-    mkdir -p "$case_dir"
-    export SIMT_NOTIFY_ATOMIC_SYNC_DIR="$case_dir"
-
-    pids=()
-    for ((rank = 0; rank < nranks; ++rank)); do
-        "$binary" "$rank" "$nranks" "$rank_table_file" "$path" "$operation" \
-            "$loop_count" "$warmup" "$bytes" "$lanes" \
-            >"${case_dir}/rank_${rank}.log" 2>&1 &
-        pids+=("$!")
-    done
-
-    local status=0
-    for pid in "${pids[@]}"; do
-        if ! wait "$pid"; then
-            status=1
-        fi
-    done
-    pids=()
-
-    cat "${case_dir}/rank_0.log"
-    if [ "$status" -ne 0 ]; then
-        for ((rank = 1; rank < nranks; ++rank)); do
-            cat "${case_dir}/rank_${rank}.log"
-        done
-    fi
-    return "$status"
-}
-
-echo "计时范围：仅统计WQE填写和敲DB；预热Drain及最终Drain/PollCq不计入耗时。"
-echo "WQE数量：$loop_count；预热次数：$warmup；SIMT lane数：$threads；路径：$paths"
-
-for ((exp = min_exp; exp <= max_exp; ++exp)); do
-    bytes=$((1 << exp))
-    for path in "${path_values[@]}"; do
-        if [ "$path" = "simt" ]; then
-            for lanes in "${lane_values[@]}"; do
-                run_case simt notify "$bytes" "$lanes"
-            done
-        else
-            run_case aiv-mte3 notify "$bytes" 1
-        fi
-    done
-    echo
+for ((rank = 0; rank < nranks; ++rank)); do
+    "$binary" "$rank" "$nranks" "$rank_table" "$api" \
+        "$iterations" "$warmup" "$payload_bytes" "$lanes" "$commit_mode" \
+        >"${work_dir}/rank_${rank}.log" 2>&1 &
+    pids+=("$!")
 done
 
+status=0
+for pid in "${pids[@]}"; do
+    if ! wait "$pid"; then
+        status=1
+    fi
+done
+pids=()
+
+for ((rank = 0; rank < nranks; ++rank)); do
+    cat "${work_dir}/rank_${rank}.log"
+done | tee "$log_file"
+
 echo "日志文件：$log_file"
-echo "绘图命令：python3 ${script_dir}/plot.py $log_file"
+exit "$status"

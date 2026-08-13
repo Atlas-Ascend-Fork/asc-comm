@@ -8,11 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-/*!
- * \file main.cpp
- * \brief Hcomm SIMT Notify/Atomic样例Host侧流程：通信域创建、内存注册、P2P通道创建与结果校验
- */
-
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
@@ -27,121 +22,91 @@
 #include <vector>
 
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "hccl/hccl.h"
+#include "hccl/hccl_rank_graph.h"
 #include "hccl/hccl_res.h"
 #include "hccl/hccl_types.h"
-#include "hccl/hccl_rank_graph.h"
 
 #include "simt_notify_atomic_common.h"
 
 #define ACLCHECK(ret)                                                                            \
     do {                                                                                         \
         if ((ret) != ACL_SUCCESS) {                                                              \
-            printf("acl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, (ret)); \
+            std::printf("acl interface failed at %s:%d, ret=%d\n", __FILE__, __LINE__, (ret));  \
             return (ret);                                                                        \
         }                                                                                        \
     } while (0)
 
-#define HCCLCHECK(ret)                                                                            \
-    do {                                                                                          \
-        if ((ret) != HCCL_SUCCESS) {                                                              \
-            printf("hccl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, (ret)); \
-            return (ret);                                                                         \
-        }                                                                                         \
+#define HCCLCHECK(ret)                                                                           \
+    do {                                                                                         \
+        if ((ret) != HCCL_SUCCESS) {                                                             \
+            std::printf("hccl interface failed at %s:%d, ret=%d\n", __FILE__, __LINE__, (ret)); \
+            return (ret);                                                                        \
+        }                                                                                        \
     } while (0)
 
-extern void LaunchSimtNotifyPerf(void* stream, uint64_t channel, uint32_t sendBufIdx,
-    uint32_t recvBufIdx, void* timing, uint32_t payloadBytes,
-    uint32_t iterations, uint32_t warmup);
-extern void LaunchSimtNotifyBatchPerf(void* stream, uint64_t channel,
-    uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing,
-    uint32_t payloadBytes, uint32_t iterations, uint32_t warmup,
+extern void LaunchSimtNotifyPerf(
+    void *stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
+    void *timing, uint32_t payloadBytes, uint32_t iterations, uint32_t warmup,
     uint32_t laneCount);
-extern void LaunchAivNotifyPerf(void* stream, uint64_t channel,
-    uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing,
-    uint32_t payloadBytes, uint32_t iterations, uint32_t warmup);
+extern void LaunchSimtFaaPerf(
+    void *stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
+    void *timing, uint32_t iterations, uint32_t warmup, uint32_t laneCount);
+extern void LaunchSimtCasPerf(
+    void *stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
+    void *timing, uint32_t iterations, uint32_t warmup, uint32_t laneCount);
+extern void LaunchSimtLastCommitPerf(
+    void *stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
+    void *timing, uint32_t payloadBytes, uint32_t iterations, uint32_t warmup,
+    uint32_t api);
 
 namespace {
+using namespace simt_notify_atomic_perf;
 
-using namespace simt_notify_atomic;
-
-constexpr uint32_t kBarrierWaitSeconds = 60;
-constexpr uint32_t kBarrierPollMs = 100;
-
-// SIMT Notify/Atomic只在UBC_CTP/URMA协议上实现，其余链路协议无对应实现。
+constexpr uint32_t kBarrierWaitSeconds = 60U;
+constexpr uint32_t kBarrierPollMs = 100U;
 constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UBC_CTP;
+constexpr const char *kSendBufTag = "simtNotifyAtomicPerfSendBuf";
+constexpr const char *kRecvBufTag = "simtNotifyAtomicPerfRecvBuf";
 
-// 两块内存注册到通信域时使用的tag。两个rank使用相同tag，远端内存才能按tag查回。
-constexpr const char* kSendBufTag = "simtNotifyAtomicSendBuf";
-constexpr const char* kRecvBufTag = "simtNotifyAtomicRecvBuf";
-
-// Directory holding the barrier marker files. run.sh creates a fresh one per run so stale
-// markers from an earlier run cannot let the barrier pass immediately.
 std::string SyncDir()
 {
-    const char* dirEnv = std::getenv("SIMT_NOTIFY_ATOMIC_SYNC_DIR");
-    return dirEnv != nullptr ? std::string(dirEnv) : std::string("/tmp/simt_notify_atomic_sync");
+    const char *value = std::getenv("SIMT_NOTIFY_ATOMIC_SYNC_DIR");
+    return value == nullptr ? "/tmp/simt_notify_atomic_perf" : value;
 }
 
-bool IsMarkerFileReady(const std::string& path)
+bool MarkerReady(const std::string &path)
 {
     struct stat st {};
-    return stat(path.c_str(), &st) == 0 && st.st_size >= 1;
+    return stat(path.c_str(), &st) == 0 && st.st_size != 0;
 }
 
-HcclResult WriteMarkerFile(const std::string& path, const std::string& payload = "1")
-{
-    const std::string tmpPath = path + ".tmp";
-    std::ofstream ofs(tmpPath, std::ios::binary | std::ios::trunc);
-    if (!ofs.is_open()) {
-        std::cout << "Open marker tmp file failed: " << tmpPath << std::endl;
-        return HCCL_E_OPEN_FILE_FAILURE;
-    }
-    ofs << payload;
-    ofs.close();
-    if (!ofs) {
-        std::cout << "Write marker file failed: " << tmpPath << std::endl;
-        return HCCL_E_SYSCALL;
-    }
-    if (std::rename(tmpPath.c_str(), path.c_str()) != 0) {
-        std::cout << "Rename marker file failed: " << tmpPath << " -> " << path << std::endl;
-        return HCCL_E_SYSCALL;
-    }
-    return HCCL_SUCCESS;
-}
-
-// Keeps the check deterministic: a rank must not read its recv buffer until the rank
-// writing into it has finished. HCCL is already up at this point, but this example
-// deliberately avoids issuing collectives so only WriteNbi touches the QP.
-HcclResult HostFileBarrier(int rank, int nranks, const std::string& tag, const std::string& payload = "1")
+HcclResult HostBarrier(int rank, int nranks, const char *name)
 {
     const std::string dir = SyncDir();
     if (mkdir(dir.c_str(), 0700) != 0 && errno != EEXIST) {
-        std::cout << "Create sync dir failed: " << dir << std::endl;
         return HCCL_E_SYSCALL;
     }
-    const std::string markerPrefix = dir + "/" + tag + ".";
-    HcclResult ret = WriteMarkerFile(markerPrefix + std::to_string(rank), payload);
-    if (ret != HCCL_SUCCESS) {
-        return ret;
+    const std::string prefix = dir + "/" + name + ".";
+    {
+        std::ofstream marker(prefix + std::to_string(rank), std::ios::trunc);
+        marker << '1';
+        if (!marker) {
+            return HCCL_E_SYSCALL;
+        }
     }
-    const uint32_t maxPollTimes = kBarrierWaitSeconds * 1000 / kBarrierPollMs;
-    for (uint32_t poll = 0; poll < maxPollTimes; ++poll) {
+    const uint32_t maxPolls = kBarrierWaitSeconds * 1000U / kBarrierPollMs;
+    for (uint32_t poll = 0U; poll < maxPolls; ++poll) {
         bool ready = true;
         for (int i = 0; i < nranks; ++i) {
-            if (!IsMarkerFileReady(markerPrefix + std::to_string(i))) {
-                ready = false;
-                break;
-            }
+            ready = ready && MarkerReady(prefix + std::to_string(i));
         }
         if (ready) {
             return HCCL_SUCCESS;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
     }
-    std::cout << "Wait host barrier timeout: " << tag << std::endl;
     return HCCL_E_TIMEOUT;
 }
 
@@ -150,286 +115,253 @@ size_t AlignUp(size_t value, size_t alignment)
     return (value + alignment - 1U) / alignment * alignment;
 }
 
-aclError InitBuffers(void* sendBuf, void* recvBuf, size_t bufferBytes)
+uint32_t LaneOperationCount(uint32_t total, uint32_t lane, uint32_t laneCount)
 {
-    std::vector<uint8_t> send(bufferBytes, 0x5AU);
-    std::vector<uint8_t> recv(bufferBytes, 0U);
-    aclError ret = aclrtMemcpy(
-        sendBuf, bufferBytes, send.data(), bufferBytes, ACL_MEMCPY_HOST_TO_DEVICE);
-    if (ret != ACL_SUCCESS) {
-        return ret;
-    }
-    return aclrtMemcpy(
-        recvBuf, bufferBytes, recv.data(), bufferBytes, ACL_MEMCPY_HOST_TO_DEVICE);
+    return total <= lane ? 0U : (total - 1U - lane) / laneCount + 1U;
 }
 
-// Builds the P2P channel to peerRank over kTargetCommProtocol and reports the index of the
-// remote buffer tagged kRecvBufTag in the channel's remote buffer table.
-//
-// The kernel resolves buffer base addresses through AscendC::simt::LocalBufferAddr and
-// RemoteBufferAddr, both of which take an index into the channel's buffer table. That table is
-// built from the memHandles handed to HcclChannelAcquire below. Local table index 0 is reserved
-// for the CCL buffer, so explicitly registered buffers start at index 1. The remote index is
-// looked up by tag because the remote table may hold entries this example did not register.
-HcclResult AcquirePeerChannel(
-    HcclComm comm, uint32_t rank, uint32_t peerRank, HcclMemHandle* memHandles, uint32_t memHandleNum,
-    ChannelHandle& channel, uint32_t& remoteRecvIdx)
+size_t BufferBytes(const std::string &api, uint32_t payloadBytes, uint32_t laneCount)
 {
-    HcclChannelDesc channelDesc;
-    HCCLCHECK(HcclChannelDescInit(&channelDesc, 1));
-    channelDesc.remoteRank = peerRank;
-    channelDesc.channelProtocol = kTargetCommProtocol;
-    channelDesc.notifyNum = 0;
-    channelDesc.memHandles = memHandles;
-    channelDesc.memHandleNum = memHandleNum;
+    if (api == "notify") {
+        return (AlignUp(payloadBytes, sizeof(uint64_t)) + sizeof(uint64_t)) * laneCount;
+    }
+    return sizeof(uint64_t) * laneCount;
+}
 
-    uint32_t* netLayers = nullptr;
-    uint32_t netLayerNum = 0;
-    HCCLCHECK(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
-    if (netLayerNum == 0 || netLayers == nullptr) {
-        std::cout << "[rank " << rank << "] no net layer reported" << std::endl;
+aclError InitBuffers(
+    void *sendBuf, void *recvBuf, size_t bytes, const std::string &api,
+    uint32_t laneCount)
+{
+    std::vector<uint8_t> send(bytes, api == "notify" ? 0x5AU : 0U);
+    std::vector<uint8_t> recv(bytes, 0U);
+    if (api == "faa" || api == "cas") {
+        uint64_t initial = api == "faa" ? kFaaInitial : kCasInitial;
+        for (uint32_t lane = 0U; lane < laneCount; ++lane) {
+            std::memcpy(recv.data() + lane * sizeof(uint64_t), &initial, sizeof(initial));
+        }
+    }
+    aclError ret = aclrtMemcpy(sendBuf, bytes, send.data(), bytes, ACL_MEMCPY_HOST_TO_DEVICE);
+    return ret == ACL_SUCCESS ?
+        aclrtMemcpy(recvBuf, bytes, recv.data(), bytes, ACL_MEMCPY_HOST_TO_DEVICE) : ret;
+}
+
+HcclResult AcquirePeerChannel(
+    HcclComm comm, uint32_t rank, uint32_t peerRank,
+    HcclMemHandle *memHandles, ChannelHandle &channel, uint32_t &remoteRecvIdx)
+{
+    HcclChannelDesc desc;
+    HCCLCHECK(HcclChannelDescInit(&desc, 1));
+    desc.remoteRank = peerRank;
+    desc.channelProtocol = kTargetCommProtocol;
+    desc.notifyNum = 0;
+    desc.memHandles = memHandles;
+    desc.memHandleNum = 2U;
+
+    uint32_t *layers = nullptr;
+    uint32_t layerNum = 0U;
+    HCCLCHECK(HcclRankGraphGetLayers(comm, &layers, &layerNum));
+    if (layerNum == 0U || layers == nullptr) {
         return HCCL_E_INTERNAL;
     }
-
-    CommLink* links = nullptr;
-    uint32_t linkNum = 0;
-    HCCLCHECK(HcclRankGraphGetLinks(comm, netLayers[0], rank, peerRank, &links, &linkNum));
-    if (linkNum == 0 || links == nullptr) {
-        std::cout << "[rank " << rank << "] no link to peer " << peerRank << std::endl;
-        return HCCL_E_INTERNAL;
-    }
-
-    bool linkFound = false;
-    for (uint32_t i = 0; i < linkNum; ++i) {
+    CommLink *links = nullptr;
+    uint32_t linkNum = 0U;
+    HCCLCHECK(HcclRankGraphGetLinks(comm, layers[0], rank, peerRank, &links, &linkNum));
+    bool found = false;
+    for (uint32_t i = 0U; i < linkNum; ++i) {
         if (links[i].linkAttr.linkProtocol == kTargetCommProtocol) {
-            channelDesc.localEndpoint = links[i].srcEndpointDesc;
-            channelDesc.remoteEndpoint = links[i].dstEndpointDesc;
-            linkFound = true;
+            desc.localEndpoint = links[i].srcEndpointDesc;
+            desc.remoteEndpoint = links[i].dstEndpointDesc;
+            found = true;
             break;
         }
     }
-    if (!linkFound) {
-        std::cout << "[rank " << rank << "] no UBC_CTP link to peer " << peerRank
-                  << ", SIMT Notify/Atomic requires the URMA path" << std::endl;
+    if (!found) {
         return HCCL_E_NOT_SUPPORT;
     }
+    HCCLCHECK(HcclChannelAcquire(comm, COMM_ENGINE_AIV, &desc, 1U, &channel));
 
-    HCCLCHECK(HcclChannelAcquire(comm, COMM_ENGINE_AIV, &channelDesc, 1, &channel));
-    if (channel == 0) {
-        std::cout << "[rank " << rank << "] channel acquire returned an invalid handle" << std::endl;
-        return HCCL_E_INTERNAL;
-    }
-
-    uint32_t memNum = 0;
-    CommMem* remoteMems = nullptr;
-    char** memTags = nullptr;
-    HCCLCHECK(HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMems, &memTags));
-    if (memNum == 0 || remoteMems == nullptr || memTags == nullptr) {
-        std::cout << "[rank " << rank << "] no remote memory reported on the channel" << std::endl;
-        return HCCL_E_INTERNAL;
-    }
-    for (uint32_t i = 0; i < memNum; ++i) {
-        if (memTags[i] != nullptr && std::strcmp(memTags[i], kRecvBufTag) == 0) {
+    uint32_t memNum = 0U;
+    CommMem *remoteMems = nullptr;
+    char **tags = nullptr;
+    HCCLCHECK(HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMems, &tags));
+    for (uint32_t i = 0U; i < memNum; ++i) {
+        if (tags[i] != nullptr && std::strcmp(tags[i], kRecvBufTag) == 0) {
             remoteRecvIdx = i;
             return HCCL_SUCCESS;
         }
     }
-    std::cout << "[rank " << rank << "] remote memory " << kRecvBufTag << " not found on the channel" << std::endl;
     return HCCL_E_INTERNAL;
 }
 
 bool CheckReceiver(
-    void* recvBuf, uint32_t payloadBytes, uint32_t laneCount, size_t bufferBytes)
+    void *recvBuf, size_t bytes, const std::string &api,
+    uint32_t payloadBytes, uint32_t iterations, uint32_t warmup,
+    uint32_t laneCount)
 {
-    std::vector<uint8_t> actual(bufferBytes, 0U);
-    if (aclrtMemcpy(actual.data(), bufferBytes, recvBuf, bufferBytes,
-        ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
+    std::vector<uint8_t> actual(bytes, 0U);
+    if (aclrtMemcpy(actual.data(), bytes, recvBuf, bytes, ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
         return false;
     }
-    const size_t laneStride = AlignUp(payloadBytes, sizeof(uint64_t)) + sizeof(uint64_t);
-    for (uint32_t lane = 0U; lane < laneCount; ++lane) {
-        size_t laneOffset = static_cast<size_t>(lane) * laneStride;
-        for (uint32_t i = 0U; i < payloadBytes; ++i) {
-            if (actual[laneOffset + i] != 0x5AU) {
-                std::cout << "receiver lane " << lane << " payload byte " << i
-                          << " actual=" << static_cast<uint32_t>(actual[laneOffset + i])
-                          << " expected=90" << std::endl;
+    if (api == "notify") {
+        size_t stride = AlignUp(payloadBytes, sizeof(uint64_t)) + sizeof(uint64_t);
+        for (uint32_t lane = 0U; lane < laneCount; ++lane) {
+            uint32_t operationCount =
+                LaneOperationCount(iterations, lane, laneCount) +
+                LaneOperationCount(warmup, lane, laneCount);
+            if (operationCount == 0U) {
+                continue;
+            }
+            for (uint32_t i = 0U; i < payloadBytes; ++i) {
+                if (actual[lane * stride + i] != 0x5AU) {
+                    return false;
+                }
+            }
+            uint64_t signal = 0U;
+            std::memcpy(&signal, actual.data() + lane * stride + AlignUp(payloadBytes, sizeof(uint64_t)),
+                sizeof(signal));
+            if (signal != kNotifySignal) {
                 return false;
             }
         }
-        uint64_t signal = 0U;
-        std::memcpy(&signal,
-            actual.data() + laneOffset + AlignUp(payloadBytes, sizeof(uint64_t)),
-            sizeof(signal));
-        if (signal != kNotifySignal) {
-            std::cout << "receiver lane " << lane << " signal actual=" << signal
-                      << " expected=" << kNotifySignal << std::endl;
+        return true;
+    }
+
+    for (uint32_t lane = 0U; lane < laneCount; ++lane) {
+        uint64_t value = 0U;
+        std::memcpy(&value, actual.data() + lane * sizeof(uint64_t), sizeof(value));
+        uint32_t operationCount =
+            LaneOperationCount(iterations, lane, laneCount) +
+            LaneOperationCount(warmup, lane, laneCount);
+        uint64_t expected = api == "faa" ?
+            kFaaInitial + static_cast<uint64_t>(operationCount) * kFaaAdd :
+            (operationCount == 0U ? kCasInitial : kCasSwap);
+        if (value != expected) {
+            std::cout << "receiver lane " << lane << " actual=" << value
+                      << " expected=" << expected << std::endl;
             return false;
         }
     }
     return true;
 }
 
+bool ValidApi(const std::string &api)
+{
+    return api == "notify" || api == "faa" || api == "cas";
+}
+
+uint32_t ApiIndex(const std::string &api)
+{
+    return api == "notify" ? 0U : (api == "faa" ? 1U : 2U);
+}
+
 } // namespace
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     if (argc != 10) {
         std::cout << "Usage: " << argv[0]
-                  << " <rank> <nranks> <rank_table_file> <simt|aiv-mte3> notify"
-                     " <iterations> <warmup> <payload_bytes> <lanes>"
+                  << " <rank> <nranks> <rank_table_file> <notify|faa|cas>"
+                     " <iterations> <warmup> <payload_bytes> <lanes> <immediate|last>"
                   << std::endl;
         return 1;
     }
-
     const int rank = std::atoi(argv[1]);
     const int nranks = std::atoi(argv[2]);
-    const char* rankTableFile = argv[3];
-    if (nranks < 2) {
-        std::cout << "nranks must be at least 2." << std::endl;
+    const char *rankTableFile = argv[3];
+    const std::string api = argv[4];
+    const uint32_t iterations = static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10));
+    const uint32_t warmup = static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10));
+    const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
+    const uint32_t laneCount = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
+    const std::string commitMode = argv[9];
+    if (nranks < 2 || !ValidApi(api) || iterations == 0U || payloadBytes == 0U ||
+        (laneCount != 1U && laneCount != 32U && laneCount != 1024U) ||
+        (commitMode != "immediate" && commitMode != "last") ||
+        (commitMode == "last" && laneCount != 1U)) {
+        std::cout << "Invalid argument." << std::endl;
         return 1;
     }
 
-    const bool useSimt = std::strcmp(argv[4], "simt") == 0;
-    const bool useAivMte3 = std::strcmp(argv[4], "aiv-mte3") == 0;
-    if ((!useSimt && !useAivMte3) || std::strcmp(argv[5], "notify") != 0) {
-        std::cout << "This benchmark supports simt/notify and aiv-mte3/notify" << std::endl;
-        return 1;
-    }
-    const uint32_t iterations = static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10));
-    const uint32_t warmup = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
-    const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
-    const uint32_t laneCount = static_cast<uint32_t>(std::strtoul(argv[9], nullptr, 10));
-    const bool validSimtLanes = laneCount == 1U || laneCount == 32U || laneCount == 1024U;
-    if (iterations == 0U || payloadBytes == 0U ||
-        (useSimt && !validSimtLanes) || (useAivMte3 && laneCount != 1U)) {
-        std::cout << "iterations and payload_bytes must be positive; SIMT lanes must be 1, 32, or 1024; "
-                     "AIV-MTE3 requires lanes=1"
-                  << std::endl;
-        return 1;
-    }
-
-    const size_t laneStride = AlignUp(payloadBytes, sizeof(uint64_t)) + sizeof(uint64_t);
-    const uint32_t timedLaneCount = useSimt ?
-        (iterations < laneCount ? iterations : laneCount) : 1U;
-    const uint32_t warmupLaneCount = useSimt ?
-        (warmup < laneCount ? warmup : laneCount) : 1U;
-    const uint32_t bufferLaneCount =
-        timedLaneCount > warmupLaneCount ? timedLaneCount : warmupLaneCount;
-    const size_t bufferBytes = laneStride * bufferLaneCount;
-
+    const size_t bufferBytes = BufferBytes(api, payloadBytes, laneCount);
     ACLCHECK(aclInit(nullptr));
     ACLCHECK(aclrtSetDevice(rank));
     aclrtStream stream = nullptr;
     ACLCHECK(aclrtCreateStream(&stream));
+    HcclComm comm = nullptr;
+    HCCLCHECK(HcclCommInitClusterInfo(rankTableFile, rank, &comm));
 
-    HcclComm hcclComm = nullptr;
-    HCCLCHECK(HcclCommInitClusterInfo(rankTableFile, rank, &hcclComm));
-
-    void* sendBuf = nullptr;
+    void *sendBuf = nullptr;
+    void *recvBuf = nullptr;
     ACLCHECK(aclrtMalloc(&sendBuf, bufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
-    void* recvBuf = nullptr;
     ACLCHECK(aclrtMalloc(&recvBuf, bufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
-    ACLCHECK(InitBuffers(sendBuf, recvBuf, bufferBytes));
+    ACLCHECK(InitBuffers(sendBuf, recvBuf, bufferBytes, api, laneCount));
 
-    // Both ranks register both buffers under the same tags, so the sender can look up the
-    // receiver's recv buffer by tag and the buffer tables stay symmetric.
     CommMem sendMem{COMM_MEM_TYPE_DEVICE, sendBuf, bufferBytes};
     CommMem recvMem{COMM_MEM_TYPE_DEVICE, recvBuf, bufferBytes};
-    HcclMemHandle memHandles[2] = {nullptr, nullptr};
-    constexpr uint32_t kSendMemHandleIdx = 0U;
+    HcclMemHandle handles[2] = {nullptr, nullptr};
+    HCCLCHECK(HcclCommMemReg(comm, kSendBufTag, &sendMem, &handles[0]));
+    HCCLCHECK(HcclCommMemReg(comm, kRecvBufTag, &recvMem, &handles[1]));
+
+    uint32_t peer = rank == kSenderRank ? kReceiverRank : kSenderRank;
+    ChannelHandle channel = 0U;
+    uint32_t remoteRecvIdx = 0U;
+    HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
+    HCCLCHECK(HostBarrier(rank, nranks, "ready"));
+
+    void *timingBuf = nullptr;
+    uint64_t timing[kTimingWords] = {};
+    bool pass = true;
     constexpr uint32_t kLocalSendIdx = 1U;
-    HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kSendMemHandleIdx]));
-    HCCLCHECK(HcclCommMemReg(hcclComm, kRecvBufTag, &recvMem, &memHandles[1]));
-
-    const uint32_t peerRank =
-        rank == kSenderRank ? static_cast<uint32_t>(kReceiverRank) : static_cast<uint32_t>(kSenderRank);
-    ChannelHandle channel = 0;
-    uint32_t remoteRecvIdx = 0;
-    HCCLCHECK(
-        AcquirePeerChannel(hcclComm, static_cast<uint32_t>(rank), peerRank, memHandles, 2U, channel, remoteRecvIdx));
-
-    HCCLCHECK(HostFileBarrier(rank, nranks, "ready"));
-
-    void* timingBuf = nullptr;
-    constexpr size_t kTimingBytes = 4U * sizeof(uint64_t);
-    bool senderDrainPass = true;
     if (rank == kSenderRank) {
-        ACLCHECK(aclrtMalloc(&timingBuf, kTimingBytes, ACL_MEM_MALLOC_HUGE_FIRST));
-    }
-
-    // Only kSenderRank drives traffic. Every other rank just holds its registered buffers
-    // open so the sender's WQEs have a valid target.
-    if (rank == kSenderRank) {
-        const char* pathName = useSimt ? "SIMT" : "AIV-MTE3";
-        std::cout << "[rank " << rank << "] 路径=" << pathName
-                  << " 接口=notify"
-                  << "，发送到 rank " << kReceiverRank << std::endl;
-        uint64_t timing[4] = {};
-        if (useAivMte3) {
-            LaunchAivNotifyPerf(
-                stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf,
-                payloadBytes, iterations, warmup);
-        } else if (laneCount == 1U) {
-            LaunchSimtNotifyPerf(
-                stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf,
-                payloadBytes, iterations, warmup);
+        ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
+        ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
+        if (commitMode == "last") {
+            LaunchSimtLastCommitPerf(stream, channel, kLocalSendIdx, remoteRecvIdx,
+                timingBuf, payloadBytes, iterations, warmup, ApiIndex(api));
+        } else if (api == "notify") {
+            LaunchSimtNotifyPerf(stream, channel, kLocalSendIdx, remoteRecvIdx,
+                timingBuf, payloadBytes, iterations, warmup, laneCount);
+        } else if (api == "faa") {
+            LaunchSimtFaaPerf(stream, channel, kLocalSendIdx, remoteRecvIdx,
+                timingBuf, iterations, warmup, laneCount);
         } else {
-            LaunchSimtNotifyBatchPerf(
-                stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf,
-                payloadBytes, iterations, warmup, laneCount);
+            LaunchSimtCasPerf(stream, channel, kLocalSendIdx, remoteRecvIdx,
+                timingBuf, iterations, warmup, laneCount);
         }
         ACLCHECK(aclrtSynchronizeStream(stream));
-        ACLCHECK(aclrtMemcpy(
-            timing, kTimingBytes, timingBuf, kTimingBytes, ACL_MEMCPY_DEVICE_TO_HOST));
-        senderDrainPass = static_cast<int64_t>(timing[1]) == 0;
-        const double totalUs = static_cast<double>(timing[0]) / 1000.0;
-        const double averageNs = static_cast<double>(timing[0]) / iterations;
-        const double packetRate = totalUs == 0.0 ? 0.0 :
-            static_cast<double>(iterations) / totalUs;
-        const double completionUs = static_cast<double>(timing[3]) / 1000.0;
-        const double completionAverageNs = static_cast<double>(timing[3]) / iterations;
-        const double completionBandwidth = completionAverageNs == 0.0 ? 0.0 :
-            static_cast<double>(payloadBytes) / completionAverageNs;
-        const uint32_t doorbellCount = useSimt ?
-            (iterations + laneCount - 1U) / laneCount : iterations;
-        const std::string resultPath = useSimt ?
-            "SIMT-t" + std::to_string(laneCount) : "AIV-MTE3";
+        ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
+        pass = static_cast<int64_t>(timing[kDrainStatusIndex]) == 0 &&
+            timing[kCompletedIndex] == iterations;
+        double issueUs = static_cast<double>(timing[kIssueCyclesIndex]) / 1000.0;
+        double averageNs = static_cast<double>(timing[kIssueCyclesIndex]) / iterations;
+        uint32_t dataBytes = api == "notify" ? payloadBytes : sizeof(uint64_t);
+        double bandwidth = averageNs == 0.0 ? 0.0 : dataBytes / averageNs;
+        bool cacheEnabled = laneCount != 1024U;
         std::cout << std::fixed << std::setprecision(6)
-                  << "RESULT | Path="
-                  << resultPath
-                  << " | API=notify"
-                  << " | RemoteCache=" << (useSimt ? "PerLaneUB" : "N/A")
-                  << " | DataSize/B=" << payloadBytes
-                  << " | Npus=" << nranks
+                  << "RESULT | Path=SIMT-t" << laneCount
+                  << " | API=" << api
+                  << " | DataSize/B=" << dataBytes
                   << " | WqeCount=" << iterations
-                  << " | DoorbellCount=" << doorbellCount
                   << " | Warmup=" << warmup
-                  << " | TotalTime/us=" << totalUs
-                  << " | AverageWqe/ns=" << averageNs
-                  << " | PacketRate/Mpps=" << packetRate
-                  << " | CompletionTime/us=" << completionUs
-                  << " | CompletionAverageWqe/ns=" << completionAverageNs
-                  << " | CompletionBandwidth/GB/s=" << completionBandwidth
-                  << " | DrainStatus=" << static_cast<int64_t>(timing[1])
-                  << " | Completed=" << timing[2] << std::endl;
+                  << " | CommitMode=" << (commitMode == "last" ? "Last" : "Immediate")
+                  << " | RemoteCache=" << (cacheEnabled ? "PerLaneUB" : "Disabled")
+                  << " | PostContext=" << (cacheEnabled ? "SharedUB" : "GM")
+                  << " | IssueTime/us=" << issueUs
+                  << " | AverageIssue/ns=" << averageNs
+                  << " | IssueBandwidth/GB/s=" << bandwidth
+                  << " | DrainStatus=" << static_cast<int64_t>(timing[kDrainStatusIndex])
+                  << " | Completed=" << timing[kCompletedIndex]
+                  << std::endl;
     }
 
-    // Separates the sender's kernel from the receiver's read. kSenderRank only arrives here
-    // after aclrtSynchronizeStream, so kReceiverRank cannot sample its recv buffer while the
-    // WQEs are still in flight. Without this the receiver races ahead straight from the
-    // "ready" barrier and reads the memset-zeroed buffer, which looks like nothing landed.
-    HCCLCHECK(HostFileBarrier(rank, nranks, "sent"));
-
-    bool pass = true;
-    if (rank == kSenderRank) {
-        pass = senderDrainPass;
-    } else if (rank == kReceiverRank) {
-        pass = CheckReceiver(recvBuf, payloadBytes, timedLaneCount, bufferBytes);
+    HCCLCHECK(HostBarrier(rank, nranks, "completed"));
+    if (rank == kReceiverRank) {
+        pass = CheckReceiver(
+            recvBuf, bufferBytes, api, payloadBytes, iterations, warmup, laneCount);
     }
     if (rank == kSenderRank || rank == kReceiverRank) {
-        std::cout << "[rank " << rank << "] " << argv[4] << " notify"
-                  << " 性能用例" << (pass ? "通过" : "失败") << std::endl;
+        std::cout << "[rank " << rank << "] " << api << " t" << laneCount
+                  << " " << (pass ? "PASS" : "FAIL") << std::endl;
     }
 
     if (timingBuf != nullptr) {
@@ -437,7 +369,7 @@ int main(int argc, char* argv[])
     }
     ACLCHECK(aclrtFree(sendBuf));
     ACLCHECK(aclrtFree(recvBuf));
-    HCCLCHECK(HcclCommDestroy(hcclComm));
+    HCCLCHECK(HcclCommDestroy(comm));
     ACLCHECK(aclrtDestroyStream(stream));
     ACLCHECK(aclFinalize());
     return pass ? 0 : 2;

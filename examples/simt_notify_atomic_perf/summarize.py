@@ -12,9 +12,9 @@ REQUIRED_FIELDS = {
     "API",
     "DataSize/B",
     "WqeCount",
-    "DoorbellCount",
-    "TotalTime/us",
-    "PacketRate/Mpps",
+    "IssueTime/us",
+    "AverageIssue/ns",
+    "IssueBandwidth/GB/s",
     "DrainStatus",
     "Completed",
 }
@@ -56,18 +56,14 @@ def parse_result_line(line):
 def display_name(path):
     if path.startswith("SIMT-t"):
         return "simt t=" + path[len("SIMT-t"):]
-    if path == "AIV-MTE3":
-        return "mte3"
     return path
 
 
 def path_order(path):
     order = {
-        "scalar": 0,
-        "AIV-MTE3": 1,
-        "SIMT-t1": 2,
-        "SIMT-t32": 3,
-        "SIMT-t1024": 4,
+        "SIMT-t1": 0,
+        "SIMT-t32": 1,
+        "SIMT-t1024": 2,
     }
     return order.get(path, 100), path
 
@@ -96,16 +92,14 @@ def load_samples(logs, api):
             samples[key].append(
                 {
                     "wqe_count": wqe_count,
-                    "doorbell_count": int(fields["DoorbellCount"]),
-                    "total_us": float(fields["TotalTime/us"]),
-                    "packet_rate": float(fields["PacketRate/Mpps"]),
-                    "completion_us": (
-                        float(fields["CompletionTime/us"])
-                        if "CompletionTime/us" in fields else None
+                    "average_ns": float(fields["AverageIssue/ns"]),
+                    "issue_us": (
+                        float(fields["IssueTime/us"])
+                        if "IssueTime/us" in fields else None
                     ),
-                    "completion_bandwidth": (
-                        float(fields["CompletionBandwidth/GB/s"])
-                        if "CompletionBandwidth/GB/s" in fields else None
+                    "issue_bandwidth": (
+                        float(fields["IssueBandwidth/GB/s"])
+                        if "IssueBandwidth/GB/s" in fields else None
                     ),
                 }
             )
@@ -119,23 +113,21 @@ def build_markdown(samples, sizes):
         for (path, data_size), values in samples.items():
             if data_size != size:
                 continue
-            completion_times = [
-                item["completion_us"] for item in values if item["completion_us"] is not None
+            issue_times = [
+                item["issue_us"] for item in values if item["issue_us"] is not None
             ]
-            completion_bandwidths = [
-                item["completion_bandwidth"]
+            issue_bandwidths = [
+                item["issue_bandwidth"]
                 for item in values
-                if item["completion_bandwidth"] is not None
+                if item["issue_bandwidth"] is not None
             ]
             rows.append(
                 (
                     path,
                     round(mean(item["wqe_count"] for item in values)),
-                    round(mean(item["doorbell_count"] for item in values)),
-                    mean(item["total_us"] for item in values),
-                    mean(item["packet_rate"] for item in values),
-                    mean(completion_times) if completion_times else None,
-                    mean(completion_bandwidths) if completion_bandwidths else None,
+                    mean(item["average_ns"] for item in values),
+                    mean(issue_times) if issue_times else None,
+                    mean(issue_bandwidths) if issue_bandwidths else None,
                 )
             )
         if not rows:
@@ -144,15 +136,15 @@ def build_markdown(samples, sizes):
         lines = [
             f"### 数据大小：{size}B",
             "",
-            "| 填写WQE的方式 | WQE总数 | 敲DB次数 | 下发耗时(us) | 包率(Mpps) | 完成耗时(us) | 完成带宽(GB/s) |",
-            "| :--- | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| 路径 | WQE总数 | 平均下发时延(ns) | 下发耗时(us) | 下发带宽(GB/s) |",
+            "| :--- | ---: | ---: | ---: | ---: |",
         ]
-        for path, wqe_count, doorbell_count, total_us, packet_rate, completion_us, completion_bw in rows:
-            completion_us_text = "-" if completion_us is None else f"{completion_us:.3f}"
-            completion_bw_text = "-" if completion_bw is None else f"{completion_bw:.3f}"
+        for path, wqe_count, average_ns, issue_us, issue_bw in rows:
+            issue_us_text = "-" if issue_us is None else f"{issue_us:.3f}"
+            issue_bw_text = "-" if issue_bw is None else f"{issue_bw:.3f}"
             lines.append(
-                f"| {display_name(path)} | {wqe_count} | {doorbell_count} | "
-                f"{total_us:.3f} | {packet_rate:.3f} | {completion_us_text} | {completion_bw_text} |"
+                f"| {display_name(path)} | {wqe_count} | {average_ns:.3f} | "
+                f"{issue_us_text} | {issue_bw_text} |"
             )
         sections.append("\n".join(lines))
     return "\n\n".join(sections) + ("\n" if sections else "")
