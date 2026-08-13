@@ -15,6 +15,7 @@
 #include <chrono>
 #include <vector>
 
+#include "acl/acl_rt.h"
 #include "runtime/rt_external_kernel.h"
 
 #include "hcomm/common/ccu_log.h"

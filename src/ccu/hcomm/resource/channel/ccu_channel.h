@@ -14,8 +14,8 @@
 #include <cstdint>
 #include <vector>
 
-#include "hccl/hccl_types.h"
 #include "hcomm/hcomm_ccu_control.h"
+#include "hcomm/hcomm_types.h"
 
 namespace hcomm {
 
