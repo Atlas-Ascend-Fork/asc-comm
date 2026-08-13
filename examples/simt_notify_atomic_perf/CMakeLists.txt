@@ -48,7 +48,7 @@ set_target_properties(simt_notify_atomic_perf PROPERTIES
 target_include_directories(simt_notify_atomic_perf BEFORE PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     $ENV{ASCEND_HOME_PATH}/include
-    $<$<COMPILE_LANGUAGE:ASC>:$ENV{ASCEND_HOME_PATH}/asc/include/adv_api>
+    $<$<COMPILE_LANGUAGE:ASC>:$ENV{ASCEND_HOME_PATH}/asc/include/comm_api>
 )
 
 # Host-side communication-domain, memory-registration and channel APIs are provided by libhcomm.so.

@@ -38,14 +38,9 @@ expect_failure()
 expect_failure env ASCEND_HOME_PATH="${TEST_ROOT}/missing-cann" \
     bash "${PROJECT_ROOT}/build.sh" --pkg
 
-collect_detail_headers()
+collect_impl_headers()
 {
-    local detail_root
-
-    while IFS= read -r -d '' detail_root; do
-        find "${detail_root}" -type f -name '*.h' -print0
-    done < <(find "${PROJECT_ROOT}/src/aicore" \
-        -mindepth 2 -maxdepth 2 -type d -name detail -print0 | sort -z)
+    find "${PROJECT_ROOT}/src/aicore" -type f -name '*.h' -print0
 }
 
 "${RUN_FILE}" --noexec --extract="${EXTRACT_DIR}" >/dev/null
@@ -56,11 +51,11 @@ REQUIRED_VERSION=$(awk -F= '$1 == "RequiredAscDevkitVersion" {print $2; exit}' "
 EXTERNAL_LINK_CANN="${TEST_ROOT}/external-link-cann"
 EXTERNAL_HEADER_DIR="${TEST_ROOT}/outside-cann/hcomm"
 mkdir -p \
-    "${EXTERNAL_LINK_CANN}/asc/include/adv_api" \
-    "${EXTERNAL_LINK_CANN}/asc/impl/adv_api/detail" \
+    "${EXTERNAL_LINK_CANN}/asc/include/comm_api" \
+    "${EXTERNAL_LINK_CANN}/asc/impl" \
     "${EXTERNAL_LINK_CANN}/share/info/asc-devkit" \
     "${EXTERNAL_HEADER_DIR}"
-ln -s "${EXTERNAL_HEADER_DIR}" "${EXTERNAL_LINK_CANN}/asc/include/adv_api/hcomm"
+ln -s "${EXTERNAL_HEADER_DIR}" "${EXTERNAL_LINK_CANN}/asc/include/comm_api/hcomm"
 printf 'Version=%s\n' "${REQUIRED_VERSION}" > \
     "${EXTERNAL_LINK_CANN}/share/info/asc-devkit/version.info"
 expect_failure "${RUN_FILE}" --full --install-path="${EXTERNAL_LINK_CANN}"
@@ -72,8 +67,8 @@ grep -q 'target path resolves outside CANN root' "${ERROR_LOG}"
 INVALID_STATE_CANN="${TEST_ROOT}/invalid-state-cann"
 INVALID_STATE_PATH="${INVALID_STATE_CANN}/var/asc-comm-dev-patch"
 mkdir -p \
-    "${INVALID_STATE_CANN}/asc/include/adv_api" \
-    "${INVALID_STATE_CANN}/asc/impl/adv_api/detail" \
+    "${INVALID_STATE_CANN}/asc/include/comm_api" \
+    "${INVALID_STATE_CANN}/asc/impl" \
     "${INVALID_STATE_CANN}/share/info/asc-devkit" \
     "${INVALID_STATE_CANN}/var"
 printf 'Version=%s\n' "${REQUIRED_VERSION}" > \
@@ -82,76 +77,77 @@ printf 'pre-existing marker\n' > "${INVALID_STATE_PATH}"
 expect_failure "${RUN_FILE}" --full --install-path="${INVALID_STATE_CANN}"
 grep -q 'backup state path is invalid' "${ERROR_LOG}"
 grep -qx 'pre-existing marker' "${INVALID_STATE_PATH}"
-[[ ! -e "${INVALID_STATE_CANN}/asc/include/adv_api/hcomm/hcomm.h" ]]
+[[ ! -e "${INVALID_STATE_CANN}/asc/include/comm_api/hcomm/hcomm.h" ]]
 
 # Preserve support for links whose resolved destination remains inside CANN_ROOT.
 INTERNAL_LINK_CANN="${TEST_ROOT}/internal-link-cann"
 INTERNAL_HEADER_DIR="${INTERNAL_LINK_CANN}/shared/hcomm"
 mkdir -p \
-    "${INTERNAL_LINK_CANN}/asc/include/adv_api" \
-    "${INTERNAL_LINK_CANN}/asc/impl/adv_api/detail" \
+    "${INTERNAL_LINK_CANN}/asc/include/comm_api" \
+    "${INTERNAL_LINK_CANN}/asc/impl" \
     "${INTERNAL_LINK_CANN}/share/info/asc-devkit" \
     "${INTERNAL_HEADER_DIR}"
-ln -s "${INTERNAL_HEADER_DIR}" "${INTERNAL_LINK_CANN}/asc/include/adv_api/hcomm"
+ln -s "${INTERNAL_HEADER_DIR}" "${INTERNAL_LINK_CANN}/asc/include/comm_api/hcomm"
 printf 'Version=%s\n' "${REQUIRED_VERSION}" > \
     "${INTERNAL_LINK_CANN}/share/info/asc-devkit/version.info"
 "${RUN_FILE}" --full --install-path="${INTERNAL_LINK_CANN}"
-cmp "${EXTRACT_DIR}/payload/asc/include/adv_api/hcomm/hcomm.h" \
+cmp "${EXTRACT_DIR}/payload/asc/include/comm_api/hcomm/hcomm.h" \
     "${INTERNAL_HEADER_DIR}/hcomm.h"
 "${RUN_FILE}" --uninstall --install-path="${INTERNAL_LINK_CANN}"
 [[ ! -e "${INTERNAL_HEADER_DIR}/hcomm.h" ]]
-[[ -L "${INTERNAL_LINK_CANN}/asc/include/adv_api/hcomm" ]]
+[[ -L "${INTERNAL_LINK_CANN}/asc/include/comm_api/hcomm" ]]
 
 PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/include/aicore" -type f -name '*.h' | wc -l)
-DETAIL_HEADER_COUNT=0
+IMPL_HEADER_COUNT=0
 while IFS= read -r -d '' source_file; do
-    DETAIL_HEADER_COUNT=$((DETAIL_HEADER_COUNT + 1))
-done < <(collect_detail_headers)
-EXPECTED_FILE_COUNT=$((PUBLIC_HEADER_COUNT + DETAIL_HEADER_COUNT))
+    IMPL_HEADER_COUNT=$((IMPL_HEADER_COUNT + 1))
+done < <(collect_impl_headers)
+EXPECTED_FILE_COUNT=$((PUBLIC_HEADER_COUNT + IMPL_HEADER_COUNT))
 [[ "$(wc -l < "${EXTRACT_DIR}/manifest.sha256")" -eq "${EXPECTED_FILE_COUNT}" ]]
-[[ ! -e "${EXTRACT_DIR}/payload/asc/include/adv_api/hcomm/detail" ]]
-[[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/hcomm" ]]
+# Implementation headers must not leak into the public include tree, and must be nested
+# under the aicore/ level rather than directly beneath impl/comm_api/.
+[[ ! -e "${EXTRACT_DIR}/payload/asc/include/comm_api/hcomm/impl" ]]
+[[ ! -e "${EXTRACT_DIR}/payload/asc/impl/comm_api/hcomm" ]]
 
 while IFS= read -r -d '' source_file; do
     relative_path=${source_file#"${PROJECT_ROOT}/include/aicore/"}
-    cmp "${source_file}" "${EXTRACT_DIR}/payload/asc/include/adv_api/${relative_path}"
+    cmp "${source_file}" "${EXTRACT_DIR}/payload/asc/include/comm_api/${relative_path}"
 done < <(find "${PROJECT_ROOT}/include/aicore" -type f -name '*.h' -print0 | sort -z)
 
+# Each module-relative subdirectory under src/aicore/ is preserved verbatim.
 while IFS= read -r -d '' source_file; do
     relative_path=${source_file#"${PROJECT_ROOT}/src/aicore/"}
-    module=${relative_path%%/*}
-    detail_path=${relative_path#"${module}/detail/"}
-    [[ "${detail_path}" != "${relative_path}" ]]
-    cmp "${source_file}" "${EXTRACT_DIR}/payload/asc/impl/adv_api/detail/${module}/${detail_path}"
-done < <(collect_detail_headers | sort -z)
+    [[ "${relative_path}" == */* ]]
+    cmp "${source_file}" "${EXTRACT_DIR}/payload/asc/impl/comm_api/aicore/${relative_path}"
+done < <(collect_impl_headers | sort -z)
 
-RELATIVE_DETAIL_INCLUDE_COUNT=0
+RELATIVE_IMPL_INCLUDE_COUNT=0
 while IFS= read -r -d '' source_file; do
     relative_path=${source_file#"${PROJECT_ROOT}/include/aicore/"}
-    packaged_header="${EXTRACT_DIR}/payload/asc/include/adv_api/${relative_path}"
+    packaged_header="${EXTRACT_DIR}/payload/asc/include/comm_api/${relative_path}"
     while IFS= read -r include_path; do
         case "${include_path}" in
-            ../../../impl/adv_api/detail/*)
+            ../../../impl/comm_api/aicore/*)
                 [[ -f "$(dirname -- "${packaged_header}")/${include_path}" ]]
-                RELATIVE_DETAIL_INCLUDE_COUNT=$((RELATIVE_DETAIL_INCLUDE_COUNT + 1))
+                RELATIVE_IMPL_INCLUDE_COUNT=$((RELATIVE_IMPL_INCLUDE_COUNT + 1))
                 ;;
         esac
     done < <(awk -F '"' '/^[[:space:]]*#[[:space:]]*include[[:space:]]*"/ {print $2}' "${packaged_header}")
 done < <(find "${PROJECT_ROOT}/include/aicore" -type f -name '*.h' -print0 | sort -z)
-[[ ${RELATIVE_DETAIL_INCLUDE_COUNT} -gt 0 ]]
+[[ ${RELATIVE_IMPL_INCLUDE_COUNT} -gt 0 ]]
 
 mkdir -p \
-    "${FAKE_CANN}/asc/include/adv_api/hcomm" \
-    "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm/common" \
+    "${FAKE_CANN}/asc/include/comm_api/hcomm" \
+    "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm/common" \
     "${FAKE_CANN}/share/info/asc-devkit" \
     "${BASELINE_DIR}"
 printf 'Version=%s\n' "${REQUIRED_VERSION}" > "${FAKE_CANN}/share/info/asc-devkit/version.info"
 
-printf 'public baseline\n' > "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
-printf 'impl detail baseline\n' > "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm/common/hcomm_base.h"
+printf 'public baseline\n' > "${FAKE_CANN}/asc/include/comm_api/hcomm/hcomm.h"
+printf 'impl detail baseline\n' > "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm/common/hcomm_base.h"
 chmod 540 \
-    "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h" \
-    "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm/common/hcomm_base.h"
+    "${FAKE_CANN}/asc/include/comm_api/hcomm/hcomm.h" \
+    "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm/common/hcomm_base.h"
 cp -a "${FAKE_CANN}/asc" "${BASELINE_DIR}/asc"
 
 expect_failure "${RUN_FILE}" --install --install-path="${FAKE_CANN}"
@@ -166,13 +162,13 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 [[ -f "${FAKE_CANN}/var/asc-comm-dev-patch/active.manifest.sha256" ]]
 
 # Protect local changes made directly in an already patched CANN tree.
-chmod 750 "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
-printf 'external change\n' > "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
+chmod 750 "${FAKE_CANN}/asc/include/comm_api/hcomm/hcomm.h"
+printf 'external change\n' > "${FAKE_CANN}/asc/include/comm_api/hcomm/hcomm.h"
 expect_failure "${RUN_FILE}" --uninstall --install-path="${FAKE_CANN}"
-grep -q '^external change$' "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
+grep -q '^external change$' "${FAKE_CANN}/asc/include/comm_api/hcomm/hcomm.h"
 [[ -d "${FAKE_CANN}/var/asc-comm-dev-patch" ]]
 expect_failure "${RUN_FILE}" --full --install-path="${FAKE_CANN}"
-grep -q '^external change$' "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
+grep -q '^external change$' "${FAKE_CANN}/asc/include/comm_api/hcomm/hcomm.h"
 
 "${RUN_FILE}" --full --install-path="${FAKE_CANN}" --force
 
@@ -180,16 +176,16 @@ grep -q '^external change$' "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
 "${RUN_FILE}" --full --install-path="${FAKE_CANN}"
 "${RUN_FILE}" --uninstall --install-path="${FAKE_CANN}"
 
-cmp "${BASELINE_DIR}/asc/include/adv_api/hcomm/hcomm.h" \
-    "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
-cmp "${BASELINE_DIR}/asc/impl/adv_api/detail/hcomm/common/hcomm_base.h" \
-    "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm/common/hcomm_base.h"
-[[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h")" == "540" ]]
+cmp "${BASELINE_DIR}/asc/include/comm_api/hcomm/hcomm.h" \
+    "${FAKE_CANN}/asc/include/comm_api/hcomm/hcomm.h"
+cmp "${BASELINE_DIR}/asc/impl/comm_api/aicore/hcomm/common/hcomm_base.h" \
+    "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm/common/hcomm_base.h"
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api/hcomm/hcomm.h")" == "540" ]]
 
 while read -r _ path; do
     case "${path}" in
-        asc/include/adv_api/hcomm/hcomm.h|\
-        asc/impl/adv_api/detail/hcomm/common/hcomm_base.h)
+        asc/include/comm_api/hcomm/hcomm.h|\
+        asc/impl/comm_api/aicore/hcomm/common/hcomm_base.h)
             ;;
         *)
             [[ ! -e "${FAKE_CANN}/${path}" ]]
@@ -198,11 +194,28 @@ while read -r _ path; do
 done < "${EXTRACT_DIR}/manifest.sha256"
 [[ ! -e "${FAKE_CANN}/var/asc-comm-dev-patch" ]]
 
+# Uninstalling from a CANN release that predates the comm_api layout must leave no empty
+# directories behind, while keeping directories that existed before the install.
+PRISTINE_CANN="${TEST_ROOT}/pristine-cann"
+mkdir -p \
+    "${PRISTINE_CANN}/asc/include" \
+    "${PRISTINE_CANN}/asc/impl" \
+    "${PRISTINE_CANN}/share/info/asc-devkit"
+printf 'Version=%s\n' "${REQUIRED_VERSION}" > \
+    "${PRISTINE_CANN}/share/info/asc-devkit/version.info"
+PRISTINE_BEFORE=$(find "${PRISTINE_CANN}/asc" | sort)
+"${RUN_FILE}" --full --install-path="${PRISTINE_CANN}"
+[[ -f "${PRISTINE_CANN}/asc/include/comm_api/hcomm/hcomm.h" ]]
+"${RUN_FILE}" --uninstall --install-path="${PRISTINE_CANN}"
+[[ ! -e "${PRISTINE_CANN}/asc/include/comm_api" ]]
+[[ ! -e "${PRISTINE_CANN}/asc/impl/comm_api" ]]
+[[ "$(find "${PRISTINE_CANN}/asc" | sort)" == "${PRISTINE_BEFORE}" ]]
+
 # A compatibility failure must not touch the CANN tree.
 printf 'Version=0.0.0\n' > "${FAKE_CANN}/share/info/asc-devkit/version.info"
 expect_failure "${RUN_FILE}" --full --install-path="${FAKE_CANN}"
-cmp "${BASELINE_DIR}/asc/include/adv_api/hcomm/hcomm.h" \
-    "${FAKE_CANN}/asc/include/adv_api/hcomm/hcomm.h"
+cmp "${BASELINE_DIR}/asc/include/comm_api/hcomm/hcomm.h" \
+    "${FAKE_CANN}/asc/include/comm_api/hcomm/hcomm.h"
 [[ ! -e "${FAKE_CANN}/var/asc-comm-dev-patch" ]]
 
 echo "asc-comm run package install/reinstall/uninstall test passed"

@@ -127,25 +127,6 @@ copy_headers()
     [[ ${count} -gt 0 ]] || fail "no header files found under ${source_root}"
 }
 
-copy_detail_headers()
-{
-    local source_root=$1
-    local destination_root=$2
-    local detail_root
-    local module
-    local count=0
-
-    while IFS= read -r -d '' detail_root; do
-        module=${detail_root#"${source_root}/"}
-        module=${module%/detail}
-        [[ -n "${module}" && "${module}" != */* ]] || fail "invalid AICore module path: ${detail_root}"
-        copy_headers "${detail_root}" "${destination_root}/${module}"
-        count=$((count + 1))
-    done < <(find "${source_root}" -mindepth 2 -maxdepth 2 -type d -name detail -print0 | sort -z)
-
-    [[ ${count} -gt 0 ]] || fail "no AICore detail header directories found under ${source_root}"
-}
-
 write_manifest()
 {
     local file
@@ -204,13 +185,15 @@ build_package()
     rm -rf -- "${STAGING_DIR}"
     mkdir -p "${STAGING_DIR}/payload"
 
-    # Preserve each AICore module name while converting source layout to CANN installation layout.
+    # Convert the source layout to the CANN installation layout. Both trees are copied
+    # recursively, so each module name and every module-relative subdirectory is preserved
+    # without assuming any fixed module list or intermediate directory name.
     copy_headers \
         "${PROJECT_ROOT}/include/aicore" \
-        "${STAGING_DIR}/payload/asc/include/adv_api"
-    copy_detail_headers \
+        "${STAGING_DIR}/payload/asc/include/comm_api"
+    copy_headers \
         "${PROJECT_ROOT}/src/aicore" \
-        "${STAGING_DIR}/payload/asc/impl/adv_api/detail"
+        "${STAGING_DIR}/payload/asc/impl/comm_api/aicore"
 
     write_manifest
     write_version_info "${arch}" "${required_version}"

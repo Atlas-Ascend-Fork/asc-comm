@@ -37,7 +37,7 @@ build/ut-hcomm
 
 ## 构建开发验证run包
 
-本地修改AICore头文件后，可生成轻量开发验证包，将当前工作树中的公开头文件和detail头文件安装到已有CANN环境，无需重新生成完整toolkit包：
+本地修改AICore头文件后，可生成轻量开发验证包，将当前工作树中的公开头文件和实现头文件安装到已有CANN环境，无需重新生成完整toolkit包：
 
 ```bash
 bash build.sh --pkg
@@ -49,14 +49,16 @@ bash build.sh --pkg
 Ascend-asccomm_1.0.0_linux-<arch>.run
 ```
 
-其中`<arch>`为`aarch64`或`x86_64`。制包时会递归扫描`include/aicore/`下的全部`.h`文件，以及`src/aicore/`下各模块`detail/`目录中的全部`.h`文件，不指定固定模块、文件名或文件数量：
+其中`<arch>`为`aarch64`或`x86_64`。制包时会分别递归扫描`include/aicore/`和`src/aicore/`下的全部`.h`文件，不指定固定模块、文件名或文件数量：
 
 | 仓库扫描目录 | CANN安装目录 |
 | --- | --- |
-| `include/aicore/<module>/` | `asc/include/adv_api/<module>/` |
-| `src/aicore/<module>/detail/` | `asc/impl/adv_api/detail/<module>/` |
+| `include/aicore/<module>/` | `asc/include/comm_api/<module>/` |
+| `src/aicore/<module>/` | `asc/impl/comm_api/aicore/<module>/` |
 
-例如，Hcomm头文件按原有规则安装到`asc/include/adv_api/hcomm/`和`asc/impl/adv_api/detail/hcomm/`。新增`include/aicore/ain/ain.h`与`src/aicore/ain/detail/impl/ain_impl.h`后，会自动安装为`asc/include/adv_api/ain/ain.h`与`asc/impl/adv_api/detail/ain/impl/ain_impl.h`。模块名和模块内部子目录结构都会保留。
+例如，Hcomm头文件安装到`asc/include/comm_api/hcomm/`和`asc/impl/comm_api/aicore/hcomm/`。新增`include/aicore/ain/ain.h`与`src/aicore/ain/impl/ain_impl.h`后，会自动安装为`asc/include/comm_api/ain/ain.h`与`asc/impl/comm_api/aicore/ain/impl/ain_impl.h`。模块名和模块内部子目录结构都会保留。
+
+该映射与公开头文件中的相对include保持一致：`include/aicore/<module>/`下的头文件通过`../../../impl/comm_api/aicore/<module>/`引用实现头文件，安装后从`asc/include/comm_api/<module>/`向上三层到`asc/`，再进入`asc/impl/comm_api/aicore/<module>/`。
 
 因此，在上述扫描目录中新增`.h`文件后重新制包，新文件会自动进入run包。文件名、源码文件数量和安装文件数量均不固定，其他类型的文件不会进入包。run包清单只描述制包时存在的头文件，不是目标目录的完整镜像。首次安装时，仓库中已经删除或重命名的路径不会出现在清单中，安装器无法据此删除CANN中原有的旧路径文件。涉及删除或重命名时，不应仅依赖该run包验证目录最终状态。
 
@@ -103,7 +105,7 @@ Ascend-asccomm_1.0.0_linux-<arch>.run
     --full --install-path=/path/to/cann
 ```
 
-安装器依次尝试将`--install-path`本身、`<install-path>/cann`或`<install-path>/ascend-toolkit/latest`解析为CANN根目录。解析后的目录必须包含`asc/include/adv_api/`、`asc/impl/adv_api/detail/`和`share/info/asc-devkit/version.info`，且当前用户必须是该CANN根目录的属主。
+安装器依次尝试将`--install-path`本身、`<install-path>/cann`或`<install-path>/ascend-toolkit/latest`解析为CANN根目录。解析后的目录必须包含`asc/include/comm_api/`、`asc/impl/comm_api/aicore/`和`share/info/asc-devkit/version.info`，且当前用户必须是该CANN根目录的属主。
 
 首次安装时，备份状态保存在解析后的CANN根目录下：
 

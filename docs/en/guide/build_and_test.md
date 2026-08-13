@@ -31,7 +31,7 @@ build/ut-hcomm
 
 ## Build a Development Run Package
 
-After modifying AICore headers locally, build a lightweight development package to install the public and detail headers from the current worktree into an existing CANN environment without rebuilding the complete toolkit package:
+After modifying AICore headers locally, build a lightweight development package to install the public and implementation headers from the current worktree into an existing CANN environment without rebuilding the complete toolkit package:
 
 ```bash
 bash build.sh --pkg
@@ -43,14 +43,16 @@ The generated file is placed in `build_out/` by default:
 Ascend-asccomm_1.0.0_linux-<arch>.run
 ```
 
-`<arch>` is `aarch64` or `x86_64`. At packaging time, every `.h` file under `include/aicore/` and every `.h` file in each module's `detail/` directory under `src/aicore/` is collected recursively. Module names, file names, and file counts are not fixed:
+`<arch>` is `aarch64` or `x86_64`. At packaging time, every `.h` file under `include/aicore/` and under `src/aicore/` is collected recursively. Module names, file names, and file counts are not fixed:
 
 | Repository scan directory | CANN installation directory |
 | --- | --- |
-| `include/aicore/<module>/` | `asc/include/adv_api/<module>/` |
-| `src/aicore/<module>/detail/` | `asc/impl/adv_api/detail/<module>/` |
+| `include/aicore/<module>/` | `asc/include/comm_api/<module>/` |
+| `src/aicore/<module>/` | `asc/impl/comm_api/aicore/<module>/` |
 
-For example, Hcomm headers retain their existing destinations under `asc/include/adv_api/hcomm/` and `asc/impl/adv_api/detail/hcomm/`. After adding `include/aicore/ain/ain.h` and `src/aicore/ain/detail/impl/ain_impl.h`, they are automatically installed as `asc/include/adv_api/ain/ain.h` and `asc/impl/adv_api/detail/ain/impl/ain_impl.h`. Module names and module-relative subdirectories are preserved.
+For example, Hcomm headers are installed under `asc/include/comm_api/hcomm/` and `asc/impl/comm_api/aicore/hcomm/`. After adding `include/aicore/ain/ain.h` and `src/aicore/ain/impl/ain_impl.h`, they are automatically installed as `asc/include/comm_api/ain/ain.h` and `asc/impl/comm_api/aicore/ain/impl/ain_impl.h`. Module names and module-relative subdirectories are preserved.
+
+This mapping matches the relative includes used by the public headers: a header under `include/aicore/<module>/` references its implementation headers through `../../../impl/comm_api/aicore/<module>/`, which after installation climbs three levels from `asc/include/comm_api/<module>/` to `asc/` and then descends into `asc/impl/comm_api/aicore/<module>/`.
 
 Consequently, a new `.h` file under either scan directory is automatically included the next time the package is built. File names, source file counts, and installed file counts are not fixed; other file types are excluded. The package manifest describes only headers present at packaging time and does not represent a complete mirror of the target directories. On a first installation, a path already deleted or renamed in the repository is absent from the manifest, so the installer cannot remove the corresponding old path from CANN. Do not rely solely on this run package to verify the final directory state of deletions or renames.
 
@@ -97,7 +99,7 @@ Alternatively, select an installation location with an absolute path:
     --full --install-path=/path/to/cann
 ```
 
-The installer tries the `--install-path` value itself, `<install-path>/cann`, and `<install-path>/ascend-toolkit/latest` as the CANN root. The resolved directory must contain `asc/include/adv_api/`, `asc/impl/adv_api/detail/`, and `share/info/asc-devkit/version.info`. The current user must own the resolved CANN root.
+The installer tries the `--install-path` value itself, `<install-path>/cann`, and `<install-path>/ascend-toolkit/latest` as the CANN root. The resolved directory must contain `asc/include/comm_api/`, `asc/impl/comm_api/aicore/`, and `share/info/asc-devkit/version.info`. The current user must own the resolved CANN root.
 
 On the first installation, baseline state is stored under the resolved CANN root:
 

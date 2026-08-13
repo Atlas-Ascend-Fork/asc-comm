@@ -6,8 +6,8 @@ asc-comm development patch package
   --install-path=<CANN_ROOT>       Select the CANN root; default: ASCEND_HOME_PATH
   --force                         Override version or installed-file consistency checks
 
-Public headers are installed by module under asc/include/adv_api/. Detail
-headers are installed by module under asc/impl/adv_api/detail/.
+Public headers are installed by module under asc/include/comm_api/.
+Implementation headers are installed by module under asc/impl/comm_api/aicore/.
 Existing files are backed up under var/asc-comm-dev-patch/baseline/. This
 package is intended only for local development verification. Recompile the
 target Ascend C kernel after installation. Only paths present in the package

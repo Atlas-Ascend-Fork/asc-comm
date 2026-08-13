@@ -93,11 +93,14 @@ parse_args()
     [[ "${INSTALL_PATH}" = /* ]] || fail "CANN path must be absolute: ${INSTALL_PATH}"
 }
 
+# Identify a CANN root without requiring the comm_api directories to pre-exist: a CANN
+# release that predates the comm_api layout carries no such directory, and the patch is
+# expected to create it. asc/include and asc/impl are present in every supported release.
 is_cann_root()
 {
     local path=$1
-    [[ -d "${path}/asc/include/adv_api" && \
-        -d "${path}/asc/impl/adv_api/detail" && \
+    [[ -d "${path}/asc/include" && \
+        -d "${path}/asc/impl" && \
         -f "${path}/share/info/asc-devkit/version.info" ]]
 }
 
@@ -159,7 +162,7 @@ is_allowed_path()
 {
     local path=$1
     case "${path}" in
-        asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h)
+        asc/include/comm_api/*/*.h|asc/impl/comm_api/aicore/*/*.h)
             ;;
         *)
             return 1
@@ -408,6 +411,39 @@ restore_baseline()
             rm -f -- "${target}"
         fi
     done < "${paths_file}"
+
+    prune_empty_dirs "${paths_file}"
+}
+
+# Installing with `install -D` creates intermediate directories that no baseline entry
+# describes. Remove the ones left empty by the restore above, walking upwards no further
+# than the two package roots so unrelated CANN directories are never considered.
+prune_empty_dirs()
+{
+    local paths_file=$1
+    local path
+    local dir
+    local root
+
+    while IFS= read -r path; do
+        case "${path}" in
+            asc/include/comm_api/*)
+                root="asc/include/comm_api"
+                ;;
+            asc/impl/comm_api/aicore/*)
+                root="asc/impl/comm_api"
+                ;;
+            *)
+                continue
+                ;;
+        esac
+        dir=$(dirname -- "${path}")
+        while [[ "${dir}" == "${root}"/* || "${dir}" == "${root}" ]]; do
+            [[ -d "${CANN_ROOT}/${dir}" && ! -L "${CANN_ROOT}/${dir}" ]] || break
+            rmdir -- "${CANN_ROOT}/${dir}" 2>/dev/null || break
+            dir=$(dirname -- "${dir}")
+        done
+    done < "${paths_file}"
 }
 
 record_new_baselines()
@@ -454,15 +490,15 @@ install_payload()
         check_regular_target "${target}"
         install -D -m 550 "${PAYLOAD_DIR}/${path}" "${target}"
         case "${path}" in
-            asc/include/adv_api/*)
-                relative_path=${path#asc/include/adv_api/}
+            asc/include/comm_api/*)
+                relative_path=${path#asc/include/comm_api/}
                 module=${relative_path%%/*}
-                managed_roots["${CANN_ROOT}/asc/include/adv_api/${module}"]=1
+                managed_roots["${CANN_ROOT}/asc/include/comm_api/${module}"]=1
                 ;;
-            asc/impl/adv_api/detail/*)
-                relative_path=${path#asc/impl/adv_api/detail/}
+            asc/impl/comm_api/aicore/*)
+                relative_path=${path#asc/impl/comm_api/aicore/}
                 module=${relative_path%%/*}
-                managed_roots["${CANN_ROOT}/asc/impl/adv_api/detail/${module}"]=1
+                managed_roots["${CANN_ROOT}/asc/impl/comm_api/aicore/${module}"]=1
                 ;;
         esac
     done < "${paths_file}"
