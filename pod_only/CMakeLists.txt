@@ -49,6 +49,7 @@ add_library(aicpu_pod_data_plane SHARED ${ASC_COMM_AICPU_HCOMM_POD_SOURCES})
 target_compile_definitions(aicpu_pod_data_plane PRIVATE
     HCCD
     CCL_KERNEL_AICPU
+    HCOMM_POD_SOURCE_BUILD
     OPEN_BUILD_PROJECT
     _GLIBCXX_USE_CXX11_ABI=1
 )

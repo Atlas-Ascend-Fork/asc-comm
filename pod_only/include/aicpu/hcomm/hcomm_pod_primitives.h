@@ -11,18 +11,10 @@
 #ifndef HCOMM_POD_PRIMITIVES_H
 #define HCOMM_POD_PRIMITIVES_H
 
-#if defined(__has_include)
-#if __has_include("../../../../comm_api/aicpu/hcomm/hcomm_primitives.h")
-#include "../../../../comm_api/aicpu/hcomm/hcomm_primitives.h"
-#elif __has_include("hcomm_primitives.h")
+#ifdef HCOMM_POD_SOURCE_BUILD
 #include "hcomm_primitives.h"
-#elif __has_include("hccl/internal/hcomm/hcomm_primitives.h")
-#include "hccl/internal/hcomm/hcomm_primitives.h"
 #else
-#error "hcomm_primitives.h not found"
-#endif
-#else
-#include "hcomm_primitives.h"
+#include <hccl/hcomm_primitives.h>
 #endif
 
 #if defined(__GNUC__)
