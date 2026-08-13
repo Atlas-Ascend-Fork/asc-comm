@@ -12,8 +12,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
 #include <memory>
-#include <vector>
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
@@ -119,77 +119,59 @@ private:
         return value;
     }
 
-    void SetChannel(ChannelHandle handle, uint16_t &id, ChannelHandle &recordHandle)
+    bool QueryChannel(ChannelHandle handle, HcommCcuChannelPod &channel)
     {
-        ChannelEntity channel{};
-        recordHandle = handle;
-        id = UINT16_MAX;
-        if (ops_.channelQuery != nullptr && ops_.channelQuery(handle, &channel) == 0) {
-            id = static_cast<uint16_t>(channel.ccuInfo.channelId);
-        }
-    }
-
-    bool QueryChannel(ChannelHandle handle, ChannelEntity &channel, std::vector<RegedNotifyEntity> &localNotify,
-        std::vector<RegedNotifyEntity> &remoteNotify, std::vector<uint32_t> &localXn,
-        std::vector<uint32_t> &remoteXn)
-    {
-        channel = {};
-        channel.abiHeader.version = HCOMM_CCU_CHANNEL_VERSION;
-        channel.abiHeader.magicWord = HCOMM_CCU_CHANNEL_MAGIC_WORD;
-        channel.abiHeader.size = sizeof(ChannelEntity);
+        channel.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
+        channel.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
+        channel.header.size = sizeof(HcommCcuChannelPod);
         if (ops_.channelQuery == nullptr || ops_.channelQuery(handle, &channel) != 0) {
-            firstError_ = firstError_ == 0 ? static_cast<int32_t>(CcuResult::CCU_E_INTERNAL) : firstError_;
-            return false;
-        }
-        localNotify.resize(channel.localNotifyNum);
-        remoteNotify.resize(channel.remoteNotifyNum);
-        std::vector<RegedBufferEntity> remoteBuffer(channel.remoteBufferNum);
-        localXn.resize(channel.ccuInfo.localXnNum);
-        remoteXn.resize(channel.ccuInfo.remoteXnNum);
-        channel.localNotifyAddr = localNotify.data();
-        channel.remoteNotifyAddr = remoteNotify.data();
-        channel.remoteBufferAddr = remoteBuffer.data();
-        channel.ccuInfo.localXnAddr = localXn.data();
-        channel.ccuInfo.remoteXnAddr = remoteXn.data();
-        channel.ccuInfo.localXnCapacity = static_cast<uint32_t>(localXn.size());
-        channel.ccuInfo.remoteXnCapacity = static_cast<uint32_t>(remoteXn.size());
-        if (ops_.channelQuery(handle, &channel) != 0) {
             firstError_ = firstError_ == 0 ? static_cast<int32_t>(CcuResult::CCU_E_INTERNAL) : firstError_;
             return false;
         }
         return true;
     }
 
-    uint16_t ChannelSignal(ChannelHandle handle, uint16_t index, bool remote)
+    void SetChannel(ChannelHandle handle, uint16_t &id, ChannelHandle &recordHandle)
     {
-        ChannelEntity channel{};
-        std::vector<RegedNotifyEntity> localNotify;
-        std::vector<RegedNotifyEntity> remoteNotify;
-        std::vector<uint32_t> localXn;
-        std::vector<uint32_t> remoteXn;
-        if (!QueryChannel(handle, channel, localNotify, remoteNotify, localXn, remoteXn)) {
-            return UINT16_MAX;
+        HcommCcuChannelPod channel{};
+        recordHandle = handle;
+        id = UINT16_MAX;
+        if (!QueryChannel(handle, channel)) {
+            return;
         }
-        const auto &notifies = remote ? remoteNotify : localNotify;
-        if (index >= notifies.size() || notifies[index].type != REGED_NOTIFY_CCU_CKE) {
+        if (channel.channelId > std::numeric_limits<uint16_t>::max()) {
+            firstError_ = firstError_ == 0 ? static_cast<int32_t>(CcuResult::CCU_E_PARA) : firstError_;
+            return;
+        }
+        id = static_cast<uint16_t>(channel.channelId);
+    }
+
+    uint16_t IdByArray(const uint32_t *ids, uint16_t index)
+    {
+        if (ids == nullptr || index >= HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY ||
+            ids[index] > std::numeric_limits<uint16_t>::max()) {
             firstError_ = firstError_ == 0 ? static_cast<int32_t>(CcuResult::CCU_E_PARA) : firstError_;
             return UINT16_MAX;
         }
-        return static_cast<uint16_t>(notifies[index].notifyInfo.ccuCke.ckeId);
+        return static_cast<uint16_t>(ids[index]);
+    }
+
+    uint16_t ChannelSignal(ChannelHandle handle, uint16_t index, bool remote)
+    {
+        HcommCcuChannelPod channel{};
+        if (!QueryChannel(handle, channel)) {
+            return UINT16_MAX;
+        }
+        return IdByArray(remote ? channel.remoteCkeIds : channel.localCkeIds, index);
     }
 
     uint16_t ChannelRemoteXn(ChannelHandle handle, uint16_t index)
     {
-        ChannelEntity channel{};
-        std::vector<RegedNotifyEntity> localNotify;
-        std::vector<RegedNotifyEntity> remoteNotify;
-        std::vector<uint32_t> localXn;
-        std::vector<uint32_t> remoteXn;
-        if (!QueryChannel(handle, channel, localNotify, remoteNotify, localXn, remoteXn) || index >= remoteXn.size()) {
-            firstError_ = firstError_ == 0 ? static_cast<int32_t>(CcuResult::CCU_E_PARA) : firstError_;
+        HcommCcuChannelPod channel{};
+        if (!QueryChannel(handle, channel)) {
             return UINT16_MAX;
         }
-        return static_cast<uint16_t>(remoteXn[index]);
+        return IdByArray(channel.remoteXnIds, index);
     }
 
     std::shared_ptr<CcuRepBase> ResolveRep(CcuKernel &kernel, uint16_t id)
