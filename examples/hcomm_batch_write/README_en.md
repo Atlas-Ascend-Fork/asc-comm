@@ -5,7 +5,9 @@ shared SQ by one `BatchCommit` and one SQ doorbell. `Drain` then waits for both 
 
 The sample uses two ranks and two NPUs on one host. Each rank creates two logical channels to its only peer. This
 validates multiple channel entities, UB-side WQE batching, a single commit, and CQ completion on a shared local
-Jetty. It does not validate multiple distinct peers; that topology requires at least three ranks.
+Jetty. `MakeMultiChannelHandle` takes an explicit `sharedQueueTag`: channels with the same endpoint and tag share a
+Jetty, while a different tag selects a different shared Jetty. The sample does not validate multiple distinct peers;
+that topology requires at least three ranks.
 
 Prerequisites:
 

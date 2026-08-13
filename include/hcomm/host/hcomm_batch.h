@@ -38,10 +38,12 @@ static inline int AscCommIsSameEndpoint(const EndpointDesc* lhs, const EndpointD
 }
 
 static inline HcclResult AscCommValidateMultiChannelInputs(
-    HcclComm comm, const HcclChannelDesc* channelDescs, uint32_t channelNum, MultiChannelHandle* multiChannel)
+    HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
+    MultiChannelHandle* multiChannel)
 {
     uint32_t i;
-    if (comm == NULL || channelDescs == NULL || multiChannel == NULL || channelNum == 0U) {
+    if (comm == NULL || sharedQueueTag == NULL || channelDescs == NULL ||
+        multiChannel == NULL || channelNum == 0U) {
         fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
         return HCCL_E_PARA;
     }
@@ -55,7 +57,8 @@ static inline HcclResult AscCommValidateMultiChannelInputs(
 }
 
 static inline HcclResult AscCommAcquireSharedChannels(
-    HcclComm comm, const HcclChannelDesc* channelDescs, uint32_t channelNum, ChannelHandle* channels)
+    HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
+    ChannelHandle* channels)
 {
     HcclChannelConfig config = NULL;
     HcclResult configRet;
@@ -70,7 +73,7 @@ static inline HcclResult AscCommAcquireSharedChannels(
         fprintf(stderr, "[ERROR] [%s] set shared queue config failed, ret[%d].\n", __func__, ret);
     }
     if (ret == HCCL_SUCCESS) {
-        ret = HcclChannelConfigSetStr(config, HCCL_CHANNEL_CONFIG_TYPE_SHARED_QUEUE_TAG, "asccomm_multi_channel");
+        ret = HcclChannelConfigSetStr(config, HCCL_CHANNEL_CONFIG_TYPE_SHARED_QUEUE_TAG, sharedQueueTag);
         if (ret != HCCL_SUCCESS) {
             fprintf(stderr, "[ERROR] [%s] set shared queue tag failed, ret[%d].\n", __func__, ret);
         }
@@ -134,12 +137,11 @@ static inline HcclResult AscCommCopyChannelEntities(
 }
 
 /**
- * @brief Create shared-Jetty channels and a device-resident multi-channel handle.
- * @note All channel descriptions must have the same local endpoint. Protocol support is validated by HCOMM.
- *       Channels are owned by the communication domain. Device metadata is owned by the returned handle.
+ * @brief Create tagged shared-Jetty channels and a device-resident multi-channel handle.
  */
 static inline HcclResult MakeMultiChannelHandle(
-    HcclComm comm, const HcclChannelDesc* channelDescs, uint32_t channelNum, MultiChannelHandle* multiChannel)
+    HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
+    MultiChannelHandle* multiChannel)
 {
     ChannelHandle* channels;
     void* deviceMemory = NULL;
@@ -148,7 +150,7 @@ static inline HcclResult MakeMultiChannelHandle(
     if (multiChannel != NULL) {
         *multiChannel = 0U;
     }
-    ret = AscCommValidateMultiChannelInputs(comm, channelDescs, channelNum, multiChannel);
+    ret = AscCommValidateMultiChannelInputs(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
@@ -158,7 +160,7 @@ static inline HcclResult MakeMultiChannelHandle(
         fprintf(stderr, "[ERROR] [%s] allocate channel handles failed, channelNum[%u].\n", __func__, channelNum);
         return HCCL_E_MEMORY;
     }
-    ret = AscCommAcquireSharedChannels(comm, channelDescs, channelNum, channels);
+    ret = AscCommAcquireSharedChannels(comm, sharedQueueTag, channelDescs, channelNum, channels);
     if (ret == HCCL_SUCCESS) {
         ret = AscCommCopyChannelEntities(channels, channelNum, &deviceMemory);
     }
