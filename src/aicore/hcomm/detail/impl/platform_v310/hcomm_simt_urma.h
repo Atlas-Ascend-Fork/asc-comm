@@ -38,22 +38,10 @@ __simt_callee__ inline uint32_t HcommSimtUrmaFlag()
            ((config.cqe & 0x1U) << 5U) | ((config.inlineEn & 0x1U) << 6U);
 }
 
-constexpr uint32_t HCOMM_URMA_FLAG_CQE_BIT = 1U << 5U;
-
 __simt_callee__ inline void HcommSimtClear128(__gm__ uint8_t* addr)
 {
 #pragma unroll
     for (uint32_t i = 0; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
-        ((__gm__ uint64_t*)addr)[i] = 0U;
-    }
-}
-
-// Clears a single BB. Deferred posts occupy one BB, so clearing 128B would wipe the
-// neighbouring slot another lane just reserved.
-__simt_callee__ inline void HcommSimtClear64(__gm__ uint8_t* addr)
-{
-#pragma unroll
-    for (uint32_t i = 0; i < HCOMM_URMA_WQE_BB_SIZE / sizeof(uint64_t); ++i) {
         ((__gm__ uint64_t*)addr)[i] = 0U;
     }
 }
@@ -179,18 +167,6 @@ __simt_callee__ inline void HcommSimtUrmaFillUbAtomicWqe(
         amoData[2] = 0U;
         amoData[3] = 0U;
     }
-}
-
-template <auto const& config>
-__simt_callee__ inline void HcommSimtUrmaFillNopWqe(
-    __gm__ uint8_t* wqeAddr, __gm__ const SqContext* sqCtx, uint32_t curHead, uint32_t nextHead)
-{
-    __gm__ HcommUrmaSqeCtx* sqeCtx = (__gm__ HcommUrmaSqeCtx*)wqeAddr;
-    sqeCtx->sqeBbIdx = static_cast<uint16_t>(nextHead);
-    sqeCtx->opcode = static_cast<uint32_t>(HcommUrmaOpCode::NOP);
-    // NOP only pads the DWQE, so clear the CQE bit to keep one CQE per real WQE.
-    sqeCtx->flag = HcommSimtUrmaFlag<config>() & ~HCOMM_URMA_FLAG_CQE_BIT;
-    sqeCtx->owner = (curHead & sqCtx->contextInfo.ubJfs.sqDepth) == 0U ? 1U : 0U;
 }
 
 // Fills the SQE header of one BB. bbIdx is the head index of this BB and drives the owner bit;
