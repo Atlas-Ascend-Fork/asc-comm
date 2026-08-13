@@ -21,6 +21,7 @@ docs/
 | [API参考](./zh/api/README.md) | asc-comm当前公开接口列表。 |
 | [Hcomm使用说明](./zh/guide/hcomm_usage.md) | Hcomm点对点通信接口的基本使用流程。 |
 | [构建与测试](./zh/guide/build_and_test.md) | CANN环境、构建脚本、UT构建和样例构建说明。 |
+| [开发包构建与安装](./zh/guide/package_install.md) | asc-comm开发run包的构建、安装和卸载命令。 |
 | [三方依赖与兼容性](./zh/guide/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
 | [API文档贡献指南](./api_contributing.md) | 新增或修改API文档时的结构、约束和检查要求。 |
 | [资料贡献指南](./doc_contributing.md) | README、docs、examples等资料文档的补充规范。 |

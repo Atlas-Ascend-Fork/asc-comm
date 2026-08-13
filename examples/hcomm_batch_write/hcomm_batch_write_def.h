@@ -15,17 +15,15 @@
 
 namespace HcommBatchWriteExample {
 
-constexpr uint32_t RANK_NUM = 2U;
-constexpr uint32_t CHANNEL_NUM = 2U;
+constexpr uint32_t DEFAULT_RANK_NUM = 2U;
+constexpr uint32_t MAX_RANK_NUM = 16U;
+constexpr uint32_t MAX_CHANNEL_NUM = MAX_RANK_NUM - 1U;
 constexpr uint32_t DATA_SIZE = 256U;
-constexpr uint64_t COMM_BUFFER_SIZE = 4096U;
-constexpr uint64_t SEND_OFFSET_0 = 0U;
-constexpr uint64_t SEND_OFFSET_1 = DATA_SIZE;
-constexpr uint64_t RECV_OFFSET_0 = 2U * DATA_SIZE;
-constexpr uint64_t RECV_OFFSET_1 = 3U * DATA_SIZE;
-constexpr uint32_t BATCH_BUFFER_SIZE = 512U;
+constexpr uint64_t SEND_OFFSET = 0U;
+constexpr uint64_t RECV_BASE_OFFSET = DATA_SIZE;
+constexpr uint32_t BATCH_BUFFER_SIZE = 2048U;
 constexpr char MEMORY_TAG[] = "asccomm_batch_write";
-constexpr char SHARED_QUEUE_TAG[] = "asccomm_batch_write_queue";
+constexpr char SHARED_QUEUE_TAG_PREFIX[] = "asccomm_batch_write_queue";
 
 enum KernelResult : uint32_t {
     KERNEL_SUCCESS = 0U,
@@ -39,8 +37,10 @@ enum KernelResult : uint32_t {
 struct BatchContext {
     uint64_t multiChannel;
     uint64_t localBuffer;
-    uint64_t remoteBuffer;
+    uint64_t remoteBuffers[MAX_CHANNEL_NUM];
+    uint32_t channelNum;
     KernelResult result;
+    int32_t hcommResult;
 };
 
 } // namespace HcommBatchWriteExample

@@ -21,7 +21,6 @@ public:
     {
         context_ = reinterpret_cast<__gm__ BatchContext*>(context);
         localBuffer_ = reinterpret_cast<GM_ADDR>(context_->localBuffer);
-        remoteBuffer_ = reinterpret_cast<GM_ADDR>(context_->remoteBuffer);
         pipe->InitBuffer(batchBuffer_, BATCH_BUFFER_SIZE);
         batchTensor_ = batchBuffer_.Get<uint8_t>();
     }
@@ -29,34 +28,34 @@ public:
     __aicore__ inline void Process()
     {
         context_->result = KERNEL_SUCCESS;
+        context_->hcommResult = AscendC::HCOMM_SUCCESS;
         AscendC::BatchHandle batch = hcomm_.MakeBatchHandle(context_->multiChannel, batchTensor_, BATCH_BUFFER_SIZE);
         if (batch.stateAddr == 0U) {
             context_->result = KERNEL_MAKE_BATCH_HANDLE_FAILED;
             return;
         }
 
-        AscendC::BatchHandleRef channel0 = hcomm_.GetHandleRef(batch, 0U);
-        AscendC::BatchHandleRef channel1 = hcomm_.GetHandleRef(batch, 1U);
-        if (channel0.stateAddr == 0U || channel1.stateAddr == 0U) {
-            context_->result = KERNEL_GET_HANDLE_REF_FAILED;
-            return;
+        for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
+            AscendC::BatchHandleRef channel = hcomm_.GetHandleRef(batch, channelIndex);
+            if (channel.stateAddr == 0U) {
+                context_->result = KERNEL_GET_HANDLE_REF_FAILED;
+                return;
+            }
+            GM_ADDR remoteBuffer = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
+            context_->hcommResult =
+                hcomm_.WriteNbi(channel, remoteBuffer + RECV_BASE_OFFSET, localBuffer_ + SEND_OFFSET, DATA_SIZE);
+            if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
+                context_->result = KERNEL_WRITE_FAILED;
+                return;
+            }
         }
-
-        if (hcomm_.WriteNbi(channel0, remoteBuffer_ + RECV_OFFSET_0, localBuffer_ + SEND_OFFSET_0, DATA_SIZE) !=
-            AscendC::HCOMM_SUCCESS) {
-            context_->result = KERNEL_WRITE_FAILED;
-            return;
-        }
-        if (hcomm_.WriteNbi(channel1, remoteBuffer_ + RECV_OFFSET_1, localBuffer_ + SEND_OFFSET_1, DATA_SIZE) !=
-            AscendC::HCOMM_SUCCESS) {
-            context_->result = KERNEL_WRITE_FAILED;
-            return;
-        }
-        if (hcomm_.BatchCommit(batch) != AscendC::HCOMM_SUCCESS) {
+        context_->hcommResult = hcomm_.BatchCommit(batch);
+        if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
             context_->result = KERNEL_COMMIT_FAILED;
             return;
         }
-        if (hcomm_.Drain(batch) != AscendC::HCOMM_SUCCESS) {
+        context_->hcommResult = hcomm_.Drain(batch);
+        if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
             context_->result = KERNEL_DRAIN_FAILED;
         }
     }
@@ -67,7 +66,6 @@ private:
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm_;
     __gm__ BatchContext* context_{nullptr};
     GM_ADDR localBuffer_{nullptr};
-    GM_ADDR remoteBuffer_{nullptr};
 };
 
 } // namespace HcommBatchWriteExample

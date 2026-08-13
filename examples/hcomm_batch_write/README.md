@@ -1,37 +1,37 @@
-# Hcomm共享Jetty Batch Write双卡样例
+# Hcomm共享Jetty Batch Write单机多卡样例
 
-本样例验证AIV Kernel在两个共享Jetty Channel上分别组装一个`WriteNbi` WQE，再通过一次
-`BatchCommit`写入共享SQ并触发一次Doorbell，最后通过`Drain`等待两个CQE。
+本样例验证AIV Kernel将同一本端通信地址下、面向不同peer的多个Channel组成Batch，通过一次
+`BatchCommit`写入共享SQ并触发Doorbell，最后通过`Drain`等待该组全部CQE。
 
 ## 验证范围
 
-样例固定使用同一主机上的两个rank和两张NPU。每个rank都向唯一的对端创建两个逻辑Channel，两个Channel
-具有相同的本端Endpoint和对端Endpoint，由`MakeMultiChannelHandle`配置为共享本端Jetty。Host创建接口显式
-传入`sharedQueueTag`：相同Endpoint下使用相同tag的Channel共享Jetty，使用不同tag可创建不同的共享Jetty。
-Kernel执行以下流程：
+卡数由命令行参数指定，默认使用两张NPU。rank 0从RankGraph中为rank 1至rank N-1选择
+`COMM_PROTOCOL_UBC_CTP`链路，并按照`localEndpoint.commAddr.raws`分组；其他rank只建立到rank 0的链路。
+每组通过一次`MakeMultiChannelHandle`创建共享Jetty Channel，不同组使用不同`sharedQueueTag`。
+
+Kernel针对每个组执行以下流程：
 
 ```cpp
 auto batch = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
-auto channel0 = hcomm.GetHandleRef(batch, 0);
-auto channel1 = hcomm.GetHandleRef(batch, 1);
-
-hcomm.WriteNbi(channel0, remoteBuffer + recvOffset0, localBuffer + sendOffset0, dataSize);
-hcomm.WriteNbi(channel1, remoteBuffer + recvOffset1, localBuffer + sendOffset1, dataSize);
+for (uint32_t index = 0; index < channelNum; ++index) {
+    auto channel = hcomm.GetHandleRef(batch, index);
+    hcomm.WriteNbi(channel, remoteBuffers[index] + recvOffset, localBuffer, dataSize);
+}
 hcomm.BatchCommit(batch);
 hcomm.Drain(batch);
 ```
 
-两个Channel写入不同的远端Buffer分片。Kernel完成后，Host逐字节校验两个分片，确保两条WQE均已执行。
+所有Channel创建完成后，只有rank 0按组执行Kernel，向rank 1至rank N-1写入数据。`Drain`完成并经过
+第二次Barrier后，其他rank逐字节校验rank 0写入的数据。
 
-双卡可以验证：
+样例可以验证：
 
 - Host共享Channel创建和`MultiChannelHandle`下发；
-- `remoteIndex=0/1`解析两个不同的Channel实体；
+- 不同peer按照本端`commAddr.raws`分组；
+- 同一组的不同peer Channel共享一个Jetty；
+- 不同`raws`组使用不同Jetty；
 - 多条WQE在UB中暂存后统一进入共享SQ；
-- SQ回收和两个CQE完成状态；
-- 同一个peer上的多个逻辑Channel共享Jetty。
-
-双卡不能验证多个不同peer共享一个本端Jetty。该拓扑至少需要三个rank，使一个rank同时连接两个不同对端。
+- SQ回收和组内全部CQE完成状态。
 
 ## 环境要求
 
@@ -56,13 +56,14 @@ Host辅助接口为header-only实现，样例直接使用开发run包安装到CA
 cmake -S examples/hcomm_batch_write -B build/examples/hcomm_batch_write
 cmake --build build/examples/hcomm_batch_write -j
 ./build/examples/hcomm_batch_write/hcomm_batch_write
+./build/examples/hcomm_batch_write/hcomm_batch_write 4
 ```
 
-程序通过`fork`启动两个rank，并使用本地`socketpair`交换RootInfo、远端Device地址及完成同步，因此当前版本仅支持
-单机双卡验证。成功时输出：
+程序通过`fork`启动指定数量的rank，rank与本机device编号一一对应。父进程使用本地`socketpair`分发RootInfo、
+汇总所有Device地址并执行全局Barrier。该样例只支持单机多卡。成功时输出类似：
 
 ```text
-rank 0: shared-Jetty batch write passed
-rank 1: shared-Jetty batch write passed
-hcomm batch write test passed
+rank 0: endpoint group 0 has 3 peer(s)
+rank 1: received and verified data from rank 0
+hcomm 4-rank grouped batch write test passed
 ```

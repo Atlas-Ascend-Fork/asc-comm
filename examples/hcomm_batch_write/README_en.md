@@ -1,13 +1,11 @@
-# Hcomm Shared-Jetty Batch Write Two-Device Sample
+# Hcomm Shared-Jetty Batch Write Single-Host Multi-Device Sample
 
-This sample validates two AIV `WriteNbi` WQEs assembled through two shared-Jetty channels and submitted to their
-shared SQ by one `BatchCommit` and one SQ doorbell. `Drain` then waits for both CQEs.
+This sample validates AIV `WriteNbi` WQEs targeting different peers, grouped by local
+`EndpointDesc.commAddr.raws`, and submitted to each group's shared SQ by one `BatchCommit`.
 
-The sample uses two ranks and two NPUs on one host. Each rank creates two logical channels to its only peer. This
-validates multiple channel entities, UB-side WQE batching, a single commit, and CQ completion on a shared local
-Jetty. `MakeMultiChannelHandle` takes an explicit `sharedQueueTag`: channels with the same endpoint and tag share a
-Jetty, while a different tag selects a different shared Jetty. The sample does not validate multiple distinct peers;
-that topology requires at least three ranks.
+The optional `rank_size` argument selects the number of local ranks and NPUs; it defaults to two. Rank 0 selects a
+`COMM_PROTOCOL_UBC_CTP` link to ranks 1 through N-1 and groups links with identical local `commAddr.raws`. Other
+ranks only create a link to rank 0. Each group receives one `MultiChannelHandle` and a distinct `sharedQueueTag`.
 
 Prerequisites:
 
@@ -26,8 +24,10 @@ Build and run:
 cmake -S examples/hcomm_batch_write -B build/examples/hcomm_batch_write
 cmake --build build/examples/hcomm_batch_write -j
 ./build/examples/hcomm_batch_write/hcomm_batch_write
+./build/examples/hcomm_batch_write/hcomm_batch_write 4
 ```
 
-The executable forks two local rank processes and uses a local socket pair for RootInfo, remote device-address
-exchange, and synchronization. A successful run prints `shared-Jetty batch write passed` for both ranks and
-`hcomm batch write test passed` from the parent process.
+The executable forks one process per local rank and maps rank IDs directly to device IDs. After all channels are
+ready, only rank 0 runs the grouped Batch kernels and writes to all other ranks. The receivers verify rank 0's data
+after `Drain` and a second barrier. Cross-host execution is not supported. A successful four-device run ends with
+`hcomm 4-rank grouped batch write test passed`.
