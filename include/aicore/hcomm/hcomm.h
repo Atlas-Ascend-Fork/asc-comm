@@ -66,6 +66,43 @@ public:
     __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
 
     /*!
+     * @brief Create a protocol-specific batch handle using a raw UB buffer.
+     * @tparam T: The communication channel handle type.
+     * @param [in] channel: The handle of the communication channel.
+     * @param [in] buff: The UB buffer used to prepare batched WQEs.
+     * @param [in] buffLen: The buffer length in bytes.
+     * @param [in] dstBase: The base address of the remote registered memory bound to this batch handle.
+     * @param [in] srcBase: Reserved local source base address.
+     * @return An initialized batch handle for commProtocol.
+     * @note For UBC CTP, the protection token selected by dstBase is cached in the returned handle.
+     *       Subsequent batched reads and writes do not read the remote registration table. buffLen must be
+     *       smaller than the SQ capacity in bytes.
+     */
+    template <typename T>
+    __aicore__ inline BatchHandle<T> MakeBatchHandle(
+        T channel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR dstBase = nullptr,
+        GM_ADDR srcBase = nullptr);
+
+    /*!
+     * @brief Create a protocol-specific batch handle using a LocalTensor buffer.
+     * @tparam T: The communication channel handle type.
+     * @tparam U: The element type of the LocalTensor.
+     * @param [in] channel: The handle of the communication channel.
+     * @param [in] buff: The LocalTensor buffer used to prepare batched WQEs.
+     * @param [in] buffLen: The buffer length in bytes.
+     * @param [in] dstBase: The base address of the remote registered memory bound to this batch handle.
+     * @param [in] srcBase: Reserved local source base address.
+     * @return An initialized batch handle for commProtocol.
+     * @note For UBC CTP, the protection token selected by dstBase is cached in the returned handle.
+     *       Subsequent batched reads and writes do not read the remote registration table. buffLen must be
+     *       smaller than the SQ capacity in bytes.
+     */
+    template <typename T, typename U>
+    __aicore__ inline BatchHandle<T> MakeBatchHandle(
+        T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR dstBase = nullptr,
+        GM_ADDR srcBase = nullptr);
+
+    /*!
      * @class Hcomm
      * @brief The task launching interface of the Write point-to-point communication operator.
      *        (task content: Write data of length len from src to dst through the specified channel.)
@@ -84,6 +121,23 @@ public:
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    /*!
+     * @brief Prepare a Write WQE in a protocol-specific batch handle.
+     * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: The batch handle to append the WQE to.
+     * @param [out] dst: The remote destination address.
+     * @param [in] src: The local source address.
+     * @param [in] len: The length of the data to write in bytes.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note The destination range is not validated against the registration selected by MakeBatchHandle.
+     *       The caller must ensure that it is covered by the protection token cached in batchHandle.
+     */
+    template <
+        auto const& config = URMA_DEFAULT_CFG, typename T,
+        typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
      * @class Hcomm
@@ -151,6 +205,27 @@ public:
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
 
     /*!
+     * @brief Prepare a Write-with-notify WQE in a protocol-specific batch handle.
+     * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: The batch handle to append the WQE to.
+     * @param [out] dst: The remote destination address.
+     * @param [in] src: The local source address.
+     * @param [in] len: The length of the data to write in bytes.
+     * @param [in] notifyAddr: The remote notify address.
+     * @param [in] notifyVal: The remote notify value.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note The destination and notify ranges are not validated against the registration selected by
+     *       MakeBatchHandle. The caller must ensure that both are covered by the protection token cached in
+     *       batchHandle; the notify context reuses that token.
+     */
+    template <
+        auto const& config = URMA_DEFAULT_CFG, typename T,
+        typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+
+    /*!
      * @class Hcomm
      * @brief @brief The task launching interface of the Fetch-and-add point-to-point communication operator.
      * @tparam T: The data type of the atomic operation. Only int32_t, uint32_t, int64_t, uint64_t is supported.
@@ -212,6 +287,23 @@ public:
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
+     * @brief Prepare a Read WQE in a protocol-specific batch handle.
+     * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: The batch handle to append the WQE to.
+     * @param [out] dst: The local destination address.
+     * @param [in] src: The remote source address.
+     * @param [in] len: The length of the data to read in bytes.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note The source range is not validated against the registration selected by MakeBatchHandle.
+     *       The caller must ensure that it is covered by the protection token cached in batchHandle.
+     */
+    template <
+        auto const& config = URMA_DEFAULT_CFG, typename T,
+        typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    /*!
      * @class Hcomm
      * @brief Informed that tasks submitted on channel can be executed.
      * @tparam pipe: The pipe type to use for commit, PIPE_S supported as default.
@@ -220,6 +312,15 @@ public:
      */
     template <pipe_t pipe = PIPE_S>
     __aicore__ inline int32_t Commit(ChannelHandle channel);
+
+    /*!
+     * @brief Submit all WQEs prepared in a protocol-specific batch handle.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: The batch handle to submit. Its prepared WQEBB count is reset after success.
+     * @return 0 indicates success and -1 indicates failure.
+     */
+    template <typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
     /*!
      * @class Hcomm
@@ -231,6 +332,20 @@ public:
      */
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
+
+    /*!
+     * @brief Block Aicore until all communication tasks submitted through a batch handle are complete.
+     * @tparam pipe: The pipe type to use for drain, PIPE_MTE3 supported as default.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: The batch handle whose WQE buffer is reused as CQE scratch space.
+     * @return 0 indicates success. A non-zero value indicates failure.
+     * @note This overload does not require Init. It must be called after BatchCommit and before preparing
+     *       another batch on the same handle.
+     */
+    template <
+        pipe_t pipe = PIPE_MTE3, typename T,
+        typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t Drain(T& batchHandle);
 
 private:
     HcommImpl<commProtocol> impl_;
