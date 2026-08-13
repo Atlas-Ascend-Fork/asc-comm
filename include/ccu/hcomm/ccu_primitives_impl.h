@@ -17,9 +17,9 @@
 #include <stdbool.h>
 #endif // __cplusplus
 
-#include "hccl/hccl_types.h"
 #include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/hcomm_primitives.h"
+#include "hcomm/hcomm_types.h"
 
 #ifdef __cplusplus
 extern "C" {

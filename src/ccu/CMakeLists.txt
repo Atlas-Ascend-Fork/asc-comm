@@ -23,7 +23,6 @@ endif()
 add_library(asccomm_ccu_headers INTERFACE)
 target_include_directories(asccomm_ccu_headers INTERFACE
     ${ASCCOMM_ROOT}/include
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
 )
 
@@ -77,6 +76,26 @@ target_link_libraries(asccomm_ccu_dataplane PRIVATE
     unified_dlog
     c_sec
 )
+target_link_options(asccomm_ccu_dataplane PRIVATE -Wl,--no-undefined)
+
+get_target_property(_ASCCOMM_CCU_SOURCES asccomm_ccu_dataplane_obj SOURCES)
+get_target_property(_ASCCOMM_CCU_SOURCE_DIR asccomm_ccu_dataplane_obj SOURCE_DIR)
+get_filename_component(_ASCCOMM_ROOT_REAL "${ASCCOMM_ROOT}" REALPATH)
+foreach(_source IN LISTS _ASCCOMM_CCU_SOURCES)
+    if(_source MATCHES "^\\$<")
+        message(FATAL_ERROR "asccomm_ccu_dataplane_obj source ownership cannot be verified: ${_source}")
+    endif()
+    if(IS_ABSOLUTE "${_source}")
+        set(_source_path "${_source}")
+    else()
+        set(_source_path "${_ASCCOMM_CCU_SOURCE_DIR}/${_source}")
+    endif()
+    get_filename_component(_source_real "${_source_path}" REALPATH)
+    string(FIND "${_source_real}" "${_ASCCOMM_ROOT_REAL}/" _source_prefix)
+    if(NOT _source_prefix EQUAL 0)
+        message(FATAL_ERROR "asccomm_ccu_dataplane_obj source is outside asc-comm: ${_source_real}")
+    endif()
+endforeach()
 
 add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
 add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
