@@ -68,6 +68,7 @@ target_compile_options(aicpu_pod_data_plane PRIVATE
 )
 
 target_include_directories(aicpu_pod_data_plane PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu
     ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu/hcomm
     ${HCOMM_SOURCE_DIR}/include
     ${HCOMM_SOURCE_DIR}/pkg_inc
