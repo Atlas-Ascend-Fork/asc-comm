@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="430" viewBox="0 0 1200 430" role="img" aria-labelledby="title desc">
+  <title id="title">通信抽象硬件架构图</title>
+  <desc id="desc">两个 NPU 均包含 AIV、AI CPU、CCU、ccuBuffer 和 GM，箭头展示一个方向的数据流示例。</desc>
+  <defs>
+    <marker id="arrow-gray" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#64748b"/>
+    </marker>
+    <style>
+      text { font-family: Arial, "Microsoft YaHei", sans-serif; letter-spacing: 0; }
+      .device { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.5; }
+      .header { fill: #eaf2ff; stroke: #5b8ff9; stroke-width: 1.5; }
+      .engine { fill: #ffffff; stroke: #5b8ff9; stroke-width: 1.5; }
+      .ccu { fill: #ffffff; stroke: #5b8ff9; stroke-width: 1.5; }
+      .buffer { fill: #fff8e8; stroke: #d99b31; stroke-width: 1.5; }
+      .gm { fill: #fff8e8; stroke: #d99b31; stroke-width: 1.5; }
+      .local-flow { fill: none; stroke: #64748b; stroke-width: 2; marker-end: url(#arrow-gray); }
+    </style>
+  </defs>
+
+  <rect x="30" y="40" width="540" height="350" rx="8" class="device"/>
+  <path d="M38 40 H562 A8 8 0 0 1 570 48 V88 H30 V48 A8 8 0 0 1 38 40 Z" class="header"/>
+  <text x="50" y="70" font-size="18" font-weight="700" fill="#173b72">NPU</text>
+
+  <rect x="630" y="40" width="540" height="350" rx="8" class="device"/>
+  <path d="M638 40 H1162 A8 8 0 0 1 1170 48 V88 H630 V48 A8 8 0 0 1 638 40 Z" class="header"/>
+  <text x="650" y="70" font-size="18" font-weight="700" fill="#173b72">NPU</text>
+
+  <rect x="65" y="135" width="135" height="64" rx="8" class="engine"/>
+  <text x="132.5" y="173" text-anchor="middle" font-size="16" font-weight="700" fill="#173b72">AIV</text>
+  <rect x="230" y="135" width="135" height="64" rx="8" class="engine"/>
+  <text x="297.5" y="173" text-anchor="middle" font-size="16" font-weight="700" fill="#173b72">AI CPU</text>
+  <rect x="395" y="115" width="140" height="142" rx="8" class="ccu"/>
+  <text x="465" y="145" text-anchor="middle" font-size="16" font-weight="700" fill="#173b72">CCU</text>
+  <rect x="415" y="190" width="100" height="42" rx="8" class="buffer"/>
+  <text x="465" y="216" text-anchor="middle" font-size="14" fill="#704214">ccuBuffer</text>
+  <rect x="65" y="300" width="470" height="64" rx="8" class="gm"/>
+  <text x="300" y="338" text-anchor="middle" font-size="17" font-weight="700" fill="#704214">GM</text>
+
+  <rect x="665" y="115" width="140" height="142" rx="8" class="ccu"/>
+  <text x="735" y="145" text-anchor="middle" font-size="16" font-weight="700" fill="#173b72">CCU</text>
+  <rect x="685" y="190" width="100" height="42" rx="8" class="buffer"/>
+  <text x="735" y="216" text-anchor="middle" font-size="14" fill="#704214">ccuBuffer</text>
+  <rect x="835" y="135" width="135" height="64" rx="8" class="engine"/>
+  <text x="902.5" y="173" text-anchor="middle" font-size="16" font-weight="700" fill="#173b72">AIV</text>
+  <rect x="1000" y="135" width="135" height="64" rx="8" class="engine"/>
+  <text x="1067.5" y="173" text-anchor="middle" font-size="16" font-weight="700" fill="#173b72">AI CPU</text>
+  <rect x="665" y="300" width="470" height="64" rx="8" class="gm"/>
+  <text x="900" y="338" text-anchor="middle" font-size="17" font-weight="700" fill="#704214">GM</text>
+
+  <path d="M132.5 199 V292" class="local-flow"/>
+  <path d="M297.5 199 V292" class="local-flow"/>
+  <path d="M465 232 V292" class="local-flow"/>
+  <path d="M535 332 H657" class="local-flow"/>
+  <path d="M735 292 V240" class="local-flow"/>
+  <path d="M902.5 292 V207" class="local-flow"/>
+  <path d="M1067.5 292 V207" class="local-flow"/>
+
+  <path d="M515 211 H600 V270 H721 V292" class="local-flow"/>
+</svg>
