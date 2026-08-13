@@ -62,10 +62,33 @@ public:
      * @param [in] buff: The UB buffer provided by caller.
      * @param [in] len: The buffer length in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note SIMT assembles WQEs in place in global memory, so both arguments are ignored. The
-     *       signature is kept to mirror the SIMD interface.
+     * @note Hcomm requires 128 bytes of WQE staging space for every lane in the block. If the workspace also
+     *       contains 32 bytes per lane and one aligned 128-byte region, Hcomm automatically enables a per-lane
+     *       remote-registration cache and one block-shared post context. The cache is optional and falls back
+     *       to global-memory lookup when absent. Every posting lane must call Init; when the full cached layout
+     *       is supplied, every lane in the block must call Init because the shared context is synchronized there.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
+
+    // Reserve a sequential fixed-2BB Notify/FAA/CAS burst. The caller must post
+    // exactly wqeCnt WQEs on the same channel and commit only the final WQE.
+    // The target range of every post must remain in the registered buffer that
+    // contains targetAddr. No other producer may use this SQ before final commit.
+    __simt_callee__ inline int32_t ReserveDwqeBurst(
+        ChannelHandle channel, __gm__ void* targetAddr, uint64_t len, uint32_t wqeCnt);
+
+    // All block lanes call this before one fixed-2BB Notify/FAA/CAS batch.
+    // state points to four shared UB uint32_t values: BB count, CQE count,
+    // base head, and reservation status. activeWqeCnt must equal
+    // the number of active lanes in this invocation.
+    // Only one batch may be in flight on the same SQ. The channel must not be
+    // posted or reserved by another block until commitLane has committed this
+    // batch, because the SQ head update is intentionally delayed.
+    // commitLane is reserved at the batch tail and must post with commit=true;
+    // every other active lane posts with commit=false.
+    __simt_callee__ inline int32_t ReserveDwqeBatch(
+        ChannelHandle channel, __ubuf__ uint32_t* state, bool active,
+        uint32_t activeWqeCnt, uint32_t commitLane);
 
     /*!
      * @brief The task launching interface of the Write point-to-point communication operator.
