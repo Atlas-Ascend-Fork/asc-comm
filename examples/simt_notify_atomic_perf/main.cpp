@@ -59,7 +59,7 @@ extern void LaunchSimtCasPerf(
 extern void LaunchSimtLastCommitPerf(
     void *stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
     void *timing, uint32_t payloadBytes, uint32_t iterations, uint32_t warmup,
-    uint32_t api);
+    uint32_t api, uint32_t laneCount);
 
 namespace {
 using namespace simt_notify_atomic_perf;
@@ -276,8 +276,7 @@ int main(int argc, char *argv[])
     const std::string commitMode = argv[9];
     if (nranks < 2 || !ValidApi(api) || iterations == 0U || payloadBytes == 0U ||
         (laneCount != 1U && laneCount != 32U && laneCount != 1024U) ||
-        (commitMode != "immediate" && commitMode != "last") ||
-        (commitMode == "last" && laneCount != 1U)) {
+        (commitMode != "immediate" && commitMode != "last")) {
         std::cout << "Invalid argument." << std::endl;
         return 1;
     }
@@ -317,7 +316,7 @@ int main(int argc, char *argv[])
         ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
         if (commitMode == "last") {
             LaunchSimtLastCommitPerf(stream, channel, kLocalSendIdx, remoteRecvIdx,
-                timingBuf, payloadBytes, iterations, warmup, ApiIndex(api));
+                timingBuf, payloadBytes, iterations, warmup, ApiIndex(api), laneCount);
         } else if (api == "notify") {
             LaunchSimtNotifyPerf(stream, channel, kLocalSendIdx, remoteRecvIdx,
                 timingBuf, payloadBytes, iterations, warmup, laneCount);

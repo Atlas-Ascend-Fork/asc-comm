@@ -37,11 +37,14 @@ Drain                         不计时，仅校验完成状态
 
 ## 末次提交用例
 
-`--commit-mode last` 使用单 lane 执行一组 WQE：前 `iterations - 1` 次调用使用
-`commit=false`，最后一次调用使用 `commit=true`，随后结束计时并调用 `Drain()`。
-每轮提交前调用一次 `ReserveDwqeBurst`，整批只对 GM head 执行一次原子预留，并缓存本批次
-复用的远端注册信息、SQ context 和 WQE 固定字段；中间 WQE 直接写普通 SQ，最后一个 WQE
-通过 DWQE 发布整批。该模式用于验证并测量单 lane 末次统一提交路径。
+`--commit-mode last` 对一组 WQE 只执行一次最终提交：前 `iterations - 1` 个 WQE 使用
+`commit=false` 写入普通 SQ，最后一个 WQE 使用 `commit=true` 通过 DWQE 发布整批，随后结束计时并
+调用 `Drain()`。
+
+- t1 调用一次 `ReserveDwqeBurst`，整批只对 GM head 执行一次原子预留，并复用远端注册信息、
+  SQ context 和 WQE 固定字段。
+- t32/t1024 由各 lane 并行填写前面的 SQ WQE；所有 lane 同步后，由最后一个逻辑操作所属的 lane
+  执行唯一一次 `commit=true`，其余 lane 等待发布完成。
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
@@ -58,8 +61,8 @@ bash examples/simt_notify_atomic_perf/run.sh \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode last
 ```
 
-默认值为 `--commit-mode immediate`，现有命令行为不变。末次提交模式当前只支持
-`--lanes 1`，日志中显示 `CommitMode=Last`。
+将上述命令的 `--lanes` 改为 `32` 或 `1024`，即可验证对应的多 lane Last 路径。
+默认值仍为 `--commit-mode immediate`，日志中显示实际的 `CommitMode`。
 
 第 `lane` 个线程处理序号为 `lane, lane + laneCount, ...` 的WQE。t32由Hcomm透明执行单warp
 合并；t1024以最多1024个WQE为一组协作提交。预热不足1024个WQE时，未提交WQE的lane仍参与
