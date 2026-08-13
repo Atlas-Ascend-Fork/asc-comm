@@ -15,6 +15,7 @@
 #include <chrono>
 #include <vector>
 
+// 同步 launch 需要 acl 运行时接口（rt 相关 API），与 runtime 头配合使用
 #include "acl/acl_rt.h"
 #include "runtime/rt_external_kernel.h"
 
