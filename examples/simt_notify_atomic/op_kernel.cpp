@@ -18,6 +18,7 @@
 namespace {
 using namespace simt_notify_atomic;
 constexpr uint32_t kHcommWorkspaceWords = 384U / sizeof(uint64_t);
+constexpr uint32_t kWqeStagingWords = 128U / sizeof(uint64_t);
 
 // Isolated Notify case: exactly one immediate DWQE, followed by Drain.
 __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyVf(
@@ -196,6 +197,53 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicMultiLaneVf(
     }
 }
 
+// All lanes execute the same immediate post at each call site. This directly covers
+// Hcomm's automatic single-warp reserve and final-lane DWQE publication path.
+__simt_vf__ __launch_bounds__(kWarpLaneCount) inline void SimtWarpImmediateVf(
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
+    __ubuf__ uint8_t *wqeStaging, uint32_t wqeStagingBytes)
+{
+    if (threadIdx.x >= kWarpLaneCount || threadIdx.y != 0U || threadIdx.z != 0U) {
+        return;
+    }
+    uint32_t lane = threadIdx.x;
+    __gm__ uint8_t *local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
+    __gm__ uint8_t *remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+
+    AscendC::simt::Hcomm<> hcomm;
+    if (hcomm.Init(wqeStaging, wqeStagingBytes) != 0) {
+        return;
+    }
+    (void)hcomm.WriteWithNotifyNbi<true>(
+        channel,
+        remote + (kWarpNotifyDataBaseSlot + lane) * kSlotBytes,
+        local,
+        kSlotBytes,
+        remote + (kWarpNotifySignalBaseSlot + lane) * kSlotBytes,
+        kNotifySignal + lane);
+    asc_syncthreads();
+
+    (void)hcomm.AtomicFAA<uint64_t, true>(
+        channel,
+        remote + (kWarpFaaTargetBaseSlot + lane) * kSlotBytes,
+        local + (kWarpFaaFetchBaseSlot + lane) * kSlotBytes,
+        kFaaAdd);
+    asc_syncthreads();
+
+    (void)hcomm.AtomicCAS<uint64_t, true>(
+        channel,
+        remote + (kWarpCasTargetBaseSlot + lane) * kSlotBytes,
+        local + (kWarpCasFetchBaseSlot + lane) * kSlotBytes,
+        kCasInitial + lane,
+        kCasSwap + lane);
+    asc_syncthreads();
+
+    if (lane == 0U) {
+        reinterpret_cast<__gm__ uint64_t *>(local)[kWarpDrainSlot] =
+            static_cast<uint64_t>(hcomm.Drain(channel));
+    }
+}
+
 } // namespace
 
 extern "C" __global__ __vector__ void SimtNotify(
@@ -261,6 +309,15 @@ extern "C" __global__ __vector__ void SimtNotifyAtomicMultiLane(
         (__ubuf__ uint8_t *)wqeStaging, sizeof(wqeStaging));
 }
 
+extern "C" __global__ __vector__ void SimtWarpImmediate(
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    alignas(128) __ubuf__ uint64_t wqeStaging[kWqeStagingWords * kWarpLaneCount];
+    asc_vf_call<SimtWarpImmediateVf>(
+        dim3(kWarpLaneCount), channel, sendBufIdx, recvBufIdx,
+        (__ubuf__ uint8_t *)wqeStaging, sizeof(wqeStaging));
+}
+
 void LaunchSimtNotifyAtomic(
     void *stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode)
 {
@@ -276,7 +333,9 @@ void LaunchSimtNotifyAtomic(
         SimtNotifyAtomicSingle<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
     } else if (mode == simt_notify_atomic::kModeBatchLast) {
         SimtNotifyAtomicBatchLast<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
-    } else {
+    } else if (mode == simt_notify_atomic::kModeMultiLane) {
         SimtNotifyAtomicMultiLane<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
+    } else {
+        SimtWarpImmediate<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
     }
 }
