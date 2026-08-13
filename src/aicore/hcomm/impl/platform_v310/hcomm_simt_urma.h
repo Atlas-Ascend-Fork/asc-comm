@@ -350,6 +350,70 @@ __simt_callee__ inline void HcommSimtRingDwqeFromUb(__gm__ uint8_t* dwqeAddr, __
     asc_dcci_single(dwqeAddr + 64);
 }
 
+// Coalesce concurrent fixed-2BB immediate posts issued by one complete warp.
+// The leading lane reserves the entire group with one GM CAS; every lane derives
+// its SQ position from its active rank, and the last lane publishes the final PI.
+__simt_callee__ inline bool HcommSimtReserveImmediateWarp(
+    ChannelHandle channel, __gm__ uint64_t* headAddr, uint32_t sqDepth,
+    uint32_t& curHead, bool& publishDwqe)
+{
+    constexpr uint32_t warpLaneCount = 32U;
+    uint32_t blockLaneCount = blockDim.x * blockDim.y * blockDim.z;
+    if (blockLaneCount > warpLaneCount || sqDepth == 0U) {
+        return false;
+    }
+
+    uint32_t linearLane = threadIdx.x + blockDim.x * (threadIdx.y + blockDim.y * threadIdx.z);
+    uint32_t laneInWarp = linearLane & (warpLaneCount - 1U);
+    uint32_t activeMask = asc_activemask();
+    uint32_t blockMask = blockLaneCount == warpLaneCount ? 0xFFFFFFFFU : ((1U << blockLaneCount) - 1U);
+    if (activeMask != blockMask) {
+        return false;
+    }
+    uint32_t activeCount = static_cast<uint32_t>(__popc(activeMask));
+    if (activeCount <= 1U) {
+        return false;
+    }
+
+    int32_t leaderLane = __ffs(static_cast<int32_t>(activeMask)) - 1;
+    ChannelHandle leaderChannel = asc_shfl(channel, leaderLane);
+    if ((asc_ballot(channel == leaderChannel) & activeMask) != activeMask) {
+        return false;
+    }
+
+    uint64_t baseHeadVal = 0U;
+    uint32_t reserved = 0U;
+    if (static_cast<int32_t>(laneInWarp) == leaderLane) {
+        uint32_t batchBbCount = activeCount * HCOMM_URMA_DWQE_BB_CNT;
+        uint64_t delta = (static_cast<uint64_t>(activeCount) << 32U) | batchBbCount;
+        uint64_t expected = *headAddr;
+        while (true) {
+            uint32_t baseHead = HcommSimtHeadIdx(expected);
+            if ((baseHead % sqDepth) + batchBbCount > sqDepth) {
+                break;
+            }
+            uint64_t previous = asc_atomic_cas(headAddr, expected, expected + delta);
+            if (previous == expected) {
+                baseHeadVal = expected;
+                reserved = 1U;
+                break;
+            }
+            expected = previous;
+        }
+    }
+    reserved = asc_shfl(reserved, leaderLane);
+    if (reserved == 0U) {
+        return false;
+    }
+    baseHeadVal = asc_shfl(baseHeadVal, leaderLane);
+
+    uint32_t lowerLaneMask = laneInWarp == 0U ? 0U : ((1U << laneInWarp) - 1U);
+    uint32_t activeRank = static_cast<uint32_t>(__popc(activeMask & lowerLaneMask));
+    curHead = HcommSimtHeadIdx(baseHeadVal) + activeRank * HCOMM_URMA_DWQE_BB_CNT;
+    publishDwqe = activeRank + 1U == activeCount;
+    return true;
+}
+
 __simt_callee__ inline void HcommSimtSyncBeforeRing(__gm__ uint64_t* headAddr, uint32_t nextHead)
 {
     (void)headAddr;
@@ -584,11 +648,19 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
     }
     __gm__ uint64_t* headAddr = post.headAddr;
     uint32_t curHead = 0U;
+    bool useImmediateWarp = false;
+    bool publishImmediateWarp = false;
     if (hasReservedDwqeSlot_) {
         curHead = reservedDwqeHead_;
         hasReservedDwqeSlot_ = false;
     } else {
-        curHead = HcommSimtHeadIdx(HcommSimtReserve(headAddr, HCOMM_URMA_DWQE_BB_CNT, 1U));
+        if constexpr (commit) {
+            useImmediateWarp = HcommSimtReserveImmediateWarp(
+                channel, headAddr, post.meta.sqDepth, curHead, publishImmediateWarp);
+        }
+        if (!useImmediateWarp) {
+            curHead = HcommSimtHeadIdx(HcommSimtReserve(headAddr, HCOMM_URMA_DWQE_BB_CNT, 1U));
+        }
     }
     uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
 
@@ -613,6 +685,17 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
             nextHead);
     }
     if constexpr (commit) {
+        if (useImmediateWarp) {
+            asc_threadfence();
+            if (publishImmediateWarp) {
+                if (wqeItem_ != nullptr) {
+                    HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+                } else {
+                    HcommSimtRingDwqeAt(post.dwqeAddr, sqeAddr);
+                }
+            }
+            return HCOMM_SUCCESS;
+        }
         // A single-lane post is ordered by HcommSimtRingDwqe's thread fence.
         // A deferred batch still needs the block barrier to wait for all SQ writes.
         if (hasDeferredDwqeBatch_) {
@@ -647,11 +730,19 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
     }
     __gm__ uint64_t* headAddr = post.headAddr;
     uint32_t curHead = 0U;
+    bool useImmediateWarp = false;
+    bool publishImmediateWarp = false;
     if (hasReservedDwqeSlot_) {
         curHead = reservedDwqeHead_;
         hasReservedDwqeSlot_ = false;
     } else {
-        curHead = HcommSimtHeadIdx(HcommSimtReserve(headAddr, HCOMM_URMA_DWQE_BB_CNT, 1U));
+        if constexpr (commit) {
+            useImmediateWarp = HcommSimtReserveImmediateWarp(
+                channel, headAddr, post.meta.sqDepth, curHead, publishImmediateWarp);
+        }
+        if (!useImmediateWarp) {
+            curHead = HcommSimtHeadIdx(HcommSimtReserve(headAddr, HCOMM_URMA_DWQE_BB_CNT, 1U));
+        }
     }
     uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
 
@@ -676,6 +767,17 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
             sqeAddr, remoteAddr, fetchAddr, value, cond, sqCtx, &remoteBuffers[remoteIdx], curHead, nextHead);
     }
     if constexpr (commit) {
+        if (useImmediateWarp) {
+            asc_threadfence();
+            if (publishImmediateWarp) {
+                if (wqeItem_ != nullptr) {
+                    HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+                } else {
+                    HcommSimtRingDwqeAt(post.dwqeAddr, sqeAddr);
+                }
+            }
+            return HCOMM_SUCCESS;
+        }
         // A single-lane post is ordered by HcommSimtRingDwqe's thread fence.
         // A deferred batch still needs the block barrier to wait for all SQ writes.
         if (hasDeferredDwqeBatch_) {
