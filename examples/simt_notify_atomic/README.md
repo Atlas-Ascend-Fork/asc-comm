@@ -46,7 +46,11 @@ bash run.sh 2 /path/to/rank_table.json single
 bash run.sh 2 /path/to/rank_table.json batch_last
 bash run.sh 2 /path/to/rank_table.json multi_lane
 bash run.sh 2 /path/to/rank_table.json notify_immediate_repeat
+bash run.sh 2 /path/to/rank_table.json warp_immediate
 ```
+
+`warp_immediate`由3个lane在同一调用点分别执行一次`commit=true`的Notify、FAA和CAS，直接覆盖库内自动
+合并单warp SQ预留、非发布lane写普通SQ以及最后lane发布DWQE的路径。
 
 每种模式的预期输出如下：
 
