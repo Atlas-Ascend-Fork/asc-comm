@@ -14,7 +14,7 @@
 #include <string>
 
 #include "hcomm/resource/microcode/ccu_assist_pub.h"
-#include "hccl/hccl_types.h"
+#include "hcomm/hcomm_types.h"
 
 namespace hcomm {
 namespace CcuRep {
