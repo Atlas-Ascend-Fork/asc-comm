@@ -98,6 +98,15 @@ struct HcommSimtUbResolvedPost {
     uint32_t sqWqeSize;
 };
 
+// Stable fields shared by fixed-2BB Notify/Atomic WQEs for one resolved target.
+struct HcommSimtPackedSqeTemplate {
+    uint64_t word1 = 0U;
+    uint64_t remoteEidL = 0U;
+    uint64_t remoteEidH = 0U;
+    uint64_t tokenWord = 0U;
+    uint32_t sqDepth = 0U;
+};
+
 template <>
 class HcommImpl<COMM_PROTOCOL_UBC_CTP> {
 public:
