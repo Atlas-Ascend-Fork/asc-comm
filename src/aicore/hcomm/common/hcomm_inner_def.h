@@ -245,6 +245,32 @@ typedef struct {
 
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
 
+typedef struct {
+    ChannelHandle channelHandle;
+    LocalTensor<uint32_t> wqeBuffer;
+    uint32_t wqeBufferLen;
+    uint32_t remoteTokenId;
+    uint32_t remoteTokenValue;
+    uint32_t preparedWqebbCount;
+    uint32_t preparedCqeCount;
+} UbcCtpBatchHandle;
+
+typedef struct {
+} RoceBatchHandle;
+
+template <CommProtocol commProtocol>
+struct BatchHandleTraits;
+
+template <>
+struct BatchHandleTraits<COMM_PROTOCOL_UBC_CTP> {
+    using Type = UbcCtpBatchHandle;
+};
+
+template <>
+struct BatchHandleTraits<COMM_PROTOCOL_ROCE> {
+    using Type = RoceBatchHandle;
+};
+
 // RoCE WQE, CQE, DB struct
 typedef struct {
     uint8_t ownerSl; // dw0[31:24]: owner(1) + ctrl_section_length(2) + csl(2) + difsl(3)

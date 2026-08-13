@@ -46,6 +46,8 @@ namespace AscendC {
 template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
 class Hcomm {
 public:
+    using BatchHandleType = typename BatchHandleTraits<commProtocol>::Type;
+
     /*!
      * @brief Initialize Hcomm workspace.
      * @param [in] buff: The UB buffer provided by caller.
@@ -66,6 +68,38 @@ public:
     __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
 
     /*!
+     * @brief Create a protocol-specific batch handle using a raw UB buffer.
+     * @param [in] channel: The handle of the communication channel.
+     * @param [in] dstBase: The base address of the remote registered memory bound to this batch handle.
+     * @param [in] srcBase: Reserved local source base address.
+     * @param [in] buff: The UB buffer used to prepare batched WQEs.
+     * @param [in] buffLen: The buffer length in bytes.
+     * @return An initialized batch handle for commProtocol.
+     * @note For UBC CTP, the protection token selected by dstBase is cached in the returned handle.
+     *       Subsequent batched writes do not read the remote registration table. buffLen must be smaller
+     *       than the SQ capacity in bytes.
+     */
+    __aicore__ inline BatchHandleType MakeBatchHandle(
+        ChannelHandle channel, GM_ADDR dstBase, GM_ADDR srcBase, __ubuf__ uint8_t* buff, uint32_t buffLen);
+
+    /*!
+     * @brief Create a protocol-specific batch handle using a LocalTensor buffer.
+     * @tparam T: The element type of the LocalTensor.
+     * @param [in] channel: The handle of the communication channel.
+     * @param [in] dstBase: The base address of the remote registered memory bound to this batch handle.
+     * @param [in] srcBase: Reserved local source base address.
+     * @param [in] buff: The LocalTensor buffer used to prepare batched WQEs.
+     * @param [in] buffLen: The buffer length in bytes.
+     * @return An initialized batch handle for commProtocol.
+     * @note For UBC CTP, the protection token selected by dstBase is cached in the returned handle.
+     *       Subsequent batched writes do not read the remote registration table. buffLen must be smaller
+     *       than the SQ capacity in bytes.
+     */
+    template <typename T>
+    __aicore__ inline BatchHandleType MakeBatchHandle(
+        ChannelHandle channel, GM_ADDR dstBase, GM_ADDR srcBase, const LocalTensor<T>& buff, uint32_t buffLen);
+
+    /*!
      * @class Hcomm
      * @brief The task launching interface of the Write point-to-point communication operator.
      *        (task content: Write data of length len from src to dst through the specified channel.)
@@ -84,6 +118,21 @@ public:
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    /*!
+     * @brief Prepare a Write WQE in a protocol-specific batch handle.
+     * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     * @param [in,out] batchHandle: The batch handle to append the WQE to.
+     * @param [out] dst: The remote destination address.
+     * @param [in] src: The local source address.
+     * @param [in] len: The length of the data to write in bytes.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note The destination range is not validated against the registration selected by MakeBatchHandle.
+     *       The caller must ensure that it is covered by the protection token cached in batchHandle.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(
+        BatchHandleType& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
      * @class Hcomm
@@ -149,6 +198,25 @@ public:
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+
+    /*!
+     * @brief Prepare a Write-with-notify WQE in a protocol-specific batch handle.
+     * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     * @param [in,out] batchHandle: The batch handle to append the WQE to.
+     * @param [out] dst: The remote destination address.
+     * @param [in] src: The local source address.
+     * @param [in] len: The length of the data to write in bytes.
+     * @param [in] notifyAddr: The remote notify address.
+     * @param [in] notifyVal: The remote notify value.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note The destination and notify ranges are not validated against the registration selected by
+     *       MakeBatchHandle. The caller must ensure that both are covered by the protection token cached in
+     *       batchHandle; the notify context reuses that token.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        BatchHandleType& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr,
+        uint64_t notifyVal);
 
     /*!
      * @class Hcomm
@@ -220,6 +288,13 @@ public:
      */
     template <pipe_t pipe = PIPE_S>
     __aicore__ inline int32_t Commit(ChannelHandle channel);
+
+    /*!
+     * @brief Submit all WQEs prepared in a protocol-specific batch handle.
+     * @param [in,out] batchHandle: The batch handle to submit and reset after a successful commit.
+     * @return 0 indicates success and -1 indicates failure.
+     */
+    __aicore__ inline int32_t BatchCommit(BatchHandleType& batchHandle);
 
     /*!
      * @class Hcomm

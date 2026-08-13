@@ -32,6 +32,8 @@ constexpr uint32_t HCOMM_URMA_TMP_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_URMA_WQE_U32_NUM = 32;
 constexpr uint32_t HCOMM_URMA_CQE_U32_NUM = 16;
 constexpr uint32_t HCOMM_URMA_UDF_FLAG = 0x80U;
+constexpr uint32_t HCOMM_URMA_WQEBB_SIZE = 64U;
+constexpr uint32_t HCOMM_URMA_BATCH_MIN_BUF_SIZE = HCOMM_URMA_WQEBB_SIZE;
 
 constexpr uint32_t HCOMM_URMA_INVALID_REDUCE_DATA_TYPE = 0xFFFFFFFFU;
 template <typename T>
@@ -78,10 +80,18 @@ public:
     __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
     template <typename T>
     __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
+    __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
+        ChannelHandle channel, GM_ADDR dstBase, GM_ADDR srcBase, __ubuf__ uint8_t* buff, uint32_t buffLen);
+    template <typename T>
+    __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
+        ChannelHandle channel, GM_ADDR dstBase, GM_ADDR srcBase, const LocalTensor<T>& buff, uint32_t buffLen);
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(
+        UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <
         typename T, HcommUrmaReduceOp reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,
         pipe_t reqPipe = PIPE_MTE3, auto const& config = URMA_DEFAULT_CFG>
@@ -99,6 +109,10 @@ public:
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr,
+        uint64_t notifyVal);
     template <
         typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
@@ -109,6 +123,7 @@ public:
     __aicore__ inline int32_t AtomicCAS(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T compareVal, T swapVal);
     template <pipe_t pipe = PIPE_S>
     __aicore__ inline int32_t Commit(ChannelHandle channel);
+    __aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 

@@ -25,6 +25,26 @@
 #include "hcomm_inner_def.h"
 
 namespace AscendC {
+#if defined(ASCENDC_CPU_DEBUG) && ASCENDC_CPU_DEBUG == 1
+#define ASCENDC_HCOMM_API_ASSERT(cond, ret, fmt, ...)     \
+    do {                                                  \
+        if (!(cond)) {                                    \
+            KERNEL_LOG(KERNEL_ERROR, fmt, ##__VA_ARGS__); \
+            ret;                                          \
+        }                                                 \
+    } while (0)
+#elif defined(ASCENDC_DEBUG)
+#define ASCENDC_HCOMM_API_ASSERT(cond, ret, fmt, ...)   \
+    do {                                                \
+        ASCENDC_DEBUG_ASSERT(cond, fmt, ##__VA_ARGS__); \
+        if (!(cond)) {                                  \
+            ret;                                        \
+        }                                               \
+    } while (0)
+#else
+#define ASCENDC_HCOMM_API_ASSERT(cond, ret, fmt, ...)
+#endif
+
 template <CommProtocol commProtocol>
 class HcommImpl {
 public:

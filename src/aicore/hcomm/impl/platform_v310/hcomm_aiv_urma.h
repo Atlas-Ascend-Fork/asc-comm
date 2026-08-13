@@ -34,12 +34,12 @@ typedef AscendC::HcommUrmaJfcCqeCtx HcommUrmaJfcCqeCtx;
 
 namespace AscendC {
 __aicore__ inline void HcommUrmaFillNotifyCtx(
-    __ubuf__ HcommUrmaNotifyCtx* notifyCtx, const RegedBufferEntity& remoteMemInfo, GM_ADDR notifyAddr,
+    __ubuf__ HcommUrmaNotifyCtx* notifyCtx, uint32_t remoteTokenId, uint32_t remoteTokenValue, GM_ADDR notifyAddr,
     uint64_t notifyVal)
 {
     uint64_t notifyAddrValue = reinterpret_cast<uint64_t>(notifyAddr);
-    notifyCtx->notifyTokenId = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId & 0xFFFFFU;
-    notifyCtx->notifyTokenValue = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    notifyCtx->notifyTokenId = remoteTokenId & 0xFFFFFU;
+    notifyCtx->notifyTokenValue = remoteTokenValue;
     notifyCtx->notifyAddrL = notifyAddrValue & 0xFFFFFFFFU;
     notifyCtx->notifyAddrH = (notifyAddrValue >> 32) & 0xFFFFFFFFU;
     notifyCtx->notifyDataL = notifyVal & 0xFFFFFFFFU;
@@ -47,9 +47,9 @@ __aicore__ inline void HcommUrmaFillNotifyCtx(
 }
 
 template <HcommUrmaOpCode opCode, auto const& config, typename T>
-__aicore__ inline void HcommUrmaFillSqeCtx(
+__aicore__ inline void HcommUrmaFillSqeCtxByToken(
     __ubuf__ HcommUrmaSqeCtx* sqeCtx, __gm__ uint8_t* remoteAddr, const SqContext& sqCtx,
-    const RegedBufferEntity& remoteMemInfo, uint32_t curHead, GM_ADDR notifyAddr = nullptr,
+    uint32_t remoteTokenId, uint32_t remoteTokenValue, uint32_t curHead, GM_ADDR notifyAddr = nullptr,
     const UdmaParams<T>& params = UdmaParams<T>{})
 {
     sqeCtx->opcode =
@@ -73,8 +73,8 @@ __aicore__ inline void HcommUrmaFillSqeCtx(
         sqeCtx->sgeNum = 1;
     }
     sqeCtx->tpId = sqCtx.contextInfo.ubJfs.tpID;
-    sqeCtx->rmtJettyOrSegId = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
-    sqeCtx->rmtTokenValue = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    sqeCtx->rmtJettyOrSegId = remoteTokenId;
+    sqeCtx->rmtTokenValue = remoteTokenValue;
     uint64_t remoteAddrValue = reinterpret_cast<uint64_t>(remoteAddr);
     sqeCtx->rmtAddrLOrTokenId = remoteAddrValue & 0xFFFFFFFFU;
     sqeCtx->rmtAddrHOrTokenValue = (remoteAddrValue >> 32) & 0xFFFFFFFFU;
@@ -87,11 +87,22 @@ __aicore__ inline void HcommUrmaFillSqeCtx(
     if constexpr (opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY) {
         __ubuf__ HcommUrmaNotifyCtx* notifyCtx =
             (__ubuf__ HcommUrmaNotifyCtx*)((__ubuf__ uint8_t*)sqeCtx + sizeof(HcommUrmaSqeCtx));
-        HcommUrmaFillNotifyCtx(notifyCtx, remoteMemInfo, notifyAddr, params.value);
+        HcommUrmaFillNotifyCtx(notifyCtx, remoteTokenId, remoteTokenValue, notifyAddr, params.value);
     } else if constexpr (opCode == HcommUrmaOpCode::WRITE_WITH_REDUCE) {
         sqeCtx->reduceDataType = params.reduceDataType;
         sqeCtx->reduceOpcode = params.reduceOpcode;
     }
+}
+
+template <HcommUrmaOpCode opCode, auto const& config, typename T>
+__aicore__ inline void HcommUrmaFillSqeCtx(
+    __ubuf__ HcommUrmaSqeCtx* sqeCtx, __gm__ uint8_t* remoteAddr, const SqContext& sqCtx,
+    const RegedBufferEntity& remoteMemInfo, uint32_t curHead, GM_ADDR notifyAddr = nullptr,
+    const UdmaParams<T>& params = UdmaParams<T>{})
+{
+    HcommUrmaFillSqeCtxByToken<opCode, config, T>(
+        sqeCtx, remoteAddr, sqCtx, remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId,
+        remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue, curHead, notifyAddr, params);
 }
 
 template <HcommUrmaOpCode opCode, typename T>
@@ -287,6 +298,165 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(const LocalTens
 
     wqeItem_ = buff.template ReinterpretCast<uint32_t>();
     cqeItem_ = wqeItem_[HCOMM_URMA_WQE_U32_NUM];
+    return HCOMM_SUCCESS;
+}
+
+__aicore__ inline UbcCtpBatchHandle HcommUrmaCreateBatchHandle(
+    ChannelHandle channel, GM_ADDR dstBase, const LocalTensor<uint32_t>& wqeBuffer, uint32_t buffLen)
+{
+    ASCENDC_HCOMM_API_ASSERT(
+        channel != 0, { return {}; }, "Hcomm MakeBatchHandle failed with null channel\n");
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    uint64_t sqCapacity =
+        static_cast<uint64_t>(sqCtx.contextInfo.ubJfs.sqDepth) * HCOMM_URMA_WQEBB_SIZE;
+    ASCENDC_HCOMM_API_ASSERT(
+        static_cast<uint64_t>(buffLen) < sqCapacity, { return {}; },
+        "Hcomm MakeBatchHandle failed because UB buffer must be smaller than SQ capacity\n");
+    (void)sqCapacity;
+
+    int32_t remoteIdx =
+        HcommFindBufferIdx(channelEntity->remoteBufferAddr, channelEntity->remoteBufferNum, dstBase, 1U);
+    ASCENDC_HCOMM_API_ASSERT(
+        remoteIdx != HCOMM_FAILED, { return {}; }, "Hcomm MakeBatchHandle failed with invalid dstBase\n");
+
+    auto remoteMemInfo = channelEntity->remoteBufferAddr[remoteIdx];
+    UbcCtpBatchHandle batchHandle{};
+    batchHandle.channelHandle = channel;
+    batchHandle.wqeBuffer = wqeBuffer;
+    batchHandle.wqeBufferLen = buffLen;
+    batchHandle.remoteTokenId = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
+    batchHandle.remoteTokenValue = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    batchHandle.preparedWqebbCount = 0;
+    batchHandle.preparedCqeCount = 0;
+    return batchHandle;
+}
+
+__aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+    ChannelHandle channel, GM_ADDR dstBase, GM_ADDR srcBase, __ubuf__ uint8_t* buff, uint32_t buffLen)
+{
+    (void)srcBase;
+    uintptr_t buffAddr = reinterpret_cast<uintptr_t>(buff);
+    ASCENDC_HCOMM_API_ASSERT(
+        buff != nullptr && (buffAddr & 0x1FU) == 0 && buffLen >= HCOMM_URMA_BATCH_MIN_BUF_SIZE, { return {}; },
+        "Hcomm MakeBatchHandle failed with invalid UB buffer\n");
+
+    TBuffAddr addr{};
+    addr.logicPos = static_cast<uint8_t>(TPosition::VECOUT);
+    addr.bufferAddr = static_cast<uint32_t>(buffAddr);
+    addr.dataLen = buffLen;
+#if defined(UT_TEST)
+    addr.absAddr = reinterpret_cast<uint8_t*>(buff);
+#endif
+    LocalTensor<uint32_t> wqeBuffer;
+    wqeBuffer.SetAddr(addr);
+    return HcommUrmaCreateBatchHandle(channel, dstBase, wqeBuffer, buffLen);
+}
+
+template <typename T>
+__aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+    ChannelHandle channel, GM_ADDR dstBase, GM_ADDR srcBase, const LocalTensor<T>& buff, uint32_t buffLen)
+{
+    (void)srcBase;
+    uintptr_t buffAddr = reinterpret_cast<uintptr_t>(buff.GetPhyAddr());
+    uint64_t availableBytes = static_cast<uint64_t>(buff.GetSize()) * sizeof(T);
+    ASCENDC_HCOMM_API_ASSERT(
+        buff.GetPhyAddr() != nullptr && (buffAddr & 0x1FU) == 0 && buffLen >= HCOMM_URMA_BATCH_MIN_BUF_SIZE &&
+            static_cast<uint64_t>(buffLen) <= availableBytes,
+        { return {}; }, "Hcomm MakeBatchHandle failed with invalid LocalTensor buffer\n");
+    (void)buffAddr;
+    (void)availableBytes;
+
+    LocalTensor<uint32_t> wqeBuffer = buff.template ReinterpretCast<uint32_t>();
+    return HcommUrmaCreateBatchHandle(channel, dstBase, wqeBuffer, buffLen);
+}
+
+template <auto const& config>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
+    UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len)
+{
+    static_assert(config.cqe == 0 || config.cqe == 1, "Batch WriteNbi supports cqe values 0 and 1 only");
+    static_assert(config.inlineEn == 0, "Batch WriteNbi does not support inline data");
+    static_assert(
+        sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaSgeCtx) == HCOMM_URMA_WQEBB_SIZE,
+        "Plain Write WQE must occupy exactly one 64-byte WQEBB");
+
+    uint32_t preparedWqebbCount = batchHandle.preparedWqebbCount;
+    uint32_t bufferWqebbCapacity = batchHandle.wqeBufferLen / HCOMM_URMA_WQEBB_SIZE;
+    if (len > UINT32_MAX || preparedWqebbCount >= bufferWqebbCapacity) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm batch WriteNbi failed with invalid length or insufficient buffer\n");
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+
+    constexpr uint32_t wqebbWordCount = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
+    LocalTensor<uint32_t> currentWqe = batchHandle.wqeBuffer[preparedWqebbCount * wqebbWordCount];
+    __ubuf__ uint32_t* wqeWords = reinterpret_cast<__ubuf__ uint32_t*>(currentWqe.GetPhyAddr());
+
+    uint32_t logicalHead = channelEntity->sqHead + preparedWqebbCount;
+    __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqe.GetPhyAddr());
+    HcommUrmaFillSqeCtxByToken<HcommUrmaOpCode::WRITE, config, uint64_t>(
+        sqeCtx, reinterpret_cast<__gm__ uint8_t*>(dst), sqCtx, batchHandle.remoteTokenId,
+        batchHandle.remoteTokenValue, logicalHead);
+    __ubuf__ HcommUrmaSgeCtx* sgeCtx =
+        reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(wqeWords + sizeof(HcommUrmaSqeCtx) / sizeof(uint32_t));
+    HcommUrmaFillSgeCtx<HcommUrmaOpCode::WRITE>(
+        sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(src), UdmaParams<uint64_t>{});
+
+    batchHandle.preparedWqebbCount = preparedWqebbCount + 1U;
+    if constexpr (config.cqe == 1) {
+        batchHandle.preparedCqeCount++;
+    }
+    return HCOMM_SUCCESS;
+}
+
+template <auto const& config>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
+    UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr,
+    uint64_t notifyVal)
+{
+    static_assert(config.cqe == 0 || config.cqe == 1, "Batch WriteWithNotifyNbi supports cqe values 0 and 1 only");
+    static_assert(config.inlineEn == 0, "Batch WriteWithNotifyNbi does not support inline data");
+    static_assert(
+        sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaNotifyCtx) + sizeof(HcommUrmaSgeCtx) <=
+            2U * HCOMM_URMA_WQEBB_SIZE,
+        "Write-with-notify WQE must fit in two 64-byte WQEBBs");
+
+    constexpr uint32_t requiredWqebbCount = 2U;
+    uint32_t preparedWqebbCount = batchHandle.preparedWqebbCount;
+    uint32_t bufferWqebbCapacity = batchHandle.wqeBufferLen / HCOMM_URMA_WQEBB_SIZE;
+    if (len > UINT32_MAX || bufferWqebbCapacity < requiredWqebbCount ||
+        preparedWqebbCount > bufferWqebbCapacity - requiredWqebbCount) {
+        KERNEL_LOG(
+            KERNEL_ERROR, "Hcomm batch WriteWithNotifyNbi failed with invalid length or insufficient buffer\n");
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+
+    constexpr uint32_t wqebbWordCount = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
+    LocalTensor<uint32_t> currentWqe = batchHandle.wqeBuffer[preparedWqebbCount * wqebbWordCount];
+    __ubuf__ uint8_t* currentWqeAddr = reinterpret_cast<__ubuf__ uint8_t*>(currentWqe.GetPhyAddr());
+
+    uint32_t logicalHead = channelEntity->sqHead + preparedWqebbCount;
+    __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqeAddr);
+    UdmaParams<uint64_t> params{notifyVal, 0, 0, 0};
+    HcommUrmaFillSqeCtxByToken<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config, uint64_t>(
+        sqeCtx, reinterpret_cast<__gm__ uint8_t*>(dst), sqCtx, batchHandle.remoteTokenId,
+        batchHandle.remoteTokenValue, logicalHead, notifyAddr, params);
+    __ubuf__ HcommUrmaSgeCtx* sgeCtx = reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(
+        currentWqeAddr + sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaNotifyCtx));
+    HcommUrmaFillSgeCtx<HcommUrmaOpCode::WRITE_WITH_NOTIFY>(
+        sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(src), params);
+
+    batchHandle.preparedWqebbCount = preparedWqebbCount + requiredWqebbCount;
+    if constexpr (config.cqe != 0) {
+        batchHandle.preparedCqeCount++;
+    }
     return HCOMM_SUCCESS;
 }
 
@@ -543,6 +713,60 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle
 
     st_dev(curHead, (__gm__ uint32_t*)sqCtx.contextInfo.ubJfs.dbVa, 0);
 
+    return HCOMM_SUCCESS;
+}
+
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBatchHandle& batchHandle)
+{
+    uint32_t preparedWqebbCount = batchHandle.preparedWqebbCount;
+    uint32_t preparedCqeCount = batchHandle.preparedCqeCount;
+    uint32_t bufferWqebbCapacity = batchHandle.wqeBufferLen / HCOMM_URMA_WQEBB_SIZE;
+    if (preparedWqebbCount == 0 || preparedWqebbCount > bufferWqebbCapacity ||
+        preparedCqeCount > preparedWqebbCount) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed with invalid batch counts\n");
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    uint32_t sqDepth = sqCtx.contextInfo.ubJfs.sqDepth;
+    if (sqDepth == 0 || preparedWqebbCount >= sqDepth) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed because batch must be smaller than SQ capacity\n");
+        return HCOMM_FAILED;
+    }
+
+    uint32_t sqHead = channelEntity->sqHead;
+    uint32_t startSlot = sqHead % sqDepth;
+    uint32_t tailWqebbCount = sqDepth - startSlot;
+    uint32_t firstWqebbCount =
+        preparedWqebbCount < tailWqebbCount ? preparedWqebbCount : tailWqebbCount;
+    uint32_t secondWqebbCount = preparedWqebbCount - firstWqebbCount;
+    constexpr uint32_t wqebbWordCount = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
+
+    uint64_t sqBaseAddr = sqCtx.contextInfo.ubJfs.sqVa;
+    __gm__ uint8_t* firstWqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+        sqBaseAddr + static_cast<uint64_t>(startSlot) * HCOMM_URMA_WQEBB_SIZE);
+    GlobalTensor<uint32_t> firstDst;
+    firstDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(firstWqeAddr));
+
+    SyncAction<HardEvent::S_MTE3>();
+    DataCopy(firstDst, batchHandle.wqeBuffer, firstWqebbCount * wqebbWordCount);
+    if (secondWqebbCount != 0) {
+        GlobalTensor<uint32_t> secondDst;
+        secondDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(sqBaseAddr));
+        LocalTensor<uint32_t> secondSrc = batchHandle.wqeBuffer[firstWqebbCount * wqebbWordCount];
+        DataCopy(secondDst, secondSrc, secondWqebbCount * wqebbWordCount);
+    }
+    SyncAction<HardEvent::MTE3_S>();
+
+    uint32_t newSqHead = sqHead + preparedWqebbCount;
+    uint32_t newCqHead = channelEntity->cqHead + preparedCqeCount;
+    channelEntity->sqHead = newSqHead;
+    channelEntity->cqHead = newCqHead;
+    st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+
+    batchHandle.preparedWqebbCount = 0;
+    batchHandle.preparedCqeCount = 0;
     return HCOMM_SUCCESS;
 }
 
