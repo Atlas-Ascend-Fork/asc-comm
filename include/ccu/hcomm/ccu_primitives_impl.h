@@ -17,6 +17,8 @@
 #include <stdbool.h>
 #endif // __cplusplus
 
+// 控制面/数据面 ABI 边界：数据类型（HcclResult 等）改从 hcomm 包内 hcomm_types.h 获取，
+// 不再直接依赖 hccl/hccl_types.h，保证两仓按统一 POD ABI 演进
 #include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/hcomm_primitives.h"
 #include "hcomm/hcomm_types.h"
