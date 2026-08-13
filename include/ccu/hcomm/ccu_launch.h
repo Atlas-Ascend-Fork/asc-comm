@@ -11,9 +11,7 @@
 #ifndef CCU_LAUNCH_H
 #define CCU_LAUNCH_H
 
-#include "hccl/hccl_types.h"
 #include "ccu/hcomm/ccu_api_types.h"
-#include "hccl/hccl_res.h"
 #include "hcomm/hcomm_ccu_launch.h"
 #include "hcomm/hcomm_ccu_res.h"
 
