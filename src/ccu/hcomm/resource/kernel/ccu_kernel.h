@@ -31,9 +31,9 @@
 #include "hcomm/resource/representation/interface/ccu_funccall_v1.h"
 #include "hcomm/resource/representation/interface/ccu_loopcall_v1.h"
 
-#include "hccl/hccl_types.h"
 #include "hcomm/hcomm_ccu_channel.h"
 #include "hcomm/hcomm_ccu_res.h"
+#include "hcomm/hcomm_types.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
