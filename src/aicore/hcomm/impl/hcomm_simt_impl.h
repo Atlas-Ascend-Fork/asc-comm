@@ -43,6 +43,13 @@ __simt_callee__ inline int32_t Hcomm<commProtocol>::Init(__ubuf__ uint8_t* buff,
 }
 
 template <CommProtocol commProtocol>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::ReserveDwqeBurst(
+    ChannelHandle channel, __gm__ void* targetAddr, uint64_t len, uint32_t wqeCnt)
+{
+    return impl_.ReserveDwqeBurst(channel, targetAddr, len, wqeCnt);
+}
+
+template <CommProtocol commProtocol>
 __simt_callee__ inline int32_t Hcomm<commProtocol>::ReserveDwqeBatch(
     ChannelHandle channel, __ubuf__ uint32_t* state, bool active,
     uint32_t activeWqeCnt, uint32_t commitLane)

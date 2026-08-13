@@ -630,6 +630,14 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ u
     ubPostContext_ = nullptr;
     ubRemoteCache_ = nullptr;
     ubPostContextReady_ = false;
+    hasReservedDwqeBurst_ = false;
+    reservedDwqeBurstBaseHead_ = 0U;
+    reservedDwqeBurstNextHead_ = 0U;
+    reservedDwqeBurstRemaining_ = 0U;
+    reservedDwqeBurstHeadAddr_ = nullptr;
+    reservedDwqeBurstChannel_ = 0U;
+    reservedDwqeBurstRemoteBase_ = 0U;
+    reservedDwqeBurstRemoteSize_ = 0U;
     if (buff == nullptr || wqeBytes > len) {
         return HCOMM_FAILED;
     }
@@ -702,6 +710,52 @@ __simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::EnsureUbPostContex
 
     // Avoid spinning in a potentially diverged branch; this post can use the GM fallback.
     return false;
+}
+
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReserveDwqeBurst(
+    ChannelHandle channel, __gm__ void* targetAddr, uint64_t len, uint32_t wqeCnt)
+{
+    if (wqeCnt == 0U || wqeCnt > 0xFFFFFFFFU / HCOMM_URMA_DWQE_BB_CNT ||
+        hasReservedDwqeBurst_ || hasDeferredDwqeBatch_ || hasReservedDwqeSlot_ ||
+        ubRemoteCache_ == nullptr) {
+        return HCOMM_FAILED;
+    }
+
+    HcommSimtUbResolvedPost resolvedPost;
+    if (ResolveUbPostContext(channel, reinterpret_cast<__gm__ uint8_t*>(targetAddr), len, resolvedPost) !=
+            HCOMM_SUCCESS ||
+        ubRemoteCache_->valid == 0U) {
+        return HCOMM_FAILED;
+    }
+
+    __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
+    __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
+    __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
+    __gm__ uint64_t* headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
+    __gm__ uint32_t* tailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx->contextInfo.ubJfs.tailAddr);
+    uint32_t curHead = HcommSimtHeadIdx(*headAddr);
+    uint32_t sqTail = *tailAddr;
+    uint32_t sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
+    uint32_t burstBbCnt = wqeCnt * HCOMM_URMA_DWQE_BB_CNT;
+    uint32_t usedBbCnt = curHead - sqTail;
+    if (sqDepth == 0U || usedBbCnt > sqDepth || burstBbCnt > sqDepth - usedBbCnt) {
+        return HCOMM_FAILED;
+    }
+
+    hasReservedDwqeBurst_ = true;
+    reservedDwqeBurstBaseHead_ = curHead;
+    reservedDwqeBurstNextHead_ = curHead;
+    reservedDwqeBurstRemaining_ = wqeCnt;
+    reservedDwqeBurstHeadAddr_ = headAddr;
+    reservedDwqeBurstChannel_ = channel;
+    reservedDwqeBurstRemoteBase_ = ubRemoteCache_->baseAddr;
+    reservedDwqeBurstRemoteSize_ = ubRemoteCache_->size;
+    reservedDwqeBurstPost_ = resolvedPost;
+    HcommSimtBuildPackedSqeTemplate<1U>(resolvedPost.meta, reservedDwqeBurstSqeTemplate_);
+    hasDeferredDwqeBatch_ = true;
+    deferredDwqeBbCnt_ = burstBbCnt;
+    deferredDwqeCqeCnt_ = wqeCnt;
+    return HCOMM_SUCCESS;
 }
 
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolveUbPostContext(
@@ -784,6 +838,11 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
 {
     (void)commitPipe;
     (void)reqPipe;
+
+    // Sequential burst reservation only supports the fixed-2BB Notify/FAA/CAS layouts.
+    if (hasReservedDwqeBurst_) {
+        return HCOMM_FAILED;
+    }
 
     // HcommUrmaSgeCtx::len is 32-bit.
     if (len > 0xFFFFFFFFULL) {
@@ -889,16 +948,35 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
     }
 
     HcommSimtUbResolvedPost post;
-    if (ResolveUbPostContext(channel, remoteAddr, len, post) != HCOMM_SUCCESS) {
+    if (hasReservedDwqeBurst_) {
+        uint64_t targetAddr = reinterpret_cast<uint64_t>(remoteAddr);
+        if (channel != reservedDwqeBurstChannel_ || targetAddr < reservedDwqeBurstRemoteBase_) {
+            return HCOMM_FAILED;
+        }
+        uint64_t offset = targetAddr - reservedDwqeBurstRemoteBase_;
+        if (offset > reservedDwqeBurstRemoteSize_ || len > reservedDwqeBurstRemoteSize_ - offset) {
+            return HCOMM_FAILED;
+        }
+        post = reservedDwqeBurstPost_;
+    } else if (ResolveUbPostContext(channel, remoteAddr, len, post) != HCOMM_SUCCESS) {
         return HCOMM_FAILED;
     }
     __gm__ uint64_t* headAddr = post.headAddr;
     uint32_t curHead = 0U;
+    bool useReservedDwqeBatchSlot = false;
     bool useImmediateWarp = false;
     bool publishImmediateWarp = false;
-    if (hasReservedDwqeSlot_) {
+    if (hasReservedDwqeBurst_) {
+        if (reservedDwqeBurstRemaining_ == 0U || headAddr != reservedDwqeBurstHeadAddr_) {
+            return HCOMM_FAILED;
+        }
+        curHead = reservedDwqeBurstNextHead_;
+        reservedDwqeBurstNextHead_ += HCOMM_URMA_DWQE_BB_CNT;
+        --reservedDwqeBurstRemaining_;
+    } else if (hasReservedDwqeSlot_) {
         curHead = reservedDwqeHead_;
         hasReservedDwqeSlot_ = false;
+        useReservedDwqeBatchSlot = true;
     } else {
         if constexpr (commit) {
             useImmediateWarp = HcommSimtReserveImmediateWarp(
@@ -918,7 +996,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
 
     if constexpr (commit) {
         uint32_t blockLaneCount = blockDim.x * blockDim.y * blockDim.z;
-        if (blockLaneCount == 1U && !hasDeferredDwqeBatch_) {
+        if (blockLaneCount == 1U && !hasReservedDwqeBurst_ && !hasDeferredDwqeBatch_ &&
+            !useReservedDwqeBatchSlot) {
             HcommSimtUrmaFillUbWriteWithNotifyWqe<config>(
                 wqeItem_, remoteAddr, localAddr, len, notifyAddr, notifyVal,
                 post.meta, curHead, nextHead, wqeKind_);
@@ -931,16 +1010,36 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
         }
     }
 
-    if (useImmediateWarp && !publishImmediateWarp) {
-        HcommSimtPackedSqeTemplate sqeTemplate;
-        HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
-        HcommSimtStorePackedNotifyWqe<config>(
-            sqeAddr, remoteAddr, localAddr, len, notifyAddr, notifyVal,
-            sqeTemplate, curHead, nextHead);
+    if constexpr (!commit) {
+        if (hasReservedDwqeBurst_) {
+            HcommSimtStorePackedNotifyWqe<config>(
+                sqeAddr, remoteAddr, localAddr, len, notifyAddr, notifyVal,
+                reservedDwqeBurstSqeTemplate_, curHead, nextHead);
+        } else if (useReservedDwqeBatchSlot) {
+            HcommSimtPackedSqeTemplate sqeTemplate;
+            HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
+            HcommSimtStorePackedNotifyWqe<config>(
+                sqeAddr, remoteAddr, localAddr, len, notifyAddr, notifyVal,
+                sqeTemplate, curHead, nextHead);
+        } else {
+            HcommSimtUrmaFillUbWriteWithNotifyWqe<config>(
+                wqeItem_, remoteAddr, localAddr, len, notifyAddr, notifyVal,
+                post.meta, curHead, nextHead, wqeKind_);
+            HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
+        }
     } else {
-        HcommSimtUrmaFillUbWriteWithNotifyWqe<config>(
-            wqeItem_, remoteAddr, localAddr, len, notifyAddr, notifyVal, post.meta, curHead, nextHead, wqeKind_);
-        HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
+        if (useImmediateWarp && !publishImmediateWarp) {
+            HcommSimtPackedSqeTemplate sqeTemplate;
+            HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
+            HcommSimtStorePackedNotifyWqe<config>(
+                sqeAddr, remoteAddr, localAddr, len, notifyAddr, notifyVal,
+                sqeTemplate, curHead, nextHead);
+        } else {
+            HcommSimtUrmaFillUbWriteWithNotifyWqe<config>(
+                wqeItem_, remoteAddr, localAddr, len, notifyAddr, notifyVal,
+                post.meta, curHead, nextHead, wqeKind_);
+            HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
+        }
     }
     if constexpr (commit) {
         if (useImmediateWarp) {
@@ -959,7 +1058,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
             return HCOMM_FAILED;
         }
         HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
-    } else {
+    } else if (!hasReservedDwqeBurst_) {
         asc_threadfence();
     }
     return HCOMM_SUCCESS;
@@ -1066,16 +1165,35 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
         return HCOMM_FAILED;
     }
     HcommSimtUbResolvedPost post;
-    if (ResolveUbPostContext(channel, remoteAddr, sizeof(T), post) != HCOMM_SUCCESS) {
+    if (hasReservedDwqeBurst_) {
+        uint64_t targetAddr = reinterpret_cast<uint64_t>(remoteAddr);
+        if (channel != reservedDwqeBurstChannel_ || targetAddr < reservedDwqeBurstRemoteBase_) {
+            return HCOMM_FAILED;
+        }
+        uint64_t offset = targetAddr - reservedDwqeBurstRemoteBase_;
+        if (offset > reservedDwqeBurstRemoteSize_ || sizeof(T) > reservedDwqeBurstRemoteSize_ - offset) {
+            return HCOMM_FAILED;
+        }
+        post = reservedDwqeBurstPost_;
+    } else if (ResolveUbPostContext(channel, remoteAddr, sizeof(T), post) != HCOMM_SUCCESS) {
         return HCOMM_FAILED;
     }
     __gm__ uint64_t* headAddr = post.headAddr;
     uint32_t curHead = 0U;
+    bool useReservedDwqeBatchSlot = false;
     bool useImmediateWarp = false;
     bool publishImmediateWarp = false;
-    if (hasReservedDwqeSlot_) {
+    if (hasReservedDwqeBurst_) {
+        if (reservedDwqeBurstRemaining_ == 0U || headAddr != reservedDwqeBurstHeadAddr_) {
+            return HCOMM_FAILED;
+        }
+        curHead = reservedDwqeBurstNextHead_;
+        reservedDwqeBurstNextHead_ += HCOMM_URMA_DWQE_BB_CNT;
+        --reservedDwqeBurstRemaining_;
+    } else if (hasReservedDwqeSlot_) {
         curHead = reservedDwqeHead_;
         hasReservedDwqeSlot_ = false;
+        useReservedDwqeBatchSlot = true;
     } else {
         if constexpr (commit) {
             useImmediateWarp = HcommSimtReserveImmediateWarp(
@@ -1095,28 +1213,53 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
 
     if constexpr (commit) {
         uint32_t blockLaneCount = blockDim.x * blockDim.y * blockDim.z;
-        if (blockLaneCount == 1U && !hasDeferredDwqeBatch_) {
-            HcommSimtPackedSqeTemplate sqeTemplate;
-            HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
-            HcommSimtLocalWqeStage localStage;
-            HcommSimtBuildLocalAtomicWqe<opCode, T, config>(
-                localStage, remoteAddr, fetchAddr, value, cond,
-                sqeTemplate, curHead, nextHead);
-            HcommSimtPublishLocalWqe(sqeAddr, post.dwqeAddr, localStage);
+        if (blockLaneCount == 1U && !hasReservedDwqeBurst_ && !hasDeferredDwqeBatch_ &&
+            !useReservedDwqeBatchSlot) {
+            // Keep the complete Atomic WQE in the explicit per-lane UB slot. Publishing a
+            // lane-local C++ object with ordinary stores can lose the operand words even
+            // though the WQE header and fetch SGE are consumed successfully.
+            HcommSimtUrmaFillUbAtomicWqe<opCode, T, config>(
+                wqeItem_, remoteAddr, fetchAddr, value, cond,
+                post.meta, curHead, nextHead, wqeKind_);
+            HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
+            asc_threadfence();
+            HcommSimtCopyUb128ToDwqeStwt16(post.dwqeAddr, wqeItem_);
+            asc_dcci_single(post.dwqeAddr);
+            asc_dcci_single(post.dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
             return HCOMM_SUCCESS;
         }
     }
 
-    if (useImmediateWarp && !publishImmediateWarp) {
-        HcommSimtPackedSqeTemplate sqeTemplate;
-        HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
-        HcommSimtStorePackedAtomicWqe<opCode, T, config>(
-            sqeAddr, remoteAddr, fetchAddr, value, cond,
-            sqeTemplate, curHead, nextHead);
+    if constexpr (!commit) {
+        if (hasReservedDwqeBurst_) {
+            HcommSimtStorePackedAtomicWqe<opCode, T, config>(
+                sqeAddr, remoteAddr, fetchAddr, value, cond,
+                reservedDwqeBurstSqeTemplate_, curHead, nextHead);
+        } else if (useReservedDwqeBatchSlot) {
+            HcommSimtPackedSqeTemplate sqeTemplate;
+            HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
+            HcommSimtStorePackedAtomicWqe<opCode, T, config>(
+                sqeAddr, remoteAddr, fetchAddr, value, cond,
+                sqeTemplate, curHead, nextHead);
+        } else {
+            HcommSimtUrmaFillUbAtomicWqe<opCode, T, config>(
+                wqeItem_, remoteAddr, fetchAddr, value, cond,
+                post.meta, curHead, nextHead, wqeKind_);
+            HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
+        }
     } else {
-        HcommSimtUrmaFillUbAtomicWqe<opCode, T, config>(
-            wqeItem_, remoteAddr, fetchAddr, value, cond, post.meta, curHead, nextHead, wqeKind_);
-        HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
+        if (useImmediateWarp && !publishImmediateWarp) {
+            HcommSimtPackedSqeTemplate sqeTemplate;
+            HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
+            HcommSimtStorePackedAtomicWqe<opCode, T, config>(
+                sqeAddr, remoteAddr, fetchAddr, value, cond,
+                sqeTemplate, curHead, nextHead);
+        } else {
+            HcommSimtUrmaFillUbAtomicWqe<opCode, T, config>(
+                wqeItem_, remoteAddr, fetchAddr, value, cond,
+                post.meta, curHead, nextHead, wqeKind_);
+            HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
+        }
     }
     if constexpr (commit) {
         if (useImmediateWarp) {
@@ -1135,7 +1278,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
             return HCOMM_FAILED;
         }
         HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
-    } else {
+    } else if (!hasReservedDwqeBurst_) {
         asc_threadfence();
     }
     return HCOMM_SUCCESS;
@@ -1232,8 +1375,22 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PublishDwqeBatc
     if (!hasDeferredDwqeBatch_) {
         return HCOMM_SUCCESS;
     }
-    (void)HcommSimtReserve(headAddr, deferredDwqeBbCnt_, deferredDwqeCqeCnt_);
+    if (hasReservedDwqeBurst_ &&
+        (reservedDwqeBurstRemaining_ != 0U || headAddr != reservedDwqeBurstHeadAddr_)) {
+        return HCOMM_FAILED;
+    }
+    uint64_t previousHead = HcommSimtReserve(headAddr, deferredDwqeBbCnt_, deferredDwqeCqeCnt_);
+    if (hasReservedDwqeBurst_ && HcommSimtHeadIdx(previousHead) != reservedDwqeBurstBaseHead_) {
+        hasDeferredDwqeBatch_ = false;
+        hasReservedDwqeBurst_ = false;
+        reservedDwqeBurstHeadAddr_ = nullptr;
+        reservedDwqeBurstChannel_ = 0U;
+        return HCOMM_FAILED;
+    }
     hasDeferredDwqeBatch_ = false;
+    hasReservedDwqeBurst_ = false;
+    reservedDwqeBurstHeadAddr_ = nullptr;
+    reservedDwqeBurstChannel_ = 0U;
     return HCOMM_SUCCESS;
 }
 
