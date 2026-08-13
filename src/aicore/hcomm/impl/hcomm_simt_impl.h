@@ -42,26 +42,6 @@ __simt_callee__ inline int32_t Hcomm<commProtocol>::Init(__ubuf__ uint8_t* buff,
     return impl_.Init(buff, len);
 }
 
-#if defined(HCOMM_SIMT_UB_STAGING_EXPERIMENT) && defined(__NPU_ARCH__) && __NPU_ARCH__ == 3510
-template <CommProtocol commProtocol>
-__simt_callee__ inline void Hcomm<commProtocol>::BindUbPostContext(__ubuf__ uint8_t* context)
-{
-    impl_.BindUbPostContext(context);
-}
-
-template <CommProtocol commProtocol>
-__simt_callee__ inline int32_t Hcomm<commProtocol>::BindUbRemoteCache(__ubuf__ uint8_t* cache, uint32_t len)
-{
-    return impl_.BindUbRemoteCache(cache, len);
-}
-
-template <CommProtocol commProtocol>
-__simt_callee__ inline int32_t Hcomm<commProtocol>::InitUbPostContext(ChannelHandle channel)
-{
-    return impl_.InitUbPostContext(channel);
-}
-#endif
-
 template <CommProtocol commProtocol>
 __simt_callee__ inline int32_t Hcomm<commProtocol>::ReserveDwqeBatch(
     ChannelHandle channel, __ubuf__ uint32_t* state, bool active,
