@@ -25,6 +25,7 @@ constexpr uint64_t RECV_OFFSET_0 = 2U * DATA_SIZE;
 constexpr uint64_t RECV_OFFSET_1 = 3U * DATA_SIZE;
 constexpr uint32_t BATCH_BUFFER_SIZE = 512U;
 constexpr char MEMORY_TAG[] = "asccomm_batch_write";
+constexpr char SHARED_QUEUE_TAG[] = "asccomm_batch_write_queue";
 
 enum KernelResult : uint32_t {
     KERNEL_SUCCESS = 0U,

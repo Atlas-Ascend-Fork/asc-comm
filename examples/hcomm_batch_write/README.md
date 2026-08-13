@@ -6,7 +6,9 @@
 ## 验证范围
 
 样例固定使用同一主机上的两个rank和两张NPU。每个rank都向唯一的对端创建两个逻辑Channel，两个Channel
-具有相同的本端Endpoint和对端Endpoint，由`MakeMultiChannelHandle`配置为共享本端Jetty。Kernel执行以下流程：
+具有相同的本端Endpoint和对端Endpoint，由`MakeMultiChannelHandle`配置为共享本端Jetty。Host创建接口显式
+传入`sharedQueueTag`：相同Endpoint下使用相同tag的Channel共享Jetty，使用不同tag可创建不同的共享Jetty。
+Kernel执行以下流程：
 
 ```cpp
 auto batch = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
