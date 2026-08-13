@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+// 数据面 primitive C ABI 实现入口。
+// 头部统一走 hcomm 包内 header（hcomm_ccu_channel.h / hcomm_types.h），
+// 不再 include hccl 私有头，从源码层面落实控制面/数据面边界。
 #include "hcomm/hcomm_ccu_channel.h"
 #include "hcomm/hcomm_types.h"
 #include "ccu/hcomm/ccu_primitives_impl.h"
