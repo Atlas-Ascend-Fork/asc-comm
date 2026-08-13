@@ -39,7 +39,9 @@ Drain                         不计时，仅校验完成状态
 
 `--commit-mode last` 使用单 lane 执行一组 WQE：前 `iterations - 1` 次调用使用
 `commit=false`，最后一次调用使用 `commit=true`，随后结束计时并调用 `Drain()`。
-该模式不使用 `ReserveDwqeBurst/ReserveDwqeBatch`，用于直接验证接口模板参数的末次统一提交行为。
+每轮提交前调用一次 `ReserveDwqeBurst`，整批只对 GM head 执行一次原子预留，并缓存本批次
+复用的远端注册信息、SQ context 和 WQE 固定字段；中间 WQE 直接写普通 SQ，最后一个 WQE
+通过 DWQE 发布整批。该模式用于验证并测量单 lane 末次统一提交路径。
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \

@@ -141,6 +141,14 @@ __simt_callee__ inline int32_t SubmitLastCommitSeries(
     __gm__ uint8_t *remoteBase, __gm__ uint8_t *localBase,
     uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count)
 {
+    if (count == 0U) {
+        return 0;
+    }
+    uint64_t targetLen = api == PerfApi::NOTIFY ?
+        static_cast<uint64_t>(payloadBytes) : sizeof(uint64_t);
+    if (hcomm.ReserveDwqeBurst(channel, remoteBase, targetLen, count) != 0) {
+        return -1;
+    }
     for (uint32_t i = 1U; i < count; ++i) {
         int32_t status = SubmitOne<api, false>(
             hcomm, channel, remoteBase, localBase,
