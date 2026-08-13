@@ -13,7 +13,7 @@
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopgroup_bundle_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_nop_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 #include <gtest/gtest.h>
 #include <memory>
 #include <string>

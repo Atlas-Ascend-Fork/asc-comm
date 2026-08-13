@@ -31,9 +31,9 @@
 #include "hcomm/resource/representation/interface/ccu_funccall_v1.h"
 #include "hcomm/resource/representation/interface/ccu_loopcall_v1.h"
 
-#include "hccl_types.h"
-#include "hcomm_primitives.h"
-#include "hcomm_ccu_res.h"
+#include "hccl/hccl_types.h"
+#include "hcomm/hcomm_ccu_channel.h"
+#include "hcomm/hcomm_ccu_res.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
@@ -48,7 +48,7 @@
 #ifndef CCU_PROFILING // 和hccl仓兼容性使用
 #define CCU_PROFILING
 #endif
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 
 namespace hcomm {
 

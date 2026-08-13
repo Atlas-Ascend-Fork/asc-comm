@@ -17,7 +17,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "hcomm_primitives.h"
+#include "hcomm/hcomm_ccu_channel.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 
@@ -94,8 +94,8 @@ public:
     int32_t AddProfiling(const ChannelHandle channel, const std::string& name, uint32_t signalIndex, uint32_t mask);
     int32_t AddProfiling(const ChannelHandle* channels, uint32_t channelNum);
     int32_t AddProfiling(
-        const ChannelHandle* channels, uint32_t channelNum, HcommDataType hcommDataType,
-        HcommDataType hcommOutputDataType, HcommReduceOp hcommOpType);
+        const ChannelHandle* channels, uint32_t channelNum, int32_t hcommDataType,
+        int32_t hcommOutputDataType, int32_t hcommOpType);
 
     void SetDependencyInfo(uint32_t id, uint32_t mask, const std::shared_ptr<CcuRepBase>& rep);
     std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>> GetDependencyInfo(uint32_t id);

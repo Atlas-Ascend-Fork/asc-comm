@@ -12,7 +12,7 @@
 #define CCU_FUNC_CALL_DEMO_H
 
 #include "ccu/hcomm/ccu_primitives.hpp"
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 
 namespace ccu = ::AscendC::ccu;
 

@@ -11,7 +11,6 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
-#include "string_util.h"
 #include "hcomm/common/ccu_exception.h"
 
 namespace hcomm {

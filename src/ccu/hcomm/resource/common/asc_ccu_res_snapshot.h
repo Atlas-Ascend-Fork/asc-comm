@@ -14,8 +14,8 @@
 #include <array>
 #include <cstdint>
 
-#include "ccu/hcomm/ccu_types.h"
-#include "hcomm_ccu_res.h"
+#include "ccu/hcomm/ccu_api_types.h"
+#include "hcomm/hcomm_ccu_res.h"
 #include "hcomm/resource/common/asc_ccu_resource_local.h"
 
 namespace hcomm {
@@ -43,6 +43,7 @@ public:
     int32_t GetDeviceLogicId() const;
     uint32_t GetCcuVersion() const;
     uint32_t GetValidDieMask() const;
+    const HcommCcuControlOpsPod &GetControlOps() const;
 
 private:
     AscCcuResSnapshot(const AscCcuResSnapshot &that) = delete;
@@ -54,6 +55,7 @@ private:
     int32_t deviceLogicId_{0};
     uint32_t ccuVersion_{0};
     uint32_t validDieMask_{0};
+    HcommCcuControlOpsPod controlOps_{};
     AscCcuResRepository initialRepo_{};
     AscCcuResRepository resRepo_{};
     std::array<HcommCcuDieMetadataPod, HCOMM_CCU_MAX_DIE_NUM> dieMetadata_{};

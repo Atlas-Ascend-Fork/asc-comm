@@ -49,6 +49,16 @@ bool IsViewShapeValid(const HcommCcuResRangeViewPod &view)
     return view.reserved == 0 && (view.count == 0 || view.ranges != nullptr);
 }
 
+bool IsControlOpsValid(const HcommCcuControlOpsPod &ops)
+{
+    return ops.header.version == HCOMM_CCU_CONTROL_ABI_VERSION &&
+        ops.header.magicWord == HCOMM_CCU_CONTROL_OPS_MAGIC_WORD &&
+        ops.header.size == sizeof(HcommCcuControlOpsPod) && ops.header.reserved == 0 &&
+        ops.channelQuery != nullptr && ops.loadInstruction != nullptr && ops.missionContextQuery != nullptr &&
+        ops.loopContextQuery != nullptr && ops.ckeQuery != nullptr && ops.xnQuery != nullptr &&
+        ops.gsaQuery != nullptr && ops.reserved == 0;
+}
+
 bool IsDisabledDieMetadataValid(const HcommCcuDieMetadataPod &metadata)
 {
     return metadata.enabled == 0 && metadata.missionKey == 0 && metadata.innerDieLoopChannelId == 0 &&
@@ -105,7 +115,7 @@ CcuResult AscCcuResSnapshot::Load(const HcommCcuRegisterContextPod &context)
         context.dieNum != HCOMM_CCU_MAX_DIE_NUM ||
         context.validDieMask == 0 || (context.validDieMask & ~((1U << HCOMM_CCU_MAX_DIE_NUM) - 1U)) != 0 ||
         context.reserved[0] != 0 || context.reserved[1] != 0 ||
-        !IsViewShapeValid(context.instanceResources)) {
+        !IsControlOpsValid(context.controlOps) || !IsViewShapeValid(context.instanceResources)) {
         return CcuResult::CCU_E_PARA;
     }
     if (generation_ != 0 && generation_ != context.generation) {
@@ -135,6 +145,7 @@ CcuResult AscCcuResSnapshot::Load(const HcommCcuRegisterContextPod &context)
     deviceLogicId_ = context.deviceLogicId;
     ccuVersion_ = context.ccuVersion;
     validDieMask_ = context.validDieMask;
+    controlOps_ = context.controlOps;
     initialRepo_ = std::move(instanceSnapshot);
     resRepo_ = std::move(currentRepo);
     dieMetadata_[0] = context.die[0];
@@ -165,5 +176,7 @@ int32_t AscCcuResSnapshot::GetDeviceLogicId() const { return deviceLogicId_; }
 uint32_t AscCcuResSnapshot::GetCcuVersion() const { return ccuVersion_; }
 
 uint32_t AscCcuResSnapshot::GetValidDieMask() const { return validDieMask_; }
+
+const HcommCcuControlOpsPod &AscCcuResSnapshot::GetControlOps() const { return controlOps_; }
 
 } // namespace hcomm

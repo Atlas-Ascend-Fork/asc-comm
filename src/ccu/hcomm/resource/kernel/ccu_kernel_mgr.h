@@ -24,6 +24,8 @@
 
 namespace hcomm {
 
+int32_t HcommCcuDiagnose(const HcommCcuDfxRequestPod *request, HcommCcuDfxEmitFn emit, void *context);
+
 using namespace CcuRep;
 
 class CcuKernelMgr {
@@ -45,6 +47,7 @@ public:
     CcuResult UnRegister(CcuKernelHandle kernelHandle);
 
     CcuKernel* GetCurrentKernel();
+    const HcommCcuControlOpsPod &GetControlOps() const;
 
 private:
     explicit CcuKernelMgr() = default;
@@ -78,6 +81,7 @@ private:
     std::shared_ptr<CcuInsGeneraterBase> insGenePtr;
     uint32_t ccuVersion_{HCOMM_CCU_VERSION_INVALID};
     std::array<uint32_t, HCOMM_CCU_MAX_DIE_NUM> missionKeys_{};
+    HcommCcuControlOpsPod controlOps_{};
 };
 }; // namespace hcomm
 #endif // HCOMM_CCU_KERNEL_MGR_IMP_H

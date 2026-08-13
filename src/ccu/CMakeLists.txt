@@ -11,48 +11,20 @@
 set(ASCCOMM_CCU_ROOT ${CMAKE_CURRENT_LIST_DIR})
 get_filename_component(ASCCOMM_ROOT ${ASCCOMM_CCU_ROOT}/../.. ABSOLUTE)
 
-function(asccomm_collect_header_dirs out_var)
-    set(_dirs)
-    foreach(_root IN LISTS ARGN)
-        if(EXISTS "${_root}")
-            file(GLOB_RECURSE _headers CONFIGURE_DEPENDS
-                "${_root}/*.h"
-                "${_root}/*.hpp"
-            )
-            foreach(_header IN LISTS _headers)
-                get_filename_component(_dir "${_header}" DIRECTORY)
-                list(APPEND _dirs "${_dir}")
-            endforeach()
-        endif()
-    endforeach()
-    list(REMOVE_DUPLICATES _dirs)
-    set(${out_var} ${_dirs} PARENT_SCOPE)
-endfunction()
-
-asccomm_collect_header_dirs(ASCCOMM_HCOMM_HEADER_DIRS
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
-)
-asccomm_collect_header_dirs(ASCCOMM_CANN_HEADER_DIRS
-    ${ASCEND_CANN_PACKAGE_PATH}/include
-    ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
-    ${ASCCOMM_CANN_ARCH_DIR}/include
-    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc
-)
+if(NOT ASCCOMM_CANN_ARCH_DIR AND ASCEND_CANN_PACKAGE_PATH)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
+        set(_ASCCOMM_CANN_ARCH "aarch64-linux")
+    else()
+        set(_ASCCOMM_CANN_ARCH "x86_64-linux")
+    endif()
+    set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}")
+endif()
 
 add_library(asccomm_ccu_headers INTERFACE)
 target_include_directories(asccomm_ccu_headers INTERFACE
     ${ASCCOMM_ROOT}/include
     ${ASCCOMM_HCOMM_SOURCE_DIR}/include
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include/hccl
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy/hccl
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/third_party/json/include
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/third_party/json/single_include
-    ${ASCCOMM_ROOT}/third_party/json/include
-    ${ASCCOMM_ROOT}/third_party/json/single_include
 )
 
 add_library(asccomm_ccu_dataplane_obj OBJECT)
@@ -68,51 +40,18 @@ target_link_libraries(asccomm_ccu_dataplane_obj PRIVATE
     $<BUILD_INTERFACE:mmpa_headers>
     $<BUILD_INTERFACE:runtime_headers>
     $<BUILD_INTERFACE:rdma_core_headers>
-    $<BUILD_INTERFACE:hccl_legacy_headers>
-    $<BUILD_INTERFACE:json>
     $<BUILD_INTERFACE:c_sec_headers>
     $<BUILD_INTERFACE:unified_dlog>
 )
 target_include_directories(asccomm_ccu_dataplane_obj PRIVATE
     ${ASCCOMM_CCU_ROOT}
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/common
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/common/src
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/common/src/mgr
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common/utils
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/common/exception
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/unified_platform
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend950/unified_platform/pub_inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/hcom
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/common/src/exception
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/pub_inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/pub_inc/inner
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/legacy/ascend910/pub_inc/new
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/hccp/inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/endpoint_pairs/channels
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/common
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/southbound_adpt
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/src/base_comm/resources/hccp/external_depends
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include/hccl
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hccl
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/legacy/hccl
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/test/ut/platform/hccp/rdma_service_normal/include
-    ${ASCCOMM_HCOMM_HEADER_DIRS}
 )
 target_include_directories(asccomm_ccu_dataplane_obj SYSTEM PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
     ${ASCCOMM_CANN_ARCH_DIR}/include
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc
-    ${ASCCOMM_CANN_HEADER_DIRS}
 )
 target_compile_definitions(asccomm_ccu_dataplane_obj PRIVATE
     ASCCOMM_CCU_LOCAL_LOGGING
@@ -131,7 +70,13 @@ add_library(asccomm_ccu_dataplane SHARED
 set_target_properties(asccomm_ccu_dataplane PROPERTIES
     OUTPUT_NAME asccomm_ccu_dataplane
 )
-target_link_libraries(asccomm_ccu_dataplane PRIVATE asccomm_ccu_headers hcomm)
+target_link_libraries(asccomm_ccu_dataplane PRIVATE
+    asccomm_ccu_headers
+    acl_rt
+    runtime
+    unified_dlog
+    c_sec
+)
 
 add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
 add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
