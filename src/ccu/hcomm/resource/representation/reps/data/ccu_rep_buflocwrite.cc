@@ -11,7 +11,6 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
-#include "string_util.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -31,7 +30,10 @@ bool CcuRepBufLocWrite::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16
     this->instrId = instrId;
     translated = true;
 
-    insGenPtr->CcuRepBufLocWriteTranslate(ccuKernel, instr, this, dep);
+    CHK_PRT_THROW(
+        insGenPtr->CcuRepBufLocWriteTranslate(ccuKernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepBufLocWrite][Translate] failed to translate for instrId[%u]", instrId),
+        CcuResult::CCU_E_INTERNAL, "CcuRepBufLocWrite translate failed");
     instrId += instrCount;
 
     return translated;

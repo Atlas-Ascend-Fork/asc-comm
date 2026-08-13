@@ -70,10 +70,10 @@ bool CcuRepJump::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& ins
     }
 
     if (jumpLabel->Translated()) {
-        CHK_RET_THROW(
-            CcuResult::CCU_E_INTERNAL,
-            hcomm::FormatCcuMessage("[CcuRepJump][%s] failed to translate repJump for instrId[%u] ", __func__, instrId),
-            insGeneratorPtr_->CcuRepJumpTranslate(ccuKernel, instr, instrId, this, dep));
+        CHK_PRT_THROW(
+            insGeneratorPtr_->CcuRepJumpTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJump][Translate] failed to translate for instrId[%u]", instrId),
+            CcuResult::CCU_E_INTERNAL, "CcuRepJump translate failed");
         translated = true;
     }
 
@@ -116,10 +116,10 @@ bool CcuRepJumpNE::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& i
     }
 
     if (jumpLabel->Translated()) {
-        CHK_RET_THROW(
-            CcuResult::CCU_E_INTERNAL,
-            hcomm::FormatCcuMessage("[CcuRepJumpNE][%s] failed to translate repJumpNE for instrId[%u] ", __func__, instrId),
-            insGeneratorPtr_->CcuRepJumpNETranslate(ccuKernel, instr, instrId, this, dep));
+        CHK_PRT_THROW(
+            insGeneratorPtr_->CcuRepJumpNETranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpNE][Translate] failed to translate for instrId[%u]", instrId),
+            CcuResult::CCU_E_INTERNAL, "CcuRepJumpNE translate failed");
         translated = true;
     }
 
@@ -164,10 +164,10 @@ bool CcuRepJumpEQ::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& i
     }
 
     if (jumpLabel->Translated()) {
-        CHK_RET_THROW(
-            CcuResult::CCU_E_INTERNAL,
-            hcomm::FormatCcuMessage("[CcuRepJumpEQ][%s] failed to translate repJumpEQ for instrId[%u] ", __func__, instrId),
-            insGeneratorPtr_->CcuRepJumpEQTranslate(ccuKernel, instr, instrId, this, dep));
+        CHK_PRT_THROW(
+            insGeneratorPtr_->CcuRepJumpEQTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpEQ][Translate] failed to translate for instrId[%u]", instrId),
+            CcuResult::CCU_E_INTERNAL, "CcuRepJumpEQ translate failed");
         translated = true;
     }
 
@@ -213,10 +213,10 @@ bool CcuRepJumpLE::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& i
     }
 
     if (jumpLabel->Translated()) {
-        CHK_RET_THROW(
-            CcuResult::CCU_E_INTERNAL,
-            hcomm::FormatCcuMessage("[CcuRepJumpLE][%s] failed to translate repJumpLE for instrId[%u] ", __func__, instrId),
-            insGeneratorPtr_->CcuRepJumpLETranslate(ccuKernel, instr, instrId, this, dep));
+        CHK_PRT_THROW(
+            insGeneratorPtr_->CcuRepJumpLETranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpLE][Translate] failed to translate for instrId[%u]", instrId),
+            CcuResult::CCU_E_INTERNAL, "CcuRepJumpLE translate failed");
         translated = true;
     }
 
@@ -262,10 +262,10 @@ bool CcuRepJumpGE::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& i
     }
 
     if (jumpLabel->Translated()) {
-        CHK_RET_THROW(
-            CcuResult::CCU_E_INTERNAL,
-            hcomm::FormatCcuMessage("[CcuRepJumpGE][%s] failed to translate repJumpGE for instrId[%u] ", __func__, instrId),
-            insGeneratorPtr_->CcuRepJumpGETranslate(ccuKernel, instr, instrId, this, dep));
+        CHK_PRT_THROW(
+            insGeneratorPtr_->CcuRepJumpGETranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpGE][Translate] failed to translate for instrId[%u]", instrId),
+            CcuResult::CCU_E_INTERNAL, "CcuRepJumpGE translate failed");
 
         translated = true;
     }
@@ -310,10 +310,10 @@ bool CcuRepJumpGT::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& i
         hcomm::ThrowCcuInternal("instr is empty!");
     }
     if (jumpLabel->Translated()) {
-        CHK_RET_THROW(
-            CcuResult::CCU_E_INTERNAL,
-            hcomm::FormatCcuMessage("[CcuRepJumpGT][%s] failed to translate repJumpGT for instrId[%u] ", __func__, instrId),
-            insGeneratorPtr_->CcuRepJumpGTTranslate(ccuKernel, instr, instrId, this, dep));
+        CHK_PRT_THROW(
+            insGeneratorPtr_->CcuRepJumpGTTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpGT][Translate] failed to translate for instrId[%u]", instrId),
+            CcuResult::CCU_E_INTERNAL, "CcuRepJumpGT translate failed");
 
         translated = true;
     }
@@ -359,10 +359,10 @@ bool CcuRepJumpLT::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& i
     }
 
     if (jumpLabel->Translated()) {
-        CHK_RET_THROW(
-            CcuResult::CCU_E_INTERNAL,
-            hcomm::FormatCcuMessage("[CcuRepJumpLT][%s] failed to translate repJumpLT for instrId[%u] ", __func__, instrId),
-            insGeneratorPtr_->CcuRepJumpLTTranslate(ccuKernel, instr, instrId, this, dep));
+        CHK_PRT_THROW(
+            insGeneratorPtr_->CcuRepJumpLTTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpLT][Translate] failed to translate for instrId[%u]", instrId),
+            CcuResult::CCU_E_INTERNAL, "CcuRepJumpLT translate failed");
 
         translated = true;
     }

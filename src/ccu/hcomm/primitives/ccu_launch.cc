@@ -9,8 +9,7 @@
  */
 
 #include "ccu/hcomm/ccu_launch.h"
-#include "adapter_rts_common.h"
-#include "ccu/hcomm/ccu_res.h"
+#include "ccu/hcomm/ccu_resource_api.h"
 #include "hcomm/hcomm_ccu_launch.h"
 
 #include <chrono>
@@ -20,23 +19,13 @@
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/common/ccu_device_context.h"
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 #include "hcomm/resource/kernel/ccu_kernel_registry_mgr.h"
 #include "hcomm/resource/common/ccu_var_event_res_mgr.h"
 
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
-
-using HcclUs = std::chrono::steady_clock::time_point;
-
-#ifndef TIME_NOW
-#define TIME_NOW() std::chrono::steady_clock::now()
-#endif
-
-#ifndef DURATION_US
-#define DURATION_US(x) (std::chrono::duration_cast<std::chrono::microseconds>(x))
-#endif
 
 CcuResult HcommCcuKernelRegisterStart(
     CcuInsHandle insHandle, const HcommCcuRegisterContextPod *context)
@@ -65,6 +54,7 @@ CcuResult HcommCcuKernelRegisterStart(
         return ret;
     }
     hcomm::SetCurrentCcuDeviceLogicId(context->deviceLogicId);
+    hcomm::SetCurrentCcuControlOps(ccuIns->GetResSnapshot()->GetControlOps());
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -86,7 +76,7 @@ CcuResult HcommCcuKernelRegister(
     uint32_t argNum, CcuKernelHandle* kernelHandle)
 {
     HCCL_RUN_INFO("Entry-%s", __func__);
-    HcclUs startut = TIME_NOW();
+    const auto startTime = std::chrono::steady_clock::now();
 
     CCU_CHK_PTR_NULL(kernelFunc);
     CCU_CHK_PTR_NULL(kernelHandle);
@@ -120,7 +110,9 @@ CcuResult HcommCcuKernelRegister(
     }
 
     *kernelHandle = newHandle;
-    HCCL_INFO("[%s] success, take time [%lld]us.", __func__, DURATION_US(TIME_NOW() - startut).count());
+    const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now() - startTime);
+    HCCL_INFO("[%s] success, take time [%lld]us.", __func__, duration.count());
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -209,6 +201,8 @@ static HcommCcuTaskProfilePod ConstructCcuTaskProfile(const hcomm::CcuTaskParam&
     task.instructionId = ccuParam.instStartId;
     task.isMaster = isMaster ? 1U : 0U;
     task.kernelHandle = kernelHandle;
+    task.diagnose = hcomm::HcommCcuDiagnose;
+    task.reserved = 0;
     return task;
 }
 
@@ -296,7 +290,7 @@ static bool IsLaunchContextValid(const HcommCcuLaunchContextPod& context)
 CcuResult HcommCcuKernelLaunch(
     const HcommCcuLaunchContextPod *launchContext, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum)
 {
-    const auto& startus = TIME_NOW();
+    const auto startTime = std::chrono::steady_clock::now();
 
     CCU_CHK_PTR_NULL(launchContext);
     CHK_PRT_RET(kernelHandle == 0, HCCL_ERROR("[%s] failed, kernel handle is empty.", __func__), CcuResult::CCU_E_PARA);
@@ -360,7 +354,9 @@ CcuResult HcommCcuKernelLaunch(
         }
     }
     CCU_EXCEPTION_HANDLE_END
-    HCCL_INFO("[%s] success, take time [%lld]us.", __func__, DURATION_US(TIME_NOW() - startus).count());
+    const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now() - startTime);
+    HCCL_INFO("[%s] success, take time [%lld]us.", __func__, duration.count());
     return CcuResult::CCU_SUCCESS;
 }
 

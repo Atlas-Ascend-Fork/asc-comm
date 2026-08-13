@@ -8,8 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "string_util.h"
-#include "hcomm_c_adpt.h"
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
@@ -33,7 +31,10 @@ bool CcuRepRemWaitSem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_
     this->instrId = instrId;
     translated = true;
 
-    insGenPtr->CcuRepRemWaitSemTranslate(ccuKernel, instr, this);
+    CHK_PRT_THROW(
+        insGenPtr->CcuRepRemWaitSemTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepRemWaitSem][Translate] failed to translate for instrId[%u]", instrId),
+        CcuResult::CCU_E_INTERNAL, "CcuRepRemWaitSem translate failed");
 
     CHK_PRT_THROW(
         instrId > UINT16_MAX - instrCount,

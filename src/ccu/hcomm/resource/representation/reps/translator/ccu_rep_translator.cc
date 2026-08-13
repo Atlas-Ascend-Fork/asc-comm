@@ -20,8 +20,6 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_loadarg_v1.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 
-#include "dtype_common.h"
-
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
@@ -36,7 +34,7 @@ template <typename T>
 bool CheckType(const std::shared_ptr<CcuRepBlock>& refer)
 {
     if (refer == nullptr) {
-        HCCL_ERROR("input refer is nullptr");
+        HCCL_ERROR("[%s] input refer is nullptr", __func__);
         return false;
     }
     HCCL_INFO("[CheckType] refer->Type() = %d", refer->Type());
@@ -47,7 +45,7 @@ template <>
 bool CheckType<CcuRepFuncBlock>(const std::shared_ptr<CcuRepBlock>& refer)
 {
     if (refer == nullptr) {
-        HCCL_ERROR("input refer is nullptr");
+        HCCL_ERROR("[%s] input refer is nullptr", __func__);
         return false;
     }
     return refer->Type() == CcuRepType::FUNC_BLOCK ? true : false;
@@ -57,7 +55,7 @@ template <>
 bool CheckType<CcuRepLoopBlock>(const std::shared_ptr<CcuRepBlock>& refer)
 {
     if (refer == nullptr) {
-        HCCL_ERROR("input refer is nullptr");
+        HCCL_ERROR("[%s] input refer is nullptr", __func__);
         return false;
     }
     return refer->Type() == CcuRepType::LOOP_BLOCK ? true : false;
@@ -252,14 +250,14 @@ void CcuRepTranslator::CommonProcess(CcuKernel* ccuKernel, CcuInstr*& instr, uin
 
     // 遍历需要赋值的常量，A5场景下暂为空表
     std::unordered_map<uint64_t, CcuRep::Variable>& constValue2VarMap = ccuKernel->GetConstValue2VarMap();
-    u32 constValueNum = constValue2VarMap.size();
+    uint32_t constValueNum = constValue2VarMap.size();
     for (auto elem : constValue2VarMap) {
         uint64_t constValue = elem.first;
         CcuRep::Variable curVariable = elem.second;
         LoadImdToXnInstr(instr++, curVariable.Id(), constValue);
     }
 
-    u32 instrNum = 3 + constValueNum;
+    uint32_t instrNum = 3 + constValueNum;
     if (instrId > UINT16_MAX - instrNum) {
         hcomm::ThrowCcuInternal("integer overflow occurs");
     }

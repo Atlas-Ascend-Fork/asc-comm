@@ -8,13 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
-#include "hcomm_c_adpt.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/channel/ccu_channel.h"
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "hcomm/common/ccu_log.h"
-#include "hcomm_ccu_res.h"
+#include "hcomm/hcomm_ccu_res.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -193,11 +192,13 @@ HcclResult CcuInsGeneraterV1::CcuRepBufReduceTranslate(
     UNUSED(ccuKernel);
     CHK_PTR_NULL(ccuRepBufReduce);
     if (ccuRepBufReduce->GetCount() < CCU_REDUCE_MIN_MS) {
-        HCCL_ERROR("count must be at least %u", CCU_REDUCE_MIN_MS);
+        HCCL_ERROR("count[%u] must be at least %u", ccuRepBufReduce->GetCount(), CCU_REDUCE_MIN_MS);
         return HCCL_E_PARA;
     }
     if (ccuRepBufReduce->GetCount() > CCU_REDUCE_MAX_MS || ccuRepBufReduce->GetMem().size() > CCU_REDUCE_MAX_MS) {
-        HCCL_ERROR("count and mem size must less than %u", CCU_REDUCE_MAX_MS);
+        HCCL_ERROR(
+            "count[%u] and mem size[%zu] must less than %u", ccuRepBufReduce->GetCount(),
+            ccuRepBufReduce->GetMem().size(), CCU_REDUCE_MAX_MS);
         return HCCL_E_PARA;
     }
 
@@ -300,7 +301,10 @@ HcclResult CcuInsGeneraterV1::CcuRepRemWaitSemTranslate(
     uint32_t locCkeId{0};
     CHK_PRT_RET(
         channelImpl->GetLocCkeByIndex(cuRepRemWaitSem->GetSemIndex(), locCkeId) != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR("[CcuRepRemWaitSem][%s] failed to get to loc cke id.", __func__), HCCL_E_UNAVAIL);
+        HCCL_ERROR(
+            "[CcuRepRemWaitSem][%s] failed to get loc cke id, channelHandle[0x%llx], semIndex[%u].", __func__,
+            cuRepRemWaitSem->GetChannel(), cuRepRemWaitSem->GetSemIndex()),
+        HCCL_E_UNAVAIL);
 
     // 需要profiling的使用SetCKEInstr, 否则使用ClearCKEInstr
     if (cuRepRemWaitSem->GetIsProfiling()) {
@@ -412,7 +416,7 @@ HcclResult CcuInsGeneraterV1::CcuRepAddTranslate(
             break;
         }
         default: {
-            HCCL_ERROR("Invalid Add");
+            HCCL_ERROR("Invalid Add, subType[%d]", static_cast<int>(ccuRepAdd->GetSubType()));
             return HCCL_E_PARA;
         }
     }
@@ -447,7 +451,7 @@ HcclResult CcuInsGeneraterV1::CcuRepAssignTranslate(
             break;
         }
         default: {
-            HCCL_ERROR("Invalid Assign");
+            HCCL_ERROR("Invalid Assign, subType[%d]", static_cast<int>(ccuRepAssign->GetSubType()));
             return HCCL_E_PARA;
         }
     }
@@ -774,7 +778,9 @@ HcclResult CcuInsGeneraterV1::LoadLoopCallArg(
             break;
         case CcuArgType::VARIABLE_LIST:
             if (inArg.varList.size() != blkArg.varList.size()) {
-                HCCL_ERROR("Mismatched Arg Size");
+                HCCL_ERROR(
+                    "Mismatched Arg Size, inArg.varList.size[%zu], blkArg.varList.size[%zu]", inArg.varList.size(),
+                    blkArg.varList.size());
                 return HCCL_E_PARA;
             }
             for (uint32_t j = 0; j < inArg.varList.size(); j++) {
@@ -800,7 +806,7 @@ HcclResult CcuInsGeneraterV1::LoadLoopCallArg(
             CHK_RET(LoadAddrListArg(instr, blkArg.remoteAddrList, inArg.remoteAddrList, dep));
             break;
         default:
-            HCCL_ERROR("Mismatched Arg Type");
+            HCCL_ERROR("Mismatched Arg Type, inArg.type[%d]", static_cast<int>(inArg.type));
             return HCCL_E_PARA;
     }
     return HcclResult::HCCL_SUCCESS;
@@ -820,7 +826,9 @@ HcclResult CcuInsGeneraterV1::CcuRepLoopCallTranslate(
         const CcuRepArg& blkArg = loopBlock->GetArg(i);
         const CcuRepArg& inArg = inArgs[i];
         if (inArg.type != blkArg.type) {
-            HCCL_ERROR("Mismatched Arg Type");
+            HCCL_ERROR(
+                "Mismatched Arg Type, inArg.type[%d], blkArg.type[%d]", static_cast<int>(inArg.type),
+                static_cast<int>(blkArg.type));
             return HCCL_E_PARA;
         }
         CHK_RET(LoadLoopCallArg(instr, inArg, blkArg, dep));

@@ -18,7 +18,8 @@ namespace CcuRep {
 
 class CcuRepRemPostSem : public CcuRepBase {
 public:
-    CcuRepRemPostSem(CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, uint16_t semIndex, uint16_t mask);
+    explicit CcuRepRemPostSem(
+        CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, uint16_t semIndex, uint16_t mask);
     bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
     std::string Describe() override;
     uint32_t GetId() override;

@@ -12,7 +12,6 @@
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_translator_v1.h"
 
-#include "string_util.h"
 #include "hcomm/common/ccu_exception.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
@@ -121,22 +120,22 @@ bool CcuRepFuncBlock::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t
     this->instrId = instrId;
     translated = true;
 
-    CHK_RET_THROW(
-        CcuResult::CCU_E_INTERNAL,
-        hcomm::FormatCcuMessage(
-            "[CcuRepFuncBlock][%s] failed to translate inArgs processing for instrId[%u] ", __func__, instrId),
-        insGeneratorPtr_->CcuRepFuncBlockTranslate(ccuKernel, instr, instrId, this, dep, 0));
+    CHK_PRT_THROW(
+        insGeneratorPtr_->CcuRepFuncBlockTranslate(ccuKernel, instr, instrId, this, dep, 0)
+            != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepFuncBlock][Translate] failed to translate inArgs processing for instrId[%u]", instrId),
+        CcuResult::CCU_E_INTERNAL, "CcuRepFuncBlock translate failed");
     // 使用空实现的自定义删除器，避免智能指针析构时释放对象
     auto translator =
         CcuRepTranslator(std::shared_ptr<CcuRepReferenceManager>(funcManager, [](CcuRepReferenceManager* ptr) {}), dep);
     translator.Translate(
         ccuKernel, GetReps(), instr, instrId, [](std::shared_ptr<CcuRepBase> rep) -> bool { return true; });
 
-    CHK_RET_THROW(
-        CcuResult::CCU_E_INTERNAL,
-        hcomm::FormatCcuMessage(
-            "[CcuRepFuncBlock][%s] failed to translate outArgs processing for instrId[%u] ", __func__, instrId),
-        insGeneratorPtr_->CcuRepFuncBlockTranslate(ccuKernel, instr, instrId, this, dep, 1));
+    CHK_PRT_THROW(
+        insGeneratorPtr_->CcuRepFuncBlockTranslate(ccuKernel, instr, instrId, this, dep, 1)
+            != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepFuncBlock][Translate] failed to translate outArgs processing for instrId[%u]", instrId),
+        CcuResult::CCU_E_INTERNAL, "CcuRepFuncBlock translate failed");
 
     return translated;
 }

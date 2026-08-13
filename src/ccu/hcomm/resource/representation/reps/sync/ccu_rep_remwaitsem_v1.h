@@ -18,7 +18,7 @@ namespace CcuRep {
 
 class CcuRepRemWaitSem : public CcuRepBase {
 public:
-    CcuRepRemWaitSem(
+    explicit CcuRepRemWaitSem(
         CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, uint16_t semIndex, uint16_t mask,
         bool isProfiling = true);
     bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;

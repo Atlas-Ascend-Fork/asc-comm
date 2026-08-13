@@ -18,7 +18,7 @@ namespace CcuRep {
 
 class CcuRepNop : public CcuRepBase {
 public:
-    CcuRepNop(CcuInsGeneraterBase* insGeneratorPtr);
+    explicit CcuRepNop(CcuInsGeneraterBase* insGeneratorPtr);
     bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
     std::string Describe() override;
 

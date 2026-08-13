@@ -28,7 +28,10 @@ bool CcuRepLocRecordEvent::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uin
     this->instrId = instrId;
     translated = true;
 
-    insGenPtr->CcuRepLocRecordEventTranslate(ccuKernel, instr, this);
+    CHK_PRT_THROW(
+        insGenPtr->CcuRepLocRecordEventTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepLocRecordEvent][Translate] failed to translate for instrId[%u]", instrId),
+        CcuResult::CCU_E_INTERNAL, "CcuRepLocRecordEvent translate failed");
 
     CHK_PRT_THROW(
         instrId > USHRT_MAX - instrCount,

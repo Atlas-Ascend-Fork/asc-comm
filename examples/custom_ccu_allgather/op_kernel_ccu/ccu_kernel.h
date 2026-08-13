@@ -23,7 +23,7 @@
 #include <ccu/hcomm/ccu_func.hpp>
 #include <ccu/hcomm/ccu_loop.hpp>
 #include <ccu/hcomm/ccu_primitives.hpp>
-#include <ccu/hcomm/ccu_types.h>
+#include <ccu/hcomm/ccu_api_types.h>
 #include <ccu/hcomm/ccu_variable.hpp>
 #include <hccl/hcomm_primitives.h>
 

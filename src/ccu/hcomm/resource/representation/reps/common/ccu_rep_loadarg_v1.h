@@ -19,7 +19,7 @@ namespace CcuRep {
 
 class CcuRepLoadArg : public CcuRepBase {
 public:
-    CcuRepLoadArg(CcuInsGeneraterBase* insGenPtr, const Variable& var, uint16_t argId, uint16_t fullArgId);
+    explicit CcuRepLoadArg(CcuInsGeneraterBase* insGenPtr, const Variable& var, uint16_t argId, uint16_t fullArgId);
     bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
     std::string Describe() override;
 

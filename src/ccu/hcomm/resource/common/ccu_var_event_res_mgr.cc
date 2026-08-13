@@ -14,7 +14,7 @@
 
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/common/ccu_common.h"
-#include "framework/entrance/hccl_common_v2.h"
+#include "hcomm/common/ccu_device_context.h"
 
 #include "rt_external.h"
 
@@ -22,13 +22,13 @@ namespace hcomm {
 
 CcuVarEventResMgr &CcuVarEventResMgr::GetInstance(const int32_t deviceLogicId)
 {
-    static CcuVarEventResMgr resMgrs[MAX_MODULE_DEVICE_NUM + 1];
+    static CcuVarEventResMgr resMgrs[CCU_MAX_DEVICE_NUM + 1];
 
     int32_t devLogicId = deviceLogicId;
-    if (devLogicId < 0 || static_cast<uint32_t>(devLogicId) >= MAX_MODULE_DEVICE_NUM) {
+    if (devLogicId < 0 || static_cast<uint32_t>(devLogicId) >= CCU_MAX_DEVICE_NUM) {
         HCCL_WARNING("[CcuVarEventResMgr][%s] use the backup device, devLogicId[%d] should be "
-            "less than %u.", __func__, devLogicId, MAX_MODULE_DEVICE_NUM);
-        devLogicId = MAX_MODULE_DEVICE_NUM;
+            "less than %u.", __func__, devLogicId, CCU_MAX_DEVICE_NUM);
+        devLogicId = CCU_MAX_DEVICE_NUM;
     }
 
     resMgrs[devLogicId].devLogicId_ = devLogicId;

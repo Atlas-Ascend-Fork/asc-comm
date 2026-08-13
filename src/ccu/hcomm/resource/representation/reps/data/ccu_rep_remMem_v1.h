@@ -19,7 +19,7 @@ namespace CcuRep {
 
 class CcuRepRemMem : public CcuRepBase {
 public:
-    CcuRepRemMem(CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem);
+    explicit CcuRepRemMem(CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem);
     bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
     std::string Describe() override;
 

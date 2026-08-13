@@ -11,7 +11,6 @@
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopgroup_bundle_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/common/ccu_exception.h"
-#include "string_util.h"
 
 namespace hcomm {
 namespace CcuRep {
@@ -64,10 +63,11 @@ bool CcuRepLoopGroupBundle::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, ui
     this->instrId = instrId;
     translated = true;
 
-    CHK_RET_THROW(
-        CcuResult::CCU_E_INTERNAL,
-        hcomm::FormatCcuMessage("[CcuRepLoopGroupBundle][%s] failed to translate for instrId[%u]", __func__, instrId),
-        insGenPtr_->CcuRepLoopGroupBundleTranslate(ccuKernel, instr, instrId, this, dep));
+    CHK_PRT_THROW(
+        insGenPtr_->CcuRepLoopGroupBundleTranslate(ccuKernel, instr, instrId, this, dep)
+            != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepLoopGroupBundle][Translate] failed to translate for instrId[%u]", instrId),
+        CcuResult::CCU_E_INTERNAL, "CcuRepLoopGroupBundle translate failed");
 
     return translated;
 }

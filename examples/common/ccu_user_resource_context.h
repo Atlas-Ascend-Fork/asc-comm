@@ -115,6 +115,7 @@ inline HcclResult BuildDefaultUserCcuRegisterContext(
     storage.context.validDieMask = hcommContext.validDieMask;
     storage.context.instanceHandle = hcommContext.instanceHandle;
     storage.context.instanceType = hcommContext.instanceType;
+    storage.context.controlOps = hcommContext.controlOps;
 
     for (uint32_t dieId = 0; dieId < HCOMM_CCU_MAX_DIE_NUM; ++dieId) {
         if ((storage.context.validDieMask & (1U << dieId)) == 0) {

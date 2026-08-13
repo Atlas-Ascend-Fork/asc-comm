@@ -336,8 +336,8 @@ TEST_F(CcuRepBufLocReadTest, Translate)
     TransDep dep = {};
     dep.reserveChannalId[0] = 1;
 
-    bool result = rep.Translate(nullptr, instrPtr, instrId, dep);
-    EXPECT_TRUE(result);
+    EXPECT_THROW(
+        { rep.Translate(nullptr, instrPtr, instrId, dep); }, ::AscendC::ccu::detail::CcuException);
     EXPECT_TRUE(rep.Translated());
 }
 

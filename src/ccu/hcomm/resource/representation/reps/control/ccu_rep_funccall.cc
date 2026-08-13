@@ -11,7 +11,6 @@
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
 
-#include "string_util.h"
 #include "hcomm/common/ccu_exception.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
@@ -96,10 +95,10 @@ bool CcuRepFuncCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
 
     translated = true;
 
-    CHK_RET_THROW(
-        CcuResult::CCU_E_INTERNAL,
-        hcomm::FormatCcuMessage("[CcuRepFuncCall][%s] failed to translate functionCall for instrId[%u] ", __func__, instrId),
-        insGeneratorPtr_->CcuRepFuncCallTranslate(ccuKernel, instr, instrId, this, dep));
+    CHK_PRT_THROW(
+        insGeneratorPtr_->CcuRepFuncCallTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepFuncCall][Translate] failed to translate for instrId[%u]", instrId),
+        CcuResult::CCU_E_INTERNAL, "CcuRepFuncCall translate failed");
 
     return translated;
 }

@@ -14,7 +14,7 @@
 #include <memory>
 #include <vector>
 
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/resource/common/asc_ccu_res_snapshot.h"
 
 namespace hcomm {

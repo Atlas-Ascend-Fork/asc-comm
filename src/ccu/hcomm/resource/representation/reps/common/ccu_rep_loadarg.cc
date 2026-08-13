@@ -9,7 +9,6 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
 #include "hcomm/common/ccu_exception.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
@@ -30,10 +29,10 @@ bool CcuRepLoadArg::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& 
     this->instrId = instrId;
     translated = true;
 
-    CHK_RET_THROW(
-        CcuResult::CCU_E_INTERNAL,
-        hcomm::FormatCcuMessage("[CcuRepLoadArg][%s] failed to translate repLoadArg for instrId[%u] ", __func__, instrId),
-        insGeneratorPtr_->CcuRepLoadArgTranslate(ccuKernel, instr, instrId, this, dep));
+    CHK_PRT_THROW(
+        insGeneratorPtr_->CcuRepLoadArgTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepLoadArg][Translate] failed to translate for instrId[%u]", instrId),
+        CcuResult::CCU_E_INTERNAL, "CcuRepLoadArg translate failed");
 
     instrId += instrCount;
 

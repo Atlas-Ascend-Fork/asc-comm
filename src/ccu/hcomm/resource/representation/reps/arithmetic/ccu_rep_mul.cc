@@ -10,7 +10,6 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
-#include "string_util.h"
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
@@ -104,7 +103,10 @@ bool CcuRepMul::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& inst
     this->instrId = instrId;
     translated = true;
 
-    insGenPtr->CcuRepMulTranslate(ccuKernel, instr, this);
+    CHK_PRT_THROW(
+        insGenPtr->CcuRepMulTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepMul][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        "CcuRepMul translate failed");
 
     CHK_PRT_THROW(
         (instrId > UINT16_MAX - instrCount),

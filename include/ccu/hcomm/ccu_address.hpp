@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <type_traits>
 
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 #include "ccu/hcomm/ccu_utils.hpp"
 #include "ccu/hcomm/ccu_primitives_impl.h"
 #include "ccu/hcomm/ccu_variable.hpp"

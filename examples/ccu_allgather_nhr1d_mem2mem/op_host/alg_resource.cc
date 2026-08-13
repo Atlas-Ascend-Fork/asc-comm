@@ -30,7 +30,7 @@
 
 #include <ccu/hcomm/ccu_launch.h>
 #include "../../common/ccu_register_context.h"
-#include <ccu/hcomm/ccu_res.h>
+#include <ccu/hcomm/ccu_resource_api.h>
 #include <hccl/hccl_ccu_res.h>
 #include "../../common/ccu_instance.h"
 

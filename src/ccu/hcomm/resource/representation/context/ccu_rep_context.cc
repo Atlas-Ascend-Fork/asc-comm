@@ -12,9 +12,6 @@
 
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/arithmetic/ccu_rep_assign_v1.h"
-#include "const_val.h"
-
-#include "hcomm_c_adpt.h" // 需优化
 #include "hcomm/resource/channel/ccu_channel.h"
 
 namespace hcomm {
@@ -102,7 +99,7 @@ uint32_t CcuRepContext::GetDieId() const { return dieId; }
 
 void CcuRepContext::SetMissionId(uint32_t missionId)
 {
-    if (this->missionId == Hccl::INVALID_U32) {
+    if (this->missionId == UINT32_MAX) {
         this->missionId = missionId;
     }
 }
@@ -187,7 +184,7 @@ int32_t CcuRepContext::AddProfiling(const ChannelHandle* channels, uint32_t chan
     CHK_SAFETY_FUNC_RET(memset_s(
         ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId), INVALID_VALUE_CHANNELID,
         sizeof(ccuProfilingInfoCache.channelId)));
-    for (u32 i = 0; i < channelNum; i++) {
+    for (uint32_t i = 0; i < channelNum; i++) {
         CcuChannel channelImpl(channels[i]);
         CHK_RET(channelImpl.GetResult());
         ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
@@ -206,8 +203,8 @@ int32_t CcuRepContext::AddProfiling(const ChannelHandle* channels, uint32_t chan
 }
 
 int32_t CcuRepContext::AddProfiling(
-    const ChannelHandle* channels, uint32_t channelNum, HcommDataType hcommDataType, HcommDataType hcommOutputDataType,
-    HcommReduceOp hcommOpType)
+    const ChannelHandle* channels, uint32_t channelNum, int32_t hcommDataType, int32_t hcommOutputDataType,
+    int32_t hcommOpType)
 {
     HcclDataType dataType = static_cast<HcclDataType>(hcommDataType);
     HcclDataType outputDataType = static_cast<HcclDataType>(hcommOutputDataType);
@@ -224,7 +221,7 @@ int32_t CcuRepContext::AddProfiling(
     CHK_SAFETY_FUNC_RET(memset_s(
         ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId), INVALID_VALUE_CHANNELID,
         sizeof(ccuProfilingInfoCache.channelId)));
-    for (u32 i = 0; i < channelNum; ++i) {
+    for (uint32_t i = 0; i < channelNum; ++i) {
         CcuChannel channelImpl(channels[i]);
         CHK_RET(channelImpl.GetResult());
         ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();

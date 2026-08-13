@@ -9,10 +9,10 @@
  */
 
 #include <vector>
-#include <ccu/hcomm/ccu_types.h>
+#include <ccu/hcomm/ccu_api_types.h>
 #include <hcomm/hcomm_ccu_launch_api.h>
 #include "ccu/hcomm/ccu_launch.h"
-#include "ccu/hcomm/ccu_res.h"
+#include "ccu/hcomm/ccu_resource_api.h"
 #include "alg_resource.h"
 
 namespace ops_hccl_bcast {

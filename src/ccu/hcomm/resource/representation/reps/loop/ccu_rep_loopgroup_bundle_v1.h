@@ -12,7 +12,7 @@
 #define HCOMM_CCU_REPRESENTATION_LOOPGROUP_BUNDLE_H
 
 #include <vector>
-#include "ccu/hcomm/ccu_types.h"
+#include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopblock_v1.h"
@@ -42,7 +42,8 @@ public:
     CcuRepLoopGroupBundle(
         CcuInsGeneraterBase* insGenPtr, const CcuLoopGroupConfig& config, const Variable& parallelVar,
         const Variable& offsetVar);
-    CcuRepLoopGroupBundle(CcuInsGeneraterBase* insGenPtr, const Variable& parallelVar, const Variable& offsetVar);
+    explicit CcuRepLoopGroupBundle(
+        CcuInsGeneraterBase* insGenPtr, const Variable& parallelVar, const Variable& offsetVar);
 
     void AddLoop(const LoopEntry& entry);
     void SetRepeatLoopIdx(uint64_t idx) { repeatLoopIdx_ = idx; }

@@ -19,7 +19,7 @@ namespace CcuRep {
 
 class CcuRepRecordSharedNotify : public CcuRepBase {
 public:
-    CcuRepRecordSharedNotify(CcuInsGeneraterBase* insGenPtr, const LocalNotify& notify, uint16_t mask);
+    explicit CcuRepRecordSharedNotify(CcuInsGeneraterBase* insGenPtr, const LocalNotify& notify, uint16_t mask);
     bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
     std::string Describe() override;
     uint16_t GetNotifyId() { return notify_.Id(); }

@@ -9,7 +9,6 @@
  */
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_store_var_v1.h"
-#include "string_util.h"
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/common/ccu_exception.h"
 
@@ -33,10 +32,10 @@ bool CcuRepStoreVar::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
     this->instrId = instrId;
     translated = true;
 
-    CHK_RET_THROW(
-        CcuResult::CCU_E_INTERNAL,
-        hcomm::FormatCcuMessage("[CcuRepStoreVar][%s] failed to translate repStoreVar for instrId[%u] ", __func__, instrId),
-        insGeneratorPtr_->CcuRepStoreVarTranslate(ccuKernel, instr, instrId, this, dep));
+    CHK_PRT_THROW(
+        insGeneratorPtr_->CcuRepStoreVarTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepStoreVar][Translate] failed to translate for instrId[%u]", instrId),
+        CcuResult::CCU_E_INTERNAL, "CcuRepStoreVar translate failed");
 
     instrId += instrCount;
     return translated;

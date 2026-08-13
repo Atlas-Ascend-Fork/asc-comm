@@ -9,9 +9,7 @@
  */
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
 #include "hcomm/common/ccu_exception.h"
-#include "hcomm_c_adpt.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/channel/ccu_channel.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
@@ -35,7 +33,10 @@ bool CcuRepBufWrite::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
     translated = true;
 
     instrCount = insGenPtr->GetInstrCount(type);
-    insGenPtr->CcuRepBufWriteTranslate(ccuKernel, instr, this, dep);
+    CHK_PRT_THROW(
+        insGenPtr->CcuRepBufWriteTranslate(ccuKernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepBufWrite][Translate] failed to translate for instrId[%u]", instrId),
+        CcuResult::CCU_E_INTERNAL, "CcuRepBufWrite translate failed");
     instrId += instrCount;
 
     return translated;

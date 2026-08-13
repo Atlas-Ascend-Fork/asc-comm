@@ -11,7 +11,6 @@
 #include "hcomm/resource/representation/reps/sync/ccu_rep_loc_wait_event.h"
 #include <climits>
 #include "hcomm/resource/representation/ccu_rep_v1.h"
-#include "string_util.h"
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
@@ -49,7 +48,10 @@ bool CcuRepLocWaitEvent::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint1
     this->instrId = instrId;
     translated = true;
 
-    insGenPtr->CcuRepLocWaitEventTranslate(ccuKernel, instr, this);
+    CHK_PRT_THROW(
+        insGenPtr->CcuRepLocWaitEventTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepLocWaitEvent][Translate] failed to translate for instrId[%u]", instrId),
+        CcuResult::CCU_E_INTERNAL, "CcuRepLocWaitEvent translate failed");
 
     CHK_PRT_THROW(
         (instrId > UINT16_MAX - instrCount),
