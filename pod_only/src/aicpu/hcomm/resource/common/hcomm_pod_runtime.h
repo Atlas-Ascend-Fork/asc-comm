@@ -13,7 +13,7 @@
 
 // Internal POD RTSQ runtime. This header is not part of the public API.
 
-#include "hcomm_pod_resource.h"
+#include "hcomm/hcomm_pod_resource.h"
 #include "hccl/hccl_types.h"
 #include "../connection/hcomm_pod_backend_types.h"
 

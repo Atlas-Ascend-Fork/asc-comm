@@ -14,6 +14,18 @@ endif()
 
 set(POD_HCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu/hcomm")
 set(POD_DFX_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/common/dfx")
+set(HCOMM_SOURCE_DIR "" CACHE PATH "HCOMM source directory providing include/ and pkg_inc/")
+
+if(NOT HCOMM_SOURCE_DIR)
+    get_filename_component(_default_hcomm_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/../../hcomm_pkg_inc" REALPATH)
+    if(EXISTS "${_default_hcomm_source_dir}/pkg_inc/hcomm/hcomm_pod_resource.h")
+        set(HCOMM_SOURCE_DIR "${_default_hcomm_source_dir}")
+    endif()
+endif()
+if(NOT EXISTS "${HCOMM_SOURCE_DIR}/include/hcomm_primitives.h" OR
+    NOT EXISTS "${HCOMM_SOURCE_DIR}/pkg_inc/hcomm/hcomm_pod_resource.h")
+    message(FATAL_ERROR "Set HCOMM_SOURCE_DIR to the HCOMM source root")
+endif()
 
 include(cmake/fetch_cann_cmake.cmake)
 project(asc_comm_pod_data_plane LANGUAGES CXX)
@@ -56,8 +68,10 @@ target_compile_options(aicpu_pod_data_plane PRIVATE
 )
 
 target_include_directories(aicpu_pod_data_plane PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu
     ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu/hcomm
+    ${HCOMM_SOURCE_DIR}/include
+    ${HCOMM_SOURCE_DIR}/pkg_inc
+    ${HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/inc
     ${POD_HCOMM_ROOT}/primitives/api_c_adpt
     ${POD_HCOMM_ROOT}/primitives/launch
     ${POD_HCOMM_ROOT}/common/compat/hcomm
