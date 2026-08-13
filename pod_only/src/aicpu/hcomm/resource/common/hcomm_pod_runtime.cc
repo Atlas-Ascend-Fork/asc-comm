@@ -263,7 +263,8 @@ HcclResult HcommPodTaskLaunch(ThreadHandle *threads, uint32_t threadNum)
 {
     CHK_PTR_NULL(threads);
     for (uint32_t index = 0; index < threadNum; ++index) {
-        auto *thread = reinterpret_cast<HcommThreadEntity *>(static_cast<uintptr_t>(threads[index]));
+        HcommThreadEntity *thread = nullptr;
+        CHK_RET(static_cast<HcclResult>(HcommGetPodThreadResource(threads[index], &thread)));
         CHK_RET(ValidateThreadEntity(thread));
         CHK_RET(HcommPodRtsqLaunch(*thread->sqContextAddr));
     }
@@ -274,7 +275,8 @@ HcclResult HcommPodTryLaunch(ThreadHandle *threads, uint32_t threadNum)
 {
     CHK_PTR_NULL(threads);
     for (uint32_t index = 0; index < threadNum; ++index) {
-        auto *thread = reinterpret_cast<HcommThreadEntity *>(static_cast<uintptr_t>(threads[index]));
+        HcommThreadEntity *thread = nullptr;
+        CHK_RET(static_cast<HcclResult>(HcommGetPodThreadResource(threads[index], &thread)));
         CHK_RET(ValidateThreadEntity(thread));
         CHK_RET(HcommPodRtsqTryLaunch(*thread->sqContextAddr));
     }

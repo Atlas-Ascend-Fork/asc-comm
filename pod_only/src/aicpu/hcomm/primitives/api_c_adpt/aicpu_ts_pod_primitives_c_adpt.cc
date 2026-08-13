@@ -9,12 +9,12 @@
  */
 
 #include <limits>
-#include "hcomm_pod_primitives.h"
-#include "hcomm_pod_resource.h"
+#include "hcomm/hcomm_pod_primitives.h"
+#include "hcomm/hcomm_pod_resource.h"
 #include "hcomm_pod_launch.h"
 #include "hcomm_pod_runtime.h"
 #include "hcomm_pod_transport.h"
-#include "exception_util.h"
+#include "../../common/utils/exception_util.h"
 #include "log/hcomm_log.h"
 
 namespace {
@@ -40,7 +40,7 @@ HcclResult ValidatePodEntity(const Entity *entity, uint32_t version, uint32_t ma
 HcclResult GetPodThread(ThreadHandle thread, bool registerThread, HcommThreadEntity *&threadEntity)
 {
     CHK_PRT_RET(thread == 0, HCCL_ERROR("[%s] thread handle is 0.", __func__), HCCL_E_PTR);
-    threadEntity = reinterpret_cast<HcommThreadEntity *>(static_cast<uintptr_t>(thread));
+    CHK_RET(static_cast<HcclResult>(HcommGetPodThreadResource(thread, &threadEntity)));
     CHK_RET(ValidatePodEntity(threadEntity, HCOMM_POD_THREAD_VERSION, HCOMM_POD_THREAD_MAGIC_WORD));
     CHK_PTR_NULL(threadEntity->sqContextAddr);
     if (registerThread) {
@@ -53,7 +53,7 @@ HcclResult GetPodContext(ThreadHandle thread, ChannelHandle channel, bool regist
 {
     CHK_PRT_RET(channel == 0, HCCL_ERROR("[%s] channel handle is 0.", __func__), HCCL_E_PTR);
     CHK_RET(GetPodThread(thread, registerThread, context.thread));
-    context.channel = reinterpret_cast<HcommChannelEntity *>(static_cast<uintptr_t>(channel));
+    CHK_RET(static_cast<HcclResult>(HcommGetPodChannelResource(channel, &context.channel)));
     CHK_RET(ValidatePodEntity(context.channel, HCOMM_POD_CHANNEL_VERSION, HCOMM_POD_CHANNEL_MAGIC_WORD));
     return HCCL_SUCCESS;
 }

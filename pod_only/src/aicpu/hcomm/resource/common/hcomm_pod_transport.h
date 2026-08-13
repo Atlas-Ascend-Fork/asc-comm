@@ -11,8 +11,8 @@
 #ifndef HCOMM_POD_TRANSPORT_H
 #define HCOMM_POD_TRANSPORT_H
 
-#include "hcomm_pod_resource.h"
-#include "hcomm_pod_primitives.h"
+#include "hcomm/hcomm_pod_resource.h"
+#include "hcomm/hcomm_pod_primitives.h"
 #include "../connection/hcomm_pod_backend_types.h"
 
 HcclResult HcommPodWrite(HcommThreadEntity &thread, HcommChannelEntity &channel,

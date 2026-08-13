@@ -9,11 +9,11 @@
  */
 #include "ub_conn_lite.h"
 #include "log/hcomm_log.h"
-#include "exception_util.h"
+#include "../../common/utils/exception_util.h"
 #include "udma_data_struct.h"
-#include "internal_exception.h"
-#include "invalid_params_exception.h"
-#include "string_util.h"
+#include "../../common/exception/internal_exception.h"
+#include "../../common/exception/invalid_params_exception.h"
+#include "../../common/utils/string_util.h"
 
 namespace Hccl {
 constexpr u32 ADDR_BIT_OFFSET            = 32;
