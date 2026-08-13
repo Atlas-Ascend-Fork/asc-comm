@@ -1,7 +1,9 @@
 # Init
 
 ## Function Description
-Initializes the temporary workspace for Hcomm. Both `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP` paths require this API to configure the temporary workspace before submitting any communication tasks.
+Initializes the Hcomm temporary workspace used by ordinary `ChannelHandle` interfaces. Ordinary interfaces on both the `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP` paths require this API before communication tasks are submitted.
+
+The BatchHandle workflow does not depend on `Init`. `MakeBatchHandle` binds the batched WQE buffer, and batch `Drain` reuses that buffer as CQE scratch space.
 
 ## Function Prototype
 ```cpp
@@ -28,3 +30,4 @@ __aicore__ inline int32_t Init(const AscendC::LocalTensor<T>& buff, uint32_t len
 - For the UBC_CTP/URMA path, `buff` serves as the temporary workspace for WQE/CQE. The minimum workspace size is currently 512 bytes.
 - When initialized with `__ubuf__ uint8_t*`, the implementation takes the 32-byte aligned address of `buff` as the start address of the temporary workspace.
 - When initialized with `LocalTensor`, the implementation directly uses the input tensor. For the RoCE path, both `len` and `buff.GetSize()` must be no less than 512 bytes. For the UBC_CTP/URMA path, `len` must be no less than 512 bytes and must not exceed `buff.GetSize()`.
+- This interface initializes workspace only for the ordinary `ChannelHandle` workflow. Batch `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `BatchCommit`, and batch `Drain` do not require it.
