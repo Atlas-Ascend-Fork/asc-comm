@@ -70,6 +70,13 @@ public:
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
+    // Reserve a sequential fixed-2BB Notify/FAA/CAS burst. The caller must post
+    // exactly wqeCnt WQEs on the same channel and commit only the final WQE.
+    // The target range of every post must remain in the registered buffer that
+    // contains targetAddr. No other producer may use this SQ before final commit.
+    __simt_callee__ inline int32_t ReserveDwqeBurst(
+        ChannelHandle channel, __gm__ void* targetAddr, uint64_t len, uint32_t wqeCnt);
+
     // All block lanes call this before one fixed-2BB Notify/FAA/CAS batch.
     // state points to four shared UB uint32_t values: BB count, CQE count,
     // base head, and reservation status. activeWqeCnt must equal
