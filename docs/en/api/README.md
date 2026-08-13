@@ -4,14 +4,16 @@
 | Document | Description |
 | --- | --- |
 | [Hcomm](./aicore/hcomm/Hcomm.md) | Overview of AICore-side point-to-point communication interface template, protocol capabilities and usage constraints. |
-| [Init](./aicore/hcomm/Init.md) | Initialize the temporary workspace for Hcomm. |
-| [ReadNbi](./aicore/hcomm/ReadNbi.md) | Submit a point-to-point read task via the specified channel. |
-| [WriteNbi](./aicore/hcomm/WriteNbi.md) | Submit a point-to-point write task via the specified channel. |
-| [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | Submit a write task and write a remote notification value. |
+| [Init](./aicore/hcomm/Init.md) | Initialize the temporary workspace used by ordinary Hcomm interfaces. |
+| [MakeBatchHandle](./aicore/hcomm/MakeBatchHandle.md) | Create a batch handle and bind its UB buffer for batched WQEs. |
+| [ReadNbi](./aicore/hcomm/ReadNbi.md) | Submit an ordinary read task or prepare a read WQE in a BatchHandle. |
+| [WriteNbi](./aicore/hcomm/WriteNbi.md) | Submit an ordinary write task or prepare a write WQE in a BatchHandle. |
+| [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or prepare one in a BatchHandle. |
 | [AtomicFAA](./aicore/hcomm/AtomicFAA.md) | Submit a Fetch-and-add atomic operation task. |
 | [AtomicCAS](./aicore/hcomm/AtomicCAS.md) | Submit a Compare-and-swap atomic operation task. |
 | [Commit](./aicore/hcomm/Commit.md) | Explicitly submit pending communication tasks on the channel. |
-| [Drain](./aicore/hcomm/Drain.md) | Wait for all communication tasks on the channel to complete. |
+| [BatchCommit](./aicore/hcomm/BatchCommit.md) | Submit all WQEs prepared in a BatchHandle. |
+| [Drain](./aicore/hcomm/Drain.md) | Wait for tasks submitted through an ordinary channel or BatchHandle to complete. |
 
 ## AICore Ain
 
