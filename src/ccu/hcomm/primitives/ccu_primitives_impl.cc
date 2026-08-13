@@ -8,9 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-// Pin the integrated build to the matching hcomm source API before loading the packaged include path.
-#include "hccl/hccl_types.h"
 #include "hcomm/hcomm_ccu_channel.h"
+#include "hcomm/hcomm_types.h"
 #include "ccu/hcomm/ccu_primitives_impl.h"
 
 #include "hcomm/common/ccu_log.h"
