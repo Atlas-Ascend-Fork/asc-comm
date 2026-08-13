@@ -355,6 +355,69 @@ __simt_callee__ inline void HcommSimtBuildPackedSqeTemplate(
 }
 
 template <HcommUrmaOpCode opCode, auto const& config>
+__simt_callee__ inline void HcommSimtStorePackedSqeHeader(
+    __gm__ uint64_t* words, __gm__ uint8_t* remoteAddr,
+    const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead)
+{
+    uint64_t owner = (curHead & sqeTemplate.sqDepth) == 0U ? 1U : 0U;
+    words[0] = static_cast<uint64_t>(nextHead & 0xFFFFU) |
+               (static_cast<uint64_t>(HcommSimtUrmaFlag<config>() & 0xFFU) << 16U) |
+               (1ULL << 28U) | (1ULL << 29U) | (owner << 31U) |
+               (static_cast<uint64_t>(static_cast<uint32_t>(opCode) & 0xFFU) << 40U);
+    words[1] = sqeTemplate.word1;
+    words[2] = sqeTemplate.remoteEidL;
+    words[3] = sqeTemplate.remoteEidH;
+    words[4] = sqeTemplate.tokenWord;
+    words[5] = reinterpret_cast<uint64_t>(remoteAddr);
+}
+
+template <auto const& config>
+__simt_callee__ inline void HcommSimtStorePackedNotifyWqe(
+    __gm__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
+    __gm__ uint8_t* notifyAddr, uint64_t notifyVal, const HcommSimtPackedSqeTemplate& sqeTemplate,
+    uint32_t curHead, uint32_t nextHead)
+{
+    __gm__ uint64_t* words = reinterpret_cast<__gm__ uint64_t*>(wqeAddr);
+    HcommSimtStorePackedSqeHeader<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config>(
+        words, remoteAddr, sqeTemplate, curHead, nextHead);
+    words[6] = static_cast<uint64_t>((sqeTemplate.word1 >> 32U) & 0xFFFFFU) |
+               ((sqeTemplate.tokenWord & 0xFFFFFFFFULL) << 32U);
+    words[7] = reinterpret_cast<uint64_t>(notifyAddr);
+    words[8] = notifyVal;
+    words[9] = 0U;
+    words[10] = static_cast<uint64_t>(static_cast<uint32_t>(len));
+    words[11] = reinterpret_cast<uint64_t>(localAddr);
+#pragma unroll
+    for (uint32_t i = 12U; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
+        words[i] = 0U;
+    }
+}
+
+template <HcommUrmaOpCode opCode, typename T, auto const& config>
+__simt_callee__ inline void HcommSimtStorePackedAtomicWqe(
+    __gm__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* fetchAddr, T value, T cond,
+    const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead)
+{
+    __gm__ uint64_t* words = reinterpret_cast<__gm__ uint64_t*>(wqeAddr);
+    HcommSimtStorePackedSqeHeader<opCode, config>(words, remoteAddr, sqeTemplate, curHead, nextHead);
+    words[6] = static_cast<uint64_t>(sizeof(T));
+    words[7] = reinterpret_cast<uint64_t>(fetchAddr);
+    if constexpr (sizeof(T) == sizeof(uint32_t)) {
+        words[8] = static_cast<uint64_t>(static_cast<uint32_t>(value)) |
+                   (static_cast<uint64_t>(static_cast<uint32_t>(
+                        opCode == HcommUrmaOpCode::CAS ? cond : static_cast<T>(0))) << 32U);
+        words[9] = 0U;
+    } else {
+        words[8] = static_cast<uint64_t>(value);
+        words[9] = opCode == HcommUrmaOpCode::CAS ? static_cast<uint64_t>(cond) : 0U;
+    }
+#pragma unroll
+    for (uint32_t i = 10U; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
+        words[i] = 0U;
+    }
+}
+
+template <HcommUrmaOpCode opCode, auto const& config>
 __simt_callee__ inline void HcommSimtStoreLocalSqeHeader(
     uint64_t* words, __gm__ uint8_t* remoteAddr,
     const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead)
@@ -756,7 +819,13 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
         }
     }
 
-    if (wqeItem_ != nullptr) {
+    if (useImmediateWarp && !publishImmediateWarp) {
+        HcommSimtPackedSqeTemplate sqeTemplate;
+        HcommSimtBuildPackedSqeTemplate(post.meta, sqeTemplate);
+        HcommSimtStorePackedNotifyWqe<config>(
+            sqeAddr, remoteAddr, localAddr, len, notifyAddr, notifyVal,
+            sqeTemplate, curHead, nextHead);
+    } else if (wqeItem_ != nullptr) {
         HcommSimtUrmaFillUbWriteWithNotifyWqe<config>(
             wqeItem_, remoteAddr, localAddr, len, notifyAddr, notifyVal, post.meta, curHead, nextHead, wqeKind_);
         HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
@@ -852,7 +921,13 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
         }
     }
 
-    if (wqeItem_ != nullptr) {
+    if (useImmediateWarp && !publishImmediateWarp) {
+        HcommSimtPackedSqeTemplate sqeTemplate;
+        HcommSimtBuildPackedSqeTemplate(post.meta, sqeTemplate);
+        HcommSimtStorePackedAtomicWqe<opCode, T, config>(
+            sqeAddr, remoteAddr, fetchAddr, value, cond,
+            sqeTemplate, curHead, nextHead);
+    } else if (wqeItem_ != nullptr) {
         HcommSimtUrmaFillUbAtomicWqe<opCode, T, config>(
             wqeItem_, remoteAddr, fetchAddr, value, cond, post.meta, curHead, nextHead, wqeKind_);
         HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
