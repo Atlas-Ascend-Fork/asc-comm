@@ -19,6 +19,8 @@ constexpr uint32_t POD_DEFAULT_NOTIFY_WAIT_TIMEOUT = 1836U;
 struct PodLaunchState {
     std::vector<ThreadHandle> threads;
     uint32_t notifyWaitTimeout{POD_DEFAULT_NOTIFY_WAIT_TIMEOUT};
+    uint32_t sqFullTimeout{0};
+    bool sqFullTimeoutSet{false};
     bool batchMode{false};
 };
 
@@ -49,6 +51,17 @@ uint32_t HcommPodGetNotifyWaitTimeout()
 void HcommPodSetNotifyWaitTimeout(uint32_t timeout)
 {
     g_podLaunchState.notifyWaitTimeout = timeout;
+}
+
+uint32_t HcommPodGetSqFullTimeout(uint32_t defaultTimeout)
+{
+    return g_podLaunchState.sqFullTimeoutSet ? g_podLaunchState.sqFullTimeout : defaultTimeout;
+}
+
+void HcommPodSetSqFullTimeout(uint32_t timeout)
+{
+    g_podLaunchState.sqFullTimeout = timeout;
+    g_podLaunchState.sqFullTimeoutSet = true;
 }
 
 void HcommPodSetBatchLaunchMode(bool batchMode)

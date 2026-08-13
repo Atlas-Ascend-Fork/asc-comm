@@ -68,6 +68,7 @@ uint32_t GetTailToHeadDistance(const HcommRtsqContext &context)
 HcclResult EnsureQueueSpace(HcommRtsqContext &context)
 {
     auto startTime = std::chrono::steady_clock::now();
+    const uint32_t sqFullTimeout = HcommPodGetSqFullTimeout(context.sqFullTimeout);
     uint32_t availableSpace = GetTailToHeadDistance(context);
     while (availableSpace <= context.pendingSqeCnt) {
         CHK_RET(QuerySqValue(context, DRV_SQCQ_PROP_SQ_HEAD, context.sqHead));
@@ -75,8 +76,8 @@ HcclResult EnsureQueueSpace(HcommRtsqContext &context)
         if (availableSpace > context.pendingSqeCnt) {
             break;
         }
-        const bool timeout = context.sqFullTimeout != 0 &&
-            std::chrono::steady_clock::now() - startTime >= std::chrono::seconds(context.sqFullTimeout);
+        const bool timeout = sqFullTimeout != 0 &&
+            std::chrono::steady_clock::now() - startTime >= std::chrono::seconds(sqFullTimeout);
         CHK_PRT_RET(timeout,
             HCCL_ERROR("[%s] RTSQ full timeout, sqId[%u], head[%u], tail[%u], pending[%u].", __func__,
                 context.sqId, context.sqHead, context.sqTail, context.pendingSqeCnt), HCCL_E_TIMEOUT);

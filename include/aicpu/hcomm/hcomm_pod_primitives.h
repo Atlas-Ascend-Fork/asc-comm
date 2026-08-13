@@ -61,6 +61,8 @@ extern int32_t HcommChannelFenceOnThreadPod(ThreadHandle thread, ChannelHandle c
 extern int32_t HcommChannelNotifyWaitOnThreadWithDefaultTimeoutPod(
     ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx);
 extern int32_t HcommThreadNotifyWaitOnThreadWithDefaultTimeoutPod(ThreadHandle thread, uint32_t notifyIdx);
+extern int32_t HcommSetNotifyWaitTimeOutPod(float timeOut);
+extern int32_t HcommThreadResAcquireTimeOutPod(float timeOut);
 extern int32_t HcommChannelDrainOnThreadPod(ThreadHandle thread, ChannelHandle channel);
 
 #ifdef __cplusplus

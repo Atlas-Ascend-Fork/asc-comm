@@ -60,6 +60,8 @@ HCOMM_POD_API int32_t HcommChannelFenceOnThreadPod(ThreadHandle thread, ChannelH
 HCOMM_POD_API int32_t HcommChannelNotifyWaitOnThreadWithDefaultTimeoutPod(
     ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx);
 HCOMM_POD_API int32_t HcommThreadNotifyWaitOnThreadWithDefaultTimeoutPod(ThreadHandle thread, uint32_t notifyIdx);
+HCOMM_POD_API int32_t HcommSetNotifyWaitTimeOutPod(float timeOut);
+HCOMM_POD_API int32_t HcommThreadResAcquireTimeOutPod(float timeOut);
 HCOMM_POD_API int32_t HcommChannelDrainOnThreadPod(ThreadHandle thread, ChannelHandle channel);
 
 #ifdef __cplusplus

@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <cmath>
 #include <limits>
 #include "hcomm_pod_primitives.h"
 #include "hcomm_pod_resource.h"
@@ -128,6 +129,17 @@ HcclResult ExecutePodOperation(Operation operation)
     HcclResult ret = HCCL_SUCCESS;
     EXCEPTION_CATCH(ret = operation(), ret = HCCL_E_INTERNAL);
     return ret;
+}
+
+HcclResult ConvertTimeout(float timeout, uint32_t &timeoutSeconds)
+{
+    if (std::isnan(timeout) || timeout < 0.0f ||
+        static_cast<double>(timeout) > static_cast<double>(UINT32_MAX)) {
+        HCCL_ERROR("[%s] timeout[%f] is invalid.", __func__, timeout);
+        return HCCL_E_PARA;
+    }
+    timeoutSeconds = static_cast<uint32_t>(timeout);
+    return HCCL_SUCCESS;
 }
 
 } // namespace
@@ -383,6 +395,22 @@ int32_t HcommThreadNotifyWaitOnThreadWithDefaultTimeoutPod(ThreadHandle thread, 
     return ExecutePodOperation([&]() {
         return HcommPodRtsqNotifyWait(*threadEntity->sqContextAddr, notifyId, timeout);
     });
+}
+
+int32_t HcommSetNotifyWaitTimeOutPod(float timeOut)
+{
+    uint32_t timeoutSeconds = 0;
+    CHK_RET(ConvertTimeout(timeOut, timeoutSeconds));
+    HcommPodSetNotifyWaitTimeout(timeoutSeconds);
+    return HCCL_SUCCESS;
+}
+
+int32_t HcommThreadResAcquireTimeOutPod(float timeOut)
+{
+    uint32_t timeoutSeconds = 0;
+    CHK_RET(ConvertTimeout(timeOut, timeoutSeconds));
+    HcommPodSetSqFullTimeout(timeoutSeconds);
+    return HCCL_SUCCESS;
 }
 
 int32_t HcommChannelDrainOnThreadPod(ThreadHandle thread, ChannelHandle channel)
