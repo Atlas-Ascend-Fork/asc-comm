@@ -17,7 +17,7 @@
 
 namespace {
 using namespace simt_notify_atomic;
-constexpr uint32_t kWqeStagingWords = 128U / sizeof(uint64_t);
+constexpr uint32_t kHcommWorkspaceWords = 384U / sizeof(uint64_t);
 
 // Isolated Notify case: exactly one immediate DWQE, followed by Drain.
 __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyVf(
@@ -201,7 +201,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicMultiLaneVf(
 extern "C" __global__ __vector__ void SimtNotify(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
-    __ubuf__ uint64_t wqeStaging[kWqeStagingWords];
+    alignas(128) __ubuf__ uint64_t wqeStaging[kHcommWorkspaceWords];
     asc_vf_call<SimtNotifyVf>(
         dim3(1), channel, sendBufIdx, recvBufIdx,
         (__ubuf__ uint8_t *)wqeStaging, sizeof(wqeStaging));
@@ -210,7 +210,7 @@ extern "C" __global__ __vector__ void SimtNotify(
 extern "C" __global__ __vector__ void SimtFaa(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
-    __ubuf__ uint64_t wqeStaging[kWqeStagingWords];
+    alignas(128) __ubuf__ uint64_t wqeStaging[kHcommWorkspaceWords];
     asc_vf_call<SimtFaaVf>(
         dim3(1), channel, sendBufIdx, recvBufIdx,
         (__ubuf__ uint8_t *)wqeStaging, sizeof(wqeStaging));
@@ -219,7 +219,7 @@ extern "C" __global__ __vector__ void SimtFaa(
 extern "C" __global__ __vector__ void SimtNotifyImmediateRepeat(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
-    __ubuf__ uint64_t wqeStaging[kWqeStagingWords];
+    alignas(128) __ubuf__ uint64_t wqeStaging[kHcommWorkspaceWords];
     asc_vf_call<SimtNotifyImmediateRepeatVf>(
         dim3(1), channel, sendBufIdx, recvBufIdx,
         (__ubuf__ uint8_t *)wqeStaging, sizeof(wqeStaging));

@@ -37,7 +37,6 @@ add_executable(simt_notify_atomic
 
 target_compile_definitions(simt_notify_atomic PRIVATE
     USE_SIMT
-    HCOMM_SIMT_UB_STAGING_EXPERIMENT
 )
 
 set_target_properties(simt_notify_atomic PROPERTIES
