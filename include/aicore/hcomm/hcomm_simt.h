@@ -107,15 +107,17 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
      * @tparam reqPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
-     * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config.
+     *         Default: strongly ordered + fence + CQE + inline enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] value: The inline value to write.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Not implemented yet.
+     * @note Must be called after channel initialization. config must have inline enabled, and
+     *       sizeof(T) must fit in the WQE inline payload area.
      */
     template <
-        typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
+        typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_INLINE_CFG>
     __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value);
 
     /*!

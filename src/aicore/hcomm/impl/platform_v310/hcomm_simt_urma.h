@@ -38,14 +38,6 @@ __simt_callee__ inline uint32_t HcommSimtUrmaFlag()
            ((config.cqe & 0x1U) << 5U) | ((config.inlineEn & 0x1U) << 6U);
 }
 
-__simt_callee__ inline void HcommSimtCopy128(__gm__ uint8_t* dst, __gm__ uint8_t* src)
-{
-#pragma unroll
-    for (uint32_t i = 0; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
-        ((__gm__ uint64_t*)dst)[i] = ((__gm__ uint64_t*)src)[i];
-    }
-}
-
 template <uint32_t byteSize>
 __simt_callee__ inline void HcommSimtClearUb(__ubuf__ uint8_t* addr)
 {
@@ -60,6 +52,19 @@ __simt_callee__ inline void HcommSimtCopyUb128ToGm(__gm__ uint8_t* dst, __ubuf__
 {
 #pragma unroll
     for (uint32_t i = 0; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
+        ((__gm__ uint64_t*)dst)[i] = ((__ubuf__ uint64_t*)src)[i];
+    }
+}
+
+// A WQE that occupies a single basic block must not write past it: the next block may
+// already hold another lane's WQE.
+template <uint32_t byteSize>
+__simt_callee__ inline void HcommSimtCopyUbToGm(__gm__ uint8_t* dst, __ubuf__ uint8_t* src)
+{
+    static_assert(byteSize % sizeof(uint64_t) == 0U, "UB WQE copy must use whole words");
+    static_assert(byteSize <= HCOMM_URMA_DWQE_SIZE, "UB WQE copy must stay inside the DWQE window");
+#pragma unroll
+    for (uint32_t i = 0; i < byteSize / sizeof(uint64_t); ++i) {
         ((__gm__ uint64_t*)dst)[i] = ((__ubuf__ uint64_t*)src)[i];
     }
 }
@@ -86,7 +91,38 @@ __simt_callee__ inline void HcommSimtPrepareUbAtomicWqe(
     wqeKind = HcommSimtUbWqeKind::ATOMIC;
 }
 
-template <HcommUrmaOpCode opCode, auto const& config>
+// An inline WQE carries its payload in the WQE itself rather than through an SGE, so the
+// active tail length depends on sizeof(T). Clear the whole area past the SQE header on any
+// transition into INLINE, and also between two INLINE posts, because a previous larger
+// value would otherwise leave bytes behind.
+__simt_callee__ inline void HcommSimtPrepareUbInlineWqe(
+    __ubuf__ uint8_t* wqeAddr, HcommSimtUbWqeKind& wqeKind)
+{
+    if (wqeKind != HcommSimtUbWqeKind::EMPTY) {
+        HcommSimtClearUb<HCOMM_URMA_DWQE_SIZE - sizeof(HcommUrmaSqeCtx)>(
+            wqeAddr + sizeof(HcommUrmaSqeCtx));
+    }
+    wqeKind = HcommSimtUbWqeKind::INLINE;
+}
+
+// Write/Read leave everything after their SGEs untouched, so any longer tail written by a
+// previous Notify/Atomic on the same slot must be cleared. DATA1 and DATA2 differ only in
+// whether the second SGE is live, so switching between them needs no extra sanitizing.
+template <uint32_t sgeNum>
+__simt_callee__ inline void HcommSimtPrepareUbDataWqe(
+    __ubuf__ uint8_t* wqeAddr, HcommSimtUbWqeKind& wqeKind)
+{
+    constexpr HcommSimtUbWqeKind dataKind =
+        sgeNum == 1U ? HcommSimtUbWqeKind::DATA1 : HcommSimtUbWqeKind::DATA2;
+    if (wqeKind != HcommSimtUbWqeKind::DATA1 && wqeKind != HcommSimtUbWqeKind::DATA2 &&
+        wqeKind != HcommSimtUbWqeKind::EMPTY) {
+        constexpr uint32_t dataActiveSize = sizeof(HcommUrmaSqeCtx) + 2U * sizeof(HcommUrmaSgeCtx);
+        HcommSimtClearUb<HCOMM_URMA_DWQE_SIZE - dataActiveSize>(wqeAddr + dataActiveSize);
+    }
+    wqeKind = dataKind;
+}
+
+template <HcommUrmaOpCode opCode, uint32_t sgeNum, auto const& config>
 __simt_callee__ inline void HcommSimtUrmaFillUbSqeCtx(
     __ubuf__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, const HcommSimtUbPostMeta& meta,
     uint32_t curHead, uint32_t nextHead)
@@ -99,7 +135,7 @@ __simt_callee__ inline void HcommSimtUrmaFillUbSqeCtx(
     sqeCtx->rmtJettyType = 1U;
     sqeCtx->owner = (curHead & meta.sqDepth) == 0U ? 1U : 0U;
     sqeCtx->tpId = meta.tpId;
-    sqeCtx->sgeNum = 1U;
+    sqeCtx->sgeNum = sgeNum;
     sqeCtx->rmtJettyOrSegId = meta.remoteTokenId;
     sqeCtx->rmtTokenValue = meta.remoteTokenValue;
 
@@ -117,7 +153,7 @@ __simt_callee__ inline void HcommSimtUrmaFillUbWriteWithNotifyWqe(
     uint32_t curHead, uint32_t nextHead, HcommSimtUbWqeKind& wqeKind)
 {
     HcommSimtPrepareUbNotifyWqe(wqeAddr, wqeKind);
-    HcommSimtUrmaFillUbSqeCtx<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config>(
+    HcommSimtUrmaFillUbSqeCtx<HcommUrmaOpCode::WRITE_WITH_NOTIFY, 1U, config>(
         wqeAddr, remoteAddr, meta, curHead, nextHead);
 
     __ubuf__ HcommUrmaNotifyCtx* notifyCtx =
@@ -137,13 +173,73 @@ __simt_callee__ inline void HcommSimtUrmaFillUbWriteWithNotifyWqe(
     sgeCtx->va = reinterpret_cast<uint64_t>(localAddr);
 }
 
+// Write/Read carry no notify or AMO tail, so the SGEs directly follow the SQE header.
+// sgeNum == 2 splits the payload so an immediate post fills the whole 128B DWQE.
+template <HcommUrmaOpCode opCode, uint32_t sgeNum, auto const& config>
+__simt_callee__ inline void HcommSimtUrmaFillUbDataWqe(
+    __ubuf__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
+    const HcommSimtUbPostMeta& meta, uint32_t curHead, uint32_t nextHead, HcommSimtUbWqeKind& wqeKind)
+{
+    static_assert(sgeNum == 1U || sgeNum == 2U, "SIMT URMA supports one or two SGEs per WQE");
+    HcommSimtPrepareUbDataWqe<sgeNum>(wqeAddr, wqeKind);
+    HcommSimtUrmaFillUbSqeCtx<opCode, sgeNum, config>(wqeAddr, remoteAddr, meta, curHead, nextHead);
+
+    __ubuf__ HcommUrmaSgeCtx* sgeCtx = (__ubuf__ HcommUrmaSgeCtx*)(wqeAddr + sizeof(HcommUrmaSqeCtx));
+    if constexpr (sgeNum == 1U) {
+        sgeCtx->len = static_cast<uint32_t>(len);
+        sgeCtx->tokenId = 0U;
+        sgeCtx->va = reinterpret_cast<uint64_t>(localAddr);
+    } else {
+        uint32_t firstLen = static_cast<uint32_t>(len >> 1);
+        uint32_t lastLen = static_cast<uint32_t>(len - firstLen);
+        __ubuf__ HcommUrmaSgeCtx* lastSgeCtx = sgeCtx + 1;
+
+        sgeCtx->len = firstLen;
+        sgeCtx->tokenId = 0U;
+        sgeCtx->va = reinterpret_cast<uint64_t>(localAddr);
+
+        lastSgeCtx->len = lastLen;
+        lastSgeCtx->tokenId = 0U;
+        lastSgeCtx->va = reinterpret_cast<uint64_t>(localAddr + firstLen);
+    }
+}
+
+template <typename T>
+__simt_callee__ inline void HcommSimtStoreUbInlineValue(__ubuf__ uint8_t* addr, T value)
+{
+    const uint8_t* valueAddr = reinterpret_cast<const uint8_t*>(&value);
+#pragma unroll
+    for (uint32_t i = 0; i < sizeof(T); ++i) {
+        addr[i] = valueAddr[i];
+    }
+}
+
+// Inline Write: the value travels inside the WQE right after the SQE header, so sgeNum is 0
+// and no SGE points at local memory. inlineMsgLen tells the hardware how many payload bytes
+// follow. The opcode stays WRITE; it is the inline flag in config that selects this form.
+template <typename T, auto const& config>
+__simt_callee__ inline void HcommSimtUrmaFillUbWriteValueWqe(
+    __ubuf__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, T value,
+    const HcommSimtUbPostMeta& meta, uint32_t curHead, uint32_t nextHead,
+    HcommSimtUbWqeKind& wqeKind)
+{
+    HcommSimtPrepareUbInlineWqe(wqeAddr, wqeKind);
+    HcommSimtUrmaFillUbSqeCtx<HcommUrmaOpCode::WRITE, 0U, config>(
+        wqeAddr, remoteAddr, meta, curHead, nextHead);
+
+    __ubuf__ HcommUrmaSqeCtx* sqeCtx = (__ubuf__ HcommUrmaSqeCtx*)wqeAddr;
+    sqeCtx->inlineMsgLen = sizeof(T);
+
+    HcommSimtStoreUbInlineValue(wqeAddr + sizeof(HcommUrmaSqeCtx), value);
+}
+
 template <HcommUrmaOpCode opCode, typename T, auto const& config>
 __simt_callee__ inline void HcommSimtUrmaFillUbAtomicWqe(
     __ubuf__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* fetchAddr, T value, T cond,
     const HcommSimtUbPostMeta& meta, uint32_t curHead, uint32_t nextHead, HcommSimtUbWqeKind& wqeKind)
 {
     HcommSimtPrepareUbAtomicWqe(wqeAddr, wqeKind);
-    HcommSimtUrmaFillUbSqeCtx<opCode, config>(wqeAddr, remoteAddr, meta, curHead, nextHead);
+    HcommSimtUrmaFillUbSqeCtx<opCode, 1U, config>(wqeAddr, remoteAddr, meta, curHead, nextHead);
 
     __ubuf__ HcommUrmaSgeCtx* sgeCtx =
         (__ubuf__ HcommUrmaSgeCtx*)(wqeAddr + sizeof(HcommUrmaSqeCtx));
@@ -159,92 +255,6 @@ __simt_callee__ inline void HcommSimtUrmaFillUbAtomicWqe(
         amoData[2] = 0U;
         amoData[3] = 0U;
     }
-}
-
-// Fills the SQE header of one BB. bbIdx is the head index of this BB and drives the owner bit;
-// nextHead is the PI the hardware should advance to once this BB is consumed. SIMT must carry the
-// PI in sqeBbIdx because the doorbell is a DWQE copy rather than a register write.
-template <HcommUrmaOpCode opCode, uint32_t sgeNum, auto const& config>
-__simt_callee__ inline void HcommSimtUrmaFillSqeCtx(
-    __gm__ uint8_t* bbAddr, __gm__ uint8_t* remoteAddr, __gm__ const SqContext* sqCtx,
-    __gm__ const RegedBufferEntity* remoteMemInfo, uint32_t bbIdx, uint32_t nextHead)
-{
-    __gm__ HcommUrmaSqeCtx* sqeCtx = (__gm__ HcommUrmaSqeCtx*)bbAddr;
-    sqeCtx->sqeBbIdx = static_cast<uint16_t>(nextHead);
-    sqeCtx->opcode = static_cast<uint32_t>(opCode);
-    sqeCtx->flag = HcommSimtUrmaFlag<config>();
-    sqeCtx->nf = 0U;
-    sqeCtx->tokenEn = 1U;
-    sqeCtx->rmtJettyType = 1U;
-    sqeCtx->owner = (bbIdx & sqCtx->contextInfo.ubJfs.sqDepth) == 0U ? 1U : 0U;
-    sqeCtx->targetHint = 0U;
-    sqeCtx->inlineMsgLen = 0U;
-    sqeCtx->tpId = sqCtx->contextInfo.ubJfs.tpID;
-    sqeCtx->sgeNum = sgeNum;
-    sqeCtx->rmtJettyOrSegId = remoteMemInfo->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
-    sqeCtx->rmtTokenValue = remoteMemInfo->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
-
-    uint64_t remoteAddrValue = reinterpret_cast<uint64_t>(remoteAddr);
-    sqeCtx->rmtAddrLOrTokenId = static_cast<uint32_t>(remoteAddrValue & 0xFFFFFFFFU);
-    sqeCtx->rmtAddrHOrTokenValue = static_cast<uint32_t>((remoteAddrValue >> 32U) & 0xFFFFFFFFU);
-    sqeCtx->rmtEidL = HcommSimtLoadLe64(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
-    sqeCtx->rmtEidH = HcommSimtLoadLe64(&sqCtx->contextInfo.ubJfs.remoteEID[sizeof(uint64_t)]);
-}
-
-// Fills sgeNum SGEs after the SQE header. With sgeNum == 2 the payload is split in half so the
-// 128B DWQE carries the data across both SGEs.
-template <uint32_t sgeNum>
-__simt_callee__ inline void HcommSimtUrmaFillSgeCtx(__gm__ uint8_t* bbAddr, __gm__ uint8_t* localAddr, uint64_t len)
-{
-    static_assert(sgeNum == 1U || sgeNum == 2U, "SIMT URMA supports one or two SGEs per WQE");
-    __gm__ HcommUrmaSgeCtx* sgeCtx = (__gm__ HcommUrmaSgeCtx*)(bbAddr + sizeof(HcommUrmaSqeCtx));
-    if constexpr (sgeNum == 1U) {
-        sgeCtx->len = static_cast<uint32_t>(len);
-        sgeCtx->tokenId = 0U;
-        sgeCtx->va = reinterpret_cast<uint64_t>(localAddr);
-    } else {
-        uint32_t firstLen = static_cast<uint32_t>(len >> 1);
-        uint32_t lastLen = static_cast<uint32_t>(len - firstLen);
-
-        __gm__ HcommUrmaSgeCtx* lastSgeCtx = sgeCtx + 1;
-
-        sgeCtx->len = firstLen;
-        sgeCtx->tokenId = 0U;
-        sgeCtx->va = reinterpret_cast<uint64_t>(localAddr);
-
-        lastSgeCtx->len = lastLen;
-        lastSgeCtx->tokenId = 0U;
-        lastSgeCtx->va = reinterpret_cast<uint64_t>(localAddr + firstLen);
-    }
-}
-
-// Deferred submission: a single BB in the SQ, no doorbell.
-template <HcommUrmaOpCode opCode, auto const& config>
-__simt_callee__ inline void HcommSimtUrmaFillDeferredDataWqe(
-    __gm__ uint8_t* slotAddr, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
-    __gm__ const SqContext* sqCtx, __gm__ const RegedBufferEntity* remoteMemInfo, uint32_t curHead)
-{
-    HcommSimtUrmaFillSqeCtx<opCode, 1U, config>(
-        slotAddr, remoteAddr, sqCtx, remoteMemInfo, curHead, curHead + HCOMM_URMA_WQE_BB_CNT);
-    HcommSimtUrmaFillSgeCtx<1U>(slotAddr, localAddr, len);
-}
-
-// Immediate submission: fills the 128B DWQE with the data split across two SGEs.
-template <HcommUrmaOpCode opCode, auto const& config>
-__simt_callee__ inline void HcommSimtUrmaFillDwqe(
-    __gm__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
-    __gm__ const SqContext* sqCtx, __gm__ const RegedBufferEntity* remoteMemInfo, uint32_t curHead, uint32_t nextHead)
-{
-    HcommSimtUrmaFillSqeCtx<opCode, 2U, config>(wqeAddr, remoteAddr, sqCtx, remoteMemInfo, curHead, nextHead);
-    HcommSimtUrmaFillSgeCtx<2U>(wqeAddr, localAddr, len);
-}
-
-__simt_callee__ inline void HcommSimtRingDwqeAt(__gm__ uint8_t* dwqeAddr, __gm__ uint8_t* sqeAddr)
-{
-    asc_threadfence();
-    HcommSimtCopy128(dwqeAddr, sqeAddr);
-    asc_dcci_single(dwqeAddr);
-    asc_dcci_single(dwqeAddr + 64);
 }
 
 static_assert(sizeof(HcommUrmaSqeCtx) == 48U, "Packed SIMT SQE assumes a 48-byte SQE context");
@@ -278,10 +288,14 @@ __simt_callee__ inline void HcommSimtCopyUb128ToDwqeStwt16(
     }
 }
 
+template <uint32_t sgeNum>
 __simt_callee__ inline void HcommSimtBuildPackedSqeTemplate(
     const HcommSimtUbPostMeta& meta, HcommSimtPackedSqeTemplate& sqeTemplate)
 {
-    sqeTemplate.word1 = static_cast<uint64_t>(meta.tpId & 0xFFFFFFU) | (1ULL << 24U) |
+    // sgeNum == 0 is the inline case: the payload rides in the WQE, so there is no SGE.
+    static_assert(sgeNum <= 2U, "SIMT URMA supports at most two SGEs per WQE");
+    sqeTemplate.word1 = static_cast<uint64_t>(meta.tpId & 0xFFFFFFU) |
+                        (static_cast<uint64_t>(sgeNum) << 24U) |
                         (static_cast<uint64_t>(meta.remoteTokenId & 0xFFFFFU) << 32U);
     sqeTemplate.remoteEidL = meta.remoteEidL;
     sqeTemplate.remoteEidH = meta.remoteEidH;
@@ -289,16 +303,20 @@ __simt_callee__ inline void HcommSimtBuildPackedSqeTemplate(
     sqeTemplate.sqDepth = meta.sqDepth;
 }
 
+// inlineMsgLen occupies bits 54..63 of the first word and stays 0 for every WQE that carries
+// its payload through an SGE. Only the inline Write path passes a non-zero length.
 template <HcommUrmaOpCode opCode, auto const& config>
 __simt_callee__ inline void HcommSimtStorePackedSqeHeader(
     __gm__ uint64_t* words, __gm__ uint8_t* remoteAddr,
-    const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead)
+    const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead,
+    uint32_t inlineMsgLen = 0U)
 {
     uint64_t owner = (curHead & sqeTemplate.sqDepth) == 0U ? 1U : 0U;
     words[0] = static_cast<uint64_t>(nextHead & 0xFFFFU) |
                (static_cast<uint64_t>(HcommSimtUrmaFlag<config>() & 0xFFU) << 16U) |
                (1ULL << 28U) | (1ULL << 29U) | (owner << 31U) |
-               (static_cast<uint64_t>(static_cast<uint32_t>(opCode) & 0xFFU) << 40U);
+               (static_cast<uint64_t>(static_cast<uint32_t>(opCode) & 0xFFU) << 40U) |
+               (static_cast<uint64_t>(inlineMsgLen & 0x3FFU) << 54U);
     words[1] = sqeTemplate.word1;
     words[2] = sqeTemplate.remoteEidL;
     words[3] = sqeTemplate.remoteEidH;
@@ -325,6 +343,73 @@ __simt_callee__ inline void HcommSimtStorePackedNotifyWqe(
 #pragma unroll
     for (uint32_t i = 12U; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
         words[i] = 0U;
+    }
+}
+
+template <HcommUrmaOpCode opCode, uint32_t sgeNum, auto const& config>
+__simt_callee__ inline void HcommSimtStorePackedDataWqe(
+    __gm__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
+    const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead)
+{
+    static_assert(sgeNum == 1U || sgeNum == 2U, "SIMT URMA supports one or two SGEs per WQE");
+    __gm__ uint64_t* words = reinterpret_cast<__gm__ uint64_t*>(wqeAddr);
+    HcommSimtStorePackedSqeHeader<opCode, config>(words, remoteAddr, sqeTemplate, curHead, nextHead);
+    if constexpr (sgeNum == 1U) {
+        // A one-SGE WQE occupies a single 64B basic block. Writing beyond words[7] would
+        // clobber the next block, which may already hold another lane's WQE.
+        words[6] = static_cast<uint64_t>(static_cast<uint32_t>(len));
+        words[7] = reinterpret_cast<uint64_t>(localAddr);
+    } else {
+        uint32_t firstLen = static_cast<uint32_t>(len >> 1);
+        uint32_t lastLen = static_cast<uint32_t>(len - firstLen);
+        words[6] = static_cast<uint64_t>(firstLen);
+        words[7] = reinterpret_cast<uint64_t>(localAddr);
+        words[8] = static_cast<uint64_t>(lastLen);
+        words[9] = reinterpret_cast<uint64_t>(localAddr + firstLen);
+#pragma unroll
+        for (uint32_t i = 10U; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
+            words[i] = 0U;
+        }
+    }
+}
+
+// Packs the inline payload into the whole 64-bit words that follow the SQE header. A type
+// shorter than a word occupies the low bytes of words[6], matching the byte-wise copy the
+// struct-field path performs, because the SQE header is a whole number of words long.
+template <typename T>
+__simt_callee__ inline void HcommSimtInlineValueWords(T value, uint64_t* words, uint32_t wordCnt)
+{
+    const uint8_t* valueAddr = reinterpret_cast<const uint8_t*>(&value);
+#pragma unroll
+    for (uint32_t i = 0; i < wordCnt; ++i) {
+        words[i] = 0U;
+    }
+#pragma unroll
+    for (uint32_t i = 0; i < sizeof(T); ++i) {
+        words[i / sizeof(uint64_t)] |=
+            static_cast<uint64_t>(valueAddr[i]) << ((i % sizeof(uint64_t)) * 8U);
+    }
+}
+
+// Inline payload starts at words[6] because the SQE header is 48 bytes.
+constexpr uint32_t HCOMM_SIMT_INLINE_FIRST_WORD = sizeof(HcommUrmaSqeCtx) / sizeof(uint64_t);
+
+template <typename T, auto const& config>
+__simt_callee__ inline void HcommSimtStorePackedWriteValueWqe(
+    __gm__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, T value,
+    const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead)
+{
+    constexpr uint32_t payloadWords =
+        HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t) - HCOMM_SIMT_INLINE_FIRST_WORD;
+    __gm__ uint64_t* words = reinterpret_cast<__gm__ uint64_t*>(wqeAddr);
+    HcommSimtStorePackedSqeHeader<HcommUrmaOpCode::WRITE, config>(
+        words, remoteAddr, sqeTemplate, curHead, nextHead, sizeof(T));
+
+    uint64_t payload[payloadWords];
+    HcommSimtInlineValueWords(value, payload, payloadWords);
+#pragma unroll
+    for (uint32_t i = 0; i < payloadWords; ++i) {
+        words[HCOMM_SIMT_INLINE_FIRST_WORD + i] = payload[i];
     }
 }
 
@@ -355,18 +440,63 @@ __simt_callee__ inline void HcommSimtStorePackedAtomicWqe(
 template <HcommUrmaOpCode opCode, auto const& config>
 __simt_callee__ inline void HcommSimtStoreLocalSqeHeader(
     uint64_t* words, __gm__ uint8_t* remoteAddr,
-    const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead)
+    const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead,
+    uint32_t inlineMsgLen = 0U)
 {
     uint64_t owner = (curHead & sqeTemplate.sqDepth) == 0U ? 1U : 0U;
     words[0] = static_cast<uint64_t>(nextHead & 0xFFFFU) |
                (static_cast<uint64_t>(HcommSimtUrmaFlag<config>() & 0xFFU) << 16U) |
                (1ULL << 28U) | (1ULL << 29U) | (owner << 31U) |
-               (static_cast<uint64_t>(static_cast<uint32_t>(opCode) & 0xFFU) << 40U);
+               (static_cast<uint64_t>(static_cast<uint32_t>(opCode) & 0xFFU) << 40U) |
+               (static_cast<uint64_t>(inlineMsgLen & 0x3FFU) << 54U);
     words[1] = sqeTemplate.word1;
     words[2] = sqeTemplate.remoteEidL;
     words[3] = sqeTemplate.remoteEidH;
     words[4] = sqeTemplate.tokenWord;
     words[5] = reinterpret_cast<uint64_t>(remoteAddr);
+}
+
+template <HcommUrmaOpCode opCode, uint32_t sgeNum, auto const& config>
+__simt_callee__ inline void HcommSimtBuildLocalDataWqe(
+    HcommSimtLocalWqeStage& stage, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
+    const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead)
+{
+    static_assert(sgeNum == 1U || sgeNum == 2U, "SIMT URMA supports one or two SGEs per WQE");
+    HcommSimtStoreLocalSqeHeader<opCode, config>(
+        stage.words, remoteAddr, sqeTemplate, curHead, nextHead);
+    if constexpr (sgeNum == 1U) {
+        stage.words[6] = static_cast<uint64_t>(static_cast<uint32_t>(len));
+        stage.words[7] = reinterpret_cast<uint64_t>(localAddr);
+#pragma unroll
+        for (uint32_t i = 8U; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
+            stage.words[i] = 0U;
+        }
+    } else {
+        uint32_t firstLen = static_cast<uint32_t>(len >> 1);
+        uint32_t lastLen = static_cast<uint32_t>(len - firstLen);
+        stage.words[6] = static_cast<uint64_t>(firstLen);
+        stage.words[7] = reinterpret_cast<uint64_t>(localAddr);
+        stage.words[8] = static_cast<uint64_t>(lastLen);
+        stage.words[9] = reinterpret_cast<uint64_t>(localAddr + firstLen);
+#pragma unroll
+        for (uint32_t i = 10U; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
+            stage.words[i] = 0U;
+        }
+    }
+}
+
+// The stage is an uninitialized local, so HcommSimtInlineValueWords zeroes the whole payload
+// area before scattering the value into it.
+template <typename T, auto const& config>
+__simt_callee__ inline void HcommSimtBuildLocalWriteValueWqe(
+    HcommSimtLocalWqeStage& stage, __gm__ uint8_t* remoteAddr, T value,
+    const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead)
+{
+    constexpr uint32_t payloadWords =
+        HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t) - HCOMM_SIMT_INLINE_FIRST_WORD;
+    HcommSimtStoreLocalSqeHeader<HcommUrmaOpCode::WRITE, config>(
+        stage.words, remoteAddr, sqeTemplate, curHead, nextHead, sizeof(T));
+    HcommSimtInlineValueWords(value, &stage.words[HCOMM_SIMT_INLINE_FIRST_WORD], payloadWords);
 }
 
 template <HcommUrmaOpCode opCode, typename T, auto const& config>
@@ -403,12 +533,6 @@ __simt_callee__ inline void HcommSimtPublishLocalWqe(
     HcommSimtStoreLocalWqe(dwqeAddr, stage);
     asc_dcci_single(dwqeAddr);
     asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
-}
-
-__simt_callee__ inline void HcommSimtRingDwqe(__gm__ SqContext* sqCtx, __gm__ uint8_t* sqeAddr)
-{
-    __gm__ uint8_t* dwqeAddr = (__gm__ uint8_t*)(sqCtx->contextInfo.ubJfs.dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
-    HcommSimtRingDwqeAt(dwqeAddr, sqeAddr);
 }
 
 __simt_callee__ inline void HcommSimtRingDwqeFromUb(__gm__ uint8_t* dwqeAddr, __ubuf__ uint8_t* wqeAddr)
@@ -668,35 +792,88 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     if (len > 0xFFFFFFFFULL) {
         return HCOMM_FAILED;
     }
-    __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
-    __gm__ RegedBufferEntity* remoteBuffers = HcommSimtRemoteBuffers(channel);
-    int32_t remoteIdx = HcommSimtFindBufferIdx(remoteBuffers, channelEntity->remoteBufferNum, remoteAddr, len);
-    if (remoteIdx == HCOMM_FAILED) {
+    if (wqeItem_ == nullptr) {
         return HCOMM_FAILED;
     }
 
-    __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
-    __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
-    __gm__ uint64_t* headAddr = (__gm__ uint64_t*)sqCtx->contextInfo.ubJfs.headAddr;
-    // Deferred post occupies one BB; immediate post occupies the two-BB DWQE.
+    HcommSimtUbResolvedPost post;
+    if (ResolveUbPostContext(channel, remoteAddr, len, post) != HCOMM_SUCCESS) {
+        return HCOMM_FAILED;
+    }
+    // A deferred Write/Read needs a single SGE in one BB. An immediate one is published
+    // through the 128B DWQE window, so the payload is split across two SGEs to fill it.
+    constexpr uint32_t sgeNum = commit ? 2U : 1U;
     constexpr uint32_t bbCnt = commit ? HCOMM_URMA_DWQE_BB_CNT : HCOMM_URMA_WQE_BB_CNT;
-    uint64_t headVal = HcommSimtReserve(headAddr, bbCnt, 1U);
-    uint32_t curHead = HcommSimtHeadIdx(headVal);
+    constexpr uint32_t wqeBytes = bbCnt * HCOMM_URMA_WQE_BB_SIZE;
+
+    __gm__ uint64_t* headAddr = post.headAddr;
+    uint32_t curHead = 0U;
+    bool useImmediateWarp = false;
+    bool publishImmediateWarp = false;
+    // ReserveDwqeBatch hands out fixed two-BB slots, so only an immediate post can consume
+    // one. A deferred Write/Read occupies a single BB and would leave the slot's second BB
+    // holding stale content, so it always reserves its own space.
+    if (commit && hasReservedDwqeSlot_) {
+        curHead = reservedDwqeHead_;
+        hasReservedDwqeSlot_ = false;
+    } else {
+        if constexpr (commit) {
+            useImmediateWarp = HcommSimtReserveImmediateWarp(
+                channel, headAddr, post.meta.sqDepth, curHead, publishImmediateWarp);
+        }
+        if (!useImmediateWarp) {
+            curHead = HcommSimtHeadIdx(HcommSimtReserve(headAddr, bbCnt, 1U));
+        }
+    }
     uint32_t nextHead = curHead + bbCnt;
 
-    uint64_t sqBaseAddr = sqCtx->contextInfo.ubJfs.sqVa;
-    uint32_t wqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
-    uint32_t sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
-    __gm__ uint8_t* sqeAddr = (__gm__ uint8_t*)(sqBaseAddr + wqeSize * (curHead % sqDepth));
+    uint64_t sqBaseAddr = post.sqBaseAddr;
+    uint32_t wqeSize = post.sqWqeSize;
+    uint32_t sqDepth = post.meta.sqDepth;
+    __gm__ uint8_t* sqeAddr =
+        reinterpret_cast<__gm__ uint8_t*>(sqBaseAddr + wqeSize * (curHead % sqDepth));
 
     if constexpr (commit) {
-        HcommSimtUrmaFillDwqe<opCode, config>(
-            sqeAddr, remoteAddr, localAddr, len, sqCtx, &remoteBuffers[remoteIdx], curHead, nextHead);
-        HcommSimtSyncBeforeRing(headAddr, nextHead);
-        HcommSimtRingDwqe(sqCtx, sqeAddr);
+        uint32_t blockLaneCount = blockDim.x * blockDim.y * blockDim.z;
+        if (blockLaneCount == 1U && !hasDeferredDwqeBatch_) {
+            HcommSimtPackedSqeTemplate sqeTemplate;
+            HcommSimtBuildPackedSqeTemplate<sgeNum>(post.meta, sqeTemplate);
+            HcommSimtLocalWqeStage localStage;
+            HcommSimtBuildLocalDataWqe<opCode, sgeNum, config>(
+                localStage, remoteAddr, localAddr, len, sqeTemplate, curHead, nextHead);
+            HcommSimtPublishLocalWqe(sqeAddr, post.dwqeAddr, localStage);
+            return HCOMM_SUCCESS;
+        }
+    }
+
+    if (useImmediateWarp && !publishImmediateWarp) {
+        HcommSimtPackedSqeTemplate sqeTemplate;
+        HcommSimtBuildPackedSqeTemplate<sgeNum>(post.meta, sqeTemplate);
+        HcommSimtStorePackedDataWqe<opCode, sgeNum, config>(
+            sqeAddr, remoteAddr, localAddr, len, sqeTemplate, curHead, nextHead);
     } else {
-        HcommSimtUrmaFillDeferredDataWqe<opCode, config>(
-            sqeAddr, remoteAddr, localAddr, len, sqCtx, &remoteBuffers[remoteIdx], curHead);
+        HcommSimtUrmaFillUbDataWqe<opCode, sgeNum, config>(
+            wqeItem_, remoteAddr, localAddr, len, post.meta, curHead, nextHead, wqeKind_);
+        HcommSimtCopyUbToGm<wqeBytes>(sqeAddr, wqeItem_);
+    }
+    if constexpr (commit) {
+        if (useImmediateWarp) {
+            asc_threadfence();
+            if (publishImmediateWarp) {
+                HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+            }
+            return HCOMM_SUCCESS;
+        }
+        // A single-lane post is ordered by HcommSimtRingDwqeFromUb's thread fence.
+        // A deferred batch still needs the block barrier to wait for all SQ writes.
+        if (hasDeferredDwqeBatch_) {
+            HcommSimtSyncBeforeRing(headAddr, nextHead);
+        }
+        if (PublishDwqeBatch(headAddr) != HCOMM_SUCCESS) {
+            return HCOMM_FAILED;
+        }
+        HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+    } else {
         asc_threadfence();
     }
     return HCOMM_SUCCESS;
@@ -759,7 +936,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
 
     if (useImmediateWarp && !publishImmediateWarp) {
         HcommSimtPackedSqeTemplate sqeTemplate;
-        HcommSimtBuildPackedSqeTemplate(post.meta, sqeTemplate);
+        HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
         HcommSimtStorePackedNotifyWqe<config>(
             sqeAddr, remoteAddr, localAddr, len, notifyAddr, notifyVal,
             sqeTemplate, curHead, nextHead);
@@ -777,6 +954,94 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
             return HCOMM_SUCCESS;
         }
         // A single-lane post is ordered by HcommSimtRingDwqe's thread fence.
+        // A deferred batch still needs the block barrier to wait for all SQ writes.
+        if (hasDeferredDwqeBatch_) {
+            HcommSimtSyncBeforeRing(headAddr, nextHead);
+        }
+        if (PublishDwqeBatch(headAddr) != HCOMM_SUCCESS) {
+            return HCOMM_FAILED;
+        }
+        HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+    } else {
+        asc_threadfence();
+    }
+    return HCOMM_SUCCESS;
+}
+
+template <typename T, bool commit, auto commitPipe, auto reqPipe, auto const& config>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteValue(
+    ChannelHandle channel, __gm__ uint8_t* remoteAddr, T value)
+{
+    (void)commitPipe;
+    (void)reqPipe;
+
+    static_assert(config.inlineEn == 1, "WriteValueNbi requires inline data in WQE");
+    static_assert(sizeof(T) <= HCOMM_URMA_DWQE_SIZE - sizeof(HcommUrmaSqeCtx),
+        "Inline value must fit in the WQE payload area");
+    if (wqeItem_ == nullptr) {
+        return HCOMM_FAILED;
+    }
+
+    HcommSimtUbResolvedPost post;
+    if (ResolveUbPostContext(channel, remoteAddr, sizeof(T), post) != HCOMM_SUCCESS) {
+        return HCOMM_FAILED;
+    }
+    __gm__ uint64_t* headAddr = post.headAddr;
+    uint32_t curHead = 0U;
+    bool useImmediateWarp = false;
+    bool publishImmediateWarp = false;
+    if (hasReservedDwqeSlot_) {
+        curHead = reservedDwqeHead_;
+        hasReservedDwqeSlot_ = false;
+    } else {
+        if constexpr (commit) {
+            useImmediateWarp = HcommSimtReserveImmediateWarp(
+                channel, headAddr, post.meta.sqDepth, curHead, publishImmediateWarp);
+        }
+        if (!useImmediateWarp) {
+            curHead = HcommSimtHeadIdx(HcommSimtReserve(headAddr, HCOMM_URMA_DWQE_BB_CNT, 1U));
+        }
+    }
+    uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
+
+    uint64_t sqBaseAddr = post.sqBaseAddr;
+    uint32_t wqeSize = post.sqWqeSize;
+    uint32_t sqDepth = post.meta.sqDepth;
+    __gm__ uint8_t* sqeAddr =
+        reinterpret_cast<__gm__ uint8_t*>(sqBaseAddr + wqeSize * (curHead % sqDepth));
+
+    if constexpr (commit) {
+        uint32_t blockLaneCount = blockDim.x * blockDim.y * blockDim.z;
+        if (blockLaneCount == 1U && !hasDeferredDwqeBatch_) {
+            HcommSimtPackedSqeTemplate sqeTemplate;
+            HcommSimtBuildPackedSqeTemplate<0U>(post.meta, sqeTemplate);
+            HcommSimtLocalWqeStage localStage;
+            HcommSimtBuildLocalWriteValueWqe<T, config>(
+                localStage, remoteAddr, value, sqeTemplate, curHead, nextHead);
+            HcommSimtPublishLocalWqe(sqeAddr, post.dwqeAddr, localStage);
+            return HCOMM_SUCCESS;
+        }
+    }
+
+    if (useImmediateWarp && !publishImmediateWarp) {
+        HcommSimtPackedSqeTemplate sqeTemplate;
+        HcommSimtBuildPackedSqeTemplate<0U>(post.meta, sqeTemplate);
+        HcommSimtStorePackedWriteValueWqe<T, config>(
+            sqeAddr, remoteAddr, value, sqeTemplate, curHead, nextHead);
+    } else {
+        HcommSimtUrmaFillUbWriteValueWqe<T, config>(
+            wqeItem_, remoteAddr, value, post.meta, curHead, nextHead, wqeKind_);
+        HcommSimtCopyUb128ToGm(sqeAddr, wqeItem_);
+    }
+    if constexpr (commit) {
+        if (useImmediateWarp) {
+            asc_threadfence();
+            if (publishImmediateWarp) {
+                HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+            }
+            return HCOMM_SUCCESS;
+        }
+        // A single-lane post is ordered by HcommSimtRingDwqeFromUb's thread fence.
         // A deferred batch still needs the block barrier to wait for all SQ writes.
         if (hasDeferredDwqeBatch_) {
             HcommSimtSyncBeforeRing(headAddr, nextHead);
@@ -835,7 +1100,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
         uint32_t blockLaneCount = blockDim.x * blockDim.y * blockDim.z;
         if (blockLaneCount == 1U && !hasDeferredDwqeBatch_) {
             HcommSimtPackedSqeTemplate sqeTemplate;
-            HcommSimtBuildPackedSqeTemplate(post.meta, sqeTemplate);
+            HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
             HcommSimtLocalWqeStage localStage;
             HcommSimtBuildLocalAtomicWqe<opCode, T, config>(
                 localStage, remoteAddr, fetchAddr, value, cond,
@@ -847,7 +1112,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
 
     if (useImmediateWarp && !publishImmediateWarp) {
         HcommSimtPackedSqeTemplate sqeTemplate;
-        HcommSimtBuildPackedSqeTemplate(post.meta, sqeTemplate);
+        HcommSimtBuildPackedSqeTemplate<1U>(post.meta, sqeTemplate);
         HcommSimtStorePackedAtomicWqe<opCode, T, config>(
             sqeAddr, remoteAddr, fetchAddr, value, cond,
             sqeTemplate, curHead, nextHead);
@@ -1043,10 +1308,8 @@ template <typename T, bool commit, auto commitPipe, auto reqPipe, auto const& co
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteValueNbi(
     ChannelHandle channel, __gm__ void* dst, T value)
 {
-    (void)channel;
-    (void)dst;
-    (void)value;
-    return 0;
+    return PostWriteValue<T, commit, commitPipe, reqPipe, config>(
+        channel, reinterpret_cast<__gm__ uint8_t*>(dst), value);
 }
 
 // Read swaps dst/src relative to Write: src is the remote address, dst the local one.

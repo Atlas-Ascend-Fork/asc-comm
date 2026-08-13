@@ -37,8 +37,10 @@ add_executable(simt_write
     simt_write_common.h
 )
 
-target_include_directories(simt_write PRIVATE
+target_include_directories(simt_write BEFORE PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    $ENV{ASCEND_HOME_PATH}/include
+    $<$<COMPILE_LANGUAGE:ASC>:$ENV{ASCEND_HOME_PATH}/asc/include/comm_api>
 )
 
 # 链接 hcomm 库：Host 侧通信域创建(HcclCommInitClusterInfo)、内存注册(HcclCommMemReg)、
