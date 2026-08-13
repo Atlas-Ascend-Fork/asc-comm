@@ -62,23 +62,12 @@ public:
      * @param [in] buff: The UB buffer provided by caller.
      * @param [in] len: The buffer length in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note SIMT normally assembles WQEs in place in global memory, so both arguments are ignored.
-     *       Experimental builds may use the supplied UB as per-lane WQE staging space.
+     * @note Hcomm automatically partitions the supplied UB into per-lane WQE staging, per-lane remote
+     *       registration cache and one block-shared post context. If the workspace is too small, posting
+     *       remains functional and falls back to the global-memory path. All participating lanes must call
+     *       Init when a block-shared cached workspace is supplied.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
-
-#if defined(HCOMM_SIMT_UB_STAGING_EXPERIMENT) && defined(__NPU_ARCH__) && __NPU_ARCH__ == 3510
-    // context points to a caller-owned 128-byte UB region. Its internal layout
-    // is private to Hcomm and must not be accessed by the caller.
-    __simt_callee__ inline void BindUbPostContext(__ubuf__ uint8_t* context);
-    // cache points to an opaque caller-owned UB array with one 32-byte entry per lane.
-    // Hcomm maps the calling lane to its own entry, so different lanes never update
-    // the same remote-registration cache state.
-    __simt_callee__ inline int32_t BindUbRemoteCache(__ubuf__ uint8_t* cache, uint32_t len);
-    // One lane initializes the bound context; the caller synchronizes the block
-    // before any lane posts through it.
-    __simt_callee__ inline int32_t InitUbPostContext(ChannelHandle channel);
-#endif
 
     // All block lanes call this before one fixed-2BB Notify/FAA/CAS batch.
     // state points to four shared UB uint32_t values: BB count, CQE count,
