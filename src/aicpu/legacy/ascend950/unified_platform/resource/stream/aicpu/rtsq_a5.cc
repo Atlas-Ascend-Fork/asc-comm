@@ -47,15 +47,12 @@ HcclResult RtsqA5::ExportPodResource(HcommRtsqContext &context)
     static_assert(sizeof(context.localSqeBuffer) == sizeof(locBuf),
         "RtsqA5 local SQE buffer must match HcommRtsqContext");
     context = {};
-    context.devPhyId = devPhyId_;
     context.localDevId = localDevId_;
     context.streamId = streamId_;
     context.sqId = sqId_;
     context.sqDepth = sqDepth_;
     context.sqHead = sqHead_;
     context.sqTail = sqTail_;
-    context.taskId = taskId_;
-    context.taskIdEnd = taskIdEnd_;
     context.pendingSqeCnt = pendingSqeCnt;
     context.sqFullTimeout = sqFullTimeout_;
     context.sqBaseAddr = sqBaseAddr_;
