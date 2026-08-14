@@ -118,12 +118,10 @@ static inline void AscCommDumpChannelEntity(
     fprintf(
         stderr,
         "[INFO] [ChannelEntity] tag[%s] channel[%u] handle[0x%llx] sqContextAddr[%p] cqContextAddr[%p] "
-        "remoteBufferAddr[%p] sqNum[%u] cqNum[%u] remoteBufferNum[%u] "
-        "entitySqHead[%u] entitySqTail[%u] entityCqHead[%u] entityCqTail[%u].\n",
+        "remoteBufferAddr[%p] sqNum[%u] cqNum[%u] remoteBufferNum[%u].\n",
         sharedQueueTag, channelIndex, (unsigned long long)channel, (void*)channelEntity->sqContextAddr,
         (void*)channelEntity->cqContextAddr, (void*)channelEntity->remoteBufferAddr, channelEntity->sqNum,
-        channelEntity->cqNum, channelEntity->remoteBufferNum, channelEntity->sqHead, channelEntity->sqTail,
-        channelEntity->cqHead, channelEntity->cqTail);
+        channelEntity->cqNum, channelEntity->remoteBufferNum);
     fprintf(
         stderr,
         "[INFO] [ChannelEntity][SQ] tag[%s] channel[%u] sqVa[0x%llx] headAddr[0x%llx] tailAddr[0x%llx] "
