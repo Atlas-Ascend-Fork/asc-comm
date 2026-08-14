@@ -36,8 +36,15 @@ namespace AscendC {
 namespace {
 constexpr uint32_t HCOMM_URMA_BATCH_WQE_SIZE = 64U;
 constexpr uint32_t HCOMM_URMA_BATCH_CQE_SIZE = 64U;
-constexpr uint32_t HCOMM_URMA_BATCH_CQE_OFFSET = sizeof(HcommUrmaBatchState);
-constexpr uint32_t HCOMM_URMA_BATCH_WQE_OFFSET = HCOMM_URMA_BATCH_CQE_OFFSET + HCOMM_URMA_BATCH_CQE_SIZE;
+
+constexpr uint32_t HcommUrmaBatchAlignUp(uint32_t value)
+{
+    return (value + HCOMM_URMA_BATCH_ALIGN_SIZE - 1U) & ~(HCOMM_URMA_BATCH_ALIGN_SIZE - 1U);
+}
+
+constexpr uint32_t HCOMM_URMA_BATCH_CQE_OFFSET = HcommUrmaBatchAlignUp(sizeof(HcommUrmaBatchState));
+constexpr uint32_t HCOMM_URMA_BATCH_WQE_OFFSET =
+    HcommUrmaBatchAlignUp(HCOMM_URMA_BATCH_CQE_OFFSET + HCOMM_URMA_BATCH_CQE_SIZE);
 
 __aicore__ inline __ubuf__ HcommUrmaBatchState* HcommUrmaGetBatchState(BatchHandle handle)
 {
