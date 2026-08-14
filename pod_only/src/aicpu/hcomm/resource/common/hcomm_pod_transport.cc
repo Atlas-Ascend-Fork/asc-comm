@@ -534,7 +534,10 @@ HcclResult HcommPodNotifyWait(HcommThreadEntity &thread, const HcommChannelEntit
             channel.localNotifyNum), HCCL_E_PARA);
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(GetRtsq(thread, rtsq));
-    const int32_t notifyId = channel.localNotifyAddr[localNotifyIdx].notify.rma.notifyId;
+    CHK_PRT_RET(channel.localNotifyAddr[localNotifyIdx].type != HCOMM_NOTIFY_TYPE_LOCAL,
+        HCCL_ERROR("[%s] local notify type[%u] is not LOCAL.", __func__,
+            channel.localNotifyAddr[localNotifyIdx].type), HCCL_E_PARA);
+    const int32_t notifyId = channel.localNotifyAddr[localNotifyIdx].notify.local.notifyId;
     CHK_PRT_RET(notifyId < 0, HCCL_ERROR("[%s] invalid notify id[%d].", __func__, notifyId), HCCL_E_PARA);
     return HcommPodRtsqNotifyWait(*rtsq, static_cast<uint32_t>(notifyId), timeout);
 }

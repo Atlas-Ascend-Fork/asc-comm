@@ -152,13 +152,24 @@ typedef struct {
 } HcommRmaNotify;
 
 typedef struct {
-    uint32_t type;      ///< Notify类型判别值，由资源生产端和消费端约定
+    int32_t notifyId;  ///< 本地信号量Notify资源ID；负值表示无效
+} HcommLocalNotify;
+
+typedef enum {
+    HCOMM_NOTIFY_TYPE_HCCS = 0,   ///< HCCS场景的Notify描述
+    HCOMM_NOTIFY_TYPE_RMA = 1,    ///< UB/RoCE场景的RMA Notify描述
+    HCOMM_NOTIFY_TYPE_LOCAL = 2,  ///< 本地信号量Notify，仅携带notifyId
+} HcommNotifyType;
+
+typedef struct {
+    uint32_t type;      ///< HcommNotifyType，指明notify联合体的有效成员
     uint32_t reserved;  ///**add** 保留字段，创建资源时置0
     union {
-        HcommHccsNotify hccs;  ///< HCCS场景的Notify描述
-        HcommRmaNotify rma;    ///< UB/RoCE场景的RMA Notify描述
-        int8_t reserve[64];    ///< Notify描述扩展空间
-    } notify;                  ///< 类型相关的Notify资源
+        HcommHccsNotify hccs;      ///< HCCS场景的Notify描述
+        HcommRmaNotify rma;        ///< UB/RoCE场景的RMA Notify描述
+        HcommLocalNotify local;    ///< 本地信号量Notify描述，用于local侧线程/通道间同步
+        int8_t reserve[64];        ///< Notify描述扩展空间
+    } notify;                      ///< 类型相关的Notify资源
 } HcommNotify;
 
 typedef struct {
@@ -195,15 +206,12 @@ typedef struct {
 } HcommChannelEntity;
 
 typedef struct {
-    uint32_t devPhyId;       ///**add** Stream所属物理设备ID，保留用于资源标识和任务上报
     uint32_t localDevId;     ///**add** 调用halSqCqQuery/halSqCqConfig使用的本地设备ID
     uint32_t streamId;       ///**add** RTSQ关联的Stream ID，写入部分SQE或用于诊断
     uint32_t sqId;           ///< 硬件RTSQ编号
     uint32_t sqDepth;        ///< 硬件RTSQ可容纳的SQE数量
     uint32_t sqHead;         ///**add** 最近一次查询到的硬件RTSQ Head
     uint32_t sqTail;         ///**add** POD运行时维护的硬件RTSQ Tail
-    uint32_t taskId;         ///**add** 下一个SQE使用的任务ID基值
-    uint32_t taskIdEnd;      ///**add** 当前批次任务ID的结束边界，到达后重新申请
     uint32_t pendingSqeCnt;  ///**add** localSqeBuffer中尚未提交到硬件RTSQ的SQE数量
     uint32_t sqFullTimeout;  ///**add** 等待硬件RTSQ空闲的超时秒数；0表示不启用超时判断
     uint64_t sqBaseAddr;     ///< 硬件RTSQ SQE环形缓冲区的CPU虚拟地址

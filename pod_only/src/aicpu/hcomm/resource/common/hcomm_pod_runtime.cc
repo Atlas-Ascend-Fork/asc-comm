@@ -9,6 +9,7 @@
  */
 
 #include <chrono>
+#include <unordered_map>
 #include "hcomm_pod_runtime.h"
 #include "hcomm_pod_launch.h"
 #include "../stream/sqe_build_a5.h"
@@ -23,6 +24,34 @@ GetSqeId(uint32_t batchNum, uint32_t &taskId, uint32_t &taskIdEnd);
 }
 
 namespace {
+
+// taskId/taskIdEnd 由数据面自行管理：每RTSQ一份，首次使用时惰性申请任务ID段。
+struct PodRtsqTaskState {
+    uint32_t taskId{0};
+    uint32_t taskIdEnd{0};
+};
+
+std::unordered_map<const HcommRtsqContext *, PodRtsqTaskState> g_podTaskStates;
+
+PodRtsqTaskState &GetTaskState(const HcommRtsqContext &context)
+{
+    return g_podTaskStates[&context];
+}
+
+uint32_t GetTaskId(const HcommRtsqContext &context)
+{
+    return GetTaskState(context).taskId;
+}
+
+void RefreshTaskId(const HcommRtsqContext &context)
+{
+    PodRtsqTaskState &state = GetTaskState(context);
+    ++state.taskId;
+    if (state.taskId >= state.taskIdEnd) {
+        constexpr uint32_t TASK_ID_BATCH = 1024;
+        aicpu::GetSqeId(TASK_ID_BATCH, state.taskId, state.taskIdEnd);
+    }
+}
 
 HcclResult QuerySqValue(const HcommRtsqContext &context, drvSqCqPropType_t property, uint32_t &value)
 {
@@ -111,11 +140,7 @@ HcclResult CopyPendingSqes(HcommRtsqContext &context)
 
 HcclResult RefreshRtsq(HcommRtsqContext &context)
 {
-    ++context.taskId;
-    if (context.taskId >= context.taskIdEnd) {
-        constexpr uint32_t TASK_ID_BATCH = 1024;
-        aicpu::GetSqeId(TASK_ID_BATCH, context.taskId, context.taskIdEnd);
-    }
+    RefreshTaskId(context);
     ++context.pendingSqeCnt;
     if ((context.launchFlag != 0 && !HcommPodIsBatchLaunchMode()) ||
         context.pendingSqeCnt == HCOMM_POD_RTSQ_BATCH_SIZE) {
@@ -176,13 +201,13 @@ HcclResult HcommPodRtsqTryLaunch(HcommRtsqContext &context)
 
 HcclResult HcommPodRtsqNotifyWait(HcommRtsqContext &context, uint32_t notifyId, uint32_t timeout)
 {
-    Hccl::BuildA5PodSqeNotifyWait(context.streamId, context.taskId, notifyId, timeout, GetCurrentSqe(context));
+    Hccl::BuildA5PodSqeNotifyWait(context.streamId, GetTaskId(context), notifyId, timeout, GetCurrentSqe(context));
     return RefreshRtsq(context);
 }
 
 HcclResult HcommPodRtsqNotifyRecord(HcommRtsqContext &context, uint32_t notifyId)
 {
-    Hccl::BuildA5PodSqeNotifyRecord(context.streamId, context.taskId, notifyId, GetCurrentSqe(context));
+    Hccl::BuildA5PodSqeNotifyRecord(context.streamId, GetTaskId(context), notifyId, GetCurrentSqe(context));
     return RefreshRtsq(context);
 }
 
@@ -191,7 +216,7 @@ HcclResult HcommPodRtsqSdmaCopy(
 {
     constexpr uint32_t RTSQ_PART_ID = 0;
     constexpr uint32_t COPY_OPCODE = 0;
-    Hccl::BuildA5PodSqeSdmaCopy(context.streamId, context.taskId, dstAddr, srcAddr, size,
+    Hccl::BuildA5PodSqeSdmaCopy(context.streamId, GetTaskId(context), dstAddr, srcAddr, size,
         RTSQ_PART_ID, COPY_OPCODE, GetCurrentSqe(context));
     return RefreshRtsq(context);
 }
@@ -241,7 +266,7 @@ HcclResult HcommPodRtsqSdmaReduce(HcommRtsqContext &context, uint64_t dstAddr, u
     }
 
     constexpr uint32_t RTSQ_PART_ID = 0;
-    Hccl::BuildA5PodSqeSdmaCopy(context.streamId, context.taskId, dstAddr, srcAddr, size,
+    Hccl::BuildA5PodSqeSdmaCopy(context.streamId, GetTaskId(context), dstAddr, srcAddr, size,
         RTSQ_PART_ID, operation | dataType, GetCurrentSqe(context));
     return RefreshRtsq(context);
 }
@@ -249,13 +274,13 @@ HcclResult HcommPodRtsqSdmaReduce(HcommRtsqContext &context, uint64_t dstAddr, u
 HcclResult HcommPodRtsqUbDbSend(
     HcommRtsqContext &context, const Hccl::PodUbJettyLiteId &jettyId, uint16_t piValue)
 {
-    Hccl::BuildA5PodSqeUbDbSend(context.streamId, context.taskId, jettyId, piValue, GetCurrentSqe(context));
+    Hccl::BuildA5PodSqeUbDbSend(context.streamId, GetTaskId(context), jettyId, piValue, GetCurrentSqe(context));
     return RefreshRtsq(context);
 }
 
 HcclResult HcommPodRtsqRdmaDbSend(HcommRtsqContext &context, uint64_t dbAddr, uint64_t dbValue)
 {
-    Hccl::BuildA5PodSqeRdmaDbSend(context.streamId, context.taskId, dbAddr, dbValue, GetCurrentSqe(context));
+    Hccl::BuildA5PodSqeRdmaDbSend(context.streamId, GetTaskId(context), dbAddr, dbValue, GetCurrentSqe(context));
     return RefreshRtsq(context);
 }
 

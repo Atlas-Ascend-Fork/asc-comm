@@ -150,7 +150,6 @@ HcclResult AicpuTsThread::ExportPodResource(HcommThreadEntity *&entity)
     podEntity_ = {};
     podEntity_.abiHeader = {
         HCOMM_POD_THREAD_VERSION, HCOMM_POD_THREAD_MAGIC_WORD, sizeof(HcommThreadEntity), 0};
-    podEntity_.devInfo.devId = podRtsq_.devPhyId;
     podEntity_.localNotifyNum = static_cast<uint32_t>(podNotifies_.size());
     podEntity_.localNotifyAddr = podNotifies_.empty() ? nullptr : podNotifies_.data();
     podEntity_.sqContextAddr = &podRtsq_;
