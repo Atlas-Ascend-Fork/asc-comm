@@ -307,6 +307,17 @@ public:
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
+    /*!
+     * @brief Block Aicore until all communication tasks submitted through a batch handle are complete.
+     * @tparam pipe: The pipe type to use for drain, PIPE_MTE3 supported as default.
+     * @param [in,out] batchHandle: The batch handle whose WQE buffer is reused as CQE scratch space.
+     * @return 0 indicates success. A non-zero value indicates failure.
+     * @note This overload does not require Init. It must be called after BatchCommit and before preparing
+     *       another batch on the same handle.
+     */
+    template <pipe_t pipe = PIPE_MTE3>
+    __aicore__ inline int32_t Drain(BatchHandleType& batchHandle);
+
 private:
     HcommImpl<commProtocol> impl_;
 };
