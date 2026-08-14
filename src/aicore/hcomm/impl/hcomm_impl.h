@@ -150,6 +150,13 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 {
     return impl_.template Drain<pipe>(channel);
 }
+
+template <CommProtocol commProtocol>
+template <pipe_t pipe>
+__aicore__ inline int32_t Hcomm<commProtocol>::Drain(BatchHandleType& batchHandle)
+{
+    return impl_.template Drain<pipe>(batchHandle);
+}
 } // namespace AscendC
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H

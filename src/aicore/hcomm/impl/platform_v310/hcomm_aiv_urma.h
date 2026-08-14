@@ -567,6 +567,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
 
 __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandle channel, uint32_t expectIdx)
 {
+    return PollCq(channel, expectIdx, cqeItem_);
+}
+
+__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
+    ChannelHandle channel, uint32_t expectIdx, LocalTensor<uint32_t> cqeItem)
+{
     if (expectIdx == 0) {
         return HCOMM_SUCCESS;
     }
@@ -577,7 +583,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
     uint64_t cqBaseAddr = cqCtx.contextInfo.ubJfc.scqVa;
     uint32_t cqeSize = cqCtx.contextInfo.ubJfc.cqeSize;
     uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
-    __ubuf__ HcommUrmaJfcCqeCtx* cqeUb = (__ubuf__ HcommUrmaJfcCqeCtx*)cqeItem_.GetPhyAddr();
+    __ubuf__ HcommUrmaJfcCqeCtx* cqeUb = (__ubuf__ HcommUrmaJfcCqeCtx*)cqeItem.GetPhyAddr();
     KERNEL_LOG(
         KERNEL_INFO, "Hcomm URMA PollCq enter expectIdx=%u curTail=%u cqDepth=%u \n", expectIdx, curTail, cqDepth);
 #if defined(UT_TEST)
@@ -588,13 +594,13 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
         AscendC::GlobalTensor<uint32_t> cqeGlobal;
         cqeGlobal.SetGlobalBuffer((__gm__ uint32_t*)cqeAddr);
         SyncAction<HardEvent::S_MTE2>();
-        DataCopy(cqeItem_, cqeGlobal, cqeSize / sizeof(uint32_t));
+        DataCopy(cqeItem, cqeGlobal, cqeSize / sizeof(uint32_t));
         SyncAction<HardEvent::MTE2_S>();
         bool validOwner = (curTail / cqDepth) & 1;
         uint32_t times = 0;
         while ((validOwner ^ cqeUb->owner) == 0 && times < HCOMM_URMA_MAX_RETRY_TIMES) {
             SyncAction<HardEvent::S_MTE2>();
-            DataCopy(cqeItem_, cqeGlobal, cqeSize / sizeof(uint32_t));
+            DataCopy(cqeItem, cqeGlobal, cqeSize / sizeof(uint32_t));
             SyncAction<HardEvent::MTE2_S>();
             times++;
         }
@@ -778,6 +784,39 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle 
     uint32_t ret = PollCq(channel, channelEntity->cqHead);
     if (ret != HCOMM_SUCCESS) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Drain by channel failed channel=%lu pollRet=%u \n", channel, ret);
+        return ret;
+    }
+    return HCOMM_SUCCESS;
+}
+
+template <pipe_t pipe>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHandle& batchHandle)
+{
+    (void)pipe;
+    static_assert(
+        sizeof(HcommUrmaJfcCqeCtx) <= HCOMM_URMA_WQEBB_SIZE,
+        "Batch Drain CQE scratch space must fit in one WQEBB");
+
+    if (batchHandle.channelHandle == 0 || batchHandle.wqeBufferLen < HCOMM_URMA_WQEBB_SIZE ||
+        batchHandle.preparedWqebbCount != 0 || batchHandle.preparedCqeCount != 0) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid batch handle state\n");
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity =
+        reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    if (cqCtx.contextInfo.ubJfc.cqeSize == 0 ||
+        cqCtx.contextInfo.ubJfc.cqeSize > HCOMM_URMA_WQEBB_SIZE) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid CQE size\n");
+        return HCOMM_FAILED;
+    }
+    uint32_t ret = PollCq(
+        batchHandle.channelHandle, channelEntity->cqHead, batchHandle.wqeBuffer);
+    if (ret != HCOMM_SUCCESS) {
+        KERNEL_LOG(
+            KERNEL_ERROR, "Hcomm URMA Drain by batch handle failed channel=%lu pollRet=%u \n",
+            batchHandle.channelHandle, ret);
         return ret;
     }
     return HCOMM_SUCCESS;

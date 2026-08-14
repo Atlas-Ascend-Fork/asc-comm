@@ -126,6 +126,8 @@ public:
     __aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
+    template <pipe_t pipe = PIPE_MTE3>
+    __aicore__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
 
 private:
     template <
@@ -137,6 +139,8 @@ private:
     __aicore__ inline void PollCqWhenSqOverflow(
         ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt);
     __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail);
+    __aicore__ inline uint32_t PollCq(
+        ChannelHandle channel, uint32_t expectTail, LocalTensor<uint32_t> cqeItem);
 
 private:
     LocalTensor<uint32_t> wqeItem_;
