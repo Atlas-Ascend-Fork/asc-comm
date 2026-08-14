@@ -69,8 +69,9 @@ __aicore__ inline __ubuf__ uint8_t* AlignAddrTo32Bytes(__ubuf__ uint8_t* buff)
     return reinterpret_cast<__ubuf__ uint8_t*>(alignedAddr);
 }
 
+template <typename BufferPtr>
 __aicore__ inline int32_t HcommFindBufferIdx(
-    RegedBufferEntity* bufferAddr, uint32_t bufferNum, GM_ADDR addr, uint64_t len)
+    BufferPtr bufferAddr, uint32_t bufferNum, GM_ADDR addr, uint64_t len)
 {
     if (bufferAddr == nullptr) {
         KERNEL_LOG(KERNEL_ERROR, "HcommFindBufferIdx failed with null bufferAddr, bufferNum=%u\n", bufferNum);
