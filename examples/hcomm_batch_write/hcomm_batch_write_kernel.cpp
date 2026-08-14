@@ -19,8 +19,11 @@ class KernelHcommBatchWrite {
 public:
     __aicore__ inline void Init(GM_ADDR context, AscendC::TPipe* pipe)
     {
-        context_ = reinterpret_cast<__gm__ BatchContext*>(context);
+        uint32_t coreIndex = static_cast<uint32_t>(AscendC::GetBlockIdx());
+        context_ = reinterpret_cast<__gm__ BatchContext*>(context) + coreIndex;
         localBuffer_ = reinterpret_cast<GM_ADDR>(context_->localBuffer);
+        sendOffset_ = SEND_BASE_OFFSET + static_cast<uint64_t>(coreIndex) * DATA_SIZE;
+        receiveOffset_ = RECV_BASE_OFFSET + static_cast<uint64_t>(coreIndex) * DATA_SIZE;
         pipe->InitBuffer(batchBuffer_, BATCH_BUFFER_SIZE);
         batchTensor_ = batchBuffer_.Get<uint8_t>();
     }
@@ -43,7 +46,7 @@ public:
             }
             GM_ADDR remoteBuffer = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
             context_->hcommResult =
-                hcomm_.WriteNbi(channel, remoteBuffer + RECV_BASE_OFFSET, localBuffer_ + SEND_OFFSET, DATA_SIZE);
+                hcomm_.WriteNbi(channel, remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
             if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
                 context_->result = KERNEL_WRITE_FAILED;
                 return;
@@ -66,6 +69,8 @@ private:
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm_;
     __gm__ BatchContext* context_{nullptr};
     GM_ADDR localBuffer_{nullptr};
+    uint64_t sendOffset_{0U};
+    uint64_t receiveOffset_{0U};
 };
 
 } // namespace HcommBatchWriteExample
