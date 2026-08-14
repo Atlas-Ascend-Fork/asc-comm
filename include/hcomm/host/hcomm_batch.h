@@ -44,6 +44,7 @@ static inline int AscCommIsSameEndpoint(const EndpointDesc* lhs, const EndpointD
            lhs->loc.locType == rhs->loc.locType && memcmp(lhs->loc.raws, rhs->loc.raws, sizeof(lhs->loc.raws)) == 0;
 }
 
+#ifndef ASC_COMM_BATCH_FROM_CHANNELS_ONLY
 static inline HcclResult AscCommValidateMultiChannelInputs(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
@@ -97,6 +98,7 @@ static inline HcclResult AscCommAcquireSharedChannels(
     }
     return ret == HCCL_SUCCESS ? configRet : ret;
 }
+#endif
 
 static inline HcclResult AscCommCopyFromDevice(
     void* dst, size_t size, const void* src, uint32_t channelIndex, const char* dataName)
@@ -310,6 +312,7 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
 /**
  * @brief Create tagged shared-Jetty channels and a device-resident multi-channel handle.
  */
+#ifndef ASC_COMM_BATCH_FROM_CHANNELS_ONLY
 static inline HcclResult MakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
@@ -336,6 +339,36 @@ static inline HcclResult MakeMultiChannelHandle(
         ret = AscCommBuildMultiChannelEntity(channels, sharedQueueTag, channelNum, &deviceMemory);
     }
     free(channels);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+
+    *multiChannel = (MultiChannelHandle)(uintptr_t)deviceMemory;
+    fprintf(
+        stderr, "[INFO] [%s] success, channelNum[%u], multiChannel[0x%llx].\n", __func__, channelNum,
+        (unsigned long long)(*multiChannel));
+    return HCCL_SUCCESS;
+}
+#endif
+
+/**
+ * @brief Build a device-resident multi-channel handle from caller-owned shared-Jetty channels.
+ */
+static inline HcclResult MakeMultiChannelHandleFromChannels(
+    const ChannelHandle* channels, uint32_t channelNum, MultiChannelHandle* multiChannel)
+{
+    void* deviceMemory = NULL;
+    HcclResult ret;
+
+    if (multiChannel != NULL) {
+        *multiChannel = 0U;
+    }
+    if (channels == NULL || multiChannel == NULL || channelNum == 0U) {
+        fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
+        return HCCL_E_PARA;
+    }
+
+    ret = AscCommBuildMultiChannelEntity(channels, "hcomm", channelNum, &deviceMemory);
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
