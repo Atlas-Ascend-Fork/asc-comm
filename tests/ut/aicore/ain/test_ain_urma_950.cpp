@@ -14,7 +14,7 @@
 #define private public
 #include "kernel_operator.h"
 #include "hcomm/hcomm_common.h"
-#include "hccl/internal/hcomm/hcomm_res_defs.h"
+#include "hcomm/hcomm_res_defs.h"
 #include "ain/ain.h"
 
 using namespace AscendC;
@@ -152,9 +152,9 @@ public:
             0, reinterpret_cast<uint64_t>(signalPool_.data()), signalPool_.size() * sizeof(uint64_t));
     }
 
-    HcommTeamHandle GetTeam() { return reinterpret_cast<HcommTeamHandle>(&team_); }
+    AscendC::HcommTeamHandle GetTeam() { return reinterpret_cast<AscendC::HcommTeamHandle>(&team_); }
 
-    HcommWindowHandle GetWin() { return reinterpret_cast<HcommWindowHandle>(&win_); }
+    AscendC::HcommWindowHandle GetWin() { return reinterpret_cast<AscendC::HcommWindowHandle>(&win_); }
 
     uint64_t* GetSignalPool() { return signalPool_.data(); }
 
