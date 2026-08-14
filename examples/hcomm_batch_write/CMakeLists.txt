@@ -21,6 +21,14 @@ project(hcomm_batch_write LANGUAGES ASC CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(NOT ASCEND_CANN_PACKAGE_LINUX_PATH)
+    if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        set(ASCEND_CANN_PACKAGE_LINUX_PATH "${ASCEND_CANN_PACKAGE_PATH}/x86_64-linux")
+    else()
+        set(ASCEND_CANN_PACKAGE_LINUX_PATH "${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux")
+    endif()
+endif()
+
 set_source_files_properties(
     hcomm_batch_write_kernel.cpp
     PROPERTIES LANGUAGE ASC
@@ -31,7 +39,8 @@ add_executable(hcomm_batch_write
     hcomm_batch_write_kernel.cpp
 )
 
-target_include_directories(hcomm_batch_write PRIVATE
+target_include_directories(hcomm_batch_write BEFORE PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../include"
     "${ASCEND_CANN_PACKAGE_LINUX_PATH}/pkg_inc"
     "${ASCEND_CANN_PACKAGE_LINUX_PATH}/include/hcomm"
 )
