@@ -208,9 +208,14 @@ aclError InitBuffers(void* sendBuf, void* recvBuf)
 //
 // The kernel resolves buffer base addresses through AscendC::simt::LocalBufferAddr and
 // RemoteBufferAddr, both of which take an index into the channel's buffer table. That table is
-// built from the memHandles handed to HcclChannelAcquire below, so the local index of a buffer
-// is its position in that array; the remote index is looked up by tag because the remote table
-// may hold entries this example did not register.
+// built from the memHandles handed to HcclChannelAcquire below, but local table index 0 is
+// reserved for the CCL buffer, so explicitly registered buffers start at index 1 -- a buffer's
+// local index is its position in memHandles plus one. Passing the memHandles position directly
+// resolves to the CCL buffer instead: the post then reads the wrong source, yet the WQE, the
+// remote address and the token are all valid, so the NIC completes it and returns a clean CQE
+// while the receiver observes the CCL buffer's contents rather than the payload.
+// The remote index is looked up by tag because the remote table may hold entries this example
+// did not register.
 HcclResult AcquirePeerChannel(
     HcclComm comm, uint32_t rank, uint32_t peerRank, HcclMemHandle* memHandles, uint32_t memHandleNum,
     ChannelHandle& channel, uint32_t& remoteRecvIdx)
@@ -357,9 +362,15 @@ int main(int argc, char* argv[])
     CommMem sendMem{COMM_MEM_TYPE_DEVICE, sendBuf, kBufferBytes};
     CommMem recvMem{COMM_MEM_TYPE_DEVICE, recvBuf, kBufferBytes};
     HcclMemHandle memHandles[2] = {nullptr, nullptr};
-    constexpr uint32_t kLocalSendIdx = 0U;
-    HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kLocalSendIdx]));
-    HCCLCHECK(HcclCommMemReg(hcclComm, kRecvBufTag, &recvMem, &memHandles[1]));
+    // Position in the memHandles array handed to HcclChannelAcquire.
+    constexpr uint32_t kSendMemHandleIdx = 0U;
+    constexpr uint32_t kRecvMemHandleIdx = 1U;
+    // Index into the channel's local buffer table, which the kernel passes to
+    // AscendC::simt::LocalBufferAddr. Table index 0 is the CCL buffer, so this is the
+    // memHandles position plus one.
+    constexpr uint32_t kLocalSendIdx = kSendMemHandleIdx + 1U;
+    HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kSendMemHandleIdx]));
+    HCCLCHECK(HcclCommMemReg(hcclComm, kRecvBufTag, &recvMem, &memHandles[kRecvMemHandleIdx]));
 
     const uint32_t peerRank =
         rank == kSenderRank ? static_cast<uint32_t>(kRecvRank) : static_cast<uint32_t>(kSenderRank);
