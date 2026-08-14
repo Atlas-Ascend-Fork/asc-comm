@@ -11,8 +11,16 @@
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 #include "hcomm/resource/kernel/ccu_kernel_res_allocator.h"
 
+#include <atomic>
+#include <cerrno>
+#include <cstdlib>
+#include <cstring>
 #include <cstddef>
+#include <fstream>
 #include <limits>
+#include <sstream>
+#include <string>
+#include <unistd.h>
 
 #include "acl/acl_rt.h"
 #include "hcomm/common/ccu_device_context.h"
@@ -32,6 +40,47 @@
 namespace hcomm {
 
 namespace {
+
+void DumpInstructionBinary(
+    const CcuRep::CcuInstrInfo& instrInfo, uint32_t dieId, int32_t devLogicId, uint64_t instrInfoSize)
+{
+    const char *dumpDir = std::getenv("HCOMM_CCU_INSTR_DUMP_DIR");
+    if (dumpDir == nullptr || dumpDir[0] == '\0') {
+        return;
+    }
+
+    static std::atomic<uint64_t> dumpSeq{0};
+    std::string dir(dumpDir);
+    if (!dir.empty() && dir.back() != '/') {
+        dir.push_back('/');
+    }
+
+    std::ostringstream path;
+    path << dir << "ccu_instr_pid" << static_cast<long long>(getpid()) << "_seq" << dumpSeq.fetch_add(1)
+         << "_dev" << devLogicId << "_die" << dieId << "_start" << instrInfo.startInstrId << "_cnt"
+         << instrInfo.instrVec.size() << ".bin";
+
+    std::ofstream out(path.str(), std::ios::binary | std::ios::trunc);
+    if (!out.is_open()) {
+        HCCL_WARNING(
+            "[CcuKernelMgr][%s] failed to open instruction dump file[%s], errno[%d:%s].", __func__,
+            path.str().c_str(), errno, std::strerror(errno));
+        return;
+    }
+
+    out.write(reinterpret_cast<const char *>(instrInfo.instrVec.data()), instrInfoSize);
+    out.close();
+    if (!out) {
+        HCCL_WARNING(
+            "[CcuKernelMgr][%s] failed to write instruction dump file[%s], byteSize[%llu].", __func__,
+            path.str().c_str(), static_cast<unsigned long long>(instrInfoSize));
+        return;
+    }
+
+    HCCL_INFO(
+        "[CcuKernelMgr][%s] dumped instruction binary file[%s], byteSize[%llu].", __func__, path.str().c_str(),
+        static_cast<unsigned long long>(instrInfoSize));
+}
 
 CcuResult SetRequestCount(uint32_t &target, size_t value)
 {
@@ -641,6 +690,8 @@ HcclResult CcuKernelMgr::LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, 
             aclrtMalloc(&instructionLoadDevMem_, instrInfoSize, ACL_MEM_MALLOC_HUGE_FIRST)));
         instructionLoadDevMemSize_ = instrInfoSize;
     }
+
+    DumpInstructionBinary(instrInfo, dieId, devLogicId_, instrInfoSize);
 
     CHK_RET(static_cast<HcclResult>(aclrtMemcpy(
         instructionLoadDevMem_, instrInfoSize, instrInfo.instrVec.data(), instrInfoSize,
