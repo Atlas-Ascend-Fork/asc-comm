@@ -272,8 +272,11 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::KnockDoorBell(__gm__ Chann
     st_dev(HtoNL(sqHead), dbSwAddr, 0);
     KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write sw db ok, swDbVal = %u\n", sqHead);
 
-    uint64_t dbValue =
-        GetDbValue(chnlPtr->sqContextAddr->contextInfo.roceSq.qpn, chnlPtr->sqContextAddr->contextInfo.roceSq.mtuShift);
+    // mtuShift 由 hcomm 打包进 dbVendorSpecified，此处按约定位域取回
+    uint8_t mtuShift = static_cast<uint8_t>(
+        (chnlPtr->sqContextAddr->contextInfo.roceSq.dbVendorSpecified >> UB_DB_VENDOR_MTUSHIFT_SHIFT) &
+        UB_DB_VENDOR_FIELD_MASK);
+    uint64_t dbValue = GetDbValue(chnlPtr->sqContextAddr->contextInfo.roceSq.qpn, mtuShift);
     KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: dbValue = %llu\n", dbValue);
     __gm__ uint64_t* dbHwAddr = reinterpret_cast<__gm__ uint64_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbHwVa);
     uint64_t dbFinalVal =

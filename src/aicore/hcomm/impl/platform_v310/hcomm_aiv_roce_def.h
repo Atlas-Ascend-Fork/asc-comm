@@ -46,6 +46,11 @@ constexpr uint32_t ROCE_1825_SQ_DB_TYPE = 21;
 constexpr uint32_t ROCE_1825_SQ_DB_SGIT_IDX = 1;
 constexpr uint32_t ROCE_1825_SQ_DB_COS = 0x7;
 
+// SqContext.roceSq.dbVendorSpecified 的位域约定，须与 hcomm 生产侧保持一致
+// （hcomm: src/base_comm/resources/endpoint_pairs/channels/aicpu/dev_rdma_connection_v2.cc）
+constexpr uint32_t UB_DB_VENDOR_MTUSHIFT_SHIFT = 50;
+constexpr uint64_t UB_DB_VENDOR_FIELD_MASK = 0x7;
+
 constexpr uint32_t ROCE_1825_CQE_OPCODE_SHIFT = 27;
 constexpr uint32_t ROCE_1825_CQE_OPCODE_MASK = 0x1f;
 constexpr uint32_t ROCE_1825_CQE_OPTYPE_INVALID = 0x1f;
