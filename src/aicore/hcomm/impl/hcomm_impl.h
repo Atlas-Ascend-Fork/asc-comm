@@ -118,25 +118,14 @@ template <typename T>
 __aicore__ inline typename Hcomm<commProtocol>::BatchHandleType Hcomm<commProtocol>::MakeBatchHandle(
     MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
 {
-    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
-        return impl_.MakeBatchHandle(multiChannel, buff, buffLen);
-    }
-    (void)multiChannel;
-    (void)buff;
-    (void)buffLen;
-    return BatchHandleType{0U};
+    return impl_.MakeBatchHandle(multiChannel, buff, buffLen);
 }
 
 template <CommProtocol commProtocol>
 __aicore__ inline typename Hcomm<commProtocol>::BatchHandleRefType Hcomm<commProtocol>::GetHandleRef(
     BatchHandleType handle, uint32_t channelIndex)
 {
-    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
-        return impl_.GetHandleRef(handle, channelIndex);
-    }
-    (void)handle;
-    (void)channelIndex;
-    return BatchHandleRefType{};
+    return impl_.GetHandleRef(handle, channelIndex);
 }
 
 template <CommProtocol commProtocol>
@@ -144,36 +133,21 @@ template <auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(
     BatchHandleRefType handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
-        return impl_.template WriteNbi<config>(handleRef, dst, src, len);
-    }
-    (void)handleRef;
-    (void)dst;
-    (void)src;
-    (void)len;
-    return HCOMM_FAILED;
+    return impl_.template WriteNbi<config>(handleRef, dst, src, len);
 }
 
 template <CommProtocol commProtocol>
 template <pipe_t pipe>
 __aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(BatchHandleType handle)
 {
-    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
-        return impl_.template BatchCommit<pipe>(handle);
-    }
-    (void)handle;
-    return HCOMM_FAILED;
+    return impl_.template BatchCommit<pipe>(handle);
 }
 
 template <CommProtocol commProtocol>
 template <pipe_t pipe>
 __aicore__ inline int32_t Hcomm<commProtocol>::Drain(BatchHandleType handle)
 {
-    if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
-        return impl_.template Drain<pipe>(handle);
-    }
-    (void)handle;
-    return HCOMM_FAILED;
+    return impl_.template Drain<pipe>(handle);
 }
 } // namespace AscendC
 
