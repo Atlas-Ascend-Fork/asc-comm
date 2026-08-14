@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="420" viewBox="0 0 1080 420" font-family="Arial, 'Noto Sans CJK SC', sans-serif">
+  <defs>
+    <marker id="task-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#69737b"/>
+    </marker>
+    <marker id="data-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#28784a"/>
+    </marker>
+  </defs>
+
+  <rect width="1080" height="420" fill="#ffffff"/>
+  <text x="540" y="26" font-size="16" font-weight="700" text-anchor="middle" fill="#1f2937">通信抽象硬件架构图</text>
+  <text x="540" y="46" font-size="11" text-anchor="middle" fill="#5f6b76">通信引擎发起请求，执行器按所选协议搬运数据；图中方向仅为示例</text>
+
+  <rect x="30" y="66" width="450" height="286" rx="5" fill="#eef6ea" stroke="#4b8f68" stroke-width="1.8"/>
+  <text x="48" y="88" font-size="12" font-weight="700" fill="#28573c">NPU 0（本端卡）</text>
+  <rect x="48" y="100" width="414" height="96" rx="4" fill="#fff2cc" stroke="#d6b656"/>
+  <text x="62" y="119" font-size="11" font-weight="700" fill="#3b3425">通信引擎</text>
+  <rect x="62" y="128" width="124" height="52" rx="3" fill="#fdf6e3" stroke="#d6b656"/>
+  <text x="124" y="159" font-size="12" text-anchor="middle" fill="#3b3425">AIV</text>
+  <rect x="196" y="128" width="124" height="52" rx="3" fill="#fdf6e3" stroke="#d6b656"/>
+  <text x="258" y="159" font-size="12" text-anchor="middle" fill="#3b3425">AICPU</text>
+  <rect x="330" y="128" width="122" height="52" rx="3" fill="#fdf6e3" stroke="#d6b656"/>
+  <text x="391" y="159" font-size="12" text-anchor="middle" fill="#3b3425">CCU</text>
+
+  <rect x="48" y="228" width="414" height="106" rx="4" fill="#d5e8d4" stroke="#82b366"/>
+  <text x="62" y="247" font-size="11" font-weight="700" fill="#28573c">通信引擎执行器</text>
+  <rect x="62" y="256" width="120" height="60" rx="3" fill="#eaf5e8" stroke="#82b366"/>
+  <text x="122" y="281" font-size="11" font-weight="700" text-anchor="middle" fill="#28573c">URMA</text>
+  <text x="122" y="300" font-size="10" text-anchor="middle" fill="#5f8a6b">UB</text>
+  <rect x="192" y="256" width="120" height="60" rx="3" fill="#eaf5e8" stroke="#82b366"/>
+  <text x="252" y="281" font-size="11" font-weight="700" text-anchor="middle" fill="#28573c">UBMEM</text>
+  <text x="252" y="300" font-size="10" text-anchor="middle" fill="#5f8a6b">UB</text>
+  <rect x="322" y="256" width="130" height="60" rx="3" fill="#eaf5e8" stroke="#82b366"/>
+  <text x="387" y="281" font-size="11" font-weight="700" text-anchor="middle" fill="#28573c">RDMA</text>
+  <text x="387" y="300" font-size="10" text-anchor="middle" fill="#5f8a6b">RoCE（DPU）</text>
+  <path d="M 255 196 V 224" fill="none" stroke="#69737b" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#task-arrow)"/>
+  <text x="264" y="216" font-size="9" fill="#6b7780">发起通信请求</text>
+
+  <rect x="600" y="66" width="450" height="286" rx="5" fill="#f4f7f9" stroke="#52616b" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="618" y="88" font-size="12" font-weight="700" fill="#25313b">NPU 1（对端卡）</text>
+  <rect x="618" y="100" width="414" height="96" rx="4" fill="#fff2cc" stroke="#d6b656"/>
+  <text x="632" y="119" font-size="11" font-weight="700" fill="#3b3425">通信引擎</text>
+  <text x="825" y="156" font-size="11" text-anchor="middle" fill="#8a7b52">AIV / AICPU / CCU</text>
+  <text x="825" y="176" font-size="9" text-anchor="middle" fill="#a89a72">结构同NPU 0</text>
+  <rect x="618" y="228" width="414" height="106" rx="4" fill="#d5e8d4" stroke="#82b366"/>
+  <text x="632" y="247" font-size="11" font-weight="700" fill="#28573c">通信引擎执行器</text>
+  <text x="825" y="286" font-size="11" text-anchor="middle" fill="#3f7d5a">UBMEM / URMA / RDMA</text>
+  <text x="825" y="306" font-size="9" text-anchor="middle" fill="#6b9478">结构同NPU 0</text>
+  <path d="M 825 228 V 200" fill="none" stroke="#69737b" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#task-arrow)"/>
+
+  <path d="M 462 281 H 598" fill="none" stroke="#28784a" stroke-width="2.4" marker-end="url(#data-arrow)"/>
+  <text x="530" y="273" font-size="10" font-weight="700" text-anchor="middle" fill="#28573c">卡间链路</text>
+  <text x="530" y="297" font-size="9" text-anchor="middle" fill="#3f7d5a">UB / 以太网络</text>
+  <text x="30" y="378" font-size="9" fill="#8a949c">注：图中以NPU 0向NPU 1发起一次通信为例；两卡结构相同，反向通信时本端与对端角色可以互换。</text>
+  <text x="30" y="396" font-size="9" fill="#8a949c">实际使用哪条通路，取决于两个rank之间的可用链路和控制面建链时确定的通信协议。</text>
+</svg>
