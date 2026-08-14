@@ -28,6 +28,10 @@
 
 namespace AscendC::simt {
 
+namespace detail {
+struct HcommUnboundGroup {};
+} // namespace detail
+
 /*!
  * @class Hcomm
  * @brief The SIMT counterpart of AscendC::Hcomm. It provides the same point-to-point
@@ -51,10 +55,17 @@ namespace AscendC::simt {
  *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
  *       packs curHead and wqeCnt into the u64 at SqContext::ubJfs::headAddr.
  */
-template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
+template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP, typename Group = detail::HcommUnboundGroup>
 class Hcomm {
 public:
     __simt_callee__ inline Hcomm();
+
+    /*!
+     * @brief Construct Hcomm and bind it to a cooperative group.
+     * @param [in] group: The cooperative group used by future group-level communication APIs.
+     * @note Binding a group does not change the behavior of existing per-lane APIs.
+     */
+    __simt_callee__ inline explicit Hcomm(const Group& group);
     __simt_callee__ inline ~Hcomm();
 
     /*!
@@ -69,6 +80,13 @@ public:
      *       is supplied, every lane in the block must call Init because the shared context is synchronized there.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
+
+    // Reserve a sequential fixed-2BB Notify/FAA/CAS burst. The caller must post
+    // exactly wqeCnt WQEs on the same channel and commit only the final WQE.
+    // The target range of every post must remain in the registered buffer that
+    // contains targetAddr. No other producer may use this SQ before final commit.
+    __simt_callee__ inline int32_t ReserveDwqeBurst(
+        ChannelHandle channel, __gm__ void* targetAddr, uint64_t len, uint32_t wqeCnt);
 
     // All block lanes call this before one fixed-2BB Notify/FAA/CAS batch.
     // state points to four shared UB uint32_t values: BB count, CQE count,
@@ -203,8 +221,12 @@ public:
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
 
 private:
+    Group group_;
     HcommImpl<commProtocol> impl_;
 };
+
+template <typename Group>
+Hcomm(const Group&) -> Hcomm<COMM_PROTOCOL_UBC_CTP, Group>;
 
 /*!
  * @brief Resolve the base address of a locally registered buffer on the channel.
