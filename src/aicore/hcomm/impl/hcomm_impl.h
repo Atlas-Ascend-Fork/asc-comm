@@ -115,7 +115,7 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 
 template <CommProtocol commProtocol>
 template <typename T>
-__aicore__ inline BatchHandle Hcomm<commProtocol>::MakeBatchHandle(
+__aicore__ inline typename Hcomm<commProtocol>::BatchHandleType Hcomm<commProtocol>::MakeBatchHandle(
     MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
 {
     if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
@@ -124,24 +124,25 @@ __aicore__ inline BatchHandle Hcomm<commProtocol>::MakeBatchHandle(
     (void)multiChannel;
     (void)buff;
     (void)buffLen;
-    return BatchHandle{0U};
+    return BatchHandleType{0U};
 }
 
 template <CommProtocol commProtocol>
-__aicore__ inline BatchHandleRef Hcomm<commProtocol>::GetHandleRef(BatchHandle handle, uint32_t channelIndex)
+__aicore__ inline typename Hcomm<commProtocol>::BatchHandleRefType Hcomm<commProtocol>::GetHandleRef(
+    BatchHandleType handle, uint32_t channelIndex)
 {
     if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
         return impl_.GetHandleRef(handle, channelIndex);
     }
     (void)handle;
     (void)channelIndex;
-    return BatchHandleRef{0U, 0U};
+    return BatchHandleRefType{};
 }
 
 template <CommProtocol commProtocol>
 template <auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(
-    BatchHandleRef handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
+    BatchHandleRefType handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
         return impl_.template WriteNbi<config>(handleRef, dst, src, len);
@@ -155,7 +156,7 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(
 
 template <CommProtocol commProtocol>
 template <pipe_t pipe>
-__aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(BatchHandle handle)
+__aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(BatchHandleType handle)
 {
     if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
         return impl_.template BatchCommit<pipe>(handle);
@@ -166,7 +167,7 @@ __aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(BatchHandle handle)
 
 template <CommProtocol commProtocol>
 template <pipe_t pipe>
-__aicore__ inline int32_t Hcomm<commProtocol>::Drain(BatchHandle handle)
+__aicore__ inline int32_t Hcomm<commProtocol>::Drain(BatchHandleType handle)
 {
     if constexpr (commProtocol == COMM_PROTOCOL_UBC_CTP) {
         return impl_.template Drain<pipe>(handle);

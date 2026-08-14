@@ -221,7 +221,7 @@ typedef struct {
 } CqContext;
 
 /**
- * Shared SQ/CQ contexts followed immediately by HcommBatchRemoteInfo[channelNum].
+ * Shared SQ/CQ contexts followed immediately by HcommBatchRemoteInfo[channelNum], indexed by channelIndex.
  * The SQ transport fields belong to channel 0 and are not used by the batch Device path.
  */
 struct HcommMultiChannelEntity {
@@ -231,11 +231,6 @@ struct HcommMultiChannelEntity {
     uint32_t channelNum;
     uint32_t reserved;
 };
-
-static_assert(sizeof(CommAbiHeader) == 16U, "CommAbiHeader ABI must be 16 bytes");
-static_assert(sizeof(SqContext) == 128U, "SqContext ABI must be 128 bytes");
-static_assert(sizeof(CqContext) == 128U, "CqContext ABI must be 128 bytes");
-static_assert(sizeof(HcommMultiChannelEntity) == 280U, "HcommMultiChannelEntity ABI must be 280 bytes");
 
 typedef struct {
     CommAbiHeader abiHeader;
@@ -259,8 +254,6 @@ typedef struct {
     uint32_t cqTail; // Number of consumed CQEs
     uint8_t reserve[144];
 } ChannelEntity;
-
-static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
 
 // RoCE WQE, CQE, DB struct
 typedef struct {

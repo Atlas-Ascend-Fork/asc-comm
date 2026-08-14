@@ -33,15 +33,13 @@ struct HcommBatchRemoteInfo {
     uint64_t rmtEidH;
 };
 
-static_assert(sizeof(HcommBatchRemoteInfo) == 32U, "HcommBatchRemoteInfo ABI must be 32 bytes");
-
 struct BatchHandle {
     uint64_t stateAddr;
 };
 
 struct BatchHandleRef {
     uint64_t stateAddr;
-    uint64_t remoteInfo;
+    HcommBatchRemoteInfo remoteInfo;
 };
 
 /**
@@ -59,6 +57,21 @@ typedef enum {
     COMM_PROTOCOL_UBOE = 7,      ///< UBoE
     COMM_PROTOCOL_HCCS_ONLY = 8, ///< 一卡双DIE使用HCCS
 } CommProtocol;
+
+template <CommProtocol commProtocol>
+struct BatchHandleTraits;
+
+template <>
+struct BatchHandleTraits<COMM_PROTOCOL_UBC_CTP> {
+    using Type = BatchHandle;
+    using RefType = BatchHandleRef;
+};
+
+template <>
+struct BatchHandleTraits<COMM_PROTOCOL_ROCE> {
+    using Type = BatchHandle;
+    using RefType = BatchHandleRef;
+};
 
 enum class HcommUrmaReduceOp : uint32_t {
     MAX = 0x8U,

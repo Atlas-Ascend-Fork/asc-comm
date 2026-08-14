@@ -26,13 +26,6 @@
 extern "C" {
 #endif
 
-#ifdef __cplusplus
-static_assert(sizeof(ChannelEntity) == 256U, "ChannelEntity ABI must be 256 bytes");
-static_assert(sizeof(SqContext) == 128U, "SqContext ABI must be 128 bytes");
-static_assert(sizeof(CqContext) == 128U, "CqContext ABI must be 128 bytes");
-static_assert(sizeof(RegedBufferEntity) == 64U, "RegedBufferEntity ABI must be 64 bytes");
-#endif
-
 enum {
     ASC_COMM_BATCH_WQE_SIZE = 64U,
     ASC_COMM_BATCH_CQE_SIZE = 64U,
@@ -212,7 +205,7 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
     AscCommChannelMetadata anchorMetadata;
     AscCommChannelMetadata currentMetadata;
     HcommMultiChannelEntity* entity = NULL;
-    HcommBatchRemoteInfo* remoteInfos = NULL;
+    HcommBatchRemoteInfo* channelInfos = NULL;
     void* hostMemory = NULL;
     size_t totalSize;
     uint32_t i;
@@ -237,7 +230,7 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
         return HCCL_E_MEMORY;
     }
     entity = (HcommMultiChannelEntity*)hostMemory;
-    remoteInfos = (HcommBatchRemoteInfo*)((uint8_t*)hostMemory + sizeof(HcommMultiChannelEntity));
+    channelInfos = (HcommBatchRemoteInfo*)((uint8_t*)hostMemory + sizeof(HcommMultiChannelEntity));
     for (i = 0U; i < channelNum; ++i) {
         ret = AscCommExtractChannelMetadata(channels[i], i, &currentMetadata);
         if (ret != HCCL_SUCCESS) {
@@ -253,7 +246,7 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
             free(hostMemory);
             return HCCL_E_PARA;
         }
-        remoteInfos[i] = currentMetadata.remoteInfo;
+        channelInfos[i] = currentMetadata.remoteInfo;
     }
 
     entity->abiHeader.version = HCOMM_MULTI_CHANNEL_VERSION;

@@ -35,8 +35,6 @@ constexpr uint32_t HCOMM_URMA_UDF_FLAG = 0x80U;
 constexpr uint32_t POLL_CQ_THRESHOLD = 10;
 constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
 constexpr uint32_t HCOMM_URMA_MUTEX_ID = 29U;
-constexpr uint32_t HCOMM_URMA_BATCH_MAGIC = 0x48434248U;
-constexpr uint32_t HCOMM_URMA_BATCH_VERSION = 1U;
 constexpr uint32_t HCOMM_URMA_BATCH_ALIGN_SIZE = 32U;
 
 constexpr uint32_t HCOMM_URMA_INVALID_REDUCE_DATA_TYPE = 0xFFFFFFFFU;
@@ -60,29 +58,13 @@ struct UdmaParams {
 };
 
 struct HcommUrmaBatchState {
-    uint32_t magic;
-    uint32_t version;
-    uint64_t remoteInfoAddr;
-    uint64_t sqVa;
-    uint64_t sqHeadAddr;
-    uint64_t sqTailAddr;
-    uint64_t sqDbVa;
-    uint64_t cqVa;
-    uint64_t cqHeadAddr;
-    uint64_t cqTailAddr;
-    uint64_t cqDbVa;
+    uint64_t multiChannelAddr;
     uint32_t sqHead;
     uint32_t cqHead;
     uint32_t pendingBb;
     uint32_t capacityBb;
-    uint32_t wqeOffset;
-    uint32_t cqeOffset;
-    uint32_t wqeSize;
     uint32_t sqDepth;
-    uint32_t cqeSize;
-    uint32_t cqDepth;
     uint32_t ubPosition;
-    uint32_t channelNum;
 };
 
 enum class HcommUrmaOpCode : uint32_t {
