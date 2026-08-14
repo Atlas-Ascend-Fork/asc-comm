@@ -27,11 +27,11 @@ class KernelHcommBatchWrite {
 public:
     __aicore__ inline void Init(GM_ADDR context, AscendC::TPipe* pipe)
     {
-        uint32_t coreIndex = static_cast<uint32_t>(AscendC::GetBlockIdx());
-        context_ = reinterpret_cast<__gm__ BatchContext*>(context) + coreIndex;
+        coreIndex_ = static_cast<uint32_t>(AscendC::GetBlockIdx());
+        context_ = reinterpret_cast<__gm__ BatchContext*>(context) + coreIndex_;
         localBuffer_ = reinterpret_cast<GM_ADDR>(context_->localBuffer);
-        sendOffset_ = SEND_BASE_OFFSET + static_cast<uint64_t>(coreIndex) * DATA_SIZE;
-        receiveOffset_ = RECV_BASE_OFFSET + static_cast<uint64_t>(coreIndex) * DATA_SIZE;
+        sendOffset_ = SEND_BASE_OFFSET + static_cast<uint64_t>(coreIndex_) * DATA_SIZE;
+        receiveOffset_ = RECV_BASE_OFFSET + static_cast<uint64_t>(coreIndex_) * DATA_SIZE;
         pipe->InitBuffer(batchBuffer_, BATCH_BUFFER_SIZE);
         batchTensor_ = batchBuffer_.Get<uint8_t>();
     }
@@ -48,9 +48,11 @@ public:
             return;
         }
 
-        for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
-            channels_[channelIndex] = hcomm_.GetHandleRef(batch, channelIndex);
-            if (channels_[channelIndex].stateAddr == 0U) {
+        for (uint32_t channelSlot = 0U; channelSlot < context_->channelNum; ++channelSlot) {
+            uint32_t channelIndex = (channelSlot + coreIndex_) % context_->channelNum;
+            channels_[channelSlot] = hcomm_.GetHandleRef(batch, channelIndex);
+            remoteBuffers_[channelSlot] = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
+            if (channels_[channelSlot].stateAddr == 0U) {
                 context_->result = KERNEL_GET_HANDLE_REF_FAILED;
                 return;
             }
@@ -76,15 +78,16 @@ private:
     __aicore__ inline bool RunBatch(AscendC::BatchHandle batch)
     {
         for (uint32_t writeIndex = 0U; writeIndex < WRITES_PER_CHANNEL_PER_BATCH; ++writeIndex) {
-            bool requestCompletion = writeIndex + 1U == WRITES_PER_CHANNEL_PER_BATCH;
-            for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
-                GM_ADDR remoteBuffer = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
+            for (uint32_t channelSlot = 0U; channelSlot < context_->channelNum; ++channelSlot) {
+                bool requestCompletion = writeIndex + 1U == WRITES_PER_CHANNEL_PER_BATCH &&
+                                         channelSlot + 1U == context_->channelNum;
+                GM_ADDR remoteBuffer = remoteBuffers_[channelSlot];
                 if (requestCompletion) {
                     context_->hcommResult = hcomm_.WriteNbi<false>(
-                        channels_[channelIndex], remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
+                        channels_[channelSlot], remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
                 } else {
                     context_->hcommResult = hcomm_.WriteNbi<false, PIPE_S, PIPE_MTE3, NO_CQE_CONFIG>(
-                        channels_[channelIndex], remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
+                        channels_[channelSlot], remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
                 }
                 if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
                     context_->result = KERNEL_WRITE_FAILED;
@@ -109,8 +112,10 @@ private:
     AscendC::LocalTensor<uint8_t> batchTensor_;
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm_;
     AscendC::BatchHandleRef channels_[MAX_CHANNEL_NUM];
+    GM_ADDR remoteBuffers_[MAX_CHANNEL_NUM];
     __gm__ BatchContext* context_{nullptr};
     GM_ADDR localBuffer_{nullptr};
+    uint32_t coreIndex_{0U};
     uint64_t sendOffset_{0U};
     uint64_t receiveOffset_{0U};
 };
