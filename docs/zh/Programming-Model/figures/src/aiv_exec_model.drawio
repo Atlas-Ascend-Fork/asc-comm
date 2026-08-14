@@ -1,0 +1,94 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="Ix2_Fiik_45_WbT44BoS">
+    <mxGraphModel dx="802" dy="460" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-225" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#ffffff;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="320" width="500" x="486.4000000000001" y="550" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-226" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#d79b00;fontFamily=FZLTHJT;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-229">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="798.5400000000001" y="603.67" as="sourcePoint" />
+            <mxPoint x="798.54" y="640.93" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-227" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=FZLTHJT;" value="Host" vertex="1">
+          <mxGeometry height="40" width="90" x="753.5400000000001" y="563.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-228" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="30" width="160" x="718.5400000000001" y="653.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-229" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="30" width="33.33" x="781.8700000000001" y="653.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-230" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=FZLTHJT;" value="调度器" vertex="1">
+          <mxGeometry height="40" width="90" x="588.5400000000001" y="648.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-231" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#d79b00;fontFamily=FZLTHJT;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-230">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="718.5400000000001" y="668.67" as="sourcePoint" />
+            <mxPoint x="691.2800000000001" y="668.67" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-232" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="任务队列" vertex="1">
+          <mxGeometry height="30" width="60" x="886.8700000000001" y="653.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-233" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#d79b00;fontFamily=FZLTHJT;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-239">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="633.5400000000001" y="688.67" as="sourcePoint" />
+            <mxPoint x="633.5400000000001" y="750.9300000000001" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-234" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="①创建通信资源，&lt;br&gt;下发AIV Kernel" vertex="1">
+          <mxGeometry height="30" width="170" x="798.5400000000001" y="603.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-235" edge="1" parent="1" style="endArrow=none;html=1;rounded=0;strokeColor=#999999;dashed=1;fontFamily=FZLTHJT;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="498.5400000000001" y="633.67" as="sourcePoint" />
+            <mxPoint x="978.5400000000001" y="633.67" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-236" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=1;fontFamily=FZLTHJT;" value="Host" vertex="1">
+          <mxGeometry height="30" width="60" x="508.5400000000001" y="603.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-237" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=1;fontFamily=FZLTHJT;" value="Device" vertex="1">
+          <mxGeometry height="30" width="60" x="508.5400000000001" y="633.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-238" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="60" width="115" x="576.0400000000001" y="763.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-239" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="Vector Core" vertex="1">
+          <mxGeometry height="30" width="75" x="596.0400000000001" y="763.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-240" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=FZLTHJT;" value="MTE" vertex="1">
+          <mxGeometry height="20" width="35" x="616.0400000000001" y="793.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-241" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#d79b00;fontFamily=FZLTHJT;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-242">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="691.0400000000001" y="793.67" as="sourcePoint" />
+            <mxPoint x="766.96" y="828.37" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-242" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontFamily=FZLTHJT;" value="URMA" vertex="1">
+          <mxGeometry height="40" width="100" x="778.5400000000001" y="813.6700000000001" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-243" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="②调度器将AIV Kernel交给AIV执行" vertex="1">
+          <mxGeometry height="30" width="130" x="498.5400000000001" y="713.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-244" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="③利用不同协议完成数据搬运" vertex="1">
+          <mxGeometry height="30" width="100" x="728.5400000000001" y="773.67" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-245" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#d79b00;fontFamily=FZLTHJT;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-246">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="691.0400000000001" y="793.67" as="sourcePoint" />
+            <mxPoint x="767.0000000000001" y="750.01" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-246" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontFamily=FZLTHJT;" value="RoCE" vertex="1">
+          <mxGeometry height="40" width="100" x="778.0400000000001" y="723.67" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
