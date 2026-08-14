@@ -105,6 +105,55 @@ __aicore__ inline void HcommUrmaFillSqeCtx(
         remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue, curHead, notifyAddr, params);
 }
 
+template <HcommUrmaOpCode opCode, auto const& config>
+__aicore__ inline void HcommUrmaFillBatchSqeCtxByToken(
+    __ubuf__ HcommUrmaSqeCtx* sqeCtx, __gm__ uint8_t* remoteAddr, const SqContext& sqCtx,
+    uint32_t remoteTokenId, uint32_t remoteTokenValue, uint32_t curHead)
+{
+    static_assert(
+        opCode == HcommUrmaOpCode::WRITE || opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY,
+        "Batch SQE fast fill only supports Write and WriteWithNotify");
+    static_assert(config.inlineEn == 0, "Batch SQE fast fill does not support inline data");
+    static_assert(
+        sizeof(HcommUrmaSqeCtx) == 12U * sizeof(uint32_t),
+        "Batch SQE fast fill requires the current 12-DW SQE layout");
+
+    constexpr uint32_t flag =
+        (config.odr & 0x7U) | ((config.fence & 0x1U) << 3U) |
+        ((config.se & 0x1U) << 4U) | ((config.cqe & 0x1U) << 5U);
+    constexpr uint32_t flagShift = 16U;
+    constexpr uint32_t tokenEnShift = 28U;
+    constexpr uint32_t rmtJettyTypeShift = 29U;
+    constexpr uint32_t ownerShift = 31U;
+    constexpr uint32_t opcodeShift = 8U;
+    constexpr uint32_t sgeNumShift = 24U;
+    constexpr uint32_t remoteTokenIdMask = 0xFFFFFU;
+    constexpr uint32_t tpIdMask = 0xFFFFFFU;
+
+    uint32_t sqDepth = sqCtx.contextInfo.ubJfs.sqDepth;
+    uint32_t owner = (curHead & sqDepth) == 0 ? 1U : 0U;
+    uint64_t remoteAddrValue = reinterpret_cast<uint64_t>(remoteAddr);
+    auto rmtEid = reinterpret_cast<const uint64_t*>(sqCtx.contextInfo.ubJfs.remoteEID);
+    uint64_t rmtEidL = rmtEid[0];
+    uint64_t rmtEidH = rmtEid[1];
+    __ubuf__ uint32_t* sqeWords = reinterpret_cast<__ubuf__ uint32_t*>(sqeCtx);
+
+    // Write complete DWs so all reserved fields and sqeBbIdx are initialized without bit-field RMW stores.
+    sqeWords[0] = (flag << flagShift) | (1U << tokenEnShift) |
+                  (1U << rmtJettyTypeShift) | (owner << ownerShift);
+    sqeWords[1] = static_cast<uint32_t>(opCode) << opcodeShift;
+    sqeWords[2] = (sqCtx.contextInfo.ubJfs.tpID & tpIdMask) | (1U << sgeNumShift);
+    sqeWords[3] = remoteTokenId & remoteTokenIdMask;
+    sqeWords[4] = static_cast<uint32_t>(rmtEidL);
+    sqeWords[5] = static_cast<uint32_t>(rmtEidL >> 32U);
+    sqeWords[6] = static_cast<uint32_t>(rmtEidH);
+    sqeWords[7] = static_cast<uint32_t>(rmtEidH >> 32U);
+    sqeWords[8] = remoteTokenValue;
+    sqeWords[9] = 0;
+    sqeWords[10] = static_cast<uint32_t>(remoteAddrValue);
+    sqeWords[11] = static_cast<uint32_t>(remoteAddrValue >> 32U);
+}
+
 template <HcommUrmaOpCode opCode, typename T>
 __aicore__ inline void HcommUrmaFillSgeCtx(
     __ubuf__ HcommUrmaSgeCtx* sgeCtx, uint64_t messageLen, __gm__ uint8_t* localAddr, UdmaParams<T> params)
@@ -398,7 +447,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
 
     uint32_t logicalHead = channelEntity->sqHead + preparedWqebbCount;
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqe.GetPhyAddr());
-    HcommUrmaFillSqeCtxByToken<HcommUrmaOpCode::WRITE, config, uint64_t>(
+    HcommUrmaFillBatchSqeCtxByToken<HcommUrmaOpCode::WRITE, config>(
         sqeCtx, reinterpret_cast<__gm__ uint8_t*>(dst), sqCtx, batchHandle.remoteTokenId,
         batchHandle.remoteTokenValue, logicalHead);
     __ubuf__ HcommUrmaSgeCtx* sgeCtx =
@@ -445,9 +494,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
     uint32_t logicalHead = channelEntity->sqHead + preparedWqebbCount;
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqeAddr);
     UdmaParams<uint64_t> params{notifyVal, 0, 0, 0};
-    HcommUrmaFillSqeCtxByToken<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config, uint64_t>(
+    HcommUrmaFillBatchSqeCtxByToken<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config>(
         sqeCtx, reinterpret_cast<__gm__ uint8_t*>(dst), sqCtx, batchHandle.remoteTokenId,
-        batchHandle.remoteTokenValue, logicalHead, notifyAddr, params);
+        batchHandle.remoteTokenValue, logicalHead);
+    __ubuf__ HcommUrmaNotifyCtx* notifyCtx = reinterpret_cast<__ubuf__ HcommUrmaNotifyCtx*>(
+        currentWqeAddr + sizeof(HcommUrmaSqeCtx));
+    HcommUrmaFillNotifyCtx(
+        notifyCtx, batchHandle.remoteTokenId, batchHandle.remoteTokenValue, notifyAddr, notifyVal);
     __ubuf__ HcommUrmaSgeCtx* sgeCtx = reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(
         currentWqeAddr + sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaNotifyCtx));
     HcommUrmaFillSgeCtx<HcommUrmaOpCode::WRITE_WITH_NOTIFY>(
