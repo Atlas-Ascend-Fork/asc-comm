@@ -117,27 +117,23 @@ void FillUbParam(const HcommJfsContext &jfs, Hccl::PodUbConnLiteParam &param)
     param.dieId = jfs.dieId;
     param.funcId = jfs.funcId;
     param.jettyId = jfs.jettyId;
-    param.dbAddr = jfs.dbVa;
     param.sqVa = jfs.sqVa;
     param.sqDepth = jfs.sqDepth;
     param.tpn = jfs.tpn;
     param.dwqeCacheLocked = jfs.dwqeCacheLocked != 0;
-    param.jfcPollMode = jfs.jfcPollMode;
-    param.sqCiAddr = jfs.sqCiAddr;
     param.maxReadSize = jfs.maxReadSize;
     param.maxWriteSize = jfs.maxWriteSize;
     (void)memcpy_sp(param.rmtEid, sizeof(param.rmtEid), jfs.remoteEid, sizeof(jfs.remoteEid));
-    (void)memcpy_sp(param.locEid, sizeof(param.locEid), jfs.localEid, sizeof(jfs.localEid));
 }
 
 void ImportUbState(const HcommJfsContext &jfs, Hccl::PodUbConnLite &connection)
 {
-    connection.ImportQueueState(jfs.pi, jfs.ci, jfs.piDetourCount, jfs.ciDetourCount);
+    connection.ImportQueueState(jfs.pi, jfs.piDetourCount);
 }
 
 void ExportUbState(Hccl::PodUbConnLite &connection, HcommJfsContext &jfs)
 {
-    connection.ExportQueueState(jfs.pi, jfs.ci, jfs.piDetourCount, jfs.ciDetourCount);
+    connection.ExportQueueState(jfs.pi, jfs.piDetourCount);
 }
 
 HcclResult RingUbDoorbell(HcommThreadEntity &thread, const HcommJfsContext &jfs, uint16_t pi)
@@ -193,7 +189,7 @@ HcclResult GetRdmaContexts(HcommChannelEntity &channel, HcommRdmaSqContext *&sq,
     CHK_PTR_NULL(channel.cqContextAddr);
     sq = &channel.sqContextAddr[0].context.rdma;
     cq = &channel.cqContextAddr[0].context.rdma;
-    CHK_PRT_RET(sq->dmaMode != 1 || sq->depth == 0 || sq->sqVa == 0 || cq->cqDepth == 0 || cq->cqVa == 0,
+    CHK_PRT_RET(sq->depth == 0 || sq->sqVa == 0 || cq->cqDepth == 0 || cq->cqVa == 0,
         HCCL_ERROR("[%s] invalid RoCE SQ/CQ context.", __func__), HCCL_E_PARA);
     return HCCL_SUCCESS;
 }
@@ -205,19 +201,11 @@ void BuildRdmaContext(const HcommRdmaSqContext &podSq, const HcommRdmaCqContext 
     sq.sqVa = podSq.sqVa;
     sq.wqeSize = podSq.wqeSize;
     sq.depth = podSq.depth;
-    sq.headAddr = podSq.headAddr;
-    sq.tailAddr = podSq.tailAddr;
     sq.dbHwVa = podSq.dbHwVa;
     sq.dbSwVa = podSq.dbSwVa;
-    sq.sl = podSq.sl;
     sq.mtuShift = podSq.mtuShift;
-    cq.cqn = podCq.cqn;
     cq.cqVa = podCq.cqVa;
-    cq.cqeSize = podCq.cqeSize;
     cq.cqDepth = podCq.cqDepth;
-    cq.headAddr = podCq.headAddr;
-    cq.tailAddr = podCq.tailAddr;
-    cq.dbHwVa = podCq.dbHwVa;
     cq.dbSwVa = podCq.dbSwVa;
 }
 

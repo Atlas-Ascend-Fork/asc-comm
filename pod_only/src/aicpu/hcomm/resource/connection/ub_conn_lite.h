@@ -25,16 +25,11 @@ struct PodUbConnLiteParam {
     u32 funcId;
     u32 jettyId;
 
-    u64  dbAddr;
     u64  sqVa;
     u32  sqDepth;
     u32  tpn;
     bool dwqeCacheLocked;
-    u32  jfcPollMode; // 0代表STARS POLL， 1代表软件Poll
-    u64  sqCiAddr;    // 预留给 软件poll CQ 的Jetty使用
-
     u8 rmtEid[16];
-    u8 locEid[16];
 
     u32 maxReadSize;
     u32 maxWriteSize;
@@ -45,8 +40,8 @@ class PodUbConnLite {
 public:
     void ImportPodContext(const PodUbConnLiteParam &liteParam);
 
-    void ImportQueueState(u16 queuePi, u16 queueCi, u32 queuePiDetourCount, u32 queueCiDetourCount);
-    void ExportQueueState(u16 &queuePi, u16 &queueCi, u32 &queuePiDetourCount, u32 &queueCiDetourCount) const;
+    void ImportQueueState(u16 queuePi, u32 queuePiDetourCount);
+    void ExportQueueState(u16 &queuePi, u32 &queuePiDetourCount) const;
 
     void ReadPod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
                  PodConnLiteOperationOut &out);
@@ -73,22 +68,17 @@ public:
 
 private:
     u16  pi{0};
-    u16  ci{0};
     u32  piDetourCount{0};
-    u32  ciDetourCount{0};
     u32  maxReadSize{0};
     u32  maxWriteSize{0};
     u32  dieId_{0};
     u32  funcId_{0};
     u32  jettyId_{0};
-    u64  dbAddr_{0};
     u64  sqVa_{0};
     u32  sqDepth_{0};
     bool dwqeCacheLocked_{false};
-    u32  jfcPollMode_{0};
     u32  tpn_{0};
     u8   rmtEid_[16]{};
-    u8   locEid_[16]{};
     void ProcessSlices(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, u32 maxSliceSize,
         std::function<void(const PodRmaBufSliceLite &, const PodRmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
         PodDataType dataType = PodDataType::INVALID) const;

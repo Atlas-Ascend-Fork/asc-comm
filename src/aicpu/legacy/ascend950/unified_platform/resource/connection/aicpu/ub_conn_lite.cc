@@ -47,19 +47,12 @@ void UbConnLite::ExportPodContext(HcommJfsContext &jfs) const
     jfs.jettyId = jettyId_;
     jfs.tpn = tpn_;
     jfs.sqDepth = sqDepth_;
-    jfs.jfcPollMode = jfcPollMode_;
     jfs.maxReadSize = maxReadSize;
     jfs.maxWriteSize = maxWriteSize;
     jfs.sqVa = sqVa_;
-    jfs.dbVa = dbAddr_;
-    // sqCiAddr仅在建链参数UbJettyLiteAttr中传入、未落为成员，软件poll JFC场景由POD侧另行配置
-    jfs.sqCiAddr = 0;
     (void)memcpy_s(jfs.remoteEid, sizeof(jfs.remoteEid), rmtEid_.raw, sizeof(rmtEid_.raw));
-    (void)memcpy_s(jfs.localEid, sizeof(jfs.localEid), locEid_.raw, sizeof(locEid_.raw));
     jfs.pi = pi;
-    jfs.ci = ci;
     jfs.piDetourCount = piDetourCount;
-    jfs.ciDetourCount = ciDetourCount;
     jfs.dwqeCacheLocked = dwqeCacheLocked_ ? 1 : 0;
 }
 

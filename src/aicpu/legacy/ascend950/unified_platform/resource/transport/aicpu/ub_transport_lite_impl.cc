@@ -198,11 +198,8 @@ HcclResult UbTransportLiteImpl::ExportPodResource(
     }
     entity.abiHeader = {
         HCOMM_POD_CHANNEL_VERSION, HCOMM_POD_CHANNEL_MAGIC_WORD, sizeof(HcommChannelEntity), 0};
-    entity.engine = engine;
     entity.protocol = protocol;
-    entity.devInfo.devId = sqContexts[0].context.jfs.dieId;
-    entity.devInfo.dieId = static_cast<uint8_t>(sqContexts[0].context.jfs.dieId);
-    entity.devInfo.funcId = static_cast<uint8_t>(sqContexts[0].context.jfs.funcId);
+    (void)engine;
     podEntity = &entity;
     return HCCL_SUCCESS;
 }

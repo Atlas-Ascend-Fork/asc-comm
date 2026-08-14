@@ -277,7 +277,7 @@ void PodUbConnLite::ProcessOneWqe(PodUdmaSqeWrite *sqe, PodUdmaSqOpcode opCode)
         }
     }
 
-    HCCL_INFO("[PodUbConnLite::%s] end, pi[%u], ci[%u]", __func__, pi, ci);
+    HCCL_INFO("[PodUbConnLite::%s] end, pi[%u]", __func__, pi);
 }
 
 void PodUbConnLite::ProcessOneWqeWithNotify(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
@@ -317,7 +317,7 @@ void PodUbConnLite::ProcessOneWqeWithNotify(const PodRmaBufSliceLite &loc, const
         }
     }
 
-    HCCL_INFO("[PodUbConnLite::%s] end, pi[%u], ci[%u]", __func__, pi, ci);
+    HCCL_INFO("[PodUbConnLite::%s] end, pi[%u]", __func__, pi);
 }
 
 void PodUbConnLite::MemorySetAndCopy(u8 *va, u32 sqeSize, void *sqe)
@@ -467,34 +467,25 @@ void PodUbConnLite::ImportPodContext(const PodUbConnLiteParam &liteParam)
     dieId_ = liteParam.dieId;
     funcId_ = liteParam.funcId;
     jettyId_ = liteParam.jettyId;
-    dbAddr_ = liteParam.dbAddr;
     sqVa_ = liteParam.sqVa;
     sqDepth_ = liteParam.sqDepth;
     dwqeCacheLocked_ = liteParam.dwqeCacheLocked;
-    jfcPollMode_ = liteParam.jfcPollMode;
     tpn_ = liteParam.tpn;
     maxReadSize = liteParam.maxReadSize;
     maxWriteSize = liteParam.maxWriteSize;
     (void)memcpy_sp(rmtEid_, sizeof(rmtEid_), liteParam.rmtEid, sizeof(liteParam.rmtEid));
-    (void)memcpy_sp(locEid_, sizeof(locEid_), liteParam.locEid, sizeof(liteParam.locEid));
 }
 
-void PodUbConnLite::ImportQueueState(u16 queuePi, u16 queueCi, u32 queuePiDetourCount,
-                                  u32 queueCiDetourCount)
+void PodUbConnLite::ImportQueueState(u16 queuePi, u32 queuePiDetourCount)
 {
     pi = queuePi;
-    ci = queueCi;
     piDetourCount = queuePiDetourCount;
-    ciDetourCount = queueCiDetourCount;
 }
 
-void PodUbConnLite::ExportQueueState(u16 &queuePi, u16 &queueCi, u32 &queuePiDetourCount,
-                                  u32 &queueCiDetourCount) const
+void PodUbConnLite::ExportQueueState(u16 &queuePi, u32 &queuePiDetourCount) const
 {
     queuePi = pi;
-    queueCi = ci;
     queuePiDetourCount = piDetourCount;
-    queueCiDetourCount = ciDetourCount;
 }
 
 } // namespace Hccl
