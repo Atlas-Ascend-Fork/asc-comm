@@ -76,8 +76,9 @@ private:
     __aicore__ inline bool RunBatch(AscendC::BatchHandle batch)
     {
         for (uint32_t writeIndex = 0U; writeIndex < WRITES_PER_CHANNEL_PER_BATCH; ++writeIndex) {
-            bool requestCompletion = writeIndex + 1U == WRITES_PER_CHANNEL_PER_BATCH;
             for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
+                bool requestCompletion = writeIndex + 1U == WRITES_PER_CHANNEL_PER_BATCH &&
+                                         channelIndex + 1U == context_->channelNum;
                 GM_ADDR remoteBuffer = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
                 if (requestCompletion) {
                     context_->hcommResult = hcomm_.WriteNbi<false>(
