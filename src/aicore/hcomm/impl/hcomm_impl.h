@@ -112,6 +112,43 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 {
     return impl_.template Drain<pipe>(channel);
 }
+
+template <CommProtocol commProtocol>
+template <typename T>
+__aicore__ inline typename Hcomm<commProtocol>::BatchHandleType Hcomm<commProtocol>::MakeBatchHandle(
+    MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
+{
+    return impl_.MakeBatchHandle(multiChannel, buff, buffLen);
+}
+
+template <CommProtocol commProtocol>
+__aicore__ inline typename Hcomm<commProtocol>::BatchHandleRefType Hcomm<commProtocol>::GetHandleRef(
+    BatchHandleType handle, uint32_t channelIndex)
+{
+    return impl_.GetHandleRef(handle, channelIndex);
+}
+
+template <CommProtocol commProtocol>
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(
+    BatchHandleRefType handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
+{
+    return impl_.template WriteNbi<commit, commitPipe, reqPipe, config>(handleRef, dst, src, len);
+}
+
+template <CommProtocol commProtocol>
+template <pipe_t pipe>
+__aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(BatchHandleType handle)
+{
+    return impl_.template BatchCommit<pipe>(handle);
+}
+
+template <CommProtocol commProtocol>
+template <pipe_t pipe>
+__aicore__ inline int32_t Hcomm<commProtocol>::Drain(BatchHandleType handle)
+{
+    return impl_.template Drain<pipe>(handle);
+}
 } // namespace AscendC
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H

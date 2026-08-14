@@ -35,6 +35,7 @@ constexpr uint32_t HCOMM_URMA_UDF_FLAG = 0x80U;
 constexpr uint32_t POLL_CQ_THRESHOLD = 10;
 constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
 constexpr uint32_t HCOMM_URMA_MUTEX_ID = 29U;
+constexpr uint32_t HCOMM_URMA_BATCH_ALIGN_SIZE = 32U;
 
 constexpr uint32_t HCOMM_URMA_INVALID_REDUCE_DATA_TYPE = 0xFFFFFFFFU;
 template <typename T>
@@ -54,6 +55,19 @@ struct UdmaParams {
     T cond;
     uint32_t reduceDataType;
     uint32_t reduceOpcode;
+};
+
+struct HcommUrmaBatchState {
+    uint64_t multiChannelAddr;
+    uint32_t sqHead;
+    uint32_t cqHead;
+    uint32_t pendingBb;
+    uint32_t pendingCqe;
+    uint32_t pendingCompletionSqHead; // SQ head covered by the last pending CQE.
+    uint32_t completionSqHead;        // Committed SQ head covered by the expected CQEs.
+    uint32_t capacityBb;
+    uint32_t sqDepth;
+    uint32_t ubPosition;
 };
 
 enum class HcommUrmaOpCode : uint32_t {
@@ -114,6 +128,18 @@ public:
     __aicore__ inline int32_t Commit(ChannelHandle channel);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
+    template <typename T>
+    __aicore__ inline BatchHandle MakeBatchHandle(
+        MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen);
+    __aicore__ inline BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t channelIndex);
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(BatchHandleRef handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    template <pipe_t pipe = PIPE_S>
+    __aicore__ inline int32_t BatchCommit(BatchHandle handle);
+    template <pipe_t pipe = PIPE_MTE3>
+    __aicore__ inline int32_t Drain(BatchHandle handle);
 
 private:
     template <
