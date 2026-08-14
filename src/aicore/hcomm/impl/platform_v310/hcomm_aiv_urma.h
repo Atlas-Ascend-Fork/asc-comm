@@ -68,13 +68,13 @@ __aicore__ inline void HcommUrmaUpdateBatchTail(
 }
 } // namespace
 
-__aicore__ inline void HcommUrmaFillNotifyCtxByToken(
-    __ubuf__ HcommUrmaNotifyCtx* notifyCtx, uint32_t tokenId, uint32_t tokenValue, GM_ADDR notifyAddr,
+__aicore__ inline void HcommUrmaFillNotifyCtx(
+    __ubuf__ HcommUrmaNotifyCtx* notifyCtx, const RegedBufferEntity& remoteMemInfo, GM_ADDR notifyAddr,
     uint64_t notifyVal)
 {
     uint64_t notifyAddrValue = reinterpret_cast<uint64_t>(notifyAddr);
-    notifyCtx->notifyTokenId = tokenId & 0xFFFFFU;
-    notifyCtx->notifyTokenValue = tokenValue;
+    notifyCtx->notifyTokenId = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId & 0xFFFFFU;
+    notifyCtx->notifyTokenValue = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     notifyCtx->notifyAddrL = notifyAddrValue & 0xFFFFFFFFU;
     notifyCtx->notifyAddrH = (notifyAddrValue >> 32) & 0xFFFFFFFFU;
     notifyCtx->notifyDataL = notifyVal & 0xFFFFFFFFU;
@@ -84,7 +84,7 @@ __aicore__ inline void HcommUrmaFillNotifyCtxByToken(
 template <HcommUrmaOpCode opCode, auto const& config, typename T>
 __aicore__ inline void HcommUrmaFillSqeCtxByRemote(
     __ubuf__ HcommUrmaSqeCtx* sqeCtx, __gm__ uint8_t* remoteAddr, uint32_t sqDepth, uint32_t tpID, uint32_t tokenId,
-    uint32_t tokenValue, uint64_t rmtEidL, uint64_t rmtEidH, uint32_t curHead, GM_ADDR notifyAddr = nullptr,
+    uint32_t tokenValue, uint64_t rmtEidL, uint64_t rmtEidH, uint32_t curHead,
     const UdmaParams<T>& params = UdmaParams<T>{})
 {
     sqeCtx->opcode =
@@ -117,11 +117,7 @@ __aicore__ inline void HcommUrmaFillSqeCtxByRemote(
     sqeCtx->udfType = 0;
     sqeCtx->reduceDataType = 0;
     sqeCtx->reduceOpcode = 0;
-    if constexpr (opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY) {
-        __ubuf__ HcommUrmaNotifyCtx* notifyCtx =
-            (__ubuf__ HcommUrmaNotifyCtx*)((__ubuf__ uint8_t*)sqeCtx + sizeof(HcommUrmaSqeCtx));
-        HcommUrmaFillNotifyCtxByToken(notifyCtx, tokenId, tokenValue, notifyAddr, params.value);
-    } else if constexpr (opCode == HcommUrmaOpCode::WRITE_WITH_REDUCE) {
+    if constexpr (opCode == HcommUrmaOpCode::WRITE_WITH_REDUCE) {
         sqeCtx->reduceDataType = params.reduceDataType;
         sqeCtx->reduceOpcode = params.reduceOpcode;
     }
@@ -138,7 +134,12 @@ __aicore__ inline void HcommUrmaFillSqeCtx(
     auto rmtEid = reinterpret_cast<const uint64_t*>(ubJfs.remoteEID);
     HcommUrmaFillSqeCtxByRemote<opCode, config, T>(
         sqeCtx, remoteAddr, ubJfs.sqDepth, ubJfs.tpID, ubToken.tokenId, ubToken.tokenValue, rmtEid[0], rmtEid[1],
-        curHead, notifyAddr, params);
+        curHead, params);
+    if constexpr (opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY) {
+        __ubuf__ HcommUrmaNotifyCtx* notifyCtx =
+            (__ubuf__ HcommUrmaNotifyCtx*)((__ubuf__ uint8_t*)sqeCtx + sizeof(HcommUrmaSqeCtx));
+        HcommUrmaFillNotifyCtx(notifyCtx, remoteMemInfo, notifyAddr, params.value);
+    }
 }
 
 template <HcommUrmaOpCode opCode, typename T>
