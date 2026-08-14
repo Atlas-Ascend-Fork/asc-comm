@@ -28,6 +28,10 @@
 
 namespace AscendC::simt {
 
+namespace detail {
+struct HcommUnboundGroup {};
+} // namespace detail
+
 /*!
  * @class Hcomm
  * @brief The SIMT counterpart of AscendC::Hcomm. It provides the same point-to-point
@@ -51,10 +55,17 @@ namespace AscendC::simt {
  *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
  *       packs curHead and wqeCnt into the u64 at SqContext::ubJfs::headAddr.
  */
-template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
+template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP, typename Group = detail::HcommUnboundGroup>
 class Hcomm {
 public:
     __simt_callee__ inline Hcomm();
+
+    /*!
+     * @brief Construct Hcomm and bind it to a cooperative group.
+     * @param [in] group: The cooperative group used by future group-level communication APIs.
+     * @note Binding a group does not change the behavior of existing per-lane APIs.
+     */
+    __simt_callee__ inline explicit Hcomm(const Group& group);
     __simt_callee__ inline ~Hcomm();
 
     /*!
@@ -210,8 +221,12 @@ public:
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
 
 private:
+    Group group_;
     HcommImpl<commProtocol> impl_;
 };
+
+template <typename Group>
+Hcomm(const Group&) -> Hcomm<COMM_PROTOCOL_UBC_CTP, Group>;
 
 /*!
  * @brief Resolve the base address of a locally registered buffer on the channel.
