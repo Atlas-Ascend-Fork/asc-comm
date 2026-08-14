@@ -258,7 +258,11 @@ public:
     __aicore__ inline BatchHandleRefType GetHandleRef(BatchHandleType handle, uint32_t channelIndex);
 
     /*!
-     * @brief Append one Write task to a multi-channel batch without accessing the shared SQ.
+     * @brief Append one Write task to a multi-channel batch and optionally commit the accumulated batch.
+     * @tparam commit: true commits the accumulated batch after appending this task; false only appends the task.
+     * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
+     * @tparam config: URMA WQE control config.
      * @param [in] handleRef: Lightweight reference returned by GetHandleRef.
      * @param [out] dst: Remote destination address.
      * @param [in] src: Local source address.
@@ -266,7 +270,9 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note dst must belong to a remote MR associated with the selected channel.
      */
-    template <auto const& config = URMA_DEFAULT_CFG>
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(BatchHandleRefType handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!

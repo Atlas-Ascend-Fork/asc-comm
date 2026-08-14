@@ -129,11 +129,11 @@ __aicore__ inline typename Hcomm<commProtocol>::BatchHandleRefType Hcomm<commPro
 }
 
 template <CommProtocol commProtocol>
-template <auto const& config>
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(
     BatchHandleRefType handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    return impl_.template WriteNbi<config>(handleRef, dst, src, len);
+    return impl_.template WriteNbi<commit, commitPipe, reqPipe, config>(handleRef, dst, src, len);
 }
 
 template <CommProtocol commProtocol>

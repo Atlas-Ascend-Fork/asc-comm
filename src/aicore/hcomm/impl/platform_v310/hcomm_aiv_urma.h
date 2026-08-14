@@ -406,10 +406,11 @@ __aicore__ inline BatchHandleRef HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
     return BatchHandleRef{handle.stateAddr, remoteInfo};
 }
 
-template <auto const& config>
+template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
     BatchHandleRef handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
+    (void)reqPipe;
     static_assert(config.inlineEn == 0U, "Batch WriteNbi does not support inline WQEs");
     static_assert(config.cqe == 0U || config.cqe == 1U, "Batch WriteNbi only supports cqe values 0 and 1");
     __ubuf__ HcommUrmaBatchState* state = HcommUrmaGetBatchState(BatchHandle{handleRef.stateAddr});
@@ -444,6 +445,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
     if constexpr (config.cqe != 0U) {
         state->pendingCqe++;
         state->pendingCompletionSqHead = state->sqHead + state->pendingBb;
+    }
+    if constexpr (commit) {
+        return BatchCommit<commitPipe>(BatchHandle{handleRef.stateAddr});
     }
     return HCOMM_SUCCESS;
 }

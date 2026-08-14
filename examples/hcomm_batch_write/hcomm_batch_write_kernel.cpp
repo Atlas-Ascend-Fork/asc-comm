@@ -80,10 +80,10 @@ private:
             for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
                 GM_ADDR remoteBuffer = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
                 if (requestCompletion) {
-                    context_->hcommResult = hcomm_.WriteNbi(
+                    context_->hcommResult = hcomm_.WriteNbi<false>(
                         channels_[channelIndex], remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
                 } else {
-                    context_->hcommResult = hcomm_.WriteNbi<NO_CQE_CONFIG>(
+                    context_->hcommResult = hcomm_.WriteNbi<false, PIPE_S, PIPE_MTE3, NO_CQE_CONFIG>(
                         channels_[channelIndex], remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
                 }
                 if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
