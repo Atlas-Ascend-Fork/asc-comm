@@ -15,6 +15,14 @@
 
 namespace HcommBatchWriteExample {
 
+constexpr AscendC::UrmaWqeEntry NO_CQE_CONFIG = {
+    .odr = 5U,
+    .fence = 1U,
+    .se = 0U,
+    .cqe = 0U,
+    .inlineEn = 0U,
+};
+
 class KernelHcommBatchWrite {
 public:
     __aicore__ inline void Init(GM_ADDR context, AscendC::TPipe* pipe)
@@ -67,13 +75,21 @@ public:
 private:
     __aicore__ inline bool RunBatch(AscendC::BatchHandle batch)
     {
-        for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
-            GM_ADDR remoteBuffer = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
-            context_->hcommResult = hcomm_.WriteNbi(
-                channels_[channelIndex], remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
-            if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
-                context_->result = KERNEL_WRITE_FAILED;
-                return false;
+        for (uint32_t writeIndex = 0U; writeIndex < WRITES_PER_CHANNEL_PER_BATCH; ++writeIndex) {
+            bool requestCompletion = writeIndex + 1U == WRITES_PER_CHANNEL_PER_BATCH;
+            for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
+                GM_ADDR remoteBuffer = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
+                if (requestCompletion) {
+                    context_->hcommResult = hcomm_.WriteNbi(
+                        channels_[channelIndex], remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
+                } else {
+                    context_->hcommResult = hcomm_.WriteNbi<NO_CQE_CONFIG>(
+                        channels_[channelIndex], remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
+                }
+                if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
+                    context_->result = KERNEL_WRITE_FAILED;
+                    return false;
+                }
             }
         }
         context_->hcommResult = hcomm_.BatchCommit(batch);

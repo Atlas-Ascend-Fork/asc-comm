@@ -62,6 +62,9 @@ struct HcommUrmaBatchState {
     uint32_t sqHead;
     uint32_t cqHead;
     uint32_t pendingBb;
+    uint32_t pendingCqe;
+    uint32_t pendingCompletionSqHead; // SQ head covered by the last pending CQE.
+    uint32_t completionSqHead;        // Committed SQ head covered by the expected CQEs.
     uint32_t capacityBb;
     uint32_t sqDepth;
     uint32_t ubPosition;
