@@ -23,7 +23,6 @@ constexpr uint32_t DATA_SIZE = 14336U;
 constexpr uint32_t WRITES_PER_CHANNEL_PER_BATCH = 4U;
 constexpr uint32_t WARMUP_LOOP_COUNT = 100U;
 constexpr uint32_t PERF_LOOP_COUNT = 1024U;
-constexpr uint64_t AIV_FREQUENCY_HZ = 1650000000ULL;
 constexpr uint64_t SEND_BASE_OFFSET = 0U;
 constexpr uint64_t RECV_BASE_OFFSET = static_cast<uint64_t>(AIV_CORE_NUM) * DATA_SIZE;
 constexpr uint64_t COMM_BUFFER_SIZE = RECV_BASE_OFFSET + static_cast<uint64_t>(AIV_CORE_NUM) * DATA_SIZE;
