@@ -111,8 +111,43 @@ static inline HcclResult AscCommCopyFromDevice(
     return HCCL_SUCCESS;
 }
 
+static inline void AscCommDumpChannelEntity(
+    const char* sharedQueueTag, ChannelHandle channel, uint32_t channelIndex, const ChannelEntity* channelEntity,
+    const AscCommChannelMetadata* metadata)
+{
+    fprintf(
+        stderr,
+        "[INFO] [ChannelEntity] tag[%s] channel[%u] handle[0x%llx] sqContextAddr[%p] cqContextAddr[%p] "
+        "remoteBufferAddr[%p] sqNum[%u] cqNum[%u] remoteBufferNum[%u] "
+        "entitySqHead[%u] entitySqTail[%u] entityCqHead[%u] entityCqTail[%u].\n",
+        sharedQueueTag, channelIndex, (unsigned long long)channel, (void*)channelEntity->sqContextAddr,
+        (void*)channelEntity->cqContextAddr, (void*)channelEntity->remoteBufferAddr, channelEntity->sqNum,
+        channelEntity->cqNum, channelEntity->remoteBufferNum, channelEntity->sqHead, channelEntity->sqTail,
+        channelEntity->cqHead, channelEntity->cqTail);
+    fprintf(
+        stderr,
+        "[INFO] [ChannelEntity][SQ] tag[%s] channel[%u] sqVa[0x%llx] headAddr[0x%llx] tailAddr[0x%llx] "
+        "dbVa[0x%llx] jfsID[%u] tpID[%u] depth[%u] wqeSize[%u].\n",
+        sharedQueueTag, channelIndex, (unsigned long long)metadata->sqContext.contextInfo.ubJfs.sqVa,
+        (unsigned long long)metadata->sqContext.contextInfo.ubJfs.headAddr,
+        (unsigned long long)metadata->sqContext.contextInfo.ubJfs.tailAddr,
+        (unsigned long long)metadata->sqContext.contextInfo.ubJfs.dbVa,
+        metadata->sqContext.contextInfo.ubJfs.jfsID, metadata->sqContext.contextInfo.ubJfs.tpID,
+        metadata->sqContext.contextInfo.ubJfs.sqDepth, metadata->sqContext.contextInfo.ubJfs.wqeSize);
+    fprintf(
+        stderr,
+        "[INFO] [ChannelEntity][CQ] tag[%s] channel[%u] scqVa[0x%llx] headAddr[0x%llx] tailAddr[0x%llx] "
+        "dbVa[0x%llx] jfcID[%u] depth[%u] cqeSize[%u].\n",
+        sharedQueueTag, channelIndex, (unsigned long long)metadata->cqContext.contextInfo.ubJfc.scqVa,
+        (unsigned long long)metadata->cqContext.contextInfo.ubJfc.headAddr,
+        (unsigned long long)metadata->cqContext.contextInfo.ubJfc.tailAddr,
+        (unsigned long long)metadata->cqContext.contextInfo.ubJfc.dbVa,
+        metadata->cqContext.contextInfo.ubJfc.jfcID, metadata->cqContext.contextInfo.ubJfc.cqDepth,
+        metadata->cqContext.contextInfo.ubJfc.cqeSize);
+}
+
 static inline HcclResult AscCommExtractChannelMetadata(
-    ChannelHandle channel, uint32_t channelIndex, AscCommChannelMetadata* metadata)
+    ChannelHandle channel, const char* sharedQueueTag, uint32_t channelIndex, AscCommChannelMetadata* metadata)
 {
     ChannelEntity channelEntity;
     HcclResult ret;
@@ -173,6 +208,7 @@ static inline HcclResult AscCommExtractChannelMetadata(
     memcpy(
         &metadata->remoteInfo.rmtEidH, metadata->sqContext.contextInfo.ubJfs.remoteEID + sizeof(uint64_t),
         sizeof(uint64_t));
+    AscCommDumpChannelEntity(sharedQueueTag, channel, channelIndex, &channelEntity, metadata);
 
     return HCCL_SUCCESS;
 }
@@ -200,7 +236,7 @@ static inline int AscCommIsSameSharedCqContext(const CqContext* lhs, const CqCon
 }
 
 static inline HcclResult AscCommBuildMultiChannelEntity(
-    const ChannelHandle* channels, uint32_t channelNum, void** deviceMemory)
+    const ChannelHandle* channels, const char* sharedQueueTag, uint32_t channelNum, void** deviceMemory)
 {
     AscCommChannelMetadata anchorMetadata;
     AscCommChannelMetadata currentMetadata;
@@ -232,7 +268,7 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
     entity = (HcommMultiChannelEntity*)hostMemory;
     channelInfos = (HcommBatchRemoteInfo*)((uint8_t*)hostMemory + sizeof(HcommMultiChannelEntity));
     for (i = 0U; i < channelNum; ++i) {
-        ret = AscCommExtractChannelMetadata(channels[i], i, &currentMetadata);
+        ret = AscCommExtractChannelMetadata(channels[i], sharedQueueTag, i, &currentMetadata);
         if (ret != HCCL_SUCCESS) {
             free(hostMemory);
             return ret;
@@ -299,7 +335,7 @@ static inline HcclResult MakeMultiChannelHandle(
     }
     ret = AscCommAcquireSharedChannels(comm, sharedQueueTag, channelDescs, channelNum, channels);
     if (ret == HCCL_SUCCESS) {
-        ret = AscCommBuildMultiChannelEntity(channels, channelNum, &deviceMemory);
+        ret = AscCommBuildMultiChannelEntity(channels, sharedQueueTag, channelNum, &deviceMemory);
     }
     free(channels);
     if (ret != HCCL_SUCCESS) {
