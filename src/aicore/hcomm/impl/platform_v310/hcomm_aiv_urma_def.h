@@ -62,7 +62,7 @@ struct UdmaParams {
 struct HcommUrmaBatchState {
     uint32_t magic;
     uint32_t version;
-    uint64_t remoteInfoAddr;
+    uint64_t channelInfoAddr;
     uint64_t sqVa;
     uint64_t sqHeadAddr;
     uint64_t sqTailAddr;

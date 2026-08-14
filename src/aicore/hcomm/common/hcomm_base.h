@@ -112,7 +112,7 @@ public:
     {
         (void)handle;
         (void)channelIndex;
-        return BatchHandleRef{0U, 0U};
+        return BatchHandleRef{};
     }
 
     template <auto const& config = URMA_DEFAULT_CFG>

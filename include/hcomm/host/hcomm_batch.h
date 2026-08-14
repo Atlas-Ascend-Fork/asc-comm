@@ -212,7 +212,7 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
     AscCommChannelMetadata anchorMetadata;
     AscCommChannelMetadata currentMetadata;
     HcommMultiChannelEntity* entity = NULL;
-    HcommBatchRemoteInfo* remoteInfos = NULL;
+    HcommBatchRemoteInfo* channelInfos = NULL;
     void* hostMemory = NULL;
     size_t totalSize;
     uint32_t i;
@@ -237,7 +237,7 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
         return HCCL_E_MEMORY;
     }
     entity = (HcommMultiChannelEntity*)hostMemory;
-    remoteInfos = (HcommBatchRemoteInfo*)((uint8_t*)hostMemory + sizeof(HcommMultiChannelEntity));
+    channelInfos = (HcommBatchRemoteInfo*)((uint8_t*)hostMemory + sizeof(HcommMultiChannelEntity));
     for (i = 0U; i < channelNum; ++i) {
         ret = AscCommExtractChannelMetadata(channels[i], i, &currentMetadata);
         if (ret != HCCL_SUCCESS) {
@@ -253,7 +253,7 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
             free(hostMemory);
             return HCCL_E_PARA;
         }
-        remoteInfos[i] = currentMetadata.remoteInfo;
+        channelInfos[i] = currentMetadata.remoteInfo;
     }
 
     entity->abiHeader.version = HCOMM_MULTI_CHANNEL_VERSION;

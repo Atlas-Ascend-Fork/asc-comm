@@ -397,7 +397,7 @@ __aicore__ inline BatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
     auto* state = reinterpret_cast<__ubuf__ HcommUrmaBatchState*>(alignedBuffer);
     state->magic = HCOMM_URMA_BATCH_MAGIC;
     state->version = HCOMM_URMA_BATCH_VERSION;
-    state->remoteInfoAddr = multiChannel + sizeof(HcommMultiChannelEntity);
+    state->channelInfoAddr = multiChannel + sizeof(HcommMultiChannelEntity);
     state->sqVa = multiChannelEntity->sqContext.contextInfo.ubJfs.sqVa;
     state->sqHeadAddr = multiChannelEntity->sqContext.contextInfo.ubJfs.headAddr;
     state->sqTailAddr = multiChannelEntity->sqContext.contextInfo.ubJfs.tailAddr;
@@ -433,9 +433,15 @@ __aicore__ inline BatchHandleRef HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
     if (handle.stateAddr == 0U || state->magic != HCOMM_URMA_BATCH_MAGIC ||
         state->version != HCOMM_URMA_BATCH_VERSION || channelIndex >= state->channelNum) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA GetHandleRef failed with invalid parameter\n");
-        return BatchHandleRef{0U, 0U};
+        return BatchHandleRef{};
     }
-    uint64_t remoteInfo = state->remoteInfoAddr + static_cast<uint64_t>(channelIndex) * sizeof(HcommBatchRemoteInfo);
+    auto* channelInfos = reinterpret_cast<__gm__ HcommBatchRemoteInfo*>(state->channelInfoAddr);
+    HcommBatchRemoteInfo remoteInfo{};
+    remoteInfo.remoteBufferAddr = channelInfos[channelIndex].remoteBufferAddr;
+    remoteInfo.remoteBufferNum = channelInfos[channelIndex].remoteBufferNum;
+    remoteInfo.tpID = channelInfos[channelIndex].tpID;
+    remoteInfo.rmtEidL = channelInfos[channelIndex].rmtEidL;
+    remoteInfo.rmtEidH = channelInfos[channelIndex].rmtEidH;
     return BatchHandleRef{handle.stateAddr, remoteInfo};
 }
 
@@ -446,15 +452,15 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
     static_assert(config.inlineEn == 0U, "Batch WriteNbi does not support inline WQEs");
     static_assert(config.cqe == 1U, "Batch WriteNbi requires a CQE for every WQE");
     __ubuf__ HcommUrmaBatchState* state = HcommUrmaGetBatchState(BatchHandle{handleRef.stateAddr});
-    if (handleRef.stateAddr == 0U || handleRef.remoteInfo == 0U || state->pendingBb >= state->capacityBb ||
-        len > UINT32_MAX) {
+    if (handleRef.stateAddr == 0U || handleRef.remoteInfo.remoteBufferAddr == 0U ||
+        state->pendingBb >= state->capacityBb || len > UINT32_MAX) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA batch WriteNbi failed with invalid parameter or full buffer\n");
         return HCOMM_FAILED;
     }
 
-    auto* remoteInfo = reinterpret_cast<__gm__ HcommBatchRemoteInfo*>(handleRef.remoteInfo);
-    auto* remoteBuffers = reinterpret_cast<__gm__ RegedBufferEntity*>(remoteInfo->remoteBufferAddr);
-    int32_t remoteBufferIndex = HcommFindBufferIdx(remoteBuffers, remoteInfo->remoteBufferNum, dst, len);
+    const HcommBatchRemoteInfo& remoteInfo = handleRef.remoteInfo;
+    auto* remoteBuffers = reinterpret_cast<__gm__ RegedBufferEntity*>(remoteInfo.remoteBufferAddr);
+    int32_t remoteBufferIndex = HcommFindBufferIdx(remoteBuffers, remoteInfo.remoteBufferNum, dst, len);
     if (remoteBufferIndex == HCOMM_FAILED) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA batch WriteNbi failed to resolve remote memory\n");
         return HCOMM_FAILED;
@@ -473,8 +479,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
 
     uint32_t wqeHead = state->sqHead + state->pendingBb;
     HcommUrmaFillSqeCtxByRemote<HcommUrmaOpCode::WRITE, config, uint64_t>(
-        sqeCtx, reinterpret_cast<__gm__ uint8_t*>(dst), state->sqDepth, remoteInfo->tpID, remoteTokenId,
-        remoteTokenValue, remoteInfo->rmtEidL, remoteInfo->rmtEidH, wqeHead);
+        sqeCtx, reinterpret_cast<__gm__ uint8_t*>(dst), state->sqDepth, remoteInfo.tpID, remoteTokenId,
+        remoteTokenValue, remoteInfo.rmtEidL, remoteInfo.rmtEidH, wqeHead);
     auto* sgeCtx = reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(wqeAddress + sizeof(HcommUrmaSqeCtx));
     HcommUrmaFillSgeCtx<HcommUrmaOpCode::WRITE>(
         sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(src), UdmaParams<uint64_t>{});

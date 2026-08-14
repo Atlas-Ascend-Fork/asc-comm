@@ -221,7 +221,7 @@ typedef struct {
 } CqContext;
 
 /**
- * Shared SQ/CQ contexts followed immediately by HcommBatchRemoteInfo[channelNum].
+ * Shared SQ/CQ contexts followed immediately by HcommBatchRemoteInfo[channelNum], indexed by channelIndex.
  * The SQ transport fields belong to channel 0 and are not used by the batch Device path.
  */
 struct HcommMultiChannelEntity {
