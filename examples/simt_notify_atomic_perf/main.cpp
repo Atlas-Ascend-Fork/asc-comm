@@ -317,7 +317,9 @@ int main(int argc, char* argv[])
         double completionBandwidth = timing[kCompletionCyclesIndex] == 0U ?
                                          0.0 :
                                          static_cast<double>(dataBytes) * iterations / timing[kCompletionCyclesIndex];
-        bool cacheEnabled = laneCount != 1024U;
+        // The kernel now sizes its workspace for the cached layout at every lane count: with the
+        // WQE staged in lane-private storage, 1024 lanes need only 32KiB of registration cache.
+        constexpr bool cacheEnabled = true;
         std::cout << std::fixed << std::setprecision(6) << "RESULT | Path=SIMT-t" << laneCount << " | API=" << api
                   << " | DataSize/B=" << dataBytes << " | WqeCount=" << iterations << " | Warmup=" << warmup
                   << " | CommitMode=" << (commitMode == "last" ? "Last" : "Immediate")

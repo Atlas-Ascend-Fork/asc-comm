@@ -133,6 +133,7 @@ public:
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
 
 private:
+    bool initialized_ = false;
     bool hasReservedDwqeSlot_ = false;
     uint32_t reservedDwqeHead_ = 0U;
     bool hasDeferredDwqeBatch_ = false;
@@ -148,7 +149,6 @@ private:
     uint64_t reservedDwqeBurstRemoteSize_ = 0U;
     HcommSimtUbResolvedPost reservedDwqeBurstPost_;
     HcommSimtPackedSqeTemplate reservedDwqeBurstSqeTemplate_;
-    __ubuf__ uint8_t* wqeItem_ = nullptr;
     __ubuf__ HcommSimtUbPostContext* ubPostContext_ = nullptr;
     __ubuf__ HcommSimtUbRemoteCache* ubRemoteCache_ = nullptr;
     bool ubPostContextReady_ = false;

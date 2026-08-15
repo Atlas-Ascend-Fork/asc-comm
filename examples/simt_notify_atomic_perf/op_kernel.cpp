@@ -18,23 +18,19 @@
 namespace {
 using namespace simt_notify_atomic_perf;
 
-constexpr uint32_t kWqeBytes = 128U;
 constexpr uint32_t kRemoteCacheBytes = 32U;
 constexpr uint32_t kPostContextBytes = 128U;
-constexpr uint32_t kWorkspaceAlign = 128U;
 constexpr uint32_t kBatchStateWords = 5U;
 constexpr uint32_t kBatchReserveStatusIndex = 3U;
 constexpr uint32_t kBatchPostStatusIndex = 4U;
 
-#define HCOMM_CACHED_WORKSPACE_BYTES(laneCount)                                                            \
-    ((((laneCount) * (kWqeBytes + kRemoteCacheBytes)) + kWorkspaceAlign - 1U) & ~(kWorkspaceAlign - 1U)) + \
+// Hcomm stages every WQE in lane-private storage, so the workspace only holds the two optional
+// caches: one remote-registration entry per lane plus the block-shared post context, which sits
+// in its own aligned 128-byte region. At 1024 lanes this is 32KiB, well inside the limit on a
+// single static UB object, so every lane count uses the same cached layout.
+#define HCOMM_WORKSPACE_BYTES(laneCount)                                                                 \
+    ((((laneCount) * kRemoteCacheBytes) + kPostContextBytes - 1U) & ~(kPostContextBytes - 1U)) + \
         kPostContextBytes
-
-// Keep the largest individual static UB object at 128KiB for t1024. Hcomm::Init
-// treats the registration cache and shared post context as optional, so this
-// path retains the per-lane WQE slots and falls back to GM metadata resolution.
-#define HCOMM_WORKSPACE_BYTES(laneCount) \
-    ((laneCount) == 1024U ? (laneCount) * kWqeBytes : HCOMM_CACHED_WORKSPACE_BYTES(laneCount))
 
 enum class PerfApi : uint32_t { NOTIFY, FAA, CAS };
 
@@ -557,7 +553,6 @@ DEFINE_LAST_COMMIT_PERF_KERNEL(SimtCasLastCommitPerf, PerfApi::CAS, 1024U, 1024U
 #undef DEFINE_BATCH_PERF_KERNEL
 #undef DEFINE_PERF_KERNEL
 #undef HCOMM_WORKSPACE_BYTES
-#undef HCOMM_CACHED_WORKSPACE_BYTES
 
 } // namespace
 

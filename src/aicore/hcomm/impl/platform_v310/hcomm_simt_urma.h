@@ -38,26 +38,26 @@ __simt_callee__ inline uint32_t HcommSimtUrmaFlag()
            ((config.cqe & 0x1U) << 5U) | ((config.inlineEn & 0x1U) << 6U);
 }
 
-template <uint32_t byteSize>
-__simt_callee__ inline void HcommSimtClearUb(__ubuf__ uint8_t* addr)
-{
-    static_assert(byteSize % sizeof(uint64_t) == 0U, "UB WQE clear must use whole words");
-#pragma unroll
-    for (uint32_t i = 0; i < byteSize / sizeof(uint64_t); ++i) {
-        ((__ubuf__ uint64_t*)addr)[i] = 0U;
-    }
-}
+// Every post stages its WQE here, in lane-private storage that lives only for the duration of
+// the call. The window is always a full DWQE (two basic blocks) so that a committed post can
+// ring the doorbell straight out of it; a deferred one-BB post simply leaves the upper half
+// untouched and never copies it.
+struct alignas(sizeof(ulonglong2)) HcommSimtWqeStage {
+    uint64_t words[HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t)];
+};
+static_assert(
+    sizeof(HcommSimtWqeStage) == HCOMM_URMA_DWQE_SIZE, "The WQE stage must match the 128-byte DWQE window");
 
 // A WQE that occupies a single basic block must not write past it: the next block may
 // already hold another lane's WQE.
 template <uint32_t byteSize>
-__simt_callee__ inline void HcommSimtCopyUbToGm(__gm__ uint8_t* dst, __ubuf__ uint8_t* src)
+__simt_callee__ inline void HcommSimtCopyStageToSq(__gm__ uint8_t* dst, const HcommSimtWqeStage& stage)
 {
-    static_assert(byteSize % sizeof(uint64_t) == 0U, "UB WQE copy must use whole words");
-    static_assert(byteSize <= HCOMM_URMA_DWQE_SIZE, "UB WQE copy must stay inside the DWQE window");
+    static_assert(byteSize % sizeof(uint64_t) == 0U, "WQE copy must use whole words");
+    static_assert(byteSize <= HCOMM_URMA_DWQE_SIZE, "WQE copy must stay inside the DWQE window");
 #pragma unroll
     for (uint32_t i = 0; i < byteSize / sizeof(uint64_t); ++i) {
-        ((__gm__ uint64_t*)dst)[i] = ((__ubuf__ uint64_t*)src)[i];
+        reinterpret_cast<__gm__ uint64_t*>(dst)[i] = stage.words[i];
     }
 }
 
@@ -207,14 +207,16 @@ __simt_callee__ inline void HcommSimtWriteAtomicWqe(
     HcommSimtPadWqeWords<amoWord + 2U, wordCnt>(words);
 }
 
-__simt_callee__ inline void HcommSimtCopyUb128ToDwqeStwt16(__gm__ uint8_t* dst, __ubuf__ uint8_t* src)
+// The doorbell window is written with 128-bit stores. Plain 64-bit stores are not enough: an
+// earlier revision published the WQE from lane-private storage with ordinary stores and the NIC
+// consumed the header and the fetch SGE while losing the atomic operand words behind them.
+__simt_callee__ inline void HcommSimtCopyStageToDwqe(__gm__ uint8_t* dst, const HcommSimtWqeStage& stage)
 {
-    __ubuf__ uint64_t* srcWords = reinterpret_cast<__ubuf__ uint64_t*>(src);
     __gm__ ulonglong2* dstWords = reinterpret_cast<__gm__ ulonglong2*>(dst);
 #pragma unroll
     for (uint32_t i = 0; i < HCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2); ++i) {
         uint32_t wordIdx = i * 2U;
-        asc_stwt(&dstWords[i], make_ulonglong2(srcWords[wordIdx], srcWords[wordIdx + 1U]));
+        asc_stwt(&dstWords[i], make_ulonglong2(stage.words[wordIdx], stage.words[wordIdx + 1U]));
     }
 }
 
@@ -232,13 +234,13 @@ __simt_callee__ inline void HcommSimtBuildPackedSqeTemplate(
     sqeTemplate.sqDepth = meta.sqDepth;
 }
 
-// Rings the doorbell by copying the lane's staged 128B WQE into the DWQE window. The fence
-// orders the preceding SQ write against the doorbell; the two cache invalidations cover both
-// basic blocks of the window.
-__simt_callee__ inline void HcommSimtRingDwqeFromUb(__gm__ uint8_t* dwqeAddr, __ubuf__ uint8_t* wqeAddr)
+// Rings the doorbell by copying the staged 128B WQE into the DWQE window. The fence orders the
+// preceding SQ write against the doorbell; the two cache invalidations cover both basic blocks
+// of the window.
+__simt_callee__ inline void HcommSimtRingDwqe(__gm__ uint8_t* dwqeAddr, const HcommSimtWqeStage& stage)
 {
     asc_threadfence();
-    HcommSimtCopyUb128ToDwqeStwt16(dwqeAddr, wqeAddr);
+    HcommSimtCopyStageToDwqe(dwqeAddr, stage);
     asc_dcci_single(dwqeAddr);
     asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
 }
@@ -321,12 +323,15 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ u
 {
     uint32_t linearLane = threadIdx.x + blockDim.x * (threadIdx.y + blockDim.y * threadIdx.z);
     uint64_t laneCount = static_cast<uint64_t>(blockDim.x) * blockDim.y * blockDim.z;
-    uint64_t wqeBytes = laneCount * HCOMM_URMA_DWQE_SIZE;
-    uint64_t cacheRequired = ((wqeBytes + laneCount * sizeof(HcommSimtUbRemoteCache) + HCOMM_URMA_DWQE_SIZE - 1U) &
-                              ~(static_cast<uint64_t>(HCOMM_URMA_DWQE_SIZE) - 1U)) +
-                             HCOMM_SIMT_UB_POST_CONTEXT_BYTES;
+    // The WQE itself is staged in lane-private storage for the duration of a post, so the
+    // workspace only holds the two optional caches: one remote-registration entry per lane and
+    // one block-shared post context, the latter aligned to its own 128-byte region.
+    uint64_t cacheBytes = laneCount * sizeof(HcommSimtUbRemoteCache);
+    uint64_t contextOffset = (cacheBytes + HCOMM_SIMT_UB_POST_CONTEXT_BYTES - 1U) &
+                             ~(static_cast<uint64_t>(HCOMM_SIMT_UB_POST_CONTEXT_BYTES) - 1U);
+    uint64_t cacheRequired = contextOffset + HCOMM_SIMT_UB_POST_CONTEXT_BYTES;
 
-    wqeItem_ = nullptr;
+    initialized_ = true;
     ubPostContext_ = nullptr;
     ubRemoteCache_ = nullptr;
     ubPostContextReady_ = false;
@@ -338,26 +343,22 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ u
     reservedDwqeBurstChannel_ = 0U;
     reservedDwqeBurstRemoteBase_ = 0U;
     reservedDwqeBurstRemoteSize_ = 0U;
-    if (buff == nullptr || wqeBytes > len) {
-        return HCOMM_FAILED;
+    // Posting never needs the workspace, so a caller that supplies none, or too little for the
+    // caches, still gets a usable channel: every post then resolves its metadata from global
+    // memory. ReserveDwqeBurst is the one interface that requires the remote cache.
+    if (buff == nullptr || cacheRequired > len) {
+        return HCOMM_SUCCESS;
     }
-    wqeItem_ = buff + linearLane * HCOMM_URMA_DWQE_SIZE;
-    HcommSimtClearUb<HCOMM_URMA_DWQE_SIZE>(wqeItem_);
 
-    if (cacheRequired <= len) {
-        __ubuf__ uint8_t* remoteCacheBase = buff + wqeBytes;
-        ubRemoteCache_ = reinterpret_cast<__ubuf__ HcommSimtUbRemoteCache*>(remoteCacheBase) + linearLane;
-        ubRemoteCache_->valid = 0U;
+    ubRemoteCache_ = reinterpret_cast<__ubuf__ HcommSimtUbRemoteCache*>(buff) + linearLane;
+    ubRemoteCache_->valid = 0U;
 
-        uint64_t contextOffset = (wqeBytes + laneCount * sizeof(HcommSimtUbRemoteCache) + HCOMM_URMA_DWQE_SIZE - 1U) &
-                                 ~(static_cast<uint64_t>(HCOMM_URMA_DWQE_SIZE) - 1U);
-        ubPostContext_ = reinterpret_cast<__ubuf__ HcommSimtUbPostContext*>(buff + contextOffset);
-        if (linearLane == 0U) {
-            ubPostContext_->channel = 0U;
-            ubPostContext_->state = HCOMM_SIMT_UB_CONTEXT_EMPTY;
-        }
-        asc_syncthreads();
+    ubPostContext_ = reinterpret_cast<__ubuf__ HcommSimtUbPostContext*>(buff + contextOffset);
+    if (linearLane == 0U) {
+        ubPostContext_->channel = 0U;
+        ubPostContext_->state = HCOMM_SIMT_UB_CONTEXT_EMPTY;
     }
+    asc_syncthreads();
     return HCOMM_SUCCESS;
 }
 
@@ -804,7 +805,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
     // ReserveDwqeBurst builds its cached template with one SGE.
     static_assert(Desc::burstCapable ? Desc::sgeNum == 1U : true, "A burst-carried WQE must use exactly one SGE");
 
-    if (wqeItem_ == nullptr) {
+    if (!initialized_) {
         return HCOMM_FAILED;
     }
     // HcommUrmaSgeCtx::len is 32-bit.
@@ -876,26 +877,23 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
         HcommSimtBuildPackedSqeTemplate<Desc::sgeNum>(post.meta, sqeTemplate);
     }
 
-    // The doorbell is rung by copying this lane's staged UB WQE, so the WQE is built in UB
-    // only when this lane will ring it. Every other lane writes the SQ directly.
+    // Stage the WQE in lane-private storage, then copy it into the SQ. The SQ copy is what the
+    // NIC always reads, so it happens on every path; the doorbell, when this lane rings it, is
+    // published out of the same staged bytes.
     const bool ringDoorbell = Desc::commit && (!useImmediateWarp || publishImmediateWarp);
-    if (ringDoorbell) {
-        desc.template Store<wordCnt>(
-            reinterpret_cast<__ubuf__ uint64_t*>(wqeItem_), sqeTemplate, curHead, nextHead);
-        HcommSimtCopyUbToGm<wqeBytes>(sqeAddr, wqeItem_);
-    } else {
-        desc.template Store<wordCnt>(reinterpret_cast<__gm__ uint64_t*>(sqeAddr), sqeTemplate, curHead, nextHead);
-    }
+    HcommSimtWqeStage stage;
+    desc.template Store<wordCnt>(stage.words, sqeTemplate, curHead, nextHead);
+    HcommSimtCopyStageToSq<wqeBytes>(sqeAddr, stage);
 
     if constexpr (Desc::commit) {
         if (useImmediateWarp) {
             asc_threadfence();
-            if (publishImmediateWarp) {
-                HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+            if (ringDoorbell) {
+                HcommSimtRingDwqe(post.dwqeAddr, stage);
             }
             return HCOMM_SUCCESS;
         }
-        // A single-lane post is ordered by HcommSimtRingDwqeFromUb's thread fence.
+        // A single-lane post is ordered by HcommSimtRingDwqe's thread fence.
         // A deferred batch still needs the block barrier to wait for all SQ writes.
         if (hasDeferredDwqeBatch_) {
             HcommSimtSyncBeforeRing(headAddr, nextHead);
@@ -903,7 +901,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
         if (PublishDwqeBatch(headAddr) != HCOMM_SUCCESS) {
             return HCOMM_FAILED;
         }
-        HcommSimtRingDwqeFromUb(post.dwqeAddr, wqeItem_);
+        HcommSimtRingDwqe(post.dwqeAddr, stage);
     } else if (!usingBurst) {
         asc_threadfence();
     }

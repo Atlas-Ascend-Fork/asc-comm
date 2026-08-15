@@ -68,15 +68,16 @@ constexpr uint32_t kMultiLaneCount = kSlotCount - 1U;
 // Hcomm::Init needs 128 bytes of WQE staging per lane in the block. Supplying 32 more bytes per
 // lane plus one aligned 128-byte region also enables the per-lane remote-registration cache and
 // the block-shared post context; both are optional and fall back to global-memory lookup.
-constexpr uint32_t kWqeStagingBytes = 128U;
 constexpr uint32_t kRemoteCacheBytes = 32U;
 constexpr uint32_t kPostContextBytes = 128U;
 constexpr uint32_t kWorkspaceAlign = 128U;
 
 constexpr uint32_t HcommWorkspaceBytes(uint32_t laneCount)
 {
-    return (((laneCount * (kWqeStagingBytes + kRemoteCacheBytes)) + kWorkspaceAlign - 1U) &
-            ~(kWorkspaceAlign - 1U)) +
+    // Hcomm stages every WQE in lane-private storage, so the workspace only holds the two
+    // optional caches: one remote-registration entry per lane plus the block-shared post
+    // context, which sits in its own aligned 128-byte region.
+    return (((laneCount * kRemoteCacheBytes) + kWorkspaceAlign - 1U) & ~(kWorkspaceAlign - 1U)) +
            kPostContextBytes;
 }
 
