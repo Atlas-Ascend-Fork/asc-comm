@@ -144,6 +144,7 @@ private:
     __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail);
     __aicore__ inline uint32_t PollCq(
         ChannelHandle channel, uint32_t expectTail, LocalTensor<uint32_t> cqeItem);
+    __aicore__ inline uint32_t PollBatchCq(UbcCtpBatchHandle& batchHandle, uint32_t expectTail);
 
 private:
     LocalTensor<uint32_t> wqeItem_;

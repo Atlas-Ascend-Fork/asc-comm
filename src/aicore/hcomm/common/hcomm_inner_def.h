@@ -248,11 +248,26 @@ static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligne
 typedef struct {
     ChannelHandle channelHandle;
     LocalTensor<uint32_t> wqeBuffer;
+    // Queue context cached by MakeBatchHandle. It stays valid while the caller exclusively owns the channel.
+    uint64_t sqBaseAddr;
+    uint64_t sqDbAddr;
+    uint64_t remoteEidLow;
+    uint64_t remoteEidHigh;
+    uint64_t cqBaseAddr;
+    uint64_t cqDbAddr;
     uint32_t wqeBufferLen;
     uint32_t remoteTokenId;
     uint32_t remoteTokenValue;
     uint32_t preparedWqebbCount;
     uint32_t preparedCqeCount;
+    uint32_t sqDepth;
+    uint32_t tpId;
+    uint32_t cqDepth;
+    uint32_t cqeSize;
+    // Handle-local queue counters. BatchCommit and Drain synchronize them back to ChannelEntity.
+    uint32_t sqHead;
+    uint32_t cqHead;
+    uint32_t cqTail;
 } UbcCtpBatchHandle;
 
 typedef struct {
