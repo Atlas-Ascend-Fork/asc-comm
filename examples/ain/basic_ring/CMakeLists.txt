@@ -33,15 +33,14 @@ add_executable(basic_ring_demo
 )
 
 target_include_directories(basic_ring_demo PRIVATE
-    ${ASCEND_CANN_PACKAGE_LINUX_PATH}/pkg_inc
-    ${ASCEND_CANN_PACKAGE_LINUX_PATH}/include
-    ${ASCEND_CANN_PACKAGE_LINUX_PATH}/include/hcomm
-    ${ASCEND_CANN_PACKAGE_LINUX_PATH}/asc/include/comm_api/aicore
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
+    ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm
+    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api/aicore
 )
 
 target_link_directories(basic_ring_demo PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
-    ${ASCEND_CANN_PACKAGE_LINUX_PATH}/lib64
 )
 
 target_link_libraries(basic_ring_demo PRIVATE

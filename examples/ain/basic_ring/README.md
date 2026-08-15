@@ -104,7 +104,7 @@ rank 0 test pass
 
 ## 注意事项
 
-- 编译前必须先加载CANN环境变量，确保`ASCEND_CANN_PACKAGE_PATH`和ASC CMake模块可用。
+- 编译和运行前必须先加载CANN环境变量，确保`ASCEND_CANN_PACKAGE_PATH`、ASC CMake模块和运行时动态库可用。
 - 样例依赖CANN中的`hccl`、`hcomm`、`ascendcl`和`runtime`库。
 - 运行时rank数量不能超过当前可用NPU数量。
 - 样例仅支持单机多卡运行，不支持跨节点多机运行。
