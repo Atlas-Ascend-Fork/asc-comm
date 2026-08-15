@@ -111,8 +111,9 @@ __aicore__ inline void HcommUrmaFillBatchSqeCtxByToken(
     uint32_t remoteTokenId, uint32_t remoteTokenValue, uint32_t curHead)
 {
     static_assert(
-        opCode == HcommUrmaOpCode::WRITE || opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY,
-        "Batch SQE fast fill only supports Write and WriteWithNotify");
+        opCode == HcommUrmaOpCode::WRITE || opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY ||
+            opCode == HcommUrmaOpCode::READ,
+        "Batch SQE fast fill only supports Write, WriteWithNotify and Read");
     static_assert(config.inlineEn == 0, "Batch SQE fast fill does not support inline data");
     static_assert(
         sizeof(HcommUrmaSqeCtx) == 12U * sizeof(uint32_t),
@@ -454,6 +455,47 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
         reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(wqeWords + sizeof(HcommUrmaSqeCtx) / sizeof(uint32_t));
     HcommUrmaFillSgeCtx<HcommUrmaOpCode::WRITE>(
         sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(src), UdmaParams<uint64_t>{});
+
+    batchHandle.preparedWqebbCount = preparedWqebbCount + 1U;
+    if constexpr (config.cqe == 1) {
+        batchHandle.preparedCqeCount++;
+    }
+    return HCOMM_SUCCESS;
+}
+
+template <auto const& config>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
+    UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len)
+{
+    static_assert(config.cqe == 0 || config.cqe == 1, "Batch ReadNbi supports cqe values 0 and 1 only");
+    static_assert(config.inlineEn == 0, "Batch ReadNbi does not support inline data");
+    static_assert(
+        sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaSgeCtx) == HCOMM_URMA_WQEBB_SIZE,
+        "Read WQE must occupy exactly one 64-byte WQEBB");
+
+    uint32_t preparedWqebbCount = batchHandle.preparedWqebbCount;
+    uint32_t bufferWqebbCapacity = batchHandle.wqeBufferLen / HCOMM_URMA_WQEBB_SIZE;
+    if (len > UINT32_MAX || preparedWqebbCount >= bufferWqebbCapacity) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm batch ReadNbi failed with invalid length or insufficient buffer\n");
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+
+    constexpr uint32_t wqebbWordCount = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
+    LocalTensor<uint32_t> currentWqe = batchHandle.wqeBuffer[preparedWqebbCount * wqebbWordCount];
+    __ubuf__ uint32_t* wqeWords = reinterpret_cast<__ubuf__ uint32_t*>(currentWqe.GetPhyAddr());
+
+    uint32_t logicalHead = channelEntity->sqHead + preparedWqebbCount;
+    __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqe.GetPhyAddr());
+    HcommUrmaFillBatchSqeCtxByToken<HcommUrmaOpCode::READ, config>(
+        sqeCtx, reinterpret_cast<__gm__ uint8_t*>(src), sqCtx, batchHandle.remoteTokenId,
+        batchHandle.remoteTokenValue, logicalHead);
+    __ubuf__ HcommUrmaSgeCtx* sgeCtx =
+        reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(wqeWords + sizeof(HcommUrmaSqeCtx) / sizeof(uint32_t));
+    HcommUrmaFillSgeCtx<HcommUrmaOpCode::READ>(
+        sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(dst), UdmaParams<uint64_t>{});
 
     batchHandle.preparedWqebbCount = preparedWqebbCount + 1U;
     if constexpr (config.cqe == 1) {
