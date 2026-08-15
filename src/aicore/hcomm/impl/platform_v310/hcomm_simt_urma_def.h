@@ -35,15 +35,6 @@ constexpr uint32_t HCOMM_URMA_WQE_BB_CNT = 1U;
 constexpr uint32_t HCOMM_URMA_DWQE_BB_CNT = HCOMM_URMA_DWQE_SIZE / HCOMM_URMA_WQE_BB_SIZE;
 constexpr uint32_t HCOMM_SIMT_MAX_CQ_RETRY = 1000000U;
 
-enum class HcommSimtUbWqeKind : uint8_t {
-    EMPTY,
-    NOTIFY,
-    ATOMIC,
-    DATA1,
-    DATA2,
-    INLINE,
-};
-
 // Immutable for one channel while a kernel is running. The remote token fields
 // are refreshed whenever the target address leaves the cached registered range.
 struct HcommSimtUbPostMeta {
@@ -158,7 +149,6 @@ private:
     HcommSimtUbResolvedPost reservedDwqeBurstPost_;
     HcommSimtPackedSqeTemplate reservedDwqeBurstSqeTemplate_;
     __ubuf__ uint8_t* wqeItem_ = nullptr;
-    HcommSimtUbWqeKind wqeKind_ = HcommSimtUbWqeKind::EMPTY;
     __ubuf__ HcommSimtUbPostContext* ubPostContext_ = nullptr;
     __ubuf__ HcommSimtUbRemoteCache* ubRemoteCache_ = nullptr;
     bool ubPostContextReady_ = false;
@@ -168,23 +158,11 @@ private:
     __simt_callee__ inline int32_t ResolveUbPostContext(
         ChannelHandle channel, __gm__ uint8_t* remoteAddr, uint64_t len, HcommSimtUbResolvedPost& post);
 
-    template <
-        bool commit = true, auto commitPipe = 0, auto reqPipe = 0, HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE,
-        auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t PostSend(
-        ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len);
-    template <bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t PostWriteWithNotify(
-        ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
-        __gm__ uint8_t* notifyAddr, uint64_t notifyVal);
-    template <
-        typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_INLINE_CFG>
-    __simt_callee__ inline int32_t PostWriteValue(ChannelHandle channel, __gm__ uint8_t* remoteAddr, T value);
-    template <
-        typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0,
-        HcommUrmaOpCode opCode = HcommUrmaOpCode::FAA, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t PostAtomic(
-        ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* fetchAddr, T value, T cond);
+    // The one posting path shared by every operator. Desc describes what distinguishes them:
+    // the SQ footprint (bbCnt/sgeNum), whether a sequential burst may carry it, and how the
+    // WQE words are laid out. See the descriptors in hcomm_simt_urma.h.
+    template <typename Desc>
+    __simt_callee__ inline int32_t PostWqe(ChannelHandle channel, const Desc& desc);
     __simt_callee__ inline int32_t PublishDwqeBatch(__gm__ uint64_t* headAddr);
     __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
 };
