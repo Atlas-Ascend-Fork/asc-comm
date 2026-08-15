@@ -31,7 +31,7 @@ public:
         context_ = reinterpret_cast<__gm__ BatchContext*>(context) + coreIndex_;
         localBuffer_ = reinterpret_cast<GM_ADDR>(context_->localBuffer);
         sendOffset_ = SEND_BASE_OFFSET + static_cast<uint64_t>(coreIndex_) * DATA_SIZE;
-        receiveOffset_ = RECV_BASE_OFFSET + static_cast<uint64_t>(coreIndex_) * DATA_SIZE;
+        receiveOffset_ = context_->receiveOffset;
         pipe->InitBuffer(batchBuffer_, BATCH_BUFFER_SIZE);
         batchTensor_ = batchBuffer_.Get<uint8_t>();
     }
