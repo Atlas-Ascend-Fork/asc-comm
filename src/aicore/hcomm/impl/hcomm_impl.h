@@ -115,6 +115,14 @@ __aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(ChannelHandle channel, GM
 }
 
 template <CommProtocol commProtocol>
+template <auto const& config>
+__aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(
+    BatchHandleType& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len)
+{
+    return impl_.template ReadNbi<config>(batchHandle, dst, src, len);
+}
+
+template <CommProtocol commProtocol>
 template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::AtomicFAA(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T addVal)

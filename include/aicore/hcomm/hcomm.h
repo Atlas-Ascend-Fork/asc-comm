@@ -76,8 +76,8 @@ public:
      * @param [in] buffLen: The buffer length in bytes.
      * @return An initialized batch handle for commProtocol.
      * @note For UBC CTP, the protection token selected by dstBase is cached in the returned handle.
-     *       Subsequent batched writes do not read the remote registration table. buffLen must be smaller
-     *       than the SQ capacity in bytes.
+     *       Subsequent batched reads and writes do not read the remote registration table. buffLen must be
+     *       smaller than the SQ capacity in bytes.
      */
     __aicore__ inline BatchHandleType MakeBatchHandle(
         ChannelHandle channel, GM_ADDR dstBase, GM_ADDR srcBase, __ubuf__ uint8_t* buff, uint32_t buffLen);
@@ -92,8 +92,8 @@ public:
      * @param [in] buffLen: The buffer length in bytes.
      * @return An initialized batch handle for commProtocol.
      * @note For UBC CTP, the protection token selected by dstBase is cached in the returned handle.
-     *       Subsequent batched writes do not read the remote registration table. buffLen must be smaller
-     *       than the SQ capacity in bytes.
+     *       Subsequent batched reads and writes do not read the remote registration table. buffLen must be
+     *       smaller than the SQ capacity in bytes.
      */
     template <typename T>
     __aicore__ inline BatchHandleType MakeBatchHandle(
@@ -278,6 +278,21 @@ public:
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    /*!
+     * @brief Prepare a Read WQE in a protocol-specific batch handle.
+     * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     * @param [in,out] batchHandle: The batch handle to append the WQE to.
+     * @param [out] dst: The local destination address.
+     * @param [in] src: The remote source address.
+     * @param [in] len: The length of the data to read in bytes.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note The source range is not validated against the registration selected by MakeBatchHandle.
+     *       The caller must ensure that it is covered by the protection token cached in batchHandle.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t ReadNbi(
+        BatchHandleType& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
      * @class Hcomm
