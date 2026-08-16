@@ -46,10 +46,7 @@ constexpr uint64_t kBufferBytes = kSlotCount * kSlotBytes;
 #define HCOMM_SIMT_WRITE_DEVICE_FN
 #endif
 
-HCOMM_SIMT_WRITE_DEVICE_FN constexpr uint64_t SlotValue(uint32_t slot)
-{
-    return static_cast<uint64_t>(slot) + 1U;
-}
+HCOMM_SIMT_WRITE_DEVICE_FN constexpr uint64_t SlotValue(uint32_t slot) { return static_cast<uint64_t>(slot) + 1U; }
 
 // Ways of driving the SIMT write interfaces.
 constexpr uint32_t kModeSingle = 0U;    // one WriteNbi<commit=true>, single lane
@@ -75,8 +72,7 @@ constexpr uint32_t kWorkspaceAlign = 128U;
 
 constexpr uint32_t HcommWorkspaceBytes(uint32_t laneCount)
 {
-    return (((laneCount * (kWqeStagingBytes + kRemoteCacheBytes)) + kWorkspaceAlign - 1U) &
-            ~(kWorkspaceAlign - 1U)) +
+    return (((laneCount * (kWqeStagingBytes + kRemoteCacheBytes)) + kWorkspaceAlign - 1U) & ~(kWorkspaceAlign - 1U)) +
            kPostContextBytes;
 }
 

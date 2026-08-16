@@ -29,8 +29,7 @@ constexpr uint32_t kMultiLaneWorkspaceWords = HcommWorkspaceBytes(kMultiLaneCoun
 // Scenario 1: kSlotCount independent WriteNbi<commit=true> calls. Each post rings its own
 // doorbell, so nothing else is needed before Drain.
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteSingleVf(
-    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
-    __ubuf__ uint8_t* workspace, uint32_t workspaceBytes)
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* workspace, uint32_t workspaceBytes)
 {
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
@@ -53,8 +52,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteSingleVf(
 // batch, so the deferred WQEs are swept up together with it. No barrier is needed because a
 // single lane cannot observe its own WQEs half-written.
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteBatchLastVf(
-    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
-    __ubuf__ uint8_t* workspace, uint32_t workspaceBytes)
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* workspace, uint32_t workspaceBytes)
 {
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
@@ -87,8 +85,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteBatchLastVf(
 // Every lane in the block must call Init as well: with the full cached workspace layout the
 // block-shared post context is synchronized there.
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteMultiLaneVf(
-    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
-    __ubuf__ uint8_t* workspace, uint32_t workspaceBytes)
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* workspace, uint32_t workspaceBytes)
 {
     if (threadIdx.x >= kMultiLaneCount || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
@@ -200,15 +197,14 @@ extern "C" __global__ __vector__ void SimtWriteMultiLane(uint64_t channel, uint3
 {
     alignas(kWorkspaceAlign) __ubuf__ uint64_t workspace[kMultiLaneWorkspaceWords];
     asc_vf_call<SimtWriteMultiLaneVf>(
-        dim3(simt_write::kMultiLaneCount), channel, sendBufIdx, recvBufIdx,
-        (__ubuf__ uint8_t*)workspace, sizeof(workspace));
+        dim3(simt_write::kMultiLaneCount), channel, sendBufIdx, recvBufIdx, (__ubuf__ uint8_t*)workspace,
+        sizeof(workspace));
 }
 
 extern "C" __global__ __vector__ void SimtWriteValueSingle(uint64_t channel, uint32_t recvBufIdx)
 {
     alignas(kWorkspaceAlign) __ubuf__ uint64_t workspace[kSingleLaneWorkspaceWords];
-    asc_vf_call<SimtWriteValueSingleVf>(
-        dim3(1), channel, recvBufIdx, (__ubuf__ uint8_t*)workspace, sizeof(workspace));
+    asc_vf_call<SimtWriteValueSingleVf>(dim3(1), channel, recvBufIdx, (__ubuf__ uint8_t*)workspace, sizeof(workspace));
 }
 
 extern "C" __global__ __vector__ void SimtWriteValueBatchLast(uint64_t channel, uint32_t recvBufIdx)
