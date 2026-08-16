@@ -37,32 +37,6 @@ typedef struct {
     HcommBatchRemoteInfo remoteInfo;
 } AscCommChannelMetadata;
 
-static inline int AscCommIsSameEndpoint(const EndpointDesc* lhs, const EndpointDesc* rhs)
-{
-    return lhs->protocol == rhs->protocol && lhs->commAddr.type == rhs->commAddr.type &&
-           memcmp(lhs->commAddr.raws, rhs->commAddr.raws, sizeof(lhs->commAddr.raws)) == 0 &&
-           lhs->loc.locType == rhs->loc.locType && memcmp(lhs->loc.raws, rhs->loc.raws, sizeof(lhs->loc.raws)) == 0;
-}
-
-#ifndef ASC_COMM_BATCH_FROM_CHANNELS_ONLY
-static inline HcclResult AscCommValidateMultiChannelInputs(
-    HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
-    MultiChannelHandle* multiChannel)
-{
-    uint32_t i;
-    if (comm == NULL || sharedQueueTag == NULL || channelDescs == NULL || multiChannel == NULL || channelNum == 0U) {
-        fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
-        return HCCL_E_PARA;
-    }
-    for (i = 1U; i < channelNum; ++i) {
-        if (!AscCommIsSameEndpoint(&channelDescs[0].localEndpoint, &channelDescs[i].localEndpoint)) {
-            fprintf(stderr, "[ERROR] [%s] localEndpoint of channel[%u] does not match channel[0].\n", __func__, i);
-            return HCCL_E_PARA;
-        }
-    }
-    return HCCL_SUCCESS;
-}
-
 static inline HcclResult AscCommAcquireSharedChannels(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     ChannelHandle* channels)
@@ -98,7 +72,6 @@ static inline HcclResult AscCommAcquireSharedChannels(
     }
     return ret == HCCL_SUCCESS ? configRet : ret;
 }
-#endif
 
 static inline HcclResult AscCommCopyFromDevice(
     void* dst, size_t size, const void* src, uint32_t channelIndex, const char* dataName)
@@ -312,7 +285,6 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
 /**
  * @brief Create tagged shared-Jetty channels and a device-resident multi-channel handle.
  */
-#ifndef ASC_COMM_BATCH_FROM_CHANNELS_ONLY
 static inline HcclResult MakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
@@ -324,9 +296,9 @@ static inline HcclResult MakeMultiChannelHandle(
     if (multiChannel != NULL) {
         *multiChannel = 0U;
     }
-    ret = AscCommValidateMultiChannelInputs(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
-    if (ret != HCCL_SUCCESS) {
-        return ret;
+    if (comm == NULL || sharedQueueTag == NULL || channelDescs == NULL || multiChannel == NULL || channelNum == 0U) {
+        fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
+        return HCCL_E_PARA;
     }
 
     channels = (ChannelHandle*)calloc(channelNum, sizeof(ChannelHandle));
@@ -339,33 +311,6 @@ static inline HcclResult MakeMultiChannelHandle(
         ret = AscCommBuildMultiChannelEntity(channels, sharedQueueTag, channelNum, &deviceMemory);
     }
     free(channels);
-    if (ret != HCCL_SUCCESS) {
-        return ret;
-    }
-
-    *multiChannel = (MultiChannelHandle)(uintptr_t)deviceMemory;
-    return HCCL_SUCCESS;
-}
-#endif
-
-/**
- * @brief Build a device-resident multi-channel handle from caller-owned shared-Jetty channels.
- */
-static inline HcclResult MakeMultiChannelHandleFromChannels(
-    const ChannelHandle* channels, uint32_t channelNum, MultiChannelHandle* multiChannel)
-{
-    void* deviceMemory = NULL;
-    HcclResult ret;
-
-    if (multiChannel != NULL) {
-        *multiChannel = 0U;
-    }
-    if (channels == NULL || multiChannel == NULL || channelNum == 0U) {
-        fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
-        return HCCL_E_PARA;
-    }
-
-    ret = AscCommBuildMultiChannelEntity(channels, "hcomm", channelNum, &deviceMemory);
     if (ret != HCCL_SUCCESS) {
         return ret;
     }

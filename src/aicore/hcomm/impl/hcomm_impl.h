@@ -114,6 +114,13 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 }
 
 template <CommProtocol commProtocol>
+__aicore__ inline typename Hcomm<commProtocol>::BatchHandleType Hcomm<commProtocol>::MakeBatchHandle(
+    MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen)
+{
+    return impl_.MakeBatchHandle(multiChannel, buff, buffLen);
+}
+
+template <CommProtocol commProtocol>
 template <typename T>
 __aicore__ inline typename Hcomm<commProtocol>::BatchHandleType Hcomm<commProtocol>::MakeBatchHandle(
     MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)

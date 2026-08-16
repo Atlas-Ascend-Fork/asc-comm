@@ -345,6 +345,21 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(const LocalTens
     return HCOMM_SUCCESS;
 }
 
+__aicore__ inline BatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+    MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen)
+{
+    TBuffAddr addr{};
+    addr.logicPos = static_cast<uint8_t>(TPosition::VECOUT);
+    addr.bufferAddr = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(buff));
+    addr.dataLen = buffLen;
+#if defined(UT_TEST)
+    addr.absAddr = reinterpret_cast<uint8_t*>(buff);
+#endif
+    LocalTensor<uint8_t> tensor;
+    tensor.SetAddr(addr);
+    return MakeBatchHandle(multiChannel, tensor, buffLen);
+}
+
 template <typename T>
 __aicore__ inline BatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
     MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
