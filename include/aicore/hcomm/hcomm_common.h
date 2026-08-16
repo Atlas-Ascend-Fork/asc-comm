@@ -21,9 +21,6 @@ namespace AscendC {
 using ChannelHandle = uint64_t;
 using MultiChannelHandle = uint64_t;
 
-constexpr uint32_t HCOMM_MULTI_CHANNEL_VERSION = 1U;
-constexpr uint32_t HCOMM_MULTI_CHANNEL_MAGIC_WORD = 0x484D4348U;
-
 /** Per-channel transport information and a reference to its remote MR table. */
 struct HcommBatchRemoteInfo {
     uint64_t remoteBufferAddr;

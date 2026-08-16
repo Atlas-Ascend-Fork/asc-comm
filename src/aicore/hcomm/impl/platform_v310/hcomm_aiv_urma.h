@@ -34,17 +34,12 @@ typedef AscendC::HcommUrmaJfcCqeCtx HcommUrmaJfcCqeCtx;
 
 namespace AscendC {
 namespace {
-constexpr uint32_t HCOMM_URMA_BATCH_WQE_SIZE = 64U;
-constexpr uint32_t HCOMM_URMA_BATCH_CQE_SIZE = 64U;
-
 constexpr uint32_t HcommUrmaBatchAlignUp(uint32_t value)
 {
     return (value + HCOMM_URMA_BATCH_ALIGN_SIZE - 1U) & ~(HCOMM_URMA_BATCH_ALIGN_SIZE - 1U);
 }
 
 constexpr uint32_t HCOMM_URMA_BATCH_CQE_OFFSET = HcommUrmaBatchAlignUp(sizeof(HcommUrmaBatchState));
-constexpr uint32_t HCOMM_URMA_BATCH_WQE_OFFSET =
-    HcommUrmaBatchAlignUp(HCOMM_URMA_BATCH_CQE_OFFSET + HCOMM_URMA_BATCH_CQE_SIZE);
 
 __aicore__ inline __ubuf__ HcommUrmaBatchState* HcommUrmaGetBatchState(BatchHandle handle)
 {
@@ -345,12 +340,26 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(const LocalTens
     return HCOMM_SUCCESS;
 }
 
+__aicore__ inline BatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+    MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen)
+{
+    TBuffAddr addr{};
+    addr.logicPos = static_cast<uint8_t>(TPosition::VECOUT);
+    addr.bufferAddr = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(buff));
+    addr.dataLen = buffLen;
+#if defined(UT_TEST)
+    addr.absAddr = reinterpret_cast<uint8_t*>(buff);
+#endif
+    LocalTensor<uint8_t> tensor;
+    tensor.SetAddr(addr);
+    return MakeBatchHandle(multiChannel, tensor, buffLen);
+}
+
 template <typename T>
 __aicore__ inline BatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
     MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
 {
     BatchHandle invalidHandle{0U};
-    uint64_t tensorLen = static_cast<uint64_t>(buff.GetSize()) * sizeof(T);
     uint32_t position = static_cast<uint32_t>(buff.GetPosition());
 
     __ubuf__ uint8_t* rawBuffer = reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr());
@@ -360,16 +369,16 @@ __aicore__ inline BatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
     alignedBuffer += HCOMM_URMA_BATCH_ALIGN_SIZE;
 
     auto* multiChannelEntity = reinterpret_cast<__gm__ HcommMultiChannelEntity*>(multiChannel);
-    uint32_t channelNum = multiChannelEntity->channelNum;
-    uint64_t expectedSize =
-        sizeof(HcommMultiChannelEntity) + static_cast<uint64_t>(channelNum) * sizeof(HcommBatchRemoteInfo);
     uint32_t sqDepth = multiChannelEntity->sqContext.contextInfo.ubJfs.sqDepth;
+    uint32_t wqeSize = multiChannelEntity->sqContext.contextInfo.ubJfs.wqeSize;
+    uint32_t cqeSize = multiChannelEntity->cqContext.contextInfo.ubJfc.cqeSize;
+    uint32_t wqeOffset = HcommUrmaBatchAlignUp(HCOMM_URMA_BATCH_CQE_OFFSET + cqeSize);
     uint32_t sqHead = static_cast<uint32_t>(
         ld_dev(reinterpret_cast<__gm__ uint32_t*>(multiChannelEntity->sqContext.contextInfo.ubJfs.headAddr), 0));
     uint32_t cqHead = static_cast<uint32_t>(
         ld_dev(reinterpret_cast<__gm__ uint32_t*>(multiChannelEntity->cqContext.contextInfo.ubJfc.headAddr), 0));
     uint32_t reservedLen = alignOffset + HCOMM_URMA_BATCH_ALIGN_SIZE;
-    if (buffLen < reservedLen + HCOMM_URMA_BATCH_WQE_OFFSET + HCOMM_URMA_BATCH_WQE_SIZE) {
+    if (wqeSize == 0U || cqeSize == 0U || buffLen < reservedLen + wqeOffset + wqeSize) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA MakeBatchHandle failed with insufficient batch buffer\n");
         return invalidHandle;
     }
@@ -384,8 +393,10 @@ __aicore__ inline BatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
     state->pendingCompletionSqHead = sqHead;
     state->completionSqHead = sqHead;
     state->sqDepth = sqDepth;
+    state->wqeSize = wqeSize;
+    state->cqeSize = cqeSize;
     state->ubPosition = position;
-    state->capacityBb = (availableLen - HCOMM_URMA_BATCH_WQE_OFFSET) / HCOMM_URMA_BATCH_WQE_SIZE;
+    state->capacityBb = (availableLen - wqeOffset) / wqeSize;
     state->capacityBb = state->capacityBb > sqDepth ? sqDepth : state->capacityBb;
     return BatchHandle{reinterpret_cast<uint64_t>(state)};
 }
@@ -394,7 +405,6 @@ __aicore__ inline BatchHandleRef HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
     BatchHandle handle, uint32_t channelIndex)
 {
     __ubuf__ HcommUrmaBatchState* state = HcommUrmaGetBatchState(handle);
-    auto* multiChannelEntity = reinterpret_cast<__gm__ HcommMultiChannelEntity*>(state->multiChannelAddr);
     auto* channelInfos = reinterpret_cast<__gm__ HcommBatchRemoteInfo*>(
         state->multiChannelAddr + sizeof(HcommMultiChannelEntity));
     HcommBatchRemoteInfo remoteInfo{};
@@ -425,12 +435,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
                                  .bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
     uint32_t remoteTokenValue = remoteBuffers[static_cast<uint32_t>(remoteBufferIndex)]
                                     .bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    uint32_t wqeOffset = HcommUrmaBatchAlignUp(HCOMM_URMA_BATCH_CQE_OFFSET + state->cqeSize);
     __ubuf__ uint8_t* wqeAddress =
-        reinterpret_cast<__ubuf__ uint8_t*>(handleRef.stateAddr) + HCOMM_URMA_BATCH_WQE_OFFSET +
-        state->pendingBb * HCOMM_URMA_BATCH_WQE_SIZE;
+        reinterpret_cast<__ubuf__ uint8_t*>(handleRef.stateAddr) + wqeOffset + state->pendingBb * state->wqeSize;
     auto* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(wqeAddress);
     auto* wqeWords = reinterpret_cast<__ubuf__ uint32_t*>(wqeAddress);
-    for (uint32_t i = 0U; i < HCOMM_URMA_BATCH_WQE_SIZE / sizeof(uint32_t); ++i) {
+    for (uint32_t i = 0U; i < state->wqeSize / sizeof(uint32_t); ++i) {
         wqeWords[i] = 0U;
     }
 
@@ -481,11 +491,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(BatchHan
     uint32_t sqOffset = state->sqHead % state->sqDepth;
     uint32_t contiguousBb = state->sqDepth - sqOffset;
     uint32_t firstBb = state->pendingBb > contiguousBb ? contiguousBb : state->pendingBb;
-    uint32_t wordsPerWqe = HCOMM_URMA_BATCH_WQE_SIZE / sizeof(uint32_t);
+    uint32_t wordsPerWqe = state->wqeSize / sizeof(uint32_t);
+    uint32_t wqeOffset = HcommUrmaBatchAlignUp(HCOMM_URMA_BATCH_CQE_OFFSET + state->cqeSize);
     __ubuf__ uint8_t* wqeAddress =
-        reinterpret_cast<__ubuf__ uint8_t*>(handle.stateAddr) + HCOMM_URMA_BATCH_WQE_OFFSET;
+        reinterpret_cast<__ubuf__ uint8_t*>(handle.stateAddr) + wqeOffset;
     LocalTensor<uint32_t> wqeTensor =
-        HcommUrmaMakeUbTensor(wqeAddress, state->capacityBb * HCOMM_URMA_BATCH_WQE_SIZE, state->ubPosition);
+        HcommUrmaMakeUbTensor(wqeAddress, state->capacityBb * state->wqeSize, state->ubPosition);
     GlobalTensor<uint32_t> sqTensor;
     sqTensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(sqVa));
 
@@ -529,7 +540,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(BatchHandle ha
     __ubuf__ uint8_t* cqeAddress =
         reinterpret_cast<__ubuf__ uint8_t*>(handle.stateAddr) + HCOMM_URMA_BATCH_CQE_OFFSET;
     LocalTensor<uint32_t> cqeTensor =
-        HcommUrmaMakeUbTensor(cqeAddress, HCOMM_URMA_BATCH_CQE_SIZE, state->ubPosition);
+        HcommUrmaMakeUbTensor(cqeAddress, state->cqeSize, state->ubPosition);
     auto* cqe = reinterpret_cast<__ubuf__ HcommUrmaJfcCqeCtx*>(cqeAddress);
     GlobalTensor<uint32_t> cqTensor;
     cqTensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(cqVa));
@@ -540,8 +551,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(BatchHandle ha
         uint32_t cqOffset = curTail % cqDepth;
         Mutex::Lock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
         DataCopy(
-            cqeTensor, cqTensor[cqOffset * HCOMM_URMA_BATCH_CQE_SIZE / sizeof(uint32_t)],
-            HCOMM_URMA_BATCH_CQE_SIZE / sizeof(uint32_t));
+            cqeTensor, cqTensor[cqOffset * state->cqeSize / sizeof(uint32_t)],
+            state->cqeSize / sizeof(uint32_t));
         Mutex::Unlock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
         Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
         bool validOwner = (curTail / cqDepth) & 1U;
@@ -550,8 +561,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(BatchHandle ha
             Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
             Mutex::Lock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
             DataCopy(
-                cqeTensor, cqTensor[cqOffset * HCOMM_URMA_BATCH_CQE_SIZE / sizeof(uint32_t)],
-                HCOMM_URMA_BATCH_CQE_SIZE / sizeof(uint32_t));
+                cqeTensor, cqTensor[cqOffset * state->cqeSize / sizeof(uint32_t)],
+                state->cqeSize / sizeof(uint32_t));
             Mutex::Unlock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
             Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
             times++;

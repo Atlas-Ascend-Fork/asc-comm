@@ -255,6 +255,8 @@ typedef struct {
     uint8_t reserve[144];
 } ChannelEntity;
 
+static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
+
 // RoCE WQE, CQE, DB struct
 typedef struct {
     uint8_t ownerSl; // dw0[31:24]: owner(1) + ctrl_section_length(2) + csl(2) + difsl(3)

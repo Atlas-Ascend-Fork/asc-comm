@@ -67,6 +67,8 @@ struct HcommUrmaBatchState {
     uint32_t completionSqHead;        // Committed SQ head covered by the expected CQEs.
     uint32_t capacityBb;
     uint32_t sqDepth;
+    uint32_t wqeSize;
+    uint32_t cqeSize;
     uint32_t ubPosition;
 };
 
@@ -128,6 +130,8 @@ public:
     __aicore__ inline int32_t Commit(ChannelHandle channel);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
+    __aicore__ inline BatchHandle MakeBatchHandle(
+        MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen);
     template <typename T>
     __aicore__ inline BatchHandle MakeBatchHandle(
         MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen);
