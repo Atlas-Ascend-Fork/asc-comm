@@ -241,6 +241,17 @@ public:
      * @param [in] buff: UB buffer used to store batch state, CQE scratch space and WQEs.
      * @param [in] buffLen: Available UB buffer length in bytes.
      * @return A batch handle. stateAddr is zero when the parameters or shared queue are invalid.
+     */
+    __aicore__ inline BatchHandleType MakeBatchHandle(
+        MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen);
+
+    /*!
+     * @brief Create a multi-channel batch handle backed by a caller-provided LocalTensor.
+     * @tparam T: The element type of the LocalTensor.
+     * @param [in] multiChannel: Device address of shared SQ/CQ contexts and per-channel remote information.
+     * @param [in] buff: UB buffer used to store batch state, CQE scratch space and WQEs.
+     * @param [in] buffLen: Available UB buffer length in bytes.
+     * @return A batch handle. stateAddr is zero when the parameters or shared queue are invalid.
      * @note The first version supports COMM_PROTOCOL_UBC_CTP and one AICore accessing a batch handle serially.
      *       Do not mix batch operations with normal operations on the same shared Jetty.
      */

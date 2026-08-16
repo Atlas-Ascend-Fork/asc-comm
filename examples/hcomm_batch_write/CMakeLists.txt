@@ -39,9 +39,9 @@ add_executable(hcomm_batch_write
     hcomm_batch_write_kernel.cpp
 )
 
-target_include_directories(hcomm_batch_write BEFORE PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../include"
+target_include_directories(hcomm_batch_write PRIVATE
     "${ASCEND_CANN_PACKAGE_LINUX_PATH}/pkg_inc"
+    "${ASCEND_CANN_PACKAGE_LINUX_PATH}/include"
     "${ASCEND_CANN_PACKAGE_LINUX_PATH}/include/hcomm"
 )
 

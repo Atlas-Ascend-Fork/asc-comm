@@ -37,32 +37,6 @@ typedef struct {
     HcommBatchRemoteInfo remoteInfo;
 } AscCommChannelMetadata;
 
-static inline int AscCommIsSameEndpoint(const EndpointDesc* lhs, const EndpointDesc* rhs)
-{
-    return lhs->protocol == rhs->protocol && lhs->commAddr.type == rhs->commAddr.type &&
-           memcmp(lhs->commAddr.raws, rhs->commAddr.raws, sizeof(lhs->commAddr.raws)) == 0 &&
-           lhs->loc.locType == rhs->loc.locType && memcmp(lhs->loc.raws, rhs->loc.raws, sizeof(lhs->loc.raws)) == 0;
-}
-
-#ifndef ASC_COMM_BATCH_FROM_CHANNELS_ONLY
-static inline HcclResult AscCommValidateMultiChannelInputs(
-    HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
-    MultiChannelHandle* multiChannel)
-{
-    uint32_t i;
-    if (comm == NULL || sharedQueueTag == NULL || channelDescs == NULL || multiChannel == NULL || channelNum == 0U) {
-        fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
-        return HCCL_E_PARA;
-    }
-    for (i = 1U; i < channelNum; ++i) {
-        if (!AscCommIsSameEndpoint(&channelDescs[0].localEndpoint, &channelDescs[i].localEndpoint)) {
-            fprintf(stderr, "[ERROR] [%s] localEndpoint of channel[%u] does not match channel[0].\n", __func__, i);
-            return HCCL_E_PARA;
-        }
-    }
-    return HCCL_SUCCESS;
-}
-
 static inline HcclResult AscCommAcquireSharedChannels(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     ChannelHandle* channels)
@@ -98,7 +72,6 @@ static inline HcclResult AscCommAcquireSharedChannels(
     }
     return ret == HCCL_SUCCESS ? configRet : ret;
 }
-#endif
 
 static inline HcclResult AscCommCopyFromDevice(
     void* dst, size_t size, const void* src, uint32_t channelIndex, const char* dataName)
@@ -164,14 +137,11 @@ static inline HcclResult AscCommExtractChannelMetadata(
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
-
-    if (channelEntity.sqNum != 1U || channelEntity.cqNum != 1U || channelEntity.remoteBufferNum == 0U ||
-        channelEntity.sqContextAddr == NULL || channelEntity.cqContextAddr == NULL ||
-        channelEntity.remoteBufferAddr == NULL) {
+    if (channelEntity.sqContextAddr == NULL || channelEntity.cqContextAddr == NULL ||
+        channelEntity.remoteBufferAddr == NULL || channelEntity.remoteBufferNum == 0U) {
         fprintf(
-            stderr,
-            "[ERROR] [%s] channel[%u] has invalid resource counts, sqNum[%u], cqNum[%u], remoteBufferNum[%u].\n",
-            __func__, channelIndex, channelEntity.sqNum, channelEntity.cqNum, channelEntity.remoteBufferNum);
+            stderr, "[ERROR] [%s] channel[%u] has invalid SQ/CQ context or remote MR table.\n", __func__,
+            channelIndex);
         return HCCL_E_NOT_SUPPORT;
     }
 
@@ -185,21 +155,6 @@ static inline HcclResult AscCommExtractChannelMetadata(
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
-    if (metadata->sqContext.type != SQ_CONTEXT_TYPE_UB_JFS || metadata->cqContext.type != CQ_CONTEXT_TYPE_UB_JFC) {
-        fprintf(stderr, "[ERROR] [%s] channel[%u] is not a UB JFS/JFC channel.\n", __func__, channelIndex);
-        return HCCL_E_NOT_SUPPORT;
-    }
-    if (metadata->sqContext.contextInfo.ubJfs.sqVa == 0U || metadata->sqContext.contextInfo.ubJfs.headAddr == 0U ||
-        metadata->sqContext.contextInfo.ubJfs.tailAddr == 0U || metadata->sqContext.contextInfo.ubJfs.dbVa == 0U ||
-        metadata->sqContext.contextInfo.ubJfs.wqeSize != ASC_COMM_BATCH_WQE_SIZE ||
-        metadata->sqContext.contextInfo.ubJfs.sqDepth == 0U || metadata->cqContext.contextInfo.ubJfc.scqVa == 0U ||
-        metadata->cqContext.contextInfo.ubJfc.headAddr == 0U || metadata->cqContext.contextInfo.ubJfc.tailAddr == 0U ||
-        metadata->cqContext.contextInfo.ubJfc.dbVa == 0U ||
-        metadata->cqContext.contextInfo.ubJfc.cqeSize != ASC_COMM_BATCH_CQE_SIZE ||
-        metadata->cqContext.contextInfo.ubJfc.cqDepth == 0U) {
-        fprintf(stderr, "[ERROR] [%s] channel[%u] has invalid SQ/CQ metadata.\n", __func__, channelIndex);
-        return HCCL_E_INTERNAL;
-    }
 
     metadata->remoteInfo.remoteBufferAddr = (uint64_t)(uintptr_t)channelEntity.remoteBufferAddr;
     metadata->remoteInfo.remoteBufferNum = channelEntity.remoteBufferNum;
@@ -211,28 +166,6 @@ static inline HcclResult AscCommExtractChannelMetadata(
     AscCommDumpChannelEntity(sharedQueueTag, channel, channelIndex, &channelEntity, metadata);
 
     return HCCL_SUCCESS;
-}
-
-static inline int AscCommIsSameSharedSqContext(const SqContext* lhs, const SqContext* rhs)
-{
-    return lhs->type == rhs->type && lhs->contextInfo.ubJfs.sqVa == rhs->contextInfo.ubJfs.sqVa &&
-           lhs->contextInfo.ubJfs.headAddr == rhs->contextInfo.ubJfs.headAddr &&
-           lhs->contextInfo.ubJfs.tailAddr == rhs->contextInfo.ubJfs.tailAddr &&
-           lhs->contextInfo.ubJfs.dbVa == rhs->contextInfo.ubJfs.dbVa &&
-           lhs->contextInfo.ubJfs.jfsID == rhs->contextInfo.ubJfs.jfsID &&
-           lhs->contextInfo.ubJfs.wqeSize == rhs->contextInfo.ubJfs.wqeSize &&
-           lhs->contextInfo.ubJfs.sqDepth == rhs->contextInfo.ubJfs.sqDepth;
-}
-
-static inline int AscCommIsSameSharedCqContext(const CqContext* lhs, const CqContext* rhs)
-{
-    return lhs->type == rhs->type && lhs->contextInfo.ubJfc.scqVa == rhs->contextInfo.ubJfc.scqVa &&
-           lhs->contextInfo.ubJfc.headAddr == rhs->contextInfo.ubJfc.headAddr &&
-           lhs->contextInfo.ubJfc.tailAddr == rhs->contextInfo.ubJfc.tailAddr &&
-           lhs->contextInfo.ubJfc.dbVa == rhs->contextInfo.ubJfc.dbVa &&
-           lhs->contextInfo.ubJfc.jfcID == rhs->contextInfo.ubJfc.jfcID &&
-           lhs->contextInfo.ubJfc.cqeSize == rhs->contextInfo.ubJfc.cqeSize &&
-           lhs->contextInfo.ubJfc.cqDepth == rhs->contextInfo.ubJfc.cqDepth;
 }
 
 static inline HcclResult AscCommBuildMultiChannelEntity(
@@ -248,15 +181,7 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
     HcclResult ret = HCCL_SUCCESS;
     aclError aclRet;
 
-    if ((size_t)channelNum > (SIZE_MAX - sizeof(HcommMultiChannelEntity)) / sizeof(HcommBatchRemoteInfo)) {
-        fprintf(stderr, "[ERROR] [%s] multi-channel entity size overflow, channelNum[%u].\n", __func__, channelNum);
-        return HCCL_E_MEMORY;
-    }
     totalSize = sizeof(HcommMultiChannelEntity) + (size_t)channelNum * sizeof(HcommBatchRemoteInfo);
-    if (totalSize > UINT32_MAX) {
-        fprintf(stderr, "[ERROR] [%s] multi-channel entity exceeds ABI size, totalSize[%zu].\n", __func__, totalSize);
-        return HCCL_E_MEMORY;
-    }
 
     memset(&anchorMetadata, 0, sizeof(anchorMetadata));
     memset(&currentMetadata, 0, sizeof(currentMetadata));
@@ -275,12 +200,6 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
         }
         if (i == 0U) {
             anchorMetadata = currentMetadata;
-        } else if (
-            !AscCommIsSameSharedSqContext(&anchorMetadata.sqContext, &currentMetadata.sqContext) ||
-            !AscCommIsSameSharedCqContext(&anchorMetadata.cqContext, &currentMetadata.cqContext)) {
-            fprintf(stderr, "[ERROR] [%s] channel[%u] does not use the shared SQ/CQ.\n", __func__, i);
-            free(hostMemory);
-            return HCCL_E_PARA;
         }
         channelInfos[i] = currentMetadata.remoteInfo;
     }
@@ -312,7 +231,6 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
 /**
  * @brief Create tagged shared-Jetty channels and a device-resident multi-channel handle.
  */
-#ifndef ASC_COMM_BATCH_FROM_CHANNELS_ONLY
 static inline HcclResult MakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
@@ -324,9 +242,9 @@ static inline HcclResult MakeMultiChannelHandle(
     if (multiChannel != NULL) {
         *multiChannel = 0U;
     }
-    ret = AscCommValidateMultiChannelInputs(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
-    if (ret != HCCL_SUCCESS) {
-        return ret;
+    if (comm == NULL || sharedQueueTag == NULL || channelDescs == NULL || multiChannel == NULL || channelNum == 0U) {
+        fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
+        return HCCL_E_PARA;
     }
 
     channels = (ChannelHandle*)calloc(channelNum, sizeof(ChannelHandle));
@@ -339,33 +257,6 @@ static inline HcclResult MakeMultiChannelHandle(
         ret = AscCommBuildMultiChannelEntity(channels, sharedQueueTag, channelNum, &deviceMemory);
     }
     free(channels);
-    if (ret != HCCL_SUCCESS) {
-        return ret;
-    }
-
-    *multiChannel = (MultiChannelHandle)(uintptr_t)deviceMemory;
-    return HCCL_SUCCESS;
-}
-#endif
-
-/**
- * @brief Build a device-resident multi-channel handle from caller-owned shared-Jetty channels.
- */
-static inline HcclResult MakeMultiChannelHandleFromChannels(
-    const ChannelHandle* channels, uint32_t channelNum, MultiChannelHandle* multiChannel)
-{
-    void* deviceMemory = NULL;
-    HcclResult ret;
-
-    if (multiChannel != NULL) {
-        *multiChannel = 0U;
-    }
-    if (channels == NULL || multiChannel == NULL || channelNum == 0U) {
-        fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
-        return HCCL_E_PARA;
-    }
-
-    ret = AscCommBuildMultiChannelEntity(channels, "hcomm", channelNum, &deviceMemory);
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
