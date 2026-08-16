@@ -57,19 +57,6 @@ struct UdmaParams {
     uint32_t reduceOpcode;
 };
 
-struct HcommUrmaBatchState {
-    uint64_t multiChannelAddr;
-    uint32_t sqHead;
-    uint32_t cqHead;
-    uint32_t pendingBb;
-    uint32_t pendingCqe;
-    uint32_t pendingCompletionSqHead; // SQ head covered by the last pending CQE.
-    uint32_t completionSqHead;        // Committed SQ head covered by the expected CQEs.
-    uint32_t capacityBb;
-    uint32_t sqDepth;
-    uint32_t ubPosition;
-};
-
 enum class HcommUrmaOpCode : uint32_t {
     SEND = 0U,
     SEND_WITH_IMM,
@@ -128,18 +115,20 @@ public:
     __aicore__ inline int32_t Commit(ChannelHandle channel);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
+    __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
+        MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen);
     template <typename T>
-    __aicore__ inline BatchHandle MakeBatchHandle(
+    __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
         MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen);
-    __aicore__ inline BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t channelIndex);
+    __aicore__ inline UbcCtpBatchHandleRef GetHandleRef(UbcCtpBatchHandle& handle, uint32_t channelIndex);
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteNbi(BatchHandleRef handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t WriteNbi(UbcCtpBatchHandleRef& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t BatchCommit(BatchHandle handle);
+    __aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& handle);
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t Drain(BatchHandle handle);
+    __aicore__ inline int32_t Drain(UbcCtpBatchHandle& handle);
 
 private:
     template <

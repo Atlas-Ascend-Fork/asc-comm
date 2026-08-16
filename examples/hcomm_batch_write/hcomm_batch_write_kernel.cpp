@@ -24,6 +24,10 @@ constexpr AscendC::UrmaWqeEntry NO_CQE_CONFIG = {
 };
 
 class KernelHcommBatchWrite {
+    using HcommType = AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP>;
+    using BatchHandleType = typename HcommType::BatchHandleType;
+    using BatchHandleRefType = typename HcommType::BatchHandleRefType;
+
 public:
     __aicore__ inline void Init(GM_ADDR context, AscendC::TPipe* pipe)
     {
@@ -42,8 +46,8 @@ public:
         context_->hcommResult = AscendC::HCOMM_SUCCESS;
         context_->startCycles = 0U;
         context_->endCycles = 0U;
-        AscendC::BatchHandle batch = hcomm_.MakeBatchHandle(context_->multiChannel, batchTensor_, BATCH_BUFFER_SIZE);
-        if (batch.stateAddr == 0U) {
+        auto batch = hcomm_.MakeBatchHandle(context_->multiChannel, batchTensor_, BATCH_BUFFER_SIZE);
+        if (!batch.IsValid()) {
             context_->result = KERNEL_MAKE_BATCH_HANDLE_FAILED;
             return;
         }
@@ -52,7 +56,7 @@ public:
             uint32_t channelIndex = (channelSlot + coreIndex_) % context_->channelNum;
             channels_[channelSlot] = hcomm_.GetHandleRef(batch, channelIndex);
             remoteBuffers_[channelSlot] = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
-            if (channels_[channelSlot].stateAddr == 0U) {
+            if (!channels_[channelSlot].IsValid()) {
                 context_->result = KERNEL_GET_HANDLE_REF_FAILED;
                 return;
             }
@@ -75,7 +79,7 @@ public:
     }
 
 private:
-    __aicore__ inline bool RunBatch(AscendC::BatchHandle batch)
+    __aicore__ inline bool RunBatch(BatchHandleType& batch)
     {
         for (uint32_t writeIndex = 0U; writeIndex < WRITES_PER_CHANNEL_PER_BATCH; ++writeIndex) {
             for (uint32_t channelSlot = 0U; channelSlot < context_->channelNum; ++channelSlot) {
@@ -110,8 +114,8 @@ private:
 
     AscendC::TBuf<AscendC::TPosition::VECOUT> batchBuffer_;
     AscendC::LocalTensor<uint8_t> batchTensor_;
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm_;
-    AscendC::BatchHandleRef channels_[MAX_CHANNEL_NUM];
+    HcommType hcomm_;
+    BatchHandleRefType channels_[MAX_CHANNEL_NUM];
     GM_ADDR remoteBuffers_[MAX_CHANNEL_NUM];
     __gm__ BatchContext* context_{nullptr};
     GM_ADDR localBuffer_{nullptr};

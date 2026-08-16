@@ -28,6 +28,9 @@ namespace AscendC {
 template <CommProtocol commProtocol>
 class HcommImpl {
 public:
+    using BatchHandleType = typename BatchHandleTraits<commProtocol>::Type;
+    using BatchHandleRefType = typename BatchHandleTraits<commProtocol>::RefType;
+
     __aicore__ inline HcommImpl(){};
     __aicore__ inline ~HcommImpl(){};
     __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len)
@@ -98,34 +101,40 @@ public:
         return HCOMM_FAILED;
     }
 
-    template <typename T>
-    __aicore__ inline BatchHandle MakeBatchHandle(
-        MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
+    __aicore__ inline BatchHandleType MakeBatchHandle(
+        MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen)
     {
-        return BatchHandle{0U};
+        return {};
     }
 
-    __aicore__ inline BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t channelIndex)
+    template <typename T>
+    __aicore__ inline BatchHandleType MakeBatchHandle(
+        MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
     {
-        return BatchHandleRef{};
+        return {};
+    }
+
+    __aicore__ inline BatchHandleRefType GetHandleRef(BatchHandleType& handle, uint32_t channelIndex)
+    {
+        return {};
     }
 
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteNbi(BatchHandleRef handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
+    __aicore__ inline int32_t WriteNbi(BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
     {
         return HCOMM_FAILED;
     }
 
     template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t BatchCommit(BatchHandle handle)
+    __aicore__ inline int32_t BatchCommit(BatchHandleType& handle)
     {
         return HCOMM_FAILED;
     }
 
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t Drain(BatchHandle handle)
+    __aicore__ inline int32_t Drain(BatchHandleType& handle)
     {
         return HCOMM_FAILED;
     }

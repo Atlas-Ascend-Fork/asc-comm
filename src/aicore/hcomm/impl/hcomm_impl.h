@@ -114,6 +114,13 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 }
 
 template <CommProtocol commProtocol>
+__aicore__ inline typename Hcomm<commProtocol>::BatchHandleType Hcomm<commProtocol>::MakeBatchHandle(
+    MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen)
+{
+    return impl_.MakeBatchHandle(multiChannel, buff, buffLen);
+}
+
+template <CommProtocol commProtocol>
 template <typename T>
 __aicore__ inline typename Hcomm<commProtocol>::BatchHandleType Hcomm<commProtocol>::MakeBatchHandle(
     MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
@@ -123,7 +130,7 @@ __aicore__ inline typename Hcomm<commProtocol>::BatchHandleType Hcomm<commProtoc
 
 template <CommProtocol commProtocol>
 __aicore__ inline typename Hcomm<commProtocol>::BatchHandleRefType Hcomm<commProtocol>::GetHandleRef(
-    BatchHandleType handle, uint32_t channelIndex)
+    BatchHandleType& handle, uint32_t channelIndex)
 {
     return impl_.GetHandleRef(handle, channelIndex);
 }
@@ -131,21 +138,21 @@ __aicore__ inline typename Hcomm<commProtocol>::BatchHandleRefType Hcomm<commPro
 template <CommProtocol commProtocol>
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(
-    BatchHandleRefType handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
+    BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     return impl_.template WriteNbi<commit, commitPipe, reqPipe, config>(handleRef, dst, src, len);
 }
 
 template <CommProtocol commProtocol>
 template <pipe_t pipe>
-__aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(BatchHandleType handle)
+__aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(BatchHandleType& handle)
 {
     return impl_.template BatchCommit<pipe>(handle);
 }
 
 template <CommProtocol commProtocol>
 template <pipe_t pipe>
-__aicore__ inline int32_t Hcomm<commProtocol>::Drain(BatchHandleType handle)
+__aicore__ inline int32_t Hcomm<commProtocol>::Drain(BatchHandleType& handle)
 {
     return impl_.template Drain<pipe>(handle);
 }

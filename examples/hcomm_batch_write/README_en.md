@@ -3,7 +3,7 @@
 This sample validates AIV `WriteNbi` WQEs targeting different peers, grouped by local
 `EndpointDesc.commAddr.raws`, and submitted to each group's shared SQ by one `BatchCommit`.
 
-The optional `rank_size` argument selects the number of local ranks and NPUs; it defaults to two. Rank 0 selects a
+The optional `rank_size` argument selects the number of local ranks and NPUs; it defaults to eight. Rank 0 selects a
 `COMM_PROTOCOL_UBC_CTP` link to ranks 1 through N-1 and groups links with identical local `commAddr.raws`. Other
 ranks only create a link to rank 0. Each group receives one `MultiChannelHandle` and a distinct `sharedQueueTag`.
 The Host helper stores one shared `SqContext/CqContext` pair and one remote record per channel, preserving the input
