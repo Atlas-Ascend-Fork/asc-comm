@@ -1,12 +1,12 @@
 # SIMT Notify/FAA/CAS 基础性能用例
 
-本目录只保留三个相互独立的性能用例：`Notify`、`FAA` 和 `CAS`。t1 每个 WQE 使用
-`commit=true`；多 lane 使用一次合法的协作提交，不包含阶段打点。
+本目录只测试`Notify`、`FAA`和`CAS`三个接口。Immediate模式下，t1的每个WQE使用
+`commit=true`；多lane按轮次协作预留和发布WQE，不包含阶段打点。
 
 当不超过 32 个 lane 同时对同一 channel 执行 `commit=true` 时，Hcomm 会在接口内部自动合并
 同一 warp 的 SQ 预留和 DWQE 发布：一个 lane 原子预留整组 SQ 空间，各 lane 并行填写自己的
-WQE，最后一个有效 lane 发布整组。t1024 超过单 warp 范围，因此显式调用 `ReserveDwqeBatch`：
-非发布 lane 以 `commit=false` 写 SQ，block 同步后仅由 lane 0 以 `commit=true` 写一次 DWQE。
+WQE，最后一个有效lane发布该组。t1024超过单warp范围，因此每组显式调用`ReserveDwqeBatch`：
+非发布lane以`commit=false`写SQ，block同步后仅由lane 0以`commit=true`发布该组。
 
 当前性能 kernel 在计时开始前调用原有的 `Hcomm::Init(workspace, len)`。Hcomm 在不透明 UB
 workspace 内自动为每个 lane 分配 128B WQE slot 和 32B 远端注册信息/token cache，并初始化所有

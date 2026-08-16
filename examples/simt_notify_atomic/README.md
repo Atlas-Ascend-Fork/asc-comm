@@ -1,6 +1,7 @@
 # SIMT Notify/FAA/CAS样例
 
-本样例用于验证SIMT URMA路径下的`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`接口。rank 0负责提交通信操作，rank 1负责校验远端执行结果。
+本样例用于验证SIMT URMA路径下的`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`接口。rank 0负责
+提交通信操作并校验本地fetch值和`Drain`状态，rank 1负责校验远端执行结果。
 
 ## 测试模式
 
@@ -11,23 +12,12 @@
 - `batch_last`：Notify和FAA使用`commit=false`延迟提交，最后通过`commit=true`的CAS提交整个批次。
 - `multi_lane`：三个lane分别延迟提交Notify、FAA和CAS；同步后由lane 0追加一次Notify并提交整个批次。
 - `notify_immediate_repeat`：单lane连续提交100个`WriteWithNotifyNbi<true>`，每个WQE立即敲DB，最后统一调用一次`Drain`；用于覆盖连续立即提交场景。
-
-## 准备开发验证环境
-
-样例编译时使用已安装到CANN目录的asc-comm头文件。先在仓库根目录生成并安装开发验证run包：
-
-```bash
-source /usr/local/Ascend/cann/set_env.sh
-bash build.sh --pkg
-./build_out/Ascend-asccomm_1.0.0_linux-<arch>.run --full
-```
-
-如果需要指定CANN目录，可增加`--install-path=/path/to/cann`。完整参数参见
-[`docs/zh/guide/build_and_test.md`](../../docs/zh/guide/build_and_test.md)。
+- `warp_immediate`：三个lane在同一调用点分别执行一次立即提交，覆盖单warp协作预留和发布路径。
 
 ## 编译
 
 ```bash
+source /usr/local/Ascend/cann/set_env.sh
 cd examples/simt_notify_atomic
 bash build.sh
 ```
