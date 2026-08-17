@@ -18,6 +18,11 @@ PACKAGE_MANIFEST="${SOURCE_DIR}/manifest.sha256"
 PACKAGE_INFO="${SOURCE_DIR}/version.info"
 
 ACTION=""
+if [[ $(id -u) -eq 0 ]]; then
+    INSTALL_FOR_ALL=true
+else
+    INSTALL_FOR_ALL=false
+fi
 INSTALL_PATH=${ASCEND_HOME_PATH:-}
 FORCE=false
 CANN_ROOT=""
@@ -187,6 +192,57 @@ is_allowed_directory_path()
     [[ "${path}" != /* && "${path}" != *"/../"* && "${path}" != *"/.." && \
         "${path}" != ../* && "${path}" != *"/./"* && "${path}" != *"/." && \
         "${path}" != *"//"* && "${path}" != *$'\t'* ]]
+}
+
+effective_install_mode()
+{
+    local mode=$1
+
+    if [[ "${INSTALL_FOR_ALL}" == true ]]; then
+        printf '%s%s\n' "${mode:0:2}" "${mode:1:1}"
+    else
+        echo "${mode}"
+    fi
+}
+
+payload_file_mode()
+{
+    local path=$1
+    local mode
+
+    case "${path}" in
+        asc/include/adv_api/*|asc/impl/adv_api/detail/*)
+            mode=550
+            ;;
+        aarch64-linux/include/hcomm/*|x86_64-linux/include/hcomm/*|\
+        aarch64-linux/lib64/*|x86_64-linux/lib64/*)
+            mode=440
+            ;;
+        *)
+            fail "cannot determine file permission for managed path: ${path}"
+            ;;
+    esac
+    effective_install_mode "${mode}"
+}
+
+managed_directory_mode()
+{
+    local path=$1
+    local mode
+
+    case "${path}" in
+        asc/include/adv_api/*|asc/impl/adv_api/detail/*)
+            mode=750
+            ;;
+        aarch64-linux/include/hcomm|aarch64-linux/include/hcomm/*|aarch64-linux/lib64|\
+        x86_64-linux/include/hcomm|x86_64-linux/include/hcomm/*|x86_64-linux/lib64)
+            mode=550
+            ;;
+        *)
+            fail "cannot determine directory permission for managed path: ${path}"
+            ;;
+    esac
+    effective_install_mode "${mode}"
 }
 
 collect_managed_directories()
@@ -436,6 +492,24 @@ apply_directory_modes()
     local directories_file=$1
     local path
     local target
+    local mode
+
+    while IFS= read -r path; do
+        is_allowed_directory_path "${path}" || fail "unsafe managed directory path: ${path}"
+        target="${CANN_ROOT}/${path}"
+        check_target_parent "${target}"
+        if [[ -d "${target}" && ! -L "${target}" ]] && ! directory_path_has_symlink "${path}"; then
+            mode=$(managed_directory_mode "${path}")
+            chmod "${mode}" "${target}"
+        fi
+    done < "${directories_file}"
+}
+
+prepare_directories_for_install()
+{
+    local directories_file=$1
+    local path
+    local target
 
     while IFS= read -r path; do
         is_allowed_directory_path "${path}" || fail "unsafe managed directory path: ${path}"
@@ -523,6 +597,7 @@ snapshot_transaction()
     done < "${paths_file}"
 
     record_directory_modes "${directories_file}" "${TRANSACTION_DIR}/directories.tsv"
+    install -m 600 "${directories_file}" "${TRANSACTION_DIR}/managed.directories"
 
     MUTATION_STARTED=true
 }
@@ -534,6 +609,9 @@ rollback_transaction()
     local target
 
     set +e
+    if [[ -f "${TRANSACTION_DIR}/managed.directories" ]]; then
+        prepare_directories_for_install "${TRANSACTION_DIR}/managed.directories"
+    fi
     if [[ -f "${TRANSACTION_DIR}/targets.tsv" ]]; then
         while IFS=$'\t' read -r status path; do
             target="${CANN_ROOT}/${path}"
@@ -547,6 +625,11 @@ rollback_transaction()
         done < "${TRANSACTION_DIR}/targets.tsv"
     fi
 
+    if [[ -f "${TRANSACTION_DIR}/managed.directories" ]]; then
+        remove_new_empty_directories \
+            "${TRANSACTION_DIR}/managed.directories" \
+            "${TRANSACTION_DIR}/directories.tsv"
+    fi
     restore_directory_modes "${TRANSACTION_DIR}/directories.tsv"
 
     rm -rf -- "${STATE_DIR}"
@@ -638,14 +721,16 @@ install_payload()
     local directories_file=$2
     local path
     local target
+    local mode
 
-    apply_directory_modes "${directories_file}"
+    prepare_directories_for_install "${directories_file}"
     while IFS= read -r path; do
         [[ -f "${PAYLOAD_DIR}/${path}" && ! -L "${PAYLOAD_DIR}/${path}" ]] || \
             fail "payload file is missing or invalid: ${path}"
         target="${CANN_ROOT}/${path}"
         check_regular_target "${target}"
-        install -D -m 550 "${PAYLOAD_DIR}/${path}" "${target}"
+        mode=$(payload_file_mode "${path}")
+        install -D -m "${mode}" "${PAYLOAD_DIR}/${path}" "${target}"
     done < "${paths_file}"
 
     apply_directory_modes "${directories_file}"
@@ -700,6 +785,9 @@ install_patch()
     collect_managed_directories "${touched_paths}" "${touched_directories}"
     validate_target_paths "${touched_paths}"
     snapshot_transaction "${touched_paths}" "${touched_directories}"
+    if [[ -s "${active_paths}" ]]; then
+        prepare_directories_for_install "${touched_directories}"
+    fi
     restore_baseline "${active_paths}"
     remove_new_empty_directories "${touched_directories}" "${directory_manifest}"
     restore_directory_modes "${directory_manifest}" || fail "failed to restore original directory permissions"
@@ -771,6 +859,7 @@ uninstall_patch()
     collect_managed_directories "${touched_paths}" "${touched_directories}"
     validate_target_paths "${touched_paths}"
     snapshot_transaction "${touched_paths}" "${touched_directories}"
+    prepare_directories_for_install "${touched_directories}"
     restore_baseline "${active_paths}"
     remove_new_empty_directories "${touched_directories}" "${directory_manifest}"
     restore_directory_modes "${directory_manifest}" || fail "failed to restore original directory permissions"

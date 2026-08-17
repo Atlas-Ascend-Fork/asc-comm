@@ -121,13 +121,14 @@ copy_headers()
 {
     local source_root=$1
     local destination_root=$2
+    local mode=$3
     local source_file
     local relative_path
     local count=0
 
     while IFS= read -r -d '' source_file; do
         relative_path=${source_file#"${source_root}/"}
-        install -D -m 550 "${source_file}" "${destination_root}/${relative_path}"
+        install -D -m "${mode}" "${source_file}" "${destination_root}/${relative_path}"
         count=$((count + 1))
     done < <(find "${source_root}" -type f -name '*.h' -print0 | sort -z)
 
@@ -195,13 +196,16 @@ build_package()
     # Match the Hcomm layout installed by asc-devkit's asc-comm integration.
     copy_headers \
         "${PROJECT_ROOT}/include/aicore/hcomm" \
-        "${STAGING_DIR}/payload/asc/include/adv_api/hcomm"
+        "${STAGING_DIR}/payload/asc/include/adv_api/hcomm" \
+        550
     copy_headers \
         "${PROJECT_ROOT}/src/aicore/hcomm" \
-        "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm"
+        "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm" \
+        550
     copy_headers \
         "${PROJECT_ROOT}/include/hcomm" \
-        "${STAGING_DIR}/payload/${arch}-linux/include/hcomm"
+        "${STAGING_DIR}/payload/${arch}-linux/include/hcomm" \
+        440
 
     write_manifest
     write_version_info "${arch}" "${required_version}"
