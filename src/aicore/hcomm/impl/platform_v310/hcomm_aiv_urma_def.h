@@ -33,6 +33,9 @@ constexpr uint32_t HCOMM_URMA_WQE_U32_NUM = 32;
 constexpr uint32_t HCOMM_URMA_CQE_U32_NUM = 16;
 constexpr uint32_t HCOMM_URMA_UDF_FLAG = 0x80U;
 constexpr uint32_t HCOMM_URMA_WQEBB_SIZE = 64U;
+constexpr uint32_t HCOMM_URMA_WQEBB_U32_NUM = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
+constexpr uint32_t HCOMM_URMA_SQE_CTX_U32_NUM = sizeof(HcommUrmaSqeCtx) / sizeof(uint32_t);
+constexpr uint32_t HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM = 2U;
 constexpr uint32_t HCOMM_URMA_BATCH_MIN_BUF_SIZE = HCOMM_URMA_WQEBB_SIZE;
 
 constexpr uint32_t HCOMM_URMA_INVALID_REDUCE_DATA_TYPE = 0xFFFFFFFFU;

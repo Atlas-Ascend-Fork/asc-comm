@@ -255,7 +255,7 @@ typedef struct {
     uint64_t remoteEidHigh;
     uint64_t cqBaseAddr;
     uint64_t cqDbAddr;
-    uint32_t wqeBufferLen;
+    uint32_t wqeBufferWqebbCapacity;
     uint32_t remoteTokenId;
     uint32_t remoteTokenValue;
     uint32_t preparedWqebbCount;
