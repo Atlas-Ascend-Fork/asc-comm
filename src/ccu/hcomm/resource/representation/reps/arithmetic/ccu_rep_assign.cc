@@ -13,7 +13,7 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 void CcuRepAssign::SetCommonInfo()
@@ -54,7 +54,7 @@ CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable& varB,
 
 bool CcuRepAssign::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
-    hcomm::CheckCcuNotNull(instr, "[CcuRepAssign::Translate] instr is nullptr!");
+    asccomm::CheckCcuNotNull(instr, "[CcuRepAssign::Translate] instr is nullptr!");
     this->instrId = instrId;
     translated = true;
 
@@ -78,22 +78,22 @@ std::string CcuRepAssign::Describe()
 {
     switch (subType) {
         case AssignSubType::IMD_TO_VARIABLE: {
-            return hcomm::FormatCcuMessage("Variable[%u] = Value[%lu]", varA.Id(), immediate);
+            return asccomm::FormatCcuMessage("Variable[%u] = Value[%lu]", varA.Id(), immediate);
         }
         case AssignSubType::IMD_TO_ADDR: {
-            return hcomm::FormatCcuMessage("Address[%u] = Value[%lu]", addrA.Id(), immediate);
+            return asccomm::FormatCcuMessage("Address[%u] = Value[%lu]", addrA.Id(), immediate);
         }
         case AssignSubType::VAR_TO_ADDR: {
-            return hcomm::FormatCcuMessage("Address[%u] = Variable[%u]", addrA.Id(), varA.Id());
+            return asccomm::FormatCcuMessage("Address[%u] = Variable[%u]", addrA.Id(), varA.Id());
         }
         case AssignSubType::ADDR_TO_ADDR: {
-            return hcomm::FormatCcuMessage("Address[%u] = Address[%u]", addrB.Id(), addrA.Id());
+            return asccomm::FormatCcuMessage("Address[%u] = Address[%u]", addrB.Id(), addrA.Id());
         }
         case AssignSubType::VAR_TO_VAR: {
-            return hcomm::FormatCcuMessage("Var[%u] = Var[%u]", varB.Id(), varA.Id());
+            return asccomm::FormatCcuMessage("Var[%u] = Var[%u]", varB.Id(), varA.Id());
         }
         default: {
-            return hcomm::FormatCcuMessage("Invalid Assign");
+            return asccomm::FormatCcuMessage("Invalid Assign");
         }
     }
 }
@@ -110,4 +110,4 @@ uint64_t CcuRepAssign::GetImmed() { return immediate; }
 
 AssignSubType CcuRepAssign::GetSubType() { return subType; }
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

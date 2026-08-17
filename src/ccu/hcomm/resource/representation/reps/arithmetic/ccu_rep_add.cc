@@ -13,7 +13,7 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 void CcuRepAdd::SetCommonInfo()
@@ -125,7 +125,7 @@ void CcuRepAdd::ValidateInsGenPtrForAdd()
 bool CcuRepAdd::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
     ValidateInsGenPtrForAdd();
-    hcomm::CheckCcuNotNull(instr, "[CcuRepAdd::Translate] instr is nullptr!");
+    asccomm::CheckCcuNotNull(instr, "[CcuRepAdd::Translate] instr is nullptr!");
     this->instrId = instrId;
     translated = true;
 
@@ -147,43 +147,43 @@ std::string CcuRepAdd::Describe()
 {
     switch (subType) {
         case AddSubType::ADDR_PLUS_VAR_TO_ADDR: {
-            return hcomm::FormatCcuMessage("Address[%u] = Address[%u] + Variable[%u]", addrC.Id(), addrA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Address[%u] = Address[%u] + Variable[%u]", addrC.Id(), addrA.Id(), varB.Id());
         }
         case AddSubType::ADDR_PLUS_ADDR_TO_ADDR: {
-            return hcomm::FormatCcuMessage("Address[%u] = Address[%u] + Address[%u]", addrC.Id(), addrA.Id(), addrB.Id());
+            return asccomm::FormatCcuMessage("Address[%u] = Address[%u] + Address[%u]", addrC.Id(), addrA.Id(), addrB.Id());
         }
         case AddSubType::VAR_PLUS_VAR_TO_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = Variable[%u] + Variable[%u]", varC.Id(), varA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] + Variable[%u]", varC.Id(), varA.Id(), varB.Id());
         }
         case AddSubType::SELF_ADD_ADDRESS: {
-            return hcomm::FormatCcuMessage("Address[%u] += Variable[%u]", addrA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Address[%u] += Variable[%u]", addrA.Id(), varB.Id());
         }
         case AddSubType::SELF_ADD_VARIABLE: {
-            return hcomm::FormatCcuMessage("Variable[%u] += Variable[%u]", varA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Variable[%u] += Variable[%u]", varA.Id(), varB.Id());
         }
         case AddSubType::SELF_ADD_IMMED_VARIABLE: {
-            return hcomm::FormatCcuMessage("Variable[%u] += Immed[%u]", varA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Variable[%u] += Immed[%u]", varA.Id(), immedB);
         }
         case AddSubType::VAR_PLUS_IMMED_TO_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = Variable[%u] + Immed[%u]", varC.Id(), varA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] + Immed[%u]", varC.Id(), varA.Id(), immedB);
         }
         case AddSubType::ADDR_PLUS_IMMED_TO_ADDR: {
-            return hcomm::FormatCcuMessage("Address[%u] += Address[%u] + Immed[%hu]", addrC.Id(), addrA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Address[%u] += Address[%u] + Immed[%hu]", addrC.Id(), addrA.Id(), immedB);
         }
         case AddSubType::VAR_PLUS_VAR_TO_ADDR: {
-            return hcomm::FormatCcuMessage("Address[%u] = Variable[%u] + Variable[%u]", addrC.Id(), varA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Address[%u] = Variable[%u] + Variable[%u]", addrC.Id(), varA.Id(), varB.Id());
         }
         case AddSubType::SELF_ADD_IMMED_ADDRESS: {
-            return hcomm::FormatCcuMessage("Address[%u] += Immed[%u]", addrA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Address[%u] += Immed[%u]", addrA.Id(), immedB);
         }
         case AddSubType::VAR_PLUS_IMMED_TO_ADDR: {
-            return hcomm::FormatCcuMessage("Address[%u] += varA[%u] + Immed[%hu]", addrC.Id(), varA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Address[%u] += varA[%u] + Immed[%hu]", addrC.Id(), varA.Id(), immedB);
         }
         case AddSubType::ADDR_PLUS_IMMED_TO_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = Address[%u] + Immed[%u]", varC.Id(), addrA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Variable[%u] = Address[%u] + Immed[%u]", varC.Id(), addrA.Id(), immedB);
         }
         default: {
-            return hcomm::FormatCcuMessage("Invalid Add");
+            return asccomm::FormatCcuMessage("Invalid Add");
         }
     }
 }
@@ -204,4 +204,4 @@ uint16_t CcuRepAdd::GetImmedB() { return immedB; }
 
 AddSubType CcuRepAdd::GetSubType() { return subType; }
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

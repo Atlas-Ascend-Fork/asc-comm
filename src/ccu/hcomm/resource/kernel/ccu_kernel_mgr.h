@@ -22,7 +22,7 @@
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace hcomm {
+namespace asccomm {
 
 int32_t HcommCcuDiagnose(const HcommCcuDfxRequestPod *request, HcommCcuDfxEmitFn emit, void *context);
 
@@ -83,5 +83,5 @@ private:
     std::array<uint32_t, HCOMM_CCU_MAX_DIE_NUM> missionKeys_{};
     HcommCcuControlOpsPod controlOps_{};
 };
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // HCOMM_CCU_KERNEL_MGR_IMP_H

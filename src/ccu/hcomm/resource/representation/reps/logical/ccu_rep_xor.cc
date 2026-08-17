@@ -12,7 +12,7 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepXor::CcuRepXor(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, const Variable& varB)
@@ -31,7 +31,7 @@ CcuRepXor::CcuRepXor(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const
 
 bool CcuRepXor::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep)
 {
-    hcomm::CheckCcuNotNull(instr, "[CcuRepXor::Translate] instr is nullptr!");
+    asccomm::CheckCcuNotNull(instr, "[CcuRepXor::Translate] instr is nullptr!");
     this->instrId = curInstrId;
     translated = true;
     instrCount = insGenPtr->GetInstrCount(type);
@@ -53,16 +53,16 @@ std::string CcuRepXor::Describe()
 {
     switch (subType) {
         case XorSubType::VAR_XOR_VAR_TO_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = Variable[%u] ^ Variable[%u]", varC.Id(), varA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] ^ Variable[%u]", varC.Id(), varA.Id(), varB.Id());
         }
         case XorSubType::SELF_XOR_VAR_VARIABLE: {
-            return hcomm::FormatCcuMessage("Variable[%u] ^= Variable[%u]", varC.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Variable[%u] ^= Variable[%u]", varC.Id(), varB.Id());
         }
         default: {
-            return hcomm::FormatCcuMessage("Invalid Xor");
+            return asccomm::FormatCcuMessage("Invalid Xor");
         }
     }
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

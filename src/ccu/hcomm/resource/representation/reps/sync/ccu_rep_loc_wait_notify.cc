@@ -14,7 +14,7 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLocWaitNotify::CcuRepLocWaitNotify(
@@ -48,8 +48,8 @@ bool CcuRepLocWaitNotify::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint
 
 std::string CcuRepLocWaitNotify::Describe()
 {
-    return hcomm::FormatCcuMessage("CcuRepLocWaitNotify=id[%u], mask[%04x]", notify_.Id(), mask_);
+    return asccomm::FormatCcuMessage("CcuRepLocWaitNotify=id[%u], mask[%04x]", notify_.Id(), mask_);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

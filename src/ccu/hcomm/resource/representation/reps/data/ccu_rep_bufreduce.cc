@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepBufReduce::CcuRepBufReduce(
@@ -50,7 +50,7 @@ bool CcuRepBufReduce::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t
     return translated;
 }
 
-std::string CcuRepBufReduce::Describe() { return hcomm::FormatCcuMessage("Reduce"); }
+std::string CcuRepBufReduce::Describe() { return asccomm::FormatCcuMessage("Reduce"); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

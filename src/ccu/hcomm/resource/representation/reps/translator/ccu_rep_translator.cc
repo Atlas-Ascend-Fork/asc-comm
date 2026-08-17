@@ -24,7 +24,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 
@@ -74,7 +74,7 @@ void CcuRepTranslator::BuildReference(const std::shared_ptr<CcuRepBase>& rep)
     if (CheckType<T2>(refer)) {
         caller->Reference(std::static_pointer_cast<T2>(refer));
     } else {
-        hcomm::ThrowCcuInternal("Invalid Reference: %s", label.c_str());
+        asccomm::ThrowCcuInternal("Invalid Reference: %s", label.c_str());
     }
 }
 
@@ -82,7 +82,7 @@ CcuRepTranslator::CcuRepTranslator(std::shared_ptr<CcuRepReferenceManager> refMa
     : refManager(refManager), transDep(transDep)
 {
     if (ccuVersion == HCOMM_CCU_VERSION_INVALID) {
-        hcomm::ThrowCcuInternal("[CcuRepTranslator] Constructor: Invalid CCU Type!");
+        asccomm::ThrowCcuInternal("[CcuRepTranslator] Constructor: Invalid CCU Type!");
     }
 }
 
@@ -175,7 +175,7 @@ void CcuRepTranslator::Translate(
                 HCCL_ERROR("index[%u], %s", index, repVec[index]->Describe().c_str());
             }
         }
-        hcomm::ThrowCcuInternal("Translation Failed");
+        asccomm::ThrowCcuInternal("Translation Failed");
     }
 }
 
@@ -259,7 +259,7 @@ void CcuRepTranslator::CommonProcess(CcuKernel* ccuKernel, CcuInstr*& instr, uin
 
     uint32_t instrNum = 3 + constValueNum;
     if (instrId > UINT16_MAX - instrNum) {
-        hcomm::ThrowCcuInternal("integer overflow occurs");
+        asccomm::ThrowCcuInternal("integer overflow occurs");
     }
     instrId += instrNum; // 插入3条指令
 }
@@ -274,7 +274,7 @@ void CcuRepTranslator::FinishMainBlock(CcuInstr*& instr, uint16_t& instrId)
     instrId++;
 
     if (instrId > UINT16_MAX - 1) {
-        hcomm::ThrowCcuInternal("integer overflow occurs");
+        asccomm::ThrowCcuInternal("integer overflow occurs");
     }
 }
 
@@ -334,4 +334,4 @@ void CcuRepTranslator::BindResource(bool isFuncBlock)
         transDep.reserveChannalId[0], transDep.reserveChannalId[1]);
 }
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepNop::CcuRepNop(CcuInsGeneraterBase* insGeneratorPtr) : insGeneratorPtr_(insGeneratorPtr)
@@ -38,7 +38,7 @@ bool CcuRepNop::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& inst
     return translated;
 }
 
-std::string CcuRepNop::Describe() { return hcomm::FormatCcuMessage("Nop"); }
+std::string CcuRepNop::Describe() { return asccomm::FormatCcuMessage("Nop"); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

@@ -15,7 +15,7 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLocCpy::CcuRepLocCpy(
@@ -54,14 +54,14 @@ void CcuRepLocCpy::ValidateInsGeneratorForLocCpy()
     CcuInsGeneraterV1* tmpPtrV1 = dynamic_cast<CcuInsGeneraterV1*>(insGenPtr);
     if (tmpPtrV1 && useCcuBuffer) {
         // 使用了A6场景的ms中转搬运
-        hcomm::ThrowCcuInternal("Cannot translate CcuRepLocCpy for A5 when useCcuBuffer is true!");
+        asccomm::ThrowCcuInternal("Cannot translate CcuRepLocCpy for A5 when useCcuBuffer is true!");
     }
 }
 
 uint16_t CcuRepLocCpy::GetFirstBufId()
 {
     if (bufs.size() == 0) {
-        hcomm::ThrowCcuInternal("The length of CcuBuffer is 0!");
+        asccomm::ThrowCcuInternal("The length of CcuBuffer is 0!");
     }
     return bufs[0].Id();
 }
@@ -86,10 +86,10 @@ bool CcuRepLocCpy::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& i
 
 std::string CcuRepLocCpy::Describe()
 {
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Read LocalAddr[%u] to LocalAddr[%u], length[%u], set sem[%u] with mask[%04x], dataType[%u], opType[%u]",
         src.addr.Id(), dst.addr.Id(), len.Id(), sem.Id(), mask, dataType, opType);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

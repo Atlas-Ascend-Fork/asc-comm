@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepStore::CcuRepStore(CcuInsGeneraterBase* insGenPtr, const Variable& var, uint64_t addr, uint32_t num)
@@ -37,7 +37,7 @@ bool CcuRepStore::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& in
     return translated;
 }
 
-std::string CcuRepStore::Describe() { return hcomm::FormatCcuMessage("Store([%u], [%llu], [%u])", var.Id(), addr, num); }
+std::string CcuRepStore::Describe() { return asccomm::FormatCcuMessage("Store([%u], [%llu], [%u])", var.Id(), addr, num); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

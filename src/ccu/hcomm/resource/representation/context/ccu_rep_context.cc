@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/arithmetic/ccu_rep_assign_v1.h"
 #include "hcomm/resource/channel/ccu_channel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepContext::CcuRepContext()
@@ -28,7 +28,7 @@ CcuRepContext::~CcuRepContext() {}
 std::shared_ptr<CcuRep::CcuRepBlock> CcuRepContext::CurrentBlock()
 {
     if (activeBlock == nullptr) {
-        hcomm::ThrowCcuInternal("Invalid ActiveBlock");
+        asccomm::ThrowCcuInternal("Invalid ActiveBlock");
     }
     return activeBlock;
 }
@@ -269,4 +269,4 @@ void CcuRepContext::EraseDependencyInfo(uint32_t id) { depInfo.erase(id); }
 void CcuRepContext::ClearDependencyInfo() { depInfo.clear(); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

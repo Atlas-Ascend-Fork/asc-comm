@@ -13,13 +13,13 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 void AppendToContext(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBase> rep)
 {
     if (context == nullptr) {
-        hcomm::ThrowCcuInternal("context is nullptr, AppendToContext assist[%d]", rep->Type());
+        asccomm::ThrowCcuInternal("context is nullptr, AppendToContext assist[%d]", rep->Type());
     } else {
         return context->Append(rep);
     }
@@ -28,7 +28,7 @@ void AppendToContext(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBase>
 std::shared_ptr<CcuRep::CcuRepBlock> CurrentBlock(CcuRepContext* context)
 {
     if (context == nullptr) {
-        hcomm::ThrowCcuInternal("context is nullptr, currentBlock");
+        asccomm::ThrowCcuInternal("context is nullptr, currentBlock");
     }
     return context->CurrentBlock();
 }
@@ -36,7 +36,7 @@ std::shared_ptr<CcuRep::CcuRepBlock> CurrentBlock(CcuRepContext* context)
 void SetCurrentBlock(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBlock> repBlock)
 {
     if (context == nullptr) {
-        hcomm::ThrowCcuInternal("context is nullptr, set currentBlock");
+        asccomm::ThrowCcuInternal("context is nullptr, set currentBlock");
     }
     context->SetCurrentBlock(repBlock);
 }
@@ -44,14 +44,14 @@ void SetCurrentBlock(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBlock
 Variable CreateVariable(CcuRepContext* context)
 {
     if (context == nullptr) {
-        hcomm::ThrowCcuInternal("context is nullptr, CreateVar");
+        asccomm::ThrowCcuInternal("context is nullptr, CreateVar");
     }
     auto ctx = dynamic_cast<CcuKernel*>(context);
     if (ctx == nullptr) {
-        hcomm::ThrowCcuInternal("Invalid context");
+        asccomm::ThrowCcuInternal("Invalid context");
     }
     return ctx->CreateVariable();
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

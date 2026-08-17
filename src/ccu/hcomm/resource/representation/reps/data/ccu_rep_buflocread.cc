@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepBufLocRead::CcuRepBufLocRead(
@@ -41,10 +41,10 @@ bool CcuRepBufLocRead::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_
 
 std::string CcuRepBufLocRead::Describe()
 {
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Read Loc Mem[%u] To CcuBuf[%u], len[%u], sem[%u], mask[%04x]", src.addr.Id(), dst.Id(), len.Id(), sem.Id(),
         mask);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

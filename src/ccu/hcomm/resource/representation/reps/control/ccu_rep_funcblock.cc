@@ -17,7 +17,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepFuncBlock::CcuRepFuncBlock(CcuInsGeneraterBase* insGenPtr, const std::string& label)
@@ -27,7 +27,7 @@ CcuRepFuncBlock::CcuRepFuncBlock(CcuInsGeneraterBase* insGenPtr, const std::stri
     instrCount = 0;
 }
 
-std::string CcuRepFuncBlock::Describe() { return hcomm::FormatCcuMessage("FuncBlock[%s]", GetLabel().c_str()); }
+std::string CcuRepFuncBlock::Describe() { return asccomm::FormatCcuMessage("FuncBlock[%s]", GetLabel().c_str()); }
 
 void CcuRepFuncBlock::SetFuncManager(CcuRepReferenceManager* funcManager) { this->funcManager = funcManager; }
 
@@ -46,7 +46,7 @@ void CcuRepFuncBlock::SetCallLayer(uint16_t callLayer)
         }
     }
     if (this->callLayer > FUNC_NEST_MAX - 1) {
-        hcomm::ThrowCcuInternal("Max Func Call Nest Num is %u", FUNC_NEST_MAX);
+        asccomm::ThrowCcuInternal("Max Func Call Nest Num is %u", FUNC_NEST_MAX);
     }
 }
 
@@ -63,7 +63,7 @@ void CcuRepFuncBlock::DefineOutArg(const Variable& var)
 {
     outArgCount++;
     if (outArgCount > FUNC_ARG_MAX) {
-        hcomm::ThrowCcuInternal("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
+        asccomm::ThrowCcuInternal("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
     }
     outArgs.push_back(CcuRepArg(var));
     HCCL_INFO("Define Output Arg: Index[%u], Type[Variable] Id[%u]", outArgs.size(), var.Id());
@@ -83,7 +83,7 @@ void CcuRepFuncBlock::DefineOutArg(const std::vector<Variable>& varList)
 {
     outArgCount += varList.size();
     if (outArgCount > FUNC_ARG_MAX) {
-        hcomm::ThrowCcuInternal("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
+        asccomm::ThrowCcuInternal("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
     }
     outArgs.push_back(CcuRepArg(varList));
     HCCL_INFO("Define Output Arg: Index[%u], Type[Variable List]: ", outArgs.size());
@@ -114,7 +114,7 @@ uint16_t CcuRepFuncBlock::InstrCount()
 bool CcuRepFuncBlock::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
     if (funcManager == nullptr) {
-        hcomm::ThrowCcuInternal("funcManager is nullptr");
+        asccomm::ThrowCcuInternal("funcManager is nullptr");
     }
 
     this->instrId = instrId;
@@ -141,4 +141,4 @@ bool CcuRepFuncBlock::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

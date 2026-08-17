@@ -15,7 +15,7 @@
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/hcomm_ccu_res.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 #define UNUSED(x) (void)(x)
@@ -244,7 +244,7 @@ HcclResult CcuInsGeneraterV1::CcuRepBufReduceTranslate(
 uint32_t CcuInsGeneraterV1::GetInstrCount(CcuRepType repType)
 {
     if (repTypeInstrCount.find(repType) == repTypeInstrCount.end()) {
-        hcomm::ThrowCcuInternal("[%s] Unsupported repType[%d]", __func__, repType);
+        asccomm::ThrowCcuInternal("[%s] Unsupported repType[%d]", __func__, repType);
     }
     return repTypeInstrCount[repType];
 }
@@ -985,7 +985,7 @@ HcclResult CcuInsGeneraterV1::CcuRepLoopGroupBundleTranslate(
         LoadImdToXnInstr(instr++, bundlePtr->GetParallelVar().Id(), parallelImm);
         curInstrId++;
 
-        uint64_t offsetImm = ::hcomm::CcuRep::GetOffsetParam(
+        uint64_t offsetImm = ::asccomm::CcuRep::GetOffsetParam(
             bundlePtr->GetConfig().addrOffset, bundlePtr->GetConfig().ccuBufferOffset,
             bundlePtr->GetConfig().eventOffset);
         LoadImdToXnInstr(instr++, bundlePtr->GetOffsetParam().Id(), offsetImm);
@@ -1021,7 +1021,7 @@ HcclResult CcuInsGeneraterV1::CcuRepLoopGroupBundleTranslate(
 uint16_t CcuInsGeneraterV1::CcuRepLoopGroupBundleInstrCount(CcuRepLoopGroupBundle* bundlePtr)
 {
     if (bundlePtr == nullptr) {
-        hcomm::ThrowCcuInternal("[%s] bundlePtr is nullptr", __func__);
+        asccomm::ThrowCcuInternal("[%s] bundlePtr is nullptr", __func__);
     }
     const auto& loops = bundlePtr->GetLoops();
     const uint16_t loopCount = static_cast<uint16_t>(loops.size());
@@ -1039,4 +1039,4 @@ uint16_t CcuInsGeneraterV1::CcuRepLoopGroupBundleInstrCount(CcuRepLoopGroupBundl
 }
 
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

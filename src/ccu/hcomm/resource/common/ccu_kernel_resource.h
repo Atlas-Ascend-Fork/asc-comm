@@ -17,7 +17,7 @@
 
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 
 struct CcuRepResource {
     std::array<std::vector<CcuRep::CcuBuf>, CCU_MAX_IODIE_NUM> ccubufs;
@@ -38,6 +38,6 @@ struct CcuSharedResource {
     std::unordered_map<std::string, CcuRep::LocalNotify> sharedNotifies;
 };
 
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // HCOMM_CCU_CONTEXT_RESOURCE_H

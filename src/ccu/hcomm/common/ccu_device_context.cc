@@ -10,7 +10,7 @@
 
 #include "hcomm/common/ccu_device_context.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace {
 thread_local int32_t currentCcuDeviceLogicId = -1;
 thread_local HcommCcuControlOpsPod currentCcuControlOps{};
@@ -24,4 +24,4 @@ void SetCurrentCcuControlOps(const HcommCcuControlOpsPod &controlOps) { currentC
 
 const HcommCcuControlOpsPod &GetCurrentCcuControlOps() { return currentCcuControlOps; }
 
-} // namespace hcomm
+} // namespace asccomm

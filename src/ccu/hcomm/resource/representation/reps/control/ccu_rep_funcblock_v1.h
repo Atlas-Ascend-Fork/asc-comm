@@ -15,7 +15,7 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_arg_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class CcuRepFuncBlock : public CcuRepBlock {
@@ -56,5 +56,5 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // _CCU_REPRESENTATION_FUNC_BLOCK_H

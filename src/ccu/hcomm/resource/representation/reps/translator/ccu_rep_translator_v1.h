@@ -23,7 +23,7 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 constexpr uint32_t CCU_TRANSLATOR_MISSION_SLOT_NUM = 16;
@@ -68,6 +68,6 @@ private:
     static uint32_t ccuVersion;
 };
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // HCCL_CCU_REP_TRANSLATOR_H

@@ -17,7 +17,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepRemMem::CcuRepRemMem(CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem)
@@ -42,7 +42,7 @@ bool CcuRepRemMem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& i
     return translated;
 }
 
-std::string CcuRepRemMem::Describe() { return hcomm::FormatCcuMessage("Get Remote Buffer Addr and TokenInfo By Transport"); }
+std::string CcuRepRemMem::Describe() { return asccomm::FormatCcuMessage("Get Remote Buffer Addr and TokenInfo By Transport"); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

@@ -12,7 +12,7 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepNot::CcuRepNot(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varB)
@@ -24,7 +24,7 @@ CcuRepNot::CcuRepNot(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const
 
 bool CcuRepNot::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep)
 {
-    hcomm::CheckCcuNotNull(instr, "[CcuRepNot::Translate] instr is nullptr!");
+    asccomm::CheckCcuNotNull(instr, "[CcuRepNot::Translate] instr is nullptr!");
     this->instrId = curInstrId;
     translated = true;
     instrCount = insGenPtr->GetInstrCount(type);
@@ -46,13 +46,13 @@ std::string CcuRepNot::Describe()
 {
     switch (subType) {
         case NotSubType::VAR_EQUALS_NOT_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = ~Variable[%u]", varC.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Variable[%u] = ~Variable[%u]", varC.Id(), varB.Id());
         }
         default: {
-            return hcomm::FormatCcuMessage("Invalid Not");
+            return asccomm::FormatCcuMessage("Invalid Not");
         }
     }
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

@@ -17,7 +17,7 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace {
 
 using CcuRep::CcuRepBase;
@@ -462,4 +462,4 @@ int32_t HcommCcuDiagnose(const HcommCcuDfxRequestPod *request, HcommCcuDfxEmitFn
     }
 }
 
-} // namespace hcomm
+} // namespace asccomm

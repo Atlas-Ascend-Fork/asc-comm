@@ -16,7 +16,7 @@
 #include "hcomm/hcomm_ccu_control.h"
 #include "hcomm/hcomm_types.h"
 
-namespace hcomm {
+namespace asccomm {
 
 // CcuChannel：CCU Channel 在 asc-comm 数据面侧的本地值对象。
 // 构造时通过 hcomm 注入的 channelQuery 一次性获取定长 POD 快照（HcommCcuChannelPod），
@@ -50,6 +50,6 @@ private:
     HcclResult result_{HCCL_E_INTERNAL};
 };
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // ASCCOMM_CCU_CHANNEL_H

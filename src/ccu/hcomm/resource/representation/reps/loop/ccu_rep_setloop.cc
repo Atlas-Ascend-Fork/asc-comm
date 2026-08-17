@@ -17,7 +17,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepSetLoop::CcuRepSetLoop(
@@ -34,7 +34,7 @@ bool CcuRepSetLoop::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& 
     translated = true;
 
     if (instrId > USHRT_MAX - instrCount) {
-        hcomm::ThrowCcuInternal(hcomm::FormatCcuMessage(
+        asccomm::ThrowCcuInternal(asccomm::FormatCcuMessage(
             "[CcuRepSetLoop][Translate] instrId[%u] + instrCount[%u] exceeds the "
             "maximum value of unsigned short int.",
             instrId, instrCount));
@@ -46,9 +46,9 @@ bool CcuRepSetLoop::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& 
 
 std::string CcuRepSetLoop::Describe()
 {
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "loopParam[%u] = var[%u], execute on LoopEngine[%u]", loopParam.Id(), var.Id(), executor.Id());
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

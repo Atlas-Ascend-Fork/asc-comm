@@ -14,7 +14,7 @@
 #include <limits>
 #include <vector>
 
-namespace hcomm {
+namespace asccomm {
 namespace {
 
 std::vector<HcommCcuResRangePod> *GetRanges(
@@ -179,4 +179,4 @@ uint32_t AscCcuResSnapshot::GetValidDieMask() const { return validDieMask_; }
 
 const HcommCcuControlOpsPod &AscCcuResSnapshot::GetControlOps() const { return controlOps_; }
 
-} // namespace hcomm
+} // namespace asccomm

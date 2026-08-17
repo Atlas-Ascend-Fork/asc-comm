@@ -12,7 +12,7 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLoopBlock::CcuRepLoopBlock(CcuInsGeneraterBase* insGenPtr, const std::string& label)
@@ -27,7 +27,7 @@ std::string CcuRepLoopBlock::Describe()
     for (const auto& rep : GetReps()) {
         HCCL_INFO(" Rep: %s", rep->Describe().c_str());
     }
-    return hcomm::FormatCcuMessage("LoopBlock[%s]", GetLabel().c_str());
+    return asccomm::FormatCcuMessage("LoopBlock[%s]", GetLabel().c_str());
 }
 
 void CcuRepLoopBlock::DefineArg(Variable var)
@@ -93,10 +93,10 @@ void CcuRepLoopBlock::DefineArg(const std::vector<Memory> memList)
 CcuRepArg& CcuRepLoopBlock::GetArg(uint16_t index)
 {
     if (index >= args.size()) {
-        hcomm::ThrowCcuInternal("CcuLoopBlock Arg Index[%u] Out of Range", index);
+        asccomm::ThrowCcuInternal("CcuLoopBlock Arg Index[%u] Out of Range", index);
     }
     return args[index];
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

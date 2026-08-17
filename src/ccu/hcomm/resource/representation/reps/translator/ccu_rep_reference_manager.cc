@@ -11,7 +11,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
 #include "hcomm/common/ccu_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepReferenceManager::CcuRepReferenceManager(uint8_t deiId) : dieId(deiId)
@@ -43,7 +43,7 @@ bool CcuRepReferenceManager::CheckUnique(const std::string& label)
 std::shared_ptr<CcuRepBlock> CcuRepReferenceManager::GetRefBlock(const std::string& label)
 {
     if (!CheckValid(label)) {
-        hcomm::ThrowCcuInternal("Invalid Reference: %s", label.c_str());
+        asccomm::ThrowCcuInternal("Invalid Reference: %s", label.c_str());
     }
     return referenceMap[label];
 }
@@ -51,7 +51,7 @@ std::shared_ptr<CcuRepBlock> CcuRepReferenceManager::GetRefBlock(const std::stri
 void CcuRepReferenceManager::SetRefBlock(const std::string& label, std::shared_ptr<CcuRepBlock> refBlock)
 {
     if (!CheckUnique(label)) {
-        hcomm::ThrowCcuInternal("Duplicate Definition: %s", label.c_str());
+        asccomm::ThrowCcuInternal("Duplicate Definition: %s", label.c_str());
     }
     referenceMap[label] = refBlock;
 }
@@ -59,11 +59,11 @@ void CcuRepReferenceManager::SetRefBlock(const std::string& label, std::shared_p
 uint16_t CcuRepReferenceManager::GetFuncAddr(const std::string& label)
 {
     if (!CheckValid(label)) {
-        hcomm::ThrowCcuInternal("Invalid Reference: %s", label.c_str());
+        asccomm::ThrowCcuInternal("Invalid Reference: %s", label.c_str());
     }
 
     if (referenceMap[label]->Type() != CcuRepType::FUNC_BLOCK) {
-        hcomm::ThrowCcuInternal("Invalid Type, %s Must be FuncBlock", label.c_str());
+        asccomm::ThrowCcuInternal("Invalid Type, %s Must be FuncBlock", label.c_str());
     }
 
     return referenceMap[label]->StartInstrId();
@@ -74,7 +74,7 @@ const Variable& CcuRepReferenceManager::GetFuncCall() { return funcCallVar[0]; }
 const Variable& CcuRepReferenceManager::GetFuncRet(uint16_t callLayer)
 {
     if (callLayer > FUNC_NEST_MAX) {
-        hcomm::ThrowCcuInternal("Max Func Call Nest Num is %u, callLayer = %u", FUNC_NEST_MAX, callLayer);
+        asccomm::ThrowCcuInternal("Max Func Call Nest Num is %u, callLayer = %u", FUNC_NEST_MAX, callLayer);
     }
     return funcCallVar[callLayer + 1];
 }
@@ -93,4 +93,4 @@ void CcuRepReferenceManager::Dump() const
 void CcuRepReferenceManager::ClearRepReference() { referenceMap.clear(); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

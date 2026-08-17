@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLoopCall::CcuRepLoopCall(CcuInsGeneraterBase* insGeneratorPtr, const std::string& label)
@@ -95,10 +95,10 @@ bool CcuRepLoopCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
     this->instrId = instrId;
     translated = true;
 
-    hcomm::CheckCcuNotNull(loopBlock, "[CcuRepLoopCall::Translate] LoopBlock is nullptr!");
+    asccomm::CheckCcuNotNull(loopBlock, "[CcuRepLoopCall::Translate] LoopBlock is nullptr!");
 
     if (!loopBlock->Translated()) {
-        hcomm::ThrowCcuInternal("Reference To Invalid LoopBlock");
+        asccomm::ThrowCcuInternal("Reference To Invalid LoopBlock");
     }
 
     instrId += InstrCount();
@@ -106,7 +106,7 @@ bool CcuRepLoopCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
     return translated;
 }
 
-std::string CcuRepLoopCall::Describe() { return hcomm::FormatCcuMessage("LoopCall[%s]", label.c_str()); }
+std::string CcuRepLoopCall::Describe() { return asccomm::FormatCcuMessage("LoopCall[%s]", label.c_str()); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

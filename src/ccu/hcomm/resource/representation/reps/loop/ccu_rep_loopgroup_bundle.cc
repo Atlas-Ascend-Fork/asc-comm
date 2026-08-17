@@ -12,7 +12,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/common/ccu_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLoopGroupBundle::CcuRepLoopGroupBundle(
@@ -74,8 +74,8 @@ bool CcuRepLoopGroupBundle::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, ui
 
 std::string CcuRepLoopGroupBundle::Describe()
 {
-    return hcomm::FormatCcuMessage("LoopGroupBundle[loops=%zu, totalLoopNum=%lu]", loops_.size(), totalLoopNum_);
+    return asccomm::FormatCcuMessage("LoopGroupBundle[loops=%zu, totalLoopNum=%lu]", loops_.size(), totalLoopNum_);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

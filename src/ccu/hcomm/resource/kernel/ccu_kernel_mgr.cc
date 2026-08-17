@@ -29,7 +29,7 @@
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/resource/common/ccu_kernel_func.h"
 
-namespace hcomm {
+namespace asccomm {
 
 namespace {
 
@@ -567,7 +567,7 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, AscCcuRes
         HCCL_ERROR("[InstantiationTranslator] alloc temp device memory for token query failed.");
         return HcclResult::HCCL_E_MEMORY;
     }
-    auto hbmTokenInfo = hcomm::CcuRep::GetTokenInfo(tmpDevMem.GetAddr(), tmpDevMem.GetSize());
+    auto hbmTokenInfo = asccomm::CcuRep::GetTokenInfo(tmpDevMem.GetAddr(), tmpDevMem.GetSize());
     CcuRep::TransDep transDep{};
     transDep.logicalId = resPack.GetDeviceLogicId();
     transDep.dieId = dieId;
@@ -585,9 +585,9 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, AscCcuRes
 
     // 实例化CcuRepReferenceManager和CcuRepTranslator，并为CcuRepReferenceManager绑定物理资源
     for (uint32_t i = 0; i < CcuRep::CCU_TRANSLATOR_MISSION_SLOT_NUM; i++) {
-        referenceMgrs[dieId][i] = std::make_shared<hcomm::CcuRep::CcuRepReferenceManager>(dieId);
+        referenceMgrs[dieId][i] = std::make_shared<asccomm::CcuRep::CcuRepReferenceManager>(dieId);
         translators[dieId][i] =
-            std::make_shared<hcomm::CcuRep::CcuRepTranslator>(referenceMgrs[dieId][i], transDep);
+            std::make_shared<asccomm::CcuRep::CcuRepTranslator>(referenceMgrs[dieId][i], transDep);
     }
 
     CcuRepResource translatorRepRes;
@@ -626,7 +626,7 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, AscCcuRes
 
 HcclResult CcuKernelMgr::LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, const uint32_t dieId)
 {
-    const uint64_t instrInfoSize = instrInfo.instrVec.size() * sizeof(hcomm::CcuRep::CcuInstr);
+    const uint64_t instrInfoSize = instrInfo.instrVec.size() * sizeof(asccomm::CcuRep::CcuInstr);
 
     if (instrInfoSize == 0) {
         return HcclResult::HCCL_E_PARA;
@@ -735,4 +735,4 @@ CcuResult CcuKernelMgr::GetCcuKernelInfo(const CcuKernelHandle kernelHandle, Ccu
 
 CcuKernel* CcuKernelMgr::GetCurrentKernel() { return currKernel_.get(); }
 
-} // namespace hcomm
+} // namespace asccomm

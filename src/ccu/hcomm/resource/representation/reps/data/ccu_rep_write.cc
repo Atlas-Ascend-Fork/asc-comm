@@ -16,7 +16,7 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepWrite::CcuRepWrite(
@@ -62,10 +62,10 @@ bool CcuRepWrite::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& in
 
 std::string CcuRepWrite::Describe()
 {
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Write RemoteAddr[%u] to LocalAddr[%u], length[%u], set sem[%u] with mask[%04x], dataType[%u], opType[%u]",
         loc.addr.Id(), rem.addr.Id(), len.Id(), sem.Id(), mask, dataType, opType);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

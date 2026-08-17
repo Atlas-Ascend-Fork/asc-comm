@@ -13,7 +13,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/common/ccu_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLocRecordEvent::CcuRepLocRecordEvent(CcuInsGeneraterBase* insGenPtr, const CompletedEvent& event, uint32_t mask)
@@ -47,8 +47,8 @@ bool CcuRepLocRecordEvent::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uin
 
 std::string CcuRepLocRecordEvent::Describe()
 {
-    return hcomm::FormatCcuMessage("CcuRepLocRecordEvent=id[%u], mask[%04x]", event_.Id(), mask_);
+    return asccomm::FormatCcuMessage("CcuRepLocRecordEvent=id[%u], mask[%04x]", event_.Id(), mask_);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

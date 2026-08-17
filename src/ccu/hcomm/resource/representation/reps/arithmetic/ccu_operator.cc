@@ -11,7 +11,7 @@
 #include "hcomm/resource/representation/reps/arithmetic/ccu_operator_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 template <>
@@ -285,4 +285,4 @@ CcuShiftOperator<Variable, Variable> Variable::operator<<(const Variable& other)
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

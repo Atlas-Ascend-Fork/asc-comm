@@ -24,7 +24,7 @@
 #include "ccu/hcomm/ccu_utils.hpp"
 #include "hcomm/common/ccu_log.h"
 
-namespace hcomm {
+namespace asccomm {
 
 // 解耦后 asc-comm 不再依赖 hcomm 的异常格式化工具，此处仅保留 printf 风格消息的本地兼容实现。
 template <typename... Args>
@@ -72,13 +72,13 @@ void CheckCcuNotNull(const Pointer &pointer, Message &&message)
     }
 }
 
-} // namespace hcomm
+} // namespace asccomm
 
 #define CHK_RET_THROW(exceptionCode, message, call)                                  \
     do {                                                                             \
         const auto ccuThrowRet = (call);                                              \
         if (UNLIKELY(ccuThrowRet != 0)) {                                             \
-            hcomm::ThrowCcu(static_cast<CcuResult>(ccuThrowRet), (message));          \
+            asccomm::ThrowCcu(static_cast<CcuResult>(ccuThrowRet), (message));          \
         }                                                                            \
     } while (0)
 
@@ -86,7 +86,7 @@ void CheckCcuNotNull(const Pointer &pointer, Message &&message)
     do {                                                               \
         if (UNLIKELY(condition)) {                                     \
             logStatement;                                              \
-            hcomm::ThrowCcu((exceptionCode), (message));               \
+            asccomm::ThrowCcu((exceptionCode), (message));               \
         }                                                              \
     } while (0)
 

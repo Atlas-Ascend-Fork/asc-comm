@@ -18,7 +18,7 @@
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 #include "hcomm/resource/common/ccu_var_event_res_mgr.h"
 
-namespace hcomm {
+namespace asccomm {
 
 CcuKernelRegistry::~CcuKernelRegistry()
 {
@@ -154,4 +154,4 @@ void CcuKernelRegistry::AbortRegister()
     registerState_ = RegisterState::REGISTER_ABORTED;
 }
 
-} // namespace hcomm
+} // namespace asccomm

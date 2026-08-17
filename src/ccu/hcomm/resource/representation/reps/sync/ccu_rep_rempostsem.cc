@@ -12,7 +12,7 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepRemPostSem::CcuRepRemPostSem(
@@ -47,8 +47,8 @@ bool CcuRepRemPostSem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_
 
 std::string CcuRepRemPostSem::Describe()
 {
-    return hcomm::FormatCcuMessage("Post, Use semIndex[%u] and mask[%04x]", semIndex, mask);
+    return asccomm::FormatCcuMessage("Post, Use semIndex[%u] and mask[%04x]", semIndex, mask);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
