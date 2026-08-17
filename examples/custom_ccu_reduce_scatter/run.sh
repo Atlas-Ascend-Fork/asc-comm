@@ -11,7 +11,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_DIR="${SCRIPT_DIR}/build"
+BUILD_DIR="${BUILD_DIR:-${SCRIPT_DIR}/build}"
+LOG_DIR="${LOG_DIR:-${SCRIPT_DIR}/log}"
 
 if [ -d "${BUILD_DIR}" ]; then
     rm -rf "${BUILD_DIR}"
@@ -22,8 +23,16 @@ if [ "${ASCEND_HOME_PATH:-}" = "" ]; then
     exit 1
 fi
 
+export HCCL_OP_EXPANSION_MODE="${HCCL_OP_EXPANSION_MODE:-CCU_SCHED}"
+export ASCEND_PROCESS_LOG_PATH="${ASCEND_PROCESS_LOG_PATH:-${LOG_DIR}}"
+mkdir -p "${ASCEND_PROCESS_LOG_PATH}"
+
 cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" \
     -DASCEND_HOME_PATH="${ASCEND_HOME_PATH}"
 cmake --build "${BUILD_DIR}" -j"$(nproc)"
+
+if [ "${BUILD_ONLY:-0}" = "1" ]; then
+    exit 0
+fi
 
 exec "${BUILD_DIR}/custom_reduce_scatter_ccu"
