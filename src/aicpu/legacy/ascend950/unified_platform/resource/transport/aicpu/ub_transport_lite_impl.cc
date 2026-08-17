@@ -26,23 +26,31 @@ constexpr u32 UB_COMPLETION        = 1;    // 表示当前报文和前面报文�
 constexpr u8  UB_FENCE_ENABLED     = 1;    // fence使能
 
 namespace {
-void FillUrmaProtection(HcommProtectionInfo &protection, u64 addr, u64 size, u32 tokenId, u32 tokenValue)
+void FillUrmaProtection(HcommProtectionInfo &protection, u32 tokenId, u32 tokenValue)
 {
     protection = {};
     protection.type = HCOMM_PROTECTION_TYPE_URMA;
-    protection.addr = addr;
-    protection.length = size;
-    protection.protection.urma.tokenId = tokenId;
-    protection.protection.urma.tokenValue = tokenValue;
+    protection.memInfo.ub.tokenId = tokenId;
+    protection.memInfo.ub.tokenValue = tokenValue;
 }
 
-void FillPodNotify(HcommNotify &notify, u64 addr, u64 size, u32 tokenId, u32 tokenValue, u32 notifyId)
+void FillPodNotify(HcommRegedNotifyEntity &notify, u64 addr, u64 size, u32 tokenId, u32 tokenValue, u32 notifyId)
 {
     notify = {};
-    notify.notify.rma.address = addr;
-    notify.notify.rma.notifyId = static_cast<int32_t>(notifyId);
-    notify.notify.rma.size = static_cast<u32>(size);
-    FillUrmaProtection(notify.notify.rma.protectionInfo, addr, size, tokenId, tokenValue);
+    notify.type = HCOMM_REGED_NOTIFY_RMA_RT;
+    notify.notifyInfo.rmaRt.addr = addr;
+    notify.notifyInfo.rmaRt.notifyId = static_cast<int32_t>(notifyId);
+    notify.notifyInfo.rmaRt.size = static_cast<u32>(size);
+    FillUrmaProtection(notify.notifyInfo.rmaRt.protectionInfo, tokenId, tokenValue);
+}
+
+void FillPodBuffer(HcommRegedBufferEntity &buffer, u64 addr, u64 size, u32 tokenId, u32 tokenValue)
+{
+    buffer = {};
+    buffer.type = HCOMM_REGED_BUFFER_RMA;
+    buffer.bufferInfo.rma.addr = addr;
+    buffer.bufferInfo.rma.size = size;
+    FillUrmaProtection(buffer.bufferInfo.rma.protectionInfo, tokenId, tokenValue);
 }
 } // namespace
 
@@ -154,21 +162,20 @@ HcclResult UbTransportLiteImpl::ExportPodResource(
     size_t index = 0;
     for (const auto &item : locBufferMap) {
         const auto &resource = item.second;
-        FillUrmaProtection(localBuffers[index++], resource.addr, resource.size,
-            resource.tokenId, resource.tokenValue);
+        FillPodBuffer(localBuffers[index++], resource.addr, resource.size, resource.tokenId, resource.tokenValue);
     }
 
     remoteBuffers.resize(rmtBufferVec.size());
     for (index = 0; index < rmtBufferVec.size(); ++index) {
         const auto &resource = rmtBufferVec[index];
-        FillUrmaProtection(remoteBuffers[index], resource.addr, resource.size,
-            resource.tokenId, resource.tokenValue);
+        FillPodBuffer(remoteBuffers[index], resource.addr, resource.size, resource.tokenId, resource.tokenValue);
     }
 
     sqContexts.resize(1);
     sqContexts[0] = {};
+    sqContexts[0].type = HCOMM_SQ_CONTEXT_TYPE_UB_JFS;
     const auto *connection = static_cast<const UbConnLite *>(connVec[0]);
-    connection->ExportPodContext(sqContexts[0].context.jfs);
+    connection->ExportPodContext(sqContexts[0].contextInfo.ubJfs);
 
     entity.localNotifyNum = static_cast<u32>(localNotifies.size());
     entity.localNotifyAddr = localNotifies.empty() ? nullptr : localNotifies.data();
@@ -183,23 +190,17 @@ HcclResult UbTransportLiteImpl::ExportPodResource(
     entity.fence = fence_ ? 1 : 0;
 
     if (drainNotify_.size != 0) {
-        entity.drainNotify.address = drainNotify_.addr;
-        entity.drainNotify.notifyId = static_cast<int32_t>(drainNotify_.notifyId);
-        entity.drainNotify.size = static_cast<u32>(drainNotify_.size);
-        FillUrmaProtection(entity.drainNotify.protectionInfo, drainNotify_.addr, drainNotify_.size,
-            drainNotify_.tokenId, drainNotify_.tokenValue);
+        FillPodNotify(entity.localDrainNotify, drainNotify_.addr, drainNotify_.size,
+            drainNotify_.tokenId, drainNotify_.tokenValue, drainNotify_.notifyId);
     }
     if (rmtDrainBuffer_.size != 0) {
-        entity.remoteDrainBuffer.address = rmtDrainBuffer_.addr;
-        entity.remoteDrainBuffer.notifyId = static_cast<int32_t>(rmtDrainBuffer_.notifyId);
-        entity.remoteDrainBuffer.size = static_cast<u32>(rmtDrainBuffer_.size);
-        FillUrmaProtection(entity.remoteDrainBuffer.protectionInfo, rmtDrainBuffer_.addr, rmtDrainBuffer_.size,
+        FillPodBuffer(entity.remoteDrainBuffer, rmtDrainBuffer_.addr, rmtDrainBuffer_.size,
             rmtDrainBuffer_.tokenId, rmtDrainBuffer_.tokenValue);
     }
     entity.abiHeader = {
         HCOMM_POD_CHANNEL_VERSION, HCOMM_POD_CHANNEL_MAGIC_WORD, sizeof(HcommChannelEntity), 0};
+    entity.engine = engine;
     entity.protocol = protocol;
-    (void)engine;
     podEntity = &entity;
     return HCCL_SUCCESS;
 }

@@ -163,10 +163,10 @@ private:
     std::function<void(u32 streamId, u32 taskId, const TaskParam &taskParam)> callback_{nullptr};
 
     HcommChannelEntity podEntity_{};
-    std::vector<HcommNotify> podLocalNotifies_;
-    std::vector<HcommNotify> podRemoteNotifies_;
-    std::vector<HcommProtectionInfo> podLocalBuffers_;
-    std::vector<HcommProtectionInfo> podRemoteBuffers_;
+    std::vector<HcommRegedNotifyEntity> podLocalNotifies_;
+    std::vector<HcommRegedNotifyEntity> podRemoteNotifies_;
+    std::vector<HcommRegedBufferEntity> podLocalBuffers_;
+    std::vector<HcommRegedBufferEntity> podRemoteBuffers_;
     std::vector<HcommSqContext> podSqContexts_;
 
     void ProfilingProcess(void *src, void *dst, u64 size, const StreamLite &stream, DmaOp dmaOp,

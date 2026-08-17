@@ -44,13 +44,13 @@ void UbConnLite::ExportPodContext(HcommJfsContext &jfs) const
     jfs = {};
     jfs.dieId = dieId_;
     jfs.funcId = funcId_;
-    jfs.jettyId = jettyId_;
-    jfs.tpn = tpn_;
+    jfs.jfsID = jettyId_;
+    jfs.tpID = tpn_;
     jfs.sqDepth = sqDepth_;
     jfs.maxReadSize = maxReadSize;
     jfs.maxWriteSize = maxWriteSize;
     jfs.sqVa = sqVa_;
-    (void)memcpy_s(jfs.remoteEid, sizeof(jfs.remoteEid), rmtEid_.raw, sizeof(rmtEid_.raw));
+    (void)memcpy_s(jfs.remoteEID, sizeof(jfs.remoteEID), rmtEid_.raw, sizeof(rmtEid_.raw));
     jfs.pi = pi;
     jfs.piDetourCount = piDetourCount;
     jfs.dwqeCacheLocked = dwqeCacheLocked_ ? 1 : 0;
