@@ -29,6 +29,8 @@ target_include_directories(custom_reduce_scatter_ccu PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../include
     ${ASCEND_HOME_PATH}/include
     ${ASCEND_HOME_PATH}/pkg_inc
+    ${ASCEND_HOME_PATH}/aarch64-linux/include
+    ${ASCEND_HOME_PATH}/aarch64-linux/pkg_inc
 )
 
 target_compile_options(custom_reduce_scatter_ccu PRIVATE
@@ -52,9 +54,11 @@ target_link_options(custom_reduce_scatter_ccu PRIVATE
     -Wl,-z,noexecstack
     -Wl,--copy-dt-needed-entries
     -Wl,-rpath,${ASCEND_HOME_PATH}/lib64
+    -Wl,-rpath,${ASCEND_HOME_PATH}/aarch64-linux/lib64
 )
 target_link_directories(custom_reduce_scatter_ccu PRIVATE
     ${ASCEND_HOME_PATH}/lib64
+    ${ASCEND_HOME_PATH}/aarch64-linux/lib64
 )
 target_link_libraries(custom_reduce_scatter_ccu PRIVATE
     -Wl,--no-as-needed
