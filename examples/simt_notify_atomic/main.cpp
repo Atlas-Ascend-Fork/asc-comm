@@ -68,6 +68,77 @@ constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UBC_CTP;
 constexpr const char* kSendBufTag = "simtNotifyAtomicSendBuf";
 constexpr const char* kRecvBufTag = "simtNotifyAtomicRecvBuf";
 
+// Rank 0通过HcclGetRootInfo生成root info并写入文件，其余rank从文件读取后调用
+// HcclCommInitRootInfo创建通信域，从而摆脱rank table依赖。
+bool IsRootInfoFileReady(const std::string& path)
+{
+    struct stat st {};
+    return stat(path.c_str(), &st) == 0 && st.st_size >= static_cast<off_t>(sizeof(HcclRootInfo));
+}
+
+HcclResult WriteRootInfoFile(const std::string& path, const HcclRootInfo& rootInfo)
+{
+    const std::string tmpPath = path + ".tmp";
+    std::ofstream ofs(tmpPath, std::ios::binary | std::ios::trunc);
+    if (!ofs.is_open()) {
+        std::cout << "Open root info tmp file failed: " << tmpPath << std::endl;
+        return HCCL_E_OPEN_FILE_FAILURE;
+    }
+    ofs.write(reinterpret_cast<const char*>(&rootInfo), sizeof(rootInfo));
+    ofs.close();
+    if (!ofs) {
+        std::cout << "Write root info file failed: " << tmpPath << std::endl;
+        return HCCL_E_SYSCALL;
+    }
+    if (std::rename(tmpPath.c_str(), path.c_str()) != 0) {
+        std::cout << "Rename root info file failed: " << tmpPath << " -> " << path << std::endl;
+        return HCCL_E_SYSCALL;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReadRootInfoFile(const std::string& path, HcclRootInfo* rootInfo)
+{
+    const uint32_t maxPollTimes = kBarrierWaitSeconds * 1000 / kBarrierPollMs;
+    for (uint32_t i = 0; i < maxPollTimes; ++i) {
+        if (!IsRootInfoFileReady(path)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
+            continue;
+        }
+        std::ifstream ifs(path, std::ios::binary);
+        if (!ifs.is_open()) {
+            return HCCL_E_OPEN_FILE_FAILURE;
+        }
+        ifs.read(reinterpret_cast<char*>(rootInfo), sizeof(*rootInfo));
+        if (ifs.gcount() == static_cast<std::streamsize>(sizeof(*rootInfo))) {
+            return HCCL_SUCCESS;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
+    }
+    std::cout << "Wait root info file timeout: " << path << std::endl;
+    return HCCL_E_TIMEOUT;
+}
+
+HcclResult InitCommByRootInfo(uint32_t rank, uint32_t nranks, const std::string& rootInfoFile, HcclComm* comm)
+{
+    HcclRootInfo rootInfo{};
+    HcclResult ret = HCCL_SUCCESS;
+    if (rank == 0U) {
+        HCCLCHECK(HcclGetRootInfo(&rootInfo));
+        ret = WriteRootInfoFile(rootInfoFile, rootInfo);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+    } else {
+        ret = ReadRootInfoFile(rootInfoFile, &rootInfo);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+    }
+    HCCLCHECK(HcclCommInitRootInfo(nranks, &rootInfo, rank, comm));
+    return HCCL_SUCCESS;
+}
+
 // Unlike a defaulted environment variable, an explicit command-line argument that does not
 // match any mode is a typo rather than a request for the default, so it is rejected.
 bool ParseMode(const char* arg, uint32_t& mode)
@@ -101,10 +172,6 @@ bool ParseMode(const char* arg, uint32_t& mode)
         mode = kModeNotifyImmediateRepeat;
         return true;
     }
-    if (name == "warp_immediate") {
-        mode = kModeWarpImmediate;
-        return true;
-    }
     return false;
 }
 
@@ -127,9 +194,6 @@ const char* ModeName(uint32_t mode)
     }
     if (mode == kModeNotifyImmediateRepeat) {
         return "notify_immediate_repeat";
-    }
-    if (mode == kModeWarpImmediate) {
-        return "warp_immediate";
     }
     return "single";
 }
@@ -212,12 +276,6 @@ aclError InitBuffers(void* sendBuf, void* recvBuf, uint32_t mode)
     send[kNotifyDataSlot] = kNotifyData;
     recv[kFaaTargetSlot] = kFaaInitial;
     recv[kCasTargetSlot] = kCasInitial;
-    if (mode == kModeWarpImmediate) {
-        for (uint32_t lane = 0U; lane < kWarpLaneCount; ++lane) {
-            recv[kWarpFaaTargetBaseSlot + lane] = kFaaInitial + lane;
-            recv[kWarpCasTargetBaseSlot + lane] = kCasInitial + lane;
-        }
-    }
     aclError ret = aclrtMemcpy(sendBuf, kBufferBytes, send, kBufferBytes, ACL_MEMCPY_HOST_TO_DEVICE);
     if (ret != ACL_SUCCESS) {
         return ret;
@@ -328,11 +386,6 @@ bool CheckSender(void* sendBuf, uint32_t mode)
     } else if (mode == kModeSingle || mode == kModeBatchLast || mode == kModeMultiLane) {
         expected[kFaaFetchSlot] = kFaaInitial;
         expected[kCasFetchSlot] = kCasInitial;
-    } else if (mode == kModeWarpImmediate) {
-        for (uint32_t lane = 0U; lane < kWarpLaneCount; ++lane) {
-            expected[kWarpFaaFetchBaseSlot + lane] = kFaaInitial + lane;
-            expected[kWarpCasFetchBaseSlot + lane] = kCasInitial + lane;
-        }
     }
     return CheckWords(sendBuf, expected, "sender fetch/drain");
 }
@@ -344,7 +397,6 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
     uint64_t expectedCas[kSlotCount] = {};
     uint64_t expectedCombined[kSlotCount] = {};
     uint64_t expectedMultiLane[kSlotCount] = {};
-    uint64_t expectedWarpImmediate[kSlotCount] = {};
     expectedNotify[kNotifyDataSlot] = kNotifyData;
     expectedNotify[kNotifySignalSlot] = kNotifySignal;
     expectedNotify[kFaaTargetSlot] = kFaaInitial;
@@ -362,14 +414,6 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
     }
     expectedMultiLane[kFinalNotifyDataSlot] = kNotifyData;
     expectedMultiLane[kFinalNotifySignalSlot] = kFinalNotifySignal;
-    for (uint32_t lane = 0U; lane < kWarpLaneCount; ++lane) {
-        expectedWarpImmediate[kWarpNotifyDataBaseSlot + lane] = kNotifyData;
-        expectedWarpImmediate[kWarpNotifySignalBaseSlot + lane] = kNotifySignal + lane;
-        expectedWarpImmediate[kWarpFaaTargetBaseSlot + lane] = kFaaInitial + lane + kFaaAdd;
-        expectedWarpImmediate[kWarpCasTargetBaseSlot + lane] = kCasSwap + lane;
-    }
-    expectedWarpImmediate[kFaaTargetSlot] = kFaaInitial;
-    expectedWarpImmediate[kCasTargetSlot] = kCasInitial;
     if (mode == kModeNotify || mode == kModeNotifyImmediateRepeat) {
         return CheckWords(recvBuf, expectedNotify, "receiver target");
     }
@@ -382,9 +426,6 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
     if (mode == kModeMultiLane) {
         return CheckWords(recvBuf, expectedMultiLane, "receiver target");
     }
-    if (mode == kModeWarpImmediate) {
-        return CheckWords(recvBuf, expectedWarpImmediate, "receiver target");
-    }
     return CheckWords(recvBuf, expectedCombined, "receiver target");
 }
 
@@ -393,16 +434,15 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
 int main(int argc, char* argv[])
 {
     if (argc < 4) {
-        std::cout << "Usage: " << argv[0] << " <rank> <nranks> <rank_table_file> [mode]" << std::endl;
-        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane"
-                     " | notify_immediate_repeat | warp_immediate"
+        std::cout << "Usage: " << argv[0] << " <rank> <nranks> <root_info_file> [mode]" << std::endl;
+        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane | notify_immediate_repeat"
                   << std::endl;
         return 1;
     }
 
     const int rank = std::atoi(argv[1]);
     const int nranks = std::atoi(argv[2]);
-    const char* rankTableFile = argv[3];
+    const std::string rootInfoFile = argv[3];
     if (nranks < 2) {
         std::cout << "nranks must be at least 2." << std::endl;
         return 1;
@@ -411,8 +451,7 @@ int main(int argc, char* argv[])
     uint32_t mode = kModeSingle;
     if (argc > 4 && !ParseMode(argv[4], mode)) {
         std::cout << "Unknown mode: " << argv[4] << std::endl;
-        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane"
-                     " | notify_immediate_repeat | warp_immediate"
+        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane | notify_immediate_repeat"
                   << std::endl;
         return 1;
     }
@@ -423,7 +462,7 @@ int main(int argc, char* argv[])
     ACLCHECK(aclrtCreateStream(&stream));
 
     HcclComm hcclComm = nullptr;
-    HCCLCHECK(HcclCommInitClusterInfo(rankTableFile, rank, &hcclComm));
+    HCCLCHECK(InitCommByRootInfo(static_cast<uint32_t>(rank), static_cast<uint32_t>(nranks), rootInfoFile, &hcclComm));
 
     void* sendBuf = nullptr;
     ACLCHECK(aclrtMalloc(&sendBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
@@ -453,8 +492,6 @@ int main(int argc, char* argv[])
     // Only kSenderRank drives traffic. Every other rank just holds its registered buffers
     // open so the sender's WQEs have a valid target.
     if (rank == kSenderRank) {
-        std::cout << "[rank " << rank << "] simt_notify_atomic mode=" << ModeName(mode) << " sending to rank "
-                  << kReceiverRank << std::endl;
         LaunchSimtNotifyAtomic(stream, channel, kLocalSendIdx, remoteRecvIdx, mode);
         ACLCHECK(aclrtSynchronizeStream(stream));
     }
@@ -471,9 +508,8 @@ int main(int argc, char* argv[])
     } else if (rank == kReceiverRank) {
         pass = CheckReceiver(recvBuf, mode);
     }
-    if (rank == kSenderRank || rank == kReceiverRank) {
-        std::cout << "[rank " << rank << "] simt_notify_atomic " << ModeName(mode) << " " << (pass ? "PASS" : "FAIL")
-                  << std::endl;
+    if (!pass && (rank == kSenderRank || rank == kReceiverRank)) {
+        std::cout << "FAIL | Rank=" << rank << " | Mode=" << ModeName(mode) << std::endl;
     }
 
     ACLCHECK(aclrtFree(sendBuf));

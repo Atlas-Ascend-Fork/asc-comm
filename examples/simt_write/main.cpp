@@ -13,6 +13,7 @@
  * \brief Hcomm SIMT WriteNbi样例Host侧流程：通信域创建、内存注册、P2P通道创建与结果校验
  */
 
+#include <array>
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
@@ -51,7 +52,8 @@
         }                                                                                         \
     } while (0)
 
-extern void LaunchSimtWrite(void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode);
+extern void LaunchSimtWrite(
+    void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode, int32_t* status);
 
 namespace {
 
@@ -66,6 +68,77 @@ constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UBC_CTP;
 // 两块内存注册到通信域时使用的tag。两个rank使用相同tag，远端内存才能按tag查回。
 constexpr const char* kSendBufTag = "simtWriteSendBuf";
 constexpr const char* kRecvBufTag = "simtWriteRecvBuf";
+
+// Rank 0通过HcclGetRootInfo生成root info并写入文件，其余rank从文件读取后调用
+// HcclCommInitRootInfo创建通信域，从而摆脱rank table依赖。
+bool IsRootInfoFileReady(const std::string& path)
+{
+    struct stat st {};
+    return stat(path.c_str(), &st) == 0 && st.st_size >= static_cast<off_t>(sizeof(HcclRootInfo));
+}
+
+HcclResult WriteRootInfoFile(const std::string& path, const HcclRootInfo& rootInfo)
+{
+    const std::string tmpPath = path + ".tmp";
+    std::ofstream ofs(tmpPath, std::ios::binary | std::ios::trunc);
+    if (!ofs.is_open()) {
+        std::cout << "Open root info tmp file failed: " << tmpPath << std::endl;
+        return HCCL_E_OPEN_FILE_FAILURE;
+    }
+    ofs.write(reinterpret_cast<const char*>(&rootInfo), sizeof(rootInfo));
+    ofs.close();
+    if (!ofs) {
+        std::cout << "Write root info file failed: " << tmpPath << std::endl;
+        return HCCL_E_SYSCALL;
+    }
+    if (std::rename(tmpPath.c_str(), path.c_str()) != 0) {
+        std::cout << "Rename root info file failed: " << tmpPath << " -> " << path << std::endl;
+        return HCCL_E_SYSCALL;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReadRootInfoFile(const std::string& path, HcclRootInfo* rootInfo)
+{
+    const uint32_t maxPollTimes = kBarrierWaitSeconds * 1000 / kBarrierPollMs;
+    for (uint32_t i = 0; i < maxPollTimes; ++i) {
+        if (!IsRootInfoFileReady(path)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
+            continue;
+        }
+        std::ifstream ifs(path, std::ios::binary);
+        if (!ifs.is_open()) {
+            return HCCL_E_OPEN_FILE_FAILURE;
+        }
+        ifs.read(reinterpret_cast<char*>(rootInfo), sizeof(*rootInfo));
+        if (ifs.gcount() == static_cast<std::streamsize>(sizeof(*rootInfo))) {
+            return HCCL_SUCCESS;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
+    }
+    std::cout << "Wait root info file timeout: " << path << std::endl;
+    return HCCL_E_TIMEOUT;
+}
+
+HcclResult InitCommByRootInfo(uint32_t rank, uint32_t nranks, const std::string& rootInfoFile, HcclComm* comm)
+{
+    HcclRootInfo rootInfo{};
+    HcclResult ret = HCCL_SUCCESS;
+    if (rank == 0U) {
+        HCCLCHECK(HcclGetRootInfo(&rootInfo));
+        ret = WriteRootInfoFile(rootInfoFile, rootInfo);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+    } else {
+        ret = ReadRootInfoFile(rootInfoFile, &rootInfo);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+    }
+    HCCLCHECK(HcclCommInitRootInfo(nranks, &rootInfo, rank, comm));
+    return HCCL_SUCCESS;
+}
 
 // Unlike a defaulted environment variable, an explicit command-line argument that does not
 // match any mode is a typo rather than a request for the default, so it is rejected.
@@ -84,18 +157,6 @@ bool ParseMode(const char* arg, uint32_t& mode)
         mode = kModeMultiLane;
         return true;
     }
-    if (name == "value_single") {
-        mode = kModeValueSingle;
-        return true;
-    }
-    if (name == "value_batch_last") {
-        mode = kModeValueBatchLast;
-        return true;
-    }
-    if (name == "value_multi_lane") {
-        mode = kModeValueMultiLane;
-        return true;
-    }
     return false;
 }
 
@@ -106,15 +167,6 @@ const char* ModeName(uint32_t mode)
     }
     if (mode == kModeMultiLane) {
         return "multi_lane";
-    }
-    if (mode == kModeValueSingle) {
-        return "value_single";
-    }
-    if (mode == kModeValueBatchLast) {
-        return "value_batch_last";
-    }
-    if (mode == kModeValueMultiLane) {
-        return "value_multi_lane";
     }
     return "single";
 }
@@ -311,20 +363,33 @@ bool CheckBuffer(void* recvBuf, uint32_t mode, int rank)
     return pass;
 }
 
+bool CheckKernelStatus(void* statusBuf, int rank)
+{
+    std::array<int32_t, kStatusCount> status{};
+    aclError ret = aclrtMemcpy(
+        status.data(), sizeof(status), statusBuf, sizeof(status), ACL_MEMCPY_DEVICE_TO_HOST);
+    if (ret != ACL_SUCCESS) {
+        std::cout << "[rank " << rank << "] simt_write read kernel status failed, retcode: " << ret << std::endl;
+        return false;
+    }
+    std::cout << "[rank " << rank << "] simt_write kernel status: init=" << status[kStatusInit]
+              << " post=" << status[kStatusPost] << " drain=" << status[kStatusDrain] << std::endl;
+    return status[kStatusInit] == 0 && status[kStatusPost] == 0 && status[kStatusDrain] == 0;
+}
+
 } // namespace
 
 int main(int argc, char* argv[])
 {
     if (argc < 4) {
-        std::cout << "Usage: " << argv[0] << " <rank> <nranks> <rank_table_file> [mode]" << std::endl;
+        std::cout << "Usage: " << argv[0] << " <rank> <nranks> <root_info_file> [mode]" << std::endl;
         std::cout << "  mode: single (default) | batch_last | multi_lane" << std::endl;
-        std::cout << "        value_single | value_batch_last | value_multi_lane" << std::endl;
         return 1;
     }
 
     const int rank = std::atoi(argv[1]);
     const int nranks = std::atoi(argv[2]);
-    const char* rankTableFile = argv[3];
+    const std::string rootInfoFile = argv[3];
     if (nranks < 2) {
         std::cout << "nranks must be at least 2." << std::endl;
         return 1;
@@ -334,7 +399,6 @@ int main(int argc, char* argv[])
     if (argc > 4 && !ParseMode(argv[4], mode)) {
         std::cout << "Unknown mode: " << argv[4] << std::endl;
         std::cout << "  mode: single (default) | batch_last | multi_lane" << std::endl;
-        std::cout << "        value_single | value_batch_last | value_multi_lane" << std::endl;
         return 1;
     }
 
@@ -344,12 +408,15 @@ int main(int argc, char* argv[])
     ACLCHECK(aclrtCreateStream(&stream));
 
     HcclComm hcclComm = nullptr;
-    HCCLCHECK(HcclCommInitClusterInfo(rankTableFile, rank, &hcclComm));
+    HCCLCHECK(InitCommByRootInfo(static_cast<uint32_t>(rank), static_cast<uint32_t>(nranks), rootInfoFile, &hcclComm));
 
     void* sendBuf = nullptr;
     ACLCHECK(aclrtMalloc(&sendBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
     void* recvBuf = nullptr;
     ACLCHECK(aclrtMalloc(&recvBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
+    void* statusBuf = nullptr;
+    ACLCHECK(aclrtMalloc(&statusBuf, kStatusCount * sizeof(int32_t), ACL_MEM_MALLOC_HUGE_FIRST));
+    ACLCHECK(aclrtMemset(statusBuf, kStatusCount * sizeof(int32_t), 0, kStatusCount * sizeof(int32_t)));
     ACLCHECK(InitBuffers(sendBuf, recvBuf));
 
     // Both ranks register both buffers under the same tags, so the sender can look up the
@@ -357,8 +424,11 @@ int main(int argc, char* argv[])
     CommMem sendMem{COMM_MEM_TYPE_DEVICE, sendBuf, kBufferBytes};
     CommMem recvMem{COMM_MEM_TYPE_DEVICE, recvBuf, kBufferBytes};
     HcclMemHandle memHandles[2] = {nullptr, nullptr};
-    constexpr uint32_t kLocalSendIdx = 0U;
-    HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kLocalSendIdx]));
+    constexpr uint32_t kSendMemHandleIdx = 0U;
+    // Channel buffer-table slot 0 is the CCL internal buffer; explicitly registered
+    // memory starts at slot 1 (as in the Notify/Atomic examples).
+    constexpr uint32_t kLocalSendIdx = 1U;
+    HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kSendMemHandleIdx]));
     HCCLCHECK(HcclCommMemReg(hcclComm, kRecvBufTag, &recvMem, &memHandles[1]));
 
     const uint32_t peerRank =
@@ -372,14 +442,14 @@ int main(int argc, char* argv[])
 
     // Only kSenderRank drives traffic. Every other rank just holds its registered buffers
     // open so the sender's WQEs have a valid target.
-    // The value_* modes carry their payload inline in the WQE and never read the send buffer,
-    // so kLocalSendIdx is unused there. It is still registered on both ranks to keep the
-    // buffer tables symmetric and the channel setup identical across modes.
     if (rank == kSenderRank) {
         std::cout << "[rank " << rank << "] simt_write mode=" << ModeName(mode) << " sending to rank " << kRecvRank
                   << std::endl;
-        LaunchSimtWrite(stream, channel, kLocalSendIdx, remoteRecvIdx, mode);
+        LaunchSimtWrite(stream, channel, kLocalSendIdx, remoteRecvIdx, mode, static_cast<int32_t*>(statusBuf));
         ACLCHECK(aclrtSynchronizeStream(stream));
+        if (!CheckKernelStatus(statusBuf, rank)) {
+            std::cout << "[rank " << rank << "] simt_write kernel reported a failure" << std::endl;
+        }
     }
 
     // Separates the sender's kernel from the receiver's read. kSenderRank only arrives here
@@ -397,6 +467,7 @@ int main(int argc, char* argv[])
 
     ACLCHECK(aclrtFree(sendBuf));
     ACLCHECK(aclrtFree(recvBuf));
+    ACLCHECK(aclrtFree(statusBuf));
     HCCLCHECK(HcclCommDestroy(hcclComm));
     ACLCHECK(aclrtDestroyStream(stream));
     ACLCHECK(aclFinalize());
