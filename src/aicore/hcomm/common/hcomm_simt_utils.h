@@ -78,16 +78,26 @@ __simt_callee__ inline uint32_t HcommSimtWqeCnt(uint64_t headVal)
     return static_cast<uint32_t>((headVal >> 32U) & HCOMM_SIMT_WQE_CNT_MASK);
 }
 
-// Reserves SQ space for one single-lane submission and returns the previous headAddr value.
-// bbCnt is the number of 64B basic blocks occupied in the SQ; cqeCnt is the number of
-// CQEs the submission will produce (NOP padding produces none), so the high half of
-// headAddr stays directly comparable with the CQ tail consumed by PollCq.
-__simt_callee__ inline uint64_t HcommSimtReserve(__gm__ uint64_t* headAddr, uint32_t bbCnt, uint32_t cqeCnt)
+// Reserves SQ space for one single-lane submission without overwriting unconsumed BBs.
+// requiredFreeBbCnt may exceed bbCnt when a deferred post must leave room for the
+// immediate DWQE that will publish it later.
+__simt_callee__ inline bool HcommSimtTryReserve(
+    __gm__ uint64_t* headAddr, __gm__ uint32_t* tailAddr, uint32_t sqDepth, uint32_t bbCnt,
+    uint32_t requiredFreeBbCnt, uint32_t cqeCnt, uint64_t& headVal)
 {
+    if (sqDepth == 0U || requiredFreeBbCnt > sqDepth) {
+        return false;
+    }
+
+    headVal = *headAddr;
+    uint32_t usedBbCnt = HcommSimtHeadIdx(headVal) - *tailAddr;
+    if (usedBbCnt > sqDepth || requiredFreeBbCnt > sqDepth - usedBbCnt) {
+        return false;
+    }
+
     uint64_t delta = (static_cast<uint64_t>(cqeCnt) << 32U) | static_cast<uint64_t>(bbCnt);
-    uint64_t headVal = *headAddr;
     *headAddr = headVal + delta;
-    return headVal;
+    return true;
 }
 
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtLocalBuffers(ChannelHandle channel)
