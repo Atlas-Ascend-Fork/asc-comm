@@ -15,6 +15,7 @@
 
 namespace {
 constexpr uint32_t POD_DEFAULT_NOTIFY_WAIT_TIMEOUT = 1836U;
+constexpr uint32_t POD_DEFAULT_SQ_FULL_TIMEOUT = 1856U;
 
 struct PodLaunchState {
     std::vector<ThreadHandle> threads;
@@ -44,6 +45,11 @@ bool HcommPodIsBatchLaunchMode()
 uint32_t HcommPodGetNotifyWaitTimeout()
 {
     return g_podLaunchState.notifyWaitTimeout;
+}
+
+uint32_t HcommPodGetSqFullTimeOut()
+{
+    return POD_DEFAULT_SQ_FULL_TIMEOUT;
 }
 
 void HcommPodSetNotifyWaitTimeout(uint32_t timeout)
