@@ -93,16 +93,8 @@ bool ParseMode(const char* arg, uint32_t& mode)
         mode = kModeBatchLast;
         return true;
     }
-    if (name == "multi_lane") {
-        mode = kModeMultiLane;
-        return true;
-    }
     if (name == "notify_immediate_repeat") {
         mode = kModeNotifyImmediateRepeat;
-        return true;
-    }
-    if (name == "warp_immediate") {
-        mode = kModeWarpImmediate;
         return true;
     }
     return false;
@@ -122,14 +114,8 @@ const char* ModeName(uint32_t mode)
     if (mode == kModeBatchLast) {
         return "batch_last";
     }
-    if (mode == kModeMultiLane) {
-        return "multi_lane";
-    }
     if (mode == kModeNotifyImmediateRepeat) {
         return "notify_immediate_repeat";
-    }
-    if (mode == kModeWarpImmediate) {
-        return "warp_immediate";
     }
     return "single";
 }
@@ -212,12 +198,6 @@ aclError InitBuffers(void* sendBuf, void* recvBuf, uint32_t mode)
     send[kNotifyDataSlot] = kNotifyData;
     recv[kFaaTargetSlot] = kFaaInitial;
     recv[kCasTargetSlot] = kCasInitial;
-    if (mode == kModeWarpImmediate) {
-        for (uint32_t lane = 0U; lane < kWarpLaneCount; ++lane) {
-            recv[kWarpFaaTargetBaseSlot + lane] = kFaaInitial + lane;
-            recv[kWarpCasTargetBaseSlot + lane] = kCasInitial + lane;
-        }
-    }
     aclError ret = aclrtMemcpy(sendBuf, kBufferBytes, send, kBufferBytes, ACL_MEMCPY_HOST_TO_DEVICE);
     if (ret != ACL_SUCCESS) {
         return ret;
@@ -325,14 +305,9 @@ bool CheckSender(void* sendBuf, uint32_t mode)
         expected[kFaaFetchSlot] = kFaaInitial;
     } else if (mode == kModeCas) {
         expected[kCasFetchSlot] = kCasInitial;
-    } else if (mode == kModeSingle || mode == kModeBatchLast || mode == kModeMultiLane) {
+    } else if (mode == kModeSingle || mode == kModeBatchLast) {
         expected[kFaaFetchSlot] = kFaaInitial;
         expected[kCasFetchSlot] = kCasInitial;
-    } else if (mode == kModeWarpImmediate) {
-        for (uint32_t lane = 0U; lane < kWarpLaneCount; ++lane) {
-            expected[kWarpFaaFetchBaseSlot + lane] = kFaaInitial + lane;
-            expected[kWarpCasFetchBaseSlot + lane] = kCasInitial + lane;
-        }
     }
     return CheckWords(sendBuf, expected, "sender fetch/drain");
 }
@@ -343,8 +318,6 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
     uint64_t expectedFaa[kSlotCount] = {};
     uint64_t expectedCas[kSlotCount] = {};
     uint64_t expectedCombined[kSlotCount] = {};
-    uint64_t expectedMultiLane[kSlotCount] = {};
-    uint64_t expectedWarpImmediate[kSlotCount] = {};
     expectedNotify[kNotifyDataSlot] = kNotifyData;
     expectedNotify[kNotifySignalSlot] = kNotifySignal;
     expectedNotify[kFaaTargetSlot] = kFaaInitial;
@@ -357,19 +330,6 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
     expectedCombined[kNotifySignalSlot] = kNotifySignal;
     expectedCombined[kFaaTargetSlot] = kFaaInitial + kFaaAdd;
     expectedCombined[kCasTargetSlot] = kCasSwap;
-    for (uint32_t slot = 0U; slot < kSlotCount; ++slot) {
-        expectedMultiLane[slot] = expectedCombined[slot];
-    }
-    expectedMultiLane[kFinalNotifyDataSlot] = kNotifyData;
-    expectedMultiLane[kFinalNotifySignalSlot] = kFinalNotifySignal;
-    for (uint32_t lane = 0U; lane < kWarpLaneCount; ++lane) {
-        expectedWarpImmediate[kWarpNotifyDataBaseSlot + lane] = kNotifyData;
-        expectedWarpImmediate[kWarpNotifySignalBaseSlot + lane] = kNotifySignal + lane;
-        expectedWarpImmediate[kWarpFaaTargetBaseSlot + lane] = kFaaInitial + lane + kFaaAdd;
-        expectedWarpImmediate[kWarpCasTargetBaseSlot + lane] = kCasSwap + lane;
-    }
-    expectedWarpImmediate[kFaaTargetSlot] = kFaaInitial;
-    expectedWarpImmediate[kCasTargetSlot] = kCasInitial;
     if (mode == kModeNotify || mode == kModeNotifyImmediateRepeat) {
         return CheckWords(recvBuf, expectedNotify, "receiver target");
     }
@@ -378,12 +338,6 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
     }
     if (mode == kModeCas) {
         return CheckWords(recvBuf, expectedCas, "receiver target");
-    }
-    if (mode == kModeMultiLane) {
-        return CheckWords(recvBuf, expectedMultiLane, "receiver target");
-    }
-    if (mode == kModeWarpImmediate) {
-        return CheckWords(recvBuf, expectedWarpImmediate, "receiver target");
     }
     return CheckWords(recvBuf, expectedCombined, "receiver target");
 }
@@ -394,8 +348,7 @@ int main(int argc, char* argv[])
 {
     if (argc < 4) {
         std::cout << "Usage: " << argv[0] << " <rank> <nranks> <rank_table_file> [mode]" << std::endl;
-        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane"
-                     " | notify_immediate_repeat | warp_immediate"
+        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | notify_immediate_repeat"
                   << std::endl;
         return 1;
     }
@@ -411,8 +364,7 @@ int main(int argc, char* argv[])
     uint32_t mode = kModeSingle;
     if (argc > 4 && !ParseMode(argv[4], mode)) {
         std::cout << "Unknown mode: " << argv[4] << std::endl;
-        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane"
-                     " | notify_immediate_repeat | warp_immediate"
+        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | notify_immediate_repeat"
                   << std::endl;
         return 1;
     }

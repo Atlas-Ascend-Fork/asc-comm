@@ -32,6 +32,7 @@ namespace detail {
 struct HcommUnboundGroup {};
 } // namespace detail
 
+// clang-format off
 /*!
  * @class Hcomm
  * @brief The SIMT counterpart of AscendC::Hcomm. It provides the same point-to-point
@@ -49,8 +50,8 @@ struct HcommUnboundGroup {};
  * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
- * @note Concurrent lanes may post on the same channel: SQ space is reserved with an atomic add.
- *       Drain must be called by a single lane, after every posting lane has returned.
+ * @note Posting and Drain on one channel must be called serially by the same lane. This caller
+ *       contract is not checked at runtime.
  * @note A channel must not be driven by both this class and the SIMD AscendC::Hcomm. The two paths
  *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
  *       packs curHead and wqeCnt into the u64 at SqContext::ubJfs::headAddr.
@@ -97,26 +98,6 @@ public:
      */
     template <bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
-
-    /*!
-     * @brief The task launching interface of the inline Write point-to-point communication operator.
-     *        The source data is provided by value and carried inline in the WQE.
-     * @tparam T: The value type to write.
-     * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam commitPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
-     * @tparam reqPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
-     * @tparam config: URMA WQE control config.
-     *         Default: strongly ordered + fence + CQE + inline enabled.
-     * @param [in] channel: The handle of the communication channel.
-     * @param [out] dst: The destination address of the data.
-     * @param [in] value: The inline value to write.
-     * @return 0 indicates success and -1 indicates failure.
-     * @note Must be called after channel initialization. config must have inline enabled, and
-     *       sizeof(T) must fit in the WQE inline payload area.
-     */
-    template <
-        typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_INLINE_CFG>
-    __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value);
 
     /*!
      * @brief The task launching interface of the Read point-to-point communication operator.
@@ -195,7 +176,7 @@ public:
      * @tparam pipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Must be called by a single lane, after every posting lane has returned.
+     * @note Must be called by the same lane that posts tasks on this channel.
      */
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
@@ -207,6 +188,7 @@ private:
 
 template <typename Group>
 Hcomm(const Group&) -> Hcomm<COMM_PROTOCOL_UBC_CTP, Group>;
+// clang-format on
 
 /*!
  * @brief Resolve the base address of a locally registered buffer on the channel.

@@ -10,9 +10,9 @@
 - `cas`：提交一次CAS操作，校验远端交换结果和本地取回的旧值。
 - `single`：串行提交Notify、FAA和CAS，每次操作后分别调用`Drain`。
 - `batch_last`：Notify和FAA使用`commit=false`延迟提交，最后通过`commit=true`的CAS提交整个批次。
-- `multi_lane`：三个lane分别延迟提交Notify、FAA和CAS；同步后由lane 0追加一次Notify并提交整个批次。
 - `notify_immediate_repeat`：单lane连续提交100个`WriteWithNotifyNbi<true>`，每个WQE立即敲DB，最后统一调用一次`Drain`；用于覆盖连续立即提交场景。
-- `warp_immediate`：三个lane在同一调用点分别执行一次立即提交，覆盖单warp协作预留和发布路径。
+
+同一channel上的提交和`Drain`必须由同一个lane串行调用；样例不提供多lane并发提交模式。
 
 ## 编译
 
@@ -34,13 +34,8 @@ bash run.sh 2 /path/to/rank_table.json faa
 bash run.sh 2 /path/to/rank_table.json cas
 bash run.sh 2 /path/to/rank_table.json single
 bash run.sh 2 /path/to/rank_table.json batch_last
-bash run.sh 2 /path/to/rank_table.json multi_lane
 bash run.sh 2 /path/to/rank_table.json notify_immediate_repeat
-bash run.sh 2 /path/to/rank_table.json warp_immediate
 ```
-
-`warp_immediate`由3个lane在同一调用点分别执行一次`commit=true`的Notify、FAA和CAS，直接覆盖库内自动
-合并单warp SQ预留、非发布lane写普通SQ以及最后lane发布DWQE的路径。
 
 每种模式的预期输出如下：
 

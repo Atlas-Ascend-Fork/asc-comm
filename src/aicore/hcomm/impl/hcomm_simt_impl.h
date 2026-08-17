@@ -55,14 +55,6 @@ __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteNbi(
 }
 
 template <CommProtocol commProtocol, typename Group>
-template <typename T, bool commit, auto commitPipe, auto reqPipe, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteValueNbi(
-    ChannelHandle channel, __gm__ void* dst, T value)
-{
-    return impl_.template WriteValueNbi<T, commit, commitPipe, reqPipe, config>(channel, dst, value);
-}
-
-template <CommProtocol commProtocol, typename Group>
 template <bool commit, auto commitPipe, auto reqPipe, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::ReadNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)

@@ -1,22 +1,13 @@
 # SIMT Notify/FAA/CAS 基础性能用例
 
-本目录只测试`Notify`、`FAA`和`CAS`三个接口。Immediate模式下，t1的每个WQE使用
-`commit=true`；多lane按轮次协作预留和发布WQE，不包含阶段打点。
-
-当不超过 32 个 lane 同时对同一 channel 执行 `commit=true` 时，Hcomm 会在接口内部自动合并
-同一 warp 的 SQ 预留和 DWQE 发布：一个 lane 原子预留整组 SQ 空间，各 lane 并行填写自己的
-WQE，最后一个有效lane发布该组。t1024超过单warp范围，直接由每个lane调用普通
-`WriteWithNotifyNbi`、`AtomicFAA`或`AtomicCAS`接口完成提交，不调用额外的批量预留接口。
+本目录只测试`Notify`、`FAA`和`CAS`三个接口。同一channel的post接口同一时刻只能由一个SIMT lane调用，
+不允许多个lane并发写WQE，因此本样例只支持`--lanes 1`。
 
 当前性能 kernel 在计时开始前调用原有的 `Hcomm::Init(workspace, len)`。Hcomm 在不透明 UB
 workspace 内自动为每个 lane 分配 128B WQE slot 和 32B 远端注册信息/token cache，并初始化所有
 lane 共享只读的 128B channel/SQ post context。共享 context 在第一次业务调用取得 `channel` 后懒加载；
 缓存只减少每个 WQE 重复解析 GM 元数据的开销，不改变 Immediate 提交语义，调用方不再管理三块
 内部空间或分别调用绑定接口。
-
-t1024 仅提供 1024 个 lane 所需的 128KiB WQE workspace，避免形成超过 128KiB 的单个静态 UB
-对象；可选的远端缓存和共享 post context 不启用，Hcomm 自动回退到 GM 元数据解析。该配置先用于
-区分 kernel 启动资源问题和跨 warp 提交问题，日志相应显示 `RemoteCache=Disabled`、`PostContext=GM`。
 
 ## 计时流程
 
@@ -41,11 +32,10 @@ completionEnd = clock()
 
 `--commit-mode last` 对一组 WQE 只执行一次最终提交：前 `iterations - 1` 个 WQE 使用
 `commit=false` 写入普通 SQ，最后一个 WQE 使用 `commit=true` 通过 DWQE 发布整批，随后结束计时并
-调用 `Drain()`。
+调用 `Drain()`。Last 只合并最终 DWQE 发布，SQ 空间仍按每个 WQE 执行一次预留 CAS，具体由日志中的
+`ReserveMode` 标识。
 
-- t1 串行执行前面的`commit=false` WQE，最后执行一个`commit=true` WQE。
-- t32/t1024 由各 lane 并行填写前面的 SQ WQE；所有 lane 同步后，由最后一个逻辑操作所属的 lane
-  执行唯一一次 `commit=true`，其余 lane 等待发布完成。
+单个post lane串行执行前面的`commit=false` WQE，最后执行一个`commit=true` WQE。
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
@@ -62,12 +52,7 @@ bash examples/simt_notify_atomic_perf/run.sh \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode last
 ```
 
-将上述命令的 `--lanes` 改为 `32` 或 `1024`，即可验证对应的多 lane Last 路径。
-默认值仍为 `--commit-mode immediate`，日志中显示实际的 `CommitMode`。
-
-第 `lane` 个线程处理序号为 `lane, lane + laneCount, ...` 的WQE。t32由Hcomm透明执行单warp
-合并；t1024直接走普通接口路径，每个有效lane独立提交WQE。全部lane返回后，由lane 0调用一次
-`Drain()`。
+`--lanes`只应传`1`；多lane并发post不属于接口支持范围。
 
 ## 编译
 
@@ -102,13 +87,12 @@ bash examples/simt_notify_atomic_perf/run.sh \
   --iterations 1024 --warmup 100 --lanes 1
 ```
 
-将 `--lanes` 改为 `32` 或 `1024` 可运行同一接口的多 lane 用例。每条命令只执行一个
-接口、一个 lane 配置和一个数据长度，不在脚本内部扫描或组合场景。
+每条命令只执行一个接口和一个数据长度，不在脚本内部扫描或组合场景；`--lanes`必须为`1`。
 
 ## 输出
 
 ```text
-RESULT | Path=SIMT-t1 | API=notify | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | RemoteCache=PerLaneUB | PostContext=SharedUB | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
+RESULT | Path=SIMT-t1 | API=notify | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | RemoteCache=PerLaneUB | PostContext=SharedUB | MetadataPath=CachedUB | ReserveMode=PerWqeLoadStore | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
 ```
 
 - `IssueTime/us`：正式接口调用本身的总时间，不包含`Drain()`；

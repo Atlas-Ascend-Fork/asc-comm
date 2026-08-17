@@ -1,22 +1,14 @@
 # SIMT Notify/FAA/CAS Basic Performance Sample
 
-This directory tests only the `Notify`, `FAA`, and `CAS` interfaces. In Immediate mode, t1 uses `commit=true` for every
-WQE. Multi-lane paths cooperatively reserve and publish WQEs in rounds and do not include intermediate timing points.
-
-When up to 32 lanes call `commit=true` on the same channel, Hcomm combines the SQ reservation and DWQE publication for
-the warp: one lane atomically reserves the SQ range, every lane fills its own WQE, and the final active lane publishes
-the group. Because t1024 spans multiple warps, each lane directly uses the ordinary `WriteWithNotifyNbi`, `AtomicFAA`,
-or `AtomicCAS` path without calling an additional batch-reservation interface.
+This directory tests only the `Notify`, `FAA`, and `CAS` interfaces. Each posting interface must be called by one SIMT
+lane at a time for a channel; concurrent lanes must not write WQEs to the same channel. The sample therefore supports
+only `--lanes 1`.
 
 Before timing begins, the performance kernel calls `Hcomm::Init(workspace, len)`. In the opaque UB workspace, Hcomm
 allocates a 128-byte WQE slot and a 32-byte remote registration/token cache for each lane, plus a 128-byte read-only
 channel/SQ post context shared by all lanes. The shared context is initialized lazily after the first operation obtains
 the channel. These caches reduce repeated GM metadata parsing without changing Immediate submission semantics, and the
 caller does not manage or bind the three internal regions separately.
-
-t1024 provides only the 128 KiB needed for 1024 per-lane WQE slots so that no single static UB object exceeds 128 KiB.
-The optional remote cache and shared post context are disabled, and Hcomm falls back to GM metadata parsing. The log
-therefore reports `RemoteCache=Disabled` and `PostContext=GM` for t1024.
 
 ## Timing Flow
 
@@ -41,11 +33,11 @@ completionEnd = clock()
 
 With `--commit-mode last`, a group of WQEs performs one final publication. The first `iterations - 1` WQEs use
 `commit=false` to write the ordinary SQ, and the final WQE uses `commit=true` to publish the complete batch through the
-DWQE window. Timing then stops and `Drain()` is called.
+DWQE window. Timing then stops and `Drain()` is called. Last mode combines DWQE publication only; SQ space is still
+reserved with one CAS per WQE, as reported by `ReserveMode`.
 
-- t1 serially writes the preceding WQEs with `commit=false`, then writes the final WQE with `commit=true`.
-- t32/t1024 lanes fill the deferred SQ WQEs in parallel. After all lanes synchronize, the lane that owns the final
-  logical operation performs the only `commit=true` call, while the other lanes wait for publication to finish.
+The single posting lane serially writes the preceding WQEs with `commit=false`, then writes the final WQE with
+`commit=true`.
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
@@ -62,12 +54,7 @@ bash examples/simt_notify_atomic_perf/run.sh \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode last
 ```
 
-Set `--lanes` to `32` or `1024` to exercise the corresponding multi-lane Last path. The default remains
-`--commit-mode immediate`, and the selected `CommitMode` is recorded in the log.
-
-Lane `lane` processes WQE indices `lane, lane + laneCount, ...`. Hcomm transparently combines t32 as a single-warp
-operation. t1024 uses the ordinary interface path, with each active lane submitting its own WQE. After all lanes
-return, lane 0 calls `Drain()` once.
+Only pass `--lanes 1`; concurrent multi-lane posting is outside the interface contract.
 
 ## Build
 
@@ -102,13 +89,13 @@ bash examples/simt_notify_atomic_perf/run.sh \
   --iterations 1024 --warmup 100 --lanes 1
 ```
 
-Set `--lanes` to `32` or `1024` to run the same interface with multiple lanes. Each command executes one interface,
-one lane configuration, and one data size; the script does not scan or combine scenarios internally.
+Each command executes one interface and one data size; the script does not scan or combine scenarios internally.
+`--lanes` must be `1`.
 
 ## Output
 
 ```text
-RESULT | Path=SIMT-t1 | API=notify | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | RemoteCache=PerLaneUB | PostContext=SharedUB | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
+RESULT | Path=SIMT-t1 | API=notify | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | RemoteCache=PerLaneUB | PostContext=SharedUB | MetadataPath=CachedUB | ReserveMode=PerWqeLoadStore | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
 ```
 
 - `IssueTime/us`: Total formal interface-call time, excluding `Drain()`.

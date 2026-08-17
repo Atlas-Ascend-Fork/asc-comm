@@ -74,63 +74,11 @@ __simt_callee__ inline int32_t SubmitLastCommitSeries(
     return SubmitOne<api, true>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);
 }
 
-template <PerfApi api, uint32_t kLaneCount>
-__simt_callee__ inline int32_t SubmitMultiLaneLastCommitSeries(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
-    uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count, __ubuf__ uint32_t* postStatus)
-{
-    if (count == 0U) {
-        return 0;
-    }
-
-    uint32_t lane = threadIdx.x;
-    if (lane == 0U) {
-        postStatus[0] = 0U;
-    }
-    asc_syncthreads();
-
-    // Every WQE except the global last one is written to SQ without publishing.
-    uint32_t deferredCount = count - 1U;
-    for (uint32_t i = lane; i < deferredCount; i += kLaneCount) {
-        int32_t status = SubmitOne<api, false>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, lane);
-        if (status != 0) {
-            (void)asc_atomic_exch(postStatus, 1U);
-        }
-    }
-    asc_syncthreads();
-
-    // The owner of the global last operation publishes the PI covering all
-    // preceding SQ writes. Other lanes wait until this single commit finishes.
-    uint32_t commitLane = deferredCount % kLaneCount;
-    if (postStatus[0] == 0 && lane == commitLane) {
-        int32_t status =
-            SubmitOne<api, true>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, commitLane);
-        if (status != 0) {
-            (void)asc_atomic_exch(postStatus, 1U);
-        }
-    }
-    asc_syncthreads();
-    return postStatus[0] == 0 ? 0 : -1;
-}
-
-template <PerfApi api, uint32_t kLaneCount>
-__simt_callee__ inline int32_t SubmitLastCommitWorkload(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
-    uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count, __ubuf__ uint32_t* postStatus)
-{
-    if constexpr (kLaneCount == 1U) {
-        return SubmitLastCommitSeries<api>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, count);
-    } else {
-        return SubmitMultiLaneLastCommitSeries<api, kLaneCount>(
-            hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, count, postStatus);
-    }
-}
-
-template <PerfApi api, uint32_t kLaneCount, uint32_t kLaunchBounds>
-__simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtLastCommitPerfVf(
+template <PerfApi api>
+__simt_vf__ __launch_bounds__(32) inline void SimtLastCommitPerfVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ uint64_t* timing, uint32_t payloadBytes,
     uint32_t iterations, uint32_t warmup, __ubuf__ uint8_t* workspace, uint32_t workspaceBytes,
-    __ubuf__ int32_t* drainStatus, __ubuf__ uint32_t* postStatus, __ubuf__ uint64_t* beginCycle)
+    __ubuf__ int32_t* drainStatus)
 {
     uint32_t notifyOffset = (payloadBytes + sizeof(uint64_t) - 1U) & ~(sizeof(uint64_t) - 1U);
     __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
@@ -147,46 +95,28 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtLastCommitPerfVf(
         return;
     }
 
-    int32_t status = warmup == 0U ? 0 :
-                                    SubmitLastCommitWorkload<api, kLaneCount>(
-                                        hcomm, channel, remote, local, payloadBytes, notifyOffset, warmup, postStatus);
-    if (threadIdx.x == 0U) {
-        drainStatus[0] = status != 0 ? status : (warmup == 0U ? 0 : hcomm.Drain(channel));
-    }
-    if constexpr (kLaneCount > 1U) {
-        asc_syncthreads();
-    }
+    int32_t status = warmup == 0U ?
+                         0 :
+                         SubmitLastCommitSeries<api>(
+                             hcomm, channel, remote, local, payloadBytes, notifyOffset, warmup);
+    drainStatus[0] = status != 0 ? status : (warmup == 0U ? 0 : hcomm.Drain(channel));
     if (drainStatus[0] != 0) {
-        if (threadIdx.x == 0U) {
-            timing[kIssueCyclesIndex] = 0U;
-            timing[kCompletionCyclesIndex] = 0U;
-            timing[kDrainStatusIndex] = static_cast<uint64_t>(drainStatus[0]);
-            timing[kCompletedIndex] = 0U;
-        }
+        timing[kIssueCyclesIndex] = 0U;
+        timing[kCompletionCyclesIndex] = 0U;
+        timing[kDrainStatusIndex] = static_cast<uint64_t>(drainStatus[0]);
+        timing[kCompletedIndex] = 0U;
         return;
     }
 
-    uint64_t singleLaneBegin = 0U;
-    if constexpr (kLaneCount == 1U) {
-        singleLaneBegin = clock();
-    } else {
-        if (threadIdx.x == 0U) {
-            beginCycle[0] = clock();
-        }
-        asc_syncthreads();
-    }
-    status = SubmitLastCommitWorkload<api, kLaneCount>(
-        hcomm, channel, remote, local, payloadBytes, notifyOffset, iterations, postStatus);
-    if (threadIdx.x == 0U) {
-        uint64_t issueEnd = clock();
-        uint64_t begin = kLaneCount == 1U ? singleLaneBegin : beginCycle[0];
-        drainStatus[0] = status != 0 ? status : hcomm.Drain(channel);
-        uint64_t completionEnd = clock();
-        timing[kIssueCyclesIndex] = issueEnd - begin;
-        timing[kCompletionCyclesIndex] = completionEnd - begin;
-        timing[kDrainStatusIndex] = static_cast<uint64_t>(drainStatus[0]);
-        timing[kCompletedIndex] = drainStatus[0] == 0 ? iterations : 0U;
-    }
+    uint64_t begin = clock();
+    status = SubmitLastCommitSeries<api>(hcomm, channel, remote, local, payloadBytes, notifyOffset, iterations);
+    uint64_t issueEnd = clock();
+    drainStatus[0] = status != 0 ? status : hcomm.Drain(channel);
+    uint64_t completionEnd = clock();
+    timing[kIssueCyclesIndex] = issueEnd - begin;
+    timing[kCompletionCyclesIndex] = completionEnd - begin;
+    timing[kDrainStatusIndex] = static_cast<uint64_t>(drainStatus[0]);
+    timing[kCompletedIndex] = drainStatus[0] == 0 ? iterations : 0U;
 }
 
 template <uint32_t kLaneCount, uint32_t kLaunchBounds>
@@ -378,39 +308,25 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtCasPerfVf(
             drainStatus, beginCycle);                                                                            \
     }
 
-#define DEFINE_LAST_COMMIT_PERF_KERNEL(apiName, api, laneCount, launchBounds)                                    \
-    extern "C" __global__ __vector__ void apiName##laneCount(                                                    \
+#define DEFINE_LAST_COMMIT_PERF_KERNEL(apiName, api)                                                             \
+    extern "C" __global__ __vector__ void apiName##1U(                                                           \
         uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ void* timing, uint32_t payloadBytes,  \
         uint32_t iterations, uint32_t warmup)                                                                    \
     {                                                                                                            \
-        alignas(128) __ubuf__ uint64_t workspace[HCOMM_WORKSPACE_BYTES(laneCount) / sizeof(uint64_t)];           \
+        alignas(128) __ubuf__ uint64_t workspace[HCOMM_WORKSPACE_BYTES(1U) / sizeof(uint64_t)];                  \
         __ubuf__ int32_t drainStatus[1];                                                                         \
-        __ubuf__ uint32_t postStatus[1];                                                                         \
-        __ubuf__ uint64_t beginCycle[1];                                                                         \
-        asc_vf_call<SimtLastCommitPerfVf<api, laneCount, launchBounds>>(                                         \
-            dim3(laneCount), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),        \
+        asc_vf_call<SimtLastCommitPerfVf<api>>(                                                                  \
+            dim3(1U), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),               \
             payloadBytes, iterations, warmup, reinterpret_cast<__ubuf__ uint8_t*>(workspace), sizeof(workspace), \
-            drainStatus, postStatus, beginCycle);                                                                \
+            drainStatus);                                                                                        \
     }
 
 DEFINE_PERF_KERNEL(SimtNotifyPerf, SimtNotifyPerfVf, 1U, 32U)
-DEFINE_PERF_KERNEL(SimtNotifyPerf, SimtNotifyPerfVf, 32U, 32U)
-DEFINE_PERF_KERNEL(SimtNotifyPerf, SimtNotifyPerfVf, 1024U, 1024U)
 DEFINE_PERF_KERNEL(SimtFaaPerf, SimtFaaPerfVf, 1U, 32U)
-DEFINE_PERF_KERNEL(SimtFaaPerf, SimtFaaPerfVf, 32U, 32U)
-DEFINE_PERF_KERNEL(SimtFaaPerf, SimtFaaPerfVf, 1024U, 1024U)
 DEFINE_PERF_KERNEL(SimtCasPerf, SimtCasPerfVf, 1U, 32U)
-DEFINE_PERF_KERNEL(SimtCasPerf, SimtCasPerfVf, 32U, 32U)
-DEFINE_PERF_KERNEL(SimtCasPerf, SimtCasPerfVf, 1024U, 1024U)
-DEFINE_LAST_COMMIT_PERF_KERNEL(SimtNotifyLastCommitPerf, PerfApi::NOTIFY, 1U, 32U)
-DEFINE_LAST_COMMIT_PERF_KERNEL(SimtNotifyLastCommitPerf, PerfApi::NOTIFY, 32U, 32U)
-DEFINE_LAST_COMMIT_PERF_KERNEL(SimtNotifyLastCommitPerf, PerfApi::NOTIFY, 1024U, 1024U)
-DEFINE_LAST_COMMIT_PERF_KERNEL(SimtFaaLastCommitPerf, PerfApi::FAA, 1U, 32U)
-DEFINE_LAST_COMMIT_PERF_KERNEL(SimtFaaLastCommitPerf, PerfApi::FAA, 32U, 32U)
-DEFINE_LAST_COMMIT_PERF_KERNEL(SimtFaaLastCommitPerf, PerfApi::FAA, 1024U, 1024U)
-DEFINE_LAST_COMMIT_PERF_KERNEL(SimtCasLastCommitPerf, PerfApi::CAS, 1U, 32U)
-DEFINE_LAST_COMMIT_PERF_KERNEL(SimtCasLastCommitPerf, PerfApi::CAS, 32U, 32U)
-DEFINE_LAST_COMMIT_PERF_KERNEL(SimtCasLastCommitPerf, PerfApi::CAS, 1024U, 1024U)
+DEFINE_LAST_COMMIT_PERF_KERNEL(SimtNotifyLastCommitPerf, PerfApi::NOTIFY)
+DEFINE_LAST_COMMIT_PERF_KERNEL(SimtFaaLastCommitPerf, PerfApi::FAA)
+DEFINE_LAST_COMMIT_PERF_KERNEL(SimtCasLastCommitPerf, PerfApi::CAS)
 
 #undef DEFINE_LAST_COMMIT_PERF_KERNEL
 #undef DEFINE_PERF_KERNEL
@@ -423,80 +339,39 @@ void LaunchSimtNotifyPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t payloadBytes,
     uint32_t iterations, uint32_t warmup, uint32_t laneCount)
 {
-    if (laneCount == 1U) {
-        SimtNotifyPerf1U<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx, timing, payloadBytes, iterations, warmup);
-    } else if (laneCount == 32U) {
-        SimtNotifyPerf32U<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx, timing, payloadBytes, iterations, warmup);
-    } else {
-        SimtNotifyPerf1024U<<<1, 0, stream>>>(
-            channel, sendBufIdx, recvBufIdx, timing, payloadBytes, iterations, warmup);
-    }
+    (void)laneCount;
+    SimtNotifyPerf1U<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx, timing, payloadBytes, iterations, warmup);
 }
 
 void LaunchSimtFaaPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t iterations,
     uint32_t warmup, uint32_t laneCount)
 {
-    if (laneCount == 1U) {
-        SimtFaaPerf1U<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-    } else if (laneCount == 32U) {
-        SimtFaaPerf32U<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-    } else {
-        SimtFaaPerf1024U<<<1, 0, stream>>>(
-            channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-    }
+    (void)laneCount;
+    SimtFaaPerf1U<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
 }
 
 void LaunchSimtCasPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t iterations,
     uint32_t warmup, uint32_t laneCount)
 {
-    if (laneCount == 1U) {
-        SimtCasPerf1U<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-    } else if (laneCount == 32U) {
-        SimtCasPerf32U<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-    } else {
-        SimtCasPerf1024U<<<1, 0, stream>>>(
-            channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-    }
+    (void)laneCount;
+    SimtCasPerf1U<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
 }
 
 void LaunchSimtLastCommitPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t payloadBytes,
     uint32_t iterations, uint32_t warmup, uint32_t api, uint32_t laneCount)
 {
+    (void)laneCount;
     if (api == static_cast<uint32_t>(PerfApi::NOTIFY)) {
-        if (laneCount == 1U) {
-            SimtNotifyLastCommitPerf1U<<<1, 0, stream>>>(
-                channel, sendBufIdx, recvBufIdx, timing, payloadBytes, iterations, warmup);
-        } else if (laneCount == 32U) {
-            SimtNotifyLastCommitPerf32U<<<1, 0, stream>>>(
-                channel, sendBufIdx, recvBufIdx, timing, payloadBytes, iterations, warmup);
-        } else {
-            SimtNotifyLastCommitPerf1024U<<<1, 0, stream>>>(
-                channel, sendBufIdx, recvBufIdx, timing, payloadBytes, iterations, warmup);
-        }
+        SimtNotifyLastCommitPerf1U<<<1, 0, stream>>>(
+            channel, sendBufIdx, recvBufIdx, timing, payloadBytes, iterations, warmup);
     } else if (api == static_cast<uint32_t>(PerfApi::FAA)) {
-        if (laneCount == 1U) {
-            SimtFaaLastCommitPerf1U<<<1, 0, stream>>>(
-                channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-        } else if (laneCount == 32U) {
-            SimtFaaLastCommitPerf32U<<<1, 0, stream>>>(
-                channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-        } else {
-            SimtFaaLastCommitPerf1024U<<<1, 0, stream>>>(
-                channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-        }
+        SimtFaaLastCommitPerf1U<<<1, 0, stream>>>(
+            channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
     } else {
-        if (laneCount == 1U) {
-            SimtCasLastCommitPerf1U<<<1, 0, stream>>>(
-                channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-        } else if (laneCount == 32U) {
-            SimtCasLastCommitPerf32U<<<1, 0, stream>>>(
-                channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-        } else {
-            SimtCasLastCommitPerf1024U<<<1, 0, stream>>>(
-                channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
-        }
+        SimtCasLastCommitPerf1U<<<1, 0, stream>>>(
+            channel, sendBufIdx, recvBufIdx, timing, sizeof(uint64_t), iterations, warmup);
     }
 }
