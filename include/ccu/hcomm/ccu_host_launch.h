@@ -40,7 +40,7 @@ typedef struct {
     uint32_t taskArgNum;
 } HcommCcuHostKernelArgs;
 
-extern CcuResult HcommCcuHostKernelLaunch(
+extern CcuResult hcomm_ccu_host_kernel_launch(
     const void* kernelFunc, const HcommCcuHostKernelLaunchCfg* cfg, const HcommCcuHostKernelArgs* args);
 
 #ifdef __cplusplus

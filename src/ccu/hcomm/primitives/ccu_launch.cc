@@ -29,7 +29,7 @@
 
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 
-CcuResult HcommCcuKernelRegisterStart(
+CcuResult hcomm_ccu_kernel_register_start(
     CcuInsHandle insHandle, const HcommCcuRegisterContextPod *context)
 {
     CCU_CHK_PTR_NULL(context);
@@ -73,7 +73,7 @@ static CcuResult CcuKernelTryRegister(
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuKernelRegister(
+CcuResult hcomm_ccu_kernel_register(
     CcuInsHandle insHandle, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
     uint32_t argNum, CcuKernelHandle* kernelHandle)
 {
@@ -118,7 +118,7 @@ CcuResult HcommCcuKernelRegister(
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle insHandle)
+CcuResult hcomm_ccu_kernel_register_end(CcuInsHandle insHandle)
 {
     const uint32_t devLogicId = hcomm::GetCurrentCcuDeviceLogicId();
     auto* ccuIns = hcomm::CcuKernelRegistryMgr::GetInstance(devLogicId).Get(insHandle);
@@ -136,7 +136,7 @@ CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle insHandle)
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuGetTaskArgsNum(CcuKernelHandle kernelHandle, uint32_t* taskArgsNum)
+CcuResult hcomm_ccu_get_task_args_num(CcuKernelHandle kernelHandle, uint32_t* taskArgsNum)
 {
     HCCL_INFO("Entry-%s", __func__);
     CCU_CHK_PTR_NULL(taskArgsNum);
@@ -289,7 +289,7 @@ static bool IsLaunchContextValid(const HcommCcuLaunchContextPod& context)
         && context.runtimeStream != 0 && context.threadHandle != 0;
 }
 
-CcuResult HcommCcuKernelLaunch(
+CcuResult hcomm_ccu_kernel_launch(
     const HcommCcuLaunchContextPod *launchContext, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum)
 {
     const auto startTime = std::chrono::steady_clock::now();
@@ -304,7 +304,7 @@ CcuResult HcommCcuKernelLaunch(
     CHK_PRT_RET(!IsLaunchContextValid(*launchContext),
         HCCL_ERROR("[%s] failed, launch context has an incompatible ABI header or runtime stream.", __func__),
         CcuResult::CCU_E_PARA);
-    HCCL_INFO("[HcommCcuKernelLaunch] threadHandle[0x%llx] kernelHandle[0x%llx].",
+    HCCL_INFO("[hcomm_ccu_kernel_launch] threadHandle[0x%llx] kernelHandle[0x%llx].",
         launchContext->threadHandle, kernelHandle);
     // runtimeStream 是 hcomm 借出的运行时 stream，且仅在本次同步 launch 返回前有效。
     auto streamPtr = reinterpret_cast<aclrtStream>(launchContext->runtimeStream);
@@ -362,7 +362,7 @@ CcuResult HcommCcuKernelLaunch(
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo)
+CcuResult hcomm_ccu_get_mem_token(uint64_t srcVa, uint64_t size, uint64_t* tokenInfo)
 {
     CCU_CHK_PTR_NULL(tokenInfo);
 
@@ -397,7 +397,7 @@ static CcuResult CcuAllocVarEventRes(CcuInsHandle insHandle, hcomm::CcuVarEventT
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuVariableAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
+CcuResult hcomm_ccu_variable_alloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
     CcuVariableHandle *varHandle)
 {
     CCU_CHK_PTR_NULL(varHandle);
@@ -407,7 +407,7 @@ CcuResult HcommCcuVariableAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t 
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuEventAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
+CcuResult hcomm_ccu_event_alloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
     CcuEventHandle *eventHandle)
 {
     CCU_CHK_PTR_NULL(eventHandle);
@@ -417,7 +417,7 @@ CcuResult HcommCcuEventAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuVariableGetAddr(CcuVariableHandle varHandle, uint32_t index, uint64_t *va)
+CcuResult hcomm_ccu_variable_get_addr(CcuVariableHandle varHandle, uint32_t index, uint64_t *va)
 {
     CCU_CHK_PTR_NULL(va);
 
@@ -428,7 +428,7 @@ CcuResult HcommCcuVariableGetAddr(CcuVariableHandle varHandle, uint32_t index, u
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult HcommCcuEventGetAddr(CcuEventHandle eventHandle, uint32_t index, uint64_t *va)
+CcuResult hcomm_ccu_event_get_addr(CcuEventHandle eventHandle, uint32_t index, uint64_t *va)
 {
     CCU_CHK_PTR_NULL(va);
 

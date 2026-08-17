@@ -99,7 +99,7 @@ CcuResult CcuKernelRegistry::BeginRegister()
     if (registerState_ == RegisterState::REGISTERING) {
         HCCL_ERROR(
             "[CcuKernelRegistry][%s] failed, previous register round is not ended, "
-            "HcommCcuKernelRegisterEnd is missing before a new HcommCcuKernelRegisterStart.",
+            "hcomm_ccu_kernel_register_end is missing before a new hcomm_ccu_kernel_register_start.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
@@ -111,8 +111,8 @@ CcuResult CcuKernelRegistry::CheckRegistering() const
 {
     if (registerState_ != RegisterState::REGISTERING) {
         HCCL_ERROR(
-            "[CcuKernelRegistry][%s] failed, HcommCcuKernelRegister must be called between "
-            "HcommCcuKernelRegisterStart and HcommCcuKernelRegisterEnd.",
+            "[CcuKernelRegistry][%s] failed, hcomm_ccu_kernel_register must be called between "
+            "hcomm_ccu_kernel_register_start and hcomm_ccu_kernel_register_end.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
@@ -123,8 +123,8 @@ CcuResult CcuKernelRegistry::EndRegister()
 {
     if (registerState_ == RegisterState::IDLE) {
         HCCL_ERROR(
-            "[CcuKernelRegistry][%s] failed, HcommCcuKernelRegisterEnd is called without a matching "
-            "HcommCcuKernelRegisterStart.",
+            "[CcuKernelRegistry][%s] failed, hcomm_ccu_kernel_register_end is called without a matching "
+            "hcomm_ccu_kernel_register_start.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }

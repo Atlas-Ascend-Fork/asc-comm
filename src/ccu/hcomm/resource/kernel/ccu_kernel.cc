@@ -543,7 +543,7 @@ CcuResult CcuKernel::VariableAssignImm(CcuVariableHandle varHandle, uint64_t imm
     HCCL_INFO("[VariableAssignImm] varHandle=%llu, immediate=%llu", varHandle, immediate);
     CcuRep::Variable* variable{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &variable));
-    // 通过符号重载实现，内部记录rep；异常由入口 HcommCcuKernelRegister 的
+    // 通过符号重载实现，内部记录rep；异常由入口 hcomm_ccu_kernel_register 的
     // CCU_EXCEPTION_HANDLE_BEGIN/END 统一接住，无需在此局部 try/catch。
     (*variable) = immediate;
     return CcuResult::CCU_SUCCESS;
