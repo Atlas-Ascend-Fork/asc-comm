@@ -101,10 +101,6 @@ bool ParseMode(const char* arg, uint32_t& mode)
         mode = kModeNotifyImmediateRepeat;
         return true;
     }
-    if (name == "warp_immediate") {
-        mode = kModeWarpImmediate;
-        return true;
-    }
     return false;
 }
 
@@ -127,9 +123,6 @@ const char* ModeName(uint32_t mode)
     }
     if (mode == kModeNotifyImmediateRepeat) {
         return "notify_immediate_repeat";
-    }
-    if (mode == kModeWarpImmediate) {
-        return "warp_immediate";
     }
     return "single";
 }
@@ -212,12 +205,6 @@ aclError InitBuffers(void* sendBuf, void* recvBuf, uint32_t mode)
     send[kNotifyDataSlot] = kNotifyData;
     recv[kFaaTargetSlot] = kFaaInitial;
     recv[kCasTargetSlot] = kCasInitial;
-    if (mode == kModeWarpImmediate) {
-        for (uint32_t lane = 0U; lane < kWarpLaneCount; ++lane) {
-            recv[kWarpFaaTargetBaseSlot + lane] = kFaaInitial + lane;
-            recv[kWarpCasTargetBaseSlot + lane] = kCasInitial + lane;
-        }
-    }
     aclError ret = aclrtMemcpy(sendBuf, kBufferBytes, send, kBufferBytes, ACL_MEMCPY_HOST_TO_DEVICE);
     if (ret != ACL_SUCCESS) {
         return ret;
@@ -328,11 +315,6 @@ bool CheckSender(void* sendBuf, uint32_t mode)
     } else if (mode == kModeSingle || mode == kModeBatchLast || mode == kModeMultiLane) {
         expected[kFaaFetchSlot] = kFaaInitial;
         expected[kCasFetchSlot] = kCasInitial;
-    } else if (mode == kModeWarpImmediate) {
-        for (uint32_t lane = 0U; lane < kWarpLaneCount; ++lane) {
-            expected[kWarpFaaFetchBaseSlot + lane] = kFaaInitial + lane;
-            expected[kWarpCasFetchBaseSlot + lane] = kCasInitial + lane;
-        }
     }
     return CheckWords(sendBuf, expected, "sender fetch/drain");
 }
@@ -344,7 +326,6 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
     uint64_t expectedCas[kSlotCount] = {};
     uint64_t expectedCombined[kSlotCount] = {};
     uint64_t expectedMultiLane[kSlotCount] = {};
-    uint64_t expectedWarpImmediate[kSlotCount] = {};
     expectedNotify[kNotifyDataSlot] = kNotifyData;
     expectedNotify[kNotifySignalSlot] = kNotifySignal;
     expectedNotify[kFaaTargetSlot] = kFaaInitial;
@@ -362,14 +343,6 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
     }
     expectedMultiLane[kFinalNotifyDataSlot] = kNotifyData;
     expectedMultiLane[kFinalNotifySignalSlot] = kFinalNotifySignal;
-    for (uint32_t lane = 0U; lane < kWarpLaneCount; ++lane) {
-        expectedWarpImmediate[kWarpNotifyDataBaseSlot + lane] = kNotifyData;
-        expectedWarpImmediate[kWarpNotifySignalBaseSlot + lane] = kNotifySignal + lane;
-        expectedWarpImmediate[kWarpFaaTargetBaseSlot + lane] = kFaaInitial + lane + kFaaAdd;
-        expectedWarpImmediate[kWarpCasTargetBaseSlot + lane] = kCasSwap + lane;
-    }
-    expectedWarpImmediate[kFaaTargetSlot] = kFaaInitial;
-    expectedWarpImmediate[kCasTargetSlot] = kCasInitial;
     if (mode == kModeNotify || mode == kModeNotifyImmediateRepeat) {
         return CheckWords(recvBuf, expectedNotify, "receiver target");
     }
@@ -382,9 +355,6 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
     if (mode == kModeMultiLane) {
         return CheckWords(recvBuf, expectedMultiLane, "receiver target");
     }
-    if (mode == kModeWarpImmediate) {
-        return CheckWords(recvBuf, expectedWarpImmediate, "receiver target");
-    }
     return CheckWords(recvBuf, expectedCombined, "receiver target");
 }
 
@@ -394,8 +364,7 @@ int main(int argc, char* argv[])
 {
     if (argc < 4) {
         std::cout << "Usage: " << argv[0] << " <rank> <nranks> <rank_table_file> [mode]" << std::endl;
-        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane"
-                     " | notify_immediate_repeat | warp_immediate"
+        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane | notify_immediate_repeat"
                   << std::endl;
         return 1;
     }
@@ -411,8 +380,7 @@ int main(int argc, char* argv[])
     uint32_t mode = kModeSingle;
     if (argc > 4 && !ParseMode(argv[4], mode)) {
         std::cout << "Unknown mode: " << argv[4] << std::endl;
-        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane"
-                     " | notify_immediate_repeat | warp_immediate"
+        std::cout << "  mode: notify | faa | cas | single (default) | batch_last | multi_lane | notify_immediate_repeat"
                   << std::endl;
         return 1;
     }
@@ -453,8 +421,6 @@ int main(int argc, char* argv[])
     // Only kSenderRank drives traffic. Every other rank just holds its registered buffers
     // open so the sender's WQEs have a valid target.
     if (rank == kSenderRank) {
-        std::cout << "[rank " << rank << "] simt_notify_atomic mode=" << ModeName(mode) << " sending to rank "
-                  << kReceiverRank << std::endl;
         LaunchSimtNotifyAtomic(stream, channel, kLocalSendIdx, remoteRecvIdx, mode);
         ACLCHECK(aclrtSynchronizeStream(stream));
     }
@@ -471,9 +437,8 @@ int main(int argc, char* argv[])
     } else if (rank == kReceiverRank) {
         pass = CheckReceiver(recvBuf, mode);
     }
-    if (rank == kSenderRank || rank == kReceiverRank) {
-        std::cout << "[rank " << rank << "] simt_notify_atomic " << ModeName(mode) << " " << (pass ? "PASS" : "FAIL")
-                  << std::endl;
+    if (!pass && (rank == kSenderRank || rank == kReceiverRank)) {
+        std::cout << "FAIL | Rank=" << rank << " | Mode=" << ModeName(mode) << std::endl;
     }
 
     ACLCHECK(aclrtFree(sendBuf));
