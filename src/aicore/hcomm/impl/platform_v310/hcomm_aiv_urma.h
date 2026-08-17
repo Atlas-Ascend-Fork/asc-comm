@@ -116,7 +116,7 @@ __aicore__ inline void HcommUrmaFillBatchSqeCtxByToken(
         "Batch SQE fast fill only supports Write, WriteWithNotify and Read");
     static_assert(config.inlineEn == 0, "Batch SQE fast fill does not support inline data");
     static_assert(
-        sizeof(HcommUrmaSqeCtx) == 12U * sizeof(uint32_t),
+        HCOMM_URMA_SQE_CTX_U32_NUM == 12U,
         "Batch SQE fast fill requires the current 12-DW SQE layout");
 
     constexpr uint32_t flag =
@@ -380,7 +380,7 @@ __aicore__ inline UbcCtpBatchHandle HcommUrmaCreateBatchHandle(
     batchHandle.remoteEidHigh = remoteEid[1];
     batchHandle.cqBaseAddr = cqCtx.contextInfo.ubJfc.scqVa;
     batchHandle.cqDbAddr = cqCtx.contextInfo.ubJfc.dbVa;
-    batchHandle.wqeBufferLen = buffLen;
+    batchHandle.wqeBufferWqebbCapacity = buffLen / HCOMM_URMA_WQEBB_SIZE;
     batchHandle.remoteTokenId = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
     batchHandle.remoteTokenValue = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     batchHandle.preparedWqebbCount = 0;
@@ -445,14 +445,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
         "Plain Write WQE must occupy exactly one 64-byte WQEBB");
 
     uint32_t preparedWqebbCount = batchHandle.preparedWqebbCount;
-    uint32_t bufferWqebbCapacity = batchHandle.wqeBufferLen / HCOMM_URMA_WQEBB_SIZE;
-    if (len > UINT32_MAX || preparedWqebbCount >= bufferWqebbCapacity) {
+    if (len > UINT32_MAX || preparedWqebbCount >= batchHandle.wqeBufferWqebbCapacity) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm batch WriteNbi failed with invalid length or insufficient buffer\n");
         return HCOMM_FAILED;
     }
 
-    constexpr uint32_t wqebbWordCount = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
-    LocalTensor<uint32_t> currentWqe = batchHandle.wqeBuffer[preparedWqebbCount * wqebbWordCount];
+    LocalTensor<uint32_t> currentWqe =
+        batchHandle.wqeBuffer[preparedWqebbCount * HCOMM_URMA_WQEBB_U32_NUM];
     __ubuf__ uint32_t* wqeWords = reinterpret_cast<__ubuf__ uint32_t*>(currentWqe.GetPhyAddr());
 
     uint32_t logicalHead = batchHandle.sqHead + preparedWqebbCount;
@@ -460,7 +459,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
     HcommUrmaFillBatchSqeCtxByToken<HcommUrmaOpCode::WRITE, config>(
         sqeCtx, reinterpret_cast<__gm__ uint8_t*>(dst), batchHandle, logicalHead);
     __ubuf__ HcommUrmaSgeCtx* sgeCtx =
-        reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(wqeWords + sizeof(HcommUrmaSqeCtx) / sizeof(uint32_t));
+        reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(wqeWords + HCOMM_URMA_SQE_CTX_U32_NUM);
     HcommUrmaFillSgeCtx<HcommUrmaOpCode::WRITE>(
         sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(src), UdmaParams<uint64_t>{});
 
@@ -482,14 +481,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
         "Read WQE must occupy exactly one 64-byte WQEBB");
 
     uint32_t preparedWqebbCount = batchHandle.preparedWqebbCount;
-    uint32_t bufferWqebbCapacity = batchHandle.wqeBufferLen / HCOMM_URMA_WQEBB_SIZE;
-    if (len > UINT32_MAX || preparedWqebbCount >= bufferWqebbCapacity) {
+    if (len > UINT32_MAX || preparedWqebbCount >= batchHandle.wqeBufferWqebbCapacity) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm batch ReadNbi failed with invalid length or insufficient buffer\n");
         return HCOMM_FAILED;
     }
 
-    constexpr uint32_t wqebbWordCount = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
-    LocalTensor<uint32_t> currentWqe = batchHandle.wqeBuffer[preparedWqebbCount * wqebbWordCount];
+    LocalTensor<uint32_t> currentWqe =
+        batchHandle.wqeBuffer[preparedWqebbCount * HCOMM_URMA_WQEBB_U32_NUM];
     __ubuf__ uint32_t* wqeWords = reinterpret_cast<__ubuf__ uint32_t*>(currentWqe.GetPhyAddr());
 
     uint32_t logicalHead = batchHandle.sqHead + preparedWqebbCount;
@@ -497,7 +495,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
     HcommUrmaFillBatchSqeCtxByToken<HcommUrmaOpCode::READ, config>(
         sqeCtx, reinterpret_cast<__gm__ uint8_t*>(src), batchHandle, logicalHead);
     __ubuf__ HcommUrmaSgeCtx* sgeCtx =
-        reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(wqeWords + sizeof(HcommUrmaSqeCtx) / sizeof(uint32_t));
+        reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(wqeWords + HCOMM_URMA_SQE_CTX_U32_NUM);
     HcommUrmaFillSgeCtx<HcommUrmaOpCode::READ>(
         sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(dst), UdmaParams<uint64_t>{});
 
@@ -517,21 +515,21 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
     static_assert(config.inlineEn == 0, "Batch WriteWithNotifyNbi does not support inline data");
     static_assert(
         sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaNotifyCtx) + sizeof(HcommUrmaSgeCtx) <=
-            2U * HCOMM_URMA_WQEBB_SIZE,
+            HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM * HCOMM_URMA_WQEBB_SIZE,
         "Write-with-notify WQE must fit in two 64-byte WQEBBs");
 
-    constexpr uint32_t requiredWqebbCount = 2U;
     uint32_t preparedWqebbCount = batchHandle.preparedWqebbCount;
-    uint32_t bufferWqebbCapacity = batchHandle.wqeBufferLen / HCOMM_URMA_WQEBB_SIZE;
-    if (len > UINT32_MAX || bufferWqebbCapacity < requiredWqebbCount ||
-        preparedWqebbCount > bufferWqebbCapacity - requiredWqebbCount) {
+    if (len > UINT32_MAX ||
+        batchHandle.wqeBufferWqebbCapacity < HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM ||
+        preparedWqebbCount >
+            batchHandle.wqeBufferWqebbCapacity - HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM) {
         KERNEL_LOG(
             KERNEL_ERROR, "Hcomm batch WriteWithNotifyNbi failed with invalid length or insufficient buffer\n");
         return HCOMM_FAILED;
     }
 
-    constexpr uint32_t wqebbWordCount = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
-    LocalTensor<uint32_t> currentWqe = batchHandle.wqeBuffer[preparedWqebbCount * wqebbWordCount];
+    LocalTensor<uint32_t> currentWqe =
+        batchHandle.wqeBuffer[preparedWqebbCount * HCOMM_URMA_WQEBB_U32_NUM];
     __ubuf__ uint8_t* currentWqeAddr = reinterpret_cast<__ubuf__ uint8_t*>(currentWqe.GetPhyAddr());
 
     uint32_t logicalHead = batchHandle.sqHead + preparedWqebbCount;
@@ -548,7 +546,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
     HcommUrmaFillSgeCtx<HcommUrmaOpCode::WRITE_WITH_NOTIFY>(
         sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(src), params);
 
-    batchHandle.preparedWqebbCount = preparedWqebbCount + requiredWqebbCount;
+    batchHandle.preparedWqebbCount = preparedWqebbCount + HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM;
     if constexpr (config.cqe != 0) {
         batchHandle.preparedCqeCount++;
     }
@@ -910,8 +908,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBa
 {
     uint32_t preparedWqebbCount = batchHandle.preparedWqebbCount;
     uint32_t preparedCqeCount = batchHandle.preparedCqeCount;
-    uint32_t bufferWqebbCapacity = batchHandle.wqeBufferLen / HCOMM_URMA_WQEBB_SIZE;
-    if (preparedWqebbCount == 0 || preparedWqebbCount > bufferWqebbCapacity ||
+    if (preparedWqebbCount == 0 || preparedWqebbCount > batchHandle.wqeBufferWqebbCapacity ||
         preparedCqeCount > preparedWqebbCount) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed with invalid batch counts\n");
         return HCOMM_FAILED;
@@ -929,8 +926,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBa
     uint32_t firstWqebbCount =
         preparedWqebbCount < tailWqebbCount ? preparedWqebbCount : tailWqebbCount;
     uint32_t secondWqebbCount = preparedWqebbCount - firstWqebbCount;
-    constexpr uint32_t wqebbWordCount = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
-
     uint64_t sqBaseAddr = batchHandle.sqBaseAddr;
     __gm__ uint8_t* firstWqeAddr = reinterpret_cast<__gm__ uint8_t*>(
         sqBaseAddr + static_cast<uint64_t>(startSlot) * HCOMM_URMA_WQEBB_SIZE);
@@ -938,12 +933,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBa
     firstDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(firstWqeAddr));
 
     SyncAction<HardEvent::S_MTE3>();
-    DataCopy(firstDst, batchHandle.wqeBuffer, firstWqebbCount * wqebbWordCount);
+    DataCopy(firstDst, batchHandle.wqeBuffer, firstWqebbCount * HCOMM_URMA_WQEBB_U32_NUM);
     if (secondWqebbCount != 0) {
         GlobalTensor<uint32_t> secondDst;
         secondDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(sqBaseAddr));
-        LocalTensor<uint32_t> secondSrc = batchHandle.wqeBuffer[firstWqebbCount * wqebbWordCount];
-        DataCopy(secondDst, secondSrc, secondWqebbCount * wqebbWordCount);
+        LocalTensor<uint32_t> secondSrc =
+            batchHandle.wqeBuffer[firstWqebbCount * HCOMM_URMA_WQEBB_U32_NUM];
+        DataCopy(secondDst, secondSrc, secondWqebbCount * HCOMM_URMA_WQEBB_U32_NUM);
     }
     SyncAction<HardEvent::MTE3_S>();
 
@@ -982,7 +978,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHan
         sizeof(HcommUrmaJfcCqeCtx) <= HCOMM_URMA_WQEBB_SIZE,
         "Batch Drain CQE scratch space must fit in one WQEBB");
 
-    if (batchHandle.channelHandle == 0 || batchHandle.wqeBufferLen < HCOMM_URMA_WQEBB_SIZE ||
+    if (batchHandle.channelHandle == 0 || batchHandle.wqeBufferWqebbCapacity == 0 ||
         batchHandle.preparedWqebbCount != 0 || batchHandle.preparedCqeCount != 0) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid batch handle state\n");
         return HCOMM_FAILED;
