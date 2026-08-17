@@ -257,11 +257,13 @@ int main(int argc, char* argv[])
     const std::string commitMode = argv[9];
     if (nranks < 2 || !ValidApi(api) || iterations == 0U || payloadBytes == 0U ||
         (laneCount != 1U && laneCount != 32U && laneCount != 1024U) ||
-        (commitMode != "immediate" && commitMode != "last")) {
+        (commitMode != "immediate" && commitMode != "last") || (commitMode == "immediate" && laneCount != 1U)) {
         std::cout << "Invalid argument." << std::endl;
+        if (commitMode == "immediate" && laneCount != 1U) {
+            std::cout << "Multiple lanes are supported only with --commit-mode last." << std::endl;
+        }
         return 1;
     }
-
     const size_t bufferBytes = BufferBytes(api, payloadBytes, laneCount);
     ACLCHECK(aclInit(nullptr));
     ACLCHECK(aclrtSetDevice(rank));
@@ -317,14 +319,11 @@ int main(int argc, char* argv[])
         double completionBandwidth = timing[kCompletionCyclesIndex] == 0U ?
                                          0.0 :
                                          static_cast<double>(dataBytes) * iterations / timing[kCompletionCyclesIndex];
-        bool cacheEnabled = laneCount != 1024U;
         std::cout << std::fixed << std::setprecision(6) << "RESULT | Path=SIMT-t" << laneCount << " | API=" << api
                   << " | DataSize/B=" << dataBytes << " | WqeCount=" << iterations << " | Warmup=" << warmup
                   << " | CommitMode=" << (commitMode == "last" ? "Last" : "Immediate")
-                  << " | RemoteCache=" << (cacheEnabled ? "PerLaneUB" : "Disabled")
-                  << " | PostContext=" << (cacheEnabled ? "SharedUB" : "GM") << " | IssueTime/us=" << issueUs
-                  << " | AverageIssue/ns=" << averageNs << " | CompletionTime/us=" << completionUs
-                  << " | CompletionBandwidth/GB/s=" << completionBandwidth
+                  << " | IssueTime/us=" << issueUs << " | AverageIssue/ns=" << averageNs
+                  << " | CompletionTime/us=" << completionUs << " | CompletionBandwidth/GB/s=" << completionBandwidth
                   << " | DrainStatus=" << static_cast<int64_t>(timing[kDrainStatusIndex])
                   << " | Completed=" << timing[kCompletedIndex] << std::endl;
     }
@@ -333,9 +332,8 @@ int main(int argc, char* argv[])
     if (rank == kReceiverRank) {
         pass = CheckReceiver(recvBuf, bufferBytes, api, payloadBytes, iterations, warmup, laneCount);
     }
-    if (rank == kSenderRank || rank == kReceiverRank) {
-        std::cout << "[rank " << rank << "] " << api << " t" << laneCount << " " << (pass ? "PASS" : "FAIL")
-                  << std::endl;
+    if (!pass && (rank == kSenderRank || rank == kReceiverRank)) {
+        std::cout << "FAIL | Rank=" << rank << " | API=" << api << " | Path=SIMT-t" << laneCount << std::endl;
     }
 
     if (timingBuf != nullptr) {

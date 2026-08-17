@@ -75,6 +75,9 @@ done
 [[ "$commit_mode" == "immediate" || "$commit_mode" == "last" ]] || {
     echo "--commit-mode must be immediate or last" >&2; exit 1;
 }
+[[ "$commit_mode" == "last" || "$lanes" == "1" ]] || {
+    echo "--lanes 32/1024 requires --commit-mode last" >&2; exit 1;
+}
 [[ -f "$rank_table" ]] || { echo "rank table not found: $rank_table" >&2; exit 1; }
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -117,5 +120,10 @@ for ((rank = 0; rank < nranks; ++rank)); do
     cat "${work_dir}/rank_${rank}.log"
 done | tee "$log_file"
 
+if [[ "$status" -eq 0 ]]; then
+    echo "STATUS | API=$api | Path=SIMT-t$lanes | CommitMode=$commit_mode | PASS"
+else
+    echo "STATUS | API=$api | Path=SIMT-t$lanes | CommitMode=$commit_mode | FAIL"
+fi
 echo "日志文件：$log_file"
 exit "$status"
