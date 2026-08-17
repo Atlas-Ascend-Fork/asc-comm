@@ -47,68 +47,56 @@ __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Init(__ubuf__ uint8_t
 }
 
 template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::ReserveDwqeBurst(
-    ChannelHandle channel, __gm__ void* targetAddr, uint64_t len, uint32_t wqeCnt)
-{
-    return impl_.ReserveDwqeBurst(channel, targetAddr, len, wqeCnt);
-}
-
-template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::ReserveDwqeBatch(
-    ChannelHandle channel, __ubuf__ uint32_t* state, bool active, uint32_t activeWqeCnt, uint32_t commitLane)
-{
-    return impl_.ReserveDwqeBatch(channel, state, active, activeWqeCnt, commitLane);
-}
-
-template <CommProtocol commProtocol, typename Group>
-template <bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    return impl_.template WriteNbi<commit, commitPipe, reqPipe, config>(channel, dst, src, len);
+    return impl_.template WriteNbi<commit, config>(channel, dst, src, len);
 }
 
 template <CommProtocol commProtocol, typename Group>
-template <typename T, bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteValueNbi(
     ChannelHandle channel, __gm__ void* dst, T value)
 {
-    return impl_.template WriteValueNbi<T, commit, commitPipe, reqPipe, config>(channel, dst, value);
+    static_assert(sizeof(T) == 0U, "SIMT WriteValueNbi is not supported");
+    (void)channel;
+    (void)dst;
+    (void)value;
+    return HCOMM_FAILED;
 }
 
 template <CommProtocol commProtocol, typename Group>
-template <bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::ReadNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    return impl_.template ReadNbi<commit, commitPipe, reqPipe, config>(channel, dst, src, len);
+    return impl_.template ReadNbi<commit, config>(channel, dst, src, len);
 }
 
 template <CommProtocol commProtocol, typename Group>
-template <bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteWithNotifyNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
     uint64_t notifyVal)
 {
-    return impl_.template WriteWithNotifyNbi<commit, commitPipe, reqPipe, config>(
-        channel, dst, src, len, notifyAddr, notifyVal);
+    return impl_.template WriteWithNotifyNbi<commit, config>(channel, dst, src, len, notifyAddr, notifyVal);
 }
 
 template <CommProtocol commProtocol, typename Group>
-template <typename T, bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicFAA(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
 {
-    return impl_.template AtomicFAA<T, commit, commitPipe, reqPipe, config>(channel, dst, fetchAddr, addVal);
+    return impl_.template AtomicFAA<T, commit, config>(channel, dst, fetchAddr, addVal);
 }
 
 template <CommProtocol commProtocol, typename Group>
-template <typename T, bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicCAS(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
 {
-    return impl_.template AtomicCAS<T, commit, commitPipe, reqPipe, config>(
-        channel, dst, fetchAddr, compareVal, swapVal);
+    return impl_.template AtomicCAS<T, commit, config>(channel, dst, fetchAddr, compareVal, swapVal);
 }
 
 template <CommProtocol commProtocol, typename Group>

@@ -30,16 +30,7 @@ constexpr uint32_t kNotifyDrainSlot = 3U;
 constexpr uint32_t kFaaDrainSlot = 4U;
 constexpr uint32_t kCasDrainSlot = 5U;
 
-constexpr uint32_t kWarpLaneCount = 3U;
-constexpr uint32_t kWarpNotifyDataBaseSlot = 6U;
-constexpr uint32_t kWarpNotifySignalBaseSlot = kWarpNotifyDataBaseSlot + kWarpLaneCount;
-constexpr uint32_t kWarpFaaTargetBaseSlot = kWarpNotifySignalBaseSlot + kWarpLaneCount;
-constexpr uint32_t kWarpCasTargetBaseSlot = kWarpFaaTargetBaseSlot + kWarpLaneCount;
-constexpr uint32_t kWarpFaaFetchBaseSlot = kWarpNotifyDataBaseSlot;
-constexpr uint32_t kWarpCasFetchBaseSlot = kWarpNotifySignalBaseSlot;
-constexpr uint32_t kWarpDrainSlot = kWarpFaaTargetBaseSlot;
-
-constexpr uint32_t kSlotCount = kWarpCasTargetBaseSlot + kWarpLaneCount;
+constexpr uint32_t kSlotCount = 6U;
 constexpr uint64_t kSlotBytes = sizeof(uint64_t);
 constexpr uint64_t kBufferBytes = kSlotCount * kSlotBytes;
 
@@ -58,9 +49,8 @@ constexpr uint32_t kModeNotify = 3U;
 constexpr uint32_t kModeFaa = 4U;
 constexpr uint32_t kModeCas = 5U;
 constexpr uint32_t kModeNotifyImmediateRepeat = 6U;
-constexpr uint32_t kModeWarpImmediate = 7U;
-constexpr uint32_t kMultiLaneCount = 3U;
 constexpr uint32_t kNotifyImmediateRepeatCount = 100U;
+constexpr uint32_t kMultiLaneCount = 3U;
 
 } // namespace simt_notify_atomic
 

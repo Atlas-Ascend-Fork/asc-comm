@@ -32,6 +32,7 @@ namespace detail {
 struct HcommUnboundGroup {};
 } // namespace detail
 
+// clang-format off
 /*!
  * @class Hcomm
  * @brief The SIMT counterpart of AscendC::Hcomm. It provides the same point-to-point
@@ -49,8 +50,13 @@ struct HcommUnboundGroup {};
  * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
- * @note Concurrent lanes may post on the same channel: SQ space is reserved with an atomic add.
- *       Drain must be called by a single lane, after every posting lane has returned.
+ * @note Multiple lanes may concurrently post with commit=false on the same channel. The caller
+ *       must synchronize them before one lane posts with commit=true and then calls Drain.
+ *       Concurrent commit=true calls on the same channel are not supported.
+ * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
+ *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
+ *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
+ *       for the later immediate DWQE that publishes the batch.
  * @note A channel must not be driven by both this class and the SIMD AscendC::Hcomm. The two paths
  *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
  *       packs curHead and wqeCnt into the u64 at SqContext::ubJfs::headAddr.
@@ -81,31 +87,10 @@ public:
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
-    // Reserve a sequential fixed-2BB Notify/FAA/CAS burst. The caller must post
-    // exactly wqeCnt WQEs on the same channel and commit only the final WQE.
-    // The target range of every post must remain in the registered buffer that
-    // contains targetAddr. No other producer may use this SQ before final commit.
-    __simt_callee__ inline int32_t ReserveDwqeBurst(
-        ChannelHandle channel, __gm__ void* targetAddr, uint64_t len, uint32_t wqeCnt);
-
-    // All block lanes call this before one fixed-2BB Notify/FAA/CAS batch.
-    // state points to four shared UB uint32_t values: BB count, CQE count,
-    // base head, and reservation status. activeWqeCnt must equal
-    // the number of active lanes in this invocation.
-    // Only one batch may be in flight on the same SQ. The channel must not be
-    // posted or reserved by another block until commitLane has committed this
-    // batch, because the SQ head update is intentionally delayed.
-    // commitLane is reserved at the batch tail and must post with commit=true;
-    // every other active lane posts with commit=false.
-    __simt_callee__ inline int32_t ReserveDwqeBatch(
-        ChannelHandle channel, __ubuf__ uint32_t* state, bool active, uint32_t activeWqeCnt, uint32_t commitLane);
-
     /*!
      * @brief The task launching interface of the Write point-to-point communication operator.
      *        (task content: Write data of length len from src to dst through the specified channel.)
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam commitPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
-     * @tparam reqPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -114,35 +99,20 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization. len must fit in 32 bits.
      */
-    template <bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
+    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     /*!
-     * @brief The task launching interface of the inline Write point-to-point communication operator.
-     *        The source data is provided by value and carried inline in the WQE.
-     * @tparam T: The value type to write.
-     * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam commitPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
-     * @tparam reqPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
-     * @tparam config: URMA WQE control config.
-     *         Default: strongly ordered + fence + CQE + inline enabled.
-     * @param [in] channel: The handle of the communication channel.
-     * @param [out] dst: The destination address of the data.
-     * @param [in] value: The inline value to write.
-     * @return 0 indicates success and -1 indicates failure.
-     * @note Must be called after channel initialization. config must have inline enabled, and
-     *       sizeof(T) must fit in the WQE inline payload area.
+     * @brief Inline Write is not supported by the SIMT Hcomm implementation.
+     * @note Instantiating this interface causes a compile-time error.
      */
-    template <
-        typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_INLINE_CFG>
+    template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
     __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value);
 
     /*!
      * @brief The task launching interface of the Read point-to-point communication operator.
      *        (task content: Read data of length len from src to dst through the specified channel.)
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam commitPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
-     * @tparam reqPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -151,14 +121,12 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization. len must fit in 32 bits.
      */
-    template <bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
+    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t ReadNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     /*!
      * @brief The task launching interface of the Write-with-notify point-to-point communication operator.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam commitPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
-     * @tparam reqPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -168,7 +136,7 @@ public:
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
+    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteWithNotifyNbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
         uint64_t notifyVal);
@@ -177,8 +145,6 @@ public:
      * @brief The task launching interface of the Fetch-and-add point-to-point communication operator.
      * @tparam T: The data type of the atomic operation.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam commitPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
-     * @tparam reqPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -186,16 +152,13 @@ public:
      * @param [in] addVal: The remote add value.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <
-        typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
+    template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicFAA(ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
 
     /*!
      * @brief The task launching interface of the Compare-and-swap point-to-point communication operator.
      * @tparam T: The data type of the atomic operation.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam commitPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
-     * @tparam reqPipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
@@ -204,8 +167,7 @@ public:
      * @param [in] swapVal: The value to swap into the destination address if comparison succeeds.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <
-        typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
+    template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicCAS(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
 
@@ -214,7 +176,8 @@ public:
      * @tparam pipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Must be called by a single lane, after every posting lane has returned.
+     * @note Must be called by one lane after all posting lanes have completed and the batch has
+     *       been published by a single commit=true call.
      */
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
@@ -226,6 +189,7 @@ private:
 
 template <typename Group>
 Hcomm(const Group&) -> Hcomm<COMM_PROTOCOL_UBC_CTP, Group>;
+// clang-format on
 
 /*!
  * @brief Resolve the base address of a locally registered buffer on the channel.
