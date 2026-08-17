@@ -22,9 +22,6 @@ constexpr uint32_t kWqeBytes = 128U;
 constexpr uint32_t kRemoteCacheBytes = 32U;
 constexpr uint32_t kPostContextBytes = 128U;
 constexpr uint32_t kWorkspaceAlign = 128U;
-constexpr uint32_t kBatchStateWords = 5U;
-constexpr uint32_t kBatchReserveStatusIndex = 3U;
-constexpr uint32_t kBatchPostStatusIndex = 4U;
 
 #define HCOMM_CACHED_WORKSPACE_BYTES(laneCount)                                                            \
     ((((laneCount) * (kWqeBytes + kRemoteCacheBytes)) + kWorkspaceAlign - 1U) & ~(kWorkspaceAlign - 1U)) + \
@@ -61,77 +58,12 @@ __simt_callee__ inline int32_t SubmitOne(
 }
 
 template <PerfApi api>
-__simt_callee__ inline int32_t SubmitBatchGroup(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
-    uint32_t payloadBytes, uint32_t notifyOffset, uint32_t groupSize, __ubuf__ uint32_t* batchState)
-{
-    uint32_t lane = threadIdx.x;
-    if (lane == 0U) {
-        batchState[kBatchPostStatusIndex] = 0U;
-    }
-    asc_syncthreads();
-
-    int32_t status = hcomm.ReserveDwqeBatch(channel, batchState, lane < groupSize, groupSize, 0U);
-    if (status != 0) {
-        return status;
-    }
-    // ReserveDwqeBatch reports 0 for the shared reservation path and 1 when
-    // this group must fall back to per-WQE reservation at an SQ ring boundary.
-    bool usesReservedSlots = batchState[kBatchReserveStatusIndex] == 0U;
-
-    if (lane != 0U && lane < groupSize) {
-        status = SubmitOne<api, false>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, lane);
-        if (status != 0) {
-            (void)asc_atomic_exch(&batchState[kBatchPostStatusIndex], 1U);
-        }
-    }
-    asc_syncthreads();
-    if (batchState[kBatchPostStatusIndex] != 0U) {
-        return -1;
-    }
-
-    if (lane == 0U) {
-        status = SubmitOne<api, true>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);
-        if (status != 0) {
-            (void)asc_atomic_exch(&batchState[kBatchPostStatusIndex], 1U);
-        }
-    } else if (usesReservedSlots) {
-        // Match the block barrier taken by the commit lane inside the batch Post.
-        asc_syncthreads();
-    }
-    asc_syncthreads();
-    return batchState[kBatchPostStatusIndex] == 0U ? 0 : -1;
-}
-
-template <PerfApi api, uint32_t kLaneCount>
-__simt_callee__ inline int32_t SubmitBatchGroups(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
-    uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count, __ubuf__ uint32_t* batchState)
-{
-    uint32_t groups = (count + kLaneCount - 1U) / kLaneCount;
-    for (uint32_t group = 0U; group < groups; ++group) {
-        uint32_t groupSize = count - group * kLaneCount;
-        groupSize = groupSize < kLaneCount ? groupSize : kLaneCount;
-        int32_t status = SubmitBatchGroup<api>(
-            hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, groupSize, batchState);
-        if (status != 0) {
-            return status;
-        }
-    }
-    return 0;
-}
-
-template <PerfApi api>
 __simt_callee__ inline int32_t SubmitLastCommitSeries(
     AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
     uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count)
 {
     if (count == 0U) {
         return 0;
-    }
-    uint64_t targetLen = api == PerfApi::NOTIFY ? static_cast<uint64_t>(payloadBytes) : sizeof(uint64_t);
-    if (hcomm.ReserveDwqeBurst(channel, remoteBase, targetLen, count) != 0) {
-        return -1;
     }
     for (uint32_t i = 1U; i < count; ++i) {
         int32_t status = SubmitOne<api, false>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);
@@ -432,64 +364,6 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtCasPerfVf(
     }
 }
 
-template <PerfApi api>
-__simt_vf__ __launch_bounds__(1024) inline void SimtBatchPerfVf(
-    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ uint64_t* timing, uint32_t payloadBytes,
-    uint32_t iterations, uint32_t warmup, __ubuf__ uint8_t* workspace, uint32_t workspaceBytes,
-    __ubuf__ uint32_t* batchState, __ubuf__ int32_t* drainStatus, __ubuf__ uint64_t* beginCycle)
-{
-    constexpr uint32_t kLaneCount = 1024U;
-    uint32_t lane = threadIdx.x;
-    uint32_t notifyOffset = (payloadBytes + sizeof(uint64_t) - 1U) & ~(sizeof(uint64_t) - 1U);
-    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
-    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
-
-    AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init(workspace, workspaceBytes) != 0) {
-        if (lane == 0U) {
-            timing[kIssueCyclesIndex] = 0U;
-            timing[kCompletionCyclesIndex] = 0U;
-            timing[kDrainStatusIndex] = static_cast<uint64_t>(-1);
-            timing[kCompletedIndex] = 0U;
-        }
-        return;
-    }
-
-    int32_t postStatus = SubmitBatchGroups<api, kLaneCount>(
-        hcomm, channel, remote, local, payloadBytes, notifyOffset, warmup, batchState);
-    asc_syncthreads();
-    if (lane == 0U) {
-        drainStatus[0] = postStatus != 0 ? postStatus : (warmup == 0U ? 0 : hcomm.Drain(channel));
-    }
-    asc_syncthreads();
-    if (drainStatus[0] != 0) {
-        if (lane == 0U) {
-            timing[kIssueCyclesIndex] = 0U;
-            timing[kCompletionCyclesIndex] = 0U;
-            timing[kDrainStatusIndex] = static_cast<uint64_t>(drainStatus[0]);
-            timing[kCompletedIndex] = 0U;
-        }
-        return;
-    }
-
-    if (lane == 0U) {
-        beginCycle[0] = clock();
-    }
-    asc_syncthreads();
-    postStatus = SubmitBatchGroups<api, kLaneCount>(
-        hcomm, channel, remote, local, payloadBytes, notifyOffset, iterations, batchState);
-    asc_syncthreads();
-    if (lane == 0U) {
-        uint64_t issueEnd = clock();
-        drainStatus[0] = postStatus != 0 ? postStatus : hcomm.Drain(channel);
-        uint64_t completionEnd = clock();
-        timing[kIssueCyclesIndex] = issueEnd - beginCycle[0];
-        timing[kCompletionCyclesIndex] = completionEnd - beginCycle[0];
-        timing[kDrainStatusIndex] = static_cast<uint64_t>(drainStatus[0]);
-        timing[kCompletedIndex] = drainStatus[0] == 0 ? iterations : 0U;
-    }
-}
-
 #define DEFINE_PERF_KERNEL(apiName, vfName, laneCount, launchBounds)                                             \
     extern "C" __global__ __vector__ void apiName##laneCount(                                                    \
         uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ void* timing, uint32_t payloadBytes,  \
@@ -502,21 +376,6 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtBatchPerfVf(
             dim3(laneCount), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),        \
             payloadBytes, iterations, warmup, reinterpret_cast<__ubuf__ uint8_t*>(workspace), sizeof(workspace), \
             drainStatus, beginCycle);                                                                            \
-    }
-
-#define DEFINE_BATCH_PERF_KERNEL(apiName, api)                                                                      \
-    extern "C" __global__ __vector__ void apiName##1024U(                                                           \
-        uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ void* timing, uint32_t payloadBytes,     \
-        uint32_t iterations, uint32_t warmup)                                                                       \
-    {                                                                                                               \
-        alignas(128) __ubuf__ uint64_t workspace[HCOMM_WORKSPACE_BYTES(1024U) / sizeof(uint64_t)];                  \
-        __ubuf__ uint32_t batchState[kBatchStateWords];                                                             \
-        __ubuf__ int32_t drainStatus[1];                                                                            \
-        __ubuf__ uint64_t beginCycle[1];                                                                            \
-        asc_vf_call<SimtBatchPerfVf<api>>(                                                                          \
-            dim3(1024U), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), payloadBytes, \
-            iterations, warmup, reinterpret_cast<__ubuf__ uint8_t*>(workspace), sizeof(workspace), batchState,      \
-            drainStatus, beginCycle);                                                                               \
     }
 
 #define DEFINE_LAST_COMMIT_PERF_KERNEL(apiName, api, laneCount, launchBounds)                                    \
@@ -536,13 +395,13 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtBatchPerfVf(
 
 DEFINE_PERF_KERNEL(SimtNotifyPerf, SimtNotifyPerfVf, 1U, 32U)
 DEFINE_PERF_KERNEL(SimtNotifyPerf, SimtNotifyPerfVf, 32U, 32U)
-DEFINE_BATCH_PERF_KERNEL(SimtNotifyPerf, PerfApi::NOTIFY)
+DEFINE_PERF_KERNEL(SimtNotifyPerf, SimtNotifyPerfVf, 1024U, 1024U)
 DEFINE_PERF_KERNEL(SimtFaaPerf, SimtFaaPerfVf, 1U, 32U)
 DEFINE_PERF_KERNEL(SimtFaaPerf, SimtFaaPerfVf, 32U, 32U)
-DEFINE_BATCH_PERF_KERNEL(SimtFaaPerf, PerfApi::FAA)
+DEFINE_PERF_KERNEL(SimtFaaPerf, SimtFaaPerfVf, 1024U, 1024U)
 DEFINE_PERF_KERNEL(SimtCasPerf, SimtCasPerfVf, 1U, 32U)
 DEFINE_PERF_KERNEL(SimtCasPerf, SimtCasPerfVf, 32U, 32U)
-DEFINE_BATCH_PERF_KERNEL(SimtCasPerf, PerfApi::CAS)
+DEFINE_PERF_KERNEL(SimtCasPerf, SimtCasPerfVf, 1024U, 1024U)
 DEFINE_LAST_COMMIT_PERF_KERNEL(SimtNotifyLastCommitPerf, PerfApi::NOTIFY, 1U, 32U)
 DEFINE_LAST_COMMIT_PERF_KERNEL(SimtNotifyLastCommitPerf, PerfApi::NOTIFY, 32U, 32U)
 DEFINE_LAST_COMMIT_PERF_KERNEL(SimtNotifyLastCommitPerf, PerfApi::NOTIFY, 1024U, 1024U)
@@ -554,7 +413,6 @@ DEFINE_LAST_COMMIT_PERF_KERNEL(SimtCasLastCommitPerf, PerfApi::CAS, 32U, 32U)
 DEFINE_LAST_COMMIT_PERF_KERNEL(SimtCasLastCommitPerf, PerfApi::CAS, 1024U, 1024U)
 
 #undef DEFINE_LAST_COMMIT_PERF_KERNEL
-#undef DEFINE_BATCH_PERF_KERNEL
 #undef DEFINE_PERF_KERNEL
 #undef HCOMM_WORKSPACE_BYTES
 #undef HCOMM_CACHED_WORKSPACE_BYTES

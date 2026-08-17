@@ -5,8 +5,8 @@
 
 当不超过 32 个 lane 同时对同一 channel 执行 `commit=true` 时，Hcomm 会在接口内部自动合并
 同一 warp 的 SQ 预留和 DWQE 发布：一个 lane 原子预留整组 SQ 空间，各 lane 并行填写自己的
-WQE，最后一个有效lane发布该组。t1024超过单warp范围，因此每组显式调用`ReserveDwqeBatch`：
-非发布lane以`commit=false`写SQ，block同步后仅由lane 0以`commit=true`发布该组。
+WQE，最后一个有效lane发布该组。t1024超过单warp范围，直接由每个lane调用普通
+`WriteWithNotifyNbi`、`AtomicFAA`或`AtomicCAS`接口完成提交，不调用额外的批量预留接口。
 
 当前性能 kernel 在计时开始前调用原有的 `Hcomm::Init(workspace, len)`。Hcomm 在不透明 UB
 workspace 内自动为每个 lane 分配 128B WQE slot 和 32B 远端注册信息/token cache，并初始化所有
@@ -43,8 +43,7 @@ completionEnd = clock()
 `commit=false` 写入普通 SQ，最后一个 WQE 使用 `commit=true` 通过 DWQE 发布整批，随后结束计时并
 调用 `Drain()`。
 
-- t1 调用一次 `ReserveDwqeBurst`，整批只对 GM head 执行一次原子预留，并复用远端注册信息、
-  SQ context 和 WQE 固定字段。
+- t1 串行执行前面的`commit=false` WQE，最后执行一个`commit=true` WQE。
 - t32/t1024 由各 lane 并行填写前面的 SQ WQE；所有 lane 同步后，由最后一个逻辑操作所属的 lane
   执行唯一一次 `commit=true`，其余 lane 等待发布完成。
 
@@ -67,8 +66,8 @@ bash examples/simt_notify_atomic_perf/run.sh \
 默认值仍为 `--commit-mode immediate`，日志中显示实际的 `CommitMode`。
 
 第 `lane` 个线程处理序号为 `lane, lane + laneCount, ...` 的WQE。t32由Hcomm透明执行单warp
-合并；t1024以最多1024个WQE为一组协作提交。预热不足1024个WQE时，未提交WQE的lane仍参与
-同步，但不占用SQ。全部lane返回后，由lane 0调用一次`Drain()`。
+合并；t1024直接走普通接口路径，每个有效lane独立提交WQE。全部lane返回后，由lane 0调用一次
+`Drain()`。
 
 ## 编译
 
