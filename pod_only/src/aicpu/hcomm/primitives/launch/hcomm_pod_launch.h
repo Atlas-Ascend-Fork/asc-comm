@@ -17,6 +17,7 @@
 void HcommPodRegisterThread(ThreadHandle thread);
 bool HcommPodIsBatchLaunchMode();
 uint32_t HcommPodGetNotifyWaitTimeout();
+uint32_t HcommPodGetSqFullTimeOut();
 void HcommPodSetNotifyWaitTimeout(uint32_t timeout);
 void HcommPodSetBatchLaunchMode(bool batchMode);
 HcclResult HcommPodLaunchRegisteredThreads();

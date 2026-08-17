@@ -112,8 +112,9 @@ HcclResult EnsureQueueSpace(HcommRtsqContext &context)
         if (availableSpace > state.pendingSqeCnt) {
             break;
         }
-        const bool timeout = context.sqFullTimeout != 0 &&
-            std::chrono::steady_clock::now() - startTime >= std::chrono::seconds(context.sqFullTimeout);
+        const uint32_t sqFullTimeout = HcommPodGetSqFullTimeOut();
+        const bool timeout = sqFullTimeout != 0 &&
+            std::chrono::steady_clock::now() - startTime >= std::chrono::seconds(sqFullTimeout);
         CHK_PRT_RET(timeout,
             HCCL_ERROR("[%s] RTSQ full timeout, sqId[%u], head[%u], tail[%u], pending[%u].", __func__,
                 context.sqId, context.sqHead, context.sqTail, state.pendingSqeCnt), HCCL_E_TIMEOUT);
