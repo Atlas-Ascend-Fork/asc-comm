@@ -69,25 +69,6 @@ __simt_callee__ inline void HcommSimtCopyUbToGm(__gm__ uint8_t* dst, __ubuf__ ui
     }
 }
 
-// Each lane owns one UB slot. Init establishes an all-zero template; then only
-// a Notify/Atomic layout transition needs sanitizing because their tails overlap.
-__simt_callee__ inline void HcommSimtPrepareUbNotifyWqe(__ubuf__ uint8_t* wqeAddr, HcommSimtUbWqeKind& wqeKind)
-{
-    if (wqeKind == HcommSimtUbWqeKind::ATOMIC) {
-        HcommSimtClearUb<sizeof(HcommUrmaNotifyCtx)>(wqeAddr + sizeof(HcommUrmaSqeCtx));
-    }
-    wqeKind = HcommSimtUbWqeKind::NOTIFY;
-}
-
-__simt_callee__ inline void HcommSimtPrepareUbAtomicWqe(__ubuf__ uint8_t* wqeAddr, HcommSimtUbWqeKind& wqeKind)
-{
-    if (wqeKind == HcommSimtUbWqeKind::NOTIFY) {
-        constexpr uint32_t atomicActiveSize = sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaSgeCtx) + 2U * sizeof(uint64_t);
-        HcommSimtClearUb<HCOMM_URMA_DWQE_SIZE - atomicActiveSize>(wqeAddr + atomicActiveSize);
-    }
-    wqeKind = HcommSimtUbWqeKind::ATOMIC;
-}
-
 // An inline WQE carries its payload in the WQE itself rather than through an SGE, so the
 // active tail length depends on sizeof(T). Clear the whole area past the SQE header on any
 // transition into INLINE, and also between two INLINE posts, because a previous larger
@@ -145,7 +126,8 @@ __simt_callee__ inline void HcommSimtUrmaFillUbWriteWithNotifyWqe(
     __gm__ uint8_t* notifyAddr, uint64_t notifyVal, const HcommSimtUbPostMeta& meta, uint32_t curHead,
     uint32_t nextHead, HcommSimtUbWqeKind& wqeKind)
 {
-    HcommSimtPrepareUbNotifyWqe(wqeAddr, wqeKind);
+    // Notify overwrites every byte consumed by its opcode; stale Atomic tail bytes are ignored.
+    wqeKind = HcommSimtUbWqeKind::NOTIFY;
     HcommSimtUrmaFillUbSqeCtx<HcommUrmaOpCode::WRITE_WITH_NOTIFY, 1U, config>(
         wqeAddr, remoteAddr, meta, curHead, nextHead);
 
@@ -225,7 +207,8 @@ __simt_callee__ inline void HcommSimtUrmaFillUbAtomicWqe(
     __ubuf__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* fetchAddr, T value, T cond,
     const HcommSimtUbPostMeta& meta, uint32_t curHead, uint32_t nextHead, HcommSimtUbWqeKind& wqeKind)
 {
-    HcommSimtPrepareUbAtomicWqe(wqeAddr, wqeKind);
+    // Atomic overwrites every byte consumed by its opcode; stale Notify tail bytes are ignored.
+    wqeKind = HcommSimtUbWqeKind::ATOMIC;
     HcommSimtUrmaFillUbSqeCtx<opCode, 1U, config>(wqeAddr, remoteAddr, meta, curHead, nextHead);
 
     __ubuf__ HcommUrmaSgeCtx* sgeCtx = (__ubuf__ HcommUrmaSgeCtx*)(wqeAddr + sizeof(HcommUrmaSqeCtx));
@@ -589,13 +572,6 @@ __simt_callee__ inline bool HcommSimtReserveImmediateWarp(
     return true;
 }
 
-__simt_callee__ inline void HcommSimtSyncBeforeRing(__gm__ uint64_t* headAddr, uint32_t nextHead)
-{
-    (void)headAddr;
-    (void)nextHead;
-    asc_syncthreads();
-}
-
 __simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::HcommImpl() {}
 
 __simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::~HcommImpl() {}
@@ -873,7 +849,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
     uint32_t wqeSize = post.sqWqeSize;
     uint32_t sqDepth = post.meta.sqDepth;
     __gm__ uint8_t* sqeAddr = reinterpret_cast<__gm__ uint8_t*>(sqBaseAddr + wqeSize * (curHead % sqDepth));
-
     if constexpr (commit) {
         uint32_t blockLaneCount = blockDim.x * blockDim.y * blockDim.z;
         if (blockLaneCount == 1U) {
@@ -1022,7 +997,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
     uint32_t wqeSize = post.sqWqeSize;
     uint32_t sqDepth = post.meta.sqDepth;
     __gm__ uint8_t* sqeAddr = reinterpret_cast<__gm__ uint8_t*>(sqBaseAddr + wqeSize * (curHead % sqDepth));
-
     if constexpr (commit) {
         uint32_t blockLaneCount = blockDim.x * blockDim.y * blockDim.z;
         if (blockLaneCount == 1U) {
