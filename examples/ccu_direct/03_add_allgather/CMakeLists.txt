@@ -66,6 +66,7 @@ target_link_libraries(demo PRIVATE
     -Wl,--no-as-needed
     hcomm
     asccomm_ccu_dataplane
+    hccl_v2
     -Wl,--as-needed
     c_sec
     ascendcl

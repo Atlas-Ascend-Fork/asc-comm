@@ -64,6 +64,7 @@ target_link_libraries(ccu_allgather_nhr1d_mem2mem PRIVATE
     -Wl,--no-as-needed
     hcomm
     asccomm_ccu_dataplane
+    hccl_v2
     -Wl,--as-needed
     c_sec
     ascendcl
