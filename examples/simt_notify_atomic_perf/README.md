@@ -5,9 +5,8 @@
 
 当不超过 32 个 lane 同时对同一 channel 执行 `commit=true` 时，Hcomm 会在接口内部自动合并
 同一 warp 的 SQ 预留和 DWQE 发布：一个 lane 原子预留整组 SQ 空间，各 lane 并行填写自己的
-WQE，最后一个有效 lane 发布该组。t1024 超过单 warp 范围，因此每轮由非发布 lane 通过普通接口
-以 `commit=false` 填写 SQ；block 同步后，再由 lane 0 以 `commit=true` 写入最后一个 WQE 并发布整组。
-该路径只调用 `WriteWithNotifyNbi`、`AtomicFAA`或`AtomicCAS`，不依赖额外的批量预留接口。
+WQE，最后一个有效lane发布该组。t1024超过单warp范围，直接由每个lane调用普通
+`WriteWithNotifyNbi`、`AtomicFAA`或`AtomicCAS`接口完成提交，不调用额外的批量预留接口。
 
 当前性能 kernel 在计时开始前调用原有的 `Hcomm::Init(workspace, len)`。Hcomm 在不透明 UB
 workspace 内自动为每个 lane 分配 128B WQE slot 和 32B 远端注册信息/token cache，并初始化所有
@@ -67,8 +66,8 @@ bash examples/simt_notify_atomic_perf/run.sh \
 默认值仍为 `--commit-mode immediate`，日志中显示实际的 `CommitMode`。
 
 第 `lane` 个线程处理序号为 `lane, lane + laneCount, ...` 的WQE。t32由Hcomm透明执行单warp
-合并；t1024 由用例协调普通接口的 `commit=false/true` 调用，保证每组只有 lane 0 发布 DWQE。
-全部 lane 返回后，由 lane 0 调用一次 `Drain()`。
+合并；t1024直接走普通接口路径，每个有效lane独立提交WQE。全部lane返回后，由lane 0调用一次
+`Drain()`。
 
 ## 编译
 
