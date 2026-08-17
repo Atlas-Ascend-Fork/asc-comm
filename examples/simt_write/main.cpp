@@ -84,18 +84,6 @@ bool ParseMode(const char* arg, uint32_t& mode)
         mode = kModeMultiLane;
         return true;
     }
-    if (name == "value_single") {
-        mode = kModeValueSingle;
-        return true;
-    }
-    if (name == "value_batch_last") {
-        mode = kModeValueBatchLast;
-        return true;
-    }
-    if (name == "value_multi_lane") {
-        mode = kModeValueMultiLane;
-        return true;
-    }
     return false;
 }
 
@@ -106,15 +94,6 @@ const char* ModeName(uint32_t mode)
     }
     if (mode == kModeMultiLane) {
         return "multi_lane";
-    }
-    if (mode == kModeValueSingle) {
-        return "value_single";
-    }
-    if (mode == kModeValueBatchLast) {
-        return "value_batch_last";
-    }
-    if (mode == kModeValueMultiLane) {
-        return "value_multi_lane";
     }
     return "single";
 }
@@ -318,7 +297,6 @@ int main(int argc, char* argv[])
     if (argc < 4) {
         std::cout << "Usage: " << argv[0] << " <rank> <nranks> <rank_table_file> [mode]" << std::endl;
         std::cout << "  mode: single (default) | batch_last | multi_lane" << std::endl;
-        std::cout << "        value_single | value_batch_last | value_multi_lane" << std::endl;
         return 1;
     }
 
@@ -334,7 +312,6 @@ int main(int argc, char* argv[])
     if (argc > 4 && !ParseMode(argv[4], mode)) {
         std::cout << "Unknown mode: " << argv[4] << std::endl;
         std::cout << "  mode: single (default) | batch_last | multi_lane" << std::endl;
-        std::cout << "        value_single | value_batch_last | value_multi_lane" << std::endl;
         return 1;
     }
 
@@ -372,9 +349,6 @@ int main(int argc, char* argv[])
 
     // Only kSenderRank drives traffic. Every other rank just holds its registered buffers
     // open so the sender's WQEs have a valid target.
-    // The value_* modes carry their payload inline in the WQE and never read the send buffer,
-    // so kLocalSendIdx is unused there. It is still registered on both ranks to keep the
-    // buffer tables symmetric and the channel setup identical across modes.
     if (rank == kSenderRank) {
         std::cout << "[rank " << rank << "] simt_write mode=" << ModeName(mode) << " sending to rank " << kRecvRank
                   << std::endl;
