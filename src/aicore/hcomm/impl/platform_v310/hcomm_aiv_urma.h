@@ -456,12 +456,14 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
 
     uint32_t logicalHead = batchHandle.sqHead + preparedWqebbCount;
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqe.GetPhyAddr());
+    Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
     HcommUrmaFillBatchSqeCtxByToken<HcommUrmaOpCode::WRITE, config>(
         sqeCtx, reinterpret_cast<__gm__ uint8_t*>(dst), batchHandle, logicalHead);
     __ubuf__ HcommUrmaSgeCtx* sgeCtx =
         reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(wqeWords + HCOMM_URMA_SQE_CTX_U32_NUM);
     HcommUrmaFillSgeCtx<HcommUrmaOpCode::WRITE>(
         sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(src), UdmaParams<uint64_t>{});
+    Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
 
     batchHandle.preparedWqebbCount = preparedWqebbCount + 1U;
     if constexpr (config.cqe == 1) {
@@ -492,12 +494,14 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
 
     uint32_t logicalHead = batchHandle.sqHead + preparedWqebbCount;
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqe.GetPhyAddr());
+    Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
     HcommUrmaFillBatchSqeCtxByToken<HcommUrmaOpCode::READ, config>(
         sqeCtx, reinterpret_cast<__gm__ uint8_t*>(src), batchHandle, logicalHead);
     __ubuf__ HcommUrmaSgeCtx* sgeCtx =
         reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(wqeWords + HCOMM_URMA_SQE_CTX_U32_NUM);
     HcommUrmaFillSgeCtx<HcommUrmaOpCode::READ>(
         sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(dst), UdmaParams<uint64_t>{});
+    Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
 
     batchHandle.preparedWqebbCount = preparedWqebbCount + 1U;
     if constexpr (config.cqe == 1) {
@@ -535,6 +539,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
     uint32_t logicalHead = batchHandle.sqHead + preparedWqebbCount;
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqeAddr);
     UdmaParams<uint64_t> params{notifyVal, 0, 0, 0};
+    Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
     HcommUrmaFillBatchSqeCtxByToken<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config>(
         sqeCtx, reinterpret_cast<__gm__ uint8_t*>(dst), batchHandle, logicalHead);
     __ubuf__ HcommUrmaNotifyCtx* notifyCtx = reinterpret_cast<__ubuf__ HcommUrmaNotifyCtx*>(
@@ -545,6 +550,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
         currentWqeAddr + sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaNotifyCtx));
     HcommUrmaFillSgeCtx<HcommUrmaOpCode::WRITE_WITH_NOTIFY>(
         sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(src), params);
+    Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
 
     batchHandle.preparedWqebbCount = preparedWqebbCount + HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM;
     if constexpr (config.cqe != 0) {
@@ -778,15 +784,19 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollBatchCq(
         __gm__ uint8_t* cqeAddr = (__gm__ uint8_t*)(cqBaseAddr + cqeSize * (curTail & (cqDepth - 1)));
         AscendC::GlobalTensor<uint32_t> cqeGlobal;
         cqeGlobal.SetGlobalBuffer((__gm__ uint32_t*)cqeAddr);
-        SyncAction<HardEvent::S_MTE2>();
+        Mutex::Lock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
         DataCopy(cqeItem, cqeGlobal, cqeSize / sizeof(uint32_t));
-        SyncAction<HardEvent::MTE2_S>();
+        Mutex::Unlock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
+        Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
         bool validOwner = (curTail / cqDepth) & 1;
         uint32_t times = 0;
+        uint32_t ret = HCOMM_SUCCESS;
         while ((validOwner ^ cqeUb->owner) == 0 && times < HCOMM_URMA_MAX_RETRY_TIMES) {
-            SyncAction<HardEvent::S_MTE2>();
+            Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
+            Mutex::Lock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
             DataCopy(cqeItem, cqeGlobal, cqeSize / sizeof(uint32_t));
-            SyncAction<HardEvent::MTE2_S>();
+            Mutex::Unlock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
+            Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
             times++;
         }
         if (times >= HCOMM_URMA_MAX_RETRY_TIMES) {
@@ -794,15 +804,22 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollBatchCq(
                 KERNEL_ERROR, "Hcomm URMA Poll batch CQ timeout curTail=%u expectIdx=%u \n", curTail,
                 expectIdx);
             HcommUrmaDumpCqeCtx(cqeUb);
-            return 0xFFU;
+            ret = 0xFFU;
+        } else {
+            uint8_t status = cqeUb->status & 0xFFU;
+            uint8_t subStatus = cqeUb->substatus & 0xFFU;
+            constexpr uint8_t statusShift = 8;
+            if (status != 0 || subStatus != 0) {
+                KERNEL_LOG(
+                    KERNEL_ERROR, "Hcomm URMA batch CQE failed status=%u subStatus=%u \n", status,
+                    subStatus);
+                HcommUrmaDumpCqeCtx(cqeUb);
+                ret = (status << statusShift) | subStatus;
+            }
         }
-        uint8_t status = cqeUb->status & 0xFFU;
-        uint8_t subStatus = cqeUb->substatus & 0xFFU;
-        constexpr uint8_t statusShift = 8;
-        if (status != 0 || subStatus != 0) {
-            KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA batch CQE failed status=%u subStatus=%u \n", status, subStatus);
-            HcommUrmaDumpCqeCtx(cqeUb);
-            return (status << statusShift) | subStatus;
+        Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
+        if (ret != HCOMM_SUCCESS) {
+            return ret;
         }
         curTail++;
     }
@@ -932,7 +949,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBa
     GlobalTensor<uint32_t> firstDst;
     firstDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(firstWqeAddr));
 
-    SyncAction<HardEvent::S_MTE3>();
+    Mutex::Lock<PIPE_MTE3>(HCOMM_URMA_MUTEX_ID);
     DataCopy(firstDst, batchHandle.wqeBuffer, firstWqebbCount * HCOMM_URMA_WQEBB_U32_NUM);
     if (secondWqebbCount != 0) {
         GlobalTensor<uint32_t> secondDst;
@@ -941,7 +958,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBa
             batchHandle.wqeBuffer[firstWqebbCount * HCOMM_URMA_WQEBB_U32_NUM];
         DataCopy(secondDst, secondSrc, secondWqebbCount * HCOMM_URMA_WQEBB_U32_NUM);
     }
-    SyncAction<HardEvent::MTE3_S>();
+    Mutex::Unlock<PIPE_MTE3>(HCOMM_URMA_MUTEX_ID);
 
     uint32_t newSqHead = sqHead + preparedWqebbCount;
     uint32_t newCqHead = batchHandle.cqHead + preparedCqeCount;
@@ -950,7 +967,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBa
     channelEntity->cqHead = newCqHead;
     batchHandle.sqHead = newSqHead;
     batchHandle.cqHead = newCqHead;
+    Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
     st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqDbAddr), 0);
+    Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
 
     batchHandle.preparedWqebbCount = 0;
     batchHandle.preparedCqeCount = 0;
