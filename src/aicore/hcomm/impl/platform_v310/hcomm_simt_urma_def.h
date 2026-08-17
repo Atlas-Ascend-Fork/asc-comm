@@ -62,6 +62,7 @@ struct HcommSimtUbPostContext {
     ChannelHandle channel;
     uint64_t remoteBuffersAddr;
     uint64_t headAddr;
+    uint64_t sqTailAddr;
     uint64_t dwqeAddr;
     uint64_t sqBaseAddr;
     uint32_t sqWqeSize;
@@ -95,6 +96,7 @@ constexpr uint32_t HCOMM_SIMT_UB_CONTEXT_READY = 2U;
 struct HcommSimtUbResolvedPost {
     HcommSimtUbPostMeta meta;
     __gm__ uint64_t* headAddr;
+    __gm__ uint32_t* sqTailAddr;
     __gm__ uint8_t* dwqeAddr;
     uint64_t sqBaseAddr;
     uint32_t sqWqeSize;
@@ -147,6 +149,9 @@ private:
     __simt_callee__ inline bool EnsureUbPostContext(ChannelHandle channel);
     __simt_callee__ inline int32_t ResolveUbPostContext(
         ChannelHandle channel, __gm__ uint8_t* remoteAddr, uint64_t len, HcommSimtUbResolvedPost& post);
+    template <bool commit>
+    __simt_callee__ inline bool ReservePost(
+        ChannelHandle channel, const HcommSimtUbResolvedPost& post, uint32_t bbCnt, uint64_t& headVal);
 
     template <
         bool commit = true, auto commitPipe = 0, auto reqPipe = 0, HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE,

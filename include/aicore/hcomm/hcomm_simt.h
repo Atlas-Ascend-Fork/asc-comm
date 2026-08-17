@@ -52,6 +52,10 @@ struct HcommUnboundGroup {};
  *       task's doorbell publishes a producer index covering the whole batch.
  * @note Posting and Drain on one channel must be called serially by the same lane. This caller
  *       contract is not checked at runtime.
+ * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
+ *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
+ *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
+ *       for the later immediate DWQE that publishes the batch.
  * @note A channel must not be driven by both this class and the SIMD AscendC::Hcomm. The two paths
  *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
  *       packs curHead and wqeCnt into the u64 at SqContext::ubJfs::headAddr.
