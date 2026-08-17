@@ -140,6 +140,42 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicBatchLastVf(
     reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
 }
 
+// Multiple lanes concurrently fill deferred SQ entries. After they synchronize,
+// lane 0 performs the only commit=true call and publishes the accumulated batch.
+__simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicMultiLaneVf(
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* wqeStaging, uint32_t wqeStagingBytes)
+{
+    if (threadIdx.x >= kMultiLaneCount || threadIdx.y != 0U || threadIdx.z != 0U) {
+        return;
+    }
+    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
+    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+
+    uint32_t lane = threadIdx.x;
+    AscendC::simt::Hcomm<> hcomm;
+    (void)hcomm.Init(wqeStaging, wqeStagingBytes);
+    if (lane == 0U) {
+        (void)hcomm.WriteWithNotifyNbi<false>(
+            channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes,
+            remote + kNotifySignalSlot * kSlotBytes, kNotifySignal);
+    } else if (lane == 1U) {
+        (void)hcomm.AtomicFAA<uint64_t, false>(
+            channel, remote + kFaaTargetSlot * kSlotBytes, local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
+    } else {
+        (void)hcomm.AtomicCAS<uint64_t, false>(
+            channel, remote + kCasTargetSlot * kSlotBytes, local + kCasFetchSlot * kSlotBytes,
+            kCasInitial, kCasSwap);
+    }
+
+    asc_syncthreads();
+    if (lane == 0U) {
+        (void)hcomm.WriteWithNotifyNbi<true>(
+            channel, remote + kFinalNotifyDataSlot * kSlotBytes, local, kSlotBytes,
+            remote + kFinalNotifySignalSlot * kSlotBytes, kFinalNotifySignal);
+        reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+    }
+}
+
 } // namespace
 
 extern "C" __global__ __vector__ void SimtNotify(uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
@@ -184,6 +220,15 @@ extern "C" __global__ __vector__ void SimtNotifyAtomicBatchLast(
         dim3(1), channel, sendBufIdx, recvBufIdx, (__ubuf__ uint8_t*)wqeStaging, sizeof(wqeStaging));
 }
 
+extern "C" __global__ __vector__ void SimtNotifyAtomicMultiLane(
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    alignas(128) __ubuf__ uint64_t wqeStaging[kHcommWorkspaceWords * kMultiLaneCount];
+    asc_vf_call<SimtNotifyAtomicMultiLaneVf>(
+        dim3(kMultiLaneCount), channel, sendBufIdx, recvBufIdx,
+        reinterpret_cast<__ubuf__ uint8_t*>(wqeStaging), sizeof(wqeStaging));
+}
+
 void LaunchSimtNotifyAtomic(void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode)
 {
     if (mode == simt_notify_atomic::kModeNotify) {
@@ -196,6 +241,8 @@ void LaunchSimtNotifyAtomic(void* stream, uint64_t channel, uint32_t sendBufIdx,
         SimtCas<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
     } else if (mode == simt_notify_atomic::kModeSingle) {
         SimtNotifyAtomicSingle<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
+    } else if (mode == simt_notify_atomic::kModeMultiLane) {
+        SimtNotifyAtomicMultiLane<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
     } else {
         SimtNotifyAtomicBatchLast<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
     }

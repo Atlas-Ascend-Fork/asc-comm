@@ -10,11 +10,13 @@ communication operations and verifies local fetch values and `Drain` status, whi
 - `cas`: Submits one CAS operation and verifies the remote swap result and locally fetched old value.
 - `single`: Serially submits Notify, FAA, and CAS, calling `Drain` after each operation.
 - `batch_last`: Defers Notify and FAA with `commit=false`, then publishes the batch with a `commit=true` CAS.
+- `multi_lane`: Three lanes concurrently post Notify, FAA, and CAS with `commit=false`; after synchronization,
+  lane 0 performs the only `commit=true` Notify and publishes the entire batch.
 - `notify_immediate_repeat`: A single lane submits 100 `WriteWithNotifyNbi<true>` WQEs, immediately publishing every
   WQE and calling `Drain` once after the full series.
 
-Posting and `Drain` on one channel must be called serially by the same lane; this sample does not provide a concurrent
-multi-lane mode.
+Multiple lanes may concurrently post with `commit=false` on one channel. After synchronization, only one lane may
+perform the final `commit=true` post and call `Drain`. Concurrent `commit=true` calls are not supported.
 
 ## Build
 
@@ -37,6 +39,7 @@ bash run.sh 2 /path/to/rank_table.json faa
 bash run.sh 2 /path/to/rank_table.json cas
 bash run.sh 2 /path/to/rank_table.json single
 bash run.sh 2 /path/to/rank_table.json batch_last
+bash run.sh 2 /path/to/rank_table.json multi_lane
 bash run.sh 2 /path/to/rank_table.json notify_immediate_repeat
 ```
 

@@ -1,8 +1,8 @@
 # SIMT Notify/FAA/CAS Basic Performance Sample
 
-This directory tests only the `Notify`, `FAA`, and `CAS` interfaces. Each posting interface must be called by one SIMT
-lane at a time for a channel; concurrent lanes must not write WQEs to the same channel. The sample therefore supports
-only `--lanes 1`.
+This directory tests only the `Notify`, `FAA`, and `CAS` interfaces. Immediate mode supports only `--lanes 1`.
+Last mode supports `--lanes 1/32/1024`: lanes concurrently post with `commit=false`, then one lane performs the only
+`commit=true` post after synchronization.
 
 Before timing begins, the performance kernel calls `Hcomm::Init(workspace, len)`. In the opaque UB workspace, Hcomm
 allocates a 128-byte WQE slot and a 32-byte remote registration/token cache for each lane, plus a 128-byte read-only
@@ -36,8 +36,8 @@ With `--commit-mode last`, a group of WQEs performs one final publication. The f
 DWQE window. Timing then stops and `Drain()` is called. Last mode combines DWQE publication only; SQ space is still
 reserved with one CAS per WQE, as reported by `ReserveMode`.
 
-The single posting lane serially writes the preceding WQEs with `commit=false`, then writes the final WQE with
-`commit=true`.
+With `--lanes 1`, deferred WQEs are written serially. With `--lanes 32/1024`, lanes write deferred WQEs concurrently.
+In both cases, one lane performs the final `commit=true` post and `Drain`.
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
@@ -54,7 +54,7 @@ bash examples/simt_notify_atomic_perf/run.sh \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode last
 ```
 
-Only pass `--lanes 1`; concurrent multi-lane posting is outside the interface contract.
+Change `--lanes` to `32` or `1024` to exercise multi-lane Last mode. Multi-lane Immediate mode is unsupported.
 
 ## Build
 
@@ -90,12 +90,12 @@ bash examples/simt_notify_atomic_perf/run.sh \
 ```
 
 Each command executes one interface and one data size; the script does not scan or combine scenarios internally.
-`--lanes` must be `1`.
+Immediate mode requires `--lanes 1`; multiple lanes require `--commit-mode last`.
 
 ## Output
 
 ```text
-RESULT | Path=SIMT-t1 | API=notify | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | RemoteCache=PerLaneUB | PostContext=SharedUB | MetadataPath=CachedUB | ReserveMode=PerWqeLoadStore | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
+RESULT | Path=SIMT-t1 | API=notify | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | RemoteCache=PerLaneUB | PostContext=SharedUB | MetadataPath=CachedUB | ReserveMode=PerWqeCAS | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
 ```
 
 - `IssueTime/us`: Total formal interface-call time, excluding `Drain()`.

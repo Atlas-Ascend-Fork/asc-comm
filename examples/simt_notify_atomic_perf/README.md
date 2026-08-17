@@ -1,7 +1,7 @@
 # SIMT Notify/FAA/CAS 基础性能用例
 
-本目录只测试`Notify`、`FAA`和`CAS`三个接口。同一channel的post接口同一时刻只能由一个SIMT lane调用，
-不允许多个lane并发写WQE，因此本样例只支持`--lanes 1`。
+本目录只测试`Notify`、`FAA`和`CAS`三个接口。Immediate模式仅支持`--lanes 1`。Last模式允许
+`--lanes 1/32/1024`：多个lane并发执行`commit=false`，同步后由一个lane执行唯一的`commit=true`。
 
 当前性能 kernel 在计时开始前调用原有的 `Hcomm::Init(workspace, len)`。Hcomm 在不透明 UB
 workspace 内自动为每个 lane 分配 128B WQE slot 和 32B 远端注册信息/token cache，并初始化所有
@@ -35,7 +35,8 @@ completionEnd = clock()
 调用 `Drain()`。Last 只合并最终 DWQE 发布，SQ 空间仍按每个 WQE 执行一次预留 CAS，具体由日志中的
 `ReserveMode` 标识。
 
-单个post lane串行执行前面的`commit=false` WQE，最后执行一个`commit=true` WQE。
+`--lanes 1`串行填写延迟WQE；`--lanes 32/1024`由多个lane并行填写延迟WQE。两种情况都只由
+一个lane执行最终`commit=true`和`Drain`。
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
@@ -52,7 +53,7 @@ bash examples/simt_notify_atomic_perf/run.sh \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode last
 ```
 
-`--lanes`只应传`1`；多lane并发post不属于接口支持范围。
+将上述命令的`--lanes`改为`32`或`1024`，可验证多lane Last路径。多lane不能用于Immediate模式。
 
 ## 编译
 
@@ -87,12 +88,13 @@ bash examples/simt_notify_atomic_perf/run.sh \
   --iterations 1024 --warmup 100 --lanes 1
 ```
 
-每条命令只执行一个接口和一个数据长度，不在脚本内部扫描或组合场景；`--lanes`必须为`1`。
+每条命令只执行一个接口和一个数据长度，不在脚本内部扫描或组合场景。Immediate模式必须使用
+`--lanes 1`；多lane必须同时指定`--commit-mode last`。
 
 ## 输出
 
 ```text
-RESULT | Path=SIMT-t1 | API=notify | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | RemoteCache=PerLaneUB | PostContext=SharedUB | MetadataPath=CachedUB | ReserveMode=PerWqeLoadStore | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
+RESULT | Path=SIMT-t1 | API=notify | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | RemoteCache=PerLaneUB | PostContext=SharedUB | MetadataPath=CachedUB | ReserveMode=PerWqeCAS | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
 ```
 
 - `IssueTime/us`：正式接口调用本身的总时间，不包含`Drain()`；

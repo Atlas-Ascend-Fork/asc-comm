@@ -48,6 +48,8 @@ HCOMM_SIMT_WRITE_DEVICE_FN constexpr uint64_t SlotValue(uint32_t slot) { return 
 // Ways of driving the SIMT write interfaces.
 constexpr uint32_t kModeSingle = 0U;    // one WriteNbi<commit=true>, single lane
 constexpr uint32_t kModeBatchLast = 1U; // N-1 serial WriteNbi<false> + WriteNbi<true>, single lane
+constexpr uint32_t kModeMultiLane = 2U; // N-1 concurrent WriteNbi<false>, barrier, then one WriteNbi<true>
+constexpr uint32_t kMultiLaneCount = kSlotCount - 1U;
 
 // Hcomm::Init needs 128 bytes of WQE staging per lane in the block. Supplying 32 more bytes per
 // lane plus one aligned 128-byte region also enables the per-lane remote-registration cache and

@@ -24,6 +24,7 @@ namespace {
 using namespace simt_write;
 
 constexpr uint32_t kSingleLaneWorkspaceWords = HcommWorkspaceBytes(1U) / sizeof(uint64_t);
+constexpr uint32_t kMultiLaneWorkspaceWords = HcommWorkspaceBytes(kMultiLaneCount) / sizeof(uint64_t);
 
 // Scenario 1: kSlotCount independent WriteNbi<commit=true> calls. Each post rings its own
 // doorbell, so nothing else is needed before Drain.
@@ -71,6 +72,34 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteBatchLastVf(
     (void)hcomm.Drain(channel);
 }
 
+// Lanes concurrently fill deferred SQ entries. The barrier ensures every WQE
+// is complete before lane 0 performs the only commit=true publication.
+__simt_vf__ __launch_bounds__(1024) inline void SimtWriteMultiLaneVf(
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* workspace, uint32_t workspaceBytes)
+{
+    if (threadIdx.x >= kMultiLaneCount || threadIdx.y != 0U || threadIdx.z != 0U) {
+        return;
+    }
+    __gm__ uint8_t* localAddr = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
+    __gm__ uint8_t* remoteAddr = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+
+    uint32_t lane = threadIdx.x;
+    AscendC::simt::Hcomm<> hcomm;
+    if (hcomm.Init(workspace, workspaceBytes) != 0) {
+        return;
+    }
+    (void)hcomm.WriteNbi<false>(
+        channel, remoteAddr + lane * kSlotBytes, localAddr + lane * kSlotBytes, kSlotBytes);
+
+    asc_syncthreads();
+    if (lane == 0U) {
+        (void)hcomm.WriteNbi<true>(
+            channel, remoteAddr + kMultiLaneCount * kSlotBytes,
+            localAddr + kMultiLaneCount * kSlotBytes, kSlotBytes);
+        (void)hcomm.Drain(channel);
+    }
+}
+
 } // namespace
 
 extern "C" __global__ __vector__ void SimtWriteSingle(uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
@@ -87,10 +116,20 @@ extern "C" __global__ __vector__ void SimtWriteBatchLast(uint64_t channel, uint3
         dim3(1), channel, sendBufIdx, recvBufIdx, (__ubuf__ uint8_t*)workspace, sizeof(workspace));
 }
 
+extern "C" __global__ __vector__ void SimtWriteMultiLane(uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    alignas(kWorkspaceAlign) __ubuf__ uint64_t workspace[kMultiLaneWorkspaceWords];
+    asc_vf_call<SimtWriteMultiLaneVf>(
+        dim3(kMultiLaneCount), channel, sendBufIdx, recvBufIdx,
+        reinterpret_cast<__ubuf__ uint8_t*>(workspace), sizeof(workspace));
+}
+
 void LaunchSimtWrite(void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode)
 {
     if (mode == simt_write::kModeSingle) {
         SimtWriteSingle<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
+    } else if (mode == simt_write::kModeMultiLane) {
+        SimtWriteMultiLane<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
     } else {
         SimtWriteBatchLast<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
     }

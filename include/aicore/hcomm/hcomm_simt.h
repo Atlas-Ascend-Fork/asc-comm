@@ -50,8 +50,9 @@ struct HcommUnboundGroup {};
  * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
- * @note Posting and Drain on one channel must be called serially by the same lane. This caller
- *       contract is not checked at runtime.
+ * @note Multiple lanes may concurrently post with commit=false on the same channel. The caller
+ *       must synchronize them before one lane posts with commit=true and then calls Drain.
+ *       Concurrent commit=true calls on the same channel are not supported.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
  *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
  *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
@@ -180,7 +181,8 @@ public:
      * @tparam pipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Must be called by the same lane that posts tasks on this channel.
+     * @note Must be called by one lane after all posting lanes have completed and the batch has
+     *       been published by a single commit=true call.
      */
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
