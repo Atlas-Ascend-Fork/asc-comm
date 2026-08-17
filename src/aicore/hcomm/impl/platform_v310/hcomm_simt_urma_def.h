@@ -63,6 +63,8 @@ struct HcommSimtUbPostContext {
     ChannelHandle channel;
     uint64_t remoteBuffersAddr;
     uint64_t headAddr;
+    uint64_t tailAddr;
+    uint64_t publishLockAddr;
     uint64_t dwqeAddr;
     uint64_t sqBaseAddr;
     uint32_t sqWqeSize;
@@ -96,6 +98,8 @@ constexpr uint32_t HCOMM_SIMT_UB_CONTEXT_READY = 2U;
 struct HcommSimtUbResolvedPost {
     HcommSimtUbPostMeta meta;
     __gm__ uint64_t* headAddr;
+    __gm__ uint32_t* tailAddr;
+    __gm__ uint32_t* publishLockAddr;
     __gm__ uint8_t* dwqeAddr;
     uint64_t sqBaseAddr;
     uint32_t sqWqeSize;

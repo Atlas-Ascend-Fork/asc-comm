@@ -5,8 +5,8 @@
 
 当不超过 32 个 lane 同时对同一 channel 执行 `commit=true` 时，Hcomm 会在接口内部自动合并
 同一 warp 的 SQ 预留和 DWQE 发布：一个 lane 原子预留整组 SQ 空间，各 lane 并行填写自己的
-WQE，最后一个有效lane发布该组。t1024超过单warp范围，因此每组显式调用`ReserveDwqeBatch`：
-非发布lane以`commit=false`写SQ，block同步后仅由lane 0以`commit=true`发布该组。
+WQE，最后一个有效 lane 发布该组。t1024 由 Hcomm 在内部按 warp 合并预留；batch 模式下，非发布
+lane 以 `commit=false` 写 SQ，block 同步后仅由 lane 0 以 `commit=true` 发布整组。
 
 当前性能 kernel 在计时开始前调用原有的 `Hcomm::Init(workspace, len)`。Hcomm 在不透明 UB
 workspace 内自动为每个 lane 分配 128B WQE slot 和 32B 远端注册信息/token cache，并初始化所有
@@ -43,8 +43,7 @@ completionEnd = clock()
 `commit=false` 写入普通 SQ，最后一个 WQE 使用 `commit=true` 通过 DWQE 发布整批，随后结束计时并
 调用 `Drain()`。
 
-- t1 调用一次 `ReserveDwqeBurst`，整批只对 GM head 执行一次原子预留，并复用远端注册信息、
-  SQ context 和 WQE 固定字段。
+- t1 直接连续调用公开业务接口，不再要求调用方预留 SQ 或管理内部 batch 状态。
 - t32/t1024 由各 lane 并行填写前面的 SQ WQE；所有 lane 同步后，由最后一个逻辑操作所属的 lane
   执行唯一一次 `commit=true`，其余 lane 等待发布完成。
 

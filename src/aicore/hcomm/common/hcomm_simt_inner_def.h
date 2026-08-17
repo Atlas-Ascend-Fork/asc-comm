@@ -60,10 +60,9 @@ struct HcommSimtChannelEntity {
     uint64_t remoteBufferAddr;
     uint64_t sqContextAddr;
     uint64_t cqContextAddr;
-    // The SIMD path tracks its queue state in these four counters. SIMT does not use them: it packs
-    // curHead and wqeCnt into the single u64 at SqContext::ubJfs::headAddr so that concurrent lanes
-    // can reserve SQ space with one 64-bit atomic add. They are listed here only to keep this view
-    // field-for-field identical to ChannelEntity.
+    // SIMD tracks queue counters here. SIMT packs curHead and wqeCnt into the u64 at
+    // SqContext::ubJfs::headAddr; sqHead is reused as the per-channel target-DWQE publication lock.
+    // Mixing SIMD and SIMT producers on one channel is unsupported.
     uint32_t sqHead;
     uint32_t sqTail;
     uint32_t cqHead;

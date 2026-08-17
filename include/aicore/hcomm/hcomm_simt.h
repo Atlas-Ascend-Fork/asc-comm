@@ -81,25 +81,6 @@ public:
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
-    // Reserve a sequential fixed-2BB Notify/FAA/CAS burst. The caller must post
-    // exactly wqeCnt WQEs on the same channel and commit only the final WQE.
-    // The target range of every post must remain in the registered buffer that
-    // contains targetAddr. No other producer may use this SQ before final commit.
-    __simt_callee__ inline int32_t ReserveDwqeBurst(
-        ChannelHandle channel, __gm__ void* targetAddr, uint64_t len, uint32_t wqeCnt);
-
-    // All block lanes call this before one fixed-2BB Notify/FAA/CAS batch.
-    // state points to four shared UB uint32_t values: BB count, CQE count,
-    // base head, and reservation status. activeWqeCnt must equal
-    // the number of active lanes in this invocation.
-    // Only one batch may be in flight on the same SQ. The channel must not be
-    // posted or reserved by another block until commitLane has committed this
-    // batch, because the SQ head update is intentionally delayed.
-    // commitLane is reserved at the batch tail and must post with commit=true;
-    // every other active lane posts with commit=false.
-    __simt_callee__ inline int32_t ReserveDwqeBatch(
-        ChannelHandle channel, __ubuf__ uint32_t* state, bool active, uint32_t activeWqeCnt, uint32_t commitLane);
-
     /*!
      * @brief The task launching interface of the Write point-to-point communication operator.
      *        (task content: Write data of length len from src to dst through the specified channel.)

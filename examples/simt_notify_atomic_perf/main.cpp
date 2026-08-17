@@ -231,6 +231,39 @@ bool CheckReceiver(
     return true;
 }
 
+bool CheckSenderFetch(
+    void* sendBuf, size_t bytes, const std::string& api, uint32_t iterations, uint32_t warmup, uint32_t laneCount)
+{
+    if (api == "notify") {
+        return true;
+    }
+
+    std::vector<uint8_t> actual(bytes, 0U);
+    if (aclrtMemcpy(actual.data(), bytes, sendBuf, bytes, ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
+        return false;
+    }
+    for (uint32_t lane = 0U; lane < laneCount; ++lane) {
+        uint32_t operationCount =
+            LaneOperationCount(iterations, lane, laneCount) + LaneOperationCount(warmup, lane, laneCount);
+        uint64_t expected = 0U;
+        if (operationCount != 0U) {
+            if (api == "faa") {
+                expected = kFaaInitial + static_cast<uint64_t>(operationCount - 1U) * kFaaAdd;
+            } else {
+                expected = operationCount == 1U ? kCasInitial : kCasSwap;
+            }
+        }
+
+        uint64_t value = 0U;
+        std::memcpy(&value, actual.data() + lane * sizeof(uint64_t), sizeof(value));
+        if (value != expected) {
+            std::cout << "sender fetch lane " << lane << " actual=" << value << " expected=" << expected << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
 bool ValidApi(const std::string& api) { return api == "notify" || api == "faa" || api == "cas"; }
 
 uint32_t ApiIndex(const std::string& api) { return api == "notify" ? 0U : (api == "faa" ? 1U : 2U); }
@@ -309,7 +342,8 @@ int main(int argc, char* argv[])
         }
         ACLCHECK(aclrtSynchronizeStream(stream));
         ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
-        pass = static_cast<int64_t>(timing[kDrainStatusIndex]) == 0 && timing[kCompletedIndex] == iterations;
+        pass = static_cast<int64_t>(timing[kDrainStatusIndex]) == 0 && timing[kCompletedIndex] == iterations &&
+               CheckSenderFetch(sendBuf, bufferBytes, api, iterations, warmup, laneCount);
         double issueUs = static_cast<double>(timing[kIssueCyclesIndex]) / 1000.0;
         double averageNs = static_cast<double>(timing[kIssueCyclesIndex]) / iterations;
         double completionUs = static_cast<double>(timing[kCompletionCyclesIndex]) / 1000.0;

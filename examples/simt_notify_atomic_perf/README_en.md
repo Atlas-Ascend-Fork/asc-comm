@@ -5,8 +5,8 @@ WQE. Multi-lane paths cooperatively reserve and publish WQEs in rounds and do no
 
 When up to 32 lanes call `commit=true` on the same channel, Hcomm combines the SQ reservation and DWQE publication for
 the warp: one lane atomically reserves the SQ range, every lane fills its own WQE, and the final active lane publishes
-the group. Because t1024 spans multiple warps, each group explicitly calls `ReserveDwqeBatch`: non-publishing lanes
-write the SQ with `commit=false`, and lane 0 publishes the group after block synchronization.
+the group. For t1024, Hcomm coalesces reservations per warp internally. In batch mode, non-publishing lanes write the
+SQ with `commit=false`, and lane 0 publishes the group after block synchronization.
 
 Before timing begins, the performance kernel calls `Hcomm::Init(workspace, len)`. In the opaque UB workspace, Hcomm
 allocates a 128-byte WQE slot and a 32-byte remote registration/token cache for each lane, plus a 128-byte read-only
@@ -43,8 +43,7 @@ With `--commit-mode last`, a group of WQEs performs one final publication. The f
 `commit=false` to write the ordinary SQ, and the final WQE uses `commit=true` to publish the complete batch through the
 DWQE window. Timing then stops and `Drain()` is called.
 
-- t1 calls `ReserveDwqeBurst` once, performs one GM head reservation for the whole batch, and reuses remote
-  registration data, SQ context, and fixed WQE fields.
+- t1 calls only the public operation APIs; the caller no longer reserves SQ space or manages internal batch state.
 - t32/t1024 lanes fill the deferred SQ WQEs in parallel. After all lanes synchronize, the lane that owns the final
   logical operation performs the only `commit=true` call, while the other lanes wait for publication to finish.
 

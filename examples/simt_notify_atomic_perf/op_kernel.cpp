@@ -22,9 +22,8 @@ constexpr uint32_t kWqeBytes = 128U;
 constexpr uint32_t kRemoteCacheBytes = 32U;
 constexpr uint32_t kPostContextBytes = 128U;
 constexpr uint32_t kWorkspaceAlign = 128U;
-constexpr uint32_t kBatchStateWords = 5U;
-constexpr uint32_t kBatchReserveStatusIndex = 3U;
-constexpr uint32_t kBatchPostStatusIndex = 4U;
+constexpr uint32_t kBatchStateWords = 1U;
+constexpr uint32_t kBatchPostStatusIndex = 0U;
 
 #define HCOMM_CACHED_WORKSPACE_BYTES(laneCount)                                                            \
     ((((laneCount) * (kWqeBytes + kRemoteCacheBytes)) + kWorkspaceAlign - 1U) & ~(kWorkspaceAlign - 1U)) + \
@@ -71,14 +70,7 @@ __simt_callee__ inline int32_t SubmitBatchGroup(
     }
     asc_syncthreads();
 
-    int32_t status = hcomm.ReserveDwqeBatch(channel, batchState, lane < groupSize, groupSize, 0U);
-    if (status != 0) {
-        return status;
-    }
-    // ReserveDwqeBatch reports 0 for the shared reservation path and 1 when
-    // this group must fall back to per-WQE reservation at an SQ ring boundary.
-    bool usesReservedSlots = batchState[kBatchReserveStatusIndex] == 0U;
-
+    int32_t status = 0;
     if (lane != 0U && lane < groupSize) {
         status = SubmitOne<api, false>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, lane);
         if (status != 0) {
@@ -95,9 +87,6 @@ __simt_callee__ inline int32_t SubmitBatchGroup(
         if (status != 0) {
             (void)asc_atomic_exch(&batchState[kBatchPostStatusIndex], 1U);
         }
-    } else if (usesReservedSlots) {
-        // Match the block barrier taken by the commit lane inside the batch Post.
-        asc_syncthreads();
     }
     asc_syncthreads();
     return batchState[kBatchPostStatusIndex] == 0U ? 0 : -1;
@@ -128,10 +117,6 @@ __simt_callee__ inline int32_t SubmitLastCommitSeries(
 {
     if (count == 0U) {
         return 0;
-    }
-    uint64_t targetLen = api == PerfApi::NOTIFY ? static_cast<uint64_t>(payloadBytes) : sizeof(uint64_t);
-    if (hcomm.ReserveDwqeBurst(channel, remoteBase, targetLen, count) != 0) {
-        return -1;
     }
     for (uint32_t i = 1U; i < count; ++i) {
         int32_t status = SubmitOne<api, false>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);

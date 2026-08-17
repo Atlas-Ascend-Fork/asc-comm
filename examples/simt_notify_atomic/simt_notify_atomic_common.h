@@ -30,7 +30,7 @@ constexpr uint32_t kNotifyDrainSlot = 3U;
 constexpr uint32_t kFaaDrainSlot = 4U;
 constexpr uint32_t kCasDrainSlot = 5U;
 
-constexpr uint32_t kWarpLaneCount = 3U;
+constexpr uint32_t kWarpLaneCount = 32U;
 constexpr uint32_t kWarpNotifyDataBaseSlot = 6U;
 constexpr uint32_t kWarpNotifySignalBaseSlot = kWarpNotifyDataBaseSlot + kWarpLaneCount;
 constexpr uint32_t kWarpFaaTargetBaseSlot = kWarpNotifySignalBaseSlot + kWarpLaneCount;
