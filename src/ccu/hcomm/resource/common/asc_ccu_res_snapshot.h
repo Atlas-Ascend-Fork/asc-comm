@@ -18,7 +18,7 @@
 #include "hcomm/hcomm_ccu_res.h"
 #include "hcomm/resource/common/asc_ccu_resource_local.h"
 
-namespace hcomm {
+namespace asccomm {
 
 /**
  * @note 职责：RegisterContext 的 asc 侧本地快照。
@@ -61,6 +61,6 @@ private:
     std::array<HcommCcuDieMetadataPod, HCOMM_CCU_MAX_DIE_NUM> dieMetadata_{};
 };
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // ASC_CCU_RES_SNAPSHOT_H

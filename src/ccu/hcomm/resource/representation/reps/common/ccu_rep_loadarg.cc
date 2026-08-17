@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLoadArg::CcuRepLoadArg(CcuInsGeneraterBase* insGenPtr, const Variable& var, uint16_t argId, uint16_t fullArgId)
@@ -41,8 +41,8 @@ bool CcuRepLoadArg::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& 
 
 std::string CcuRepLoadArg::Describe()
 {
-    return hcomm::FormatCcuMessage("Variable[%u] = Arg[%u] (slot=%u)", var.Id(), fullArgId, argId);
+    return asccomm::FormatCcuMessage("Variable[%u] = Arg[%u] (slot=%u)", var.Id(), fullArgId, argId);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

@@ -101,22 +101,22 @@ inline CcuResult CallFunc(Args... args)
     }
 
     uint64_t handle = 0;
-    CCU_THROW_IF_FAILED(::CcuFuncBlockLookup(Obj.Key(), &handle), "CallFunc: CcuFuncBlockLookup failed");
+    CCU_THROW_IF_FAILED(::asccomm::CcuFuncBlockLookup(Obj.Key(), &handle), "CallFunc: CcuFuncBlockLookup failed");
     if (handle == 0) {
         // 第一次进入：合成 FuncBlock
-        CCU_THROW_IF_FAILED(::CcuFuncBlockBegin(Obj.Key(), &handle), "CallFunc: CcuFuncBlockBegin failed");
+        CCU_THROW_IF_FAILED(::asccomm::CcuFuncBlockBegin(Obj.Key(), &handle), "CallFunc: CcuFuncBlockBegin failed");
 
         // 形参：按 lambda 形参个数 alloc，并注册为 FuncBlock 的 in args
         std::vector<Variable> formals(Obj.NumIn());
         for (uint32_t i = 0; i < Obj.NumIn(); i++) {
-            CCU_THROW_IF_FAILED(::CcuVariableAlloc(&formals[i].handle), "CallFunc: CcuVariableAlloc failed");
-            CCU_THROW_IF_FAILED(::CcuFuncDefineInArg(handle, formals[i].handle), "CallFunc: CcuFuncDefineInArg failed");
+            CCU_THROW_IF_FAILED(::asccomm::CcuVariableAlloc(&formals[i].handle), "CallFunc: CcuVariableAlloc failed");
+            CCU_THROW_IF_FAILED(::asccomm::CcuFuncDefineInArg(handle, formals[i].handle), "CallFunc: CcuFuncDefineInArg failed");
         }
 
         // 执行 lambda（在合成模式下 emit 到 FuncBlock）
         Obj.RunBody(formals.empty() ? nullptr : formals.data());
 
-        CCU_THROW_IF_FAILED(::CcuFuncBlockEnd(handle), "CallFunc: CcuFuncBlockEnd failed");
+        CCU_THROW_IF_FAILED(::asccomm::CcuFuncBlockEnd(handle), "CallFunc: CcuFuncBlockEnd failed");
     }
 
     // emit 一条 FuncCall 跳转
@@ -128,7 +128,7 @@ inline CcuResult CallFunc(Args... args)
         (void)expand_t{0, ((void)(actuals[i++] = args.handle), 0)...};
         (void)i;
     }
-    return ::CcuFuncCall(handle, actuals.empty() ? nullptr : actuals.data(), static_cast<uint32_t>(kArgN));
+    return ::asccomm::CcuFuncCall(handle, actuals.empty() ? nullptr : actuals.data(), static_cast<uint32_t>(kArgN));
 }
 
 } // namespace ccu

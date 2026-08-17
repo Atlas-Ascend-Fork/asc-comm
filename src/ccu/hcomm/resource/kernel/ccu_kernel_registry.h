@@ -17,7 +17,7 @@
 #include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/resource/common/asc_ccu_res_snapshot.h"
 
-namespace hcomm {
+namespace asccomm {
 
 /**
  * @note 职责：按 CcuInsHandle 持有通信域的数据面注册状态。
@@ -58,5 +58,5 @@ private:
     std::vector<CcuKernelHandle> untranslatedKernelHandles_{};
 };
 
-} // namespace hcomm
+} // namespace asccomm
 #endif // CCU_KERNEL_REGISTRY_H

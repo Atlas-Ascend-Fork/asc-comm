@@ -19,7 +19,7 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/common/ccu_kernel_resource.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 // 支持自定义算子CCU开发资源管理优化，减少预留资源数量，避免xn耗尽。
@@ -59,6 +59,6 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // _CCU_REP_REFERENCE_MANAGER_H

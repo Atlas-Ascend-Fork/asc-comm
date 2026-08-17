@@ -13,7 +13,7 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 Condition::Condition(CcuRepContext* context, CcuRelationalOperator<Variable, uint64_t> rel) : context(context)
@@ -28,4 +28,4 @@ bool Condition::Check() const { return !isExecuted; }
 void Condition::Run() { isExecuted = true; }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

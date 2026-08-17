@@ -16,7 +16,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepFuncCall::CcuRepFuncCall(CcuInsGeneraterBase* insGenPtr, const std::string& label)
@@ -48,7 +48,7 @@ void CcuRepFuncCall::SetOutArg(const Variable& var)
 {
     outArgCount++;
     if (outArgCount > FUNC_ARG_MAX) {
-        hcomm::ThrowCcuInternal("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
+        asccomm::ThrowCcuInternal("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
     }
     outArgs.push_back(CcuRepArg(var));
 }
@@ -63,7 +63,7 @@ void CcuRepFuncCall::SetOutArg(const std::vector<Variable>& varList)
 {
     outArgCount += varList.size();
     if (outArgCount > FUNC_ARG_MAX) {
-        hcomm::ThrowCcuInternal("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
+        asccomm::ThrowCcuInternal("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
     }
     outArgs.push_back(CcuRepArg(varList));
 }
@@ -78,7 +78,7 @@ uint16_t CcuRepFuncCall::InstrCount()
 bool CcuRepFuncCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
     if (funcManager == nullptr) {
-        hcomm::ThrowCcuInternal("funcManager is nullptr");
+        asccomm::ThrowCcuInternal("funcManager is nullptr");
     }
     // 未实现, FuncCall和FuncBlock中的args个数校验
 
@@ -103,9 +103,9 @@ bool CcuRepFuncCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t&
     return translated;
 }
 
-std::string CcuRepFuncCall::Describe() { return hcomm::FormatCcuMessage("FuncCall[%s]", label.c_str()); }
+std::string CcuRepFuncCall::Describe() { return asccomm::FormatCcuMessage("FuncCall[%s]", label.c_str()); }
 
 int32_t CcuRepFuncCall::GetCallLayer() { return funcBlock == nullptr ? FUNC_NEST_MAX : funcBlock->GetCallLayer(); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

@@ -13,7 +13,7 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/common/ccu_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepRemWaitSem::CcuRepRemWaitSem(
@@ -50,8 +50,8 @@ bool CcuRepRemWaitSem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_
 
 std::string CcuRepRemWaitSem::Describe()
 {
-    return hcomm::FormatCcuMessage("Wait, Use semIndex[%u] and mask[%04x]", semIndex, mask);
+    return asccomm::FormatCcuMessage("Wait, Use semIndex[%u] and mask[%04x]", semIndex, mask);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

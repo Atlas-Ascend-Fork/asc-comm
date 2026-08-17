@@ -13,7 +13,7 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 void CcuRepMul::SetCommonInfo()
 {
@@ -99,7 +99,7 @@ void CcuRepMul::ValidateInsGenPtrForMul()
 bool CcuRepMul::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
     ValidateInsGenPtrForMul();
-    hcomm::CheckCcuNotNull(instr, "[CcuRepMul::Translate] instr is nullptr!");
+    asccomm::CheckCcuNotNull(instr, "[CcuRepMul::Translate] instr is nullptr!");
     this->instrId = instrId;
     translated = true;
 
@@ -123,40 +123,40 @@ std::string CcuRepMul::Describe()
 {
     switch (subType) {
         case MulSubType::VAR_MUL_VAR_TO_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = Variable[%u] * Variable[%u]", varC.Id(), varA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] * Variable[%u]", varC.Id(), varA.Id(), varB.Id());
         }
         case MulSubType::VAR_MUL_IMMED_TO_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = Variable[%u] * Immed[%u]", varC.Id(), varA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] * Immed[%u]", varC.Id(), varA.Id(), immedB);
         }
         case MulSubType::SELF_MUL_VAR_VARIABLE: {
-            return hcomm::FormatCcuMessage("Variable[%u] *= Variable[%u]", varA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Variable[%u] *= Variable[%u]", varA.Id(), varB.Id());
         }
         case MulSubType::SELF_MUL_IMMED_VARIABLE: {
-            return hcomm::FormatCcuMessage("Variable[%u] *= Immed[%u]", varA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Variable[%u] *= Immed[%u]", varA.Id(), immedB);
         }
         case MulSubType::VAR_MUL_VAR_TO_ADDR: {
-            return hcomm::FormatCcuMessage("Address[%u] = Variable[%u] * Variable[%u]", addrC.Id(), varA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Address[%u] = Variable[%u] * Variable[%u]", addrC.Id(), varA.Id(), varB.Id());
         }
         case MulSubType::VAR_MUL_ADDR_TO_ADDR: {
-            return hcomm::FormatCcuMessage("Address[%u] = Variable[%u] * Address[%u]", addrC.Id(), varA.Id(), addrB.Id());
+            return asccomm::FormatCcuMessage("Address[%u] = Variable[%u] * Address[%u]", addrC.Id(), varA.Id(), addrB.Id());
         }
         case MulSubType::VAR_MUL_IMMED_TO_ADDR: {
-            return hcomm::FormatCcuMessage("address[%u] = Variable[%u] * Immed[%u]", addrC.Id(), varA.Id(), immedB);
+            return asccomm::FormatCcuMessage("address[%u] = Variable[%u] * Immed[%u]", addrC.Id(), varA.Id(), immedB);
         }
         case MulSubType::ADDR_MUL_IMMED_TO_ADDR: {
-            return hcomm::FormatCcuMessage("address[%u] = address[%u] * Immed[%u]", addrC.Id(), addrA.Id(), immedB);
+            return asccomm::FormatCcuMessage("address[%u] = address[%u] * Immed[%u]", addrC.Id(), addrA.Id(), immedB);
         }
         case MulSubType::SELF_MUL_VAR_ADDRESS: {
-            return hcomm::FormatCcuMessage("address[%u] *= Variable[%u]", addrA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("address[%u] *= Variable[%u]", addrA.Id(), varB.Id());
         }
         case MulSubType::SELF_MUL_IMMED_ADDRESS: {
-            return hcomm::FormatCcuMessage("address[%u] *= Immed[%u]", addrA.Id(), immedB);
+            return asccomm::FormatCcuMessage("address[%u] *= Immed[%u]", addrA.Id(), immedB);
         }
         case MulSubType::ADDR_MUL_IMMED_TO_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = address[%u] * Immed[%u]", varC.Id(), addrA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Variable[%u] = address[%u] * Immed[%u]", varC.Id(), addrA.Id(), immedB);
         }
         default: {
-            return hcomm::FormatCcuMessage("Invalid Mul");
+            return asccomm::FormatCcuMessage("Invalid Mul");
         }
     }
 }
@@ -177,4 +177,4 @@ uint16_t CcuRepMul::GetImmedB() { return immedB; }
 
 MulSubType CcuRepMul::GetSubType() { return subType; }
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

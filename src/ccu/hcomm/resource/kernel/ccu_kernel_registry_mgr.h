@@ -19,7 +19,7 @@
 #include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/resource/kernel/ccu_kernel_registry.h"
 
-namespace hcomm {
+namespace asccomm {
 
 class CcuKernelRegistryMgr {
 public:
@@ -46,6 +46,6 @@ private:
     std::unordered_map<CcuInsHandle, std::unique_ptr<CcuKernelRegistry>> insMap_{};
 };
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // CCU_KERNEL_REGISTRY_MGR_H

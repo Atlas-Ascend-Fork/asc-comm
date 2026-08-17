@@ -13,7 +13,7 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 Repeat::Repeat(CcuRepContext* context, CcuRelationalOperator<Variable, uint64_t> rel) : context(context)
@@ -30,4 +30,4 @@ bool Repeat::Check() const { return !isExecuted; }
 void Repeat::Run() { isExecuted = true; }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

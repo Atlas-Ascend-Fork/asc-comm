@@ -13,7 +13,7 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepJumpLabel::CcuRepJumpLabel(CcuInsGeneraterBase* insGeneratorPtr, const std::string& label)
@@ -23,7 +23,7 @@ CcuRepJumpLabel::CcuRepJumpLabel(CcuInsGeneraterBase* insGeneratorPtr, const std
     Append(std::make_shared<CcuRepNop>(insGeneratorPtr));
 }
 
-std::string CcuRepJumpLabel::Describe() { return hcomm::FormatCcuMessage("JumpLabel[%s]", GetLabel().c_str()); }
+std::string CcuRepJumpLabel::Describe() { return asccomm::FormatCcuMessage("JumpLabel[%s]", GetLabel().c_str()); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

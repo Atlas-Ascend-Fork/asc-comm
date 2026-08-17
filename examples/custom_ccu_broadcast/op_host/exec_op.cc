@@ -31,7 +31,7 @@ HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx)
 
     const uint64_t bufferAddr = reinterpret_cast<uint64_t>(param.buffer);
     uint64_t token = 0;
-    if (HcommCcuGetMemToken(bufferAddr, dataSize, &token) != CCU_SUCCESS) {
+    if (hcomm_ccu_get_mem_token(bufferAddr, dataSize, &token) != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
     std::vector<uint64_t> taskArgs = {bufferAddr, token, dataSize};
@@ -40,7 +40,7 @@ HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx)
         return HCCL_E_INTERNAL;
     }
     CcuResult launchRet =
-        HcommCcuKernelLaunch(&launchContext, resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
+        hcomm_ccu_kernel_launch(&launchContext, resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
     return launchRet == CCU_SUCCESS ? HCCL_SUCCESS : HCCL_E_INTERNAL;
 }
 

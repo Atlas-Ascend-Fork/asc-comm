@@ -15,7 +15,7 @@
 #include "hcomm/resource/representation/reps/control/ccu_rep_funcblock_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class FuncBlock {
@@ -66,5 +66,5 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // HCCL_CCU_FUNC_BLOCK_H

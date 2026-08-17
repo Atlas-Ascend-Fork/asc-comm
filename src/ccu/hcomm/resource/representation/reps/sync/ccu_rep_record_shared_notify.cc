@@ -12,7 +12,7 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepRecordSharedNotify::CcuRepRecordSharedNotify(
@@ -46,8 +46,8 @@ bool CcuRepRecordSharedNotify::Translate(CcuKernel* ccuKernel, CcuInstr*& instr,
 
 std::string CcuRepRecordSharedNotify::Describe()
 {
-    return hcomm::FormatCcuMessage("Post, Use semIndex[%u] and mask[%04x]", notify_.Id(), mask_);
+    return asccomm::FormatCcuMessage("Post, Use semIndex[%u] and mask[%04x]", notify_.Id(), mask_);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

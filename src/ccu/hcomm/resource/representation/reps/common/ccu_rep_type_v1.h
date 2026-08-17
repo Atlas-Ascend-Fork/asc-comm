@@ -11,7 +11,7 @@
 #ifndef CCU_REPRESENTATION_TYPE_H
 #define CCU_REPRESENTATION_TYPE_H
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 enum class CcuRepType {
@@ -160,6 +160,6 @@ enum class ShiftSubType {
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // _CCU_REPRESENTATION_TYPE_H

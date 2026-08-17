@@ -12,7 +12,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/common/ccu_exception.h"
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepShL::CcuRepShL(CcuInsGeneraterBase* insGenPtr, const Variable& varD, const Variable& varN, const Variable& varM)
@@ -63,7 +63,7 @@ CcuRepShL::CcuRepShL(CcuInsGeneraterBase* insGenPtr, const Address& addrD, const
 
 bool CcuRepShL::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep)
 {
-    hcomm::CheckCcuNotNull(instr, "[CcuRepShL::Translate] instr is nullptr!");
+    asccomm::CheckCcuNotNull(instr, "[CcuRepShL::Translate] instr is nullptr!");
     this->instrId = curInstrId;
     translated = true;
     instrCount = insGenPtr->GetInstrCount(type);
@@ -85,23 +85,23 @@ std::string CcuRepShL::Describe()
 {
     switch (subType) {
         case ShiftSubType::VAR_EQUALS_VAR_SHIFT_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = Variable[%u] << Variable[%u]", varD.Id(), varN.Id(), varM.Id());
+            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] << Variable[%u]", varD.Id(), varN.Id(), varM.Id());
         }
         case ShiftSubType::VAR_SHIFT_ASSIGN_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] <<= Variable[%u]", varD.Id(), varM.Id());
+            return asccomm::FormatCcuMessage("Variable[%u] <<= Variable[%u]", varD.Id(), varM.Id());
         }
         case ShiftSubType::ADDR_EQUALS_VAR_SHIFT_VAR: {
-            return hcomm::FormatCcuMessage("Address[%u] = Variable[%u] << Variable[%u]", addrD.Id(), varN.Id(), varM.Id());
+            return asccomm::FormatCcuMessage("Address[%u] = Variable[%u] << Variable[%u]", addrD.Id(), varN.Id(), varM.Id());
         }
         case ShiftSubType::ADDR_SHIFT_ASSIGN_VAR: {
-            return hcomm::FormatCcuMessage("Address[%u] <<= Variable[%u]", addrD.Id(), varM.Id());
+            return asccomm::FormatCcuMessage("Address[%u] <<= Variable[%u]", addrD.Id(), varM.Id());
         }
         default: {
-            return hcomm::FormatCcuMessage("Invalid Shift");
+            return asccomm::FormatCcuMessage("Invalid Shift");
         }
     }
-    return hcomm::FormatCcuMessage("Invalid Shift");
+    return asccomm::FormatCcuMessage("Invalid Shift");
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

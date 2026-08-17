@@ -15,7 +15,7 @@
 
 #include "hcomm/common/ccu_log.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuDevMem::CcuDevMem(std::size_t size)
@@ -62,4 +62,4 @@ CcuDevMem::~CcuDevMem()
 }
 
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm

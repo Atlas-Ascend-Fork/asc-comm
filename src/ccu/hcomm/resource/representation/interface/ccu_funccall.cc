@@ -16,30 +16,30 @@
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 FuncCall::FuncCall(CcuRepContext* context, std::string label) : context(context), label(label)
 {
     CcuInsGeneraterBase* insGenPtr = context->GetInsGenerator();
-    hcomm::CheckCcuNotNull(insGenPtr, "[FuncCall::FuncCall](label) insGenPtr is nullptr!");
+    asccomm::CheckCcuNotNull(insGenPtr, "[FuncCall::FuncCall](label) insGenPtr is nullptr!");
     repFuncCall = std::make_shared<CcuRepFuncCall>(insGenPtr, label);
 }
 
 FuncCall::FuncCall(CcuRepContext* context, const Variable& funcAddr) : context(context)
 {
     CcuInsGeneraterBase* insGenPtr = context->GetInsGenerator();
-    hcomm::CheckCcuNotNull(insGenPtr, "[FuncCall::FuncCall](funcAddr) insGenPtr is nullptr!");
+    asccomm::CheckCcuNotNull(insGenPtr, "[FuncCall::FuncCall](funcAddr) insGenPtr is nullptr!");
     repFuncCall = std::make_shared<CcuRepFuncCall>(insGenPtr, funcAddr);
 }
 
 void FuncCall::AppendToContext()
 {
     if (context == nullptr) {
-        hcomm::ThrowCcuInternal("context is nullptr, func call, append to context");
+        asccomm::ThrowCcuInternal("context is nullptr, func call, append to context");
     }
     return context->Append(repFuncCall);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

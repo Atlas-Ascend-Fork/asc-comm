@@ -14,7 +14,7 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 FuncBlock::FuncBlock(CcuRepContext* context, std::string label, uint16_t callLayer)
@@ -24,4 +24,4 @@ FuncBlock::FuncBlock(CcuRepContext* context, std::string label, uint16_t callLay
 FuncBlock::~FuncBlock() {}
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

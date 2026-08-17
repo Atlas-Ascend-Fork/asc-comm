@@ -51,7 +51,7 @@
 #endif
 #include "ccu/hcomm/ccu_api_types.h"
 
-namespace hcomm {
+namespace asccomm {
 
 struct GroupInfo {
     uint16_t loopParamId;
@@ -551,6 +551,6 @@ private:
     std::string name_{};
 };
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // HCOMM_CCU_KERNEL_H

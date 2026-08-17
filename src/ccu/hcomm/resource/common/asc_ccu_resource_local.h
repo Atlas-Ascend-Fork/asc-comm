@@ -17,7 +17,7 @@
 
 #include "hcomm/hcomm_ccu_res.h"
 
-namespace hcomm {
+namespace asccomm {
 
 using AscCcuResRanges = std::array<std::vector<HcommCcuResRangePod>, HCOMM_CCU_MAX_DIE_NUM>;
 
@@ -42,6 +42,6 @@ struct AscCcuResRepository {
     AscCcuResRanges instruction{};
 };
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // ASC_CCU_RESOURCE_LOCAL_H

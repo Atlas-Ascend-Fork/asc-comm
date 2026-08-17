@@ -15,7 +15,7 @@
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopblock_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class LoopBlock {
@@ -52,5 +52,5 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // _CCU_LOOP_BLOCK_H

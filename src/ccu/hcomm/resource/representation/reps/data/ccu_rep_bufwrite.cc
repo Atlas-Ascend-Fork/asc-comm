@@ -15,7 +15,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepBufWrite::CcuRepBufWrite(
@@ -46,12 +46,12 @@ std::string CcuRepBufWrite::Describe()
 {
     CcuChannel channelImpl(channel);
     if (channelImpl.GetResult() != HcclResult::HCCL_SUCCESS) {
-        hcomm::ThrowCcuInternal("failed to get ccu channel, type[%d]", type);
+        asccomm::ThrowCcuInternal("failed to get ccu channel, type[%d]", type);
     }
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Write CcuBuf[%u] To Rmt Mem[%u], len[%u], ChannalId[%u], sem[%u], mask[%04x]", src.Id(), dst.addr.Id(),
         len.Id(), channelImpl->GetChannelId(), sem.Id(), mask);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

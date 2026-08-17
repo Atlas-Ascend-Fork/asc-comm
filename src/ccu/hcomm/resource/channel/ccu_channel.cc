@@ -14,7 +14,7 @@
 
 #include "hcomm/common/ccu_device_context.h"
 
-namespace hcomm {
+namespace asccomm {
 
 CcuChannel::CcuChannel(ChannelHandle channel)
 {
@@ -121,4 +121,4 @@ HcclResult CcuChannel::GetRmtBuffer(uint64_t &addr, uint32_t &size, uint32_t &to
     return HCCL_SUCCESS;
 }
 
-} // namespace hcomm
+} // namespace asccomm

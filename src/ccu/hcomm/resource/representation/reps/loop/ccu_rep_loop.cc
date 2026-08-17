@@ -15,7 +15,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLoop::CcuRepLoop(CcuInsGeneraterBase* insGeneratorPtr, const std::string& label, const Variable& loopParam)
@@ -45,7 +45,7 @@ void CcuRepLoop::ValidateInsGeneratorForLoop()
     CcuInsGeneraterV1* tmpPtrV1 = dynamic_cast<CcuInsGeneraterV1*>(insGeneratorPtr_);
     if (tmpPtrV1 && !supportCcuV1) {
         // 在A5场景下没有使用A5的loop调用方式
-        hcomm::ThrowCcuInternal("Cannot translate CcuRepLoop for A5 when supportCcuV1 is false!");
+        asccomm::ThrowCcuInternal("Cannot translate CcuRepLoop for A5 when supportCcuV1 is false!");
     }
 }
 
@@ -66,10 +66,10 @@ bool CcuRepLoop::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& ins
     this->instrId = instrId;
     translated = true;
 
-    hcomm::CheckCcuNotNull(loopBlock, "[CcuRepLoop::Translate] LoopBlock is nullptr!");
+    asccomm::CheckCcuNotNull(loopBlock, "[CcuRepLoop::Translate] LoopBlock is nullptr!");
 
     if (!loopBlock->Translated()) {
-        hcomm::ThrowCcuInternal("Reference To Invalid LoopBlock");
+        asccomm::ThrowCcuInternal("Reference To Invalid LoopBlock");
     }
 
     uint16_t startInstrId = loopBlock->StartInstrId();
@@ -103,7 +103,7 @@ bool CcuRepLoop::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& ins
     return translated;
 }
 
-std::string CcuRepLoop::Describe() { return hcomm::FormatCcuMessage("Loop reference to [%s]", label.c_str()); }
+std::string CcuRepLoop::Describe() { return asccomm::FormatCcuMessage("Loop reference to [%s]", label.c_str()); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

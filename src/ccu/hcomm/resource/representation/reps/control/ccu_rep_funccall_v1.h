@@ -15,7 +15,7 @@
 #include "hcomm/resource/representation/reps/control/ccu_rep_funcblock_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class CcuRepFuncCall : public CcuRepBase {
@@ -63,5 +63,5 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // _CCU_REPRESENTATION_FUNC_CALL_H

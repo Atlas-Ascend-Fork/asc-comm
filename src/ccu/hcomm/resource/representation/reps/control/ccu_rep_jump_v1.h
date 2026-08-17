@@ -18,7 +18,7 @@
 #include "hcomm/resource/representation/reps/control/ccu_rep_jumplabel_v1.h"
 #include "ccu/hcomm/ccu_api_types.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 enum class ConditionType { EQUAL, NOT_EQUAL, GREATER_THAN, GREATER_EQUAL, LESS_THAN, LESS_EQUAL, DEFAULT, INVALID };
@@ -142,5 +142,5 @@ public:
     std::string Describe() override;
 };
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // _CCU_REPRESENTATION_JUMP_H

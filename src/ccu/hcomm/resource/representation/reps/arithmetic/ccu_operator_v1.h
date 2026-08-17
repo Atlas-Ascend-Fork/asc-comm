@@ -13,7 +13,7 @@
 
 #include <stdexcept>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 template <typename lhsT, typename rhsT>
@@ -36,7 +36,7 @@ public:
     }
     void Check() const
     {
-        // hcomm::ThrowCcuInternal("Invalid Arithmetic Operator");
+        // asccomm::ThrowCcuInternal("Invalid Arithmetic Operator");
         throw std::runtime_error("Invalid Arithmetic Operator");
     }
 
@@ -55,7 +55,7 @@ public:
     }
     void Check() const
     {
-        // hcomm::ThrowCcuInternal("Invalid Relational Operator");
+        // asccomm::ThrowCcuInternal("Invalid Relational Operator");
         throw std::runtime_error("Invalid Relational Operator");
     }
 
@@ -100,6 +100,6 @@ public:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 
 #endif // _CCU_OPERATOR

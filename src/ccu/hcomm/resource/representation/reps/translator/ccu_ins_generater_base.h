@@ -19,7 +19,7 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/common/ccu_log.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 class CcuInsGeneraterBase {
@@ -179,6 +179,6 @@ protected:
     }
 };
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm
 
 #endif

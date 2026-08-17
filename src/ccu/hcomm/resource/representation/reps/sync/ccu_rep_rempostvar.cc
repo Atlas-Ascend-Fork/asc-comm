@@ -13,7 +13,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepRemPostVar::CcuRepRemPostVar(
@@ -47,9 +47,9 @@ bool CcuRepRemPostVar::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_
 
 std::string CcuRepRemPostVar::Describe()
 {
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Post Variable[%u] To ParamIndex[%u], Use semIndex[%u] and mask[%04x]", param.Id(), paramIndex, semIndex, mask);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

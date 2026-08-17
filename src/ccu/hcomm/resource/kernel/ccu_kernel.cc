@@ -36,7 +36,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 
 
 constexpr uint32_t TOKEN_VALUE_INDEX = 2;
@@ -344,7 +344,7 @@ AscCcuResRequest CcuKernel::GetResourceRequest()
     req.count[HCOMM_CCU_BATCH_RES_BLOCK_XN][dieId] = res_.continuousVariable[dieId].size();
     req.count[HCOMM_CCU_BATCH_RES_MISSION][dieId] = 1;
 
-    auto info = hcomm::FormatCcuMessage(
+    auto info = asccomm::FormatCcuMessage(
         "resource request: dieId[%u], ms[%u], blockMs[%u], cke[%u], blockCke[%u], "
         "loopEngine[%u], blockLoopEngine[%u], gsa[%u], blockGsa[%u], xn[%u], blockXn[%u], missionId[%u]",
         dieId, req.count[HCOMM_CCU_BATCH_RES_MS][dieId], req.count[HCOMM_CCU_BATCH_RES_BLOCK_MS][dieId],
@@ -511,7 +511,7 @@ CcuResult CcuKernel::VariableCreateByAcquire(CcuVariableHandle acqHandle, uint32
 {
     uint8_t dieId = 0;
     uint32_t xnId = 0;
-    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(hcomm::GetCurrentCcuDeviceLogicId())
+    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(asccomm::GetCurrentCcuDeviceLogicId())
         .GetVariableXnId(acqHandle, index, dieId, xnId));
 
     CcuRep::Variable var(this);
@@ -527,7 +527,7 @@ CcuResult CcuKernel::EventCreateByAcquire(CcuEventHandle acqHandle, uint32_t ind
 {
     uint8_t dieId = 0;
     uint32_t ckeId = 0;
-    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(hcomm::GetCurrentCcuDeviceLogicId())
+    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(asccomm::GetCurrentCcuDeviceLogicId())
         .GetEventCkeId(acqHandle, index, dieId, ckeId));
 
     CcuRep::CompletedEvent event(this);
@@ -543,7 +543,7 @@ CcuResult CcuKernel::VariableAssignImm(CcuVariableHandle varHandle, uint64_t imm
     HCCL_INFO("[VariableAssignImm] varHandle=%llu, immediate=%llu", varHandle, immediate);
     CcuRep::Variable* variable{nullptr};
     CCU_CHK_RET(GetVariableByHandle(varHandle, &variable));
-    // 通过符号重载实现，内部记录rep；异常由入口 HcommCcuKernelRegister 的
+    // 通过符号重载实现，内部记录rep；异常由入口 hcomm_ccu_kernel_register 的
     // CCU_EXCEPTION_HANDLE_BEGIN/END 统一接住，无需在此局部 try/catch。
     (*variable) = immediate;
     return CcuResult::CCU_SUCCESS;
@@ -2771,7 +2771,7 @@ HcclResult CcuKernel::CollectSqeAndWaitCkeProfilingInfo()
     HCCL_INFO("[GetCcuProfilingInfo] Process sqe&waitcke profiling info start.");
     for (auto& profInfo : ccuProfilingCache) {
         profInfo.missionId = GetMissionId();
-        if (profInfo.type == static_cast<uint8_t>(hcomm::CcuProfilinType::CCU_TASK_PROFILING)) {
+        if (profInfo.type == static_cast<uint8_t>(asccomm::CcuProfilinType::CCU_TASK_PROFILING)) {
             profInfo.instrId = GetInstrId();
             allCcuProfilingInfos_.push_back(profInfo);
             continue;
@@ -2955,4 +2955,4 @@ HcclResult CcuKernel::Add2ConstValue2VarMap(std::vector<uint64_t>& values)
     return HCCL_SUCCESS;
 }
 
-}; // namespace hcomm
+}; // namespace asccomm

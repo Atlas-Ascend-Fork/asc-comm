@@ -27,7 +27,7 @@ extern "C" {
  * @param[out] varHandle Reservation handle; set to zero on failure.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
-extern CcuResult HcommCcuVariableAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
+extern CcuResult hcomm_ccu_variable_alloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
     CcuVariableHandle *varHandle);
 
 /**
@@ -38,26 +38,26 @@ extern CcuResult HcommCcuVariableAlloc(CcuInsHandle insHandle, uint8_t dieId, ui
  * @param[out] eventHandle Reservation handle; set to zero on failure.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
-extern CcuResult HcommCcuEventAlloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
+extern CcuResult hcomm_ccu_event_alloc(CcuInsHandle insHandle, uint8_t dieId, uint32_t num,
     CcuEventHandle *eventHandle);
 
 /**
  * @brief Query the process-accessible address of a reserved Variable resource.
- * @param[in] varHandle Handle returned by HcommCcuVariableAlloc.
+ * @param[in] varHandle Handle returned by hcomm_ccu_variable_alloc.
  * @param[in] index Index within the reserved range.
  * @param[out] va Process-accessible virtual address.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
-extern CcuResult HcommCcuVariableGetAddr(CcuVariableHandle varHandle, uint32_t index, uint64_t *va);
+extern CcuResult hcomm_ccu_variable_get_addr(CcuVariableHandle varHandle, uint32_t index, uint64_t *va);
 
 /**
  * @brief Query the process-accessible address of a reserved Event resource.
- * @param[in] eventHandle Handle returned by HcommCcuEventAlloc.
+ * @param[in] eventHandle Handle returned by hcomm_ccu_event_alloc.
  * @param[in] index Index within the reserved range.
  * @param[out] va Process-accessible virtual address.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
-extern CcuResult HcommCcuEventGetAddr(CcuEventHandle eventHandle, uint32_t index, uint64_t *va);
+extern CcuResult hcomm_ccu_event_get_addr(CcuEventHandle eventHandle, uint32_t index, uint64_t *va);
 
 /**
  * @brief Query the CCU access token for a local memory range.
@@ -66,7 +66,7 @@ extern CcuResult HcommCcuEventGetAddr(CcuEventHandle eventHandle, uint32_t index
  * @param[out] tokenInfo Calculated token.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
-extern CcuResult HcommCcuGetMemToken(uint64_t srcVa, uint64_t size, uint64_t *tokenInfo);
+extern CcuResult hcomm_ccu_get_mem_token(uint64_t srcVa, uint64_t size, uint64_t *tokenInfo);
 
 #ifdef __cplusplus
 }

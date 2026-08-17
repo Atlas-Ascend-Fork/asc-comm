@@ -14,7 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 // CCU 数据面自持的 device 内存 RAII 包装。
@@ -44,6 +44,6 @@ private:
 };
 
 } // namespace CcuRep
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // ASCCOMM_CCU_DEV_MEM_H

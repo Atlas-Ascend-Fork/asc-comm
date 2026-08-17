@@ -60,6 +60,7 @@ target_link_libraries(custom_all_to_allv_ccu PRIVATE
     -Wl,--no-as-needed
     hcomm
     asccomm_ccu_dataplane
+    hccl_v2
     -Wl,--as-needed
     ascendcl
     acl_rt

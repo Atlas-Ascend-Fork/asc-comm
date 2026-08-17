@@ -13,7 +13,7 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 void CcuRepSub::SetCommonInfo()
@@ -93,7 +93,7 @@ void CcuRepSub::ValidateInsGenPtrForSub()
 bool CcuRepSub::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
     ValidateInsGenPtrForSub();
-    hcomm::CheckCcuNotNull(instr, "[CcuRepSub::Translate] instr is nullptr!");
+    asccomm::CheckCcuNotNull(instr, "[CcuRepSub::Translate] instr is nullptr!");
     this->instrId = instrId;
     translated = true;
 
@@ -117,37 +117,37 @@ std::string CcuRepSub::Describe()
 {
     switch (subType) {
         case MinusSubType::VAR_MINUS_VAR_TO_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = Variable[%u] - Variable[%u]", varC.Id(), varA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] - Variable[%u]", varC.Id(), varA.Id(), varB.Id());
         }
         case MinusSubType::VAR_MINUS_IMMED_TO_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = Variable[%u] - Immed[%u]", varC.Id(), varA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] - Immed[%u]", varC.Id(), varA.Id(), immedB);
         }
         case MinusSubType::SELF_SUB_VAR_VARIABLE: {
-            return hcomm::FormatCcuMessage("Variable[%u] -= Variable[%u]", varA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("Variable[%u] -= Variable[%u]", varA.Id(), varB.Id());
         }
         case MinusSubType::SELF_SUB_IMMED_VARIABLE: {
-            return hcomm::FormatCcuMessage("Variable[%u] -= Immed[%u]", varA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Variable[%u] -= Immed[%u]", varA.Id(), immedB);
         }
         case MinusSubType::ADDR_MINUS_VAR_TO_ADDR: {
-            return hcomm::FormatCcuMessage("address[%u] = address[%u] - Variable[%u]", addrC.Id(), addrA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("address[%u] = address[%u] - Variable[%u]", addrC.Id(), addrA.Id(), varB.Id());
         }
         case MinusSubType::ADDR_MINUS_IMMED_TO_ADDR: {
-            return hcomm::FormatCcuMessage("address[%u] = address[%u] - Immed[%u]", addrC.Id(), addrA.Id(), immedB);
+            return asccomm::FormatCcuMessage("address[%u] = address[%u] - Immed[%u]", addrC.Id(), addrA.Id(), immedB);
         }
         case MinusSubType::SELF_SUB_VAR_ADDRESS: {
-            return hcomm::FormatCcuMessage("address[%u] -= Variable[%u]", addrA.Id(), varB.Id());
+            return asccomm::FormatCcuMessage("address[%u] -= Variable[%u]", addrA.Id(), varB.Id());
         }
         case MinusSubType::SELF_SUB_IMMED_ADDRESS: {
-            return hcomm::FormatCcuMessage("address[%u] -= Immed[%u]", addrA.Id(), immedB);
+            return asccomm::FormatCcuMessage("address[%u] -= Immed[%u]", addrA.Id(), immedB);
         }
         case MinusSubType::VAR_MINUS_IMMED_TO_ADDR: {
-            return hcomm::FormatCcuMessage("address[%u] = Variable[%u] - Immed[%u]", addrC.Id(), varA.Id(), immedB);
+            return asccomm::FormatCcuMessage("address[%u] = Variable[%u] - Immed[%u]", addrC.Id(), varA.Id(), immedB);
         }
         case MinusSubType::ADDR_MINUS_IMMED_TO_VAR: {
-            return hcomm::FormatCcuMessage("Variable[%u] = address[%u] - Immed[%u]", varC.Id(), addrA.Id(), immedB);
+            return asccomm::FormatCcuMessage("Variable[%u] = address[%u] - Immed[%u]", varC.Id(), addrA.Id(), immedB);
         }
         default: {
-            return hcomm::FormatCcuMessage("Invalid Sub");
+            return asccomm::FormatCcuMessage("Invalid Sub");
         }
     }
 }
@@ -168,4 +168,4 @@ uint16_t CcuRepSub::GetImmedB() { return immedB; }
 
 MinusSubType CcuRepSub::GetSubType() { return subType; }
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

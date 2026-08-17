@@ -15,7 +15,7 @@
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/common/ccu_device_context.h"
 
-namespace hcomm {
+namespace asccomm {
 
 CcuKernelRegistryMgr::~CcuKernelRegistryMgr()
 {
@@ -99,4 +99,4 @@ CcuKernelRegistry* CcuKernelRegistryMgr::Get(CcuInsHandle insHandle) const
     return it->second.get();
 }
 
-} // namespace hcomm
+} // namespace asccomm

@@ -15,7 +15,7 @@
 
 #include "hcomm/hcomm_ccu_control.h"
 
-namespace hcomm {
+namespace asccomm {
 
 constexpr uint32_t CCU_MAX_DEVICE_NUM = 64;
 
@@ -24,6 +24,6 @@ int32_t GetCurrentCcuDeviceLogicId();
 void SetCurrentCcuControlOps(const HcommCcuControlOpsPod &controlOps);
 const HcommCcuControlOpsPod &GetCurrentCcuControlOps();
 
-} // namespace hcomm
+} // namespace asccomm
 
 #endif // ASCCOMM_CCU_DEVICE_CONTEXT_H

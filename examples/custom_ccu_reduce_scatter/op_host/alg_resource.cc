@@ -113,7 +113,7 @@ static HcclResult RegisterReduceScatterKernel(
     asccomm_examples::CcuRegisterContextStorage contextStorage;
     RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, contextStorage));
     CcuInsHandle insHandle = static_cast<CcuInsHandle>(contextStorage.context.instanceHandle);
-    CcuResult regStartRet = HcommCcuKernelRegisterStart(insHandle, &contextStorage.context);
+    CcuResult regStartRet = hcomm_ccu_kernel_register_start(insHandle, &contextStorage.context);
     if (regStartRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
@@ -122,17 +122,17 @@ static HcclResult RegisterReduceScatterKernel(
     const void* kernelArgs[] = {kernelInfo.kernelArg};
 
     constexpr uint32_t kernelArgNum = 1;
-    CcuResult regRet = HcommCcuKernelRegister(
+    CcuResult regRet = hcomm_ccu_kernel_register(
         insHandle, kernelDie, kernelInfo.kernelFuncName, reinterpret_cast<void*>(kernelInfo.kernelFunc), kernelArgs,
         kernelArgNum, &kernelHandle); // 注册 kernel
 
     if (regRet != CCU_SUCCESS) {
-        (void)HcommCcuKernelRegisterEnd(insHandle);
+        (void)hcomm_ccu_kernel_register_end(insHandle);
         return HCCL_E_INTERNAL;
     }
     resCtxHost.ccuKernels[0] = kernelHandle;
 
-    CcuResult regEndRet = HcommCcuKernelRegisterEnd(insHandle);
+    CcuResult regEndRet = hcomm_ccu_kernel_register_end(insHandle);
     if (regEndRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }

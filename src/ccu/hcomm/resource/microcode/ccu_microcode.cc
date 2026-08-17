@@ -54,7 +54,7 @@ constexpr uint16_t MAX_CODE = 0x1;
 constexpr uint16_t MIN_CODE = 0x2;
 } // namespace
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 // *GSAId = *sqeArgsId
@@ -564,7 +564,7 @@ std::string ParseLoadSqeArgsToGSAInstr(const CcuInstr* instr)
     uint16_t gsaId = instr->v1.loadSqeArgsToGSA.gsaId;
     uint16_t sqeArgsId = instr->v1.loadSqeArgsToGSA.sqeArgsId;
 
-    return hcomm::FormatCcuMessage("Load SqeArg[%u] to GSA[%u]", sqeArgsId, gsaId);
+    return asccomm::FormatCcuMessage("Load SqeArg[%u] to GSA[%u]", sqeArgsId, gsaId);
 }
 
 static std::string ParseLoadSqeArgsToXnInstr(const CcuInstr* instr)
@@ -572,7 +572,7 @@ static std::string ParseLoadSqeArgsToXnInstr(const CcuInstr* instr)
     uint16_t xnId = instr->v1.loadSqeArgsToXn.xnId;
     uint16_t sqeArgsId = instr->v1.loadSqeArgsToXn.sqeArgsId;
 
-    return hcomm::FormatCcuMessage("Load SqeArg[%u] to Xn[%u]", sqeArgsId, xnId);
+    return asccomm::FormatCcuMessage("Load SqeArg[%u] to Xn[%u]", sqeArgsId, xnId);
 }
 
 static std::string ParseLoadImdToGSAInstr(const CcuInstr* instr)
@@ -580,7 +580,7 @@ static std::string ParseLoadImdToGSAInstr(const CcuInstr* instr)
     uint16_t gsaId = instr->v1.loadImdToGSA.gsaId;
     uint64_t immediate = instr->v1.loadImdToGSA.immediate;
 
-    return hcomm::FormatCcuMessage("Load immediate[%llu] to GSA[%u]", immediate, gsaId);
+    return asccomm::FormatCcuMessage("Load immediate[%llu] to GSA[%u]", immediate, gsaId);
 }
 
 static std::string ParseLoadImdToXnInstr(const CcuInstr* instr)
@@ -589,10 +589,10 @@ static std::string ParseLoadImdToXnInstr(const CcuInstr* instr)
     uint64_t immediate = instr->v1.loadImdToXn.immediate;
 
     if (instr->v1.loadImdToXn.secFlag == CCU_LOAD_TO_XN_SEC_INFO) {
-        return hcomm::FormatCcuMessage("Load immediate[tokenInfo] to Xn[%u]", xnId);
+        return asccomm::FormatCcuMessage("Load immediate[tokenInfo] to Xn[%u]", xnId);
     }
 
-    return hcomm::FormatCcuMessage("Load immediate[%llu] to Xn[%u]", immediate, xnId);
+    return asccomm::FormatCcuMessage("Load immediate[%llu] to Xn[%u]", immediate, xnId);
 }
 
 static std::string ParseLoadGSAXnInstr(const CcuInstr* instr)
@@ -601,7 +601,7 @@ static std::string ParseLoadGSAXnInstr(const CcuInstr* instr)
     uint16_t gsAmId = instr->v1.loadGSAXn.gsAmId;
     uint16_t xnId = instr->v1.loadGSAXn.xnId;
 
-    return hcomm::FormatCcuMessage("Load GSA[%u] + Xn[%u] to GSA[%u]", gsAmId, xnId, gsAdId);
+    return asccomm::FormatCcuMessage("Load GSA[%u] + Xn[%u] to GSA[%u]", gsAmId, xnId, gsAdId);
 }
 
 static std::string ParseLoadGSAGSAInstr(const CcuInstr* instr)
@@ -610,7 +610,7 @@ static std::string ParseLoadGSAGSAInstr(const CcuInstr* instr)
     uint16_t gsAmId = instr->v1.loadGSAGSA.gsAmId;
     uint16_t gsAnId = instr->v1.loadGSAGSA.gsAnId;
 
-    return hcomm::FormatCcuMessage("Load GSA[%u] + GSA[%u] to GSA[%u]", gsAmId, gsAnId, gsAdId);
+    return asccomm::FormatCcuMessage("Load GSA[%u] + GSA[%u] to GSA[%u]", gsAmId, gsAnId, gsAdId);
 }
 
 static std::string ParseLoadXXInstr(const CcuInstr* instr)
@@ -619,7 +619,7 @@ static std::string ParseLoadXXInstr(const CcuInstr* instr)
     uint16_t xmId = instr->v1.loadXX.xmId;
     uint16_t xnId = instr->v1.loadXX.xnId;
 
-    return hcomm::FormatCcuMessage("Load Xn[%u] + Xn[%u] to Xn[%u]", xmId, xnId, xdId);
+    return asccomm::FormatCcuMessage("Load Xn[%u] + Xn[%u] to Xn[%u]", xmId, xnId, xdId);
 }
 
 static std::string ParseLoopInstr(const CcuInstr* instr)
@@ -628,7 +628,7 @@ static std::string ParseLoopInstr(const CcuInstr* instr)
     uint16_t endInstrId = instr->v1.loop.endInstrId;
     uint16_t xnId = instr->v1.loop.xnId;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Loop From startInstrId[%u] to endInstrId[%u] with loopXn[%u]", startInstrId, endInstrId, xnId);
 }
 
@@ -639,7 +639,7 @@ static std::string ParseLoopGroupInstr(const CcuInstr* instr)
     uint16_t xmId = instr->v1.loopGroup.xmId;
     uint16_t highPerfModeEn = instr->v1.loopGroup.highPerfModeEn;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "LoopGroup From startLoopInstrId[%u] with loopGroupXn[%u], offsetXn[%u] and highPerfModeEn[%u]",
         startLoopInstrId, xnId, xmId, highPerfModeEn);
 }
@@ -652,7 +652,7 @@ static std::string ParseSetCKEInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.setCKE.waitCKEId;
     uint16_t waitCKEMask = instr->v1.setCKE.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Set CKE[%u:%04x], clearType[%u]", waitCKEId, waitCKEMask, setCKEId, setCKEMask, clearType);
 }
 
@@ -664,7 +664,7 @@ static std::string ParseClearCKEInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.clearCKE.waitCKEId;
     uint16_t waitCKEMask = instr->v1.clearCKE.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Clear CKE[%u:%04x], clearType[%u]", waitCKEId, waitCKEMask, clearCKEId, clearMask,
         clearType);
 }
@@ -675,7 +675,7 @@ static std::string ParseJumpInstr(const CcuInstr* instr)
     uint16_t conditionXnId = instr->v1.jmp.conditionXnId;
     uint64_t expectData = instr->v1.jmp.expectData;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "When conditionXn[%u] not equal to expectData[%llu], Jump To InstrIdXn[%u]", conditionXnId, expectData,
         dstInstrXnId);
 }
@@ -694,7 +694,7 @@ static std::string ParseTransLocMemToLocMSInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.transLocMemToLocMS.waitCKEId;
     uint16_t waitCKEMask = instr->v1.transLocMemToLocMS.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Trans LocMem[%u:%u] To LocMS[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
         waitCKEId, waitCKEMask, locGSAId, locXnId, locMSId / 0x8000, locMSId % 0x8000, lengthXnId, channelId, setCKEId,
@@ -715,7 +715,7 @@ static std::string ParseTransRmtMemToLocMSInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.transRmtMemToLocMS.waitCKEId;
     uint16_t waitCKEMask = instr->v1.transRmtMemToLocMS.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Trans RmtMem[%u:%u] To LocMS[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
         waitCKEId, waitCKEMask, rmtGSAId, rmtXnId, locMSId / 0x8000, locMSId % 0x8000, lengthXnId, channelId, setCKEId,
@@ -736,7 +736,7 @@ static std::string ParseTransLocMSToLocMemInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.transLocMSToLocMem.waitCKEId;
     uint16_t waitCKEMask = instr->v1.transLocMSToLocMem.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Trans LocMS[%u:%u] To LocMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
         waitCKEId, waitCKEMask, locMSId / 0x8000, locMSId % 0x8000, locGSAId, locXnId, lengthXnId, channelId, setCKEId,
@@ -757,7 +757,7 @@ static std::string ParseTransLocMSToRmtMemInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.transLocMSToRmtMem.waitCKEId;
     uint16_t waitCKEMask = instr->v1.transLocMSToRmtMem.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Trans LocMS[%u:%u] To RmtMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
         waitCKEId, waitCKEMask, locMSId / 0x8000, locMSId % 0x8000, rmtGSAId, rmtXnId, lengthXnId, channelId, setCKEId,
@@ -778,7 +778,7 @@ static std::string ParseTransRmtMSToLocMemInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.transRmtMSToLocMem.waitCKEId;
     uint16_t waitCKEMask = instr->v1.transRmtMSToLocMem.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Trans RmtMS[%u:%u] To LocMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
         waitCKEId, waitCKEMask, rmtMSId / 0x8000, rmtMSId % 0x8000, locGSAId, locXnId, lengthXnId, channelId, setCKEId,
@@ -798,7 +798,7 @@ static std::string ParseTransLocMSToLocMSInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.transLocMSToLocMS.waitCKEId;
     uint16_t waitCKEMask = instr->v1.transLocMSToLocMS.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Trans LocMS[%u:%u] To LocMS[%u:%u] With LengthXn[%u] Use Channel[%u], "
         "Set CKE[%u:%04x], "
         "clearType[%u], lengthEn[%u]",
@@ -819,7 +819,7 @@ static std::string ParseTransRmtMSToLocMSInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.transRmtMSToLocMS.waitCKEId;
     uint16_t waitCKEMask = instr->v1.transRmtMSToLocMS.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Trans RmtMS[%u:%u] To LocMS[%u:%u] With LengthXn[%u] Use Channel[%u], "
         "Set CKE[%u:%04x], "
         "clearType[%u], lengthEn[%u]",
@@ -843,7 +843,7 @@ static std::string ParseTransLocMSToRmtMSInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.transLocMSToRmtMS.waitCKEId;
     uint16_t waitCKEMask = instr->v1.transLocMSToRmtMS.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Trans LocMS[%u:%u] To RmtMS[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "RmtCKE[%u:%04x], Set CKE[%u:%04x], clearType[%u], lengthEn[%u]",
         waitCKEId, waitCKEMask, locMSId / 0x8000, locMSId % 0x8000, rmtMSId / 0x8000, rmtMSId % 0x8000, lengthXnId,
@@ -868,7 +868,7 @@ static std::string ParseTransRmtMemToLocMemInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.transRmtMemToLocMem.waitCKEId;
     uint16_t waitCKEMask = instr->v1.transRmtMemToLocMem.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Trans RmtMem[%u:%u] To LocMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u], DataType[%u], ReduceType[%u] reduceEn[%u]",
         waitCKEId, waitCKEMask, rmtGSAId, rmtXnId, locGSAId, locXnId, lengthXnId, channelId, setCKEId, setCKEMask,
@@ -893,7 +893,7 @@ static std::string ParseTransLocMemToRmtMemInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.transLocMemToRmtMem.waitCKEId;
     uint16_t waitCKEMask = instr->v1.transLocMemToRmtMem.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Trans LocMem[%u:%u] To RmtMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u], DataType[%u], ReduceType[%u] reduceEn[%u]",
         waitCKEId, waitCKEMask, locGSAId, locXnId, rmtGSAId, rmtXnId, lengthXnId, channelId, setCKEId, setCKEMask,
@@ -915,7 +915,7 @@ static std::string ParseTransLocMemToLocMemInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.transLocMemToLocMem.waitCKEId;
     uint16_t waitCKEMask = instr->v1.transLocMemToLocMem.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Trans LocMem[%u:%u] To LocMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
         waitCKEId, waitCKEMask, srcGSAId, srcXnId, dstGSAId, dstXnId, lengthXnId, channelId, setCKEId, setCKEMask,
@@ -934,7 +934,7 @@ static std::string ParseSyncCKEInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.syncCKE.waitCKEId;
     uint16_t waitCKEMask = instr->v1.syncCKE.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Sync LocCKE[%u:%04x] To rmtCKE[%u:%04x] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u]",
         waitCKEId, waitCKEMask, locCKEId, locCKEMask, rmtCKEId, locCKEMask, channelId, setCKEId, setCKEMask, clearType);
@@ -953,7 +953,7 @@ static std::string ParseSyncGSAInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.syncGSA.waitCKEId;
     uint16_t waitCKEMask = instr->v1.syncGSA.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Sync locGSAId[%u] To rmtGSAId[%u] Use Channel[%u], Set rmtCKE[%u:%04x], Set "
         "CKE[%u:%04x], clearType[%u]",
         waitCKEId, waitCKEMask, locGSAId, rmtGSAId, channelId, setRmtCKEId, setRmtCKEMask, setCKEId, setCKEMask,
@@ -973,7 +973,7 @@ static std::string ParseSyncXnInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.syncXn.waitCKEId;
     uint16_t waitCKEMask = instr->v1.syncXn.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Sync locXnId[%u] To rmtXnId[%u] Use Channel[%u], Set rmtCKE[%u:%04x], Set "
         "CKE[%u:%04x], clearType[%u]",
         waitCKEId, waitCKEMask, locXnId, rmtXnId, channelId, setRmtCKEId, setRmtCKEMask, setCKEId, setCKEMask,
@@ -1016,7 +1016,7 @@ static std::string ParseAddInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.add.waitCKEId;
     uint16_t waitCKEMask = instr->v1.add.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Add %s with Count[%u], DataType[%u] and CastEn[%u], Set CKE[%u:%04x], clearType[%u]",
         waitCKEId, waitCKEMask, ParseMSList(instr).c_str(), count, dataType, castEn, setCKEId, setCKEMask, clearType);
 }
@@ -1031,7 +1031,7 @@ static std::string ParseMaxInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.max.waitCKEId;
     uint16_t waitCKEMask = instr->v1.max.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Max %s with Count[%u], DataType[%u], Set CKE[%u:%04x], clearType[%u]", waitCKEId,
         waitCKEMask, ParseMSList(instr).c_str(), count, dataType, setCKEId, setCKEMask, clearType);
 }
@@ -1046,7 +1046,7 @@ static std::string ParseMinInstr(const CcuInstr* instr)
     uint16_t waitCKEId = instr->v1.min.waitCKEId;
     uint16_t waitCKEMask = instr->v1.min.waitCKEMask;
 
-    return hcomm::FormatCcuMessage(
+    return asccomm::FormatCcuMessage(
         "Wait CKE[%u:%04x], Min %s with Count[%u], DataType[%u], Set CKE[%u:%04x], clearType[%u]", waitCKEId,
         waitCKEMask, ParseMSList(instr).c_str(), count, dataType, setCKEId, setCKEMask, clearType);
 }
@@ -1088,10 +1088,10 @@ static std::unordered_map<uint16_t, ParseInstrFunc> g_parseInstrSqeMap = {
 std::string ParseInstr(const CcuInstr* instr)
 {
     if (g_parseInstrSqeMap.find(instr->header.header) == g_parseInstrSqeMap.end()) {
-        return hcomm::FormatCcuMessage("Unsupported instruction with header: 0x%04x", instr->header.header);
+        return asccomm::FormatCcuMessage("Unsupported instruction with header: 0x%04x", instr->header.header);
     }
     return g_parseInstrSqeMap[instr->header.header](instr);
 }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm

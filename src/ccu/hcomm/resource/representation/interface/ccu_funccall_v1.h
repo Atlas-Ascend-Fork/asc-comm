@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/control/ccu_rep_funccall_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace hcomm {
+namespace asccomm {
 
 namespace CcuRep {
 
@@ -72,5 +72,5 @@ private:
 };
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
 #endif // _CCU_FUNC_CALL_H

@@ -34,7 +34,7 @@ CcuResult PhyDieMaskToDieId(uint64_t phyDieMask, uint32_t& dieId)
 
 } // namespace
 
-CcuResult HcommCcuHostKernelLaunch(
+CcuResult hcomm_ccu_host_kernel_launch(
     const void* kernelFunc, const HcommCcuHostKernelLaunchCfg* cfg, const HcommCcuHostKernelArgs* args)
 {
     CCU_CHK_PTR_NULL(kernelFunc);
@@ -54,31 +54,31 @@ CcuResult HcommCcuHostKernelLaunch(
     CCU_CHK_RET(PhyDieMaskToDieId(cfg->ccuSchd.phyDieMask, dieId));
 
     CCU_CHK_PTR_NULL(cfg->registerContext);
-    CcuResult ret = HcommCcuKernelRegisterStart(cfg->ccuIns, cfg->registerContext);
+    CcuResult ret = hcomm_ccu_kernel_register_start(cfg->ccuIns, cfg->registerContext);
     if (ret != CCU_SUCCESS) {
-        HCCL_ERROR("[%s] HcommCcuKernelRegisterStart failed, ccuRet[%d].", __func__, ret);
+        HCCL_ERROR("[%s] hcomm_ccu_kernel_register_start failed, ccuRet[%d].", __func__, ret);
         return ret;
     }
 
     CcuKernelHandle kernelHandle{0};
-    ret = HcommCcuKernelRegister(
+    ret = hcomm_ccu_kernel_register(
         cfg->ccuIns, dieId, cfg->kernelName, kernelFunc, args->kernelArgs, args->kernelArgNum,
         &kernelHandle);
     if (ret != CCU_SUCCESS) {
-        HCCL_ERROR("[%s] HcommCcuKernelRegister failed, ccuRet[%d].", __func__, ret);
-        (void)HcommCcuKernelRegisterEnd(cfg->ccuIns);
+        HCCL_ERROR("[%s] hcomm_ccu_kernel_register failed, ccuRet[%d].", __func__, ret);
+        (void)hcomm_ccu_kernel_register_end(cfg->ccuIns);
         return ret;
     }
 
-    ret = HcommCcuKernelRegisterEnd(cfg->ccuIns);
+    ret = hcomm_ccu_kernel_register_end(cfg->ccuIns);
     if (ret != CCU_SUCCESS) {
-        HCCL_ERROR("[%s] HcommCcuKernelRegisterEnd failed, ccuRet[%d].", __func__, ret);
+        HCCL_ERROR("[%s] hcomm_ccu_kernel_register_end failed, ccuRet[%d].", __func__, ret);
         return ret;
     }
 
-    ret = HcommCcuKernelLaunch(cfg->launchContext, kernelHandle, args->taskArgs, args->taskArgNum);
+    ret = hcomm_ccu_kernel_launch(cfg->launchContext, kernelHandle, args->taskArgs, args->taskArgNum);
     if (ret != CCU_SUCCESS) {
-        HCCL_ERROR("[%s] HcommCcuKernelLaunch failed, ccuRet[%d].", __func__, ret);
+        HCCL_ERROR("[%s] hcomm_ccu_kernel_launch failed, ccuRet[%d].", __func__, ret);
         return ret;
     }
 

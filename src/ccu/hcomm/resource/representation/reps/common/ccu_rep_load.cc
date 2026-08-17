@@ -14,7 +14,7 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace hcomm {
+namespace asccomm {
 namespace CcuRep {
 
 CcuRepLoad::CcuRepLoad(CcuInsGeneraterBase* insGenPtr, uint64_t addr, const Variable& var, uint32_t num)
@@ -26,7 +26,7 @@ CcuRepLoad::CcuRepLoad(CcuInsGeneraterBase* insGenPtr, uint64_t addr, const Vari
 
 bool CcuRepLoad::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
 {
-    hcomm::CheckCcuNotNull(instr, "[HCcuRepLoad::Translate] instr is nullptr!");
+    asccomm::CheckCcuNotNull(instr, "[HCcuRepLoad::Translate] instr is nullptr!");
     this->instrId = instrId;
     translated = true;
     CHK_PRT_THROW(
@@ -44,7 +44,7 @@ bool CcuRepLoad::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& ins
     return translated;
 }
 
-std::string CcuRepLoad::Describe() { return hcomm::FormatCcuMessage("Load([%llu], [%u], [%u])", addr, var.Id(), num); }
+std::string CcuRepLoad::Describe() { return asccomm::FormatCcuMessage("Load([%llu], [%u], [%u])", addr, var.Id(), num); }
 
 }; // namespace CcuRep
-}; // namespace hcomm
+}; // namespace asccomm
