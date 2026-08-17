@@ -68,15 +68,6 @@ __simt_callee__ inline void HcommSimtStoreValue(__gm__ uint8_t* addr, uint64_t v
     }
 }
 
-template <typename T>
-__simt_callee__ inline void HcommSimtStoreInlineValue(__gm__ uint8_t* addr, T value)
-{
-    const uint8_t* valueAddr = reinterpret_cast<const uint8_t*>(&value);
-    for (uint32_t i = 0; i < sizeof(T); ++i) {
-        addr[i] = valueAddr[i];
-    }
-}
-
 __simt_callee__ inline uint32_t HcommSimtHeadIdx(uint64_t headVal)
 {
     return static_cast<uint32_t>(headVal & 0xFFFFFFFFU);
@@ -87,14 +78,31 @@ __simt_callee__ inline uint32_t HcommSimtWqeCnt(uint64_t headVal)
     return static_cast<uint32_t>((headVal >> 32U) & HCOMM_SIMT_WQE_CNT_MASK);
 }
 
-// Reserves SQ space for one submission and returns the previous headAddr value.
-// bbCnt is the number of 64B basic blocks occupied in the SQ; cqeCnt is the number of
-// CQEs the submission will produce (NOP padding produces none), so the high half of
-// headAddr stays directly comparable with the CQ tail consumed by PollCq.
-__simt_callee__ inline uint64_t HcommSimtReserve(__gm__ uint64_t* headAddr, uint32_t bbCnt, uint32_t cqeCnt)
+// Atomically reserves SQ space for one submission without overwriting unconsumed BBs.
+// requiredFreeBbCnt may exceed bbCnt when a deferred post must leave room for the
+// immediate DWQE that will publish it later.
+__simt_callee__ inline bool HcommSimtTryReserve(
+    __gm__ uint64_t* headAddr, __gm__ uint32_t* tailAddr, uint32_t sqDepth, uint32_t bbCnt,
+    uint32_t requiredFreeBbCnt, uint32_t cqeCnt, uint64_t& headVal)
 {
+    if (sqDepth == 0U || requiredFreeBbCnt > sqDepth) {
+        return false;
+    }
+
     uint64_t delta = (static_cast<uint64_t>(cqeCnt) << 32U) | static_cast<uint64_t>(bbCnt);
-    return asc_atomic_add(headAddr, delta);
+    headVal = *headAddr;
+    while (true) {
+        uint32_t usedBbCnt = HcommSimtHeadIdx(headVal) - *tailAddr;
+        if (usedBbCnt > sqDepth || requiredFreeBbCnt > sqDepth - usedBbCnt) {
+            return false;
+        }
+
+        uint64_t previous = asc_atomic_cas(headAddr, headVal, headVal + delta);
+        if (previous == headVal) {
+            return true;
+        }
+        headVal = previous;
+    }
 }
 
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtLocalBuffers(ChannelHandle channel)
