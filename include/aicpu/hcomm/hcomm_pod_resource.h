@@ -212,7 +212,6 @@ typedef struct {
     uint32_t sqDepth;        ///< 硬件RTSQ可容纳的SQE数量
     uint32_t sqHead;         ///**add** 最近一次查询到的硬件RTSQ Head
     uint32_t sqTail;         ///**add** POD运行时维护的硬件RTSQ Tail
-    uint32_t pendingSqeCnt;  ///**add** localSqeBuffer中尚未提交到硬件RTSQ的SQE数量
     uint32_t sqFullTimeout;  ///**add** 等待硬件RTSQ空闲的超时秒数；0表示不启用超时判断
     uint64_t sqBaseAddr;     ///< 硬件RTSQ SQE环形缓冲区的CPU虚拟地址
     uint8_t launchFlag;      ///**add** 非0时在非Batch模式下每生成一个SQE立即提交
