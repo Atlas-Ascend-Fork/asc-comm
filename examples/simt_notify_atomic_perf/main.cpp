@@ -257,11 +257,13 @@ int main(int argc, char* argv[])
     const std::string commitMode = argv[9];
     if (nranks < 2 || !ValidApi(api) || iterations == 0U || payloadBytes == 0U ||
         (laneCount != 1U && laneCount != 32U && laneCount != 1024U) ||
-        (commitMode != "immediate" && commitMode != "last")) {
+        (commitMode != "immediate" && commitMode != "last") || (commitMode == "immediate" && laneCount != 1U)) {
         std::cout << "Invalid argument." << std::endl;
+        if (commitMode == "immediate" && laneCount != 1U) {
+            std::cout << "Multiple lanes are supported only with --commit-mode last." << std::endl;
+        }
         return 1;
     }
-
     const size_t bufferBytes = BufferBytes(api, payloadBytes, laneCount);
     ACLCHECK(aclInit(nullptr));
     ACLCHECK(aclrtSetDevice(rank));
@@ -322,9 +324,11 @@ int main(int argc, char* argv[])
                   << " | DataSize/B=" << dataBytes << " | WqeCount=" << iterations << " | Warmup=" << warmup
                   << " | CommitMode=" << (commitMode == "last" ? "Last" : "Immediate")
                   << " | RemoteCache=" << (cacheEnabled ? "PerLaneUB" : "Disabled")
-                  << " | PostContext=" << (cacheEnabled ? "SharedUB" : "GM") << " | IssueTime/us=" << issueUs
-                  << " | AverageIssue/ns=" << averageNs << " | CompletionTime/us=" << completionUs
-                  << " | CompletionBandwidth/GB/s=" << completionBandwidth
+                  << " | PostContext=" << (cacheEnabled ? "SharedUB" : "GM")
+                  << " | MetadataPath=" << (cacheEnabled ? "CachedUB" : "GMFallback")
+                  << " | ReserveMode=PerWqeCAS"
+                  << " | IssueTime/us=" << issueUs << " | AverageIssue/ns=" << averageNs
+                  << " | CompletionTime/us=" << completionUs << " | CompletionBandwidth/GB/s=" << completionBandwidth
                   << " | DrainStatus=" << static_cast<int64_t>(timing[kDrainStatusIndex])
                   << " | Completed=" << timing[kCompletedIndex] << std::endl;
     }

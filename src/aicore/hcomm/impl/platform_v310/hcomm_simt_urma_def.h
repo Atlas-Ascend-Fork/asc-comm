@@ -41,7 +41,6 @@ enum class HcommSimtUbWqeKind : uint8_t {
     ATOMIC,
     DATA1,
     DATA2,
-    INLINE,
 };
 
 // Immutable for one channel while a kernel is running. The remote token fields
@@ -63,6 +62,7 @@ struct HcommSimtUbPostContext {
     ChannelHandle channel;
     uint64_t remoteBuffersAddr;
     uint64_t headAddr;
+    uint64_t sqTailAddr;
     uint64_t dwqeAddr;
     uint64_t sqBaseAddr;
     uint32_t sqWqeSize;
@@ -96,6 +96,7 @@ constexpr uint32_t HCOMM_SIMT_UB_CONTEXT_READY = 2U;
 struct HcommSimtUbResolvedPost {
     HcommSimtUbPostMeta meta;
     __gm__ uint64_t* headAddr;
+    __gm__ uint32_t* sqTailAddr;
     __gm__ uint8_t* dwqeAddr;
     uint64_t sqBaseAddr;
     uint32_t sqWqeSize;
@@ -116,10 +117,6 @@ public:
     __simt_callee__ inline HcommImpl();
     __simt_callee__ inline ~HcommImpl();
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
-    __simt_callee__ inline int32_t ReserveDwqeBurst(
-        ChannelHandle channel, __gm__ void* targetAddr, uint64_t len, uint32_t wqeCnt);
-    __simt_callee__ inline int32_t ReserveDwqeBatch(
-        ChannelHandle channel, __ubuf__ uint32_t* state, bool active, uint32_t activeWqeCnt, uint32_t commitLane);
     template <bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <
@@ -142,21 +139,6 @@ public:
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
 
 private:
-    bool hasReservedDwqeSlot_ = false;
-    uint32_t reservedDwqeHead_ = 0U;
-    bool hasDeferredDwqeBatch_ = false;
-    uint32_t deferredDwqeBbCnt_ = 0U;
-    uint32_t deferredDwqeCqeCnt_ = 0U;
-    bool hasReservedDwqeBurst_ = false;
-    uint32_t reservedDwqeBurstBaseHead_ = 0U;
-    uint32_t reservedDwqeBurstNextHead_ = 0U;
-    uint32_t reservedDwqeBurstRemaining_ = 0U;
-    __gm__ uint64_t* reservedDwqeBurstHeadAddr_ = nullptr;
-    ChannelHandle reservedDwqeBurstChannel_ = 0U;
-    uint64_t reservedDwqeBurstRemoteBase_ = 0U;
-    uint64_t reservedDwqeBurstRemoteSize_ = 0U;
-    HcommSimtUbResolvedPost reservedDwqeBurstPost_;
-    HcommSimtPackedSqeTemplate reservedDwqeBurstSqeTemplate_;
     __ubuf__ uint8_t* wqeItem_ = nullptr;
     HcommSimtUbWqeKind wqeKind_ = HcommSimtUbWqeKind::EMPTY;
     __ubuf__ HcommSimtUbPostContext* ubPostContext_ = nullptr;
@@ -167,6 +149,9 @@ private:
     __simt_callee__ inline bool EnsureUbPostContext(ChannelHandle channel);
     __simt_callee__ inline int32_t ResolveUbPostContext(
         ChannelHandle channel, __gm__ uint8_t* remoteAddr, uint64_t len, HcommSimtUbResolvedPost& post);
+    template <bool commit>
+    __simt_callee__ inline bool ReservePost(
+        ChannelHandle channel, const HcommSimtUbResolvedPost& post, uint32_t bbCnt, uint64_t& headVal);
 
     template <
         bool commit = true, auto commitPipe = 0, auto reqPipe = 0, HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE,
@@ -178,14 +163,10 @@ private:
         ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
         __gm__ uint8_t* notifyAddr, uint64_t notifyVal);
     template <
-        typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0, auto const& config = URMA_INLINE_CFG>
-    __simt_callee__ inline int32_t PostWriteValue(ChannelHandle channel, __gm__ uint8_t* remoteAddr, T value);
-    template <
         typename T, bool commit = true, auto commitPipe = 0, auto reqPipe = 0,
         HcommUrmaOpCode opCode = HcommUrmaOpCode::FAA, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t PostAtomic(
         ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* fetchAddr, T value, T cond);
-    __simt_callee__ inline int32_t PublishDwqeBatch(__gm__ uint64_t* headAddr);
     __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
 };
 

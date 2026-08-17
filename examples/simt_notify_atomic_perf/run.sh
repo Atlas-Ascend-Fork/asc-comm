@@ -75,6 +75,9 @@ done
 [[ "$commit_mode" == "immediate" || "$commit_mode" == "last" ]] || {
     echo "--commit-mode must be immediate or last" >&2; exit 1;
 }
+[[ "$commit_mode" == "last" || "$lanes" == "1" ]] || {
+    echo "--lanes 32/1024 requires --commit-mode last" >&2; exit 1;
+}
 [[ -f "$rank_table" ]] || { echo "rank table not found: $rank_table" >&2; exit 1; }
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
