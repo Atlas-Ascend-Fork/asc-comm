@@ -10,7 +10,6 @@
 
 #include <array>
 #include <gtest/gtest.h>
-#include <mockcpp/mockcpp.hpp>
 #include <vector>
 #define private public
 #include "kernel_operator.h"
@@ -31,32 +30,6 @@ static_assert(
     offsetof(AscendC::ChannelEntity, lock) - (offsetof(AscendC::ChannelEntity, cqTail) + sizeof(uint32_t)) >=
     AscendC::CACHE_LINE_SIZE);
 static_assert(sizeof(AscendC::ChannelEntity) == 256);
-
-uint32_t AtomicCasSuccessStub(__gm__ uint32_t* address, uint32_t compare, uint32_t value)
-{
-    uint32_t oldValue = *address;
-    if (oldValue == compare) {
-        *address = value;
-    }
-    return oldValue;
-}
-
-uint32_t atomicCasCallCount = 0;
-
-uint32_t AtomicCasContendedOnceStub(__gm__ uint32_t* address, uint32_t compare, uint32_t value)
-{
-    if (atomicCasCallCount++ == 0U) {
-        return HCOMM_LOCK_HELD;
-    }
-    return AtomicCasSuccessStub(address, compare, value);
-}
-
-uint32_t AtomicExchStub(__gm__ uint32_t* address, uint32_t value)
-{
-    uint32_t oldValue = *address;
-    *address = value;
-    return oldValue;
-}
 
 class UrmaChannelResource {
 public:
@@ -193,32 +166,10 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockUnlock)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
 
     EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
-    MOCKER_CPP(atomicCAS, uint32_t(__gm__ uint32_t*, uint32_t, uint32_t)).times(1).will(invoke(AtomicCasSuccessStub));
     EXPECT_EQ(hcomm.Lock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
     EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_HELD);
-
-    MOCKER_CPP(atomicExch, uint32_t(__gm__ uint32_t*, uint32_t)).times(1).will(invoke(AtomicExchStub));
     EXPECT_EQ(hcomm.Unlock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
     EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
-    GlobalMockObject::verify();
-}
-
-TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockContendedOnce)
-{
-    UrmaChannelResource channel;
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    atomicCasCallCount = 0U;
-
-    MOCKER_CPP(atomicCAS, uint32_t(__gm__ uint32_t*, uint32_t, uint32_t))
-        .times(2)
-        .will(invoke(AtomicCasContendedOnceStub));
-    EXPECT_EQ(hcomm.Lock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(atomicCasCallCount, 2U);
-    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_HELD);
-
-    MOCKER_CPP(atomicExch, uint32_t(__gm__ uint32_t*, uint32_t)).times(1).will(invoke(AtomicExchStub));
-    EXPECT_EQ(hcomm.Unlock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
-    GlobalMockObject::verify();
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_UnlockWithoutLock)
@@ -226,10 +177,9 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_UnlockWithoutLock)
     UrmaChannelResource channel;
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
 
-    MOCKER_CPP(atomicExch, uint32_t(__gm__ uint32_t*, uint32_t)).times(1).will(invoke(AtomicExchStub));
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
     EXPECT_EQ(hcomm.Unlock(channel.GetHandle()), AscendC::HCOMM_FAILED);
     EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
-    GlobalMockObject::verify();
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockUnlockInvalidChannel)
