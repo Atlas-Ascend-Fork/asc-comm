@@ -23,6 +23,7 @@
 - 提供Hcomm UT工程，覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。
 - 提供Ain UT工程，覆盖`ascend950pr_9599_AIV`的URMA路径下`Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession`接口用例。
 - 提供`hcomm_write_read_nbi`样例，演示AIV直驱URMA场景下`WriteNbi`和`ReadNbi`点对点通信流程，并包含运行样例所需的Host侧资源准备流程。
+- 提供SIMT URMA `WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`，以及对应的功能和性能验证样例。
 
 ### 📖 资料文档
 
@@ -49,6 +50,8 @@ asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载A
 | 协议能力 | `COMM_PROTOCOL_ROCE`支持读写、提交和等待；`COMM_PROTOCOL_UBC_CTP`支持读写、写通知、原子操作、提交和等待。 |
 | UT验证 | UT覆盖`ascend950pr_9599_AIV`的Hcomm RoCE/URMA路径与Ain URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
 | AIV直驱样例 | 提供`hcomm_write_read_nbi`样例，覆盖两卡AIV直驱URMA `WriteNbi`/`ReadNbi`对称通信和结果校验流程。 |
+| SIMT URMA Notify/Atomic接口 | 提供`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`；延迟任务由后续`commit=true`任务统一发布。 |
+| SIMT URMA Notify/Atomic样例 | 提供功能与性能样例，覆盖单接口、连续立即提交、batch-last和多lane提交。 |
 
 ### 如何使用Hcomm接口
 
@@ -109,7 +112,9 @@ Ain Kernel侧使用时包含如下头文件：
 ├── cmake                         # asc-comm CMake辅助模块
 ├── docs                          # 项目文档介绍
 ├── examples                      # asc-comm API样例目录
-│   └── hcomm_write_read_nbi      # Hcomm AIV直驱URMA两卡P2P通信样例
+│   ├── hcomm_write_read_nbi      # Hcomm AIV直驱URMA两卡P2P通信样例
+│   ├── simt_notify_atomic        # Hcomm SIMT URMA Notify/FAA/CAS功能样例
+│   └── simt_notify_atomic_perf   # Hcomm SIMT URMA Notify/FAA/CAS性能样例
 ├── include                       # asc-comm API声明源代码
 │   ├── aicore/hcomm              # AICore侧Hcomm公开接口
 │   └── aicore/ain                # AICore侧Ain单边通信公开接口

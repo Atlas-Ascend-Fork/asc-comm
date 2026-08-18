@@ -21,6 +21,7 @@
 - Delivers Hcomm UT projects covering RoCE/URMA paths for `ascend950pr_9599_AIV` and basic interface test cases for `ascend910B1_AIC`.
 - Delivers Ain UT project covering `Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession` test cases on the `ascend950pr_9599_AIV` URMA path.
 - Supplies the `hcomm_write_read_nbi` sample, demonstrating the point-to-point communication workflow of `WriteNbi` and `ReadNbi` under the AIV direct-driven URMA scenario, including Host-side resource preparation required to run the sample.
+- Provides SIMT URMA `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`, together with corresponding functional and performance samples.
 
 ### 📖 Documentation
 - Added [Quick Start](./docs/quick_start_en.md), [Build & Test](./docs/en/guide/build_and_test.md), [Third-party Dependencies & Compatibility](./docs/en/guide/dependencies.md).
@@ -44,6 +45,8 @@ The public capabilities include `AscendC::Hcomm` point-to-point communication an
 | Protocol Features | `COMM_PROTOCOL_ROCE`: read/write, commit and wait; `COMM_PROTOCOL_UBC_CTP`: read/write, write-with-notify, atomic operations, commit and wait. |
 | UT Verification | UTs cover Hcomm RoCE/URMA paths and the Ain URMA path on `ascend950pr_9599_AIV`, plus basic interface cases for `ascend910B1_AIC`. |
 | AIV Direct-drive Samples | `hcomm_write_read_nbi` demonstrates symmetric two-card AIV direct-driven URMA `WriteNbi`/`ReadNbi` communication and result validation. |
+| SIMT URMA Notify/Atomic Interfaces | Provides `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`; deferred tasks are published by a subsequent `commit=true` task. |
+| SIMT URMA Notify/Atomic Samples | Functional and performance samples cover isolated operations, repeated immediate submission, batch-last, and multi-lane submission. |
 
 ### How to Use Hcomm Interfaces
 Include the following header when invoking Hcomm on the Kernel side:
@@ -94,7 +97,9 @@ This repository contains AICore communication data plane APIs, device-side imple
 ├── cmake                         # CMake helper modules for asc-comm
 ├── docs                          # Project documentation
 ├── examples                      # asc-comm API samples
-│   └── hcomm_write_read_nbi      # Two-card P2P communication sample for AIV direct-driven URMA Hcomm
+│   ├── hcomm_write_read_nbi      # Two-card P2P communication sample for AIV direct-driven URMA Hcomm
+│   ├── simt_notify_atomic        # Hcomm SIMT URMA Notify/FAA/CAS functional sample
+│   └── simt_notify_atomic_perf   # Hcomm SIMT URMA Notify/FAA/CAS performance sample
 ├── include                       # asc-comm API declarations
 │   ├── aicore/hcomm              # Public AICore Hcomm interfaces
 │   └── aicore/ain                # Public AICore Ain one-sided communication interfaces
