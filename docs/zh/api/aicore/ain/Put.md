@@ -70,4 +70,4 @@ __aicore__ inline void Put(
 - 使用`AIN_COMMIT_DELAYED`时，本次任务不会立即响铃提交，需要后续至少提交一次`AIN_COMMIT_IMMED`的任务来保证之前任务已被提交。
 - `Put`提交的是非阻塞通信任务；需要调用`Flush`等待team内所有peer通道任务完成，或通过`FlushAsync`获取指定peer通道后调用`Wait`等待完成。
 - `AinSignalInc`和`AinSignalAdd`通过底层Hcomm原子加实现，signal地址应按`uint64_t`访问要求准备。
-- 当前只支持`COMM_PROTOCOL_UBC_CTP`协议路径，由于底层协议限制，单次调用`Put`数据传输长度最大不超过256MB，即入参bytes需要小于等于256 * 1024 * 1024。
+- 当前只支持`COMM_PROTOCOL_UBC_CTP`协议路径。单次调用`Put`的入参`bytes`取值范围为`0 < bytes <= 256 * 1024 * 1024`。

@@ -34,6 +34,7 @@ constexpr uint32_t HCOMM_URMA_CQE_U32_NUM = 16;
 constexpr uint32_t HCOMM_URMA_UDF_FLAG = 0x80U;
 constexpr uint32_t POLL_CQ_THRESHOLD = 10;
 constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
+constexpr uint32_t HCOMM_URMA_MUTEX_ID = 29U;
 
 constexpr uint32_t HCOMM_URMA_INVALID_REDUCE_DATA_TYPE = 0xFFFFFFFFU;
 template <typename T>
