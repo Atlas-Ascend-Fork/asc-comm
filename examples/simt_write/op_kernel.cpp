@@ -42,7 +42,9 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteSingleVf(
         return;
     }
     for (uint32_t i = 0; i < kSlotCount; ++i) {
-        (void)hcomm.WriteNbi<true>(channel, remoteAddr + i * kSlotBytes, localAddr + i * kSlotBytes, kSlotBytes);
+        if (hcomm.WriteNbi<true>(channel, remoteAddr + i * kSlotBytes, localAddr + i * kSlotBytes, kSlotBytes) != 0) {
+            return;
+        }
     }
     (void)hcomm.Drain(channel);
 }
@@ -65,17 +67,23 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteBatchLastVf(
         return;
     }
     for (uint32_t i = 0; i < kSlotCount - 1U; ++i) {
-        (void)hcomm.WriteNbi<false>(channel, remoteAddr + i * kSlotBytes, localAddr + i * kSlotBytes, kSlotBytes);
+        if (hcomm.WriteNbi<false>(channel, remoteAddr + i * kSlotBytes, localAddr + i * kSlotBytes, kSlotBytes) != 0) {
+            return;
+        }
     }
-    (void)hcomm.WriteNbi(
-        channel, remoteAddr + (kSlotCount - 1U) * kSlotBytes, localAddr + (kSlotCount - 1U) * kSlotBytes, kSlotBytes);
+    if (hcomm.WriteNbi(
+            channel, remoteAddr + (kSlotCount - 1U) * kSlotBytes, localAddr + (kSlotCount - 1U) * kSlotBytes,
+            kSlotBytes) != 0) {
+        return;
+    }
     (void)hcomm.Drain(channel);
 }
 
 // Lanes concurrently fill deferred SQ entries. The barrier ensures every WQE
 // is complete before lane 0 performs the only commit=true publication.
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteMultiLaneVf(
-    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* workspace, uint32_t workspaceBytes)
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* workspace, uint32_t workspaceBytes,
+    __ubuf__ uint32_t* postStatus)
 {
     if (threadIdx.x >= kMultiLaneCount || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
@@ -85,15 +93,28 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteMultiLaneVf(
 
     uint32_t lane = threadIdx.x;
     AscendC::simt::Hcomm<> hcomm;
+    if (lane == 0U) {
+        postStatus[0] = 0U;
+    }
+    asc_syncthreads();
     if (hcomm.Init(workspace, workspaceBytes) != 0) {
+        postStatus[0] = 1U;
+    }
+    asc_syncthreads();
+    if (postStatus[0] != 0U) {
         return;
     }
-    (void)hcomm.WriteNbi<false>(channel, remoteAddr + lane * kSlotBytes, localAddr + lane * kSlotBytes, kSlotBytes);
+    if (hcomm.WriteNbi<false>(channel, remoteAddr + lane * kSlotBytes, localAddr + lane * kSlotBytes, kSlotBytes) != 0) {
+        postStatus[0] = 1U;
+    }
 
     asc_syncthreads();
-    if (lane == 0U) {
-        (void)hcomm.WriteNbi<true>(
-            channel, remoteAddr + kMultiLaneCount * kSlotBytes, localAddr + kMultiLaneCount * kSlotBytes, kSlotBytes);
+    if (lane == 0U && postStatus[0] == 0U) {
+        if (hcomm.WriteNbi<true>(
+                channel, remoteAddr + kMultiLaneCount * kSlotBytes,
+                localAddr + kMultiLaneCount * kSlotBytes, kSlotBytes) != 0) {
+            return;
+        }
         (void)hcomm.Drain(channel);
     }
 }
@@ -117,9 +138,10 @@ extern "C" __global__ __vector__ void SimtWriteBatchLast(uint64_t channel, uint3
 extern "C" __global__ __vector__ void SimtWriteMultiLane(uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     alignas(kWorkspaceAlign) __ubuf__ uint64_t workspace[kMultiLaneWorkspaceWords];
+    __ubuf__ uint32_t postStatus[1];
     asc_vf_call<SimtWriteMultiLaneVf>(
         dim3(kMultiLaneCount), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__ubuf__ uint8_t*>(workspace),
-        sizeof(workspace));
+        sizeof(workspace), postStatus);
 }
 
 void LaunchSimtWrite(void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode)
