@@ -63,6 +63,9 @@ void CcuRepContext::Append(std::shared_ptr<CcuRep::CcuRepBase> rep)
 
 const std::vector<std::shared_ptr<CcuRep::CcuRepBase>>& CcuRepContext::GetRepSequence() { return mainBlock->GetReps(); }
 
+// 在主块 REP 序列中按指令槽位区间 [StartInstrId, StartInstrId + InstrCount - 1] 查找
+// 槽位所属的 REP（每个 REP 编译后占用的指令条数不定，槽位与 REP 非 1:1）；
+// 找不到返回 nullptr。FUNC_BLOCK 等容器 REP 命中后需由调用方继续下钻。
 std::shared_ptr<CcuRep::CcuRepBase> CcuRepContext::GetRepByInstrId(uint16_t instrId)
 {
     for (const auto& rep : GetRepSequence()) {
@@ -74,6 +77,7 @@ std::shared_ptr<CcuRep::CcuRepBase> CcuRepContext::GetRepByInstrId(uint16_t inst
         const uint16_t startId = rep->StartInstrId();
         const uint16_t endId = startId + repInstrCount - 1;
         HCCL_INFO("[%s]startId[%u], endId[%u], instrId[%u]", __func__, startId, endId, instrId);
+        // 槽位落在该 REP 占用的指令区间内，即归属这条 REP
         if (instrId >= startId && instrId <= endId) {
             return rep;
         }

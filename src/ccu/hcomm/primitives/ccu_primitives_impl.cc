@@ -20,6 +20,8 @@
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 
+namespace asccomm {
+
 // Alloc 相关接口
 CcuResult CcuVariableAlloc(CcuVariableHandle* varHandle)
 {
@@ -732,3 +734,5 @@ const char* _CcuDoWhileStackPopForWhile()
     }
     return kernel->DoWhileLabelStackPopForWhile();
 }
+
+} // namespace asccomm

@@ -25,7 +25,7 @@ class Array;
 
 class CcuBuffer final {
 public:
-    CcuBuffer() { CCU_THROW_IF_FAILED(CcuBufferAlloc(&this->handle), "CcuBufferAlloc: failed"); }
+    CcuBuffer() { CCU_THROW_IF_FAILED(::asccomm::CcuBufferAlloc(&this->handle), "CcuBufferAlloc: failed"); }
 
     CcuBuffer(const CcuBuffer& other) { this->handle = other.handle; }
 

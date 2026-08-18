@@ -57,6 +57,8 @@ bool CcuRepBlock::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& in
 
 std::string CcuRepBlock::Describe() { return asccomm::FormatCcuMessage("RepBlock"); }
 
+// 在块内 REP 序列中按槽位区间查找所属子 REP：FUNC_BLOCK 下钻解析（如 DfxBuilder 的 ResolveRep）
+// 依赖此逻辑逐层缩小到叶子 REP；块为空或槽位不在任何子 REP 区间内返回 nullptr
 std::shared_ptr<CcuRepBase> CcuRepBlock::GetRepByInstrId(uint16_t instrId)
 {
     for (const auto& rep : GetReps()) {
@@ -66,6 +68,7 @@ std::shared_ptr<CcuRepBase> CcuRepBlock::GetRepByInstrId(uint16_t instrId)
         }
         const uint16_t startId = rep->StartInstrId();
         const uint16_t endId = startId + repCount - 1;
+        // 槽位落在子 REP 占用的指令区间内，即命中
         if (instrId >= startId && instrId <= endId) {
             return rep;
         }

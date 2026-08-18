@@ -53,15 +53,15 @@ private:
             throw ::AscendC::ccu::detail::CcuException(
                 CcuResult::CCU_E_PARA, "ccu::Loop requires a no-argument ccu::Func");
         }
-        CCU_THROW_IF_FAILED(::CcuLoopCreate(&handle_), "CcuLoopCreate failed");
-        CCU_THROW_IF_FAILED(::_CcuLoopBodyEnter(handle_), "_CcuLoopBodyEnter failed");
+        CCU_THROW_IF_FAILED(::asccomm::CcuLoopCreate(&handle_), "CcuLoopCreate failed");
+        CCU_THROW_IF_FAILED(::asccomm::_CcuLoopBodyEnter(handle_), "_CcuLoopBodyEnter failed");
         try {
             func.RunBody(nullptr);
         } catch (...) {
-            (void)::_CcuLoopBodyExit(handle_);
+            (void)::asccomm::_CcuLoopBodyExit(handle_);
             throw;
         }
-        CCU_THROW_IF_FAILED(::_CcuLoopBodyExit(handle_), "_CcuLoopBodyExit failed");
+        CCU_THROW_IF_FAILED(::asccomm::_CcuLoopBodyExit(handle_), "_CcuLoopBodyExit failed");
     }
 
     CcuLoop handle_{0};
@@ -75,7 +75,7 @@ public:
     LoopGroup(Variable& parallelCfg, Variable& offsetCfg, uint32_t maxLoopNum, const std::vector<Loop>& loops)
     {
         CCU_THROW_IF_FAILED(
-            ::CcuLoopGroupCreateFromVar(&handle_, maxLoopNum, parallelCfg.handle, offsetCfg.handle),
+            ::asccomm::CcuLoopGroupCreateFromVar(&handle_, maxLoopNum, parallelCfg.handle, offsetCfg.handle),
             "CcuLoopGroupCreateFromVar failed");
         AddLoops(loops);
     }
@@ -83,7 +83,7 @@ public:
     LoopGroup(const CcuLoopGroupConfig& loopGroupCfg, uint32_t maxLoopNum, const std::vector<Loop>& loops)
     {
         CcuLoopGroupConfig localCfg = loopGroupCfg;
-        CCU_THROW_IF_FAILED(::CcuLoopGroupCreate(&handle_, maxLoopNum, &localCfg), "CcuLoopGroupCreate failed");
+        CCU_THROW_IF_FAILED(::asccomm::CcuLoopGroupCreate(&handle_, maxLoopNum, &localCfg), "CcuLoopGroupCreate failed");
         AddLoops(loops);
     }
 
@@ -100,11 +100,11 @@ private:
                         CcuResult::CCU_E_PARA, "ccu::Loop var-based loop has null loop parameter");
                 }
                 CCU_THROW_IF_FAILED(
-                    ::CcuLoopGroupAddLoopFromVar(handle_, loop.Handle(), loopParamVar->handle),
+                    ::asccomm::CcuLoopGroupAddLoopFromVar(handle_, loop.Handle(), loopParamVar->handle),
                     "CcuLoopGroupAddLoopFromVar failed");
             } else {
                 CCU_THROW_IF_FAILED(
-                    ::CcuLoopGroupAddLoop(handle_, loop.Handle(), loop.Config()), "CcuLoopGroupAddLoop failed");
+                    ::asccomm::CcuLoopGroupAddLoop(handle_, loop.Handle(), loop.Config()), "CcuLoopGroupAddLoop failed");
             }
         }
     }

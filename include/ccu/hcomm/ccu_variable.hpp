@@ -37,10 +37,10 @@ struct CondExpr {
 
 class Variable final {
 public:
-    Variable() { CCU_THROW_IF_FAILED(CcuVariableAlloc(&this->handle), "CcuVariableAlloc: failed"); }
+    Variable() { CCU_THROW_IF_FAILED(::asccomm::CcuVariableAlloc(&this->handle), "CcuVariableAlloc: failed"); }
 
     explicit Variable(CcuVariableHandle varHandle, uint32_t index = 0) {
-        CCU_THROW_IF_FAILED(CcuVariableGetByIndex(varHandle, index, &this->handle),
+        CCU_THROW_IF_FAILED(::asccomm::CcuVariableGetByIndex(varHandle, index, &this->handle),
             "CcuVariableGetByIndex: failed");
     }
 
@@ -51,7 +51,7 @@ public:
     void operator=(const Variable& other) const
     {
         CCU_THROW_IF_FAILED(
-            CcuVariableAssignVar(this->handle, other.handle),
+            ::asccomm::CcuVariableAssignVar(this->handle, other.handle),
             "Variable::operator=(Variable): CcuVariableAssignVar failed");
     }
 
@@ -60,14 +60,14 @@ public:
     void operator=(uint64_t immediate) const
     {
         CCU_THROW_IF_FAILED(
-            CcuVariableAssignImm(this->handle, immediate),
+            ::asccomm::CcuVariableAssignImm(this->handle, immediate),
             "Variable::operator=(uint64_t): CcuVariableAssignImm failed");
     }
 
     void operator=(detail::CcuArithmeticOperator<Variable, Variable> op) const
     {
         CCU_THROW_IF_FAILED(
-            CcuVariableAddVarToVar(this->handle, op.lhs.handle, op.rhs.handle),
+            ::asccomm::CcuVariableAddVarToVar(this->handle, op.lhs.handle, op.rhs.handle),
             "Variable::operator=(Var+Var): CcuVariableAddVarToVar failed");
     }
 
@@ -76,12 +76,12 @@ public:
         switch (op.type) {
             case detail::CcuShiftOperatorType::LEFT:
                 CCU_THROW_IF_FAILED(
-                    CcuVariableShlVarToVar(this->handle, op.lhs.handle, op.rhs.handle),
+                    ::asccomm::CcuVariableShlVarToVar(this->handle, op.lhs.handle, op.rhs.handle),
                     "Variable::operator=(Var<<Var): CcuVariableShlVarToVar failed");
                 break;
             case detail::CcuShiftOperatorType::RIGHT:
                 CCU_THROW_IF_FAILED(
-                    CcuVariableShrVarToVar(this->handle, op.lhs.handle, op.rhs.handle),
+                    ::asccomm::CcuVariableShrVarToVar(this->handle, op.lhs.handle, op.rhs.handle),
                     "Variable::operator=(Var>>Var): CcuVariableShrVarToVar failed");
                 break;
             default:
@@ -93,7 +93,7 @@ public:
     void operator+=(const Variable& other) const
     {
         CCU_THROW_IF_FAILED(
-            CcuVariableAddVarToVar(this->handle, this->handle, other.handle),
+            ::asccomm::CcuVariableAddVarToVar(this->handle, this->handle, other.handle),
             "Variable::operator+=(Variable): CcuVariableAddVarToVar failed");
     }
 
@@ -116,14 +116,14 @@ public:
     void operator<<=(const Variable& other) const
     {
         CCU_THROW_IF_FAILED(
-            CcuVariableShlVarToVar(this->handle, this->handle, other.handle),
+            ::asccomm::CcuVariableShlVarToVar(this->handle, this->handle, other.handle),
             "Variable::operator<<=(Variable): CcuVariableShlVarToVar failed");
     }
 
     void operator>>=(const Variable& other) const
     {
         CCU_THROW_IF_FAILED(
-            CcuVariableShrVarToVar(this->handle, this->handle, other.handle),
+            ::asccomm::CcuVariableShrVarToVar(this->handle, this->handle, other.handle),
             "Variable::operator>>=(Variable): CcuVariableShrVarToVar failed");
     }
 

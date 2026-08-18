@@ -27,7 +27,7 @@ public:
     LocalAddr() : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{})
     {
         CCU_THROW_IF_FAILED(
-            CcuLocalAddrAlloc(&this->handle, &this->addr.handle, &this->token.handle), "CcuLocalAddrAlloc: failed");
+            ::asccomm::CcuLocalAddrAlloc(&this->handle, &this->addr.handle, &this->token.handle), "CcuLocalAddrAlloc: failed");
     }
 
     LocalAddr(const LocalAddr& other) : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{})

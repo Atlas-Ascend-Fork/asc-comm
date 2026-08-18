@@ -33,10 +33,10 @@ struct CcuArrayTraits;
 template <>
 struct CcuArrayTraits<Variable> {
     using Handle = CcuVariableHandle;
-    static CcuResult BlockAlloc(Handle* h, uint32_t n) { return CcuBlockVariableAlloc(h, n); }
+    static CcuResult BlockAlloc(Handle* h, uint32_t n) { return ::asccomm::CcuBlockVariableAlloc(h, n); }
     static CcuResult CreateByAcquire(Handle acqHandle, uint32_t index, Handle* h)
     {
-        return CcuVariableGetByIndex(acqHandle, index, h);
+        return ::asccomm::CcuVariableGetByIndex(acqHandle, index, h);
     }
     static void SetHandle(Variable& v, Handle h) { v.handle = h; }
 };
@@ -44,10 +44,10 @@ struct CcuArrayTraits<Variable> {
 template <>
 struct CcuArrayTraits<Event> {
     using Handle = CcuEventHandle;
-    static CcuResult BlockAlloc(Handle* h, uint32_t n) { return CcuBlockEventAlloc(h, n); }
+    static CcuResult BlockAlloc(Handle* h, uint32_t n) { return ::asccomm::CcuBlockEventAlloc(h, n); }
     static CcuResult CreateByAcquire(Handle acqHandle, uint32_t index, Handle* h)
     {
-        return CcuEventGetByIndex(acqHandle, index, h);
+        return ::asccomm::CcuEventGetByIndex(acqHandle, index, h);
     }
     static void SetHandle(Event& e, Handle h) { e.handle = h; }
 };
@@ -55,7 +55,7 @@ struct CcuArrayTraits<Event> {
 template <>
 struct CcuArrayTraits<CcuBuffer> {
     using Handle = CcuBufferHandle;
-    static CcuResult BlockAlloc(Handle* h, uint32_t n) { return CcuBlockBufferAlloc(h, n); }
+    static CcuResult BlockAlloc(Handle* h, uint32_t n) { return ::asccomm::CcuBlockBufferAlloc(h, n); }
     static void SetHandle(CcuBuffer& b, Handle h) { b.handle = h; }
 };
 
