@@ -63,6 +63,12 @@ typedef enum {
     HCOMM_REGED_BUFFER_RMA = 1,
 } HcommRegedBufferType;
 
+typedef enum {
+    HCOMM_NOTIFY_TYPE_HCCS = 0,
+    HCOMM_NOTIFY_TYPE_RMA = 1,
+    HCOMM_NOTIFY_TYPE_LOCAL = 2,
+} HcommNotifyType;
+
 typedef struct {
     HcommProtectionType type;
     union {
@@ -210,6 +216,9 @@ typedef struct {
             uint32_t size;     ///< Notify资源占用字节数
         } hccs;                ///< HCCS场景的Notify描述
         HcommRmaNotify rma;    ///< UB/RoCE场景的RMA Notify描述
+        struct {
+            int32_t notifyId;  ///< 本地信号量Notify资源ID；负值表示无效
+        } local;               ///< Thread本地Notify描述
         int8_t reserve[64];    ///< Notify描述扩展空间
     } notify;                  ///< 类型相关的Notify资源
 } HcommNotify;
@@ -250,17 +259,12 @@ typedef struct {
 } HcommChannelEntity;
 
 typedef struct {
-    uint32_t devPhyId;       ///**add** Stream所属物理设备ID，保留用于资源标识和任务上报
     uint32_t localDevId;     ///**add** 调用halSqCqQuery/halSqCqConfig使用的本地设备ID
     uint32_t streamId;       ///**add** RTSQ关联的Stream ID，写入部分SQE或用于诊断
     uint32_t sqId;           ///< 硬件RTSQ编号
     uint32_t sqDepth;        ///< 硬件RTSQ可容纳的SQE数量
     uint32_t sqHead;         ///**add** 最近一次查询到的硬件RTSQ Head
     uint32_t sqTail;         ///**add** POD运行时维护的硬件RTSQ Tail
-    uint32_t taskId;         ///**add** 下一个SQE使用的任务ID基值
-    uint32_t taskIdEnd;      ///**add** 当前批次任务ID的结束边界，到达后重新申请
-    uint32_t pendingSqeCnt;  ///**add** localSqeBuffer中尚未提交到硬件RTSQ的SQE数量
-    uint32_t sqFullTimeout;  ///**add** 等待硬件RTSQ空闲的超时秒数；0表示不启用超时判断
     uint64_t sqBaseAddr;     ///< 硬件RTSQ SQE环形缓冲区的CPU虚拟地址
     uint8_t launchFlag;      ///**add** 非0时在非Batch模式下每生成一个SQE立即提交
     uint8_t reserved[3];     ///**add** RTSQ状态扩展及对齐空间，创建资源时置0

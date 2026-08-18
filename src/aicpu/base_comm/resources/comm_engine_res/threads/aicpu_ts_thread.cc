@@ -141,8 +141,8 @@ HcclResult AicpuTsThread::ExportPodResource(HcommThreadEntity *&entity)
         LocalNotify *notify = GetNotify(index);
         CHK_PTR_NULL(notify);
         podNotifies_[index] = {};
-        podNotifies_[index].notify.rma.notifyId = static_cast<int32_t>(notify->notifyId_);
-        podNotifies_[index].notify.rma.size = sizeof(uint32_t);
+        podNotifies_[index].type = HCOMM_NOTIFY_TYPE_LOCAL;
+        podNotifies_[index].notify.local.notifyId = static_cast<int32_t>(notify->notifyId_);
     }
 
     CHK_RET(rtsq->ExportPodResource(podRtsq_));
@@ -150,7 +150,6 @@ HcclResult AicpuTsThread::ExportPodResource(HcommThreadEntity *&entity)
     podEntity_ = {};
     podEntity_.abiHeader = {
         HCOMM_POD_THREAD_VERSION, HCOMM_POD_THREAD_MAGIC_WORD, sizeof(HcommThreadEntity), 0};
-    podEntity_.devInfo.devId = podRtsq_.devPhyId;
     podEntity_.localNotifyNum = static_cast<uint32_t>(podNotifies_.size());
     podEntity_.localNotifyAddr = podNotifies_.empty() ? nullptr : podNotifies_.data();
     podEntity_.sqContextAddr = &podRtsq_;
