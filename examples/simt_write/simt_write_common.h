@@ -46,40 +46,16 @@ constexpr uint64_t kBufferBytes = kSlotCount * kSlotBytes;
 #define HCOMM_SIMT_WRITE_DEVICE_FN
 #endif
 
-HCOMM_SIMT_WRITE_DEVICE_FN constexpr uint64_t SlotValue(uint32_t slot)
-{
-    return static_cast<uint64_t>(slot) + 1U;
-}
+HCOMM_SIMT_WRITE_DEVICE_FN constexpr uint64_t SlotValue(uint32_t slot) { return static_cast<uint64_t>(slot) + 1U; }
 
 // Ways of driving the SIMT write interfaces.
-constexpr uint32_t kModeSingle = 0U;    // one WriteNbi<commit=true>, single lane
+// Every Hcomm interface is called by a single lane, so all modes below drive one lane.
+constexpr uint32_t kModeSingle = 0U;    // one WriteNbi<commit=true> per slot, single lane
 constexpr uint32_t kModeBatchLast = 1U; // N-1 serial WriteNbi<false> + WriteNbi<true>, single lane
-constexpr uint32_t kModeMultiLane = 2U; // N-1 concurrent WriteNbi<false>, barrier, then WriteNbi<true>
 // WriteValueNbi carries the payload inline in the WQE instead of pointing at a local buffer,
 // so the sender needs no send buffer at all for this mode.
-constexpr uint32_t kModeValueSingle = 3U;    // one WriteValueNbi<commit=true> per slot, single lane
-constexpr uint32_t kModeValueBatchLast = 4U; // N-1 serial WriteValueNbi<false> + WriteValueNbi<true>
-constexpr uint32_t kModeValueMultiLane = 5U; // N-1 concurrent WriteValueNbi<false>, barrier, then commit
-
-// Lane count for the multi-lane modes: one lane per deferred post, with lane 0 also driving the
-// final immediate post after the barrier.
-constexpr uint32_t kMultiLaneCount = kSlotCount - 1U;
-
-// Hcomm::Init needs 128 bytes of WQE staging per lane in the block. Supplying 32 more bytes per
-// lane plus one aligned 128-byte region also enables the per-lane remote-registration cache and
-// the block-shared post context; both are optional and fall back to global-memory lookup.
-constexpr uint32_t kRemoteCacheBytes = 32U;
-constexpr uint32_t kPostContextBytes = 128U;
-constexpr uint32_t kWorkspaceAlign = 128U;
-
-constexpr uint32_t HcommWorkspaceBytes(uint32_t laneCount)
-{
-    // Hcomm stages every WQE in lane-private storage, so the workspace only holds the two
-    // optional caches: one remote-registration entry per lane plus the block-shared post
-    // context, which sits in its own aligned 128-byte region.
-    return (((laneCount * kRemoteCacheBytes) + kWorkspaceAlign - 1U) & ~(kWorkspaceAlign - 1U)) +
-           kPostContextBytes;
-}
+constexpr uint32_t kModeValueSingle = 2U;    // one WriteValueNbi<commit=true> per slot, single lane
+constexpr uint32_t kModeValueBatchLast = 3U; // N-1 serial WriteValueNbi<false> + WriteValueNbi<true>
 
 } // namespace simt_write
 

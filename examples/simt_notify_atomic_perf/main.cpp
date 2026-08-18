@@ -48,16 +48,16 @@
 
 extern void LaunchSimtNotifyPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t payloadBytes,
-    uint32_t iterations, uint32_t warmup, uint32_t laneCount);
+    uint32_t iterations, uint32_t warmup);
 extern void LaunchSimtFaaPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t iterations,
-    uint32_t warmup, uint32_t laneCount);
+    uint32_t warmup);
 extern void LaunchSimtCasPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t iterations,
-    uint32_t warmup, uint32_t laneCount);
+    uint32_t warmup);
 extern void LaunchSimtLastCommitPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t payloadBytes,
-    uint32_t iterations, uint32_t warmup, uint32_t api, uint32_t laneCount);
+    uint32_t iterations, uint32_t warmup, uint32_t api);
 
 namespace {
 using namespace simt_notify_atomic_perf;
@@ -255,8 +255,9 @@ int main(int argc, char* argv[])
     const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
     const uint32_t laneCount = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
     const std::string commitMode = argv[9];
-    if (nranks < 2 || !ValidApi(api) || iterations == 0U || payloadBytes == 0U ||
-        (laneCount != 1U && laneCount != 32U && laneCount != 1024U) ||
+    // Only one lane may drive a channel, so the lane count is fixed at 1. The argument is kept so
+    // the RESULT line stays comparable with earlier multi-lane runs.
+    if (nranks < 2 || !ValidApi(api) || iterations == 0U || payloadBytes == 0U || laneCount != 1U ||
         (commitMode != "immediate" && commitMode != "last")) {
         std::cout << "Invalid argument." << std::endl;
         return 1;
@@ -298,14 +299,14 @@ int main(int argc, char* argv[])
         if (commitMode == "last") {
             LaunchSimtLastCommitPerf(
                 stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, payloadBytes, iterations, warmup,
-                ApiIndex(api), laneCount);
+                ApiIndex(api));
         } else if (api == "notify") {
             LaunchSimtNotifyPerf(
-                stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, payloadBytes, iterations, warmup, laneCount);
+                stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, payloadBytes, iterations, warmup);
         } else if (api == "faa") {
-            LaunchSimtFaaPerf(stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, iterations, warmup, laneCount);
+            LaunchSimtFaaPerf(stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, iterations, warmup);
         } else {
-            LaunchSimtCasPerf(stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, iterations, warmup, laneCount);
+            LaunchSimtCasPerf(stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, iterations, warmup);
         }
         ACLCHECK(aclrtSynchronizeStream(stream));
         ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));

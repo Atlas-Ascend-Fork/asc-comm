@@ -19,7 +19,7 @@ Options:
   --iterations N      Timed WQE count, default: 1024
   --warmup N          Warmup WQE count, default: 100
   --payload-bytes N   Notify payload bytes, default: 4096; FAA/CAS always use 8B
-  --lanes N           SIMT lanes: 1, 32, or 1024; default: 1
+  --lanes N           SIMT lanes; only 1 is supported (one lane per channel); default: 1
   --commit-mode MODE  immediate or last; default: immediate
   --log FILE          Output log file
 EOF
@@ -69,8 +69,8 @@ done
 [[ "$payload_bytes" =~ ^[0-9]+$ && "$payload_bytes" -gt 0 ]] || {
     echo "--payload-bytes must be a positive integer" >&2; exit 1;
 }
-[[ "$lanes" == "1" || "$lanes" == "32" || "$lanes" == "1024" ]] || {
-    echo "--lanes must be 1, 32, or 1024" >&2; exit 1;
+[[ "$lanes" == "1" ]] || {
+    echo "--lanes must be 1: a channel is driven by a single lane" >&2; exit 1;
 }
 [[ "$commit_mode" == "immediate" || "$commit_mode" == "last" ]] || {
     echo "--commit-mode must be immediate or last" >&2; exit 1;

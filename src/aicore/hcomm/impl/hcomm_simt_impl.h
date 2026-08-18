@@ -41,23 +41,9 @@ __simt_callee__ inline Hcomm<commProtocol, Group>::~Hcomm()
 {}
 
 template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Init(__ubuf__ uint8_t* buff, uint32_t len)
+__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Init()
 {
-    return impl_.Init(buff, len);
-}
-
-template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::ReserveDwqeBurst(
-    ChannelHandle channel, __gm__ void* targetAddr, uint64_t len, uint32_t wqeCnt)
-{
-    return impl_.ReserveDwqeBurst(channel, targetAddr, len, wqeCnt);
-}
-
-template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::ReserveDwqeBatch(
-    ChannelHandle channel, __ubuf__ uint32_t* state, bool active, uint32_t activeWqeCnt, uint32_t commitLane)
-{
-    return impl_.ReserveDwqeBatch(channel, state, active, activeWqeCnt, commitLane);
+    return impl_.Init();
 }
 
 template <CommProtocol commProtocol, typename Group>

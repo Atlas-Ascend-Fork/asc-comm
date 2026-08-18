@@ -12,8 +12,8 @@ set -euo pipefail
 
 if [ "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
     echo "Usage: $0 <nranks> <rankTableFilePath> [mode]"
-    echo "  mode: single (default) | batch_last | multi_lane"
-    echo "        value_single | value_batch_last | value_multi_lane"
+    echo "  mode: single (default) | batch_last"
+    echo "        value_single | value_batch_last"
     exit 1
 fi
 
@@ -22,12 +22,12 @@ rank_table_file="$2"
 mode="${3:-single}"
 
 case "$mode" in
-    single | batch_last | multi_lane) ;;
-    value_single | value_batch_last | value_multi_lane) ;;
+    single | batch_last) ;;
+    value_single | value_batch_last) ;;
     *)
         echo "Unknown mode: $mode"
-        echo "  mode: single (default) | batch_last | multi_lane"
-        echo "        value_single | value_batch_last | value_multi_lane"
+        echo "  mode: single (default) | batch_last"
+        echo "        value_single | value_batch_last"
         exit 1
         ;;
 esac
