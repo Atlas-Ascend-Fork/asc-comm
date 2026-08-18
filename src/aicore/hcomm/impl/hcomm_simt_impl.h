@@ -51,7 +51,12 @@ template <bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    return impl_.template WriteNbi<commit, config>(channel, dst, src, len);
+    int32_t status = HCOMM_SUCCESS;
+    if (group_.thread_rank() == 0U) {
+        status = impl_.template WriteNbi<commit, config>(channel, dst, src, len);
+    }
+    group_.sync();
+    return status;
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -71,7 +76,12 @@ template <bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::ReadNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    return impl_.template ReadNbi<commit, config>(channel, dst, src, len);
+    int32_t status = HCOMM_SUCCESS;
+    if (group_.thread_rank() == 0U) {
+        status = impl_.template ReadNbi<commit, config>(channel, dst, src, len);
+    }
+    group_.sync();
+    return status;
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -80,7 +90,12 @@ __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteWithNotifyNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
     uint64_t notifyVal)
 {
-    return impl_.template WriteWithNotifyNbi<commit, config>(channel, dst, src, len, notifyAddr, notifyVal);
+    int32_t status = HCOMM_SUCCESS;
+    if (group_.thread_rank() == 0U) {
+        status = impl_.template WriteWithNotifyNbi<commit, config>(channel, dst, src, len, notifyAddr, notifyVal);
+    }
+    group_.sync();
+    return status;
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -88,7 +103,12 @@ template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicFAA(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
 {
-    return impl_.template AtomicFAA<T, commit, config>(channel, dst, fetchAddr, addVal);
+    int32_t status = HCOMM_SUCCESS;
+    if (group_.thread_rank() == 0U) {
+        status = impl_.template AtomicFAA<T, commit, config>(channel, dst, fetchAddr, addVal);
+    }
+    group_.sync();
+    return status;
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -96,7 +116,12 @@ template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicCAS(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
 {
-    return impl_.template AtomicCAS<T, commit, config>(channel, dst, fetchAddr, compareVal, swapVal);
+    int32_t status = HCOMM_SUCCESS;
+    if (group_.thread_rank() == 0U) {
+        status = impl_.template AtomicCAS<T, commit, config>(channel, dst, fetchAddr, compareVal, swapVal);
+    }
+    group_.sync();
+    return status;
 }
 
 template <CommProtocol commProtocol, typename Group>

@@ -29,7 +29,14 @@
 namespace AscendC::simt {
 
 namespace detail {
-struct HcommUnboundGroup {};
+struct HcommUnboundGroup {
+    __simt_callee__ inline uint32_t thread_rank() const
+    {
+        return threadIdx.x + blockDim.x * (threadIdx.y + blockDim.y * threadIdx.z);
+    }
+
+    __simt_callee__ inline void sync() const {}
+};
 } // namespace detail
 
 // clang-format off
@@ -50,9 +57,10 @@ struct HcommUnboundGroup {};
  * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
- * @note Multiple lanes may concurrently post with commit=false on the same channel. The caller
- *       must synchronize them before one lane posts with commit=true and then calls Drain.
- *       Concurrent commit=true calls on the same channel are not supported.
+ * @note Hcomm launches communication only from group rank 0 and synchronizes the group before
+ *       returning. Every member of an explicitly bound group must call each communication API.
+ *       Without a bound group, only linear thread-block rank 0 launches communication and no
+ *       implicit group synchronization is performed.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
  *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
  *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
@@ -68,8 +76,9 @@ public:
 
     /*!
      * @brief Construct Hcomm and bind it to a cooperative group.
-     * @param [in] group: The cooperative group used by future group-level communication APIs.
-     * @note Binding a group does not change the behavior of existing per-lane APIs.
+     * @param [in] group: The cooperative group used by communication APIs.
+     * @note Every member of the bound group must call each communication API. Only rank 0 launches
+     *       the task, and all members synchronize before the API returns.
      */
     __simt_callee__ inline explicit Hcomm(const Group& group);
     __simt_callee__ inline ~Hcomm();
