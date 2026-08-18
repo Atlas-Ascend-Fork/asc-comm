@@ -26,8 +26,8 @@ using namespace simt_write;
 constexpr uint32_t kSingleLaneWorkspaceWords = HcommWorkspaceBytes(1U) / sizeof(uint64_t);
 constexpr uint32_t kMultiLaneWorkspaceWords = HcommWorkspaceBytes(kMultiLaneCount) / sizeof(uint64_t);
 
-// Scenario 1: serialize immediate DWQE posts. The DWQE window is reused by every
-// WriteNbi<true>, so wait for its CQE before preparing the next WQE.
+// Scenario 1: kSlotCount independent WriteNbi<commit=true> calls. Each post rings its own
+// doorbell, so nothing else is needed before Drain.
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteSingleVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* workspace, uint32_t workspaceBytes,
     __gm__ int32_t* status)
@@ -49,11 +49,8 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteSingleVf(
         if (status[kStatusPost] != 0) {
             return;
         }
-        status[kStatusDrain] = hcomm.Drain(channel);
-        if (status[kStatusDrain] != 0) {
-            return;
-        }
     }
+    status[kStatusDrain] = hcomm.Drain(channel);
 }
 
 // Scenario 2: one lane issues kSlotCount - 1 deferred posts serially, then a
