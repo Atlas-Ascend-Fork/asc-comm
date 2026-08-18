@@ -47,7 +47,7 @@ __simt_callee__ inline void HcommSimtCopyUbToGm(__gm__ uint8_t* dst, __ubuf__ ui
     static_assert(byteSize <= HCOMM_URMA_DWQE_SIZE, "UB WQE copy must stay inside the DWQE window");
 #pragma unroll
     for (uint32_t i = 0; i < byteSize / sizeof(uint64_t); ++i) {
-        ((__gm__ uint64_t*)dst)[i] = ((__ubuf__ uint64_t*)src)[i];
+        asc_stwt(((__gm__ uint64_t*)dst) + i, ((__ubuf__ uint64_t*)src)[i]);
     }
 }
 
@@ -554,9 +554,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     HcommSimtCopyUbWqeToSq<bbCnt>(sqBaseAddr, sqeAddr, sqDepth, curHead, wqeItem_);
     if constexpr (commit) {
         HcommSimtRingDwqeFromUbStwt16(post.dwqeAddr, wqeItem_);
-    } else {
-        asc_threadfence();
     }
+    asc_threadfence();
     return HCOMM_SUCCESS;
 }
 
@@ -589,9 +588,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
     HcommSimtCopyUbWqeToSq<HCOMM_URMA_DWQE_BB_CNT>(sqBaseAddr, sqeAddr, sqDepth, curHead, wqeItem_);
     if constexpr (commit) {
         HcommSimtRingDwqeFromUbStwt16(post.dwqeAddr, wqeItem_);
-    } else {
-        asc_threadfence();
     }
+    asc_threadfence();
     return HCOMM_SUCCESS;
 }
 
@@ -628,9 +626,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
     HcommSimtCopyUbWqeToSq<HCOMM_URMA_DWQE_BB_CNT>(sqBaseAddr, sqeAddr, sqDepth, curHead, wqeItem_);
     if constexpr (commit) {
         HcommSimtRingDwqeFromUbStwt16(post.dwqeAddr, wqeItem_);
-    } else {
-        asc_threadfence();
     }
+    asc_threadfence();
     return HCOMM_SUCCESS;
 }
 
