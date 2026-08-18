@@ -51,6 +51,12 @@ constexpr uint32_t kModeBatchLast = 1U; // N-1 serial WriteNbi<false> + WriteNbi
 constexpr uint32_t kModeMultiLane = 2U; // N-1 concurrent WriteNbi<false>, barrier, then one WriteNbi<true>
 constexpr uint32_t kMultiLaneCount = kSlotCount - 1U;
 
+// Device-side diagnostic slots, copied back by the host after the sender kernel completes.
+constexpr uint32_t kStatusInit = 0U;
+constexpr uint32_t kStatusPost = 1U;
+constexpr uint32_t kStatusDrain = 2U;
+constexpr uint32_t kStatusCount = 3U;
+
 // Hcomm::Init needs 128 bytes of WQE staging per lane in the block. Supplying 32 more bytes per
 // lane plus one aligned 128-byte region also enables the per-lane remote-registration cache and
 // the block-shared post context; both are optional and fall back to global-memory lookup.

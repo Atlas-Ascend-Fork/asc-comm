@@ -13,6 +13,7 @@
  * \brief Hcomm SIMT WriteNbi样例Host侧流程：通信域创建、内存注册、P2P通道创建与结果校验
  */
 
+#include <array>
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
@@ -51,7 +52,8 @@
         }                                                                                         \
     } while (0)
 
-extern void LaunchSimtWrite(void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode);
+extern void LaunchSimtWrite(
+    void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode, int32_t* status);
 
 namespace {
 
@@ -361,6 +363,20 @@ bool CheckBuffer(void* recvBuf, uint32_t mode, int rank)
     return pass;
 }
 
+bool CheckKernelStatus(void* statusBuf, int rank)
+{
+    std::array<int32_t, kStatusCount> status{};
+    aclError ret = aclrtMemcpy(
+        status.data(), sizeof(status), statusBuf, sizeof(status), ACL_MEMCPY_DEVICE_TO_HOST);
+    if (ret != ACL_SUCCESS) {
+        std::cout << "[rank " << rank << "] simt_write read kernel status failed, retcode: " << ret << std::endl;
+        return false;
+    }
+    std::cout << "[rank " << rank << "] simt_write kernel status: init=" << status[kStatusInit]
+              << " post=" << status[kStatusPost] << " drain=" << status[kStatusDrain] << std::endl;
+    return status[kStatusInit] == 0 && status[kStatusPost] == 0 && status[kStatusDrain] == 0;
+}
+
 } // namespace
 
 int main(int argc, char* argv[])
@@ -398,6 +414,9 @@ int main(int argc, char* argv[])
     ACLCHECK(aclrtMalloc(&sendBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
     void* recvBuf = nullptr;
     ACLCHECK(aclrtMalloc(&recvBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
+    void* statusBuf = nullptr;
+    ACLCHECK(aclrtMalloc(&statusBuf, kStatusCount * sizeof(int32_t), ACL_MEM_MALLOC_HUGE_FIRST));
+    ACLCHECK(aclrtMemset(statusBuf, kStatusCount * sizeof(int32_t), 0, kStatusCount * sizeof(int32_t)));
     ACLCHECK(InitBuffers(sendBuf, recvBuf));
 
     // Both ranks register both buffers under the same tags, so the sender can look up the
@@ -405,8 +424,11 @@ int main(int argc, char* argv[])
     CommMem sendMem{COMM_MEM_TYPE_DEVICE, sendBuf, kBufferBytes};
     CommMem recvMem{COMM_MEM_TYPE_DEVICE, recvBuf, kBufferBytes};
     HcclMemHandle memHandles[2] = {nullptr, nullptr};
-    constexpr uint32_t kLocalSendIdx = 0U;
-    HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kLocalSendIdx]));
+    constexpr uint32_t kSendMemHandleIdx = 0U;
+    // Channel buffer-table slot 0 is the CCL internal buffer; explicitly registered
+    // memory starts at slot 1 (as in the Notify/Atomic examples).
+    constexpr uint32_t kLocalSendIdx = 1U;
+    HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kSendMemHandleIdx]));
     HCCLCHECK(HcclCommMemReg(hcclComm, kRecvBufTag, &recvMem, &memHandles[1]));
 
     const uint32_t peerRank =
@@ -423,8 +445,11 @@ int main(int argc, char* argv[])
     if (rank == kSenderRank) {
         std::cout << "[rank " << rank << "] simt_write mode=" << ModeName(mode) << " sending to rank " << kRecvRank
                   << std::endl;
-        LaunchSimtWrite(stream, channel, kLocalSendIdx, remoteRecvIdx, mode);
+        LaunchSimtWrite(stream, channel, kLocalSendIdx, remoteRecvIdx, mode, static_cast<int32_t*>(statusBuf));
         ACLCHECK(aclrtSynchronizeStream(stream));
+        if (!CheckKernelStatus(statusBuf, rank)) {
+            std::cout << "[rank " << rank << "] simt_write kernel reported a failure" << std::endl;
+        }
     }
 
     // Separates the sender's kernel from the receiver's read. kSenderRank only arrives here
@@ -442,6 +467,7 @@ int main(int argc, char* argv[])
 
     ACLCHECK(aclrtFree(sendBuf));
     ACLCHECK(aclrtFree(recvBuf));
+    ACLCHECK(aclrtFree(statusBuf));
     HCCLCHECK(HcclCommDestroy(hcclComm));
     ACLCHECK(aclrtDestroyStream(stream));
     ACLCHECK(aclFinalize());
