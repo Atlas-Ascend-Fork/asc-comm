@@ -157,6 +157,13 @@ __simt_callee__ inline void HcommSimtUrmaFillUbDataWqe(
         lastSgeCtx->len = lastLen;
         lastSgeCtx->tokenId = 0U;
         lastSgeCtx->va = reinterpret_cast<uint64_t>(localAddr + firstLen);
+
+        // An immediate data post copies the entire 128-byte DWQE window. The
+        // unused tail must not retain fields from an earlier WQE.
+#pragma unroll
+        for (uint32_t i = 10U; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
+            reinterpret_cast<__ubuf__ uint64_t*>(wqeAddr)[i] = 0U;
+        }
     }
 }
 
@@ -542,18 +549,12 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     uint32_t sqDepth = post.meta.sqDepth;
     __gm__ uint8_t* sqeAddr = reinterpret_cast<__gm__ uint8_t*>(sqBaseAddr + wqeSize * (curHead % sqDepth));
 
+    HcommSimtUrmaFillUbDataWqe<opCode, sgeNum, config>(
+        wqeItem_, remoteAddr, localAddr, len, post.meta, curHead, nextHead);
+    HcommSimtCopyUbWqeToSq<bbCnt>(sqBaseAddr, sqeAddr, sqDepth, curHead, wqeItem_);
     if constexpr (commit) {
-        HcommSimtPackedSqeTemplate sqeTemplate;
-        HcommSimtBuildPackedSqeTemplate<sgeNum>(post.meta, sqeTemplate);
-        HcommSimtLocalWqeStage localStage;
-        HcommSimtBuildLocalDataWqe<opCode, sgeNum, config>(
-            localStage, remoteAddr, localAddr, len, sqeTemplate, curHead, nextHead);
-        HcommSimtPublishLocalWqe(sqBaseAddr, sqeAddr, sqDepth, curHead, post.dwqeAddr, localStage);
-        return HCOMM_SUCCESS;
+        HcommSimtRingDwqeFromUbStwt16(post.dwqeAddr, wqeItem_);
     } else {
-        HcommSimtUrmaFillUbDataWqe<opCode, sgeNum, config>(
-            wqeItem_, remoteAddr, localAddr, len, post.meta, curHead, nextHead);
-        HcommSimtCopyUbWqeToSq<bbCnt>(sqBaseAddr, sqeAddr, sqDepth, curHead, wqeItem_);
         asc_threadfence();
     }
     return HCOMM_SUCCESS;
