@@ -22,6 +22,7 @@ project(simt_write LANGUAGES ASC CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # Only the kernel is compiled as ASC. main.cpp is plain host C++ talking to HCCL, so keeping it
 # on the CXX toolchain avoids pulling the device compiler into the host translation unit.
@@ -37,18 +38,38 @@ add_executable(simt_write
     simt_write_common.h
 )
 
+target_compile_definitions(simt_write PRIVATE
+    USE_SIMT
+)
+
+set_target_properties(simt_write PROPERTIES
+    LINKER_LANGUAGE ASC
+)
+
 target_include_directories(simt_write BEFORE PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     $ENV{ASCEND_HOME_PATH}/include
     $<$<COMPILE_LANGUAGE:ASC>:$ENV{ASCEND_HOME_PATH}/asc/include/comm_api>
 )
 
-# 链接 hcomm 库：Host 侧通信域创建(HcclCommInitClusterInfo)、内存注册(HcclCommMemReg)、
-# 通道创建(HcclChannelAcquire)等接口由 libhcomm.so 提供。
+# Host-side communication-domain, memory-registration and channel APIs are provided by libhcomm.so.
+target_link_directories(simt_write PRIVATE
+    $ENV{ASCEND_HOME_PATH}/lib64
+    $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/lib64
+)
+
 target_link_libraries(simt_write PRIVATE
     hcomm
+    hccl
+    ascendcl
+    acl_rt
+    runtime
+    c_sec
+    dl
+    pthread
 )
 
 target_compile_options(simt_write PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
+    $<$<COMPILE_LANGUAGE:ASC>:--cce-auto-infer-kernel-type=false>
 )
