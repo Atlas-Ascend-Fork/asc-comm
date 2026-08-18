@@ -15,6 +15,7 @@
 
 #include "kernel_operator.h"
 #include "simt_api/asc_simt.h"
+#include "simt_api/cooperative_groups.h"
 
 #include "hcomm/hcomm_simt.h"
 
@@ -72,8 +73,8 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteBatchLastVf(
     (void)hcomm.Drain(channel);
 }
 
-// Lanes concurrently fill deferred SQ entries. The barrier ensures every WQE
-// is complete before lane 0 performs the only commit=true publication.
+// Every member of the thread-block group calls the same interfaces. Hcomm lets
+// only group rank 0 fill the SQ and publish the final WQE.
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteMultiLaneVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* workspace, uint32_t workspaceBytes)
 {
@@ -83,19 +84,21 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteMultiLaneVf(
     __gm__ uint8_t* localAddr = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteAddr = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
-    uint32_t lane = threadIdx.x;
-    AscendC::simt::Hcomm<> hcomm;
+    auto group = cooperative_groups::this_thread_block();
+    AscendC::simt::Hcomm hcomm(group);
     if (hcomm.Init(workspace, workspaceBytes) != 0) {
         return;
     }
-    (void)hcomm.WriteNbi<false>(channel, remoteAddr + lane * kSlotBytes, localAddr + lane * kSlotBytes, kSlotBytes);
-
-    asc_syncthreads();
-    if (lane == 0U) {
-        (void)hcomm.WriteNbi<true>(
-            channel, remoteAddr + kMultiLaneCount * kSlotBytes, localAddr + kMultiLaneCount * kSlotBytes, kSlotBytes);
+    for (uint32_t slot = 0U; slot < kMultiLaneCount; ++slot) {
+        (void)hcomm.WriteNbi<false>(
+            channel, remoteAddr + slot * kSlotBytes, localAddr + slot * kSlotBytes, kSlotBytes);
+    }
+    (void)hcomm.WriteNbi<true>(
+        channel, remoteAddr + kMultiLaneCount * kSlotBytes, localAddr + kMultiLaneCount * kSlotBytes, kSlotBytes);
+    if (group.thread_rank() == 0U) {
         (void)hcomm.Drain(channel);
     }
+    group.sync();
 }
 
 } // namespace

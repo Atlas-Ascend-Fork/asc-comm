@@ -31,16 +31,16 @@ headers or objects from being reused.
 
 ## Run
 
-As with the existing `simt_write` sample, an HCCL rank table must be provided:
+The communicator is created with `HcclGetRootInfo` and `HcclCommInitRootInfo`, so no HCCL rank table is required. `run.sh` creates a temporary root info file for each run, written by rank 0 and read by the other ranks:
 
 ```bash
-bash run.sh 2 /path/to/rank_table.json notify
-bash run.sh 2 /path/to/rank_table.json faa
-bash run.sh 2 /path/to/rank_table.json cas
-bash run.sh 2 /path/to/rank_table.json single
-bash run.sh 2 /path/to/rank_table.json batch_last
-bash run.sh 2 /path/to/rank_table.json multi_lane
-bash run.sh 2 /path/to/rank_table.json notify_immediate_repeat
+bash run.sh 2 notify
+bash run.sh 2 faa
+bash run.sh 2 cas
+bash run.sh 2 single
+bash run.sh 2 batch_last
+bash run.sh 2 multi_lane
+bash run.sh 2 notify_immediate_repeat
 ```
 
 Expected output for each mode:

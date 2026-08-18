@@ -10,6 +10,7 @@
 
 #include "kernel_operator.h"
 #include "simt_api/asc_simt.h"
+#include "simt_api/cooperative_groups.h"
 
 #include "hcomm/hcomm_simt.h"
 
@@ -35,9 +36,10 @@ constexpr uint32_t kWorkspaceAlign = 128U;
 
 enum class PerfApi : uint32_t { NOTIFY, FAA, CAS };
 
-template <PerfApi api, bool commit>
+template <PerfApi api, bool commit, typename Group>
 __simt_callee__ inline int32_t SubmitOne(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
+    AscendC::simt::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP, Group>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase,
+    __gm__ uint8_t* localBase,
     uint32_t payloadBytes, uint32_t notifyOffset, uint32_t lane)
 {
     if constexpr (api == PerfApi::NOTIFY) {
@@ -57,71 +59,36 @@ __simt_callee__ inline int32_t SubmitOne(
     }
 }
 
-template <PerfApi api>
+template <PerfApi api, typename Group>
 __simt_callee__ inline int32_t SubmitLastCommitSeries(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
-    uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count)
+    AscendC::simt::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP, Group>& hcomm, const Group& group, uint64_t channel,
+    __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase, uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count,
+    __ubuf__ uint32_t* postStatus)
 {
+    if (group.thread_rank() == 0U) {
+        postStatus[0] = 0U;
+    }
+    group.sync();
     if (count == 0U) {
         return 0;
     }
     for (uint32_t i = 1U; i < count; ++i) {
-        int32_t status = SubmitOne<api, false>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);
-        if (status != 0) {
-            return status;
+        int32_t status = SubmitOne<api, false, Group>(
+            hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);
+        if (group.thread_rank() == 0U && status != 0) {
+            postStatus[0] = 1U;
+        }
+        group.sync();
+        if (postStatus[0] != 0U) {
+            return -1;
         }
     }
-    return SubmitOne<api, true>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);
-}
-
-template <PerfApi api, uint32_t kLaneCount>
-__simt_callee__ inline int32_t SubmitMultiLaneLastCommitSeries(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
-    uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count, __ubuf__ uint32_t* postStatus)
-{
-    if (count == 0U) {
-        return 0;
+    int32_t status = SubmitOne<api, true, Group>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);
+    if (group.thread_rank() == 0U && status != 0) {
+        postStatus[0] = 1U;
     }
-
-    uint32_t lane = threadIdx.x;
-    if (lane == 0U) {
-        postStatus[0] = 0U;
-    }
-    asc_syncthreads();
-
-    uint32_t deferredCount = count - 1U;
-    for (uint32_t i = lane; i < deferredCount; i += kLaneCount) {
-        int32_t status = SubmitOne<api, false>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, lane);
-        if (status != 0) {
-            (void)asc_atomic_exch(postStatus, 1U);
-        }
-    }
-    asc_syncthreads();
-
-    // Exactly one lane publishes the PI after every deferred WQE is complete.
-    uint32_t commitLane = deferredCount % kLaneCount;
-    if (postStatus[0] == 0U && lane == commitLane) {
-        int32_t status =
-            SubmitOne<api, true>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, commitLane);
-        if (status != 0) {
-            (void)asc_atomic_exch(postStatus, 1U);
-        }
-    }
-    asc_syncthreads();
+    group.sync();
     return postStatus[0] == 0U ? 0 : -1;
-}
-
-template <PerfApi api, uint32_t kLaneCount>
-__simt_callee__ inline int32_t SubmitLastCommitWorkload(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
-    uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count, __ubuf__ uint32_t* postStatus)
-{
-    if constexpr (kLaneCount == 1U) {
-        return SubmitLastCommitSeries<api>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, count);
-    } else {
-        return SubmitMultiLaneLastCommitSeries<api, kLaneCount>(
-            hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, count, postStatus);
-    }
 }
 
 template <PerfApi api, uint32_t kLaneCount, uint32_t kLaunchBounds>
@@ -134,7 +101,8 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtLastCommitPerfVf(
     __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
-    AscendC::simt::Hcomm<> hcomm;
+    auto group = cooperative_groups::this_thread_block();
+    AscendC::simt::Hcomm hcomm(group);
     if (hcomm.Init(workspace, workspaceBytes) != 0) {
         if (threadIdx.x == 0U) {
             timing[kIssueCyclesIndex] = 0U;
@@ -145,17 +113,14 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtLastCommitPerfVf(
         return;
     }
 
-    int32_t status = warmup == 0U ? 0 :
-                                    SubmitLastCommitWorkload<api, kLaneCount>(
-                                        hcomm, channel, remote, local, payloadBytes, notifyOffset, warmup, postStatus);
-    if (threadIdx.x == 0U) {
+    int32_t status = warmup == 0U ? 0 : SubmitLastCommitSeries<api, decltype(group)>(
+                                    hcomm, group, channel, remote, local, payloadBytes, notifyOffset, warmup, postStatus);
+    if (group.thread_rank() == 0U) {
         drainStatus[0] = status != 0 ? status : (warmup == 0U ? 0 : hcomm.Drain(channel));
     }
-    if constexpr (kLaneCount > 1U) {
-        asc_syncthreads();
-    }
+    group.sync();
     if (drainStatus[0] != 0) {
-        if (threadIdx.x == 0U) {
+        if (group.thread_rank() == 0U) {
             timing[kIssueCyclesIndex] = 0U;
             timing[kCompletionCyclesIndex] = 0U;
             timing[kDrainStatusIndex] = static_cast<uint64_t>(drainStatus[0]);
@@ -164,27 +129,22 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtLastCommitPerfVf(
         return;
     }
 
-    uint64_t singleLaneBegin = 0U;
-    if constexpr (kLaneCount == 1U) {
-        singleLaneBegin = clock();
-    } else {
-        if (threadIdx.x == 0U) {
-            beginCycle[0] = clock();
-        }
-        asc_syncthreads();
+    if (group.thread_rank() == 0U) {
+        beginCycle[0] = clock();
     }
-    status = SubmitLastCommitWorkload<api, kLaneCount>(
-        hcomm, channel, remote, local, payloadBytes, notifyOffset, iterations, postStatus);
-    if (threadIdx.x == 0U) {
+    group.sync();
+    status = SubmitLastCommitSeries<api, decltype(group)>(
+        hcomm, group, channel, remote, local, payloadBytes, notifyOffset, iterations, postStatus);
+    if (group.thread_rank() == 0U) {
         uint64_t issueEnd = clock();
-        uint64_t begin = kLaneCount == 1U ? singleLaneBegin : beginCycle[0];
         drainStatus[0] = status != 0 ? status : hcomm.Drain(channel);
         uint64_t completionEnd = clock();
-        timing[kIssueCyclesIndex] = issueEnd - begin;
-        timing[kCompletionCyclesIndex] = completionEnd - begin;
+        timing[kIssueCyclesIndex] = issueEnd - beginCycle[0];
+        timing[kCompletionCyclesIndex] = completionEnd - beginCycle[0];
         timing[kDrainStatusIndex] = static_cast<uint64_t>(drainStatus[0]);
         timing[kCompletedIndex] = drainStatus[0] == 0 ? iterations : 0U;
     }
+    group.sync();
 }
 
 template <uint32_t kLaneCount, uint32_t kLaunchBounds>

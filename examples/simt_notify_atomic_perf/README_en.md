@@ -41,16 +41,16 @@ In both cases, one lane performs the final `commit=true` post and `Drain`.
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json notify \
+  2 notify \
   --iterations 1024 --warmup 100 --payload-bytes 4096 \
   --lanes 1 --commit-mode last
 
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json faa \
+  2 faa \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode last
 
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json cas \
+  2 cas \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode last
 ```
 
@@ -65,11 +65,13 @@ bash examples/simt_notify_atomic_perf/build.sh
 
 ## Run Each Interface Separately
 
+The communicator is created with `HcclGetRootInfo` and `HcclCommInitRootInfo`, so no HCCL rank table is required. `run.sh` creates a temporary root info file for each run, written by rank 0 and read by the other ranks.
+
 Notify:
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json notify \
+  2 notify \
   --iterations 1024 --warmup 100 --payload-bytes 4096 --lanes 1
 ```
 
@@ -77,7 +79,7 @@ FAA:
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json faa \
+  2 faa \
   --iterations 1024 --warmup 100 --lanes 1
 ```
 
@@ -85,7 +87,7 @@ CAS:
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json cas \
+  2 cas \
   --iterations 1024 --warmup 100 --lanes 1
 ```
 

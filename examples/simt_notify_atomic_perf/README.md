@@ -39,16 +39,16 @@ completionEnd = clock()
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json notify \
+  2 notify \
   --iterations 1024 --warmup 100 --payload-bytes 4096 \
   --lanes 1 --commit-mode last
 
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json faa \
+  2 faa \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode last
 
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json cas \
+  2 cas \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode last
 ```
 
@@ -63,11 +63,13 @@ bash examples/simt_notify_atomic_perf/build.sh
 
 ## 分别运行三个接口
 
+样例通过`HcclGetRootInfo`和`HcclCommInitRootInfo`创建通信域，无需准备rank table。`run.sh`会为每次运行创建临时root info文件，由rank 0写入、其余rank读取。
+
 Notify：
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json notify \
+  2 notify \
   --iterations 1024 --warmup 100 --payload-bytes 4096 --lanes 1
 ```
 
@@ -75,7 +77,7 @@ FAA：
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json faa \
+  2 faa \
   --iterations 1024 --warmup 100 --lanes 1
 ```
 
@@ -83,7 +85,7 @@ CAS：
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json cas \
+  2 cas \
   --iterations 1024 --warmup 100 --lanes 1
 ```
 

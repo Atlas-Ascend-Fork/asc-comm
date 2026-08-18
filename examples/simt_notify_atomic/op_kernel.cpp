@@ -10,6 +10,7 @@
 
 #include "kernel_operator.h"
 #include "simt_api/asc_simt.h"
+#include "simt_api/cooperative_groups.h"
 
 #include "hcomm/hcomm_simt.h"
 
@@ -140,8 +141,8 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicBatchLastVf(
     reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
 }
 
-// Multiple lanes concurrently fill deferred SQ entries. After they synchronize,
-// lane 0 performs the only commit=true call and publishes the accumulated batch.
+// Every member of the thread-block group calls the same interfaces. Hcomm lets
+// only group rank 0 fill the SQ and publish the final WQE.
 __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicMultiLaneVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* wqeStaging, uint32_t wqeStagingBytes)
 {
@@ -151,28 +152,23 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicMultiLaneVf(
     __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
-    uint32_t lane = threadIdx.x;
-    AscendC::simt::Hcomm<> hcomm;
+    auto group = cooperative_groups::this_thread_block();
+    AscendC::simt::Hcomm hcomm(group);
     (void)hcomm.Init(wqeStaging, wqeStagingBytes);
-    if (lane == 0U) {
-        (void)hcomm.WriteWithNotifyNbi<false>(
-            channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
-            kNotifySignal);
-    } else if (lane == 1U) {
-        (void)hcomm.AtomicFAA<uint64_t, false>(
-            channel, remote + kFaaTargetSlot * kSlotBytes, local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
-    } else {
-        (void)hcomm.AtomicCAS<uint64_t, false>(
-            channel, remote + kCasTargetSlot * kSlotBytes, local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
-    }
-
-    asc_syncthreads();
-    if (lane == 0U) {
-        (void)hcomm.WriteWithNotifyNbi<true>(
-            channel, remote + kFinalNotifyDataSlot * kSlotBytes, local, kSlotBytes,
-            remote + kFinalNotifySignalSlot * kSlotBytes, kFinalNotifySignal);
+    (void)hcomm.WriteWithNotifyNbi<false>(
+        channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
+        kNotifySignal);
+    (void)hcomm.AtomicFAA<uint64_t, false>(
+        channel, remote + kFaaTargetSlot * kSlotBytes, local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
+    (void)hcomm.AtomicCAS<uint64_t, false>(
+        channel, remote + kCasTargetSlot * kSlotBytes, local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
+    (void)hcomm.WriteWithNotifyNbi<true>(
+        channel, remote + kFinalNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kFinalNotifySignalSlot * kSlotBytes,
+        kFinalNotifySignal);
+    if (group.thread_rank() == 0U) {
         reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
     }
+    group.sync();
 }
 
 } // namespace
