@@ -9,50 +9,17 @@
 # ----------------------------------------------------------------------------------------------------------
 
 # ain.h uses CANN installed-package relative includes:
-#   ../hcomm/hcomm.h                             -> asc/include/comm_api/hcomm/hcomm.h
-#   ../../../impl/comm_api/aicore/ain/impl/*.h   -> asc/impl/comm_api/aicore/ain/impl/*.h
+#   ../hcomm/hcomm.h                             -> asc/include/comm_api/aicore/hcomm/hcomm.h
+#   ../../../../impl/comm_api/aicore/ain/impl/*.h -> asc/impl/comm_api/aicore/ain/impl/*.h
 # hcomm.h uses:
 #   ../../../impl/adv_api/detail/hcomm/impl/*.h  -> asc/impl/adv_api/detail/hcomm/impl/*.h
 # ain_impl_def.h uses:
 #   ../../hcomm/impl/hcomm_impl_def.h            -> asc/impl/comm_api/aicore/hcomm/impl/hcomm_impl_def.h
 #   hcomm/hcomm_team_entity_defs.h               -> CANN pkg_inc/hcomm (sibling of the asc dir)
-# Stage the repo headers into an installed-package layout under the build dir to bridge these relative paths.
-set(AIN_STAGE_ROOT "${CMAKE_CURRENT_BINARY_DIR}/package_layout")
-set(AIN_STAGE_INCLUDE_DIR "${AIN_STAGE_ROOT}/asc/include/comm_api")
-set(AIN_STAGE_DETAIL_DIR "${AIN_STAGE_ROOT}/asc/impl/adv_api/detail")
-set(AIN_STAGE_COMM_API_IMPL_DIR "${AIN_STAGE_ROOT}/asc/impl/comm_api/aicore")
-
-add_custom_target(prepare_ain_header_layout
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${AIN_STAGE_INCLUDE_DIR}/hcomm"
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${AIN_STAGE_INCLUDE_DIR}/ain"
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${AIN_STAGE_DETAIL_DIR}/hcomm"
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${AIN_STAGE_COMM_API_IMPL_DIR}/hcomm"
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${AIN_STAGE_COMM_API_IMPL_DIR}/ain"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${AIN_STAGE_INCLUDE_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${AIN_STAGE_DETAIL_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${AIN_STAGE_COMM_API_IMPL_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/include/aicore/hcomm"
-        "${AIN_STAGE_INCLUDE_DIR}/hcomm"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/include/aicore/ain"
-        "${AIN_STAGE_INCLUDE_DIR}/ain"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/src/aicore/hcomm"
-        "${AIN_STAGE_DETAIL_DIR}/hcomm"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/src/aicore/hcomm"
-        "${AIN_STAGE_COMM_API_IMPL_DIR}/hcomm"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/src/aicore/ain"
-        "${AIN_STAGE_COMM_API_IMPL_DIR}/ain"
-    COMMENT "Preparing Ain headers in the installed package layout"
-)
-
 set(AIN_UT_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${ASCCOMM_UT_ROOT}/common
-    ${AIN_STAGE_INCLUDE_DIR}
+    ${ASCCOMM_UT_STAGE_INCLUDE_DIR}
     ${ASCCOMM_TIKICPU_INCLUDE_DIR}
     ${ASCCOMM_CANN_INCLUDE_DIRS}
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
@@ -65,12 +32,7 @@ function(add_ain_ut target_name product_type tikicpu_product_dir)
         ${ASCCOMM_UT_ROOT}/common/k3_pvwrap.cpp
         ${ARGN}
     )
-    add_dependencies(${target_name} prepare_ain_header_layout)
-
-    if(previous_hcomm_ut_target)
-        add_dependencies(${target_name} ${previous_hcomm_ut_target})
-    endif()
-    set(previous_hcomm_ut_target ${target_name} PARENT_SCOPE)
+    add_dependencies(${target_name} prepare_asccomm_ut_header_layout)
 
     asccomm_add_product_definitions(${target_name} ${product_type})
     target_compile_definitions(${target_name} PRIVATE ASCENDC_CPU_DEBUG=1)

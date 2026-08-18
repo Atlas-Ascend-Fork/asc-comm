@@ -121,6 +121,49 @@ endif()
 add_custom_target(generate_kernel_headers ALL DEPENDS ${KERNEL_TILING_FILE})
 add_dependencies(kernel_tiling generate_kernel_headers)
 
+# Keep one installed-package-shaped header tree for all UT modules. The source
+# headers use relative paths that are part of the toolkit package layout.
+set(ASCCOMM_UT_STAGE_ROOT "${CMAKE_BINARY_DIR}/package_layout")
+set(ASCCOMM_UT_STAGE_INCLUDE_DIR "${ASCCOMM_UT_STAGE_ROOT}/asc/include/comm_api/aicore")
+set(ASCCOMM_UT_STAGE_DETAIL_DIR "${ASCCOMM_UT_STAGE_ROOT}/asc/impl/adv_api/detail")
+set(ASCCOMM_UT_STAGE_COMM_API_IMPL_DIR "${ASCCOMM_UT_STAGE_ROOT}/asc/impl/comm_api/aicore")
+set(ASCCOMM_UT_STAGE_STAMP "${ASCCOMM_UT_STAGE_ROOT}/.header_layout.stamp")
+
+file(GLOB_RECURSE ASCCOMM_UT_LAYOUT_INPUTS CONFIGURE_DEPENDS
+    "${ASCCOMM_ROOT}/include/aicore/*"
+    "${ASCCOMM_ROOT}/src/aicore/*"
+)
+
+add_custom_command(
+    OUTPUT ${ASCCOMM_UT_STAGE_STAMP}
+    COMMAND ${CMAKE_COMMAND} -E remove_directory "${ASCCOMM_UT_STAGE_ROOT}/asc"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${ASCCOMM_UT_STAGE_INCLUDE_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${ASCCOMM_UT_STAGE_DETAIL_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${ASCCOMM_UT_STAGE_COMM_API_IMPL_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/include/aicore/hcomm"
+        "${ASCCOMM_UT_STAGE_INCLUDE_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/include/aicore/ain"
+        "${ASCCOMM_UT_STAGE_INCLUDE_DIR}/ain"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/hcomm"
+        "${ASCCOMM_UT_STAGE_DETAIL_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/hcomm"
+        "${ASCCOMM_UT_STAGE_COMM_API_IMPL_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/ain"
+        "${ASCCOMM_UT_STAGE_COMM_API_IMPL_DIR}/ain"
+    COMMAND ${CMAKE_COMMAND} -E touch ${ASCCOMM_UT_STAGE_STAMP}
+    DEPENDS ${ASCCOMM_UT_LAYOUT_INPUTS}
+    COMMENT "Preparing shared Ascend package-shaped headers for UT"
+)
+
+add_custom_target(prepare_asccomm_ut_header_layout
+    DEPENDS ${ASCCOMM_UT_STAGE_STAMP}
+)
+
 function(run_llt_test)
     cmake_parse_arguments(LLT "" "TARGET;TASK_NUM;ENV_FILE" "FILTERS;RUNTIME_DIRS" ${ARGN})
 

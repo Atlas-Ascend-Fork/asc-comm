@@ -22,7 +22,7 @@
 
 #include "../hcomm/hcomm.h"
 #include "ain_common.h"
-#include "../../../impl/comm_api/aicore/ain/impl/ain_impl_def.h"
+#include "../../../../impl/comm_api/aicore/ain/impl/ain_impl_def.h"
 
 namespace AscendC {
 
@@ -222,7 +222,7 @@ private:
 
 } // namespace AscendC
 
-#include "../../../impl/comm_api/aicore/ain/impl/ain_impl.h"
+#include "../../../../impl/comm_api/aicore/ain/impl/ain_impl.h"
 
 #endif // INCLUDE_COMM_API_AICORE_AIN_AIN_H
 
