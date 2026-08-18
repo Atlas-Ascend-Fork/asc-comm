@@ -8,7 +8,7 @@
 2. Host 侧注册 runtime exception callback，并通过 `aclrtBinarySetExceptionCallback` 给样例 allgather kernel 绑定 `SampleAllGatherContext`。
 3. 默认使用两段式 fault 流程：先运行 `SampleAllGatherCustomKernel` 提交一条 sample allgather WQE，再运行 `SampleAllGatherCallbackFaultKernel` 通过 `trap()` 触发 runtime callback。
 4. callback 内只记录异常信息；`aclrtSynchronizeStream` 返回后，在安全点调用 `AscendC::HcommDfxDumpChannelInfo`。
-5. Host 侧调用 `AscendC::HcommDfxParseAndPrintChannelInfo` 解析并打印 Channel、Buffer、SqContext/CqContext、WQE/CQE raw 采样信息。
+5. `AscendC::HcommDfxDumpChannelInfo` 采集并打印 Channel、Buffer、SqContext/CqContext、WQE/CQE raw 采样信息。
 
 ## 目录结构
 
@@ -30,7 +30,7 @@ cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
 make -j
 ```
 
-编译会同时生成 `hcomm_dfx_queue_read_kernel_910_95.o`。该文件会放在 build 目录下，demo 默认从可执行文件所在目录加载它。
+DFX queue-read 辅助 kernel 会随 demo 一起编译链接，运行时不需要额外提供 `hcomm_dfx_queue_read_kernel_910_95.o`。
 
 ## 用户接入流程
 
@@ -46,7 +46,7 @@ make -j
    callback 中只记录 task/stream/device 和绑定的上下文地址，不在 callback 内调用 dump 或执行大量 D2H 拷贝；等 `aclrtSynchronizeStream` 返回后再进入安全点处理。
 
 4. 在安全点 dump 并解析 channel 信息。
-   根据上下文拿到 `ChannelHandle` 后，调用 `AscendC::HcommDfxGetChannelDumpInfoSize` 申请 buffer，再调用 `AscendC::HcommDfxDumpChannelInfo` 获取 dump 数据，最后调用 `AscendC::HcommDfxParseAndPrintChannelInfo` 打印 Channel、Buffer、SqContext/CqContext、WQE/CQE raw 信息。
+   根据上下文拿到 `ChannelHandle` 后，调用 `AscendC::HcommDfxGetChannelDumpInfoSize` 申请 buffer，再调用 `AscendC::HcommDfxDumpChannelInfo` 获取 dump 数据并打印 Channel、Buffer、SqContext/CqContext、WQE/CQE raw 信息。
 
 ## 运行
 

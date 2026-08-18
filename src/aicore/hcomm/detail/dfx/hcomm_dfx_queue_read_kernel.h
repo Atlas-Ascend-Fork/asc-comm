@@ -12,7 +12,7 @@
 #define ASCCOMM_SRC_AICORE_HCOMM_DETAIL_DFX_HCOMM_DFX_QUEUE_READ_KERNEL_H
 
 #include "kernel_operator.h"
-#include "hcomm/dfx/hcomm_channel_dump_info.h"
+#include "hcomm_dfx_channel_dump_impl.h"
 
 using namespace AscendC;
 
@@ -21,7 +21,7 @@ static const struct FunLevelKType kernel_name##_kernel_type_section __attribute_
 ((used, section (".ascend.meta." #kernel_name))) \
 = {{F_TYPE_KTYPE, sizeof(unsigned int), K_TYPE_AIV}}
 
-extern "C" __global__ __aicore__ void hcomm_dfx_queue_read_kernel(HcommDfxQueueReadArgs args)
+extern "C" __vector__ __global__ __aicore__ void hcomm_dfx_queue_read_kernel(HcommDfxQueueReadArgs args)
 {
     if (GetBlockIdx() != 0) {
         return;

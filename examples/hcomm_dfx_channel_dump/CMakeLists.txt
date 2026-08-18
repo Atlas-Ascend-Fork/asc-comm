@@ -38,57 +38,10 @@ add_custom_target(prepare_hcomm_header_layout
     COMMENT "Preparing Hcomm headers in the installed package layout"
 )
 
-find_program(HCOMM_CCEC_COMPILER ccec
-    HINTS
-        $ENV{ASCEND_HOME_PATH}/tools/ccec_compiler/bin
-        $ENV{ASCEND_HOME_PATH}/compiler/ccec_compiler/bin
-)
-find_program(HCOMM_AICORE_LD ld.lld
-    HINTS
-        $ENV{ASCEND_HOME_PATH}/tools/ccec_compiler/bin
-        $ENV{ASCEND_HOME_PATH}/compiler/ccec_compiler/bin
-)
-if(NOT HCOMM_CCEC_COMPILER)
-    message(FATAL_ERROR "ccec compiler not found under ASCEND_HOME_PATH")
-endif()
-if(NOT HCOMM_AICORE_LD)
-    message(FATAL_ERROR "ld.lld for aicore not found under ASCEND_HOME_PATH")
-endif()
-
-set(HCOMM_DFX_QUEUE_READ_KERNEL "${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_dfx_queue_read_kernel.h")
-set(HCOMM_DFX_DUMP_INFO_HEADER "${ASCCOMM_ROOT}/include/aicore/hcomm/dfx/hcomm_channel_dump_info.h")
-set(HCOMM_DFX_QUEUE_READ_KERNEL_OBJ "${CMAKE_CURRENT_BINARY_DIR}/hcomm_dfx_queue_read_kernel_910_95.o")
-add_custom_command(OUTPUT ${HCOMM_DFX_QUEUE_READ_KERNEL_OBJ}
-    COMMAND ${HCOMM_CCEC_COMPILER} -c -x cce -O2 ${HCOMM_DFX_QUEUE_READ_KERNEL}
-        -o ${CMAKE_CURRENT_BINARY_DIR}/hcomm_dfx_queue_read_kernel_910_95_tmp.o
-        --cce-aicore-arch=dav-c310-vec
-        --cce-aicore-input-parameter-size=512 --cce-aicore-only
-        -mllvm -cce-aicore-function-stack-size=0x8000
-        -mllvm -cce-aicore-stack-size=0x8000
-        -I${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx
-        -I${ASCCOMM_ROOT}/include/aicore
-        -I$ENV{ASCEND_HOME_PATH}/asc
-        -I$ENV{ASCEND_HOME_PATH}/asc/include
-        -I$ENV{ASCEND_HOME_PATH}/asc/include/basic_api
-        -I$ENV{ASCEND_HOME_PATH}/include
-        -mllvm -cce-aicore-record-overflow=false
-        -mllvm -cce-aicore-addr-transform
-        -mllvm --cce-aicore-jump-expand=true
-        -std=c++17 -fstack-protector-all
-    COMMAND ${HCOMM_AICORE_LD} -m aicorelinux -Ttext=0
-        ${CMAKE_CURRENT_BINARY_DIR}/hcomm_dfx_queue_read_kernel_910_95_tmp.o
-        -static -o ${HCOMM_DFX_QUEUE_READ_KERNEL_OBJ}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    DEPENDS ${HCOMM_DFX_QUEUE_READ_KERNEL} ${HCOMM_DFX_DUMP_INFO_HEADER}
-    VERBATIM
-)
-add_custom_target(hcomm_dfx_queue_read_kernel ALL
-    DEPENDS ${HCOMM_DFX_QUEUE_READ_KERNEL_OBJ}
-)
-
 set_source_files_properties(
     hcomm_dfx_channel_dump_demo.asc
     sample_allgather_kernel.cpp
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_dfx_queue_reader.cpp
     ../hcomm_write_read_nbi/utils.cpp
     PROPERTIES LANGUAGE ASC
 )
@@ -97,11 +50,12 @@ add_executable(hcomm_dfx_channel_dump_demo
     hcomm_dfx_channel_dump_demo.asc
     sample_allgather_kernel.cpp
     sample_allgather_def.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_channel_dump.cpp
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_dfx_queue_reader.cpp
     ../hcomm_write_read_nbi/utils.cpp
 )
 add_dependencies(hcomm_dfx_channel_dump_demo
     prepare_hcomm_header_layout
-    hcomm_dfx_queue_read_kernel
 )
 
 target_compile_definitions(hcomm_dfx_channel_dump_demo PRIVATE
@@ -110,6 +64,7 @@ target_compile_definitions(hcomm_dfx_channel_dump_demo PRIVATE
 target_include_directories(hcomm_dfx_channel_dump_demo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../hcomm_write_read_nbi
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx
     ${HCOMM_STAGE_ROOT}/asc
     ${HCOMM_STAGE_ROOT}/asc/include
     ${HCOMM_STAGE_INCLUDE_DIR}
@@ -126,8 +81,17 @@ target_link_directories(hcomm_dfx_channel_dump_demo PRIVATE
     $ENV{ASCEND_HOME_PATH}/devlib
 )
 target_link_libraries(hcomm_dfx_channel_dump_demo PRIVATE
-    dl
+    ascendc_runtime
     acl_rt
+    runtime
+    register
+    error_manager
+    profapi
+    ge_common_base
+    unified_dlog
+    mmpa
+    dl
+    ascend_dump
     hccl
     hcomm
     c_sec
