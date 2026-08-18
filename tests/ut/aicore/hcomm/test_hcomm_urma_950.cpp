@@ -58,6 +58,41 @@ uint32_t AtomicExchStub(__gm__ uint32_t* address, uint32_t value)
     return oldValue;
 }
 
+constexpr uint32_t ATOMIC_CAS_EVENT = 1U;
+constexpr uint32_t ACQUIRE_BARRIER_EVENT = 2U;
+constexpr uint32_t CACHE_WRITE_THROUGH_EVENT = 3U;
+constexpr uint32_t RELEASE_BARRIER_EVENT = 4U;
+constexpr uint32_t ATOMIC_EXCH_EVENT = 5U;
+
+std::vector<uint32_t> lockOperationEvents;
+__gm__ uint8_t* cacheWriteThroughAddress = nullptr;
+uint64_t cacheWriteThroughLength = 0U;
+
+uint32_t AtomicCasOrderedStub(__gm__ uint32_t* address, uint32_t compare, uint32_t value)
+{
+    lockOperationEvents.push_back(ATOMIC_CAS_EVENT);
+    return AtomicCasSuccessStub(address, compare, value);
+}
+
+void DdrBarrierOrderedStub()
+{
+    lockOperationEvents.push_back(
+        lockOperationEvents.size() == 1U ? ACQUIRE_BARRIER_EVENT : RELEASE_BARRIER_EVENT);
+}
+
+void CacheWriteThroughOrderedStub(__gm__ uint8_t* address, uint64_t length)
+{
+    lockOperationEvents.push_back(CACHE_WRITE_THROUGH_EVENT);
+    cacheWriteThroughAddress = address;
+    cacheWriteThroughLength = length;
+}
+
+uint32_t AtomicExchOrderedStub(__gm__ uint32_t* address, uint32_t value)
+{
+    lockOperationEvents.push_back(ATOMIC_EXCH_EVENT);
+    return AtomicExchStub(address, value);
+}
+
 class UrmaChannelResource {
 public:
     UrmaChannelResource() : sqBuffer_(URMA_SQ_DEPTH * URMA_WQE_SIZE, 0), cqBuffer_(URMA_SQ_DEPTH * URMA_CQE_SIZE, 0)
@@ -242,6 +277,36 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockUnlockInvalidChannel)
     EXPECT_EQ(hcomm.Unlock(0U), AscendC::HCOMM_FAILED);
     EXPECT_EQ(hcomm.Lock(misalignedChannel), AscendC::HCOMM_FAILED);
     EXPECT_EQ(hcomm.Unlock(misalignedChannel), AscendC::HCOMM_FAILED);
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockUnlockMemoryOrder)
+{
+    UrmaChannelResource channel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+    lockOperationEvents.clear();
+    cacheWriteThroughAddress = nullptr;
+    cacheWriteThroughLength = 0U;
+
+    MOCKER_CPP(atomicCAS, uint32_t(__gm__ uint32_t*, uint32_t, uint32_t))
+        .times(1)
+        .will(invoke(AtomicCasOrderedStub));
+    MOCKER(DataSyncBarrier<MemDsbT::DDR>).times(2).will(invoke(DdrBarrierOrderedStub));
+    MOCKER(CacheWriteThrough<uint8_t>).times(1).will(invoke(CacheWriteThroughOrderedStub));
+    MOCKER_CPP(atomicExch, uint32_t(__gm__ uint32_t*, uint32_t))
+        .times(1)
+        .will(invoke(AtomicExchOrderedStub));
+
+    EXPECT_EQ(hcomm.Lock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(hcomm.Unlock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+
+    const std::vector<uint32_t> expectedEvents = {ATOMIC_CAS_EVENT, ACQUIRE_BARRIER_EVENT,
+        CACHE_WRITE_THROUGH_EVENT, RELEASE_BARRIER_EVENT, ATOMIC_EXCH_EVENT};
+    EXPECT_EQ(lockOperationEvents, expectedEvents);
+    EXPECT_EQ(cacheWriteThroughAddress,
+        reinterpret_cast<__gm__ uint8_t*>(channel.GetHandle()) + offsetof(AscendC::ChannelEntity, sqHead));
+    EXPECT_EQ(cacheWriteThroughLength, 4U * sizeof(uint32_t));
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+    GlobalMockObject::verify();
 }
 
 // ReadNbi with default commit=true: auto-commit internally, then Drain succeeds
