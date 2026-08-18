@@ -544,6 +544,18 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchReadWriteNotifyMixedCommit)
     EXPECT_EQ(batchHandle.preparedWqebbCount, 4U);
     EXPECT_EQ(batchHandle.preparedCqeCount, 1U);
 
+    const auto* bufferedReadSqe = reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(batchBuffer.data());
+    const auto* bufferedWriteSqe =
+        reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(batchBuffer.data() + URMA_WQE_SIZE);
+    const auto* bufferedNotifySqe =
+        reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(batchBuffer.data() + 2U * URMA_WQE_SIZE);
+    EXPECT_EQ(bufferedReadSqe->opcode, static_cast<uint32_t>(AscendC::HcommUrmaOpCode::READ));
+    EXPECT_EQ(bufferedReadSqe->rmtAddrLOrTokenId, 0x1010U);
+    EXPECT_EQ(bufferedWriteSqe->opcode, static_cast<uint32_t>(AscendC::HcommUrmaOpCode::WRITE));
+    EXPECT_EQ(bufferedWriteSqe->rmtAddrLOrTokenId, 0x1020U);
+    EXPECT_EQ(bufferedNotifySqe->opcode, static_cast<uint32_t>(AscendC::HcommUrmaOpCode::WRITE_WITH_NOTIFY));
+    EXPECT_EQ(bufferedNotifySqe->rmtAddrLOrTokenId, 0x1030U);
+
     ASSERT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_SUCCESS);
     EXPECT_EQ(channel.GetSqHead(), 4U);
     EXPECT_EQ(channel.GetCqHead(), 1U);
@@ -635,6 +647,14 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchHandleCommitWrapAndReuse)
         batchHandle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2020), 8);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
 
+    const auto* bufferedFirstSqe = reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(batchBuffer.data());
+    const auto* bufferedSecondSqe =
+        reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(batchBuffer.data() + URMA_WQE_SIZE);
+    EXPECT_EQ(bufferedFirstSqe->opcode, static_cast<uint32_t>(AscendC::HcommUrmaOpCode::WRITE));
+    EXPECT_EQ(bufferedFirstSqe->rmtAddrLOrTokenId, 0x1010U);
+    EXPECT_EQ(bufferedSecondSqe->opcode, static_cast<uint32_t>(AscendC::HcommUrmaOpCode::WRITE));
+    EXPECT_EQ(bufferedSecondSqe->rmtAddrLOrTokenId, 0x1020U);
+
     ret = hcomm.BatchCommit(batchHandle);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
     EXPECT_EQ(channel.GetSqHead(), 5U);
@@ -685,6 +705,18 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyCommitWrapsSingleWqe)
             reinterpret_cast<GM_ADDR>(0x1020), 0x1122334455667788ULL),
         AscendC::HCOMM_SUCCESS);
     ASSERT_EQ(batchHandle.preparedWqebbCount, 2U);
+
+    const auto* bufferedSqe = reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(batchBuffer.data());
+    const auto* bufferedNotifyCtx = reinterpret_cast<const AscendC::HcommUrmaNotifyCtx*>(
+        batchBuffer.data() + sizeof(AscendC::HcommUrmaSqeCtx));
+    const auto* bufferedSge = reinterpret_cast<const AscendC::HcommUrmaSgeCtx*>(
+        batchBuffer.data() + sizeof(AscendC::HcommUrmaSqeCtx) + sizeof(AscendC::HcommUrmaNotifyCtx));
+    EXPECT_EQ(bufferedSqe->opcode, static_cast<uint32_t>(AscendC::HcommUrmaOpCode::WRITE_WITH_NOTIFY));
+    EXPECT_EQ(bufferedSqe->rmtAddrLOrTokenId, 0x1010U);
+    EXPECT_EQ(bufferedNotifyCtx->notifyAddrL, 0x1020U);
+    EXPECT_EQ(bufferedNotifyCtx->notifyAddrH, 0U);
+    EXPECT_EQ(bufferedSge->va, 0x2010U);
+
     ASSERT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_SUCCESS);
 
     const uint8_t* sqBuffer = channel.GetSqBuffer();
