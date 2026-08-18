@@ -18,6 +18,8 @@ When running the build script directly, it will perform basic environment checks
 bash build.sh
 ```
 
+The default build reuses the existing `build/` directory and does not remove build artifacts. Run `bash build.sh --make_clean` explicitly when a clean build directory is required.
+
 ## Build Unit Tests
 Use `-t` or `--test` to build Hcomm UTs.
 ```bash

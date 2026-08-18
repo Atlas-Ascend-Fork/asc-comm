@@ -122,6 +122,12 @@ Default build for basic environment validation. AICore Hcomm and Ain are header-
 bash build.sh
 ```
 
+The default build reuses the existing `build/` directory and does not remove build artifacts. To clean it, run:
+
+```bash
+bash build.sh --make_clean
+```
+
 Build and execute Hcomm and Ain unit tests:
 ```bash
 bash build.sh -t
