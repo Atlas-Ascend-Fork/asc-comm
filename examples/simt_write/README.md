@@ -31,12 +31,14 @@ make
 
 ## 运行
 
-```bash
-examples/simt_write/run.sh <nranks> <rankTableFilePath> [mode]
+样例通过 `HcclGetRootInfo` 和 `HcclCommInitRootInfo` 创建通信域，无需准备 rank table。`run.sh` 会为每次运行创建临时 root info 文件，由 rank 0 写入、其余 rank 读取。
 
-examples/simt_write/run.sh 2 /path/to/rank_table.json single
-examples/simt_write/run.sh 2 /path/to/rank_table.json batch_last
-examples/simt_write/run.sh 2 /path/to/rank_table.json multi_lane
+```bash
+examples/simt_write/run.sh <nranks> [mode]
+
+examples/simt_write/run.sh 2 single
+examples/simt_write/run.sh 2 batch_last
+examples/simt_write/run.sh 2 multi_lane
 ```
 
 预期输出：
@@ -46,5 +48,4 @@ examples/simt_write/run.sh 2 /path/to/rank_table.json multi_lane
 [rank 1] simt_write mode=<mode> slots=32 PASS
 ```
 
-样例使用 `HcclCommInitClusterInfo` 创建通信域，因此需要传入 rank table。Host 侧通过 `ready` 和
-`sent` 两个文件 barrier 保证通道创建完成后再发送、发送完成后再校验。
+Host 侧通过 `ready` 和 `sent` 两个文件 barrier 保证通道创建完成后再发送、发送完成后再校验。

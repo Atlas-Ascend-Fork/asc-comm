@@ -29,16 +29,16 @@ bash build.sh
 
 ## 运行
 
-运行方式与已有的`simt_write`样例保持一致，需要传入HCCL rank table：
+样例通过`HcclGetRootInfo`和`HcclCommInitRootInfo`创建通信域，无需准备rank table。`run.sh`会为每次运行创建临时root info文件，由rank 0写入、其余rank读取：
 
 ```bash
-bash run.sh 2 /path/to/rank_table.json notify
-bash run.sh 2 /path/to/rank_table.json faa
-bash run.sh 2 /path/to/rank_table.json cas
-bash run.sh 2 /path/to/rank_table.json single
-bash run.sh 2 /path/to/rank_table.json batch_last
-bash run.sh 2 /path/to/rank_table.json multi_lane
-bash run.sh 2 /path/to/rank_table.json notify_immediate_repeat
+bash run.sh 2 notify
+bash run.sh 2 faa
+bash run.sh 2 cas
+bash run.sh 2 single
+bash run.sh 2 batch_last
+bash run.sh 2 multi_lane
+bash run.sh 2 notify_immediate_repeat
 ```
 
 每种模式的预期输出如下：

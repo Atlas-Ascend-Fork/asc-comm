@@ -13,7 +13,7 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-  run.sh <nranks> <rank_table.json> <notify|faa|cas> [options]
+  run.sh <nranks> <notify|faa|cas> [options]
 
 Options:
   --iterations N      Timed WQE count, default: 1024
@@ -25,15 +25,14 @@ Options:
 EOF
 }
 
-if [[ $# -lt 3 ]]; then
+if [[ $# -lt 2 ]]; then
     usage
     exit 1
 fi
 
 nranks="$1"
-rank_table="$2"
-api="$3"
-shift 3
+api="$2"
+shift 2
 iterations=1024
 warmup=100
 payload_bytes=4096
@@ -78,11 +77,15 @@ done
 [[ "$commit_mode" == "last" || "$lanes" == "1" ]] || {
     echo "--lanes 32/1024 requires --commit-mode last" >&2; exit 1;
 }
-[[ -f "$rank_table" ]] || { echo "rank table not found: $rank_table" >&2; exit 1; }
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 binary="${script_dir}/build/simt_notify_atomic_perf"
 [[ -x "$binary" ]] || { echo "build the example first: bash ${script_dir}/build.sh" >&2; exit 1; }
+
+# Rank 0 writes HCCL root info to a temp file; the other ranks read it before calling
+# HcclCommInitRootInfo. A fresh directory per run avoids reusing stale root info.
+root_info_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_notify_atomic_perf_root_info.XXXXXX")"
+root_info_file="${root_info_dir}/root_info.bin"
 
 mkdir -p "${script_dir}/results"
 if [[ -z "$log_file" ]]; then
@@ -96,13 +99,13 @@ cleanup() {
     if [[ ${#pids[@]} -ne 0 ]]; then
         kill "${pids[@]}" 2>/dev/null || true
     fi
-    rm -rf -- "$work_dir"
+    rm -rf -- "$work_dir" "$root_info_dir"
 }
 trap cleanup EXIT INT TERM
 export SIMT_NOTIFY_ATOMIC_SYNC_DIR="$work_dir"
 
 for ((rank = 0; rank < nranks; ++rank)); do
-    "$binary" "$rank" "$nranks" "$rank_table" "$api" \
+    "$binary" "$rank" "$nranks" "$root_info_file" "$api" \
         "$iterations" "$warmup" "$payload_bytes" "$lanes" "$commit_mode" \
         >"${work_dir}/rank_${rank}.log" 2>&1 &
     pids+=("$!")
