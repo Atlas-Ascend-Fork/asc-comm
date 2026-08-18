@@ -247,4 +247,4 @@ private:
 #undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_H
 #endif
 
-#endif // INCLUDE_ADV_API_HCOMM_HCOMM_H
+#endif // #endif  // LIB_HCCL_HCCL_H
