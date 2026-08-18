@@ -20,6 +20,10 @@ CcuResult PlanKernelResources(
     const AscCcuResRepository& available, const AscCcuResRequest& request, AscCcuResRepository& remaining,
     AscCcuResRepository& allocated);
 
+CcuResult PlanTranslatorResources(
+    const AscCcuResRepository& available, const AscCcuResRequest& request, AscCcuResRepository& remaining,
+    AscCcuResRepository& allocated);
+
 } // namespace hcomm
 
 #endif // CCU_KERNEL_RES_ALLOCATOR_H

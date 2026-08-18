@@ -653,7 +653,7 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, AscCcuRes
 
     AscCcuResRepository remainingRepository;
     AscCcuResRepository translatorResRepository;
-    ccuRet = PlanKernelResources(resPack.GetCcuResRepo(), request, remainingRepository, translatorResRepository);
+    ccuRet = PlanTranslatorResources(resPack.GetCcuResRepo(), request, remainingRepository, translatorResRepository);
     if (ccuRet != CcuResult::CCU_SUCCESS) {
         DumpResReqInfo(request);
         HCCL_WARNING("[CcuKernelMgr][%s] translator resource is not enough, dieId[%u].", __func__, dieId);

@@ -16,6 +16,11 @@
 namespace hcomm {
 namespace {
 
+enum class NormalAllocDirection {
+    LOW_ID,
+    HIGH_ID,
+};
+
 bool TakeContiguous(std::vector<HcommCcuResRangePod>& source, uint32_t count,
     std::vector<HcommCcuResRangePod>& destination)
 {
@@ -57,25 +62,55 @@ uint32_t TakeAny(std::vector<HcommCcuResRangePod>& source, uint32_t count, uint3
     return count;
 }
 
+uint32_t TakeAnyFromHigh(std::vector<HcommCcuResRangePod>& source, uint32_t count, uint32_t destinationType,
+    std::vector<HcommCcuResRangePod>& destination)
+{
+    while (count > 0 && !source.empty()) {
+        auto iter = std::max_element(source.begin(), source.end(),
+            [](const HcommCcuResRangePod& lhs, const HcommCcuResRangePod& rhs) {
+                const uint64_t lhsEnd = static_cast<uint64_t>(lhs.startId) + lhs.count;
+                const uint64_t rhsEnd = static_cast<uint64_t>(rhs.startId) + rhs.count;
+                return lhsEnd < rhsEnd;
+            });
+        const uint32_t take = std::min(count, iter->count);
+        const uint32_t startId = static_cast<uint32_t>(static_cast<uint64_t>(iter->startId) + iter->count - take);
+        destination.push_back({destinationType, iter->dieId, startId, take});
+        count -= take;
+        iter->count -= take;
+        if (iter->count == 0) {
+            source.erase(iter);
+        }
+    }
+    return count;
+}
+
+uint32_t TakeNormal(std::vector<HcommCcuResRangePod>& source, uint32_t count, uint32_t destinationType,
+    NormalAllocDirection direction, std::vector<HcommCcuResRangePod>& destination)
+{
+    if (direction == NormalAllocDirection::HIGH_ID) {
+        return TakeAnyFromHigh(source, count, destinationType, destination);
+    }
+    return TakeAny(source, count, destinationType, destination);
+}
+
 bool PlanResourcePair(
     std::vector<HcommCcuResRangePod>& normalPool, std::vector<HcommCcuResRangePod>& blockPool,
     uint32_t normalRequest, uint32_t blockRequest, uint32_t normalType,
+    NormalAllocDirection normalDirection,
     std::vector<HcommCcuResRangePod>& normalAllocated, std::vector<HcommCcuResRangePod>& blockAllocated)
 {
     if (!TakeContiguous(blockPool, blockRequest, blockAllocated)) {
         return false;
     }
 
-    uint32_t remainingRequest = TakeAny(normalPool, normalRequest, normalType, normalAllocated);
-    remainingRequest = TakeAny(blockPool, remainingRequest, normalType, normalAllocated);
+    uint32_t remainingRequest = TakeNormal(normalPool, normalRequest, normalType, normalDirection, normalAllocated);
+    remainingRequest = TakeNormal(blockPool, remainingRequest, normalType, normalDirection, normalAllocated);
     return remainingRequest == 0;
 }
 
-} // namespace
-
-CcuResult PlanKernelResources(
+CcuResult PlanResources(
     const AscCcuResRepository& available, const AscCcuResRequest& request, AscCcuResRepository& remaining,
-    AscCcuResRepository& allocated)
+    AscCcuResRepository& allocated, NormalAllocDirection normalDirection)
 {
     AscCcuResRepository plannedRemaining = available;
     AscCcuResRepository plannedAllocated{};
@@ -86,27 +121,30 @@ CcuResult PlanKernelResources(
                 plannedRemaining.loopEngine[dieId], plannedRemaining.blockLoopEngine[dieId],
                 request.count[HCOMM_CCU_BATCH_RES_LOOP][dieId],
                 request.count[HCOMM_CCU_BATCH_RES_BLOCK_LOOP][dieId], HCOMM_CCU_BATCH_RES_LOOP,
+                normalDirection,
                 plannedAllocated.loopEngine[dieId],
                 plannedAllocated.blockLoopEngine[dieId]) &&
             PlanResourcePair(
                 plannedRemaining.ms[dieId], plannedRemaining.blockMs[dieId],
                 request.count[HCOMM_CCU_BATCH_RES_MS][dieId], request.count[HCOMM_CCU_BATCH_RES_BLOCK_MS][dieId],
-                HCOMM_CCU_BATCH_RES_MS, plannedAllocated.ms[dieId], plannedAllocated.blockMs[dieId]) &&
+                HCOMM_CCU_BATCH_RES_MS, normalDirection, plannedAllocated.ms[dieId], plannedAllocated.blockMs[dieId]) &&
             PlanResourcePair(
                 plannedRemaining.cke[dieId], plannedRemaining.blockCke[dieId],
                 request.count[HCOMM_CCU_BATCH_RES_CKE][dieId], request.count[HCOMM_CCU_BATCH_RES_BLOCK_CKE][dieId],
-                HCOMM_CCU_BATCH_RES_CKE, plannedAllocated.cke[dieId], plannedAllocated.blockCke[dieId]) &&
+                HCOMM_CCU_BATCH_RES_CKE, normalDirection, plannedAllocated.cke[dieId],
+                plannedAllocated.blockCke[dieId]) &&
             PlanResourcePair(
                 plannedRemaining.xn[dieId], plannedRemaining.blockXn[dieId],
                 request.count[HCOMM_CCU_BATCH_RES_XN][dieId], request.count[HCOMM_CCU_BATCH_RES_BLOCK_XN][dieId],
-                HCOMM_CCU_BATCH_RES_XN, plannedAllocated.xn[dieId], plannedAllocated.blockXn[dieId]) &&
+                HCOMM_CCU_BATCH_RES_XN, normalDirection, plannedAllocated.xn[dieId], plannedAllocated.blockXn[dieId]) &&
             PlanResourcePair(
                 plannedRemaining.gsa[dieId], plannedRemaining.blockGsa[dieId],
                 request.count[HCOMM_CCU_BATCH_RES_GSA][dieId], request.count[HCOMM_CCU_BATCH_RES_BLOCK_GSA][dieId],
-                HCOMM_CCU_BATCH_RES_GSA, plannedAllocated.gsa[dieId], plannedAllocated.blockGsa[dieId]);
-        if (!planned || TakeAny(
+                HCOMM_CCU_BATCH_RES_GSA, normalDirection, plannedAllocated.gsa[dieId],
+                plannedAllocated.blockGsa[dieId]);
+        if (!planned || TakeNormal(
                             plannedRemaining.mission[dieId], request.count[HCOMM_CCU_BATCH_RES_MISSION][dieId],
-                            HCOMM_CCU_BATCH_RES_MISSION, plannedAllocated.mission[dieId]) != 0 ||
+                            HCOMM_CCU_BATCH_RES_MISSION, normalDirection, plannedAllocated.mission[dieId]) != 0 ||
             !TakeContiguous(
                 plannedRemaining.instruction[dieId], request.instruction[dieId], plannedAllocated.instruction[dieId])) {
             return CcuResult::CCU_E_UNAVAIL;
@@ -116,6 +154,22 @@ CcuResult PlanKernelResources(
     remaining = std::move(plannedRemaining);
     allocated = std::move(plannedAllocated);
     return CcuResult::CCU_SUCCESS;
+}
+
+} // namespace
+
+CcuResult PlanKernelResources(
+    const AscCcuResRepository& available, const AscCcuResRequest& request, AscCcuResRepository& remaining,
+    AscCcuResRepository& allocated)
+{
+    return PlanResources(available, request, remaining, allocated, NormalAllocDirection::LOW_ID);
+}
+
+CcuResult PlanTranslatorResources(
+    const AscCcuResRepository& available, const AscCcuResRequest& request, AscCcuResRepository& remaining,
+    AscCcuResRepository& allocated)
+{
+    return PlanResources(available, request, remaining, allocated, NormalAllocDirection::HIGH_ID);
 }
 
 } // namespace hcomm
