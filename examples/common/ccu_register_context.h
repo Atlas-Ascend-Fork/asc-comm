@@ -24,19 +24,24 @@ namespace asccomm_examples {
 struct CcuRegisterContextStorage {
     HcommCcuRegisterContextPod context{};
     std::vector<HcommCcuResRangePod> instanceRanges;
+    std::vector<HcommCcuResRangePod> translatorRanges;
 };
 
 inline HcclResult QueryCcuRegisterContext(HcclComm comm, CcuRegisterContextStorage &storage)
 {
     storage.context.instanceResources = {nullptr, 0, 0};
+    storage.context.translatorResources = {nullptr, 0, 0};
     HcclResult ret = HcclCommQueryCcuRegisterContext(comm, &storage.context);
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
 
     storage.instanceRanges.resize(storage.context.instanceResources.count);
+    storage.translatorRanges.resize(storage.context.translatorResources.count);
     storage.context.instanceResources = {
         storage.instanceRanges.data(), static_cast<uint32_t>(storage.instanceRanges.size()), 0};
+    storage.context.translatorResources = {
+        storage.translatorRanges.data(), static_cast<uint32_t>(storage.translatorRanges.size()), 0};
     return HcclCommQueryCcuRegisterContext(comm, &storage.context);
 }
 

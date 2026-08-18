@@ -91,27 +91,6 @@ CcuResult SetRequestCount(uint32_t &target, size_t value)
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult BuildTranslatorResourceRequest(uint32_t dieId, uint32_t ccuVersion, AscCcuResRequest &request)
-{
-    request = {};
-    if (dieId >= HCOMM_CCU_MAX_DIE_NUM) {
-        return CcuResult::CCU_E_PARA;
-    }
-
-    constexpr size_t slotNum = CcuRep::CCU_TRANSLATOR_MISSION_SLOT_NUM;
-    constexpr size_t xnPerSlot = CcuRep::CCU_REFERENCE_MANAGER_XN_NUM + CcuRep::CCU_TRANSLATOR_XN_NUM;
-    constexpr size_t ckePerSlot = CcuRep::CCU_TRANSLATOR_CKE_NUM;
-    constexpr size_t gsaPerSlot = CcuRep::CCU_TRANSLATOR_GSA_NUM;
-
-    CCU_CHK_RET(SetRequestCount(request.count[HCOMM_CCU_BATCH_RES_XN][dieId], slotNum * xnPerSlot));
-    CCU_CHK_RET(SetRequestCount(request.count[HCOMM_CCU_BATCH_RES_CKE][dieId], slotNum * ckePerSlot));
-    if (ccuVersion == HCOMM_CCU_VERSION_V1) {
-        CCU_CHK_RET(SetRequestCount(request.count[HCOMM_CCU_BATCH_RES_GSA][dieId], slotNum * gsaPerSlot));
-    }
-
-    return CcuResult::CCU_SUCCESS;
-}
-
 CcuResult ClearKernelInstructionResource(CcuKernel &kernel)
 {
     HcommCcuResRangePod range{};
@@ -645,22 +624,8 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, AscCcuRes
         translators[dieId][i]->GetRes(translatorRepRes);
     }
 
-    AscCcuResRequest request{};
-    CcuResult ccuRet = BuildTranslatorResourceRequest(dieId, ccuVersion_, request);
-    if (ccuRet != CcuResult::CCU_SUCCESS) {
-        return static_cast<HcclResult>(ccuRet);
-    }
-
-    AscCcuResRepository remainingRepository;
-    AscCcuResRepository translatorResRepository;
-    ccuRet = PlanKernelResources(resPack.GetCcuResRepo(), request, remainingRepository, translatorResRepository);
-    if (ccuRet != CcuResult::CCU_SUCCESS) {
-        DumpResReqInfo(request);
-        HCCL_WARNING("[CcuKernelMgr][%s] translator resource is not enough, dieId[%u].", __func__, dieId);
-        return static_cast<HcclResult>(ccuRet);
-    }
     AscCcuResRepository expandedTranslatorResRepository;
-    ccuRet = ExpandResRepo(expandedTranslatorResRepository, translatorResRepository);
+    CcuResult ccuRet = ExpandResRepo(expandedTranslatorResRepository, resPack.GetTranslatorResRepo());
     if (ccuRet != CcuResult::CCU_SUCCESS) {
         return static_cast<HcclResult>(ccuRet);
     }
@@ -669,7 +634,6 @@ HcclResult CcuKernelMgr::InstantiationTranslator(const uint16_t dieId, AscCcuRes
     if (hcclRet != HcclResult::HCCL_SUCCESS) {
         return hcclRet;
     }
-    resPack.GetCcuResRepo() = std::move(remainingRepository);
     return HcclResult::HCCL_SUCCESS;
 }
 

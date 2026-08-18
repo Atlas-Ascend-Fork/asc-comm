@@ -44,6 +44,7 @@ public:
     uint32_t GetCcuVersion() const;
     uint32_t GetValidDieMask() const;
     const HcommCcuControlOpsPod &GetControlOps() const;
+    const AscCcuResRepository &GetTranslatorResRepo() const;
 
 private:
     AscCcuResSnapshot(const AscCcuResSnapshot &that) = delete;
@@ -58,6 +59,7 @@ private:
     HcommCcuControlOpsPod controlOps_{};
     AscCcuResRepository initialRepo_{};
     AscCcuResRepository resRepo_{};
+    AscCcuResRepository translatorRepo_{};
     std::array<HcommCcuDieMetadataPod, HCOMM_CCU_MAX_DIE_NUM> dieMetadata_{};
 };
 

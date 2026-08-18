@@ -71,9 +71,7 @@ bool PlanResourcePair(
     return remainingRequest == 0;
 }
 
-} // namespace
-
-CcuResult PlanKernelResources(
+CcuResult PlanResources(
     const AscCcuResRepository& available, const AscCcuResRequest& request, AscCcuResRepository& remaining,
     AscCcuResRepository& allocated)
 {
@@ -95,7 +93,8 @@ CcuResult PlanKernelResources(
             PlanResourcePair(
                 plannedRemaining.cke[dieId], plannedRemaining.blockCke[dieId],
                 request.count[HCOMM_CCU_BATCH_RES_CKE][dieId], request.count[HCOMM_CCU_BATCH_RES_BLOCK_CKE][dieId],
-                HCOMM_CCU_BATCH_RES_CKE, plannedAllocated.cke[dieId], plannedAllocated.blockCke[dieId]) &&
+                HCOMM_CCU_BATCH_RES_CKE, plannedAllocated.cke[dieId],
+                plannedAllocated.blockCke[dieId]) &&
             PlanResourcePair(
                 plannedRemaining.xn[dieId], plannedRemaining.blockXn[dieId],
                 request.count[HCOMM_CCU_BATCH_RES_XN][dieId], request.count[HCOMM_CCU_BATCH_RES_BLOCK_XN][dieId],
@@ -103,7 +102,8 @@ CcuResult PlanKernelResources(
             PlanResourcePair(
                 plannedRemaining.gsa[dieId], plannedRemaining.blockGsa[dieId],
                 request.count[HCOMM_CCU_BATCH_RES_GSA][dieId], request.count[HCOMM_CCU_BATCH_RES_BLOCK_GSA][dieId],
-                HCOMM_CCU_BATCH_RES_GSA, plannedAllocated.gsa[dieId], plannedAllocated.blockGsa[dieId]);
+                HCOMM_CCU_BATCH_RES_GSA, plannedAllocated.gsa[dieId],
+                plannedAllocated.blockGsa[dieId]);
         if (!planned || TakeAny(
                             plannedRemaining.mission[dieId], request.count[HCOMM_CCU_BATCH_RES_MISSION][dieId],
                             HCOMM_CCU_BATCH_RES_MISSION, plannedAllocated.mission[dieId]) != 0 ||
@@ -116,6 +116,15 @@ CcuResult PlanKernelResources(
     remaining = std::move(plannedRemaining);
     allocated = std::move(plannedAllocated);
     return CcuResult::CCU_SUCCESS;
+}
+
+} // namespace
+
+CcuResult PlanKernelResources(
+    const AscCcuResRepository& available, const AscCcuResRequest& request, AscCcuResRepository& remaining,
+    AscCcuResRepository& allocated)
+{
+    return PlanResources(available, request, remaining, allocated);
 }
 
 } // namespace hcomm

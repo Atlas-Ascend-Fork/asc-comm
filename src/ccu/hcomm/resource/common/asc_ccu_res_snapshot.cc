@@ -114,8 +114,8 @@ CcuResult AscCcuResSnapshot::Load(const HcommCcuRegisterContextPod &context)
     if (!IsHeaderValid(context) || context.generation == 0 || context.deviceLogicId < 0 || context.ccuVersion > 1 ||
         context.dieNum != HCOMM_CCU_MAX_DIE_NUM ||
         context.validDieMask == 0 || (context.validDieMask & ~((1U << HCOMM_CCU_MAX_DIE_NUM) - 1U)) != 0 ||
-        context.reserved[0] != 0 || context.reserved[1] != 0 ||
-        !IsControlOpsValid(context.controlOps) || !IsViewShapeValid(context.instanceResources)) {
+        !IsControlOpsValid(context.controlOps) || !IsViewShapeValid(context.instanceResources) ||
+        !IsViewShapeValid(context.translatorResources)) {
         return CcuResult::CCU_E_PARA;
     }
     if (generation_ != 0 && generation_ != context.generation) {
@@ -123,10 +123,16 @@ CcuResult AscCcuResSnapshot::Load(const HcommCcuRegisterContextPod &context)
     }
 
     AscCcuResRepository instanceSnapshot{};
+    AscCcuResRepository translatorSnapshot{};
     std::vector<HcommCcuResRangePod> allRanges;
-    allRanges.reserve(context.instanceResources.count);
+    allRanges.reserve(context.instanceResources.count + context.translatorResources.count);
 
     CcuResult ret = ValidateAndAppend(context.instanceResources, context.validDieMask, allRanges, instanceSnapshot);
+    if (ret != CcuResult::CCU_SUCCESS) {
+        return ret;
+    }
+    ret = ValidateAndAppend(
+        context.translatorResources, context.validDieMask, allRanges, translatorSnapshot);
     if (ret != CcuResult::CCU_SUCCESS) {
         return ret;
     }
@@ -148,6 +154,7 @@ CcuResult AscCcuResSnapshot::Load(const HcommCcuRegisterContextPod &context)
     controlOps_ = context.controlOps;
     initialRepo_ = std::move(instanceSnapshot);
     resRepo_ = std::move(currentRepo);
+    translatorRepo_ = std::move(translatorSnapshot);
     dieMetadata_[0] = context.die[0];
     dieMetadata_[1] = context.die[1];
     return CcuResult::CCU_SUCCESS;
@@ -178,5 +185,10 @@ uint32_t AscCcuResSnapshot::GetCcuVersion() const { return ccuVersion_; }
 uint32_t AscCcuResSnapshot::GetValidDieMask() const { return validDieMask_; }
 
 const HcommCcuControlOpsPod &AscCcuResSnapshot::GetControlOps() const { return controlOps_; }
+
+const AscCcuResRepository &AscCcuResSnapshot::GetTranslatorResRepo() const
+{
+    return translatorRepo_;
+}
 
 } // namespace hcomm

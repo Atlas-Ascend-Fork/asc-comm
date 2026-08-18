@@ -39,6 +39,7 @@ constexpr uint32_t CCU_VERSION_V2 = 1;
 struct CcuUserResourceContextStorage {
     HcommCcuRegisterContextPod context{};
     std::vector<HcommCcuResRangePod> instanceRanges;
+    std::vector<HcommCcuResRangePod> translatorRanges;
 };
 
 inline void AddRange(std::vector<HcommCcuResRangePod>& ranges, uint32_t type, uint32_t dieId,
@@ -105,6 +106,7 @@ inline HcclResult BuildDefaultUserCcuRegisterContext(
     }
 
     storage.instanceRanges.clear();
+    storage.translatorRanges = hcommContextStorage.translatorRanges;
     storage.context = {};
     storage.context.header = {HCOMM_CCU_RES_ABI_VERSION, HCOMM_CCU_REGISTER_CONTEXT_MAGIC_WORD,
         sizeof(HcommCcuRegisterContextPod), 0};
@@ -133,6 +135,8 @@ inline HcclResult BuildDefaultUserCcuRegisterContext(
 
     storage.context.instanceResources = {
         storage.instanceRanges.data(), static_cast<uint32_t>(storage.instanceRanges.size()), 0};
+    storage.context.translatorResources = {
+        storage.translatorRanges.data(), static_cast<uint32_t>(storage.translatorRanges.size()), 0};
     return HCCL_SUCCESS;
 }
 
