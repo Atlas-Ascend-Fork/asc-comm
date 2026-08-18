@@ -23,10 +23,8 @@ SIMT `WriteValueNbi` 当前不支持，调用会触发编译报错。
 ## 编译
 
 ```bash
-cd examples/simt_write
-mkdir -p build && cd build
-cmake .. -DCMAKE_ASC_ARCHITECTURES=dav-3510
-make
+source /usr/local/Ascend/cann/set_env.sh
+bash examples/simt_write/build.sh
 ```
 
 ## 运行
