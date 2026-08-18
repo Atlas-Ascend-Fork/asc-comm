@@ -29,7 +29,7 @@ class Array;
 
 class Address final {
 public:
-    Address() { CCU_THROW_IF_FAILED(CcuAddressAlloc(&this->handle), "CcuAddressAlloc: failed"); }
+    Address() { CCU_THROW_IF_FAILED(::asccomm::CcuAddressAlloc(&this->handle), "CcuAddressAlloc: failed"); }
 
     Address(const Address& other) { this->handle = other.handle; }
 
@@ -38,7 +38,7 @@ public:
     void operator=(const Address& other) const
     {
         CCU_THROW_IF_FAILED(
-            CcuAddressAssignAddr(this->handle, other.handle),
+            ::asccomm::CcuAddressAssignAddr(this->handle, other.handle),
             "Address::operator=(Address): CcuAddressAssignAddr failed");
     }
 
@@ -47,33 +47,33 @@ public:
     void operator=(uint64_t immediate) const
     {
         CCU_THROW_IF_FAILED(
-            CcuAddressAssignImm(this->handle, immediate), "Address::operator=(uint64_t): CcuAddressAssignImm failed");
+            ::asccomm::CcuAddressAssignImm(this->handle, immediate), "Address::operator=(uint64_t): CcuAddressAssignImm failed");
     }
 
     void operator=(const Variable& var) const
     {
         CCU_THROW_IF_FAILED(
-            CcuAddressAssignVar(this->handle, var.handle), "Address::operator=(Variable): CcuAddressAssignVar failed");
+            ::asccomm::CcuAddressAssignVar(this->handle, var.handle), "Address::operator=(Variable): CcuAddressAssignVar failed");
     }
 
     void operator=(detail::CcuArithmeticOperator<Address, Address> op) const
     {
         CCU_THROW_IF_FAILED(
-            CcuAddressAddAddrToAddr(this->handle, op.lhs.handle, op.rhs.handle),
+            ::asccomm::CcuAddressAddAddrToAddr(this->handle, op.lhs.handle, op.rhs.handle),
             "Address::operator=(Addr+Addr): CcuAddressAddAddrToAddr failed");
     }
 
     void operator=(detail::CcuArithmeticOperator<Address, Variable> op) const
     {
         CCU_THROW_IF_FAILED(
-            CcuAddressAddVarToAddr(this->handle, op.lhs.handle, op.rhs.handle),
+            ::asccomm::CcuAddressAddVarToAddr(this->handle, op.lhs.handle, op.rhs.handle),
             "Address::operator=(Addr+Var): CcuAddressAddVarToAddr failed");
     }
 
     void operator=(detail::CcuArithmeticOperator<Variable, Address> op) const
     {
         CCU_THROW_IF_FAILED(
-            CcuAddressAddVarToAddr(this->handle, op.rhs.handle, op.lhs.handle),
+            ::asccomm::CcuAddressAddVarToAddr(this->handle, op.rhs.handle, op.lhs.handle),
             "Address::operator=(Var+Addr): CcuAddressAddVarToAddr failed");
     }
 
@@ -94,7 +94,7 @@ public:
     void operator+=(const Variable& var) const
     {
         CCU_THROW_IF_FAILED(
-            CcuAddressAddAssignVar(this->handle, var.handle),
+            ::asccomm::CcuAddressAddAssignVar(this->handle, var.handle),
             "Address::operator+=(Variable): CcuAddressAddAssignVar failed");
     }
 
@@ -102,7 +102,7 @@ public:
     void operator+=(const Address& other) const
     {
         CCU_THROW_IF_FAILED(
-            CcuAddressAddAddrToAddr(this->handle, this->handle, other.handle),
+            ::asccomm::CcuAddressAddAddrToAddr(this->handle, this->handle, other.handle),
             "Address::operator+=(Address): CcuAddressAddAddrToAddr failed");
     }
 

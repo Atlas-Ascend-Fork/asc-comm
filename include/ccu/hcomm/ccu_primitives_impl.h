@@ -14,7 +14,7 @@
 #ifdef __cplusplus
 #include <cstdbool>
 #else
-#include <stdbool.h>
+#error "ccu/hcomm/ccu_primitives_impl.h 仅支持 C++：数据面 primitive 声明位于 namespace asccomm"
 #endif // __cplusplus
 
 // 控制面/数据面 ABI 边界：数据类型（HcclResult 等）改从 hcomm 包内 hcomm_types.h 获取，
@@ -23,9 +23,10 @@
 #include "hcomm/hcomm_primitives.h"
 #include "hcomm/hcomm_types.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif // __cplusplus
+// 数据面 primitive 统一为 C++ linkage：声明与实现均位于 namespace asccomm，
+// 与 hcomm 仓保留 C ABI 的同名接口（pkg_inc/hcomm/ccu/ccu_primitives_impl.h）符号隔离，
+// 避免两个 SO 导出相同未修饰 C 符号、链接顺序决定实现选择。
+namespace asccomm {
 
 // Alloc 相关接口
 extern CcuResult CcuVariableAlloc(CcuVariableHandle* varHandle);
@@ -162,8 +163,6 @@ extern CcuResult CcuLoopGroupCreateFromVar(
 extern CcuResult CcuLoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopConfig* config);
 extern CcuResult CcuLoopGroupAddLoopFromVar(CcuLoopGroup group, CcuLoop loop, CcuVariableHandle loopParamVar);
 
-#ifdef __cplusplus
-}
-#endif // __cplusplus
+} // namespace asccomm
 
 #endif // CCU_PRIMITIVES_IMPL_H

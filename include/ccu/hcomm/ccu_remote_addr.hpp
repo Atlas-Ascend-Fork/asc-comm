@@ -27,7 +27,7 @@ public:
     RemoteAddr() : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{})
     {
         CCU_THROW_IF_FAILED(
-            CcuRemoteAddrAlloc(&this->handle, &this->addr.handle, &this->token.handle), "CcuRemoteAddrAlloc: failed");
+            ::asccomm::CcuRemoteAddrAlloc(&this->handle, &this->addr.handle, &this->token.handle), "CcuRemoteAddrAlloc: failed");
     }
 
     RemoteAddr(const RemoteAddr& other) : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{})

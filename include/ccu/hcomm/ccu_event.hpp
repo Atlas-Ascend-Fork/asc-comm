@@ -26,10 +26,10 @@ class Array;
 
 class Event final {
 public:
-    Event() { CCU_THROW_IF_FAILED(CcuEventAlloc(&this->handle), "CcuEventAlloc: failed"); }
+    Event() { CCU_THROW_IF_FAILED(::asccomm::CcuEventAlloc(&this->handle), "CcuEventAlloc: failed"); }
 
     explicit Event(CcuEventHandle acqHandle, uint32_t index = 0) {
-        CCU_THROW_IF_FAILED(CcuEventGetByIndex(acqHandle, index, &this->handle),
+        CCU_THROW_IF_FAILED(::asccomm::CcuEventGetByIndex(acqHandle, index, &this->handle),
             "CcuEventGetByIndex: failed");
     }
 
