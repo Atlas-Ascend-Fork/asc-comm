@@ -290,7 +290,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(const LocalTens
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflow(
+__aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflowCq(
     ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt)
 {
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
@@ -299,8 +299,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflow(
     constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
     uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
     uint32_t sqDepth = sqCtx.contextInfo.ubJfs.sqDepth;
-    if ((cqeCnt + POLL_CQ_THRESHOLD) % cqDepth == cqTail % cqDepth ||
-        (sqHead % sqDepth) + POLL_CQ_THRESHOLD >= sqDepth) {
+    if ((cqeCnt + POLL_CQ_THRESHOLD) % cqDepth == cqTail % cqDepth) {
         uint32_t idx = (cqTail + NUM_CQE_PER_POLL_CQ) > cqeCnt ? cqeCnt : cqTail + NUM_CQE_PER_POLL_CQ;
         KERNEL_LOG(
             KERNEL_INFO, "Hcomm URMA queue overflow sqHead=%u cqeCnt=%u cqTail=%u idx=%u sqDepth=%u cqDepth=%u \n",
@@ -309,24 +308,52 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflow(
     }
 }
 
+__aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflowSq(
+    ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt)
+{
+    __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
+    uint32_t sqTail = channelEntity->sqTail;
+    uint32_t cqTail = channelEntity->cqTail;
+    // 只朝"已敲门铃"的 CQE poll，绝不朝 post-time 的 cqHead poll：后者含尚未 commit、
+    // HW 不会产生的 CQE，会让 PollCq 等空转（BUG-G）。cqCommitted 在 CommitImpl 敲门铃时更新。
+    uint32_t cqCommitted = channelEntity->cqCommitted;
+    constexpr uint32_t POLL_CQ_THRESHOLD = 10;
+    constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
+    uint32_t sqDepth = sqCtx.contextInfo.ubJfs.sqDepth;
+    (void)cqCtx;
+    (void)cqeCnt;
+
+    // outstanding 必须在 16 位域内算：sqHead 是 32 位自然增长，sqTail 只有 16 位有效
+    // （来自 CQE entryIdx:16），二者模数域不同。都截到 16 位再做无符号减法，靠 16 位回绕
+    // 得到真实 outstanding。前提：真实 outstanding <= 4D <= 32768 = 2^15 < 2^16（D<=8192 保证）。
+    uint16_t outstanding = (uint16_t)((uint16_t)(sqHead & 0xFFFFU) - (uint16_t)(sqTail & 0xFFFFU));
+    if ((uint32_t)outstanding + POLL_CQ_THRESHOLD >= sqDepth) {
+        // poll 目标在 CQE 域，朝 cqCommitted 方向推进；poll 到的 CQE 通过 entryIdx 抬升 sqTail
+        // 从而释放 SQ 的 BB。约束2 下每批 1 个 CQE，其 entryIdx = 批尾 sqHead，poll 一个即释放整批。
+        if (cqCommitted != cqTail) { // 有已提交、未消费的 CQE 才 poll，避免等永不到来的 CQE
+            uint32_t idx = (cqTail + NUM_CQE_PER_POLL_CQ) > cqCommitted ? cqCommitted : cqTail + NUM_CQE_PER_POLL_CQ;
+            (void)PollCq(channel, idx);
+        } else {
+            // 无已提交可回收的 CQE（cqe 全关 BUG-E，或未 commit 就逼近 SQ 满）。此处仅告警：
+            // 守卫为 void 返回、PostSend 忽略结果，后续仍会写 -> 可能覆盖。根治需返回状态并阻塞/报错。
+            KERNEL_LOG(
+                KERNEL_ERROR,
+                "Hcomm URMA SQ near full but no committed CQE to reclaim sqHead=%u sqTail=%u cqCommitted=%u \n", sqHead,
+                sqTail, cqCommitted);
+        }
+    }
+}
+
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::CommitImpl(
     ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt)
 {
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    uint32_t cqDepth = cqCtx.contextInfo.ubJfc.cqDepth;
-    uint32_t cqTail = channelEntity->cqTail;
-    uint32_t cqLeft = (cqeCnt - cqTail) % cqDepth;
-    if (cqLeft >= 0) {
-        SyncAction<HardEvent::MTE3_S>();
-        st_dev(sqHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
-    } else {
-        SyncAction<HardEvent::MTE3_S>();
-        auto commitCnt = sqHead - cqLeft;
-        st_dev(commitCnt, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
-        PollCq(channel, commitCnt);
-        st_dev(sqHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
-    }
+    st_dev(sqHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+    // 门铃已敲：截至本次 commit 已 post 的 CQE 现在都会被 HW 产生。记录"已提交 CQE 数"，
+    // 供 SQ 溢出守卫作 poll 上限（避免等到未敲门铃、不会到来的 CQE，见 BUG-G）。
+    channelEntity->cqCommitted = cqeCnt;
+    PollCqWhenSqOverflowCq(channel, sqCtx, cqCtx, sqHead, cqeCnt);
 }
 
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, HcommUrmaOpCode opCode, auto const& config, typename T>
@@ -351,6 +378,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     KERNEL_LOG(
         KERNEL_INFO, "Hcomm URMA PostSend resolved remoteIdx=%d curHead=%u sqDepth=%u \n", remoteIdx, curHead,
         sqCtx.contextInfo.ubJfs.sqDepth);
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    PollCqWhenSqOverflowSq(channel, sqCtx, cqCtx, curHead, cqeCnt);
 
     // write SQE
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = (__ubuf__ HcommUrmaSqeCtx*)wqeItem_.GetPhyAddr();
@@ -463,6 +492,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
 
     // update CQ tail
     channelEntity->cqTail = curTail;
+    channelEntity->sqTail = cqeUb->entryIdx;
 
     // ring CQ doorbell
     st_dev(curTail & 0xFFFFFFU, (__gm__ uint32_t*)cqCtx.contextInfo.ubJfc.dbVa, 0);
