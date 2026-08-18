@@ -97,6 +97,47 @@ public:
     {
         return HCOMM_FAILED;
     }
+
+    template <typename T>
+    __aicore__ inline BatchHandle MakeBatchHandle(
+        MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
+    {
+        (void)multiChannel;
+        (void)buff;
+        (void)buffLen;
+        return BatchHandle{0U};
+    }
+
+    __aicore__ inline BatchHandleRef GetHandleRef(BatchHandle handle, uint32_t remoteIndex)
+    {
+        (void)handle;
+        (void)remoteIndex;
+        return BatchHandleRef{0U, 0U};
+    }
+
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(BatchHandleRef handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
+    {
+        (void)handleRef;
+        (void)dst;
+        (void)src;
+        (void)len;
+        return HCOMM_FAILED;
+    }
+
+    template <pipe_t pipe = PIPE_S>
+    __aicore__ inline int32_t BatchCommit(BatchHandle handle)
+    {
+        (void)handle;
+        return HCOMM_FAILED;
+    }
+
+    template <pipe_t pipe = PIPE_MTE3>
+    __aicore__ inline int32_t Drain(BatchHandle handle)
+    {
+        (void)handle;
+        return HCOMM_FAILED;
+    }
 };
 } // namespace AscendC
 

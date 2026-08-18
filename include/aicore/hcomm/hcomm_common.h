@@ -19,6 +19,16 @@
 
 namespace AscendC {
 using ChannelHandle = uint64_t;
+using MultiChannelHandle = uint64_t;
+
+struct BatchHandle {
+    uint64_t stateAddr;
+};
+
+struct BatchHandleRef {
+    uint64_t stateAddr;
+    ChannelHandle channel;
+};
 
 /**
  * @brief 通信协议类型枚举
