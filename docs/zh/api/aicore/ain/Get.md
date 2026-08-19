@@ -56,5 +56,7 @@ __aicore__ inline void Get(
 - `dstOffset + bytes`需要落在本rank对应的`dstWin`注册内存范围内，`srcOffset + bytes`需要落在`peer`对应的`srcWin`注册内存范围内。
 - `ubuf.addr`和`ubuf.bytes`需要提供可供底层Hcomm初始化使用的UBuf临时工作区；`DescriptorUbuf`当前必须提供不小于512B的UBuf临时工作区。
 - 使用`AIN_COMMIT_DELAYED`时，本次任务不会立即响铃提交，需要后续至少提交一次`AIN_COMMIT_IMMED`的任务来保证之前任务已被提交。
+- 使用`AIN_COMMIT_DELAYED`时，连续调用次数不得超过底层SQ深度（`sqDepth`），需在SQ耗尽前通过`AIN_COMMIT_IMMED`提交积攒的任务，否则后续任务将因SQ溢出而失败。
+- 批量提交场景（多次`AIN_COMMIT_DELAYED` + 最后一次`AIN_COMMIT_IMMED`）下，仅最后一次提交应产生CQE。
 - `Get`提交的是非阻塞通信任务；需要调用`Flush`等待team内所有peer通道任务完成，或通过`FlushAsync`获取指定peer通道后调用`Wait`等待完成。
 - 当前只支持`COMM_PROTOCOL_UBC_CTP`协议路径。单次调用`Get`的入参`bytes`取值范围为`0 < bytes <= 256 * 1024 * 1024`。
