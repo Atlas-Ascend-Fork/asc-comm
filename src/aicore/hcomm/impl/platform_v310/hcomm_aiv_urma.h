@@ -34,26 +34,6 @@ typedef AscendC::HcommUrmaJfcCqeCtx HcommUrmaJfcCqeCtx;
 
 namespace AscendC {
 namespace {
-__aicore__ inline uint32_t HcommUrmaBatchAlignUp(uint32_t value)
-{
-    return (value + HCOMM_URMA_BATCH_ALIGN_SIZE - 1U) & ~(HCOMM_URMA_BATCH_ALIGN_SIZE - 1U);
-}
-
-__aicore__ inline LocalTensor<uint32_t> HcommUrmaMakeUbTensor(
-    __ubuf__ uint8_t* address, uint32_t len, uint32_t position)
-{
-    TBuffAddr tensorAddr{};
-    tensorAddr.logicPos = static_cast<uint8_t>(position);
-    tensorAddr.bufferAddr = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(address));
-    tensorAddr.dataLen = len;
-#if defined(UT_TEST)
-    tensorAddr.absAddr = reinterpret_cast<uint8_t*>(address);
-#endif
-    LocalTensor<uint32_t> tensor;
-    tensor.SetAddr(tensorAddr);
-    return tensor;
-}
-
 __aicore__ inline void HcommUrmaUpdateBatchTail(
     uint64_t sqTailAddr, uint64_t cqTailAddr, uint64_t cqDbAddr, uint32_t sqTail, uint32_t cqTail)
 {
@@ -336,16 +316,19 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(const LocalTens
 __aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
     MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen)
 {
+    __ubuf__ uint8_t* alignedBuff = AlignAddrTo32Bytes(buff);
+    uint32_t alignOffset = static_cast<uint32_t>(alignedBuff - buff);
+    uint32_t alignedLen = buffLen > alignOffset ? buffLen - alignOffset : 0U;
     TBuffAddr addr{};
     addr.logicPos = static_cast<uint8_t>(TPosition::VECOUT);
-    addr.bufferAddr = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(buff));
-    addr.dataLen = buffLen;
+    addr.bufferAddr = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(alignedBuff));
+    addr.dataLen = alignedLen;
 #if defined(UT_TEST)
-    addr.absAddr = reinterpret_cast<uint8_t*>(buff);
+    addr.absAddr = reinterpret_cast<uint8_t*>(alignedBuff);
 #endif
     LocalTensor<uint8_t> tensor;
     tensor.SetAddr(addr);
-    return MakeBatchHandle(multiChannel, tensor, buffLen);
+    return MakeBatchHandle(multiChannel, tensor, alignedLen);
 }
 
 template <typename T>
@@ -353,31 +336,26 @@ __aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchH
     MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
 {
     UbcCtpBatchHandle handle{};
-    uint32_t position = static_cast<uint32_t>(buff.GetPosition());
-
-    __ubuf__ uint8_t* rawBuffer = reinterpret_cast<__ubuf__ uint8_t*>(buff.GetPhyAddr());
-    __ubuf__ uint8_t* alignedBuffer = AlignAddrTo32Bytes(rawBuffer);
-    uint32_t alignOffset = static_cast<uint32_t>(alignedBuffer - rawBuffer);
+    LocalTensor<uint32_t> buffer = buff.template ReinterpretCast<uint32_t>();
 
     auto* multiChannelEntity = reinterpret_cast<__gm__ HcommMultiChannelEntity*>(multiChannel);
     uint32_t sqDepth = multiChannelEntity->sqContext.contextInfo.ubJfs.sqDepth;
     uint32_t wqeSize = multiChannelEntity->sqContext.contextInfo.ubJfs.wqeSize;
     uint32_t cqeSize = multiChannelEntity->cqContext.contextInfo.ubJfc.cqeSize;
-    uint32_t wqeOffset = HcommUrmaBatchAlignUp(cqeSize);
     uint32_t sqHead = static_cast<uint32_t>(
         ld_dev(reinterpret_cast<__gm__ uint32_t*>(multiChannelEntity->sqContext.contextInfo.ubJfs.headAddr), 0));
     uint32_t cqHead = static_cast<uint32_t>(
         ld_dev(reinterpret_cast<__gm__ uint32_t*>(multiChannelEntity->cqContext.contextInfo.ubJfc.headAddr), 0));
-    if (wqeSize == 0U || cqeSize == 0U || buffLen < alignOffset + wqeOffset + wqeSize) {
+    if (wqeSize == 0U || cqeSize == 0U || buffLen < cqeSize + wqeSize) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA MakeBatchHandle failed with insufficient batch buffer\n");
         return handle;
     }
-    uint32_t availableLen = buffLen - alignOffset;
-    uint32_t capacityBb = (availableLen - wqeOffset) / wqeSize;
+    uint32_t capacityBb = (buffLen - cqeSize) / wqeSize;
+    uint32_t wqeBufferSize = capacityBb * wqeSize;
 
     handle.multiChannel = multiChannel;
-    handle.cqeBuffer = HcommUrmaMakeUbTensor(alignedBuffer, cqeSize, position);
-    handle.wqeBuffer = HcommUrmaMakeUbTensor(alignedBuffer + wqeOffset, capacityBb * wqeSize, position);
+    handle.wqeBuffer = buffer;
+    handle.cqeBuffer = buffer[wqeBufferSize / sizeof(uint32_t)];
     handle.sqHead = sqHead;
     handle.cqHead = cqHead;
     handle.pendingBb = 0U;
