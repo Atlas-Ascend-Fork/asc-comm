@@ -46,7 +46,7 @@ stages:
             name: show_output
             run: |
               echo "Compile_Ascend_X86: ${{ steps.revise_image.outputs.Compile_Ascend_X86 }}"
-        runs-on: [dedicate-hosted, x64, small]
+        runs-on: ["self-hosted", "arch=x64", "spec=small"]
         container:
           image: swr.cn-north-4.myhuaweicloud.com/ci_cann/ubuntu20.04.05_x86:k8s_v1.1006
       JOB_pre:
@@ -121,7 +121,7 @@ stages:
               repo_name: ${{ env.repo_name }}
               merge_id: ${{ env.MERGE_ID }}
         if: env.TARGET_BRANCH == 'master'
-        runs-on: [dedicate-hosted, x64, small]
+        runs-on: ["self-hosted", "arch=x64", "spec=small"]
         container:
           image: swr.cn-north-4.myhuaweicloud.com/ci_cann/${{ jobs.JOB_image.outputs.codecheck }}
       JOB_ut:
