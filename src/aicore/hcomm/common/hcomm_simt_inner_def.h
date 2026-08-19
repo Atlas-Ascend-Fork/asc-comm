@@ -35,7 +35,8 @@
 namespace AscendC::simt {
 
 // headAddr stores curHead in low 32 bits and wqeCnt in high 32 bits.
-// Concurrent deferred posts reserve it atomically; publication and Drain are single-lane.
+// SIMT Hcomm serializes channel posts through the group leader, so reservation
+// can update this value with an ordinary read-modify-write sequence.
 constexpr uint64_t HCOMM_SIMT_WQE_CNT_MASK = 0xFFFFFFFFULL;
 
 // SIMT view of ChannelEntity: the shared definition stores typed host pointers, which the SIMT

@@ -51,16 +51,6 @@ __simt_callee__ inline int32_t HcommSimtFindBufferIdx(
     return HCOMM_FAILED;
 }
 
-__simt_callee__ inline uint64_t HcommSimtLoadLe64(__gm__ const uint8_t* addr)
-{
-    uint64_t value = 0U;
-#pragma unroll
-    for (uint32_t i = 0; i < sizeof(uint64_t); ++i) {
-        value |= static_cast<uint64_t>(addr[i]) << (i * 8U);
-    }
-    return value;
-}
-
 __simt_callee__ inline uint32_t HcommSimtHeadIdx(uint64_t headVal)
 {
     return static_cast<uint32_t>(headVal & 0xFFFFFFFFU);

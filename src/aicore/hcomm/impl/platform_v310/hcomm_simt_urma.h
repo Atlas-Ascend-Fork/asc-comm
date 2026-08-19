@@ -51,6 +51,12 @@ __simt_callee__ inline void HcommSimtCopyUbToGm(__gm__ uint8_t* dst, __ubuf__ ui
     }
 }
 
+template <uint32_t byteSize>
+__simt_callee__ inline void HcommSimtAssertWqeFits()
+{
+    static_assert(byteSize <= HCOMM_URMA_DWQE_SIZE, "WQE must fit in the 128-byte DWQE window");
+}
+
 template <uint32_t bbCnt>
 __simt_callee__ inline void HcommSimtCopyUbWqeToSq(
     uint64_t sqBaseAddr, __gm__ uint8_t* sqeAddr, uint32_t sqDepth, uint32_t curHead, __ubuf__ uint8_t* src)
@@ -111,6 +117,7 @@ __simt_callee__ inline void HcommSimtUrmaFillUbWriteWithNotifyWqe(
     __gm__ uint8_t* notifyAddr, uint64_t notifyVal, const HcommSimtUbPostMeta& meta, uint32_t curHead,
     uint32_t nextHead)
 {
+    HcommSimtAssertWqeFits<sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaNotifyCtx) + sizeof(HcommUrmaSgeCtx)>();
     HcommSimtUrmaFillUbSqeCtx<HcommUrmaOpCode::WRITE_WITH_NOTIFY, 1U, config>(
         wqeAddr, remoteAddr, meta, curHead, nextHead);
 
@@ -138,6 +145,7 @@ __simt_callee__ inline void HcommSimtUrmaFillUbDataWqe(
     const HcommSimtUbPostMeta& meta, uint32_t curHead, uint32_t nextHead)
 {
     static_assert(sgeNum == 1U || sgeNum == 2U, "SIMT URMA supports one or two SGEs per WQE");
+    HcommSimtAssertWqeFits<sizeof(HcommUrmaSqeCtx) + sgeNum * sizeof(HcommUrmaSgeCtx)>();
     HcommSimtUrmaFillUbSqeCtx<opCode, sgeNum, config>(wqeAddr, remoteAddr, meta, curHead, nextHead);
 
     __ubuf__ HcommUrmaSgeCtx* sgeCtx = (__ubuf__ HcommUrmaSgeCtx*)(wqeAddr + sizeof(HcommUrmaSqeCtx));
@@ -158,12 +166,6 @@ __simt_callee__ inline void HcommSimtUrmaFillUbDataWqe(
         lastSgeCtx->tokenId = 0U;
         lastSgeCtx->va = reinterpret_cast<uint64_t>(localAddr + firstLen);
 
-        // An immediate data post copies the entire 128-byte DWQE window. The
-        // unused tail must not retain fields from an earlier WQE.
-#pragma unroll
-        for (uint32_t i = 10U; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
-            reinterpret_cast<__ubuf__ uint64_t*>(wqeAddr)[i] = 0U;
-        }
     }
 }
 
@@ -172,6 +174,9 @@ __simt_callee__ inline void HcommSimtUrmaFillUbAtomicWqe(
     __ubuf__ uint8_t* wqeAddr, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* fetchAddr, T value, T cond,
     const HcommSimtUbPostMeta& meta, uint32_t curHead, uint32_t nextHead)
 {
+    constexpr uint32_t amoWordCount = opCode == HcommUrmaOpCode::CAS ? 2U : 1U;
+    HcommSimtAssertWqeFits<
+        sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaSgeCtx) + amoWordCount * sizeof(T)>();
     HcommSimtUrmaFillUbSqeCtx<opCode, 1U, config>(wqeAddr, remoteAddr, meta, curHead, nextHead);
 
     __ubuf__ HcommUrmaSgeCtx* sgeCtx = (__ubuf__ HcommUrmaSgeCtx*)(wqeAddr + sizeof(HcommUrmaSqeCtx));
@@ -179,141 +184,11 @@ __simt_callee__ inline void HcommSimtUrmaFillUbAtomicWqe(
     sgeCtx->tokenId = 0U;
     sgeCtx->va = reinterpret_cast<uint64_t>(fetchAddr);
 
-    // Always overwrite 16B: FAA/CAS and uint32_t/uint64_t can reuse one slot safely.
     __ubuf__ T* amoData = (__ubuf__ T*)((__ubuf__ uint8_t*)sgeCtx + sizeof(HcommUrmaSgeCtx));
     amoData[0] = value;
-    amoData[1] = opCode == HcommUrmaOpCode::CAS ? cond : static_cast<T>(0);
-    if constexpr (sizeof(T) == sizeof(uint32_t)) {
-        amoData[2] = 0U;
-        amoData[3] = 0U;
+    if constexpr (opCode == HcommUrmaOpCode::CAS) {
+        amoData[1] = cond;
     }
-}
-
-union alignas(sizeof(uint64_t)) HcommSimtLocalWqeStage {
-    uint64_t words[HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t)];
-};
-static_assert(
-    sizeof(HcommSimtLocalWqeStage) == HCOMM_URMA_DWQE_SIZE,
-    "SIMT lane-private WQE stage must match the 128-byte DWQE window");
-
-__simt_callee__ inline void HcommSimtStoreLocalWqe(__gm__ uint8_t* dst, const HcommSimtLocalWqeStage& stage)
-{
-#pragma unroll
-    for (uint32_t i = 0; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
-        reinterpret_cast<__gm__ uint64_t*>(dst)[i] = stage.words[i];
-    }
-}
-
-__simt_callee__ inline void HcommSimtStoreLocalWqeBb(
-    __gm__ uint8_t* dst, const HcommSimtLocalWqeStage& stage, uint32_t srcWordOffset)
-{
-#pragma unroll
-    for (uint32_t i = 0; i < HCOMM_URMA_WQE_BB_SIZE / sizeof(uint64_t); ++i) {
-        reinterpret_cast<__gm__ uint64_t*>(dst)[i] = stage.words[srcWordOffset + i];
-    }
-}
-
-__simt_callee__ inline void HcommSimtStoreLocalWqeToSq(
-    uint64_t sqBaseAddr, __gm__ uint8_t* sqeAddr, uint32_t sqDepth, uint32_t curHead,
-    const HcommSimtLocalWqeStage& stage)
-{
-    if ((curHead % sqDepth) != sqDepth - 1U) {
-        HcommSimtStoreLocalWqe(sqeAddr, stage);
-        return;
-    }
-
-    constexpr uint32_t wordsPerBb = HCOMM_URMA_WQE_BB_SIZE / sizeof(uint64_t);
-    HcommSimtStoreLocalWqeBb(sqeAddr, stage, 0U);
-    HcommSimtStoreLocalWqeBb(reinterpret_cast<__gm__ uint8_t*>(sqBaseAddr), stage, wordsPerBb);
-}
-
-__simt_callee__ inline void HcommSimtStoreLocalDwqeStwt16(__gm__ uint8_t* dst, const HcommSimtLocalWqeStage& stage)
-{
-    __gm__ ulonglong2* dstWords = reinterpret_cast<__gm__ ulonglong2*>(dst);
-#pragma unroll
-    for (uint32_t i = 0; i < HCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2); ++i) {
-        uint32_t wordIdx = i * 2U;
-        asc_stwt(&dstWords[i], make_ulonglong2(stage.words[wordIdx], stage.words[wordIdx + 1U]));
-    }
-}
-
-__simt_callee__ inline void HcommSimtCopyUb128ToDwqeStwt16(__gm__ uint8_t* dst, __ubuf__ uint8_t* src)
-{
-    __ubuf__ uint64_t* srcWords = reinterpret_cast<__ubuf__ uint64_t*>(src);
-    __gm__ ulonglong2* dstWords = reinterpret_cast<__gm__ ulonglong2*>(dst);
-#pragma unroll
-    for (uint32_t i = 0; i < HCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2); ++i) {
-        uint32_t wordIdx = i * 2U;
-        asc_stwt(&dstWords[i], make_ulonglong2(srcWords[wordIdx], srcWords[wordIdx + 1U]));
-    }
-}
-
-template <uint32_t sgeNum>
-__simt_callee__ inline void HcommSimtBuildPackedSqeTemplate(
-    const HcommSimtUbPostMeta& meta, HcommSimtPackedSqeTemplate& sqeTemplate)
-{
-    static_assert(sgeNum == 1U || sgeNum == 2U, "SIMT URMA supports one or two SGEs per WQE");
-    sqeTemplate.word1 = static_cast<uint64_t>(meta.tpId & 0xFFFFFFU) | (static_cast<uint64_t>(sgeNum) << 24U) |
-                        (static_cast<uint64_t>(meta.remoteTokenId & 0xFFFFFU) << 32U);
-    sqeTemplate.remoteEidL = meta.remoteEidL;
-    sqeTemplate.remoteEidH = meta.remoteEidH;
-    sqeTemplate.tokenWord = meta.remoteTokenValue;
-    sqeTemplate.sqDepth = meta.sqDepth;
-}
-
-template <HcommUrmaOpCode opCode, auto const& config>
-__simt_callee__ inline void HcommSimtStoreLocalSqeHeader(
-    uint64_t* words, __gm__ uint8_t* remoteAddr, const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead,
-    uint32_t nextHead)
-{
-    uint64_t owner = (curHead & sqeTemplate.sqDepth) == 0U ? 1U : 0U;
-    words[0] = static_cast<uint64_t>(nextHead & 0xFFFFU) |
-               (static_cast<uint64_t>(HcommSimtUrmaFlag<config>() & 0xFFU) << 16U) | (1ULL << 28U) | (1ULL << 29U) |
-               (owner << 31U) | (static_cast<uint64_t>(static_cast<uint32_t>(opCode) & 0xFFU) << 40U);
-    words[1] = sqeTemplate.word1;
-    words[2] = sqeTemplate.remoteEidL;
-    words[3] = sqeTemplate.remoteEidH;
-    words[4] = sqeTemplate.tokenWord;
-    words[5] = reinterpret_cast<uint64_t>(remoteAddr);
-}
-
-template <HcommUrmaOpCode opCode, uint32_t sgeNum, auto const& config>
-__simt_callee__ inline void HcommSimtBuildLocalDataWqe(
-    HcommSimtLocalWqeStage& stage, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
-    const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead, uint32_t nextHead)
-{
-    static_assert(sgeNum == 1U || sgeNum == 2U, "SIMT URMA supports one or two SGEs per WQE");
-    HcommSimtStoreLocalSqeHeader<opCode, config>(stage.words, remoteAddr, sqeTemplate, curHead, nextHead);
-    if constexpr (sgeNum == 1U) {
-        stage.words[6] = static_cast<uint64_t>(static_cast<uint32_t>(len));
-        stage.words[7] = reinterpret_cast<uint64_t>(localAddr);
-#pragma unroll
-        for (uint32_t i = 8U; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
-            stage.words[i] = 0U;
-        }
-    } else {
-        uint32_t firstLen = static_cast<uint32_t>(len >> 1);
-        uint32_t lastLen = static_cast<uint32_t>(len - firstLen);
-        stage.words[6] = static_cast<uint64_t>(firstLen);
-        stage.words[7] = reinterpret_cast<uint64_t>(localAddr);
-        stage.words[8] = static_cast<uint64_t>(lastLen);
-        stage.words[9] = reinterpret_cast<uint64_t>(localAddr + firstLen);
-#pragma unroll
-        for (uint32_t i = 10U; i < HCOMM_URMA_DWQE_SIZE / sizeof(uint64_t); ++i) {
-            stage.words[i] = 0U;
-        }
-    }
-}
-
-__simt_callee__ inline void HcommSimtPublishLocalWqe(
-    uint64_t sqBaseAddr, __gm__ uint8_t* sqeAddr, uint32_t sqDepth, uint32_t curHead, __gm__ uint8_t* dwqeAddr,
-    const HcommSimtLocalWqeStage& stage)
-{
-    HcommSimtStoreLocalWqeToSq(sqBaseAddr, sqeAddr, sqDepth, curHead, stage);
-    asc_threadfence();
-    HcommSimtStoreLocalDwqeStwt16(dwqeAddr, stage);
-    asc_dcci_single(dwqeAddr);
-    asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
 }
 
 __simt_callee__ inline void HcommSimtRingDwqeFromUbStwt16(__gm__ uint8_t* dwqeAddr, __ubuf__ uint8_t* wqeAddr)
@@ -367,8 +242,9 @@ __simt_callee__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::InitUbPostContext(
     ubPostContext_->sqWqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
     ubPostContext_->sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
     ubPostContext_->tpId = sqCtx->contextInfo.ubJfs.tpID;
-    ubPostContext_->remoteEidL = HcommSimtLoadLe64(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
-    ubPostContext_->remoteEidH = HcommSimtLoadLe64(&sqCtx->contextInfo.ubJfs.remoteEID[sizeof(uint64_t)]);
+    __gm__ const uint64_t* remoteEid = reinterpret_cast<__gm__ const uint64_t*>(sqCtx->contextInfo.ubJfs.remoteEID);
+    ubPostContext_->remoteEidL = remoteEid[0];
+    ubPostContext_->remoteEidH = remoteEid[1];
     ubPostContext_->dwqeAddr = sqCtx->contextInfo.ubJfs.dbVa - HCOMM_URMA_DWQE_DB_OFFSET;
     ubPostContext_->channel = channel;
 }
@@ -455,8 +331,10 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolveUbPostCo
         post.sqWqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
         post.meta.sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
         post.meta.tpId = sqCtx->contextInfo.ubJfs.tpID;
-        post.meta.remoteEidL = HcommSimtLoadLe64(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
-        post.meta.remoteEidH = HcommSimtLoadLe64(&sqCtx->contextInfo.ubJfs.remoteEID[sizeof(uint64_t)]);
+        __gm__ const uint64_t* remoteEid =
+            reinterpret_cast<__gm__ const uint64_t*>(sqCtx->contextInfo.ubJfs.remoteEID);
+        post.meta.remoteEidL = remoteEid[0];
+        post.meta.remoteEidH = remoteEid[1];
     }
     post.meta.remoteTokenId = remoteTokenId;
     post.meta.remoteTokenValue = remoteTokenValue;
