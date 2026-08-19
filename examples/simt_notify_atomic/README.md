@@ -54,4 +54,4 @@ RESULT | Mode=<mode> | Status=PASS
 `HcclChannelAcquire`的`memHandles`数组下标。本地表下标0由CCL buffer预留，因此本样例中第一个显式注册的
 `sendBuf`使用下标1；远端`recvBuf`下标通过`HcclChannelGetRemoteMems`按tag查找。
 
-本样例要求同一主机上至少有两张Ascend 950PR/950DT设备，并安装支持SIMT URMA接口的CANN版本。不同rank之间通过本地临时文件完成同步。
+本样例要求同一主机上至少有两张Ascend 950PR/950DT设备（多卡时需偶数张），并安装支持SIMT URMA接口的CANN版本。不同rank之间通过本地临时文件完成同步。

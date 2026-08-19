@@ -15,8 +15,10 @@
 
 namespace simt_notify_atomic {
 
-constexpr int kSenderRank = 0;
-constexpr int kReceiverRank = 1;
+// Pair-wise topology: even ranks send to rank+1, odd ranks receive from rank-1. Every rank
+// participates in communication; nranks must be even so each rank has exactly one peer.
+constexpr bool IsSender(int rank) { return (rank & 1) == 0; }
+constexpr int PeerRank(int rank) { return IsSender(rank) ? rank + 1 : rank - 1; }
 
 constexpr uint32_t kNotifyDataSlot = 0U;
 constexpr uint32_t kNotifySignalSlot = 1U;

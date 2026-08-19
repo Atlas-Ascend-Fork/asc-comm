@@ -319,7 +319,7 @@ int main(int argc, char* argv[])
     const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
     const uint32_t laneCount = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
     const std::string commitMode = argv[9];
-    if (nranks < 2 || !ValidApi(api) || iterations == 0U || payloadBytes == 0U ||
+    if (nranks < 2 || (nranks & 1) != 0 || !ValidApi(api) || iterations == 0U || payloadBytes == 0U ||
         (laneCount != 1U && laneCount != 32U && laneCount != 1024U) ||
         (commitMode != "immediate" && commitMode != "last") || (commitMode == "immediate" && laneCount != 1U)) {
         std::cout << "Invalid argument." << std::endl;
@@ -348,7 +348,7 @@ int main(int argc, char* argv[])
     HCCLCHECK(HcclCommMemReg(comm, kSendBufTag, &sendMem, &handles[0]));
     HCCLCHECK(HcclCommMemReg(comm, kRecvBufTag, &recvMem, &handles[1]));
 
-    uint32_t peer = rank == kSenderRank ? kReceiverRank : kSenderRank;
+    uint32_t peer = static_cast<uint32_t>(PeerRank(rank));
     ChannelHandle channel = 0U;
     uint32_t remoteRecvIdx = 0U;
     HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
@@ -358,7 +358,7 @@ int main(int argc, char* argv[])
     uint64_t timing[kTimingWords] = {};
     bool pass = true;
     constexpr uint32_t kLocalSendIdx = 1U;
-    if (rank == kSenderRank) {
+    if (IsSender(rank)) {
         ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
         ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
         if (commitMode == "last") {
@@ -393,10 +393,10 @@ int main(int argc, char* argv[])
     }
 
     HCCLCHECK(HostBarrier(rank, nranks, "completed"));
-    if (rank == kReceiverRank) {
+    if (!IsSender(rank)) {
         pass = CheckReceiver(recvBuf, bufferBytes, api, payloadBytes, iterations, warmup, laneCount);
     }
-    if (!pass && (rank == kSenderRank || rank == kReceiverRank)) {
+    if (!pass) {
         std::cout << "FAIL | Rank=" << rank << " | API=" << api << " | Path=SIMT-t" << laneCount << std::endl;
     }
 

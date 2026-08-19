@@ -443,8 +443,8 @@ int main(int argc, char* argv[])
     const int rank = std::atoi(argv[1]);
     const int nranks = std::atoi(argv[2]);
     const std::string rootInfoFile = argv[3];
-    if (nranks < 2) {
-        std::cout << "nranks must be at least 2." << std::endl;
+    if (nranks < 2 || (nranks & 1) != 0) {
+        std::cout << "nranks must be an even number >= 2." << std::endl;
         return 1;
     }
 
@@ -480,8 +480,7 @@ int main(int argc, char* argv[])
     HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kSendMemHandleIdx]));
     HCCLCHECK(HcclCommMemReg(hcclComm, kRecvBufTag, &recvMem, &memHandles[1]));
 
-    const uint32_t peerRank =
-        rank == kSenderRank ? static_cast<uint32_t>(kReceiverRank) : static_cast<uint32_t>(kSenderRank);
+    const uint32_t peerRank = static_cast<uint32_t>(PeerRank(rank));
     ChannelHandle channel = 0;
     uint32_t remoteRecvIdx = 0;
     HCCLCHECK(
@@ -489,26 +488,26 @@ int main(int argc, char* argv[])
 
     HCCLCHECK(HostFileBarrier(rank, nranks, "ready"));
 
-    // Only kSenderRank drives traffic. Every other rank just holds its registered buffers
-    // open so the sender's WQEs have a valid target.
-    if (rank == kSenderRank) {
+    // Even ranks drive traffic to their odd peer; odd ranks just hold their registered
+    // buffers open so the sender's WQEs have a valid target.
+    if (IsSender(rank)) {
         LaunchSimtNotifyAtomic(stream, channel, kLocalSendIdx, remoteRecvIdx, mode);
         ACLCHECK(aclrtSynchronizeStream(stream));
     }
 
-    // Separates the sender's kernel from the receiver's read. kSenderRank only arrives here
-    // after aclrtSynchronizeStream, so kReceiverRank cannot sample its recv buffer while the
+    // Separates the sender's kernel from the receiver's read. Senders only arrive here
+    // after aclrtSynchronizeStream, so receivers cannot sample their recv buffer while the
     // WQEs are still in flight. Without this the receiver races ahead straight from the
     // "ready" barrier and reads the memset-zeroed buffer, which looks like nothing landed.
     HCCLCHECK(HostFileBarrier(rank, nranks, "sent"));
 
     bool pass = true;
-    if (rank == kSenderRank) {
+    if (IsSender(rank)) {
         pass = CheckSender(sendBuf, mode);
-    } else if (rank == kReceiverRank) {
+    } else {
         pass = CheckReceiver(recvBuf, mode);
     }
-    if (!pass && (rank == kSenderRank || rank == kReceiverRank)) {
+    if (!pass) {
         std::cout << "FAIL | Rank=" << rank << " | Mode=" << ModeName(mode) << std::endl;
     }
 

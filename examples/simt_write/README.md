@@ -32,12 +32,15 @@ bash examples/simt_write/build.sh
 
 样例通过 `HcclGetRootInfo` 和 `HcclCommInitRootInfo` 创建通信域，无需准备 rank table。`run.sh` 会为每次运行创建临时 root info 文件，由 rank 0 写入、其余 rank 读取。
 
+采用相邻配对拓扑：`nranks` 必须为偶数，偶数 rank（0/2/4/...）向相邻奇数 rank（1/3/5/...）发送数据，每个 rank 与且仅与一个 peer 通信。2 卡即 rank 0→1；8 卡为 0→1、2→3、4→5、6→7 四对独立 P2P 通道并发。
+
 ```bash
 examples/simt_write/run.sh <nranks> [mode]
 
 examples/simt_write/run.sh 2 single
 examples/simt_write/run.sh 2 batch_last
 examples/simt_write/run.sh 2 multi_lane
+examples/simt_write/run.sh 8 multi_lane
 ```
 
 预期输出：

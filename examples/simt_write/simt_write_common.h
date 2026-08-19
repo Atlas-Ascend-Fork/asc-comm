@@ -20,10 +20,10 @@
 
 namespace simt_write {
 
-// Only one rank drives the traffic. kSenderRank posts every WriteNbi into kRecvRank's
-// buffer; kRecvRank launches no kernel and its NIC lands the data passively.
-constexpr int kSenderRank = 0;
-constexpr int kRecvRank = 1;
+// Pair-wise topology: even ranks send to rank+1, odd ranks receive from rank-1. Every rank
+// participates in communication; nranks must be even so each rank has exactly one peer.
+constexpr bool IsSender(int rank) { return (rank & 1) == 0; }
+constexpr int PeerRank(int rank) { return IsSender(rank) ? rank + 1 : rank - 1; }
 
 // Number of uint64_t slots the sender writes to the receiver.
 constexpr uint32_t kSlotCount = 32U;

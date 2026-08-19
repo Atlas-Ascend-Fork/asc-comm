@@ -28,8 +28,8 @@ case "$mode" in
         ;;
 esac
 
-if ! [[ "$nranks" =~ ^[0-9]+$ ]] || [ "$nranks" -lt 2 ]; then
-    echo "nranks must be an integer greater than or equal to 2"
+if ! [[ "$nranks" =~ ^[0-9]+$ ]] || [ "$nranks" -lt 2 ] || [ $((nranks % 2)) -ne 0 ]; then
+    echo "nranks must be an even integer greater than or equal to 2"
     exit 1
 fi
 

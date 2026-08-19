@@ -56,8 +56,8 @@ done
 [[ "$api" == "notify" || "$api" == "faa" || "$api" == "cas" ]] || {
     echo "api must be notify, faa, or cas" >&2; exit 1;
 }
-[[ "$nranks" =~ ^[0-9]+$ && "$nranks" -ge 2 ]] || {
-    echo "nranks must be an integer greater than or equal to 2" >&2; exit 1;
+[[ "$nranks" =~ ^[0-9]+$ && "$nranks" -ge 2 && $((nranks % 2)) -eq 0 ]] || {
+    echo "nranks must be an even integer greater than or equal to 2" >&2; exit 1;
 }
 [[ "$iterations" =~ ^[0-9]+$ && "$iterations" -gt 0 ]] || {
     echo "--iterations must be a positive integer" >&2; exit 1;
