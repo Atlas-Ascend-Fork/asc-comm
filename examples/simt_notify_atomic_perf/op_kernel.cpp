@@ -68,7 +68,16 @@ __simt_callee__ inline int32_t SubmitLastCommitSeries(
     for (uint32_t i = 1U; i < count; ++i) {
         int32_t status = SubmitOne<api, false>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);
         if (status != 0) {
-            return status;
+            // Deferred posts do not ring the doorbell, so a batch larger than the SQ depth
+            // saturates the queue without producing CQEs for ReservePost to recycle. Publish
+            // the accumulated batch by re-issuing this op with commit=true: the doorbell rings,
+            // hardware drains the SQ, and the next deferred post's ReservePost polls the
+            // resulting CQEs to reclaim space. The op still counts once, so the total operation
+            // count stays equal to count and receiver validation is unaffected.
+            status = SubmitOne<api, true>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);
+            if (status != 0) {
+                return status;
+            }
         }
     }
     return SubmitOne<api, true>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);
