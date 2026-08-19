@@ -89,20 +89,19 @@ Commit mode matrix:
 Refer to [API Reference](./docs/en/api/README.md) for detailed parameter constraints and return value descriptions.
 
 ## 🔍 Directory Layout
-This repository contains AICore communication data plane APIs, device-side implementations, samples, documentation and UT cases for asc-comm. The structure is as follows:
+This repository contains the asc-comm AICore data plane and AICPU POD data-plane implementation, samples, documentation, and unit tests. The structure is as follows:
 ```text
 ├── cmake                         # CMake helper modules for asc-comm
 ├── docs                          # Project documentation
 ├── examples                      # asc-comm API samples
 │   └── hcomm_write_read_nbi      # Two-card P2P communication sample for AIV direct-driven URMA Hcomm
 ├── include                       # asc-comm API declarations
-│   ├── aicpu/hcomm               # Public AICPU legacy and POD data-plane interfaces
+│   ├── aicpu/hcomm               # Public AICPU POD data-plane primitives
 │   ├── aicore/hcomm              # Public AICore Hcomm interfaces
 │   └── aicore/ain                # Public AICore Ain one-sided communication interfaces
-├── pod_only                      # Standalone POD data-plane project preserving the original usage
 ├── scripts                       # Utility scripts
 ├── src                           # asc-comm API implementations
-│   ├── aicpu                     # AICPU legacy and POD data-plane implementations
+│   ├── aicpu/hcomm               # AICPU POD data-plane implementation
 │   ├── aicore/hcomm              # Internal implementation of AICore Hcomm
 │   │   ├── common                # Common definitions and utilities for Hcomm
 │   │   └── impl                  # Protocol implementations and platform-specific logic
@@ -120,14 +119,21 @@ To quickly build the project and run UTs, configure the CANN environment first:
 source /usr/local/Ascend/cann/set_env.sh
 ```
 
-The default build produces `build/aicpu-data-plane/libaicpu_data_plane.so`. The library contains the legacy data
-plane, POD primitives, and legacy-to-POD resource converters. Existing `Hcomm*OnThreadPod` signatures remain unchanged:
+The former `pod_only` project is now integrated directly at the repository root. The default build produces
+`build/aicpu-data-plane/libaicpu_pod_data_plane.so`. HCOMM owns the control plane and resources; the POD
+implementation consumes the resource ABI and lookup APIs supplied by HCOMM. The repository no longer carries the
+legacy data plane, resource converters, or copies of HCOMM's public interfaces.
+
+By default, the build finds HCOMM in the `hcomm_pkg_inc` directory next to asc-comm. For another layout, use
+`--hcomm-source-dir`:
+
 ```bash
 bash build.sh
+bash build.sh --hcomm-source-dir=/path/to/hcomm
 ```
 
-The original standalone POD build and link flow remains available under `pod_only`, producing
-`libaicpu_pod_data_plane.so`; see the [pod_only README](./pod_only/README.md).
+The POD API is declared in `include/aicpu/hcomm/hcomm_pod_primitives.h`. Base primitives and resource interfaces
+come from HCOMM's `include/` and `pkg_inc/` directories.
 
 Build and execute Hcomm and Ain unit tests:
 ```bash

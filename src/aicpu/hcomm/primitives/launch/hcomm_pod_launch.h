@@ -11,7 +11,7 @@
 #ifndef HCOMM_POD_LAUNCH_H
 #define HCOMM_POD_LAUNCH_H
 
-#include "hcomm_res_defs.h"
+#include "hcomm/hcomm_pod_primitives.h"
 #include "hccl/hccl_types.h"
 
 void HcommPodRegisterThread(ThreadHandle thread);

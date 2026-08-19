@@ -103,7 +103,7 @@ Ain Kernel侧使用时包含如下头文件：
 
 ## 🔍目录结构说明
 
-本仓主要包含asc-comm AICore侧通信数据面API、设备侧实现、样例、文档和UT用例，目录结构如下：
+本仓主要包含asc-comm AICore侧通信数据面与AICPU POD数据面实现、样例、文档和UT用例，目录结构如下：
 
 ```text
 ├── cmake                         # asc-comm CMake辅助模块
@@ -111,13 +111,12 @@ Ain Kernel侧使用时包含如下头文件：
 ├── examples                      # asc-comm API样例目录
 │   └── hcomm_write_read_nbi      # Hcomm AIV直驱URMA两卡P2P通信样例
 ├── include                       # asc-comm API声明源代码
-│   ├── aicpu/hcomm               # AICPU legacy与POD数据面公开接口
+│   ├── aicpu/hcomm               # AICPU POD数据面公开原语
 │   ├── aicore/hcomm              # AICore侧Hcomm公开接口
 │   └── aicore/ain                # AICore侧Ain单边通信公开接口
-├── pod_only                      # 保持原调用方式的独立POD数据面工程
 ├── scripts                       # 脚本
 ├── src                           # asc-comm API实现源代码
-│   ├── aicpu                     # AICPU legacy与POD数据面实现
+│   ├── aicpu/hcomm               # AICPU POD数据面实现
 │   ├── aicore/hcomm              # AICore侧Hcomm实现细节
 │   │   ├── common                # Hcomm公共定义和工具
 │   │   └── impl                  # Hcomm协议实现与平台差异代码
@@ -137,15 +136,20 @@ Ain Kernel侧使用时包含如下头文件：
 source /usr/local/Ascend/cann/set_env.sh
 ```
 
-默认构建生成`build/aicpu-data-plane/libaicpu_data_plane.so`。该库同时包含legacy数据面、
-POD数据面原语以及legacy资源到POD资源的转换接口；原`Hcomm*OnThreadPod`调用签名保持不变：
+根目录已直接集成原`pod_only`工程，默认构建生成
+`build/aicpu-data-plane/libaicpu_pod_data_plane.so`。HCOMM负责控制面和资源管理，本仓POD实现直接使用
+HCOMM提供的资源ABI与查询接口，不再包含legacy数据面、资源转换接口或HCOMM公共接口副本。
+
+默认从asc-comm同级的`hcomm_pkg_inc`目录获取HCOMM头文件；其他目录布局可通过
+`--hcomm-source-dir`指定：
 
 ```bash
 bash build.sh
+bash build.sh --hcomm-source-dir=/path/to/hcomm
 ```
 
-如需保持原独立POD库的构建和链接方式，可继续从`pod_only`构建
-`libaicpu_pod_data_plane.so`，详见[pod_only说明](./pod_only/README.md)。
+POD接口使用`include/aicpu/hcomm/hcomm_pod_primitives.h`；基础原语和资源接口由HCOMM工程的
+`include/`与`pkg_inc/`目录提供。
 
 构建并运行Hcomm与Ain UT：
 

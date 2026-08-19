@@ -25,6 +25,7 @@ THREAD_NUM="${CPU_CORES}"
 
 Ascend_CANN_PACKAGE_PATH=""
 CANN_3RD_LIB_PATH="${SCRIPT_DIR}/third_party"
+ASC_COMM_HCOMM_SOURCE_DIR="${HCOMM_SOURCE_DIR:-}"
 
 # 默认构建类型：Release / Debug
 BUILD_TYPE="Release"
@@ -97,6 +98,8 @@ usage() {
     echo "    --make_clean         Clean build artifacts"
     echo "    --cann_3rd_lib_path=<PATH>"
     echo "                         Set CANN third_party package install path, Default:./third_party"
+    echo "    --hcomm-source-dir=<PATH>"
+    echo "                         Set the HCOMM source directory providing include/ and pkg_inc/"
     echo "    --build-type=<TYPE>"
     echo "                         Specify build type (TYPE options: Release/Debug), Default:Release"
 }
@@ -122,6 +125,10 @@ parse_args() {
                 ;;
             --cann_3rd_lib_path=*)
                 CANN_3RD_LIB_PATH="$(realpath "${1#*=}")"
+                shift
+                ;;
+            --hcomm-source-dir=*)
+                ASC_COMM_HCOMM_SOURCE_DIR="$(realpath "${1#*=}")"
                 shift
                 ;;
             --no-aicpu-data-plane)
@@ -153,6 +160,9 @@ set_env() {
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
     CUSTOM_OPTION+=("-DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
     CUSTOM_OPTION+=("-DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/cmake/aarch64-hcc-toolchain.cmake")
+    if [[ -n "${ASC_COMM_HCOMM_SOURCE_DIR}" ]]; then
+        CUSTOM_OPTION+=("-DHCOMM_SOURCE_DIR=${ASC_COMM_HCOMM_SOURCE_DIR}")
+    fi
 }
 
 clean_build() {

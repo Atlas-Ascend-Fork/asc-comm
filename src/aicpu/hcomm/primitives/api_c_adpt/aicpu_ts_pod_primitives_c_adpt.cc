@@ -10,12 +10,12 @@
 
 #include <cmath>
 #include <limits>
-#include "hcomm_pod_primitives.h"
-#include "hcomm_pod_resource.h"
+#include "hcomm/hcomm_pod_primitives.h"
+#include "hcomm/hcomm_pod_resource.h"
 #include "hcomm_pod_launch.h"
 #include "hcomm_pod_runtime.h"
 #include "hcomm_pod_transport.h"
-#include "exception_util.h"
+#include "../../common/utils/exception_util.h"
 #include "log/hcomm_log.h"
 
 namespace {
@@ -41,7 +41,7 @@ HcclResult ValidatePodEntity(const Entity *entity, uint32_t version, uint32_t ma
 HcclResult GetPodThread(ThreadHandle thread, bool registerThread, HcommThreadEntity *&threadEntity)
 {
     CHK_PRT_RET(thread == 0, HCCL_ERROR("[%s] thread handle is 0.", __func__), HCCL_E_PTR);
-    threadEntity = reinterpret_cast<HcommThreadEntity *>(static_cast<uintptr_t>(thread));
+    CHK_RET(static_cast<HcclResult>(HcommGetPodThreadResource(thread, &threadEntity)));
     CHK_RET(ValidatePodEntity(threadEntity, HCOMM_POD_THREAD_VERSION, HCOMM_POD_THREAD_MAGIC_WORD));
     CHK_PTR_NULL(threadEntity->sqContextAddr);
     if (registerThread) {
@@ -54,7 +54,7 @@ HcclResult GetPodContext(ThreadHandle thread, ChannelHandle channel, bool regist
 {
     CHK_PRT_RET(channel == 0, HCCL_ERROR("[%s] channel handle is 0.", __func__), HCCL_E_PTR);
     CHK_RET(GetPodThread(thread, registerThread, context.thread));
-    context.channel = reinterpret_cast<HcommChannelEntity *>(static_cast<uintptr_t>(channel));
+    CHK_RET(static_cast<HcclResult>(HcommGetPodChannelResource(channel, &context.channel)));
     CHK_RET(ValidatePodEntity(context.channel, HCOMM_POD_CHANNEL_VERSION, HCOMM_POD_CHANNEL_MAGIC_WORD));
     return HCCL_SUCCESS;
 }
@@ -126,11 +126,56 @@ HcclResult GetReduceParams(HcommDataType dataType, HcommReduceOp reduceOp, uint6
     return HCCL_SUCCESS;
 }
 
-template <typename Operation>
-HcclResult ExecutePodOperation(Operation operation)
+HcommPodDfxEvent CreatePodDfxEvent(HcommPodDfxApi api)
 {
+    HcommPodDfxEvent event{};
+    event.abiHeader = {HCOMM_POD_DFX_VERSION, HCOMM_POD_DFX_MAGIC_WORD, sizeof(HcommPodDfxEvent), 0};
+    event.api = api;
+    event.stage = HCOMM_POD_DFX_STAGE_INVALID;
+    return event;
+}
+
+void CopyPodDfxTag(const char *tag, char (&dst)[HCOMM_POD_DFX_TAG_MAX_LEN])
+{
+    if (tag == nullptr) {
+        return;
+    }
+    size_t index = 0;
+    while (index + 1 < HCOMM_POD_DFX_TAG_MAX_LEN && tag[index] != '\0') {
+        dst[index] = tag[index];
+        ++index;
+    }
+    dst[index] = '\0';
+}
+
+HcommPodDfxCallback GetPodDfxCallback()
+{
+    static HcommPodDfxCallback callback = []() {
+        HcommPodDfxCallback result = nullptr;
+        return HcommGetPodDfxCallback(&result) == HCCL_SUCCESS ? result : nullptr;
+    }();
+    return callback;
+}
+
+void ReportPodDfxEvent(HcommPodDfxEvent &event, HcommPodDfxStage stage, HcclResult result)
+{
+    HcommPodDfxCallback callback = GetPodDfxCallback();
+    if (callback == nullptr) {
+        return;
+    }
+    event.stage = stage;
+    event.result = result;
+    callback(&event);
+}
+
+template <typename Operation>
+HcclResult ExecutePodApi(HcommPodDfxEvent &event, Operation operation)
+{
+    ReportPodDfxEvent(event, HCOMM_POD_DFX_STAGE_START, HCCL_SUCCESS);
     HcclResult ret = HCCL_SUCCESS;
     EXCEPTION_CATCH(ret = operation(), ret = HCCL_E_INTERNAL);
+    const HcommPodDfxStage stage = ret == HCCL_SUCCESS ? HCOMM_POD_DFX_STAGE_SUCCESS : HCOMM_POD_DFX_STAGE_FAIL;
+    ReportPodDfxEvent(event, stage, ret);
     return ret;
 }
 
@@ -149,278 +194,396 @@ HcclResult ConvertTimeout(float timeout, uint32_t &timeoutSeconds)
 
 int32_t HcommBatchModeStartPod(const char *batchTag)
 {
-    (void)batchTag;
-    HcommPodSetBatchLaunchMode(true);
-    return HCCL_SUCCESS;
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_BATCH_MODE_START);
+    CopyPodDfxTag(batchTag, event.params.batchModeStart.batchTag);
+    return ExecutePodApi(event, [&]() {
+        HcommPodSetBatchLaunchMode(true);
+        return HCCL_SUCCESS;
+    });
 }
 
 int32_t HcommBatchModeEndPod(const char *batchTag)
 {
-    (void)batchTag;
-    HcommPodSetBatchLaunchMode(false);
-    const HcclResult ret = HcommPodLaunchRegisteredThreads();
-    HcommPodClearRegisteredThreads();
-    return ret;
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_BATCH_MODE_END);
+    CopyPodDfxTag(batchTag, event.params.batchModeEnd.batchTag);
+    return ExecutePodApi(event, [&]() {
+        HcommPodSetBatchLaunchMode(false);
+        const HcclResult ret = HcommPodLaunchRegisteredThreads();
+        HcommPodClearRegisteredThreads();
+        return ret;
+    });
 }
 
 int32_t HcommLocalCopyOnThreadPod(ThreadHandle thread, void *dst, const void *src, uint64_t len)
 {
-    CHK_PTR_NULL(dst);
-    CHK_PTR_NULL(src);
-    HcommThreadEntity *threadEntity = nullptr;
-    CHK_RET(GetPodThread(thread, true, threadEntity));
-    return ExecutePodOperation([&]() {
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_LOCAL_COPY);
+    event.params.localCopy.thread = thread;
+    event.params.localCopy.dst = reinterpret_cast<uintptr_t>(dst);
+    event.params.localCopy.src = reinterpret_cast<uintptr_t>(src);
+    event.params.localCopy.length = len;
+    return ExecutePodApi(event, [&]() {
+        CHK_PTR_NULL(dst);
+        CHK_PTR_NULL(src);
+        HcommThreadEntity *threadEntity = nullptr;
+        CHK_RET(GetPodThread(thread, true, threadEntity));
         constexpr uint64_t SDMA_SEND_MAX_SIZE = 0x100000000ULL;
         uint64_t offset = 0;
         while (offset < len) {
             const uint64_t remaining = len - offset;
             const uint64_t realSize = remaining > SDMA_SEND_MAX_SIZE ? SDMA_SEND_MAX_SIZE : remaining;
-            CHK_RET(HcommPodRtsqSdmaCopy(*threadEntity->sqContextAddr,
-                reinterpret_cast<uintptr_t>(dst) + offset, reinterpret_cast<uintptr_t>(src) + offset,
-                static_cast<uint32_t>(realSize)));
+            CHK_RET(HcommPodRtsqSdmaCopy(
+                *threadEntity->sqContextAddr, reinterpret_cast<uintptr_t>(dst) + offset,
+                reinterpret_cast<uintptr_t>(src) + offset, static_cast<uint32_t>(realSize)));
             offset += realSize;
         }
         return HCCL_SUCCESS;
     });
 }
 
-int32_t HcommLocalReduceOnThreadPod(ThreadHandle thread, void *dst, const void *src, uint64_t count,
-                                    HcommDataType dataType, HcommReduceOp reduceOp)
+int32_t HcommLocalReduceOnThreadPod(
+    ThreadHandle thread, void *dst, const void *src, uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp)
 {
-    CHK_PTR_NULL(dst);
-    CHK_PTR_NULL(src);
-    Hccl::PodReduceIn reduceIn{Hccl::PodDataType::INVALID, Hccl::PodReduceOp::INVALID};
-    uint64_t len = 0;
-    CHK_RET(GetReduceParams(dataType, reduceOp, count, len, reduceIn));
-    HcommThreadEntity *threadEntity = nullptr;
-    CHK_RET(GetPodThread(thread, true, threadEntity));
-    return ExecutePodOperation([&]() {
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_LOCAL_REDUCE);
+    event.params.localReduce.thread = thread;
+    event.params.localReduce.dst = reinterpret_cast<uintptr_t>(dst);
+    event.params.localReduce.src = reinterpret_cast<uintptr_t>(src);
+    event.params.localReduce.count = count;
+    event.params.localReduce.dataType = dataType;
+    event.params.localReduce.reduceOp = reduceOp;
+    return ExecutePodApi(event, [&]() {
+        CHK_PTR_NULL(dst);
+        CHK_PTR_NULL(src);
+        Hccl::PodReduceIn reduceIn{Hccl::PodDataType::INVALID, Hccl::PodReduceOp::INVALID};
+        uint64_t len = 0;
+        CHK_RET(GetReduceParams(dataType, reduceOp, count, len, reduceIn));
+        HcommThreadEntity *threadEntity = nullptr;
+        CHK_RET(GetPodThread(thread, true, threadEntity));
         constexpr uint64_t SDMA_SEND_MAX_SIZE = 0x100000000ULL;
         uint64_t offset = 0;
         while (offset < len) {
             const uint64_t remaining = len - offset;
             const uint64_t realSize = remaining > SDMA_SEND_MAX_SIZE ? SDMA_SEND_MAX_SIZE : remaining;
-            CHK_RET(HcommPodRtsqSdmaReduce(*threadEntity->sqContextAddr,
-                reinterpret_cast<uintptr_t>(dst) + offset, reinterpret_cast<uintptr_t>(src) + offset,
-                static_cast<uint32_t>(realSize), reduceIn));
+            CHK_RET(HcommPodRtsqSdmaReduce(
+                *threadEntity->sqContextAddr, reinterpret_cast<uintptr_t>(dst) + offset,
+                reinterpret_cast<uintptr_t>(src) + offset, static_cast<uint32_t>(realSize), reduceIn));
             offset += realSize;
         }
         return HCCL_SUCCESS;
     });
 }
 
-int32_t HcommThreadNotifyRecordOnThreadPod(
-    ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
+int32_t HcommThreadNotifyRecordOnThreadPod(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
 {
-    HcommThreadEntity *threadEntity = nullptr;
-    HcommThreadEntity *dstThreadEntity = nullptr;
-    CHK_RET(GetPodThread(thread, true, threadEntity));
-    CHK_RET(GetPodThread(dstThread, false, dstThreadEntity));
-    uint32_t notifyId = 0;
-    CHK_RET(GetThreadNotifyId(*dstThreadEntity, dstNotifyIdx, notifyId));
-    return ExecutePodOperation([&]() {
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_THREAD_NOTIFY_RECORD);
+    event.params.threadNotifyRecord.thread = thread;
+    event.params.threadNotifyRecord.dstThread = dstThread;
+    event.params.threadNotifyRecord.dstNotifyIdx = dstNotifyIdx;
+    return ExecutePodApi(event, [&]() {
+        HcommThreadEntity *threadEntity = nullptr;
+        HcommThreadEntity *dstThreadEntity = nullptr;
+        CHK_RET(GetPodThread(thread, true, threadEntity));
+        CHK_RET(GetPodThread(dstThread, false, dstThreadEntity));
+        uint32_t notifyId = 0;
+        CHK_RET(GetThreadNotifyId(*dstThreadEntity, dstNotifyIdx, notifyId));
         return HcommPodRtsqNotifyRecord(*threadEntity->sqContextAddr, notifyId);
     });
 }
 
 int32_t HcommThreadNotifyWaitOnThreadPod(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut)
 {
-    HcommThreadEntity *threadEntity = nullptr;
-    CHK_RET(GetPodThread(thread, true, threadEntity));
-    uint32_t notifyId = 0;
-    CHK_RET(GetThreadNotifyId(*threadEntity, notifyIdx, notifyId));
-    return ExecutePodOperation([&]() {
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_THREAD_NOTIFY_WAIT);
+    event.params.threadNotifyWait.thread = thread;
+    event.params.threadNotifyWait.notifyIdx = notifyIdx;
+    event.params.threadNotifyWait.timeOut = timeOut;
+    return ExecutePodApi(event, [&]() {
+        HcommThreadEntity *threadEntity = nullptr;
+        CHK_RET(GetPodThread(thread, true, threadEntity));
+        uint32_t notifyId = 0;
+        CHK_RET(GetThreadNotifyId(*threadEntity, notifyIdx, notifyId));
         return HcommPodRtsqNotifyWait(*threadEntity->sqContextAddr, notifyId, timeOut);
     });
 }
 
 int32_t HcommAclrtNotifyRecordOnThreadPod(ThreadHandle thread, uint64_t dstNotifyId)
 {
-    HcommThreadEntity *threadEntity = nullptr;
-    CHK_RET(GetPodThread(thread, true, threadEntity));
-    return ExecutePodOperation([&]() {
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_ACLRT_NOTIFY_RECORD);
+    event.params.aclrtNotifyRecord.thread = thread;
+    event.params.aclrtNotifyRecord.dstNotifyId = dstNotifyId;
+    return ExecutePodApi(event, [&]() {
+        HcommThreadEntity *threadEntity = nullptr;
+        CHK_RET(GetPodThread(thread, true, threadEntity));
         return HcommPodRtsqNotifyRecord(*threadEntity->sqContextAddr, static_cast<uint32_t>(dstNotifyId));
     });
 }
 
 int32_t HcommAclrtNotifyWaitOnThreadPod(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
 {
-    HcommThreadEntity *threadEntity = nullptr;
-    CHK_RET(GetPodThread(thread, true, threadEntity));
-    return ExecutePodOperation([&]() {
-        return HcommPodRtsqNotifyWait(
-            *threadEntity->sqContextAddr, static_cast<uint32_t>(notifyId), timeOut);
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_ACLRT_NOTIFY_WAIT);
+    event.params.aclrtNotifyWait.thread = thread;
+    event.params.aclrtNotifyWait.notifyId = notifyId;
+    event.params.aclrtNotifyWait.timeOut = timeOut;
+    return ExecutePodApi(event, [&]() {
+        HcommThreadEntity *threadEntity = nullptr;
+        CHK_RET(GetPodThread(thread, true, threadEntity));
+        return HcommPodRtsqNotifyWait(*threadEntity->sqContextAddr, static_cast<uint32_t>(notifyId), timeOut);
     });
 }
 
 int32_t HcommWriteOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
 {
-    CHK_PTR_NULL(dst);
-    CHK_PTR_NULL(src);
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, true, context));
-    return ExecutePodOperation([&]() {
-        return HcommPodWrite(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(src),
-            reinterpret_cast<uintptr_t>(dst), len);
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_WRITE);
+    event.params.write.thread = thread;
+    event.params.write.channel = channel;
+    event.params.write.dst = reinterpret_cast<uintptr_t>(dst);
+    event.params.write.src = reinterpret_cast<uintptr_t>(src);
+    event.params.write.length = len;
+    return ExecutePodApi(event, [&]() {
+        CHK_PTR_NULL(dst);
+        CHK_PTR_NULL(src);
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, true, context));
+        return HcommPodWrite(
+            *context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), reinterpret_cast<uintptr_t>(dst), len);
     });
 }
 
-int32_t HcommWriteReduceOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
-                                    uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp)
+int32_t HcommWriteReduceOnThreadPod(
+    ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, HcommDataType dataType,
+    HcommReduceOp reduceOp)
 {
-    CHK_PTR_NULL(dst);
-    CHK_PTR_NULL(src);
-    Hccl::PodReduceIn reduceIn{Hccl::PodDataType::INVALID, Hccl::PodReduceOp::INVALID};
-    uint64_t len = 0;
-    CHK_RET(GetReduceParams(dataType, reduceOp, count, len, reduceIn));
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, true, context));
-    return ExecutePodOperation([&]() {
-        return HcommPodWriteReduce(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(src),
-            reinterpret_cast<uintptr_t>(dst), len, reduceIn);
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_WRITE_REDUCE);
+    event.params.writeReduce.thread = thread;
+    event.params.writeReduce.channel = channel;
+    event.params.writeReduce.dst = reinterpret_cast<uintptr_t>(dst);
+    event.params.writeReduce.src = reinterpret_cast<uintptr_t>(src);
+    event.params.writeReduce.count = count;
+    event.params.writeReduce.dataType = dataType;
+    event.params.writeReduce.reduceOp = reduceOp;
+    return ExecutePodApi(event, [&]() {
+        CHK_PTR_NULL(dst);
+        CHK_PTR_NULL(src);
+        Hccl::PodReduceIn reduceIn{Hccl::PodDataType::INVALID, Hccl::PodReduceOp::INVALID};
+        uint64_t len = 0;
+        CHK_RET(GetReduceParams(dataType, reduceOp, count, len, reduceIn));
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, true, context));
+        return HcommPodWriteReduce(
+            *context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), reinterpret_cast<uintptr_t>(dst), len,
+            reduceIn);
     });
 }
 
-int32_t HcommWriteWithNotifyOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
-                                        uint64_t len, uint32_t remoteNotifyIdx)
+int32_t HcommWriteWithNotifyOnThreadPod(
+    ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len, uint32_t remoteNotifyIdx)
 {
-    CHK_PTR_NULL(dst);
-    CHK_PTR_NULL(src);
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, true, context));
-    return ExecutePodOperation([&]() {
-        return HcommPodWriteWithNotify(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(src),
-            reinterpret_cast<uintptr_t>(dst), len, remoteNotifyIdx);
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_WRITE_WITH_NOTIFY);
+    event.params.writeWithNotify.thread = thread;
+    event.params.writeWithNotify.channel = channel;
+    event.params.writeWithNotify.dst = reinterpret_cast<uintptr_t>(dst);
+    event.params.writeWithNotify.src = reinterpret_cast<uintptr_t>(src);
+    event.params.writeWithNotify.length = len;
+    event.params.writeWithNotify.remoteNotifyIdx = remoteNotifyIdx;
+    return ExecutePodApi(event, [&]() {
+        CHK_PTR_NULL(dst);
+        CHK_PTR_NULL(src);
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, true, context));
+        return HcommPodWriteWithNotify(
+            *context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), reinterpret_cast<uintptr_t>(dst), len,
+            remoteNotifyIdx);
     });
 }
 
-int32_t HcommWriteReduceWithNotifyOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst,
-                                              const void *src, uint64_t count, HcommDataType dataType,
-                                              HcommReduceOp reduceOp, uint32_t remoteNotifyIdx)
+int32_t HcommWriteReduceWithNotifyOnThreadPod(
+    ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, HcommDataType dataType,
+    HcommReduceOp reduceOp, uint32_t remoteNotifyIdx)
 {
-    CHK_PTR_NULL(dst);
-    CHK_PTR_NULL(src);
-    Hccl::PodReduceIn reduceIn{Hccl::PodDataType::INVALID, Hccl::PodReduceOp::INVALID};
-    uint64_t len = 0;
-    CHK_RET(GetReduceParams(dataType, reduceOp, count, len, reduceIn));
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, true, context));
-    return ExecutePodOperation([&]() {
-        return HcommPodWriteReduceWithNotify(*context.thread, *context.channel,
-            reinterpret_cast<uintptr_t>(src), reinterpret_cast<uintptr_t>(dst), len, reduceIn, remoteNotifyIdx);
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_WRITE_REDUCE_WITH_NOTIFY);
+    event.params.writeReduceWithNotify.thread = thread;
+    event.params.writeReduceWithNotify.channel = channel;
+    event.params.writeReduceWithNotify.dst = reinterpret_cast<uintptr_t>(dst);
+    event.params.writeReduceWithNotify.src = reinterpret_cast<uintptr_t>(src);
+    event.params.writeReduceWithNotify.count = count;
+    event.params.writeReduceWithNotify.dataType = dataType;
+    event.params.writeReduceWithNotify.reduceOp = reduceOp;
+    event.params.writeReduceWithNotify.remoteNotifyIdx = remoteNotifyIdx;
+    return ExecutePodApi(event, [&]() {
+        CHK_PTR_NULL(dst);
+        CHK_PTR_NULL(src);
+        Hccl::PodReduceIn reduceIn{Hccl::PodDataType::INVALID, Hccl::PodReduceOp::INVALID};
+        uint64_t len = 0;
+        CHK_RET(GetReduceParams(dataType, reduceOp, count, len, reduceIn));
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, true, context));
+        return HcommPodWriteReduceWithNotify(
+            *context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), reinterpret_cast<uintptr_t>(dst), len,
+            reduceIn, remoteNotifyIdx);
     });
 }
 
 int32_t HcommReadOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
 {
-    CHK_PTR_NULL(dst);
-    CHK_PTR_NULL(src);
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, true, context));
-    return ExecutePodOperation([&]() {
-        return HcommPodRead(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst),
-            reinterpret_cast<uintptr_t>(src), len);
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_READ);
+    event.params.read.thread = thread;
+    event.params.read.channel = channel;
+    event.params.read.dst = reinterpret_cast<uintptr_t>(dst);
+    event.params.read.src = reinterpret_cast<uintptr_t>(src);
+    event.params.read.length = len;
+    return ExecutePodApi(event, [&]() {
+        CHK_PTR_NULL(dst);
+        CHK_PTR_NULL(src);
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, true, context));
+        return HcommPodRead(
+            *context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst), reinterpret_cast<uintptr_t>(src), len);
     });
 }
 
-int32_t HcommReadReduceOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src,
-                                   uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp)
+int32_t HcommReadReduceOnThreadPod(
+    ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, HcommDataType dataType,
+    HcommReduceOp reduceOp)
 {
-    CHK_PTR_NULL(dst);
-    CHK_PTR_NULL(src);
-    Hccl::PodReduceIn reduceIn{Hccl::PodDataType::INVALID, Hccl::PodReduceOp::INVALID};
-    uint64_t len = 0;
-    CHK_RET(GetReduceParams(dataType, reduceOp, count, len, reduceIn));
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, true, context));
-    return ExecutePodOperation([&]() {
-        return HcommPodReadReduce(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst),
-            reinterpret_cast<uintptr_t>(src), len, reduceIn);
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_READ_REDUCE);
+    event.params.readReduce.thread = thread;
+    event.params.readReduce.channel = channel;
+    event.params.readReduce.dst = reinterpret_cast<uintptr_t>(dst);
+    event.params.readReduce.src = reinterpret_cast<uintptr_t>(src);
+    event.params.readReduce.count = count;
+    event.params.readReduce.dataType = dataType;
+    event.params.readReduce.reduceOp = reduceOp;
+    return ExecutePodApi(event, [&]() {
+        CHK_PTR_NULL(dst);
+        CHK_PTR_NULL(src);
+        Hccl::PodReduceIn reduceIn{Hccl::PodDataType::INVALID, Hccl::PodReduceOp::INVALID};
+        uint64_t len = 0;
+        CHK_RET(GetReduceParams(dataType, reduceOp, count, len, reduceIn));
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, true, context));
+        return HcommPodReadReduce(
+            *context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst), reinterpret_cast<uintptr_t>(src), len,
+            reduceIn);
     });
 }
 
-int32_t HcommBatchTransferOnThreadPod(ThreadHandle thread, ChannelHandle channel,
-                                      const HcommBatchTransferDesc *transferDescs, uint32_t transferDescNum)
+int32_t HcommBatchTransferOnThreadPod(
+    ThreadHandle thread, ChannelHandle channel, const HcommBatchTransferDesc *transferDescs, uint32_t transferDescNum)
 {
-    CHK_PTR_NULL(transferDescs);
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, true, context));
-    return ExecutePodOperation([&]() {
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_BATCH_TRANSFER);
+    event.params.batchTransfer.thread = thread;
+    event.params.batchTransfer.channel = channel;
+    event.params.batchTransfer.transferDescNum = transferDescNum;
+    return ExecutePodApi(event, [&]() {
+        CHK_PTR_NULL(transferDescs);
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, true, context));
         return HcommPodBatchTransfer(*context.thread, *context.channel, transferDescs, transferDescNum);
     });
 }
 
-int32_t HcommChannelNotifyRecordOnThreadPod(ThreadHandle thread, ChannelHandle channel,
-                                            uint32_t remoteNotifyIdx)
+int32_t HcommChannelNotifyRecordOnThreadPod(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
 {
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, true, context));
-    return ExecutePodOperation([&]() {
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_CHANNEL_NOTIFY_RECORD);
+    event.params.channelNotifyRecord.thread = thread;
+    event.params.channelNotifyRecord.channel = channel;
+    event.params.channelNotifyRecord.remoteNotifyIdx = remoteNotifyIdx;
+    return ExecutePodApi(event, [&]() {
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, true, context));
         return HcommPodNotifyRecord(*context.thread, *context.channel, remoteNotifyIdx);
     });
 }
 
-int32_t HcommChannelNotifyWaitOnThreadPod(ThreadHandle thread, ChannelHandle channel,
-                                          uint32_t localNotifyIdx, uint32_t timeOut)
+int32_t HcommChannelNotifyWaitOnThreadPod(
+    ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeOut)
 {
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, true, context));
-    return ExecutePodOperation([&]() {
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_CHANNEL_NOTIFY_WAIT);
+    event.params.channelNotifyWait.thread = thread;
+    event.params.channelNotifyWait.channel = channel;
+    event.params.channelNotifyWait.localNotifyIdx = localNotifyIdx;
+    event.params.channelNotifyWait.timeOut = timeOut;
+    return ExecutePodApi(event, [&]() {
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, true, context));
         return HcommPodNotifyWait(*context.thread, *context.channel, localNotifyIdx, timeOut);
     });
 }
 
 int32_t HcommChannelFenceOnThreadPod(ThreadHandle thread, ChannelHandle channel)
 {
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, false, context));
-    return HcommPodFence(*context.channel);
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_CHANNEL_FENCE);
+    event.params.channelFence.thread = thread;
+    event.params.channelFence.channel = channel;
+    return ExecutePodApi(event, [&]() {
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, false, context));
+        return HcommPodFence(*context.channel);
+    });
 }
 
-int32_t HcommChannelNotifyWaitOnThreadWithDefaultTimeoutPod(ThreadHandle thread, ChannelHandle channel,
-                                                            uint32_t localNotifyIdx)
+int32_t HcommChannelNotifyWaitOnThreadWithDefaultTimeoutPod(
+    ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx)
 {
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, true, context));
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_CHANNEL_NOTIFY_WAIT_DEFAULT);
+    event.params.channelNotifyWaitDefault.thread = thread;
+    event.params.channelNotifyWaitDefault.channel = channel;
+    event.params.channelNotifyWaitDefault.localNotifyIdx = localNotifyIdx;
     const uint32_t timeout = HcommPodGetNotifyWaitTimeout();
-    return ExecutePodOperation([&]() {
+    event.params.channelNotifyWaitDefault.timeOut = timeout;
+    return ExecutePodApi(event, [&]() {
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, true, context));
         return HcommPodNotifyWait(*context.thread, *context.channel, localNotifyIdx, timeout);
     });
 }
 
 int32_t HcommThreadNotifyWaitOnThreadWithDefaultTimeoutPod(ThreadHandle thread, uint32_t notifyIdx)
 {
-    HcommThreadEntity *threadEntity = nullptr;
-    CHK_RET(GetPodThread(thread, true, threadEntity));
-    uint32_t notifyId = 0;
-    CHK_RET(GetThreadNotifyId(*threadEntity, notifyIdx, notifyId));
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_THREAD_NOTIFY_WAIT_DEFAULT);
+    event.params.threadNotifyWaitDefault.thread = thread;
+    event.params.threadNotifyWaitDefault.notifyIdx = notifyIdx;
     const uint32_t timeout = HcommPodGetNotifyWaitTimeout();
-    return ExecutePodOperation([&]() {
+    event.params.threadNotifyWaitDefault.timeOut = timeout;
+    return ExecutePodApi(event, [&]() {
+        HcommThreadEntity *threadEntity = nullptr;
+        CHK_RET(GetPodThread(thread, true, threadEntity));
+        uint32_t notifyId = 0;
+        CHK_RET(GetThreadNotifyId(*threadEntity, notifyIdx, notifyId));
         return HcommPodRtsqNotifyWait(*threadEntity->sqContextAddr, notifyId, timeout);
     });
 }
 
 int32_t HcommSetNotifyWaitTimeOutPod(float timeOut)
 {
-    uint32_t timeoutSeconds = 0;
-    CHK_RET(ConvertTimeout(timeOut, timeoutSeconds));
-    HcommPodSetNotifyWaitTimeout(timeoutSeconds);
-    return HCCL_SUCCESS;
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_SET_NOTIFY_WAIT_TIMEOUT);
+    event.params.setNotifyWaitTimeOut.timeOut = timeOut;
+    return ExecutePodApi(event, [&]() {
+        uint32_t timeoutSeconds = 0;
+        CHK_RET(ConvertTimeout(timeOut, timeoutSeconds));
+        HcommPodSetNotifyWaitTimeout(timeoutSeconds);
+        return HCCL_SUCCESS;
+    });
 }
 
 int32_t HcommThreadResAcquireTimeOutPod(float timeOut)
 {
-    uint32_t timeoutSeconds = 0;
-    CHK_RET(ConvertTimeout(timeOut, timeoutSeconds));
-    HcommPodSetSqFullTimeout(timeoutSeconds);
-    return HCCL_SUCCESS;
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_THREAD_RES_ACQUIRE_TIMEOUT);
+    event.params.threadResAcquireTimeOut.timeOut = timeOut;
+    return ExecutePodApi(event, [&]() {
+        uint32_t timeoutSeconds = 0;
+        CHK_RET(ConvertTimeout(timeOut, timeoutSeconds));
+        HcommPodSetSqFullTimeout(timeoutSeconds);
+        return HCCL_SUCCESS;
+    });
 }
 
 int32_t HcommChannelDrainOnThreadPod(ThreadHandle thread, ChannelHandle channel)
 {
-    PodContext context{};
-    CHK_RET(GetPodContext(thread, channel, true, context));
-    return ExecutePodOperation([&]() {
+    HcommPodDfxEvent event = CreatePodDfxEvent(HCOMM_POD_DFX_API_CHANNEL_DRAIN);
+    event.params.channelDrain.thread = thread;
+    event.params.channelDrain.channel = channel;
+    return ExecutePodApi(event, [&]() {
+        PodContext context{};
+        CHK_RET(GetPodContext(thread, channel, true, context));
         return HcommPodDrain(*context.thread, *context.channel);
     });
 }

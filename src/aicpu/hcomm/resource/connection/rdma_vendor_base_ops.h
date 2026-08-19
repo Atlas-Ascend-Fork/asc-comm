@@ -18,8 +18,8 @@
 #include <vector>
 #include <securec.h>
 
-#include "exception_util.h"
-#include "internal_exception.h"
+#include "../../common/utils/exception_util.h"
+#include "../../common/exception/internal_exception.h"
 #include "log/hcomm_log.h"
 #include "../buffer/rma_buf_slice_lite.h"
 #include "../buffer/rmt_rma_buf_slice_lite.h"
