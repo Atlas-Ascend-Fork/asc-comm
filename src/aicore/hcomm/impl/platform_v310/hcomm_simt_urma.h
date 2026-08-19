@@ -75,16 +75,14 @@ constexpr uint32_t HCOMM_SIMT_SGE_WORDS = sizeof(HcommUrmaSgeCtx) / sizeof(uint6
 // The inline payload and the first SGE both start right after the SQE header.
 constexpr uint32_t HCOMM_SIMT_INLINE_FIRST_WORD = HCOMM_SIMT_SQE_WORDS;
 
-// Zero-fill the words a layout leaves unused. Every post writes its whole basic-block
-// window, so a WQE slot never carries bytes over from the previous post on that slot.
-template <uint32_t firstWord, uint32_t wordCnt, typename WordPtr>
-__simt_callee__ inline void HcommSimtPadWqeWords(WordPtr words)
+// Words a layout leaves unused are not cleared: the NIC reads only as far as the fields the
+// SQE header describes, so stale bytes from an earlier post on the same slot are never
+// consumed. Each writer below instead asserts that its own fields fit the window, which is
+// what the zero-fill used to check as a side effect.
+template <uint32_t usedWords, uint32_t wordCnt>
+__simt_callee__ inline constexpr void HcommSimtAssertWqeFits()
 {
-    static_assert(firstWord <= wordCnt, "WQE layout must not overflow its basic-block window");
-#pragma unroll
-    for (uint32_t i = firstWord; i < wordCnt; ++i) {
-        words[i] = 0U;
-    }
+    static_assert(usedWords <= wordCnt, "WQE layout must not overflow its basic-block window");
 }
 
 // The SQE header, identical for every opcode. Bit positions match HcommUrmaSqeCtx:
@@ -130,13 +128,13 @@ __simt_callee__ inline void HcommSimtWriteDataWqe(
     HcommSimtWriteSqeHeader<opCode, sgeNum, config>(words, remoteAddr, sqeTemplate, curHead, nextHead);
     if constexpr (sgeNum == 1U) {
         HcommSimtWriteSge<HCOMM_SIMT_SQE_WORDS>(words, localAddr, static_cast<uint32_t>(len));
-        HcommSimtPadWqeWords<HCOMM_SIMT_SQE_WORDS + HCOMM_SIMT_SGE_WORDS, wordCnt>(words);
+        HcommSimtAssertWqeFits<HCOMM_SIMT_SQE_WORDS + HCOMM_SIMT_SGE_WORDS, wordCnt>();
     } else {
         uint32_t firstLen = static_cast<uint32_t>(len >> 1);
         uint32_t lastLen = static_cast<uint32_t>(len - firstLen);
         HcommSimtWriteSge<HCOMM_SIMT_SQE_WORDS>(words, localAddr, firstLen);
         HcommSimtWriteSge<HCOMM_SIMT_SQE_WORDS + HCOMM_SIMT_SGE_WORDS>(words, localAddr + firstLen, lastLen);
-        HcommSimtPadWqeWords<HCOMM_SIMT_SQE_WORDS + 2U * HCOMM_SIMT_SGE_WORDS, wordCnt>(words);
+        HcommSimtAssertWqeFits<HCOMM_SIMT_SQE_WORDS + 2U * HCOMM_SIMT_SGE_WORDS, wordCnt>();
     }
 }
 
@@ -157,7 +155,7 @@ __simt_callee__ inline void HcommSimtWriteNotifyWqe(
     words[notifyWord + 2U] = notifyVal;
     words[notifyWord + 3U] = 0U;
     HcommSimtWriteSge<sgeWord>(words, localAddr, static_cast<uint32_t>(len));
-    HcommSimtPadWqeWords<sgeWord + HCOMM_SIMT_SGE_WORDS, wordCnt>(words);
+    HcommSimtAssertWqeFits<sgeWord + HCOMM_SIMT_SGE_WORDS, wordCnt>();
 }
 
 // Packs the inline payload into the whole 64-bit words that follow the SQE header. A type
@@ -168,15 +166,26 @@ __simt_callee__ inline void HcommSimtWriteInlineWqe(
     WordPtr words, __gm__ uint8_t* remoteAddr, T value, const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead,
     uint32_t nextHead)
 {
+    constexpr uint32_t payloadWords = (sizeof(T) + sizeof(uint64_t) - 1U) / sizeof(uint64_t);
+    HcommSimtAssertWqeFits<HCOMM_SIMT_INLINE_FIRST_WORD + payloadWords, wordCnt>();
     HcommSimtWriteSqeHeader<HcommUrmaOpCode::WRITE, 0U, config>(
         words, remoteAddr, sqeTemplate, curHead, nextHead, sizeof(T));
-    HcommSimtPadWqeWords<HCOMM_SIMT_INLINE_FIRST_WORD, wordCnt>(words);
 
+    // Each payload word is assembled in a register and then assigned, so this does not depend
+    // on the target words having been zeroed first. A type shorter than the payload area leaves
+    // the bytes above it zero, because the accumulator starts at zero.
     const uint8_t* valueAddr = reinterpret_cast<const uint8_t*>(&value);
 #pragma unroll
-    for (uint32_t i = 0; i < sizeof(T); ++i) {
-        uint32_t word = HCOMM_SIMT_INLINE_FIRST_WORD + i / sizeof(uint64_t);
-        words[word] |= static_cast<uint64_t>(valueAddr[i]) << ((i % sizeof(uint64_t)) * 8U);
+    for (uint32_t word = 0; word < payloadWords; ++word) {
+        uint64_t packed = 0U;
+#pragma unroll
+        for (uint32_t byte = 0; byte < sizeof(uint64_t); ++byte) {
+            uint32_t idx = word * sizeof(uint64_t) + byte;
+            if (idx < sizeof(T)) {
+                packed |= static_cast<uint64_t>(valueAddr[idx]) << (byte * 8U);
+            }
+        }
+        words[HCOMM_SIMT_INLINE_FIRST_WORD + word] = packed;
     }
 }
 
@@ -203,7 +212,7 @@ __simt_callee__ inline void HcommSimtWriteAtomicWqe(
         words[amoWord] = static_cast<uint64_t>(value);
         words[amoWord + 1U] = opCode == HcommUrmaOpCode::CAS ? static_cast<uint64_t>(cond) : 0U;
     }
-    HcommSimtPadWqeWords<amoWord + 2U, wordCnt>(words);
+    HcommSimtAssertWqeFits<amoWord + 2U, wordCnt>();
 }
 
 // The doorbell window is written with 128-bit stores. Plain 64-bit stores are not enough: an
@@ -277,8 +286,12 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolvePost(
     post.sqWqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
     post.meta.sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
     post.meta.tpId = sqCtx->contextInfo.ubJfs.tpID;
-    post.meta.remoteEidL = HcommSimtLoadLe64(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
-    post.meta.remoteEidH = HcommSimtLoadLe64(&sqCtx->contextInfo.ubJfs.remoteEID[sizeof(uint64_t)]);
+    // Two 64-bit loads, the same way the SIMD path reads this field. remoteEID sits at a
+    // multiple of 8 inside SqContext, so the pair is naturally aligned. Reading it byte by
+    // byte instead cost about a quarter of this function's code size in shift/or work.
+    __gm__ uint64_t* remoteEid = reinterpret_cast<__gm__ uint64_t*>(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
+    post.meta.remoteEidL = remoteEid[0];
+    post.meta.remoteEidH = remoteEid[1];
     post.meta.remoteTokenId = remoteMemInfo->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
     post.meta.remoteTokenValue = remoteMemInfo->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     return HCOMM_SUCCESS;
@@ -458,10 +471,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
         return HCOMM_FAILED;
     }
 
-    // Claim SQ space. The head is shared by every producer on this channel, so the claim itself
-    // is atomic; note that this alone does not make concurrent posting safe, because a doorbell
-    // publishes a head covering every slot below it, including a neighbour's half-written WQE.
-    // Serializing producers on a channel is the caller's responsibility.
+    // Claim SQ space. A single lane drives a channel, so this is a plain read-modify-write.
     uint32_t curHead = HcommSimtHeadIdx(HcommSimtReserve(post.headAddr, bbCnt, 1U));
     uint32_t nextHead = curHead + bbCnt;
 
@@ -478,13 +488,11 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
     desc.template Store<wordCnt>(stage.words, sqeTemplate, curHead, nextHead);
     HcommSimtCopyStageToSq<wqeBytes>(sqeAddr, stage);
 
+    // A deferred post needs no fence of its own: its SQ bytes are not published until some later
+    // committed post rings the doorbell, and that post's fence orders every write issued before
+    // it, this one included. Only the doorbell needs ordering, so only it fences.
     if constexpr (Desc::commit) {
-        // HcommSimtRingDwqe fences the SQ write above against the doorbell below.
         HcommSimtRingDwqe(post.dwqeAddr, stage);
-    } else {
-        // Make the SQ bytes visible to the NIC. They stay unpublished until a later committed
-        // post rings the doorbell.
-        asc_threadfence();
     }
     return HCOMM_SUCCESS;
 }

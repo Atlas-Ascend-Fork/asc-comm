@@ -51,32 +51,6 @@ __simt_callee__ inline int32_t HcommSimtFindBufferIdx(
     return HCOMM_FAILED;
 }
 
-__simt_callee__ inline uint64_t HcommSimtLoadLe64(__gm__ const uint8_t* addr)
-{
-    uint64_t value = 0U;
-#pragma unroll
-    for (uint32_t i = 0; i < sizeof(uint64_t); ++i) {
-        value |= static_cast<uint64_t>(addr[i]) << (i * 8U);
-    }
-    return value;
-}
-
-__simt_callee__ inline void HcommSimtStoreValue(__gm__ uint8_t* addr, uint64_t value, uint32_t valueSize)
-{
-    for (uint32_t i = 0; i < valueSize; ++i) {
-        addr[i] = static_cast<uint8_t>((value >> (i * 8U)) & 0xFFU);
-    }
-}
-
-template <typename T>
-__simt_callee__ inline void HcommSimtStoreInlineValue(__gm__ uint8_t* addr, T value)
-{
-    const uint8_t* valueAddr = reinterpret_cast<const uint8_t*>(&value);
-    for (uint32_t i = 0; i < sizeof(T); ++i) {
-        addr[i] = valueAddr[i];
-    }
-}
-
 __simt_callee__ inline uint32_t HcommSimtHeadIdx(uint64_t headVal)
 {
     return static_cast<uint32_t>(headVal & 0xFFFFFFFFU);
@@ -91,10 +65,18 @@ __simt_callee__ inline uint32_t HcommSimtWqeCnt(uint64_t headVal)
 // bbCnt is the number of 64B basic blocks occupied in the SQ; cqeCnt is the number of
 // CQEs the submission will produce (NOP padding produces none), so the high half of
 // headAddr stays directly comparable with the CQ tail consumed by PollCq.
+//
+// This is a plain read-modify-write, not an atomic one: a channel is driven by a single lane
+// (see hcomm_simt.h), so nothing else advances this head while the update is in flight. Should
+// a caller ever need several producers on one channel, this has to become an atomic add again
+// -- though an atomic claim alone would not make that safe, because a doorbell publishes a head
+// covering every slot below it, including a neighbour's half-written WQE.
 __simt_callee__ inline uint64_t HcommSimtReserve(__gm__ uint64_t* headAddr, uint32_t bbCnt, uint32_t cqeCnt)
 {
     uint64_t delta = (static_cast<uint64_t>(cqeCnt) << 32U) | static_cast<uint64_t>(bbCnt);
-    return asc_atomic_add(headAddr, delta);
+    uint64_t previous = *headAddr;
+    *headAddr = previous + delta;
+    return previous;
 }
 
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtLocalBuffers(ChannelHandle channel)
