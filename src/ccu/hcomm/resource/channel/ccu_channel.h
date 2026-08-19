@@ -37,7 +37,6 @@ public:
     HcclResult GetLocXnByIndex(uint32_t index, uint32_t &localXnId) const;
     HcclResult GetRmtCkeByIndex(uint32_t index, uint32_t &remoteCkeId) const;
     HcclResult GetRmtXnByIndex(uint32_t index, uint32_t &remoteXnId) const;
-    HcclResult GetRmtBuffer(uint64_t &addr, uint32_t &size, uint32_t &tokenId, uint32_t &tokenValue) const;
 
 private:
     HcclResult Init(ChannelHandle channel);

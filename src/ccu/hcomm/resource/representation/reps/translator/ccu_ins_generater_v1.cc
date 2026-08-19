@@ -122,28 +122,10 @@ HcclResult CcuInsGeneraterV1::CcuRepReadTranslate(CcuKernel* ccuKernel, CcuInstr
 HcclResult CcuInsGeneraterV1::CcuRepRemMemTranslate(CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepRemMem* repRemMem)
 {
     UNUSED(ccuKernel);
+    UNUSED(instr);
     CHK_PTR_NULL(repRemMem);
-    CcuChannel channelImpl(repRemMem->GetChannel());
-    CHK_PRT_RET(
-        channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR("failed to get ccu channel, type[%d]", repRemMem->Type()), HCCL_E_INTERNAL);
-    uint32_t size{0};
-    uint32_t tokenId{0};
-    uint32_t tokenValue{0};
-    uint64_t addr{0};
-    CHK_PRT_RET(
-        channelImpl->GetRmtBuffer(addr, size, tokenId, tokenValue) != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR(
-            "[CcuRepRemMem][%s] failed to get remote buffer, channelHandle[0x%llx].", __func__,
-            repRemMem->GetChannel()),
-        HCCL_E_UNAVAIL); // 当前认为channel只持有一个buffer
-
-    auto tokenInfo = GetToken(tokenId, tokenValue, 1);
-
-    LoadImdToGSAInstr(instr++, repRemMem->GetRem().addr.Id(), addr);
-    LoadImdToXnInstr(instr++, repRemMem->GetRem().token.Id(), tokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-
-    return HcclResult::HCCL_SUCCESS;
+    HCCL_ERROR("[CcuRepRemMem][%s] remote CCU buffer by channel is not supported.", __func__);
+    return HCCL_E_NOT_SUPPORT;
 }
 
 HcclResult CcuInsGeneraterV1::CcuRepLocCpyTranslate(

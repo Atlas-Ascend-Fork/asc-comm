@@ -48,10 +48,6 @@ HcclResult CcuChannel::Init(ChannelHandle channel)
     if (ret != HCCL_SUCCESS) {
         return static_cast<HcclResult>(ret);
     }
-    // 远端 CCU buffer 尚未就绪时拒绝使用该 Channel
-    if (queryPod.rmtCcuBufSize == 0) {
-        return HCCL_E_INTERNAL;
-    }
     // 快照整体拷贝到本地，后续算法只读这份 POD，不再触碰 hcomm 对象
     channelPod_ = queryPod;
     return HCCL_SUCCESS;
@@ -106,19 +102,6 @@ HcclResult CcuChannel::GetRmtCkeByIndex(uint32_t index, uint32_t &remoteCkeId) c
 HcclResult CcuChannel::GetRmtXnByIndex(uint32_t index, uint32_t &remoteXnId) const
 {
     return GetIdByArray(channelPod_.remoteXnIds, index, remoteXnId);
-}
-
-HcclResult CcuChannel::GetRmtBuffer(uint64_t &addr, uint32_t &size, uint32_t &tokenId, uint32_t &tokenValue) const
-{
-    if (result_ != HCCL_SUCCESS) {
-        return result_;
-    }
-    // 远端 CCU 资源 buffer 的基址、长度与 token 已由 hcomm 在快照中按设备规格算好，这里直接返回
-    addr = channelPod_.rmtCcuBufAddr;
-    size = channelPod_.rmtCcuBufSize;
-    tokenId = channelPod_.rmtCcuBufTokenId;
-    tokenValue = channelPod_.rmtCcuBufTokenValue;
-    return HCCL_SUCCESS;
 }
 
 } // namespace asccomm
