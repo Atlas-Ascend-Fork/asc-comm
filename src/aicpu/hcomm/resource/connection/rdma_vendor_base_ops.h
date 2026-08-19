@@ -23,7 +23,7 @@
 #include "log/hcomm_log.h"
 #include "../buffer/rma_buf_slice_lite.h"
 #include "../buffer/rmt_rma_buf_slice_lite.h"
-#include "hcomm_pod_backend_types.h"
+#include "asccomm_backend_types.h"
 
 namespace Asc {
 

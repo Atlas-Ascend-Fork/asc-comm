@@ -12,7 +12,7 @@
 #define HCOMM_POD_UB_CONN_LITE_H
 
 #include <functional>
-#include "hcomm_pod_backend_types.h"
+#include "asccomm_backend_types.h"
 #include "../buffer/rma_buf_slice_lite.h"
 #include "../buffer/rmt_rma_buf_slice_lite.h"
 #include "udma_data_struct.h"

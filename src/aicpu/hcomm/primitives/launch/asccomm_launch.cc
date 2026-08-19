@@ -10,8 +10,8 @@
 
 #include <algorithm>
 #include <vector>
-#include "hcomm_pod_launch.h"
-#include "hcomm_pod_runtime.h"
+#include "asccomm_launch.h"
+#include "asccomm_runtime.h"
 
 namespace {
 constexpr uint32_t POD_DEFAULT_NOTIFY_WAIT_TIMEOUT = 1836U;
@@ -28,7 +28,7 @@ struct PodLaunchState {
 thread_local PodLaunchState g_podLaunchState;
 }
 
-void hcomm_pod_register_thread(ThreadHandle thread)
+void asccomm_register_thread(ThreadHandle thread)
 {
     if (!g_podLaunchState.batchMode) {
         return;
@@ -39,54 +39,54 @@ void hcomm_pod_register_thread(ThreadHandle thread)
     }
 }
 
-bool hcomm_pod_is_batch_launch_mode()
+bool asccomm_is_batch_launch_mode()
 {
     return g_podLaunchState.batchMode;
 }
 
-uint32_t hcomm_pod_get_notify_wait_timeout()
+uint32_t asccomm_get_notify_wait_timeout()
 {
     return g_podLaunchState.notifyWaitTimeout;
 }
 
-void hcomm_pod_set_notify_wait_timeout(uint32_t timeout)
+void asccomm_set_notify_wait_timeout(uint32_t timeout)
 {
     g_podLaunchState.notifyWaitTimeout = timeout;
 }
 
-uint32_t hcomm_pod_get_sq_full_timeout()
+uint32_t asccomm_get_sq_full_timeout()
 {
     return g_podLaunchState.sqFullTimeoutSet ? g_podLaunchState.sqFullTimeout : POD_DEFAULT_SQ_FULL_TIMEOUT;
 }
 
-void hcomm_pod_set_sq_full_timeout(uint32_t timeout)
+void asccomm_set_sq_full_timeout(uint32_t timeout)
 {
     g_podLaunchState.sqFullTimeout = timeout;
     g_podLaunchState.sqFullTimeoutSet = true;
 }
 
-void hcomm_pod_set_batch_launch_mode(bool batchMode)
+void asccomm_set_batch_launch_mode(bool batchMode)
 {
     g_podLaunchState.batchMode = batchMode;
 }
 
-HcclResult hcomm_pod_launch_registered_threads()
+HcclResult asccomm_launch_registered_threads()
 {
     if (g_podLaunchState.threads.empty()) {
         return HCCL_SUCCESS;
     }
-    return hcomm_pod_task_launch(g_podLaunchState.threads.data(), g_podLaunchState.threads.size());
+    return asccomm_task_launch(g_podLaunchState.threads.data(), g_podLaunchState.threads.size());
 }
 
-HcclResult hcomm_pod_try_launch_registered_threads()
+HcclResult asccomm_try_launch_registered_threads()
 {
     if (g_podLaunchState.threads.empty()) {
         return HCCL_SUCCESS;
     }
-    return hcomm_pod_try_launch(g_podLaunchState.threads.data(), g_podLaunchState.threads.size());
+    return asccomm_try_launch(g_podLaunchState.threads.data(), g_podLaunchState.threads.size());
 }
 
-void hcomm_pod_clear_registered_threads()
+void asccomm_clear_registered_threads()
 {
     g_podLaunchState.threads.clear();
 }

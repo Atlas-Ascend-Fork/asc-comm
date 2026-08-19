@@ -10,8 +10,8 @@
 
 #include <limits>
 #include <vector>
-#include "hcomm_pod_transport.h"
-#include "hcomm_pod_runtime.h"
+#include "asccomm_transport.h"
+#include "asccomm_runtime.h"
 #include "../connection/ub_conn_lite.h"
 #include "../connection/ub_jetty_lite.h"
 #include "../connection/rdma_vendor_1825_ops.h"
@@ -148,7 +148,7 @@ HcclResult ring_ub_doorbell(HcommThreadEntity &thread, const HcommJfsContext &jf
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
     const Asc::PodUbJettyLiteId jettyId(jfs.dieId, jfs.funcId, jfs.jfsID);
-    return hcomm_pod_rtsq_ub_db_send(*rtsq, jettyId, pi);
+    return asccomm_rtsq_ub_db_send(*rtsq, jettyId, pi);
 }
 
 Asc::PodSqeConfigLite get_ub_config(HcommChannelEntity &channel)
@@ -358,7 +358,7 @@ HcclResult execute_rdma(HcommThreadEntity &thread, HcommChannelEntity &channel, 
     podCq->cqDbFlush = cqDbFlush ? 1 : 0;
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
-    CHK_RET(hcomm_pod_rtsq_rdma_db_send(*rtsq, dbAddr, dbValue));
+    CHK_RET(asccomm_rtsq_rdma_db_send(*rtsq, dbAddr, dbValue));
 
     const int32_t pollNum = (operation == RdmaOperation::WRITE_WITH_NOTIFY ||
         operation == RdmaOperation::WRITE_REDUCE_WITH_NOTIFY) ? 2 : 1;
@@ -408,7 +408,7 @@ HcclResult convert_batch_reduce(HcommDataType dataType, HcommReduceOp reduceOp,
 
 } // namespace
 
-HcclResult hcomm_pod_write(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult asccomm_write(HcommThreadEntity &thread, HcommChannelEntity &channel,
                          uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
 {
     if (is_ub_protocol(channel.protocol)) {
@@ -420,7 +420,7 @@ HcclResult hcomm_pod_write(HcommThreadEntity &thread, HcommChannelEntity &channe
     return execute_rdma(thread, channel, RdmaOperation::WRITE, localAddr, remoteAddr, len, nullptr, 0);
 }
 
-HcclResult hcomm_pod_write_reduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult asccomm_write_reduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
                                const Asc::PodReduceIn &reduceIn)
 {
@@ -436,7 +436,7 @@ HcclResult hcomm_pod_write_reduce(HcommThreadEntity &thread, HcommChannelEntity 
         localAddr, remoteAddr, len, &reduceIn, 0);
 }
 
-HcclResult hcomm_pod_write_with_notify(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult asccomm_write_with_notify(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                    uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
                                    uint32_t remoteNotifyIdx)
 {
@@ -454,7 +454,7 @@ HcclResult hcomm_pod_write_with_notify(HcommThreadEntity &thread, HcommChannelEn
         localAddr, remoteAddr, len, nullptr, remoteNotifyIdx);
 }
 
-HcclResult hcomm_pod_write_reduce_with_notify(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult asccomm_write_reduce_with_notify(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                          uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
                                          const Asc::PodReduceIn &reduceIn, uint32_t remoteNotifyIdx)
 {
@@ -473,7 +473,7 @@ HcclResult hcomm_pod_write_reduce_with_notify(HcommThreadEntity &thread, HcommCh
         localAddr, remoteAddr, len, &reduceIn, remoteNotifyIdx);
 }
 
-HcclResult hcomm_pod_read(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult asccomm_read(HcommThreadEntity &thread, HcommChannelEntity &channel,
                         uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
 {
     if (is_ub_protocol(channel.protocol)) {
@@ -485,7 +485,7 @@ HcclResult hcomm_pod_read(HcommThreadEntity &thread, HcommChannelEntity &channel
     return execute_rdma(thread, channel, RdmaOperation::READ, localAddr, remoteAddr, len, nullptr, 0);
 }
 
-HcclResult hcomm_pod_read_reduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult asccomm_read_reduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
                               uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
                               const Asc::PodReduceIn &reduceIn)
 {
@@ -501,7 +501,7 @@ HcclResult hcomm_pod_read_reduce(HcommThreadEntity &thread, HcommChannelEntity &
     return channel.protocol == COMM_PROTOCOL_ROCE ? HCCL_SUCCESS : HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult hcomm_pod_notify_record(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult asccomm_notify_record(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                 uint32_t remoteNotifyIdx)
 {
     if (!is_ub_protocol(channel.protocol)) {
@@ -529,7 +529,7 @@ HcclResult hcomm_pod_notify_record(HcommThreadEntity &thread, HcommChannelEntity
     return ring_ub_doorbell(thread, *jfs, out.pi);
 }
 
-HcclResult hcomm_pod_notify_wait(HcommThreadEntity &thread, const HcommChannelEntity &channel,
+HcclResult asccomm_notify_wait(HcommThreadEntity &thread, const HcommChannelEntity &channel,
                               uint32_t localNotifyIdx, uint32_t timeout)
 {
     CHK_PRT_RET(localNotifyIdx >= channel.localNotifyNum || channel.localNotifyAddr == nullptr,
@@ -541,16 +541,16 @@ HcclResult hcomm_pod_notify_wait(HcommThreadEntity &thread, const HcommChannelEn
         HCCL_ERROR("[%s] local notify is not RMA RT.", __func__), HCCL_E_PARA);
     const int32_t notifyId = channel.localNotifyAddr[localNotifyIdx].notifyInfo.rmaRt.notifyId;
     CHK_PRT_RET(notifyId < 0, HCCL_ERROR("[%s] invalid notify id[%d].", __func__, notifyId), HCCL_E_PARA);
-    return hcomm_pod_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(notifyId), timeout);
+    return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(notifyId), timeout);
 }
 
-HcclResult hcomm_pod_fence(HcommChannelEntity &channel)
+HcclResult asccomm_fence(HcommChannelEntity &channel)
 {
     channel.fence = 1;
     return HCCL_SUCCESS;
 }
 
-HcclResult hcomm_pod_drain(HcommThreadEntity &thread, HcommChannelEntity &channel)
+HcclResult asccomm_drain(HcommThreadEntity &thread, HcommChannelEntity &channel)
 {
     if (channel.protocol == COMM_PROTOCOL_ROCE) {
         return HCCL_SUCCESS;
@@ -596,10 +596,10 @@ HcclResult hcomm_pod_drain(HcommThreadEntity &thread, HcommChannelEntity &channe
     CHK_RET(get_rtsq(thread, rtsq));
     CHK_PRT_RET(localResource.notifyId < 0,
         HCCL_ERROR("[%s] invalid drain notify id[%d].", __func__, localResource.notifyId), HCCL_E_PARA);
-    return hcomm_pod_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(localResource.notifyId), POD_DEFAULT_TIMEOUT);
+    return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(localResource.notifyId), POD_DEFAULT_TIMEOUT);
 }
 
-HcclResult hcomm_pod_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                  const HcommBatchTransferDesc *transferDescs, uint32_t transferDescNum)
 {
     CHK_PTR_NULL(transferDescs);

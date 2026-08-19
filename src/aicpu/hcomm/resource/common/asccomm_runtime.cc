@@ -10,8 +10,8 @@
 
 #include <chrono>
 #include <unordered_map>
-#include "hcomm_pod_runtime.h"
-#include "hcomm_pod_launch.h"
+#include "asccomm_runtime.h"
+#include "asccomm_launch.h"
 #include "../stream/sqe_build_a5.h"
 #include "../stream/sqe.h"
 #include "securec.h"
@@ -103,7 +103,7 @@ HcclResult ensure_queue_space(HcommRtsqContext &context)
 {
     PodRtsqTaskState &state = get_task_state(context);
     auto startTime = std::chrono::steady_clock::now();
-    const uint32_t sqFullTimeout = hcomm_pod_get_sq_full_timeout();
+    const uint32_t sqFullTimeout = asccomm_get_sq_full_timeout();
     uint32_t availableSpace = get_tail_to_head_distance(context);
     while (availableSpace <= state.pendingSqeCnt) {
         CHK_RET(query_sq_value(context, DRV_SQCQ_PROP_SQ_HEAD, context.sqHead));
@@ -116,7 +116,7 @@ HcclResult ensure_queue_space(HcommRtsqContext &context)
         CHK_PRT_RET(timeout,
             HCCL_ERROR("[%s] RTSQ full timeout, sqId[%u], head[%u], tail[%u], pending[%u].", __func__,
                 context.sqId, context.sqHead, context.sqTail, state.pendingSqeCnt), HCCL_E_TIMEOUT);
-        CHK_RET(hcomm_pod_try_launch_registered_threads());
+        CHK_RET(asccomm_try_launch_registered_threads());
     }
     return HCCL_SUCCESS;
 }
@@ -151,9 +151,9 @@ HcclResult refresh_rtsq(HcommRtsqContext &context)
     PodRtsqTaskState &state = get_task_state(context);
     refresh_task_id(context);
     ++state.pendingSqeCnt;
-    if ((context.launchFlag != 0 && !hcomm_pod_is_batch_launch_mode()) ||
+    if ((context.launchFlag != 0 && !asccomm_is_batch_launch_mode()) ||
         state.pendingSqeCnt == HCOMM_POD_RTSQ_BATCH_SIZE) {
-        return hcomm_pod_rtsq_launch(context);
+        return asccomm_rtsq_launch(context);
     }
     return HCCL_SUCCESS;
 }
@@ -176,7 +176,7 @@ HcclResult validate_thread_entity(HcommThreadEntity *thread)
 
 } // namespace
 
-HcclResult hcomm_pod_rtsq_launch(HcommRtsqContext &context)
+HcclResult asccomm_rtsq_launch(HcommRtsqContext &context)
 {
     PodRtsqTaskState &state = get_task_state(context);
     if (state.pendingSqeCnt == 0) {
@@ -197,7 +197,7 @@ HcclResult hcomm_pod_rtsq_launch(HcommRtsqContext &context)
     return HCCL_SUCCESS;
 }
 
-HcclResult hcomm_pod_rtsq_try_launch(HcommRtsqContext &context)
+HcclResult asccomm_rtsq_try_launch(HcommRtsqContext &context)
 {
     PodRtsqTaskState &state = get_task_state(context);
     if (state.pendingSqeCnt == 0) {
@@ -207,22 +207,22 @@ HcclResult hcomm_pod_rtsq_try_launch(HcommRtsqContext &context)
     if (get_tail_to_head_distance(context) <= state.pendingSqeCnt) {
         return HCCL_SUCCESS;
     }
-    return hcomm_pod_rtsq_launch(context);
+    return asccomm_rtsq_launch(context);
 }
 
-HcclResult hcomm_pod_rtsq_notify_wait(HcommRtsqContext &context, uint32_t notifyId, uint32_t timeout)
+HcclResult asccomm_rtsq_notify_wait(HcommRtsqContext &context, uint32_t notifyId, uint32_t timeout)
 {
     Asc::build_a5_pod_sqe_notify_wait(context.streamId, get_task_id(context), notifyId, timeout, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
-HcclResult hcomm_pod_rtsq_notify_record(HcommRtsqContext &context, uint32_t notifyId)
+HcclResult asccomm_rtsq_notify_record(HcommRtsqContext &context, uint32_t notifyId)
 {
     Asc::build_a5_pod_sqe_notify_record(context.streamId, get_task_id(context), notifyId, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
-HcclResult hcomm_pod_rtsq_sdma_copy(
+HcclResult asccomm_rtsq_sdma_copy(
     HcommRtsqContext &context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size)
 {
     constexpr uint32_t RTSQ_PART_ID = 0;
@@ -232,7 +232,7 @@ HcclResult hcomm_pod_rtsq_sdma_copy(
     return refresh_rtsq(context);
 }
 
-HcclResult hcomm_pod_rtsq_sdma_reduce(HcommRtsqContext &context, uint64_t dstAddr, uint64_t srcAddr,
+HcclResult asccomm_rtsq_sdma_reduce(HcommRtsqContext &context, uint64_t dstAddr, uint64_t srcAddr,
                                   uint32_t size, const Asc::PodReduceIn &reduceIn)
 {
     uint32_t operation = 0;
@@ -282,39 +282,39 @@ HcclResult hcomm_pod_rtsq_sdma_reduce(HcommRtsqContext &context, uint64_t dstAdd
     return refresh_rtsq(context);
 }
 
-HcclResult hcomm_pod_rtsq_ub_db_send(
+HcclResult asccomm_rtsq_ub_db_send(
     HcommRtsqContext &context, const Asc::PodUbJettyLiteId &jettyId, uint16_t piValue)
 {
     Asc::build_a5_pod_sqe_ub_db_send(context.streamId, get_task_id(context), jettyId, piValue, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
-HcclResult hcomm_pod_rtsq_rdma_db_send(HcommRtsqContext &context, uint64_t dbAddr, uint64_t dbValue)
+HcclResult asccomm_rtsq_rdma_db_send(HcommRtsqContext &context, uint64_t dbAddr, uint64_t dbValue)
 {
     Asc::build_a5_pod_sqe_rdma_db_send(context.streamId, get_task_id(context), dbAddr, dbValue, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
-HcclResult hcomm_pod_task_launch(ThreadHandle *threads, uint32_t threadNum)
+HcclResult asccomm_task_launch(ThreadHandle *threads, uint32_t threadNum)
 {
     CHK_PTR_NULL(threads);
     for (uint32_t index = 0; index < threadNum; ++index) {
         HcommThreadEntity *thread = nullptr;
         CHK_RET(static_cast<HcclResult>(HcommGetPodThreadResource(threads[index], &thread)));
         CHK_RET(validate_thread_entity(thread));
-        CHK_RET(hcomm_pod_rtsq_launch(*thread->sqContextAddr));
+        CHK_RET(asccomm_rtsq_launch(*thread->sqContextAddr));
     }
     return HCCL_SUCCESS;
 }
 
-HcclResult hcomm_pod_try_launch(ThreadHandle *threads, uint32_t threadNum)
+HcclResult asccomm_try_launch(ThreadHandle *threads, uint32_t threadNum)
 {
     CHK_PTR_NULL(threads);
     for (uint32_t index = 0; index < threadNum; ++index) {
         HcommThreadEntity *thread = nullptr;
         CHK_RET(static_cast<HcclResult>(HcommGetPodThreadResource(threads[index], &thread)));
         CHK_RET(validate_thread_entity(thread));
-        CHK_RET(hcomm_pod_rtsq_try_launch(*thread->sqContextAddr));
+        CHK_RET(asccomm_rtsq_try_launch(*thread->sqContextAddr));
     }
     return HCCL_SUCCESS;
 }

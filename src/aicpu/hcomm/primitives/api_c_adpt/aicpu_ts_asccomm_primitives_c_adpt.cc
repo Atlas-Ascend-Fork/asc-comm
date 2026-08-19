@@ -10,11 +10,11 @@
 
 #include <cmath>
 #include <limits>
-#include "hcomm/hcomm_pod_primitives.h"
+#include "hcomm/asccomm_primitives.h"
 #include "hcomm/hcomm_pod_resource.h"
-#include "hcomm_pod_launch.h"
-#include "hcomm_pod_runtime.h"
-#include "hcomm_pod_transport.h"
+#include "asccomm_launch.h"
+#include "asccomm_runtime.h"
+#include "asccomm_transport.h"
 #include "../../common/utils/exception_util.h"
 #include "log/hcomm_log.h"
 
@@ -45,7 +45,7 @@ HcclResult get_pod_thread(ThreadHandle thread, bool registerThread, HcommThreadE
     CHK_RET(validate_pod_entity(threadEntity, HCOMM_POD_THREAD_VERSION, HCOMM_POD_THREAD_MAGIC_WORD));
     CHK_PTR_NULL(threadEntity->sqContextAddr);
     if (registerThread) {
-        hcomm_pod_register_thread(thread);
+        asccomm_register_thread(thread);
     }
     return HCCL_SUCCESS;
 }
@@ -197,7 +197,7 @@ int32_t asccomm_batch_mode_start(const char *batchTag)
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_BATCH_MODE_START);
     copy_pod_dfx_tag(batchTag, event.params.batchModeStart.batchTag);
     return execute_pod_api(event, [&]() {
-        hcomm_pod_set_batch_launch_mode(true);
+        asccomm_set_batch_launch_mode(true);
         return HCCL_SUCCESS;
     });
 }
@@ -207,9 +207,9 @@ int32_t asccomm_batch_mode_end(const char *batchTag)
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_BATCH_MODE_END);
     copy_pod_dfx_tag(batchTag, event.params.batchModeEnd.batchTag);
     return execute_pod_api(event, [&]() {
-        hcomm_pod_set_batch_launch_mode(false);
-        const HcclResult ret = hcomm_pod_launch_registered_threads();
-        hcomm_pod_clear_registered_threads();
+        asccomm_set_batch_launch_mode(false);
+        const HcclResult ret = asccomm_launch_registered_threads();
+        asccomm_clear_registered_threads();
         return ret;
     });
 }
@@ -231,7 +231,7 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void *dst, const void 
         while (offset < len) {
             const uint64_t remaining = len - offset;
             const uint64_t realSize = remaining > SDMA_SEND_MAX_SIZE ? SDMA_SEND_MAX_SIZE : remaining;
-            CHK_RET(hcomm_pod_rtsq_sdma_copy(
+            CHK_RET(asccomm_rtsq_sdma_copy(
                 *threadEntity->sqContextAddr, reinterpret_cast<uintptr_t>(dst) + offset,
                 reinterpret_cast<uintptr_t>(src) + offset, static_cast<uint32_t>(realSize)));
             offset += realSize;
@@ -263,7 +263,7 @@ int32_t asccomm_local_reduce_on_thread(
         while (offset < len) {
             const uint64_t remaining = len - offset;
             const uint64_t realSize = remaining > SDMA_SEND_MAX_SIZE ? SDMA_SEND_MAX_SIZE : remaining;
-            CHK_RET(hcomm_pod_rtsq_sdma_reduce(
+            CHK_RET(asccomm_rtsq_sdma_reduce(
                 *threadEntity->sqContextAddr, reinterpret_cast<uintptr_t>(dst) + offset,
                 reinterpret_cast<uintptr_t>(src) + offset, static_cast<uint32_t>(realSize), reduceIn));
             offset += realSize;
@@ -285,7 +285,7 @@ int32_t asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle
         CHK_RET(get_pod_thread(dstThread, false, dstThreadEntity));
         uint32_t notifyId = 0;
         CHK_RET(get_thread_notify_id(*dstThreadEntity, dstNotifyIdx, notifyId));
-        return hcomm_pod_rtsq_notify_record(*threadEntity->sqContextAddr, notifyId);
+        return asccomm_rtsq_notify_record(*threadEntity->sqContextAddr, notifyId);
     });
 }
 
@@ -300,7 +300,7 @@ int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notif
         CHK_RET(get_pod_thread(thread, true, threadEntity));
         uint32_t notifyId = 0;
         CHK_RET(get_thread_notify_id(*threadEntity, notifyIdx, notifyId));
-        return hcomm_pod_rtsq_notify_wait(*threadEntity->sqContextAddr, notifyId, timeOut);
+        return asccomm_rtsq_notify_wait(*threadEntity->sqContextAddr, notifyId, timeOut);
     });
 }
 
@@ -312,7 +312,7 @@ int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstN
     return execute_pod_api(event, [&]() {
         HcommThreadEntity *threadEntity = nullptr;
         CHK_RET(get_pod_thread(thread, true, threadEntity));
-        return hcomm_pod_rtsq_notify_record(*threadEntity->sqContextAddr, static_cast<uint32_t>(dstNotifyId));
+        return asccomm_rtsq_notify_record(*threadEntity->sqContextAddr, static_cast<uint32_t>(dstNotifyId));
     });
 }
 
@@ -325,7 +325,7 @@ int32_t asccomm_aclrt_notify_wait_on_thread(ThreadHandle thread, uint64_t notify
     return execute_pod_api(event, [&]() {
         HcommThreadEntity *threadEntity = nullptr;
         CHK_RET(get_pod_thread(thread, true, threadEntity));
-        return hcomm_pod_rtsq_notify_wait(*threadEntity->sqContextAddr, static_cast<uint32_t>(notifyId), timeOut);
+        return asccomm_rtsq_notify_wait(*threadEntity->sqContextAddr, static_cast<uint32_t>(notifyId), timeOut);
     });
 }
 
@@ -342,7 +342,7 @@ int32_t asccomm_write_on_thread(ThreadHandle thread, ChannelHandle channel, void
         CHK_PTR_NULL(src);
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, true, context));
-        return hcomm_pod_write(
+        return asccomm_write(
             *context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), reinterpret_cast<uintptr_t>(dst), len);
     });
 }
@@ -367,7 +367,7 @@ int32_t asccomm_write_reduce_on_thread(
         CHK_RET(get_reduce_params(dataType, reduceOp, count, len, reduceIn));
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, true, context));
-        return hcomm_pod_write_reduce(
+        return asccomm_write_reduce(
             *context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), reinterpret_cast<uintptr_t>(dst), len,
             reduceIn);
     });
@@ -388,7 +388,7 @@ int32_t asccomm_write_with_notify_on_thread(
         CHK_PTR_NULL(src);
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, true, context));
-        return hcomm_pod_write_with_notify(
+        return asccomm_write_with_notify(
             *context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), reinterpret_cast<uintptr_t>(dst), len,
             remoteNotifyIdx);
     });
@@ -415,7 +415,7 @@ int32_t asccomm_write_reduce_with_notify_on_thread(
         CHK_RET(get_reduce_params(dataType, reduceOp, count, len, reduceIn));
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, true, context));
-        return hcomm_pod_write_reduce_with_notify(
+        return asccomm_write_reduce_with_notify(
             *context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), reinterpret_cast<uintptr_t>(dst), len,
             reduceIn, remoteNotifyIdx);
     });
@@ -434,7 +434,7 @@ int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void 
         CHK_PTR_NULL(src);
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, true, context));
-        return hcomm_pod_read(
+        return asccomm_read(
             *context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst), reinterpret_cast<uintptr_t>(src), len);
     });
 }
@@ -459,7 +459,7 @@ int32_t asccomm_read_reduce_on_thread(
         CHK_RET(get_reduce_params(dataType, reduceOp, count, len, reduceIn));
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, true, context));
-        return hcomm_pod_read_reduce(
+        return asccomm_read_reduce(
             *context.thread, *context.channel, reinterpret_cast<uintptr_t>(dst), reinterpret_cast<uintptr_t>(src), len,
             reduceIn);
     });
@@ -476,7 +476,7 @@ int32_t asccomm_batch_transfer_on_thread(
         CHK_PTR_NULL(transferDescs);
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, true, context));
-        return hcomm_pod_batch_transfer(*context.thread, *context.channel, transferDescs, transferDescNum);
+        return asccomm_batch_transfer(*context.thread, *context.channel, transferDescs, transferDescNum);
     });
 }
 
@@ -489,7 +489,7 @@ int32_t asccomm_channel_notify_record_on_thread(ThreadHandle thread, ChannelHand
     return execute_pod_api(event, [&]() {
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, true, context));
-        return hcomm_pod_notify_record(*context.thread, *context.channel, remoteNotifyIdx);
+        return asccomm_notify_record(*context.thread, *context.channel, remoteNotifyIdx);
     });
 }
 
@@ -504,7 +504,7 @@ int32_t asccomm_channel_notify_wait_on_thread(
     return execute_pod_api(event, [&]() {
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, true, context));
-        return hcomm_pod_notify_wait(*context.thread, *context.channel, localNotifyIdx, timeOut);
+        return asccomm_notify_wait(*context.thread, *context.channel, localNotifyIdx, timeOut);
     });
 }
 
@@ -516,7 +516,7 @@ int32_t asccomm_channel_fence_on_thread(ThreadHandle thread, ChannelHandle chann
     return execute_pod_api(event, [&]() {
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, false, context));
-        return hcomm_pod_fence(*context.channel);
+        return asccomm_fence(*context.channel);
     });
 }
 
@@ -527,12 +527,12 @@ int32_t asccomm_channel_notify_wait_on_thread_with_default_timeout(
     event.params.channelNotifyWaitDefault.thread = thread;
     event.params.channelNotifyWaitDefault.channel = channel;
     event.params.channelNotifyWaitDefault.localNotifyIdx = localNotifyIdx;
-    const uint32_t timeout = hcomm_pod_get_notify_wait_timeout();
+    const uint32_t timeout = asccomm_get_notify_wait_timeout();
     event.params.channelNotifyWaitDefault.timeOut = timeout;
     return execute_pod_api(event, [&]() {
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, true, context));
-        return hcomm_pod_notify_wait(*context.thread, *context.channel, localNotifyIdx, timeout);
+        return asccomm_notify_wait(*context.thread, *context.channel, localNotifyIdx, timeout);
     });
 }
 
@@ -541,14 +541,14 @@ int32_t asccomm_thread_notify_wait_on_thread_with_default_timeout(ThreadHandle t
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_THREAD_NOTIFY_WAIT_DEFAULT);
     event.params.threadNotifyWaitDefault.thread = thread;
     event.params.threadNotifyWaitDefault.notifyIdx = notifyIdx;
-    const uint32_t timeout = hcomm_pod_get_notify_wait_timeout();
+    const uint32_t timeout = asccomm_get_notify_wait_timeout();
     event.params.threadNotifyWaitDefault.timeOut = timeout;
     return execute_pod_api(event, [&]() {
         HcommThreadEntity *threadEntity = nullptr;
         CHK_RET(get_pod_thread(thread, true, threadEntity));
         uint32_t notifyId = 0;
         CHK_RET(get_thread_notify_id(*threadEntity, notifyIdx, notifyId));
-        return hcomm_pod_rtsq_notify_wait(*threadEntity->sqContextAddr, notifyId, timeout);
+        return asccomm_rtsq_notify_wait(*threadEntity->sqContextAddr, notifyId, timeout);
     });
 }
 
@@ -559,7 +559,7 @@ int32_t asccomm_set_notify_wait_timeout(float timeOut)
     return execute_pod_api(event, [&]() {
         uint32_t timeoutSeconds = 0;
         CHK_RET(convert_timeout(timeOut, timeoutSeconds));
-        hcomm_pod_set_notify_wait_timeout(timeoutSeconds);
+        asccomm_set_notify_wait_timeout(timeoutSeconds);
         return HCCL_SUCCESS;
     });
 }
@@ -571,7 +571,7 @@ int32_t asccomm_thread_res_acquire_timeout(float timeOut)
     return execute_pod_api(event, [&]() {
         uint32_t timeoutSeconds = 0;
         CHK_RET(convert_timeout(timeOut, timeoutSeconds));
-        hcomm_pod_set_sq_full_timeout(timeoutSeconds);
+        asccomm_set_sq_full_timeout(timeoutSeconds);
         return HCCL_SUCCESS;
     });
 }
@@ -584,6 +584,6 @@ int32_t asccomm_channel_drain_on_thread(ThreadHandle thread, ChannelHandle chann
     return execute_pod_api(event, [&]() {
         PodContext context{};
         CHK_RET(get_pod_context(thread, channel, true, context));
-        return hcomm_pod_drain(*context.thread, *context.channel);
+        return asccomm_drain(*context.thread, *context.channel);
     });
 }

@@ -137,7 +137,7 @@ bash build.sh
 bash build.sh --hcomm-source-dir=/path/to/hcomm
 ```
 
-The POD API is declared in `include/aicpu/hcomm/hcomm_pod_primitives.h` and consistently uses `asccomm_*` names. Base primitives and resource interfaces
+The POD API is declared in `include/aicpu/hcomm/asccomm_primitives.h` and consistently uses `asccomm_*` names. Base primitives and resource interfaces
 come from HCOMM's `include/` and `pkg_inc/` directories.
 
 The default build reuses the existing `build/` directory and does not remove build artifacts. To clean it, run:

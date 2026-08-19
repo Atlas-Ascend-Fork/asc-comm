@@ -52,7 +52,7 @@ find_cann_package(unified_dlog MODULE REQUIRED)
 add_library(asc_comm_pod_dfx INTERFACE)
 target_include_directories(asc_comm_pod_dfx INTERFACE ${POD_DFX_SRC_DIR})
 
-include(cmake/aicpu_hcomm_pod.cmake)
+include(cmake/aicpu_asccomm.cmake)
 
 add_library(aicpu_pod_data_plane SHARED ${ASC_COMM_AICPU_HCOMM_POD_SOURCES})
 
@@ -111,7 +111,7 @@ target_link_options(aicpu_pod_data_plane PRIVATE
     -Wl,-z,now
     -Wl,-z,noexecstack
     -Wl,--gc-sections
-    -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/pod_exports.map
+    -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/asccomm_exports.map
 )
 
 set_target_properties(aicpu_pod_data_plane PROPERTIES SKIP_BUILD_RPATH TRUE)
