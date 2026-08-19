@@ -126,7 +126,11 @@ private:
         ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt);
     __aicore__ inline void PollCqWhenSqOverflowSq(
         ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt);
-    __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail);
+    // sqSafeMode=false(默认):按 expectIdx 停(Drain/CQ 守卫用);
+    // sqSafeMode=true:按 SQ outstanding 停(SQ 守卫用,需额外传 sqHead/sqDepth/threshold)
+    template <bool sqSafeMode = false>
+    __aicore__ inline uint32_t PollCq(
+        ChannelHandle channel, uint32_t expectIdx, uint32_t sqHead = 0, uint32_t sqDepth = 0, uint32_t threshold = 0);
 
 private:
     LocalTensor<uint32_t> wqeItem_;

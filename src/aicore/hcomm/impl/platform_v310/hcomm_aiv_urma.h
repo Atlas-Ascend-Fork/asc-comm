@@ -313,34 +313,20 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflowSq(
 {
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     uint32_t sqTail = channelEntity->sqTail;
-    uint32_t cqTail = channelEntity->cqTail;
-    // 只朝"已敲门铃"的 CQE poll，绝不朝 post-time 的 cqHead poll：后者含尚未 commit、
-    // HW 不会产生的 CQE，会让 PollCq 等空转（BUG-G）。cqCommitted 在 CommitImpl 敲门铃时更新。
-    uint32_t cqCommitted = channelEntity->cqCommitted;
     constexpr uint32_t POLL_CQ_THRESHOLD = 10;
-    constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
     uint32_t sqDepth = sqCtx.contextInfo.ubJfs.sqDepth;
     (void)cqCtx;
     (void)cqeCnt;
 
-    // outstanding 必须在 16 位域内算：sqHead 是 32 位自然增长，sqTail 只有 16 位有效
-    // （来自 CQE entryIdx:16），二者模数域不同。都截到 16 位再做无符号减法，靠 16 位回绕
-    // 得到真实 outstanding。前提：真实 outstanding <= 4D <= 32768 = 2^15 < 2^16（D<=8192 保证）。
+    // outstanding 16 位域差值(BUG-D 对齐)
     uint16_t outstanding = (uint16_t)((uint16_t)(sqHead & 0xFFFFU) - (uint16_t)(sqTail & 0xFFFFU));
     if ((uint32_t)outstanding + POLL_CQ_THRESHOLD >= sqDepth) {
-        // poll 目标在 CQE 域，朝 cqCommitted 方向推进；poll 到的 CQE 通过 entryIdx 抬升 sqTail
-        // 从而释放 SQ 的 BB。约束2 下每批 1 个 CQE，其 entryIdx = 批尾 sqHead，poll 一个即释放整批。
-        if (cqCommitted != cqTail) { // 有已提交、未消费的 CQE 才 poll，避免等永不到来的 CQE
-            uint32_t idx = (cqTail + NUM_CQE_PER_POLL_CQ) > cqCommitted ? cqCommitted : cqTail + NUM_CQE_PER_POLL_CQ;
-            (void)PollCq(channel, idx);
-        } else {
-            // 无已提交可回收的 CQE（cqe 全关 BUG-E，或未 commit 就逼近 SQ 满）。此处仅告警：
-            // 守卫为 void 返回、PostSend 忽略结果，后续仍会写 -> 可能覆盖。根治需返回状态并阻塞/报错。
-            KERNEL_LOG(
-                KERNEL_ERROR,
-                "Hcomm URMA SQ near full but no committed CQE to reclaim sqHead=%u sqTail=%u cqCommitted=%u \n", sqHead,
-                sqTail, cqCommitted);
-        }
+        // 不安全 → 调用 SQ 安全模式 PollCq:
+        // 按 entryIdx 重算 outstanding,一旦安全立刻停,不去读未敲门铃 CQE。
+        // 契约内足够回收 → 停在已敲门铃边界,无空转;
+        // BUG-E/违约1 → 撞未敲门铃边界空转 1e6 超时(取舍)。
+        constexpr uint32_t dummyExpectIdx = 0xFFFFFFFFU; // sqSafeMode 下不用 expectIdx,传虚值
+        (void)PollCq<true>(channel, dummyExpectIdx, sqHead, sqDepth, POLL_CQ_THRESHOLD);
     }
 }
 
@@ -350,9 +336,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::CommitImpl(
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     st_dev(sqHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
-    // 门铃已敲：截至本次 commit 已 post 的 CQE 现在都会被 HW 产生。记录"已提交 CQE 数"，
-    // 供 SQ 溢出守卫作 poll 上限（避免等到未敲门铃、不会到来的 CQE，见 BUG-G）。
-    channelEntity->cqCommitted = cqeCnt;
+    // 门铃已敲,SQ 守卫用 PollCq SQ 安全模式(entryIdx 停止条件)回收,不再需要记录 cqCommitted
     PollCqWhenSqOverflowCq(channel, sqCtx, cqCtx, sqHead, cqeCnt);
 }
 
@@ -439,7 +423,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandle channel, uint32_t expectIdx)
+template <bool sqSafeMode>
+__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
+    ChannelHandle channel, uint32_t expectIdx, uint32_t sqHead, uint32_t sqDepth, uint32_t threshold)
 {
     if (expectIdx == 0) {
         return HCOMM_SUCCESS;
@@ -454,10 +440,25 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
     __ubuf__ HcommUrmaJfcCqeCtx* cqeUb = (__ubuf__ HcommUrmaJfcCqeCtx*)cqeItem_.GetPhyAddr();
     KERNEL_LOG(
         KERNEL_INFO, "Hcomm URMA PollCq enter expectIdx=%u curTail=%u cqDepth=%u \n", expectIdx, curTail, cqDepth);
+
+    // SQ 安全模式需要 sqTail 参与停止条件判断(守卫已做提前判断,这里只需停止条件)
+    uint32_t sqTail = channelEntity->sqTail;
+
 #if defined(UT_TEST)
     curTail = expectIdx;
 #else
-    while (curTail != expectIdx) {
+    // 两种停止条件:sqSafeMode=true 按 outstanding,false 按 expectIdx
+    auto shouldContinue = [&]() -> bool {
+        if constexpr (sqSafeMode) {
+            // 16 位域算 outstanding(BUG-D 对齐):sqHead 32 位、sqTail 16 位(来自 entryIdx)
+            uint16_t outstanding = (uint16_t)((uint16_t)(sqHead & 0xFFFFU) - (uint16_t)(sqTail & 0xFFFFU));
+            return (uint32_t)outstanding + threshold >= sqDepth; // 不安全 → 继续 poll
+        } else {
+            return curTail != expectIdx; // 原逻辑:poll 到 expectIdx
+        }
+    };
+
+    while (shouldContinue()) {
         __gm__ uint8_t* cqeAddr = (__gm__ uint8_t*)(cqBaseAddr + cqeSize * (curTail & (cqDepth - 1)));
         AscendC::GlobalTensor<uint32_t> cqeGlobal;
         cqeGlobal.SetGlobalBuffer((__gm__ uint32_t*)cqeAddr);
@@ -487,6 +488,10 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandl
             return (status << statusShift) | subStatus;
         }
         curTail++;
+        // SQ 安全模式:每读一个 CQE 就更新 sqTail(entryIdx),重算 outstanding 判停止
+        if constexpr (sqSafeMode) {
+            sqTail = cqeUb->entryIdx;
+        }
     }
 #endif
 

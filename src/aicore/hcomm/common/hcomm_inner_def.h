@@ -240,8 +240,7 @@ typedef struct {
     uint32_t sqTail;      // Submitted WQE count, reserved for future use
     uint32_t cqHead;      // Number of posted CQEs (intent, bumped at post time regardless of commit)
     uint32_t cqTail;      // Number of consumed CQEs
-    uint32_t cqCommitted; // Number of CQEs whose doorbell has been rung (guaranteed to arrive)
-    uint8_t reserve[140];
+    uint8_t reserve[144];
 } ChannelEntity;
 
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
