@@ -46,6 +46,9 @@ namespace AscendC {
 template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
 class Hcomm {
 public:
+    using BatchHandleType = typename BatchHandleTraits<commProtocol>::Type;
+    using BatchHandleRefType = typename BatchHandleTraits<commProtocol>::RefType;
+
     /*!
      * @brief Initialize Hcomm workspace.
      * @param [in] buff: The UB buffer provided by caller.
@@ -231,6 +234,73 @@ public:
      */
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
+
+    /*!
+     * @brief Create a multi-channel batch handle backed by the caller-provided UB buffer.
+     * @param [in] multiChannel: Device address of shared SQ/CQ contexts and per-channel remote information.
+     * @param [in] buff: UB buffer used to store CQE scratch space and WQEs.
+     * @param [in] buffLen: Available UB buffer length in bytes.
+     * @return A protocol-specific batch handle. IsValid() is false when creation fails.
+     */
+    __aicore__ inline BatchHandleType MakeBatchHandle(
+        MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen);
+
+    /*!
+     * @brief Create a multi-channel batch handle backed by a caller-provided LocalTensor.
+     * @tparam T: The element type of the LocalTensor.
+     * @param [in] multiChannel: Device address of shared SQ/CQ contexts and per-channel remote information.
+     * @param [in] buff: UB buffer used to store CQE scratch space and WQEs.
+     * @param [in] buffLen: Available UB buffer length in bytes.
+     * @return A protocol-specific batch handle. IsValid() is false when creation fails.
+     * @note The first version supports COMM_PROTOCOL_UBC_CTP and one AICore accessing a batch handle serially.
+     *       Do not mix batch operations with normal operations on the same shared Jetty.
+     */
+    template <typename T>
+    __aicore__ inline BatchHandleType MakeBatchHandle(
+        MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen);
+
+    /*!
+     * @brief Resolve a channel for a peer in a batch handle.
+     * @param [in] handle: Multi-channel batch handle.
+     * @param [in] channelIndex: Index in the original channelDescs array and per-channel remote information array.
+     * @return A handle reference containing the selected channel metadata.
+     * @note The channel metadata is cached in the returned reference and reused by subsequent batch writes.
+     */
+    __aicore__ inline BatchHandleRefType GetHandleRef(BatchHandleType& handle, uint32_t channelIndex);
+
+    /*!
+     * @brief Append one Write task to a multi-channel batch and optionally commit the accumulated batch.
+     * @tparam commit: true commits the accumulated batch after appending this task; false only appends the task.
+     * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
+     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
+     * @tparam config: URMA WQE control config.
+     * @param [in] handleRef: Lightweight reference returned by GetHandleRef.
+     * @param [out] dst: Remote destination address.
+     * @param [in] src: Local source address.
+     * @param [in] len: Write length in bytes.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note dst must belong to a remote MR associated with the selected channel.
+     */
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    /*!
+     * @brief Copy all accumulated WQEs to the shared SQ and ring its doorbell once.
+     * @param [in] handle: Multi-channel batch handle.
+     * @return 0 indicates success and -1 indicates failure.
+     */
+    template <pipe_t pipe = PIPE_S>
+    __aicore__ inline int32_t BatchCommit(BatchHandleType& handle);
+
+    /*!
+     * @brief Wait for all communication tasks submitted by the batch handle.
+     * @param [in] handle: Multi-channel batch handle.
+     * @return 0 indicates success. A non-zero value is the underlying CQ polling error.
+     */
+    template <pipe_t pipe = PIPE_MTE3>
+    __aicore__ inline int32_t Drain(BatchHandleType& handle);
 
 private:
     HcommImpl<commProtocol> impl_;
