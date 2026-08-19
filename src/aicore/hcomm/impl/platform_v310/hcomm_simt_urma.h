@@ -191,6 +191,17 @@ __simt_callee__ inline void HcommSimtUrmaFillUbAtomicWqe(
     }
 }
 
+__simt_callee__ inline void HcommSimtCopyUb128ToDwqeStwt16(__gm__ uint8_t* dst, __ubuf__ uint8_t* src)
+{
+    __ubuf__ uint64_t* srcWords = reinterpret_cast<__ubuf__ uint64_t*>(src);
+    __gm__ ulonglong2* dstWords = reinterpret_cast<__gm__ ulonglong2*>(dst);
+#pragma unroll
+    for (uint32_t i = 0; i < HCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2); ++i) {
+        uint32_t wordIdx = i * 2U;
+        asc_stwt(&dstWords[i], make_ulonglong2(srcWords[wordIdx], srcWords[wordIdx + 1U]));
+    }
+}
+
 __simt_callee__ inline void HcommSimtRingDwqeFromUbStwt16(__gm__ uint8_t* dwqeAddr, __ubuf__ uint8_t* wqeAddr)
 {
     asc_threadfence();
