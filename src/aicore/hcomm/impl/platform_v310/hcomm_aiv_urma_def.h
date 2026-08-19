@@ -109,9 +109,11 @@ private:
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr = nullptr,
         const UdmaParams<T>& params = UdmaParams<T>{});
     __aicore__ inline void CommitImpl(ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt);
-    __aicore__ inline void PollCqWhenSqOverflow(
+    __aicore__ inline void PollCqWhenOverflow(
         ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt);
-    __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail);
+    template <bool sqSafeMode = false>
+    __aicore__ inline uint32_t PollCq(
+        ChannelHandle channel, uint32_t expectIdx, uint32_t sqHead = 0, uint32_t sqDepth = 0, uint32_t threshold = 0);
 
 private:
     LocalTensor<uint32_t> wqeItem_;
