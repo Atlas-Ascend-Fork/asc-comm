@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="530" viewBox="0 0 1200 530" font-family="Arial, 'Noto Sans CJK SC', sans-serif">
+  <defs>
+    <style>
+      .title{font-size:20px;font-weight:700;fill:#20262d}.subtitle{font-size:14px;fill:#4b5563}.mapping-title{font-size:14px;font-weight:700;fill:#4b5563}.mapping-label{font-size:13px;fill:#4b5563}.domain{fill:#fff;stroke:#c8cdd2;stroke-width:2}.unit{fill:#dbeafe;stroke:#4f83c2;stroke-width:1.5}.mesh{fill:none;stroke:#e05a67;stroke-width:1.2}.mapping{fill:none;stroke:#8b9299;stroke-width:1.3;stroke-dasharray:6 5}.physical{fill:none;stroke:#f28c28;stroke-width:1.5;stroke-dasharray:7 5}.boundary{fill:none;stroke:#f28c28;stroke-width:1.5}.stage{font-size:14px;font-weight:700;fill:#263238}.small{font-size:13px;fill:#4b5563}
+    </style>
+    <marker id="mapping-arrow" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M10 0L0 5L10 10Z" fill="#f28c28"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="530" fill="#fff"/>
+  <text x="600" y="30" class="title" text-anchor="middle">nD-FullMesh拓扑</text>
+  <text x="600" y="55" class="subtitle" text-anchor="middle">低维FullMesh作为拓扑单元，逐维递归形成更高维FullMesh</text>
+
+  <!-- Possible physical mapping. The vertical boundaries identify each mapping range. -->
+  <text x="48" y="150" class="mapping-title" text-anchor="middle" transform="rotate(-90 48 150)">可能的物理映射</text>
+  <line x1="80" y1="85" x2="80" y2="220" class="boundary"/>
+  <g class="physical" marker-start="url(#mapping-arrow)">
+    <line x1="80" y1="90" x2="1145" y2="90"/>
+    <line x1="80" y1="115" x2="1045" y2="115"/>
+    <line x1="80" y1="140" x2="715" y2="140"/>
+    <line x1="80" y1="165" x2="455" y2="165"/>
+    <line x1="80" y1="190" x2="240" y2="190"/>
+  </g>
+  <g class="boundary">
+    <line x1="1145" y1="90" x2="1145" y2="130"/>
+    <line x1="1045" y1="115" x2="1045" y2="155"/>
+    <line x1="715" y1="140" x2="715" y2="180"/>
+    <line x1="455" y1="165" x2="455" y2="205"/>
+    <line x1="240" y1="190" x2="240" y2="230"/>
+  </g>
+  <text x="610" y="83" class="mapping-label" text-anchor="middle">建筑及更大范围</text>
+  <text x="880" y="108" class="mapping-label" text-anchor="middle">楼层</text>
+  <text x="585" y="133" class="mapping-label" text-anchor="middle">机房</text>
+  <text x="345" y="158" class="mapping-label" text-anchor="middle">机柜</text>
+  <text x="160" y="183" class="mapping-label" text-anchor="middle">板</text>
+
+  <!-- Each dashed pair maps the complete lower-dimensional domain to one unit in the next dimension. -->
+  <path d="M240 270L290 296M240 390L290 314" class="mapping"/>
+  <path d="M455 225L516 272M455 390L516 292" class="mapping"/>
+  <path d="M715 175L781 249M715 390L781 271" class="mapping"/>
+  <path d="M1045 135L1110 205M1045 390L1110 325" class="mapping"/>
+
+  <!-- 1D: topology units are NPUs. -->
+  <rect x="100" y="255" width="140" height="150" rx="20" class="domain"/>
+  <path d="M170 280L202 293M170 280L215 325M170 280L202 357M170 280L170 370M170 280L138 357M170 280L125 325M170 280L138 293M202 293L215 325M202 293L202 357M202 293L170 370M202 293L138 357M202 293L125 325M202 293L138 293M215 325L202 357M215 325L170 370M215 325L138 357M215 325L125 325M215 325L138 293M202 357L170 370M202 357L138 357M202 357L125 325M202 357L138 293M170 370L138 357M170 370L125 325M170 370L138 293M138 357L125 325M138 357L138 293M125 325L138 293" class="mesh"/>
+  <g>
+    <circle cx="170" cy="280" r="8" class="unit"/><circle cx="202" cy="293" r="8" class="unit"/>
+    <circle cx="215" cy="325" r="8" class="unit"/><circle cx="202" cy="357" r="8" class="unit"/>
+    <circle cx="170" cy="370" r="8" class="unit"/><circle cx="138" cy="357" r="8" class="unit"/>
+    <circle cx="125" cy="325" r="8" class="unit"/><circle cx="138" cy="293" r="8" class="unit"/>
+  </g>
+  <text x="170" y="435" class="stage" text-anchor="middle">1D</text>
+
+  <!-- 2D: each topology unit represents a 1D-FullMesh. -->
+  <rect x="265" y="210" width="190" height="195" rx="28" class="domain"/>
+  <path d="M360 247L401 264M360 247L418 305M360 247L401 346M360 247L360 363M360 247L319 346M360 247L302 305M360 247L319 264M401 264L418 305M401 264L401 346M401 264L360 363M401 264L319 346M401 264L302 305M401 264L319 264M418 305L401 346M418 305L360 363M418 305L319 346M418 305L302 305M418 305L319 264M401 346L360 363M401 346L319 346M401 346L302 305M401 346L319 264M360 363L319 346M360 363L302 305M360 363L319 264M319 346L302 305M319 346L319 264M302 305L319 264" class="mesh"/>
+  <g>
+    <circle cx="360" cy="247" r="13" class="unit"/><circle cx="401" cy="264" r="13" class="unit"/>
+    <circle cx="418" cy="305" r="13" class="unit"/><circle cx="401" cy="346" r="13" class="unit"/>
+    <circle cx="360" cy="363" r="13" class="unit"/><circle cx="319" cy="346" r="13" class="unit"/>
+    <circle cx="302" cy="305" r="13" class="unit"/><circle cx="319" cy="264" r="13" class="unit"/>
+  </g>
+  <text x="360" y="435" class="stage" text-anchor="middle">2D</text>
+
+  <!-- 3D: each topology unit represents a 2D-FullMesh. -->
+  <rect x="495" y="160" width="220" height="245" rx="34" class="domain"/>
+  <path d="M605 207L658 229M605 207L680 282M605 207L658 335M605 207L605 357M605 207L552 335M605 207L530 282M605 207L552 229M658 229L680 282M658 229L658 335M658 229L605 357M658 229L552 335M658 229L530 282M658 229L552 229M680 282L658 335M680 282L605 357M680 282L552 335M680 282L530 282M680 282L552 229M658 335L605 357M658 335L552 335M658 335L530 282M658 335L552 229M605 357L552 335M605 357L530 282M605 357L552 229M552 335L530 282M552 335L552 229M530 282L552 229" class="mesh"/>
+  <g>
+    <circle cx="605" cy="207" r="17" class="unit"/><circle cx="658" cy="229" r="17" class="unit"/>
+    <circle cx="680" cy="282" r="17" class="unit"/><circle cx="658" cy="335" r="17" class="unit"/>
+    <circle cx="605" cy="357" r="17" class="unit"/><circle cx="552" cy="335" r="17" class="unit"/>
+    <circle cx="530" cy="282" r="17" class="unit"/><circle cx="552" cy="229" r="17" class="unit"/>
+  </g>
+  <text x="605" y="435" class="stage" text-anchor="middle">3D</text>
+
+  <!-- 4D: each topology unit represents a 3D-FullMesh. -->
+  <rect x="755" y="115" width="290" height="290" rx="40" class="domain"/>
+  <path d="M900 160L971 189M900 160L1000 260M900 160L971 331M900 160L900 360M900 160L829 331M900 160L800 260M900 160L829 189M971 189L1000 260M971 189L971 331M971 189L900 360M971 189L829 331M971 189L800 260M971 189L829 189M1000 260L971 331M1000 260L900 360M1000 260L829 331M1000 260L800 260M1000 260L829 189M971 331L900 360M971 331L829 331M971 331L800 260M971 331L829 189M900 360L829 331M900 360L800 260M900 360L829 189M829 331L800 260M829 331L829 189M800 260L829 189" class="mesh"/>
+  <g>
+    <circle cx="900" cy="160" r="22" class="unit"/><circle cx="971" cy="189" r="22" class="unit"/>
+    <circle cx="1000" cy="260" r="22" class="unit"/><circle cx="971" cy="331" r="22" class="unit"/>
+    <circle cx="900" cy="360" r="22" class="unit"/><circle cx="829" cy="331" r="22" class="unit"/>
+    <circle cx="800" cy="260" r="22" class="unit"/><circle cx="829" cy="189" r="22" class="unit"/>
+  </g>
+  <text x="900" y="435" class="stage" text-anchor="middle">4D</text>
+  <text x="1090" y="270" class="title" text-anchor="middle">…</text>
+  <text x="1130" y="435" class="stage" text-anchor="middle">nD</text>
+
+  <g transform="translate(270 495)">
+    <circle cx="0" cy="0" r="11" class="unit"/><text x="19" y="5" class="small">拓扑单元（1D中为NPU，高维中为低维FullMesh）</text>
+    <line x1="375" y1="0" x2="425" y2="0" class="mesh"/><text x="435" y="5" class="small">当前维度内直接连接</text>
+    <line x1="625" y1="0" x2="675" y2="0" class="mapping"/><text x="685" y="5" class="small">递归映射</text>
+  </g>
+</svg>

@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="Arial, 'Noto Sans CJK SC', sans-serif">
+  <defs>
+    <marker id="data-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#c43d35"/>
+    </marker>
+    <style>
+      .title{font-size:22px;font-weight:700;fill:#20262d}.heading{font-size:17px;font-weight:700;fill:#20262d}.text{font-size:15px;fill:#263238}.small{font-size:13px;fill:#374151}.frame{fill:#f7f8f8;stroke:#343a40;stroke-width:1.6}.cabinet{fill:#eceeee;stroke:#343a40;stroke-width:1.5}.npu{fill:#f9fafb;stroke:#56616a;stroke-width:1.4}.engine{fill:#dbeafe;stroke:#4f83c2;stroke-width:1.3}.memory{fill:#ddf0d7;stroke:#66a65c;stroke-width:1.3}.device{fill:#a2da78;stroke:#497c38;stroke-width:1.4}.external{fill:#ffe3c5;stroke:#9a6a3a;stroke-width:1.4}.switch{fill:#a2da78;stroke:#497c38;stroke-width:1.5}.link{fill:none;stroke:#666b70;stroke-width:2}.link-dash{fill:none;stroke:#666b70;stroke-width:2;stroke-dasharray:10 7}.data{fill:none;stroke:#c43d35;stroke-width:2.2;marker-end:url(#data-arrow)}
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#fff"/>
+  <text x="800" y="30" class="title" text-anchor="middle">通信抽象硬件架构与超节点组网</text>
+
+  <!-- Supernode 1 follows the hierarchy shown on PDF page 13. -->
+  <rect x="30" y="50" width="1280" height="790" class="frame"/>
+  <text x="670" y="82" class="heading" text-anchor="middle">Ascend 950 超节点 1</text>
+
+  <rect x="60" y="100" width="1000" height="570" class="cabinet"/>
+  <text x="1030" y="126" class="heading" text-anchor="end">AI机柜 1</text>
+
+  <!-- RoCE DPU connected to CPU through PCIe. -->
+  <rect x="102" y="151" width="150" height="62" class="external"/>
+  <rect x="112" y="141" width="150" height="62" class="external"/>
+  <rect x="122" y="131" width="150" height="62" class="external"/>
+  <text x="197" y="168" class="text" text-anchor="middle">外置DPU</text>
+  <text x="197" y="187" class="small" text-anchor="middle">RoCE</text>
+  <path d="M197 131V98" class="link"/>
+  <text x="214" y="116" class="small">RoCE</text>
+
+  <rect x="112" y="292" width="165" height="68" class="device"/>
+  <rect x="122" y="282" width="165" height="68" class="device"/>
+  <text x="204" y="321" class="text" text-anchor="middle">CPU</text>
+  <path d="M204 193V282" class="link"/>
+  <text x="216" y="245" class="small">PCIe</text>
+
+  <!-- UB-capable DPU connected to L1 switch. -->
+  <rect x="304" y="151" width="150" height="62" class="device"/>
+  <rect x="314" y="141" width="150" height="62" class="device"/>
+  <rect x="324" y="131" width="150" height="62" class="device"/>
+  <text x="399" y="168" class="text" text-anchor="middle">DPU</text>
+  <text x="399" y="187" class="small" text-anchor="middle">UB</text>
+
+  <!-- NPU 0: expanded replacement for the original NPU box. -->
+  <rect x="430" y="225" width="285" height="285" rx="3" class="npu"/>
+  <text x="447" y="250" class="heading">NPU 0</text>
+  <rect x="447" y="270" width="67" height="54" rx="3" class="engine"/>
+  <text x="480" y="302" class="small" text-anchor="middle">AIV</text>
+  <rect x="524" y="270" width="78" height="54" rx="3" class="engine"/>
+  <text x="563" y="302" class="small" text-anchor="middle">AI CPU</text>
+  <rect x="612" y="270" width="86" height="104" rx="3" class="engine"/>
+  <text x="655" y="294" class="small" text-anchor="middle">CCU</text>
+  <rect x="621" y="314" width="68" height="34" rx="3" class="memory"/>
+  <text x="655" y="335" font-size="11" fill="#374151" text-anchor="middle">ccuBuffer</text>
+  <rect x="447" y="412" width="251" height="66" rx="3" class="memory"/>
+  <text x="572" y="450" class="text" text-anchor="middle">GM</text>
+
+  <!-- NPU 1: symmetric peer. -->
+  <rect x="740" y="225" width="285" height="285" rx="3" class="npu"/>
+  <text x="757" y="250" class="heading">NPU 1</text>
+  <rect x="757" y="270" width="67" height="54" rx="3" class="engine"/>
+  <text x="790" y="302" class="small" text-anchor="middle">AIV</text>
+  <rect x="834" y="270" width="78" height="54" rx="3" class="engine"/>
+  <text x="873" y="302" class="small" text-anchor="middle">AI CPU</text>
+  <rect x="922" y="270" width="86" height="104" rx="3" class="engine"/>
+  <text x="965" y="294" class="small" text-anchor="middle">CCU</text>
+  <rect x="931" y="314" width="68" height="34" rx="3" class="memory"/>
+  <text x="965" y="335" font-size="11" fill="#374151" text-anchor="middle">ccuBuffer</text>
+  <rect x="757" y="412" width="251" height="66" rx="3" class="memory"/>
+  <text x="882" y="450" class="text" text-anchor="middle">GM</text>
+
+  <!-- Representative NPU 0 to NPU 1 data flow; reverse flow is symmetric. -->
+  <path d="M480 324V409" class="data"/>
+  <path d="M563 324V409" class="data"/>
+  <path d="M655 348V409" class="data"/>
+  <path d="M698 445H754" class="data"/>
+  <path d="M790 412V327" class="data"/>
+  <path d="M873 412V327" class="data"/>
+  <path d="M965 412V351" class="data"/>
+  <path d="M689 331H725V392H882V409" class="data"/>
+
+  <text x="1043" y="371" class="heading" text-anchor="middle">...</text>
+
+  <!-- L1 UB switch stack and cabinet connections. -->
+  <rect x="112" y="578" width="905" height="56" class="switch"/>
+  <rect x="122" y="568" width="905" height="56" class="switch"/>
+  <rect x="132" y="558" width="905" height="56" class="switch"/>
+  <text x="584" y="593" class="text" text-anchor="middle">L1 灵衢Switch</text>
+  <path d="M204 350V558M399 193V558M572 510V558M882 510V558" class="link"/>
+  <text x="216" y="535" class="small">UB</text>
+  <text x="411" y="535" class="small">UB</text>
+  <text x="584" y="535" class="small">UB</text>
+  <text x="894" y="535" class="small">UB</text>
+
+  <!-- Other cabinet inside supernode 1, collapsed as in the source figure. -->
+  <rect x="1090" y="100" width="190" height="570" class="cabinet"/>
+  <text x="1260" y="126" class="heading" text-anchor="end">AI机柜 N</text>
+  <text x="1185" y="385" class="heading" text-anchor="middle">...</text>
+
+  <!-- L2 switch, connected to cabinet L1 networks. -->
+  <rect x="310" y="742" width="650" height="62" class="switch"/>
+  <text x="635" y="780" class="text" text-anchor="middle">L2 灵衢Switch / 以太网交换机</text>
+  <path d="M584 614V742M1185 670V704H850V742" class="link"/>
+  <text x="596" y="700" class="small">UB</text>
+  <text x="1120" y="696" class="small">UB</text>
+
+  <!-- Other supernode, collapsed as on PDF page 13. -->
+  <text x="1330" y="385" class="heading" text-anchor="middle">...</text>
+  <rect x="1360" y="100" width="210" height="704" class="frame"/>
+  <text x="1465" y="132" class="heading" text-anchor="middle">超节点 N</text>
+  <rect x="1382" y="178" width="166" height="490" fill="#f5f6f6" stroke="#555" stroke-width="1.5" stroke-dasharray="9 6"/>
+  <text x="1465" y="410" class="text" text-anchor="middle">AI机柜</text>
+  <text x="1465" y="433" class="text" text-anchor="middle">1 ... N</text>
+  <path d="M960 773H1318V720H1465V668" class="link"/>
+  <text x="1120" y="764" class="small">UBoE</text>
+
+  <g transform="translate(55 867)">
+    <line x1="0" y1="0" x2="45" y2="0" class="link"/><text x="55" y="5" class="small">系统互联连接</text>
+    <line x1="195" y1="0" x2="240" y2="0" class="data"/><text x="252" y="5" class="small">代表性数据流（反向通路对称）</text>
+    <rect x="535" y="-13" width="42" height="26" rx="3" class="engine"/><text x="588" y="5" class="small">通信引擎</text>
+    <rect x="710" y="-13" width="42" height="26" rx="3" class="memory"/><text x="763" y="5" class="small">存储单元</text>
+  </g>
+</svg>
