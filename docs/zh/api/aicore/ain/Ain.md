@@ -51,3 +51,5 @@ __aicore__ inline Ain(uint32_t contextIndex = 0);
 - 传入的`HcommTeamHandle`和`HcommWindowHandle`需要是有效的device侧句柄。
 - 当前只支持`COMM_PROTOCOL_UBC_CTP`协议路径。
 - `Put`、`PutValue`、`Get`和`Signal`内部会初始化底层Hcomm，调用时需要提供有效的`AinDescriptorUbuf`。
+- 使用`AIN_COMMIT_DELAYED`时，连续调用次数不得超过底层SQ深度（`sqDepth`），需在SQ耗尽前通过`AIN_COMMIT_IMMED`提交积攒的任务，否则后续任务将因SQ溢出而失败。
+- 批量提交场景（多次`AIN_COMMIT_DELAYED` + 最后一次`AIN_COMMIT_IMMED`）下，仅最后一次提交应产生CQE。
