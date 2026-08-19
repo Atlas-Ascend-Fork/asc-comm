@@ -19,6 +19,7 @@
 
 namespace AscendC {
 using ChannelHandle = uint64_t;
+using MultiChannelHandle = uint64_t;
 
 /**
  * @brief 通信协议类型枚举
@@ -35,6 +36,9 @@ typedef enum {
     COMM_PROTOCOL_UBOE = 7,      ///< UBoE
     COMM_PROTOCOL_HCCS_ONLY = 8, ///< 一卡双DIE使用HCCS
 } CommProtocol;
+
+template <CommProtocol commProtocol>
+struct BatchHandleTraits;
 
 enum class HcommUrmaReduceOp : uint32_t {
     MAX = 0x8U,
