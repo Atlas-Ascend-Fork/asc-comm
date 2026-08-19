@@ -16,43 +16,21 @@ SOURCE_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 PAYLOAD_DIR="${SOURCE_DIR}/payload"
 PACKAGE_MANIFEST="${SOURCE_DIR}/manifest.sha256"
 PACKAGE_INFO="${SOURCE_DIR}/version.info"
-PACKAGE_LINKS="${SOURCE_DIR}/links.tsv"
-VERSION_CHECKER_DIR="${SOURCE_DIR}/script"
-VERSION_CHECKER="${VERSION_CHECKER_DIR}/check_version_required.awk"
-VERSION_COMPAT_LIB="${VERSION_CHECKER_DIR}/version_compatiable.inc"
 
 ACTION=""
 if [[ $(id -u) -eq 0 ]]; then
-    INSTALL_PATH="/usr/local/Ascend"
-    LOG_DIR="/var/log/ascend_seclog"
-    LOG_DIR_MODE=750
     INSTALL_FOR_ALL=true
 else
-    INSTALL_PATH="${HOME}/Ascend"
-    LOG_DIR="${HOME}/var/log/ascend_seclog"
-    LOG_DIR_MODE=740
     INSTALL_FOR_ALL=false
 fi
-INSTALL_LOG="${LOG_DIR}/ascend_install.log"
-OPERATION_LOG="${LOG_DIR}/operation.log"
+INSTALL_PATH=${ASCEND_HOME_PATH:-}
 FORCE=false
 CANN_ROOT=""
 STATE_DIR=""
-LOCK_FILE=""
 TRANSACTION_DIR=""
 WORK_DIR=""
-LOCK_HELD=false
 MUTATION_STARTED=false
 COMMITTED=false
-STATE_FORMAT_VERSION=""
-LOG_READY=false
-ACTION_STARTED=false
-OPERATION_RECORDED=false
-OPERATION_TYPE=""
-OPERATION_LEVEL=""
-INPUT_PARAMS=""
-RUN_USERNAME=$(id -un)
-RUN_FILE_NAME="cann-asc-comm"
 
 usage()
 {
@@ -62,10 +40,9 @@ Usage: $0 --full|--uninstall|--check [OPTION]...
 Options:
   --full                  Install or update the asc-comm development patch
   --uninstall             Restore the files saved before the first installation
-  --check                 Verify payload and dependency compatibility without modifying CANN
-  --install-path=<PATH>   Ascend install root; defaults to /usr/local/Ascend for root
-                          or \$HOME/Ascend for a non-root user
-  --force                 Ignore installed-file consistency checks
+  --check                 Verify the package payload without modifying CANN
+  --install-path=<PATH>   CANN root; defaults to ASCEND_HOME_PATH
+  --force                 Ignore version or installed-file consistency checks
   -h, --help              Display this help
 EOF
 }
@@ -73,115 +50,14 @@ EOF
 log()
 {
     local level=$1
-    local log_format
     shift
-    log_format="[AscComm] [$(date '+%Y-%m-%d %H:%M:%S')] [${level}]: $*"
-    echo "${log_format}"
-    if [[ "${LOG_READY}" == true ]]; then
-        printf '%s\n' "${log_format}" >> "${INSTALL_LOG}"
-    fi
+    echo "[AscComm] [$(date '+%Y-%m-%d %H:%M:%S')] [${level}]: $*"
 }
 
 fail()
 {
     log "ERROR" "$*" >&2
     exit 1
-}
-
-fail_with_code()
-{
-    local error_code=$1
-    shift
-    log "ERROR" "ERR_NO:${error_code};ERR_DES:$*" >&2
-    exit 1
-}
-
-capture_input_params()
-{
-    local args=("$@")
-
-    if [[ ${#args[@]} -ge 2 && "${args[0]}" == --*.run && "${args[1]}" == --/* ]]; then
-        RUN_FILE_NAME=$(basename -- "${args[0]#--}")
-        args=("${args[@]:2}")
-    fi
-    if [[ ${#args[@]} -gt 0 ]]; then
-        printf -v INPUT_PARAMS '%q ' "${args[@]}"
-        INPUT_PARAMS=${INPUT_PARAMS% }
-    fi
-}
-
-init_logging()
-{
-    mkdir -p "${LOG_DIR}" || {
-        echo "[AscComm] [ERROR]: failed to create log directory: ${LOG_DIR}" >&2
-        exit 1
-    }
-    chmod "${LOG_DIR_MODE}" "${LOG_DIR}" || {
-        echo "[AscComm] [ERROR]: failed to set log directory permission: ${LOG_DIR}" >&2
-        exit 1
-    }
-    touch "${INSTALL_LOG}" || {
-        echo "[AscComm] [ERROR]: failed to create install log: ${INSTALL_LOG}" >&2
-        exit 1
-    }
-    chmod 640 "${INSTALL_LOG}" || {
-        echo "[AscComm] [ERROR]: failed to set install log permission: ${INSTALL_LOG}" >&2
-        exit 1
-    }
-    LOG_READY=true
-}
-
-start_log()
-{
-    log "INFO" "Start time:$(date '+%Y-%m-%d %H:%M:%S')"
-    log "INFO" "LogFile:${INSTALL_LOG}"
-    log "INFO" "InputParams:${INPUT_PARAMS}"
-    log "INFO" "OperationLogFile:${OPERATION_LOG}"
-}
-
-set_operation()
-{
-    case "${ACTION}" in
-        --full)
-            OPERATION_TYPE="Install"
-            OPERATION_LEVEL="SUGGESTION"
-            ;;
-        --uninstall)
-            OPERATION_TYPE="Uninstall"
-            OPERATION_LEVEL="MAJOR"
-            ;;
-        --check)
-            return 0
-            ;;
-    esac
-    ACTION_STARTED=true
-}
-
-detect_upgrade_operation()
-{
-    if [[ "${ACTION}" == "--full" && -d "${STATE_DIR}" ]]; then
-        OPERATION_TYPE="Upgrade"
-        OPERATION_LEVEL="MINOR"
-    fi
-}
-
-log_operation()
-{
-    local result=$1
-    local install_mode=${ACTION#--}
-
-    touch "${OPERATION_LOG}" || return 1
-    chmod 640 "${OPERATION_LOG}" || return 1
-    printf '%s %s %s %s 127.0.0.1 %s %s installmode=%s; cmdlist=%s\n' \
-        "${OPERATION_TYPE}" \
-        "${OPERATION_LEVEL}" \
-        "${RUN_USERNAME}" \
-        "$(date '+%Y-%m-%d %H:%M:%S')" \
-        "${RUN_FILE_NAME}" \
-        "${result}" \
-        "${install_mode}" \
-        "${INPUT_PARAMS}" >> "${OPERATION_LOG}" || return 1
-    OPERATION_RECORDED=true
 }
 
 parse_args()
@@ -194,8 +70,7 @@ parse_args()
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --full|--uninstall|--check)
-                [[ -z "${ACTION}" ]] || \
-                    fail_with_code "0x0004" "specify exactly one operation"
+                [[ -z "${ACTION}" ]] || fail "specify exactly one operation"
                 ACTION=$1
                 ;;
             --install-path=*)
@@ -205,24 +80,22 @@ parse_args()
                 FORCE=true
                 ;;
             --quiet)
-                # Accepted for makeself compatibility; this installer has no interactive prompts.
                 ;;
             -h|--help)
                 usage
                 exit 0
                 ;;
             *)
-                fail_with_code "0x0004" "unknown argument: $1"
+                fail "unknown argument: $1"
                 ;;
         esac
         shift
     done
 
-    [[ -n "${ACTION}" ]] || \
-        fail_with_code "0x0004" "specify --full, --uninstall, or --check"
-    [[ -n "${INSTALL_PATH}" ]] || fail_with_code "0x0004" "install path is empty"
-    [[ "${INSTALL_PATH}" = /* ]] || \
-        fail_with_code "0x0004" "CANN path must be absolute: ${INSTALL_PATH}"
+    [[ -n "${ACTION}" ]] || fail "specify --full, --uninstall, or --check"
+    [[ "${ACTION}" == "--check" ]] && return 0
+    [[ -n "${INSTALL_PATH}" ]] || fail "CANN path is not set; source set_env.sh or use --install-path"
+    [[ "${INSTALL_PATH}" = /* ]] || fail "CANN path must be absolute: ${INSTALL_PATH}"
 }
 
 is_cann_root()
@@ -230,7 +103,7 @@ is_cann_root()
     local path=$1
     [[ -d "${path}/asc/include/adv_api" && \
         -d "${path}/asc/impl/adv_api/detail" && \
-        -d "${path}/share/info" ]]
+        -f "${path}/share/info/asc-devkit/version.info" ]]
 }
 
 resolve_cann_root()
@@ -252,8 +125,7 @@ resolve_cann_root()
             return 0
         fi
     done
-    fail_with_code "0x0080" \
-        "the path does not contain a valid CANN installation: ${INSTALL_PATH}"
+    fail "the path does not contain a valid CANN installation: ${INSTALL_PATH}"
 }
 
 check_owner()
@@ -262,34 +134,8 @@ check_owner()
     local owner_uid
     current_uid=$(id -u)
     owner_uid=$(stat -c %u -- "${CANN_ROOT}")
-    [[ "${current_uid}" == "${owner_uid}" ]] || fail_with_code "0x0093" \
-        "current user uid ${current_uid} does not own CANN path ${CANN_ROOT} (uid ${owner_uid})"
-}
-
-acquire_install_lock()
-{
-    command -v flock >/dev/null 2>&1 || fail "command flock was not found"
-    LOCK_FILE="${CANN_ROOT}/ascend.lock"
-    check_target_parent "${LOCK_FILE}"
-    if [[ -L "${LOCK_FILE}" || (-e "${LOCK_FILE}" && ! -f "${LOCK_FILE}") ]]; then
-        fail "install lock path is invalid: ${LOCK_FILE}"
-    fi
-
-    exec 9>"${LOCK_FILE}" || fail "failed to open install lock: ${LOCK_FILE}"
-    if ! flock -n 9; then
-        exec 9>&-
-        fail "failed to acquire ${LOCK_FILE}; another process may be installing in this directory"
-    fi
-    LOCK_HELD=true
-}
-
-release_install_lock()
-{
-    [[ "${LOCK_HELD}" == true ]] || return 0
-    rm -f -- "${LOCK_FILE}" || log "WARNING" "failed to remove install lock: ${LOCK_FILE}"
-    flock -u 9 || true
-    exec 9>&-
-    LOCK_HELD=false
+    [[ "${current_uid}" == "${owner_uid}" ]] || \
+        fail "current user uid ${current_uid} does not own CANN path ${CANN_ROOT} (uid ${owner_uid})"
 }
 
 normalize_arch()
@@ -311,13 +157,7 @@ read_info_value()
 {
     local key=$1
     local file=$2
-    [[ -f "${file}" ]] || return 0
     awk -F= -v key="${key}" '$1 == key {sub(/^[^=]*=/, ""); print; exit}' "${file}"
-}
-
-comm_log()
-{
-    log "$@"
 }
 
 is_allowed_path()
@@ -325,7 +165,8 @@ is_allowed_path()
     local path=$1
     case "${path}" in
         asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h|\
-        asc/include/comm_api/aicore/*/*.h|asc/impl/comm_api/aicore/*/*.h)
+        aarch64-linux/include/hcomm/*/*.h|x86_64-linux/include/hcomm/*/*.h|\
+        aarch64-linux/lib64/libasccomm_hcomm_host.so|x86_64-linux/lib64/libasccomm_hcomm_host.so)
             ;;
         *)
             return 1
@@ -341,8 +182,8 @@ is_allowed_directory_path()
     local path=$1
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
-        asc/include/comm_api|asc/include/comm_api/aicore|asc/include/comm_api/aicore/*|\
-        asc/impl/comm_api|asc/impl/comm_api/aicore|asc/impl/comm_api/aicore/*)
+        aarch64-linux/include/hcomm|aarch64-linux/include/hcomm/*|aarch64-linux/lib64|\
+        x86_64-linux/include/hcomm|x86_64-linux/include/hcomm/*|x86_64-linux/lib64)
             ;;
         *)
             return 1
@@ -353,15 +194,29 @@ is_allowed_directory_path()
         "${path}" != *"//"* && "${path}" != *$'\t'* ]]
 }
 
+effective_install_mode()
+{
+    local mode=$1
+
+    if [[ "${INSTALL_FOR_ALL}" == true ]]; then
+        printf '%s%s\n' "${mode:0:2}" "${mode:1:1}"
+    else
+        echo "${mode}"
+    fi
+}
+
 payload_file_mode()
 {
     local path=$1
     local mode
 
     case "${path}" in
-        asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
-        asc/include/comm_api/aicore/*|asc/impl/comm_api/aicore/*)
+        asc/include/adv_api/*|asc/impl/adv_api/detail/*)
             mode=550
+            ;;
+        aarch64-linux/include/hcomm/*|x86_64-linux/include/hcomm/*|\
+        aarch64-linux/lib64/*|x86_64-linux/lib64/*)
+            mode=440
             ;;
         *)
             fail "cannot determine file permission for managed path: ${path}"
@@ -379,8 +234,8 @@ managed_directory_mode()
         asc/include/adv_api/*|asc/impl/adv_api/detail/*)
             mode=750
             ;;
-        asc/include/comm_api|asc/include/comm_api/aicore|asc/include/comm_api/aicore/*|\
-        asc/impl/comm_api|asc/impl/comm_api/aicore|asc/impl/comm_api/aicore/*)
+        aarch64-linux/include/hcomm|aarch64-linux/include/hcomm/*|aarch64-linux/lib64|\
+        x86_64-linux/include/hcomm|x86_64-linux/include/hcomm/*|x86_64-linux/lib64)
             mode=550
             ;;
         *)
@@ -388,20 +243,6 @@ managed_directory_mode()
             ;;
     esac
     effective_install_mode "${mode}"
-}
-
-effective_install_mode()
-{
-    local mode=$1
-    local group_mode
-
-    if [[ "${INSTALL_FOR_ALL}" == true ]]; then
-        # Match devkit: grant other users the group's read/execute bits, never write access.
-        group_mode=${mode:1:1}
-        printf '%s%d\n' "${mode:0:2}" "$((group_mode & 5))"
-    else
-        echo "${mode}"
-    fi
 }
 
 collect_managed_directories()
@@ -428,11 +269,11 @@ collect_managed_directories()
                 module=${relative_path%%/*}
                 managed_root="asc/impl/adv_api/detail/${module}"
                 ;;
-            asc/include/comm_api/aicore/*)
-                managed_root="asc/include/comm_api"
+            aarch64-linux/include/hcomm/*|x86_64-linux/include/hcomm/*)
+                managed_root="${path%%/include/hcomm/*}/include/hcomm"
                 ;;
-            asc/impl/comm_api/aicore/*)
-                managed_root="asc/impl/comm_api"
+            aarch64-linux/lib64/libasccomm_hcomm_host.so|x86_64-linux/lib64/libasccomm_hcomm_host.so)
+                managed_root="${path%%/lib64/*}/lib64"
                 ;;
         esac
 
@@ -466,168 +307,6 @@ collect_checksum_paths()
     done < "${manifest}"
     [[ ${count} -gt 0 ]] || fail "manifest is empty: ${manifest}"
     [[ $(sort -u "${output}" | wc -l) -eq ${count} ]] || fail "duplicate path in ${manifest}"
-}
-
-is_allowed_link()
-{
-    local path=$1
-    local link_target=$2
-
-    case "${path}:${link_target}" in
-        asc/include/comm_api/aicore/hcomm:../../adv_api/hcomm|\
-        asc/impl/comm_api/aicore/hcomm:../../adv_api/detail/hcomm)
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-}
-
-validate_link_manifest()
-{
-    local manifest=$1
-    local path
-    local link_target
-    local extra
-    local count=0
-
-    [[ -f "${manifest}" && ! -L "${manifest}" ]] || \
-        fail "link manifest is missing or invalid: ${manifest}"
-    while IFS=$'\t' read -r path link_target extra; do
-        [[ -z "${extra:-}" ]] || fail "invalid link entry in ${manifest}"
-        is_allowed_link "${path}" "${link_target}" || \
-            fail "unsafe link entry in ${manifest}: ${path}"
-        count=$((count + 1))
-    done < "${manifest}"
-    [[ ${count} -eq 2 ]] || fail "link manifest must contain both Hcomm links: ${manifest}"
-    [[ $(cut -f1 "${manifest}" | sort -u | wc -l) -eq ${count} ]] || \
-        fail "duplicate path in ${manifest}"
-}
-
-validate_link_destinations()
-{
-    local manifest=$1
-    local path
-    local link_target
-    local target
-    local actual_target
-
-    while IFS=$'\t' read -r path link_target; do
-        target="${CANN_ROOT}/${path}"
-        check_target_parent "${target}"
-        if [[ -L "${target}" ]]; then
-            actual_target=$(readlink -- "${target}")
-            [[ "${actual_target}" == "${link_target}" ]] || \
-                fail "Hcomm link has an unexpected target: ${target} -> ${actual_target}"
-        elif [[ -e "${target}" ]]; then
-            fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
-        fi
-    done < "${manifest}"
-}
-
-check_managed_links()
-{
-    local manifest=$1
-    local path
-    local link_target
-    local target
-
-    while IFS=$'\t' read -r path link_target; do
-        target="${CANN_ROOT}/${path}"
-        [[ -L "${target}" && "$(readlink -- "${target}")" == "${link_target}" ]] || \
-            return 1
-    done < "${manifest}"
-}
-
-record_link_baseline()
-{
-    local link_manifest=$1
-    local output=$2
-    local path
-    local link_target
-    local target
-
-    : > "${output}"
-    while IFS=$'\t' read -r path link_target; do
-        target="${CANN_ROOT}/${path}"
-        check_target_parent "${target}"
-        if [[ -L "${target}" ]]; then
-            [[ "$(readlink -- "${target}")" == "${link_target}" ]] || \
-                fail "Hcomm link has an unexpected target: ${target}"
-            printf 'present\t%s\t%s\n' "${path}" "${link_target}" >> "${output}"
-        elif [[ -e "${target}" ]]; then
-            fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
-        else
-            printf 'absent\t%s\t%s\n' "${path}" "${link_target}" >> "${output}"
-        fi
-    done < "${link_manifest}"
-}
-
-validate_link_baseline()
-{
-    local manifest=$1
-    local status
-    local path
-    local link_target
-    local extra
-    local count=0
-
-    [[ -f "${manifest}" && ! -L "${manifest}" ]] || \
-        fail "link baseline is missing or invalid: ${manifest}"
-    while IFS=$'\t' read -r status path link_target extra; do
-        [[ -z "${extra:-}" ]] || fail "invalid link baseline entry in ${manifest}"
-        [[ "${status}" == "present" || "${status}" == "absent" ]] || \
-            fail "invalid link baseline state in ${manifest}: ${status}"
-        is_allowed_link "${path}" "${link_target}" || \
-            fail "unsafe link baseline entry in ${manifest}: ${path}"
-        count=$((count + 1))
-    done < "${manifest}"
-    [[ ${count} -eq 2 ]] || fail "link baseline must contain both Hcomm links: ${manifest}"
-}
-
-restore_link_baseline()
-{
-    local manifest=$1
-    local status
-    local path
-    local link_target
-    local target
-
-    while IFS=$'\t' read -r status path link_target; do
-        target="${CANN_ROOT}/${path}"
-        check_target_parent "${target}"
-        if [[ -L "${target}" ]]; then
-            rm -f -- "${target}"
-        elif [[ -e "${target}" ]]; then
-            fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
-        fi
-        if [[ "${status}" == "present" ]]; then
-            mkdir -p "$(dirname -- "${target}")"
-            ln -s "${link_target}" "${target}"
-        fi
-    done < "${manifest}"
-}
-
-install_managed_links()
-{
-    local manifest=$1
-    local path
-    local link_target
-    local target
-
-    while IFS=$'\t' read -r path link_target; do
-        target="${CANN_ROOT}/${path}"
-        check_target_parent "${target}"
-        if [[ -L "${target}" ]]; then
-            [[ "$(readlink -- "${target}")" == "${link_target}" ]] || \
-                fail "Hcomm link has an unexpected target: ${target}"
-        elif [[ -e "${target}" ]]; then
-            fail "refusing to replace a non-symbolic Hcomm link path: ${target}"
-        else
-            mkdir -p "$(dirname -- "${target}")"
-            ln -s "${link_target}" "${target}"
-        fi
-    done < "${manifest}"
 }
 
 collect_baseline_paths()
@@ -677,48 +356,29 @@ verify_checksums()
     (cd "${root}" && sha256sum -c "${manifest}" >/dev/null)
 }
 
-check_dependency_versions()
-{
-    local package
-    local metadata_key
-    local check_result
-
-    for package in asc-devkit hcomm runtime; do
-        metadata_key="required_package_${package}_version"
-        [[ -n "$(read_info_value "${metadata_key}" "${PACKAGE_INFO}")" ]] || \
-            fail "package metadata does not declare the required ${package} version"
-    done
-
-    [[ -f "${VERSION_COMPAT_LIB}" && -f "${VERSION_CHECKER}" ]] || \
-        fail "package version compatibility scripts are incomplete"
-    # shellcheck source=/dev/null
-    . "${VERSION_COMPAT_LIB}"
-
-    # The CANN compatibility library expects the non-errexit shell mode used by
-    # the official asc-devkit and HCOMM installers.
-    set +e
-    set +o pipefail
-    _check_version_compatiable "asc-comm" "${CANN_ROOT}" "${VERSION_CHECKER_DIR}"
-    check_result=$?
-    set -o pipefail
-    set -e
-    [[ ${check_result} -eq 0 ]] || fail "dependency version compatibility check failed"
-}
-
 validate_package()
 {
     local package_arch
     local current_arch
+    local required_version
+    local installed_version
 
-    [[ -d "${PAYLOAD_DIR}" && -f "${PACKAGE_INFO}" ]] || \
-        fail "package payload is incomplete"
+    [[ -d "${PAYLOAD_DIR}" && -f "${PACKAGE_INFO}" ]] || fail "package payload is incomplete"
     package_arch=$(read_info_value "Arch" "${PACKAGE_INFO}")
     current_arch=$(normalize_arch)
     [[ "${package_arch}" == "${current_arch}" ]] || \
         fail "package architecture ${package_arch} does not match ${current_arch}"
 
-    validate_link_manifest "${PACKAGE_LINKS}"
-    check_dependency_versions
+    required_version=$(read_info_value "RequiredAscDevkitVersion" "${PACKAGE_INFO}")
+    installed_version=$(read_info_value "Version" "${CANN_ROOT}/share/info/asc-devkit/version.info")
+    [[ -n "${required_version}" && -n "${installed_version}" ]] || fail "failed to read asc-devkit version"
+    if [[ "${required_version}" != "${installed_version}" ]]; then
+        if [[ "${FORCE}" == true ]]; then
+            log "WARNING" "asc-devkit version mismatch: package=${required_version}, installed=${installed_version}"
+        else
+            fail "asc-devkit version mismatch: package=${required_version}, installed=${installed_version}; use --force to override"
+        fi
+    fi
 }
 
 check_target_parent()
@@ -735,6 +395,21 @@ check_target_parent()
         "${resolved_parent}" != "${CANN_ROOT}/"* ]]; then
         fail "target path resolves outside CANN root: ${target}"
     fi
+}
+
+directory_path_has_symlink()
+{
+    local path=$1
+    local current="${CANN_ROOT}"
+    local component
+    local components=()
+
+    IFS='/' read -r -a components <<< "${path}"
+    for component in "${components[@]}"; do
+        current="${current}/${component}"
+        [[ -L "${current}" ]] && return 0
+    done
+    return 1
 }
 
 validate_directory_mode_manifest()
@@ -761,22 +436,16 @@ validate_state_format()
     local format_version
 
     [[ -f "${state_info}" && ! -L "${state_info}" ]] || fail "patch state metadata is invalid: ${state_info}"
-    STATE_FORMAT_VERSION=$(read_info_value "FormatVersion" "${state_info}")
-    case "${STATE_FORMAT_VERSION}" in
+    format_version=$(read_info_value "FormatVersion" "${state_info}")
+    case "${format_version}" in
         1)
             ;;
         2)
             [[ -f "${directory_manifest}" && ! -L "${directory_manifest}" ]] || \
                 fail "directory mode manifest is missing from patch state: ${directory_manifest}"
             ;;
-        3)
-            [[ -f "${directory_manifest}" && ! -L "${directory_manifest}" ]] || \
-                fail "directory mode manifest is missing from patch state: ${directory_manifest}"
-            validate_link_manifest "${STATE_DIR}/active.links.tsv"
-            validate_link_baseline "${STATE_DIR}/baseline/links.tsv"
-            ;;
         *)
-            fail "unsupported patch state format: ${STATE_FORMAT_VERSION:-missing}"
+            fail "unsupported patch state format: ${format_version:-missing}"
             ;;
     esac
 }
@@ -793,7 +462,7 @@ record_directory_modes()
         is_allowed_directory_path "${path}" || fail "unsafe managed directory path: ${path}"
         target="${CANN_ROOT}/${path}"
         check_target_parent "${target}"
-        if [[ -d "${target}" && ! -L "${target}" ]]; then
+        if [[ -d "${target}" && ! -L "${target}" ]] && ! directory_path_has_symlink "${path}"; then
             printf '%s\t%s\n' "$(stat -c %a -- "${target}")" "${path}" >> "${manifest}"
         fi
     done < "${directories_file}"
@@ -813,6 +482,7 @@ restore_directory_modes()
         target="${CANN_ROOT}/${path}"
         check_target_parent "${target}" || return 1
         [[ -d "${target}" && ! -L "${target}" ]] || return 1
+        directory_path_has_symlink "${path}" && return 1
         chmod "${mode}" "${target}" || return 1
     done < "${manifest}"
 }
@@ -828,7 +498,7 @@ apply_directory_modes()
         is_allowed_directory_path "${path}" || fail "unsafe managed directory path: ${path}"
         target="${CANN_ROOT}/${path}"
         check_target_parent "${target}"
-        if [[ -d "${target}" && ! -L "${target}" ]]; then
+        if [[ -d "${target}" && ! -L "${target}" ]] && ! directory_path_has_symlink "${path}"; then
             mode=$(managed_directory_mode "${path}")
             chmod "${mode}" "${target}"
         fi
@@ -845,53 +515,9 @@ prepare_directories_for_install()
         is_allowed_directory_path "${path}" || fail "unsafe managed directory path: ${path}"
         target="${CANN_ROOT}/${path}"
         check_target_parent "${target}"
-        if [[ -d "${target}" && ! -L "${target}" ]]; then
+        if [[ -d "${target}" && ! -L "${target}" ]] && ! directory_path_has_symlink "${path}"; then
             chmod 750 "${target}"
         fi
-    done < "${directories_file}"
-}
-
-prepare_directories_from_mode_manifest()
-{
-    local manifest=$1
-    local mode
-    local path
-    local target
-
-    [[ -f "${manifest}" ]] || return 0
-    while IFS=$'\t' read -r mode path; do
-        [[ "${mode}" =~ ^[0-7]{1,4}$ ]] || return 1
-        is_allowed_directory_path "${path}" || return 1
-        target="${CANN_ROOT}/${path}"
-        check_target_parent "${target}" || return 1
-        if [[ -d "${target}" && ! -L "${target}" ]]; then
-            chmod 750 "${target}" || return 1
-        fi
-    done < "${manifest}"
-}
-
-build_baseline_directory_manifest()
-{
-    local directories_file=$1
-    local transaction_manifest=$2
-    local previous_manifest=$3
-    local previous_active_paths=$4
-    local output=$5
-    local path
-    local entry
-
-    : > "${output}"
-    while IFS= read -r path; do
-        entry=""
-        if [[ -f "${previous_manifest}" ]]; then
-            entry=$(awk -F '\t' -v path="${path}" '$2 == path {print; exit}' "${previous_manifest}")
-        fi
-        if [[ -z "${entry}" ]] && \
-            ! awk -v prefix="${path}/" 'index($0, prefix) == 1 {found=1} END {exit !found}' \
-                "${previous_active_paths}"; then
-            entry=$(awk -F '\t' -v path="${path}" '$2 == path {print; exit}' "${transaction_manifest}")
-        fi
-        [[ -z "${entry}" ]] || printf '%s\n' "${entry}" >> "${output}"
     done < "${directories_file}"
 }
 
@@ -972,7 +598,6 @@ snapshot_transaction()
 
     record_directory_modes "${directories_file}" "${TRANSACTION_DIR}/directories.tsv"
     install -m 600 "${directories_file}" "${TRANSACTION_DIR}/managed.directories"
-    record_link_baseline "${PACKAGE_LINKS}" "${TRANSACTION_DIR}/links.tsv"
 
     MUTATION_STARTED=true
 }
@@ -984,8 +609,9 @@ rollback_transaction()
     local target
 
     set +e
-    prepare_directories_for_install "${TRANSACTION_DIR}/managed.directories"
-    prepare_directories_from_mode_manifest "${TRANSACTION_DIR}/directories.tsv"
+    if [[ -f "${TRANSACTION_DIR}/managed.directories" ]]; then
+        prepare_directories_for_install "${TRANSACTION_DIR}/managed.directories"
+    fi
     if [[ -f "${TRANSACTION_DIR}/targets.tsv" ]]; then
         while IFS=$'\t' read -r status path; do
             target="${CANN_ROOT}/${path}"
@@ -999,13 +625,11 @@ rollback_transaction()
         done < "${TRANSACTION_DIR}/targets.tsv"
     fi
 
-    if [[ -f "${TRANSACTION_DIR}/links.tsv" ]]; then
-        restore_link_baseline "${TRANSACTION_DIR}/links.tsv"
+    if [[ -f "${TRANSACTION_DIR}/managed.directories" ]]; then
+        remove_new_empty_directories \
+            "${TRANSACTION_DIR}/managed.directories" \
+            "${TRANSACTION_DIR}/directories.tsv"
     fi
-
-    remove_new_empty_directories \
-        "${TRANSACTION_DIR}/managed.directories" \
-        "${TRANSACTION_DIR}/directories.tsv"
     restore_directory_modes "${TRANSACTION_DIR}/directories.tsv"
 
     rm -rf -- "${STATE_DIR}"
@@ -1018,7 +642,6 @@ rollback_transaction()
 handle_exit()
 {
     local exit_code=$?
-    local operation_result
     trap - EXIT
     set +e
     if [[ "${MUTATION_STARTED}" == true && "${COMMITTED}" != true ]]; then
@@ -1030,17 +653,6 @@ handle_exit()
     if [[ -n "${WORK_DIR}" && -d "${WORK_DIR}" ]]; then
         rm -rf -- "${WORK_DIR}"
     fi
-    if [[ "${ACTION_STARTED}" == true && "${OPERATION_RECORDED}" != true ]]; then
-        if [[ ${exit_code} -eq 0 ]]; then
-            operation_result="succeeded"
-        else
-            operation_result="failed"
-        fi
-        log_operation "${operation_result}" || \
-            log "WARNING" "failed to write operation log: ${OPERATION_LOG}"
-    fi
-    log "INFO" "End time:$(date '+%Y-%m-%d %H:%M:%S')"
-    release_install_lock
     exit "${exit_code}"
 }
 
@@ -1075,8 +687,7 @@ restore_baseline()
 record_new_baselines()
 {
     local paths_file=$1
-    local source_directory_manifest=$2
-    local source_link_manifest=$3
+    local directories_file=$2
     local manifest="${STATE_DIR}/baseline/manifest.tsv"
     local directory_manifest="${STATE_DIR}/baseline/directories.tsv"
     local path
@@ -1100,9 +711,8 @@ record_new_baselines()
         fi
     done < "${paths_file}"
     chmod 440 "${manifest}"
-    install -m 440 "${source_directory_manifest}" "${directory_manifest}"
+    record_directory_modes "${directories_file}" "${directory_manifest}"
     chmod 440 "${directory_manifest}"
-    install -m 440 "${source_link_manifest}" "${STATE_DIR}/baseline/links.tsv"
 }
 
 install_payload()
@@ -1134,8 +744,6 @@ install_patch()
     local touched_paths
     local package_directories
     local touched_directories
-    local baseline_directory_manifest
-    local baseline_link_manifest
     local directory_manifest="${STATE_DIR}/baseline/directories.tsv"
 
     validate_package
@@ -1146,8 +754,6 @@ install_patch()
     touched_paths="${WORK_DIR}/touched.paths"
     package_directories="${WORK_DIR}/package.directories"
     touched_directories="${WORK_DIR}/touched.directories"
-    baseline_directory_manifest="${WORK_DIR}/baseline.directories.tsv"
-    baseline_link_manifest="${WORK_DIR}/baseline.links.tsv"
 
     collect_checksum_paths "${PACKAGE_MANIFEST}" "${package_paths}"
     collect_managed_directories "${package_paths}" "${package_directories}"
@@ -1168,63 +774,36 @@ install_patch()
                 fail "installed patch files were changed; use --force to overwrite or preserve them manually"
             fi
         fi
-        if [[ "${STATE_FORMAT_VERSION}" == "3" ]]; then
-            validate_link_destinations "${STATE_DIR}/active.links.tsv"
-            if ! check_managed_links "${STATE_DIR}/active.links.tsv"; then
-                if [[ "${FORCE}" == true ]]; then
-                    log "WARNING" "installed Hcomm links are missing; --force will recreate them"
-                else
-                    fail "installed Hcomm links were changed; use --force to recreate missing links"
-                fi
-            fi
-        fi
     fi
-    validate_link_destinations "${PACKAGE_LINKS}"
 
     log "INFO" "Start installing asc-comm development patch."
     log "INFO" "Package version: $(read_info_value PackageVersion "${PACKAGE_INFO}"); source commit: $(read_info_value GitCommit "${PACKAGE_INFO}"); source modified: $(read_info_value GitDirty "${PACKAGE_INFO}")"
-    log "INFO" "Target CANN: ${CANN_ROOT}; dependency versions: asc-devkit=$(read_info_value Version "${CANN_ROOT}/share/info/asc-devkit/version.info"), hcomm=$(read_info_value Version "${CANN_ROOT}/share/info/hcomm/version.info"), runtime=$(read_info_value Version "${CANN_ROOT}/share/info/runtime/version.info")"
+    log "INFO" "Target CANN: ${CANN_ROOT}; asc-devkit version: $(read_info_value Version "${CANN_ROOT}/share/info/asc-devkit/version.info")"
     log "INFO" "Files to replace: $(wc -l < "${package_paths}"); original files backup: ${STATE_DIR}/baseline"
 
     sort -u "${package_paths}" "${active_paths}" > "${touched_paths}"
     collect_managed_directories "${touched_paths}" "${touched_directories}"
     validate_target_paths "${touched_paths}"
     snapshot_transaction "${touched_paths}" "${touched_directories}"
-    build_baseline_directory_manifest \
-        "${package_directories}" \
-        "${TRANSACTION_DIR}/directories.tsv" \
-        "${directory_manifest}" \
-        "${active_paths}" \
-        "${baseline_directory_manifest}"
-    prepare_directories_for_install "${touched_directories}"
-    restore_baseline "${active_paths}"
-    if [[ "${STATE_FORMAT_VERSION}" == "3" ]]; then
-        restore_link_baseline "${STATE_DIR}/baseline/links.tsv"
+    if [[ -s "${active_paths}" ]]; then
+        prepare_directories_for_install "${touched_directories}"
     fi
+    restore_baseline "${active_paths}"
     remove_new_empty_directories "${touched_directories}" "${directory_manifest}"
     restore_directory_modes "${directory_manifest}" || fail "failed to restore original directory permissions"
     rm -rf -- "${STATE_DIR}"
-    record_link_baseline "${PACKAGE_LINKS}" "${baseline_link_manifest}"
-    record_new_baselines \
-        "${package_paths}" \
-        "${baseline_directory_manifest}" \
-        "${baseline_link_manifest}"
+    record_new_baselines "${package_paths}" "${package_directories}"
     install_payload "${package_paths}" "${package_directories}"
-    prepare_directories_for_install "${package_directories}"
-    install_managed_links "${PACKAGE_LINKS}"
-    apply_directory_modes "${package_directories}"
 
     install -m 440 "${PACKAGE_MANIFEST}" "${STATE_DIR}/active.manifest.sha256"
-    install -m 440 "${PACKAGE_LINKS}" "${STATE_DIR}/active.links.tsv"
     install -m 440 "${PACKAGE_INFO}" "${STATE_DIR}/version.info"
-    printf 'FormatVersion=3\n' > "${WORK_DIR}/state.info"
+    printf 'FormatVersion=2\n' > "${WORK_DIR}/state.info"
     install -m 440 "${WORK_DIR}/state.info" "${STATE_DIR}/state.info"
     chmod 750 "${STATE_DIR}" "${STATE_DIR}/baseline"
 
+    COMMITTED=true
     rm -rf -- "${WORK_DIR}"
     WORK_DIR=""
-    log_operation "succeeded" || fail "failed to write operation log: ${OPERATION_LOG}"
-    COMMITTED=true
     log "INFO" "AscComm development patch installed successfully."
     log "INFO" "Recompile the target Ascend C kernel before verification."
 }
@@ -1233,14 +812,13 @@ check_package()
 {
     local package_paths
 
-    validate_package
     WORK_DIR=$(mktemp -d)
     package_paths="${WORK_DIR}/package.paths"
     collect_checksum_paths "${PACKAGE_MANIFEST}" "${package_paths}"
     verify_checksums "${PAYLOAD_DIR}" "${PACKAGE_MANIFEST}" || fail "package payload checksum verification failed"
     log "INFO" "Package version: $(read_info_value PackageVersion "${PACKAGE_INFO}"); architecture: $(read_info_value Arch "${PACKAGE_INFO}")"
     log "INFO" "Source commit: $(read_info_value GitCommit "${PACKAGE_INFO}"); source modified: $(read_info_value GitDirty "${PACKAGE_INFO}")"
-    log "INFO" "Required package versions: asc-devkit=$(read_info_value required_package_asc-devkit_version "${PACKAGE_INFO}"), hcomm=$(read_info_value required_package_hcomm_version "${PACKAGE_INFO}"), runtime=$(read_info_value required_package_runtime_version "${PACKAGE_INFO}"); files: $(wc -l < "${package_paths}"); links: $(wc -l < "${PACKAGE_LINKS}")"
+    log "INFO" "Required asc-devkit version: $(read_info_value RequiredAscDevkitVersion "${PACKAGE_INFO}"); files: $(wc -l < "${package_paths}")"
     rm -rf -- "${WORK_DIR}"
     WORK_DIR=""
     log "INFO" "Package payload checksums are valid."
@@ -1273,16 +851,6 @@ uninstall_patch()
             fail "installed patch files were changed; use --force to restore the saved baseline anyway"
         fi
     fi
-    if [[ "${STATE_FORMAT_VERSION}" == "3" ]]; then
-        validate_link_destinations "${STATE_DIR}/active.links.tsv"
-        if ! check_managed_links "${STATE_DIR}/active.links.tsv"; then
-            if [[ "${FORCE}" == true ]]; then
-                log "WARNING" "installed Hcomm links are missing; --force will restore the saved baseline"
-            else
-                fail "installed Hcomm links were changed; use --force to restore the saved baseline anyway"
-            fi
-        fi
-    fi
 
     log "INFO" "Start uninstalling asc-comm development patch from ${CANN_ROOT}."
     log "INFO" "Installed package version: $(read_info_value PackageVersion "${STATE_DIR}/version.info"); files to restore or remove: $(wc -l < "${active_paths}")"
@@ -1293,38 +861,27 @@ uninstall_patch()
     snapshot_transaction "${touched_paths}" "${touched_directories}"
     prepare_directories_for_install "${touched_directories}"
     restore_baseline "${active_paths}"
-    if [[ "${STATE_FORMAT_VERSION}" == "3" ]]; then
-        restore_link_baseline "${STATE_DIR}/baseline/links.tsv"
-    fi
     remove_new_empty_directories "${touched_directories}" "${directory_manifest}"
     restore_directory_modes "${directory_manifest}" || fail "failed to restore original directory permissions"
     rm -rf -- "${STATE_DIR}"
 
+    COMMITTED=true
     rm -rf -- "${WORK_DIR}"
     WORK_DIR=""
-    log_operation "succeeded" || fail "failed to write operation log: ${OPERATION_LOG}"
-    COMMITTED=true
     log "INFO" "AscComm development patch uninstalled successfully."
 }
 
 main()
 {
-    capture_input_params "$@"
-    init_logging
-    trap handle_exit EXIT
-    start_log
     parse_args "$@"
-    set_operation
+    trap handle_exit EXIT
     if [[ "${ACTION}" == "--check" ]]; then
-        resolve_cann_root
         check_package
         return 0
     fi
 
     resolve_cann_root
     check_owner
-    acquire_install_lock
-    detect_upgrade_operation
     validate_state_dir
 
     if [[ "${ACTION}" == "--full" ]]; then

@@ -220,6 +220,27 @@ typedef struct {
     } contextInfo;
 } CqContext;
 
+/** Per-channel UBC CTP transport information and a reference to its remote MR table. */
+struct UbcCtpBatchRemoteInfo {
+    uint64_t remoteBufferAddr;
+    uint32_t remoteBufferNum;
+    uint32_t tpID;
+    uint64_t rmtEidL;
+    uint64_t rmtEidH;
+};
+
+/**
+ * Shared SQ/CQ contexts followed immediately by UbcCtpBatchRemoteInfo[channelNum], indexed by channelIndex.
+ * The SQ transport fields belong to channel 0 and are not used by the batch Device path.
+ */
+struct HcommMultiChannelEntity {
+    CommAbiHeader abiHeader;
+    SqContext sqContext;
+    CqContext cqContext;
+    uint32_t channelNum;
+    uint32_t reserved;
+};
+
 typedef struct {
     CommAbiHeader abiHeader;
     CommEngine engine;
@@ -244,6 +265,53 @@ typedef struct {
 } ChannelEntity;
 
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
+
+struct UbcCtpBatchHandle {
+    MultiChannelHandle multiChannel;
+    LocalTensor<uint32_t> wqeBuffer;
+    LocalTensor<uint32_t> cqeBuffer;
+    uint32_t sqHead;
+    uint32_t cqHead;
+    uint32_t pendingBb;
+    uint32_t pendingCqe;
+    uint32_t pendingCompletionSqHead;
+    uint32_t completionSqHead;
+    uint32_t capacityBb;
+    uint32_t sqDepth;
+    uint32_t wqeSize;
+    uint32_t cqeSize;
+
+    __aicore__ inline bool IsValid() const
+    {
+        return capacityBb != 0U;
+    }
+};
+
+struct UbcCtpBatchHandleRef {
+    UbcCtpBatchHandle* batch;
+    UbcCtpBatchRemoteInfo remoteInfo;
+
+    __aicore__ inline bool IsValid() const
+    {
+        return batch != nullptr;
+    }
+};
+
+struct RoceBatchHandle {};
+
+struct RoceBatchHandleRef {};
+
+template <>
+struct BatchHandleTraits<COMM_PROTOCOL_UBC_CTP> {
+    using Type = UbcCtpBatchHandle;
+    using RefType = UbcCtpBatchHandleRef;
+};
+
+template <>
+struct BatchHandleTraits<COMM_PROTOCOL_ROCE> {
+    using Type = RoceBatchHandle;
+    using RefType = RoceBatchHandleRef;
+};
 
 // RoCE WQE, CQE, DB struct
 typedef struct {
@@ -334,25 +402,6 @@ typedef struct {
 } RoceDbEntry;
 
 // URMA struct
-constexpr uint32_t HCOMM_URMA_DEFAULT_QP_IDX = 0U;
-
-enum class HcommUrmaOpCode : uint32_t {
-    SEND = 0U,
-    SEND_WITH_IMM,
-    SEND_WITH_INV,
-    WRITE,
-    WRITE_WITH_IMM,
-    WRITE_WITH_NOTIFY,
-    READ,
-    CAS,
-    ATOMIC_SWAP,
-    ATOMIC_STORE,
-    ATOMIC_LOAD,
-    FAA = 0xBU,
-    WRITE_WITH_REDUCE = 0x10U,
-    NOP = 0x11U,
-};
-
 typedef struct {
     uint32_t sqeBbIdx : 16;
     uint32_t flag : 8;
