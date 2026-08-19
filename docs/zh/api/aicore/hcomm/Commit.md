@@ -29,3 +29,8 @@ __aicore__ inline int32_t Commit(AscendC::ChannelHandle channel);
 | --- | --- |
 | `0` | 提交成功。 |
 | `-1` | 提交失败。 |
+
+## 约束说明
+
+- 调用前通信通道需已完成初始化。
+- 若`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续`PostSend`将因SQ溢出而失败。

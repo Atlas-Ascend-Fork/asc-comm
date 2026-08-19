@@ -61,6 +61,7 @@ class Hcomm;
 - `WriteWithNotifyNbi`仅支持`COMM_PROTOCOL_UBC_CTP`路径，`COMM_PROTOCOL_ROCE`路径会返回失败。
 - `AtomicFAA`和`AtomicCAS`仅支持`COMM_PROTOCOL_UBC_CTP`路径，数据类型仅支持`int32_t`、`uint32_t`、`int64_t`、`uint64_t`。
 - 传入的`ChannelHandle`需要指向与协议匹配的通道实体。
+- 若`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续`PostSend`将因SQ溢出而失败。
 
 ## 相关样例
 
