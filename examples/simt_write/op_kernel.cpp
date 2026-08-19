@@ -24,7 +24,6 @@ namespace {
 using namespace simt_write;
 
 constexpr uint32_t kSingleLaneWorkspaceWords = HcommWorkspaceBytes(1U) / sizeof(uint64_t);
-constexpr uint32_t kMultiLaneWorkspaceWords = HcommWorkspaceBytes(kMultiLaneCount) / sizeof(uint64_t);
 
 // Scenario 1: kSlotCount independent WriteNbi<commit=true> calls. Each post rings its own
 // doorbell, so nothing else is needed before Drain.
@@ -87,52 +86,37 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteBatchLastVf(
     status[kStatusDrain] = hcomm.Drain(channel);
 }
 
-// Lanes concurrently fill deferred SQ entries. The barrier ensures every WQE
-// is complete before lane 0 performs the only commit=true publication.
+// Single lane serially fills deferred SQ entries, then publishes the batch with commit=true.
+// Equivalent to BatchLast in effect; kept as a separate entry point so the multi_lane mode
+// remains selectable from the host while honoring the single-producer Hcomm semantics.
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteMultiLaneVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* workspace, uint32_t workspaceBytes,
-    __ubuf__ uint32_t* postStatus, __gm__ int32_t* status)
+    __gm__ int32_t* status)
 {
-    if (threadIdx.x >= kMultiLaneCount || threadIdx.y != 0U || threadIdx.z != 0U) {
+    if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
     __gm__ uint8_t* localAddr = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteAddr = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
-    uint32_t lane = threadIdx.x;
     AscendC::simt::Hcomm<> hcomm;
-    if (lane == 0U) {
-        postStatus[0] = 0U;
-        status[kStatusInit] = 0;
-        status[kStatusPost] = 0;
-        status[kStatusDrain] = 0;
-    }
-    asc_syncthreads();
-    int32_t initStatus = hcomm.Init(workspace, workspaceBytes);
-    if (initStatus != 0) {
-        postStatus[0] = 1U;
-        status[kStatusInit] = initStatus;
-    }
-    asc_syncthreads();
-    if (postStatus[0] != 0U) {
+    status[kStatusInit] = hcomm.Init(workspace, workspaceBytes);
+    if (status[kStatusInit] != 0) {
         return;
     }
-    int32_t writeStatus =
-        hcomm.WriteNbi<false>(channel, remoteAddr + lane * kSlotBytes, localAddr + lane * kSlotBytes, kSlotBytes);
-    if (writeStatus != 0) {
-        postStatus[0] = 1U;
-        status[kStatusPost] = writeStatus;
-    }
-
-    asc_syncthreads();
-    if (lane == 0U && postStatus[0] == 0U) {
-        status[kStatusPost] = hcomm.WriteNbi<true>(
-            channel, remoteAddr + kMultiLaneCount * kSlotBytes, localAddr + kMultiLaneCount * kSlotBytes, kSlotBytes);
+    for (uint32_t i = 0; i < kMultiLaneCount; ++i) {
+        status[kStatusPost] =
+            hcomm.WriteNbi<false>(channel, remoteAddr + i * kSlotBytes, localAddr + i * kSlotBytes, kSlotBytes);
         if (status[kStatusPost] != 0) {
             return;
         }
-        status[kStatusDrain] = hcomm.Drain(channel);
     }
+    status[kStatusPost] = hcomm.WriteNbi(
+        channel, remoteAddr + kMultiLaneCount * kSlotBytes, localAddr + kMultiLaneCount * kSlotBytes, kSlotBytes);
+    if (status[kStatusPost] != 0) {
+        return;
+    }
+    status[kStatusDrain] = hcomm.Drain(channel);
 }
 
 } // namespace
@@ -156,11 +140,10 @@ extern "C" __global__ __vector__ void SimtWriteBatchLast(
 extern "C" __global__ __vector__ void SimtWriteMultiLane(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ int32_t* status)
 {
-    alignas(kWorkspaceAlign) __ubuf__ uint64_t workspace[kMultiLaneWorkspaceWords];
-    __ubuf__ uint32_t postStatus[1];
+    alignas(kWorkspaceAlign) __ubuf__ uint64_t workspace[kSingleLaneWorkspaceWords];
     asc_vf_call<SimtWriteMultiLaneVf>(
-        dim3(kMultiLaneCount), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__ubuf__ uint8_t*>(workspace),
-        sizeof(workspace), postStatus, status);
+        dim3(1), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__ubuf__ uint8_t*>(workspace), sizeof(workspace),
+        status);
 }
 
 void LaunchSimtWrite(

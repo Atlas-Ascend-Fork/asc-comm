@@ -10,12 +10,13 @@
 - `cas`：提交一次CAS操作，校验远端交换结果和本地取回的旧值。
 - `single`：串行提交Notify、FAA和CAS，每次操作后分别调用`Drain`。
 - `batch_last`：Notify和FAA使用`commit=false`延迟提交，最后通过`commit=true`的CAS提交整个批次。
-- `multi_lane`：三个lane分别以`commit=false`提交Notify、FAA和CAS；同步后由lane 0执行唯一一次
-  `commit=true`的Notify并发布整个批次。
+- `multi_lane`：单 lane 串行以`commit=false`提交Notify、FAA和CAS，最后由该 lane执行唯一一次
+  `commit=true`的Notify并发布整个批次（与`batch_last`语义一致，保留入口用于覆盖该路径）。
 - `notify_immediate_repeat`：单lane连续提交100个`WriteWithNotifyNbi<true>`，每个WQE立即敲DB，最后统一调用一次`Drain`；用于覆盖连续立即提交场景。
 
-同一channel允许多个lane并发执行`commit=false`；调用方同步后，只能由一个lane执行最终
-`commit=true`并调用`Drain`。不支持多个lane同时执行`commit=true`。
+Hcomm SIMT 接口遵循单生产者语义：同一 channel 的通信任务只能由 group rank 0（线性线程块 rank 0）
+下发，并在接口返回前完成组同步。延迟 WQE 的填写与最终`commit=true`发布均由同一 lane 串行完成，
+不再需要多 lane 并发填写与跨 lane 同步。
 
 ## 编译
 

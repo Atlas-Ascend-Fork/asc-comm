@@ -181,11 +181,6 @@ HcclResult HostBarrier(int rank, int nranks, const char* name)
 
 size_t AlignUp(size_t value, size_t alignment) { return (value + alignment - 1U) / alignment * alignment; }
 
-uint32_t LaneOperationCount(uint32_t total, uint32_t lane, uint32_t laneCount)
-{
-    return total <= lane ? 0U : (total - 1U - lane) / laneCount + 1U;
-}
-
 size_t BufferBytes(const std::string& api, uint32_t payloadBytes, uint32_t laneCount)
 {
     if (api == "notify") {
@@ -267,8 +262,7 @@ bool CheckReceiver(
     if (api == "notify") {
         size_t stride = AlignUp(payloadBytes, sizeof(uint64_t)) + sizeof(uint64_t);
         for (uint32_t lane = 0U; lane < laneCount; ++lane) {
-            uint32_t operationCount =
-                LaneOperationCount(iterations, lane, laneCount) + LaneOperationCount(warmup, lane, laneCount);
+            uint32_t operationCount = lane == 0U ? iterations + warmup : 0U;
             if (operationCount == 0U) {
                 continue;
             }
@@ -290,8 +284,7 @@ bool CheckReceiver(
     for (uint32_t lane = 0U; lane < laneCount; ++lane) {
         uint64_t value = 0U;
         std::memcpy(&value, actual.data() + lane * sizeof(uint64_t), sizeof(value));
-        uint32_t operationCount =
-            LaneOperationCount(iterations, lane, laneCount) + LaneOperationCount(warmup, lane, laneCount);
+        uint32_t operationCount = lane == 0U ? iterations + warmup : 0U;
         uint64_t expected = api == "faa" ? kFaaInitial + static_cast<uint64_t>(operationCount) * kFaaAdd :
                                            (operationCount == 0U ? kCasInitial : kCasSwap);
         if (value != expected) {

@@ -74,41 +74,19 @@ __simt_callee__ inline int32_t SubmitLastCommitSeries(
     return SubmitOne<api, true>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, 0U);
 }
 
+// Single-producer Hcomm semantics: only rank 0 posts. Lanes 1+ return immediately so the
+// 32U/1024U entry points behave identically to 1U (lane 0 serially fills the SQ).
 template <PerfApi api, uint32_t kLaneCount>
 __simt_callee__ inline int32_t SubmitMultiLaneLastCommitSeries(
     AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
     uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count, __ubuf__ uint32_t* postStatus)
 {
-    if (count == 0U) {
+    (void)postStatus;
+    (void)kLaneCount;
+    if (threadIdx.x != 0U) {
         return 0;
     }
-
-    uint32_t lane = threadIdx.x;
-    if (lane == 0U) {
-        postStatus[0] = 0U;
-    }
-    asc_syncthreads();
-
-    uint32_t deferredCount = count - 1U;
-    for (uint32_t i = lane; i < deferredCount; i += kLaneCount) {
-        int32_t status = SubmitOne<api, false>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, lane);
-        if (status != 0) {
-            (void)asc_atomic_exch(postStatus, 1U);
-        }
-    }
-    asc_syncthreads();
-
-    // Exactly one lane publishes the PI after every deferred WQE is complete.
-    uint32_t commitLane = deferredCount % kLaneCount;
-    if (postStatus[0] == 0U && lane == commitLane) {
-        int32_t status =
-            SubmitOne<api, true>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, commitLane);
-        if (status != 0) {
-            (void)asc_atomic_exch(postStatus, 1U);
-        }
-    }
-    asc_syncthreads();
-    return postStatus[0] == 0U ? 0 : -1;
+    return SubmitLastCommitSeries<api>(hcomm, channel, remoteBase, localBase, payloadBytes, notifyOffset, count);
 }
 
 template <PerfApi api, uint32_t kLaneCount>

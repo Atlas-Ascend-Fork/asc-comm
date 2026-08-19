@@ -1,7 +1,8 @@
 # SIMT Notify/FAA/CAS 基础性能用例
 
 本目录只测试`Notify`、`FAA`和`CAS`三个接口。Immediate模式仅支持`--lanes 1`。Last模式允许
-`--lanes 1/32/1024`：多个lane并发执行`commit=false`，同步后由一个lane执行唯一的`commit=true`。
+`--lanes 1/32/1024`：受 Hcomm 单生产者语义约束，`--lanes 32/1024` 仅 lane 0 串行下发，其余 lane
+立即返回，效果与`--lanes 1`等价，保留入口用于覆盖该启动配置路径。
 
 当前性能 kernel 在计时开始前调用原有的 `Hcomm::Init(workspace, len)`。Hcomm 在不透明 UB
 workspace 内自动为每个 lane 分配 128B WQE slot 和 32B 远端注册信息/token cache，并初始化所有
@@ -34,8 +35,8 @@ completionEnd = clock()
 `commit=false` 写入普通 SQ，最后一个 WQE 使用 `commit=true` 通过 DWQE 发布整批，随后结束计时并
 调用 `Drain()`。Last 只合并最终 DWQE 发布，SQ 空间仍按每个 WQE 执行一次预留 CAS。
 
-`--lanes 1`串行填写延迟WQE；`--lanes 32/1024`由多个lane并行填写延迟WQE。两种情况都只由
-一个lane执行最终`commit=true`和`Drain`。
+`--lanes 1`串行填写延迟WQE；`--lanes 32/1024`由于单生产者语义，仅 lane 0 串行填写延迟WQE，
+其余 lane 立即返回，行为与`--lanes 1`一致。两种情况都只由一个lane执行最终`commit=true`和`Drain`。
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
@@ -52,7 +53,7 @@ bash examples/simt_notify_atomic_perf/run.sh \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode last
 ```
 
-将上述命令的`--lanes`改为`32`或`1024`，可验证多lane Last路径。多lane不能用于Immediate模式。
+将上述命令的`--lanes`改为`32`或`1024`，可在单生产者语义下验证多 lane 启动配置路径（仅 lane 0 串行下发）。多lane不能用于Immediate模式。
 
 ## 编译
 

@@ -1,12 +1,13 @@
 # Hcomm SIMT WriteNbi 样例
 
-本样例验证 SIMT `WriteNbi` 的单 lane 和多 lane 延迟提交方式。rank 0 向 rank 1 的注册内存写入
+本样例验证 SIMT `WriteNbi` 的延迟提交方式。rank 0 向 rank 1 的注册内存写入
 32 个 `uint64_t`，rank 1 在 Host 侧校验结果。
 
 ## 接口约束
 
-同一 channel 允许多个 lane 并发执行 `commit=false`。调用方必须在所有延迟 WQE 填写完成后同步，
-再由一个 lane 执行唯一的 `commit=true` 并调用 `Drain`。不支持多个 lane 同时执行 `commit=true`。
+Hcomm SIMT 接口遵循单生产者语义：同一 channel 的通信任务只能由 group rank 0（线性线程块 rank 0）
+下发，并在接口返回前完成组同步。因此延迟 WQE 的填写与最终 `commit=true` 发布均由同一 lane 串行完成，
+不再需要多 lane 并发填写与跨 lane 同步。
 
 SIMT `WriteValueNbi` 当前不支持，调用会触发编译报错。
 
@@ -16,9 +17,9 @@ SIMT `WriteValueNbi` 当前不支持，调用会触发编译报错。
 |---|---|---|
 | `single`（默认） | `SimtWriteSingle` | 32 次独立的 `WriteNbi<commit=true>` |
 | `batch_last` | `SimtWriteBatchLast` | 31 次串行 `WriteNbi<false>`，最后一次 `WriteNbi<true>` 统一发布 |
-| `multi_lane` | `SimtWriteMultiLane` | 31 个 lane 并发 `WriteNbi<false>`，同步后由 lane 0 统一发布 |
+| `multi_lane` | `SimtWriteMultiLane` | 单 lane 串行 31 次 `WriteNbi<false>`，最后一次 `WriteNbi<true>` 统一发布（与 `batch_last` 等价，保留入口用于覆盖该路径） |
 
-所有模式最终均只由一个 lane 执行 `commit=true` 和 `Drain`。
+所有模式均由 lane 0 串行下发，最终执行 `commit=true` 和 `Drain`。
 
 ## 编译
 
