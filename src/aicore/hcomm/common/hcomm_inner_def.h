@@ -236,10 +236,10 @@ typedef struct {
     RegedBufferEntity* remoteBufferAddr;
     SqContext* sqContextAddr;
     CqContext* cqContextAddr;
-    uint32_t sqHead; // SQ producer index in WQE BBs
-    uint32_t sqTail; // Submitted WQE count, reserved for future use
-    uint32_t cqHead; // Number of expected CQEs
-    uint32_t cqTail; // Number of consumed CQEs
+    uint32_t sqHead;      // SQ producer index in WQE BBs
+    uint32_t sqTail;      // Submitted WQE count, reserved for future use
+    uint32_t cqHead;      // Number of posted CQEs (intent, bumped at post time regardless of commit)
+    uint32_t cqTail;      // Number of consumed CQEs
     uint8_t reserve[144];
 } ChannelEntity;
 
