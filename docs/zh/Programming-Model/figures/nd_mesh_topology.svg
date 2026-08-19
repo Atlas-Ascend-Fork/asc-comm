@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="470" viewBox="0 0 1200 470" font-family="Arial, 'Noto Sans CJK SC', sans-serif">
+  <defs>
+    <style>
+      .title{font-size:20px;font-weight:700;fill:#20262d}.subtitle{font-size:14px;fill:#4b5563}.domain{fill:#fff;stroke:#c8cdd2;stroke-width:1.5}.npu{fill:#dbeafe;stroke:#4f83c2;stroke-width:1.6}.link{fill:none;stroke:#e05a67;stroke-width:1.6}.back-link{stroke-dasharray:6 5}.stage{font-size:15px;font-weight:700;fill:#263238}.small{font-size:13px;fill:#4b5563}
+    </style>
+
+  </defs>
+  <rect width="1200" height="470" fill="#fff"/>
+  <text x="600" y="30" class="title" text-anchor="middle">nD-Mesh拓扑</text>
+  <text x="600" y="55" class="subtitle" text-anchor="middle">NPU沿各维度与相邻NPU直接连接，并逐维扩展</text>
+
+  <!-- 1D-Mesh: a chain of adjacent NPUs. -->
+  <rect x="45" y="90" width="250" height="300" rx="6" class="domain"/>
+  <text x="170" y="122" class="stage" text-anchor="middle">1D-Mesh</text>
+  <g class="link">
+    <line x1="85" y1="240" x2="125" y2="240"/>
+    <line x1="125" y1="240" x2="170" y2="240"/>
+    <line x1="170" y1="240" x2="215" y2="240"/>
+    <line x1="215" y1="240" x2="255" y2="240"/>
+  </g>
+  <g>
+    <circle cx="85" cy="240" r="12" class="npu"/>
+    <circle cx="125" cy="240" r="12" class="npu"/>
+    <circle cx="170" cy="240" r="12" class="npu"/>
+    <circle cx="215" cy="240" r="12" class="npu"/>
+    <circle cx="255" cy="240" r="12" class="npu"/>
+  </g>
+  <text x="170" y="350" class="small" text-anchor="middle">沿一个维度连接相邻NPU</text>
+
+  <!-- 2D-Mesh: rows and columns of adjacent NPUs. -->
+  <rect x="330" y="90" width="310" height="300" rx="6" class="domain"/>
+  <text x="485" y="122" class="stage" text-anchor="middle">2D-Mesh</text>
+  <g class="link">
+    <path d="M380 180H590M380 245H590M380 310H590"/>
+    <path d="M380 180V310M450 180V310M520 180V310M590 180V310"/>
+  </g>
+  <g>
+    <circle cx="380" cy="180" r="12" class="npu"/><circle cx="450" cy="180" r="12" class="npu"/><circle cx="520" cy="180" r="12" class="npu"/><circle cx="590" cy="180" r="12" class="npu"/>
+    <circle cx="380" cy="245" r="12" class="npu"/><circle cx="450" cy="245" r="12" class="npu"/><circle cx="520" cy="245" r="12" class="npu"/><circle cx="590" cy="245" r="12" class="npu"/>
+    <circle cx="380" cy="310" r="12" class="npu"/><circle cx="450" cy="310" r="12" class="npu"/><circle cx="520" cy="310" r="12" class="npu"/><circle cx="590" cy="310" r="12" class="npu"/>
+  </g>
+  <text x="485" y="350" class="small" text-anchor="middle">沿两个维度连接相邻NPU</text>
+
+  <!-- 3D-Mesh: three 3x3 planes connected node-to-node along the third dimension. -->
+  <rect x="675" y="90" width="360" height="300" rx="6" class="domain"/>
+  <text x="855" y="122" class="stage" text-anchor="middle">3D-Mesh（3×3×3）</text>
+  <g class="link">
+    <path d="M775 335L830 335M775 260L830 260M775 185L830 185M797 317L852 317M797 242L852 242M797 167L852 167M830 335L885 335M830 260L885 260M830 185L885 185M852 317L907 317M852 242L907 242M852 167L907 167M775 335L797 317M775 260L797 242M775 185L797 167M797 317L819 299M797 242L819 224M797 167L819 149M830 335L852 317M830 260L852 242M830 185L852 167M852 317L874 299M852 242L874 224M852 167L874 149M885 335L907 317M885 260L907 242M885 185L907 167M907 317L929 299M907 242L929 224M907 167L929 149M775 335L775 260M775 260L775 185M797 317L797 242M797 242L797 167M830 335L830 260M830 260L830 185M852 317L852 242M852 242L852 167M885 335L885 260M885 260L885 185M907 317L907 242M907 242L907 167"/>
+    <path d="M819 299L874 299M819 224L874 224M819 149L874 149M874 299L929 299M874 224L929 224M874 149L929 149M819 299L819 224M819 224L819 149M874 299L874 224M874 224L874 149M929 299L929 224M929 224L929 149" class="back-link"/>
+  </g>
+  <g>
+    <circle cx="775" cy="335" r="7" class="npu"/><circle cx="775" cy="260" r="7" class="npu"/><circle cx="775" cy="185" r="7" class="npu"/>
+    <circle cx="797" cy="317" r="7" class="npu"/><circle cx="797" cy="242" r="7" class="npu"/><circle cx="797" cy="167" r="7" class="npu"/>
+    <circle cx="819" cy="299" r="7" class="npu"/><circle cx="819" cy="224" r="7" class="npu"/><circle cx="819" cy="149" r="7" class="npu"/>
+    <circle cx="830" cy="335" r="7" class="npu"/><circle cx="830" cy="260" r="7" class="npu"/><circle cx="830" cy="185" r="7" class="npu"/>
+    <circle cx="852" cy="317" r="7" class="npu"/><circle cx="852" cy="242" r="7" class="npu"/><circle cx="852" cy="167" r="7" class="npu"/>
+    <circle cx="874" cy="299" r="7" class="npu"/><circle cx="874" cy="224" r="7" class="npu"/><circle cx="874" cy="149" r="7" class="npu"/>
+    <circle cx="885" cy="335" r="7" class="npu"/><circle cx="885" cy="260" r="7" class="npu"/><circle cx="885" cy="185" r="7" class="npu"/>
+    <circle cx="907" cy="317" r="7" class="npu"/><circle cx="907" cy="242" r="7" class="npu"/><circle cx="907" cy="167" r="7" class="npu"/>
+    <circle cx="929" cy="299" r="7" class="npu"/><circle cx="929" cy="224" r="7" class="npu"/><circle cx="929" cy="149" r="7" class="npu"/>
+  </g>
+  <text x="855" y="365" class="small" text-anchor="middle">增加第三维的相邻连接</text>
+
+  <text x="1080" y="240" class="title" text-anchor="middle">…</text>
+  <text x="1135" y="245" class="stage" text-anchor="middle">nD</text>
+
+  <g transform="translate(305 440)">
+    <circle cx="0" cy="0" r="11" class="npu"/><text x="20" y="5" class="small">NPU</text>
+    <line x1="100" y1="0" x2="155" y2="0" class="link"/><text x="165" y="5" class="small">相邻NPU之间的直接链路</text>
+    <line x1="390" y1="0" x2="445" y2="0" class="link back-link"/><text x="455" y="5" class="small">背面链路（透视）</text>
+  </g>
+</svg>
