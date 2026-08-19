@@ -153,7 +153,7 @@ bash build.sh
 bash build.sh --hcomm-source-dir=/path/to/hcomm
 ```
 
-POD接口使用`include/aicpu/hcomm/hcomm_pod_primitives.h`，接口名统一为`hcomm_*_pod`；基础原语和资源接口由HCOMM工程的
+POD接口使用`include/aicpu/hcomm/hcomm_pod_primitives.h`，接口名统一为`asccomm_*`；基础原语和资源接口由HCOMM工程的
 `include/`与`pkg_inc/`目录提供。
 
 默认构建会复用已有的`build/`目录，不会自动删除构建产物。如需清理构建目录，请显式执行：

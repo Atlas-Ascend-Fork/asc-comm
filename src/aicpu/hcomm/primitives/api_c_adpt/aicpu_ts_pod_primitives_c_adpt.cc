@@ -192,7 +192,7 @@ HcclResult convert_timeout(float timeout, uint32_t &timeoutSeconds)
 
 } // namespace
 
-int32_t hcomm_batch_mode_start_pod(const char *batchTag)
+int32_t asccomm_batch_mode_start(const char *batchTag)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_BATCH_MODE_START);
     copy_pod_dfx_tag(batchTag, event.params.batchModeStart.batchTag);
@@ -202,7 +202,7 @@ int32_t hcomm_batch_mode_start_pod(const char *batchTag)
     });
 }
 
-int32_t hcomm_batch_mode_end_pod(const char *batchTag)
+int32_t asccomm_batch_mode_end(const char *batchTag)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_BATCH_MODE_END);
     copy_pod_dfx_tag(batchTag, event.params.batchModeEnd.batchTag);
@@ -214,7 +214,7 @@ int32_t hcomm_batch_mode_end_pod(const char *batchTag)
     });
 }
 
-int32_t hcomm_local_copy_on_thread_pod(ThreadHandle thread, void *dst, const void *src, uint64_t len)
+int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void *dst, const void *src, uint64_t len)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_LOCAL_COPY);
     event.params.localCopy.thread = thread;
@@ -240,7 +240,7 @@ int32_t hcomm_local_copy_on_thread_pod(ThreadHandle thread, void *dst, const voi
     });
 }
 
-int32_t hcomm_local_reduce_on_thread_pod(
+int32_t asccomm_local_reduce_on_thread(
     ThreadHandle thread, void *dst, const void *src, uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_LOCAL_REDUCE);
@@ -272,7 +272,7 @@ int32_t hcomm_local_reduce_on_thread_pod(
     });
 }
 
-int32_t hcomm_thread_notify_record_on_thread_pod(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
+int32_t asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_THREAD_NOTIFY_RECORD);
     event.params.threadNotifyRecord.thread = thread;
@@ -289,7 +289,7 @@ int32_t hcomm_thread_notify_record_on_thread_pod(ThreadHandle thread, ThreadHand
     });
 }
 
-int32_t hcomm_thread_notify_wait_on_thread_pod(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut)
+int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_THREAD_NOTIFY_WAIT);
     event.params.threadNotifyWait.thread = thread;
@@ -304,7 +304,7 @@ int32_t hcomm_thread_notify_wait_on_thread_pod(ThreadHandle thread, uint32_t not
     });
 }
 
-int32_t hcomm_aclrt_notify_record_on_thread_pod(ThreadHandle thread, uint64_t dstNotifyId)
+int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstNotifyId)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_ACLRT_NOTIFY_RECORD);
     event.params.aclrtNotifyRecord.thread = thread;
@@ -316,7 +316,7 @@ int32_t hcomm_aclrt_notify_record_on_thread_pod(ThreadHandle thread, uint64_t ds
     });
 }
 
-int32_t hcomm_aclrt_notify_wait_on_thread_pod(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
+int32_t asccomm_aclrt_notify_wait_on_thread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_ACLRT_NOTIFY_WAIT);
     event.params.aclrtNotifyWait.thread = thread;
@@ -329,7 +329,7 @@ int32_t hcomm_aclrt_notify_wait_on_thread_pod(ThreadHandle thread, uint64_t noti
     });
 }
 
-int32_t hcomm_write_on_thread_pod(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
+int32_t asccomm_write_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_WRITE);
     event.params.write.thread = thread;
@@ -347,7 +347,7 @@ int32_t hcomm_write_on_thread_pod(ThreadHandle thread, ChannelHandle channel, vo
     });
 }
 
-int32_t hcomm_write_reduce_on_thread_pod(
+int32_t asccomm_write_reduce_on_thread(
     ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, HcommDataType dataType,
     HcommReduceOp reduceOp)
 {
@@ -373,7 +373,7 @@ int32_t hcomm_write_reduce_on_thread_pod(
     });
 }
 
-int32_t hcomm_write_with_notify_on_thread_pod(
+int32_t asccomm_write_with_notify_on_thread(
     ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len, uint32_t remoteNotifyIdx)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_WRITE_WITH_NOTIFY);
@@ -394,7 +394,7 @@ int32_t hcomm_write_with_notify_on_thread_pod(
     });
 }
 
-int32_t hcomm_write_reduce_with_notify_on_thread_pod(
+int32_t asccomm_write_reduce_with_notify_on_thread(
     ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, HcommDataType dataType,
     HcommReduceOp reduceOp, uint32_t remoteNotifyIdx)
 {
@@ -421,7 +421,7 @@ int32_t hcomm_write_reduce_with_notify_on_thread_pod(
     });
 }
 
-int32_t hcomm_read_on_thread_pod(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
+int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_READ);
     event.params.read.thread = thread;
@@ -439,7 +439,7 @@ int32_t hcomm_read_on_thread_pod(ThreadHandle thread, ChannelHandle channel, voi
     });
 }
 
-int32_t hcomm_read_reduce_on_thread_pod(
+int32_t asccomm_read_reduce_on_thread(
     ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, HcommDataType dataType,
     HcommReduceOp reduceOp)
 {
@@ -465,7 +465,7 @@ int32_t hcomm_read_reduce_on_thread_pod(
     });
 }
 
-int32_t hcomm_batch_transfer_on_thread_pod(
+int32_t asccomm_batch_transfer_on_thread(
     ThreadHandle thread, ChannelHandle channel, const HcommBatchTransferDesc *transferDescs, uint32_t transferDescNum)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_BATCH_TRANSFER);
@@ -480,7 +480,7 @@ int32_t hcomm_batch_transfer_on_thread_pod(
     });
 }
 
-int32_t hcomm_channel_notify_record_on_thread_pod(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
+int32_t asccomm_channel_notify_record_on_thread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_CHANNEL_NOTIFY_RECORD);
     event.params.channelNotifyRecord.thread = thread;
@@ -493,7 +493,7 @@ int32_t hcomm_channel_notify_record_on_thread_pod(ThreadHandle thread, ChannelHa
     });
 }
 
-int32_t hcomm_channel_notify_wait_on_thread_pod(
+int32_t asccomm_channel_notify_wait_on_thread(
     ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeOut)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_CHANNEL_NOTIFY_WAIT);
@@ -508,7 +508,7 @@ int32_t hcomm_channel_notify_wait_on_thread_pod(
     });
 }
 
-int32_t hcomm_channel_fence_on_thread_pod(ThreadHandle thread, ChannelHandle channel)
+int32_t asccomm_channel_fence_on_thread(ThreadHandle thread, ChannelHandle channel)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_CHANNEL_FENCE);
     event.params.channelFence.thread = thread;
@@ -520,7 +520,7 @@ int32_t hcomm_channel_fence_on_thread_pod(ThreadHandle thread, ChannelHandle cha
     });
 }
 
-int32_t hcomm_channel_notify_wait_on_thread_with_default_timeout_pod(
+int32_t asccomm_channel_notify_wait_on_thread_with_default_timeout(
     ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_CHANNEL_NOTIFY_WAIT_DEFAULT);
@@ -536,7 +536,7 @@ int32_t hcomm_channel_notify_wait_on_thread_with_default_timeout_pod(
     });
 }
 
-int32_t hcomm_thread_notify_wait_on_thread_with_default_timeout_pod(ThreadHandle thread, uint32_t notifyIdx)
+int32_t asccomm_thread_notify_wait_on_thread_with_default_timeout(ThreadHandle thread, uint32_t notifyIdx)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_THREAD_NOTIFY_WAIT_DEFAULT);
     event.params.threadNotifyWaitDefault.thread = thread;
@@ -552,7 +552,7 @@ int32_t hcomm_thread_notify_wait_on_thread_with_default_timeout_pod(ThreadHandle
     });
 }
 
-int32_t hcomm_set_notify_wait_timeout_pod(float timeOut)
+int32_t asccomm_set_notify_wait_timeout(float timeOut)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_SET_NOTIFY_WAIT_TIMEOUT);
     event.params.setNotifyWaitTimeOut.timeOut = timeOut;
@@ -564,7 +564,7 @@ int32_t hcomm_set_notify_wait_timeout_pod(float timeOut)
     });
 }
 
-int32_t hcomm_thread_res_acquire_timeout_pod(float timeOut)
+int32_t asccomm_thread_res_acquire_timeout(float timeOut)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_THREAD_RES_ACQUIRE_TIMEOUT);
     event.params.threadResAcquireTimeOut.timeOut = timeOut;
@@ -576,7 +576,7 @@ int32_t hcomm_thread_res_acquire_timeout_pod(float timeOut)
     });
 }
 
-int32_t hcomm_channel_drain_on_thread_pod(ThreadHandle thread, ChannelHandle channel)
+int32_t asccomm_channel_drain_on_thread(ThreadHandle thread, ChannelHandle channel)
 {
     HcommPodDfxEvent event = create_pod_dfx_event(HCOMM_POD_DFX_API_CHANNEL_DRAIN);
     event.params.channelDrain.thread = thread;
