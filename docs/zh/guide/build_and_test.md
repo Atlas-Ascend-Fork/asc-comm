@@ -21,6 +21,8 @@ source /usr/local/Ascend/cann/set_env.sh
 bash build.sh
 ```
 
+默认构建会复用已有的`build/`目录，不会自动清理构建产物。需要清理时，请显式执行`bash build.sh --make_clean`。
+
 ## 构建UT
 
 使用`-t`或`--test`构建Hcomm UT。

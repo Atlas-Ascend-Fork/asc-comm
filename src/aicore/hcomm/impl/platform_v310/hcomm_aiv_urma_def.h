@@ -27,11 +27,17 @@
 namespace AscendC {
 
 constexpr uint32_t HCOMM_URMA_MAX_RETRY_TIMES = 1000000;
-constexpr uint32_t HCOMM_URMA_DEFAULT_QP_IDX = 0;
 constexpr uint32_t HCOMM_URMA_TMP_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_URMA_WQE_U32_NUM = 32;
 constexpr uint32_t HCOMM_URMA_CQE_U32_NUM = 16;
 constexpr uint32_t HCOMM_URMA_UDF_FLAG = 0x80U;
+constexpr uint32_t POLL_CQ_THRESHOLD = 10;
+constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
+#if defined(UT_TEST)
+constexpr uint32_t HCOMM_URMA_MUTEX_ID = 27U;
+#else
+constexpr uint32_t HCOMM_URMA_MUTEX_ID = 29U;
+#endif
 
 constexpr uint32_t HCOMM_URMA_INVALID_REDUCE_DATA_TYPE = 0xFFFFFFFFU;
 template <typename T>
@@ -51,23 +57,6 @@ struct UdmaParams {
     T cond;
     uint32_t reduceDataType;
     uint32_t reduceOpcode;
-};
-
-enum class HcommUrmaOpCode : uint32_t {
-    SEND = 0U,
-    SEND_WITH_IMM,
-    SEND_WITH_INV,
-    WRITE,
-    WRITE_WITH_IMM,
-    WRITE_WITH_NOTIFY,
-    READ,
-    CAS,
-    ATOMIC_SWAP,
-    ATOMIC_STORE,
-    ATOMIC_LOAD,
-    FAA = 0xBU,
-    WRITE_WITH_REDUCE = 0x10U,
-    NOP = 0x11U,
 };
 
 template <>
@@ -119,6 +108,7 @@ private:
     __aicore__ inline int32_t PostSend(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr = nullptr,
         const UdmaParams<T>& params = UdmaParams<T>{});
+    __aicore__ inline void CommitImpl(ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt);
     __aicore__ inline void PollCqWhenSqOverflow(
         ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt);
     __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail);
