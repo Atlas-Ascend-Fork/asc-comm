@@ -14,7 +14,7 @@
 #include <cstdint>
 
 #include "sqe.h"
-namespace Hccl {
+namespace Asc {
 
 #define UB_DOORBELL_NUM_MIN   (1)
 #define UB_DOORBELL_NUM_MAX   (2)
@@ -257,5 +257,5 @@ struct Rt91095StarsWriteValueSqe {
     /* word8-15 */
     uint32_t writeValuePart[8];  // write value field
 };
-} // namespace Hccl
+} // namespace Asc
 #endif

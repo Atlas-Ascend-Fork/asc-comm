@@ -27,42 +27,42 @@
 extern "C" {
 #endif
 
-HCOMM_POD_API int32_t HcommBatchModeStartPod(const char *batchTag);
-HCOMM_POD_API int32_t HcommBatchModeEndPod(const char *batchTag);
+HCOMM_POD_API int32_t hcomm_batch_mode_start_pod(const char *batchTag);
+HCOMM_POD_API int32_t hcomm_batch_mode_end_pod(const char *batchTag);
 
-HCOMM_POD_API int32_t HcommLocalCopyOnThreadPod(ThreadHandle thread, void *dst, const void *src, uint64_t len);
-HCOMM_POD_API int32_t HcommLocalReduceOnThreadPod(ThreadHandle thread, void *dst, const void *src, uint64_t count,
+HCOMM_POD_API int32_t hcomm_local_copy_on_thread_pod(ThreadHandle thread, void *dst, const void *src, uint64_t len);
+HCOMM_POD_API int32_t hcomm_local_reduce_on_thread_pod(ThreadHandle thread, void *dst, const void *src, uint64_t count,
     HcommDataType dataType, HcommReduceOp reduceOp);
-HCOMM_POD_API int32_t HcommThreadNotifyRecordOnThreadPod(
+HCOMM_POD_API int32_t hcomm_thread_notify_record_on_thread_pod(
     ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx);
-HCOMM_POD_API int32_t HcommThreadNotifyWaitOnThreadPod(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut);
-HCOMM_POD_API int32_t HcommAclrtNotifyRecordOnThreadPod(ThreadHandle thread, uint64_t dstNotifyId);
-HCOMM_POD_API int32_t HcommAclrtNotifyWaitOnThreadPod(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut);
-HCOMM_POD_API int32_t HcommWriteOnThreadPod(
+HCOMM_POD_API int32_t hcomm_thread_notify_wait_on_thread_pod(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut);
+HCOMM_POD_API int32_t hcomm_aclrt_notify_record_on_thread_pod(ThreadHandle thread, uint64_t dstNotifyId);
+HCOMM_POD_API int32_t hcomm_aclrt_notify_wait_on_thread_pod(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut);
+HCOMM_POD_API int32_t hcomm_write_on_thread_pod(
     ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len);
-HCOMM_POD_API int32_t HcommWriteReduceOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst,
+HCOMM_POD_API int32_t hcomm_write_reduce_on_thread_pod(ThreadHandle thread, ChannelHandle channel, void *dst,
     const void *src, uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp);
-HCOMM_POD_API int32_t HcommWriteWithNotifyOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst,
+HCOMM_POD_API int32_t hcomm_write_with_notify_on_thread_pod(ThreadHandle thread, ChannelHandle channel, void *dst,
     const void *src, uint64_t len, uint32_t remoteNotifyIdx);
-HCOMM_POD_API int32_t HcommWriteReduceWithNotifyOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst,
+HCOMM_POD_API int32_t hcomm_write_reduce_with_notify_on_thread_pod(ThreadHandle thread, ChannelHandle channel, void *dst,
     const void *src, uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp, uint32_t remoteNotifyIdx);
-HCOMM_POD_API int32_t HcommReadOnThreadPod(
+HCOMM_POD_API int32_t hcomm_read_on_thread_pod(
     ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len);
-HCOMM_POD_API int32_t HcommReadReduceOnThreadPod(ThreadHandle thread, ChannelHandle channel, void *dst,
+HCOMM_POD_API int32_t hcomm_read_reduce_on_thread_pod(ThreadHandle thread, ChannelHandle channel, void *dst,
     const void *src, uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp);
-HCOMM_POD_API int32_t HcommBatchTransferOnThreadPod(ThreadHandle thread, ChannelHandle channel,
+HCOMM_POD_API int32_t hcomm_batch_transfer_on_thread_pod(ThreadHandle thread, ChannelHandle channel,
     const HcommBatchTransferDesc *transferDescs, uint32_t transferDescNum);
-HCOMM_POD_API int32_t HcommChannelNotifyRecordOnThreadPod(
+HCOMM_POD_API int32_t hcomm_channel_notify_record_on_thread_pod(
     ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx);
-HCOMM_POD_API int32_t HcommChannelNotifyWaitOnThreadPod(
+HCOMM_POD_API int32_t hcomm_channel_notify_wait_on_thread_pod(
     ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeOut);
-HCOMM_POD_API int32_t HcommChannelFenceOnThreadPod(ThreadHandle thread, ChannelHandle channel);
-HCOMM_POD_API int32_t HcommChannelNotifyWaitOnThreadWithDefaultTimeoutPod(
+HCOMM_POD_API int32_t hcomm_channel_fence_on_thread_pod(ThreadHandle thread, ChannelHandle channel);
+HCOMM_POD_API int32_t hcomm_channel_notify_wait_on_thread_with_default_timeout_pod(
     ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx);
-HCOMM_POD_API int32_t HcommThreadNotifyWaitOnThreadWithDefaultTimeoutPod(ThreadHandle thread, uint32_t notifyIdx);
-HCOMM_POD_API int32_t HcommSetNotifyWaitTimeOutPod(float timeOut);
-HCOMM_POD_API int32_t HcommThreadResAcquireTimeOutPod(float timeOut);
-HCOMM_POD_API int32_t HcommChannelDrainOnThreadPod(ThreadHandle thread, ChannelHandle channel);
+HCOMM_POD_API int32_t hcomm_thread_notify_wait_on_thread_with_default_timeout_pod(ThreadHandle thread, uint32_t notifyIdx);
+HCOMM_POD_API int32_t hcomm_set_notify_wait_timeout_pod(float timeOut);
+HCOMM_POD_API int32_t hcomm_thread_res_acquire_timeout_pod(float timeOut);
+HCOMM_POD_API int32_t hcomm_channel_drain_on_thread_pod(ThreadHandle thread, ChannelHandle channel);
 
 #ifdef __cplusplus
 }

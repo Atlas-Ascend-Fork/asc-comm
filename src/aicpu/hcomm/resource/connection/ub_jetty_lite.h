@@ -12,24 +12,24 @@
 
 #include "hccl/base.h"
 
-namespace Hccl {
+namespace Asc {
 
 struct PodUbJettyLiteId {
     u32 dieId_;
     u32 funcId_;
     u32 jettyId_;
 
-    u32 GetDieId() const
+    u32 get_die_id() const
     {
         return dieId_;
     }
 
-    u32 GetFuncId() const
+    u32 get_func_id() const
     {
         return funcId_;
     }
 
-    u32 GetJettyId() const
+    u32 get_jetty_id() const
     {
         return jettyId_;
     }
@@ -55,5 +55,5 @@ struct UbJettyLiteAttr {
     }
 };
 
-} // namespace Hccl
+} // namespace Asc
 #endif

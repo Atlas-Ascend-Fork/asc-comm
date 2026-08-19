@@ -28,7 +28,7 @@ struct PodLaunchState {
 thread_local PodLaunchState g_podLaunchState;
 }
 
-void HcommPodRegisterThread(ThreadHandle thread)
+void hcomm_pod_register_thread(ThreadHandle thread)
 {
     if (!g_podLaunchState.batchMode) {
         return;
@@ -39,54 +39,54 @@ void HcommPodRegisterThread(ThreadHandle thread)
     }
 }
 
-bool HcommPodIsBatchLaunchMode()
+bool hcomm_pod_is_batch_launch_mode()
 {
     return g_podLaunchState.batchMode;
 }
 
-uint32_t HcommPodGetNotifyWaitTimeout()
+uint32_t hcomm_pod_get_notify_wait_timeout()
 {
     return g_podLaunchState.notifyWaitTimeout;
 }
 
-void HcommPodSetNotifyWaitTimeout(uint32_t timeout)
+void hcomm_pod_set_notify_wait_timeout(uint32_t timeout)
 {
     g_podLaunchState.notifyWaitTimeout = timeout;
 }
 
-uint32_t HcommPodGetSqFullTimeout()
+uint32_t hcomm_pod_get_sq_full_timeout()
 {
     return g_podLaunchState.sqFullTimeoutSet ? g_podLaunchState.sqFullTimeout : POD_DEFAULT_SQ_FULL_TIMEOUT;
 }
 
-void HcommPodSetSqFullTimeout(uint32_t timeout)
+void hcomm_pod_set_sq_full_timeout(uint32_t timeout)
 {
     g_podLaunchState.sqFullTimeout = timeout;
     g_podLaunchState.sqFullTimeoutSet = true;
 }
 
-void HcommPodSetBatchLaunchMode(bool batchMode)
+void hcomm_pod_set_batch_launch_mode(bool batchMode)
 {
     g_podLaunchState.batchMode = batchMode;
 }
 
-HcclResult HcommPodLaunchRegisteredThreads()
+HcclResult hcomm_pod_launch_registered_threads()
 {
     if (g_podLaunchState.threads.empty()) {
         return HCCL_SUCCESS;
     }
-    return HcommPodTaskLaunch(g_podLaunchState.threads.data(), g_podLaunchState.threads.size());
+    return hcomm_pod_task_launch(g_podLaunchState.threads.data(), g_podLaunchState.threads.size());
 }
 
-HcclResult HcommPodTryLaunchRegisteredThreads()
+HcclResult hcomm_pod_try_launch_registered_threads()
 {
     if (g_podLaunchState.threads.empty()) {
         return HCCL_SUCCESS;
     }
-    return HcommPodTryLaunch(g_podLaunchState.threads.data(), g_podLaunchState.threads.size());
+    return hcomm_pod_try_launch(g_podLaunchState.threads.data(), g_podLaunchState.threads.size());
 }
 
-void HcommPodClearRegisteredThreads()
+void hcomm_pod_clear_registered_threads()
 {
     g_podLaunchState.threads.clear();
 }

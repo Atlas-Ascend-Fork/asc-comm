@@ -15,19 +15,19 @@
 #include "log/hcomm_log.h"
 #include "string_util.h"
 
-namespace Hccl {
+namespace Asc {
 
-template <typename Exception> [[noreturn]] inline void THROW(const std::string &message)
+template <typename Exception> [[noreturn]] inline void throw_exception(const std::string &message)
 {
     HCCL_ERROR("%s", message.c_str());
     throw Exception(message);
 }
 
-template <typename Exception, typename... Args> [[noreturn]] inline void THROW(const char *format, Args... args)
+template <typename Exception, typename... Args> [[noreturn]] inline void throw_exception(const char *format, Args... args)
 {
-    THROW<Exception>(StringFormat(format, args...));
+    throw_exception<Exception>(string_format(format, args...));
 }
 
-} // namespace Hccl
+} // namespace Asc
 
 #endif // HCOMM_POD_EXCEPTION_UTIL_H

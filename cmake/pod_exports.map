@@ -1,6 +1,6 @@
 {
     global:
-        Hcomm*Pod;
+        hcomm_*_pod;
     local:
         *;
 };

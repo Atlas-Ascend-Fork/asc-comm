@@ -13,12 +13,12 @@
 
 #include "hccl_exception.h"
 
-namespace Hccl {
+namespace Asc {
 class InternalException : public HcclException {
 public:
     explicit InternalException(const std::string &userDefinedMsg)
         : HcclException(HCCL_E_INTERNAL, "Internal exception: ", userDefinedMsg) {}
 };
-} // namespace Hccl
+} // namespace Asc
 
 #endif // HCCLV2_INTERNAL_EXCEPTION_H

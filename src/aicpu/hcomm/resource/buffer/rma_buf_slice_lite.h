@@ -12,28 +12,28 @@
 
 #include "hccl/base.h"
 
-namespace Hccl {
+namespace Asc {
 class PodRmaBufSliceLite {
 public:
     constexpr PodRmaBufSliceLite(u64 addr, u64 size, u32 lkey, u32 tokenId)
         : addr_(addr), size_(size), lkey_(lkey), tokenId_(tokenId) {}
 
-    inline u64 GetAddr() const
+    inline u64 get_addr() const
     {
         return addr_;
     }
 
-    inline u64 GetSize() const
+    inline u64 get_size() const
     {
         return size_;
     }
 
-    inline u32 GetLkey() const
+    inline u32 get_lkey() const
     {
         return lkey_;
     }
 
-    inline u32 GetTokenId() const
+    inline u32 get_token_id() const
     {
         return tokenId_;
     }
@@ -44,5 +44,5 @@ private:
     u32 lkey_;
     u32 tokenId_;
 };
-} // namespace Hccl
+} // namespace Asc
 #endif

@@ -15,22 +15,22 @@
 #include "../connection/ub_jetty_lite.h"
 #include "sqe_v82.h"
 
-namespace Hccl {
+namespace Asc {
 
 constexpr u32 LOW_BITS = 16;
 
-inline void SetPodSqeHeaderTaskFields(void *sqe, u32 taskId)
+inline void set_pod_sqe_header_task_fields(void *sqe, u32 taskId)
 {
     auto header = reinterpret_cast<Rt91095StarsSqeHeader *>(sqe);
     header->rtStreamId = static_cast<uint16_t>(taskId);
     header->taskId = static_cast<uint16_t>(taskId >> LOW_BITS);
 }
 
-inline void BuildA5PodSqeNotifyWait(u32 streamId, u32 taskId, u32 notifyId, u32 timeout, uint8_t *sqeIn)
+inline void build_a5_pod_sqe_notify_wait(u32 streamId, u32 taskId, u32 notifyId, u32 timeout, uint8_t *sqeIn)
 {
     (void)streamId;
     auto sqe = reinterpret_cast<Rt91095StarsNotifySqe *>(sqeIn);
-    SetPodSqeHeaderTaskFields(sqe, taskId);
+    set_pod_sqe_header_task_fields(sqe, taskId);
     sqe->header.type = static_cast<uint8_t>(Rt91095StarsSqeType::RT_91095_SQE_TYPE_NOTIFY_WAIT);
     sqe->header.wrCqe = 0U;
     sqe->kernelCredit = RT_STARS_NEVER_TIMEOUT_KERNEL_CREDIT;
@@ -41,11 +41,11 @@ inline void BuildA5PodSqeNotifyWait(u32 streamId, u32 taskId, u32 notifyId, u32 
     sqe->timeout = timeout;
 }
 
-inline void BuildA5PodSqeNotifyRecord(u32 streamId, u32 taskId, u32 notifyId, uint8_t *sqeIn)
+inline void build_a5_pod_sqe_notify_record(u32 streamId, u32 taskId, u32 notifyId, uint8_t *sqeIn)
 {
     (void)streamId;
     auto sqe = reinterpret_cast<Rt91095StarsNotifySqe *>(sqeIn);
-    SetPodSqeHeaderTaskFields(sqe, taskId);
+    set_pod_sqe_header_task_fields(sqe, taskId);
     sqe->header.type = static_cast<uint8_t>(Rt91095StarsSqeType::RT_91095_SQE_TYPE_NOTIFY_RECORD);
     sqe->header.wrCqe = 0U;
     sqe->kernelCredit = RT_STARS_DEFAULT_KERNEL_CREDIT;
@@ -53,12 +53,12 @@ inline void BuildA5PodSqeNotifyRecord(u32 streamId, u32 taskId, u32 notifyId, ui
     sqe->notifyId = notifyId;
 }
 
-inline void BuildA5PodSqeSdmaCopy(u32 streamId, u32 taskId, u64 dstAddr, u64 srcAddr, u32 size,
+inline void build_a5_pod_sqe_sdma_copy(u32 streamId, u32 taskId, u64 dstAddr, u64 srcAddr, u32 size,
                                u32 partId, u32 opcode, uint8_t *sqeIn)
 {
     (void)streamId;
     auto sqe = reinterpret_cast<Rt91095StarsMemcpySqe *>(sqeIn);
-    SetPodSqeHeaderTaskFields(sqe, taskId);
+    set_pod_sqe_header_task_fields(sqe, taskId);
     sqe->header.type = static_cast<uint8_t>(Rt91095StarsSqeType::RT_91095_SQE_TYPE_SDMA);
     sqe->header.wrCqe = 0U;
     sqe->opcode = opcode;
@@ -75,24 +75,24 @@ inline void BuildA5PodSqeSdmaCopy(u32 streamId, u32 taskId, u64 dstAddr, u64 src
     sqe->u.strideMode0.dstAddrHigh = static_cast<uint32_t>(dstAddr >> 32U);
 }
 
-inline void BuildA5PodSqeUbDbSend(u32 streamId, u32 taskId, const PodUbJettyLiteId &jettyLiteId,
+inline void build_a5_pod_sqe_ub_db_send(u32 streamId, u32 taskId, const PodUbJettyLiteId &jettyLiteId,
                                u16 piValue, uint8_t *sqeIn)
 {
     (void)streamId;
     auto sqe = reinterpret_cast<Rt91095StarsUbdmaDBmodeSqe *>(sqeIn);
-    SetPodSqeHeaderTaskFields(sqe, taskId);
+    set_pod_sqe_header_task_fields(sqe, taskId);
     sqe->header.type = static_cast<uint8_t>(Rt91095StarsSqeType::RT_91095_SQE_TYPE_UBDMA);
     sqe->mode = Rt91095UbDmaSqeMode::RT_91095_SQE_DOORBELL_MODE;
     sqe->kernelCredit = RT_STARS_DEFAULT_KERNEL_CREDIT;
     sqe->doorbellNum = 1U;
-    sqe->jettyId1 = jettyLiteId.GetJettyId();
-    sqe->funcId1 = jettyLiteId.GetFuncId();
+    sqe->jettyId1 = jettyLiteId.get_jetty_id();
+    sqe->funcId1 = jettyLiteId.get_func_id();
     sqe->piValue1 = piValue;
-    sqe->dieId1 = jettyLiteId.GetDieId();
+    sqe->dieId1 = jettyLiteId.get_die_id();
 }
 
-void BuildA5PodSqeRdmaDbSend(u32 streamId, u32 taskId, u64 dbAddr, u64 dbValue, uint8_t *sqeIn);
+void build_a5_pod_sqe_rdma_db_send(u32 streamId, u32 taskId, u64 dbAddr, u64 dbValue, uint8_t *sqeIn);
 
-} // namespace Hccl
+} // namespace Asc
 
 #endif // HCOMM_POD_SQE_BUILD_A5_H

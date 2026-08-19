@@ -13,7 +13,7 @@
 
 #include "hccl/base.h"
 
-namespace Hccl {
+namespace Asc {
 
 class PodDataType {
 public:
@@ -80,6 +80,6 @@ struct PodConnLiteOperationOut {
     u16 pi{0};
 };
 
-} // namespace Hccl
+} // namespace Asc
 
 #endif // HCOMM_POD_BACKEND_TYPES_H

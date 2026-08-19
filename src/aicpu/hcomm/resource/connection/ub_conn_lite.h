@@ -17,7 +17,7 @@
 #include "../buffer/rmt_rma_buf_slice_lite.h"
 #include "udma_data_struct.h"
 
-namespace Hccl {
+namespace Asc {
 
 enum class SlicePosition { ONLY = 0, FIRST = 1, MIDDLE = 2, LAST = 3 };
 struct PodUbConnLiteParam {
@@ -38,33 +38,33 @@ struct PodUbConnLiteParam {
 
 class PodUbConnLite {
 public:
-    void ImportPodContext(const PodUbConnLiteParam &liteParam);
+    void import_pod_context(const PodUbConnLiteParam &liteParam);
 
-    void ImportQueueState(u16 queuePi, u32 queuePiDetourCount);
-    void ExportQueueState(u16 &queuePi, u32 &queuePiDetourCount) const;
+    void import_queue_state(u16 queuePi, u32 queuePiDetourCount);
+    void export_queue_state(u16 &queuePi, u32 &queuePiDetourCount) const;
 
-    void ReadPod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
+    void read_pod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
                  PodConnLiteOperationOut &out);
-    void ReadReducePod(PodReduceIn reduceIn, const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
+    void read_reduce_pod(PodReduceIn reduceIn, const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
                        const PodSqeConfigLite &cfg, PodConnLiteOperationOut &out);
-    void WritePod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
+    void write_pod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
                   PodConnLiteOperationOut &out);
-    void InlineWritePod(const u8 *data, u16 size, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
+    void inline_write_pod(const u8 *data, u16 size, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
                         PodConnLiteOperationOut &out);
-    void WriteReducePod(PodDataType dataType, PodReduceOp reduceOp, const PodRmaBufSliceLite &loc,
+    void write_reduce_pod(PodDataType dataType, PodReduceOp reduceOp, const PodRmaBufSliceLite &loc,
                         const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg, PodConnLiteOperationOut &out);
-    void WriteWithNotifyPod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
+    void write_with_notify_pod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
                             const PodSqeConfigLite &cfg, PodConnLiteOperationOut &out,
                             const PodRmtRmaBufSliceLite &notify, u64 notifyData);
-    void WriteReduceWithNotifyPod(PodDataType dataType, PodReduceOp reduceOp, const PodRmaBufSliceLite &loc,
+    void write_reduce_with_notify_pod(PodDataType dataType, PodReduceOp reduceOp, const PodRmaBufSliceLite &loc,
                                   const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
                                   PodConnLiteOperationOut &out, const PodRmtRmaBufSliceLite &notify, u64 notifyData);
 
-    void FillCommSqe(PodUdmaSqeCommon *sqe, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg, u32 opCode,
+    void fill_comm_sqe(PodUdmaSqeCommon *sqe, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg, u32 opCode,
                      SlicePosition slicePos = SlicePosition::ONLY);
 
-    void FillNotifySqe(struct PodUdmaSqeNotify *sqe, const PodRmtRmaBufSliceLite &notify, u64 notifyData) const;
-    void FillLocalSgeSqe(PodUdmaNormalSge *sqe, const PodRmaBufSliceLite &loc) const;
+    void fill_notify_sqe(struct PodUdmaSqeNotify *sqe, const PodRmtRmaBufSliceLite &notify, u64 notifyData) const;
+    void fill_local_sge_sqe(PodUdmaNormalSge *sqe, const PodRmaBufSliceLite &loc) const;
 
 private:
     u16  pi{0};
@@ -79,23 +79,23 @@ private:
     bool dwqeCacheLocked_{false};
     u32  tpn_{0};
     u8   rmtEid_[16]{};
-    void ProcessSlices(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, u32 maxSliceSize,
+    void process_slices(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, u32 maxSliceSize,
         std::function<void(const PodRmaBufSliceLite &, const PodRmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
         PodDataType dataType = PodDataType::INVALID) const;
-    void ProcessSlicesWithNotify(
+    void process_slices_with_notify(
         const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, u32 maxSliceSize,
         std::function<void(const PodRmaBufSliceLite &, const PodRmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
         std::function<void(const PodRmaBufSliceLite &, const PodRmtRmaBufSliceLite &, SlicePosition)> processOneSliceWithNotify,
         PodDataType                                                                 dataType = PodDataType::INVALID) const;
-    void ProcessOneWqe(PodUdmaSqeWrite *sqe, PodUdmaSqOpcode opCode);
-    void ProcessOneWqeWithNotify(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
+    void process_one_wqe(PodUdmaSqeWrite *sqe, PodUdmaSqOpcode opCode);
+    void process_one_wqe_with_notify(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
                                  PodUdmaSqeWriteWithNotify *sqe, const PodRmtRmaBufSliceLite &notify, u64 notifyData,
                                  u32 opCode, SlicePosition slicePos);
-    void FillCommSqeReduceInfo(PodUdmaSqeCommon &sqeComm, PodReduceOp reduceOp, PodDataType dataType, u32 udfType = 0) const;
-    void FillOneSqeWrite(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
+    void fill_comm_sqe_reduce_info(PodUdmaSqeCommon &sqeComm, PodReduceOp reduceOp, PodDataType dataType, u32 udfType = 0) const;
+    void fill_one_sqe_write(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
                          PodUdmaSqeWrite *sqe, PodUdmaSqOpcode opCode, SlicePosition slicePos);
-    void MemorySetAndCopy(u8 *va, u32 sqeSize, void *sqe);
+    void memory_set_and_copy(u8 *va, u32 sqeSize, void *sqe);
 };
-} // namespace Hccl
+} // namespace Asc
 
 #endif // HCOMM_POD_UB_CONN_LITE_H

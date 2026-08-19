@@ -13,7 +13,7 @@
 
 #include "hccl/base.h"
 
-namespace Hccl {
+namespace Asc {
 
 constexpr u32 AC_SQE_SIZE                          = 64U;
 constexpr u8  RT_STARS_DEFAULT_KERNEL_CREDIT       = 254U;
@@ -52,5 +52,5 @@ enum class RtStarsMemcpyAsyncOperationKind {
     RT_STARS_MEMCPY_ASYNC_OP_KIND_MIN   = 0x03,
     RT_STARS_MEMCPY_ASYNC_OP_KIND_EQUAL = 0x04
 };
-} // namespace Hccl
+} // namespace Asc
 #endif

@@ -15,7 +15,7 @@
 #include <string>
 #include "hccl/hccl_types.h"
 
-namespace Hccl {
+namespace Asc {
 
 class HcclException : public std::exception {
 public:
@@ -23,13 +23,13 @@ public:
         : errorCode_(errorCode), errorMessage_(std::string(prefix) + message) {}
 
     const char *what() const noexcept override { return errorMessage_.c_str(); }
-    HcclResult GetErrorCode() const { return errorCode_; }
+    HcclResult get_error_code() const { return errorCode_; }
 
 private:
     HcclResult errorCode_;
     std::string errorMessage_;
 };
 
-} // namespace Hccl
+} // namespace Asc
 
 #endif // HCOMM_POD_HCCL_EXCEPTION_H

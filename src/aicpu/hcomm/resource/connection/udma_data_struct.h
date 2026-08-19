@@ -12,7 +12,7 @@
 
 #include "hccl/base.h"
 
-namespace Hccl {
+namespace Asc {
 
 #define UDMA_SQE_RMT_EID_SIZE 4
 

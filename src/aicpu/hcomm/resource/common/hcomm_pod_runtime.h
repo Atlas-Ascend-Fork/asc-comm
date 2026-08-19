@@ -17,23 +17,23 @@
 #include "hccl/hccl_types.h"
 #include "../connection/hcomm_pod_backend_types.h"
 
-namespace Hccl {
+namespace Asc {
 struct PodUbJettyLiteId;
 }
 
-HcclResult HcommPodRtsqLaunch(HcommRtsqContext &context);
-HcclResult HcommPodRtsqTryLaunch(HcommRtsqContext &context);
-HcclResult HcommPodRtsqNotifyWait(HcommRtsqContext &context, uint32_t notifyId, uint32_t timeout);
-HcclResult HcommPodRtsqNotifyRecord(HcommRtsqContext &context, uint32_t notifyId);
-HcclResult HcommPodRtsqSdmaCopy(
+HcclResult hcomm_pod_rtsq_launch(HcommRtsqContext &context);
+HcclResult hcomm_pod_rtsq_try_launch(HcommRtsqContext &context);
+HcclResult hcomm_pod_rtsq_notify_wait(HcommRtsqContext &context, uint32_t notifyId, uint32_t timeout);
+HcclResult hcomm_pod_rtsq_notify_record(HcommRtsqContext &context, uint32_t notifyId);
+HcclResult hcomm_pod_rtsq_sdma_copy(
     HcommRtsqContext &context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size);
-HcclResult HcommPodRtsqSdmaReduce(HcommRtsqContext &context, uint64_t dstAddr, uint64_t srcAddr,
-                                  uint32_t size, const Hccl::PodReduceIn &reduceIn);
-HcclResult HcommPodRtsqUbDbSend(
-    HcommRtsqContext &context, const Hccl::PodUbJettyLiteId &jettyId, uint16_t piValue);
-HcclResult HcommPodRtsqRdmaDbSend(HcommRtsqContext &context, uint64_t dbAddr, uint64_t dbValue);
+HcclResult hcomm_pod_rtsq_sdma_reduce(HcommRtsqContext &context, uint64_t dstAddr, uint64_t srcAddr,
+                                  uint32_t size, const Asc::PodReduceIn &reduceIn);
+HcclResult hcomm_pod_rtsq_ub_db_send(
+    HcommRtsqContext &context, const Asc::PodUbJettyLiteId &jettyId, uint16_t piValue);
+HcclResult hcomm_pod_rtsq_rdma_db_send(HcommRtsqContext &context, uint64_t dbAddr, uint64_t dbValue);
 
-HcclResult HcommPodTaskLaunch(ThreadHandle *threads, uint32_t threadNum);
-HcclResult HcommPodTryLaunch(ThreadHandle *threads, uint32_t threadNum);
+HcclResult hcomm_pod_task_launch(ThreadHandle *threads, uint32_t threadNum);
+HcclResult hcomm_pod_try_launch(ThreadHandle *threads, uint32_t threadNum);
 
 #endif // HCOMM_POD_RUNTIME_H

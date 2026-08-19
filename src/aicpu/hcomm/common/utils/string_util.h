@@ -16,16 +16,16 @@
 #include "securec.h"
 #include "log/hcomm_log.h"
 
-namespace Hccl {
+namespace Asc {
 
-template <typename... Args> inline std::string StringFormat(const char *format, Args... args)
+template <typename... Args> inline std::string string_format(const char *format, Args... args)
 {
     using namespace std;
     constexpr size_t bufSize = BUFSIZ;
     char             buffer[bufSize];
     int result = snprintf_s(&buffer[0], bufSize, bufSize, format, args...);
      if (result < 0) {
-        HCCL_ERROR("[StringFormat] data snprintf_s failed.");
+        HCCL_ERROR("[string_format] data snprintf_s failed.");
         return "";
     }
     size_t actualSize = static_cast<size_t>(result);
@@ -34,7 +34,7 @@ template <typename... Args> inline std::string StringFormat(const char *format, 
         std::vector<char> newbuffer(actualSize);
         auto ret = snprintf_s(newbuffer.data(), actualSize, actualSize, format, args...);
         if(ret != EOK){
-            HCCL_ERROR("[StringFormat] data snprintf_s failed.");
+            HCCL_ERROR("[string_format] data snprintf_s failed.");
             return "";
         }
         return newbuffer.data();
@@ -42,6 +42,6 @@ template <typename... Args> inline std::string StringFormat(const char *format, 
     return buffer;
 }
 
-} // namespace Hccl
+} // namespace Asc
 
 #endif // HCCLV2_STRING_UTIL_H

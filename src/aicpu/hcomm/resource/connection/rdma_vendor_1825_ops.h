@@ -13,7 +13,7 @@
 
 #include "rdma_vendor_base_ops.h"
 
-namespace Hccl {
+namespace Asc {
 
 // 先默认所有WQE都只占一个WQEBB
 #define WQEBB_SHIFT 6
@@ -198,7 +198,7 @@ public:
 
     ~PodRdma1825Ops() override {}
 
-    HcclResult BuildDoorbell(u64 &dbAddr, u64 &dbValue) override
+    HcclResult build_doorbell(u64 &dbAddr, u64 &dbValue) override
     {
         Roce3DbEntry dbEntry;
         dbEntry.dw0.db_value        = 0;
@@ -222,19 +222,19 @@ public:
         return HCCL_SUCCESS;
     }
 
-    HcclResult BuildCqDoorbell(u64 &dbAddr, u64 &dbValue) override
+    HcclResult build_cq_doorbell(u64 &dbAddr, u64 &dbValue) override
     {
         if (cqDbFlush_) {
             dbAddr  = cqContext_->dbSwVa;
 
-            const uint32_t dbValue32 = Htonl32(cqTail_ & ROCE_CQ_UPDATE_CI_MASK);
+            const uint32_t dbValue32 = htonl32(cqTail_ & ROCE_CQ_UPDATE_CI_MASK);
             dbValue = dbValue32;
 
             // Ring Cq Soft DB
             auto ret = memcpy_sp(reinterpret_cast<void *>(dbAddr), sizeof(uint32_t), &dbValue32, sizeof(uint32_t));
             if (UNLIKELY(ret != 0)) {
-                THROW<InternalException>(
-                    StringFormat("[PodRdma1825Ops::%s] write soft Cq DB failed, ret = %d", __func__, ret));
+                throw_exception<InternalException>(
+                    string_format("[PodRdma1825Ops::%s] write soft Cq DB failed, ret = %d", __func__, ret));
             }
             HCCL_INFO("[PodRdma1825Ops::%s] CQ DB updated, cqTail[%u], dbAddr[0x%llx], dbValue[0x%llx]",
                        __func__, cqTail_, dbAddr, dbValue);
@@ -249,56 +249,56 @@ public:
     }
 
 protected:
-    HcclResult BuildReadWqe(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg) override
+    HcclResult build_read_wqe(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg) override
     {
         Roce3WqeEntry wqe{};
         Roce3PostSendParams params{cfg, loc, rmt, static_cast<uint32_t>(ROCE3_OPCODE::ROCE_OPCODE_RDMA_READ)};
 
-        CHK_RET(FillCtrlSeg(&wqe, params));
-        CHK_RET(FillTaskSeg(&wqe, params));
-        CHK_RET(FillDataSeg(&wqe, params));
+        CHK_RET(fill_ctrl_seg(&wqe, params));
+        CHK_RET(fill_task_seg(&wqe, params));
+        CHK_RET(fill_data_seg(&wqe, params));
 
-        CHK_RET(CommitWqe(&wqe, sizeof(Roce3WqeEntry)));
+        CHK_RET(commit_wqe(&wqe, sizeof(Roce3WqeEntry)));
         HCCL_INFO("[PodRdma1825Ops::%s] WQE committed, qpn[%u], sqHead[%u], loc[0x%llx], rmt[0x%llx], size[%u]",
-                   __func__, sqContext_->qpn, sqHead_, loc.GetAddr(), rmt.GetAddr(), loc.GetSize());
+                   __func__, sqContext_->qpn, sqHead_, loc.get_addr(), rmt.get_addr(), loc.get_size());
         return HCCL_SUCCESS;
     }
 
-    HcclResult BuildWriteWqe(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg) override
+    HcclResult build_write_wqe(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg) override
     {
         Roce3WqeEntry wqe{};
         Roce3PostSendParams params{cfg, loc, rmt, static_cast<uint32_t>(ROCE3_OPCODE::ROCE_OPCODE_RDMA_WRITE)};
 
-        CHK_RET(FillCtrlSeg(&wqe, params));
-        CHK_RET(FillTaskSeg(&wqe, params));
-        CHK_RET(FillDataSeg(&wqe, params));
+        CHK_RET(fill_ctrl_seg(&wqe, params));
+        CHK_RET(fill_task_seg(&wqe, params));
+        CHK_RET(fill_data_seg(&wqe, params));
 
-        CHK_RET(CommitWqe(&wqe, sizeof(Roce3WqeEntry)));
+        CHK_RET(commit_wqe(&wqe, sizeof(Roce3WqeEntry)));
         HCCL_INFO("[PodRdma1825Ops::%s] WQE committed, qpn[%u], sqHead[%u], loc[0x%llx], rmt[0x%llx], size[%u]",
-                   __func__, sqContext_->qpn, sqHead_, loc.GetAddr(), rmt.GetAddr(), loc.GetSize());
+                   __func__, sqContext_->qpn, sqHead_, loc.get_addr(), rmt.get_addr(), loc.get_size());
         return HCCL_SUCCESS;
     }
 
-    HcclResult BuildWriteReduceWqe(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
+    HcclResult build_write_reduce_wqe(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
                                    const PodSqeConfigLite &cfg, PodDataType dataType, PodReduceOp reduceOp) override
     {
         Roce3WqeEntry wqe{};
         Roce3PostSendParams params{cfg, loc, rmt, static_cast<uint32_t>(ROCE3_OPCODE::ROCE_OPCODE_RDMA_WRITE)};
 
-        CHK_RET(FillCtrlSeg(&wqe, params));
-        CHK_RET(FillTaskSeg(&wqe, params));
-        CHK_RET(FillReduceTaskSeg(&wqe, params, dataType, reduceOp));
-        CHK_RET(FillDataSeg(&wqe, params));
+        CHK_RET(fill_ctrl_seg(&wqe, params));
+        CHK_RET(fill_task_seg(&wqe, params));
+        CHK_RET(fill_reduce_task_seg(&wqe, params, dataType, reduceOp));
+        CHK_RET(fill_data_seg(&wqe, params));
 
-        CHK_RET(CommitWqe(&wqe, sizeof(Roce3WqeEntry)));
+        CHK_RET(commit_wqe(&wqe, sizeof(Roce3WqeEntry)));
         HCCL_INFO("[PodRdma1825Ops::%s] WQE committed, qpn[%u], sqHead[%u], loc[0x%llx], rmt[0x%llx], size[%u], "
                    "dataType[%u], reduceOp[%u]",
-                   __func__, sqContext_->qpn, sqHead_, loc.GetAddr(), rmt.GetAddr(), loc.GetSize(),
+                   __func__, sqContext_->qpn, sqHead_, loc.get_addr(), rmt.get_addr(), loc.get_size(),
                    static_cast<uint32_t>(dataType), static_cast<uint32_t>(reduceOp));
         return HCCL_SUCCESS;
     }
 
-    HcclResult WriteInvalidWqebb(uint32_t nextIdx) override
+    HcclResult write_invalid_wqebb(uint32_t nextIdx) override
     {
         const uint32_t sqDepth = sqContext_->depth;
         const uint32_t sqMask = sqDepth - 1U;
@@ -309,19 +309,19 @@ protected:
 
         auto ret = memcpy_sp(dst, sizeof(ownerSl), &ownerSl, sizeof(ownerSl));
         if (UNLIKELY(ret != 0)) {
-            THROW<InternalException>(
-                StringFormat("[PodRdma1825Ops::%s] write invalid wqebb failed, ret = %d", __func__, ret));
+            throw_exception<InternalException>(
+                string_format("[PodRdma1825Ops::%s] write invalid wqebb failed, ret = %d", __func__, ret));
         }
         return HCCL_SUCCESS;
     }
 
-    int32_t PollCqImpl(int32_t numEntries, std::vector<int32_t> &errList) override
+    int32_t poll_cq_impl(int32_t numEntries, std::vector<int32_t> &errList) override
     {
         int32_t pollNum = 0;
         CqPollStatus ret = CqPollStatus::ERROR;
 
         while (pollNum < numEntries) {
-            ret = PollOne(errList);
+            ret = poll_one(errList);
             if (ret != CqPollStatus::SUCCESS) {
                 if (ret != CqPollStatus::EMPTY && ret != CqPollStatus::ERROR) {
                     HCCL_ERROR("[PodRdma1825Ops::%s][Poll cq] Poll CQ error, ret: %d", __func__,
@@ -345,7 +345,7 @@ protected:
     }
 
 private:
-    HcclResult FillCtrlSeg(Roce3WqeEntry *wqe, const Roce3PostSendParams &params) const
+    HcclResult fill_ctrl_seg(Roce3WqeEntry *wqe, const Roce3PostSendParams &params) const
     {
         // 赋值本wqe的owner
         uint8_t owner       = (sqHead_ & (sqContext_->depth)) == 0 ? 0 : 1;
@@ -356,17 +356,17 @@ private:
         wqe->ctrl.df_tsl    |= sizeof(Roce3TaskWqeSeg) / ROCE_TASK_SEG_ALIGN;
 
         // fast_dma + SSN + sge长度
-        wqe->ctrl.wf_bdsl   = Htons16(static_cast<uint16_t>(0 << ROCE_WQE_FAST_DMA_SHIFT));
-        wqe->ctrl.wf_bdsl   |= Htons16((sqHead_ & ROCE_WQE_SSN_MASK) << ROCE_WQE_SSN_SHIFT);
-        wqe->ctrl.wf_bdsl   |= Htons16(static_cast<uint16_t>(static_cast<uint32_t>(1) << (ROCE_WQE_DATA_SEG_SHIFT - WQE_SECTION_ALIGN_SHIFT)));
+        wqe->ctrl.wf_bdsl   = htons16(static_cast<uint16_t>(0 << ROCE_WQE_FAST_DMA_SHIFT));
+        wqe->ctrl.wf_bdsl   |= htons16((sqHead_ & ROCE_WQE_SSN_MASK) << ROCE_WQE_SSN_SHIFT);
+        wqe->ctrl.wf_bdsl   |= htons16(static_cast<uint16_t>(static_cast<uint32_t>(1) << (ROCE_WQE_DATA_SEG_SHIFT - WQE_SECTION_ALIGN_SHIFT)));
 
         // cl
-        wqe->ctrl.cl_pi     = Htonl32(ROCE_WQE_CMP_TASK_LEN1 << ROCE_WQE_CMP_TASK_LEN_SHIFT);
+        wqe->ctrl.cl_pi     = htonl32(ROCE_WQE_CMP_TASK_LEN1 << ROCE_WQE_CMP_TASK_LEN_SHIFT);
 
         return HCCL_SUCCESS;
     }
 
-    HcclResult FillTaskSeg(Roce3WqeEntry *wqe, const Roce3PostSendParams &params) const
+    HcclResult fill_task_seg(Roce3WqeEntry *wqe, const Roce3PostSendParams &params) const
     {
         // ----- Task Seg -----
         wqe->task.tskSeg.value      = 0;
@@ -374,19 +374,19 @@ private:
         wqe->task.tskSeg.dw0.fence  = params.cfg.fence;
         wqe->task.tskSeg.dw0.opType = params.opCode;
         wqe->task.tskSeg.dw0.se     = 0;
-        wqe->task.tskSeg.value      = Htonl32(wqe->task.tskSeg.value);
+        wqe->task.tskSeg.value      = htonl32(wqe->task.tskSeg.value);
 
-        wqe->task.dataLen   = Htonl32(params.loc.GetSize());
+        wqe->task.dataLen   = htonl32(params.loc.get_size());
         wqe->task.immData   = 0;
-        wqe->task.dw3.value = (params.opCode == static_cast<uint32_t>(ROCE3_OPCODE::ROCE_OPCODE_RDMA_READ) ? Htonl32(ROCE_WQE_TASK_SEG_LAST_EXT_LEN) : 0);
-        wqe->task.va        = Htonll64(params.rmt.GetAddr());
-        wqe->task.rkey      = Htonl32(params.rmt.GetRkey());
-        wqe->task.ulp       = Htonl32(params.loc.GetLkey() & 0xffff);
+        wqe->task.dw3.value = (params.opCode == static_cast<uint32_t>(ROCE3_OPCODE::ROCE_OPCODE_RDMA_READ) ? htonl32(ROCE_WQE_TASK_SEG_LAST_EXT_LEN) : 0);
+        wqe->task.va        = htonll64(params.rmt.get_addr());
+        wqe->task.rkey      = htonl32(params.rmt.get_rkey());
+        wqe->task.ulp       = htonl32(params.loc.get_lkey() & 0xffff);
 
         return HCCL_SUCCESS;
     }
 
-    HcclResult FillReduceTaskSeg(Roce3WqeEntry *wqe, const Roce3PostSendParams &params, PodDataType dataType, PodReduceOp reduceOp) const
+    HcclResult fill_reduce_task_seg(Roce3WqeEntry *wqe, const Roce3PostSendParams &params, PodDataType dataType, PodReduceOp reduceOp) const
     {
         // Hcomm Type -> Roce3 Type
         uint32_t dataTypeIdx = static_cast<uint32_t>(dataType);
@@ -412,31 +412,31 @@ private:
         }
 
         // Reduce data
-        uint32_t mptIndex       = params.loc.GetLkey() & 0xffff;
+        uint32_t mptIndex       = params.loc.get_lkey() & 0xffff;
         uint32_t reduceOpInfo   = ((reduceOpType << ROCE_WQE_TASK_REDUCE_OP_OFFSET) | reduceDataType);
 
         // ----- Task Reduce Seg -----
-        wqe->task.ulp = Htonl32(mptIndex | reduceOpInfo);
+        wqe->task.ulp = htonl32(mptIndex | reduceOpInfo);
 
         return HCCL_SUCCESS;
     }
 
-    HcclResult FillDataSeg(Roce3WqeEntry *wqe, const Roce3PostSendParams &params) const
+    HcclResult fill_data_seg(Roce3WqeEntry *wqe, const Roce3PostSendParams &params) const
     {
         // ----- Data Seg -----
-        wqe->data.bufAddr   = Htonll64(static_cast<uint64_t>(params.loc.GetAddr()));
-        wqe->data.leKey     = Htonl32((params.loc.GetLkey() & (~ROCE_WQE_NEXT_SGE_INVALID)) | ROCE_WQE_NEXT_SGE_INVALID);  // 当前sge就是最后一个
-        wqe->data.rLen      = Htonl32(params.loc.GetSize());
+        wqe->data.bufAddr   = htonll64(static_cast<uint64_t>(params.loc.get_addr()));
+        wqe->data.leKey     = htonl32((params.loc.get_lkey() & (~ROCE_WQE_NEXT_SGE_INVALID)) | ROCE_WQE_NEXT_SGE_INVALID);  // 当前sge就是最后一个
+        wqe->data.rLen      = htonl32(params.loc.get_size());
 
         return HCCL_SUCCESS;
     }
 
-    CqPollStatus PollOne(std::vector<int32_t> &errList)
+    CqPollStatus poll_one(std::vector<int32_t> &errList)
     {
         bool need_poll = true;
         while (need_poll) {
             Roce3CqeEntry *rcqe = nullptr;
-            rcqe = Roce3GetOneCqe(cqHead_);
+            rcqe = roce3_get_one_cqe(cqHead_);
             if (rcqe == nullptr) {
                 return CqPollStatus::EMPTY;
             }
@@ -472,7 +472,7 @@ private:
         return CqPollStatus::SUCCESS;
     }
 
-    Roce3CqeEntry* Roce3GetOneCqe(uint32_t consIndex)
+    Roce3CqeEntry* roce3_get_one_cqe(uint32_t consIndex)
     {
         uint32_t cqeSize        = 64;
         uint32_t cqDepthReal    = cqContext_->cqDepth + ROCE_CQE_MAX_GEN_NUM;   // Must be power of 2
@@ -486,7 +486,7 @@ private:
         // Memcpy Cqe
         auto ret = memcpy_sp(&cqeReadback_, sizeof(cqeReadback_), cqeAddr, sizeof(cqeReadback_));
         if (UNLIKELY(ret != 0)) {
-            THROW<InternalException>(StringFormat("[PodRdma1825Ops::%s] memcpy_sp cqe failed, ret = %d", __func__, ret));
+            throw_exception<InternalException>(string_format("[PodRdma1825Ops::%s] memcpy_sp cqe failed, ret = %d", __func__, ret));
         }
 
         // Cqe Details Parse

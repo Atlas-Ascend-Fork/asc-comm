@@ -15,29 +15,29 @@
 #include "hcomm/hcomm_pod_primitives.h"
 #include "../connection/hcomm_pod_backend_types.h"
 
-HcclResult HcommPodWrite(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult hcomm_pod_write(HcommThreadEntity &thread, HcommChannelEntity &channel,
                          uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len);
-HcclResult HcommPodWriteReduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult hcomm_pod_write_reduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-                               const Hccl::PodReduceIn &reduceIn);
-HcclResult HcommPodWriteWithNotify(HcommThreadEntity &thread, HcommChannelEntity &channel,
+                               const Asc::PodReduceIn &reduceIn);
+HcclResult hcomm_pod_write_with_notify(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                    uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
                                    uint32_t remoteNotifyIdx);
-HcclResult HcommPodWriteReduceWithNotify(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult hcomm_pod_write_reduce_with_notify(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                          uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-                                         const Hccl::PodReduceIn &reduceIn, uint32_t remoteNotifyIdx);
-HcclResult HcommPodRead(HcommThreadEntity &thread, HcommChannelEntity &channel,
+                                         const Asc::PodReduceIn &reduceIn, uint32_t remoteNotifyIdx);
+HcclResult hcomm_pod_read(HcommThreadEntity &thread, HcommChannelEntity &channel,
                         uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len);
-HcclResult HcommPodReadReduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult hcomm_pod_read_reduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
                               uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-                              const Hccl::PodReduceIn &reduceIn);
-HcclResult HcommPodBatchTransfer(HcommThreadEntity &thread, HcommChannelEntity &channel,
+                              const Asc::PodReduceIn &reduceIn);
+HcclResult hcomm_pod_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                  const HcommBatchTransferDesc *transferDescs, uint32_t transferDescNum);
-HcclResult HcommPodNotifyRecord(HcommThreadEntity &thread, HcommChannelEntity &channel,
+HcclResult hcomm_pod_notify_record(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                 uint32_t remoteNotifyIdx);
-HcclResult HcommPodNotifyWait(HcommThreadEntity &thread, const HcommChannelEntity &channel,
+HcclResult hcomm_pod_notify_wait(HcommThreadEntity &thread, const HcommChannelEntity &channel,
                               uint32_t localNotifyIdx, uint32_t timeout);
-HcclResult HcommPodFence(HcommChannelEntity &channel);
-HcclResult HcommPodDrain(HcommThreadEntity &thread, HcommChannelEntity &channel);
+HcclResult hcomm_pod_fence(HcommChannelEntity &channel);
+HcclResult hcomm_pod_drain(HcommThreadEntity &thread, HcommChannelEntity &channel);
 
 #endif // HCOMM_POD_TRANSPORT_H
