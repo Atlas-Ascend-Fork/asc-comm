@@ -326,7 +326,19 @@ int main(int argc, char* argv[])
     const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
     const uint32_t laneCount = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
     const std::string commitMode = argv[9];
-    if (nranks < 2 || !ValidApi(api) || iterations == 0U || payloadBytes == 0U ||
+
+    // 本样例是点对点性能测试，只支持 2 卡配置（Rank 0 作为发送方，Rank 1 作为接收方）
+    if (nranks != 2) {
+        std::cout << "ERROR: This performance benchmark only supports exactly 2 ranks." << std::endl;
+        std::cout
+            << "       It measures point-to-point latency and bandwidth between Rank 0 (sender) and Rank 1 (receiver)."
+            << std::endl;
+        std::cout << "       For multi-rank communication, please use examples/simt_notify_atomic instead."
+                  << std::endl;
+        return 1;
+    }
+
+    if (!ValidApi(api) || iterations == 0U || payloadBytes == 0U ||
         (laneCount != 1U && laneCount != 32U && laneCount != 1024U) ||
         (commitMode != "immediate" && commitMode != "last") || (commitMode == "immediate" && laneCount != 1U)) {
         std::cout << "Invalid argument." << std::endl;

@@ -58,6 +58,13 @@ namespace {
 
 using namespace simt_notify_atomic;
 
+// 相邻节点相关资源（用于环形拓扑）
+struct PeerRankCtx {
+    uint32_t rankId{0};
+    ChannelHandle channel{0};
+    uint32_t remoteRecvIdx{0};
+};
+
 constexpr uint32_t kBarrierWaitSeconds = 60;
 constexpr uint32_t kBarrierPollMs = 100;
 
@@ -292,12 +299,11 @@ aclError InitBuffers(void* sendBuf, void* recvBuf, uint32_t mode)
 // for the CCL buffer, so explicitly registered buffers start at index 1. The remote index is
 // looked up by tag because the remote table may hold entries this example did not register.
 HcclResult AcquirePeerChannel(
-    HcclComm comm, uint32_t rank, uint32_t peerRank, HcclMemHandle* memHandles, uint32_t memHandleNum,
-    ChannelHandle& channel, uint32_t& remoteRecvIdx)
+    HcclComm comm, uint32_t rank, PeerRankCtx& peer, HcclMemHandle* memHandles, uint32_t memHandleNum)
 {
     HcclChannelDesc channelDesc;
     HCCLCHECK(HcclChannelDescInit(&channelDesc, 1));
-    channelDesc.remoteRank = peerRank;
+    channelDesc.remoteRank = peer.rankId;
     channelDesc.channelProtocol = kTargetCommProtocol;
     channelDesc.notifyNum = 0;
     channelDesc.memHandles = memHandles;
@@ -313,9 +319,9 @@ HcclResult AcquirePeerChannel(
 
     CommLink* links = nullptr;
     uint32_t linkNum = 0;
-    HCCLCHECK(HcclRankGraphGetLinks(comm, netLayers[0], rank, peerRank, &links, &linkNum));
+    HCCLCHECK(HcclRankGraphGetLinks(comm, netLayers[0], rank, peer.rankId, &links, &linkNum));
     if (linkNum == 0 || links == nullptr) {
-        std::cout << "[rank " << rank << "] no link to peer " << peerRank << std::endl;
+        std::cout << "[rank " << rank << "] no link to peer " << peer.rankId << std::endl;
         return HCCL_E_INTERNAL;
     }
 
@@ -329,13 +335,13 @@ HcclResult AcquirePeerChannel(
         }
     }
     if (!linkFound) {
-        std::cout << "[rank " << rank << "] no UBC_CTP link to peer " << peerRank
+        std::cout << "[rank " << rank << "] no UBC_CTP link to peer " << peer.rankId
                   << ", SIMT Notify/Atomic requires the URMA path" << std::endl;
         return HCCL_E_NOT_SUPPORT;
     }
 
-    HCCLCHECK(HcclChannelAcquire(comm, COMM_ENGINE_AIV, &channelDesc, 1, &channel));
-    if (channel == 0) {
+    HCCLCHECK(HcclChannelAcquire(comm, COMM_ENGINE_AIV, &channelDesc, 1, &peer.channel));
+    if (peer.channel == 0) {
         std::cout << "[rank " << rank << "] channel acquire returned an invalid handle" << std::endl;
         return HCCL_E_INTERNAL;
     }
@@ -343,14 +349,14 @@ HcclResult AcquirePeerChannel(
     uint32_t memNum = 0;
     CommMem* remoteMems = nullptr;
     char** memTags = nullptr;
-    HCCLCHECK(HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMems, &memTags));
+    HCCLCHECK(HcclChannelGetRemoteMems(comm, peer.channel, &memNum, &remoteMems, &memTags));
     if (memNum == 0 || remoteMems == nullptr || memTags == nullptr) {
         std::cout << "[rank " << rank << "] no remote memory reported on the channel" << std::endl;
         return HCCL_E_INTERNAL;
     }
     for (uint32_t i = 0; i < memNum; ++i) {
         if (memTags[i] != nullptr && std::strcmp(memTags[i], kRecvBufTag) == 0) {
-            remoteRecvIdx = i;
+            peer.remoteRecvIdx = i;
             return HCCL_SUCCESS;
         }
     }
@@ -480,36 +486,49 @@ int main(int argc, char* argv[])
     HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kSendMemHandleIdx]));
     HCCLCHECK(HcclCommMemReg(hcclComm, kRecvBufTag, &recvMem, &memHandles[1]));
 
-    const uint32_t peerRank =
-        rank == kSenderRank ? static_cast<uint32_t>(kReceiverRank) : static_cast<uint32_t>(kSenderRank);
-    ChannelHandle channel = 0;
-    uint32_t remoteRecvIdx = 0;
-    HCCLCHECK(
-        AcquirePeerChannel(hcclComm, static_cast<uint32_t>(rank), peerRank, memHandles, 2U, channel, remoteRecvIdx));
+    // 使用环形拓扑，每个 rank 与 prev 和 next 建立通道
+    PeerRankCtx prev, next;
+    prev.rankId = (static_cast<uint32_t>(rank) - 1U + static_cast<uint32_t>(nranks)) % static_cast<uint32_t>(nranks);
+    next.rankId = (static_cast<uint32_t>(rank) + 1U) % static_cast<uint32_t>(nranks);
+
+    // rankId 分奇偶获取通道顺序不同，避免建链循环等待阻塞
+    if (rank % 2 == 0) {
+        // 偶数 rank：先建 prev 通道，再建 next 通道
+        HCCLCHECK(AcquirePeerChannel(hcclComm, static_cast<uint32_t>(rank), prev, memHandles, 2U));
+        HCCLCHECK(AcquirePeerChannel(hcclComm, static_cast<uint32_t>(rank), next, memHandles, 2U));
+    } else {
+        // 奇数 rank：先建 next 通道，再建 prev 通道
+        HCCLCHECK(AcquirePeerChannel(hcclComm, static_cast<uint32_t>(rank), next, memHandles, 2U));
+        HCCLCHECK(AcquirePeerChannel(hcclComm, static_cast<uint32_t>(rank), prev, memHandles, 2U));
+    }
 
     HCCLCHECK(HostFileBarrier(rank, nranks, "ready"));
 
-    // Only kSenderRank drives traffic. Every other rank just holds its registered buffers
-    // open so the sender's WQEs have a valid target.
-    if (rank == kSenderRank) {
-        LaunchSimtNotifyAtomic(stream, channel, kLocalSendIdx, remoteRecvIdx, mode);
-        ACLCHECK(aclrtSynchronizeStream(stream));
-    }
+    // 使用 next 通道发送数据到下一个 rank（环形拓扑）
+    // 原有逻辑是 Rank 0 发送到 Rank 1，现在改为每个 rank 都向 next 发送
+    LaunchSimtNotifyAtomic(stream, next.channel, kLocalSendIdx, next.remoteRecvIdx, mode);
+    ACLCHECK(aclrtSynchronizeStream(stream));
 
-    // Separates the sender's kernel from the receiver's read. kSenderRank only arrives here
-    // after aclrtSynchronizeStream, so kReceiverRank cannot sample its recv buffer while the
-    // WQEs are still in flight. Without this the receiver races ahead straight from the
-    // "ready" barrier and reads the memset-zeroed buffer, which looks like nothing landed.
+    // Separates the sender's kernel from the receiver's read. All ranks arrive here
+    // after aclrtSynchronizeStream, ensuring WQEs have completed before verification.
     HCCLCHECK(HostFileBarrier(rank, nranks, "sent"));
 
-    bool pass = true;
-    if (rank == kSenderRank) {
-        pass = CheckSender(sendBuf, mode);
-    } else if (rank == kReceiverRank) {
-        pass = CheckReceiver(recvBuf, mode);
+    // 在环形拓扑中，每个 rank 都作为发送方和接收方
+    // 发送方检查 sendBuf（fetch/drain 结果），接收方检查 recvBuf（target 结果）
+    bool senderPass = CheckSender(sendBuf, mode);
+    bool receiverPass = CheckReceiver(recvBuf, mode);
+    bool pass = senderPass && receiverPass;
+
+    if (!senderPass) {
+        std::cout << "FAIL (sender check) | Rank=" << rank << " | Mode=" << ModeName(mode) << std::endl;
     }
-    if (!pass && (rank == kSenderRank || rank == kReceiverRank)) {
-        std::cout << "FAIL | Rank=" << rank << " | Mode=" << ModeName(mode) << std::endl;
+    if (!receiverPass) {
+        std::cout << "FAIL (receiver check) | Rank=" << rank << " | Mode=" << ModeName(mode) << " | received from rank "
+                  << prev.rankId << std::endl;
+    }
+    if (pass) {
+        std::cout << "PASS | Rank=" << rank << " | Mode=" << ModeName(mode) << " | sent to rank " << next.rankId
+                  << ", received from rank " << prev.rankId << std::endl;
     }
 
     ACLCHECK(aclrtFree(sendBuf));

@@ -1,5 +1,23 @@
 # SIMT Notify/FAA/CAS Basic Performance Sample
 
+## ⚠️ Important: 2-Rank Only
+
+This sample is a **point-to-point performance benchmark** with a fixed Rank 0 (sender) → Rank 1 (receiver) design and **supports exactly 2 ranks only**.
+
+### Why 2 Ranks Only?
+
+1. **Performance Measurement Goal**: This sample measures point-to-point latency and bandwidth from a single sender to a single receiver, which are fundamental performance metrics.
+2. **Timing Accuracy**: Only the sender (Rank 0) performs timing, avoiding resource contention and timing errors from multiple concurrent senders.
+3. **Result Interpretability**: Performance data in a point-to-point scenario has clear physical meaning, making it easier to analyze and optimize.
+
+### For Multi-Rank Communication
+
+If you need to test multi-rank communication or ring topologies, please use:
+- **Functional Validation**: `examples/simt_notify_atomic` - Supports ring topology with any ≥2 ranks
+- **Multi-Pair Communication**: Can be extended from this sample, but requires redesigned timing and aggregation logic
+
+---
+
 This directory tests only the `Notify`, `FAA`, and `CAS` interfaces. Immediate mode supports only `--lanes 1`.
 Last mode supports `--lanes 1/32/1024`: lanes concurrently post with `commit=false`, then one lane performs the only
 `commit=true` post after synchronization.
