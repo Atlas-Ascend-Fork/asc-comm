@@ -70,6 +70,8 @@ class Hcomm;
 - 当前批量接口仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 - 普通接口和批量接口使用不同的队列状态管理方式。BatchHandle缓存创建时的SQ/CQ上下文和队列计数，使用期间必须独占对应通道，不能在同一通道上混用普通接口或并发使用多个BatchHandle。
 - 传入的`ChannelHandle`需要指向与协议匹配的通道实体。
+- 若普通接口`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续`PostSend`将因SQ溢出而失败。
+- 普通接口批量提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应产生CQE（即中间任务的`config.cqe`设为0，最后一次设为1）。
 
 ## 相关样例
 
