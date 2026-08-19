@@ -116,10 +116,13 @@ Ain Kernel侧使用时包含如下头文件：
 │   ├── simt_notify_atomic        # Hcomm SIMT URMA Notify/FAA/CAS功能样例
 │   └── simt_notify_atomic_perf   # Hcomm SIMT URMA Notify/FAA/CAS性能样例
 ├── include                       # asc-comm API声明源代码
+│   ├── aicpu/hcomm               # AICPU legacy与POD数据面公开接口
 │   ├── aicore/hcomm              # AICore侧Hcomm公开接口
 │   └── aicore/ain                # AICore侧Ain单边通信公开接口
+├── pod_only                      # 保持原调用方式的独立POD数据面工程
 ├── scripts                       # 脚本
 ├── src                           # asc-comm API实现源代码
+│   ├── aicpu                     # AICPU legacy与POD数据面实现
 │   ├── aicore/hcomm              # AICore侧Hcomm实现细节
 │   │   ├── common                # Hcomm公共定义和工具
 │   │   └── impl                  # Hcomm协议实现与平台差异代码
@@ -139,7 +142,8 @@ Ain Kernel侧使用时包含如下头文件：
 source /usr/local/Ascend/cann/set_env.sh
 ```
 
-默认构建用于检查基础环境。当前AICore Hcomm与Ain代码以头文件形式集成，非UT构建不会生成独立库：
+默认构建生成`build/aicpu-data-plane/libaicpu_data_plane.so`。该库同时包含legacy数据面、
+POD数据面原语以及legacy资源到POD资源的转换接口；原`Hcomm*OnThreadPod`调用签名保持不变：
 
 ```bash
 bash build.sh
@@ -150,6 +154,9 @@ bash build.sh
 ```bash
 bash build.sh --make_clean
 ```
+
+如需保持原独立POD库的构建和链接方式，可继续从`pod_only`构建
+`libaicpu_pod_data_plane.so`，详见[pod_only说明](./pod_only/README.md)。
 
 构建并运行Hcomm与Ain UT：
 
