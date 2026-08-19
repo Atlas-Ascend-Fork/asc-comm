@@ -49,8 +49,6 @@ struct HcommSimtUbPostMeta {
 // One read-only copy per SIMT block. Per-WQE token fields stay lane-local in
 // HcommSimtUbPostMeta because lanes may target different registered buffers.
 struct HcommSimtUbPostContext {
-    uint32_t state;
-    uint32_t reserved;
     ChannelHandle channel;
     uint64_t remoteBuffersAddr;
     uint64_t headAddr;
@@ -81,10 +79,6 @@ constexpr uint32_t HCOMM_SIMT_UB_POST_CONTEXT_BYTES = 128U;
 static_assert(
     sizeof(HcommSimtUbPostContext) <= HCOMM_SIMT_UB_POST_CONTEXT_BYTES,
     "SIMT shared post context must fit in its 128-byte workspace region");
-constexpr uint32_t HCOMM_SIMT_UB_CONTEXT_EMPTY = 0U;
-constexpr uint32_t HCOMM_SIMT_UB_CONTEXT_INITIALIZING = 1U;
-constexpr uint32_t HCOMM_SIMT_UB_CONTEXT_READY = 2U;
-
 struct HcommSimtUbResolvedPost {
     HcommSimtUbPostMeta meta;
     __gm__ uint64_t* headAddr;

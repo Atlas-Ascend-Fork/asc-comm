@@ -77,7 +77,7 @@ __simt_callee__ inline bool HcommSimtTryReservePost(
     // SIMT has no standalone Commit API, so a deferred post must leave enough SQ
     // space for the immediate 2-BB DWQE that will publish the accumulated batch.
     uint32_t requiredFreeBbCnt = bbCnt + (commit ? 0U : HCOMM_URMA_DWQE_BB_CNT);
-    return HcommSimtTryReserve(
+    return HcommSimtReserve(
         post.headAddr, post.sqTailAddr, post.meta.sqDepth, bbCnt, requiredFreeBbCnt, 1U, headVal);
 }
 
@@ -330,12 +330,11 @@ __simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::~HcommImpl() {}
 
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ uint8_t* buff, uint32_t len)
 {
-    uint32_t linearLane = threadIdx.x + blockDim.x * (threadIdx.y + blockDim.y * threadIdx.z);
-    uint64_t laneCount = static_cast<uint64_t>(blockDim.x) * blockDim.y * blockDim.z;
-    uint64_t wqeBytes = laneCount * HCOMM_URMA_DWQE_SIZE;
-    uint64_t cacheRequired = ((wqeBytes + laneCount * sizeof(HcommSimtUbRemoteCache) + HCOMM_URMA_DWQE_SIZE - 1U) &
-                              ~(static_cast<uint64_t>(HCOMM_URMA_DWQE_SIZE) - 1U)) +
-                             HCOMM_SIMT_UB_POST_CONTEXT_BYTES;
+    constexpr uint64_t wqeBytes = HCOMM_URMA_DWQE_SIZE;
+    constexpr uint64_t contextOffset =
+        (wqeBytes + sizeof(HcommSimtUbRemoteCache) + HCOMM_URMA_DWQE_SIZE - 1U) &
+        ~(static_cast<uint64_t>(HCOMM_URMA_DWQE_SIZE) - 1U);
+    constexpr uint64_t cacheRequired = contextOffset + HCOMM_SIMT_UB_POST_CONTEXT_BYTES;
 
     wqeItem_ = nullptr;
     ubPostContext_ = nullptr;
@@ -344,21 +343,12 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ u
     if (buff == nullptr || wqeBytes > len) {
         return HCOMM_FAILED;
     }
-    wqeItem_ = buff + linearLane * HCOMM_URMA_DWQE_SIZE;
+    wqeItem_ = buff;
 
     if (cacheRequired <= len) {
-        __ubuf__ uint8_t* remoteCacheBase = buff + wqeBytes;
-        ubRemoteCache_ = reinterpret_cast<__ubuf__ HcommSimtUbRemoteCache*>(remoteCacheBase) + linearLane;
+        ubRemoteCache_ = reinterpret_cast<__ubuf__ HcommSimtUbRemoteCache*>(buff + wqeBytes);
         ubRemoteCache_->valid = 0U;
-
-        uint64_t contextOffset = (wqeBytes + laneCount * sizeof(HcommSimtUbRemoteCache) + HCOMM_URMA_DWQE_SIZE - 1U) &
-                                 ~(static_cast<uint64_t>(HCOMM_URMA_DWQE_SIZE) - 1U);
         ubPostContext_ = reinterpret_cast<__ubuf__ HcommSimtUbPostContext*>(buff + contextOffset);
-        if (linearLane == 0U) {
-            ubPostContext_->channel = 0U;
-            ubPostContext_->state = HCOMM_SIMT_UB_CONTEXT_EMPTY;
-        }
-        asc_syncthreads();
     }
     return HCOMM_SUCCESS;
 }
@@ -392,24 +382,9 @@ __simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::EnsureUbPostContex
         return ubPostContext_->channel == channel;
     }
 
-    __ubuf__ uint32_t* stateAddr = &ubPostContext_->state;
-    uint32_t state = asc_atomic_cas(stateAddr, HCOMM_SIMT_UB_CONTEXT_READY, HCOMM_SIMT_UB_CONTEXT_READY);
-    if (state == HCOMM_SIMT_UB_CONTEXT_READY) {
-        ubPostContextReady_ = ubPostContext_->channel == channel;
-        return ubPostContextReady_;
-    }
-
-    uint32_t previous = asc_atomic_cas(stateAddr, HCOMM_SIMT_UB_CONTEXT_EMPTY, HCOMM_SIMT_UB_CONTEXT_INITIALIZING);
-    if (previous == HCOMM_SIMT_UB_CONTEXT_EMPTY) {
-        InitUbPostContext(channel);
-        asc_threadfence_block();
-        (void)asc_atomic_exch(stateAddr, HCOMM_SIMT_UB_CONTEXT_READY);
-        ubPostContextReady_ = true;
-        return true;
-    }
-
-    // Avoid spinning in a potentially diverged branch; this post can use the GM fallback.
-    return false;
+    InitUbPostContext(channel);
+    ubPostContextReady_ = true;
+    return true;
 }
 
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolveUbPostContext(
@@ -555,7 +530,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     if constexpr (commit) {
         HcommSimtRingDwqeFromUbStwt16(post.dwqeAddr, wqeItem_);
     }
-    asc_threadfence();
     return HCOMM_SUCCESS;
 }
 
@@ -589,7 +563,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
     if constexpr (commit) {
         HcommSimtRingDwqeFromUbStwt16(post.dwqeAddr, wqeItem_);
     }
-    asc_threadfence();
     return HCOMM_SUCCESS;
 }
 
@@ -627,7 +600,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
     if constexpr (commit) {
         HcommSimtRingDwqeFromUbStwt16(post.dwqeAddr, wqeItem_);
     }
-    asc_threadfence();
     return HCOMM_SUCCESS;
 }
 
@@ -656,7 +628,6 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
         uint32_t validOwner = (curTail / cqDepth) & 1U;
         uint32_t retry = 0U;
         while (((validOwner ^ cqeAddr->owner) == 0U) && retry < HCOMM_SIMT_MAX_CQ_RETRY) {
-            asc_threadfence();
             asc_dcci_single(cqeAddr);
             ++retry;
         }

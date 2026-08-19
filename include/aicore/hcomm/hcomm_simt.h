@@ -60,7 +60,8 @@ struct HcommUnboundGroup {
  * @note Hcomm launches communication only from group rank 0 and synchronizes the group before
  *       returning. Every member of an explicitly bound group must call each communication API.
  *       Without a bound group, only linear thread-block rank 0 launches communication and no
- *       implicit group synchronization is performed.
+ *       implicit group synchronization is performed. A channel must have only one SIMT software
+ *       producer: do not drive the same channel from multiple Hcomm groups, thread blocks, or kernels.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
  *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
  *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
@@ -88,11 +89,10 @@ public:
      * @param [in] buff: The UB buffer provided by caller.
      * @param [in] len: The buffer length in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Hcomm requires 128 bytes of WQE staging space for every lane in the block. If the workspace also
-     *       contains 32 bytes per lane and one aligned 128-byte region, Hcomm automatically enables a per-lane
-     *       remote-registration cache and one block-shared post context. The cache is optional and falls back
-     *       to global-memory lookup when absent. Every posting lane must call Init; when the full cached layout
-     *       is supplied, every lane in the block must call Init because the shared context is synchronized there.
+     * @note Hcomm requires 128 bytes of WQE staging space for its single posting rank. Supplying an additional
+     *       32-byte remote-registration cache and one aligned 128-byte post context enables cached metadata
+     *       resolution. The cache is optional and falls back to global-memory lookup when absent. Every member
+     *       of an explicitly bound group must call Init so that the group can synchronize before returning.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
@@ -185,8 +185,8 @@ public:
      * @tparam pipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Must be called by one lane after all posting lanes have completed and the batch has
-     *       been published by a single commit=true call.
+     * @note Only Hcomm group rank 0 drains the channel; all other group members synchronize
+     *       before this interface returns.
      */
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);

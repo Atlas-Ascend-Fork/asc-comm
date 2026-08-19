@@ -43,7 +43,12 @@ __simt_callee__ inline Hcomm<commProtocol, Group>::~Hcomm()
 template <CommProtocol commProtocol, typename Group>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Init(__ubuf__ uint8_t* buff, uint32_t len)
 {
-    return impl_.Init(buff, len);
+    int32_t status = HCOMM_SUCCESS;
+    if (group_.thread_rank() == 0U) {
+        status = impl_.Init(buff, len);
+    }
+    group_.sync();
+    return status;
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -128,7 +133,12 @@ template <CommProtocol commProtocol, typename Group>
 template <auto pipe>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Drain(ChannelHandle channel)
 {
-    return impl_.template Drain<pipe>(channel);
+    int32_t status = HCOMM_SUCCESS;
+    if (group_.thread_rank() == 0U) {
+        status = impl_.template Drain<pipe>(channel);
+    }
+    group_.sync();
+    return status;
 }
 
 __simt_callee__ inline __gm__ uint8_t* LocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx)

@@ -71,10 +71,12 @@ __simt_callee__ inline uint32_t HcommSimtWqeCnt(uint64_t headVal)
     return static_cast<uint32_t>((headVal >> 32U) & HCOMM_SIMT_WQE_CNT_MASK);
 }
 
-// Atomically reserves SQ space for one submission without overwriting unconsumed BBs.
+// Reserves SQ space for one submission without overwriting unconsumed BBs.
+// SIMT Hcomm has one software producer for a channel, so a normal 64-bit head
+// update is sufficient here.
 // requiredFreeBbCnt may exceed bbCnt when a deferred post must leave room for the
 // immediate DWQE that will publish it later.
-__simt_callee__ inline bool HcommSimtTryReserve(
+__simt_callee__ inline bool HcommSimtReserve(
     __gm__ uint64_t* headAddr, __gm__ uint32_t* tailAddr, uint32_t sqDepth, uint32_t bbCnt, uint32_t requiredFreeBbCnt,
     uint32_t cqeCnt, uint64_t& headVal)
 {
@@ -84,18 +86,12 @@ __simt_callee__ inline bool HcommSimtTryReserve(
 
     uint64_t delta = (static_cast<uint64_t>(cqeCnt) << 32U) | static_cast<uint64_t>(bbCnt);
     headVal = *headAddr;
-    while (true) {
-        uint32_t usedBbCnt = HcommSimtHeadIdx(headVal) - *tailAddr;
-        if (usedBbCnt > sqDepth || requiredFreeBbCnt > sqDepth - usedBbCnt) {
-            return false;
-        }
-
-        uint64_t previous = asc_atomic_cas(headAddr, headVal, headVal + delta);
-        if (previous == headVal) {
-            return true;
-        }
-        headVal = previous;
+    uint32_t usedBbCnt = HcommSimtHeadIdx(headVal) - *tailAddr;
+    if (usedBbCnt > sqDepth || requiredFreeBbCnt > sqDepth - usedBbCnt) {
+        return false;
     }
+    *headAddr = headVal + delta;
+    return true;
 }
 
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtLocalBuffers(ChannelHandle channel)
