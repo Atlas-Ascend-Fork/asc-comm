@@ -313,7 +313,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflowSq(
 {
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     uint32_t sqTail = channelEntity->sqTail;
-    constexpr uint32_t POLL_CQ_THRESHOLD = 10;
+    constexpr uint32_t POLL_CQ_THRESHOLD = 1;
     uint32_t sqDepth = sqCtx.contextInfo.ubJfs.sqDepth;
     (void)cqCtx;
     (void)cqeCnt;
