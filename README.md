@@ -157,6 +157,15 @@ bash build.sh --make_clean
 bash build.sh -t
 ```
 
+将仓库中当前Hcomm与Ain头文件制作为开发验证run包，并安装到已有CANN环境：
+
+```bash
+bash build.sh --pkg
+./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
+```
+
+制包脚本会递归收集`include/aicore/hcomm/`、`src/aicore/hcomm/`、`include/aicore/ain/`和`src/aicore/ain/`中的头文件，目录映射及Hcomm软链与asc-devkit当前出包逻辑一致。安装时会备份目标CANN中的原文件和软链状态；对于安装前不存在的新增内容，卸载时会将其删除。详细的目录映射、参数和限制见[构建与测试](./docs/zh/guide/build_and_test.md)。
+
 如需直接使用CMake构建UT，可指定CANN三方依赖目录：
 
 ```bash
@@ -183,7 +192,7 @@ cmake --build build/ut-hcomm
   | [快速开始](./docs/quick_start.md) | 环境准备、源码编译和UT验证。 |
   | [API参考](./docs/zh/api/README.md) | asc-comm当前公开接口列表。 |
   | [Hcomm使用说明](./docs/zh/guide/hcomm_usage.md) | Hcomm点对点通信接口的基本使用流程。 |
-  | [构建与测试](./docs/zh/guide/build_and_test.md) | CANN环境、构建脚本、UT构建和样例构建说明。 |
+  | [构建与测试](./docs/zh/guide/build_and_test.md) | CANN环境、开发验证run包、UT构建和样例构建说明。 |
   | [三方依赖与兼容性](./docs/zh/guide/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
   | [样例目录](./examples/README.md) | asc-comm API样例入口。 |
 

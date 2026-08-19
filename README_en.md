@@ -138,6 +138,15 @@ Build and execute Hcomm and Ain unit tests:
 bash build.sh -t
 ```
 
+Build the current Hcomm and Ain headers into a development run package and install it into an existing CANN environment:
+
+```bash
+bash build.sh --pkg
+./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
+```
+
+The packaging script recursively collects headers under `include/aicore/hcomm/`, `src/aicore/hcomm/`, `include/aicore/ain/`, and `src/aicore/ain/`. Its directory mapping and Hcomm symbolic links match the current asc-devkit packaging logic. Installation backs up existing target files and link state, while content that did not exist before installation is removed during uninstallation. See [Build & Test](./docs/en/guide/build_and_test.md) for directory mappings, options, and limitations.
+
 To build UTs directly via CMake, specify the CANN third-party library path:
 ```bash
 cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<third_party_path>
@@ -161,7 +170,7 @@ See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/en/guide/b
   | [Quick Start](./docs/quick_start_en.md) | Environment setup, source compilation and UT verification. |
   | [API Reference](./docs/en/api/README.md) | List of published asc-comm interfaces. |
   | [Hcomm Usage Guide](./docs/en/guide/hcomm_usage.md) | Basic workflow for Hcomm point-to-point communication interfaces. |
-  | [Build & Test](./docs/en/guide/build_and_test.md) | CANN environment, build scripts, UT and sample build instructions. |
+  | [Build & Test](./docs/en/guide/build_and_test.md) | CANN environment, development run package, UT and sample build instructions. |
   | [Third-party Dependencies & Compatibility](./docs/en/guide/dependencies.md) | Direct dependencies, sample runtime dependencies, installation configuration and integration boundaries. |
   | [Samples Directory](./examples/README_en.md) | Entry point for asc-comm API samples. |
 
