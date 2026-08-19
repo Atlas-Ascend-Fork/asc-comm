@@ -56,3 +56,4 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - 传入的`ChannelHandle`需要对应`COMM_PROTOCOL_UBC_CTP`通道。
 - `COMM_PROTOCOL_ROCE`路径不支持该接口，调用会返回`-1`。
 - 单个`WriteWithNotifyNbi`任务在URMA SQ中占用2个WQE block。
+- 若`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续`PostSend`将因SQ溢出而失败。

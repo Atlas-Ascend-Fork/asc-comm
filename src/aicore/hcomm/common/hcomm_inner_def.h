@@ -238,7 +238,7 @@ typedef struct {
     CqContext* cqContextAddr;
     uint32_t sqHead; // SQ producer index in WQE BBs
     uint32_t sqTail; // Submitted WQE count, reserved for future use
-    uint32_t cqHead; // Number of expected CQEs
+    uint32_t cqHead; // Number of posted CQEs
     uint32_t cqTail; // Number of consumed CQEs
     uint8_t reserve[144];
 } ChannelEntity;

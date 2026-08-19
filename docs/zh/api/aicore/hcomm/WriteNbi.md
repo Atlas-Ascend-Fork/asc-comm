@@ -45,6 +45,7 @@ __aicore__ inline int32_t WriteNbi(
 
 - 调用前通信通道需已完成初始化。
 - `COMM_PROTOCOL_UBC_CTP`路径下，`dst`需要落在通道注册的远端buffer范围内，`src`为本端源地址。
+- 若`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续`PostSend`将因SQ溢出而失败。
 
 ## 相关样例
 
