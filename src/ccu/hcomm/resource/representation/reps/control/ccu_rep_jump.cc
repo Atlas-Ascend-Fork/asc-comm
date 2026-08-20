@@ -13,367 +13,367 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
 // jump基类
-CcuRepJumpBase::CcuRepJumpBase(CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId)
-    : insGeneratorPtr_(insGenPtr), label(label), targetInstrId(targetInstrId)
+ccu_rep_jump_base::ccu_rep_jump_base(ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id)
+    : ins_generator_ptr_(ins_gen_ptr), label_(label), target_instr_id_(target_instr_id)
 {}
 
-CcuRepJumpBase::CcuRepJumpBase(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-    const Variable& expectedVar, const Variable& condition)
-    : insGeneratorPtr_(insGenPtr),
-      label(label),
-      targetInstrId(targetInstrId),
-      expectedVar(expectedVar),
-      condition(condition)
+ccu_rep_jump_base::ccu_rep_jump_base(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+    const variable& expected_var, const variable& condition)
+    : ins_generator_ptr_(ins_gen_ptr),
+      label_(label),
+      target_instr_id_(target_instr_id),
+      expected_var_(expected_var),
+      condition_(condition)
 {}
 
-void CcuRepJumpBase::Reference(std::shared_ptr<CcuRepJumpLabel> refRep) { jumpLabel = refRep; }
+void ccu_rep_jump_base::reference(std::shared_ptr<ccu_rep_jump_label> ref_rep) { jump_label_ = ref_rep; }
 
-void CcuRepJumpBase::ValidateInsGeneratorForJump()
+void ccu_rep_jump_base::validate_ins_generator_for_jump()
 {
-    CcuInsGeneraterV1* tmpPtrV1 = dynamic_cast<CcuInsGeneraterV1*>(insGeneratorPtr_);
-    if (tmpPtrV1 && !supportCcuV1) {
+    ccu_ins_generater_v1* tmp_ptr_v1 = dynamic_cast<ccu_ins_generater_v1*>(ins_generator_ptr_);
+    if (tmp_ptr_v1 && !support_ccu_v1_) {
         // 当右值只传入var没有立即数时，无法在A5上翻译
-        asccomm::ThrowCcuInternal(
-            "Cannot translate %s for A5 when supportCcuV1 is false!", this->Describe().c_str());
+        asc::throw_ccu_internal(
+            "Cannot translate %s for A5 when supportCcuV1 is false!", this->describe().c_str());
     }
 }
 
-CcuResult CcuRepJumpBase::InitInstr(CcuInstr*& instr, uint16_t& instrId)
+CcuResult ccu_rep_jump_base::init_instr(ccu_instr*& instr, uint16_t& instr_id)
 {
     CCU_CHK_PTR_NULL(instr);
-    if (this->instr == nullptr) {
-        this->instrId = instrId;
-        this->instr = instr;
-        instr += instrCount;
-        instrId += instrCount;
+    if (this->instr_ == nullptr) {
+        this->instr_id_ = instr_id;
+        this->instr_ = instr;
+        instr += instr_count_;
+        instr_id += instr_count_;
     }
     return CcuResult::CCU_SUCCESS;
 }
 
 // direct jump
-CcuRepJump::CcuRepJump(CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId)
+ccu_rep_jump::ccu_rep_jump(ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id)
 {
-    type = CcuRepType::JUMP;
-    instrCount = insGeneratorPtr_->GetInstrCount(type);
+    type_ = ccu_rep_type::jump;
+    instr_count_ = ins_generator_ptr_->get_instr_count(type_);
 }
 
-bool CcuRepJump::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_jump::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-        asccomm::ThrowCcuInternal("instr is empty!");
+    if (init_instr(instr, instr_id) != CcuResult::CCU_SUCCESS) {
+        asc::throw_ccu_internal("instr is empty!");
     }
 
-    if (jumpLabel->Translated()) {
+    if (jump_label_->translated()) {
         CHK_PRT_THROW(
-            insGeneratorPtr_->CcuRepJumpTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-            HCCL_ERROR("[CcuRepJump][Translate] failed to translate for instrId[%u]", instrId),
+            ins_generator_ptr_->ccu_rep_jump_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJump][translate] failed to translate for instrId[%u]", instr_id),
             CcuResult::CCU_E_INTERNAL, "CcuRepJump translate failed");
-        translated = true;
+        translated_ = true;
     }
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepJump::Describe() { return asccomm::FormatCcuMessage("Jump To Label[%s]", label.c_str()); }
+std::string ccu_rep_jump::describe() { return asc::format_ccu_message("Jump To Label[%s]", label_.c_str()); }
 
 // jumpNE
-CcuRepJumpNE::CcuRepJumpNE(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-    const Variable& expectedVar, const Variable& condition, uint64_t expected)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_ne::ccu_rep_jump_ne(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+    const variable& expected_var, const variable& condition, uint64_t expected)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    this->expected = expected;
-    type = CcuRepType::JUMP_NE;
-    instrCount = insGeneratorPtr_->GetInstrCount(type);
-    comp2Immed = true; // A6翻译时插入一条加载立即数指令，A5无关
-    supportCcuV1 = true;
+    this->expected_ = expected;
+    type_ = ccu_rep_type::jump_ne;
+    instr_count_ = ins_generator_ptr_->get_instr_count(type_);
+    comp2_immed_ = true; // A6翻译时插入一条加载立即数指令，A5无关
+    support_ccu_v1_ = true;
 }
 
-CcuRepJumpNE::CcuRepJumpNE(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId, const Variable& condition,
-    const Variable& expectedVar)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_ne::ccu_rep_jump_ne(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id, const variable& condition,
+    const variable& expected_var)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
     // 仅用于A6翻译
-    type = CcuRepType::JUMP_NE;
-    instrCount = 2; // 2条指令，暂直接填充指令数，insGenerator中未记录这种使用方式对应的指令数
-    comp2Immed = false;
-    supportCcuV1 = false;
+    type_ = ccu_rep_type::jump_ne;
+    instr_count_ = 2; // 2条指令，暂直接填充指令数，insGenerator中未记录这种使用方式对应的指令数
+    comp2_immed_ = false;
+    support_ccu_v1_ = false;
 }
 
-bool CcuRepJumpNE::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_jump_ne::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    ValidateInsGeneratorForJump();
+    validate_ins_generator_for_jump();
 
-    if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-        asccomm::ThrowCcuInternal("instr is empty!");
+    if (init_instr(instr, instr_id) != CcuResult::CCU_SUCCESS) {
+        asc::throw_ccu_internal("instr is empty!");
     }
 
-    if (jumpLabel->Translated()) {
+    if (jump_label_->translated()) {
         CHK_PRT_THROW(
-            insGeneratorPtr_->CcuRepJumpNETranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-            HCCL_ERROR("[CcuRepJumpNE][Translate] failed to translate for instrId[%u]", instrId),
+            ins_generator_ptr_->ccu_rep_jump_ne_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpNE][translate] failed to translate for instrId[%u]", instr_id),
             CcuResult::CCU_E_INTERNAL, "CcuRepJumpNE translate failed");
-        translated = true;
+        translated_ = true;
     }
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepJumpNE::Describe()
+std::string ccu_rep_jump_ne::describe()
 {
-    return asccomm::FormatCcuMessage(
-        "Jump To Label[%s], When Condition[%u] Not equal to Expected[%lu]", label.c_str(), condition.Id(), expected);
+    return asc::format_ccu_message(
+        "Jump To Label[%s], When Condition[%u] Not equal to Expected[%lu]", label_.c_str(), condition_.id(), expected_);
 }
 
 // jumpEQ
-CcuRepJumpEQ::CcuRepJumpEQ(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-    const Variable& expectedVar, const Variable& condition, uint64_t expected)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_eq::ccu_rep_jump_eq(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+    const variable& expected_var, const variable& condition, uint64_t expected)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    this->expected = expected;
-    type = CcuRepType::JUMP_EQ;
-    instrCount = insGeneratorPtr_->GetInstrCount(type);
-    comp2Immed = true; // A6翻译时插入一条加载立即数指令，A5无关
-    supportCcuV1 = true;
+    this->expected_ = expected;
+    type_ = ccu_rep_type::jump_eq;
+    instr_count_ = ins_generator_ptr_->get_instr_count(type_);
+    comp2_immed_ = true; // A6翻译时插入一条加载立即数指令，A5无关
+    support_ccu_v1_ = true;
 }
 
-CcuRepJumpEQ::CcuRepJumpEQ(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId, const Variable& condition,
-    const Variable& expectedVar)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_eq::ccu_rep_jump_eq(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id, const variable& condition,
+    const variable& expected_var)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    type = CcuRepType::JUMP_EQ;
-    instrCount = 2; // 2条指令，暂直接填充指令数，insGenerator中未记录这种使用方式对应的指令数
-    comp2Immed = false;
-    supportCcuV1 = false;
+    type_ = ccu_rep_type::jump_eq;
+    instr_count_ = 2; // 2条指令，暂直接填充指令数，insGenerator中未记录这种使用方式对应的指令数
+    comp2_immed_ = false;
+    support_ccu_v1_ = false;
 }
 
-bool CcuRepJumpEQ::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_jump_eq::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    ValidateInsGeneratorForJump();
-    if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-        asccomm::ThrowCcuInternal("instr is empty!");
+    validate_ins_generator_for_jump();
+    if (init_instr(instr, instr_id) != CcuResult::CCU_SUCCESS) {
+        asc::throw_ccu_internal("instr is empty!");
     }
 
-    if (jumpLabel->Translated()) {
+    if (jump_label_->translated()) {
         CHK_PRT_THROW(
-            insGeneratorPtr_->CcuRepJumpEQTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-            HCCL_ERROR("[CcuRepJumpEQ][Translate] failed to translate for instrId[%u]", instrId),
+            ins_generator_ptr_->ccu_rep_jump_eq_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpEQ][translate] failed to translate for instrId[%u]", instr_id),
             CcuResult::CCU_E_INTERNAL, "CcuRepJumpEQ translate failed");
-        translated = true;
+        translated_ = true;
     }
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepJumpEQ::Describe()
+std::string ccu_rep_jump_eq::describe()
 {
-    return asccomm::FormatCcuMessage(
-        "Jump To Label[%s], When Condition[%u] Be equal to Expected[%lu]", label.c_str(), condition.Id(), expected);
+    return asc::format_ccu_message(
+        "Jump To Label[%s], When Condition[%u] Be equal to Expected[%lu]", label_.c_str(), condition_.id(), expected_);
 }
 
 // jumpLE
-CcuRepJumpLE::CcuRepJumpLE(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId, const Variable& condition,
-    const Variable& expectedVar)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_le::ccu_rep_jump_le(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id, const variable& condition,
+    const variable& expected_var)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    type = CcuRepType::JUMP_LE;
-    instrCount = 2; // 2条指令
-    comp2Immed = false;
-    supportCcuV1 = false;
+    type_ = ccu_rep_type::jump_le;
+    instr_count_ = 2; // 2条指令
+    comp2_immed_ = false;
+    support_ccu_v1_ = false;
 }
 
-CcuRepJumpLE::CcuRepJumpLE(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-    const Variable& expectedVar, const Variable& condition, uint64_t expected)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_le::ccu_rep_jump_le(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+    const variable& expected_var, const variable& condition, uint64_t expected)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    this->expected = expected;
-    type = CcuRepType::JUMP_LE;
-    instrCount = 3; // 3条指令
-    comp2Immed = true;
-    supportCcuV1 = false;
+    this->expected_ = expected;
+    type_ = ccu_rep_type::jump_le;
+    instr_count_ = 3; // 3条指令
+    comp2_immed_ = true;
+    support_ccu_v1_ = false;
 }
 
-bool CcuRepJumpLE::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_jump_le::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    ValidateInsGeneratorForJump();
+    validate_ins_generator_for_jump();
 
-    if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-        asccomm::ThrowCcuInternal("instr is empty!");
+    if (init_instr(instr, instr_id) != CcuResult::CCU_SUCCESS) {
+        asc::throw_ccu_internal("instr is empty!");
     }
 
-    if (jumpLabel->Translated()) {
+    if (jump_label_->translated()) {
         CHK_PRT_THROW(
-            insGeneratorPtr_->CcuRepJumpLETranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-            HCCL_ERROR("[CcuRepJumpLE][Translate] failed to translate for instrId[%u]", instrId),
+            ins_generator_ptr_->ccu_rep_jump_le_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpLE][translate] failed to translate for instrId[%u]", instr_id),
             CcuResult::CCU_E_INTERNAL, "CcuRepJumpLE translate failed");
-        translated = true;
+        translated_ = true;
     }
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepJumpLE::Describe()
+std::string ccu_rep_jump_le::describe()
 {
-    return asccomm::FormatCcuMessage(
-        "Jump To Label[%s], When Condition[%u] <= Expected[%lu]", label.c_str(), condition.Id(), expected);
+    return asc::format_ccu_message(
+        "Jump To Label[%s], When Condition[%u] <= Expected[%lu]", label_.c_str(), condition_.id(), expected_);
 }
 
 // jumpGE
-CcuRepJumpGE::CcuRepJumpGE(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId, const Variable& condition,
-    const Variable& expectedVar)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_ge::ccu_rep_jump_ge(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id, const variable& condition,
+    const variable& expected_var)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    type = CcuRepType::JUMP_GE;
-    instrCount = 2; // 2条指令
-    comp2Immed = false;
-    supportCcuV1 = false;
+    type_ = ccu_rep_type::jump_ge;
+    instr_count_ = 2; // 2条指令
+    comp2_immed_ = false;
+    support_ccu_v1_ = false;
 }
 
-CcuRepJumpGE::CcuRepJumpGE(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-    const Variable& expectedVar, const Variable& condition, uint64_t expected)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_ge::ccu_rep_jump_ge(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+    const variable& expected_var, const variable& condition, uint64_t expected)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    this->expected = expected;
-    type = CcuRepType::JUMP_GE;
-    instrCount = 3; // 3条指令
-    comp2Immed = true;
-    supportCcuV1 = false;
+    this->expected_ = expected;
+    type_ = ccu_rep_type::jump_ge;
+    instr_count_ = 3; // 3条指令
+    comp2_immed_ = true;
+    support_ccu_v1_ = false;
 }
 
-bool CcuRepJumpGE::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_jump_ge::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    ValidateInsGeneratorForJump();
+    validate_ins_generator_for_jump();
 
-    if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-        asccomm::ThrowCcuInternal("instr is empty!");
+    if (init_instr(instr, instr_id) != CcuResult::CCU_SUCCESS) {
+        asc::throw_ccu_internal("instr is empty!");
     }
 
-    if (jumpLabel->Translated()) {
+    if (jump_label_->translated()) {
         CHK_PRT_THROW(
-            insGeneratorPtr_->CcuRepJumpGETranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-            HCCL_ERROR("[CcuRepJumpGE][Translate] failed to translate for instrId[%u]", instrId),
+            ins_generator_ptr_->ccu_rep_jump_ge_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpGE][translate] failed to translate for instrId[%u]", instr_id),
             CcuResult::CCU_E_INTERNAL, "CcuRepJumpGE translate failed");
 
-        translated = true;
+        translated_ = true;
     }
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepJumpGE::Describe()
+std::string ccu_rep_jump_ge::describe()
 {
-    return asccomm::FormatCcuMessage(
-        "Jump To Label[%s], When Condition[%u] >= Expected[%lu]", label.c_str(), condition.Id(), expected);
+    return asc::format_ccu_message(
+        "Jump To Label[%s], When Condition[%u] >= Expected[%lu]", label_.c_str(), condition_.id(), expected_);
 }
 
 // jumpGT
-CcuRepJumpGT::CcuRepJumpGT(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId, const Variable& condition,
-    const Variable& expectedVar)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_gt::ccu_rep_jump_gt(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id, const variable& condition,
+    const variable& expected_var)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    type = CcuRepType::JUMP_GT;
-    instrCount = 2; // 2条指令
-    comp2Immed = false;
-    supportCcuV1 = false;
+    type_ = ccu_rep_type::jump_gt;
+    instr_count_ = 2; // 2条指令
+    comp2_immed_ = false;
+    support_ccu_v1_ = false;
 }
 
-CcuRepJumpGT::CcuRepJumpGT(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-    const Variable& expectedVar, const Variable& condition, uint64_t expected)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_gt::ccu_rep_jump_gt(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+    const variable& expected_var, const variable& condition, uint64_t expected)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    this->expected = expected;
-    type = CcuRepType::JUMP_GT;
-    instrCount = 3; // 3条指令
-    comp2Immed = true;
-    supportCcuV1 = false;
+    this->expected_ = expected;
+    type_ = ccu_rep_type::jump_gt;
+    instr_count_ = 3; // 3条指令
+    comp2_immed_ = true;
+    support_ccu_v1_ = false;
 }
 
-bool CcuRepJumpGT::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_jump_gt::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    ValidateInsGeneratorForJump();
-    if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-        asccomm::ThrowCcuInternal("instr is empty!");
+    validate_ins_generator_for_jump();
+    if (init_instr(instr, instr_id) != CcuResult::CCU_SUCCESS) {
+        asc::throw_ccu_internal("instr is empty!");
     }
-    if (jumpLabel->Translated()) {
+    if (jump_label_->translated()) {
         CHK_PRT_THROW(
-            insGeneratorPtr_->CcuRepJumpGTTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-            HCCL_ERROR("[CcuRepJumpGT][Translate] failed to translate for instrId[%u]", instrId),
+            ins_generator_ptr_->ccu_rep_jump_gt_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpGT][translate] failed to translate for instrId[%u]", instr_id),
             CcuResult::CCU_E_INTERNAL, "CcuRepJumpGT translate failed");
 
-        translated = true;
+        translated_ = true;
     }
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepJumpGT::Describe()
+std::string ccu_rep_jump_gt::describe()
 {
-    return asccomm::FormatCcuMessage(
-        "Jump To Label[%s], When Condition[%u] > Expected[%lu]", label.c_str(), condition.Id(), expected);
+    return asc::format_ccu_message(
+        "Jump To Label[%s], When Condition[%u] > Expected[%lu]", label_.c_str(), condition_.id(), expected_);
 }
 
 // jumpLT
-CcuRepJumpLT::CcuRepJumpLT(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId, const Variable& condition,
-    const Variable& expectedVar)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_lt::ccu_rep_jump_lt(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id, const variable& condition,
+    const variable& expected_var)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    type = CcuRepType::JUMP_LT;
-    instrCount = 2; // 2条指令
-    comp2Immed = false;
-    supportCcuV1 = false;
+    type_ = ccu_rep_type::jump_lt;
+    instr_count_ = 2; // 2条指令
+    comp2_immed_ = false;
+    support_ccu_v1_ = false;
 }
 
-CcuRepJumpLT::CcuRepJumpLT(
-    CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-    const Variable& expectedVar, const Variable& condition, uint64_t expected)
-    : CcuRepJumpBase(insGenPtr, label, targetInstrId, expectedVar, condition)
+ccu_rep_jump_lt::ccu_rep_jump_lt(
+    ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+    const variable& expected_var, const variable& condition, uint64_t expected)
+    : ccu_rep_jump_base(ins_gen_ptr, label, target_instr_id, expected_var, condition)
 {
-    this->expected = expected;
-    type = CcuRepType::JUMP_LT;
-    instrCount = 3; // 3条指令
-    comp2Immed = true;
-    supportCcuV1 = false;
+    this->expected_ = expected;
+    type_ = ccu_rep_type::jump_lt;
+    instr_count_ = 3; // 3条指令
+    comp2_immed_ = true;
+    support_ccu_v1_ = false;
 }
 
-bool CcuRepJumpLT::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_jump_lt::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    ValidateInsGeneratorForJump();
-    if (InitInstr(instr, instrId) != CcuResult::CCU_SUCCESS) {
-        asccomm::ThrowCcuInternal("instr is empty!");
+    validate_ins_generator_for_jump();
+    if (init_instr(instr, instr_id) != CcuResult::CCU_SUCCESS) {
+        asc::throw_ccu_internal("instr is empty!");
     }
 
-    if (jumpLabel->Translated()) {
+    if (jump_label_->translated()) {
         CHK_PRT_THROW(
-            insGeneratorPtr_->CcuRepJumpLTTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-            HCCL_ERROR("[CcuRepJumpLT][Translate] failed to translate for instrId[%u]", instrId),
+            ins_generator_ptr_->ccu_rep_jump_lt_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+            HCCL_ERROR("[CcuRepJumpLT][translate] failed to translate for instrId[%u]", instr_id),
             CcuResult::CCU_E_INTERNAL, "CcuRepJumpLT translate failed");
 
-        translated = true;
+        translated_ = true;
     }
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepJumpLT::Describe()
+std::string ccu_rep_jump_lt::describe()
 {
-    return asccomm::FormatCcuMessage(
-        "Jump To Label[%s], When Condition[%u] < Expected[%lu]", label.c_str(), condition.Id(), expected);
+    return asc::format_ccu_message(
+        "Jump To Label[%s], When Condition[%u] < Expected[%lu]", label_.c_str(), condition_.id(), expected_);
 }
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

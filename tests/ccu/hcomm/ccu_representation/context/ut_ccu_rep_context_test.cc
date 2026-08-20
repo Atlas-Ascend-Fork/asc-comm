@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
+#include "hcomm/resource/representation/context_/ccu_rep_context_v1.h"
 #include "hcomm/resource/representation/reps/arithmetic/ccu_rep_assign_v1.h"
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopgroup_bundle_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_nop_v1.h"
@@ -19,236 +19,236 @@
 #include <string>
 
 namespace hcomm {
-namespace CcuRep {
+namespace ccu_rep {
 namespace {
 
 class CcuRepContextTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    ccu_ins_generater_v1 insGen{};
     void SetUp() override {}
 };
 
 TEST_F(CcuRepContextTest, Constructor)
 {
-    CcuRepContext context;
-    EXPECT_NE(context.CurrentBlock(), nullptr);
-    EXPECT_EQ(context.CurrentBlock(), context.CurrentBlock());
+    ccu_rep_context context_;
+    EXPECT_NE(context_.current_block(), nullptr);
+    EXPECT_EQ(context_.current_block(), context_.current_block());
 }
 
 TEST_F(CcuRepContextTest, CurrentBlock_InitiallyMainBlock)
 {
-    CcuRepContext context;
-    auto block = context.CurrentBlock();
+    ccu_rep_context context_;
+    auto block = context_.current_block();
     EXPECT_NE(block, nullptr);
 }
 
-TEST_F(CcuRepContextTest, SetCurrentBlock)
+TEST_F(CcuRepContextTest, set_current_block)
 {
-    CcuRepContext context;
-    auto newBlock = std::make_shared<CcuRepBlock>(&insGen, "newBlock");
-    context.SetCurrentBlock(newBlock);
-    EXPECT_EQ(context.CurrentBlock(), newBlock);
+    ccu_rep_context context_;
+    auto newBlock = std::make_shared<ccu_rep_block>(&insGen, "newBlock");
+    context_.set_current_block(newBlock);
+    EXPECT_EQ(context_.current_block(), newBlock);
 }
 
 TEST_F(CcuRepContextTest, Append_SingleRep)
 {
-    CcuRepContext context;
-    auto nop = std::make_shared<CcuRepNop>(&insGen);
-    context.Append(nop);
-    EXPECT_EQ(context.GetRepSequence().size(), 1U);
+    ccu_rep_context context_;
+    auto nop = std::make_shared<ccu_rep_nop>(&insGen);
+    context_.append(nop);
+    EXPECT_EQ(context_.get_rep_sequence().size(), 1U);
 }
 
 TEST_F(CcuRepContextTest, Append_MultipleReps)
 {
-    CcuRepContext context;
-    auto nop1 = std::make_shared<CcuRepNop>(&insGen);
-    auto nop2 = std::make_shared<CcuRepNop>(&insGen);
-    context.Append(nop1);
-    context.Append(nop2);
-    EXPECT_EQ(context.GetRepSequence().size(), 2U);
+    ccu_rep_context context_;
+    auto nop1 = std::make_shared<ccu_rep_nop>(&insGen);
+    auto nop2 = std::make_shared<ccu_rep_nop>(&insGen);
+    context_.append(nop1);
+    context_.append(nop2);
+    EXPECT_EQ(context_.get_rep_sequence().size(), 2U);
 }
 
 TEST_F(CcuRepContextTest, GetRepSequence_InitiallyEmpty)
 {
-    CcuRepContext context;
-    EXPECT_EQ(context.GetRepSequence().size(), 0U);
+    ccu_rep_context context_;
+    EXPECT_EQ(context_.get_rep_sequence().size(), 0U);
 }
 
 TEST_F(CcuRepContextTest, GetRepByInstrId_NotFound)
 {
-    CcuRepContext context;
-    auto result = context.GetRepByInstrId(100);
+    ccu_rep_context context_;
+    auto result = context_.get_rep_by_instr_id(100);
     EXPECT_EQ(result, nullptr);
 }
 
 TEST_F(CcuRepContextTest, DumpReprestation_NoCrash)
 {
-    CcuRepContext context;
-    EXPECT_NO_FATAL_FAILURE(context.DumpReprestation());
+    ccu_rep_context context_;
+    EXPECT_NO_FATAL_FAILURE(context_.dump_represtation());
 }
 
 TEST_F(CcuRepContextTest, DumpReprestation_WithReps)
 {
-    CcuRepContext context;
-    auto nop = std::make_shared<CcuRepNop>(&insGen);
-    context.Append(nop);
-    EXPECT_NO_FATAL_FAILURE(context.DumpReprestation());
+    ccu_rep_context context_;
+    auto nop = std::make_shared<ccu_rep_nop>(&insGen);
+    context_.append(nop);
+    EXPECT_NO_FATAL_FAILURE(context_.dump_represtation());
 }
 
 TEST_F(CcuRepContextTest, SetAndGetDieId)
 {
-    CcuRepContext context;
+    ccu_rep_context context_;
     uint32_t dieId = 5;
-    context.SetDieId(dieId);
-    EXPECT_EQ(context.GetDieId(), dieId);
+    context_.set_die_id(dieId);
+    EXPECT_EQ(context_.get_die_id(), dieId);
 }
 
 TEST_F(CcuRepContextTest, SetAndGetMissionId)
 {
-    CcuRepContext context;
+    ccu_rep_context context_;
     uint32_t missionId = 10;
-    context.SetMissionId(missionId);
-    EXPECT_EQ(context.GetMissionId(), missionId);
+    context_.set_mission_id(missionId);
+    EXPECT_EQ(context_.get_mission_id(), missionId);
 }
 
 TEST_F(CcuRepContextTest, SetMissionId_OnlySetsOnce)
 {
-    CcuRepContext context;
-    context.SetMissionId(10);
-    context.SetMissionId(20);
-    EXPECT_EQ(context.GetMissionId(), 10U);
+    ccu_rep_context context_;
+    context_.set_mission_id(10);
+    context_.set_mission_id(20);
+    EXPECT_EQ(context_.get_mission_id(), 10U);
 }
 
 TEST_F(CcuRepContextTest, SetAndGetMissionKey)
 {
-    CcuRepContext context;
+    ccu_rep_context context_;
     uint32_t missionKey = 15;
-    context.SetMissionKey(missionKey);
-    EXPECT_EQ(context.GetMissionKey(), missionKey);
+    context_.set_mission_key(missionKey);
+    EXPECT_EQ(context_.get_mission_key(), missionKey);
 }
 
 TEST_F(CcuRepContextTest, GetProfilingInfo_InitiallyEmpty)
 {
-    CcuRepContext context;
-    EXPECT_EQ(context.GetProfilingInfo().size(), 0U);
+    ccu_rep_context context_;
+    EXPECT_EQ(context_.get_profiling_info().size(), 0U);
 }
 
 TEST_F(CcuRepContextTest, GetLGProfilingInfo_InitiallyEmpty)
 {
-    CcuRepContext context;
-    EXPECT_EQ(context.GetLGProfilingInfo().ccuProfilingInfos.size(), 0U);
+    ccu_rep_context context_;
+    EXPECT_EQ(context_.get_lg_profiling_info().ccu_profiling_infos.size(), 0U);
 }
 
 TEST_F(CcuRepContextTest, GetWaiteCkeProfilingReps_InitiallyEmpty)
 {
-    CcuRepContext context;
-    EXPECT_EQ(context.GetWaiteCkeProfilingReps().size(), 0U);
+    ccu_rep_context context_;
+    EXPECT_EQ(context_.get_waite_cke_profiling_reps().size(), 0U);
 }
 
 TEST_F(CcuRepContextTest, CollectProfilingReps_Assign_NotVarToVar)
 {
-    CcuRepContext context;
-    Variable varA(nullptr);
-    CcuRepAssign assign(&insGen, varA, 100);
-    assign.subType = AssignSubType::IMD_TO_VARIABLE;
-    auto assignPtr = std::make_shared<CcuRepAssign>(assign);
-    context.CollectProfilingReps(assignPtr);
-    EXPECT_EQ(context.GetLGProfilingInfo().assignProfilingReps.size(), 0U);
+    ccu_rep_context context_;
+    variable var_a_(nullptr);
+    ccu_rep_assign assign(&insGen, var_a_, 100);
+    assign.sub_type_ = assign_sub_type::imd_to_variable;
+    auto assignPtr = std::make_shared<ccu_rep_assign>(assign);
+    context_.collect_profiling_reps(assignPtr);
+    EXPECT_EQ(context_.get_lg_profiling_info().assign_profiling_reps.size(), 0U);
 }
 
 TEST_F(CcuRepContextTest, CollectProfilingReps_Assign_VarToVar)
 {
-    CcuRepContext context;
-    Variable varA(nullptr);
-    Variable varB(nullptr);
-    CcuRepAssign assign(&insGen, varB, varA);
-    assign.subType = AssignSubType::VAR_TO_VAR;
-    auto assignPtr = std::make_shared<CcuRepAssign>(assign);
-    context.CollectProfilingReps(assignPtr);
-    EXPECT_EQ(context.GetLGProfilingInfo().assignProfilingReps.size(), 1U);
+    ccu_rep_context context_;
+    variable var_a_(nullptr);
+    variable var_b_(nullptr);
+    ccu_rep_assign assign(&insGen, var_b_, var_a_);
+    assign.sub_type_ = assign_sub_type::var_to_var;
+    auto assignPtr = std::make_shared<ccu_rep_assign>(assign);
+    context_.collect_profiling_reps(assignPtr);
+    EXPECT_EQ(context_.get_lg_profiling_info().assign_profiling_reps.size(), 1U);
 }
 
 TEST_F(CcuRepContextTest, CollectProfilingReps_LoopGroup)
 {
-    CcuRepContext context;
-    CcuLoopGroupConfig grpCfg{};
-    Variable parallelParam(nullptr);
-    Variable offsetParam(nullptr);
-    auto loopGroupPtr = std::make_shared<CcuRepLoopGroupBundle>(&insGen, grpCfg, parallelParam, offsetParam);
-    context.CollectProfilingReps(loopGroupPtr);
-    EXPECT_EQ(context.allLgProfilingReps.size(), 1U);
+    ccu_rep_context context_;
+    ccu_loop_group_config grpCfg{};
+    variable parallel_param(nullptr);
+    variable offsetParam(nullptr);
+    auto loopGroupPtr = std::make_shared<ccu_rep_loop_group_bundle>(&insGen, grpCfg, parallel_param, offsetParam);
+    context_.collect_profiling_reps(loopGroupPtr);
+    EXPECT_EQ(context_.all_lg_profiling_reps.size(), 1U);
 }
 
-TEST_F(CcuRepContextTest, AddSqeProfiling)
+TEST_F(CcuRepContextTest, add_sqe_profiling)
 {
-    CcuRepContext context;
-    context.SetDieId(3);
-    context.AddSqeProfiling("context_kernel");
-    EXPECT_EQ(context.GetProfilingInfo().size(), 1U);
-    EXPECT_EQ(context.GetProfilingInfo()[0].type, static_cast<uint8_t>(CcuProfilinType::CCU_TASK_PROFILING));
-    EXPECT_EQ(context.GetProfilingInfo()[0].dieId, 0U);
-    EXPECT_EQ(context.GetProfilingInfo()[0].name, "context_kernel");
+    ccu_rep_context context_;
+    context_.set_die_id(3);
+    context_.add_sqe_profiling("context_kernel");
+    EXPECT_EQ(context_.get_profiling_info().size(), 1U);
+    EXPECT_EQ(context_.get_profiling_info()[0].type_, static_cast<uint8_t>(ccu_profilin_type::ccu_task_profiling));
+    EXPECT_EQ(context_.get_profiling_info()[0].die_id, 0U);
+    EXPECT_EQ(context_.get_profiling_info()[0].name, "context_kernel");
 }
 
 TEST_F(CcuRepContextTest, AddProfiling_Simple)
 {
-    CcuRepContext context;
+    ccu_rep_context context_;
     std::string name = "test_profiling";
-    uint32_t mask = 0xF;
-    int32_t result = context.AddProfiling(name, mask);
+    uint32_t mask_ = 0xF;
+    int32_t result = context_.add_profiling(name, mask_);
     EXPECT_EQ(result, HCCL_SUCCESS);
-    EXPECT_EQ(context.GetProfilingInfo().size(), 1U);
-    EXPECT_EQ(context.GetProfilingInfo()[0].type, static_cast<uint8_t>(CcuProfilinType::CCU_WAITCKE_PROFILING));
-    EXPECT_EQ(context.GetProfilingInfo()[0].name, name);
+    EXPECT_EQ(context_.get_profiling_info().size(), 1U);
+    EXPECT_EQ(context_.get_profiling_info()[0].type_, static_cast<uint8_t>(ccu_profilin_type::ccu_waitcke_profiling));
+    EXPECT_EQ(context_.get_profiling_info()[0].name, name);
 }
 
 TEST_F(CcuRepContextTest, Append_CollectsProfilingReps)
 {
-    CcuRepContext context;
-    Variable varA(nullptr);
-    Variable varB(nullptr);
-    CcuRepAssign assign(&insGen, varB, varA);
-    assign.subType = AssignSubType::VAR_TO_VAR;
-    auto assignPtr = std::make_shared<CcuRepAssign>(assign);
-    context.Append(assignPtr);
-    EXPECT_EQ(context.GetLGProfilingInfo().assignProfilingReps.size(), 1U);
+    ccu_rep_context context_;
+    variable var_a_(nullptr);
+    variable var_b_(nullptr);
+    ccu_rep_assign assign(&insGen, var_b_, var_a_);
+    assign.sub_type_ = assign_sub_type::var_to_var;
+    auto assignPtr = std::make_shared<ccu_rep_assign>(assign);
+    context_.append(assignPtr);
+    EXPECT_EQ(context_.get_lg_profiling_info().assign_profiling_reps.size(), 1U);
 }
 
 TEST_F(CcuRepContextTest, SetCurrentBlock_ToNullBlock)
 {
-    CcuRepContext context;
-    auto nullBlock = std::make_shared<CcuRepBlock>(&insGen);
-    context.SetCurrentBlock(nullBlock);
-    EXPECT_EQ(context.CurrentBlock(), nullBlock);
+    ccu_rep_context context_;
+    auto nullBlock = std::make_shared<ccu_rep_block>(&insGen);
+    context_.set_current_block(nullBlock);
+    EXPECT_EQ(context_.current_block(), nullBlock);
 }
 
 TEST_F(CcuRepContextTest, GetRepSequence_ReturnsMainBlockReps)
 {
-    CcuRepContext context;
-    auto nop = std::make_shared<CcuRepNop>(&insGen);
-    context.Append(nop);
-    const auto& reps = context.GetRepSequence();
+    ccu_rep_context context_;
+    auto nop = std::make_shared<ccu_rep_nop>(&insGen);
+    context_.append(nop);
+    const auto& reps = context_.get_rep_sequence();
     EXPECT_EQ(reps.size(), 1U);
 }
 
 TEST_F(CcuRepContextTest, MultipleBlocks_SetCurrentBlock)
 {
-    CcuRepContext context;
-    auto block1 = std::make_shared<CcuRepBlock>(&insGen, "block1");
-    auto block2 = std::make_shared<CcuRepBlock>(&insGen, "block2");
+    ccu_rep_context context_;
+    auto block1 = std::make_shared<ccu_rep_block>(&insGen, "block1");
+    auto block2 = std::make_shared<ccu_rep_block>(&insGen, "block2");
 
-    context.SetCurrentBlock(block1);
-    auto nop1 = std::make_shared<CcuRepNop>(&insGen);
-    context.Append(nop1);
+    context_.set_current_block(block1);
+    auto nop1 = std::make_shared<ccu_rep_nop>(&insGen);
+    context_.append(nop1);
 
-    context.SetCurrentBlock(block2);
-    auto nop2 = std::make_shared<CcuRepNop>(&insGen);
-    context.Append(nop2);
+    context_.set_current_block(block2);
+    auto nop2 = std::make_shared<ccu_rep_nop>(&insGen);
+    context_.append(nop2);
 
-    EXPECT_EQ(block1->GetReps().size(), 1U);
-    EXPECT_EQ(block2->GetReps().size(), 1U);
+    EXPECT_EQ(block1->get_reps().size(), 1U);
+    EXPECT_EQ(block2->get_reps().size(), 1U);
 }
 
 } // namespace
-} // namespace CcuRep
+} // namespace ccu_rep
 } // namespace hcomm

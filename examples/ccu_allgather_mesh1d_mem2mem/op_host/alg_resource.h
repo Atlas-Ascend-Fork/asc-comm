@@ -27,10 +27,10 @@
 
 namespace CcuAgMem2mem {
 
-using CcuKernelHandle = uint64_t;
+using ccu_kernel_handle = uint64_t;
 
 struct CommBuffer {
-    void* addr{nullptr};
+    void* addr_{nullptr};
     uint64_t size{0};
 };
 
@@ -40,7 +40,7 @@ struct AlgResourceCtx {
     std::vector<ThreadHandle> threads;
     std::vector<ChannelHandle> kernelChannels;
     std::vector<uint32_t> ccuKernelNum;
-    std::vector<CcuKernelHandle> ccuKernels;
+    std::vector<ccu_kernel_handle> ccuKernels;
 
     std::vector<char> Serialize() const;
     void Deserialize(std::vector<char>& data);

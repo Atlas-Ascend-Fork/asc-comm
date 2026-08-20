@@ -22,19 +22,19 @@
 extern "C" {
 #endif // __cplusplus
 
-extern CcuResult hcomm_ccu_kernel_register_start(
-    CcuInsHandle insHandle, HcommCcuRegisterContextHandle context);
+extern CcuResult asccomm_ccu_kernel_register_start(
+    CcuInsHandle ins_handle, HcommCcuRegisterContextHandle context_);
 
-extern CcuResult hcomm_ccu_kernel_register(
-    CcuInsHandle insHandle, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
-    uint32_t argNum, CcuKernelHandle* kernelHandle);
+extern CcuResult asccomm_ccu_kernel_register(
+    CcuInsHandle ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func, const void** kernel_args,
+    uint32_t arg_num, ccu_kernel_handle* kernel_handle);
 
-extern CcuResult hcomm_ccu_kernel_register_end(CcuInsHandle insHandle);
+extern CcuResult asccomm_ccu_kernel_register_end(CcuInsHandle ins_handle);
 
-extern CcuResult hcomm_ccu_get_task_args_num(CcuKernelHandle kernelHandle, uint32_t* taskArgsNum);
+extern CcuResult asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle, uint32_t* task_args_num);
 
-extern CcuResult hcomm_ccu_kernel_launch(
-    const HcommCcuLaunchContextPod *launchContext, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum);
+extern CcuResult asccomm_ccu_kernel_launch(
+    const HcommCcuLaunchContextPod *launch_context, ccu_kernel_handle kernel_handle, const void* task_args, uint32_t arg_num);
 
 #ifdef __cplusplus
 }

@@ -18,53 +18,53 @@ constexpr int TOKEN_XN_ID = 2;
 constexpr int CKE_IDX_0 = 0;
 constexpr int POST_SYNC_ID = 3;
 
-static constexpr uint64_t SetBits(uint16_t end) { return ((uint64_t(1) << (end + 1)) - uint64_t(1)); }
+static constexpr uint64_t set_bits(uint16_t end) { return ((uint64_t(1) << (end + 1)) - uint64_t(1)); }
 
-static uint64_t GetLoopParam(uint64_t loopCtxId, uint64_t gsaOffset, uint64_t loopIterNum)
+static uint64_t get_loop_param(uint64_t loop_ctx_id, uint64_t gsa_offset, uint64_t loop_iter_num_)
 {
-    constexpr uint16_t ctxIdBitNum = 8;
-    constexpr uint16_t ctxIdShiftBit = 45;
-    constexpr uint16_t gsaBitNum = 32;
-    constexpr uint16_t gsaShiftBit = 13;
-    constexpr uint16_t loopNumBitNum = 13;
-    return ((loopCtxId & SetBits(ctxIdBitNum)) << ctxIdShiftBit) | ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit) |
-           (loopIterNum & SetBits(loopNumBitNum));
+    constexpr uint16_t ctx_id_bit_num = 8;
+    constexpr uint16_t ctx_id_shift_bit = 45;
+    constexpr uint16_t gsa_bit_num = 32;
+    constexpr uint16_t gsa_shift_bit = 13;
+    constexpr uint16_t loop_num_bit_num = 13;
+    return ((loop_ctx_id & set_bits(ctx_id_bit_num)) << ctx_id_shift_bit) | ((gsa_offset & set_bits(gsa_bit_num)) << gsa_shift_bit) |
+           (loop_iter_num_ & set_bits(loop_num_bit_num));
 }
 
-static uint64_t GetParallelParam(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t totalLoopNum)
+static uint64_t get_parallel_param(uint64_t repeat_num, uint64_t repeat_loop_index, uint64_t total_loop_num)
 {
-    constexpr uint16_t repeatBitNum = 7;
-    constexpr uint16_t repeatNumShiftBit = 55;
-    constexpr uint16_t repeatLoopBitNum = 7;
-    constexpr uint16_t repeatLoopShiftBit = 48;
-    constexpr uint16_t totalLoopBitNum = 7;
-    constexpr uint16_t totalLoopShiftBit = 41;
-    return ((repeatNum & SetBits(repeatBitNum)) << repeatNumShiftBit) |
-           ((repeatLoopIndex & SetBits(repeatLoopBitNum)) << repeatLoopShiftBit) |
-           ((totalLoopNum & SetBits(totalLoopBitNum)) << totalLoopShiftBit);
+    constexpr uint16_t repeat_bit_num = 7;
+    constexpr uint16_t repeat_num_shift_bit = 55;
+    constexpr uint16_t repeat_loop_bit_num = 7;
+    constexpr uint16_t repeat_loop_shift_bit = 48;
+    constexpr uint16_t total_loop_bit_num = 7;
+    constexpr uint16_t total_loop_shift_bit = 41;
+    return ((repeat_num & set_bits(repeat_bit_num)) << repeat_num_shift_bit) |
+           ((repeat_loop_index & set_bits(repeat_loop_bit_num)) << repeat_loop_shift_bit) |
+           ((total_loop_num & set_bits(total_loop_bit_num)) << total_loop_shift_bit);
 }
 
-static uint64_t GetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uint64_t ckeOffset)
+static uint64_t get_offset_param(uint64_t gsa_offset, uint64_t ms_offset, uint64_t cke_offset)
 {
-    constexpr uint16_t gsaBitNum = 32;
-    constexpr uint16_t gsaShiftBit = 21;
-    constexpr uint16_t msBitNum = 11;
-    constexpr uint16_t msShiftBit = 10;
-    constexpr uint16_t ckeBitNum = 10;
-    return ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit) | ((msOffset & SetBits(msBitNum)) << msShiftBit) |
-           (ckeOffset & SetBits(ckeBitNum));
+    constexpr uint16_t gsa_bit_num = 32;
+    constexpr uint16_t gsa_shift_bit = 21;
+    constexpr uint16_t ms_bit_num = 11;
+    constexpr uint16_t ms_shift_bit = 10;
+    constexpr uint16_t cke_bit_num = 10;
+    return ((gsa_offset & set_bits(gsa_bit_num)) << gsa_shift_bit) | ((ms_offset & set_bits(ms_bit_num)) << ms_shift_bit) |
+           (cke_offset & set_bits(cke_bit_num));
 }
 
 static void InitGroupCopyResources(
-    AllGatherMesh1DMem2MemContext& ctx, ccu::LocalAddr* loopSrc, ccu::LocalAddr* loopDst, ccu::Variable* loopLen)
+    AllGatherMesh1DMem2MemContext& ctx, ccu::local_addr* loopSrc, ccu::local_addr* loopDst, ccu::variable* loopLen)
 {
     if (!ctx.resourceAllocated) {
-        ctx.moConfig.msInterleave = CCU_MS_INTERLEAVE;
-        ctx.moConfig.loopCount = CCU_MS_LOCAL_COPY_LOOP_COUNT;
-        ctx.moConfig.memSlice = CCU_LOCAL_COPY_MS_PER_LOOP * CCU_MS_SIZE;
+        ctx.moConfig.ms_interleave = ccu_ms_interleave;
+        ctx.moConfig.loop_count = CCU_MS_LOCAL_COPY_LOOP_COUNT;
+        ctx.moConfig.mem_slice = CCU_LOCAL_COPY_MS_PER_LOOP * ccu_ms_size;
 
-        ctx.moRes.completedEvent = ccu::Array<ccu::Event>(ctx.moConfig.loopCount);
-        ctx.moRes.ccuBuf = ccu::Array<ccu::CcuBuffer>(ctx.moConfig.loopCount * ctx.moConfig.msInterleave);
+        ctx.moRes.completed_event = ccu::array<ccu::event>(ctx.moConfig.loop_count);
+        ctx.moRes.ccuBuf = ccu::array<ccu::ccu_buffer>(ctx.moConfig.loop_count * ctx.moConfig.ms_interleave);
 
         ctx.resourceAllocated = true;
     }
@@ -74,89 +74,89 @@ static void InitGroupCopyResources(
         ctx.CreateLoopEntity(loopType);
         auto& entity = ctx.loopMap[loopType];
         for (uint32_t index = 0; index < 2; index++) {
-            uint32_t bufBase = index * ctx.moConfig.msInterleave;
-            ccu::Event loopEvt = ctx.moRes.completedEvent[index];
-            entity.body[index].reset(new ccu::Func([&ctx, index, bufBase, loopEvt, loopSrc, loopDst, loopLen]() {
+            uint32_t bufBase = index * ctx.moConfig.ms_interleave;
+            ccu::event loopEvt = ctx.moRes.completed_event[index];
+            entity.body[index].reset(new ccu::func([&ctx, index, bufBase, loopEvt, loopSrc, loopDst, loopLen]() {
                 ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
-                ccu::EventWait(loopEvt, 1);
+                ccu::event_wait(loopEvt, 1);
                 ccu::LocalCopy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
-                ccu::EventWait(loopEvt, 1);
+                ccu::event_wait(loopEvt, 1);
             }));
-            entity.loops[index].reset(new ccu::Loop(entity.loopParam[index], *entity.body[index]));
+            entity.loops[index].reset(new ccu::loop(entity.loop_param_[index], *entity.body[index]));
         }
     }
 }
 
 static CcuResult GroupCopy(
-    AllGatherMesh1DMem2MemContext& ctx, ccu::LocalAddr dst, ccu::LocalAddr src, GroupOpSizeVars goSize)
+    AllGatherMesh1DMem2MemContext& ctx, ccu::local_addr dst_, ccu::local_addr src_, GroupOpSizeVars goSize)
 {
-    ccu::LocalAddr loopSrc[2];
-    ccu::LocalAddr loopDst[2];
-    ccu::Variable loopLen[2];
+    ccu::local_addr loopSrc[2];
+    ccu::local_addr loopDst[2];
+    ccu::variable loopLen[2];
 
     InitGroupCopyResources(ctx, loopSrc, loopDst, loopLen);
 
     auto& loops = ctx.loopMap["localcopy"];
 
-    CCU_IF(goSize.addrOffset != 0)
+    CCU_IF(goSize.addr_offset != 0)
     {
-        ccu::Variable loopParam;
-        loopParam = GetLoopParam(0, ctx.moConfig.memSlice * ctx.moConfig.loopCount, 0);
-        loopParam += goSize.loopParam;
+        ccu::variable loop_param_;
+        loop_param_ = get_loop_param(0, ctx.moConfig.mem_slice * ctx.moConfig.loop_count, 0);
+        loop_param_ += goSize.loop_param_;
 
-        ccu::Variable sliceSize;
-        sliceSize = ctx.moConfig.memSlice;
+        ccu::variable sliceSize;
+        sliceSize = ctx.moConfig.mem_slice;
 
-        loopSrc[0].addr = src.addr;
-        loopSrc[0].token = src.token;
-        loopDst[0].addr = dst.addr;
-        loopDst[0].token = dst.token;
+        loopSrc[0].addr_ = src_.addr_;
+        loopSrc[0].token = src_.token;
+        loopDst[0].addr_ = dst_.addr_;
+        loopDst[0].token = dst_.token;
         loopLen[0] = sliceSize;
 
-        loops.loopParam[0] = loopParam;
-        ccu::Variable paraCfg;
-        paraCfg = GetParallelParam(ctx.moConfig.loopCount - 1, 0, 1);
+        loops.loop_param_[0] = loop_param_;
+        ccu::variable paraCfg;
+        paraCfg = get_parallel_param(ctx.moConfig.loop_count - 1, 0, 1);
 
-        ccu::Variable offsetCfg;
-        offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
-        std::vector<ccu::Loop> grpLoops{*loops.loops[0]};
-        ccu::LoopGroup group(paraCfg, offsetCfg, ctx.moConfig.loopCount, grpLoops);
+        ccu::variable offsetCfg;
+        offsetCfg = get_offset_param(ctx.moConfig.mem_slice, ctx.moConfig.ms_interleave, 1);
+        std::vector<ccu::loop> grpLoops{*loops.loops[0]};
+        ccu::loop_group group(paraCfg, offsetCfg, ctx.moConfig.loop_count, grpLoops);
     }
 
-    CCU_IF(goSize.parallelParam != 0)
+    CCU_IF(goSize.parallel_param != 0)
     {
-        src.addr += goSize.addrOffset;
-        dst.addr += goSize.addrOffset;
+        src_.addr_ += goSize.addr_offset;
+        dst_.addr_ += goSize.addr_offset;
 
-        loopSrc[0].addr = src.addr;
-        loopSrc[0].token = src.token;
-        loopDst[0].addr = dst.addr;
-        loopDst[0].token = dst.token;
+        loopSrc[0].addr_ = src_.addr_;
+        loopSrc[0].token = src_.token;
+        loopDst[0].addr_ = dst_.addr_;
+        loopDst[0].token = dst_.token;
         loopLen[0] = goSize.residual;
 
-        src.addr += goSize.residual;
-        dst.addr += goSize.residual;
+        src_.addr_ += goSize.residual;
+        dst_.addr_ += goSize.residual;
 
-        ccu::Variable sliceSize;
-        sliceSize = ctx.moConfig.memSlice;
+        ccu::variable sliceSize;
+        sliceSize = ctx.moConfig.mem_slice;
 
-        loopSrc[1].addr = src.addr;
-        loopSrc[1].token = src.token;
-        loopDst[1].addr = dst.addr;
-        loopDst[1].token = dst.token;
+        loopSrc[1].addr_ = src_.addr_;
+        loopSrc[1].token = src_.token;
+        loopDst[1].addr_ = dst_.addr_;
+        loopDst[1].token = dst_.token;
         loopLen[1] = sliceSize;
 
-        ccu::Variable loopCfg0;
-        loopCfg0 = GetLoopParam(0, 0, 1);
-        ccu::Variable loopCfg1;
-        loopCfg1 = GetLoopParam(0, 0, 1);
-        ccu::Variable offsetCfg;
-        offsetCfg = GetOffsetParam(ctx.moConfig.memSlice, ctx.moConfig.msInterleave, 1);
+        ccu::variable loopCfg0;
+        loopCfg0 = get_loop_param(0, 0, 1);
+        ccu::variable loopCfg1;
+        loopCfg1 = get_loop_param(0, 0, 1);
+        ccu::variable offsetCfg;
+        offsetCfg = get_offset_param(ctx.moConfig.mem_slice, ctx.moConfig.ms_interleave, 1);
 
-        loops.loopParam[0] = loopCfg0;
-        loops.loopParam[1] = loopCfg1;
-        std::vector<ccu::Loop> grpLoops{*loops.loops[0], *loops.loops[1]};
-        ccu::LoopGroup group(goSize.parallelParam, offsetCfg, ctx.moConfig.loopCount, grpLoops);
+        loops.loop_param_[0] = loopCfg0;
+        loops.loop_param_[1] = loopCfg1;
+        std::vector<ccu::loop> grpLoops{*loops.loops[0], *loops.loops[1]};
+        ccu::loop_group group(goSize.parallel_param, offsetCfg, ctx.moConfig.loop_count, grpLoops);
     }
 
     return CCU_SUCCESS;
@@ -176,8 +176,8 @@ static CcuResult InitResource(AllGatherMesh1DMem2MemContext& ctx)
     uint32_t channelIdx = 0;
     for (uint32_t peerId = 0; peerId < ctx.arg->rankSize; peerId++) {
         if (peerId != ctx.arg->rankId) {
-            ctx.output[peerId] = ccu::GetResByChannel<ccu::Variable>(ctx.arg->channels[channelIdx], OUTPUT_XN_ID);
-            ctx.token[peerId] = ccu::GetResByChannel<ccu::Variable>(ctx.arg->channels[channelIdx], TOKEN_XN_ID);
+            ctx.output[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelIdx], OUTPUT_XN_ID);
+            ctx.token[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
     }
@@ -189,54 +189,54 @@ static CcuResult InitResource(AllGatherMesh1DMem2MemContext& ctx)
 
 static void LoadArgs(AllGatherMesh1DMem2MemContext& ctx)
 {
-    ccu::LoadArg(ctx.input, TASK_INPUT_ADDR);
-    ccu::LoadArg(ctx.output[ctx.arg->rankId], TASK_OUTPUT_ADDR);
-    ccu::LoadArg(ctx.token[ctx.arg->rankId], TASK_TOKEN);
-    ccu::LoadArg(ctx.inputSliceStride, TASK_INPUT_SLICE_STRIDE);
-    ccu::LoadArg(ctx.outputSliceStride, TASK_OUTPUT_SLICE_STRIDE);
-    ccu::LoadArg(ctx.chunkSize, TASK_CHUNK_SIZE);
-    ccu::LoadArg(ctx.goSize.addrOffset, TASK_GO_ADDR_OFFSET);
-    ccu::LoadArg(ctx.goSize.loopParam, TASK_GO_LOOP_PARAM);
-    ccu::LoadArg(ctx.goSize.parallelParam, TASK_GO_PARALLEL_PARAM);
-    ccu::LoadArg(ctx.goSize.residual, TASK_GO_RESIDUAL);
+    ccu::load_arg(ctx.input, TASK_INPUT_ADDR);
+    ccu::load_arg(ctx.output[ctx.arg->rankId], TASK_OUTPUT_ADDR);
+    ccu::load_arg(ctx.token[ctx.arg->rankId], TASK_TOKEN);
+    ccu::load_arg(ctx.inputSliceStride, TASK_INPUT_SLICE_STRIDE);
+    ccu::load_arg(ctx.outputSliceStride, TASK_OUTPUT_SLICE_STRIDE);
+    ccu::load_arg(ctx.chunkSize, TASK_CHUNK_SIZE);
+    ccu::load_arg(ctx.goSize.addr_offset, TASK_GO_ADDR_OFFSET);
+    ccu::load_arg(ctx.goSize.loop_param_, TASK_GO_LOOP_PARAM);
+    ccu::load_arg(ctx.goSize.parallel_param, TASK_GO_PARALLEL_PARAM);
+    ccu::load_arg(ctx.goSize.residual, TASK_GO_RESIDUAL);
 }
 
 static void PreSync(AllGatherMesh1DMem2MemContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        ccu::WriteVariableWithNotify(
+        ccu::write_variable_with_notify(
             ctx.arg->channels[i], ctx.output[ctx.arg->rankId], OUTPUT_XN_ID, CKE_IDX_0, 1 << OUTPUT_XN_ID);
-        ccu::WriteVariableWithNotify(
+        ccu::write_variable_with_notify(
             ctx.arg->channels[i], ctx.token[ctx.arg->rankId], TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID);
     }
     uint16_t allBit = (1 << OUTPUT_XN_ID) | (1 << TOKEN_XN_ID);
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        ccu::NotifyWait(ctx.arg->channels[i], CKE_IDX_0, allBit);
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBit);
     }
 }
 
 static void PostSync(AllGatherMesh1DMem2MemContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        ccu::NotifyRecord(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
+        ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
     }
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        ccu::NotifyWait(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
+        ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID);
     }
 }
 
 static CcuResult DoAllGatherWrite(
-    AllGatherMesh1DMem2MemContext& ctx, const ccu::LocalAddr& src, const std::vector<ccu::RemoteAddr>& dst)
+    AllGatherMesh1DMem2MemContext& ctx, const ccu::local_addr& src_, const std::vector<ccu::remote_addr>& dst_)
 {
     uint32_t channelIdx = 0;
     for (uint32_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
         const uint32_t eventIdx = rankIdx / BITS_PER_EVENT;
         const uint16_t rankMask = 1U << (rankIdx % BITS_PER_EVENT);
         if (rankIdx == ctx.arg->rankId) {
-            ccu::EventRecord(ctx.events[eventIdx], rankMask);
+            ccu::event_record(ctx.events[eventIdx], rankMask);
             continue;
         }
-        ccu::Write(ctx.arg->channels[channelIdx], dst[rankIdx], src, ctx.chunkSize, ctx.events[eventIdx], rankMask);
+        ccu::Write(ctx.arg->channels[channelIdx], dst_[rankIdx], src_, ctx.chunkSize, ctx.events[eventIdx], rankMask);
         channelIdx++;
     }
     return CCU_SUCCESS;
@@ -250,52 +250,52 @@ static CcuResult DoAllGatherWait(AllGatherMesh1DMem2MemContext& ctx)
         const uint32_t bitCount = std::min<uint32_t>(remainingRanks, BITS_PER_EVENT);
         const uint16_t eventMask = bitCount == BITS_PER_EVENT ? static_cast<uint16_t>(UINT16_MAX) :
                                                                 static_cast<uint16_t>((1U << bitCount) - 1);
-        ccu::EventWait(ctx.events[eventIdx], eventMask);
+        ccu::event_wait(ctx.events[eventIdx], eventMask);
     }
     return CCU_SUCCESS;
 }
 
 static CcuResult DoAllGather(AllGatherMesh1DMem2MemContext& ctx)
 {
-    ccu::LocalAddr src;
-    src.addr = ctx.input;
+    ccu::local_addr src_;
+    src_.addr_ = ctx.input;
     for (uint32_t i = 0; i < ctx.arg->rankId; i++) {
-        src.addr += ctx.inputSliceStride;
+        src_.addr_ += ctx.inputSliceStride;
     }
-    src.token = ctx.token[ctx.arg->rankId];
+    src_.token = ctx.token[ctx.arg->rankId];
 
-    ccu::LocalAddr localDst;
-    localDst.addr = ctx.output[ctx.arg->rankId];
+    ccu::local_addr localDst;
+    localDst.addr_ = ctx.output[ctx.arg->rankId];
     for (uint32_t i = 0; i < ctx.arg->rankId; i++) {
-        localDst.addr += ctx.outputSliceStride;
+        localDst.addr_ += ctx.outputSliceStride;
     }
     localDst.token = ctx.token[ctx.arg->rankId];
 
-    std::vector<ccu::RemoteAddr> dst(ctx.arg->rankSize);
+    std::vector<ccu::remote_addr> dst_(ctx.arg->rankSize);
     for (uint32_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
         if (rankIdx == ctx.arg->rankId) {
             continue;
         }
-        dst[rankIdx].addr = ctx.output[rankIdx];
+        dst_[rankIdx].addr_ = ctx.output[rankIdx];
         for (uint32_t i = 0; i < ctx.arg->rankId; i++) {
-            dst[rankIdx].addr += ctx.outputSliceStride;
+            dst_[rankIdx].addr_ += ctx.outputSliceStride;
         }
-        dst[rankIdx].token = ctx.token[rankIdx];
+        dst_[rankIdx].token = ctx.token[rankIdx];
     }
 
     // Preserve write -> local copy -> wait ordering.
-    RETURN_IF_CCU_FAIL(DoAllGatherWrite(ctx, src, dst));
-    RETURN_IF_CCU_FAIL(GroupCopy(ctx, localDst, src, ctx.goSize));
+    RETURN_IF_CCU_FAIL(DoAllGatherWrite(ctx, src_, dst_));
+    RETURN_IF_CCU_FAIL(GroupCopy(ctx, localDst, src_, ctx.goSize));
     RETURN_IF_CCU_FAIL(DoAllGatherWait(ctx));
     return CCU_SUCCESS;
 }
 
-CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg)
+CcuResult CcuAllGatherMesh1DMem2MemKernel(ccu_kernel_arg arg)
 {
-    auto* kernelArg = static_cast<CcuKernelArgAllGatherMesh1DMem2Mem*>(arg);
+    auto* kernel_arg = static_cast<CcuKernelArgAllGatherMesh1DMem2Mem*>(arg);
 
     AllGatherMesh1DMem2MemContext ctx;
-    ctx.arg = kernelArg;
+    ctx.arg = kernel_arg;
 
     RETURN_IF_CCU_FAIL(InitResource(ctx));
     LoadArgs(ctx);

@@ -14,50 +14,50 @@
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopcall_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class LoopCall {
+class loop_call {
 public:
-    LoopCall(CcuRepContext* context, const std::string& label);
-    const std::string& GetLabel() const { return label; }
+    loop_call(ccu_rep_context* context, const std::string& label);
+    const std::string& get_label() const { return label_; }
 
-    template <typename... Arguments>
-    LoopCall& operator()(const Arguments&... args)
+    template <typename... arguments>
+    loop_call& operator()(const arguments&... args)
     {
-        SetArgHelper(args...);
-        AppendToContext();
+        set_arg_helper(args...);
+        append_to_context();
         return *this;
     }
 
-    LoopCall& operator()()
+    loop_call& operator()()
     {
-        AppendToContext();
+        append_to_context();
         return *this;
     }
 
-    void AppendToContext();
+    void append_to_context();
 
 private:
-    template <typename First>
-    void SetArgHelper(const First& first)
+    template <typename first_t>
+    void set_arg_helper(const first_t& first)
     {
-        repLoopCall->SetInArg(first);
+        rep_loop_call_->set_in_arg(first);
     }
 
-    template <typename First, typename... Rest>
-    void SetArgHelper(const First& first, const Rest&... rest)
+    template <typename first_t, typename... rest_t>
+    void set_arg_helper(const first_t& first, const rest_t&... rest)
     {
-        repLoopCall->SetInArg(first);
-        SetArgHelper(rest...);
+        rep_loop_call_->set_in_arg(first);
+        set_arg_helper(rest...);
     }
 
-    CcuRepContext* context{nullptr};
-    std::string label;
+    ccu_rep_context* context_{nullptr};
+    std::string label_;
 
-    std::shared_ptr<CcuRepLoopCall> repLoopCall{nullptr};
+    std::shared_ptr<ccu_rep_loop_call> rep_loop_call_{nullptr};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // _CCU_LOOP_CALL_H

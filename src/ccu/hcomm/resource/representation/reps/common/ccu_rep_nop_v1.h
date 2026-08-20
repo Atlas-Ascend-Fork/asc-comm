@@ -8,24 +8,24 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_NOP_H
-#define HCOMM_CCU_REPRESENTATION_NOP_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_NOP_H
+#define ASCCOMM_CCU_REPRESENTATION_NOP_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepNop : public CcuRepBase {
+class ccu_rep_nop : public ccu_rep_base {
 public:
-    explicit CcuRepNop(CcuInsGeneraterBase* insGeneratorPtr);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    explicit ccu_rep_nop(ccu_ins_generater_base* ins_generator_ptr);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 
 private:
-    CcuInsGeneraterBase* insGeneratorPtr_{nullptr};
+    ccu_ins_generater_base* ins_generator_ptr_{nullptr};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCCL_CCU_REPRESENTATION_NOP_H

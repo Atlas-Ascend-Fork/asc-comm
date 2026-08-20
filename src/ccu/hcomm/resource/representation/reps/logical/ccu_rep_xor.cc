@@ -12,57 +12,57 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepXor::CcuRepXor(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, const Variable& varB)
-    : subType(XorSubType::VAR_XOR_VAR_TO_VAR), varA(varA), varB(varB), varC(varC), insGenPtr(insGenPtr)
+ccu_rep_xor::ccu_rep_xor(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_a, const variable& var_b)
+    : sub_type_(xor_sub_type::var_xor_var_to_var), var_a_(var_a), var_b_(var_b), var_c_(var_c), ins_gen_ptr_(ins_gen_ptr)
 {
-    type = CcuRepType::XOR;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::xor_op;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-CcuRepXor::CcuRepXor(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varB)
-    : subType(XorSubType::SELF_XOR_VAR_VARIABLE), varB(varB), varC(varC), insGenPtr(insGenPtr)
+ccu_rep_xor::ccu_rep_xor(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_b)
+    : sub_type_(xor_sub_type::self_xor_var_variable), var_b_(var_b), var_c_(var_c), ins_gen_ptr_(ins_gen_ptr)
 {
-    type = CcuRepType::XOR;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::xor_op;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-bool CcuRepXor::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep)
+bool ccu_rep_xor::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, const trans_dep& dep)
 {
-    asccomm::CheckCcuNotNull(instr, "[CcuRepXor::Translate] instr is nullptr!");
-    this->instrId = curInstrId;
-    translated = true;
-    instrCount = insGenPtr->GetInstrCount(type);
+    asc::check_ccu_not_null(instr, "[CcuRepXor::translate] instr is nullptr!");
+    this->instr_id_ = cur_instr_id;
+    translated_ = true;
+    instr_count_ = ins_gen_ptr_->get_instr_count(type_);
     CHK_PRT_THROW(
-        insGenPtr->CcuRepXorTranslate(ccuKernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepXor][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        ins_gen_ptr_->ccu_rep_xor_translate(ccu_kernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepXor][translate] failed to translate for instrId[%u]", instr_id_), CcuResult::CCU_E_INTERNAL,
         "CcuRepXor translate failed");
     CHK_PRT_THROW(
-        (curInstrId > UINT16_MAX - instrCount),
+        (cur_instr_id > UINT16_MAX - instr_count_),
         HCCL_ERROR(
-            "[CcuRepXor::Translate]uint16 integer overflow occurs, curInstrId = [%hu], instrCount = [%hu]", curInstrId,
-            instrCount),
+            "[CcuRepXor::translate]uint16 integer overflow occurs, curInstrId = [%hu], instrCount = [%hu]", cur_instr_id,
+            instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
-    curInstrId += instrCount;
-    return translated;
+    cur_instr_id += instr_count_;
+    return translated_;
 }
 
-std::string CcuRepXor::Describe()
+std::string ccu_rep_xor::describe()
 {
-    switch (subType) {
-        case XorSubType::VAR_XOR_VAR_TO_VAR: {
-            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] ^ Variable[%u]", varC.Id(), varA.Id(), varB.Id());
+    switch (sub_type_) {
+        case xor_sub_type::var_xor_var_to_var: {
+            return asc::format_ccu_message("Variable[%u] = Variable[%u] ^ Variable[%u]", var_c_.id(), var_a_.id(), var_b_.id());
         }
-        case XorSubType::SELF_XOR_VAR_VARIABLE: {
-            return asccomm::FormatCcuMessage("Variable[%u] ^= Variable[%u]", varC.Id(), varB.Id());
+        case xor_sub_type::self_xor_var_variable: {
+            return asc::format_ccu_message("Variable[%u] ^= Variable[%u]", var_c_.id(), var_b_.id());
         }
         default: {
-            return asccomm::FormatCcuMessage("Invalid Xor");
+            return asc::format_ccu_message("Invalid Xor");
         }
     }
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

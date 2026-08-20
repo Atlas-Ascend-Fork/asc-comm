@@ -19,29 +19,29 @@ extern "C" {
 #endif // __cplusplus
 
 typedef struct {
-    uint32_t numBlocks;  // mission个数
+    uint32_t num_blocks;  // mission个数
     uint32_t reserved;   // 对齐预留
-    uint64_t phyDieMask; // 指定在哪个物理Die上执行
-} HcommCcuSchd;
+    uint64_t phy_die_mask; // 指定在哪个物理Die上执行
+} asccomm_ccu_schd;
 
 typedef struct {
-    HcommCcuSchd ccuSchd;
-    CcuInsHandle ccuIns;
-    const HcommCcuLaunchContextPod* launchContext;
+    asccomm_ccu_schd ccu_schd;
+    CcuInsHandle ccu_ins;
+    const HcommCcuLaunchContextPod* launch_context;
     void* attrs; // 预留参数
-    const char* kernelName;
-    HcommCcuRegisterContextHandle registerContext;
-} HcommCcuHostKernelLaunchCfg;
+    const char* kernel_name;
+    HcommCcuRegisterContextHandle register_context;
+} asccomm_ccu_host_kernel_launch_cfg;
 
 typedef struct {
-    const void** kernelArgs;
-    uint32_t kernelArgNum;
-    const void* taskArgs;
-    uint32_t taskArgNum;
-} HcommCcuHostKernelArgs;
+    const void** kernel_args;
+    uint32_t kernel_arg_num;
+    const void* task_args;
+    uint32_t task_arg_num;
+} asccomm_ccu_host_kernel_args;
 
-extern CcuResult hcomm_ccu_host_kernel_launch(
-    const void* kernelFunc, const HcommCcuHostKernelLaunchCfg* cfg, const HcommCcuHostKernelArgs* args);
+extern CcuResult asccomm_ccu_host_kernel_launch(
+    const void* kernel_func, const asccomm_ccu_host_kernel_launch_cfg* cfg, const asccomm_ccu_host_kernel_args* args_);
 
 #ifdef __cplusplus
 }

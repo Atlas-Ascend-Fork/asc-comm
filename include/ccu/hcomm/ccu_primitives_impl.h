@@ -14,7 +14,7 @@
 #ifdef __cplusplus
 #include <cstdbool>
 #else
-#error "ccu/hcomm/ccu_primitives_impl.h 仅支持 C++：数据面 primitive 声明位于 namespace asccomm"
+#error "ccu/hcomm/ccu_primitives_impl.h 仅支持 C++：数据面 primitive 声明位于 namespace asc"
 #endif // __cplusplus
 
 // 控制面/数据面 ABI 边界：数据类型（HcclResult 等）改从 hcomm 包内 hcomm_types.h 获取，
@@ -23,146 +23,146 @@
 #include "hcomm/hcomm_primitives.h"
 #include "hcomm/hcomm_types.h"
 
-// 数据面 primitive 统一为 C++ linkage：声明与实现均位于 namespace asccomm，
+// 数据面 primitive 统一为 C++ linkage：声明与实现均位于 namespace asc，
 // 与 hcomm 仓保留 C ABI 的同名接口（pkg_inc/hcomm/ccu/ccu_primitives_impl.h）符号隔离，
 // 避免两个 SO 导出相同未修饰 C 符号、链接顺序决定实现选择。
-namespace asccomm {
+namespace asc {
 
 // Alloc 相关接口
-extern CcuResult CcuVariableAlloc(CcuVariableHandle* varHandle);
-extern CcuResult CcuAddressAlloc(CcuAddressHandle* addrHandle);
-extern CcuResult CcuEventAlloc(CcuEventHandle* eventHandle);
-extern CcuResult CcuBufferAlloc(CcuBufferHandle* bufHandle);
-extern CcuResult CcuLocalAddrAlloc(
-    CcuLocalAddrHandle* localAddrHandle, CcuAddressHandle* addrHandle, CcuVariableHandle* tokenHandle);
-extern CcuResult CcuRemoteAddrAlloc(
-    CcuRemoteAddrHandle* remoteAddrHandle, CcuAddressHandle* addrHandle, CcuVariableHandle* tokenHandle);
+extern CcuResult ccu_variable_alloc(ccu_variable_handle* var_handle);
+extern CcuResult ccu_address_alloc(ccu_address_handle* addr_handle);
+extern CcuResult ccu_event_alloc(ccu_event_handle* event_handle);
+extern CcuResult ccu_buffer_alloc(ccu_buffer_handle* buf_handle);
+extern CcuResult ccu_local_addr_alloc(
+    ccu_local_addr_handle* local_addr_handle, ccu_address_handle* addr_handle, ccu_variable_handle* token_handle);
+extern CcuResult ccu_remote_addr_alloc(
+    ccu_remote_addr_handle* remote_addr_handle, ccu_address_handle* addr_handle, ccu_variable_handle* token_handle);
 
 // BlockAlloc 相关接口
-extern CcuResult CcuBlockVariableAlloc(CcuVariableHandle* varHandles, uint32_t count);
-extern CcuResult CcuBlockEventAlloc(CcuEventHandle* eventHandles, uint32_t count);
-extern CcuResult CcuBlockBufferAlloc(CcuBufferHandle* bufHandles, uint32_t count);
+extern CcuResult ccu_block_variable_alloc(ccu_variable_handle* var_handles, uint32_t count_);
+extern CcuResult ccu_block_event_alloc(ccu_event_handle* event_handles, uint32_t count_);
+extern CcuResult ccu_block_buffer_alloc(ccu_buffer_handle* buf_handles, uint32_t count_);
 
-extern CcuResult CcuVariableCreateByChannel(ChannelHandle channel, uint32_t varIndex, CcuVariableHandle* varHandle);
+extern CcuResult ccu_variable_create_by_channel(ChannelHandle channel_, uint32_t var_index, ccu_variable_handle* var_handle);
 
-extern CcuResult CcuVariableGetByIndex(CcuVariableHandle acqHandle,
-    uint32_t index, CcuVariableHandle *varHandle);
+extern CcuResult ccu_variable_get_by_index(ccu_variable_handle acq_handle,
+    uint32_t index, ccu_variable_handle *var_handle);
 
-extern CcuResult CcuEventGetByIndex(CcuEventHandle acqHandle,
-    uint32_t index, CcuEventHandle *eventHandle);
+extern CcuResult ccu_event_get_by_index(ccu_event_handle acq_handle,
+    uint32_t index, ccu_event_handle *event_handle);
 
-// Variable操作类 相关接口
-extern CcuResult CcuVariableAssignImm(CcuVariableHandle resVar, uint64_t immediate);
-extern CcuResult CcuVariableAssignVar(CcuVariableHandle dstVarHandle, CcuVariableHandle srcVarHandle);
-extern CcuResult CcuVariableAddVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB);
-extern CcuResult CcuVariableShlVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB);
-extern CcuResult CcuVariableShrVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB);
+// variable操作类 相关接口
+extern CcuResult ccu_variable_assign_imm(ccu_variable_handle res_var, uint64_t immediate_);
+extern CcuResult ccu_variable_assign_var(ccu_variable_handle dst_var_handle, ccu_variable_handle src_var_handle);
+extern CcuResult ccu_variable_add_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b);
+extern CcuResult ccu_variable_shl_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b);
+extern CcuResult ccu_variable_shr_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b);
 
-// Address操作类 相关接口
-extern CcuResult CcuAddressAssignImm(CcuAddressHandle addr, uint64_t immediate);
-extern CcuResult CcuAddressAssignAddr(CcuAddressHandle dstAddrHandle, CcuAddressHandle srcAddrHandle);
-extern CcuResult CcuAddressAssignVar(CcuAddressHandle addr, CcuVariableHandle var);
-extern CcuResult CcuAddressAddVarToAddr(CcuAddressHandle resAddr, CcuAddressHandle lhsAddr, CcuVariableHandle rhsVar);
-extern CcuResult CcuAddressAddAddrToAddr(CcuAddressHandle resAddr, CcuAddressHandle addrA, CcuAddressHandle addrB);
-extern CcuResult CcuAddressAddAssignVar(CcuAddressHandle addr, CcuVariableHandle var);
+// address操作类 相关接口
+extern CcuResult ccu_address_assign_imm(ccu_address_handle addr_, uint64_t immediate_);
+extern CcuResult ccu_address_assign_addr(ccu_address_handle dst_addr_handle, ccu_address_handle src_addr_handle);
+extern CcuResult ccu_address_assign_var(ccu_address_handle addr_, ccu_variable_handle var_);
+extern CcuResult ccu_address_add_var_to_addr(ccu_address_handle res_addr, ccu_address_handle lhs_addr, ccu_variable_handle rhs_var);
+extern CcuResult ccu_address_add_addr_to_addr(ccu_address_handle res_addr, ccu_address_handle addr_a, ccu_address_handle addr_b);
+extern CcuResult ccu_address_add_assign_var(ccu_address_handle addr_, ccu_variable_handle var_);
 
 // 参数加载类 相关接口
-extern CcuResult CcuLoadArg(CcuVariableHandle varHandle, uint32_t argId);
-extern CcuResult CcuLoadVar(uint64_t addr, CcuVariableHandle varHandle, uint32_t num);
-extern CcuResult CcuLoadVarFromVarAddr(CcuVariableHandle addrHandle, CcuVariableHandle varHandle, uint32_t num);
-extern CcuResult CcuStoreVar(uint64_t addr, CcuVariableHandle varHandle, uint32_t num);
-extern CcuResult CcuStoreVarToVarAddr(CcuVariableHandle addrHandle, CcuVariableHandle varHandle, uint32_t num);
+extern CcuResult ccu_load_arg(ccu_variable_handle var_handle, uint32_t arg_id);
+extern CcuResult ccu_load_var(uint64_t addr_, ccu_variable_handle var_handle, uint32_t num_);
+extern CcuResult ccu_load_var_from_var_addr(ccu_variable_handle addr_handle, ccu_variable_handle var_handle, uint32_t num_);
+extern CcuResult ccu_store_var(uint64_t addr_, ccu_variable_handle var_handle, uint32_t num_);
+extern CcuResult ccu_store_var_to_var_addr(ccu_variable_handle addr_handle, ccu_variable_handle var_handle, uint32_t num_);
 
-// Event信号同步类 相关接口
-//  mask 由调用方独立传入（与 Event 句柄解耦）；CcuSetMask 已废弃删除。
-extern CcuResult CcuEventRecord(CcuEventHandle eventHandle, uint16_t mask);
-extern CcuResult CcuEventWait(CcuEventHandle eventHandle, uint16_t mask);
-extern CcuResult CcuNotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx, uint16_t mask);
-extern CcuResult CcuNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint16_t mask);
-extern CcuResult CcuWriteVariableWithNotify(
-    ChannelHandle channel, CcuVariableHandle varHandle, uint32_t remoteVarIdx, uint32_t remoteNotifyIdx, uint16_t mask);
-// 本地（同 device 内跨 core）通知同步：与 CcuNotifyRecord/Wait 的区别在于
+// event信号同步类 相关接口
+//  mask_ 由调用方独立传入（与 event 句柄解耦）；CcuSetMask 已废弃删除。
+extern CcuResult ccu_event_record(ccu_event_handle event_handle, uint16_t mask_);
+extern CcuResult ccu_event_wait(ccu_event_handle event_handle, uint16_t mask_);
+extern CcuResult ccu_notify_record(ChannelHandle channel_, uint32_t remote_notify_idx, uint16_t mask_);
+extern CcuResult ccu_notify_wait(ChannelHandle channel_, uint32_t local_notify_idx, uint16_t mask_);
+extern CcuResult ccu_write_variable_with_notify(
+    ChannelHandle channel_, ccu_variable_handle var_handle, uint32_t remote_var_idx, uint32_t remote_notify_idx, uint16_t mask_);
+// 本地（同 device 内跨 core）通知同步：与 ccu_notify_record/wait 的区别在于
 // 通知对端用 coreId 标识（同卡内某个 core），而不是 ChannelHandle（跨 rank 通道）。
-extern CcuResult CcuLocalNotifyRecord(const char* notifyTag, uint16_t mask);
-extern CcuResult CcuLocalNotifyWait(const char* notifyTag, uint16_t mask);
+extern CcuResult ccu_local_notify_record(const char* notify_tag, uint16_t mask_);
+extern CcuResult ccu_local_notify_wait(const char* notify_tag, uint16_t mask_);
 
 // 本地数据拷贝 相关接口
-extern CcuResult CcuLocalCopyMemToMem(
-    CcuLocalAddrHandle dst, CcuLocalAddrHandle src, CcuVariableHandle len, CcuEventHandle event, uint16_t mask);
-extern CcuResult CcuLocalCopyMemToBuffer(
-    CcuBufferHandle dst, CcuLocalAddrHandle src, CcuVariableHandle len, CcuEventHandle event, uint16_t mask);
-extern CcuResult CcuLocalCopyBufferToMem(
-    CcuLocalAddrHandle dst, CcuBufferHandle src, CcuVariableHandle len, CcuEventHandle event, uint16_t mask);
+extern CcuResult ccu_local_copy_mem_to_mem(
+    ccu_local_addr_handle dst_, ccu_local_addr_handle src_, ccu_variable_handle len_, ccu_event_handle event, uint16_t mask_);
+extern CcuResult ccu_local_copy_mem_to_buffer(
+    ccu_buffer_handle dst_, ccu_local_addr_handle src_, ccu_variable_handle len_, ccu_event_handle event, uint16_t mask_);
+extern CcuResult ccu_local_copy_buffer_to_mem(
+    ccu_local_addr_handle dst_, ccu_buffer_handle src_, ccu_variable_handle len_, ccu_event_handle event, uint16_t mask_);
 // 本地reduce 相关接口
-extern CcuResult CcuLocalMemReduce(
-    CcuLocalAddrHandle dst, CcuLocalAddrHandle src, CcuVariableHandle len, HcclDataType dataType, HcclReduceOp opType,
-    CcuEventHandle event, uint16_t mask);
-extern CcuResult CcuLocalBufferReduce(
-    CcuBufferHandle* buffers, uint32_t count, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType,
-    CcuVariableHandle len, CcuEventHandle event, uint16_t mask);
+extern CcuResult ccu_local_mem_reduce(
+    ccu_local_addr_handle dst_, ccu_local_addr_handle src_, ccu_variable_handle len_, HcclDataType data_type, HcclReduceOp op_type,
+    ccu_event_handle event, uint16_t mask_);
+extern CcuResult ccu_local_buffer_reduce(
+    ccu_buffer_handle* buffers, uint32_t count_, HcclDataType data_type, HcclDataType output_data_type, HcclReduceOp op_type,
+    ccu_variable_handle len_, ccu_event_handle event, uint16_t mask_);
 
 /* ========== 远端数据传输操作 ========== */
-extern CcuResult CcuReadMemToMem(
-    ChannelHandle channel, CcuLocalAddrHandle localHandle, CcuRemoteAddrHandle remoteHandle, CcuVariableHandle len,
-    CcuEventHandle event, uint16_t mask);
-extern CcuResult CcuReadMemToBuffer(
-    ChannelHandle channel, CcuBufferHandle localHandle, CcuRemoteAddrHandle remoteHandle, CcuVariableHandle len,
-    CcuEventHandle event, uint16_t mask);
-extern CcuResult CcuReadMemToMemReduce(
-    ChannelHandle channel, CcuLocalAddrHandle localHandle, CcuRemoteAddrHandle remoteHandle, CcuVariableHandle len,
-    HcclDataType dataType, HcclReduceOp opType, CcuEventHandle event, uint16_t mask);
-extern CcuResult CcuWriteMemToMem(
-    ChannelHandle channel, CcuRemoteAddrHandle remoteHandle, CcuLocalAddrHandle localHandle, CcuVariableHandle len,
-    CcuEventHandle event, uint16_t mask);
-extern CcuResult CcuWriteBufferToMem(
-    ChannelHandle channel, CcuRemoteAddrHandle remoteHandle, CcuBufferHandle localHandle, CcuVariableHandle len,
-    CcuEventHandle event, uint16_t mask);
-extern CcuResult CcuWriteMemToMemReduce(
-    ChannelHandle channel, CcuRemoteAddrHandle remoteHandle, CcuLocalAddrHandle localHandle, CcuVariableHandle len,
-    HcclDataType dataType, HcclReduceOp opType, CcuEventHandle event, uint16_t mask);
+extern CcuResult ccu_read_mem_to_mem(
+    ChannelHandle channel_, ccu_local_addr_handle local_handle, ccu_remote_addr_handle remote_handle, ccu_variable_handle len_,
+    ccu_event_handle event, uint16_t mask_);
+extern CcuResult ccu_read_mem_to_buffer(
+    ChannelHandle channel_, ccu_buffer_handle local_handle, ccu_remote_addr_handle remote_handle, ccu_variable_handle len_,
+    ccu_event_handle event, uint16_t mask_);
+extern CcuResult ccu_read_mem_to_mem_reduce(
+    ChannelHandle channel_, ccu_local_addr_handle local_handle, ccu_remote_addr_handle remote_handle, ccu_variable_handle len_,
+    HcclDataType data_type, HcclReduceOp op_type, ccu_event_handle event, uint16_t mask_);
+extern CcuResult ccu_write_mem_to_mem(
+    ChannelHandle channel_, ccu_remote_addr_handle remote_handle, ccu_local_addr_handle local_handle, ccu_variable_handle len_,
+    ccu_event_handle event, uint16_t mask_);
+extern CcuResult ccu_write_buffer_to_mem(
+    ChannelHandle channel_, ccu_remote_addr_handle remote_handle, ccu_buffer_handle local_handle, ccu_variable_handle len_,
+    ccu_event_handle event, uint16_t mask_);
+extern CcuResult ccu_write_mem_to_mem_reduce(
+    ChannelHandle channel_, ccu_remote_addr_handle remote_handle, ccu_local_addr_handle local_handle, ccu_variable_handle len_,
+    HcclDataType data_type, HcclReduceOp op_type, ccu_event_handle event, uint16_t mask_);
 
 /* ========== 控制流操作 ========== */
-extern CcuResult CcuIfBegin(CcuVariableHandle var, uint64_t immediate, CcuConditionType condType, const char* label);
-extern CcuResult CcuIfElse(const char* label);
-extern CcuResult CcuIfEnd(const char* label);
-extern CcuResult CcuFlushPendingIfs();
-extern CcuResult CcuWhileBegin(CcuVariableHandle var, uint64_t immediate, CcuConditionType condType, const char* label);
-extern CcuResult CcuWhileEnd(const char* label);
-extern CcuResult CcuDoWhileBegin(const char* label);
-extern CcuResult CcuDoWhileEnd(CcuVariableHandle var, uint64_t immediate, CcuConditionType condType, const char* label);
+extern CcuResult ccu_if_begin(ccu_variable_handle var_, uint64_t immediate_, ccu_condition_type cond_type, const char* label_);
+extern CcuResult ccu_if_else(const char* label_);
+extern CcuResult ccu_if_end(const char* label_);
+extern CcuResult ccu_flush_pending_ifs();
+extern CcuResult ccu_while_begin(ccu_variable_handle var_, uint64_t immediate_, ccu_condition_type cond_type, const char* label_);
+extern CcuResult ccu_while_end(const char* label_);
+extern CcuResult ccu_do_while_begin(const char* label_);
+extern CcuResult ccu_do_while_end(ccu_variable_handle var_, uint64_t immediate_, ccu_condition_type cond_type, const char* label_);
 
 /* ========== 函数调用操作 ========== */
-extern CcuResult CcuFuncBlockLookup(const void* funcPtr, uint64_t* outHandle);
-extern CcuResult CcuFuncBlockBegin(const void* funcPtr, uint64_t* outHandle);
-extern CcuResult CcuFuncBlockEnd(uint64_t handle);
-extern CcuResult CcuFuncDefineInArg(uint64_t handle, CcuVariableHandle formal);
-extern CcuResult CcuFuncCall(uint64_t handle, const CcuVariableHandle* inArgs, uint32_t numIn);
+extern CcuResult ccu_func_block_lookup(const void* func_ptr, uint64_t* out_handle);
+extern CcuResult ccu_func_block_begin(const void* func_ptr, uint64_t* out_handle);
+extern CcuResult ccu_func_block_end(uint64_t handle);
+extern CcuResult ccu_func_define_in_arg(uint64_t handle, ccu_variable_handle formal);
+extern CcuResult ccu_func_call(uint64_t handle, const ccu_variable_handle* in_args, uint32_t num_in);
 
 /*
  * 控制流宏内部使用的标签栈接口（以 _ 前缀标识为内部 API，
  * 仅供 ccu_control_flow_macro.h 中的 CCU_IF / CCU_ELSE / CCU_DO / CCU_WHILE
  * 等宏在调用现场展开时使用）。
  */
-extern void _CcuIfStackPush(const char* label);
-extern void _CcuIfStackMarkBodyDone();
-extern const char* _CcuIfStackPopForElse();
+extern void ccu_if_stack_push(const char* label_);
+extern void ccu_if_stack_mark_body_done();
+extern const char* ccu_if_stack_pop_for_else();
 
-extern void _CcuDoWhileStackPush(const char* label);
-extern const char* _CcuDoWhileStackPopForWhile();
+extern void ccu_do_while_stack_push(const char* label_);
+extern const char* ccu_do_while_stack_pop_for_while();
 
 /* ========== 循环操作 ========== */
-extern CcuResult CcuLoopCreate(CcuLoop* loop);
-extern CcuResult _CcuLoopBodyEnter(CcuLoop loop);
-extern CcuResult _CcuLoopBodyExit(CcuLoop loop);
-// LoopGroup 创建时按需扩容 LoopEngine 池：传入本 group 实际要 AddLoop 的次数
-// （含展开复用）。各 LoopGroup 之间通过 local loopIdx 复用低位 executorId，
+extern CcuResult ccu_loop_create(ccu_loop* loop);
+extern CcuResult ccu_loop_body_enter(ccu_loop loop);
+extern CcuResult ccu_loop_body_exit(ccu_loop loop);
+// loop_group 创建时按需扩容 LoopEngine 池：传入本 group 实际要 add_loop 的次数
+// （含展开复用）。各 loop_group 之间通过 local loop_idx 复用低位 executorId，
 // 因此池子按"取最大值"被动扩容，不会按组累加。
-extern CcuResult CcuLoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupConfig* config);
-extern CcuResult CcuLoopGroupCreateFromVar(
-    CcuLoopGroup* group, uint32_t maxLoopNum, CcuVariableHandle parallelVar, CcuVariableHandle offsetVar);
-extern CcuResult CcuLoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopConfig* config);
-extern CcuResult CcuLoopGroupAddLoopFromVar(CcuLoopGroup group, CcuLoop loop, CcuVariableHandle loopParamVar);
+extern CcuResult ccu_loop_group_create(ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_config* config);
+extern CcuResult ccu_loop_group_create_from_var(
+    ccu_loop_group* group, uint32_t max_loop_num, ccu_variable_handle parallel_var, ccu_variable_handle offset_var);
+extern CcuResult ccu_loop_group_add_loop(ccu_loop_group group, ccu_loop loop, const ccu_loop_config* config);
+extern CcuResult ccu_loop_group_add_loop_from_var(ccu_loop_group group, ccu_loop loop, ccu_variable_handle loop_param_var);
 
-} // namespace asccomm
+} // namespace asc
 
 #endif // CCU_PRIMITIVES_IMPL_H

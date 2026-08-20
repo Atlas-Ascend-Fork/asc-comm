@@ -8,16 +8,16 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_TASK_ARG_H
-#define HCOMM_CCU_TASK_ARG_H
+#ifndef ASCCOMM_CCU_TASK_ARG_H
+#define ASCCOMM_CCU_TASK_ARG_H
 
-namespace asccomm {
+namespace asc {
 
-class CcuTaskArg {
+class ccu_task_arg {
 public:
-    explicit CcuTaskArg() = default;
-    virtual ~CcuTaskArg() = default;
+    explicit ccu_task_arg() = default;
+    virtual ~ccu_task_arg() = default;
 };
-}; // namespace asccomm
+}; // namespace asc
 
-#endif // HCOMM_CCU_TASK_ARG_H
+#endif // ASCCOMM_CCU_TASK_ARG_H

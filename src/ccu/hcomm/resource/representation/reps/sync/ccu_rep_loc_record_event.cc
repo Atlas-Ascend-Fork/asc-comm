@@ -13,42 +13,42 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/common/ccu_exception.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepLocRecordEvent::CcuRepLocRecordEvent(CcuInsGeneraterBase* insGenPtr, const CompletedEvent& event, uint32_t mask)
-    : insGenPtr(insGenPtr), event_(event), mask_(mask)
+ccu_rep_loc_record_event::ccu_rep_loc_record_event(ccu_ins_generater_base* ins_gen_ptr, const completed_event& event, uint32_t mask)
+    : ins_gen_ptr_(ins_gen_ptr), event_(event), mask_(mask)
 {
-    type = CcuRepType::LOC_RECORD_EVENT;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::loc_record_event;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-bool CcuRepLocRecordEvent::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_loc_record_event::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepLocRecordEventTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepLocRecordEvent][Translate] failed to translate for instrId[%u]", instrId),
+        ins_gen_ptr_->ccu_rep_loc_record_event_translate(ccu_kernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepLocRecordEvent][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepLocRecordEvent translate failed");
 
     CHK_PRT_THROW(
-        instrId > USHRT_MAX - instrCount,
+        instr_id > USHRT_MAX - instr_count_,
         HCCL_ERROR(
-            "[CcuRepLocRecordEvent][Translate] instrId[%u] + instrCount[%u] "
+            "[CcuRepLocRecordEvent][translate] instrId[%u] + instrCount[%u] "
             "exceeds the maximum value of unsigned short int.",
-            instrId, instrCount),
+            instr_id, instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
 
-    instrId += instrCount;
-    return translated;
+    instr_id += instr_count_;
+    return translated_;
 }
 
-std::string CcuRepLocRecordEvent::Describe()
+std::string ccu_rep_loc_record_event::describe()
 {
-    return asccomm::FormatCcuMessage("CcuRepLocRecordEvent=id[%u], mask[%04x]", event_.Id(), mask_);
+    return asc::format_ccu_message("CcuRepLocRecordEvent=id[%u], mask[%04x]", event_.id(), mask_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

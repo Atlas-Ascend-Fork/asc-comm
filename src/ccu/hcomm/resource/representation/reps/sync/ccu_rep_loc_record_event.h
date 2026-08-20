@@ -8,31 +8,31 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_LOC_RECORD_EVENT_H
-#define HCOMM_CCU_REPRESENTATION_LOC_RECORD_EVENT_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_LOC_RECORD_EVENT_H
+#define ASCCOMM_CCU_REPRESENTATION_LOC_RECORD_EVENT_H
 
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepLocRecordEvent : public CcuRepBase {
+class ccu_rep_loc_record_event : public ccu_rep_base {
 public:
-    explicit CcuRepLocRecordEvent(CcuInsGeneraterBase* insGenPtr, const CompletedEvent& event, uint32_t mask);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    uint16_t GetEventId() { return event_.Id(); }
-    uint32_t GetMask() { return mask_; }
+    explicit ccu_rep_loc_record_event(ccu_ins_generater_base* ins_gen_ptr, const completed_event& event, uint32_t mask);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    uint16_t get_event_id() { return event_.id(); }
+    uint32_t get_mask() { return mask_; }
 
-    CompletedEvent GetEvent() { return event_; }
+    completed_event get_event() { return event_; }
 
 private:
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    CompletedEvent event_{};
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
+    completed_event event_{};
     uint32_t mask_{1};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCOMM_CCU_REPRESENTATION_LOC_RECORD_EVENTH

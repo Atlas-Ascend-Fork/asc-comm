@@ -20,25 +20,25 @@
 namespace AscendC {
 namespace ccu {
 
-template <typename U>
-class Array;
+template <typename u>
+class array;
 
-class CcuBuffer final {
+class ccu_buffer final {
 public:
-    CcuBuffer() { CCU_THROW_IF_FAILED(::asccomm::CcuBufferAlloc(&this->handle), "CcuBufferAlloc: failed"); }
+    ccu_buffer() { CCU_THROW_IF_FAILED(::asc::ccu_buffer_alloc(&this->handle), "ccu_buffer_alloc: failed"); }
 
-    CcuBuffer(const CcuBuffer& other) { this->handle = other.handle; }
+    ccu_buffer(const ccu_buffer& other) { this->handle = other.handle; }
 
-    CcuBuffer(CcuBuffer&& other) noexcept { this->handle = other.handle; }
+    ccu_buffer(ccu_buffer&& other) noexcept { this->handle = other.handle; }
 
-    void operator=(CcuBuffer&& other) { this->handle = other.handle; }
+    void operator=(ccu_buffer&& other) { this->handle = other.handle; }
 
-    CcuBufferHandle handle{0};
+    ccu_buffer_handle handle{0};
 
 private:
-    explicit CcuBuffer(detail::NoAllocTag) {}
-    template <typename U>
-    friend class Array;
+    explicit ccu_buffer(detail::no_alloc_tag) {}
+    template <typename u>
+    friend class array;
 };
 
 } // namespace ccu

@@ -14,37 +14,37 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepBufLocRead::CcuRepBufLocRead(
-    CcuInsGeneraterBase* insGenPtr, LocalAddr src, CcuBuf dst, Variable len, CompletedEvent sem, uint16_t mask)
-    : insGenPtr(insGenPtr), src(src), dst(dst), len(len), sem(sem), mask(mask)
+ccu_rep_buf_loc_read::ccu_rep_buf_loc_read(
+    ccu_ins_generater_base* ins_gen_ptr, local_addr src, ccu_buf dst, variable len, completed_event sem, uint16_t mask)
+    : ins_gen_ptr_(ins_gen_ptr), src_(src), dst_(dst), len_(len), sem_(sem), mask_(mask)
 {
-    type = CcuRepType::BUF_LOC_READ;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::buf_loc_read;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-bool CcuRepBufLocRead::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_buf_loc_read::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepBufLocReadTranslate(ccuKernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepBufLocRead][Translate] failed to translate for instrId[%u]", instrId),
+        ins_gen_ptr_->ccu_rep_buf_loc_read_translate(ccu_kernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepBufLocRead][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepBufLocRead translate failed");
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepBufLocRead::Describe()
+std::string ccu_rep_buf_loc_read::describe()
 {
-    return asccomm::FormatCcuMessage(
-        "Read Loc Mem[%u] To CcuBuf[%u], len[%u], sem[%u], mask[%04x]", src.addr.Id(), dst.Id(), len.Id(), sem.Id(),
-        mask);
+    return asc::format_ccu_message(
+        "Read Loc Mem[%u] To CcuBuf[%u], len[%u], sem[%u], mask[%04x]", src_.addr.id(), dst_.id(), len_.id(), sem_.id(),
+        mask_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

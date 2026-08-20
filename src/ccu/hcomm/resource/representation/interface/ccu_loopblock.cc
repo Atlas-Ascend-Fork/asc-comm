@@ -13,12 +13,12 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-LoopBlock::LoopBlock(CcuRepContext* context, std::string label) : context(context), label(label) {}
+loop_block::loop_block(ccu_rep_context* context, std::string label) : context_(context), label_(label) {}
 
-LoopBlock::~LoopBlock() { SetCurrentBlock(context, curActiveBlock); }
+loop_block::~loop_block() { set_current_block(context_, cur_active_block_); }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

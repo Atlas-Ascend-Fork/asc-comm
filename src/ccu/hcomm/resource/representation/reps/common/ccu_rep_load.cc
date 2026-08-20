@@ -14,37 +14,37 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepLoad::CcuRepLoad(CcuInsGeneraterBase* insGenPtr, uint64_t addr, const Variable& var, uint32_t num)
-    : insGeneratorPtr_(insGenPtr), var(var), addr(addr), num(num)
+ccu_rep_load::ccu_rep_load(ccu_ins_generater_base* ins_gen_ptr, uint64_t addr, const variable& var, uint32_t num)
+    : ins_generator_ptr_(ins_gen_ptr), var_(var), addr_(addr), num_(num)
 {
-    type = CcuRepType::LOAD;
-    instrCount = insGeneratorPtr_->GetInstrCount(type); // 7: Load包含7条指令
+    type_ = ccu_rep_type::load;
+    instr_count_ = ins_generator_ptr_->get_instr_count(type_); // 7: Load包含7条指令
 }
 
-bool CcuRepLoad::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_load::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    asccomm::CheckCcuNotNull(instr, "[HCcuRepLoad::Translate] instr is nullptr!");
-    this->instrId = instrId;
-    translated = true;
+    asc::check_ccu_not_null(instr, "[HCcuRepLoad::translate] instr is nullptr!");
+    this->instr_id_ = instr_id;
+    translated_ = true;
     CHK_PRT_THROW(
-        insGeneratorPtr_->CcuRepLoadTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepLoad][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        ins_generator_ptr_->ccu_rep_load_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepLoad][translate] failed to translate for instrId[%u]", instr_id), CcuResult::CCU_E_INTERNAL,
         "CcuRepLoad translate failed");
     CHK_PRT_THROW(
-        (instrId > UINT16_MAX - instrCount),
+        (instr_id > UINT16_MAX - instr_count_),
         HCCL_ERROR(
-            "[CcuRepLoad::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instrId,
-            instrCount),
+            "[CcuRepLoad::translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instr_id,
+            instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepLoad::Describe() { return asccomm::FormatCcuMessage("Load([%llu], [%u], [%u])", addr, var.Id(), num); }
+std::string ccu_rep_load::describe() { return asc::format_ccu_message("Load([%llu], [%u], [%u])", addr_, var_.id(), num_); }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

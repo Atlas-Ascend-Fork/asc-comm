@@ -12,47 +12,47 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepNot::CcuRepNot(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varB)
-    : subType(NotSubType::VAR_EQUALS_NOT_VAR), varB(varB), varC(varC), insGenPtr(insGenPtr)
+ccu_rep_not::ccu_rep_not(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_b)
+    : sub_type_(not_sub_type::var_equals_not_var), var_b_(var_b), var_c_(var_c), ins_gen_ptr_(ins_gen_ptr)
 {
-    type = CcuRepType::NOT;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::not_op;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-bool CcuRepNot::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep)
+bool ccu_rep_not::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, const trans_dep& dep)
 {
-    asccomm::CheckCcuNotNull(instr, "[CcuRepNot::Translate] instr is nullptr!");
-    this->instrId = curInstrId;
-    translated = true;
-    instrCount = insGenPtr->GetInstrCount(type);
+    asc::check_ccu_not_null(instr, "[CcuRepNot::translate] instr is nullptr!");
+    this->instr_id_ = cur_instr_id;
+    translated_ = true;
+    instr_count_ = ins_gen_ptr_->get_instr_count(type_);
     CHK_PRT_THROW(
-        insGenPtr->CcuRepNotTranslate(ccuKernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepNot][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        ins_gen_ptr_->ccu_rep_not_translate(ccu_kernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepNot][translate] failed to translate for instrId[%u]", instr_id_), CcuResult::CCU_E_INTERNAL,
         "CcuRepNot translate failed");
     CHK_PRT_THROW(
-        (curInstrId > UINT16_MAX - instrCount),
+        (cur_instr_id > UINT16_MAX - instr_count_),
         HCCL_ERROR(
-            "[CcuRepNot::Translate]uint16 integer overflow occurs, curInstrId = [%hu], instrCount = [%hu]", curInstrId,
-            instrCount),
+            "[CcuRepNot::translate]uint16 integer overflow occurs, curInstrId = [%hu], instrCount = [%hu]", cur_instr_id,
+            instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
-    curInstrId += instrCount;
-    return translated;
+    cur_instr_id += instr_count_;
+    return translated_;
 }
 
-std::string CcuRepNot::Describe()
+std::string ccu_rep_not::describe()
 {
-    switch (subType) {
-        case NotSubType::VAR_EQUALS_NOT_VAR: {
-            return asccomm::FormatCcuMessage("Variable[%u] = ~Variable[%u]", varC.Id(), varB.Id());
+    switch (sub_type_) {
+        case not_sub_type::var_equals_not_var: {
+            return asc::format_ccu_message("Variable[%u] = ~Variable[%u]", var_c_.id(), var_b_.id());
         }
         default: {
-            return asccomm::FormatCcuMessage("Invalid Not");
+            return asc::format_ccu_message("Invalid Not");
         }
     }
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

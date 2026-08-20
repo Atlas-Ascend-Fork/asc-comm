@@ -15,42 +15,42 @@
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopblock_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class LoopBlock {
+class loop_block {
 public:
-    LoopBlock(CcuRepContext* context, std::string label);
-    ~LoopBlock();
+    loop_block(ccu_rep_context* context, std::string label);
+    ~loop_block();
 
-    template <typename... Arguments>
-    LoopBlock& operator()(const Arguments&... args)
+    template <typename... arguments>
+    loop_block& operator()(const arguments&... args)
     {
-        DefineInArgHelper(args...);
+        define_in_arg_helper(args...);
         return *this;
     }
 
 private:
-    template <typename First>
-    void DefineInArgHelper(const First& first)
+    template <typename first_t>
+    void define_in_arg_helper(const first_t& first)
     {
-        repLoopBlock->DefineArg(first);
+        rep_loop_block_->define_arg(first);
     }
 
-    template <typename First, typename... Rest>
-    void DefineInArgHelper(const First& first, const Rest&... rest)
+    template <typename first_t, typename... rest_t>
+    void define_in_arg_helper(const first_t& first, const rest_t&... rest)
     {
-        repLoopBlock->DefineArg(first);
-        DefineInArgHelper(rest...);
+        rep_loop_block_->define_arg(first);
+        define_in_arg_helper(rest...);
     }
 
-    CcuRepContext* context{nullptr};
-    std::string label;
+    ccu_rep_context* context_{nullptr};
+    std::string label_;
 
-    std::shared_ptr<CcuRepLoopBlock> repLoopBlock{nullptr};
-    std::shared_ptr<CcuRepBlock> curActiveBlock{nullptr};
+    std::shared_ptr<ccu_rep_loop_block> rep_loop_block_{nullptr};
+    std::shared_ptr<ccu_rep_block> cur_active_block_{nullptr};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // _CCU_LOOP_BLOCK_H

@@ -8,49 +8,49 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_BUFREDUCE_H
-#define HCOMM_CCU_REPRESENTATION_BUFREDUCE_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_BUFREDUCE_H
+#define ASCCOMM_CCU_REPRESENTATION_BUFREDUCE_H
 
 #include <vector>
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepBufReduce : public CcuRepBase {
+class ccu_rep_buf_reduce : public ccu_rep_base {
 public:
-    CcuRepBufReduce(
-        CcuInsGeneraterBase* insGenPtr, const std::vector<CcuBuf>& mem, uint16_t count, uint16_t dataType,
-        uint16_t outputDataType, uint16_t opType, CompletedEvent sem, const CcuRep::Variable& len, uint16_t mask = 1);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    const std::vector<CcuBuf>& GetMem() { return mem; }
-    uint16_t GetCount() { return count; }
-    uint16_t GetDataType() { return dataType; }
-    uint16_t GetOutputDataType() { return outputDataType; }
-    uint16_t GetOpType() { return opType; }
-    uint16_t GetXnLengthId() { return xnIdLength_.Id(); }
-    uint16_t GetMask() { return mask; }
-    uint16_t GetSemId() { return sem.Id(); }
+    ccu_rep_buf_reduce(
+        ccu_ins_generater_base* ins_gen_ptr, const std::vector<ccu_buf>& mem, uint16_t count, uint16_t data_type,
+        uint16_t output_data_type, uint16_t op_type, completed_event sem, const ccu_rep::variable& len, uint16_t mask = 1);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    const std::vector<ccu_buf>& get_mem() { return mem_; }
+    uint16_t get_count() { return count_; }
+    uint16_t get_data_type() { return data_type_; }
+    uint16_t get_output_data_type() { return output_data_type_; }
+    uint16_t get_op_type() { return op_type_; }
+    uint16_t get_xn_length_id() { return xn_id_length_.id(); }
+    uint16_t get_mask() { return mask_; }
+    uint16_t get_sem_id() { return sem_.id(); }
 
-    CompletedEvent GetSem() { return sem; }
-    CcuRep::Variable GetXnIdLength() { return xnIdLength_; }
+    completed_event get_sem() { return sem_; }
+    ccu_rep::variable get_xn_id_length() { return xn_id_length_; }
 
 private:
-    CcuInsGeneraterBase* insGenPtr;
-    std::vector<CcuBuf> mem;
-    uint16_t count;
-    uint16_t dataType;
-    uint16_t outputDataType;
-    uint16_t opType;
-    CompletedEvent sem;
-    CcuRep::Variable xnIdLength_;
+    ccu_ins_generater_base* ins_gen_ptr_;
+    std::vector<ccu_buf> mem_;
+    uint16_t count_;
+    uint16_t data_type_;
+    uint16_t output_data_type_;
+    uint16_t op_type_;
+    completed_event sem_;
+    ccu_rep::variable xn_id_length_;
 
-    uint16_t mask{0};
+    uint16_t mask_{0};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_BUFREDUCE_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_BUFREDUCE_H

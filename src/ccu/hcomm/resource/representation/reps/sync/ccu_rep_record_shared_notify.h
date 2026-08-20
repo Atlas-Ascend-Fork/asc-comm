@@ -8,31 +8,31 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_RECORD_SHARED_NOTIFY_H
-#define HCOMM_CCU_REPRESENTATION_RECORD_SHARED_NOTIFY_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_RECORD_SHARED_NOTIFY_H
+#define ASCCOMM_CCU_REPRESENTATION_RECORD_SHARED_NOTIFY_H
 
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepRecordSharedNotify : public CcuRepBase {
+class ccu_rep_record_shared_notify : public ccu_rep_base {
 public:
-    explicit CcuRepRecordSharedNotify(CcuInsGeneraterBase* insGenPtr, const LocalNotify& notify, uint16_t mask);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    uint16_t GetNotifyId() { return notify_.Id(); }
-    LocalNotify GetNotify() { return notify_; }
+    explicit ccu_rep_record_shared_notify(ccu_ins_generater_base* ins_gen_ptr, const local_notify& notify, uint16_t mask);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    uint16_t get_notify_id() { return notify_.id(); }
+    local_notify get_notify() { return notify_; }
 
-    uint16_t GetMask() { return mask_; }
+    uint16_t get_mask() { return mask_; }
 
 private:
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    LocalNotify notify_{};
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
+    local_notify notify_{};
     uint16_t mask_{0};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_RECORD_SHARED_NOTIFY_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_RECORD_SHARED_NOTIFY_H

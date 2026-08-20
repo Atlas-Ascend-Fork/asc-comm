@@ -17,14 +17,14 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-void AppendToContext(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBase> rep);
-std::shared_ptr<CcuRep::CcuRepBlock> CurrentBlock(CcuRepContext* context);
-void SetCurrentBlock(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBlock> repBlock);
-Variable CreateVariable(CcuRepContext* context);
+void append_to_context(ccu_rep_context* context, std::shared_ptr<ccu_rep::ccu_rep_base> rep);
+std::shared_ptr<ccu_rep::ccu_rep_block> current_block(ccu_rep_context* context);
+void set_current_block(ccu_rep_context* context, std::shared_ptr<ccu_rep::ccu_rep_block> rep_block);
+variable create_variable(ccu_rep_context* context);
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // _CCU_INTERFACE_H

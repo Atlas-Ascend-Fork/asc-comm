@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_KERNEL_MGR_H
-#define HCOMM_CCU_KERNEL_MGR_H
+#ifndef ASCCOMM_CCU_KERNEL_MGR_H
+#define ASCCOMM_CCU_KERNEL_MGR_H
 
 #include <array>
 #include <mutex>
@@ -22,66 +22,66 @@
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace asccomm {
+namespace asc {
 
-int32_t HcommCcuDiagnose(const HcommCcuDfxRequestPod *request, HcommCcuDfxEmitFn emit, void *context);
+int32_t asccomm_ccu_diagnose(const HcommCcuDfxRequestPod *request, HcommCcuDfxEmitFn emit, void *context);
 
-using namespace CcuRep;
+using namespace ccu_rep;
 
-class CcuKernelMgr {
+class ccu_kernel_mgr {
 public:
-    static CcuKernelMgr& GetInstance(int32_t deviceLogicId);
+    static ccu_kernel_mgr& get_instance(int32_t device_logic_id);
 
-    HcclResult Init();
-    HcclResult Deinit();
-    CcuResult Configure(AscCcuResSnapshot &resPack);
+    HcclResult init();
+    HcclResult deinit();
+    CcuResult configure(asc_ccu_res_snapshot &res_pack);
 
     CcuResult Register(
-        AscCcuResSnapshot& resPack, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc,
-        const void** kernelArgs, const uint32_t argNum, CcuKernelHandle& kernelHandle);
+        asc_ccu_res_snapshot& res_pack, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
+        const void** kernel_args, const uint32_t arg_num, ccu_kernel_handle& kernel_handle);
 
-    CcuResult Translate(const std::vector<CcuKernelHandle>& kernelHandles);
+    CcuResult translate(const std::vector<ccu_kernel_handle>& kernel_handles);
 
-    CcuKernel* GetKernel(CcuKernelHandle kernelHandle);
-    CcuResult GetCcuKernelInfo(CcuKernelHandle kernelHandle, CcuKernelInfo& info);
-    CcuResult UnRegister(CcuKernelHandle kernelHandle);
+    ccu_kernel* get_kernel(ccu_kernel_handle kernel_handle);
+    CcuResult get_ccu_kernel_info(ccu_kernel_handle kernel_handle, ccu_kernel_info& info);
+    CcuResult un_register(ccu_kernel_handle kernel_handle);
 
-    CcuKernel* GetCurrentKernel();
-    const HcommCcuControlOpsPod &GetControlOps() const;
-
-private:
-    explicit CcuKernelMgr() = default;
-    ~CcuKernelMgr();
-
-    CcuKernelMgr(const CcuKernelMgr& that) = delete;
-    CcuKernelMgr& operator=(const CcuKernelMgr& that) = delete;
+    ccu_kernel* get_current_kernel();
+    const HcommCcuControlOpsPod &get_control_ops() const;
 
 private:
-    CcuResult PrepareConstValueResources();
-    CcuResult AllocRes(AscCcuResSnapshot& resPack);
+    explicit ccu_kernel_mgr() = default;
+    ~ccu_kernel_mgr();
 
-    HcclResult InstantiationTranslator(uint16_t dieId, AscCcuResSnapshot &resPack);
-    HcclResult TransRepSequenceToMicrocode(const std::vector<CcuKernel*>& kernels, bool isFuncBlock);
-    HcclResult LoadInstruction(const CcuRep::CcuInstrInfo& instrInfo, const uint32_t dieId);
+    ccu_kernel_mgr(const ccu_kernel_mgr& that) = delete;
+    ccu_kernel_mgr& operator=(const ccu_kernel_mgr& that) = delete;
 
 private:
-    bool initializedFlag_{false};
-    int32_t devLogicId_{-1};
-    std::mutex kernelMapMutex_{};
-    std::mutex translateMutex_{};
-    CcuKernelHandle kernelId_ = 0;
-    std::unordered_map<CcuKernelHandle, std::unique_ptr<CcuKernel>> kernelMap_{};
-    void* instructionLoadDevMem_{nullptr};
-    uint64_t instructionLoadDevMemSize_{0};
+    CcuResult prepare_const_value_resources();
+    CcuResult alloc_res(asc_ccu_res_snapshot& res_pack);
 
-    std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<CcuRep::CcuRepTranslator>>> translators;
-    std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<CcuRep::CcuRepReferenceManager>>>
-        referenceMgrs;
-    std::unique_ptr<CcuKernel> currKernel_{nullptr};
-    std::shared_ptr<CcuInsGeneraterBase> insGenePtr;
-    uint32_t ccuVersion_{HCOMM_CCU_VERSION_INVALID};
-    std::array<uint32_t, HCOMM_CCU_MAX_DIE_NUM> missionKeys_{};
-    HcommCcuControlOpsPod controlOps_{};
+    HcclResult instantiation_translator(uint16_t die_id, asc_ccu_res_snapshot &res_pack);
+    HcclResult trans_rep_sequence_to_microcode(const std::vector<ccu_kernel*>& kernels, bool is_func_block);
+    HcclResult load_instruction(const ccu_rep::ccu_instr_info& instr_info, const uint32_t die_id);
+
+private:
+    bool initialized_flag_{false};
+    int32_t dev_logic_id_{-1};
+    std::mutex kernel_map_mutex_{};
+    std::mutex translate_mutex_{};
+    ccu_kernel_handle kernel_id_ = 0;
+    std::unordered_map<ccu_kernel_handle, std::unique_ptr<ccu_kernel>> kernel_map_{};
+    void* instruction_load_dev_mem_{nullptr};
+    uint64_t instruction_load_dev_mem_size_{0};
+
+    std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<ccu_rep::ccu_rep_translator>>> translators_;
+    std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<ccu_rep::ccu_rep_reference_manager>>>
+        reference_mgrs_;
+    std::unique_ptr<ccu_kernel> curr_kernel_{nullptr};
+    std::shared_ptr<ccu_ins_generater_base> ins_gene_ptr_;
+    uint32_t ccu_version_{HCOMM_CCU_VERSION_INVALID};
+    std::array<uint32_t, HCOMM_CCU_MAX_DIE_NUM> mission_keys_{};
+    HcommCcuControlOpsPod control_ops_{};
 };
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCOMM_CCU_KERNEL_MGR_IMP_H

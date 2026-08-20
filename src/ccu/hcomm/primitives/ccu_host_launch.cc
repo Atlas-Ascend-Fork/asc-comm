@@ -14,19 +14,19 @@
 
 namespace {
 
-CcuResult PhyDieMaskToDieId(uint64_t phyDieMask, uint32_t& dieId)
+CcuResult phy_die_mask_to_die_id(uint64_t phy_die_mask, uint32_t& die_id)
 {
-    if (phyDieMask == 0 || (phyDieMask & (phyDieMask - 1)) != 0) {
-        HCCL_ERROR("[%s] phyDieMask[0x%llx] must contain exactly one bit.", __func__, phyDieMask);
+    if (phy_die_mask == 0 || (phy_die_mask & (phy_die_mask - 1)) != 0) {
+        HCCL_ERROR("[%s] phyDieMask[0x%llx] must contain exactly one bit.", __func__, phy_die_mask);
         return CcuResult::CCU_E_PARA;
     }
-    dieId = 0;
-    while ((phyDieMask >>= 1) != 0) {
-        ++dieId;
+    die_id = 0;
+    while ((phy_die_mask >>= 1) != 0) {
+        ++die_id;
     }
-    constexpr uint32_t maxDieNum = 2;
-    if (dieId >= maxDieNum) {
-        HCCL_ERROR("[%s] dieId[%u] is out of range.", __func__, dieId);
+    constexpr uint32_t max_die_num = 2;
+    if (die_id >= max_die_num) {
+        HCCL_ERROR("[%s] dieId[%u] is out of range.", __func__, die_id);
         return CcuResult::CCU_E_PARA;
     }
     return CcuResult::CCU_SUCCESS;
@@ -34,51 +34,51 @@ CcuResult PhyDieMaskToDieId(uint64_t phyDieMask, uint32_t& dieId)
 
 } // namespace
 
-CcuResult hcomm_ccu_host_kernel_launch(
-    const void* kernelFunc, const HcommCcuHostKernelLaunchCfg* cfg, const HcommCcuHostKernelArgs* args)
+CcuResult asccomm_ccu_host_kernel_launch(
+    const void* kernel_func, const asccomm_ccu_host_kernel_launch_cfg* cfg, const asccomm_ccu_host_kernel_args* args)
 {
-    CCU_CHK_PTR_NULL(kernelFunc);
+    CCU_CHK_PTR_NULL(kernel_func);
     CCU_CHK_PTR_NULL(cfg);
     CCU_CHK_PTR_NULL(args);
-    CCU_CHK_PTR_NULL(cfg->kernelName);
-    CCU_CHK_PTR_NULL(cfg->launchContext);
+    CCU_CHK_PTR_NULL(cfg->kernel_name);
+    CCU_CHK_PTR_NULL(cfg->launch_context);
 
-    if (args->kernelArgNum != 0) {
-        CCU_CHK_PTR_NULL(args->kernelArgs);
+    if (args->kernel_arg_num != 0) {
+        CCU_CHK_PTR_NULL(args->kernel_args);
     }
-    if (args->taskArgNum != 0) {
-        CCU_CHK_PTR_NULL(args->taskArgs);
+    if (args->task_arg_num != 0) {
+        CCU_CHK_PTR_NULL(args->task_args);
     }
 
-    uint32_t dieId = 0;
-    CCU_CHK_RET(PhyDieMaskToDieId(cfg->ccuSchd.phyDieMask, dieId));
+    uint32_t die_id = 0;
+    CCU_CHK_RET(phy_die_mask_to_die_id(cfg->ccu_schd.phy_die_mask, die_id));
 
-    CCU_CHK_PTR_NULL(cfg->registerContext);
-    CcuResult ret = hcomm_ccu_kernel_register_start(cfg->ccuIns, cfg->registerContext);
+    CCU_CHK_PTR_NULL(cfg->register_context);
+    CcuResult ret = asccomm_ccu_kernel_register_start(cfg->ccu_ins, cfg->register_context);
     if (ret != CCU_SUCCESS) {
-        HCCL_ERROR("[%s] hcomm_ccu_kernel_register_start failed, ccuRet[%d].", __func__, ret);
+        HCCL_ERROR("[%s] asccomm_ccu_kernel_register_start failed, ccuRet[%d].", __func__, ret);
         return ret;
     }
 
-    CcuKernelHandle kernelHandle{0};
-    ret = hcomm_ccu_kernel_register(
-        cfg->ccuIns, dieId, cfg->kernelName, kernelFunc, args->kernelArgs, args->kernelArgNum,
-        &kernelHandle);
+    ccu_kernel_handle kernel_handle{0};
+    ret = asccomm_ccu_kernel_register(
+        cfg->ccu_ins, die_id, cfg->kernel_name, kernel_func, args->kernel_args, args->kernel_arg_num,
+        &kernel_handle);
     if (ret != CCU_SUCCESS) {
-        HCCL_ERROR("[%s] hcomm_ccu_kernel_register failed, ccuRet[%d].", __func__, ret);
-        (void)hcomm_ccu_kernel_register_end(cfg->ccuIns);
+        HCCL_ERROR("[%s] asccomm_ccu_kernel_register failed, ccuRet[%d].", __func__, ret);
+        (void)asccomm_ccu_kernel_register_end(cfg->ccu_ins);
         return ret;
     }
 
-    ret = hcomm_ccu_kernel_register_end(cfg->ccuIns);
+    ret = asccomm_ccu_kernel_register_end(cfg->ccu_ins);
     if (ret != CCU_SUCCESS) {
-        HCCL_ERROR("[%s] hcomm_ccu_kernel_register_end failed, ccuRet[%d].", __func__, ret);
+        HCCL_ERROR("[%s] asccomm_ccu_kernel_register_end failed, ccuRet[%d].", __func__, ret);
         return ret;
     }
 
-    ret = hcomm_ccu_kernel_launch(cfg->launchContext, kernelHandle, args->taskArgs, args->taskArgNum);
+    ret = asccomm_ccu_kernel_launch(cfg->launch_context, kernel_handle, args->task_args, args->task_arg_num);
     if (ret != CCU_SUCCESS) {
-        HCCL_ERROR("[%s] hcomm_ccu_kernel_launch failed, ccuRet[%d].", __func__, ret);
+        HCCL_ERROR("[%s] asccomm_ccu_kernel_launch failed, ccuRet[%d].", __func__, ret);
         return ret;
     }
 
