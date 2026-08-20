@@ -30,7 +30,7 @@ typedef struct {
     const HcommCcuLaunchContextPod* launchContext;
     void* attrs; // 预留参数
     const char* kernelName;
-    const HcommCcuRegisterContextPod* registerContext;
+    HcommCcuRegisterContextHandle registerContext;
 } HcommCcuHostKernelLaunchCfg;
 
 typedef struct {
