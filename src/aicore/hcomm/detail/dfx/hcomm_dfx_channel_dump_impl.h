@@ -11,7 +11,7 @@
 #ifndef ASCCOMM_SRC_AICORE_HCOMM_DETAIL_DFX_HCOMM_DFX_CHANNEL_DUMP_IMPL_H
 #define ASCCOMM_SRC_AICORE_HCOMM_DETAIL_DFX_HCOMM_DFX_CHANNEL_DUMP_IMPL_H
 
-#include "hcomm/dfx/hcomm_channel_dump_info.h"
+#include "hcomm_channel_dump_info.h"
 
 #include <cstdint>
 

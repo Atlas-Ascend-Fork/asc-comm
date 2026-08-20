@@ -53,9 +53,6 @@ struct CommContext {
     uint64_t localBufferAddr;
     uint64_t remoteBufferAddr;
     TestResult testResult;
-    // --fault 演示注入开关：非 0 时核函数主动 trap 触发 AIC Error。
-    // 真实算子无需此字段，异常由业务 bug 自行触发；此处仅为让样例可复现 dump 流程。
-    uint32_t triggerFault;
 };
 
 } // namespace HcommExample

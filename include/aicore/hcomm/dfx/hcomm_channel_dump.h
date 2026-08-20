@@ -11,19 +11,23 @@
 #ifndef ASCCOMM_INCLUDE_AICORE_HCOMM_DFX_HCOMM_CHANNEL_DUMP_H
 #define ASCCOMM_INCLUDE_AICORE_HCOMM_DFX_HCOMM_CHANNEL_DUMP_H
 
-#include "hcomm_channel_dump_info.h"
 #include "hcomm/hcomm_common.h"
 
 #include <cstdint>
 
 namespace AscendC {
 
-int32_t HcommDfxGetChannelDumpInfoSize(uint32_t channelNum, const ChannelHandle *channels, uint32_t *len);
-int32_t HcommDfxDumpChannelInfo(uint32_t channelNum, const ChannelHandle *channels, void *buffer, uint32_t len);
-int32_t HcommDfxBindKernelException(const void *kernelSymbol, void *deviceContext);
-bool HcommDfxHasPendingException();
-void HcommDfxClearPendingException();
-int32_t HcommDfxDumpAndPrintChannelIfException(ChannelHandle channel);
+// 算子接入 HCOMM 通道维测能力的两个公开接口。
+//
+// HcommChannelExceptionCallbackRegister：launch 前调用一次，为目标 kernel 绑定异常回调。
+//   绑定后，一旦 kernel 触发 AIC Error，框架会在回调里轻量记录现场（仅置 pending，不做
+//   任何 D2H / 打印 / launch，避免在异常态挂死）。不注册则异常发生时不记录，后续 dump 静默返回。
+int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol);
+
+// HcommChannelInfoDump：aclrtSynchronizeStream 返回错误后，在 host 安全点调用。
+//   若存在已记录的异常，则采集并打印该 channel 的 Channel / SQ / CQ / WQE / CQE 现场；
+//   无异常则直接返回成功，可无条件调用。
+int32_t HcommChannelInfoDump(ChannelHandle channel);
 
 } // namespace AscendC
 

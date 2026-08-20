@@ -37,12 +37,6 @@ public:
         static_assert(
             operationType == HCOMM_READ_ONLY || operationType == HCOMM_WRITE_ONLY || operationType == HCOMM_READ_WRITE,
             "Unsupported Hcomm operation type");
-        // --fault 演示路径：注入 trap 触发 AIC Error，供 DFX 通道 dump 复现。
-        // 真实算子无此分支，异常由业务自身缺陷触发。
-        if (context_->triggerFault != 0U) {
-            trap();
-            return;
-        }
         context_->testResult = TEST_SUCCESS;
         if (!initOk_) {
             context_->testResult = TEST_HCOMM_INIT_FAILED;
@@ -66,6 +60,11 @@ public:
         if (hcomm_.Drain(channel_) != AscendC::HCOMM_SUCCESS) {
             context_->testResult = TEST_DRAIN_FAILED;
         }
+
+        // DFX 通道 dump 演示：完成正常读写后主动 trap，触发一次 AIC Error，
+        // 供 host 侧 HcommChannelInfoDump 采集通道/SQ/CQ/WQE/CQE 现场。
+        // 真实算子无此行——异常由业务自身缺陷触发；删除本行即恢复纯通信样例。
+        trap();
     }
 
 private:

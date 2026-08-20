@@ -40,7 +40,6 @@ struct ExceptionRecord {
     uint32_t taskId = 0;
     uint32_t streamId = 0;
     uint32_t deviceId = 0;
-    uint64_t deviceContextAddr = 0;
 };
 
 ExceptionRecord g_exception;
@@ -429,7 +428,7 @@ int32_t ParseAndPrintChannelDump(const HcommDfxChannelDumpData &dump)
     return HCOMM_SUCCESS;
 }
 
-void RecordException(aclrtExceptionInfo *exceptionInfo, void *deviceContext)
+void RecordException(aclrtExceptionInfo *exceptionInfo)
 {
     if (exceptionInfo == nullptr) {
         return;
@@ -438,19 +437,17 @@ void RecordException(aclrtExceptionInfo *exceptionInfo, void *deviceContext)
     g_exception.taskId = aclrtGetTaskIdFromExceptionInfo(exceptionInfo);
     g_exception.streamId = aclrtGetStreamIdFromExceptionInfo(exceptionInfo);
     g_exception.deviceId = aclrtGetDeviceIdFromExceptionInfo(exceptionInfo);
-    g_exception.deviceContextAddr = reinterpret_cast<uint64_t>(deviceContext);
     uint64_t count = g_exception.count.fetch_add(1U) + 1U;
     g_exception.pending.store(true, std::memory_order_release);
-    std::printf("[HcommDfxDump] exception callback entered count=%llu task=%u stream=%u device=%u "
-                "deviceContext=0x%llx\n",
-        static_cast<unsigned long long>(count), g_exception.taskId, g_exception.streamId, g_exception.deviceId,
-        static_cast<unsigned long long>(g_exception.deviceContextAddr));
+    std::printf("[HcommDfxDump] exception callback entered count=%llu task=%u stream=%u device=%u\n",
+        static_cast<unsigned long long>(count), g_exception.taskId, g_exception.streamId, g_exception.deviceId);
     std::fflush(stdout);
 }
 
 void ExceptionCallback(aclrtExceptionInfo *exceptionInfo, void *userData)
 {
-    RecordException(exceptionInfo, userData);
+    (void)userData;
+    RecordException(exceptionInfo);
 }
 } // namespace
 
@@ -468,9 +465,7 @@ void Trace(const char *format, ...)
     std::fflush(stderr);
 }
 
-} // namespace HcommDfx
-
-int32_t HcommDfxGetChannelDumpInfoSize(uint32_t channelNum, const ChannelHandle *channels, uint32_t *len)
+int32_t GetChannelDumpInfoSize(uint32_t channelNum, const ChannelHandle *channels, uint32_t *len)
 {
     if (len == nullptr || (channelNum != 0 && channels == nullptr)) {
         return HCOMM_FAILED;
@@ -479,7 +474,7 @@ int32_t HcommDfxGetChannelDumpInfoSize(uint32_t channelNum, const ChannelHandle 
     return HCOMM_SUCCESS;
 }
 
-int32_t HcommDfxDumpChannelInfo(uint32_t channelNum, const ChannelHandle *channels, void *buffer, uint32_t len)
+int32_t DumpChannelInfo(uint32_t channelNum, const ChannelHandle *channels, void *buffer, uint32_t len)
 {
     if (channelNum == 0 || channels == nullptr || buffer == nullptr || len < sizeof(HcommDfxChannelDumpData)) {
         return HCOMM_FAILED;
@@ -492,20 +487,35 @@ int32_t HcommDfxDumpChannelInfo(uint32_t channelNum, const ChannelHandle *channe
     dump->size = sizeof(HcommDfxChannelDumpData);
     dump->channelNum = std::min<uint32_t>(channelNum, HCOMM_DFX_MAX_CHANNELS);
 
-    HcommDfx::QueueReader reader;
+    QueueReader reader;
     int32_t ret = HCOMM_SUCCESS;
     for (uint32_t idx = 0; idx < dump->channelNum; ++idx) {
-        if (!HcommDfx::CollectChannel(channels[idx], dump->channels[idx], reader)) {
+        if (!CollectChannel(channels[idx], dump->channels[idx], reader)) {
             ret = HCOMM_FAILED;
         }
     }
-    (void)HcommDfx::ParseAndPrintChannelDump(*dump);
+    (void)ParseAndPrintChannelDump(*dump);
     return ret;
 }
 
-int32_t HcommDfxBindKernelException(const void *kernelSymbol, void *deviceContext)
+bool HasPendingException()
 {
-    if (kernelSymbol == nullptr || deviceContext == nullptr) {
+    return g_exception.pending.load(std::memory_order_acquire);
+}
+
+void ClearPendingException()
+{
+    g_exception.pending.store(false, std::memory_order_release);
+    g_exception.count.store(0U, std::memory_order_release);
+}
+
+} // namespace HcommDfx
+
+// 公开接口（声明见 include/aicore/hcomm/dfx/hcomm_channel_dump.h）。
+// 其余采集/判定逻辑收敛在内部 namespace HcommDfx，不对外暴露。
+int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
+{
+    if (kernelSymbol == nullptr) {
         return HCOMM_FAILED;
     }
 
@@ -513,7 +523,7 @@ int32_t HcommDfxBindKernelException(const void *kernelSymbol, void *deviceContex
     aclrtBinHandle binHandle = nullptr;
     if (aclrtGetFuncBySymbol(kernelSymbol, &funcHandle) != ACL_SUCCESS ||
         aclrtFunctionGetBinary(funcHandle, &binHandle) != ACL_SUCCESS ||
-        aclrtBinarySetExceptionCallback(binHandle, HcommDfx::ExceptionCallback, deviceContext) != ACL_SUCCESS) {
+        aclrtBinarySetExceptionCallback(binHandle, HcommDfx::ExceptionCallback, nullptr) != ACL_SUCCESS) {
         std::printf("[HcommDfxDump] bind exception callback failed\n");
         std::fflush(stdout);
         return HCOMM_FAILED;
@@ -521,31 +531,19 @@ int32_t HcommDfxBindKernelException(const void *kernelSymbol, void *deviceContex
 
     HcommDfx::g_exception.pending.store(false, std::memory_order_release);
     HcommDfx::g_exception.count.store(0U, std::memory_order_release);
-    HcommDfx::g_exception.deviceContextAddr = reinterpret_cast<uint64_t>(deviceContext);
-    std::printf("[HcommDfxDump] exception callback bound devContext=%p\n", deviceContext);
+    std::printf("[HcommDfxDump] exception callback registered\n");
     std::fflush(stdout);
     return HCOMM_SUCCESS;
 }
 
-bool HcommDfxHasPendingException()
+int32_t HcommChannelInfoDump(ChannelHandle channel)
 {
-    return HcommDfx::g_exception.pending.load(std::memory_order_acquire);
-}
-
-void HcommDfxClearPendingException()
-{
-    HcommDfx::g_exception.pending.store(false, std::memory_order_release);
-    HcommDfx::g_exception.count.store(0U, std::memory_order_release);
-}
-
-int32_t HcommDfxDumpAndPrintChannelIfException(ChannelHandle channel)
-{
-    if (!HcommDfxHasPendingException()) {
+    if (!HcommDfx::HasPendingException()) {
         return HCOMM_SUCCESS;
     }
 
     uint32_t dumpLen = 0;
-    int32_t ret = HcommDfxGetChannelDumpInfoSize(1U, &channel, &dumpLen);
+    int32_t ret = HcommDfx::GetChannelDumpInfoSize(1U, &channel, &dumpLen);
     if (ret != HCOMM_SUCCESS || dumpLen == 0) {
         return ret;
     }
@@ -555,9 +553,9 @@ int32_t HcommDfxDumpAndPrintChannelIfException(ChannelHandle channel)
         return HCOMM_FAILED;
     }
     std::memset(dumpBuffer, 0, dumpLen);
-    ret = HcommDfxDumpChannelInfo(1U, &channel, dumpBuffer, dumpLen);
+    ret = HcommDfx::DumpChannelInfo(1U, &channel, dumpBuffer, dumpLen);
     std::free(dumpBuffer);
-    std::printf("[HcommDfxDump] HcommDfxDumpChannelInfo ret=%d len=%u\n", ret, dumpLen);
+    std::printf("[HcommDfxDump] HcommChannelInfoDump ret=%d len=%u\n", ret, dumpLen);
     std::fflush(stdout);
     return ret;
 }

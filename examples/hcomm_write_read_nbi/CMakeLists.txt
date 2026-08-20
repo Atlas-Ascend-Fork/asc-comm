@@ -20,7 +20,7 @@ find_package(ASC REQUIRED)
 
 project(kernel_samples LANGUAGES ASC CXX)
 
-# 样例同时演示「正常读写通信」与「--fault 异常后 DFX 通道 dump」两条路径，
+# 样例除演示正常读写通信外，还展示「核函数异常 → host 侧 DFX 通道 dump」的维测接入，
 # 因此需要编入 HCOMM DFX 的采集/队列读取源文件，并按安装态布局暂存 hcomm 头文件。
 get_filename_component(ASCCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 set(HCOMM_STAGE_ROOT "${CMAKE_CURRENT_BINARY_DIR}/package_layout")
