@@ -74,9 +74,9 @@ public:
     __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
     __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR dstBase, GM_ADDR srcBase);
-    template <typename T>
+    template <typename U>
     __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
-        ChannelHandle channel, const LocalTensor<T>& buff, uint32_t buffLen, GM_ADDR dstBase, GM_ADDR srcBase);
+        ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR dstBase, GM_ADDR srcBase);
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>

@@ -288,6 +288,25 @@ typedef struct {
     BatchQueueCounters queueCounters;
 } UbcCtpBatchHandle;
 
+template <typename T>
+struct ChannelTraits;
+
+template <>
+struct ChannelTraits<ChannelHandle> {
+    using BatchHandleType = UbcCtpBatchHandle;
+};
+
+template <typename T>
+using BatchHandle = typename ChannelTraits<T>::BatchHandleType;
+
+template <typename T>
+struct BatchHandleTraits;
+
+template <>
+struct BatchHandleTraits<UbcCtpBatchHandle> {
+    using ChannelType = ChannelHandle;
+};
+
 // RoCE WQE, CQE, DB struct
 typedef struct {
     uint8_t ownerSl; // dw0[31:24]: owner(1) + ctrl_section_length(2) + csl(2) + difsl(3)

@@ -28,9 +28,12 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 批量接口：
 
 ```cpp
-template <auto const& config = URMA_DEFAULT_CFG>
+template <
+    auto const& config = URMA_DEFAULT_CFG,
+    typename T,
+    typename BatchHandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t WriteWithNotifyNbi(
-    UbcCtpBatchHandle& batchHandle,
+    T& batchHandle,
     GM_ADDR dst,
     GM_ADDR src,
     uint64_t len,
@@ -58,6 +61,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | `commitPipe` | 普通接口commit使用的pipe，默认`PIPE_S`。 |
 | `reqPipe` | 普通接口请求使用的pipe，默认`PIPE_MTE3`。 |
 | `config` | URMA WQE控制配置。默认为`URMA_DEFAULT_CFG`（强序 + fence + 使能CQE）。批量接口要求`inlineEn = 0`且`cqe`只能为`0`或`1`。 |
+| `T` | 批量句柄类型，由`batchHandle`实参推导；当前支持`UbcCtpBatchHandle`。 |
 
 ## 返回值
 

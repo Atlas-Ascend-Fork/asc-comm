@@ -21,9 +21,12 @@ __aicore__ inline int32_t ReadNbi(
 Batch interface:
 
 ```cpp
-template <auto const& config = URMA_DEFAULT_CFG>
+template <
+    auto const& config = URMA_DEFAULT_CFG,
+    typename T,
+    typename BatchHandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t ReadNbi(
-    UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
 ```
 
 ## Parameter Description
@@ -44,6 +47,7 @@ __aicore__ inline int32_t ReadNbi(
 | `commitPipe` | Pipe used for commit by the ordinary interface. Default: `PIPE_S`. |
 | `reqPipe` | Pipe used for the request by the ordinary interface. Default: `PIPE_MTE3`. |
 | `config` | URMA WQE control configuration. Default: `URMA_DEFAULT_CFG` (strongly ordered + fence + CQE enabled). The batch interface requires `inlineEn = 0`, and `cqe` must be `0` or `1`. |
+| `T` | Batch handle type, deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle`. |
 
 ## Return Value
 

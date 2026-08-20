@@ -4,22 +4,24 @@
 
 Creates a protocol-specific batch handle and binds the UB buffer used to prepare batched WQEs. Batch handles currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
-The interface directly returns `UbcCtpBatchHandle`. Use `auto` to receive the return value.
+The interface maps the channel type to its corresponding BatchHandle return type. Use `auto` to receive the return
+value. The current `ChannelHandle` mapping resolves to `UbcCtpBatchHandle`.
 
 ## Function Prototype
 
 ```cpp
-__aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
-    AscendC::ChannelHandle channel,
+template <typename T>
+__aicore__ inline BatchHandle<T> MakeBatchHandle(
+    T channel,
     __ubuf__ uint8_t* buff,
     uint32_t buffLen,
     GM_ADDR dstBase = nullptr,
     GM_ADDR srcBase = nullptr);
 
-template <typename T>
-__aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
-    AscendC::ChannelHandle channel,
-    const AscendC::LocalTensor<T>& buff,
+template <typename T, typename U>
+__aicore__ inline BatchHandle<T> MakeBatchHandle(
+    T channel,
+    const AscendC::LocalTensor<U>& buff,
     uint32_t buffLen,
     GM_ADDR dstBase = nullptr,
     GM_ADDR srcBase = nullptr);
@@ -39,11 +41,13 @@ __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
 
 | Parameter | Description |
 | --- | --- |
-| `T` | Element type of the `LocalTensor`. Used only by the `LocalTensor` overload. |
+| `T` | Communication channel handle type, deduced from `channel`. Currently supports `ChannelHandle`. |
+| `U` | Element type of the `LocalTensor`. Used only by the `LocalTensor` overload. |
 
 ## Return Value
 
-Returns `UbcCtpBatchHandle`. This interface is currently supported only by `COMM_PROTOCOL_UBC_CTP`.
+Returns `BatchHandle<T>`. The actual return type for `ChannelHandle` is currently `UbcCtpBatchHandle`. This
+interface is supported only by `COMM_PROTOCOL_UBC_CTP`.
 
 This interface does not report invalid arguments through a status code. The caller must satisfy the constraints below. Invalid arguments trigger an interface assertion in debug builds.
 
@@ -54,7 +58,7 @@ This interface does not report invalid arguments through a status code. The call
 - `dstBase` must fall within a remote registered buffer of `channel`. The interface caches the token of that buffer, and subsequent batch read/write calls do not query the remote registration table again.
 - `srcBase` is not used for address validation or token caching in the current version.
 - The start address of `buff` must be 32-byte aligned, and `buffLen` must be at least 64 bytes.
-- For the `LocalTensor` overload, `buffLen` must not exceed `buff.GetSize() * sizeof(T)`.
+- For the `LocalTensor` overload, `buffLen` must not exceed `buff.GetSize() * sizeof(U)`.
 - `buffLen` must be strictly smaller than the SQ capacity, that is, `sqDepth * 64` bytes. The buffer can hold `buffLen / 64` WQEBBs; any remaining bytes are not used for WQEs.
 - A BatchHandle caches SQ/CQ contexts and queue counters at creation time. The caller must exclusively own the channel while the BatchHandle is active. Do not mix ordinary `ChannelHandle` calls on the same channel or use multiple BatchHandles concurrently on that channel.
 - The caller manages the lifetime of the BatchHandle, channel resources, and `buff`. Do not release or concurrently reuse these resources before use of the BatchHandle is complete.
