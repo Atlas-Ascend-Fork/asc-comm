@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_POD_LAUNCH_H
-#define HCOMM_POD_LAUNCH_H
+#ifndef ASCCOMM_LAUNCH_H
+#define ASCCOMM_LAUNCH_H
 
 #include "hcomm/asccomm_primitives.h"
 #include "hccl/hccl_types.h"
@@ -25,4 +25,4 @@ HcclResult asccomm_launch_registered_threads();
 HcclResult asccomm_try_launch_registered_threads();
 void asccomm_clear_registered_threads();
 
-#endif // HCOMM_POD_LAUNCH_H
+#endif // ASCCOMM_LAUNCH_H

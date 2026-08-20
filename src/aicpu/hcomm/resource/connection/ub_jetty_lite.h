@@ -14,7 +14,7 @@
 
 namespace Asc {
 
-struct PodUbJettyLiteId {
+struct UbJettyLiteId {
     u32 dieId_;
     u32 funcId_;
     u32 jettyId_;
@@ -34,7 +34,7 @@ struct PodUbJettyLiteId {
         return jettyId_;
     }
 
-    PodUbJettyLiteId(u32 dieId, u32 funcId, u32 jettyId) : dieId_(dieId), funcId_(funcId), jettyId_(jettyId)
+    UbJettyLiteId(u32 dieId, u32 funcId, u32 jettyId) : dieId_(dieId), funcId_(funcId), jettyId_(jettyId)
     {
     }
 };

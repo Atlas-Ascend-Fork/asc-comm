@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_POD_HCCL_EXCEPTION_H
-#define HCOMM_POD_HCCL_EXCEPTION_H
+#ifndef ASCCOMM_HCCL_EXCEPTION_H
+#define ASCCOMM_HCCL_EXCEPTION_H
 
 #include <exception>
 #include <string>
@@ -32,4 +32,4 @@ private:
 
 } // namespace Asc
 
-#endif // HCOMM_POD_HCCL_EXCEPTION_H
+#endif // ASCCOMM_HCCL_EXCEPTION_H

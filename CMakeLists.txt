@@ -22,8 +22,8 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     endif()
 endif()
 
-set(POD_HCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu/hcomm")
-set(POD_DFX_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/common/dfx")
+set(ASCCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu/hcomm")
+set(ASCCOMM_DFX_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/common/dfx")
 set(HCOMM_SOURCE_DIR "" CACHE PATH "HCOMM source directory providing include/ and pkg_inc/")
 
 if(NOT HCOMM_SOURCE_DIR)
@@ -38,7 +38,7 @@ if(NOT EXISTS "${HCOMM_SOURCE_DIR}/include/hcomm_primitives.h" OR
 endif()
 
 include(cmake/fetch_cann_cmake.cmake)
-project(asc_comm_pod_data_plane LANGUAGES CXX)
+project(asc_comm_data_plane LANGUAGES CXX)
 init_cann_project(PREPEND_MODULE_PATH)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -49,22 +49,22 @@ find_cann_package(ascend_hal MODULE REQUIRED)
 find_cann_package(securec MODULE REQUIRED)
 find_cann_package(unified_dlog MODULE REQUIRED)
 
-add_library(asc_comm_pod_dfx INTERFACE)
-target_include_directories(asc_comm_pod_dfx INTERFACE ${POD_DFX_SRC_DIR})
+add_library(asc_comm_dfx INTERFACE)
+target_include_directories(asc_comm_dfx INTERFACE ${ASCCOMM_DFX_SRC_DIR})
 
 include(cmake/aicpu_asccomm.cmake)
 
-add_library(aicpu_pod_data_plane SHARED ${ASC_COMM_AICPU_HCOMM_POD_SOURCES})
+add_library(aicpu_asccomm_data_plane SHARED ${ASCCOMM_AICPU_SOURCES})
 
-target_compile_definitions(aicpu_pod_data_plane PRIVATE
+target_compile_definitions(aicpu_asccomm_data_plane PRIVATE
     HCCD
     CCL_KERNEL_AICPU
-    HCOMM_POD_SOURCE_BUILD
+    ASCCOMM_SOURCE_BUILD
     OPEN_BUILD_PROJECT
     _GLIBCXX_USE_CXX11_ABI=1
 )
 
-target_compile_options(aicpu_pod_data_plane PRIVATE
+target_compile_options(aicpu_asccomm_data_plane PRIVATE
     -Wfloat-equal
     -Wall
     -fno-common
@@ -78,26 +78,26 @@ target_compile_options(aicpu_pod_data_plane PRIVATE
     -O3
 )
 
-target_include_directories(aicpu_pod_data_plane PRIVATE
+target_include_directories(aicpu_asccomm_data_plane PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu
     ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu/hcomm
     ${HCOMM_SOURCE_DIR}/include
     ${HCOMM_SOURCE_DIR}/pkg_inc
     ${HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/inc
-    ${POD_HCOMM_ROOT}/primitives/api_c_adpt
-    ${POD_HCOMM_ROOT}/primitives/launch
-    ${POD_HCOMM_ROOT}/common/compat/hcomm
-    ${POD_HCOMM_ROOT}/common/compat/hcomm/hccl
-    ${POD_HCOMM_ROOT}/common/exception
-    ${POD_HCOMM_ROOT}/common/utils
-    ${POD_HCOMM_ROOT}/resource/buffer
-    ${POD_HCOMM_ROOT}/resource/common
-    ${POD_HCOMM_ROOT}/resource/connection
-    ${POD_HCOMM_ROOT}/resource/stream
+    ${ASCCOMM_ROOT}/primitives/api_c_adpt
+    ${ASCCOMM_ROOT}/primitives/launch
+    ${ASCCOMM_ROOT}/common/compat/hcomm
+    ${ASCCOMM_ROOT}/common/compat/hcomm/hccl
+    ${ASCCOMM_ROOT}/common/exception
+    ${ASCCOMM_ROOT}/common/utils
+    ${ASCCOMM_ROOT}/resource/buffer
+    ${ASCCOMM_ROOT}/resource/common
+    ${ASCCOMM_ROOT}/resource/connection
+    ${ASCCOMM_ROOT}/resource/stream
 )
 
-target_link_libraries(aicpu_pod_data_plane PRIVATE
-    asc_comm_pod_dfx
+target_link_libraries(aicpu_asccomm_data_plane PRIVATE
+    asc_comm_dfx
     acl_rt_headers
     slog_headers
     ascend_hal
@@ -106,7 +106,7 @@ target_link_libraries(aicpu_pod_data_plane PRIVATE
     pthread
 )
 
-target_link_options(aicpu_pod_data_plane PRIVATE
+target_link_options(aicpu_asccomm_data_plane PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
     -Wl,-z,noexecstack
@@ -114,4 +114,4 @@ target_link_options(aicpu_pod_data_plane PRIVATE
     -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/asccomm_exports.map
 )
 
-set_target_properties(aicpu_pod_data_plane PROPERTIES SKIP_BUILD_RPATH TRUE)
+set_target_properties(aicpu_asccomm_data_plane PROPERTIES SKIP_BUILD_RPATH TRUE)

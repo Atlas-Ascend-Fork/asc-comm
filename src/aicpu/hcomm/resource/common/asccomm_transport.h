@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_POD_TRANSPORT_H
-#define HCOMM_POD_TRANSPORT_H
+#ifndef ASCCOMM_TRANSPORT_H
+#define ASCCOMM_TRANSPORT_H
 
 #include "hcomm/hcomm_pod_resource.h"
 #include "hcomm/asccomm_primitives.h"
@@ -19,18 +19,18 @@ HcclResult asccomm_write(HcommThreadEntity &thread, HcommChannelEntity &channel,
                          uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len);
 HcclResult asccomm_write_reduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-                               const Asc::PodReduceIn &reduceIn);
+                               const Asc::ReduceIn &reduceIn);
 HcclResult asccomm_write_with_notify(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                    uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
                                    uint32_t remoteNotifyIdx);
 HcclResult asccomm_write_reduce_with_notify(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                          uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-                                         const Asc::PodReduceIn &reduceIn, uint32_t remoteNotifyIdx);
+                                         const Asc::ReduceIn &reduceIn, uint32_t remoteNotifyIdx);
 HcclResult asccomm_read(HcommThreadEntity &thread, HcommChannelEntity &channel,
                         uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len);
 HcclResult asccomm_read_reduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
                               uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-                              const Asc::PodReduceIn &reduceIn);
+                              const Asc::ReduceIn &reduceIn);
 HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                  const HcommBatchTransferDesc *transferDescs, uint32_t transferDescNum);
 HcclResult asccomm_notify_record(HcommThreadEntity &thread, HcommChannelEntity &channel,
@@ -40,4 +40,4 @@ HcclResult asccomm_notify_wait(HcommThreadEntity &thread, const HcommChannelEnti
 HcclResult asccomm_fence(HcommChannelEntity &channel);
 HcclResult asccomm_drain(HcommThreadEntity &thread, HcommChannelEntity &channel);
 
-#endif // HCOMM_POD_TRANSPORT_H
+#endif // ASCCOMM_TRANSPORT_H

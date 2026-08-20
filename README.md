@@ -142,7 +142,7 @@ source /usr/local/Ascend/cann/set_env.sh
 ```
 
 根目录已直接集成原`pod_only`工程，默认构建生成
-`build/aicpu-data-plane/libaicpu_pod_data_plane.so`。HCOMM负责控制面和资源管理，本仓POD实现直接使用
+`build/aicpu-data-plane/libaicpu_asccomm_data_plane.so`。HCOMM负责控制面和资源管理，本仓POD实现直接使用
 HCOMM提供的资源ABI与查询接口，不再包含legacy数据面、资源转换接口或HCOMM公共接口副本。
 
 默认从asc-comm同级的`hcomm_pkg_inc`目录获取HCOMM头文件；其他目录布局可通过

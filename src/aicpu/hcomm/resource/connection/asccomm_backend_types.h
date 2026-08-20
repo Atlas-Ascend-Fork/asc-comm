@@ -8,14 +8,14 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_POD_BACKEND_TYPES_H
-#define HCOMM_POD_BACKEND_TYPES_H
+#ifndef ASCCOMM_BACKEND_TYPES_H
+#define ASCCOMM_BACKEND_TYPES_H
 
 #include "hccl/base.h"
 
 namespace Asc {
 
-class PodDataType {
+class DataType {
 public:
     enum Value : uint8_t {
         INT8,
@@ -40,46 +40,46 @@ public:
         INVALID
     };
 
-    constexpr PodDataType() = default;
-    constexpr PodDataType(Value value) : value_(value) {}
+    constexpr DataType() = default;
+    constexpr DataType(Value value) : value_(value) {}
     constexpr operator Value() const { return value_; }
 
 private:
     Value value_{INVALID};
 };
 
-class PodReduceOp {
+class ReduceOp {
 public:
     enum Value : uint8_t { SUM, PROD, MAX, MIN, EQUAL, COUNT, INVALID };
 
-    constexpr PodReduceOp() = default;
-    constexpr PodReduceOp(Value value) : value_(value) {}
+    constexpr ReduceOp() = default;
+    constexpr ReduceOp(Value value) : value_(value) {}
     constexpr operator Value() const { return value_; }
 
 private:
     Value value_{INVALID};
 };
 
-struct PodReduceIn {
-    PodDataType dataType;
-    PodReduceOp reduceOp;
+struct ReduceIn {
+    DataType dataType;
+    ReduceOp reduceOp;
 
-    constexpr PodReduceIn(PodDataType dataTypeValue, PodReduceOp reduceOpValue)
+    constexpr ReduceIn(DataType dataTypeValue, ReduceOp reduceOpValue)
         : dataType(dataTypeValue), reduceOp(reduceOpValue) {}
 };
 
-struct PodSqeConfigLite {
-    PodSqeConfigLite() : placeOdr(1), compOrder(1), fence(1) {}
+struct SqeConfigLite {
+    SqeConfigLite() : placeOdr(1), compOrder(1), fence(1) {}
     bool cqeEn{true};
     u8 placeOdr : 2;
     u8 compOrder : 1;
     u8 fence : 1;
 };
 
-struct PodConnLiteOperationOut {
+struct ConnLiteOperationOut {
     u16 pi{0};
 };
 
 } // namespace Asc
 
-#endif // HCOMM_POD_BACKEND_TYPES_H
+#endif // ASCCOMM_BACKEND_TYPES_H

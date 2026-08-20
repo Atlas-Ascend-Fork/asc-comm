@@ -27,7 +27,7 @@
 
 namespace Asc {
 
-struct PodRdmaSqContextLite {
+struct RdmaSqContextLite {
     uint32_t qpn;
     uint64_t sqVa;
     uint32_t wqeSize;
@@ -40,7 +40,7 @@ struct PodRdmaSqContextLite {
     uint8_t mtuShift;
 };
 
-struct PodRdmaCqContextLite {
+struct RdmaCqContextLite {
     uint32_t cqn;
     uint64_t cqVa;
     uint32_t cqeSize;
@@ -85,11 +85,11 @@ enum class CqPollStatus : int32_t {
     CONTINUE = 1,   /* indicate continue the process */
 };
 
-class PodRdmaBaseOps {
+class RdmaBaseOps {
 public:
-    PodRdmaBaseOps(PodRdmaSqContextLite *sqContext, PodRdmaCqContextLite *cqContext)
+    RdmaBaseOps(RdmaSqContextLite *sqContext, RdmaCqContextLite *cqContext)
         : sqContext_(sqContext), cqContext_(cqContext) {}
-    virtual ~PodRdmaBaseOps() = default;
+    virtual ~RdmaBaseOps() = default;
 
     void import_queue_state(u32 sqHead, u32 sqTail, u32 cqHead, u32 cqTail, bool cqDbFlush)
     {
@@ -110,7 +110,7 @@ public:
     }
 
     // 上层接口，不关心具体vendor类型
-    HcclResult read(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg)
+    HcclResult read(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg)
     {
         // read需要占用1个wr位置, 确定Sq存在空位
         constexpr int ReadWqeCount = 1;
@@ -125,7 +125,7 @@ public:
         return HCCL_SUCCESS;
     }
 
-    HcclResult write(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg)
+    HcclResult write(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg)
     {
         // write需要占用1个wr位置, 确定Sq存在空位
         constexpr int WriteWqeCount = 1;
@@ -140,7 +140,7 @@ public:
         return HCCL_SUCCESS;
     }
 
-    HcclResult write_reduce(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg, PodDataType dataType, PodReduceOp reduceOp)
+    HcclResult write_reduce(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg, DataType dataType, ReduceOp reduceOp)
     {
         // Inline Reduce write需要占用1个wr位置, 确定Sq存在空位
         constexpr int WriteReduceWqeCount = 1;
@@ -167,7 +167,7 @@ public:
             // 逐一Poll Cq，并处理cqe
             ret = poll_cq_impl(numEntries - totalPollNum, errList);
             if (ret == static_cast<int32_t>(CqPollStatus::ERROR)) {
-                HCCL_ERROR("[PodRdmaBaseOps::%s][Poll cq] Poll Cq Error.", __func__);
+                HCCL_ERROR("[RdmaBaseOps::%s][Poll cq] Poll Cq Error.", __func__);
                 return HCCL_E_REMOTE;
             }
 
@@ -183,13 +183,13 @@ public:
             }
 
             if ((std::chrono::steady_clock::now() - startTime) > timeLimit) {
-                HCCL_ERROR("[PodRdmaBaseOps::%s][Poll cq] Poll Cq timeout, expected[%d], actual[%d], lastRet[%d]",
+                HCCL_ERROR("[RdmaBaseOps::%s][Poll cq] Poll Cq timeout, expected[%d], actual[%d], lastRet[%d]",
                     __func__, numEntries, totalPollNum, ret);
                 return HCCL_E_TIMEOUT;
             }
         }
 
-        HCCL_INFO("[PodRdmaBaseOps::%s][Poll cq] Poll Cq success, expected[%d], actual[%d]",
+        HCCL_INFO("[RdmaBaseOps::%s][Poll cq] Poll Cq success, expected[%d], actual[%d]",
             __func__, numEntries, totalPollNum);
         return HCCL_SUCCESS;
     }
@@ -209,38 +209,38 @@ protected:
     u32  cqTail_{0};
     bool cqDbFlush_ = false;
 
-    PodRdmaSqContextLite *sqContext_;
-    PodRdmaCqContextLite *cqContext_;
+    RdmaSqContextLite *sqContext_;
+    RdmaCqContextLite *cqContext_;
 
     // 默认超时时间 30 ms
     const std::chrono::milliseconds timeout_ = std::chrono::milliseconds(30U);
 
     // vendor扩展点: 每个原子op一个虚函数
     // 默认 NOT_SUPPORT, 各个vendor 只重写自己支持的
-    virtual HcclResult build_read_wqe(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg) {
+    virtual HcclResult build_read_wqe(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg) {
         (void)loc;
         (void)rmt;
         (void)cfg;
-        HCCL_ERROR("[PodRdmaBaseOps::%s] This Backend Not support read Now.", __func__);
+        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support read Now.", __func__);
         return HCCL_E_NOT_SUPPORT;
     }
 
-    virtual HcclResult build_write_wqe(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg) {
+    virtual HcclResult build_write_wqe(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg) {
         (void)loc;
         (void)rmt;
         (void)cfg;
-        HCCL_ERROR("[PodRdmaBaseOps::%s] This Backend Not support write Now.", __func__);
+        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support write Now.", __func__);
         return HCCL_E_NOT_SUPPORT;
     }
 
-    virtual HcclResult build_write_reduce_wqe(const PodRmaBufSliceLite &locNotify, const PodRmtRmaBufSliceLite &notify, const PodSqeConfigLite &cfg,
-                                           PodDataType dataType, PodReduceOp reduceOp) {
+    virtual HcclResult build_write_reduce_wqe(const RmaBufSliceLite &locNotify, const RmtRmaBufSliceLite &notify, const SqeConfigLite &cfg,
+                                           DataType dataType, ReduceOp reduceOp) {
         (void)locNotify;
         (void)notify;
         (void)cfg;
         (void)dataType;
         (void)reduceOp;
-        HCCL_ERROR("[PodRdmaBaseOps::%s] This Backend Not support write_reduce Now.", __func__);
+        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support write_reduce Now.", __func__);
         return HCCL_E_NOT_SUPPORT;
     }
 
@@ -251,21 +251,21 @@ protected:
 
     virtual int32_t poll_cq_impl(int32_t numEntries, std::vector<int32_t> &errList) {
         (void)numEntries;
-        HCCL_ERROR("[PodRdmaBaseOps::%s] This Backend Not support poll_cq Now.", __func__);
+        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support poll_cq Now.", __func__);
         return HCCL_E_NOT_SUPPORT;
     }
 
     // 搬运wqe(通用实现), 把 Wqe 写到 SQ
     HcclResult commit_wqe(const void *wqe, uint32_t wqeSize)
     {
-        HCCL_INFO("[PodRdmaBaseOps::%s] Memcpy wqe start, Now SQ PI: [%u]", __func__, sqHead_);
+        HCCL_INFO("[RdmaBaseOps::%s] Memcpy wqe start, Now SQ PI: [%u]", __func__, sqHead_);
 
         // 写wqe到va
         auto sqDepth = sqContext_->depth;
         uint32_t sqPIMask = sqDepth - 1;
         u8 *va = reinterpret_cast<u8 *>(sqContext_->sqVa + (sqHead_ & sqPIMask) * wqeSize);
 
-        HCCL_INFO("[PodRdmaBaseOps][Wqe write] before copy, sqHead[%u], slot[%u], sqVa[0x%llx], dst[0x%llx], size[%u]",
+        HCCL_INFO("[RdmaBaseOps][Wqe write] before copy, sqHead[%u], slot[%u], sqVa[0x%llx], dst[0x%llx], size[%u]",
             sqHead_, sqHead_ & sqPIMask,
             static_cast<unsigned long long>(sqContext_->sqVa),
             reinterpret_cast<unsigned long long>(va),
@@ -273,7 +273,7 @@ protected:
 
         auto ret = memcpy_sp(va, wqeSize, wqe, wqeSize);
         if (UNLIKELY(ret != 0)) {
-            throw_exception<InternalException>(string_format("[PodRdmaBaseOps::%s] memcpy_s failed, ret = %d", __func__, ret));
+            throw_exception<InternalException>(string_format("[RdmaBaseOps::%s] memcpy_s failed, ret = %d", __func__, ret));
         }
 
         // pi维护用于传入DB Send用于Rtsq 敲door bell
@@ -282,7 +282,7 @@ protected:
         // write InValid Wqebb
         CHK_RET(write_invalid_wqebb(sqHead_));
 
-        HCCL_INFO("[PodRdmaBaseOps::%s] Memcpy wqe end, Now SQ PI: [%u]", __func__, sqHead_);
+        HCCL_INFO("[RdmaBaseOps::%s] Memcpy wqe end, Now SQ PI: [%u]", __func__, sqHead_);
         return HCCL_SUCCESS;
     }
 
@@ -291,7 +291,7 @@ protected:
         bool timeOutFlag = false;
         auto startTime = std::chrono::steady_clock::now();
 
-        HCCL_INFO("[PodRdmaBaseOps::%s] Operate: sqTail = %u", __func__, sqTail_);
+        HCCL_INFO("[RdmaBaseOps::%s] Operate: sqTail = %u", __func__, sqTail_);
         while (!timeOutFlag) {
             // sq 队列能放下，直接成功返回
             if (static_cast<uint32_t>(sqHead_ - sqTail_ + wqeNum) <= sqContext_->depth) {
@@ -302,7 +302,7 @@ protected:
         }
 
         // 超时处理
-        HCCL_ERROR("[PodRdmaBaseOps::%s] Sq is Full !! Operate: sqTail = %u Failed. ", __func__, sqTail_);
+        HCCL_ERROR("[RdmaBaseOps::%s] Sq is Full !! Operate: sqTail = %u Failed. ", __func__, sqTail_);
         return HCCL_E_TIMEOUT;
     }
 
@@ -311,13 +311,13 @@ protected:
         // 更新Sq PI指针
         uint32_t sqHeadNum = htonl32(sqHead_);
 
-        HCCL_INFO("[PodRdmaBaseOps][Wqe write] write soft PI, sqHead host[%u], dbSwVa[0x%llx]",
+        HCCL_INFO("[RdmaBaseOps][Wqe write] write soft PI, sqHead host[%u], dbSwVa[0x%llx]",
                 sqHead_, static_cast<unsigned long long>(sqContext_->dbSwVa));
 
         auto status = memcpy_sp(reinterpret_cast<void *>(sqContext_->dbSwVa), sizeof(uint32_t), &sqHeadNum,
                                 sizeof(uint32_t));
         if (UNLIKELY(status != 0)) {
-            throw_exception<InternalException>(string_format("[PodRdmaBaseOps::%s] Ring Sw DB failed, ret = %d", __func__, status));
+            throw_exception<InternalException>(string_format("[RdmaBaseOps::%s] Ring Sw DB failed, ret = %d", __func__, status));
         }
         return HCCL_SUCCESS;
     }

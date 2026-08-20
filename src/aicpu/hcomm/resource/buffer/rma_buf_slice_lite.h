@@ -13,9 +13,9 @@
 #include "hccl/base.h"
 
 namespace Asc {
-class PodRmaBufSliceLite {
+class RmaBufSliceLite {
 public:
-    constexpr PodRmaBufSliceLite(u64 addr, u64 size, u32 lkey, u32 tokenId)
+    constexpr RmaBufSliceLite(u64 addr, u64 size, u32 lkey, u32 tokenId)
         : addr_(addr), size_(size), lkey_(lkey), tokenId_(tokenId) {}
 
     inline u64 get_addr() const

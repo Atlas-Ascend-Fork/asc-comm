@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_POD_EXCEPTION_UTIL_H
-#define HCOMM_POD_EXCEPTION_UTIL_H
+#ifndef ASCCOMM_EXCEPTION_UTIL_H
+#define ASCCOMM_EXCEPTION_UTIL_H
 
 #include <string>
 #include "log/hcomm_log.h"
@@ -30,4 +30,4 @@ template <typename Exception, typename... Args> [[noreturn]] inline void throw_e
 
 } // namespace Asc
 
-#endif // HCOMM_POD_EXCEPTION_UTIL_H
+#endif // ASCCOMM_EXCEPTION_UTIL_H

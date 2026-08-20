@@ -12,10 +12,10 @@
 
 namespace Asc {
 
-void build_a5_pod_sqe_rdma_db_send(u32 streamId, u32 taskId, u64 dbAddr, u64 dbValue, uint8_t *sqeIn)
+void build_a5_sqe_rdma_db_send(u32 streamId, u32 taskId, u64 dbAddr, u64 dbValue, uint8_t *sqeIn)
 {
     auto sqe = reinterpret_cast<Rt91095StarsWriteValueSqe *>(sqeIn);
-    set_pod_sqe_header_task_fields(sqe, taskId);
+    set_sqe_header_task_fields(sqe, taskId);
     sqe->header.type = static_cast<uint8_t>(Rt91095StarsSqeType::RT_91095_SQE_TYPE_WRITE_VALUE);
     sqe->kernelCredit = RT_STARS_DEFAULT_KERNEL_CREDIT;
     sqe->header.rtStreamId = streamId;

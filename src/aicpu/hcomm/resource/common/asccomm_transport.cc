@@ -24,9 +24,9 @@ constexpr uint32_t UB_STRONG_ORDER = 2U;
 constexpr uint32_t UB_RELAX_ORDER = 1U;
 constexpr uint32_t UB_COMPLETION = 1U;
 constexpr uint32_t UB_NO_COMPLETION = 0U;
-constexpr uint32_t POD_NOTIFY_VALUE = 1U;
-constexpr uint32_t POD_NOTIFY_SIZE = sizeof(uint32_t);
-constexpr uint32_t POD_DEFAULT_TIMEOUT = 1836U;
+constexpr uint32_t NOTIFY_VALUE = 1U;
+constexpr uint32_t NOTIFY_SIZE = sizeof(uint32_t);
+constexpr uint32_t DEFAULT_TIMEOUT = 1836U;
 constexpr uint64_t RDMA_DMA_MAX_SIZE = 0x80000000ULL;
 
 bool is_ub_protocol(CommProtocol protocol)
@@ -82,7 +82,7 @@ HcclResult get_ub_context(HcommChannelEntity &channel, HcommJfsContext *&jfs)
 }
 
 HcclResult build_ub_slices(const HcommChannelEntity &channel, uintptr_t localAddr, uintptr_t remoteAddr,
-                         uint64_t len, Asc::PodRmaBufSliceLite &local, Asc::PodRmtRmaBufSliceLite &remote)
+                         uint64_t len, Asc::RmaBufSliceLite &local, Asc::RmtRmaBufSliceLite &remote)
 {
     const HcommRegedBufferEntity *localBuffer = find_buffer(
         channel.localBufferAddr, channel.localBufferNum, localAddr, len, true);
@@ -95,15 +95,15 @@ HcclResult build_ub_slices(const HcommChannelEntity &channel, uintptr_t localAdd
     CHK_PRT_RET(localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA ||
         remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA,
         HCCL_ERROR("[%s] UB buffer requires URMA protection.", __func__), HCCL_E_PARA);
-    local = Asc::PodRmaBufSliceLite(localAddr, len, 0, localResource.protectionInfo.memInfo.ub.tokenId);
-    remote = Asc::PodRmtRmaBufSliceLite(remoteAddr, len, 0,
+    local = Asc::RmaBufSliceLite(localAddr, len, 0, localResource.protectionInfo.memInfo.ub.tokenId);
+    remote = Asc::RmtRmaBufSliceLite(remoteAddr, len, 0,
         remoteResource.protectionInfo.memInfo.ub.tokenId, remoteResource.protectionInfo.memInfo.ub.tokenValue,
         std::numeric_limits<uint32_t>::max());
     return HCCL_SUCCESS;
 }
 
 HcclResult build_ub_remote_notify(const HcommChannelEntity &channel, uint32_t index,
-                               Asc::PodRmtRmaBufSliceLite &notify)
+                               Asc::RmtRmaBufSliceLite &notify)
 {
     CHK_PRT_RET(index >= channel.remoteNotifyNum || channel.remoteNotifyAddr == nullptr,
         HCCL_ERROR("[%s] remote notify index[%u] out of range[%u].", __func__, index,
@@ -113,13 +113,13 @@ HcclResult build_ub_remote_notify(const HcommChannelEntity &channel, uint32_t in
     const auto &resource = channel.remoteNotifyAddr[index].notifyInfo.rmaRt;
     CHK_PRT_RET(resource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA,
         HCCL_ERROR("[%s] UB notify requires URMA protection.", __func__), HCCL_E_PARA);
-    notify = Asc::PodRmtRmaBufSliceLite(resource.addr, resource.size, 0,
+    notify = Asc::RmtRmaBufSliceLite(resource.addr, resource.size, 0,
         resource.protectionInfo.memInfo.ub.tokenId,
         resource.protectionInfo.memInfo.ub.tokenValue, resource.notifyId);
     return HCCL_SUCCESS;
 }
 
-void fill_ub_param(const HcommJfsContext &jfs, Asc::PodUbConnLiteParam &param)
+void fill_ub_param(const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
 {
     param.dieId = jfs.dieId;
     param.funcId = jfs.funcId;
@@ -133,12 +133,12 @@ void fill_ub_param(const HcommJfsContext &jfs, Asc::PodUbConnLiteParam &param)
     (void)memcpy_sp(param.rmtEid, sizeof(param.rmtEid), jfs.remoteEID, sizeof(jfs.remoteEID));
 }
 
-void import_ub_state(const HcommJfsContext &jfs, Asc::PodUbConnLite &connection)
+void import_ub_state(const HcommJfsContext &jfs, Asc::UbConnLite &connection)
 {
     connection.import_queue_state(jfs.pi, jfs.piDetourCount);
 }
 
-void export_ub_state(Asc::PodUbConnLite &connection, HcommJfsContext &jfs)
+void export_ub_state(Asc::UbConnLite &connection, HcommJfsContext &jfs)
 {
     connection.export_queue_state(jfs.pi, jfs.piDetourCount);
 }
@@ -147,13 +147,13 @@ HcclResult ring_ub_doorbell(HcommThreadEntity &thread, const HcommJfsContext &jf
 {
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
-    const Asc::PodUbJettyLiteId jettyId(jfs.dieId, jfs.funcId, jfs.jfsID);
+    const Asc::UbJettyLiteId jettyId(jfs.dieId, jfs.funcId, jfs.jfsID);
     return asccomm_rtsq_ub_db_send(*rtsq, jettyId, pi);
 }
 
-Asc::PodSqeConfigLite get_ub_config(HcommChannelEntity &channel)
+Asc::SqeConfigLite get_ub_config(HcommChannelEntity &channel)
 {
-    Asc::PodSqeConfigLite cfg;
+    Asc::SqeConfigLite cfg;
     if (channel.fence != 0) {
         cfg.fence = 1;
         cfg.placeOdr = UB_STRONG_ORDER;
@@ -169,17 +169,17 @@ HcclResult execute_ub_rma(HcommThreadEntity &thread, HcommChannelEntity &channel
 {
     HcommJfsContext *jfs = nullptr;
     CHK_RET(get_ub_context(channel, jfs));
-    Asc::PodRmaBufSliceLite local(0, 0, 0, 0);
-    Asc::PodRmtRmaBufSliceLite remote(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
+    Asc::RmaBufSliceLite local(0, 0, 0, 0);
+    Asc::RmtRmaBufSliceLite remote(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
     CHK_RET(build_ub_slices(channel, localAddr, remoteAddr, len, local, remote));
 
-    Asc::PodUbConnLiteParam param{};
+    Asc::UbConnLiteParam param{};
     fill_ub_param(*jfs, param);
-    Asc::PodUbConnLite connection;
-    connection.import_pod_context(param);
+    Asc::UbConnLite connection;
+    connection.import_context(param);
     import_ub_state(*jfs, connection);
-    Asc::PodConnLiteOperationOut out{};
-    Asc::PodSqeConfigLite cfg = get_ub_config(channel);
+    Asc::ConnLiteOperationOut out{};
+    Asc::SqeConfigLite cfg = get_ub_config(channel);
     operation(connection, local, remote, cfg, out);
     export_ub_state(connection, *jfs);
     return ring_ub_doorbell(thread, *jfs, out.pi);
@@ -204,23 +204,23 @@ HcclResult get_rdma_contexts(HcommChannelEntity &channel, HcommRdmaSqContext *&s
     return HCCL_SUCCESS;
 }
 
-void build_rdma_context(const HcommRdmaSqContext &podSq, const HcommRdmaCqContext &podCq,
-                      Asc::PodRdmaSqContextLite &sq, Asc::PodRdmaCqContextLite &cq)
+void build_rdma_context(const HcommRdmaSqContext &resourceSq, const HcommRdmaCqContext &resourceCq,
+                      Asc::RdmaSqContextLite &sq, Asc::RdmaCqContextLite &cq)
 {
-    sq.qpn = podSq.qpn;
-    sq.sqVa = podSq.sqVa;
-    sq.wqeSize = podSq.wqeSize;
-    sq.depth = podSq.depth;
-    sq.dbHwVa = podSq.dbHwVa;
-    sq.dbSwVa = podSq.dbSwVa;
-    sq.mtuShift = podSq.mtuShift;
-    cq.cqVa = podCq.cqVa;
-    cq.cqDepth = podCq.cqDepth;
-    cq.dbSwVa = podCq.dbSwVa;
+    sq.qpn = resourceSq.qpn;
+    sq.sqVa = resourceSq.sqVa;
+    sq.wqeSize = resourceSq.wqeSize;
+    sq.depth = resourceSq.depth;
+    sq.dbHwVa = resourceSq.dbHwVa;
+    sq.dbSwVa = resourceSq.dbSwVa;
+    sq.mtuShift = resourceSq.mtuShift;
+    cq.cqVa = resourceCq.cqVa;
+    cq.cqDepth = resourceCq.cqDepth;
+    cq.dbSwVa = resourceCq.dbSwVa;
 }
 
 HcclResult build_rdma_slices(const HcommChannelEntity &channel, uintptr_t localAddr, uintptr_t remoteAddr,
-                           uint64_t len, Asc::PodRmaBufSliceLite &local, Asc::PodRmtRmaBufSliceLite &remote)
+                           uint64_t len, Asc::RmaBufSliceLite &local, Asc::RmtRmaBufSliceLite &remote)
 {
     const HcommRegedBufferEntity *localBuffer = find_buffer(
         channel.localBufferAddr, channel.localBufferNum, localAddr, len, true);
@@ -233,14 +233,14 @@ HcclResult build_rdma_slices(const HcommChannelEntity &channel, uintptr_t localA
     CHK_PRT_RET(localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA ||
         remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA,
         HCCL_ERROR("[%s] RoCE buffer requires RDMA protection.", __func__), HCCL_E_PARA);
-    local = Asc::PodRmaBufSliceLite(localAddr, len, localResource.protectionInfo.memInfo.roce.lkey, 0);
-    remote = Asc::PodRmtRmaBufSliceLite(remoteAddr, len, remoteResource.protectionInfo.memInfo.roce.rkey,
+    local = Asc::RmaBufSliceLite(localAddr, len, localResource.protectionInfo.memInfo.roce.lkey, 0);
+    remote = Asc::RmtRmaBufSliceLite(remoteAddr, len, remoteResource.protectionInfo.memInfo.roce.rkey,
         0, 0, std::numeric_limits<uint32_t>::max());
     return HCCL_SUCCESS;
 }
 
 HcclResult build_rdma_notify_slices(const HcommChannelEntity &channel, uint32_t index,
-                                 Asc::PodRmaBufSliceLite &local, Asc::PodRmtRmaBufSliceLite &remote)
+                                 Asc::RmaBufSliceLite &local, Asc::RmtRmaBufSliceLite &remote)
 {
     CHK_PRT_RET(index >= channel.remoteNotifyNum || channel.remoteNotifyAddr == nullptr,
         HCCL_ERROR("[%s] remote notify index[%u] out of range[%u].", __func__, index,
@@ -253,15 +253,15 @@ HcclResult build_rdma_notify_slices(const HcommChannelEntity &channel, uint32_t 
     CHK_PRT_RET(localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA ||
         remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA,
         HCCL_ERROR("[%s] RoCE notify requires RDMA protection.", __func__), HCCL_E_PARA);
-    local = Asc::PodRmaBufSliceLite(localResource.addr, localResource.size,
+    local = Asc::RmaBufSliceLite(localResource.addr, localResource.size,
         localResource.protectionInfo.memInfo.roce.lkey, 0);
-    remote = Asc::PodRmtRmaBufSliceLite(remoteResource.addr, remoteResource.size,
+    remote = Asc::RmtRmaBufSliceLite(remoteResource.addr, remoteResource.size,
         remoteResource.protectionInfo.memInfo.roce.rkey, 0, 0, remoteResource.notifyId);
     return HCCL_SUCCESS;
 }
 
 template <typename Operation>
-HcclResult for_each_rdma_slice(const Asc::PodRmaBufSliceLite &local, const Asc::PodRmtRmaBufSliceLite &remote,
+HcclResult for_each_rdma_slice(const Asc::RmaBufSliceLite &local, const Asc::RmtRmaBufSliceLite &remote,
                             Operation operation)
 {
     uint64_t offset = 0;
@@ -269,8 +269,8 @@ HcclResult for_each_rdma_slice(const Asc::PodRmaBufSliceLite &local, const Asc::
         const uint64_t remaining = local.get_size() - offset;
         const uint32_t sliceSize = static_cast<uint32_t>(remaining > RDMA_DMA_MAX_SIZE ?
             RDMA_DMA_MAX_SIZE : remaining);
-        Asc::PodRmaBufSliceLite localSlice(local.get_addr() + offset, sliceSize, local.get_lkey(), 0);
-        Asc::PodRmtRmaBufSliceLite remoteSlice(remote.get_addr() + offset, sliceSize, remote.get_rkey(),
+        Asc::RmaBufSliceLite localSlice(local.get_addr() + offset, sliceSize, local.get_lkey(), 0);
+        Asc::RmtRmaBufSliceLite remoteSlice(remote.get_addr() + offset, sliceSize, remote.get_rkey(),
             0, 0, std::numeric_limits<uint32_t>::max());
         CHK_RET(operation(localSlice, remoteSlice));
         offset += sliceSize;
@@ -289,62 +289,62 @@ enum class RdmaOperation {
 
 HcclResult execute_rdma(HcommThreadEntity &thread, HcommChannelEntity &channel, RdmaOperation operation,
                        uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-                       const Asc::PodReduceIn *reduceIn, uint32_t notifyIndex)
+                       const Asc::ReduceIn *reduceIn, uint32_t notifyIndex)
 {
-    HcommRdmaSqContext *podSq = nullptr;
-    HcommRdmaCqContext *podCq = nullptr;
-    CHK_RET(get_rdma_contexts(channel, podSq, podCq));
-    Asc::PodRdmaSqContextLite sq{};
-    Asc::PodRdmaCqContextLite cq{};
-    build_rdma_context(*podSq, *podCq, sq, cq);
-    Asc::PodRdma1825Ops ops(&sq, &cq);
-    ops.import_queue_state(podSq->sqHead, podSq->sqTail, podCq->cqHead, podCq->cqTail,
-        podCq->cqDbFlush != 0);
+    HcommRdmaSqContext *resourceSq = nullptr;
+    HcommRdmaCqContext *resourceCq = nullptr;
+    CHK_RET(get_rdma_contexts(channel, resourceSq, resourceCq));
+    Asc::RdmaSqContextLite sq{};
+    Asc::RdmaCqContextLite cq{};
+    build_rdma_context(*resourceSq, *resourceCq, sq, cq);
+    Asc::Rdma1825Ops ops(&sq, &cq);
+    ops.import_queue_state(resourceSq->sqHead, resourceSq->sqTail, resourceCq->cqHead, resourceCq->cqTail,
+        resourceCq->cqDbFlush != 0);
 
-    Asc::PodRmaBufSliceLite local(0, 0, 0, 0);
-    Asc::PodRmtRmaBufSliceLite remote(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
+    Asc::RmaBufSliceLite local(0, 0, 0, 0);
+    Asc::RmtRmaBufSliceLite remote(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
     if (operation == RdmaOperation::NOTIFY_RECORD) {
         CHK_RET(build_rdma_notify_slices(channel, notifyIndex, local, remote));
     } else {
         CHK_RET(build_rdma_slices(channel, localAddr, remoteAddr, len, local, remote));
     }
-    Asc::PodRmaBufSliceLite localNotify(0, 0, 0, 0);
-    Asc::PodRmtRmaBufSliceLite remoteNotify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
+    Asc::RmaBufSliceLite localNotify(0, 0, 0, 0);
+    Asc::RmtRmaBufSliceLite remoteNotify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
     if (operation == RdmaOperation::WRITE_WITH_NOTIFY ||
         operation == RdmaOperation::WRITE_REDUCE_WITH_NOTIFY) {
         CHK_RET(build_rdma_notify_slices(channel, notifyIndex, localNotify, remoteNotify));
     }
 
-    Asc::PodSqeConfigLite cfg;
+    Asc::SqeConfigLite cfg;
     cfg.cqeEn = true;
     cfg.fence = channel.fence != 0 ? 1 : 0;
     channel.fence = 0;
     if (operation == RdmaOperation::READ) {
         CHK_RET(for_each_rdma_slice(local, remote,
-            [&](const Asc::PodRmaBufSliceLite &loc, const Asc::PodRmtRmaBufSliceLite &rmt) {
+            [&](const Asc::RmaBufSliceLite &loc, const Asc::RmtRmaBufSliceLite &rmt) {
                 return ops.read(loc, rmt, cfg);
             }));
     } else if (operation == RdmaOperation::WRITE || operation == RdmaOperation::NOTIFY_RECORD) {
         CHK_RET(for_each_rdma_slice(local, remote,
-            [&](const Asc::PodRmaBufSliceLite &loc, const Asc::PodRmtRmaBufSliceLite &rmt) {
+            [&](const Asc::RmaBufSliceLite &loc, const Asc::RmtRmaBufSliceLite &rmt) {
                 return ops.write(loc, rmt, cfg);
             }));
     } else if (operation == RdmaOperation::WRITE_REDUCE) {
         CHK_PTR_NULL(reduceIn);
         CHK_RET(for_each_rdma_slice(local, remote,
-            [&](const Asc::PodRmaBufSliceLite &loc, const Asc::PodRmtRmaBufSliceLite &rmt) {
+            [&](const Asc::RmaBufSliceLite &loc, const Asc::RmtRmaBufSliceLite &rmt) {
                 return ops.write_reduce(loc, rmt, cfg, reduceIn->dataType, reduceIn->reduceOp);
             }));
     } else if (operation == RdmaOperation::WRITE_WITH_NOTIFY) {
         CHK_RET(for_each_rdma_slice(local, remote,
-            [&](const Asc::PodRmaBufSliceLite &loc, const Asc::PodRmtRmaBufSliceLite &rmt) {
+            [&](const Asc::RmaBufSliceLite &loc, const Asc::RmtRmaBufSliceLite &rmt) {
                 return ops.write(loc, rmt, cfg);
             }));
         CHK_RET(ops.write(localNotify, remoteNotify, cfg));
     } else {
         CHK_PTR_NULL(reduceIn);
         CHK_RET(for_each_rdma_slice(local, remote,
-            [&](const Asc::PodRmaBufSliceLite &loc, const Asc::PodRmtRmaBufSliceLite &rmt) {
+            [&](const Asc::RmaBufSliceLite &loc, const Asc::RmtRmaBufSliceLite &rmt) {
                 return ops.write_reduce(loc, rmt, cfg, reduceIn->dataType, reduceIn->reduceOp);
             }));
         CHK_RET(ops.write(localNotify, remoteNotify, cfg));
@@ -354,8 +354,8 @@ HcclResult execute_rdma(HcommThreadEntity &thread, HcommChannelEntity &channel, 
     u64 dbValue = 0;
     CHK_RET(ops.build_doorbell(dbAddr, dbValue));
     bool cqDbFlush = false;
-    ops.export_queue_state(podSq->sqHead, podSq->sqTail, podCq->cqHead, podCq->cqTail, cqDbFlush);
-    podCq->cqDbFlush = cqDbFlush ? 1 : 0;
+    ops.export_queue_state(resourceSq->sqHead, resourceSq->sqTail, resourceCq->cqHead, resourceCq->cqTail, cqDbFlush);
+    resourceCq->cqDbFlush = cqDbFlush ? 1 : 0;
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
     CHK_RET(asccomm_rtsq_rdma_db_send(*rtsq, dbAddr, dbValue));
@@ -365,44 +365,44 @@ HcclResult execute_rdma(HcommThreadEntity &thread, HcommChannelEntity &channel, 
     std::vector<int32_t> errList;
     HcclResult pollRet = ops.poll_cq(pollNum, 5, errList);
     (void)ops.build_cq_doorbell(dbAddr, dbValue);
-    ops.export_queue_state(podSq->sqHead, podSq->sqTail, podCq->cqHead, podCq->cqTail, cqDbFlush);
-    podCq->cqDbFlush = cqDbFlush ? 1 : 0;
+    ops.export_queue_state(resourceSq->sqHead, resourceSq->sqTail, resourceCq->cqHead, resourceCq->cqTail, cqDbFlush);
+    resourceCq->cqDbFlush = cqDbFlush ? 1 : 0;
     return pollRet;
 }
 
 HcclResult convert_batch_reduce(HcommDataType dataType, HcommReduceOp reduceOp,
-                              Asc::PodReduceIn &reduceIn, uint64_t count, uint64_t &len)
+                              Asc::ReduceIn &reduceIn, uint64_t count, uint64_t &len)
 {
-    Asc::PodDataType innerType = Asc::PodDataType::INVALID;
+    Asc::DataType innerType = Asc::DataType::INVALID;
     uint32_t typeSize = 0;
     switch (dataType) {
-        case HCOMM_DATA_TYPE_INT8: innerType = Asc::PodDataType::INT8; typeSize = 1; break;
-        case HCOMM_DATA_TYPE_INT16: innerType = Asc::PodDataType::INT16; typeSize = 2; break;
-        case HCOMM_DATA_TYPE_INT32: innerType = Asc::PodDataType::INT32; typeSize = 4; break;
-        case HCOMM_DATA_TYPE_FP16: innerType = Asc::PodDataType::FP16; typeSize = 2; break;
-        case HCOMM_DATA_TYPE_FP32: innerType = Asc::PodDataType::FP32; typeSize = 4; break;
-        case HCOMM_DATA_TYPE_INT64: innerType = Asc::PodDataType::INT64; typeSize = 8; break;
-        case HCOMM_DATA_TYPE_UINT64: innerType = Asc::PodDataType::UINT64; typeSize = 8; break;
-        case HCOMM_DATA_TYPE_UINT8: innerType = Asc::PodDataType::UINT8; typeSize = 1; break;
-        case HCOMM_DATA_TYPE_UINT16: innerType = Asc::PodDataType::UINT16; typeSize = 2; break;
-        case HCOMM_DATA_TYPE_UINT32: innerType = Asc::PodDataType::UINT32; typeSize = 4; break;
-        case HCOMM_DATA_TYPE_FP64: innerType = Asc::PodDataType::FP64; typeSize = 8; break;
-        case HCOMM_DATA_TYPE_BFP16: innerType = Asc::PodDataType::BFP16; typeSize = 2; break;
-        case HCOMM_DATA_TYPE_INT128: innerType = Asc::PodDataType::INT128; typeSize = 16; break;
+        case HCOMM_DATA_TYPE_INT8: innerType = Asc::DataType::INT8; typeSize = 1; break;
+        case HCOMM_DATA_TYPE_INT16: innerType = Asc::DataType::INT16; typeSize = 2; break;
+        case HCOMM_DATA_TYPE_INT32: innerType = Asc::DataType::INT32; typeSize = 4; break;
+        case HCOMM_DATA_TYPE_FP16: innerType = Asc::DataType::FP16; typeSize = 2; break;
+        case HCOMM_DATA_TYPE_FP32: innerType = Asc::DataType::FP32; typeSize = 4; break;
+        case HCOMM_DATA_TYPE_INT64: innerType = Asc::DataType::INT64; typeSize = 8; break;
+        case HCOMM_DATA_TYPE_UINT64: innerType = Asc::DataType::UINT64; typeSize = 8; break;
+        case HCOMM_DATA_TYPE_UINT8: innerType = Asc::DataType::UINT8; typeSize = 1; break;
+        case HCOMM_DATA_TYPE_UINT16: innerType = Asc::DataType::UINT16; typeSize = 2; break;
+        case HCOMM_DATA_TYPE_UINT32: innerType = Asc::DataType::UINT32; typeSize = 4; break;
+        case HCOMM_DATA_TYPE_FP64: innerType = Asc::DataType::FP64; typeSize = 8; break;
+        case HCOMM_DATA_TYPE_BFP16: innerType = Asc::DataType::BFP16; typeSize = 2; break;
+        case HCOMM_DATA_TYPE_INT128: innerType = Asc::DataType::INT128; typeSize = 16; break;
         default: return HCCL_E_PARA;
     }
-    Asc::PodReduceOp innerOp = Asc::PodReduceOp::INVALID;
+    Asc::ReduceOp innerOp = Asc::ReduceOp::INVALID;
     switch (reduceOp) {
-        case HCOMM_REDUCE_SUM: innerOp = Asc::PodReduceOp::SUM; break;
-        case HCOMM_REDUCE_PROD: innerOp = Asc::PodReduceOp::PROD; break;
-        case HCOMM_REDUCE_MAX: innerOp = Asc::PodReduceOp::MAX; break;
-        case HCOMM_REDUCE_MIN: innerOp = Asc::PodReduceOp::MIN; break;
+        case HCOMM_REDUCE_SUM: innerOp = Asc::ReduceOp::SUM; break;
+        case HCOMM_REDUCE_PROD: innerOp = Asc::ReduceOp::PROD; break;
+        case HCOMM_REDUCE_MAX: innerOp = Asc::ReduceOp::MAX; break;
+        case HCOMM_REDUCE_MIN: innerOp = Asc::ReduceOp::MIN; break;
         default: return HCCL_E_PARA;
     }
     CHK_PRT_RET(count > std::numeric_limits<uint64_t>::max() / typeSize,
         HCCL_ERROR("[%s] reduce length overflow.", __func__), HCCL_E_PARA);
     len = count * typeSize;
-    reduceIn = Asc::PodReduceIn(innerType, innerOp);
+    reduceIn = Asc::ReduceIn(innerType, innerOp);
     return HCCL_SUCCESS;
 }
 
@@ -413,23 +413,23 @@ HcclResult asccomm_write(HcommThreadEntity &thread, HcommChannelEntity &channel,
 {
     if (is_ub_protocol(channel.protocol)) {
         return execute_ub_rma(thread, channel, localAddr, remoteAddr, len,
-            [](Asc::PodUbConnLite &connection, const Asc::PodRmaBufSliceLite &local,
-               const Asc::PodRmtRmaBufSliceLite &remote, const Asc::PodSqeConfigLite &cfg,
-               Asc::PodConnLiteOperationOut &out) { connection.write_pod(local, remote, cfg, out); });
+            [](Asc::UbConnLite &connection, const Asc::RmaBufSliceLite &local,
+               const Asc::RmtRmaBufSliceLite &remote, const Asc::SqeConfigLite &cfg,
+               Asc::ConnLiteOperationOut &out) { connection.write(local, remote, cfg, out); });
     }
     return execute_rdma(thread, channel, RdmaOperation::WRITE, localAddr, remoteAddr, len, nullptr, 0);
 }
 
 HcclResult asccomm_write_reduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-                               const Asc::PodReduceIn &reduceIn)
+                               const Asc::ReduceIn &reduceIn)
 {
     if (is_ub_protocol(channel.protocol)) {
         return execute_ub_rma(thread, channel, localAddr, remoteAddr, len,
-            [&reduceIn](Asc::PodUbConnLite &connection, const Asc::PodRmaBufSliceLite &local,
-                const Asc::PodRmtRmaBufSliceLite &remote, const Asc::PodSqeConfigLite &cfg,
-                Asc::PodConnLiteOperationOut &out) {
-                connection.write_reduce_pod(reduceIn.dataType, reduceIn.reduceOp, local, remote, cfg, out);
+            [&reduceIn](Asc::UbConnLite &connection, const Asc::RmaBufSliceLite &local,
+                const Asc::RmtRmaBufSliceLite &remote, const Asc::SqeConfigLite &cfg,
+                Asc::ConnLiteOperationOut &out) {
+                connection.write_reduce(reduceIn.dataType, reduceIn.reduceOp, local, remote, cfg, out);
             });
     }
     return execute_rdma(thread, channel, RdmaOperation::WRITE_REDUCE,
@@ -441,13 +441,13 @@ HcclResult asccomm_write_with_notify(HcommThreadEntity &thread, HcommChannelEnti
                                    uint32_t remoteNotifyIdx)
 {
     if (is_ub_protocol(channel.protocol)) {
-        Asc::PodRmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
+        Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
         CHK_RET(build_ub_remote_notify(channel, remoteNotifyIdx, notify));
         return execute_ub_rma(thread, channel, localAddr, remoteAddr, len,
-            [&notify](Asc::PodUbConnLite &connection, const Asc::PodRmaBufSliceLite &local,
-                const Asc::PodRmtRmaBufSliceLite &remote, const Asc::PodSqeConfigLite &cfg,
-                Asc::PodConnLiteOperationOut &out) {
-                connection.write_with_notify_pod(local, remote, cfg, out, notify, POD_NOTIFY_VALUE);
+            [&notify](Asc::UbConnLite &connection, const Asc::RmaBufSliceLite &local,
+                const Asc::RmtRmaBufSliceLite &remote, const Asc::SqeConfigLite &cfg,
+                Asc::ConnLiteOperationOut &out) {
+                connection.write_with_notify(local, remote, cfg, out, notify, NOTIFY_VALUE);
             });
     }
     return execute_rdma(thread, channel, RdmaOperation::WRITE_WITH_NOTIFY,
@@ -456,17 +456,17 @@ HcclResult asccomm_write_with_notify(HcommThreadEntity &thread, HcommChannelEnti
 
 HcclResult asccomm_write_reduce_with_notify(HcommThreadEntity &thread, HcommChannelEntity &channel,
                                          uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-                                         const Asc::PodReduceIn &reduceIn, uint32_t remoteNotifyIdx)
+                                         const Asc::ReduceIn &reduceIn, uint32_t remoteNotifyIdx)
 {
     if (is_ub_protocol(channel.protocol)) {
-        Asc::PodRmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
+        Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
         CHK_RET(build_ub_remote_notify(channel, remoteNotifyIdx, notify));
         return execute_ub_rma(thread, channel, localAddr, remoteAddr, len,
-            [&reduceIn, &notify](Asc::PodUbConnLite &connection, const Asc::PodRmaBufSliceLite &local,
-                const Asc::PodRmtRmaBufSliceLite &remote, const Asc::PodSqeConfigLite &cfg,
-                Asc::PodConnLiteOperationOut &out) {
-                connection.write_reduce_with_notify_pod(reduceIn.dataType, reduceIn.reduceOp,
-                    local, remote, cfg, out, notify, POD_NOTIFY_VALUE);
+            [&reduceIn, &notify](Asc::UbConnLite &connection, const Asc::RmaBufSliceLite &local,
+                const Asc::RmtRmaBufSliceLite &remote, const Asc::SqeConfigLite &cfg,
+                Asc::ConnLiteOperationOut &out) {
+                connection.write_reduce_with_notify(reduceIn.dataType, reduceIn.reduceOp,
+                    local, remote, cfg, out, notify, NOTIFY_VALUE);
             });
     }
     return execute_rdma(thread, channel, RdmaOperation::WRITE_REDUCE_WITH_NOTIFY,
@@ -478,23 +478,23 @@ HcclResult asccomm_read(HcommThreadEntity &thread, HcommChannelEntity &channel,
 {
     if (is_ub_protocol(channel.protocol)) {
         return execute_ub_rma(thread, channel, localAddr, remoteAddr, len,
-            [](Asc::PodUbConnLite &connection, const Asc::PodRmaBufSliceLite &local,
-               const Asc::PodRmtRmaBufSliceLite &remote, const Asc::PodSqeConfigLite &cfg,
-               Asc::PodConnLiteOperationOut &out) { connection.read_pod(local, remote, cfg, out); });
+            [](Asc::UbConnLite &connection, const Asc::RmaBufSliceLite &local,
+               const Asc::RmtRmaBufSliceLite &remote, const Asc::SqeConfigLite &cfg,
+               Asc::ConnLiteOperationOut &out) { connection.read(local, remote, cfg, out); });
     }
     return execute_rdma(thread, channel, RdmaOperation::READ, localAddr, remoteAddr, len, nullptr, 0);
 }
 
 HcclResult asccomm_read_reduce(HcommThreadEntity &thread, HcommChannelEntity &channel,
                               uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-                              const Asc::PodReduceIn &reduceIn)
+                              const Asc::ReduceIn &reduceIn)
 {
     if (is_ub_protocol(channel.protocol)) {
         return execute_ub_rma(thread, channel, localAddr, remoteAddr, len,
-            [&reduceIn](Asc::PodUbConnLite &connection, const Asc::PodRmaBufSliceLite &local,
-                const Asc::PodRmtRmaBufSliceLite &remote, const Asc::PodSqeConfigLite &cfg,
-                Asc::PodConnLiteOperationOut &out) {
-                connection.read_reduce_pod(reduceIn, local, remote, cfg, out);
+            [&reduceIn](Asc::UbConnLite &connection, const Asc::RmaBufSliceLite &local,
+                const Asc::RmtRmaBufSliceLite &remote, const Asc::SqeConfigLite &cfg,
+                Asc::ConnLiteOperationOut &out) {
+                connection.read_reduce(reduceIn, local, remote, cfg, out);
             });
     }
     // The original RoCE transport does not override ReadReduce and therefore performs no operation.
@@ -509,22 +509,22 @@ HcclResult asccomm_notify_record(HcommThreadEntity &thread, HcommChannelEntity &
     }
     HcommJfsContext *jfs = nullptr;
     CHK_RET(get_ub_context(channel, jfs));
-    Asc::PodRmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
+    Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
     CHK_RET(build_ub_remote_notify(channel, remoteNotifyIdx, notify));
-    Asc::PodUbConnLiteParam param{};
+    Asc::UbConnLiteParam param{};
     fill_ub_param(*jfs, param);
-    Asc::PodUbConnLite connection;
-    connection.import_pod_context(param);
+    Asc::UbConnLite connection;
+    connection.import_context(param);
     import_ub_state(*jfs, connection);
-    Asc::PodSqeConfigLite cfg;
+    Asc::SqeConfigLite cfg;
     if (remoteNotifyIdx == 1) {
         cfg.cqeEn = true;
         cfg.placeOdr = UB_STRONG_ORDER;
         cfg.compOrder = UB_COMPLETION;
     }
-    Asc::PodConnLiteOperationOut out{};
-    const uint32_t value = POD_NOTIFY_VALUE;
-    connection.inline_write_pod(reinterpret_cast<const uint8_t *>(&value), POD_NOTIFY_SIZE, notify, cfg, out);
+    Asc::ConnLiteOperationOut out{};
+    const uint32_t value = NOTIFY_VALUE;
+    connection.inline_write(reinterpret_cast<const uint8_t *>(&value), NOTIFY_SIZE, notify, cfg, out);
     export_ub_state(connection, *jfs);
     return ring_ub_doorbell(thread, *jfs, out.pi);
 }
@@ -572,31 +572,31 @@ HcclResult asccomm_drain(HcommThreadEntity &thread, HcommChannelEntity &channel)
     CHK_PRT_RET(localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA ||
         remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA,
         HCCL_ERROR("[%s] UB drain requires URMA protection.", __func__), HCCL_E_PARA);
-    Asc::PodRmaBufSliceLite local(localResource.addr, localResource.size, 0,
+    Asc::RmaBufSliceLite local(localResource.addr, localResource.size, 0,
         localResource.protectionInfo.memInfo.ub.tokenId);
-    Asc::PodRmtRmaBufSliceLite remote(remoteResource.addr, remoteResource.size, 0,
+    Asc::RmtRmaBufSliceLite remote(remoteResource.addr, remoteResource.size, 0,
         remoteResource.protectionInfo.memInfo.ub.tokenId,
         remoteResource.protectionInfo.memInfo.ub.tokenValue,
         std::numeric_limits<uint32_t>::max());
-    Asc::PodUbConnLiteParam param{};
+    Asc::UbConnLiteParam param{};
     fill_ub_param(*jfs, param);
-    Asc::PodUbConnLite connection;
-    connection.import_pod_context(param);
+    Asc::UbConnLite connection;
+    connection.import_context(param);
     import_ub_state(*jfs, connection);
-    Asc::PodSqeConfigLite cfg;
+    Asc::SqeConfigLite cfg;
     cfg.fence = 1;
     cfg.placeOdr = UB_STRONG_ORDER;
     cfg.compOrder = UB_COMPLETION;
     channel.fence = 0;
-    Asc::PodConnLiteOperationOut out{};
-    connection.read_pod(local, remote, cfg, out);
+    Asc::ConnLiteOperationOut out{};
+    connection.read(local, remote, cfg, out);
     export_ub_state(connection, *jfs);
     CHK_RET(ring_ub_doorbell(thread, *jfs, out.pi));
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
     CHK_PRT_RET(localResource.notifyId < 0,
         HCCL_ERROR("[%s] invalid drain notify id[%d].", __func__, localResource.notifyId), HCCL_E_PARA);
-    return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(localResource.notifyId), POD_DEFAULT_TIMEOUT);
+    return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(localResource.notifyId), DEFAULT_TIMEOUT);
 }
 
 HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity &channel,
@@ -606,13 +606,13 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
     CHK_PRT_RET(transferDescNum == 0, HCCL_ERROR("[%s] transferDescNum is 0.", __func__), HCCL_E_PARA);
     HcommJfsContext *jfs = nullptr;
     CHK_RET(get_ub_context(channel, jfs));
-    Asc::PodUbConnLiteParam param{};
+    Asc::UbConnLiteParam param{};
     fill_ub_param(*jfs, param);
-    Asc::PodUbConnLite connection;
-    connection.import_pod_context(param);
+    Asc::UbConnLite connection;
+    connection.import_context(param);
     import_ub_state(*jfs, connection);
-    Asc::PodSqeConfigLite cfg = get_ub_config(channel);
-    Asc::PodConnLiteOperationOut out{};
+    Asc::SqeConfigLite cfg = get_ub_config(channel);
+    Asc::ConnLiteOperationOut out{};
 
     for (uint32_t index = 0; index < transferDescNum; ++index) {
         const HcommBatchTransferDesc &desc = transferDescs[index];
@@ -620,10 +620,10 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
         cfg.placeOdr = cfg.cqeEn ? UB_STRONG_ORDER : UB_RELAX_ORDER;
         cfg.compOrder = cfg.cqeEn ? UB_COMPLETION : UB_NO_COMPLETION;
         if (desc.transType == HCOMM_TRANSFER_TYPE_NOTIFY_RECORD) {
-            Asc::PodRmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
+            Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
             CHK_RET(build_ub_remote_notify(channel, desc.transferInfo.notifyRecord.notifyIdx, notify));
-            const uint32_t value = POD_NOTIFY_VALUE;
-            connection.inline_write_pod(reinterpret_cast<const uint8_t *>(&value), POD_NOTIFY_SIZE,
+            const uint32_t value = NOTIFY_VALUE;
+            connection.inline_write(reinterpret_cast<const uint8_t *>(&value), NOTIFY_SIZE,
                 notify, cfg, out);
             continue;
         }
@@ -632,7 +632,7 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
         uintptr_t remoteAddr = 0;
         uint64_t len = 0;
         uint32_t notifyIdx = 0;
-        Asc::PodReduceIn reduceIn{Asc::PodDataType::INVALID, Asc::PodReduceOp::INVALID};
+        Asc::ReduceIn reduceIn{Asc::DataType::INVALID, Asc::ReduceOp::INVALID};
         if (desc.transType == HCOMM_TRANSFER_TYPE_WRITE) {
             localAddr = reinterpret_cast<uintptr_t>(desc.transferInfo.write.src);
             remoteAddr = reinterpret_cast<uintptr_t>(desc.transferInfo.write.dst);
@@ -669,25 +669,25 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
         }
         CHK_PRT_RET(localAddr == 0 || remoteAddr == 0,
             HCCL_ERROR("[%s] null address at batch index[%u].", __func__, index), HCCL_E_PTR);
-        Asc::PodRmaBufSliceLite local(0, 0, 0, 0);
-        Asc::PodRmtRmaBufSliceLite remote(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
+        Asc::RmaBufSliceLite local(0, 0, 0, 0);
+        Asc::RmtRmaBufSliceLite remote(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
         CHK_RET(build_ub_slices(channel, localAddr, remoteAddr, len, local, remote));
         if (desc.transType == HCOMM_TRANSFER_TYPE_WRITE) {
-            connection.write_pod(local, remote, cfg, out);
+            connection.write(local, remote, cfg, out);
         } else if (desc.transType == HCOMM_TRANSFER_TYPE_READ) {
-            connection.read_pod(local, remote, cfg, out);
+            connection.read(local, remote, cfg, out);
         } else if (desc.transType == HCOMM_TRANSFER_TYPE_WRITE_REDUCE) {
-            connection.write_reduce_pod(reduceIn.dataType, reduceIn.reduceOp, local, remote, cfg, out);
+            connection.write_reduce(reduceIn.dataType, reduceIn.reduceOp, local, remote, cfg, out);
         } else if (desc.transType == HCOMM_TRANSFER_TYPE_READ_REDUCE) {
-            connection.read_reduce_pod(reduceIn, local, remote, cfg, out);
+            connection.read_reduce(reduceIn, local, remote, cfg, out);
         } else {
-            Asc::PodRmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
+            Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
             CHK_RET(build_ub_remote_notify(channel, notifyIdx, notify));
             if (desc.transType == HCOMM_TRANSFER_TYPE_WRITE_WITH_NOTIFY) {
-                connection.write_with_notify_pod(local, remote, cfg, out, notify, POD_NOTIFY_VALUE);
+                connection.write_with_notify(local, remote, cfg, out, notify, NOTIFY_VALUE);
             } else {
-                connection.write_reduce_with_notify_pod(reduceIn.dataType, reduceIn.reduceOp,
-                    local, remote, cfg, out, notify, POD_NOTIFY_VALUE);
+                connection.write_reduce_with_notify(reduceIn.dataType, reduceIn.reduceOp,
+                    local, remote, cfg, out, notify, NOTIFY_VALUE);
             }
         }
     }

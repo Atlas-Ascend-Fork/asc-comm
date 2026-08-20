@@ -16,7 +16,7 @@ namespace Asc {
 
 #define UDMA_SQE_RMT_EID_SIZE 4
 
-enum PodUdmaSqOpcode : uint32_t {
+enum UdmaSqOpcode : uint32_t {
         UDMA_OPC_SEND,
         UDMA_OPC_SEND_WITH_IMM,
         UDMA_OPC_SEND_WITH_INVALID,
@@ -29,7 +29,7 @@ enum PodUdmaSqOpcode : uint32_t {
         UDMA_OPC_INVALID = 0x12
 };
 
-struct PodUdmaNormalSge {
+struct UdmaNormalSge {
     uint32_t length;
     uint32_t tokenId;
     uint32_t dataAddrLow;
@@ -37,11 +37,11 @@ struct PodUdmaNormalSge {
 
 };
 
-struct PodUdmaInlineData {
+struct UdmaInlineData {
     u8 data[16];
 };
 
-struct PodUdfExtData { // UDF扩展数据
+struct UdfExtData { // UDF扩展数据
     uint32_t udfType : 8;
     uint32_t reduceType: 4;
     uint32_t reduceOp: 4;
@@ -72,23 +72,23 @@ struct UdmaSqe {
     uint32_t rmtTokenValue;
     union {
         uint32_t rsv3;
-        PodUdfExtData udfData;
+        UdfExtData udfData;
     } inlinedata;
 
     uint32_t rmtAddrLow;
     uint32_t rmtAddrHigh;
     union {
-        PodUdmaNormalSge sge;
-        PodUdmaInlineData inlineData;
+        UdmaNormalSge sge;
+        UdmaInlineData inlineData;
     } u;
 };
 
-union PodLocalValueU{
-    PodUdmaNormalSge sge;
-    PodUdmaInlineData inlineData;
+union LocalValueU{
+    UdmaNormalSge sge;
+    UdmaInlineData inlineData;
 };
 
-struct PodUdmaSqeNotify {
+struct UdmaSqeNotify {
     uint32_t notifyTokenId : 20;
     uint32_t rsv : 12;
     uint32_t notifyTokenValue;
@@ -98,7 +98,7 @@ struct PodUdmaSqeNotify {
     uint32_t notifyDataHigh;
 };
 
-struct PodUdmaSqeCommon {
+struct UdmaSqeCommon {
     uint32_t sqeBbIdx : 16;
     uint32_t placeOdr : 2;
     uint32_t compOrder : 1;
@@ -123,29 +123,29 @@ struct PodUdmaSqeCommon {
     uint32_t rmtTokenValue;
     union {
         uint32_t rsv3;
-        PodUdfExtData udfData;
+        UdfExtData udfData;
     } inlinedata;
 
     uint32_t rmtAddrLow;
     uint32_t rmtAddrHigh;
 };
 
-struct PodUdmaSqeWriteWithNotify {
-    struct PodUdmaSqeCommon comm;
-    struct PodUdmaSqeNotify notify;
+struct UdmaSqeWriteWithNotify {
+    struct UdmaSqeCommon comm;
+    struct UdmaSqeNotify notify;
     uint32_t rsv1;
     uint32_t rsv2;
-    union PodLocalValueU localU;
+    union LocalValueU localU;
 };
 
-struct PodUdmaSqeWrite {
-    struct PodUdmaSqeCommon comm;
-    union PodLocalValueU u;
+struct UdmaSqeWrite {
+    struct UdmaSqeCommon comm;
+    union LocalValueU u;
 };
 
-struct PodUdmaSqeRead {
-    struct PodUdmaSqeCommon comm;
-    union PodLocalValueU u;
+struct UdmaSqeRead {
+    struct UdmaSqeCommon comm;
+    union LocalValueU u;
 };
 }
 #endif // HCCL_AICPU_RESOURCE_AI_CPU_RESOUCES_H_

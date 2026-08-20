@@ -28,38 +28,38 @@ constexpr u32 ADDR_BIT_LOW               = 0xffffffff;
 constexpr u32 UB_RELAX_ORDER             = 0x1; // Relax Order表示当前SQE与后续Strong Order SQE有保序要求
 constexpr u32 UB_STRONG_ORDER            = 0x2; // Strong Order表示当前SQE有保序要求，该SQE不能超越前面的Relax Order SQE
 
-u32 get_data_type_size(PodDataType dataType)
+u32 get_data_type_size(DataType dataType)
 {
     switch (dataType) {
-        case PodDataType::INT8:
-        case PodDataType::UINT8:
-        case PodDataType::HIF8:
-        case PodDataType::FP8E4M3:
-        case PodDataType::FP8E5M2:
-        case PodDataType::FP8E8M0:
+        case DataType::INT8:
+        case DataType::UINT8:
+        case DataType::HIF8:
+        case DataType::FP8E4M3:
+        case DataType::FP8E5M2:
+        case DataType::FP8E8M0:
             return 1;
-        case PodDataType::INT16:
-        case PodDataType::UINT16:
-        case PodDataType::FP16:
-        case PodDataType::BFP16:
-        case PodDataType::BF16_SAT:
+        case DataType::INT16:
+        case DataType::UINT16:
+        case DataType::FP16:
+        case DataType::BFP16:
+        case DataType::BF16_SAT:
             return 2;
-        case PodDataType::INT32:
-        case PodDataType::UINT32:
-        case PodDataType::FP32:
+        case DataType::INT32:
+        case DataType::UINT32:
+        case DataType::FP32:
             return 4;
-        case PodDataType::INT64:
-        case PodDataType::UINT64:
-        case PodDataType::FP64:
+        case DataType::INT64:
+        case DataType::UINT64:
+        case DataType::FP64:
             return 8;
-        case PodDataType::INT128:
+        case DataType::INT128:
             return 16;
         default:
             throw_exception<InvalidParamsException>(string_format("unsupported data type[%u]", static_cast<u32>(dataType)));
     }
 }
 
-void PodUbConnLite::fill_comm_sqe(PodUdmaSqeCommon *sqe, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg, u32 opCode,
+void UbConnLite::fill_comm_sqe(UdmaSqeCommon *sqe, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg, u32 opCode,
                              SlicePosition slicePos)
 {
     u32 cqeEn = (cfg.cqeEn && (slicePos == SlicePosition::LAST || slicePos == SlicePosition::ONLY)) ? 1 : 0;
@@ -84,8 +84,8 @@ void PodUbConnLite::fill_comm_sqe(PodUdmaSqeCommon *sqe, const PodRmtRmaBufSlice
     sqe->rmtJettyType = 1; // 00 JFR  01:JETTY  10:jettyGroup 11:reserved
     s32 ret           = memcpy_sp(sqe->rmtEid, RMT_EID_BYTE_SIZE, rmtEid_, RAW_SIZE);
     if (UNLIKELY(ret != 0)) {
-        HCCL_ERROR("PodUbConnLite::fill_comm_sqe fill_comm_sqe memcpy failed, ret=%d", ret);
-        throw_exception<InternalException>(string_format("PodUbConnLite::fill_comm_sqe memcpy_sp failed, ret = %d", ret));
+        HCCL_ERROR("UbConnLite::fill_comm_sqe fill_comm_sqe memcpy failed, ret=%d", ret);
+        throw_exception<InternalException>(string_format("UbConnLite::fill_comm_sqe memcpy_sp failed, ret = %d", ret));
     }
 
     sqe->sgeNum        = 1;
@@ -95,37 +95,37 @@ void PodUbConnLite::fill_comm_sqe(PodUdmaSqeCommon *sqe, const PodRmtRmaBufSlice
     sqe->rmtTokenValue = rmt.get_token_value();
     sqe->rmtAddrLow    = rmt.get_addr() & ADDR_BIT_LOW;
     sqe->rmtAddrHigh   = rmt.get_addr() >> ADDR_BIT_OFFSET;
-    HCCL_INFO("UbConnLite fill_comm_sqe PodUdmaSqeCommon slicePos[%d] sqe->cqe = %u, sqe->owner = %u sqe->opcode = %u, "
+    HCCL_INFO("UbConnLite fill_comm_sqe UdmaSqeCommon slicePos[%d] sqe->cqe = %u, sqe->owner = %u sqe->opcode = %u, "
               "sqe->tpn = %u, sqe->rmtObjId = %u, sqe->rmtAddrLow = %u, sqe->rmtAddrHigh = %u, sqe->placeOdr = %u, "
               "sqe->compOrder = %u, sqe->fence = %u", slicePos, sqe->cqe, sqe->owner, sqe->opcode, sqe->tpn,
               sqe->rmtObjId, sqe->rmtAddrLow, sqe->rmtAddrHigh, sqe->placeOdr, sqe->compOrder, sqe->fence);
 }
 
-void PodUbConnLite::fill_comm_sqe_reduce_info(PodUdmaSqeCommon &sqeComm, PodReduceOp reduceOp, PodDataType dataType, u32 udfType) const
+void UbConnLite::fill_comm_sqe_reduce_info(UdmaSqeCommon &sqeComm, ReduceOp reduceOp, DataType dataType, u32 udfType) const
 {
-    HCCL_INFO("[PodUbConnLite::%s] start", __func__);
+    HCCL_INFO("[UbConnLite::%s] start", __func__);
 
     sqeComm.inlinedata.udfData.udfType    = udfType; // 0代表inline reduce
 
     switch (reduceOp) {
-        case PodReduceOp::SUM: sqeComm.inlinedata.udfData.reduceOp = 0xA; break;
-        case PodReduceOp::MAX: sqeComm.inlinedata.udfData.reduceOp = 0x8; break;
-        case PodReduceOp::MIN: sqeComm.inlinedata.udfData.reduceOp = 0x9; break;
+        case ReduceOp::SUM: sqeComm.inlinedata.udfData.reduceOp = 0xA; break;
+        case ReduceOp::MAX: sqeComm.inlinedata.udfData.reduceOp = 0x8; break;
+        case ReduceOp::MIN: sqeComm.inlinedata.udfData.reduceOp = 0x9; break;
         default:
             throw_exception<InvalidParamsException>(string_format("%s reduceOp[%u] is not supported.", __func__,
                 static_cast<u32>(reduceOp)));
     }
     switch (dataType) {
-        case PodDataType::INT8: sqeComm.inlinedata.udfData.reduceType = 0x0; break;
-        case PodDataType::INT16: sqeComm.inlinedata.udfData.reduceType = 0x1; break;
-        case PodDataType::INT32: sqeComm.inlinedata.udfData.reduceType = 0x2; break;
-        case PodDataType::UINT8: sqeComm.inlinedata.udfData.reduceType = 0x3; break;
-        case PodDataType::UINT16: sqeComm.inlinedata.udfData.reduceType = 0x4; break;
-        case PodDataType::UINT32: sqeComm.inlinedata.udfData.reduceType = 0x5; break;
-        case PodDataType::FP16: sqeComm.inlinedata.udfData.reduceType = 0x6; break;
-        case PodDataType::FP32: sqeComm.inlinedata.udfData.reduceType = 0x7; break;
-        case PodDataType::BFP16: sqeComm.inlinedata.udfData.reduceType = 0x8; break;
-        case PodDataType::BF16_SAT: sqeComm.inlinedata.udfData.reduceType = 0x9; break;
+        case DataType::INT8: sqeComm.inlinedata.udfData.reduceType = 0x0; break;
+        case DataType::INT16: sqeComm.inlinedata.udfData.reduceType = 0x1; break;
+        case DataType::INT32: sqeComm.inlinedata.udfData.reduceType = 0x2; break;
+        case DataType::UINT8: sqeComm.inlinedata.udfData.reduceType = 0x3; break;
+        case DataType::UINT16: sqeComm.inlinedata.udfData.reduceType = 0x4; break;
+        case DataType::UINT32: sqeComm.inlinedata.udfData.reduceType = 0x5; break;
+        case DataType::FP16: sqeComm.inlinedata.udfData.reduceType = 0x6; break;
+        case DataType::FP32: sqeComm.inlinedata.udfData.reduceType = 0x7; break;
+        case DataType::BFP16: sqeComm.inlinedata.udfData.reduceType = 0x8; break;
+        case DataType::BF16_SAT: sqeComm.inlinedata.udfData.reduceType = 0x9; break;
         default:
             throw_exception<InvalidParamsException>(string_format("%s dataType[%u] is not supported.", __func__,
                 static_cast<u32>(dataType)));
@@ -134,13 +134,13 @@ void PodUbConnLite::fill_comm_sqe_reduce_info(PodUdmaSqeCommon &sqeComm, PodRedu
     // udf字段是否有效
     sqeComm.udfFlag = 1;
 
-    HCCL_INFO("[PodUbConnLite::%s] end, reduceOp[%u], reduceType[%u]", __func__,
+    HCCL_INFO("[UbConnLite::%s] end, reduceOp[%u], reduceType[%u]", __func__,
         static_cast<u32>(reduceOp), static_cast<u32>(dataType));
 }
 
-void PodUbConnLite::process_slices(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, u32 maxSliceSize,
-    std::function<void(const PodRmaBufSliceLite &, const PodRmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
-    PodDataType dataType) const
+void UbConnLite::process_slices(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, u32 maxSliceSize,
+    std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
+    DataType dataType) const
 {
     (void)dataType;
     // reduce操作需要保证切片大小是数据类型大小的整数倍
@@ -160,12 +160,12 @@ void PodUbConnLite::process_slices(const PodRmaBufSliceLite &loc, const PodRmtRm
         u64 locAddr = loc.get_addr() + offset;
         u64 rmtAddr = rmt.get_addr() + offset;
 
-        HCCL_INFO("[PodUbConnLite::%s] Slice[%llu]: offset=0x%llx, locAddr=0x%llx, rmtAddr=0x%llx, size=0x%llx",
+        HCCL_INFO("[UbConnLite::%s] Slice[%llu]: offset=0x%llx, locAddr=0x%llx, rmtAddr=0x%llx, size=0x%llx",
                     __func__, sliceIdx, offset, locAddr, rmtAddr, sliceSize);
 
-        PodRmaBufSliceLite locSlice(locAddr, sliceSize, 0, loc.get_token_id());
+        RmaBufSliceLite locSlice(locAddr, sliceSize, 0, loc.get_token_id());
 
-        PodRmtRmaBufSliceLite rmtSlice(rmtAddr, sliceSize, 0, rmt.get_token_id(),
+        RmtRmaBufSliceLite rmtSlice(rmtAddr, sliceSize, 0, rmt.get_token_id(),
                                     rmt.get_token_value(), UINT32_MAX);
         SlicePosition slicePos;
         slicePos = (sliceIdx == 0) ? SlicePosition::FIRST : SlicePosition::MIDDLE;
@@ -177,9 +177,9 @@ void PodUbConnLite::process_slices(const PodRmaBufSliceLite &loc, const PodRmtRm
     }
 
     if (lastSliceSize > 0) {
-        PodRmaBufSliceLite lastLocSlice(loc.get_addr() + sliceNum * sliceSize, lastSliceSize, 0, loc.get_token_id());
+        RmaBufSliceLite lastLocSlice(loc.get_addr() + sliceNum * sliceSize, lastSliceSize, 0, loc.get_token_id());
 
-        PodRmtRmaBufSliceLite lastRmtSlice(rmt.get_addr() + sliceNum * sliceSize, lastSliceSize, 0, rmt.get_token_id(),
+        RmtRmaBufSliceLite lastRmtSlice(rmt.get_addr() + sliceNum * sliceSize, lastSliceSize, 0, rmt.get_token_id(),
                                         rmt.get_token_value(), UINT32_MAX);
         SlicePosition slicePos;
         slicePos = (sliceNum == 0) ? SlicePosition::ONLY : SlicePosition::LAST;
@@ -187,21 +187,21 @@ void PodUbConnLite::process_slices(const PodRmaBufSliceLite &loc, const PodRmtRm
         sliceNum++;
     }
 
-    HCCL_INFO("[PodUbConnLite::%s] end, locBufSize[%u], sliceNUm[%u], sliceSize[%u], lastSliceSize[%u]", __func__,
+    HCCL_INFO("[UbConnLite::%s] end, locBufSize[%u], sliceNUm[%u], sliceSize[%u], lastSliceSize[%u]", __func__,
               locBufSize, sliceNum, sliceSize, lastSliceSize);
 }
 
-void PodUbConnLite::process_slices_with_notify(
-    const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, u32 maxSliceSize,
-    std::function<void(const PodRmaBufSliceLite &, const PodRmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
-    std::function<void(const PodRmaBufSliceLite &, const PodRmtRmaBufSliceLite &, SlicePosition)> processOneSliceWithNotify,
-    PodDataType                                                                 dataType) const
+void UbConnLite::process_slices_with_notify(
+    const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, u32 maxSliceSize,
+    std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
+    std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSliceWithNotify,
+    DataType                                                                 dataType) const
 {
-    HCCL_INFO("[PodUbConnLite::%s] start", __func__);
+    HCCL_INFO("[UbConnLite::%s] start", __func__);
 
     // reduce操作需要保证切片大小是数据类型大小的整数倍
     u32 sliceSize = maxSliceSize;
-    if (dataType != PodDataType::INVALID) {
+    if (dataType != DataType::INVALID) {
         u32 dataTypeSize = get_data_type_size(dataType);
         sliceSize        = maxSliceSize / dataTypeSize * dataTypeSize;
     }
@@ -218,9 +218,9 @@ void PodUbConnLite::process_slices_with_notify(
         throw_exception<InternalException>("integer overflow occurs");
     }
     for (u32 sliceIdx = 0; sliceIdx < sliceNum; sliceIdx++) {
-        PodRmaBufSliceLite locSlice(loc.get_addr() + sliceIdx * sliceSize, sliceSize, 0, loc.get_token_id());
+        RmaBufSliceLite locSlice(loc.get_addr() + sliceIdx * sliceSize, sliceSize, 0, loc.get_token_id());
 
-        PodRmtRmaBufSliceLite rmtSlice(rmt.get_addr() + sliceIdx * sliceSize, sliceSize, 0, rmt.get_token_id(),
+        RmtRmaBufSliceLite rmtSlice(rmt.get_addr() + sliceIdx * sliceSize, sliceSize, 0, rmt.get_token_id(),
                                     rmt.get_token_value(), UINT32_MAX);
         SlicePosition slicePos;
         slicePos = (sliceIdx == 0) ? SlicePosition::FIRST : SlicePosition::MIDDLE;
@@ -228,23 +228,23 @@ void PodUbConnLite::process_slices_with_notify(
     }
 
     if (lastSliceSize > 0) {
-        PodRmaBufSliceLite lastLocSlice(loc.get_addr() + sliceNum * sliceSize, lastSliceSize, 0, loc.get_token_id());
+        RmaBufSliceLite lastLocSlice(loc.get_addr() + sliceNum * sliceSize, lastSliceSize, 0, loc.get_token_id());
 
-        PodRmtRmaBufSliceLite lastRmtSlice(rmt.get_addr() + sliceNum * sliceSize, lastSliceSize, 0, rmt.get_token_id(),
+        RmtRmaBufSliceLite lastRmtSlice(rmt.get_addr() + sliceNum * sliceSize, lastSliceSize, 0, rmt.get_token_id(),
                                         rmt.get_token_value(), UINT32_MAX);
         SlicePosition slicePos;
         slicePos = (sliceNum == 0) ? SlicePosition::ONLY : SlicePosition::LAST;
         processOneSliceWithNotify(lastLocSlice, lastRmtSlice, slicePos);
     }
 
-    HCCL_INFO("[PodUbConnLite::%s] end, locBufSize[%u], sliceNUm[%u], sliceSize[%u], lastSliceSize[%u]", __func__,
+    HCCL_INFO("[UbConnLite::%s] end, locBufSize[%u], sliceNUm[%u], sliceSize[%u], lastSliceSize[%u]", __func__,
               locBufSize, sliceNum, sliceSize, lastSliceSize);
 }
 
-void PodUbConnLite::fill_one_sqe_write(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
-                                  PodUdmaSqeWrite *sqe, PodUdmaSqOpcode opCode, SlicePosition slicePos)
+void UbConnLite::fill_one_sqe_write(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                                  UdmaSqeWrite *sqe, UdmaSqOpcode opCode, SlicePosition slicePos)
 {
-    HCCL_INFO("[PodUbConnLite::%s] start, loc size[%llu]", __func__, loc.get_size());
+    HCCL_INFO("[UbConnLite::%s] start, loc size[%llu]", __func__, loc.get_size());
 
     sqe->comm.inlineEn = 0;
     fill_comm_sqe(&(sqe->comm), rmt, cfg, opCode, slicePos);
@@ -253,12 +253,12 @@ void PodUbConnLite::fill_one_sqe_write(const PodRmaBufSliceLite &loc, const PodR
         sqe->comm.sgeNum = 0;
     }
 
-    HCCL_INFO("[PodUbConnLite::%s] end", __func__);
+    HCCL_INFO("[UbConnLite::%s] end", __func__);
 }
 
-void PodUbConnLite::process_one_wqe(PodUdmaSqeWrite *sqe, PodUdmaSqOpcode opCode)
+void UbConnLite::process_one_wqe(UdmaSqeWrite *sqe, UdmaSqOpcode opCode)
 {
-    HCCL_INFO("[PodUbConnLite::%s] start, opCode[%u]", __func__, static_cast<u32>(opCode));
+    HCCL_INFO("[UbConnLite::%s] start, opCode[%u]", __func__, static_cast<u32>(opCode));
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
     u32 sqOffset = pi % sqDepth_;
@@ -273,19 +273,19 @@ void PodUbConnLite::process_one_wqe(PodUdmaSqeWrite *sqe, PodUdmaSqOpcode opCode
     if (!dwqeCacheLocked_) {
         auto ret = memcpy_sp(va, SQE_SIZE_64, sqe, SQE_SIZE_64);
         if (UNLIKELY(ret != 0)) {
-            throw_exception<InternalException>(string_format("[PodUbConnLite::%s] memcpy_sp failed, ret = %d", __func__, ret));
+            throw_exception<InternalException>(string_format("[UbConnLite::%s] memcpy_sp failed, ret = %d", __func__, ret));
         }
     }
 
-    HCCL_INFO("[PodUbConnLite::%s] end, pi[%u]", __func__, pi);
+    HCCL_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
 }
 
-void PodUbConnLite::process_one_wqe_with_notify(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
-                                         const PodSqeConfigLite &cfg, PodUdmaSqeWriteWithNotify *sqe,
-                                         const PodRmtRmaBufSliceLite &notify, u64 notifyData, u32 opCode,
+void UbConnLite::process_one_wqe_with_notify(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                                         const SqeConfigLite &cfg, UdmaSqeWriteWithNotify *sqe,
+                                         const RmtRmaBufSliceLite &notify, u64 notifyData, u32 opCode,
                                          SlicePosition slicePos)
 {
-    HCCL_INFO("[PodUbConnLite::%s] start, locSize[%u], opCode[%u]", __func__, loc.get_size(), opCode);
+    HCCL_INFO("[UbConnLite::%s] start, locSize[%u], opCode[%u]", __func__, loc.get_size(), opCode);
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
     u32 sqOffset = pi % sqDepth_;
@@ -317,22 +317,22 @@ void PodUbConnLite::process_one_wqe_with_notify(const PodRmaBufSliceLite &loc, c
         }
     }
 
-    HCCL_INFO("[PodUbConnLite::%s] end, pi[%u]", __func__, pi);
+    HCCL_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
 }
 
-void PodUbConnLite::memory_set_and_copy(u8 *va, u32 sqeSize, void *sqe)
+void UbConnLite::memory_set_and_copy(u8 *va, u32 sqeSize, void *sqe)
 {
     auto ret = memset_s(va, sqeSize, 0, sqeSize);
     if (UNLIKELY(ret != 0)) {
-        throw_exception<InternalException>(string_format("[PodUbConnLite::%s] memset fail, ret = %d", __func__, ret));
+        throw_exception<InternalException>(string_format("[UbConnLite::%s] memset fail, ret = %d", __func__, ret));
     }
     ret = memcpy_sp(va, sqeSize, sqe, sqeSize);
     if (UNLIKELY(ret != 0)) {
-        throw_exception<InternalException>(string_format("[PodUbConnLite::%s] not support this op type yet.", __func__));
+        throw_exception<InternalException>(string_format("[UbConnLite::%s] not support this op type yet.", __func__));
     }
 }
 
-void PodUbConnLite::fill_notify_sqe(struct PodUdmaSqeNotify *sqe, const PodRmtRmaBufSliceLite &notify, u64 notifyData) const
+void UbConnLite::fill_notify_sqe(struct UdmaSqeNotify *sqe, const RmtRmaBufSliceLite &notify, u64 notifyData) const
 {
     sqe->notifyTokenId    = notify.get_token_id();
     sqe->notifyTokenValue = notify.get_token_value();
@@ -345,7 +345,7 @@ void PodUbConnLite::fill_notify_sqe(struct PodUdmaSqeNotify *sqe, const PodRmtRm
               sqe->notifyAddrLow, sqe->notifyAddrHigh, sqe->notifyDataLow, sqe->notifyDataHigh);
 }
 
-void PodUbConnLite::fill_local_sge_sqe(PodUdmaNormalSge *sqe, const PodRmaBufSliceLite &loc) const
+void UbConnLite::fill_local_sge_sqe(UdmaNormalSge *sqe, const RmaBufSliceLite &loc) const
 {
     sqe->length       = loc.get_size();
     sqe->tokenId      = loc.get_token_id();
@@ -356,105 +356,105 @@ void PodUbConnLite::fill_local_sge_sqe(PodUdmaNormalSge *sqe, const PodRmaBufSli
               sqe->length, sqe->dataAddrLow, sqe->dataAddrHigh);
 }
 
-void PodUbConnLite::read_pod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
-                         const PodSqeConfigLite &cfg, PodConnLiteOperationOut &out)
+void UbConnLite::read(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                         const SqeConfigLite &cfg, ConnLiteOperationOut &out)
 {
     process_slices(loc, rmt, maxReadSize,
-        [&](const PodRmaBufSliceLite &locSlice, const PodRmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
-            PodUdmaSqeWrite sqe{};
-            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, PodUdmaSqOpcode::UDMA_OPC_READ, slicePos);
-            process_one_wqe(&sqe, PodUdmaSqOpcode::UDMA_OPC_READ);
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_READ, slicePos);
+            process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_READ);
         });
     out.pi = pi;
 }
 
-void PodUbConnLite::read_reduce_pod(PodReduceIn reduceIn, const PodRmaBufSliceLite &loc,
-                               const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
-                               PodConnLiteOperationOut &out)
+void UbConnLite::read_reduce(ReduceIn reduceIn, const RmaBufSliceLite &loc,
+                               const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                               ConnLiteOperationOut &out)
 {
     process_slices(loc, rmt, maxReadSize,
-        [&](const PodRmaBufSliceLite &locSlice, const PodRmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
-            PodUdmaSqeWrite sqe{};
-            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, PodUdmaSqOpcode::UDMA_OPC_READ, slicePos);
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_READ, slicePos);
             fill_comm_sqe_reduce_info(sqe.comm, reduceIn.reduceOp, reduceIn.dataType);
-            process_one_wqe(&sqe, PodUdmaSqOpcode::UDMA_OPC_READ);
+            process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_READ);
         }, reduceIn.dataType);
     out.pi = pi;
 }
 
-void PodUbConnLite::write_pod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
-                          const PodSqeConfigLite &cfg, PodConnLiteOperationOut &out)
+void UbConnLite::write(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                          const SqeConfigLite &cfg, ConnLiteOperationOut &out)
 {
     process_slices(loc, rmt, maxWriteSize,
-        [&](const PodRmaBufSliceLite &locSlice, const PodRmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
-            PodUdmaSqeWrite sqe{};
-            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, PodUdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
-            process_one_wqe(&sqe, PodUdmaSqOpcode::UDMA_OPC_WRITE);
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
+            process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
         });
     out.pi = pi;
 }
 
-void PodUbConnLite::inline_write_pod(const u8 *data, u16 size, const PodRmtRmaBufSliceLite &rmt,
-                                const PodSqeConfigLite &cfg, PodConnLiteOperationOut &out)
+void UbConnLite::inline_write(const u8 *data, u16 size, const RmtRmaBufSliceLite &rmt,
+                                const SqeConfigLite &cfg, ConnLiteOperationOut &out)
 {
-    PodUdmaSqeWrite sqe{};
+    UdmaSqeWrite sqe{};
     sqe.comm.inlineEn = 1;
     sqe.comm.inlineMsgLen = size;
-    fill_comm_sqe(&sqe.comm, rmt, cfg, PodUdmaSqOpcode::UDMA_OPC_WRITE);
+    fill_comm_sqe(&sqe.comm, rmt, cfg, UdmaSqOpcode::UDMA_OPC_WRITE);
     auto ret = memcpy_sp(sqe.u.inlineData.data, SQE_INLINE_DATA_SIZE, data, size);
     if (UNLIKELY(ret != 0)) {
-        throw_exception<InternalException>(string_format("[PodUbConnLite::%s] memcpy_sp failed, ret = %d", __func__, ret));
+        throw_exception<InternalException>(string_format("[UbConnLite::%s] memcpy_sp failed, ret = %d", __func__, ret));
     }
-    process_one_wqe(&sqe, PodUdmaSqOpcode::UDMA_OPC_WRITE);
+    process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
     out.pi = pi;
 }
 
-void PodUbConnLite::write_reduce_pod(PodDataType dataType, PodReduceOp reduceOp, const PodRmaBufSliceLite &loc,
-                                const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
-                                PodConnLiteOperationOut &out)
+void UbConnLite::write_reduce(DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite &loc,
+                                const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                                ConnLiteOperationOut &out)
 {
     process_slices(loc, rmt, maxWriteSize,
-        [&](const PodRmaBufSliceLite &locSlice, const PodRmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
-            PodUdmaSqeWrite sqe{};
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
             fill_comm_sqe_reduce_info(sqe.comm, reduceOp, dataType);
-            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, PodUdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
-            process_one_wqe(&sqe, PodUdmaSqOpcode::UDMA_OPC_WRITE);
+            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
+            process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
         }, dataType);
     out.pi = pi;
 }
 
-void PodUbConnLite::write_with_notify_pod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
-                                    const PodSqeConfigLite &cfg, PodConnLiteOperationOut &out,
-                                    const PodRmtRmaBufSliceLite &notify, u64 notifyData)
+void UbConnLite::write_with_notify(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                                    const SqeConfigLite &cfg, ConnLiteOperationOut &out,
+                                    const RmtRmaBufSliceLite &notify, u64 notifyData)
 {
     process_slices_with_notify(loc, rmt, maxWriteSize,
-        [&](const PodRmaBufSliceLite &locSlice, const PodRmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
-            PodUdmaSqeWrite sqe{};
-            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, PodUdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
-            process_one_wqe(&sqe, PodUdmaSqOpcode::UDMA_OPC_WRITE);
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
+            process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
         },
-        [&](const PodRmaBufSliceLite &locSlice, const PodRmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
-            PodUdmaSqeWriteWithNotify sqe{};
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWriteWithNotify sqe{};
             process_one_wqe_with_notify(locSlice, rmtSlice, cfg, &sqe, notify, notifyData,
                                     WRITE_WITH_NOTIFY_OPCODE, slicePos);
         });
     out.pi = pi;
 }
 
-void PodUbConnLite::write_reduce_with_notify_pod(PodDataType dataType, PodReduceOp reduceOp,
-                                          const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
-                                          const PodSqeConfigLite &cfg, PodConnLiteOperationOut &out,
-                                          const PodRmtRmaBufSliceLite &notify, u64 notifyData)
+void UbConnLite::write_reduce_with_notify(DataType dataType, ReduceOp reduceOp,
+                                          const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                                          const SqeConfigLite &cfg, ConnLiteOperationOut &out,
+                                          const RmtRmaBufSliceLite &notify, u64 notifyData)
 {
     process_slices_with_notify(loc, rmt, maxWriteSize,
-        [&](const PodRmaBufSliceLite &locSlice, const PodRmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
-            PodUdmaSqeWrite sqe{};
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
             fill_comm_sqe_reduce_info(sqe.comm, reduceOp, dataType);
-            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, PodUdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
-            process_one_wqe(&sqe, PodUdmaSqOpcode::UDMA_OPC_WRITE);
+            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_WRITE, slicePos);
+            process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_WRITE);
         },
-        [&](const PodRmaBufSliceLite &locSlice, const PodRmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
-            PodUdmaSqeWriteWithNotify sqe{};
+        [&](const RmaBufSliceLite &locSlice, const RmtRmaBufSliceLite &rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWriteWithNotify sqe{};
             fill_comm_sqe_reduce_info(sqe.comm, reduceOp, dataType);
             process_one_wqe_with_notify(locSlice, rmtSlice, cfg, &sqe, notify, notifyData,
                                     WRITE_WITH_NOTIFY_OPCODE, slicePos);
@@ -462,7 +462,7 @@ void PodUbConnLite::write_reduce_with_notify_pod(PodDataType dataType, PodReduce
     out.pi = pi;
 }
 
-void PodUbConnLite::import_pod_context(const PodUbConnLiteParam &liteParam)
+void UbConnLite::import_context(const UbConnLiteParam &liteParam)
 {
     dieId_ = liteParam.dieId;
     funcId_ = liteParam.funcId;
@@ -476,13 +476,13 @@ void PodUbConnLite::import_pod_context(const PodUbConnLiteParam &liteParam)
     (void)memcpy_sp(rmtEid_, sizeof(rmtEid_), liteParam.rmtEid, sizeof(liteParam.rmtEid));
 }
 
-void PodUbConnLite::import_queue_state(u16 queuePi, u32 queuePiDetourCount)
+void UbConnLite::import_queue_state(u16 queuePi, u32 queuePiDetourCount)
 {
     pi = queuePi;
     piDetourCount = queuePiDetourCount;
 }
 
-void PodUbConnLite::export_queue_state(u16 &queuePi, u32 &queuePiDetourCount) const
+void UbConnLite::export_queue_state(u16 &queuePi, u32 &queuePiDetourCount) const
 {
     queuePi = pi;
     queuePiDetourCount = piDetourCount;

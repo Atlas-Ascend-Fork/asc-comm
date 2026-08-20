@@ -125,7 +125,7 @@ source /usr/local/Ascend/cann/set_env.sh
 ```
 
 The former `pod_only` project is now integrated directly at the repository root. The default build produces
-`build/aicpu-data-plane/libaicpu_pod_data_plane.so`. HCOMM owns the control plane and resources; the POD
+`build/aicpu-data-plane/libaicpu_asccomm_data_plane.so`. HCOMM owns the control plane and resources; the POD
 implementation consumes the resource ABI and lookup APIs supplied by HCOMM. The repository no longer carries the
 legacy data plane, resource converters, or copies of HCOMM's public interfaces.
 

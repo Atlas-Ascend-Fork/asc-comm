@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_POD_UB_CONN_LITE_H
-#define HCOMM_POD_UB_CONN_LITE_H
+#ifndef ASCCOMM_UB_CONN_LITE_H
+#define ASCCOMM_UB_CONN_LITE_H
 
 #include <functional>
 #include "asccomm_backend_types.h"
@@ -20,7 +20,7 @@
 namespace Asc {
 
 enum class SlicePosition { ONLY = 0, FIRST = 1, MIDDLE = 2, LAST = 3 };
-struct PodUbConnLiteParam {
+struct UbConnLiteParam {
     u32 dieId;
     u32 funcId;
     u32 jettyId;
@@ -36,35 +36,35 @@ struct PodUbConnLiteParam {
 
 };
 
-class PodUbConnLite {
+class UbConnLite {
 public:
-    void import_pod_context(const PodUbConnLiteParam &liteParam);
+    void import_context(const UbConnLiteParam &liteParam);
 
     void import_queue_state(u16 queuePi, u32 queuePiDetourCount);
     void export_queue_state(u16 &queuePi, u32 &queuePiDetourCount) const;
 
-    void read_pod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
-                 PodConnLiteOperationOut &out);
-    void read_reduce_pod(PodReduceIn reduceIn, const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
-                       const PodSqeConfigLite &cfg, PodConnLiteOperationOut &out);
-    void write_pod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
-                  PodConnLiteOperationOut &out);
-    void inline_write_pod(const u8 *data, u16 size, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
-                        PodConnLiteOperationOut &out);
-    void write_reduce_pod(PodDataType dataType, PodReduceOp reduceOp, const PodRmaBufSliceLite &loc,
-                        const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg, PodConnLiteOperationOut &out);
-    void write_with_notify_pod(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt,
-                            const PodSqeConfigLite &cfg, PodConnLiteOperationOut &out,
-                            const PodRmtRmaBufSliceLite &notify, u64 notifyData);
-    void write_reduce_with_notify_pod(PodDataType dataType, PodReduceOp reduceOp, const PodRmaBufSliceLite &loc,
-                                  const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
-                                  PodConnLiteOperationOut &out, const PodRmtRmaBufSliceLite &notify, u64 notifyData);
+    void read(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                 ConnLiteOperationOut &out);
+    void read_reduce(ReduceIn reduceIn, const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                       const SqeConfigLite &cfg, ConnLiteOperationOut &out);
+    void write(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                  ConnLiteOperationOut &out);
+    void inline_write(const u8 *data, u16 size, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                        ConnLiteOperationOut &out);
+    void write_reduce(DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite &loc,
+                        const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg, ConnLiteOperationOut &out);
+    void write_with_notify(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt,
+                            const SqeConfigLite &cfg, ConnLiteOperationOut &out,
+                            const RmtRmaBufSliceLite &notify, u64 notifyData);
+    void write_reduce_with_notify(DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite &loc,
+                                  const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                                  ConnLiteOperationOut &out, const RmtRmaBufSliceLite &notify, u64 notifyData);
 
-    void fill_comm_sqe(PodUdmaSqeCommon *sqe, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg, u32 opCode,
+    void fill_comm_sqe(UdmaSqeCommon *sqe, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg, u32 opCode,
                      SlicePosition slicePos = SlicePosition::ONLY);
 
-    void fill_notify_sqe(struct PodUdmaSqeNotify *sqe, const PodRmtRmaBufSliceLite &notify, u64 notifyData) const;
-    void fill_local_sge_sqe(PodUdmaNormalSge *sqe, const PodRmaBufSliceLite &loc) const;
+    void fill_notify_sqe(struct UdmaSqeNotify *sqe, const RmtRmaBufSliceLite &notify, u64 notifyData) const;
+    void fill_local_sge_sqe(UdmaNormalSge *sqe, const RmaBufSliceLite &loc) const;
 
 private:
     u16  pi{0};
@@ -79,23 +79,23 @@ private:
     bool dwqeCacheLocked_{false};
     u32  tpn_{0};
     u8   rmtEid_[16]{};
-    void process_slices(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, u32 maxSliceSize,
-        std::function<void(const PodRmaBufSliceLite &, const PodRmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
-        PodDataType dataType = PodDataType::INVALID) const;
+    void process_slices(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, u32 maxSliceSize,
+        std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
+        DataType dataType = DataType::INVALID) const;
     void process_slices_with_notify(
-        const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, u32 maxSliceSize,
-        std::function<void(const PodRmaBufSliceLite &, const PodRmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
-        std::function<void(const PodRmaBufSliceLite &, const PodRmtRmaBufSliceLite &, SlicePosition)> processOneSliceWithNotify,
-        PodDataType                                                                 dataType = PodDataType::INVALID) const;
-    void process_one_wqe(PodUdmaSqeWrite *sqe, PodUdmaSqOpcode opCode);
-    void process_one_wqe_with_notify(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
-                                 PodUdmaSqeWriteWithNotify *sqe, const PodRmtRmaBufSliceLite &notify, u64 notifyData,
+        const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, u32 maxSliceSize,
+        std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSlice,
+        std::function<void(const RmaBufSliceLite &, const RmtRmaBufSliceLite &, SlicePosition)> processOneSliceWithNotify,
+        DataType                                                                 dataType = DataType::INVALID) const;
+    void process_one_wqe(UdmaSqeWrite *sqe, UdmaSqOpcode opCode);
+    void process_one_wqe_with_notify(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                                 UdmaSqeWriteWithNotify *sqe, const RmtRmaBufSliceLite &notify, u64 notifyData,
                                  u32 opCode, SlicePosition slicePos);
-    void fill_comm_sqe_reduce_info(PodUdmaSqeCommon &sqeComm, PodReduceOp reduceOp, PodDataType dataType, u32 udfType = 0) const;
-    void fill_one_sqe_write(const PodRmaBufSliceLite &loc, const PodRmtRmaBufSliceLite &rmt, const PodSqeConfigLite &cfg,
-                         PodUdmaSqeWrite *sqe, PodUdmaSqOpcode opCode, SlicePosition slicePos);
+    void fill_comm_sqe_reduce_info(UdmaSqeCommon &sqeComm, ReduceOp reduceOp, DataType dataType, u32 udfType = 0) const;
+    void fill_one_sqe_write(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
+                         UdmaSqeWrite *sqe, UdmaSqOpcode opCode, SlicePosition slicePos);
     void memory_set_and_copy(u8 *va, u32 sqeSize, void *sqe);
 };
 } // namespace Asc
 
-#endif // HCOMM_POD_UB_CONN_LITE_H
+#endif // ASCCOMM_UB_CONN_LITE_H

@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_POD_RUNTIME_H
-#define HCOMM_POD_RUNTIME_H
+#ifndef ASCCOMM_RUNTIME_H
+#define ASCCOMM_RUNTIME_H
 
 // Internal POD RTSQ runtime. This header is not part of the public API.
 
@@ -18,7 +18,7 @@
 #include "../connection/asccomm_backend_types.h"
 
 namespace Asc {
-struct PodUbJettyLiteId;
+struct UbJettyLiteId;
 }
 
 HcclResult asccomm_rtsq_launch(HcommRtsqContext &context);
@@ -28,12 +28,12 @@ HcclResult asccomm_rtsq_notify_record(HcommRtsqContext &context, uint32_t notify
 HcclResult asccomm_rtsq_sdma_copy(
     HcommRtsqContext &context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size);
 HcclResult asccomm_rtsq_sdma_reduce(HcommRtsqContext &context, uint64_t dstAddr, uint64_t srcAddr,
-                                  uint32_t size, const Asc::PodReduceIn &reduceIn);
+                                  uint32_t size, const Asc::ReduceIn &reduceIn);
 HcclResult asccomm_rtsq_ub_db_send(
-    HcommRtsqContext &context, const Asc::PodUbJettyLiteId &jettyId, uint16_t piValue);
+    HcommRtsqContext &context, const Asc::UbJettyLiteId &jettyId, uint16_t piValue);
 HcclResult asccomm_rtsq_rdma_db_send(HcommRtsqContext &context, uint64_t dbAddr, uint64_t dbValue);
 
 HcclResult asccomm_task_launch(ThreadHandle *threads, uint32_t threadNum);
 HcclResult asccomm_try_launch(ThreadHandle *threads, uint32_t threadNum);
 
-#endif // HCOMM_POD_RUNTIME_H
+#endif // ASCCOMM_RUNTIME_H
