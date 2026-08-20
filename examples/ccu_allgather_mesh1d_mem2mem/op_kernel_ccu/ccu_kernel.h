@@ -43,8 +43,8 @@ struct CcuKernelArgBase {
 
 // Group-copy tiling constants. Must stay consistent between CalGoSize (host)
 // and the kernel-side GroupCopy resource config.
-constexpr uint64_t CCU_MS_INTERLEAVE = 8;
-constexpr uint64_t CCU_MS_SIZE = 4096;
+constexpr uint64_t ccu_ms_interleave = 8;
+constexpr uint64_t ccu_ms_size = 4096;
 constexpr uint32_t CCU_LOCAL_COPY_MS_PER_LOOP = 8;
 constexpr uint32_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
 
@@ -64,28 +64,28 @@ enum TaskArgIndex : uint32_t {
 constexpr uint32_t TASK_ARG_NUM = 10;
 static_assert(TASK_GO_RESIDUAL + 1 == TASK_ARG_NUM);
 
-struct LoopGroupConfig {
-    uint32_t msInterleave;
-    uint32_t loopCount;
-    uint64_t memSlice;
+struct loop_group_config {
+    uint32_t ms_interleave;
+    uint32_t loop_count;
+    uint64_t mem_slice;
 };
 
 struct LoopGroupResource {
-    ccu::Array<ccu::Event> completedEvent{0};
-    ccu::Array<ccu::CcuBuffer> ccuBuf{0};
+    ccu::array<ccu::event> completed_event{0};
+    ccu::array<ccu::ccu_buffer> ccuBuf{0};
 };
 
 struct GroupOpSizeVars {
-    ccu::Variable addrOffset;
-    ccu::Variable loopParam;
-    ccu::Variable parallelParam;
-    ccu::Variable residual;
+    ccu::variable addr_offset;
+    ccu::variable loop_param_;
+    ccu::variable parallel_param;
+    ccu::variable residual;
 };
 
 struct CcuLoopEntity {
-    std::unique_ptr<ccu::Func> body[2];
-    std::unique_ptr<ccu::Loop> loops[2];
-    ccu::Variable loopParam[2];
+    std::unique_ptr<ccu::func> body[2];
+    std::unique_ptr<ccu::loop> loops[2];
+    ccu::variable loop_param_[2];
 };
 
 struct CcuKernelArgAllGatherMesh1DMem2Mem : public CcuKernelArgBase {
@@ -96,16 +96,16 @@ struct CcuKernelArgAllGatherMesh1DMem2Mem : public CcuKernelArgBase {
 struct AllGatherMesh1DMem2MemContext {
     const CcuKernelArgAllGatherMesh1DMem2Mem* arg;
 
-    ccu::Variable input;
-    std::vector<ccu::Variable> output;
-    std::vector<ccu::Variable> token;
-    ccu::Variable inputSliceStride;
-    ccu::Variable outputSliceStride;
-    ccu::Variable chunkSize;
-    std::vector<ccu::Event> events;
+    ccu::variable input;
+    std::vector<ccu::variable> output;
+    std::vector<ccu::variable> token;
+    ccu::variable inputSliceStride;
+    ccu::variable outputSliceStride;
+    ccu::variable chunkSize;
+    std::vector<ccu::event> events;
 
     GroupOpSizeVars goSize;
-    LoopGroupConfig moConfig;
+    loop_group_config moConfig;
     LoopGroupResource moRes;
     bool resourceAllocated = false;
 
@@ -116,7 +116,7 @@ struct AllGatherMesh1DMem2MemContext {
     bool IsLoopEntityRegistered(const std::string& loopStr) const { return loopMap.count(loopStr) != 0; }
 };
 
-CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg);
+CcuResult CcuAllGatherMesh1DMem2MemKernel(ccu_kernel_arg arg);
 
 } // namespace CcuAgMem2mem
 

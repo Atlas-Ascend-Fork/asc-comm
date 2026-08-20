@@ -8,45 +8,45 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_ASSIGN_H
-#define HCOMM_CCU_REPRESENTATION_ASSIGN_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_ASSIGN_H
+#define ASCCOMM_CCU_REPRESENTATION_ASSIGN_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepAssign : public CcuRepBase {
+class ccu_rep_assign : public ccu_rep_base {
 public:
-    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable& varA, uint64_t immediate);
-    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrA, uint64_t immediate);
-    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const Variable& varA);
-    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrB, const Address& addrA);
-    explicit CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable& varB, const Variable& varA);
+    explicit ccu_rep_assign(ccu_ins_generater_base* ins_gen_ptr, const variable& var_a, uint64_t immediate);
+    explicit ccu_rep_assign(ccu_ins_generater_base* ins_gen_ptr, const address& addr_a, uint64_t immediate);
+    explicit ccu_rep_assign(ccu_ins_generater_base* ins_gen_ptr, const address& addr_a, const variable& var_a);
+    explicit ccu_rep_assign(ccu_ins_generater_base* ins_gen_ptr, const address& addr_b, const address& addr_a);
+    explicit ccu_rep_assign(ccu_ins_generater_base* ins_gen_ptr, const variable& var_b, const variable& var_a);
 
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    Address GetAddrA();
-    Address GetAddrB();
-    Variable GetVarA();
-    Variable GetVarB();
-    uint64_t GetImmed();
-    AssignSubType GetSubType();
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    address get_addr_a();
+    address get_addr_b();
+    variable get_var_a();
+    variable get_var_b();
+    uint64_t get_immed();
+    assign_sub_type get_sub_type();
 
 private:
-    void SetCommonInfo();
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    AssignSubType subType{AssignSubType::INVALID};
-    uint64_t immediate{0};
+    void set_common_info();
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
+    assign_sub_type sub_type_{assign_sub_type::invalid};
+    uint64_t immediate_{0};
 
-    Variable varA;
-    Variable varB;
+    variable var_a_;
+    variable var_b_;
 
-    Address addrA;
-    Address addrB;
+    address addr_a_;
+    address addr_b_;
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCCL_CCU_REPRESENTATION_ASSIGN_H

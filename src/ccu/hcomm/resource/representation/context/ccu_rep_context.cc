@@ -14,241 +14,241 @@
 #include "hcomm/resource/representation/reps/arithmetic/ccu_rep_assign_v1.h"
 #include "hcomm/resource/channel/ccu_channel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepContext::CcuRepContext()
+ccu_rep_context::ccu_rep_context()
 {
-    mainBlock = std::make_shared<CcuRep::CcuRepBlock>(insGenerator);
-    activeBlock = mainBlock;
+    main_block_ = std::make_shared<ccu_rep::ccu_rep_block>(ins_generator_);
+    active_block_ = main_block_;
 }
 
-CcuRepContext::~CcuRepContext() {}
+ccu_rep_context::~ccu_rep_context() {}
 
-std::shared_ptr<CcuRep::CcuRepBlock> CcuRepContext::CurrentBlock()
+std::shared_ptr<ccu_rep::ccu_rep_block> ccu_rep_context::current_block()
 {
-    if (activeBlock == nullptr) {
-        asccomm::ThrowCcuInternal("Invalid ActiveBlock");
+    if (active_block_ == nullptr) {
+        asc::throw_ccu_internal("Invalid ActiveBlock");
     }
-    return activeBlock;
+    return active_block_;
 }
 
-void CcuRepContext::SetCurrentBlock(std::shared_ptr<CcuRep::CcuRepBlock> repBlock) { activeBlock = repBlock; }
+void ccu_rep_context::set_current_block(std::shared_ptr<ccu_rep::ccu_rep_block> rep_block) { active_block_ = rep_block; }
 
 /**
  * @details:保存rep信息，后续有arg后配合补全profiling信息
  */
-void CcuRepContext::CollectProfilingReps(std::shared_ptr<CcuRep::CcuRepBase> rep)
+void ccu_rep_context::collect_profiling_reps(std::shared_ptr<ccu_rep::ccu_rep_base> rep)
 {
-    if (rep->Type() == CcuRepType::ASSIGN) {
-        auto assignRep = dynamic_cast<CcuRepAssign*>(rep.get());
-        if (assignRep->GetSubType() == AssignSubType::VAR_TO_VAR) {
-            lgProfilingInfo.assignProfilingReps.push_back(rep);
+    if (rep->type() == ccu_rep_type::assign) {
+        auto assign_rep = dynamic_cast<ccu_rep_assign*>(rep.get());
+        if (assign_rep->get_sub_type() == assign_sub_type::var_to_var) {
+            lg_profiling_info.assign_profiling_reps.push_back(rep);
         }
     } else if (
-        CurrentBlock()->Type() != CcuRep::CcuRepType::LOOP_BLOCK &&
-        (rep->Type() == CcuRepType::LOC_WAIT_EVENT || rep->Type() == CcuRepType::REM_WAIT_SEM ||
-         rep->Type() == CcuRepType::REM_WAIT_GROUP)) {
-        waitCkeProfilingReps.push_back(rep);
-    } else if (rep->Type() == CcuRepType::LOOPGROUP) {
-        allLgProfilingReps.push_back(rep);
+        current_block()->type() != ccu_rep::ccu_rep_type::loop_block &&
+        (rep->type() == ccu_rep_type::loc_wait_event || rep->type() == ccu_rep_type::rem_wait_sem ||
+         rep->type() == ccu_rep_type::rem_wait_group)) {
+        wait_cke_profiling_reps.push_back(rep);
+    } else if (rep->type() == ccu_rep_type::loop_group) {
+        all_lg_profiling_reps.push_back(rep);
     }
 }
 
-void CcuRepContext::Append(std::shared_ptr<CcuRep::CcuRepBase> rep)
+void ccu_rep_context::append(std::shared_ptr<ccu_rep::ccu_rep_base> rep)
 {
-    CollectProfilingReps(rep);
-    CurrentBlock()->Append(rep);
+    collect_profiling_reps(rep);
+    current_block()->append(rep);
 }
 
-const std::vector<std::shared_ptr<CcuRep::CcuRepBase>>& CcuRepContext::GetRepSequence() { return mainBlock->GetReps(); }
+const std::vector<std::shared_ptr<ccu_rep::ccu_rep_base>>& ccu_rep_context::get_rep_sequence() { return main_block_->get_reps(); }
 
 // 按指令编号在任务的主 REP 列表里找它属于哪条 REP：每条 REP 占的指令条数
 // 不一样，编号落在某条的开始到结束范围内就是它；找不到返回 nullptr。
 // 找到 FUNC_BLOCK 这类壳 REP 时，调用方还要进壳里继续找
-std::shared_ptr<CcuRep::CcuRepBase> CcuRepContext::GetRepByInstrId(uint16_t instrId)
+std::shared_ptr<ccu_rep::ccu_rep_base> ccu_rep_context::get_rep_by_instr_id(uint16_t instr_id)
 {
-    for (const auto& rep : GetRepSequence()) {
+    for (const auto& rep : get_rep_sequence()) {
         CHK_PRT_RET(rep == nullptr, HCCL_ERROR("[%s]fail, rep is nullptr", __func__), nullptr);
-        const uint16_t repInstrCount = rep->InstrCount();
-        if (repInstrCount == 0) {
+        const uint16_t rep_instr_count = rep->instr_count();
+        if (rep_instr_count == 0) {
             continue;
         }
-        const uint16_t startId = rep->StartInstrId();
-        const uint16_t endId = startId + repInstrCount - 1;
-        HCCL_INFO("[%s]startId[%u], endId[%u], instrId[%u]", __func__, startId, endId, instrId);
+        const uint16_t start_id = rep->start_instr_id();
+        const uint16_t end_id = start_id + rep_instr_count - 1;
+        HCCL_INFO("[%s]startId[%u], endId[%u], instrId[%u]", __func__, start_id, end_id, instr_id);
         // 编号落在这条 REP 的指令范围内，就是它
-        if (instrId >= startId && instrId <= endId) {
+        if (instr_id >= start_id && instr_id <= end_id) {
             return rep;
         }
     }
     return nullptr;
 }
 
-void CcuRepContext::DumpReprestation()
+void ccu_rep_context::dump_represtation()
 {
-    HCCL_INFO("Rep Count: %lu", GetRepSequence().size());
-    for (uint32_t index = 0; index < GetRepSequence().size(); index++) {
-        HCCL_INFO("index[%u]: %s", index, GetRepSequence()[index]->Describe().c_str());
+    HCCL_INFO("Rep Count: %lu", get_rep_sequence().size());
+    for (uint32_t index = 0; index < get_rep_sequence().size(); index++) {
+        HCCL_INFO("index[%u]: %s", index, get_rep_sequence()[index]->describe().c_str());
     }
 }
 
-void CcuRepContext::SetDieId(uint32_t dieId)
+void ccu_rep_context::set_die_id(uint32_t die_id)
 {
-    HCCL_INFO("set dieId[%u]", dieId);
-    this->dieId = dieId;
+    HCCL_INFO("set dieId[%u]", die_id);
+    this->die_id_ = die_id;
 }
 
-uint32_t CcuRepContext::GetDieId() const { return dieId; }
+uint32_t ccu_rep_context::get_die_id() const { return die_id_; }
 
-void CcuRepContext::SetMissionId(uint32_t missionId)
+void ccu_rep_context::set_mission_id(uint32_t mission_id)
 {
-    if (this->missionId == UINT32_MAX) {
-        this->missionId = missionId;
+    if (this->mission_id_ == UINT32_MAX) {
+        this->mission_id_ = mission_id;
     }
 }
 
-uint32_t CcuRepContext::GetMissionId() const { return missionId; }
+uint32_t ccu_rep_context::get_mission_id() const { return mission_id_; }
 
-void CcuRepContext::SetMissionKey(uint32_t missionKey) { this->missionKey = missionKey; }
+void ccu_rep_context::set_mission_key(uint32_t mission_key) { this->mission_key_ = mission_key; }
 
-uint32_t CcuRepContext::GetMissionKey() const { return missionKey; }
+uint32_t ccu_rep_context::get_mission_key() const { return mission_key_; }
 
-std::vector<CcuProfilingInfo>& CcuRepContext::GetProfilingInfo() { return profilingInfo; }
+std::vector<ccu_profiling_info>& ccu_rep_context::get_profiling_info() { return profiling_info; }
 
-const std::vector<std::shared_ptr<CcuRepBase>>& CcuRepContext::GetWaiteCkeProfilingReps() const
+const std::vector<std::shared_ptr<ccu_rep_base>>& ccu_rep_context::get_waite_cke_profiling_reps() const
 {
-    return waitCkeProfilingReps;
+    return wait_cke_profiling_reps;
 }
 
-LoopGroupProfilingInfo& CcuRepContext::GetLGProfilingInfo() { return lgProfilingInfo; }
+loop_group_profiling_info& ccu_rep_context::get_lg_profiling_info() { return lg_profiling_info; }
 
-void CcuRepContext::AddSqeProfiling(const std::string& kernelName)
+void ccu_rep_context::add_sqe_profiling(const std::string& kernel_name)
 {
-    constexpr uint32_t defaultDieId = 0; // 首次填写profiling时dieId未确定
+    constexpr uint32_t default_die_id = 0; // 首次填写profiling时dieId未确定
     // 生成SQE粒度profiling信息
-    ccuProfilingInfoCache.type = (uint8_t)CcuProfilinType::CCU_TASK_PROFILING;
-    ccuProfilingInfoCache.name = kernelName.c_str();
-    ccuProfilingInfoCache.dieId = defaultDieId;
+    ccu_profiling_info_cache.type = (uint8_t)ccu_profilin_type::ccu_task_profiling;
+    ccu_profiling_info_cache.name = kernel_name.c_str();
+    ccu_profiling_info_cache.die_id = default_die_id;
     HCCL_DEBUG(
-        "[%s]type[%d], name[%s], deafultDieId[0]", __func__, ccuProfilingInfoCache.type,
-        ccuProfilingInfoCache.name.c_str(), ccuProfilingInfoCache.dieId);
-    profilingInfo.push_back(ccuProfilingInfoCache);
+        "[%s]type[%d], name[%s], deafultDieId[0]", __func__, ccu_profiling_info_cache.type,
+        ccu_profiling_info_cache.name.c_str(), ccu_profiling_info_cache.die_id);
+    profiling_info.push_back(ccu_profiling_info_cache);
 }
 
-int32_t CcuRepContext::AddProfiling(const std::string& name, uint32_t mask)
+int32_t ccu_rep_context::add_profiling(const std::string& name, uint32_t mask)
 {
-    ccuProfilingInfoCache.type = (uint8_t)CcuProfilinType::CCU_WAITCKE_PROFILING;
-    ccuProfilingInfoCache.name = name;
-    ccuProfilingInfoCache.ckeId = INVALID_CKE_ID;
-    ccuProfilingInfoCache.mask = mask;
+    ccu_profiling_info_cache.type = (uint8_t)ccu_profilin_type::ccu_waitcke_profiling;
+    ccu_profiling_info_cache.name = name;
+    ccu_profiling_info_cache.cke_id = invalid_cke_id;
+    ccu_profiling_info_cache.mask = mask;
     CHK_SAFETY_FUNC_RET(memset_s(
-        ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId), INVALID_VALUE_CHANNELID,
-        sizeof(ccuProfilingInfoCache.channelId)));
+        ccu_profiling_info_cache.channel_id, sizeof(ccu_profiling_info_cache.channel_id), invalid_value_channelid,
+        sizeof(ccu_profiling_info_cache.channel_id)));
 
-    HCCL_INFO("[%s]name[%s], mask[%u], type[%d]", __func__, name.c_str(), mask, ccuProfilingInfoCache.type);
-    profilingInfo.push_back(ccuProfilingInfoCache);
+    HCCL_INFO("[%s]name[%s], mask[%u], type[%d]", __func__, name.c_str(), mask, ccu_profiling_info_cache.type);
+    profiling_info.push_back(ccu_profiling_info_cache);
     return HCCL_SUCCESS;
 }
 
-int32_t CcuRepContext::AddProfiling(
-    const ChannelHandle channel, const std::string& name, uint32_t signalIndex, uint32_t mask)
+int32_t ccu_rep_context::add_profiling(
+    const ChannelHandle channel, const std::string& name, uint32_t signal_index, uint32_t mask)
 {
-    CcuChannel channelImpl(channel);
-    CHK_RET(channelImpl.GetResult());
+    ccu_channel channel_impl(channel);
+    CHK_RET(channel_impl.get_result());
 
-    ccuProfilingInfoCache.type = (uint8_t)CcuProfilinType::CCU_WAITCKE_PROFILING;
-    ccuProfilingInfoCache.name = name;
-    CHK_RET(channelImpl->GetLocCkeByIndex(signalIndex, ccuProfilingInfoCache.ckeId));
-    ccuProfilingInfoCache.mask = mask;
+    ccu_profiling_info_cache.type = (uint8_t)ccu_profilin_type::ccu_waitcke_profiling;
+    ccu_profiling_info_cache.name = name;
+    CHK_RET(channel_impl->get_loc_cke_by_index(signal_index, ccu_profiling_info_cache.cke_id));
+    ccu_profiling_info_cache.mask = mask;
     CHK_SAFETY_FUNC_RET(memset_s(
-        ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId), INVALID_VALUE_CHANNELID,
-        sizeof(ccuProfilingInfoCache.channelId)));
-    ccuProfilingInfoCache.channelId[0] = channelImpl->GetChannelId();
-    ccuProfilingInfoCache.channelHandle[0] = channel;
+        ccu_profiling_info_cache.channel_id, sizeof(ccu_profiling_info_cache.channel_id), invalid_value_channelid,
+        sizeof(ccu_profiling_info_cache.channel_id)));
+    ccu_profiling_info_cache.channel_id[0] = channel_impl->get_channel_id();
+    ccu_profiling_info_cache.channel_handle[0] = channel;
 
     HCCL_INFO(
         "[%s]channelHandle[0x%llx], name[%s], signalIndex[%u], mask[%u], type[%d], ckeId[%u], channelId[%u]", __func__,
-        channel, name.c_str(), signalIndex, mask, ccuProfilingInfoCache.type, ccuProfilingInfoCache.ckeId,
-        ccuProfilingInfoCache.channelId[0]);
-    profilingInfo.push_back(ccuProfilingInfoCache);
+        channel, name.c_str(), signal_index, mask, ccu_profiling_info_cache.type, ccu_profiling_info_cache.cke_id,
+        ccu_profiling_info_cache.channel_id[0]);
+    profiling_info.push_back(ccu_profiling_info_cache);
     return HCCL_SUCCESS;
 }
 
-int32_t CcuRepContext::AddProfiling(const ChannelHandle* channels, uint32_t channelNum)
+int32_t ccu_rep_context::add_profiling(const ChannelHandle* channels, uint32_t channel_num)
 {
     CHK_PTR_NULL(channels);
-    ccuProfilingInfoCache.type = (uint8_t)CcuProfilinType::CCU_LOOPGROUP_PROFILING;
-    ccuProfilingInfoCache.name = "GroupBroadcast";
-    ccuProfilingInfoCache.reduceOpType = 0xFF;   // 0xFF 无效值
-    ccuProfilingInfoCache.inputDataType = 0xFF;  // 0xFF 无效值
-    ccuProfilingInfoCache.outputDataType = 0xFF; // 0xFF 无效值
-    ccuProfilingInfoCache.missionId = GetMissionId();
+    ccu_profiling_info_cache.type = (uint8_t)ccu_profilin_type::ccu_loopgroup_profiling;
+    ccu_profiling_info_cache.name = "GroupBroadcast";
+    ccu_profiling_info_cache.reduce_op_type = 0xFF;   // 0xFF 无效值
+    ccu_profiling_info_cache.input_data_type = 0xFF;  // 0xFF 无效值
+    ccu_profiling_info_cache.output_data_type = 0xFF; // 0xFF 无效值
+    ccu_profiling_info_cache.mission_id = get_mission_id();
 
     CHK_SAFETY_FUNC_RET(memset_s(
-        ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId), INVALID_VALUE_CHANNELID,
-        sizeof(ccuProfilingInfoCache.channelId)));
-    for (uint32_t i = 0; i < channelNum; i++) {
-        CcuChannel channelImpl(channels[i]);
-        CHK_RET(channelImpl.GetResult());
-        ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
-        ccuProfilingInfoCache.channelHandle[i] = channels[i];
+        ccu_profiling_info_cache.channel_id, sizeof(ccu_profiling_info_cache.channel_id), invalid_value_channelid,
+        sizeof(ccu_profiling_info_cache.channel_id)));
+    for (uint32_t i = 0; i < channel_num; i++) {
+        ccu_channel channel_impl(channels[i]);
+        CHK_RET(channel_impl.get_result());
+        ccu_profiling_info_cache.channel_id[i] = channel_impl->get_channel_id();
+        ccu_profiling_info_cache.channel_handle[i] = channels[i];
         HCCL_INFO(
             "[%s]type[%d], name[%s], missionId[%u], channelHandle[0x%llx], channelId[%u]", __func__,
-            ccuProfilingInfoCache.type, ccuProfilingInfoCache.name.c_str(), ccuProfilingInfoCache.missionId,
-            ccuProfilingInfoCache.channelHandle[i], ccuProfilingInfoCache.channelId[i]);
+            ccu_profiling_info_cache.type, ccu_profiling_info_cache.name.c_str(), ccu_profiling_info_cache.mission_id,
+            ccu_profiling_info_cache.channel_handle[i], ccu_profiling_info_cache.channel_id[i]);
     }
 
-    lgProfilingInfo.ccuProfilingInfos.push_back(ccuProfilingInfoCache);
-    if (!allLgProfilingReps.empty()) {
-        lgProfilingInfo.lgProfilingReps.push_back(allLgProfilingReps.back());
+    lg_profiling_info.ccu_profiling_infos.push_back(ccu_profiling_info_cache);
+    if (!all_lg_profiling_reps.empty()) {
+        lg_profiling_info.lg_profiling_reps.push_back(all_lg_profiling_reps.back());
     }
     return HCCL_SUCCESS;
 }
 
-int32_t CcuRepContext::AddProfiling(
-    const ChannelHandle* channels, uint32_t channelNum, int32_t hcommDataType, int32_t hcommOutputDataType,
-    int32_t hcommOpType)
+int32_t ccu_rep_context::add_profiling(
+    const ChannelHandle* channels, uint32_t channel_num, int32_t hcomm_data_type, int32_t hcomm_output_data_type,
+    int32_t hcomm_op_type)
 {
-    HcclDataType dataType = static_cast<HcclDataType>(hcommDataType);
-    HcclDataType outputDataType = static_cast<HcclDataType>(hcommOutputDataType);
-    HcclReduceOp opType = static_cast<HcclReduceOp>(hcommOpType);
+    HcclDataType data_type = static_cast<HcclDataType>(hcomm_data_type);
+    HcclDataType output_data_type = static_cast<HcclDataType>(hcomm_output_data_type);
+    HcclReduceOp op_type = static_cast<HcclReduceOp>(hcomm_op_type);
 
     CHK_PTR_NULL(channels);
-    ccuProfilingInfoCache.type = (uint8_t)CcuProfilinType::CCU_LOOPGROUP_PROFILING;
-    ccuProfilingInfoCache.name = "GroupReduce";
-    ccuProfilingInfoCache.reduceOpType = opType;
-    ccuProfilingInfoCache.inputDataType = dataType;
-    ccuProfilingInfoCache.outputDataType = outputDataType;
-    ccuProfilingInfoCache.missionId = GetMissionId();
+    ccu_profiling_info_cache.type = (uint8_t)ccu_profilin_type::ccu_loopgroup_profiling;
+    ccu_profiling_info_cache.name = "GroupReduce";
+    ccu_profiling_info_cache.reduce_op_type = op_type;
+    ccu_profiling_info_cache.input_data_type = data_type;
+    ccu_profiling_info_cache.output_data_type = output_data_type;
+    ccu_profiling_info_cache.mission_id = get_mission_id();
 
     CHK_SAFETY_FUNC_RET(memset_s(
-        ccuProfilingInfoCache.channelId, sizeof(ccuProfilingInfoCache.channelId), INVALID_VALUE_CHANNELID,
-        sizeof(ccuProfilingInfoCache.channelId)));
-    for (uint32_t i = 0; i < channelNum; ++i) {
-        CcuChannel channelImpl(channels[i]);
-        CHK_RET(channelImpl.GetResult());
-        ccuProfilingInfoCache.channelId[i] = channelImpl->GetChannelId();
-        ccuProfilingInfoCache.channelHandle[i] = channels[i];
+        ccu_profiling_info_cache.channel_id, sizeof(ccu_profiling_info_cache.channel_id), invalid_value_channelid,
+        sizeof(ccu_profiling_info_cache.channel_id)));
+    for (uint32_t i = 0; i < channel_num; ++i) {
+        ccu_channel channel_impl(channels[i]);
+        CHK_RET(channel_impl.get_result());
+        ccu_profiling_info_cache.channel_id[i] = channel_impl->get_channel_id();
+        ccu_profiling_info_cache.channel_handle[i] = channels[i];
         HCCL_INFO(
             "[%s]type[%d], name[%s], opType[%d], dataType[%d], outputDataType[%d], missionId[%u], "
             "channelHandle[0x%llx], channelId[%u]",
-            __func__, ccuProfilingInfoCache.type, ccuProfilingInfoCache.name.c_str(), opType, dataType, outputDataType,
-            ccuProfilingInfoCache.missionId, ccuProfilingInfoCache.channelHandle[i],
-            ccuProfilingInfoCache.channelId[i]);
+            __func__, ccu_profiling_info_cache.type, ccu_profiling_info_cache.name.c_str(), op_type, data_type, output_data_type,
+            ccu_profiling_info_cache.mission_id, ccu_profiling_info_cache.channel_handle[i],
+            ccu_profiling_info_cache.channel_id[i]);
     }
 
-    lgProfilingInfo.ccuProfilingInfos.push_back(ccuProfilingInfoCache);
-    lgProfilingInfo.lgProfilingReps.push_back(allLgProfilingReps.back());
+    lg_profiling_info.ccu_profiling_infos.push_back(ccu_profiling_info_cache);
+    lg_profiling_info.lg_profiling_reps.push_back(all_lg_profiling_reps.back());
     return HCCL_SUCCESS;
 }
 
-void CcuRepContext::SetDependencyInfo(uint32_t id, uint32_t mask, const std::shared_ptr<CcuRepBase>& rep)
+void ccu_rep_context::set_dependency_info(uint32_t id, uint32_t mask, const std::shared_ptr<ccu_rep_base>& rep)
 {
     // 按 mask 各置位 bit 分别登记：异常侧按 1<<i 单 bit 查询，多 bit mask 需拆解到每个单 bit key
-    constexpr uint32_t CCU_CKE_BIT_NUM = 16; // CKE 的 bit 数最多为 16
-    auto& inner = depInfo[id];
-    for (uint32_t i = 0; i < CCU_CKE_BIT_NUM; i++) {
+    constexpr uint32_t ccu_cke_bit_num = 16; // CKE 的 bit 数最多为 16
+    auto& inner = dep_info_[id];
+    for (uint32_t i = 0; i < ccu_cke_bit_num; i++) {
         uint32_t bit = 1u << i;
         if ((mask & bit) != 0u) {
             inner[bit].push_back(rep);
@@ -256,21 +256,21 @@ void CcuRepContext::SetDependencyInfo(uint32_t id, uint32_t mask, const std::sha
     }
 }
 
-std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>> CcuRepContext::GetDependencyInfo(uint32_t id)
+std::unordered_map<uint32_t, std::vector<std::shared_ptr<ccu_rep_base>>> ccu_rep_context::get_dependency_info(uint32_t id)
 {
     // 查找给定 id 是否存在于 depInfo 中
-    auto it = depInfo.find(id);
+    auto it = dep_info_.find(id);
     // 如果找到 id，返回与之关联的内层 unordered_map
-    if (it != depInfo.end()) {
+    if (it != dep_info_.end()) {
         return it->second;
     }
     // 如果未找到 id，返回一个空的 unordered_map
-    return std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>>();
+    return std::unordered_map<uint32_t, std::vector<std::shared_ptr<ccu_rep_base>>>();
 }
 
-void CcuRepContext::EraseDependencyInfo(uint32_t id) { depInfo.erase(id); }
+void ccu_rep_context::erase_dependency_info(uint32_t id) { dep_info_.erase(id); }
 
-void CcuRepContext::ClearDependencyInfo() { depInfo.clear(); }
+void ccu_rep_context::clear_dependency_info() { dep_info_.clear(); }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

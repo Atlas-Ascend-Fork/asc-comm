@@ -9,7 +9,7 @@
  */
 
 // 数据面 primitive C ABI 实现入口。
-// 头部统一走 hcomm 包内 header（hcomm_ccu_channel.h / hcomm_types.h），
+// 头部统一走 hcomm 包内 header（asccomm_ccu_channel.h / hcomm_types.h），
 // 不再 include hccl 私有头，从源码层面落实控制面/数据面边界。
 #include "hcomm/hcomm_ccu_channel.h"
 #include "hcomm/hcomm_types.h"
@@ -20,165 +20,165 @@
 
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 
-namespace asccomm {
+namespace asc {
 
 // Alloc 相关接口
-CcuResult CcuVariableAlloc(CcuVariableHandle* varHandle)
+CcuResult ccu_variable_alloc(ccu_variable_handle* var_handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->VariableAlloc(varHandle));
+    CCU_CHK_RET(kernel->variable_alloc(var_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuAddressAlloc(CcuAddressHandle* addrHandle)
+CcuResult ccu_address_alloc(ccu_address_handle* addr_handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->AddressAlloc(addrHandle));
+    CCU_CHK_RET(kernel->address_alloc(addr_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuEventAlloc(CcuEventHandle* eventHandle)
+CcuResult ccu_event_alloc(ccu_event_handle* event_handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->EventAlloc(eventHandle));
+    CCU_CHK_RET(kernel->event_alloc(event_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuBufferAlloc(CcuBufferHandle* bufHandle)
+CcuResult ccu_buffer_alloc(ccu_buffer_handle* buf_handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->BufferAlloc(bufHandle));
+    CCU_CHK_RET(kernel->buffer_alloc(buf_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuLocalAddrAlloc(
-    CcuLocalAddrHandle* localAddrHandle, CcuAddressHandle* addrHandle, CcuVariableHandle* tokenHandle)
+CcuResult ccu_local_addr_alloc(
+    ccu_local_addr_handle* local_addr_handle, ccu_address_handle* addr_handle, ccu_variable_handle* token_handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LocalAddrAlloc(localAddrHandle, addrHandle, tokenHandle));
+    CCU_CHK_RET(kernel->local_addr_alloc(local_addr_handle, addr_handle, token_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuRemoteAddrAlloc(
-    CcuRemoteAddrHandle* remoteAddrHandle, CcuAddressHandle* addrHandle, CcuVariableHandle* tokenHandle)
+CcuResult ccu_remote_addr_alloc(
+    ccu_remote_addr_handle* remote_addr_handle, ccu_address_handle* addr_handle, ccu_variable_handle* token_handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->RemoteAddrAlloc(remoteAddrHandle, addrHandle, tokenHandle));
+    CCU_CHK_RET(kernel->remote_addr_alloc(remote_addr_handle, addr_handle, token_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuBlockVariableAlloc(CcuVariableHandle* varHandles, uint32_t count)
+CcuResult ccu_block_variable_alloc(ccu_variable_handle* var_handles, uint32_t count)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->BlockVariableAlloc(varHandles, count));
+    CCU_CHK_RET(kernel->block_variable_alloc(var_handles, count));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuBlockEventAlloc(CcuEventHandle* eventHandles, uint32_t count)
+CcuResult ccu_block_event_alloc(ccu_event_handle* event_handles, uint32_t count)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->BlockEventAlloc(eventHandles, count));
+    CCU_CHK_RET(kernel->block_event_alloc(event_handles, count));
     return CcuResult::CCU_SUCCESS;
 }
-CcuResult CcuBlockBufferAlloc(CcuBufferHandle* bufHandles, uint32_t count)
+CcuResult ccu_block_buffer_alloc(ccu_buffer_handle* buf_handles, uint32_t count)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->BlockBufferAlloc(bufHandles, count));
+    CCU_CHK_RET(kernel->block_buffer_alloc(buf_handles, count));
     return CcuResult::CCU_SUCCESS;
 }
-CcuResult CcuVariableCreateByChannel(ChannelHandle channel, uint32_t varIndex, CcuVariableHandle* varHandle)
+CcuResult ccu_variable_create_by_channel(ChannelHandle channel, uint32_t var_index, ccu_variable_handle* var_handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->VariableCreateByChannel(channel, varIndex, varHandle));
-    return CcuResult::CCU_SUCCESS;
-}
-
-CcuResult CcuVariableGetByIndex(CcuVariableHandle acqHandle, uint32_t index, CcuVariableHandle *varHandle)
-{
-    CCU_CHK_PTR_NULL(varHandle);
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
-    CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->VariableCreateByAcquire(acqHandle, index, varHandle));
+    CCU_CHK_RET(kernel->variable_create_by_channel(channel, var_index, var_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuEventGetByIndex(CcuEventHandle acqHandle, uint32_t index, CcuEventHandle *eventHandle)
+CcuResult ccu_variable_get_by_index(ccu_variable_handle acq_handle, uint32_t index, ccu_variable_handle *var_handle)
 {
-    CCU_CHK_PTR_NULL(eventHandle);
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(var_handle);
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->EventCreateByAcquire(acqHandle, index, eventHandle));
+    CCU_CHK_RET(kernel->variable_create_by_acquire(acq_handle, index, var_handle));
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_event_get_by_index(ccu_event_handle acq_handle, uint32_t index, ccu_event_handle *event_handle)
+{
+    CCU_CHK_PTR_NULL(event_handle);
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->event_create_by_acquire(acq_handle, index, event_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
 // Variable操作类 相关接口
-CcuResult CcuVariableAssignImm(CcuVariableHandle resVar, uint64_t immediate)
+CcuResult ccu_variable_assign_imm(ccu_variable_handle res_var, uint64_t immediate)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->VariableAssignImm(resVar, immediate));
+    CCU_CHK_RET(kernel->variable_assign_imm(res_var, immediate));
 
     return CcuResult::CCU_SUCCESS;
 }
-CcuResult CcuVariableAssignVar(CcuVariableHandle dstVarHandle, CcuVariableHandle srcVarHandle)
+CcuResult ccu_variable_assign_var(ccu_variable_handle dst_var_handle, ccu_variable_handle src_var_handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->VariableAssignVar(dstVarHandle, srcVarHandle));
-
-    return CcuResult::CCU_SUCCESS;
-}
-
-CcuResult CcuVariableAddVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB)
-{
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
-    CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->VariableAddVarToVar(resVar, varA, varB));
+    CCU_CHK_RET(kernel->variable_assign_var(dst_var_handle, src_var_handle));
 
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuVariableShlVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB)
+CcuResult ccu_variable_add_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->VariableShlVarToVar(resVar, varA, varB));
+    CCU_CHK_RET(kernel->variable_add_var_to_var(res_var, var_a, var_b));
 
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuVariableShrVarToVar(CcuVariableHandle resVar, CcuVariableHandle varA, CcuVariableHandle varB)
+CcuResult ccu_variable_shl_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->VariableShrVarToVar(resVar, varA, varB));
+    CCU_CHK_RET(kernel->variable_shl_var_to_var(res_var, var_a, var_b));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_shr_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_shr_var_to_var(res_var, var_a, var_b));
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -186,553 +186,553 @@ CcuResult CcuVariableShrVarToVar(CcuVariableHandle resVar, CcuVariableHandle var
 /*
 Address 相关接口
 */
-CcuResult CcuAddressAssignImm(CcuAddressHandle addr, uint64_t immediate)
+CcuResult ccu_address_assign_imm(ccu_address_handle addr, uint64_t immediate)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->AddressAssignImm(addr, immediate));
+    CCU_CHK_RET(kernel->address_assign_imm(addr, immediate));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuAddressAssignAddr(CcuAddressHandle dstAddrHandle, CcuAddressHandle srcAddrHandle)
+CcuResult ccu_address_assign_addr(ccu_address_handle dst_addr_handle, ccu_address_handle src_addr_handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->AddressAssignAddr(dstAddrHandle, srcAddrHandle));
+    CCU_CHK_RET(kernel->address_assign_addr(dst_addr_handle, src_addr_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuAddressAssignVar(CcuAddressHandle addr, CcuVariableHandle var)
+CcuResult ccu_address_assign_var(ccu_address_handle addr, ccu_variable_handle var)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->AddressAssignVar(addr, var));
+    CCU_CHK_RET(kernel->address_assign_var(addr, var));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuAddressAddVarToAddr(CcuAddressHandle resAddr, CcuAddressHandle lhsAddr, CcuVariableHandle rhsVar)
+CcuResult ccu_address_add_var_to_addr(ccu_address_handle res_addr, ccu_address_handle lhs_addr, ccu_variable_handle rhs_var)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->AddressAddVarToAddr(resAddr, lhsAddr, rhsVar));
+    CCU_CHK_RET(kernel->address_add_var_to_addr(res_addr, lhs_addr, rhs_var));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuAddressAddAddrToAddr(CcuAddressHandle resAddr, CcuAddressHandle addrA, CcuAddressHandle addrB)
+CcuResult ccu_address_add_addr_to_addr(ccu_address_handle res_addr, ccu_address_handle addr_a, ccu_address_handle addr_b)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->AddressAddAddrToAddr(resAddr, addrA, addrB));
+    CCU_CHK_RET(kernel->address_add_addr_to_addr(res_addr, addr_a, addr_b));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuAddressAddAssignVar(CcuAddressHandle addr, CcuVariableHandle var)
+CcuResult ccu_address_add_assign_var(ccu_address_handle addr, ccu_variable_handle var)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->AddressAddAssignVar(addr, var));
+    CCU_CHK_RET(kernel->address_add_assign_var(addr, var));
     return CcuResult::CCU_SUCCESS;
 }
 
 // 参数加载类 相关接口
-CcuResult CcuLoadArg(CcuVariableHandle varHandle, uint32_t argId)
+CcuResult ccu_load_arg(ccu_variable_handle var_handle, uint32_t arg_id)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LoadArg(varHandle, argId));
+    CCU_CHK_RET(kernel->load_arg(var_handle, arg_id));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuLoadVar(uint64_t addr, CcuVariableHandle varHandle, uint32_t num)
+CcuResult ccu_load_var(uint64_t addr, ccu_variable_handle var_handle, uint32_t num)
 {
     if (num == 0) {
         HCCL_ERROR("[CcuLoadVar] invalid args, num[%u]", num);
         return CcuResult::CCU_E_PARA;
     }
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LoadVar(addr, varHandle, num));
+    CCU_CHK_RET(kernel->load_var(addr, var_handle, num));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuLoadVarFromVarAddr(CcuVariableHandle addrHandle, CcuVariableHandle varHandle, uint32_t num)
+CcuResult ccu_load_var_from_var_addr(ccu_variable_handle addr_handle, ccu_variable_handle var_handle, uint32_t num)
 {
     if (num == 0) {
         HCCL_ERROR("[CcuLoadVarFromVarAddr] invalid args, num[%u]", num);
         return CcuResult::CCU_E_PARA;
     }
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->CcuLoadVarFromVarAddr(addrHandle, varHandle, num));
+    CCU_CHK_RET(kernel->ccu_load_var_from_var_addr(addr_handle, var_handle, num));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuStoreVar(uint64_t addr, CcuVariableHandle varHandle, uint32_t num)
+CcuResult ccu_store_var(uint64_t addr, ccu_variable_handle var_handle, uint32_t num)
 {
     if (num == 0) {
         HCCL_ERROR("[CcuStoreVar] invalid args, num[%u]", num);
         return CcuResult::CCU_E_PARA;
     }
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->StoreVar(addr, varHandle, num));
+    CCU_CHK_RET(kernel->store_var(addr, var_handle, num));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuStoreVarToVarAddr(CcuVariableHandle addrHandle, CcuVariableHandle varHandle, uint32_t num)
+CcuResult ccu_store_var_to_var_addr(ccu_variable_handle addr_handle, ccu_variable_handle var_handle, uint32_t num)
 {
     if (num == 0) {
         HCCL_ERROR("[CcuStoreVarToVarAddr] invalid args, num[%u]", num);
         return CcuResult::CCU_E_PARA;
     }
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->CcuStoreVarToVarAddr(addrHandle, varHandle, num));
+    CCU_CHK_RET(kernel->ccu_store_var_to_var_addr(addr_handle, var_handle, num));
     return CcuResult::CCU_SUCCESS;
 }
 
 // Event信号同步类 相关接口
-CcuResult CcuEventRecord(CcuEventHandle eventHandle, uint16_t mask)
+CcuResult ccu_event_record(ccu_event_handle event_handle, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->EventRecord(eventHandle, mask));
+    CCU_CHK_RET(kernel->event_record(event_handle, mask));
     return CcuResult::CCU_SUCCESS;
 }
-CcuResult CcuEventWait(CcuEventHandle eventHandle, uint16_t mask)
+CcuResult ccu_event_wait(ccu_event_handle event_handle, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->EventWait(eventHandle, mask));
+    CCU_CHK_RET(kernel->event_wait(event_handle, mask));
     return CcuResult::CCU_SUCCESS;
 }
-CcuResult CcuNotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx, uint16_t mask)
+CcuResult ccu_notify_record(ChannelHandle channel, uint32_t remote_notify_idx, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->NotifyRecord(channel, remoteNotifyIdx, mask));
+    CCU_CHK_RET(kernel->notify_record(channel, remote_notify_idx, mask));
     return CcuResult::CCU_SUCCESS;
 }
-CcuResult CcuNotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint16_t mask)
+CcuResult ccu_notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->NotifyWait(channel, localNotifyIdx, mask));
+    CCU_CHK_RET(kernel->notify_wait(channel, local_notify_idx, mask));
     return CcuResult::CCU_SUCCESS;
 }
-CcuResult CcuWriteVariableWithNotify(
-    ChannelHandle channel, CcuVariableHandle varHandle, uint32_t remoteVarIdx, uint32_t remoteNotifyIdx, uint16_t mask)
+CcuResult ccu_write_variable_with_notify(
+    ChannelHandle channel, ccu_variable_handle var_handle, uint32_t remote_var_idx, uint32_t remote_notify_idx, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->WriteVariableWithNotify(channel, varHandle, remoteVarIdx, remoteNotifyIdx, mask));
+    CCU_CHK_RET(kernel->write_variable_with_notify(channel, var_handle, remote_var_idx, remote_notify_idx, mask));
     return CcuResult::CCU_SUCCESS;
 }
-CcuResult CcuLocalNotifyRecord(const char* notifyTag, uint16_t mask)
+CcuResult ccu_local_notify_record(const char* notify_tag, uint16_t mask)
 {
-    CCU_CHK_PTR_NULL(notifyTag);
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(notify_tag);
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LocalNotifyRecord(notifyTag, mask));
+    CCU_CHK_RET(kernel->local_notify_record(notify_tag, mask));
     return CcuResult::CCU_SUCCESS;
 }
-CcuResult CcuLocalNotifyWait(const char* notifyTag, uint16_t mask)
+CcuResult ccu_local_notify_wait(const char* notify_tag, uint16_t mask)
 {
-    CCU_CHK_PTR_NULL(notifyTag);
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    CCU_CHK_PTR_NULL(notify_tag);
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LocalNotifyWait(notifyTag, mask));
+    CCU_CHK_RET(kernel->local_notify_wait(notify_tag, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
 // 本地数据拷贝 相关接口
-CcuResult CcuLocalCopyMemToMem(
-    CcuLocalAddrHandle dst, CcuLocalAddrHandle src, CcuVariableHandle len, CcuEventHandle event, uint16_t mask)
+CcuResult ccu_local_copy_mem_to_mem(
+    ccu_local_addr_handle dst, ccu_local_addr_handle src, ccu_variable_handle len, ccu_event_handle event, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LocalCopyMemToMem(dst, src, len, event, mask));
+    CCU_CHK_RET(kernel->local_copy_mem_to_mem(dst, src, len, event, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuLocalCopyMemToBuffer(
-    CcuBufferHandle dst, CcuLocalAddrHandle src, CcuVariableHandle len, CcuEventHandle event, uint16_t mask)
+CcuResult ccu_local_copy_mem_to_buffer(
+    ccu_buffer_handle dst, ccu_local_addr_handle src, ccu_variable_handle len, ccu_event_handle event, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LocalCopyMemToBuffer(dst, src, len, event, mask));
+    CCU_CHK_RET(kernel->local_copy_mem_to_buffer(dst, src, len, event, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuLocalCopyBufferToMem(
-    CcuLocalAddrHandle dst, CcuBufferHandle src, CcuVariableHandle len, CcuEventHandle event, uint16_t mask)
+CcuResult ccu_local_copy_buffer_to_mem(
+    ccu_local_addr_handle dst, ccu_buffer_handle src, ccu_variable_handle len, ccu_event_handle event, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LocalCopyBufferToMem(dst, src, len, event, mask));
+    CCU_CHK_RET(kernel->local_copy_buffer_to_mem(dst, src, len, event, mask));
     return CcuResult::CCU_SUCCESS;
 }
 // 本地reduce 相关接口
-CcuResult CcuLocalMemReduce(
-    CcuLocalAddrHandle dst, CcuLocalAddrHandle src, CcuVariableHandle len, HcclDataType dataType, HcclReduceOp opType,
-    CcuEventHandle event, uint16_t mask)
+CcuResult ccu_local_mem_reduce(
+    ccu_local_addr_handle dst, ccu_local_addr_handle src, ccu_variable_handle len, HcclDataType data_type, HcclReduceOp op_type,
+    ccu_event_handle event, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LocalMemReduce(dst, src, len, dataType, opType, event, mask));
+    CCU_CHK_RET(kernel->local_mem_reduce(dst, src, len, data_type, op_type, event, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuLocalBufferReduce(
-    CcuBufferHandle* buffers, uint32_t count, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType,
-    CcuVariableHandle len, CcuEventHandle event, uint16_t mask)
+CcuResult ccu_local_buffer_reduce(
+    ccu_buffer_handle* buffers, uint32_t count, HcclDataType data_type, HcclDataType output_data_type, HcclReduceOp op_type,
+    ccu_variable_handle len, ccu_event_handle event, uint16_t mask)
 {
     if (buffers == nullptr || count == 0) {
         HCCL_ERROR("[CcuLocalBufferReduce] invalid args, buffers[%p] count[%u]", buffers, count);
         return CcuResult::CCU_E_PARA;
     }
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LocalBufferReduce(buffers, count, dataType, outputDataType, opType, len, event, mask));
+    CCU_CHK_RET(kernel->local_buffer_reduce(buffers, count, data_type, output_data_type, op_type, len, event, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
 /* ========== 远端数据传输操作 ========== */
-CcuResult CcuReadMemToMem(
-    ChannelHandle channel, CcuLocalAddrHandle localHandle, CcuRemoteAddrHandle remoteHandle, CcuVariableHandle len,
-    CcuEventHandle event, uint16_t mask)
+CcuResult ccu_read_mem_to_mem(
+    ChannelHandle channel, ccu_local_addr_handle local_handle, ccu_remote_addr_handle remote_handle, ccu_variable_handle len,
+    ccu_event_handle event, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->ReadMemToMem(channel, localHandle, remoteHandle, len, event, mask));
+    CCU_CHK_RET(kernel->read_mem_to_mem(channel, local_handle, remote_handle, len, event, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuReadMemToBuffer(
-    ChannelHandle channel, CcuBufferHandle localHandle, CcuRemoteAddrHandle remoteHandle, CcuVariableHandle len,
-    CcuEventHandle event, uint16_t mask)
+CcuResult ccu_read_mem_to_buffer(
+    ChannelHandle channel, ccu_buffer_handle local_handle, ccu_remote_addr_handle remote_handle, ccu_variable_handle len,
+    ccu_event_handle event, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->ReadMemToBuffer(channel, localHandle, remoteHandle, len, event, mask));
+    CCU_CHK_RET(kernel->read_mem_to_buffer(channel, local_handle, remote_handle, len, event, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuReadMemToMemReduce(
-    ChannelHandle channel, CcuLocalAddrHandle localHandle, CcuRemoteAddrHandle remoteHandle, CcuVariableHandle len,
-    HcclDataType dataType, HcclReduceOp opType, CcuEventHandle event, uint16_t mask)
+CcuResult ccu_read_mem_to_mem_reduce(
+    ChannelHandle channel, ccu_local_addr_handle local_handle, ccu_remote_addr_handle remote_handle, ccu_variable_handle len,
+    HcclDataType data_type, HcclReduceOp op_type, ccu_event_handle event, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->ReadMemToMemReduce(channel, localHandle, remoteHandle, len, dataType, opType, event, mask));
+    CCU_CHK_RET(kernel->read_mem_to_mem_reduce(channel, local_handle, remote_handle, len, data_type, op_type, event, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuWriteMemToMem(
-    ChannelHandle channel, CcuRemoteAddrHandle remote, CcuLocalAddrHandle local, CcuVariableHandle len,
-    CcuEventHandle event, uint16_t mask)
+CcuResult ccu_write_mem_to_mem(
+    ChannelHandle channel, ccu_remote_addr_handle remote, ccu_local_addr_handle local, ccu_variable_handle len,
+    ccu_event_handle event, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->WriteMemToMem(channel, remote, local, len, event, mask));
+    CCU_CHK_RET(kernel->write_mem_to_mem(channel, remote, local, len, event, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuWriteBufferToMem(
-    ChannelHandle channel, CcuRemoteAddrHandle remote, CcuBufferHandle local, CcuVariableHandle len,
-    CcuEventHandle event, uint16_t mask)
+CcuResult ccu_write_buffer_to_mem(
+    ChannelHandle channel, ccu_remote_addr_handle remote, ccu_buffer_handle local, ccu_variable_handle len,
+    ccu_event_handle event, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->WriteBufferToMem(channel, remote, local, len, event, mask));
+    CCU_CHK_RET(kernel->write_buffer_to_mem(channel, remote, local, len, event, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuWriteMemToMemReduce(
-    ChannelHandle channel, CcuRemoteAddrHandle remote, CcuLocalAddrHandle local, CcuVariableHandle len,
-    HcclDataType dataType, HcclReduceOp opType, CcuEventHandle event, uint16_t mask)
+CcuResult ccu_write_mem_to_mem_reduce(
+    ChannelHandle channel, ccu_remote_addr_handle remote, ccu_local_addr_handle local, ccu_variable_handle len,
+    HcclDataType data_type, HcclReduceOp op_type, ccu_event_handle event, uint16_t mask)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->WriteMemToMemReduce(channel, remote, local, len, dataType, opType, event, mask));
+    CCU_CHK_RET(kernel->write_mem_to_mem_reduce(channel, remote, local, len, data_type, op_type, event, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
 /* ========== 控制流操作 ========== */
-CcuResult CcuIfBegin(CcuVariableHandle var, uint64_t immediate, CcuConditionType condType, const char* label)
+CcuResult ccu_if_begin(ccu_variable_handle var, uint64_t immediate, ccu_condition_type cond_type, const char* label)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->IfBegin(var, immediate, condType, label));
+    CCU_CHK_RET(kernel->if_begin(var, immediate, cond_type, label));
 
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuIfElse(const char* label)
+CcuResult ccu_if_else(const char* label)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->IfElse(label));
+    CCU_CHK_RET(kernel->if_else(label));
 
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuIfEnd(const char* label)
+CcuResult ccu_if_end(const char* label)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->IfEnd(label));
+    CCU_CHK_RET(kernel->if_end(label));
 
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuFlushPendingIfs()
+CcuResult ccu_flush_pending_ifs()
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    kernel->FlushClosablePendingIfs();
+    kernel->flush_closable_pending_ifs();
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuWhileBegin(CcuVariableHandle var, uint64_t immediate, CcuConditionType condType, const char* label)
+CcuResult ccu_while_begin(ccu_variable_handle var, uint64_t immediate, ccu_condition_type cond_type, const char* label)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->WhileBegin(var, immediate, condType, label));
-
-    return CcuResult::CCU_SUCCESS;
-}
-
-CcuResult CcuWhileEnd(const char* label)
-{
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
-    CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->WhileEnd(label));
+    CCU_CHK_RET(kernel->while_begin(var, immediate, cond_type, label));
 
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuDoWhileBegin(const char* label)
+CcuResult ccu_while_end(const char* label)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->DoWhileBegin(label));
+    CCU_CHK_RET(kernel->while_end(label));
 
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuDoWhileEnd(CcuVariableHandle var, uint64_t immediate, CcuConditionType condType, const char* label)
+CcuResult ccu_do_while_begin(const char* label)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->DoWhileEnd(var, immediate, condType, label));
+    CCU_CHK_RET(kernel->do_while_begin(label));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_do_while_end(ccu_variable_handle var, uint64_t immediate, ccu_condition_type cond_type, const char* label)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->do_while_end(var, immediate, cond_type, label));
 
     return CcuResult::CCU_SUCCESS;
 }
 
 /* ========== 函数调用操作 ========== */
-CcuResult CcuFuncBlockLookup(const void* funcPtr, uint64_t* outHandle)
+CcuResult ccu_func_block_lookup(const void* func_ptr, uint64_t* out_handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->FuncBlockLookup(funcPtr, outHandle));
+    CCU_CHK_RET(kernel->func_block_lookup(func_ptr, out_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuFuncBlockBegin(const void* funcPtr, uint64_t* outHandle)
+CcuResult ccu_func_block_begin(const void* func_ptr, uint64_t* out_handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->FuncBlockBegin(funcPtr, outHandle));
+    CCU_CHK_RET(kernel->func_block_begin(func_ptr, out_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuFuncBlockEnd(uint64_t handle)
+CcuResult ccu_func_block_end(uint64_t handle)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->FuncBlockEnd(handle));
+    CCU_CHK_RET(kernel->func_block_end(handle));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuFuncDefineInArg(uint64_t handle, CcuVariableHandle formal)
+CcuResult ccu_func_define_in_arg(uint64_t handle, ccu_variable_handle formal)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->FuncDefineInArg(handle, formal));
+    CCU_CHK_RET(kernel->func_define_in_arg(handle, formal));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuFuncCall(uint64_t handle, const CcuVariableHandle* inArgs, uint32_t numIn)
+CcuResult ccu_func_call(uint64_t handle, const ccu_variable_handle* in_args, uint32_t num_in)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->FuncCall(handle, inArgs, numIn));
+    CCU_CHK_RET(kernel->func_call(handle, in_args, num_in));
     return CcuResult::CCU_SUCCESS;
 }
 
 /* ========== 循环操作 ========== */
-CcuResult CcuLoopCreate(CcuLoop* loop)
+CcuResult ccu_loop_create(ccu_loop* loop)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LoopCreate(loop));
+    CCU_CHK_RET(kernel->loop_create(loop));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult _CcuLoopBodyEnter(CcuLoop loop)
+CcuResult ccu_loop_body_enter(ccu_loop loop)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LoopBodyEnter(loop));
+    CCU_CHK_RET(kernel->loop_body_enter(loop));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult _CcuLoopBodyExit(CcuLoop loop)
+CcuResult ccu_loop_body_exit(ccu_loop loop)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LoopBodyExit(loop));
+    CCU_CHK_RET(kernel->loop_body_exit(loop));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuLoopGroupCreate(CcuLoopGroup* group, uint32_t maxLoopNum, const CcuLoopGroupConfig* config)
+CcuResult ccu_loop_group_create(ccu_loop_group* group, uint32_t max_loop_num, const ccu_loop_group_config* config)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LoopGroupCreate(group, maxLoopNum, config));
+    CCU_CHK_RET(kernel->loop_group_create(group, max_loop_num, config));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuLoopGroupCreateFromVar(
-    CcuLoopGroup* group, uint32_t maxLoopNum, CcuVariableHandle parallelVar, CcuVariableHandle offsetVar)
+CcuResult ccu_loop_group_create_from_var(
+    ccu_loop_group* group, uint32_t max_loop_num, ccu_variable_handle parallel_var, ccu_variable_handle offset_var)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LoopGroupCreateFromVar(group, maxLoopNum, parallelVar, offsetVar));
+    CCU_CHK_RET(kernel->loop_group_create_from_var(group, max_loop_num, parallel_var, offset_var));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuLoopGroupAddLoop(CcuLoopGroup group, CcuLoop loop, const CcuLoopConfig* config)
+CcuResult ccu_loop_group_add_loop(ccu_loop_group group, ccu_loop loop, const ccu_loop_config* config)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LoopGroupAddLoop(group, loop, config));
+    CCU_CHK_RET(kernel->loop_group_add_loop(group, loop, config));
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuLoopGroupAddLoopFromVar(CcuLoopGroup group, CcuLoop loop, CcuVariableHandle loopParamVar)
+CcuResult ccu_loop_group_add_loop_from_var(ccu_loop_group group, ccu_loop loop, ccu_variable_handle loop_param_var)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
-    CCU_CHK_RET(kernel->LoopGroupAddLoopFromVar(group, loop, loopParamVar));
+    CCU_CHK_RET(kernel->loop_group_add_loop_from_var(group, loop, loop_param_var));
     return CcuResult::CCU_SUCCESS;
 }
 
 // 控制流标签栈 C 接口（_CcuIfStack* / _CcuDoWhileStack*）
 
-void _CcuIfStackPush(const char* label)
+void ccu_if_stack_push(const char* label)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     if (kernel == nullptr) {
         HCCL_ERROR("[_CcuIfStackPush] no current kernel, label=%s", label != nullptr ? label : "(null)");
         return;
     }
-    kernel->IfLabelStackPush(label);
+    kernel->if_label_stack_push(label);
 }
 
-void _CcuIfStackMarkBodyDone()
+void ccu_if_stack_mark_body_done()
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     if (kernel == nullptr) {
         HCCL_ERROR("[_CcuIfStackMarkBodyDone] no current kernel");
         return;
     }
-    kernel->IfLabelStackMarkBodyDone();
+    kernel->if_label_stack_mark_body_done();
 }
 
-const char* _CcuIfStackPopForElse()
+const char* ccu_if_stack_pop_for_else()
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     if (kernel == nullptr) {
         HCCL_ERROR("[_CcuIfStackPopForElse] no current kernel");
         return nullptr;
     }
-    return kernel->IfLabelStackPopForElse();
+    return kernel->if_label_stack_pop_for_else();
 }
 
-void _CcuDoWhileStackPush(const char* label)
+void ccu_do_while_stack_push(const char* label)
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     if (kernel == nullptr) {
         HCCL_ERROR("[_CcuDoWhileStackPush] no current kernel, label=%s", label != nullptr ? label : "(null)");
         return;
     }
-    kernel->DoWhileLabelStackPush(label);
+    kernel->do_while_label_stack_push(label);
 }
 
-const char* _CcuDoWhileStackPopForWhile()
+const char* ccu_do_while_stack_pop_for_while()
 {
-    const uint32_t devLogicId = asccomm::GetCurrentCcuDeviceLogicId();
-    auto kernel = asccomm::CcuKernelMgr::GetInstance(devLogicId).GetCurrentKernel();
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     if (kernel == nullptr) {
         // 见上方注释：CCU_WHILE 每次都会调本函数做模式判别，保持沉默。
         return nullptr;
     }
-    return kernel->DoWhileLabelStackPopForWhile();
+    return kernel->do_while_label_stack_pop_for_while();
 }
 
-} // namespace asccomm
+} // namespace asc

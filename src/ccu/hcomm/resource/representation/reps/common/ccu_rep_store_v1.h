@@ -8,35 +8,35 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_STORE_H
-#define HCOMM_CCU_REPRESENTATION_STORE_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_STORE_H
+#define ASCCOMM_CCU_REPRESENTATION_STORE_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include <cstdint>
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepStore : public CcuRepBase {
+class ccu_rep_store : public ccu_rep_base {
 public:
-    explicit CcuRepStore(CcuInsGeneraterBase* insGenPtr, const Variable& var, uint64_t addr, uint32_t num = 1);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    explicit ccu_rep_store(ccu_ins_generater_base* ins_gen_ptr, const variable& var, uint64_t addr, uint32_t num = 1);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 
-    CcuRep::Variable GetVar() { return var; }
-    uint64_t GetAddr() { return addr; }
-    uint32_t GetNum() { return num; }
-    uint16_t GetMask() { return mask; }
+    ccu_rep::variable get_var() { return var_; }
+    uint64_t get_addr() { return addr_; }
+    uint32_t get_num() { return num_; }
+    uint16_t get_mask() { return mask_; }
 
 private:
-    uint16_t mask{1};
-    CcuInsGeneraterBase* insGeneratorPtr_{nullptr};
-    Variable var;
-    uint64_t addr;
-    uint32_t num;
+    uint16_t mask_{1};
+    ccu_ins_generater_base* ins_generator_ptr_{nullptr};
+    variable var_;
+    uint64_t addr_;
+    uint32_t num_;
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCCL_CCU_REPRESENTATION_STORE_H

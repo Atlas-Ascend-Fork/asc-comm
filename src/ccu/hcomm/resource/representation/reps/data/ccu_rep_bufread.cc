@@ -12,42 +12,42 @@
 #include "hcomm/resource/channel/ccu_channel.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepBufRead::CcuRepBufRead(
-    CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr src, CcuBuf dst, Variable len,
-    CompletedEvent sem, uint32_t mask)
-    : insGenPtr(insGenPtr), channel(channel), src(src), dst(dst), len(len), sem(sem), mask(mask)
+ccu_rep_buf_read::ccu_rep_buf_read(
+    ccu_ins_generater_base* ins_gen_ptr, const ChannelHandle channel, remote_addr src, ccu_buf dst, variable len,
+    completed_event sem, uint32_t mask)
+    : ins_gen_ptr_(ins_gen_ptr), channel_(channel), src_(src), dst_(dst), len_(len), sem_(sem), mask_(mask)
 {
-    type = CcuRepType::BUF_READ;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::buf_read;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-bool CcuRepBufRead::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_buf_read::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepBufReadTranslate(ccuKernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepBufRead][Translate] failed to translate for instrId[%u]", instrId),
+        ins_gen_ptr_->ccu_rep_buf_read_translate(ccu_kernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepBufRead][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepBufRead translate failed");
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepBufRead::Describe()
+std::string ccu_rep_buf_read::describe()
 {
-    CcuChannel channelImpl(channel);
-    if (channelImpl.GetResult() != HcclResult::HCCL_SUCCESS) {
-        asccomm::ThrowCcuInternal("failed to get ccu channel, type[%d]", type);
+    ccu_channel channel_impl(channel_);
+    if (channel_impl.get_result() != HcclResult::HCCL_SUCCESS) {
+        asc::throw_ccu_internal("failed to get ccu channel, type[%d]", type_);
     }
-    return asccomm::FormatCcuMessage(
-        "Read Rmt Mem[%u] To CcuBuf[%u], len[%u], ChannalId[%u], sem[%u], mask[%04x]", src.addr.Id(), dst.Id(),
-        len.Id(), channelImpl->GetChannelId(), sem.Id(), mask);
+    return asc::format_ccu_message(
+        "Read Rmt Mem[%u] To CcuBuf[%u], len[%u], ChannalId[%u], sem[%u], mask[%04x]", src_.addr.id(), dst_.id(),
+        len_.id(), channel_impl->get_channel_id(), sem_.id(), mask_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

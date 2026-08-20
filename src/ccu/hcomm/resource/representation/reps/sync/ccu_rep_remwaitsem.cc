@@ -13,45 +13,45 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/common/ccu_exception.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepRemWaitSem::CcuRepRemWaitSem(
-    CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, uint16_t semIndex, uint16_t mask, bool isProfiling)
-    : insGenPtr(insGenPtr), channel(channel), semIndex(semIndex), mask(mask), isProfiling(isProfiling)
+ccu_rep_rem_wait_sem::ccu_rep_rem_wait_sem(
+    ccu_ins_generater_base* ins_gen_ptr, const ChannelHandle channel, uint16_t sem_index, uint16_t mask, bool is_profiling)
+    : ins_gen_ptr_(ins_gen_ptr), channel_(channel), sem_index_(sem_index), mask_(mask), is_profiling_(is_profiling)
 {
-    type = CcuRepType::REM_WAIT_SEM;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::rem_wait_sem;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-uint32_t CcuRepRemWaitSem::GetId() { return signalId; }
+uint32_t ccu_rep_rem_wait_sem::get_id() { return signal_id_; }
 
-bool CcuRepRemWaitSem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_rem_wait_sem::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepRemWaitSemTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepRemWaitSem][Translate] failed to translate for instrId[%u]", instrId),
+        ins_gen_ptr_->ccu_rep_rem_wait_sem_translate(ccu_kernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepRemWaitSem][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepRemWaitSem translate failed");
 
     CHK_PRT_THROW(
-        instrId > UINT16_MAX - instrCount,
+        instr_id > UINT16_MAX - instr_count_,
         HCCL_ERROR(
-            "[CcuRepRemWaitSem::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instrId,
-            instrCount),
+            "[CcuRepRemWaitSem::translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instr_id,
+            instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
 
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepRemWaitSem::Describe()
+std::string ccu_rep_rem_wait_sem::describe()
 {
-    return asccomm::FormatCcuMessage("Wait, Use semIndex[%u] and mask[%04x]", semIndex, mask);
+    return asc::format_ccu_message("Wait, Use semIndex[%u] and mask[%04x]", sem_index_, mask_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

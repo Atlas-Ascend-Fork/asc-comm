@@ -14,29 +14,29 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
 // CCU 数据面自持的 device 内存 RAII 包装。
 // 构造与析构只调用公开 ACL runtime C API（aclrtMallocWithCfg / aclrtFree），
 // 不再依赖 hcomm 的 Hccl::Buffer / Hccl::DevBuffer，边界上只暴露地址与长度标量。
-class CcuDevMem {
+class ccu_dev_mem {
 public:
     // 分配 size 字节 HBM。失败时 GetAddr() 返回 0，由调用方判断并处理。
-    explicit CcuDevMem(std::size_t size);
+    explicit ccu_dev_mem(std::size_t size);
 
-    ~CcuDevMem();
+    ~ccu_dev_mem();
 
-    CcuDevMem(const CcuDevMem&) = delete;
-    CcuDevMem& operator=(const CcuDevMem&) = delete;
-    CcuDevMem(CcuDevMem&&) = delete;
-    CcuDevMem& operator=(CcuDevMem&&) = delete;
+    ccu_dev_mem(const ccu_dev_mem&) = delete;
+    ccu_dev_mem& operator=(const ccu_dev_mem&) = delete;
+    ccu_dev_mem(ccu_dev_mem&&) = delete;
+    ccu_dev_mem& operator=(ccu_dev_mem&&) = delete;
 
-    uint64_t GetAddr() const { return addr_; }
+    uint64_t get_addr() const { return addr_; }
 
-    std::size_t GetSize() const { return size_; }
+    std::size_t get_size() const { return size_; }
 
-    bool Valid() const { return addr_ != 0; }
+    bool valid() const { return addr_ != 0; }
 
 private:
     uint64_t addr_{0};
@@ -44,6 +44,6 @@ private:
 };
 
 } // namespace CcuRep
-} // namespace asccomm
+} // namespace asc
 
 #endif // ASCCOMM_CCU_DEV_MEM_H

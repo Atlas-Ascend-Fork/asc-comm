@@ -19,14 +19,14 @@
 
 namespace Hccl {
 
-constexpr uint16_t CCU_MAX_CHANNEL_NUM = 16;
-constexpr uint16_t INVALID_VALUE_CHANNELID = 0xFFFF;
+constexpr uint16_t ccu_max_channel_num = 16;
+constexpr uint16_t invalid_value_channelid = 0xFFFF;
 constexpr uint32_t INVALID_VALUE_RANKID = UINT32_MAX;
-constexpr uint64_t INVALID_VALUE_NOTIFYID = UINT64_MAX;
+constexpr uint64_t invalid_value_notifyid = UINT64_MAX;
 
-struct CcuProfilingInfo {
+struct ccu_profiling_info {
     std::string name;
-    uint8_t type;
+    uint8_t type_;
     uint8_t dieId;
     uint8_t missionId;
     uint16_t instrId;
@@ -35,13 +35,13 @@ struct CcuProfilingInfo {
     uint8_t outputDataType;
     uint64_t dataSize;
     uint32_t ckeId;
-    uint32_t mask;
-    uint16_t channelId[CCU_MAX_CHANNEL_NUM];
-    uint32_t remoteRankId[CCU_MAX_CHANNEL_NUM];
-    uint64_t channelHandle[CCU_MAX_CHANNEL_NUM];
+    uint32_t mask_;
+    uint16_t channelId[ccu_max_channel_num];
+    uint32_t remoteRankId[ccu_max_channel_num];
+    uint64_t channelHandle[ccu_max_channel_num];
 
-    CcuProfilingInfo()
-        : type(0),
+    ccu_profiling_info()
+        : type_(0),
           dieId(0),
           missionId(0),
           instrId(0),
@@ -50,12 +50,12 @@ struct CcuProfilingInfo {
           outputDataType(0),
           dataSize(0),
           ckeId(0),
-          mask(0)
+          mask_(0)
     {
         (void)memset_s(channelId, sizeof(channelId), 0xFF, sizeof(channelId));
-        for (uint32_t index = 0; index < CCU_MAX_CHANNEL_NUM; ++index) {
+        for (uint32_t index = 0; index < ccu_max_channel_num; ++index) {
             remoteRankId[index] = INVALID_VALUE_RANKID;
-            channelHandle[index] = INVALID_VALUE_NOTIFYID;
+            channelHandle[index] = invalid_value_notifyid;
         }
     }
 };

@@ -11,278 +11,278 @@
 #include "hcomm/resource/representation/reps/arithmetic/ccu_operator_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
 template <>
-void CcuArithmeticOperator<Variable, Variable>::Check() const
+void ccu_arithmetic_operator<variable, variable>::check() const
 {
     // nothing
 }
 template <>
-void CcuArithmeticOperator<Variable, Address>::Check() const
+void ccu_arithmetic_operator<variable, address>::check() const
 {
     // nothing
 }
 template <>
-void CcuArithmeticOperator<Variable, uint16_t>::Check() const
+void ccu_arithmetic_operator<variable, uint16_t>::check() const
 {
     // nothing
 }
 template <>
-void CcuArithmeticOperator<Address, Address>::Check() const
+void ccu_arithmetic_operator<address, address>::check() const
 {
     // nothing
 }
 template <>
-void CcuArithmeticOperator<Address, uint16_t>::Check() const
-{
-    // nothing
-}
-
-template <>
-void CcuRelationalOperator<Variable, uint64_t>::Check() const
-{
-    // nothing
-}
-template <>
-void CcuRelationalOperator<Variable, Variable>::Check() const
-{
-    // nothing
-}
-
-CcuArithmeticOperator<Variable, Variable> Variable::operator+(const Variable& varB) const
-{
-    return CcuArithmeticOperator<Variable, Variable>(*this, varB, CcuArithmeticOperatorType::ADDITION);
-}
-CcuArithmeticOperator<Variable, Address> Variable::operator+(const Address& addrB) const
-{
-    return CcuArithmeticOperator<Variable, Address>(*this, addrB, CcuArithmeticOperatorType::ADDITION);
-}
-
-CcuArithmeticOperator<Variable, uint16_t> Variable::operator+(const uint16_t offset) const
-{
-    return CcuArithmeticOperator<Variable, uint16_t>(*this, offset, CcuArithmeticOperatorType::ADDITION);
-}
-
-CcuArithmeticOperator<Variable, Variable> Variable::operator*(const Variable& varB) const
-{
-    return CcuArithmeticOperator<Variable, Variable>(*this, varB, CcuArithmeticOperatorType::MULTIPLICATION);
-}
-CcuArithmeticOperator<Variable, Address> Variable::operator*(const Address& addrB) const
-{
-    return CcuArithmeticOperator<Variable, Address>(*this, addrB, CcuArithmeticOperatorType::MULTIPLICATION);
-}
-CcuArithmeticOperator<Variable, uint16_t> Variable::operator*(const uint16_t offset) const
-{
-    return CcuArithmeticOperator<Variable, uint16_t>(*this, offset, CcuArithmeticOperatorType::MULTIPLICATION);
-}
-
-CcuArithmeticOperator<Variable, Variable> Variable::operator-(const Variable& varB) const
-{
-    return CcuArithmeticOperator<Variable, Variable>(*this, varB, CcuArithmeticOperatorType::SUBTRACTION);
-}
-CcuArithmeticOperator<Variable, Address> Variable::operator-(const Address& addrB) const
-{
-    return CcuArithmeticOperator<Variable, Address>(*this, addrB, CcuArithmeticOperatorType::SUBTRACTION);
-}
-CcuArithmeticOperator<Variable, uint16_t> Variable::operator-(const uint16_t offset) const
-{
-    return CcuArithmeticOperator<Variable, uint16_t>(*this, offset, CcuArithmeticOperatorType::SUBTRACTION);
-}
-
-CcuArithmeticOperator<Variable, Address> Address::operator+(const Variable& varB) const
-{
-    return CcuArithmeticOperator<Variable, Address>(varB, *this, CcuArithmeticOperatorType::ADDITION);
-}
-CcuArithmeticOperator<Address, Address> Address::operator+(const Address& addrB) const
-{
-    return CcuArithmeticOperator<Address, Address>(*this, addrB, CcuArithmeticOperatorType::ADDITION);
-}
-
-CcuArithmeticOperator<Address, uint16_t> Address::operator+(const uint16_t offset) const
-{
-    return CcuArithmeticOperator<Address, uint16_t>(*this, offset, CcuArithmeticOperatorType::ADDITION);
-}
-
-CcuArithmeticOperator<Variable, Address> Address::operator*(const Variable& varB) const
-{
-    return CcuArithmeticOperator<Variable, Address>(varB, *this, CcuArithmeticOperatorType::MULTIPLICATION);
-}
-CcuArithmeticOperator<Address, Address> Address::operator*(const Address& addrB) const
-{
-    return CcuArithmeticOperator<Address, Address>(*this, addrB, CcuArithmeticOperatorType::MULTIPLICATION);
-}
-CcuArithmeticOperator<Address, uint16_t> Address::operator*(const uint16_t offset) const
-{
-    return CcuArithmeticOperator<Address, uint16_t>(*this, offset, CcuArithmeticOperatorType::MULTIPLICATION);
-}
-
-CcuArithmeticOperator<Variable, Address> Address::operator-(const Variable& varB) const
-{
-    return CcuArithmeticOperator<Variable, Address>(varB, *this, CcuArithmeticOperatorType::SUBTRACTION);
-}
-CcuArithmeticOperator<Address, Address> Address::operator-(const Address& addrB) const
-{
-    return CcuArithmeticOperator<Address, Address>(*this, addrB, CcuArithmeticOperatorType::SUBTRACTION);
-}
-CcuArithmeticOperator<Address, uint16_t> Address::operator-(const uint16_t offset) const
-{
-    return CcuArithmeticOperator<Address, uint16_t>(*this, offset, CcuArithmeticOperatorType::SUBTRACTION);
-}
-
-CcuRelationalOperator<Variable, uint64_t> Variable::operator!=(uint64_t immediate) const
-{
-    return CcuRelationalOperator<Variable, uint64_t>(*this, immediate, CcuRelationalOperatorType::NOT_EQUAL);
-}
-
-CcuRelationalOperator<Variable, uint64_t> Variable::operator==(uint64_t immediate) const
-{
-    return CcuRelationalOperator<Variable, uint64_t>(*this, immediate, CcuRelationalOperatorType::EQUAL);
-}
-
-CcuRelationalOperator<Variable, uint64_t> Variable::operator<=(uint64_t immediate) const
-{
-    return CcuRelationalOperator<Variable, uint64_t>(*this, immediate, CcuRelationalOperatorType::LESS_EQUAL);
-}
-
-CcuRelationalOperator<Variable, uint64_t> Variable::operator>(uint64_t immediate) const
-{
-    return CcuRelationalOperator<Variable, uint64_t>(*this, immediate, CcuRelationalOperatorType::GREATER_THAN);
-}
-
-CcuRelationalOperator<Variable, Variable> Variable::operator<=(const Variable& varB) const
-{
-    return CcuRelationalOperator<Variable, Variable>(*this, varB, CcuRelationalOperatorType::LESS_EQUAL);
-}
-
-CcuRelationalOperator<Variable, Variable> Variable::operator>(const Variable& varB) const
-{
-    return CcuRelationalOperator<Variable, Variable>(*this, varB, CcuRelationalOperatorType::GREATER_THAN);
-}
-
-template <>
-void CcuLogicOperator<Variable, Variable>::Check() const
+void ccu_arithmetic_operator<address, uint16_t>::check() const
 {
     // nothing
 }
 
 template <>
-void CcuLogicOperator<Variable, Address>::Check() const
+void ccu_relational_operator<variable, uint64_t>::check() const
+{
+    // nothing
+}
+template <>
+void ccu_relational_operator<variable, variable>::check() const
+{
+    // nothing
+}
+
+ccu_arithmetic_operator<variable, variable> variable::operator+(const variable& var_b) const
+{
+    return ccu_arithmetic_operator<variable, variable>(*this, var_b, ccu_arithmetic_operator_type::addition);
+}
+ccu_arithmetic_operator<variable, address> variable::operator+(const address& addr_b) const
+{
+    return ccu_arithmetic_operator<variable, address>(*this, addr_b, ccu_arithmetic_operator_type::addition);
+}
+
+ccu_arithmetic_operator<variable, uint16_t> variable::operator+(const uint16_t offset) const
+{
+    return ccu_arithmetic_operator<variable, uint16_t>(*this, offset, ccu_arithmetic_operator_type::addition);
+}
+
+ccu_arithmetic_operator<variable, variable> variable::operator*(const variable& var_b) const
+{
+    return ccu_arithmetic_operator<variable, variable>(*this, var_b, ccu_arithmetic_operator_type::multiplication);
+}
+ccu_arithmetic_operator<variable, address> variable::operator*(const address& addr_b) const
+{
+    return ccu_arithmetic_operator<variable, address>(*this, addr_b, ccu_arithmetic_operator_type::multiplication);
+}
+ccu_arithmetic_operator<variable, uint16_t> variable::operator*(const uint16_t offset) const
+{
+    return ccu_arithmetic_operator<variable, uint16_t>(*this, offset, ccu_arithmetic_operator_type::multiplication);
+}
+
+ccu_arithmetic_operator<variable, variable> variable::operator-(const variable& var_b) const
+{
+    return ccu_arithmetic_operator<variable, variable>(*this, var_b, ccu_arithmetic_operator_type::subtraction);
+}
+ccu_arithmetic_operator<variable, address> variable::operator-(const address& addr_b) const
+{
+    return ccu_arithmetic_operator<variable, address>(*this, addr_b, ccu_arithmetic_operator_type::subtraction);
+}
+ccu_arithmetic_operator<variable, uint16_t> variable::operator-(const uint16_t offset) const
+{
+    return ccu_arithmetic_operator<variable, uint16_t>(*this, offset, ccu_arithmetic_operator_type::subtraction);
+}
+
+ccu_arithmetic_operator<variable, address> address::operator+(const variable& var_b) const
+{
+    return ccu_arithmetic_operator<variable, address>(var_b, *this, ccu_arithmetic_operator_type::addition);
+}
+ccu_arithmetic_operator<address, address> address::operator+(const address& addr_b) const
+{
+    return ccu_arithmetic_operator<address, address>(*this, addr_b, ccu_arithmetic_operator_type::addition);
+}
+
+ccu_arithmetic_operator<address, uint16_t> address::operator+(const uint16_t offset) const
+{
+    return ccu_arithmetic_operator<address, uint16_t>(*this, offset, ccu_arithmetic_operator_type::addition);
+}
+
+ccu_arithmetic_operator<variable, address> address::operator*(const variable& var_b) const
+{
+    return ccu_arithmetic_operator<variable, address>(var_b, *this, ccu_arithmetic_operator_type::multiplication);
+}
+ccu_arithmetic_operator<address, address> address::operator*(const address& addr_b) const
+{
+    return ccu_arithmetic_operator<address, address>(*this, addr_b, ccu_arithmetic_operator_type::multiplication);
+}
+ccu_arithmetic_operator<address, uint16_t> address::operator*(const uint16_t offset) const
+{
+    return ccu_arithmetic_operator<address, uint16_t>(*this, offset, ccu_arithmetic_operator_type::multiplication);
+}
+
+ccu_arithmetic_operator<variable, address> address::operator-(const variable& var_b) const
+{
+    return ccu_arithmetic_operator<variable, address>(var_b, *this, ccu_arithmetic_operator_type::subtraction);
+}
+ccu_arithmetic_operator<address, address> address::operator-(const address& addr_b) const
+{
+    return ccu_arithmetic_operator<address, address>(*this, addr_b, ccu_arithmetic_operator_type::subtraction);
+}
+ccu_arithmetic_operator<address, uint16_t> address::operator-(const uint16_t offset) const
+{
+    return ccu_arithmetic_operator<address, uint16_t>(*this, offset, ccu_arithmetic_operator_type::subtraction);
+}
+
+ccu_relational_operator<variable, uint64_t> variable::operator!=(uint64_t immediate) const
+{
+    return ccu_relational_operator<variable, uint64_t>(*this, immediate, ccu_relational_operator_type::not_equal);
+}
+
+ccu_relational_operator<variable, uint64_t> variable::operator==(uint64_t immediate) const
+{
+    return ccu_relational_operator<variable, uint64_t>(*this, immediate, ccu_relational_operator_type::equal);
+}
+
+ccu_relational_operator<variable, uint64_t> variable::operator<=(uint64_t immediate) const
+{
+    return ccu_relational_operator<variable, uint64_t>(*this, immediate, ccu_relational_operator_type::less_equal);
+}
+
+ccu_relational_operator<variable, uint64_t> variable::operator>(uint64_t immediate) const
+{
+    return ccu_relational_operator<variable, uint64_t>(*this, immediate, ccu_relational_operator_type::greater_than);
+}
+
+ccu_relational_operator<variable, variable> variable::operator<=(const variable& var_b) const
+{
+    return ccu_relational_operator<variable, variable>(*this, var_b, ccu_relational_operator_type::less_equal);
+}
+
+ccu_relational_operator<variable, variable> variable::operator>(const variable& var_b) const
+{
+    return ccu_relational_operator<variable, variable>(*this, var_b, ccu_relational_operator_type::greater_than);
+}
+
+template <>
+void ccu_logic_operator<variable, variable>::check() const
 {
     // nothing
 }
 
 template <>
-void CcuLogicOperator<Variable, uint64_t>::Check() const
+void ccu_logic_operator<variable, address>::check() const
 {
     // nothing
 }
 
 template <>
-void CcuLogicOperator<Address, Address>::Check() const
+void ccu_logic_operator<variable, uint64_t>::check() const
 {
     // nothing
 }
 
 template <>
-void CcuLogicOperator<Address, uint16_t>::Check() const
+void ccu_logic_operator<address, address>::check() const
 {
     // nothing
 }
 
 template <>
-void CcuLogicOperator<Variable>::Check() const
+void ccu_logic_operator<address, uint16_t>::check() const
 {
     // nothing
 }
 
 template <>
-void CcuLogicOperator<Address>::Check() const
+void ccu_logic_operator<variable>::check() const
 {
     // nothing
-}
-
-CcuLogicOperator<Variable, Variable> Variable::operator&(const Variable& varB) const
-{
-    return CcuLogicOperator<Variable, Variable>(*this, varB, CcuLogicOperatorType::AND);
-}
-
-CcuLogicOperator<Variable, Address> Variable::operator&(const Address& addrB) const
-{
-    return CcuLogicOperator<Variable, Address>(*this, addrB, CcuLogicOperatorType::AND);
-}
-
-CcuLogicOperator<Variable, Variable> Variable::operator|(const Variable& varB) const
-{
-    return CcuLogicOperator<Variable, Variable>(*this, varB, CcuLogicOperatorType::OR);
-}
-
-CcuLogicOperator<Variable, Address> Variable::operator|(const Address& addrB) const
-{
-    return CcuLogicOperator<Variable, Address>(*this, addrB, CcuLogicOperatorType::OR);
-}
-
-CcuLogicOperator<Variable, Variable> Variable::operator^(const Variable& varB) const
-{
-    return CcuLogicOperator<Variable, Variable>(*this, varB, CcuLogicOperatorType::XOR);
-}
-
-CcuLogicOperator<Variable, Address> Variable::operator^(const Address& addrB) const
-{
-    return CcuLogicOperator<Variable, Address>(*this, addrB, CcuLogicOperatorType::XOR);
-}
-
-CcuLogicOperator<Variable> Variable::operator~() const
-{
-    return CcuLogicOperator<Variable>(*this, CcuLogicOperatorType::NOT);
-}
-
-CcuLogicOperator<Address, Address> Address::operator^(const Address& addrB) const
-{
-    return CcuLogicOperator<Address, Address>(*this, addrB, CcuLogicOperatorType::XOR);
-}
-
-CcuLogicOperator<Variable, Address> Address::operator^(const Variable& varB) const
-{
-    return CcuLogicOperator<Variable, Address>(varB, *this, CcuLogicOperatorType::XOR);
-}
-
-CcuLogicOperator<Address, Address> Address::operator&(const Address& addrB) const
-{
-    return CcuLogicOperator<Address, Address>(*this, addrB, CcuLogicOperatorType::AND);
-}
-
-CcuLogicOperator<Variable, Address> Address::operator&(const Variable& varB) const
-{
-    return CcuLogicOperator<Variable, Address>(varB, *this, CcuLogicOperatorType::AND);
-}
-
-CcuLogicOperator<Address, Address> Address::operator|(const Address& addrB) const
-{
-    return CcuLogicOperator<Address, Address>(*this, addrB, CcuLogicOperatorType::OR);
-}
-
-CcuLogicOperator<Variable, Address> Address::operator|(const Variable& varB) const
-{
-    return CcuLogicOperator<Variable, Address>(varB, *this, CcuLogicOperatorType::OR);
 }
 
 template <>
-void CcuShiftOperator<Variable, Variable>::Check() const
+void ccu_logic_operator<address>::check() const
 {
     // nothing
 }
 
-CcuShiftOperator<Variable, Variable> Variable::operator>>(const Variable& other) const
+ccu_logic_operator<variable, variable> variable::operator&(const variable& var_b) const
 {
-    return CcuShiftOperator<Variable, Variable>(*this, other, CcuShiftType::RIGHT);
+    return ccu_logic_operator<variable, variable>(*this, var_b, ccu_logic_operator_type::and_op);
 }
 
-CcuShiftOperator<Variable, Variable> Variable::operator<<(const Variable& other) const
+ccu_logic_operator<variable, address> variable::operator&(const address& addr_b) const
 {
-    return CcuShiftOperator<Variable, Variable>(*this, other, CcuShiftType::LEFT);
+    return ccu_logic_operator<variable, address>(*this, addr_b, ccu_logic_operator_type::and_op);
+}
+
+ccu_logic_operator<variable, variable> variable::operator|(const variable& var_b) const
+{
+    return ccu_logic_operator<variable, variable>(*this, var_b, ccu_logic_operator_type::or_op);
+}
+
+ccu_logic_operator<variable, address> variable::operator|(const address& addr_b) const
+{
+    return ccu_logic_operator<variable, address>(*this, addr_b, ccu_logic_operator_type::or_op);
+}
+
+ccu_logic_operator<variable, variable> variable::operator^(const variable& var_b) const
+{
+    return ccu_logic_operator<variable, variable>(*this, var_b, ccu_logic_operator_type::xor_op);
+}
+
+ccu_logic_operator<variable, address> variable::operator^(const address& addr_b) const
+{
+    return ccu_logic_operator<variable, address>(*this, addr_b, ccu_logic_operator_type::xor_op);
+}
+
+ccu_logic_operator<variable> variable::operator~() const
+{
+    return ccu_logic_operator<variable>(*this, ccu_logic_operator_type::not_op);
+}
+
+ccu_logic_operator<address, address> address::operator^(const address& addr_b) const
+{
+    return ccu_logic_operator<address, address>(*this, addr_b, ccu_logic_operator_type::xor_op);
+}
+
+ccu_logic_operator<variable, address> address::operator^(const variable& var_b) const
+{
+    return ccu_logic_operator<variable, address>(var_b, *this, ccu_logic_operator_type::xor_op);
+}
+
+ccu_logic_operator<address, address> address::operator&(const address& addr_b) const
+{
+    return ccu_logic_operator<address, address>(*this, addr_b, ccu_logic_operator_type::and_op);
+}
+
+ccu_logic_operator<variable, address> address::operator&(const variable& var_b) const
+{
+    return ccu_logic_operator<variable, address>(var_b, *this, ccu_logic_operator_type::and_op);
+}
+
+ccu_logic_operator<address, address> address::operator|(const address& addr_b) const
+{
+    return ccu_logic_operator<address, address>(*this, addr_b, ccu_logic_operator_type::or_op);
+}
+
+ccu_logic_operator<variable, address> address::operator|(const variable& var_b) const
+{
+    return ccu_logic_operator<variable, address>(var_b, *this, ccu_logic_operator_type::or_op);
+}
+
+template <>
+void ccu_shift_operator<variable, variable>::check() const
+{
+    // nothing
+}
+
+ccu_shift_operator<variable, variable> variable::operator>>(const variable& other) const
+{
+    return ccu_shift_operator<variable, variable>(*this, other, ccu_shift_type::right);
+}
+
+ccu_shift_operator<variable, variable> variable::operator<<(const variable& other) const
+{
+    return ccu_shift_operator<variable, variable>(*this, other, ccu_shift_type::left);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

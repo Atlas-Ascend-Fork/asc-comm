@@ -18,12 +18,12 @@
 
 namespace ops_hccl_a2av {
 
-using CcuKernelHandle = uint64_t;
+using ccu_kernel_handle = uint64_t;
 constexpr uint32_t MAX_RANK_SIZE = 16;
 
 struct AlgResourceCtx {
     std::vector<ThreadHandle> threads;
-    std::vector<CcuKernelHandle> ccuKernels;
+    std::vector<ccu_kernel_handle> ccuKernels;
 };
 
 struct OpParam {
@@ -34,12 +34,12 @@ struct OpParam {
     std::vector<uint64_t> sendDispls;
     std::vector<uint64_t> recvCounts;
     std::vector<uint64_t> recvDispls;
-    HcclDataType dataType;
+    HcclDataType data_type_;
     uint32_t myRank = 0;
     uint32_t rankSize = 0;
 };
 
-HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost);
+HcclResult AllocAlgResource(HcclComm comm, const OpParam& param_, AlgResourceCtx& resCtxHost);
 
 } // namespace ops_hccl_a2av
 

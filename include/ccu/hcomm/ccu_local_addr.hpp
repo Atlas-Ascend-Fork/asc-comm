@@ -19,49 +19,49 @@
 namespace AscendC {
 namespace ccu {
 
-template <typename U>
-class Array;
+template <typename u>
+class array;
 
-class LocalAddr final {
+class local_addr final {
 public:
-    LocalAddr() : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{})
+    local_addr() : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
     {
         CCU_THROW_IF_FAILED(
-            ::asccomm::CcuLocalAddrAlloc(&this->handle, &this->addr.handle, &this->token.handle), "CcuLocalAddrAlloc: failed");
+            ::asc::ccu_local_addr_alloc(&this->handle, &this->addr_.handle, &this->token.handle), "ccu_local_addr_alloc: failed");
     }
 
-    LocalAddr(const LocalAddr& other) : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{})
+    local_addr(const local_addr& other) : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
     {
         this->handle = other.handle;
-        this->addr.handle = other.addr.handle;
+        this->addr_.handle = other.addr_.handle;
         this->token.handle = other.token.handle;
     }
-    LocalAddr(LocalAddr&& other) noexcept : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{})
+    local_addr(local_addr&& other) noexcept : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
     {
         this->handle = other.handle;
-        this->addr.handle = other.addr.handle;
+        this->addr_.handle = other.addr_.handle;
         this->token.handle = other.token.handle;
     }
-    void operator=(const LocalAddr& other)
+    void operator=(const local_addr& other)
     {
-        this->addr = other.addr;
+        this->addr_ = other.addr_;
         this->token = other.token;
     }
-    void operator=(LocalAddr&& other)
+    void operator=(local_addr&& other)
     {
         this->handle = other.handle;
-        this->addr.handle = other.addr.handle;
+        this->addr_.handle = other.addr_.handle;
         this->token.handle = other.token.handle;
     }
 
-    Address addr;
-    Variable token;
-    CcuLocalAddrHandle handle{0};
+    address addr_;
+    variable token;
+    ccu_local_addr_handle handle{0};
 
 private:
-    explicit LocalAddr(detail::NoAllocTag) : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{}) {}
-    template <typename U>
-    friend class Array;
+    explicit local_addr(detail::no_alloc_tag) : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{}) {}
+    template <typename u>
+    friend class array;
 };
 
 } // namespace ccu

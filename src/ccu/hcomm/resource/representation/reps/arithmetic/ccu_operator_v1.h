@@ -13,93 +13,93 @@
 
 #include <stdexcept>
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-template <typename lhsT, typename rhsT>
-class CcuOperator {
+template <typename lhs_t, typename rhs_t>
+class ccu_operator {
 public:
-    CcuOperator(lhsT lhs, rhsT rhs) : lhs(lhs), rhs(rhs) {}
-    lhsT lhs;
-    rhsT rhs;
+    ccu_operator(lhs_t lhs, rhs_t rhs) : lhs(lhs), rhs(rhs) {}
+    lhs_t lhs;
+    rhs_t rhs;
 };
 
-enum class CcuArithmeticOperatorType { ADDITION, MULTIPLICATION, SUBTRACTION, INVALID };
+enum class ccu_arithmetic_operator_type { addition, multiplication, subtraction, invalid };
 
-template <typename lhsT, typename rhsT>
-class CcuArithmeticOperator : public CcuOperator<lhsT, rhsT> {
+template <typename lhs_t, typename rhs_t>
+class ccu_arithmetic_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    CcuArithmeticOperator(lhsT lhs, rhsT rhs, CcuArithmeticOperatorType type)
-        : CcuOperator<lhsT, rhsT>(lhs, rhs), type(type)
+    ccu_arithmetic_operator(lhs_t lhs, rhs_t rhs, ccu_arithmetic_operator_type type)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type(type)
     {
-        Check();
+        check();
     }
-    void Check() const
+    void check() const
     {
-        // asccomm::ThrowCcuInternal("Invalid Arithmetic Operator");
+        // asc::ThrowCcuInternal("Invalid Arithmetic Operator");
         throw std::runtime_error("Invalid Arithmetic Operator");
     }
 
-    CcuArithmeticOperatorType type{CcuArithmeticOperatorType::INVALID};
+    ccu_arithmetic_operator_type type{ccu_arithmetic_operator_type::invalid};
 };
 
-enum class CcuRelationalOperatorType { EQUAL, NOT_EQUAL, GREATER_THAN, GREATER_EQUAL, LESS_THAN, LESS_EQUAL, INVALID };
+enum class ccu_relational_operator_type { equal, not_equal, greater_than, greater_equal, less_than, less_equal, invalid };
 
-template <typename lhsT, typename rhsT>
-class CcuRelationalOperator : public CcuOperator<lhsT, rhsT> {
+template <typename lhs_t, typename rhs_t>
+class ccu_relational_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    CcuRelationalOperator(lhsT lhs, rhsT rhs, CcuRelationalOperatorType type)
-        : CcuOperator<lhsT, rhsT>(lhs, rhs), type(type)
+    ccu_relational_operator(lhs_t lhs, rhs_t rhs, ccu_relational_operator_type type)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type(type)
     {
-        Check();
+        check();
     }
-    void Check() const
+    void check() const
     {
-        // asccomm::ThrowCcuInternal("Invalid Relational Operator");
+        // asc::ThrowCcuInternal("Invalid Relational Operator");
         throw std::runtime_error("Invalid Relational Operator");
     }
 
-    CcuRelationalOperatorType type{CcuRelationalOperatorType::INVALID};
+    ccu_relational_operator_type type{ccu_relational_operator_type::invalid};
 };
 
-enum class CcuLogicOperatorType { AND, OR, XOR, NOT, INVALID };
+enum class ccu_logic_operator_type { and_op, or_op, xor_op, not_op, invalid };
 
-template <typename lhsT, typename rhsT = std::nullptr_t>
-class CcuLogicOperator : public CcuOperator<lhsT, rhsT> {
+template <typename lhs_t, typename rhs_t = std::nullptr_t>
+class ccu_logic_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    template <typename U = rhsT, typename std::enable_if<!std::is_same<U, std::nullptr_t>::value, int>::type = 0>
-    CcuLogicOperator(lhsT lhs, U rhs, CcuLogicOperatorType type) : CcuOperator<lhsT, U>(lhs, rhs), type(type)
+    template <typename u = rhs_t, typename std::enable_if<!std::is_same<u, std::nullptr_t>::value, int>::type = 0>
+    ccu_logic_operator(lhs_t lhs, u rhs, ccu_logic_operator_type type) : ccu_operator<lhs_t, u>(lhs, rhs), type(type)
     {
-        Check();
+        check();
     }
 
-    template <typename U = rhsT, typename std::enable_if<std::is_same<U, std::nullptr_t>::value, int>::type = 0>
-    CcuLogicOperator(lhsT lhs, CcuLogicOperatorType type) : CcuOperator<lhsT, U>(lhs, {}), type(type)
+    template <typename u = rhs_t, typename std::enable_if<std::is_same<u, std::nullptr_t>::value, int>::type = 0>
+    ccu_logic_operator(lhs_t lhs, ccu_logic_operator_type type) : ccu_operator<lhs_t, u>(lhs, {}), type(type)
     {
-        Check();
+        check();
     }
 
-    void Check() const { throw std::runtime_error("Invalid LogicOperator Operator"); }
+    void check() const { throw std::runtime_error("Invalid LogicOperator Operator"); }
 
-    CcuLogicOperatorType type{CcuLogicOperatorType::INVALID};
+    ccu_logic_operator_type type{ccu_logic_operator_type::invalid};
 };
 
-enum class CcuShiftType { LEFT, RIGHT, INVALID };
+enum class ccu_shift_type { left, right, invalid };
 
-template <typename lhsT, typename rhsT>
-class CcuShiftOperator : public CcuOperator<lhsT, rhsT> {
+template <typename lhs_t, typename rhs_t>
+class ccu_shift_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    CcuShiftOperator(lhsT lhs, rhsT rhs, CcuShiftType type) : CcuOperator<lhsT, rhsT>(lhs, rhs), type(type) { Check(); }
-    void Check() const
+    ccu_shift_operator(lhs_t lhs, rhs_t rhs, ccu_shift_type type) : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type(type) { check(); }
+    void check() const
     {
         // THROW<CcuResult::CCU_E_INTERNAL>("Invalid ShiftT Operator");
         throw std::runtime_error("Invalid ShiftT Operator");
     }
 
-    CcuShiftType type{CcuShiftType::INVALID};
+    ccu_shift_type type{ccu_shift_type::invalid};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 
 #endif // _CCU_OPERATOR

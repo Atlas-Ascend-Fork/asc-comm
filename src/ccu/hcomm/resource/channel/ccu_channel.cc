@@ -14,51 +14,51 @@
 
 #include "hcomm/common/ccu_device_context.h"
 
-namespace asccomm {
+namespace asc {
 
-CcuChannel::CcuChannel(ChannelHandle channel)
+ccu_channel::ccu_channel(ChannelHandle channel)
 {
-    result_ = Init(channel);
+    result_ = init(channel);
 }
 
-CcuChannel *CcuChannel::operator->()
-{
-    return this;
-}
-
-const CcuChannel *CcuChannel::operator->() const
+ccu_channel *ccu_channel::operator->()
 {
     return this;
 }
 
-HcclResult CcuChannel::Init(ChannelHandle channel)
+const ccu_channel *ccu_channel::operator->() const
+{
+    return this;
+}
+
+HcclResult ccu_channel::init(ChannelHandle channel)
 {
     // 组装带 ABI 头的查询 POD，通知 hcomm 按当前 ABI 版本填写快照
-    HcommCcuChannelPod queryPod{};
-    queryPod.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
-    queryPod.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
-    queryPod.header.size = sizeof(HcommCcuChannelPod);
+    HcommCcuChannelPod query_pod{};
+    query_pod.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
+    query_pod.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
+    query_pod.header.size = sizeof(HcommCcuChannelPod);
 
     // 通过控制面注入的函数表发起单次查询（不再分两阶段传数组地址）
-    const auto channelQuery = GetCurrentCcuControlOps().channelQuery;
-    if (channelQuery == nullptr) {
+    const auto channel_query = get_current_ccu_control_ops().channelQuery;
+    if (channel_query == nullptr) {
         return HCCL_E_INTERNAL;
     }
-    int32_t ret = channelQuery(channel, &queryPod);
+    int32_t ret = channel_query(channel, &query_pod);
     if (ret != HCCL_SUCCESS) {
         return static_cast<HcclResult>(ret);
     }
     // 远端 CCU buffer 尚未就绪时拒绝使用该 Channel
-    if (queryPod.rmtCcuBufSize == 0) {
+    if (query_pod.rmtCcuBufSize == 0) {
         return HCCL_E_INTERNAL;
     }
     // 快照整体拷贝到本地，后续算法只读这份 POD，不再触碰 hcomm 对象
-    channelPod_ = queryPod;
+    channel_pod_ = query_pod;
     return HCCL_SUCCESS;
 }
 
 // 从 POD 定长数组取第 index 个资源 id：先校验快照查询结果，再校验数组与下标
-HcclResult CcuChannel::GetIdByArray(const uint32_t *ids, uint32_t index, uint32_t &id) const
+HcclResult ccu_channel::get_id_by_array(const uint32_t *ids, uint32_t index, uint32_t &id) const
 {
     if (result_ != HCCL_SUCCESS) {
         return result_;
@@ -73,52 +73,52 @@ HcclResult CcuChannel::GetIdByArray(const uint32_t *ids, uint32_t index, uint32_
     return HCCL_SUCCESS;
 }
 
-HcclResult CcuChannel::GetResult() const
+HcclResult ccu_channel::get_result() const
 {
     return result_;
 }
 
-uint32_t CcuChannel::GetDieId() const
+uint32_t ccu_channel::get_die_id() const
 {
-    return channelPod_.dieId;
+    return channel_pod_.dieId;
 }
 
-uint32_t CcuChannel::GetChannelId() const
+uint32_t ccu_channel::get_channel_id() const
 {
-    return channelPod_.channelId;
+    return channel_pod_.channelId;
 }
 
-HcclResult CcuChannel::GetLocCkeByIndex(uint32_t index, uint32_t &localCkeId) const
+HcclResult ccu_channel::get_loc_cke_by_index(uint32_t index, uint32_t &local_cke_id) const
 {
-    return GetIdByArray(channelPod_.localCkeIds, index, localCkeId);
+    return get_id_by_array(channel_pod_.localCkeIds, index, local_cke_id);
 }
 
-HcclResult CcuChannel::GetLocXnByIndex(uint32_t index, uint32_t &localXnId) const
+HcclResult ccu_channel::get_loc_xn_by_index(uint32_t index, uint32_t &local_xn_id) const
 {
-    return GetIdByArray(channelPod_.localXnIds, index, localXnId);
+    return get_id_by_array(channel_pod_.localXnIds, index, local_xn_id);
 }
 
-HcclResult CcuChannel::GetRmtCkeByIndex(uint32_t index, uint32_t &remoteCkeId) const
+HcclResult ccu_channel::get_rmt_cke_by_index(uint32_t index, uint32_t &remote_cke_id) const
 {
-    return GetIdByArray(channelPod_.remoteCkeIds, index, remoteCkeId);
+    return get_id_by_array(channel_pod_.remoteCkeIds, index, remote_cke_id);
 }
 
-HcclResult CcuChannel::GetRmtXnByIndex(uint32_t index, uint32_t &remoteXnId) const
+HcclResult ccu_channel::get_rmt_xn_by_index(uint32_t index, uint32_t &remote_xn_id) const
 {
-    return GetIdByArray(channelPod_.remoteXnIds, index, remoteXnId);
+    return get_id_by_array(channel_pod_.remoteXnIds, index, remote_xn_id);
 }
 
-HcclResult CcuChannel::GetRmtBuffer(uint64_t &addr, uint32_t &size, uint32_t &tokenId, uint32_t &tokenValue) const
+HcclResult ccu_channel::get_rmt_buffer(uint64_t &addr, uint32_t &size, uint32_t &token_id, uint32_t &token_value) const
 {
     if (result_ != HCCL_SUCCESS) {
         return result_;
     }
     // 远端 CCU 资源 buffer 的基址、长度与 token 已由 hcomm 在快照中按设备规格算好，这里直接返回
-    addr = channelPod_.rmtCcuBufAddr;
-    size = channelPod_.rmtCcuBufSize;
-    tokenId = channelPod_.rmtCcuBufTokenId;
-    tokenValue = channelPod_.rmtCcuBufTokenValue;
+    addr = channel_pod_.rmtCcuBufAddr;
+    size = channel_pod_.rmtCcuBufSize;
+    token_id = channel_pod_.rmtCcuBufTokenId;
+    token_value = channel_pod_.rmtCcuBufTokenValue;
     return HCCL_SUCCESS;
 }
 
-} // namespace asccomm
+} // namespace asc

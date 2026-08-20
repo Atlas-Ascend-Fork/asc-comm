@@ -46,21 +46,21 @@ struct ThreadContext {
 };
 
 static HcclResult HcclAllGatherCustom(
-    void* sendBuf, void* recvBuf, uint64_t sendCount, HcclDataType dataType, HcclComm comm, aclrtStream stream)
+    void* sendBuf, void* recvBuf, uint64_t sendCount, HcclDataType data_type_, HcclComm comm, aclrtStream stream)
 {
-    OpParam param;
-    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param.myRank));
-    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param.rankSize));
+    OpParam param_;
+    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param_.myRank));
+    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param_.rankSize));
 
-    param.stream = stream;
-    param.inputPtr = sendBuf;
-    param.outputPtr = recvBuf;
-    param.count = sendCount;
-    param.dataType = dataType;
+    param_.stream = stream;
+    param_.inputPtr = sendBuf;
+    param_.outputPtr = recvBuf;
+    param_.count_ = sendCount;
+    param_.data_type_ = data_type_;
 
     AlgResourceCtx resCtxHost;
-    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param, resCtxHost));
-    RETURN_IF_HCCL_FAIL(ExecOp(param, resCtxHost));
+    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param_, resCtxHost));
+    RETURN_IF_HCCL_FAIL(ExecOp(param_, resCtxHost));
 
     return HCCL_SUCCESS;
 }
@@ -145,12 +145,12 @@ int main()
     HCCLCHECK(HcclGetRootInfo(rootInfo));
 
     std::vector<std::thread> threads(devCount);
-    std::vector<ThreadContext> args(devCount);
+    std::vector<ThreadContext> args_(devCount);
     for (uint32_t i = 0; i < devCount; i++) {
-        args[i].rootInfo = rootInfo;
-        args[i].device = i;
-        args[i].devCount = devCount;
-        threads[i] = std::thread(Sample, static_cast<void*>(&args[i]));
+        args_[i].rootInfo = rootInfo;
+        args_[i].device = i;
+        args_[i].devCount = devCount;
+        threads[i] = std::thread(Sample, static_cast<void*>(&args_[i]));
     }
     for (uint32_t i = 0; i < devCount; i++) {
         threads[i].join();

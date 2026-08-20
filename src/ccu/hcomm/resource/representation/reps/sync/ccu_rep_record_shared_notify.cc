@@ -12,42 +12,42 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepRecordSharedNotify::CcuRepRecordSharedNotify(
-    CcuInsGeneraterBase* insGenPtr, const LocalNotify& notify, uint16_t mask)
-    : insGenPtr(insGenPtr), notify_(notify), mask_(mask)
+ccu_rep_record_shared_notify::ccu_rep_record_shared_notify(
+    ccu_ins_generater_base* ins_gen_ptr, const local_notify& notify, uint16_t mask)
+    : ins_gen_ptr_(ins_gen_ptr), notify_(notify), mask_(mask)
 {
-    type = CcuRepType::RECORD_SHARED_NOTIFY;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::record_shared_notify;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-bool CcuRepRecordSharedNotify::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_record_shared_notify::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepRecordSharedNotifyTranslate(ccuKernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepRecordSharedNotify][Translate] failed to translate for instrId[%u]", instrId),
+        ins_gen_ptr_->ccu_rep_record_shared_notify_translate(ccu_kernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepRecordSharedNotify][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepRecordSharedNotify translate failed");
     CHK_PRT_THROW(
-        (instrId > UINT16_MAX - instrCount),
+        (instr_id > UINT16_MAX - instr_count_),
         HCCL_ERROR(
-            "[CcuRepRecordSharedNotify::Translate]uint16 integer overflow occurs, "
+            "[CcuRepRecordSharedNotify::translate]uint16 integer overflow occurs, "
             "instrId = [%hu], instrCount = [%hu]",
-            instrId, instrCount),
+            instr_id, instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepRecordSharedNotify::Describe()
+std::string ccu_rep_record_shared_notify::describe()
 {
-    return asccomm::FormatCcuMessage("Post, Use semIndex[%u] and mask[%04x]", notify_.Id(), mask_);
+    return asc::format_ccu_message("Post, Use semIndex[%u] and mask[%04x]", notify_.id(), mask_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

@@ -27,7 +27,7 @@ struct HcommChannelDesc {};
 struct HcommMemHandle {};
 struct CommMem {};
 struct ChannelStatus {};
-enum class HcommChannelKind { INVALID };
+enum class HcommChannelKind { invalid };
 
 class CcuTransport {
 public:
@@ -51,7 +51,7 @@ class CcuUrmaChannel : public Channel {
 public:
     CcuUrmaChannel(EndpointHandle locEndpointHandle, const HcommChannelDesc& channelDesc);
     ~CcuUrmaChannel() override = default;
-    HcclResult Init();
+    HcclResult init();
     ChannelStatus GetStatus();
     HcclResult GetNotifyNum(uint32_t* notifyNum) const;
     HcclResult GetRemoteMems(uint32_t* memNum, CommMem** remoteMem, char*** memInfos);
@@ -59,18 +59,18 @@ public:
     HcclResult Clean();
     HcclResult Resume();
     HcclResult ChannelFence();
-    HcclResult NotifyRecord(uint32_t remoteNotifyIdx);
-    HcclResult NotifyWait(uint32_t localNotifyIdx, uint32_t timeout);
-    HcclResult WriteWithNotify(void* dst, const void* src, uint64_t len, uint32_t remoteNotifyIdx);
-    HcclResult Write(void* dst, const void* src, uint64_t len);
-    HcclResult Read(void* dst, const void* src, uint64_t len);
-    uint32_t GetDieId() const;
-    uint32_t GetChannelId() const;
-    HcclResult GetRmtCkeByIndex(uint32_t index, uint32_t& rmtCkeId) const;
-    HcclResult GetRmtXnByIndex(uint32_t index, uint32_t& rmtXnId) const;
-    HcclResult GetLocCkeByIndex(uint32_t index, uint32_t& locCkeId) const;
-    HcclResult GetLocXnByIndex(uint32_t index, uint32_t& locXnId) const;
-    HcclResult GetRmtBuffer(uint64_t& addr, uint32_t& size, uint32_t& tokenId, uint32_t& tokenValue) const;
+    HcclResult notify_record(uint32_t remote_notify_idx);
+    HcclResult notify_wait(uint32_t local_notify_idx, uint32_t timeout);
+    HcclResult WriteWithNotify(void* dst_, const void* src_, uint64_t len_, uint32_t remote_notify_idx);
+    HcclResult Write(void* dst_, const void* src_, uint64_t len_);
+    HcclResult Read(void* dst_, const void* src_, uint64_t len_);
+    uint32_t get_die_id() const;
+    uint32_t get_channel_id() const;
+    HcclResult get_rmt_cke_by_index(uint32_t index, uint32_t& rmt_cke_id_) const;
+    HcclResult get_rmt_xn_by_index(uint32_t index, uint32_t& rmt_xn_id_) const;
+    HcclResult get_loc_cke_by_index(uint32_t index, uint32_t& loc_cke_id) const;
+    HcclResult get_loc_xn_by_index(uint32_t index, uint32_t& loc_xn_id) const;
+    HcclResult get_rmt_buffer(uint64_t& addr_, uint32_t& size, uint32_t& token_id, uint32_t& token_value) const;
 };
 } // namespace hcomm
 

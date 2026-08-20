@@ -24,7 +24,7 @@
 
 namespace CcuAgMem2mem {
 
-HcclResult AllGatherMesh1D(void* sendBuf, void* recvBuf, uint64_t count, HcclComm comm, aclrtStream stream);
+HcclResult AllGatherMesh1D(void* sendBuf, void* recvBuf, uint64_t count_, HcclComm comm, aclrtStream stream);
 
 } // namespace CcuAgMem2mem
 

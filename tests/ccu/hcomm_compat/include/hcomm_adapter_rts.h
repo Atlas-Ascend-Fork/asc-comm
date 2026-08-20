@@ -24,8 +24,8 @@ namespace hcomm {
 struct rtMemUbTokenInfo {
     uint64_t va;
     uint64_t size;
-    uint32_t tokenId;
-    uint32_t tokenValue;
+    uint32_t token_id;
+    uint32_t token_value;
 };
 
 HcclResult RtsUbDevQueryInfo(rtUbDevQueryCmd cmd, rtMemUbTokenInfo& devInfo);

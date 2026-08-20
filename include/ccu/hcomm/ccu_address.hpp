@@ -22,117 +22,117 @@
 namespace AscendC {
 namespace ccu {
 
-class LocalAddr;
-class RemoteAddr;
-template <typename U>
-class Array;
+class local_addr;
+class remote_addr;
+template <typename u>
+class array;
 
-class Address final {
+class address final {
 public:
-    Address() { CCU_THROW_IF_FAILED(::asccomm::CcuAddressAlloc(&this->handle), "CcuAddressAlloc: failed"); }
+    address() { CCU_THROW_IF_FAILED(::asc::ccu_address_alloc(&this->handle), "ccu_address_alloc: failed"); }
 
-    Address(const Address& other) { this->handle = other.handle; }
+    address(const address& other) { this->handle = other.handle; }
 
-    Address(Address&& other) noexcept { this->handle = other.handle; }
+    address(address&& other) noexcept { this->handle = other.handle; }
 
-    void operator=(const Address& other) const
+    void operator=(const address& other) const
     {
         CCU_THROW_IF_FAILED(
-            ::asccomm::CcuAddressAssignAddr(this->handle, other.handle),
-            "Address::operator=(Address): CcuAddressAssignAddr failed");
+            ::asc::ccu_address_assign_addr(this->handle, other.handle),
+            "address::operator=(address): ccu_address_assign_addr failed");
     }
 
-    void operator=(Address&& other) { this->handle = other.handle; }
+    void operator=(address&& other) { this->handle = other.handle; }
 
-    void operator=(uint64_t immediate) const
+    void operator=(uint64_t immediate_) const
     {
         CCU_THROW_IF_FAILED(
-            ::asccomm::CcuAddressAssignImm(this->handle, immediate), "Address::operator=(uint64_t): CcuAddressAssignImm failed");
+            ::asc::ccu_address_assign_imm(this->handle, immediate_), "address::operator=(uint64_t): ccu_address_assign_imm failed");
     }
 
-    void operator=(const Variable& var) const
+    void operator=(const variable& var_) const
     {
         CCU_THROW_IF_FAILED(
-            ::asccomm::CcuAddressAssignVar(this->handle, var.handle), "Address::operator=(Variable): CcuAddressAssignVar failed");
+            ::asc::ccu_address_assign_var(this->handle, var_.handle), "address::operator=(variable): ccu_address_assign_var failed");
     }
 
-    void operator=(detail::CcuArithmeticOperator<Address, Address> op) const
+    void operator=(detail::ccu_arithmetic_operator<address, address> op) const
     {
         CCU_THROW_IF_FAILED(
-            ::asccomm::CcuAddressAddAddrToAddr(this->handle, op.lhs.handle, op.rhs.handle),
-            "Address::operator=(Addr+Addr): CcuAddressAddAddrToAddr failed");
+            ::asc::ccu_address_add_addr_to_addr(this->handle, op.lhs.handle, op.rhs.handle),
+            "address::operator=(Addr+Addr): ccu_address_add_addr_to_addr failed");
     }
 
-    void operator=(detail::CcuArithmeticOperator<Address, Variable> op) const
+    void operator=(detail::ccu_arithmetic_operator<address, variable> op) const
     {
         CCU_THROW_IF_FAILED(
-            ::asccomm::CcuAddressAddVarToAddr(this->handle, op.lhs.handle, op.rhs.handle),
-            "Address::operator=(Addr+Var): CcuAddressAddVarToAddr failed");
+            ::asc::ccu_address_add_var_to_addr(this->handle, op.lhs.handle, op.rhs.handle),
+            "address::operator=(Addr+Var): ccu_address_add_var_to_addr failed");
     }
 
-    void operator=(detail::CcuArithmeticOperator<Variable, Address> op) const
+    void operator=(detail::ccu_arithmetic_operator<variable, address> op) const
     {
         CCU_THROW_IF_FAILED(
-            ::asccomm::CcuAddressAddVarToAddr(this->handle, op.rhs.handle, op.lhs.handle),
-            "Address::operator=(Var+Addr): CcuAddressAddVarToAddr failed");
+            ::asc::ccu_address_add_var_to_addr(this->handle, op.rhs.handle, op.lhs.handle),
+            "address::operator=(Var+Addr): ccu_address_add_var_to_addr failed");
     }
 
-    // addr + addr
-    detail::CcuArithmeticOperator<Address, Address> operator+(const Address& that) const
+    // addr_ + addr_
+    detail::ccu_arithmetic_operator<address, address> operator+(const address& that) const
     {
-        return detail::CcuArithmeticOperator<Address, Address>(
-            *this, that, detail::CcuArithmeticOperatorType::ADDITION);
+        return detail::ccu_arithmetic_operator<address, address>(
+            *this, that, detail::ccu_arithmetic_operator_type::addition);
     }
 
-    // addr + variable
-    detail::CcuArithmeticOperator<Address, Variable> operator+(const Variable& var) const
+    // addr_ + variable
+    detail::ccu_arithmetic_operator<address, variable> operator+(const variable& var_) const
     {
-        return detail::CcuArithmeticOperator<Address, Variable>(
-            *this, var, detail::CcuArithmeticOperatorType::ADDITION);
+        return detail::ccu_arithmetic_operator<address, variable>(
+            *this, var_, detail::ccu_arithmetic_operator_type::addition);
     }
 
-    void operator+=(const Variable& var) const
-    {
-        CCU_THROW_IF_FAILED(
-            ::asccomm::CcuAddressAddAssignVar(this->handle, var.handle),
-            "Address::operator+=(Variable): CcuAddressAddAssignVar failed");
-    }
-
-    // addr += addr
-    void operator+=(const Address& other) const
+    void operator+=(const variable& var_) const
     {
         CCU_THROW_IF_FAILED(
-            ::asccomm::CcuAddressAddAddrToAddr(this->handle, this->handle, other.handle),
-            "Address::operator+=(Address): CcuAddressAddAddrToAddr failed");
+            ::asc::ccu_address_add_assign_var(this->handle, var_.handle),
+            "address::operator+=(variable): ccu_address_add_assign_var failed");
     }
 
-    CcuAddressHandle handle{0};
+    // addr_ += addr_
+    void operator+=(const address& other) const
+    {
+        CCU_THROW_IF_FAILED(
+            ::asc::ccu_address_add_addr_to_addr(this->handle, this->handle, other.handle),
+            "address::operator+=(address): ccu_address_add_addr_to_addr failed");
+    }
+
+    ccu_address_handle handle{0};
 
 private:
-    explicit Address(detail::NoAllocTag) {}
-    template <typename U>
-    friend class Array;
-    friend class LocalAddr;
-    friend class RemoteAddr;
+    explicit address(detail::no_alloc_tag) {}
+    template <typename u>
+    friend class array;
+    friend class local_addr;
+    friend class remote_addr;
 };
 
-// variable + addr（交换律）
-inline detail::CcuArithmeticOperator<Variable, Address> operator+(const Variable& var, const Address& addr)
+// variable + addr_（交换律）
+inline detail::ccu_arithmetic_operator<variable, address> operator+(const variable& var_, const address& addr_)
 {
-    return detail::CcuArithmeticOperator<Variable, Address>(var, addr, detail::CcuArithmeticOperatorType::ADDITION);
+    return detail::ccu_arithmetic_operator<variable, address>(var_, addr_, detail::ccu_arithmetic_operator_type::addition);
 }
 
 } // namespace ccu
 } // namespace AscendC
 
 template <>
-inline void AscendC::ccu::detail::CcuArithmeticOperator<AscendC::ccu::Address, AscendC::ccu::Address>::Check() const
+inline void AscendC::ccu::detail::ccu_arithmetic_operator<AscendC::ccu::address, AscendC::ccu::address>::check() const
 {}
 template <>
-inline void AscendC::ccu::detail::CcuArithmeticOperator<AscendC::ccu::Address, AscendC::ccu::Variable>::Check() const
+inline void AscendC::ccu::detail::ccu_arithmetic_operator<AscendC::ccu::address, AscendC::ccu::variable>::check() const
 {}
 template <>
-inline void AscendC::ccu::detail::CcuArithmeticOperator<AscendC::ccu::Variable, AscendC::ccu::Address>::Check() const
+inline void AscendC::ccu::detail::ccu_arithmetic_operator<AscendC::ccu::variable, AscendC::ccu::address>::check() const
 {}
 
 #endif // CCU_ADDRESS_HPP

@@ -17,31 +17,31 @@
 
 #include "hcomm/hcomm_ccu_res.h"
 
-namespace asccomm {
+namespace asc {
 
-using AscCcuResRanges = std::array<std::vector<HcommCcuResRangePod>, HCOMM_CCU_MAX_DIE_NUM>;
+using asc_ccu_res_ranges = std::array<std::vector<HcommCcuResRangePod>, HCOMM_CCU_MAX_DIE_NUM>;
 
-struct AscCcuResRequest {
+struct asc_ccu_res_request {
     uint32_t count[HCOMM_CCU_BATCH_RES_TYPE_COUNT][HCOMM_CCU_MAX_DIE_NUM]{};
     uint32_t instruction[HCOMM_CCU_MAX_DIE_NUM]{};
 };
 
 // This aggregate is local to asc-comm. Cross-SO transfer only uses range POD elements, not std::vector.
-struct AscCcuResRepository {
-    AscCcuResRanges loopEngine{};
-    AscCcuResRanges blockLoopEngine{};
-    AscCcuResRanges ms{};
-    AscCcuResRanges blockMs{};
-    AscCcuResRanges cke{};
-    AscCcuResRanges blockCke{};
-    AscCcuResRanges xn{};
-    AscCcuResRanges blockXn{};
-    AscCcuResRanges gsa{};
-    AscCcuResRanges blockGsa{};
-    AscCcuResRanges mission{};
-    AscCcuResRanges instruction{};
+struct asc_ccu_res_repository {
+    asc_ccu_res_ranges loop_engine{};
+    asc_ccu_res_ranges block_loop_engine{};
+    asc_ccu_res_ranges ms{};
+    asc_ccu_res_ranges block_ms{};
+    asc_ccu_res_ranges cke{};
+    asc_ccu_res_ranges block_cke{};
+    asc_ccu_res_ranges xn{};
+    asc_ccu_res_ranges block_xn{};
+    asc_ccu_res_ranges gsa{};
+    asc_ccu_res_ranges block_gsa{};
+    asc_ccu_res_ranges mission{};
+    asc_ccu_res_ranges instruction{};
 };
 
-} // namespace asccomm
+} // namespace asc
 
 #endif // ASC_CCU_RESOURCE_LOCAL_H

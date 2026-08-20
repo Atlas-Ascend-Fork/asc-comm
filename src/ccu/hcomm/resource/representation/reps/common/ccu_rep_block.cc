@@ -13,63 +13,63 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepBlock::CcuRepBlock(CcuInsGeneraterBase* insGenPtr, const std::string& label)
-    : insGeneratorPtr_(insGenPtr), label(label)
+ccu_rep_block::ccu_rep_block(ccu_ins_generater_base* ins_gen_ptr, const std::string& label)
+    : ins_generator_ptr_(ins_gen_ptr), label_(label)
 {
-    type = CcuRepType::BLOCK;
-    instrCount = 0;
+    type_ = ccu_rep_type::block;
+    instr_count_ = 0;
 }
 
-std::vector<std::shared_ptr<CcuRepBase>>& CcuRepBlock::GetReps() { return repVec; }
+std::vector<std::shared_ptr<ccu_rep_base>>& ccu_rep_block::get_reps() { return rep_vec_; }
 
-void CcuRepBlock::Append(std::shared_ptr<CcuRepBase> rep) { repVec.push_back(rep); }
+void ccu_rep_block::append(std::shared_ptr<ccu_rep_base> rep) { rep_vec_.push_back(rep); }
 
-const std::string& CcuRepBlock::GetLabel() const { return label; }
+const std::string& ccu_rep_block::get_label() const { return label_; }
 
-uint16_t CcuRepBlock::InstrCount()
+uint16_t ccu_rep_block::instr_count()
 {
-    instrCount = 0;
-    for (const auto& repInBlock : repVec) {
-        instrCount += repInBlock->InstrCount();
+    instr_count_ = 0;
+    for (const auto& rep_in_block : rep_vec_) {
+        instr_count_ += rep_in_block->instr_count();
     }
-    return instrCount;
+    return instr_count_;
 }
 
-bool CcuRepBlock::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_block::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
-    constexpr uint16_t numberTwo = 2; // 暂定repBlock中的rep遍历2次，后续优化
-    for (uint16_t i = 0; i < numberTwo; i++) {
-        for (const auto& repInBlock : GetReps()) {
-            if (!repInBlock->Translated()) {
-                repInBlock->Translate(ccuKernel, instr, instrId, dep);
+    constexpr uint16_t number_two = 2; // 暂定repBlock中的rep遍历2次，后续优化
+    for (uint16_t i = 0; i < number_two; i++) {
+        for (const auto& rep_in_block : get_reps()) {
+            if (!rep_in_block->translated()) {
+                rep_in_block->translate(ccu_kernel, instr, instr_id, dep);
             }
         }
     }
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepBlock::Describe() { return asccomm::FormatCcuMessage("RepBlock"); }
+std::string ccu_rep_block::describe() { return asc::format_ccu_message("RepBlock"); }
 
 // 在块里的子 REP 中按指令编号找对应的那条；ResolveRep 往 FUNC_BLOCK 壳里
 // 一层层找就是靠它；块为空或编号不在任何子 REP 范围内时返回 nullptr
-std::shared_ptr<CcuRepBase> CcuRepBlock::GetRepByInstrId(uint16_t instrId)
+std::shared_ptr<ccu_rep_base> ccu_rep_block::get_rep_by_instr_id(uint16_t instr_id)
 {
-    for (const auto& rep : GetReps()) {
-        const uint16_t repCount = rep->InstrCount();
-        if (repCount == 0) {
+    for (const auto& rep : get_reps()) {
+        const uint16_t rep_count = rep->instr_count();
+        if (rep_count == 0) {
             continue;
         }
-        const uint16_t startId = rep->StartInstrId();
-        const uint16_t endId = startId + repCount - 1;
+        const uint16_t start_id = rep->start_instr_id();
+        const uint16_t end_id = start_id + rep_count - 1;
         // 编号落在子 REP 的指令范围内，就是它
-        if (instrId >= startId && instrId <= endId) {
+        if (instr_id >= start_id && instr_id <= end_id) {
             return rep;
         }
     }
@@ -77,4 +77,4 @@ std::shared_ptr<CcuRepBase> CcuRepBlock::GetRepByInstrId(uint16_t instrId)
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

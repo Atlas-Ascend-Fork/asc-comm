@@ -29,23 +29,23 @@
 #include <vector>
 
 namespace hcomm {
-namespace CcuRep {
+namespace ccu_rep {
 namespace {
 
 class CcuRepChannelTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    ccu_ins_generater_v1 insGen{};
     void SetUp() override
     {
         HcommCcuChannelPod channelPod{};
         channelPod.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
-        channelPod.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
+        channelPod.header.magic_word = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
         channelPod.header.size = sizeof(HcommCcuChannelPod);
-        channelPod.localXnIds[0] = 0;
-        channelPod.remoteXnIds[0] = 0;
-        channelPod.localCkeIds[0] = 0;
-        channelPod.remoteCkeIds[0] = 0;
-        channelPod.rmtCcuBufSize = 1;
+        channelPod.local_xn_ids[0] = 0;
+        channelPod.remote_xn_ids[0] = 0;
+        channelPod.local_cke_ids[0] = 0;
+        channelPod.remote_cke_ids[0] = 0;
+        channelPod.rmt_ccu_buf_size = 1;
         SetHcommCcuChannelGetPodStub(channelPod);
     }
     void TearDown() override
@@ -61,14 +61,14 @@ class CcuRepBufWriteTest : public CcuRepChannelTest {};
 
 class CcuRepBufLocReadTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    ccu_ins_generater_v1 insGen{};
     void SetUp() override {}
     void TearDown() override {}
 };
 
 class CcuRepBufLocWriteTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    ccu_ins_generater_v1 insGen{};
     void SetUp() override {}
     void TearDown() override {}
 };
@@ -77,538 +77,538 @@ class CcuRepBufReduceTest : public ::testing::Test {
 protected:
     void SetUp() override {}
     void TearDown() override {}
-    CcuInsGeneraterV1 insGen{};
+    ccu_ins_generater_v1 insGen{};
 };
 
 class CcuRepLocCpyTest : public ::testing::Test {
 protected:
     void SetUp() override {}
     void TearDown() override {}
-    CcuInsGeneraterV1 insGen{};
+    ccu_ins_generater_v1 insGen{};
 };
 
 class CcuRepRemMemTest : public CcuRepChannelTest {};
 
 TEST_F(CcuRepReadTest, Constructor_Basic)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    LocalAddr loc{addr, token};
-    RemoteAddr rem{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    local_addr loc_{addr_, token};
+    remote_addr rem_{addr_, token};
 
-    CcuRepRead rep(&insGen, 0, loc, rem, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::READ);
-    EXPECT_EQ(rep.GetMask(), 0xF);
-    EXPECT_EQ(rep.GetSemId(), sem.Id());
+    ccu_rep_read rep(&insGen, 0, loc_, rem_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::read);
+    EXPECT_EQ(rep.get_mask(), 0xF);
+    EXPECT_EQ(rep.get_sem_id(), sem_.id());
 }
 
 TEST_F(CcuRepReadTest, Constructor_WithDataType)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    LocalAddr loc{addr, token};
-    RemoteAddr rem{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    local_addr loc_{addr_, token};
+    remote_addr rem_{addr_, token};
 
-    CcuRepRead rep(&insGen, 0, loc, rem, len, 1, 2, sem, 0xA);
-    EXPECT_EQ(rep.Type(), CcuRepType::READ);
-    EXPECT_EQ(rep.GetMask(), 0xA);
+    ccu_rep_read rep(&insGen, 0, loc_, rem_, len_, 1, 2, sem_, 0xA);
+    EXPECT_EQ(rep.type(), ccu_rep_type::read);
+    EXPECT_EQ(rep.get_mask(), 0xA);
 }
 
-TEST_F(CcuRepReadTest, Describe)
+TEST_F(CcuRepReadTest, describe)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    LocalAddr loc{addr, token};
-    RemoteAddr rem{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    local_addr loc_{addr_, token};
+    remote_addr rem_{addr_, token};
 
-    CcuRepRead rep(&insGen, 0, loc, rem, len, sem, 0xF);
-    std::string desc = rep.Describe();
+    ccu_rep_read rep(&insGen, 0, loc_, rem_, len_, sem_, 0xF);
+    std::string desc = rep.describe();
     EXPECT_NE(desc.find("Read"), std::string::npos);
 }
 
-TEST_F(CcuRepReadTest, Translate)
+TEST_F(CcuRepReadTest, translate)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    LocalAddr loc{addr, token};
-    RemoteAddr rem{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    local_addr loc_{addr_, token};
+    remote_addr rem_{addr_, token};
 
-    CcuRepRead rep(&insGen, 0, loc, rem, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::READ);
+    ccu_rep_read rep(&insGen, 0, loc_, rem_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::read);
 }
 
 TEST_F(CcuRepWriteTest, Constructor_Basic)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    LocalAddr loc{addr, token};
-    RemoteAddr rem{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    local_addr loc_{addr_, token};
+    remote_addr rem_{addr_, token};
 
-    CcuRepWrite rep(&insGen, 0, rem, loc, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::WRITE);
-    EXPECT_EQ(rep.GetMask(), 0xF);
+    ccu_rep_write rep(&insGen, 0, rem_, loc_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::write);
+    EXPECT_EQ(rep.get_mask(), 0xF);
 }
 
 TEST_F(CcuRepWriteTest, Constructor_WithDataType)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    LocalAddr loc{addr, token};
-    RemoteAddr rem{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    local_addr loc_{addr_, token};
+    remote_addr rem_{addr_, token};
 
-    CcuRepWrite rep(&insGen, 0, rem, loc, len, 1, 2, sem, 0xA);
-    EXPECT_EQ(rep.Type(), CcuRepType::WRITE);
+    ccu_rep_write rep(&insGen, 0, rem_, loc_, len_, 1, 2, sem_, 0xA);
+    EXPECT_EQ(rep.type(), ccu_rep_type::write);
 }
 
-TEST_F(CcuRepWriteTest, Describe)
+TEST_F(CcuRepWriteTest, describe)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    LocalAddr loc{addr, token};
-    RemoteAddr rem{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    local_addr loc_{addr_, token};
+    remote_addr rem_{addr_, token};
 
-    CcuRepWrite rep(&insGen, 0, rem, loc, len, sem, 0xF);
-    std::string desc = rep.Describe();
+    ccu_rep_write rep(&insGen, 0, rem_, loc_, len_, sem_, 0xF);
+    std::string desc = rep.describe();
     EXPECT_NE(desc.find("Write"), std::string::npos);
 }
 
-TEST_F(CcuRepWriteTest, Translate)
+TEST_F(CcuRepWriteTest, translate)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    LocalAddr loc{addr, token};
-    RemoteAddr rem{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    local_addr loc_{addr_, token};
+    remote_addr rem_{addr_, token};
 
-    CcuRepWrite rep(&insGen, 0, rem, loc, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::WRITE);
+    ccu_rep_write rep(&insGen, 0, rem_, loc_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::write);
 }
 
 TEST_F(CcuRepBufReadTest, Constructor)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    RemoteAddr src{addr, token};
-    CcuBuf dst{&context};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    remote_addr src_{addr_, token};
+    ccu_buf dst_{&context_};
 
-    CcuRepBufRead rep(&insGen, 0, src, dst, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::BUF_READ);
-    EXPECT_EQ(rep.GetMask(), 0xF);
+    ccu_rep_buf_read rep(&insGen, 0, src_, dst_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::buf_read);
+    EXPECT_EQ(rep.get_mask(), 0xF);
 }
 
-TEST_F(CcuRepBufReadTest, Describe)
+TEST_F(CcuRepBufReadTest, describe)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    RemoteAddr src{addr, token};
-    CcuBuf dst{&context};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    remote_addr src_{addr_, token};
+    ccu_buf dst_{&context_};
 
-    CcuRepBufRead rep(&insGen, 0, src, dst, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::BUF_READ);
+    ccu_rep_buf_read rep(&insGen, 0, src_, dst_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::buf_read);
 }
 
-TEST_F(CcuRepBufReadTest, Translate)
+TEST_F(CcuRepBufReadTest, translate)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    RemoteAddr src{addr, token};
-    CcuBuf dst{&context};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    remote_addr src_{addr_, token};
+    ccu_buf dst_{&context_};
 
-    CcuRepBufRead rep(&insGen, 0, src, dst, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::BUF_READ);
+    ccu_rep_buf_read rep(&insGen, 0, src_, dst_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::buf_read);
 }
 
 TEST_F(CcuRepBufWriteTest, Constructor)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    CcuBuf src{&context};
-    Address addr;
-    Variable token;
-    RemoteAddr dst{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    ccu_buf src_{&context_};
+    address addr_;
+    variable token;
+    remote_addr dst_{addr_, token};
 
-    CcuRepBufWrite rep(&insGen, 0, src, dst, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::BUF_WRITE);
-    EXPECT_EQ(rep.GetMask(), 0xF);
+    ccu_rep_buf_write rep(&insGen, 0, src_, dst_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::buf_write);
+    EXPECT_EQ(rep.get_mask(), 0xF);
 }
 
-TEST_F(CcuRepBufWriteTest, Describe)
+TEST_F(CcuRepBufWriteTest, describe)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    CcuBuf src{&context};
-    Address addr;
-    Variable token;
-    RemoteAddr dst{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    ccu_buf src_{&context_};
+    address addr_;
+    variable token;
+    remote_addr dst_{addr_, token};
 
-    CcuRepBufWrite rep(&insGen, 0, src, dst, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::BUF_WRITE);
+    ccu_rep_buf_write rep(&insGen, 0, src_, dst_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::buf_write);
 }
 
-TEST_F(CcuRepBufWriteTest, Translate)
+TEST_F(CcuRepBufWriteTest, translate)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    CcuBuf src{&context};
-    Address addr;
-    Variable token;
-    RemoteAddr dst{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    ccu_buf src_{&context_};
+    address addr_;
+    variable token;
+    remote_addr dst_{addr_, token};
 
-    CcuRepBufWrite rep(&insGen, 0, src, dst, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::BUF_WRITE);
+    ccu_rep_buf_write rep(&insGen, 0, src_, dst_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::buf_write);
 }
 
 TEST_F(CcuRepBufLocReadTest, Constructor)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    LocalAddr src{addr, token};
-    CcuBuf dst{&context};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    local_addr src_{addr_, token};
+    ccu_buf dst_{&context_};
 
-    CcuRepBufLocRead rep(&insGen, src, dst, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::BUF_LOC_READ);
-    EXPECT_EQ(rep.GetMask(), 0xF);
+    ccu_rep_buf_loc_read rep(&insGen, src_, dst_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::buf_loc_read);
+    EXPECT_EQ(rep.get_mask(), 0xF);
 }
 
-TEST_F(CcuRepBufLocReadTest, Describe)
+TEST_F(CcuRepBufLocReadTest, describe)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    LocalAddr src{addr, token};
-    CcuBuf dst{&context};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    local_addr src_{addr_, token};
+    ccu_buf dst_{&context_};
 
-    CcuRepBufLocRead rep(&insGen, src, dst, len, sem, 0xF);
-    std::string desc = rep.Describe();
+    ccu_rep_buf_loc_read rep(&insGen, src_, dst_, len_, sem_, 0xF);
+    std::string desc = rep.describe();
     EXPECT_NE(desc.find("Read"), std::string::npos);
 }
 
-TEST_F(CcuRepBufLocReadTest, Translate)
+TEST_F(CcuRepBufLocReadTest, translate)
 {
-    CcuInsGeneraterV1 insGen;
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr;
-    Variable token;
-    LocalAddr src{addr, token};
-    CcuBuf dst{&context};
+    ccu_ins_generater_v1 insGen;
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr_;
+    variable token;
+    local_addr src_{addr_, token};
+    ccu_buf dst_{&context_};
 
-    CcuRepBufLocRead rep(&insGen, src, dst, len, sem, 0xF);
-    CcuInstr instr;
-    CcuInstr* instrPtr = &instr;
+    ccu_rep_buf_loc_read rep(&insGen, src_, dst_, len_, sem_, 0xF);
+    ccu_instr instr_;
+    ccu_instr* instrPtr = &instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
-    dep.reserveChannalId[0] = 1;
+    trans_dep dep = {};
+    dep.reserve_channal_id[0] = 1;
 
     EXPECT_THROW(
-        { rep.Translate(nullptr, instrPtr, instrId, dep); }, ::AscendC::ccu::detail::CcuException);
-    EXPECT_TRUE(rep.Translated());
+        { rep.translate(nullptr, instrPtr, instrId, dep); }, ::AscendC::ccu::detail::ccu_exception);
+    EXPECT_TRUE(rep.translated());
 }
 
 TEST_F(CcuRepBufLocWriteTest, Constructor)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    CcuBuf src{&context};
-    Address addr;
-    Variable token;
-    LocalAddr dst{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    ccu_buf src_{&context_};
+    address addr_;
+    variable token;
+    local_addr dst_{addr_, token};
 
-    CcuRepBufLocWrite rep(&insGen, src, dst, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::BUF_LOC_WRITE);
-    EXPECT_EQ(rep.GetMask(), 0xF);
+    ccu_rep_buf_loc_write rep(&insGen, src_, dst_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::buf_loc_write);
+    EXPECT_EQ(rep.get_mask(), 0xF);
 }
 
-TEST_F(CcuRepBufLocWriteTest, Describe)
+TEST_F(CcuRepBufLocWriteTest, describe)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    CcuBuf src{&context};
-    Address addr;
-    Variable token;
-    LocalAddr dst{addr, token};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    ccu_buf src_{&context_};
+    address addr_;
+    variable token;
+    local_addr dst_{addr_, token};
 
-    CcuRepBufLocWrite rep(&insGen, src, dst, len, sem, 0xF);
-    std::string desc = rep.Describe();
+    ccu_rep_buf_loc_write rep(&insGen, src_, dst_, len_, sem_, 0xF);
+    std::string desc = rep.describe();
     EXPECT_NE(desc.find("Write"), std::string::npos);
 }
 
-TEST_F(CcuRepBufLocWriteTest, Translate)
+TEST_F(CcuRepBufLocWriteTest, translate)
 {
-    CcuInsGeneraterV1 insGen;
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    CcuBuf src{&context};
-    Address addr;
-    Variable token;
-    LocalAddr dst{addr, token};
+    ccu_ins_generater_v1 insGen;
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    ccu_buf src_{&context_};
+    address addr_;
+    variable token;
+    local_addr dst_{addr_, token};
 
-    CcuRepBufLocWrite rep(&insGen, src, dst, len, sem, 0xF);
-    CcuInstr instr;
-    CcuInstr* instrPtr = &instr;
+    ccu_rep_buf_loc_write rep(&insGen, src_, dst_, len_, sem_, 0xF);
+    ccu_instr instr_;
+    ccu_instr* instrPtr = &instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
-    dep.reserveChannalId[0] = 1;
+    trans_dep dep = {};
+    dep.reserve_channal_id[0] = 1;
 
-    bool result = rep.Translate(nullptr, instrPtr, instrId, dep);
+    bool result = rep.translate(nullptr, instrPtr, instrId, dep);
     EXPECT_TRUE(result);
-    EXPECT_TRUE(rep.Translated());
+    EXPECT_TRUE(rep.translated());
 }
 
 TEST_F(CcuRepBufReduceTest, Constructor)
 {
-    CcuRepContext context;
-    std::vector<CcuBuf> mem = {CcuBuf{&context}, CcuBuf{&context}, CcuBuf{&context}, CcuBuf{&context}};
-    Variable len{&context};
-    CompletedEvent sem{&context};
+    ccu_rep_context context_;
+    std::vector<ccu_buf> mem_ = {ccu_buf{&context_}, ccu_buf{&context_}, ccu_buf{&context_}, ccu_buf{&context_}};
+    variable len_{&context_};
+    completed_event sem_{&context_};
 
-    CcuRepBufReduce rep(&insGen, mem, 4, 1, 1, 0, sem, len, 1);
-    EXPECT_EQ(rep.Type(), CcuRepType::BUF_REDUCE);
-    EXPECT_EQ(rep.GetCount(), 4);
-    EXPECT_EQ(rep.GetDataType(), 1);
-    EXPECT_EQ(rep.GetMask(), 1);
+    ccu_rep_buf_reduce rep(&insGen, mem_, 4, 1, 1, 0, sem_, len_, 1);
+    EXPECT_EQ(rep.type(), ccu_rep_type::buf_reduce);
+    EXPECT_EQ(rep.get_count(), 4);
+    EXPECT_EQ(rep.get_data_type(), 1);
+    EXPECT_EQ(rep.get_mask(), 1);
 }
 
-TEST_F(CcuRepBufReduceTest, Describe)
+TEST_F(CcuRepBufReduceTest, describe)
 {
-    CcuRepContext context;
-    std::vector<CcuBuf> mem = {CcuBuf{&context}, CcuBuf{&context}};
-    Variable len{&context};
-    CompletedEvent sem{&context};
+    ccu_rep_context context_;
+    std::vector<ccu_buf> mem_ = {ccu_buf{&context_}, ccu_buf{&context_}};
+    variable len_{&context_};
+    completed_event sem_{&context_};
 
-    CcuRepBufReduce rep(&insGen, mem, 2, 1, 1, 0, sem, len, 1);
-    std::string desc = rep.Describe();
+    ccu_rep_buf_reduce rep(&insGen, mem_, 2, 1, 1, 0, sem_, len_, 1);
+    std::string desc = rep.describe();
     EXPECT_NE(desc.find("Reduce"), std::string::npos);
 }
 
 TEST_F(CcuRepBufReduceTest, Translate_Sum)
 {
-    CcuRepContext context;
-    std::vector<CcuBuf> mem = {CcuBuf{&context}, CcuBuf{&context}, CcuBuf{&context}, CcuBuf{&context}};
-    Variable len{&context};
-    CompletedEvent sem{&context};
+    ccu_rep_context context_;
+    std::vector<ccu_buf> mem_ = {ccu_buf{&context_}, ccu_buf{&context_}, ccu_buf{&context_}, ccu_buf{&context_}};
+    variable len_{&context_};
+    completed_event sem_{&context_};
 
-    CcuRepBufReduce rep(&insGen, mem, 4, 1, 1, 0, sem, len, 1);
-    CcuInstr instr;
-    CcuInstr* instrPtr = &instr;
+    ccu_rep_buf_reduce rep(&insGen, mem_, 4, 1, 1, 0, sem_, len_, 1);
+    ccu_instr instr_;
+    ccu_instr* instrPtr = &instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
+    trans_dep dep = {};
 
-    bool result = rep.Translate(nullptr, instrPtr, instrId, dep);
+    bool result = rep.translate(nullptr, instrPtr, instrId, dep);
     EXPECT_TRUE(result);
-    EXPECT_TRUE(rep.Translated());
+    EXPECT_TRUE(rep.translated());
 }
 
 TEST_F(CcuRepBufReduceTest, Translate_Max)
 {
-    CcuRepContext context;
-    std::vector<CcuBuf> mem = {CcuBuf{&context}, CcuBuf{&context}, CcuBuf{&context}, CcuBuf{&context}};
-    Variable len{&context};
-    CompletedEvent sem{&context};
+    ccu_rep_context context_;
+    std::vector<ccu_buf> mem_ = {ccu_buf{&context_}, ccu_buf{&context_}, ccu_buf{&context_}, ccu_buf{&context_}};
+    variable len_{&context_};
+    completed_event sem_{&context_};
 
-    CcuRepBufReduce rep(&insGen, mem, 4, 1, 1, 1, sem, len, 1);
-    CcuInstr instr;
-    CcuInstr* instrPtr = &instr;
+    ccu_rep_buf_reduce rep(&insGen, mem_, 4, 1, 1, 1, sem_, len_, 1);
+    ccu_instr instr_;
+    ccu_instr* instrPtr = &instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
+    trans_dep dep = {};
 
-    bool result = rep.Translate(nullptr, instrPtr, instrId, dep);
+    bool result = rep.translate(nullptr, instrPtr, instrId, dep);
     EXPECT_TRUE(result);
 }
 
 TEST_F(CcuRepBufReduceTest, Translate_Min)
 {
-    CcuRepContext context;
-    std::vector<CcuBuf> mem = {CcuBuf{&context}, CcuBuf{&context}, CcuBuf{&context}, CcuBuf{&context}};
-    Variable len{&context};
-    CompletedEvent sem{&context};
+    ccu_rep_context context_;
+    std::vector<ccu_buf> mem_ = {ccu_buf{&context_}, ccu_buf{&context_}, ccu_buf{&context_}, ccu_buf{&context_}};
+    variable len_{&context_};
+    completed_event sem_{&context_};
 
-    CcuRepBufReduce rep(&insGen, mem, 4, 1, 1, 2, sem, len, 1);
-    CcuInstr instr;
-    CcuInstr* instrPtr = &instr;
+    ccu_rep_buf_reduce rep(&insGen, mem_, 4, 1, 1, 2, sem_, len_, 1);
+    ccu_instr instr_;
+    ccu_instr* instrPtr = &instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
+    trans_dep dep = {};
 
-    bool result = rep.Translate(nullptr, instrPtr, instrId, dep);
+    bool result = rep.translate(nullptr, instrPtr, instrId, dep);
     EXPECT_TRUE(result);
 }
 
 TEST_F(CcuRepBufReduceTest, Translate_CountLessThanMin)
 {
-    CcuRepContext context;
-    std::vector<CcuBuf> mem = {CcuBuf{&context}};
-    Variable len{&context};
-    CompletedEvent sem{&context};
+    ccu_rep_context context_;
+    std::vector<ccu_buf> mem_ = {ccu_buf{&context_}};
+    variable len_{&context_};
+    completed_event sem_{&context_};
 
-    CcuRepBufReduce rep(&insGen, mem, 1, 1, 1, 0, sem, len, 1);
-    CcuInstr instr;
-    CcuInstr* instrPtr = &instr;
+    ccu_rep_buf_reduce rep(&insGen, mem_, 1, 1, 1, 0, sem_, len_, 1);
+    ccu_instr instr_;
+    ccu_instr* instrPtr = &instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
+    trans_dep dep = {};
 
-    bool result = rep.Translate(nullptr, instrPtr, instrId, dep);
+    bool result = rep.translate(nullptr, instrPtr, instrId, dep);
     EXPECT_TRUE(result);
 }
 
 TEST_F(CcuRepLocCpyTest, Constructor_Basic)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr1;
-    Variable token1;
-    Address addr2;
-    Variable token2;
-    LocalAddr dst{addr1, token1};
-    LocalAddr src{addr2, token2};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr1;
+    variable token1;
+    address addr2;
+    variable token2;
+    local_addr dst_{addr1, token1};
+    local_addr src_{addr2, token2};
 
-    CcuRepLocCpy rep(&insGen, dst, src, len, sem, 0xF);
-    EXPECT_EQ(rep.Type(), CcuRepType::LOCAL_CPY);
-    EXPECT_EQ(rep.GetMask(), 0xF);
+    ccu_rep_loc_cpy rep(&insGen, dst_, src_, len_, sem_, 0xF);
+    EXPECT_EQ(rep.type(), ccu_rep_type::local_cpy);
+    EXPECT_EQ(rep.get_mask(), 0xF);
 }
 
 TEST_F(CcuRepLocCpyTest, Constructor_WithDataType)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr1;
-    Variable token1;
-    Address addr2;
-    Variable token2;
-    LocalAddr dst{addr1, token1};
-    LocalAddr src{addr2, token2};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr1;
+    variable token1;
+    address addr2;
+    variable token2;
+    local_addr dst_{addr1, token1};
+    local_addr src_{addr2, token2};
 
-    CcuRepLocCpy rep(&insGen, dst, src, len, 1, 2, sem, 0xA);
-    EXPECT_EQ(rep.Type(), CcuRepType::LOCAL_REDUCE);
+    ccu_rep_loc_cpy rep(&insGen, dst_, src_, len_, 1, 2, sem_, 0xA);
+    EXPECT_EQ(rep.type(), ccu_rep_type::local_reduce);
 }
 
-TEST_F(CcuRepLocCpyTest, Describe)
+TEST_F(CcuRepLocCpyTest, describe)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr1;
-    Variable token1;
-    Address addr2;
-    Variable token2;
-    LocalAddr dst{addr1, token1};
-    LocalAddr src{addr2, token2};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr1;
+    variable token1;
+    address addr2;
+    variable token2;
+    local_addr dst_{addr1, token1};
+    local_addr src_{addr2, token2};
 
-    CcuRepLocCpy rep(&insGen, dst, src, len, sem, 0xF);
-    std::string desc = rep.Describe();
-    EXPECT_NE(desc.find("LocalAddr"), std::string::npos);
+    ccu_rep_loc_cpy rep(&insGen, dst_, src_, len_, sem_, 0xF);
+    std::string desc = rep.describe();
+    EXPECT_NE(desc.find("local_addr"), std::string::npos);
 }
 
 TEST_F(CcuRepLocCpyTest, Translate_LocalCpy)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr1;
-    Variable token1;
-    Address addr2;
-    Variable token2;
-    LocalAddr dst{addr1, token1};
-    LocalAddr src{addr2, token2};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr1;
+    variable token1;
+    address addr2;
+    variable token2;
+    local_addr dst_{addr1, token1};
+    local_addr src_{addr2, token2};
 
-    CcuRepLocCpy rep(&insGen, dst, src, len, sem, 0xF);
-    CcuInstr instr;
-    CcuInstr* instrPtr = &instr;
+    ccu_rep_loc_cpy rep(&insGen, dst_, src_, len_, sem_, 0xF);
+    ccu_instr instr_;
+    ccu_instr* instrPtr = &instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
-    dep.reserveChannalId[0] = 1;
+    trans_dep dep = {};
+    dep.reserve_channal_id[0] = 1;
 
-    bool result = rep.Translate(nullptr, instrPtr, instrId, dep);
+    bool result = rep.translate(nullptr, instrPtr, instrId, dep);
     EXPECT_TRUE(result);
-    EXPECT_TRUE(rep.Translated());
+    EXPECT_TRUE(rep.translated());
 }
 
 TEST_F(CcuRepLocCpyTest, Translate_LocalReduce)
 {
-    CcuRepContext context;
-    Variable len{&context};
-    CompletedEvent sem{&context};
-    Address addr1;
-    Variable token1;
-    Address addr2;
-    Variable token2;
-    LocalAddr dst{addr1, token1};
-    LocalAddr src{addr2, token2};
+    ccu_rep_context context_;
+    variable len_{&context_};
+    completed_event sem_{&context_};
+    address addr1;
+    variable token1;
+    address addr2;
+    variable token2;
+    local_addr dst_{addr1, token1};
+    local_addr src_{addr2, token2};
 
-    CcuRepLocCpy rep(&insGen, dst, src, len, 1, 2, sem, 0xF);
-    CcuInstr instr;
-    CcuInstr* instrPtr = &instr;
+    ccu_rep_loc_cpy rep(&insGen, dst_, src_, len_, 1, 2, sem_, 0xF);
+    ccu_instr instr_;
+    ccu_instr* instrPtr = &instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
-    dep.reserveChannalId[0] = 1;
+    trans_dep dep = {};
+    dep.reserve_channal_id[0] = 1;
 
-    bool result = rep.Translate(nullptr, instrPtr, instrId, dep);
+    bool result = rep.translate(nullptr, instrPtr, instrId, dep);
     EXPECT_TRUE(result);
 }
 
 TEST_F(CcuRepRemMemTest, Constructor)
 {
-    Address addr;
-    Variable token;
-    RemoteAddr rem{addr, token};
-    CcuRepRemMem rep(&insGen, 0, rem);
-    EXPECT_EQ(rep.Type(), CcuRepType::REM_MEM);
+    address addr_;
+    variable token;
+    remote_addr rem_{addr_, token};
+    ccu_rep_rem_mem rep(&insGen, 0, rem_);
+    EXPECT_EQ(rep.type(), ccu_rep_type::rem_mem);
 }
 
-TEST_F(CcuRepRemMemTest, Translate)
+TEST_F(CcuRepRemMemTest, translate)
 {
-    Address addr;
-    Variable token;
-    RemoteAddr rem{addr, token};
-    CcuRepRemMem rep(&insGen, 0, rem);
-    EXPECT_EQ(rep.Type(), CcuRepType::REM_MEM);
+    address addr_;
+    variable token;
+    remote_addr rem_{addr_, token};
+    ccu_rep_rem_mem rep(&insGen, 0, rem_);
+    EXPECT_EQ(rep.type(), ccu_rep_type::rem_mem);
 }
 
 } // namespace
-} // namespace CcuRep
+} // namespace ccu_rep
 } // namespace hcomm

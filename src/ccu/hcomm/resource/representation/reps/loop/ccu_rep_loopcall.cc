@@ -14,99 +14,99 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepLoopCall::CcuRepLoopCall(CcuInsGeneraterBase* insGeneratorPtr, const std::string& label)
-    : insGeneratorPtr_(insGeneratorPtr), label(label)
+ccu_rep_loop_call::ccu_rep_loop_call(ccu_ins_generater_base* ins_generator_ptr, const std::string& label)
+    : ins_generator_ptr_(ins_generator_ptr), label_(label)
 {
-    type = CcuRepType::LOOP_CALL;
+    type_ = ccu_rep_type::loop_call;
 }
 
-const std::string& CcuRepLoopCall::GetLabel() const { return label; }
+const std::string& ccu_rep_loop_call::get_label() const { return label_; }
 
-void CcuRepLoopCall::Reference(std::shared_ptr<CcuRepLoopBlock> refRep) { loopBlock = refRep; }
+void ccu_rep_loop_call::reference(std::shared_ptr<ccu_rep_loop_block> ref_rep) { loop_block_ = ref_rep; }
 
-void CcuRepLoopCall::SetInArg(const Variable& var)
+void ccu_rep_loop_call::set_in_arg(const variable& var)
 {
-    inArgCount++;
-    inArgInstrCount++;
-    inArgs.push_back(CcuRepArg(var));
+    in_arg_count_++;
+    in_arg_instr_count_++;
+    in_args_.push_back(ccu_rep_arg(var));
 }
 
-void CcuRepLoopCall::SetInArg(const std::vector<Variable>& varList)
+void ccu_rep_loop_call::set_in_arg(const std::vector<variable>& var_list)
 {
-    inArgCount += varList.size();
-    inArgInstrCount += varList.size();
-    inArgs.push_back(CcuRepArg(varList));
+    in_arg_count_ += var_list.size();
+    in_arg_instr_count_ += var_list.size();
+    in_args_.push_back(ccu_rep_arg(var_list));
 }
 
-void CcuRepLoopCall::SetInArg(const Memory& mem)
+void ccu_rep_loop_call::set_in_arg(const memory& mem)
 {
-    inArgCount++;
-    inArgInstrCount += 2; // 传递Memory需要2条指令
-    inArgs.push_back(CcuRepArg(mem));
+    in_arg_count_++;
+    in_arg_instr_count_ += 2; // 传递Memory需要2条指令
+    in_args_.push_back(ccu_rep_arg(mem));
 }
 
-void CcuRepLoopCall::SetInArg(const std::vector<Memory>& memList)
+void ccu_rep_loop_call::set_in_arg(const std::vector<memory>& mem_list)
 {
-    inArgCount += memList.size();
-    inArgInstrCount += memList.size() * 2; // 传递Memory需要2条指令
-    inArgs.push_back(CcuRepArg(memList));
+    in_arg_count_ += mem_list.size();
+    in_arg_instr_count_ += mem_list.size() * 2; // 传递Memory需要2条指令
+    in_args_.push_back(ccu_rep_arg(mem_list));
 }
 
 /* 【新增】 */
-void CcuRepLoopCall::SetInArg(const LocalAddr& addr)
+void ccu_rep_loop_call::set_in_arg(const local_addr& addr)
 {
-    inArgCount++;
-    inArgInstrCount += 2; // 传递LocalAddr需要2条指令
-    inArgs.push_back(CcuRepArg(addr));
+    in_arg_count_++;
+    in_arg_instr_count_ += 2; // 传递LocalAddr需要2条指令
+    in_args_.push_back(ccu_rep_arg(addr));
 }
 
-void CcuRepLoopCall::SetInArg(const std::vector<LocalAddr>& addrList)
+void ccu_rep_loop_call::set_in_arg(const std::vector<local_addr>& addr_list)
 {
-    inArgCount += addrList.size();
-    inArgInstrCount += addrList.size() * 2; // 传递LocalAddr需要2条指令
-    inArgs.push_back(CcuRepArg(addrList));
+    in_arg_count_ += addr_list.size();
+    in_arg_instr_count_ += addr_list.size() * 2; // 传递LocalAddr需要2条指令
+    in_args_.push_back(ccu_rep_arg(addr_list));
 }
 
-void CcuRepLoopCall::SetInArg(const RemoteAddr& addr)
+void ccu_rep_loop_call::set_in_arg(const remote_addr& addr)
 {
-    inArgCount++;
-    inArgInstrCount += 2; // 传递RemoteAddr需要2条指令
-    inArgs.push_back(CcuRepArg(addr));
+    in_arg_count_++;
+    in_arg_instr_count_ += 2; // 传递RemoteAddr需要2条指令
+    in_args_.push_back(ccu_rep_arg(addr));
 }
 
-void CcuRepLoopCall::SetInArg(const std::vector<RemoteAddr>& addrList)
+void ccu_rep_loop_call::set_in_arg(const std::vector<remote_addr>& addr_list)
 {
-    inArgCount += addrList.size();
-    inArgInstrCount += addrList.size() * 2; // 传递RemoteAddr需要2条指令
-    inArgs.push_back(CcuRepArg(addrList));
+    in_arg_count_ += addr_list.size();
+    in_arg_instr_count_ += addr_list.size() * 2; // 传递RemoteAddr需要2条指令
+    in_args_.push_back(ccu_rep_arg(addr_list));
 }
 
-uint16_t CcuRepLoopCall::InstrCount()
+uint16_t ccu_rep_loop_call::instr_count()
 {
-    instrCount = inArgInstrCount;
-    return instrCount;
+    instr_count_ = in_arg_instr_count_;
+    return instr_count_;
 }
 
-bool CcuRepLoopCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_loop_call::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
-    asccomm::CheckCcuNotNull(loopBlock, "[CcuRepLoopCall::Translate] LoopBlock is nullptr!");
+    asc::check_ccu_not_null(loop_block_, "[CcuRepLoopCall::translate] LoopBlock is nullptr!");
 
-    if (!loopBlock->Translated()) {
-        asccomm::ThrowCcuInternal("Reference To Invalid LoopBlock");
+    if (!loop_block_->translated()) {
+        asc::throw_ccu_internal("Reference To Invalid LoopBlock");
     }
 
-    instrId += InstrCount();
+    instr_id += instr_count();
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepLoopCall::Describe() { return asccomm::FormatCcuMessage("LoopCall[%s]", label.c_str()); }
+std::string ccu_rep_loop_call::describe() { return asc::format_ccu_message("LoopCall[%s]", label_.c_str()); }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

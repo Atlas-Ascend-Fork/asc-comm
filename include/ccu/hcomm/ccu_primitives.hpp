@@ -30,147 +30,147 @@ namespace AscendC {
 namespace ccu {
 
 // ==================== 类型别名 ====================
-using LoopConfig = ::CcuLoopConfig;
-using LoopGroupConfig = ::CcuLoopGroupConfig;
+using loop_config = ::ccu_loop_config;
+using loop_group_config = ::ccu_loop_group_config;
 
 // ==================== 资源创建 ====================
 
-template <typename T>
-inline T GetResByChannel(ChannelHandle /* channel */, uint32_t /* index */)
+template <typename t>
+inline t GetResByChannel(ChannelHandle /* channel_ */, uint32_t /* index */)
 {
     static_assert(
-        sizeof(T) == 0, "ccu::GetResByChannel<T> is not specialized for this type T; "
-                        "currently supported: Variable.");
+        sizeof(t) == 0, "ccu::GetResByChannel<t> is not specialized for this type_ t; "
+                        "currently supported: variable.");
 }
 template <>
-inline Variable GetResByChannel<Variable>(ChannelHandle channel, uint32_t varIndex)
+inline variable GetResByChannel<variable>(ChannelHandle channel_, uint32_t var_index)
 {
-    Variable v{detail::NoAllocTag{}};
-    CCU_THROW_IF_FAILED(::asccomm::CcuVariableCreateByChannel(channel, varIndex, &v.handle), "CcuVariableCreateByChannel: failed");
+    variable v{detail::no_alloc_tag{}};
+    CCU_THROW_IF_FAILED(::asc::ccu_variable_create_by_channel(channel_, var_index, &v.handle), "ccu_variable_create_by_channel: failed");
     return v;
 }
 
 // ==================== 事件 ====================
-inline CcuResult EventRecord(Event e, uint16_t mask = 1) { return ::asccomm::CcuEventRecord(e.handle, mask); }
-inline CcuResult EventWait(Event e, uint16_t mask = 1) { return ::asccomm::CcuEventWait(e.handle, mask); }
-inline CcuResult EventRecord(const char* notifyTag, uint16_t mask = 1) { return ::asccomm::CcuLocalNotifyRecord(notifyTag, mask); }
-inline CcuResult EventWait(const char* notifyTag, uint16_t mask = 1) { return ::asccomm::CcuLocalNotifyWait(notifyTag, mask); }
-inline CcuResult NotifyRecord(ChannelHandle channel, uint32_t remoteNotifyIdx, uint16_t mask = 1)
+inline CcuResult event_record(event e, uint16_t mask_ = 1) { return ::asc::ccu_event_record(e.handle, mask_); }
+inline CcuResult event_wait(event e, uint16_t mask_ = 1) { return ::asc::ccu_event_wait(e.handle, mask_); }
+inline CcuResult event_record(const char* notify_tag, uint16_t mask_ = 1) { return ::asc::ccu_local_notify_record(notify_tag, mask_); }
+inline CcuResult event_wait(const char* notify_tag, uint16_t mask_ = 1) { return ::asc::ccu_local_notify_wait(notify_tag, mask_); }
+inline CcuResult notify_record(ChannelHandle channel_, uint32_t remote_notify_idx, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuNotifyRecord(channel, remoteNotifyIdx, mask);
+    return ::asc::ccu_notify_record(channel_, remote_notify_idx, mask_);
 }
-inline CcuResult NotifyWait(ChannelHandle channel, uint32_t localNotifyIdx, uint16_t mask = 1)
+inline CcuResult notify_wait(ChannelHandle channel_, uint32_t local_notify_idx, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuNotifyWait(channel, localNotifyIdx, mask);
+    return ::asc::ccu_notify_wait(channel_, local_notify_idx, mask_);
 }
-inline CcuResult WriteVariableWithNotify(
-    ChannelHandle channel, Variable var, uint32_t remoteVarIdx, uint32_t remoteNotifyIdx, uint16_t mask = 1)
+inline CcuResult write_variable_with_notify(
+    ChannelHandle channel_, variable var_, uint32_t remote_var_idx, uint32_t remote_notify_idx, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuWriteVariableWithNotify(channel, var.handle, remoteVarIdx, remoteNotifyIdx, mask);
+    return ::asc::ccu_write_variable_with_notify(channel_, var_.handle, remote_var_idx, remote_notify_idx, mask_);
 }
 
 // ==================== 加载 ====================
-inline CcuResult LoadArg(Variable v, uint32_t argId) { return ::asccomm::CcuLoadArg(v.handle, argId); }
-inline CcuResult Load(uint64_t addr, Array<Variable>& vArr, uint32_t num)
+inline CcuResult load_arg(variable v, uint32_t arg_id_) { return ::asc::ccu_load_arg(v.handle, arg_id_); }
+inline CcuResult load(uint64_t addr_, array<variable>& vArr, uint32_t num_)
 {
-    return ::asccomm::CcuLoadVar(addr, vArr[0].handle, num);
+    return ::asc::ccu_load_var(addr_, vArr[0].handle, num_);
 }
-inline CcuResult Load(uint64_t addr, Variable v) { return ::asccomm::CcuLoadVar(addr, v.handle, 1); }
-inline CcuResult Load(Variable addrVar, Array<Variable>& vArr, uint32_t num)
+inline CcuResult load(uint64_t addr_, variable v) { return ::asc::ccu_load_var(addr_, v.handle, 1); }
+inline CcuResult load(variable addr_var, array<variable>& vArr, uint32_t num_)
 {
-    return ::asccomm::CcuLoadVarFromVarAddr(addrVar.handle, vArr[0].handle, num);
+    return ::asc::ccu_load_var_from_var_addr(addr_var.handle, vArr[0].handle, num_);
 }
-inline CcuResult Load(Variable addrVar, Variable v) { return ::asccomm::CcuLoadVarFromVarAddr(addrVar.handle, v.handle, 1); }
-inline CcuResult Store(uint64_t addr, Array<Variable>& vArr, uint32_t num)
+inline CcuResult load(variable addr_var, variable v) { return ::asc::ccu_load_var_from_var_addr(addr_var.handle, v.handle, 1); }
+inline CcuResult Store(uint64_t addr_, array<variable>& vArr, uint32_t num_)
 {
-    return ::asccomm::CcuStoreVar(addr, vArr[0].handle, num);
+    return ::asc::ccu_store_var(addr_, vArr[0].handle, num_);
 }
-inline CcuResult Store(uint64_t addr, Variable v) { return ::asccomm::CcuStoreVar(addr, v.handle, 1); }
-inline CcuResult Store(Variable addrVar, Array<Variable>& vArr, uint32_t num)
+inline CcuResult Store(uint64_t addr_, variable v) { return ::asc::ccu_store_var(addr_, v.handle, 1); }
+inline CcuResult Store(variable addr_var, array<variable>& vArr, uint32_t num_)
 {
-    return ::asccomm::CcuStoreVarToVarAddr(addrVar.handle, vArr[0].handle, num);
+    return ::asc::ccu_store_var_to_var_addr(addr_var.handle, vArr[0].handle, num_);
 }
-inline CcuResult Store(Variable addrVar, Variable v) { return ::asccomm::CcuStoreVarToVarAddr(addrVar.handle, v.handle, 1); }
+inline CcuResult Store(variable addr_var, variable v) { return ::asc::ccu_store_var_to_var_addr(addr_var.handle, v.handle, 1); }
 
 // ==================== 本地拷贝（3 种重载） ====================
-// LocalAddr → LocalAddr,LocalAddr → CcuBuffer,CcuBuffer → LocalAddr
-inline CcuResult LocalCopy(LocalAddr dst, LocalAddr src, Variable len, Event event, uint16_t mask = 1)
+// local_addr → local_addr,local_addr → ccu_buffer,ccu_buffer → local_addr
+inline CcuResult LocalCopy(local_addr dst_, local_addr src_, variable len_, event event, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuLocalCopyMemToMem(dst.handle, src.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_local_copy_mem_to_mem(dst_.handle, src_.handle, len_.handle, event.handle, mask_);
 }
-inline CcuResult LocalCopy(CcuBuffer dst, LocalAddr src, Variable len, Event event, uint16_t mask = 1)
+inline CcuResult LocalCopy(ccu_buffer dst_, local_addr src_, variable len_, event event, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuLocalCopyMemToBuffer(dst.handle, src.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_local_copy_mem_to_buffer(dst_.handle, src_.handle, len_.handle, event.handle, mask_);
 }
-inline CcuResult LocalCopy(LocalAddr dst, CcuBuffer src, Variable len, Event event, uint16_t mask = 1)
+inline CcuResult LocalCopy(local_addr dst_, ccu_buffer src_, variable len_, event event, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuLocalCopyBufferToMem(dst.handle, src.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_local_copy_buffer_to_mem(dst_.handle, src_.handle, len_.handle, event.handle, mask_);
 }
 
 // ==================== 本地 Reduce ====================
 inline CcuResult LocalReduce(
-    LocalAddr dst, LocalAddr src, Variable len, HcclDataType dataType, HcclReduceOp opType, Event event,
-    uint16_t mask = 1)
+    local_addr dst_, local_addr src_, variable len_, HcclDataType data_type_, HcclReduceOp op_type_, event event,
+    uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuLocalMemReduce(dst.handle, src.handle, len.handle, dataType, opType, event.handle, mask);
+    return ::asc::ccu_local_mem_reduce(dst_.handle, src_.handle, len_.handle, data_type_, op_type_, event.handle, mask_);
 }
 inline CcuResult LocalReduce(
-    CcuBuffer* buffers, uint32_t count, HcclDataType dataType, HcclDataType outputDataType, HcclReduceOp opType,
-    Variable len, Event event, uint16_t mask = 1)
+    ccu_buffer* buffers, uint32_t count_, HcclDataType data_type_, HcclDataType outputDataType, HcclReduceOp op_type_,
+    variable len_, event event, uint16_t mask_ = 1)
 {
-    if (buffers == nullptr || count == 0) {
+    if (buffers == nullptr || count_ == 0) {
         return CcuResult::CCU_E_PARA;
     }
-    std::vector<CcuBufferHandle> bufHandles(count);
-    for (uint32_t i = 0; i < count; i++) {
-        bufHandles[i] = buffers[i].handle;
+    std::vector<ccu_buffer_handle> buf_handles(count_);
+    for (uint32_t i = 0; i < count_; i++) {
+        buf_handles[i] = buffers[i].handle;
     }
-    return ::asccomm::CcuLocalBufferReduce(
-        bufHandles.data(), count, dataType, outputDataType, opType, len.handle, event.handle, mask);
+    return ::asc::ccu_local_buffer_reduce(
+        buf_handles.data(), count_, data_type_, outputDataType, op_type_, len_.handle, event.handle, mask_);
 }
 
 // ==================== 远端读====================
 
-// 远端读 LocalAddr ← RemoteAddr
+// 远端读 local_addr ← remote_addr
 inline CcuResult Read(
-    ChannelHandle ch, LocalAddr local, RemoteAddr remote, Variable len, Event event, uint16_t mask = 1)
+    ChannelHandle ch, local_addr local, remote_addr remote, variable len_, event event, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuReadMemToMem(ch, local.handle, remote.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_read_mem_to_mem(ch, local.handle, remote.handle, len_.handle, event.handle, mask_);
 }
-// 远端读 CcuBuffer ← RemoteAddr
+// 远端读 ccu_buffer ← remote_addr
 inline CcuResult Read(
-    ChannelHandle ch, CcuBuffer local, RemoteAddr remote, Variable len, Event event, uint16_t mask = 1)
+    ChannelHandle ch, ccu_buffer local, remote_addr remote, variable len_, event event, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuReadMemToBuffer(ch, local.handle, remote.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_read_mem_to_buffer(ch, local.handle, remote.handle, len_.handle, event.handle, mask_);
 }
-// 远端读 LocalAddr ← RemoteAddr Reduce (Reduce)
+// 远端读 local_addr ← remote_addr Reduce (Reduce)
 inline CcuResult ReadReduce(
-    ChannelHandle ch, LocalAddr local, RemoteAddr remote, Variable len, HcclDataType dataType, HcclReduceOp opType,
-    Event event, uint16_t mask = 1)
+    ChannelHandle ch, local_addr local, remote_addr remote, variable len_, HcclDataType data_type_, HcclReduceOp op_type_,
+    event event, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuReadMemToMemReduce(ch, local.handle, remote.handle, len.handle, dataType, opType, event.handle, mask);
+    return ::asc::ccu_read_mem_to_mem_reduce(ch, local.handle, remote.handle, len_.handle, data_type_, op_type_, event.handle, mask_);
 }
 
 // ==================== 远端写 ====================
 
-// LocalAddr → RemoteAddr
+// local_addr → remote_addr
 inline CcuResult Write(
-    ChannelHandle ch, RemoteAddr remote, LocalAddr local, Variable len, Event event, uint16_t mask = 1)
+    ChannelHandle ch, remote_addr remote, local_addr local, variable len_, event event, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuWriteMemToMem(ch, remote.handle, local.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_write_mem_to_mem(ch, remote.handle, local.handle, len_.handle, event.handle, mask_);
 }
-// CcuBuffer → RemoteAddr
+// ccu_buffer → remote_addr
 inline CcuResult Write(
-    ChannelHandle ch, RemoteAddr remote, CcuBuffer local, Variable len, Event event, uint16_t mask = 1)
+    ChannelHandle ch, remote_addr remote, ccu_buffer local, variable len_, event event, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuWriteBufferToMem(ch, remote.handle, local.handle, len.handle, event.handle, mask);
+    return ::asc::ccu_write_buffer_to_mem(ch, remote.handle, local.handle, len_.handle, event.handle, mask_);
 }
-// LocalAddr → RemoteAddr Reduce (Reduce)
+// local_addr → remote_addr Reduce (Reduce)
 inline CcuResult WriteReduce(
-    ChannelHandle ch, RemoteAddr remote, LocalAddr local, Variable len, HcclDataType dataType, HcclReduceOp opType,
-    Event event, uint16_t mask = 1)
+    ChannelHandle ch, remote_addr remote, local_addr local, variable len_, HcclDataType data_type_, HcclReduceOp op_type_,
+    event event, uint16_t mask_ = 1)
 {
-    return ::asccomm::CcuWriteMemToMemReduce(ch, remote.handle, local.handle, len.handle, dataType, opType, event.handle, mask);
+    return ::asc::ccu_write_mem_to_mem_reduce(ch, remote.handle, local.handle, len_.handle, data_type_, op_type_, event.handle, mask_);
 }
 
 } // namespace ccu

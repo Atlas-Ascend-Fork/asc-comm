@@ -10,19 +10,19 @@
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepBase::CcuRepBase() {}
+ccu_rep_base::ccu_rep_base() {}
 
-CcuRepBase::~CcuRepBase() {}
+ccu_rep_base::~ccu_rep_base() {}
 
-CcuRepType CcuRepBase::Type() const { return type; }
+ccu_rep_type ccu_rep_base::type() const { return type_; }
 
-bool CcuRepBase::Translated() const { return translated; }
+bool ccu_rep_base::translated() const { return translated_; }
 
-uint16_t CcuRepBase::StartInstrId() const { return instrId; }
-uint16_t CcuRepBase::InstrCount() { return instrCount; }
+uint16_t ccu_rep_base::start_instr_id() const { return instr_id_; }
+uint16_t ccu_rep_base::instr_count() { return instr_count_; }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

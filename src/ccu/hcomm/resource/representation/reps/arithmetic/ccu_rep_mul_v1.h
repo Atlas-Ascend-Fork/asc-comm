@@ -8,63 +8,63 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_MULT_H
-#define HCOMM_CCU_REPRESENTATION_MULT_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_MULT_H
+#define ASCCOMM_CCU_REPRESENTATION_MULT_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepMul : public CcuRepBase {
+class ccu_rep_mul : public ccu_rep_base {
 public:
-    explicit CcuRepMul(
-        CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, const Variable& varB);
-    explicit CcuRepMul(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, uint16_t immedB);
-    explicit CcuRepMul(CcuInsGeneraterBase* insGenPtr, const Variable& varA, const Variable& varB);
-    explicit CcuRepMul(CcuInsGeneraterBase* insGenPtr, const Variable& varA, const uint16_t immedB);
+    explicit ccu_rep_mul(
+        ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_a, const variable& var_b);
+    explicit ccu_rep_mul(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_a, uint16_t immed_b);
+    explicit ccu_rep_mul(ccu_ins_generater_base* ins_gen_ptr, const variable& var_a, const variable& var_b);
+    explicit ccu_rep_mul(ccu_ins_generater_base* ins_gen_ptr, const variable& var_a, const uint16_t immed_b);
 
-    explicit CcuRepMul(
-        CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Variable& varA, const Variable& varB);
-    explicit CcuRepMul(
-        CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Variable& varA, const Address& addrB);
-    explicit CcuRepMul(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const Variable& varB);
-    explicit CcuRepMul(
-        CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Address& addrA, const uint16_t immedB);
-    explicit CcuRepMul(
-        CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Variable& varA, const uint16_t immedB);
-    explicit CcuRepMul(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const uint16_t immedB);
+    explicit ccu_rep_mul(
+        ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const variable& var_a, const variable& var_b);
+    explicit ccu_rep_mul(
+        ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const variable& var_a, const address& addr_b);
+    explicit ccu_rep_mul(ccu_ins_generater_base* ins_gen_ptr, const address& addr_a, const variable& var_b);
+    explicit ccu_rep_mul(
+        ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const address& addr_a, const uint16_t immed_b);
+    explicit ccu_rep_mul(
+        ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const variable& var_a, const uint16_t immed_b);
+    explicit ccu_rep_mul(ccu_ins_generater_base* ins_gen_ptr, const address& addr_a, const uint16_t immed_b);
 
-    explicit CcuRepMul(
-        CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Address& addrA, const uint16_t immedB);
+    explicit ccu_rep_mul(
+        ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const address& addr_a, const uint16_t immed_b);
 
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    Address GetAddrA();
-    Address GetAddrB();
-    Address GetAddrC();
-    Variable GetVarA();
-    Variable GetVarB();
-    Variable GetVarC();
-    uint16_t GetImmedB();
-    MulSubType GetSubType();
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    address get_addr_a();
+    address get_addr_b();
+    address get_addr_c();
+    variable get_var_a();
+    variable get_var_b();
+    variable get_var_c();
+    uint16_t get_immed_b();
+    mul_sub_type get_sub_type();
 
 private:
-    void SetCommonInfo();
-    void ValidateInsGenPtrForMul();
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    MulSubType subType{MulSubType::INVALID};
-    Variable varA;
-    Variable varB;
-    Variable varC;
-    Address addrA;
-    Address addrB;
-    Address addrC;
-    uint16_t immedB{0};
-    bool supportCcuV1{false};
+    void set_common_info();
+    void validate_ins_gen_ptr_for_mul();
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
+    mul_sub_type sub_type_{mul_sub_type::invalid};
+    variable var_a_;
+    variable var_b_;
+    variable var_c_;
+    address addr_a_;
+    address addr_b_;
+    address addr_c_;
+    uint16_t immed_b_{0};
+    bool support_ccu_v1_{false};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_MULT_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_MULT_H

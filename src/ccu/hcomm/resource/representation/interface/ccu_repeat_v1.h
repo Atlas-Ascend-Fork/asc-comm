@@ -15,30 +15,30 @@
 #include "hcomm/resource/representation/reps/control/ccu_rep_jumplabel_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
 #define CCU_WHILE(x) \
-    for (auto __ccuRepeatHidden = CcuRep::Repeat(this, x); __ccuRepeatHidden.Check(); __ccuRepeatHidden.Run())
+    for (auto __ccuRepeatHidden = CcuRep::Repeat(this, x); __ccuRepeatHidden.check(); __ccuRepeatHidden.Run())
 #define CCU_BREAK __ccuRepeatHidden.Break()
 
-class Repeat {
+class repeat {
 public:
-    Repeat(CcuRepContext* context, CcuRelationalOperator<Variable, uint64_t> rel);
-    ~Repeat();
+    repeat(ccu_rep_context* context, ccu_relational_operator<variable, uint64_t> rel);
+    ~repeat();
     void Break();
-    bool Check() const;
-    void Run();
+    bool check() const;
+    void run();
 
 private:
-    CcuRepContext* context{nullptr};
-    bool isExecuted{false};
+    ccu_rep_context* context_{nullptr};
+    bool is_executed_{false};
 
-    std::shared_ptr<CcuRepJumpBase> jump{nullptr};
-    std::shared_ptr<CcuRepJumpLabel> beginLabel{nullptr};
-    std::shared_ptr<CcuRepJumpLabel> endLabel{nullptr};
+    std::shared_ptr<ccu_rep_jump_base> jump_{nullptr};
+    std::shared_ptr<ccu_rep_jump_label> begin_label_{nullptr};
+    std::shared_ptr<ccu_rep_jump_label> end_label_{nullptr};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // _CCU_REPEAT_H

@@ -49,10 +49,10 @@ struct AllGatherKernelArg {
 };
 
 struct GroupCopyGoSizeVars {
-    ccu::Variable addrOffset;
-    ccu::Variable loopParam;
-    ccu::Variable parallelParam;
-    ccu::Variable residual;
+    ccu::variable addr_offset;
+    ccu::variable loop_param_;
+    ccu::variable parallel_param;
+    ccu::variable residual;
 };
 
 // =============================================================================
@@ -60,14 +60,14 @@ struct GroupCopyGoSizeVars {
 // =============================================================================
 
 struct GroupCopyLoopGroupConfig {
-    uint64_t msInterleave;
-    uint64_t loopCount;
-    uint64_t memSlice;
+    uint64_t ms_interleave;
+    uint64_t loop_count;
+    uint64_t mem_slice;
 };
 
 struct GroupCopyLoopGroupResource {
-    ccu::Array<ccu::Event> completedEvent{0};
-    ccu::Array<ccu::CcuBuffer> ccuBuf{0};
+    ccu::array<ccu::event> completed_event{0};
+    ccu::array<ccu::ccu_buffer> ccuBuf{0};
     uint32_t eventCount{0};
     uint32_t bufCount{0};
 };
@@ -80,46 +80,46 @@ static inline constexpr uint64_t AgSetBits(uint16_t end) { return ((uint64_t(1) 
 
 static inline uint64_t AgGetMaxLoopIterNum()
 {
-    constexpr uint16_t loopNumBitNum = 12;
-    return AgSetBits(loopNumBitNum);
+    constexpr uint16_t loop_num_bit_num = 12;
+    return AgSetBits(loop_num_bit_num);
 }
 
-static inline uint64_t AgGetLoopParam(uint64_t loopCtxId, uint64_t gsaOffset, uint64_t loopIterNum)
+static inline uint64_t AgGetLoopParam(uint64_t loop_ctx_id, uint64_t gsa_offset, uint64_t loop_iter_num_)
 {
-    constexpr uint16_t ctxIdBitNum = 8;
-    constexpr uint16_t ctxIdShiftBit = 45;
-    constexpr uint16_t gsaBitNum = 32;
-    constexpr uint16_t gsaShiftBit = 13;
-    constexpr uint16_t loopNumBitNum = 13;
-    constexpr uint16_t loopNumShiftBit = 0;
-    return ((loopCtxId & AgSetBits(ctxIdBitNum)) << ctxIdShiftBit) |
-           ((gsaOffset & AgSetBits(gsaBitNum)) << gsaShiftBit) |
-           ((loopIterNum & AgSetBits(loopNumBitNum)) << loopNumShiftBit);
+    constexpr uint16_t ctx_id_bit_num = 8;
+    constexpr uint16_t ctx_id_shift_bit = 45;
+    constexpr uint16_t gsa_bit_num = 32;
+    constexpr uint16_t gsa_shift_bit = 13;
+    constexpr uint16_t loop_num_bit_num = 13;
+    constexpr uint16_t loop_num_shift_bit = 0;
+    return ((loop_ctx_id & AgSetBits(ctx_id_bit_num)) << ctx_id_shift_bit) |
+           ((gsa_offset & AgSetBits(gsa_bit_num)) << gsa_shift_bit) |
+           ((loop_iter_num_ & AgSetBits(loop_num_bit_num)) << loop_num_shift_bit);
 }
 
-static inline uint64_t AgGetParallelParam(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t totalLoopNum)
+static inline uint64_t AgGetParallelParam(uint64_t repeat_num, uint64_t repeat_loop_index, uint64_t total_loop_num)
 {
-    constexpr uint16_t repeatBitNum = 7;
-    constexpr uint16_t repeatNumShiftBit = 55;
-    constexpr uint16_t repeatLoopBitNum = 7;
-    constexpr uint16_t repeatLoopShiftBit = 48;
-    constexpr uint16_t totalLoopBitNum = 7;
-    constexpr uint16_t totalLoopShiftBit = 41;
-    return ((repeatNum & AgSetBits(repeatBitNum)) << repeatNumShiftBit) |
-           ((repeatLoopIndex & AgSetBits(repeatLoopBitNum)) << repeatLoopShiftBit) |
-           ((totalLoopNum & AgSetBits(totalLoopBitNum)) << totalLoopShiftBit);
+    constexpr uint16_t repeat_bit_num = 7;
+    constexpr uint16_t repeat_num_shift_bit = 55;
+    constexpr uint16_t repeat_loop_bit_num = 7;
+    constexpr uint16_t repeat_loop_shift_bit = 48;
+    constexpr uint16_t total_loop_bit_num = 7;
+    constexpr uint16_t total_loop_shift_bit = 41;
+    return ((repeat_num & AgSetBits(repeat_bit_num)) << repeat_num_shift_bit) |
+           ((repeat_loop_index & AgSetBits(repeat_loop_bit_num)) << repeat_loop_shift_bit) |
+           ((total_loop_num & AgSetBits(total_loop_bit_num)) << total_loop_shift_bit);
 }
 
-static inline uint64_t AgGetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uint64_t ckeOffset)
+static inline uint64_t AgGetOffsetParam(uint64_t gsa_offset, uint64_t ms_offset, uint64_t cke_offset)
 {
-    constexpr uint16_t gsaBitNum = 32;
-    constexpr uint16_t gsaShiftBit = 21;
-    constexpr uint16_t msBitNum = 11;
-    constexpr uint16_t msShiftBit = 10;
-    constexpr uint16_t ckeBitNum = 10;
-    constexpr uint16_t ckeShiftBit = 0;
-    return ((gsaOffset & AgSetBits(gsaBitNum)) << gsaShiftBit) | ((msOffset & AgSetBits(msBitNum)) << msShiftBit) |
-           ((ckeOffset & AgSetBits(ckeBitNum)) << ckeShiftBit);
+    constexpr uint16_t gsa_bit_num = 32;
+    constexpr uint16_t gsa_shift_bit = 21;
+    constexpr uint16_t ms_bit_num = 11;
+    constexpr uint16_t ms_shift_bit = 10;
+    constexpr uint16_t cke_bit_num = 10;
+    constexpr uint16_t cke_shift_bit = 0;
+    return ((gsa_offset & AgSetBits(gsa_bit_num)) << gsa_shift_bit) | ((ms_offset & AgSetBits(ms_bit_num)) << ms_shift_bit) |
+           ((cke_offset & AgSetBits(cke_bit_num)) << cke_shift_bit);
 }
 
 // =============================================================================
@@ -129,37 +129,37 @@ static inline uint64_t AgGetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, u
 struct AllGatherContext {
     const AllGatherKernelArg* arg;
 
-    ccu::Variable input;
-    ccu::Variable output[AG_MAX_RANK_SIZE];
-    ccu::Variable token[AG_MAX_RANK_SIZE];
+    ccu::variable input;
+    ccu::variable output[AG_MAX_RANK_SIZE];
+    ccu::variable token[AG_MAX_RANK_SIZE];
 
-    ccu::Variable currentRankSliceInputOffset;
-    ccu::Variable currentRankSliceOutputOffset;
-    ccu::Variable tmpRepeatNum;
-    ccu::Variable inputRepeatStride;
-    ccu::Variable outputRepeatStride;
-    ccu::Variable normalSliceSize;
-    ccu::Variable lastSliceSize;
-    ccu::Variable isInputOutputEqual;
+    ccu::variable currentRankSliceInputOffset;
+    ccu::variable currentRankSliceOutputOffset;
+    ccu::variable tmpRepeatNum;
+    ccu::variable inputRepeatStride;
+    ccu::variable outputRepeatStride;
+    ccu::variable normalSliceSize;
+    ccu::variable lastSliceSize;
+    ccu::variable isInputOutputEqual;
 
     GroupCopyGoSizeVars goSize;
 
-    ccu::Event event;
-    ccu::LocalAddr srcLocCopy;
-    ccu::LocalAddr localDst;
+    ccu::event event;
+    ccu::local_addr srcLocCopy;
+    ccu::local_addr localDst;
 
     GroupCopyLoopGroupConfig moConfig;
     GroupCopyLoopGroupResource moRes;
     bool resourceAllocated;
     bool groupCopyRegistered;
 
-    std::unique_ptr<ccu::Func> copyBody[2];
-    std::unique_ptr<ccu::Loop> copyLoops[2];
-    ccu::Variable copyLoopParam[2];
+    std::unique_ptr<ccu::func> copyBody[2];
+    std::unique_ptr<ccu::loop> copyLoops[2];
+    ccu::variable copyLoopParam[2];
 
-    ccu::LocalAddr loopSrc[2];
-    ccu::LocalAddr loopDst[2];
-    ccu::Variable loopLen[2];
+    ccu::local_addr loopSrc[2];
+    ccu::local_addr loopDst[2];
+    ccu::variable loopLen[2];
 };
 
 // =============================================================================
@@ -174,22 +174,22 @@ static inline CcuResult AgAllocGoResource(
         return CCU_SUCCESS;
     }
 
-    config.msInterleave = AG_CCU_MS_INTERLEAVE;
-    config.loopCount = parallelDim;
-    config.memSlice = msPerLoop * AG_CCU_MS_SIZE;
+    config.ms_interleave = AG_CCU_MS_INTERLEAVE;
+    config.loop_count = parallelDim;
+    config.mem_slice = msPerLoop * AG_CCU_MS_SIZE;
 
-    res.eventCount = config.loopCount;
-    res.completedEvent = ccu::Array<ccu::Event>(res.eventCount);
+    res.eventCount = config.loop_count;
+    res.completed_event = ccu::array<ccu::event>(res.eventCount);
 
-    res.bufCount = config.loopCount * config.msInterleave;
-    res.ccuBuf = ccu::Array<ccu::CcuBuffer>(res.bufCount);
+    res.bufCount = config.loop_count * config.ms_interleave;
+    res.ccuBuf = ccu::array<ccu::ccu_buffer>(res.bufCount);
 
     allocated = true;
     return CCU_SUCCESS;
 }
 
-CcuResult AgGroupCopy(AllGatherContext& ctx, ccu::LocalAddr dst, ccu::LocalAddr src, GroupCopyGoSizeVars& goSize);
+CcuResult AgGroupCopy(AllGatherContext& ctx, ccu::local_addr dst_, ccu::local_addr src_, GroupCopyGoSizeVars& goSize);
 
-CcuResult CcuAllGatherMesh1dMem2MemKernel(CcuKernelArg arg);
+CcuResult CcuAllGatherMesh1dMem2MemKernel(ccu_kernel_arg arg);
 
 #endif // CCU_GROUPCOPY_DEMO_H

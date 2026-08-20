@@ -19,12 +19,12 @@
 
 namespace ops_hccl_rs {
 
-using CcuKernelHandle = uint64_t;
+using ccu_kernel_handle = uint64_t;
 constexpr uint32_t MAX_RANK_SIZE = 16;
 
 struct AlgResourceCtx {
     std::vector<ThreadHandle> threads;
-    std::vector<CcuKernelHandle> ccuKernels;
+    std::vector<ccu_kernel_handle> ccuKernels;
 };
 
 struct OpParam {
@@ -32,13 +32,13 @@ struct OpParam {
     void* inputPtr = nullptr;
     void* outputPtr = nullptr;
     uint64_t recvCount;
-    HcclDataType dataType;
-    HcclReduceOp reduceOp;
+    HcclDataType data_type_;
+    HcclReduceOp reduce_op;
     uint32_t myRank = 0;
     uint32_t rankSize = 0;
 };
 
-HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost);
+HcclResult AllocAlgResource(HcclComm comm, const OpParam& param_, AlgResourceCtx& resCtxHost);
 
 } // namespace ops_hccl_rs
 

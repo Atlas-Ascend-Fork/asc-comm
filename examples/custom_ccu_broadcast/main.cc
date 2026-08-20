@@ -46,38 +46,38 @@ struct ThreadContext {
 };
 
 static HcclResult HcclBroadcastCustom(
-    void* buffer, uint64_t count, HcclDataType dataType, uint32_t rootRank, HcclComm comm, aclrtStream stream)
+    void* buffer, uint64_t count_, HcclDataType data_type_, uint32_t rootRank, HcclComm comm, aclrtStream stream)
 {
     if (buffer == nullptr || comm == nullptr || stream == nullptr) {
         return HCCL_E_PTR;
     }
-    if (dataType != HCCL_DATA_TYPE_FP32) {
+    if (data_type_ != HCCL_DATA_TYPE_FP32) {
         return HCCL_E_NOT_SUPPORT;
     }
 
-    OpParam param;
-    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param.myRank));
-    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param.rankSize));
-    if (param.rankSize == 0 || param.rankSize > MAX_RANK_SIZE || rootRank >= param.rankSize) {
+    OpParam param_;
+    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param_.myRank));
+    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param_.rankSize));
+    if (param_.rankSize == 0 || param_.rankSize > MAX_RANK_SIZE || rootRank >= param_.rankSize) {
         return HCCL_E_NOT_SUPPORT;
     }
-    param.stream = stream;
-    param.buffer = buffer;
-    param.count = count;
-    param.dataType = dataType;
-    param.rootRank = rootRank;
+    param_.stream = stream;
+    param_.buffer = buffer;
+    param_.count_ = count_;
+    param_.data_type_ = data_type_;
+    param_.rootRank = rootRank;
 
     AlgResourceCtx resources;
-    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param, resources));
-    return ExecOp(param, resources);
+    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param_, resources));
+    return ExecOp(param_, resources);
 }
 
 static int Sample(void* arg)
 {
     auto* ctx = static_cast<ThreadContext*>(arg);
     constexpr uint32_t rootRank = 0;
-    const uint64_t count = ctx->devCount;
-    const size_t dataSize = count * sizeof(float);
+    const uint64_t count_ = ctx->devCount;
+    const size_t dataSize = count_ * sizeof(float);
 
     ACLCHECK(aclrtSetDevice(static_cast<int32_t>(ctx->device)));
     HcclComm comm;
@@ -90,13 +90,13 @@ static int Sample(void* arg)
     void* hostBuffer = nullptr;
     ACLCHECK(aclrtMallocHost(&hostBuffer, dataSize));
     auto* input = static_cast<float*>(hostBuffer);
-    for (uint64_t i = 0; i < count; i++) {
+    for (uint64_t i = 0; i < count_; i++) {
         input[i] = ctx->device == rootRank ? static_cast<float>(i) : -1.0F;
     }
     ACLCHECK(aclrtMemcpy(buffer, dataSize, hostBuffer, dataSize, ACL_MEMCPY_HOST_TO_DEVICE));
     ACLCHECK(aclrtFreeHost(hostBuffer));
 
-    HCCLCHECK(HcclBroadcastCustom(buffer, count, HCCL_DATA_TYPE_FP32, rootRank, comm, stream));
+    HCCLCHECK(HcclBroadcastCustom(buffer, count_, HCCL_DATA_TYPE_FP32, rootRank, comm, stream));
     ACLCHECK(aclrtSynchronizeStream(stream));
 
     std::this_thread::sleep_for(std::chrono::seconds(ctx->device));
@@ -106,7 +106,7 @@ static int Sample(void* arg)
     auto* output = static_cast<float*>(resultHost);
     bool passed = true;
     std::cout << "rankId: " << ctx->device << ", output: [";
-    for (uint64_t i = 0; i < count; i++) {
+    for (uint64_t i = 0; i < count_; i++) {
         std::cout << " " << output[i];
         passed = passed && (output[i] == static_cast<float>(i));
     }
