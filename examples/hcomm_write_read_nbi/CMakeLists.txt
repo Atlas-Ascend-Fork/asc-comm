@@ -104,4 +104,5 @@ set_target_properties(demo PROPERTIES
 
 target_compile_options(demo PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
+    $<$<COMPILE_LANGUAGE:ASC>:-include hcomm/dfx/hcomm_channel_dump.h>
 )
