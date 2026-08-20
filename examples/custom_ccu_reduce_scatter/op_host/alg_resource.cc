@@ -110,10 +110,11 @@ static HcclResult RegisterReduceScatterKernel(
 
     resCtxHost.ccuKernels.resize(1); // 只注册一个 kernel
 
-    asccomm_examples::CcuRegisterContextStorage contextStorage;
-    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, contextStorage));
-    CcuInsHandle insHandle = static_cast<CcuInsHandle>(contextStorage.context.instanceHandle);
-    CcuResult regStartRet = hcomm_ccu_kernel_register_start(insHandle, &contextStorage.context);
+    CcuInsHandle insHandle{0};
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, insHandle));
+    HcommCcuRegisterContextHandle context{nullptr};
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, context));
+    CcuResult regStartRet = hcomm_ccu_kernel_register_start(insHandle, context);
     if (regStartRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }

@@ -17,7 +17,7 @@
 #include "ccu_kernel.h"
 #include "ccu/hcomm/ccu_launch.h"
 #include "../../common/ccu_instance.h"
-#include "../../common/ccu_user_resource_context.h"
+#include "../../common/ccu_register_context.h"
 #include <hccl/hccl_ccu_res.h>
 
 namespace ops_hccl_ar {
@@ -111,12 +111,11 @@ static HcclResult RegisterAllReduceKernel(
 
     resCtxHost.ccuKernels.resize(1); // 只注册一个 kernel
 
-    asccomm_examples::CcuRegisterContextStorage hcommContextStorage;
-    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, hcommContextStorage));
-    asccomm_examples::CcuUserResourceContextStorage contextStorage;
-    RETURN_IF_HCCL_FAIL(asccomm_examples::BuildDefaultUserCcuRegisterContext(hcommContextStorage, contextStorage));
-    CcuInsHandle insHandle = static_cast<CcuInsHandle>(contextStorage.context.instanceHandle);
-    CcuResult regStartRet = hcomm_ccu_kernel_register_start(insHandle, &contextStorage.context);
+    CcuInsHandle insHandle{0};
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, insHandle));
+    HcommCcuRegisterContextHandle context{nullptr};
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, context));
+    CcuResult regStartRet = hcomm_ccu_kernel_register_start(insHandle, context);
     if (regStartRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
