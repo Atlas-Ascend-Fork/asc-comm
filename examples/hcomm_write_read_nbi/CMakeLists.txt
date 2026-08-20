@@ -64,6 +64,7 @@ add_dependencies(demo
 target_include_directories(demo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx
+    ${ASCCOMM_ROOT}/include/aicore
     ${HCOMM_STAGE_ROOT}/asc
     ${HCOMM_STAGE_ROOT}/asc/include
     ${HCOMM_STAGE_INCLUDE_DIR}
