@@ -155,12 +155,33 @@ make -j
 ./demo 4
 ```
 
-### 4. 编译选项说明
+### 4. 异常自诊断（DFX 通道 Dump）演示
+
+传入 `--fault` 开关后，样例在正常读写校验通过之后，会**额外**演示一遍 HCOMM DFX 的「异常发生 → 自动捕获通道现场 → 打印定位」能力，无需预埋 printf、无需重新出包：
+
+```bash
+# 双卡，正常通信通过后追加一次故障注入 + 通道 dump
+./demo --fault
+
+# 与 nranks 可同时指定，顺序不限
+./demo 2 --fault
+```
+
+开启后终端会先打印 `rank N test pass!`（正常路径），随后打印 `[fault]` 前缀的同步返回码，以及 rank 0 dump 出的 Channel / SQ / CQ / WQE / CQE 现场信息。
+
+**算子接入维测能力，只需两步**（见 `hcomm_write_read_nbi.asc` 中 `faultMode` 分支）：
+
+1. **注册**：launch 前调用 `AscendC::HcommDfxBindKernelException(kernelSymbol, devContext)`，绑定目标 kernel 的异常回调。缺此步则异常发生时框架不记录现场，后续 dump 会静默返回。
+2. **采集**：`aclrtSynchronizeStream` 返回错误后，在 host 安全点调用 `AscendC::HcommDfxDumpAndPrintChannelIfException(channel)`，采集并打印通道现场。
+
+> **说明：** `CommContext::triggerFault` 字段与核函数中的 `trap()` 分支、以及本样例「二次 launch 注入」逻辑，都**仅用于让样例可复现异常**。真实算子无需这些：异常由业务自身缺陷自然触发，算子只需保留上面的注册与采集两步。
+
+### 5. 编译选项说明
 | 选项 | 可选值 | 说明 |
 |------|--------|------|
 | `CMAKE_ASC_ARCHITECTURES` | `dav-3510`（默认） | NPU架构：`dav-3510`对应Ascend 950PR / Ascend 950DT |
 
-### 5. 执行结果
+### 6. 执行结果
 多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
 ```text
 rank 0 test pass!

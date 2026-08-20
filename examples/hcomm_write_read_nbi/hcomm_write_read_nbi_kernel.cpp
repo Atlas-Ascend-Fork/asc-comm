@@ -37,6 +37,12 @@ public:
         static_assert(
             operationType == HCOMM_READ_ONLY || operationType == HCOMM_WRITE_ONLY || operationType == HCOMM_READ_WRITE,
             "Unsupported Hcomm operation type");
+        // --fault 演示路径：注入 trap 触发 AIC Error，供 DFX 通道 dump 复现。
+        // 真实算子无此分支，异常由业务自身缺陷触发。
+        if (context_->triggerFault != 0U) {
+            trap();
+            return;
+        }
         context_->testResult = TEST_SUCCESS;
         if (!initOk_) {
             context_->testResult = TEST_HCOMM_INIT_FAILED;
