@@ -57,24 +57,24 @@ static HcclResult HcclAllToAllVCustom(
         return HCCL_E_NOT_SUPPORT;
     }
 
-    OpParam param;
-    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param.myRank));
-    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param.rankSize));
-    if (param.rankSize == 0 || param.rankSize > MAX_RANK_SIZE || sendCounts[param.myRank] != recvCounts[param.myRank]) {
+    OpParam param_;
+    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param_.myRank));
+    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param_.rankSize));
+    if (param_.rankSize == 0 || param_.rankSize > MAX_RANK_SIZE || sendCounts[param_.myRank] != recvCounts[param_.myRank]) {
         return HCCL_E_NOT_SUPPORT;
     }
-    param.stream = stream;
-    param.inputPtr = sendBuf;
-    param.outputPtr = recvBuf;
-    param.sendCounts.assign(sendCounts, sendCounts + param.rankSize);
-    param.sendDispls.assign(sendDispls, sendDispls + param.rankSize);
-    param.recvCounts.assign(recvCounts, recvCounts + param.rankSize);
-    param.recvDispls.assign(recvDispls, recvDispls + param.rankSize);
-    param.dataType = sendType;
+    param_.stream = stream;
+    param_.inputPtr = sendBuf;
+    param_.outputPtr = recvBuf;
+    param_.sendCounts.assign(sendCounts, sendCounts + param_.rankSize);
+    param_.sendDispls.assign(sendDispls, sendDispls + param_.rankSize);
+    param_.recvCounts.assign(recvCounts, recvCounts + param_.rankSize);
+    param_.recvDispls.assign(recvDispls, recvDispls + param_.rankSize);
+    param_.data_type_ = sendType;
 
     AlgResourceCtx resources;
-    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param, resources));
-    return ExecOp(param, resources);
+    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param_, resources));
+    return ExecOp(param_, resources);
 }
 
 static int Sample(void* arg)
@@ -112,9 +112,9 @@ static int Sample(void* arg)
     void* hostBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&hostBuf, sendSize));
     auto* input = static_cast<float*>(hostBuf);
-    for (uint32_t dst = 0; dst < ctx->devCount; dst++) {
-        for (uint64_t i = 0; i < sendCounts[dst]; i++) {
-            input[sendDispls[dst] + i] = static_cast<float>(ctx->device * 1000 + dst * 100 + i);
+    for (uint32_t dst_ = 0; dst_ < ctx->devCount; dst_++) {
+        for (uint64_t i = 0; i < sendCounts[dst_]; i++) {
+            input[sendDispls[dst_] + i] = static_cast<float>(ctx->device * 1000 + dst_ * 100 + i);
         }
     }
     ACLCHECK(aclrtMemcpy(sendBuf, sendSize, hostBuf, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
@@ -132,12 +132,12 @@ static int Sample(void* arg)
     auto* output = static_cast<float*>(resultHost);
     bool passed = true;
     std::cout << "rankId: " << ctx->device << ", output: [";
-    for (uint32_t src = 0; src < ctx->devCount; src++) {
-        for (uint64_t i = 0; i < recvCounts[src]; i++) {
-            const float expected = static_cast<float>(src * 1000 + ctx->device * 100 + i);
-            const float actual = output[recvDispls[src] + i];
+    for (uint32_t src_ = 0; src_ < ctx->devCount; src_++) {
+        for (uint64_t i = 0; i < recvCounts[src_]; i++) {
+            const float expected_ = static_cast<float>(src_ * 1000 + ctx->device * 100 + i);
+            const float actual = output[recvDispls[src_] + i];
             std::cout << " " << actual;
-            passed = passed && (actual == expected);
+            passed = passed && (actual == expected_);
         }
     }
     std::cout << " ]" << std::endl;

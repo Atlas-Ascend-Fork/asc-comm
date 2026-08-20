@@ -13,17 +13,17 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepJumpLabel::CcuRepJumpLabel(CcuInsGeneraterBase* insGeneratorPtr, const std::string& label)
-    : CcuRepBlock(insGeneratorPtr, label)
+ccu_rep_jump_label::ccu_rep_jump_label(ccu_ins_generater_base* ins_generator_ptr, const std::string& label)
+    : ccu_rep_block(ins_generator_ptr, label)
 {
-    type = CcuRepType::JUMP_LABEL;
-    Append(std::make_shared<CcuRepNop>(insGeneratorPtr));
+    type_ = ccu_rep_type::jump_label;
+    append(std::make_shared<ccu_rep_nop>(ins_generator_ptr));
 }
 
-std::string CcuRepJumpLabel::Describe() { return asccomm::FormatCcuMessage("JumpLabel[%s]", GetLabel().c_str()); }
+std::string ccu_rep_jump_label::describe() { return asc::format_ccu_message("JumpLabel[%s]", get_label().c_str()); }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

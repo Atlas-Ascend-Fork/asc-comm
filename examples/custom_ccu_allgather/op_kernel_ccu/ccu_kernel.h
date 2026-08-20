@@ -40,90 +40,90 @@ namespace ops_hccl_ag {
     } while (0)
 
 constexpr uint64_t CCU_MAX_RANK_SIZE = 16;
-constexpr uint64_t CCU_MS_INTERLEAVE = 8;
-constexpr uint64_t CCU_MS_SIZE = 4096;
+constexpr uint64_t ccu_ms_interleave = 8;
+constexpr uint64_t ccu_ms_size = 4096;
 constexpr uint32_t CCU_LOCAL_COPY_MS_PER_LOOP = 8;
 constexpr uint32_t CCU_MS_LOCAL_COPY_LOOP_COUNT = 8;
 
-struct LoopGroupConfig {
-    uint32_t msInterleave;
-    uint32_t loopCount;
-    uint64_t memSlice;
+struct loop_group_config {
+    uint32_t ms_interleave;
+    uint32_t loop_count;
+    uint64_t mem_slice;
 };
 
 struct GroupOpSize {
-    uint64_t addrOffset;
-    uint64_t loopParam;
-    uint64_t parallelParam;
+    uint64_t addr_offset;
+    uint64_t loop_param_;
+    uint64_t parallel_param;
     uint64_t residual;
 };
 
-constexpr uint64_t SetBits(uint16_t start, uint16_t end)
+constexpr uint64_t set_bits(uint16_t start, uint16_t end)
 {
     return ((uint64_t(1) << (end - start + 1)) - uint64_t(1)) << start;
 }
 
-constexpr uint64_t SetBits(uint16_t end)
+constexpr uint64_t set_bits(uint16_t end)
 {
     return (uint64_t(1) << (end + 1)) - uint64_t(1);
 }
 
 constexpr uint64_t GetMaxLoopIterNum()
 {
-    constexpr uint16_t loopNumBitNum = 12;
-    return SetBits(loopNumBitNum);
+    constexpr uint16_t loop_num_bit_num = 12;
+    return set_bits(loop_num_bit_num);
 }
 
-constexpr uint64_t GetLoopParam(uint64_t loopCtxId, uint64_t gsaOffset, uint64_t loopIterNum)
+constexpr uint64_t get_loop_param(uint64_t loop_ctx_id, uint64_t gsa_offset, uint64_t loop_iter_num_)
 {
-    constexpr uint16_t ctxIdBitNum = 8;
-    constexpr uint16_t ctxIdShiftBit = 45;
-    constexpr uint16_t gsaBitNum = 32;
-    constexpr uint16_t gsaShiftBit = 13;
-    constexpr uint16_t loopNumBitNum = 13;
-    constexpr uint16_t loopNumShiftBit = 0;
-    return ((loopCtxId & SetBits(ctxIdBitNum)) << ctxIdShiftBit) | ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit) |
-           ((loopIterNum & SetBits(loopNumBitNum)) << loopNumShiftBit);
+    constexpr uint16_t ctx_id_bit_num = 8;
+    constexpr uint16_t ctx_id_shift_bit = 45;
+    constexpr uint16_t gsa_bit_num = 32;
+    constexpr uint16_t gsa_shift_bit = 13;
+    constexpr uint16_t loop_num_bit_num = 13;
+    constexpr uint16_t loop_num_shift_bit = 0;
+    return ((loop_ctx_id & set_bits(ctx_id_bit_num)) << ctx_id_shift_bit) | ((gsa_offset & set_bits(gsa_bit_num)) << gsa_shift_bit) |
+           ((loop_iter_num_ & set_bits(loop_num_bit_num)) << loop_num_shift_bit);
 }
 
-constexpr uint64_t GetParallelParam(uint64_t repeatNum, uint64_t repeatLoopIndex, uint64_t totalLoopNum)
+constexpr uint64_t get_parallel_param(uint64_t repeat_num, uint64_t repeat_loop_index, uint64_t total_loop_num)
 {
-    constexpr uint16_t repeatBitNum = 7;
-    constexpr uint16_t repeatNumShiftBit = 55;
-    constexpr uint16_t repeatLoopBitNum = 7;
-    constexpr uint16_t repeatLoopShiftBit = 48;
-    constexpr uint16_t totalLoopBitNum = 7;
-    constexpr uint16_t totalLoopShiftBit = 41;
-    return ((repeatNum & SetBits(repeatBitNum)) << repeatNumShiftBit) |
-           ((repeatLoopIndex & SetBits(repeatLoopBitNum)) << repeatLoopShiftBit) |
-           ((totalLoopNum & SetBits(totalLoopBitNum)) << totalLoopShiftBit);
+    constexpr uint16_t repeat_bit_num = 7;
+    constexpr uint16_t repeat_num_shift_bit = 55;
+    constexpr uint16_t repeat_loop_bit_num = 7;
+    constexpr uint16_t repeat_loop_shift_bit = 48;
+    constexpr uint16_t total_loop_bit_num = 7;
+    constexpr uint16_t total_loop_shift_bit = 41;
+    return ((repeat_num & set_bits(repeat_bit_num)) << repeat_num_shift_bit) |
+           ((repeat_loop_index & set_bits(repeat_loop_bit_num)) << repeat_loop_shift_bit) |
+           ((total_loop_num & set_bits(total_loop_bit_num)) << total_loop_shift_bit);
 }
 
-constexpr uint64_t GetOffsetParam(uint64_t gsaOffset, uint64_t msOffset, uint64_t ckeOffset)
+constexpr uint64_t get_offset_param(uint64_t gsa_offset, uint64_t ms_offset, uint64_t cke_offset)
 {
-    constexpr uint16_t gsaBitNum = 32;
-    constexpr uint16_t gsaShiftBit = 21;
-    constexpr uint16_t msBitNum = 11;
-    constexpr uint16_t msShiftBit = 10;
-    constexpr uint16_t ckeBitNum = 10;
-    constexpr uint16_t ckeShiftBit = 0;
-    return ((gsaOffset & SetBits(gsaBitNum)) << gsaShiftBit) | ((msOffset & SetBits(msBitNum)) << msShiftBit) |
-           ((ckeOffset & SetBits(ckeBitNum)) << ckeShiftBit);
+    constexpr uint16_t gsa_bit_num = 32;
+    constexpr uint16_t gsa_shift_bit = 21;
+    constexpr uint16_t ms_bit_num = 11;
+    constexpr uint16_t ms_shift_bit = 10;
+    constexpr uint16_t cke_bit_num = 10;
+    constexpr uint16_t cke_shift_bit = 0;
+    return ((gsa_offset & set_bits(gsa_bit_num)) << gsa_shift_bit) | ((ms_offset & set_bits(ms_bit_num)) << ms_shift_bit) |
+           ((cke_offset & set_bits(cke_bit_num)) << cke_shift_bit);
 }
 
-inline GroupOpSize CalGoSize(uint64_t size, const LoopGroupConfig& config)
+inline GroupOpSize CalGoSize(uint64_t size, const loop_group_config& config)
 {
-    uint64_t loopSize = config.loopCount * config.memSlice;
+    uint64_t loopSize = config.loop_count * config.mem_slice;
     uint64_t maxSize = loopSize * (GetMaxLoopIterNum() + 1);
 
     uint64_t m = size / loopSize;
-    uint64_t n = (size - m * loopSize) / config.memSlice;
-    uint64_t p = size - m * loopSize - n * config.memSlice;
+    uint64_t n = (size - m * loopSize) / config.mem_slice;
+    uint64_t p = size - m * loopSize - n * config.mem_slice;
 
     if (size == maxSize) {
         m = GetMaxLoopIterNum();
-        n = config.loopCount - 1;
-        p = config.memSlice;
+        n = config.loop_count - 1;
+        p = config.mem_slice;
     }
 
     uint64_t loopExtendNum = 0;
@@ -134,37 +134,37 @@ inline GroupOpSize CalGoSize(uint64_t size, const LoopGroupConfig& config)
         loopExtendNum = 0;
         tailSize = 0;
     } else if (n != 0 && p == 0) {
-        loopExtendNum = GetParallelParam(n - 1, 0, 1);
-        tailSize = config.memSlice;
+        loopExtendNum = get_parallel_param(n - 1, 0, 1);
+        tailSize = config.mem_slice;
     } else if (n == 0 && p != 0) {
-        loopExtendNum = GetParallelParam(0, 0, 1);
+        loopExtendNum = get_parallel_param(0, 0, 1);
         tailSize = p;
     } else {
-        loopExtendNum = GetParallelParam(n - 1, 1, loopNumTwo);
+        loopExtendNum = get_parallel_param(n - 1, 1, loopNumTwo);
         tailSize = p;
     }
 
-    return {config.memSlice * config.loopCount * m, m, loopExtendNum, tailSize};
+    return {config.mem_slice * config.loop_count * m, m, loopExtendNum, tailSize};
 }
 
 struct LoopGroupResource {
-    ccu::Array<ccu::Event> completedEvent{0};
-    ccu::Array<ccu::CcuBuffer> ccuBuf{0};
+    ccu::array<ccu::event> completed_event{0};
+    ccu::array<ccu::ccu_buffer> ccuBuf{0};
     uint32_t eventCount;
     uint32_t bufCount;
 };
 
 struct GroupOpSizeVars {
-    ccu::Variable addrOffset;
-    ccu::Variable loopParam;
-    ccu::Variable parallelParam;
-    ccu::Variable residual;
+    ccu::variable addr_offset;
+    ccu::variable loop_param_;
+    ccu::variable parallel_param;
+    ccu::variable residual;
 };
 
 struct CcuLoopEntity {
-    std::unique_ptr<ccu::Func> body[2];
-    std::unique_ptr<ccu::Loop> loops[2];
-    ccu::Variable loopParam[2];
+    std::unique_ptr<ccu::func> body[2];
+    std::unique_ptr<ccu::loop> loops[2];
+    ccu::variable loop_param_[2];
 };
 
 struct CcuKernelArgBase {
@@ -172,20 +172,20 @@ struct CcuKernelArgBase {
     uint32_t channelCount;
 };
 
-struct CcuKernelInfo {
-    char kernelFuncName[64];
-    void* kernelFunc;
-    void* kernelArg;
+struct ccu_kernel_info {
+    char kernel_func_name[64];
+    void* kernel_func;
+    void* kernel_arg;
 
 private:
     std::shared_ptr<CcuKernelArgBase> kernelArgSmartPtr;
 
 public:
-    template <typename T>
-    void setKernelArg(std::shared_ptr<T> arg)
+    template <typename t>
+    void setKernelArg(std::shared_ptr<t> arg)
     {
         kernelArgSmartPtr = std::static_pointer_cast<CcuKernelArgBase>(arg);
-        kernelArg = static_cast<void*>(arg.get());
+        kernel_arg = static_cast<void*>(arg.get());
     }
 };
 
@@ -197,16 +197,16 @@ struct CcuKernelArgAllGatherMesh1DMem2Mem : public CcuKernelArgBase {
 struct AllGatherMesh1DMem2MemContext {
     const CcuKernelArgAllGatherMesh1DMem2Mem* arg;
 
-    ccu::Variable input;
-    std::vector<ccu::Variable> output;
-    std::vector<ccu::Variable> token;
-    ccu::Variable currentRankSliceInputOffset;
-    ccu::Variable currentRankSliceOutputOffset;
-    ccu::Variable sliceSize;
-    ccu::Event event;
+    ccu::variable input;
+    std::vector<ccu::variable> output;
+    std::vector<ccu::variable> token;
+    ccu::variable currentRankSliceInputOffset;
+    ccu::variable currentRankSliceOutputOffset;
+    ccu::variable sliceSize;
+    ccu::event event;
 
     GroupOpSizeVars goSize;
-    LoopGroupConfig moConfig;
+    loop_group_config moConfig;
     LoopGroupResource moRes;
     bool resourceAllocated = false;
 
@@ -223,7 +223,7 @@ struct AllGatherMesh1DMem2MemContext {
     }
 };
 
-CcuResult CcuAllGatherMesh1DMem2MemKernel(CcuKernelArg arg);
+CcuResult CcuAllGatherMesh1DMem2MemKernel(ccu_kernel_arg arg);
 
 } // namespace ops_hccl_ag
 

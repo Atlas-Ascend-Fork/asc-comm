@@ -14,42 +14,42 @@
 #include <limits>
 #include <vector>
 
-namespace asccomm {
+namespace asc {
 namespace {
 
-std::vector<HcommCcuResRangePod> *GetRanges(
-    AscCcuResRepository &repository, uint32_t resourceType, uint32_t dieId)
+std::vector<HcommCcuResRangePod> *get_ranges(
+    asc_ccu_res_repository &repository, uint32_t resource_type, uint32_t die_id)
 {
-    switch (resourceType) {
-        case HCOMM_CCU_BATCH_RES_LOOP: return &repository.loopEngine[dieId];
-        case HCOMM_CCU_BATCH_RES_BLOCK_LOOP: return &repository.blockLoopEngine[dieId];
-        case HCOMM_CCU_BATCH_RES_MS: return &repository.ms[dieId];
-        case HCOMM_CCU_BATCH_RES_BLOCK_MS: return &repository.blockMs[dieId];
-        case HCOMM_CCU_BATCH_RES_CKE: return &repository.cke[dieId];
-        case HCOMM_CCU_BATCH_RES_BLOCK_CKE: return &repository.blockCke[dieId];
-        case HCOMM_CCU_BATCH_RES_XN: return &repository.xn[dieId];
-        case HCOMM_CCU_BATCH_RES_BLOCK_XN: return &repository.blockXn[dieId];
-        case HCOMM_CCU_BATCH_RES_GSA: return &repository.gsa[dieId];
-        case HCOMM_CCU_BATCH_RES_BLOCK_GSA: return &repository.blockGsa[dieId];
-        case HCOMM_CCU_BATCH_RES_MISSION: return &repository.mission[dieId];
-        case HCOMM_CCU_RES_INSTRUCTION: return &repository.instruction[dieId];
+    switch (resource_type) {
+        case HCOMM_CCU_BATCH_RES_LOOP: return &repository.loop_engine[die_id];
+        case HCOMM_CCU_BATCH_RES_BLOCK_LOOP: return &repository.block_loop_engine[die_id];
+        case HCOMM_CCU_BATCH_RES_MS: return &repository.ms[die_id];
+        case HCOMM_CCU_BATCH_RES_BLOCK_MS: return &repository.block_ms[die_id];
+        case HCOMM_CCU_BATCH_RES_CKE: return &repository.cke[die_id];
+        case HCOMM_CCU_BATCH_RES_BLOCK_CKE: return &repository.block_cke[die_id];
+        case HCOMM_CCU_BATCH_RES_XN: return &repository.xn[die_id];
+        case HCOMM_CCU_BATCH_RES_BLOCK_XN: return &repository.block_xn[die_id];
+        case HCOMM_CCU_BATCH_RES_GSA: return &repository.gsa[die_id];
+        case HCOMM_CCU_BATCH_RES_BLOCK_GSA: return &repository.block_gsa[die_id];
+        case HCOMM_CCU_BATCH_RES_MISSION: return &repository.mission[die_id];
+        case HCOMM_CCU_RES_INSTRUCTION: return &repository.instruction[die_id];
         default: return nullptr;
     }
 }
 
-bool IsHeaderValid(const HcommCcuRegisterContextPod &context)
+bool is_header_valid(const HcommCcuRegisterContextPod &context)
 {
     return context.header.version == HCOMM_CCU_RES_ABI_VERSION &&
         context.header.magicWord == HCOMM_CCU_REGISTER_CONTEXT_MAGIC_WORD &&
         context.header.size == sizeof(HcommCcuRegisterContextPod) && context.header.reserved == 0;
 }
 
-bool IsViewShapeValid(const HcommCcuResRangeViewPod &view)
+bool is_view_shape_valid(const HcommCcuResRangeViewPod &view)
 {
     return view.reserved == 0 && (view.count == 0 || view.ranges != nullptr);
 }
 
-bool IsControlOpsValid(const HcommCcuControlOpsPod &ops)
+bool is_control_ops_valid(const HcommCcuControlOpsPod &ops)
 {
     return ops.header.version == HCOMM_CCU_CONTROL_ABI_VERSION &&
         ops.header.magicWord == HCOMM_CCU_CONTROL_OPS_MAGIC_WORD &&
@@ -59,32 +59,32 @@ bool IsControlOpsValid(const HcommCcuControlOpsPod &ops)
         ops.gsaQuery != nullptr && ops.reserved == 0;
 }
 
-bool IsDisabledDieMetadataValid(const HcommCcuDieMetadataPod &metadata)
+bool is_disabled_die_metadata_valid(const HcommCcuDieMetadataPod &metadata)
 {
     return metadata.enabled == 0 && metadata.missionKey == 0 && metadata.innerDieLoopChannelId == 0 &&
         metadata.interDieLoopChannelId == 0 && metadata.xnBaseAddr == 0 && metadata.resourceSpaceTokenId == 0 &&
         metadata.resourceSpaceTokenValue == 0 && metadata.instructionCapacity == 0 && metadata.reserved == 0;
 }
 
-bool RangesOverlap(const HcommCcuResRangePod &left, const HcommCcuResRangePod &right)
+bool ranges_overlap(const HcommCcuResRangePod &left, const HcommCcuResRangePod &right)
 {
     if (left.resourceType != right.resourceType || left.dieId != right.dieId) {
         return false;
     }
-    const uint64_t leftEnd = static_cast<uint64_t>(left.startId) + left.count;
-    const uint64_t rightEnd = static_cast<uint64_t>(right.startId) + right.count;
-    return static_cast<uint64_t>(left.startId) < rightEnd && static_cast<uint64_t>(right.startId) < leftEnd;
+    const uint64_t left_end = static_cast<uint64_t>(left.startId) + left.count;
+    const uint64_t right_end = static_cast<uint64_t>(right.startId) + right.count;
+    return static_cast<uint64_t>(left.startId) < right_end && static_cast<uint64_t>(right.startId) < left_end;
 }
 
-CcuResult ValidateAndAppend(const HcommCcuResRangeViewPod &view,
-    uint32_t validDieMask, std::vector<HcommCcuResRangePod> &allRanges, AscCcuResRepository &repository)
+CcuResult validate_and_append(const HcommCcuResRangeViewPod &view,
+    uint32_t valid_die_mask, std::vector<HcommCcuResRangePod> &all_ranges, asc_ccu_res_repository &repository)
 {
-    if (!IsViewShapeValid(view)) {
+    if (!is_view_shape_valid(view)) {
         return CcuResult::CCU_E_PARA;
     }
     for (uint32_t index = 0; index < view.count; ++index) {
         const HcommCcuResRangePod &range = view.ranges[index];
-        if (range.dieId >= HCOMM_CCU_MAX_DIE_NUM || (validDieMask & (1U << range.dieId)) == 0 || range.count == 0 ||
+        if (range.dieId >= HCOMM_CCU_MAX_DIE_NUM || (valid_die_mask & (1U << range.dieId)) == 0 || range.count == 0 ||
             static_cast<uint64_t>(range.startId) + range.count >
                 static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1U) {
             return CcuResult::CCU_E_PARA;
@@ -92,13 +92,13 @@ CcuResult ValidateAndAppend(const HcommCcuResRangeViewPod &view,
         if (range.resourceType > HCOMM_CCU_RES_INSTRUCTION) {
             return CcuResult::CCU_E_PARA;
         }
-        for (const auto &existing : allRanges) {
-            if (RangesOverlap(existing, range)) {
+        for (const auto &existing : all_ranges) {
+            if (ranges_overlap(existing, range)) {
                 return CcuResult::CCU_E_PARA;
             }
         }
-        allRanges.push_back(range);
-        auto *destination = GetRanges(repository, range.resourceType, range.dieId);
+        all_ranges.push_back(range);
+        auto *destination = get_ranges(repository, range.resourceType, range.dieId);
         if (destination == nullptr) {
             return CcuResult::CCU_E_PARA;
         }
@@ -109,74 +109,74 @@ CcuResult ValidateAndAppend(const HcommCcuResRangeViewPod &view,
 
 } // namespace
 
-CcuResult AscCcuResSnapshot::Load(const HcommCcuRegisterContextPod &context)
+CcuResult asc_ccu_res_snapshot::load(const HcommCcuRegisterContextPod &context)
 {
-    if (!IsHeaderValid(context) || context.generation == 0 || context.deviceLogicId < 0 || context.ccuVersion > 1 ||
+    if (!is_header_valid(context) || context.generation == 0 || context.deviceLogicId < 0 || context.ccuVersion > 1 ||
         context.dieNum != HCOMM_CCU_MAX_DIE_NUM ||
         context.validDieMask == 0 || (context.validDieMask & ~((1U << HCOMM_CCU_MAX_DIE_NUM) - 1U)) != 0 ||
         context.reserved[0] != 0 || context.reserved[1] != 0 ||
-        !IsControlOpsValid(context.controlOps) || !IsViewShapeValid(context.instanceResources)) {
+        !is_control_ops_valid(context.controlOps) || !is_view_shape_valid(context.instanceResources)) {
         return CcuResult::CCU_E_PARA;
     }
     if (generation_ != 0 && generation_ != context.generation) {
         return CcuResult::CCU_E_PARA;
     }
 
-    AscCcuResRepository instanceSnapshot{};
-    std::vector<HcommCcuResRangePod> allRanges;
-    allRanges.reserve(context.instanceResources.count);
+    asc_ccu_res_repository instance_snapshot{};
+    std::vector<HcommCcuResRangePod> all_ranges;
+    all_ranges.reserve(context.instanceResources.count);
 
-    CcuResult ret = ValidateAndAppend(context.instanceResources, context.validDieMask, allRanges, instanceSnapshot);
+    CcuResult ret = validate_and_append(context.instanceResources, context.validDieMask, all_ranges, instance_snapshot);
     if (ret != CcuResult::CCU_SUCCESS) {
         return ret;
     }
 
-    for (uint32_t dieId = 0; dieId < HCOMM_CCU_MAX_DIE_NUM; ++dieId) {
-        const bool enabled = (context.validDieMask & (1U << dieId)) != 0;
-        const HcommCcuDieMetadataPod &metadata = context.die[dieId];
+    for (uint32_t die_id = 0; die_id < HCOMM_CCU_MAX_DIE_NUM; ++die_id) {
+        const bool enabled = (context.validDieMask & (1U << die_id)) != 0;
+        const HcommCcuDieMetadataPod &metadata = context.die[die_id];
         if (metadata.enabled > 1 || (metadata.enabled != 0) != enabled || metadata.reserved != 0 ||
-            (!enabled && !IsDisabledDieMetadataValid(metadata))) {
+            (!enabled && !is_disabled_die_metadata_valid(metadata))) {
             return CcuResult::CCU_E_PARA;
         }
     }
 
-    AscCcuResRepository currentRepo = instanceSnapshot;
+    asc_ccu_res_repository current_repo = instance_snapshot;
     generation_ = context.generation;
-    deviceLogicId_ = context.deviceLogicId;
-    ccuVersion_ = context.ccuVersion;
-    validDieMask_ = context.validDieMask;
-    controlOps_ = context.controlOps;
-    initialRepo_ = std::move(instanceSnapshot);
-    resRepo_ = std::move(currentRepo);
-    dieMetadata_[0] = context.die[0];
-    dieMetadata_[1] = context.die[1];
+    device_logic_id_ = context.deviceLogicId;
+    ccu_version_ = context.ccuVersion;
+    valid_die_mask_ = context.validDieMask;
+    control_ops_ = context.controlOps;
+    initial_repo_ = std::move(instance_snapshot);
+    res_repo_ = std::move(current_repo);
+    die_metadata_[0] = context.die[0];
+    die_metadata_[1] = context.die[1];
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult AscCcuResSnapshot::Reset()
+CcuResult asc_ccu_res_snapshot::reset()
 {
     if (generation_ == 0) {
         return CcuResult::CCU_E_UNAVAIL;
     }
-    resRepo_ = initialRepo_;
+    res_repo_ = initial_repo_;
     return CcuResult::CCU_SUCCESS;
 }
 
-AscCcuResRepository &AscCcuResSnapshot::GetCcuResRepo() { return resRepo_; }
+asc_ccu_res_repository &asc_ccu_res_snapshot::get_ccu_res_repo() { return res_repo_; }
 
-const HcommCcuDieMetadataPod *AscCcuResSnapshot::GetDieMetadata(uint32_t dieId) const
+const HcommCcuDieMetadataPod *asc_ccu_res_snapshot::get_die_metadata(uint32_t die_id) const
 {
-    return dieId < HCOMM_CCU_MAX_DIE_NUM && (validDieMask_ & (1U << dieId)) != 0 ? &dieMetadata_[dieId] : nullptr;
+    return die_id < HCOMM_CCU_MAX_DIE_NUM && (valid_die_mask_ & (1U << die_id)) != 0 ? &die_metadata_[die_id] : nullptr;
 }
 
-uint64_t AscCcuResSnapshot::GetGeneration() const { return generation_; }
+uint64_t asc_ccu_res_snapshot::get_generation() const { return generation_; }
 
-int32_t AscCcuResSnapshot::GetDeviceLogicId() const { return deviceLogicId_; }
+int32_t asc_ccu_res_snapshot::get_device_logic_id() const { return device_logic_id_; }
 
-uint32_t AscCcuResSnapshot::GetCcuVersion() const { return ccuVersion_; }
+uint32_t asc_ccu_res_snapshot::get_ccu_version() const { return ccu_version_; }
 
-uint32_t AscCcuResSnapshot::GetValidDieMask() const { return validDieMask_; }
+uint32_t asc_ccu_res_snapshot::get_valid_die_mask() const { return valid_die_mask_; }
 
-const HcommCcuControlOpsPod &AscCcuResSnapshot::GetControlOps() const { return controlOps_; }
+const HcommCcuControlOpsPod &asc_ccu_res_snapshot::get_control_ops() const { return control_ops_; }
 
-} // namespace asccomm
+} // namespace asc

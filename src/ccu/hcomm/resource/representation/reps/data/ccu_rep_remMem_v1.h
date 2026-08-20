@@ -8,31 +8,31 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_REM_MEM_H
-#define HCOMM_CCU_REPRESENTATION_REM_MEM_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_REM_MEM_H
+#define ASCCOMM_CCU_REPRESENTATION_REM_MEM_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepRemMem : public CcuRepBase {
+class ccu_rep_rem_mem : public ccu_rep_base {
 public:
-    explicit CcuRepRemMem(CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    explicit ccu_rep_rem_mem(ccu_ins_generater_base* ins_gen_ptr, const ChannelHandle channel, remote_addr rem);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 
-    ChannelHandle GetChannel() { return channel; }
-    RemoteAddr GetRem() { return rem; }
+    ChannelHandle get_channel() { return channel_; }
+    remote_addr get_rem() { return rem_; }
 
 private:
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    ChannelHandle channel;
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
+    ChannelHandle channel_;
 
-    RemoteAddr rem{};
+    remote_addr rem_{};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_REM_MEM_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_REM_MEM_H

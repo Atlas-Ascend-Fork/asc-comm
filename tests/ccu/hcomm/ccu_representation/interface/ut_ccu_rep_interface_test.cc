@@ -26,7 +26,7 @@
 #include <memory>
 
 namespace hcomm {
-namespace CcuRep {
+namespace ccu_rep {
 namespace {
 
 class CcuRepInterfaceTest : public ::testing::Test {
@@ -37,349 +37,349 @@ protected:
 
 TEST_F(CcuRepInterfaceTest, CcuPhyRes_IdAndDieId)
 {
-    CcuPhyRes phyRes;
-    phyRes.Reset(10);
-    EXPECT_EQ(phyRes.Id(), 10);
+    ccu_phy_res phy_res_;
+    phy_res_.reset(10);
+    EXPECT_EQ(phy_res_.id(), 10);
 
-    phyRes.SetDieId(5);
-    EXPECT_EQ(phyRes.DieId(), 5);
+    phy_res_.set_die_id(5);
+    EXPECT_EQ(phy_res_.die_id(), 5);
 }
 
 TEST_F(CcuRepInterfaceTest, CcuPhyRes_ResetWithIdAndDieId)
 {
-    CcuVirRes virRes(nullptr);
-    virRes.Reset(20, 3);
-    EXPECT_EQ(virRes.Id(), 20);
-    EXPECT_EQ(virRes.DieId(), 3);
+    ccu_vir_res virRes(nullptr);
+    virRes.reset(20, 3);
+    EXPECT_EQ(virRes.id(), 20);
+    EXPECT_EQ(virRes.die_id(), 3);
 }
 
 TEST_F(CcuRepInterfaceTest, CcuVirRes_IdAndDieId)
 {
-    CcuRepContext context;
-    CcuVirRes virRes(&context);
-    virRes.Reset(15);
-    virRes.SetDieId(7);
-    EXPECT_EQ(virRes.Id(), 15);
-    EXPECT_EQ(virRes.DieId(), 7);
+    ccu_rep_context context_;
+    ccu_vir_res virRes(&context_);
+    virRes.reset(15);
+    virRes.set_die_id(7);
+    EXPECT_EQ(virRes.id(), 15);
+    EXPECT_EQ(virRes.die_id(), 7);
 }
 
 TEST_F(CcuRepInterfaceTest, CcuBuffer_Id)
 {
-    CcuRepContext context;
-    CcuBuffer buffer(&context);
-    buffer.Reset(3);
-    buffer.SetDieId(1);
+    ccu_rep_context context_;
+    ccu_buffer buffer(&context_);
+    buffer.reset(3);
+    buffer.set_die_id(1);
     uint16_t expectedId = 3 + (1 << 15);
-    EXPECT_EQ(buffer.Id(), expectedId);
+    EXPECT_EQ(buffer.id(), expectedId);
 }
 
 TEST_F(CcuRepInterfaceTest, CcuBuf_Id)
 {
-    CcuRepContext context;
-    CcuBuf buf(&context);
-    buf.Reset(4);
-    buf.SetDieId(2);
+    ccu_rep_context context_;
+    ccu_buf buf(&context_);
+    buf.reset(4);
+    buf.set_die_id(2);
     uint16_t expectedId = 4 + (2 << 15);
-    EXPECT_EQ(buf.Id(), expectedId);
+    EXPECT_EQ(buf.id(), expectedId);
 }
 
 TEST_F(CcuRepInterfaceTest, LocalNotify_Constructor)
 {
-    CcuRepContext context;
-    LocalNotify notify(&context);
-    notify.Reset(8);
-    EXPECT_EQ(notify.Id(), 8);
+    ccu_rep_context context_;
+    local_notify notify(&context_);
+    notify.reset(8);
+    EXPECT_EQ(notify.id(), 8);
 }
 
 TEST_F(CcuRepInterfaceTest, Executor_Constructor)
 {
-    CcuRepContext context;
-    Executor executor(&context);
-    executor.Reset(12);
-    EXPECT_EQ(executor.Id(), 12);
+    ccu_rep_context context_;
+    executor executor(&context_);
+    executor.reset(12);
+    EXPECT_EQ(executor.id(), 12);
 }
 
 TEST_F(CcuRepInterfaceTest, Variable_CopyConstructor)
 {
-    CcuRepContext context;
-    Variable var1(&context);
-    var1.Reset(5);
+    ccu_rep_context context_;
+    variable var1(&context_);
+    var1.reset(5);
 
-    Variable var2(var1);
-    EXPECT_EQ(var2.Id(), 5);
+    variable var2(var1);
+    EXPECT_EQ(var2.id(), 5);
 }
 
 TEST_F(CcuRepInterfaceTest, Address_CopyConstructor)
 {
-    CcuRepContext context;
-    Address addr1(&context);
-    addr1.Reset(7);
+    ccu_rep_context context_;
+    address addr1(&context_);
+    addr1.reset(7);
 
-    Address addr2(addr1);
-    EXPECT_EQ(addr2.Id(), 7);
+    address addr2(addr1);
+    EXPECT_EQ(addr2.id(), 7);
 }
 
 TEST_F(CcuRepInterfaceTest, AppendToContext_NullContext)
 {
-    auto nop = std::make_shared<CcuRepNop>(nullptr);
-    EXPECT_THROW(AppendToContext(nullptr, nop), Hccl::CcuApiException);
+    auto nop = std::make_shared<ccu_rep_nop>(nullptr);
+    EXPECT_THROW(append_to_context(nullptr, nop), Hccl::CcuApiException);
 }
 
-TEST_F(CcuRepInterfaceTest, CurrentBlock_NullContext) { EXPECT_THROW(CurrentBlock(nullptr), Hccl::CcuApiException); }
+TEST_F(CcuRepInterfaceTest, CurrentBlock_NullContext) { EXPECT_THROW(current_block(nullptr), Hccl::CcuApiException); }
 
 TEST_F(CcuRepInterfaceTest, SetCurrentBlock_NullContext)
 {
-    std::shared_ptr<CcuRepBlock> block = nullptr;
-    EXPECT_THROW(SetCurrentBlock(nullptr, block), Hccl::CcuApiException);
+    std::shared_ptr<ccu_rep_block> block = nullptr;
+    EXPECT_THROW(set_current_block(nullptr, block), Hccl::CcuApiException);
 }
 
 TEST_F(CcuRepInterfaceTest, CreateVariable_NullContext)
 {
-    EXPECT_THROW(CreateVariable(nullptr), Hccl::CcuApiException);
+    EXPECT_THROW(create_variable(nullptr), Hccl::CcuApiException);
 }
 
 TEST_F(CcuRepInterfaceTest, CcuRepContext_AppendAndCurrentBlock)
 {
-    CcuRepContext context;
+    ccu_rep_context context_;
 
-    auto block1 = context.CurrentBlock();
+    auto block1 = context_.current_block();
     EXPECT_NE(block1, nullptr);
 
-    auto repFuncBlock = std::make_shared<CcuRepFuncBlock>(nullptr, "testFunc");
-    AppendToContext(&context, repFuncBlock);
+    auto rep_func_block_ = std::make_shared<ccu_rep_func_block>(nullptr, "testFunc");
+    append_to_context(&context_, rep_func_block_);
 
-    auto block2 = context.CurrentBlock();
+    auto block2 = context_.current_block();
     EXPECT_NE(block2, nullptr);
 }
 
 TEST_F(CcuRepInterfaceTest, FuncBlock_ConstructorAndDestructor)
 {
-    CcuRepContext context;
+    ccu_rep_context context_;
     {
-        FuncBlock funcBlock(&context, "testFunc", 1);
-        auto currentBlock = CurrentBlock(&context);
-        EXPECT_NE(currentBlock, nullptr);
+        func_block func_block_(&context_, "testFunc", 1);
+        auto current_block = current_block(&context_);
+        EXPECT_NE(current_block, nullptr);
     }
-    auto blockAfter = CurrentBlock(&context);
+    auto blockAfter = current_block(&context_);
     EXPECT_NE(blockAfter, nullptr);
 }
 
 TEST_F(CcuRepInterfaceTest, FuncCall_ConstructorWithLabel)
 {
-    CcuRepContext context;
-    CcuInsGeneraterV1 insGen;
-    context.SetInsGenerater(&insGen);
-    FuncCall funcCall(&context, "testCall");
-    funcCall.AppendToContext();
+    ccu_rep_context context_;
+    ccu_ins_generater_v1 insGen;
+    context_.set_ins_generater(&insGen);
+    func_call func_call(&context_, "testCall");
+    func_call.append_to_context();
 
-    auto reps = context.GetRepSequence();
+    auto reps = context_.get_rep_sequence();
     EXPECT_EQ(reps.size(), 1);
 }
 
 TEST_F(CcuRepInterfaceTest, FuncCall_ConstructorWithVariable)
 {
-    CcuRepContext context;
-    CcuInsGeneraterV1 insGen;
-    context.SetInsGenerater(&insGen);
-    Variable funcAddr(&context);
-    FuncCall funcCall(&context, funcAddr);
-    funcCall.AppendToContext();
+    ccu_rep_context context_;
+    ccu_ins_generater_v1 insGen;
+    context_.set_ins_generater(&insGen);
+    variable func_addr(&context_);
+    func_call func_call(&context_, func_addr);
+    func_call.append_to_context();
 
-    auto reps = context.GetRepSequence();
+    auto reps = context_.get_rep_sequence();
     EXPECT_EQ(reps.size(), 1);
 }
 
 TEST_F(CcuRepInterfaceTest, LoopBlock_ConstructorAndDestructor)
 {
-    CcuRepContext context;
+    ccu_rep_context context_;
     {
-        LoopBlock loopBlock(&context, "testLoop");
-        auto currentBlock = CurrentBlock(&context);
-        EXPECT_NE(currentBlock, nullptr);
+        loop_block loop_block_(&context_, "testLoop");
+        auto current_block = current_block(&context_);
+        EXPECT_NE(current_block, nullptr);
     }
-    EXPECT_THROW(CurrentBlock(&context), Hccl::CcuApiException);
+    EXPECT_THROW(current_block(&context_), Hccl::CcuApiException);
 }
 
 TEST_F(CcuRepInterfaceTest, LoopCall_ConstructorAndAppend)
 {
-    CcuRepContext context;
-    LoopCall loopCall(&context, "testLoopCall");
+    ccu_rep_context context_;
+    loop_call loopCall(&context_, "testLoopCall");
 
-    EXPECT_EQ(loopCall.GetLabel(), "testLoopCall");
+    EXPECT_EQ(loopCall.get_label(), "testLoopCall");
 }
 
 TEST_F(CcuRepInterfaceTest, CcuRepContext_SetAndGetDieId)
 {
-    CcuRepContext context;
-    context.SetDieId(3);
-    EXPECT_EQ(context.GetDieId(), 3);
+    ccu_rep_context context_;
+    context_.set_die_id(3);
+    EXPECT_EQ(context_.get_die_id(), 3);
 }
 
 TEST_F(CcuRepInterfaceTest, CcuRepContext_SetAndGetMissionId)
 {
-    CcuRepContext context;
-    context.SetMissionId(5);
-    EXPECT_EQ(context.GetMissionId(), 5);
+    ccu_rep_context context_;
+    context_.set_mission_id(5);
+    EXPECT_EQ(context_.get_mission_id(), 5);
 }
 
 TEST_F(CcuRepInterfaceTest, CcuRepContext_SetAndGetMissionKey)
 {
-    CcuRepContext context;
-    context.SetMissionKey(100);
-    EXPECT_EQ(context.GetMissionKey(), 100);
+    ccu_rep_context context_;
+    context_.set_mission_key(100);
+    EXPECT_EQ(context_.get_mission_key(), 100);
 }
 
 TEST_F(CcuRepInterfaceTest, Variable_AssignmentOperator)
 {
-    CcuRepContext context;
-    Variable var1(&context);
-    var1.Reset(1);
+    ccu_rep_context context_;
+    variable var1(&context_);
+    var1.reset(1);
 
-    Variable var2(&context);
-    var2.Reset(2);
+    variable var2(&context_);
+    var2.reset(2);
 
     var1 = 100;
 }
 
 TEST_F(CcuRepInterfaceTest, Address_AssignmentOperator)
 {
-    CcuRepContext context;
-    Address addr1(&context);
-    addr1.Reset(1);
+    ccu_rep_context context_;
+    address addr1(&context_);
+    addr1.reset(1);
 
-    Address addr2(&context);
-    addr2.Reset(2);
+    address addr2(&context_);
+    addr2.reset(2);
 
     addr1 = 200;
 }
 
 TEST_F(CcuRepInterfaceTest, Variable_NotEqualOperator)
 {
-    CcuRepContext context;
-    Variable var(&context);
-    var.Reset(0);
+    ccu_rep_context context_;
+    variable var_(&context_);
+    var_.reset(0);
 
-    auto rel = var != 10;
-    EXPECT_EQ(rel.type, CcuRelationalOperatorType::NOT_EQUAL);
+    auto rel = var_ != 10;
+    EXPECT_EQ(rel.type_, ccu_relational_operator_type::not_equal);
 }
 
 TEST_F(CcuRepInterfaceTest, Variable_EqualOperator)
 {
-    CcuRepContext context;
-    Variable var(&context);
-    var.Reset(0);
+    ccu_rep_context context_;
+    variable var_(&context_);
+    var_.reset(0);
 
-    auto rel = var == 5;
-    EXPECT_EQ(rel.type, CcuRelationalOperatorType::EQUAL);
+    auto rel = var_ == 5;
+    EXPECT_EQ(rel.type_, ccu_relational_operator_type::equal);
 }
 
 TEST_F(CcuRepInterfaceTest, FuncBlock_OperatorParentheses)
 {
-    CcuRepContext context;
-    FuncBlock funcBlock(&context, "testFunc", 1);
+    ccu_rep_context context_;
+    func_block func_block_(&context_, "testFunc", 1);
 }
 
 TEST_F(CcuRepInterfaceTest, LoopBlock_OperatorParentheses)
 {
-    CcuRepContext context;
-    LoopBlock loopBlock(&context, "testLoop");
+    ccu_rep_context context_;
+    loop_block loop_block_(&context_, "testLoop");
 }
 
 TEST_F(CcuRepInterfaceTest, FuncCall_OperatorParentheses)
 {
-    CcuRepContext context;
-    CcuInsGeneraterV1 insGen;
-    context.SetInsGenerater(&insGen);
-    FuncCall funcCall(&context, "testCall");
-    funcCall();
+    ccu_rep_context context_;
+    ccu_ins_generater_v1 insGen;
+    context_.set_ins_generater(&insGen);
+    func_call func_call(&context_, "testCall");
+    func_call();
 }
 
 TEST_F(CcuRepInterfaceTest, LoopCall_OperatorParentheses)
 {
-    CcuRepContext context;
-    LoopCall loopCall(&context, "testLoopCall");
+    ccu_rep_context context_;
+    loop_call loopCall(&context_, "testLoopCall");
 }
 
 TEST_F(CcuRepInterfaceTest, Condition_EQ_RelationalOperator)
 {
-    CcuRepContext context;
-    Variable counter(&context);
-    counter.Reset(0);
+    ccu_rep_context context_;
+    variable counter(&context_);
+    counter.reset(0);
 
     auto rel = (counter == 10);
-    EXPECT_EQ(rel.type, CcuRelationalOperatorType::EQUAL);
+    EXPECT_EQ(rel.type_, ccu_relational_operator_type::equal);
 }
 
 TEST_F(CcuRepInterfaceTest, Repeat_NE_RelationalOperator)
 {
-    CcuRepContext context;
-    Variable counter(&context);
-    counter.Reset(0);
+    ccu_rep_context context_;
+    variable counter(&context_);
+    counter.reset(0);
 
     auto rel = (counter != 10);
-    EXPECT_EQ(rel.type, CcuRelationalOperatorType::NOT_EQUAL);
+    EXPECT_EQ(rel.type_, ccu_relational_operator_type::not_equal);
 }
 
 TEST_F(CcuRepInterfaceTest, Variable_ArithmeticAssignment)
 {
-    CcuRepContext context;
-    Variable varA(&context);
-    varA.Reset(1);
-    Variable varB(&context);
-    varB.Reset(2);
+    ccu_rep_context context_;
+    variable var_a_(&context_);
+    var_a_.reset(1);
+    variable var_b_(&context_);
+    var_b_.reset(2);
 
-    varA = varA + varB;
-    varA = varA - varB;
-    varA = varA * varB;
-    varA += varB;
-    varA += uint16_t(10);
-    varA -= varB;
-    varA -= uint16_t(10);
-    varA *= varB;
-    varA *= uint16_t(10);
+    var_a_ = var_a_ + var_b_;
+    var_a_ = var_a_ - var_b_;
+    var_a_ = var_a_ * var_b_;
+    var_a_ += var_b_;
+    var_a_ += uint16_t(10);
+    var_a_ -= var_b_;
+    var_a_ -= uint16_t(10);
+    var_a_ *= var_b_;
+    var_a_ *= uint16_t(10);
 }
 
 TEST_F(CcuRepInterfaceTest, Address_ArithmeticAssignment)
 {
-    CcuRepContext context;
-    Address addrA(&context);
-    addrA.Reset(1);
-    Address addrB(&context);
-    addrB.Reset(2);
-    Variable varB(&context);
-    varB.Reset(3);
+    ccu_rep_context context_;
+    address addr_a_(&context_);
+    addr_a_.reset(1);
+    address addr_b_(&context_);
+    addr_b_.reset(2);
+    variable var_b_(&context_);
+    var_b_.reset(3);
 
-    addrA = addrA + varB;
-    addrA = addrA + addrB;
-    addrA = addrA + uint16_t(10);
-    addrA += varB;
+    addr_a_ = addr_a_ + var_b_;
+    addr_a_ = addr_a_ + addr_b_;
+    addr_a_ = addr_a_ + uint16_t(10);
+    addr_a_ += var_b_;
 }
 
 TEST_F(CcuRepInterfaceTest, Variable_VariableAssignment)
 {
-    CcuRepContext context;
-    Variable varA(&context);
-    varA.Reset(1);
-    Variable varB(&context);
-    varB.Reset(2);
+    ccu_rep_context context_;
+    variable var_a_(&context_);
+    var_a_.reset(1);
+    variable var_b_(&context_);
+    var_b_.reset(2);
 
-    varA = varB;
+    var_a_ = var_b_;
 }
 
 TEST_F(CcuRepInterfaceTest, Address_AddressAndVariableAssignment)
 {
-    CcuRepContext context;
-    Address addrA(&context);
-    addrA.Reset(1);
-    Address addrB(&context);
-    addrB.Reset(2);
-    Variable varB(&context);
-    varB.Reset(3);
+    ccu_rep_context context_;
+    address addr_a_(&context_);
+    addr_a_.reset(1);
+    address addr_b_(&context_);
+    addr_b_.reset(2);
+    variable var_b_(&context_);
+    var_b_.reset(3);
 
-    addrA = addrB;
-    addrA = varB;
+    addr_a_ = addr_b_;
+    addr_a_ = var_b_;
 }
 
 } // namespace
-} // namespace CcuRep
+} // namespace ccu_rep
 } // namespace hcomm

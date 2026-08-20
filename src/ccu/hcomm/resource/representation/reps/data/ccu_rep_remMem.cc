@@ -17,32 +17,32 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepRemMem::CcuRepRemMem(CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem)
-    : insGenPtr(insGenPtr), channel(channel), rem(rem)
+ccu_rep_rem_mem::ccu_rep_rem_mem(ccu_ins_generater_base* ins_gen_ptr, const ChannelHandle channel, remote_addr rem)
+    : ins_gen_ptr_(ins_gen_ptr), channel_(channel), rem_(rem)
 {
-    type = CcuRepType::REM_MEM;
-    instrCount = 2; // 指令数为2个
+    type_ = ccu_rep_type::rem_mem;
+    instr_count_ = 2; // 指令数为2个
 }
 
-bool CcuRepRemMem::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_rem_mem::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
-    instrCount = insGenPtr->GetInstrCount(type);
+    instr_count_ = ins_gen_ptr_->get_instr_count(type_);
     CHK_PRT_THROW(
-        insGenPtr->CcuRepRemMemTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepRemMem][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        ins_gen_ptr_->ccu_rep_rem_mem_translate(ccu_kernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepRemMem][translate] failed to translate for instrId[%u]", instr_id), CcuResult::CCU_E_INTERNAL,
         "CcuRepRemMem translate failed");
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepRemMem::Describe() { return asccomm::FormatCcuMessage("Get Remote Buffer Addr and TokenInfo By Transport"); }
+std::string ccu_rep_rem_mem::describe() { return asc::format_ccu_message("Get Remote Buffer Addr and TokenInfo By Transport"); }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

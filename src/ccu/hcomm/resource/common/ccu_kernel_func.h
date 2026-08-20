@@ -17,8 +17,8 @@
 extern "C" {
 #endif // __cplusplus
 
-typedef CcuResult (*CcuKernelFuncNoArg)();
-typedef CcuResult (*CcuKernelFuncOneArg)(CcuKernelArg arg);
+typedef CcuResult (*ccu_kernel_func_no_arg)();
+typedef CcuResult (*ccu_kernel_func_one_arg)(ccu_kernel_arg arg);
 
 #ifdef __cplusplus
 }

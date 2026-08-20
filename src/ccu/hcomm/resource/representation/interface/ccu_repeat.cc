@@ -13,21 +13,21 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-Repeat::Repeat(CcuRepContext* context, CcuRelationalOperator<Variable, uint64_t> rel) : context(context)
+repeat::repeat(ccu_rep_context* context, ccu_relational_operator<variable, uint64_t> rel) : context_(context)
 {
     std::string label = "Repeat";
 }
 
-Repeat::~Repeat() {}
+repeat::~repeat() {}
 
-void Repeat::Break() {}
+void repeat::Break() {}
 
-bool Repeat::Check() const { return !isExecuted; }
+bool repeat::check() const { return !is_executed_; }
 
-void Repeat::Run() { isExecuted = true; }
+void repeat::run() { is_executed_ = true; }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

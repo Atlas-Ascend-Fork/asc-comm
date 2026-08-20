@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_DATATYPE_H
-#define HCOMM_CCU_DATATYPE_H
+#ifndef ASCCOMM_CCU_DATATYPE_H
+#define ASCCOMM_CCU_DATATYPE_H
 
 #include <memory>
 
@@ -17,245 +17,245 @@
 #include "hcomm/resource/representation/reps/arithmetic/ccu_operator_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class Variable;
-class Address;
+class variable;
+class address;
 
-class CcuPhyRes {
+class ccu_phy_res {
 public:
-    CcuPhyRes() = default;
-    ~CcuPhyRes() = default;
-    void Reset(uint16_t id);
-    void SetDieId(uint16_t dieId);
-    uint16_t Id() const;
-    uint16_t DieId() const;
+    ccu_phy_res() = default;
+    ~ccu_phy_res() = default;
+    void reset(uint16_t id);
+    void set_die_id(uint16_t die_id);
+    uint16_t id() const;
+    uint16_t die_id() const;
 
 private:
-    uint16_t dieId{0};
-    uint16_t id{0};
+    uint16_t die_id_{0};
+    uint16_t id_{0};
 };
 
-class CcuVirRes {
+class ccu_vir_res {
 public:
-    CcuVirRes(CcuRepContext* context);
-    virtual ~CcuVirRes() = default;
-    void Reset(uint16_t id);
-    void Reset(uint16_t id, uint16_t dieId);
-    void SetDieId(uint16_t dieId);
-    virtual uint16_t Id() const;
-    uint16_t DieId() const;
+    ccu_vir_res(ccu_rep_context* context);
+    virtual ~ccu_vir_res() = default;
+    void reset(uint16_t id);
+    void reset(uint16_t id, uint16_t die_id);
+    void set_die_id(uint16_t die_id);
+    virtual uint16_t id() const;
+    uint16_t die_id() const;
 
-    CcuRepContext* GetCurContext() { return context; }
+    ccu_rep_context* get_cur_context() { return context_; }
 
-    std::shared_ptr<CcuPhyRes> GetCurPhyRes() { return phyRes; }
+    std::shared_ptr<ccu_phy_res> get_cur_phy_res() { return phy_res_; }
 
 protected:
-    std::shared_ptr<CcuPhyRes> phyRes{nullptr};
-    CcuRepContext* context{nullptr};
+    std::shared_ptr<ccu_phy_res> phy_res_{nullptr};
+    ccu_rep_context* context_{nullptr};
 };
 
-class Variable : public CcuVirRes {
+class variable : public ccu_vir_res {
 public:
-    explicit Variable(CcuRepContext* context = nullptr);
-    Variable(const Variable& other);
-    void operator=(Variable&& other);
+    explicit variable(ccu_rep_context* context = nullptr);
+    variable(const variable& other);
+    void operator=(variable&& other);
 
     void operator=(uint64_t immediate);
-    void operator=(const Variable& other);
-    void operator=(CcuArithmeticOperator<Variable, Variable> op);
-    void operator=(CcuArithmeticOperator<Variable, uint16_t> op);
-    void operator=(CcuArithmeticOperator<Address, uint16_t> op);
-    void operator=(CcuArithmeticOperator<Address, Address> op);
+    void operator=(const variable& other);
+    void operator=(ccu_arithmetic_operator<variable, variable> op);
+    void operator=(ccu_arithmetic_operator<variable, uint16_t> op);
+    void operator=(ccu_arithmetic_operator<address, uint16_t> op);
+    void operator=(ccu_arithmetic_operator<address, address> op);
 
-    void operator=(CcuLogicOperator<Variable, Variable> op);
-    void operator=(CcuLogicOperator<Variable> op);
+    void operator=(ccu_logic_operator<variable, variable> op);
+    void operator=(ccu_logic_operator<variable> op);
 
-    void operator=(CcuShiftOperator<Variable, Variable> op);
+    void operator=(ccu_shift_operator<variable, variable> op);
 
-    CcuArithmeticOperator<Variable, Variable> operator+(const Variable& varB) const;
-    CcuArithmeticOperator<Variable, uint16_t> operator+(const uint16_t offset) const;
-    CcuArithmeticOperator<Variable, Address> operator+(const Address& addrB) const;
+    ccu_arithmetic_operator<variable, variable> operator+(const variable& var_b) const;
+    ccu_arithmetic_operator<variable, uint16_t> operator+(const uint16_t offset) const;
+    ccu_arithmetic_operator<variable, address> operator+(const address& addr_b) const;
 
-    CcuArithmeticOperator<Variable, Variable> operator*(const Variable& varB) const;
-    CcuArithmeticOperator<Variable, uint16_t> operator*(const uint16_t offset) const;
-    CcuArithmeticOperator<Variable, Address> operator*(const Address& addrB) const;
+    ccu_arithmetic_operator<variable, variable> operator*(const variable& var_b) const;
+    ccu_arithmetic_operator<variable, uint16_t> operator*(const uint16_t offset) const;
+    ccu_arithmetic_operator<variable, address> operator*(const address& addr_b) const;
 
-    CcuArithmeticOperator<Variable, Variable> operator-(const Variable& varB) const;
-    CcuArithmeticOperator<Variable, Address> operator-(const Address& addrB) const;
-    CcuArithmeticOperator<Variable, uint16_t> operator-(const uint16_t offset) const;
+    ccu_arithmetic_operator<variable, variable> operator-(const variable& var_b) const;
+    ccu_arithmetic_operator<variable, address> operator-(const address& addr_b) const;
+    ccu_arithmetic_operator<variable, uint16_t> operator-(const uint16_t offset) const;
 
-    void operator+=(const Variable& other);
+    void operator+=(const variable& other);
     void operator+=(const uint16_t immediate);
-    void operator+=(const Address& addrB);
-    void operator*=(const Variable& other);
+    void operator+=(const address& addr_b);
+    void operator*=(const variable& other);
     void operator*=(const uint16_t immediate);
-    void operator*=(const Address& addrB);
-    void operator-=(const Variable& other);
+    void operator*=(const address& addr_b);
+    void operator-=(const variable& other);
     void operator-=(const uint16_t immediate);
-    void operator-=(const Address& addrB);
-    CcuRelationalOperator<Variable, uint64_t> operator!=(uint64_t immediate) const;
-    CcuRelationalOperator<Variable, uint64_t> operator==(uint64_t immediate) const;
-    CcuRelationalOperator<Variable, uint64_t> operator<=(uint64_t immediate) const;
-    CcuRelationalOperator<Variable, uint64_t> operator>(uint64_t immediate) const;
-    CcuRelationalOperator<Variable, Variable> operator<=(const Variable& varB) const;
-    CcuRelationalOperator<Variable, Variable> operator>(const Variable& varB) const;
+    void operator-=(const address& addr_b);
+    ccu_relational_operator<variable, uint64_t> operator!=(uint64_t immediate) const;
+    ccu_relational_operator<variable, uint64_t> operator==(uint64_t immediate) const;
+    ccu_relational_operator<variable, uint64_t> operator<=(uint64_t immediate) const;
+    ccu_relational_operator<variable, uint64_t> operator>(uint64_t immediate) const;
+    ccu_relational_operator<variable, variable> operator<=(const variable& var_b) const;
+    ccu_relational_operator<variable, variable> operator>(const variable& var_b) const;
 
-    CcuLogicOperator<Variable, Variable> operator&(const Variable& varB) const;
-    CcuLogicOperator<Variable, Address> operator&(const Address& addrB) const;
-    CcuLogicOperator<Variable, Variable> operator|(const Variable& varB) const;
-    CcuLogicOperator<Variable, Address> operator|(const Address& addrB) const;
-    CcuLogicOperator<Variable, Variable> operator^(const Variable& varB) const;
-    CcuLogicOperator<Variable, Address> operator^(const Address& addrB) const;
-    CcuLogicOperator<Variable> operator~() const;
+    ccu_logic_operator<variable, variable> operator&(const variable& var_b) const;
+    ccu_logic_operator<variable, address> operator&(const address& addr_b) const;
+    ccu_logic_operator<variable, variable> operator|(const variable& var_b) const;
+    ccu_logic_operator<variable, address> operator|(const address& addr_b) const;
+    ccu_logic_operator<variable, variable> operator^(const variable& var_b) const;
+    ccu_logic_operator<variable, address> operator^(const address& addr_b) const;
+    ccu_logic_operator<variable> operator~() const;
 
-    void operator&=(const Variable& other);
-    void operator&=(const Address& addrB);
-    void operator|=(const Variable& other);
-    void operator|=(const Address& addrB);
-    void operator^=(const Variable& other);
-    void operator^=(const Address& addrB);
+    void operator&=(const variable& other);
+    void operator&=(const address& addr_b);
+    void operator|=(const variable& other);
+    void operator|=(const address& addr_b);
+    void operator^=(const variable& other);
+    void operator^=(const address& addr_b);
 
-    CcuShiftOperator<Variable, Variable> operator<<(const Variable& other) const;
-    void operator<<=(const Variable& other) const;
-    CcuShiftOperator<Variable, Variable> operator>>(const Variable& other) const;
-    void operator>>=(const Variable& other) const;
+    ccu_shift_operator<variable, variable> operator<<(const variable& other) const;
+    void operator<<=(const variable& other) const;
+    ccu_shift_operator<variable, variable> operator>>(const variable& other) const;
+    void operator>>=(const variable& other) const;
 
-    void VarVarAppendToContext(CcuArithmeticOperator<Variable, Variable> op);
-    void VarImmedAppendToContext(CcuArithmeticOperator<Variable, uint16_t> op);
-    void AddrImmedAppendToContext(CcuArithmeticOperator<Address, uint16_t> op);
-    void AddrAddrAppendToContext(CcuArithmeticOperator<Address, Address> op);
+    void var_var_append_to_context(ccu_arithmetic_operator<variable, variable> op);
+    void var_immed_append_to_context(ccu_arithmetic_operator<variable, uint16_t> op);
+    void addr_immed_append_to_context(ccu_arithmetic_operator<address, uint16_t> op);
+    void addr_addr_append_to_context(ccu_arithmetic_operator<address, address> op);
 
-    void VarVarLogicAppendToContext(CcuLogicOperator<Variable, Variable> op);
-    void AddrLogicAppendToContext(CcuLogicOperator<Variable> op);
+    void var_var_logic_append_to_context(ccu_logic_operator<variable, variable> op);
+    void addr_logic_append_to_context(ccu_logic_operator<variable> op);
 };
 
-class Address : public CcuVirRes {
+class address : public ccu_vir_res {
 public:
-    explicit Address(CcuRepContext* context = nullptr);
-    Address(const Address& other);
-    Address(Variable&& other);
-    void operator=(Address&& other);
+    explicit address(ccu_rep_context* context = nullptr);
+    address(const address& other);
+    address(variable&& other);
+    void operator=(address&& other);
 
     void operator=(uint64_t immediate);
-    void operator=(const Address& other);
-    void operator=(const Variable& other);
+    void operator=(const address& other);
+    void operator=(const variable& other);
 
-    void operator=(CcuArithmeticOperator<Variable, Address> op);
-    void operator=(CcuArithmeticOperator<Address, Address> op);
-    void operator=(CcuArithmeticOperator<Address, uint16_t> op);
-    void operator=(CcuArithmeticOperator<Variable, Variable> op);
-    void operator=(CcuArithmeticOperator<Variable, uint16_t> op);
+    void operator=(ccu_arithmetic_operator<variable, address> op);
+    void operator=(ccu_arithmetic_operator<address, address> op);
+    void operator=(ccu_arithmetic_operator<address, uint16_t> op);
+    void operator=(ccu_arithmetic_operator<variable, variable> op);
+    void operator=(ccu_arithmetic_operator<variable, uint16_t> op);
 
-    void operator=(CcuLogicOperator<Variable, Address> op);
-    void operator=(CcuLogicOperator<Address, Address> op);
-    void operator=(CcuLogicOperator<Variable, Variable> op);
-    void operator=(CcuLogicOperator<Variable> op);
-    void operator=(CcuShiftOperator<Variable, Variable> op);
+    void operator=(ccu_logic_operator<variable, address> op);
+    void operator=(ccu_logic_operator<address, address> op);
+    void operator=(ccu_logic_operator<variable, variable> op);
+    void operator=(ccu_logic_operator<variable> op);
+    void operator=(ccu_shift_operator<variable, variable> op);
 
-    CcuArithmeticOperator<Address, uint16_t> operator+(const uint16_t offset) const;
-    CcuArithmeticOperator<Variable, Address> operator+(const Variable& varB) const;
-    CcuArithmeticOperator<Address, Address> operator+(const Address& addrB) const;
-    CcuArithmeticOperator<Address, Address> operator*(const Address& varB) const;
-    CcuArithmeticOperator<Variable, Address> operator*(const Variable& addrB) const;
-    CcuArithmeticOperator<Address, uint16_t> operator*(const uint16_t offset) const;
+    ccu_arithmetic_operator<address, uint16_t> operator+(const uint16_t offset) const;
+    ccu_arithmetic_operator<variable, address> operator+(const variable& var_b) const;
+    ccu_arithmetic_operator<address, address> operator+(const address& addr_b) const;
+    ccu_arithmetic_operator<address, address> operator*(const address& var_b) const;
+    ccu_arithmetic_operator<variable, address> operator*(const variable& addr_b) const;
+    ccu_arithmetic_operator<address, uint16_t> operator*(const uint16_t offset) const;
 
-    CcuArithmeticOperator<Variable, Address> operator-(const Variable& varB) const;
-    CcuArithmeticOperator<Address, Address> operator-(const Address& addrB) const;
-    CcuArithmeticOperator<Address, uint16_t> operator-(const uint16_t offset) const;
+    ccu_arithmetic_operator<variable, address> operator-(const variable& var_b) const;
+    ccu_arithmetic_operator<address, address> operator-(const address& addr_b) const;
+    ccu_arithmetic_operator<address, uint16_t> operator-(const uint16_t offset) const;
 
-    void operator+=(const Variable& other);
+    void operator+=(const variable& other);
     void operator+=(const uint16_t immediate);
-    void operator*=(const Variable& other);
+    void operator*=(const variable& other);
     void operator*=(const uint16_t immediate);
-    void operator-=(const Variable& other);
+    void operator-=(const variable& other);
     void operator-=(const uint16_t immediate);
 
-    CcuLogicOperator<Variable, Address> operator&(const Variable& varB) const;
-    CcuLogicOperator<Address, Address> operator&(const Address& addrB) const;
-    CcuLogicOperator<Variable, Address> operator|(const Variable& varB) const;
-    CcuLogicOperator<Address, Address> operator|(const Address& addrB) const;
-    CcuLogicOperator<Variable, Address> operator^(const Variable& varB) const;
-    CcuLogicOperator<Address, Address> operator^(const Address& addrB) const;
+    ccu_logic_operator<variable, address> operator&(const variable& var_b) const;
+    ccu_logic_operator<address, address> operator&(const address& addr_b) const;
+    ccu_logic_operator<variable, address> operator|(const variable& var_b) const;
+    ccu_logic_operator<address, address> operator|(const address& addr_b) const;
+    ccu_logic_operator<variable, address> operator^(const variable& var_b) const;
+    ccu_logic_operator<address, address> operator^(const address& addr_b) const;
 
-    CcuShiftOperator<Variable, Variable> operator<<(const Variable& other) const;
-    void operator<<=(const Variable& other) const;
-    CcuShiftOperator<Variable, Variable> operator>>(const Variable& other) const;
-    void operator>>=(const Variable& other) const;
+    ccu_shift_operator<variable, variable> operator<<(const variable& other) const;
+    void operator<<=(const variable& other) const;
+    ccu_shift_operator<variable, variable> operator>>(const variable& other) const;
+    void operator>>=(const variable& other) const;
 
-    void VarAddrAppendToContext(CcuArithmeticOperator<Variable, Address> op);
-    void AddrAddrAppendToContext(CcuArithmeticOperator<Address, Address> op);
-    void VarImmedAppendToContext(CcuArithmeticOperator<Variable, uint16_t> op);
-    void AddrImmedAppendToContext(CcuArithmeticOperator<Address, uint16_t> op);
-    void VarVarAppendToContext(CcuArithmeticOperator<Variable, Variable> op);
+    void var_addr_append_to_context(ccu_arithmetic_operator<variable, address> op);
+    void addr_addr_append_to_context(ccu_arithmetic_operator<address, address> op);
+    void var_immed_append_to_context(ccu_arithmetic_operator<variable, uint16_t> op);
+    void addr_immed_append_to_context(ccu_arithmetic_operator<address, uint16_t> op);
+    void var_var_append_to_context(ccu_arithmetic_operator<variable, variable> op);
 };
 
-class MaskSignal : public CcuVirRes {
+class mask_signal : public ccu_vir_res {
 public:
-    explicit MaskSignal(CcuRepContext* context = nullptr);
+    explicit mask_signal(ccu_rep_context* context = nullptr);
 };
 
-class CcuBuffer : public CcuVirRes {
+class ccu_buffer : public ccu_vir_res {
 public:
-    explicit CcuBuffer(CcuRepContext* context = nullptr);
-    uint16_t Id() const override;
-    static constexpr uint16_t CCUBUFFER_DIE_ID_BIT = 0x8000; // bit15 表示MS所在的IO Die id
+    explicit ccu_buffer(ccu_rep_context* context = nullptr);
+    uint16_t id() const override;
+    static constexpr uint16_t ccubuffer_die_id_bit = 0x8000; // bit15 表示MS所在的IO Die id
 };
 
-class CcuBuf : public CcuVirRes {
+class ccu_buf : public ccu_vir_res {
 public:
-    explicit CcuBuf(CcuRepContext* context = nullptr);
-    uint16_t Id() const override;
-    static constexpr uint16_t CCUBUFFER_DIE_ID_BIT = 0x8000; // bit15 表示MS所在的IO Die id
+    explicit ccu_buf(ccu_rep_context* context = nullptr);
+    uint16_t id() const override;
+    static constexpr uint16_t ccubuffer_die_id_bit = 0x8000; // bit15 表示MS所在的IO Die id
 };
 
-class Executor : public CcuVirRes {
+class executor : public ccu_vir_res {
 public:
-    explicit Executor(CcuRepContext* context = nullptr);
+    explicit executor(ccu_rep_context* context = nullptr);
 };
 
-class Memory {
+class memory {
 public:
-    Memory() = default;
-    Memory(Address addr, Variable token) : addr(addr), token(token) {}
-    Address addr;
-    Variable token;
+    memory() = default;
+    memory(address addr, variable token) : addr(addr), token(token) {}
+    address addr;
+    variable token;
 };
 
 /*------------------将Memory改为LocalAddr与RemoteAddr------------------------*/
-class LocalAddr {
+class local_addr {
 public:
-    LocalAddr() = default;
-    LocalAddr(Address addr, Variable token) : addr(addr), token(token) {}
+    local_addr() = default;
+    local_addr(address addr, variable token) : addr(addr), token(token) {}
 
-    Address addr;
-    Variable token;
+    address addr;
+    variable token;
 };
 
-class RemoteAddr {
+class remote_addr {
 public:
-    RemoteAddr() = default;
-    RemoteAddr(Address addr, Variable token) : addr(addr), token(token) {}
+    remote_addr() = default;
+    remote_addr(address addr, variable token) : addr(addr), token(token) {}
 
-    Address addr;
-    Variable token;
+    address addr;
+    variable token;
 };
 
 /*------------------将MaskSignal改为LocalNotify------------------------*/
-class LocalNotify : public CcuVirRes {
+class local_notify : public ccu_vir_res {
 public:
-    explicit LocalNotify(CcuRepContext* context = nullptr);
+    explicit local_notify(ccu_rep_context* context = nullptr);
 };
 
 // CompletedEvent 退化为纯虚拟资源句柄持有者；
 // mask 由调用方（Rep / CcuKernel / C API / wrapper 各层）作为独立参数传入，
 // 不再绑定到 Event 上。
-class CompletedEvent : public CcuVirRes {
+class completed_event : public ccu_vir_res {
 public:
-    explicit CompletedEvent(CcuRepContext* context = nullptr);
+    explicit completed_event(ccu_rep_context* context = nullptr);
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_DATATYPE_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_DATATYPE_H

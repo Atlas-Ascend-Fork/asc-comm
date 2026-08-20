@@ -15,53 +15,53 @@
 #include "hcomm/resource/representation/reps/control/ccu_rep_funcblock_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepFuncCall : public CcuRepBase {
+class ccu_rep_func_call : public ccu_rep_base {
 public:
-    explicit CcuRepFuncCall(CcuInsGeneraterBase* insGenPtr, const std::string& label);
-    explicit CcuRepFuncCall(CcuInsGeneraterBase* insGenPtr, const Variable& funcAddrVar);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    uint16_t InstrCount() override;
-    const std::string& GetLabel() const;
+    explicit ccu_rep_func_call(ccu_ins_generater_base* ins_gen_ptr, const std::string& label);
+    explicit ccu_rep_func_call(ccu_ins_generater_base* ins_gen_ptr, const variable& func_addr_var);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    uint16_t instr_count() override;
+    const std::string& get_label() const;
 
-    void Reference(std::shared_ptr<CcuRepFuncBlock> refRep);
-    void SetFuncManager(CcuRepReferenceManager* funcManager);
+    void reference(std::shared_ptr<ccu_rep_func_block> ref_rep);
+    void set_func_manager(ccu_rep_reference_manager* func_manager);
 
-    void SetInArg(const Variable& var);
-    void SetOutArg(const Variable& var);
-    void SetInArg(const std::vector<Variable>& varList);
-    void SetOutArg(const std::vector<Variable>& varList);
+    void set_in_arg(const variable& var);
+    void set_out_arg(const variable& var);
+    void set_in_arg(const std::vector<variable>& var_list);
+    void set_out_arg(const std::vector<variable>& var_list);
 
-    int32_t GetCallLayer();
+    int32_t get_call_layer();
 
-    CcuRepReferenceManager* GetFuncManager() { return funcManager; }
-    std::shared_ptr<CcuRepFuncBlock>& GetFuncBlock() { return funcBlock; }
-    Variable GetFuncAddrVar() { return funcAddrVar; }
-    std::vector<CcuRepArg>& GetInArgs() { return inArgs; }
-    std::vector<CcuRepArg>& GetOutArgs() { return outArgs; }
-    uint32_t GetInArgCount() { return inArgCount; }
-    uint32_t GetOutArgCount() { return outArgCount; }
-    CcuInstr* GetInstr() { return instr; }
+    ccu_rep_reference_manager* get_func_manager() { return func_manager_; }
+    std::shared_ptr<ccu_rep_func_block>& get_func_block() { return func_block_; }
+    variable get_func_addr_var() { return func_addr_var_; }
+    std::vector<ccu_rep_arg>& get_in_args() { return in_args_; }
+    std::vector<ccu_rep_arg>& get_out_args() { return out_args_; }
+    uint32_t get_in_arg_count() { return in_arg_count_; }
+    uint32_t get_out_arg_count() { return out_arg_count_; }
+    ccu_instr* get_instr() { return instr_; }
 
 private:
-    CcuInsGeneraterBase* insGeneratorPtr_;
-    CcuRepReferenceManager* funcManager{nullptr};
+    ccu_ins_generater_base* ins_generator_ptr_;
+    ccu_rep_reference_manager* func_manager_{nullptr};
 
-    std::string label;
-    std::shared_ptr<CcuRepFuncBlock> funcBlock{nullptr};
-    Variable funcAddrVar;
+    std::string label_;
+    std::shared_ptr<ccu_rep_func_block> func_block_{nullptr};
+    variable func_addr_var_;
 
-    std::vector<CcuRepArg> inArgs;
-    std::vector<CcuRepArg> outArgs;
-    uint32_t inArgCount{0};
-    uint32_t outArgCount{0};
+    std::vector<ccu_rep_arg> in_args_;
+    std::vector<ccu_rep_arg> out_args_;
+    uint32_t in_arg_count_{0};
+    uint32_t out_arg_count_{0};
 
-    CcuInstr* instr{nullptr};
+    ccu_instr* instr_{nullptr};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // _CCU_REPRESENTATION_FUNC_CALL_H

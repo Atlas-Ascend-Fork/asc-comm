@@ -14,7 +14,7 @@ namespace hcomm {
 CcuTransport::~CcuTransport() {}
 CcuConnection::~CcuConnection() {}
 // key function 实现（生成 vtable/typeinfo）
-HcclResult CcuUrmaChannel::Init() { return HCCL_SUCCESS; }
+HcclResult CcuUrmaChannel::init() { return HCCL_SUCCESS; }
 ChannelStatus CcuUrmaChannel::GetStatus() { return ChannelStatus{}; }
 HcclResult CcuUrmaChannel::GetNotifyNum(uint32_t* notifyNum) const { return HCCL_SUCCESS; }
 HcclResult CcuUrmaChannel::GetRemoteMems(uint32_t* memNum, CommMem** remoteMem, char*** memInfos)
@@ -25,27 +25,27 @@ HcclResult CcuUrmaChannel::UpdateMemInfo(HcommMemHandle* memHandles, uint32_t me
 HcclResult CcuUrmaChannel::Clean() { return HCCL_SUCCESS; }
 HcclResult CcuUrmaChannel::Resume() { return HCCL_SUCCESS; }
 HcclResult CcuUrmaChannel::ChannelFence() { return HCCL_SUCCESS; }
-HcclResult CcuUrmaChannel::NotifyRecord(const uint32_t remoteNotifyIdx) { return HCCL_SUCCESS; }
-HcclResult CcuUrmaChannel::NotifyWait(const uint32_t localNotifyIdx, const uint32_t timeout) { return HCCL_SUCCESS; }
-HcclResult CcuUrmaChannel::WriteWithNotify(void* dst, const void* src, const uint64_t len, uint32_t remoteNotifyIdx)
+HcclResult CcuUrmaChannel::notify_record(const uint32_t remote_notify_idx) { return HCCL_SUCCESS; }
+HcclResult CcuUrmaChannel::notify_wait(const uint32_t local_notify_idx, const uint32_t timeout) { return HCCL_SUCCESS; }
+HcclResult CcuUrmaChannel::WriteWithNotify(void* dst_, const void* src_, const uint64_t len_, uint32_t remote_notify_idx)
 {
     return HCCL_SUCCESS;
 }
-HcclResult CcuUrmaChannel::Write(void* dst, const void* src, uint64_t len) { return HCCL_SUCCESS; }
-HcclResult CcuUrmaChannel::Read(void* dst, const void* src, uint64_t len) { return HCCL_SUCCESS; }
+HcclResult CcuUrmaChannel::Write(void* dst_, const void* src_, uint64_t len_) { return HCCL_SUCCESS; }
+HcclResult CcuUrmaChannel::Read(void* dst_, const void* src_, uint64_t len_) { return HCCL_SUCCESS; }
 CcuUrmaChannel::CcuUrmaChannel(const EndpointHandle locEndpointHandle, const HcommChannelDesc& channelDesc) {}
-uint32_t CcuUrmaChannel::GetDieId() const { return 0; }
-uint32_t CcuUrmaChannel::GetChannelId() const { return 0; }
-HcclResult CcuUrmaChannel::GetRmtCkeByIndex(const uint32_t index, uint32_t& rmtCkeId) const { return HCCL_SUCCESS; }
-HcclResult CcuUrmaChannel::GetRmtXnByIndex(const uint32_t index, uint32_t& rmtXnId) const { return HCCL_SUCCESS; }
-HcclResult CcuUrmaChannel::GetLocCkeByIndex(const uint32_t index, uint32_t& locCkeId) const { return HCCL_SUCCESS; }
-HcclResult CcuUrmaChannel::GetLocXnByIndex(const uint32_t index, uint32_t& locXnId) const { return HCCL_SUCCESS; }
-HcclResult CcuUrmaChannel::GetRmtBuffer(uint64_t& addr, uint32_t& size, uint32_t& tokenId, uint32_t& tokenValue) const
+uint32_t CcuUrmaChannel::get_die_id() const { return 0; }
+uint32_t CcuUrmaChannel::get_channel_id() const { return 0; }
+HcclResult CcuUrmaChannel::get_rmt_cke_by_index(const uint32_t index, uint32_t& rmt_cke_id_) const { return HCCL_SUCCESS; }
+HcclResult CcuUrmaChannel::get_rmt_xn_by_index(const uint32_t index, uint32_t& rmt_xn_id_) const { return HCCL_SUCCESS; }
+HcclResult CcuUrmaChannel::get_loc_cke_by_index(const uint32_t index, uint32_t& loc_cke_id) const { return HCCL_SUCCESS; }
+HcclResult CcuUrmaChannel::get_loc_xn_by_index(const uint32_t index, uint32_t& loc_xn_id) const { return HCCL_SUCCESS; }
+HcclResult CcuUrmaChannel::get_rmt_buffer(uint64_t& addr_, uint32_t& size, uint32_t& token_id, uint32_t& token_value) const
 {
-    addr = 0x1000;
+    addr_ = 0x1000;
     size = 256;
-    tokenId = 1;
-    tokenValue = 100;
+    token_id = 1;
+    token_value = 100;
     return HCCL_SUCCESS;
 }
 // Channel key function

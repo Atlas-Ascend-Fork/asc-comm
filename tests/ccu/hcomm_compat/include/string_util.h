@@ -17,15 +17,15 @@
 
 namespace Hccl {
 
-template <typename... Args>
-inline std::string StringFormat(const char* format, Args... args)
+template <typename... args>
+inline std::string StringFormat(const char* format, args... args_)
 {
-    const int required = std::snprintf(nullptr, 0, format, args...);
+    const int required = std::snprintf(nullptr, 0, format, args_...);
     if (required < 0) {
         return "";
     }
     std::vector<char> buffer(static_cast<size_t>(required) + 1U);
-    (void)std::snprintf(buffer.data(), buffer.size(), format, args...);
+    (void)std::snprintf(buffer.data(), buffer.size(), format, args_...);
     return buffer.data();
 }
 

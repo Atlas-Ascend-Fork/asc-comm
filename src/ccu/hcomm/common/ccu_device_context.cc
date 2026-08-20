@@ -10,18 +10,18 @@
 
 #include "hcomm/common/ccu_device_context.h"
 
-namespace asccomm {
+namespace asc {
 namespace {
-thread_local int32_t currentCcuDeviceLogicId = -1;
-thread_local HcommCcuControlOpsPod currentCcuControlOps{};
+thread_local int32_t current_ccu_device_logic_id = -1;
+thread_local HcommCcuControlOpsPod current_ccu_control_ops{};
 }
 
-void SetCurrentCcuDeviceLogicId(int32_t deviceLogicId) { currentCcuDeviceLogicId = deviceLogicId; }
+void set_current_ccu_device_logic_id(int32_t device_logic_id) { current_ccu_device_logic_id = device_logic_id; }
 
-int32_t GetCurrentCcuDeviceLogicId() { return currentCcuDeviceLogicId; }
+int32_t get_current_ccu_device_logic_id() { return current_ccu_device_logic_id; }
 
-void SetCurrentCcuControlOps(const HcommCcuControlOpsPod &controlOps) { currentCcuControlOps = controlOps; }
+void set_current_ccu_control_ops(const HcommCcuControlOpsPod &control_ops) { current_ccu_control_ops = control_ops; }
 
-const HcommCcuControlOpsPod &GetCurrentCcuControlOps() { return currentCcuControlOps; }
+const HcommCcuControlOpsPod &get_current_ccu_control_ops() { return current_ccu_control_ops; }
 
-} // namespace asccomm
+} // namespace asc

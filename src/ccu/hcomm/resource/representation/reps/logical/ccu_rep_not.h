@@ -14,29 +14,29 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepNot : public CcuRepBase {
+class ccu_rep_not : public ccu_rep_base {
 public:
-    explicit CcuRepNot(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varB);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep) override;
-    Variable GetVarB() { return varB; }
-    Variable GetVarC() { return varC; }
+    explicit ccu_rep_not(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_b);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, const trans_dep& dep) override;
+    variable get_var_b() { return var_b_; }
+    variable get_var_c() { return var_c_; }
 
-    NotSubType GetSubType() { return subType; }
+    not_sub_type get_sub_type() { return sub_type_; }
 
-    std::string Describe() override;
+    std::string describe() override;
 
 private:
-    NotSubType subType{NotSubType::INVALID};
+    not_sub_type sub_type_{not_sub_type::invalid};
 
-    Variable varB;
-    Variable varC;
+    variable var_b_;
+    variable var_c_;
 
-    CcuInsGeneraterBase* insGenPtr{nullptr};
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCCL_CCU_REPRESENTATION_NOT_H

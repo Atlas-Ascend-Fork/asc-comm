@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_LOOP_H
-#define HCOMM_CCU_REPRESENTATION_LOOP_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_LOOP_H
+#define ASCCOMM_CCU_REPRESENTATION_LOOP_H
 
 #include <memory>
 
@@ -17,42 +17,42 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopblock_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepLoop : public CcuRepBase {
+class ccu_rep_loop : public ccu_rep_base {
 public:
-    explicit CcuRepLoop(CcuInsGeneraterBase* insGeneratorPtr, const std::string& label, const Variable& loopParam);
-    explicit CcuRepLoop(
-        CcuInsGeneraterBase* insGeneratorPtr, const std::string& label, const Variable& loopParam,
-        const Variable& loopIterNum, const Variable& loopGsaOffset);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    const std::string& GetLabel() const;
+    explicit ccu_rep_loop(ccu_ins_generater_base* ins_generator_ptr, const std::string& label, const variable& loop_param);
+    explicit ccu_rep_loop(
+        ccu_ins_generater_base* ins_generator_ptr, const std::string& label, const variable& loop_param,
+        const variable& loop_iter_num, const variable& loop_gsa_offset);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    const std::string& get_label() const;
 
-    void Reference(std::shared_ptr<CcuRepLoopBlock> refRep);
-    std::shared_ptr<CcuRepBase> SetLoopParam(Executor executor, Variable var);
-    CcuRepLoopBlock* GetLoopBlock() { return loopBlock.get(); }
+    void reference(std::shared_ptr<ccu_rep_loop_block> ref_rep);
+    std::shared_ptr<ccu_rep_base> set_loop_param(executor executor, variable var);
+    ccu_rep_loop_block* get_loop_block() { return loop_block_.get(); }
 
-    Variable* GetLoopParam() { return &loopParam; }
-    Variable GetLoopIterNum() { return loopIterNum; }
-    Variable GetLoopGsaOffset() { return loopGsaOffset; }
+    variable* get_loop_param() { return &loop_param_; }
+    variable get_loop_iter_num() { return loop_iter_num_; }
+    variable get_loop_gsa_offset() { return loop_gsa_offset_; }
 
 private:
-    void ValidateInsGeneratorForLoop();
+    void validate_ins_generator_for_loop();
 
-    CcuInsGeneraterBase* insGeneratorPtr_;
-    std::string label;
-    std::shared_ptr<CcuRepLoopBlock> loopBlock{nullptr};
+    ccu_ins_generater_base* ins_generator_ptr_;
+    std::string label_;
+    std::shared_ptr<ccu_rep_loop_block> loop_block_{nullptr};
 
-    Variable loopParam;
-    Variable loopIterNum;
-    Variable loopGsaOffset;
-    CcuInstr* instr{nullptr};
+    variable loop_param_;
+    variable loop_iter_num_;
+    variable loop_gsa_offset_;
+    ccu_instr* instr_{nullptr};
 
-    bool supportCcuV1{false};
+    bool support_ccu_v1_{false};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCCL_CCU_REPRESENTATION_LOOP_H

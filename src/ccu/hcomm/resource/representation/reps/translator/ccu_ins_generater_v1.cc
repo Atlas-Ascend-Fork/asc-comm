@@ -15,408 +15,408 @@
 #include "hcomm/common/ccu_log.h"
 #include "hcomm/hcomm_ccu_res.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
 #define UNUSED(x) (void)(x)
 
 namespace {
-template <typename T>
-void LoadAddrArg(CcuInstr*& instr, const T& dst, const T& src, const TransDep& dep)
+template <typename t>
+void load_addr_arg(ccu_instr*& instr, const t& dst, const t& src, const trans_dep& dep)
 {
-    LoadGSAGSAInstr(instr++, dst.addr.Id(), src.addr.Id(), dep.reserveGsaId);
-    LoadXXInstr(instr++, dst.token.Id(), src.token.Id(), dep.reserveXnId);
+    load_gsagsa_instr(instr++, dst.addr.id(), src.addr.id(), dep.reserve_gsa_id);
+    load_xx_instr(instr++, dst.token.id(), src.token.id(), dep.reserve_xn_id);
 }
 
-template <typename T>
-HcclResult LoadAddrListArg(CcuInstr*& instr, const std::vector<T>& dst, const std::vector<T>& src, const TransDep& dep)
+template <typename t>
+HcclResult load_addr_list_arg(ccu_instr*& instr, const std::vector<t>& dst, const std::vector<t>& src, const trans_dep& dep)
 {
     if (src.size() != dst.size()) {
         HCCL_ERROR("Mismatched Arg Size: srcSize[%u], dstSize[%u]", src.size(), dst.size());
         return HCCL_E_PARA;
     }
     for (uint32_t j = 0; j < src.size(); j++) {
-        LoadAddrArg(instr, dst[j], src[j], dep);
+        load_addr_arg(instr, dst[j], src[j], dep);
     }
     return HcclResult::HCCL_SUCCESS;
 }
 } // namespace
 
-HcclResult CcuInsGeneraterV1::CcuRepBufLocReadTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepBufLocRead* repBufLocRead, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_buf_loc_read_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_buf_loc_read* rep_buf_loc_read, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(repBufLocRead);
-    TransLocMemToLocMSInstr(
-        instr++, repBufLocRead->GetDst().Id(), repBufLocRead->GetSrc().addr.Id(), repBufLocRead->GetSrc().token.Id(),
-        repBufLocRead->GetLen().Id(), dep.reserveChannalId[0], repBufLocRead->GetSem().Id(), repBufLocRead->GetMask(),
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(rep_buf_loc_read);
+    trans_loc_mem_to_loc_ms_instr(
+        instr++, rep_buf_loc_read->get_dst().id(), rep_buf_loc_read->get_src().addr.id(), rep_buf_loc_read->get_src().token.id(),
+        rep_buf_loc_read->get_len().id(), dep.reserve_channal_id[0], rep_buf_loc_read->get_sem().id(), rep_buf_loc_read->get_mask(),
         0, 0, 1, 1);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepBufLocWriteTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepBufLocWrite* repBufLocWrite, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_buf_loc_write_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_buf_loc_write* rep_buf_loc_write, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(repBufLocWrite);
-    TransLocMSToLocMemInstr(
-        instr++, repBufLocWrite->GetDst().addr.Id(), repBufLocWrite->GetDst().token.Id(), repBufLocWrite->GetSrc().Id(),
-        repBufLocWrite->GetLen().Id(), dep.reserveChannalId[0], repBufLocWrite->GetSem().Id(),
-        repBufLocWrite->GetMask(), 0, 0, 1, 1);
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(rep_buf_loc_write);
+    trans_loc_ms_to_loc_mem_instr(
+        instr++, rep_buf_loc_write->get_dst().addr.id(), rep_buf_loc_write->get_dst().token.id(), rep_buf_loc_write->get_src().id(),
+        rep_buf_loc_write->get_len().id(), dep.reserve_channal_id[0], rep_buf_loc_write->get_sem().id(),
+        rep_buf_loc_write->get_mask(), 0, 0, 1, 1);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepBufReadTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepBufRead* repBufRead, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_buf_read_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_buf_read* rep_buf_read, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(dep);
-    CHK_PTR_NULL(repBufRead);
-    CcuChannel channelImpl(repBufRead->GetChannel());
+    CHK_PTR_NULL(rep_buf_read);
+    ccu_channel channel_impl(rep_buf_read->get_channel());
     CHK_PRT_RET(
-        channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR("failed to get ccu channel, type[%d]", repBufRead->Type()), HCCL_E_INTERNAL);
+        channel_impl.get_result() != HcclResult::HCCL_SUCCESS,
+        HCCL_ERROR("failed to get ccu channel, type[%d]", rep_buf_read->type()), HCCL_E_INTERNAL);
 
-    TransRmtMemToLocMSInstr(
-        instr++, repBufRead->GetDst().Id(), repBufRead->GetSrc().addr.Id(), repBufRead->GetSrc().token.Id(),
-        repBufRead->GetLen().Id(), channelImpl->GetChannelId(), repBufRead->GetSem().Id(), repBufRead->GetMask(), 0, 0,
+    trans_rmt_mem_to_loc_ms_instr(
+        instr++, rep_buf_read->get_dst().id(), rep_buf_read->get_src().addr.id(), rep_buf_read->get_src().token.id(),
+        rep_buf_read->get_len().id(), channel_impl->get_channel_id(), rep_buf_read->get_sem().id(), rep_buf_read->get_mask(), 0, 0,
         1, 1);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepWriteTranslate(CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepWrite* repWrite)
+HcclResult ccu_ins_generater_v1::ccu_rep_write_translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_write* rep_write)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(repWrite);
-    CcuChannel channelImpl(repWrite->GetChannel());
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(rep_write);
+    ccu_channel channel_impl(rep_write->get_channel());
     CHK_PRT_RET(
-        channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR("failed to get ccu channel, type[%d]", repWrite->Type()), HCCL_E_INTERNAL);
-    TransLocMemToRmtMemInstr(
-        instr++, repWrite->GetRem().addr.Id(), repWrite->GetRem().token.Id(), repWrite->GetLoc().addr.Id(),
-        repWrite->GetLoc().token.Id(), repWrite->GetLen().Id(), channelImpl->GetChannelId(), repWrite->GetDataType(),
-        repWrite->GetOpType(), repWrite->GetSem().Id(), repWrite->GetMask(), 0, 0, 1, 1, repWrite->GetReduceFlag());
+        channel_impl.get_result() != HcclResult::HCCL_SUCCESS,
+        HCCL_ERROR("failed to get ccu channel, type[%d]", rep_write->type()), HCCL_E_INTERNAL);
+    trans_loc_mem_to_rmt_mem_instr(
+        instr++, rep_write->get_rem().addr.id(), rep_write->get_rem().token.id(), rep_write->get_loc().addr.id(),
+        rep_write->get_loc().token.id(), rep_write->get_len().id(), channel_impl->get_channel_id(), rep_write->get_data_type(),
+        rep_write->get_op_type(), rep_write->get_sem().id(), rep_write->get_mask(), 0, 0, 1, 1, rep_write->get_reduce_flag());
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepReadTranslate(CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepRead* repRead)
+HcclResult ccu_ins_generater_v1::ccu_rep_read_translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_read* rep_read)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(repRead);
-    CcuChannel channelImpl(repRead->GetChannel());
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(rep_read);
+    ccu_channel channel_impl(rep_read->get_channel());
     CHK_PRT_RET(
-        channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR("failed to get ccu channel, type[%d]", repRead->Type()), HCCL_E_INTERNAL);
-    TransRmtMemToLocMemInstr(
-        instr++, repRead->GetLoc().addr.Id(), repRead->GetLoc().token.Id(), repRead->GetRem().addr.Id(),
-        repRead->GetRem().token.Id(), repRead->GetLen().Id(), channelImpl->GetChannelId(), repRead->GetDataType(),
-        repRead->GetOpType(), repRead->GetSem().Id(), repRead->GetMask(), 0, 0, 1, 1, repRead->GetReduceFlag());
+        channel_impl.get_result() != HcclResult::HCCL_SUCCESS,
+        HCCL_ERROR("failed to get ccu channel, type[%d]", rep_read->type()), HCCL_E_INTERNAL);
+    trans_rmt_mem_to_loc_mem_instr(
+        instr++, rep_read->get_loc().addr.id(), rep_read->get_loc().token.id(), rep_read->get_rem().addr.id(),
+        rep_read->get_rem().token.id(), rep_read->get_len().id(), channel_impl->get_channel_id(), rep_read->get_data_type(),
+        rep_read->get_op_type(), rep_read->get_sem().id(), rep_read->get_mask(), 0, 0, 1, 1, rep_read->get_reduce_flag());
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepRemMemTranslate(CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepRemMem* repRemMem)
+HcclResult ccu_ins_generater_v1::ccu_rep_rem_mem_translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_mem* rep_rem_mem)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(repRemMem);
-    CcuChannel channelImpl(repRemMem->GetChannel());
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(rep_rem_mem);
+    ccu_channel channel_impl(rep_rem_mem->get_channel());
     CHK_PRT_RET(
-        channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR("failed to get ccu channel, type[%d]", repRemMem->Type()), HCCL_E_INTERNAL);
+        channel_impl.get_result() != HcclResult::HCCL_SUCCESS,
+        HCCL_ERROR("failed to get ccu channel, type[%d]", rep_rem_mem->type()), HCCL_E_INTERNAL);
     uint32_t size{0};
-    uint32_t tokenId{0};
-    uint32_t tokenValue{0};
+    uint32_t token_id{0};
+    uint32_t token_value{0};
     uint64_t addr{0};
     CHK_PRT_RET(
-        channelImpl->GetRmtBuffer(addr, size, tokenId, tokenValue) != HcclResult::HCCL_SUCCESS,
+        channel_impl->get_rmt_buffer(addr, size, token_id, token_value) != HcclResult::HCCL_SUCCESS,
         HCCL_ERROR(
             "[CcuRepRemMem][%s] failed to get remote buffer, channelHandle[0x%llx].", __func__,
-            repRemMem->GetChannel()),
+            rep_rem_mem->get_channel()),
         HCCL_E_UNAVAIL); // 当前认为channel只持有一个buffer
 
-    auto tokenInfo = GetToken(tokenId, tokenValue, 1);
+    auto token_info = get_token(token_id, token_value, 1);
 
-    LoadImdToGSAInstr(instr++, repRemMem->GetRem().addr.Id(), addr);
-    LoadImdToXnInstr(instr++, repRemMem->GetRem().token.Id(), tokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
+    load_imd_to_gsa_instr(instr++, rep_rem_mem->get_rem().addr.id(), addr);
+    load_imd_to_xn_instr(instr++, rep_rem_mem->get_rem().token.id(), token_info, ccu_load_to_xn_sec_info);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepLocCpyTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepLocCpy* ccuRepLocCpy, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_loc_cpy_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_loc_cpy* ccu_rep_loc_cpy, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(ccuRepLocCpy);
-    if (ccuRepLocCpy->GetReduceFlag() == 0) {
-        TransLocMemToLocMemInstr(
-            instr++, ccuRepLocCpy->GetDst().addr.Id(), ccuRepLocCpy->GetDst().token.Id(),
-            ccuRepLocCpy->GetSrc().addr.Id(), ccuRepLocCpy->GetSrc().token.Id(), ccuRepLocCpy->GetLen().Id(),
-            dep.reserveChannalId[0], ccuRepLocCpy->GetSem().Id(), ccuRepLocCpy->GetMask(), 0, 0, 1, 1);
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(ccu_rep_loc_cpy);
+    if (ccu_rep_loc_cpy->get_reduce_flag() == 0) {
+        trans_loc_mem_to_loc_mem_instr(
+            instr++, ccu_rep_loc_cpy->get_dst().addr.id(), ccu_rep_loc_cpy->get_dst().token.id(),
+            ccu_rep_loc_cpy->get_src().addr.id(), ccu_rep_loc_cpy->get_src().token.id(), ccu_rep_loc_cpy->get_len().id(),
+            dep.reserve_channal_id[0], ccu_rep_loc_cpy->get_sem().id(), ccu_rep_loc_cpy->get_mask(), 0, 0, 1, 1);
     } else {
         // 这个翻译需要验证
-        TransLocMemToRmtMemInstr(
-            instr++, ccuRepLocCpy->GetDst().addr.Id(), ccuRepLocCpy->GetDst().token.Id(),
-            ccuRepLocCpy->GetSrc().addr.Id(), ccuRepLocCpy->GetSrc().token.Id(), ccuRepLocCpy->GetLen().Id(),
-            dep.reserveChannalId[0], ccuRepLocCpy->GetDataType(), ccuRepLocCpy->GetOpType(),
-            ccuRepLocCpy->GetSem().Id(), ccuRepLocCpy->GetMask(), 0, 0, 1, 1, ccuRepLocCpy->GetReduceFlag());
+        trans_loc_mem_to_rmt_mem_instr(
+            instr++, ccu_rep_loc_cpy->get_dst().addr.id(), ccu_rep_loc_cpy->get_dst().token.id(),
+            ccu_rep_loc_cpy->get_src().addr.id(), ccu_rep_loc_cpy->get_src().token.id(), ccu_rep_loc_cpy->get_len().id(),
+            dep.reserve_channal_id[0], ccu_rep_loc_cpy->get_data_type(), ccu_rep_loc_cpy->get_op_type(),
+            ccu_rep_loc_cpy->get_sem().id(), ccu_rep_loc_cpy->get_mask(), 0, 0, 1, 1, ccu_rep_loc_cpy->get_reduce_flag());
     }
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepBufWriteTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepBufWrite* ccuRepBufWrite, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_buf_write_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_buf_write* ccu_rep_buf_write, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(dep);
-    CHK_PTR_NULL(ccuRepBufWrite);
-    CcuChannel channelImpl(ccuRepBufWrite->GetChannel());
+    CHK_PTR_NULL(ccu_rep_buf_write);
+    ccu_channel channel_impl(ccu_rep_buf_write->get_channel());
     CHK_PRT_RET(
-        channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR("failed to get ccu channel, type[%d]", ccuRepBufWrite->Type()), HCCL_E_INTERNAL);
-    TransLocMSToRmtMemInstr(
-        instr++, ccuRepBufWrite->GetDst().addr.Id(), ccuRepBufWrite->GetDst().token.Id(), ccuRepBufWrite->GetSrc().Id(),
-        ccuRepBufWrite->GetLen().Id(), channelImpl->GetChannelId(), ccuRepBufWrite->GetSem().Id(),
-        ccuRepBufWrite->GetMask(), 0, 0, 1, 1);
+        channel_impl.get_result() != HcclResult::HCCL_SUCCESS,
+        HCCL_ERROR("failed to get ccu channel, type[%d]", ccu_rep_buf_write->type()), HCCL_E_INTERNAL);
+    trans_loc_ms_to_rmt_mem_instr(
+        instr++, ccu_rep_buf_write->get_dst().addr.id(), ccu_rep_buf_write->get_dst().token.id(), ccu_rep_buf_write->get_src().id(),
+        ccu_rep_buf_write->get_len().id(), channel_impl->get_channel_id(), ccu_rep_buf_write->get_sem().id(),
+        ccu_rep_buf_write->get_mask(), 0, 0, 1, 1);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepBufReduceTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepBufReduce* ccuRepBufReduce)
+HcclResult ccu_ins_generater_v1::ccu_rep_buf_reduce_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_buf_reduce* ccu_rep_buf_reduce)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(ccuRepBufReduce);
-    if (ccuRepBufReduce->GetCount() < CCU_REDUCE_MIN_MS) {
-        HCCL_ERROR("count[%u] must be at least %u", ccuRepBufReduce->GetCount(), CCU_REDUCE_MIN_MS);
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(ccu_rep_buf_reduce);
+    if (ccu_rep_buf_reduce->get_count() < ccu_reduce_min_ms) {
+        HCCL_ERROR("count[%u] must be at least %u", ccu_rep_buf_reduce->get_count(), ccu_reduce_min_ms);
         return HCCL_E_PARA;
     }
-    if (ccuRepBufReduce->GetCount() > CCU_REDUCE_MAX_MS || ccuRepBufReduce->GetMem().size() > CCU_REDUCE_MAX_MS) {
+    if (ccu_rep_buf_reduce->get_count() > ccu_reduce_max_ms || ccu_rep_buf_reduce->get_mem().size() > ccu_reduce_max_ms) {
         HCCL_ERROR(
-            "count[%u] and mem size[%zu] must less than %u", ccuRepBufReduce->GetCount(),
-            ccuRepBufReduce->GetMem().size(), CCU_REDUCE_MAX_MS);
+            "count[%u] and mem size[%zu] must less than %u", ccu_rep_buf_reduce->get_count(),
+            ccu_rep_buf_reduce->get_mem().size(), ccu_reduce_max_ms);
         return HCCL_E_PARA;
     }
 
     // 这里需要注意，在数据格式膨胀的情况下，需要传入用来存放输出的MSId
     // 特别是2P场景，输入MS的数目为2，但是在8bit进，32bit出的场景，输出MS的数目为4
     // 传入的MS中已经包含了需要使用的输入输出的最大量，因此，这里应该直接去MS的size
-    auto mem = ccuRepBufReduce->GetMem();
-    uint16_t msId[CCU_REDUCE_MAX_MS] = {0};
+    auto mem = ccu_rep_buf_reduce->get_mem();
+    uint16_t ms_id[ccu_reduce_max_ms] = {0};
     for (uint16_t i = 0; i < mem.size(); i++) {
-        msId[i] = mem[i].Id();
+        ms_id[i] = mem[i].id();
     }
 
-    if (ccuRepBufReduce->GetOpType() == CCU_REDUCE_SUM) {
-        if (ccuRepBufReduce->GetOutputDataType() == 1) { // 1是fp16
-            AddInstr(
-                instr++, msId, ccuRepBufReduce->GetCount(), ccuRepBufReduce->GetOutputDataType(),
-                ccuRepBufReduce->GetDataType(), ccuRepBufReduce->GetSem().Id(), ccuRepBufReduce->GetMask(), 0, 0, 1,
-                ccuRepBufReduce->GetXnIdLength().Id());
-        } else if (ccuRepBufReduce->GetOutputDataType() == 2) { // 2是bf16
-            AddInstr(
-                instr++, msId, ccuRepBufReduce->GetCount(), ccuRepBufReduce->GetOutputDataType(),
-                ccuRepBufReduce->GetDataType(), ccuRepBufReduce->GetSem().Id(), ccuRepBufReduce->GetMask(), 0, 0, 1,
-                ccuRepBufReduce->GetXnIdLength().Id());
+    if (ccu_rep_buf_reduce->get_op_type() == ccu_reduce_sum) {
+        if (ccu_rep_buf_reduce->get_output_data_type() == 1) { // 1是fp16
+            add_instr(
+                instr++, ms_id, ccu_rep_buf_reduce->get_count(), ccu_rep_buf_reduce->get_output_data_type(),
+                ccu_rep_buf_reduce->get_data_type(), ccu_rep_buf_reduce->get_sem().id(), ccu_rep_buf_reduce->get_mask(), 0, 0, 1,
+                ccu_rep_buf_reduce->get_xn_id_length().id());
+        } else if (ccu_rep_buf_reduce->get_output_data_type() == 2) { // 2是bf16
+            add_instr(
+                instr++, ms_id, ccu_rep_buf_reduce->get_count(), ccu_rep_buf_reduce->get_output_data_type(),
+                ccu_rep_buf_reduce->get_data_type(), ccu_rep_buf_reduce->get_sem().id(), ccu_rep_buf_reduce->get_mask(), 0, 0, 1,
+                ccu_rep_buf_reduce->get_xn_id_length().id());
         } else {
-            AddInstr(
-                instr++, msId, ccuRepBufReduce->GetCount(), 0, ccuRepBufReduce->GetDataType(),
-                ccuRepBufReduce->GetSem().Id(), ccuRepBufReduce->GetMask(), 0, 0, 1,
-                ccuRepBufReduce->GetXnIdLength().Id());
+            add_instr(
+                instr++, ms_id, ccu_rep_buf_reduce->get_count(), 0, ccu_rep_buf_reduce->get_data_type(),
+                ccu_rep_buf_reduce->get_sem().id(), ccu_rep_buf_reduce->get_mask(), 0, 0, 1,
+                ccu_rep_buf_reduce->get_xn_id_length().id());
         }
-    } else if (ccuRepBufReduce->GetOpType() == CCU_REDUCE_MAX) {
-        MaxInstr(
-            instr++, msId, ccuRepBufReduce->GetCount(), ccuRepBufReduce->GetDataType(), ccuRepBufReduce->GetSem().Id(),
-            ccuRepBufReduce->GetMask(), 0, 0, 1, ccuRepBufReduce->GetXnIdLength().Id());
-    } else if (ccuRepBufReduce->GetOpType() == CCU_REDUCE_MIN) {
-        MinInstr(
-            instr++, msId, ccuRepBufReduce->GetCount(), ccuRepBufReduce->GetDataType(), ccuRepBufReduce->GetSem().Id(),
-            ccuRepBufReduce->GetMask(), 0, 0, 1, ccuRepBufReduce->GetXnIdLength().Id());
+    } else if (ccu_rep_buf_reduce->get_op_type() == ccu_reduce_max) {
+        max_instr(
+            instr++, ms_id, ccu_rep_buf_reduce->get_count(), ccu_rep_buf_reduce->get_data_type(), ccu_rep_buf_reduce->get_sem().id(),
+            ccu_rep_buf_reduce->get_mask(), 0, 0, 1, ccu_rep_buf_reduce->get_xn_id_length().id());
+    } else if (ccu_rep_buf_reduce->get_op_type() == ccu_reduce_min) {
+        min_instr(
+            instr++, ms_id, ccu_rep_buf_reduce->get_count(), ccu_rep_buf_reduce->get_data_type(), ccu_rep_buf_reduce->get_sem().id(),
+            ccu_rep_buf_reduce->get_mask(), 0, 0, 1, ccu_rep_buf_reduce->get_xn_id_length().id());
     }
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-uint32_t CcuInsGeneraterV1::GetInstrCount(CcuRepType repType)
+uint32_t ccu_ins_generater_v1::get_instr_count(ccu_rep_type rep_type)
 {
-    if (repTypeInstrCount.find(repType) == repTypeInstrCount.end()) {
-        asccomm::ThrowCcuInternal("[%s] Unsupported repType[%d]", __func__, repType);
+    if (rep_type_instr_count_.find(rep_type) == rep_type_instr_count_.end()) {
+        asc::throw_ccu_internal("[%s] Unsupported repType[%d]", __func__, rep_type);
     }
-    return repTypeInstrCount[repType];
+    return rep_type_instr_count_[rep_type];
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepLocRecordEventTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepLocRecordEvent* ccuRepLocRecordEvent)
+HcclResult ccu_ins_generater_v1::ccu_rep_loc_record_event_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_loc_record_event* ccu_rep_loc_record_event)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(ccuRepLocRecordEvent);
-    SetCKEInstr(instr++, ccuRepLocRecordEvent->GetEvent().Id(), ccuRepLocRecordEvent->GetMask(), 0, 0, 1);
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(ccu_rep_loc_record_event);
+    set_cke_instr(instr++, ccu_rep_loc_record_event->get_event().id(), ccu_rep_loc_record_event->get_mask(), 0, 0, 1);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepLocWaitEventTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepLocWaitEvent* ccuRepLocWaitEvent)
+HcclResult ccu_ins_generater_v1::ccu_rep_loc_wait_event_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_loc_wait_event* ccu_rep_loc_wait_event)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(ccuRepLocWaitEvent);
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(ccu_rep_loc_wait_event);
     // SetCKEInstr支持硬件profiling功能
-    if (ccuRepLocWaitEvent->GetIsProfiling()) {
-        SetCKEInstr(instr++, 0, 0, ccuRepLocWaitEvent->GetEvent().Id(), ccuRepLocWaitEvent->GetMask(), 1);
+    if (ccu_rep_loc_wait_event->get_is_profiling()) {
+        set_cke_instr(instr++, 0, 0, ccu_rep_loc_wait_event->get_event().id(), ccu_rep_loc_wait_event->get_mask(), 1);
     } else {
-        ClearCKEInstr(instr++, 0, 0, ccuRepLocWaitEvent->GetEvent().Id(), ccuRepLocWaitEvent->GetMask(), 1);
+        clear_cke_instr(instr++, 0, 0, ccu_rep_loc_wait_event->get_event().id(), ccu_rep_loc_wait_event->get_mask(), 1);
     }
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepLocWaitNotifyTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepLocWaitNotify* ccuRepLocWaitNotify)
+HcclResult ccu_ins_generater_v1::ccu_rep_loc_wait_notify_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_loc_wait_notify* ccu_rep_loc_wait_notify)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(ccuRepLocWaitNotify);
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(ccu_rep_loc_wait_notify);
     // SetCKEInstr支持硬件profiling功能
-    if (ccuRepLocWaitNotify->GetIsProfiling()) {
-        SetCKEInstr(instr++, 0, 0, ccuRepLocWaitNotify->GetNotify().Id(), ccuRepLocWaitNotify->GetMask(), 1);
+    if (ccu_rep_loc_wait_notify->get_is_profiling()) {
+        set_cke_instr(instr++, 0, 0, ccu_rep_loc_wait_notify->get_notify().id(), ccu_rep_loc_wait_notify->get_mask(), 1);
     } else {
-        ClearCKEInstr(instr++, 0, 0, ccuRepLocWaitNotify->GetNotify().Id(), ccuRepLocWaitNotify->GetMask(), 1);
+        clear_cke_instr(instr++, 0, 0, ccu_rep_loc_wait_notify->get_notify().id(), ccu_rep_loc_wait_notify->get_mask(), 1);
     }
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepRemWaitSemTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepRemWaitSem* cuRepRemWaitSem)
+HcclResult ccu_ins_generater_v1::ccu_rep_rem_wait_sem_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_wait_sem* cu_rep_rem_wait_sem)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(cuRepRemWaitSem);
-    CcuChannel channelImpl(cuRepRemWaitSem->GetChannel());
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(cu_rep_rem_wait_sem);
+    ccu_channel channel_impl(cu_rep_rem_wait_sem->get_channel());
     CHK_PRT_RET(
-        channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR("failed to get ccu channel, type[%d]", cuRepRemWaitSem->Type()), HCCL_E_INTERNAL);
-    uint32_t locCkeId{0};
+        channel_impl.get_result() != HcclResult::HCCL_SUCCESS,
+        HCCL_ERROR("failed to get ccu channel, type[%d]", cu_rep_rem_wait_sem->type()), HCCL_E_INTERNAL);
+    uint32_t loc_cke_id{0};
     CHK_PRT_RET(
-        channelImpl->GetLocCkeByIndex(cuRepRemWaitSem->GetSemIndex(), locCkeId) != HcclResult::HCCL_SUCCESS,
+        channel_impl->get_loc_cke_by_index(cu_rep_rem_wait_sem->get_sem_index(), loc_cke_id) != HcclResult::HCCL_SUCCESS,
         HCCL_ERROR(
             "[CcuRepRemWaitSem][%s] failed to get loc cke id, channelHandle[0x%llx], semIndex[%u].", __func__,
-            cuRepRemWaitSem->GetChannel(), cuRepRemWaitSem->GetSemIndex()),
+            cu_rep_rem_wait_sem->get_channel(), cu_rep_rem_wait_sem->get_sem_index()),
         HCCL_E_UNAVAIL);
 
     // 需要profiling的使用SetCKEInstr, 否则使用ClearCKEInstr
-    if (cuRepRemWaitSem->GetIsProfiling()) {
-        SetCKEInstr(instr++, 0, 0, locCkeId, cuRepRemWaitSem->GetMask(), 1);
+    if (cu_rep_rem_wait_sem->get_is_profiling()) {
+        set_cke_instr(instr++, 0, 0, loc_cke_id, cu_rep_rem_wait_sem->get_mask(), 1);
     } else {
-        ClearCKEInstr(instr++, 0, 0, locCkeId, cuRepRemWaitSem->GetMask(), 1);
+        clear_cke_instr(instr++, 0, 0, loc_cke_id, cu_rep_rem_wait_sem->get_mask(), 1);
     }
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepRemPostVarTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepRemPostVar* ccuRepRemPostVar)
+HcclResult ccu_ins_generater_v1::ccu_rep_rem_post_var_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_post_var* ccu_rep_rem_post_var)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(ccuRepRemPostVar);
-    CcuChannel channelImpl(ccuRepRemPostVar->GetChannel());
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(ccu_rep_rem_post_var);
+    ccu_channel channel_impl(ccu_rep_rem_post_var->get_channel());
     CHK_PRT_RET(
-        channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR("failed to get ccu channel, type[%d]", ccuRepRemPostVar->Type()), HCCL_E_INTERNAL);
-    uint32_t rmtXnId{0};
+        channel_impl.get_result() != HcclResult::HCCL_SUCCESS,
+        HCCL_ERROR("failed to get ccu channel, type[%d]", ccu_rep_rem_post_var->type()), HCCL_E_INTERNAL);
+    uint32_t rmt_xn_id{0};
     CHK_PRT_RET(
-        channelImpl->GetRmtXnByIndex(ccuRepRemPostVar->GetParamIndex(), rmtXnId) != HcclResult::HCCL_SUCCESS,
+        channel_impl->get_rmt_xn_by_index(ccu_rep_rem_post_var->get_param_index(), rmt_xn_id) != HcclResult::HCCL_SUCCESS,
         HCCL_ERROR(
             "[CcuRepRemPostSem][%s] failed to get remote xn id, channelHandle[0x%llx].", __func__,
-            ccuRepRemPostVar->GetChannel()),
+            ccu_rep_rem_post_var->get_channel()),
         HCCL_E_UNAVAIL);
 
-    uint32_t rmtCkeId{0};
+    uint32_t rmt_cke_id{0};
     CHK_PRT_RET(
-        channelImpl->GetRmtCkeByIndex(ccuRepRemPostVar->GetSemIndex(), rmtCkeId) != HcclResult::HCCL_SUCCESS,
+        channel_impl->get_rmt_cke_by_index(ccu_rep_rem_post_var->get_sem_index(), rmt_cke_id) != HcclResult::HCCL_SUCCESS,
         HCCL_ERROR(
             "[CcuRepRemPostSem][%s] failed to get remote cke id, channelHandle[0x%llx].", __func__,
-            ccuRepRemPostVar->GetChannel()),
+            ccu_rep_rem_post_var->get_channel()),
         HCCL_E_UNAVAIL);
 
-    SyncXnInstr(
-        instr++, rmtXnId, ccuRepRemPostVar->GetParam().Id(), channelImpl->GetChannelId(), rmtCkeId,
-        ccuRepRemPostVar->GetMask(), 0, 0, 0, 0, 1);
+    sync_xn_instr(
+        instr++, rmt_xn_id, ccu_rep_rem_post_var->get_param().id(), channel_impl->get_channel_id(), rmt_cke_id,
+        ccu_rep_rem_post_var->get_mask(), 0, 0, 0, 0, 1);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepRemPostSemTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepRemPostSem* ccuRepRemPostSem, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_rem_post_sem_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_post_sem* ccu_rep_rem_post_sem, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(ccuRepRemPostSem);
-    CcuChannel channelImpl(ccuRepRemPostSem->GetChannel());
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(ccu_rep_rem_post_sem);
+    ccu_channel channel_impl(ccu_rep_rem_post_sem->get_channel());
     CHK_PRT_RET(
-        channelImpl.GetResult() != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR("failed to get ccu channel, type[%d]", ccuRepRemPostSem->Type()), HCCL_E_INTERNAL);
-    uint32_t rmtCkeId{0};
+        channel_impl.get_result() != HcclResult::HCCL_SUCCESS,
+        HCCL_ERROR("failed to get ccu channel, type[%d]", ccu_rep_rem_post_sem->type()), HCCL_E_INTERNAL);
+    uint32_t rmt_cke_id{0};
     CHK_PRT_RET(
-        channelImpl->GetRmtCkeByIndex(ccuRepRemPostSem->GetSemIndex(), rmtCkeId) != HcclResult::HCCL_SUCCESS,
+        channel_impl->get_rmt_cke_by_index(ccu_rep_rem_post_sem->get_sem_index(), rmt_cke_id) != HcclResult::HCCL_SUCCESS,
         HCCL_ERROR(
             "[CcuRepRemPostSem][%s] failed to get remote cke id, channelHandle[0x%llx].", __func__,
-            ccuRepRemPostSem->GetChannel()),
+            ccu_rep_rem_post_sem->get_channel()),
         HCCL_E_UNAVAIL);
 
-    SyncCKEInstr(
-        instr++, rmtCkeId, dep.reserveCkeId, ccuRepRemPostSem->GetMask(), channelImpl->GetChannelId(), 0, 0, 0, 0, 1);
+    sync_cke_instr(
+        instr++, rmt_cke_id, dep.reserve_cke_id, ccu_rep_rem_post_sem->get_mask(), channel_impl->get_channel_id(), 0, 0, 0, 0, 1);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepRecordSharedNotifyTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepRecordSharedNotify* ccuRepRecordSharedNotify, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_record_shared_notify_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_record_shared_notify* ccu_rep_record_shared_notify, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(ccuRepRecordSharedNotify);
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(ccu_rep_record_shared_notify);
     // 非本die时利用环回访问
-    if (ccuRepRecordSharedNotify->GetNotify().DieId() != dep.dieId) {
-        SyncCKEInstr(
-            instr++, ccuRepRecordSharedNotify->GetNotify().Id(), dep.reserveCkeId, ccuRepRecordSharedNotify->GetMask(),
-            dep.reserveChannalId[1], 0, 0, 0, 0, 1);
+    if (ccu_rep_record_shared_notify->get_notify().die_id() != dep.die_id) {
+        sync_cke_instr(
+            instr++, ccu_rep_record_shared_notify->get_notify().id(), dep.reserve_cke_id, ccu_rep_record_shared_notify->get_mask(),
+            dep.reserve_channal_id[1], 0, 0, 0, 0, 1);
     } else {
-        SetCKEInstr(instr++, ccuRepRecordSharedNotify->GetNotify().Id(), ccuRepRecordSharedNotify->GetMask(), 0, 0, 1);
+        set_cke_instr(instr++, ccu_rep_record_shared_notify->get_notify().id(), ccu_rep_record_shared_notify->get_mask(), 0, 0, 1);
     }
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepAddTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepAdd* ccuRepAdd, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_add_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_add* ccu_rep_add, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(ccuRepAdd);
-    switch (ccuRepAdd->GetSubType()) {
-        case AddSubType::ADDR_PLUS_VAR_TO_ADDR: {
-            LoadGSAXnInstr(instr++, ccuRepAdd->GetAddrC().Id(), ccuRepAdd->GetAddrA().Id(), ccuRepAdd->GetVarB().Id());
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(ccu_rep_add);
+    switch (ccu_rep_add->get_sub_type()) {
+        case add_sub_type::addr_plus_var_to_addr: {
+            load_gsa_xn_instr(instr++, ccu_rep_add->get_addr_c().id(), ccu_rep_add->get_addr_a().id(), ccu_rep_add->get_var_b().id());
             break;
         }
-        case AddSubType::ADDR_PLUS_ADDR_TO_ADDR: {
-            LoadGSAGSAInstr(
-                instr++, ccuRepAdd->GetAddrC().Id(), ccuRepAdd->GetAddrA().Id(), ccuRepAdd->GetAddrB().Id());
+        case add_sub_type::addr_plus_addr_to_addr: {
+            load_gsagsa_instr(
+                instr++, ccu_rep_add->get_addr_c().id(), ccu_rep_add->get_addr_a().id(), ccu_rep_add->get_addr_b().id());
             break;
         }
-        case AddSubType::VAR_PLUS_VAR_TO_VAR: {
-            LoadXXInstr(instr++, ccuRepAdd->GetVarC().Id(), ccuRepAdd->GetVarA().Id(), ccuRepAdd->GetVarB().Id());
+        case add_sub_type::var_plus_var_to_var: {
+            load_xx_instr(instr++, ccu_rep_add->get_var_c().id(), ccu_rep_add->get_var_a().id(), ccu_rep_add->get_var_b().id());
             break;
         }
-        case AddSubType::SELF_ADD_ADDRESS: {
-            LoadGSAXnInstr(instr++, ccuRepAdd->GetAddrA().Id(), ccuRepAdd->GetAddrA().Id(), ccuRepAdd->GetVarB().Id());
+        case add_sub_type::self_add_address: {
+            load_gsa_xn_instr(instr++, ccu_rep_add->get_addr_a().id(), ccu_rep_add->get_addr_a().id(), ccu_rep_add->get_var_b().id());
             break;
         }
-        case AddSubType::SELF_ADD_VARIABLE: {
-            LoadXXInstr(instr++, ccuRepAdd->GetVarA().Id(), ccuRepAdd->GetVarA().Id(), ccuRepAdd->GetVarB().Id());
+        case add_sub_type::self_add_variable: {
+            load_xx_instr(instr++, ccu_rep_add->get_var_a().id(), ccu_rep_add->get_var_a().id(), ccu_rep_add->get_var_b().id());
             break;
         }
         default: {
-            HCCL_ERROR("Invalid Add, subType[%d]", static_cast<int>(ccuRepAdd->GetSubType()));
+            HCCL_ERROR("Invalid Add, subType[%d]", static_cast<int>(ccu_rep_add->get_sub_type()));
             return HCCL_E_PARA;
         }
     }
@@ -424,34 +424,34 @@ HcclResult CcuInsGeneraterV1::CcuRepAddTranslate(
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepAssignTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepAssign* ccuRepAssign, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_assign_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_assign* ccu_rep_assign, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(ccuRepAssign);
-    switch (ccuRepAssign->GetSubType()) {
-        case AssignSubType::IMD_TO_VARIABLE: {
-            LoadImdToXnInstr(instr++, ccuRepAssign->GetVarA().Id(), ccuRepAssign->GetImmed());
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(ccu_rep_assign);
+    switch (ccu_rep_assign->get_sub_type()) {
+        case assign_sub_type::imd_to_variable: {
+            load_imd_to_xn_instr(instr++, ccu_rep_assign->get_var_a().id(), ccu_rep_assign->get_immed());
             break;
         }
-        case AssignSubType::IMD_TO_ADDR: {
-            LoadImdToGSAInstr(instr++, ccuRepAssign->GetAddrA().Id(), ccuRepAssign->GetImmed());
+        case assign_sub_type::imd_to_addr: {
+            load_imd_to_gsa_instr(instr++, ccu_rep_assign->get_addr_a().id(), ccu_rep_assign->get_immed());
             break;
         }
-        case AssignSubType::VAR_TO_ADDR: {
-            LoadGSAXnInstr(instr++, ccuRepAssign->GetAddrA().Id(), dep.reserveGsaId, ccuRepAssign->GetVarA().Id());
+        case assign_sub_type::var_to_addr: {
+            load_gsa_xn_instr(instr++, ccu_rep_assign->get_addr_a().id(), dep.reserve_gsa_id, ccu_rep_assign->get_var_a().id());
             break;
         }
-        case AssignSubType::ADDR_TO_ADDR: {
-            LoadGSAGSAInstr(instr++, ccuRepAssign->GetAddrB().Id(), ccuRepAssign->GetAddrA().Id(), dep.reserveGsaId);
+        case assign_sub_type::addr_to_addr: {
+            load_gsagsa_instr(instr++, ccu_rep_assign->get_addr_b().id(), ccu_rep_assign->get_addr_a().id(), dep.reserve_gsa_id);
             break;
         }
-        case AssignSubType::VAR_TO_VAR: {
-            LoadXXInstr(instr++, ccuRepAssign->GetVarB().Id(), ccuRepAssign->GetVarA().Id(), dep.reserveXnId);
+        case assign_sub_type::var_to_var: {
+            load_xx_instr(instr++, ccu_rep_assign->get_var_b().id(), ccu_rep_assign->get_var_a().id(), dep.reserve_xn_id);
             break;
         }
         default: {
-            HCCL_ERROR("Invalid Assign, subType[%d]", static_cast<int>(ccuRepAssign->GetSubType()));
+            HCCL_ERROR("Invalid Assign, subType[%d]", static_cast<int>(ccu_rep_assign->get_sub_type()));
             return HCCL_E_PARA;
         }
     }
@@ -459,584 +459,585 @@ HcclResult CcuInsGeneraterV1::CcuRepAssignTranslate(
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepMulTranslate(CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepMul* ccuRepMul)
+HcclResult ccu_ins_generater_v1::ccu_rep_mul_translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_mul* ccu_rep_mul)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(instr);
-    UNUSED(ccuRepMul);
+    UNUSED(ccu_rep_mul);
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepSubTranslate(CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepSub* ccuRepSub)
+HcclResult ccu_ins_generater_v1::ccu_rep_sub_translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_sub* ccu_rep_sub)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(instr);
-    UNUSED(ccuRepSub);
+    UNUSED(ccu_rep_sub);
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepAndTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepAnd* ccuRepAnd, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_and_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_and* ccu_rep_and, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(instr);
-    UNUSED(ccuRepAnd);
+    UNUSED(ccu_rep_and);
     UNUSED(dep);
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepNotTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepNot* ccuRepNot, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_not_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_not* ccu_rep_not, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(instr);
-    UNUSED(ccuRepNot);
+    UNUSED(ccu_rep_not);
     UNUSED(dep);
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepOrTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepOr* ccuRepOr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_or_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_or* ccu_rep_or, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(instr);
-    UNUSED(ccuRepOr);
+    UNUSED(ccu_rep_or);
     UNUSED(dep);
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepXorTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepXor* ccuRepXor, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_xor_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_xor* ccu_rep_xor, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(instr);
-    UNUSED(ccuRepXor);
+    UNUSED(ccu_rep_xor);
     UNUSED(dep);
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepShLTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepShL* ccuRepShL, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_sh_l_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_sh_l* ccu_rep_sh_l, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(instr);
-    UNUSED(ccuRepShL);
+    UNUSED(ccu_rep_sh_l);
     UNUSED(dep);
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepShRTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, CcuRepShR* ccuRepShR, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_sh_r_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_sh_r* ccu_rep_sh_r, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(instr);
-    UNUSED(ccuRepShR);
+    UNUSED(ccu_rep_sh_r);
     UNUSED(dep);
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepFuncBlockTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepFuncBlock* funcBlockPtr, const TransDep& dep,
+HcclResult ccu_ins_generater_v1::ccu_rep_func_block_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_func_block* func_block_ptr, const trans_dep& dep,
     uint32_t step)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(funcBlockPtr);
-    std::vector<CcuRepArg>& outArgs = funcBlockPtr->GetOutArgs();
-    CcuRepReferenceManager* funcManager = funcBlockPtr->GetFuncManager();
-    CHK_PTR_NULL(funcManager);
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(func_block_ptr);
+    std::vector<ccu_rep_arg>& out_args = func_block_ptr->get_out_args();
+    ccu_rep_reference_manager* func_manager = func_block_ptr->get_func_manager();
+    CHK_PTR_NULL(func_manager);
     if (step == 0) {
         // 函数入口为nop
-        LoadImdToXnInstr(instr++, dep.reserveXnId, 0); // 向记录常量0的Xn再次赋值0作为nop操作
-        curInstrId++;
+        load_imd_to_xn_instr(instr++, dep.reserve_xn_id, 0); // 向记录常量0的Xn再次赋值0作为nop操作
+        cur_instr_id++;
     } else if (step == 1) {
         // 处理输出的参数
-        uint32_t iOutArg = 0;
-        for (uint32_t i = 0; i < outArgs.size(); i++) {
-            if (outArgs[i].type == CcuArgType::VARIABLE) {
-                LoadXXInstr(instr++, funcManager->GetFuncOut()[iOutArg++].Id(), outArgs[i].var.Id(), dep.reserveXnId);
-                curInstrId++;
-            } else if (outArgs[i].type == CcuArgType::VARIABLE_LIST) {
-                for (uint32_t j = 0; j < outArgs[i].varList.size(); j++) {
-                    LoadXXInstr(
-                        instr++, funcManager->GetFuncOut()[iOutArg++].Id(), outArgs[i].varList[j].Id(),
-                        dep.reserveXnId);
-                    curInstrId++;
+        uint32_t i_out_arg = 0;
+        for (uint32_t i = 0; i < out_args.size(); i++) {
+            if (out_args[i].type == ccu_arg_type::variable) {
+                load_xx_instr(instr++, func_manager->get_func_out()[i_out_arg++].id(), out_args[i].var.id(), dep.reserve_xn_id);
+                cur_instr_id++;
+            } else if (out_args[i].type == ccu_arg_type::variable_list) {
+                for (uint32_t j = 0; j < out_args[i].var_list.size(); j++) {
+                    load_xx_instr(
+                        instr++, func_manager->get_func_out()[i_out_arg++].id(), out_args[i].var_list[j].id(),
+                        dep.reserve_xn_id);
+                    cur_instr_id++;
                 }
             }
         }
 
         // 返回调用处
-        JumpInstr(instr++, funcManager->GetFuncRet(funcBlockPtr->GetCallLayer()).Id(), dep.reserveXnId, 1);
-        curInstrId++;
+        jump_instr(instr++, func_manager->get_func_ret(func_block_ptr->get_call_layer()).id(), dep.reserve_xn_id, 1);
+        cur_instr_id++;
     } else {
-        HCCL_ERROR("Unsupported step[%d] for CcuRepFuncBlockTranslate", step);
+        HCCL_ERROR("Unsupported step[%d] for ccu_rep_func_block_translate", step);
         return HCCL_E_PARA;
     }
     return HcclResult::HCCL_SUCCESS;
 }
 
-void CcuInsGeneraterV1::LoadFuncCallInArgs(
-    CcuInstr* instr, std::vector<CcuRepArg>& inArgs, std::vector<Variable>& formalIns, uint16_t reserveXnId)
+void ccu_ins_generater_v1::load_func_call_in_args(
+    ccu_instr* instr, std::vector<ccu_rep_arg>& in_args, std::vector<variable>& formal_ins, uint16_t reserve_xn_id)
 {
     uint32_t idx = 0;
-    for (uint32_t i = 0; i < inArgs.size(); i++) {
-        if (inArgs[i].type == CcuArgType::VARIABLE) {
-            LoadXXInstr(instr + idx, formalIns[idx].Id(), inArgs[i].var.Id(), reserveXnId);
+    for (uint32_t i = 0; i < in_args.size(); i++) {
+        if (in_args[i].type == ccu_arg_type::variable) {
+            load_xx_instr(instr + idx, formal_ins[idx].id(), in_args[i].var.id(), reserve_xn_id);
             idx++;
-        } else if (inArgs[i].type == CcuArgType::VARIABLE_LIST) {
-            for (uint32_t j = 0; j < inArgs[i].varList.size(); j++) {
-                LoadXXInstr(instr + idx, formalIns[idx].Id(), inArgs[i].varList[j].Id(), reserveXnId);
+        } else if (in_args[i].type == ccu_arg_type::variable_list) {
+            for (uint32_t j = 0; j < in_args[i].var_list.size(); j++) {
+                load_xx_instr(instr + idx, formal_ins[idx].id(), in_args[i].var_list[j].id(), reserve_xn_id);
                 idx++;
             }
         }
     }
 }
 
-void CcuInsGeneraterV1::LoadFuncCallOutArgs(
-    CcuInstr* instr, uint32_t offset, std::vector<CcuRepArg>& outArgs, CcuRepReferenceManager* funcManager,
-    uint16_t reserveXnId)
+void ccu_ins_generater_v1::load_func_call_out_args(
+    ccu_instr* instr, uint32_t offset, std::vector<ccu_rep_arg>& out_args, ccu_rep_reference_manager* func_manager,
+    uint16_t reserve_xn_id)
 {
     uint32_t idx = 0;
-    for (uint32_t i = 0; i < outArgs.size(); i++) {
-        if (outArgs[i].type == CcuArgType::VARIABLE) {
-            LoadXXInstr(instr + offset + idx, outArgs[i].var.Id(), funcManager->GetFuncOut()[idx].Id(), reserveXnId);
+    for (uint32_t i = 0; i < out_args.size(); i++) {
+        if (out_args[i].type == ccu_arg_type::variable) {
+            load_xx_instr(instr + offset + idx, out_args[i].var.id(), func_manager->get_func_out()[idx].id(), reserve_xn_id);
             idx++;
-        } else if (outArgs[i].type == CcuArgType::VARIABLE_LIST) {
-            for (uint32_t j = 0; j < outArgs[i].varList.size(); j++) {
-                LoadXXInstr(
-                    instr + offset + idx, outArgs[i].varList[j].Id(), funcManager->GetFuncOut()[idx].Id(), reserveXnId);
+        } else if (out_args[i].type == ccu_arg_type::variable_list) {
+            for (uint32_t j = 0; j < out_args[i].var_list.size(); j++) {
+                load_xx_instr(
+                    instr + offset + idx, out_args[i].var_list[j].id(), func_manager->get_func_out()[idx].id(), reserve_xn_id);
                 idx++;
             }
         }
     }
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepFuncCallTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& curInstr, uint16_t& curInstrId, CcuRepFuncCall* funcCallPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_func_call_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& cur_instr, uint16_t& cur_instr_id, ccu_rep_func_call* func_call_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    (void)curInstrId;
-    (void)curInstr;
+    UNUSED(ccu_kernel);
+    (void)cur_instr_id;
+    (void)cur_instr;
 
-    FuncCallContext ctx;
-    CHK_RET(PrepareFuncCallContext(funcCallPtr, ctx));
+    func_call_context ctx;
+    CHK_RET(prepare_func_call_context(func_call_ptr, ctx));
 
-    std::vector<CcuRepArg>& outArgs = funcCallPtr->GetOutArgs();
-    std::vector<CcuRepArg>& inArgs = funcCallPtr->GetInArgs();
-    uint32_t inArgCount = ctx.inArgCount;
-    CcuInstr* instr = ctx.instr;
-    CcuRepReferenceManager* funcManager = ctx.funcManager;
-    std::vector<Variable>& formalIns = ctx.formalIns;
-    std::shared_ptr<CcuRepFuncBlock>& funcBlock = ctx.funcBlock;
-    LoadFuncCallInArgs(instr, inArgs, formalIns, dep.reserveXnId);
+    std::vector<ccu_rep_arg>& out_args = func_call_ptr->get_out_args();
+    std::vector<ccu_rep_arg>& in_args = func_call_ptr->get_in_args();
+    uint32_t in_arg_count = ctx.in_arg_count;
+    ccu_instr* instr = ctx.instr;
+    ccu_rep_reference_manager* func_manager = ctx.func_manager;
+    std::vector<variable>& formal_ins = ctx.formal_ins;
+    std::shared_ptr<ccu_rep_func_block>& func_block = ctx.func_block;
+    load_func_call_in_args(instr, in_args, formal_ins, dep.reserve_xn_id);
 
-    uint32_t locId = 0;
-    if (funcBlock != nullptr) {
-        LoadImdToXnInstr(instr + inArgCount + locId++, funcManager->GetFuncCall().Id(), funcBlock->StartInstrId());
+    uint32_t loc_id = 0;
+    if (func_block != nullptr) {
+        load_imd_to_xn_instr(instr + in_arg_count + loc_id++, func_manager->get_func_call().id(), func_block->start_instr_id());
     } else {
-        LoadXXInstr(
-            instr + inArgCount + locId++, funcManager->GetFuncCall().Id(), funcCallPtr->GetFuncAddrVar().Id(),
-            dep.reserveXnId);
+        load_xx_instr(
+            instr + in_arg_count + loc_id++, func_manager->get_func_call().id(), func_call_ptr->get_func_addr_var().id(),
+            dep.reserve_xn_id);
     }
 
-    LoadImdToXnInstr(
-        instr + inArgCount + locId++, funcManager->GetFuncRet(funcCallPtr->GetCallLayer()).Id(),
-        funcCallPtr->StartInstrId() + inArgCount + 3); // 需要指向函数返回位置，为输入指令Id + 3
-    JumpInstr(instr + inArgCount + locId++, funcManager->GetFuncCall().Id(), dep.reserveXnId, 1);
-    LoadImdToXnInstr(instr + inArgCount + locId++, dep.reserveXnId, 0);
+    load_imd_to_xn_instr(
+        instr + in_arg_count + loc_id++, func_manager->get_func_ret(func_call_ptr->get_call_layer()).id(),
+        func_call_ptr->start_instr_id() + in_arg_count + 3); // 需要指向函数返回位置，为输入指令Id + 3
+    jump_instr(instr + in_arg_count + loc_id++, func_manager->get_func_call().id(), dep.reserve_xn_id, 1);
+    load_imd_to_xn_instr(instr + in_arg_count + loc_id++, dep.reserve_xn_id, 0);
 
-    uint32_t extraInstrNum = GetInstrCount(funcCallPtr->Type());
-    LoadFuncCallOutArgs(instr, inArgCount + extraInstrNum, outArgs, funcManager, dep.reserveXnId);
+    uint32_t extra_instr_num = get_instr_count(func_call_ptr->type());
+    load_func_call_out_args(instr, in_arg_count + extra_instr_num, out_args, func_manager, dep.reserve_xn_id);
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepJumpTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepJump* jumpPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_jump_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_jump* jump_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     (void)instr;
-    (void)curInstrId;
+    (void)cur_instr_id;
 
     // 翻译直接跳转指令
-    CHK_PTR_NULL(jumpPtr);
-    std::shared_ptr<CcuRepJumpLabel> jumpLabel = jumpPtr->GetJumpLabel();
-    CHK_PTR_NULL(jumpLabel);
-    LoadImdToXnInstr(jumpPtr->GetInstr() + 0, jumpPtr->GetTargetInstrId().Id(), jumpLabel->StartInstrId());
-    JumpInstr(jumpPtr->GetInstr() + 1, jumpPtr->GetTargetInstrId().Id(), dep.reserveXnId, 1);
+    CHK_PTR_NULL(jump_ptr);
+    std::shared_ptr<ccu_rep_jump_label> jump_label = jump_ptr->get_jump_label();
+    CHK_PTR_NULL(jump_label);
+    load_imd_to_xn_instr(jump_ptr->get_instr() + 0, jump_ptr->get_target_instr_id().id(), jump_label->start_instr_id());
+    jump_instr(jump_ptr->get_instr() + 1, jump_ptr->get_target_instr_id().id(), dep.reserve_xn_id, 1);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepJumpNETranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepJumpNE* jumpNEPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_jump_ne_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_jump_ne* jump_ne_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(instr);
-    UNUSED(curInstrId);
-    CHK_PTR_NULL(jumpNEPtr);
-    std::shared_ptr<CcuRepJumpLabel> jumpLabel = jumpNEPtr->GetJumpLabel();
-    CHK_PTR_NULL(jumpLabel);
-    LoadImdToXnInstr(jumpNEPtr->GetInstr() + 0, jumpNEPtr->GetTargetInstrId().Id(), jumpLabel->StartInstrId());
-    JumpInstr(
-        jumpNEPtr->GetInstr() + 1, jumpNEPtr->GetTargetInstrId().Id(), jumpNEPtr->GetCondition().Id(),
-        jumpNEPtr->GetExpectedNum());
+    UNUSED(cur_instr_id);
+    CHK_PTR_NULL(jump_ne_ptr);
+    std::shared_ptr<ccu_rep_jump_label> jump_label = jump_ne_ptr->get_jump_label();
+    CHK_PTR_NULL(jump_label);
+    load_imd_to_xn_instr(jump_ne_ptr->get_instr() + 0, jump_ne_ptr->get_target_instr_id().id(), jump_label->start_instr_id());
+    jump_instr(
+        jump_ne_ptr->get_instr() + 1, jump_ne_ptr->get_target_instr_id().id(), jump_ne_ptr->get_condition().id(),
+        jump_ne_ptr->get_expected_num());
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepJumpEQTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepJumpEQ* jumpEQPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_jump_eq_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_jump_eq* jump_eq_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     UNUSED(instr);
-    UNUSED(curInstrId);
+    UNUSED(cur_instr_id);
 
-    CHK_PTR_NULL(jumpEQPtr);
-    std::shared_ptr<CcuRepJumpLabel> jumpLabel = jumpEQPtr->GetJumpLabel();
-    CHK_PTR_NULL(jumpLabel);
-    uint32_t localInstrIndex = 0;
-    CcuInstr* startInstr = jumpEQPtr->GetInstr();
-    Variable& targetInstrId = jumpEQPtr->GetTargetInstrId();
-    LoadImdToXnInstr(
-        startInstr + localInstrIndex++, targetInstrId.Id(),
-        jumpEQPtr->StartInstrId() + 4); // 需要指向NOP位置，为输入指令Id + 4
-    JumpInstr(
-        startInstr + localInstrIndex++, targetInstrId.Id(), jumpEQPtr->GetCondition().Id(),
-        jumpEQPtr->GetExpectedNum());
-    LoadImdToXnInstr(startInstr + localInstrIndex++, targetInstrId.Id(), jumpLabel->StartInstrId());
-    JumpInstr(startInstr + localInstrIndex++, targetInstrId.Id(), dep.reserveXnId, 1);
-    LoadImdToXnInstr(startInstr + localInstrIndex++, dep.reserveXnId, 0);
+    CHK_PTR_NULL(jump_eq_ptr);
+    std::shared_ptr<ccu_rep_jump_label> jump_label = jump_eq_ptr->get_jump_label();
+    CHK_PTR_NULL(jump_label);
+    uint32_t local_instr_index = 0;
+    ccu_instr* start_instr = jump_eq_ptr->get_instr();
+    variable& target_instr_id = jump_eq_ptr->get_target_instr_id();
+    load_imd_to_xn_instr(
+        start_instr + local_instr_index++, target_instr_id.id(),
+        jump_eq_ptr->start_instr_id() + 4); // 需要指向NOP位置，为输入指令Id + 4
+    jump_instr(
+        start_instr + local_instr_index++, target_instr_id.id(), jump_eq_ptr->get_condition().id(),
+        jump_eq_ptr->get_expected_num());
+    load_imd_to_xn_instr(start_instr + local_instr_index++, target_instr_id.id(), jump_label->start_instr_id());
+    jump_instr(start_instr + local_instr_index++, target_instr_id.id(), dep.reserve_xn_id, 1);
+    load_imd_to_xn_instr(start_instr + local_instr_index++, dep.reserve_xn_id, 0);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepJumpLETranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepJumpLE* jumpLEPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_jump_le_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_jump_le* jump_le_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     (void)instr;
-    (void)curInstrId;
-    CHK_PTR_NULL(jumpLEPtr);
-    HCCL_ERROR("Unsupported Jump type for CcuV1: %s", jumpLEPtr->Describe().c_str());
+    (void)cur_instr_id;
+    CHK_PTR_NULL(jump_le_ptr);
+    HCCL_ERROR("Unsupported Jump type for CcuV1: %s", jump_le_ptr->describe().c_str());
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepJumpGETranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepJumpGE* jumpGEPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_jump_ge_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_jump_ge* jump_ge_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     (void)instr;
-    (void)curInstrId;
-    CHK_PTR_NULL(jumpGEPtr);
-    HCCL_ERROR("Unsupported Jump type for CcuV1: %s", jumpGEPtr->Describe().c_str());
+    (void)cur_instr_id;
+    CHK_PTR_NULL(jump_ge_ptr);
+    HCCL_ERROR("Unsupported Jump type for CcuV1: %s", jump_ge_ptr->describe().c_str());
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepJumpGTTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepJumpGT* jumpGTPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_jump_gt_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_jump_gt* jump_gt_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     (void)instr;
-    (void)curInstrId;
-    CHK_PTR_NULL(jumpGTPtr);
-    HCCL_ERROR("Unsupported Jump type for CcuV1: %s", jumpGTPtr->Describe().c_str());
+    (void)cur_instr_id;
+    CHK_PTR_NULL(jump_gt_ptr);
+    HCCL_ERROR("Unsupported Jump type for CcuV1: %s", jump_gt_ptr->describe().c_str());
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepJumpLTTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepJumpLT* jumpLTPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_jump_lt_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_jump_lt* jump_lt_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
+    UNUSED(ccu_kernel);
     (void)instr;
-    (void)curInstrId;
-    CHK_PTR_NULL(jumpLTPtr);
-    HCCL_ERROR("Unsupported Jump type for CcuV1: %s", jumpLTPtr->Describe().c_str());
+    (void)cur_instr_id;
+    CHK_PTR_NULL(jump_lt_ptr);
+    HCCL_ERROR("Unsupported Jump type for CcuV1: %s", jump_lt_ptr->describe().c_str());
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepLoopTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepLoop* loopPtr)
+HcclResult ccu_ins_generater_v1::ccu_rep_loop_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_loop* loop_ptr)
 {
-    UNUSED(ccuKernel);
-    UNUSED(curInstrId);
-    CHK_PTR_NULL(loopPtr);
-    auto loopBlock = loopPtr->GetLoopBlock();
-    CHK_PTR_NULL(loopBlock);
+    UNUSED(ccu_kernel);
+    UNUSED(cur_instr_id);
+    CHK_PTR_NULL(loop_ptr);
+    auto loop_block = loop_ptr->get_loop_block();
+    CHK_PTR_NULL(loop_block);
 
-    LoopInstr(
-        instr++, loopBlock->StartInstrId(), loopBlock->StartInstrId() + loopBlock->InstrCount() - 1,
-        loopPtr->GetLoopParam()->Id());
+    loop_instr(
+        instr++, loop_block->start_instr_id(), loop_block->start_instr_id() + loop_block->instr_count() - 1,
+        loop_ptr->get_loop_param()->id());
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::LoadLoopCallArg(
-    CcuInstr*& instr, const CcuRepArg& inArg, const CcuRepArg& blkArg, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::load_loop_call_arg(
+    ccu_instr*& instr, const ccu_rep_arg& in_arg, const ccu_rep_arg& blk_arg, const trans_dep& dep)
 {
-    switch (inArg.type) {
-        case CcuArgType::VARIABLE:
-            LoadXXInstr(instr++, blkArg.var.Id(), inArg.var.Id(), dep.reserveXnId);
+    switch (in_arg.type) {
+        case ccu_arg_type::variable:
+            load_xx_instr(instr++, blk_arg.var.id(), in_arg.var.id(), dep.reserve_xn_id);
             break;
-        case CcuArgType::VARIABLE_LIST:
-            if (inArg.varList.size() != blkArg.varList.size()) {
+        case ccu_arg_type::variable_list:
+            if (in_arg.var_list.size() != blk_arg.var_list.size()) {
                 HCCL_ERROR(
-                    "Mismatched Arg Size, inArg.varList.size[%zu], blkArg.varList.size[%zu]", inArg.varList.size(),
-                    blkArg.varList.size());
+                    "Mismatched Arg Size, inArg.varList.size[%zu], blkArg.varList.size[%zu]", in_arg.var_list.size(),
+                    blk_arg.var_list.size());
                 return HCCL_E_PARA;
             }
-            for (uint32_t j = 0; j < inArg.varList.size(); j++) {
-                LoadXXInstr(instr++, blkArg.varList[j].Id(), inArg.varList[j].Id(), dep.reserveXnId);
+            for (uint32_t j = 0; j < in_arg.var_list.size(); j++) {
+                load_xx_instr(instr++, blk_arg.var_list[j].id(), in_arg.var_list[j].id(), dep.reserve_xn_id);
             }
             break;
-        case CcuArgType::MEMORY:
-            LoadAddrArg(instr, blkArg.mem, inArg.mem, dep);
+        case ccu_arg_type::memory:
+            load_addr_arg(instr, blk_arg.mem, in_arg.mem, dep);
             break;
-        case CcuArgType::LOCAL_ADDR:
-            LoadAddrArg(instr, blkArg.localAddr, inArg.localAddr, dep);
+        case ccu_arg_type::local_addr:
+            load_addr_arg(instr, blk_arg.local_addr_value, in_arg.local_addr_value, dep);
             break;
-        case CcuArgType::REMOTE_ADDR:
-            LoadAddrArg(instr, blkArg.remoteAddr, inArg.remoteAddr, dep);
+        case ccu_arg_type::remote_addr:
+            load_addr_arg(instr, blk_arg.remote_addr_value, in_arg.remote_addr_value, dep);
             break;
-        case CcuArgType::MEMORY_LIST:
-            CHK_RET(LoadAddrListArg(instr, blkArg.memList, inArg.memList, dep));
+        case ccu_arg_type::memory_list:
+            CHK_RET(load_addr_list_arg(instr, blk_arg.mem_list, in_arg.mem_list, dep));
             break;
-        case CcuArgType::LOCAL_ADDR_LIST:
-            CHK_RET(LoadAddrListArg(instr, blkArg.localAddrList, inArg.localAddrList, dep));
+        case ccu_arg_type::local_addr_list:
+            CHK_RET(load_addr_list_arg(instr, blk_arg.local_addr_list, in_arg.local_addr_list, dep));
             break;
-        case CcuArgType::REMOTE_ADDR_LIST:
-            CHK_RET(LoadAddrListArg(instr, blkArg.remoteAddrList, inArg.remoteAddrList, dep));
+        case ccu_arg_type::remote_addr_list:
+            CHK_RET(load_addr_list_arg(instr, blk_arg.remote_addr_list, in_arg.remote_addr_list, dep));
             break;
         default:
-            HCCL_ERROR("Mismatched Arg Type, inArg.type[%d]", static_cast<int>(inArg.type));
+            HCCL_ERROR("Mismatched Arg Type, inArg.type[%d]", static_cast<int>(in_arg.type));
             return HCCL_E_PARA;
     }
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepLoopCallTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepLoopCall* loopCallPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_loop_call_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_loop_call* loop_call_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    UNUSED(curInstrId);
-    CHK_PTR_NULL(loopCallPtr);
-    auto loopBlock = loopCallPtr->GetLoopBlock();
-    CHK_PTR_NULL(loopBlock);
-    std::vector<CcuRepArg>& inArgs = loopCallPtr->GetInArgs();
+    UNUSED(ccu_kernel);
+    UNUSED(cur_instr_id);
+    CHK_PTR_NULL(loop_call_ptr);
+    auto loop_block = loop_call_ptr->get_loop_block();
+    CHK_PTR_NULL(loop_block);
+    std::vector<ccu_rep_arg>& in_args = loop_call_ptr->get_in_args();
 
-    for (uint32_t i = 0; i < inArgs.size(); i++) {
-        const CcuRepArg& blkArg = loopBlock->GetArg(i);
-        const CcuRepArg& inArg = inArgs[i];
-        if (inArg.type != blkArg.type) {
+    for (uint32_t i = 0; i < in_args.size(); i++) {
+        const ccu_rep_arg& blk_arg = loop_block->get_arg(i);
+        const ccu_rep_arg& in_arg = in_args[i];
+        if (in_arg.type != blk_arg.type) {
             HCCL_ERROR(
-                "Mismatched Arg Type, inArg.type[%d], blkArg.type[%d]", static_cast<int>(inArg.type),
-                static_cast<int>(blkArg.type));
+                "Mismatched Arg Type, inArg.type[%d], blkArg.type[%d]", static_cast<int>(in_arg.type),
+                static_cast<int>(blk_arg.type));
             return HCCL_E_PARA;
         }
-        CHK_RET(LoadLoopCallArg(instr, inArg, blkArg, dep));
+        CHK_RET(load_loop_call_arg(instr, in_arg, blk_arg, dep));
     }
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepSetLoopTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepSetLoop* setLoopPtr)
+HcclResult ccu_ins_generater_v1::ccu_rep_set_loop_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_set_loop* set_loop_ptr)
 {
-    UNUSED(ccuKernel);
-    (void)curInstrId;
-    CHK_PTR_NULL(setLoopPtr);
-    LoadImdToXnInstr(instr++, setLoopPtr->loopParam.Id(), GetLoopParam(setLoopPtr->executor.Id(), 0, 0));
-    LoadXXInstr(instr++, setLoopPtr->loopParam.Id(), setLoopPtr->loopParam.Id(), setLoopPtr->var.Id());
+    UNUSED(ccu_kernel);
+    (void)cur_instr_id;
+    CHK_PTR_NULL(set_loop_ptr);
+    load_imd_to_xn_instr(
+        instr++, set_loop_ptr->loop_param.id(), get_loop_param(set_loop_ptr->executor_value.id(), 0, 0));
+    load_xx_instr(instr++, set_loop_ptr->loop_param.id(), set_loop_ptr->loop_param.id(), set_loop_ptr->var.id());
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepLoadTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepLoad* loadPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_load_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_load* load_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    (void)curInstrId;
-    CHK_PTR_NULL(loadPtr);
-    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + HCOMM_CCU_RESOURCE_XN_PER_SIZE * loadPtr->GetVar().Id();
+    UNUSED(ccu_kernel);
+    (void)cur_instr_id;
+    CHK_PTR_NULL(load_ptr);
+    uint64_t var_addr = dep.xn_base_addr[dep.die_id] + HCOMM_CCU_RESOURCE_XN_PER_SIZE * load_ptr->get_var().id();
 
-    LoadImdToGSAInstr(instr++, dep.commGsa[0], varAddr);
-    LoadImdToGSAInstr(instr++, dep.commGsa[1], loadPtr->GetAddr());
-    LoadImdToXnInstr(instr++, dep.commXn[0], dep.ccuResSpaceTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[1], dep.memTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[2], HCOMM_CCU_RESOURCE_XN_PER_SIZE * loadPtr->GetNum());
-    TransLocMemToLocMemInstr(
-        instr++, dep.commGsa[0], dep.commXn[0], dep.commGsa[1], dep.commXn[1], dep.commXn[2], dep.reserveChannalId[0],
-        dep.commSignal, loadPtr->GetMask(), 0, 0, 1, 1);
-    SetCKEInstr(instr++, 0, 0, dep.commSignal, loadPtr->GetMask(), 1);
-
-    return HcclResult::HCCL_SUCCESS;
-}
-
-HcclResult CcuInsGeneraterV1::CcuRepLoadVarTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepLoadVar* loadVarPtr, const TransDep& dep)
-{
-    UNUSED(ccuKernel);
-    (void)curInstrId;
-    CHK_PTR_NULL(loadVarPtr);
-    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + HCOMM_CCU_RESOURCE_XN_PER_SIZE * loadVarPtr->GetVar().Id();
-    LoadImdToGSAInstr(instr++, dep.commGsa[0], varAddr);
-    LoadGSAXnInstr(instr++, dep.commGsa[1], dep.reserveGsaId, loadVarPtr->GetSrc().Id());
-    LoadImdToXnInstr(instr++, dep.commXn[0], dep.ccuResSpaceTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[1], dep.memTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[2], HCOMM_CCU_RESOURCE_XN_PER_SIZE * loadVarPtr->GetNum());
-    TransLocMemToLocMemInstr(
-        instr++, dep.commGsa[0], dep.commXn[0], dep.commGsa[1], dep.commXn[1], dep.commXn[2], dep.reserveChannalId[0],
-        dep.commSignal, loadVarPtr->GetMask(), 0, 0, 1, 1);
-    SetCKEInstr(instr++, 0, 0, dep.commSignal, loadVarPtr->GetMask(), 1);
+    load_imd_to_gsa_instr(instr++, dep.comm_gsa[0], var_addr);
+    load_imd_to_gsa_instr(instr++, dep.comm_gsa[1], load_ptr->get_addr());
+    load_imd_to_xn_instr(instr++, dep.comm_xn[0], dep.ccu_res_space_token_info, ccu_load_to_xn_sec_info);
+    load_imd_to_xn_instr(instr++, dep.comm_xn[1], dep.mem_token_info, ccu_load_to_xn_sec_info);
+    load_imd_to_xn_instr(instr++, dep.comm_xn[2], HCOMM_CCU_RESOURCE_XN_PER_SIZE * load_ptr->get_num());
+    trans_loc_mem_to_loc_mem_instr(
+        instr++, dep.comm_gsa[0], dep.comm_xn[0], dep.comm_gsa[1], dep.comm_xn[1], dep.comm_xn[2], dep.reserve_channal_id[0],
+        dep.comm_signal, load_ptr->get_mask(), 0, 0, 1, 1);
+    set_cke_instr(instr++, 0, 0, dep.comm_signal, load_ptr->get_mask(), 1);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepLoadArgTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepLoadArg* loadArgPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_load_var_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_load_var* load_var_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    (void)curInstrId;
-    CHK_PTR_NULL(loadArgPtr);
-    if (dep.isFuncBlock) {
+    UNUSED(ccu_kernel);
+    (void)cur_instr_id;
+    CHK_PTR_NULL(load_var_ptr);
+    uint64_t var_addr = dep.xn_base_addr[dep.die_id] + HCOMM_CCU_RESOURCE_XN_PER_SIZE * load_var_ptr->get_var().id();
+    load_imd_to_gsa_instr(instr++, dep.comm_gsa[0], var_addr);
+    load_gsa_xn_instr(instr++, dep.comm_gsa[1], dep.reserve_gsa_id, load_var_ptr->get_src().id());
+    load_imd_to_xn_instr(instr++, dep.comm_xn[0], dep.ccu_res_space_token_info, ccu_load_to_xn_sec_info);
+    load_imd_to_xn_instr(instr++, dep.comm_xn[1], dep.mem_token_info, ccu_load_to_xn_sec_info);
+    load_imd_to_xn_instr(instr++, dep.comm_xn[2], HCOMM_CCU_RESOURCE_XN_PER_SIZE * load_var_ptr->get_num());
+    trans_loc_mem_to_loc_mem_instr(
+        instr++, dep.comm_gsa[0], dep.comm_xn[0], dep.comm_gsa[1], dep.comm_xn[1], dep.comm_xn[2], dep.reserve_channal_id[0],
+        dep.comm_signal, load_var_ptr->get_mask(), 0, 0, 1, 1);
+    set_cke_instr(instr++, 0, 0, dep.comm_signal, load_var_ptr->get_mask(), 1);
+
+    return HcclResult::HCCL_SUCCESS;
+}
+
+HcclResult ccu_ins_generater_v1::ccu_rep_load_arg_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_load_arg* load_arg_ptr, const trans_dep& dep)
+{
+    UNUSED(ccu_kernel);
+    (void)cur_instr_id;
+    CHK_PTR_NULL(load_arg_ptr);
+    if (dep.is_func_block) {
         // Xn(var) = Xn(loadXnId) + 0
-        LoadXXInstr(instr++, loadArgPtr->GetVar().Id(), dep.loadXnId, dep.reserveXnId);
+        load_xx_instr(instr++, load_arg_ptr->get_var().id(), dep.load_xn_id, dep.reserve_xn_id);
     } else {
-        LoadSqeArgsToXnInstr(instr++, loadArgPtr->GetVar().Id(), loadArgPtr->GetArgId());
+        load_sqe_args_to_xn_instr(instr++, load_arg_ptr->get_var().id(), load_arg_ptr->get_arg_id());
     }
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepNopTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepNop* nopPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_nop_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_nop* nop_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    (void)curInstrId;
-    (void)nopPtr;
-    LoadImdToXnInstr(instr++, dep.reserveXnId, 0);
+    UNUSED(ccu_kernel);
+    (void)cur_instr_id;
+    (void)nop_ptr;
+    load_imd_to_xn_instr(instr++, dep.reserve_xn_id, 0);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepStoreTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepStore* storePtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_store_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_store* store_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    (void)curInstrId;
-    CHK_PTR_NULL(storePtr);
-    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + HCOMM_CCU_RESOURCE_XN_PER_SIZE * storePtr->GetVar().Id();
+    UNUSED(ccu_kernel);
+    (void)cur_instr_id;
+    CHK_PTR_NULL(store_ptr);
+    uint64_t var_addr = dep.xn_base_addr[dep.die_id] + HCOMM_CCU_RESOURCE_XN_PER_SIZE * store_ptr->get_var().id();
 
-    LoadImdToGSAInstr(instr++, dep.commGsa[0], storePtr->GetAddr());
-    LoadImdToGSAInstr(instr++, dep.commGsa[1], varAddr);
-    LoadImdToXnInstr(instr++, dep.commXn[0], dep.memTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[1], dep.ccuResSpaceTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[2], HCOMM_CCU_RESOURCE_XN_PER_SIZE * storePtr->GetNum());
-    TransLocMemToLocMemInstr(
-        instr++, dep.commGsa[0], dep.commXn[0], dep.commGsa[1], dep.commXn[1], dep.commXn[2], dep.reserveChannalId[0],
-        dep.commSignal, storePtr->GetMask(), 0, 0, 1, 1);
-    SetCKEInstr(instr++, 0, 0, dep.commSignal, storePtr->GetMask(), 1);
+    load_imd_to_gsa_instr(instr++, dep.comm_gsa[0], store_ptr->get_addr());
+    load_imd_to_gsa_instr(instr++, dep.comm_gsa[1], var_addr);
+    load_imd_to_xn_instr(instr++, dep.comm_xn[0], dep.mem_token_info, ccu_load_to_xn_sec_info);
+    load_imd_to_xn_instr(instr++, dep.comm_xn[1], dep.ccu_res_space_token_info, ccu_load_to_xn_sec_info);
+    load_imd_to_xn_instr(instr++, dep.comm_xn[2], HCOMM_CCU_RESOURCE_XN_PER_SIZE * store_ptr->get_num());
+    trans_loc_mem_to_loc_mem_instr(
+        instr++, dep.comm_gsa[0], dep.comm_xn[0], dep.comm_gsa[1], dep.comm_xn[1], dep.comm_xn[2], dep.reserve_channal_id[0],
+        dep.comm_signal, store_ptr->get_mask(), 0, 0, 1, 1);
+    set_cke_instr(instr++, 0, 0, dep.comm_signal, store_ptr->get_mask(), 1);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepStoreVarTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepStoreVar* storeVarPtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_store_var_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_store_var* store_var_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    (void)curInstrId;
-    CHK_PTR_NULL(storeVarPtr);
-    uint64_t varAddr = dep.xnBaseAddr[dep.dieId] + HCOMM_CCU_RESOURCE_XN_PER_SIZE * storeVarPtr->GetVar().Id();
+    UNUSED(ccu_kernel);
+    (void)cur_instr_id;
+    CHK_PTR_NULL(store_var_ptr);
+    uint64_t var_addr = dep.xn_base_addr[dep.die_id] + HCOMM_CCU_RESOURCE_XN_PER_SIZE * store_var_ptr->get_var().id();
 
-    LoadImdToGSAInstr(instr++, dep.commGsa[0], varAddr);
-    LoadGSAXnInstr(instr++, dep.commGsa[1], dep.reserveGsaId, storeVarPtr->GetDst().Id());
-    LoadImdToXnInstr(instr++, dep.commXn[0], dep.memTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[1], dep.ccuResSpaceTokenInfo, CCU_LOAD_TO_XN_SEC_INFO);
-    LoadImdToXnInstr(instr++, dep.commXn[2], HCOMM_CCU_RESOURCE_XN_PER_SIZE * storeVarPtr->GetNum());
-    TransLocMemToLocMemInstr(
-        instr++, dep.commGsa[1], dep.commXn[0], dep.commGsa[0], dep.commXn[1], dep.commXn[2], dep.reserveChannalId[0],
-        dep.commSignal, storeVarPtr->GetMask(), 0, 0, 1, 1);
-    SetCKEInstr(instr++, 0, 0, dep.commSignal, storeVarPtr->GetMask(), 1);
+    load_imd_to_gsa_instr(instr++, dep.comm_gsa[0], var_addr);
+    load_gsa_xn_instr(instr++, dep.comm_gsa[1], dep.reserve_gsa_id, store_var_ptr->get_dst().id());
+    load_imd_to_xn_instr(instr++, dep.comm_xn[0], dep.mem_token_info, ccu_load_to_xn_sec_info);
+    load_imd_to_xn_instr(instr++, dep.comm_xn[1], dep.ccu_res_space_token_info, ccu_load_to_xn_sec_info);
+    load_imd_to_xn_instr(instr++, dep.comm_xn[2], HCOMM_CCU_RESOURCE_XN_PER_SIZE * store_var_ptr->get_num());
+    trans_loc_mem_to_loc_mem_instr(
+        instr++, dep.comm_gsa[1], dep.comm_xn[0], dep.comm_gsa[0], dep.comm_xn[1], dep.comm_xn[2], dep.reserve_channal_id[0],
+        dep.comm_signal, store_var_ptr->get_mask(), 0, 0, 1, 1);
+    set_cke_instr(instr++, 0, 0, dep.comm_signal, store_var_ptr->get_mask(), 1);
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-HcclResult CcuInsGeneraterV1::CcuRepLoopGroupBundleTranslate(
-    CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, CcuRepLoopGroupBundle* bundlePtr, const TransDep& dep)
+HcclResult ccu_ins_generater_v1::ccu_rep_loop_group_bundle_translate(
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_loop_group_bundle* bundle_ptr, const trans_dep& dep)
 {
-    UNUSED(ccuKernel);
-    CHK_PTR_NULL(bundlePtr);
-    const auto& loops = bundlePtr->GetLoops();
+    UNUSED(ccu_kernel);
+    CHK_PTR_NULL(bundle_ptr);
+    const auto& loops = bundle_ptr->get_loops();
 
     for (const auto& loop : loops) {
-        if (loop.layout == CcuRepLoopGroupBundle::Layout::Config) {
-            uint64_t lpImm = GetLoopParam(loop.executor.Id(), loop.config.addrOffset, loop.config.iterNum);
-            LoadImdToXnInstr(instr++, loop.loopParamVar.Id(), lpImm);
-            curInstrId++;
+        if (loop.layout_value == ccu_rep_loop_group_bundle::layout::config) {
+            uint64_t lp_imm = get_loop_param(loop.executor_value.id(), loop.config.addr_offset, loop.config.iter_num);
+            load_imd_to_xn_instr(instr++, loop.loop_param_var.id(), lp_imm);
+            cur_instr_id++;
         } else {
-            uint64_t ctxImm = static_cast<uint64_t>(loop.executor.Id()) << 45; // 左移45位到对应字段然后相加
-            LoadImdToXnInstr(instr++, dep.reserveXnId, ctxImm);
-            curInstrId++;
-            LoadXXInstr(instr++, loop.loopParamVar.Id(), loop.loopParamVar.Id(), dep.reserveXnId);
-            curInstrId++;
+            uint64_t ctx_imm = static_cast<uint64_t>(loop.executor_value.id()) << 45; // 左移45位到对应字段然后相加
+            load_imd_to_xn_instr(instr++, dep.reserve_xn_id, ctx_imm);
+            cur_instr_id++;
+            load_xx_instr(instr++, loop.loop_param_var.id(), loop.loop_param_var.id(), dep.reserve_xn_id);
+            cur_instr_id++;
         }
     }
 
-    if (bundlePtr->GetLayout() == CcuRepLoopGroupBundle::Layout::Config) {
-        uint64_t parallelImm = GetParallelParam(
-            bundlePtr->GetConfig().cloneNum, bundlePtr->GetRepeatLoopIdx(), bundlePtr->GetTotalLoopNum());
-        LoadImdToXnInstr(instr++, bundlePtr->GetParallelVar().Id(), parallelImm);
-        curInstrId++;
+    if (bundle_ptr->get_layout() == ccu_rep_loop_group_bundle::layout::config) {
+        uint64_t parallel_imm = get_parallel_param(
+            bundle_ptr->get_config().clone_num, bundle_ptr->get_repeat_loop_idx(), bundle_ptr->get_total_loop_num());
+        load_imd_to_xn_instr(instr++, bundle_ptr->get_parallel_var().id(), parallel_imm);
+        cur_instr_id++;
 
-        uint64_t offsetImm = ::asccomm::CcuRep::GetOffsetParam(
-            bundlePtr->GetConfig().addrOffset, bundlePtr->GetConfig().ccuBufferOffset,
-            bundlePtr->GetConfig().eventOffset);
-        LoadImdToXnInstr(instr++, bundlePtr->GetOffsetParam().Id(), offsetImm);
-        curInstrId++;
+        uint64_t offset_imm = ::asc::ccu_rep::get_offset_param(
+            bundle_ptr->get_config().addr_offset, bundle_ptr->get_config().ccu_buffer_offset,
+            bundle_ptr->get_config().event_offset);
+        load_imd_to_xn_instr(instr++, bundle_ptr->get_offset_param().id(), offset_imm);
+        cur_instr_id++;
     }
 
-    LoopGroupInstr(
-        instr++, curInstrId + 3, bundlePtr->GetParallelVar().Id(), bundlePtr->GetOffsetParam().Id(),
+    loop_group_instr(
+        instr++, cur_instr_id + 3, bundle_ptr->get_parallel_var().id(), bundle_ptr->get_offset_param().id(),
         0); // 向后3条为loop指令
-    curInstrId++;
+    cur_instr_id++;
 
-    uint16_t loopCount = static_cast<uint16_t>(loops.size());
-    uint16_t jumpTargetInstrId = curInstrId + 2 + loopCount + 1; // 跳转目标为向后2条+loop指令条数+额外1条
-    LoadImdToXnInstr(instr++, dep.reserveXnId, jumpTargetInstrId);
-    curInstrId++;
-    JumpInstr(instr++, dep.reserveXnId, dep.reserveXnId, 1);
-    curInstrId++;
+    uint16_t loop_count = static_cast<uint16_t>(loops.size());
+    uint16_t jump_target_instr_id = cur_instr_id + 2 + loop_count + 1; // 跳转目标为向后2条+loop指令条数+额外1条
+    load_imd_to_xn_instr(instr++, dep.reserve_xn_id, jump_target_instr_id);
+    cur_instr_id++;
+    jump_instr(instr++, dep.reserve_xn_id, dep.reserve_xn_id, 1);
+    cur_instr_id++;
 
     for (const auto& loop : loops) {
-        const auto& block = loop.repLoopBlock;
+        const auto& block = loop.rep_loop_block;
         CHK_PTR_NULL(block);
-        LoopInstr(
-            instr++, block->StartInstrId(), block->StartInstrId() + block->InstrCount() - 1, loop.loopParamVar.Id());
-        curInstrId++;
+        loop_instr(
+            instr++, block->start_instr_id(), block->start_instr_id() + block->instr_count() - 1, loop.loop_param_var.id());
+        cur_instr_id++;
     }
 
-    LoadImdToXnInstr(instr++, dep.reserveXnId, 0);
-    curInstrId++;
+    load_imd_to_xn_instr(instr++, dep.reserve_xn_id, 0);
+    cur_instr_id++;
 
     return HcclResult::HCCL_SUCCESS;
 }
 
-uint16_t CcuInsGeneraterV1::CcuRepLoopGroupBundleInstrCount(CcuRepLoopGroupBundle* bundlePtr)
+uint16_t ccu_ins_generater_v1::ccu_rep_loop_group_bundle_instr_count(ccu_rep_loop_group_bundle* bundle_ptr)
 {
-    if (bundlePtr == nullptr) {
-        asccomm::ThrowCcuInternal("[%s] bundlePtr is nullptr", __func__);
+    if (bundle_ptr == nullptr) {
+        asc::throw_ccu_internal("[%s] bundlePtr is nullptr", __func__);
     }
-    const auto& loops = bundlePtr->GetLoops();
-    const uint16_t loopCount = static_cast<uint16_t>(loops.size());
-    uint16_t varBasedLoopCount = 0;
+    const auto& loops = bundle_ptr->get_loops();
+    const uint16_t loop_count = static_cast<uint16_t>(loops.size());
+    uint16_t var_based_loop_count = 0;
     for (const auto& loop : loops) {
-        if (loop.layout != CcuRepLoopGroupBundle::Layout::Config) {
-            varBasedLoopCount++;
+        if (loop.layout_value != ccu_rep_loop_group_bundle::layout::config) {
+            var_based_loop_count++;
         }
     }
     // 每 loop：config 1 条载入 / var 2 条；config bundle 额外 2 条(parallel+offset)；+loopgroup1 +跳过2 +每loop
     // Loop1 +收尾1
-    const uint16_t groupOffset = (loopCount - varBasedLoopCount) + (varBasedLoopCount * 2) +
-                                 (bundlePtr->GetLayout() == CcuRepLoopGroupBundle::Layout::Config ? 2 : 0);
-    return groupOffset + 1 + 2 + loopCount + 1; // 跳过2条
+    const uint16_t group_offset = (loop_count - var_based_loop_count) + (var_based_loop_count * 2) +
+                                 (bundle_ptr->get_layout() == ccu_rep_loop_group_bundle::layout::config ? 2 : 0);
+    return group_offset + 1 + 2 + loop_count + 1; // 跳过2条
 }
 
 } // namespace CcuRep
-} // namespace asccomm
+} // namespace asc

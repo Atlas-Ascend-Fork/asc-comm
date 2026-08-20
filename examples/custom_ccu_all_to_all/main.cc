@@ -46,31 +46,31 @@ struct ThreadContext {
 };
 
 static HcclResult HcclAllToAllCustom(
-    void* sendBuf, void* recvBuf, uint64_t perCount, HcclDataType dataType, HcclComm comm, aclrtStream stream)
+    void* sendBuf, void* recvBuf, uint64_t perCount, HcclDataType data_type_, HcclComm comm, aclrtStream stream)
 {
     if (sendBuf == nullptr || recvBuf == nullptr || comm == nullptr || stream == nullptr) {
         return HCCL_E_PTR;
     }
-    if (dataType != HCCL_DATA_TYPE_FP32) {
+    if (data_type_ != HCCL_DATA_TYPE_FP32) {
         return HCCL_E_NOT_SUPPORT;
     }
 
-    OpParam param;
-    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param.myRank));
-    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param.rankSize));
-    if (param.rankSize == 0 || param.rankSize > MAX_RANK_SIZE) {
+    OpParam param_;
+    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param_.myRank));
+    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param_.rankSize));
+    if (param_.rankSize == 0 || param_.rankSize > MAX_RANK_SIZE) {
         return HCCL_E_NOT_SUPPORT;
     }
 
-    param.stream = stream;
-    param.inputPtr = sendBuf;
-    param.outputPtr = recvBuf;
-    param.perCount = perCount;
-    param.dataType = dataType;
+    param_.stream = stream;
+    param_.inputPtr = sendBuf;
+    param_.outputPtr = recvBuf;
+    param_.perCount = perCount;
+    param_.data_type_ = data_type_;
 
     AlgResourceCtx resCtxHost;
-    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param, resCtxHost));
-    RETURN_IF_HCCL_FAIL(ExecOp(param, resCtxHost));
+    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param_, resCtxHost));
+    RETURN_IF_HCCL_FAIL(ExecOp(param_, resCtxHost));
 
     return HCCL_SUCCESS;
 }
@@ -135,8 +135,8 @@ int Sample(void* arg)
         std::cout << " " << tmpResBuff[i];
         uint64_t srcRank = i / perCount;
         uint64_t elementIdx = i % perCount;
-        float expected = static_cast<float>(srcRank * 100 + ctx->device * perCount + elementIdx);
-        passed = passed && (tmpResBuff[i] == expected);
+        float expected_ = static_cast<float>(srcRank * 100 + ctx->device * perCount + elementIdx);
+        passed = passed && (tmpResBuff[i] == expected_);
     }
     std::cout << " ]" << std::endl;
     std::cout << "rankId: " << ctx->device << (passed ? " PASS" : " FAIL") << std::endl;
@@ -175,12 +175,12 @@ int main()
     // 启动线程执行集合通信操作
     std::vector<std::thread> threads(devCount);
     std::vector<int> results(devCount, 1);
-    std::vector<ThreadContext> args(devCount);
+    std::vector<ThreadContext> args_(devCount);
     for (uint32_t i = 0; i < devCount; i++) {
-        args[i].rootInfo = rootInfo;
-        args[i].device = i;
-        args[i].devCount = devCount;
-        threads[i] = std::thread([&args, &results, i]() { results[i] = Sample(static_cast<void*>(&args[i])); });
+        args_[i].rootInfo = rootInfo;
+        args_[i].device = i;
+        args_[i].devCount = devCount;
+        threads[i] = std::thread([&args_, &results, i]() { results[i] = Sample(static_cast<void*>(&args_[i])); });
     }
     for (uint32_t i = 0; i < devCount; i++) {
         threads[i].join();

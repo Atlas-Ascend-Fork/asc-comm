@@ -13,15 +13,15 @@
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepJumpLabel : public CcuRepBlock {
+class ccu_rep_jump_label : public ccu_rep_block {
 public:
-    explicit CcuRepJumpLabel(CcuInsGeneraterBase* insGeneratorPtr, const std::string& label);
-    std::string Describe() override;
+    explicit ccu_rep_jump_label(ccu_ins_generater_base* ins_generator_ptr, const std::string& label);
+    std::string describe() override;
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // _CCU_REPRESENTATION_JUMPLABEL_H

@@ -14,8 +14,8 @@ The build produces one standalone data-plane shared-library target:
   target builds `libasccomm_ccu_dataplane.so`.
 
 Control-plane entry points such as hcomm communicator/resource selection,
-device/channel management, DFX, and resource query remain in hcomm. `hcomm_ccu_kernel_register*`,
-`hcomm_ccu_kernel_launch`, and `hcomm_ccu_get_mem_token` are exported by this
+device/channel management, DFX, and resource query remain in hcomm. `asccomm_ccu_kernel_register*`,
+`asccomm_ccu_kernel_launch`, and `asccomm_ccu_get_mem_token` are exported by this
 data-plane SO.
 
 Build checks:

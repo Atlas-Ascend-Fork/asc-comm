@@ -28,19 +28,19 @@ static HcclResult LaunchCcuKernelSlice(
 {
     uint64_t sliceSize = sliceCount * dataTypeSize;
 
-    std::vector<uint64_t> taskArgs = {
+    std::vector<uint64_t> task_args = {
         inputAddr,
         outputAddr,
         token,
         sliceSize,
     };
 
-    HcommCcuLaunchContextPod launchContext{};
-    if (HcommCcuGetLaunchContext(resCtx.threads[0], &launchContext) != HCCL_SUCCESS) {
+    HcommCcuLaunchContextPod launch_context{};
+    if (HcommCcuGetLaunchContext(resCtx.threads[0], &launch_context) != HCCL_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
     CcuResult launchRet =
-        hcomm_ccu_kernel_launch(&launchContext, resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
+        asccomm_ccu_kernel_launch(&launch_context, resCtx.ccuKernels[0], task_args.data(), task_args.size());
     if (launchRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
@@ -48,39 +48,39 @@ static HcclResult LaunchCcuKernelSlice(
     return HCCL_SUCCESS;
 }
 
-HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx)
+HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
 {
     constexpr uint64_t dataTypeSize = sizeof(float);
-    uint64_t dataSize = param.count * dataTypeSize;
-    uint64_t count = param.count;
+    uint64_t dataSize = param_.count_ * dataTypeSize;
+    uint64_t count_ = param_.count_;
 
-    if (count == 0) { // 数据量为 0，直接返回
+    if (count_ == 0) { // 数据量为 0，直接返回
         return HcclResult::HCCL_SUCCESS;
     }
 
-    if (param.rankSize == 1) { // 单卡场景直接本地拷贝
+    if (param_.rankSize == 1) { // 单卡场景直接本地拷贝
         RETURN_IF_HCCL_FAIL(static_cast<HcclResult>(
-            HcommLocalCopyOnThread(resCtx.threads[0], param.outputPtr, param.inputPtr, dataSize)));
+            HcommLocalCopyOnThread(resCtx.threads[0], param_.outputPtr, param_.inputPtr, dataSize)));
         return HCCL_SUCCESS;
     }
 
     uint64_t maxDataSizePerLoop = UB_MAX_DATA_SIZE;
     uint64_t maxDataCountPerLoop = maxDataSizePerLoop / dataTypeSize;
-    uint64_t loopCount =
-        count / maxDataCountPerLoop + static_cast<uint64_t>(count % maxDataCountPerLoop != 0); // 计算分片处理次数
+    uint64_t loop_count =
+        count_ / maxDataCountPerLoop + static_cast<uint64_t>(count_ % maxDataCountPerLoop != 0); // 计算分片处理次数
     uint64_t processedDataCount = 0;
 
     uint64_t token = 0;
-    uint64_t baseInputAddr = reinterpret_cast<uint64_t>(param.inputPtr);
-    uint64_t baseOutputAddr = reinterpret_cast<uint64_t>(param.outputPtr);
-    if (param.inputPtr != nullptr) {
-        hcomm_ccu_get_mem_token(baseInputAddr, static_cast<uint64_t>(dataSize), &token);
-    } else if (param.outputPtr != nullptr) {
-        hcomm_ccu_get_mem_token(baseOutputAddr, static_cast<uint64_t>(dataSize), &token);
+    uint64_t baseInputAddr = reinterpret_cast<uint64_t>(param_.inputPtr);
+    uint64_t baseOutputAddr = reinterpret_cast<uint64_t>(param_.outputPtr);
+    if (param_.inputPtr != nullptr) {
+        asccomm_ccu_get_mem_token(baseInputAddr, static_cast<uint64_t>(dataSize), &token);
+    } else if (param_.outputPtr != nullptr) {
+        asccomm_ccu_get_mem_token(baseOutputAddr, static_cast<uint64_t>(dataSize), &token);
     }
 
-    for (uint64_t loop = 0; loop < loopCount; loop++) {
-        uint64_t sliceCount = std::min(maxDataCountPerLoop, count - loop * maxDataCountPerLoop);
+    for (uint64_t loop = 0; loop < loop_count; loop++) {
+        uint64_t sliceCount = std::min(maxDataCountPerLoop, count_ - loop * maxDataCountPerLoop);
         uint64_t inputAddr = baseInputAddr + processedDataCount * dataTypeSize;
         uint64_t outputAddr = baseOutputAddr + processedDataCount * dataTypeSize;
 

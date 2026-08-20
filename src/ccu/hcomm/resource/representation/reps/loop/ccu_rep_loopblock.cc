@@ -12,91 +12,91 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepLoopBlock::CcuRepLoopBlock(CcuInsGeneraterBase* insGenPtr, const std::string& label)
-    : CcuRepBlock(insGenPtr, label)
+ccu_rep_loop_block::ccu_rep_loop_block(ccu_ins_generater_base* ins_gen_ptr, const std::string& label)
+    : ccu_rep_block(ins_gen_ptr, label)
 {
-    type = CcuRepType::LOOP_BLOCK;
+    type_ = ccu_rep_type::loop_block;
 }
 
-std::string CcuRepLoopBlock::Describe()
+std::string ccu_rep_loop_block::describe()
 {
-    HCCL_INFO("Begin Describe LoopBlock[%s]", GetLabel().c_str());
-    for (const auto& rep : GetReps()) {
-        HCCL_INFO(" Rep: %s", rep->Describe().c_str());
+    HCCL_INFO("Begin describe LoopBlock[%s]", get_label().c_str());
+    for (const auto& rep : get_reps()) {
+        HCCL_INFO(" Rep: %s", rep->describe().c_str());
     }
-    return asccomm::FormatCcuMessage("LoopBlock[%s]", GetLabel().c_str());
+    return asc::format_ccu_message("LoopBlock[%s]", get_label().c_str());
 }
 
-void CcuRepLoopBlock::DefineArg(Variable var)
+void ccu_rep_loop_block::define_arg(variable var)
 {
-    args.push_back(CcuRepArg(var));
-    HCCL_INFO("Define Arg: Index[%u], Type[Variable], Id[%u]", args.size(), var.Id());
+    args_.push_back(ccu_rep_arg(var));
+    HCCL_INFO("Define Arg: Index[%u], Type[Variable], Id[%u]", args_.size(), var.id());
 }
 
-void CcuRepLoopBlock::DefineArg(Memory mem)
+void ccu_rep_loop_block::define_arg(memory mem)
 {
-    args.push_back(CcuRepArg(mem));
-    HCCL_INFO("Define Arg: Index[%u], Type[Memory], Id[%u]", args.size(), mem.addr.Id());
+    args_.push_back(ccu_rep_arg(mem));
+    HCCL_INFO("Define Arg: Index[%u], Type[Memory], Id[%u]", args_.size(), mem.addr.id());
 }
 
-void CcuRepLoopBlock::DefineArg(LocalAddr addr)
+void ccu_rep_loop_block::define_arg(local_addr addr)
 {
-    args.push_back(CcuRepArg(addr));
-    HCCL_INFO("Define Arg: Index[%u], Type[LocalAddr], Id[%u]", args.size(), addr.addr.Id());
+    args_.push_back(ccu_rep_arg(addr));
+    HCCL_INFO("Define Arg: Index[%u], Type[LocalAddr], Id[%u]", args_.size(), addr.addr.id());
 }
 
-void CcuRepLoopBlock::DefineArg(RemoteAddr addr)
+void ccu_rep_loop_block::define_arg(remote_addr addr)
 {
-    args.push_back(CcuRepArg(addr));
-    HCCL_INFO("Define Arg: Index[%u], Type[RemoteAddr], Id[%u]", args.size(), addr.addr.Id());
+    args_.push_back(ccu_rep_arg(addr));
+    HCCL_INFO("Define Arg: Index[%u], Type[RemoteAddr], Id[%u]", args_.size(), addr.addr.id());
 }
 
-void CcuRepLoopBlock::DefineArg(const std::vector<Variable> varList)
+void ccu_rep_loop_block::define_arg(const std::vector<variable> var_list)
 {
-    args.push_back(CcuRepArg(varList));
-    HCCL_INFO("Define Arg: Index[%u], Type[Variable List]: ", args.size());
-    for (uint32_t index = 0; index < varList.size(); index++) {
-        HCCL_INFO("    Index[%u].Id[%u]", index, varList[index].Id());
-    }
-}
-
-void CcuRepLoopBlock::DefineArg(const std::vector<LocalAddr> addrList)
-{
-    args.push_back(CcuRepArg(addrList));
-    HCCL_INFO("Define Arg: Index[%u], Type[LocalAddr List]: ", args.size());
-    for (uint32_t index = 0; index < addrList.size(); index++) {
-        HCCL_INFO("Index[%u].Id[%u]", index, addrList[index].addr.Id());
+    args_.push_back(ccu_rep_arg(var_list));
+    HCCL_INFO("Define Arg: Index[%u], Type[Variable List]: ", args_.size());
+    for (uint32_t index = 0; index < var_list.size(); index++) {
+        HCCL_INFO("    Index[%u].Id[%u]", index, var_list[index].id());
     }
 }
 
-void CcuRepLoopBlock::DefineArg(const std::vector<RemoteAddr> addrList)
+void ccu_rep_loop_block::define_arg(const std::vector<local_addr> addr_list)
 {
-    args.push_back(CcuRepArg(addrList));
-    HCCL_INFO("Define Arg: Index[%u], Type[RemoteAddr List]: ", args.size());
-    for (uint32_t index = 0; index < addrList.size(); index++) {
-        HCCL_INFO("Index[%u].Id[%u]", index, addrList[index].addr.Id());
+    args_.push_back(ccu_rep_arg(addr_list));
+    HCCL_INFO("Define Arg: Index[%u], Type[LocalAddr List]: ", args_.size());
+    for (uint32_t index = 0; index < addr_list.size(); index++) {
+        HCCL_INFO("Index[%u].Id[%u]", index, addr_list[index].addr.id());
     }
 }
 
-void CcuRepLoopBlock::DefineArg(const std::vector<Memory> memList)
+void ccu_rep_loop_block::define_arg(const std::vector<remote_addr> addr_list)
 {
-    args.push_back(CcuRepArg(memList));
-    HCCL_INFO("Define Arg: Index[%u], Type[Memory List]: ", args.size());
-    for (uint32_t index = 0; index < memList.size(); index++) {
-        HCCL_INFO("Index[%u].Id[%u]", index, memList[index].addr.Id());
+    args_.push_back(ccu_rep_arg(addr_list));
+    HCCL_INFO("Define Arg: Index[%u], Type[RemoteAddr List]: ", args_.size());
+    for (uint32_t index = 0; index < addr_list.size(); index++) {
+        HCCL_INFO("Index[%u].Id[%u]", index, addr_list[index].addr.id());
     }
 }
 
-CcuRepArg& CcuRepLoopBlock::GetArg(uint16_t index)
+void ccu_rep_loop_block::define_arg(const std::vector<memory> mem_list)
 {
-    if (index >= args.size()) {
-        asccomm::ThrowCcuInternal("CcuLoopBlock Arg Index[%u] Out of Range", index);
+    args_.push_back(ccu_rep_arg(mem_list));
+    HCCL_INFO("Define Arg: Index[%u], Type[Memory List]: ", args_.size());
+    for (uint32_t index = 0; index < mem_list.size(); index++) {
+        HCCL_INFO("Index[%u].Id[%u]", index, mem_list[index].addr.id());
     }
-    return args[index];
+}
+
+ccu_rep_arg& ccu_rep_loop_block::get_arg(uint16_t index)
+{
+    if (index >= args_.size()) {
+        asc::throw_ccu_internal("CcuLoopBlock Arg Index[%u] Out of Range", index);
+    }
+    return args_[index];
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

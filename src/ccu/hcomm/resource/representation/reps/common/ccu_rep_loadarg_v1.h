@@ -8,33 +8,33 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_LOADARG_H
-#define HCOMM_CCU_REPRESENTATION_LOADARG_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_LOADARG_H
+#define ASCCOMM_CCU_REPRESENTATION_LOADARG_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepLoadArg : public CcuRepBase {
+class ccu_rep_load_arg : public ccu_rep_base {
 public:
-    explicit CcuRepLoadArg(CcuInsGeneraterBase* insGenPtr, const Variable& var, uint16_t argId, uint16_t fullArgId);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    explicit ccu_rep_load_arg(ccu_ins_generater_base* ins_gen_ptr, const variable& var, uint16_t arg_id, uint16_t full_arg_id);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 
-    CcuRep::Variable GetVar() { return var; }
-    uint16_t GetArgId() { return argId; }
-    uint16_t GetVarId() const { return var.Id(); }
-    uint16_t GetFullArgId() const { return fullArgId; }
+    ccu_rep::variable get_var() { return var_; }
+    uint16_t get_arg_id() { return arg_id_; }
+    uint16_t get_var_id() const { return var_.id(); }
+    uint16_t get_full_arg_id() const { return full_arg_id_; }
 
 private:
-    CcuInsGeneraterBase* insGeneratorPtr_{nullptr};
-    Variable var;
-    uint16_t argId{0};
-    uint16_t fullArgId{0};
+    ccu_ins_generater_base* ins_generator_ptr_{nullptr};
+    variable var_;
+    uint16_t arg_id_{0};
+    uint16_t full_arg_id_{0};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCCL_CCU_REPRESENTATION_LOADARG_H

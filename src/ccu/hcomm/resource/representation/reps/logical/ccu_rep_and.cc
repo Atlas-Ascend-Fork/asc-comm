@@ -11,57 +11,57 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepAnd::CcuRepAnd(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, const Variable& varB)
-    : subType(AndSubType::VAR_AND_VAR_TO_VAR), varA(varA), varB(varB), varC(varC), insGenPtr(insGenPtr)
+ccu_rep_and::ccu_rep_and(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_a, const variable& var_b)
+    : sub_type_(and_sub_type::var_and_var_to_var), var_a_(var_a), var_b_(var_b), var_c_(var_c), ins_gen_ptr_(ins_gen_ptr)
 {
-    type = CcuRepType::AND;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::and_op;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-CcuRepAnd::CcuRepAnd(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varB)
-    : subType(AndSubType::SELF_AND_VAR_VARIABLE), varB(varB), varC(varC), insGenPtr(insGenPtr)
+ccu_rep_and::ccu_rep_and(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_b)
+    : sub_type_(and_sub_type::self_and_var_variable), var_b_(var_b), var_c_(var_c), ins_gen_ptr_(ins_gen_ptr)
 {
-    type = CcuRepType::AND;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::and_op;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-bool CcuRepAnd::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep)
+bool ccu_rep_and::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, const trans_dep& dep)
 {
-    asccomm::CheckCcuNotNull(instr, "[CcuRepAnd::Translate] instr is nullptr!");
-    this->instrId = curInstrId;
-    translated = true;
-    instrCount = insGenPtr->GetInstrCount(type);
+    asc::check_ccu_not_null(instr, "[CcuRepAnd::translate] instr is nullptr!");
+    this->instr_id_ = cur_instr_id;
+    translated_ = true;
+    instr_count_ = ins_gen_ptr_->get_instr_count(type_);
     CHK_PRT_THROW(
-        insGenPtr->CcuRepAndTranslate(ccuKernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepAnd][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        ins_gen_ptr_->ccu_rep_and_translate(ccu_kernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepAnd][translate] failed to translate for instrId[%u]", instr_id_), CcuResult::CCU_E_INTERNAL,
         "CcuRepAnd translate failed");
     CHK_PRT_THROW(
-        (curInstrId > UINT16_MAX - instrCount),
+        (cur_instr_id > UINT16_MAX - instr_count_),
         HCCL_ERROR(
-            "[CcuRepAnd::Translate]uint16 integer overflow occurs, curInstrId = [%hu], instrCount = [%hu]", curInstrId,
-            instrCount),
+            "[CcuRepAnd::translate]uint16 integer overflow occurs, curInstrId = [%hu], instrCount = [%hu]", cur_instr_id,
+            instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
-    curInstrId += instrCount;
-    return translated;
+    cur_instr_id += instr_count_;
+    return translated_;
 }
 
-std::string CcuRepAnd::Describe()
+std::string ccu_rep_and::describe()
 {
-    switch (subType) {
-        case AndSubType::VAR_AND_VAR_TO_VAR: {
-            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] & Variable[%u]", varC.Id(), varA.Id(), varB.Id());
+    switch (sub_type_) {
+        case and_sub_type::var_and_var_to_var: {
+            return asc::format_ccu_message("Variable[%u] = Variable[%u] & Variable[%u]", var_c_.id(), var_a_.id(), var_b_.id());
         }
-        case AndSubType::SELF_AND_VAR_VARIABLE: {
-            return asccomm::FormatCcuMessage("Variable[%u] &= Variable[%u]", varC.Id(), varB.Id());
+        case and_sub_type::self_and_var_variable: {
+            return asc::format_ccu_message("Variable[%u] &= Variable[%u]", var_c_.id(), var_b_.id());
         }
         default: {
-            return asccomm::FormatCcuMessage("Invalid And");
+            return asc::format_ccu_message("Invalid And");
         }
     }
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

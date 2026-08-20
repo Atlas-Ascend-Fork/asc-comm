@@ -15,10 +15,10 @@
 
 #include "hcomm/common/ccu_log.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuDevMem::CcuDevMem(std::size_t size)
+ccu_dev_mem::ccu_dev_mem(std::size_t size)
 {
     if (size == 0) {
         HCCL_ERROR("[CcuDevMem] alloc size should not be 0.");
@@ -26,28 +26,28 @@ CcuDevMem::CcuDevMem(std::size_t size)
     }
 
     // 与 CCU 数据面既有行为保持一致：申请高带宽内存并标记归属模块，便于内存占用统计
-    aclrtMallocAttrValue moduleIdValue{};
-    moduleIdValue.moduleId = static_cast<uint16_t>(HCCL);
+    aclrtMallocAttrValue module_id_value{};
+    module_id_value.moduleId = static_cast<uint16_t>(HCCL);
     aclrtMallocAttribute attrs{};
     attrs.attr = ACL_RT_MEM_ATTR_MODULE_ID;
-    attrs.value = moduleIdValue;
+    attrs.value = module_id_value;
     aclrtMallocConfig cfg{};
     cfg.attrs = &attrs;
     cfg.numAttrs = 1;
 
-    void* devPtr = nullptr;
+    void* dev_ptr = nullptr;
     aclError ret = aclrtMallocWithCfg(
-        &devPtr, size, static_cast<aclrtMemMallocPolicy>(ACL_MEM_TYPE_HIGH_BAND_WIDTH), &cfg);
-    if (ret != ACL_SUCCESS || devPtr == nullptr) {
+        &dev_ptr, size, static_cast<aclrtMemMallocPolicy>(ACL_MEM_TYPE_HIGH_BAND_WIDTH), &cfg);
+    if (ret != ACL_SUCCESS || dev_ptr == nullptr) {
         HCCL_ERROR("[CcuDevMem] aclrtMallocWithCfg failed, ret[%d] size[%zu].", ret, size);
         return;
     }
 
-    addr_ = reinterpret_cast<uint64_t>(devPtr);
+    addr_ = reinterpret_cast<uint64_t>(dev_ptr);
     size_ = size;
 }
 
-CcuDevMem::~CcuDevMem()
+ccu_dev_mem::~ccu_dev_mem()
 {
     if (addr_ == 0) {
         return;
@@ -62,4 +62,4 @@ CcuDevMem::~CcuDevMem()
 }
 
 } // namespace CcuRep
-} // namespace asccomm
+} // namespace asc

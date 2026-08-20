@@ -19,49 +19,49 @@
 namespace AscendC {
 namespace ccu {
 
-template <typename U>
-class Array;
+template <typename u>
+class array;
 
-class RemoteAddr final {
+class remote_addr final {
 public:
-    RemoteAddr() : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{})
+    remote_addr() : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
     {
         CCU_THROW_IF_FAILED(
-            ::asccomm::CcuRemoteAddrAlloc(&this->handle, &this->addr.handle, &this->token.handle), "CcuRemoteAddrAlloc: failed");
+            ::asc::ccu_remote_addr_alloc(&this->handle, &this->addr_.handle, &this->token.handle), "ccu_remote_addr_alloc: failed");
     }
 
-    RemoteAddr(const RemoteAddr& other) : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{})
+    remote_addr(const remote_addr& other) : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
     {
         this->handle = other.handle;
-        this->addr.handle = other.addr.handle;
+        this->addr_.handle = other.addr_.handle;
         this->token.handle = other.token.handle;
     }
-    RemoteAddr(RemoteAddr&& other) noexcept : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{})
+    remote_addr(remote_addr&& other) noexcept : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{})
     {
         this->handle = other.handle;
-        this->addr.handle = other.addr.handle;
+        this->addr_.handle = other.addr_.handle;
         this->token.handle = other.token.handle;
     }
-    void operator=(const RemoteAddr& other)
+    void operator=(const remote_addr& other)
     {
-        this->addr = other.addr;
+        this->addr_ = other.addr_;
         this->token = other.token;
     }
-    void operator=(RemoteAddr&& other)
+    void operator=(remote_addr&& other)
     {
         this->handle = other.handle;
-        this->addr.handle = other.addr.handle;
+        this->addr_.handle = other.addr_.handle;
         this->token.handle = other.token.handle;
     }
 
-    Address addr;
-    Variable token;
-    CcuRemoteAddrHandle handle{0};
+    address addr_;
+    variable token;
+    ccu_remote_addr_handle handle{0};
 
 private:
-    explicit RemoteAddr(detail::NoAllocTag) : addr(detail::NoAllocTag{}), token(detail::NoAllocTag{}) {}
-    template <typename U>
-    friend class Array;
+    explicit remote_addr(detail::no_alloc_tag) : addr_(detail::no_alloc_tag{}), token(detail::no_alloc_tag{}) {}
+    template <typename u>
+    friend class array;
 };
 
 } // namespace ccu

@@ -99,14 +99,14 @@ typedef enum {
 /* 检查函数返回值, 并返回指定错误码 */
 #define CHK_RET(call)                                                              \
     do {                                                                           \
-        int32_t hcclRet = call;                                                    \
-        if (UNLIKELY(hcclRet != HCCL_SUCCESS)) {                                   \
-            if (hcclRet == HCCL_E_AGAIN) {                                         \
-                HCCL_WARNING("[%s] call trace: hcclRet -> %d", __func__, hcclRet); \
+        int32_t hccl_ret = call;                                                    \
+        if (UNLIKELY(hccl_ret != HCCL_SUCCESS)) {                                   \
+            if (hccl_ret == HCCL_E_AGAIN) {                                         \
+                HCCL_WARNING("[%s] call trace: hccl_ret -> %d", __func__, hccl_ret); \
             } else {                                                               \
-                HCCL_ERROR("[%s] call trace: hcclRet -> %d", __func__, hcclRet);   \
+                HCCL_ERROR("[%s] call trace: hccl_ret -> %d", __func__, hccl_ret);   \
             }                                                                      \
-            return static_cast<HcclResult>(hcclRet);                               \
+            return static_cast<HcclResult>(hccl_ret);                               \
         }                                                                          \
     } while (0)
 
@@ -122,13 +122,13 @@ typedef enum {
         }                                                                                                       \
     } while (0)
 
-#define HCCL_TO_CCU_RET(hcclRet) static_cast<CcuResult>(hcclRet)
+#define HCCL_TO_CCU_RET(hccl_ret) static_cast<CcuResult>(hccl_ret)
 #define CCU_CHK_RET(call)                                                 \
     do {                                                                  \
-        CcuResult ccuRet = HCCL_TO_CCU_RET(call);                         \
-        if (UNLIKELY(ccuRet != CCU_SUCCESS)) {                            \
-            HCCL_ERROR("[%s]call trace: ccuRet -> %d", __func__, ccuRet); \
-            return ccuRet;                                                \
+        CcuResult ccu_ret = HCCL_TO_CCU_RET(call);                         \
+        if (UNLIKELY(ccu_ret != CCU_SUCCESS)) {                            \
+            HCCL_ERROR("[%s]call trace: ccu_ret -> %d", __func__, ccu_ret); \
+            return ccu_ret;                                                \
         }                                                                 \
     } while (0)
 

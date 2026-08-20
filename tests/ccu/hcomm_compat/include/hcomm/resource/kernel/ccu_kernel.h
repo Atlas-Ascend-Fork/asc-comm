@@ -11,16 +11,16 @@
 #ifndef ASCCOMM_CCU_UT_CCU_KERNEL_H
 #define ASCCOMM_CCU_UT_CCU_KERNEL_H
 
-#include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
+#include "hcomm/resource/representation/context_/ccu_rep_context_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
 namespace hcomm {
-class CcuKernel : public CcuRep::CcuRepContext {
+class ccu_kernel : public ccu_rep::ccu_rep_context {
 public:
-    ~CcuKernel() override;
-    void Append(std::shared_ptr<CcuRep::CcuRepBase> rep) override;
-    CcuRep::Variable CreateVariable();
+    ~ccu_kernel() override;
+    void append(std::shared_ptr<ccu_rep::ccu_rep_base> rep) override;
+    ccu_rep::variable create_variable();
 };
 } // namespace hcomm
 

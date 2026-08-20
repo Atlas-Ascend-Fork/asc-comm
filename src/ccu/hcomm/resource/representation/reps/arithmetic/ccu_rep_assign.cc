@@ -13,101 +13,101 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-void CcuRepAssign::SetCommonInfo()
+void ccu_rep_assign::set_common_info()
 {
-    type = CcuRepType::ASSIGN;
-    instrCount = 1;
+    type_ = ccu_rep_type::assign;
+    instr_count_ = 1;
 }
 
-CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable& varA, uint64_t immediate)
-    : insGenPtr(insGenPtr), subType(AssignSubType::IMD_TO_VARIABLE), immediate(immediate), varA(varA)
+ccu_rep_assign::ccu_rep_assign(ccu_ins_generater_base* ins_gen_ptr, const variable& var_a, uint64_t immediate)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(assign_sub_type::imd_to_variable), immediate_(immediate), var_a_(var_a)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrA, uint64_t immediate)
-    : insGenPtr(insGenPtr), subType(AssignSubType::IMD_TO_ADDR), immediate(immediate), addrA(addrA)
+ccu_rep_assign::ccu_rep_assign(ccu_ins_generater_base* ins_gen_ptr, const address& addr_a, uint64_t immediate)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(assign_sub_type::imd_to_addr), immediate_(immediate), addr_a_(addr_a)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const Variable& varA)
-    : insGenPtr(insGenPtr), subType(AssignSubType::VAR_TO_ADDR), immediate(0), varA(varA), addrA(addrA)
+ccu_rep_assign::ccu_rep_assign(ccu_ins_generater_base* ins_gen_ptr, const address& addr_a, const variable& var_a)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(assign_sub_type::var_to_addr), immediate_(0), var_a_(var_a), addr_a_(addr_a)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Address& addrB, const Address& addrA)
-    : insGenPtr(insGenPtr), subType(AssignSubType::ADDR_TO_ADDR), immediate(0), addrA(addrA), addrB(addrB)
+ccu_rep_assign::ccu_rep_assign(ccu_ins_generater_base* ins_gen_ptr, const address& addr_b, const address& addr_a)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(assign_sub_type::addr_to_addr), immediate_(0), addr_a_(addr_a), addr_b_(addr_b)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepAssign::CcuRepAssign(CcuInsGeneraterBase* insGenPtr, const Variable& varB, const Variable& varA)
-    : insGenPtr(insGenPtr), subType(AssignSubType::VAR_TO_VAR), immediate(0), varA(varA), varB(varB)
+ccu_rep_assign::ccu_rep_assign(ccu_ins_generater_base* ins_gen_ptr, const variable& var_b, const variable& var_a)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(assign_sub_type::var_to_var), immediate_(0), var_a_(var_a), var_b_(var_b)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-bool CcuRepAssign::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_assign::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    asccomm::CheckCcuNotNull(instr, "[CcuRepAssign::Translate] instr is nullptr!");
-    this->instrId = instrId;
-    translated = true;
+    asc::check_ccu_not_null(instr, "[CcuRepAssign::translate] instr is nullptr!");
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepAssignTranslate(ccuKernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepAssign][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        ins_gen_ptr_->ccu_rep_assign_translate(ccu_kernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepAssign][translate] failed to translate for instrId[%u]", instr_id), CcuResult::CCU_E_INTERNAL,
         "CcuRepAssign translate failed");
 
     CHK_PRT_THROW(
-        (instrId > UINT16_MAX - instrCount),
+        (instr_id > UINT16_MAX - instr_count_),
         HCCL_ERROR(
-            "[CcuRepAssign::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instrId,
-            instrCount),
+            "[CcuRepAssign::translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instr_id,
+            instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepAssign::Describe()
+std::string ccu_rep_assign::describe()
 {
-    switch (subType) {
-        case AssignSubType::IMD_TO_VARIABLE: {
-            return asccomm::FormatCcuMessage("Variable[%u] = Value[%lu]", varA.Id(), immediate);
+    switch (sub_type_) {
+        case assign_sub_type::imd_to_variable: {
+            return asc::format_ccu_message("Variable[%u] = Value[%lu]", var_a_.id(), immediate_);
         }
-        case AssignSubType::IMD_TO_ADDR: {
-            return asccomm::FormatCcuMessage("Address[%u] = Value[%lu]", addrA.Id(), immediate);
+        case assign_sub_type::imd_to_addr: {
+            return asc::format_ccu_message("Address[%u] = Value[%lu]", addr_a_.id(), immediate_);
         }
-        case AssignSubType::VAR_TO_ADDR: {
-            return asccomm::FormatCcuMessage("Address[%u] = Variable[%u]", addrA.Id(), varA.Id());
+        case assign_sub_type::var_to_addr: {
+            return asc::format_ccu_message("Address[%u] = Variable[%u]", addr_a_.id(), var_a_.id());
         }
-        case AssignSubType::ADDR_TO_ADDR: {
-            return asccomm::FormatCcuMessage("Address[%u] = Address[%u]", addrB.Id(), addrA.Id());
+        case assign_sub_type::addr_to_addr: {
+            return asc::format_ccu_message("Address[%u] = Address[%u]", addr_b_.id(), addr_a_.id());
         }
-        case AssignSubType::VAR_TO_VAR: {
-            return asccomm::FormatCcuMessage("Var[%u] = Var[%u]", varB.Id(), varA.Id());
+        case assign_sub_type::var_to_var: {
+            return asc::format_ccu_message("Var[%u] = Var[%u]", var_b_.id(), var_a_.id());
         }
         default: {
-            return asccomm::FormatCcuMessage("Invalid Assign");
+            return asc::format_ccu_message("Invalid Assign");
         }
     }
 }
 
-Address CcuRepAssign::GetAddrA() { return addrA; }
+address ccu_rep_assign::get_addr_a() { return addr_a_; }
 
-Address CcuRepAssign::GetAddrB() { return addrB; }
+address ccu_rep_assign::get_addr_b() { return addr_b_; }
 
-Variable CcuRepAssign::GetVarA() { return varA; }
+variable ccu_rep_assign::get_var_a() { return var_a_; }
 
-Variable CcuRepAssign::GetVarB() { return varB; }
+variable ccu_rep_assign::get_var_b() { return var_b_; }
 
-uint64_t CcuRepAssign::GetImmed() { return immediate; }
+uint64_t ccu_rep_assign::get_immed() { return immediate_; }
 
-AssignSubType CcuRepAssign::GetSubType() { return subType; }
+assign_sub_type ccu_rep_assign::get_sub_type() { return sub_type_; }
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

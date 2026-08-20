@@ -37,7 +37,7 @@ public:
         FP8E4M3,
         FP8E5M2,
         FP8E8M0,
-        INVALID,
+        invalid,
     };
 
     constexpr DataType(Value value) : value_(value) {}
@@ -45,11 +45,11 @@ public:
     bool operator<(const DataType& other) const { return value_ < other.value_; }
     bool operator==(const DataType& other) const { return value_ == other.value_; }
 
-    std::string Describe() const
+    std::string describe() const
     {
         static constexpr const char* names[] = {
             "INT8", "INT16", "INT32",  "FP16",     "FP32", "INT64",   "UINT64",  "UINT8",   "UINT16",  "UINT32",
-            "FP64", "BFP16", "INT128", "BF16_SAT", "HIF8", "FP8E4M3", "FP8E5M2", "FP8E8M0", "INVALID",
+            "FP64", "BFP16", "INT128", "BF16_SAT", "HIF8", "FP8E4M3", "FP8E5M2", "FP8E8M0", "invalid",
         };
         return names[static_cast<unsigned int>(value_)];
     }
