@@ -33,6 +33,7 @@ dotted_line="----------------------------------------"
 TEST=false
 COV=false
 AICPU_DATA_PLANE=true
+PACKAGE=false
 
 LOG_LEVEL=0
 
@@ -86,6 +87,7 @@ usage() {
     echo "$dotted_line"
     echo "    -h, --help           Display help information"
     echo "    -t, --test           Build and run all unit tests"
+    echo "    --pkg, --package     Build an asc-comm development run package"
     echo "    --cov                Enable code coverage for unit tests"
     echo "    --no-aicpu-data-plane"
     echo "                         Skip AICPU data-plane shared object build"
@@ -105,6 +107,10 @@ parse_args() {
                 ;;
             -t|--test)
                 TEST=true
+                shift
+                ;;
+            --pkg|--package)
+                PACKAGE=true
                 shift
                 ;;
             --cov)
@@ -187,8 +193,15 @@ main(){
         build "${aicpu_build_dir}"
     fi
 
+    if [[ "${PACKAGE}" == true ]]; then
+        bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \
+            --cann-path="${Ascend_CANN_PACKAGE_PATH}" || return $?
+    fi
+
     if [[ "${TEST}" != true ]]; then
-        log "INFO" "use -t/--test to build hcomm UT"
+        if [[ "${PACKAGE}" != true ]]; then
+            log "INFO" "use -t/--test to build hcomm UT"
+        fi
         exit 0
     fi
 
