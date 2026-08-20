@@ -278,20 +278,30 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolvePost(
     }
     __gm__ RegedBufferEntity* remoteMemInfo = &remoteBuffers[remoteIdx];
 
+    // Read SqContext fields. The 64-byte used range (offset 8..71) crosses a cache line, and
+    // trying to bulk-read it as an indexed array generates more instructions than direct field
+    // access because the layout has holes. So we keep the original per-field reads but group
+    // them tightly to let the compiler see the locality and potentially merge adjacent loads.
     __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
     __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
-    post.headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
-    post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(sqCtx->contextInfo.ubJfs.dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
-    post.sqBaseAddr = sqCtx->contextInfo.ubJfs.sqVa;
-    post.sqWqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
-    post.meta.sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
-    post.meta.tpId = sqCtx->contextInfo.ubJfs.tpID;
-    // Two 64-bit loads, the same way the SIMD path reads this field. remoteEID sits at a
-    // multiple of 8 inside SqContext, so the pair is naturally aligned. Reading it byte by
-    // byte instead cost about a quarter of this function's code size in shift/or work.
+    uint64_t sqVa = sqCtx->contextInfo.ubJfs.sqVa;
+    uint64_t headAddr = sqCtx->contextInfo.ubJfs.headAddr;
+    uint64_t dbVa = sqCtx->contextInfo.ubJfs.dbVa;
+    uint32_t wqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
+    uint32_t sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
+    uint32_t tpID = sqCtx->contextInfo.ubJfs.tpID;
     __gm__ uint64_t* remoteEid = reinterpret_cast<__gm__ uint64_t*>(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
-    post.meta.remoteEidL = remoteEid[0];
-    post.meta.remoteEidH = remoteEid[1];
+    uint64_t remoteEidL = remoteEid[0];
+    uint64_t remoteEidH = remoteEid[1];
+
+    post.headAddr = reinterpret_cast<__gm__ uint64_t*>(headAddr);
+    post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
+    post.sqBaseAddr = sqVa;
+    post.sqWqeSize = wqeSize;
+    post.meta.sqDepth = sqDepth;
+    post.meta.tpId = tpID;
+    post.meta.remoteEidL = remoteEidL;
+    post.meta.remoteEidH = remoteEidH;
     post.meta.remoteTokenId = remoteMemInfo->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
     post.meta.remoteTokenValue = remoteMemInfo->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     return HCOMM_SUCCESS;
