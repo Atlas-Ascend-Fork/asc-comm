@@ -418,31 +418,41 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
     uint64_t cqBaseAddr = cqCtx->contextInfo.ubJfc.scqVa;
     uint32_t cqeSize = cqCtx->contextInfo.ubJfc.cqeSize;
     uint32_t cqDepth = cqCtx->contextInfo.ubJfc.cqDepth;
+    // The loop runs once per CQE to consume. HcommSimtWriteSqeHeader already assumes sqDepth
+    // is a power of two for its owner-bit computation (curHead & sqDepth), so we can replace
+    // the four modulo operations here with masks. Depth is loop-invariant, so compute the mask
+    // once outside.
+    uint32_t cqMask = cqDepth - 1U;
+    uint32_t sqMask = sqDepth - 1U;
     while (curTail != expectIdx) {
-        __gm__ HcommUrmaJfcCqeCtx* cqeAddr = (__gm__ HcommUrmaJfcCqeCtx*)(cqBaseAddr + cqeSize * (curTail % cqDepth));
+        // Read the CQE header as raw 32-bit words instead of through the bitfield struct. This
+        // lets the compiler see the reads are contiguous and generate tighter code. owner sits at
+        // bit 2 of word 0, status/substatus at bits 24/16, entryIdx in the low 16 bits of word 1.
+        __gm__ uint32_t* cqeWords = (__gm__ uint32_t*)(cqBaseAddr + cqeSize * (curTail & cqMask));
         uint32_t validOwner = (curTail / cqDepth) & 1U;
         uint32_t retry = 0U;
-        while (((validOwner ^ cqeAddr->owner) == 0U) && retry < HCOMM_SIMT_MAX_CQ_RETRY) {
+        while ((((cqeWords[0] >> 2U) & 1U) == validOwner) && retry < HCOMM_SIMT_MAX_CQ_RETRY) {
             asc_threadfence();
-            asc_dcci_single(cqeAddr);
+            asc_dcci_single(cqeWords);
             ++retry;
         }
         if (retry >= HCOMM_SIMT_MAX_CQ_RETRY) {
             // No CQE arrived: the WQE was never consumed.
             return 0xFFU;
         }
-        uint8_t status = cqeAddr->status & 0xFFU;
-        uint8_t subStatus = cqeAddr->substatus & 0xFFU;
+        uint32_t cqeHead = cqeWords[0];
+        uint32_t status = (cqeHead >> 24U) & 0xFFU;
+        uint32_t subStatus = (cqeHead >> 16U) & 0xFFU;
         if (status != 0U || subStatus != 0U) {
             constexpr uint8_t statusShift = 8U;
-            return (static_cast<uint32_t>(status) << statusShift) | subStatus;
+            return (status << statusShift) | subStatus;
         }
         if (sqDepth == 0U) {
             return 0xFFU;
         }
-        uint32_t sqTailSlot = sqTail % sqDepth;
-        uint32_t completedSlot = cqeAddr->entryIdx % sqDepth;
-        sqTail += (completedSlot + sqDepth - sqTailSlot) % sqDepth + 1U;
+        uint32_t sqTailSlot = sqTail & sqMask;
+        uint32_t completedSlot = (cqeWords[1] & 0xFFFFU) & sqMask;
+        sqTail += (completedSlot + sqDepth - sqTailSlot) & sqMask + 1U;
         ++curTail;
     }
 
