@@ -51,12 +51,12 @@ ret = hcomm.Drain(channel);
 
 BatchHandle interfaces currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950 and do not depend on `Init`.
 
-1. Prepare a UB buffer and create a batch handle. The concrete handle type is selected by the protocol at compile time, so use `auto`.
+1. Prepare a UB buffer and create a `UbcCtpBatchHandle`. Use `auto` to receive the return value.
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
 auto batchHandle = hcomm.MakeBatchHandle(
-    channel, remoteBase, localBase, batchBuffer, batchBufferLen);
+    channel, batchBuffer, batchBufferLen, remoteBase, localBase);
 ```
 
 `remoteBase` must fall within a remote registered buffer of the channel. The interface caches the corresponding remote token. `localBase` is reserved in the current version.

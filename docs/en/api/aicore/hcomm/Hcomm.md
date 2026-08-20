@@ -21,7 +21,7 @@ class Hcomm;
 | --- | --- |
 | `commProtocol` | Communication protocol type. Supports `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP`. Default: `COMM_PROTOCOL_UBC_CTP`. |
 
-`Hcomm` provides a protocol-specific `BatchHandleType` according to `commProtocol`. The only currently available batch handle implementation is `UbcCtpBatchHandle` for the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
+Batch interfaces directly use `UbcCtpBatchHandle` and currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
 ## Protocol Capabilities
 

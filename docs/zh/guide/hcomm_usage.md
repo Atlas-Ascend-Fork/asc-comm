@@ -51,12 +51,12 @@ ret = hcomm.Drain(channel);
 
 BatchHandle接口当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径，不依赖`Init`。
 
-1. 准备UB缓冲区，并创建批量句柄。具体句柄类型由协议在编译期确定，建议使用`auto`。
+1. 准备UB缓冲区，并创建`UbcCtpBatchHandle`。调用侧建议使用`auto`接收返回值。
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
 auto batchHandle = hcomm.MakeBatchHandle(
-    channel, remoteBase, localBase, batchBuffer, batchBufferLen);
+    channel, batchBuffer, batchBufferLen, remoteBase, localBase);
 ```
 
 `remoteBase`需要落在通道的远端已注册buffer中。接口缓存对应远端token；`localBase`在当前版本中为预留参数。

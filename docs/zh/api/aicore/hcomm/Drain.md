@@ -19,7 +19,7 @@ __aicore__ inline int32_t Drain(AscendC::ChannelHandle channel);
 
 ```cpp
 template <pipe_t pipe = PIPE_MTE3>
-__aicore__ inline int32_t Drain(BatchHandleType& batchHandle);
+__aicore__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
 ```
 
 ## 参数说明
@@ -53,7 +53,7 @@ __aicore__ inline int32_t Drain(BatchHandleType& batchHandle);
 ### 批量接口
 
 - 当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径，不需要调用`Init`。
-- 调用前必须先通过`BatchCommit`提交已准备的WQE。BatchHandle中不能存在尚未提交的WQEBB或CQE计数，否则返回`-1`。
+- 调用前必须先通过`BatchCommit`提交已准备的WQE。BatchHandle中不能存在尚未提交的WQEBB，否则返回`-1`。
 - 批量`Drain`复用WQE缓冲区的第一个64字节作为CQE临时空间。调用期间不得并发访问或改写该缓冲区。
 - 可以执行多次`BatchCommit`后统一调用一次批量`Drain`，接口会等待BatchHandle累计记录的全部CQE。
 - 当已提交任务全部配置为`cqe = 0`时，没有待轮询CQE，接口会直接返回成功，但该返回值不能用于确认硬件已经完成这些请求。在顺序和fence配置能够保证最后一个请求在前序请求之后完成时，可以仅将最后一条请求配置为`cqe = 1`，然后通过批量`Drain`确认整组任务完成。

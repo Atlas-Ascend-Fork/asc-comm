@@ -246,45 +246,47 @@ typedef struct {
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
 
 typedef struct {
-    ChannelHandle channelHandle;
-    LocalTensor<uint32_t> wqeBuffer;
-    // Queue context cached by MakeBatchHandle. It stays valid while the caller exclusively owns the channel.
-    uint64_t sqBaseAddr;
-    uint64_t sqDbAddr;
+    uint64_t baseAddr;
+    uint64_t dbAddr;
     uint64_t remoteEidLow;
     uint64_t remoteEidHigh;
-    uint64_t cqBaseAddr;
-    uint64_t cqDbAddr;
-    uint32_t wqeBufferWqebbCapacity;
-    uint32_t remoteTokenId;
-    uint32_t remoteTokenValue;
-    uint32_t preparedWqebbCount;
-    uint32_t preparedCqeCount;
-    uint32_t sqDepth;
+    uint32_t depth;
     uint32_t tpId;
-    uint32_t cqDepth;
-    uint32_t cqeSize;
-    // Handle-local queue counters. BatchCommit and Drain synchronize them back to ChannelEntity.
-    uint32_t sqHead;
-    uint32_t cqHead;
-    uint32_t cqTail;
-} UbcCtpBatchHandle;
+} BatchSqContext;
 
 typedef struct {
-} RoceBatchHandle;
+    uint64_t baseAddr;
+    uint64_t dbAddr;
+    uint32_t depth;
+    uint32_t cqeSize;
+} BatchCqContext;
 
-template <CommProtocol commProtocol>
-struct BatchHandleTraits;
+typedef struct {
+    uint32_t tokenId;
+    uint32_t tokenValue;
+} BatchRemoteToken;
 
-template <>
-struct BatchHandleTraits<COMM_PROTOCOL_UBC_CTP> {
-    using Type = UbcCtpBatchHandle;
-};
+typedef struct {
+    uint32_t sqHead;
+    uint32_t sqTail;
+    uint32_t cqHead;
+    uint32_t cqTail;
+    uint32_t preSqCnt;
+} BatchQueueCounters;
 
-template <>
-struct BatchHandleTraits<COMM_PROTOCOL_ROCE> {
-    using Type = RoceBatchHandle;
-};
+typedef struct {
+    ChannelHandle channelHandle;
+    LocalTensor<uint32_t> buffer;
+    // Capacity of buffer in WQEBBs.
+    uint32_t bufferCapacity;
+    // Context fields cached by MakeBatchHandle. They stay valid while the caller exclusively owns the channel.
+    BatchSqContext sqContext;
+    BatchCqContext cqContext;
+    BatchRemoteToken remoteToken;
+    // cqHead includes CQEs prepared in the active batch. BatchCommit and Drain synchronize queue counters back to
+    // ChannelEntity.
+    BatchQueueCounters queueCounters;
+} UbcCtpBatchHandle;
 
 // RoCE WQE, CQE, DB struct
 typedef struct {

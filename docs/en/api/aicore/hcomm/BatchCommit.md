@@ -9,21 +9,21 @@ This interface currently supports only the `COMM_PROTOCOL_UBC_CTP` path on Ascen
 ## Function Prototype
 
 ```cpp
-__aicore__ inline int32_t BatchCommit(BatchHandleType& batchHandle);
+__aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
 ```
 
 ## Parameter Description
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `batchHandle` | Input/Output | Batch handle created by `MakeBatchHandle`. After a successful commit, the prepared WQEBB and CQE counts for the current batch are reset to zero. |
+| `batchHandle` | Input/Output | Batch handle created by `MakeBatchHandle`. After a successful commit, its local `cqHead` is synchronized to the channel and its prepared WQEBB count is reset to zero. |
 
 ## Return Value
 
 | Return Value | Description |
 | --- | --- |
 | `0` | The batch is committed successfully. |
-| `-1` | The commit fails because the batch is empty, its counters are invalid, or its WQEBB count violates the SQ capacity constraint. |
+| `-1` | The commit fails because the batch is empty, its WQEBB count is invalid, or the count violates the SQ capacity constraint. |
 
 ## Constraints
 
@@ -33,7 +33,7 @@ __aicore__ inline int32_t BatchCommit(BatchHandleType& batchHandle);
 - SQ ring wrap is supported. If the batch crosses the end of the SQ, the interface copies it to the tail and the beginning of the SQ separately.
 - A successful `BatchCommit` always rings the SQ doorbell. It does not provide the `commit` or `pipe` template parameters of the ordinary `Commit` workflow.
 - Committing an empty batch, including repeating a commit without preparing another batch, returns `-1`.
-- After a successful commit, the BatchHandle and UB buffer can be reused for another batch. The interface resets counters but does not clear the UB buffer contents.
+- After a successful commit, the BatchHandle and UB buffer can be reused for another batch. The interface resets the prepared WQEBB count but does not clear the UB buffer contents.
 - Multiple `BatchCommit` calls can be followed by one batch `Drain` that waits for all submitted tasks.
 - When multiple batches are submitted before `Drain`, the caller must ensure that accumulated outstanding tasks do not overwrite SQ WQEs that have not yet been consumed.
 - The caller must also ensure that CQEs generated but not consumed since the previous batch `Drain` do not exceed the CQ capacity. This interface does not poll the CQ automatically during submission.

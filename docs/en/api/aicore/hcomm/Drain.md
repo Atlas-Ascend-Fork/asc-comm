@@ -19,7 +19,7 @@ Batch interface:
 
 ```cpp
 template <pipe_t pipe = PIPE_MTE3>
-__aicore__ inline int32_t Drain(BatchHandleType& batchHandle);
+__aicore__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
 ```
 
 ## Parameter Description
@@ -53,7 +53,7 @@ __aicore__ inline int32_t Drain(BatchHandleType& batchHandle);
 ### Batch Interface
 
 - Currently supported only on the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950. It does not require `Init`.
-- Submit prepared WQEs through `BatchCommit` before this interface. If the BatchHandle contains uncommitted WQEBB or CQE counts, this interface returns `-1`.
+- Submit prepared WQEs through `BatchCommit` before this interface. If the BatchHandle contains uncommitted WQEBBs, this interface returns `-1`.
 - Batch `Drain` reuses the first 64 bytes of the WQE buffer as CQE scratch space. Do not access or modify the buffer concurrently during the call.
 - Multiple `BatchCommit` calls can be followed by one batch `Drain`, which waits for all CQEs accumulated in the BatchHandle.
 - If all submitted tasks use `cqe = 0`, there is no CQE to poll and the interface returns success directly, but that return value does not confirm hardware completion. If ordering and fence settings guarantee that the final request completes after preceding requests, only the final request needs `cqe = 1`, and batch `Drain` can then confirm completion of the group.

@@ -23,7 +23,7 @@ __aicore__ inline int32_t ReadNbi(
 ```cpp
 template <auto const& config = URMA_DEFAULT_CFG>
 __aicore__ inline int32_t ReadNbi(
-    BatchHandleType& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
 ```
 
 ## 参数说明
@@ -31,7 +31,7 @@ __aicore__ inline int32_t ReadNbi(
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
 | `channel` | 输入 | 普通接口使用的通信通道句柄。 |
-| `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的批量句柄。成功准备WQE后，句柄中的WQEBB和CQE计数会更新。 |
+| `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的批量句柄。成功准备WQE后，句柄中的WQEBB计数会更新；`cqe = 1`时句柄本地`cqHead`也会增加。 |
 | `dst` | 输出 | 本端目的GM绝对地址。 |
 | `src` | 输入 | 远端源GM绝对地址。 |
 | `len` | 输入 | 读取长度，单位为字节。 |
@@ -66,7 +66,7 @@ __aicore__ inline int32_t ReadNbi(
 - `len`不能大于`UINT32_MAX`。
 - `config.inlineEn`必须为`0`，`config.cqe`支持`0`或`1`。同一批次的不同读、写、写通知任务可以使用不同的`cqe`配置。
 - `src`不会再次与远端注册内存范围进行校验。调用方必须保证`src`及其访问范围由`MakeBatchHandle`根据`dstBase`缓存的远端token覆盖。
-- 当长度或缓冲区容量校验失败时返回`-1`，BatchHandle中的准备计数保持不变。
+- 当长度或缓冲区容量校验失败时返回`-1`，BatchHandle中的WQEBB计数和`cqHead`保持不变。
 - 准备完成后需要调用`BatchCommit`。BatchHandle使用期间需要独占对应通道。
 
 ## 相关样例
