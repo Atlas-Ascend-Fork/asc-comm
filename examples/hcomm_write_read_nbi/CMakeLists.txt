@@ -20,26 +20,7 @@ find_package(ASC REQUIRED)
 
 project(kernel_samples LANGUAGES ASC CXX)
 
-# 样例除演示正常读写通信外，还展示「核函数异常 → host 侧 DFX 通道 dump」的维测接入，
-# 因此需要编入 HCOMM DFX 的采集/队列读取源文件，并按安装态布局暂存 hcomm 头文件。
 get_filename_component(ASCCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
-set(HCOMM_STAGE_ROOT "${CMAKE_CURRENT_BINARY_DIR}/package_layout")
-set(HCOMM_STAGE_INCLUDE_DIR "${HCOMM_STAGE_ROOT}/asc/include/adv_api")
-set(HCOMM_STAGE_DETAIL_DIR "${HCOMM_STAGE_ROOT}/asc/impl/adv_api/detail/hcomm")
-
-add_custom_target(prepare_hcomm_header_layout
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${HCOMM_STAGE_INCLUDE_DIR}/hcomm"
-    COMMAND ${CMAKE_COMMAND} -E remove_directory "${HCOMM_STAGE_DETAIL_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${HCOMM_STAGE_INCLUDE_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E make_directory "${HCOMM_STAGE_DETAIL_DIR}"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/include/aicore/hcomm"
-        "${HCOMM_STAGE_INCLUDE_DIR}/hcomm"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${ASCCOMM_ROOT}/src/aicore/hcomm/detail"
-        "${HCOMM_STAGE_DETAIL_DIR}"
-    COMMENT "Preparing Hcomm headers in the installed package layout"
-)
 
 set_source_files_properties(
     hcomm_write_read_nbi_kernel.cpp
@@ -57,17 +38,11 @@ add_executable(demo
     ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_dfx_queue_reader.cpp
     utils.cpp
 )
-add_dependencies(demo
-    prepare_hcomm_header_layout
-)
 
 target_include_directories(demo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx
     ${ASCCOMM_ROOT}/include/aicore
-    ${HCOMM_STAGE_ROOT}/asc
-    ${HCOMM_STAGE_ROOT}/asc/include
-    ${HCOMM_STAGE_INCLUDE_DIR}
     $ENV{ASCEND_HOME_PATH}/asc/include
     $ENV{ASCEND_HOME_PATH}/asc/include/basic_api
     $ENV{ASCEND_HOME_PATH}/include
@@ -104,5 +79,6 @@ set_target_properties(demo PROPERTIES
 
 target_compile_options(demo PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
-    $<$<COMPILE_LANGUAGE:ASC>:-include hcomm/dfx/hcomm_channel_dump.h>
+    $<$<COMPILE_LANGUAGE:ASC>:-include>
+    $<$<COMPILE_LANGUAGE:ASC>:hcomm/dfx/hcomm_channel_dump.h>
 )
