@@ -326,7 +326,27 @@ int main(int argc, char* argv[])
     const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
     const uint32_t laneCount = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
     const std::string commitMode = argv[9];
-    if (nranks < 2 || !ValidApi(api) || iterations == 0U || payloadBytes == 0U ||
+
+    // 本样例是点对点性能测试：允许拉起 nranks(>=2) 个进程，但只有 Rank 0（发送方）和
+    // Rank 1（接收方）执行性能测试，其余 rank 不参与建链，直接退出。
+    if (nranks < kBenchRanks) {
+        std::cout << "ERROR: nranks must be at least " << kBenchRanks << "." << std::endl;
+        std::cout
+            << "       It measures point-to-point latency and bandwidth between Rank 0 (sender) and Rank 1 (receiver)."
+            << std::endl;
+        return 1;
+    }
+    if (rank < 0 || rank >= nranks) {
+        std::cout << "ERROR: rank must be in [0, " << nranks << ")." << std::endl;
+        return 1;
+    }
+    if (rank >= kBenchRanks) {
+        std::cout << "SKIP | Rank=" << rank << " | Only Rank 0 and Rank 1 run the point-to-point benchmark."
+                  << std::endl;
+        return 0;
+    }
+
+    if (!ValidApi(api) || iterations == 0U || payloadBytes == 0U ||
         (laneCount != 1U && laneCount != 32U && laneCount != 1024U) ||
         (commitMode != "immediate" && commitMode != "last") || (commitMode == "immediate" && laneCount != 1U)) {
         std::cout << "Invalid argument." << std::endl;
@@ -341,7 +361,8 @@ int main(int argc, char* argv[])
     aclrtStream stream = nullptr;
     ACLCHECK(aclrtCreateStream(&stream));
     HcclComm comm = nullptr;
-    HCCLCHECK(InitCommByRootInfo(static_cast<uint32_t>(rank), static_cast<uint32_t>(nranks), rootInfoFile, &comm));
+    // 通信域只包含参与测试的前两个 rank，其余 rank 已提前退出，不加入通信域。
+    HCCLCHECK(InitCommByRootInfo(static_cast<uint32_t>(rank), static_cast<uint32_t>(kBenchRanks), rootInfoFile, &comm));
 
     void* sendBuf = nullptr;
     void* recvBuf = nullptr;
@@ -359,7 +380,7 @@ int main(int argc, char* argv[])
     ChannelHandle channel = 0U;
     uint32_t remoteRecvIdx = 0U;
     HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
-    HCCLCHECK(HostBarrier(rank, nranks, "ready"));
+    HCCLCHECK(HostBarrier(rank, kBenchRanks, "ready"));
 
     void* timingBuf = nullptr;
     uint64_t timing[kTimingWords] = {};
@@ -399,7 +420,7 @@ int main(int argc, char* argv[])
                   << " | Completed=" << timing[kCompletedIndex] << std::endl;
     }
 
-    HCCLCHECK(HostBarrier(rank, nranks, "completed"));
+    HCCLCHECK(HostBarrier(rank, kBenchRanks, "completed"));
     if (rank == kReceiverRank) {
         pass = CheckReceiver(recvBuf, bufferBytes, api, payloadBytes, iterations, warmup, laneCount);
     }

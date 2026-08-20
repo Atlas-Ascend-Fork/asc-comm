@@ -49,7 +49,6 @@ root_info_file="${root_info_dir}/root_info.bin"
 # A fresh directory per run, so markers left behind by an earlier run cannot make a
 # barrier pass immediately.
 sync_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_notify_atomic_sync.XXXXXX")"
-export SIMT_NOTIFY_ATOMIC_SYNC_DIR="$sync_dir"
 trap 'rm -rf "$sync_dir" "$root_info_dir"' EXIT
 
 pids=()
@@ -63,7 +62,7 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 for ((rank = 0; rank < nranks; ++rank)); do
-    "$binary" "$rank" "$nranks" "$root_info_file" "$mode" &
+    "$binary" "$rank" "$nranks" "$root_info_file" "$sync_dir" "$mode" &
     pids+=("$!")
 done
 

@@ -15,6 +15,10 @@ usage() {
 Usage:
   run.sh <nranks> <notify|faa|cas> [options]
 
+This is a point-to-point benchmark. <nranks> processes are launched (nranks >= 2),
+but only rank 0 (sender) and rank 1 (receiver) build the channel and run the
+benchmark; ranks >= 2 exit immediately without joining the communicator.
+
 Options:
   --iterations N      Timed WQE count, default: 1024
   --warmup N          Warmup WQE count, default: 100
