@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file hcomm_simt_inner_def.h
- * \brief Hcomm SIMT inner definition
+ * \file asccomm_simt_inner_def.h
+ * \brief asccomm SIMT inner definition
  */
 
-#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_INNER_DEF_H
+#if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal asccomm header. Please include public asccomm headers instead.")
+#define ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_INNER_DEF_H
 #endif
 
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_SIMT_INNER_DEF_H
@@ -35,47 +35,47 @@
 
 namespace AscendC::simt {
 
-// headAddr stores curHead in low 32 bits and wqeCnt in high 32 bits.
-// Concurrent deferred posts reserve it atomically; publication and Drain are single-lane.
-constexpr uint64_t HCOMM_SIMT_WQE_CNT_MASK = 0xFFFFFFFFULL;
+// head_addr stores cur_head in low 32 bits and wqe_cnt in high 32 bits.
+// Concurrent deferred posts reserve it atomically; publication and drain are single-lane.
+constexpr uint64_t asccomm_simt_wqe_cnt_mask = 0xFFFFFFFFULL;
 
-// SIMT view of ChannelEntity: the shared definition stores typed host pointers, which the SIMT
+// SIMT view of channel_entity: the shared definition stores typed host pointers, which the SIMT
 // path cannot name, so every pointer member is viewed as a uint64_t here. The static_assert keeps
 // this view locked to the shared layout.
-struct HcommSimtChannelEntity {
-    CommAbiHeader abiHeader;
-    CommEngine engine;
+struct asccomm_simt_channel_entity {
+    comm_abi_header abi_header;
+    comm_engine engine;
     int32_t protocol;
-    uint32_t localNotifyNum;
-    uint32_t remoteNotifyNum;
-    uint32_t localBufferNum;
-    uint32_t remoteBufferNum;
-    uint32_t sqNum;
-    uint32_t cqNum;
-    uint64_t localNotifyAddr;
-    uint64_t remoteNotifyAddr;
-    uint64_t localBufferAddr;
-    uint64_t remoteBufferAddr;
-    uint64_t sqContextAddr;
-    uint64_t cqContextAddr;
+    uint32_t local_notify_num;
+    uint32_t remote_notify_num;
+    uint32_t local_buffer_num;
+    uint32_t remote_buffer_num;
+    uint32_t sq_num;
+    uint32_t cq_num;
+    uint64_t local_notify_addr;
+    uint64_t remote_notify_addr;
+    uint64_t local_buffer_addr;
+    uint64_t remote_buffer_addr;
+    uint64_t sq_context_addr;
+    uint64_t cq_context_addr;
     // The SIMD path tracks its queue state in these four counters. SIMT does not use them: it packs
-    // curHead and wqeCnt into the single u64 at SqContext::ubJfs::headAddr. Posting interfaces for
+    // cur_head and wqe_cnt into the single u64 at sq_context::ub_jfs::head_addr. Posting interfaces for
     // one channel are single-lane; the packed update keeps both counters consistent in one store.
     // These fields are listed here only to keep this view
-    // field-for-field identical to ChannelEntity.
-    uint32_t sqHead;
-    uint32_t sqTail;
-    uint32_t cqHead;
-    uint32_t cqTail;
+    // field-for-field identical to channel_entity.
+    uint32_t sq_head;
+    uint32_t sq_tail;
+    uint32_t cq_head;
+    uint32_t cq_tail;
     uint8_t reserve[144];
 };
 
-static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");
+static_assert(sizeof(asccomm_simt_channel_entity) == sizeof(channel_entity), "SIMT channel_entity view size mismatch");
 
 } // namespace AscendC::simt
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_SIMT_INNER_DEF_H
-#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_INNER_DEF_H)
-#undef HCOMM_INCLUDE_INTERNAL_HEADERS
-#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_INNER_DEF_H
+#if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_INNER_DEF_H)
+#undef ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#undef ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_INNER_DEF_H
 #endif

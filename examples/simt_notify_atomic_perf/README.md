@@ -3,7 +3,7 @@
 本目录只测试`Notify`、`FAA`和`CAS`三个接口。Immediate模式仅支持`--lanes 1`。Last模式允许
 `--lanes 1/32/1024`：多个lane并发执行`commit=false`，同步后由一个lane执行唯一的`commit=true`。
 
-当前性能 kernel 在计时开始前调用原有的 `Hcomm::Init(workspace, len)`。Hcomm 在不透明 UB
+当前性能 kernel 在计时开始前调用原有的 `asccomm::init(workspace, len)`。asccomm 在不透明 UB
 workspace 内自动为每个 lane 分配 128B WQE slot 和 32B 远端注册信息/token cache，并初始化所有
 lane 共享只读的 128B channel/SQ post context。共享 context 在第一次业务调用取得 `channel` 后懒加载；
 缓存只减少每个 WQE 重复解析 GM 元数据的开销，不改变 Immediate 提交语义，调用方不再管理三块
@@ -15,27 +15,27 @@ lane 共享只读的 128B channel/SQ post context。共享 context 在第一次�
 
 ```text
 执行 warmup 次接口
-Drain                         不计时
+drain                         不计时
 
 begin = clock()
 执行 iterations 次接口
 issueEnd = clock()
-Drain/PollCq
+drain/PollCq
 completionEnd = clock()
 ```
 
 `IssueTime`和`AverageIssue`只统计正式WQE下发，用于比较接口提交时延；`CompletionTime`从正式下发开始
-统计到`Drain/PollCq`结束，仅用于计算`CompletionBandwidth`。`DrainStatus`和`Completed`用于确认本次
+统计到`drain/PollCq`结束，仅用于计算`CompletionBandwidth`。`DrainStatus`和`Completed`用于确认本次
 下发最终正确完成。
 
 ## 末次提交用例
 
 `--commit-mode last` 对一组 WQE 只执行一次最终提交：前 `iterations - 1` 个 WQE 使用
 `commit=false` 写入普通 SQ，最后一个 WQE 使用 `commit=true` 通过 DWQE 发布整批，随后结束计时并
-调用 `Drain()`。Last 只合并最终 DWQE 发布，SQ 空间仍按每个 WQE 执行一次预留 CAS。
+调用 `drain()`。Last 只合并最终 DWQE 发布，SQ 空间仍按每个 WQE 执行一次预留 CAS。
 
 `--lanes 1`串行填写延迟WQE；`--lanes 32/1024`由多个lane并行填写延迟WQE。两种情况都只由
-一个lane执行最终`commit=true`和`Drain`。
+一个lane执行最终`commit=true`和`drain`。
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
@@ -99,9 +99,9 @@ RESULT | Path=SIMT-t1 | API=notify | DataSize/B=4096 | WqeCount=1024 | Warmup=10
 STATUS | API=notify | Path=SIMT-t1 | CommitMode=immediate | PASS
 ```
 
-- `IssueTime/us`：正式接口调用本身的总时间，不包含`Drain()`；
+- `IssueTime/us`：正式接口调用本身的总时间，不包含`drain()`；
 - `AverageIssue/ns`：`IssueTime / WqeCount`；
-- `CompletionTime/us`：从正式下发开始到`Drain/PollCq`完成的总时间；
+- `CompletionTime/us`：从正式下发开始到`drain/PollCq`完成的总时间；
 - `CompletionBandwidth/GB/s`：`DataSize × WqeCount / CompletionTime`；
 - `DrainStatus=0` 且 `Completed=WqeCount`：本次用例完成。
 

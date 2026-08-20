@@ -14,63 +14,63 @@
 #include "hcomm/resource/representation/reps/control/ccu_rep_funccall_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace asccomm {
+namespace asc {
 
-namespace CcuRep {
+namespace ccu_rep {
 
-class FuncCall {
+class func_call {
 public:
-    FuncCall(CcuRepContext* context, std::string label);
-    FuncCall(CcuRepContext* context, const Variable& funcAddr);
+    func_call(ccu_rep_context* context, std::string label);
+    func_call(ccu_rep_context* context, const variable& func_addr);
 
-    template <typename... Arguments>
-    FuncCall& operator()(const Arguments&... args)
+    template <typename... arguments>
+    func_call& operator()(const arguments&... args)
     {
-        SetArgHelper(args...);
-        AppendToContext();
+        set_arg_helper(args...);
+        append_to_context();
         return *this;
     }
 
-    FuncCall& operator()()
+    func_call& operator()()
     {
-        AppendToContext();
+        append_to_context();
         return *this;
     }
 
-    void AppendToContext();
+    void append_to_context();
 
-    template <typename T>
-    void SetInArg(T&& arg)
+    template <typename t>
+    void set_in_arg(t&& arg)
     {
-        repFuncCall->SetInArg(std::forward<T>(arg));
+        rep_func_call_->set_in_arg(std::forward<t>(arg));
     }
 
-    template <typename T>
-    void SetOutArg(T&& arg)
+    template <typename t>
+    void set_out_arg(t&& arg)
     {
-        repFuncCall->SetOutArg(std::forward<T>(arg));
+        rep_func_call_->set_out_arg(std::forward<t>(arg));
     }
 
 private:
-    template <typename First>
-    void SetArgHelper(const First& first)
+    template <typename first_t>
+    void set_arg_helper(const first_t& first)
     {
-        repFuncCall->SetInArg(first);
+        rep_func_call_->set_in_arg(first);
     }
 
-    template <typename First, typename... Rest>
-    void SetArgHelper(const First& first, const Rest&... rest)
+    template <typename first_t, typename... rest_t>
+    void set_arg_helper(const first_t& first, const rest_t&... rest)
     {
-        repFuncCall->SetInArg(first);
-        SetArgHelper(rest...);
+        rep_func_call_->set_in_arg(first);
+        set_arg_helper(rest...);
     }
 
-    CcuRepContext* context{nullptr};
-    std::string label;
+    ccu_rep_context* context_{nullptr};
+    std::string label_;
 
-    std::shared_ptr<CcuRepFuncCall> repFuncCall{nullptr};
+    std::shared_ptr<ccu_rep_func_call> rep_func_call_{nullptr};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // _CCU_FUNC_CALL_H

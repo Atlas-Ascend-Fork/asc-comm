@@ -8,39 +8,39 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_REMWAITSEM_H
-#define HCOMM_CCU_REPRESENTATION_REMWAITSEM_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_REMWAITSEM_H
+#define ASCCOMM_CCU_REPRESENTATION_REMWAITSEM_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepRemWaitSem : public CcuRepBase {
+class ccu_rep_rem_wait_sem : public ccu_rep_base {
 public:
-    explicit CcuRepRemWaitSem(
-        CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, uint16_t semIndex, uint16_t mask,
-        bool isProfiling = true);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    uint32_t GetId() override;
-    uint16_t GetChannelId() { return channelId; }
+    explicit ccu_rep_rem_wait_sem(
+        ccu_ins_generater_base* ins_gen_ptr, const ChannelHandle channel, uint16_t sem_index, uint16_t mask,
+        bool is_profiling = true);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    uint32_t get_id() override;
+    uint16_t get_channel_id() { return channel_id_; }
 
-    bool GetIsProfiling() { return isProfiling; }
-    ChannelHandle GetChannel() { return channel; }
-    uint16_t GetSemIndex() { return semIndex; }
-    uint16_t GetMask() { return mask; }
+    bool get_is_profiling() { return is_profiling_; }
+    ChannelHandle get_channel() { return channel_; }
+    uint16_t get_sem_index() { return sem_index_; }
+    uint16_t get_mask() { return mask_; }
 
 private:
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    ChannelHandle channel;
-    uint16_t semIndex{0};
-    uint16_t mask{0};
-    bool isProfiling{true};
-    uint32_t signalId{0};
-    uint16_t channelId{0};
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
+    ChannelHandle channel_;
+    uint16_t sem_index_{0};
+    uint16_t mask_{0};
+    bool is_profiling_{true};
+    uint32_t signal_id_{0};
+    uint16_t channel_id_{0};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_REMWAITSEM_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_REMWAITSEM_H

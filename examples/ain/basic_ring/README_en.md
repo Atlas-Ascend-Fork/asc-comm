@@ -2,7 +2,7 @@
 
 ## Overview
 
-This sample demonstrates how to use basic AIN communication capabilities from an AscendC AIV Kernel through the `ain/ain.h` interface. The sample runs symmetrically across multiple ranks: each rank issues `Put` to the next rank, issues `Get` to the previous rank, and finally synchronizes through `AinBarrierSession`.
+This sample demonstrates how to use basic AIN communication capabilities from an AscendC AIV Kernel through the `ain/ain.h` interface. The sample runs symmetrically across multiple ranks: each rank issues `put` to the next rank, issues `get` to the previous rank, and finally synchronizes through `ain_barrier_session`.
 
 The Host side allocates memory, initializes the HCCL communicator, creates the HCCL Team, registers symmetric windows, and creates AIV communication channels. The Kernel side only submits data-plane communication tasks through the AIN interface.
 
@@ -12,7 +12,7 @@ The Host side allocates memory, initializes the HCCL communicator, creates the H
 | --- | --- |
 | Product | `Ascend 950PR / Ascend 950DT` |
 | NPU architecture | `dav-3510` |
-| Communication protocol | `COMM_PROTOCOL_UBC_CTP` |
+| Communication protocol | `comm_protocol_ubc_ctp` |
 | Communication engine | `COMM_ENGINE_AIV` |
 | Deployment mode | Single-node multi-card |
 | CANN package | The CANN package selected by the current `set_env.sh` environment |
@@ -45,11 +45,11 @@ basic_ring
 
 The Kernel side performs the following steps:
 
-1. Construct an `AscendC::Ain` object and initialize the Hcomm UB temporary workspace.
-2. The current rank uses `Put` to write its rank id to `recvWindow[rankId]` on the next rank.
-3. The current rank uses `Get` to read `sendWindow[0]` from the previous rank into local `recvWindow[rankNum + rankId]`.
-4. Call `Flush` to wait for AIN communication tasks to complete.
-5. Call `AinBarrierSession::Sync` to synchronize ranks.
+1. Construct an `AscendC::ain` object and initialize the asccomm UB temporary workspace.
+2. The current rank uses `put` to write its rank id to `recvWindow[rankId]` on the next rank.
+3. The current rank uses `get` to read `sendWindow[0]` from the previous rank into local `recvWindow[rankNum + rankId]`.
+4. Call `flush` to wait for AIN communication tasks to complete.
+5. Call `ain_barrier_session::Sync` to synchronize ranks.
 
 ## Build
 
@@ -87,7 +87,7 @@ For example, run with two cards:
 
 ## Expected Result
 
-Each rank reads back `recvBuf` and prints the `Put` and `Get` results, for example:
+Each rank reads back `recvBuf` and prints the `put` and `get` results, for example:
 
 ```text
 PUT RES rank 0 recvBuf[1]=1 expect=1

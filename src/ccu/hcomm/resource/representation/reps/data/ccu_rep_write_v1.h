@@ -8,59 +8,59 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_WRITE_H
-#define HCOMM_CCU_REPRESENTATION_WRITE_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_WRITE_H
+#define ASCCOMM_CCU_REPRESENTATION_WRITE_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepWrite : public CcuRepBase {
+class ccu_rep_write : public ccu_rep_base {
 public:
-    CcuRepWrite(
-        CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem, LocalAddr loc, Variable len,
-        CompletedEvent sem, uint16_t mask);
-    CcuRepWrite(
-        CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem, LocalAddr loc, Variable len,
-        uint16_t dataType, uint16_t opType, CompletedEvent sem, uint16_t mask);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    ccu_rep_write(
+        ccu_ins_generater_base* ins_gen_ptr, const ChannelHandle channel, remote_addr rem, local_addr loc, variable len,
+        completed_event sem, uint16_t mask);
+    ccu_rep_write(
+        ccu_ins_generater_base* ins_gen_ptr, const ChannelHandle channel, remote_addr rem, local_addr loc, variable len,
+        uint16_t data_type, uint16_t op_type, completed_event sem, uint16_t mask);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 
-    uint16_t GetLocAddrId() { return loc.addr.Id(); }
-    uint16_t GetLocTokenId() { return loc.token.Id(); }
-    uint16_t GetRemAddrId() { return rem.addr.Id(); }
-    uint16_t GetRemTokenId() { return rem.token.Id(); }
-    uint16_t GetLenId() { return len.Id(); }
-    uint16_t GetSemId() { return sem.Id(); }
-    uint32_t GetChannelId() { return channelId; }
-    ChannelHandle GetChannel() { return channel; }
-    LocalAddr GetLoc() { return loc; }
-    RemoteAddr GetRem() { return rem; }
-    Variable GetLen() { return len; }
-    CompletedEvent GetSem() { return sem; }
-    uint16_t GetMask() { return mask; }
-    uint16_t GetDataType() { return dataType; }
-    uint16_t GetOpType() { return opType; }
-    uint16_t GetReduceFlag() { return reduceFlag; }
+    uint16_t get_loc_addr_id() { return loc_.addr.id(); }
+    uint16_t get_loc_token_id() { return loc_.token.id(); }
+    uint16_t get_rem_addr_id() { return rem_.addr.id(); }
+    uint16_t get_rem_token_id() { return rem_.token.id(); }
+    uint16_t get_len_id() { return len_.id(); }
+    uint16_t get_sem_id() { return sem_.id(); }
+    uint32_t get_channel_id() { return channel_id_; }
+    ChannelHandle get_channel() { return channel_; }
+    local_addr get_loc() { return loc_; }
+    remote_addr get_rem() { return rem_; }
+    variable get_len() { return len_; }
+    completed_event get_sem() { return sem_; }
+    uint16_t get_mask() { return mask_; }
+    uint16_t get_data_type() { return data_type_; }
+    uint16_t get_op_type() { return op_type_; }
+    uint16_t get_reduce_flag() { return reduce_flag_; }
 
 private:
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    ChannelHandle channel;
-    uint32_t channelId{0};
-    RemoteAddr rem;
-    LocalAddr loc;
-    Variable len;
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
+    ChannelHandle channel_;
+    uint32_t channel_id_{0};
+    remote_addr rem_;
+    local_addr loc_;
+    variable len_;
 
-    CompletedEvent sem;
-    uint16_t mask{0};
+    completed_event sem_;
+    uint16_t mask_{0};
 
-    uint16_t dataType{0};
-    uint16_t opType{0};
-    uint16_t reduceFlag{0};
+    uint16_t data_type_{0};
+    uint16_t op_type_{0};
+    uint16_t reduce_flag_{0};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_WRITE_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_WRITE_H

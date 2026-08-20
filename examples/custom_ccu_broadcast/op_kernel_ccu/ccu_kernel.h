@@ -39,20 +39,20 @@ struct CcuKernelArgBase {
     uint32_t channelCount;
 };
 
-struct CcuKernelInfo {
-    char kernelFuncName[64];
-    void* kernelFunc;
-    void* kernelArg;
+struct ccu_kernel_info {
+    char kernel_func_name[64];
+    void* kernel_func;
+    void* kernel_arg;
 
 private:
     std::shared_ptr<CcuKernelArgBase> kernelArgSmartPtr;
 
 public:
-    template <typename T>
-    void setKernelArg(std::shared_ptr<T> arg)
+    template <typename t>
+    void setKernelArg(std::shared_ptr<t> arg)
     {
         kernelArgSmartPtr = std::static_pointer_cast<CcuKernelArgBase>(arg);
-        kernelArg = static_cast<void*>(arg.get());
+        kernel_arg = static_cast<void*>(arg.get());
     }
 };
 
@@ -64,15 +64,15 @@ struct CcuKernelArgBroadcastMesh1D : public CcuKernelArgBase {
 
 struct BroadcastMesh1DContext {
     const CcuKernelArgBroadcastMesh1D* arg;
-    ccu::Variable localBuffer;
-    ccu::Variable localToken;
-    ccu::Variable dataSize;
-    std::vector<ccu::Variable> remoteBuffer;
-    std::vector<ccu::Variable> remoteToken;
-    ccu::Event event;
+    ccu::variable localBuffer;
+    ccu::variable localToken;
+    ccu::variable data_size;
+    std::vector<ccu::variable> remoteBuffer;
+    std::vector<ccu::variable> remoteToken;
+    ccu::event event;
 };
 
-CcuResult CcuBroadcastMesh1DKernel(CcuKernelArg arg);
+CcuResult CcuBroadcastMesh1DKernel(ccu_kernel_arg arg);
 
 } // namespace ops_hccl_bcast
 

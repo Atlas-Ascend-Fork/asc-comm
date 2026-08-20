@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file hcomm_impl.h
- * \brief Hcomm implementation
+ * \file asccomm_impl.h
+ * \brief asccomm implementation
  */
 
-#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H
+#if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal asccomm header. Please include public asccomm headers instead.")
+#define ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H
 #endif
 
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H
@@ -31,91 +31,91 @@
 
 namespace AscendC {
 
-template <CommProtocol commProtocol>
-__aicore__ inline int32_t Hcomm<commProtocol>::Init(__ubuf__ uint8_t* buff, uint32_t len)
+template <comm_protocol comm_protocol>
+__aicore__ inline int32_t asccomm<comm_protocol>::init(__ubuf__ uint8_t* buff, uint32_t len)
 {
-    return impl_.Init(buff, len);
+    return impl_.init(buff, len);
 }
 
-template <CommProtocol commProtocol>
-template <typename T>
-__aicore__ inline int32_t Hcomm<commProtocol>::Init(const LocalTensor<T>& buff, uint32_t len)
+template <comm_protocol comm_protocol>
+template <typename t>
+__aicore__ inline int32_t asccomm<comm_protocol>::init(const LocalTensor<t>& buff, uint32_t len)
 {
-    return impl_.Init(buff, len);
+    return impl_.init(buff, len);
 }
 
-template <CommProtocol commProtocol>
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+template <comm_protocol comm_protocol>
+template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm<comm_protocol>::write_nbi(channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    return impl_.template WriteNbi<commit, commitPipe, reqPipe, config>(channel, dst, src, len);
+    return impl_.template write_nbi<commit, commit_pipe, req_pipe, config>(channel, dst, src, len);
 }
 
-template <CommProtocol commProtocol>
-template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t Hcomm<commProtocol>::WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value)
+template <comm_protocol comm_protocol>
+template <typename t, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm<comm_protocol>::write_value_nbi(channel_handle channel, GM_ADDR dst, t value)
 {
-    return impl_.template WriteValueNbi<T, commit, commitPipe, reqPipe, config>(channel, dst, value);
+    return impl_.template write_value_nbi<t, commit, commit_pipe, req_pipe, config>(channel, dst, value);
 }
 
-template <CommProtocol commProtocol>
-template <typename T, HcommUrmaReduceOp reduceOp, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t Hcomm<commProtocol>::WriteReduceNbi(
-    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
+template <comm_protocol comm_protocol>
+template <typename t, asccomm_urma_reduce_op reduce_op, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm<comm_protocol>::write_reduce_nbi(
+    channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
 {
-    return impl_.template WriteReduceNbi<T, reduceOp, commit, commitPipe, reqPipe, config>(channel, dst, src, count);
+    return impl_.template write_reduce_nbi<t, reduce_op, commit, commit_pipe, req_pipe, config>(channel, dst, src, count);
 }
 
-template <CommProtocol commProtocol>
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
-    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
+template <comm_protocol comm_protocol>
+template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm<comm_protocol>::write_with_notify_nbi(
+    channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val)
 {
-    return impl_.template WriteWithNotifyNbi<commit, commitPipe, reqPipe, config>(
-        channel, dst, src, len, notifyAddr, notifyVal);
+    return impl_.template write_with_notify_nbi<commit, commit_pipe, req_pipe, config>(
+        channel, dst, src, len, notify_addr, notify_val);
 }
 
-template <CommProtocol commProtocol>
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+template <comm_protocol comm_protocol>
+template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm<comm_protocol>::read_nbi(channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    return impl_.template ReadNbi<commit, commitPipe, reqPipe, config>(channel, dst, src, len);
+    return impl_.template read_nbi<commit, commit_pipe, req_pipe, config>(channel, dst, src, len);
 }
 
-template <CommProtocol commProtocol>
-template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t Hcomm<commProtocol>::AtomicFAA(
-    ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T addVal)
+template <comm_protocol comm_protocol>
+template <typename t, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm<comm_protocol>::atomic_faa(
+    channel_handle channel, GM_ADDR dst, GM_ADDR fetch_addr, t add_val)
 {
-    return impl_.template AtomicFAA<T, commit, commitPipe, reqPipe, config>(channel, dst, fetchAddr, addVal);
+    return impl_.template atomic_faa<t, commit, commit_pipe, req_pipe, config>(channel, dst, fetch_addr, add_val);
 }
 
-template <CommProtocol commProtocol>
-template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t Hcomm<commProtocol>::AtomicCAS(
-    ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T compareVal, T swapVal)
+template <comm_protocol comm_protocol>
+template <typename t, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm<comm_protocol>::atomic_cas(
+    channel_handle channel, GM_ADDR dst, GM_ADDR fetch_addr, t compare_val, t swap_val)
 {
-    return impl_.template AtomicCAS<T, commit, commitPipe, reqPipe, config>(
-        channel, dst, fetchAddr, compareVal, swapVal);
+    return impl_.template atomic_cas<t, commit, commit_pipe, req_pipe, config>(
+        channel, dst, fetch_addr, compare_val, swap_val);
 }
 
-template <CommProtocol commProtocol>
+template <comm_protocol comm_protocol>
 template <pipe_t pipe>
-__aicore__ inline int32_t Hcomm<commProtocol>::Commit(ChannelHandle channel)
+__aicore__ inline int32_t asccomm<comm_protocol>::commit(channel_handle channel)
 {
-    return impl_.template Commit<pipe>(channel);
+    return impl_.template commit<pipe>(channel);
 }
 
-template <CommProtocol commProtocol>
+template <comm_protocol comm_protocol>
 template <pipe_t pipe>
-__aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
+__aicore__ inline int32_t asccomm<comm_protocol>::drain(channel_handle channel)
 {
-    return impl_.template Drain<pipe>(channel);
+    return impl_.template drain<pipe>(channel);
 }
 } // namespace AscendC
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H
-#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H)
-#undef HCOMM_INCLUDE_INTERNAL_HEADERS
-#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H
+#if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H)
+#undef ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#undef ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_IMPL_H
 #endif

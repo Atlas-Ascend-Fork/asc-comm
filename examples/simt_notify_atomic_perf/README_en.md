@@ -4,7 +4,7 @@ This directory tests only the `Notify`, `FAA`, and `CAS` interfaces. Immediate m
 Last mode supports `--lanes 1/32/1024`: lanes concurrently post with `commit=false`, then one lane performs the only
 `commit=true` post after synchronization.
 
-Before timing begins, the performance kernel calls `Hcomm::Init(workspace, len)`. In the opaque UB workspace, Hcomm
+Before timing begins, the performance kernel calls `asccomm::init(workspace, len)`. In the opaque UB workspace, asccomm
 allocates a 128-byte WQE slot and a 32-byte remote registration/token cache for each lane, plus a 128-byte read-only
 channel/SQ post context shared by all lanes. The shared context is initialized lazily after the first operation obtains
 the channel. These caches reduce repeated GM metadata parsing without changing Immediate submission semantics, and the
@@ -16,28 +16,28 @@ All three interfaces use the same timing flow:
 
 ```text
 Execute warmup operations
-Drain                         not timed
+drain                         not timed
 
 begin = clock()
 Execute iterations operations
 issueEnd = clock()
-Drain/PollCq
+drain/PollCq
 completionEnd = clock()
 ```
 
 `IssueTime` and `AverageIssue` cover only formal WQE submission and are used to compare issue latency.
-`CompletionTime` starts with formal submission and ends after `Drain/PollCq`; it is used only to calculate
+`CompletionTime` starts with formal submission and ends after `drain/PollCq`; it is used only to calculate
 `CompletionBandwidth`. `DrainStatus` and `Completed` confirm successful completion.
 
-## Last-Commit Mode
+## Last-commit Mode
 
 With `--commit-mode last`, a group of WQEs performs one final publication. The first `iterations - 1` WQEs use
 `commit=false` to write the ordinary SQ, and the final WQE uses `commit=true` to publish the complete batch through the
-DWQE window. Timing then stops and `Drain()` is called. Last mode combines DWQE publication only; SQ space is still
+DWQE window. Timing then stops and `drain()` is called. Last mode combines DWQE publication only; SQ space is still
 reserved with one CAS per WQE.
 
 With `--lanes 1`, deferred WQEs are written serially. With `--lanes 32/1024`, lanes write deferred WQEs concurrently.
-In both cases, one lane performs the final `commit=true` post and `Drain`.
+In both cases, one lane performs the final `commit=true` post and `drain`.
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
@@ -101,9 +101,9 @@ RESULT | Path=SIMT-t1 | API=notify | DataSize/B=4096 | WqeCount=1024 | Warmup=10
 STATUS | API=notify | Path=SIMT-t1 | CommitMode=immediate | PASS
 ```
 
-- `IssueTime/us`: Total formal interface-call time, excluding `Drain()`.
+- `IssueTime/us`: Total formal interface-call time, excluding `drain()`.
 - `AverageIssue/ns`: `IssueTime / WqeCount`.
-- `CompletionTime/us`: Time from the start of formal submission through completion of `Drain/PollCq`.
+- `CompletionTime/us`: Time from the start of formal submission through completion of `drain/PollCq`.
 - `CompletionBandwidth/GB/s`: `DataSize × WqeCount / CompletionTime`.
 - `DrainStatus=0` and `Completed=WqeCount`: The sample completed successfully.
 

@@ -15,32 +15,32 @@
 #include "hcomm/resource/representation/reps/control/ccu_rep_jumplabel_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
 #define CCU_IF(x) CCU_IF_HELPER1(__COUNTER__, x)
 
 #define CCU_IF_HELPER1(ctr, x) CCU_IF_HELPER2(ctr, x)
 
 #define CCU_IF_HELPER2(ctr, x)                                                                           \
-    for (auto __ccuConditionHidden##ctr = CcuRep::Condition(this, x); __ccuConditionHidden##ctr.Check(); \
+    for (auto __ccuConditionHidden##ctr = CcuRep::Condition(this, x); __ccuConditionHidden##ctr.check(); \
          __ccuConditionHidden##ctr.Run())
 
-class Condition {
+class condition {
 public:
-    Condition(CcuRepContext* context, CcuRelationalOperator<Variable, uint64_t> rel);
-    ~Condition();
-    bool Check() const;
-    void Run();
+    condition(ccu_rep_context* context, ccu_relational_operator<variable, uint64_t> rel);
+    ~condition();
+    bool check() const;
+    void run();
 
 private:
-    CcuRepContext* context{nullptr};
-    bool isExecuted{false};
+    ccu_rep_context* context_{nullptr};
+    bool is_executed_{false};
 
-    std::shared_ptr<CcuRepJumpBase> jump{nullptr};
-    std::shared_ptr<CcuRepJumpLabel> endLabel{nullptr};
+    std::shared_ptr<ccu_rep_jump_base> jump_{nullptr};
+    std::shared_ptr<ccu_rep_jump_label> end_label_{nullptr};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // _CCU_CONDITION_H

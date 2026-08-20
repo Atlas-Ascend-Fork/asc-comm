@@ -29,7 +29,7 @@ public:
     UrmaChannelResource() : sqBuffer_(URMA_SQ_DEPTH * URMA_WQE_SIZE, 0), cqBuffer_(URMA_SQ_DEPTH * URMA_CQE_SIZE, 0)
     {
         channel_.engine = COMM_ENGINE_AIV;
-        channel_.protocol = COMM_PROTOCOL_UB_MEM;
+        channel_.protocol = comm_protocol_ub_mem;
         channel_.sqNum = 1;
         channel_.cqNum = 1;
         channel_.remoteBufferNum = URMA_BUFFER_NUM;
@@ -64,7 +64,7 @@ public:
         InitBuffer(localBuffers_[1], 0x5000, 0x1000, 0x333333, 0x444444);
     }
 
-    AscendC::ChannelHandle GetHandle() { return reinterpret_cast<AscendC::ChannelHandle>(&channel_); }
+    AscendC::channel_handle GetHandle() { return reinterpret_cast<AscendC::channel_handle>(&channel_); }
 
     uint32_t GetSqHead() const { return channel_.sqHead; }
 
@@ -106,18 +106,18 @@ protected:
 
     void TearDown() override { block_idx = blockIdxBak_; }
 
-    int32_t InitHcomm(AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP>& hcomm)
+    int32_t InitHcomm(AscendC::asccomm<AscendC::comm_protocol_ubc_ctp>& hcomm)
     {
-        pipe_.InitBuffer(hcommBuf_, AscendC::HCOMM_URMA_TMP_BUF_SIZE);
+        pipe_.InitBuffer(hcommBuf_, AscendC::asccomm_urma_tmp_buf_size);
         AscendC::LocalTensor<uint8_t> hcommLocal = hcommBuf_.Get<uint8_t>();
         __ubuf__ uint8_t* bufPtr = reinterpret_cast<__ubuf__ uint8_t*>(hcommLocal.GetPhyAddr());
-        for (uint32_t i = 0; i < AscendC::HCOMM_URMA_TMP_BUF_SIZE; i++) {
+        for (uint32_t i = 0; i < AscendC::asccomm_urma_tmp_buf_size; i++) {
             bufPtr[i] = 0;
         }
-        return hcomm.Init(bufPtr, AscendC::HCOMM_URMA_TMP_BUF_SIZE);
+        return hcomm.init(bufPtr, AscendC::asccomm_urma_tmp_buf_size);
     }
 
-    template <typename T, AscendC::HcommUrmaReduceOp reduceOp>
+    template <typename T, AscendC::asccomm_urma_reduce_op reduceOp>
     void CheckWriteReduce(uint32_t expectedDataType, uint32_t expectedReduceOpcode)
     {
         constexpr uint64_t count = 3;
@@ -125,11 +125,11 @@ protected:
         constexpr uint64_t localAddr = 0x2008;
         UrmaChannelResource channel;
 
-        AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-        ASSERT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
-        int32_t ret = hcomm.WriteReduceNbi<T, reduceOp, false>(
+        AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
+        ASSERT_EQ(InitHcomm(hcomm), AscendC::asccomm_success);
+        int32_t ret = hcomm.write_reduce_nbi<T, reduceOp, false>(
             channel.GetHandle(), reinterpret_cast<GM_ADDR>(remoteAddr), reinterpret_cast<GM_ADDR>(localAddr), count);
-        ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
+        ASSERT_EQ(ret, AscendC::asccomm_success);
         EXPECT_EQ(channel.GetSqHead(), 1U);
 
         const auto* sqeCtx = reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(hcomm.impl_.wqeItem_.GetPhyAddr());
@@ -151,158 +151,158 @@ private:
     int64_t blockIdxBak_;
 };
 
-// ReadNbi with default commit=true: auto-commit internally, then Drain succeeds
+// read_nbi with default commit=true: auto-commit internally, then drain succeeds
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_Read)
 {
     UrmaChannelResource channel;
 
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
+    EXPECT_EQ(InitHcomm(hcomm), AscendC::asccomm_success);
     int32_t ret =
-        hcomm.ReadNbi(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x5008), reinterpret_cast<GM_ADDR>(0x3008), 8);
+        hcomm.read_nbi(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x5008), reinterpret_cast<GM_ADDR>(0x3008), 8);
     EXPECT_EQ(ret, 0);
     channel.CompleteCurrentSq();
-    ret = hcomm.Drain(channel.GetHandle());
+    ret = hcomm.drain(channel.GetHandle());
     EXPECT_EQ(ret, 0);
 }
 
-// WriteNbi with commit=false: explicit Commit then Drain succeeds
+// write_nbi with commit=false: explicit commit then drain succeeds
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_Write)
 {
     UrmaChannelResource channel;
 
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
-    int32_t ret = hcomm.WriteNbi<false>(
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
+    EXPECT_EQ(InitHcomm(hcomm), AscendC::asccomm_success);
+    int32_t ret = hcomm.write_nbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x3008), reinterpret_cast<GM_ADDR>(0x5008), 8);
     EXPECT_EQ(ret, 0);
-    ret = hcomm.Commit(channel.GetHandle());
+    ret = hcomm.commit(channel.GetHandle());
     EXPECT_EQ(ret, 0);
     channel.CompleteCurrentSq();
-    ret = hcomm.Drain(channel.GetHandle());
+    ret = hcomm.drain(channel.GetHandle());
     EXPECT_EQ(ret, 0);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteReduce_MaxInt8)
 {
-    CheckWriteReduce<int8_t, AscendC::HcommUrmaReduceOp::MAX>(0x0U, 0x8U);
+    CheckWriteReduce<int8_t, AscendC::asccomm_urma_reduce_op::MAX>(0x0U, 0x8U);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteReduce_MinHalf)
 {
-    CheckWriteReduce<half, AscendC::HcommUrmaReduceOp::MIN>(0x6U, 0x9U);
+    CheckWriteReduce<half, AscendC::asccomm_urma_reduce_op::MIN>(0x6U, 0x9U);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteReduce_SumFloat)
 {
-    CheckWriteReduce<float, AscendC::HcommUrmaReduceOp::SUM>(0x7U, 0xAU);
+    CheckWriteReduce<float, AscendC::asccomm_urma_reduce_op::SUM>(0x7U, 0xAU);
 }
 
-// WriteWithNotifyNbi with commit=false: explicit Commit then Drain succeeds
+// write_with_notify_nbi with commit=false: explicit commit then drain succeeds
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithNotify)
 {
     UrmaChannelResource channel;
 
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
-    int32_t ret = hcomm.WriteWithNotifyNbi<false>(
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
+    EXPECT_EQ(InitHcomm(hcomm), AscendC::asccomm_success);
+    int32_t ret = hcomm.write_with_notify_nbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x3008), reinterpret_cast<GM_ADDR>(0x5008), 8,
         reinterpret_cast<GM_ADDR>(0x33), 1);
     EXPECT_EQ(ret, 0);
-    ret = hcomm.Commit(channel.GetHandle());
+    ret = hcomm.commit(channel.GetHandle());
     EXPECT_EQ(ret, 0);
     channel.CompleteCurrentSq();
-    ret = hcomm.Drain(channel.GetHandle());
+    ret = hcomm.drain(channel.GetHandle());
     EXPECT_EQ(ret, 0);
 }
 
-// WriteValueNbi with default commit=true: inline value carried in WQE, auto-commit then Drain succeeds
+// write_value_nbi with default commit=true: inline value carried in WQE, auto-commit then drain succeeds
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithValue)
 {
     UrmaChannelResource channel;
 
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
+    EXPECT_EQ(InitHcomm(hcomm), AscendC::asccomm_success);
     int32_t ret =
-        hcomm.WriteValueNbi<uint64_t>(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x3008), 0xCAFEBABEDEADBEEFULL);
+        hcomm.write_value_nbi<uint64_t>(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x3008), 0xCAFEBABEDEADBEEFULL);
     EXPECT_EQ(ret, 0);
     channel.CompleteCurrentSq();
-    ret = hcomm.Drain(channel.GetHandle());
+    ret = hcomm.drain(channel.GetHandle());
     EXPECT_EQ(ret, 0);
 }
 
-// WriteValueNbi with commit=false: explicit Commit then Drain succeeds
+// write_value_nbi with commit=false: explicit commit then drain succeeds
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithValue_DelayedCommit)
 {
     UrmaChannelResource channel;
 
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
+    EXPECT_EQ(InitHcomm(hcomm), AscendC::asccomm_success);
     int32_t ret =
-        hcomm.WriteValueNbi<uint32_t, false>(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1008), 0x12345678U);
+        hcomm.write_value_nbi<uint32_t, false>(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1008), 0x12345678U);
     EXPECT_EQ(ret, 0);
-    ret = hcomm.Commit(channel.GetHandle());
+    ret = hcomm.commit(channel.GetHandle());
     EXPECT_EQ(ret, 0);
     channel.CompleteCurrentSq();
-    ret = hcomm.Drain(channel.GetHandle());
+    ret = hcomm.drain(channel.GetHandle());
     EXPECT_EQ(ret, 0);
 }
 
-// WriteValueNbi occupies 1 BB (WRITE opcode), advances sqHead by 1
+// write_value_nbi occupies 1 BB (WRITE opcode), advances sqHead by 1
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithValue_WqeBbCnt)
 {
     UrmaChannelResource channel;
 
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
+    EXPECT_EQ(InitHcomm(hcomm), AscendC::asccomm_success);
 
-    int32_t ret = hcomm.WriteValueNbi<uint64_t, false>(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1008), 0xAAULL);
-    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
+    int32_t ret = hcomm.write_value_nbi<uint64_t, false>(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1008), 0xAAULL);
+    EXPECT_EQ(ret, AscendC::asccomm_success);
     EXPECT_EQ(channel.GetSqHead(), 1U);
 
-    ret = hcomm.WriteValueNbi<uint32_t, false>(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x3008), 0xBBU);
-    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
+    ret = hcomm.write_value_nbi<uint32_t, false>(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x3008), 0xBBU);
+    EXPECT_EQ(ret, AscendC::asccomm_success);
     EXPECT_EQ(channel.GetSqHead(), 2U);
 }
 
-// WriteValueNbi remote buffer lookup failure when address is out of range
+// write_value_nbi remote buffer lookup failure when address is out of range
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithValue_RemoteBufferNotFound)
 {
     UrmaChannelResource channel;
 
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
+    EXPECT_EQ(InitHcomm(hcomm), AscendC::asccomm_success);
 
-    int32_t ret = hcomm.WriteValueNbi<uint64_t>(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x9000), 0x1ULL);
-    EXPECT_EQ(ret, AscendC::HCOMM_FAILED);
+    int32_t ret = hcomm.write_value_nbi<uint64_t>(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x9000), 0x1ULL);
+    EXPECT_EQ(ret, AscendC::asccomm_failed);
 }
 
-// WriteWithNotifyNbi occupies 2 BBs, WriteNbi occupies 1 BB
+// write_with_notify_nbi occupies 2 BBs, write_nbi occupies 1 BB
 // Verified by reading sqHead from ChannelEntity
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithNotify_WqeBbCnt)
 {
     UrmaChannelResource channel;
 
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
+    EXPECT_EQ(InitHcomm(hcomm), AscendC::asccomm_success);
 
-    // WriteNbi should advance sqHead by 1
-    int32_t ret = hcomm.WriteNbi<false>(
+    // write_nbi should advance sqHead by 1
+    int32_t ret = hcomm.write_nbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1008), reinterpret_cast<GM_ADDR>(0x2008), 8);
-    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(ret, AscendC::asccomm_success);
     EXPECT_EQ(channel.GetSqHead(), 1U);
 
-    // WriteWithNotifyNbi should advance sqPI by 2
-    ret = hcomm.WriteWithNotifyNbi<false>(
+    // write_with_notify_nbi should advance sqPI by 2
+    ret = hcomm.write_with_notify_nbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x3008), reinterpret_cast<GM_ADDR>(0x5008), 8,
         reinterpret_cast<GM_ADDR>(0x33), 1);
-    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(ret, AscendC::asccomm_success);
     EXPECT_EQ(channel.GetSqHead(), 3U);
 
-    // Another WriteNbi should advance by 1 more
-    ret = hcomm.WriteNbi<false>(
+    // Another write_nbi should advance by 1 more
+    ret = hcomm.write_nbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1008), reinterpret_cast<GM_ADDR>(0x2008), 8);
-    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(ret, AscendC::asccomm_success);
     EXPECT_EQ(channel.GetSqHead(), 4U);
 }
 
@@ -311,72 +311,72 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_RemoteBufferNotFound)
 {
     UrmaChannelResource channel;
 
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
+    EXPECT_EQ(InitHcomm(hcomm), AscendC::asccomm_success);
 
     // Address completely outside any remote buffer range (remote buffers are at 0x1000-0x2000 and 0x3000-0x4000)
-    int32_t h = hcomm.WriteWithNotifyNbi<false>(
+    int32_t h = hcomm.write_with_notify_nbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x9000), reinterpret_cast<GM_ADDR>(0x5008), 8,
         reinterpret_cast<GM_ADDR>(0x33), 1);
-    EXPECT_EQ(h, AscendC::HCOMM_FAILED);
+    EXPECT_EQ(h, AscendC::asccomm_failed);
 
     // Address in range but len exceeds buffer boundary
-    h = hcomm.WriteNbi<false>(
+    h = hcomm.write_nbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1FF0), reinterpret_cast<GM_ADDR>(0x2008), 0x100);
-    EXPECT_EQ(h, AscendC::HCOMM_FAILED);
+    EXPECT_EQ(h, AscendC::asccomm_failed);
 }
 
-// Batch: mixed Write + WriteWithNotify, single channel Commit/Drain covers all
+// Batch: mixed Write + WriteWithNotify, single channel commit/drain covers all
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchCommitDrain)
 {
     UrmaChannelResource channel;
 
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
+    EXPECT_EQ(InitHcomm(hcomm), AscendC::asccomm_success);
 
-    int32_t ret = hcomm.WriteNbi<false>(
+    int32_t ret = hcomm.write_nbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1008), reinterpret_cast<GM_ADDR>(0x2008), 8);
-    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
-    ret = hcomm.WriteWithNotifyNbi<false>(
+    EXPECT_EQ(ret, AscendC::asccomm_success);
+    ret = hcomm.write_with_notify_nbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x3008), reinterpret_cast<GM_ADDR>(0x5008), 8,
         reinterpret_cast<GM_ADDR>(0x33), 1);
-    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
-    ret = hcomm.WriteNbi<false>(
+    EXPECT_EQ(ret, AscendC::asccomm_success);
+    ret = hcomm.write_nbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1018), reinterpret_cast<GM_ADDR>(0x2018), 8);
-    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(ret, AscendC::asccomm_success);
 
-    EXPECT_EQ(hcomm.Commit(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(hcomm.commit(channel.GetHandle()), AscendC::asccomm_success);
     channel.CompleteCurrentSq();
-    EXPECT_EQ(hcomm.Drain(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(hcomm.drain(channel.GetHandle()), AscendC::asccomm_success);
 }
 
-// Init with LocalTensor overload: uses LocalTensor directly without TBuffAddr/SetAddr
+// init with LocalTensor overload: uses LocalTensor directly without TBuffAddr/SetAddr
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_InitLocalTensor)
 {
     UrmaChannelResource channel;
 
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm;
 
     // Allocate buffer via TPipe and get LocalTensor
     AscendC::TPipe pipe;
     AscendC::TBuf<AscendC::TPosition::VECOUT> buf;
-    pipe.InitBuffer(buf, AscendC::HCOMM_URMA_TMP_BUF_SIZE);
+    pipe.InitBuffer(buf, AscendC::asccomm_urma_tmp_buf_size);
     AscendC::LocalTensor<uint8_t> localBuf = buf.Get<uint8_t>();
 
-    // Init with LocalTensor should succeed
-    EXPECT_EQ(hcomm.Init(localBuf, AscendC::HCOMM_URMA_TMP_BUF_SIZE), AscendC::HCOMM_SUCCESS);
+    // init with LocalTensor should succeed
+    EXPECT_EQ(hcomm.init(localBuf, AscendC::asccomm_urma_tmp_buf_size), AscendC::asccomm_success);
 
-    // Init with insufficient length should fail
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm2;
-    EXPECT_EQ(hcomm2.Init(localBuf, AscendC::HCOMM_URMA_TMP_BUF_SIZE - 1), AscendC::HCOMM_FAILED);
+    // init with insufficient length should fail
+    AscendC::asccomm<AscendC::comm_protocol_ubc_ctp> hcomm2;
+    EXPECT_EQ(hcomm2.init(localBuf, AscendC::asccomm_urma_tmp_buf_size - 1), AscendC::asccomm_failed);
 
     // Verify the initialized hcomm can perform operations
-    int32_t ret = hcomm.WriteNbi<false>(
+    int32_t ret = hcomm.write_nbi<false>(
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x3008), reinterpret_cast<GM_ADDR>(0x5008), 8);
-    EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(hcomm.Commit(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(ret, AscendC::asccomm_success);
+    EXPECT_EQ(hcomm.commit(channel.GetHandle()), AscendC::asccomm_success);
     channel.CompleteCurrentSq();
-    EXPECT_EQ(hcomm.Drain(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(hcomm.drain(channel.GetHandle()), AscendC::asccomm_success);
 }
 
 // Dump helpers: nullptr early-return guards.

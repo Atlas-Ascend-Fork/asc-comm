@@ -9,8 +9,8 @@
  */
 
 /*!
- * \file hcomm_simt.h
- * \brief Hcomm SIMT interface
+ * \file asccomm_simt.h
+ * \brief asccomm SIMT interface
  */
 
 #ifndef INCLUDE_ADV_API_HCOMM_HCOMM_SIMT_H
@@ -20,72 +20,72 @@
 
 #include "hcomm_common.h"
 
-#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_H
+#if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
+#define ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_H
 #endif
 #include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_simt_impl_def.h"
 
 namespace AscendC::simt {
 
 namespace detail {
-struct HcommUnboundGroup {};
+struct asccomm_unbound_group {};
 } // namespace detail
 
 // clang-format off
 /*!
- * @class Hcomm
- * @brief The SIMT counterpart of AscendC::Hcomm. It provides the same point-to-point
- *        communication primitives (WriteNbi, ReadNbi and so on) for code running in the SIMT
+ * @class asccomm
+ * @brief The SIMT counterpart of AscendC::hcomm. It provides the same point-to-point
+ *        communication primitives (write_nbi, read_nbi and so on) for code running in the SIMT
  *        execution space, where LocalTensor and the pipe synchronization primitives are not
  *        available.
  *        The typical usage of this class is as follows:
- *          1) Create Hcomm object.
+ *          1) Create asccomm object.
  *          2) Launch comm tasks asynchronously through the corresponding interface.
- *          3) Call the Drain interface (blocking) to wait for completion of the comm tasks.
- * @tparam commProtocol: The communication protocol to use, UBC_CTP supported as default.
+ *          3) Call the drain interface (blocking) to wait for completion of the comm tasks.
+ * @tparam comm_protocol: The communication protocol to use, UBC_CTP supported as default.
  * @note Unlike the SIMD path, the doorbell is rung by copying a 128-byte DWQE rather than writing
  *       a scalar register. A deferred Write/Read occupies one SQ basic block, while an immediate
  *       Write/Read and the two-BB Notify/atomic WQEs occupy two.
- * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
+ * @note There is no commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
  * @note Multiple lanes may concurrently post with commit=false on the same channel. The caller
- *       must synchronize them before one lane posts with commit=true and then calls Drain.
+ *       must synchronize them before one lane posts with commit=true and then calls drain.
  *       Concurrent commit=true calls on the same channel are not supported.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
  *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
  *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
  *       for the later immediate DWQE that publishes the batch.
- * @note A channel must not be driven by both this class and the SIMD AscendC::Hcomm. The two paths
- *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
- *       packs curHead and wqeCnt into the u64 at SqContext::ubJfs::headAddr.
+ * @note A channel must not be driven by both this class and the SIMD AscendC::hcomm. The two paths
+ *       keep their queue state in different places: SIMD uses the counters in channel_entity, SIMT
+ *       packs cur_head and wqe_cnt into the u64 at sq_context::ub_jfs::head_addr.
  */
-template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP, typename Group = detail::HcommUnboundGroup>
-class Hcomm {
+template <comm_protocol comm_protocol = comm_protocol_ubc_ctp, typename group_t = detail::asccomm_unbound_group>
+class asccomm {
 public:
-    __simt_callee__ inline Hcomm();
+    __simt_callee__ inline asccomm();
 
     /*!
-     * @brief Construct Hcomm and bind it to a cooperative group.
-     * @param [in] group: The cooperative group used by future group-level communication APIs.
-     * @note Binding a group does not change the behavior of existing per-lane APIs.
+     * @brief Construct asccomm and bind it to a cooperative group_t.
+     * @param [in] group_t: The cooperative group_t used by future group_t-level communication APIs.
+     * @note Binding a group_t does not change the behavior of existing per-lane APIs.
      */
-    __simt_callee__ inline explicit Hcomm(const Group& group);
-    __simt_callee__ inline ~Hcomm();
+    __simt_callee__ inline explicit asccomm(const group_t& group);
+    __simt_callee__ inline ~asccomm();
 
     /*!
-     * @brief Initialize Hcomm workspace.
+     * @brief Initialize asccomm workspace.
      * @param [in] buff: The UB buffer provided by caller.
      * @param [in] len: The buffer length in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Hcomm requires 128 bytes of WQE staging space for every lane in the block. If the workspace also
-     *       contains 32 bytes per lane and one aligned 128-byte region, Hcomm automatically enables a per-lane
+     * @note asccomm requires 128 bytes of WQE staging space for every lane in the block. If the workspace also
+     *       contains 32 bytes per lane and one aligned 128-byte region, asccomm automatically enables a per-lane
      *       remote-registration cache and one block-shared post context. The cache is optional and falls back
-     *       to global-memory lookup when absent. Every posting lane must call Init; when the full cached layout
-     *       is supplied, every lane in the block must call Init because the shared context is synchronized there.
+     *       to global-memory lookup when absent. Every posting lane must call init; when the full cached layout
+     *       is supplied, every lane in the block must call init because the shared context is synchronized there.
      */
-    __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
+    __simt_callee__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len);
 
     /*!
      * @brief The task launching interface of the Write point-to-point communication operator.
@@ -99,15 +99,15 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization. len must fit in 32 bits.
      */
-    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <bool commit = true, auto const& config = urma_default_cfg>
+    __simt_callee__ inline int32_t write_nbi(channel_handle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     /*!
-     * @brief Inline Write is not supported by the SIMT Hcomm implementation.
+     * @brief Inline Write is not supported by the SIMT asccomm implementation.
      * @note Instantiating this interface causes a compile-time error.
      */
-    template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
-    __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value);
+    template <typename t, bool commit = true, auto const& config = urma_inline_cfg>
+    __simt_callee__ inline int32_t write_value_nbi(channel_handle channel, __gm__ void* dst, t value);
 
     /*!
      * @brief The task launching interface of the Read point-to-point communication operator.
@@ -121,8 +121,8 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization. len must fit in 32 bits.
      */
-    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t ReadNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <bool commit = true, auto const& config = urma_default_cfg>
+    __simt_callee__ inline int32_t read_nbi(channel_handle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     /*!
      * @brief The task launching interface of the Write-with-notify point-to-point communication operator.
@@ -132,44 +132,44 @@ public:
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
      * @param [in] len: The length of the data to write, using byte as the basic unit.
-     * @param [in] notifyAddr: The remote notify address.
-     * @param [in] notifyVal: The remote notify value.
+     * @param [in] notify_addr: The remote notify address.
+     * @param [in] notify_val: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t WriteWithNotifyNbi(
-        ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
-        uint64_t notifyVal);
+    template <bool commit = true, auto const& config = urma_default_cfg>
+    __simt_callee__ inline int32_t write_with_notify_nbi(
+        channel_handle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
+        uint64_t notify_val);
 
     /*!
      * @brief The task launching interface of the Fetch-and-add point-to-point communication operator.
-     * @tparam T: The data type of the atomic operation.
+     * @tparam t: The data type of the atomic operation.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
-     * @param [out] fetchAddr: The address to store the old value before atomic add.
-     * @param [in] addVal: The remote add value.
+     * @param [out] fetch_addr: The address to store the old value before atomic add.
+     * @param [in] add_val: The remote add value.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t AtomicFAA(ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
+    template <typename t, bool commit = true, auto const& config = urma_default_cfg>
+    __simt_callee__ inline int32_t atomic_faa(channel_handle channel, __gm__ void* dst, __gm__ void* fetch_addr, t add_val);
 
     /*!
      * @brief The task launching interface of the Compare-and-swap point-to-point communication operator.
-     * @tparam T: The data type of the atomic operation.
+     * @tparam t: The data type of the atomic operation.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
-     * @param [out] fetchAddr: The address to store the old value before atomic compare-and-swap.
-     * @param [in] compareVal: The value to compare against the value at the destination address.
-     * @param [in] swapVal: The value to swap into the destination address if comparison succeeds.
+     * @param [out] fetch_addr: The address to store the old value before atomic compare-and-swap.
+     * @param [in] compare_val: The value to compare against the value at the destination address.
+     * @param [in] swap_val: The value to swap into the destination address if comparison succeeds.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t AtomicCAS(
-        ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
+    template <typename t, bool commit = true, auto const& config = urma_default_cfg>
+    __simt_callee__ inline int32_t atomic_cas(
+        channel_handle channel, __gm__ void* dst, __gm__ void* fetch_addr, t compare_val, t swap_val);
 
     /*!
      * @brief Block and drain comm tasks submitted on channel until finish processing.
@@ -180,40 +180,40 @@ public:
      *       been published by a single commit=true call.
      */
     template <auto pipe = 0>
-    __simt_callee__ inline int32_t Drain(ChannelHandle channel);
+    __simt_callee__ inline int32_t drain(channel_handle channel);
 
 private:
-    Group group_;
-    HcommImpl<commProtocol> impl_;
+    group_t group_;
+    asccomm_impl<comm_protocol> impl_;
 };
 
-template <typename Group>
-Hcomm(const Group&) -> Hcomm<COMM_PROTOCOL_UBC_CTP, Group>;
+template <typename group_t>
+asccomm(const group_t&) -> asccomm<comm_protocol_ubc_ctp, group_t>;
 // clang-format on
 
 /*!
  * @brief Resolve the base address of a locally registered buffer on the channel.
  * @param [in] channel: The handle of the communication channel.
- * @param [in] bufferIdx: Index into the channel's local registered buffer table.
+ * @param [in] buffer_idx: Index into the channel's local registered buffer table.
  * @return Base address of the requested local buffer.
  */
-__simt_callee__ inline __gm__ uint8_t* LocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx);
+__simt_callee__ inline __gm__ uint8_t* local_buffer_addr(channel_handle channel, uint32_t buffer_idx);
 
 /*!
  * @brief Resolve the base address of a remotely registered buffer on the channel.
  * @param [in] channel: The handle of the communication channel.
- * @param [in] bufferIdx: Index into the channel's remote registered buffer table.
+ * @param [in] buffer_idx: Index into the channel's remote registered buffer table.
  * @return Base address of the requested remote buffer.
  */
-__simt_callee__ inline __gm__ uint8_t* RemoteBufferAddr(ChannelHandle channel, uint32_t bufferIdx);
+__simt_callee__ inline __gm__ uint8_t* remote_buffer_addr(channel_handle channel, uint32_t buffer_idx);
 
 } // namespace AscendC::simt
 
 #include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_simt_impl.h"
 
-#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_H)
-#undef HCOMM_INCLUDE_INTERNAL_HEADERS
-#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_H
+#if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_H)
+#undef ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#undef ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_H
 #endif
 
 #endif // INCLUDE_ADV_API_HCOMM_HCOMM_SIMT_H

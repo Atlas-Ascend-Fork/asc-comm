@@ -1,12 +1,12 @@
-# Commit
+# commit
 
 ## Function Description
-Notifies the specified channel that submitted communication tasks can start execution. It is typically invoked explicitly when `commit` is set to `false` in calls to `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA` or `AtomicCAS`.
+Notifies the specified channel that submitted communication tasks can start execution. It is typically invoked explicitly when `commit` is set to `false` in calls to `read_nbi`, `write_nbi`, `write_with_notify_nbi`, `atomic_faa` or `atomic_cas`.
 
 ## Function Prototype
 ```cpp
 template <pipe_t pipe = PIPE_S>
-__aicore__ inline int32_t Commit(AscendC::ChannelHandle channel);
+__aicore__ inline int32_t commit(AscendC::channel_handle channel);
 ```
 
 ## Parameter Description

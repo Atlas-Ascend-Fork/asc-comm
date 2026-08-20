@@ -13,45 +13,45 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-void AppendToContext(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBase> rep)
+void append_to_context(ccu_rep_context* context, std::shared_ptr<ccu_rep::ccu_rep_base> rep)
 {
     if (context == nullptr) {
-        asccomm::ThrowCcuInternal("context is nullptr, AppendToContext assist[%d]", rep->Type());
+        asc::throw_ccu_internal("context is nullptr, AppendToContext assist[%d]", rep->type());
     } else {
-        return context->Append(rep);
+        return context->append(rep);
     }
 }
 
-std::shared_ptr<CcuRep::CcuRepBlock> CurrentBlock(CcuRepContext* context)
+std::shared_ptr<ccu_rep::ccu_rep_block> current_block(ccu_rep_context* context)
 {
     if (context == nullptr) {
-        asccomm::ThrowCcuInternal("context is nullptr, currentBlock");
+        asc::throw_ccu_internal("context is nullptr, currentBlock");
     }
-    return context->CurrentBlock();
+    return context->current_block();
 }
 
-void SetCurrentBlock(CcuRepContext* context, std::shared_ptr<CcuRep::CcuRepBlock> repBlock)
+void set_current_block(ccu_rep_context* context, std::shared_ptr<ccu_rep::ccu_rep_block> rep_block)
 {
     if (context == nullptr) {
-        asccomm::ThrowCcuInternal("context is nullptr, set currentBlock");
+        asc::throw_ccu_internal("context is nullptr, set currentBlock");
     }
-    context->SetCurrentBlock(repBlock);
+    context->set_current_block(rep_block);
 }
 
-Variable CreateVariable(CcuRepContext* context)
+variable create_variable(ccu_rep_context* context)
 {
     if (context == nullptr) {
-        asccomm::ThrowCcuInternal("context is nullptr, CreateVar");
+        asc::throw_ccu_internal("context is nullptr, CreateVar");
     }
-    auto ctx = dynamic_cast<CcuKernel*>(context);
+    auto ctx = dynamic_cast<ccu_kernel*>(context);
     if (ctx == nullptr) {
-        asccomm::ThrowCcuInternal("Invalid context");
+        asc::throw_ccu_internal("Invalid context");
     }
-    return ctx->CreateVariable();
+    return ctx->create_variable();
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

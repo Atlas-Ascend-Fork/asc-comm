@@ -10,7 +10,7 @@
 
 /*!
  * \file simt_write_common.h
- * \brief Constants shared by the SIMT WriteNbi example host and device code
+ * \brief Constants shared by the SIMT write_nbi example host and device code
  */
 
 #ifndef EXAMPLES_SIMT_WRITE_SIMT_WRITE_COMMON_H
@@ -20,7 +20,7 @@
 
 namespace simt_write {
 
-// Only one rank drives the traffic. kSenderRank posts every WriteNbi into kRecvRank's
+// Only one rank drives the traffic. kSenderRank posts every write_nbi into kRecvRank's
 // buffer; kRecvRank launches no kernel and its NIC lands the data passively.
 constexpr int kSenderRank = 0;
 constexpr int kRecvRank = 1;
@@ -46,9 +46,9 @@ constexpr uint64_t kBufferBytes = kSlotCount * kSlotBytes;
 HCOMM_SIMT_WRITE_DEVICE_FN constexpr uint64_t SlotValue(uint32_t slot) { return static_cast<uint64_t>(slot) + 1U; }
 
 // Ways of driving the SIMT write interfaces.
-constexpr uint32_t kModeSingle = 0U;    // one WriteNbi<commit=true>, single lane
-constexpr uint32_t kModeBatchLast = 1U; // N-1 serial WriteNbi<false> + WriteNbi<true>, single lane
-constexpr uint32_t kModeMultiLane = 2U; // N-1 concurrent WriteNbi<false>, barrier, then one WriteNbi<true>
+constexpr uint32_t kModeSingle = 0U;    // one write_nbi<commit=true>, single lane
+constexpr uint32_t kModeBatchLast = 1U; // N-1 serial write_nbi<false> + write_nbi<true>, single lane
+constexpr uint32_t kModeMultiLane = 2U; // N-1 concurrent write_nbi<false>, barrier, then one write_nbi<true>
 constexpr uint32_t kMultiLaneCount = kSlotCount - 1U;
 
 // Device-side diagnostic slots, copied back by the host after the sender kernel completes.
@@ -57,7 +57,7 @@ constexpr uint32_t kStatusPost = 1U;
 constexpr uint32_t kStatusDrain = 2U;
 constexpr uint32_t kStatusCount = 3U;
 
-// Hcomm::Init needs 128 bytes of WQE staging per lane in the block. Supplying 32 more bytes per
+// asccomm::init needs 128 bytes of WQE staging per lane in the block. Supplying 32 more bytes per
 // lane plus one aligned 128-byte region also enables the per-lane remote-registration cache and
 // the block-shared post context; both are optional and fall back to global-memory lookup.
 constexpr uint32_t kWqeStagingBytes = 128U;

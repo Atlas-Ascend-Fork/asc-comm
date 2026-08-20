@@ -27,9 +27,9 @@
 
 #include "binary_stream.h"
 
-using CcuKernelHandle = uint64_t;
+using ccu_kernel_handle = uint64_t;
 
-constexpr uint32_t INVALID_VALUE_RANKID = 0xFFFFFFFF; // rank id非法值
+constexpr uint32_t INVALID_VALUE_RANKID = 0xFFFFFFFF; // rank id_非法值
 constexpr uint32_t NOTIFY_IDX_ACK = 0;
 constexpr uint32_t NOTIFY_IDX_DATA_SIGNAL = 1;
 constexpr uint32_t CUSTOM_TIMEOUT = 1800;
@@ -55,7 +55,7 @@ enum DeviceType {
 enum class AlgType { ALG_TYPE_MESH_1D = 0, ALG_TYPE_NHR = 1, ALG_TYPE_RESERVED };
 
 typedef struct {
-    void* addr;
+    void* addr_;
     uint64_t size;
 } CommBuffer;
 
@@ -72,19 +72,19 @@ struct CcuKernelArgBase {
 };
 
 // ccu kernel register所需信息
-struct CcuKernelInfo {
+struct ccu_kernel_info {
     // KernelArg实例指针
-    void* kernelArg;
+    void* kernel_arg;
 
 private:
     std::shared_ptr<CcuKernelArgBase> kernelArgSmartPtr;
 
 public:
-    template <typename T>
-    void setKernelArg(std::shared_ptr<T> arg)
+    template <typename t>
+    void setKernelArg(std::shared_ptr<t> arg)
     {
         kernelArgSmartPtr = std::static_pointer_cast<CcuKernelArgBase>(arg);
-        kernelArg = static_cast<void*>(arg.get());
+        kernel_arg = static_cast<void*>(arg.get());
     }
 };
 
@@ -96,7 +96,7 @@ struct AlgResourceCtxSerializable {
     std::vector<ChannelHandle> kernelChannels;
     uint32_t kernelDie = 0;
     std::vector<uint32_t> ccuKernelNum;
-    std::vector<CcuKernelHandle> ccuKernels;
+    std::vector<ccu_kernel_handle> ccuKernels;
 
     std::vector<char> Serialize()
     {
@@ -110,7 +110,7 @@ struct AlgResourceCtxSerializable {
         binaryStream << ccuKernelNum;
         binaryStream << ccuKernels;
         std::vector<char> result;
-        binaryStream.Dump(result);
+        binaryStream.dump(result);
         return result;
     }
 
@@ -143,9 +143,9 @@ struct OpParam {
     CommEngine engine = CommEngine::COMM_ENGINE_RESERVED;
     AlgType algType;
     char algName[OP_ALG_LENGTH];
-    uint64_t count;
-    HcclDataType dataType;
-    HcclCMDType opType = HcclCMDType::HCCL_CMD_INVALID;
+    uint64_t count_;
+    HcclDataType data_type_;
+    HcclCMDType op_type_ = HcclCMDType::HCCL_CMD_INVALID;
     uint64_t ctxSize = 0;
     void* resCtx = nullptr;
     uint32_t myRank = 0;

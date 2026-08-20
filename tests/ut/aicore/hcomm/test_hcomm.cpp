@@ -56,25 +56,25 @@ private:
 
 TEST_F(HcommCommonTestSuite, Aiv_Read)
 {
-    Hcomm<AscendC::COMM_PROTOCOL_ROCE> hcomm;
-    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
-    int32_t ret = hcomm.ReadNbi(channelHandle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1);
+    asccomm<AscendC::comm_protocol_roce> hcomm;
+    channel_handle channelHandle = reinterpret_cast<channel_handle>(&channel_);
+    int32_t ret = hcomm.read_nbi(channelHandle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1);
     EXPECT_EQ(ret, 0);
 }
 
 TEST_F(HcommCommonTestSuite, Aiv_Write)
 {
-    Hcomm<AscendC::COMM_PROTOCOL_ROCE> hcomm;
-    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
-    int32_t ret = hcomm.WriteNbi(channelHandle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1);
+    asccomm<AscendC::comm_protocol_roce> hcomm;
+    channel_handle channelHandle = reinterpret_cast<channel_handle>(&channel_);
+    int32_t ret = hcomm.write_nbi(channelHandle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1);
     EXPECT_EQ(ret, 0);
 }
 
 TEST_F(HcommCommonTestSuite, Aiv_WriteWithNotifyNbi)
 {
-    Hcomm<AscendC::COMM_PROTOCOL_ROCE> hcomm;
-    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
-    int32_t ret = hcomm.WriteWithNotifyNbi(
+    asccomm<AscendC::comm_protocol_roce> hcomm;
+    channel_handle channelHandle = reinterpret_cast<channel_handle>(&channel_);
+    int32_t ret = hcomm.write_with_notify_nbi(
         channelHandle, reinterpret_cast<GM_ADDR>(0x11), reinterpret_cast<GM_ADDR>(0x22), 1,
         reinterpret_cast<GM_ADDR>(0x33), 2);
     EXPECT_EQ(ret, -1);

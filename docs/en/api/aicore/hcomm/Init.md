@@ -1,14 +1,14 @@
-# Init
+# init
 
 ## Function Description
-Initializes the temporary workspace for Hcomm. Both `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP` paths require this API to configure the temporary workspace before submitting any communication tasks.
+Initializes the temporary workspace for asccomm. Both `comm_protocol_roce` and `comm_protocol_ubc_ctp` paths require this API to configure the temporary workspace before submitting any communication tasks.
 
 ## Function Prototype
 ```cpp
-__aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
+__aicore__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len);
 
 template <typename T>
-__aicore__ inline int32_t Init(const AscendC::LocalTensor<T>& buff, uint32_t len);
+__aicore__ inline int32_t init(const AscendC::LocalTensor<T>& buff, uint32_t len);
 ```
 
 ## Parameter Description

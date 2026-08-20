@@ -84,39 +84,39 @@ private:
 
 TEST_F(HcommRoCETestSuite, Init_ReadNbi_Drain)
 {
-    Hcomm<AscendC::COMM_PROTOCOL_ROCE> hcomm;
-    EXPECT_EQ(hcomm.Init((__ubuf__ uint8_t*)(addr_), 256), -1);
-    EXPECT_EQ(hcomm.Init((__ubuf__ uint8_t*)(addr_), 512), 0);
-    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
-    int32_t ret = hcomm.ReadNbi(channelHandle, reinterpret_cast<GM_ADDR>(0x110), reinterpret_cast<GM_ADDR>(0x220), 10);
+    asccomm<AscendC::comm_protocol_roce> hcomm;
+    EXPECT_EQ(hcomm.init((__ubuf__ uint8_t*)(addr_), 256), -1);
+    EXPECT_EQ(hcomm.init((__ubuf__ uint8_t*)(addr_), 512), 0);
+    channel_handle channelHandle = reinterpret_cast<channel_handle>(&channel_);
+    int32_t ret = hcomm.read_nbi(channelHandle, reinterpret_cast<GM_ADDR>(0x110), reinterpret_cast<GM_ADDR>(0x220), 10);
     EXPECT_EQ(ret, 0);
-    ret = hcomm.Drain(channelHandle);
+    ret = hcomm.drain(channelHandle);
     EXPECT_EQ(ret, 0);
 }
 
 TEST_F(HcommRoCETestSuite, Init_WriteNbi_Drain)
 {
-    Hcomm<AscendC::COMM_PROTOCOL_ROCE> hcomm;
-    EXPECT_EQ(hcomm.Init(tempTensor_, 256), -1);
-    EXPECT_EQ(hcomm.Init(tempTensor_, 512), 0);
-    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
+    asccomm<AscendC::comm_protocol_roce> hcomm;
+    EXPECT_EQ(hcomm.init(tempTensor_, 256), -1);
+    EXPECT_EQ(hcomm.init(tempTensor_, 512), 0);
+    channel_handle channelHandle = reinterpret_cast<channel_handle>(&channel_);
     int32_t ret =
-        hcomm.WriteNbi<false>(channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
+        hcomm.write_nbi<false>(channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, 0);
-    ret = hcomm.WriteNbi<false>(channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
+    ret = hcomm.write_nbi<false>(channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, 0);
-    ret = hcomm.Commit(channelHandle);
+    ret = hcomm.commit(channelHandle);
     EXPECT_EQ(ret, 0);
-    ret = hcomm.Drain(channelHandle);
+    ret = hcomm.drain(channelHandle);
     EXPECT_EQ(ret, 0);
 }
 
 TEST_F(HcommRoCETestSuite, Init_WriteWithNotifyNbi)
 {
-    Hcomm<AscendC::COMM_PROTOCOL_ROCE> hcomm;
-    EXPECT_EQ(hcomm.Init(tempTensor_, 512), 0);
-    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
-    int32_t ret = hcomm.WriteWithNotifyNbi<false>(
+    asccomm<AscendC::comm_protocol_roce> hcomm;
+    EXPECT_EQ(hcomm.init(tempTensor_, 512), 0);
+    channel_handle channelHandle = reinterpret_cast<channel_handle>(&channel_);
+    int32_t ret = hcomm.write_with_notify_nbi<false>(
         channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10,
         reinterpret_cast<GM_ADDR>(0x310), 10);
     EXPECT_EQ(ret, -1);

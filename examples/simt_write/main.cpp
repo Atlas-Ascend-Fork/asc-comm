@@ -10,7 +10,7 @@
 
 /*!
  * \file main.cpp
- * \brief Hcomm SIMT WriteNbi样例Host侧流程：通信域创建、内存注册、P2P通道创建与结果校验
+ * \brief asccomm SIMT write_nbi样例Host侧流程：通信域创建、内存注册、P2P通道创建与结果校验
  */
 
 #include <array>
@@ -62,7 +62,7 @@ using namespace simt_write;
 constexpr uint32_t kBarrierWaitSeconds = 60;
 constexpr uint32_t kBarrierPollMs = 100;
 
-// SIMT WriteNbi只在UBC_CTP/URMA协议上实现，其余链路协议无对应实现。
+// SIMT write_nbi只在UBC_CTP/URMA协议上实现，其余链路协议无对应实现。
 constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UBC_CTP;
 
 // 两块内存注册到通信域时使用的tag。两个rank使用相同tag，远端内存才能按tag查回。
@@ -208,7 +208,7 @@ HcclResult WriteMarkerFile(const std::string& path, const std::string& payload =
 
 // Keeps the check deterministic: a rank must not read its recv buffer until the rank
 // writing into it has finished. HCCL is already up at this point, but this example
-// deliberately avoids issuing collectives so only WriteNbi touches the QP.
+// deliberately avoids issuing collectives so only write_nbi touches the QP.
 HcclResult HostFileBarrier(int rank, int nranks, const std::string& tag, const std::string& payload = "1")
 {
     const std::string dir = SyncDir();
@@ -302,7 +302,7 @@ HcclResult AcquirePeerChannel(
     }
     if (!linkFound) {
         std::cout << "[rank " << rank << "] no UBC_CTP link to peer " << peerRank
-                  << ", SIMT WriteNbi requires the URMA path" << std::endl;
+                  << ", SIMT write_nbi requires the URMA path" << std::endl;
         return HCCL_E_NOT_SUPPORT;
     }
 

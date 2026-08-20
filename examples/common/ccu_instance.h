@@ -22,10 +22,10 @@ namespace asccomm_examples {
 
 constexpr uint32_t CCU_MAX_DIE_NUM = 2;
 
-inline HcclResult QueryCcuInstance(HcclComm comm, CcuInsHandle &insHandle)
+inline HcclResult QueryCcuInstance(HcclComm comm, CcuInsHandle &ins_handle)
 {
     uint32_t insNum = 0;
-    HcclResult ret = HcclCommQueryCcuIns(comm, &insHandle, &insNum);
+    HcclResult ret = HcclCommQueryCcuIns(comm, &ins_handle, &insNum);
     return ret == HCCL_SUCCESS && insNum != 1 ? HCCL_E_INTERNAL : ret;
 }
 
@@ -55,19 +55,19 @@ inline HcclResult MergeKernelDie(uint32_t channelDie, bool &hasKernelDie, uint32
     return kernelDie == channelDie ? HCCL_SUCCESS : HCCL_E_PARA;
 }
 
-inline HcclResult PhyDieMaskToDieId(uint64_t phyDieMask, uint32_t &dieId)
+inline HcclResult phy_die_mask_to_die_id(uint64_t phy_die_mask, uint32_t &dieId)
 {
-    if (phyDieMask == 0 || (phyDieMask & (phyDieMask - 1)) != 0) {
+    if (phy_die_mask == 0 || (phy_die_mask & (phy_die_mask - 1)) != 0) {
         return HCCL_E_PARA;
     }
-    uint32_t id = 0;
-    while ((phyDieMask >>= 1) != 0) {
-        ++id;
+    uint32_t id_ = 0;
+    while ((phy_die_mask >>= 1) != 0) {
+        ++id_;
     }
-    if (id >= CCU_MAX_DIE_NUM) {
+    if (id_ >= CCU_MAX_DIE_NUM) {
         return HCCL_E_PARA;
     }
-    dieId = id;
+    dieId = id_;
     return HCCL_SUCCESS;
 }
 

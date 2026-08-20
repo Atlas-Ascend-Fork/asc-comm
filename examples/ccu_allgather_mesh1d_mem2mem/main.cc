@@ -34,19 +34,19 @@ constexpr uint64_t MAX_RANKS = 16;
 
 struct Options {
     std::vector<uint32_t> devices{0, 1};
-    uint64_t count{256};
+    uint64_t count_{256};
     std::string inputDir{"./input"};
     std::string outputDir{"./output"};
 };
 
-static bool CalculateBufferSizes(uint64_t count, uint32_t rankSize, uint64_t& inputBytes, uint64_t& outputBytes)
+static bool CalculateBufferSizes(uint64_t count_, uint32_t rankSize, uint64_t& inputBytes, uint64_t& outputBytes)
 {
     inputBytes = 0;
     outputBytes = 0;
-    if (rankSize == 0 || count > std::numeric_limits<uint64_t>::max() / sizeof(float)) {
+    if (rankSize == 0 || count_ > std::numeric_limits<uint64_t>::max() / sizeof(float)) {
         return false;
     }
-    inputBytes = count * sizeof(float);
+    inputBytes = count_ * sizeof(float);
     if (inputBytes != 0 && rankSize > std::numeric_limits<uint64_t>::max() / inputBytes) {
         inputBytes = 0;
         return false;
@@ -55,10 +55,10 @@ static bool CalculateBufferSizes(uint64_t count, uint32_t rankSize, uint64_t& in
     return outputBytes <= std::numeric_limits<size_t>::max();
 }
 
-static bool ReadFloatData(const std::string& filePath, uint64_t count, std::vector<float>& data)
+static bool ReadFloatData(const std::string& filePath, uint64_t count_, std::vector<float>& data)
 {
-    if (count > std::numeric_limits<size_t>::max() / sizeof(float) ||
-        count > static_cast<uint64_t>(std::numeric_limits<std::streamsize>::max()) / sizeof(float)) {
+    if (count_ > std::numeric_limits<size_t>::max() / sizeof(float) ||
+        count_ > static_cast<uint64_t>(std::numeric_limits<std::streamsize>::max()) / sizeof(float)) {
         std::cerr << "input data is too large: " << filePath << "\n";
         return false;
     }
@@ -69,16 +69,16 @@ static bool ReadFloatData(const std::string& filePath, uint64_t count, std::vect
         return false;
     }
 
-    const uint64_t expectedBytes = count * sizeof(float);
+    const uint64_t expectedBytes = count_ * sizeof(float);
     const std::streampos fileSize = input.tellg();
     if (fileSize < 0 || static_cast<uint64_t>(fileSize) != expectedBytes) {
-        std::cerr << "input file size mismatch: " << filePath << ", expected " << expectedBytes << " bytes, got "
+        std::cerr << "input file size mismatch: " << filePath << ", expected_ " << expectedBytes << " bytes, got "
                   << fileSize << " bytes\n";
         return false;
     }
 
     input.seekg(0, std::ios::beg);
-    data.resize(static_cast<size_t>(count));
+    data.resize(static_cast<size_t>(count_));
     if (expectedBytes != 0 &&
         !input.read(reinterpret_cast<char*>(data.data()), static_cast<std::streamsize>(expectedBytes))) {
         std::cerr << "failed to read input file: " << filePath << "\n";
@@ -125,7 +125,7 @@ static std::vector<uint32_t> ParseDevices(const std::string& value)
 }
 
 static int RunRank(
-    HcclRootInfo* rootInfo, uint32_t rankId, uint32_t rankSize, uint32_t device, uint64_t count,
+    HcclRootInfo* rootInfo, uint32_t rankId, uint32_t rankSize, uint32_t device, uint64_t count_,
     const std::string& inputDir, const std::string& outputDir)
 {
     int ret = 1;
@@ -149,8 +149,8 @@ static int RunRank(
     {
         uint64_t inputBytes = 0;
         uint64_t outputBytes = 0;
-        if (!CalculateBufferSizes(count, rankSize, inputBytes, outputBytes)) {
-            std::cerr << "count too large for rankSize " << rankSize << "\n";
+        if (!CalculateBufferSizes(count_, rankSize, inputBytes, outputBytes)) {
+            std::cerr << "count_ too large for rankSize " << rankSize << "\n";
             goto cleanup;
         }
         const uint64_t inputAlloc = std::max<uint64_t>(inputBytes, sizeof(float));
@@ -164,10 +164,10 @@ static int RunRank(
 
         std::vector<float> hostInput;
         const std::string inputPath = inputDir + "/input_rank_" + std::to_string(rankId) + ".bin";
-        if (!ReadFloatData(inputPath, count, hostInput)) {
+        if (!ReadFloatData(inputPath, count_, hostInput)) {
             goto cleanup;
         }
-        if (count != 0 &&
+        if (count_ != 0 &&
             aclrtMemcpy(input, inputBytes, hostInput.data(), inputBytes, ACL_MEMCPY_HOST_TO_DEVICE) != ACL_SUCCESS) {
             goto cleanup;
         }
@@ -175,7 +175,7 @@ static int RunRank(
             goto cleanup;
         }
 
-        if (AllGatherMesh1D(input, output, count, comm, stream) != HCCL_SUCCESS) {
+        if (AllGatherMesh1D(input, output, count_, comm, stream) != HCCL_SUCCESS) {
             std::cerr << "rank " << rankId << " AllGatherMesh1D failed\n";
             goto cleanup;
         }
@@ -186,7 +186,7 @@ static int RunRank(
         }
         std::cout << "rank " << rankId << ": stream completed" << std::endl;
 
-        std::vector<float> result(count * rankSize);
+        std::vector<float> result(count_ * rankSize);
         if (!result.empty() &&
             aclrtMemcpy(result.data(), outputBytes, output, outputBytes, ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
             goto cleanup;
@@ -196,11 +196,11 @@ static int RunRank(
         std::ostringstream os;
         os << std::setprecision(9);
         os << "rank " << rankId << " input : [";
-        for (uint64_t i = 0; i < count && i < dumpCount; ++i) {
+        for (uint64_t i = 0; i < count_ && i < dumpCount; ++i) {
             os << " " << hostInput[i];
         }
-        if (count > dumpCount) {
-            os << " ...(" << count << ")";
+        if (count_ > dumpCount) {
+            os << " ...(" << count_ << ")";
         }
         os << " ]\n";
         os << "rank " << rankId << " output: [";
@@ -245,7 +245,7 @@ static Options ParseOptions(int argc, char** argv)
         const std::string arg(argv[i]);
         if (arg == "--devices" && i + 1 < argc) {
             options.devices = ParseDevices(argv[++i]);
-        } else if (arg == "--count" && i + 1 < argc) {
+        } else if (arg == "--count_" && i + 1 < argc) {
             options.count = std::stoull(argv[++i]);
         } else if (arg == "--input-dir" && i + 1 < argc) {
             options.inputDir = argv[++i];
@@ -253,14 +253,14 @@ static Options ParseOptions(int argc, char** argv)
             options.outputDir = argv[++i];
         } else {
             throw std::invalid_argument("usage: ccu_allgather_mesh1d_mem2mem [--devices 0,1] "
-                                        "[--count 256] [--input-dir ./input] "
+                                        "[--count_ 256] [--input-dir ./input] "
                                         "[--output-dir ./output]");
         }
     }
     return options;
 }
 
-static int Run(int argc, char** argv)
+static int run(int argc, char** argv)
 {
     Options options;
     try {
@@ -270,7 +270,7 @@ static int Run(int argc, char** argv)
         return 2;
     }
     if (options.devices.empty() || options.devices.size() > MAX_RANKS) {
-        std::cerr << "rank count must be in [1, " << MAX_RANKS << "]\n";
+        std::cerr << "rank count_ must be in [1, " << MAX_RANKS << "]\n";
         return 1;
     }
     const std::set<uint32_t> uniqueDevices(options.devices.begin(), options.devices.end());
@@ -319,4 +319,4 @@ static int Run(int argc, char** argv)
 
 } // namespace CcuAgMem2mem
 
-int main(int argc, char** argv) { return CcuAgMem2mem::Run(argc, argv); }
+int main(int argc, char** argv) { return CcuAgMem2mem::run(argc, argv); }

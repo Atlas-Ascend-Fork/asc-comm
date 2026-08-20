@@ -27,7 +27,7 @@ constexpr uint32_t NRANKS = 2U;
 constexpr uint16_t BASE_PORT = 29620U;
 constexpr uint32_t ROOT_SERVER_RANK = 0U;
 constexpr CommProtocol HOST_COMM_PROTOCOL = COMM_PROTOCOL_UBC_CTP;
-constexpr AscendC::CommProtocol KERNEL_COMM_PROTOCOL = AscendC::COMM_PROTOCOL_UBC_CTP;
+constexpr AscendC::comm_protocol KERNEL_COMM_PROTOCOL = AscendC::comm_protocol_ubc_ctp;
 static_assert(
     static_cast<int32_t>(HOST_COMM_PROTOCOL) == static_cast<int32_t>(KERNEL_COMM_PROTOCOL),
     "Host and Kernel communication protocols must match");
@@ -49,10 +49,10 @@ constexpr uint32_t HCOMM_READ_WRITE = HCOMM_READ_ONLY | HCOMM_WRITE_ONLY;
 namespace HcommExample {
 
 struct CommContext {
-    uint64_t channelHandle;
-    uint64_t localBufferAddr;
-    uint64_t remoteBufferAddr;
-    TestResult testResult;
+    uint64_t channel_handle;
+    uint64_t local_buffer_addr;
+    uint64_t remote_buffer_addr;
+    TestResult test_result;
 };
 
 } // namespace HcommExample

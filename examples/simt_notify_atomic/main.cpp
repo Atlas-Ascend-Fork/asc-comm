@@ -10,7 +10,7 @@
 
 /*!
  * \file main.cpp
- * \brief Hcomm SIMT Notify/Atomic样例Host侧流程：通信域创建、内存注册、P2P通道创建与结果校验
+ * \brief asccomm SIMT Notify/Atomic样例Host侧流程：通信域创建、内存注册、P2P通道创建与结果校验
  */
 
 #include <cerrno>
@@ -235,7 +235,7 @@ HcclResult WriteMarkerFile(const std::string& path, const std::string& payload =
 
 // Keeps the check deterministic: a rank must not read its recv buffer until the rank
 // writing into it has finished. HCCL is already up at this point, but this example
-// deliberately avoids issuing collectives so only WriteNbi touches the QP.
+// deliberately avoids issuing collectives so only write_nbi touches the QP.
 HcclResult HostFileBarrier(int rank, int nranks, const std::string& tag, const std::string& payload = "1")
 {
     const std::string dir = SyncDir();

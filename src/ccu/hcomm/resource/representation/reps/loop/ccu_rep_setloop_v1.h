@@ -8,32 +8,32 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_SETLOOP_H
-#define HCOMM_CCU_REPRESENTATION_SETLOOP_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_SETLOOP_H
+#define ASCCOMM_CCU_REPRESENTATION_SETLOOP_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepSetLoop : public CcuRepBase {
+class ccu_rep_set_loop : public ccu_rep_base {
 public:
-    CcuRepSetLoop(
-        CcuInsGeneraterBase* insGeneratorPtr, const Variable& loopParam, const Executor& executor, const Variable& var);
+    ccu_rep_set_loop(
+        ccu_ins_generater_base* ins_generator_ptr, const variable& loop_param, const executor& executor, const variable& var);
 
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 
 private:
-    CcuInsGeneraterBase* insGeneratorPtr_{nullptr};
+    ccu_ins_generater_base* ins_generator_ptr_{nullptr};
 
 public:
-    Variable loopParam;
-    Executor executor;
-    Variable var;
+    variable loop_param;
+    executor executor_value;
+    variable var;
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCCL_CCU_REPRESENTATION_SETLOOP_H

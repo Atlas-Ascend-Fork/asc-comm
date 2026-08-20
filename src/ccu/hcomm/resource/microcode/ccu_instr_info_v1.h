@@ -14,18 +14,18 @@
 #include <vector>
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-struct CcuInstrInfo {
-    std::vector<CcuInstr> instrVec;
-    uint16_t startInstrId{0};
-    uint16_t instrCount{0};
-    uint16_t missionStartInstrId{0};
-    uint16_t missionInstrCount{0};
+struct ccu_instr_info {
+    std::vector<ccu_instr> instr_vec;
+    uint16_t start_instr_id{0};
+    uint16_t instr_count{0};
+    uint16_t mission_start_instr_id{0};
+    uint16_t mission_instr_count{0};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 
 #endif // _CCU_INSTR_INFO_H

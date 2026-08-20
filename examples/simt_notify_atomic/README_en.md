@@ -1,22 +1,22 @@
 # SIMT Notify/FAA/CAS Sample
 
-This sample validates the SIMT URMA `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS` interfaces. Rank 0 submits
-communication operations and verifies local fetch values and `Drain` status, while rank 1 verifies remote results.
+This sample validates the SIMT URMA `write_with_notify_nbi`, `atomic_faa`, and `atomic_cas` interfaces. Rank 0 submits
+communication operations and verifies local fetch values and `drain` status, while rank 1 verifies remote results.
 
 ## Test Modes
 
-- `notify`: Submits one Notify operation and calls `Drain`.
+- `notify`: Submits one Notify operation and calls `drain`.
 - `faa`: Submits one FAA operation and verifies the remote sum and locally fetched old value.
 - `cas`: Submits one CAS operation and verifies the remote swap result and locally fetched old value.
-- `single`: Serially submits Notify, FAA, and CAS, calling `Drain` after each operation.
+- `single`: Serially submits Notify, FAA, and CAS, calling `drain` after each operation.
 - `batch_last`: Defers Notify and FAA with `commit=false`, then publishes the batch with a `commit=true` CAS.
 - `multi_lane`: Three lanes concurrently post Notify, FAA, and CAS with `commit=false`; after synchronization,
   lane 0 performs the only `commit=true` Notify and publishes the entire batch.
-- `notify_immediate_repeat`: A single lane submits 100 `WriteWithNotifyNbi<true>` WQEs, immediately publishing every
-  WQE and calling `Drain` once after the full series.
+- `notify_immediate_repeat`: A single lane submits 100 `write_with_notify_nbi<true>` WQEs, immediately publishing every
+  WQE and calling `drain` once after the full series.
 
 Multiple lanes may concurrently post with `commit=false` on one channel. After synchronization, only one lane may
-perform the final `commit=true` post and call `Drain`. Concurrent `commit=true` calls are not supported.
+perform the final `commit=true` post and call `drain`. Concurrent `commit=true` calls are not supported.
 
 ## Build
 

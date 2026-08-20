@@ -44,7 +44,7 @@ def parse_args():
         "--commit-mode",
         choices=("immediate", "last", "all"),
         default="all",
-        help="Commit mode to summarize without mixing modes",
+        help="commit mode to summarize without mixing modes",
     )
     parser.add_argument(
         "--data-size",

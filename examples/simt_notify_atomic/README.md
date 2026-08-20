@@ -1,21 +1,21 @@
 # SIMT Notify/FAA/CAS样例
 
-本样例用于验证SIMT URMA路径下的`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`接口。rank 0负责
-提交通信操作并校验本地fetch值和`Drain`状态，rank 1负责校验远端执行结果。
+本样例用于验证SIMT URMA路径下的`write_with_notify_nbi`、`atomic_faa`和`atomic_cas`接口。rank 0负责
+提交通信操作并校验本地fetch值和`drain`状态，rank 1负责校验远端执行结果。
 
 ## 测试模式
 
-- `notify`：提交一次Notify操作并调用`Drain`。
+- `notify`：提交一次Notify操作并调用`drain`。
 - `faa`：提交一次FAA操作，校验远端累加结果和本地取回的旧值。
 - `cas`：提交一次CAS操作，校验远端交换结果和本地取回的旧值。
-- `single`：串行提交Notify、FAA和CAS，每次操作后分别调用`Drain`。
+- `single`：串行提交Notify、FAA和CAS，每次操作后分别调用`drain`。
 - `batch_last`：Notify和FAA使用`commit=false`延迟提交，最后通过`commit=true`的CAS提交整个批次。
 - `multi_lane`：三个lane分别以`commit=false`提交Notify、FAA和CAS；同步后由lane 0执行唯一一次
   `commit=true`的Notify并发布整个批次。
-- `notify_immediate_repeat`：单lane连续提交100个`WriteWithNotifyNbi<true>`，每个WQE立即敲DB，最后统一调用一次`Drain`；用于覆盖连续立即提交场景。
+- `notify_immediate_repeat`：单lane连续提交100个`write_with_notify_nbi<true>`，每个WQE立即敲DB，最后统一调用一次`drain`；用于覆盖连续立即提交场景。
 
 同一channel允许多个lane并发执行`commit=false`；调用方同步后，只能由一个lane执行最终
-`commit=true`并调用`Drain`。不支持多个lane同时执行`commit=true`。
+`commit=true`并调用`drain`。不支持多个lane同时执行`commit=true`。
 
 ## 编译
 

@@ -23,4 +23,4 @@ docs/
 | [API Documentation Contribution Guide](./api_contributing_en.md) | Structure, constraints and checklist for adding or updating API documents. |
 | [Documentation Contribution Guide](./doc_contributing_en.md) | Standards for maintaining README, docs, examples and other documentation. |
 | [Contribution Guide](../CONTRIBUTING_en.md) | Workflow for Issues, development, checks and PR submission. |
-| [Samples](../examples/README_en.md) | Entry point for asc-comm API samples, including the AIV direct-driven URMA WriteNbi/ReadNbi point-to-point communication sample. |
+| [Samples](../examples/README_en.md) | Entry point for asc-comm API samples, including the AIV direct-driven URMA write_nbi/read_nbi point-to-point communication sample. |

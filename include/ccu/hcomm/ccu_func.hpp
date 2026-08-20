@@ -28,107 +28,107 @@ namespace ccu {
 
 namespace internal {
 
-template <typename T>
-struct FunctorTraits : FunctorTraits<decltype(&T::operator())> {};
+template <typename t>
+struct functor_traits : functor_traits<decltype(&t::operator())> {};
 
 template <typename C, typename R, typename... A>
-struct FunctorTraits<R (C::*)(A...) const> {
+struct functor_traits<R (C::*)(A...) const> {
     static constexpr std::size_t Arity = sizeof...(A);
     using ReturnT = R;
     template <std::size_t I>
     struct Arg {
-        using type = typename std::tuple_element<I, std::tuple<A...>>::type;
+        using type_ = typename std::tuple_element<I, std::tuple<A...>>::type_;
     };
 };
 
 template <typename C, typename R, typename... A>
-struct FunctorTraits<R (C::*)(A...)> {
+struct functor_traits<R (C::*)(A...)> {
     static constexpr std::size_t Arity = sizeof...(A);
     using ReturnT = R;
 };
 
-// ---- 把 lambda 包装成 std::function<void(Variable*)>，按 N 展开 ----
+// ---- 把 lambda 包装成 std::function<void(variable*)>，按 N 展开 ----
 template <typename Lambda, std::size_t... Is>
-inline std::function<void(Variable*)> MakeBodyImpl(Lambda body, std::index_sequence<Is...>)
+inline std::function<void(variable*)> MakeBodyImpl(Lambda body, std::index_sequence<Is...>)
 {
-    return [body](Variable* formals) { body(formals[Is]...); };
+    return [body](variable* formals) { body(formals[Is]...); };
 }
 
 template <typename Lambda, std::size_t N>
-inline std::function<void(Variable*)> MakeBody(Lambda body)
+inline std::function<void(variable*)> MakeBody(Lambda body)
 {
     return MakeBodyImpl(body, std::make_index_sequence<N>{});
 }
 
 } // namespace internal
 
-class Func {
+class func {
 public:
     // ctor：从 lambda 推导形参个数 N，类型擦除到 body_。
-    // 要求 lambda 返回 void、形参全部为 ccu::Variable（运行期由 kernel 校验形参数量）。
+    // 要求 lambda 返回 void、形参全部为 ccu::variable（运行期由 kernel 校验形参数量）。
     template <typename Lambda>
-    explicit Func(Lambda body)
-        : numIn_(internal::FunctorTraits<Lambda>::Arity),
-          body_(internal::MakeBody<Lambda, internal::FunctorTraits<Lambda>::Arity>(body))
+    explicit func(Lambda body)
+        : numIn_(internal::functor_traits<Lambda>::Arity),
+          body_(internal::MakeBody<Lambda, internal::functor_traits<Lambda>::Arity>(body))
     {
         static_assert(
-            std::is_same<typename internal::FunctorTraits<Lambda>::ReturnT, void>::value,
-            "ccu::Func: lambda must return void (no return value supported)");
+            std::is_same<typename internal::functor_traits<Lambda>::ReturnT, void>::value,
+            "ccu::func: lambda must return void (no return value supported)");
     }
 
-    Func(const Func&) = delete;
-    Func& operator=(const Func&) = delete;
+    func(const func&) = delete;
+    func& operator=(const func&) = delete;
 
     uint32_t NumIn() const { return numIn_; }
     const void* Key() const { return static_cast<const void*>(this); }
 
-    // 在合成模式下调用：把 N 个 formal Variable 展开传给原 lambda。
-    void RunBody(Variable* formals) const { body_(formals); }
+    // 在合成模式下调用：把 N 个 formal variable 展开传给原 lambda。
+    void RunBody(variable* formals) const { body_(formals); }
 
 private:
     uint32_t numIn_{0};
-    std::function<void(Variable*)> body_;
+    std::function<void(variable*)> body_;
 };
 
-// ccu::CallFunc：global / static ccu::Func 引用 NTTP（C++14 合法）。
-// 用法：static ccu::Func MyAdd(lambda); ... ccu::CallFunc<MyAdd>(x, y);
-template <Func& Obj, typename... Args>
-inline CcuResult CallFunc(Args... args)
+// ccu::CallFunc：global / static ccu::func 引用 NTTP（C++14 合法）。
+// 用法：static ccu::func MyAdd(lambda); ... ccu::CallFunc<MyAdd>(x, y);
+template <func& Obj, typename... args>
+inline CcuResult CallFunc(args... args_)
 {
-    constexpr std::size_t kArgN = sizeof...(Args);
+    constexpr std::size_t kArgN = sizeof...(args);
     if (static_cast<uint32_t>(kArgN) != Obj.NumIn()) {
         return CcuResult::CCU_E_PARA;
     }
 
     uint64_t handle = 0;
-    CCU_THROW_IF_FAILED(::asccomm::CcuFuncBlockLookup(Obj.Key(), &handle), "CallFunc: CcuFuncBlockLookup failed");
+    CCU_THROW_IF_FAILED(::asc::ccu_func_block_lookup(Obj.Key(), &handle), "CallFunc: ccu_func_block_lookup failed");
     if (handle == 0) {
-        // 第一次进入：合成 FuncBlock
-        CCU_THROW_IF_FAILED(::asccomm::CcuFuncBlockBegin(Obj.Key(), &handle), "CallFunc: CcuFuncBlockBegin failed");
+        // 第一次进入：合成 func_block
+        CCU_THROW_IF_FAILED(::asc::ccu_func_block_begin(Obj.Key(), &handle), "CallFunc: ccu_func_block_begin failed");
 
-        // 形参：按 lambda 形参个数 alloc，并注册为 FuncBlock 的 in args
-        std::vector<Variable> formals(Obj.NumIn());
+        // 形参：按 lambda 形参个数 alloc，并注册为 func_block 的 in args_
+        std::vector<variable> formals(Obj.NumIn());
         for (uint32_t i = 0; i < Obj.NumIn(); i++) {
-            CCU_THROW_IF_FAILED(::asccomm::CcuVariableAlloc(&formals[i].handle), "CallFunc: CcuVariableAlloc failed");
-            CCU_THROW_IF_FAILED(::asccomm::CcuFuncDefineInArg(handle, formals[i].handle), "CallFunc: CcuFuncDefineInArg failed");
+            CCU_THROW_IF_FAILED(::asc::ccu_variable_alloc(&formals[i].handle), "CallFunc: ccu_variable_alloc failed");
+            CCU_THROW_IF_FAILED(::asc::ccu_func_define_in_arg(handle, formals[i].handle), "CallFunc: ccu_func_define_in_arg failed");
         }
 
-        // 执行 lambda（在合成模式下 emit 到 FuncBlock）
+        // 执行 lambda（在合成模式下 emit 到 func_block）
         Obj.RunBody(formals.empty() ? nullptr : formals.data());
 
-        CCU_THROW_IF_FAILED(::asccomm::CcuFuncBlockEnd(handle), "CallFunc: CcuFuncBlockEnd failed");
+        CCU_THROW_IF_FAILED(::asc::ccu_func_block_end(handle), "CallFunc: ccu_func_block_end failed");
     }
 
-    // emit 一条 FuncCall 跳转
-    std::vector<::CcuVariableHandle> actuals(kArgN);
+    // emit 一条 func_call 跳转
+    std::vector<::ccu_variable_handle> actuals(kArgN);
     {
         std::size_t i = 0;
         // C++14 兼容的参数包展开
         using expand_t = int[];
-        (void)expand_t{0, ((void)(actuals[i++] = args.handle), 0)...};
+        (void)expand_t{0, ((void)(actuals[i++] = args_.handle), 0)...};
         (void)i;
     }
-    return ::asccomm::CcuFuncCall(handle, actuals.empty() ? nullptr : actuals.data(), static_cast<uint32_t>(kArgN));
+    return ::asc::ccu_func_call(handle, actuals.empty() ? nullptr : actuals.data(), static_cast<uint32_t>(kArgN));
 }
 
 } // namespace ccu

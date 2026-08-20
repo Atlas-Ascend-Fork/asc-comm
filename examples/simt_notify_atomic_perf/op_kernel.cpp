@@ -27,7 +27,7 @@ constexpr uint32_t kWorkspaceAlign = 128U;
     ((((laneCount) * (kWqeBytes + kRemoteCacheBytes)) + kWorkspaceAlign - 1U) & ~(kWorkspaceAlign - 1U)) + \
         kPostContextBytes
 
-// Keep the largest individual static UB object at 128KiB for t1024. Hcomm::Init
+// Keep the largest individual static UB object at 128KiB for t1024. asccomm::init
 // treats the registration cache and shared post context as optional, so this
 // path retains the per-lane WQE slots and falls back to GM metadata resolution.
 #define HCOMM_WORKSPACE_BYTES(laneCount) \
@@ -37,29 +37,29 @@ enum class PerfApi : uint32_t { NOTIFY, FAA, CAS };
 
 template <PerfApi api, bool commit>
 __simt_callee__ inline int32_t SubmitOne(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
+    AscendC::simt::asccomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
     uint32_t payloadBytes, uint32_t notifyOffset, uint32_t lane)
 {
     if constexpr (api == PerfApi::NOTIFY) {
         uint64_t offset = static_cast<uint64_t>(lane) * (notifyOffset + sizeof(uint64_t));
         __gm__ uint8_t* remote = remoteBase + offset;
         __gm__ uint8_t* local = localBase + offset;
-        return hcomm.WriteWithNotifyNbi<commit>(
+        return hcomm.write_with_notify_nbi<commit>(
             channel, remote, local, payloadBytes, remote + notifyOffset, kNotifySignal);
     } else {
         __gm__ uint64_t* remote = reinterpret_cast<__gm__ uint64_t*>(remoteBase);
         __gm__ uint64_t* local = reinterpret_cast<__gm__ uint64_t*>(localBase);
         if constexpr (api == PerfApi::FAA) {
-            return hcomm.AtomicFAA<uint64_t, commit>(channel, &remote[lane], &local[lane], kFaaAdd);
+            return hcomm.atomic_faa<uint64_t, commit>(channel, &remote[lane], &local[lane], kFaaAdd);
         } else {
-            return hcomm.AtomicCAS<uint64_t, commit>(channel, &remote[lane], &local[lane], kCasInitial, kCasSwap);
+            return hcomm.atomic_cas<uint64_t, commit>(channel, &remote[lane], &local[lane], kCasInitial, kCasSwap);
         }
     }
 }
 
 template <PerfApi api>
 __simt_callee__ inline int32_t SubmitLastCommitSeries(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
+    AscendC::simt::asccomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
     uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count)
 {
     if (count == 0U) {
@@ -76,7 +76,7 @@ __simt_callee__ inline int32_t SubmitLastCommitSeries(
 
 template <PerfApi api, uint32_t kLaneCount>
 __simt_callee__ inline int32_t SubmitMultiLaneLastCommitSeries(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
+    AscendC::simt::asccomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
     uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count, __ubuf__ uint32_t* postStatus)
 {
     if (count == 0U) {
@@ -113,7 +113,7 @@ __simt_callee__ inline int32_t SubmitMultiLaneLastCommitSeries(
 
 template <PerfApi api, uint32_t kLaneCount>
 __simt_callee__ inline int32_t SubmitLastCommitWorkload(
-    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
+    AscendC::simt::asccomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
     uint32_t payloadBytes, uint32_t notifyOffset, uint32_t count, __ubuf__ uint32_t* postStatus)
 {
     if constexpr (kLaneCount == 1U) {
@@ -131,11 +131,11 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtLastCommitPerfVf(
     __ubuf__ int32_t* drainStatus, __ubuf__ uint32_t* postStatus, __ubuf__ uint64_t* beginCycle)
 {
     uint32_t notifyOffset = (payloadBytes + sizeof(uint64_t) - 1U) & ~(sizeof(uint64_t) - 1U);
-    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
-    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    __gm__ uint8_t* local = AscendC::simt::local_buffer_addr(channel, sendBufIdx);
+    __gm__ uint8_t* remote = AscendC::simt::remote_buffer_addr(channel, recvBufIdx);
 
-    AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init(workspace, workspaceBytes) != 0) {
+    AscendC::simt::asccomm<> hcomm;
+    if (hcomm.init(workspace, workspaceBytes) != 0) {
         if (threadIdx.x == 0U) {
             timing[kIssueCyclesIndex] = 0U;
             timing[kCompletionCyclesIndex] = 0U;
@@ -149,7 +149,7 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtLastCommitPerfVf(
                                     SubmitLastCommitWorkload<api, kLaneCount>(
                                         hcomm, channel, remote, local, payloadBytes, notifyOffset, warmup, postStatus);
     if (threadIdx.x == 0U) {
-        drainStatus[0] = status != 0 ? status : (warmup == 0U ? 0 : hcomm.Drain(channel));
+        drainStatus[0] = status != 0 ? status : (warmup == 0U ? 0 : hcomm.drain(channel));
     }
     if constexpr (kLaneCount > 1U) {
         asc_syncthreads();
@@ -178,7 +178,7 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtLastCommitPerfVf(
     if (threadIdx.x == 0U) {
         uint64_t issueEnd = clock();
         uint64_t begin = kLaneCount == 1U ? singleLaneBegin : beginCycle[0];
-        drainStatus[0] = status != 0 ? status : hcomm.Drain(channel);
+        drainStatus[0] = status != 0 ? status : hcomm.drain(channel);
         uint64_t completionEnd = clock();
         timing[kIssueCyclesIndex] = issueEnd - begin;
         timing[kCompletionCyclesIndex] = completionEnd - begin;
@@ -196,11 +196,11 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtNotifyPerfVf(
     uint32_t lane = threadIdx.x;
     uint32_t notifyOffset = (payloadBytes + sizeof(uint64_t) - 1U) & ~(sizeof(uint64_t) - 1U);
     uint64_t laneOffset = static_cast<uint64_t>(lane) * (notifyOffset + sizeof(uint64_t));
-    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx) + laneOffset;
-    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx) + laneOffset;
+    __gm__ uint8_t* local = AscendC::simt::local_buffer_addr(channel, sendBufIdx) + laneOffset;
+    __gm__ uint8_t* remote = AscendC::simt::remote_buffer_addr(channel, recvBufIdx) + laneOffset;
 
-    AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init(workspace, workspaceBytes) != 0) {
+    AscendC::simt::asccomm<> hcomm;
+    if (hcomm.init(workspace, workspaceBytes) != 0) {
         if (lane == 0U) {
             timing[kIssueCyclesIndex] = 0U;
             timing[kCompletionCyclesIndex] = 0U;
@@ -210,11 +210,11 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtNotifyPerfVf(
         return;
     }
     for (uint32_t i = lane; i < warmup; i += kLaneCount) {
-        (void)hcomm.WriteWithNotifyNbi(channel, remote, local, payloadBytes, remote + notifyOffset, kNotifySignal);
+        (void)hcomm.write_with_notify_nbi(channel, remote, local, payloadBytes, remote + notifyOffset, kNotifySignal);
     }
     asc_syncthreads();
     if (lane == 0U) {
-        drainStatus[0] = warmup == 0U ? 0 : hcomm.Drain(channel);
+        drainStatus[0] = warmup == 0U ? 0 : hcomm.drain(channel);
     }
     asc_syncthreads();
     if (drainStatus[0] != 0) {
@@ -232,12 +232,12 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtNotifyPerfVf(
     }
     asc_syncthreads();
     for (uint32_t i = lane; i < iterations; i += kLaneCount) {
-        (void)hcomm.WriteWithNotifyNbi(channel, remote, local, payloadBytes, remote + notifyOffset, kNotifySignal);
+        (void)hcomm.write_with_notify_nbi(channel, remote, local, payloadBytes, remote + notifyOffset, kNotifySignal);
     }
     asc_syncthreads();
     if (lane == 0U) {
         uint64_t issueEnd = clock();
-        drainStatus[0] = hcomm.Drain(channel);
+        drainStatus[0] = hcomm.drain(channel);
         uint64_t completionEnd = clock();
         timing[kIssueCyclesIndex] = issueEnd - beginCycle[0];
         timing[kCompletionCyclesIndex] = completionEnd - beginCycle[0];
@@ -254,11 +254,11 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtFaaPerfVf(
 {
     (void)payloadBytes;
     uint32_t lane = threadIdx.x;
-    __gm__ uint64_t* local = reinterpret_cast<__gm__ uint64_t*>(AscendC::simt::LocalBufferAddr(channel, sendBufIdx));
-    __gm__ uint64_t* remote = reinterpret_cast<__gm__ uint64_t*>(AscendC::simt::RemoteBufferAddr(channel, recvBufIdx));
+    __gm__ uint64_t* local = reinterpret_cast<__gm__ uint64_t*>(AscendC::simt::local_buffer_addr(channel, sendBufIdx));
+    __gm__ uint64_t* remote = reinterpret_cast<__gm__ uint64_t*>(AscendC::simt::remote_buffer_addr(channel, recvBufIdx));
 
-    AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init(workspace, workspaceBytes) != 0) {
+    AscendC::simt::asccomm<> hcomm;
+    if (hcomm.init(workspace, workspaceBytes) != 0) {
         if (lane == 0U) {
             timing[kIssueCyclesIndex] = 0U;
             timing[kCompletionCyclesIndex] = 0U;
@@ -268,11 +268,11 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtFaaPerfVf(
         return;
     }
     for (uint32_t i = lane; i < warmup; i += kLaneCount) {
-        (void)hcomm.AtomicFAA<uint64_t>(channel, &remote[lane], &local[lane], kFaaAdd);
+        (void)hcomm.atomic_faa<uint64_t>(channel, &remote[lane], &local[lane], kFaaAdd);
     }
     asc_syncthreads();
     if (lane == 0U) {
-        drainStatus[0] = warmup == 0U ? 0 : hcomm.Drain(channel);
+        drainStatus[0] = warmup == 0U ? 0 : hcomm.drain(channel);
     }
     asc_syncthreads();
     if (drainStatus[0] != 0) {
@@ -290,12 +290,12 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtFaaPerfVf(
     }
     asc_syncthreads();
     for (uint32_t i = lane; i < iterations; i += kLaneCount) {
-        (void)hcomm.AtomicFAA<uint64_t>(channel, &remote[lane], &local[lane], kFaaAdd);
+        (void)hcomm.atomic_faa<uint64_t>(channel, &remote[lane], &local[lane], kFaaAdd);
     }
     asc_syncthreads();
     if (lane == 0U) {
         uint64_t issueEnd = clock();
-        drainStatus[0] = hcomm.Drain(channel);
+        drainStatus[0] = hcomm.drain(channel);
         uint64_t completionEnd = clock();
         timing[kIssueCyclesIndex] = issueEnd - beginCycle[0];
         timing[kCompletionCyclesIndex] = completionEnd - beginCycle[0];
@@ -312,11 +312,11 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtCasPerfVf(
 {
     (void)payloadBytes;
     uint32_t lane = threadIdx.x;
-    __gm__ uint64_t* local = reinterpret_cast<__gm__ uint64_t*>(AscendC::simt::LocalBufferAddr(channel, sendBufIdx));
-    __gm__ uint64_t* remote = reinterpret_cast<__gm__ uint64_t*>(AscendC::simt::RemoteBufferAddr(channel, recvBufIdx));
+    __gm__ uint64_t* local = reinterpret_cast<__gm__ uint64_t*>(AscendC::simt::local_buffer_addr(channel, sendBufIdx));
+    __gm__ uint64_t* remote = reinterpret_cast<__gm__ uint64_t*>(AscendC::simt::remote_buffer_addr(channel, recvBufIdx));
 
-    AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init(workspace, workspaceBytes) != 0) {
+    AscendC::simt::asccomm<> hcomm;
+    if (hcomm.init(workspace, workspaceBytes) != 0) {
         if (lane == 0U) {
             timing[kIssueCyclesIndex] = 0U;
             timing[kCompletionCyclesIndex] = 0U;
@@ -326,11 +326,11 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtCasPerfVf(
         return;
     }
     for (uint32_t i = lane; i < warmup; i += kLaneCount) {
-        (void)hcomm.AtomicCAS<uint64_t>(channel, &remote[lane], &local[lane], kCasInitial, kCasSwap);
+        (void)hcomm.atomic_cas<uint64_t>(channel, &remote[lane], &local[lane], kCasInitial, kCasSwap);
     }
     asc_syncthreads();
     if (lane == 0U) {
-        drainStatus[0] = warmup == 0U ? 0 : hcomm.Drain(channel);
+        drainStatus[0] = warmup == 0U ? 0 : hcomm.drain(channel);
     }
     asc_syncthreads();
     if (drainStatus[0] != 0) {
@@ -348,12 +348,12 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtCasPerfVf(
     }
     asc_syncthreads();
     for (uint32_t i = lane; i < iterations; i += kLaneCount) {
-        (void)hcomm.AtomicCAS<uint64_t>(channel, &remote[lane], &local[lane], kCasInitial, kCasSwap);
+        (void)hcomm.atomic_cas<uint64_t>(channel, &remote[lane], &local[lane], kCasInitial, kCasSwap);
     }
     asc_syncthreads();
     if (lane == 0U) {
         uint64_t issueEnd = clock();
-        drainStatus[0] = hcomm.Drain(channel);
+        drainStatus[0] = hcomm.drain(channel);
         uint64_t completionEnd = clock();
         timing[kIssueCyclesIndex] = issueEnd - beginCycle[0];
         timing[kCompletionCyclesIndex] = completionEnd - beginCycle[0];

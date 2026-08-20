@@ -15,10 +15,10 @@
 
 namespace Hccl {
 
-template <typename Exception, typename... Args>
-[[noreturn]] inline void THROW(const char* format, Args... args)
+template <typename Exception, typename... args>
+[[noreturn]] inline void THROW(const char* format, args... args_)
 {
-    throw Exception(StringFormat(format, args...));
+    throw Exception(StringFormat(format, args_...));
 }
 
 template <typename Exception>

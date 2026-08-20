@@ -1,4 +1,4 @@
-﻿# WriteNbi
+﻿# write_nbi
 
 ## 功能说明
 
@@ -9,11 +9,11 @@
 ```cpp
 template <
     bool commit = true,
-    pipe_t commitPipe = PIPE_S,
-    pipe_t reqPipe = PIPE_MTE3,
-    auto const& config = URMA_DEFAULT_CFG>
-__aicore__ inline int32_t WriteNbi(
-    AscendC::ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    pipe_t commit_pipe = PIPE_S,
+    pipe_t req_pipe = PIPE_MTE3,
+    auto const& config = urma_default_cfg>
+__aicore__ inline int32_t write_nbi(
+    AscendC::channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 ```
 
 ## 参数说明
@@ -30,9 +30,9 @@ __aicore__ inline int32_t WriteNbi(
 | 参数 | 说明 |
 | --- | --- |
 | `commit` | 是否在提交任务时立即commit。 |
-| `commitPipe` | commit使用的pipe，默认`PIPE_S`。 |
-| `reqPipe` | 请求使用的pipe，默认`PIPE_MTE3`。 |
-| `config` | URMA WQE控制配置，仅URMA路径使用。默认为`URMA_DEFAULT_CFG`（强序 + fence + 使能CQE）。 |
+| `commit_pipe` | commit使用的pipe，默认`PIPE_S`。 |
+| `req_pipe` | 请求使用的pipe，默认`PIPE_MTE3`。 |
+| `config` | URMA WQE控制配置，仅URMA路径使用。默认为`urma_default_cfg`（强序 + fence + 使能CQE）。 |
 
 ## 返回值
 
@@ -44,7 +44,7 @@ __aicore__ inline int32_t WriteNbi(
 ## 约束说明
 
 - 调用前通信通道需已完成初始化。
-- `COMM_PROTOCOL_UBC_CTP`路径下，`dst`需要落在通道注册的远端buffer范围内，`src`为本端源地址。
+- `comm_protocol_ubc_ctp`路径下，`dst`需要落在通道注册的远端buffer范围内，`src`为本端源地址。
 
 ## 相关样例
 

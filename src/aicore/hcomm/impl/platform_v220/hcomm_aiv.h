@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file hcomm_aiv.h
- * \brief Hcomm AIV implementation for V220
+ * \file asccomm_aiv.h
+ * \brief asccomm AIV implementation for V220
  */
 
-#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H
+#if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal asccomm header. Please include public asccomm headers instead.")
+#define ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H
 #endif
 
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V220_HCOMM_AIV_H
@@ -28,166 +28,166 @@
 
 namespace AscendC {
 
-__aicore__ inline HcommImpl<COMM_PROTOCOL_ROCE>::HcommImpl()
+__aicore__ inline asccomm_impl<comm_protocol_roce>::asccomm_impl()
 {
-    TBuf<TPosition::VECOUT> rdmaInBuf;
-    GetTPipePtr()->InitBuffer(rdmaInBuf, ONE_BLK_SIZE);
-    ubLocal_ = rdmaInBuf.Get<uint64_t>();
+    TBuf<TPosition::VECOUT> rdma_in_buf;
+    GetTPipePtr()->InitBuffer(rdma_in_buf, ONE_BLK_SIZE);
+    ub_local_ = rdma_in_buf.Get<uint64_t>();
 
-    TBuf<TPosition::VECOUT> rdmaInBuf2;
-    GetTPipePtr()->InitBuffer(rdmaInBuf2, ONE_BLK_SIZE);
-    ubLocalHead_ = rdmaInBuf2.Get<uint32_t>();
+    TBuf<TPosition::VECOUT> rdma_in_buf2;
+    GetTPipePtr()->InitBuffer(rdma_in_buf2, ONE_BLK_SIZE);
+    ub_local_head_ = rdma_in_buf2.Get<uint32_t>();
 }
 
-__aicore__ inline HcommImpl<COMM_PROTOCOL_ROCE>::~HcommImpl() {}
+__aicore__ inline asccomm_impl<comm_protocol_roce>::~asccomm_impl() {}
 
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteNbi(
-    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
-{
-    (void)config;
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Write channel:%llu, dst:%p, src:%p, len:%llu", channel, dst, src, len);
-    PostSend(channel, dst, src, len, false);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Write complete");
-    return HCOMM_SUCCESS;
-}
-
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::ReadNbi(
-    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm_impl<comm_protocol_roce>::write_nbi(
+    channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     (void)config;
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Read channel:%llu, dst:%p, src:%p, len:%llu", channel, dst, src, len);
-    PostSend(channel, dst, src, len, true);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Read complete");
-    return HCOMM_SUCCESS;
+    KERNEL_LOG(KERNEL_INFO, "hcomm Write channel:%llu, dst:%p, src:%p, len:%llu", channel, dst, src, len);
+    post_send(channel, dst, src, len, false);
+    KERNEL_LOG(KERNEL_INFO, "hcomm Write complete");
+    return asccomm_success;
 }
 
-template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value)
+template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm_impl<comm_protocol_roce>::read_nbi(
+    channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+{
+    (void)config;
+    KERNEL_LOG(KERNEL_INFO, "hcomm Read channel:%llu, dst:%p, src:%p, len:%llu", channel, dst, src, len);
+    post_send(channel, dst, src, len, true);
+    KERNEL_LOG(KERNEL_INFO, "hcomm Read complete");
+    return asccomm_success;
+}
+
+template <typename t, bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm_impl<comm_protocol_roce>::write_value_nbi(channel_handle channel, GM_ADDR dst, t value)
 {
     (void)commit;
-    (void)commitPipe;
-    (void)reqPipe;
+    (void)commit_pipe;
+    (void)req_pipe;
     (void)config;
     (void)channel;
     (void)dst;
     (void)value;
-    KERNEL_LOG(KERNEL_ERROR, "Hcomm ROCE WriteValueNbi is not supported.");
-    return HCOMM_FAILED;
+    KERNEL_LOG(KERNEL_ERROR, "hcomm ROCE write_value_nbi is not supported.");
+    return asccomm_failed;
 }
 
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteWithNotifyNbi(
-    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
+template <bool commit, pipe_t commit_pipe, pipe_t req_pipe, auto const& config>
+__aicore__ inline int32_t asccomm_impl<comm_protocol_roce>::write_with_notify_nbi(
+    channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val)
 {
     (void)commit;
-    (void)commitPipe;
-    (void)reqPipe;
+    (void)commit_pipe;
+    (void)req_pipe;
     (void)config;
     (void)channel;
     (void)dst;
     (void)src;
     (void)len;
-    (void)notifyAddr;
-    (void)notifyVal;
-    KERNEL_LOG(KERNEL_ERROR, "Hcomm ROCE WriteWithNotifyNbi is not supported");
-    return HCOMM_FAILED;
+    (void)notify_addr;
+    (void)notify_val;
+    KERNEL_LOG(KERNEL_ERROR, "hcomm ROCE write_with_notify_nbi is not supported");
+    return asccomm_failed;
 }
 
-__aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::doorBell(__gm__ ChannelEntity* channel, uint64_t curHead)
+__aicore__ inline void asccomm_impl<comm_protocol_roce>::door_bell(__gm__ channel_entity* channel, uint64_t cur_head)
 {
-    uint64_t doorBellInfo = 0;
-    doorBellInfo |= channel->sqContextAddr[0].contextInfo.roceSq.qpn; // [0:23] DB_TAG (qp_num)
-    doorBellInfo |= 0UL << 24UL;                                      // [24:27] DB_CMD = HNS_ROCE_V2_SQ_DB (0)
-    doorBellInfo |= (curHead % 65536UL) << 32UL;                      // [32:47] DB_PI = sq.head
-    doorBellInfo |= (uint64_t)(channel->sqContextAddr[0].contextInfo.roceSq.sl) << 48UL; // [48:50] DB_SL = qp.sl
+    uint64_t door_bell_info = 0;
+    door_bell_info |= channel->sq_context_addr[0].context_info.roce_sq.qpn; // [0:23] DB_TAG (qp_num)
+    door_bell_info |= 0UL << 24UL;                                      // [24:27] DB_CMD = HNS_ROCE_V2_SQ_DB (0)
+    door_bell_info |= (cur_head % 65536UL) << 32UL;                      // [32:47] DB_PI = sq.head
+    door_bell_info |= (uint64_t)(channel->sq_context_addr[0].context_info.roce_sq.sl) << 48UL; // [48:50] DB_SL = qp.sl
 
-    __gm__ uint64_t* doorBellAddr = (__gm__ uint64_t*)(channel->sqContextAddr[0].contextInfo.roceSq.dbHwVa);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm doorBell doorBellAddr:%p, doorBellInfo:%llu", doorBellAddr, doorBellInfo);
+    __gm__ uint64_t* door_bell_addr = (__gm__ uint64_t*)(channel->sq_context_addr[0].context_info.roce_sq.db_hw_va);
+    KERNEL_LOG(KERNEL_INFO, "hcomm door_bell door_bell_addr:%p, door_bell_info:%llu", door_bell_addr, door_bell_info);
 
-    ubLocal_.SetValue(0, doorBellInfo);
+    ub_local_.SetValue(0, door_bell_info);
     AscendC::GlobalTensor<uint64_t> DBGlobalTensor;
-    DBGlobalTensor.SetGlobalBuffer(doorBellAddr);
-    AscendC::DataCopyExtParams copyParams{1, 1 * sizeof(uint64_t), 0, 0, 0};
-    AscendC::DataCopyPad(DBGlobalTensor, ubLocal_, copyParams);
+    DBGlobalTensor.SetGlobalBuffer(door_bell_addr);
+    AscendC::DataCopyExtParams copy_params{1, 1 * sizeof(uint64_t), 0, 0, 0};
+    AscendC::DataCopyPad(DBGlobalTensor, ub_local_, copy_params);
 }
 
-__aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
-    ChannelHandle channelHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, bool isRead)
+__aicore__ inline void asccomm_impl<comm_protocol_roce>::post_send(
+    channel_handle channel_handle, GM_ADDR dst, GM_ADDR src, uint64_t len, bool is_read)
 {
-    __gm__ ChannelEntity* channel = (__gm__ ChannelEntity*)channelHandle;
-    auto qpNum = channel->sqContextAddr[0].contextInfo.roceSq.qpn;
-    auto sqBaseAddr = channel->sqContextAddr[0].contextInfo.roceSq.sqVa;
-    auto wqeSize = channel->sqContextAddr[0].contextInfo.roceSq.wqeSize;
-    auto curHardwareHead = channel->sqContextAddr[0].contextInfo.roceSq.headAddr;
-    CacheWriteThrough(reinterpret_cast<__gm__ uint8_t*>(curHardwareHead), 8);
-    uint64_t curHead = *(__gm__ uint32_t*)(curHardwareHead);
+    __gm__ channel_entity* channel = (__gm__ channel_entity*)channel_handle;
+    auto qp_num = channel->sq_context_addr[0].context_info.roce_sq.qpn;
+    auto sq_base_addr = channel->sq_context_addr[0].context_info.roce_sq.sq_va;
+    auto wqe_size = channel->sq_context_addr[0].context_info.roce_sq.wqe_size;
+    auto cur_hardware_head = channel->sq_context_addr[0].context_info.roce_sq.head_addr;
+    cache_write_through(reinterpret_cast<__gm__ uint8_t*>(cur_hardware_head), 8);
+    uint64_t cur_head = *(__gm__ uint32_t*)(cur_hardware_head);
 
-    auto curHardwareTailAddr = channel->sqContextAddr[0].contextInfo.roceSq.tailAddr;
+    auto cur_hardware_tail_addr = channel->sq_context_addr[0].context_info.roce_sq.tail_addr;
     uint64_t shift = 15U;
-    auto qpDepth = channel->sqContextAddr[0].contextInfo.roceSq.depth;
+    auto qp_depth = channel->sq_context_addr[0].context_info.roce_sq.depth;
 
     KERNEL_LOG(
-        KERNEL_INFO, "Hcomm doorBell qpNum:%d, sqBaseAddr:%p, wqeSize:%d, curHead:%d, qpDepth:%d", qpNum, sqBaseAddr,
-        wqeSize, curHead, qpDepth);
+        KERNEL_INFO, "hcomm door_bell qp_num:%d, sq_base_addr:%p, wqe_size:%d, cur_head:%d, qp_depth:%d", qp_num, sq_base_addr,
+        wqe_size, cur_head, qp_depth);
 
     // Make sure we don't overflow the SQ in an infinite loop - no need to mitigate endless loop as the host
     // will timeout and kill the kernel, same as all2all kernel if it fails to complete (e.g. in case of link loss)
     while (1) {
-        CacheWriteThrough((__gm__ uint8_t*)curHardwareTailAddr, 8);
-        if ((curHead - *(__gm__ uint32_t*)(curHardwareTailAddr)) < qpDepth - 1) {
+        cache_write_through((__gm__ uint8_t*)cur_hardware_tail_addr, 8);
+        if ((cur_head - *(__gm__ uint32_t*)(cur_hardware_tail_addr)) < qp_depth - 1) {
             break;
         }
     }
 
-    __gm__ uint8_t* wqeAddr = (__gm__ uint8_t*)(sqBaseAddr + wqeSize * (curHead % qpDepth));
-    KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend wqeAddr:%p", wqeAddr);
+    __gm__ uint8_t* wqe_addr = (__gm__ uint8_t*)(sq_base_addr + wqe_size * (cur_head % qp_depth));
+    KERNEL_LOG(KERNEL_INFO, "hcomm post_send wqe_addr:%p", wqe_addr);
 
     // Write the WQE to GM
-    uint64_t ownBit = (curHead >> shift) & 1U;
-    uint32_t byte_4 = isRead ?
-                          static_cast<uint32_t>(HCOMM_OP_TYPE::READ) :
-                          static_cast<uint32_t>(HCOMM_OP_TYPE::WRITE); // [0:4] opcode=0x3(RDMA_WRITE), 0x5(RDMA_READ)
-    byte_4 |= ((~ownBit) << 7U) & (1U << 7U);                          // [7] owner_bit
+    uint64_t own_bit = (cur_head >> shift) & 1U;
+    uint32_t byte_4 = is_read ?
+                          static_cast<uint32_t>(asccomm_op_type::read) :
+                          static_cast<uint32_t>(asccomm_op_type::write); // [0:4] opcode=0x3(RDMA_WRITE), 0x5(RDMA_READ)
+    byte_4 |= ((~own_bit) << 7U) & (1U << 7U);                          // [7] owner_bit
     byte_4 |= 1U << 8U;                                                // [8:8] IBV_SEND_SIGNALED
 
-    *(__gm__ uint32_t*)(wqeAddr) = byte_4;         // Control set by local parameter see above lines
-    *(__gm__ uint32_t*)(wqeAddr + 4) = len;        // message size
-    *(__gm__ uint32_t*)(wqeAddr + 8) = 0;          // immtdata is always 0 till we provide poll CQ flow in AIV
-    *(__gm__ uint32_t*)(wqeAddr + 12) = 1U << 24U; // [120:127] num_sge = 1
-    *(__gm__ uint32_t*)(wqeAddr + 16) = 0;         // [128:151] start_sge_idx = 0;
-    *(__gm__ uint32_t*)(wqeAddr + 20) = channel->remoteBufferAddr[0].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
-    *(__gm__ uint64_t*)(wqeAddr + 24) = (uint64_t)dst; // destination VA
+    *(__gm__ uint32_t*)(wqe_addr) = byte_4;         // Control set by local parameter see above lines
+    *(__gm__ uint32_t*)(wqe_addr + 4) = len;        // message size
+    *(__gm__ uint32_t*)(wqe_addr + 8) = 0;          // immtdata is always 0 till we provide poll CQ flow in AIV
+    *(__gm__ uint32_t*)(wqe_addr + 12) = 1U << 24U; // [120:127] num_sge = 1
+    *(__gm__ uint32_t*)(wqe_addr + 16) = 0;         // [128:151] start_sge_idx = 0;
+    *(__gm__ uint32_t*)(wqe_addr + 20) = channel->remote_buffer_addr[0].buffer_info.rma.protection_info_value.mem_info.roce.rkey;
+    *(__gm__ uint64_t*)(wqe_addr + 24) = (uint64_t)dst; // destination VA
 
-    constexpr uint32_t sgeAddrOffset = 32;
-    __gm__ uint8_t* sgeAddr = wqeAddr + sgeAddrOffset;
-    KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend sgeAddr:%p", sgeAddr);
-    *(__gm__ uint32_t*)(sgeAddr) = len;
-    *(__gm__ uint32_t*)(sgeAddr + sizeof(uint32_t)) =
-        channel->localBufferAddr[0].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
-    *(__gm__ uint64_t*)(sgeAddr + 2 * sizeof(uint32_t)) = (uint64_t)src; // src VA addr memory registered by RNIC
+    constexpr uint32_t sge_addr_offset = 32;
+    __gm__ uint8_t* sge_addr = wqe_addr + sge_addr_offset;
+    KERNEL_LOG(KERNEL_INFO, "hcomm post_send sge_addr:%p", sge_addr);
+    *(__gm__ uint32_t*)(sge_addr) = len;
+    *(__gm__ uint32_t*)(sge_addr + sizeof(uint32_t)) =
+        channel->local_buffer_addr[0].buffer_info.rma.protection_info_value.mem_info.roce.lkey;
+    *(__gm__ uint64_t*)(sge_addr + 2 * sizeof(uint32_t)) = (uint64_t)src; // src VA addr memory registered by RNIC
 
-    constexpr uint32_t wqeAddrWriteLength = 48;
-    CacheWriteThrough(wqeAddr, wqeAddrWriteLength);
+    constexpr uint32_t wqe_addr_write_length = 48;
+    cache_write_through(wqe_addr, wqe_addr_write_length);
 
-    curHead++;
+    cur_head++;
 
     // Post doorbell
-    doorBell(channel, curHead);
+    door_bell(channel, cur_head);
 
-    ubLocalHead_.SetValue(0, (uint32_t)curHead);
+    ub_local_head_.SetValue(0, (uint32_t)cur_head);
     AscendC::GlobalTensor<uint32_t> HeadGlobalTensor;
-    HeadGlobalTensor.SetGlobalBuffer((__gm__ uint32_t*)curHardwareHead);
-    AscendC::DataCopyExtParams copyParamsHead{1, 1 * sizeof(uint32_t), 0, 0, 0};
-    AscendC::DataCopyPad(HeadGlobalTensor, ubLocalHead_, copyParamsHead);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend finish");
+    HeadGlobalTensor.SetGlobalBuffer((__gm__ uint32_t*)cur_hardware_head);
+    AscendC::DataCopyExtParams copy_params_head{1, 1 * sizeof(uint32_t), 0, 0, 0};
+    AscendC::DataCopyPad(HeadGlobalTensor, ub_local_head_, copy_params_head);
+    KERNEL_LOG(KERNEL_INFO, "hcomm post_send finish");
 }
 
 } // namespace AscendC
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V220_HCOMM_AIV_H
-#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H)
-#undef HCOMM_INCLUDE_INTERNAL_HEADERS
-#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H
+#if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H)
+#undef ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#undef ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_H
 #endif

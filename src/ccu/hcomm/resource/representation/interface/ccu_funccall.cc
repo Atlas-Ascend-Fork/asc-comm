@@ -16,30 +16,30 @@
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-FuncCall::FuncCall(CcuRepContext* context, std::string label) : context(context), label(label)
+func_call::func_call(ccu_rep_context* context, std::string label) : context_(context), label_(label)
 {
-    CcuInsGeneraterBase* insGenPtr = context->GetInsGenerator();
-    asccomm::CheckCcuNotNull(insGenPtr, "[FuncCall::FuncCall](label) insGenPtr is nullptr!");
-    repFuncCall = std::make_shared<CcuRepFuncCall>(insGenPtr, label);
+    ccu_ins_generater_base* ins_gen_ptr = context->get_ins_generator();
+    asc::check_ccu_not_null(ins_gen_ptr, "[FuncCall::FuncCall](label) insGenPtr is nullptr!");
+    rep_func_call_ = std::make_shared<ccu_rep_func_call>(ins_gen_ptr, label);
 }
 
-FuncCall::FuncCall(CcuRepContext* context, const Variable& funcAddr) : context(context)
+func_call::func_call(ccu_rep_context* context, const variable& func_addr) : context_(context)
 {
-    CcuInsGeneraterBase* insGenPtr = context->GetInsGenerator();
-    asccomm::CheckCcuNotNull(insGenPtr, "[FuncCall::FuncCall](funcAddr) insGenPtr is nullptr!");
-    repFuncCall = std::make_shared<CcuRepFuncCall>(insGenPtr, funcAddr);
+    ccu_ins_generater_base* ins_gen_ptr = context->get_ins_generator();
+    asc::check_ccu_not_null(ins_gen_ptr, "[FuncCall::FuncCall](funcAddr) insGenPtr is nullptr!");
+    rep_func_call_ = std::make_shared<ccu_rep_func_call>(ins_gen_ptr, func_addr);
 }
 
-void FuncCall::AppendToContext()
+void func_call::append_to_context()
 {
-    if (context == nullptr) {
-        asccomm::ThrowCcuInternal("context is nullptr, func call, append to context");
+    if (context_ == nullptr) {
+        asc::throw_ccu_internal("context is nullptr, func call, append to context");
     }
-    return context->Append(repFuncCall);
+    return context_->append(rep_func_call_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

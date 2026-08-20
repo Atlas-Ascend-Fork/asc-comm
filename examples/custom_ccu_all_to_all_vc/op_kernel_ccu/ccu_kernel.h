@@ -39,20 +39,20 @@ struct CcuKernelArgBase {
     uint32_t channelCount;
 };
 
-struct CcuKernelInfo {
-    char kernelFuncName[64];
-    void* kernelFunc;
-    void* kernelArg;
+struct ccu_kernel_info {
+    char kernel_func_name[64];
+    void* kernel_func;
+    void* kernel_arg;
 
 private:
     std::shared_ptr<CcuKernelArgBase> kernelArgSmartPtr;
 
 public:
-    template <typename T>
-    void setKernelArg(std::shared_ptr<T> arg)
+    template <typename t>
+    void setKernelArg(std::shared_ptr<t> arg)
     {
         kernelArgSmartPtr = std::static_pointer_cast<CcuKernelArgBase>(arg);
-        kernelArg = static_cast<void*>(arg.get());
+        kernel_arg = static_cast<void*>(arg.get());
     }
 };
 
@@ -63,19 +63,19 @@ struct CcuKernelArgAllToAllVCMesh1D : public CcuKernelArgBase {
 
 struct AllToAllVCMesh1DContext {
     const CcuKernelArgAllToAllVCMesh1D* arg;
-    ccu::Variable input;
-    ccu::Variable inputToken;
-    ccu::Variable localOutput;
-    ccu::Variable localOutputToken;
-    std::vector<ccu::Variable> remoteOutput;
-    std::vector<ccu::Variable> remoteOutputToken;
-    std::vector<ccu::Variable> sendBytes;
-    std::vector<ccu::Variable> sendOffsets;
-    std::vector<ccu::Variable> recvOffsets;
-    ccu::Event event;
+    ccu::variable input;
+    ccu::variable inputToken;
+    ccu::variable localOutput;
+    ccu::variable localOutputToken;
+    std::vector<ccu::variable> remoteOutput;
+    std::vector<ccu::variable> remoteOutputToken;
+    std::vector<ccu::variable> sendBytes;
+    std::vector<ccu::variable> sendOffsets;
+    std::vector<ccu::variable> recvOffsets;
+    ccu::event event;
 };
 
-CcuResult CcuAllToAllVCMesh1DKernel(CcuKernelArg arg);
+CcuResult CcuAllToAllVCMesh1DKernel(ccu_kernel_arg arg);
 
 } // namespace ops_hccl_a2avc
 

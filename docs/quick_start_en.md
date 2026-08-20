@@ -231,7 +231,7 @@ Third-party open-source software used for UT execution:
 | googletest | 1.14.0 |
 
 ### 🧩 Sample Verification<a name="sample-verify"></a>
-[hcomm_write_read_nbi](../examples/hcomm_write_read_nbi/README_en.md) provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`.
+[hcomm_write_read_nbi](../examples/hcomm_write_read_nbi/README_en.md) provides a point-to-point communication sample using AIV direct-driven URMA `write_nbi` and `read_nbi`.
 The sample supports Ascend 950PR / Ascend 950DT and requires CANN 9.1.0 or newer. At least two NPUs are required for runtime; single-NPU environments only support compilation verification.
 
 Navigate to the sample directory and run:

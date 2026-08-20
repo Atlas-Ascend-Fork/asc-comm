@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file hcomm_simt_impl_def.h
- * \brief Hcomm SIMT implementation definition
+ * \file asccomm_simt_impl_def.h
+ * \brief asccomm SIMT implementation definition
  */
 
-#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_DEF_H
+#if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal asccomm header. Please include public asccomm headers instead.")
+#define ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_DEF_H
 #endif
 
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_SIMT_IMPL_DEF_H
@@ -24,14 +24,14 @@
 
 #include "../common/hcomm_simt_base.h"
 
-// SIMT is only available on v310. Other platforms fall back to the HcommImpl primary template,
-// whose members all return HCOMM_FAILED.
+// SIMT is only available on v310. Other platforms fall back to the asccomm_impl primary template,
+// whose members all return asccomm_failed.
 #if defined(__NPU_ARCH__) && __NPU_ARCH__ == 3510
 #include "platform_v310/hcomm_simt_urma_def.h"
 #endif
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_SIMT_IMPL_DEF_H
-#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_DEF_H)
-#undef HCOMM_INCLUDE_INTERNAL_HEADERS
-#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_DEF_H
+#if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_DEF_H)
+#undef ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#undef ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_DEF_H
 #endif

@@ -17,8 +17,8 @@ HcclResult RtsUbDevQueryInfo(const rtUbDevQueryCmd cmd, rtMemUbTokenInfo& devInf
     if (cmd != QUERY_PROCESS_TOKEN) {
         return HcclResult::HCCL_E_PARA;
     }
-    devInfo.tokenId = 0;
-    devInfo.tokenValue = 0;
+    devInfo.token_id = 0;
+    devInfo.token_value = 0;
     return HcclResult::HCCL_SUCCESS;
 }
 

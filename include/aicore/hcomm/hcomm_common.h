@@ -10,7 +10,7 @@
 
 /*!
  * \file hccl_common.h
- * \brief Hcomm common definitions
+ * \brief asccomm common definitions
  */
 #ifndef INCLUDE_ADV_API_HCOMM_HCOMM_COMMON_H
 #define INCLUDE_ADV_API_HCOMM_HCOMM_COMMON_H
@@ -18,28 +18,28 @@
 #include <cstdint>
 
 namespace AscendC {
-using ChannelHandle = uint64_t;
+using channel_handle = uint64_t;
 
 /**
  * @brief 通信协议类型枚举
  */
 typedef enum {
-    COMM_PROTOCOL_RESERVED = -1, ///< 保留协议类型
-    COMM_PROTOCOL_HCCS = 0,      ///< HCCS协议
-    COMM_PROTOCOL_ROCE = 1,      ///< RDMA over Converged Ethernet
-    COMM_PROTOCOL_PCIE = 2,      ///< PCIE协议
-    COMM_PROTOCOL_SIO = 3,       ///< SIO协议
-    COMM_PROTOCOL_UBC_CTP = 4,   ///< 华为统一总线UBC_CTP
-    COMM_PROTOCOL_UBC_TP = 5,    ///< 华为统一总线UBC_TP
-    COMM_PROTOCOL_UB_MEM = 6,    ///< UB_MEM
-    COMM_PROTOCOL_UBOE = 7,      ///< UBoE
-    COMM_PROTOCOL_HCCS_ONLY = 8, ///< 一卡双DIE使用HCCS
-} CommProtocol;
+    comm_protocol_reserved = -1, ///< 保留协议类型
+    comm_protocol_hccs = 0,      ///< HCCS协议
+    comm_protocol_roce = 1,      ///< RDMA over Converged Ethernet
+    comm_protocol_pcie = 2,      ///< PCIE协议
+    comm_protocol_sio = 3,       ///< SIO协议
+    comm_protocol_ubc_ctp = 4,   ///< 华为统一总线UBC_CTP
+    comm_protocol_ubc_tp = 5,    ///< 华为统一总线UBC_TP
+    comm_protocol_ub_mem = 6,    ///< UB_MEM
+    comm_protocol_uboe = 7,      ///< UBoE
+    comm_protocol_hccs_only = 8, ///< 一卡双DIE使用HCCS
+} comm_protocol;
 
-enum class HcommUrmaReduceOp : uint32_t {
-    MAX = 0x8U,
-    MIN = 0x9U,
-    SUM = 0xAU,
+enum class asccomm_urma_reduce_op : uint32_t {
+    max = 0x8U,
+    min = 0x9U,
+    sum = 0xAU,
 };
 
 } // namespace AscendC

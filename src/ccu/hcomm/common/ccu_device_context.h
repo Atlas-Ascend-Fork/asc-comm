@@ -15,15 +15,15 @@
 
 #include "hcomm/hcomm_ccu_control.h"
 
-namespace asccomm {
+namespace asc {
 
-constexpr uint32_t CCU_MAX_DEVICE_NUM = 64;
+constexpr uint32_t ccu_max_device_num = 64;
 
-void SetCurrentCcuDeviceLogicId(int32_t deviceLogicId);
-int32_t GetCurrentCcuDeviceLogicId();
-void SetCurrentCcuControlOps(const HcommCcuControlOpsPod &controlOps);
-const HcommCcuControlOpsPod &GetCurrentCcuControlOps();
+void set_current_ccu_device_logic_id(int32_t device_logic_id);
+int32_t get_current_ccu_device_logic_id();
+void set_current_ccu_control_ops(const HcommCcuControlOpsPod &control_ops);
+const HcommCcuControlOpsPod &get_current_ccu_control_ops();
 
-} // namespace asccomm
+} // namespace asc
 
 #endif // ASCCOMM_CCU_DEVICE_CONTEXT_H

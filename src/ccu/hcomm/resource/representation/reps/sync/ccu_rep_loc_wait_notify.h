@@ -8,34 +8,34 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_LOC_WAIT_NOTIFY_H
-#define HCOMM_CCU_REPRESENTATION_LOC_WAIT_NOTIFY_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_LOC_WAIT_NOTIFY_H
+#define ASCCOMM_CCU_REPRESENTATION_LOC_WAIT_NOTIFY_H
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepLocWaitNotify : public CcuRepBase {
+class ccu_rep_loc_wait_notify : public ccu_rep_base {
 public:
-    CcuRepLocWaitNotify(
-        CcuInsGeneraterBase* insGenPtr, const LocalNotify& notify, const uint32_t mask, bool isProfiling = true);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    uint32_t GetMask() { return mask_; };
-    uint16_t GetNotifyId() { return notify_.Id(); };
+    ccu_rep_loc_wait_notify(
+        ccu_ins_generater_base* ins_gen_ptr, const local_notify& notify, const uint32_t mask, bool is_profiling = true);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    uint32_t get_mask() { return mask_; };
+    uint16_t get_notify_id() { return notify_.id(); };
 
-    LocalNotify GetNotify() { return notify_; }
+    local_notify get_notify() { return notify_; }
 
-    bool GetIsProfiling() { return isProfiling_; }
+    bool get_is_profiling() { return is_profiling_; }
 
 private:
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    LocalNotify notify_{};
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
+    local_notify notify_{};
     uint32_t mask_{0};
-    bool isProfiling_{true};
+    bool is_profiling_{true};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_LOC_WAIT_NOTIFY_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_LOC_WAIT_NOTIFY_H

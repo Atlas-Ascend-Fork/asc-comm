@@ -17,16 +17,16 @@ namespace HcommExample {
 
 class KernelHcommWriteRead {
 public:
-    __aicore__ inline void Init(GM_ADDR context, AscendC::TPipe* pipe)
+    __aicore__ inline void init(GM_ADDR context, AscendC::TPipe* pipe)
     {
         context_ = reinterpret_cast<__gm__ CommContext*>(context);
-        channel_ = context_->channelHandle;
-        localBuffer_ = reinterpret_cast<GM_ADDR>(context_->localBufferAddr);
-        remoteBuffer_ = reinterpret_cast<GM_ADDR>(context_->remoteBufferAddr);
+        channel_ = context_->channel_handle;
+        localBuffer_ = reinterpret_cast<GM_ADDR>(context_->local_buffer_addr);
+        remoteBuffer_ = reinterpret_cast<GM_ADDR>(context_->remote_buffer_addr);
 
         pipe->InitBuffer(hcommBuf_, HCOMM_WORKSPACE_SIZE);
         hcommTensor_ = hcommBuf_.Get<uint8_t>();
-        if (hcomm_.Init(hcommTensor_, HCOMM_WORKSPACE_SIZE) == AscendC::HCOMM_SUCCESS) {
+        if (hcomm_.init(hcommTensor_, HCOMM_WORKSPACE_SIZE) == AscendC::asccomm_success) {
             initOk_ = true;
         }
     }
@@ -36,29 +36,29 @@ public:
     {
         static_assert(
             operationType == HCOMM_READ_ONLY || operationType == HCOMM_WRITE_ONLY || operationType == HCOMM_READ_WRITE,
-            "Unsupported Hcomm operation type");
-        context_->testResult = TEST_SUCCESS;
+            "Unsupported asccomm operation type");
+        context_->test_result = TEST_SUCCESS;
         if (!initOk_) {
-            context_->testResult = TEST_HCOMM_INIT_FAILED;
+            context_->test_result = TEST_HCOMM_INIT_FAILED;
             return;
         }
 
         if constexpr ((operationType & HCOMM_WRITE_ONLY) != 0U) {
             DoWrite();
-            if (context_->testResult != TEST_SUCCESS) {
+            if (context_->test_result != TEST_SUCCESS) {
                 return;
             }
         }
 
         if constexpr ((operationType & HCOMM_READ_ONLY) != 0U) {
             DoRead();
-            if (context_->testResult != TEST_SUCCESS) {
+            if (context_->test_result != TEST_SUCCESS) {
                 return;
             }
         }
 
-        if (hcomm_.Drain(channel_) != AscendC::HCOMM_SUCCESS) {
-            context_->testResult = TEST_DRAIN_FAILED;
+        if (hcomm_.drain(channel_) != AscendC::asccomm_success) {
+            context_->test_result = TEST_DRAIN_FAILED;
         }
     }
 
@@ -67,8 +67,8 @@ private:
     {
         GM_ADDR writeSrc = localBuffer_ + SEND_DATA_OFFSET;
         GM_ADDR writeDst = remoteBuffer_ + WRITE_RESULT_OFFSET;
-        if (hcomm_.WriteNbi(channel_, writeDst, writeSrc, DATA_SIZE) != AscendC::HCOMM_SUCCESS) {
-            context_->testResult = TEST_WRITE_FAILED;
+        if (hcomm_.write_nbi(channel_, writeDst, writeSrc, DATA_SIZE) != AscendC::asccomm_success) {
+            context_->test_result = TEST_WRITE_FAILED;
         }
     }
 
@@ -76,16 +76,16 @@ private:
     {
         GM_ADDR readDst = localBuffer_ + READ_RESULT_OFFSET;
         GM_ADDR readSrc = remoteBuffer_ + SEND_DATA_OFFSET;
-        if (hcomm_.ReadNbi(channel_, readDst, readSrc, DATA_SIZE) != AscendC::HCOMM_SUCCESS) {
-            context_->testResult = TEST_READ_FAILED;
+        if (hcomm_.read_nbi(channel_, readDst, readSrc, DATA_SIZE) != AscendC::asccomm_success) {
+            context_->test_result = TEST_READ_FAILED;
         }
     }
 
     AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf_;
     AscendC::LocalTensor<uint8_t> hcommTensor_;
-    AscendC::Hcomm<KERNEL_COMM_PROTOCOL> hcomm_;
+    AscendC::asccomm<KERNEL_COMM_PROTOCOL> hcomm_;
     __gm__ CommContext* context_{nullptr};
-    AscendC::ChannelHandle channel_{0};
+    AscendC::channel_handle channel_{0};
     GM_ADDR localBuffer_{nullptr};
     GM_ADDR remoteBuffer_{nullptr};
     bool initOk_{false};
@@ -96,7 +96,7 @@ __aicore__ inline void RunHcommKernel(GM_ADDR context)
 {
     AscendC::TPipe pipe;
     KernelHcommWriteRead op;
-    op.Init(context, &pipe);
+    op.init(context, &pipe);
     op.Process<operationType>();
 }
 

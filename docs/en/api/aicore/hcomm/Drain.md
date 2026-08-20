@@ -1,4 +1,4 @@
-# Drain
+# drain
 
 ## Function Description
 Blocks and waits until all communication tasks on the specified channel complete execution.
@@ -6,7 +6,7 @@ Blocks and waits until all communication tasks on the specified channel complete
 ## Function Prototype
 ```cpp
 template <pipe_t pipe = PIPE_MTE3>
-__aicore__ inline int32_t Drain(AscendC::ChannelHandle channel);
+__aicore__ inline int32_t drain(AscendC::channel_handle channel);
 ```
 
 ## Parameter Description
@@ -23,4 +23,4 @@ __aicore__ inline int32_t Drain(AscendC::ChannelHandle channel);
 | Return Value | Description |
 | --- | --- |
 | `0` | Waiting succeeded. |
-| Non-zero | Waiting failed. The `COMM_PROTOCOL_UBC_CTP` path returns the underlying CQ polling error code directly: `0xFF` indicates a polling timeout, while other positive values combine the CQE status and substatus. Other protocols may return `-1`. |
+| Non-zero | Waiting failed. The `comm_protocol_ubc_ctp` path returns the underlying CQ polling error code directly: `0xFF` indicates a polling timeout, while other positive values combine the CQE status and substatus. Other protocols may return `-1`. |

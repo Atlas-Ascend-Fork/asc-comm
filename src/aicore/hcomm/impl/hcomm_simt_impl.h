@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file hcomm_simt_impl.h
- * \brief Hcomm SIMT implementation
+ * \file asccomm_simt_impl.h
+ * \brief asccomm SIMT implementation
  */
 
-#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_H
+#if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal asccomm header. Please include public asccomm headers instead.")
+#define ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_H
 #endif
 
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_SIMT_IMPL_H
@@ -28,98 +28,98 @@
 
 namespace AscendC::simt {
 
-template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline Hcomm<commProtocol, Group>::Hcomm()
+template <comm_protocol comm_protocol, typename group_t>
+__simt_callee__ inline asccomm<comm_protocol, group_t>::asccomm()
 {}
 
-template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline Hcomm<commProtocol, Group>::Hcomm(const Group& group) : group_(group)
+template <comm_protocol comm_protocol, typename group_t>
+__simt_callee__ inline asccomm<comm_protocol, group_t>::asccomm(const group_t& group) : group_(group)
 {}
 
-template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline Hcomm<commProtocol, Group>::~Hcomm()
+template <comm_protocol comm_protocol, typename group_t>
+__simt_callee__ inline asccomm<comm_protocol, group_t>::~asccomm()
 {}
 
-template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Init(__ubuf__ uint8_t* buff, uint32_t len)
+template <comm_protocol comm_protocol, typename group_t>
+__simt_callee__ inline int32_t asccomm<comm_protocol, group_t>::init(__ubuf__ uint8_t* buff, uint32_t len)
 {
-    return impl_.Init(buff, len);
+    return impl_.init(buff, len);
 }
 
-template <CommProtocol commProtocol, typename Group>
+template <comm_protocol comm_protocol, typename group_t>
 template <bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteNbi(
-    ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
+__simt_callee__ inline int32_t asccomm<comm_protocol, group_t>::write_nbi(
+    channel_handle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    return impl_.template WriteNbi<commit, config>(channel, dst, src, len);
+    return impl_.template write_nbi<commit, config>(channel, dst, src, len);
 }
 
-template <CommProtocol commProtocol, typename Group>
-template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteValueNbi(
-    ChannelHandle channel, __gm__ void* dst, T value)
+template <comm_protocol comm_protocol, typename group_t>
+template <typename t, bool commit, auto const& config>
+__simt_callee__ inline int32_t asccomm<comm_protocol, group_t>::write_value_nbi(
+    channel_handle channel, __gm__ void* dst, t value)
 {
-    static_assert(sizeof(T) == 0U, "SIMT WriteValueNbi is not supported");
+    static_assert(sizeof(t) == 0U, "SIMT write_value_nbi is not supported");
     (void)channel;
     (void)dst;
     (void)value;
-    return HCOMM_FAILED;
+    return asccomm_failed;
 }
 
-template <CommProtocol commProtocol, typename Group>
+template <comm_protocol comm_protocol, typename group_t>
 template <bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::ReadNbi(
-    ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
+__simt_callee__ inline int32_t asccomm<comm_protocol, group_t>::read_nbi(
+    channel_handle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    return impl_.template ReadNbi<commit, config>(channel, dst, src, len);
+    return impl_.template read_nbi<commit, config>(channel, dst, src, len);
 }
 
-template <CommProtocol commProtocol, typename Group>
+template <comm_protocol comm_protocol, typename group_t>
 template <bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteWithNotifyNbi(
-    ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
-    uint64_t notifyVal)
+__simt_callee__ inline int32_t asccomm<comm_protocol, group_t>::write_with_notify_nbi(
+    channel_handle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notify_addr,
+    uint64_t notify_val)
 {
-    return impl_.template WriteWithNotifyNbi<commit, config>(channel, dst, src, len, notifyAddr, notifyVal);
+    return impl_.template write_with_notify_nbi<commit, config>(channel, dst, src, len, notify_addr, notify_val);
 }
 
-template <CommProtocol commProtocol, typename Group>
-template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicFAA(
-    ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
+template <comm_protocol comm_protocol, typename group_t>
+template <typename t, bool commit, auto const& config>
+__simt_callee__ inline int32_t asccomm<comm_protocol, group_t>::atomic_faa(
+    channel_handle channel, __gm__ void* dst, __gm__ void* fetch_addr, t add_val)
 {
-    return impl_.template AtomicFAA<T, commit, config>(channel, dst, fetchAddr, addVal);
+    return impl_.template atomic_faa<t, commit, config>(channel, dst, fetch_addr, add_val);
 }
 
-template <CommProtocol commProtocol, typename Group>
-template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicCAS(
-    ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
+template <comm_protocol comm_protocol, typename group_t>
+template <typename t, bool commit, auto const& config>
+__simt_callee__ inline int32_t asccomm<comm_protocol, group_t>::atomic_cas(
+    channel_handle channel, __gm__ void* dst, __gm__ void* fetch_addr, t compare_val, t swap_val)
 {
-    return impl_.template AtomicCAS<T, commit, config>(channel, dst, fetchAddr, compareVal, swapVal);
+    return impl_.template atomic_cas<t, commit, config>(channel, dst, fetch_addr, compare_val, swap_val);
 }
 
-template <CommProtocol commProtocol, typename Group>
+template <comm_protocol comm_protocol, typename group_t>
 template <auto pipe>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Drain(ChannelHandle channel)
+__simt_callee__ inline int32_t asccomm<comm_protocol, group_t>::drain(channel_handle channel)
 {
-    return impl_.template Drain<pipe>(channel);
+    return impl_.template drain<pipe>(channel);
 }
 
-__simt_callee__ inline __gm__ uint8_t* LocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
+__simt_callee__ inline __gm__ uint8_t* local_buffer_addr(channel_handle channel, uint32_t buffer_idx)
 {
-    return HcommSimtLocalBufferAddr(channel, bufferIdx);
+    return asccomm_simt_local_buffer_addr(channel, buffer_idx);
 }
 
-__simt_callee__ inline __gm__ uint8_t* RemoteBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
+__simt_callee__ inline __gm__ uint8_t* remote_buffer_addr(channel_handle channel, uint32_t buffer_idx)
 {
-    return HcommSimtRemoteBufferAddr(channel, bufferIdx);
+    return asccomm_simt_remote_buffer_addr(channel, buffer_idx);
 }
 
 } // namespace AscendC::simt
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_SIMT_IMPL_H
-#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_H)
-#undef HCOMM_INCLUDE_INTERNAL_HEADERS
-#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_H
+#if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_H)
+#undef ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#undef ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_IMPL_H
 #endif

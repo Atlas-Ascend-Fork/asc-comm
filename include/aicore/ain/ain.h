@@ -10,11 +10,11 @@
 
 /*!
  * \file ain.h
- * \brief Ain interface
+ * \brief ain interface
  */
-#if !defined(__ASCENDC_INCLUDE_INTERNAL_HEADERS__)
-#define __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#define __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_H__
+#if !defined(ASCENDC_INCLUDE_INTERNAL_HEADERS)
+#define ASCENDC_INCLUDE_INTERNAL_HEADERS
+#define UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_H
 #endif
 
 #ifndef INCLUDE_COMM_API_AICORE_AIN_AIN_H
@@ -27,197 +27,197 @@
 namespace AscendC {
 
 /*!
- * @class Ain
+ * @class ain
  * @brief This class provides device-side one-sided communication primitives (put/get) layered on top
- *        of the Hcomm point-to-point engine. It resolves the per-peer communication channel from the
+ *        of the asccomm point-to-point engine. It resolves the per-peer communication channel from the
  *        device communication table, translates symmetric-window handles into remote/local addresses,
  *        and submits tasks immediately or defers submission until a subsequent immediate-commit task.
- *        Pending tasks can be awaited via Flush() or FlushAsync()/Wait().
+ *        Pending tasks can be awaited via flush() or flush_async()/wait().
  */
-template <unsigned CommEngineMask = AIN_MASK_DEFAULT>
-class Ain {
+template <unsigned comm_engine_mask = ain_mask_default>
+class ain {
 public:
     /*!
-     * @brief Construct an Ain instance bound to a device communication context.
-     * @param [in] contextIndex: Index of the communication context to operate on.
+     * @brief Construct an ain instance bound to a device communication context.
+     * @param [in] context_index: Index of the communication context to operate on.
      */
-    AIN_DEVICE Ain(uint32_t contextIndex = 0);
-    AIN_DEVICE ~Ain();
+    AIN_DEVICE ain(uint32_t context_index = 0);
+    AIN_DEVICE ~ain();
 
     /*!
-     * @brief Drain every peer channel in the team, blocking until all pending tasks complete.
+     * @brief drain every peer channel in the team, blocking until all pending tasks complete.
      * @param [in] team: The communication team handle.
      */
-    AIN_DEVICE void Flush(HcommTeamHandle team);
+    AIN_DEVICE void flush(asccomm_team_handle team);
 
     /*!
-     * @brief Get the channel handle of a given peer without blocking, for deferred wait.
+     * @brief get the channel handle of a given peer without blocking, for deferred wait.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
-     * @param [out] outChannelHandle: Output the resolved peer channel handle.
+     * @param [out] out_channel_handle: Output the resolved peer channel handle.
      * @note Each rank currently has only one channel; channel index 0 is used.
      */
-    AIN_DEVICE void FlushAsync(HcommTeamHandle team, uint32_t peer, ChannelHandle* outChannelHandle);
+    AIN_DEVICE void flush_async(asccomm_team_handle team, uint32_t peer, channel_handle* out_channel_handle);
 
     /*!
      * @brief Block until all tasks submitted on the given channel are complete.
-     * @param [in] channelHandle: The channel handle returned by FlushAsync.
+     * @param [in] channel_handle: The channel handle returned by flush_async.
      */
-    AIN_DEVICE void Wait(ChannelHandle& channelHandle);
+    AIN_DEVICE void wait(channel_handle& channel_handle);
 
     /*!
      * @brief Issue a one-sided write (put) from a local window to a remote peer's window.
-     * @tparam RemoteAction: Optional remote-side action tag, AinRemoteNone by default.
-     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
-     * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
-     *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
-     * @tparam Config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam remote_action: Optional remote-side action tag, ain_remote_none by default.
+     * @tparam descriptor_ubuf_t: UB workspace descriptor type, ain_descriptor_ubuf by default.
+     * @tparam commit_flags: ain_commit_immed rings the doorbell immediately;
+     *                      ain_commit_delayed defers submission until a subsequent ain_commit_immed task.
+     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
-     * @param [in] dstWin: Destination symmetric window of the peer.
-     * @param [in] dstOffset: Byte offset into the destination window.
-     * @param [in] srcWin: Source symmetric window of the local rank.
-     * @param [in] srcOffset: Byte offset into the source window.
+     * @param [in] dst_win: Destination symmetric window of the peer.
+     * @param [in] dst_offset: Byte offset into the destination window.
+     * @param [in] src_win: Source symmetric window of the local rank.
+     * @param [in] src_offset: Byte offset into the source window.
      * @param [in] bytes: Number of bytes to transfer.
-     * @param [in] remoteAction: Remote signal action fired after write; AinRemoteNone by default.
-     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
+     * @param [in] remote_action: Remote signal action fired after write; ain_remote_none by default.
+     * @param [in] ubuf: UB workspace descriptor for the underlying asccomm engine.
      */
     template <
-        typename RemoteAction = AinRemoteNone, typename DescriptorUbuf = AinDescriptorUbuf,
-        AinCommitFlags CommitFlags = AIN_COMMIT_IMMED, auto const& Config = URMA_DEFAULT_CFG>
-    AIN_DEVICE void Put(
-        HcommTeamHandle team, uint32_t peer, HcommWindowHandle dstWin, uint64_t dstOffset, HcommWindowHandle srcWin,
-        uint64_t srcOffset, uint64_t bytes, RemoteAction remoteAction = RemoteAction{},
-        const DescriptorUbuf& ubuf = DescriptorUbuf{});
+        typename remote_action_t = ain_remote_none, typename descriptor_ubuf_t = ain_descriptor_ubuf,
+        ain_commit_flags commit_flags = ain_commit_immed, auto const& config = urma_default_cfg>
+    AIN_DEVICE void put(
+        asccomm_team_handle team, uint32_t peer, asccomm_window_handle dst_win, uint64_t dst_offset, asccomm_window_handle src_win,
+        uint64_t src_offset, uint64_t bytes, remote_action_t remote_action = remote_action_t{},
+        const descriptor_ubuf_t& ubuf = descriptor_ubuf_t{});
 
     /*!
      * @brief Issue an inline one-sided write (put) of a typed value to a remote peer's window.
-     * @tparam T: Value type to write.
-     * @tparam RemoteAction: Signal action type, for example AinSignalInc, AinSignalAdd.
-     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
-     * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
-     *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
-     * @tparam Config: URMA WQE control config, only used by URMA.
+     * @tparam t: Value type to write.
+     * @tparam remote_action: signal action type, for example ain_signal_inc, ain_signal_add.
+     * @tparam descriptor_ubuf_t: UB workspace descriptor type, ain_descriptor_ubuf by default.
+     * @tparam commit_flags: ain_commit_immed rings the doorbell immediately;
+     *                      ain_commit_delayed defers submission until a subsequent ain_commit_immed task.
+     * @tparam config: URMA WQE control config, only used by URMA.
      *         Default: strongly ordered + fence + CQE + inline enabled.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
-     * @param [in] dstWin: Destination symmetric window of the peer.
-     * @param [in] dstOffset: Byte offset into the destination window.
+     * @param [in] dst_win: Destination symmetric window of the peer.
+     * @param [in] dst_offset: Byte offset into the destination window.
      * @param [in] value: Typed value to write inline.
-     * @param [in] remoteAction: Remote signal action fired after write; AinRemoteNone by default.
-     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
+     * @param [in] remote_action: Remote signal action fired after write; ain_remote_none by default.
+     * @param [in] ubuf: UB workspace descriptor for the underlying asccomm engine.
      */
     template <
-        typename T, typename RemoteAction = AinRemoteNone, typename DescriptorUbuf = AinDescriptorUbuf,
-        AinCommitFlags CommitFlags = AIN_COMMIT_IMMED, auto const& Config = URMA_INLINE_CFG>
-    AIN_DEVICE void PutValue(
-        HcommTeamHandle team, uint32_t peer, HcommWindowHandle dstWin, uint64_t dstOffset, T value,
-        RemoteAction remoteAction = RemoteAction{}, const DescriptorUbuf& ubuf = DescriptorUbuf{});
+        typename t, typename remote_action_t = ain_remote_none, typename descriptor_ubuf_t = ain_descriptor_ubuf,
+        ain_commit_flags commit_flags = ain_commit_immed, auto const& config = urma_inline_cfg>
+    AIN_DEVICE void put_value(
+        asccomm_team_handle team, uint32_t peer, asccomm_window_handle dst_win, uint64_t dst_offset, t value,
+        remote_action_t remote_action = remote_action_t{}, const descriptor_ubuf_t& ubuf = descriptor_ubuf_t{});
 
     /*!
      * @brief Issue a one-sided read (get) from a remote peer's window into a local window.
-     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
-     * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
-     *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
-     * @tparam Config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam descriptor_ubuf_t: UB workspace descriptor type, ain_descriptor_ubuf by default.
+     * @tparam commit_flags: ain_commit_immed rings the doorbell immediately;
+     *                      ain_commit_delayed defers submission until a subsequent ain_commit_immed task.
+     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
-     * @param [in] dstWin: Destination symmetric window of the local rank.
-     * @param [in] dstOffset: Byte offset into the destination window.
-     * @param [in] srcWin: Source symmetric window of the peer.
-     * @param [in] srcOffset: Byte offset into the source window.
+     * @param [in] dst_win: Destination symmetric window of the local rank.
+     * @param [in] dst_offset: Byte offset into the destination window.
+     * @param [in] src_win: Source symmetric window of the peer.
+     * @param [in] src_offset: Byte offset into the source window.
      * @param [in] bytes: Number of bytes to transfer.
-     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
+     * @param [in] ubuf: UB workspace descriptor for the underlying asccomm engine.
      */
     template <
-        typename DescriptorUbuf = AinDescriptorUbuf, AinCommitFlags CommitFlags = AIN_COMMIT_IMMED,
-        auto const& Config = URMA_DEFAULT_CFG>
-    AIN_DEVICE void Get(
-        HcommTeamHandle team, uint32_t peer, HcommWindowHandle dstWin, uint64_t dstOffset, HcommWindowHandle srcWin,
-        uint64_t srcOffset, uint64_t bytes, const DescriptorUbuf& ubuf = DescriptorUbuf{});
+        typename descriptor_ubuf_t = ain_descriptor_ubuf, ain_commit_flags commit_flags = ain_commit_immed,
+        auto const& config = urma_default_cfg>
+    AIN_DEVICE void get(
+        asccomm_team_handle team, uint32_t peer, asccomm_window_handle dst_win, uint64_t dst_offset, asccomm_window_handle src_win,
+        uint64_t src_offset, uint64_t bytes, const descriptor_ubuf_t& ubuf = descriptor_ubuf_t{});
 
     /*!
      * @brief Atomically update a remote peer's signal via Fetch-and-Add.
-     * @tparam RemoteAction: Signal action type, for example AinSignalInc, AinSignalAdd.
-     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
-     * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
-     *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
+     * @tparam remote_action: signal action type, for example ain_signal_inc, ain_signal_add.
+     * @tparam descriptor_ubuf_t: UB workspace descriptor type, ain_descriptor_ubuf by default.
+     * @tparam commit_flags: ain_commit_immed rings the doorbell immediately;
+     *                      ain_commit_delayed defers submission until a subsequent ain_commit_immed task.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
-     * @param [in] action: Signal action; AinSignalInc adds 1, AinSignalAdd adds a custom value.
-     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
+     * @param [in] action: signal action; ain_signal_inc adds 1, ain_signal_add adds a custom value.
+     * @param [in] ubuf: UB workspace descriptor for the underlying asccomm engine.
      */
     template <
-        typename RemoteAction, typename DescriptorUbuf = AinDescriptorUbuf,
-        AinCommitFlags CommitFlags = AIN_COMMIT_IMMED, auto const& Config = URMA_DEFAULT_CFG>
-    AIN_DEVICE void Signal(
-        HcommTeamHandle team, uint32_t peer, RemoteAction action, const DescriptorUbuf& ubuf = DescriptorUbuf{});
+        typename remote_action_t, typename descriptor_ubuf_t = ain_descriptor_ubuf,
+        ain_commit_flags commit_flags = ain_commit_immed, auto const& config = urma_default_cfg>
+    AIN_DEVICE void signal(
+        asccomm_team_handle team, uint32_t peer, remote_action_t action, const descriptor_ubuf_t& ubuf = descriptor_ubuf_t{});
 
     /*!
      * @brief Read the local signal value, masked to the lower `bits` bits.
      * @param [in] team: The communication team handle.
-     * @param [in] signalWindow: Symmetric window containing the signal.
-     * @param [in] signalOffset: Byte offset into the signal window.
+     * @param [in] signal_window: Symmetric window containing the signal.
+     * @param [in] signal_offset: Byte offset into the signal window.
      * @param [in] bits: Number of low-order bits to read (1-64).
-     * @param [in] order: Memory order, defaults to AIN_MEMORY_ORDER_RELAX.
+     * @param [in] order: Memory order, defaults to ain_memory_order_relax.
      * @return The masked signal value.
      */
-    AIN_DEVICE uint64_t ReadSignal(
-        HcommTeamHandle team, HcommWindowHandle signalWindow, size_t signalOffset, uint32_t bits = 64,
-        AinMemoryOrder order = AIN_MEMORY_ORDER_RELAX) const;
+    AIN_DEVICE uint64_t read_signal(
+        asccomm_team_handle team, asccomm_window_handle signal_window, size_t signal_offset, uint32_t bits = 64,
+        ain_memory_order order = ain_memory_order_relax) const;
 
     /*!
      * @brief Block until the local signal reaches at least `least` (masked to `bits` bits).
      * @param [in] team: The communication team handle.
-     * @param [in] signalWindow: Symmetric window containing the signal.
-     * @param [in] signalOffset: Byte offset into the signal window.
+     * @param [in] signal_window: Symmetric window containing the signal.
+     * @param [in] signal_offset: Byte offset into the signal window.
      * @param [in] least: Threshold to wait for.
      * @param [in] bits: Number of low-order bits to compare (1-64).
-     * @param [in] order: Memory order, defaults to AIN_MEMORY_ORDER_RELAX.
+     * @param [in] order: Memory order, defaults to ain_memory_order_relax.
      */
-    AIN_DEVICE void WaitSignal(
-        HcommTeamHandle team, HcommWindowHandle signalWindow, size_t signalOffset, uint64_t least, uint32_t bits = 64,
-        AinMemoryOrder order = AIN_MEMORY_ORDER_RELAX) const;
+    AIN_DEVICE void wait_signal(
+        asccomm_team_handle team, asccomm_window_handle signal_window, size_t signal_offset, uint64_t least, uint32_t bits = 64,
+        ain_memory_order order = ain_memory_order_relax) const;
 
 private:
-    static constexpr CommProtocol commProtocol = MaskToCommProtocol(CommEngineMask);
-    uint32_t contextIndex_ = 0;
-    Hcomm<commProtocol> hcomm_;
+    static constexpr comm_protocol protocol = mask_to_comm_protocol(comm_engine_mask);
+    uint32_t context_index_ = 0;
+    asccomm<protocol> asccomm_;
 };
 
-template <unsigned CommEngineMask = AIN_MASK_DEFAULT>
-class AinBarrierSession {
+template <unsigned comm_engine_mask = ain_mask_default>
+class ain_barrier_session {
 public:
     /*!
      * @brief Construct a barrier session over the given team at the given barrier resource index.
-     * @param [in] ain: The Ain instance poiter.
+     * @param [in] ain: The ain instance poiter.
      * @param [in] team: The communication team handle.
      * @param [in] index: Barrier resource index; each index isolates an independent barrier.
      */
-    AIN_DEVICE AinBarrierSession(Ain<CommEngineMask>* ain, HcommTeamHandle team, uint32_t index);
+    AIN_DEVICE ain_barrier_session(ain<comm_engine_mask>* ain, asccomm_team_handle team, uint32_t index);
 
     /*!
      * @brief Synchronize with all peers in the team, blocking until completion.
-     * @param [in] order: Memory order, defaults to AIN_MEMORY_ORDER_RELAX.
-     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
-     * @note Implements a ring barrier: Signal every other rank, then WaitSignal from each.
+     * @param [in] order: Memory order, defaults to ain_memory_order_relax.
+     * @param [in] ubuf: UB workspace descriptor for the underlying asccomm engine.
+     * @note Implements a ring barrier: signal every other rank, then wait_signal from each.
      */
-    template <typename DescriptorUbuf = AinDescriptorUbuf>
-    AIN_DEVICE void Sync(AinMemoryOrder order, const DescriptorUbuf& ubuf = DescriptorUbuf{});
+    template <typename descriptor_ubuf_t = ain_descriptor_ubuf>
+    AIN_DEVICE void sync(ain_memory_order order, const descriptor_ubuf_t& ubuf = descriptor_ubuf_t{});
 
     /*!
      * @brief Synchronize with all peers in the team with a timeout.
-     * @param [in] order: Memory order, defaults to AIN_MEMORY_ORDER_RELAX.
-     * @param [in] timeoutCycles: Maximum cycles to wait.
-     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
+     * @param [in] order: Memory order, defaults to ain_memory_order_relax.
+     * @param [in] timeout_cycles: Maximum cycles to wait.
+     * @param [in] ubuf: UB workspace descriptor for the underlying asccomm engine.
      * @return 0 on success, -1 on timeout.
      */
-    template <typename DescriptorUbuf = AinDescriptorUbuf>
+    template <typename descriptor_ubuf_t = ain_descriptor_ubuf>
     AIN_DEVICE int32_t
-    Sync(AinMemoryOrder order, uint64_t timeoutCycles, const DescriptorUbuf& ubuf = DescriptorUbuf{});
+    sync(ain_memory_order order, uint64_t timeout_cycles, const descriptor_ubuf_t& ubuf = descriptor_ubuf_t{});
 
 private:
-    AinBarrierSessionImpl<CommEngineMask> barrierImpl_;
+    ain_barrier_session_impl<comm_engine_mask> barrier_impl_;
 };
 
 } // namespace AscendC
@@ -226,7 +226,7 @@ private:
 
 #endif // INCLUDE_COMM_API_AICORE_AIN_AIN_H
 
-#if defined(__UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_H__)
-#undef __ASCENDC_INCLUDE_INTERNAL_HEADERS__
-#undef __UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_H__
+#if defined(UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_H)
+#undef ASCENDC_INCLUDE_INTERNAL_HEADERS
+#undef UNDEF_ASCENDC_INCLUDE_INTERNAL_HEADERS_AIN_H
 #endif

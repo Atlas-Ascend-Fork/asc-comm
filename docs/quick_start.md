@@ -265,7 +265,7 @@ cmake --build build/ut-hcomm
 
 ### 🧩 样例验证<a name="sample-verify"></a>
 
-[hcomm_write_read_nbi](../examples/hcomm_write_read_nbi/README.md)提供AIV直驱URMA `WriteNbi`和`ReadNbi`点对点通信样例。样例支持Ascend 950PR/Ascend 950DT，要求CANN 9.1.0或以上版本。运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+[hcomm_write_read_nbi](../examples/hcomm_write_read_nbi/README.md)提供AIV直驱URMA `write_nbi`和`read_nbi`点对点通信样例。样例支持Ascend 950PR/Ascend 950DT，要求CANN 9.1.0或以上版本。运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 
 进入样例目录后执行：
 

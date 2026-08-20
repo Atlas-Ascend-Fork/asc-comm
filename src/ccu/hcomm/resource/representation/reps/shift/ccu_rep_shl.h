@@ -14,38 +14,38 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepShL : public CcuRepBase {
+class ccu_rep_sh_l : public ccu_rep_base {
 public:
-    CcuRepShL(CcuInsGeneraterBase* insGenPtr, const Variable& varD, const Variable& varN, const Variable& varM);
-    CcuRepShL(CcuInsGeneraterBase* insGenPtr, const Variable& varD, const Variable& varM);
-    CcuRepShL(CcuInsGeneraterBase* insGenPtr, const Address& addrD, const Variable& varN, const Variable& varM);
-    CcuRepShL(CcuInsGeneraterBase* insGenPtr, const Address& addrD, const Variable& varM);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep) override;
+    ccu_rep_sh_l(ccu_ins_generater_base* ins_gen_ptr, const variable& var_d, const variable& var_n, const variable& var_m);
+    ccu_rep_sh_l(ccu_ins_generater_base* ins_gen_ptr, const variable& var_d, const variable& var_m);
+    ccu_rep_sh_l(ccu_ins_generater_base* ins_gen_ptr, const address& addr_d, const variable& var_n, const variable& var_m);
+    ccu_rep_sh_l(ccu_ins_generater_base* ins_gen_ptr, const address& addr_d, const variable& var_m);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, const trans_dep& dep) override;
 
-    std::string Describe() override;
+    std::string describe() override;
 
 private:
-    ShiftSubType subType{ShiftSubType::INVALID};
-    ShiftType shiftType{ShiftType::INVALID};
-    Variable varN;
-    Variable varM;
-    Variable varD;
-    Address addrD;
+    shift_sub_type sub_type_{shift_sub_type::invalid};
+    shift_type shift_type_{shift_type::invalid};
+    variable var_n_;
+    variable var_m_;
+    variable var_d_;
+    address addr_d_;
 
-    CcuInsGeneraterBase* insGenPtr{nullptr};
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
 
 public:
-    ShiftSubType GetShiftSubType() { return subType; }
-    ShiftType GetShiftType() { return shiftType; }
-    Variable GetVarN() { return varN; }
-    Variable GetVarM() { return varM; }
-    Variable GetVarD() { return varD; }
-    Address GetAddressD() { return addrD; }
+    shift_sub_type get_shift_sub_type() { return sub_type_; }
+    shift_type get_shift_type() { return shift_type_; }
+    variable get_var_n() { return var_n_; }
+    variable get_var_m() { return var_m_; }
+    variable get_var_d() { return var_d_; }
+    address get_address_d() { return addr_d_; }
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCCL_CCU_REPRESENTATION_SHL_H

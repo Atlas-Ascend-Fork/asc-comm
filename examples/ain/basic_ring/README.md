@@ -2,7 +2,7 @@
 
 ## 概述
 
-本样例展示如何在AscendC AIV Kernel中通过`ain/ain.h`接口使用AIN基础通信能力。样例采用多rank对称执行方式：每个rank向下一个rank执行`Put`，并对上一个rank执行`Get`，最后通过AinBarrierSession完成同步。
+本样例展示如何在AscendC AIV Kernel中通过`ain/ain.h`接口使用AIN基础通信能力。样例采用多rank对称执行方式：每个rank向下一个rank执行`put`，并对上一个rank执行`get`，最后通过ain_barrier_session完成同步。
 
 Host侧负责内存申请/初始化HCCL通信域/创建HCCL Team/注册对称window并创建AIV通信channel；Kernel侧只通过AIN接口提交数据面通信任务。
 
@@ -12,7 +12,7 @@ Host侧负责内存申请/初始化HCCL通信域/创建HCCL Team/注册对称win
 | --- | --- |
 | 产品 | `Ascend 950PR / Ascend 950DT` |
 | NPU架构 | `dav-3510` |
-| 通信协议 | `COMM_PROTOCOL_UBC_CTP` |
+| 通信协议 | `comm_protocol_ubc_ctp` |
 | 通信引擎 | `COMM_ENGINE_AIV` |
 | 部署形态 | 单机多卡 |
 | CANN包 | 使用当前环境中`set_env.sh`指向的CANN包 |
@@ -45,11 +45,11 @@ basic_ring
 
 Kernel侧包含如下通信步骤：
 
-1. 构造`AscendC::Ain`对象并初始化Hcomm UB临时工作区。
-2. 当前rank通过`Put`将本rank标识写入下一个rank的`recvWindow[rankId]`。
-3. 当前rank通过`Get`从上一个rank的`sendWindow[0]`读取数据到本rank的`recvWindow[rankNum + rankId]`。
-4. 调用`Flush`等待AIN通信任务完成。
-5. 通过`AinBarrierSession::Sync`完成rank间同步。
+1. 构造`AscendC::ain`对象并初始化asccomm UB临时工作区。
+2. 当前rank通过`put`将本rank标识写入下一个rank的`recvWindow[rankId]`。
+3. 当前rank通过`get`从上一个rank的`sendWindow[0]`读取数据到本rank的`recvWindow[rankNum + rankId]`。
+4. 调用`flush`等待AIN通信任务完成。
+5. 通过`ain_barrier_session::Sync`完成rank间同步。
 
 ## 编译
 
@@ -86,7 +86,7 @@ make -j
 
 ## 执行结果
 
-每个rank会回读`recvBuf`并打印`Put`和`Get`结果，例如：
+每个rank会回读`recvBuf`并打印`put`和`get`结果，例如：
 
 ```text
 PUT RES rank 0 recvBuf[1]=1 expect=1

@@ -6,15 +6,15 @@
 
 | 样例 | 说明 | 支持产品 |
 | --- | --- | --- |
-| [ain/basic_ring](./ain/basic_ring/README.md) | 演示多卡环形场景下AIV Kernel通过AIN接口调用`Put`/`Get`进行点对点单边通信，并通过`AinBarrierSession`完成同步与结果校验。 | Ascend 950PR/Ascend 950DT |
-| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示多卡场景下AIV Kernel通过URMA路径调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
+| [ain/basic_ring](./ain/basic_ring/README.md) | 演示多卡环形场景下AIV Kernel通过AIN接口调用`put`/`get`进行点对点单边通信，并通过`ain_barrier_session`完成同步与结果校验。 | Ascend 950PR/Ascend 950DT |
+| [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示多卡场景下AIV Kernel通过URMA路径调用`asccomm::write_nbi`和`asccomm::read_nbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
 | [one_multi_path](./one_multi_path/README.md) | 查询`UB_MEM`链路，为每个peer创建one path/multi path Channel，逐个处理peer，并通过双Stream并发搬运和校验该peer的远端数据。 | Ascend 950PR/Ascend 950DT |
-| [simt_notify_atomic](./simt_notify_atomic/README.md) | 演示并验证 SIMT URMA `WriteWithNotifyNbi`、`AtomicFAA` 和 `AtomicCAS` 的单次、批量及多 lane 提交。 | Ascend 950PR / Ascend 950DT |
-| [simt_notify_atomic_perf](./simt_notify_atomic_perf/README.md) | 测量SIMT URMA `WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`的下发时延与完成带宽。 | Ascend 950PR / Ascend 950DT |
+| [simt_notify_atomic](./simt_notify_atomic/README.md) | 演示并验证 SIMT URMA `write_with_notify_nbi`、`atomic_faa` 和 `atomic_cas` 的单次、批量及多 lane 提交。 | Ascend 950PR / Ascend 950DT |
+| [simt_notify_atomic_perf](./simt_notify_atomic_perf/README.md) | 测量SIMT URMA `write_with_notify_nbi`、`atomic_faa`和`atomic_cas`的下发时延与完成带宽。 | Ascend 950PR / Ascend 950DT |
 
 ## simt_notify_atomic
 
-`simt_notify_atomic`验证SIMT Kernel通过URMA路径调用`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`。样例包含三个单接口用例，以及串行提交、batch-last和多lane批量提交场景。
+`simt_notify_atomic`验证SIMT Kernel通过URMA路径调用`write_with_notify_nbi`、`atomic_faa`和`atomic_cas`。样例包含三个单接口用例，以及串行提交、batch-last和多lane批量提交场景。
 
 编译运行方式参见[simt_notify_atomic/README.md](./simt_notify_atomic/README.md)。
 

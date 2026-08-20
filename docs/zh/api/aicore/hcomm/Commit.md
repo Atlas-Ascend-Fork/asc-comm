@@ -1,14 +1,14 @@
-﻿# Commit
+﻿# commit
 
 ## 功能说明
 
-通知指定通道上已提交的通信任务可以开始执行。通常在调用`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`或`AtomicCAS`时将`commit`设置为`false`后显式调用。
+通知指定通道上已提交的通信任务可以开始执行。通常在调用`read_nbi`、`write_nbi`、`write_with_notify_nbi`、`atomic_faa`或`atomic_cas`时将`commit`设置为`false`后显式调用。
 
 ## 函数原型
 
 ```cpp
 template <pipe_t pipe = PIPE_S>
-__aicore__ inline int32_t Commit(AscendC::ChannelHandle channel);
+__aicore__ inline int32_t commit(AscendC::channel_handle channel);
 ```
 
 ## 参数说明

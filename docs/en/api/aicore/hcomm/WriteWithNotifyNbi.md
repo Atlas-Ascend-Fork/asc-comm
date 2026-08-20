@@ -1,24 +1,24 @@
-# WriteWithNotifyNbi
+# write_with_notify_nbi
 
 ## Function Description
 Submits a point-to-point write task carrying a remote notification address and notification value.
 
-This interface currently only supports the `COMM_PROTOCOL_UBC_CTP` path. An interface with the same name is reserved for the `COMM_PROTOCOL_ROCE` path, but its implementation will return a failure.
+This interface currently only supports the `comm_protocol_ubc_ctp` path. An interface with the same name is reserved for the `comm_protocol_roce` path, but its implementation will return a failure.
 
 ## Function Prototype
 ```cpp
 template <
     bool commit = true,
-    pipe_t commitPipe = PIPE_S,
-    pipe_t reqPipe = PIPE_MTE3,
-    auto const& config = URMA_DEFAULT_CFG>
-__aicore__ inline int32_t WriteWithNotifyNbi(
-    AscendC::ChannelHandle channel,
+    pipe_t commit_pipe = PIPE_S,
+    pipe_t req_pipe = PIPE_MTE3,
+    auto const& config = urma_default_cfg>
+__aicore__ inline int32_t write_with_notify_nbi(
+    AscendC::channel_handle channel,
     GM_ADDR dst,
     GM_ADDR src,
     uint64_t len,
-    GM_ADDR notifyAddr,
-    uint64_t notifyVal);
+    GM_ADDR notify_addr,
+    uint64_t notify_val);
 ```
 
 ## Parameter Description
@@ -28,16 +28,16 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | `dst` | Output | Destination GM address. |
 | `src` | Input | Source GM address. |
 | `len` | Input | Write length in bytes. |
-| `notifyAddr` | Input | Remote notification address. |
-| `notifyVal` | Input | Remote notification value. |
+| `notify_addr` | Input | Remote notification address. |
+| `notify_val` | Input | Remote notification value. |
 
 ## Template Parameters
 | Parameter | Description |
 | --- | --- |
 | `commit` | Whether to perform an immediate commit when submitting the task. |
-| `commitPipe` | Pipe used for commit operations. Default: `PIPE_S`. |
-| `reqPipe` | Pipe used for requests. Default: `PIPE_MTE3`. |
-| `config` | URMA WQE control configuration, only used for URMA path. Defaults to `URMA_DEFAULT_CFG` (strong ordering + fence + CQE enabled). |
+| `commit_pipe` | Pipe used for commit operations. Default: `PIPE_S`. |
+| `req_pipe` | Pipe used for requests. Default: `PIPE_MTE3`. |
+| `config` | URMA WQE control configuration, only used for URMA path. Defaults to `urma_default_cfg` (strong ordering + fence + CQE enabled). |
 
 ## Return Value
 | Return Value | Description |
@@ -47,6 +47,6 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 
 ## Constraints
 - The communication channel must be initialized before invocation.
-- The passed `ChannelHandle` must correspond to a `COMM_PROTOCOL_UBC_CTP` channel.
-- This interface is not supported on the `COMM_PROTOCOL_ROCE` path; invocation returns `-1`.
-- A single `WriteWithNotifyNbi` task occupies 2 WQE blocks in the URMA SQ.
+- The passed `channel_handle` must correspond to a `comm_protocol_ubc_ctp` channel.
+- This interface is not supported on the `comm_protocol_roce` path; invocation returns `-1`.
+- A single `write_with_notify_nbi` task occupies 2 WQE blocks in the URMA SQ.

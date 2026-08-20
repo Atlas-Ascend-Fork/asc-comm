@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file hcomm_aiv_urma_def.h
- * \brief Hcomm AIV URMA definition for V310
+ * \file asccomm_aiv_urma_def.h
+ * \brief asccomm AIV URMA definition for V310
  */
 
-#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include hcomm/hcomm.h instead.")
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H
+#if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal asccomm header. Please include hcomm/hcomm.h instead.")
+#define ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H
 #endif
 
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_DEF_H
@@ -26,101 +26,101 @@
 
 namespace AscendC {
 
-constexpr uint32_t HCOMM_URMA_MAX_RETRY_TIMES = 1000000;
-constexpr uint32_t HCOMM_URMA_TMP_BUF_SIZE = 512;
-constexpr uint32_t HCOMM_URMA_WQE_U32_NUM = 32;
-constexpr uint32_t HCOMM_URMA_CQE_U32_NUM = 16;
-constexpr uint32_t HCOMM_URMA_UDF_FLAG = 0x80U;
-constexpr uint32_t POLL_CQ_THRESHOLD = 10;
-constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
+constexpr uint32_t asccomm_urma_max_retry_times = 1000000;
+constexpr uint32_t asccomm_urma_tmp_buf_size = 512;
+constexpr uint32_t asccomm_urma_wqe_u32_num = 32;
+constexpr uint32_t asccomm_urma_cqe_u32_num = 16;
+constexpr uint32_t asccomm_urma_udf_flag = 0x80U;
+constexpr uint32_t poll_cq_threshold = 10;
+constexpr uint32_t num_cqe_per_poll_cq = 100;
 #if defined(UT_TEST)
-constexpr uint32_t HCOMM_URMA_MUTEX_ID = 27U;
+constexpr uint32_t asccomm_urma_mutex_id = 27U;
 #else
-constexpr uint32_t HCOMM_URMA_MUTEX_ID = 29U;
+constexpr uint32_t asccomm_urma_mutex_id = 29U;
 #endif
 
-constexpr uint32_t HCOMM_URMA_INVALID_REDUCE_DATA_TYPE = 0xFFFFFFFFU;
-template <typename T>
-constexpr uint32_t HCOMM_URMA_REDUCE_DATA_TYPE =
-    std::is_same<T, int8_t>::value     ? 0x0U :
-    std::is_same<T, int16_t>::value    ? 0x1U :
-    std::is_same<T, int32_t>::value    ? 0x2U :
-    std::is_same<T, uint32_t>::value   ? 0x5U :
-    std::is_same<T, half>::value       ? 0x6U :
-    std::is_same<T, float>::value      ? 0x7U :
-    std::is_same<T, bfloat16_t>::value ? 0x8U :
-                                         HCOMM_URMA_INVALID_REDUCE_DATA_TYPE;
+constexpr uint32_t asccomm_urma_invalid_reduce_data_type = 0xFFFFFFFFU;
+template <typename t>
+constexpr uint32_t asccomm_urma_reduce_data_type =
+    std::is_same<t, int8_t>::value     ? 0x0U :
+    std::is_same<t, int16_t>::value    ? 0x1U :
+    std::is_same<t, int32_t>::value    ? 0x2U :
+    std::is_same<t, uint32_t>::value   ? 0x5U :
+    std::is_same<t, half>::value       ? 0x6U :
+    std::is_same<t, float>::value      ? 0x7U :
+    std::is_same<t, bfloat16_t>::value ? 0x8U :
+                                         asccomm_urma_invalid_reduce_data_type;
 
-template <typename T>
-struct UdmaParams {
-    T value;
-    T cond;
-    uint32_t reduceDataType;
-    uint32_t reduceOpcode;
+template <typename t>
+struct udma_params {
+    t value;
+    t cond;
+    uint32_t reduce_data_type;
+    uint32_t reduce_opcode;
 };
 
 template <>
-class HcommImpl<COMM_PROTOCOL_UBC_CTP> {
+class asccomm_impl<comm_protocol_ubc_ctp> {
 public:
-    __aicore__ inline HcommImpl();
-    __aicore__ inline ~HcommImpl();
-    __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
-    template <typename T>
-    __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
+    __aicore__ inline asccomm_impl();
+    __aicore__ inline ~asccomm_impl();
+    __aicore__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len);
+    template <typename t>
+    __aicore__ inline int32_t init(const LocalTensor<t>& buff, uint32_t len);
     template <
-        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+        bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
+        auto const& config = urma_default_cfg>
+    __aicore__ inline int32_t write_nbi(channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <
-        typename T, HcommUrmaReduceOp reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,
-        pipe_t reqPipe = PIPE_MTE3, auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteReduceNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count);
+        typename t, asccomm_urma_reduce_op reduce_op, bool commit = true, pipe_t commit_pipe = PIPE_S,
+        pipe_t req_pipe = PIPE_MTE3, auto const& config = urma_default_cfg>
+    __aicore__ inline int32_t write_reduce_nbi(channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t count);
     template <
-        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+        bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
+        auto const& config = urma_default_cfg>
+    __aicore__ inline int32_t read_nbi(channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <
-        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_INLINE_CFG>
-    __aicore__ inline int32_t WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value);
+        typename t, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
+        auto const& config = urma_inline_cfg>
+    __aicore__ inline int32_t write_value_nbi(channel_handle channel, GM_ADDR dst, t value);
     template <
-        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteWithNotifyNbi(
-        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+        bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
+        auto const& config = urma_default_cfg>
+    __aicore__ inline int32_t write_with_notify_nbi(
+        channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val);
     template <
-        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t AtomicFAA(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T addVal);
+        typename t, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
+        auto const& config = urma_default_cfg>
+    __aicore__ inline int32_t atomic_faa(channel_handle channel, GM_ADDR dst, GM_ADDR fetch_addr, t add_val);
     template <
-        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t AtomicCAS(ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T compareVal, T swapVal);
+        typename t, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
+        auto const& config = urma_default_cfg>
+    __aicore__ inline int32_t atomic_cas(channel_handle channel, GM_ADDR dst, GM_ADDR fetch_addr, t compare_val, t swap_val);
     template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t Commit(ChannelHandle channel);
+    __aicore__ inline int32_t commit(channel_handle channel);
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t Drain(ChannelHandle channel);
+    __aicore__ inline int32_t drain(channel_handle channel);
 
 private:
     template <
-        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE, auto const& config = URMA_DEFAULT_CFG, typename T = uint64_t>
-    __aicore__ inline int32_t PostSend(
-        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr = nullptr,
-        const UdmaParams<T>& params = UdmaParams<T>{});
-    __aicore__ inline void CommitImpl(ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt);
-    __aicore__ inline void PollCqWhenSqOverflow(
-        ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt);
-    __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail);
+        bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
+        asccomm_urma_op_code op_code = asccomm_urma_op_code::write, auto const& config = urma_default_cfg, typename t = uint64_t>
+    __aicore__ inline int32_t post_send(
+        channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr = nullptr,
+        const udma_params<t>& params = udma_params<t>{});
+    __aicore__ inline void commit_impl(channel_handle channel, const sq_context& sq_ctx, uint32_t sq_head, uint32_t cqe_cnt);
+    __aicore__ inline void poll_cq_when_sq_overflow(
+        channel_handle channel, const sq_context& sq_ctx, const cq_context& cq_ctx, uint32_t sq_head, uint32_t cqe_cnt);
+    __aicore__ inline uint32_t poll_cq(channel_handle channel, uint32_t expect_tail);
 
 private:
-    LocalTensor<uint32_t> wqeItem_;
-    LocalTensor<uint32_t> cqeItem_;
+    LocalTensor<uint32_t> wqe_item_;
+    LocalTensor<uint32_t> cqe_item_;
 };
 } // namespace AscendC
 
 #endif
-#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H)
-#undef HCOMM_INCLUDE_INTERNAL_HEADERS
-#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H
+#if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H)
+#undef ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#undef ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_AIV_URMA_DEF_H
 #endif

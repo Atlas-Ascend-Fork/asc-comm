@@ -1,4 +1,4 @@
-# WriteNbi
+# write_nbi
 
 ## Function Description
 Submits a point-to-point write task via the specified communication channel to write data from `src` to `dst`.
@@ -7,11 +7,11 @@ Submits a point-to-point write task via the specified communication channel to w
 ```cpp
 template <
     bool commit = true,
-    pipe_t commitPipe = PIPE_S,
-    pipe_t reqPipe = PIPE_MTE3,
-    auto const& config = URMA_DEFAULT_CFG>
-__aicore__ inline int32_t WriteNbi(
-    AscendC::ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    pipe_t commit_pipe = PIPE_S,
+    pipe_t req_pipe = PIPE_MTE3,
+    auto const& config = urma_default_cfg>
+__aicore__ inline int32_t write_nbi(
+    AscendC::channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 ```
 
 ## Parameter Description
@@ -26,9 +26,9 @@ __aicore__ inline int32_t WriteNbi(
 | Parameter | Description |
 | --- | --- |
 | `commit` | Whether to perform an immediate commit when submitting the task. |
-| `commitPipe` | Pipe used for commit operations. Default: `PIPE_S`. |
-| `reqPipe` | Pipe used for requests. Default: `PIPE_MTE3`. |
-| `config` | URMA WQE control configuration, only used for the URMA path. Defaults to `URMA_DEFAULT_CFG` (strong ordering + fence + CQE enabled). |
+| `commit_pipe` | Pipe used for commit operations. Default: `PIPE_S`. |
+| `req_pipe` | Pipe used for requests. Default: `PIPE_MTE3`. |
+| `config` | URMA WQE control configuration, only used for the URMA path. Defaults to `urma_default_cfg` (strong ordering + fence + CQE enabled). |
 
 ## Return Value
 | Return Value | Description |
@@ -38,7 +38,7 @@ __aicore__ inline int32_t WriteNbi(
 
 ## Constraints
 - The communication channel must be initialized before invocation.
-- Under the `COMM_PROTOCOL_UBC_CTP` path, `dst` must be within the range of the remote buffer registered for the channel, and `src` is the local source address.
+- Under the `comm_protocol_ubc_ctp` path, `dst` must be within the range of the remote buffer registered for the channel, and `src` is the local source address.
 
 ## Related Sample
 Refer to the two-card read/write workflow for AIV direct-driven URMA in [hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README_en.md).

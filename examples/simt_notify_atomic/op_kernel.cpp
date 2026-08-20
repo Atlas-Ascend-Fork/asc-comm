@@ -20,43 +20,43 @@ using namespace simt_notify_atomic;
 constexpr uint32_t kHcommWorkspaceWords = 384U / sizeof(uint64_t);
 constexpr uint32_t kWqeStagingWords = 128U / sizeof(uint64_t);
 
-// Isolated Notify case: exactly one immediate DWQE, followed by Drain.
+// Isolated Notify case: exactly one immediate DWQE, followed by drain.
 __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* wqeStaging, uint32_t wqeStagingBytes)
 {
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
-    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
-    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    __gm__ uint8_t* local = AscendC::simt::local_buffer_addr(channel, sendBufIdx);
+    __gm__ uint8_t* remote = AscendC::simt::remote_buffer_addr(channel, recvBufIdx);
 
-    AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init(wqeStaging, wqeStagingBytes);
-    (void)hcomm.WriteWithNotifyNbi(
+    AscendC::simt::asccomm<> hcomm;
+    (void)hcomm.init(wqeStaging, wqeStagingBytes);
+    (void)hcomm.write_with_notify_nbi(
         channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
         kNotifySignal);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.drain(channel));
 }
 
 // Reproduces the immediate-post burst used by the performance benchmark: one lane rings
-// the DWQE doorbell for every 2-BB Notify WQE, then calls Drain only after the whole burst.
+// the DWQE doorbell for every 2-BB Notify WQE, then calls drain only after the whole burst.
 __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyImmediateRepeatVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* wqeStaging, uint32_t wqeStagingBytes)
 {
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
-    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
-    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    __gm__ uint8_t* local = AscendC::simt::local_buffer_addr(channel, sendBufIdx);
+    __gm__ uint8_t* remote = AscendC::simt::remote_buffer_addr(channel, recvBufIdx);
 
-    AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init(wqeStaging, wqeStagingBytes);
+    AscendC::simt::asccomm<> hcomm;
+    (void)hcomm.init(wqeStaging, wqeStagingBytes);
     for (uint32_t i = 0; i < kNotifyImmediateRepeatCount; ++i) {
-        (void)hcomm.WriteWithNotifyNbi<true>(
+        (void)hcomm.write_with_notify_nbi<true>(
             channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
             kNotifySignal);
     }
-    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.drain(channel));
 }
 
 // Isolated FAA case: verifies both the remote sum and the fetched old value.
@@ -66,14 +66,14 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtFaaVf(
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
-    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
-    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    __gm__ uint8_t* local = AscendC::simt::local_buffer_addr(channel, sendBufIdx);
+    __gm__ uint8_t* remote = AscendC::simt::remote_buffer_addr(channel, recvBufIdx);
 
-    AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init(wqeStaging, wqeStagingBytes);
-    (void)hcomm.AtomicFAA<uint64_t>(
+    AscendC::simt::asccomm<> hcomm;
+    (void)hcomm.init(wqeStaging, wqeStagingBytes);
+    (void)hcomm.atomic_faa<uint64_t>(
         channel, remote + kFaaTargetSlot * kSlotBytes, local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kFaaDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[kFaaDrainSlot] = static_cast<uint64_t>(hcomm.drain(channel));
 }
 
 // Isolated CAS case: verifies both the remote swap and the fetched old value.
@@ -83,39 +83,39 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtCasVf(
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
-    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
-    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    __gm__ uint8_t* local = AscendC::simt::local_buffer_addr(channel, sendBufIdx);
+    __gm__ uint8_t* remote = AscendC::simt::remote_buffer_addr(channel, recvBufIdx);
 
-    AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init(wqeStaging, wqeStagingBytes);
-    (void)hcomm.AtomicCAS<uint64_t>(
+    AscendC::simt::asccomm<> hcomm;
+    (void)hcomm.init(wqeStaging, wqeStagingBytes);
+    (void)hcomm.atomic_cas<uint64_t>(
         channel, remote + kCasTargetSlot * kSlotBytes, local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kCasDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[kCasDrainSlot] = static_cast<uint64_t>(hcomm.drain(channel));
 }
 
 // Strictly serialized single-lane case: wait for each CQE before reusing the DWQE window.
-// Drain return values are stored in otherwise-unused sender slots for diagnosis.
+// drain return values are stored in otherwise-unused sender slots for diagnosis.
 __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicSingleVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* wqeStaging, uint32_t wqeStagingBytes)
 {
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
-    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
-    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    __gm__ uint8_t* local = AscendC::simt::local_buffer_addr(channel, sendBufIdx);
+    __gm__ uint8_t* remote = AscendC::simt::remote_buffer_addr(channel, recvBufIdx);
 
-    AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init(wqeStaging, wqeStagingBytes);
-    (void)hcomm.WriteWithNotifyNbi(
+    AscendC::simt::asccomm<> hcomm;
+    (void)hcomm.init(wqeStaging, wqeStagingBytes);
+    (void)hcomm.write_with_notify_nbi(
         channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
         kNotifySignal);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
-    (void)hcomm.AtomicFAA<uint64_t>(
+    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.drain(channel));
+    (void)hcomm.atomic_faa<uint64_t>(
         channel, remote + kFaaTargetSlot * kSlotBytes, local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kFaaDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
-    (void)hcomm.AtomicCAS<uint64_t>(
+    reinterpret_cast<__gm__ uint64_t*>(local)[kFaaDrainSlot] = static_cast<uint64_t>(hcomm.drain(channel));
+    (void)hcomm.atomic_cas<uint64_t>(
         channel, remote + kCasTargetSlot * kSlotBytes, local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kCasDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[kCasDrainSlot] = static_cast<uint64_t>(hcomm.drain(channel));
 }
 
 // Scenario 2: one lane defers Notify and FAA, then CAS with commit=true publishes the batch.
@@ -125,19 +125,19 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicBatchLastVf(
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
-    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
-    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    __gm__ uint8_t* local = AscendC::simt::local_buffer_addr(channel, sendBufIdx);
+    __gm__ uint8_t* remote = AscendC::simt::remote_buffer_addr(channel, recvBufIdx);
 
-    AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init(wqeStaging, wqeStagingBytes);
-    (void)hcomm.WriteWithNotifyNbi<false>(
+    AscendC::simt::asccomm<> hcomm;
+    (void)hcomm.init(wqeStaging, wqeStagingBytes);
+    (void)hcomm.write_with_notify_nbi<false>(
         channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
         kNotifySignal);
-    (void)hcomm.AtomicFAA<uint64_t, false>(
+    (void)hcomm.atomic_faa<uint64_t, false>(
         channel, remote + kFaaTargetSlot * kSlotBytes, local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
-    (void)hcomm.AtomicCAS<uint64_t>(
+    (void)hcomm.atomic_cas<uint64_t>(
         channel, remote + kCasTargetSlot * kSlotBytes, local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.drain(channel));
 }
 
 // Multiple lanes concurrently fill deferred SQ entries. After they synchronize,
@@ -148,30 +148,30 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicMultiLaneVf(
     if (threadIdx.x >= kMultiLaneCount || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
-    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
-    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    __gm__ uint8_t* local = AscendC::simt::local_buffer_addr(channel, sendBufIdx);
+    __gm__ uint8_t* remote = AscendC::simt::remote_buffer_addr(channel, recvBufIdx);
 
     uint32_t lane = threadIdx.x;
-    AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init(wqeStaging, wqeStagingBytes);
+    AscendC::simt::asccomm<> hcomm;
+    (void)hcomm.init(wqeStaging, wqeStagingBytes);
     if (lane == 0U) {
-        (void)hcomm.WriteWithNotifyNbi<false>(
+        (void)hcomm.write_with_notify_nbi<false>(
             channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
             kNotifySignal);
     } else if (lane == 1U) {
-        (void)hcomm.AtomicFAA<uint64_t, false>(
+        (void)hcomm.atomic_faa<uint64_t, false>(
             channel, remote + kFaaTargetSlot * kSlotBytes, local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
     } else {
-        (void)hcomm.AtomicCAS<uint64_t, false>(
+        (void)hcomm.atomic_cas<uint64_t, false>(
             channel, remote + kCasTargetSlot * kSlotBytes, local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
     }
 
     asc_syncthreads();
     if (lane == 0U) {
-        (void)hcomm.WriteWithNotifyNbi<true>(
+        (void)hcomm.write_with_notify_nbi<true>(
             channel, remote + kFinalNotifyDataSlot * kSlotBytes, local, kSlotBytes,
             remote + kFinalNotifySignalSlot * kSlotBytes, kFinalNotifySignal);
-        reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+        reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.drain(channel));
     }
 }
 

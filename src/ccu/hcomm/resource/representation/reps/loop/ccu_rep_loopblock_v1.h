@@ -8,36 +8,36 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_LOOP_BLOCK_H
-#define HCOMM_CCU_REPRESENTATION_LOOP_BLOCK_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_LOOP_BLOCK_H
+#define ASCCOMM_CCU_REPRESENTATION_LOOP_BLOCK_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_arg_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepLoopBlock : public CcuRepBlock {
+class ccu_rep_loop_block : public ccu_rep_block {
 public:
-    explicit CcuRepLoopBlock(CcuInsGeneraterBase* insGenPtr, const std::string& label);
-    std::string Describe() override;
+    explicit ccu_rep_loop_block(ccu_ins_generater_base* ins_gen_ptr, const std::string& label);
+    std::string describe() override;
 
-    void DefineArg(Variable var);
-    void DefineArg(Memory mem);
-    void DefineArg(LocalAddr addr);
-    void DefineArg(RemoteAddr addr);
+    void define_arg(variable var);
+    void define_arg(memory mem);
+    void define_arg(local_addr addr);
+    void define_arg(remote_addr addr);
 
-    void DefineArg(const std::vector<Variable> varList);
-    void DefineArg(const std::vector<Memory> memList);
-    void DefineArg(const std::vector<LocalAddr> addrList);
-    void DefineArg(const std::vector<RemoteAddr> addrList);
+    void define_arg(const std::vector<variable> var_list);
+    void define_arg(const std::vector<memory> mem_list);
+    void define_arg(const std::vector<local_addr> addr_list);
+    void define_arg(const std::vector<remote_addr> addr_list);
 
-    CcuRepArg& GetArg(uint16_t index);
+    ccu_rep_arg& get_arg(uint16_t index);
 
 private:
-    std::vector<CcuRepArg> args;
+    std::vector<ccu_rep_arg> args_;
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_LOOP_BLOCK_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_LOOP_BLOCK_H

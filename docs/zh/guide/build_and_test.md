@@ -39,7 +39,7 @@ build/ut-hcomm
 
 ## 构建开发验证run包
 
-本地修改Hcomm或Ain头文件后，可生成轻量开发验证包，将当前工作树中的相关头文件安装到已有CANN环境，无需重新生成完整toolkit包：
+本地修改Hcomm或ain头文件后，可生成轻量开发验证包，将当前工作树中的相关头文件安装到已有CANN环境，无需重新生成完整toolkit包：
 
 ```bash
 bash build.sh --pkg
@@ -73,7 +73,7 @@ asc/impl/comm_api/aicore/hcomm    -> ../../adv_api/detail/hcomm
 
 | 参数 | 说明 |
 | --- | --- |
-| `--full` | 以full模式安装或更新包内全部Hcomm与Ain头文件及Hcomm软链。 |
+| `--full` | 以full模式安装或更新包内全部Hcomm与ain头文件及Hcomm软链。 |
 | `--uninstall` | 恢复基线中的原文件，并删除安装前不存在的文件。 |
 | `--check` | 校验run包归档、payload和依赖兼容性，不修改CANN。 |
 | `--install-path=<PATH>` | 指定Ascend安装根目录；root默认使用`/usr/local/Ascend`，非root默认使用`$HOME/Ascend`。 |
@@ -122,7 +122,7 @@ var/asc-comm-dev-patch/baseline/
 
 - 如果目标文件已经存在，安装器会保存原文件后再替换；卸载时恢复原文件及其权限。
 - 如果目标文件原本不存在，安装器会将其记录为`absent`后创建；卸载时删除该文件。
-- 非root安装时，AICore Hcomm和Ain文件权限为`550`，Hcomm目录权限为`750`，`comm_api`下的受管目录权限为`550`。与devkit和hcomm包一致，root安装会自动启用全用户访问，将上述权限分别调整为`555`、`755`和`555`。安装器会记录目录原有权限；重复安装、卸载或安装失败回滚时会恢复原权限，不会递归修改无关目录。
+- 非root安装时，AICore Hcomm和ain文件权限为`550`，Hcomm目录权限为`750`，`comm_api`下的受管目录权限为`550`。与devkit和hcomm包一致，root安装会自动启用全用户访问，将上述权限分别调整为`555`、`755`和`555`。安装器会记录目录原有权限；重复安装、卸载或安装失败回滚时会恢复原权限，不会递归修改无关目录。
 - 安装器会记录两条Hcomm软链在首次安装前是否存在。卸载时，安装器会保留原本已存在且指向正确的软链，删除由本包新建的软链；目标错误的软链或占用软链路径的普通文件、目录不会被覆盖。
 - 同一CANN目录中重复安装run包时，安装器会先恢复上一个补丁，再基于恢复后的CANN为新包重建基线，不会把上一次安装的补丁文件保存为原文件。
 - 如果上一个asc-comm补丁中的路径不再出现在新包中，重复安装会将该路径恢复到原始状态并停止管理；后续卸载不会再处理该路径。但安装器无法处理从未被补丁记录、且本次包中也不存在的旧CANN文件。
@@ -193,7 +193,7 @@ bash build.sh -t --cann_3rd_lib_path=<path-to-third-party>
 
 ## 样例构建与运行
 
-`examples/hcomm_write_read_nbi`提供AIV直驱URMA `WriteNbi`和`ReadNbi`点对点通信样例。该样例使用独立CMake工程构建：
+`examples/hcomm_write_read_nbi`提供AIV直驱URMA `write_nbi`和`read_nbi`点对点通信样例。该样例使用独立CMake工程构建：
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh

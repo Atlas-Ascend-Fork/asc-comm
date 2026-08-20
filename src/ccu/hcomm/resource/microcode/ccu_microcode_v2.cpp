@@ -188,8 +188,8 @@ void Loop(
     CcuInstr* instr, uint16_t startInstrId, uint16_t endInstrId, uint16_t iterNum, uint16_t offset, uint16_t contextId)
 {
     instr->header = InstrHeader(CTRL_TYPE, LOOP_CODE);
-    instr->v2.loop.startInstrId = startInstrId;
-    instr->v2.loop.endInstrId = endInstrId;
+    instr->v2.loop.start_instr_id = startInstrId;
+    instr->v2.loop.end_instr_id = endInstrId;
     instr->v2.loop.xmId = iterNum;
     instr->v2.loop.xnId = offset;
     instr->v2.loop.xpId = contextId;
@@ -208,10 +208,10 @@ void LoopGroup(
     CcuInstr* instr, uint16_t startLoopInstrId, uint16_t loopGroupConfig, uint16_t resOffset, uint16_t xnOffset)
 {
     instr->header = InstrHeader(CTRL_TYPE, LOOPGROUP_CODE);
-    instr->v2.loopGroup.startLoopInstrId = startLoopInstrId;
-    instr->v2.loopGroup.xnId = loopGroupConfig;
-    instr->v2.loopGroup.xmId = resOffset;
-    instr->v2.loopGroup.xpId = xnOffset;
+    instr->v2.loop_group.startLoopInstrId = startLoopInstrId;
+    instr->v2.loop_group.xnId = loopGroupConfig;
+    instr->v2.loop_group.xmId = resOffset;
+    instr->v2.loop_group.xpId = xnOffset;
 }
 
 // 后续函数中, 均需要wait到<waitCKEId, waitCKEMask>后, 再执行相关操作, 执行完之后再set<setCKEId, setCKEMask>
@@ -316,30 +316,30 @@ void TransMem(
     uint16_t setCKEMask)
 {
     instr->header = InstrHeader(TRANS_TYPE, TRANSMEM_CODE);
-    instr->v2.transMem.xdId = dst;
-    instr->v2.transMem.xdtId = dstToken;
-    instr->v2.transMem.xsId = src;
-    instr->v2.transMem.xstId = srcToken;
-    instr->v2.transMem.xlId = len;
-    instr->v2.transMem.xcId = channel;
-    instr->v2.transMem.xnId = notify.xnId;
-    instr->v2.transMem.xntId = notify.xntId;
-    instr->v2.transMem.value = notify.value;
-    instr->v2.transMem.udfType = reduce.udfType & 0xFF;
-    instr->v2.transMem.reduceDataType = reduce.reduceDataType & 0xF;
-    instr->v2.transMem.reduceOpCode = reduce.reduceOpCode & 0xF;
+    instr->v2.trans_mem.xdId = dst;
+    instr->v2.trans_mem.xdtId = dstToken;
+    instr->v2.trans_mem.xsId = src;
+    instr->v2.trans_mem.xstId = srcToken;
+    instr->v2.trans_mem.xlId = len;
+    instr->v2.trans_mem.xcId = channel;
+    instr->v2.trans_mem.xnId = notify.xnId;
+    instr->v2.trans_mem.xntId = notify.xntId;
+    instr->v2.trans_mem.value = notify.value;
+    instr->v2.trans_mem.udfType = reduce.udfType & 0xFF;
+    instr->v2.trans_mem.reduceDataType = reduce.reduceDataType & 0xF;
+    instr->v2.trans_mem.reduceOpCode = reduce.reduceOpCode & 0xF;
 
-    instr->v2.transMem.order = config.order & 0x7;
-    instr->v2.transMem.fence = config.fence & 0x1;
-    instr->v2.transMem.cqe = config.cqe & 0x1;
-    instr->v2.transMem.nf = config.nf & 0x1;
-    instr->v2.transMem.udfEnable = config.udfEnable & 0x1;
-    instr->v2.transMem.splitMode = config.splitMode & 0x1;
-    instr->v2.transMem.se = config.se & 0x1;
-    instr->v2.transMem.rmtJettyType = config.rmtJettyType & 0x3;
+    instr->v2.trans_mem.order = config.order & 0x7;
+    instr->v2.trans_mem.fence = config.fence & 0x1;
+    instr->v2.trans_mem.cqe = config.cqe & 0x1;
+    instr->v2.trans_mem.nf = config.nf & 0x1;
+    instr->v2.trans_mem.udfEnable = config.udfEnable & 0x1;
+    instr->v2.trans_mem.splitMode = config.splitMode & 0x1;
+    instr->v2.trans_mem.se = config.se & 0x1;
+    instr->v2.trans_mem.rmtJettyType = config.rmtJettyType & 0x3;
 
-    instr->v2.transMem.setCKEId = setCKEId;
-    instr->v2.transMem.setCKEMask = setCKEMask;
+    instr->v2.trans_mem.setCKEId = setCKEId;
+    instr->v2.trans_mem.setCKEMask = setCKEMask;
 }
 
 // 将本端Xn的值写入远端8B地址
@@ -411,7 +411,7 @@ inline void Reduce(
     }
     instr->v2.reduce.count = count & 0x7;
     instr->v2.reduce.castEn = castEn & 0x3;
-    instr->v2.reduce.dataType = dataType & 0x1f;
+    instr->v2.reduce.data_type = dataType & 0x1f;
     instr->v2.reduce.setCKEId = setCKEId;
     instr->v2.reduce.setCKEMask = setCKEMask;
 }

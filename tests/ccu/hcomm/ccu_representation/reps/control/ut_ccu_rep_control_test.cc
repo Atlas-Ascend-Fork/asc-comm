@@ -16,387 +16,387 @@
 #include <memory>
 
 namespace hcomm {
-namespace CcuRep {
+namespace ccu_rep {
 namespace {
 
 class CcuRepControlTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    ccu_ins_generater_v1 insGen{};
     void SetUp() override {}
     void TearDown() override {}
 };
 
 class CcuRepFuncBlockTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    ccu_ins_generater_v1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepFuncCallTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    ccu_ins_generater_v1 insGen{};
     void SetUp() override {}
 };
 
 class CcuRepJumpTest : public ::testing::Test {
 protected:
     void SetUp() override {}
-    CcuInsGeneraterV1 insGen{};
+    ccu_ins_generater_v1 insGen{};
 };
 
 class CcuRepJumpLabelTest : public ::testing::Test {
 protected:
-    CcuInsGeneraterV1 insGen{};
+    ccu_ins_generater_v1 insGen{};
     void SetUp() override {}
 };
 
 TEST_F(CcuRepFuncBlockTest, Constructor_Label)
 {
-    CcuRepFuncBlock funcBlock(&insGen, "testFunc");
-    EXPECT_EQ(funcBlock.Type(), CcuRepType::FUNC_BLOCK);
-    EXPECT_EQ(funcBlock.GetLabel(), "testFunc");
+    ccu_rep_func_block func_block_(&insGen, "testFunc");
+    EXPECT_EQ(func_block_.type(), ccu_rep_type::func_block);
+    EXPECT_EQ(func_block_.get_label(), "testFunc");
 }
 
-TEST_F(CcuRepFuncBlockTest, Describe)
+TEST_F(CcuRepFuncBlockTest, describe)
 {
-    CcuRepFuncBlock funcBlock(&insGen, "testFunc");
-    std::string desc = funcBlock.Describe();
-    EXPECT_NE(desc.find("FuncBlock[testFunc]"), std::string::npos);
+    ccu_rep_func_block func_block_(&insGen, "testFunc");
+    std::string desc = func_block_.describe();
+    EXPECT_NE(desc.find("func_block[testFunc]"), std::string::npos);
 }
 
-TEST_F(CcuRepFuncBlockTest, SetFuncManager)
+TEST_F(CcuRepFuncBlockTest, set_func_manager)
 {
-    CcuRepFuncBlock funcBlock(&insGen, "testFunc");
-    CcuRepReferenceManager funcManager(0);
-    funcBlock.SetFuncManager(&funcManager);
-    EXPECT_NO_FATAL_FAILURE(funcBlock.SetFuncManager(&funcManager));
+    ccu_rep_func_block func_block_(&insGen, "testFunc");
+    ccu_rep_reference_manager func_manager_(0);
+    func_block_.set_func_manager(&func_manager_);
+    EXPECT_NO_FATAL_FAILURE(func_block_.set_func_manager(&func_manager_));
 }
 
 TEST_F(CcuRepFuncBlockTest, DefineInArg_SingleVariable)
 {
-    CcuRepFuncBlock funcBlock(&insGen, "testFunc");
-    CcuRepContext context;
-    Variable var(&context);
-    EXPECT_NO_FATAL_FAILURE(funcBlock.DefineInArg(var));
+    ccu_rep_func_block func_block_(&insGen, "testFunc");
+    ccu_rep_context context_;
+    variable var_(&context_);
+    EXPECT_NO_FATAL_FAILURE(func_block_.define_in_arg(var_));
 }
 
 TEST_F(CcuRepFuncBlockTest, DefineOutArg_SingleVariable)
 {
-    CcuRepFuncBlock funcBlock(&insGen, "testFunc");
-    CcuRepContext context;
-    Variable var(&context);
-    EXPECT_NO_FATAL_FAILURE(funcBlock.DefineOutArg(var));
+    ccu_rep_func_block func_block_(&insGen, "testFunc");
+    ccu_rep_context context_;
+    variable var_(&context_);
+    EXPECT_NO_FATAL_FAILURE(func_block_.define_out_arg(var_));
 }
 
 TEST_F(CcuRepFuncBlockTest, DefineInArg_VariableList)
 {
-    CcuRepFuncBlock funcBlock(&insGen, "testFunc");
-    CcuRepContext context;
-    std::vector<Variable> varList = {Variable(&context)};
-    EXPECT_NO_FATAL_FAILURE(funcBlock.DefineInArg(varList));
+    ccu_rep_func_block func_block_(&insGen, "testFunc");
+    ccu_rep_context context_;
+    std::vector<variable> var_list = {variable(&context_)};
+    EXPECT_NO_FATAL_FAILURE(func_block_.define_in_arg(var_list));
 }
 
 TEST_F(CcuRepFuncBlockTest, DefineOutArg_VariableList)
 {
-    CcuRepFuncBlock funcBlock(&insGen, "testFunc");
-    CcuRepContext context;
-    std::vector<Variable> varList = {Variable(&context)};
-    EXPECT_NO_FATAL_FAILURE(funcBlock.DefineOutArg(varList));
+    ccu_rep_func_block func_block_(&insGen, "testFunc");
+    ccu_rep_context context_;
+    std::vector<variable> var_list = {variable(&context_)};
+    EXPECT_NO_FATAL_FAILURE(func_block_.define_out_arg(var_list));
 }
 
 TEST_F(CcuRepFuncBlockTest, SetCallLayer_Valid)
 {
-    CcuRepFuncBlock funcBlock(&insGen, "testFunc");
-    EXPECT_NO_FATAL_FAILURE(funcBlock.SetCallLayer(1));
-    EXPECT_EQ(funcBlock.GetCallLayer(), 1);
+    ccu_rep_func_block func_block_(&insGen, "testFunc");
+    EXPECT_NO_FATAL_FAILURE(func_block_.set_call_layer(1));
+    EXPECT_EQ(func_block_.get_call_layer(), 1);
 }
 
-TEST_F(CcuRepFuncBlockTest, InstrCount)
+TEST_F(CcuRepFuncBlockTest, instr_count)
 {
-    CcuRepFuncBlock funcBlock(&insGen, "testFunc");
-    CcuRepContext context;
-    Variable var(&context);
-    funcBlock.DefineInArg(var);
-    funcBlock.DefineOutArg(var);
-    uint16_t count = funcBlock.InstrCount();
-    EXPECT_GE(count, 2);
+    ccu_rep_func_block func_block_(&insGen, "testFunc");
+    ccu_rep_context context_;
+    variable var_(&context_);
+    func_block_.define_in_arg(var_);
+    func_block_.define_out_arg(var_);
+    uint16_t count_ = func_block_.instr_count();
+    EXPECT_GE(count_, 2);
 }
 
 TEST_F(CcuRepFuncCallTest, Constructor_Label)
 {
-    CcuRepFuncCall funcCall(&insGen, "testCall");
-    EXPECT_EQ(funcCall.Type(), CcuRepType::FUNC_CALL);
-    EXPECT_EQ(funcCall.GetLabel(), "testCall");
+    ccu_rep_func_call func_call(&insGen, "testCall");
+    EXPECT_EQ(func_call.type(), ccu_rep_type::func_call);
+    EXPECT_EQ(func_call.get_label(), "testCall");
 }
 
 TEST_F(CcuRepFuncCallTest, Constructor_FuncAddrVar)
 {
-    CcuRepContext context;
-    Variable funcAddr(&context);
-    CcuRepFuncCall funcCall(&insGen, funcAddr);
-    EXPECT_EQ(funcCall.Type(), CcuRepType::FUNC_CALL);
+    ccu_rep_context context_;
+    variable func_addr(&context_);
+    ccu_rep_func_call func_call(&insGen, func_addr);
+    EXPECT_EQ(func_call.type(), ccu_rep_type::func_call);
 }
 
-TEST_F(CcuRepFuncCallTest, Describe)
+TEST_F(CcuRepFuncCallTest, describe)
 {
-    CcuRepFuncCall funcCall(&insGen, "testCall");
-    std::string desc = funcCall.Describe();
-    EXPECT_NE(desc.find("FuncCall[testCall]"), std::string::npos);
+    ccu_rep_func_call func_call(&insGen, "testCall");
+    std::string desc = func_call.describe();
+    EXPECT_NE(desc.find("func_call[testCall]"), std::string::npos);
 }
 
-TEST_F(CcuRepFuncCallTest, SetFuncManager)
+TEST_F(CcuRepFuncCallTest, set_func_manager)
 {
-    CcuRepFuncCall funcCall(&insGen, "testCall");
-    CcuRepReferenceManager funcManager(0);
-    EXPECT_NO_FATAL_FAILURE(funcCall.SetFuncManager(&funcManager));
+    ccu_rep_func_call func_call(&insGen, "testCall");
+    ccu_rep_reference_manager func_manager_(0);
+    EXPECT_NO_FATAL_FAILURE(func_call.set_func_manager(&func_manager_));
 }
 
-TEST_F(CcuRepFuncCallTest, Reference)
+TEST_F(CcuRepFuncCallTest, reference)
 {
-    CcuRepFuncCall funcCall(&insGen, "testCall");
-    CcuRepFuncBlock funcBlock(&insGen, "testFunc");
-    auto funcBlockPtr = std::make_shared<CcuRepFuncBlock>(funcBlock);
-    EXPECT_NO_FATAL_FAILURE(funcCall.Reference(funcBlockPtr));
+    ccu_rep_func_call func_call(&insGen, "testCall");
+    ccu_rep_func_block func_block_(&insGen, "testFunc");
+    auto func_block_ptr = std::make_shared<ccu_rep_func_block>(func_block_);
+    EXPECT_NO_FATAL_FAILURE(func_call.reference(func_block_ptr));
 }
 
 TEST_F(CcuRepFuncCallTest, SetInArg_SingleVariable)
 {
-    CcuRepFuncCall funcCall(&insGen, "testCall");
-    CcuRepContext context;
-    Variable var(&context);
-    EXPECT_NO_FATAL_FAILURE(funcCall.SetInArg(var));
+    ccu_rep_func_call func_call(&insGen, "testCall");
+    ccu_rep_context context_;
+    variable var_(&context_);
+    EXPECT_NO_FATAL_FAILURE(func_call.set_in_arg(var_));
 }
 
 TEST_F(CcuRepFuncCallTest, SetOutArg_SingleVariable)
 {
-    CcuRepFuncCall funcCall(&insGen, "testCall");
-    CcuRepContext context;
-    Variable var(&context);
-    EXPECT_NO_FATAL_FAILURE(funcCall.SetOutArg(var));
+    ccu_rep_func_call func_call(&insGen, "testCall");
+    ccu_rep_context context_;
+    variable var_(&context_);
+    EXPECT_NO_FATAL_FAILURE(func_call.set_out_arg(var_));
 }
 
 TEST_F(CcuRepFuncCallTest, SetInArg_VariableList)
 {
-    CcuRepFuncCall funcCall(&insGen, "testCall");
-    CcuRepContext context;
-    std::vector<Variable> varList = {Variable(&context)};
-    EXPECT_NO_FATAL_FAILURE(funcCall.SetInArg(varList));
+    ccu_rep_func_call func_call(&insGen, "testCall");
+    ccu_rep_context context_;
+    std::vector<variable> var_list = {variable(&context_)};
+    EXPECT_NO_FATAL_FAILURE(func_call.set_in_arg(var_list));
 }
 
 TEST_F(CcuRepFuncCallTest, SetOutArg_VariableList)
 {
-    CcuRepFuncCall funcCall(&insGen, "testCall");
-    CcuRepContext context;
-    std::vector<Variable> varList = {Variable(&context)};
-    EXPECT_NO_FATAL_FAILURE(funcCall.SetOutArg(varList));
+    ccu_rep_func_call func_call(&insGen, "testCall");
+    ccu_rep_context context_;
+    std::vector<variable> var_list = {variable(&context_)};
+    EXPECT_NO_FATAL_FAILURE(func_call.set_out_arg(var_list));
 }
 
-TEST_F(CcuRepFuncCallTest, InstrCount)
+TEST_F(CcuRepFuncCallTest, instr_count)
 {
-    CcuRepFuncCall funcCall(&insGen, "testCall");
-    CcuRepContext context;
-    Variable var(&context);
-    funcCall.SetInArg(var);
-    funcCall.SetOutArg(var);
-    uint16_t count = funcCall.InstrCount();
-    EXPECT_GE(count, 4);
+    ccu_rep_func_call func_call(&insGen, "testCall");
+    ccu_rep_context context_;
+    variable var_(&context_);
+    func_call.set_in_arg(var_);
+    func_call.set_out_arg(var_);
+    uint16_t count_ = func_call.instr_count();
+    EXPECT_GE(count_, 4);
 }
 
 TEST_F(CcuRepJumpTest, Constructor_Label)
 {
-    CcuRepContext context;
-    Variable targetInstrId(&context);
-    CcuRepJump jump(&insGen, "testJump", targetInstrId);
-    EXPECT_EQ(jump.Type(), CcuRepType::JUMP);
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    ccu_rep_jump jump_(&insGen, "testJump", target_instr_id_);
+    EXPECT_EQ(jump_.type(), ccu_rep_type::jump);
 }
 
-TEST_F(CcuRepJumpTest, Describe)
+TEST_F(CcuRepJumpTest, describe)
 {
-    CcuRepContext context;
-    Variable targetInstrId(&context);
-    CcuRepJump jump(&insGen, "testJump", targetInstrId);
-    std::string desc = jump.Describe();
-    EXPECT_NE(desc.find("Jump To Label[testJump]"), std::string::npos);
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    ccu_rep_jump jump_(&insGen, "testJump", target_instr_id_);
+    std::string desc = jump_.describe();
+    EXPECT_NE(desc.find("jump To Label[testJump]"), std::string::npos);
 }
 
 TEST_F(CcuRepJumpTest, Translate_WithJumpLabel)
 {
-    CcuRepContext context;
-    Variable targetInstrId(&context);
-    CcuRepJumpLabel jumpLabel(&insGen, "testLabel");
-    auto jumpLabelPtr = std::make_shared<CcuRepJumpLabel>(jumpLabel);
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    ccu_rep_jump_label jump_label_(&insGen, "testLabel");
+    auto jumpLabelPtr = std::make_shared<ccu_rep_jump_label>(jump_label_);
 
-    CcuRepJump jump(&insGen, "testJump", targetInstrId);
-    jump.Reference(jumpLabelPtr);
+    ccu_rep_jump jump_(&insGen, "testJump", target_instr_id_);
+    jump_.reference(jumpLabelPtr);
 
-    CcuInstr instr[2] = {};
-    CcuInstr* instrPtr = instr;
+    ccu_instr instr_[2] = {};
+    ccu_instr* instrPtr = instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
-    dep.reserveXnId = 1;
+    trans_dep dep = {};
+    dep.reserve_xn_id = 1;
 
-    jumpLabelPtr->Translate(nullptr, instrPtr, instrId, dep);
+    jumpLabelPtr->translate(nullptr, instrPtr, instrId, dep);
     instrId = 0;
-    instrPtr = instr;
-    bool result = jump.Translate(nullptr, instrPtr, instrId, dep);
+    instrPtr = instr_;
+    bool result = jump_.translate(nullptr, instrPtr, instrId, dep);
     EXPECT_TRUE(result);
-    EXPECT_EQ(jump.Translated(), true);
+    EXPECT_EQ(jump_.translated(), true);
 }
 
 TEST_F(CcuRepJumpTest, Constructor_JumpNE)
 {
-    CcuRepContext context;
-    Variable targetInstrId(&context);
-    Variable condition(&context);
-    CcuRepJumpNE jumpNE(&insGen, "testJumpNE", targetInstrId, condition, condition, 100);
-    EXPECT_EQ(jumpNE.Type(), CcuRepType::JUMP_NE);
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    variable condition_(&context_);
+    ccu_rep_jump_ne jumpNE(&insGen, "testJumpNE", target_instr_id_, condition_, condition_, 100);
+    EXPECT_EQ(jumpNE.type(), ccu_rep_type::jump_ne);
 }
 
 TEST_F(CcuRepJumpTest, Describe_JumpNE)
 {
-    CcuRepContext context;
-    Variable targetInstrId(&context);
-    Variable condition(&context);
-    CcuRepJumpNE jumpNE(&insGen, "testJumpNE", targetInstrId, condition, condition, 100);
-    std::string desc = jumpNE.Describe();
-    EXPECT_NE(desc.find("Jump To Label[testJumpNE]"), std::string::npos);
-    EXPECT_NE(desc.find("Condition"), std::string::npos);
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    variable condition_(&context_);
+    ccu_rep_jump_ne jumpNE(&insGen, "testJumpNE", target_instr_id_, condition_, condition_, 100);
+    std::string desc = jumpNE.describe();
+    EXPECT_NE(desc.find("jump To Label[testJumpNE]"), std::string::npos);
+    EXPECT_NE(desc.find("condition"), std::string::npos);
 }
 
 TEST_F(CcuRepJumpTest, Translate_JumpNE_WithJumpLabel)
 {
-    CcuRepContext context;
-    Variable targetInstrId(&context);
-    Variable condition(&context);
-    CcuRepJumpLabel jumpLabel(&insGen, "testLabel");
-    auto jumpLabelPtr = std::make_shared<CcuRepJumpLabel>(jumpLabel);
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    variable condition_(&context_);
+    ccu_rep_jump_label jump_label_(&insGen, "testLabel");
+    auto jumpLabelPtr = std::make_shared<ccu_rep_jump_label>(jump_label_);
 
-    CcuRepJumpNE jumpNE(&insGen, "testJumpNE", targetInstrId, condition, condition, 100);
-    jumpNE.Reference(jumpLabelPtr);
+    ccu_rep_jump_ne jumpNE(&insGen, "testJumpNE", target_instr_id_, condition_, condition_, 100);
+    jumpNE.reference(jumpLabelPtr);
 
-    CcuInstr instr[2] = {};
-    CcuInstr* instrPtr = instr;
+    ccu_instr instr_[2] = {};
+    ccu_instr* instrPtr = instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
-    dep.reserveXnId = 1;
+    trans_dep dep = {};
+    dep.reserve_xn_id = 1;
 
-    jumpLabelPtr->Translate(nullptr, instrPtr, instrId, dep);
+    jumpLabelPtr->translate(nullptr, instrPtr, instrId, dep);
     instrId = 0;
-    instrPtr = instr;
-    bool result = jumpNE.Translate(nullptr, instrPtr, instrId, dep);
+    instrPtr = instr_;
+    bool result = jumpNE.translate(nullptr, instrPtr, instrId, dep);
     EXPECT_TRUE(result);
 }
 
 TEST_F(CcuRepJumpTest, Constructor_JumpEQ)
 {
-    CcuRepContext context;
-    Variable targetInstrId(&context);
-    Variable condition(&context);
-    CcuRepJumpEQ jumpEQ(&insGen, "testJumpEQ", targetInstrId, condition, condition, 50);
-    EXPECT_EQ(jumpEQ.Type(), CcuRepType::JUMP_EQ);
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    variable condition_(&context_);
+    ccu_rep_jump_eq jumpEQ(&insGen, "testJumpEQ", target_instr_id_, condition_, condition_, 50);
+    EXPECT_EQ(jumpEQ.type(), ccu_rep_type::jump_eq);
 }
 
 TEST_F(CcuRepJumpTest, Describe_JumpEQ)
 {
-    CcuRepContext context;
-    Variable targetInstrId(&context);
-    Variable condition(&context);
-    CcuRepJumpEQ jumpEQ(&insGen, "testJumpEQ", targetInstrId, condition, condition, 50);
-    std::string desc = jumpEQ.Describe();
-    EXPECT_NE(desc.find("Jump To Label[testJumpEQ]"), std::string::npos);
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    variable condition_(&context_);
+    ccu_rep_jump_eq jumpEQ(&insGen, "testJumpEQ", target_instr_id_, condition_, condition_, 50);
+    std::string desc = jumpEQ.describe();
+    EXPECT_NE(desc.find("jump To Label[testJumpEQ]"), std::string::npos);
     EXPECT_NE(desc.find("Be equal"), std::string::npos);
 }
 
 TEST_F(CcuRepJumpTest, Translate_JumpEQ_WithJumpLabel)
 {
-    CcuRepContext context;
-    Variable targetInstrId(&context);
-    Variable condition(&context);
-    CcuRepJumpLabel jumpLabel(&insGen, "testLabel");
-    auto jumpLabelPtr = std::make_shared<CcuRepJumpLabel>(jumpLabel);
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    variable condition_(&context_);
+    ccu_rep_jump_label jump_label_(&insGen, "testLabel");
+    auto jumpLabelPtr = std::make_shared<ccu_rep_jump_label>(jump_label_);
 
-    CcuRepJumpEQ jumpEQ(&insGen, "testJumpEQ", targetInstrId, condition, condition, 50);
-    jumpEQ.Reference(jumpLabelPtr);
+    ccu_rep_jump_eq jumpEQ(&insGen, "testJumpEQ", target_instr_id_, condition_, condition_, 50);
+    jumpEQ.reference(jumpLabelPtr);
 
-    CcuInstr instr[5] = {};
-    CcuInstr* instrPtr = instr;
+    ccu_instr instr_[5] = {};
+    ccu_instr* instrPtr = instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
-    dep.reserveXnId = 1;
+    trans_dep dep = {};
+    dep.reserve_xn_id = 1;
 
-    jumpLabelPtr->Translate(nullptr, instrPtr, instrId, dep);
+    jumpLabelPtr->translate(nullptr, instrPtr, instrId, dep);
     instrId = 0;
-    instrPtr = instr;
-    bool result = jumpEQ.Translate(nullptr, instrPtr, instrId, dep);
+    instrPtr = instr_;
+    bool result = jumpEQ.translate(nullptr, instrPtr, instrId, dep);
     EXPECT_TRUE(result);
 }
 
 TEST_F(CcuRepJumpLabelTest, Constructor_Label)
 {
-    CcuRepJumpLabel jumpLabel(&insGen, "testLabel");
-    EXPECT_EQ(jumpLabel.Type(), CcuRepType::JUMP_LABEL);
-    EXPECT_EQ(jumpLabel.GetLabel(), "testLabel");
+    ccu_rep_jump_label jump_label_(&insGen, "testLabel");
+    EXPECT_EQ(jump_label_.type(), ccu_rep_type::jump_label);
+    EXPECT_EQ(jump_label_.get_label(), "testLabel");
 }
 
-TEST_F(CcuRepJumpLabelTest, Describe)
+TEST_F(CcuRepJumpLabelTest, describe)
 {
-    CcuRepJumpLabel jumpLabel(&insGen, "testLabel");
-    std::string desc = jumpLabel.Describe();
+    ccu_rep_jump_label jump_label_(&insGen, "testLabel");
+    std::string desc = jump_label_.describe();
     EXPECT_NE(desc.find("JumpLabel[testLabel]"), std::string::npos);
 }
 
 TEST_F(CcuRepJumpLabelTest, AppendRep)
 {
-    CcuRepJumpLabel jumpLabel(&insGen, "testLabel");
-    auto nop = std::make_shared<CcuRepNop>(&insGen);
-    EXPECT_NO_FATAL_FAILURE(jumpLabel.Append(nop));
-    EXPECT_EQ(jumpLabel.GetReps().size(), 2);
+    ccu_rep_jump_label jump_label_(&insGen, "testLabel");
+    auto nop = std::make_shared<ccu_rep_nop>(&insGen);
+    EXPECT_NO_FATAL_FAILURE(jump_label_.append(nop));
+    EXPECT_EQ(jump_label_.get_reps().size(), 2);
 }
 
 TEST_F(CcuRepControlTest, CcuRepJumpBase_Reference)
 {
-    CcuInsGeneraterV1 insGen;
-    CcuRepContext context;
-    Variable targetInstrId(&context);
-    CcuRepJumpLabel jumpLabel(&insGen, "testLabel");
-    auto jumpLabelPtr = std::make_shared<CcuRepJumpLabel>(jumpLabel);
+    ccu_ins_generater_v1 insGen;
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    ccu_rep_jump_label jump_label_(&insGen, "testLabel");
+    auto jumpLabelPtr = std::make_shared<ccu_rep_jump_label>(jump_label_);
 
-    CcuRepJump jump(&insGen, "testJump", targetInstrId);
-    jump.Reference(jumpLabelPtr);
+    ccu_rep_jump jump_(&insGen, "testJump", target_instr_id_);
+    jump_.reference(jumpLabelPtr);
 
-    CcuInstr instr[2] = {};
-    CcuInstr* instrPtr = instr;
+    ccu_instr instr_[2] = {};
+    ccu_instr* instrPtr = instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
-    dep.reserveXnId = 1;
+    trans_dep dep = {};
+    dep.reserve_xn_id = 1;
 
-    jumpLabelPtr->Translate(nullptr, instrPtr, instrId, dep);
+    jumpLabelPtr->translate(nullptr, instrPtr, instrId, dep);
     instrId = 0;
-    instrPtr = instr;
-    bool result = jump.Translate(nullptr, instrPtr, instrId, dep);
+    instrPtr = instr_;
+    bool result = jump_.translate(nullptr, instrPtr, instrId, dep);
     EXPECT_TRUE(result);
-    EXPECT_EQ(jump.Translated(), true);
+    EXPECT_EQ(jump_.translated(), true);
 }
 
 TEST_F(CcuRepControlTest, CcuRepTranslator_CheckTypeNullptr_Throw)
 {
-    CcuRepReferenceManager funcManager(0);
-    funcManager.SetRefBlock("nullFunc", nullptr);
+    ccu_rep_reference_manager func_manager_(0);
+    func_manager_.set_ref_block("nullFunc", nullptr);
 
-    CcuRepFuncBlock funcBlock(&insGen, "outerFunc");
-    auto funcCallPtr = std::make_shared<CcuRepFuncCall>(&insGen, "nullFunc");
-    funcBlock.Append(funcCallPtr);
-    funcBlock.SetFuncManager(&funcManager);
+    ccu_rep_func_block func_block_(&insGen, "outerFunc");
+    auto func_call_ptr = std::make_shared<ccu_rep_func_call>(&insGen, "nullFunc");
+    func_block_.append(func_call_ptr);
+    func_block_.set_func_manager(&func_manager_);
 
-    CcuInstr instr[128] = {};
-    CcuInstr* instrPtr = instr;
+    ccu_instr instr_[128] = {};
+    ccu_instr* instrPtr = instr_;
     uint16_t instrId = 0;
-    TransDep dep = {};
-    dep.reserveXnId = 1;
+    trans_dep dep = {};
+    dep.reserve_xn_id = 1;
 
-    EXPECT_THROW(funcBlock.Translate(nullptr, instrPtr, instrId, dep), Hccl::CcuApiException);
+    EXPECT_THROW(func_block_.translate(nullptr, instrPtr, instrId, dep), Hccl::CcuApiException);
 }
 
 } // namespace
-} // namespace CcuRep
+} // namespace ccu_rep
 } // namespace hcomm

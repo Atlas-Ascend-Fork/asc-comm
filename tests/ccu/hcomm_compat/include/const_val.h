@@ -26,8 +26,8 @@ public:
     explicit InternalException(const std::string& message) : std::runtime_error(message) {}
 };
 
-template <typename T>
-inline void CHECK_NULLPTR(const T& pointer, const char* message)
+template <typename t>
+inline void CHECK_NULLPTR(const t& pointer, const char* message)
 {
     if (pointer == nullptr) {
         throw NullPtrException(message);

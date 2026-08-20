@@ -9,14 +9,14 @@
  */
 
 /*!
- * \file hcomm_base.h
- * \brief Hcomm base class
+ * \file asccomm_base.h
+ * \brief asccomm base class
  */
 
-#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
-#pragma message("This is an internal Hcomm header. Please include public Hcomm headers instead.")
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_BASE_H
+#if !defined(ASCCOMM_INCLUDE_INTERNAL_HEADERS)
+#pragma message("This is an internal asccomm header. Please include public asccomm headers instead.")
+#define ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#define ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_BASE_H
 #endif
 
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_BASE_H
@@ -25,83 +25,83 @@
 #include "hcomm_inner_def.h"
 
 namespace AscendC {
-template <CommProtocol commProtocol>
-class HcommImpl {
+template <comm_protocol comm_protocol>
+class asccomm_impl {
 public:
-    __aicore__ inline HcommImpl(){};
-    __aicore__ inline ~HcommImpl(){};
-    __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len)
+    __aicore__ inline asccomm_impl(){};
+    __aicore__ inline ~asccomm_impl(){};
+    __aicore__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len)
     {
         (void)buff;
         (void)len;
-        return HCOMM_FAILED;
+        return asccomm_failed;
     }
 
-    template <typename T>
-    __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len)
+    template <typename t>
+    __aicore__ inline int32_t init(const LocalTensor<t>& buff, uint32_t len)
     {
         (void)buff;
         (void)len;
-        return HCOMM_FAILED;
+        return asccomm_failed;
     }
 
     template <
-        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+        bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
+        auto const& config = urma_default_cfg>
+    __aicore__ inline int32_t write_nbi(channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
     {
-        return HCOMM_FAILED;
+        return asccomm_failed;
     }
 
     template <
-        typename T, HcommUrmaReduceOp reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,
-        pipe_t reqPipe = PIPE_MTE3, auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteReduceNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
+        typename t, asccomm_urma_reduce_op reduce_op, bool commit = true, pipe_t commit_pipe = PIPE_S,
+        pipe_t req_pipe = PIPE_MTE3, auto const& config = urma_default_cfg>
+    __aicore__ inline int32_t write_reduce_nbi(channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
     {
-        return HCOMM_FAILED;
+        return asccomm_failed;
     }
 
     template <
-        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
+        bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
+        auto const& config = urma_default_cfg>
+    __aicore__ inline int32_t read_nbi(channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
     {
-        return HCOMM_FAILED;
+        return asccomm_failed;
     }
 
     template <
-        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_INLINE_CFG>
-    __aicore__ inline int32_t WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value)
+        typename t, bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
+        auto const& config = urma_inline_cfg>
+    __aicore__ inline int32_t write_value_nbi(channel_handle channel, GM_ADDR dst, t value)
     {
-        return HCOMM_FAILED;
+        return asccomm_failed;
     }
 
     template <
-        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteWithNotifyNbi(
-        ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
+        bool commit = true, pipe_t commit_pipe = PIPE_S, pipe_t req_pipe = PIPE_MTE3,
+        auto const& config = urma_default_cfg>
+    __aicore__ inline int32_t write_with_notify_nbi(
+        channel_handle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notify_addr, uint64_t notify_val)
     {
-        return HCOMM_FAILED;
+        return asccomm_failed;
     }
 
     template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t Commit(ChannelHandle channel)
+    __aicore__ inline int32_t commit(channel_handle channel)
     {
-        return HCOMM_FAILED;
+        return asccomm_failed;
     }
 
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t Drain(ChannelHandle channel)
+    __aicore__ inline int32_t drain(channel_handle channel)
     {
-        return HCOMM_FAILED;
+        return asccomm_failed;
     }
 };
 } // namespace AscendC
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_BASE_H
-#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_BASE_H)
-#undef HCOMM_INCLUDE_INTERNAL_HEADERS
-#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_BASE_H
+#if defined(ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_BASE_H)
+#undef ASCCOMM_INCLUDE_INTERNAL_HEADERS
+#undef ASCCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_BASE_H
 #endif

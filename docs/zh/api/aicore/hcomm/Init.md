@@ -1,16 +1,16 @@
-﻿# Init
+﻿# init
 
 ## 功能说明
 
-初始化Hcomm临时工作区。`COMM_PROTOCOL_ROCE`和`COMM_PROTOCOL_UBC_CTP`路径均需要在提交通信任务前调用该接口完成临时工作区配置。
+初始化asccomm临时工作区。`comm_protocol_roce`和`comm_protocol_ubc_ctp`路径均需要在提交通信任务前调用该接口完成临时工作区配置。
 
 ## 函数原型
 
 ```cpp
-__aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
+__aicore__ inline int32_t init(__ubuf__ uint8_t* buff, uint32_t len);
 
 template <typename T>
-__aicore__ inline int32_t Init(const AscendC::LocalTensor<T>& buff, uint32_t len);
+__aicore__ inline int32_t init(const AscendC::LocalTensor<T>& buff, uint32_t len);
 ```
 
 ## 参数说明

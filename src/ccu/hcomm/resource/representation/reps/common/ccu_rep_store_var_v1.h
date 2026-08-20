@@ -8,38 +8,38 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_STORE_VAR_H_V1
-#define HCOMM_CCU_REPRESENTATION_STORE_VAR_H_V1
+#ifndef ASCCOMM_CCU_REPRESENTATION_STORE_VAR_H_V1
+#define ASCCOMM_CCU_REPRESENTATION_STORE_VAR_H_V1
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepStoreVar : public CcuRepBase {
+class ccu_rep_store_var : public ccu_rep_base {
 public:
-    CcuRepStoreVar(
-        CcuInsGeneraterBase* insGeneratorPtr, const Variable& var, const Variable& dst, uint32_t num = 1,
-        bool hscbFlag = false);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    ccu_rep_store_var(
+        ccu_ins_generater_base* ins_generator_ptr, const variable& var, const variable& dst, uint32_t num = 1,
+        bool hscb_flag = false);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 
-    Variable GetVar() { return var; }
-    Variable GetDst() { return dst; }
-    uint32_t GetNum() { return num; }
-    uint16_t GetMask() { return mask; }
-    bool GetHscbFlag() { return hscbFlag; }
+    variable get_var() { return var_; }
+    variable get_dst() { return dst_; }
+    uint32_t get_num() { return num_; }
+    uint16_t get_mask() { return mask_; }
+    bool get_hscb_flag() { return hscb_flag_; }
 
 private:
-    CcuInsGeneraterBase* insGeneratorPtr_{nullptr};
-    Variable var;
-    Variable dst;
-    uint32_t num;
-    uint16_t mask{1};
-    bool hscbFlag{false};
+    ccu_ins_generater_base* ins_generator_ptr_{nullptr};
+    variable var_;
+    variable dst_;
+    uint32_t num_;
+    uint16_t mask_{1};
+    bool hscb_flag_{false};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCCL_CCU_REPRESENTATION_STORE_VAR_H
