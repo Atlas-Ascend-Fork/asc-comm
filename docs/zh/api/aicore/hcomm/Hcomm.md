@@ -21,7 +21,7 @@ class Hcomm;
 | --- | --- |
 | `commProtocol` | 通信协议类型，支持`COMM_PROTOCOL_ROCE`和`COMM_PROTOCOL_UBC_CTP`，默认值为`COMM_PROTOCOL_UBC_CTP`。 |
 
-`Hcomm`根据`commProtocol`提供协议相关的`BatchHandleType`。当前可用的批量句柄实现仅为Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径，对应`UbcCtpBatchHandle`。
+当前批量接口直接使用`UbcCtpBatchHandle`，仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 
 ## 协议能力
 

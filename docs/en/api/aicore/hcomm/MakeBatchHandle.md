@@ -4,25 +4,25 @@
 
 Creates a protocol-specific batch handle and binds the UB buffer used to prepare batched WQEs. Batch handles currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
-The concrete handle type is selected by the protocol template argument of `Hcomm`. Use `auto` to receive the return value.
+The interface directly returns `UbcCtpBatchHandle`. Use `auto` to receive the return value.
 
 ## Function Prototype
 
 ```cpp
-__aicore__ inline BatchHandleType MakeBatchHandle(
+__aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
     AscendC::ChannelHandle channel,
-    GM_ADDR dstBase,
-    GM_ADDR srcBase,
     __ubuf__ uint8_t* buff,
-    uint32_t buffLen);
+    uint32_t buffLen,
+    GM_ADDR dstBase = nullptr,
+    GM_ADDR srcBase = nullptr);
 
 template <typename T>
-__aicore__ inline BatchHandleType MakeBatchHandle(
+__aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
     AscendC::ChannelHandle channel,
-    GM_ADDR dstBase,
-    GM_ADDR srcBase,
     const AscendC::LocalTensor<T>& buff,
-    uint32_t buffLen);
+    uint32_t buffLen,
+    GM_ADDR dstBase = nullptr,
+    GM_ADDR srcBase = nullptr);
 ```
 
 ## Parameter Description
@@ -30,10 +30,10 @@ __aicore__ inline BatchHandleType MakeBatchHandle(
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | `channel` | Input | UBC_CTP communication channel handle. |
-| `dstBase` | Input | Base address of remote registered memory bound to the batch handle. The interface finds and caches the remote token using this address. |
-| `srcBase` | Input | Base address of local source memory. It is reserved in the current version and is not used to cache local registration information. |
 | `buff` | Input | Caller-provided UB buffer or `LocalTensor` used to prepare batched WQEs. Batch `Drain` also reuses it as CQE scratch space. |
 | `buffLen` | Input | Available buffer length in bytes. |
+| `dstBase` | Input | Base address of remote registered memory bound to the batch handle. Its default value is `nullptr`. The interface finds and caches the remote token using this address; the current UBC_CTP implementation requires it to match a remote registered buffer. |
+| `srcBase` | Input | Base address of local source memory. Its default value is `nullptr`. It is reserved in the current version and is not used to cache local registration information. |
 
 ## Template Parameters
 
@@ -43,7 +43,7 @@ __aicore__ inline BatchHandleType MakeBatchHandle(
 
 ## Return Value
 
-Returns the `BatchHandleType` selected by `commProtocol`. `COMM_PROTOCOL_UBC_CTP` maps to `UbcCtpBatchHandle`.
+Returns `UbcCtpBatchHandle`. This interface is currently supported only by `COMM_PROTOCOL_UBC_CTP`.
 
 This interface does not report invalid arguments through a status code. The caller must satisfy the constraints below. Invalid arguments trigger an interface assertion in debug builds.
 
@@ -64,5 +64,5 @@ This interface does not report invalid arguments through a status code. The call
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-auto batchHandle = hcomm.MakeBatchHandle(channel, dstBase, srcBase, batchBuffer, batchBufferLen);
+auto batchHandle = hcomm.MakeBatchHandle(channel, batchBuffer, batchBufferLen, dstBase);
 ```

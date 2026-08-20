@@ -9,21 +9,21 @@
 ## 函数原型
 
 ```cpp
-__aicore__ inline int32_t BatchCommit(BatchHandleType& batchHandle);
+__aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
 ```
 
 ## 参数说明
 
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
-| `batchHandle` | 输入/输出 | 由`MakeBatchHandle`创建的批量句柄。成功提交后，句柄中的本批次WQEBB和CQE计数会被清零。 |
+| `batchHandle` | 输入/输出 | 由`MakeBatchHandle`创建的批量句柄。成功提交后，本地`cqHead`同步到通道，句柄中的本批次WQEBB计数清零。 |
 
 ## 返回值
 
 | 返回值 | 说明 |
 | --- | --- |
 | `0` | 提交成功。 |
-| `-1` | 提交失败，包括空批次、批次计数异常或批次WQEBB数量不满足SQ容量约束。 |
+| `-1` | 提交失败，包括空批次、WQEBB计数异常或批次WQEBB数量不满足SQ容量约束。 |
 
 ## 约束说明
 
@@ -33,7 +33,7 @@ __aicore__ inline int32_t BatchCommit(BatchHandleType& batchHandle);
 - 接口支持SQ环回场景。当本批次跨越SQ末尾时，会分别复制到SQ尾部和SQ起始位置。
 - `BatchCommit`成功后始终敲SQ doorbell，不提供普通`Commit`接口中的`commit`或`pipe`模板参数。
 - 空批次和同一空批次的重复提交返回`-1`。
-- 提交成功后，BatchHandle和UB缓冲区可以继续用于准备下一个批次；接口只重置计数，不清空UB缓冲区内容。
+- 提交成功后，BatchHandle和UB缓冲区可以继续用于准备下一个批次；接口只重置本批次WQEBB计数，不清空UB缓冲区内容。
 - 可以连续执行多次`BatchCommit`，最后统一调用一次批量`Drain`等待已提交任务完成。
 - 多个批次在`Drain`前连续提交时，调用方必须保证累计未完成任务不会覆盖SQ中尚未消费的WQE。
 - 调用方还需要保证自上次批量`Drain`以来累计生成但尚未消费的CQE不超过CQ容量；接口不在提交阶段自动轮询CQ。

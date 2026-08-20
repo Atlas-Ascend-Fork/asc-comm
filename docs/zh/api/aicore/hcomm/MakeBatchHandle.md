@@ -4,25 +4,25 @@
 
 创建与通信协议匹配的批量句柄，并绑定用于批量准备WQE的UB缓冲区。当前批量句柄仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 
-接口返回的具体句柄类型由`Hcomm`的协议模板参数确定，建议使用`auto`接收返回值。
+接口直接返回`UbcCtpBatchHandle`，调用侧建议使用`auto`接收返回值。
 
 ## 函数原型
 
 ```cpp
-__aicore__ inline BatchHandleType MakeBatchHandle(
+__aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
     AscendC::ChannelHandle channel,
-    GM_ADDR dstBase,
-    GM_ADDR srcBase,
     __ubuf__ uint8_t* buff,
-    uint32_t buffLen);
+    uint32_t buffLen,
+    GM_ADDR dstBase = nullptr,
+    GM_ADDR srcBase = nullptr);
 
 template <typename T>
-__aicore__ inline BatchHandleType MakeBatchHandle(
+__aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
     AscendC::ChannelHandle channel,
-    GM_ADDR dstBase,
-    GM_ADDR srcBase,
     const AscendC::LocalTensor<T>& buff,
-    uint32_t buffLen);
+    uint32_t buffLen,
+    GM_ADDR dstBase = nullptr,
+    GM_ADDR srcBase = nullptr);
 ```
 
 ## 参数说明
@@ -30,10 +30,10 @@ __aicore__ inline BatchHandleType MakeBatchHandle(
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
 | `channel` | 输入 | UBC_CTP通信通道句柄。 |
-| `dstBase` | 输入 | 与批量句柄绑定的远端已注册内存基地址。接口根据该地址查找并缓存远端token。 |
-| `srcBase` | 输入 | 本端源内存基地址，当前版本为预留参数，暂不用于缓存本端注册内存信息。 |
 | `buff` | 输入 | 调用方提供的UB缓冲区或`LocalTensor`，用于准备批量WQE，并由批量`Drain`复用为CQE临时缓冲区。 |
 | `buffLen` | 输入 | 缓冲区可用长度，单位为字节。 |
+| `dstBase` | 输入 | 与批量句柄绑定的远端已注册内存基地址，默认值为`nullptr`。接口根据该地址查找并缓存远端token。当前UBC_CTP实现要求其命中远端已注册buffer。 |
+| `srcBase` | 输入 | 本端源内存基地址，默认值为`nullptr`。当前版本为预留参数，暂不用于缓存本端注册内存信息。 |
 
 ## 模板参数
 
@@ -43,7 +43,7 @@ __aicore__ inline BatchHandleType MakeBatchHandle(
 
 ## 返回值
 
-返回与`commProtocol`匹配的`BatchHandleType`。`COMM_PROTOCOL_UBC_CTP`对应`UbcCtpBatchHandle`。
+返回`UbcCtpBatchHandle`。当前仅`COMM_PROTOCOL_UBC_CTP`支持该接口。
 
 该接口不通过返回码报告参数错误。调用方必须满足下述约束；调试模式下，非法参数会触发接口断言。
 
@@ -64,5 +64,5 @@ __aicore__ inline BatchHandleType MakeBatchHandle(
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-auto batchHandle = hcomm.MakeBatchHandle(channel, dstBase, srcBase, batchBuffer, batchBufferLen);
+auto batchHandle = hcomm.MakeBatchHandle(channel, batchBuffer, batchBufferLen, dstBase);
 ```

@@ -46,8 +46,6 @@ namespace AscendC {
 template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
 class Hcomm {
 public:
-    using BatchHandleType = typename BatchHandleTraits<commProtocol>::Type;
-
     /*!
      * @brief Initialize Hcomm workspace.
      * @param [in] buff: The UB buffer provided by caller.
@@ -70,34 +68,36 @@ public:
     /*!
      * @brief Create a protocol-specific batch handle using a raw UB buffer.
      * @param [in] channel: The handle of the communication channel.
-     * @param [in] dstBase: The base address of the remote registered memory bound to this batch handle.
-     * @param [in] srcBase: Reserved local source base address.
      * @param [in] buff: The UB buffer used to prepare batched WQEs.
      * @param [in] buffLen: The buffer length in bytes.
+     * @param [in] dstBase: The base address of the remote registered memory bound to this batch handle.
+     * @param [in] srcBase: Reserved local source base address.
      * @return An initialized batch handle for commProtocol.
      * @note For UBC CTP, the protection token selected by dstBase is cached in the returned handle.
      *       Subsequent batched reads and writes do not read the remote registration table. buffLen must be
      *       smaller than the SQ capacity in bytes.
      */
-    __aicore__ inline BatchHandleType MakeBatchHandle(
-        ChannelHandle channel, GM_ADDR dstBase, GM_ADDR srcBase, __ubuf__ uint8_t* buff, uint32_t buffLen);
+    __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR dstBase = nullptr,
+        GM_ADDR srcBase = nullptr);
 
     /*!
      * @brief Create a protocol-specific batch handle using a LocalTensor buffer.
      * @tparam T: The element type of the LocalTensor.
      * @param [in] channel: The handle of the communication channel.
-     * @param [in] dstBase: The base address of the remote registered memory bound to this batch handle.
-     * @param [in] srcBase: Reserved local source base address.
      * @param [in] buff: The LocalTensor buffer used to prepare batched WQEs.
      * @param [in] buffLen: The buffer length in bytes.
+     * @param [in] dstBase: The base address of the remote registered memory bound to this batch handle.
+     * @param [in] srcBase: Reserved local source base address.
      * @return An initialized batch handle for commProtocol.
      * @note For UBC CTP, the protection token selected by dstBase is cached in the returned handle.
      *       Subsequent batched reads and writes do not read the remote registration table. buffLen must be
      *       smaller than the SQ capacity in bytes.
      */
     template <typename T>
-    __aicore__ inline BatchHandleType MakeBatchHandle(
-        ChannelHandle channel, GM_ADDR dstBase, GM_ADDR srcBase, const LocalTensor<T>& buff, uint32_t buffLen);
+    __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
+        ChannelHandle channel, const LocalTensor<T>& buff, uint32_t buffLen, GM_ADDR dstBase = nullptr,
+        GM_ADDR srcBase = nullptr);
 
     /*!
      * @class Hcomm
@@ -131,7 +131,7 @@ public:
      *       The caller must ensure that it is covered by the protection token cached in batchHandle.
      */
     template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteNbi(BatchHandleType& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t WriteNbi(UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
      * @class Hcomm
@@ -214,7 +214,8 @@ public:
      */
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
-        BatchHandleType& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+        UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr,
+        uint64_t notifyVal);
 
     /*!
      * @class Hcomm
@@ -289,7 +290,7 @@ public:
      *       The caller must ensure that it is covered by the protection token cached in batchHandle.
      */
     template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t ReadNbi(BatchHandleType& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t ReadNbi(UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
      * @class Hcomm
@@ -303,10 +304,10 @@ public:
 
     /*!
      * @brief Submit all WQEs prepared in a protocol-specific batch handle.
-     * @param [in,out] batchHandle: The batch handle to submit and reset after a successful commit.
+     * @param [in,out] batchHandle: The batch handle to submit. Its prepared WQEBB count is reset after success.
      * @return 0 indicates success and -1 indicates failure.
      */
-    __aicore__ inline int32_t BatchCommit(BatchHandleType& batchHandle);
+    __aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
 
     /*!
      * @class Hcomm
@@ -328,7 +329,7 @@ public:
      *       another batch on the same handle.
      */
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t Drain(BatchHandleType& batchHandle);
+    __aicore__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
 
 private:
     HcommImpl<commProtocol> impl_;

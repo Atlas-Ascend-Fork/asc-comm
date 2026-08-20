@@ -30,7 +30,7 @@ Batch interface:
 ```cpp
 template <auto const& config = URMA_DEFAULT_CFG>
 __aicore__ inline int32_t WriteWithNotifyNbi(
-    BatchHandleType& batchHandle,
+    UbcCtpBatchHandle& batchHandle,
     GM_ADDR dst,
     GM_ADDR src,
     uint64_t len,
@@ -43,7 +43,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | `channel` | Input | Communication channel handle used by the ordinary interface. |
-| `batchHandle` | Input/Output | Batch handle created by `MakeBatchHandle`. Its WQEBB and CQE counters are updated after a WQE is prepared successfully. |
+| `batchHandle` | Input/Output | Batch handle created by `MakeBatchHandle`. Its WQEBB count is updated after a WQE is prepared successfully; its local `cqHead` is also incremented when `cqe = 1`. |
 | `dst` | Output | Absolute remote destination GM address. |
 | `src` | Input | Absolute local source GM address. |
 | `len` | Input | Write length in bytes. |
@@ -82,7 +82,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - `len` must not exceed `UINT32_MAX`.
 - `config.inlineEn` must be `0`, and `config.cqe` can be `0` or `1`. Different read, write, and write-with-notify tasks in the same batch may use different `cqe` settings.
 - `dst` and `notifyAddr` are not checked against the remote registration range again. The notification context reuses the remote token cached in the BatchHandle. The caller must ensure that both ranges are covered by the token cached by `MakeBatchHandle` using `dstBase`.
-- If length or buffer capacity validation fails, the interface returns `-1` and leaves the prepared counters in the BatchHandle unchanged.
+- If length or buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
 - Call `BatchCommit` after preparation. The caller must exclusively own the channel while using the BatchHandle.
 
 ## Related Interfaces
