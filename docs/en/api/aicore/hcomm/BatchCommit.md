@@ -9,7 +9,10 @@ This interface currently supports only the `COMM_PROTOCOL_UBC_CTP` path on Ascen
 ## Function Prototype
 
 ```cpp
-__aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
+template <
+    typename T,
+    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+__aicore__ inline int32_t BatchCommit(T& batchHandle);
 ```
 
 ## Parameter Description
@@ -17,6 +20,12 @@ __aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | `batchHandle` | Input/Output | Batch handle created by `MakeBatchHandle`. After a successful commit, its local `cqHead` is synchronized to the channel and its prepared WQEBB count is reset to zero. |
+
+## Template Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `T` | Batch handle type, deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle`. |
 
 ## Return Value
 

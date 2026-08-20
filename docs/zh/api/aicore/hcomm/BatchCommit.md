@@ -9,7 +9,10 @@
 ## 函数原型
 
 ```cpp
-__aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
+template <
+    typename T,
+    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+__aicore__ inline int32_t BatchCommit(T& batchHandle);
 ```
 
 ## 参数说明
@@ -17,6 +20,12 @@ __aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
 | `batchHandle` | 输入/输出 | 由`MakeBatchHandle`创建的批量句柄。成功提交后，本地`cqHead`同步到通道，句柄中的本批次WQEBB计数清零。 |
+
+## 模板参数
+
+| 参数 | 说明 |
+| --- | --- |
+| `T` | 批量句柄类型，由`batchHandle`实参推导；当前支持`UbcCtpBatchHandle`。 |
 
 ## 返回值
 

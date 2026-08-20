@@ -18,8 +18,11 @@ __aicore__ inline int32_t Drain(AscendC::ChannelHandle channel);
 Batch interface:
 
 ```cpp
-template <pipe_t pipe = PIPE_MTE3>
-__aicore__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
+template <
+    pipe_t pipe = PIPE_MTE3,
+    typename T,
+    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+__aicore__ inline int32_t Drain(T& batchHandle);
 ```
 
 ## Parameter Description
@@ -34,6 +37,7 @@ __aicore__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
 | Parameter | Description |
 | --- | --- |
 | `pipe` | Pipe used for drain operations. Default: `PIPE_MTE3`. |
+| `T` | Batch handle type, deduced from `batchHandle`. Used only by the batch overload and currently supports `UbcCtpBatchHandle`. |
 
 ## Return Value
 

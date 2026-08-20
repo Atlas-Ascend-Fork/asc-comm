@@ -411,13 +411,13 @@ __aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchH
     return HcommUrmaCreateBatchHandle(channel, dstBase, wqeBuffer, buffLen);
 }
 
-template <typename T>
+template <typename U>
 __aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
-    ChannelHandle channel, const LocalTensor<T>& buff, uint32_t buffLen, GM_ADDR dstBase, GM_ADDR srcBase)
+    ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR dstBase, GM_ADDR srcBase)
 {
     (void)srcBase;
     uintptr_t buffAddr = reinterpret_cast<uintptr_t>(buff.GetPhyAddr());
-    uint64_t availableBytes = static_cast<uint64_t>(buff.GetSize()) * sizeof(T);
+    uint64_t availableBytes = static_cast<uint64_t>(buff.GetSize()) * sizeof(U);
     ASCENDC_HCOMM_API_ASSERT(
         buff.GetPhyAddr() != nullptr && (buffAddr & 0x1FU) == 0 && buffLen >= HCOMM_URMA_BATCH_MIN_BUF_SIZE &&
             static_cast<uint64_t>(buffLen) <= availableBytes,

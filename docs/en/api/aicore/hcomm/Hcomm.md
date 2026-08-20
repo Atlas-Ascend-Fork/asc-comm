@@ -21,7 +21,9 @@ class Hcomm;
 | --- | --- |
 | `commProtocol` | Communication protocol type. Supports `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP`. Default: `COMM_PROTOCOL_UBC_CTP`. |
 
-Batch interfaces directly use `UbcCtpBatchHandle` and currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
+Batch interfaces derive and constrain their handle types through compile-time traits. Currently, only the
+`ChannelHandle` to `UbcCtpBatchHandle` mapping is provided, and the interfaces support only the
+`COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
 ## Protocol Capabilities
 
