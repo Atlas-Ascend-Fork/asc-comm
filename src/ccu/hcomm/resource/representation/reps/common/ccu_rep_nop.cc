@@ -14,31 +14,31 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepNop::CcuRepNop(CcuInsGeneraterBase* insGeneratorPtr) : insGeneratorPtr_(insGeneratorPtr)
+ccu_rep_nop::ccu_rep_nop(ccu_ins_generater_base* ins_generator_ptr) : ins_generator_ptr_(ins_generator_ptr)
 {
-    type = CcuRepType::NOP;
-    instrCount = 1;
+    type_ = ccu_rep_type::nop;
+    instr_count_ = 1;
 }
 
-bool CcuRepNop::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_nop::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGeneratorPtr_->CcuRepNopTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepNop][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        ins_generator_ptr_->ccu_rep_nop_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepNop][translate] failed to translate for instrId[%u]", instr_id), CcuResult::CCU_E_INTERNAL,
         "CcuRepNop translate failed");
 
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepNop::Describe() { return asccomm::FormatCcuMessage("Nop"); }
+std::string ccu_rep_nop::describe() { return asc::format_ccu_message("Nop"); }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

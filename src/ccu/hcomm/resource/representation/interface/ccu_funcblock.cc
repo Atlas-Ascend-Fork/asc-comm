@@ -14,14 +14,14 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-FuncBlock::FuncBlock(CcuRepContext* context, std::string label, uint16_t callLayer)
-    : context(context), label(label), callLayer(callLayer)
+func_block::func_block(ccu_rep_context* context, std::string label, uint16_t call_layer)
+    : context_(context), label_(label), call_layer_(call_layer)
 {}
 
-FuncBlock::~FuncBlock() {}
+func_block::~func_block() {}
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

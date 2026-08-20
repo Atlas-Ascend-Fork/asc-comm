@@ -51,15 +51,15 @@ public:
         stream_.seekg(0);
     }
 
-    template <typename T>
-    BinaryStream& operator<<(const T& value)
+    template <typename t>
+    BinaryStream& operator<<(const t& value)
     {
-        stream_.write(reinterpret_cast<const char*>(&value), sizeof(T));
+        stream_.write(reinterpret_cast<const char*>(&value), sizeof(t));
         return *this;
     }
 
-    template <typename T>
-    BinaryStream& operator<<(const std::vector<T>& values)
+    template <typename t>
+    BinaryStream& operator<<(const std::vector<t>& values)
     {
         const size_t size = values.size();
         *this << size;
@@ -69,15 +69,15 @@ public:
         return *this;
     }
 
-    template <typename T>
-    BinaryStream& operator>>(T& value)
+    template <typename t>
+    BinaryStream& operator>>(t& value)
     {
-        stream_.read(reinterpret_cast<char*>(&value), sizeof(T));
+        stream_.read(reinterpret_cast<char*>(&value), sizeof(t));
         return *this;
     }
 
-    template <typename T>
-    BinaryStream& operator>>(std::vector<T>& values)
+    template <typename t>
+    BinaryStream& operator>>(std::vector<t>& values)
     {
         size_t size = 0;
         *this >> size;
@@ -88,7 +88,7 @@ public:
         return *this;
     }
 
-    void Dump(std::vector<char>& result)
+    void dump(std::vector<char>& result)
     {
         const std::string buffer = stream_.str();
         result.assign(buffer.begin(), buffer.end());
@@ -102,9 +102,9 @@ HcclResult GetChannelForCcu(
     HcclComm comm, uint32_t myRank, uint32_t rankSize, std::vector<ChannelHandle>& kernelChannels,
     uint32_t& kernelDie)
 {
-    const uint32_t channelNum = rankSize - 1;
-    std::vector<HcclChannelDesc> channelDescs(channelNum);
-    kernelChannels.resize(channelNum);
+    const uint32_t channel_num = rankSize - 1;
+    std::vector<HcclChannelDesc> channelDescs(channel_num);
+    kernelChannels.resize(channel_num);
 
     uint32_t channelIndex = 0;
     bool hasKernelDie = false;
@@ -149,7 +149,7 @@ HcclResult GetChannelForCcu(
     }
 
     RETURN_IF_HCCL_FAIL(
-        HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_CCU, channelDescs.data(), channelNum, kernelChannels.data()));
+        HcclChannelAcquire(comm, CommEngine::COMM_ENGINE_CCU, channelDescs.data(), channel_num, kernelChannels.data()));
     return HCCL_SUCCESS;
 }
 
@@ -157,30 +157,30 @@ HcclResult RegisterCcuKernel(
     HcclComm comm, uint32_t myRank, uint32_t rankSize, const std::vector<ChannelHandle>& channels,
     uint32_t kernelDie, AlgResourceCtx& resCtx)
 {
-    auto kernelArg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>();
-    kernelArg->rankSize = rankSize;
-    kernelArg->rankId = myRank;
+    auto kernel_arg = std::make_shared<CcuKernelArgAllGatherMesh1DMem2Mem>();
+    kernel_arg->rankSize = rankSize;
+    kernel_arg->rankId = myRank;
     for (uint32_t index = 0; index < channels.size(); ++index) {
-        kernelArg->channels[index] = channels[index];
+        kernel_arg->channels[index] = channels[index];
     }
-    kernelArg->channelCount = static_cast<uint32_t>(channels.size());
+    kernel_arg->channelCount = static_cast<uint32_t>(channels.size());
 
     resCtx.ccuKernels.resize(1);
-    CcuInsHandle insHandle{0};
-    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, insHandle));
-    HcommCcuRegisterContextHandle context{nullptr};
-    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, context));
-    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(hcomm_ccu_kernel_register_start(insHandle, context)));
+    CcuInsHandle ins_handle{0};
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, ins_handle));
+    HcommCcuRegisterContextHandle context_{nullptr};
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, context_));
+    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(asccomm_ccu_kernel_register_start(ins_handle, context_)));
 
-    CcuKernelHandle kernelHandle = 0;
-    const void* kernelArgs[] = {kernelArg.get()};
-    constexpr uint32_t kernelArgNum = 1;
-    CcuResult regRet = hcomm_ccu_kernel_register(
-        insHandle, kernelDie, "CcuAllGatherMesh1DMem2MemKernel",
-        reinterpret_cast<void*>(CcuAllGatherMesh1DMem2MemKernel), kernelArgs, kernelArgNum, &kernelHandle);
+    ccu_kernel_handle kernelHandle = 0;
+    const void* kernel_args[] = {kernel_arg.get()};
+    constexpr uint32_t kernel_arg_num = 1;
+    CcuResult reg_ret = asccomm_ccu_kernel_register(
+        ins_handle, kernelDie, "CcuAllGatherMesh1DMem2MemKernel",
+        reinterpret_cast<void*>(CcuAllGatherMesh1DMem2MemKernel), kernel_args, kernel_arg_num, &kernelHandle);
 
-    CcuResult regEndRet = hcomm_ccu_kernel_register_end(insHandle);
-    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(regRet));
+    CcuResult regEndRet = asccomm_ccu_kernel_register_end(ins_handle);
+    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(reg_ret));
     RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(regEndRet));
     resCtx.ccuKernels[0] = kernelHandle;
     resCtx.ccuKernelNum = {1};
@@ -224,7 +224,7 @@ std::vector<char> AlgResourceCtx::Serialize() const
     stream << ccuKernels;
 
     std::vector<char> result;
-    stream.Dump(result);
+    stream.dump(result);
     return result;
 }
 

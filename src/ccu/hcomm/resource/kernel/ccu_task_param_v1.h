@@ -8,26 +8,26 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_TASK_PARAM_H
-#define HCOMM_CCU_TASK_PARAM_H
+#ifndef ASCCOMM_CCU_TASK_PARAM_H
+#define ASCCOMM_CCU_TASK_PARAM_H
 
 #include <cstdint>
 
-namespace asccomm {
+namespace asc {
 
-constexpr uint32_t CCU_SQE_ARGS_LEN = 13;
+constexpr uint32_t ccu_sqe_args_len = 13;
 
-struct CcuTaskParam {
-    uint8_t dieId;
-    uint8_t missionId;
+struct ccu_task_param {
+    uint8_t die_id;
+    uint8_t mission_id;
     uint16_t timeout;
-    uint32_t instStartId;
-    uint32_t instCnt;
+    uint32_t inst_start_id;
+    uint32_t inst_cnt;
     uint32_t key;
-    uint32_t argSize;
-    uint64_t args[CCU_SQE_ARGS_LEN];
+    uint32_t arg_size;
+    uint64_t args[ccu_sqe_args_len];
 };
 
-}; // namespace asccomm
+}; // namespace asc
 
 #endif // _CCU_TASK_PARAM_H

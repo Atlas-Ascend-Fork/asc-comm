@@ -24,314 +24,314 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
 
-uint32_t CcuRepTranslator::ccuVersion = HCOMM_CCU_VERSION_INVALID;
+uint32_t ccu_rep_translator::ccu_version = HCOMM_CCU_VERSION_INVALID;
 
-template <typename T>
-bool CheckType(const std::shared_ptr<CcuRepBlock>& refer)
+template <typename t>
+bool check_type(const std::shared_ptr<ccu_rep_block>& refer)
 {
     if (refer == nullptr) {
         HCCL_ERROR("[%s] input refer is nullptr", __func__);
         return false;
     }
-    HCCL_INFO("[CheckType] refer->Type() = %d", refer->Type());
+    HCCL_INFO("[check_type] refer->Type() = %d", refer->type());
     return false;
 }
 
 template <>
-bool CheckType<CcuRepFuncBlock>(const std::shared_ptr<CcuRepBlock>& refer)
+bool check_type<ccu_rep_func_block>(const std::shared_ptr<ccu_rep_block>& refer)
 {
     if (refer == nullptr) {
         HCCL_ERROR("[%s] input refer is nullptr", __func__);
         return false;
     }
-    return refer->Type() == CcuRepType::FUNC_BLOCK ? true : false;
+    return refer->type() == ccu_rep_type::func_block ? true : false;
 }
 
 template <>
-bool CheckType<CcuRepLoopBlock>(const std::shared_ptr<CcuRepBlock>& refer)
+bool check_type<ccu_rep_loop_block>(const std::shared_ptr<ccu_rep_block>& refer)
 {
     if (refer == nullptr) {
         HCCL_ERROR("[%s] input refer is nullptr", __func__);
         return false;
     }
-    return refer->Type() == CcuRepType::LOOP_BLOCK ? true : false;
+    return refer->type() == ccu_rep_type::loop_block ? true : false;
 }
 
-template <typename T1, typename T2>
-void CcuRepTranslator::BuildReference(const std::shared_ptr<CcuRepBase>& rep)
+template <typename t1, typename t2>
+void ccu_rep_translator::build_reference(const std::shared_ptr<ccu_rep_base>& rep)
 {
-    auto caller = std::static_pointer_cast<T1>(rep);
-    auto label = caller->GetLabel();
+    auto caller = std::static_pointer_cast<t1>(rep);
+    auto label = caller->get_label();
     // 特例：针对函数地址调用，不需要依靠函数名索引
     if (label == "") {
         return;
     }
-    auto refer = refManager->GetRefBlock(label);
-    if (CheckType<T2>(refer)) {
-        caller->Reference(std::static_pointer_cast<T2>(refer));
+    auto refer = ref_manager_->get_ref_block(label);
+    if (check_type<t2>(refer)) {
+        caller->reference(std::static_pointer_cast<t2>(refer));
     } else {
-        asccomm::ThrowCcuInternal("Invalid Reference: %s", label.c_str());
+        asc::throw_ccu_internal("Invalid reference: %s", label.c_str());
     }
 }
 
-CcuRepTranslator::CcuRepTranslator(std::shared_ptr<CcuRepReferenceManager> refManager, const TransDep& transDep)
-    : refManager(refManager), transDep(transDep)
+ccu_rep_translator::ccu_rep_translator(std::shared_ptr<ccu_rep_reference_manager> ref_manager, const trans_dep& trans_dep)
+    : ref_manager_(ref_manager), trans_dep_(trans_dep)
 {
-    if (ccuVersion == HCOMM_CCU_VERSION_INVALID) {
-        asccomm::ThrowCcuInternal("[CcuRepTranslator] Constructor: Invalid CCU Type!");
+    if (ccu_version == HCOMM_CCU_VERSION_INVALID) {
+        asc::throw_ccu_internal("[CcuRepTranslator] Constructor: Invalid CCU Type!");
     }
 }
 
-void CcuRepTranslator::SetCcuVersion(uint32_t version) { ccuVersion = version; }
+void ccu_rep_translator::set_ccu_version(uint32_t version) { ccu_version = version; }
 
-uint32_t CcuRepTranslator::GetInstrNum()
+uint32_t ccu_rep_translator::get_instr_num()
 {
-    return ccuVersion == HCOMM_CCU_VERSION_V1 ?
+    return ccu_version == HCOMM_CCU_VERSION_V1 ?
                4 // 4:翻译器翻译过程中额外需要的指令空间大小(插入3条通用操作指令+1条终止指令)
                :
                13; // 13:翻译器翻译过程中额外需要的指令空间大小(插入3条通用操作指令+1条终止指令+9条repJump)
 }
 
-void CcuRepTranslator::GetRes(CcuRepResource& res)
+void ccu_rep_translator::get_res(ccu_rep_resource& res)
 {
-    int varNum = XN_NUM;
-    int gsaNum = ccuVersion == HCOMM_CCU_VERSION_V1 ? GSA_NUM : 0;
-    for (int i = 0; i < varNum; i++) {
-        res.variable[transDep.dieId].push_back(var[i]);
+    int var_num = xn_num;
+    int gsa_num = ccu_version == HCOMM_CCU_VERSION_V1 ? gsa_num : 0;
+    for (int i = 0; i < var_num; i++) {
+        res.variable[trans_dep_.die_id].push_back(var_[i]);
     }
-    for (int i = 0; i < gsaNum; i++) {
-        res.address[transDep.dieId].push_back(addr[i]);
+    for (int i = 0; i < gsa_num; i++) {
+        res.address[trans_dep_.die_id].push_back(addr_[i]);
     }
-    for (int i = 0; i < CKE_NUM; i++) {
-        res.completedEvent[transDep.dieId].push_back(signal[i]);
+    for (int i = 0; i < cke_num; i++) {
+        res.completed_event[trans_dep_.die_id].push_back(signal_[i]);
     }
 }
 
-void CcuRepTranslator::PreProcess(std::shared_ptr<CcuRepBase> rep)
+void ccu_rep_translator::pre_process(std::shared_ptr<ccu_rep_base> rep)
 {
-    auto repType = rep->Type();
-    if (repType == CcuRepType::FUNC_BLOCK) {
-        auto funcBlock = std::static_pointer_cast<CcuRepFuncBlock>(rep);
-        refManager->SetRefBlock(funcBlock->GetLabel(), funcBlock);
-        funcBlock->SetFuncManager(refManager.get());
-    } else if (repType == CcuRepType::LOOP_BLOCK) {
-        auto loopBlock = std::static_pointer_cast<CcuRepLoopBlock>(rep);
-        refManager->SetRefBlock(loopBlock->GetLabel(), loopBlock);
-    } else if (repType == CcuRepType::FUNC_CALL) {
-        BuildReference<CcuRepFuncCall, CcuRepFuncBlock>(rep);
-        auto funcCall = std::static_pointer_cast<CcuRepFuncCall>(rep);
-        funcCall->SetFuncManager(refManager.get());
-    } else if (repType == CcuRepType::LOOP_CALL) {
-        BuildReference<CcuRepLoopCall, CcuRepLoopBlock>(rep);
-    } else if (repType == CcuRepType::LOOP) {
-        BuildReference<CcuRepLoop, CcuRepLoopBlock>(rep);
+    auto rep_type = rep->type();
+    if (rep_type == ccu_rep_type::func_block) {
+        auto func_block = std::static_pointer_cast<ccu_rep_func_block>(rep);
+        ref_manager_->set_ref_block(func_block->get_label(), func_block);
+        func_block->set_func_manager(ref_manager_.get());
+    } else if (rep_type == ccu_rep_type::loop_block) {
+        auto loop_block = std::static_pointer_cast<ccu_rep_loop_block>(rep);
+        ref_manager_->set_ref_block(loop_block->get_label(), loop_block);
+    } else if (rep_type == ccu_rep_type::func_call) {
+        build_reference<ccu_rep_func_call, ccu_rep_func_block>(rep);
+        auto func_call = std::static_pointer_cast<ccu_rep_func_call>(rep);
+        func_call->set_func_manager(ref_manager_.get());
+    } else if (rep_type == ccu_rep_type::loop_call) {
+        build_reference<ccu_rep_loop_call, ccu_rep_loop_block>(rep);
+    } else if (rep_type == ccu_rep_type::loop) {
+        build_reference<ccu_rep_loop, ccu_rep_loop_block>(rep);
     }
 }
 
-void CcuRepTranslator::Translate(
-    CcuKernel* ccuKernel, const std::vector<std::shared_ptr<CcuRepBase>>& repVec, CcuInstr*& instr, uint16_t& instrId,
-    std::function<bool(std::shared_ptr<CcuRepBase>)> filter)
+void ccu_rep_translator::translate(
+    ccu_kernel* ccu_kernel, const std::vector<std::shared_ptr<ccu_rep_base>>& rep_vec, ccu_instr*& instr, uint16_t& instr_id,
+    std::function<bool(std::shared_ptr<ccu_rep_base>)> filter)
 {
-    constexpr uint32_t maxTryCount = 10; // 最大尝试次数10
-    uint32_t tryCount = 0;
-    uint32_t restCount = 0;
+    constexpr uint32_t max_try_count = 10; // 最大尝试次数10
+    uint32_t try_count = 0;
+    uint32_t rest_count = 0;
 
-    auto funcInVar = refManager.get()->GetFuncIn();
-    int funcArgIndex = 0;
+    auto func_in_var = ref_manager_.get()->get_func_in();
+    int func_arg_index = 0;
 
     do {
-        restCount = 0;
-        for (uint32_t index = 0; index < repVec.size(); index++) {
-            if (!filter(repVec[index])) {
+        rest_count = 0;
+        for (uint32_t index = 0; index < rep_vec.size(); index++) {
+            if (!filter(rep_vec[index])) {
                 continue;
             }
 
-            if (repVec[index]->Translated()) {
+            if (rep_vec[index]->translated()) {
                 continue;
             }
 
-            if (repVec[index]->Type() == CcuRepType::LOAD_ARG && transDep.isFuncBlock) {
-                transDep.loadXnId = funcInVar[funcArgIndex++].Id();
+            if (rep_vec[index]->type() == ccu_rep_type::load_arg && trans_dep_.is_func_block) {
+                trans_dep_.load_xn_id = func_in_var[func_arg_index++].id();
             }
 
-            PreProcess(repVec[index]);
-            bool flag = repVec[index]->Translate(ccuKernel, instr, instrId, transDep);
+            pre_process(rep_vec[index]);
+            bool flag = rep_vec[index]->translate(ccu_kernel, instr, instr_id, trans_dep_);
             if (!flag) {
-                restCount++;
+                rest_count++;
             }
         }
-        tryCount++;
-        HCCL_INFO("tryCount = %u, remaining representation = %u", tryCount, restCount);
-    } while (restCount > 0 && tryCount < maxTryCount);
+        try_count++;
+        HCCL_INFO("tryCount = %u, remaining representation = %u", try_count, rest_count);
+    } while (rest_count > 0 && try_count < max_try_count);
 
-    if (tryCount == maxTryCount && restCount > 0) {
-        HCCL_ERROR("After translation, remaining representation: tryCount = %u, restCount = %u ", tryCount, restCount);
-        for (uint32_t index = 0; index < repVec.size(); index++) {
-            if (!repVec[index]->Translated()) {
-                HCCL_ERROR("index[%u], %s", index, repVec[index]->Describe().c_str());
+    if (try_count == max_try_count && rest_count > 0) {
+        HCCL_ERROR("After translation, remaining representation: tryCount = %u, restCount = %u ", try_count, rest_count);
+        for (uint32_t index = 0; index < rep_vec.size(); index++) {
+            if (!rep_vec[index]->translated()) {
+                HCCL_ERROR("index[%u], %s", index, rep_vec[index]->describe().c_str());
             }
         }
-        asccomm::ThrowCcuInternal("Translation Failed");
+        asc::throw_ccu_internal("Translation Failed");
     }
 }
 
-CcuInstrInfo CcuRepTranslator::Translate(
-    CcuKernel* ccuKernel, const std::vector<std::shared_ptr<CcuRepBase>>& repVec, uint16_t startInstrId,
-    bool isFuncBlock)
+ccu_instr_info ccu_rep_translator::translate(
+    ccu_kernel* ccu_kernel, const std::vector<std::shared_ptr<ccu_rep_base>>& rep_vec, uint16_t start_instr_id,
+    bool is_func_block)
 {
-    constexpr uint32_t defaultInstrCapacity = 32 * 1024; // 默认最大容量32 * 1024条
-    CcuInstrInfo instrInfo;
-    instrInfo.instrVec.resize(defaultInstrCapacity);
-    CcuInstr* instr = instrInfo.instrVec.data();
-    uint16_t curInstrId = startInstrId;
+    constexpr uint32_t default_instr_capacity = 32 * 1024; // 默认最大容量32 * 1024条
+    ccu_instr_info instr_info;
+    instr_info.instr_vec.resize(default_instr_capacity);
+    ccu_instr* instr = instr_info.instr_vec.data();
+    uint16_t cur_instr_id = start_instr_id;
 
-    BindResource(isFuncBlock);
+    bind_resource(is_func_block);
 
     // 翻译LoopBlock
-    Translate(ccuKernel, repVec, instr, curInstrId, [](std::shared_ptr<CcuRepBase> rep) -> bool {
-        return rep->Type() == CcuRepType::LOOP_BLOCK;
+    translate(ccu_kernel, rep_vec, instr, cur_instr_id, [](std::shared_ptr<ccu_rep_base> rep) -> bool {
+        return rep->type() == ccu_rep_type::loop_block;
     });
 
     // 翻译funcBlock
-    Translate(ccuKernel, repVec, instr, curInstrId, [](std::shared_ptr<CcuRepBase> rep) -> bool {
-        return rep->Type() == CcuRepType::FUNC_BLOCK;
+    translate(ccu_kernel, rep_vec, instr, cur_instr_id, [](std::shared_ptr<ccu_rep_base> rep) -> bool {
+        return rep->type() == ccu_rep_type::func_block;
     });
 
-    uint16_t missionStartInstrId = curInstrId;
+    uint16_t mission_start_instr_id = cur_instr_id;
 
     // 翻译Load:按全局 argId 升序排序后再翻译,确保 LoadSqeArgs 指令在 mission 切分时
     // 落入与其 slot id 匹配的 mission(避免用户乱序 LoadArg 导致取参错位)
-    std::vector<std::shared_ptr<CcuRepBase>> sortedLoadArgReps;
-    sortedLoadArgReps.reserve(repVec.size());
-    for (const auto& rep : repVec) {
-        if (rep->Type() == CcuRepType::LOAD_ARG) {
-            sortedLoadArgReps.push_back(rep);
+    std::vector<std::shared_ptr<ccu_rep_base>> sorted_load_arg_reps;
+    sorted_load_arg_reps.reserve(rep_vec.size());
+    for (const auto& rep : rep_vec) {
+        if (rep->type() == ccu_rep_type::load_arg) {
+            sorted_load_arg_reps.push_back(rep);
         }
     }
     std::stable_sort(
-        sortedLoadArgReps.begin(), sortedLoadArgReps.end(),
-        [](const std::shared_ptr<CcuRepBase>& a, const std::shared_ptr<CcuRepBase>& b) {
-            return std::static_pointer_cast<CcuRepLoadArg>(a)->GetFullArgId() <
-                   std::static_pointer_cast<CcuRepLoadArg>(b)->GetFullArgId();
+        sorted_load_arg_reps.begin(), sorted_load_arg_reps.end(),
+        [](const std::shared_ptr<ccu_rep_base>& a, const std::shared_ptr<ccu_rep_base>& b) {
+            return std::static_pointer_cast<ccu_rep_load_arg>(a)->get_full_arg_id() <
+                   std::static_pointer_cast<ccu_rep_load_arg>(b)->get_full_arg_id();
         });
-    Translate(ccuKernel, sortedLoadArgReps, instr, curInstrId, [](std::shared_ptr<CcuRepBase> rep) -> bool {
-        return rep->Type() == CcuRepType::LOAD_ARG;
+    translate(ccu_kernel, sorted_load_arg_reps, instr, cur_instr_id, [](std::shared_ptr<ccu_rep_base> rep) -> bool {
+        return rep->type() == ccu_rep_type::load_arg;
     });
 
     // 插入通用操作
-    CommonProcess(ccuKernel, instr, curInstrId);
+    common_process(ccu_kernel, instr, cur_instr_id);
 
     // 翻译主体
-    Translate(ccuKernel, repVec, instr, curInstrId, [](std::shared_ptr<CcuRepBase> rep) -> bool { return true; });
+    translate(ccu_kernel, rep_vec, instr, cur_instr_id, [](std::shared_ptr<ccu_rep_base> rep) -> bool { return true; });
 
-    FinishMainBlock(instr, curInstrId);
+    finish_main_block(instr, cur_instr_id);
 
-    instrInfo.startInstrId = startInstrId;
-    instrInfo.instrCount = curInstrId - startInstrId;
-    instrInfo.missionStartInstrId = missionStartInstrId;
-    instrInfo.missionInstrCount = curInstrId - missionStartInstrId;
-    instrInfo.instrVec.resize(instrInfo.instrCount);
+    instr_info.start_instr_id = start_instr_id;
+    instr_info.instr_count = cur_instr_id - start_instr_id;
+    instr_info.mission_start_instr_id = mission_start_instr_id;
+    instr_info.mission_instr_count = cur_instr_id - mission_start_instr_id;
+    instr_info.instr_vec.resize(instr_info.instr_count);
 
-    DumpRep(repVec, instrInfo);
-    DumpInstruction(instrInfo);
+    dump_rep(rep_vec, instr_info);
+    dump_instruction(instr_info);
 
-    return instrInfo;
+    return instr_info;
 }
 
-void CcuRepTranslator::CommonProcess(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId)
+void ccu_rep_translator::common_process(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id)
 {
-    LoadImdToXnInstr(instr++, var[0].Id(), 0);
-    LoadImdToGSAInstr(instr++, addr[0].Id(), 0);
-    SetCKEInstr(instr++, signal[0].Id(), 0xffff, 0, 0, 1);
+    load_imd_to_xn_instr(instr++, var_[0].id(), 0);
+    load_imd_to_gsa_instr(instr++, addr_[0].id(), 0);
+    set_cke_instr(instr++, signal_[0].id(), 0xffff, 0, 0, 1);
 
     // 遍历需要赋值的常量，A5场景下暂为空表
-    std::unordered_map<uint64_t, CcuRep::Variable>& constValue2VarMap = ccuKernel->GetConstValue2VarMap();
-    uint32_t constValueNum = constValue2VarMap.size();
-    for (auto elem : constValue2VarMap) {
-        uint64_t constValue = elem.first;
-        CcuRep::Variable curVariable = elem.second;
-        LoadImdToXnInstr(instr++, curVariable.Id(), constValue);
+    std::unordered_map<uint64_t, ccu_rep::variable>& const_value2_var_map = ccu_kernel->get_const_value2_var_map();
+    uint32_t const_value_num = const_value2_var_map.size();
+    for (auto elem : const_value2_var_map) {
+        uint64_t const_value = elem.first;
+        ccu_rep::variable cur_variable = elem.second;
+        load_imd_to_xn_instr(instr++, cur_variable.id(), const_value);
     }
 
-    uint32_t instrNum = 3 + constValueNum;
-    if (instrId > UINT16_MAX - instrNum) {
-        asccomm::ThrowCcuInternal("integer overflow occurs");
+    uint32_t instr_num = 3 + const_value_num;
+    if (instr_id > UINT16_MAX - instr_num) {
+        asc::throw_ccu_internal("integer overflow occurs");
     }
-    instrId += instrNum; // 插入3条指令
+    instr_id += instr_num; // 插入3条指令
 }
 
-void CcuRepTranslator::FinishMainBlock(CcuInstr*& instr, uint16_t& instrId)
+void ccu_rep_translator::finish_main_block(ccu_instr*& instr, uint16_t& instr_id)
 {
-    if (transDep.isFuncBlock) {
-        JumpInstr(instr++, refManager.get()->GetFuncRet(FUNC_NEST_MAX).Id(), transDep.reserveXnId, 1);
+    if (trans_dep_.is_func_block) {
+        jump_instr(instr++, ref_manager_.get()->get_func_ret(func_nest_max).id(), trans_dep_.reserve_xn_id, 1);
     } else {
-        LoadImdToXnInstr(instr++, var[0].Id(), 0);
+        load_imd_to_xn_instr(instr++, var_[0].id(), 0);
     }
-    instrId++;
+    instr_id++;
 
-    if (instrId > UINT16_MAX - 1) {
-        asccomm::ThrowCcuInternal("integer overflow occurs");
+    if (instr_id > UINT16_MAX - 1) {
+        asc::throw_ccu_internal("integer overflow occurs");
     }
 }
 
-void CcuRepTranslator::DumpInstruction(const CcuInstrInfo& instrInfo) const
+void ccu_rep_translator::dump_instruction(const ccu_instr_info& instr_info) const
 {
     HCCL_INFO(
         "CcuInstrInfo: startInstrId = %u, instrCount = %u, missionStartInstrId = %u, missionInstrCount = %u",
-        instrInfo.startInstrId, instrInfo.instrCount, instrInfo.missionStartInstrId, instrInfo.missionInstrCount);
-    for (uint16_t index = 0; index < instrInfo.instrVec.size(); index++) {
-        HCCL_INFO("%d: %s", instrInfo.startInstrId + index, ParseInstr(instrInfo.instrVec.data() + index).c_str());
+        instr_info.start_instr_id, instr_info.instr_count, instr_info.mission_start_instr_id, instr_info.mission_instr_count);
+    for (uint16_t index = 0; index < instr_info.instr_vec.size(); index++) {
+        HCCL_INFO("%d: %s", instr_info.start_instr_id + index, parse_instr(instr_info.instr_vec.data() + index).c_str());
     }
 }
 
-void CcuRepTranslator::DumpRep(
-    const std::vector<std::shared_ptr<CcuRepBase>>& repVec, const CcuInstrInfo& instrInfo) const
+void ccu_rep_translator::dump_rep(
+    const std::vector<std::shared_ptr<ccu_rep_base>>& rep_vec, const ccu_instr_info& instr_info) const
 {
     HCCL_INFO("Translated Ccu Rep:");
-    for (uint32_t index = 0; index < repVec.size(); index++) {
-        uint16_t startInstrId = repVec[index]->StartInstrId();
-        uint32_t sum = static_cast<uint32_t>(startInstrId) + repVec[index]->InstrCount();
+    for (uint32_t index = 0; index < rep_vec.size(); index++) {
+        uint16_t start_instr_id = rep_vec[index]->start_instr_id();
+        uint32_t sum = static_cast<uint32_t>(start_instr_id) + rep_vec[index]->instr_count();
         if (sum > UINT16_MAX) {
             HCCL_ERROR(
-                "instrId overflow: startInstrId[%u] + InstrCount[%u] = %u exceeds UINT16_MAX", startInstrId,
-                repVec[index]->InstrCount(), sum);
+                "instrId overflow: startInstrId[%u] + instr_count[%u] = %u exceeds UINT16_MAX", start_instr_id,
+                rep_vec[index]->instr_count(), sum);
             continue;
         }
-        uint16_t endInstrId = static_cast<uint16_t>(sum);
-        HCCL_INFO("rep[%u]: %s Instr[%u--%u]", index, repVec[index]->Describe().c_str(), startInstrId, endInstrId);
-        for (uint16_t instrId = startInstrId; instrId < endInstrId; instrId++) {
-            if (instrId < instrInfo.startInstrId) {
-                HCCL_ERROR("instrId[%u] less than startInstrId[%u]", instrId, instrInfo.startInstrId);
+        uint16_t end_instr_id = static_cast<uint16_t>(sum);
+        HCCL_INFO("rep[%u]: %s Instr[%u--%u]", index, rep_vec[index]->describe().c_str(), start_instr_id, end_instr_id);
+        for (uint16_t instr_id = start_instr_id; instr_id < end_instr_id; instr_id++) {
+            if (instr_id < instr_info.start_instr_id) {
+                HCCL_ERROR("instrId[%u] less than startInstrId[%u]", instr_id, instr_info.start_instr_id);
                 continue;
             }
-            HCCL_INFO("microcode[%u]: %s", instrId,
-                ParseInstr(instrInfo.instrVec.data() + (instrId - instrInfo.startInstrId)).c_str());
+            HCCL_INFO("microcode[%u]: %s", instr_id,
+                parse_instr(instr_info.instr_vec.data() + (instr_id - instr_info.start_instr_id)).c_str());
         }
     }
 }
 
-void CcuRepTranslator::BindResource(bool isFuncBlock)
+void ccu_rep_translator::bind_resource(bool is_func_block)
 {
-    transDep.reserveXnId = var[0].Id();
-    transDep.reserveGsaId = addr[0].Id();
-    transDep.reserveCkeId = signal[0].Id();
-    for (int i = 0; i < XN_NUM - 1; i++) {
-        transDep.commXn[i] = var[i + 1].Id();
+    trans_dep_.reserve_xn_id = var_[0].id();
+    trans_dep_.reserve_gsa_id = addr_[0].id();
+    trans_dep_.reserve_cke_id = signal_[0].id();
+    for (int i = 0; i < xn_num - 1; i++) {
+        trans_dep_.comm_xn[i] = var_[i + 1].id();
     }
-    for (int i = 0; i < GSA_NUM - 1; i++) {
-        transDep.commGsa[i] = addr[i + 1].Id();
+    for (int i = 0; i < gsa_num - 1; i++) {
+        trans_dep_.comm_gsa[i] = addr_[i + 1].id();
     }
-    transDep.commSignal = signal[1].Id();
-    transDep.isFuncBlock = isFuncBlock;
+    trans_dep_.comm_signal = signal_[1].id();
+    trans_dep_.is_func_block = is_func_block;
     HCCL_INFO(
         "TransDep info: logicalId = %d, dieId = %u, reserveXnId = %u, reserveGsaId = %u, reserveCkeId = %u, "
         "innerDieChannelId = %u, interDieChannelId = %u",
-        transDep.logicalId, transDep.dieId, transDep.reserveXnId, transDep.reserveGsaId, transDep.reserveCkeId,
-        transDep.reserveChannalId[0], transDep.reserveChannalId[1]);
+        trans_dep_.logical_id, trans_dep_.die_id, trans_dep_.reserve_xn_id, trans_dep_.reserve_gsa_id, trans_dep_.reserve_cke_id,
+        trans_dep_.reserve_channal_id[0], trans_dep_.reserve_channal_id[1]);
 }
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

@@ -44,8 +44,8 @@ protected:
 
 TEST_F(AppendToContextTest, Ut_AppendToContext_When_NullContext_Expect_ShouldThrowException)
 {
-    CcuRep::CcuInsGeneraterV1 insGen;
-    std::shared_ptr<CcuRep::CcuRepBase> rep = std::make_shared<CcuRep::CcuRepBlock>(&insGen, "test_rep");
+    ccu_rep::ccu_ins_generater_v1 insGen;
+    std::shared_ptr<ccu_rep::ccu_rep_base> rep = std::make_shared<ccu_rep::ccu_rep_block>(&insGen, "test_rep");
 
-    EXPECT_THROW(AppendToContext(nullptr, rep), Hccl::CcuApiException);
+    EXPECT_THROW(append_to_context(nullptr, rep), Hccl::CcuApiException);
 }

@@ -14,60 +14,60 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepLocWaitEvent::CcuRepLocWaitEvent(
-    CcuInsGeneraterBase* insGenPtr, const CompletedEvent& event, uint32_t mask, bool isProfiling)
-    : insGenPtr(insGenPtr), event_(event), mask_(mask), isProfiling_(isProfiling)
+ccu_rep_loc_wait_event::ccu_rep_loc_wait_event(
+    ccu_ins_generater_base* ins_gen_ptr, const completed_event& event, uint32_t mask, bool is_profiling)
+    : ins_gen_ptr_(ins_gen_ptr), event_(event), mask_(mask), is_profiling_(is_profiling)
 {
-    type = CcuRepType::LOC_WAIT_EVENT;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::loc_wait_event;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-void CcuRepLocWaitEvent::SetDependencyInfo(
-    const std::unordered_map<uint32_t, std::vector<std::shared_ptr<CcuRepBase>>>& depInfo)
+void ccu_rep_loc_wait_event::set_dependency_info(
+    const std::unordered_map<uint32_t, std::vector<std::shared_ptr<ccu_rep_base>>>& dep_info)
 {
-    depInfo_ = depInfo;
+    dep_info_ = dep_info;
 }
 
-std::vector<std::shared_ptr<CcuRepBase>> CcuRepLocWaitEvent::GetDependencyInfo(uint32_t bit)
+std::vector<std::shared_ptr<ccu_rep_base>> ccu_rep_loc_wait_event::get_dependency_info(uint32_t bit)
 {
     // 查找给定 bit 是否存在于 depInfo_ 中
-    auto it = depInfo_.find(bit);
+    auto it = dep_info_.find(bit);
     // 如果找到 bit，返回与之关联的 vector
-    if (it != depInfo_.end()) {
+    if (it != dep_info_.end()) {
         return it->second;
     }
     // 如果未找到 bit，返回一个空的 vector
-    return std::vector<std::shared_ptr<CcuRepBase>>();
+    return std::vector<std::shared_ptr<ccu_rep_base>>();
 }
 
-bool CcuRepLocWaitEvent::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_loc_wait_event::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepLocWaitEventTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepLocWaitEvent][Translate] failed to translate for instrId[%u]", instrId),
+        ins_gen_ptr_->ccu_rep_loc_wait_event_translate(ccu_kernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepLocWaitEvent][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepLocWaitEvent translate failed");
 
     CHK_PRT_THROW(
-        (instrId > UINT16_MAX - instrCount),
+        (instr_id > UINT16_MAX - instr_count_),
         HCCL_ERROR(
-            "[CcuRepLocWaitEvent::Translate]uint16 integer overflow occurs, "
+            "[CcuRepLocWaitEvent::translate]uint16 integer overflow occurs, "
             "instrId = [%hu], instrCount = [%hu]",
-            instrId, instrCount),
+            instr_id, instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
-    instrId += instrCount;
-    return translated;
+    instr_id += instr_count_;
+    return translated_;
 }
 
-std::string CcuRepLocWaitEvent::Describe()
+std::string ccu_rep_loc_wait_event::describe()
 {
-    return asccomm::FormatCcuMessage("CcuRepLocWaitEvent=id[%u], mask[%04x]", event_.Id(), mask_);
+    return asc::format_ccu_message("CcuRepLocWaitEvent=id[%u], mask[%04x]", event_.id(), mask_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

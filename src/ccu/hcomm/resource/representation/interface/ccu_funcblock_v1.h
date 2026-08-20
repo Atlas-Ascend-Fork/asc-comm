@@ -8,63 +8,63 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_FUNC_BLOCK_H
-#define HCOMM_CCU_FUNC_BLOCK_H
+#ifndef ASCCOMM_CCU_FUNC_BLOCK_H
+#define ASCCOMM_CCU_FUNC_BLOCK_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/representation/reps/control/ccu_rep_funcblock_v1.h"
 #include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class FuncBlock {
+class func_block {
 public:
-    FuncBlock(CcuRepContext* context, std::string label, uint16_t callLayer = FUNC_CALL_LAYER_INVALID);
-    ~FuncBlock();
+    func_block(ccu_rep_context* context, std::string label, uint16_t call_layer = func_call_layer_invalid);
+    ~func_block();
 
-    template <typename... Arguments>
-    FuncBlock& operator()(const Arguments&... args)
+    template <typename... arguments>
+    func_block& operator()(const arguments&... args)
     {
-        DefineInArgHelper(args...);
+        define_in_arg_helper(args...);
         return *this;
     }
 
-    template <typename T>
-    void DefineInArg(T&& arg)
+    template <typename t>
+    void define_in_arg(t&& arg)
     {
-        repFuncBlock->DefineInArg(std::forward<T>(arg));
+        rep_func_block_->define_in_arg(std::forward<t>(arg));
     }
 
-    template <typename T>
-    void DefineOutArg(T&& arg)
+    template <typename t>
+    void define_out_arg(t&& arg)
     {
-        repFuncBlock->DefineOutArg(std::forward<T>(arg));
+        rep_func_block_->define_out_arg(std::forward<t>(arg));
     }
 
 private:
-    template <typename First>
-    void DefineInArgHelper(const First& first)
+    template <typename first_t>
+    void define_in_arg_helper(const first_t& first)
     {
-        repFuncBlock->DefineInArg(first);
+        rep_func_block_->define_in_arg(first);
     }
 
-    template <typename First, typename... Rest>
-    void DefineInArgHelper(const First& first, const Rest&... rest)
+    template <typename first_t, typename... rest_t>
+    void define_in_arg_helper(const first_t& first, const rest_t&... rest)
     {
-        repFuncBlock->DefineInArg(first);
-        DefineInArgHelper(rest...);
+        rep_func_block_->define_in_arg(first);
+        define_in_arg_helper(rest...);
     }
 
-    CcuRepContext* context{nullptr};
-    std::string label;
+    ccu_rep_context* context_{nullptr};
+    std::string label_;
 
-    std::shared_ptr<CcuRepFuncBlock> repFuncBlock{nullptr};
-    std::shared_ptr<CcuRepBlock> curActiveBlock{nullptr};
+    std::shared_ptr<ccu_rep_func_block> rep_func_block_{nullptr};
+    std::shared_ptr<ccu_rep_block> cur_active_block_{nullptr};
 
-    uint16_t callLayer{FUNC_CALL_LAYER_INVALID};
+    uint16_t call_layer_{func_call_layer_invalid};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCCL_CCU_FUNC_BLOCK_H

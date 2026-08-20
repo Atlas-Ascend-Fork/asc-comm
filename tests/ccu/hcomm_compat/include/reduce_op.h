@@ -18,16 +18,16 @@ namespace Hccl {
 
 class ReduceOp {
 public:
-    enum Value { SUM, PROD, MAX, MIN, EQUAL, INVALID };
+    enum Value { SUM, PROD, MAX, MIN, equal, invalid };
 
     constexpr ReduceOp(Value value) : value_(value) {}
 
     bool operator<(const ReduceOp& other) const { return value_ < other.value_; }
     bool operator==(const ReduceOp& other) const { return value_ == other.value_; }
 
-    std::string Describe() const
+    std::string describe() const
     {
-        static constexpr const char* names[] = {"SUM", "PROD", "MAX", "MIN", "EQUAL", "INVALID"};
+        static constexpr const char* names[] = {"SUM", "PROD", "MAX", "MIN", "equal", "invalid"};
         return names[static_cast<unsigned int>(value_)];
     }
 

@@ -14,43 +14,43 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepBufReduce::CcuRepBufReduce(
-    CcuInsGeneraterBase* insGenPtr, const std::vector<CcuBuf>& mem, uint16_t count, uint16_t dataType,
-    uint16_t outputDataType, uint16_t opType, CompletedEvent sem, const CcuRep::Variable& len, uint16_t mask)
-    : insGenPtr(insGenPtr),
-      mem(mem),
-      count(count),
-      dataType(dataType),
-      outputDataType(outputDataType),
-      opType(opType),
-      sem(sem),
-      xnIdLength_(len),
-      mask(mask)
+ccu_rep_buf_reduce::ccu_rep_buf_reduce(
+    ccu_ins_generater_base* ins_gen_ptr, const std::vector<ccu_buf>& mem, uint16_t count, uint16_t data_type,
+    uint16_t output_data_type, uint16_t op_type, completed_event sem, const ccu_rep::variable& len, uint16_t mask)
+    : ins_gen_ptr_(ins_gen_ptr),
+      mem_(mem),
+      count_(count),
+      data_type_(data_type),
+      output_data_type_(output_data_type),
+      op_type_(op_type),
+      sem_(sem),
+      xn_id_length_(len),
+      mask_(mask)
 {
-    type = CcuRepType::BUF_REDUCE;
-    instrCount = 1;
+    type_ = ccu_rep_type::buf_reduce;
+    instr_count_ = 1;
 }
 
-bool CcuRepBufReduce::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_buf_reduce::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
-    instrCount = insGenPtr->GetInstrCount(type);
+    instr_count_ = ins_gen_ptr_->get_instr_count(type_);
     CHK_PRT_THROW(
-        insGenPtr->CcuRepBufReduceTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepBufReduce][Translate] failed to translate for instrId[%u]", instrId),
+        ins_gen_ptr_->ccu_rep_buf_reduce_translate(ccu_kernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepBufReduce][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepBufReduce translate failed");
 
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepBufReduce::Describe() { return asccomm::FormatCcuMessage("Reduce"); }
+std::string ccu_rep_buf_reduce::describe() { return asc::format_ccu_message("Reduce"); }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

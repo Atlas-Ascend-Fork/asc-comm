@@ -39,20 +39,20 @@ struct CcuKernelArgBase {
     uint32_t channelCount;
 };
 
-struct CcuKernelInfo {
-    char kernelFuncName[64];
-    void* kernelFunc;
-    void* kernelArg;
+struct ccu_kernel_info {
+    char kernel_func_name[64];
+    void* kernel_func;
+    void* kernel_arg;
 
 private:
     std::shared_ptr<CcuKernelArgBase> kernelArgSmartPtr;
 
 public:
-    template <typename T>
-    void setKernelArg(std::shared_ptr<T> arg)
+    template <typename t>
+    void setKernelArg(std::shared_ptr<t> arg)
     {
         kernelArgSmartPtr = std::static_pointer_cast<CcuKernelArgBase>(arg);
-        kernelArg = static_cast<void*>(arg.get());
+        kernel_arg = static_cast<void*>(arg.get());
     }
 };
 
@@ -64,14 +64,14 @@ struct CcuKernelArgAllReduceMesh1DMem2Mem : public CcuKernelArgBase {
 struct AllReduceMesh1DMem2MemContext {
     const CcuKernelArgAllReduceMesh1DMem2Mem* arg;
 
-    ccu::Variable input;
-    std::vector<ccu::Variable> output;
-    std::vector<ccu::Variable> token;
-    ccu::Variable sliceSize;
-    ccu::Event event;
+    ccu::variable input;
+    std::vector<ccu::variable> output;
+    std::vector<ccu::variable> token;
+    ccu::variable sliceSize;
+    ccu::event event;
 };
 
-CcuResult CcuAllReduceMesh1DMem2MemKernel(CcuKernelArg arg);
+CcuResult CcuAllReduceMesh1DMem2MemKernel(ccu_kernel_arg arg);
 
 } // namespace ops_hccl_ar
 

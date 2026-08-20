@@ -20,17 +20,17 @@ namespace AscendC {
 namespace ccu {
 namespace detail {
 
-struct NoAllocTag {};
+struct no_alloc_tag {};
 
-class CcuException : public std::exception {
+class ccu_exception : public std::exception {
 public:
-    CcuException(CcuResult code, const char* what) : code_(code), what_(BuildMessage(code, what)) {}
+    ccu_exception(CcuResult code, const char* what) : code_(code), what_(build_message(code, what)) {}
 
     const char* what() const noexcept override { return what_.c_str(); }
     CcuResult code() const noexcept { return code_; }
 
 private:
-    static std::string BuildMessage(CcuResult code, const char* what)
+    static std::string build_message(CcuResult code, const char* what)
     {
         std::string msg = "[ccu] ";
         msg += (what != nullptr) ? what : "(unknown)";
@@ -43,50 +43,50 @@ private:
     CcuResult code_;
     std::string what_;
 };
-enum class CcuArithmeticOperatorType { ADDITION, INVALID };
-enum class CcuShiftOperatorType { LEFT, RIGHT, INVALID };
+enum class ccu_arithmetic_operator_type { addition, invalid };
+enum class ccu_shift_operator_type { left, right, invalid };
 
-template <typename lhsT, typename rhsT>
-class CcuOperator {
+template <typename lhs_t, typename rhs_t>
+class ccu_operator {
 public:
-    CcuOperator(lhsT lhs, rhsT rhs) : lhs(lhs), rhs(rhs) {}
-    lhsT lhs;
-    rhsT rhs;
+    ccu_operator(lhs_t lhs, rhs_t rhs) : lhs(lhs), rhs(rhs) {}
+    lhs_t lhs;
+    rhs_t rhs;
 };
 
-template <typename lhsT, typename rhsT>
-class CcuArithmeticOperator : public CcuOperator<lhsT, rhsT> {
+template <typename lhs_t, typename rhs_t>
+class ccu_arithmetic_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    CcuArithmeticOperator(lhsT lhs, rhsT rhs, CcuArithmeticOperatorType type)
-        : CcuOperator<lhsT, rhsT>(lhs, rhs), type(type)
+    ccu_arithmetic_operator(lhs_t lhs, rhs_t rhs, ccu_arithmetic_operator_type type_)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type_)
     {
-        Check();
+        check();
     }
-    void Check() const
+    void check() const
     {
-        throw ::AscendC::ccu::detail::CcuException(
-            CcuResult::CCU_E_PARA, "CcuArithmeticOperator: invalid operand types");
+        throw ::AscendC::ccu::detail::ccu_exception(
+            CcuResult::CCU_E_PARA, "ccu_arithmetic_operator: invalid operand types");
     }
 
-    CcuArithmeticOperatorType type{CcuArithmeticOperatorType::INVALID};
+    ccu_arithmetic_operator_type type_{ccu_arithmetic_operator_type::invalid};
 };
 
-// Binary shift operators only support variable operands, not immediate values.
-template <typename lhsT, typename rhsT>
-class CcuShiftOperator : public CcuOperator<lhsT, rhsT> {
+// Binary shift operators only support variable operands, not immediate_ values.
+template <typename lhs_t, typename rhs_t>
+class ccu_shift_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    CcuShiftOperator(lhsT lhs, rhsT rhs, CcuShiftOperatorType type)
-        : CcuOperator<lhsT, rhsT>(lhs, rhs), type(type)
+    ccu_shift_operator(lhs_t lhs, rhs_t rhs, ccu_shift_operator_type type_)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type_)
     {
-        Check();
+        check();
     }
-    void Check() const
+    void check() const
     {
-        throw ::AscendC::ccu::detail::CcuException(
-            CcuResult::CCU_E_PARA, "CcuShiftOperator: invalid operand types");
+        throw ::AscendC::ccu::detail::ccu_exception(
+            CcuResult::CCU_E_PARA, "ccu_shift_operator: invalid operand types");
     }
 
-    CcuShiftOperatorType type{CcuShiftOperatorType::INVALID};
+    ccu_shift_operator_type type_{ccu_shift_operator_type::invalid};
 };
 
 } // namespace detail
@@ -97,7 +97,7 @@ public:
     do {                                                                 \
         auto _ccu_ret = (ret);                                           \
         if (_ccu_ret != CcuResult::CCU_SUCCESS) {                        \
-            throw ::AscendC::ccu::detail::CcuException(_ccu_ret, (msg)); \
+            throw ::AscendC::ccu::detail::ccu_exception(_ccu_ret, (msg)); \
         }                                                                \
     } while (0)
 

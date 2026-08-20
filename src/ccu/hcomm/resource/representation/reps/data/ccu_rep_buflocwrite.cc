@@ -14,37 +14,37 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepBufLocWrite::CcuRepBufLocWrite(
-    CcuInsGeneraterBase* insGenPtr, CcuBuf src, LocalAddr dst, Variable len, CompletedEvent sem, uint32_t mask)
-    : insGenPtr(insGenPtr), src(src), dst(dst), len(len), sem(sem), mask(mask)
+ccu_rep_buf_loc_write::ccu_rep_buf_loc_write(
+    ccu_ins_generater_base* ins_gen_ptr, ccu_buf src, local_addr dst, variable len, completed_event sem, uint32_t mask)
+    : ins_gen_ptr_(ins_gen_ptr), src_(src), dst_(dst), len_(len), sem_(sem), mask_(mask)
 {
-    type = CcuRepType::BUF_LOC_WRITE;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::buf_loc_write;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-bool CcuRepBufLocWrite::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_buf_loc_write::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepBufLocWriteTranslate(ccuKernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepBufLocWrite][Translate] failed to translate for instrId[%u]", instrId),
+        ins_gen_ptr_->ccu_rep_buf_loc_write_translate(ccu_kernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepBufLocWrite][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepBufLocWrite translate failed");
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepBufLocWrite::Describe()
+std::string ccu_rep_buf_loc_write::describe()
 {
-    return asccomm::FormatCcuMessage(
-        "Write CcuBuf[%u] To Loc Mem[%u], len[%u], sem[%u], mask[%04x]", src.Id(), dst.addr.Id(), len.Id(), sem.Id(),
-        mask);
+    return asc::format_ccu_message(
+        "Write CcuBuf[%u] To Loc Mem[%u], len[%u], sem[%u], mask[%04x]", src_.id(), dst_.addr.id(), len_.id(), sem_.id(),
+        mask_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

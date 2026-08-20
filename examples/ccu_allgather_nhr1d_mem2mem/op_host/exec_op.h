@@ -24,7 +24,7 @@
 
 namespace CcuAgNhr1dMem2mem {
 
-HcclResult AllGatherNhr1D(void* sendBuf, void* recvBuf, uint64_t count, HcclComm comm, aclrtStream stream);
+HcclResult AllGatherNhr1D(void* sendBuf, void* recvBuf, uint64_t count_, HcclComm comm, aclrtStream stream);
 
 } // namespace CcuAgNhr1dMem2mem
 

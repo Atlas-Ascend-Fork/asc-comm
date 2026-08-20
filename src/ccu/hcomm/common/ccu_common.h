@@ -13,13 +13,13 @@
 
 #include <cstdint>
 
-namespace asccomm {
+namespace asc {
 
-#ifndef HCOMM_CCU_MAX_IODIE_NUM_DEFINED
-#define HCOMM_CCU_MAX_IODIE_NUM_DEFINED
-constexpr uint8_t CCU_MAX_IODIE_NUM = 2;
+#ifndef ASCCOMM_CCU_MAX_IODIE_NUM_DEFINED
+#define ASCCOMM_CCU_MAX_IODIE_NUM_DEFINED
+constexpr uint8_t ccu_max_iodie_num = 2;
 #endif
 
-} // namespace asccomm
+} // namespace asc
 
 #endif // CCU_COMMON_H

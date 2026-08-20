@@ -14,32 +14,32 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepOr : public CcuRepBase {
+class ccu_rep_or : public ccu_rep_base {
 public:
-    CcuRepOr(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, const Variable& varB);
-    CcuRepOr(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varB);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& curInstrId, const TransDep& dep) override;
+    ccu_rep_or(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_a, const variable& var_b);
+    ccu_rep_or(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_b);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, const trans_dep& dep) override;
 
-    std::string Describe() override;
+    std::string describe() override;
 
-    Variable GetVarA() { return varA; }
-    Variable GetVarB() { return varB; }
-    Variable GetVarC() { return varC; }
-    OrSubType GetSubType() { return subType; }
+    variable get_var_a() { return var_a_; }
+    variable get_var_b() { return var_b_; }
+    variable get_var_c() { return var_c_; }
+    or_sub_type get_sub_type() { return sub_type_; }
 
 private:
-    OrSubType subType{OrSubType::INVALID};
+    or_sub_type sub_type_{or_sub_type::invalid};
 
-    Variable varA;
-    Variable varB;
-    Variable varC;
+    variable var_a_;
+    variable var_b_;
+    variable var_c_;
 
-    CcuInsGeneraterBase* insGenPtr{nullptr};
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // HCCL_CCU_REPRESENTATION_OR_H

@@ -57,34 +57,34 @@ static HcclResult HcclAllToAllVCCustom(
         return HCCL_E_NOT_SUPPORT;
     }
 
-    OpParam param;
-    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param.myRank));
-    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param.rankSize));
-    if (param.rankSize == 0 || param.rankSize > MAX_RANK_SIZE) {
+    OpParam param_;
+    RETURN_IF_HCCL_FAIL(HcclGetRankId(comm, &param_.myRank));
+    RETURN_IF_HCCL_FAIL(HcclGetRankSize(comm, &param_.rankSize));
+    if (param_.rankSize == 0 || param_.rankSize > MAX_RANK_SIZE) {
         return HCCL_E_NOT_SUPPORT;
     }
-    param.stream = stream;
-    param.inputPtr = sendBuf;
-    param.outputPtr = recvBuf;
-    param.sendCounts.resize(param.rankSize);
-    param.sendDispls.resize(param.rankSize);
-    param.recvCounts.resize(param.rankSize);
-    param.recvDispls.resize(param.rankSize);
+    param_.stream = stream;
+    param_.inputPtr = sendBuf;
+    param_.outputPtr = recvBuf;
+    param_.sendCounts.resize(param_.rankSize);
+    param_.sendDispls.resize(param_.rankSize);
+    param_.recvCounts.resize(param_.rankSize);
+    param_.recvDispls.resize(param_.rankSize);
     uint64_t sendOffset = 0;
     uint64_t recvOffset = 0;
-    for (uint32_t peer = 0; peer < param.rankSize; peer++) {
-        param.sendCounts[peer] = sendCountMatrix[param.myRank * param.rankSize + peer];
-        param.recvCounts[peer] = sendCountMatrix[peer * param.rankSize + param.myRank];
-        param.sendDispls[peer] = sendOffset;
-        param.recvDispls[peer] = recvOffset;
-        sendOffset += param.sendCounts[peer];
-        recvOffset += param.recvCounts[peer];
+    for (uint32_t peer = 0; peer < param_.rankSize; peer++) {
+        param_.sendCounts[peer] = sendCountMatrix[param_.myRank * param_.rankSize + peer];
+        param_.recvCounts[peer] = sendCountMatrix[peer * param_.rankSize + param_.myRank];
+        param_.sendDispls[peer] = sendOffset;
+        param_.recvDispls[peer] = recvOffset;
+        sendOffset += param_.sendCounts[peer];
+        recvOffset += param_.recvCounts[peer];
     }
-    param.dataType = sendType;
+    param_.data_type_ = sendType;
 
     AlgResourceCtx resources;
-    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param, resources));
-    return ExecOp(param, resources);
+    RETURN_IF_HCCL_FAIL(AllocAlgResource(comm, param_, resources));
+    return ExecOp(param_, resources);
 }
 
 static int Sample(void* arg)
@@ -98,9 +98,9 @@ static int Sample(void* arg)
     ACLCHECK(aclrtCreateStream(&stream));
 
     std::vector<uint64_t> countMatrix(ctx->devCount * ctx->devCount);
-    for (uint32_t src = 0; src < ctx->devCount; src++) {
-        for (uint32_t dst = 0; dst < ctx->devCount; dst++) {
-            countMatrix[src * ctx->devCount + dst] = src + dst + 1;
+    for (uint32_t src_ = 0; src_ < ctx->devCount; src_++) {
+        for (uint32_t dst_ = 0; dst_ < ctx->devCount; dst_++) {
+            countMatrix[src_ * ctx->devCount + dst_] = src_ + dst_ + 1;
         }
     }
     std::vector<uint64_t> sendCounts(ctx->devCount);
@@ -128,9 +128,9 @@ static int Sample(void* arg)
     void* hostBuf = nullptr;
     ACLCHECK(aclrtMallocHost(&hostBuf, sendSize));
     auto* input = static_cast<float*>(hostBuf);
-    for (uint32_t dst = 0; dst < ctx->devCount; dst++) {
-        for (uint64_t i = 0; i < sendCounts[dst]; i++) {
-            input[sendDispls[dst] + i] = static_cast<float>(ctx->device * 1000 + dst * 100 + i);
+    for (uint32_t dst_ = 0; dst_ < ctx->devCount; dst_++) {
+        for (uint64_t i = 0; i < sendCounts[dst_]; i++) {
+            input[sendDispls[dst_] + i] = static_cast<float>(ctx->device * 1000 + dst_ * 100 + i);
         }
     }
     ACLCHECK(aclrtMemcpy(sendBuf, sendSize, hostBuf, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
@@ -147,12 +147,12 @@ static int Sample(void* arg)
     auto* output = static_cast<float*>(resultHost);
     bool passed = true;
     std::cout << "rankId: " << ctx->device << ", output: [";
-    for (uint32_t src = 0; src < ctx->devCount; src++) {
-        for (uint64_t i = 0; i < recvCounts[src]; i++) {
-            const float expected = static_cast<float>(src * 1000 + ctx->device * 100 + i);
-            const float actual = output[recvDispls[src] + i];
+    for (uint32_t src_ = 0; src_ < ctx->devCount; src_++) {
+        for (uint64_t i = 0; i < recvCounts[src_]; i++) {
+            const float expected_ = static_cast<float>(src_ * 1000 + ctx->device * 100 + i);
+            const float actual = output[recvDispls[src_] + i];
             std::cout << " " << actual;
-            passed = passed && (actual == expected);
+            passed = passed && (actual == expected_);
         }
     }
     std::cout << " ]" << std::endl;

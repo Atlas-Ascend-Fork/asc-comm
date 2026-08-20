@@ -17,27 +17,27 @@ namespace ccu = ::AscendC::ccu;
 
 struct CcuIfDemoKernelArg {
     uint32_t value;
-    uint64_t expected;
+    uint64_t expected_;
 };
 
-CcuResult CcuIfDemoKernel(CcuKernelArg arg)
+CcuResult CcuIfDemoKernel(ccu_kernel_arg arg)
 {
-    auto* args = static_cast<CcuIfDemoKernelArg*>(arg);
+    auto* args_ = static_cast<CcuIfDemoKernelArg*>(arg);
 
-    ccu::Variable var;
-    var = args->value;
+    ccu::variable var_;
+    var_ = args_->value;
 
-    CCU_IF(var == args->expected)
+    CCU_IF(var_ == args_->expected_)
     {
-        ccu::Variable thenResult, thenAddend;
+        ccu::variable thenResult, thenAddend;
         thenAddend = 100;
-        thenResult = var + thenAddend;
+        thenResult = var_ + thenAddend;
     }
     CCU_ELSE
     {
-        ccu::Variable elseResult, elseAddend;
+        ccu::variable elseResult, elseAddend;
         elseAddend = 200;
-        elseResult = var + elseAddend;
+        elseResult = var_ + elseAddend;
     }
 
     return CcuResult::CCU_SUCCESS;
@@ -49,20 +49,20 @@ struct CcuIfNoElseDemoKernelArg {
     uint64_t threshold;
 };
 
-CcuResult CcuIfNoElseDemoKernel(CcuKernelArg arg)
+CcuResult CcuIfNoElseDemoKernel(ccu_kernel_arg arg)
 {
-    auto* args = static_cast<CcuIfNoElseDemoKernelArg*>(arg);
+    auto* args_ = static_cast<CcuIfNoElseDemoKernelArg*>(arg);
 
-    ccu::Variable var;
-    var = args->value;
+    ccu::variable var_;
+    var_ = args_->value;
 
-    ccu::Variable result;
+    ccu::variable result;
     result = 0;
 
-    ccu::Variable addend;
+    ccu::variable addend;
     addend = 100;
 
-    CCU_IF(var == args->threshold) { result = var + addend; }
+    CCU_IF(var_ == args_->threshold) { result = var_ + addend; }
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -76,24 +76,24 @@ struct CcuNestedIfOuterElseDemoKernelArg {
     uint64_t innerExpected;
 };
 
-CcuResult CcuNestedIfOuterElseDemoKernel(CcuKernelArg arg)
+CcuResult CcuNestedIfOuterElseDemoKernel(ccu_kernel_arg arg)
 {
-    auto* args = static_cast<CcuNestedIfOuterElseDemoKernelArg*>(arg);
+    auto* args_ = static_cast<CcuNestedIfOuterElseDemoKernelArg*>(arg);
 
-    ccu::Variable outerVar;
-    outerVar = args->outerVal;
+    ccu::variable outerVar;
+    outerVar = args_->outerVal;
 
-    ccu::Variable innerVar;
-    innerVar = args->innerVal;
+    ccu::variable innerVar;
+    innerVar = args_->innerVal;
 
-    ccu::Variable result;
+    ccu::variable result;
     result = 0;
 
-    ccu::Variable addend;
+    ccu::variable addend;
 
-    CCU_IF(outerVar == args->outerExpected)
+    CCU_IF(outerVar == args_->outerExpected)
     {
-        CCU_IF(innerVar == args->innerExpected)
+        CCU_IF(innerVar == args_->innerExpected)
         {
             addend = 10;
             result = result + addend;
@@ -119,24 +119,24 @@ struct CcuNestedIfInnerElseDemoKernelArg {
     uint64_t innerExpected;
 };
 
-CcuResult CcuNestedIfInnerElseDemoKernel(CcuKernelArg arg)
+CcuResult CcuNestedIfInnerElseDemoKernel(ccu_kernel_arg arg)
 {
-    auto* args = static_cast<CcuNestedIfInnerElseDemoKernelArg*>(arg);
+    auto* args_ = static_cast<CcuNestedIfInnerElseDemoKernelArg*>(arg);
 
-    ccu::Variable outerVar;
-    outerVar = args->outerVal;
+    ccu::variable outerVar;
+    outerVar = args_->outerVal;
 
-    ccu::Variable innerVar;
-    innerVar = args->innerVal;
+    ccu::variable innerVar;
+    innerVar = args_->innerVal;
 
-    ccu::Variable result;
+    ccu::variable result;
     result = 0;
 
-    ccu::Variable addend;
+    ccu::variable addend;
 
-    CCU_IF(outerVar == args->outerExpected)
+    CCU_IF(outerVar == args_->outerExpected)
     {
-        CCU_IF(innerVar == args->innerExpected)
+        CCU_IF(innerVar == args_->innerExpected)
         {
             addend = 10;
             result = result + addend;
@@ -162,27 +162,27 @@ struct CcuNestedIfIfDemoKernelArg {
     uint64_t innerExpected;
 };
 
-CcuResult CcuNestedIfIfDemoKernel(CcuKernelArg arg)
+CcuResult CcuNestedIfIfDemoKernel(ccu_kernel_arg arg)
 {
-    auto* args = static_cast<CcuNestedIfIfDemoKernelArg*>(arg);
+    auto* args_ = static_cast<CcuNestedIfIfDemoKernelArg*>(arg);
 
-    ccu::Variable outerVar;
-    outerVar = args->outerVal;
+    ccu::variable outerVar;
+    outerVar = args_->outerVal;
 
-    ccu::Variable innerVar;
-    innerVar = args->innerVal;
+    ccu::variable innerVar;
+    innerVar = args_->innerVal;
 
-    ccu::Variable result;
+    ccu::variable result;
     result = 0;
 
-    ccu::Variable addend;
+    ccu::variable addend;
 
-    CCU_IF(outerVar == args->outerExpected)
+    CCU_IF(outerVar == args_->outerExpected)
     {
         addend = 10;
         result = result + addend;
     }
-    CCU_IF(innerVar == args->innerExpected)
+    CCU_IF(innerVar == args_->innerExpected)
     {
         addend = 20;
         result = result + addend;
@@ -194,29 +194,29 @@ CcuResult CcuNestedIfIfDemoKernel(CcuKernelArg arg)
 // ======================== CCU WHILE Demo ========================
 
 struct CcuWhileDemoKernelArg {
-    uint32_t loopCount;
+    uint32_t loop_count;
 };
 
-CcuResult CcuWhileDemoKernel(CcuKernelArg arg)
+CcuResult CcuWhileDemoKernel(ccu_kernel_arg arg)
 {
-    auto* args = static_cast<CcuWhileDemoKernelArg*>(arg);
+    auto* args_ = static_cast<CcuWhileDemoKernelArg*>(arg);
 
-    ccu::Variable counter;
+    ccu::variable counter;
     counter = 0;
 
-    ccu::Variable limit;
-    limit = args->loopCount;
+    ccu::variable limit;
+    limit = args_->loop_count;
 
-    ccu::Variable one;
+    ccu::variable one;
     one = 1;
 
-    ccu::Variable accumulator;
+    ccu::variable accumulator;
     accumulator = 0;
 
-    ccu::Variable step;
+    ccu::variable step;
     step = 10;
 
-    CCU_WHILE(counter != args->loopCount)
+    CCU_WHILE(counter != args_->loop_count)
     {
         accumulator = accumulator + step;
         counter = counter + one;
@@ -228,30 +228,30 @@ CcuResult CcuWhileDemoKernel(CcuKernelArg arg)
 // ======================== CCU DO_WHILE_WHILE Demo (do{while{}}while) ========================
 
 struct CcuDoWhileWhileDemoKernelArg {
-    uint32_t loopCount;
+    uint32_t loop_count;
 };
 
-CcuResult CcuDoWhileWhileDemoKernel(CcuKernelArg arg)
+CcuResult CcuDoWhileWhileDemoKernel(ccu_kernel_arg arg)
 {
-    auto* args = static_cast<CcuDoWhileWhileDemoKernelArg*>(arg);
+    auto* args_ = static_cast<CcuDoWhileWhileDemoKernelArg*>(arg);
 
-    ccu::Variable counter_1;
+    ccu::variable counter_1;
     counter_1 = 0;
-    ccu::Variable counter_2;
+    ccu::variable counter_2;
     counter_2 = 0;
 
-    ccu::Variable one;
+    ccu::variable one;
     one = 1;
 
-    ccu::Variable accumulator;
+    ccu::variable accumulator;
     accumulator = 0;
 
-    ccu::Variable step;
+    ccu::variable step;
     step = 10;
 
     CCU_DO
     {
-        CCU_WHILE(counter_2 != args->loopCount)
+        CCU_WHILE(counter_2 != args_->loop_count)
         {
             accumulator = accumulator + step;
             counter_2 = counter_2 + one;
@@ -259,30 +259,30 @@ CcuResult CcuDoWhileWhileDemoKernel(CcuKernelArg arg)
         accumulator = accumulator + step;
         counter_1 = counter_1 + one;
     }
-    CCU_WHILE(counter_1 != args->loopCount);
+    CCU_WHILE(counter_1 != args_->loop_count);
     return CcuResult::CCU_SUCCESS;
 }
 
 // ======================== CCU DO {} CCU_WHILE Demo (unified syntax) ========================
 
 struct CcuDoWhileUnifiedDemoKernelArg {
-    uint32_t loopCount;
+    uint32_t loop_count;
 };
 
-CcuResult CcuDoWhileUnifiedDemoKernel(CcuKernelArg arg)
+CcuResult CcuDoWhileUnifiedDemoKernel(ccu_kernel_arg arg)
 {
-    auto* args = static_cast<CcuDoWhileUnifiedDemoKernelArg*>(arg);
+    auto* args_ = static_cast<CcuDoWhileUnifiedDemoKernelArg*>(arg);
 
-    ccu::Variable counter;
+    ccu::variable counter;
     counter = 0;
 
-    ccu::Variable one;
+    ccu::variable one;
     one = 1;
 
-    ccu::Variable accumulator;
+    ccu::variable accumulator;
     accumulator = 0;
 
-    ccu::Variable step;
+    ccu::variable step;
     step = 10;
 
     CCU_DO
@@ -290,7 +290,7 @@ CcuResult CcuDoWhileUnifiedDemoKernel(CcuKernelArg arg)
         accumulator = accumulator + step;
         counter = counter + one;
     }
-    CCU_WHILE(counter != args->loopCount);
+    CCU_WHILE(counter != args_->loop_count);
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -306,32 +306,32 @@ struct CcuNestedInIfIfDemoKernelArg {
     uint64_t innerExpected_2;
 };
 
-CcuResult CcuNestedInIfIfDemoKernel(CcuKernelArg arg)
+CcuResult CcuNestedInIfIfDemoKernel(ccu_kernel_arg arg)
 {
-    auto* args = static_cast<CcuNestedInIfIfDemoKernelArg*>(arg);
+    auto* args_ = static_cast<CcuNestedInIfIfDemoKernelArg*>(arg);
 
-    ccu::Variable outerVar;
-    outerVar = args->outerVal;
+    ccu::variable outerVar;
+    outerVar = args_->outerVal;
 
-    ccu::Variable innerVar_1;
-    innerVar_1 = args->innerVal_1;
+    ccu::variable innerVar_1;
+    innerVar_1 = args_->innerVal_1;
 
-    ccu::Variable innerVar_2;
-    innerVar_2 = args->innerVal_2;
+    ccu::variable innerVar_2;
+    innerVar_2 = args_->innerVal_2;
 
-    ccu::Variable result;
+    ccu::variable result;
     result = 0;
 
-    ccu::Variable addend;
+    ccu::variable addend;
 
-    CCU_IF(outerVar == args->outerExpected)
+    CCU_IF(outerVar == args_->outerExpected)
     {
-        CCU_IF(innerVar_1 == args->innerExpected_1)
+        CCU_IF(innerVar_1 == args_->innerExpected_1)
         {
             addend = 10;
             result = result + addend;
         }
-        CCU_IF(innerVar_2 == args->innerExpected_2)
+        CCU_IF(innerVar_2 == args_->innerExpected_2)
         {
             addend = 20;
             result = result + addend;

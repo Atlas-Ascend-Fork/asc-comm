@@ -29,10 +29,10 @@ void SetHcommCcuChannelGetPodStub(const HcommCcuChannelPod &channelPod)
 
     HcommCcuControlOpsPod controlOps{};
     controlOps.header.version = HCOMM_CCU_CONTROL_ABI_VERSION;
-    controlOps.header.magicWord = HCOMM_CCU_CONTROL_OPS_MAGIC_WORD;
+    controlOps.header.magic_word = HCOMM_CCU_CONTROL_OPS_MAGIC_WORD;
     controlOps.header.size = sizeof(HcommCcuControlOpsPod);
-    controlOps.channelQuery = HcommCcuChannelGetPod;
-    SetCurrentCcuControlOps(controlOps);
+    controlOps.channel_query = HcommCcuChannelGetPod;
+    set_current_ccu_control_ops(controlOps);
 }
 
 void SetHcommCcuChannelGetPodStubResult(HcommResult result)
@@ -45,7 +45,7 @@ void ResetHcommCcuChannelGetPodStub()
     channelPodStub = {};
     queryResultStub = HCCL_SUCCESS;
     channelPodStubConfigured = false;
-    SetCurrentCcuControlOps({});
+    set_current_ccu_control_ops({});
 }
 
 } // namespace hcomm

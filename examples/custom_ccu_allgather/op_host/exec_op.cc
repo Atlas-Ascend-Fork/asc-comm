@@ -24,9 +24,9 @@
 namespace ops_hccl_ag {
 constexpr uint64_t UB_MAX_DATA_SIZE = 256 * 1024 * 1024;
 
-static HcclResult GetDataTypeSize(HcclDataType dataType, uint32_t& dataTypeSize)
+static HcclResult GetDataTypeSize(HcclDataType data_type_, uint32_t& dataTypeSize)
 {
-    if (dataType != HCCL_DATA_TYPE_FP32) {
+    if (data_type_ != HCCL_DATA_TYPE_FP32) {
         return HCCL_E_NOT_SUPPORT;
     }
     dataTypeSize = sizeof(float);
@@ -42,31 +42,31 @@ static HcclResult LaunchCcuKernelSlice(
     uint64_t currentRankSliceInputOffset = 0;
     uint64_t currentRankSliceOutputOffset = dataSize * myRank;
 
-    LoopGroupConfig config{};
-    config.msInterleave = CCU_MS_INTERLEAVE;
-    config.loopCount = CCU_MS_LOCAL_COPY_LOOP_COUNT;
-    config.memSlice = CCU_MS_SIZE * CCU_LOCAL_COPY_MS_PER_LOOP;
+    loop_group_config config{};
+    config.ms_interleave = ccu_ms_interleave;
+    config.loop_count = CCU_MS_LOCAL_COPY_LOOP_COUNT;
+    config.mem_slice = ccu_ms_size * CCU_LOCAL_COPY_MS_PER_LOOP;
     GroupOpSize goSize = CalGoSize(sliceSize, config);
 
-    std::vector<uint64_t> taskArgs = {
+    std::vector<uint64_t> task_args = {
         inputAddr,
         outputAddr,
         token,
         currentRankSliceInputOffset,
         currentRankSliceOutputOffset,
         sliceSize,
-        goSize.addrOffset,
-        goSize.loopParam,
-        goSize.parallelParam,
+        goSize.addr_offset,
+        goSize.loop_param_,
+        goSize.parallel_param,
         goSize.residual,
     };
 
-    HcommCcuLaunchContextPod launchContext{};
-    if (HcommCcuGetLaunchContext(resCtx.threads[0], &launchContext) != HCCL_SUCCESS) {
+    HcommCcuLaunchContextPod launch_context{};
+    if (HcommCcuGetLaunchContext(resCtx.threads[0], &launch_context) != HCCL_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
     CcuResult launchRet =
-        hcomm_ccu_kernel_launch(&launchContext, resCtx.ccuKernels[0], taskArgs.data(), taskArgs.size());
+        asccomm_ccu_kernel_launch(&launch_context, resCtx.ccuKernels[0], task_args.data(), task_args.size());
     if (launchRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
@@ -74,43 +74,43 @@ static HcclResult LaunchCcuKernelSlice(
     return HCCL_SUCCESS;
 }
 
-HcclResult ExecOp(const OpParam& param, const AlgResourceCtx& resCtx)
+HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
 {
     uint32_t dataTypeSize = 0;
-    RETURN_IF_HCCL_FAIL(GetDataTypeSize(param.dataType, dataTypeSize));
-    uint64_t dataSize = param.count * dataTypeSize;
-    uint64_t count = param.count;
+    RETURN_IF_HCCL_FAIL(GetDataTypeSize(param_.data_type_, dataTypeSize));
+    uint64_t dataSize = param_.count_ * dataTypeSize;
+    uint64_t count_ = param_.count_;
 
-    if (count == 0) {
+    if (count_ == 0) {
         return HCCL_SUCCESS;
     }
 
-    if (param.rankSize == 1) {
+    if (param_.rankSize == 1) {
         RETURN_IF_HCCL_FAIL(static_cast<HcclResult>(
-            HcommLocalCopyOnThread(resCtx.threads[0], param.outputPtr, param.inputPtr, dataSize)));
+            HcommLocalCopyOnThread(resCtx.threads[0], param_.outputPtr, param_.inputPtr, dataSize)));
         return HCCL_SUCCESS;
     }
 
     uint64_t maxDataCountPerLoop = UB_MAX_DATA_SIZE / dataTypeSize;
-    uint64_t loopCount = count / maxDataCountPerLoop + static_cast<uint64_t>(count % maxDataCountPerLoop != 0);
+    uint64_t loop_count = count_ / maxDataCountPerLoop + static_cast<uint64_t>(count_ % maxDataCountPerLoop != 0);
     uint64_t processedDataCount = 0;
 
     uint64_t token = 0;
-    uint64_t baseInputAddr = reinterpret_cast<uint64_t>(param.inputPtr);
-    uint64_t baseOutputAddr = reinterpret_cast<uint64_t>(param.outputPtr);
-    if (param.inputPtr != nullptr) {
-        hcomm_ccu_get_mem_token(baseInputAddr, static_cast<uint64_t>(dataSize), &token);
-    } else if (param.outputPtr != nullptr) {
-        hcomm_ccu_get_mem_token(baseOutputAddr, static_cast<uint64_t>(dataSize), &token);
+    uint64_t baseInputAddr = reinterpret_cast<uint64_t>(param_.inputPtr);
+    uint64_t baseOutputAddr = reinterpret_cast<uint64_t>(param_.outputPtr);
+    if (param_.inputPtr != nullptr) {
+        asccomm_ccu_get_mem_token(baseInputAddr, static_cast<uint64_t>(dataSize), &token);
+    } else if (param_.outputPtr != nullptr) {
+        asccomm_ccu_get_mem_token(baseOutputAddr, static_cast<uint64_t>(dataSize), &token);
     }
 
-    for (uint64_t loop = 0; loop < loopCount; loop++) {
-        uint64_t sliceCount = std::min(maxDataCountPerLoop, count - loop * maxDataCountPerLoop);
+    for (uint64_t loop = 0; loop < loop_count; loop++) {
+        uint64_t sliceCount = std::min(maxDataCountPerLoop, count_ - loop * maxDataCountPerLoop);
         uint64_t inputAddr = baseInputAddr + processedDataCount * dataTypeSize;
         uint64_t outputAddr = baseOutputAddr + processedDataCount * dataTypeSize;
 
         RETURN_IF_HCCL_FAIL(LaunchCcuKernelSlice(
-            resCtx, inputAddr, outputAddr, token, dataSize, param.myRank, sliceCount, dataTypeSize));
+            resCtx, inputAddr, outputAddr, token, dataSize, param_.myRank, sliceCount, dataTypeSize));
 
         processedDataCount += sliceCount;
     }

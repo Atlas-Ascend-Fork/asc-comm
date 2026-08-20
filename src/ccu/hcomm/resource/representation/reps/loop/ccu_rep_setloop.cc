@@ -17,38 +17,38 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepSetLoop::CcuRepSetLoop(
-    CcuInsGeneraterBase* insGeneratorPtr, const Variable& loopParam, const Executor& executor, const Variable& var)
-    : insGeneratorPtr_(insGeneratorPtr), loopParam(loopParam), executor(executor), var(var)
+ccu_rep_set_loop::ccu_rep_set_loop(
+    ccu_ins_generater_base* ins_generator_ptr, const variable& loop_param, const executor& executor, const variable& var)
+    : ins_generator_ptr_(ins_generator_ptr), loop_param(loop_param), executor_value(executor), var(var)
 {
-    type = CcuRepType::SET_LOOP;
-    instrCount = insGeneratorPtr_->GetInstrCount(type); // set loop 指令数量为2
+    type_ = ccu_rep_type::set_loop;
+    instr_count_ = ins_generator_ptr_->get_instr_count(type_); // set loop 指令数量为2
 }
 
-bool CcuRepSetLoop::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_set_loop::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
-    if (instrId > USHRT_MAX - instrCount) {
-        asccomm::ThrowCcuInternal(asccomm::FormatCcuMessage(
-            "[CcuRepSetLoop][Translate] instrId[%u] + instrCount[%u] exceeds the "
+    if (instr_id > USHRT_MAX - instr_count_) {
+        asc::throw_ccu_internal(asc::format_ccu_message(
+            "[CcuRepSetLoop][translate] instrId[%u] + instrCount[%u] exceeds the "
             "maximum value of unsigned short int.",
-            instrId, instrCount));
+            instr_id, instr_count_));
     }
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepSetLoop::Describe()
+std::string ccu_rep_set_loop::describe()
 {
-    return asccomm::FormatCcuMessage(
-        "loopParam[%u] = var[%u], execute on LoopEngine[%u]", loopParam.Id(), var.Id(), executor.Id());
+    return asc::format_ccu_message(
+        "loopParam[%u] = var[%u], execute on LoopEngine[%u]", loop_param.id(), var.id(), executor_value.id());
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

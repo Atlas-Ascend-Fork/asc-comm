@@ -12,9 +12,9 @@
 
 namespace hcomm {
 
-HcclResult CcuDevMgrImp::GetXnBaseAddr(const uint32_t devLogicId, const uint8_t dieId, uint64_t& xnBaseAddr)
+HcclResult CcuDevMgrImp::GetXnBaseAddr(const uint32_t dev_logic_id, const uint8_t dieId, uint64_t& xnBaseAddr)
 {
-    (void)devLogicId;
+    (void)dev_logic_id;
     (void)dieId;
     xnBaseAddr = 0;
     return HcclResult::HCCL_SUCCESS;

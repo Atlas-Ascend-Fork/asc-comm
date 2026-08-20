@@ -12,10 +12,10 @@
 
 namespace hcomm {
 
-CcuKernel::~CcuKernel() = default;
+ccu_kernel::~ccu_kernel() = default;
 
-void CcuKernel::Append(std::shared_ptr<CcuRep::CcuRepBase> rep) { CcuRepContext::Append(rep); }
+void ccu_kernel::append(std::shared_ptr<ccu_rep::ccu_rep_base> rep) { ccu_rep_context::append(rep); }
 
-CcuRep::Variable CcuKernel::CreateVariable() { return CcuRep::Variable(this); }
+ccu_rep::variable ccu_kernel::create_variable() { return ccu_rep::variable(this); }
 
 } // namespace hcomm

@@ -20,14 +20,14 @@ constexpr int POST_SYNC_ID = 3;
 static CcuResult ExchangeBuffers(BroadcastMesh1DContext& ctx)
 {
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(
+        RETURN_IF_CCU_FAIL(ccu::write_variable_with_notify(
             ctx.arg->channels[i], ctx.localBuffer, BUFFER_XN_ID, CKE_IDX_0, 1 << BUFFER_XN_ID));
-        RETURN_IF_CCU_FAIL(ccu::WriteVariableWithNotify(
+        RETURN_IF_CCU_FAIL(ccu::write_variable_with_notify(
             ctx.arg->channels[i], ctx.localToken, TOKEN_XN_ID, CKE_IDX_0, 1 << TOKEN_XN_ID));
     }
     const uint32_t allBits = (1 << BUFFER_XN_ID) | (1 << TOKEN_XN_ID);
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        RETURN_IF_CCU_FAIL(ccu::NotifyWait(ctx.arg->channels[i], CKE_IDX_0, allBits));
+        RETURN_IF_CCU_FAIL(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, allBits));
     }
     return CCU_SUCCESS;
 }
@@ -38,32 +38,32 @@ static CcuResult BroadcastFromRoot(BroadcastMesh1DContext& ctx)
         return CCU_SUCCESS;
     }
 
-    ccu::LocalAddr src;
-    src.addr = ctx.localBuffer;
-    src.token = ctx.localToken;
+    ccu::local_addr src_;
+    src_.addr_ = ctx.localBuffer;
+    src_.token = ctx.localToken;
     uint32_t channelId = 0;
     uint16_t remoteMask = 0;
     for (uint32_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
         if (rankIdx == ctx.arg->rankId) {
             continue;
         }
-        const uint16_t mask = 1 << rankIdx;
-        ccu::RemoteAddr dst;
-        dst.addr = ctx.remoteBuffer[rankIdx];
-        dst.token = ctx.remoteToken[rankIdx];
-        RETURN_IF_CCU_FAIL(ccu::Write(ctx.arg->channels[channelId], dst, src, ctx.dataSize, ctx.event, mask));
-        remoteMask |= mask;
+        const uint16_t mask_ = 1 << rankIdx;
+        ccu::remote_addr dst_;
+        dst_.addr_ = ctx.remoteBuffer[rankIdx];
+        dst_.token = ctx.remoteToken[rankIdx];
+        RETURN_IF_CCU_FAIL(ccu::Write(ctx.arg->channels[channelId], dst_, src_, ctx.data_size, ctx.event, mask_));
+        remoteMask |= mask_;
         channelId++;
     }
-    RETURN_IF_CCU_FAIL(ccu::EventWait(ctx.event, remoteMask));
+    RETURN_IF_CCU_FAIL(ccu::event_wait(ctx.event, remoteMask));
     return CCU_SUCCESS;
 }
 
-CcuResult CcuBroadcastMesh1DKernel(CcuKernelArg arg)
+CcuResult CcuBroadcastMesh1DKernel(ccu_kernel_arg arg)
 {
-    auto* kernelArg = static_cast<CcuKernelArgBroadcastMesh1D*>(arg);
+    auto* kernel_arg = static_cast<CcuKernelArgBroadcastMesh1D*>(arg);
     BroadcastMesh1DContext ctx;
-    ctx.arg = kernelArg;
+    ctx.arg = kernel_arg;
     if (ctx.arg->channelCount == 0) {
         return CcuResult::CCU_E_INTERNAL;
     }
@@ -73,24 +73,24 @@ CcuResult CcuBroadcastMesh1DKernel(CcuKernelArg arg)
     uint32_t channelId = 0;
     for (uint32_t peerId = 0; peerId < ctx.arg->rankSize; peerId++) {
         if (peerId != ctx.arg->rankId) {
-            ctx.remoteBuffer[peerId] = ccu::GetResByChannel<ccu::Variable>(ctx.arg->channels[channelId], BUFFER_XN_ID);
-            ctx.remoteToken[peerId] = ccu::GetResByChannel<ccu::Variable>(ctx.arg->channels[channelId], TOKEN_XN_ID);
+            ctx.remoteBuffer[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelId], BUFFER_XN_ID);
+            ctx.remoteToken[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelId], TOKEN_XN_ID);
             channelId++;
         }
     }
 
-    uint32_t argId = 0;
-    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.localBuffer, argId++));
-    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.localToken, argId++));
-    RETURN_IF_CCU_FAIL(ccu::LoadArg(ctx.dataSize, argId++));
+    uint32_t arg_id_ = 0;
+    RETURN_IF_CCU_FAIL(ccu::load_arg(ctx.localBuffer, arg_id_++));
+    RETURN_IF_CCU_FAIL(ccu::load_arg(ctx.localToken, arg_id_++));
+    RETURN_IF_CCU_FAIL(ccu::load_arg(ctx.data_size, arg_id_++));
     RETURN_IF_CCU_FAIL(ExchangeBuffers(ctx));
     RETURN_IF_CCU_FAIL(BroadcastFromRoot(ctx));
 
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        RETURN_IF_CCU_FAIL(ccu::NotifyRecord(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
+        RETURN_IF_CCU_FAIL(ccu::notify_record(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
     }
     for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
-        RETURN_IF_CCU_FAIL(ccu::NotifyWait(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
+        RETURN_IF_CCU_FAIL(ccu::notify_wait(ctx.arg->channels[i], CKE_IDX_0, 1 << POST_SYNC_ID));
     }
     return CcuResult::CCU_SUCCESS;
 }

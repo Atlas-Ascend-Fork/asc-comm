@@ -19,46 +19,46 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/common/ccu_kernel_resource.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
 // 支持自定义算子CCU开发资源管理优化，减少预留资源数量，避免xn耗尽。
 // FUNC_ARG_MAX：单个 ccu::Func 入参/出参上限。每提升 1，每个 die 在
 // CcuRepReferenceManager::GetRes 中多使用 2 个 Xn（funcInVar + funcOutVar）。
-constexpr uint16_t FUNC_ARG_MAX = 1;
-constexpr uint16_t FUNC_NEST_MAX = 1;
-constexpr uint16_t FUNC_CALL_LAYER_INVALID = 0xFFFF;
-constexpr uint16_t CCU_REFERENCE_MANAGER_XN_NUM = FUNC_ARG_MAX + FUNC_ARG_MAX + 1 + FUNC_NEST_MAX + 1;
+constexpr uint16_t func_arg_max = 1;
+constexpr uint16_t func_nest_max = 1;
+constexpr uint16_t func_call_layer_invalid = 0xFFFF;
+constexpr uint16_t ccu_reference_manager_xn_num = func_arg_max + func_arg_max + 1 + func_nest_max + 1;
 
-static_assert(CCU_REFERENCE_MANAGER_XN_NUM == 5, "reference manager XN count changed");
+static_assert(ccu_reference_manager_xn_num == 5, "reference manager XN count changed");
 
-class CcuRepReferenceManager {
+class ccu_rep_reference_manager {
 public:
-    explicit CcuRepReferenceManager(uint8_t deiId);
-    void GetRes(CcuRepResource& res);
-    std::shared_ptr<CcuRepBlock> GetRefBlock(const std::string& label);
-    void SetRefBlock(const std::string& label, std::shared_ptr<CcuRepBlock> refBlock);
-    uint16_t GetFuncAddr(const std::string& label);
-    const Variable& GetFuncCall();
-    const Variable& GetFuncRet(uint16_t callLayer);
-    const std::vector<Variable>& GetFuncIn();
-    const std::vector<Variable>& GetFuncOut();
-    void Dump() const;
-    void ClearRepReference();
+    explicit ccu_rep_reference_manager(uint8_t dei_id);
+    void get_res(ccu_rep_resource& res);
+    std::shared_ptr<ccu_rep_block> get_ref_block(const std::string& label);
+    void set_ref_block(const std::string& label, std::shared_ptr<ccu_rep_block> ref_block);
+    uint16_t get_func_addr(const std::string& label);
+    const variable& get_func_call();
+    const variable& get_func_ret(uint16_t call_layer);
+    const std::vector<variable>& get_func_in();
+    const std::vector<variable>& get_func_out();
+    void dump() const;
+    void clear_rep_reference();
 
 private:
-    bool CheckValid(const std::string& label);
-    bool CheckUnique(const std::string& label);
+    bool check_valid(const std::string& label);
+    bool check_unique(const std::string& label);
 
 private:
-    uint8_t dieId{0};
-    std::unordered_map<std::string, std::shared_ptr<CcuRepBlock>> referenceMap;
-    std::vector<Variable> funcCallVar;
-    std::vector<Variable> funcInVar;
-    std::vector<Variable> funcOutVar;
+    uint8_t die_id_{0};
+    std::unordered_map<std::string, std::shared_ptr<ccu_rep_block>> reference_map_;
+    std::vector<variable> func_call_var_;
+    std::vector<variable> func_in_var_;
+    std::vector<variable> func_out_var_;
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 
 #endif // _CCU_REP_REFERENCE_MANAGER_H

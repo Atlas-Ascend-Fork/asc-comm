@@ -20,35 +20,35 @@ extern "C" {
 #endif
 
 typedef enum {
-    CCU_CONDITION_EQ = 0,
-    CCU_CONDITION_NE = 1,
-} CcuConditionType;
+    ccu_condition_eq = 0,
+    ccu_condition_ne = 1,
+} ccu_condition_type;
 
-typedef uint64_t CcuLoop;
-typedef uint64_t CcuLoopGroup;
-typedef uint64_t CcuLoopExecutors;
-
-typedef struct {
-    uint64_t addrOffset;
-    uint64_t iterNum;
-} CcuLoopConfig;
+typedef uint64_t ccu_loop;
+typedef uint64_t ccu_loop_group;
+typedef uint64_t ccu_loop_executors;
 
 typedef struct {
-    uint32_t cloneNum;
-    uint32_t cloneLoopOffset;
-    uint32_t addrOffset;
-    uint32_t ccuBufferOffset;
-    uint32_t eventOffset;
-} CcuLoopGroupConfig;
+    uint64_t addr_offset;
+    uint64_t iter_num;
+} ccu_loop_config;
 
-typedef uint64_t CcuKernelHandle;
-typedef uint64_t CcuVariableHandle;
-typedef uint64_t CcuAddressHandle;
-typedef uint64_t CcuEventHandle;
-typedef uint64_t CcuBufferHandle;
-typedef uint64_t CcuLocalAddrHandle;
-typedef uint64_t CcuRemoteAddrHandle;
-typedef void *CcuKernelArg;
+typedef struct {
+    uint32_t clone_num;
+    uint32_t clone_loop_offset;
+    uint32_t addr_offset;
+    uint32_t ccu_buffer_offset;
+    uint32_t event_offset;
+} ccu_loop_group_config;
+
+typedef uint64_t ccu_kernel_handle;
+typedef uint64_t ccu_variable_handle;
+typedef uint64_t ccu_address_handle;
+typedef uint64_t ccu_event_handle;
+typedef uint64_t ccu_buffer_handle;
+typedef uint64_t ccu_local_addr_handle;
+typedef uint64_t ccu_remote_addr_handle;
+typedef void *ccu_kernel_arg;
 
 #ifdef __cplusplus
 }

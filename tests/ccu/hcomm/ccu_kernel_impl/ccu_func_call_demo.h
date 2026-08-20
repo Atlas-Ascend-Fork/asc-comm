@@ -16,69 +16,69 @@
 
 namespace ccu = ::AscendC::ccu;
 
-ccu::Func CcuFuncCallBasicFunc([](ccu::Variable x) {
-    ccu::Variable tmp{};
+ccu::func CcuFuncCallBasicFunc([](ccu::variable x) {
+    ccu::variable tmp{};
     tmp = x + x;
 });
 
-ccu::Func CcuFuncCallNestedInnerFunc([](ccu::Variable x) {
-    ccu::Variable tmp{};
+ccu::func CcuFuncCallNestedInnerFunc([](ccu::variable x) {
+    ccu::variable tmp{};
     tmp = x + x;
 });
 
-ccu::Func CcuFuncCallNestedOuterFunc([](ccu::Variable x) { (void)ccu::CallFunc<CcuFuncCallNestedInnerFunc>(x); });
+ccu::func CcuFuncCallNestedOuterFunc([](ccu::variable x) { (void)ccu::CallFunc<CcuFuncCallNestedInnerFunc>(x); });
 
-inline CcuResult CcuFuncCallBasicDemoKernel(CcuKernelArg arg)
+inline CcuResult CcuFuncCallBasicDemoKernel(ccu_kernel_arg arg)
 {
     (void)arg;
-    ccu::Variable x{};
+    ccu::variable x{};
     x = 1;
     return ccu::CallFunc<CcuFuncCallBasicFunc>(x);
 }
 
-inline CcuResult CcuFuncCallReuseDemoKernel(CcuKernelArg arg)
+inline CcuResult CcuFuncCallReuseDemoKernel(ccu_kernel_arg arg)
 {
     (void)arg;
-    ccu::Variable x{};
+    ccu::variable x{};
     x = 2;
     CCU_CHK_RET(ccu::CallFunc<CcuFuncCallBasicFunc>(x));
     CCU_CHK_RET(ccu::CallFunc<CcuFuncCallNestedInnerFunc>(x));
     return ccu::CallFunc<CcuFuncCallBasicFunc>(x);
 }
 
-inline CcuResult CcuFuncCallInLoopInvalidDemoKernel(CcuKernelArg arg)
+inline CcuResult CcuFuncCallInLoopInvalidDemoKernel(ccu_kernel_arg arg)
 {
     (void)arg;
-    ccu::Variable x{};
+    ccu::variable x{};
     x = 3;
 
     CcuResult bodyRet = CcuResult::CCU_SUCCESS;
-    ccu::Func body([&]() { bodyRet = ccu::CallFunc<CcuFuncCallBasicFunc>(x); });
-    ccu::LoopConfig dummyCfg{};
-    ccu::Loop loop(dummyCfg, body);
+    ccu::func body([&]() { bodyRet = ccu::CallFunc<CcuFuncCallBasicFunc>(x); });
+    ccu::loop_config dummyCfg{};
+    ccu::loop loop(dummyCfg, body);
     return bodyRet;
 }
 
-inline CcuResult CcuFuncCallNestedInvalidDemoKernel(CcuKernelArg arg)
+inline CcuResult CcuFuncCallNestedInvalidDemoKernel(ccu_kernel_arg arg)
 {
     (void)arg;
-    ccu::Variable x{};
+    ccu::variable x{};
     x = 4;
     return ccu::CallFunc<CcuFuncCallNestedOuterFunc>(x);
 }
 
-ccu::Func CcuFuncCallMultiArgFunc([](ccu::Variable a, ccu::Variable b, ccu::Variable c) {
-    ccu::Variable tmp{};
+ccu::func CcuFuncCallMultiArgFunc([](ccu::variable a, ccu::variable b, ccu::variable c) {
+    ccu::variable tmp{};
     tmp = a + b;
     tmp = tmp + c;
 });
 
-inline CcuResult CcuFuncCallMultiArgDemoKernel(CcuKernelArg arg)
+inline CcuResult CcuFuncCallMultiArgDemoKernel(ccu_kernel_arg arg)
 {
     (void)arg;
-    ccu::Variable x{};
-    ccu::Variable y{};
-    ccu::Variable z{};
+    ccu::variable x{};
+    ccu::variable y{};
+    ccu::variable z{};
     x = 1;
     y = 2;
     z = 3;

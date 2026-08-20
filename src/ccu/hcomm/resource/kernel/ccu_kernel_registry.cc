@@ -18,140 +18,140 @@
 #include "hcomm/resource/kernel/ccu_kernel_mgr.h"
 #include "hcomm/resource/common/ccu_var_event_res_mgr.h"
 
-namespace asccomm {
+namespace asc {
 
-CcuKernelRegistry::~CcuKernelRegistry()
+ccu_kernel_registry::~ccu_kernel_registry()
 {
     // 主动释放资源保证时序，不得随意调整顺序
-    for (auto& kernelHandle : kernelHandles_) {
-        if (kernelHandle != 0) {
-            (void)CcuKernelMgr::GetInstance(devLogicId_).UnRegister(kernelHandle);
-            kernelHandle = 0;
+    for (auto& kernel_handle : kernel_handles_) {
+        if (kernel_handle != 0) {
+            (void)ccu_kernel_mgr::get_instance(dev_logic_id_).un_register(kernel_handle);
+            kernel_handle = 0;
         }
     }
-    kernelHandles_.clear();
+    kernel_handles_.clear();
 
     // 必须先于资源快照释放：CcuVarEventResMgr 持有指向快照内资源仓的借用指针。
-    (void)CcuVarEventResMgr::GetInstance(devLogicId_).ReleaseByInstance(insHandle_);
+    (void)ccu_var_event_res_mgr::get_instance(dev_logic_id_).release_by_instance(ins_handle_);
 
-    resSnapshot_ = nullptr;
+    res_snapshot_ = nullptr;
 }
 
-CcuResult CcuKernelRegistry::Init(int32_t deviceLogicId)
+CcuResult ccu_kernel_registry::init(int32_t device_logic_id)
 {
     // 先于 LoadRegisterContext 落定设备号：实例可能在未加载上下文的情况下被销毁，
     // 此时析构仍需按正确设备定位 CcuKernelMgr。
-    devLogicId_ = deviceLogicId;
+    dev_logic_id_ = device_logic_id;
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernelRegistry::LoadRegisterContext(const HcommCcuRegisterContextPod &context)
+CcuResult ccu_kernel_registry::load_register_context(const HcommCcuRegisterContextPod &context)
 {
     CCU_EXCEPTION_HANDLE_BEGIN
-    if (!resSnapshot_) {
-        resSnapshot_.reset(new (std::nothrow) AscCcuResSnapshot());
-        CCU_CHK_PTR_NULL(resSnapshot_);
+    if (!res_snapshot_) {
+        res_snapshot_.reset(new (std::nothrow) asc_ccu_res_snapshot());
+        CCU_CHK_PTR_NULL(res_snapshot_);
     }
     // 上下文的设备号必须与创建时传入的一致，否则说明调用方把上下文用在了错误的实例上。
-    if (context.deviceLogicId != devLogicId_) {
+    if (context.deviceLogicId != dev_logic_id_) {
         HCCL_ERROR(
             "[CcuKernelRegistry][%s] failed, context deviceLogicId[%d] mismatches instance deviceLogicId[%d].", __func__,
-            context.deviceLogicId, devLogicId_);
+            context.deviceLogicId, dev_logic_id_);
         return CcuResult::CCU_E_PARA;
     }
-    CCU_CHK_RET(resSnapshot_->Load(context));
+    CCU_CHK_RET(res_snapshot_->load(context));
     CCU_EXCEPTION_HANDLE_END
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernelRegistry::Reset()
+CcuResult ccu_kernel_registry::reset()
 {
-    if (!resSnapshot_) {
+    if (!res_snapshot_) {
         return CcuResult::CCU_E_UNAVAIL;
     }
 
-    untranslatedKernelHandles_.clear();
-    CCU_CHK_RET(resSnapshot_->Reset());
+    untranslated_kernel_handles_.clear();
+    CCU_CHK_RET(res_snapshot_->reset());
 
     // 刷新余量池后，把已被 Variable/Event 预约占用的区间从池中排除。
-    CCU_CHK_RET(CcuVarEventResMgr::GetInstance(devLogicId_).ExcludeAllocatedFromRepo(insHandle_));
+    CCU_CHK_RET(ccu_var_event_res_mgr::get_instance(dev_logic_id_).exclude_allocated_from_repo(ins_handle_));
     return CcuResult::CCU_SUCCESS;
 }
 
-AscCcuResSnapshot* CcuKernelRegistry::GetResSnapshot() { return resSnapshot_.get(); }
+asc_ccu_res_snapshot* ccu_kernel_registry::get_res_snapshot() { return res_snapshot_.get(); }
 
-void CcuKernelRegistry::SetHandle(CcuInsHandle insHandle)
+void ccu_kernel_registry::set_handle(CcuInsHandle ins_handle)
 {
-    insHandle_ = insHandle;
+    ins_handle_ = ins_handle;
 }
 
-CcuResult CcuKernelRegistry::SaveKernel(const CcuKernelHandle kernelHandle)
+CcuResult ccu_kernel_registry::save_kernel(const ccu_kernel_handle kernel_handle)
 {
-    kernelHandles_.push_back(kernelHandle);
-    untranslatedKernelHandles_.push_back(kernelHandle);
+    kernel_handles_.push_back(kernel_handle);
+    untranslated_kernel_handles_.push_back(kernel_handle);
     return CcuResult::CCU_SUCCESS;
 }
 
-const std::vector<CcuKernelHandle>& CcuKernelRegistry::GetUntranslatedKernels() { return untranslatedKernelHandles_; }
+const std::vector<ccu_kernel_handle>& ccu_kernel_registry::get_untranslated_kernels() { return untranslated_kernel_handles_; }
 
-CcuResult CcuKernelRegistry::BeginRegister()
+CcuResult ccu_kernel_registry::begin_register()
 {
-    if (registerState_ == RegisterState::REGISTERING) {
+    if (register_state_ == register_state::registering) {
         HCCL_ERROR(
             "[CcuKernelRegistry][%s] failed, previous register round is not ended, "
-            "hcomm_ccu_kernel_register_end is missing before a new hcomm_ccu_kernel_register_start.",
+            "asccomm_ccu_kernel_register_end is missing before a new asccomm_ccu_kernel_register_start.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
-    registerState_ = RegisterState::REGISTERING;
+    register_state_ = register_state::registering;
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernelRegistry::CheckRegistering() const
+CcuResult ccu_kernel_registry::check_registering() const
 {
-    if (registerState_ != RegisterState::REGISTERING) {
+    if (register_state_ != register_state::registering) {
         HCCL_ERROR(
-            "[CcuKernelRegistry][%s] failed, hcomm_ccu_kernel_register must be called between "
-            "hcomm_ccu_kernel_register_start and hcomm_ccu_kernel_register_end.",
+            "[CcuKernelRegistry][%s] failed, asccomm_ccu_kernel_register must be called between "
+            "asccomm_ccu_kernel_register_start and asccomm_ccu_kernel_register_end.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult CcuKernelRegistry::EndRegister()
+CcuResult ccu_kernel_registry::end_register()
 {
-    if (registerState_ == RegisterState::IDLE) {
+    if (register_state_ == register_state::idle) {
         HCCL_ERROR(
-            "[CcuKernelRegistry][%s] failed, hcomm_ccu_kernel_register_end is called without a matching "
-            "hcomm_ccu_kernel_register_start.",
+            "[CcuKernelRegistry][%s] failed, asccomm_ccu_kernel_register_end is called without a matching "
+            "asccomm_ccu_kernel_register_start.",
             __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
-    if (registerState_ == RegisterState::REGISTER_ABORTED) {
+    if (register_state_ == register_state::register_aborted) {
         HCCL_WARNING(
             "[CcuKernelRegistry][%s] previous register round was aborted due to error, "
             "close it to keep Start/End paired, no kernel will be translated.",
             __func__);
     }
-    registerState_ = RegisterState::IDLE;
+    register_state_ = register_state::idle;
     return CcuResult::CCU_SUCCESS;
 }
 
-void CcuKernelRegistry::AbortRegister()
+void ccu_kernel_registry::abort_register()
 {
-    for (auto kernelHandle : untranslatedKernelHandles_) {
-        if (kernelHandle == 0) {
+    for (auto kernel_handle : untranslated_kernel_handles_) {
+        if (kernel_handle == 0) {
             continue;
         }
-        (void)CcuKernelMgr::GetInstance(devLogicId_).UnRegister(kernelHandle);
-        auto it = std::find(kernelHandles_.begin(), kernelHandles_.end(), kernelHandle);
-        if (it != kernelHandles_.end()) {
-            kernelHandles_.erase(it);
+        (void)ccu_kernel_mgr::get_instance(dev_logic_id_).un_register(kernel_handle);
+        auto it = std::find(kernel_handles_.begin(), kernel_handles_.end(), kernel_handle);
+        if (it != kernel_handles_.end()) {
+            kernel_handles_.erase(it);
         }
     }
-    untranslatedKernelHandles_.clear();
-    registerState_ = RegisterState::REGISTER_ABORTED;
+    untranslated_kernel_handles_.clear();
+    register_state_ = register_state::register_aborted;
 }
 
-} // namespace asccomm
+} // namespace asc

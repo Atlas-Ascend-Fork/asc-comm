@@ -8,49 +8,49 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_BUFREAD_H
-#define HCOMM_CCU_REPRESENTATION_BUFREAD_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_BUFREAD_H
+#define ASCCOMM_CCU_REPRESENTATION_BUFREAD_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepBufRead : public CcuRepBase {
+class ccu_rep_buf_read : public ccu_rep_base {
 public:
-    CcuRepBufRead(
-        CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr src, CcuBuf dst, Variable len,
-        CompletedEvent sem, uint32_t mask);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    ccu_rep_buf_read(
+        ccu_ins_generater_base* ins_gen_ptr, const ChannelHandle channel, remote_addr src, ccu_buf dst, variable len,
+        completed_event sem, uint32_t mask);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 
-    uint16_t GetSrcAddrId() { return src.addr.Id(); }
-    uint16_t GetSrcTokenId() { return src.token.Id(); }
-    uint16_t GetDstAddrId() { return dst.Id(); }
-    uint16_t GetLenId() { return len.Id(); }
-    uint16_t GetSemId() { return sem.Id(); }
-    uint32_t GetChannelId() { return channelId; }
-    RemoteAddr GetSrc() { return src; }
-    CcuBuf GetDst() { return dst; }
-    Variable GetLen() { return len; }
-    CompletedEvent GetSem() { return sem; }
-    uint32_t GetMask() { return mask; }
-    ChannelHandle GetChannel() { return channel; }
+    uint16_t get_src_addr_id() { return src_.addr.id(); }
+    uint16_t get_src_token_id() { return src_.token.id(); }
+    uint16_t get_dst_addr_id() { return dst_.id(); }
+    uint16_t get_len_id() { return len_.id(); }
+    uint16_t get_sem_id() { return sem_.id(); }
+    uint32_t get_channel_id() { return channel_id_; }
+    remote_addr get_src() { return src_; }
+    ccu_buf get_dst() { return dst_; }
+    variable get_len() { return len_; }
+    completed_event get_sem() { return sem_; }
+    uint32_t get_mask() { return mask_; }
+    ChannelHandle get_channel() { return channel_; }
 
 private:
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    ChannelHandle channel;
-    uint32_t channelId{0};
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
+    ChannelHandle channel_;
+    uint32_t channel_id_{0};
 
-    RemoteAddr src;
-    CcuBuf dst;
-    Variable len;
+    remote_addr src_;
+    ccu_buf dst_;
+    variable len_;
 
-    CompletedEvent sem;
-    uint32_t mask{0};
+    completed_event sem_;
+    uint32_t mask_{0};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_BUFREAD_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_BUFREAD_H

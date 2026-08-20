@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION
-#define HCOMM_CCU_REPRESENTATION
+#ifndef ASCCOMM_CCU_REPRESENTATION
+#define ASCCOMM_CCU_REPRESENTATION
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_nop_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_loadarg_v1.h"

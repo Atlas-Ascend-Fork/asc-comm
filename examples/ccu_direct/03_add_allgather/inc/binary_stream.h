@@ -30,16 +30,16 @@ public:
         stream.rdbuf()->pubsetbuf(buf.data(), buf.size());
     }
 
-    template <typename T>
-    BinaryStream& operator<<(const T& t)
+    template <typename t>
+    BinaryStream& operator<<(const t& value)
     {
-        stream.write(reinterpret_cast<const char*>(&t), sizeof(T));
+        stream.write(reinterpret_cast<const char*>(&value), sizeof(value));
         return *this;
     }
 
     // 多级vector递归序列化
-    template <typename T>
-    BinaryStream& operator<<(const std::vector<T>& vec)
+    template <typename t>
+    BinaryStream& operator<<(const std::vector<t>& vec)
     {
         size_t size = vec.size();
         *this << size;
@@ -58,10 +58,10 @@ public:
         return *this;
     }
 
-    template <typename T>
-    BinaryStream& operator>>(T& t)
+    template <typename t>
+    BinaryStream& operator>>(t& value)
     {
-        stream.read(reinterpret_cast<char*>(&t), sizeof(T));
+        stream.read(reinterpret_cast<char*>(&value), sizeof(value));
         return *this;
     }
 
@@ -76,8 +76,8 @@ public:
     }
 
     // 多级vector递归反序列化
-    template <typename T>
-    BinaryStream& operator>>(std::vector<T>& vec)
+    template <typename t>
+    BinaryStream& operator>>(std::vector<t>& vec)
     {
         size_t size;
         *this >> size;
@@ -89,8 +89,8 @@ public:
     }
 
     // map序列化
-    template <typename T1, typename T2>
-    BinaryStream& operator<<(const std::map<T1, T2>& m)
+    template <typename t1, typename t2>
+    BinaryStream& operator<<(const std::map<t1, t2>& m)
     {
         size_t size = m.size();
         *this << size;
@@ -102,22 +102,22 @@ public:
     }
 
     // map反序列化
-    template <typename T1, typename T2>
-    BinaryStream& operator>>(std::map<T1, T2>& m)
+    template <typename t1, typename t2>
+    BinaryStream& operator>>(std::map<t1, t2>& m)
     {
         size_t size;
         *this >> size;
         for (size_t i = 0; i < size; i++) {
-            T1 key;
+            t1 key;
             *this >> key;
-            T2 value;
+            t2 value;
             *this >> value;
             m[key] = value;
         }
         return *this;
     }
 
-    void Dump(std::vector<char>& vec)
+    void dump(std::vector<char>& vec)
     {
         std::for_each(std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>(), [&vec](const char c) {
             vec.push_back(c);
@@ -133,7 +133,7 @@ public:
         stream.seekg(originalPos); // 恢复原始位置
     }
 
-    std::uint64_t GetSize() { return stream.str().size(); }
+    std::uint64_t get_size() { return stream.str().size(); }
 
     std::string GetString() { return stream.str(); }
 

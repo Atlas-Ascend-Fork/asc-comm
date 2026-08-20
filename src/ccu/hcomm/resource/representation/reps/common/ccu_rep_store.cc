@@ -14,30 +14,30 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepStore::CcuRepStore(CcuInsGeneraterBase* insGenPtr, const Variable& var, uint64_t addr, uint32_t num)
-    : insGeneratorPtr_(insGenPtr), var(var), addr(addr), num(num)
+ccu_rep_store::ccu_rep_store(ccu_ins_generater_base* ins_gen_ptr, const variable& var, uint64_t addr, uint32_t num)
+    : ins_generator_ptr_(ins_gen_ptr), var_(var), addr_(addr), num_(num)
 {
-    type = CcuRepType::STORE;
-    instrCount = insGeneratorPtr_->GetInstrCount(type);
+    type_ = ccu_rep_type::store;
+    instr_count_ = ins_generator_ptr_->get_instr_count(type_);
 }
 
-bool CcuRepStore::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_store::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
     CHK_PRT_THROW(
-        insGeneratorPtr_->CcuRepStoreTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepStore][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        ins_generator_ptr_->ccu_rep_store_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepStore][translate] failed to translate for instrId[%u]", instr_id), CcuResult::CCU_E_INTERNAL,
         "CcuRepStore translate failed");
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepStore::Describe() { return asccomm::FormatCcuMessage("Store([%u], [%llu], [%u])", var.Id(), addr, num); }
+std::string ccu_rep_store::describe() { return asc::format_ccu_message("Store([%u], [%llu], [%u])", var_.id(), addr_, num_); }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

@@ -8,15 +8,15 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
+#include "hcomm/resource/representation/context_/ccu_rep_context_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
 namespace hcomm {
-namespace CcuRep {
+namespace ccu_rep {
 
-void AppendToContext(CcuRepContext* context, std::shared_ptr<CcuRepBase> rep) {}
+void append_to_context(ccu_rep_context* context_, std::shared_ptr<ccu_rep_base> rep) {}
 
-Variable CreateVariable(CcuRepContext* context) { return Variable(context); }
+variable create_variable(ccu_rep_context* context_) { return variable(context_); }
 
-} // namespace CcuRep
+} // namespace ccu_rep
 } // namespace hcomm

@@ -24,11 +24,11 @@
 #include "ccu/hcomm/ccu_utils.hpp"
 #include "hcomm/common/ccu_log.h"
 
-namespace asccomm {
+namespace asc {
 
 // 解耦后 asc-comm 不再依赖 hcomm 的异常格式化工具，此处仅保留 printf 风格消息的本地兼容实现。
-template <typename... Args>
-std::string FormatCcuMessage(const char *format, Args... args)
+template <typename... args_t>
+std::string format_ccu_message(const char *format, args_t... args)
 {
     const int length = std::snprintf(nullptr, 0, format, args...);
     if (length <= 0) {
@@ -39,46 +39,46 @@ std::string FormatCcuMessage(const char *format, Args... args)
     return std::string(buffer.data(), static_cast<size_t>(length));
 }
 
-inline std::string FormatCcuMessage(const std::string &message)
+inline std::string format_ccu_message(const std::string &message)
 {
     return message;
 }
 
-template <typename Message, typename... Args>
-[[noreturn]] void ThrowCcu(CcuResult code, Message &&message, Args... args)
+template <typename message_t, typename... args_t>
+[[noreturn]] void throw_ccu(CcuResult code, message_t &&message, args_t... args)
 {
-    const std::string formatted = FormatCcuMessage(std::forward<Message>(message), args...);
+    const std::string formatted = format_ccu_message(std::forward<message_t>(message), args...);
     HCCL_ERROR("%s", formatted.c_str());
-    throw ::AscendC::ccu::detail::CcuException(code, formatted.c_str());
+    throw ::AscendC::ccu::detail::ccu_exception(code, formatted.c_str());
 }
 
-template <typename Message, typename... Args>
-[[noreturn]] void ThrowCcuInternal(Message &&message, Args... args)
+template <typename message_t, typename... args_t>
+[[noreturn]] void throw_ccu_internal(message_t &&message, args_t... args)
 {
-    ThrowCcu(CcuResult::CCU_E_INTERNAL, std::forward<Message>(message), args...);
+    throw_ccu(CcuResult::CCU_E_INTERNAL, std::forward<message_t>(message), args...);
 }
 
-template <typename Message, typename... Args>
-[[noreturn]] void ThrowCcuNotSupport(Message &&message, Args... args)
+template <typename message_t, typename... args_t>
+[[noreturn]] void throw_ccu_not_support(message_t &&message, args_t... args)
 {
-    ThrowCcu(CcuResult::CCU_E_NOT_SUPPORT, std::forward<Message>(message), args...);
+    throw_ccu(CcuResult::CCU_E_NOT_SUPPORT, std::forward<message_t>(message), args...);
 }
 
-template <typename Pointer, typename Message>
-void CheckCcuNotNull(const Pointer &pointer, Message &&message)
+template <typename pointer_t, typename message_t>
+void check_ccu_not_null(const pointer_t &pointer, message_t &&message)
 {
     if (UNLIKELY(pointer == nullptr)) {
-        ThrowCcu(CcuResult::CCU_E_PTR, std::forward<Message>(message));
+        throw_ccu(CcuResult::CCU_E_PTR, std::forward<message_t>(message));
     }
 }
 
-} // namespace asccomm
+} // namespace asc
 
 #define CHK_RET_THROW(exceptionCode, message, call)                                  \
     do {                                                                             \
         const auto ccuThrowRet = (call);                                              \
         if (UNLIKELY(ccuThrowRet != 0)) {                                             \
-            asccomm::ThrowCcu(static_cast<CcuResult>(ccuThrowRet), (message));          \
+            asc::throw_ccu(static_cast<CcuResult>(ccuThrowRet), (message));          \
         }                                                                            \
     } while (0)
 
@@ -86,7 +86,7 @@ void CheckCcuNotNull(const Pointer &pointer, Message &&message)
     do {                                                               \
         if (UNLIKELY(condition)) {                                     \
             logStatement;                                              \
-            asccomm::ThrowCcu((exceptionCode), (message));               \
+            asc::throw_ccu((exceptionCode), (message));               \
         }                                                              \
     } while (0)
 

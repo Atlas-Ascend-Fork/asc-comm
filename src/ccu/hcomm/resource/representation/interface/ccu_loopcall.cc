@@ -12,21 +12,21 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-LoopCall::LoopCall(CcuRepContext* context, const std::string& label) : context(context), label(label)
+loop_call::loop_call(ccu_rep_context* context, const std::string& label) : context_(context), label_(label)
 {
     // repLoopCall = std::make_shared<CcuRepLoopCall>(label);
 }
 
-void LoopCall::AppendToContext()
+void loop_call::append_to_context()
 {
-    if (context == nullptr) {
-        asccomm::ThrowCcuInternal("context is nullptr, loopCall");
+    if (context_ == nullptr) {
+        asc::throw_ccu_internal("context is nullptr, loopCall");
     }
-    return context->Append(repLoopCall);
+    return context_->append(rep_loop_call_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
