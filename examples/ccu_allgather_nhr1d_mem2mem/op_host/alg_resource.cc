@@ -239,10 +239,11 @@ HcclResult RegisterCcuKernel(
     kernelArg->channelCount = static_cast<uint32_t>(channels.size());
 
     resCtx.ccuKernels.resize(1);
-    asccomm_examples::CcuRegisterContextStorage contextStorage;
-    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, contextStorage));
-    CcuInsHandle insHandle = static_cast<CcuInsHandle>(contextStorage.context.instanceHandle);
-    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(hcomm_ccu_kernel_register_start(insHandle, &contextStorage.context)));
+    CcuInsHandle insHandle{0};
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, insHandle));
+    HcommCcuRegisterContextHandle context{nullptr};
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, context));
+    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(hcomm_ccu_kernel_register_start(insHandle, context)));
 
     CcuKernelHandle kernelHandle = 0;
     const void* kernelArgs[] = {kernelArg.get()};

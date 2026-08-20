@@ -11,33 +11,18 @@
 #ifndef ASCCOMM_EXAMPLES_CCU_REGISTER_CONTEXT_H
 #define ASCCOMM_EXAMPLES_CCU_REGISTER_CONTEXT_H
 
-#include <vector>
-
 #include <hccl/hccl_types.h>
 #include <hcomm/hcomm_ccu_res.h>
 
 extern "C" HcclResult HcclCommQueryCcuRegisterContext(
-    HcclComm comm, HcommCcuRegisterContextPod* context);
+    HcclComm comm, HcommCcuRegisterContextHandle* context);
 
 namespace asccomm_examples {
 
-struct CcuRegisterContextStorage {
-    HcommCcuRegisterContextPod context{};
-    std::vector<HcommCcuResRangePod> instanceRanges;
-};
-
-inline HcclResult QueryCcuRegisterContext(HcclComm comm, CcuRegisterContextStorage &storage)
+inline HcclResult QueryCcuRegisterContext(HcclComm comm, HcommCcuRegisterContextHandle &context)
 {
-    storage.context.instanceResources = {nullptr, 0, 0};
-    HcclResult ret = HcclCommQueryCcuRegisterContext(comm, &storage.context);
-    if (ret != HCCL_SUCCESS) {
-        return ret;
-    }
-
-    storage.instanceRanges.resize(storage.context.instanceResources.count);
-    storage.context.instanceResources = {
-        storage.instanceRanges.data(), static_cast<uint32_t>(storage.instanceRanges.size()), 0};
-    return HcclCommQueryCcuRegisterContext(comm, &storage.context);
+    context = nullptr;
+    return HcclCommQueryCcuRegisterContext(comm, &context);
 }
 
 } // namespace asccomm_examples

@@ -12,7 +12,7 @@
 #define CCU_LAUNCH_H
 
 // CCU kernel 注册与 launch 的 C ABI 头。
-// 依赖的 POD 类型（HcommCcuRegisterContextPod、HcommCcuLaunchContextPod）来自 hcomm 包内 header，
+// 依赖的 Register Context 不透明句柄和 Launch Context POD 来自 hcomm 包内 header，
 // 与 hccl 内部类型解耦，符合控制面/数据面 ABI 边界约束。
 #include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/hcomm_ccu_launch.h"
@@ -23,7 +23,7 @@ extern "C" {
 #endif // __cplusplus
 
 extern CcuResult hcomm_ccu_kernel_register_start(
-    CcuInsHandle insHandle, const HcommCcuRegisterContextPod *context);
+    CcuInsHandle insHandle, HcommCcuRegisterContextHandle context);
 
 extern CcuResult hcomm_ccu_kernel_register(
     CcuInsHandle insHandle, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
