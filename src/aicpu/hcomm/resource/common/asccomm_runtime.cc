@@ -9,7 +9,6 @@
  */
 
 #include <chrono>
-#include <unordered_map>
 #include "asccomm_runtime.h"
 #include "asccomm_launch.h"
 #include "../stream/sqe_build_a5.h"
@@ -25,37 +24,34 @@ GetSqeId(uint32_t batchNum, uint32_t &taskId, uint32_t &taskIdEnd);
 
 namespace {
 
-struct RtsqTaskState {
-    uint32_t taskId{0};
-    uint32_t taskIdEnd{0};
-    uint32_t pendingSqeCnt{0};
-};
-
-std::unordered_map<const HcommRtsqContext *, RtsqTaskState> g_taskStates;
-
-RtsqTaskState &get_task_state(const HcommRtsqContext &context)
+HcclResult acquire_task_id(HcommRtsqContext &context, uint32_t &taskId)
 {
-    return g_taskStates[&context];
-}
-
-uint32_t get_task_id(const HcommRtsqContext &context)
-{
-    return get_task_state(context).taskId;
-}
-
-void refresh_task_id(const HcommRtsqContext &context)
-{
-    RtsqTaskState &state = get_task_state(context);
-    ++state.taskId;
-    if (state.taskId >= state.taskIdEnd) {
-        constexpr uint32_t TASK_ID_BATCH = 1024;
-        aicpu::GetSqeId(TASK_ID_BATCH, state.taskId, state.taskIdEnd);
+    CHK_PRT_RET(context.localSqeAddr == 0,
+        HCCL_ERROR("[%s] local SQE buffer address is 0.", __func__), HCCL_E_PTR);
+    CHK_PRT_RET(context.taskIdAddr == 0,
+        HCCL_ERROR("[%s] Task ID buffer address is 0.", __func__), HCCL_E_PTR);
+    CHK_PRT_RET(context.pendingSqeCnt >= HCOMM_POD_RTSQ_BATCH_SIZE,
+        HCCL_ERROR("[%s] pending SQE count[%u] exceeds buffer capacity.", __func__, context.pendingSqeCnt),
+        HCCL_E_INTERNAL);
+    CHK_PRT_RET(context.taskIdNum > HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE,
+        HCCL_ERROR("[%s] invalid remaining Task ID count[%u].", __func__, context.taskIdNum), HCCL_E_INTERNAL);
+    auto *taskIds = reinterpret_cast<uint32_t *>(context.taskIdAddr);
+    if (context.taskIdNum == 0) {
+        uint32_t taskIdBegin = 0;
+        uint32_t taskIdEnd = 0;
+        CHK_PRT_RET(aicpu::GetSqeId == nullptr,
+            HCCL_ERROR("[%s] GetSqeId is unavailable.", __func__), HCCL_E_INTERNAL);
+        aicpu::GetSqeId(HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE, taskIdBegin, taskIdEnd);
+        CHK_PRT_RET(taskIdEnd <= taskIdBegin || taskIdEnd - taskIdBegin > HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE,
+            HCCL_ERROR("[%s] invalid Task ID range[%u, %u).", __func__, taskIdBegin, taskIdEnd), HCCL_E_INTERNAL);
+        context.taskIdNum = taskIdEnd - taskIdBegin;
+        for (uint32_t index = 0; index < context.taskIdNum; ++index) {
+            taskIds[context.taskIdNum - index - 1] = taskIdBegin + index;
+        }
     }
-}
-
-uint32_t get_pending_sqe_cnt(const HcommRtsqContext &context)
-{
-    return get_task_state(context).pendingSqeCnt;
+    taskId = taskIds[context.taskIdNum - 1];
+    --context.taskIdNum;
+    return HCCL_SUCCESS;
 }
 
 HcclResult query_sq_value(const HcommRtsqContext &context, drvSqCqPropType_t property, uint32_t &value)
@@ -101,21 +97,20 @@ uint32_t get_tail_to_head_distance(const HcommRtsqContext &context)
 
 HcclResult ensure_queue_space(HcommRtsqContext &context)
 {
-    RtsqTaskState &state = get_task_state(context);
     auto startTime = std::chrono::steady_clock::now();
     const uint32_t sqFullTimeout = asccomm_get_sq_full_timeout();
     uint32_t availableSpace = get_tail_to_head_distance(context);
-    while (availableSpace <= state.pendingSqeCnt) {
+    while (availableSpace <= context.pendingSqeCnt) {
         CHK_RET(query_sq_value(context, DRV_SQCQ_PROP_SQ_HEAD, context.sqHead));
         availableSpace = get_tail_to_head_distance(context);
-        if (availableSpace > state.pendingSqeCnt) {
+        if (availableSpace > context.pendingSqeCnt) {
             break;
         }
         const bool timeout = sqFullTimeout != 0 &&
             std::chrono::steady_clock::now() - startTime >= std::chrono::seconds(sqFullTimeout);
         CHK_PRT_RET(timeout,
             HCCL_ERROR("[%s] RTSQ full timeout, sqId[%u], head[%u], tail[%u], pending[%u].", __func__,
-                context.sqId, context.sqHead, context.sqTail, state.pendingSqeCnt), HCCL_E_TIMEOUT);
+                context.sqId, context.sqHead, context.sqTail, context.pendingSqeCnt), HCCL_E_TIMEOUT);
         CHK_RET(asccomm_try_launch_registered_threads());
     }
     return HCCL_SUCCESS;
@@ -123,36 +118,36 @@ HcclResult ensure_queue_space(HcommRtsqContext &context)
 
 HcclResult copy_pending_sqes(HcommRtsqContext &context)
 {
-    RtsqTaskState &state = get_task_state(context);
-    const uint32_t byteCount = state.pendingSqeCnt * HCOMM_POD_RTSQ_SQE_SIZE;
+    CHK_PRT_RET(context.localSqeAddr == 0,
+        HCCL_ERROR("[%s] local SQE buffer address is 0.", __func__), HCCL_E_PTR);
+    auto *localSqeBuffer = reinterpret_cast<uint8_t *>(context.localSqeAddr);
+    const uint32_t byteCount = context.pendingSqeCnt * HCOMM_POD_RTSQ_SQE_SIZE;
     uint8_t *sqCurrent = reinterpret_cast<uint8_t *>(context.sqBaseAddr) +
         context.sqTail * HCOMM_POD_RTSQ_SQE_SIZE;
     if (context.sqTail >= context.sqHead) {
         const uint32_t depthLeft = context.sqDepth - context.sqTail;
-        const uint32_t firstCount = state.pendingSqeCnt < depthLeft ? state.pendingSqeCnt : depthLeft;
+        const uint32_t firstCount = context.pendingSqeCnt < depthLeft ? context.pendingSqeCnt : depthLeft;
         const uint32_t firstBytes = firstCount * HCOMM_POD_RTSQ_SQE_SIZE;
-        CHK_PRT_RET(memcpy_sp(sqCurrent, firstBytes, context.localSqeBuffer, firstBytes) != EOK,
+        CHK_PRT_RET(memcpy_sp(sqCurrent, firstBytes, localSqeBuffer, firstBytes) != EOK,
             HCCL_ERROR("[%s] first RTSQ memcpy failed.", __func__), HCCL_E_INTERNAL);
-        if (firstCount != state.pendingSqeCnt) {
+        if (firstCount != context.pendingSqeCnt) {
             const uint32_t remainingBytes = byteCount - firstBytes;
             CHK_PRT_RET(memcpy_sp(reinterpret_cast<void *>(context.sqBaseAddr), remainingBytes,
-                context.localSqeBuffer + firstBytes, remainingBytes) != EOK,
+                localSqeBuffer + firstBytes, remainingBytes) != EOK,
                 HCCL_ERROR("[%s] wrapped RTSQ memcpy failed.", __func__), HCCL_E_INTERNAL);
         }
         return HCCL_SUCCESS;
     }
-    CHK_PRT_RET(memcpy_sp(sqCurrent, byteCount, context.localSqeBuffer, byteCount) != EOK,
+    CHK_PRT_RET(memcpy_sp(sqCurrent, byteCount, localSqeBuffer, byteCount) != EOK,
         HCCL_ERROR("[%s] RTSQ memcpy failed.", __func__), HCCL_E_INTERNAL);
     return HCCL_SUCCESS;
 }
 
 HcclResult refresh_rtsq(HcommRtsqContext &context)
 {
-    RtsqTaskState &state = get_task_state(context);
-    refresh_task_id(context);
-    ++state.pendingSqeCnt;
+    ++context.pendingSqeCnt;
     if ((context.launchFlag != 0 && !asccomm_is_batch_launch_mode()) ||
-        state.pendingSqeCnt == HCOMM_POD_RTSQ_BATCH_SIZE) {
+        context.pendingSqeCnt == HCOMM_POD_RTSQ_BATCH_SIZE) {
         return asccomm_rtsq_launch(context);
     }
     return HCCL_SUCCESS;
@@ -160,7 +155,8 @@ HcclResult refresh_rtsq(HcommRtsqContext &context)
 
 uint8_t *get_current_sqe(HcommRtsqContext &context)
 {
-    return context.localSqeBuffer + get_pending_sqe_cnt(context) * HCOMM_POD_RTSQ_SQE_SIZE;
+    return reinterpret_cast<uint8_t *>(context.localSqeAddr) +
+        context.pendingSqeCnt * HCOMM_POD_RTSQ_SQE_SIZE;
 }
 
 HcclResult validate_thread_entity(HcommThreadEntity *thread)
@@ -178,8 +174,7 @@ HcclResult validate_thread_entity(HcommThreadEntity *thread)
 
 HcclResult asccomm_rtsq_launch(HcommRtsqContext &context)
 {
-    RtsqTaskState &state = get_task_state(context);
-    if (state.pendingSqeCnt == 0) {
+    if (context.pendingSqeCnt == 0) {
         return HCCL_SUCCESS;
     }
     CHK_PRT_RET(context.sqDepth == 0 || context.sqBaseAddr == 0,
@@ -187,24 +182,25 @@ HcclResult asccomm_rtsq_launch(HcommRtsqContext &context)
             context.sqDepth, context.sqBaseAddr), HCCL_E_PARA);
     CHK_RET(ensure_queue_space(context));
     CHK_RET(copy_pending_sqes(context));
-    const uint32_t newTail = (context.sqTail + state.pendingSqeCnt) % context.sqDepth;
+    const uint32_t newTail = (context.sqTail + context.pendingSqeCnt) % context.sqDepth;
     CHK_RET(config_sq_tail(context, newTail));
     context.sqTail = newTail;
-    state.pendingSqeCnt = 0;
-    CHK_PRT_RET(memset_s(context.localSqeBuffer, sizeof(context.localSqeBuffer), 0,
-        sizeof(context.localSqeBuffer)) != EOK, HCCL_ERROR("[%s] clear SQE buffer failed.", __func__),
+    context.pendingSqeCnt = 0;
+    auto *localSqeBuffer = reinterpret_cast<uint8_t *>(context.localSqeAddr);
+    constexpr size_t LOCAL_SQE_BUFFER_SIZE = HCOMM_POD_RTSQ_SQE_SIZE * HCOMM_POD_RTSQ_BATCH_SIZE;
+    CHK_PRT_RET(memset_s(localSqeBuffer, LOCAL_SQE_BUFFER_SIZE, 0, LOCAL_SQE_BUFFER_SIZE) != EOK,
+        HCCL_ERROR("[%s] clear SQE buffer failed.", __func__),
         HCCL_E_INTERNAL);
     return HCCL_SUCCESS;
 }
 
 HcclResult asccomm_rtsq_try_launch(HcommRtsqContext &context)
 {
-    RtsqTaskState &state = get_task_state(context);
-    if (state.pendingSqeCnt == 0) {
+    if (context.pendingSqeCnt == 0) {
         return HCCL_SUCCESS;
     }
     CHK_RET(query_sq_value(context, DRV_SQCQ_PROP_SQ_HEAD, context.sqHead));
-    if (get_tail_to_head_distance(context) <= state.pendingSqeCnt) {
+    if (get_tail_to_head_distance(context) <= context.pendingSqeCnt) {
         return HCCL_SUCCESS;
     }
     return asccomm_rtsq_launch(context);
@@ -212,13 +208,17 @@ HcclResult asccomm_rtsq_try_launch(HcommRtsqContext &context)
 
 HcclResult asccomm_rtsq_notify_wait(HcommRtsqContext &context, uint32_t notifyId, uint32_t timeout)
 {
-    Asc::build_a5_sqe_notify_wait(context.streamId, get_task_id(context), notifyId, timeout, get_current_sqe(context));
+    uint32_t taskId = 0;
+    CHK_RET(acquire_task_id(context, taskId));
+    Asc::build_a5_sqe_notify_wait(context.streamId, taskId, notifyId, timeout, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
 HcclResult asccomm_rtsq_notify_record(HcommRtsqContext &context, uint32_t notifyId)
 {
-    Asc::build_a5_sqe_notify_record(context.streamId, get_task_id(context), notifyId, get_current_sqe(context));
+    uint32_t taskId = 0;
+    CHK_RET(acquire_task_id(context, taskId));
+    Asc::build_a5_sqe_notify_record(context.streamId, taskId, notifyId, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
@@ -227,7 +227,9 @@ HcclResult asccomm_rtsq_sdma_copy(
 {
     constexpr uint32_t RTSQ_PART_ID = 0;
     constexpr uint32_t COPY_OPCODE = 0;
-    Asc::build_a5_sqe_sdma_copy(context.streamId, get_task_id(context), dstAddr, srcAddr, size,
+    uint32_t taskId = 0;
+    CHK_RET(acquire_task_id(context, taskId));
+    Asc::build_a5_sqe_sdma_copy(context.streamId, taskId, dstAddr, srcAddr, size,
         RTSQ_PART_ID, COPY_OPCODE, get_current_sqe(context));
     return refresh_rtsq(context);
 }
@@ -277,7 +279,9 @@ HcclResult asccomm_rtsq_sdma_reduce(HcommRtsqContext &context, uint64_t dstAddr,
     }
 
     constexpr uint32_t RTSQ_PART_ID = 0;
-    Asc::build_a5_sqe_sdma_copy(context.streamId, get_task_id(context), dstAddr, srcAddr, size,
+    uint32_t taskId = 0;
+    CHK_RET(acquire_task_id(context, taskId));
+    Asc::build_a5_sqe_sdma_copy(context.streamId, taskId, dstAddr, srcAddr, size,
         RTSQ_PART_ID, operation | dataType, get_current_sqe(context));
     return refresh_rtsq(context);
 }
@@ -285,13 +289,17 @@ HcclResult asccomm_rtsq_sdma_reduce(HcommRtsqContext &context, uint64_t dstAddr,
 HcclResult asccomm_rtsq_ub_db_send(
     HcommRtsqContext &context, const Asc::UbJettyLiteId &jettyId, uint16_t piValue)
 {
-    Asc::build_a5_sqe_ub_db_send(context.streamId, get_task_id(context), jettyId, piValue, get_current_sqe(context));
+    uint32_t taskId = 0;
+    CHK_RET(acquire_task_id(context, taskId));
+    Asc::build_a5_sqe_ub_db_send(context.streamId, taskId, jettyId, piValue, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 
 HcclResult asccomm_rtsq_rdma_db_send(HcommRtsqContext &context, uint64_t dbAddr, uint64_t dbValue)
 {
-    Asc::build_a5_sqe_rdma_db_send(context.streamId, get_task_id(context), dbAddr, dbValue, get_current_sqe(context));
+    uint32_t taskId = 0;
+    CHK_RET(acquire_task_id(context, taskId));
+    Asc::build_a5_sqe_rdma_db_send(context.streamId, taskId, dbAddr, dbValue, get_current_sqe(context));
     return refresh_rtsq(context);
 }
 

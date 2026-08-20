@@ -37,7 +37,7 @@ struct RdmaSqContextLite {
     uint64_t dbHwVa;
     uint64_t dbSwVa;
     uint8_t sl;
-    uint8_t mtuShift;
+    uint64_t dbVendorSpecified;
 };
 
 struct RdmaCqContextLite {

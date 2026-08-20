@@ -151,6 +151,9 @@ struct Roce3CqeEntry{
 // Doorbell related
 constexpr uint32_t ROCE_SQ_DOORBELL_TYPE = 21;
 constexpr uint32_t ROCE_INIT_SQ_DB_SGIT_IDX = 1;
+constexpr uint32_t ROCE_DB_VENDOR_COS_SHIFT = 24;
+constexpr uint32_t ROCE_DB_VENDOR_MTUSHIFT_SHIFT = 50;
+constexpr uint32_t ROCE_DB_VENDOR_FIELD_MASK = 0x7;
 
 using Roce3DbEntry = struct {
     union {
@@ -211,8 +214,10 @@ public:
         dbEntry.dw0.bs.pi           = ((sqHead_ >> 8) & 0xff);
         dbEntry.dw0.bs.sgidIndex    = ROCE_INIT_SQ_DB_SGIT_IDX;
         dbEntry.dw0.bs.type         = ROCE_SQ_DOORBELL_TYPE;
-        dbEntry.dw0.bs.mtuShift     = sqContext_->mtuShift;
-        dbEntry.dw0.bs.cos          = 0x7;
+        dbEntry.dw0.bs.mtuShift = static_cast<uint32_t>(
+            (sqContext_->dbVendorSpecified >> ROCE_DB_VENDOR_MTUSHIFT_SHIFT) & ROCE_DB_VENDOR_FIELD_MASK);
+        dbEntry.dw0.bs.cos = static_cast<uint32_t>(
+            (sqContext_->dbVendorSpecified >> ROCE_DB_VENDOR_COS_SHIFT) & ROCE_DB_VENDOR_FIELD_MASK);
 
         dbAddr  = sqContext_->dbHwVa;
         dbValue = dbEntry.dw0.db_value;
