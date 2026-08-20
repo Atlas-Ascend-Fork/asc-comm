@@ -158,10 +158,49 @@ __simt_callee__ inline void HcommSimtWriteNotifyWqe(
     HcommSimtAssertWqeFits<sgeWord + HCOMM_SIMT_SGE_WORDS, wordCnt>();
 }
 
+// Writes a NOP WQE into the second basic block (words 8..15) of a 2BB staging buffer. A NOP
+// occupies one BB and produces no CQE; it exists to pad the DWQE window when a 1BB WQE (inline
+// Write) needs to be published through the doorbell. The exact field layout is hardware-specific
+// and left as a placeholder: only the opcode and owner bit are set here; the remaining fields
+// may need tuning on real hardware to make the NIC accept the NOP without error.
+template <uint32_t wordCnt, typename WordPtr>
+__simt_callee__ inline void HcommSimtWriteNopWqe(
+    WordPtr words, const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t nextHead)
+{
+    static_assert(wordCnt == HCOMM_SIMT_WQE_WORDS, "NOP padding requires a 2BB staging buffer");
+    constexpr uint32_t nopFirstWord = HCOMM_SIMT_BB_WORDS; // Second BB starts at word 8
+
+    // Compute the owner bit for the second BB. The NOP occupies slot (nextHead), which is one BB
+    // beyond the inline Write at (curHead). The owner flips when crossing sqDepth.
+    uint64_t owner = (nextHead & sqeTemplate.sqDepth) == 0U ? 1U : 0U;
+
+    // Minimal NOP header: opcode=0x11, owner bit, nextHead index. The remaining fields (word1
+    // through word5, and any payload area) are zeroed as a safe default; hardware may require
+    // specific values in some of them for the NOP to be consumed without error. Adjust after
+    // testing on the NPU.
+    words[nopFirstWord] = static_cast<uint64_t>((nextHead + 1U) & 0xFFFFU) |
+                          (1ULL << 28U) | // descriptor valid flag (bit 28)
+                          (1ULL << 29U) | // another control bit, copied from Write header
+                          (owner << 31U) | (static_cast<uint64_t>(static_cast<uint32_t>(HcommUrmaOpCode::NOP)) << 40U);
+
+    // Zero the remaining words of the NOP WQE (words 9..15). The NOP occupies only the SQE header
+    // (6 words = 48 bytes), but zeroing the full 64-byte BB is safer until the exact requirements
+    // are confirmed on hardware.
+#pragma unroll
+    for (uint32_t i = nopFirstWord + 1U; i < wordCnt; ++i) {
+        words[i] = 0U;
+    }
+}
+
 // Packs the inline payload into the whole 64-bit words that follow the SQE header. A type
 // shorter than a word occupies the low bytes of the first payload word, because the SQE
 // header is a whole number of words long.
-template <typename T, uint32_t wordCnt, auto const& config, typename WordPtr>
+//
+// When commit is true, the WQE occupies two basic blocks: the first holds the inline Write,
+// the second holds a NOP that pads the DWQE window to 128B. A 1BB WQE cannot be published
+// through the doorbell directly, so the NOP completes it. The NOP's exact field layout is
+// left as a placeholder for hardware-specific tuning.
+template <typename T, uint32_t wordCnt, auto const& config, bool commit, typename WordPtr>
 __simt_callee__ inline void HcommSimtWriteInlineWqe(
     WordPtr words, __gm__ uint8_t* remoteAddr, T value, const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead,
     uint32_t nextHead)
@@ -186,6 +225,13 @@ __simt_callee__ inline void HcommSimtWriteInlineWqe(
             }
         }
         words[HCOMM_SIMT_INLINE_FIRST_WORD + word] = packed;
+    }
+
+    // If committing, fill the second basic block with a NOP WQE so the 128B DWQE window is
+    // complete. The NOP allows a 1BB inline Write to be published through the doorbell, which
+    // requires two BBs. The exact NOP layout is hardware-specific and left for tuning.
+    if constexpr (commit) {
+        HcommSimtWriteNopWqe<wordCnt>(words, sqeTemplate, nextHead);
     }
 }
 
@@ -359,7 +405,9 @@ template <typename T, bool commitFlag, auto const& config>
 struct HcommSimtInlineDesc {
     static constexpr bool commit = commitFlag;
     static constexpr uint32_t sgeNum = 0U;
-    static constexpr uint32_t bbCnt = HCOMM_URMA_DWQE_BB_CNT;
+    // A deferred inline Write occupies one BB; a committed one occupies two (the second is a NOP
+    // that pads the DWQE window to 128B so the doorbell can publish it).
+    static constexpr uint32_t bbCnt = commit ? HCOMM_URMA_DWQE_BB_CNT : HCOMM_URMA_WQE_BB_CNT;
 
     __gm__ uint8_t* remoteAddr;
     T value;
@@ -373,7 +421,7 @@ struct HcommSimtInlineDesc {
         static_assert(
             sizeof(T) <= HCOMM_URMA_DWQE_SIZE - sizeof(HcommUrmaSqeCtx),
             "Inline value must fit in the WQE payload area");
-        HcommSimtWriteInlineWqe<T, wordCnt, config>(words, remoteAddr, value, sqeTemplate, curHead, nextHead);
+        HcommSimtWriteInlineWqe<T, wordCnt, config, commit>(words, remoteAddr, value, sqeTemplate, curHead, nextHead);
     }
 };
 
