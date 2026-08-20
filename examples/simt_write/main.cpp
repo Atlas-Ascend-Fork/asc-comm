@@ -178,14 +178,6 @@ const char* ModeName(uint32_t mode)
     return "single";
 }
 
-// Directory holding the barrier marker files. run.sh creates a fresh one per run so stale
-// markers from an earlier run cannot let the barrier pass immediately.
-std::string SyncDir()
-{
-    const char* dirEnv = std::getenv("SIMT_WRITE_SYNC_DIR");
-    return dirEnv != nullptr ? std::string(dirEnv) : std::string("/tmp/simt_write_sync");
-}
-
 bool IsMarkerFileReady(const std::string& path)
 {
     struct stat st {};
@@ -216,14 +208,16 @@ HcclResult WriteMarkerFile(const std::string& path, const std::string& payload =
 // Keeps the check deterministic: a rank must not read its recv buffer until the rank
 // writing into it has finished. HCCL is already up at this point, but this example
 // deliberately avoids issuing collectives so only WriteNbi touches the QP.
-HcclResult HostFileBarrier(int rank, int nranks, const std::string& tag, const std::string& payload = "1")
+// syncDir holds the barrier marker files and is passed in on the command line. run.sh creates a
+// fresh one per run so stale markers from an earlier run cannot let the barrier pass immediately.
+HcclResult HostFileBarrier(
+    int rank, int nranks, const std::string& syncDir, const std::string& tag, const std::string& payload = "1")
 {
-    const std::string dir = SyncDir();
-    if (mkdir(dir.c_str(), 0700) != 0 && errno != EEXIST) {
-        std::cout << "Create sync dir failed: " << dir << std::endl;
+    if (mkdir(syncDir.c_str(), 0700) != 0 && errno != EEXIST) {
+        std::cout << "Create sync dir failed: " << syncDir << std::endl;
         return HCCL_E_SYSCALL;
     }
-    const std::string markerPrefix = dir + "/" + tag + ".";
+    const std::string markerPrefix = syncDir + "/" + tag + ".";
     HcclResult ret = WriteMarkerFile(markerPrefix + std::to_string(rank), payload);
     if (ret != HCCL_SUCCESS) {
         return ret;
@@ -386,8 +380,9 @@ bool CheckKernelStatus(void* statusBuf, int rank)
 
 int main(int argc, char* argv[])
 {
-    if (argc < 4) {
-        std::cout << "Usage: " << argv[0] << " <rank> <nranks> <root_info_file> [mode]" << std::endl;
+    if (argc < 5) {
+        std::cout << "Usage: " << argv[0] << " <rank> <nranks> <root_info_file> <sync_dir> [mode]" << std::endl;
+        std::cout << "  sync_dir: directory for host barrier marker files, shared by all ranks" << std::endl;
         std::cout << "  mode: single (default) | batch_last | multi_lane" << std::endl;
         return 1;
     }
@@ -395,14 +390,19 @@ int main(int argc, char* argv[])
     const int rank = std::atoi(argv[1]);
     const int nranks = std::atoi(argv[2]);
     const std::string rootInfoFile = argv[3];
+    const std::string syncDir = argv[4];
     if (nranks < 2) {
         std::cout << "nranks must be at least 2." << std::endl;
         return 1;
     }
+    if (syncDir.empty()) {
+        std::cout << "sync_dir must not be empty." << std::endl;
+        return 1;
+    }
 
     uint32_t mode = kModeSingle;
-    if (argc > 4 && !ParseMode(argv[4], mode)) {
-        std::cout << "Unknown mode: " << argv[4] << std::endl;
+    if (argc > 5 && !ParseMode(argv[5], mode)) {
+        std::cout << "Unknown mode: " << argv[5] << std::endl;
         std::cout << "  mode: single (default) | batch_last | multi_lane" << std::endl;
         return 1;
     }
@@ -452,7 +452,7 @@ int main(int argc, char* argv[])
         HCCLCHECK(AcquirePeerChannel(hcclComm, static_cast<uint32_t>(rank), prev, memHandles, 2U));
     }
 
-    HCCLCHECK(HostFileBarrier(rank, nranks, "ready"));
+    HCCLCHECK(HostFileBarrier(rank, nranks, syncDir, "ready"));
 
     // 使用 next 通道发送数据到下一个 rank（环形拓扑）
     // 原有逻辑是 Rank 0 发送到 Rank 1，现在改为每个 rank 都向 next 发送
@@ -466,7 +466,7 @@ int main(int argc, char* argv[])
 
     // Separates the sender's kernel from the receiver's read. All ranks arrive here
     // after aclrtSynchronizeStream, ensuring WQEs have completed before verification.
-    HCCLCHECK(HostFileBarrier(rank, nranks, "sent"));
+    HCCLCHECK(HostFileBarrier(rank, nranks, syncDir, "sent"));
 
     // 每个 rank 检查从 prev 接收到的数据
     // 在环形拓扑中，每个 rank 都会从 prev 接收数据并进行验证

@@ -17,6 +17,8 @@ namespace simt_notify_atomic_perf {
 
 constexpr int kSenderRank = 0;
 constexpr int kReceiverRank = 1;
+// 点对点性能测试只使用前两个rank，其余rank直接退出，不参与建链和性能测试。
+constexpr int kBenchRanks = 2;
 
 constexpr uint64_t kNotifySignal = 0x2222222222222222ULL;
 constexpr uint64_t kFaaInitial = 10U;

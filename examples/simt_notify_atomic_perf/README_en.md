@@ -1,22 +1,25 @@
 # SIMT Notify/FAA/CAS Basic Performance Sample
 
-## ⚠️ Important: 2-Rank Only
+## Point-to-Point Benchmark and Rank Behavior
 
-This sample is a **point-to-point performance benchmark** with a fixed Rank 0 (sender) → Rank 1 (receiver) design and **supports exactly 2 ranks only**.
+This sample measures **point-to-point** performance: Rank 0 is always the sender and Rank 1 the receiver, so the
+reported latency and bandwidth cover a single sender to a single receiver.
 
-### Why 2 Ranks Only?
+`nranks` accepts any value `>= 2`, including 3 or more. `run.sh` launches one process per rank, but **only Rank 0 and
+Rank 1 take part in the benchmark**:
 
-1. **Performance Measurement Goal**: This sample measures point-to-point latency and bandwidth from a single sender to a single receiver, which are fundamental performance metrics.
-2. **Timing Accuracy**: Only the sender (Rank 0) performs timing, avoiding resource contention and timing errors from multiple concurrent senders.
-3. **Result Interpretability**: Performance data in a point-to-point scenario has clear physical meaning, making it easier to analyze and optimize.
+- Rank 0 / Rank 1: create the communicator (which contains only these two ranks) and the UBC_CTP channel, then run the
+  benchmark. Rank 0 performs the timing and prints `RESULT`; Rank 1 validates the received data.
+- Rank >= 2: print `SKIP` and exit immediately. They do not initialize the communicator, build channels, or join the
+  benchmark, and they do not affect the result.
 
-### For Multi-Rank Communication
+Timing only on the sender avoids resource contention and timing error from multiple concurrent senders, and
+point-to-point numbers are easier to analyze. For functional validation of multi-rank or ring-topology communication,
+use `examples/simt_notify_atomic`, which supports ring communication with any `>= 2` ranks.
 
-If you need to test multi-rank communication or ring topologies, please use:
-- **Functional Validation**: `examples/simt_notify_atomic` - Supports ring topology with any ≥2 ranks
-- **Multi-Pair Communication**: Can be extended from this sample, but requires redesigned timing and aggregation logic
-
----
+Note that the rank id is used directly as the device id (`aclrtSetDevice(rank)`), so the benchmark always runs on
+device 0 and device 1. The channel only accepts `COMM_PROTOCOL_UBC_CTP` links on network layer 0, which requires a
+direct UB link between the two devices.
 
 This directory tests only the `Notify`, `FAA`, and `CAS` interfaces. Immediate mode supports only `--lanes 1`.
 Last mode supports `--lanes 1/32/1024`: lanes concurrently post with `commit=false`, then one lane performs the only
@@ -83,7 +86,9 @@ bash examples/simt_notify_atomic_perf/build.sh
 
 ## Run Each Interface Separately
 
-The communicator is created with `HcclGetRootInfo` and `HcclCommInitRootInfo`, so no HCCL rank table is required. `run.sh` creates a temporary root info file for each run, written by rank 0 and read by the other ranks.
+The communicator is created with `HcclGetRootInfo` and `HcclCommInitRootInfo`, so no HCCL rank table is required. `run.sh` creates a temporary root info file for each run, written by rank 0 and read by rank 1. Ranks `>= 2` exit before reading it.
+
+The first argument in the commands below is `nranks`. Passing `2` launches only the two benchmark processes; passing `4` launches four processes, but rank 0 and rank 1 still run the benchmark while rank 2 and rank 3 print `SKIP` and exit.
 
 Notify:
 
@@ -126,6 +131,13 @@ STATUS | API=notify | Path=SIMT-t1 | CommitMode=immediate | PASS
 - `DrainStatus=0` and `Completed=WqeCount`: The sample completed successfully.
 
 FAA/CAS use a fixed `DataSize/B` of 8. Notify uses the size selected through `--payload-bytes`.
+
+When `nranks > 2`, each non-participating rank prints one extra line. It does not affect the `RESULT` or `STATUS`
+verdict:
+
+```text
+SKIP | Rank=2 | Only Rank 0 and Rank 1 run the point-to-point benchmark.
+```
 
 ## Summarize and Plot
 

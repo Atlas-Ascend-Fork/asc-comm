@@ -1,22 +1,22 @@
 # SIMT Notify/FAA/CAS 基础性能用例
 
-## ⚠️ 重要说明：仅支持 2 卡
+## 点对点性能测试与 rank 说明
 
-本样例是**点对点性能基准测试**，设计为固定的 Rank 0（发送方）→ Rank 1（接收方）架构，**仅支持 2 卡配置**。
+本样例测试**点对点**性能：固定由 Rank 0 作为发送方、Rank 1 作为接收方，测量单发送方到单接收方的
+延迟和带宽。
 
-### 为什么只支持 2 卡？
+`nranks` 支持 `>= 2`，可以传入 3 卡及以上。实际运行时 `run.sh` 会按 `nranks` 拉起对应数量的进程，
+但**只有 Rank 0 和 Rank 1 参与测试**：
 
-1. **性能测量目标**：本样例测量单个发送方到单个接收方的点对点延迟和带宽，这是最基础的性能指标
-2. **计时准确性**：只有发送方（Rank 0）执行计时，避免多方同时发送带来的资源竞争和计时误差
-3. **结果可解释性**：点对点场景下的性能数据具有明确的物理意义，便于分析和优化
+- Rank 0 / Rank 1：建立通信域（通信域只包含这两个 rank）和 UBC_CTP 通道，执行性能测试。Rank 0 计时
+  并打印 `RESULT`，Rank 1 校验接收数据。
+- Rank >= 2：打印 `SKIP` 后立即退出，不初始化通信域、不建链、不参与性能测试，也不影响测试结果。
 
-### 如果需要多卡通信
+只有发送方计时，可以避免多方并发发送带来的资源竞争和计时误差，点对点数据也更便于分析。如果需要多卡
+通信或环形拓扑的功能验证，请使用 `examples/simt_notify_atomic`，它支持任意 `>= 2` 卡的环形拓扑通信。
 
-如果您需要测试多卡通信或环形拓扑，请使用：
-- **功能验证**：`examples/simt_notify_atomic` - 支持任意 ≥2 卡的环形拓扑通信
-- **多对通信**：可以基于本样例扩展，但需要重新设计计时和聚合逻辑
-
----
+需要注意 rank 号直接用作 device id（`aclrtSetDevice(rank)`），因此测试始终跑在 device 0 和 device 1
+上；通道只采用第 0 层网络上的 `COMM_PROTOCOL_UBC_CTP` 链路，要求两卡间存在 UB 统一总线直连。
 
 本目录只测试`Notify`、`FAA`和`CAS`三个接口。Immediate模式仅支持`--lanes 1`。Last模式允许
 `--lanes 1/32/1024`：多个lane并发执行`commit=false`，同步后由一个lane执行唯一的`commit=true`。
@@ -81,7 +81,9 @@ bash examples/simt_notify_atomic_perf/build.sh
 
 ## 分别运行三个接口
 
-样例通过`HcclGetRootInfo`和`HcclCommInitRootInfo`创建通信域，无需准备rank table。`run.sh`会为每次运行创建临时root info文件，由rank 0写入、其余rank读取。
+样例通过`HcclGetRootInfo`和`HcclCommInitRootInfo`创建通信域，无需准备rank table。`run.sh`会为每次运行创建临时root info文件，由rank 0写入、rank 1读取（rank >= 2已提前退出，不读取该文件）。
+
+下面命令中的第一个参数是`nranks`。传`2`表示只拉起两个测试进程；传`4`会拉起四个进程，但仍只有rank 0和rank 1执行测试，rank 2和rank 3打印`SKIP`后退出。
 
 Notify：
 
@@ -124,6 +126,12 @@ STATUS | API=notify | Path=SIMT-t1 | CommitMode=immediate | PASS
 - `DrainStatus=0` 且 `Completed=WqeCount`：本次用例完成。
 
 FAA/CAS 的 `DataSize/B` 固定为 `8`。Notify 使用 `--payload-bytes` 指定的数据长度。
+
+`nranks > 2` 时，未参与测试的rank会额外输出一行，不影响`RESULT`和`STATUS`的判定：
+
+```text
+SKIP | Rank=2 | Only Rank 0 and Rank 1 run the point-to-point benchmark.
+```
 
 ## 汇总和绘图
 
