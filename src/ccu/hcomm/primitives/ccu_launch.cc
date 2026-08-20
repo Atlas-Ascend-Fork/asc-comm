@@ -30,9 +30,10 @@
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 
 CcuResult hcomm_ccu_kernel_register_start(
-    CcuInsHandle insHandle, const HcommCcuRegisterContextPod *context)
+    CcuInsHandle insHandle, HcommCcuRegisterContextHandle contextHandle)
 {
-    CCU_CHK_PTR_NULL(context);
+    CCU_CHK_PTR_NULL(contextHandle);
+    const auto *context = reinterpret_cast<const HcommCcuRegisterContextPod *>(contextHandle);
     if (context->instanceHandle != 0 && context->instanceHandle != insHandle) {
         HCCL_ERROR("[%s] failed, context instanceHandle[%llu] mismatches input insHandle[%llu].", __func__,
             static_cast<unsigned long long>(context->instanceHandle), static_cast<unsigned long long>(insHandle));
