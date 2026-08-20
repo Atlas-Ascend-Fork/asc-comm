@@ -37,7 +37,7 @@
 #include "ccu/hcomm/ccu_utils.hpp"
 
 enum {
-    ASCCOMM_CCU_LOG_MODULE_ID = 5,
+    asccomm_ccu_log_module_id = 5,
 };
 
 #ifndef LIKELY
@@ -50,8 +50,8 @@ enum {
 #define ASCCOMM_CCU_LOG(level, format, ...)                                                        \
     do {                                                                                           \
         if (DlogRecord != nullptr && ((level) == DLOG_ERROR                                         \
-            || CheckLogLevel(ASCCOMM_CCU_LOG_MODULE_ID, (level)) == 1)) {                          \
-            DlogRecord(ASCCOMM_CCU_LOG_MODULE_ID, (level), "[%s:%d]" format, DLOG_FILE_NAME,       \
+            || CheckLogLevel(asccomm_ccu_log_module_id, (level)) == 1)) {                          \
+            DlogRecord(asccomm_ccu_log_module_id, (level), "[%s:%d]" format, DLOG_FILE_NAME,       \
                 __LINE__, ##__VA_ARGS__);                                                           \
         }                                                                                          \
     } while (0)
@@ -164,9 +164,9 @@ enum {
 // 宏定义，用于包装 C 接口函数的异常处理
 #define CCU_EXCEPTION_HANDLE_BEGIN try {
 #define CCU_EXCEPTION_HANDLE_END_INFO(func_name)                                                   \
-    } catch (const ::AscendC::ccu::detail::CcuException& ccuException) {                           \
-        HCCL_ERROR("[%s] exception: %s", (func_name), ccuException.what());                        \
-        return ccuException.code();                                                                \
+    } catch (const ::AscendC::ccu::detail::ccu_exception& ccu_exception) {                           \
+        HCCL_ERROR("[%s] exception: %s", (func_name), ccu_exception.what());                        \
+        return ccu_exception.code();                                                                \
     } catch (const std::out_of_range& exception) {                                                 \
         HCCL_ERROR("[%s] out of range: %s", (func_name), exception.what());                        \
         return CcuResult::CCU_E_NOT_FOUND;                                                         \

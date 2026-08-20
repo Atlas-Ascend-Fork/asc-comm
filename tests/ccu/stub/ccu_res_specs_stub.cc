@@ -16,16 +16,16 @@ HcclResult CcuResSpecifications::GetResourceAddr(const uint8_t dieId, uint64_t& 
     return HCCL_SUCCESS;
 }
 HcclResult CcuResSpecifications::GetMissionNum(const uint8_t dieId, uint32_t& missionNum) const { return HCCL_SUCCESS; }
-HcclResult CcuResSpecifications::GetMsNum(const uint8_t dieId, uint32_t& msNum) const { return HCCL_SUCCESS; }
+HcclResult CcuResSpecifications::GetMsNum(const uint8_t dieId, uint32_t& ms_num) const { return HCCL_SUCCESS; }
 HcclResult CcuResSpecifications::GetLoopEngineNum(const uint8_t dieId, uint32_t& loopNum) const { return HCCL_SUCCESS; }
 HcclResult CcuResSpecifications::GetCkeNum(const uint8_t dieId, uint32_t& ckeNum) const { return HCCL_SUCCESS; }
 HcclResult CcuResSpecifications::GetXnNum(const uint8_t dieId, uint32_t& xnNum) const { return HCCL_SUCCESS; }
-HcclResult CcuResSpecifications::GetInstructionNum(const uint8_t dieId, uint32_t& instrNum) const
+HcclResult CcuResSpecifications::GetInstructionNum(const uint8_t dieId, uint32_t& instr_num) const
 {
     return HCCL_SUCCESS;
 }
-HcclResult CcuResSpecifications::GetGsaNum(const uint8_t dieId, uint32_t& gsaNum) const { return HCCL_SUCCESS; }
-HcclResult CcuResSpecifications::GetChannelNum(const uint8_t dieId, uint32_t& channelNum) const { return HCCL_SUCCESS; }
+HcclResult CcuResSpecifications::GetGsaNum(const uint8_t dieId, uint32_t& gsa_num) const { return HCCL_SUCCESS; }
+HcclResult CcuResSpecifications::GetChannelNum(const uint8_t dieId, uint32_t& channel_num) const { return HCCL_SUCCESS; }
 HcclResult CcuResSpecifications::GetJettyNum(const uint8_t dieId, uint32_t& jettyNum) const { return HCCL_SUCCESS; }
 HcclResult CcuResSpecifications::GetPfeNum(const uint8_t dieId, uint32_t& pfeNum) const { return HCCL_SUCCESS; }
 HcclResult CcuResSpecifications::GetWqeBBNum(const uint8_t dieId, uint32_t& wqeBBNum) const { return HCCL_SUCCESS; }

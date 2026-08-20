@@ -14,42 +14,42 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepLocWaitNotify::CcuRepLocWaitNotify(
-    CcuInsGeneraterBase* insGenPtr, const LocalNotify& notify, const uint32_t mask, bool isProfiling)
-    : insGenPtr(insGenPtr), notify_(notify), mask_(mask), isProfiling_(isProfiling)
+ccu_rep_loc_wait_notify::ccu_rep_loc_wait_notify(
+    ccu_ins_generater_base* ins_gen_ptr, const local_notify& notify, const uint32_t mask, bool is_profiling)
+    : ins_gen_ptr_(ins_gen_ptr), notify_(notify), mask_(mask), is_profiling_(is_profiling)
 {
-    type = CcuRepType::LOC_WAIT_NOTIFY;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::loc_wait_notify;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-bool CcuRepLocWaitNotify::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_loc_wait_notify::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepLocWaitNotifyTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepLocWaitNotify][Translate] failed to translate for instrId[%u]", instrId),
+        ins_gen_ptr_->ccu_rep_loc_wait_notify_translate(ccu_kernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepLocWaitNotify][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepLocWaitNotify translate failed");
     CHK_PRT_THROW(
-        (instrId > UINT16_MAX - instrCount),
+        (instr_id > UINT16_MAX - instr_count_),
         HCCL_ERROR(
-            "[CcuRepLocWaitNotify::Translate]uint16 integer overflow occurs, "
+            "[CcuRepLocWaitNotify::translate]uint16 integer overflow occurs, "
             "instrId = [%hu], instrCount = [%hu]",
-            instrId, instrCount),
+            instr_id, instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
 
-    instrId += instrCount;
-    return translated;
+    instr_id += instr_count_;
+    return translated_;
 }
 
-std::string CcuRepLocWaitNotify::Describe()
+std::string ccu_rep_loc_wait_notify::describe()
 {
-    return asccomm::FormatCcuMessage("CcuRepLocWaitNotify=id[%u], mask[%04x]", notify_.Id(), mask_);
+    return asc::format_ccu_message("CcuRepLocWaitNotify=id[%u], mask[%04x]", notify_.id(), mask_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

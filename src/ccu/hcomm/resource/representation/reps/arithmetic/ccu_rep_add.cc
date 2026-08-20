@@ -13,195 +13,195 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-void CcuRepAdd::SetCommonInfo()
+void ccu_rep_add::set_common_info()
 {
-    type = CcuRepType::ADD;
-    instrCount = 1;
+    type_ = ccu_rep_type::add;
+    instr_count_ = 1;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Address& addrA, const Variable& varB)
-    : insGenPtr(insGenPtr), subType(AddSubType::ADDR_PLUS_VAR_TO_ADDR), addrA(addrA), addrC(addrC), varB(varB)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const address& addr_a, const variable& var_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::addr_plus_var_to_addr), addr_a_(addr_a), addr_c_(addr_c), var_b_(var_b)
 {
-    SetCommonInfo();
-    supportCcuV1 = true;
+    set_common_info();
+    support_ccu_v1_ = true;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Address& addrA, const Address& addrB)
-    : insGenPtr(insGenPtr), subType(AddSubType::ADDR_PLUS_ADDR_TO_ADDR), addrA(addrA), addrB(addrB), addrC(addrC)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const address& addr_a, const address& addr_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::addr_plus_addr_to_addr), addr_a_(addr_a), addr_b_(addr_b), addr_c_(addr_c)
 {
-    SetCommonInfo();
-    supportCcuV1 = true;
+    set_common_info();
+    support_ccu_v1_ = true;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, const Variable& varB)
-    : insGenPtr(insGenPtr), subType(AddSubType::VAR_PLUS_VAR_TO_VAR), varA(varA), varB(varB), varC(varC)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_a, const variable& var_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::var_plus_var_to_var), var_a_(var_a), var_b_(var_b), var_c_(var_c)
 {
-    SetCommonInfo();
-    supportCcuV1 = true;
+    set_common_info();
+    support_ccu_v1_ = true;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const Variable& offset)
-    : insGenPtr(insGenPtr), subType(AddSubType::SELF_ADD_ADDRESS), addrA(addrA), varB(offset)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const address& addr_a, const variable& offset)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::self_add_address), addr_a_(addr_a), var_b_(offset)
 {
-    SetCommonInfo();
-    supportCcuV1 = true;
+    set_common_info();
+    support_ccu_v1_ = true;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Variable& varA, const Variable& offset)
-    : insGenPtr(insGenPtr), subType(AddSubType::SELF_ADD_VARIABLE), varA(varA), varB(offset)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const variable& var_a, const variable& offset)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::self_add_variable), var_a_(var_a), var_b_(offset)
 {
-    SetCommonInfo();
-    supportCcuV1 = true;
+    set_common_info();
+    support_ccu_v1_ = true;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Variable& varA, const uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(AddSubType::SELF_ADD_IMMED_VARIABLE), varA(varA), immedB(immedB)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const variable& var_a, const uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::self_add_immed_variable), var_a_(var_a), immed_b_(immed_b)
 {
-    SetCommonInfo();
-    supportCcuV1 = false;
+    set_common_info();
+    support_ccu_v1_ = false;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, const uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(AddSubType::VAR_PLUS_IMMED_TO_VAR), varA(varA), varC(varC), immedB(immedB)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_a, const uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::var_plus_immed_to_var), var_a_(var_a), var_c_(var_c), immed_b_(immed_b)
 {
-    SetCommonInfo();
-    supportCcuV1 = false;
+    set_common_info();
+    support_ccu_v1_ = false;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Address& addrA, const uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(AddSubType::ADDR_PLUS_IMMED_TO_ADDR), addrA(addrA), addrC(addrC), immedB(immedB)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const address& addr_a, const uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::addr_plus_immed_to_addr), addr_a_(addr_a), addr_c_(addr_c), immed_b_(immed_b)
 {
-    SetCommonInfo();
-    supportCcuV1 = false;
+    set_common_info();
+    support_ccu_v1_ = false;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(AddSubType::SELF_ADD_IMMED_ADDRESS), addrA(addrA), immedB(immedB)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const address& addr_a, const uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::self_add_immed_address), addr_a_(addr_a), immed_b_(immed_b)
 {
-    SetCommonInfo();
-    supportCcuV1 = false;
+    set_common_info();
+    support_ccu_v1_ = false;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Variable& varA, const Variable& varB)
-    : insGenPtr(insGenPtr), subType(AddSubType::VAR_PLUS_VAR_TO_ADDR), addrC(addrC), varA(varA), varB(varB)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const variable& var_a, const variable& var_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::var_plus_var_to_addr), addr_c_(addr_c), var_a_(var_a), var_b_(var_b)
 {
-    SetCommonInfo();
-    supportCcuV1 = false;
+    set_common_info();
+    support_ccu_v1_ = false;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Variable& varA, const uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(AddSubType::VAR_PLUS_IMMED_TO_ADDR), addrC(addrC), varA(varA), immedB(immedB)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const variable& var_a, const uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::var_plus_immed_to_addr), addr_c_(addr_c), var_a_(var_a), immed_b_(immed_b)
 {
-    SetCommonInfo();
-    supportCcuV1 = false;
+    set_common_info();
+    support_ccu_v1_ = false;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Address& addrA, const Address& addrB)
-    : insGenPtr(insGenPtr), subType(AddSubType::ADDR_PLUS_ADDR_TO_VAR), addrA(addrA), addrB(addrB), varC(varC)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const address& addr_a, const address& addr_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::addr_plus_addr_to_var), addr_a_(addr_a), addr_b_(addr_b), var_c_(var_c)
 {
-    SetCommonInfo();
-    supportCcuV1 = false;
+    set_common_info();
+    support_ccu_v1_ = false;
 }
 
-CcuRepAdd::CcuRepAdd(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Address& addrA, const uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(AddSubType::ADDR_PLUS_IMMED_TO_VAR), addrA(addrA), varC(varC), immedB(immedB)
+ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const address& addr_a, const uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(add_sub_type::addr_plus_immed_to_var), addr_a_(addr_a), var_c_(var_c), immed_b_(immed_b)
 {
-    SetCommonInfo();
-    supportCcuV1 = false;
+    set_common_info();
+    support_ccu_v1_ = false;
 }
 
-void CcuRepAdd::ValidateInsGenPtrForAdd()
+void ccu_rep_add::validate_ins_gen_ptr_for_add()
 {
-    CcuInsGeneraterV1* tmpPtrV1 = dynamic_cast<CcuInsGeneraterV1*>(insGenPtr);
+    ccu_ins_generater_v1* tmp_ptr_v1 = dynamic_cast<ccu_ins_generater_v1*>(ins_gen_ptr_);
     CHK_PRT_THROW(
-        (tmpPtrV1 && !supportCcuV1),
+        (tmp_ptr_v1 && !support_ccu_v1_),
         HCCL_ERROR("[CcuRepAdd][%s]Cannot translate CcuRepAdd for A5 when supportCcuV1 is false", __func__),
         CcuResult::CCU_E_INTERNAL, "tmpPtrV1 does not match supportCcuV1");
 }
 
-bool CcuRepAdd::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_add::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    ValidateInsGenPtrForAdd();
-    asccomm::CheckCcuNotNull(instr, "[CcuRepAdd::Translate] instr is nullptr!");
-    this->instrId = instrId;
-    translated = true;
+    validate_ins_gen_ptr_for_add();
+    asc::check_ccu_not_null(instr, "[CcuRepAdd::translate] instr is nullptr!");
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepAddTranslate(ccuKernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepAdd][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        ins_gen_ptr_->ccu_rep_add_translate(ccu_kernel, instr, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepAdd][translate] failed to translate for instrId[%u]", instr_id), CcuResult::CCU_E_INTERNAL,
         "CcuRepAdd translate failed");
     CHK_PRT_THROW(
-        (instrId > UINT16_MAX - instrCount),
+        (instr_id > UINT16_MAX - instr_count_),
         HCCL_ERROR(
-            "[CcuRepAdd::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instrId,
-            instrCount),
+            "[CcuRepAdd::translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instr_id,
+            instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
-    instrId += instrCount;
-    return translated;
+    instr_id += instr_count_;
+    return translated_;
 }
 
-std::string CcuRepAdd::Describe()
+std::string ccu_rep_add::describe()
 {
-    switch (subType) {
-        case AddSubType::ADDR_PLUS_VAR_TO_ADDR: {
-            return asccomm::FormatCcuMessage("Address[%u] = Address[%u] + Variable[%u]", addrC.Id(), addrA.Id(), varB.Id());
+    switch (sub_type_) {
+        case add_sub_type::addr_plus_var_to_addr: {
+            return asc::format_ccu_message("Address[%u] = Address[%u] + Variable[%u]", addr_c_.id(), addr_a_.id(), var_b_.id());
         }
-        case AddSubType::ADDR_PLUS_ADDR_TO_ADDR: {
-            return asccomm::FormatCcuMessage("Address[%u] = Address[%u] + Address[%u]", addrC.Id(), addrA.Id(), addrB.Id());
+        case add_sub_type::addr_plus_addr_to_addr: {
+            return asc::format_ccu_message("Address[%u] = Address[%u] + Address[%u]", addr_c_.id(), addr_a_.id(), addr_b_.id());
         }
-        case AddSubType::VAR_PLUS_VAR_TO_VAR: {
-            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] + Variable[%u]", varC.Id(), varA.Id(), varB.Id());
+        case add_sub_type::var_plus_var_to_var: {
+            return asc::format_ccu_message("Variable[%u] = Variable[%u] + Variable[%u]", var_c_.id(), var_a_.id(), var_b_.id());
         }
-        case AddSubType::SELF_ADD_ADDRESS: {
-            return asccomm::FormatCcuMessage("Address[%u] += Variable[%u]", addrA.Id(), varB.Id());
+        case add_sub_type::self_add_address: {
+            return asc::format_ccu_message("Address[%u] += Variable[%u]", addr_a_.id(), var_b_.id());
         }
-        case AddSubType::SELF_ADD_VARIABLE: {
-            return asccomm::FormatCcuMessage("Variable[%u] += Variable[%u]", varA.Id(), varB.Id());
+        case add_sub_type::self_add_variable: {
+            return asc::format_ccu_message("Variable[%u] += Variable[%u]", var_a_.id(), var_b_.id());
         }
-        case AddSubType::SELF_ADD_IMMED_VARIABLE: {
-            return asccomm::FormatCcuMessage("Variable[%u] += Immed[%u]", varA.Id(), immedB);
+        case add_sub_type::self_add_immed_variable: {
+            return asc::format_ccu_message("Variable[%u] += Immed[%u]", var_a_.id(), immed_b_);
         }
-        case AddSubType::VAR_PLUS_IMMED_TO_VAR: {
-            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] + Immed[%u]", varC.Id(), varA.Id(), immedB);
+        case add_sub_type::var_plus_immed_to_var: {
+            return asc::format_ccu_message("Variable[%u] = Variable[%u] + Immed[%u]", var_c_.id(), var_a_.id(), immed_b_);
         }
-        case AddSubType::ADDR_PLUS_IMMED_TO_ADDR: {
-            return asccomm::FormatCcuMessage("Address[%u] += Address[%u] + Immed[%hu]", addrC.Id(), addrA.Id(), immedB);
+        case add_sub_type::addr_plus_immed_to_addr: {
+            return asc::format_ccu_message("Address[%u] += Address[%u] + Immed[%hu]", addr_c_.id(), addr_a_.id(), immed_b_);
         }
-        case AddSubType::VAR_PLUS_VAR_TO_ADDR: {
-            return asccomm::FormatCcuMessage("Address[%u] = Variable[%u] + Variable[%u]", addrC.Id(), varA.Id(), varB.Id());
+        case add_sub_type::var_plus_var_to_addr: {
+            return asc::format_ccu_message("Address[%u] = Variable[%u] + Variable[%u]", addr_c_.id(), var_a_.id(), var_b_.id());
         }
-        case AddSubType::SELF_ADD_IMMED_ADDRESS: {
-            return asccomm::FormatCcuMessage("Address[%u] += Immed[%u]", addrA.Id(), immedB);
+        case add_sub_type::self_add_immed_address: {
+            return asc::format_ccu_message("Address[%u] += Immed[%u]", addr_a_.id(), immed_b_);
         }
-        case AddSubType::VAR_PLUS_IMMED_TO_ADDR: {
-            return asccomm::FormatCcuMessage("Address[%u] += varA[%u] + Immed[%hu]", addrC.Id(), varA.Id(), immedB);
+        case add_sub_type::var_plus_immed_to_addr: {
+            return asc::format_ccu_message("Address[%u] += varA[%u] + Immed[%hu]", addr_c_.id(), var_a_.id(), immed_b_);
         }
-        case AddSubType::ADDR_PLUS_IMMED_TO_VAR: {
-            return asccomm::FormatCcuMessage("Variable[%u] = Address[%u] + Immed[%u]", varC.Id(), addrA.Id(), immedB);
+        case add_sub_type::addr_plus_immed_to_var: {
+            return asc::format_ccu_message("Variable[%u] = Address[%u] + Immed[%u]", var_c_.id(), addr_a_.id(), immed_b_);
         }
         default: {
-            return asccomm::FormatCcuMessage("Invalid Add");
+            return asc::format_ccu_message("Invalid Add");
         }
     }
 }
 
-Address CcuRepAdd::GetAddrA() { return addrA; }
+address ccu_rep_add::get_addr_a() { return addr_a_; }
 
-Address CcuRepAdd::GetAddrB() { return addrB; }
+address ccu_rep_add::get_addr_b() { return addr_b_; }
 
-Address CcuRepAdd::GetAddrC() { return addrC; }
+address ccu_rep_add::get_addr_c() { return addr_c_; }
 
-Variable CcuRepAdd::GetVarA() { return varA; }
+variable ccu_rep_add::get_var_a() { return var_a_; }
 
-Variable CcuRepAdd::GetVarB() { return varB; }
+variable ccu_rep_add::get_var_b() { return var_b_; }
 
-Variable CcuRepAdd::GetVarC() { return varC; }
+variable ccu_rep_add::get_var_c() { return var_c_; }
 
-uint16_t CcuRepAdd::GetImmedB() { return immedB; }
+uint16_t ccu_rep_add::get_immed_b() { return immed_b_; }
 
-AddSubType CcuRepAdd::GetSubType() { return subType; }
+add_sub_type ccu_rep_add::get_sub_type() { return sub_type_; }
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

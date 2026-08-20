@@ -18,129 +18,129 @@
 #include "hcomm/resource/representation/reps/control/ccu_rep_jumplabel_v1.h"
 #include "ccu/hcomm/ccu_api_types.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-enum class ConditionType { EQUAL, NOT_EQUAL, GREATER_THAN, GREATER_EQUAL, LESS_THAN, LESS_EQUAL, DEFAULT, INVALID };
+enum class condition_type { equal, not_equal, greater_than, greater_equal, less_than, less_equal, DEFAULT, invalid };
 
-class CcuRepJumpBase : public CcuRepBase {
+class ccu_rep_jump_base : public ccu_rep_base {
 public:
-    explicit CcuRepJumpBase(CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId);
-    explicit CcuRepJumpBase(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& expectedVar, const Variable& condition);
-    void Reference(std::shared_ptr<CcuRepJumpLabel> refRep);
-    void ValidateInsGeneratorForJump();
+    explicit ccu_rep_jump_base(ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id);
+    explicit ccu_rep_jump_base(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& expected_var, const variable& condition);
+    void reference(std::shared_ptr<ccu_rep_jump_label> ref_rep);
+    void validate_ins_generator_for_jump();
 
-    std::shared_ptr<CcuRepJumpLabel> GetJumpLabel() { return jumpLabel; }
+    std::shared_ptr<ccu_rep_jump_label> get_jump_label() { return jump_label_; }
 
-    Variable& GetTargetInstrId() { return targetInstrId; }
+    variable& get_target_instr_id() { return target_instr_id_; }
 
-    Variable& GetCondition() { return condition; }
+    variable& get_condition() { return condition_; }
 
-    Variable& GetExpectedVar() { return expectedVar; }
+    variable& get_expected_var() { return expected_var_; }
 
-    uint64_t GetExpectedNum() { return expected; }
+    uint64_t get_expected_num() { return expected_; }
 
-    CcuInstr* GetInstr() { return instr; }
+    ccu_instr* get_instr() { return instr_; }
 
-    bool IsComparedWithImmd() { return comp2Immed; }
+    bool is_compared_with_immd() { return comp2_immed_; }
 
 protected:
-    CcuResult InitInstr(CcuInstr*& instr, uint16_t& instrId);
+    CcuResult init_instr(ccu_instr*& instr, uint16_t& instr_id);
 
-    CcuInsGeneraterBase* insGeneratorPtr_;
-    std::string label;
-    std::shared_ptr<CcuRepJumpLabel> jumpLabel{nullptr};
-    Variable targetInstrId;
-    CcuInstr* instr{nullptr};
+    ccu_ins_generater_base* ins_generator_ptr_;
+    std::string label_;
+    std::shared_ptr<ccu_rep_jump_label> jump_label_{nullptr};
+    variable target_instr_id_;
+    ccu_instr* instr_{nullptr};
 
-    bool comp2Immed{false};
-    bool supportCcuV1{true}; // 暂定用于识别 使用特定的构造方法时是否支持A5的翻译流程
+    bool comp2_immed_{false};
+    bool support_ccu_v1_{true}; // 暂定用于识别 使用特定的构造方法时是否支持A5的翻译流程
 
-    Variable expectedVar;
-    Variable condition;
-    uint64_t expected{0};
+    variable expected_var_;
+    variable condition_;
+    uint64_t expected_{0};
 };
 
-class CcuRepJump : public CcuRepJumpBase {
+class ccu_rep_jump : public ccu_rep_jump_base {
 public:
-    explicit CcuRepJump(CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    explicit ccu_rep_jump(ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 };
 
-class CcuRepJumpNE : public CcuRepJumpBase {
+class ccu_rep_jump_ne : public ccu_rep_jump_base {
 public:
-    CcuRepJumpNE(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& expectedVar, const Variable& condition, uint64_t expected);
-    CcuRepJumpNE(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& condition, const Variable& expectedVar); // 仅用于A6翻译
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    ccu_rep_jump_ne(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& expected_var, const variable& condition, uint64_t expected);
+    ccu_rep_jump_ne(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& condition, const variable& expected_var); // 仅用于A6翻译
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 };
 
-class CcuRepJumpEQ : public CcuRepJumpBase {
+class ccu_rep_jump_eq : public ccu_rep_jump_base {
 public:
-    CcuRepJumpEQ(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& expectedVar, const Variable& condition, uint64_t expected);
-    CcuRepJumpEQ(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& condition, const Variable& expectedVar); // 仅用于A6翻译
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
+    ccu_rep_jump_eq(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& expected_var, const variable& condition, uint64_t expected);
+    ccu_rep_jump_eq(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& condition, const variable& expected_var); // 仅用于A6翻译
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 };
 
-class CcuRepJumpLE : public CcuRepJumpBase {
+class ccu_rep_jump_le : public ccu_rep_jump_base {
 public:
-    CcuRepJumpLE(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& condition, const Variable& expectedVar);
-    CcuRepJumpLE(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& expectedVar, const Variable& condition, uint64_t expected);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& curInstr, uint16_t& curInstrId, const TransDep& dep) override;
-    std::string Describe() override;
+    ccu_rep_jump_le(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& condition, const variable& expected_var);
+    ccu_rep_jump_le(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& expected_var, const variable& condition, uint64_t expected);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& cur_instr, uint16_t& cur_instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 };
 
-class CcuRepJumpGE : public CcuRepJumpBase {
+class ccu_rep_jump_ge : public ccu_rep_jump_base {
 public:
-    CcuRepJumpGE(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& condition, const Variable& expectedVar);
-    CcuRepJumpGE(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& expectedVar, const Variable& condition, uint64_t expected);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& curInstr, uint16_t& curInstrId, const TransDep& dep) override;
-    std::string Describe() override;
+    ccu_rep_jump_ge(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& condition, const variable& expected_var);
+    ccu_rep_jump_ge(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& expected_var, const variable& condition, uint64_t expected);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& cur_instr, uint16_t& cur_instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 };
 
-class CcuRepJumpGT : public CcuRepJumpBase {
+class ccu_rep_jump_gt : public ccu_rep_jump_base {
 public:
-    CcuRepJumpGT(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& condition, const Variable& expectedVar);
-    CcuRepJumpGT(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& expectedVar, const Variable& condition, uint64_t expected);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& curInstr, uint16_t& curInstrId, const TransDep& dep) override;
-    std::string Describe() override;
+    ccu_rep_jump_gt(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& condition, const variable& expected_var);
+    ccu_rep_jump_gt(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& expected_var, const variable& condition, uint64_t expected);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& cur_instr, uint16_t& cur_instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 };
 
-class CcuRepJumpLT : public CcuRepJumpBase {
+class ccu_rep_jump_lt : public ccu_rep_jump_base {
 public:
-    CcuRepJumpLT(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& condition, const Variable& expectedVar);
-    CcuRepJumpLT(
-        CcuInsGeneraterBase* insGenPtr, const std::string& label, const Variable& targetInstrId,
-        const Variable& expectedVar, const Variable& condition, uint64_t expected);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& curInstr, uint16_t& curInstrId, const TransDep& dep) override;
-    std::string Describe() override;
+    ccu_rep_jump_lt(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& condition, const variable& expected_var);
+    ccu_rep_jump_lt(
+        ccu_ins_generater_base* ins_gen_ptr, const std::string& label, const variable& target_instr_id,
+        const variable& expected_var, const variable& condition, uint64_t expected);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& cur_instr, uint16_t& cur_instr_id, const trans_dep& dep) override;
+    std::string describe() override;
 };
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // _CCU_REPRESENTATION_JUMP_H

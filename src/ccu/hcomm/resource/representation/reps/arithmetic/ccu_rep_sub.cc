@@ -13,159 +13,159 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-void CcuRepSub::SetCommonInfo()
+void ccu_rep_sub::set_common_info()
 {
-    type = CcuRepType::SUB;
-    instrCount = 1;
+    type_ = ccu_rep_type::sub;
+    instr_count_ = 1;
 }
 
-CcuRepSub::CcuRepSub(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, const Variable& varB)
-    : insGenPtr(insGenPtr), subType(MinusSubType::VAR_MINUS_VAR_TO_VAR), varA(varA), varB(varB), varC(varC)
+ccu_rep_sub::ccu_rep_sub(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_a, const variable& var_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(minus_sub_type::var_minus_var_to_var), var_a_(var_a), var_b_(var_b), var_c_(var_c)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepSub::CcuRepSub(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Variable& varA, uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(MinusSubType::VAR_MINUS_IMMED_TO_VAR), varA(varA), varC(varC), immedB(immedB)
+ccu_rep_sub::ccu_rep_sub(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const variable& var_a, uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(minus_sub_type::var_minus_immed_to_var), var_a_(var_a), var_c_(var_c), immed_b_(immed_b)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepSub::CcuRepSub(CcuInsGeneraterBase* insGenPtr, const Variable& varA, const Variable& varB)
-    : insGenPtr(insGenPtr), subType(MinusSubType::SELF_SUB_VAR_VARIABLE), varA(varA), varB(varB)
+ccu_rep_sub::ccu_rep_sub(ccu_ins_generater_base* ins_gen_ptr, const variable& var_a, const variable& var_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(minus_sub_type::self_sub_var_variable), var_a_(var_a), var_b_(var_b)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepSub::CcuRepSub(CcuInsGeneraterBase* insGenPtr, const Variable& varA, uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(MinusSubType::SELF_SUB_IMMED_VARIABLE), varA(varA), immedB(immedB)
+ccu_rep_sub::ccu_rep_sub(ccu_ins_generater_base* ins_gen_ptr, const variable& var_a, uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(minus_sub_type::self_sub_immed_variable), var_a_(var_a), immed_b_(immed_b)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepSub::CcuRepSub(CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Address& addrA, const Variable& varB)
-    : insGenPtr(insGenPtr), subType(MinusSubType::ADDR_MINUS_VAR_TO_ADDR), varB(varB), addrA(addrA), addrC(addrC)
+ccu_rep_sub::ccu_rep_sub(ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const address& addr_a, const variable& var_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(minus_sub_type::addr_minus_var_to_addr), var_b_(var_b), addr_a_(addr_a), addr_c_(addr_c)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepSub::CcuRepSub(CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Address& addrA, const uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(MinusSubType::ADDR_MINUS_IMMED_TO_ADDR), addrA(addrA), addrC(addrC), immedB(immedB)
+ccu_rep_sub::ccu_rep_sub(ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const address& addr_a, const uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(minus_sub_type::addr_minus_immed_to_addr), addr_a_(addr_a), addr_c_(addr_c), immed_b_(immed_b)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepSub::CcuRepSub(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const Variable& varB)
-    : insGenPtr(insGenPtr), subType(MinusSubType::SELF_SUB_VAR_ADDRESS), varB(varB), addrA(addrA)
+ccu_rep_sub::ccu_rep_sub(ccu_ins_generater_base* ins_gen_ptr, const address& addr_a, const variable& var_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(minus_sub_type::self_sub_var_address), var_b_(var_b), addr_a_(addr_a)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepSub::CcuRepSub(CcuInsGeneraterBase* insGenPtr, const Address& addrA, const uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(MinusSubType::SELF_SUB_IMMED_ADDRESS), addrA(addrA), immedB(immedB)
+ccu_rep_sub::ccu_rep_sub(ccu_ins_generater_base* ins_gen_ptr, const address& addr_a, const uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(minus_sub_type::self_sub_immed_address), addr_a_(addr_a), immed_b_(immed_b)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-CcuRepSub::CcuRepSub(CcuInsGeneraterBase* insGenPtr, const Address& addrC, const Variable& varA, const uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(MinusSubType::VAR_MINUS_IMMED_TO_ADDR), varA(varA), addrC(addrC), immedB(immedB)
+ccu_rep_sub::ccu_rep_sub(ccu_ins_generater_base* ins_gen_ptr, const address& addr_c, const variable& var_a, const uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(minus_sub_type::var_minus_immed_to_addr), var_a_(var_a), addr_c_(addr_c), immed_b_(immed_b)
 {
-    SetCommonInfo();
+    set_common_info();
 }
-CcuRepSub::CcuRepSub(CcuInsGeneraterBase* insGenPtr, const Variable& varC, const Address& addrA, const uint16_t immedB)
-    : insGenPtr(insGenPtr), subType(MinusSubType::ADDR_MINUS_IMMED_TO_VAR), varC(varC), addrA(addrA), immedB(immedB)
+ccu_rep_sub::ccu_rep_sub(ccu_ins_generater_base* ins_gen_ptr, const variable& var_c, const address& addr_a, const uint16_t immed_b)
+    : ins_gen_ptr_(ins_gen_ptr), sub_type_(minus_sub_type::addr_minus_immed_to_var), var_c_(var_c), addr_a_(addr_a), immed_b_(immed_b)
 {
-    SetCommonInfo();
+    set_common_info();
 }
 
-void CcuRepSub::ValidateInsGenPtrForSub()
+void ccu_rep_sub::validate_ins_gen_ptr_for_sub()
 {
-    CcuInsGeneraterV1* tmpPtrV1 = dynamic_cast<CcuInsGeneraterV1*>(insGenPtr);
+    ccu_ins_generater_v1* tmp_ptr_v1 = dynamic_cast<ccu_ins_generater_v1*>(ins_gen_ptr_);
     CHK_PRT_THROW(
-        (tmpPtrV1 && !supportCcuV1),
+        (tmp_ptr_v1 && !support_ccu_v1_),
         HCCL_ERROR("[CcuRepSub][%s]Cannot translate CcuRepSub for A5 when supportCcuV1 is false", __func__),
         CcuResult::CCU_E_INTERNAL, "tmpPtrV1 does not match supportCcuV1");
 }
 
-bool CcuRepSub::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_sub::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    ValidateInsGenPtrForSub();
-    asccomm::CheckCcuNotNull(instr, "[CcuRepSub::Translate] instr is nullptr!");
-    this->instrId = instrId;
-    translated = true;
+    validate_ins_gen_ptr_for_sub();
+    asc::check_ccu_not_null(instr, "[CcuRepSub::translate] instr is nullptr!");
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepSubTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepSub][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        ins_gen_ptr_->ccu_rep_sub_translate(ccu_kernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepSub][translate] failed to translate for instrId[%u]", instr_id), CcuResult::CCU_E_INTERNAL,
         "CcuRepSub translate failed");
 
     CHK_PRT_THROW(
-        (instrId > UINT16_MAX - instrCount),
+        (instr_id > UINT16_MAX - instr_count_),
         HCCL_ERROR(
-            "[CcuRepSub::Translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instrId,
-            instrCount),
+            "[CcuRepSub::translate]uint16 integer overflow occurs, instrId = [%hu], instrCount = [%hu]", instr_id,
+            instr_count_),
         CcuResult::CCU_E_INTERNAL, "integer overflow");
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepSub::Describe()
+std::string ccu_rep_sub::describe()
 {
-    switch (subType) {
-        case MinusSubType::VAR_MINUS_VAR_TO_VAR: {
-            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] - Variable[%u]", varC.Id(), varA.Id(), varB.Id());
+    switch (sub_type_) {
+        case minus_sub_type::var_minus_var_to_var: {
+            return asc::format_ccu_message("Variable[%u] = Variable[%u] - Variable[%u]", var_c_.id(), var_a_.id(), var_b_.id());
         }
-        case MinusSubType::VAR_MINUS_IMMED_TO_VAR: {
-            return asccomm::FormatCcuMessage("Variable[%u] = Variable[%u] - Immed[%u]", varC.Id(), varA.Id(), immedB);
+        case minus_sub_type::var_minus_immed_to_var: {
+            return asc::format_ccu_message("Variable[%u] = Variable[%u] - Immed[%u]", var_c_.id(), var_a_.id(), immed_b_);
         }
-        case MinusSubType::SELF_SUB_VAR_VARIABLE: {
-            return asccomm::FormatCcuMessage("Variable[%u] -= Variable[%u]", varA.Id(), varB.Id());
+        case minus_sub_type::self_sub_var_variable: {
+            return asc::format_ccu_message("Variable[%u] -= Variable[%u]", var_a_.id(), var_b_.id());
         }
-        case MinusSubType::SELF_SUB_IMMED_VARIABLE: {
-            return asccomm::FormatCcuMessage("Variable[%u] -= Immed[%u]", varA.Id(), immedB);
+        case minus_sub_type::self_sub_immed_variable: {
+            return asc::format_ccu_message("Variable[%u] -= Immed[%u]", var_a_.id(), immed_b_);
         }
-        case MinusSubType::ADDR_MINUS_VAR_TO_ADDR: {
-            return asccomm::FormatCcuMessage("address[%u] = address[%u] - Variable[%u]", addrC.Id(), addrA.Id(), varB.Id());
+        case minus_sub_type::addr_minus_var_to_addr: {
+            return asc::format_ccu_message("address[%u] = address[%u] - Variable[%u]", addr_c_.id(), addr_a_.id(), var_b_.id());
         }
-        case MinusSubType::ADDR_MINUS_IMMED_TO_ADDR: {
-            return asccomm::FormatCcuMessage("address[%u] = address[%u] - Immed[%u]", addrC.Id(), addrA.Id(), immedB);
+        case minus_sub_type::addr_minus_immed_to_addr: {
+            return asc::format_ccu_message("address[%u] = address[%u] - Immed[%u]", addr_c_.id(), addr_a_.id(), immed_b_);
         }
-        case MinusSubType::SELF_SUB_VAR_ADDRESS: {
-            return asccomm::FormatCcuMessage("address[%u] -= Variable[%u]", addrA.Id(), varB.Id());
+        case minus_sub_type::self_sub_var_address: {
+            return asc::format_ccu_message("address[%u] -= Variable[%u]", addr_a_.id(), var_b_.id());
         }
-        case MinusSubType::SELF_SUB_IMMED_ADDRESS: {
-            return asccomm::FormatCcuMessage("address[%u] -= Immed[%u]", addrA.Id(), immedB);
+        case minus_sub_type::self_sub_immed_address: {
+            return asc::format_ccu_message("address[%u] -= Immed[%u]", addr_a_.id(), immed_b_);
         }
-        case MinusSubType::VAR_MINUS_IMMED_TO_ADDR: {
-            return asccomm::FormatCcuMessage("address[%u] = Variable[%u] - Immed[%u]", addrC.Id(), varA.Id(), immedB);
+        case minus_sub_type::var_minus_immed_to_addr: {
+            return asc::format_ccu_message("address[%u] = Variable[%u] - Immed[%u]", addr_c_.id(), var_a_.id(), immed_b_);
         }
-        case MinusSubType::ADDR_MINUS_IMMED_TO_VAR: {
-            return asccomm::FormatCcuMessage("Variable[%u] = address[%u] - Immed[%u]", varC.Id(), addrA.Id(), immedB);
+        case minus_sub_type::addr_minus_immed_to_var: {
+            return asc::format_ccu_message("Variable[%u] = address[%u] - Immed[%u]", var_c_.id(), addr_a_.id(), immed_b_);
         }
         default: {
-            return asccomm::FormatCcuMessage("Invalid Sub");
+            return asc::format_ccu_message("Invalid Sub");
         }
     }
 }
 
-Address CcuRepSub::GetAddrA() { return addrA; }
+address ccu_rep_sub::get_addr_a() { return addr_a_; }
 
-Address CcuRepSub::GetAddrB() { return addrB; }
+address ccu_rep_sub::get_addr_b() { return addr_b_; }
 
-Address CcuRepSub::GetAddrC() { return addrC; }
+address ccu_rep_sub::get_addr_c() { return addr_c_; }
 
-Variable CcuRepSub::GetVarA() { return varA; }
+variable ccu_rep_sub::get_var_a() { return var_a_; }
 
-Variable CcuRepSub::GetVarB() { return varB; }
+variable ccu_rep_sub::get_var_b() { return var_b_; }
 
-Variable CcuRepSub::GetVarC() { return varC; }
+variable ccu_rep_sub::get_var_c() { return var_c_; }
 
-uint16_t CcuRepSub::GetImmedB() { return immedB; }
+uint16_t ccu_rep_sub::get_immed_b() { return immed_b_; }
 
-MinusSubType CcuRepSub::GetSubType() { return subType; }
+minus_sub_type ccu_rep_sub::get_sub_type() { return sub_type_; }
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

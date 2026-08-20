@@ -8,55 +8,55 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_ARG_H
-#define HCOMM_CCU_REPRESENTATION_ARG_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_ARG_H
+#define ASCCOMM_CCU_REPRESENTATION_ARG_H
 
 #include <vector>
 #include <memory>
 
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-enum class CcuArgType {
-    VARIABLE,
-    MEMORY,
-    VARIABLE_LIST,
-    MEMORY_LIST,
-    LOCAL_ADDR,      // 1. 新增枚举值
-    LOCAL_ADDR_LIST, // 2. List 类型，以防后面需要 vector<LocalAddr>
-    REMOTE_ADDR,
-    REMOTE_ADDR_LIST,
+enum class ccu_arg_type {
+    variable,
+    memory,
+    variable_list,
+    memory_list,
+    local_addr,      // 1. 新增枚举值
+    local_addr_list, // 2. List 类型，以防后面需要 vector<LocalAddr>
+    remote_addr,
+    remote_addr_list,
 };
 
-struct CcuRepArg {
-    explicit CcuRepArg(const Variable& var) : type(CcuArgType::VARIABLE), var(var) {}
-    explicit CcuRepArg(const Memory& mem) : type(CcuArgType::MEMORY), mem(mem) {}
-    explicit CcuRepArg(const std::vector<Variable>& varList) : type(CcuArgType::VARIABLE_LIST), varList(varList) {}
-    explicit CcuRepArg(const std::vector<Memory>& memList) : type(CcuArgType::MEMORY_LIST), memList(memList) {}
+struct ccu_rep_arg {
+    explicit ccu_rep_arg(const variable& var) : type(ccu_arg_type::variable), var(var) {}
+    explicit ccu_rep_arg(const memory& mem) : type(ccu_arg_type::memory), mem(mem) {}
+    explicit ccu_rep_arg(const std::vector<variable>& var_list) : type(ccu_arg_type::variable_list), var_list(var_list) {}
+    explicit ccu_rep_arg(const std::vector<memory>& mem_list) : type(ccu_arg_type::memory_list), mem_list(mem_list) {}
     // 新增：LocalAddr 的构造函数
-    explicit CcuRepArg(const LocalAddr& addr) : type(CcuArgType::LOCAL_ADDR), localAddr(addr) {}
+    explicit ccu_rep_arg(const local_addr& addr) : type(ccu_arg_type::local_addr), local_addr_value(addr) {}
     // 新增：LocalAddr 列表的构造函数
-    explicit CcuRepArg(const std::vector<LocalAddr>& addrList)
-        : type(CcuArgType::LOCAL_ADDR_LIST), localAddrList(addrList)
+    explicit ccu_rep_arg(const std::vector<local_addr>& addr_list)
+        : type(ccu_arg_type::local_addr_list), local_addr_list(addr_list)
     {}
-    explicit CcuRepArg(const RemoteAddr& addr) : type(CcuArgType::REMOTE_ADDR), remoteAddr(addr) {}
-    explicit CcuRepArg(const std::vector<RemoteAddr>& addrList)
-        : type(CcuArgType::REMOTE_ADDR_LIST), remoteAddrList(addrList)
+    explicit ccu_rep_arg(const remote_addr& addr) : type(ccu_arg_type::remote_addr), remote_addr_value(addr) {}
+    explicit ccu_rep_arg(const std::vector<remote_addr>& addr_list)
+        : type(ccu_arg_type::remote_addr_list), remote_addr_list(addr_list)
     {}
 
-    CcuArgType type;
-    Variable var;
-    Memory mem;
-    std::vector<Variable> varList;
-    std::vector<Memory> memList;
-    LocalAddr localAddr;                  // 3. 新增成员变量来存储
-    std::vector<LocalAddr> localAddrList; // 新增成员变量
-    RemoteAddr remoteAddr;
-    std::vector<RemoteAddr> remoteAddrList;
+    ccu_arg_type type;
+    variable var;
+    memory mem;
+    std::vector<variable> var_list;
+    std::vector<memory> mem_list;
+    local_addr local_addr_value;            // 3. 新增成员变量来存储
+    std::vector<local_addr> local_addr_list; // 新增成员变量
+    remote_addr remote_addr_value;
+    std::vector<remote_addr> remote_addr_list;
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_ARG_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_ARG_H

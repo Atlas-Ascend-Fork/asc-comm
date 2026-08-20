@@ -15,189 +15,189 @@
 #include "hcomm/common/ccu_exception.h"
 
 namespace {
-constexpr uint16_t LOAD_TYPE = 0x0;
-constexpr uint16_t CTRL_TYPE = 0x1;
-constexpr uint16_t TRANS_TYPE = 0x2;
-constexpr uint16_t REDUCE_TYPE = 0x3;
+constexpr uint16_t load_type = 0x0;
+constexpr uint16_t ctrl_type = 0x1;
+constexpr uint16_t trans_type = 0x2;
+constexpr uint16_t reduce_type = 0x3;
 
-constexpr uint16_t LOADSQEARGSTOGSA_CODE = 0x0;
-constexpr uint16_t LOADSQEARGSTOXN_CODE = 0x1;
-constexpr uint16_t LOADIMDTOGSA_CODE = 0x2;
-constexpr uint16_t LOADIMDTOXN_CODE = 0x3;
-constexpr uint16_t LOADGSAXN_CODE = 0x4;
-constexpr uint16_t LOADGSAGSA_CODE = 0x5;
-constexpr uint16_t LOADXX_CODE = 0x6;
+constexpr uint16_t loadsqeargstogsa_code = 0x0;
+constexpr uint16_t loadsqeargstoxn_code = 0x1;
+constexpr uint16_t loadimdtogsa_code = 0x2;
+constexpr uint16_t loadimdtoxn_code = 0x3;
+constexpr uint16_t loadgsaxn_code = 0x4;
+constexpr uint16_t loadgsagsa_code = 0x5;
+constexpr uint16_t loadxx_code = 0x6;
 
-constexpr uint16_t LOOP_CODE = 0x0;
-constexpr uint16_t LOOPGROUP_CODE = 0x1;
-constexpr uint16_t SETCKE_CODE = 0x2;
-constexpr uint16_t CLEARCKE_CODE = 0x4;
-constexpr uint16_t JMP_CODE = 0x5;
+constexpr uint16_t loop_code = 0x0;
+constexpr uint16_t loopgroup_code = 0x1;
+constexpr uint16_t setcke_code = 0x2;
+constexpr uint16_t clearcke_code = 0x4;
+constexpr uint16_t jmp_code = 0x5;
 
-constexpr uint16_t TRANSLOCMEMTOLOCMS_CODE = 0x0;
-constexpr uint16_t TRANSRMTMEMTOLOCMS_CODE = 0x1;
-constexpr uint16_t TRANSLOCMSTOLOCMEM_CODE = 0x2;
-constexpr uint16_t TRANSLOCMSTORMTMEM_CODE = 0x3;
-constexpr uint16_t TRANSRMTMSTOLOCMEM_CODE = 0x4;
-constexpr uint16_t TRANSLOCMSTOLOCMS_CODE = 0x5;
-constexpr uint16_t TRANSRMTMSTOLOCMS_CODE = 0x6;
-constexpr uint16_t TRANSLOCMSTORMTMS_CODE = 0x7;
-constexpr uint16_t TRANSRMTMEMTOLOCMEM_CODE = 0x8;
-constexpr uint16_t TRANSLOCMEMTORMTMEM_CODE = 0x9;
-constexpr uint16_t TRANSLOCMEMTOLOCMEM_CODE = 0xa;
-constexpr uint16_t SYNCCKE_CODE = 0xb;
-constexpr uint16_t SYNCGSA_CODE = 0xc;
-constexpr uint16_t SYNCXN_CODE = 0xd;
+constexpr uint16_t translocmemtolocms_code = 0x0;
+constexpr uint16_t transrmtmemtolocms_code = 0x1;
+constexpr uint16_t translocmstolocmem_code = 0x2;
+constexpr uint16_t translocmstormtmem_code = 0x3;
+constexpr uint16_t transrmtmstolocmem_code = 0x4;
+constexpr uint16_t translocmstolocms_code = 0x5;
+constexpr uint16_t transrmtmstolocms_code = 0x6;
+constexpr uint16_t translocmstormtms_code = 0x7;
+constexpr uint16_t transrmtmemtolocmem_code = 0x8;
+constexpr uint16_t translocmemtormtmem_code = 0x9;
+constexpr uint16_t translocmemtolocmem_code = 0xa;
+constexpr uint16_t synccke_code = 0xb;
+constexpr uint16_t syncgsa_code = 0xc;
+constexpr uint16_t syncxn_code = 0xd;
 
-constexpr uint16_t ADD_CODE = 0x0;
-constexpr uint16_t MAX_CODE = 0x1;
-constexpr uint16_t MIN_CODE = 0x2;
+constexpr uint16_t add_code = 0x0;
+constexpr uint16_t max_code = 0x1;
+constexpr uint16_t min_code = 0x2;
 } // namespace
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
 // *GSAId = *sqeArgsId
-void LoadSqeArgsToGSAInstr(CcuInstr* instr, uint16_t gsaId, uint16_t sqeArgsId)
+void load_sqe_args_to_gsa_instr(ccu_instr* instr, uint16_t gsa_id, uint16_t sqe_args_id)
 {
-    instr->header = InstrHeader(LOAD_TYPE, LOADSQEARGSTOGSA_CODE);
-    instr->v1.loadSqeArgsToGSA.gsaId = gsaId;
-    instr->v1.loadSqeArgsToGSA.sqeArgsId = sqeArgsId;
+    instr->header = instr_header(load_type, loadsqeargstogsa_code);
+    instr->v1.load_sqe_args_to_gsa.gsa_id = gsa_id;
+    instr->v1.load_sqe_args_to_gsa.sqe_args_id = sqe_args_id;
 }
 
 // *XnId = *sqeArgsId
-void LoadSqeArgsToXnInstr(CcuInstr* instr, uint16_t xnId, uint16_t sqeArgsId)
+void load_sqe_args_to_xn_instr(ccu_instr* instr, uint16_t xn_id, uint16_t sqe_args_id)
 {
-    instr->header = InstrHeader(LOAD_TYPE, LOADSQEARGSTOXN_CODE);
-    instr->v1.loadSqeArgsToXn.xnId = xnId;
-    instr->v1.loadSqeArgsToXn.sqeArgsId = sqeArgsId;
+    instr->header = instr_header(load_type, loadsqeargstoxn_code);
+    instr->v1.load_sqe_args_to_xn.xn_id = xn_id;
+    instr->v1.load_sqe_args_to_xn.sqe_args_id = sqe_args_id;
 }
 
 // *GSAId = immediate
-void LoadImdToGSAInstr(CcuInstr* instr, uint16_t gsaId, uint64_t immediate)
+void load_imd_to_gsa_instr(ccu_instr* instr, uint16_t gsa_id, uint64_t immediate)
 {
-    instr->header = InstrHeader(LOAD_TYPE, LOADIMDTOGSA_CODE);
-    instr->v1.loadImdToGSA.gsaId = gsaId;
-    instr->v1.loadImdToGSA.immediate = immediate;
+    instr->header = instr_header(load_type, loadimdtogsa_code);
+    instr->v1.load_imd_to_gsa.gsa_id = gsa_id;
+    instr->v1.load_imd_to_gsa.immediate = immediate;
 }
 
 // *XnId = immediate，secFlag用于打印时判断immediate是否是敏感信息，如果是，请设置secFlag=CCU_LOAD_TO_XN_SEC_INFO
-void LoadImdToXnInstr(CcuInstr* instr, uint16_t xnId, uint64_t immediate, uint16_t secFlag)
+void load_imd_to_xn_instr(ccu_instr* instr, uint16_t xn_id, uint64_t immediate, uint16_t sec_flag)
 {
-    instr->header = InstrHeader(LOAD_TYPE, LOADIMDTOXN_CODE);
-    instr->v1.loadImdToXn.xnId = xnId;
-    instr->v1.loadImdToXn.immediate = immediate;
-    instr->v1.loadImdToXn.secFlag = secFlag;
+    instr->header = instr_header(load_type, loadimdtoxn_code);
+    instr->v1.load_imd_to_xn.xn_id = xn_id;
+    instr->v1.load_imd_to_xn.immediate = immediate;
+    instr->v1.load_imd_to_xn.sec_flag = sec_flag;
 }
 
 // *GSAdId = *GSAmId + *XnId
-void LoadGSAXnInstr(CcuInstr* instr, uint16_t gsAdId, uint16_t gsAmId, uint16_t xnId)
+void load_gsa_xn_instr(ccu_instr* instr, uint16_t gs_ad_id, uint16_t gs_am_id, uint16_t xn_id)
 {
-    instr->header = InstrHeader(LOAD_TYPE, LOADGSAXN_CODE);
-    instr->v1.loadGSAXn.gsAdId = gsAdId;
-    instr->v1.loadGSAXn.gsAmId = gsAmId;
-    instr->v1.loadGSAXn.xnId = xnId;
+    instr->header = instr_header(load_type, loadgsaxn_code);
+    instr->v1.load_gsa_xn.gs_ad_id = gs_ad_id;
+    instr->v1.load_gsa_xn.gs_am_id = gs_am_id;
+    instr->v1.load_gsa_xn.xn_id = xn_id;
 }
 
 // *GSAdId = *GSAmId + *GSAnId
-void LoadGSAGSAInstr(CcuInstr* instr, uint16_t gsAdId, uint16_t gsAmId, uint16_t gsAnId)
+void load_gsagsa_instr(ccu_instr* instr, uint16_t gs_ad_id, uint16_t gs_am_id, uint16_t gs_an_id)
 {
-    instr->header = InstrHeader(LOAD_TYPE, LOADGSAGSA_CODE);
-    instr->v1.loadGSAGSA.gsAdId = gsAdId;
-    instr->v1.loadGSAGSA.gsAmId = gsAmId;
-    instr->v1.loadGSAGSA.gsAnId = gsAnId;
+    instr->header = instr_header(load_type, loadgsagsa_code);
+    instr->v1.load_gsagsa.gs_ad_id = gs_ad_id;
+    instr->v1.load_gsagsa.gs_am_id = gs_am_id;
+    instr->v1.load_gsagsa.gs_an_id = gs_an_id;
 }
 
 // *XdId = *XmId + *XnId
-void LoadXXInstr(CcuInstr* instr, uint16_t xdId, uint16_t xmId, uint16_t xnId)
+void load_xx_instr(ccu_instr* instr, uint16_t xd_id, uint16_t xm_id, uint16_t xn_id)
 {
-    instr->header = InstrHeader(LOAD_TYPE, LOADXX_CODE);
-    instr->v1.loadXX.xdId = xdId;
-    instr->v1.loadXX.xmId = xmId;
-    instr->v1.loadXX.xnId = xnId;
+    instr->header = instr_header(load_type, loadxx_code);
+    instr->v1.load_xx.xd_id = xd_id;
+    instr->v1.load_xx.xm_id = xm_id;
+    instr->v1.load_xx.xn_id = xn_id;
 }
 
 // startInstrId ~ endInstrId之间的指令构成loop
 // Xn寄存器中的内容：LoopNum[61:55], RepeatNum[54:48], NoRepeatNum[47:41], LoopCtxId[40:33], Offset[32:13],
 // IterNum[12:0] loop执行IterNum次 loop每次执行, *GSA偏移为Offset loop在第LoopCtxId个LoopEngine上执行
-void LoopInstr(CcuInstr* instr, uint16_t startInstrId, uint16_t endInstrId, uint16_t xnId)
+void loop_instr(ccu_instr* instr, uint16_t start_instr_id, uint16_t end_instr_id, uint16_t xn_id)
 {
-    instr->header = InstrHeader(CTRL_TYPE, LOOP_CODE);
-    instr->v1.loop.startInstrId = startInstrId;
-    instr->v1.loop.endInstrId = endInstrId;
-    instr->v1.loop.xnId = xnId;
+    instr->header = instr_header(ctrl_type, loop_code);
+    instr->v1.loop.start_instr_id = start_instr_id;
+    instr->v1.loop.end_instr_id = end_instr_id;
+    instr->v1.loop.xn_id = xn_id;
 }
 
 // startLoopInstrId为LoopGroup所包含的Loop的起始地址
 // Xn寄存器中的内容：LoopNum[61:55], RepeatNum[54:48], NoRepeatNum[47:41], LoopCtxId[40:33], Offset[32:13],
 // IterNum[12:0] 不自动展开的Loop的个数：NoRepeatNum 自动展开的Loop的个数：RepeatNum 自动展开成LoopNum个Loop
-void LoopGroupInstr(CcuInstr* instr, uint16_t startLoopInstrId, uint16_t xnId, uint16_t xmId, uint16_t highPerfModeEn)
+void loop_group_instr(ccu_instr* instr, uint16_t start_loop_instr_id, uint16_t xn_id, uint16_t xm_id, uint16_t high_perf_mode_en)
 {
-    instr->header = InstrHeader(CTRL_TYPE, LOOPGROUP_CODE);
-    instr->v1.loopGroup.startLoopInstrId = startLoopInstrId;
-    instr->v1.loopGroup.xnId = xnId;
-    instr->v1.loopGroup.xmId = xmId;
-    instr->v1.loopGroup.highPerfModeEn = highPerfModeEn & 0x1;
+    instr->header = instr_header(ctrl_type, loopgroup_code);
+    instr->v1.loop_group.start_loop_instr_id = start_loop_instr_id;
+    instr->v1.loop_group.xn_id = xn_id;
+    instr->v1.loop_group.xm_id = xm_id;
+    instr->v1.loop_group.high_perf_mode_en = high_perf_mode_en & 0x1;
 }
 
 // 后续函数中, 均需要wait到<waitCKEId, waitCKEMask>后, 再执行相关操作, 执行完之后再set<setCKEId, setCKEMask>
 // clearType = 1时, wait到之后需要对<waitCKEId, waitCKEMask>清零, 否则不清零
 
 // set<setCKEId, setCKEMask>
-void SetCKEInstr(
-    CcuInstr* instr, uint16_t setCKEId, uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask,
-    uint16_t clearType)
+void set_cke_instr(
+    ccu_instr* instr, uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask,
+    uint16_t clear_type)
 {
-    instr->header = InstrHeader(CTRL_TYPE, SETCKE_CODE);
-    instr->v1.setCKE.clearType = clearType & 0x1;
-    instr->v1.setCKE.setCKEId = setCKEId;
-    instr->v1.setCKE.setCKEMask = setCKEMask;
-    instr->v1.setCKE.waitCKEId = waitCKEId;
-    instr->v1.setCKE.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(ctrl_type, setcke_code);
+    instr->v1.set_cke.clear_type = clear_type & 0x1;
+    instr->v1.set_cke.set_cke_id = set_cke_id;
+    instr->v1.set_cke.set_cke_mask = set_cke_mask;
+    instr->v1.set_cke.wait_cke_id = wait_cke_id;
+    instr->v1.set_cke.wait_cke_mask = wait_cke_mask;
 }
 
 // clear<setCKEId, setCKEMask>
-void ClearCKEInstr(
-    CcuInstr* instr, uint16_t clearCKEId, uint16_t clearMask, uint16_t waitCKEId, uint16_t waitCKEMask,
-    uint16_t clearType)
+void clear_cke_instr(
+    ccu_instr* instr, uint16_t clear_cke_id, uint16_t clear_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask,
+    uint16_t clear_type)
 {
-    instr->header = InstrHeader(CTRL_TYPE, CLEARCKE_CODE);
-    instr->v1.clearCKE.clearType = clearType & 0x1;
-    instr->v1.clearCKE.clearCKEId = clearCKEId;
-    instr->v1.clearCKE.clearMask = clearMask;
-    instr->v1.clearCKE.waitCKEId = waitCKEId;
-    instr->v1.clearCKE.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(ctrl_type, clearcke_code);
+    instr->v1.clear_cke.clear_type = clear_type & 0x1;
+    instr->v1.clear_cke.clear_cke_id = clear_cke_id;
+    instr->v1.clear_cke.clear_mask = clear_mask;
+    instr->v1.clear_cke.wait_cke_id = wait_cke_id;
+    instr->v1.clear_cke.wait_cke_mask = wait_cke_mask;
 }
 
-void JumpInstr(CcuInstr* instr, uint16_t dstInstrXnId, uint16_t conditionXnId, uint64_t expectData)
+void jump_instr(ccu_instr* instr, uint16_t dst_instr_xn_id, uint16_t condition_xn_id, uint64_t expect_data)
 {
-    instr->header = InstrHeader(CTRL_TYPE, JMP_CODE);
-    instr->v1.jmp.dstInstrXnId = dstInstrXnId;
-    instr->v1.jmp.conditionXnId = conditionXnId;
-    instr->v1.jmp.expectData = expectData;
+    instr->header = instr_header(ctrl_type, jmp_code);
+    instr->v1.jmp.dst_instr_xn_id = dst_instr_xn_id;
+    instr->v1.jmp.condition_xn_id = condition_xn_id;
+    instr->v1.jmp.expect_data = expect_data;
 }
 
 // 本端Memory传输到本端MS
 // locMSId: 本端MSId
 // <locGSAId, locXnId>: 本端Memory地址和Token
 // 数据长度: length
-void TransLocMemToLocMSInstr(
-    CcuInstr* instr, uint16_t locMSId, uint16_t locGSAId, uint16_t locXnId, uint16_t lengthXnId, uint16_t channelId,
-    uint16_t setCKEId, uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType,
-    uint16_t lengthEn)
+void trans_loc_mem_to_loc_ms_instr(
+    ccu_instr* instr, uint16_t loc_ms_id, uint16_t loc_gsa_id, uint16_t loc_xn_id, uint16_t length_xn_id, uint16_t channel_id,
+    uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type,
+    uint16_t length_en)
 {
-    instr->header = InstrHeader(TRANS_TYPE, TRANSLOCMEMTOLOCMS_CODE);
-    instr->v1.transLocMemToLocMS.locMSId = locMSId;
-    instr->v1.transLocMemToLocMS.locGSAId = locGSAId;
-    instr->v1.transLocMemToLocMS.locXnId = locXnId;
-    instr->v1.transLocMemToLocMS.lengthXnId = lengthXnId;
-    instr->v1.transLocMemToLocMS.channelId = channelId;
-    instr->v1.transLocMemToLocMS.clearType = clearType & 0x1;
-    instr->v1.transLocMemToLocMS.lengthEn = lengthEn & 0x1;
-    instr->v1.transLocMemToLocMS.setCKEId = setCKEId;
-    instr->v1.transLocMemToLocMS.setCKEMask = setCKEMask;
-    instr->v1.transLocMemToLocMS.waitCKEId = waitCKEId;
-    instr->v1.transLocMemToLocMS.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, translocmemtolocms_code);
+    instr->v1.trans_loc_mem_to_loc_ms.loc_ms_id = loc_ms_id;
+    instr->v1.trans_loc_mem_to_loc_ms.loc_gsa_id = loc_gsa_id;
+    instr->v1.trans_loc_mem_to_loc_ms.loc_xn_id = loc_xn_id;
+    instr->v1.trans_loc_mem_to_loc_ms.length_xn_id = length_xn_id;
+    instr->v1.trans_loc_mem_to_loc_ms.channel_id = channel_id;
+    instr->v1.trans_loc_mem_to_loc_ms.clear_type = clear_type & 0x1;
+    instr->v1.trans_loc_mem_to_loc_ms.length_en = length_en & 0x1;
+    instr->v1.trans_loc_mem_to_loc_ms.set_cke_id = set_cke_id;
+    instr->v1.trans_loc_mem_to_loc_ms.set_cke_mask = set_cke_mask;
+    instr->v1.trans_loc_mem_to_loc_ms.wait_cke_id = wait_cke_id;
+    instr->v1.trans_loc_mem_to_loc_ms.wait_cke_mask = wait_cke_mask;
 }
 
 // 远端Memory传输到本端MS
@@ -205,46 +205,46 @@ void TransLocMemToLocMSInstr(
 // <rmtGSAId, rmtXnId>: 远端Memory地址和Token
 // 数据长度: length
 // 路径: channelId
-void TransRmtMemToLocMSInstr(
-    CcuInstr* instr, uint16_t locMSId, uint16_t rmtGSAId, uint16_t rmtXnId, uint16_t lengthXnId, uint16_t channelId,
-    uint16_t setCKEId, uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType,
-    uint16_t lengthEn)
+void trans_rmt_mem_to_loc_ms_instr(
+    ccu_instr* instr, uint16_t loc_ms_id, uint16_t rmt_gsa_id, uint16_t rmt_xn_id, uint16_t length_xn_id, uint16_t channel_id,
+    uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type,
+    uint16_t length_en)
 {
-    instr->header = InstrHeader(TRANS_TYPE, TRANSRMTMEMTOLOCMS_CODE);
-    instr->v1.transRmtMemToLocMS.locMSId = locMSId;
-    instr->v1.transRmtMemToLocMS.rmtGSAId = rmtGSAId;
-    instr->v1.transRmtMemToLocMS.rmtXnId = rmtXnId;
-    instr->v1.transRmtMemToLocMS.lengthXnId = lengthXnId;
-    instr->v1.transRmtMemToLocMS.channelId = channelId;
-    instr->v1.transRmtMemToLocMS.clearType = clearType & 0x1;
-    instr->v1.transRmtMemToLocMS.lengthEn = lengthEn & 0x1;
-    instr->v1.transRmtMemToLocMS.setCKEId = setCKEId;
-    instr->v1.transRmtMemToLocMS.setCKEMask = setCKEMask;
-    instr->v1.transRmtMemToLocMS.waitCKEId = waitCKEId;
-    instr->v1.transRmtMemToLocMS.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, transrmtmemtolocms_code);
+    instr->v1.trans_rmt_mem_to_loc_ms.loc_ms_id = loc_ms_id;
+    instr->v1.trans_rmt_mem_to_loc_ms.rmt_gsa_id = rmt_gsa_id;
+    instr->v1.trans_rmt_mem_to_loc_ms.rmt_xn_id = rmt_xn_id;
+    instr->v1.trans_rmt_mem_to_loc_ms.length_xn_id = length_xn_id;
+    instr->v1.trans_rmt_mem_to_loc_ms.channel_id = channel_id;
+    instr->v1.trans_rmt_mem_to_loc_ms.clear_type = clear_type & 0x1;
+    instr->v1.trans_rmt_mem_to_loc_ms.length_en = length_en & 0x1;
+    instr->v1.trans_rmt_mem_to_loc_ms.set_cke_id = set_cke_id;
+    instr->v1.trans_rmt_mem_to_loc_ms.set_cke_mask = set_cke_mask;
+    instr->v1.trans_rmt_mem_to_loc_ms.wait_cke_id = wait_cke_id;
+    instr->v1.trans_rmt_mem_to_loc_ms.wait_cke_mask = wait_cke_mask;
 }
 
 // 本端MS传输到本端Memory
 // <locGSAId, locXnId>: 本端Memory地址和Token
 // locMSId: 本端MSId
 // 数据长度: length
-void TransLocMSToLocMemInstr(
-    CcuInstr* instr, uint16_t locGSAId, uint16_t locXnId, uint16_t locMSId, uint16_t lengthXnId, uint16_t channelId,
-    uint16_t setCKEId, uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType,
-    uint16_t lengthEn)
+void trans_loc_ms_to_loc_mem_instr(
+    ccu_instr* instr, uint16_t loc_gsa_id, uint16_t loc_xn_id, uint16_t loc_ms_id, uint16_t length_xn_id, uint16_t channel_id,
+    uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type,
+    uint16_t length_en)
 {
-    instr->header = InstrHeader(TRANS_TYPE, TRANSLOCMSTOLOCMEM_CODE);
-    instr->v1.transLocMSToLocMem.locGSAId = locGSAId;
-    instr->v1.transLocMSToLocMem.locXnId = locXnId;
-    instr->v1.transLocMSToLocMem.locMSId = locMSId;
-    instr->v1.transLocMSToLocMem.lengthXnId = lengthXnId;
-    instr->v1.transLocMSToLocMem.channelId = channelId;
-    instr->v1.transLocMSToLocMem.clearType = clearType & 0x1;
-    instr->v1.transLocMSToLocMem.lengthEn = lengthEn & 0x1;
-    instr->v1.transLocMSToLocMem.setCKEId = setCKEId;
-    instr->v1.transLocMSToLocMem.setCKEMask = setCKEMask;
-    instr->v1.transLocMSToLocMem.waitCKEId = waitCKEId;
-    instr->v1.transLocMSToLocMem.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, translocmstolocmem_code);
+    instr->v1.trans_loc_ms_to_loc_mem.loc_gsa_id = loc_gsa_id;
+    instr->v1.trans_loc_ms_to_loc_mem.loc_xn_id = loc_xn_id;
+    instr->v1.trans_loc_ms_to_loc_mem.loc_ms_id = loc_ms_id;
+    instr->v1.trans_loc_ms_to_loc_mem.length_xn_id = length_xn_id;
+    instr->v1.trans_loc_ms_to_loc_mem.channel_id = channel_id;
+    instr->v1.trans_loc_ms_to_loc_mem.clear_type = clear_type & 0x1;
+    instr->v1.trans_loc_ms_to_loc_mem.length_en = length_en & 0x1;
+    instr->v1.trans_loc_ms_to_loc_mem.set_cke_id = set_cke_id;
+    instr->v1.trans_loc_ms_to_loc_mem.set_cke_mask = set_cke_mask;
+    instr->v1.trans_loc_ms_to_loc_mem.wait_cke_id = wait_cke_id;
+    instr->v1.trans_loc_ms_to_loc_mem.wait_cke_mask = wait_cke_mask;
 }
 
 // 本端MS传输到远端Memory
@@ -252,23 +252,23 @@ void TransLocMSToLocMemInstr(
 // <rmtGSAId, rmtXnId>: 远端Memory地址和Token
 // 数据长度: length
 // 路径: channelId
-void TransLocMSToRmtMemInstr(
-    CcuInstr* instr, uint16_t rmtGSAId, uint16_t rmtXnId, uint16_t locMSId, uint16_t lengthXnId, uint16_t channelId,
-    uint16_t setCKEId, uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType,
-    uint16_t lengthEn)
+void trans_loc_ms_to_rmt_mem_instr(
+    ccu_instr* instr, uint16_t rmt_gsa_id, uint16_t rmt_xn_id, uint16_t loc_ms_id, uint16_t length_xn_id, uint16_t channel_id,
+    uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type,
+    uint16_t length_en)
 {
-    instr->header = InstrHeader(TRANS_TYPE, TRANSLOCMSTORMTMEM_CODE);
-    instr->v1.transLocMSToRmtMem.rmtGSAId = rmtGSAId;
-    instr->v1.transLocMSToRmtMem.rmtXnId = rmtXnId;
-    instr->v1.transLocMSToRmtMem.locMSId = locMSId;
-    instr->v1.transLocMSToRmtMem.lengthXnId = lengthXnId;
-    instr->v1.transLocMSToRmtMem.channelId = channelId;
-    instr->v1.transLocMSToRmtMem.clearType = clearType & 0x1;
-    instr->v1.transLocMSToRmtMem.lengthEn = lengthEn & 0x1;
-    instr->v1.transLocMSToRmtMem.setCKEId = setCKEId;
-    instr->v1.transLocMSToRmtMem.setCKEMask = setCKEMask;
-    instr->v1.transLocMSToRmtMem.waitCKEId = waitCKEId;
-    instr->v1.transLocMSToRmtMem.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, translocmstormtmem_code);
+    instr->v1.trans_loc_ms_to_rmt_mem.rmt_gsa_id = rmt_gsa_id;
+    instr->v1.trans_loc_ms_to_rmt_mem.rmt_xn_id = rmt_xn_id;
+    instr->v1.trans_loc_ms_to_rmt_mem.loc_ms_id = loc_ms_id;
+    instr->v1.trans_loc_ms_to_rmt_mem.length_xn_id = length_xn_id;
+    instr->v1.trans_loc_ms_to_rmt_mem.channel_id = channel_id;
+    instr->v1.trans_loc_ms_to_rmt_mem.clear_type = clear_type & 0x1;
+    instr->v1.trans_loc_ms_to_rmt_mem.length_en = length_en & 0x1;
+    instr->v1.trans_loc_ms_to_rmt_mem.set_cke_id = set_cke_id;
+    instr->v1.trans_loc_ms_to_rmt_mem.set_cke_mask = set_cke_mask;
+    instr->v1.trans_loc_ms_to_rmt_mem.wait_cke_id = wait_cke_id;
+    instr->v1.trans_loc_ms_to_rmt_mem.wait_cke_mask = wait_cke_mask;
 }
 
 // 远端MS传输到本端Memory
@@ -276,44 +276,44 @@ void TransLocMSToRmtMemInstr(
 // rmtMSId: 远端MSId
 // 数据长度: length
 // 路径: channelId
-void TransRmtMSToLocMemInstr(
-    CcuInstr* instr, uint16_t locGSAId, uint16_t locXnId, uint16_t rmtMSId, uint16_t lengthXnId, uint16_t channelId,
-    uint16_t setCKEId, uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType,
-    uint16_t lengthEn)
+void trans_rmt_ms_to_loc_mem_instr(
+    ccu_instr* instr, uint16_t loc_gsa_id, uint16_t loc_xn_id, uint16_t rmt_ms_id, uint16_t length_xn_id, uint16_t channel_id,
+    uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type,
+    uint16_t length_en)
 {
-    instr->header = InstrHeader(TRANS_TYPE, TRANSRMTMSTOLOCMEM_CODE);
-    instr->v1.transRmtMSToLocMem.locGSAId = locGSAId;
-    instr->v1.transRmtMSToLocMem.locXnId = locXnId;
-    instr->v1.transRmtMSToLocMem.rmtMSId = rmtMSId;
-    instr->v1.transRmtMSToLocMem.lengthXnId = lengthXnId;
-    instr->v1.transRmtMSToLocMem.channelId = channelId;
-    instr->v1.transRmtMSToLocMem.clearType = clearType & 0x1;
-    instr->v1.transRmtMSToLocMem.lengthEn = lengthEn & 0x1;
-    instr->v1.transRmtMSToLocMem.setCKEId = setCKEId;
-    instr->v1.transRmtMSToLocMem.setCKEMask = setCKEMask;
-    instr->v1.transRmtMSToLocMem.waitCKEId = waitCKEId;
-    instr->v1.transRmtMSToLocMem.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, transrmtmstolocmem_code);
+    instr->v1.trans_rmt_ms_to_loc_mem.loc_gsa_id = loc_gsa_id;
+    instr->v1.trans_rmt_ms_to_loc_mem.loc_xn_id = loc_xn_id;
+    instr->v1.trans_rmt_ms_to_loc_mem.rmt_ms_id = rmt_ms_id;
+    instr->v1.trans_rmt_ms_to_loc_mem.length_xn_id = length_xn_id;
+    instr->v1.trans_rmt_ms_to_loc_mem.channel_id = channel_id;
+    instr->v1.trans_rmt_ms_to_loc_mem.clear_type = clear_type & 0x1;
+    instr->v1.trans_rmt_ms_to_loc_mem.length_en = length_en & 0x1;
+    instr->v1.trans_rmt_ms_to_loc_mem.set_cke_id = set_cke_id;
+    instr->v1.trans_rmt_ms_to_loc_mem.set_cke_mask = set_cke_mask;
+    instr->v1.trans_rmt_ms_to_loc_mem.wait_cke_id = wait_cke_id;
+    instr->v1.trans_rmt_ms_to_loc_mem.wait_cke_mask = wait_cke_mask;
 }
 
 // 本端MS传输到本端MS
 // dstMSId: 本端目的MSId
 // srcMSId: 本端源MSId
 // 数据长度: length
-void TransLocMSToLocMSInstr(
-    CcuInstr* instr, uint16_t dstMSId, uint16_t srcMSId, uint16_t lengthXnId, uint16_t channelId, uint16_t setCKEId,
-    uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType, uint16_t lengthEn)
+void trans_loc_ms_to_loc_ms_instr(
+    ccu_instr* instr, uint16_t dst_ms_id, uint16_t src_ms_id, uint16_t length_xn_id, uint16_t channel_id, uint16_t set_cke_id,
+    uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t length_en)
 {
-    instr->header = InstrHeader(TRANS_TYPE, TRANSLOCMSTOLOCMS_CODE);
-    instr->v1.transLocMSToLocMS.dstMSId = dstMSId;
-    instr->v1.transLocMSToLocMS.srcMSId = srcMSId;
-    instr->v1.transLocMSToLocMS.lengthXnId = lengthXnId;
-    instr->v1.transLocMSToLocMS.channelId = channelId;
-    instr->v1.transLocMSToLocMS.clearType = clearType & 0x1;
-    instr->v1.transLocMSToLocMS.lengthEn = lengthEn & 0x1;
-    instr->v1.transLocMSToLocMS.setCKEId = setCKEId;
-    instr->v1.transLocMSToLocMS.setCKEMask = setCKEMask;
-    instr->v1.transLocMSToLocMS.waitCKEId = waitCKEId;
-    instr->v1.transLocMSToLocMS.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, translocmstolocms_code);
+    instr->v1.trans_loc_ms_to_loc_ms.dst_ms_id = dst_ms_id;
+    instr->v1.trans_loc_ms_to_loc_ms.src_ms_id = src_ms_id;
+    instr->v1.trans_loc_ms_to_loc_ms.length_xn_id = length_xn_id;
+    instr->v1.trans_loc_ms_to_loc_ms.channel_id = channel_id;
+    instr->v1.trans_loc_ms_to_loc_ms.clear_type = clear_type & 0x1;
+    instr->v1.trans_loc_ms_to_loc_ms.length_en = length_en & 0x1;
+    instr->v1.trans_loc_ms_to_loc_ms.set_cke_id = set_cke_id;
+    instr->v1.trans_loc_ms_to_loc_ms.set_cke_mask = set_cke_mask;
+    instr->v1.trans_loc_ms_to_loc_ms.wait_cke_id = wait_cke_id;
+    instr->v1.trans_loc_ms_to_loc_ms.wait_cke_mask = wait_cke_mask;
 }
 
 // 远端MS传输到本端MS
@@ -321,42 +321,42 @@ void TransLocMSToLocMSInstr(
 // rmtMSId: 远端MSId
 // 数据长度: length
 // 路径: channelId
-void TransRmtMSToLocMSInstr(
-    CcuInstr* instr, uint16_t locMSId, uint16_t rmtMSId, uint16_t lengthXnId, uint16_t channelId, uint16_t setCKEId,
-    uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType, uint16_t lengthEn)
+void trans_rmt_ms_to_loc_ms_instr(
+    ccu_instr* instr, uint16_t loc_ms_id, uint16_t rmt_ms_id, uint16_t length_xn_id, uint16_t channel_id, uint16_t set_cke_id,
+    uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t length_en)
 {
-    instr->header = InstrHeader(TRANS_TYPE, TRANSRMTMSTOLOCMS_CODE);
-    instr->v1.transRmtMSToLocMS.locMSId = locMSId;
-    instr->v1.transRmtMSToLocMS.rmtMSId = rmtMSId;
-    instr->v1.transRmtMSToLocMS.lengthXnId = lengthXnId;
-    instr->v1.transRmtMSToLocMS.channelId = channelId;
-    instr->v1.transRmtMSToLocMS.clearType = clearType & 0x1;
-    instr->v1.transRmtMSToLocMS.lengthEn = lengthEn & 0x1;
-    instr->v1.transRmtMSToLocMS.setCKEId = setCKEId;
-    instr->v1.transRmtMSToLocMS.setCKEMask = setCKEMask;
-    instr->v1.transRmtMSToLocMS.waitCKEId = waitCKEId;
-    instr->v1.transRmtMSToLocMS.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, transrmtmstolocms_code);
+    instr->v1.trans_rmt_ms_to_loc_ms.loc_ms_id = loc_ms_id;
+    instr->v1.trans_rmt_ms_to_loc_ms.rmt_ms_id = rmt_ms_id;
+    instr->v1.trans_rmt_ms_to_loc_ms.length_xn_id = length_xn_id;
+    instr->v1.trans_rmt_ms_to_loc_ms.channel_id = channel_id;
+    instr->v1.trans_rmt_ms_to_loc_ms.clear_type = clear_type & 0x1;
+    instr->v1.trans_rmt_ms_to_loc_ms.length_en = length_en & 0x1;
+    instr->v1.trans_rmt_ms_to_loc_ms.set_cke_id = set_cke_id;
+    instr->v1.trans_rmt_ms_to_loc_ms.set_cke_mask = set_cke_mask;
+    instr->v1.trans_rmt_ms_to_loc_ms.wait_cke_id = wait_cke_id;
+    instr->v1.trans_rmt_ms_to_loc_ms.wait_cke_mask = wait_cke_mask;
 }
 
-void TransLocMSToRmtMSInstr(
-    CcuInstr* instr, uint16_t rmtMSId, uint16_t locMSId, uint16_t lengthXnId, uint16_t channelId, uint16_t setRmtCKEId,
-    uint16_t setRmtCKEMask, uint16_t setCKEId, uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask,
-    uint16_t clearType, uint16_t lengthEn)
+void trans_loc_ms_to_rmt_ms_instr(
+    ccu_instr* instr, uint16_t rmt_ms_id, uint16_t loc_ms_id, uint16_t length_xn_id, uint16_t channel_id, uint16_t set_rmt_cke_id,
+    uint16_t set_rmt_cke_mask, uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask,
+    uint16_t clear_type, uint16_t length_en)
 {
-    instr->header = InstrHeader(TRANS_TYPE, TRANSLOCMSTORMTMS_CODE);
-    instr->v1.transLocMSToRmtMS.rmtMSId = rmtMSId;
-    instr->v1.transLocMSToRmtMS.locMSId = locMSId;
-    instr->v1.transLocMSToRmtMS.lengthXnId = lengthXnId;
-    instr->v1.transLocMSToRmtMS.channelId = channelId;
-    instr->v1.transLocMSToRmtMS.setRmtCKEId = setRmtCKEId;
-    instr->v1.transLocMSToRmtMS.setRmtCKEMask = setRmtCKEMask;
+    instr->header = instr_header(trans_type, translocmstormtms_code);
+    instr->v1.trans_loc_ms_to_rmt_ms.rmt_ms_id = rmt_ms_id;
+    instr->v1.trans_loc_ms_to_rmt_ms.loc_ms_id = loc_ms_id;
+    instr->v1.trans_loc_ms_to_rmt_ms.length_xn_id = length_xn_id;
+    instr->v1.trans_loc_ms_to_rmt_ms.channel_id = channel_id;
+    instr->v1.trans_loc_ms_to_rmt_ms.set_rmt_cke_id = set_rmt_cke_id;
+    instr->v1.trans_loc_ms_to_rmt_ms.set_rmt_cke_mask = set_rmt_cke_mask;
 
-    instr->v1.transLocMSToRmtMS.clearType = clearType & 0x1;
-    instr->v1.transLocMSToRmtMS.lengthEn = lengthEn & 0x1;
-    instr->v1.transLocMSToRmtMS.setCKEId = setCKEId;
-    instr->v1.transLocMSToRmtMS.setCKEMask = setCKEMask;
-    instr->v1.transLocMSToRmtMS.waitCKEId = waitCKEId;
-    instr->v1.transLocMSToRmtMS.waitCKEMask = waitCKEMask;
+    instr->v1.trans_loc_ms_to_rmt_ms.clear_type = clear_type & 0x1;
+    instr->v1.trans_loc_ms_to_rmt_ms.length_en = length_en & 0x1;
+    instr->v1.trans_loc_ms_to_rmt_ms.set_cke_id = set_cke_id;
+    instr->v1.trans_loc_ms_to_rmt_ms.set_cke_mask = set_cke_mask;
+    instr->v1.trans_loc_ms_to_rmt_ms.wait_cke_id = wait_cke_id;
+    instr->v1.trans_loc_ms_to_rmt_ms.wait_cke_mask = wait_cke_mask;
 }
 
 // 远端Memory传输到本端Memory
@@ -364,28 +364,28 @@ void TransLocMSToRmtMSInstr(
 // <rmtGSAId, rmtXnId>: 远端Memory地址和Token
 // 数据长度: length
 // 路径: channelId
-void TransRmtMemToLocMemInstr(
-    CcuInstr* instr, uint16_t locGSAId, uint16_t locXnId, uint16_t rmtGSAId, uint16_t rmtXnId, uint16_t lengthXnId,
-    uint16_t channelId, uint16_t reduceDataType, uint16_t reduceOpCode, uint16_t setCKEId, uint16_t setCKEMask,
-    uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType, uint16_t lengthEn, uint16_t reduceEn)
+void trans_rmt_mem_to_loc_mem_instr(
+    ccu_instr* instr, uint16_t loc_gsa_id, uint16_t loc_xn_id, uint16_t rmt_gsa_id, uint16_t rmt_xn_id, uint16_t length_xn_id,
+    uint16_t channel_id, uint16_t reduce_data_type, uint16_t reduce_op_code, uint16_t set_cke_id, uint16_t set_cke_mask,
+    uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t length_en, uint16_t reduce_en)
 {
-    instr->header = InstrHeader(TRANS_TYPE, TRANSRMTMEMTOLOCMEM_CODE);
-    instr->v1.transRmtMemToLocMem.locGSAId = locGSAId;
-    instr->v1.transRmtMemToLocMem.locXnId = locXnId;
-    instr->v1.transRmtMemToLocMem.rmtGSAId = rmtGSAId;
-    instr->v1.transRmtMemToLocMem.rmtXnId = rmtXnId;
-    instr->v1.transRmtMemToLocMem.lengthXnId = lengthXnId;
-    instr->v1.transRmtMemToLocMem.channelId = channelId;
-    instr->v1.transRmtMemToLocMem.udfType = 0;
-    instr->v1.transRmtMemToLocMem.reduceDataType = reduceDataType & 0xf;
-    instr->v1.transRmtMemToLocMem.reduceOpCode = reduceOpCode & 0xf;
-    instr->v1.transRmtMemToLocMem.clearType = clearType & 0x1;
-    instr->v1.transRmtMemToLocMem.lengthEn = lengthEn & 0x1;
-    instr->v1.transRmtMemToLocMem.reduceEn = reduceEn & 0x1;
-    instr->v1.transRmtMemToLocMem.setCKEId = setCKEId;
-    instr->v1.transRmtMemToLocMem.setCKEMask = setCKEMask;
-    instr->v1.transRmtMemToLocMem.waitCKEId = waitCKEId;
-    instr->v1.transRmtMemToLocMem.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, transrmtmemtolocmem_code);
+    instr->v1.trans_rmt_mem_to_loc_mem.loc_gsa_id = loc_gsa_id;
+    instr->v1.trans_rmt_mem_to_loc_mem.loc_xn_id = loc_xn_id;
+    instr->v1.trans_rmt_mem_to_loc_mem.rmt_gsa_id = rmt_gsa_id;
+    instr->v1.trans_rmt_mem_to_loc_mem.rmt_xn_id = rmt_xn_id;
+    instr->v1.trans_rmt_mem_to_loc_mem.length_xn_id = length_xn_id;
+    instr->v1.trans_rmt_mem_to_loc_mem.channel_id = channel_id;
+    instr->v1.trans_rmt_mem_to_loc_mem.udf_type = 0;
+    instr->v1.trans_rmt_mem_to_loc_mem.reduce_data_type = reduce_data_type & 0xf;
+    instr->v1.trans_rmt_mem_to_loc_mem.reduce_op_code = reduce_op_code & 0xf;
+    instr->v1.trans_rmt_mem_to_loc_mem.clear_type = clear_type & 0x1;
+    instr->v1.trans_rmt_mem_to_loc_mem.length_en = length_en & 0x1;
+    instr->v1.trans_rmt_mem_to_loc_mem.reduce_en = reduce_en & 0x1;
+    instr->v1.trans_rmt_mem_to_loc_mem.set_cke_id = set_cke_id;
+    instr->v1.trans_rmt_mem_to_loc_mem.set_cke_mask = set_cke_mask;
+    instr->v1.trans_rmt_mem_to_loc_mem.wait_cke_id = wait_cke_id;
+    instr->v1.trans_rmt_mem_to_loc_mem.wait_cke_mask = wait_cke_mask;
 }
 
 // 本端Memory传输到远端Memory
@@ -393,48 +393,48 @@ void TransRmtMemToLocMemInstr(
 // <locGSAId, locXnId>: 本端Memory地址和Token
 // 数据长度: length
 // 路径: channelId
-void TransLocMemToRmtMemInstr(
-    CcuInstr* instr, uint16_t rmtGSAId, uint16_t rmtXnId, uint16_t locGSAId, uint16_t locXnId, uint16_t lengthXnId,
-    uint16_t channelId, uint16_t reduceDataType, uint16_t reduceOpCode, uint16_t setCKEId, uint16_t setCKEMask,
-    uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType, uint16_t lengthEn, uint16_t reduceEn)
+void trans_loc_mem_to_rmt_mem_instr(
+    ccu_instr* instr, uint16_t rmt_gsa_id, uint16_t rmt_xn_id, uint16_t loc_gsa_id, uint16_t loc_xn_id, uint16_t length_xn_id,
+    uint16_t channel_id, uint16_t reduce_data_type, uint16_t reduce_op_code, uint16_t set_cke_id, uint16_t set_cke_mask,
+    uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t length_en, uint16_t reduce_en)
 {
-    instr->header = InstrHeader(TRANS_TYPE, TRANSLOCMEMTORMTMEM_CODE);
-    instr->v1.transLocMemToRmtMem.rmtGSAId = rmtGSAId;
-    instr->v1.transLocMemToRmtMem.rmtXnId = rmtXnId;
-    instr->v1.transLocMemToRmtMem.locGSAId = locGSAId;
-    instr->v1.transLocMemToRmtMem.locXnId = locXnId;
-    instr->v1.transLocMemToRmtMem.lengthXnId = lengthXnId;
-    instr->v1.transLocMemToRmtMem.channelId = channelId;
-    instr->v1.transLocMemToRmtMem.udfType = 0;
-    instr->v1.transLocMemToRmtMem.reduceDataType = reduceDataType & 0xf;
-    instr->v1.transLocMemToRmtMem.reduceOpCode = reduceOpCode & 0xf;
-    instr->v1.transLocMemToRmtMem.clearType = clearType & 0x1;
-    instr->v1.transLocMemToRmtMem.lengthEn = lengthEn & 0x1;
-    instr->v1.transLocMemToRmtMem.reduceEn = reduceEn & 0x1;
-    instr->v1.transLocMemToRmtMem.setCKEId = setCKEId;
-    instr->v1.transLocMemToRmtMem.setCKEMask = setCKEMask;
-    instr->v1.transLocMemToRmtMem.waitCKEId = waitCKEId;
-    instr->v1.transLocMemToRmtMem.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, translocmemtormtmem_code);
+    instr->v1.trans_loc_mem_to_rmt_mem.rmt_gsa_id = rmt_gsa_id;
+    instr->v1.trans_loc_mem_to_rmt_mem.rmt_xn_id = rmt_xn_id;
+    instr->v1.trans_loc_mem_to_rmt_mem.loc_gsa_id = loc_gsa_id;
+    instr->v1.trans_loc_mem_to_rmt_mem.loc_xn_id = loc_xn_id;
+    instr->v1.trans_loc_mem_to_rmt_mem.length_xn_id = length_xn_id;
+    instr->v1.trans_loc_mem_to_rmt_mem.channel_id = channel_id;
+    instr->v1.trans_loc_mem_to_rmt_mem.udf_type = 0;
+    instr->v1.trans_loc_mem_to_rmt_mem.reduce_data_type = reduce_data_type & 0xf;
+    instr->v1.trans_loc_mem_to_rmt_mem.reduce_op_code = reduce_op_code & 0xf;
+    instr->v1.trans_loc_mem_to_rmt_mem.clear_type = clear_type & 0x1;
+    instr->v1.trans_loc_mem_to_rmt_mem.length_en = length_en & 0x1;
+    instr->v1.trans_loc_mem_to_rmt_mem.reduce_en = reduce_en & 0x1;
+    instr->v1.trans_loc_mem_to_rmt_mem.set_cke_id = set_cke_id;
+    instr->v1.trans_loc_mem_to_rmt_mem.set_cke_mask = set_cke_mask;
+    instr->v1.trans_loc_mem_to_rmt_mem.wait_cke_id = wait_cke_id;
+    instr->v1.trans_loc_mem_to_rmt_mem.wait_cke_mask = wait_cke_mask;
 }
 
-void TransLocMemToLocMemInstr(
-    CcuInstr* instr, uint16_t dstGSAId, uint16_t dstXnId, uint16_t srcGSAId, uint16_t srcXnId, uint16_t lengthXnId,
-    uint16_t channelId, uint16_t setCKEId, uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask,
-    uint16_t clearType, uint16_t lengthEn)
+void trans_loc_mem_to_loc_mem_instr(
+    ccu_instr* instr, uint16_t dst_gsa_id, uint16_t dst_xn_id, uint16_t src_gsa_id, uint16_t src_xn_id, uint16_t length_xn_id,
+    uint16_t channel_id, uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask,
+    uint16_t clear_type, uint16_t length_en)
 {
-    instr->header = InstrHeader(TRANS_TYPE, TRANSLOCMEMTOLOCMEM_CODE);
-    instr->v1.transLocMemToLocMem.dstGSAId = dstGSAId;
-    instr->v1.transLocMemToLocMem.dstXnId = dstXnId;
-    instr->v1.transLocMemToLocMem.srcGSAId = srcGSAId;
-    instr->v1.transLocMemToLocMem.srcXnId = srcXnId;
-    instr->v1.transLocMemToLocMem.lengthXnId = lengthXnId;
-    instr->v1.transLocMemToLocMem.channelId = channelId;
-    instr->v1.transLocMemToLocMem.clearType = clearType & 0x1;
-    instr->v1.transLocMemToLocMem.lengthEn = lengthEn & 0x1;
-    instr->v1.transLocMemToLocMem.setCKEId = setCKEId;
-    instr->v1.transLocMemToLocMem.setCKEMask = setCKEMask;
-    instr->v1.transLocMemToLocMem.waitCKEId = waitCKEId;
-    instr->v1.transLocMemToLocMem.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, translocmemtolocmem_code);
+    instr->v1.trans_loc_mem_to_loc_mem.dst_gsa_id = dst_gsa_id;
+    instr->v1.trans_loc_mem_to_loc_mem.dst_xn_id = dst_xn_id;
+    instr->v1.trans_loc_mem_to_loc_mem.src_gsa_id = src_gsa_id;
+    instr->v1.trans_loc_mem_to_loc_mem.src_xn_id = src_xn_id;
+    instr->v1.trans_loc_mem_to_loc_mem.length_xn_id = length_xn_id;
+    instr->v1.trans_loc_mem_to_loc_mem.channel_id = channel_id;
+    instr->v1.trans_loc_mem_to_loc_mem.clear_type = clear_type & 0x1;
+    instr->v1.trans_loc_mem_to_loc_mem.length_en = length_en & 0x1;
+    instr->v1.trans_loc_mem_to_loc_mem.set_cke_id = set_cke_id;
+    instr->v1.trans_loc_mem_to_loc_mem.set_cke_mask = set_cke_mask;
+    instr->v1.trans_loc_mem_to_loc_mem.wait_cke_id = wait_cke_id;
+    instr->v1.trans_loc_mem_to_loc_mem.wait_cke_mask = wait_cke_mask;
 }
 
 // 本端CKE同步到远端CKE
@@ -442,656 +442,656 @@ void TransLocMemToLocMemInstr(
 // locCKEId: 本端CKEId
 // locCKEMask: mask
 // 路径: channelId
-void SyncCKEInstr(
-    CcuInstr* instr, uint16_t rmtCKEId, uint16_t locCKEId, uint16_t locCKEMask, uint16_t channelId, uint16_t setCKEId,
-    uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType)
+void sync_cke_instr(
+    ccu_instr* instr, uint16_t rmt_cke_id, uint16_t loc_cke_id, uint16_t loc_cke_mask, uint16_t channel_id, uint16_t set_cke_id,
+    uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type)
 {
-    instr->header = InstrHeader(TRANS_TYPE, SYNCCKE_CODE);
-    instr->v1.syncCKE.rmtCKEId = rmtCKEId;
-    instr->v1.syncCKE.locCKEId = locCKEId;
-    instr->v1.syncCKE.locCKEMask = locCKEMask;
-    instr->v1.syncCKE.channelId = channelId;
-    instr->v1.syncCKE.clearType = clearType & 0x1;
-    instr->v1.syncCKE.setCKEId = setCKEId;
-    instr->v1.syncCKE.setCKEMask = setCKEMask;
-    instr->v1.syncCKE.waitCKEId = waitCKEId;
-    instr->v1.syncCKE.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, synccke_code);
+    instr->v1.sync_cke.rmt_cke_id = rmt_cke_id;
+    instr->v1.sync_cke.loc_cke_id = loc_cke_id;
+    instr->v1.sync_cke.loc_cke_mask = loc_cke_mask;
+    instr->v1.sync_cke.channel_id = channel_id;
+    instr->v1.sync_cke.clear_type = clear_type & 0x1;
+    instr->v1.sync_cke.set_cke_id = set_cke_id;
+    instr->v1.sync_cke.set_cke_mask = set_cke_mask;
+    instr->v1.sync_cke.wait_cke_id = wait_cke_id;
+    instr->v1.sync_cke.wait_cke_mask = wait_cke_mask;
 }
 
 // 本端<locGSAId>同步到远端<rmtGSAId> 同步完成后, 置位远端的<setRmtCKEId, setRmtCKEMask>
-void SyncGSAInstr(
-    CcuInstr* instr, uint16_t rmtGSAId, uint16_t locGSAId, uint16_t channelId, uint16_t setRmtCKEId,
-    uint16_t setRmtCKEMask, uint16_t setCKEId, uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask,
-    uint16_t clearType)
+void sync_gsa_instr(
+    ccu_instr* instr, uint16_t rmt_gsa_id, uint16_t loc_gsa_id, uint16_t channel_id, uint16_t set_rmt_cke_id,
+    uint16_t set_rmt_cke_mask, uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask,
+    uint16_t clear_type)
 {
-    instr->header = InstrHeader(TRANS_TYPE, SYNCGSA_CODE);
-    instr->v1.syncGSA.rmtGSAId = rmtGSAId;
-    instr->v1.syncGSA.locGSAId = locGSAId;
-    instr->v1.syncGSA.channelId = channelId;
-    instr->v1.syncGSA.setRmtCKEId = setRmtCKEId;
-    instr->v1.syncGSA.setRmtCKEMask = setRmtCKEMask;
-    instr->v1.syncGSA.clearType = clearType & 0x1;
-    instr->v1.syncGSA.setCKEId = setCKEId;
-    instr->v1.syncGSA.setCKEMask = setCKEMask;
-    instr->v1.syncGSA.waitCKEId = waitCKEId;
-    instr->v1.syncGSA.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, syncgsa_code);
+    instr->v1.sync_gsa.rmt_gsa_id = rmt_gsa_id;
+    instr->v1.sync_gsa.loc_gsa_id = loc_gsa_id;
+    instr->v1.sync_gsa.channel_id = channel_id;
+    instr->v1.sync_gsa.set_rmt_cke_id = set_rmt_cke_id;
+    instr->v1.sync_gsa.set_rmt_cke_mask = set_rmt_cke_mask;
+    instr->v1.sync_gsa.clear_type = clear_type & 0x1;
+    instr->v1.sync_gsa.set_cke_id = set_cke_id;
+    instr->v1.sync_gsa.set_cke_mask = set_cke_mask;
+    instr->v1.sync_gsa.wait_cke_id = wait_cke_id;
+    instr->v1.sync_gsa.wait_cke_mask = wait_cke_mask;
 }
 
 // 本端<locInputXnId, locOutputXnId>同步到远端<rmtInputXnId, rmtOutputXnId> 同步完成后, 置位远端的<setRmtCKEId,
 // setRmtCKEMask>
-void SyncXnInstr(
-    CcuInstr* instr, uint16_t rmtXnId, uint16_t locXnId, uint16_t channelId, uint16_t setRmtCKEId,
-    uint16_t setRmtCKEMask, uint16_t setCKEId, uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask,
-    uint16_t clearType)
+void sync_xn_instr(
+    ccu_instr* instr, uint16_t rmt_xn_id, uint16_t loc_xn_id, uint16_t channel_id, uint16_t set_rmt_cke_id,
+    uint16_t set_rmt_cke_mask, uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask,
+    uint16_t clear_type)
 {
-    instr->header = InstrHeader(TRANS_TYPE, SYNCXN_CODE);
-    instr->v1.syncXn.rmtXnId = rmtXnId;
-    instr->v1.syncXn.locXnId = locXnId;
-    instr->v1.syncXn.channelId = channelId;
-    instr->v1.syncXn.setRmtCKEId = setRmtCKEId;
-    instr->v1.syncXn.setRmtCKEMask = setRmtCKEMask;
-    instr->v1.syncXn.clearType = clearType & 0x1;
-    instr->v1.syncXn.setCKEId = setCKEId;
-    instr->v1.syncXn.setCKEMask = setCKEMask;
-    instr->v1.syncXn.waitCKEId = waitCKEId;
-    instr->v1.syncXn.waitCKEMask = waitCKEMask;
+    instr->header = instr_header(trans_type, syncxn_code);
+    instr->v1.sync_xn.rmt_xn_id = rmt_xn_id;
+    instr->v1.sync_xn.loc_xn_id = loc_xn_id;
+    instr->v1.sync_xn.channel_id = channel_id;
+    instr->v1.sync_xn.set_rmt_cke_id = set_rmt_cke_id;
+    instr->v1.sync_xn.set_rmt_cke_mask = set_rmt_cke_mask;
+    instr->v1.sync_xn.clear_type = clear_type & 0x1;
+    instr->v1.sync_xn.set_cke_id = set_cke_id;
+    instr->v1.sync_xn.set_cke_mask = set_cke_mask;
+    instr->v1.sync_xn.wait_cke_id = wait_cke_id;
+    instr->v1.sync_xn.wait_cke_mask = wait_cke_mask;
 }
 
 // MSA~MSH Reduce到 MSA
 // count: 参与Reduce的MS数目
 // castEn: 输出是否截断
 // dataType: Reduce数据类型
-void AddInstr(
-    CcuInstr* instr, uint16_t* msId, uint16_t count, uint16_t castEn, uint16_t dataType, uint16_t setCKEId,
-    uint16_t setCKEMask, uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType, uint16_t XnIdLength)
+void add_instr(
+    ccu_instr* instr, uint16_t* ms_id, uint16_t count, uint16_t cast_en, uint16_t data_type, uint16_t set_cke_id,
+    uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t xn_id_length)
 {
     count -= 2; // CCU指令中指定count数为实际参与运算的MS数减2
-    instr->header = InstrHeader(REDUCE_TYPE, ADD_CODE);
-    for (uint16_t index = 0; index < CCU_REDUCE_MAX_MS; index++) {
-        instr->v1.add.msId[index] = msId[index];
+    instr->header = instr_header(reduce_type, add_code);
+    for (uint16_t index = 0; index < ccu_reduce_max_ms; index++) {
+        instr->v1.add.ms_id[index] = ms_id[index];
     }
-    instr->v1.add.XnIdLength = XnIdLength;
+    instr->v1.add.xn_id_length = xn_id_length;
     instr->v1.add.count = count & 0x7;
-    instr->v1.add.castEn = castEn & 0x3;
-    instr->v1.add.dataType = dataType & 0x1f;
-    instr->v1.add.clearType = clearType & 0x1;
-    instr->v1.add.setCKEId = setCKEId;
-    instr->v1.add.setCKEMask = setCKEMask;
-    instr->v1.add.waitCKEId = waitCKEId;
-    instr->v1.add.waitCKEMask = waitCKEMask;
+    instr->v1.add.cast_en = cast_en & 0x3;
+    instr->v1.add.data_type = data_type & 0x1f;
+    instr->v1.add.clear_type = clear_type & 0x1;
+    instr->v1.add.set_cke_id = set_cke_id;
+    instr->v1.add.set_cke_mask = set_cke_mask;
+    instr->v1.add.wait_cke_id = wait_cke_id;
+    instr->v1.add.wait_cke_mask = wait_cke_mask;
 }
 
-void MaxInstr(
-    CcuInstr* instr, uint16_t* msId, uint16_t count, uint16_t dataType, uint16_t setCKEId, uint16_t setCKEMask,
-    uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType, uint16_t XnIdLength)
+void max_instr(
+    ccu_instr* instr, uint16_t* ms_id, uint16_t count, uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask,
+    uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t xn_id_length)
 {
     count -= 2; // CCU指令中指定count数为实际参与运算的MS数减2
-    instr->header = InstrHeader(REDUCE_TYPE, MAX_CODE);
-    for (uint16_t index = 0; index < CCU_REDUCE_MAX_MS; index++) {
-        instr->v1.add.msId[index] = msId[index];
+    instr->header = instr_header(reduce_type, max_code);
+    for (uint16_t index = 0; index < ccu_reduce_max_ms; index++) {
+        instr->v1.add.ms_id[index] = ms_id[index];
     }
-    instr->v1.max.XnIdLength = XnIdLength;
+    instr->v1.max.xn_id_length = xn_id_length;
     instr->v1.max.count = count & 0x7;
-    instr->v1.max.dataType = dataType & 0x1f;
-    instr->v1.max.clearType = clearType & 0x1;
-    instr->v1.max.setCKEId = setCKEId;
-    instr->v1.max.setCKEMask = setCKEMask;
-    instr->v1.max.waitCKEId = waitCKEId;
-    instr->v1.max.waitCKEMask = waitCKEMask;
+    instr->v1.max.data_type = data_type & 0x1f;
+    instr->v1.max.clear_type = clear_type & 0x1;
+    instr->v1.max.set_cke_id = set_cke_id;
+    instr->v1.max.set_cke_mask = set_cke_mask;
+    instr->v1.max.wait_cke_id = wait_cke_id;
+    instr->v1.max.wait_cke_mask = wait_cke_mask;
 }
 
-void MinInstr(
-    CcuInstr* instr, uint16_t* msId, uint16_t count, uint16_t dataType, uint16_t setCKEId, uint16_t setCKEMask,
-    uint16_t waitCKEId, uint16_t waitCKEMask, uint16_t clearType, uint16_t XnIdLength)
+void min_instr(
+    ccu_instr* instr, uint16_t* ms_id, uint16_t count, uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask,
+    uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t xn_id_length)
 {
     count -= 2; // CCU指令中指定count数为实际参与运算的MS数减2
-    instr->header = InstrHeader(REDUCE_TYPE, MIN_CODE);
-    for (uint16_t index = 0; index < CCU_REDUCE_MAX_MS; index++) {
-        instr->v1.add.msId[index] = msId[index];
+    instr->header = instr_header(reduce_type, min_code);
+    for (uint16_t index = 0; index < ccu_reduce_max_ms; index++) {
+        instr->v1.add.ms_id[index] = ms_id[index];
     }
-    instr->v1.max.XnIdLength = XnIdLength;
+    instr->v1.max.xn_id_length = xn_id_length;
     instr->v1.min.count = count & 0x7;
-    instr->v1.min.dataType = dataType & 0x1f;
-    instr->v1.min.clearType = clearType & 0x1;
-    instr->v1.min.setCKEId = setCKEId;
-    instr->v1.min.setCKEMask = setCKEMask;
-    instr->v1.min.waitCKEId = waitCKEId;
-    instr->v1.min.waitCKEMask = waitCKEMask;
+    instr->v1.min.data_type = data_type & 0x1f;
+    instr->v1.min.clear_type = clear_type & 0x1;
+    instr->v1.min.set_cke_id = set_cke_id;
+    instr->v1.min.set_cke_mask = set_cke_mask;
+    instr->v1.min.wait_cke_id = wait_cke_id;
+    instr->v1.min.wait_cke_mask = wait_cke_mask;
 }
 
-std::string ParseLoadSqeArgsToGSAInstr(const CcuInstr* instr)
+std::string parse_load_sqe_args_to_gsa_instr(const ccu_instr* instr)
 {
-    uint16_t gsaId = instr->v1.loadSqeArgsToGSA.gsaId;
-    uint16_t sqeArgsId = instr->v1.loadSqeArgsToGSA.sqeArgsId;
+    uint16_t gsa_id = instr->v1.load_sqe_args_to_gsa.gsa_id;
+    uint16_t sqe_args_id = instr->v1.load_sqe_args_to_gsa.sqe_args_id;
 
-    return asccomm::FormatCcuMessage("Load SqeArg[%u] to GSA[%u]", sqeArgsId, gsaId);
+    return asc::format_ccu_message("Load SqeArg[%u] to GSA[%u]", sqe_args_id, gsa_id);
 }
 
-static std::string ParseLoadSqeArgsToXnInstr(const CcuInstr* instr)
+static std::string parse_load_sqe_args_to_xn_instr(const ccu_instr* instr)
 {
-    uint16_t xnId = instr->v1.loadSqeArgsToXn.xnId;
-    uint16_t sqeArgsId = instr->v1.loadSqeArgsToXn.sqeArgsId;
+    uint16_t xn_id = instr->v1.load_sqe_args_to_xn.xn_id;
+    uint16_t sqe_args_id = instr->v1.load_sqe_args_to_xn.sqe_args_id;
 
-    return asccomm::FormatCcuMessage("Load SqeArg[%u] to Xn[%u]", sqeArgsId, xnId);
+    return asc::format_ccu_message("Load SqeArg[%u] to Xn[%u]", sqe_args_id, xn_id);
 }
 
-static std::string ParseLoadImdToGSAInstr(const CcuInstr* instr)
+static std::string parse_load_imd_to_gsa_instr(const ccu_instr* instr)
 {
-    uint16_t gsaId = instr->v1.loadImdToGSA.gsaId;
-    uint64_t immediate = instr->v1.loadImdToGSA.immediate;
+    uint16_t gsa_id = instr->v1.load_imd_to_gsa.gsa_id;
+    uint64_t immediate = instr->v1.load_imd_to_gsa.immediate;
 
-    return asccomm::FormatCcuMessage("Load immediate[%llu] to GSA[%u]", immediate, gsaId);
+    return asc::format_ccu_message("Load immediate[%llu] to GSA[%u]", immediate, gsa_id);
 }
 
-static std::string ParseLoadImdToXnInstr(const CcuInstr* instr)
+static std::string parse_load_imd_to_xn_instr(const ccu_instr* instr)
 {
-    uint16_t xnId = instr->v1.loadImdToXn.xnId;
-    uint64_t immediate = instr->v1.loadImdToXn.immediate;
+    uint16_t xn_id = instr->v1.load_imd_to_xn.xn_id;
+    uint64_t immediate = instr->v1.load_imd_to_xn.immediate;
 
-    if (instr->v1.loadImdToXn.secFlag == CCU_LOAD_TO_XN_SEC_INFO) {
-        return asccomm::FormatCcuMessage("Load immediate[tokenInfo] to Xn[%u]", xnId);
+    if (instr->v1.load_imd_to_xn.sec_flag == ccu_load_to_xn_sec_info) {
+        return asc::format_ccu_message("Load immediate[tokenInfo] to Xn[%u]", xn_id);
     }
 
-    return asccomm::FormatCcuMessage("Load immediate[%llu] to Xn[%u]", immediate, xnId);
+    return asc::format_ccu_message("Load immediate[%llu] to Xn[%u]", immediate, xn_id);
 }
 
-static std::string ParseLoadGSAXnInstr(const CcuInstr* instr)
+static std::string parse_load_gsa_xn_instr(const ccu_instr* instr)
 {
-    uint16_t gsAdId = instr->v1.loadGSAXn.gsAdId;
-    uint16_t gsAmId = instr->v1.loadGSAXn.gsAmId;
-    uint16_t xnId = instr->v1.loadGSAXn.xnId;
+    uint16_t gs_ad_id = instr->v1.load_gsa_xn.gs_ad_id;
+    uint16_t gs_am_id = instr->v1.load_gsa_xn.gs_am_id;
+    uint16_t xn_id = instr->v1.load_gsa_xn.xn_id;
 
-    return asccomm::FormatCcuMessage("Load GSA[%u] + Xn[%u] to GSA[%u]", gsAmId, xnId, gsAdId);
+    return asc::format_ccu_message("Load GSA[%u] + Xn[%u] to GSA[%u]", gs_am_id, xn_id, gs_ad_id);
 }
 
-static std::string ParseLoadGSAGSAInstr(const CcuInstr* instr)
+static std::string parse_load_gsagsa_instr(const ccu_instr* instr)
 {
-    uint16_t gsAdId = instr->v1.loadGSAGSA.gsAdId;
-    uint16_t gsAmId = instr->v1.loadGSAGSA.gsAmId;
-    uint16_t gsAnId = instr->v1.loadGSAGSA.gsAnId;
+    uint16_t gs_ad_id = instr->v1.load_gsagsa.gs_ad_id;
+    uint16_t gs_am_id = instr->v1.load_gsagsa.gs_am_id;
+    uint16_t gs_an_id = instr->v1.load_gsagsa.gs_an_id;
 
-    return asccomm::FormatCcuMessage("Load GSA[%u] + GSA[%u] to GSA[%u]", gsAmId, gsAnId, gsAdId);
+    return asc::format_ccu_message("Load GSA[%u] + GSA[%u] to GSA[%u]", gs_am_id, gs_an_id, gs_ad_id);
 }
 
-static std::string ParseLoadXXInstr(const CcuInstr* instr)
+static std::string parse_load_xx_instr(const ccu_instr* instr)
 {
-    uint16_t xdId = instr->v1.loadXX.xdId;
-    uint16_t xmId = instr->v1.loadXX.xmId;
-    uint16_t xnId = instr->v1.loadXX.xnId;
+    uint16_t xd_id = instr->v1.load_xx.xd_id;
+    uint16_t xm_id = instr->v1.load_xx.xm_id;
+    uint16_t xn_id = instr->v1.load_xx.xn_id;
 
-    return asccomm::FormatCcuMessage("Load Xn[%u] + Xn[%u] to Xn[%u]", xmId, xnId, xdId);
+    return asc::format_ccu_message("Load Xn[%u] + Xn[%u] to Xn[%u]", xm_id, xn_id, xd_id);
 }
 
-static std::string ParseLoopInstr(const CcuInstr* instr)
+static std::string parse_loop_instr(const ccu_instr* instr)
 {
-    uint16_t startInstrId = instr->v1.loop.startInstrId;
-    uint16_t endInstrId = instr->v1.loop.endInstrId;
-    uint16_t xnId = instr->v1.loop.xnId;
+    uint16_t start_instr_id = instr->v1.loop.start_instr_id;
+    uint16_t end_instr_id = instr->v1.loop.end_instr_id;
+    uint16_t xn_id = instr->v1.loop.xn_id;
 
-    return asccomm::FormatCcuMessage(
-        "Loop From startInstrId[%u] to endInstrId[%u] with loopXn[%u]", startInstrId, endInstrId, xnId);
+    return asc::format_ccu_message(
+        "Loop From startInstrId[%u] to endInstrId[%u] with loopXn[%u]", start_instr_id, end_instr_id, xn_id);
 }
 
-static std::string ParseLoopGroupInstr(const CcuInstr* instr)
+static std::string parse_loop_group_instr(const ccu_instr* instr)
 {
-    uint16_t startLoopInstrId = instr->v1.loopGroup.startLoopInstrId;
-    uint16_t xnId = instr->v1.loopGroup.xnId;
-    uint16_t xmId = instr->v1.loopGroup.xmId;
-    uint16_t highPerfModeEn = instr->v1.loopGroup.highPerfModeEn;
+    uint16_t start_loop_instr_id = instr->v1.loop_group.start_loop_instr_id;
+    uint16_t xn_id = instr->v1.loop_group.xn_id;
+    uint16_t xm_id = instr->v1.loop_group.xm_id;
+    uint16_t high_perf_mode_en = instr->v1.loop_group.high_perf_mode_en;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "LoopGroup From startLoopInstrId[%u] with loopGroupXn[%u], offsetXn[%u] and highPerfModeEn[%u]",
-        startLoopInstrId, xnId, xmId, highPerfModeEn);
+        start_loop_instr_id, xn_id, xm_id, high_perf_mode_en);
 }
 
-static std::string ParseSetCKEInstr(const CcuInstr* instr)
+static std::string parse_set_cke_instr(const ccu_instr* instr)
 {
-    uint16_t clearType = instr->v1.setCKE.clearType;
-    uint16_t setCKEId = instr->v1.setCKE.setCKEId;
-    uint16_t setCKEMask = instr->v1.setCKE.setCKEMask;
-    uint16_t waitCKEId = instr->v1.setCKE.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.setCKE.waitCKEMask;
+    uint16_t clear_type = instr->v1.set_cke.clear_type;
+    uint16_t set_cke_id = instr->v1.set_cke.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.set_cke.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.set_cke.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.set_cke.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
-        "Wait CKE[%u:%04x], Set CKE[%u:%04x], clearType[%u]", waitCKEId, waitCKEMask, setCKEId, setCKEMask, clearType);
+    return asc::format_ccu_message(
+        "Wait CKE[%u:%04x], Set CKE[%u:%04x], clearType[%u]", wait_cke_id, wait_cke_mask, set_cke_id, set_cke_mask, clear_type);
 }
 
-static std::string ParseClearCKEInstr(const CcuInstr* instr)
+static std::string parse_clear_cke_instr(const ccu_instr* instr)
 {
-    uint16_t clearType = instr->v1.clearCKE.clearType;
-    uint16_t clearCKEId = instr->v1.clearCKE.clearCKEId;
-    uint16_t clearMask = instr->v1.clearCKE.clearMask;
-    uint16_t waitCKEId = instr->v1.clearCKE.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.clearCKE.waitCKEMask;
+    uint16_t clear_type = instr->v1.clear_cke.clear_type;
+    uint16_t clear_cke_id = instr->v1.clear_cke.clear_cke_id;
+    uint16_t clear_mask = instr->v1.clear_cke.clear_mask;
+    uint16_t wait_cke_id = instr->v1.clear_cke.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.clear_cke.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
-        "Wait CKE[%u:%04x], Clear CKE[%u:%04x], clearType[%u]", waitCKEId, waitCKEMask, clearCKEId, clearMask,
-        clearType);
+    return asc::format_ccu_message(
+        "Wait CKE[%u:%04x], Clear CKE[%u:%04x], clearType[%u]", wait_cke_id, wait_cke_mask, clear_cke_id, clear_mask,
+        clear_type);
 }
 
-static std::string ParseJumpInstr(const CcuInstr* instr)
+static std::string parse_jump_instr(const ccu_instr* instr)
 {
-    uint16_t dstInstrXnId = instr->v1.jmp.dstInstrXnId;
-    uint16_t conditionXnId = instr->v1.jmp.conditionXnId;
-    uint64_t expectData = instr->v1.jmp.expectData;
+    uint16_t dst_instr_xn_id = instr->v1.jmp.dst_instr_xn_id;
+    uint16_t condition_xn_id = instr->v1.jmp.condition_xn_id;
+    uint64_t expect_data = instr->v1.jmp.expect_data;
 
-    return asccomm::FormatCcuMessage(
-        "When conditionXn[%u] not equal to expectData[%llu], Jump To InstrIdXn[%u]", conditionXnId, expectData,
-        dstInstrXnId);
+    return asc::format_ccu_message(
+        "When conditionXn[%u] not equal to expectData[%llu], Jump To InstrIdXn[%u]", condition_xn_id, expect_data,
+        dst_instr_xn_id);
 }
 
-static std::string ParseTransLocMemToLocMSInstr(const CcuInstr* instr)
+static std::string parse_trans_loc_mem_to_loc_ms_instr(const ccu_instr* instr)
 {
-    uint16_t locMSId = instr->v1.transLocMemToLocMS.locMSId;
-    uint16_t locGSAId = instr->v1.transLocMemToLocMS.locGSAId;
-    uint16_t locXnId = instr->v1.transLocMemToLocMS.locXnId;
-    uint16_t lengthXnId = instr->v1.transLocMemToLocMS.lengthXnId;
-    uint16_t channelId = instr->v1.transLocMemToLocMS.channelId;
-    uint16_t clearType = instr->v1.transLocMemToLocMS.clearType;
-    uint16_t lengthEn = instr->v1.transLocMemToLocMS.lengthEn;
-    uint16_t setCKEId = instr->v1.transLocMemToLocMS.setCKEId;
-    uint16_t setCKEMask = instr->v1.transLocMemToLocMS.setCKEMask;
-    uint16_t waitCKEId = instr->v1.transLocMemToLocMS.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.transLocMemToLocMS.waitCKEMask;
+    uint16_t loc_ms_id = instr->v1.trans_loc_mem_to_loc_ms.loc_ms_id;
+    uint16_t loc_gsa_id = instr->v1.trans_loc_mem_to_loc_ms.loc_gsa_id;
+    uint16_t loc_xn_id = instr->v1.trans_loc_mem_to_loc_ms.loc_xn_id;
+    uint16_t length_xn_id = instr->v1.trans_loc_mem_to_loc_ms.length_xn_id;
+    uint16_t channel_id = instr->v1.trans_loc_mem_to_loc_ms.channel_id;
+    uint16_t clear_type = instr->v1.trans_loc_mem_to_loc_ms.clear_type;
+    uint16_t length_en = instr->v1.trans_loc_mem_to_loc_ms.length_en;
+    uint16_t set_cke_id = instr->v1.trans_loc_mem_to_loc_ms.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.trans_loc_mem_to_loc_ms.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.trans_loc_mem_to_loc_ms.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.trans_loc_mem_to_loc_ms.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Trans LocMem[%u:%u] To LocMS[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
-        waitCKEId, waitCKEMask, locGSAId, locXnId, locMSId / 0x8000, locMSId % 0x8000, lengthXnId, channelId, setCKEId,
-        setCKEMask, clearType, lengthEn);
+        wait_cke_id, wait_cke_mask, loc_gsa_id, loc_xn_id, loc_ms_id / 0x8000, loc_ms_id % 0x8000, length_xn_id, channel_id, set_cke_id,
+        set_cke_mask, clear_type, length_en);
 }
 
-static std::string ParseTransRmtMemToLocMSInstr(const CcuInstr* instr)
+static std::string parse_trans_rmt_mem_to_loc_ms_instr(const ccu_instr* instr)
 {
-    uint16_t locMSId = instr->v1.transRmtMemToLocMS.locMSId;
-    uint16_t rmtGSAId = instr->v1.transRmtMemToLocMS.rmtGSAId;
-    uint16_t rmtXnId = instr->v1.transRmtMemToLocMS.rmtXnId;
-    uint16_t lengthXnId = instr->v1.transRmtMemToLocMS.lengthXnId;
-    uint16_t channelId = instr->v1.transRmtMemToLocMS.channelId;
-    uint16_t clearType = instr->v1.transRmtMemToLocMS.clearType;
-    uint16_t lengthEn = instr->v1.transRmtMemToLocMS.lengthEn;
-    uint16_t setCKEId = instr->v1.transRmtMemToLocMS.setCKEId;
-    uint16_t setCKEMask = instr->v1.transRmtMemToLocMS.setCKEMask;
-    uint16_t waitCKEId = instr->v1.transRmtMemToLocMS.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.transRmtMemToLocMS.waitCKEMask;
+    uint16_t loc_ms_id = instr->v1.trans_rmt_mem_to_loc_ms.loc_ms_id;
+    uint16_t rmt_gsa_id = instr->v1.trans_rmt_mem_to_loc_ms.rmt_gsa_id;
+    uint16_t rmt_xn_id = instr->v1.trans_rmt_mem_to_loc_ms.rmt_xn_id;
+    uint16_t length_xn_id = instr->v1.trans_rmt_mem_to_loc_ms.length_xn_id;
+    uint16_t channel_id = instr->v1.trans_rmt_mem_to_loc_ms.channel_id;
+    uint16_t clear_type = instr->v1.trans_rmt_mem_to_loc_ms.clear_type;
+    uint16_t length_en = instr->v1.trans_rmt_mem_to_loc_ms.length_en;
+    uint16_t set_cke_id = instr->v1.trans_rmt_mem_to_loc_ms.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.trans_rmt_mem_to_loc_ms.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.trans_rmt_mem_to_loc_ms.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.trans_rmt_mem_to_loc_ms.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Trans RmtMem[%u:%u] To LocMS[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
-        waitCKEId, waitCKEMask, rmtGSAId, rmtXnId, locMSId / 0x8000, locMSId % 0x8000, lengthXnId, channelId, setCKEId,
-        setCKEMask, clearType, lengthEn);
+        wait_cke_id, wait_cke_mask, rmt_gsa_id, rmt_xn_id, loc_ms_id / 0x8000, loc_ms_id % 0x8000, length_xn_id, channel_id, set_cke_id,
+        set_cke_mask, clear_type, length_en);
 }
 
-static std::string ParseTransLocMSToLocMemInstr(const CcuInstr* instr)
+static std::string parse_trans_loc_ms_to_loc_mem_instr(const ccu_instr* instr)
 {
-    uint16_t locGSAId = instr->v1.transLocMSToLocMem.locGSAId;
-    uint16_t locXnId = instr->v1.transLocMSToLocMem.locXnId;
-    uint16_t locMSId = instr->v1.transLocMSToLocMem.locMSId;
-    uint16_t lengthXnId = instr->v1.transLocMSToLocMem.lengthXnId;
-    uint16_t channelId = instr->v1.transLocMSToLocMem.channelId;
-    uint16_t clearType = instr->v1.transLocMSToLocMem.clearType;
-    uint16_t lengthEn = instr->v1.transLocMSToLocMem.lengthEn;
-    uint16_t setCKEId = instr->v1.transLocMSToLocMem.setCKEId;
-    uint16_t setCKEMask = instr->v1.transLocMSToLocMem.setCKEMask;
-    uint16_t waitCKEId = instr->v1.transLocMSToLocMem.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.transLocMSToLocMem.waitCKEMask;
+    uint16_t loc_gsa_id = instr->v1.trans_loc_ms_to_loc_mem.loc_gsa_id;
+    uint16_t loc_xn_id = instr->v1.trans_loc_ms_to_loc_mem.loc_xn_id;
+    uint16_t loc_ms_id = instr->v1.trans_loc_ms_to_loc_mem.loc_ms_id;
+    uint16_t length_xn_id = instr->v1.trans_loc_ms_to_loc_mem.length_xn_id;
+    uint16_t channel_id = instr->v1.trans_loc_ms_to_loc_mem.channel_id;
+    uint16_t clear_type = instr->v1.trans_loc_ms_to_loc_mem.clear_type;
+    uint16_t length_en = instr->v1.trans_loc_ms_to_loc_mem.length_en;
+    uint16_t set_cke_id = instr->v1.trans_loc_ms_to_loc_mem.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.trans_loc_ms_to_loc_mem.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.trans_loc_ms_to_loc_mem.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.trans_loc_ms_to_loc_mem.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Trans LocMS[%u:%u] To LocMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
-        waitCKEId, waitCKEMask, locMSId / 0x8000, locMSId % 0x8000, locGSAId, locXnId, lengthXnId, channelId, setCKEId,
-        setCKEMask, clearType, lengthEn);
+        wait_cke_id, wait_cke_mask, loc_ms_id / 0x8000, loc_ms_id % 0x8000, loc_gsa_id, loc_xn_id, length_xn_id, channel_id, set_cke_id,
+        set_cke_mask, clear_type, length_en);
 }
 
-static std::string ParseTransLocMSToRmtMemInstr(const CcuInstr* instr)
+static std::string parse_trans_loc_ms_to_rmt_mem_instr(const ccu_instr* instr)
 {
-    uint16_t rmtGSAId = instr->v1.transLocMSToRmtMem.rmtGSAId;
-    uint16_t rmtXnId = instr->v1.transLocMSToRmtMem.rmtXnId;
-    uint16_t locMSId = instr->v1.transLocMSToRmtMem.locMSId;
-    uint16_t lengthXnId = instr->v1.transLocMSToRmtMem.lengthXnId;
-    uint16_t channelId = instr->v1.transLocMSToRmtMem.channelId;
-    uint16_t clearType = instr->v1.transLocMSToRmtMem.clearType;
-    uint16_t lengthEn = instr->v1.transLocMSToRmtMem.lengthEn;
-    uint16_t setCKEId = instr->v1.transLocMSToRmtMem.setCKEId;
-    uint16_t setCKEMask = instr->v1.transLocMSToRmtMem.setCKEMask;
-    uint16_t waitCKEId = instr->v1.transLocMSToRmtMem.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.transLocMSToRmtMem.waitCKEMask;
+    uint16_t rmt_gsa_id = instr->v1.trans_loc_ms_to_rmt_mem.rmt_gsa_id;
+    uint16_t rmt_xn_id = instr->v1.trans_loc_ms_to_rmt_mem.rmt_xn_id;
+    uint16_t loc_ms_id = instr->v1.trans_loc_ms_to_rmt_mem.loc_ms_id;
+    uint16_t length_xn_id = instr->v1.trans_loc_ms_to_rmt_mem.length_xn_id;
+    uint16_t channel_id = instr->v1.trans_loc_ms_to_rmt_mem.channel_id;
+    uint16_t clear_type = instr->v1.trans_loc_ms_to_rmt_mem.clear_type;
+    uint16_t length_en = instr->v1.trans_loc_ms_to_rmt_mem.length_en;
+    uint16_t set_cke_id = instr->v1.trans_loc_ms_to_rmt_mem.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.trans_loc_ms_to_rmt_mem.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.trans_loc_ms_to_rmt_mem.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.trans_loc_ms_to_rmt_mem.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Trans LocMS[%u:%u] To RmtMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
-        waitCKEId, waitCKEMask, locMSId / 0x8000, locMSId % 0x8000, rmtGSAId, rmtXnId, lengthXnId, channelId, setCKEId,
-        setCKEMask, clearType, lengthEn);
+        wait_cke_id, wait_cke_mask, loc_ms_id / 0x8000, loc_ms_id % 0x8000, rmt_gsa_id, rmt_xn_id, length_xn_id, channel_id, set_cke_id,
+        set_cke_mask, clear_type, length_en);
 }
 
-static std::string ParseTransRmtMSToLocMemInstr(const CcuInstr* instr)
+static std::string parse_trans_rmt_ms_to_loc_mem_instr(const ccu_instr* instr)
 {
-    uint16_t locGSAId = instr->v1.transRmtMSToLocMem.locGSAId;
-    uint16_t locXnId = instr->v1.transRmtMSToLocMem.locXnId;
-    uint16_t rmtMSId = instr->v1.transRmtMSToLocMem.rmtMSId;
-    uint16_t lengthXnId = instr->v1.transRmtMSToLocMem.lengthXnId;
-    uint16_t channelId = instr->v1.transRmtMSToLocMem.channelId;
-    uint16_t clearType = instr->v1.transRmtMSToLocMem.clearType;
-    uint16_t lengthEn = instr->v1.transRmtMSToLocMem.lengthEn;
-    uint16_t setCKEId = instr->v1.transRmtMSToLocMem.setCKEId;
-    uint16_t setCKEMask = instr->v1.transRmtMSToLocMem.setCKEMask;
-    uint16_t waitCKEId = instr->v1.transRmtMSToLocMem.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.transRmtMSToLocMem.waitCKEMask;
+    uint16_t loc_gsa_id = instr->v1.trans_rmt_ms_to_loc_mem.loc_gsa_id;
+    uint16_t loc_xn_id = instr->v1.trans_rmt_ms_to_loc_mem.loc_xn_id;
+    uint16_t rmt_ms_id = instr->v1.trans_rmt_ms_to_loc_mem.rmt_ms_id;
+    uint16_t length_xn_id = instr->v1.trans_rmt_ms_to_loc_mem.length_xn_id;
+    uint16_t channel_id = instr->v1.trans_rmt_ms_to_loc_mem.channel_id;
+    uint16_t clear_type = instr->v1.trans_rmt_ms_to_loc_mem.clear_type;
+    uint16_t length_en = instr->v1.trans_rmt_ms_to_loc_mem.length_en;
+    uint16_t set_cke_id = instr->v1.trans_rmt_ms_to_loc_mem.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.trans_rmt_ms_to_loc_mem.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.trans_rmt_ms_to_loc_mem.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.trans_rmt_ms_to_loc_mem.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Trans RmtMS[%u:%u] To LocMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
-        waitCKEId, waitCKEMask, rmtMSId / 0x8000, rmtMSId % 0x8000, locGSAId, locXnId, lengthXnId, channelId, setCKEId,
-        setCKEMask, clearType, lengthEn);
+        wait_cke_id, wait_cke_mask, rmt_ms_id / 0x8000, rmt_ms_id % 0x8000, loc_gsa_id, loc_xn_id, length_xn_id, channel_id, set_cke_id,
+        set_cke_mask, clear_type, length_en);
 }
 
-static std::string ParseTransLocMSToLocMSInstr(const CcuInstr* instr)
+static std::string parse_trans_loc_ms_to_loc_ms_instr(const ccu_instr* instr)
 {
-    uint16_t dstMSId = instr->v1.transLocMSToLocMS.dstMSId;
-    uint16_t srcMSId = instr->v1.transLocMSToLocMS.srcMSId;
-    uint16_t lengthXnId = instr->v1.transLocMSToLocMS.lengthXnId;
-    uint16_t channelId = instr->v1.transLocMSToLocMS.channelId;
-    uint16_t clearType = instr->v1.transLocMSToLocMS.clearType;
-    uint16_t lengthEn = instr->v1.transLocMSToLocMS.lengthEn;
-    uint16_t setCKEId = instr->v1.transLocMSToLocMS.setCKEId;
-    uint16_t setCKEMask = instr->v1.transLocMSToLocMS.setCKEMask;
-    uint16_t waitCKEId = instr->v1.transLocMSToLocMS.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.transLocMSToLocMS.waitCKEMask;
+    uint16_t dst_ms_id = instr->v1.trans_loc_ms_to_loc_ms.dst_ms_id;
+    uint16_t src_ms_id = instr->v1.trans_loc_ms_to_loc_ms.src_ms_id;
+    uint16_t length_xn_id = instr->v1.trans_loc_ms_to_loc_ms.length_xn_id;
+    uint16_t channel_id = instr->v1.trans_loc_ms_to_loc_ms.channel_id;
+    uint16_t clear_type = instr->v1.trans_loc_ms_to_loc_ms.clear_type;
+    uint16_t length_en = instr->v1.trans_loc_ms_to_loc_ms.length_en;
+    uint16_t set_cke_id = instr->v1.trans_loc_ms_to_loc_ms.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.trans_loc_ms_to_loc_ms.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.trans_loc_ms_to_loc_ms.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.trans_loc_ms_to_loc_ms.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Trans LocMS[%u:%u] To LocMS[%u:%u] With LengthXn[%u] Use Channel[%u], "
         "Set CKE[%u:%04x], "
         "clearType[%u], lengthEn[%u]",
-        waitCKEId, waitCKEMask, srcMSId / 0x8000, srcMSId % 0x8000, dstMSId / 0x8000, dstMSId % 0x8000, lengthXnId,
-        channelId, setCKEId, setCKEMask, clearType, lengthEn);
+        wait_cke_id, wait_cke_mask, src_ms_id / 0x8000, src_ms_id % 0x8000, dst_ms_id / 0x8000, dst_ms_id % 0x8000, length_xn_id,
+        channel_id, set_cke_id, set_cke_mask, clear_type, length_en);
 }
 
-static std::string ParseTransRmtMSToLocMSInstr(const CcuInstr* instr)
+static std::string parse_trans_rmt_ms_to_loc_ms_instr(const ccu_instr* instr)
 {
-    uint16_t locMSId = instr->v1.transRmtMSToLocMS.locMSId;
-    uint16_t rmtMSId = instr->v1.transRmtMSToLocMS.rmtMSId;
-    uint16_t lengthXnId = instr->v1.transRmtMSToLocMS.lengthXnId;
-    uint16_t channelId = instr->v1.transRmtMSToLocMS.channelId;
-    uint16_t clearType = instr->v1.transRmtMSToLocMS.clearType;
-    uint16_t lengthEn = instr->v1.transRmtMSToLocMS.lengthEn;
-    uint16_t setCKEId = instr->v1.transRmtMSToLocMS.setCKEId;
-    uint16_t setCKEMask = instr->v1.transRmtMSToLocMS.setCKEMask;
-    uint16_t waitCKEId = instr->v1.transRmtMSToLocMS.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.transRmtMSToLocMS.waitCKEMask;
+    uint16_t loc_ms_id = instr->v1.trans_rmt_ms_to_loc_ms.loc_ms_id;
+    uint16_t rmt_ms_id = instr->v1.trans_rmt_ms_to_loc_ms.rmt_ms_id;
+    uint16_t length_xn_id = instr->v1.trans_rmt_ms_to_loc_ms.length_xn_id;
+    uint16_t channel_id = instr->v1.trans_rmt_ms_to_loc_ms.channel_id;
+    uint16_t clear_type = instr->v1.trans_rmt_ms_to_loc_ms.clear_type;
+    uint16_t length_en = instr->v1.trans_rmt_ms_to_loc_ms.length_en;
+    uint16_t set_cke_id = instr->v1.trans_rmt_ms_to_loc_ms.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.trans_rmt_ms_to_loc_ms.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.trans_rmt_ms_to_loc_ms.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.trans_rmt_ms_to_loc_ms.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Trans RmtMS[%u:%u] To LocMS[%u:%u] With LengthXn[%u] Use Channel[%u], "
         "Set CKE[%u:%04x], "
         "clearType[%u], lengthEn[%u]",
-        waitCKEId, waitCKEMask, rmtMSId / 0x8000, rmtMSId % 0x8000, locMSId / 0x8000, locMSId % 0x8000, lengthXnId,
-        channelId, setCKEId, setCKEMask, clearType, lengthEn);
+        wait_cke_id, wait_cke_mask, rmt_ms_id / 0x8000, rmt_ms_id % 0x8000, loc_ms_id / 0x8000, loc_ms_id % 0x8000, length_xn_id,
+        channel_id, set_cke_id, set_cke_mask, clear_type, length_en);
 }
 
-static std::string ParseTransLocMSToRmtMSInstr(const CcuInstr* instr)
+static std::string parse_trans_loc_ms_to_rmt_ms_instr(const ccu_instr* instr)
 {
-    uint16_t rmtMSId = instr->v1.transLocMSToRmtMS.rmtMSId;
-    uint16_t locMSId = instr->v1.transLocMSToRmtMS.locMSId;
-    uint16_t lengthXnId = instr->v1.transLocMSToRmtMS.lengthXnId;
-    uint16_t channelId = instr->v1.transLocMSToRmtMS.channelId;
-    uint16_t setRmtCKEId = instr->v1.transLocMSToRmtMS.setRmtCKEId;
-    uint16_t setRmtCKEMask = instr->v1.transLocMSToRmtMS.setRmtCKEMask;
+    uint16_t rmt_ms_id = instr->v1.trans_loc_ms_to_rmt_ms.rmt_ms_id;
+    uint16_t loc_ms_id = instr->v1.trans_loc_ms_to_rmt_ms.loc_ms_id;
+    uint16_t length_xn_id = instr->v1.trans_loc_ms_to_rmt_ms.length_xn_id;
+    uint16_t channel_id = instr->v1.trans_loc_ms_to_rmt_ms.channel_id;
+    uint16_t set_rmt_cke_id = instr->v1.trans_loc_ms_to_rmt_ms.set_rmt_cke_id;
+    uint16_t set_rmt_cke_mask = instr->v1.trans_loc_ms_to_rmt_ms.set_rmt_cke_mask;
 
-    uint16_t clearType = instr->v1.transLocMSToRmtMS.clearType;
-    uint16_t lengthEn = instr->v1.transLocMSToRmtMS.lengthEn;
-    uint16_t setCKEId = instr->v1.transLocMSToRmtMS.setCKEId;
-    uint16_t setCKEMask = instr->v1.transLocMSToRmtMS.setCKEMask;
-    uint16_t waitCKEId = instr->v1.transLocMSToRmtMS.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.transLocMSToRmtMS.waitCKEMask;
+    uint16_t clear_type = instr->v1.trans_loc_ms_to_rmt_ms.clear_type;
+    uint16_t length_en = instr->v1.trans_loc_ms_to_rmt_ms.length_en;
+    uint16_t set_cke_id = instr->v1.trans_loc_ms_to_rmt_ms.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.trans_loc_ms_to_rmt_ms.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.trans_loc_ms_to_rmt_ms.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.trans_loc_ms_to_rmt_ms.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Trans LocMS[%u:%u] To RmtMS[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "RmtCKE[%u:%04x], Set CKE[%u:%04x], clearType[%u], lengthEn[%u]",
-        waitCKEId, waitCKEMask, locMSId / 0x8000, locMSId % 0x8000, rmtMSId / 0x8000, rmtMSId % 0x8000, lengthXnId,
-        channelId, setRmtCKEId, setRmtCKEMask, setCKEId, setCKEMask, clearType, lengthEn);
+        wait_cke_id, wait_cke_mask, loc_ms_id / 0x8000, loc_ms_id % 0x8000, rmt_ms_id / 0x8000, rmt_ms_id % 0x8000, length_xn_id,
+        channel_id, set_rmt_cke_id, set_rmt_cke_mask, set_cke_id, set_cke_mask, clear_type, length_en);
 }
 
-static std::string ParseTransRmtMemToLocMemInstr(const CcuInstr* instr)
+static std::string parse_trans_rmt_mem_to_loc_mem_instr(const ccu_instr* instr)
 {
-    uint16_t locGSAId = instr->v1.transRmtMemToLocMem.locGSAId;
-    uint16_t locXnId = instr->v1.transRmtMemToLocMem.locXnId;
-    uint16_t rmtGSAId = instr->v1.transRmtMemToLocMem.rmtGSAId;
-    uint16_t rmtXnId = instr->v1.transRmtMemToLocMem.rmtXnId;
-    uint16_t lengthXnId = instr->v1.transRmtMemToLocMem.lengthXnId;
-    uint16_t channelId = instr->v1.transRmtMemToLocMem.channelId;
-    uint16_t reduceDataType = instr->v1.transRmtMemToLocMem.reduceDataType;
-    uint16_t reduceOpCode = instr->v1.transRmtMemToLocMem.reduceOpCode;
-    uint16_t clearType = instr->v1.transRmtMemToLocMem.clearType;
-    uint16_t lengthEn = instr->v1.transRmtMemToLocMem.lengthEn;
-    uint16_t reduceEn = instr->v1.transRmtMemToLocMem.reduceEn;
-    uint16_t setCKEId = instr->v1.transRmtMemToLocMem.setCKEId;
-    uint16_t setCKEMask = instr->v1.transRmtMemToLocMem.setCKEMask;
-    uint16_t waitCKEId = instr->v1.transRmtMemToLocMem.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.transRmtMemToLocMem.waitCKEMask;
+    uint16_t loc_gsa_id = instr->v1.trans_rmt_mem_to_loc_mem.loc_gsa_id;
+    uint16_t loc_xn_id = instr->v1.trans_rmt_mem_to_loc_mem.loc_xn_id;
+    uint16_t rmt_gsa_id = instr->v1.trans_rmt_mem_to_loc_mem.rmt_gsa_id;
+    uint16_t rmt_xn_id = instr->v1.trans_rmt_mem_to_loc_mem.rmt_xn_id;
+    uint16_t length_xn_id = instr->v1.trans_rmt_mem_to_loc_mem.length_xn_id;
+    uint16_t channel_id = instr->v1.trans_rmt_mem_to_loc_mem.channel_id;
+    uint16_t reduce_data_type = instr->v1.trans_rmt_mem_to_loc_mem.reduce_data_type;
+    uint16_t reduce_op_code = instr->v1.trans_rmt_mem_to_loc_mem.reduce_op_code;
+    uint16_t clear_type = instr->v1.trans_rmt_mem_to_loc_mem.clear_type;
+    uint16_t length_en = instr->v1.trans_rmt_mem_to_loc_mem.length_en;
+    uint16_t reduce_en = instr->v1.trans_rmt_mem_to_loc_mem.reduce_en;
+    uint16_t set_cke_id = instr->v1.trans_rmt_mem_to_loc_mem.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.trans_rmt_mem_to_loc_mem.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.trans_rmt_mem_to_loc_mem.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.trans_rmt_mem_to_loc_mem.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Trans RmtMem[%u:%u] To LocMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u], DataType[%u], ReduceType[%u] reduceEn[%u]",
-        waitCKEId, waitCKEMask, rmtGSAId, rmtXnId, locGSAId, locXnId, lengthXnId, channelId, setCKEId, setCKEMask,
-        clearType, lengthEn, reduceDataType, reduceOpCode, reduceEn);
+        wait_cke_id, wait_cke_mask, rmt_gsa_id, rmt_xn_id, loc_gsa_id, loc_xn_id, length_xn_id, channel_id, set_cke_id, set_cke_mask,
+        clear_type, length_en, reduce_data_type, reduce_op_code, reduce_en);
 }
 
-static std::string ParseTransLocMemToRmtMemInstr(const CcuInstr* instr)
+static std::string parse_trans_loc_mem_to_rmt_mem_instr(const ccu_instr* instr)
 {
-    uint16_t rmtGSAId = instr->v1.transLocMemToRmtMem.rmtGSAId;
-    uint16_t rmtXnId = instr->v1.transLocMemToRmtMem.rmtXnId;
-    uint16_t locGSAId = instr->v1.transLocMemToRmtMem.locGSAId;
-    uint16_t locXnId = instr->v1.transLocMemToRmtMem.locXnId;
-    uint16_t lengthXnId = instr->v1.transLocMemToRmtMem.lengthXnId;
-    uint16_t channelId = instr->v1.transLocMemToRmtMem.channelId;
-    uint16_t reduceDataType = instr->v1.transLocMemToRmtMem.reduceDataType;
-    uint16_t reduceOpCode = instr->v1.transLocMemToRmtMem.reduceOpCode;
-    uint16_t clearType = instr->v1.transLocMemToRmtMem.clearType;
-    uint16_t lengthEn = instr->v1.transLocMemToRmtMem.lengthEn;
-    uint16_t reduceEn = instr->v1.transLocMemToRmtMem.reduceEn;
-    uint16_t setCKEId = instr->v1.transLocMemToRmtMem.setCKEId;
-    uint16_t setCKEMask = instr->v1.transLocMemToRmtMem.setCKEMask;
-    uint16_t waitCKEId = instr->v1.transLocMemToRmtMem.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.transLocMemToRmtMem.waitCKEMask;
+    uint16_t rmt_gsa_id = instr->v1.trans_loc_mem_to_rmt_mem.rmt_gsa_id;
+    uint16_t rmt_xn_id = instr->v1.trans_loc_mem_to_rmt_mem.rmt_xn_id;
+    uint16_t loc_gsa_id = instr->v1.trans_loc_mem_to_rmt_mem.loc_gsa_id;
+    uint16_t loc_xn_id = instr->v1.trans_loc_mem_to_rmt_mem.loc_xn_id;
+    uint16_t length_xn_id = instr->v1.trans_loc_mem_to_rmt_mem.length_xn_id;
+    uint16_t channel_id = instr->v1.trans_loc_mem_to_rmt_mem.channel_id;
+    uint16_t reduce_data_type = instr->v1.trans_loc_mem_to_rmt_mem.reduce_data_type;
+    uint16_t reduce_op_code = instr->v1.trans_loc_mem_to_rmt_mem.reduce_op_code;
+    uint16_t clear_type = instr->v1.trans_loc_mem_to_rmt_mem.clear_type;
+    uint16_t length_en = instr->v1.trans_loc_mem_to_rmt_mem.length_en;
+    uint16_t reduce_en = instr->v1.trans_loc_mem_to_rmt_mem.reduce_en;
+    uint16_t set_cke_id = instr->v1.trans_loc_mem_to_rmt_mem.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.trans_loc_mem_to_rmt_mem.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.trans_loc_mem_to_rmt_mem.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.trans_loc_mem_to_rmt_mem.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Trans LocMem[%u:%u] To RmtMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u], DataType[%u], ReduceType[%u] reduceEn[%u]",
-        waitCKEId, waitCKEMask, locGSAId, locXnId, rmtGSAId, rmtXnId, lengthXnId, channelId, setCKEId, setCKEMask,
-        clearType, lengthEn, reduceDataType, reduceOpCode, reduceEn);
+        wait_cke_id, wait_cke_mask, loc_gsa_id, loc_xn_id, rmt_gsa_id, rmt_xn_id, length_xn_id, channel_id, set_cke_id, set_cke_mask,
+        clear_type, length_en, reduce_data_type, reduce_op_code, reduce_en);
 }
 
-static std::string ParseTransLocMemToLocMemInstr(const CcuInstr* instr)
+static std::string parse_trans_loc_mem_to_loc_mem_instr(const ccu_instr* instr)
 {
-    uint16_t dstGSAId = instr->v1.transLocMemToLocMem.dstGSAId;
-    uint16_t dstXnId = instr->v1.transLocMemToLocMem.dstXnId;
-    uint16_t srcGSAId = instr->v1.transLocMemToLocMem.srcGSAId;
-    uint16_t srcXnId = instr->v1.transLocMemToLocMem.srcXnId;
-    uint16_t lengthXnId = instr->v1.transLocMemToLocMem.lengthXnId;
-    uint16_t channelId = instr->v1.transLocMemToLocMem.channelId;
-    uint16_t clearType = instr->v1.transLocMemToLocMem.clearType;
-    uint16_t lengthEn = instr->v1.transLocMemToLocMem.lengthEn;
-    uint16_t setCKEId = instr->v1.transLocMemToLocMem.setCKEId;
-    uint16_t setCKEMask = instr->v1.transLocMemToLocMem.setCKEMask;
-    uint16_t waitCKEId = instr->v1.transLocMemToLocMem.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.transLocMemToLocMem.waitCKEMask;
+    uint16_t dst_gsa_id = instr->v1.trans_loc_mem_to_loc_mem.dst_gsa_id;
+    uint16_t dst_xn_id = instr->v1.trans_loc_mem_to_loc_mem.dst_xn_id;
+    uint16_t src_gsa_id = instr->v1.trans_loc_mem_to_loc_mem.src_gsa_id;
+    uint16_t src_xn_id = instr->v1.trans_loc_mem_to_loc_mem.src_xn_id;
+    uint16_t length_xn_id = instr->v1.trans_loc_mem_to_loc_mem.length_xn_id;
+    uint16_t channel_id = instr->v1.trans_loc_mem_to_loc_mem.channel_id;
+    uint16_t clear_type = instr->v1.trans_loc_mem_to_loc_mem.clear_type;
+    uint16_t length_en = instr->v1.trans_loc_mem_to_loc_mem.length_en;
+    uint16_t set_cke_id = instr->v1.trans_loc_mem_to_loc_mem.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.trans_loc_mem_to_loc_mem.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.trans_loc_mem_to_loc_mem.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.trans_loc_mem_to_loc_mem.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Trans LocMem[%u:%u] To LocMem[%u:%u] With LengthXn[%u] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u], lengthEn[%u]",
-        waitCKEId, waitCKEMask, srcGSAId, srcXnId, dstGSAId, dstXnId, lengthXnId, channelId, setCKEId, setCKEMask,
-        clearType, lengthEn);
+        wait_cke_id, wait_cke_mask, src_gsa_id, src_xn_id, dst_gsa_id, dst_xn_id, length_xn_id, channel_id, set_cke_id, set_cke_mask,
+        clear_type, length_en);
 }
 
-static std::string ParseSyncCKEInstr(const CcuInstr* instr)
+static std::string parse_sync_cke_instr(const ccu_instr* instr)
 {
-    uint16_t rmtCKEId = instr->v1.syncCKE.rmtCKEId;
-    uint16_t locCKEId = instr->v1.syncCKE.locCKEId;
-    uint16_t locCKEMask = instr->v1.syncCKE.locCKEMask;
-    uint16_t channelId = instr->v1.syncCKE.channelId;
-    uint16_t clearType = instr->v1.syncCKE.clearType;
-    uint16_t setCKEId = instr->v1.syncCKE.setCKEId;
-    uint16_t setCKEMask = instr->v1.syncCKE.setCKEMask;
-    uint16_t waitCKEId = instr->v1.syncCKE.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.syncCKE.waitCKEMask;
+    uint16_t rmt_cke_id = instr->v1.sync_cke.rmt_cke_id;
+    uint16_t loc_cke_id = instr->v1.sync_cke.loc_cke_id;
+    uint16_t loc_cke_mask = instr->v1.sync_cke.loc_cke_mask;
+    uint16_t channel_id = instr->v1.sync_cke.channel_id;
+    uint16_t clear_type = instr->v1.sync_cke.clear_type;
+    uint16_t set_cke_id = instr->v1.sync_cke.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.sync_cke.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.sync_cke.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.sync_cke.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Sync LocCKE[%u:%04x] To rmtCKE[%u:%04x] Use Channel[%u], Set "
         "CKE[%u:%04x], clearType[%u]",
-        waitCKEId, waitCKEMask, locCKEId, locCKEMask, rmtCKEId, locCKEMask, channelId, setCKEId, setCKEMask, clearType);
+        wait_cke_id, wait_cke_mask, loc_cke_id, loc_cke_mask, rmt_cke_id, loc_cke_mask, channel_id, set_cke_id, set_cke_mask, clear_type);
 }
 
-static std::string ParseSyncGSAInstr(const CcuInstr* instr)
+static std::string parse_sync_gsa_instr(const ccu_instr* instr)
 {
-    uint16_t rmtGSAId = instr->v1.syncGSA.rmtGSAId;
-    uint16_t locGSAId = instr->v1.syncGSA.locGSAId;
-    uint16_t channelId = instr->v1.syncGSA.channelId;
-    uint16_t setRmtCKEId = instr->v1.syncGSA.setRmtCKEId;
-    uint16_t setRmtCKEMask = instr->v1.syncGSA.setRmtCKEMask;
-    uint16_t clearType = instr->v1.syncGSA.clearType;
-    uint16_t setCKEId = instr->v1.syncGSA.setCKEId;
-    uint16_t setCKEMask = instr->v1.syncGSA.setCKEMask;
-    uint16_t waitCKEId = instr->v1.syncGSA.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.syncGSA.waitCKEMask;
+    uint16_t rmt_gsa_id = instr->v1.sync_gsa.rmt_gsa_id;
+    uint16_t loc_gsa_id = instr->v1.sync_gsa.loc_gsa_id;
+    uint16_t channel_id = instr->v1.sync_gsa.channel_id;
+    uint16_t set_rmt_cke_id = instr->v1.sync_gsa.set_rmt_cke_id;
+    uint16_t set_rmt_cke_mask = instr->v1.sync_gsa.set_rmt_cke_mask;
+    uint16_t clear_type = instr->v1.sync_gsa.clear_type;
+    uint16_t set_cke_id = instr->v1.sync_gsa.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.sync_gsa.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.sync_gsa.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.sync_gsa.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Sync locGSAId[%u] To rmtGSAId[%u] Use Channel[%u], Set rmtCKE[%u:%04x], Set "
         "CKE[%u:%04x], clearType[%u]",
-        waitCKEId, waitCKEMask, locGSAId, rmtGSAId, channelId, setRmtCKEId, setRmtCKEMask, setCKEId, setCKEMask,
-        clearType);
+        wait_cke_id, wait_cke_mask, loc_gsa_id, rmt_gsa_id, channel_id, set_rmt_cke_id, set_rmt_cke_mask, set_cke_id, set_cke_mask,
+        clear_type);
 }
 
-static std::string ParseSyncXnInstr(const CcuInstr* instr)
+static std::string parse_sync_xn_instr(const ccu_instr* instr)
 {
-    uint16_t rmtXnId = instr->v1.syncXn.rmtXnId;
-    uint16_t locXnId = instr->v1.syncXn.locXnId;
-    uint16_t channelId = instr->v1.syncXn.channelId;
-    uint16_t setRmtCKEId = instr->v1.syncXn.setRmtCKEId;
-    uint16_t setRmtCKEMask = instr->v1.syncXn.setRmtCKEMask;
-    uint16_t clearType = instr->v1.syncXn.clearType;
-    uint16_t setCKEId = instr->v1.syncXn.setCKEId;
-    uint16_t setCKEMask = instr->v1.syncXn.setCKEMask;
-    uint16_t waitCKEId = instr->v1.syncXn.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.syncXn.waitCKEMask;
+    uint16_t rmt_xn_id = instr->v1.sync_xn.rmt_xn_id;
+    uint16_t loc_xn_id = instr->v1.sync_xn.loc_xn_id;
+    uint16_t channel_id = instr->v1.sync_xn.channel_id;
+    uint16_t set_rmt_cke_id = instr->v1.sync_xn.set_rmt_cke_id;
+    uint16_t set_rmt_cke_mask = instr->v1.sync_xn.set_rmt_cke_mask;
+    uint16_t clear_type = instr->v1.sync_xn.clear_type;
+    uint16_t set_cke_id = instr->v1.sync_xn.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.sync_xn.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.sync_xn.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.sync_xn.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Sync locXnId[%u] To rmtXnId[%u] Use Channel[%u], Set rmtCKE[%u:%04x], Set "
         "CKE[%u:%04x], clearType[%u]",
-        waitCKEId, waitCKEMask, locXnId, rmtXnId, channelId, setRmtCKEId, setRmtCKEMask, setCKEId, setCKEMask,
-        clearType);
+        wait_cke_id, wait_cke_mask, loc_xn_id, rmt_xn_id, channel_id, set_rmt_cke_id, set_rmt_cke_mask, set_cke_id, set_cke_mask,
+        clear_type);
 }
 
-static std::string ParseMSList(const CcuInstr* instr)
+static std::string parse_ms_list(const ccu_instr* instr)
 {
-    uint16_t msId[CCU_REDUCE_MAX_MS];
+    uint16_t ms_id[ccu_reduce_max_ms];
     uint16_t count = instr->v1.add.count;
-    for (uint16_t index = 0; index < CCU_REDUCE_MAX_MS; index++) {
-        msId[index] = instr->v1.add.msId[index];
+    for (uint16_t index = 0; index < ccu_reduce_max_ms; index++) {
+        ms_id[index] = instr->v1.add.ms_id[index];
     }
 
     // CCU指令中指定count数为实际参与运算的MS数减2，因此当count +
     // 2大于CCU_REDUCE_MAX_MS时，说明MS列表中的MS数量超过了CCU指令的最大支持数量，此时无法正确解析MS列表，直接返回"MS[]"
-    if (count + 2 > CCU_REDUCE_MAX_MS) {
+    if (count + 2 > ccu_reduce_max_ms) {
         return "MS[]";
     }
 
     std::string res = "MS[";
     for (uint16_t i = 0; i < count + 2; i++) { // 循环范围 0~count + 2
         if (i == count + 1) {
-            res += std::to_string(msId[i] / 0x8000) + ":" + std::to_string(msId[i] % 0x8000) + "]";
+            res += std::to_string(ms_id[i] / 0x8000) + ":" + std::to_string(ms_id[i] % 0x8000) + "]";
         } else {
-            res += std::to_string(msId[i] / 0x8000) + ":" + std::to_string(msId[i] % 0x8000) + ", ";
+            res += std::to_string(ms_id[i] / 0x8000) + ":" + std::to_string(ms_id[i] % 0x8000) + ", ";
         }
     }
     return res;
 }
 
-static std::string ParseAddInstr(const CcuInstr* instr)
+static std::string parse_add_instr(const ccu_instr* instr)
 {
     uint16_t count = instr->v1.add.count;
-    uint16_t castEn = instr->v1.add.castEn;
-    uint16_t dataType = instr->v1.add.dataType;
-    uint16_t clearType = instr->v1.add.clearType;
-    uint16_t setCKEId = instr->v1.add.setCKEId;
-    uint16_t setCKEMask = instr->v1.add.setCKEMask;
-    uint16_t waitCKEId = instr->v1.add.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.add.waitCKEMask;
+    uint16_t cast_en = instr->v1.add.cast_en;
+    uint16_t data_type = instr->v1.add.data_type;
+    uint16_t clear_type = instr->v1.add.clear_type;
+    uint16_t set_cke_id = instr->v1.add.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.add.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.add.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.add.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Wait CKE[%u:%04x], Add %s with Count[%u], DataType[%u] and CastEn[%u], Set CKE[%u:%04x], clearType[%u]",
-        waitCKEId, waitCKEMask, ParseMSList(instr).c_str(), count, dataType, castEn, setCKEId, setCKEMask, clearType);
+        wait_cke_id, wait_cke_mask, parse_ms_list(instr).c_str(), count, data_type, cast_en, set_cke_id, set_cke_mask, clear_type);
 }
 
-static std::string ParseMaxInstr(const CcuInstr* instr)
+static std::string parse_max_instr(const ccu_instr* instr)
 {
     uint16_t count = instr->v1.max.count;
-    uint16_t dataType = instr->v1.max.dataType;
-    uint16_t clearType = instr->v1.max.clearType;
-    uint16_t setCKEId = instr->v1.max.setCKEId;
-    uint16_t setCKEMask = instr->v1.max.setCKEMask;
-    uint16_t waitCKEId = instr->v1.max.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.max.waitCKEMask;
+    uint16_t data_type = instr->v1.max.data_type;
+    uint16_t clear_type = instr->v1.max.clear_type;
+    uint16_t set_cke_id = instr->v1.max.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.max.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.max.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.max.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
-        "Wait CKE[%u:%04x], Max %s with Count[%u], DataType[%u], Set CKE[%u:%04x], clearType[%u]", waitCKEId,
-        waitCKEMask, ParseMSList(instr).c_str(), count, dataType, setCKEId, setCKEMask, clearType);
+    return asc::format_ccu_message(
+        "Wait CKE[%u:%04x], Max %s with Count[%u], DataType[%u], Set CKE[%u:%04x], clearType[%u]", wait_cke_id,
+        wait_cke_mask, parse_ms_list(instr).c_str(), count, data_type, set_cke_id, set_cke_mask, clear_type);
 }
 
-static std::string ParseMinInstr(const CcuInstr* instr)
+static std::string parse_min_instr(const ccu_instr* instr)
 {
     uint16_t count = instr->v1.min.count;
-    uint16_t dataType = instr->v1.min.dataType;
-    uint16_t clearType = instr->v1.min.clearType;
-    uint16_t setCKEId = instr->v1.min.setCKEId;
-    uint16_t setCKEMask = instr->v1.min.setCKEMask;
-    uint16_t waitCKEId = instr->v1.min.waitCKEId;
-    uint16_t waitCKEMask = instr->v1.min.waitCKEMask;
+    uint16_t data_type = instr->v1.min.data_type;
+    uint16_t clear_type = instr->v1.min.clear_type;
+    uint16_t set_cke_id = instr->v1.min.set_cke_id;
+    uint16_t set_cke_mask = instr->v1.min.set_cke_mask;
+    uint16_t wait_cke_id = instr->v1.min.wait_cke_id;
+    uint16_t wait_cke_mask = instr->v1.min.wait_cke_mask;
 
-    return asccomm::FormatCcuMessage(
-        "Wait CKE[%u:%04x], Min %s with Count[%u], DataType[%u], Set CKE[%u:%04x], clearType[%u]", waitCKEId,
-        waitCKEMask, ParseMSList(instr).c_str(), count, dataType, setCKEId, setCKEMask, clearType);
+    return asc::format_ccu_message(
+        "Wait CKE[%u:%04x], Min %s with Count[%u], DataType[%u], Set CKE[%u:%04x], clearType[%u]", wait_cke_id,
+        wait_cke_mask, parse_ms_list(instr).c_str(), count, data_type, set_cke_id, set_cke_mask, clear_type);
 }
 
-using ParseInstrFunc = std::string (*)(const CcuInstr*);
+using parse_instr_func = std::string (*)(const ccu_instr*);
 
-static std::unordered_map<uint16_t, ParseInstrFunc> g_parseInstrSqeMap = {
-    {InstrHeader(LOAD_TYPE, LOADSQEARGSTOGSA_CODE).header, &ParseLoadSqeArgsToGSAInstr},
-    {InstrHeader(LOAD_TYPE, LOADSQEARGSTOXN_CODE).header, &ParseLoadSqeArgsToXnInstr},
-    {InstrHeader(LOAD_TYPE, LOADIMDTOGSA_CODE).header, &ParseLoadImdToGSAInstr},
-    {InstrHeader(LOAD_TYPE, LOADIMDTOXN_CODE).header, &ParseLoadImdToXnInstr},
-    {InstrHeader(LOAD_TYPE, LOADGSAXN_CODE).header, &ParseLoadGSAXnInstr},
-    {InstrHeader(LOAD_TYPE, LOADGSAGSA_CODE).header, &ParseLoadGSAGSAInstr},
-    {InstrHeader(LOAD_TYPE, LOADXX_CODE).header, &ParseLoadXXInstr},
-    {InstrHeader(CTRL_TYPE, LOOP_CODE).header, &ParseLoopInstr},
-    {InstrHeader(CTRL_TYPE, LOOPGROUP_CODE).header, &ParseLoopGroupInstr},
-    {InstrHeader(CTRL_TYPE, SETCKE_CODE).header, &ParseSetCKEInstr},
-    {InstrHeader(CTRL_TYPE, CLEARCKE_CODE).header, &ParseClearCKEInstr},
-    {InstrHeader(CTRL_TYPE, JMP_CODE).header, &ParseJumpInstr},
-    {InstrHeader(TRANS_TYPE, TRANSLOCMEMTOLOCMS_CODE).header, &ParseTransLocMemToLocMSInstr},
-    {InstrHeader(TRANS_TYPE, TRANSRMTMEMTOLOCMS_CODE).header, &ParseTransRmtMemToLocMSInstr},
-    {InstrHeader(TRANS_TYPE, TRANSLOCMSTOLOCMEM_CODE).header, &ParseTransLocMSToLocMemInstr},
-    {InstrHeader(TRANS_TYPE, TRANSLOCMSTORMTMEM_CODE).header, &ParseTransLocMSToRmtMemInstr},
-    {InstrHeader(TRANS_TYPE, TRANSRMTMSTOLOCMEM_CODE).header, &ParseTransRmtMSToLocMemInstr},
-    {InstrHeader(TRANS_TYPE, TRANSLOCMSTOLOCMS_CODE).header, &ParseTransLocMSToLocMSInstr},
-    {InstrHeader(TRANS_TYPE, TRANSRMTMSTOLOCMS_CODE).header, &ParseTransRmtMSToLocMSInstr},
-    {InstrHeader(TRANS_TYPE, TRANSLOCMSTORMTMS_CODE).header, &ParseTransLocMSToRmtMSInstr},
-    {InstrHeader(TRANS_TYPE, TRANSRMTMEMTOLOCMEM_CODE).header, &ParseTransRmtMemToLocMemInstr},
-    {InstrHeader(TRANS_TYPE, TRANSLOCMEMTORMTMEM_CODE).header, &ParseTransLocMemToRmtMemInstr},
-    {InstrHeader(TRANS_TYPE, TRANSLOCMEMTOLOCMEM_CODE).header, &ParseTransLocMemToLocMemInstr},
-    {InstrHeader(TRANS_TYPE, SYNCCKE_CODE).header, &ParseSyncCKEInstr},
-    {InstrHeader(TRANS_TYPE, SYNCGSA_CODE).header, &ParseSyncGSAInstr},
-    {InstrHeader(TRANS_TYPE, SYNCXN_CODE).header, &ParseSyncXnInstr},
-    {InstrHeader(REDUCE_TYPE, ADD_CODE).header, &ParseAddInstr},
-    {InstrHeader(REDUCE_TYPE, MAX_CODE).header, &ParseMaxInstr},
-    {InstrHeader(REDUCE_TYPE, MIN_CODE).header, &ParseMinInstr},
+static std::unordered_map<uint16_t, parse_instr_func> g_parse_instr_sqe_map = {
+    {instr_header(load_type, loadsqeargstogsa_code).header, &parse_load_sqe_args_to_gsa_instr},
+    {instr_header(load_type, loadsqeargstoxn_code).header, &parse_load_sqe_args_to_xn_instr},
+    {instr_header(load_type, loadimdtogsa_code).header, &parse_load_imd_to_gsa_instr},
+    {instr_header(load_type, loadimdtoxn_code).header, &parse_load_imd_to_xn_instr},
+    {instr_header(load_type, loadgsaxn_code).header, &parse_load_gsa_xn_instr},
+    {instr_header(load_type, loadgsagsa_code).header, &parse_load_gsagsa_instr},
+    {instr_header(load_type, loadxx_code).header, &parse_load_xx_instr},
+    {instr_header(ctrl_type, loop_code).header, &parse_loop_instr},
+    {instr_header(ctrl_type, loopgroup_code).header, &parse_loop_group_instr},
+    {instr_header(ctrl_type, setcke_code).header, &parse_set_cke_instr},
+    {instr_header(ctrl_type, clearcke_code).header, &parse_clear_cke_instr},
+    {instr_header(ctrl_type, jmp_code).header, &parse_jump_instr},
+    {instr_header(trans_type, translocmemtolocms_code).header, &parse_trans_loc_mem_to_loc_ms_instr},
+    {instr_header(trans_type, transrmtmemtolocms_code).header, &parse_trans_rmt_mem_to_loc_ms_instr},
+    {instr_header(trans_type, translocmstolocmem_code).header, &parse_trans_loc_ms_to_loc_mem_instr},
+    {instr_header(trans_type, translocmstormtmem_code).header, &parse_trans_loc_ms_to_rmt_mem_instr},
+    {instr_header(trans_type, transrmtmstolocmem_code).header, &parse_trans_rmt_ms_to_loc_mem_instr},
+    {instr_header(trans_type, translocmstolocms_code).header, &parse_trans_loc_ms_to_loc_ms_instr},
+    {instr_header(trans_type, transrmtmstolocms_code).header, &parse_trans_rmt_ms_to_loc_ms_instr},
+    {instr_header(trans_type, translocmstormtms_code).header, &parse_trans_loc_ms_to_rmt_ms_instr},
+    {instr_header(trans_type, transrmtmemtolocmem_code).header, &parse_trans_rmt_mem_to_loc_mem_instr},
+    {instr_header(trans_type, translocmemtormtmem_code).header, &parse_trans_loc_mem_to_rmt_mem_instr},
+    {instr_header(trans_type, translocmemtolocmem_code).header, &parse_trans_loc_mem_to_loc_mem_instr},
+    {instr_header(trans_type, synccke_code).header, &parse_sync_cke_instr},
+    {instr_header(trans_type, syncgsa_code).header, &parse_sync_gsa_instr},
+    {instr_header(trans_type, syncxn_code).header, &parse_sync_xn_instr},
+    {instr_header(reduce_type, add_code).header, &parse_add_instr},
+    {instr_header(reduce_type, max_code).header, &parse_max_instr},
+    {instr_header(reduce_type, min_code).header, &parse_min_instr},
 };
 
-std::string ParseInstr(const CcuInstr* instr)
+std::string parse_instr(const ccu_instr* instr)
 {
-    if (g_parseInstrSqeMap.find(instr->header.header) == g_parseInstrSqeMap.end()) {
-        return asccomm::FormatCcuMessage("Unsupported instruction with header: 0x%04x", instr->header.header);
+    if (g_parse_instr_sqe_map.find(instr->header.header) == g_parse_instr_sqe_map.end()) {
+        return asc::format_ccu_message("Unsupported instruction with header: 0x%04x", instr->header.header);
     }
-    return g_parseInstrSqeMap[instr->header.header](instr);
+    return g_parse_instr_sqe_map[instr->header.header](instr);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

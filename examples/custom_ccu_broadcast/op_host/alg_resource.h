@@ -18,25 +18,25 @@
 
 namespace ops_hccl_bcast {
 
-using CcuKernelHandle = uint64_t;
+using ccu_kernel_handle = uint64_t;
 constexpr uint32_t MAX_RANK_SIZE = 16;
 
 struct AlgResourceCtx {
     std::vector<ThreadHandle> threads;
-    std::vector<CcuKernelHandle> ccuKernels;
+    std::vector<ccu_kernel_handle> ccuKernels;
 };
 
 struct OpParam {
     aclrtStream stream;
     void* buffer = nullptr;
-    uint64_t count = 0;
-    HcclDataType dataType;
+    uint64_t count_ = 0;
+    HcclDataType data_type_;
     uint32_t rootRank = 0;
     uint32_t myRank = 0;
     uint32_t rankSize = 0;
 };
 
-HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost);
+HcclResult AllocAlgResource(HcclComm comm, const OpParam& param_, AlgResourceCtx& resCtxHost);
 
 } // namespace ops_hccl_bcast
 

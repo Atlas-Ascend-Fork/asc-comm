@@ -16,56 +16,56 @@
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepWrite::CcuRepWrite(
-    CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem, LocalAddr loc, Variable len,
-    CompletedEvent sem, uint16_t mask)
-    : insGenPtr(insGenPtr), channel(channel), rem(rem), loc(loc), len(len), sem(sem), mask(mask)
+ccu_rep_write::ccu_rep_write(
+    ccu_ins_generater_base* ins_gen_ptr, const ChannelHandle channel, remote_addr rem, local_addr loc, variable len,
+    completed_event sem, uint16_t mask)
+    : ins_gen_ptr_(ins_gen_ptr), channel_(channel), rem_(rem), loc_(loc), len_(len), sem_(sem), mask_(mask)
 {
-    type = CcuRepType::WRITE;
-    instrCount = insGenPtr->GetInstrCount(type);
+    type_ = ccu_rep_type::write;
+    instr_count_ = ins_gen_ptr->get_instr_count(type_);
 }
 
-CcuRepWrite::CcuRepWrite(
-    CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, RemoteAddr rem, LocalAddr loc, Variable len,
-    uint16_t dataType, uint16_t opType, CompletedEvent sem, uint16_t mask)
-    : insGenPtr(insGenPtr),
-      channel(channel),
-      rem(rem),
-      loc(loc),
-      len(len),
-      sem(sem),
-      mask(mask),
-      dataType(dataType),
-      opType(opType),
-      reduceFlag(1)
+ccu_rep_write::ccu_rep_write(
+    ccu_ins_generater_base* ins_gen_ptr, const ChannelHandle channel, remote_addr rem, local_addr loc, variable len,
+    uint16_t data_type, uint16_t op_type, completed_event sem, uint16_t mask)
+    : ins_gen_ptr_(ins_gen_ptr),
+      channel_(channel),
+      rem_(rem),
+      loc_(loc),
+      len_(len),
+      sem_(sem),
+      mask_(mask),
+      data_type_(data_type),
+      op_type_(op_type),
+      reduce_flag_(1)
 {
-    type = CcuRepType::WRITE;
-    instrCount = 1;
+    type_ = ccu_rep_type::write;
+    instr_count_ = 1;
 }
 
-bool CcuRepWrite::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_write::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr->CcuRepWriteTranslate(ccuKernel, instr, this) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepWrite][Translate] failed to translate for instrId[%u]", instrId), CcuResult::CCU_E_INTERNAL,
+        ins_gen_ptr_->ccu_rep_write_translate(ccu_kernel, instr, this) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepWrite][translate] failed to translate for instrId[%u]", instr_id), CcuResult::CCU_E_INTERNAL,
         "CcuRepWrite translate failed");
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepWrite::Describe()
+std::string ccu_rep_write::describe()
 {
-    return asccomm::FormatCcuMessage(
+    return asc::format_ccu_message(
         "Write RemoteAddr[%u] to LocalAddr[%u], length[%u], set sem[%u] with mask[%04x], dataType[%u], opType[%u]",
-        loc.addr.Id(), rem.addr.Id(), len.Id(), sem.Id(), mask, dataType, opType);
+        loc_.addr.id(), rem_.addr.id(), len_.id(), sem_.id(), mask_, data_type_, op_type_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

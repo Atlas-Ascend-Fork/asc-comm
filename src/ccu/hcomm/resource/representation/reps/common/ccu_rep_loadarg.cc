@@ -14,35 +14,35 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepLoadArg::CcuRepLoadArg(CcuInsGeneraterBase* insGenPtr, const Variable& var, uint16_t argId, uint16_t fullArgId)
-    : insGeneratorPtr_(insGenPtr), var(var), argId(argId), fullArgId(fullArgId)
+ccu_rep_load_arg::ccu_rep_load_arg(ccu_ins_generater_base* ins_gen_ptr, const variable& var, uint16_t arg_id, uint16_t full_arg_id)
+    : ins_generator_ptr_(ins_gen_ptr), var_(var), arg_id_(arg_id), full_arg_id_(full_arg_id)
 {
-    type = CcuRepType::LOAD_ARG;
-    instrCount = insGeneratorPtr_->GetInstrCount(type);
+    type_ = ccu_rep_type::load_arg;
+    instr_count_ = ins_generator_ptr_->get_instr_count(type_);
 }
 
-bool CcuRepLoadArg::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_load_arg::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGeneratorPtr_->CcuRepLoadArgTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepLoadArg][Translate] failed to translate for instrId[%u]", instrId),
+        ins_generator_ptr_->ccu_rep_load_arg_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepLoadArg][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepLoadArg translate failed");
 
-    instrId += instrCount;
+    instr_id += instr_count_;
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepLoadArg::Describe()
+std::string ccu_rep_load_arg::describe()
 {
-    return asccomm::FormatCcuMessage("Variable[%u] = Arg[%u] (slot=%u)", var.Id(), fullArgId, argId);
+    return asc::format_ccu_message("Variable[%u] = Arg[%u] (slot=%u)", var_.id(), full_arg_id_, arg_id_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

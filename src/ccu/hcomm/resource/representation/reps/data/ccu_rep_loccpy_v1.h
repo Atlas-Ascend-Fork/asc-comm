@@ -8,72 +8,72 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_LOCCPY_H
-#define HCOMM_CCU_REPRESENTATION_LOCCPY_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_LOCCPY_H
+#define ASCCOMM_CCU_REPRESENTATION_LOCCPY_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepLocCpy : public CcuRepBase {
+class ccu_rep_loc_cpy : public ccu_rep_base {
 public:
-    CcuRepLocCpy(
-        CcuInsGeneraterBase* insGenPtr, LocalAddr dst, LocalAddr src, Variable len, CompletedEvent sem, uint16_t mask);
-    CcuRepLocCpy(
-        CcuInsGeneraterBase* insGenPtr, LocalAddr dst, LocalAddr src, Variable len, uint16_t dataType, uint16_t opType,
-        CompletedEvent sem, uint16_t mask);
+    ccu_rep_loc_cpy(
+        ccu_ins_generater_base* ins_gen_ptr, local_addr dst, local_addr src, variable len, completed_event sem, uint16_t mask);
+    ccu_rep_loc_cpy(
+        ccu_ins_generater_base* ins_gen_ptr, local_addr dst, local_addr src, variable len, uint16_t data_type, uint16_t op_type,
+        completed_event sem, uint16_t mask);
 
     // 临时验证
-    CcuRepLocCpy(
-        CcuInsGeneraterBase* insGenPtr, LocalAddr dst, LocalAddr src, Variable len, const std::vector<CcuBuf>& bufs,
-        CompletedEvent sem, uint16_t mask);
+    ccu_rep_loc_cpy(
+        ccu_ins_generater_base* ins_gen_ptr, local_addr dst, local_addr src, variable len, const std::vector<ccu_buf>& bufs,
+        completed_event sem, uint16_t mask);
 
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    uint16_t GetSrcAddrId() { return src.addr.Id(); }
-    uint16_t GetSrcTokenId() { return src.token.Id(); }
-    uint16_t GetDstAddrId() { return dst.addr.Id(); }
-    uint16_t GetDstTokenId() { return dst.token.Id(); }
-    uint16_t GetLenId() { return len.Id(); }
-    uint16_t GetSemId() { return sem.Id(); }
-    uint16_t GetDataType() { return dataType; }
-    uint16_t GetOpType() { return opType; }
-    const std::vector<CcuBuf>& GetBufs() { return bufs; }
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    uint16_t get_src_addr_id() { return src_.addr.id(); }
+    uint16_t get_src_token_id() { return src_.token.id(); }
+    uint16_t get_dst_addr_id() { return dst_.addr.id(); }
+    uint16_t get_dst_token_id() { return dst_.token.id(); }
+    uint16_t get_len_id() { return len_.id(); }
+    uint16_t get_sem_id() { return sem_.id(); }
+    uint16_t get_data_type() { return data_type_; }
+    uint16_t get_op_type() { return op_type_; }
+    const std::vector<ccu_buf>& get_bufs() { return bufs_; }
 
-    LocalAddr GetDst() { return dst; }
-    LocalAddr GetSrc() { return src; }
-    Variable GetLen() { return len; }
-    CompletedEvent GetSem() { return sem; }
-    uint16_t GetMask() { return mask; }
-    uint16_t GetReduceFlag() { return reduceFlag; }
-    bool GetUseCcuBuffer() { return useCcuBuffer; }
+    local_addr get_dst() { return dst_; }
+    local_addr get_src() { return src_; }
+    variable get_len() { return len_; }
+    completed_event get_sem() { return sem_; }
+    uint16_t get_mask() { return mask_; }
+    uint16_t get_reduce_flag() { return reduce_flag_; }
+    bool get_use_ccu_buffer() { return use_ccu_buffer_; }
 
-    uint16_t GetFirstBufId();
-    uint16_t GetUsedBufNum();
+    uint16_t get_first_buf_id();
+    uint16_t get_used_buf_num();
 
 private:
-    void ValidateInsGeneratorForLocCpy();
+    void validate_ins_generator_for_loc_cpy();
 
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    LocalAddr dst;
-    LocalAddr src;
-    Variable len;
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
+    local_addr dst_;
+    local_addr src_;
+    variable len_;
 
     // 用于A6场景locmem2locmem搬运
-    std::vector<CcuBuf> bufs;
+    std::vector<ccu_buf> bufs_;
 
-    CompletedEvent sem;
-    uint16_t mask{0};
+    completed_event sem_;
+    uint16_t mask_{0};
 
-    uint16_t dataType{0};
-    uint16_t opType{0};
-    uint16_t reduceFlag{0};
+    uint16_t data_type_{0};
+    uint16_t op_type_{0};
+    uint16_t reduce_flag_{0};
 
-    bool useCcuBuffer = false;
+    bool use_ccu_buffer_ = false;
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_LOCCPY_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_LOCCPY_H

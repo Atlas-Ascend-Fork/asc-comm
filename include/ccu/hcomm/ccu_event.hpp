@@ -21,30 +21,30 @@
 namespace AscendC {
 namespace ccu {
 
-template <typename U>
-class Array;
+template <typename u>
+class array;
 
-class Event final {
+class event final {
 public:
-    Event() { CCU_THROW_IF_FAILED(::asccomm::CcuEventAlloc(&this->handle), "CcuEventAlloc: failed"); }
+    event() { CCU_THROW_IF_FAILED(::asc::ccu_event_alloc(&this->handle), "ccu_event_alloc: failed"); }
 
-    explicit Event(CcuEventHandle acqHandle, uint32_t index = 0) {
-        CCU_THROW_IF_FAILED(::asccomm::CcuEventGetByIndex(acqHandle, index, &this->handle),
-            "CcuEventGetByIndex: failed");
+    explicit event(ccu_event_handle acq_handle, uint32_t index = 0) {
+        CCU_THROW_IF_FAILED(::asc::ccu_event_get_by_index(acq_handle, index, &this->handle),
+            "ccu_event_get_by_index: failed");
     }
 
-    Event(const Event& other) : handle(other.handle) {}
+    event(const event& other) : handle(other.handle) {}
 
-    Event(Event&& other) noexcept : handle(other.handle) {}
+    event(event&& other) noexcept : handle(other.handle) {}
 
-    void operator=(Event&& other) { this->handle = other.handle; }
+    void operator=(event&& other) { this->handle = other.handle; }
 
-    CcuEventHandle handle{0};
+    ccu_event_handle handle{0};
 
 private:
-    explicit Event(detail::NoAllocTag) {}
-    template <typename U>
-    friend class Array;
+    explicit event(detail::no_alloc_tag) {}
+    template <typename u>
+    friend class array;
 };
 
 } // namespace ccu

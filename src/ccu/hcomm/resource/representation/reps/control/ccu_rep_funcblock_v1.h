@@ -15,46 +15,46 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_arg_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepFuncBlock : public CcuRepBlock {
+class ccu_rep_func_block : public ccu_rep_block {
 public:
-    explicit CcuRepFuncBlock(CcuInsGeneraterBase* insGenPtr, const std::string& label);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    uint16_t InstrCount() override;
+    explicit ccu_rep_func_block(ccu_ins_generater_base* ins_gen_ptr, const std::string& label);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    uint16_t instr_count() override;
 
-    void SetFuncManager(CcuRepReferenceManager* funcManager);
+    void set_func_manager(ccu_rep_reference_manager* func_manager);
 
-    void DefineInArg(const Variable& var);
-    void DefineOutArg(const Variable& var);
-    void DefineInArg(const std::vector<Variable>& varList);
-    void DefineOutArg(const std::vector<Variable>& varList);
+    void define_in_arg(const variable& var);
+    void define_out_arg(const variable& var);
+    void define_in_arg(const std::vector<variable>& var_list);
+    void define_out_arg(const std::vector<variable>& var_list);
 
-    void SetCallLayer(uint16_t callLayer);
-    uint16_t GetCallLayer() const;
-    std::vector<Variable> GetInArgVars() const;
+    void set_call_layer(uint16_t call_layer);
+    uint16_t get_call_layer() const;
+    std::vector<variable> get_in_arg_vars() const;
 
-    CcuRepReferenceManager* GetFuncManager() { return funcManager; }
+    ccu_rep_reference_manager* get_func_manager() { return func_manager_; }
 
-    std::vector<CcuRepArg>& GetInArgs() { return inArgs; }
+    std::vector<ccu_rep_arg>& get_in_args() { return in_args_; }
 
-    std::vector<CcuRepArg>& GetOutArgs() { return outArgs; }
+    std::vector<ccu_rep_arg>& get_out_args() { return out_args_; }
 
-    uint16_t GetCallLayer() { return callLayer; }
+    uint16_t get_call_layer() { return call_layer_; }
 
 private:
-    CcuRepReferenceManager* funcManager{nullptr};
+    ccu_rep_reference_manager* func_manager_{nullptr};
 
-    std::vector<CcuRepArg> inArgs;
-    std::vector<CcuRepArg> outArgs;
-    uint32_t inArgCount{0};
-    uint32_t outArgCount{0};
+    std::vector<ccu_rep_arg> in_args_;
+    std::vector<ccu_rep_arg> out_args_;
+    uint32_t in_arg_count_{0};
+    uint32_t out_arg_count_{0};
 
-    uint16_t callLayer{0};
+    uint16_t call_layer_{0};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc
 #endif // _CCU_REPRESENTATION_FUNC_BLOCK_H

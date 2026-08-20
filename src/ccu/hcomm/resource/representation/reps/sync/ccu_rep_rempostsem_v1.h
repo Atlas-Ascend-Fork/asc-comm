@@ -8,36 +8,36 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_REMPOSTSEM_H
-#define HCOMM_CCU_REPRESENTATION_REMPOSTSEM_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_REMPOSTSEM_H
+#define ASCCOMM_CCU_REPRESENTATION_REMPOSTSEM_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepRemPostSem : public CcuRepBase {
+class ccu_rep_rem_post_sem : public ccu_rep_base {
 public:
-    explicit CcuRepRemPostSem(
-        CcuInsGeneraterBase* insGenPtr, const ChannelHandle channel, uint16_t semIndex, uint16_t mask);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    uint32_t GetId() override;
-    uint32_t GetChannelId() { return channelId; }
+    explicit ccu_rep_rem_post_sem(
+        ccu_ins_generater_base* ins_gen_ptr, const ChannelHandle channel, uint16_t sem_index, uint16_t mask);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    uint32_t get_id() override;
+    uint32_t get_channel_id() { return channel_id_; }
 
-    ChannelHandle GetChannel() { return channel; }
-    uint16_t GetSemIndex() { return semIndex; }
-    uint16_t GetMask() { return mask; }
+    ChannelHandle get_channel() { return channel_; }
+    uint16_t get_sem_index() { return sem_index_; }
+    uint16_t get_mask() { return mask_; }
 
 private:
-    CcuInsGeneraterBase* insGenPtr{nullptr};
-    ChannelHandle channel;
-    uint32_t channelId{0};
-    uint16_t semIndex{0};
-    uint16_t mask{0};
-    uint32_t signalId{0};
+    ccu_ins_generater_base* ins_gen_ptr_{nullptr};
+    ChannelHandle channel_;
+    uint32_t channel_id_{0};
+    uint16_t sem_index_{0};
+    uint16_t mask_{0};
+    uint32_t signal_id_{0};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_REMPOSTSEM_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_REMPOSTSEM_H

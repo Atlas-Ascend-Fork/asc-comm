@@ -16,96 +16,96 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/kernel/ccu_kernel.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepFuncCall::CcuRepFuncCall(CcuInsGeneraterBase* insGenPtr, const std::string& label)
-    : insGeneratorPtr_(insGenPtr), label(label)
+ccu_rep_func_call::ccu_rep_func_call(ccu_ins_generater_base* ins_gen_ptr, const std::string& label)
+    : ins_generator_ptr_(ins_gen_ptr), label_(label)
 {
-    type = CcuRepType::FUNC_CALL;
-    instrCount = 0;
+    type_ = ccu_rep_type::func_call;
+    instr_count_ = 0;
 }
 
-CcuRepFuncCall::CcuRepFuncCall(CcuInsGeneraterBase* insGenPtr, const Variable& funcAddrVar)
-    : insGeneratorPtr_(insGenPtr), label(""), funcAddrVar(funcAddrVar)
+ccu_rep_func_call::ccu_rep_func_call(ccu_ins_generater_base* ins_gen_ptr, const variable& func_addr_var)
+    : ins_generator_ptr_(ins_gen_ptr), label_(""), func_addr_var_(func_addr_var)
 {
-    type = CcuRepType::FUNC_CALL;
+    type_ = ccu_rep_type::func_call;
 }
 
-const std::string& CcuRepFuncCall::GetLabel() const { return label; }
+const std::string& ccu_rep_func_call::get_label() const { return label_; }
 
-void CcuRepFuncCall::Reference(std::shared_ptr<CcuRepFuncBlock> refRep) { funcBlock = refRep; }
+void ccu_rep_func_call::reference(std::shared_ptr<ccu_rep_func_block> ref_rep) { func_block_ = ref_rep; }
 
-void CcuRepFuncCall::SetFuncManager(CcuRepReferenceManager* funcManager) { this->funcManager = funcManager; }
+void ccu_rep_func_call::set_func_manager(ccu_rep_reference_manager* func_manager) { this->func_manager_ = func_manager; }
 
-void CcuRepFuncCall::SetInArg(const Variable& var)
+void ccu_rep_func_call::set_in_arg(const variable& var)
 {
-    inArgCount++;
-    inArgs.push_back(CcuRepArg(var));
+    in_arg_count_++;
+    in_args_.push_back(ccu_rep_arg(var));
 }
 
-void CcuRepFuncCall::SetOutArg(const Variable& var)
+void ccu_rep_func_call::set_out_arg(const variable& var)
 {
-    outArgCount++;
-    if (outArgCount > FUNC_ARG_MAX) {
-        asccomm::ThrowCcuInternal("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
+    out_arg_count_++;
+    if (out_arg_count_ > func_arg_max) {
+        asc::throw_ccu_internal("CcuFunc Max ArgCount = %u", func_arg_max);
     }
-    outArgs.push_back(CcuRepArg(var));
+    out_args_.push_back(ccu_rep_arg(var));
 }
 
-void CcuRepFuncCall::SetInArg(const std::vector<Variable>& varList)
+void ccu_rep_func_call::set_in_arg(const std::vector<variable>& var_list)
 {
-    inArgCount += varList.size();
-    inArgs.push_back(CcuRepArg(varList));
+    in_arg_count_ += var_list.size();
+    in_args_.push_back(ccu_rep_arg(var_list));
 }
 
-void CcuRepFuncCall::SetOutArg(const std::vector<Variable>& varList)
+void ccu_rep_func_call::set_out_arg(const std::vector<variable>& var_list)
 {
-    outArgCount += varList.size();
-    if (outArgCount > FUNC_ARG_MAX) {
-        asccomm::ThrowCcuInternal("CcuFunc Max ArgCount = %u", FUNC_ARG_MAX);
+    out_arg_count_ += var_list.size();
+    if (out_arg_count_ > func_arg_max) {
+        asc::throw_ccu_internal("CcuFunc Max ArgCount = %u", func_arg_max);
     }
-    outArgs.push_back(CcuRepArg(varList));
+    out_args_.push_back(ccu_rep_arg(var_list));
 }
 
-uint16_t CcuRepFuncCall::InstrCount()
+uint16_t ccu_rep_func_call::instr_count()
 {
-    instrCount = inArgCount + outArgCount +
-                 insGeneratorPtr_->GetInstrCount(type); // funcCall除去入参和出参的处理外，需要额外4条指令
-    return instrCount;
+    instr_count_ = in_arg_count_ + out_arg_count_ +
+                 ins_generator_ptr_->get_instr_count(type_); // funcCall除去入参和出参的处理外，需要额外4条指令
+    return instr_count_;
 }
 
-bool CcuRepFuncCall::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_func_call::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
-    if (funcManager == nullptr) {
-        asccomm::ThrowCcuInternal("funcManager is nullptr");
+    if (func_manager_ == nullptr) {
+        asc::throw_ccu_internal("funcManager is nullptr");
     }
     // 未实现, FuncCall和FuncBlock中的args个数校验
 
-    if (this->instr == nullptr) {
-        this->instrId = instrId;
-        this->instr = instr;
-        instr += InstrCount();
-        instrId += InstrCount();
+    if (this->instr_ == nullptr) {
+        this->instr_id_ = instr_id;
+        this->instr_ = instr;
+        instr += instr_count();
+        instr_id += instr_count();
     }
 
-    if (funcBlock != nullptr && !funcBlock->Translated()) {
-        return translated;
+    if (func_block_ != nullptr && !func_block_->translated()) {
+        return translated_;
     }
 
-    translated = true;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGeneratorPtr_->CcuRepFuncCallTranslate(ccuKernel, instr, instrId, this, dep) != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepFuncCall][Translate] failed to translate for instrId[%u]", instrId),
+        ins_generator_ptr_->ccu_rep_func_call_translate(ccu_kernel, instr, instr_id, this, dep) != CcuResult::CCU_SUCCESS,
+        HCCL_ERROR("[CcuRepFuncCall][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepFuncCall translate failed");
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepFuncCall::Describe() { return asccomm::FormatCcuMessage("FuncCall[%s]", label.c_str()); }
+std::string ccu_rep_func_call::describe() { return asc::format_ccu_message("FuncCall[%s]", label_.c_str()); }
 
-int32_t CcuRepFuncCall::GetCallLayer() { return funcBlock == nullptr ? FUNC_NEST_MAX : funcBlock->GetCallLayer(); }
+int32_t ccu_rep_func_call::get_call_layer() { return func_block_ == nullptr ? func_nest_max : func_block_->get_call_layer(); }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

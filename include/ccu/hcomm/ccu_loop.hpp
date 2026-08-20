@@ -22,94 +22,94 @@
 namespace AscendC {
 namespace ccu {
 
-class Loop {
+class loop {
 public:
-    Loop(Variable& loopCfg, const Func& func)
+    loop(variable& loopCfg, const func& func)
     {
         ComposeLoopBody(func);
         isVarBased_ = true;
         loopParamVar_ = &loopCfg;
     }
 
-    Loop(const CcuLoopConfig& loopCfg, const Func& func)
+    loop(const ccu_loop_config& loopCfg, const func& func)
     {
         ComposeLoopBody(func);
         isVarBased_ = false;
         config_ = loopCfg;
     }
 
-    CcuLoop Handle() const { return handle_; }
+    ccu_loop Handle() const { return handle_; }
 
     bool IsVarBased() const { return isVarBased_; }
 
-    Variable* LoopParamVar() const { return loopParamVar_; }
+    variable* LoopParamVar() const { return loopParamVar_; }
 
-    const CcuLoopConfig* Config() const { return &config_; }
+    const ccu_loop_config* config() const { return &config_; }
 
 private:
-    void ComposeLoopBody(const Func& func)
+    void ComposeLoopBody(const func& func)
     {
         if (func.NumIn() != 0) {
-            throw ::AscendC::ccu::detail::CcuException(
-                CcuResult::CCU_E_PARA, "ccu::Loop requires a no-argument ccu::Func");
+            throw ::AscendC::ccu::detail::ccu_exception(
+                CcuResult::CCU_E_PARA, "ccu::loop requires a no-argument ccu::func");
         }
-        CCU_THROW_IF_FAILED(::asccomm::CcuLoopCreate(&handle_), "CcuLoopCreate failed");
-        CCU_THROW_IF_FAILED(::asccomm::_CcuLoopBodyEnter(handle_), "_CcuLoopBodyEnter failed");
+        CCU_THROW_IF_FAILED(::asc::ccu_loop_create(&handle_), "ccu_loop_create failed");
+        CCU_THROW_IF_FAILED(::asc::ccu_loop_body_enter(handle_), "ccu_loop_body_enter failed");
         try {
             func.RunBody(nullptr);
         } catch (...) {
-            (void)::asccomm::_CcuLoopBodyExit(handle_);
+            (void)::asc::ccu_loop_body_exit(handle_);
             throw;
         }
-        CCU_THROW_IF_FAILED(::asccomm::_CcuLoopBodyExit(handle_), "_CcuLoopBodyExit failed");
+        CCU_THROW_IF_FAILED(::asc::ccu_loop_body_exit(handle_), "ccu_loop_body_exit failed");
     }
 
-    CcuLoop handle_{0};
+    ccu_loop handle_{0};
     bool isVarBased_{false};
-    Variable* loopParamVar_{nullptr};
-    CcuLoopConfig config_{};
+    variable* loopParamVar_{nullptr};
+    ccu_loop_config config_{};
 };
 
-class LoopGroup {
+class loop_group {
 public:
-    LoopGroup(Variable& parallelCfg, Variable& offsetCfg, uint32_t maxLoopNum, const std::vector<Loop>& loops)
+    loop_group(variable& parallelCfg, variable& offsetCfg, uint32_t max_loop_num, const std::vector<loop>& loops)
     {
         CCU_THROW_IF_FAILED(
-            ::asccomm::CcuLoopGroupCreateFromVar(&handle_, maxLoopNum, parallelCfg.handle, offsetCfg.handle),
-            "CcuLoopGroupCreateFromVar failed");
+            ::asc::ccu_loop_group_create_from_var(&handle_, max_loop_num, parallelCfg.handle, offsetCfg.handle),
+            "ccu_loop_group_create_from_var failed");
         AddLoops(loops);
     }
 
-    LoopGroup(const CcuLoopGroupConfig& loopGroupCfg, uint32_t maxLoopNum, const std::vector<Loop>& loops)
+    loop_group(const ccu_loop_group_config& loopGroupCfg, uint32_t max_loop_num, const std::vector<loop>& loops)
     {
-        CcuLoopGroupConfig localCfg = loopGroupCfg;
-        CCU_THROW_IF_FAILED(::asccomm::CcuLoopGroupCreate(&handle_, maxLoopNum, &localCfg), "CcuLoopGroupCreate failed");
+        ccu_loop_group_config localCfg = loopGroupCfg;
+        CCU_THROW_IF_FAILED(::asc::ccu_loop_group_create(&handle_, max_loop_num, &localCfg), "ccu_loop_group_create failed");
         AddLoops(loops);
     }
 
-    CcuLoopGroup Handle() const { return handle_; }
+    ccu_loop_group Handle() const { return handle_; }
 
 private:
-    void AddLoops(const std::vector<Loop>& loops)
+    void AddLoops(const std::vector<loop>& loops)
     {
         for (const auto& loop : loops) {
             if (loop.IsVarBased()) {
-                auto* loopParamVar = loop.LoopParamVar();
-                if (loopParamVar == nullptr) {
-                    throw ::AscendC::ccu::detail::CcuException(
-                        CcuResult::CCU_E_PARA, "ccu::Loop var-based loop has null loop parameter");
+                auto* loop_param_var = loop.LoopParamVar();
+                if (loop_param_var == nullptr) {
+                    throw ::AscendC::ccu::detail::ccu_exception(
+                        CcuResult::CCU_E_PARA, "ccu::loop var_-based loop has null loop parameter");
                 }
                 CCU_THROW_IF_FAILED(
-                    ::asccomm::CcuLoopGroupAddLoopFromVar(handle_, loop.Handle(), loopParamVar->handle),
-                    "CcuLoopGroupAddLoopFromVar failed");
+                    ::asc::ccu_loop_group_add_loop_from_var(handle_, loop.Handle(), loop_param_var->handle),
+                    "ccu_loop_group_add_loop_from_var failed");
             } else {
                 CCU_THROW_IF_FAILED(
-                    ::asccomm::CcuLoopGroupAddLoop(handle_, loop.Handle(), loop.Config()), "CcuLoopGroupAddLoop failed");
+                    ::asc::ccu_loop_group_add_loop(handle_, loop.Handle(), loop.config()), "ccu_loop_group_add_loop failed");
             }
         }
     }
 
-    CcuLoopGroup handle_{0};
+    ccu_loop_group handle_{0};
 };
 
 } // namespace ccu

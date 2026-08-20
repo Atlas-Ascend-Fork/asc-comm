@@ -12,450 +12,450 @@
 #include <gtest/gtest.h>
 
 namespace hcomm {
-namespace CcuRep {
-namespace CcuV2 {
+namespace ccu_rep {
+namespace ccu_v2 {
 namespace {
 
 class CcuMicrocodeV2Test : public ::testing::Test {
 protected:
-    CcuInstr instr{};
-    void SetUp() override { memset(&instr, 0, sizeof(instr)); }
+    ccu_instr instr_{};
+    void SetUp() override { memset(&instr_, 0, sizeof(instr_)); }
 };
 
-TEST_F(CcuMicrocodeV2Test, LoadSqeArgsToX)
+TEST_F(CcuMicrocodeV2Test, load_sqe_args_to_x)
 {
-    uint16_t xnId = 3;
-    uint16_t sqeArgsId = 7;
-    uint16_t setCKEId = 1;
-    uint16_t setCKEMask = 0xF;
-    LoadSqeArgsToX(&instr, xnId, sqeArgsId, setCKEId, setCKEMask);
+    uint16_t xn_id = 3;
+    uint16_t sqe_args_id = 7;
+    uint16_t set_cke_id = 1;
+    uint16_t set_cke_mask = 0xF;
+    load_sqe_args_to_x(&instr_, xn_id, sqe_args_id, set_cke_id, set_cke_mask);
 
-    EXPECT_EQ(instr.header.type, 0x0);
-    EXPECT_EQ(instr.header.code, 0x1);
-    EXPECT_EQ(instr.v2.loadSqeArgsToX.xnId, xnId);
-    EXPECT_EQ(instr.v2.loadSqeArgsToX.sqeArgsId, sqeArgsId);
-    EXPECT_EQ(instr.v2.loadSqeArgsToX.setCKEId, setCKEId);
-    EXPECT_EQ(instr.v2.loadSqeArgsToX.setCKEMask, setCKEMask);
+    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.code, 0x1);
+    EXPECT_EQ(instr_.v2.load_sqe_args_to_x.xn_id, xn_id);
+    EXPECT_EQ(instr_.v2.load_sqe_args_to_x.sqe_args_id, sqe_args_id);
+    EXPECT_EQ(instr_.v2.load_sqe_args_to_x.set_cke_id, set_cke_id);
+    EXPECT_EQ(instr_.v2.load_sqe_args_to_x.set_cke_mask, set_cke_mask);
 }
 
-TEST_F(CcuMicrocodeV2Test, LoadImdToXn)
+TEST_F(CcuMicrocodeV2Test, load_imd_to_xn)
 {
-    uint16_t xnId = 4;
-    uint64_t immediate = 0xDEADBEEF;
-    uint16_t setCKEId = 2;
-    uint16_t setCKEMask = 0xA;
-    LoadImdToXn(&instr, xnId, immediate, setCKEId, setCKEMask);
+    uint16_t xn_id = 4;
+    uint64_t immediate_ = 0xDEADBEEF;
+    uint16_t set_cke_id = 2;
+    uint16_t set_cke_mask = 0xA;
+    load_imd_to_xn(&instr_, xn_id, immediate_, set_cke_id, set_cke_mask);
 
-    EXPECT_EQ(instr.header.type, 0x0);
-    EXPECT_EQ(instr.header.code, 0x2);
-    EXPECT_EQ(instr.v2.loadImdToX.xnId, xnId);
-    EXPECT_EQ(instr.v2.loadImdToX.immediate, immediate);
-    EXPECT_EQ(instr.v2.loadImdToX.setCKEId, setCKEId);
-    EXPECT_EQ(instr.v2.loadImdToX.setCKEMask, setCKEMask);
+    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.code, 0x2);
+    EXPECT_EQ(instr_.v2.load_imd_to_x.xn_id, xn_id);
+    EXPECT_EQ(instr_.v2.load_imd_to_x.immediate_, immediate_);
+    EXPECT_EQ(instr_.v2.load_imd_to_x.set_cke_id, set_cke_id);
+    EXPECT_EQ(instr_.v2.load_imd_to_x.set_cke_mask, set_cke_mask);
 }
 
-TEST_F(CcuMicrocodeV2Test, Nop)
+TEST_F(CcuMicrocodeV2Test, nop)
 {
-    Nop(&instr);
+    nop(&instr_);
 
-    EXPECT_EQ(instr.header.type, 0x0);
-    EXPECT_EQ(instr.header.code, 0x9);
+    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.code, 0x9);
 }
 
-TEST_F(CcuMicrocodeV2Test, Assign)
+TEST_F(CcuMicrocodeV2Test, assign)
 {
     uint16_t result = 5;
     uint16_t operand = 3;
-    Assign(&instr, result, operand, 1, 0xF);
+    assign(&instr_, result, operand, 1, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x0);
-    EXPECT_EQ(instr.header.code, 0xD);
-    EXPECT_EQ(instr.v2.operate.parMode, 0);
-    EXPECT_EQ(instr.v2.operate.xdId, result);
-    EXPECT_EQ(instr.v2.operate.xnId, operand);
-    EXPECT_EQ(instr.v2.operate.xmId, 0);
+    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.code, 0xD);
+    EXPECT_EQ(instr_.v2.operate.par_mode, 0);
+    EXPECT_EQ(instr_.v2.operate.xd_id, result);
+    EXPECT_EQ(instr_.v2.operate.xn_id, operand);
+    EXPECT_EQ(instr_.v2.operate.xm_id, 0);
 }
 
-TEST_F(CcuMicrocodeV2Test, Add)
+TEST_F(CcuMicrocodeV2Test, add)
 {
     uint16_t result = 1;
     uint16_t operand1 = 2;
     uint16_t operand2 = 3;
-    Add(&instr, result, operand1, operand2, 1, 0xF);
+    add(&instr_, result, operand1, operand2, 1, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x0);
-    EXPECT_EQ(instr.header.code, 0xD);
-    EXPECT_EQ(instr.v2.operate.parMode, 1);
-    EXPECT_EQ(instr.v2.operate.xdId, result);
-    EXPECT_EQ(instr.v2.operate.xnId, operand1);
-    EXPECT_EQ(instr.v2.operate.xmId, operand2);
+    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.code, 0xD);
+    EXPECT_EQ(instr_.v2.operate.par_mode, 1);
+    EXPECT_EQ(instr_.v2.operate.xd_id, result);
+    EXPECT_EQ(instr_.v2.operate.xn_id, operand1);
+    EXPECT_EQ(instr_.v2.operate.xm_id, operand2);
 }
 
-TEST_F(CcuMicrocodeV2Test, AddI)
+TEST_F(CcuMicrocodeV2Test, add_i)
 {
     uint16_t result = 1;
     uint16_t operand = 2;
     uint16_t imm = 10;
-    AddI(&instr, result, operand, imm, 1, 0xF);
+    add_i(&instr_, result, operand, imm, 1, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x0);
-    EXPECT_EQ(instr.header.code, 0xD);
-    EXPECT_EQ(instr.v2.operate.parMode, 0);
-    EXPECT_EQ(instr.v2.operate.xdId, result);
-    EXPECT_EQ(instr.v2.operate.xnId, operand);
-    EXPECT_EQ(instr.v2.operate.xmId, imm);
+    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.code, 0xD);
+    EXPECT_EQ(instr_.v2.operate.par_mode, 0);
+    EXPECT_EQ(instr_.v2.operate.xd_id, result);
+    EXPECT_EQ(instr_.v2.operate.xn_id, operand);
+    EXPECT_EQ(instr_.v2.operate.xm_id, imm);
 }
 
-TEST_F(CcuMicrocodeV2Test, Mul)
+TEST_F(CcuMicrocodeV2Test, mul)
 {
     uint16_t result = 2;
     uint16_t operand1 = 3;
     uint16_t operand2 = 4;
-    Mul(&instr, result, operand1, operand2, 1, 0xF);
+    mul(&instr_, result, operand1, operand2, 1, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x0);
-    EXPECT_EQ(instr.header.code, 0xF);
-    EXPECT_EQ(instr.v2.operate.parMode, 1);
-    EXPECT_EQ(instr.v2.operate.xdId, result);
+    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.code, 0xF);
+    EXPECT_EQ(instr_.v2.operate.par_mode, 1);
+    EXPECT_EQ(instr_.v2.operate.xd_id, result);
 }
 
-TEST_F(CcuMicrocodeV2Test, MulI)
+TEST_F(CcuMicrocodeV2Test, mul_i)
 {
     uint16_t result = 2;
     uint16_t operand = 3;
     uint16_t imm = 5;
-    MulI(&instr, result, operand, imm, 1, 0xF);
+    mul_i(&instr_, result, operand, imm, 1, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x0);
-    EXPECT_EQ(instr.header.code, 0xF);
-    EXPECT_EQ(instr.v2.operate.parMode, 0);
-    EXPECT_EQ(instr.v2.operate.xmId, imm);
+    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.code, 0xF);
+    EXPECT_EQ(instr_.v2.operate.par_mode, 0);
+    EXPECT_EQ(instr_.v2.operate.xm_id, imm);
 }
 
-TEST_F(CcuMicrocodeV2Test, LoadXFromMem)
+TEST_F(CcuMicrocodeV2Test, load_x_from_mem)
 {
-    CacheConfig config;
-    config.allocHint = 1;
-    config.victimHint = 2;
-    LoadXFromMem(&instr, 1, 2, 3, 4, config, 5, 0xF);
+    cache_config config;
+    config.alloc_hint = 1;
+    config.victim_hint = 2;
+    load_x_from_mem(&instr_, 1, 2, 3, 4, config, 5, 0xF);
 
-    EXPECT_EQ(instr.v2.load.dstType, 0x0);
+    EXPECT_EQ(instr_.v2.load.dst_type, 0x0);
 }
 
-TEST_F(CcuMicrocodeV2Test, StoreXToMem)
+TEST_F(CcuMicrocodeV2Test, store_x_to_mem)
 {
-    CacheConfig config;
-    config.allocHint = 2;
-    config.victimHint = 1;
-    StoreXToMem(&instr, 1, 2, 3, 4, config, 5, 0xF);
+    cache_config config;
+    config.alloc_hint = 2;
+    config.victim_hint = 1;
+    store_x_to_mem(&instr_, 1, 2, 3, 4, config, 5, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x0);
-    EXPECT_EQ(instr.header.code, 0xB);
-    EXPECT_EQ(instr.v2.store.xdId, 1);
-    EXPECT_EQ(instr.v2.store.xdtId, 2);
-    EXPECT_EQ(instr.v2.store.xsId, 3);
-    EXPECT_EQ(instr.v2.store.xlId, 4);
-    EXPECT_EQ(instr.v2.store.srcType, 0x0);
-    EXPECT_EQ(instr.v2.store.allocHint, config.allocHint & 0x3);
-    EXPECT_EQ(instr.v2.store.victimHint, config.victimHint & 0x3);
+    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.code, 0xB);
+    EXPECT_EQ(instr_.v2.store.xd_id, 1);
+    EXPECT_EQ(instr_.v2.store.xdt_id, 2);
+    EXPECT_EQ(instr_.v2.store.xs_id, 3);
+    EXPECT_EQ(instr_.v2.store.xl_id, 4);
+    EXPECT_EQ(instr_.v2.store.src_type, 0x0);
+    EXPECT_EQ(instr_.v2.store.alloc_hint, config.alloc_hint & 0x3);
+    EXPECT_EQ(instr_.v2.store.victim_hint, config.victim_hint & 0x3);
 }
 
-TEST_F(CcuMicrocodeV2Test, Loop)
+TEST_F(CcuMicrocodeV2Test, loop)
 {
     uint16_t startInstrId = 10;
     uint16_t endInstrId = 20;
-    uint16_t iterNum = 5;
+    uint16_t iter_num = 5;
     uint16_t offset = 100;
-    uint16_t contextId = 3;
-    Loop(&instr, startInstrId, endInstrId, iterNum, offset, contextId);
+    uint16_t context_id = 3;
+    loop(&instr_, startInstrId, endInstrId, iter_num, offset, context_id);
 
-    EXPECT_EQ(instr.header.type, 0x1);
-    EXPECT_EQ(instr.header.code, 0x0);
-    EXPECT_EQ(instr.v2.loop.startInstrId, startInstrId);
-    EXPECT_EQ(instr.v2.loop.endInstrId, endInstrId);
-    EXPECT_EQ(instr.v2.loop.xmId, iterNum);
-    EXPECT_EQ(instr.v2.loop.xnId, offset);
-    EXPECT_EQ(instr.v2.loop.xpId, contextId);
-    EXPECT_EQ(instr.v2.loop.mode, 0);
-    EXPECT_EQ(instr.v2.loop.wishCKEBit, 0);
+    EXPECT_EQ(instr_.header.type_, 0x1);
+    EXPECT_EQ(instr_.header.code, 0x0);
+    EXPECT_EQ(instr_.v2.loop.start_instr_id, startInstrId);
+    EXPECT_EQ(instr_.v2.loop.end_instr_id, endInstrId);
+    EXPECT_EQ(instr_.v2.loop.xm_id, iter_num);
+    EXPECT_EQ(instr_.v2.loop.xn_id, offset);
+    EXPECT_EQ(instr_.v2.loop.xp_id, context_id);
+    EXPECT_EQ(instr_.v2.loop.mode, 0);
+    EXPECT_EQ(instr_.v2.loop.wish_cke_bit, 0);
 }
 
-TEST_F(CcuMicrocodeV2Test, LoopGroup)
+TEST_F(CcuMicrocodeV2Test, loop_group)
 {
-    uint16_t startLoopInstrId = 5;
-    uint16_t loopGroupConfig = 0x123;
-    uint16_t resOffset = 0x456;
-    uint16_t xnOffset = 0x789;
-    LoopGroup(&instr, startLoopInstrId, loopGroupConfig, resOffset, xnOffset);
+    uint16_t start_loop_instr_id = 5;
+    uint16_t loop_group_config = 0x123;
+    uint16_t res_offset = 0x456;
+    uint16_t xn_offset = 0x789;
+    loop_group(&instr_, start_loop_instr_id, loop_group_config, res_offset, xn_offset);
 
-    EXPECT_EQ(instr.header.type, 0x1);
-    EXPECT_EQ(instr.header.code, 0x1);
-    EXPECT_EQ(instr.v2.loopGroup.startLoopInstrId, startLoopInstrId);
-    EXPECT_EQ(instr.v2.loopGroup.xnId, loopGroupConfig);
-    EXPECT_EQ(instr.v2.loopGroup.xmId, resOffset);
-    EXPECT_EQ(instr.v2.loopGroup.xpId, xnOffset);
+    EXPECT_EQ(instr_.header.type_, 0x1);
+    EXPECT_EQ(instr_.header.code, 0x1);
+    EXPECT_EQ(instr_.v2.loop_group.start_loop_instr_id, start_loop_instr_id);
+    EXPECT_EQ(instr_.v2.loop_group.xn_id, loop_group_config);
+    EXPECT_EQ(instr_.v2.loop_group.xm_id, res_offset);
+    EXPECT_EQ(instr_.v2.loop_group.xp_id, xn_offset);
 }
 
-TEST_F(CcuMicrocodeV2Test, SetCKE)
+TEST_F(CcuMicrocodeV2Test, set_cke)
 {
-    uint16_t setCKEId = 1;
-    uint16_t setCKEMask = 0xF;
-    uint16_t waitCKEId = 2;
-    uint16_t waitCKEMask = 0xA;
-    uint16_t clearType = 1;
-    SetCKE(&instr, setCKEId, setCKEMask, waitCKEId, waitCKEMask, clearType);
+    uint16_t set_cke_id = 1;
+    uint16_t set_cke_mask = 0xF;
+    uint16_t wait_cke_id = 2;
+    uint16_t wait_cke_mask = 0xA;
+    uint16_t clear_type = 1;
+    set_cke(&instr_, set_cke_id, set_cke_mask, wait_cke_id, wait_cke_mask, clear_type);
 
-    EXPECT_EQ(instr.header.type, 0x1);
-    EXPECT_EQ(instr.header.code, 0x2);
-    EXPECT_EQ(instr.v2.setCKE.setCKEId, setCKEId);
-    EXPECT_EQ(instr.v2.setCKE.setCKEMask, setCKEMask);
-    EXPECT_EQ(instr.v2.setCKE.waitCKEId, waitCKEId);
-    EXPECT_EQ(instr.v2.setCKE.waitCKEMask, waitCKEMask);
-    EXPECT_EQ(instr.v2.setCKE.clearType, clearType & 0x1);
+    EXPECT_EQ(instr_.header.type_, 0x1);
+    EXPECT_EQ(instr_.header.code, 0x2);
+    EXPECT_EQ(instr_.v2.set_cke.set_cke_id, set_cke_id);
+    EXPECT_EQ(instr_.v2.set_cke.set_cke_mask, set_cke_mask);
+    EXPECT_EQ(instr_.v2.set_cke.wait_cke_id, wait_cke_id);
+    EXPECT_EQ(instr_.v2.set_cke.wait_cke_mask, wait_cke_mask);
+    EXPECT_EQ(instr_.v2.set_cke.clear_type, clear_type & 0x1);
 }
 
-TEST_F(CcuMicrocodeV2Test, ClearCKE)
+TEST_F(CcuMicrocodeV2Test, clear_cke)
 {
-    uint16_t clearCKEId = 3;
-    uint16_t clearMask = 0x5;
-    uint16_t waitCKEId = 1;
-    uint16_t waitCKEMask = 0x3;
-    uint16_t clearType = 0;
-    ClearCKE(&instr, clearCKEId, clearMask, waitCKEId, waitCKEMask, clearType);
+    uint16_t clear_cke_id = 3;
+    uint16_t clear_mask = 0x5;
+    uint16_t wait_cke_id = 1;
+    uint16_t wait_cke_mask = 0x3;
+    uint16_t clear_type = 0;
+    clear_cke(&instr_, clear_cke_id, clear_mask, wait_cke_id, wait_cke_mask, clear_type);
 
-    EXPECT_EQ(instr.header.type, 0x1);
-    EXPECT_EQ(instr.header.code, 0x4);
-    EXPECT_EQ(instr.v2.clearCKE.clearCKEId, clearCKEId);
-    EXPECT_EQ(instr.v2.clearCKE.clearMask, clearMask);
-    EXPECT_EQ(instr.v2.clearCKE.clearType, clearType & 0x1);
+    EXPECT_EQ(instr_.header.type_, 0x1);
+    EXPECT_EQ(instr_.header.code, 0x4);
+    EXPECT_EQ(instr_.v2.clear_cke.clear_cke_id, clear_cke_id);
+    EXPECT_EQ(instr_.v2.clear_cke.clear_mask, clear_mask);
+    EXPECT_EQ(instr_.v2.clear_cke.clear_type, clear_type & 0x1);
 }
 
-TEST_F(CcuMicrocodeV2Test, Jump)
+TEST_F(CcuMicrocodeV2Test, jump)
 {
-    uint16_t relTarInstrXnId = 10;
-    uint16_t conditionXnId = 5;
-    uint16_t expectedXnId = 3;
-    uint16_t conditionType = 0x5;
-    Jump(&instr, relTarInstrXnId, conditionXnId, expectedXnId, conditionType);
+    uint16_t rel_tar_instr_xn_id = 10;
+    uint16_t condition_xn_id = 5;
+    uint16_t expected_xn_id = 3;
+    uint16_t condition_type = 0x5;
+    jump(&instr_, rel_tar_instr_xn_id, condition_xn_id, expected_xn_id, condition_type);
 
-    EXPECT_EQ(instr.header.type, 0x1);
-    EXPECT_EQ(instr.header.code, 0x5);
-    EXPECT_EQ(instr.v2.jmp.expectedXnId, expectedXnId);
-    EXPECT_EQ(instr.v2.jmp.conditionXnId, conditionXnId);
-    EXPECT_EQ(instr.v2.jmp.relTarInstrXnId, relTarInstrXnId);
-    EXPECT_EQ(instr.v2.jmp.conditionType, conditionType & 0xF);
+    EXPECT_EQ(instr_.header.type_, 0x1);
+    EXPECT_EQ(instr_.header.code, 0x5);
+    EXPECT_EQ(instr_.v2.jmp.expected_xn_id, expected_xn_id);
+    EXPECT_EQ(instr_.v2.jmp.condition_xn_id, condition_xn_id);
+    EXPECT_EQ(instr_.v2.jmp.rel_tar_instr_xn_id, rel_tar_instr_xn_id);
+    EXPECT_EQ(instr_.v2.jmp.condition_type, condition_type & 0xF);
 }
 
-TEST_F(CcuMicrocodeV2Test, TransLocMemToLocMS)
+TEST_F(CcuMicrocodeV2Test, trans_loc_mem_to_loc_ms)
 {
-    CacheConfig config;
-    config.allocHint = 1;
-    config.victimHint = 2;
-    TransLocMemToLocMS(&instr, 1, 2, 3, 4, 5, 6, 0xF, config);
+    cache_config config;
+    config.alloc_hint = 1;
+    config.victim_hint = 2;
+    trans_loc_mem_to_loc_ms(&instr_, 1, 2, 3, 4, 5, 6, 0xF, config);
 
-    EXPECT_EQ(instr.header.type, 0x2);
-    EXPECT_EQ(instr.header.code, 0x0);
-    EXPECT_EQ(instr.v2.transLocMemToLocMS.msId, 1);
-    EXPECT_EQ(instr.v2.transLocMemToLocMS.xsId, 2);
-    EXPECT_EQ(instr.v2.transLocMemToLocMS.xstId, 3);
-    EXPECT_EQ(instr.v2.transLocMemToLocMS.xlId, 4);
-    EXPECT_EQ(instr.v2.transLocMemToLocMS.xoId, 5);
-    EXPECT_EQ(instr.v2.transLocMemToLocMS.allocHint, config.allocHint & 0x3);
-    EXPECT_EQ(instr.v2.transLocMemToLocMS.victimHint, config.victimHint & 0x3);
+    EXPECT_EQ(instr_.header.type_, 0x2);
+    EXPECT_EQ(instr_.header.code, 0x0);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_ms.ms_id, 1);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_ms.xs_id, 2);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_ms.xst_id, 3);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_ms.xl_id, 4);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_ms.xo_id, 5);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_ms.alloc_hint, config.alloc_hint & 0x3);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_ms.victim_hint, config.victim_hint & 0x3);
 }
 
-TEST_F(CcuMicrocodeV2Test, TransLocMSToLocMem)
+TEST_F(CcuMicrocodeV2Test, trans_loc_ms_to_loc_mem)
 {
-    CacheConfig config;
-    config.allocHint = 2;
-    config.victimHint = 1;
-    TransLocMSToLocMem(&instr, 1, 2, 3, 4, 5, 6, 0xF, config);
+    cache_config config;
+    config.alloc_hint = 2;
+    config.victim_hint = 1;
+    trans_loc_ms_to_loc_mem(&instr_, 1, 2, 3, 4, 5, 6, 0xF, config);
 
-    EXPECT_EQ(instr.header.type, 0x2);
-    EXPECT_EQ(instr.header.code, 0x2);
-    EXPECT_EQ(instr.v2.transLocMSToLocMem.xdId, 1);
-    EXPECT_EQ(instr.v2.transLocMSToLocMem.xdtId, 2);
-    EXPECT_EQ(instr.v2.transLocMSToLocMem.msId, 3);
-    EXPECT_EQ(instr.v2.transLocMSToLocMem.xlId, 4);
-    EXPECT_EQ(instr.v2.transLocMSToLocMem.xoId, 5);
+    EXPECT_EQ(instr_.header.type_, 0x2);
+    EXPECT_EQ(instr_.header.code, 0x2);
+    EXPECT_EQ(instr_.v2.trans_loc_ms_to_loc_mem.xd_id, 1);
+    EXPECT_EQ(instr_.v2.trans_loc_ms_to_loc_mem.xdt_id, 2);
+    EXPECT_EQ(instr_.v2.trans_loc_ms_to_loc_mem.ms_id, 3);
+    EXPECT_EQ(instr_.v2.trans_loc_ms_to_loc_mem.xl_id, 4);
+    EXPECT_EQ(instr_.v2.trans_loc_ms_to_loc_mem.xo_id, 5);
 }
 
-TEST_F(CcuMicrocodeV2Test, TransLocMemToLocMem)
+TEST_F(CcuMicrocodeV2Test, trans_loc_mem_to_loc_mem)
 {
-    CacheConfig srcConfig;
-    srcConfig.allocHint = 1;
-    srcConfig.victimHint = 1;
-    CacheConfig dstConfig;
-    dstConfig.allocHint = 2;
-    dstConfig.victimHint = 2;
-    TransLocMemToLocMem(&instr, 1, 2, 3, 4, 5, 6, 7, 0xF, srcConfig, dstConfig);
+    cache_config srcConfig;
+    srcConfig.alloc_hint = 1;
+    srcConfig.victim_hint = 1;
+    cache_config dstConfig;
+    dstConfig.alloc_hint = 2;
+    dstConfig.victim_hint = 2;
+    trans_loc_mem_to_loc_mem(&instr_, 1, 2, 3, 4, 5, 6, 7, 0xF, srcConfig, dstConfig);
 
-    EXPECT_EQ(instr.header.type, 0x2);
-    EXPECT_EQ(instr.header.code, 0x6);
-    EXPECT_EQ(instr.v2.transLocMemToLocMem.xdId, 1);
-    EXPECT_EQ(instr.v2.transLocMemToLocMem.xdtId, 2);
-    EXPECT_EQ(instr.v2.transLocMemToLocMem.xsId, 3);
-    EXPECT_EQ(instr.v2.transLocMemToLocMem.xstId, 4);
-    EXPECT_EQ(instr.v2.transLocMemToLocMem.xlId, 5);
-    EXPECT_EQ(instr.v2.transLocMemToLocMem.usedMSId, 6);
-    EXPECT_EQ(instr.v2.transLocMemToLocMem.msNum, CCU_MS_INTERLEAVE);
-    EXPECT_EQ(instr.v2.transLocMemToLocMem.srcAllocHint, srcConfig.allocHint & 0x3);
-    EXPECT_EQ(instr.v2.transLocMemToLocMem.dstAllocHint, dstConfig.allocHint & 0x3);
+    EXPECT_EQ(instr_.header.type_, 0x2);
+    EXPECT_EQ(instr_.header.code, 0x6);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_mem.xd_id, 1);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_mem.xdt_id, 2);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_mem.xs_id, 3);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_mem.xst_id, 4);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_mem.xl_id, 5);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_mem.used_ms_id, 6);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_mem.ms_num, ccu_ms_interleave);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_mem.src_alloc_hint, srcConfig.alloc_hint & 0x3);
+    EXPECT_EQ(instr_.v2.trans_loc_mem_to_loc_mem.dst_alloc_hint, dstConfig.alloc_hint & 0x3);
 }
 
-TEST_F(CcuMicrocodeV2Test, TransMem)
+TEST_F(CcuMicrocodeV2Test, trans_mem)
 {
-    TransMemNotifyInfo notify;
-    notify.xnId = 1;
-    notify.xntId = 2;
+    trans_mem_notify_info notify;
+    notify.xn_id = 1;
+    notify.xnt_id = 2;
     notify.value = 0x123;
 
-    TransMemReduceInfo reduce;
-    reduce.udfType = 0x10;
-    reduce.reduceDataType = 0x5;
-    reduce.reduceOpCode = 0x3;
+    trans_mem_reduce_info reduce;
+    reduce.udf_type = 0x10;
+    reduce.reduce_data_type = 0x5;
+    reduce.reduce_op_code = 0x3;
 
-    TransMemConfig config;
+    trans_mem_config config;
     config.order = 0x2;
     config.fence = 1;
     config.cqe = 0;
     config.nf = 1;
-    config.udfEnable = 0;
-    config.splitMode = 1;
+    config.udf_enable = 0;
+    config.split_mode = 1;
     config.se = 0;
-    config.rmtJettyType = 0x2;
+    config.rmt_jetty_type = 0x2;
 
-    TransMem(&instr, 1, 2, 3, 4, 5, 6, notify, reduce, config, 7, 0xF);
+    trans_mem(&instr_, 1, 2, 3, 4, 5, 6, notify, reduce, config, 7, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x2);
-    EXPECT_EQ(instr.header.code, 0x10);
-    EXPECT_EQ(instr.v2.transMem.xdId, 1);
-    EXPECT_EQ(instr.v2.transMem.xdtId, 2);
-    EXPECT_EQ(instr.v2.transMem.xsId, 3);
-    EXPECT_EQ(instr.v2.transMem.xstId, 4);
-    EXPECT_EQ(instr.v2.transMem.xlId, 5);
-    EXPECT_EQ(instr.v2.transMem.xcId, 6);
-    EXPECT_EQ(instr.v2.transMem.xnId, notify.xnId);
-    EXPECT_EQ(instr.v2.transMem.udfType, reduce.udfType & 0xFF);
-    EXPECT_EQ(instr.v2.transMem.reduceDataType, reduce.reduceDataType & 0xF);
-    EXPECT_EQ(instr.v2.transMem.reduceOpCode, reduce.reduceOpCode & 0xF);
-    EXPECT_EQ(instr.v2.transMem.order, config.order & 0x7);
-    EXPECT_EQ(instr.v2.transMem.fence, config.fence & 0x1);
-    EXPECT_EQ(instr.v2.transMem.cqe, config.cqe & 0x1);
-    EXPECT_EQ(instr.v2.transMem.nf, config.nf & 0x1);
-    EXPECT_EQ(instr.v2.transMem.udfEnable, config.udfEnable & 0x1);
-    EXPECT_EQ(instr.v2.transMem.splitMode, config.splitMode & 0x1);
-    EXPECT_EQ(instr.v2.transMem.se, config.se & 0x1);
-    EXPECT_EQ(instr.v2.transMem.rmtJettyType, config.rmtJettyType & 0x3);
+    EXPECT_EQ(instr_.header.type_, 0x2);
+    EXPECT_EQ(instr_.header.code, 0x10);
+    EXPECT_EQ(instr_.v2.trans_mem.xd_id, 1);
+    EXPECT_EQ(instr_.v2.trans_mem.xdt_id, 2);
+    EXPECT_EQ(instr_.v2.trans_mem.xs_id, 3);
+    EXPECT_EQ(instr_.v2.trans_mem.xst_id, 4);
+    EXPECT_EQ(instr_.v2.trans_mem.xl_id, 5);
+    EXPECT_EQ(instr_.v2.trans_mem.xc_id, 6);
+    EXPECT_EQ(instr_.v2.trans_mem.xn_id, notify.xn_id);
+    EXPECT_EQ(instr_.v2.trans_mem.udf_type, reduce.udf_type & 0xFF);
+    EXPECT_EQ(instr_.v2.trans_mem.reduce_data_type, reduce.reduce_data_type & 0xF);
+    EXPECT_EQ(instr_.v2.trans_mem.reduce_op_code, reduce.reduce_op_code & 0xF);
+    EXPECT_EQ(instr_.v2.trans_mem.order, config.order & 0x7);
+    EXPECT_EQ(instr_.v2.trans_mem.fence, config.fence & 0x1);
+    EXPECT_EQ(instr_.v2.trans_mem.cqe, config.cqe & 0x1);
+    EXPECT_EQ(instr_.v2.trans_mem.nf, config.nf & 0x1);
+    EXPECT_EQ(instr_.v2.trans_mem.udf_enable, config.udf_enable & 0x1);
+    EXPECT_EQ(instr_.v2.trans_mem.split_mode, config.split_mode & 0x1);
+    EXPECT_EQ(instr_.v2.trans_mem.se, config.se & 0x1);
+    EXPECT_EQ(instr_.v2.trans_mem.rmt_jetty_type, config.rmt_jetty_type & 0x3);
 }
 
 TEST_F(CcuMicrocodeV2Test, SyncWtX_NotifyOnly)
 {
-    TransMemNotifyInfo notify;
-    notify.xnId = 1;
-    notify.xntId = 2;
+    trans_mem_notify_info notify;
+    notify.xn_id = 1;
+    notify.xnt_id = 2;
     notify.value = 0x123;
-    SyncWtX(&instr, notify, 5, 6, 0xF);
+    sync_wt_x(&instr_, notify, 5, 6, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x2);
-    EXPECT_EQ(instr.header.code, 0xD);
-    EXPECT_EQ(instr.v2.syncWtX.notifyValid, 0);
-    EXPECT_EQ(instr.v2.syncWtX.parMode, 0);
+    EXPECT_EQ(instr_.header.type_, 0x2);
+    EXPECT_EQ(instr_.header.code, 0xD);
+    EXPECT_EQ(instr_.v2.sync_wt_x.notify_valid, 0);
+    EXPECT_EQ(instr_.v2.sync_wt_x.par_mode, 0);
 }
 
 TEST_F(CcuMicrocodeV2Test, SyncWtX_WithXn)
 {
-    TransMemNotifyInfo notify;
-    notify.xnId = 10;
-    notify.xntId = 11;
+    trans_mem_notify_info notify;
+    notify.xn_id = 10;
+    notify.xnt_id = 11;
     notify.value = 0x123;
-    SyncWtX(&instr, 1, 2, 3, 4, notify, 5, 0xF);
+    sync_wt_x(&instr_, 1, 2, 3, 4, notify, 5, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x2);
-    EXPECT_EQ(instr.header.code, 0xD);
-    EXPECT_EQ(instr.v2.syncWtX.xdId, 1);
-    EXPECT_EQ(instr.v2.syncWtX.xdtId, 2);
-    EXPECT_EQ(instr.v2.syncWtX.xsId, 3);
-    EXPECT_EQ(instr.v2.syncWtX.xcId, 4);
-    EXPECT_EQ(instr.v2.syncWtX.notifyValid, 1);
-    EXPECT_EQ(instr.v2.syncWtX.parMode, 1);
+    EXPECT_EQ(instr_.header.type_, 0x2);
+    EXPECT_EQ(instr_.header.code, 0xD);
+    EXPECT_EQ(instr_.v2.sync_wt_x.xd_id, 1);
+    EXPECT_EQ(instr_.v2.sync_wt_x.xdt_id, 2);
+    EXPECT_EQ(instr_.v2.sync_wt_x.xs_id, 3);
+    EXPECT_EQ(instr_.v2.sync_wt_x.xc_id, 4);
+    EXPECT_EQ(instr_.v2.sync_wt_x.notify_valid, 1);
+    EXPECT_EQ(instr_.v2.sync_wt_x.par_mode, 1);
 }
 
 TEST_F(CcuMicrocodeV2Test, SyncWtX_FullNotify)
 {
-    TransMemNotifyInfo notify;
-    notify.xnId = 1;
-    notify.xntId = 2;
+    trans_mem_notify_info notify;
+    notify.xn_id = 1;
+    notify.xnt_id = 2;
     notify.value = 0x123;
-    SyncWtX(&instr, 3, 4, 5, 6, notify, 7, 0xF);
+    sync_wt_x(&instr_, 3, 4, 5, 6, notify, 7, 0xF);
 
-    EXPECT_EQ(instr.v2.syncWtX.xdId, 3);
-    EXPECT_EQ(instr.v2.syncWtX.xdtId, 4);
-    EXPECT_EQ(instr.v2.syncWtX.xsId, 5);
-    EXPECT_EQ(instr.v2.syncWtX.xcId, 6);
-    EXPECT_EQ(instr.v2.syncWtX.xnId, notify.xnId);
-    EXPECT_EQ(instr.v2.syncWtX.xntId, notify.xntId);
-    EXPECT_EQ(instr.v2.syncWtX.value, notify.value);
-    EXPECT_EQ(instr.v2.syncWtX.notifyValid, 1);
-    EXPECT_EQ(instr.v2.syncWtX.parMode, 1);
+    EXPECT_EQ(instr_.v2.sync_wt_x.xd_id, 3);
+    EXPECT_EQ(instr_.v2.sync_wt_x.xdt_id, 4);
+    EXPECT_EQ(instr_.v2.sync_wt_x.xs_id, 5);
+    EXPECT_EQ(instr_.v2.sync_wt_x.xc_id, 6);
+    EXPECT_EQ(instr_.v2.sync_wt_x.xn_id, notify.xn_id);
+    EXPECT_EQ(instr_.v2.sync_wt_x.xnt_id, notify.xnt_id);
+    EXPECT_EQ(instr_.v2.sync_wt_x.value, notify.value);
+    EXPECT_EQ(instr_.v2.sync_wt_x.notify_valid, 1);
+    EXPECT_EQ(instr_.v2.sync_wt_x.par_mode, 1);
 }
 
-TEST_F(CcuMicrocodeV2Test, SyncAtX)
+TEST_F(CcuMicrocodeV2Test, sync_at_x)
 {
-    SyncAtX(&instr, 1, 2, 3, 4, 5, 0xF);
+    sync_at_x(&instr_, 1, 2, 3, 4, 5, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x2);
-    EXPECT_EQ(instr.header.code, 0xE);
-    EXPECT_EQ(instr.v2.syncAtX.xdId, 1);
-    EXPECT_EQ(instr.v2.syncAtX.xdtId, 2);
-    EXPECT_EQ(instr.v2.syncAtX.xsId, 3);
-    EXPECT_EQ(instr.v2.syncAtX.xcId, 4);
-    EXPECT_EQ(instr.v2.syncAtX.parMode, 1);
+    EXPECT_EQ(instr_.header.type_, 0x2);
+    EXPECT_EQ(instr_.header.code, 0xE);
+    EXPECT_EQ(instr_.v2.sync_at_x.xd_id, 1);
+    EXPECT_EQ(instr_.v2.sync_at_x.xdt_id, 2);
+    EXPECT_EQ(instr_.v2.sync_at_x.xs_id, 3);
+    EXPECT_EQ(instr_.v2.sync_at_x.xc_id, 4);
+    EXPECT_EQ(instr_.v2.sync_at_x.par_mode, 1);
 }
 
-TEST_F(CcuMicrocodeV2Test, ReduceAdd)
+TEST_F(CcuMicrocodeV2Test, reduce_add)
 {
-    uint16_t ms[CCU_REDUCE_MAX_MS] = {0, 1, 2, 3, 4, 5, 6, 7};
-    uint16_t count = 4;
-    uint16_t castEn = 2;
-    uint16_t dataType = 3;
-    ReduceAdd(&instr, ms, count, castEn, dataType, 1, 0xF);
+    uint16_t ms[ccu_reduce_max_ms] = {0, 1, 2, 3, 4, 5, 6, 7};
+    uint16_t count_ = 4;
+    uint16_t cast_en = 2;
+    uint16_t data_type_ = 3;
+    reduce_add(&instr_, ms, count_, cast_en, data_type_, 1, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x3);
-    EXPECT_EQ(instr.header.code, 0x0);
-    EXPECT_EQ(instr.v2.reduce.count, (count - 2) & 0x7);
-    EXPECT_EQ(instr.v2.reduce.castEn, castEn & 0x3);
-    EXPECT_EQ(instr.v2.reduce.dataType, dataType & 0x1f);
+    EXPECT_EQ(instr_.header.type_, 0x3);
+    EXPECT_EQ(instr_.header.code, 0x0);
+    EXPECT_EQ(instr_.v2.reduce.count_, (count_ - 2) & 0x7);
+    EXPECT_EQ(instr_.v2.reduce.cast_en, cast_en & 0x3);
+    EXPECT_EQ(instr_.v2.reduce.data_type, data_type_ & 0x1f);
 }
 
-TEST_F(CcuMicrocodeV2Test, ReduceMax)
+TEST_F(CcuMicrocodeV2Test, reduce_max)
 {
-    uint16_t ms[CCU_REDUCE_MAX_MS] = {0, 1, 2, 3, 4, 5, 6, 7};
-    uint16_t count = 5;
-    uint16_t dataType = 4;
-    ReduceMax(&instr, ms, count, dataType, 1, 0xF);
+    uint16_t ms[ccu_reduce_max_ms] = {0, 1, 2, 3, 4, 5, 6, 7};
+    uint16_t count_ = 5;
+    uint16_t data_type_ = 4;
+    reduce_max(&instr_, ms, count_, data_type_, 1, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x3);
-    EXPECT_EQ(instr.header.code, 0x1);
-    EXPECT_EQ(instr.v2.reduce.count, (count - 2) & 0x7);
-    EXPECT_EQ(instr.v2.reduce.dataType, dataType & 0x1f);
-    EXPECT_EQ(instr.v2.reduce.castEn, 0);
+    EXPECT_EQ(instr_.header.type_, 0x3);
+    EXPECT_EQ(instr_.header.code, 0x1);
+    EXPECT_EQ(instr_.v2.reduce.count_, (count_ - 2) & 0x7);
+    EXPECT_EQ(instr_.v2.reduce.data_type, data_type_ & 0x1f);
+    EXPECT_EQ(instr_.v2.reduce.cast_en, 0);
 }
 
-TEST_F(CcuMicrocodeV2Test, ReduceMin)
+TEST_F(CcuMicrocodeV2Test, reduce_min)
 {
-    uint16_t ms[CCU_REDUCE_MAX_MS] = {0, 1, 2, 3, 4, 5, 6, 7};
-    uint16_t count = 6;
-    uint16_t dataType = 5;
-    ReduceMin(&instr, ms, count, dataType, 1, 0xF);
+    uint16_t ms[ccu_reduce_max_ms] = {0, 1, 2, 3, 4, 5, 6, 7};
+    uint16_t count_ = 6;
+    uint16_t data_type_ = 5;
+    reduce_min(&instr_, ms, count_, data_type_, 1, 0xF);
 
-    EXPECT_EQ(instr.header.type, 0x3);
-    EXPECT_EQ(instr.header.code, 0x2);
-    EXPECT_EQ(instr.v2.reduce.count, (count - 2) & 0x7);
-    EXPECT_EQ(instr.v2.reduce.dataType, dataType & 0x1f);
+    EXPECT_EQ(instr_.header.type_, 0x3);
+    EXPECT_EQ(instr_.header.code, 0x2);
+    EXPECT_EQ(instr_.v2.reduce.count_, (count_ - 2) & 0x7);
+    EXPECT_EQ(instr_.v2.reduce.data_type, data_type_ & 0x1f);
 }
 
 } // namespace
-} // namespace CcuV2
-} // namespace CcuRep
+} // namespace ccu_v2
+} // namespace ccu_rep
 } // namespace hcomm

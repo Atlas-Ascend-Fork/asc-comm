@@ -19,33 +19,33 @@
 #include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/resource/kernel/ccu_kernel_registry.h"
 
-namespace asccomm {
+namespace asc {
 
-class CcuKernelRegistryMgr {
+class ccu_kernel_registry_mgr {
 public:
-    static CcuKernelRegistryMgr& GetInstance(const int32_t deviceLogicId);
+    static ccu_kernel_registry_mgr& get_instance(const int32_t device_logic_id);
 
-    CcuResult Init();
-    CcuResult Deinit();
+    CcuResult init();
+    CcuResult deinit();
 
     // insHandle is hcomm-owned. asc-comm only uses it as an opaque key.
-    CcuResult GetOrCreate(int32_t deviceLogicId, CcuInsHandle insHandle, CcuKernelRegistry*& registry);
-    CcuKernelRegistry* Get(CcuInsHandle insHandle) const;
+    CcuResult get_or_create(int32_t device_logic_id, CcuInsHandle ins_handle, ccu_kernel_registry*& registry);
+    ccu_kernel_registry* get(CcuInsHandle ins_handle) const;
 
 private:
-    explicit CcuKernelRegistryMgr() = default;
-    ~CcuKernelRegistryMgr();
+    explicit ccu_kernel_registry_mgr() = default;
+    ~ccu_kernel_registry_mgr();
 
-    CcuKernelRegistryMgr(const CcuKernelRegistryMgr& that) = delete;
-    CcuKernelRegistryMgr& operator=(const CcuKernelRegistryMgr& that) = delete;
+    ccu_kernel_registry_mgr(const ccu_kernel_registry_mgr& that) = delete;
+    ccu_kernel_registry_mgr& operator=(const ccu_kernel_registry_mgr& that) = delete;
 
 private:
-    bool initializedFlag_{false};
-    int32_t devLogicId_{-1};
-    mutable std::shared_timed_mutex insMapMutex_;
-    std::unordered_map<CcuInsHandle, std::unique_ptr<CcuKernelRegistry>> insMap_{};
+    bool initialized_flag_{false};
+    int32_t dev_logic_id_{-1};
+    mutable std::shared_timed_mutex ins_map_mutex_;
+    std::unordered_map<CcuInsHandle, std::unique_ptr<ccu_kernel_registry>> ins_map_{};
 };
 
-} // namespace asccomm
+} // namespace asc
 
 #endif // CCU_KERNEL_REGISTRY_MGR_H

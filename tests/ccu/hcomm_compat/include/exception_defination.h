@@ -39,8 +39,8 @@ enum class ExceptionType {
 
 class ExceptionInfo {
 public:
-    static std::string GetErrorMsg(const ExceptionType& type);
-    static HcclResult GetErrorCode(const ExceptionType& type);
+    static std::string GetErrorMsg(const ExceptionType& type_);
+    static HcclResult GetErrorCode(const ExceptionType& type_);
 
 private:
     static std::map<ExceptionType, std::string> errorMsgMap;

@@ -13,19 +13,19 @@
 
 #include "hcomm/common/ccu_exception.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-Condition::Condition(CcuRepContext* context, CcuRelationalOperator<Variable, uint64_t> rel) : context(context)
+condition::condition(ccu_rep_context* context, ccu_relational_operator<variable, uint64_t> rel) : context_(context)
 {
     std::string label = "Condition";
 }
 
-Condition::~Condition() { AppendToContext(context, endLabel); }
+condition::~condition() { append_to_context(context_, end_label_); }
 
-bool Condition::Check() const { return !isExecuted; }
+bool condition::check() const { return !is_executed_; }
 
-void Condition::Run() { isExecuted = true; }
+void condition::run() { is_executed_ = true; }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

@@ -23,33 +23,33 @@ namespace ops_hccl_a2avc {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 
 static HcclResult AllocThreadAndChannelResource(
-    HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost, std::vector<ChannelHandle>& kernelChannels,
+    HcclComm comm, const OpParam& param_, AlgResourceCtx& resCtxHost, std::vector<ChannelHandle>& kernelChannels,
     uint32_t& kernelDie)
 {
     ThreadHandle thread;
     constexpr uint32_t notifyNumOnMainThread = 0;
     RETURN_IF_HCCL_FAIL(
-        HcclThreadAcquireWithStream(comm, CommEngine::COMM_ENGINE_CCU, param.stream, notifyNumOnMainThread, &thread));
+        HcclThreadAcquireWithStream(comm, CommEngine::COMM_ENGINE_CCU, param_.stream, notifyNumOnMainThread, &thread));
     resCtxHost.threads.push_back(thread);
 
-    if (param.rankSize == 1) {
+    if (param_.rankSize == 1) {
         return HCCL_SUCCESS;
     }
 
-    uint32_t channelNum = param.rankSize - 1;
-    kernelChannels.resize(channelNum);
+    uint32_t channel_num = param_.rankSize - 1;
+    kernelChannels.resize(channel_num);
 
     uint32_t channelIndex = 0;
     bool hasKernelDie = false;
-    for (uint32_t remoteRank = 0; remoteRank < param.rankSize; remoteRank++) {
-        if (remoteRank == param.myRank) {
+    for (uint32_t remoteRank = 0; remoteRank < param_.rankSize; remoteRank++) {
+        if (remoteRank == param_.myRank) {
             continue;
         }
 
         uint32_t netLayer = 0, listSize = 0;
         CommLink* linkList = nullptr;
         RETURN_IF_HCCL_FAIL(HcclRankGraphGetLinks(
-            comm, netLayer, param.myRank, remoteRank, &linkList,
+            comm, netLayer, param_.myRank, remoteRank, &linkList,
             &listSize)); // 获取 srcRank 和 dstRank 间的 link 信息
 
         HcclChannelDesc desc;
@@ -70,7 +70,7 @@ static HcclResult AllocThreadAndChannelResource(
                 desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
                 uint32_t channelDie = 0;
                 RETURN_IF_HCCL_FAIL(
-                    asccomm_examples::QueryEndpointDie(comm, param.myRank, link.srcEndpointDesc, channelDie));
+                    asccomm_examples::QueryEndpointDie(comm, param_.myRank, link.srcEndpointDesc, channelDie));
                 RETURN_IF_HCCL_FAIL(asccomm_examples::MergeKernelDie(channelDie, hasKernelDie, kernelDie));
                 protocolExists = true;
                 break;
@@ -81,7 +81,7 @@ static HcclResult AllocThreadAndChannelResource(
         }
         RETURN_IF_HCCL_FAIL(HcclChannelAcquire(
             comm, CommEngine::COMM_ENGINE_CCU, &desc, 1,
-            &kernelChannels[channelIndex])); // 获取 channel handle
+            &kernelChannels[channelIndex])); // 获取 channel_ handle
         channelIndex++;
     }
 
@@ -89,51 +89,51 @@ static HcclResult AllocThreadAndChannelResource(
 }
 
 static HcclResult RegisterAllToAllVCKernel(
-    HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost,
+    HcclComm comm, const OpParam& param_, AlgResourceCtx& resCtxHost,
     const std::vector<ChannelHandle>& kernelChannels, uint32_t kernelDie)
 {
-    CcuKernelInfo kernelInfo;
-    if (strcpy_s(kernelInfo.kernelFuncName, sizeof(kernelInfo.kernelFuncName), "CcuAllToAllVCMesh1DKernel") != EOK) {
+    ccu_kernel_info kernelInfo;
+    if (strcpy_s(kernelInfo.kernel_func_name, sizeof(kernelInfo.kernel_func_name), "CcuAllToAllVCMesh1DKernel") != EOK) {
         return HCCL_E_INTERNAL;
     }
-    kernelInfo.kernelFunc = reinterpret_cast<void*>(CcuAllToAllVCMesh1DKernel);
+    kernelInfo.kernel_func = reinterpret_cast<void*>(CcuAllToAllVCMesh1DKernel);
 
-    auto kernelArg = std::make_shared<CcuKernelArgAllToAllVCMesh1D>();
-    kernelArg->rankSize = param.rankSize;
-    kernelArg->rankId = param.myRank;
-    kernelInfo.setKernelArg(kernelArg);
+    auto kernel_arg = std::make_shared<CcuKernelArgAllToAllVCMesh1D>();
+    kernel_arg->rankSize = param_.rankSize;
+    kernel_arg->rankId = param_.myRank;
+    kernelInfo.setKernelArg(kernel_arg);
 
     for (uint32_t i = 0; i < kernelChannels.size(); ++i) {
-        kernelArg->channels[i] = kernelChannels[i]; // 将 channel handle 保存到 kernel 参数
+        kernel_arg->channels[i] = kernelChannels[i]; // 将 channel_ handle 保存到 kernel 参数
     }
-    kernelArg->channelCount = static_cast<uint32_t>(kernelChannels.size());
+    kernel_arg->channelCount = static_cast<uint32_t>(kernelChannels.size());
 
     resCtxHost.ccuKernels.resize(1); // 只注册一个 kernel
 
-    CcuInsHandle insHandle{0};
-    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, insHandle));
-    HcommCcuRegisterContextHandle context{nullptr};
-    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, context));
-    CcuResult regStartRet = hcomm_ccu_kernel_register_start(insHandle, context);
+    CcuInsHandle ins_handle{0};
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, ins_handle));
+    HcommCcuRegisterContextHandle context_{nullptr};
+    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, context_));
+    CcuResult regStartRet = asccomm_ccu_kernel_register_start(ins_handle, context_);
     if (regStartRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
 
-    CcuKernelHandle kernelHandle;
-    const void* kernelArgs[] = {kernelInfo.kernelArg};
+    ccu_kernel_handle kernelHandle;
+    const void* kernel_args[] = {kernelInfo.kernel_arg};
 
-    constexpr uint32_t kernelArgNum = 1;
-    CcuResult regRet = hcomm_ccu_kernel_register(
-        insHandle, kernelDie, kernelInfo.kernelFuncName, reinterpret_cast<void*>(kernelInfo.kernelFunc), kernelArgs,
-        kernelArgNum, &kernelHandle); // 注册 kernel
+    constexpr uint32_t kernel_arg_num = 1;
+    CcuResult reg_ret = asccomm_ccu_kernel_register(
+        ins_handle, kernelDie, kernelInfo.kernel_func_name, reinterpret_cast<void*>(kernelInfo.kernel_func), kernel_args,
+        kernel_arg_num, &kernelHandle); // 注册 kernel
 
-    if (regRet != CCU_SUCCESS) {
-        (void)hcomm_ccu_kernel_register_end(insHandle);
+    if (reg_ret != CCU_SUCCESS) {
+        (void)asccomm_ccu_kernel_register_end(ins_handle);
         return HCCL_E_INTERNAL;
     }
     resCtxHost.ccuKernels[0] = kernelHandle;
 
-    CcuResult regEndRet = hcomm_ccu_kernel_register_end(insHandle);
+    CcuResult regEndRet = asccomm_ccu_kernel_register_end(ins_handle);
     if (regEndRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
@@ -141,17 +141,17 @@ static HcclResult RegisterAllToAllVCKernel(
     return HCCL_SUCCESS;
 }
 
-HcclResult AllocAlgResource(HcclComm comm, const OpParam& param, AlgResourceCtx& resCtxHost)
+HcclResult AllocAlgResource(HcclComm comm, const OpParam& param_, AlgResourceCtx& resCtxHost)
 {
     std::vector<ChannelHandle> kernelChannels;
     uint32_t kernelDie = 0;
-    RETURN_IF_HCCL_FAIL(AllocThreadAndChannelResource(comm, param, resCtxHost, kernelChannels, kernelDie));
+    RETURN_IF_HCCL_FAIL(AllocThreadAndChannelResource(comm, param_, resCtxHost, kernelChannels, kernelDie));
 
-    if (param.rankSize == 1) {
+    if (param_.rankSize == 1) {
         return HCCL_SUCCESS;
     }
 
-    RETURN_IF_HCCL_FAIL(RegisterAllToAllVCKernel(comm, param, resCtxHost, kernelChannels, kernelDie));
+    RETURN_IF_HCCL_FAIL(RegisterAllToAllVCKernel(comm, param_, resCtxHost, kernelChannels, kernelDie));
     return HCCL_SUCCESS;
 }
 

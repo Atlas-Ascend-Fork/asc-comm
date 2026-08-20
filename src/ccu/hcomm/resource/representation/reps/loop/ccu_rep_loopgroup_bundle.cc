@@ -12,70 +12,70 @@
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/common/ccu_exception.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-CcuRepLoopGroupBundle::CcuRepLoopGroupBundle(
-    CcuInsGeneraterBase* insGenPtr, const CcuLoopGroupConfig& config, const Variable& parallelVar,
-    const Variable& offsetVar)
-    : insGenPtr_(insGenPtr), config_(config), parallelVar_(parallelVar), offsetVar_(offsetVar)
+ccu_rep_loop_group_bundle::ccu_rep_loop_group_bundle(
+    ccu_ins_generater_base* ins_gen_ptr, const ccu_loop_group_config& config, const variable& parallel_var,
+    const variable& offset_var)
+    : ins_gen_ptr_(ins_gen_ptr), config_(config), parallel_var_(parallel_var), offset_var_(offset_var)
 {
-    type = CcuRepType::LOOPGROUP;
+    type_ = ccu_rep_type::loop_group;
 }
 
-CcuRepLoopGroupBundle::CcuRepLoopGroupBundle(
-    CcuInsGeneraterBase* insGenPtr, const Variable& parallelVar, const Variable& offsetVar)
-    : insGenPtr_(insGenPtr), parallelVar_(parallelVar), offsetVar_(offsetVar), layout_(Layout::PackedVar)
+ccu_rep_loop_group_bundle::ccu_rep_loop_group_bundle(
+    ccu_ins_generater_base* ins_gen_ptr, const variable& parallel_var, const variable& offset_var)
+    : ins_gen_ptr_(ins_gen_ptr), parallel_var_(parallel_var), offset_var_(offset_var), layout_(layout::packed_var)
 {
-    type = CcuRepType::LOOPGROUP;
+    type_ = ccu_rep_type::loop_group;
 }
 
-void CcuRepLoopGroupBundle::AddLoop(const LoopEntry& entry) { loops_.push_back(entry); }
+void ccu_rep_loop_group_bundle::add_loop(const loop_entry& entry) { loops_.push_back(entry); }
 
-uint16_t CcuRepLoopGroupBundle::LoopGroupInstrOffsetInBundle() const
+uint16_t ccu_rep_loop_group_bundle::loop_group_instr_offset_in_bundle() const
 {
-    uint16_t loopCount = static_cast<uint16_t>(loops_.size());
-    uint16_t varBasedLoopCount = 0;
+    uint16_t loop_count = static_cast<uint16_t>(loops_.size());
+    uint16_t var_based_loop_count = 0;
     for (const auto& loop : loops_) {
-        if (loop.layout != Layout::Config) {
-            varBasedLoopCount++;
+        if (loop.layout_value != layout::config) {
+            var_based_loop_count++;
         }
     }
-    return (loopCount - varBasedLoopCount) + (varBasedLoopCount * 2) + (layout_ != Layout::Config ? 0 : 2);
+    return (loop_count - var_based_loop_count) + (var_based_loop_count * 2) + (layout_ != layout::config ? 0 : 2);
 }
 
-uint16_t CcuRepLoopGroupBundle::GetStartLoopInstrId() const { return instrId + LoopGroupInstrOffsetInBundle() + 3; }
+uint16_t ccu_rep_loop_group_bundle::get_start_loop_instr_id() const { return instr_id_ + loop_group_instr_offset_in_bundle() + 3; }
 
-uint16_t CcuRepLoopGroupBundle::InstrCount()
+uint16_t ccu_rep_loop_group_bundle::instr_count()
 {
-    instrCount = insGenPtr_->CcuRepLoopGroupBundleInstrCount(this);
-    return instrCount;
+    instr_count_ = ins_gen_ptr_->ccu_rep_loop_group_bundle_instr_count(this);
+    return instr_count_;
 }
 
-bool CcuRepLoopGroupBundle::Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep)
+bool ccu_rep_loop_group_bundle::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep)
 {
     for (const auto& loop : loops_) {
-        if (!loop.repLoopBlock->Translated()) {
+        if (!loop.rep_loop_block->translated()) {
             return false;
         }
     }
 
-    this->instrId = instrId;
-    translated = true;
+    this->instr_id_ = instr_id;
+    translated_ = true;
 
     CHK_PRT_THROW(
-        insGenPtr_->CcuRepLoopGroupBundleTranslate(ccuKernel, instr, instrId, this, dep)
+        ins_gen_ptr_->ccu_rep_loop_group_bundle_translate(ccu_kernel, instr, instr_id, this, dep)
             != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR("[CcuRepLoopGroupBundle][Translate] failed to translate for instrId[%u]", instrId),
+        HCCL_ERROR("[CcuRepLoopGroupBundle][translate] failed to translate for instrId[%u]", instr_id),
         CcuResult::CCU_E_INTERNAL, "CcuRepLoopGroupBundle translate failed");
 
-    return translated;
+    return translated_;
 }
 
-std::string CcuRepLoopGroupBundle::Describe()
+std::string ccu_rep_loop_group_bundle::describe()
 {
-    return asccomm::FormatCcuMessage("LoopGroupBundle[loops=%zu, totalLoopNum=%lu]", loops_.size(), totalLoopNum_);
+    return asc::format_ccu_message("LoopGroupBundle[loops=%zu, totalLoopNum=%lu]", loops_.size(), total_loop_num_);
 }
 
 }; // namespace CcuRep
-}; // namespace asccomm
+}; // namespace asc

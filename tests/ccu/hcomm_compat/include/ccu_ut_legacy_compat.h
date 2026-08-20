@@ -20,17 +20,17 @@
 
 using u32 = uint32_t;
 
-#define CHK_PRT_THROW(condition, log_action, exception, message) \
+#define CHK_PRT_THROW(condition_, log_action, exception, message) \
     do {                                                         \
-        if (condition) {                                         \
+        if (condition_) {                                         \
             log_action;                                          \
             throw exception(message);                            \
         }                                                        \
     } while (0)
 
-#define CHK_PRT_RET(condition, log_action, result) \
+#define CHK_PRT_RET(condition_, log_action, result) \
     do {                                           \
-        if (condition) {                           \
+        if (condition_) {                           \
             log_action;                            \
             return result;                         \
         }                                          \

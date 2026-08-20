@@ -8,51 +8,51 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_CCU_REPRESENTATION_LOOP_CALL_H
-#define HCOMM_CCU_REPRESENTATION_LOOP_CALL_H
+#ifndef ASCCOMM_CCU_REPRESENTATION_LOOP_CALL_H
+#define ASCCOMM_CCU_REPRESENTATION_LOOP_CALL_H
 
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopblock_v1.h"
 
-namespace asccomm {
-namespace CcuRep {
+namespace asc {
+namespace ccu_rep {
 
-class CcuRepLoopCall : public CcuRepBase {
+class ccu_rep_loop_call : public ccu_rep_base {
 public:
-    explicit CcuRepLoopCall(CcuInsGeneraterBase* insGeneratorPtr, const std::string& label);
-    bool Translate(CcuKernel* ccuKernel, CcuInstr*& instr, uint16_t& instrId, const TransDep& dep) override;
-    std::string Describe() override;
-    uint16_t InstrCount() override;
-    const std::string& GetLabel() const;
+    explicit ccu_rep_loop_call(ccu_ins_generater_base* ins_generator_ptr, const std::string& label);
+    bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
+    std::string describe() override;
+    uint16_t instr_count() override;
+    const std::string& get_label() const;
 
-    void Reference(std::shared_ptr<CcuRepLoopBlock> refRep);
+    void reference(std::shared_ptr<ccu_rep_loop_block> ref_rep);
 
-    void SetInArg(const Variable& var);
-    void SetInArg(const std::vector<Variable>& varList);
-    void SetInArg(const Memory& mem);
-    void SetInArg(const std::vector<Memory>& memList);
+    void set_in_arg(const variable& var);
+    void set_in_arg(const std::vector<variable>& var_list);
+    void set_in_arg(const memory& mem);
+    void set_in_arg(const std::vector<memory>& mem_list);
 
-    void SetInArg(const LocalAddr& addr);
-    void SetInArg(const RemoteAddr& addr);
-    void SetInArg(const std::vector<LocalAddr>& addrList);
-    void SetInArg(const std::vector<RemoteAddr>& addrList);
+    void set_in_arg(const local_addr& addr);
+    void set_in_arg(const remote_addr& addr);
+    void set_in_arg(const std::vector<local_addr>& addr_list);
+    void set_in_arg(const std::vector<remote_addr>& addr_list);
 
-    std::shared_ptr<CcuRepLoopBlock> GetLoopBlock() { return loopBlock; }
-    std::vector<CcuRepArg>& GetInArgs() { return inArgs; }
-    uint32_t GetInArgCount() { return inArgCount; }
+    std::shared_ptr<ccu_rep_loop_block> get_loop_block() { return loop_block_; }
+    std::vector<ccu_rep_arg>& get_in_args() { return in_args_; }
+    uint32_t get_in_arg_count() { return in_arg_count_; }
 
 private:
-    CcuInsGeneraterBase* insGeneratorPtr_;
-    std::string label;
-    std::shared_ptr<CcuRepLoopBlock> loopBlock{nullptr};
+    ccu_ins_generater_base* ins_generator_ptr_;
+    std::string label_;
+    std::shared_ptr<ccu_rep_loop_block> loop_block_{nullptr};
 
-    std::vector<CcuRepArg> inArgs;
-    uint32_t inArgCount{0};
-    uint32_t inArgInstrCount{0}; // 处理LoopCall的入参需要的指令数
+    std::vector<ccu_rep_arg> in_args_;
+    uint32_t in_arg_count_{0};
+    uint32_t in_arg_instr_count_{0}; // 处理LoopCall的入参需要的指令数
 
-    CcuInstr* instr{nullptr};
+    ccu_instr* instr_{nullptr};
 };
 
 }; // namespace CcuRep
-}; // namespace asccomm
-#endif // HCOMM_CCU_REPRESENTATION_LOOP_CALL_H
+}; // namespace asc
+#endif // ASCCOMM_CCU_REPRESENTATION_LOOP_CALL_H
