@@ -30,6 +30,8 @@ constexpr int32_t HCOMM_FAILED = -1;
 constexpr int32_t HCOMM_SUCCESS = 0;
 constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
+constexpr uint32_t HCOMM_MULTI_CHANNEL_VERSION = 1U;
+constexpr uint32_t HCOMM_MULTI_CHANNEL_MAGIC_WORD = 0x484D4348U;
 
 #pragma pack(push, 1)
 struct UrmaWqeEntry {
@@ -240,6 +242,22 @@ struct HcommMultiChannelEntity {
     uint32_t channelNum;
     uint32_t reserved;
 };
+
+static_assert(sizeof(CommAbiHeader) == 16U, "CommAbiHeader ABI size mismatch");
+static_assert(sizeof(SqContext) == 128U, "SqContext ABI size mismatch");
+static_assert(sizeof(CqContext) == 128U, "CqContext ABI size mismatch");
+static_assert(sizeof(UbcCtpBatchRemoteInfo) == 32U, "UbcCtpBatchRemoteInfo ABI size mismatch");
+static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, remoteBufferAddr) == 0U, "remoteBufferAddr ABI mismatch");
+static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, remoteBufferNum) == 8U, "remoteBufferNum ABI mismatch");
+static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, tpID) == 12U, "tpID ABI mismatch");
+static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, rmtEidL) == 16U, "rmtEidL ABI mismatch");
+static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, rmtEidH) == 24U, "rmtEidH ABI mismatch");
+static_assert(sizeof(HcommMultiChannelEntity) == 280U, "HcommMultiChannelEntity ABI size mismatch");
+static_assert(__builtin_offsetof(HcommMultiChannelEntity, abiHeader) == 0U, "abiHeader ABI mismatch");
+static_assert(__builtin_offsetof(HcommMultiChannelEntity, sqContext) == 16U, "sqContext ABI mismatch");
+static_assert(__builtin_offsetof(HcommMultiChannelEntity, cqContext) == 144U, "cqContext ABI mismatch");
+static_assert(__builtin_offsetof(HcommMultiChannelEntity, channelNum) == 272U, "channelNum ABI mismatch");
+static_assert(__builtin_offsetof(HcommMultiChannelEntity, reserved) == 276U, "reserved ABI mismatch");
 
 typedef struct {
     CommAbiHeader abiHeader;

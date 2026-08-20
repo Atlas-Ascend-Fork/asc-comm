@@ -338,7 +338,20 @@ __aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchH
     UbcCtpBatchHandle handle{};
     LocalTensor<uint32_t> buffer = buff.template ReinterpretCast<uint32_t>();
 
+    if (multiChannel == 0U) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA MakeBatchHandle failed with null multi-channel handle\n");
+        return handle;
+    }
     auto* multiChannelEntity = reinterpret_cast<__gm__ HcommMultiChannelEntity*>(multiChannel);
+    uint32_t channelNum = multiChannelEntity->channelNum;
+    uint64_t expectedEntitySize = sizeof(HcommMultiChannelEntity) +
+                                  static_cast<uint64_t>(channelNum) * sizeof(UbcCtpBatchRemoteInfo);
+    if (multiChannelEntity->abiHeader.version != HCOMM_MULTI_CHANNEL_VERSION ||
+        multiChannelEntity->abiHeader.magicWord != HCOMM_MULTI_CHANNEL_MAGIC_WORD || channelNum == 0U ||
+        expectedEntitySize > 0xFFFFFFFFULL || multiChannelEntity->abiHeader.size != expectedEntitySize) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA MakeBatchHandle failed with invalid multi-channel ABI\n");
+        return handle;
+    }
     uint32_t sqDepth = multiChannelEntity->sqContext.contextInfo.ubJfs.sqDepth;
     uint32_t wqeSize = multiChannelEntity->sqContext.contextInfo.ubJfs.wqeSize;
     uint32_t cqeSize = multiChannelEntity->cqContext.contextInfo.ubJfc.cqeSize;
@@ -372,6 +385,13 @@ __aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchH
 __aicore__ inline UbcCtpBatchHandleRef HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
     UbcCtpBatchHandle& handle, uint32_t channelIndex)
 {
+    if (!handle.IsValid()) {
+        return UbcCtpBatchHandleRef{};
+    }
+    auto* multiChannelEntity = reinterpret_cast<__gm__ HcommMultiChannelEntity*>(handle.multiChannel);
+    if (channelIndex >= multiChannelEntity->channelNum) {
+        return UbcCtpBatchHandleRef{};
+    }
     auto* channelInfos = reinterpret_cast<__gm__ UbcCtpBatchRemoteInfo*>(
         handle.multiChannel + sizeof(HcommMultiChannelEntity));
     UbcCtpBatchRemoteInfo remoteInfo{};

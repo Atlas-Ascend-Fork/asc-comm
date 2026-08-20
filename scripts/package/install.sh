@@ -160,7 +160,7 @@ is_allowed_path()
     local path=$1
     case "${path}" in
         asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h|\
-        aarch64-linux/include/hcomm/*/*.h|x86_64-linux/include/hcomm/*/*.h|\
+        aarch64-linux/include/hcomm/*.h|x86_64-linux/include/hcomm/*.h|\
         aarch64-linux/lib64/libasccomm_hcomm_host.so|x86_64-linux/lib64/libasccomm_hcomm_host.so)
             ;;
         *)

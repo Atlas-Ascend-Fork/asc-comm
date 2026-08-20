@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef INCLUDE_HCOMM_HOST_HCOMM_BATCH_H
-#define INCLUDE_HCOMM_HOST_HCOMM_BATCH_H
+#ifndef INCLUDE_HCOMM_HCOMM_HOST_H
+#define INCLUDE_HCOMM_HCOMM_HOST_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -19,12 +19,59 @@
 
 #include "acl/acl_rt.h"
 #include "hccl/hccl_res.h"
-#include "hcomm/common/hcomm_batch_entity.h"
 #include "hcomm/hcomm_res_entity_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define HCOMM_MULTI_CHANNEL_VERSION 1U
+#define HCOMM_MULTI_CHANNEL_MAGIC_WORD 0x484D4348U
+
+/** Per-channel transport information and a reference to its remote MR table. */
+typedef struct {
+    uint64_t remoteBufferAddr;
+    uint32_t remoteBufferNum;
+    uint32_t tpID;
+    uint64_t rmtEidL;
+    uint64_t rmtEidH;
+} HcommBatchRemoteInfo;
+
+/** Shared SQ/CQ contexts followed by HcommBatchRemoteInfo[channelNum]. */
+typedef struct {
+    CommAbiHeader abiHeader;
+    SqContext sqContext;
+    CqContext cqContext;
+    uint32_t channelNum;
+    uint32_t reserved;
+} HcommMultiChannelEntity;
+
+/** Device address of one HcommMultiChannelEntity allocation. */
+typedef uint64_t MultiChannelHandle;
+
+#ifdef __cplusplus
+#define HCOMM_HOST_STATIC_ASSERT(condition, message) static_assert(condition, message)
+#else
+#define HCOMM_HOST_STATIC_ASSERT(condition, message) _Static_assert(condition, message)
+#endif
+
+HCOMM_HOST_STATIC_ASSERT(sizeof(CommAbiHeader) == 16U, "CommAbiHeader ABI size mismatch");
+HCOMM_HOST_STATIC_ASSERT(sizeof(SqContext) == 128U, "SqContext ABI size mismatch");
+HCOMM_HOST_STATIC_ASSERT(sizeof(CqContext) == 128U, "CqContext ABI size mismatch");
+HCOMM_HOST_STATIC_ASSERT(sizeof(HcommBatchRemoteInfo) == 32U, "HcommBatchRemoteInfo ABI size mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, remoteBufferAddr) == 0U, "remoteBufferAddr ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, remoteBufferNum) == 8U, "remoteBufferNum ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, tpID) == 12U, "tpID ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, rmtEidL) == 16U, "rmtEidL ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, rmtEidH) == 24U, "rmtEidH ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(sizeof(HcommMultiChannelEntity) == 280U, "HcommMultiChannelEntity ABI size mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, abiHeader) == 0U, "abiHeader ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, sqContext) == 16U, "sqContext ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, cqContext) == 144U, "cqContext ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, channelNum) == 272U, "channelNum ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, reserved) == 276U, "reserved ABI mismatch");
+
+#undef HCOMM_HOST_STATIC_ASSERT
 
 typedef struct {
     SqContext sqContext;
@@ -285,4 +332,4 @@ static inline HcclResult DestroyMultiChannelHandle(MultiChannelHandle multiChann
 }
 #endif
 
-#endif // INCLUDE_HCOMM_HOST_HCOMM_BATCH_H
+#endif // INCLUDE_HCOMM_HCOMM_HOST_H
