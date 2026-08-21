@@ -105,7 +105,7 @@ The sample succeeds when all ranks print `test pass`.
 
 ## Notes
 
-- Load the CANN environment variables before building to ensure `ASCEND_CANN_PACKAGE_PATH` and ASC CMake modules are available.
+- Load the CANN environment variables before building and running to ensure `ASCEND_CANN_PACKAGE_PATH`, ASC CMake modules, and runtime shared libraries are available.
 - This sample depends on CANN `hccl`, `hcomm`, `ascendcl`, and `runtime` libraries.
 - The number of ranks must not exceed the number of available NPUs.
 - This sample supports only single-node multi-card execution and does not support multi-node execution.

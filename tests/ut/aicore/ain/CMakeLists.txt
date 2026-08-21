@@ -8,49 +8,21 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------------------------------------
 
-# Mirror asc-devkit's installed asc-comm layout so Ain relative includes are
-# tested from the same directory depth used in CANN.
-set(AIN_VIRTUAL_ASC_DIR ${CMAKE_CURRENT_BINARY_DIR}/virtual_inc/asc)
-set(AIN_VIRTUAL_INCLUDE_DIR ${AIN_VIRTUAL_ASC_DIR}/include/comm_api/aicore)
-file(REMOVE_RECURSE ${AIN_VIRTUAL_ASC_DIR})
-file(MAKE_DIRECTORY
-    ${AIN_VIRTUAL_ASC_DIR}/include/adv_api/hcomm
-    ${AIN_VIRTUAL_ASC_DIR}/include/comm_api/aicore/ain
-    ${AIN_VIRTUAL_ASC_DIR}/impl/adv_api/detail/hcomm
-    ${AIN_VIRTUAL_ASC_DIR}/impl/comm_api/aicore/ain
-)
-file(COPY ${ASCCOMM_ROOT}/include/aicore/hcomm/
-    DESTINATION ${AIN_VIRTUAL_ASC_DIR}/include/adv_api/hcomm
-    FILES_MATCHING PATTERN "*.h"
-)
-file(COPY ${ASCCOMM_ROOT}/include/aicore/ain/
-    DESTINATION ${AIN_VIRTUAL_ASC_DIR}/include/comm_api/aicore/ain
-    FILES_MATCHING PATTERN "*.h"
-)
-file(COPY ${ASCCOMM_ROOT}/src/aicore/hcomm/
-    DESTINATION ${AIN_VIRTUAL_ASC_DIR}/impl/adv_api/detail/hcomm
-    FILES_MATCHING PATTERN "*.h"
-)
-file(COPY ${ASCCOMM_ROOT}/src/aicore/ain/
-    DESTINATION ${AIN_VIRTUAL_ASC_DIR}/impl/comm_api/aicore/ain
-    FILES_MATCHING PATTERN "*.h"
-)
-file(CREATE_LINK ../../adv_api/hcomm
-    ${AIN_VIRTUAL_ASC_DIR}/include/comm_api/aicore/hcomm SYMBOLIC)
-file(CREATE_LINK ../../adv_api/detail/hcomm
-    ${AIN_VIRTUAL_ASC_DIR}/impl/comm_api/aicore/hcomm SYMBOLIC)
-
+# ain.h uses CANN installed-package relative includes:
+#   ../hcomm/hcomm.h                             -> asc/include/comm_api/aicore/hcomm/hcomm.h
+#   ../../../../impl/comm_api/aicore/ain/impl/*.h -> asc/impl/comm_api/aicore/ain/impl/*.h
+# hcomm.h uses:
+#   ../../../impl/adv_api/detail/hcomm/impl/*.h  -> asc/impl/adv_api/detail/hcomm/impl/*.h
+# ain_impl_def.h uses:
+#   ../../hcomm/impl/hcomm_impl_def.h            -> asc/impl/comm_api/aicore/hcomm/impl/hcomm_impl_def.h
+#   hcomm/hcomm_team_entity_defs.h               -> CANN pkg_inc/hcomm (sibling of the asc dir)
 set(AIN_UT_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${ASCCOMM_UT_ROOT}/common
-    ${AIN_VIRTUAL_INCLUDE_DIR}
-    ${ASCCOMM_ROOT}/include/aicore
-    ${ASCCOMM_ROOT}/src/aicore
+    ${ASCCOMM_UT_STAGE_INCLUDE_DIR}
     ${ASCCOMM_TIKICPU_INCLUDE_DIR}
     ${ASCCOMM_CANN_INCLUDE_DIRS}
-    ${ASCENDC_DIR}/include/comm_api
-    ${ASCENDC_DIR}/include/adv_api
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
 )
 
@@ -60,11 +32,7 @@ function(add_ain_ut target_name product_type tikicpu_product_dir)
         ${ASCCOMM_UT_ROOT}/common/k3_pvwrap.cpp
         ${ARGN}
     )
-
-    if(previous_hcomm_ut_target)
-        add_dependencies(${target_name} ${previous_hcomm_ut_target})
-    endif()
-    set(previous_hcomm_ut_target ${target_name} PARENT_SCOPE)
+    add_dependencies(${target_name} prepare_asccomm_ut_header_layout)
 
     asccomm_add_product_definitions(${target_name} ${product_type})
     target_compile_definitions(${target_name} PRIVATE ASCENDC_CPU_DEBUG=1)

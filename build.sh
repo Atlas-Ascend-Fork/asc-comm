@@ -26,12 +26,6 @@ THREAD_NUM="${CPU_CORES}"
 Ascend_CANN_PACKAGE_PATH=""
 CANN_3RD_LIB_PATH="${SCRIPT_DIR}/third_party"
 
-# 默认构建类型：Release / Debug
-BUILD_TYPE="Release"
-
-# 自定义 CMake 参数（可扩展）
-CMAKE_EXTRA_ARGS=""
-
 # 分割线，用于日志美化
 dotted_line="----------------------------------------"
 
@@ -78,7 +72,7 @@ log() {
         ERROR) color="$COLOR_ERROR" ;;
         *) color="" ;;
     esac
-    
+
     # 带颜色的日志内容
     echo -e "${color}${plain_log}${COLOR_RESET}"
 }
@@ -96,8 +90,6 @@ usage() {
     echo "    --make_clean         Clean build artifacts"
     echo "    --cann_3rd_lib_path=<PATH>"
     echo "                         Set CANN third_party package install path, Default:./third_party"
-    echo "    --build-type=<TYPE>"
-    echo "                         Specify build type (TYPE options: Release/Debug), Default:Release"
 }
 
 parse_args() {
@@ -146,7 +138,7 @@ set_env() {
         log "ERROR" "未配置 CANN 环境，请先source set_env.sh"
         exit 1
     fi
-    log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}" 
+    log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}"
     Ascend_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
     CUSTOM_OPTION+=("-DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
@@ -165,7 +157,7 @@ function cmake_config () {
     cmake -S "${src_dir}" -B "${build_dir}" "$@"
 }
 
-function build () { 
+function build () {
     local build_dir="$1"
     shift
     echo "cmake --build ${build_dir} $* -j ${THREAD_NUM}"
@@ -174,9 +166,6 @@ function build () {
 
 main(){
     parse_args "$@"
-    if [[ "${TEST}" == true || "${PACKAGE}" != true ]]; then
-        clean_build
-    fi
     set_env
     echo "${CUSTOM_OPTION[@]}"
     local ut_build_dir="${BUILD_DIR}/ut-hcomm"
@@ -196,7 +185,7 @@ main(){
     if [[ "${COV}" == true ]]; then
         CUSTOM_OPTION+=("-DENABLE_GCOV=ON")
     fi
-    
+
     if [[ "${COV}" == true ]]; then
         TARGETS="--target collect_coverage_data"
     else
