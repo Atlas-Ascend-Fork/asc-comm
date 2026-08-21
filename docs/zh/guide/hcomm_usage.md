@@ -55,11 +55,12 @@ BatchHandle接口当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径，
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+AscendC::LocalTensor<uint8_t> batchBuffer = batchTBuf.Get<uint8_t>();
 auto batchHandle = hcomm.MakeBatchHandle(
-    channel, batchBuffer, batchBufferLen, remoteBase, localBase);
+    channel, batchBuffer, batchBufferLen, remoteAddr, localAddr);
 ```
 
-`remoteBase`需要落在通道的远端已注册buffer中。接口缓存对应远端token；`localBase`在当前版本中为预留参数。
+`remoteAddr`非空时需要落在通道的远端已注册buffer中；为空时，接口选择远端注册表中的第0个buffer。这是唯一一次远端注册区查找：接口缓存选中buffer的`tokenId/tokenValue`，后续批量接口不再校验远端地址范围；`localAddr`在当前版本中为预留参数。
 
 2. 在BatchHandle的UB缓冲区中准备WQE。读、写和写通知任务可以在同一批次中混合。
 
@@ -70,7 +71,7 @@ ret = hcomm.WriteWithNotifyNbi(
     batchHandle, remoteNotifyDst, localNotifySrc, notifyLen, notifyAddr, notifyVal);
 ```
 
-这些调用只准备WQE，不复制到GM SQ，也不敲doorbell。远端数据地址和`notifyAddr`必须由创建句柄时缓存的同一个远端token覆盖。
+这些调用只准备WQE，不复制到GM SQ，也不敲doorbell。调用方必须保证批量Write/WriteWithNotify的远端目的区间、批量Read的远端源区间以及`notifyAddr`，都属于创建句柄时缓存的`tokenId/tokenValue`所代表的注册内存。
 
 3. 调用`BatchCommit`复制并提交当前批次。该接口成功后始终敲SQ doorbell。
 

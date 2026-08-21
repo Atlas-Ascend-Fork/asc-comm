@@ -36,7 +36,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
     T& batchHandle,
     GM_ADDR dst,
     GM_ADDR src,
-    uint64_t len,
+    uint32_t len,
     GM_ADDR notifyAddr,
     uint64_t notifyVal);
 ```
@@ -47,10 +47,10 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | --- | --- | --- |
 | `channel` | Input | Communication channel handle used by the ordinary interface. |
 | `batchHandle` | Input/Output | Batch handle created by `MakeBatchHandle`. Its WQEBB count is updated after a WQE is prepared successfully; its local `cqHead` is also incremented when `cqe = 1`. |
-| `dst` | Output | Absolute remote destination GM address. |
+| `dst` | Output | Absolute remote destination GM address. For the batch interface, the caller must ensure that its access range matches the `tokenId/tokenValue` cached in `batchHandle`. |
 | `src` | Input | Absolute local source GM address. |
 | `len` | Input | Write length in bytes. |
-| `notifyAddr` | Input | Absolute remote notification GM address. |
+| `notifyAddr` | Input | Absolute remote notification GM address. For the batch interface, the caller must ensure that its access range matches the `tokenId/tokenValue` cached in `batchHandle`. |
 | `notifyVal` | Input | Remote notification value. |
 
 ## Template Parameters
@@ -68,7 +68,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | Return Value | Description |
 | --- | --- |
 | `0` | The ordinary task is submitted or the batch WQE is prepared successfully. |
-| `-1` | The operation fails. For the batch interface, this includes a length that cannot be represented in 32 bits or insufficient space in the UB buffer. The ordinary `COMM_PROTOCOL_ROCE` path also returns failure. |
+| `-1` | The operation fails. For the batch interface, this includes insufficient space in the UB buffer. The ordinary `COMM_PROTOCOL_ROCE` path also returns failure. |
 
 ## Constraints
 
@@ -83,10 +83,9 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 
 - Currently supported only on the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 - Each batch write-with-notify task occupies two 64-byte WQEBBs. It is prepared only in UB and does not copy data to the GM SQ or ring the doorbell.
-- `len` must not exceed `UINT32_MAX`.
 - `config.inlineEn` must be `0`, and `config.cqe` can be `0` or `1`. Different read, write, and write-with-notify tasks in the same batch may use different `cqe` settings.
-- `dst` and `notifyAddr` are not checked against the remote registration range again. The notification context reuses the remote token cached in the BatchHandle. The caller must ensure that both ranges are covered by the token cached by `MakeBatchHandle` using `dstBase`.
-- If length or buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
+- `dst` and `notifyAddr` are not checked against the remote registration range again, and the remote registration table is not queried. The notification context reuses the `tokenId/tokenValue` cached in the BatchHandle. The caller must ensure that both remote access ranges belong to the same registered memory from which `MakeBatchHandle` cached the token using `remoteAddr`.
+- If buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
 - Call `BatchCommit` after preparation. The caller must exclusively own the channel while using the BatchHandle.
 
 ## Related Interfaces

@@ -68,7 +68,7 @@ Ascend 950 UBC_CTP batch interface workflow:
 3. Call `BatchCommit` to copy the current batch to the GM SQ and ring the doorbell.
 4. Reuse the handle to prepare and submit more batches as needed, then call the BatchHandle overload of `Drain` to wait for CQEs.
 
-A BatchHandle caches SQ/CQ contexts and queue counters when it is created. The caller must exclusively own the corresponding channel while using it and must not mix ordinary interfaces on the same channel.
+A BatchHandle caches SQ/CQ contexts and queue counters when it is created. The caller must exclusively own the corresponding channel while using it and must not mix ordinary interfaces on the same channel. `MakeBatchHandle` performs one remote registration lookup using `remoteAddr` and caches the selected `tokenId/tokenValue`; subsequent batch operations do not validate remote address ranges, so the caller must ensure that batch write destinations, batch read sources, and notification addresses belong to the registered memory represented by that token.
 
 Protocol capability matrix:
 | Protocol | Capability Description |

@@ -26,7 +26,7 @@ template <
     typename T,
     typename BatchHandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t ReadNbi(
-    T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
 ```
 
 ## Parameter Description
@@ -36,7 +36,7 @@ __aicore__ inline int32_t ReadNbi(
 | `channel` | Input | Communication channel handle used by the ordinary interface. |
 | `batchHandle` | Input/Output | Batch handle created by `MakeBatchHandle`. Its WQEBB count is updated after a WQE is prepared successfully; its local `cqHead` is also incremented when `cqe = 1`. |
 | `dst` | Output | Absolute local destination GM address. |
-| `src` | Input | Absolute remote source GM address. |
+| `src` | Input | Absolute remote source GM address. For the batch interface, the caller must ensure that `[src, src + len)` belongs to the registered memory represented by the `tokenId/tokenValue` cached in `batchHandle`. |
 | `len` | Input | Read length in bytes. |
 
 ## Template Parameters
@@ -54,7 +54,7 @@ __aicore__ inline int32_t ReadNbi(
 | Return Value | Description |
 | --- | --- |
 | `0` | The ordinary task is submitted or the batch WQE is prepared successfully. |
-| `-1` | The operation fails. For the batch interface, this includes a length that cannot be represented in 32 bits or insufficient space in the UB buffer. |
+| `-1` | The operation fails. For the batch interface, this includes insufficient space in the UB buffer. |
 
 ## Constraints
 
@@ -67,10 +67,9 @@ __aicore__ inline int32_t ReadNbi(
 
 - Currently supported only on the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 - Each batch read task occupies one 64-byte WQEBB. It is prepared only in UB and does not copy data to the GM SQ or ring the doorbell.
-- `len` must not exceed `UINT32_MAX`.
 - `config.inlineEn` must be `0`, and `config.cqe` can be `0` or `1`. Different read, write, and write-with-notify tasks in the same batch may use different `cqe` settings.
-- `src` is not checked against the remote registration range again. The caller must ensure that the source range is covered by the remote token cached by `MakeBatchHandle` using `dstBase`.
-- If length or buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
+- `src` is not checked against the remote registration range again, and the remote registration table is not queried. The caller must ensure that `[src, src + len)` belongs to the same registered memory from which `MakeBatchHandle` cached `tokenId/tokenValue` using `remoteAddr`.
+- If buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
 - Call `BatchCommit` after preparation. The caller must exclusively own the channel while using the BatchHandle.
 
 ## Related Sample

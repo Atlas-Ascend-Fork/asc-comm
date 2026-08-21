@@ -34,6 +34,19 @@ static constexpr AscendC::UrmaWqeEntry URMA_NO_CQE_CFG = {
     .inlineEn = 0,
 };
 
+template <size_t N>
+AscendC::LocalTensor<uint8_t> WrapUbBuffer(std::array<uint8_t, N>& buffer)
+{
+    AscendC::TBuffAddr addr{};
+    addr.logicPos = static_cast<uint8_t>(AscendC::TPosition::VECOUT);
+    addr.bufferAddr = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(buffer.data()));
+    addr.dataLen = static_cast<uint32_t>(buffer.size());
+    addr.absAddr = buffer.data();
+    AscendC::LocalTensor<uint8_t> tensor;
+    tensor.SetAddr(addr);
+    return tensor;
+}
+
 class UrmaChannelResource {
 public:
     explicit UrmaChannelResource(uint32_t queueDepth = URMA_SQ_DEPTH)
@@ -193,20 +206,21 @@ private:
     int64_t blockIdxBak_;
 };
 
-TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleRawBuffer)
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
 {
     UrmaChannelResource channel;
     channel.SetQueueState(3U, 2U, 1U);
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    alignas(32) std::array<uint8_t, 128> batchBuffer{};
+    AscendC::TPipe pipe;
+    AscendC::TBuf<AscendC::TPosition::VECOUT> batchBuffer;
+    pipe.InitBuffer(batchBuffer, 128);
+    AscendC::LocalTensor<uint32_t> batchTensor = batchBuffer.Get<uint32_t>();
 
-    auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x3008));
+    auto batchHandle = hcomm.MakeBatchHandle(channel.GetHandle(), batchTensor, 128, reinterpret_cast<GM_ADDR>(0x3008));
 
     EXPECT_EQ(batchHandle.channelHandle, channel.GetHandle());
-    EXPECT_EQ(
-        reinterpret_cast<uintptr_t>(batchHandle.buffer.GetPhyAddr()), reinterpret_cast<uintptr_t>(batchBuffer.data()));
-    EXPECT_EQ(batchHandle.bufferCapacity, batchBuffer.size() / URMA_WQE_SIZE);
+    EXPECT_EQ(batchHandle.buffer.GetPhyAddr(), batchTensor.GetPhyAddr());
+    EXPECT_EQ(batchHandle.bufferCapacity, 2U);
     EXPECT_EQ(batchHandle.sqContext.baseAddr, reinterpret_cast<uint64_t>(channel.GetSqBuffer()));
     EXPECT_EQ(batchHandle.sqContext.dbAddr, channel.GetSqDoorbellAddr());
     EXPECT_EQ(batchHandle.sqContext.remoteEidLow, 0x1122334455667788ULL);
@@ -223,26 +237,10 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleRawBuffer)
     EXPECT_EQ(batchHandle.queueCounters.sqHead, 3U);
     EXPECT_EQ(batchHandle.queueCounters.cqHead, 2U);
     EXPECT_EQ(batchHandle.queueCounters.cqTail, 1U);
-}
 
-TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
-{
-    UrmaChannelResource channel;
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    AscendC::TPipe pipe;
-    AscendC::TBuf<AscendC::TPosition::VECOUT> batchBuffer;
-    pipe.InitBuffer(batchBuffer, 128);
-    AscendC::LocalTensor<uint32_t> batchTensor = batchBuffer.Get<uint32_t>();
-
-    auto batchHandle = hcomm.MakeBatchHandle(channel.GetHandle(), batchTensor, 128, reinterpret_cast<GM_ADDR>(0x1008));
-
-    EXPECT_EQ(batchHandle.channelHandle, channel.GetHandle());
-    EXPECT_EQ(batchHandle.buffer.GetPhyAddr(), batchTensor.GetPhyAddr());
-    EXPECT_EQ(batchHandle.bufferCapacity, 2U);
-    EXPECT_EQ(batchHandle.remoteToken.tokenId, 0x123456U);
-    EXPECT_EQ(batchHandle.remoteToken.tokenValue, 0x654321U);
-    EXPECT_EQ(batchHandle.queueCounters.preSqCnt, 0U);
-    EXPECT_EQ(batchHandle.queueCounters.cqHead, 0U);
+    auto defaultRemoteHandle = hcomm.MakeBatchHandle(channel.GetHandle(), batchTensor, 128);
+    EXPECT_EQ(defaultRemoteHandle.remoteToken.tokenId, 0x123456U);
+    EXPECT_EQ(defaultRemoteHandle.remoteToken.tokenValue, 0x654321U);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteNbi)
@@ -252,7 +250,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteNbi)
     alignas(32) std::array<uint8_t, 128> batchBuffer;
     batchBuffer.fill(0xFFU);
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     int32_t ret = hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
@@ -306,7 +304,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchReadNbi)
     alignas(32) std::array<uint8_t, 128> batchBuffer;
     batchBuffer.fill(0xFFU);
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     int32_t ret = hcomm.ReadNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x2010), reinterpret_cast<GM_ADDR>(0x1010), 8);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
@@ -349,7 +347,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyNbiMixed)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
     alignas(32) std::array<uint8_t, 384> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     int32_t ret = hcomm.WriteNbi<URMA_NO_CQE_CFG>(
         batchHandle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
@@ -424,7 +422,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyEncodes64BitAddresses)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
     alignas(32) std::array<uint8_t, 2U * URMA_WQE_SIZE> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(remoteBase + 8U));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(remoteBase + 8U));
 
     ASSERT_EQ(
         hcomm.WriteWithNotifyNbi(
@@ -450,7 +448,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchReadWriteNotifyMixedCommit)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
     alignas(32) std::array<uint8_t, 256> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     ASSERT_EQ(
         hcomm.ReadNbi<URMA_NO_CQE_CFG>(
@@ -480,7 +478,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchCommitRejectsInvalidCounts)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
     alignas(32) std::array<uint8_t, URMA_WQE_SIZE> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     EXPECT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_FAILED);
 
@@ -511,7 +509,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchHandleCommitWrapAndReuse)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
     alignas(32) std::array<uint8_t, 128> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     int32_t ret = hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
@@ -553,7 +551,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyCommitWrapsSingleWqe)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
     alignas(32) std::array<uint8_t, 2U * URMA_WQE_SIZE> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     ASSERT_EQ(
         hcomm.WriteWithNotifyNbi(
@@ -574,7 +572,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchAllNoCqeCommitAndDrain)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
     alignas(32) std::array<uint8_t, 4U * URMA_WQE_SIZE> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     ASSERT_EQ(
         hcomm.ReadNbi<URMA_NO_CQE_CFG>(
@@ -608,7 +606,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchMultipleCommitsSingleDrain)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
     alignas(32) std::array<uint8_t, 3U * URMA_WQE_SIZE> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     ASSERT_EQ(
         hcomm.WriteNbi<URMA_NO_CQE_CFG>(
@@ -647,7 +645,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchDrainRejectsInvalidHandleState)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
     alignas(32) std::array<uint8_t, URMA_WQE_SIZE> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     auto invalidHandle = batchHandle;
     invalidHandle.channelHandle = 0;
@@ -680,7 +678,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchDrainWithoutInit)
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
     alignas(32) std::array<uint8_t, 64> batchBuffer{};
     auto batchHandle = hcomm.MakeBatchHandle(
-        channel.GetHandle(), batchBuffer.data(), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
+        channel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size(), reinterpret_cast<GM_ADDR>(0x1008));
 
     int32_t ret = hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);

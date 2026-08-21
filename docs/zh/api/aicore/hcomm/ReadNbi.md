@@ -26,7 +26,7 @@ template <
     typename T,
     typename BatchHandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t ReadNbi(
-    T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
 ```
 
 ## 参数说明
@@ -36,7 +36,7 @@ __aicore__ inline int32_t ReadNbi(
 | `channel` | 输入 | 普通接口使用的通信通道句柄。 |
 | `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的批量句柄。成功准备WQE后，句柄中的WQEBB计数会更新；`cqe = 1`时句柄本地`cqHead`也会增加。 |
 | `dst` | 输出 | 本端目的GM绝对地址。 |
-| `src` | 输入 | 远端源GM绝对地址。 |
+| `src` | 输入 | 远端源GM绝对地址。对于批量接口，调用方必须保证`[src, src + len)`属于`batchHandle`缓存的`tokenId/tokenValue`所代表的注册内存。 |
 | `len` | 输入 | 读取长度，单位为字节。 |
 
 ## 模板参数
@@ -54,7 +54,7 @@ __aicore__ inline int32_t ReadNbi(
 | 返回值 | 说明 |
 | --- | --- |
 | `0` | 普通任务提交成功，或批量WQE准备成功。 |
-| `-1` | 操作失败。批量接口中包括`len`无法使用32位长度表示或UB缓冲区剩余空间不足。 |
+| `-1` | 操作失败。批量接口中包括UB缓冲区剩余空间不足。 |
 
 ## 约束说明
 
@@ -67,10 +67,9 @@ __aicore__ inline int32_t ReadNbi(
 
 - 当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 - 每个批量读任务占用1个64字节WQEBB，只在UB中准备，不复制到GM SQ，也不敲doorbell。
-- `len`不能大于`UINT32_MAX`。
 - `config.inlineEn`必须为`0`，`config.cqe`支持`0`或`1`。同一批次的不同读、写、写通知任务可以使用不同的`cqe`配置。
-- `src`不会再次与远端注册内存范围进行校验。调用方必须保证`src`及其访问范围由`MakeBatchHandle`根据`dstBase`缓存的远端token覆盖。
-- 当长度或缓冲区容量校验失败时返回`-1`，BatchHandle中的WQEBB计数和`cqHead`保持不变。
+- `src`不会再次与远端注册内存范围进行校验，也不会再次查询远端注册表。调用方必须保证`[src, src + len)`属于`MakeBatchHandle`根据`remoteAddr`缓存`tokenId/tokenValue`时所命中的同一注册内存。
+- 当缓冲区容量校验失败时返回`-1`，BatchHandle中的WQEBB计数和`cqHead`保持不变。
 - 准备完成后需要调用`BatchCommit`。BatchHandle使用期间需要独占对应通道。
 
 ## 相关样例

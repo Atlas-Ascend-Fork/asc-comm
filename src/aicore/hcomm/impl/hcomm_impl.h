@@ -47,25 +47,12 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Init(const LocalTensor<T>& buff, 
 }
 
 template <CommProtocol commProtocol>
-template <typename T>
-__aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
-    T channel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR dstBase, GM_ADDR srcBase)
-{
-    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "BatchHandle only supports COMM_PROTOCOL_UBC_CTP");
-    auto batchHandle = impl_.MakeBatchHandle(channel, buff, buffLen, dstBase, srcBase);
-    using ExpectedType = BatchHandle<T>;
-    static_assert(
-        std::is_same<decltype(batchHandle), ExpectedType>::value, "Channel type and BatchHandle type do not match");
-    return batchHandle;
-}
-
-template <CommProtocol commProtocol>
 template <typename T, typename U>
 __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
-    T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR dstBase, GM_ADDR srcBase)
+    T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
 {
     static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "BatchHandle only supports COMM_PROTOCOL_UBC_CTP");
-    auto batchHandle = impl_.MakeBatchHandle(channel, buff, buffLen, dstBase, srcBase);
+    auto batchHandle = impl_.MakeBatchHandle(channel, buff, buffLen, remoteAddr, localAddr);
     using ExpectedType = BatchHandle<T>;
     static_assert(
         std::is_same<decltype(batchHandle), ExpectedType>::value, "Channel type and BatchHandle type do not match");
@@ -74,7 +61,7 @@ __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
 
 template <CommProtocol commProtocol>
 template <auto const& config, typename T, typename BatchHandleTraits<T>::ChannelType*>
-__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len)
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     return impl_.template WriteNbi<config>(batchHandle, dst, src, len);
 }
@@ -104,7 +91,7 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteReduceNbi(
 template <CommProtocol commProtocol>
 template <auto const& config, typename T, typename BatchHandleTraits<T>::ChannelType*>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
-    T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
+    T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
     return impl_.template WriteWithNotifyNbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal);
 }
@@ -127,7 +114,7 @@ __aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(ChannelHandle channel, GM
 
 template <CommProtocol commProtocol>
 template <auto const& config, typename T, typename BatchHandleTraits<T>::ChannelType*>
-__aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len)
+__aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     return impl_.template ReadNbi<config>(batchHandle, dst, src, len);
 }

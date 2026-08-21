@@ -66,39 +66,26 @@ public:
     __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
 
     /*!
-     * @brief Create a protocol-specific batch handle using a raw UB buffer.
-     * @tparam T: The communication channel handle type.
-     * @param [in] channel: The handle of the communication channel.
-     * @param [in] buff: The UB buffer used to prepare batched WQEs.
-     * @param [in] buffLen: The buffer length in bytes.
-     * @param [in] dstBase: The base address of the remote registered memory bound to this batch handle.
-     * @param [in] srcBase: Reserved local source base address.
-     * @return An initialized batch handle for commProtocol.
-     * @note For UBC CTP, the protection token selected by dstBase is cached in the returned handle.
-     *       Subsequent batched reads and writes do not read the remote registration table. buffLen must be
-     *       smaller than the SQ capacity in bytes.
-     */
-    template <typename T>
-    __aicore__ inline BatchHandle<T> MakeBatchHandle(
-        T channel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR dstBase = nullptr, GM_ADDR srcBase = nullptr);
-
-    /*!
      * @brief Create a protocol-specific batch handle using a LocalTensor buffer.
      * @tparam T: The communication channel handle type.
      * @tparam U: The element type of the LocalTensor.
      * @param [in] channel: The handle of the communication channel.
      * @param [in] buff: The LocalTensor buffer used to prepare batched WQEs.
      * @param [in] buffLen: The buffer length in bytes.
-     * @param [in] dstBase: The base address of the remote registered memory bound to this batch handle.
-     * @param [in] srcBase: Reserved local source base address.
+     * @param [in] remoteAddr: An address used for the one-time lookup of remote registered memory. If it is null,
+     *                         the first remote registered buffer is selected. This is the only remote registration
+     *                         lookup performed for the returned batch handle.
+     * @param [in] localAddr: Reserved local memory address.
      * @return An initialized batch handle for commProtocol.
-     * @note For UBC CTP, the protection token selected by dstBase is cached in the returned handle.
-     *       Subsequent batched reads and writes do not read the remote registration table. buffLen must be
-     *       smaller than the SQ capacity in bytes.
+     * @note For UBC CTP, the tokenId and tokenValue selected by remoteAddr are cached in the returned handle.
+     *       Subsequent batch operations neither read the remote registration table nor validate their remote
+     *       address ranges. The caller must ensure that every remote range belongs to the registered memory
+     *       represented by the cached tokenId/tokenValue. buffLen must be smaller than the SQ capacity in bytes.
      */
     template <typename T, typename U>
     __aicore__ inline BatchHandle<T> MakeBatchHandle(
-        T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR dstBase = nullptr, GM_ADDR srcBase = nullptr);
+        T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr = nullptr,
+        GM_ADDR localAddr = nullptr);
 
     /*!
      * @class Hcomm
@@ -125,15 +112,16 @@ public:
      * @tparam config: URMA WQE control config. Inline WQE is not supported.
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: The batch handle to append the WQE to.
-     * @param [out] dst: The remote destination address.
+     * @param [out] dst: The remote destination address. The caller must ensure that its access range matches the
+     *                   tokenId/tokenValue cached in batchHandle.
      * @param [in] src: The local source address.
      * @param [in] len: The length of the data to write in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note The destination range is not validated against the registration selected by MakeBatchHandle.
-     *       The caller must ensure that it is covered by the protection token cached in batchHandle.
+     * @note The destination range is not validated against the registration selected by MakeBatchHandle and the
+     *       remote registration table is not queried again.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
 
     /*!
      * @class Hcomm
@@ -205,19 +193,21 @@ public:
      * @tparam config: URMA WQE control config. Inline WQE is not supported.
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: The batch handle to append the WQE to.
-     * @param [out] dst: The remote destination address.
+     * @param [out] dst: The remote destination address. The caller must ensure that its access range matches the
+     *                   tokenId/tokenValue cached in batchHandle.
      * @param [in] src: The local source address.
      * @param [in] len: The length of the data to write in bytes.
-     * @param [in] notifyAddr: The remote notify address.
+     * @param [in] notifyAddr: The remote notify address. The caller must ensure that its access range matches the
+     *                         tokenId/tokenValue cached in batchHandle.
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
      * @note The destination and notify ranges are not validated against the registration selected by
-     *       MakeBatchHandle. The caller must ensure that both are covered by the protection token cached in
-     *       batchHandle; the notify context reuses that token.
+     *       MakeBatchHandle, and the remote registration table is not queried again. The notify context reuses the
+     *       tokenId/tokenValue cached in batchHandle.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteWithNotifyNbi(
-        T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+        T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
 
     /*!
      * @class Hcomm
@@ -286,14 +276,15 @@ public:
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: The batch handle to append the WQE to.
      * @param [out] dst: The local destination address.
-     * @param [in] src: The remote source address.
+     * @param [in] src: The remote source address. The caller must ensure that its access range matches the
+     *                  tokenId/tokenValue cached in batchHandle.
      * @param [in] len: The length of the data to read in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note The source range is not validated against the registration selected by MakeBatchHandle.
-     *       The caller must ensure that it is covered by the protection token cached in batchHandle.
+     * @note The source range is not validated against the registration selected by MakeBatchHandle and the remote
+     *       registration table is not queried again.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
 
     /*!
      * @class Hcomm

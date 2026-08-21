@@ -70,17 +70,15 @@ public:
     __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
     template <typename T>
     __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
-    __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
-        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR dstBase, GM_ADDR srcBase);
     template <typename U>
     __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
-        ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR dstBase, GM_ADDR srcBase);
+        ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr);
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteNbi(UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t WriteNbi(UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <
         typename T, HcommUrmaReduceOp reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,
         pipe_t reqPipe = PIPE_MTE3, auto const& config = URMA_DEFAULT_CFG>
@@ -90,7 +88,7 @@ public:
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t ReadNbi(UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+    __aicore__ inline int32_t ReadNbi(UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <
         typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_INLINE_CFG>
@@ -102,7 +100,7 @@ public:
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
-        UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+        UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
     template <
         typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
@@ -128,13 +126,16 @@ private:
         const UdmaParams<T>& params = UdmaParams<T>{});
     template <HcommUrmaOpCode opCode, auto const& config>
     __aicore__ inline int32_t BatchPostSend(
-        UbcCtpBatchHandle& batchHandle, GM_ADDR remoteAddr, GM_ADDR localAddr, uint64_t len,
+        UbcCtpBatchHandle& batchHandle, GM_ADDR remoteAddr, GM_ADDR localAddr, uint32_t len,
         GM_ADDR notifyAddr = nullptr, uint64_t notifyVal = 0);
     __aicore__ inline void CommitImpl(ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt);
     __aicore__ inline void PollCqWhenSqOverflow(
         ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt);
+    template <bool isBatch>
+    __aicore__ inline uint32_t PollCqImpl(
+        uint64_t cqBaseAddr, uint32_t cqeSize, uint32_t cqDepth, uint32_t expectTail, uint32_t& curTail,
+        LocalTensor<uint32_t> cqeItem);
     __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail);
-    __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail, LocalTensor<uint32_t> cqeItem);
     __aicore__ inline uint32_t PollBatchCq(UbcCtpBatchHandle& batchHandle, uint32_t expectTail);
 
 private:

@@ -55,11 +55,12 @@ BatchHandle interfaces currently support only the `COMM_PROTOCOL_UBC_CTP` path o
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+AscendC::LocalTensor<uint8_t> batchBuffer = batchTBuf.Get<uint8_t>();
 auto batchHandle = hcomm.MakeBatchHandle(
-    channel, batchBuffer, batchBufferLen, remoteBase, localBase);
+    channel, batchBuffer, batchBufferLen, remoteAddr, localAddr);
 ```
 
-`remoteBase` must fall within a remote registered buffer of the channel. The interface caches the corresponding remote token. `localBase` is reserved in the current version.
+A non-null `remoteAddr` must fall within a remote registered buffer of the channel. When it is null, the interface selects remote registered buffer 0. This is the only remote registration lookup: the interface caches the selected buffer's `tokenId/tokenValue`, and subsequent batch operations do not validate their remote address ranges. `localAddr` is reserved in the current version.
 
 2. Prepare WQEs in the UB buffer of the BatchHandle. Read, write, and write-with-notify tasks can be mixed in the same batch.
 
@@ -70,7 +71,7 @@ ret = hcomm.WriteWithNotifyNbi(
     batchHandle, remoteNotifyDst, localNotifySrc, notifyLen, notifyAddr, notifyVal);
 ```
 
-These calls only prepare WQEs. They do not copy to the GM SQ or ring the doorbell. Remote data addresses and `notifyAddr` must be covered by the same remote token cached when the handle was created.
+These calls only prepare WQEs. They do not copy to the GM SQ or ring the doorbell. The caller must ensure that the remote Write/WriteWithNotify destination ranges, the remote Read source ranges, and `notifyAddr` all belong to the registered memory represented by the `tokenId/tokenValue` cached when the handle was created.
 
 3. Call `BatchCommit` to copy and submit the current batch. A successful call always rings the SQ doorbell.
 
