@@ -17,10 +17,10 @@
 
 ### 🚀 当前能力
 
-- 提供AICore侧Hcomm点对点通信接口，覆盖`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。
+- 提供AICore侧Hcomm点对点通信接口，覆盖普通`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`，以及Ascend 950 UBC_CTP路径的`MakeBatchHandle`、批量读写、`BatchCommit`和批量`Drain`。
 - 提供AIV直驱Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/`。
 - 提供AICore侧Ain单边通信接口，覆盖`Put`、`PutValue`、`Get`、`Signal`、`ReadSignal`、`WaitSignal`、`Flush`、`FlushAsync`、`Wait`，以及`AinBarrierSession`集合通信同步原语，主实现位于`src/aicore/ain/`。
-- 提供Hcomm UT工程，覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。
+- 提供Hcomm UT工程，覆盖`ascend950pr_9599_AIV`的RoCE/URMA普通接口和UBC_CTP批量接口，以及`ascend910B1_AIC`基础接口用例。
 - 提供Ain UT工程，覆盖`ascend950pr_9599_AIV`的URMA路径下`Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession`接口用例。
 - 提供`hcomm_write_read_nbi`样例，演示AIV直驱URMA场景下`WriteNbi`和`ReadNbi`点对点通信流程，并包含运行样例所需的Host侧资源准备流程。
 - 提供SIMT URMA `WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`，以及对应的功能和性能验证样例。
@@ -37,18 +37,18 @@
 
 asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载AICore侧公开API、AIV直驱设备侧实现、API文档、样例和验证能力。
 
-当前公开能力包括`AscendC::Hcomm`点对点通信和`AscendC::Ain`单边通信，面向算子Kernel侧通信数据路径。Hcomm侧使用方通过`AscendC::Hcomm`模板选择通信协议，通过`ChannelHandle`指定通信通道，并调用非阻塞读写接口提交通信任务，任务可按需显式`Commit`提交，并通过`Drain`等待完成。Ain侧使用方通过`AscendC::Ain`模板基于对称窗口（Symmetric Window）发起`Put`/`Get`/`Signal`等单边操作，通过`Flush`或`FlushAsync`+`Wait`管理完成等待。
+当前公开能力包括`AscendC::Hcomm`点对点通信和`AscendC::Ain`单边通信，面向算子Kernel侧通信数据路径。Hcomm侧使用方通过`AscendC::Hcomm`模板选择通信协议：普通接口通过`ChannelHandle`逐条提交通信任务；Ascend 950 UBC_CTP路径还可以通过BatchHandle在UB中批量准备WQE，并通过`BatchCommit`统一提交。两种流程分别通过对应的`Drain`重载管理完成等待。Ain侧使用方通过`AscendC::Ain`模板基于对称窗口（Symmetric Window）发起`Put`/`Get`/`Signal`等单边操作，通过`Flush`或`FlushAsync`+`Wait`管理完成等待。
 
 ### 数据面能力
 
 | 能力 | 当前状态 |
 | --- | --- |
-| AICore Hcomm公开接口 | 已提供Kernel侧`Init`、`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。 |
+| AICore Hcomm公开接口 | 已提供Kernel侧普通`Init`、读写、写通知、原子、`Commit`和`Drain`接口；Ascend 950 UBC_CTP路径还提供`MakeBatchHandle`、批量`ReadNbi`/`WriteNbi`/`WriteWithNotifyNbi`、`BatchCommit`和批量`Drain`。 |
 | AICore Ain公开接口 | 已提供Kernel侧`Put`、`PutValue`、`Get`、`Signal`、`ReadSignal`、`WaitSignal`、`Flush`、`FlushAsync`、`Wait`，以及`AinBarrierSession`同步原语。 |
 | AIV直驱实现 | 已提供Hcomm RoCE和UBC_CTP/URMA相关实现，主实现位于`src/aicore/hcomm/`；Ain实现位于`src/aicore/ain/`。 |
 | AIV直驱样例配套流程 | `hcomm_write_read_nbi`包含AIV直驱URMA通信所需的通信域创建、通信内存注册、P2P通道创建和远端内存获取流程。 |
-| 协议能力 | `COMM_PROTOCOL_ROCE`支持读写、提交和等待；`COMM_PROTOCOL_UBC_CTP`支持读写、写通知、原子操作、提交和等待。 |
-| UT验证 | UT覆盖`ascend950pr_9599_AIV`的Hcomm RoCE/URMA路径与Ain URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
+| 协议能力 | `COMM_PROTOCOL_ROCE`支持普通读写、提交和等待；`COMM_PROTOCOL_UBC_CTP`支持普通读写、写通知、原子操作、提交和等待，Ascend 950还支持批量读写、写通知、提交和等待。 |
+| UT验证 | UT覆盖`ascend950pr_9599_AIV`的Hcomm RoCE/URMA普通接口、UBC_CTP批量接口与Ain URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
 | AIV直驱样例 | 提供`hcomm_write_read_nbi`样例，覆盖两卡AIV直驱URMA `WriteNbi`/`ReadNbi`对称通信和结果校验流程。 |
 | SIMT URMA Notify/Atomic接口 | 提供`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`；延迟任务由后续`commit=true`任务统一发布。 |
 | SIMT URMA Notify/Atomic样例 | 提供功能与性能样例，覆盖单接口、连续立即提交、batch-last和多lane提交。 |
@@ -61,7 +61,7 @@ Hcomm Kernel侧使用时包含如下头文件：
 #include "hcomm/hcomm.h"
 ```
 
-基本调用流程如下：
+普通接口调用流程如下：
 
 1. 创建`AscendC::Hcomm`对象，并选择通信协议。
 2. 调用`Init`初始化临时工作区。
@@ -69,12 +69,21 @@ Hcomm Kernel侧使用时包含如下头文件：
 4. 如果提交任务时设置`commit = false`，调用`Commit`显式提交通信任务。
 5. 调用`Drain`等待通道上的通信任务完成。
 
+Ascend 950 UBC_CTP批量接口调用流程如下：
+
+1. 准备UB缓冲区，通过`MakeBatchHandle`创建批量句柄。该流程不依赖`Init`。
+2. 通过BatchHandle重载的`ReadNbi`、`WriteNbi`或`WriteWithNotifyNbi`在UB中准备WQE，同一批次可以混合三种任务。
+3. 调用`BatchCommit`将当前批次复制到GM SQ并敲doorbell。
+4. 可以复用句柄继续准备和提交批次，最后调用BatchHandle重载的`Drain`等待CQE。
+
+BatchHandle缓存创建时的SQ/CQ上下文和队列计数，使用期间调用方需要独占对应通道，不能在同一通道上混用普通接口。`MakeBatchHandle`只根据`remoteAddr`执行一次远端注册区查找并缓存`tokenId/tokenValue`；后续批量接口不再校验远端地址范围，调用方必须保证批量写目的区间、批量读源区间和通知地址均属于该token对应的注册内存。
+
 协议能力说明：
 
 | 协议 | 能力说明 |
 | --- | --- |
-| `COMM_PROTOCOL_ROCE` | RoCE点对点通信路径，支持`ReadNbi`、`WriteNbi`、`Commit`、`Drain`，不支持`WriteWithNotifyNbi`。 |
-| `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA点对点通信路径，支持`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。 |
+| `COMM_PROTOCOL_ROCE` | RoCE点对点通信路径，支持普通`ReadNbi`、`WriteNbi`、`Commit`、`Drain`，不支持`WriteWithNotifyNbi`和BatchHandle接口。 |
+| `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA点对点通信路径，支持普通`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`；Ascend 950还支持BatchHandle批量接口。 |
 
 详细参数约束和返回值说明请参考[Hcomm使用说明](./docs/zh/guide/hcomm_usage.md)和[API参考](./docs/zh/api/README.md)。
 

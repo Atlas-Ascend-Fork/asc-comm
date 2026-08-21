@@ -15,10 +15,10 @@
 - [2026/07] Initial release of the asc-comm project
 
 ### 🚀 Current Capabilities
-- Exposes AICore-side Hcomm point-to-point communication interfaces, covering `Init`, `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, `Drain`.
+- Exposes AICore-side Hcomm point-to-point communication interfaces, covering ordinary `Init`, `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, and `Drain`, as well as `MakeBatchHandle`, batch read/write, `BatchCommit`, and batch `Drain` on the Ascend 950 UBC_CTP path.
 - Provides AIV direct-drive implementations for Hcomm RoCE and UBC_CTP/URMA. Core implementations are located under `src/aicore/hcomm/`.
 - Exposes AICore-side Ain one-sided communication interfaces, covering `Put`, `PutValue`, `Get`, `Signal`, `ReadSignal`, `WaitSignal`, `Flush`, `FlushAsync`, `Wait`, and the `AinBarrierSession` collective synchronization primitive. Core implementations are located under `src/aicore/ain/`.
-- Delivers Hcomm UT projects covering RoCE/URMA paths for `ascend950pr_9599_AIV` and basic interface test cases for `ascend910B1_AIC`.
+- Delivers Hcomm UT projects covering ordinary RoCE/URMA interfaces and UBC_CTP batch interfaces for `ascend950pr_9599_AIV`, as well as basic interface test cases for `ascend910B1_AIC`.
 - Delivers Ain UT project covering `Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession` test cases on the `ascend950pr_9599_AIV` URMA path.
 - Supplies the `hcomm_write_read_nbi` sample, demonstrating the point-to-point communication workflow of `WriteNbi` and `ReadNbi` under the AIV direct-driven URMA scenario, including Host-side resource preparation required to run the sample.
 - Provides SIMT URMA `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`, together with corresponding functional and performance samples.
@@ -33,17 +33,17 @@ For detailed information on all historical releases and updates, please refer to
 ## 🚀 Overview
 asc-comm is an open-source repository targeting communication scenarios on Ascend AI Processors. It hosts publicly exposed AICore APIs, AIV direct-drive device-side implementations, API documentation, samples and verification suites.
 
-The public capabilities include `AscendC::Hcomm` point-to-point communication and `AscendC::Ain` one-sided communication, targeting communication data paths on the operator Kernel side. For Hcomm, users select a communication protocol via the `AscendC::Hcomm` template, specify a communication channel with `ChannelHandle`, and submit communication tasks using non-blocking read/write interfaces. Tasks can be explicitly `Commit`ted on demand, and completion can be awaited via `Drain`. For Ain, users issue one-sided `Put`/`Get`/`Signal` operations on symmetric windows via the `AscendC::Ain` template, and manage completion through `Flush` or `FlushAsync` + `Wait`.
+The public capabilities include `AscendC::Hcomm` point-to-point communication and `AscendC::Ain` one-sided communication, targeting communication data paths on the operator Kernel side. For Hcomm, users select a communication protocol through the `AscendC::Hcomm` template. Ordinary interfaces submit tasks individually through a `ChannelHandle`; the Ascend 950 UBC_CTP path can also use a BatchHandle to prepare WQEs in UB and submit them together through `BatchCommit`. The corresponding `Drain` overload manages completion for each workflow. For Ain, users issue one-sided `Put`/`Get`/`Signal` operations on symmetric windows via the `AscendC::Ain` template, and manage completion through `Flush` or `FlushAsync` + `Wait`.
 
 ### Data Plane Capabilities
 | Capability | Status |
 | --- | --- |
-| Public AICore Hcomm Interfaces | Kernel-side `Init`, `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, `Drain` available. |
+| Public AICore Hcomm Interfaces | Ordinary Kernel-side `Init`, read/write, write-with-notify, atomic, `Commit`, and `Drain` interfaces are available. The Ascend 950 UBC_CTP path also provides `MakeBatchHandle`, batch `ReadNbi`/`WriteNbi`/`WriteWithNotifyNbi`, `BatchCommit`, and batch `Drain`. |
 | Public AICore Ain Interfaces | Kernel-side `Put`, `PutValue`, `Get`, `Signal`, `ReadSignal`, `WaitSignal`, `Flush`, `FlushAsync`, `Wait`, and `AinBarrierSession` synchronization primitive available. |
 | AIV Direct Drive Implementation | Implementations for Hcomm RoCE and UBC_CTP/URMA are provided; core code resides in `src/aicore/hcomm/`. Ain implementation resides in `src/aicore/ain/`. |
 | AIV Direct-drive Sample Supporting Workflow | `hcomm_write_read_nbi` includes communication domain creation, communication memory registration, P2P channel creation and remote memory acquisition required for AIV direct-driven URMA communication. |
-| Protocol Features | `COMM_PROTOCOL_ROCE`: read/write, commit and wait; `COMM_PROTOCOL_UBC_CTP`: read/write, write-with-notify, atomic operations, commit and wait. |
-| UT Verification | UTs cover Hcomm RoCE/URMA paths and the Ain URMA path on `ascend950pr_9599_AIV`, plus basic interface cases for `ascend910B1_AIC`. |
+| Protocol Features | `COMM_PROTOCOL_ROCE`: ordinary read/write, commit and wait; `COMM_PROTOCOL_UBC_CTP`: ordinary read/write, write-with-notify, atomic operations, commit and wait, with batch read/write, write-with-notify, commit and wait additionally supported on Ascend 950. |
+| UT Verification | UTs cover ordinary Hcomm RoCE/URMA interfaces, UBC_CTP batch interfaces, and the Ain URMA path on `ascend950pr_9599_AIV`, plus basic interface cases for `ascend910B1_AIC`. |
 | AIV Direct-drive Samples | `hcomm_write_read_nbi` demonstrates symmetric two-card AIV direct-driven URMA `WriteNbi`/`ReadNbi` communication and result validation. |
 | SIMT URMA Notify/Atomic Interfaces | Provides `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`; deferred tasks are published by a subsequent `commit=true` task. |
 | SIMT URMA Notify/Atomic Samples | Functional and performance samples cover isolated operations, repeated immediate submission, batch-last, and multi-lane submission. |
@@ -54,18 +54,27 @@ Include the following header when invoking Hcomm on the Kernel side:
 #include "hcomm/hcomm.h"
 ```
 
-Basic invocation workflow:
+Ordinary interface workflow:
 1. Instantiate an `AscendC::Hcomm` object and select the communication protocol.
 2. Call `Init` to initialize temporary workspace.
 3. Submit communication tasks via `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA` or `AtomicCAS`.
 4. If `commit = false` is set during task submission, invoke `Commit` to explicitly submit pending communication tasks.
 5. Call `Drain` to wait for all communication tasks on the channel to complete.
 
+Ascend 950 UBC_CTP batch interface workflow:
+
+1. Prepare a UB buffer and create a batch handle through `MakeBatchHandle`. This workflow does not depend on `Init`.
+2. Use the BatchHandle overloads of `ReadNbi`, `WriteNbi`, or `WriteWithNotifyNbi` to prepare WQEs in UB. The three task types can be mixed in one batch.
+3. Call `BatchCommit` to copy the current batch to the GM SQ and ring the doorbell.
+4. Reuse the handle to prepare and submit more batches as needed, then call the BatchHandle overload of `Drain` to wait for CQEs.
+
+A BatchHandle caches SQ/CQ contexts and queue counters when it is created. The caller must exclusively own the corresponding channel while using it and must not mix ordinary interfaces on the same channel. `MakeBatchHandle` performs one remote registration lookup using `remoteAddr` and caches the selected `tokenId/tokenValue`; subsequent batch operations do not validate remote address ranges, so the caller must ensure that batch write destinations, batch read sources, and notification addresses belong to the registered memory represented by that token.
+
 Protocol capability matrix:
 | Protocol | Capability Description |
 | --- | --- |
-| `COMM_PROTOCOL_ROCE` | RoCE point-to-point path. Supports `ReadNbi`, `WriteNbi`, `Commit`, `Drain`. `WriteWithNotifyNbi` is not supported. |
-| `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA point-to-point path. Supports `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, `Drain`. |
+| `COMM_PROTOCOL_ROCE` | RoCE point-to-point path. Supports ordinary `ReadNbi`, `WriteNbi`, `Commit`, and `Drain`. `WriteWithNotifyNbi` and BatchHandle interfaces are not supported. |
+| `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA point-to-point path. Supports ordinary `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, and `Drain`; BatchHandle interfaces are additionally supported on Ascend 950. |
 
 Refer to [Hcomm Usage Guide](./docs/en/guide/hcomm_usage.md) and [API Reference](./docs/en/api/README.md) for detailed parameter constraints and return value descriptions.
 
