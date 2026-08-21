@@ -6,9 +6,9 @@ asc-comm development patch package
   --install-path=<CANN_ROOT>       Select the CANN root; default: ASCEND_HOME_PATH
   --force                         Override version or installed-file consistency checks
 
-Hcomm AICore headers are installed under asc/include/adv_api/hcomm/ and
-asc/impl/adv_api/detail/hcomm/. Header-only Host APIs are installed under
-include/hcomm/ through CANN's architecture links.
+Hcomm public headers, including header-only Host APIs, are installed under
+asc/include/adv_api/hcomm/. Internal headers are installed under
+asc/impl/adv_api/detail/hcomm/.
 Existing files are backed up under var/asc-comm-dev-patch/baseline/. This
 package is intended only for local development verification. Recompile the
 target Ascend C kernel after installation. Only paths present in the package

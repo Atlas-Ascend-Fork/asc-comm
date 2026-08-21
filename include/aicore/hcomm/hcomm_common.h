@@ -19,9 +19,6 @@
 
 namespace AscendC {
 using ChannelHandle = uint64_t;
-enum class MultiChannelHandle : uint64_t {};
-
-static_assert(sizeof(MultiChannelHandle) == sizeof(uint64_t), "MultiChannelHandle ABI size mismatch");
 
 /**
  * @brief 通信协议类型枚举
@@ -38,15 +35,6 @@ typedef enum {
     COMM_PROTOCOL_UBOE = 7,      ///< UBoE
     COMM_PROTOCOL_HCCS_ONLY = 8, ///< 一卡双DIE使用HCCS
 } CommProtocol;
-
-template <typename T>
-struct ChannelTraits;
-
-template <typename T>
-struct BatchHandleTraits;
-
-template <typename T>
-struct BatchHandleRefTraits;
 
 enum class HcommUrmaReduceOp : uint32_t {
     MAX = 0x8U,
