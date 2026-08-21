@@ -60,6 +60,12 @@ public:
         if (hcomm_.Drain(channel_) != AscendC::HCOMM_SUCCESS) {
             context_->testResult = TEST_DRAIN_FAILED;
         }
+
+        // DFX 通道 dump 演示：默认注释，样例按纯通信路径运行（test pass!）。
+        // 如需触发异常演示通道 dump，取消本行注释即可——trap 会主动触发一次
+        // AIC Error，供 host 侧 HcommChannelInfoDump 采集通道/SQ/CQ/WQE/CQE 现场。
+        // 真实算子无此行——异常由业务自身缺陷自然触发，只需保留 .asc 中的注册与采集两步。
+        // trap();
     }
 
 private:
