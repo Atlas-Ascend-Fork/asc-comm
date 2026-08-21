@@ -114,14 +114,6 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 }
 
 template <CommProtocol commProtocol>
-template <typename T>
-__aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
-    T channel, __ubuf__ uint8_t* buff, uint32_t buffLen)
-{
-    return impl_.MakeBatchHandle(channel, buff, buffLen);
-}
-
-template <CommProtocol commProtocol>
 template <typename T, typename U>
 __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
     T channel, const LocalTensor<U>& buff, uint32_t buffLen)
@@ -141,21 +133,6 @@ template <auto const& config, typename T, typename BatchHandleRefTraits<T>::Chan
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(T& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     return impl_.template WriteNbi<config>(handleRef, dst, src, len);
-}
-
-template <CommProtocol commProtocol>
-template <auto const& config, typename T, typename BatchHandleRefTraits<T>::ChannelType*>
-__aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(T& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
-{
-    return impl_.template ReadNbi<config>(handleRef, dst, src, len);
-}
-
-template <CommProtocol commProtocol>
-template <auto const& config, typename T, typename BatchHandleRefTraits<T>::ChannelType*>
-__aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
-    T& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
-{
-    return impl_.template WriteWithNotifyNbi<config>(handleRef, dst, src, len, notifyAddr, notifyVal);
 }
 
 template <CommProtocol commProtocol>

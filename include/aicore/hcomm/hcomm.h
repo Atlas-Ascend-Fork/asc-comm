@@ -233,13 +233,6 @@ public:
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
     /*!
-     * @brief Create a multi-channel batch handle on one shared SQ/CQ.
-     */
-    template <typename T>
-    __aicore__ inline BatchHandle<T> MakeBatchHandle(
-        T channel, __ubuf__ uint8_t* buff, uint32_t buffLen);
-
-    /*!
      * @brief Create a multi-channel batch handle on one shared SQ/CQ using a LocalTensor.
      */
     template <typename T, typename U>
@@ -263,23 +256,6 @@ public:
         auto const& config = URMA_DEFAULT_CFG, typename T,
         typename BatchHandleRefTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteNbi(T& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len);
-
-    /*!
-     * @brief Append one Read task to the peer selected by GetHandleRef.
-     */
-    template <
-        auto const& config = URMA_DEFAULT_CFG, typename T,
-        typename BatchHandleRefTraits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t ReadNbi(T& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len);
-
-    /*!
-     * @brief Append one Write-with-notify task to the peer selected by GetHandleRef.
-     */
-    template <
-        auto const& config = URMA_DEFAULT_CFG, typename T,
-        typename BatchHandleRefTraits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t WriteWithNotifyNbi(
-        T& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
 
     /*!
      * @brief Copy all accumulated WQEs to the SQ and ring its doorbell once.
