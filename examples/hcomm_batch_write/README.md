@@ -5,7 +5,7 @@
 
 ## 验证范围
 
-卡数由命令行参数指定，默认使用八张NPU。rank 0从RankGraph中为rank 1至rank N-1选择
+卡数由命令行参数指定，默认使用两张NPU。rank 0从RankGraph中为rank 1至rank N-1选择
 `COMM_PROTOCOL_UBC_CTP`链路，并按照`localEndpoint.commAddr.raws`分组；其他rank只建立到rank 0的链路。
 每组通过一次`MakeMultiChannelHandle`创建共享Jetty Channel，不同组使用不同`sharedQueueTag`。
 Host侧从这些Channel中提取一份共享`SqContext/CqContext`，并按Channel数组顺序生成远端信息数组；因此
@@ -61,6 +61,12 @@ cmake -S examples/hcomm_batch_write -B build/examples/hcomm_batch_write
 cmake --build build/examples/hcomm_batch_write -j
 ./build/examples/hcomm_batch_write/hcomm_batch_write
 ./build/examples/hcomm_batch_write/hcomm_batch_write 4
+```
+
+也可以通过脚本指定rank数并完成编译运行，默认启动两个rank：
+
+```bash
+./examples/hcomm_batch_write/run.sh 4
 ```
 
 程序通过`fork`启动指定数量的rank，rank与本机device编号一一对应。父进程使用本地`socketpair`分发RootInfo、

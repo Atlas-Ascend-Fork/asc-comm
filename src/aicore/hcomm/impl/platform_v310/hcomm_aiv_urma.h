@@ -346,8 +346,8 @@ __aicore__ inline UbcCtpBatchHandle HcommUrmaCreateBatchQueueHandle(
     return handle;
 }
 
-__aicore__ inline UbcCtpBatchRemoteContext HcommUrmaResolveBatchRemote(
-    const UbcCtpBatchRemoteInfo& remoteInfo, GM_ADDR remoteAddr, uint64_t len)
+__aicore__ inline bool HcommUrmaResolveBatchRemote(
+    const UbcCtpBatchRemoteInfo& remoteInfo, GM_ADDR remoteAddr, uint64_t len, UbcCtpBatchRemoteContext& remote)
 {
     auto* remoteBuffers = reinterpret_cast<__gm__ RegedBufferEntity*>(remoteInfo.remoteBufferAddr);
     uint64_t targetAddr = reinterpret_cast<uint64_t>(remoteAddr);
@@ -359,16 +359,20 @@ __aicore__ inline UbcCtpBatchRemoteContext HcommUrmaResolveBatchRemote(
         }
         uint64_t offset = targetAddr - baseAddr;
         if (offset <= bufferSize && len <= bufferSize - offset) {
-            return UbcCtpBatchRemoteContext{
+            remote = UbcCtpBatchRemoteContext{
                 remoteBuffers[i].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId,
                 remoteBuffers[i].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue,
                 remoteInfo.tpID,
                 0U,
                 remoteInfo.rmtEidL,
                 remoteInfo.rmtEidH};
+            return true;
         }
     }
-    return UbcCtpBatchRemoteContext{};
+    KERNEL_LOG(
+        KERNEL_ERROR, "Hcomm batch remote buffer lookup failed addr=%llu len=%llu bufferNum=%u\n",
+        static_cast<uint64_t>(targetAddr), static_cast<uint64_t>(len), remoteInfo.remoteBufferNum);
+    return false;
 }
 
 __aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
@@ -495,7 +499,10 @@ template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
     UbcCtpBatchHandleRef& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    UbcCtpBatchRemoteContext remote = HcommUrmaResolveBatchRemote(handleRef.remoteInfo, dst, len);
+    UbcCtpBatchRemoteContext remote{};
+    if (!HcommUrmaResolveBatchRemote(handleRef.remoteInfo, dst, len, remote)) {
+        return HCOMM_FAILED;
+    }
     return BatchPostSend<HcommUrmaOpCode::WRITE, config>(*handleRef.batch, remote, dst, src, len);
 }
 
@@ -503,7 +510,10 @@ template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
     UbcCtpBatchHandleRef& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    UbcCtpBatchRemoteContext remote = HcommUrmaResolveBatchRemote(handleRef.remoteInfo, src, len);
+    UbcCtpBatchRemoteContext remote{};
+    if (!HcommUrmaResolveBatchRemote(handleRef.remoteInfo, src, len, remote)) {
+        return HCOMM_FAILED;
+    }
     return BatchPostSend<HcommUrmaOpCode::READ, config>(*handleRef.batch, remote, src, dst, len);
 }
 
@@ -511,7 +521,10 @@ template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
     UbcCtpBatchHandleRef& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
-    UbcCtpBatchRemoteContext remote = HcommUrmaResolveBatchRemote(handleRef.remoteInfo, dst, len);
+    UbcCtpBatchRemoteContext remote{};
+    if (!HcommUrmaResolveBatchRemote(handleRef.remoteInfo, dst, len, remote)) {
+        return HCOMM_FAILED;
+    }
     return BatchPostSend<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config>(
         *handleRef.batch, remote, dst, src, len, notifyAddr, notifyVal);
 }
@@ -565,6 +578,17 @@ template <pipe_t pipe>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHandle& handle)
 {
     (void)pipe;
+    static_assert(
+        sizeof(HcommUrmaJfcCqeCtx) <= HCOMM_URMA_WQEBB_SIZE, "Batch Drain CQE must fit in one WQEBB");
+    if (!handle.IsValid() || handle.queueCounters.preSqCnt != 0U) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid batch handle state\n");
+        return HCOMM_FAILED;
+    }
+    if (handle.cqContext.cqeSize == 0U || handle.cqContext.cqeSize > HCOMM_URMA_WQEBB_SIZE ||
+        handle.cqContext.depth == 0U) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid CQ context\n");
+        return HCOMM_FAILED;
+    }
     return PollBatchCq(handle, handle.queueCounters.cqHead);
 }
 
@@ -776,7 +800,6 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollBatchCq(UbcCtpB
     uint32_t cqDepth = handle.cqContext.depth;
     LocalTensor<uint32_t> cqeItem = handle.buffer;
     auto* cqeUb = reinterpret_cast<__ubuf__ HcommUrmaJfcCqeCtx*>(cqeItem.GetPhyAddr());
-
 #if defined(UT_TEST)
     curTail = expectIdx;
 #else
@@ -800,13 +823,15 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollBatchCq(UbcCtpB
             Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
             times++;
         }
-        if (times >= HCOMM_URMA_MAX_RETRY_TIMES) {
+        if ((validOwner ^ cqeUb->owner) == 0U) {
+            KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Poll batch CQ timeout curTail=%u expectIdx=%u\n", curTail, expectIdx);
             ret = 0xFFU;
         } else {
             uint8_t status = cqeUb->status & 0xFFU;
             uint8_t subStatus = cqeUb->substatus & 0xFFU;
             constexpr uint8_t statusShift = 8U;
             if (status != 0U || subStatus != 0U) {
+                KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA batch CQE failed status=%u subStatus=%u\n", status, subStatus);
                 ret = (status << statusShift) | subStatus;
             }
         }
