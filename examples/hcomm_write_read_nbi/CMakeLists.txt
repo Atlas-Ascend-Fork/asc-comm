@@ -20,20 +20,61 @@ find_package(ASC REQUIRED)
 
 project(kernel_samples LANGUAGES ASC CXX)
 
+get_filename_component(ASCCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+
 set_source_files_properties(
     hcomm_write_read_nbi_kernel.cpp
     utils.cpp
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_dfx_queue_reader.cpp
+    hcomm_rw_def.h
     PROPERTIES LANGUAGE ASC
 )
 
 add_executable(demo
     hcomm_write_read_nbi.asc
     hcomm_write_read_nbi_kernel.cpp
+    hcomm_rw_def.h
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_channel_dump.cpp
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_dfx_queue_reader.cpp
     utils.cpp
 )
 
+target_include_directories(demo PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx
+    ${ASCCOMM_ROOT}/include/aicore
+    $ENV{ASCEND_HOME_PATH}/asc/include
+    $ENV{ASCEND_HOME_PATH}/asc/include/basic_api
+    $ENV{ASCEND_HOME_PATH}/include
+)
+
+# 链接 hcomm 库：Host 侧通信域创建(HcclCommInitRootInfo)、内存注册(HcclCommMemReg)、
+# 通道创建(HcclChannelAcquire)等接口由 libhcomm.so 提供。
+target_link_directories(demo PRIVATE
+    $ENV{ASCEND_HOME_PATH}/lib64
+    /usr/local/Ascend/driver/lib64/driver
+    $ENV{ASCEND_HOME_PATH}/devlib
+)
 target_link_libraries(demo PRIVATE
+    ascendc_runtime
+    acl_rt
+    runtime
+    register
+    error_manager
+    profapi
+    ge_common_base
+    unified_dlog
+    mmpa
+    dl
+    ascend_dump
+    hccl
     hcomm
+    c_sec
+    ascend_hal
+)
+set_target_properties(demo PROPERTIES
+    BUILD_RPATH "$ORIGIN"
+    INSTALL_RPATH "$ORIGIN"
 )
 
 target_compile_options(demo PRIVATE
