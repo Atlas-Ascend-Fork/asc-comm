@@ -38,7 +38,8 @@
 namespace AscendC::simt {
 
 // headAddr stores curHead in low 32 bits and wqeCnt in high 32 bits.
-// Concurrent SIMT post reserves SQ space with atomic_add; Drain is called by a single lane.
+// A single lane drives a channel, so the reservation is a plain read-modify-write of both
+// counters; Drain is likewise called by a single lane.
 constexpr uint64_t HCOMM_SIMT_WQE_CNT_MASK = 0xFFFFFFFFULL;
 
 // SIMT view of ChannelEntity: the shared definition stores typed host pointers, which the SIMT
@@ -61,8 +62,8 @@ struct HcommSimtChannelEntity {
     uint64_t sqContextAddr;
     uint64_t cqContextAddr;
     // The SIMD path tracks its queue state in these four counters. SIMT does not use them: it packs
-    // curHead and wqeCnt into the single u64 at SqContext::ubJfs::headAddr so that concurrent lanes
-    // can reserve SQ space with one 64-bit atomic add. They are listed here only to keep this view
+    // curHead and wqeCnt into the single u64 at SqContext::ubJfs::headAddr so both counters advance
+    // in one store. They are listed here only to keep this view
     // field-for-field identical to ChannelEntity.
     uint32_t sqHead;
     uint32_t sqTail;

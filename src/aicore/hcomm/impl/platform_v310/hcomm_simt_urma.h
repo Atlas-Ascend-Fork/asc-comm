@@ -75,6 +75,32 @@ constexpr uint32_t HCOMM_SIMT_SGE_WORDS = sizeof(HcommUrmaSgeCtx) / sizeof(uint6
 // The inline payload and the first SGE both start right after the SQE header.
 constexpr uint32_t HCOMM_SIMT_INLINE_FIRST_WORD = HCOMM_SIMT_SQE_WORDS;
 
+// Copies a staged WQE into its reserved SQ slot. A 2-BB WQE landing on the last slot of the ring
+// is split: the first basic block goes to the slot, the second wraps to the base of the SQ. The
+// WQE stays logically contiguous for the NIC, which reads the ring modulo its depth, but the
+// bytes must not run off the end of the SQ allocation.
+template <uint32_t bbCnt>
+__simt_callee__ inline void HcommSimtCopyStageWqeToSq(
+    uint64_t sqBaseAddr, __gm__ uint8_t* sqeAddr, uint32_t sqDepth, uint32_t curHead, const HcommSimtWqeStage& stage)
+{
+    static_assert(
+        bbCnt == HCOMM_URMA_WQE_BB_CNT || bbCnt == HCOMM_URMA_DWQE_BB_CNT,
+        "SIMT SQ copy supports one-BB or two-BB WQEs");
+    if constexpr (bbCnt == HCOMM_URMA_DWQE_BB_CNT) {
+        if ((curHead % sqDepth) == sqDepth - 1U) {
+            HcommSimtWqeStage secondBb;
+#pragma unroll
+            for (uint32_t i = 0; i < HCOMM_SIMT_BB_WORDS; ++i) {
+                secondBb.words[i] = stage.words[HCOMM_SIMT_BB_WORDS + i];
+            }
+            HcommSimtCopyStageToSq<HCOMM_URMA_WQE_BB_SIZE>(sqeAddr, stage);
+            HcommSimtCopyStageToSq<HCOMM_URMA_WQE_BB_SIZE>(reinterpret_cast<__gm__ uint8_t*>(sqBaseAddr), secondBb);
+            return;
+        }
+    }
+    HcommSimtCopyStageToSq<bbCnt * HCOMM_URMA_WQE_BB_SIZE>(sqeAddr, stage);
+}
+
 // Words a layout leaves unused are not cleared: the NIC reads only as far as the fields the
 // SQE header describes, so stale bytes from an earlier post on the same slot are never
 // consumed. Each writer below instead asserts that its own fields fit the window, which is
@@ -332,6 +358,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolvePost(
     __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
     uint64_t sqVa = sqCtx->contextInfo.ubJfs.sqVa;
     uint64_t headAddr = sqCtx->contextInfo.ubJfs.headAddr;
+    uint64_t sqTailAddr = sqCtx->contextInfo.ubJfs.tailAddr;
     uint64_t dbVa = sqCtx->contextInfo.ubJfs.dbVa;
     uint32_t wqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
     uint32_t sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
@@ -341,6 +368,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolvePost(
     uint64_t remoteEidH = remoteEid[1];
 
     post.headAddr = reinterpret_cast<__gm__ uint64_t*>(headAddr);
+    post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqTailAddr);
     post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
     post.sqBaseAddr = sqVa;
     post.sqWqeSize = wqeSize;
@@ -500,7 +528,11 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
         }
         uint32_t sqTailSlot = sqTail & sqMask;
         uint32_t completedSlot = (cqeWords[1] & 0xFFFFU) & sqMask;
-        sqTail += (completedSlot + sqDepth - sqTailSlot) & sqMask + 1U;
+        // The parentheses matter: & binds looser than +, so `x & sqMask + 1U` would compute
+        // `x & (sqMask + 1U)` -- a single-bit test against sqDepth rather than a wrap-around
+        // distance. The distance from the current tail slot to the completed slot, plus one for
+        // the completed block itself, is how far the tail advances.
+        sqTail += ((completedSlot + sqDepth - sqTailSlot) & sqMask) + 1U;
         ++curTail;
     }
 
@@ -512,6 +544,45 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
     return HCOMM_SUCCESS;
 }
 
+// Claims SQ space for one submission. The fast path is a single reservation attempt; when the
+// queue is full it consumes completed CQEs one at a time to let PollCq advance sqTail, retrying
+// after each. Waiting for every submitted WQE would be wrong: wqeCnt may include deferred WQEs
+// that no doorbell has published yet, so those completions never arrive.
+template <bool commit>
+__simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReservePost(
+    ChannelHandle channel, const HcommSimtResolvedPost& post, uint32_t bbCnt, uint64_t& headVal)
+{
+    // SIMT has no standalone Commit interface, so a deferred post must also leave room for the
+    // immediate 2-BB DWQE that will later publish the batch it belongs to.
+    constexpr uint32_t extraFreeBbCnt = commit ? 0U : HCOMM_URMA_DWQE_BB_CNT;
+    uint32_t requiredFreeBbCnt = bbCnt + extraFreeBbCnt;
+
+    if (HcommSimtTryReserve(post.headAddr, post.sqTailAddr, post.meta.sqDepth, bbCnt, requiredFreeBbCnt, 1U, headVal)) {
+        return true;
+    }
+    if (post.meta.sqDepth == 0U || requiredFreeBbCnt > post.meta.sqDepth) {
+        return false;
+    }
+
+    __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
+    __gm__ CqContext* cqContexts = reinterpret_cast<__gm__ CqContext*>(channelEntity->cqContextAddr);
+    __gm__ CqContext* cqCtx = &cqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
+    __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx->contextInfo.ubJfc.tailAddr);
+    while (true) {
+        // headVal was refreshed by the failed attempt, so its wqeCnt is the number of CQEs the
+        // channel has submitted so far. Once the CQ tail has reached it there is nothing left to
+        // reap and the queue cannot free up any further.
+        uint32_t cqTail = *cqTailAddr;
+        if (cqTail == HcommSimtWqeCnt(headVal) || PollCq(channel, cqTail + 1U) != HCOMM_SUCCESS) {
+            return false;
+        }
+        if (HcommSimtTryReserve(
+                post.headAddr, post.sqTailAddr, post.meta.sqDepth, bbCnt, requiredFreeBbCnt, 1U, headVal)) {
+            return true;
+        }
+    }
+}
+
 // The single posting path: resolve the target, claim SQ space, lay the WQE down and, when the
 // task is committed, ring the doorbell. Every step is lane-local; a caller that needs several
 // lanes to post must serialize them itself.
@@ -520,7 +591,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
 {
     constexpr uint32_t bbCnt = Desc::bbCnt;
     constexpr uint32_t wordCnt = bbCnt * HCOMM_SIMT_BB_WORDS;
-    constexpr uint32_t wqeBytes = bbCnt * HCOMM_URMA_WQE_BB_SIZE;
     static_assert(bbCnt == HCOMM_URMA_WQE_BB_CNT || bbCnt == HCOMM_URMA_DWQE_BB_CNT, "A WQE spans one or two BBs");
     // Only a deferred task may occupy a single basic block: an immediate one is published
     // through the 128B DWQE window, which is two blocks wide.
@@ -539,8 +609,11 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
         return HCOMM_FAILED;
     }
 
-    // Claim SQ space. A single lane drives a channel, so this is a plain read-modify-write.
-    uint32_t curHead = HcommSimtHeadIdx(HcommSimtReserve(post.headAddr, bbCnt, 1U));
+    uint64_t headVal = 0U;
+    if (!ReservePost<Desc::commit>(channel, post, bbCnt, headVal)) {
+        return HCOMM_FAILED;
+    }
+    uint32_t curHead = HcommSimtHeadIdx(headVal);
     uint32_t nextHead = curHead + bbCnt;
 
     __gm__ uint8_t* sqeAddr =
@@ -554,7 +627,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
     // doorbell out of the same staged bytes.
     HcommSimtWqeStage stage;
     desc.template Store<wordCnt>(stage.words, sqeTemplate, curHead, nextHead);
-    HcommSimtCopyStageToSq<wqeBytes>(sqeAddr, stage);
+    HcommSimtCopyStageWqeToSq<bbCnt>(post.sqBaseAddr, sqeAddr, post.meta.sqDepth, curHead, stage);
 
     // A deferred post needs no fence of its own: its SQ bytes are not published until some later
     // committed post rings the doorbell, and that post's fence orders every write issued before
@@ -565,69 +638,57 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
     return HCOMM_SUCCESS;
 }
 
-template <bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <bool commit, auto const& config>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    (void)commitPipe;
-    (void)reqPipe;
     return PostWqe(
         channel, HcommSimtDataDesc<commit, HcommUrmaOpCode::WRITE, config>{
                      reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(src), len});
 }
 
-template <typename T, bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteValueNbi(
     ChannelHandle channel, __gm__ void* dst, T value)
 {
-    (void)commitPipe;
-    (void)reqPipe;
     return PostWqe(channel, HcommSimtInlineDesc<T, commit, config>{reinterpret_cast<__gm__ uint8_t*>(dst), value});
 }
 
 // Read swaps dst/src relative to Write: src is the remote address, dst the local one.
-template <bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <bool commit, auto const& config>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    (void)commitPipe;
-    (void)reqPipe;
     return PostWqe(
         channel, HcommSimtDataDesc<commit, HcommUrmaOpCode::READ, config>{
                      reinterpret_cast<__gm__ uint8_t*>(src), reinterpret_cast<__gm__ uint8_t*>(dst), len});
 }
 
-template <bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <bool commit, auto const& config>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
     uint64_t notifyVal)
 {
-    (void)commitPipe;
-    (void)reqPipe;
     return PostWqe(
         channel, HcommSimtNotifyDesc<commit, config>{
                      reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(src), len,
                      reinterpret_cast<__gm__ uint8_t*>(notifyAddr), notifyVal});
 }
 
-template <typename T, bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicFAA(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
 {
-    (void)commitPipe;
-    (void)reqPipe;
     return PostWqe(
         channel, HcommSimtAtomicDesc<T, commit, HcommUrmaOpCode::FAA, config>{
                      reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(fetchAddr), addVal,
                      static_cast<T>(0)});
 }
 
-template <typename T, bool commit, auto commitPipe, auto reqPipe, auto const& config>
+template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
 {
-    (void)commitPipe;
-    (void)reqPipe;
     return PostWqe(
         channel,
         HcommSimtAtomicDesc<T, commit, HcommUrmaOpCode::CAS, config>{
