@@ -25,9 +25,6 @@
 extern "C" {
 #endif
 
-#define HCOMM_MULTI_CHANNEL_VERSION 1U
-#define HCOMM_MULTI_CHANNEL_MAGIC_WORD 0x484D4348U
-
 /** Per-channel transport information and a reference to its remote MR table. */
 typedef struct {
     uint64_t remoteBufferAddr;
@@ -37,13 +34,14 @@ typedef struct {
     uint64_t rmtEidH;
 } HcommBatchRemoteInfo;
 
-/** Shared queue owner and contexts followed by HcommBatchRemoteInfo[channelNum]. */
+/** Shared queue owner, contexts, and the device address of HcommBatchRemoteInfo[channelNum]. */
 typedef struct {
     ChannelEntity queueEntity;
     SqContext sqContext;
     CqContext cqContext;
     uint32_t channelNum;
     uint32_t reserved;
+    uint64_t remoteInfoAddr;
 } HcommMultiChannelEntity;
 
 /** Device address of one HcommMultiChannelEntity allocation. */
@@ -55,23 +53,6 @@ typedef uint64_t MultiChannelHandle;
 #define HCOMM_HOST_STATIC_ASSERT(condition, message) _Static_assert(condition, message)
 #endif
 
-HCOMM_HOST_STATIC_ASSERT(sizeof(CommAbiHeader) == 16U, "CommAbiHeader ABI size mismatch");
-HCOMM_HOST_STATIC_ASSERT(sizeof(ChannelEntity) == 256U, "ChannelEntity ABI size mismatch");
-HCOMM_HOST_STATIC_ASSERT(sizeof(SqContext) == 128U, "SqContext ABI size mismatch");
-HCOMM_HOST_STATIC_ASSERT(sizeof(CqContext) == 128U, "CqContext ABI size mismatch");
-HCOMM_HOST_STATIC_ASSERT(sizeof(HcommBatchRemoteInfo) == 32U, "HcommBatchRemoteInfo ABI size mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, remoteBufferAddr) == 0U, "remoteBufferAddr ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, remoteBufferNum) == 8U, "remoteBufferNum ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, tpID) == 12U, "tpID ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, rmtEidL) == 16U, "rmtEidL ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, rmtEidH) == 24U, "rmtEidH ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(sizeof(HcommMultiChannelEntity) == 520U, "HcommMultiChannelEntity ABI size mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, queueEntity) == 0U, "queueEntity ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, sqContext) == 256U, "sqContext ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, cqContext) == 384U, "cqContext ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, channelNum) == 512U, "channelNum ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, reserved) == 516U, "reserved ABI mismatch");
-
 #undef HCOMM_HOST_STATIC_ASSERT
 
 typedef struct {
@@ -79,9 +60,9 @@ typedef struct {
     SqContext sqContext;
     CqContext cqContext;
     HcommBatchRemoteInfo remoteInfo;
-} AscCommChannelMetadata;
+} HcommChannelMetadata;
 
-static inline HcclResult AscCommAcquireSharedChannels(
+static inline HcclResult HcommAcquireSharedChannels(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     ChannelHandle* channels)
 {
@@ -117,7 +98,7 @@ static inline HcclResult AscCommAcquireSharedChannels(
     return ret == HCCL_SUCCESS ? configRet : ret;
 }
 
-static inline HcclResult AscCommCopyFromDevice(
+static inline HcclResult HcommCopyFromDevice(
     void* dst, size_t size, const void* src, uint32_t channelIndex, const char* dataName)
 {
     aclError aclRet = aclrtMemcpy(dst, size, src, size, ACL_MEMCPY_DEVICE_TO_HOST);
@@ -130,9 +111,9 @@ static inline HcclResult AscCommCopyFromDevice(
     return HCCL_SUCCESS;
 }
 
-static inline void AscCommDumpChannelEntity(
+static inline void HcommDumpChannelEntity(
     const char* sharedQueueTag, ChannelHandle channel, uint32_t channelIndex, const ChannelEntity* channelEntity,
-    const AscCommChannelMetadata* metadata)
+    const HcommChannelMetadata* metadata)
 {
     fprintf(
         stderr,
@@ -162,8 +143,8 @@ static inline void AscCommDumpChannelEntity(
         metadata->cqContext.contextInfo.ubJfc.cqDepth, metadata->cqContext.contextInfo.ubJfc.cqeSize);
 }
 
-static inline HcclResult AscCommExtractChannelMetadata(
-    ChannelHandle channel, const char* sharedQueueTag, uint32_t channelIndex, AscCommChannelMetadata* metadata)
+static inline HcclResult HcommExtractChannelMetadata(
+    ChannelHandle channel, const char* sharedQueueTag, uint32_t channelIndex, HcommChannelMetadata* metadata)
 {
     ChannelEntity channelEntity;
     HcclResult ret;
@@ -175,7 +156,7 @@ static inline HcclResult AscCommExtractChannelMetadata(
 
     memset(&channelEntity, 0, sizeof(channelEntity));
     memset(metadata, 0, sizeof(*metadata));
-    ret = AscCommCopyFromDevice(
+    ret = HcommCopyFromDevice(
         &channelEntity, sizeof(channelEntity), (const void*)(uintptr_t)channel, channelIndex, "ChannelEntity");
     if (ret != HCCL_SUCCESS) {
         return ret;
@@ -188,12 +169,12 @@ static inline HcclResult AscCommExtractChannelMetadata(
         return HCCL_E_NOT_SUPPORT;
     }
 
-    ret = AscCommCopyFromDevice(
+    ret = HcommCopyFromDevice(
         &metadata->sqContext, sizeof(metadata->sqContext), channelEntity.sqContextAddr, channelIndex, "SqContext");
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
-    ret = AscCommCopyFromDevice(
+    ret = HcommCopyFromDevice(
         &metadata->cqContext, sizeof(metadata->cqContext), channelEntity.cqContextAddr, channelIndex, "CqContext");
     if (ret != HCCL_SUCCESS) {
         return ret;
@@ -206,23 +187,22 @@ static inline HcclResult AscCommExtractChannelMetadata(
     memcpy(
         &metadata->remoteInfo.rmtEidH, metadata->sqContext.contextInfo.ubJfs.remoteEID + sizeof(uint64_t),
         sizeof(uint64_t));
-    AscCommDumpChannelEntity(sharedQueueTag, channel, channelIndex, &channelEntity, metadata);
+    HcommDumpChannelEntity(sharedQueueTag, channel, channelIndex, &channelEntity, metadata);
 
     return HCCL_SUCCESS;
 }
 
-static inline HcclResult AscCommBuildMultiChannelEntity(
-    const ChannelHandle* channels, const char* sharedQueueTag, uint32_t channelNum, void** deviceMemory)
+static inline HcclResult HcommBuildMultiChannelEntity(
+    HcclComm comm, const ChannelHandle* channels, const char* sharedQueueTag, uint32_t channelNum, void** deviceMemory)
 {
-    AscCommChannelMetadata anchorMetadata;
-    AscCommChannelMetadata currentMetadata;
+    HcommChannelMetadata anchorMetadata;
+    HcommChannelMetadata currentMetadata;
     HcommMultiChannelEntity* entity = NULL;
     HcommBatchRemoteInfo* channelInfos = NULL;
     void* hostMemory = NULL;
     size_t totalSize;
     uint32_t i;
     HcclResult ret = HCCL_SUCCESS;
-    aclError aclRet;
 
     totalSize = sizeof(HcommMultiChannelEntity) + (size_t)channelNum * sizeof(HcommBatchRemoteInfo);
 
@@ -236,7 +216,7 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
     entity = (HcommMultiChannelEntity*)hostMemory;
     channelInfos = (HcommBatchRemoteInfo*)((uint8_t*)hostMemory + sizeof(HcommMultiChannelEntity));
     for (i = 0U; i < channelNum; ++i) {
-        ret = AscCommExtractChannelMetadata(channels[i], sharedQueueTag, i, &currentMetadata);
+        ret = HcommExtractChannelMetadata(channels[i], sharedQueueTag, i, &currentMetadata);
         if (ret != HCCL_SUCCESS) {
             free(hostMemory);
             return ret;
@@ -248,30 +228,28 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
     }
 
     entity->queueEntity = anchorMetadata.channelEntity;
-    entity->queueEntity.abiHeader.version = HCOMM_MULTI_CHANNEL_VERSION;
-    entity->queueEntity.abiHeader.magicWord = HCOMM_MULTI_CHANNEL_MAGIC_WORD;
-    entity->queueEntity.abiHeader.size = (uint32_t)totalSize;
     entity->sqContext = anchorMetadata.sqContext;
     entity->cqContext = anchorMetadata.cqContext;
     entity->channelNum = channelNum;
 
-    aclRet = aclrtMalloc(deviceMemory, totalSize, ACL_MEM_MALLOC_HUGE_FIRST);
-    if (aclRet != ACL_SUCCESS || *deviceMemory == NULL) {
-        fprintf(stderr, "[ERROR] [%s] aclrtMalloc failed, ret[%d].\n", __func__, aclRet);
+    ret = HcclEngineCtxCreate(comm, sharedQueueTag, COMM_ENGINE_AIV, totalSize, deviceMemory);
+    if (ret != HCCL_SUCCESS || *deviceMemory == NULL) {
+        fprintf(stderr, "[ERROR] [%s] HcclEngineCtxCreate failed, ret[%d].\n", __func__, ret);
         free(hostMemory);
-        return aclRet == ACL_SUCCESS ? HCCL_E_MEMORY : HCCL_E_RUNTIME;
+        return ret == HCCL_SUCCESS ? HCCL_E_MEMORY : ret;
     }
     entity->queueEntity.sqContextAddr =
         (SqContext*)((uint8_t*)*deviceMemory + offsetof(HcommMultiChannelEntity, sqContext));
     entity->queueEntity.cqContextAddr =
         (CqContext*)((uint8_t*)*deviceMemory + offsetof(HcommMultiChannelEntity, cqContext));
-    aclRet = aclrtMemcpy(*deviceMemory, totalSize, hostMemory, totalSize, ACL_MEMCPY_HOST_TO_DEVICE);
+    entity->remoteInfoAddr = (uint64_t)(uintptr_t)*deviceMemory + sizeof(HcommMultiChannelEntity);
+    ret = HcclEngineCtxCopy(comm, COMM_ENGINE_AIV, sharedQueueTag, hostMemory, totalSize, 0U);
     free(hostMemory);
-    if (aclRet != ACL_SUCCESS) {
-        fprintf(stderr, "[ERROR] [%s] copy multi-channel entity to device failed, ret[%d].\n", __func__, aclRet);
-        (void)aclrtFree(*deviceMemory);
+    if (ret != HCCL_SUCCESS) {
+        fprintf(stderr, "[ERROR] [%s] HcclEngineCtxCopy failed, ret[%d].\n", __func__, ret);
+        (void)HcclEngineCtxDestroy(comm, sharedQueueTag, COMM_ENGINE_AIV);
         *deviceMemory = NULL;
-        return HCCL_E_RUNTIME;
+        return ret;
     }
     return HCCL_SUCCESS;
 }
@@ -287,9 +265,6 @@ static inline HcclResult MakeMultiChannelHandle(
     void* deviceMemory = NULL;
     HcclResult ret;
 
-    if (multiChannel != NULL) {
-        *multiChannel = 0U;
-    }
     if (comm == NULL || sharedQueueTag == NULL || channelDescs == NULL || multiChannel == NULL || channelNum == 0U) {
         fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
         return HCCL_E_PARA;
@@ -300,9 +275,9 @@ static inline HcclResult MakeMultiChannelHandle(
         fprintf(stderr, "[ERROR] [%s] allocate channel handles failed, channelNum[%u].\n", __func__, channelNum);
         return HCCL_E_MEMORY;
     }
-    ret = AscCommAcquireSharedChannels(comm, sharedQueueTag, channelDescs, channelNum, channels);
+    ret = HcommAcquireSharedChannels(comm, sharedQueueTag, channelDescs, channelNum, channels);
     if (ret == HCCL_SUCCESS) {
-        ret = AscCommBuildMultiChannelEntity(channels, sharedQueueTag, channelNum, &deviceMemory);
+        ret = HcommBuildMultiChannelEntity(comm, channels, sharedQueueTag, channelNum, &deviceMemory);
     }
     free(channels);
     if (ret != HCCL_SUCCESS) {
@@ -310,27 +285,6 @@ static inline HcclResult MakeMultiChannelHandle(
     }
 
     *multiChannel = (MultiChannelHandle)(uintptr_t)deviceMemory;
-    return HCCL_SUCCESS;
-}
-
-/**
- * @brief Destroy device metadata owned by a multi-channel handle.
- * @note The caller must ensure that no kernel is still using the handle.
- */
-static inline HcclResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel)
-{
-    void* deviceMemory;
-    aclError aclRet;
-    if (multiChannel == 0U) {
-        fprintf(stderr, "[ERROR] [%s] multiChannel is null.\n", __func__);
-        return HCCL_E_PTR;
-    }
-    deviceMemory = (void*)(uintptr_t)multiChannel;
-    aclRet = aclrtFree(deviceMemory);
-    if (aclRet != ACL_SUCCESS) {
-        fprintf(stderr, "[ERROR] [%s] aclrtFree failed, ret[%d].\n", __func__, aclRet);
-        return HCCL_E_RUNTIME;
-    }
     return HCCL_SUCCESS;
 }
 
