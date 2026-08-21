@@ -21,8 +21,6 @@ namespace Asc {
 
 enum class SlicePosition { ONLY = 0, FIRST = 1, MIDDLE = 2, LAST = 3 };
 struct UbConnLiteParam {
-    u32 dieId;
-    u32 funcId;
     u32 jettyId;
 
     u64  sqVa;
@@ -71,8 +69,6 @@ private:
     u32  piDetourCount{0};
     u32  maxReadSize{0};
     u32  maxWriteSize{0};
-    u32  dieId_{0};
-    u32  funcId_{0};
     u32  jettyId_{0};
     u64  sqVa_{0};
     u32  sqDepth_{0};
