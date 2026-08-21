@@ -231,18 +231,6 @@ struct UbcCtpBatchRemoteInfo {
     uint64_t rmtEidH;
 };
 
-/**
- * Shared SQ/CQ contexts followed immediately by UbcCtpBatchRemoteInfo[channelNum], indexed by channelIndex.
- * The SQ transport fields belong to channel 0 and are not used by the batch Device path.
- */
-struct HcommMultiChannelEntity {
-    CommAbiHeader abiHeader;
-    SqContext sqContext;
-    CqContext cqContext;
-    uint32_t channelNum;
-    uint32_t reserved;
-};
-
 static_assert(sizeof(CommAbiHeader) == 16U, "CommAbiHeader ABI size mismatch");
 static_assert(sizeof(SqContext) == 128U, "SqContext ABI size mismatch");
 static_assert(sizeof(CqContext) == 128U, "CqContext ABI size mismatch");
@@ -252,13 +240,6 @@ static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, remoteBufferNum) == 8U, 
 static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, tpID) == 12U, "tpID ABI mismatch");
 static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, rmtEidL) == 16U, "rmtEidL ABI mismatch");
 static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, rmtEidH) == 24U, "rmtEidH ABI mismatch");
-static_assert(sizeof(HcommMultiChannelEntity) == 280U, "HcommMultiChannelEntity ABI size mismatch");
-static_assert(__builtin_offsetof(HcommMultiChannelEntity, abiHeader) == 0U, "abiHeader ABI mismatch");
-static_assert(__builtin_offsetof(HcommMultiChannelEntity, sqContext) == 16U, "sqContext ABI mismatch");
-static_assert(__builtin_offsetof(HcommMultiChannelEntity, cqContext) == 144U, "cqContext ABI mismatch");
-static_assert(__builtin_offsetof(HcommMultiChannelEntity, channelNum) == 272U, "channelNum ABI mismatch");
-static_assert(__builtin_offsetof(HcommMultiChannelEntity, reserved) == 276U, "reserved ABI mismatch");
-
 typedef struct {
     CommAbiHeader abiHeader;
     CommEngine engine;
@@ -284,35 +265,80 @@ typedef struct {
 
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
 
-struct UbcCtpBatchHandle {
-    MultiChannelHandle multiChannel;
-    LocalTensor<uint32_t> wqeBuffer;
-    LocalTensor<uint32_t> cqeBuffer;
-    uint32_t sqHead;
-    uint32_t cqHead;
-    uint32_t pendingBb;
-    uint32_t pendingCqe;
-    uint32_t pendingCompletionSqHead;
-    uint32_t completionSqHead;
-    uint32_t capacityBb;
-    uint32_t sqDepth;
-    uint32_t wqeSize;
-    uint32_t cqeSize;
+/**
+ * Shared-queue owner followed immediately by UbcCtpBatchRemoteInfo[channelNum]. queueEntity is at offset zero so
+ * the common batch queue helpers can use MultiChannelHandle as their queue owner.
+ */
+struct HcommMultiChannelEntity {
+    ChannelEntity queueEntity;
+    SqContext sqContext;
+    CqContext cqContext;
+    uint32_t channelNum;
+    uint32_t reserved;
+};
 
-    __aicore__ inline bool IsValid() const
-    {
-        return capacityBb != 0U;
-    }
+static_assert(sizeof(HcommMultiChannelEntity) == 520U, "HcommMultiChannelEntity ABI size mismatch");
+static_assert(__builtin_offsetof(HcommMultiChannelEntity, queueEntity) == 0U, "queueEntity ABI mismatch");
+static_assert(__builtin_offsetof(HcommMultiChannelEntity, sqContext) == 256U, "sqContext ABI mismatch");
+static_assert(__builtin_offsetof(HcommMultiChannelEntity, cqContext) == 384U, "cqContext ABI mismatch");
+static_assert(__builtin_offsetof(HcommMultiChannelEntity, channelNum) == 512U, "channelNum ABI mismatch");
+static_assert(__builtin_offsetof(HcommMultiChannelEntity, reserved) == 516U, "reserved ABI mismatch");
+
+typedef struct {
+    uint64_t baseAddr;
+    uint64_t dbAddr;
+    uint64_t remoteEidLow;
+    uint64_t remoteEidHigh;
+    uint32_t depth;
+    uint32_t tpId;
+} BatchSqContext;
+
+typedef struct {
+    uint64_t baseAddr;
+    uint64_t dbAddr;
+    uint32_t depth;
+    uint32_t cqeSize;
+} BatchCqContext;
+
+typedef struct {
+    uint32_t tokenId;
+    uint32_t tokenValue;
+} BatchRemoteToken;
+
+struct UbcCtpBatchRemoteContext {
+    uint32_t tokenId;
+    uint32_t tokenValue;
+    uint32_t tpId;
+    uint32_t reserved;
+    uint64_t remoteEidLow;
+    uint64_t remoteEidHigh;
+};
+
+typedef struct {
+    uint32_t sqHead;
+    uint32_t sqTail;
+    uint32_t cqHead;
+    uint32_t cqTail;
+    uint32_t preSqCnt;
+} BatchQueueCounters;
+
+struct UbcCtpBatchHandle {
+    ChannelHandle channelHandle;
+    LocalTensor<uint32_t> buffer;
+    uint32_t bufferCapacity;
+    BatchSqContext sqContext;
+    BatchCqContext cqContext;
+    BatchRemoteToken remoteToken;
+    BatchQueueCounters queueCounters;
+
+    __aicore__ inline bool IsValid() const { return channelHandle != 0U && bufferCapacity != 0U; }
 };
 
 struct UbcCtpBatchHandleRef {
     UbcCtpBatchHandle* batch;
     UbcCtpBatchRemoteInfo remoteInfo;
 
-    __aicore__ inline bool IsValid() const
-    {
-        return batch != nullptr;
-    }
+    __aicore__ inline bool IsValid() const { return batch != nullptr; }
 };
 
 struct RoceBatchHandle {};

@@ -136,18 +136,33 @@ __aicore__ inline typename Hcomm<commProtocol>::BatchHandleRefType Hcomm<commPro
 }
 
 template <CommProtocol commProtocol>
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
+template <auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(
     BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    return impl_.template WriteNbi<commit, commitPipe, reqPipe, config>(handleRef, dst, src, len);
+    return impl_.template WriteNbi<config>(handleRef, dst, src, len);
 }
 
 template <CommProtocol commProtocol>
-template <pipe_t pipe>
+template <auto const& config>
+__aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(
+    BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
+{
+    return impl_.template ReadNbi<config>(handleRef, dst, src, len);
+}
+
+template <CommProtocol commProtocol>
+template <auto const& config>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
+    BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
+{
+    return impl_.template WriteWithNotifyNbi<config>(handleRef, dst, src, len, notifyAddr, notifyVal);
+}
+
+template <CommProtocol commProtocol>
 __aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(BatchHandleType& handle)
 {
-    return impl_.template BatchCommit<pipe>(handle);
+    return impl_.BatchCommit(handle);
 }
 
 template <CommProtocol commProtocol>

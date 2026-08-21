@@ -19,7 +19,9 @@
 
 namespace AscendC {
 using ChannelHandle = uint64_t;
-using MultiChannelHandle = uint64_t;
+enum class MultiChannelHandle : uint64_t {};
+
+static_assert(sizeof(MultiChannelHandle) == sizeof(uint64_t), "MultiChannelHandle ABI size mismatch");
 
 /**
  * @brief 通信协议类型枚举
