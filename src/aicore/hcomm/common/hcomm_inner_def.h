@@ -26,12 +26,12 @@
 
 namespace AscendC {
 
+enum class MultiChannelHandle : uint64_t {};
+
 constexpr int32_t HCOMM_FAILED = -1;
 constexpr int32_t HCOMM_SUCCESS = 0;
 constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
-constexpr uint32_t HCOMM_MULTI_CHANNEL_VERSION = 1U;
-constexpr uint32_t HCOMM_MULTI_CHANNEL_MAGIC_WORD = 0x484D4348U;
 
 #pragma pack(push, 1)
 struct UrmaWqeEntry {
@@ -231,15 +231,6 @@ struct UbcCtpBatchRemoteInfo {
     uint64_t rmtEidH;
 };
 
-static_assert(sizeof(CommAbiHeader) == 16U, "CommAbiHeader ABI size mismatch");
-static_assert(sizeof(SqContext) == 128U, "SqContext ABI size mismatch");
-static_assert(sizeof(CqContext) == 128U, "CqContext ABI size mismatch");
-static_assert(sizeof(UbcCtpBatchRemoteInfo) == 32U, "UbcCtpBatchRemoteInfo ABI size mismatch");
-static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, remoteBufferAddr) == 0U, "remoteBufferAddr ABI mismatch");
-static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, remoteBufferNum) == 8U, "remoteBufferNum ABI mismatch");
-static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, tpID) == 12U, "tpID ABI mismatch");
-static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, rmtEidL) == 16U, "rmtEidL ABI mismatch");
-static_assert(__builtin_offsetof(UbcCtpBatchRemoteInfo, rmtEidH) == 24U, "rmtEidH ABI mismatch");
 typedef struct {
     CommAbiHeader abiHeader;
     CommEngine engine;
@@ -265,24 +256,15 @@ typedef struct {
 
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
 
-/**
- * Shared-queue owner followed immediately by UbcCtpBatchRemoteInfo[channelNum]. queueEntity is at offset zero so
- * the common batch queue helpers can use MultiChannelHandle as their queue owner.
- */
+/** Shared-queue owner, contexts, and the device address of UbcCtpBatchRemoteInfo[channelNum]. */
 struct HcommMultiChannelEntity {
     ChannelEntity queueEntity;
     SqContext sqContext;
     CqContext cqContext;
     uint32_t channelNum;
     uint32_t reserved;
+    uint64_t remoteInfoAddr;
 };
-
-static_assert(sizeof(HcommMultiChannelEntity) == 520U, "HcommMultiChannelEntity ABI size mismatch");
-static_assert(__builtin_offsetof(HcommMultiChannelEntity, queueEntity) == 0U, "queueEntity ABI mismatch");
-static_assert(__builtin_offsetof(HcommMultiChannelEntity, sqContext) == 256U, "sqContext ABI mismatch");
-static_assert(__builtin_offsetof(HcommMultiChannelEntity, cqContext) == 384U, "cqContext ABI mismatch");
-static_assert(__builtin_offsetof(HcommMultiChannelEntity, channelNum) == 512U, "channelNum ABI mismatch");
-static_assert(__builtin_offsetof(HcommMultiChannelEntity, reserved) == 516U, "reserved ABI mismatch");
 
 typedef struct {
     uint64_t baseAddr;
@@ -322,24 +304,27 @@ typedef struct {
     uint32_t preSqCnt;
 } BatchQueueCounters;
 
-struct UbcCtpBatchHandle {
+typedef struct {
     ChannelHandle channelHandle;
     LocalTensor<uint32_t> buffer;
+    // Capacity of buffer in WQEBBs.
     uint32_t bufferCapacity;
+    // Context fields cached by MakeBatchHandle. They stay valid while the caller exclusively owns the channel.
     BatchSqContext sqContext;
     BatchCqContext cqContext;
     BatchRemoteToken remoteToken;
+    // cqHead includes CQEs prepared in the active batch. BatchCommit and Drain synchronize queue counters back to
+    // ChannelEntity.
     BatchQueueCounters queueCounters;
-
-    __aicore__ inline bool IsValid() const { return channelHandle != 0U && bufferCapacity != 0U; }
-};
+} UbcCtpBatchHandle;
 
 struct UbcCtpBatchHandleRef {
     UbcCtpBatchHandle* batch;
     UbcCtpBatchRemoteInfo remoteInfo;
-
-    __aicore__ inline bool IsValid() const { return batch != nullptr; }
 };
+
+template <typename T>
+struct ChannelTraits;
 
 template <>
 struct ChannelTraits<ChannelHandle> {
@@ -358,13 +343,16 @@ using BatchHandle = typename ChannelTraits<T>::BatchHandleType;
 template <typename T>
 using BatchHandleRef = typename ChannelTraits<T>::BatchHandleRefType;
 
+template <typename T>
+struct BatchHandleTraits;
+
 template <>
 struct BatchHandleTraits<UbcCtpBatchHandle> {
     using ChannelType = ChannelHandle;
 };
 
 template <>
-struct BatchHandleRefTraits<UbcCtpBatchHandleRef> {
+struct BatchHandleTraits<UbcCtpBatchHandleRef> {
     using ChannelType = MultiChannelHandle;
 };
 

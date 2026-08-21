@@ -21,7 +21,6 @@ STAGING_DIR="${PROJECT_ROOT}/build/package/asc-comm"
 PACKAGE_INPUT_PATHS=(
     build.sh
     include/aicore/hcomm
-    include/hcomm
     src/aicore/hcomm
     scripts/package
 )
@@ -141,7 +140,7 @@ write_manifest()
         cd "${STAGING_DIR}/payload"
         while IFS= read -r -d '' file; do
             sha256sum "${file}"
-        done < <(find asc *-linux -type f -print0 | sort -z)
+        done < <(find asc -type f -print0 | sort -z)
     ) > "${STAGING_DIR}/manifest.sha256"
 }
 
@@ -199,9 +198,6 @@ build_package()
     copy_headers \
         "${PROJECT_ROOT}/src/aicore/hcomm" \
         "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm"
-    copy_headers \
-        "${PROJECT_ROOT}/include/hcomm" \
-        "${STAGING_DIR}/payload/${arch}-linux/include/hcomm"
 
     write_manifest
     write_version_info "${arch}" "${required_version}"

@@ -33,14 +33,14 @@ public:
         context_->hcommResult = AscendC::HCOMM_SUCCESS;
         auto batch = hcomm_.MakeBatchHandle(
             static_cast<AscendC::MultiChannelHandle>(context_->multiChannel), batchTensor_, BATCH_BUFFER_SIZE);
-        if (!batch.IsValid()) {
+        if (batch.channelHandle == 0U || batch.bufferCapacity == 0U) {
             context_->result = KERNEL_MAKE_BATCH_HANDLE_FAILED;
             return;
         }
 
         for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
             auto channel = hcomm_.GetHandleRef(batch, channelIndex);
-            if (!channel.IsValid()) {
+            if (channel.batch == nullptr) {
                 context_->result = KERNEL_GET_HANDLE_REF_FAILED;
                 return;
             }
