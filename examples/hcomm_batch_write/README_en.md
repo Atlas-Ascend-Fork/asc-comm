@@ -3,7 +3,7 @@
 This sample validates AIV `WriteNbi` WQEs targeting different peers, grouped by local
 `EndpointDesc.commAddr.raws`, and submitted to each group's shared SQ by one `BatchCommit`.
 
-The optional `rank_size` argument selects the number of local ranks and NPUs; it defaults to eight. Rank 0 selects a
+The optional `rank_size` argument selects the number of local ranks and NPUs; it defaults to two. Rank 0 selects a
 `COMM_PROTOCOL_UBC_CTP` link to ranks 1 through N-1 and groups links with identical local `commAddr.raws`. Other
 ranks only create a link to rank 0. Each group receives one `MultiChannelHandle` and a distinct `sharedQueueTag`.
 The Host helper stores one shared `SqContext/CqContext` pair and one remote record per channel, preserving the input
@@ -28,6 +28,12 @@ cmake -S examples/hcomm_batch_write -B build/examples/hcomm_batch_write
 cmake --build build/examples/hcomm_batch_write -j
 ./build/examples/hcomm_batch_write/hcomm_batch_write
 ./build/examples/hcomm_batch_write/hcomm_batch_write 4
+```
+
+The helper script accepts the rank count, builds the sample, and defaults to two ranks:
+
+```bash
+./examples/hcomm_batch_write/run.sh 4
 ```
 
 The executable forks one process per local rank and maps rank IDs directly to device IDs. After all channels are
