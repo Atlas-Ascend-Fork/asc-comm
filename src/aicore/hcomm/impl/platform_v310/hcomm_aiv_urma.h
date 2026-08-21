@@ -404,11 +404,7 @@ __aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchH
     auto* multiChannelEntity =
         reinterpret_cast<__gm__ HcommMultiChannelEntity*>(static_cast<uint64_t>(multiChannel));
     uint32_t channelNum = multiChannelEntity->channelNum;
-    uint64_t expectedEntitySize =
-        sizeof(HcommMultiChannelEntity) + static_cast<uint64_t>(channelNum) * sizeof(UbcCtpBatchRemoteInfo);
-    if (multiChannelEntity->queueEntity.abiHeader.version != HCOMM_MULTI_CHANNEL_VERSION ||
-        multiChannelEntity->queueEntity.abiHeader.magicWord != HCOMM_MULTI_CHANNEL_MAGIC_WORD || channelNum == 0U ||
-        expectedEntitySize > 0xFFFFFFFFULL || multiChannelEntity->queueEntity.abiHeader.size != expectedEntitySize) {
+    if (channelNum == 0U) {
         return UbcCtpBatchHandle{};
     }
     return HcommUrmaCreateBatchQueueHandle(static_cast<ChannelHandle>(multiChannel), buffer, buffLen);
@@ -417,7 +413,7 @@ __aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchH
 __aicore__ inline UbcCtpBatchHandleRef HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
     UbcCtpBatchHandle& handle, uint32_t channelIndex)
 {
-    if (!handle.IsValid()) {
+    if (handle.channelHandle == 0U || handle.bufferCapacity == 0U) {
         return UbcCtpBatchHandleRef{};
     }
     auto* multiChannelEntity = reinterpret_cast<__gm__ HcommMultiChannelEntity*>(handle.channelHandle);
@@ -425,7 +421,7 @@ __aicore__ inline UbcCtpBatchHandleRef HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHand
         return UbcCtpBatchHandleRef{};
     }
     auto* channelInfos =
-        reinterpret_cast<__gm__ UbcCtpBatchRemoteInfo*>(handle.channelHandle + sizeof(HcommMultiChannelEntity));
+        reinterpret_cast<__gm__ UbcCtpBatchRemoteInfo*>(multiChannelEntity->remoteInfoAddr);
     UbcCtpBatchRemoteInfo remoteInfo{};
     remoteInfo.remoteBufferAddr = channelInfos[channelIndex].remoteBufferAddr;
     remoteInfo.remoteBufferNum = channelInfos[channelIndex].remoteBufferNum;
@@ -580,7 +576,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHan
     (void)pipe;
     static_assert(
         sizeof(HcommUrmaJfcCqeCtx) <= HCOMM_URMA_WQEBB_SIZE, "Batch Drain CQE must fit in one WQEBB");
-    if (!handle.IsValid() || handle.queueCounters.preSqCnt != 0U) {
+    if (handle.channelHandle == 0U || handle.bufferCapacity == 0U || handle.queueCounters.preSqCnt != 0U) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid batch handle state\n");
         return HCOMM_FAILED;
     }
