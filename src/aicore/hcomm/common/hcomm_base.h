@@ -28,8 +28,8 @@ namespace AscendC {
 template <CommProtocol commProtocol>
 class HcommImpl {
 public:
-    using BatchHandleType = typename BatchHandleTraits<commProtocol>::Type;
-    using BatchHandleRefType = typename BatchHandleTraits<commProtocol>::RefType;
+    using BatchHandleType = BatchHandle<MultiChannelHandle>;
+    using BatchHandleRefType = BatchHandleRef<MultiChannelHandle>;
 
     __aicore__ inline HcommImpl(){};
     __aicore__ inline ~HcommImpl(){};
@@ -114,24 +114,28 @@ public:
         return {};
     }
 
-    __aicore__ inline BatchHandleRefType GetHandleRef(BatchHandleType& handle, uint32_t channelIndex)
-    {
-        return {};
-    }
+    __aicore__ inline BatchHandleRefType GetHandleRef(BatchHandleType& handle, uint32_t channelIndex) { return {}; }
 
-    template <
-        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
+    template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
     {
         return HCOMM_FAILED;
     }
 
-    template <pipe_t pipe = PIPE_S>
-    __aicore__ inline int32_t BatchCommit(BatchHandleType& handle)
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t ReadNbi(BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
     {
         return HCOMM_FAILED;
     }
+
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
+    {
+        return HCOMM_FAILED;
+    }
+
+    __aicore__ inline int32_t BatchCommit(BatchHandleType& handle) { return HCOMM_FAILED; }
 
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(BatchHandleType& handle)

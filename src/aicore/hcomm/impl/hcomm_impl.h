@@ -114,7 +114,7 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 }
 
 template <CommProtocol commProtocol>
-__aicore__ inline typename Hcomm<commProtocol>::BatchHandleType Hcomm<commProtocol>::MakeBatchHandle(
+__aicore__ inline BatchHandle<MultiChannelHandle> Hcomm<commProtocol>::MakeBatchHandle(
     MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen)
 {
     return impl_.MakeBatchHandle(multiChannel, buff, buffLen);
@@ -122,37 +122,51 @@ __aicore__ inline typename Hcomm<commProtocol>::BatchHandleType Hcomm<commProtoc
 
 template <CommProtocol commProtocol>
 template <typename T>
-__aicore__ inline typename Hcomm<commProtocol>::BatchHandleType Hcomm<commProtocol>::MakeBatchHandle(
+__aicore__ inline BatchHandle<MultiChannelHandle> Hcomm<commProtocol>::MakeBatchHandle(
     MultiChannelHandle multiChannel, const LocalTensor<T>& buff, uint32_t buffLen)
 {
     return impl_.MakeBatchHandle(multiChannel, buff, buffLen);
 }
 
 template <CommProtocol commProtocol>
-__aicore__ inline typename Hcomm<commProtocol>::BatchHandleRefType Hcomm<commProtocol>::GetHandleRef(
-    BatchHandleType& handle, uint32_t channelIndex)
+__aicore__ inline BatchHandleRef<MultiChannelHandle> Hcomm<commProtocol>::GetHandleRef(
+    BatchHandle<MultiChannelHandle>& handle, uint32_t channelIndex)
 {
     return impl_.GetHandleRef(handle, channelIndex);
 }
 
 template <CommProtocol commProtocol>
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(
-    BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
+template <auto const& config, typename T, typename BatchHandleRefTraits<T>::ChannelType*>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(T& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    return impl_.template WriteNbi<commit, commitPipe, reqPipe, config>(handleRef, dst, src, len);
+    return impl_.template WriteNbi<config>(handleRef, dst, src, len);
 }
 
 template <CommProtocol commProtocol>
-template <pipe_t pipe>
-__aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(BatchHandleType& handle)
+template <auto const& config, typename T, typename BatchHandleRefTraits<T>::ChannelType*>
+__aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(T& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    return impl_.template BatchCommit<pipe>(handle);
+    return impl_.template ReadNbi<config>(handleRef, dst, src, len);
 }
 
 template <CommProtocol commProtocol>
-template <pipe_t pipe>
-__aicore__ inline int32_t Hcomm<commProtocol>::Drain(BatchHandleType& handle)
+template <auto const& config, typename T, typename BatchHandleRefTraits<T>::ChannelType*>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
+    T& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
+{
+    return impl_.template WriteWithNotifyNbi<config>(handleRef, dst, src, len, notifyAddr, notifyVal);
+}
+
+template <CommProtocol commProtocol>
+template <typename T, typename BatchHandleTraits<T>::ChannelType*>
+__aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(T& handle)
+{
+    return impl_.BatchCommit(handle);
+}
+
+template <CommProtocol commProtocol>
+template <pipe_t pipe, typename T, typename BatchHandleTraits<T>::ChannelType*>
+__aicore__ inline int32_t Hcomm<commProtocol>::Drain(T& handle)
 {
     return impl_.template Drain<pipe>(handle);
 }
