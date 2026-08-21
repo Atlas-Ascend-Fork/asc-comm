@@ -155,16 +155,50 @@ make -j
 ./demo 4
 ```
 
-### 4. 编译选项说明
+### 4. 异常自诊断（DFX 通道 Dump）演示
+
+核函数 `Process()` 末尾预留了一行**被注释的 `trap()`**，用于稳定复现一次 AIC Error，从而演示 HCOMM DFX 的「异常发生 → host 安全点采集通道现场 → 打印定位」能力，无需预埋 printf、无需重新出包。样例**默认按纯通信路径运行**，正常运行不会走到这行。
+
+**接入维测能力只需两步**（见 `hcomm_write_read_nbi.asc` 中 `HcommRW`，默认已接入，正常路径零开销）：
+
+1. **注册**：launch 前调用 `AscendC::HcommChannelExceptionCallbackRegister(kernelSymbol)`，为目标 kernel 绑定异常回调。缺此步则异常发生时框架不记录现场，后续 dump 会静默返回。
+2. **采集**：`aclrtSynchronizeStream` 返回错误后，在 host 安全点调用 `AscendC::HcommChannelInfoDump(channel)`，采集并打印通道现场。`channel` 即算子持有的 `ChannelHandle`；接口内部会先判断有无已记录异常，无异常时直接返回成功，可无条件调用。
+
+**想触发异常看 dump 效果**：取消 `hcomm_write_read_nbi_kernel.cpp` 中 `trap()` 行的注释后重新编译运行。正常读写完成后核函数 `trap`，`aclrtSynchronizeStream` 返回错误码，随后 rank 0 打印 dump 出的 Channel / SQ / CQ / WQE / CQE 现场，终端最终打印 `test failed!`（异常被触发，属预期）。
+
+> **说明：** 核函数中的 `trap()` 行**仅用于让样例可复现异常**。真实算子无需它——异常由业务自身缺陷自然触发，算子只需保留上面的注册与采集两步。
+
+### 5. 编译选项说明
 | 选项 | 可选值 | 说明 |
 |------|--------|------|
 | `CMAKE_ASC_ARCHITECTURES` | `dav-3510`（默认） | NPU架构：`dav-3510`对应Ascend 950PR / Ascend 950DT |
 
-### 5. 执行结果
-多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
+### 6. 执行结果
+
+样例默认走**纯通信路径**（核函数中 `trap()` 已注释，见第 4 节）。多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
 ```text
+[INFO] rank 0: devNum = 2
+[INFO] rank 1: devNum = 2
+[HcommDfxDump] exception callback registered
+[HcommDfxDump] exception callback registered
 rank 0 test pass!
 rank 1 test pass!
 test pass!
 ```
+> `exception callback registered` 表示 DFX 注册步骤生效；正常路径无异常记录，`HcommChannelInfoDump` 静默返回，不产生任何 dump 输出。
+
+**取消 `trap()` 注释后走异常路径**，rank 0 会打印 dump 出的通道现场并最终以 `test failed!` 结束（异常被触发，属预期，DFX dump 即演示重点）：
+```text
+[HcommDfxDump] exception callback entered count=1 task=2 stream=61 device=0
+[CHECK ERROR][rank=0] aclrtSynchronizeStream ret=507035
+[HcommDfxDump][Channel] rank=0 idx=0 handle=0x120066c00000 engine=4 protocol=4
+[HcommDfxDump][SqContext] type=UB_JFS sqVa=0x3fff0400000 depth=32768 head=2 tail=2
+[HcommDfxDump][CqContext] type=UB_JFC cqVa=0x3fff0600000 head=0 tail=2
+[HcommDfxDump][WQE]  queue=0 index=0 opcode=0x3 rmtEid=0x000000000df00000a ...
+[HcommDfxDump][WQE]  queue=0 index=1 opcode=0x6 rmtEid=0x000000000df00000a ...
+[HcommDfxDump][CQE]  status=0 ...
+HcommChannelInfoDump ret=0 len=66896
+test failed!
+```
+
 > **注意：** 单卡环境仅支持编译验证，实际运行本样例需至少配备2张NPU。
