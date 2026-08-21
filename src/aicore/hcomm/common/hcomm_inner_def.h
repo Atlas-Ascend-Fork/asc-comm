@@ -26,6 +26,10 @@
 
 namespace AscendC {
 
+enum class MultiChannelHandle : uint64_t {};
+
+static_assert(sizeof(MultiChannelHandle) == sizeof(uint64_t), "MultiChannelHandle ABI size mismatch");
+
 constexpr int32_t HCOMM_FAILED = -1;
 constexpr int32_t HCOMM_SUCCESS = 0;
 constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
@@ -322,17 +326,19 @@ typedef struct {
     uint32_t preSqCnt;
 } BatchQueueCounters;
 
-struct UbcCtpBatchHandle {
+typedef struct {
     ChannelHandle channelHandle;
     LocalTensor<uint32_t> buffer;
+    // Capacity of buffer in WQEBBs.
     uint32_t bufferCapacity;
+    // Context fields cached by MakeBatchHandle. They stay valid while the caller exclusively owns the channel.
     BatchSqContext sqContext;
     BatchCqContext cqContext;
     BatchRemoteToken remoteToken;
+    // cqHead includes CQEs prepared in the active batch. BatchCommit and Drain synchronize queue counters back to
+    // ChannelEntity.
     BatchQueueCounters queueCounters;
-
-    __aicore__ inline bool IsValid() const { return channelHandle != 0U && bufferCapacity != 0U; }
-};
+} UbcCtpBatchHandle;
 
 struct UbcCtpBatchHandleRef {
     UbcCtpBatchHandle* batch;
@@ -340,6 +346,9 @@ struct UbcCtpBatchHandleRef {
 
     __aicore__ inline bool IsValid() const { return batch != nullptr; }
 };
+
+template <typename T>
+struct ChannelTraits;
 
 template <>
 struct ChannelTraits<ChannelHandle> {
@@ -358,13 +367,16 @@ using BatchHandle = typename ChannelTraits<T>::BatchHandleType;
 template <typename T>
 using BatchHandleRef = typename ChannelTraits<T>::BatchHandleRefType;
 
+template <typename T>
+struct BatchHandleTraits;
+
 template <>
 struct BatchHandleTraits<UbcCtpBatchHandle> {
     using ChannelType = ChannelHandle;
 };
 
 template <>
-struct BatchHandleRefTraits<UbcCtpBatchHandleRef> {
+struct BatchHandleTraits<UbcCtpBatchHandleRef> {
     using ChannelType = MultiChannelHandle;
 };
 
