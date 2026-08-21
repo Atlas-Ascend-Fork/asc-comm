@@ -57,4 +57,4 @@ No return value.
 - `ubuf.addr` and `ubuf.bytes` must provide a UBuf temporary workspace for underlying Hcomm initialization. `DescriptorUbuf` currently must provide a UBuf temporary workspace no smaller than 512 B.
 - When `AIN_COMMIT_DELAYED` is used, this task does not ring the doorbell immediately. At least one subsequent `AIN_COMMIT_IMMED` task must be submitted to ensure that previous tasks are submitted.
 - `Get` submits a non-blocking communication task. Call `Flush` to wait for tasks on all peer channels in the team to complete, or call `FlushAsync` to get a specified peer channel and then call `Wait`.
-- Currently, only the `COMM_PROTOCOL_UBC_CTP` protocol path is supported. Due to underlying protocol restrictions, the maximum data transfer length of a single `Get` call is 256 MB, that is, the input parameter `bytes` must be no greater than 256 * 1024 * 1024.
+- Currently, only the `COMM_PROTOCOL_UBC_CTP` protocol path is supported. For a single `Get` call, the valid range of the input parameter `bytes` is `0 < bytes <= 256 * 1024 * 1024`.

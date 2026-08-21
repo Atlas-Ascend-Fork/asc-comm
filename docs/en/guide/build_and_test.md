@@ -18,6 +18,8 @@ When running the build script directly, it will perform basic environment checks
 bash build.sh
 ```
 
+The default build reuses the existing `build/` directory and does not remove build artifacts. Run `bash build.sh --make_clean` explicitly when a clean build directory is required.
+
 ## Build Unit Tests
 Use `-t` or `--test` to build Hcomm UTs.
 ```bash
@@ -114,7 +116,7 @@ var/asc-comm-dev-patch/baseline/
 
 - If a target file already exists, the installer saves the original before replacement. Uninstallation restores the original file and its permissions.
 - If a target file does not exist, the installer records it as `absent` before creating it. Uninstallation removes that file.
-- AICore Hcomm and Ain files are installed with mode `550`. Hcomm directories use mode `750`, while managed directories under `comm_api` use mode `550`. The installer records original directory permissions; reinstallation, uninstallation, or failed-operation rollback restores them without recursively changing unrelated directories.
+- For a non-root installation, AICore Hcomm and Ain files use mode `550`, Hcomm directories use mode `750`, and managed directories under `comm_api` use mode `550`. Consistent with the devkit and hcomm packages, a root installation automatically enables access for all users and changes these modes to `555`, `755`, and `555`, respectively. The installer records original directory permissions; reinstallation, uninstallation, or failed-operation rollback restores them without recursively changing unrelated directories.
 - The installer records whether each Hcomm link existed before the first installation. Uninstallation preserves a pre-existing correct link and removes a link created by this package. A wrong-target link, regular file, or directory occupying either link path is never overwritten.
 - On repeated installation into the same CANN directory, the installer first restores the previous patch and then rebuilds the baseline for the new package from the restored CANN tree. Files from the previous patch are never saved as originals.
 - If a path from the previous asc-comm patch is absent from a new package, repeated installation restores that path and stops managing it; later uninstallation does not touch it. The installer cannot handle an old CANN file that was never recorded by a patch and is also absent from the current package.

@@ -28,6 +28,16 @@ ERROR_LOG="${TEST_ROOT}/expected-error.log"
 TEST_HOME="${TEST_ROOT}/home"
 LOG_DIR="${TEST_HOME}/var/log/ascend_seclog"
 
+if [[ $(id -u) -eq 0 ]]; then
+    EXPECTED_FILE_MODE=555
+    EXPECTED_HCOMM_DIR_MODE=755
+    EXPECTED_COMM_API_DIR_MODE=555
+else
+    EXPECTED_FILE_MODE=550
+    EXPECTED_HCOMM_DIR_MODE=750
+    EXPECTED_COMM_API_DIR_MODE=550
+fi
+
 run_package()
 {
     env HOME="${TEST_HOME}" "${RUN_FILE}" "$@"
@@ -208,18 +218,18 @@ run_package --full --install-path="${FAKE_CANN}"
 
 while read -r _ path; do
     cmp "${EXTRACT_DIR}/payload/${path}" "${FAKE_CANN}/${path}"
-    [[ "$(stat -c %a -- "${FAKE_CANN}/${path}")" == "550" ]]
+    [[ "$(stat -c %a -- "${FAKE_CANN}/${path}")" == "${EXPECTED_FILE_MODE}" ]]
 done < "${EXTRACT_DIR}/manifest.sha256"
-[[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/adv_api/hcomm")" == "750" ]]
-[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm")" == "750" ]]
-[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm/common")" == "750" ]]
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/adv_api/hcomm")" == "${EXPECTED_HCOMM_DIR_MODE}" ]]
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm")" == "${EXPECTED_HCOMM_DIR_MODE}" ]]
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm/common")" == "${EXPECTED_HCOMM_DIR_MODE}" ]]
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm/unmanaged")" == "701" ]]
-[[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api")" == "550" ]]
-[[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api/aicore")" == "550" ]]
-[[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api/aicore/ain")" == "550" ]]
-[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api")" == "550" ]]
-[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api/aicore")" == "550" ]]
-[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api/aicore/ain")" == "550" ]]
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api/aicore")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api/aicore/ain")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api/aicore")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api/aicore/ain")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
 [[ -L "${FAKE_CANN}/asc/include/comm_api/aicore/hcomm" ]]
 [[ "$(readlink -- "${FAKE_CANN}/asc/include/comm_api/aicore/hcomm")" == "../../adv_api/hcomm" ]]
 [[ -L "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm" ]]

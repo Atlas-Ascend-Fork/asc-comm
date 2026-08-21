@@ -14,7 +14,6 @@
 #define private public
 #include "kernel_operator.h"
 #include "hcomm/hcomm_common.h"
-#include "hccl/internal/hcomm/hcomm_res_defs.h"
 #include "ain/ain.h"
 
 using namespace AscendC;
@@ -79,11 +78,13 @@ public:
 
     const AscendC::ChannelEntity& GetChannelEntity() const { return channel_; }
 
-    uint32_t GetSqHead() const { return static_cast<uint32_t>(sqHead_); }
+    void SetActiveEntity(AscendC::ChannelEntity* active) { active_ = active; }
+
+    uint32_t GetSqHead() const { return static_cast<uint32_t>(active_->sqHead); }
 
     uint32_t GetSqDoorbell() const { return sqDoorbell_; }
 
-    uint32_t GetSqTail() const { return sqTail_; }
+    uint32_t GetSqTail() const { return active_->cqTail; }
 
     void SetRemoteBuffer(uint32_t idx, uint64_t addr, uint64_t size)
     {
@@ -107,6 +108,7 @@ private:
 
 private:
     AscendC::ChannelEntity channel_ = {};
+    AscendC::ChannelEntity* active_ = &channel_;
     AscendC::SqContext sqCtx_ = {};
     AscendC::CqContext cqCtx_ = {};
     std::array<AscendC::RegedBufferEntity, URMA_BUFFER_NUM> remoteBuffers_ = {};
@@ -128,6 +130,7 @@ public:
         team_.memberNum = AIN_RANK_SIZE;
         team_.selfMemberId = 0;
         channelEntities_[PEER * MAX_CONTEXTS + 0] = channel.GetChannelEntity();
+        channel.SetActiveEntity(&channelEntities_[PEER * MAX_CONTEXTS + 0]);
         team_.channelsBaseAddr = reinterpret_cast<ChannelHandle>(channelEntities_.data());
         team_.channelNumPerMember = channelNumPerMember_.data();
         channelNumPerMember_[0] = MAX_CONTEXTS;

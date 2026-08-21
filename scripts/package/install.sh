@@ -26,18 +26,22 @@ if [[ $(id -u) -eq 0 ]]; then
     INSTALL_PATH="/usr/local/Ascend"
     LOG_DIR="/var/log/ascend_seclog"
     LOG_DIR_MODE=750
+    INSTALL_FOR_ALL=true
 else
     INSTALL_PATH="${HOME}/Ascend"
     LOG_DIR="${HOME}/var/log/ascend_seclog"
     LOG_DIR_MODE=740
+    INSTALL_FOR_ALL=false
 fi
 INSTALL_LOG="${LOG_DIR}/ascend_install.log"
 OPERATION_LOG="${LOG_DIR}/operation.log"
 FORCE=false
 CANN_ROOT=""
 STATE_DIR=""
+LOCK_FILE=""
 TRANSACTION_DIR=""
 WORK_DIR=""
+LOCK_HELD=false
 MUTATION_STARTED=false
 COMMITTED=false
 STATE_FORMAT_VERSION=""
@@ -201,6 +205,7 @@ parse_args()
                 FORCE=true
                 ;;
             --quiet)
+                # Accepted for makeself compatibility; this installer has no interactive prompts.
                 ;;
             -h|--help)
                 usage
@@ -259,6 +264,32 @@ check_owner()
     owner_uid=$(stat -c %u -- "${CANN_ROOT}")
     [[ "${current_uid}" == "${owner_uid}" ]] || fail_with_code "0x0093" \
         "current user uid ${current_uid} does not own CANN path ${CANN_ROOT} (uid ${owner_uid})"
+}
+
+acquire_install_lock()
+{
+    command -v flock >/dev/null 2>&1 || fail "command flock was not found"
+    LOCK_FILE="${CANN_ROOT}/ascend.lock"
+    check_target_parent "${LOCK_FILE}"
+    if [[ -L "${LOCK_FILE}" || (-e "${LOCK_FILE}" && ! -f "${LOCK_FILE}") ]]; then
+        fail "install lock path is invalid: ${LOCK_FILE}"
+    fi
+
+    exec 9>"${LOCK_FILE}" || fail "failed to open install lock: ${LOCK_FILE}"
+    if ! flock -n 9; then
+        exec 9>&-
+        fail "failed to acquire ${LOCK_FILE}; another process may be installing in this directory"
+    fi
+    LOCK_HELD=true
+}
+
+release_install_lock()
+{
+    [[ "${LOCK_HELD}" == true ]] || return 0
+    rm -f -- "${LOCK_FILE}" || log "WARNING" "failed to remove install lock: ${LOCK_FILE}"
+    flock -u 9 || true
+    exec 9>&-
+    LOCK_HELD=false
 }
 
 normalize_arch()
@@ -325,34 +356,52 @@ is_allowed_directory_path()
 payload_file_mode()
 {
     local path=$1
+    local mode
 
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
         asc/include/comm_api/aicore/*|asc/impl/comm_api/aicore/*)
-            echo 550
+            mode=550
             ;;
         *)
             fail "cannot determine file permission for managed path: ${path}"
             ;;
     esac
+    effective_install_mode "${mode}"
 }
 
 managed_directory_mode()
 {
     local path=$1
+    local mode
 
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*)
-            echo 750
+            mode=750
             ;;
         asc/include/comm_api|asc/include/comm_api/aicore|asc/include/comm_api/aicore/*|\
         asc/impl/comm_api|asc/impl/comm_api/aicore|asc/impl/comm_api/aicore/*)
-            echo 550
+            mode=550
             ;;
         *)
             fail "cannot determine directory permission for managed path: ${path}"
             ;;
     esac
+    effective_install_mode "${mode}"
+}
+
+effective_install_mode()
+{
+    local mode=$1
+    local group_mode
+
+    if [[ "${INSTALL_FOR_ALL}" == true ]]; then
+        # Match devkit: grant other users the group's read/execute bits, never write access.
+        group_mode=${mode:1:1}
+        printf '%s%d\n' "${mode:0:2}" "$((group_mode & 5))"
+    else
+        echo "${mode}"
+    fi
 }
 
 collect_managed_directories()
@@ -991,6 +1040,7 @@ handle_exit()
             log "WARNING" "failed to write operation log: ${OPERATION_LOG}"
     fi
     log "INFO" "End time:$(date '+%Y-%m-%d %H:%M:%S')"
+    release_install_lock
     exit "${exit_code}"
 }
 
@@ -1272,8 +1322,9 @@ main()
     fi
 
     resolve_cann_root
-    detect_upgrade_operation
     check_owner
+    acquire_install_lock
+    detect_upgrade_operation
     validate_state_dir
 
     if [[ "${ACTION}" == "--full" ]]; then
