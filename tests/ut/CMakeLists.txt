@@ -209,7 +209,7 @@ function(run_llt_test)
         foreach(test_filter ${LLT_FILTERS})
             add_custom_command(
                 TARGET ${LLT_TARGET} POST_BUILD
-                COMMAND ${ENV_PREFIX} ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${_llt_ld_library_path}:$ENV{LD_LIBRARY_PATH}" $<TARGET_FILE:${LLT_TARGET}> --gtest_filter=${test_filter}
+                COMMAND ${ENV_PREFIX} bash ${ASCCOMM_GTEST_RUNNER} ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${_llt_ld_library_path}:$ENV{LD_LIBRARY_PATH}" $<TARGET_FILE:${LLT_TARGET}> --gtest_filter=${test_filter}
                 COMMENT "Run ${LLT_TARGET} ${test_filter}"
             )
         endforeach()
@@ -219,12 +219,13 @@ function(run_llt_test)
     add_custom_command(
         TARGET ${LLT_TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory ${LLT_WORK_DIR}
-        COMMAND ${ENV_PREFIX} ${CMAKE_COMMAND} -E chdir ${LLT_WORK_DIR} ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${_llt_ld_library_path}:$ENV{LD_LIBRARY_PATH}" $<TARGET_FILE:${LLT_TARGET}>
+        COMMAND ${ENV_PREFIX} ${CMAKE_COMMAND} -E chdir ${LLT_WORK_DIR} bash ${ASCCOMM_GTEST_RUNNER} ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${_llt_ld_library_path}:$ENV{LD_LIBRARY_PATH}" $<TARGET_FILE:${LLT_TARGET}>
         COMMENT "Run ${LLT_TARGET}"
     )
 endfunction()
 
 set(ASCCOMM_COVERAGE_SCRIPT ${ASCCOMM_ROOT}/scripts/generate_cpp_cov.sh)
+set(ASCCOMM_GTEST_RUNNER ${ASCCOMM_ROOT}/scripts/run_gtest.sh)
 
 function(asccomm_add_product_definitions target_name product_type)
     target_compile_definitions(${target_name} PRIVATE
