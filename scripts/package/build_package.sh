@@ -249,6 +249,8 @@ build_package()
         "${PROJECT_ROOT}/include/aicore/hcomm" \
         "${STAGING_DIR}/payload/asc/include/adv_api/hcomm" \
         550
+    [[ -f "${STAGING_DIR}/payload/asc/include/adv_api/hcomm/hcomm_host.h" ]] || \
+        fail "shared Jetty Host API was not staged: hcomm_host.h"
     copy_headers \
         "${PROJECT_ROOT}/src/aicore/hcomm" \
         "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm" \

@@ -88,6 +88,15 @@ public:
         GM_ADDR localAddr = nullptr);
 
     /*!
+     * @brief Select one peer from a multi-channel batch handle.
+     * @param [in,out] batchHandle: A batch handle created from MultiChannelHandle.
+     * @param [in] channelIndex: Index in the channel descriptor array used to create MultiChannelHandle.
+     * @return A reference used by batch WriteNbi, ReadNbi, or WriteWithNotifyNbi.
+     */
+    __aicore__ inline BatchHandleRef<MultiChannelHandle> GetHandleRef(
+        BatchHandle<MultiChannelHandle>& batchHandle, uint32_t channelIndex);
+
+    /*!
      * @class Hcomm
      * @brief The task launching interface of the Write point-to-point communication operator.
      *        (task content: Write data of length len from src to dst through the specified channel.)
