@@ -1,7 +1,7 @@
 # Hcomm SIMT WriteNbi / WriteValueNbi 样例
 
-验证 `hcomm/hcomm_simt.h` 中 `WriteNbi` 和 `WriteValueNbi` 的三种提交方式。所有场景都跑在单核
-上：`single`/`batch_last` 系列使用 1 个 SIMT 线程，`multi_lane` 系列使用 31 个。
+验证 `hcomm/hcomm_simt.h` 中 `WriteNbi` 和 `WriteValueNbi` 的两种提交方式。所有场景都跑在单核
+上，且都由单个 SIMT 线程发起：一个 channel 必须由一个 lane 驱动。
 
 流量是单向的：rank 0 是唯一的发起方，把每一次写操作都送进 rank 1 注册的内存。rank 1 不启动
 kernel，数据由它的网卡被动落地，校验也由它的 Host 进程完成。第 `i` 个 slot 携带值 `i + 1`，因此
@@ -15,29 +15,26 @@ kernel，数据由它的网卡被动落地，校验也由它的 Host 进程完�
 |---|---|---|---|
 | `single`（默认） | `SimtWriteSingle` | 1 | 32 次独立的 `WriteNbi<commit=true>` |
 | `batch_last` | `SimtWriteBatchLast` | 1 | 31 次串行 `WriteNbi<false>`，随后 1 次 `WriteNbi<true>` |
-| `multi_lane` | `SimtWriteMultiLane` | 31 | 每个 lane 一次 `WriteNbi<false>`，barrier 后由 lane 0 发起 `WriteNbi<true>` |
 
-`WriteValueNbi` 把待写的值直接内联在 WQE 中，没有指向本地内存的 SGE，因此这三种模式完全不读发送
+`WriteValueNbi` 把待写的值直接内联在 WQE 中，没有指向本地内存的 SGE，因此这两种模式完全不读发送
 缓冲区（该缓冲区仍然注册，只为让两个 rank 的缓冲区表保持对称）：
 
 | `mode` | Kernel | 线程数 | 提交方式 |
 |---|---|---|---|
 | `value_single` | `SimtWriteValueSingle` | 1 | 32 次独立的 `WriteValueNbi<commit=true>` |
 | `value_batch_last` | `SimtWriteValueBatchLast` | 1 | 31 次串行 `WriteValueNbi<false>`，随后 1 次 `WriteValueNbi<true>` |
-| `value_multi_lane` | `SimtWriteValueMultiLane` | 31 | 每个 lane 一次 `WriteValueNbi<false>`，barrier 后由 lane 0 发起 `WriteValueNbi<true>` |
 
-六种模式都覆盖全部 32 个 slot，接收侧校验逻辑完全相同。`single` 系列的每次提交都由自己的门铃发
-布；`batch_last` 系列依赖最后一次立即提交携带的 PI 一并覆盖前面 31 条延迟 WQE；`multi_lane` 系列
-用的是同一套发布机制，区别在于延迟 WQE 来自不同 lane 通过原子预约争抢 SQ 空间，而不是单 lane 循环。
+四种模式都覆盖全部 32 个 slot，接收侧校验逻辑完全相同。`single` 系列的每次提交都由自己的门铃发
+布；`batch_last` 系列依赖最后一次立即提交携带的 PI 一并覆盖前面 31 条延迟 WQE。
 
 `WriteValueNbi` 要求 `config` 开启 inline（默认即 `URMA_INLINE_CFG`），且 `sizeof(T)` 不超过 WQE
 内联负载区；两者都有编译期检查。
 
 SIMT 没有 `Commit` 接口，延迟提交的任务只能由后续一次 `commit=true` 的提交带出。
 
-`multi_lane` 系列在延迟提交和最后一次提交之间调用 `asc_syncthreads()`。这是正确性要求，不是调优
-选项：最后一次提交的门铃发布的 PI 覆盖整批请求，所以每个 lane 必须先写完自己的 WQE，否则硬件会去
-消费仍然是空的 SQ 槽位。
+一个 channel 上不能承载来自多个 lane 的延迟任务：延迟 WQE 停留在发送队列中，直到后续 `commit=true`
+的提交发布覆盖整批的 PI，而该 PI 无法区分是哪个 lane 写入了哪个 basic block。同一批任务必须由同一
+个 lane 提交。
 
 所有模式最后都调用 `Drain`，确保 kernel 返回前 CQ 已被消费。
 
@@ -47,8 +44,6 @@ SIMT 没有 `Commit` 接口，延迟提交的任务只能由后续一次 `commit
 失败，本样例直接放弃提交。样例按 `HcommWorkspaceBytes(laneCount)` 分配：除每 lane 128 字节外，额
 外提供每 lane 32 字节和一块 128 字节对齐区域，从而启用每 lane 远端注册缓存和 block 共享提交上下
 文（两者可选，缺失时回退到全局内存查表）。
-
-`multi_lane` 系列中 block 内每个 lane 都要调用 `Init`，因为共享提交上下文在那里完成同步。
 
 ## 编译
 
@@ -63,23 +58,21 @@ make
 
 ## 运行
 
-通信域通过 rank table 创建（`HcclCommInitClusterInfo`），因此需要提供 rank table 文件。
-rank `i` 运行在 device `i` 上。
+通信域通过 `HcclGetRootInfo` 和 `HcclCommInitRootInfo` 创建，因此不需要 rank table。`run.sh` 为每
+次运行创建临时 root info 文件，rank 0 写入，其余 rank 读取。rank `i` 运行在 device `i` 上。
 
 ```bash
-examples/simt_write/run.sh <nranks> <rankTableFilePath> [mode]
+examples/simt_write/run.sh <nranks> [mode]
 ```
 
-`mode` 取 `single`、`batch_last`、`multi_lane`、`value_single`、`value_batch_last` 或
-`value_multi_lane`，默认 `single`。无法识别的取值会直接报错，而不是静默回退到默认值。
+`mode` 取 `single`、`batch_last`、`value_single` 或 `value_batch_last`，默认 `single`。无法识别的
+取值会直接报错，而不是静默回退到默认值。
 
 ```bash
-examples/simt_write/run.sh 2 /path/to/rank_table.json
-examples/simt_write/run.sh 2 /path/to/rank_table.json batch_last
-examples/simt_write/run.sh 2 /path/to/rank_table.json multi_lane
-examples/simt_write/run.sh 2 /path/to/rank_table.json value_single
-examples/simt_write/run.sh 2 /path/to/rank_table.json value_batch_last
-examples/simt_write/run.sh 2 /path/to/rank_table.json value_multi_lane
+examples/simt_write/run.sh 2
+examples/simt_write/run.sh 2 batch_last
+examples/simt_write/run.sh 2 value_single
+examples/simt_write/run.sh 2 value_batch_last
 ```
 
 预期输出：
@@ -87,9 +80,11 @@ examples/simt_write/run.sh 2 /path/to/rank_table.json value_multi_lane
 ```text
 [rank 0] simt_write mode=<mode> sending to rank 1
 [rank 1] simt_write mode=<mode> slots=32 PASS
+RESULT | Mode=<mode> | Status=PASS
 ```
 
-rank 0 报告即将发送的内容，rank 1 读自己的接收缓冲区并输出 PASS/FAIL。其余 rank 保持静默。
+rank 0 报告即将发送的内容，rank 1 读自己的接收缓冲区并输出 PASS/FAIL，`run.sh` 汇总为 `RESULT` 行。
+其余 rank 保持静默。
 
 `run.sh` 捕获 `SIGINT`/`SIGTERM` 并杀掉它启动的 rank 进程，因此 Ctrl+C 不会留下阻塞在 Host
 barrier 上、仍占用设备的进程。

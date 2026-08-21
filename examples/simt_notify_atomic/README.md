@@ -9,8 +9,9 @@
 - `cas`：提交一次CAS操作，校验远端交换结果和本地取回的旧值。
 - `single`：串行提交Notify、FAA和CAS，每次操作后分别调用`Drain`。
 - `batch_last`：Notify和FAA使用`commit=false`延迟提交，最后通过`commit=true`的CAS提交整个批次。
-- `multi_lane`：三个lane分别延迟提交Notify、FAA和CAS；同步后由lane 0追加一次Notify并提交整个批次。
 - `notify_immediate_repeat`：单lane连续提交100个`WriteWithNotifyNbi<true>`，每个WQE立即敲DB，最后统一调用一次`Drain`；用于覆盖连续立即提交场景。
+
+每种模式都从单个lane发起。Hcomm对象是lane私有状态，一个channel必须由一个lane驱动：延迟WQE停留在发送队列中，直到后续的`commit=true` post发布覆盖它的producer index，而该index无法区分是哪个lane写入了哪个basic block。
 
 ## 准备开发验证环境
 
@@ -36,27 +37,21 @@ bash build.sh
 
 ## 运行
 
-运行方式与已有的`simt_write`样例保持一致，需要传入HCCL rank table：
+通信域通过`HcclGetRootInfo`和`HcclCommInitRootInfo`创建，因此不需要HCCL rank table。`run.sh`为每次运行创建临时root info文件，rank 0写入，其余rank读取：
 
 ```bash
-bash run.sh 2 /path/to/rank_table.json notify
-bash run.sh 2 /path/to/rank_table.json faa
-bash run.sh 2 /path/to/rank_table.json cas
-bash run.sh 2 /path/to/rank_table.json single
-bash run.sh 2 /path/to/rank_table.json batch_last
-bash run.sh 2 /path/to/rank_table.json multi_lane
-bash run.sh 2 /path/to/rank_table.json notify_immediate_repeat
-bash run.sh 2 /path/to/rank_table.json warp_immediate
+bash run.sh 2 notify
+bash run.sh 2 faa
+bash run.sh 2 cas
+bash run.sh 2 single
+bash run.sh 2 batch_last
+bash run.sh 2 notify_immediate_repeat
 ```
 
-`warp_immediate`由3个lane在同一调用点分别执行一次`commit=true`的Notify、FAA和CAS，直接覆盖库内自动
-合并单warp SQ预留、非发布lane写普通SQ以及最后lane发布DWQE的路径。
-
-每种模式的预期输出如下：
+每种模式的预期输出：
 
 ```text
-[rank 0] simt_notify_atomic <mode> PASS
-[rank 1] simt_notify_atomic <mode> PASS
+RESULT | Mode=<mode> | Status=PASS
 ```
 
 ## 缓冲区下标约束

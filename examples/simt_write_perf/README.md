@@ -46,23 +46,26 @@ source /usr/local/Ascend/cann/set_env.sh
 bash examples/simt_write_perf/build.sh
 
 # 单点
-examples/simt_write_perf/run.sh 2 /path/to/rank_table.json write
+examples/simt_write_perf/run.sh 2 write
 
 # 延迟提交
-examples/simt_write_perf/run.sh 2 /path/to/rank_table.json write --commit-mode last
+examples/simt_write_perf/run.sh 2 write --commit-mode last
 
 # payload 扫描：8 16 64 256 1024 4096 16384 65536
-examples/simt_write_perf/run.sh 2 /path/to/rank_table.json write --sweep
+examples/simt_write_perf/run.sh 2 write --sweep
 
 # 内联写
-examples/simt_write_perf/run.sh 2 /path/to/rank_table.json write_value
+examples/simt_write_perf/run.sh 2 write_value
 ```
+
+通信域通过 `HcclGetRootInfo` 和 `HcclCommInitRootInfo` 创建，因此不需要 rank table。`run.sh` 为每轮
+运行创建临时 root info 文件，rank 0 写入，其余 rank 读取。
 
 选项：`--iterations`（默认 1024）、`--warmup`（默认 100）、`--payload-bytes`（默认 4096）、
 `--commit-mode`（默认 immediate）、`--sweep`、`--log`。
 
-`--sweep` 会为每个 payload 起一轮新进程，并各自使用独立的同步目录——否则上一轮的
-barrier 标记文件会让下一轮直接通过。
+`--sweep` 会为每个 payload 起一轮新进程，并各自使用独立的同步目录和 root info 文件——否则上一轮的
+barrier 标记文件会让下一轮直接通过，上一轮的 root info 也会被下一轮误读。
 
 ## 约束
 

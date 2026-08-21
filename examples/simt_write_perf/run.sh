@@ -13,7 +13,7 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-  run.sh <nranks> <rank_table.json> <write|write_value> [options]
+  run.sh <nranks> <write|write_value> [options]
 
 Options:
   --iterations N      Timed WQE count, default: 1024
@@ -28,15 +28,15 @@ Options:
 EOF
 }
 
-if [[ $# -lt 3 ]]; then
+if [[ $# -lt 2 ]]; then
     usage
     exit 1
 fi
 
 nranks="$1"
-rank_table="$2"
-api="$3"
-shift 3
+
+api="$2"
+shift 2
 iterations=1024
 warmup=100
 payload_bytes=4096
@@ -77,7 +77,6 @@ done
 [[ "$commit_mode" == "immediate" || "$commit_mode" == "last" ]] || {
     echo "--commit-mode must be immediate or last" >&2; exit 1;
 }
-[[ -f "$rank_table" ]] || { echo "rank table not found: $rank_table" >&2; exit 1; }
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 binary="${script_dir}/build/simt_write_perf"
@@ -110,14 +109,16 @@ status=0
 : >"${work_dir}/combined.log"
 for payload in "${payloads[@]}"; do
     # A fresh sync dir per payload: stale markers from the previous run would let the
-    # barrier pass immediately.
+    # barrier pass immediately. The root info file lives in the same directory for the
+    # same reason -- rank 0 must publish fresh root info for every communicator.
     run_dir="${work_dir}/p${payload}"
     mkdir -p "$run_dir"
     export SIMT_WRITE_PERF_SYNC_DIR="$run_dir"
+    root_info_file="${run_dir}/root_info.bin"
 
     pids=()
     for ((rank = 0; rank < nranks; ++rank)); do
-        "$binary" "$rank" "$nranks" "$rank_table" "$api" \
+        "$binary" "$rank" "$nranks" "$root_info_file" "$api" \
             "$iterations" "$warmup" "$payload" "$commit_mode" \
             >"${run_dir}/rank_${rank}.log" 2>&1 &
         pids+=("$!")

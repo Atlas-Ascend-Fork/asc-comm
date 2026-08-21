@@ -70,6 +70,77 @@ constexpr uint32_t kMaxSlotCount = 64U;
 constexpr size_t kMaxBufferBytes = 64UL * 1024UL * 1024UL;
 constexpr size_t kSlotAlign = 128U;
 
+// Rank 0通过HcclGetRootInfo生成root info并写入文件，其余rank从文件读取后调用
+// HcclCommInitRootInfo创建通信域，从而摆脱rank table依赖。
+bool IsRootInfoFileReady(const std::string& path)
+{
+    struct stat st {};
+    return stat(path.c_str(), &st) == 0 && st.st_size >= static_cast<off_t>(sizeof(HcclRootInfo));
+}
+
+HcclResult WriteRootInfoFile(const std::string& path, const HcclRootInfo& rootInfo)
+{
+    const std::string tmpPath = path + ".tmp";
+    std::ofstream ofs(tmpPath, std::ios::binary | std::ios::trunc);
+    if (!ofs.is_open()) {
+        std::cout << "Open root info tmp file failed: " << tmpPath << std::endl;
+        return HCCL_E_OPEN_FILE_FAILURE;
+    }
+    ofs.write(reinterpret_cast<const char*>(&rootInfo), sizeof(rootInfo));
+    ofs.close();
+    if (!ofs) {
+        std::cout << "Write root info file failed: " << tmpPath << std::endl;
+        return HCCL_E_SYSCALL;
+    }
+    if (std::rename(tmpPath.c_str(), path.c_str()) != 0) {
+        std::cout << "Rename root info file failed: " << tmpPath << " -> " << path << std::endl;
+        return HCCL_E_SYSCALL;
+    }
+    return HCCL_SUCCESS;
+}
+
+HcclResult ReadRootInfoFile(const std::string& path, HcclRootInfo* rootInfo)
+{
+    const uint32_t maxPollTimes = kBarrierWaitSeconds * 1000U / kBarrierPollMs;
+    for (uint32_t i = 0; i < maxPollTimes; ++i) {
+        if (!IsRootInfoFileReady(path)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
+            continue;
+        }
+        std::ifstream ifs(path, std::ios::binary);
+        if (!ifs.is_open()) {
+            return HCCL_E_OPEN_FILE_FAILURE;
+        }
+        ifs.read(reinterpret_cast<char*>(rootInfo), sizeof(*rootInfo));
+        if (ifs.gcount() == static_cast<std::streamsize>(sizeof(*rootInfo))) {
+            return HCCL_SUCCESS;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
+    }
+    std::cout << "Wait root info file timeout: " << path << std::endl;
+    return HCCL_E_TIMEOUT;
+}
+
+HcclResult InitCommByRootInfo(uint32_t rank, uint32_t nranks, const std::string& rootInfoFile, HcclComm* comm)
+{
+    HcclRootInfo rootInfo{};
+    HcclResult ret = HCCL_SUCCESS;
+    if (rank == 0U) {
+        HCCLCHECK(HcclGetRootInfo(&rootInfo));
+        ret = WriteRootInfoFile(rootInfoFile, rootInfo);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+    } else {
+        ret = ReadRootInfoFile(rootInfoFile, &rootInfo);
+        if (ret != HCCL_SUCCESS) {
+            return ret;
+        }
+    }
+    HCCLCHECK(HcclCommInitRootInfo(nranks, &rootInfo, rank, comm));
+    return HCCL_SUCCESS;
+}
+
 std::string SyncDir()
 {
     const char* value = std::getenv("SIMT_WRITE_PERF_SYNC_DIR");
@@ -254,14 +325,14 @@ int main(int argc, char* argv[])
 {
     if (argc != 9) {
         std::cout << "Usage: " << argv[0]
-                  << " <rank> <nranks> <rank_table_file> <write|write_value>"
+                  << " <rank> <nranks> <root_info_file> <write|write_value>"
                      " <iterations> <warmup> <payload_bytes> <immediate|last>"
                   << std::endl;
         return 1;
     }
     const int rank = std::atoi(argv[1]);
     const int nranks = std::atoi(argv[2]);
-    const char* rankTableFile = argv[3];
+    const std::string rootInfoFile = argv[3];
     const std::string apiName = argv[4];
     const uint32_t iterations = static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10));
     const uint32_t warmup = static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10));
@@ -307,7 +378,7 @@ int main(int argc, char* argv[])
     aclrtStream stream = nullptr;
     ACLCHECK(aclrtCreateStream(&stream));
     HcclComm comm = nullptr;
-    HCCLCHECK(HcclCommInitClusterInfo(rankTableFile, rank, &comm));
+    HCCLCHECK(InitCommByRootInfo(rank, nranks, rootInfoFile, &comm));
 
     void* sendBuf = nullptr;
     void* recvBuf = nullptr;

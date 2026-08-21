@@ -1,7 +1,7 @@
 # SIMT Notify/FAA/CAS Basic Performance Sample
 
 This directory tests the `Notify`, `FAA`, and `CAS` interfaces independently. Immediate mode supports `--lanes 1`
-only. Last mode supports only `--lanes 1`; multi-lane (`--lanes 32/1024`) submission requires cooperation at
+only. Last mode supports only `--lanes 1`; multi-lane submission requires cooperation at
 the kernel source level and is not implemented in this version.
 
 Rank 0 issues operations and measures latency; rank 1 holds registered memory and verifies results. Every operation is
@@ -9,14 +9,15 @@ a single-lane immediate post with `commit=true`, minimizing synchronization over
 
 ## Run
 
-The communicator is created with `HcclCommInitClusterInfo`, and running requires an HCCL rank table. Each invocation
+The communicator is created with `HcclGetRootInfo` and `HcclCommInitRootInfo`, so no HCCL rank table is required.
+`run.sh` creates a temporary root info file for each run, written by rank 0 and read by the other ranks. Each invocation
 tests one interface with configurable iteration count, warmup rounds, payload size (Notify only), and commit mode.
 
 Notify:
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json notify \
+  2 notify \
   --iterations 1024 --warmup 100 --payload-bytes 4096 --lanes 1 --commit-mode immediate
 ```
 
@@ -24,7 +25,7 @@ FAA:
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json faa \
+  2 faa \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode immediate
 ```
 
@@ -32,7 +33,7 @@ CAS:
 
 ```bash
 bash examples/simt_notify_atomic_perf/run.sh \
-  2 /path/to/rank_table.json cas \
+  2 cas \
   --iterations 1024 --warmup 100 --lanes 1 --commit-mode immediate
 ```
 
