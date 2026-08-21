@@ -33,7 +33,7 @@ public:
         context_->hcommResult = AscendC::HCOMM_SUCCESS;
         auto batch = hcomm_.MakeBatchHandle(
             static_cast<AscendC::MultiChannelHandle>(context_->multiChannel), batchTensor_, BATCH_BUFFER_SIZE);
-        if (!batch.IsValid()) {
+        if (batch.channelHandle == 0U || batch.bufferCapacity == 0U) {
             context_->result = KERNEL_MAKE_BATCH_HANDLE_FAILED;
             return;
         }
