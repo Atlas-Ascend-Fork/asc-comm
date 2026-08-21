@@ -464,8 +464,6 @@ void UbConnLite::write_reduce_with_notify(DataType dataType, ReduceOp reduceOp,
 
 void UbConnLite::import_context(const UbConnLiteParam &liteParam)
 {
-    dieId_ = liteParam.dieId;
-    funcId_ = liteParam.funcId;
     jettyId_ = liteParam.jettyId;
     sqVa_ = liteParam.sqVa;
     sqDepth_ = liteParam.sqDepth;
