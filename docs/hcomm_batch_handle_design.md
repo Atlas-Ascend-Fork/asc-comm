@@ -268,8 +268,9 @@ auto ref = hcomm.GetHandleRef(batch, channelIndex);
 hcomm.WriteNbi(ref, ...);
 ```
 
-`MultiChannelHandle` 仍是 Host/Device 统一可见的 opaque handle，Host 负责将离散 Channel 的共享队列
-信息和逐 Channel 远端信息组装为 Device 可索引的数据。
+AICore 侧的 `MultiChannelHandle` 是底层类型为 `uint64_t` 的强类型枚举，与 `ChannelHandle` 可用于
+重载分发；Host 侧仍使用 `uint64_t` 句柄。Host 负责将离散 Channel 的共享队列信息和逐 Channel
+远端信息组装为 Device 可索引的数据，跨 Host/Device 的参数结构仅传递其 `uint64_t` 表示。
 
 ## 10. 文件职责建议
 

@@ -37,9 +37,9 @@ typedef struct {
     uint64_t rmtEidH;
 } HcommBatchRemoteInfo;
 
-/** Shared SQ/CQ contexts followed by HcommBatchRemoteInfo[channelNum]. */
+/** Shared queue owner and contexts followed by HcommBatchRemoteInfo[channelNum]. */
 typedef struct {
-    CommAbiHeader abiHeader;
+    ChannelEntity queueEntity;
     SqContext sqContext;
     CqContext cqContext;
     uint32_t channelNum;
@@ -56,6 +56,7 @@ typedef uint64_t MultiChannelHandle;
 #endif
 
 HCOMM_HOST_STATIC_ASSERT(sizeof(CommAbiHeader) == 16U, "CommAbiHeader ABI size mismatch");
+HCOMM_HOST_STATIC_ASSERT(sizeof(ChannelEntity) == 256U, "ChannelEntity ABI size mismatch");
 HCOMM_HOST_STATIC_ASSERT(sizeof(SqContext) == 128U, "SqContext ABI size mismatch");
 HCOMM_HOST_STATIC_ASSERT(sizeof(CqContext) == 128U, "CqContext ABI size mismatch");
 HCOMM_HOST_STATIC_ASSERT(sizeof(HcommBatchRemoteInfo) == 32U, "HcommBatchRemoteInfo ABI size mismatch");
@@ -64,16 +65,17 @@ HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, remoteBufferNum) == 8U, 
 HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, tpID) == 12U, "tpID ABI mismatch");
 HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, rmtEidL) == 16U, "rmtEidL ABI mismatch");
 HCOMM_HOST_STATIC_ASSERT(offsetof(HcommBatchRemoteInfo, rmtEidH) == 24U, "rmtEidH ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(sizeof(HcommMultiChannelEntity) == 280U, "HcommMultiChannelEntity ABI size mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, abiHeader) == 0U, "abiHeader ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, sqContext) == 16U, "sqContext ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, cqContext) == 144U, "cqContext ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, channelNum) == 272U, "channelNum ABI mismatch");
-HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, reserved) == 276U, "reserved ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(sizeof(HcommMultiChannelEntity) == 520U, "HcommMultiChannelEntity ABI size mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, queueEntity) == 0U, "queueEntity ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, sqContext) == 256U, "sqContext ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, cqContext) == 384U, "cqContext ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, channelNum) == 512U, "channelNum ABI mismatch");
+HCOMM_HOST_STATIC_ASSERT(offsetof(HcommMultiChannelEntity, reserved) == 516U, "reserved ABI mismatch");
 
 #undef HCOMM_HOST_STATIC_ASSERT
 
 typedef struct {
+    ChannelEntity channelEntity;
     SqContext sqContext;
     CqContext cqContext;
     HcommBatchRemoteInfo remoteInfo;
@@ -146,9 +148,9 @@ static inline void AscCommDumpChannelEntity(
         sharedQueueTag, channelIndex, (unsigned long long)metadata->sqContext.contextInfo.ubJfs.sqVa,
         (unsigned long long)metadata->sqContext.contextInfo.ubJfs.headAddr,
         (unsigned long long)metadata->sqContext.contextInfo.ubJfs.tailAddr,
-        (unsigned long long)metadata->sqContext.contextInfo.ubJfs.dbVa,
-        metadata->sqContext.contextInfo.ubJfs.jfsID, metadata->sqContext.contextInfo.ubJfs.tpID,
-        metadata->sqContext.contextInfo.ubJfs.sqDepth, metadata->sqContext.contextInfo.ubJfs.wqeSize);
+        (unsigned long long)metadata->sqContext.contextInfo.ubJfs.dbVa, metadata->sqContext.contextInfo.ubJfs.jfsID,
+        metadata->sqContext.contextInfo.ubJfs.tpID, metadata->sqContext.contextInfo.ubJfs.sqDepth,
+        metadata->sqContext.contextInfo.ubJfs.wqeSize);
     fprintf(
         stderr,
         "[INFO] [ChannelEntity][CQ] tag[%s] channel[%u] scqVa[0x%llx] headAddr[0x%llx] tailAddr[0x%llx] "
@@ -156,9 +158,8 @@ static inline void AscCommDumpChannelEntity(
         sharedQueueTag, channelIndex, (unsigned long long)metadata->cqContext.contextInfo.ubJfc.scqVa,
         (unsigned long long)metadata->cqContext.contextInfo.ubJfc.headAddr,
         (unsigned long long)metadata->cqContext.contextInfo.ubJfc.tailAddr,
-        (unsigned long long)metadata->cqContext.contextInfo.ubJfc.dbVa,
-        metadata->cqContext.contextInfo.ubJfc.jfcID, metadata->cqContext.contextInfo.ubJfc.cqDepth,
-        metadata->cqContext.contextInfo.ubJfc.cqeSize);
+        (unsigned long long)metadata->cqContext.contextInfo.ubJfc.dbVa, metadata->cqContext.contextInfo.ubJfc.jfcID,
+        metadata->cqContext.contextInfo.ubJfc.cqDepth, metadata->cqContext.contextInfo.ubJfc.cqeSize);
 }
 
 static inline HcclResult AscCommExtractChannelMetadata(
@@ -179,11 +180,11 @@ static inline HcclResult AscCommExtractChannelMetadata(
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
+    metadata->channelEntity = channelEntity;
     if (channelEntity.sqContextAddr == NULL || channelEntity.cqContextAddr == NULL ||
         channelEntity.remoteBufferAddr == NULL || channelEntity.remoteBufferNum == 0U) {
         fprintf(
-            stderr, "[ERROR] [%s] channel[%u] has invalid SQ/CQ context or remote MR table.\n", __func__,
-            channelIndex);
+            stderr, "[ERROR] [%s] channel[%u] has invalid SQ/CQ context or remote MR table.\n", __func__, channelIndex);
         return HCCL_E_NOT_SUPPORT;
     }
 
@@ -246,9 +247,10 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
         channelInfos[i] = currentMetadata.remoteInfo;
     }
 
-    entity->abiHeader.version = HCOMM_MULTI_CHANNEL_VERSION;
-    entity->abiHeader.magicWord = HCOMM_MULTI_CHANNEL_MAGIC_WORD;
-    entity->abiHeader.size = (uint32_t)totalSize;
+    entity->queueEntity = anchorMetadata.channelEntity;
+    entity->queueEntity.abiHeader.version = HCOMM_MULTI_CHANNEL_VERSION;
+    entity->queueEntity.abiHeader.magicWord = HCOMM_MULTI_CHANNEL_MAGIC_WORD;
+    entity->queueEntity.abiHeader.size = (uint32_t)totalSize;
     entity->sqContext = anchorMetadata.sqContext;
     entity->cqContext = anchorMetadata.cqContext;
     entity->channelNum = channelNum;
@@ -259,6 +261,10 @@ static inline HcclResult AscCommBuildMultiChannelEntity(
         free(hostMemory);
         return aclRet == ACL_SUCCESS ? HCCL_E_MEMORY : HCCL_E_RUNTIME;
     }
+    entity->queueEntity.sqContextAddr =
+        (SqContext*)((uint8_t*)*deviceMemory + offsetof(HcommMultiChannelEntity, sqContext));
+    entity->queueEntity.cqContextAddr =
+        (CqContext*)((uint8_t*)*deviceMemory + offsetof(HcommMultiChannelEntity, cqContext));
     aclRet = aclrtMemcpy(*deviceMemory, totalSize, hostMemory, totalSize, ACL_MEMCPY_HOST_TO_DEVICE);
     free(hostMemory);
     if (aclRet != ACL_SUCCESS) {

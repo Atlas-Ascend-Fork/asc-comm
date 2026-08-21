@@ -25,8 +25,8 @@ constexpr AscendC::UrmaWqeEntry NO_CQE_CONFIG = {
 
 class KernelHcommBatchWrite {
     using HcommType = AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP>;
-    using BatchHandleType = typename HcommType::BatchHandleType;
-    using BatchHandleRefType = typename HcommType::BatchHandleRefType;
+    using BatchHandleType = AscendC::BatchHandle<AscendC::MultiChannelHandle>;
+    using BatchHandleRefType = AscendC::BatchHandleRef<AscendC::MultiChannelHandle>;
 
 public:
     __aicore__ inline void Init(GM_ADDR context, AscendC::TPipe* pipe)
@@ -46,7 +46,8 @@ public:
         context_->hcommResult = AscendC::HCOMM_SUCCESS;
         context_->startCycles = 0U;
         context_->endCycles = 0U;
-        auto batch = hcomm_.MakeBatchHandle(context_->multiChannel, batchTensor_, BATCH_BUFFER_SIZE);
+        auto batch = hcomm_.MakeBatchHandle(
+            static_cast<AscendC::MultiChannelHandle>(context_->multiChannel), batchTensor_, BATCH_BUFFER_SIZE);
         if (!batch.IsValid()) {
             context_->result = KERNEL_MAKE_BATCH_HANDLE_FAILED;
             return;
@@ -83,14 +84,14 @@ private:
     {
         for (uint32_t writeIndex = 0U; writeIndex < WRITES_PER_CHANNEL_PER_BATCH; ++writeIndex) {
             for (uint32_t channelSlot = 0U; channelSlot < context_->channelNum; ++channelSlot) {
-                bool requestCompletion = writeIndex + 1U == WRITES_PER_CHANNEL_PER_BATCH &&
-                                         channelSlot + 1U == context_->channelNum;
+                bool requestCompletion =
+                    writeIndex + 1U == WRITES_PER_CHANNEL_PER_BATCH && channelSlot + 1U == context_->channelNum;
                 GM_ADDR remoteBuffer = remoteBuffers_[channelSlot];
                 if (requestCompletion) {
-                    context_->hcommResult = hcomm_.WriteNbi<false>(
+                    context_->hcommResult = hcomm_.WriteNbi(
                         channels_[channelSlot], remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
                 } else {
-                    context_->hcommResult = hcomm_.WriteNbi<false, PIPE_S, PIPE_MTE3, NO_CQE_CONFIG>(
+                    context_->hcommResult = hcomm_.WriteNbi<NO_CQE_CONFIG>(
                         channels_[channelSlot], remoteBuffer + receiveOffset_, localBuffer_ + sendOffset_, DATA_SIZE);
                 }
                 if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
