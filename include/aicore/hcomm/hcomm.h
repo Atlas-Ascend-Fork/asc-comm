@@ -236,24 +236,28 @@ public:
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
     /*!
-     * @brief Create a multi-channel batch handle backed by the caller-provided UB buffer.
-     * @param [in] multiChannel: Device address of shared SQ/CQ contexts and per-channel remote information.
-     * @param [in] buff: UB buffer used to store CQE scratch space and WQEs.
-     * @param [in] buffLen: Available UB buffer length in bytes.
-     * @return A protocol-specific batch handle. IsValid() is false when creation fails.
+     * @brief Create a single-channel batch handle backed by the caller-provided UB buffer.
+     * @note dstBase is required so this overload stays distinct from the three-argument multi-channel overload.
+     */
+    __aicore__ inline BatchHandleType MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, GM_ADDR dstBase, GM_ADDR srcBase = nullptr);
+
+    /*!
+     * @brief Create a single-channel batch handle backed by a caller-provided LocalTensor.
+     */
+    template <typename T>
+    __aicore__ inline BatchHandleType MakeBatchHandle(
+        ChannelHandle channel, const LocalTensor<T>& buff, uint32_t buffLen, GM_ADDR dstBase,
+        GM_ADDR srcBase = nullptr);
+
+    /*!
+     * @brief Create a multi-channel batch handle on one shared SQ/CQ.
      */
     __aicore__ inline BatchHandleType MakeBatchHandle(
         MultiChannelHandle multiChannel, __ubuf__ uint8_t* buff, uint32_t buffLen);
 
     /*!
-     * @brief Create a multi-channel batch handle backed by a caller-provided LocalTensor.
-     * @tparam T: The element type of the LocalTensor.
-     * @param [in] multiChannel: Device address of shared SQ/CQ contexts and per-channel remote information.
-     * @param [in] buff: UB buffer used to store CQE scratch space and WQEs.
-     * @param [in] buffLen: Available UB buffer length in bytes.
-     * @return A protocol-specific batch handle. IsValid() is false when creation fails.
-     * @note The first version supports COMM_PROTOCOL_UBC_CTP and one AICore accessing a batch handle serially.
-     *       Do not mix batch operations with normal operations on the same shared Jetty.
+     * @brief Create a multi-channel batch handle on one shared SQ/CQ using a LocalTensor.
      */
     template <typename T>
     __aicore__ inline BatchHandleType MakeBatchHandle(
@@ -269,34 +273,51 @@ public:
     __aicore__ inline BatchHandleRefType GetHandleRef(BatchHandleType& handle, uint32_t channelIndex);
 
     /*!
-     * @brief Append one Write task to a multi-channel batch and optionally commit the accumulated batch.
-     * @tparam commit: true commits the accumulated batch after appending this task; false only appends the task.
-     * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
-     * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config.
-     * @param [in] handleRef: Lightweight reference returned by GetHandleRef.
-     * @param [out] dst: Remote destination address.
-     * @param [in] src: Local source address.
-     * @param [in] len: Write length in bytes.
-     * @return 0 indicates success and -1 indicates failure.
-     * @note dst must belong to a remote MR associated with the selected channel.
+     * @brief Append one Write task to a single-channel batch.
      */
-    template <
-        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
-        auto const& config = URMA_DEFAULT_CFG>
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(BatchHandleType& handle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    /*!
+     * @brief Append one Write task to the peer selected by GetHandleRef.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
-     * @brief Copy all accumulated WQEs to the shared SQ and ring its doorbell once.
-     * @param [in] handle: Multi-channel batch handle.
-     * @return 0 indicates success and -1 indicates failure.
+     * @brief Append one Read task to a single-channel batch.
      */
-    template <pipe_t pipe = PIPE_S>
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t ReadNbi(BatchHandleType& handle, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    /*!
+     * @brief Append one Read task to the peer selected by GetHandleRef.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t ReadNbi(BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len);
+
+    /*!
+     * @brief Append one Write-with-notify task to a single-channel batch.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        BatchHandleType& handle, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+
+    /*!
+     * @brief Append one Write-with-notify task to the peer selected by GetHandleRef.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        BatchHandleRefType& handleRef, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+
+    /*!
+     * @brief Copy all accumulated WQEs to the SQ and ring its doorbell once.
+     */
     __aicore__ inline int32_t BatchCommit(BatchHandleType& handle);
 
     /*!
      * @brief Wait for all communication tasks submitted by the batch handle.
-     * @param [in] handle: Multi-channel batch handle.
+     * @param [in] handle: Single-channel or multi-channel batch handle.
      * @return 0 indicates success. A non-zero value is the underlying CQ polling error.
      */
     template <pipe_t pipe = PIPE_MTE3>
