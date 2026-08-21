@@ -7,4 +7,6 @@ set(ASCCOMM_AICPU_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/resource/stream/sqe_build_a5.cc
 )
 
+list(LENGTH ASCCOMM_AICPU_SOURCES _aicpu_src_count)
+message(STATUS "asccomm_aicpu: attach ${_aicpu_src_count} AICPU source files")
 target_sources(asccomm_aicpu PRIVATE ${ASCCOMM_AICPU_SOURCES})

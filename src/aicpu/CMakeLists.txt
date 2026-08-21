@@ -21,6 +21,7 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
         set(ASCEND_CANN_PACKAGE_PATH "/usr/local/Ascend/ascend-toolkit/latest")
     endif()
 endif()
+message(STATUS "ASCEND_CANN_PACKAGE_PATH = ${ASCEND_CANN_PACKAGE_PATH}")
 
 if(NOT DEFINED ASCCOMM_CANN_ARCH_DIR)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
@@ -30,9 +31,10 @@ if(NOT DEFINED ASCCOMM_CANN_ARCH_DIR)
     endif()
 endif()
 set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}")
+message(STATUS "ASCCOMM_CANN_ARCH_DIR = ${ASCCOMM_CANN_ARCH_DIR}")
 
 # 查找 hcomm 代码
-if(NOT ASCOMM_HCOMM_SOURCE_DIR)
+if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
     foreach(_candidate
         "${ASCCOMM_ROOT}/../hcomm"
         "${ASCCOMM_ROOT}/../../hcomm")
@@ -43,6 +45,14 @@ if(NOT ASCOMM_HCOMM_SOURCE_DIR)
     endforeach()
 endif()
 set(ASCCOMM_HCOMM_SOURCE_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}" CACHE PATH "Original hcomm source tree")
+if(ASCCOMM_HCOMM_SOURCE_DIR)
+    message(STATUS "ASCCOMM_HCOMM_SOURCE_DIR = ${ASCCOMM_HCOMM_SOURCE_DIR}")
+    if(NOT EXISTS "${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc")
+        message(WARNING "ASCCOMM_HCOMM_SOURCE_DIR has no pkg_inc/: ${ASCCOMM_HCOMM_SOURCE_DIR}")
+    endif()
+else()
+    message(WARNING "ASCCOMM_HCOMM_SOURCE_DIR not found (looked under ${ASCCOMM_ROOT}/../hcomm); pkg_inc include will be empty")
+endif()
 
 add_library(asc_comm_dfx INTERFACE)
 target_include_directories(asc_comm_dfx INTERFACE ${ASCCOMM_DFX_SRC_DIR})
@@ -74,8 +84,8 @@ target_compile_options(asccomm_aicpu PRIVATE
 target_include_directories(asccomm_aicpu PRIVATE
     ${ASCCOMM_ROOT}/include/aicpu
     ${ASCCOMM_ROOT}/include/aicpu/hcomm
-    # ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc # hcomm 包
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc # hcomm 源码
+    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc # hcomm 包
+    # ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc # hcomm 源码
     ${ASCCOMM_AICPU_ROOT}/hcomm/primitives/api_c_adpt
     ${ASCCOMM_AICPU_ROOT}/hcomm/primitives/launch
     ${ASCCOMM_AICPU_ROOT}/hcomm/common/compat/hcomm
@@ -98,6 +108,9 @@ target_link_libraries(asccomm_aicpu PRIVATE
     pthread
 )
 
+if(NOT EXISTS "${ASCCOMM_ROOT}/cmake/asccomm_exports.map")
+    message(WARNING "version script not found: ${ASCCOMM_ROOT}/cmake/asccomm_exports.map")
+endif()
 target_link_options(asccomm_aicpu PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
