@@ -60,6 +60,14 @@ __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
 }
 
 template <CommProtocol commProtocol>
+__aicore__ inline BatchHandleRef<MultiChannelHandle> Hcomm<commProtocol>::GetHandleRef(
+    BatchHandle<MultiChannelHandle>& batchHandle, uint32_t channelIndex)
+{
+    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "MultiChannelHandle only supports COMM_PROTOCOL_UBC_CTP");
+    return impl_.GetHandleRef(batchHandle, channelIndex);
+}
+
+template <CommProtocol commProtocol>
 template <auto const& config, typename T, typename BatchHandleTraits<T>::ChannelType*>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
