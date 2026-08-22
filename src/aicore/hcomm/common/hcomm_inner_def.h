@@ -349,11 +349,7 @@ struct BatchHandleTraits<UbcCtpBatchHandle> {
 template <>
 struct BatchHandleTraits<UbcCtpMultiBatchHandle> {
     using ChannelType = MultiChannelHandle;
-    using HandleRefType = UbcCtpBatchHandle;
 };
-
-template <typename T>
-using BatchHandleRef = typename BatchHandleTraits<T>::HandleRefType;
 
 // RoCE WQE, CQE, DB struct
 typedef struct {

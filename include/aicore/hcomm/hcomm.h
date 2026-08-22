@@ -93,8 +93,8 @@ public:
      * @param [in] channelIndex: Index in the channel descriptor array used to create MultiChannelHandle.
      * @return A reference used by batch WriteNbi, ReadNbi, or WriteWithNotifyNbi.
      */
-    template <typename T>
-    __aicore__ inline BatchHandleRef<T>& GetHandleRef(T& batchHandle, uint32_t channelIndex);
+    __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
+        BatchHandle<MultiChannelHandle>& batchHandle, uint32_t channelIndex);
 
     /*!
      * @class Hcomm
