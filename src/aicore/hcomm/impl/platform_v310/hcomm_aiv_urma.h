@@ -151,14 +151,10 @@ __aicore__ inline void HcommUrmaFillBatchNotifyCtx(
     notifyCtx->notifyDataH = (notifyVal >> 32) & 0xFFFFFFFFU;
 }
 
-__aicore__ inline UbcCtpBatchRemoteContext HcommUrmaGetBatchRemoteContext(
-    const UbcCtpBatchHandle& batchHandle)
+__aicore__ inline UbcCtpBatchRemoteContext HcommUrmaGetBatchRemoteContext(const UbcCtpBatchHandle& batchHandle)
 {
     return UbcCtpBatchRemoteContext{
-        batchHandle.remoteToken,
-        batchHandle.sqContext.tpId,
-        0U,
-        batchHandle.sqContext.remoteEidLow,
+        batchHandle.remoteToken, batchHandle.sqContext.tpId, 0U, batchHandle.sqContext.remoteEidLow,
         batchHandle.sqContext.remoteEidHigh};
 }
 
@@ -423,8 +419,8 @@ __aicore__ inline UbcCtpMultiBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
 
     LocalTensor<uint32_t> wqeBuffer = buff.template ReinterpretCast<uint32_t>();
     UbcCtpMultiBatchHandle multiBatchHandle{};
-    multiBatchHandle.batchHandle = HcommUrmaCreateBatchHandle(
-        static_cast<ChannelHandle>(multiChannelValue), nullptr, wqeBuffer, buffLen);
+    multiBatchHandle.batchHandle =
+        HcommUrmaCreateBatchHandle(static_cast<ChannelHandle>(multiChannelValue), nullptr, wqeBuffer, buffLen);
     return multiBatchHandle;
 }
 
@@ -452,8 +448,7 @@ __aicore__ inline UbcCtpBatchHandleRef HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHand
 }
 
 __aicore__ inline bool HcommUrmaResolveBatchRemote(
-    const UbcCtpBatchRemoteInfo& remoteInfo, GM_ADDR remoteAddr, uint32_t len,
-    UbcCtpBatchRemoteContext& remoteContext)
+    const UbcCtpBatchRemoteInfo& remoteInfo, GM_ADDR remoteAddr, uint32_t len, UbcCtpBatchRemoteContext& remoteContext)
 {
     auto* remoteBuffers = reinterpret_cast<__gm__ RegedBufferEntity*>(remoteInfo.remoteBufferAddr);
     uint64_t targetAddr = reinterpret_cast<uint64_t>(remoteAddr);
@@ -539,8 +534,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
         !HcommUrmaResolveBatchRemote(handleRef.remoteInfo, dst, len, remoteContext)) {
         return HCOMM_FAILED;
     }
-    return BatchPostSend<HcommUrmaOpCode::WRITE, config>(
-        *handleRef.batchHandle, remoteContext, dst, src, len);
+    return BatchPostSend<HcommUrmaOpCode::WRITE, config>(*handleRef.batchHandle, remoteContext, dst, src, len);
 }
 
 template <auto const& config>
@@ -560,8 +554,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
         !HcommUrmaResolveBatchRemote(handleRef.remoteInfo, src, len, remoteContext)) {
         return HCOMM_FAILED;
     }
-    return BatchPostSend<HcommUrmaOpCode::READ, config>(
-        *handleRef.batchHandle, remoteContext, src, dst, len);
+    return BatchPostSend<HcommUrmaOpCode::READ, config>(*handleRef.batchHandle, remoteContext, src, dst, len);
 }
 
 template <auto const& config>
@@ -952,8 +945,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBa
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
-    UbcCtpMultiBatchHandle& multiBatchHandle)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpMultiBatchHandle& multiBatchHandle)
 {
     return BatchCommit(multiBatchHandle.batchHandle);
 }
@@ -999,8 +991,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHan
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(
-    UbcCtpMultiBatchHandle& multiBatchHandle)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpMultiBatchHandle& multiBatchHandle)
 {
     return Drain<pipe>(multiBatchHandle.batchHandle);
 }
