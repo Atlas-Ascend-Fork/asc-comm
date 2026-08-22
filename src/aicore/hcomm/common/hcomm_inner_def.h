@@ -256,22 +256,11 @@ struct UbcCtpBatchRemoteInfo {
     uint64_t remoteEidHigh;
 };
 
-struct HcommMultiChannelEntity {
-    ChannelEntity queueEntity;
-    SqContext sqContext;
-    CqContext cqContext;
-    uint32_t channelNum;
-    uint32_t reserved;
-    uint64_t remoteInfoAddr;
-};
-
 typedef struct {
     uint64_t baseAddr;
     uint64_t dbAddr;
-    uint64_t remoteEidLow;
-    uint64_t remoteEidHigh;
     uint32_t depth;
-    uint32_t tpId;
+    uint32_t reserved;
 } BatchSqContext;
 
 typedef struct {
@@ -280,6 +269,26 @@ typedef struct {
     uint32_t depth;
     uint32_t cqeSize;
 } BatchCqContext;
+
+typedef struct {
+    uint32_t sqHead;
+    uint32_t sqTail;
+    uint32_t cqHead;
+    uint32_t cqTail;
+} BatchQueuePersistentCursor;
+
+struct HcommMultiChannelEntity {
+    SqContext sqContext;
+    CqContext cqContext;
+    BatchQueuePersistentCursor cursor;
+    uint32_t channelNum;
+    uint32_t reserved;
+    uint64_t remoteInfoAddr;
+};
+
+static_assert(
+    sizeof(HcommMultiChannelEntity) == sizeof(SqContext) + sizeof(CqContext) + sizeof(BatchQueuePersistentCursor) + 16U,
+    "Host and device multi-channel entity layouts must match");
 
 typedef struct {
     uint32_t tokenId;
@@ -294,34 +303,39 @@ struct UbcCtpBatchRemoteContext {
     uint64_t remoteEidHigh;
 };
 
+struct BatchBuffer {
+    LocalTensor<uint32_t> tensor;
+    uint32_t capacity;
+};
+
 typedef struct {
     uint32_t sqHead;
     uint32_t sqTail;
     uint32_t cqHead;
     uint32_t cqTail;
     uint32_t preSqCnt;
-} BatchQueueCounters;
+} BatchQueueCursor;
 
-typedef struct {
-    ChannelHandle channelHandle;
-    LocalTensor<uint32_t> buffer;
-    // Capacity of buffer in WQEBBs.
-    uint32_t bufferCapacity;
-    // Context fields cached by MakeBatchHandle. They stay valid while the caller exclusively owns the channel.
+struct UbcCtpBatchState {
     BatchSqContext sqContext;
     BatchCqContext cqContext;
-    BatchRemoteToken remoteToken;
-    // cqHead includes CQEs prepared in the active batch. BatchCommit and Drain synchronize queue counters back to
-    // ChannelEntity.
-    BatchQueueCounters queueCounters;
-} UbcCtpBatchHandle;
+    BatchQueueCursor cursor;
+    BatchBuffer buffer;
+};
+
+struct UbcCtpBatchHandle {
+    ChannelHandle channelHandle;
+    UbcCtpBatchState state;
+    UbcCtpBatchRemoteContext remoteContext;
+};
 
 struct UbcCtpMultiBatchHandle {
-    UbcCtpBatchHandle batchHandle;
+    MultiChannelHandle multiChannel;
+    UbcCtpBatchState state;
 };
 
 struct UbcCtpBatchHandleRef {
-    UbcCtpBatchHandle* batchHandle;
+    UbcCtpBatchState* state;
     UbcCtpBatchRemoteInfo remoteInfo;
 };
 
