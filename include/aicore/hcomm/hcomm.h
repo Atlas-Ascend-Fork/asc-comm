@@ -94,8 +94,7 @@ public:
      * @return A reference used by batch WriteNbi, ReadNbi, or WriteWithNotifyNbi.
      */
     template <typename T>
-    __aicore__ inline BatchHandleRef<typename BatchHandleTraits<T>::ChannelType> GetHandleRef(
-        T& batchHandle, uint32_t channelIndex);
+    __aicore__ inline BatchHandleRef<T>& GetHandleRef(T& batchHandle, uint32_t channelIndex);
 
     /*!
      * @class Hcomm
