@@ -174,7 +174,6 @@ static inline HcclResult HcommBuildMultiChannelEntity(
     MultiChannelRemoteInfo* channelInfos = NULL;
     void* hostMemory = NULL;
     size_t totalSize;
-    uint32_t i;
     HcclResult ret = HCCL_SUCCESS;
 
     totalSize = sizeof(MultiChannelEntity) + (size_t)channelNum * sizeof(MultiChannelRemoteInfo);
@@ -188,6 +187,7 @@ static inline HcclResult HcommBuildMultiChannelEntity(
     }
     entity = (MultiChannelEntity*)hostMemory;
     channelInfos = (MultiChannelRemoteInfo*)((uint8_t*)hostMemory + sizeof(MultiChannelEntity));
+    uint32_t i;
     for (i = 0U; i < channelNum; ++i) {
         ret = HcommExtractChannelMetadata(channels[i], i, &currentMetadata);
         if (ret != HCCL_SUCCESS) {
