@@ -219,28 +219,28 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
     auto batchHandle = hcomm.MakeBatchHandle(channel.GetHandle(), batchTensor, 128, reinterpret_cast<GM_ADDR>(0x3008));
 
     EXPECT_EQ(batchHandle.channelHandle, channel.GetHandle());
-    EXPECT_EQ(batchHandle.state.buffer.tensor.GetPhyAddr(), batchTensor.GetPhyAddr());
-    EXPECT_EQ(batchHandle.state.buffer.capacity, 2U);
-    EXPECT_EQ(batchHandle.state.sqContext.baseAddr, reinterpret_cast<uint64_t>(channel.GetSqBuffer()));
-    EXPECT_EQ(batchHandle.state.sqContext.dbAddr, channel.GetSqDoorbellAddr());
-    EXPECT_EQ(batchHandle.remoteContext.remoteEidLow, 0x1122334455667788ULL);
-    EXPECT_EQ(batchHandle.remoteContext.remoteEidHigh, 0x99AABBCCDDEEFF00ULL);
-    EXPECT_EQ(batchHandle.state.cqContext.baseAddr, reinterpret_cast<uint64_t>(channel.GetCqBuffer()));
-    EXPECT_EQ(batchHandle.state.cqContext.dbAddr, channel.GetCqDoorbellAddr());
-    EXPECT_EQ(batchHandle.remoteContext.token.tokenId, 0x223456U);
-    EXPECT_EQ(batchHandle.remoteContext.token.tokenValue, 0x754321U);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 0U);
-    EXPECT_EQ(batchHandle.state.sqContext.depth, URMA_SQ_DEPTH);
-    EXPECT_EQ(batchHandle.remoteContext.tpId, 1U);
-    EXPECT_EQ(batchHandle.state.cqContext.depth, URMA_SQ_DEPTH);
-    EXPECT_EQ(batchHandle.state.cqContext.cqeSize, URMA_CQE_SIZE);
-    EXPECT_EQ(batchHandle.state.cursor.sqHead, 3U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 2U);
-    EXPECT_EQ(batchHandle.state.cursor.cqTail, 1U);
+    EXPECT_EQ(batchHandle.buffer.buffer.GetPhyAddr(), batchTensor.GetPhyAddr());
+    EXPECT_EQ(batchHandle.buffer.bufferCapacity, 2U);
+    EXPECT_EQ(batchHandle.sqContext.baseAddr, reinterpret_cast<uint64_t>(channel.GetSqBuffer()));
+    EXPECT_EQ(batchHandle.sqContext.dbAddr, channel.GetSqDoorbellAddr());
+    EXPECT_EQ(batchHandle.remoteInfo.remoteEidLow, 0x1122334455667788ULL);
+    EXPECT_EQ(batchHandle.remoteInfo.remoteEidHigh, 0x99AABBCCDDEEFF00ULL);
+    EXPECT_EQ(batchHandle.cqContext.baseAddr, reinterpret_cast<uint64_t>(channel.GetCqBuffer()));
+    EXPECT_EQ(batchHandle.cqContext.dbAddr, channel.GetCqDoorbellAddr());
+    EXPECT_EQ(batchHandle.remoteInfo.tokenId, 0x223456U);
+    EXPECT_EQ(batchHandle.remoteInfo.tokenValue, 0x754321U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
+    EXPECT_EQ(batchHandle.sqContext.depth, URMA_SQ_DEPTH);
+    EXPECT_EQ(batchHandle.remoteInfo.tpId, 1U);
+    EXPECT_EQ(batchHandle.cqContext.depth, URMA_SQ_DEPTH);
+    EXPECT_EQ(batchHandle.cqContext.cqeSize, URMA_CQE_SIZE);
+    EXPECT_EQ(batchHandle.cursor.sqHead, 3U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 2U);
+    EXPECT_EQ(batchHandle.cursor.cqTail, 1U);
 
     auto defaultRemoteHandle = hcomm.MakeBatchHandle(channel.GetHandle(), batchTensor, 128);
-    EXPECT_EQ(defaultRemoteHandle.remoteContext.token.tokenId, 0x123456U);
-    EXPECT_EQ(defaultRemoteHandle.remoteContext.token.tokenValue, 0x654321U);
+    EXPECT_EQ(defaultRemoteHandle.remoteInfo.tokenId, 0x123456U);
+    EXPECT_EQ(defaultRemoteHandle.remoteInfo.tokenValue, 0x654321U);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteNbi)
@@ -254,8 +254,8 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteNbi)
 
     int32_t ret = hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 1U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 1U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
     EXPECT_EQ(channel.GetSqHead(), 0U);
     EXPECT_EQ(channel.GetCqHead(), 0U);
 
@@ -286,15 +286,15 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteNbi)
     ret = hcomm.WriteNbi<URMA_NO_CQE_CFG>(
         batchHandle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2020), 8);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 2U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 2U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
     EXPECT_EQ(channel.GetSqHead(), 0U);
     EXPECT_EQ(channel.GetCqHead(), 0U);
 
     ret = hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x1030), reinterpret_cast<GM_ADDR>(0x2030), 8);
     EXPECT_EQ(ret, AscendC::HCOMM_FAILED);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 2U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 2U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchReadNbi)
@@ -308,8 +308,8 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchReadNbi)
 
     int32_t ret = hcomm.ReadNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x2010), reinterpret_cast<GM_ADDR>(0x1010), 8);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 1U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 1U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
     EXPECT_EQ(channel.GetSqHead(), 0U);
     EXPECT_EQ(channel.GetCqHead(), 0U);
 
@@ -330,15 +330,15 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchReadNbi)
     ret = hcomm.ReadNbi<URMA_NO_CQE_CFG>(
         batchHandle, reinterpret_cast<GM_ADDR>(0x2020), reinterpret_cast<GM_ADDR>(0x1020), 16);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 2U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 2U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
     const auto* secondSqe = reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(batchBuffer.data() + URMA_WQE_SIZE);
     EXPECT_EQ(secondSqe->flag & (1U << 5U), 0U);
 
     ret = hcomm.ReadNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x2030), reinterpret_cast<GM_ADDR>(0x1030), 8);
     EXPECT_EQ(ret, AscendC::HCOMM_FAILED);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 2U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 2U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyNbiMixed)
@@ -352,16 +352,16 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyNbiMixed)
     int32_t ret = hcomm.WriteNbi<URMA_NO_CQE_CFG>(
         batchHandle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 1U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 0U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 1U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 0U);
 
     constexpr uint64_t notifyValue = 0x1122334455667788ULL;
     ret = hcomm.WriteWithNotifyNbi(
         batchHandle, reinterpret_cast<GM_ADDR>(0x1020), reinterpret_cast<GM_ADDR>(0x2020), 16,
         reinterpret_cast<GM_ADDR>(0x1030), notifyValue);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 3U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 3U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
     EXPECT_EQ(channel.GetSqHead(), 0U);
     EXPECT_EQ(channel.GetCqHead(), 0U);
 
@@ -390,23 +390,23 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyNbiMixed)
         batchHandle, reinterpret_cast<GM_ADDR>(0x1040), reinterpret_cast<GM_ADDR>(0x2040), 8,
         reinterpret_cast<GM_ADDR>(0x1050), 1);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 5U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 5U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
     const auto* noCqeNotifySqe =
         reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(batchBuffer.data() + 3U * URMA_WQE_SIZE);
     EXPECT_EQ(noCqeNotifySqe->flag & (1U << 5U), 0U);
 
     ret = hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x1060), reinterpret_cast<GM_ADDR>(0x2060), 8);
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 6U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 2U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 6U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 2U);
 
     ret = hcomm.WriteWithNotifyNbi<URMA_NO_CQE_CFG>(
         batchHandle, reinterpret_cast<GM_ADDR>(0x1070), reinterpret_cast<GM_ADDR>(0x2070), 8,
         reinterpret_cast<GM_ADDR>(0x1080), 1);
     EXPECT_EQ(ret, AscendC::HCOMM_FAILED);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 6U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 2U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 6U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 2U);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyEncodes64BitAddresses)
@@ -462,8 +462,8 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchReadWriteNotifyMixedCommit)
             batchHandle, reinterpret_cast<GM_ADDR>(0x1030), reinterpret_cast<GM_ADDR>(0x2030), 8,
             reinterpret_cast<GM_ADDR>(0x1040), 1),
         AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 4U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 4U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
     EXPECT_EQ(channel.GetCqHead(), 0U);
 
     ASSERT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_SUCCESS);
@@ -483,18 +483,18 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchCommitRejectsInvalidCounts)
     EXPECT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_FAILED);
 
     auto invalidHandle = batchHandle;
-    invalidHandle.state.cursor.preSqCnt = 2U;
+    invalidHandle.cursor.preSqCnt = 2U;
     EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
-    invalidHandle.state.cursor.preSqCnt = 1U;
-    invalidHandle.state.sqContext.depth = 0U;
+    invalidHandle.cursor.preSqCnt = 1U;
+    invalidHandle.sqContext.depth = 0U;
     EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
-    invalidHandle.state.buffer.capacity = URMA_BATCH_QUEUE_DEPTH;
-    invalidHandle.state.cursor.preSqCnt = URMA_BATCH_QUEUE_DEPTH;
-    invalidHandle.state.sqContext.depth = URMA_BATCH_QUEUE_DEPTH;
+    invalidHandle.buffer.bufferCapacity = URMA_BATCH_QUEUE_DEPTH;
+    invalidHandle.cursor.preSqCnt = URMA_BATCH_QUEUE_DEPTH;
+    invalidHandle.sqContext.depth = URMA_BATCH_QUEUE_DEPTH;
     EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
 
     EXPECT_EQ(channel.GetSqHead(), 0U);
@@ -522,9 +522,9 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchHandleCommitWrapAndReuse)
     EXPECT_EQ(channel.GetSqHead(), 5U);
     EXPECT_EQ(channel.GetCqHead(), 1U);
     EXPECT_EQ(channel.GetSqDoorbell(), 5U);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 0U);
-    EXPECT_EQ(batchHandle.state.cursor.sqHead, 5U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
+    EXPECT_EQ(batchHandle.cursor.sqHead, 5U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
 
     EXPECT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_FAILED);
     EXPECT_EQ(channel.GetSqHead(), 5U);
@@ -539,9 +539,9 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchHandleCommitWrapAndReuse)
     EXPECT_EQ(channel.GetSqHead(), 7U);
     EXPECT_EQ(channel.GetCqHead(), 2U);
     EXPECT_EQ(channel.GetSqDoorbell(), 7U);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 0U);
-    EXPECT_EQ(batchHandle.state.cursor.sqHead, 7U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 2U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
+    EXPECT_EQ(batchHandle.cursor.sqHead, 7U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 2U);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyCommitWrapsSingleWqe)
@@ -558,7 +558,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteWithNotifyCommitWrapsSingleWqe)
             batchHandle, reinterpret_cast<GM_ADDR>(0x1010), reinterpret_cast<GM_ADDR>(0x2010), 8,
             reinterpret_cast<GM_ADDR>(0x1020), 0x1122334455667788ULL),
         AscendC::HCOMM_SUCCESS);
-    ASSERT_EQ(batchHandle.state.cursor.preSqCnt, 2U);
+    ASSERT_EQ(batchHandle.cursor.preSqCnt, 2U);
     ASSERT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_SUCCESS);
 
     EXPECT_EQ(channel.GetSqHead(), URMA_BATCH_QUEUE_DEPTH + 1U);
@@ -587,15 +587,15 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchAllNoCqeCommitAndDrain)
             batchHandle, reinterpret_cast<GM_ADDR>(0x1030), reinterpret_cast<GM_ADDR>(0x2030), 8,
             reinterpret_cast<GM_ADDR>(0x1040), 1),
         AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.preSqCnt, 4U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 0U);
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 4U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 0U);
 
     ASSERT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_SUCCESS);
     EXPECT_EQ(channel.GetSqHead(), 4U);
     EXPECT_EQ(channel.GetCqHead(), 0U);
     EXPECT_EQ(channel.GetSqDoorbell(), 4U);
     EXPECT_EQ(hcomm.Drain(batchHandle), AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.cqTail, 0U);
+    EXPECT_EQ(batchHandle.cursor.cqTail, 0U);
     EXPECT_EQ(channel.GetCqTail(), 0U);
     EXPECT_EQ(channel.GetCqDoorbell(), 0U);
 }
@@ -634,7 +634,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchMultipleCommitsSingleDrain)
     EXPECT_EQ(channel.GetSqDoorbell(), 5U);
 
     ASSERT_EQ(hcomm.Drain(batchHandle), AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.cqTail, 1U);
+    EXPECT_EQ(batchHandle.cursor.cqTail, 1U);
     EXPECT_EQ(channel.GetCqTail(), 1U);
     EXPECT_EQ(channel.GetCqDoorbell(), 1U);
 }
@@ -652,23 +652,23 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchDrainRejectsInvalidHandleState)
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
-    invalidHandle.state.buffer.capacity = 0;
+    invalidHandle.buffer.bufferCapacity = 0;
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
-    invalidHandle.state.cursor.preSqCnt = 1;
+    invalidHandle.cursor.preSqCnt = 1;
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
-    invalidHandle.state.cqContext.cqeSize = 0;
+    invalidHandle.cqContext.cqeSize = 0;
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
-    invalidHandle.state.cqContext.cqeSize = URMA_WQE_SIZE + 1U;
+    invalidHandle.cqContext.cqeSize = URMA_WQE_SIZE + 1U;
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
-    invalidHandle.state.cqContext.depth = 0;
+    invalidHandle.cqContext.depth = 0;
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 }
 
@@ -686,9 +686,9 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchDrainWithoutInit)
 
     ASSERT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_SUCCESS);
     EXPECT_EQ(hcomm.Drain(batchHandle), AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.sqHead, 1U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 1U);
-    EXPECT_EQ(batchHandle.state.cursor.cqTail, 1U);
+    EXPECT_EQ(batchHandle.cursor.sqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
+    EXPECT_EQ(batchHandle.cursor.cqTail, 1U);
     EXPECT_EQ(channel.GetCqTail(), 1U);
     EXPECT_EQ(channel.GetCqDoorbell(), 1U);
 
@@ -696,9 +696,9 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchDrainWithoutInit)
     ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
     ASSERT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_SUCCESS);
     ASSERT_EQ(hcomm.Drain(batchHandle), AscendC::HCOMM_SUCCESS);
-    EXPECT_EQ(batchHandle.state.cursor.sqHead, 2U);
-    EXPECT_EQ(batchHandle.state.cursor.cqHead, 2U);
-    EXPECT_EQ(batchHandle.state.cursor.cqTail, 2U);
+    EXPECT_EQ(batchHandle.cursor.sqHead, 2U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 2U);
+    EXPECT_EQ(batchHandle.cursor.cqTail, 2U);
     EXPECT_EQ(channel.GetCqTail(), 2U);
     EXPECT_EQ(channel.GetCqDoorbell(), 2U);
 }
