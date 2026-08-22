@@ -43,6 +43,7 @@ target_include_directories(hcomm_batch_write PRIVATE
     "${ASCEND_CANN_PACKAGE_LINUX_PATH}/pkg_inc"
     "${ASCEND_CANN_PACKAGE_LINUX_PATH}/include"
     "${ASCEND_CANN_PACKAGE_LINUX_PATH}/include/hcomm"
+    "${ASCEND_CANN_PACKAGE_LINUX_PATH}/asc/include/adv_api"
 )
 
 target_link_directories(hcomm_batch_write PRIVATE
@@ -50,24 +51,7 @@ target_link_directories(hcomm_batch_write PRIVATE
     "${ASCEND_CANN_PACKAGE_LINUX_PATH}/lib64"
 )
 
-target_link_libraries(hcomm_batch_write PRIVATE
-    -Wl,--no-as-needed
-    ascendc_runtime
-    acl_rt
-    runtime
-    register
-    error_manager
-    profapi
-    ge_common_base
-    unified_dlog
-    mmpa
-    ascend_dump
-    hccl
-    hcomm
-    c_sec
-    pthread
-    -Wl,--as-needed
-)
+target_link_libraries(hcomm_batch_write PRIVATE hcomm)
 
 target_compile_options(hcomm_batch_write PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
