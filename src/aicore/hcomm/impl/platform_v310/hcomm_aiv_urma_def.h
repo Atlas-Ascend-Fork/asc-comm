@@ -74,11 +74,11 @@ public:
     __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
         ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr);
     template <typename U>
-    __aicore__ inline UbcCtpBatchHandle MakeBatchHandle(
+    __aicore__ inline UbcCtpMultiBatchHandle MakeBatchHandle(
         MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr,
         GM_ADDR localAddr);
     __aicore__ inline UbcCtpBatchHandleRef GetHandleRef(
-        UbcCtpBatchHandle& batchHandle, uint32_t channelIndex);
+        UbcCtpMultiBatchHandle& multiBatchHandle, uint32_t channelIndex);
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
@@ -126,10 +126,13 @@ public:
     template <pipe_t pipe = PIPE_S>
     __aicore__ inline int32_t Commit(ChannelHandle channel);
     __aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
+    __aicore__ inline int32_t BatchCommit(UbcCtpMultiBatchHandle& multiBatchHandle);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
+    template <pipe_t pipe = PIPE_MTE3>
+    __aicore__ inline int32_t Drain(UbcCtpMultiBatchHandle& multiBatchHandle);
 
 private:
     template <

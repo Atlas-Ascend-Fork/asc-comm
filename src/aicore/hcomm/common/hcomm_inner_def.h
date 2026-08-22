@@ -23,6 +23,7 @@
 #define IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_INNER_DEF_H
 
 #include <cstdint>
+#include <type_traits>
 
 namespace AscendC {
 
@@ -315,6 +316,10 @@ typedef struct {
     BatchQueueCounters queueCounters;
 } UbcCtpBatchHandle;
 
+struct UbcCtpMultiBatchHandle {
+    UbcCtpBatchHandle batchHandle;
+};
+
 struct UbcCtpBatchHandleRef {
     UbcCtpBatchHandle* batchHandle;
     UbcCtpBatchRemoteInfo remoteInfo;
@@ -330,7 +335,7 @@ struct ChannelTraits<ChannelHandle> {
 
 template <>
 struct ChannelTraits<MultiChannelHandle> {
-    using BatchHandleType = UbcCtpBatchHandle;
+    using BatchHandleType = UbcCtpMultiBatchHandle;
     using BatchHandleRefType = UbcCtpBatchHandleRef;
 };
 
@@ -349,9 +354,24 @@ struct BatchHandleTraits<UbcCtpBatchHandle> {
 };
 
 template <>
+struct BatchHandleTraits<UbcCtpMultiBatchHandle> {
+    using ChannelType = MultiChannelHandle;
+};
+
+template <>
 struct BatchHandleTraits<UbcCtpBatchHandleRef> {
     using ChannelType = MultiChannelHandle;
 };
+
+static_assert(
+    !std::is_same<BatchHandle<ChannelHandle>, BatchHandle<MultiChannelHandle>>::value,
+    "Single-channel and multi-channel BatchHandle types must be distinct");
+static_assert(
+    std::is_same<BatchHandleTraits<BatchHandle<ChannelHandle>>::ChannelType, ChannelHandle>::value,
+    "ChannelHandle and BatchHandle mappings must remain consistent");
+static_assert(
+    std::is_same<BatchHandleTraits<BatchHandle<MultiChannelHandle>>::ChannelType, MultiChannelHandle>::value,
+    "MultiChannelHandle and BatchHandle mappings must remain consistent");
 
 // RoCE WQE, CQE, DB struct
 typedef struct {
