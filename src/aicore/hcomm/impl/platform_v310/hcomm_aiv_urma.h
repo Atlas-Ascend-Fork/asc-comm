@@ -405,30 +405,33 @@ __aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchH
 }
 
 template <typename U>
-__aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+__aicore__ inline UbcCtpMultiBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
     MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr,
     GM_ADDR localAddr)
 {
     (void)remoteAddr;
     (void)localAddr;
     if (multiChannel == MultiChannelHandle{}) {
-        return UbcCtpBatchHandle{};
+        return UbcCtpMultiBatchHandle{};
     }
 
     uint64_t multiChannelValue = static_cast<uint64_t>(multiChannel);
     auto* multiChannelEntity = reinterpret_cast<__gm__ HcommMultiChannelEntity*>(multiChannelValue);
     if (multiChannelEntity->channelNum == 0U || multiChannelEntity->remoteInfoAddr == 0U) {
-        return UbcCtpBatchHandle{};
+        return UbcCtpMultiBatchHandle{};
     }
 
     LocalTensor<uint32_t> wqeBuffer = buff.template ReinterpretCast<uint32_t>();
-    return HcommUrmaCreateBatchHandle(
+    UbcCtpMultiBatchHandle multiBatchHandle{};
+    multiBatchHandle.batchHandle = HcommUrmaCreateBatchHandle(
         static_cast<ChannelHandle>(multiChannelValue), nullptr, wqeBuffer, buffLen);
+    return multiBatchHandle;
 }
 
 __aicore__ inline UbcCtpBatchHandleRef HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
-    UbcCtpBatchHandle& batchHandle, uint32_t channelIndex)
+    UbcCtpMultiBatchHandle& multiBatchHandle, uint32_t channelIndex)
 {
+    UbcCtpBatchHandle& batchHandle = multiBatchHandle.batchHandle;
     if (batchHandle.channelHandle == 0U || batchHandle.bufferCapacity == 0U) {
         return UbcCtpBatchHandleRef{};
     }
@@ -949,6 +952,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBa
     return HCOMM_SUCCESS;
 }
 
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
+    UbcCtpMultiBatchHandle& multiBatchHandle)
+{
+    return BatchCommit(multiBatchHandle.batchHandle);
+}
+
 template <pipe_t pipe>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle channel)
 {
@@ -987,6 +996,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHan
         return ret;
     }
     return HCOMM_SUCCESS;
+}
+
+template <pipe_t pipe>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(
+    UbcCtpMultiBatchHandle& multiBatchHandle)
+{
+    return Drain<pipe>(multiBatchHandle.batchHandle);
 }
 
 } // namespace AscendC
