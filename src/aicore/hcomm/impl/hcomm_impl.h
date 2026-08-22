@@ -60,11 +60,18 @@ __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
 }
 
 template <CommProtocol commProtocol>
-__aicore__ inline BatchHandleRef<MultiChannelHandle> Hcomm<commProtocol>::GetHandleRef(
-    BatchHandle<MultiChannelHandle>& batchHandle, uint32_t channelIndex)
+template <typename T>
+__aicore__ inline BatchHandleRef<typename BatchHandleTraits<T>::ChannelType> Hcomm<commProtocol>::GetHandleRef(
+    T& batchHandle, uint32_t channelIndex)
 {
-    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "MultiChannelHandle only supports COMM_PROTOCOL_UBC_CTP");
-    return impl_.GetHandleRef(batchHandle, channelIndex);
+    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "GetHandleRef only supports COMM_PROTOCOL_UBC_CTP");
+    auto handleRef = impl_.GetHandleRef(batchHandle, channelIndex);
+    using ChannelType = typename BatchHandleTraits<T>::ChannelType;
+    using ExpectedType = BatchHandleRef<ChannelType>;
+    static_assert(
+        std::is_same<decltype(handleRef), ExpectedType>::value,
+        "BatchHandle type and BatchHandleRef type do not match");
+    return handleRef;
 }
 
 template <CommProtocol commProtocol>

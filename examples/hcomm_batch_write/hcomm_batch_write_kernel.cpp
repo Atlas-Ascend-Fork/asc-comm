@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "adv_api/hcomm/hcomm.h"
+#include "hcomm/hcomm.h"
 #include "kernel_operator.h"
 
 #include "hcomm_batch_write_def.h"
@@ -36,10 +36,6 @@ public:
 
         for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
             auto channel = hcomm_.GetHandleRef(batch, channelIndex);
-            if (channel.batchHandle == nullptr) {
-                context_->result = KERNEL_GET_HANDLE_REF_FAILED;
-                return;
-            }
             GM_ADDR remoteBuffer = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
             context_->hcommResult =
                 hcomm_.WriteNbi(channel, remoteBuffer + RECV_BASE_OFFSET, localBuffer_ + SEND_OFFSET, DATA_SIZE);

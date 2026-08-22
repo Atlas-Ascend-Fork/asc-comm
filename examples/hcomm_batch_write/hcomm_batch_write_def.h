@@ -27,8 +27,6 @@ constexpr char SHARED_QUEUE_TAG_PREFIX[] = "asccomm_batch_write_queue";
 
 enum KernelResult : uint32_t {
     KERNEL_SUCCESS = 0U,
-    KERNEL_MAKE_BATCH_HANDLE_FAILED,
-    KERNEL_GET_HANDLE_REF_FAILED,
     KERNEL_WRITE_FAILED,
     KERNEL_COMMIT_FAILED,
     KERNEL_DRAIN_FAILED,

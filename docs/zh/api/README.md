@@ -1,5 +1,11 @@
 ﻿# API参考
 
+## Host Hcomm
+
+| 文档 | 内容 |
+| --- | --- |
+| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | 创建共享Jetty通道组及Device侧多通道句柄。 |
+
 ## AICore Hcomm
 
 | 文档 | 内容 |
@@ -7,6 +13,7 @@
 | [Hcomm](./aicore/hcomm/Hcomm.md) | AICore侧点对点通信接口模板总览、协议能力和使用约束。 |
 | [Init](./aicore/hcomm/Init.md) | 初始化普通Hcomm接口使用的临时工作区。 |
 | [MakeBatchHandle](./aicore/hcomm/MakeBatchHandle.md) | 创建批量句柄并绑定批量WQE的UB缓冲区。 |
+| [GetHandleRef](./aicore/hcomm/GetHandleRef.md) | 从共享Jetty多通道批量句柄中选择逻辑通道。 |
 | [ReadNbi](./aicore/hcomm/ReadNbi.md) | 提交普通读任务或在BatchHandle中准备读WQE。 |
 | [WriteNbi](./aicore/hcomm/WriteNbi.md) | 提交普通写任务或在BatchHandle中准备写WQE。 |
 | [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | 提交普通写通知任务或在BatchHandle中准备写通知WQE。 |
@@ -41,6 +48,14 @@
 | [Sync](./aicore/ain/Sync.md) | 执行team内barrier同步。 |
 
 ## 头文件
+
+Host侧：
+
+```cpp
+#include "hcomm/hcomm_host.h"
+```
+
+AICore侧：
 
 ```cpp
 #include "hcomm/hcomm.h"
