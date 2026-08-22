@@ -47,7 +47,7 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 
 - 当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径，不支持`COMM_PROTOCOL_ROCE`批量句柄。
 - 单通道模式下，`channel`不能为`0`，且需要指向已完成资源初始化的UBC_CTP通道实体。`remoteAddr`非空时必须落在某个远端已注册buffer范围内；为空时，通道必须至少包含一个远端已注册buffer。接口缓存选中buffer的`tokenId/tokenValue`，后续批量接口不再查询远端注册表。
-- 多通道模式下，`channel`不能是空`MultiChannelHandle`，且其共享队列实体和远端信息数组必须有效。`remoteAddr`当前不参与创建；每次通过`GetHandleRef`执行批量读写时，根据操作的远端地址在对应逻辑通道的远端MR表中解析token。
+- 多通道模式下，`channel`不能是空`MultiChannelHandle`，且其共享队列实体和远端信息数组必须有效。`remoteAddr`当前不参与创建；`GetHandleRef`选择逻辑通道后，每次批量读写根据操作的远端地址在该通道的远端MR表中解析token。
 - `localAddr`当前未参与地址校验或token缓存。
 - `buff`起始地址需要按32字节对齐，`buffLen`不能小于64字节。
 - `buffLen`不能超过`buff.GetSize() * sizeof(U)`。
@@ -66,7 +66,8 @@ auto batchHandle = hcomm.MakeBatchHandle(channel, batchBuffer, batchBufferLen, r
 auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferLen);
 ```
 
-多通道模式下，调用[GetHandleRef](./GetHandleRef.md)选择逻辑通道，通过返回的引用准备WQE，再对`multiBatchHandle`执行`BatchCommit`和批量`Drain`。
+多通道模式下，调用[GetHandleRef](./GetHandleRef.md)选择逻辑通道，通过返回的
+`BatchHandle<ChannelHandle>`引用准备WQE，再对`multiBatchHandle`执行`BatchCommit`和批量`Drain`。
 
 ## 相关接口
 

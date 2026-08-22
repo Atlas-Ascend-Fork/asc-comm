@@ -91,7 +91,7 @@ public:
      * @brief Select one peer from a multi-channel batch handle.
      * @param [in,out] batchHandle: A batch handle created from MultiChannelHandle.
      * @param [in] channelIndex: Index in the channel descriptor array used to create MultiChannelHandle.
-     * @return A reference used by batch WriteNbi, ReadNbi, or WriteWithNotifyNbi.
+     * @return A BatchHandle reference configured for the selected peer.
      */
     __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
         BatchHandle<MultiChannelHandle>& batchHandle, uint32_t channelIndex);

@@ -11,12 +11,15 @@ Kernel侧主要流程如下：
 ```cpp
 auto batch = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
 for (uint32_t index = 0; index < channelNum; ++index) {
-    auto channel = hcomm.GetHandleRef(batch, index);
-    hcomm.WriteNbi(channel, remoteBuffers[index] + recvOffset, localBuffer, dataSize);
+    auto& peerBatchHandle = hcomm.GetHandleRef(batch, index);
+    hcomm.WriteNbi(peerBatchHandle, remoteBuffers[index] + recvOffset, localBuffer, dataSize);
 }
 hcomm.BatchCommit(batch);
 hcomm.Drain(batch);
 ```
+
+`GetHandleRef`选择本次写操作使用的逻辑通道。批量写接口根据实际远端地址，在该通道的远端MR表中
+解析本次WQE使用的token。
 
 ## 支持环境
 

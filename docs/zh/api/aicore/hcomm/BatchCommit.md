@@ -19,7 +19,7 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
-| `batchHandle` | 输入/输出 | 由`MakeBatchHandle`创建的单通道或多通道父批量句柄。成功提交后，本地`cqHead`同步到通道实体或共享Jetty实体，句柄中的本批次WQEBB计数清零。 |
+| `batchHandle` | 输入/输出 | 由`MakeBatchHandle`创建的单通道或多通道批量句柄。成功后提交其中已准备的全部WQE，并清零本批次WQEBB计数。 |
 
 ## 模板参数
 
@@ -37,7 +37,7 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 ## 约束说明
 
 - 调用前需要通过批量`ReadNbi`、`WriteNbi`或`WriteWithNotifyNbi`至少准备一个WQE。
-- 多通道模式下，通过`GetHandleRef`返回值准备WQE，但必须对父`UbcCtpMultiBatchHandle`调用本接口，不能传入`UbcCtpBatchHandleRef`。
+- 多通道模式下，通过`GetHandleRef`返回的BatchHandle引用准备WQE，并对父`UbcCtpMultiBatchHandle`调用本接口。
 - 一个批次内可以混合准备批量读、写和写通知任务。
 - 本批次已准备的WQEBB数量不能超过BatchHandle的UB缓冲区容量，并且必须严格小于`sqDepth`。
 - 接口支持SQ环回场景。当本批次跨越SQ末尾时，会分别复制到SQ尾部和SQ起始位置。
