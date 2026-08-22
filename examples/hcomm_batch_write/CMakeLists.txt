@@ -43,6 +43,7 @@ target_include_directories(hcomm_batch_write PRIVATE
     "${ASCEND_CANN_PACKAGE_LINUX_PATH}/pkg_inc"
     "${ASCEND_CANN_PACKAGE_LINUX_PATH}/include"
     "${ASCEND_CANN_PACKAGE_LINUX_PATH}/include/hcomm"
+    "${ASCEND_CANN_PACKAGE_LINUX_PATH}/asc/include/adv_api"
 )
 
 target_link_directories(hcomm_batch_write PRIVATE
