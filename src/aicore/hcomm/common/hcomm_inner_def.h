@@ -258,6 +258,14 @@ typedef struct {
 } BatchRemoteInfo;
 
 typedef struct {
+    uint64_t remoteBufferAddr;
+    uint32_t remoteBufferNum;
+    uint32_t tpId;
+    uint64_t remoteEidLow;
+    uint64_t remoteEidHigh;
+} MultiChannelRemoteInfo;
+
+typedef struct {
     uint64_t baseAddr;
     uint64_t headAddr;
     uint64_t tailAddr;
@@ -300,7 +308,10 @@ typedef struct {
     BatchSqContext sqContext;
     BatchCqContext cqContext;
     BatchQueueCursor cursor;
-    BatchRemoteInfo remoteInfo;
+    union {
+        BatchRemoteInfo remoteInfo;
+        MultiChannelRemoteInfo multiRemoteInfo;
+    };
     BatchBuffer buffer;
 } UbcCtpBatchHandle;
 

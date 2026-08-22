@@ -96,7 +96,8 @@ __aicore__ inline void HcommUrmaFillSqeCtx(
 
 template <HcommUrmaOpCode opCode, auto const& config>
 __aicore__ inline void HcommUrmaFillBatchSqeCtx(
-    __ubuf__ HcommUrmaSqeCtx* sqeCtx, __gm__ uint8_t* remoteAddr, const UbcCtpBatchHandle& batchHandle)
+    __ubuf__ HcommUrmaSqeCtx* sqeCtx, __gm__ uint8_t* remoteAddr, const UbcCtpBatchHandle& batchHandle,
+    const BatchRemoteInfo& remoteInfo)
 {
     static_assert(
         opCode == HcommUrmaOpCode::WRITE || opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY ||
@@ -128,22 +129,21 @@ __aicore__ inline void HcommUrmaFillBatchSqeCtx(
     uint32_t secondDw = static_cast<uint32_t>(opCode) << opcodeShift;
     sqeWords[0] = static_cast<uint64_t>(firstDw) | (static_cast<uint64_t>(secondDw) << 32U);
 
-    uint32_t thirdDw = (batchHandle.remoteInfo.tpId & tpIdMask) | (1U << sgeNumShift);
-    uint32_t fourthDw = batchHandle.remoteInfo.tokenId & remoteTokenIdMask;
+    uint32_t thirdDw = (remoteInfo.tpId & tpIdMask) | (1U << sgeNumShift);
+    uint32_t fourthDw = remoteInfo.tokenId & remoteTokenIdMask;
     sqeWords[1] = static_cast<uint64_t>(thirdDw) | (static_cast<uint64_t>(fourthDw) << 32U);
-    sqeWords[2] = batchHandle.remoteInfo.remoteEidLow;
-    sqeWords[3] = batchHandle.remoteInfo.remoteEidHigh;
-    sqeWords[4] = static_cast<uint64_t>(batchHandle.remoteInfo.tokenValue);
+    sqeWords[2] = remoteInfo.remoteEidLow;
+    sqeWords[3] = remoteInfo.remoteEidHigh;
+    sqeWords[4] = static_cast<uint64_t>(remoteInfo.tokenValue);
     sqeWords[5] = remoteAddrValue;
 }
 
 __aicore__ inline void HcommUrmaFillBatchNotifyCtx(
-    __ubuf__ HcommUrmaNotifyCtx* notifyCtx, const UbcCtpBatchHandle& batchHandle, GM_ADDR notifyAddr,
-    uint64_t notifyVal)
+    __ubuf__ HcommUrmaNotifyCtx* notifyCtx, const BatchRemoteInfo& remoteInfo, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
     uint64_t notifyAddrValue = reinterpret_cast<uint64_t>(notifyAddr);
-    notifyCtx->notifyTokenId = batchHandle.remoteInfo.tokenId & 0xFFFFFU;
-    notifyCtx->notifyTokenValue = batchHandle.remoteInfo.tokenValue;
+    notifyCtx->notifyTokenId = remoteInfo.tokenId & 0xFFFFFU;
+    notifyCtx->notifyTokenValue = remoteInfo.tokenValue;
     notifyCtx->notifyAddrL = notifyAddrValue & 0xFFFFFFFFU;
     notifyCtx->notifyAddrH = (notifyAddrValue >> 32) & 0xFFFFFFFFU;
     notifyCtx->notifyDataL = notifyVal & 0xFFFFFFFFU;
@@ -449,13 +449,30 @@ __aicore__ inline UbcCtpMultiBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
 __aicore__ inline UbcCtpBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
     UbcCtpMultiBatchHandle& multiBatchHandle, uint32_t channelIndex)
 {
-    auto* remoteInfos = reinterpret_cast<__gm__ BatchRemoteInfo*>(multiBatchHandle.remoteInfoAddr);
-    multiBatchHandle.handle.remoteInfo.tokenId = remoteInfos[channelIndex].tokenId;
-    multiBatchHandle.handle.remoteInfo.tokenValue = remoteInfos[channelIndex].tokenValue;
-    multiBatchHandle.handle.remoteInfo.remoteEidLow = remoteInfos[channelIndex].remoteEidLow;
-    multiBatchHandle.handle.remoteInfo.remoteEidHigh = remoteInfos[channelIndex].remoteEidHigh;
-    multiBatchHandle.handle.remoteInfo.tpId = remoteInfos[channelIndex].tpId;
+    auto* remoteInfos = reinterpret_cast<__gm__ MultiChannelRemoteInfo*>(multiBatchHandle.remoteInfoAddr);
+    multiBatchHandle.handle.multiRemoteInfo.remoteBufferAddr = remoteInfos[channelIndex].remoteBufferAddr;
+    multiBatchHandle.handle.multiRemoteInfo.remoteBufferNum = remoteInfos[channelIndex].remoteBufferNum;
+    multiBatchHandle.handle.multiRemoteInfo.remoteEidLow = remoteInfos[channelIndex].remoteEidLow;
+    multiBatchHandle.handle.multiRemoteInfo.remoteEidHigh = remoteInfos[channelIndex].remoteEidHigh;
+    multiBatchHandle.handle.multiRemoteInfo.tpId = remoteInfos[channelIndex].tpId;
     return multiBatchHandle.handle;
+}
+
+__aicore__ inline bool HcommUrmaResolveBatchRemote(
+    const MultiChannelRemoteInfo& remoteInfo, GM_ADDR remoteAddr, uint32_t len, BatchRemoteInfo& resolvedRemoteInfo)
+{
+    auto* remoteBuffers = reinterpret_cast<RegedBufferEntity*>(remoteInfo.remoteBufferAddr);
+    int32_t remoteIdx = HcommFindBufferIdx(remoteBuffers, remoteInfo.remoteBufferNum, remoteAddr, len);
+    if (remoteIdx == HCOMM_FAILED) {
+        return false;
+    }
+
+    resolvedRemoteInfo.tokenId = remoteBuffers[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
+    resolvedRemoteInfo.tokenValue = remoteBuffers[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    resolvedRemoteInfo.tpId = remoteInfo.tpId;
+    resolvedRemoteInfo.remoteEidLow = remoteInfo.remoteEidLow;
+    resolvedRemoteInfo.remoteEidHigh = remoteInfo.remoteEidHigh;
+    return true;
 }
 
 template <HcommUrmaOpCode opCode, auto const& config>
@@ -473,6 +490,15 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
     constexpr bool withNotify = opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY;
     constexpr uint32_t wqebbCount = withNotify ? HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM : 1U;
 
+    BatchRemoteInfo remoteInfo{};
+    if (batchHandle.channelHandle == 0U) {
+        if (!HcommUrmaResolveBatchRemote(batchHandle.multiRemoteInfo, remoteAddr, len, remoteInfo)) {
+            return HCOMM_FAILED;
+        }
+    } else {
+        remoteInfo = batchHandle.remoteInfo;
+    }
+
     uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
     if (preSqCnt > batchHandle.buffer.bufferCapacity || wqebbCount > batchHandle.buffer.bufferCapacity - preSqCnt) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with insufficient buffer\n");
@@ -483,12 +509,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
 
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqeAddr);
     Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-    HcommUrmaFillBatchSqeCtx<opCode, config>(sqeCtx, reinterpret_cast<__gm__ uint8_t*>(remoteAddr), batchHandle);
+    HcommUrmaFillBatchSqeCtx<opCode, config>(
+        sqeCtx, reinterpret_cast<__gm__ uint8_t*>(remoteAddr), batchHandle, remoteInfo);
 
     __ubuf__ uint8_t* sgeAddr = currentWqeAddr + sizeof(HcommUrmaSqeCtx);
     if constexpr (withNotify) {
         __ubuf__ HcommUrmaNotifyCtx* notifyCtx = reinterpret_cast<__ubuf__ HcommUrmaNotifyCtx*>(sgeAddr);
-        HcommUrmaFillBatchNotifyCtx(notifyCtx, batchHandle, notifyAddr, notifyVal);
+        HcommUrmaFillBatchNotifyCtx(notifyCtx, remoteInfo, notifyAddr, notifyVal);
         sgeAddr += sizeof(HcommUrmaNotifyCtx);
     }
     __ubuf__ HcommUrmaSgeCtx* sgeCtx = reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(sgeAddr);

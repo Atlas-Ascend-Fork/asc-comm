@@ -32,13 +32,12 @@ extern "C" {
 #endif
 
 typedef struct {
-    uint32_t tokenId;
-    uint32_t tokenValue;
+    uint64_t remoteBufferAddr;
+    uint32_t remoteBufferNum;
+    uint32_t tpId;
     uint64_t remoteEidLow;
     uint64_t remoteEidHigh;
-    uint32_t tpId;
-    uint32_t reserved;
-} BatchRemoteInfo;
+} MultiChannelRemoteInfo;
 
 typedef struct {
     uint64_t baseAddr;
@@ -66,11 +65,9 @@ typedef struct {
 } MultiChannelEntity;
 
 typedef struct {
-    ChannelEntity channelEntity;
     SqContext sqContext;
     CqContext cqContext;
-    RegedBufferEntity remoteBuffer;
-    BatchRemoteInfo remoteInfo;
+    MultiChannelRemoteInfo remoteInfo;
 } ChannelMetadata;
 
 static inline HcclResult HcommAcquireSharedChannels(
@@ -140,7 +137,6 @@ static inline HcclResult HcommExtractChannelMetadata(
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
-    metadata->channelEntity = channelEntity;
     if (channelEntity.sqContextAddr == NULL || channelEntity.cqContextAddr == NULL ||
         channelEntity.remoteBufferAddr == NULL || channelEntity.remoteBufferNum == 0U) {
         fprintf(
@@ -158,15 +154,8 @@ static inline HcclResult HcommExtractChannelMetadata(
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
-    ret = HcommCopyFromDevice(
-        &metadata->remoteBuffer, sizeof(metadata->remoteBuffer), channelEntity.remoteBufferAddr, channelIndex,
-        "RegedBufferEntity");
-    if (ret != HCCL_SUCCESS) {
-        return ret;
-    }
-
-    metadata->remoteInfo.tokenId = metadata->remoteBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
-    metadata->remoteInfo.tokenValue = metadata->remoteBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    metadata->remoteInfo.remoteBufferAddr = (uint64_t)(uintptr_t)channelEntity.remoteBufferAddr;
+    metadata->remoteInfo.remoteBufferNum = channelEntity.remoteBufferNum;
     metadata->remoteInfo.tpId = metadata->sqContext.contextInfo.ubJfs.tpID;
     memcpy(&metadata->remoteInfo.remoteEidLow, metadata->sqContext.contextInfo.ubJfs.remoteEID, sizeof(uint64_t));
     memcpy(
@@ -182,13 +171,13 @@ static inline HcclResult HcommBuildMultiChannelEntity(
     ChannelMetadata anchorMetadata;
     ChannelMetadata currentMetadata;
     MultiChannelEntity* entity = NULL;
-    BatchRemoteInfo* channelInfos = NULL;
+    MultiChannelRemoteInfo* channelInfos = NULL;
     void* hostMemory = NULL;
     size_t totalSize;
     uint32_t i;
     HcclResult ret = HCCL_SUCCESS;
 
-    totalSize = sizeof(MultiChannelEntity) + (size_t)channelNum * sizeof(BatchRemoteInfo);
+    totalSize = sizeof(MultiChannelEntity) + (size_t)channelNum * sizeof(MultiChannelRemoteInfo);
 
     memset(&anchorMetadata, 0, sizeof(anchorMetadata));
     memset(&currentMetadata, 0, sizeof(currentMetadata));
@@ -198,7 +187,7 @@ static inline HcclResult HcommBuildMultiChannelEntity(
         return HCCL_E_MEMORY;
     }
     entity = (MultiChannelEntity*)hostMemory;
-    channelInfos = (BatchRemoteInfo*)((uint8_t*)hostMemory + sizeof(MultiChannelEntity));
+    channelInfos = (MultiChannelRemoteInfo*)((uint8_t*)hostMemory + sizeof(MultiChannelEntity));
     for (i = 0U; i < channelNum; ++i) {
         ret = HcommExtractChannelMetadata(channels[i], i, &currentMetadata);
         if (ret != HCCL_SUCCESS) {
