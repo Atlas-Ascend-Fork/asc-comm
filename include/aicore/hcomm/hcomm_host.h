@@ -34,11 +34,18 @@ typedef struct {
     uint64_t rmtEidH;
 } HcommBatchRemoteInfo;
 
-/** Shared queue owner, contexts, and the device address of HcommBatchRemoteInfo[channelNum]. */
 typedef struct {
-    ChannelEntity queueEntity;
+    uint32_t sqHead;
+    uint32_t sqTail;
+    uint32_t cqHead;
+    uint32_t cqTail;
+} HcommBatchQueuePersistentCursor;
+
+/** Shared queue state and the device address of HcommBatchRemoteInfo[channelNum]. */
+typedef struct {
     SqContext sqContext;
     CqContext cqContext;
+    HcommBatchQueuePersistentCursor cursor;
     uint32_t channelNum;
     uint32_t reserved;
     uint64_t remoteInfoAddr;
@@ -186,9 +193,9 @@ static inline HcclResult HcommBuildMultiChannelEntity(
         channelInfos[i] = currentMetadata.remoteInfo;
     }
 
-    entity->queueEntity = anchorMetadata.channelEntity;
     entity->sqContext = anchorMetadata.sqContext;
     entity->cqContext = anchorMetadata.cqContext;
+    memcpy(&entity->cursor, anchorMetadata.channelEntity.reserve, sizeof(entity->cursor));
     entity->channelNum = channelNum;
 
     ret = HcclEngineCtxCreate(comm, sharedQueueTag, COMM_ENGINE_AIV, totalSize, deviceMemory);
@@ -197,10 +204,6 @@ static inline HcclResult HcommBuildMultiChannelEntity(
         free(hostMemory);
         return ret == HCCL_SUCCESS ? HCCL_E_MEMORY : ret;
     }
-    entity->queueEntity.sqContextAddr =
-        (SqContext*)((uint8_t*)*deviceMemory + offsetof(HcommMultiChannelEntity, sqContext));
-    entity->queueEntity.cqContextAddr =
-        (CqContext*)((uint8_t*)*deviceMemory + offsetof(HcommMultiChannelEntity, cqContext));
     entity->remoteInfoAddr = (uint64_t)(uintptr_t)*deviceMemory + sizeof(HcommMultiChannelEntity);
     ret = HcclEngineCtxCopy(comm, COMM_ENGINE_AIV, sharedQueueTag, hostMemory, totalSize, 0U);
     free(hostMemory);

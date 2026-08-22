@@ -36,7 +36,7 @@ public:
 
         for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
             auto channel = hcomm_.GetHandleRef(batch, channelIndex);
-            if (channel.batchHandle == nullptr) {
+            if (channel.state == nullptr) {
                 context_->result = KERNEL_GET_HANDLE_REF_FAILED;
                 return;
             }
