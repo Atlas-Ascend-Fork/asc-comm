@@ -38,13 +38,14 @@ HcclResult MakeMultiChannelHandle(
 | Return Value | Description |
 | --- | --- |
 | `HCCL_SUCCESS` | Creation succeeds and `multiChannel` receives a valid handle. |
-| Other value | Creation fails and the corresponding HCCL error code is returned. |
+| Other value | Creation fails. When `multiChannel` is not null, it is set to 0, and the corresponding HCCL error code is returned. |
 
 ## Constraints
 
 - Input pointers must not be `nullptr`, and `channelNum` must not be 0.
 - Channels described by `channelDescs` must use `COMM_ENGINE_AIV` and `COMM_PROTOCOL_UBC_CTP` and satisfy HCCL shared-queue channel constraints.
-- The returned handle and its Device context are managed by `comm`. Do not destroy the communicator before Kernels using the handle have completed.
+- Within one communicator, each `sharedQueueTag` can be used by only one successful `MakeMultiChannelHandle` call. Repeated creation returns an error.
+- The returned handle and its Device context are managed by `comm` and require no separate destruction. Do not destroy the communicator before Kernels using the handle have completed.
 
 ## Related APIs
 

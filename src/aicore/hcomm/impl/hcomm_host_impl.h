@@ -21,11 +21,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "acl/acl_rt.h"
 #include "hccl/hccl_res.h"
 #include "hcomm/hcomm_res_entity_defs.h"
+#include "securec.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -130,8 +130,6 @@ static inline HcclResult HcommExtractChannelMetadata(
         return HCCL_E_PTR;
     }
 
-    memset(&channelEntity, 0, sizeof(channelEntity));
-    memset(metadata, 0, sizeof(*metadata));
     ret = HcommCopyFromDevice(
         &channelEntity, sizeof(channelEntity), (const void*)(uintptr_t)channel, channelIndex, "ChannelEntity");
     if (ret != HCCL_SUCCESS) {
@@ -157,10 +155,16 @@ static inline HcclResult HcommExtractChannelMetadata(
     metadata->remoteInfo.remoteBufferAddr = (uint64_t)(uintptr_t)channelEntity.remoteBufferAddr;
     metadata->remoteInfo.remoteBufferNum = channelEntity.remoteBufferNum;
     metadata->remoteInfo.tpId = metadata->sqContext.contextInfo.ubJfs.tpID;
-    memcpy(&metadata->remoteInfo.remoteEidLow, metadata->sqContext.contextInfo.ubJfs.remoteEID, sizeof(uint64_t));
-    memcpy(
-        &metadata->remoteInfo.remoteEidHigh, metadata->sqContext.contextInfo.ubJfs.remoteEID + sizeof(uint64_t),
-        sizeof(uint64_t));
+    uint64_t remoteEid[2];
+    errno_t secureRet =
+        memcpy_s(remoteEid, sizeof(remoteEid), metadata->sqContext.contextInfo.ubJfs.remoteEID, sizeof(remoteEid));
+    if (secureRet != EOK) {
+        fprintf(
+            stderr, "[ERROR] [%s] copy channel[%u] remote EID failed, ret[%d].\n", __func__, channelIndex, secureRet);
+        return HCCL_E_INTERNAL;
+    }
+    metadata->remoteInfo.remoteEidLow = remoteEid[0];
+    metadata->remoteInfo.remoteEidHigh = remoteEid[1];
 
     return HCCL_SUCCESS;
 }
@@ -178,8 +182,6 @@ static inline HcclResult HcommBuildMultiChannelEntity(
 
     totalSize = sizeof(MultiChannelEntity) + (size_t)channelNum * sizeof(MultiChannelRemoteInfo);
 
-    memset(&anchorMetadata, 0, sizeof(anchorMetadata));
-    memset(&currentMetadata, 0, sizeof(currentMetadata));
     hostMemory = calloc(1U, totalSize);
     if (hostMemory == NULL) {
         fprintf(stderr, "[ERROR] [%s] allocate host staging memory failed.\n", __func__);
@@ -239,7 +241,12 @@ static inline HcclResult HcommHostMakeMultiChannelHandle(
     void* deviceMemory = NULL;
     HcclResult ret;
 
-    if (comm == NULL || sharedQueueTag == NULL || channelDescs == NULL || multiChannel == NULL || channelNum == 0U) {
+    if (multiChannel == NULL) {
+        fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
+        return HCCL_E_PARA;
+    }
+    *multiChannel = 0U;
+    if (comm == NULL || sharedQueueTag == NULL || channelDescs == NULL || channelNum == 0U) {
         fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
         return HCCL_E_PARA;
     }

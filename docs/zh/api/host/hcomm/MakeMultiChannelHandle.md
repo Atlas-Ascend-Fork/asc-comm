@@ -38,13 +38,14 @@ HcclResult MakeMultiChannelHandle(
 | 返回值 | 说明 |
 | --- | --- |
 | `HCCL_SUCCESS` | 创建成功，`multiChannel`返回有效句柄。 |
-| 其他值 | 创建失败，返回对应的HCCL错误码。 |
+| 其他值 | 创建失败；当`multiChannel`非空时将其置为0，并返回对应的HCCL错误码。 |
 
 ## 约束说明
 
 - 输入指针不能为`nullptr`，`channelNum`不能为0。
 - `channelDescs`中的通道需要使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UBC_CTP`，并满足HCCL共享队列通道约束。
-- 返回句柄及其Device上下文由`comm`管理。使用该句柄的Kernel完成前，不能销毁通信域。
+- 同一通信域内，每个`sharedQueueTag`仅用于一次成功的`MakeMultiChannelHandle`调用，重复创建返回错误。
+- 返回句柄及其Device上下文由`comm`管理，无需单独销毁。使用该句柄的Kernel完成前，不能销毁通信域。
 
 ## 相关接口
 
