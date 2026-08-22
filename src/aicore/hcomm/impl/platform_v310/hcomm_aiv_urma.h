@@ -451,25 +451,18 @@ __aicore__ inline bool HcommUrmaResolveBatchRemote(
     const UbcCtpBatchRemoteInfo& remoteInfo, GM_ADDR remoteAddr, uint32_t len, UbcCtpBatchRemoteContext& remoteContext)
 {
     auto* remoteBuffers = reinterpret_cast<__gm__ RegedBufferEntity*>(remoteInfo.remoteBufferAddr);
-    uint64_t targetAddr = reinterpret_cast<uint64_t>(remoteAddr);
-    for (uint32_t i = 0U; i < remoteInfo.remoteBufferNum; ++i) {
-        uint64_t baseAddr = remoteBuffers[i].bufferInfo.rma.addr;
-        uint64_t bufferSize = remoteBuffers[i].bufferInfo.rma.size;
-        if (targetAddr < baseAddr) {
-            continue;
-        }
-        uint64_t offset = targetAddr - baseAddr;
-        if (offset <= bufferSize && len <= bufferSize - offset) {
-            remoteContext.token.tokenId = remoteBuffers[i].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
-            remoteContext.token.tokenValue = remoteBuffers[i].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
-            remoteContext.tpId = remoteInfo.tpId;
-            remoteContext.remoteEidLow = remoteInfo.remoteEidLow;
-            remoteContext.remoteEidHigh = remoteInfo.remoteEidHigh;
-            return true;
-        }
+    int32_t remoteIdx = HcommFindBufferIdx(remoteBuffers, remoteInfo.remoteBufferNum, remoteAddr, len);
+    if (remoteIdx == HCOMM_FAILED) {
+        return false;
     }
-    KERNEL_LOG(KERNEL_ERROR, "Hcomm batch remote buffer lookup failed\n");
-    return false;
+
+    auto remoteMemInfo = remoteBuffers[remoteIdx];
+    remoteContext.token.tokenId = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
+    remoteContext.token.tokenValue = remoteMemInfo.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    remoteContext.tpId = remoteInfo.tpId;
+    remoteContext.remoteEidLow = remoteInfo.remoteEidLow;
+    remoteContext.remoteEidHigh = remoteInfo.remoteEidHigh;
+    return true;
 }
 
 template <HcommUrmaOpCode opCode, auto const& config>
