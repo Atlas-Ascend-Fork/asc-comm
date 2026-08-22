@@ -46,7 +46,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | `channel` | Input | Communication channel handle used by the ordinary interface. |
-| `batchHandle` | Input/Output | Single-channel batch handle created by `MakeBatchHandle`, or a multi-channel reference returned by `GetHandleRef`. After successful preparation, the shared WQEBB count is updated and the local `cqHead` is incremented when `cqe = 1`. |
+| `batchHandle` | Input/Output | Single-channel batch handle created by `MakeBatchHandle`, or a BatchHandle reference returned by `GetHandleRef`. |
 | `dst` | Output | Absolute remote destination GM address. In single-channel mode it must match the token cached in the handle. For a multi-channel reference, it is used to resolve a token from the selected logical channel's remote MR table. |
 | `src` | Input | Absolute local source GM address. |
 | `len` | Input | Write length in bytes. |
@@ -61,7 +61,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | `commitPipe` | Pipe used for commit by the ordinary interface. Default: `PIPE_S`. |
 | `reqPipe` | Pipe used for the request by the ordinary interface. Default: `PIPE_MTE3`. |
 | `config` | URMA WQE control configuration. Default: `URMA_DEFAULT_CFG` (strongly ordered + fence + CQE enabled). The batch interface requires `inlineEn = 0`, and `cqe` must be `0` or `1`. |
-| `T` | Batch handle type, deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle` and `UbcCtpBatchHandleRef`. |
+| `T` | Batch handle type, deduced from `batchHandle`. |
 
 ## Return Value
 
@@ -84,8 +84,8 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - Currently supported only on the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 - Each batch write-with-notify task occupies two 64-byte WQEBBs. It is prepared only in UB and does not copy data to the GM SQ or ring the doorbell.
 - `config.inlineEn` must be `0`, and `config.cqe` can be `0` or `1`. Different read, write, and write-with-notify tasks in the same batch may use different `cqe` settings.
-- For `UbcCtpBatchHandle`, the interface reuses the token cached by `MakeBatchHandle` and does not query the remote registration table again.
-- For `UbcCtpBatchHandleRef`, the interface resolves a token from the selected logical channel's remote MR table using `dst` and `len`. It returns `-1` if the data range does not match a registered buffer.
+- For a handle returned by single-channel `MakeBatchHandle`, the interface reuses the token cached during creation.
+- For a BatchHandle reference returned by `GetHandleRef`, the interface resolves a token from the selected logical channel's remote MR table using `dst` and `len`. It returns `-1` if the data range does not match a registered buffer.
 - In both modes, `notifyAddr` reuses the token selected for the data write and is not looked up or validated separately. The caller must ensure that the `dst` range and `notifyAddr` belong to the same registered memory.
 - If buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
 - Call `BatchCommit` after preparation. In multi-channel mode, commit the parent `UbcCtpMultiBatchHandle`. The caller must exclusively own the single channel or shared Jetty.

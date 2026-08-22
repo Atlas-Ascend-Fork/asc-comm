@@ -30,7 +30,7 @@ __aicore__ inline int32_t Drain(T& batchHandle);
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
 | `channel` | 输入 | 普通接口使用的通信通道句柄。 |
-| `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的单通道或多通道父批量句柄。等待成功后，句柄缓存的CQ tail及通道实体或共享Jetty实体中的CQ tail会更新。 |
+| `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的单通道或多通道批量句柄，用于等待该句柄已提交的通信任务完成。 |
 
 ## 模板参数
 
@@ -57,7 +57,7 @@ __aicore__ inline int32_t Drain(T& batchHandle);
 ### 批量接口
 
 - 当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径，不需要调用`Init`。
-- 多通道模式下必须传入父`UbcCtpMultiBatchHandle`，不能传入`GetHandleRef`返回的`UbcCtpBatchHandleRef`。
+- 多通道模式下，通过父`UbcCtpMultiBatchHandle`调用批量`Drain`。
 - 调用前必须先通过`BatchCommit`提交已准备的WQE。BatchHandle中不能存在尚未提交的WQEBB，否则返回`-1`。
 - 批量`Drain`复用WQE缓冲区的第一个64字节作为CQE临时空间。调用期间不得并发访问或改写该缓冲区。
 - 可以执行多次`BatchCommit`后统一调用一次批量`Drain`，接口会等待BatchHandle累计记录的全部CQE。

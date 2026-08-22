@@ -34,7 +34,7 @@ __aicore__ inline int32_t WriteNbi(
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
 | `channel` | 输入 | 普通接口使用的通信通道句柄。 |
-| `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的单通道批量句柄，或`GetHandleRef`返回的多通道引用。成功准备WQE后，共享WQEBB计数会更新；`cqe = 1`时本地`cqHead`也会增加。 |
+| `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的单通道批量句柄，或`GetHandleRef`返回的BatchHandle引用。 |
 | `dst` | 输出 | 远端目的GM绝对地址。单通道模式下需要匹配句柄缓存的token；多通道引用模式下用于在当前逻辑通道的远端MR表中解析token。 |
 | `src` | 输入 | 本端源GM绝对地址。 |
 | `len` | 输入 | 写入长度，单位为字节。 |
@@ -47,7 +47,7 @@ __aicore__ inline int32_t WriteNbi(
 | `commitPipe` | 普通接口commit使用的pipe，默认`PIPE_S`。 |
 | `reqPipe` | 普通接口请求使用的pipe，默认`PIPE_MTE3`。 |
 | `config` | URMA WQE控制配置。默认为`URMA_DEFAULT_CFG`（强序 + fence + 使能CQE）。批量接口要求`inlineEn = 0`且`cqe`只能为`0`或`1`。 |
-| `T` | 批量句柄类型，由`batchHandle`实参推导；当前支持`UbcCtpBatchHandle`和`UbcCtpBatchHandleRef`。 |
+| `T` | 批量句柄类型，由`batchHandle`实参推导。 |
 
 ## 返回值
 
@@ -70,8 +70,8 @@ __aicore__ inline int32_t WriteNbi(
 - 当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 - 每个批量写任务占用1个64字节WQEBB，只在UB中准备，不复制到GM SQ，也不敲doorbell。
 - `config.inlineEn`必须为`0`，`config.cqe`支持`0`或`1`。同一批次的不同读、写、写通知任务可以使用不同的`cqe`配置。
-- 对`UbcCtpBatchHandle`，接口复用`MakeBatchHandle`缓存的token，不再查询远端注册表；调用方必须保证`[dst, dst + len)`属于该token对应的注册内存。
-- 对`UbcCtpBatchHandleRef`，接口根据`dst`和`len`在所选逻辑通道的远端MR表中解析token；地址未命中已注册buffer时返回`-1`。
+- 对单通道`MakeBatchHandle`返回的句柄，接口复用创建时缓存的token；调用方必须保证`[dst, dst + len)`属于该token对应的注册内存。
+- 对`GetHandleRef`返回的BatchHandle引用，接口根据`dst`和`len`在所选逻辑通道的远端MR表中解析token；地址未命中已注册buffer时返回`-1`。
 - 当缓冲区容量校验失败时返回`-1`，BatchHandle中的WQEBB计数和`cqHead`保持不变。
 - 准备完成后需要调用`BatchCommit`。多通道模式必须对父`UbcCtpMultiBatchHandle`提交。使用期间需要独占对应单通道或共享Jetty。
 

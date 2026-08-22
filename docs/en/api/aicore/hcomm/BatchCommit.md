@@ -19,7 +19,7 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `batchHandle` | Input/Output | Single-channel or multi-channel parent batch handle created by `MakeBatchHandle`. After a successful commit, its local `cqHead` is synchronized to the channel entity or shared-Jetty entity, and its prepared WQEBB count is reset to zero. |
+| `batchHandle` | Input/Output | Single-channel or multi-channel batch handle created by `MakeBatchHandle`. On success, all prepared WQEs are submitted and the WQEBB count for the current batch is reset. |
 
 ## Template Parameters
 
@@ -37,7 +37,7 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 ## Constraints
 
 - Prepare at least one WQE by calling batch `ReadNbi`, `WriteNbi`, or `WriteWithNotifyNbi` before this interface.
-- In multi-channel mode, prepare WQEs through values returned by `GetHandleRef`, but call this interface on the parent `UbcCtpMultiBatchHandle`. Do not pass a `UbcCtpBatchHandleRef`.
+- In multi-channel mode, prepare WQEs through the BatchHandle reference returned by `GetHandleRef` and call this interface on the parent `UbcCtpMultiBatchHandle`.
 - Batch read, write, and write-with-notify tasks can be mixed in the same batch.
 - The number of prepared WQEBBs must not exceed the UB buffer capacity of the BatchHandle and must be strictly smaller than `sqDepth`.
 - SQ ring wrap is supported. If the batch crosses the end of the SQ, the interface copies it to the tail and the beginning of the SQ separately.

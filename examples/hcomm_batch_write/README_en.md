@@ -12,12 +12,15 @@ The kernel uses the following flow:
 ```cpp
 auto batch = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
 for (uint32_t index = 0; index < channelNum; ++index) {
-    auto channel = hcomm.GetHandleRef(batch, index);
-    hcomm.WriteNbi(channel, remoteBuffers[index] + recvOffset, localBuffer, dataSize);
+    auto& peerBatchHandle = hcomm.GetHandleRef(batch, index);
+    hcomm.WriteNbi(peerBatchHandle, remoteBuffers[index] + recvOffset, localBuffer, dataSize);
 }
 hcomm.BatchCommit(batch);
 hcomm.Drain(batch);
 ```
+
+`GetHandleRef` selects the logical channel for the write. The batch write resolves the token for the WQE from that
+channel's remote MR table using the actual remote address.
 
 ## Requirements
 

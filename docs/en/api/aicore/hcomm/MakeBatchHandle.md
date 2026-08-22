@@ -48,7 +48,7 @@ This interface does not report invalid arguments through a status code. The call
 
 - Batch handles currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950. The `COMM_PROTOCOL_ROCE` batch path is not supported.
 - In single-channel mode, `channel` must not be `0` and must point to an initialized UBC_CTP channel entity. A non-null `remoteAddr` must fall within a remote registered buffer; when null, the channel must contain at least one remote registered buffer. The interface caches the selected buffer's `tokenId/tokenValue`, and later batch operations do not query the remote registration table again.
-- In multi-channel mode, `channel` must not be an empty `MultiChannelHandle`, and its shared queue entity and remote information array must be valid. `remoteAddr` is not used during creation. Batch operations through `GetHandleRef` resolve a token from the selected logical channel's remote MR table using each operation's remote address.
+- In multi-channel mode, `channel` must not be an empty `MultiChannelHandle`, and its shared queue entity and remote information array must be valid. `remoteAddr` is not used during creation. After `GetHandleRef` selects a logical channel, each batch read or write resolves a token from that channel's remote MR table using the operation's remote address.
 - `localAddr` is not used for address validation or token caching in the current version.
 - The start address of `buff` must be 32-byte aligned, and `buffLen` must be at least 64 bytes.
 - `buffLen` must not exceed `buff.GetSize() * sizeof(U)`.
@@ -67,7 +67,9 @@ auto batchHandle = hcomm.MakeBatchHandle(channel, batchBuffer, batchBufferLen, r
 auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferLen);
 ```
 
-In multi-channel mode, call [GetHandleRef](./GetHandleRef.md) to select a logical channel and prepare WQEs through the returned reference. Call `BatchCommit` and batch `Drain` on `multiBatchHandle`.
+In multi-channel mode, call [GetHandleRef](./GetHandleRef.md) to select a logical channel and prepare WQEs through
+the returned `BatchHandle<ChannelHandle>` reference. Call `BatchCommit` and batch `Drain` on
+`multiBatchHandle`.
 
 ## Related APIs
 
