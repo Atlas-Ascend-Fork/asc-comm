@@ -35,7 +35,7 @@ public:
             static_cast<AscendC::MultiChannelHandle>(context_->multiChannel), batchTensor_, BATCH_BUFFER_SIZE);
 
         for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
-            auto channel = hcomm_.GetHandleRef(batch, channelIndex);
+            auto& channel = hcomm_.GetHandleRef(batch, channelIndex);
             GM_ADDR remoteBuffer = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
             context_->hcommResult =
                 hcomm_.WriteNbi(channel, remoteBuffer + RECV_BASE_OFFSET, localBuffer_ + SEND_OFFSET, DATA_SIZE);
