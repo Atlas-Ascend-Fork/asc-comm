@@ -248,13 +248,14 @@ typedef struct {
 
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
 
-struct UbcCtpBatchRemoteInfo {
-    uint64_t remoteBufferAddr;
-    uint32_t remoteBufferNum;
-    uint32_t tpId;
+typedef struct {
+    uint32_t tokenId;
+    uint32_t tokenValue;
     uint64_t remoteEidLow;
     uint64_t remoteEidHigh;
-};
+    uint32_t tpId;
+    uint32_t reserved;
+} BatchRemoteInfo;
 
 typedef struct {
     uint64_t baseAddr;
@@ -275,69 +276,43 @@ typedef struct {
     uint32_t sqTail;
     uint32_t cqHead;
     uint32_t cqTail;
-} BatchQueuePersistentCursor;
-
-struct MultiChannelEntity {
-    SqContext sqContext;
-    CqContext cqContext;
-    BatchQueuePersistentCursor cursor;
-    uint32_t channelNum;
-    uint32_t reserved;
-    uint64_t remoteInfoAddr;
-};
-
-static_assert(
-    sizeof(MultiChannelEntity) == sizeof(SqContext) + sizeof(CqContext) + sizeof(BatchQueuePersistentCursor) + 16U,
-    "Host and device multi-channel entity layouts must match");
-
-typedef struct {
-    uint32_t tokenId;
-    uint32_t tokenValue;
-} BatchRemoteToken;
-
-struct UbcCtpBatchRemoteContext {
-    BatchRemoteToken token;
-    uint32_t tpId;
-    uint32_t reserved;
-    uint64_t remoteEidLow;
-    uint64_t remoteEidHigh;
-};
-
-struct BatchBuffer {
-    LocalTensor<uint32_t> tensor;
-    uint32_t capacity;
-};
-
-typedef struct {
-    uint32_t sqHead;
-    uint32_t sqTail;
-    uint32_t cqHead;
-    uint32_t cqTail;
     uint32_t preSqCnt;
 } BatchQueueCursor;
 
-struct UbcCtpBatchState {
+typedef struct {
     BatchSqContext sqContext;
     BatchCqContext cqContext;
     BatchQueueCursor cursor;
-    BatchBuffer buffer;
-};
+    uint32_t channelNum;
+    uint64_t remoteInfoAddr;
+} MultiChannelEntity;
 
-struct UbcCtpBatchHandle {
+static_assert(
+    sizeof(MultiChannelEntity) == sizeof(BatchSqContext) + sizeof(BatchCqContext) + sizeof(BatchQueueCursor) +
+                                      sizeof(uint32_t) + sizeof(uint64_t),
+    "Host and device multi-channel entity layouts must match");
+
+typedef struct {
+    LocalTensor<uint32_t> buffer;
+    uint32_t bufferCapacity;
+} BatchBuffer;
+
+typedef struct {
     ChannelHandle channelHandle;
-    UbcCtpBatchState state;
-    UbcCtpBatchRemoteContext remoteContext;
-};
+    BatchSqContext sqContext;
+    BatchCqContext cqContext;
+    BatchQueueCursor cursor;
+    BatchRemoteInfo remoteInfo;
+    BatchBuffer buffer;
+} UbcCtpBatchHandle;
 
-struct UbcCtpMultiBatchHandle {
-    MultiChannelHandle multiChannel;
-    UbcCtpBatchState state;
-};
-
-struct UbcCtpBatchHandleRef {
-    UbcCtpBatchState* state;
-    UbcCtpBatchRemoteInfo remoteInfo;
-};
+typedef struct {
+    UbcCtpBatchHandle handle;
+    uint32_t channelNum;
+    uint32_t reserved;
+    uint64_t cursorAddr;
+    uint64_t remoteInfoAddr;
+} UbcCtpMultiBatchHandle;
 
 template <typename T>
 struct ChannelTraits;
@@ -350,14 +325,10 @@ struct ChannelTraits<ChannelHandle> {
 template <>
 struct ChannelTraits<MultiChannelHandle> {
     using BatchHandleType = UbcCtpMultiBatchHandle;
-    using BatchHandleRefType = UbcCtpBatchHandleRef;
 };
 
 template <typename T>
 using BatchHandle = typename ChannelTraits<T>::BatchHandleType;
-
-template <typename T>
-using BatchHandleRef = typename ChannelTraits<T>::BatchHandleRefType;
 
 template <typename T>
 struct BatchHandleTraits;
@@ -370,12 +341,11 @@ struct BatchHandleTraits<UbcCtpBatchHandle> {
 template <>
 struct BatchHandleTraits<UbcCtpMultiBatchHandle> {
     using ChannelType = MultiChannelHandle;
+    using HandleRefType = UbcCtpBatchHandle;
 };
 
-template <>
-struct BatchHandleTraits<UbcCtpBatchHandleRef> {
-    using ChannelType = MultiChannelHandle;
-};
+template <typename T>
+using BatchHandleRef = typename BatchHandleTraits<T>::HandleRefType;
 
 static_assert(
     !std::is_same<BatchHandle<ChannelHandle>, BatchHandle<MultiChannelHandle>>::value,

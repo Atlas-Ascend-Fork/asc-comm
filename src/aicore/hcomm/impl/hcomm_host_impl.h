@@ -32,26 +32,41 @@ extern "C" {
 #endif
 
 typedef struct {
-    uint64_t remoteBufferAddr;
-    uint32_t remoteBufferNum;
-    uint32_t tpID;
-    uint64_t rmtEidL;
-    uint64_t rmtEidH;
+    uint32_t tokenId;
+    uint32_t tokenValue;
+    uint64_t remoteEidLow;
+    uint64_t remoteEidHigh;
+    uint32_t tpId;
+    uint32_t reserved;
 } BatchRemoteInfo;
+
+typedef struct {
+    uint64_t baseAddr;
+    uint64_t dbAddr;
+    uint32_t depth;
+    uint32_t reserved;
+} BatchSqContext;
+
+typedef struct {
+    uint64_t baseAddr;
+    uint64_t dbAddr;
+    uint32_t depth;
+    uint32_t cqeSize;
+} BatchCqContext;
 
 typedef struct {
     uint32_t sqHead;
     uint32_t sqTail;
     uint32_t cqHead;
     uint32_t cqTail;
-} BatchQueuePersistentCursor;
+    uint32_t preSqCnt;
+} BatchQueueCursor;
 
 typedef struct {
-    SqContext sqContext;
-    CqContext cqContext;
-    BatchQueuePersistentCursor cursor;
+    BatchSqContext sqContext;
+    BatchCqContext cqContext;
+    BatchQueueCursor cursor;
     uint32_t channelNum;
-    uint32_t reserved;
     uint64_t remoteInfoAddr;
 } MultiChannelEntity;
 
@@ -59,6 +74,7 @@ typedef struct {
     ChannelEntity channelEntity;
     SqContext sqContext;
     CqContext cqContext;
+    RegedBufferEntity remoteBuffer;
     BatchRemoteInfo remoteInfo;
 } ChannelMetadata;
 
@@ -147,13 +163,19 @@ static inline HcclResult HcommExtractChannelMetadata(
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
+    ret = HcommCopyFromDevice(
+        &metadata->remoteBuffer, sizeof(metadata->remoteBuffer), channelEntity.remoteBufferAddr, channelIndex,
+        "RegedBufferEntity");
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
 
-    metadata->remoteInfo.remoteBufferAddr = (uint64_t)(uintptr_t)channelEntity.remoteBufferAddr;
-    metadata->remoteInfo.remoteBufferNum = channelEntity.remoteBufferNum;
-    metadata->remoteInfo.tpID = metadata->sqContext.contextInfo.ubJfs.tpID;
-    memcpy(&metadata->remoteInfo.rmtEidL, metadata->sqContext.contextInfo.ubJfs.remoteEID, sizeof(uint64_t));
+    metadata->remoteInfo.tokenId = metadata->remoteBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
+    metadata->remoteInfo.tokenValue = metadata->remoteBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    metadata->remoteInfo.tpId = metadata->sqContext.contextInfo.ubJfs.tpID;
+    memcpy(&metadata->remoteInfo.remoteEidLow, metadata->sqContext.contextInfo.ubJfs.remoteEID, sizeof(uint64_t));
     memcpy(
-        &metadata->remoteInfo.rmtEidH, metadata->sqContext.contextInfo.ubJfs.remoteEID + sizeof(uint64_t),
+        &metadata->remoteInfo.remoteEidHigh, metadata->sqContext.contextInfo.ubJfs.remoteEID + sizeof(uint64_t),
         sizeof(uint64_t));
 
     return HCCL_SUCCESS;
@@ -194,9 +216,15 @@ static inline HcclResult HcommBuildMultiChannelEntity(
         channelInfos[i] = currentMetadata.remoteInfo;
     }
 
-    entity->sqContext = anchorMetadata.sqContext;
-    entity->cqContext = anchorMetadata.cqContext;
-    memcpy(&entity->cursor, anchorMetadata.channelEntity.reserve, sizeof(entity->cursor));
+    entity->sqContext.baseAddr = anchorMetadata.sqContext.contextInfo.ubJfs.sqVa;
+    entity->sqContext.dbAddr = anchorMetadata.sqContext.contextInfo.ubJfs.dbVa;
+    entity->sqContext.depth = anchorMetadata.sqContext.contextInfo.ubJfs.sqDepth;
+    entity->cqContext.baseAddr = anchorMetadata.cqContext.contextInfo.ubJfc.scqVa;
+    entity->cqContext.dbAddr = anchorMetadata.cqContext.contextInfo.ubJfc.dbVa;
+    entity->cqContext.depth = anchorMetadata.cqContext.contextInfo.ubJfc.cqDepth;
+    entity->cqContext.cqeSize = anchorMetadata.cqContext.contextInfo.ubJfc.cqeSize;
+    memcpy(&entity->cursor, anchorMetadata.channelEntity.reserve, offsetof(BatchQueueCursor, preSqCnt));
+    entity->cursor.preSqCnt = 0U;
     entity->channelNum = channelNum;
 
     ret = HcclEngineCtxCreate(comm, sharedQueueTag, COMM_ENGINE_AIV, totalSize, deviceMemory);

@@ -77,16 +77,13 @@ public:
     __aicore__ inline UbcCtpMultiBatchHandle MakeBatchHandle(
         MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr,
         GM_ADDR localAddr);
-    __aicore__ inline UbcCtpBatchHandleRef GetHandleRef(
-        UbcCtpMultiBatchHandle& multiBatchHandle, uint32_t channelIndex);
+    __aicore__ inline UbcCtpBatchHandle& GetHandleRef(UbcCtpMultiBatchHandle& multiBatchHandle, uint32_t channelIndex);
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
-    template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteNbi(UbcCtpBatchHandleRef& handleRef, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <
         typename T, HcommUrmaReduceOp reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,
         pipe_t reqPipe = PIPE_MTE3, auto const& config = URMA_DEFAULT_CFG>
@@ -97,8 +94,6 @@ public:
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
-    template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t ReadNbi(UbcCtpBatchHandleRef& handleRef, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <
         typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_INLINE_CFG>
@@ -111,10 +106,6 @@ public:
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
         UbcCtpBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
-    template <auto const& config = URMA_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteWithNotifyNbi(
-        UbcCtpBatchHandleRef& handleRef, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr,
-        uint64_t notifyVal);
     template <
         typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
@@ -143,12 +134,10 @@ private:
         const UdmaParams<T>& params = UdmaParams<T>{});
     template <HcommUrmaOpCode opCode, auto const& config>
     __aicore__ inline int32_t BatchPostSend(
-        UbcCtpBatchState& state, const UbcCtpBatchRemoteContext& remoteContext, GM_ADDR remoteAddr, GM_ADDR localAddr,
-        uint32_t len, GM_ADDR notifyAddr = nullptr, uint64_t notifyVal = 0);
-    __aicore__ inline int32_t BatchCommitImpl(
-        UbcCtpBatchState& state, __gm__ BatchQueuePersistentCursor* persistentCursor);
-    __aicore__ inline int32_t BatchDrainImpl(
-        UbcCtpBatchState& state, __gm__ BatchQueuePersistentCursor* persistentCursor);
+        UbcCtpBatchHandle& batchHandle, GM_ADDR remoteAddr, GM_ADDR localAddr, uint32_t len,
+        GM_ADDR notifyAddr = nullptr, uint64_t notifyVal = 0);
+    __aicore__ inline int32_t BatchCommitImpl(UbcCtpBatchHandle& batchHandle, __gm__ BatchQueueCursor* sharedCursor);
+    __aicore__ inline int32_t BatchDrainImpl(UbcCtpBatchHandle& batchHandle, __gm__ BatchQueueCursor* sharedCursor);
     __aicore__ inline void CommitImpl(ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt);
     __aicore__ inline void PollCqWhenSqOverflow(
         ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt);
@@ -157,7 +146,7 @@ private:
         LocalTensor<uint32_t> cqeItem);
     __aicore__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectTail);
     __aicore__ inline uint32_t PollBatchCq(
-        UbcCtpBatchState& state, __gm__ BatchQueuePersistentCursor* persistentCursor, uint32_t expectTail);
+        UbcCtpBatchHandle& batchHandle, __gm__ BatchQueueCursor* sharedCursor, uint32_t expectTail);
 
 private:
     LocalTensor<uint32_t> wqeItem_;
