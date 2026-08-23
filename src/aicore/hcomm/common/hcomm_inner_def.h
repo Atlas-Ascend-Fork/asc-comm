@@ -315,17 +315,13 @@ typedef struct {
     BatchCqContext cqContext;
     BatchQueueCursor cursor;
     BatchQueueIndexSource queueIndexSource;
-    union {
-        BatchRemoteInfo remoteInfo;
-        MultiChannelRemoteInfo multiRemoteInfo;
-    };
+    BatchRemoteInfo remoteInfo;
     BatchBuffer buffer;
 } UbcCtpBatchHandle;
 
 typedef struct {
     UbcCtpBatchHandle handle;
     uint32_t channelNum;
-    uint32_t reserved;
     uint64_t remoteInfoAddr;
 } UbcCtpMultiBatchHandle;
 

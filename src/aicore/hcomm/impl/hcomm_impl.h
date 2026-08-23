@@ -61,10 +61,10 @@ __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
 
 template <CommProtocol commProtocol>
 __aicore__ inline BatchHandle<ChannelHandle>& Hcomm<commProtocol>::GetHandleRef(
-    BatchHandle<MultiChannelHandle>& batchHandle, uint32_t channelIndex)
+    BatchHandle<MultiChannelHandle>& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
 {
     static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "GetHandleRef only supports COMM_PROTOCOL_UBC_CTP");
-    auto& handle = impl_.GetHandleRef(batchHandle, channelIndex);
+    auto& handle = impl_.GetHandleRef(batchHandle, channelIndex, remoteAddr);
     using ExpectedType = BatchHandle<ChannelHandle>;
     static_assert(
         std::is_same<typename std::remove_reference<decltype(handle)>::type, ExpectedType>::value,
