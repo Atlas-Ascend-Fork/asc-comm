@@ -802,7 +802,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
 }
 
 __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollBatchCq(
-    UbcCtpBatchHandle& batchHandle, __gm__ uint32_t* sqTailAddr, __gm__ uint32_t* cqTailAddr, uint32_t expectIdx)
+    UbcCtpBatchHandle& batchHandle, uint32_t expectIdx)
 {
     if (expectIdx == 0) {
         return HCOMM_SUCCESS;
@@ -818,10 +818,13 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollBatchCq(
     }
 
     batchHandle.cursor.cqTail = curTail;
-    if (sqTailAddr != nullptr) {
-        st_dev(batchHandle.cursor.sqTail, sqTailAddr, 0);
+    if (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY) {
+        auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+        channelEntity->cqTail = curTail;
+    } else {
+        st_dev(batchHandle.cursor.sqTail, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.tailAddr), 0);
+        st_dev(curTail, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.tailAddr), 0);
     }
-    st_dev(curTail, cqTailAddr, 0);
     st_dev(curTail & 0xFFFFFFU, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.dbAddr), 0);
     return HCOMM_SUCCESS;
 }
@@ -916,22 +919,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle
 
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBatchHandle& batchHandle)
 {
-    __gm__ uint32_t* sqHeadAddr = nullptr;
-    __gm__ uint32_t* cqHeadAddr = nullptr;
-    if (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY) {
-        if (batchHandle.channelHandle == 0U) {
-            return HCOMM_FAILED;
-        }
-        auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-        sqHeadAddr = &channelEntity->sqHead;
-        cqHeadAddr = &channelEntity->cqHead;
-    } else if (batchHandle.queueIndexSource == BatchQueueIndexSource::SHARED_QUEUE) {
-        if (batchHandle.sqContext.headAddr == 0U || batchHandle.cqContext.headAddr == 0U) {
-            return HCOMM_FAILED;
-        }
-        sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.headAddr);
-        cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.headAddr);
-    } else {
+    if (batchHandle.queueIndexSource == BatchQueueIndexSource::INVALID) {
         return HCOMM_FAILED;
     }
 
@@ -972,11 +960,20 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBa
 
     uint32_t newSqHead = sqHead + preSqCnt;
     batchHandle.cursor.sqHead = newSqHead;
-    Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-    st_dev(newSqHead, sqHeadAddr, 0);
-    st_dev(batchHandle.cursor.cqHead, cqHeadAddr, 0);
-    st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.dbAddr), 0);
-    Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
+    if (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY) {
+        auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+        channelEntity->sqHead = newSqHead;
+        channelEntity->cqHead = batchHandle.cursor.cqHead;
+        Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
+        st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.dbAddr), 0);
+        Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
+    } else {
+        Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
+        st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.headAddr), 0);
+        st_dev(batchHandle.cursor.cqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.headAddr), 0);
+        st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.dbAddr), 0);
+        Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
+    }
 
     batchHandle.cursor.preSqCnt = 0;
     return HCOMM_SUCCESS;
@@ -999,28 +996,12 @@ template <pipe_t pipe>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHandle& batchHandle)
 {
     (void)pipe;
-    __gm__ uint32_t* sqTailAddr = nullptr;
-    __gm__ uint32_t* cqTailAddr = nullptr;
-    if (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY) {
-        if (batchHandle.channelHandle == 0U) {
-            return HCOMM_FAILED;
-        }
-        auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-        cqTailAddr = &channelEntity->cqTail;
-    } else if (batchHandle.queueIndexSource == BatchQueueIndexSource::SHARED_QUEUE) {
-        if (batchHandle.sqContext.tailAddr == 0U || batchHandle.cqContext.tailAddr == 0U) {
-            return HCOMM_FAILED;
-        }
-        sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.tailAddr);
-        cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.tailAddr);
-    } else {
-        return HCOMM_FAILED;
-    }
-
     static_assert(
         sizeof(HcommUrmaJfcCqeCtx) <= HCOMM_URMA_WQEBB_SIZE, "Batch Drain CQE scratch space must fit in one WQEBB");
 
-    if (batchHandle.buffer.bufferCapacity == 0U || batchHandle.cursor.preSqCnt != 0U) {
+    if (batchHandle.queueIndexSource == BatchQueueIndexSource::INVALID ||
+        (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY && batchHandle.channelHandle == 0U) ||
+        batchHandle.buffer.bufferCapacity == 0U || batchHandle.cursor.preSqCnt != 0U) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid batch handle\n");
         return HCOMM_FAILED;
     }
@@ -1030,7 +1011,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHan
         KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid CQ context\n");
         return HCOMM_FAILED;
     }
-    uint32_t ret = PollBatchCq(batchHandle, sqTailAddr, cqTailAddr, batchHandle.cursor.cqHead);
+
+    uint32_t ret = PollBatchCq(batchHandle, batchHandle.cursor.cqHead);
     if (ret != HCOMM_SUCCESS) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Drain by batch handle failed pollRet=%u \n", ret);
         return ret;

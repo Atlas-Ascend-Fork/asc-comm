@@ -655,6 +655,11 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchCommitRejectsInvalidCounts)
     EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
+    invalidHandle.queueIndexSource = AscendC::BatchQueueIndexSource::INVALID;
+    invalidHandle.cursor.preSqCnt = 1U;
+    EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
+
+    invalidHandle = batchHandle;
     invalidHandle.buffer.bufferCapacity = URMA_BATCH_QUEUE_DEPTH;
     invalidHandle.cursor.preSqCnt = URMA_BATCH_QUEUE_DEPTH;
     invalidHandle.sqContext.depth = URMA_BATCH_QUEUE_DEPTH;
@@ -812,6 +817,10 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchDrainRejectsInvalidHandleState)
 
     auto invalidHandle = batchHandle;
     invalidHandle.channelHandle = 0;
+    EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
+
+    invalidHandle = batchHandle;
+    invalidHandle.queueIndexSource = AscendC::BatchQueueIndexSource::INVALID;
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
