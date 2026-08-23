@@ -291,6 +291,12 @@ typedef struct {
     uint32_t preSqCnt;
 } BatchQueueCursor;
 
+enum class BatchQueueIndexSource : uint32_t {
+    INVALID = 0U,
+    CHANNEL_ENTITY,
+    SHARED_QUEUE,
+};
+
 typedef struct {
     BatchSqContext sqContext;
     BatchCqContext cqContext;
@@ -308,6 +314,7 @@ typedef struct {
     BatchSqContext sqContext;
     BatchCqContext cqContext;
     BatchQueueCursor cursor;
+    BatchQueueIndexSource queueIndexSource;
     union {
         BatchRemoteInfo remoteInfo;
         MultiChannelRemoteInfo multiRemoteInfo;
@@ -344,11 +351,6 @@ struct BatchHandleTraits;
 template <>
 struct BatchHandleTraits<UbcCtpBatchHandle> {
     using ChannelType = ChannelHandle;
-};
-
-template <>
-struct BatchHandleTraits<UbcCtpMultiBatchHandle> {
-    using ChannelType = MultiChannelHandle;
 };
 
 // RoCE WQE, CQE, DB struct

@@ -101,14 +101,16 @@ HcclResult ret = MakeMultiChannelHandle(
     comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
 ```
 
-AICore侧创建多通道批量句柄，通过`GetHandleRef`选择逻辑通道并准备WQE，最后通过父批量句柄统一提交和等待：
+AICore侧创建多通道批量句柄，通过`GetHandleRef`取得统一的内层执行句柄。多通道批量句柄负责选择
+逻辑通道，内层执行句柄负责准备、提交WQE和等待完成：
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-auto batchHandle = hcomm.MakeBatchHandle(
+auto multiBatchHandle = hcomm.MakeBatchHandle(
     static_cast<AscendC::MultiChannelHandle>(multiChannel), batchBuffer, batchBufferLen);
+auto& batchHandle = hcomm.GetHandleRef(multiBatchHandle, 0U);
 for (uint32_t channelIndex = 0U; channelIndex < channelNum; ++channelIndex) {
-    auto& peerBatchHandle = hcomm.GetHandleRef(batchHandle, channelIndex);
+    auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, channelIndex);
     ret = hcomm.WriteNbi(
         peerBatchHandle, remoteBuffers[channelIndex], localBuffer, dataLen);
 }
@@ -116,7 +118,10 @@ ret = hcomm.BatchCommit(batchHandle);
 ret = hcomm.Drain(batchHandle);
 ```
 
-`channelDescs`数组下标对应`GetHandleRef`的`channelIndex`。批量读写根据实际远端地址和长度，在所选逻辑通道的远端MR表中解析token。`BatchCommit`和`Drain`使用父多通道批量句柄。
+`channelDescs`数组下标对应`GetHandleRef`的`channelIndex`。对同一个`multiBatchHandle`调用
+`GetHandleRef`始终返回同一个内层引用，并更新当前peer信息。批量读写根据实际远端地址和长度，在所选
+逻辑通道的远端MR表中解析token。`BatchCommit`和`Drain`使用该内层引用，不能直接使用
+`multiBatchHandle`。
 
 ## 批量缓冲区和CQE配置
 

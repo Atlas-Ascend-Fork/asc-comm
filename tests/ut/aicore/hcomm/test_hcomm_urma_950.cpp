@@ -11,6 +11,7 @@
 #include <array>
 #include <cstring>
 #include <gtest/gtest.h>
+#include <type_traits>
 #include <vector>
 #define private public
 #include "kernel_operator.h"
@@ -153,6 +154,83 @@ private:
     uint32_t cqDoorbell_ = 0;
 };
 
+class UrmaMultiChannelResource {
+public:
+    UrmaMultiChannelResource()
+        : sqBuffer_(URMA_SQ_DEPTH * URMA_WQE_SIZE, 0), cqBuffer_(URMA_SQ_DEPTH * URMA_CQE_SIZE, 0)
+    {
+        InitBuffer(remoteBuffers_[0], 0x1000U, 0x1000U, 0x11111U, 0xAAAAU);
+        InitBuffer(remoteBuffers_[1], 0x3000U, 0x1000U, 0x22222U, 0xBBBBU);
+
+        remoteInfos_[0].remoteBufferAddr = reinterpret_cast<uint64_t>(&remoteBuffers_[0]);
+        remoteInfos_[0].remoteBufferNum = 1U;
+        remoteInfos_[0].tpId = 11U;
+        remoteInfos_[0].remoteEidLow = 0x1111222233334444ULL;
+        remoteInfos_[0].remoteEidHigh = 0x5555666677778888ULL;
+        remoteInfos_[1].remoteBufferAddr = reinterpret_cast<uint64_t>(&remoteBuffers_[1]);
+        remoteInfos_[1].remoteBufferNum = 1U;
+        remoteInfos_[1].tpId = 22U;
+        remoteInfos_[1].remoteEidLow = 0x9999AAAABBBBCCCCULL;
+        remoteInfos_[1].remoteEidHigh = 0xDDDDEEEEFFFF0000ULL;
+
+        entity_.sqContext.baseAddr = reinterpret_cast<uint64_t>(sqBuffer_.data());
+        entity_.sqContext.headAddr = reinterpret_cast<uint64_t>(&sqHead_);
+        entity_.sqContext.tailAddr = reinterpret_cast<uint64_t>(&sqTail_);
+        entity_.sqContext.dbAddr = reinterpret_cast<uint64_t>(&sqDoorbell_);
+        entity_.sqContext.depth = URMA_SQ_DEPTH;
+        entity_.cqContext.baseAddr = reinterpret_cast<uint64_t>(cqBuffer_.data());
+        entity_.cqContext.headAddr = reinterpret_cast<uint64_t>(&cqHead_);
+        entity_.cqContext.tailAddr = reinterpret_cast<uint64_t>(&cqTail_);
+        entity_.cqContext.dbAddr = reinterpret_cast<uint64_t>(&cqDoorbell_);
+        entity_.cqContext.depth = URMA_SQ_DEPTH;
+        entity_.cqContext.cqeSize = URMA_CQE_SIZE;
+        entity_.channelNum = remoteInfos_.size();
+        entity_.remoteInfoAddr = reinterpret_cast<uint64_t>(remoteInfos_.data());
+    }
+
+    AscendC::MultiChannelHandle GetHandle()
+    {
+        return static_cast<AscendC::MultiChannelHandle>(reinterpret_cast<uint64_t>(&entity_));
+    }
+
+    uint32_t GetSqHead() const { return sqHead_; }
+
+    uint32_t GetSqTail() const { return sqTail_; }
+
+    uint32_t GetCqHead() const { return cqHead_; }
+
+    uint32_t GetCqTail() const { return cqTail_; }
+
+    uint32_t GetSqDoorbell() const { return sqDoorbell_; }
+
+    uint32_t GetCqDoorbell() const { return cqDoorbell_; }
+
+private:
+    static void InitBuffer(
+        AscendC::RegedBufferEntity& buffer, uint64_t addr, uint64_t size, uint32_t tokenId, uint32_t tokenValue)
+    {
+        buffer.type = AscendC::REGED_BUFFER_RMA;
+        buffer.bufferInfo.rma.addr = addr;
+        buffer.bufferInfo.rma.size = size;
+        buffer.bufferInfo.rma.protectionInfo.type = AscendC::PROTECTION_TYPE_UB;
+        buffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId = tokenId;
+        buffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue = tokenValue;
+    }
+
+private:
+    AscendC::MultiChannelEntity entity_ = {};
+    std::array<AscendC::MultiChannelRemoteInfo, 2> remoteInfos_ = {};
+    std::array<AscendC::RegedBufferEntity, 2> remoteBuffers_ = {};
+    std::vector<uint8_t> sqBuffer_;
+    std::vector<uint8_t> cqBuffer_;
+    uint32_t sqHead_ = 0;
+    uint32_t sqTail_ = 0;
+    uint32_t cqHead_ = 0;
+    uint32_t cqTail_ = 0;
+    uint32_t sqDoorbell_ = 0;
+    uint32_t cqDoorbell_ = 0;
+};
+
 } // namespace
 
 class HcommUrmaTestSuite : public testing::Test {
@@ -219,6 +297,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
     auto batchHandle = hcomm.MakeBatchHandle(channel.GetHandle(), batchTensor, 128, reinterpret_cast<GM_ADDR>(0x3008));
 
     EXPECT_EQ(batchHandle.channelHandle, channel.GetHandle());
+    EXPECT_EQ(batchHandle.queueIndexSource, AscendC::BatchQueueIndexSource::CHANNEL_ENTITY);
     EXPECT_EQ(batchHandle.buffer.buffer.GetPhyAddr(), batchTensor.GetPhyAddr());
     EXPECT_EQ(batchHandle.buffer.bufferCapacity, 2U);
     EXPECT_EQ(batchHandle.sqContext.baseAddr, reinterpret_cast<uint64_t>(channel.GetSqBuffer()));
@@ -241,6 +320,57 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
     auto defaultRemoteHandle = hcomm.MakeBatchHandle(channel.GetHandle(), batchTensor, 128);
     EXPECT_EQ(defaultRemoteHandle.remoteInfo.tokenId, 0x123456U);
     EXPECT_EQ(defaultRemoteHandle.remoteInfo.tokenValue, 0x654321U);
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_MultiChannelBatchUsesHandleRefForCommitAndDrain)
+{
+    static_assert(
+        std::is_same<AscendC::BatchHandle<AscendC::ChannelHandle>, AscendC::UbcCtpBatchHandle>::value,
+        "ChannelHandle must create the execution BatchHandle");
+    static_assert(
+        std::is_same<AscendC::BatchHandle<AscendC::MultiChannelHandle>, AscendC::UbcCtpMultiBatchHandle>::value,
+        "MultiChannelHandle must create the peer-selection BatchHandle");
+
+    UrmaMultiChannelResource multiChannel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+    alignas(32) std::array<uint8_t, 2U * URMA_WQE_SIZE> batchBuffer{};
+    auto multiBatchHandle =
+        hcomm.MakeBatchHandle(multiChannel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size());
+
+    auto& batchHandle = hcomm.GetHandleRef(multiBatchHandle, 0U);
+    EXPECT_EQ(&batchHandle, &multiBatchHandle.handle);
+    EXPECT_EQ(batchHandle.queueIndexSource, AscendC::BatchQueueIndexSource::SHARED_QUEUE);
+    ASSERT_EQ(
+        hcomm.WriteNbi(
+            batchHandle, reinterpret_cast<GM_ADDR>(0x1010U), reinterpret_cast<GM_ADDR>(0x5010U), 8U),
+        AscendC::HCOMM_SUCCESS);
+
+    auto& secondPeerHandle = hcomm.GetHandleRef(multiBatchHandle, 1U);
+    EXPECT_EQ(&secondPeerHandle, &batchHandle);
+    ASSERT_EQ(
+        hcomm.ReadNbi(
+            secondPeerHandle, reinterpret_cast<GM_ADDR>(0x6010U), reinterpret_cast<GM_ADDR>(0x3010U), 8U),
+        AscendC::HCOMM_SUCCESS);
+
+    const auto* firstSqe = reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(batchBuffer.data());
+    EXPECT_EQ(firstSqe->rmtJettyOrSegId, 0x11111U);
+    EXPECT_EQ(firstSqe->rmtTokenValue, 0xAAAAU);
+    EXPECT_EQ(firstSqe->tpId, 11U);
+    const auto* secondSqe =
+        reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(batchBuffer.data() + URMA_WQE_SIZE);
+    EXPECT_EQ(secondSqe->rmtJettyOrSegId, 0x22222U);
+    EXPECT_EQ(secondSqe->rmtTokenValue, 0xBBBBU);
+    EXPECT_EQ(secondSqe->tpId, 22U);
+
+    ASSERT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(multiChannel.GetSqHead(), 2U);
+    EXPECT_EQ(multiChannel.GetCqHead(), 2U);
+    EXPECT_EQ(multiChannel.GetSqDoorbell(), 2U);
+
+    ASSERT_EQ(hcomm.Drain(batchHandle), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(multiChannel.GetSqTail(), 2U);
+    EXPECT_EQ(multiChannel.GetCqTail(), 2U);
+    EXPECT_EQ(multiChannel.GetCqDoorbell(), 2U);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteNbi)

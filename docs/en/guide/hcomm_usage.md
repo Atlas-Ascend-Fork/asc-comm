@@ -101,14 +101,17 @@ HcclResult ret = MakeMultiChannelHandle(
     comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
 ```
 
-On the AICore, create a multi-channel batch handle, use `GetHandleRef` to select logical channels and prepare WQEs, then submit and drain through the parent batch handle:
+On the AICore, create a multi-channel batch handle and call `GetHandleRef` to obtain the common inner execution
+handle. The multi-channel batch handle selects logical channels; the inner handle prepares and submits WQEs and
+waits for completion:
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-auto batchHandle = hcomm.MakeBatchHandle(
+auto multiBatchHandle = hcomm.MakeBatchHandle(
     static_cast<AscendC::MultiChannelHandle>(multiChannel), batchBuffer, batchBufferLen);
+auto& batchHandle = hcomm.GetHandleRef(multiBatchHandle, 0U);
 for (uint32_t channelIndex = 0U; channelIndex < channelNum; ++channelIndex) {
-    auto& peerBatchHandle = hcomm.GetHandleRef(batchHandle, channelIndex);
+    auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, channelIndex);
     ret = hcomm.WriteNbi(
         peerBatchHandle, remoteBuffers[channelIndex], localBuffer, dataLen);
 }
@@ -116,7 +119,10 @@ ret = hcomm.BatchCommit(batchHandle);
 ret = hcomm.Drain(batchHandle);
 ```
 
-An index in `channelDescs` corresponds to the `channelIndex` passed to `GetHandleRef`. Each batch read or write resolves its token from the selected logical channel's remote MR table using the actual remote address and length. Call `BatchCommit` and `Drain` with the parent multi-channel batch handle.
+An index in `channelDescs` corresponds to the `channelIndex` passed to `GetHandleRef`. Calls using the same
+`multiBatchHandle` always return the same inner reference and update its current peer information. Each batch read or
+write resolves its token from the selected logical channel's remote MR table using the actual remote address and
+length. Call `BatchCommit` and `Drain` with the inner reference, not `multiBatchHandle`.
 
 ## Batch Buffer and CQE Configuration
 

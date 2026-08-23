@@ -90,7 +90,8 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - 对`GetHandleRef`返回的BatchHandle引用，接口根据`dst`和`len`在所选逻辑通道的远端MR表中解析token；数据地址未命中已注册buffer时返回`-1`。
 - 两种模式下，`notifyAddr`都复用数据写操作的token，不单独查询或校验通知地址。调用方必须保证`dst`访问区间和`notifyAddr`属于同一注册内存。
 - 当缓冲区容量校验失败时返回`-1`，BatchHandle中的WQEBB计数和`cqHead`保持不变。
-- 准备完成后需要调用`BatchCommit`。多通道模式必须对父`UbcCtpMultiBatchHandle`提交。使用期间需要独占对应单通道或共享Jetty。
+- 准备完成后需要调用`BatchCommit`。多通道模式对`GetHandleRef`返回的同一个内层BatchHandle引用提交，
+  不能直接提交`UbcCtpMultiBatchHandle`。使用期间需要独占对应单通道或共享Jetty。
 
 ## 相关接口
 

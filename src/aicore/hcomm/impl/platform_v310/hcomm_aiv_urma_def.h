@@ -117,13 +117,10 @@ public:
     template <pipe_t pipe = PIPE_S>
     __aicore__ inline int32_t Commit(ChannelHandle channel);
     __aicore__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
-    __aicore__ inline int32_t BatchCommit(UbcCtpMultiBatchHandle& multiBatchHandle);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
-    template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t Drain(UbcCtpMultiBatchHandle& multiBatchHandle);
 
 private:
     template <

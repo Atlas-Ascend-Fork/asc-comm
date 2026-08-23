@@ -5,8 +5,9 @@
 Creates a protocol-specific batch handle and binds the UB buffer used to prepare batched WQEs. Batch handles currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
 The interface maps the channel type to its corresponding BatchHandle return type. Use `auto` to receive the return
-value. `ChannelHandle` maps to `UbcCtpBatchHandle`, while `MultiChannelHandle` maps to
-`UbcCtpMultiBatchHandle`.
+value. `ChannelHandle` maps to the `UbcCtpBatchHandle` execution handle. `MultiChannelHandle` maps to
+`UbcCtpMultiBatchHandle`, which selects logical channels; call `GetHandleRef` to obtain its inner
+`UbcCtpBatchHandle` execution handle.
 
 ## Function Prototype
 
@@ -68,8 +69,8 @@ auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBu
 ```
 
 In multi-channel mode, call [GetHandleRef](./GetHandleRef.md) to select a logical channel and prepare WQEs through
-the returned `BatchHandle<ChannelHandle>` reference. Call `BatchCommit` and batch `Drain` on
-`multiBatchHandle`.
+the returned `BatchHandle<ChannelHandle>` reference. Call `BatchCommit` and batch `Drain` on that inner reference.
+Use `multiBatchHandle` only for subsequent `GetHandleRef` calls.
 
 ## Related APIs
 

@@ -31,11 +31,12 @@ public:
     {
         context_->result = KERNEL_SUCCESS;
         context_->hcommResult = AscendC::HCOMM_SUCCESS;
-        auto batch = hcomm_.MakeBatchHandle(
+        auto multiBatchHandle = hcomm_.MakeBatchHandle(
             static_cast<AscendC::MultiChannelHandle>(context_->multiChannel), batchTensor_, BATCH_BUFFER_SIZE);
+        auto& batchHandle = hcomm_.GetHandleRef(multiBatchHandle, 0U);
 
         for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
-            auto& peerBatchHandle = hcomm_.GetHandleRef(batch, channelIndex);
+            auto& peerBatchHandle = hcomm_.GetHandleRef(multiBatchHandle, channelIndex);
             GM_ADDR remoteBuffer = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
             context_->hcommResult = hcomm_.WriteNbi(
                 peerBatchHandle, remoteBuffer + RECV_BASE_OFFSET, localBuffer_ + SEND_OFFSET, DATA_SIZE);
@@ -44,12 +45,12 @@ public:
                 return;
             }
         }
-        context_->hcommResult = hcomm_.BatchCommit(batch);
+        context_->hcommResult = hcomm_.BatchCommit(batchHandle);
         if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
             context_->result = KERNEL_COMMIT_FAILED;
             return;
         }
-        context_->hcommResult = hcomm_.Drain(batch);
+        context_->hcommResult = hcomm_.Drain(batchHandle);
         if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
             context_->result = KERNEL_DRAIN_FAILED;
         }

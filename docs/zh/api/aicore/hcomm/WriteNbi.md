@@ -73,7 +73,8 @@ __aicore__ inline int32_t WriteNbi(
 - 对单通道`MakeBatchHandle`返回的句柄，接口复用创建时缓存的token；调用方必须保证`[dst, dst + len)`属于该token对应的注册内存。
 - 对`GetHandleRef`返回的BatchHandle引用，接口根据`dst`和`len`在所选逻辑通道的远端MR表中解析token；地址未命中已注册buffer时返回`-1`。
 - 当缓冲区容量校验失败时返回`-1`，BatchHandle中的WQEBB计数和`cqHead`保持不变。
-- 准备完成后需要调用`BatchCommit`。多通道模式必须对父`UbcCtpMultiBatchHandle`提交。使用期间需要独占对应单通道或共享Jetty。
+- 准备完成后需要调用`BatchCommit`。多通道模式对`GetHandleRef`返回的同一个内层BatchHandle引用提交，
+  不能直接提交`UbcCtpMultiBatchHandle`。使用期间需要独占对应单通道或共享Jetty。
 
 ## 相关样例
 

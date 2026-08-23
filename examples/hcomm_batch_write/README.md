@@ -9,17 +9,19 @@
 Kernel侧主要流程如下：
 
 ```cpp
-auto batch = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
+auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
+auto& batchHandle = hcomm.GetHandleRef(multiBatchHandle, 0U);
 for (uint32_t index = 0; index < channelNum; ++index) {
-    auto& peerBatchHandle = hcomm.GetHandleRef(batch, index);
+    auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, index);
     hcomm.WriteNbi(peerBatchHandle, remoteBuffers[index] + recvOffset, localBuffer, dataSize);
 }
-hcomm.BatchCommit(batch);
-hcomm.Drain(batch);
+hcomm.BatchCommit(batchHandle);
+hcomm.Drain(batchHandle);
 ```
 
-`GetHandleRef`选择本次写操作使用的逻辑通道。批量写接口根据实际远端地址，在该通道的远端MR表中
-解析本次WQE使用的token。
+`multiBatchHandle`只用于选择逻辑通道。`GetHandleRef`每次返回同一个内层BatchHandle引用，并更新该引用
+当前使用的peer信息。批量写接口根据实际远端地址，在所选逻辑通道的远端MR表中解析本次WQE使用的
+token；`BatchCommit`和`Drain`也使用该内层引用。
 
 ## 支持环境
 

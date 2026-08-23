@@ -19,13 +19,13 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `batchHandle` | Input/Output | Single-channel or multi-channel batch handle created by `MakeBatchHandle`. On success, all prepared WQEs are submitted and the WQEBB count for the current batch is reset. |
+| `batchHandle` | Input/Output | Single-channel execution handle created by `MakeBatchHandle`, or inner execution handle returned by `GetHandleRef`. On success, all prepared WQEs are submitted and the WQEBB count for the current batch is reset. |
 
 ## Template Parameters
 
 | Parameter | Description |
 | --- | --- |
-| `T` | Batch handle type, deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle` and `UbcCtpMultiBatchHandle`. |
+| `T` | Batch handle type, deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle`. |
 
 ## Return Value
 
@@ -37,7 +37,9 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 ## Constraints
 
 - Prepare at least one WQE by calling batch `ReadNbi`, `WriteNbi`, or `WriteWithNotifyNbi` before this interface.
-- In multi-channel mode, prepare WQEs through the BatchHandle reference returned by `GetHandleRef` and call this interface on the parent `UbcCtpMultiBatchHandle`.
+- In multi-channel mode, prepare WQEs through the inner BatchHandle reference returned by `GetHandleRef` and call
+  this interface on that same inner reference. `UbcCtpMultiBatchHandle` is only for selecting logical channels and
+  cannot be committed directly.
 - Batch read, write, and write-with-notify tasks can be mixed in the same batch.
 - The number of prepared WQEBBs must not exceed the UB buffer capacity of the BatchHandle and must be strictly smaller than `sqDepth`.
 - SQ ring wrap is supported. If the batch crosses the end of the SQ, the interface copies it to the tail and the beginning of the SQ separately.

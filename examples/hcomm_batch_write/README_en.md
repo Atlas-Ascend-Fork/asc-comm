@@ -10,17 +10,20 @@ Each receiving rank verifies the data written by rank 0.
 The kernel uses the following flow:
 
 ```cpp
-auto batch = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
+auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
+auto& batchHandle = hcomm.GetHandleRef(multiBatchHandle, 0U);
 for (uint32_t index = 0; index < channelNum; ++index) {
-    auto& peerBatchHandle = hcomm.GetHandleRef(batch, index);
+    auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, index);
     hcomm.WriteNbi(peerBatchHandle, remoteBuffers[index] + recvOffset, localBuffer, dataSize);
 }
-hcomm.BatchCommit(batch);
-hcomm.Drain(batch);
+hcomm.BatchCommit(batchHandle);
+hcomm.Drain(batchHandle);
 ```
 
-`GetHandleRef` selects the logical channel for the write. The batch write resolves the token for the WQE from that
-channel's remote MR table using the actual remote address.
+`multiBatchHandle` is used only to select a logical channel. Each `GetHandleRef` call returns the same inner
+BatchHandle reference and updates its current peer information. The batch write resolves the token for the WQE from
+the selected channel's remote MR table using the actual remote address. `BatchCommit` and `Drain` also use this inner
+reference.
 
 ## Requirements
 
