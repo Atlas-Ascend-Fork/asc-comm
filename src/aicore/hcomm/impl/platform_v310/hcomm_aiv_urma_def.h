@@ -134,10 +134,6 @@ private:
     __aicore__ inline int32_t BatchPostSend(
         UbcCtpBatchHandle& batchHandle, GM_ADDR remoteAddr, GM_ADDR localAddr, uint32_t len,
         GM_ADDR notifyAddr = nullptr, uint64_t notifyVal = 0);
-    __aicore__ inline int32_t BatchCommitImpl(
-        UbcCtpBatchHandle& batchHandle, __gm__ uint32_t* sqHeadAddr, __gm__ uint32_t* cqHeadAddr);
-    __aicore__ inline int32_t BatchDrainImpl(
-        UbcCtpBatchHandle& batchHandle, __gm__ uint32_t* sqTailAddr, __gm__ uint32_t* cqTailAddr);
     __aicore__ inline void CommitImpl(ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt);
     __aicore__ inline void PollCqWhenCqOverflow(
         ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt);

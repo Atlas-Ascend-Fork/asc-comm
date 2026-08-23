@@ -914,9 +914,27 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommitImpl(
-    UbcCtpBatchHandle& batchHandle, __gm__ uint32_t* sqHeadAddr, __gm__ uint32_t* cqHeadAddr)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBatchHandle& batchHandle)
 {
+    __gm__ uint32_t* sqHeadAddr = nullptr;
+    __gm__ uint32_t* cqHeadAddr = nullptr;
+    if (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY) {
+        if (batchHandle.channelHandle == 0U) {
+            return HCOMM_FAILED;
+        }
+        auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+        sqHeadAddr = &channelEntity->sqHead;
+        cqHeadAddr = &channelEntity->cqHead;
+    } else if (batchHandle.queueIndexSource == BatchQueueIndexSource::SHARED_QUEUE) {
+        if (batchHandle.sqContext.headAddr == 0U || batchHandle.cqContext.headAddr == 0U) {
+            return HCOMM_FAILED;
+        }
+        sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.headAddr);
+        cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.headAddr);
+    } else {
+        return HCOMM_FAILED;
+    }
+
     uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
     if (preSqCnt == 0 || preSqCnt > batchHandle.buffer.bufferCapacity) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed with invalid WQEBB count\n");
@@ -964,25 +982,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommitImpl(
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBatchHandle& batchHandle)
-{
-    if (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY) {
-        if (batchHandle.channelHandle == 0U) {
-            return HCOMM_FAILED;
-        }
-        auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-        return BatchCommitImpl(batchHandle, &channelEntity->sqHead, &channelEntity->cqHead);
-    }
-
-    if (batchHandle.queueIndexSource != BatchQueueIndexSource::SHARED_QUEUE || batchHandle.sqContext.headAddr == 0U ||
-        batchHandle.cqContext.headAddr == 0U) {
-        return HCOMM_FAILED;
-    }
-    auto* sqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.headAddr);
-    auto* cqHeadAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.headAddr);
-    return BatchCommitImpl(batchHandle, sqHeadAddr, cqHeadAddr);
-}
-
 template <pipe_t pipe>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle channel)
 {
@@ -996,9 +995,28 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle 
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchDrainImpl(
-    UbcCtpBatchHandle& batchHandle, __gm__ uint32_t* sqTailAddr, __gm__ uint32_t* cqTailAddr)
+template <pipe_t pipe>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHandle& batchHandle)
 {
+    (void)pipe;
+    __gm__ uint32_t* sqTailAddr = nullptr;
+    __gm__ uint32_t* cqTailAddr = nullptr;
+    if (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY) {
+        if (batchHandle.channelHandle == 0U) {
+            return HCOMM_FAILED;
+        }
+        auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+        cqTailAddr = &channelEntity->cqTail;
+    } else if (batchHandle.queueIndexSource == BatchQueueIndexSource::SHARED_QUEUE) {
+        if (batchHandle.sqContext.tailAddr == 0U || batchHandle.cqContext.tailAddr == 0U) {
+            return HCOMM_FAILED;
+        }
+        sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.tailAddr);
+        cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.tailAddr);
+    } else {
+        return HCOMM_FAILED;
+    }
+
     static_assert(
         sizeof(HcommUrmaJfcCqeCtx) <= HCOMM_URMA_WQEBB_SIZE, "Batch Drain CQE scratch space must fit in one WQEBB");
 
@@ -1018,27 +1036,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchDrainImpl(
         return ret;
     }
     return HCOMM_SUCCESS;
-}
-
-template <pipe_t pipe>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHandle& batchHandle)
-{
-    (void)pipe;
-    if (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY) {
-        if (batchHandle.channelHandle == 0U) {
-            return HCOMM_FAILED;
-        }
-        auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-        return BatchDrainImpl(batchHandle, nullptr, &channelEntity->cqTail);
-    }
-
-    if (batchHandle.queueIndexSource != BatchQueueIndexSource::SHARED_QUEUE || batchHandle.sqContext.tailAddr == 0U ||
-        batchHandle.cqContext.tailAddr == 0U) {
-        return HCOMM_FAILED;
-    }
-    auto* sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.tailAddr);
-    auto* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.tailAddr);
-    return BatchDrainImpl(batchHandle, sqTailAddr, cqTailAddr);
 }
 
 } // namespace AscendC
