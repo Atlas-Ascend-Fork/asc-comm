@@ -107,9 +107,11 @@ AICore侧创建多通道批量句柄，通过`GetHandleRef`取得统一的内层
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
 auto multiBatchHandle = hcomm.MakeBatchHandle(
     static_cast<AscendC::MultiChannelHandle>(multiChannel), batchBuffer, batchBufferLen);
-auto& batchHandle = hcomm.GetHandleRef(multiBatchHandle, 0U);
+auto& batchHandle = hcomm.GetHandleRef(
+    multiBatchHandle, 0U, remoteBuffers[0U]);
 for (uint32_t channelIndex = 0U; channelIndex < channelNum; ++channelIndex) {
-    auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, channelIndex);
+    auto& peerBatchHandle = hcomm.GetHandleRef(
+        multiBatchHandle, channelIndex, remoteBuffers[channelIndex]);
     ret = hcomm.WriteNbi(
         peerBatchHandle, remoteBuffers[channelIndex], localBuffer, dataLen);
 }
@@ -117,7 +119,7 @@ ret = hcomm.BatchCommit(batchHandle);
 ret = hcomm.Drain(batchHandle);
 ```
 
-`channelDescs`数组下标对应`GetHandleRef`的`channelIndex`。对同一个`multiBatchHandle`调用`GetHandleRef`始终返回同一个内层引用，并更新当前peer信息。批量读写根据实际远端地址和长度，在所选逻辑通道的远端MR表中解析token。`BatchCommit`和`Drain`使用该内层引用，不能直接使用`multiBatchHandle`。
+`channelDescs`数组下标对应`GetHandleRef`的`channelIndex`。批量操作、`BatchCommit`和`Drain`均使用该接口返回的内层引用。
 
 ## 批量缓冲区和CQE配置
 

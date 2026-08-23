@@ -33,13 +33,13 @@ public:
         context_->hcommResult = AscendC::HCOMM_SUCCESS;
         auto multiBatchHandle = hcomm_.MakeBatchHandle(
             static_cast<AscendC::MultiChannelHandle>(context_->multiChannel), batchTensor_, BATCH_BUFFER_SIZE);
-        auto& batchHandle = hcomm_.GetHandleRef(multiBatchHandle, 0U);
+        GM_ADDR firstRemoteAddr = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[0U]) + RECV_BASE_OFFSET;
+        auto& batchHandle = hcomm_.GetHandleRef(multiBatchHandle, 0U, firstRemoteAddr);
 
         for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
-            auto& peerBatchHandle = hcomm_.GetHandleRef(multiBatchHandle, channelIndex);
-            GM_ADDR remoteBuffer = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]);
-            context_->hcommResult = hcomm_.WriteNbi(
-                peerBatchHandle, remoteBuffer + RECV_BASE_OFFSET, localBuffer_ + SEND_OFFSET, DATA_SIZE);
+            GM_ADDR remoteAddr = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]) + RECV_BASE_OFFSET;
+            auto& peerBatchHandle = hcomm_.GetHandleRef(multiBatchHandle, channelIndex, remoteAddr);
+            context_->hcommResult = hcomm_.WriteNbi(peerBatchHandle, remoteAddr, localBuffer_ + SEND_OFFSET, DATA_SIZE);
             if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
                 context_->result = KERNEL_WRITE_FAILED;
                 return;

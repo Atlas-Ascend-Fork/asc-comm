@@ -23,7 +23,6 @@
 #define IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_INNER_DEF_H
 
 #include <cstdint>
-#include <type_traits>
 
 namespace AscendC {
 
@@ -315,10 +314,7 @@ typedef struct {
     BatchCqContext cqContext;
     BatchQueueCursor cursor;
     BatchQueueIndexSource queueIndexSource;
-    union {
-        BatchRemoteInfo remoteInfo;
-        MultiChannelRemoteInfo multiRemoteInfo;
-    };
+    BatchRemoteInfo remoteInfo;
     BatchBuffer buffer;
 } UbcCtpBatchHandle;
 

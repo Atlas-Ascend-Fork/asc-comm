@@ -11,19 +11,19 @@ The kernel uses the following flow:
 
 ```cpp
 auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
-auto& batchHandle = hcomm.GetHandleRef(multiBatchHandle, 0U);
+auto& batchHandle = hcomm.GetHandleRef(
+    multiBatchHandle, 0U, remoteBuffers[0U] + recvOffset);
 for (uint32_t index = 0; index < channelNum; ++index) {
-    auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, index);
-    hcomm.WriteNbi(peerBatchHandle, remoteBuffers[index] + recvOffset, localBuffer, dataSize);
+    GM_ADDR remoteAddr = remoteBuffers[index] + recvOffset;
+    auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, index, remoteAddr);
+    hcomm.WriteNbi(peerBatchHandle, remoteAddr, localBuffer, dataSize);
 }
 hcomm.BatchCommit(batchHandle);
 hcomm.Drain(batchHandle);
 ```
 
-`multiBatchHandle` is used only to select a logical channel. Each `GetHandleRef` call returns the same inner
-BatchHandle reference and updates its current peer information. The batch write resolves the token for the WQE from
-the selected channel's remote MR table using the actual remote address. `BatchCommit` and `Drain` also use this inner
-reference.
+`GetHandleRef` returns the inner BatchHandle reference for a logical channel and remote address. Use this reference for
+batch writes, `BatchCommit`, and `Drain`.
 
 ## Requirements
 
