@@ -57,8 +57,7 @@ __aicore__ inline int32_t Drain(T& batchHandle);
 ### Batch Interface
 
 - Currently supported only on the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950. It does not require `Init`.
-- In multi-channel mode, call batch `Drain` on the inner BatchHandle reference returned by `GetHandleRef`.
-  `UbcCtpMultiBatchHandle` cannot be passed directly to this interface.
+- In multi-channel mode, call batch `Drain` on the inner BatchHandle reference returned by `GetHandleRef`. `UbcCtpMultiBatchHandle` cannot be passed directly to this interface.
 - Submit prepared WQEs through `BatchCommit` before this interface. If the BatchHandle contains uncommitted WQEBBs, this interface returns `-1`.
 - Batch `Drain` reuses the first 64 bytes of the WQE buffer as CQE scratch space. Do not access or modify the buffer concurrently during the call.
 - Multiple `BatchCommit` calls can be followed by one batch `Drain`, which waits for all CQEs accumulated in the BatchHandle.

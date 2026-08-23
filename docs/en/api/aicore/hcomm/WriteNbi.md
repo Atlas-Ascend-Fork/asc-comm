@@ -71,9 +71,7 @@ __aicore__ inline int32_t WriteNbi(
 - For a handle returned by single-channel `MakeBatchHandle`, the interface reuses the token cached during creation. The caller must ensure that `[dst, dst + len)` belongs to the registered memory represented by that token.
 - For a BatchHandle reference returned by `GetHandleRef`, the interface resolves a token from the selected logical channel's remote MR table using `dst` and `len`. It returns `-1` if the range does not match a registered buffer.
 - If buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
-- Call `BatchCommit` after preparation. In multi-channel mode, commit the same inner BatchHandle reference returned
-  by `GetHandleRef`; do not commit `UbcCtpMultiBatchHandle` directly. The caller must exclusively own the single
-  channel or shared Jetty.
+- Call `BatchCommit` after preparation. In multi-channel mode, commit the same inner BatchHandle reference returned by `GetHandleRef`; do not commit `UbcCtpMultiBatchHandle` directly. The caller must exclusively own the single channel or shared Jetty.
 
 ## Related Sample
 

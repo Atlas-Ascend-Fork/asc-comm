@@ -88,9 +88,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - For a BatchHandle reference returned by `GetHandleRef`, the interface resolves a token from the selected logical channel's remote MR table using `dst` and `len`. It returns `-1` if the data range does not match a registered buffer.
 - In both modes, `notifyAddr` reuses the token selected for the data write and is not looked up or validated separately. The caller must ensure that the `dst` range and `notifyAddr` belong to the same registered memory.
 - If buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
-- Call `BatchCommit` after preparation. In multi-channel mode, commit the same inner BatchHandle reference returned
-  by `GetHandleRef`; do not commit `UbcCtpMultiBatchHandle` directly. The caller must exclusively own the single
-  channel or shared Jetty.
+- Call `BatchCommit` after preparation. In multi-channel mode, commit the same inner BatchHandle reference returned by `GetHandleRef`; do not commit `UbcCtpMultiBatchHandle` directly. The caller must exclusively own the single channel or shared Jetty.
 
 ## Related Interfaces
 

@@ -4,9 +4,7 @@
 
 创建与通信协议匹配的批量句柄，并绑定用于批量准备WQE的UB缓冲区。当前批量句柄仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 
-接口通过channel类型映射得到对应的BatchHandle返回类型，调用侧建议使用`auto`接收返回值。当前
-`ChannelHandle`映射为执行句柄`UbcCtpBatchHandle`；`MultiChannelHandle`映射为用于选择逻辑通道的
-`UbcCtpMultiBatchHandle`，通过`GetHandleRef`取得其中的`UbcCtpBatchHandle`执行句柄。
+接口通过channel类型映射得到对应的BatchHandle返回类型，调用侧建议使用`auto`接收返回值。当前`ChannelHandle`映射为执行句柄`UbcCtpBatchHandle`；`MultiChannelHandle`映射为用于选择逻辑通道的`UbcCtpMultiBatchHandle`，通过`GetHandleRef`取得其中的`UbcCtpBatchHandle`执行句柄。
 
 ## 函数原型
 
@@ -67,9 +65,7 @@ auto batchHandle = hcomm.MakeBatchHandle(channel, batchBuffer, batchBufferLen, r
 auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferLen);
 ```
 
-多通道模式下，调用[GetHandleRef](./GetHandleRef.md)选择逻辑通道，通过返回的
-`BatchHandle<ChannelHandle>`引用准备WQE，并对该内层引用执行`BatchCommit`和批量`Drain`。
-`multiBatchHandle`只用于后续的`GetHandleRef`调用。
+多通道模式下，调用[GetHandleRef](./GetHandleRef.md)选择逻辑通道，通过返回的`BatchHandle<ChannelHandle>`引用准备WQE，并对该内层引用执行`BatchCommit`和批量`Drain`。`multiBatchHandle`只用于后续的`GetHandleRef`调用。
 
 ## 相关接口
 

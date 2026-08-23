@@ -4,10 +4,7 @@
 
 Creates a protocol-specific batch handle and binds the UB buffer used to prepare batched WQEs. Batch handles currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
-The interface maps the channel type to its corresponding BatchHandle return type. Use `auto` to receive the return
-value. `ChannelHandle` maps to the `UbcCtpBatchHandle` execution handle. `MultiChannelHandle` maps to
-`UbcCtpMultiBatchHandle`, which selects logical channels; call `GetHandleRef` to obtain its inner
-`UbcCtpBatchHandle` execution handle.
+The interface maps the channel type to its corresponding BatchHandle return type. Use `auto` to receive the return value. `ChannelHandle` maps to the `UbcCtpBatchHandle` execution handle. `MultiChannelHandle` maps to `UbcCtpMultiBatchHandle`, which selects logical channels; call `GetHandleRef` to obtain its inner `UbcCtpBatchHandle` execution handle.
 
 ## Function Prototype
 
@@ -40,8 +37,7 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 
 ## Return Value
 
-Returns `BatchHandle<T>`: `ChannelHandle` resolves to `UbcCtpBatchHandle`, and `MultiChannelHandle` resolves to
-`UbcCtpMultiBatchHandle`. This interface is supported only by `COMM_PROTOCOL_UBC_CTP`.
+Returns `BatchHandle<T>`: `ChannelHandle` resolves to `UbcCtpBatchHandle`, and `MultiChannelHandle` resolves to `UbcCtpMultiBatchHandle`. This interface is supported only by `COMM_PROTOCOL_UBC_CTP`.
 
 This interface does not report invalid arguments through a status code. The caller must satisfy the constraints below. Invalid arguments trigger an interface assertion in debug builds.
 
@@ -68,8 +64,7 @@ auto batchHandle = hcomm.MakeBatchHandle(channel, batchBuffer, batchBufferLen, r
 auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferLen);
 ```
 
-In multi-channel mode, call [GetHandleRef](./GetHandleRef.md) to select a logical channel and prepare WQEs through
-the returned `BatchHandle<ChannelHandle>` reference. Call `BatchCommit` and batch `Drain` on that inner reference.
+In multi-channel mode, call [GetHandleRef](./GetHandleRef.md) to select a logical channel and prepare WQEs through the returned `BatchHandle<ChannelHandle>` reference. Call `BatchCommit` and batch `Drain` on that inner reference.
 Use `multiBatchHandle` only for subsequent `GetHandleRef` calls.
 
 ## Related APIs

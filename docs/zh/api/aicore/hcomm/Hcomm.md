@@ -8,7 +8,7 @@
 #include "hcomm/hcomm.h"
 ```
 
-`AscendC::Hcomm`是AICore侧点对点通信接口模板。普通接口通过`ChannelHandle`提交单个读、写、写通知和原子操作任务，并通过`Commit`和`Drain`控制任务提交与完成等待。UBC_CTP路径还提供BatchHandle接口，既支持单通道批量提交，也支持通过`MultiChannelHandle`在共享Jetty上为多个逻辑通道准备WQE，再通过`BatchCommit`一次提交。
+`AscendC::Hcomm`是AICore侧点对点通信接口模板。普通接口通过`ChannelHandle`提交单个读、写、写通知和原子操作任务，并通过`Commit`和`Drain`控制任务提交与完成等待。UBC_CTP路径还提供BatchHandle接口，既支持单通道批量提交，也支持通过MultiChannelHandle`在共享Jetty上为多个逻辑通道准备WQE，再通过`BatchCommit`一次提交。
 
 ## 模板参数
 
@@ -21,10 +21,7 @@ class Hcomm;
 | --- | --- |
 | `commProtocol` | 通信协议类型，支持`COMM_PROTOCOL_ROCE`和`COMM_PROTOCOL_UBC_CTP`，默认值为`COMM_PROTOCOL_UBC_CTP`。 |
 
-`MakeBatchHandle`通过编译期traits推导返回类型：`ChannelHandle`映射为`UbcCtpBatchHandle`，
-`MultiChannelHandle`映射为`UbcCtpMultiBatchHandle`。后者只负责通过`GetHandleRef`选择逻辑通道；
-批量读写、`BatchCommit`和批量`Drain`统一使用返回的内层`UbcCtpBatchHandle`引用。批量接口仅支持
-Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
+`MakeBatchHandle`通过编译期traits推导返回类型：`ChannelHandle`映射为`UbcCtpBatchHandle`，`MultiChannelHandle`映射为`UbcCtpMultiBatchHandle`。后者只负责通过`GetHandleRef`选择逻辑通道；批量读写、`BatchCommit`和批量`Drain`统一使用返回的内层`UbcCtpBatchHandle`引用。批量接口仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 
 ## 协议能力
 
