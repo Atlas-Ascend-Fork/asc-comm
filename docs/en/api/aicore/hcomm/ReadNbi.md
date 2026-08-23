@@ -36,7 +36,7 @@ __aicore__ inline int32_t ReadNbi(
 | `channel` | Input | Communication channel handle used by the ordinary interface. |
 | `batchHandle` | Input/Output | Single-channel batch handle created by `MakeBatchHandle`, or a BatchHandle reference returned by `GetHandleRef`. |
 | `dst` | Output | Absolute local destination GM address. |
-| `src` | Input | Absolute remote source GM address. In single-channel mode it must match the token cached in the handle. For a multi-channel reference, it is used to resolve a token from the selected logical channel's remote MR table. |
+| `src` | Input | Absolute remote source GM address. |
 | `len` | Input | Read length in bytes. |
 
 ## Template Parameters
@@ -68,8 +68,7 @@ __aicore__ inline int32_t ReadNbi(
 - Currently supported only on the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 - Each batch read task occupies one 64-byte WQEBB. It is prepared only in UB and does not copy data to the GM SQ or ring the doorbell.
 - `config.inlineEn` must be `0`, and `config.cqe` can be `0` or `1`. Different read, write, and write-with-notify tasks in the same batch may use different `cqe` settings.
-- For a handle returned by single-channel `MakeBatchHandle`, the interface reuses the token cached during creation. The caller must ensure that `[src, src + len)` belongs to the registered memory represented by that token.
-- For a BatchHandle reference returned by `GetHandleRef`, the interface resolves a token from the selected logical channel's remote MR table using `src` and `len`. It returns `-1` if the range does not match a registered buffer.
+- For a batch handle, `[src, src + len)` must belong to its selected remote registered memory.
 - If buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
 - Call `BatchCommit` after preparation. In multi-channel mode, commit the same inner BatchHandle reference returned by `GetHandleRef`; do not commit `UbcCtpMultiBatchHandle` directly. The caller must exclusively own the single channel or shared Jetty.
 

@@ -109,9 +109,11 @@ waits for completion:
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
 auto multiBatchHandle = hcomm.MakeBatchHandle(
     static_cast<AscendC::MultiChannelHandle>(multiChannel), batchBuffer, batchBufferLen);
-auto& batchHandle = hcomm.GetHandleRef(multiBatchHandle, 0U);
+auto& batchHandle = hcomm.GetHandleRef(
+    multiBatchHandle, 0U, remoteBuffers[0U]);
 for (uint32_t channelIndex = 0U; channelIndex < channelNum; ++channelIndex) {
-    auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, channelIndex);
+    auto& peerBatchHandle = hcomm.GetHandleRef(
+        multiBatchHandle, channelIndex, remoteBuffers[channelIndex]);
     ret = hcomm.WriteNbi(
         peerBatchHandle, remoteBuffers[channelIndex], localBuffer, dataLen);
 }
@@ -119,10 +121,8 @@ ret = hcomm.BatchCommit(batchHandle);
 ret = hcomm.Drain(batchHandle);
 ```
 
-An index in `channelDescs` corresponds to the `channelIndex` passed to `GetHandleRef`. Calls using the same
-`multiBatchHandle` always return the same inner reference and update its current peer information. Each batch read or
-write resolves its token from the selected logical channel's remote MR table using the actual remote address and
-length. Call `BatchCommit` and `Drain` with the inner reference, not `multiBatchHandle`.
+An index in `channelDescs` corresponds to the `channelIndex` passed to `GetHandleRef`. Use the returned inner reference
+for batch operations, `BatchCommit`, and `Drain`.
 
 ## Batch Buffer and CQE Configuration
 

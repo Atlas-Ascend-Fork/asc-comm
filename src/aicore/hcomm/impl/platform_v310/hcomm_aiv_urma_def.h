@@ -77,7 +77,8 @@ public:
     __aicore__ inline UbcCtpMultiBatchHandle MakeBatchHandle(
         MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr,
         GM_ADDR localAddr);
-    __aicore__ inline UbcCtpBatchHandle& GetHandleRef(UbcCtpMultiBatchHandle& multiBatchHandle, uint32_t channelIndex);
+    __aicore__ inline UbcCtpBatchHandle& GetHandleRef(
+        UbcCtpMultiBatchHandle& multiBatchHandle, uint32_t channelIndex, GM_ADDR remoteAddr);
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
