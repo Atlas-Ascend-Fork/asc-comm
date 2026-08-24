@@ -43,10 +43,11 @@ if [[ -n "${LCOV_MAJOR}" && "${LCOV_MAJOR}" -ge 2 ]]; then
 fi
 
 lcov -c -d "${BUILD_DIR}" -o "${COV_FILE}" ${EXTRA_ARGS}
+# Project headers are staged under this build directory and must remain in the report.
 lcov -r "${COV_FILE}" \
     "${CANN_PATH}/*" \
     "/home/jenkins/opensource/*" \
-    "${ROOT_DIR}/build/*" \
+    "${BUILD_DIR}/ut-hcomm/_deps/*" \
     "${ROOT_DIR}/build_out/*" \
     "${ROOT_DIR}/output/*" \
     "${ROOT_DIR}/tests/*" \

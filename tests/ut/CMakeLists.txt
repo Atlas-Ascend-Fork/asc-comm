@@ -29,6 +29,10 @@ set(TEST_MOD "all" CACHE STRING "Comma-separated UT targets to build and run, or
 option(ASCCOMM_UT_RUN_AFTER_BUILD "Run UT targets after build" ON)
 option(ENABLE_GCOV "Enable gcov coverage for UT targets" OFF)
 
+if(ENABLE_GCOV AND NOT ASCCOMM_UT_RUN_AFTER_BUILD)
+    message(FATAL_ERROR "ENABLE_GCOV requires ASCCOMM_UT_RUN_AFTER_BUILD=ON")
+endif()
+
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCEND_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
 elseif(DEFINED ASCEND_CANN_PACKAGE_PATH)
@@ -189,6 +193,7 @@ function(run_llt_test)
             )
         endif()
 
+        # Coverage collection must wait for the UT target, including its POST_BUILD GTest checks.
         add_dependencies(${_collect_coverage_data_target} ${LLT_TARGET})
     endif()
 
