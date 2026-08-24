@@ -97,7 +97,7 @@ __simt_vf__ __launch_bounds__(32) inline void SimtWritePerfVf(
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init() != 0) {
+    if (hcomm.Init(nullptr, 0) != 0) {
         timing[kIssueCyclesIndex] = 0U;
         timing[kCompletionCyclesIndex] = 0U;
         timing[kDrainStatusIndex] = static_cast<uint64_t>(-1);

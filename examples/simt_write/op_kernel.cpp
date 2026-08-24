@@ -35,7 +35,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteSingleVf(
     __gm__ uint8_t* remoteAddr = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init() != 0) {
+    if (hcomm.Init(nullptr, 0) != 0) {
         return;
     }
     for (uint32_t i = 0; i < kSlotCount; ++i) {
@@ -58,7 +58,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteBatchLastVf(
     __gm__ uint8_t* remoteAddr = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init() != 0) {
+    if (hcomm.Init(nullptr, 0) != 0) {
         return;
     }
     for (uint32_t i = 0; i < kSlotCount - 1U; ++i) {
@@ -80,7 +80,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteValueSingleVf(uint64_t 
     __gm__ uint8_t* remoteAddr = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init() != 0) {
+    if (hcomm.Init(nullptr, 0) != 0) {
         return;
     }
     for (uint32_t i = 0; i < kSlotCount; ++i) {
@@ -99,7 +99,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteValueBatchLastVf(uint64
     __gm__ uint8_t* remoteAddr = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init() != 0) {
+    if (hcomm.Init(nullptr, 0) != 0) {
         return;
     }
     for (uint32_t i = 0; i < kSlotCount - 1U; ++i) {

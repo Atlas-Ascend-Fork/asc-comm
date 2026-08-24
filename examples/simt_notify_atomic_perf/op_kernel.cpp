@@ -71,7 +71,7 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtLastCommitPerfVf(
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init() != 0) {
+    if (hcomm.Init(nullptr, 0) != 0) {
         timing[kIssueCyclesIndex] = 0U;
         timing[kCompletionCyclesIndex] = 0U;
         timing[kDrainStatusIndex] = static_cast<uint64_t>(-1);
@@ -112,7 +112,7 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtNotifyPerfVf(
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init() != 0) {
+    if (hcomm.Init(nullptr, 0) != 0) {
         timing[kIssueCyclesIndex] = 0U;
         timing[kCompletionCyclesIndex] = 0U;
         timing[kDrainStatusIndex] = static_cast<uint64_t>(-1);
@@ -154,7 +154,7 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtFaaPerfVf(
     __gm__ uint64_t* remote = reinterpret_cast<__gm__ uint64_t*>(AscendC::simt::RemoteBufferAddr(channel, recvBufIdx));
 
     AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init() != 0) {
+    if (hcomm.Init(nullptr, 0) != 0) {
         timing[kIssueCyclesIndex] = 0U;
         timing[kCompletionCyclesIndex] = 0U;
         timing[kDrainStatusIndex] = static_cast<uint64_t>(-1);
@@ -196,7 +196,7 @@ __simt_vf__ __launch_bounds__(kLaunchBounds) inline void SimtCasPerfVf(
     __gm__ uint64_t* remote = reinterpret_cast<__gm__ uint64_t*>(AscendC::simt::RemoteBufferAddr(channel, recvBufIdx));
 
     AscendC::simt::Hcomm<> hcomm;
-    if (hcomm.Init() != 0) {
+    if (hcomm.Init(nullptr, 0) != 0) {
         timing[kIssueCyclesIndex] = 0U;
         timing[kCompletionCyclesIndex] = 0U;
         timing[kDrainStatusIndex] = static_cast<uint64_t>(-1);

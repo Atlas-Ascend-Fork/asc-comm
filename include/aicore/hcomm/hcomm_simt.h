@@ -78,12 +78,15 @@ public:
 
     /*!
      * @brief Initialize Hcomm.
+     * @param [in] buff: Workspace buffer (unused in current implementation).
+     * @param [in] len: Workspace buffer length (unused in current implementation).
      * @return 0 indicates success and -1 indicates failure.
      * @note No workspace is required: a WQE is staged in lane-private storage for the duration of a
      *       post, and every post resolves its channel from global memory. Every lane that posts must
-     *       call Init on its own object.
+     *       call Init on its own object. The buff and len parameters are kept for API compatibility
+     *       but are ignored.
      */
-    __simt_callee__ inline int32_t Init();
+    __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
     /*!
      * @brief The task launching interface of the Write point-to-point communication operator.

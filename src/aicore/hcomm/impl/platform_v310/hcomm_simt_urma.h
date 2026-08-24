@@ -329,11 +329,13 @@ __simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::HcommImpl() {}
 
 __simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::~HcommImpl() {}
 
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init()
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ uint8_t* buff, uint32_t len)
 {
     // Nothing to set up: the WQE is staged on the stack for the duration of a post and every
     // post resolves its channel from global memory, so there is no state to hand out, publish,
-    // or synchronize here.
+    // or synchronize here. The buff and len parameters are kept for API compatibility but ignored.
+    (void)buff;
+    (void)len;
     initialized_ = true;
     return HCOMM_SUCCESS;
 }

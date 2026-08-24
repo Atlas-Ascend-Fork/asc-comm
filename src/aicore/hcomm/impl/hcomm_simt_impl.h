@@ -41,9 +41,9 @@ __simt_callee__ inline Hcomm<commProtocol, Group>::~Hcomm()
 {}
 
 template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Init()
+__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Init(__ubuf__ uint8_t* buff, uint32_t len)
 {
-    return impl_.Init();
+    return impl_.Init(buff, len);
 }
 
 template <CommProtocol commProtocol, typename Group>

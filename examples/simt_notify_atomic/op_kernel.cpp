@@ -28,7 +28,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyVf(uint64_t channel, u
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init();
+    (void)hcomm.Init(nullptr, 0);
     (void)hcomm.WriteWithNotifyNbi(
         channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
         kNotifySignal);
@@ -47,7 +47,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyImmediateRepeatVf(
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init();
+    (void)hcomm.Init(nullptr, 0);
     for (uint32_t i = 0; i < kNotifyImmediateRepeatCount; ++i) {
         (void)hcomm.WriteWithNotifyNbi<true>(
             channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
@@ -66,7 +66,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtFaaVf(uint64_t channel, uint
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init();
+    (void)hcomm.Init(nullptr, 0);
     (void)hcomm.AtomicFAA<uint64_t>(
         channel, remote + kFaaTargetSlot * kSlotBytes, local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
     reinterpret_cast<__gm__ uint64_t*>(local)[kFaaDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
@@ -82,7 +82,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtCasVf(uint64_t channel, uint
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init();
+    (void)hcomm.Init(nullptr, 0);
     (void)hcomm.AtomicCAS<uint64_t>(
         channel, remote + kCasTargetSlot * kSlotBytes, local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
     reinterpret_cast<__gm__ uint64_t*>(local)[kCasDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
@@ -100,7 +100,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicSingleVf(
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init();
+    (void)hcomm.Init(nullptr, 0);
     (void)hcomm.WriteWithNotifyNbi(
         channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
         kNotifySignal);
@@ -124,7 +124,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicBatchLastVf(
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
     AscendC::simt::Hcomm<> hcomm;
-    (void)hcomm.Init();
+    (void)hcomm.Init(nullptr, 0);
     (void)hcomm.WriteWithNotifyNbi<false>(
         channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
         kNotifySignal);
