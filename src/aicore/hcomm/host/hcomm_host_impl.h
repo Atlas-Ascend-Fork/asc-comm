@@ -63,28 +63,24 @@ public:
             return HCCL_E_NOT_SUPPORT;
         }
 
-#define HCOMM_LOAD_HCCL_SYMBOL(member, type, symbol)                              \
-    do {                                                                          \
-        (void)dlerror();                                                          \
-        api.member = reinterpret_cast<type>(dlsym(api.handle, symbol));           \
-        const char* hcommDlError = dlerror();                                     \
-        if (api.member == nullptr || hcommDlError != nullptr) {                   \
-            fprintf(                                                              \
-                stderr, "[ERROR] [%s] load %s failed: %s.\n", __func__, symbol,   \
-                hcommDlError == nullptr ? "symbol not found" : hcommDlError);     \
-            CloseLibrary(api);                                                    \
-            return HCCL_E_NOT_SUPPORT;                                            \
-        }                                                                         \
+#define HCOMM_LOAD_HCCL_SYMBOL(member, type, symbol)                            \
+    do {                                                                        \
+        (void)dlerror();                                                        \
+        api.member = reinterpret_cast<type>(dlsym(api.handle, symbol));         \
+        const char* hcommDlError = dlerror();                                   \
+        if (api.member == nullptr || hcommDlError != nullptr) {                 \
+            fprintf(                                                            \
+                stderr, "[ERROR] [%s] load %s failed: %s.\n", __func__, symbol, \
+                hcommDlError == nullptr ? "symbol not found" : hcommDlError);   \
+            CloseLibrary(api);                                                  \
+            return HCCL_E_NOT_SUPPORT;                                          \
+        }                                                                       \
     } while (0)
 
-        HCOMM_LOAD_HCCL_SYMBOL(
-            HcclChannelConfigCreate, HcommHcclChannelConfigCreateFunc, "HcclChannelConfigCreate");
-        HCOMM_LOAD_HCCL_SYMBOL(
-            HcclChannelConfigDestroy, HcommHcclChannelConfigDestroyFunc, "HcclChannelConfigDestroy");
-        HCOMM_LOAD_HCCL_SYMBOL(
-            HcclChannelConfigSetInt, HcommHcclChannelConfigSetIntFunc, "HcclChannelConfigSetInt");
-        HCOMM_LOAD_HCCL_SYMBOL(
-            HcclChannelConfigSetStr, HcommHcclChannelConfigSetStrFunc, "HcclChannelConfigSetStr");
+        HCOMM_LOAD_HCCL_SYMBOL(HcclChannelConfigCreate, HcommHcclChannelConfigCreateFunc, "HcclChannelConfigCreate");
+        HCOMM_LOAD_HCCL_SYMBOL(HcclChannelConfigDestroy, HcommHcclChannelConfigDestroyFunc, "HcclChannelConfigDestroy");
+        HCOMM_LOAD_HCCL_SYMBOL(HcclChannelConfigSetInt, HcommHcclChannelConfigSetIntFunc, "HcclChannelConfigSetInt");
+        HCOMM_LOAD_HCCL_SYMBOL(HcclChannelConfigSetStr, HcommHcclChannelConfigSetStrFunc, "HcclChannelConfigSetStr");
         HCOMM_LOAD_HCCL_SYMBOL(
             HcclChannelAcquireWithConfig, HcommHcclChannelAcquireWithConfigFunc, "HcclChannelAcquireWithConfig");
         HCOMM_LOAD_HCCL_SYMBOL(HcclEngineCtxCreate, HcommHcclEngineCtxCreateFunc, "HcclEngineCtxCreate");
@@ -145,8 +141,7 @@ public:
     }
 
     static inline HcclResult HcclEngineCtxCopy(
-        HcclComm comm, CommEngine engine, const char* ctxTag, const void* srcCtx, uint64_t size,
-        uint64_t dstCtxOffset)
+        HcclComm comm, CommEngine engine, const char* ctxTag, const void* srcCtx, uint64_t size, uint64_t dstCtxOffset)
     {
         return GetApi().HcclEngineCtxCopy(comm, engine, ctxTag, srcCtx, size, dstCtxOffset);
     }
@@ -241,8 +236,7 @@ static inline HcclResult HcommAcquireSharedChannels(
         return HcommDestroyChannelConfig(config, ret);
     }
 
-    ret = DlHcclApi::HcclChannelAcquireWithConfig(
-        comm, COMM_ENGINE_AIV, channelDescs, channelNum, config, channels);
+    ret = DlHcclApi::HcclChannelAcquireWithConfig(comm, COMM_ENGINE_AIV, channelDescs, channelNum, config, channels);
     if (ret != HCCL_SUCCESS) {
         fprintf(stderr, "[ERROR] [%s] HcclChannelAcquireWithConfig failed, ret[%d].\n", __func__, ret);
         return HcommDestroyChannelConfig(config, ret);
@@ -309,8 +303,7 @@ static inline HcclResult HcommExtractChannelMetadata(
 }
 
 static inline HcclResult HcommBuildMultiChannelEntity(
-    HcclComm comm, const ChannelHandle* channels, const char* sharedQueueTag, uint32_t channelNum,
-    void** deviceMemory)
+    HcclComm comm, const ChannelHandle* channels, const char* sharedQueueTag, uint32_t channelNum, void** deviceMemory)
 {
     ChannelMetadata currentMetadata;
     MultiChannelEntity* entity = NULL;

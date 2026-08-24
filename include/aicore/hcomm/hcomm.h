@@ -334,8 +334,8 @@ public:
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: The batch handle whose WQE buffer is reused as CQE scratch space.
      * @return 0 indicates success. A non-zero value indicates failure.
-     * @note This overload does not require Init. It must be called after BatchCommit and before preparing
-     *       another batch on the same handle.
+     * @note This overload does not require Init. It must be called after BatchCommit. Multiple batches may be
+     *       committed before one Drain if the caller prevents SQ/CQ overflow.
      */
     template <pipe_t pipe = PIPE_MTE3, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t Drain(T& batchHandle);

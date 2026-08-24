@@ -325,8 +325,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
     EXPECT_EQ(batchHandle.cursor.cqHead, 2U);
     EXPECT_EQ(batchHandle.cursor.cqTail, 1U);
 
-    auto& batchHandleRef =
-        hcomm.GetHandleRef(batchHandle, 1U, reinterpret_cast<GM_ADDR>(0x5008U));
+    auto& batchHandleRef = hcomm.GetHandleRef(batchHandle, 1U, reinterpret_cast<GM_ADDR>(0x5008U));
     EXPECT_EQ(&batchHandleRef, &batchHandle);
     EXPECT_EQ(batchHandleRef.remoteInfo.tokenId, 0x223456U);
     EXPECT_EQ(batchHandleRef.remoteInfo.tokenValue, 0x754321U);

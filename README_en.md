@@ -68,7 +68,7 @@ Ascend 950 UBC_CTP batch interface workflow:
 3. Call `BatchCommit` to copy the current batch to the GM SQ and ring the doorbell.
 4. Reuse the handle to prepare and submit more batches as needed, then call the BatchHandle overload of `Drain` to wait for CQEs.
 
-A BatchHandle caches SQ/CQ contexts and queue state when it is created. The caller must exclusively own the corresponding single channel or shared Jetty and must not mix ordinary interfaces. Single-channel `MakeBatchHandle` selects remote registered memory using `remoteAddr`. In shared-Jetty mode, `GetHandleRef` selects a logical channel and each batch read or write resolves its token from that channel's MR table using the actual remote address.
+A BatchHandle caches SQ/CQ contexts and queue state when it is created. The caller must exclusively own the corresponding single channel or shared Jetty and must not mix ordinary interfaces. Single-channel `MakeBatchHandle` looks up and caches a remote MR token using `remoteAddr`; in shared-Jetty mode, `GetHandleRef` performs that lookup using the logical channel and `remoteAddr`. Subsequent batch reads and writes do not query the MR table again, so remote accesses must use the token cached by that call.
 
 Protocol capability matrix:
 | Protocol | Capability Description |

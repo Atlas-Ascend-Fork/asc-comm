@@ -39,14 +39,14 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 
 返回`BatchHandle<T>`。仅`COMM_PROTOCOL_UBC_CTP`支持该接口。
 
-该接口不通过返回码报告参数错误。调用方必须满足下述约束；调试模式下，非法参数会触发接口断言。
+该接口不通过返回码报告参数错误。通道或远端MR选择失败时返回全零的无效句柄，调用方必须保证传入参数满足下述约束。
 
 ## 约束说明
 
 - 当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径，不支持`COMM_PROTOCOL_ROCE`批量句柄。
-- 单通道模式下，`channel`不能为`0`，且需要指向已完成资源初始化的UBC_CTP通道实体。`remoteAddr`非空时必须落在某个远端已注册buffer范围内；为空时，通道必须至少包含一个远端已注册buffer。接口缓存选中buffer的`tokenId/tokenValue`，后续批量接口不再查询远端注册表。
+- 单通道模式下，`channel`不能为`0`，且需要指向已完成资源初始化的UBC_CTP通道实体。`remoteAddr`非空时必须落在某个远端已注册buffer范围内；为空时选择远端注册表中的第一个buffer。接口缓存选中buffer的`tokenId/tokenValue`，后续批量接口不再查询远端注册表。
 - 多通道模式下，`multiChannel`不能是空`MultiChannelHandle`，且其共享队列实体和远端信息数组必须有效。通过`GetHandleRef`选择逻辑通道和远端MR。
-- 单通道重载的`localAddr`当前未参与地址校验或token缓存。
+- `localAddr`当前未参与地址校验或token缓存。
 - `buff`起始地址需要按32字节对齐，`buffLen`不能小于64字节。
 - `buffLen`不能超过`buff.GetSize() * sizeof(U)`。
 - `buffLen`必须严格小于通道SQ容量，即`sqDepth * 64`字节。可准备的WQEBB数量为`buffLen / 64`，不能整除的剩余空间不会用于存放WQE。

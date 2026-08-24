@@ -22,7 +22,7 @@ __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
 | --- | --- | --- |
 | `batchHandle` | Input/Output | Single-channel or multi-channel batch handle created by `MakeBatchHandle`. |
 | `channelIndex` | Input | Multi-channel logical channel index. Ignored for a single-channel handle. |
-| `remoteAddr` | Input | Address in a multi-channel remote registered buffer. Ignored for a single-channel handle. Default: `nullptr`. |
+| `remoteAddr` | Input | Address in a multi-channel remote registered buffer. When null, selects the first remote registered buffer of that channel. Ignored for a single-channel handle. Default: `nullptr`. |
 
 ## Return Value
 
@@ -38,7 +38,8 @@ Returns the input handle itself for a single channel, or the inner `BatchHandle<
 
 - For a single-channel handle, `channelIndex` and `remoteAddr` do not modify the handle; remote memory remains selected by `MakeBatchHandle`.
 - For a multi-channel handle, `channelIndex` must be smaller than the `channelNum` used to create the `MultiChannelHandle`.
-- For a multi-channel handle, a non-null `remoteAddr` must belong to a remote registered buffer of the selected logical channel. When null, the channel must contain at least one remote registered buffer.
+- For a multi-channel handle, a non-null `remoteAddr` must belong to a remote registered buffer of the selected logical channel. When null, the first remote registered buffer of that channel is selected.
+- This interface has no status return. The caller must provide a valid logical-channel index and remote-MR address for a multi-channel handle.
 - Repeated calls on the same multi-channel batch handle return the same inner BatchHandle reference. Each call updates the logical-channel and remote MR information currently selected in that inner handle.
 - Multi-channel remote buffers accessed through the returned reference must use the token cached by this call. Call this interface again before accessing a remote buffer that uses a different token.
 - For multiple channels, use the returned inner reference with batch read, write, and write-with-notify APIs. Pass the outer multi-channel batch handle to `BatchCommit` and batch `Drain`.

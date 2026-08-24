@@ -373,9 +373,6 @@ __aicore__ inline bool HcommUrmaResolveBatchRemote(
 __aicore__ inline UbcCtpBatchHandle HcommUrmaCreateBatchHandle(
     ChannelHandle channel, GM_ADDR remoteAddr, const LocalTensor<uint32_t>& wqeBuffer, uint32_t buffLen)
 {
-    if (channel == 0U) {
-        return UbcCtpBatchHandle{};
-    }
     __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     auto* remoteBuffers = channelEntity->remoteBufferAddr;
@@ -391,7 +388,7 @@ __aicore__ inline UbcCtpBatchHandle HcommUrmaCreateBatchHandle(
 
     UbcCtpBatchHandle batchHandle{};
     if (!HcommUrmaResolveBatchRemote(remoteSource, remoteAddr, batchHandle.remoteInfo)) {
-        return UbcCtpBatchHandle{};
+        return batchHandle;
     }
     batchHandle.channelHandle = channel;
     batchHandle.sqContext = sqCtx;
