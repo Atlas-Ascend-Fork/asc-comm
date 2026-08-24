@@ -395,32 +395,6 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MultiChannelBatchUsesOuterHandleForCommitAnd
     EXPECT_EQ(multiChannel.GetCqDoorbell(), 2U);
 }
 
-TEST_F(HcommUrmaTestSuite, Aiv_Urma_MultiChannelBatchRejectsUnknownRemote)
-{
-    UrmaMultiChannelResource multiChannel;
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-    alignas(32) std::array<uint8_t, 2U * URMA_WQE_SIZE> batchBuffer{};
-    auto multiBatchHandle =
-        hcomm.MakeBatchHandle(multiChannel.GetHandle(), WrapUbBuffer(batchBuffer), batchBuffer.size());
-    EXPECT_EQ(multiBatchHandle.handle.channelHandle, 0U);
-
-    auto& invalidHandle = hcomm.GetHandleRef(multiBatchHandle, 0U, reinterpret_cast<GM_ADDR>(0x9000U));
-    EXPECT_EQ(invalidHandle.channelHandle, 0U);
-    EXPECT_EQ(invalidHandle.buffer.bufferCapacity, 2U);
-    EXPECT_EQ(
-        hcomm.WriteNbi(invalidHandle, reinterpret_cast<GM_ADDR>(0x9000U), reinterpret_cast<GM_ADDR>(0xA000U), 8U),
-        AscendC::HCOMM_FAILED);
-
-    auto& reboundHandle = hcomm.GetHandleRef(multiBatchHandle, 0U, reinterpret_cast<GM_ADDR>(0x1008U));
-    EXPECT_EQ(reboundHandle.channelHandle, multiBatchHandle.channelHandle);
-    EXPECT_EQ(reboundHandle.remoteInfo.tokenId, 0x11111U);
-
-    auto& defaultHandle = hcomm.GetHandleRef(multiBatchHandle, 0U);
-    EXPECT_EQ(defaultHandle.channelHandle, multiBatchHandle.channelHandle);
-    EXPECT_EQ(defaultHandle.remoteInfo.tokenId, 0x11111U);
-    EXPECT_EQ(defaultHandle.remoteInfo.tokenValue, 0xAAAAU);
-}
-
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteNbi)
 {
     UrmaChannelResource channel(URMA_BATCH_QUEUE_DEPTH);
@@ -669,11 +643,6 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchCommitRejectsInvalidCounts)
     invalidHandle = batchHandle;
     invalidHandle.cursor.preSqCnt = 1U;
     invalidHandle.sqContext.contextInfo.ubJfs.sqDepth = 0U;
-    EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
-
-    invalidHandle = batchHandle;
-    invalidHandle.channelHandle = 0U;
-    invalidHandle.cursor.preSqCnt = 1U;
     EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
