@@ -4,7 +4,7 @@
 
 Creates a protocol-specific batch handle and binds the UB buffer used to prepare batched WQEs. Batch handles currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
-The interface maps the channel type to its corresponding BatchHandle return type. Use `auto` to receive the return value. `ChannelHandle` maps to the `UbcCtpBatchHandle` execution handle. `MultiChannelHandle` maps to `UbcCtpMultiBatchHandle`, which selects logical channels; call `GetHandleRef` to obtain its inner `UbcCtpBatchHandle` execution handle.
+The single-channel and multi-channel overloads return their corresponding BatchHandle types. Use `auto` to receive the return value. `ChannelHandle` maps to the `UbcCtpBatchHandle` execution handle. `MultiChannelHandle` maps to `UbcCtpMultiBatchHandle`, which selects logical channels; call `GetHandleRef` to obtain its inner `UbcCtpBatchHandle` execution handle.
 
 ## Function Prototype
 
@@ -16,28 +16,34 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
     uint32_t buffLen,
     GM_ADDR remoteAddr = nullptr,
     GM_ADDR localAddr = nullptr);
+
+template <typename U>
+__aicore__ inline BatchHandle<MultiChannelHandle> MakeBatchHandle(
+    MultiChannelHandle multiChannel,
+    const AscendC::LocalTensor<U>& buff,
+    uint32_t buffLen);
 ```
 
 ## Parameter Description
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `channel` | Input | A UBC_CTP single-channel `ChannelHandle`, or a shared-Jetty `MultiChannelHandle` created by Host-side `MakeMultiChannelHandle`. |
+| `channel`/`multiChannel` | Input | A UBC_CTP single-channel `ChannelHandle`, or a shared-Jetty `MultiChannelHandle` created by Host-side `MakeMultiChannelHandle`. |
 | `buff` | Input | Caller-provided UB `LocalTensor` used to prepare batched WQEs. Batch `Drain` also reuses it as CQE scratch space. |
 | `buffLen` | Input | Available buffer length in bytes. |
-| `remoteAddr` | Input | Selects a remote registered buffer in single-channel mode. Reserved in multi-channel mode; use `GetHandleRef` to select a remote MR. Default: `nullptr`. |
-| `localAddr` | Input | Local memory address. Its default value is `nullptr`. It is reserved in the current version and is not used to cache local registration information. |
+| `remoteAddr` | Input | Used only by the single-channel overload to select a remote registered buffer. Default: `nullptr`. |
+| `localAddr` | Input | Reserved by the single-channel overload and currently unused. Default: `nullptr`. |
 
 ## Template Parameters
 
 | Parameter | Description |
 | --- | --- |
-| `T` | Communication channel handle type, deduced from `channel`. Currently supports `ChannelHandle` and `MultiChannelHandle`. |
+| `T` | Single-channel handle type, currently `ChannelHandle`. |
 | `U` | Element type of the `LocalTensor`. |
 
 ## Return Value
 
-Returns `BatchHandle<T>`: `ChannelHandle` resolves to `UbcCtpBatchHandle`, and `MultiChannelHandle` resolves to `UbcCtpMultiBatchHandle`. This interface is supported only by `COMM_PROTOCOL_UBC_CTP`.
+The single-channel overload returns `BatchHandle<T>`, and the multi-channel overload returns `BatchHandle<MultiChannelHandle>`. This interface is supported only by `COMM_PROTOCOL_UBC_CTP`.
 
 This interface does not report invalid arguments through a status code. The caller must satisfy the constraints below. Invalid arguments trigger an interface assertion in debug builds.
 
@@ -45,8 +51,8 @@ This interface does not report invalid arguments through a status code. The call
 
 - Batch handles currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950. The `COMM_PROTOCOL_ROCE` batch path is not supported.
 - In single-channel mode, `channel` must not be `0` and must point to an initialized UBC_CTP channel entity. A non-null `remoteAddr` must fall within a remote registered buffer; when null, the channel must contain at least one remote registered buffer. The interface caches the selected buffer's `tokenId/tokenValue`, and later batch operations do not query the remote registration table again.
-- In multi-channel mode, `channel` must not be an empty `MultiChannelHandle`, and its shared queue entity and remote information array must be valid. `remoteAddr` is not used; call `GetHandleRef` to select a logical channel and remote MR.
-- `localAddr` is not used for address validation or token caching in the current version.
+- In multi-channel mode, `multiChannel` must not be an empty `MultiChannelHandle`, and its shared queue entity and remote information array must be valid. Call `GetHandleRef` to select a logical channel and remote MR.
+- The single-channel overload's `localAddr` is not used for address validation or token caching in the current version.
 - The start address of `buff` must be 32-byte aligned, and `buffLen` must be at least 64 bytes.
 - `buffLen` must not exceed `buff.GetSize() * sizeof(U)`.
 - `buffLen` must be strictly smaller than the SQ capacity, that is, `sqDepth * 64` bytes. The buffer can hold `buffLen / 64` WQEBBs; any remaining bytes are not used for WQEs.

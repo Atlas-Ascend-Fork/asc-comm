@@ -75,8 +75,7 @@ public:
         ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr);
     template <typename U>
     __aicore__ inline UbcCtpMultiBatchHandle MakeBatchHandle(
-        MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr,
-        GM_ADDR localAddr);
+        MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen);
     __aicore__ inline UbcCtpBatchHandle& GetHandleRef(
         UbcCtpMultiBatchHandle& multiBatchHandle, uint32_t channelIndex, GM_ADDR remoteAddr);
     template <

@@ -73,17 +73,29 @@ public:
      * @param [in] buff: The LocalTensor buffer used to prepare batched WQEs.
      * @param [in] buffLen: The buffer length in bytes.
      * @param [in] remoteAddr: For ChannelHandle, an address used for the one-time lookup of remote registered memory.
-     *                         If it is null, the first remote registered buffer is selected. For MultiChannelHandle,
-     *                         this parameter is reserved; GetHandleRef binds remote registered memory for each peer.
+     *                         If it is null, the first remote registered buffer is selected.
      * @param [in] localAddr: Reserved local memory address.
      * @return An initialized batch handle for commProtocol.
-     * @note For UBC CTP, remote memory is selected here for ChannelHandle and by GetHandleRef for MultiChannelHandle.
-     *       buffLen must be smaller than the SQ capacity in bytes.
+     * @note For UBC CTP, remote memory is selected here for ChannelHandle. buffLen must be smaller than the SQ
+     *       capacity in bytes.
      */
     template <typename T, typename U>
     __aicore__ inline BatchHandle<T> MakeBatchHandle(
         T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr = nullptr,
         GM_ADDR localAddr = nullptr);
+
+    /*!
+     * @brief Create a multi-channel batch handle using a LocalTensor buffer.
+     * @tparam U: The element type of the LocalTensor.
+     * @param [in] multiChannel: The multi-channel handle.
+     * @param [in] buff: The LocalTensor buffer used to prepare batched WQEs.
+     * @param [in] buffLen: The buffer length in bytes.
+     * @return An initialized batch handle for commProtocol.
+     * @note Call GetHandleRef to select a logical channel and remote registered-memory region.
+     */
+    template <typename U>
+    __aicore__ inline BatchHandle<MultiChannelHandle> MakeBatchHandle(
+        MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen);
 
     /*!
      * @brief Select one peer and bind one of its remote registered-memory regions.
