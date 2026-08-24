@@ -23,11 +23,14 @@
 #define IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_LOG_H
 
 #if defined(ASCENDC_DEBUG)
-#define HCOMM_KERNEL_LOG_ENABLED 1
+#define HCOMM_DEBUG_FUNC(func, ...) \
+    do {                             \
+        func(__VA_ARGS__);           \
+    } while (0)
 #define HCOMM_KERNEL_LOG(level, fmt, ...) AscendC::PRINTF(fmt, ##__VA_ARGS__)
 #else
-#define HCOMM_KERNEL_LOG_ENABLED 0
-#define HCOMM_KERNEL_LOG(level, fmt, ...)
+#define HCOMM_DEBUG_FUNC(func, ...) ((void)0)
+#define HCOMM_KERNEL_LOG(level, fmt, ...) ((void)0)
 #endif
 
 #endif
