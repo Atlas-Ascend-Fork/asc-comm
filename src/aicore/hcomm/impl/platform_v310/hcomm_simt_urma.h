@@ -72,13 +72,13 @@ __simt_callee__ inline void HcommSimtCopyUbWqeToSq(
 
 template <bool commit>
 __simt_callee__ inline bool HcommSimtTryReservePost(
-    const HcommSimtUbResolvedPost& post, uint32_t bbCnt, uint64_t& headVal)
+    const HcommSimtUbResolvedPost& post, uint32_t bbCnt, uint32_t cqeCnt, uint64_t& headVal)
 {
     // SIMT has no standalone Commit API, so a deferred post must leave enough SQ
     // space for the immediate 2-BB DWQE that will publish the accumulated batch.
     uint32_t requiredFreeBbCnt = bbCnt + (commit ? 0U : HCOMM_URMA_DWQE_BB_CNT);
     return HcommSimtTryReserve(
-        post.headAddr, post.sqTailAddr, post.meta.sqDepth, bbCnt, requiredFreeBbCnt, 1U, headVal);
+        post.headAddr, post.sqTailAddr, post.meta.sqDepth, bbCnt, requiredFreeBbCnt, cqeCnt, headVal);
 }
 
 template <HcommUrmaOpCode opCode, uint32_t sgeNum, auto const& config>
@@ -490,14 +490,15 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolveUbPostCo
 
 template <bool commit>
 __simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReservePost(
-    ChannelHandle channel, const HcommSimtUbResolvedPost& post, uint32_t bbCnt, uint64_t& headVal)
+    ChannelHandle channel, const HcommSimtUbResolvedPost& post, uint32_t bbCnt, uint32_t cqeCnt,
+    uint64_t& headVal)
 {
     uint32_t requiredFreeBbCnt = bbCnt + (commit ? 0U : HCOMM_URMA_DWQE_BB_CNT);
     if (post.meta.sqDepth == 0U || requiredFreeBbCnt > post.meta.sqDepth) {
         return false;
     }
 
-    if (HcommSimtTryReservePost<commit>(post, bbCnt, headVal)) {
+    if (HcommSimtTryReservePost<commit>(post, bbCnt, cqeCnt, headVal)) {
         return true;
     }
 
@@ -514,7 +515,7 @@ __simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReservePost(
         if (cqTail == HcommSimtWqeCnt(headVal) || PollCq(channel, cqTail + 1U) != HCOMM_SUCCESS) {
             return false;
         }
-        if (HcommSimtTryReservePost<commit>(post, bbCnt, headVal)) {
+        if (HcommSimtTryReservePost<commit>(post, bbCnt, cqeCnt, headVal)) {
             return true;
         }
     }
@@ -538,7 +539,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     constexpr uint32_t bbCnt = commit ? HCOMM_URMA_DWQE_BB_CNT : HCOMM_URMA_WQE_BB_CNT;
 
     uint64_t headVal = 0U;
-    if (!ReservePost<commit>(channel, post, bbCnt, headVal)) {
+    if (!ReservePost<commit>(channel, post, bbCnt, config.cqe, headVal)) {
         return HCOMM_FAILED;
     }
     uint32_t curHead = HcommSimtHeadIdx(headVal);
@@ -573,7 +574,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWriteWithNo
         return HCOMM_FAILED;
     }
     uint64_t headVal = 0U;
-    if (!ReservePost<commit>(channel, post, HCOMM_URMA_DWQE_BB_CNT, headVal)) {
+    if (!ReservePost<commit>(channel, post, HCOMM_URMA_DWQE_BB_CNT, config.cqe, headVal)) {
         return HCOMM_FAILED;
     }
     uint32_t curHead = HcommSimtHeadIdx(headVal);
@@ -608,7 +609,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostAtomic(
         return HCOMM_FAILED;
     }
     uint64_t headVal = 0U;
-    if (!ReservePost<commit>(channel, post, HCOMM_URMA_DWQE_BB_CNT, headVal)) {
+    if (!ReservePost<commit>(channel, post, HCOMM_URMA_DWQE_BB_CNT, config.cqe, headVal)) {
         return HCOMM_FAILED;
     }
     uint32_t curHead = HcommSimtHeadIdx(headVal);
