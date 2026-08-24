@@ -73,10 +73,12 @@ public:
      * @param [in] buff: The LocalTensor buffer used to prepare batched WQEs.
      * @param [in] buffLen: The buffer length in bytes.
      * @param [in] remoteAddr: For ChannelHandle, an address used for the one-time lookup of remote registered memory.
-     *                         If it is null, the first remote registered buffer is selected.
-     * @param [in] localAddr: Reserved local memory address.
+     *                         If it is null, the first remote registered buffer is selected. Reserved for
+     *                         MultiChannelHandle.
+     * @param [in] localAddr: Reserved local memory address. Reserved for MultiChannelHandle.
      * @return An initialized batch handle for commProtocol.
-     * @note For UBC CTP, remote memory is selected here for ChannelHandle. buffLen must be smaller than the SQ
+     * @note For UBC CTP, remote memory is selected here for ChannelHandle. Call GetHandleRef to select a logical
+     *       channel and remote registered-memory region for MultiChannelHandle. buffLen must be smaller than the SQ
      *       capacity in bytes.
      */
     template <typename T, typename U>
@@ -85,20 +87,8 @@ public:
         GM_ADDR localAddr = nullptr);
 
     /*!
-     * @brief Create a multi-channel batch handle using a LocalTensor buffer.
-     * @tparam U: The element type of the LocalTensor.
-     * @param [in] multiChannel: The multi-channel handle.
-     * @param [in] buff: The LocalTensor buffer used to prepare batched WQEs.
-     * @param [in] buffLen: The buffer length in bytes.
-     * @return An initialized batch handle for commProtocol.
-     * @note Call GetHandleRef to select a logical channel and remote registered-memory region.
-     */
-    template <typename U>
-    __aicore__ inline BatchHandle<MultiChannelHandle> MakeBatchHandle(
-        MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen);
-
-    /*!
      * @brief Select one peer and bind one of its remote registered-memory regions.
+     * @tparam T: The multi-channel batch handle type.
      * @param [in,out] batchHandle: A batch handle created from MultiChannelHandle.
      * @param [in] channelIndex: Index in the channel descriptor array used to create MultiChannelHandle.
      * @param [in] remoteAddr: An address in the remote registered-memory region to select. If it is null, the first
@@ -106,8 +96,9 @@ public:
      * @return A BatchHandle reference configured for the selected peer and remote registered-memory region.
      * @note Remote registered buffers used through the returned handle must use the token cached by this call.
      */
+    template <typename T, typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
-        BatchHandle<MultiChannelHandle>& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
+        T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
 
     /*!
      * @class Hcomm
@@ -324,6 +315,14 @@ public:
     __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
     /*!
+     * @brief Submit all WQEs prepared through a multi-channel batch handle.
+     * @param [in,out] batchHandle: The multi-channel batch handle to submit.
+     * @return 0 indicates success and -1 indicates failure.
+     */
+    template <typename T, typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t BatchCommit(T& batchHandle);
+
+    /*!
      * @class Hcomm
      * @brief Block Aicore and drain comm tasks submitted on channel until finish processing.
      * @tparam pipe: The pipe type to use for drain, PIPE_MTE3 supported as default.
@@ -344,6 +343,17 @@ public:
      *       another batch on the same handle.
      */
     template <pipe_t pipe = PIPE_MTE3, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t Drain(T& batchHandle);
+
+    /*!
+     * @brief Block Aicore until all tasks submitted through a multi-channel batch handle are complete.
+     * @tparam pipe: The pipe type to use for drain, PIPE_MTE3 supported as default.
+     * @param [in,out] batchHandle: The multi-channel batch handle whose inner WQE buffer is reused as CQE scratch
+     *                              space.
+     * @return 0 indicates success. A non-zero value indicates failure.
+     */
+    template <
+        pipe_t pipe = PIPE_MTE3, typename T, typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t Drain(T& batchHandle);
 
 private:

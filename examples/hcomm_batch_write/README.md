@@ -10,18 +10,16 @@ Kernel侧主要流程如下：
 
 ```cpp
 auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
-auto& batchHandle = hcomm.GetHandleRef(
-    multiBatchHandle, 0U, remoteBuffers[0U] + recvOffset);
 for (uint32_t index = 0; index < channelNum; ++index) {
     GM_ADDR remoteAddr = remoteBuffers[index] + recvOffset;
     auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, index, remoteAddr);
     hcomm.WriteNbi(peerBatchHandle, remoteAddr, localBuffer, dataSize);
 }
-hcomm.BatchCommit(batchHandle);
-hcomm.Drain(batchHandle);
+hcomm.BatchCommit(multiBatchHandle);
+hcomm.Drain(multiBatchHandle);
 ```
 
-`GetHandleRef`根据逻辑通道和远端地址返回内层BatchHandle引用；批量写、`BatchCommit`和`Drain`均使用该引用。
+`GetHandleRef`根据逻辑通道和远端地址返回内层BatchHandle引用；批量写使用该引用，`BatchCommit`和`Drain`使用外层多通道批量句柄。
 
 ## 支持环境
 

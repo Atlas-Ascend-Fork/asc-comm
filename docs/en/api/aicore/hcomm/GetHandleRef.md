@@ -2,13 +2,16 @@
 
 ## Function Description
 
-Selects one logical channel and remote registered-memory region from a shared-Jetty multi-channel batch handle and returns the BatchHandle reference used by batch read, write, write-with-notify, commit, and drain APIs.
+Selects one logical channel and remote registered-memory region from a shared-Jetty multi-channel batch handle and returns the BatchHandle reference used by batch read, write, and write-with-notify APIs.
 
 ## Function Prototype
 
 ```cpp
+template <
+    typename T,
+    typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
-    BatchHandle<MultiChannelHandle>& batchHandle,
+    T& batchHandle,
     uint32_t channelIndex,
     GM_ADDR remoteAddr = nullptr);
 ```
@@ -25,6 +28,12 @@ __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
 
 Returns the inner `BatchHandle<ChannelHandle>&` configured for the selected logical channel and remote MR.
 
+## Template Parameters
+
+| Parameter | Description |
+| --- | --- |
+| `T` | Multi-channel batch handle type deduced from `batchHandle`. Currently supports `UbcCtpMultiBatchHandle`. |
+
 ## Constraints
 
 - `batchHandle` must be created from a valid `MultiChannelHandle`; do not pass a single-channel `UbcCtpBatchHandle`.
@@ -32,8 +41,7 @@ Returns the inner `BatchHandle<ChannelHandle>&` configured for the selected logi
 - A non-null `remoteAddr` must belong to a remote registered buffer of the selected logical channel. When null, the channel must contain at least one remote registered buffer.
 - Repeated calls on the same multi-channel batch handle return the same inner BatchHandle reference. Each call updates the logical-channel and remote MR information currently selected in that inner handle.
 - Remote buffers accessed through the returned reference must use the token cached by this call. Call this interface again before accessing a remote buffer that uses a different token.
-- Use the returned inner reference with batch read, write, write-with-notify, `BatchCommit`, and batch `Drain` APIs.
-- The multi-channel batch handle is only for selecting logical channels through this interface. Do not pass it directly to the execution APIs above.
+- Use the returned inner reference with batch read, write, and write-with-notify APIs. Pass the outer multi-channel batch handle to `BatchCommit` and batch `Drain`.
 
 ## Related APIs
 

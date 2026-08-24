@@ -33,8 +33,6 @@ public:
         context_->hcommResult = AscendC::HCOMM_SUCCESS;
         auto multiBatchHandle = hcomm_.MakeBatchHandle(
             static_cast<AscendC::MultiChannelHandle>(context_->multiChannel), batchTensor_, BATCH_BUFFER_SIZE);
-        GM_ADDR firstRemoteAddr = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[0U]) + RECV_BASE_OFFSET;
-        auto& batchHandle = hcomm_.GetHandleRef(multiBatchHandle, 0U, firstRemoteAddr);
 
         for (uint32_t channelIndex = 0U; channelIndex < context_->channelNum; ++channelIndex) {
             GM_ADDR remoteAddr = reinterpret_cast<GM_ADDR>(context_->remoteBuffers[channelIndex]) + RECV_BASE_OFFSET;
@@ -45,12 +43,12 @@ public:
                 return;
             }
         }
-        context_->hcommResult = hcomm_.BatchCommit(batchHandle);
+        context_->hcommResult = hcomm_.BatchCommit(multiBatchHandle);
         if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
             context_->result = KERNEL_COMMIT_FAILED;
             return;
         }
-        context_->hcommResult = hcomm_.Drain(batchHandle);
+        context_->hcommResult = hcomm_.Drain(multiBatchHandle);
         if (context_->hcommResult != AscendC::HCOMM_SUCCESS) {
             context_->result = KERNEL_DRAIN_FAILED;
         }

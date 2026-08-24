@@ -4,7 +4,7 @@
 
 Creates a protocol-specific batch handle and binds the UB buffer used to prepare batched WQEs. Batch handles currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
-The single-channel and multi-channel overloads return their corresponding BatchHandle types. Use `auto` to receive the return value. `ChannelHandle` maps to the `UbcCtpBatchHandle` execution handle. `MultiChannelHandle` maps to `UbcCtpMultiBatchHandle`, which selects logical channels; call `GetHandleRef` to obtain its inner `UbcCtpBatchHandle` execution handle.
+The interface returns the corresponding BatchHandle type based on the channel handle type. Use `auto` to receive the return value. `ChannelHandle` maps to the `UbcCtpBatchHandle` execution handle. `MultiChannelHandle` maps to `UbcCtpMultiBatchHandle`, which selects logical channels; call `GetHandleRef` to obtain its inner `UbcCtpBatchHandle` execution handle.
 
 ## Function Prototype
 
@@ -16,34 +16,28 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
     uint32_t buffLen,
     GM_ADDR remoteAddr = nullptr,
     GM_ADDR localAddr = nullptr);
-
-template <typename U>
-__aicore__ inline BatchHandle<MultiChannelHandle> MakeBatchHandle(
-    MultiChannelHandle multiChannel,
-    const AscendC::LocalTensor<U>& buff,
-    uint32_t buffLen);
 ```
 
 ## Parameter Description
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `channel`/`multiChannel` | Input | A UBC_CTP single-channel `ChannelHandle`, or a shared-Jetty `MultiChannelHandle` created by Host-side `MakeMultiChannelHandle`. |
+| `channel` | Input | A UBC_CTP single-channel `ChannelHandle`, or a shared-Jetty `MultiChannelHandle` created by Host-side `MakeMultiChannelHandle`. |
 | `buff` | Input | Caller-provided UB `LocalTensor` used to prepare batched WQEs. Batch `Drain` also reuses it as CQE scratch space. |
 | `buffLen` | Input | Available buffer length in bytes. |
-| `remoteAddr` | Input | Used only by the single-channel overload to select a remote registered buffer. Default: `nullptr`. |
-| `localAddr` | Input | Reserved by the single-channel overload and currently unused. Default: `nullptr`. |
+| `remoteAddr` | Input | Selects a remote registered buffer in single-channel mode. Reserved in multi-channel mode. Default: `nullptr`. |
+| `localAddr` | Input | Reserved and currently unused. Default: `nullptr`. |
 
 ## Template Parameters
 
 | Parameter | Description |
 | --- | --- |
-| `T` | Single-channel handle type, currently `ChannelHandle`. |
+| `T` | Channel handle type. Currently supports `ChannelHandle` and `MultiChannelHandle`. |
 | `U` | Element type of the `LocalTensor`. |
 
 ## Return Value
 
-The single-channel overload returns `BatchHandle<T>`, and the multi-channel overload returns `BatchHandle<MultiChannelHandle>`. This interface is supported only by `COMM_PROTOCOL_UBC_CTP`.
+Returns `BatchHandle<T>`. This interface is supported only by `COMM_PROTOCOL_UBC_CTP`.
 
 This interface does not report invalid arguments through a status code. The caller must satisfy the constraints below. Invalid arguments trigger an interface assertion in debug builds.
 
@@ -71,8 +65,7 @@ auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBu
 auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, channelIndex, peerRemoteAddr);
 ```
 
-In multi-channel mode, call [GetHandleRef](./GetHandleRef.md) to select a logical channel and prepare WQEs through the returned `BatchHandle<ChannelHandle>` reference. Call `BatchCommit` and batch `Drain` on that inner reference.
-Use `multiBatchHandle` only for subsequent `GetHandleRef` calls.
+In multi-channel mode, call [GetHandleRef](./GetHandleRef.md) to select a logical channel and prepare WQEs through the returned `BatchHandle<ChannelHandle>` reference. Call `BatchCommit` and batch `Drain` on `multiBatchHandle`.
 
 ## Related APIs
 

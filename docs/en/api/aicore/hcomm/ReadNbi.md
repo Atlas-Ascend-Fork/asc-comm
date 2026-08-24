@@ -70,7 +70,7 @@ __aicore__ inline int32_t ReadNbi(
 - `config.inlineEn` must be `0`, and `config.cqe` can be `0` or `1`. Different read, write, and write-with-notify tasks in the same batch may use different `cqe` settings.
 - For a batch handle, `[src, src + len)` must belong to its selected remote registered memory.
 - If buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
-- Call `BatchCommit` after preparation. In multi-channel mode, commit the same inner BatchHandle reference returned by `GetHandleRef`; do not commit `UbcCtpMultiBatchHandle` directly. The caller must exclusively own the single channel or shared Jetty.
+- Call `BatchCommit` after preparation. In multi-channel mode, prepare WQEs through the inner BatchHandle reference returned by `GetHandleRef` and commit through the outer `UbcCtpMultiBatchHandle`. The caller must exclusively own the single channel or shared Jetty.
 
 ## Related Sample
 

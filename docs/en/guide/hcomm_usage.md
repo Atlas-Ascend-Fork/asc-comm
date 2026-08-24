@@ -117,12 +117,12 @@ for (uint32_t channelIndex = 0U; channelIndex < channelNum; ++channelIndex) {
     ret = hcomm.WriteNbi(
         peerBatchHandle, remoteBuffers[channelIndex], localBuffer, dataLen);
 }
-ret = hcomm.BatchCommit(batchHandle);
-ret = hcomm.Drain(batchHandle);
+ret = hcomm.BatchCommit(multiBatchHandle);
+ret = hcomm.Drain(multiBatchHandle);
 ```
 
 An index in `channelDescs` corresponds to the `channelIndex` passed to `GetHandleRef`. Use the returned inner reference
-for batch operations, `BatchCommit`, and `Drain`.
+for batch read and write operations, and use the outer multi-channel batch handle for `BatchCommit` and `Drain`.
 
 ## Batch Buffer and CQE Configuration
 

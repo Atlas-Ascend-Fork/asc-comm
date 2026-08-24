@@ -21,7 +21,7 @@ class Hcomm;
 | --- | --- |
 | `commProtocol` | 通信协议类型，支持`COMM_PROTOCOL_ROCE`和`COMM_PROTOCOL_UBC_CTP`，默认值为`COMM_PROTOCOL_UBC_CTP`。 |
 
-`MakeBatchHandle`通过编译期traits推导返回类型：`ChannelHandle`映射为`UbcCtpBatchHandle`，`MultiChannelHandle`映射为`UbcCtpMultiBatchHandle`。后者只负责通过`GetHandleRef`选择逻辑通道；批量读写、`BatchCommit`和批量`Drain`统一使用返回的内层`UbcCtpBatchHandle`引用。批量接口仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
+`MakeBatchHandle`通过编译期traits推导返回类型：`ChannelHandle`映射为`UbcCtpBatchHandle`，`MultiChannelHandle`映射为`UbcCtpMultiBatchHandle`。多通道模式通过`GetHandleRef`返回的内层`UbcCtpBatchHandle`引用执行批量读写，并通过外层`UbcCtpMultiBatchHandle`执行`BatchCommit`和批量`Drain`。批量接口仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 
 ## 协议能力
 

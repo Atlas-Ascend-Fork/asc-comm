@@ -23,6 +23,12 @@ template <
     typename T,
     typename BatchHandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t Drain(T& batchHandle);
+
+template <
+    pipe_t pipe = PIPE_MTE3,
+    typename T,
+    typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
+__aicore__ inline int32_t Drain(T& batchHandle);
 ```
 
 ## Parameter Description
@@ -30,14 +36,14 @@ __aicore__ inline int32_t Drain(T& batchHandle);
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | `channel` | Input | Communication channel handle used by the ordinary interface. |
-| `batchHandle` | Input/Output | Single-channel execution handle created by `MakeBatchHandle`, or inner execution handle returned by `GetHandleRef`. The call waits for communication tasks submitted through this handle. |
+| `batchHandle` | Input/Output | Single-channel or multi-channel batch handle created by `MakeBatchHandle`. The call waits for communication tasks submitted through this handle. |
 
 ## Template Parameters
 
 | Parameter | Description |
 | --- | --- |
 | `pipe` | Pipe used for drain operations. Default: `PIPE_MTE3`. |
-| `T` | Batch handle type, deduced from `batchHandle`. Used only by the batch overload and currently supports `UbcCtpBatchHandle`. |
+| `T` | Batch handle type, deduced from `batchHandle`. Used only by the batch overload and currently supports `UbcCtpBatchHandle` and `UbcCtpMultiBatchHandle`. |
 
 ## Return Value
 
@@ -57,7 +63,7 @@ __aicore__ inline int32_t Drain(T& batchHandle);
 ### Batch Interface
 
 - Currently supported only on the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950. It does not require `Init`.
-- In multi-channel mode, call batch `Drain` on the inner BatchHandle reference returned by `GetHandleRef`. `UbcCtpMultiBatchHandle` cannot be passed directly to this interface.
+- In multi-channel mode, pass the outer multi-channel batch handle to batch `Drain`.
 - Submit prepared WQEs through `BatchCommit` before this interface. If the BatchHandle contains uncommitted WQEBBs, this interface returns `-1`.
 - Batch `Drain` reuses the first 64 bytes of the WQE buffer as CQE scratch space. Do not access or modify the buffer concurrently during the call.
 - Multiple `BatchCommit` calls can be followed by one batch `Drain`, which waits for all CQEs accumulated in the BatchHandle.

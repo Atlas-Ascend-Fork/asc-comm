@@ -334,7 +334,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
     EXPECT_EQ(invalidRemoteHandle.buffer.bufferCapacity, 0U);
 }
 
-TEST_F(HcommUrmaTestSuite, Aiv_Urma_MultiChannelBatchUsesHandleRefForCommitAndDrain)
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_MultiChannelBatchUsesOuterHandleForCommitAndDrain)
 {
     static_assert(
         std::is_same<AscendC::BatchHandle<AscendC::ChannelHandle>, AscendC::UbcCtpBatchHandle>::value,
@@ -374,12 +374,12 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MultiChannelBatchUsesHandleRefForCommitAndDr
     EXPECT_EQ(secondSqe->rmtTokenValue, 0xBBBBU);
     EXPECT_EQ(secondSqe->tpId, 22U);
 
-    ASSERT_EQ(hcomm.BatchCommit(batchHandle), AscendC::HCOMM_SUCCESS);
+    ASSERT_EQ(hcomm.BatchCommit(multiBatchHandle), AscendC::HCOMM_SUCCESS);
     EXPECT_EQ(multiChannel.GetSqHead(), 2U);
     EXPECT_EQ(multiChannel.GetCqHead(), 2U);
     EXPECT_EQ(multiChannel.GetSqDoorbell(), 2U);
 
-    ASSERT_EQ(hcomm.Drain(batchHandle), AscendC::HCOMM_SUCCESS);
+    ASSERT_EQ(hcomm.Drain(multiBatchHandle), AscendC::HCOMM_SUCCESS);
     EXPECT_EQ(multiChannel.GetSqTail(), 2U);
     EXPECT_EQ(multiChannel.GetCqTail(), 2U);
     EXPECT_EQ(multiChannel.GetCqDoorbell(), 2U);

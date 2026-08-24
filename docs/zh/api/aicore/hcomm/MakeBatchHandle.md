@@ -4,7 +4,7 @@
 
 创建与通信协议匹配的批量句柄，并绑定用于批量准备WQE的UB缓冲区。当前批量句柄仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 
-接口根据单通道或多通道重载返回对应的BatchHandle类型，调用侧建议使用`auto`接收返回值。`ChannelHandle`映射为执行句柄`UbcCtpBatchHandle`；`MultiChannelHandle`映射为用于选择逻辑通道的`UbcCtpMultiBatchHandle`，通过`GetHandleRef`取得其中的`UbcCtpBatchHandle`执行句柄。
+接口根据句柄类型返回对应的BatchHandle类型，调用侧建议使用`auto`接收返回值。`ChannelHandle`映射为执行句柄`UbcCtpBatchHandle`；`MultiChannelHandle`映射为用于选择逻辑通道的`UbcCtpMultiBatchHandle`，通过`GetHandleRef`取得其中的`UbcCtpBatchHandle`执行句柄。
 
 ## 函数原型
 
@@ -16,34 +16,28 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
     uint32_t buffLen,
     GM_ADDR remoteAddr = nullptr,
     GM_ADDR localAddr = nullptr);
-
-template <typename U>
-__aicore__ inline BatchHandle<MultiChannelHandle> MakeBatchHandle(
-    MultiChannelHandle multiChannel,
-    const AscendC::LocalTensor<U>& buff,
-    uint32_t buffLen);
 ```
 
 ## 参数说明
 
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
-| `channel`/`multiChannel` | 输入 | UBC_CTP单通道`ChannelHandle`，或Host侧`MakeMultiChannelHandle`创建的共享Jetty `MultiChannelHandle`。 |
+| `channel` | 输入 | UBC_CTP单通道`ChannelHandle`，或Host侧`MakeMultiChannelHandle`创建的共享Jetty `MultiChannelHandle`。 |
 | `buff` | 输入 | 调用方提供的UB `LocalTensor`，用于准备批量WQE，并由批量`Drain`复用为CQE临时缓冲区。 |
 | `buffLen` | 输入 | 缓冲区可用长度，单位为字节。 |
-| `remoteAddr` | 输入 | 仅单通道重载使用，用于选择远端已注册buffer。默认值为`nullptr`。 |
-| `localAddr` | 输入 | 仅单通道重载保留，本版本暂不使用。默认值为`nullptr`。 |
+| `remoteAddr` | 输入 | 单通道模式下用于选择远端已注册buffer；多通道模式下为保留参数。默认值为`nullptr`。 |
+| `localAddr` | 输入 | 保留参数，本版本暂不使用。默认值为`nullptr`。 |
 
 ## 模板参数
 
 | 参数 | 说明 |
 | --- | --- |
-| `T` | 单通道句柄类型，当前为`ChannelHandle`。 |
+| `T` | 通道句柄类型，当前支持`ChannelHandle`和`MultiChannelHandle`。 |
 | `U` | `LocalTensor`的元素类型。 |
 
 ## 返回值
 
-单通道重载返回`BatchHandle<T>`，多通道重载返回`BatchHandle<MultiChannelHandle>`。仅`COMM_PROTOCOL_UBC_CTP`支持该接口。
+返回`BatchHandle<T>`。仅`COMM_PROTOCOL_UBC_CTP`支持该接口。
 
 该接口不通过返回码报告参数错误。调用方必须满足下述约束；调试模式下，非法参数会触发接口断言。
 
@@ -71,7 +65,7 @@ auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBu
 auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, channelIndex, peerRemoteAddr);
 ```
 
-多通道模式下，调用[GetHandleRef](./GetHandleRef.md)选择逻辑通道，通过返回的`BatchHandle<ChannelHandle>`引用准备WQE，并对该内层引用执行`BatchCommit`和批量`Drain`。`multiBatchHandle`只用于后续的`GetHandleRef`调用。
+多通道模式下，调用[GetHandleRef](./GetHandleRef.md)选择逻辑通道，通过返回的`BatchHandle<ChannelHandle>`引用准备WQE；使用`multiBatchHandle`执行`BatchCommit`和批量`Drain`。
 
 ## 相关接口
 

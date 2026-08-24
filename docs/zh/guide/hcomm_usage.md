@@ -115,11 +115,11 @@ for (uint32_t channelIndex = 0U; channelIndex < channelNum; ++channelIndex) {
     ret = hcomm.WriteNbi(
         peerBatchHandle, remoteBuffers[channelIndex], localBuffer, dataLen);
 }
-ret = hcomm.BatchCommit(batchHandle);
-ret = hcomm.Drain(batchHandle);
+ret = hcomm.BatchCommit(multiBatchHandle);
+ret = hcomm.Drain(multiBatchHandle);
 ```
 
-`channelDescs`数组下标对应`GetHandleRef`的`channelIndex`。批量操作、`BatchCommit`和`Drain`均使用该接口返回的内层引用。
+`channelDescs`数组下标对应`GetHandleRef`的`channelIndex`。批量读写使用该接口返回的内层引用；`BatchCommit`和`Drain`使用外层多通道批量句柄。
 
 ## 批量缓冲区和CQE配置
 

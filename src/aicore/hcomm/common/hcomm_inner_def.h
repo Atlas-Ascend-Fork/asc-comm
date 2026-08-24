@@ -349,6 +349,14 @@ struct BatchHandleTraits<UbcCtpBatchHandle> {
     using ChannelType = ChannelHandle;
 };
 
+template <typename T>
+struct MultiBatchHandleTraits;
+
+template <>
+struct MultiBatchHandleTraits<UbcCtpMultiBatchHandle> {
+    using ChannelType = MultiChannelHandle;
+};
+
 // RoCE WQE, CQE, DB struct
 typedef struct {
     uint8_t ownerSl; // dw0[31:24]: owner(1) + ctrl_section_length(2) + csl(2) + difsl(3)
