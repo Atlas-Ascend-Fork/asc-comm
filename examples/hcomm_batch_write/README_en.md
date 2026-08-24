@@ -11,19 +11,17 @@ The kernel uses the following flow:
 
 ```cpp
 auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
-auto& batchHandle = hcomm.GetHandleRef(
-    multiBatchHandle, 0U, remoteBuffers[0U] + recvOffset);
 for (uint32_t index = 0; index < channelNum; ++index) {
     GM_ADDR remoteAddr = remoteBuffers[index] + recvOffset;
     auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, index, remoteAddr);
     hcomm.WriteNbi(peerBatchHandle, remoteAddr, localBuffer, dataSize);
 }
-hcomm.BatchCommit(batchHandle);
-hcomm.Drain(batchHandle);
+hcomm.BatchCommit(multiBatchHandle);
+hcomm.Drain(multiBatchHandle);
 ```
 
 `GetHandleRef` returns the inner BatchHandle reference for a logical channel and remote address. Use this reference for
-batch writes, `BatchCommit`, and `Drain`.
+batch writes, and use the outer multi-channel batch handle for `BatchCommit` and `Drain`.
 
 ## Requirements
 

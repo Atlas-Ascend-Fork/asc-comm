@@ -427,8 +427,11 @@ __aicore__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchH
 
 template <typename U>
 __aicore__ inline UbcCtpMultiBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
-    MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen)
+    MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr,
+    GM_ADDR localAddr)
 {
+    (void)remoteAddr;
+    (void)localAddr;
     if (multiChannel == MultiChannelHandle{}) {
         return UbcCtpMultiBatchHandle{};
     }

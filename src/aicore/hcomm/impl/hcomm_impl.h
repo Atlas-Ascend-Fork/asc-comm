@@ -60,19 +60,6 @@ __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
 }
 
 template <CommProtocol commProtocol>
-template <typename U>
-__aicore__ inline BatchHandle<MultiChannelHandle> Hcomm<commProtocol>::MakeBatchHandle(
-    MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen)
-{
-    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "BatchHandle only supports COMM_PROTOCOL_UBC_CTP");
-    auto batchHandle = impl_.MakeBatchHandle(multiChannel, buff, buffLen);
-    using ExpectedType = BatchHandle<MultiChannelHandle>;
-    static_assert(
-        std::is_same<decltype(batchHandle), ExpectedType>::value, "Channel type and BatchHandle type do not match");
-    return batchHandle;
-}
-
-template <CommProtocol commProtocol>
 __aicore__ inline BatchHandle<ChannelHandle>& Hcomm<commProtocol>::GetHandleRef(
     BatchHandle<MultiChannelHandle>& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
 {
@@ -177,6 +164,13 @@ __aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(T& batchHandle)
 }
 
 template <CommProtocol commProtocol>
+__aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(BatchHandle<MultiChannelHandle>& batchHandle)
+{
+    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "BatchHandle only supports COMM_PROTOCOL_UBC_CTP");
+    return impl_.BatchCommit(batchHandle.handle);
+}
+
+template <CommProtocol commProtocol>
 template <pipe_t pipe>
 __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 {
@@ -188,6 +182,14 @@ template <pipe_t pipe, typename T, typename BatchHandleTraits<T>::ChannelType*>
 __aicore__ inline int32_t Hcomm<commProtocol>::Drain(T& batchHandle)
 {
     return impl_.template Drain<pipe>(batchHandle);
+}
+
+template <CommProtocol commProtocol>
+template <pipe_t pipe>
+__aicore__ inline int32_t Hcomm<commProtocol>::Drain(BatchHandle<MultiChannelHandle>& batchHandle)
+{
+    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "BatchHandle only supports COMM_PROTOCOL_UBC_CTP");
+    return impl_.template Drain<pipe>(batchHandle.handle);
 }
 } // namespace AscendC
 
