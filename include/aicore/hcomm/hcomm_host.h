@@ -29,8 +29,15 @@ typedef uint64_t MultiChannelHandle;
 extern "C" {
 #endif
 
-/**
- * @brief Create tagged shared-Jetty channels and a device-resident multi-channel handle.
+/*!
+ * @brief Create a group of shared-Jetty channels and the multi-channel handle used on the Device.
+ * @param [in] comm: The initialized HCCL communicator that owns the channels and Device context.
+ * @param [in] sharedQueueTag: The tag identifying the shared queue used by this channel group.
+ * @param [in] channelDescs: The channel descriptor array. Its order defines the channelIndex used by GetHandleRef.
+ * @param [in] channelNum: The number of elements in channelDescs. It must be greater than 0.
+ * @param [out] multiChannel: The created Device-side multi-channel handle.
+ * @return HCCL_SUCCESS indicates success. Other values indicate an HCCL error.
+ * @note The returned handle is managed by comm. The communicator must remain valid while a Kernel uses the handle.
  */
 static inline HcclResult MakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
