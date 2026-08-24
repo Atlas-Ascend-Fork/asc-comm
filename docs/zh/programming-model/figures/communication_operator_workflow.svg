@@ -10,12 +10,12 @@
   <text x="540" y="28" font-size="16" font-weight="700" text-anchor="middle" fill="#1f2937">通信算子基本流程</text>
 
   <rect x="34" y="52" width="322" height="158" rx="5" fill="#f4f7f9" stroke="#52616b" stroke-width="1.5"/>
-  <text x="54" y="78" font-size="12" font-weight="700" fill="#25313b">控制面：HCOMM通信基础库</text>
+  <text x="54" y="78" font-size="12" font-weight="700" fill="#25313b">控制面</text>
   <rect x="90" y="102" width="210" height="64" rx="4" fill="#eef6ea" stroke="#4b8f68"/>
   <text x="195" y="139" font-size="12" text-anchor="middle" fill="#28573c">1. 资源准备</text>
 
   <rect x="388" y="52" width="658" height="158" rx="5" fill="#fafbfc" stroke="#52616b" stroke-width="1.5"/>
-  <text x="408" y="78" font-size="12" font-weight="700" fill="#25313b">数据面：ASC-COMM通信基础库</text>
+  <text x="408" y="78" font-size="12" font-weight="700" fill="#25313b">数据面</text>
   <rect x="412" y="102" width="158" height="64" rx="4" fill="#fff2cc" stroke="#d6b656"/>
   <text x="491" y="139" font-size="12" text-anchor="middle" fill="#3b3425">2. 前同步</text>
   <rect x="638" y="102" width="158" height="64" rx="4" fill="#fff2cc" stroke="#d6b656"/>
