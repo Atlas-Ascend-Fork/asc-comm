@@ -401,7 +401,6 @@ __aicore__ inline UbcCtpBatchHandle HcommUrmaCreateBatchHandle(
     batchHandle.cursor.cqHead = channelEntity->cqHead;
     batchHandle.cursor.cqTail = channelEntity->cqTail;
     batchHandle.cursor.preSqCnt = 0U;
-    batchHandle.queueIndexSource = BatchQueueIndexSource::CHANNEL_ENTITY;
     batchHandle.buffer.buffer = wqeBuffer;
     batchHandle.buffer.bufferCapacity = buffLen / HCOMM_URMA_WQEBB_SIZE;
     return batchHandle;
@@ -429,30 +428,25 @@ __aicore__ inline UbcCtpMultiBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
 
     uint64_t multiChannelValue = static_cast<uint64_t>(multiChannel);
     auto* multiChannelEntity = reinterpret_cast<__gm__ MultiChannelEntity*>(multiChannelValue);
-    auto sqCtx = multiChannelEntity->sqContext;
-    auto cqCtx = multiChannelEntity->cqContext;
-    if (multiChannelEntity->channelNum == 0U || multiChannelEntity->remoteInfoAddr == 0U ||
-        sqCtx.contextInfo.ubJfs.headAddr == 0U || sqCtx.contextInfo.ubJfs.tailAddr == 0U ||
-        cqCtx.contextInfo.ubJfc.headAddr == 0U || cqCtx.contextInfo.ubJfc.tailAddr == 0U) {
+    ChannelHandle channel = multiChannelEntity->channelHandle;
+    if (channel == 0U || multiChannelEntity->channelNum == 0U || multiChannelEntity->remoteInfoAddr == 0U) {
         return UbcCtpMultiBatchHandle{};
     }
+    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
 
     LocalTensor<uint32_t> wqeBuffer = buff.template ReinterpretCast<uint32_t>();
     UbcCtpMultiBatchHandle multiBatchHandle{};
     multiBatchHandle.handle.sqContext = sqCtx;
     multiBatchHandle.handle.cqContext = cqCtx;
-    multiBatchHandle.handle.cursor.sqHead =
-        static_cast<uint32_t>(ld_dev(reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.headAddr), 0));
-    multiBatchHandle.handle.cursor.sqTail =
-        static_cast<uint32_t>(ld_dev(reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.tailAddr), 0));
-    multiBatchHandle.handle.cursor.cqHead =
-        static_cast<uint32_t>(ld_dev(reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.headAddr), 0));
-    multiBatchHandle.handle.cursor.cqTail =
-        static_cast<uint32_t>(ld_dev(reinterpret_cast<__gm__ uint32_t*>(cqCtx.contextInfo.ubJfc.tailAddr), 0));
-    multiBatchHandle.handle.cursor.preSqCnt = 0U;
-    multiBatchHandle.handle.queueIndexSource = BatchQueueIndexSource::INVALID;
+    multiBatchHandle.handle.cursor.sqHead = channelEntity->sqHead;
+    multiBatchHandle.handle.cursor.sqTail = channelEntity->sqTail;
+    multiBatchHandle.handle.cursor.cqHead = channelEntity->cqHead;
+    multiBatchHandle.handle.cursor.cqTail = channelEntity->cqTail;
     multiBatchHandle.handle.buffer.buffer = wqeBuffer;
     multiBatchHandle.handle.buffer.bufferCapacity = buffLen / HCOMM_URMA_WQEBB_SIZE;
+    multiBatchHandle.channelHandle = channel;
     multiBatchHandle.channelNum = multiChannelEntity->channelNum;
     multiBatchHandle.remoteInfoAddr = multiChannelEntity->remoteInfoAddr;
     return multiBatchHandle;
@@ -462,7 +456,7 @@ __aicore__ inline UbcCtpBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandle
     UbcCtpMultiBatchHandle& multiBatchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
 {
     multiBatchHandle.handle.remoteInfo = BatchRemoteInfo{};
-    multiBatchHandle.handle.queueIndexSource = BatchQueueIndexSource::INVALID;
+    multiBatchHandle.handle.channelHandle = 0U;
     if (channelIndex >= multiBatchHandle.channelNum) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm GetHandleRef failed with invalid channel index\n");
         return multiBatchHandle.handle;
@@ -479,7 +473,7 @@ __aicore__ inline UbcCtpBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandle
         KERNEL_LOG(KERNEL_ERROR, "Hcomm GetHandleRef failed to resolve remote registered memory\n");
         return multiBatchHandle.handle;
     }
-    multiBatchHandle.handle.queueIndexSource = BatchQueueIndexSource::SHARED_QUEUE;
+    multiBatchHandle.handle.channelHandle = multiBatchHandle.channelHandle;
     return multiBatchHandle.handle;
 }
 
@@ -495,7 +489,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
     static_assert(config.cqe == 0 || config.cqe == 1, "BatchPostSend supports cqe values 0 and 1 only");
     static_assert(config.inlineEn == 0, "BatchPostSend does not support inline data");
 
-    if (batchHandle.queueIndexSource == BatchQueueIndexSource::INVALID) {
+    if (batchHandle.channelHandle == 0U) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with invalid batch handle\n");
         return HCOMM_FAILED;
     }
@@ -528,9 +522,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
     batchHandle.cursor.preSqCnt = preSqCnt + wqebbCount;
     if constexpr (config.cqe == 1) {
         batchHandle.cursor.cqHead++;
-        if (batchHandle.queueIndexSource == BatchQueueIndexSource::SHARED_QUEUE) {
-            batchHandle.cursor.sqTail = batchHandle.cursor.sqHead + preSqCnt + wqebbCount;
-        }
+        batchHandle.cursor.sqTail = batchHandle.cursor.sqHead + preSqCnt + wqebbCount;
     }
     return HCOMM_SUCCESS;
 }
@@ -802,15 +794,9 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollBatchCq(
     }
 
     batchHandle.cursor.cqTail = curTail;
-    if (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY) {
-        auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-        channelEntity->cqTail = curTail;
-    } else {
-        st_dev(
-            batchHandle.cursor.sqTail,
-            reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.contextInfo.ubJfs.tailAddr), 0);
-        st_dev(curTail, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.tailAddr), 0);
-    }
+    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+    channelEntity->sqTail = batchHandle.cursor.sqTail;
+    channelEntity->cqTail = curTail;
     st_dev(curTail & 0xFFFFFFU, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.dbVa), 0);
     return HCOMM_SUCCESS;
 }
@@ -905,7 +891,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle
 
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBatchHandle& batchHandle)
 {
-    if (batchHandle.queueIndexSource == BatchQueueIndexSource::INVALID) {
+    if (batchHandle.channelHandle == 0U) {
         return HCOMM_FAILED;
     }
 
@@ -946,22 +932,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBa
 
     uint32_t newSqHead = sqHead + preSqCnt;
     batchHandle.cursor.sqHead = newSqHead;
-    if (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY) {
-        auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-        channelEntity->sqHead = newSqHead;
-        channelEntity->cqHead = batchHandle.cursor.cqHead;
-        Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-        st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.contextInfo.ubJfs.dbVa), 0);
-        Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-    } else {
-        Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-        st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.contextInfo.ubJfs.headAddr), 0);
-        st_dev(
-            batchHandle.cursor.cqHead,
-            reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.headAddr), 0);
-        st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.contextInfo.ubJfs.dbVa), 0);
-        Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-    }
+    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+    channelEntity->sqHead = newSqHead;
+    channelEntity->cqHead = batchHandle.cursor.cqHead;
+    Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
+    st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.contextInfo.ubJfs.dbVa), 0);
+    Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
 
     batchHandle.cursor.preSqCnt = 0;
     return HCOMM_SUCCESS;
@@ -987,9 +963,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHan
     static_assert(
         sizeof(HcommUrmaJfcCqeCtx) <= HCOMM_URMA_WQEBB_SIZE, "Batch Drain CQE scratch space must fit in one WQEBB");
 
-    if (batchHandle.queueIndexSource == BatchQueueIndexSource::INVALID ||
-        (batchHandle.queueIndexSource == BatchQueueIndexSource::CHANNEL_ENTITY && batchHandle.channelHandle == 0U) ||
-        batchHandle.buffer.bufferCapacity == 0U || batchHandle.cursor.preSqCnt != 0U) {
+    if (batchHandle.channelHandle == 0U || batchHandle.buffer.bufferCapacity == 0U ||
+        batchHandle.cursor.preSqCnt != 0U) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid batch handle\n");
         return HCOMM_FAILED;
     }

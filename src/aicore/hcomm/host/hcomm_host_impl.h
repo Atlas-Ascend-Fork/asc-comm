@@ -124,15 +124,14 @@ typedef struct {
 } MultiChannelRemoteInfo;
 
 typedef struct {
-    SqContext sqContext;
-    CqContext cqContext;
+    ChannelHandle channelHandle;
     uint32_t channelNum;
+    uint32_t reserved;
     uint64_t remoteInfoAddr;
 } MultiChannelEntity;
 
 typedef struct {
     SqContext sqContext;
-    CqContext cqContext;
     MultiChannelRemoteInfo remoteInfo;
 } ChannelMetadata;
 
@@ -213,11 +212,6 @@ static inline HcclResult HcommExtractChannelMetadata(
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
-    ret = HcommCopyFromDevice(
-        &metadata->cqContext, sizeof(metadata->cqContext), channelEntity.cqContextAddr, channelIndex, "CqContext");
-    if (ret != HCCL_SUCCESS) {
-        return ret;
-    }
     metadata->remoteInfo.remoteBufferAddr = (uint64_t)(uintptr_t)channelEntity.remoteBufferAddr;
     metadata->remoteInfo.remoteBufferNum = channelEntity.remoteBufferNum;
     metadata->remoteInfo.tpId = metadata->sqContext.contextInfo.ubJfs.tpID;
@@ -239,7 +233,6 @@ static inline HcclResult HcommBuildMultiChannelEntity(
     const HcommHcclApi* hcclApi, HcclComm comm, const ChannelHandle* channels, const char* sharedQueueTag,
     uint32_t channelNum, void** deviceMemory)
 {
-    ChannelMetadata anchorMetadata;
     ChannelMetadata currentMetadata;
     MultiChannelEntity* entity = NULL;
     MultiChannelRemoteInfo* channelInfos = NULL;
@@ -263,14 +256,10 @@ static inline HcclResult HcommBuildMultiChannelEntity(
             free(hostMemory);
             return ret;
         }
-        if (i == 0U) {
-            anchorMetadata = currentMetadata;
-        }
         channelInfos[i] = currentMetadata.remoteInfo;
     }
 
-    entity->sqContext = anchorMetadata.sqContext;
-    entity->cqContext = anchorMetadata.cqContext;
+    entity->channelHandle = channels[0];
     entity->channelNum = channelNum;
 
     ret = hcclApi->engineCtxCreate(comm, sharedQueueTag, COMM_ENGINE_AIV, totalSize, deviceMemory);

@@ -272,16 +272,10 @@ typedef struct {
     uint32_t preSqCnt;
 } BatchQueueCursor;
 
-enum class BatchQueueIndexSource : uint32_t {
-    INVALID = 0U,
-    CHANNEL_ENTITY,
-    SHARED_QUEUE,
-};
-
 typedef struct {
-    SqContext sqContext;
-    CqContext cqContext;
+    ChannelHandle channelHandle;
     uint32_t channelNum;
+    uint32_t reserved;
     uint64_t remoteInfoAddr;
 } MultiChannelEntity;
 
@@ -295,13 +289,13 @@ typedef struct {
     SqContext sqContext;
     CqContext cqContext;
     BatchQueueCursor cursor;
-    BatchQueueIndexSource queueIndexSource;
     BatchRemoteInfo remoteInfo;
     BatchBuffer buffer;
 } UbcCtpBatchHandle;
 
 typedef struct {
     UbcCtpBatchHandle handle;
+    ChannelHandle channelHandle;
     uint32_t channelNum;
     uint32_t reserved;
     uint64_t remoteInfoAddr;
