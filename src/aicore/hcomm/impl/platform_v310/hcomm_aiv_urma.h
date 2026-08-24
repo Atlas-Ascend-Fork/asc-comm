@@ -476,8 +476,8 @@ __aicore__ inline UbcCtpBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandle
 {
     multiBatchHandle.handle.remoteInfo = BatchRemoteInfo{};
     multiBatchHandle.handle.queueIndexSource = BatchQueueIndexSource::INVALID;
-    if (channelIndex >= multiBatchHandle.channelNum || remoteAddr == nullptr) {
-        KERNEL_LOG(KERNEL_ERROR, "Hcomm GetHandleRef failed with invalid channel index or remote address\n");
+    if (channelIndex >= multiBatchHandle.channelNum) {
+        KERNEL_LOG(KERNEL_ERROR, "Hcomm GetHandleRef failed with invalid channel index\n");
         return multiBatchHandle.handle;
     }
 

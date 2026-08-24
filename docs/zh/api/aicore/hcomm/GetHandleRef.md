@@ -10,7 +10,7 @@
 __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
     BatchHandle<MultiChannelHandle>& batchHandle,
     uint32_t channelIndex,
-    GM_ADDR remoteAddr);
+    GM_ADDR remoteAddr = nullptr);
 ```
 
 ## 参数说明
@@ -19,7 +19,7 @@ __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
 | --- | --- | --- |
 | `batchHandle` | 输入/输出 | 由`MakeBatchHandle(MultiChannelHandle, ...)`创建的多通道批量句柄。 |
 | `channelIndex` | 输入 | 逻辑通道索引，与Host侧`MakeMultiChannelHandle`传入的`channelDescs`数组下标一致。 |
-| `remoteAddr` | 输入 | 所选逻辑通道的远端已注册buffer内地址。 |
+| `remoteAddr` | 输入 | 所选逻辑通道的远端已注册buffer内地址；为空时选择第一个远端已注册buffer。默认值为`nullptr`。 |
 
 ## 返回值
 
@@ -29,9 +29,9 @@ __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
 
 - `batchHandle`必须由有效的`MultiChannelHandle`创建，不能传入单通道`UbcCtpBatchHandle`。
 - `channelIndex`必须小于创建`MultiChannelHandle`时传入的`channelNum`。
-- `remoteAddr`不能为空，且必须落在所选逻辑通道的一个远端已注册buffer中。
+- `remoteAddr`非空时必须落在所选逻辑通道的一个远端已注册buffer中；为空时，该通道必须至少包含一个远端已注册buffer。
 - 对同一个多通道批量句柄多次调用本接口时，返回的引用均指向同一个内层BatchHandle；每次调用会更新该内层句柄当前选择的逻辑通道和远端MR信息。
-- 返回引用的批量操作必须访问所选MR；切换MR前需要再次调用本接口。
+- 返回引用的批量操作必须使用本次调用缓存的token；访问使用不同token的远端buffer前需要再次调用本接口。
 - 使用返回的内层引用调用批量读、写、写通知、`BatchCommit`和批量`Drain`。
 - 多通道批量句柄仅用于调用本接口选择逻辑通道，不能直接传入上述执行接口。
 

@@ -101,12 +101,13 @@ public:
      * @brief Select one peer and bind one of its remote registered-memory regions.
      * @param [in,out] batchHandle: A batch handle created from MultiChannelHandle.
      * @param [in] channelIndex: Index in the channel descriptor array used to create MultiChannelHandle.
-     * @param [in] remoteAddr: An address in the remote registered-memory region to select.
+     * @param [in] remoteAddr: An address in the remote registered-memory region to select. If it is null, the first
+     *                         remote registered buffer is selected.
      * @return A BatchHandle reference configured for the selected peer and remote registered-memory region.
-     * @note Remote address ranges used through the returned handle must belong to the selected region.
+     * @note Remote registered buffers used through the returned handle must use the token cached by this call.
      */
     __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
-        BatchHandle<MultiChannelHandle>& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr);
+        BatchHandle<MultiChannelHandle>& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
 
     /*!
      * @class Hcomm

@@ -404,6 +404,11 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MultiChannelBatchRejectsUnknownRemote)
     auto& reboundHandle = hcomm.GetHandleRef(multiBatchHandle, 0U, reinterpret_cast<GM_ADDR>(0x1008U));
     EXPECT_EQ(reboundHandle.queueIndexSource, AscendC::BatchQueueIndexSource::SHARED_QUEUE);
     EXPECT_EQ(reboundHandle.remoteInfo.tokenId, 0x11111U);
+
+    auto& defaultHandle = hcomm.GetHandleRef(multiBatchHandle, 0U);
+    EXPECT_EQ(defaultHandle.queueIndexSource, AscendC::BatchQueueIndexSource::SHARED_QUEUE);
+    EXPECT_EQ(defaultHandle.remoteInfo.tokenId, 0x11111U);
+    EXPECT_EQ(defaultHandle.remoteInfo.tokenValue, 0xAAAAU);
 }
 
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchWriteNbi)
