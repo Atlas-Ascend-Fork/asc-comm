@@ -20,8 +20,9 @@ hcomm.BatchCommit(multiBatchHandle);
 hcomm.Drain(multiBatchHandle);
 ```
 
-`GetHandleRef` returns the inner BatchHandle reference for a logical channel and remote address. Use this reference for
-batch writes, and use the outer multi-channel batch handle for `BatchCommit` and `Drain`.
+`channelIndex` matches the index in the `channelDescs` array passed to Host-side `MakeMultiChannelHandle`.
+`GetHandleRef` selects and caches an MR token using that index and the remote address, and returns the inner BatchHandle
+reference. Use this reference for batch writes and the outer multi-channel batch handle for `BatchCommit` and `Drain`.
 
 ## Requirements
 

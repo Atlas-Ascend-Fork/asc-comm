@@ -39,14 +39,14 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 
 Returns `BatchHandle<T>`. This interface is supported only by `COMM_PROTOCOL_UBC_CTP`.
 
-This interface does not report invalid arguments through a status code. The caller must satisfy the constraints below. Invalid arguments trigger an interface assertion in debug builds.
+This interface does not report invalid arguments through a status code. If channel or remote-MR selection fails, it returns a zero-initialized invalid handle. The caller must satisfy the constraints below.
 
 ## Constraints
 
 - Batch handles currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950. The `COMM_PROTOCOL_ROCE` batch path is not supported.
-- In single-channel mode, `channel` must not be `0` and must point to an initialized UBC_CTP channel entity. A non-null `remoteAddr` must fall within a remote registered buffer; when null, the channel must contain at least one remote registered buffer. The interface caches the selected buffer's `tokenId/tokenValue`, and later batch operations do not query the remote registration table again.
+- In single-channel mode, `channel` must not be `0` and must point to an initialized UBC_CTP channel entity. A non-null `remoteAddr` must fall within a remote registered buffer; when null, the first remote registered buffer is selected. The interface caches the selected buffer's `tokenId/tokenValue`, and later batch operations do not query the remote registration table again.
 - In multi-channel mode, `multiChannel` must not be an empty `MultiChannelHandle`, and its shared queue entity and remote information array must be valid. Call `GetHandleRef` to select a logical channel and remote MR.
-- The single-channel overload's `localAddr` is not used for address validation or token caching in the current version.
+- `localAddr` is not used for address validation or token caching in the current version.
 - The start address of `buff` must be 32-byte aligned, and `buffLen` must be at least 64 bytes.
 - `buffLen` must not exceed `buff.GetSize() * sizeof(U)`.
 - `buffLen` must be strictly smaller than the SQ capacity, that is, `sqDepth * 64` bytes. The buffer can hold `buffLen / 64` WQEBBs; any remaining bytes are not used for WQEs.

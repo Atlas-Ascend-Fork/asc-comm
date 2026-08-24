@@ -102,15 +102,12 @@ HcclResult ret = MakeMultiChannelHandle(
 ```
 
 On the AICore, create a multi-channel batch handle and call `GetHandleRef` to obtain the common inner execution
-handle. The multi-channel batch handle selects logical channels; the inner handle prepares and submits WQEs and
-waits for completion:
+handle. Use the inner handle to prepare WQEs and the outer multi-channel batch handle for `BatchCommit` and `Drain`:
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
 auto multiBatchHandle = hcomm.MakeBatchHandle(
     static_cast<AscendC::MultiChannelHandle>(multiChannel), batchBuffer, batchBufferLen);
-auto& batchHandle = hcomm.GetHandleRef(
-    multiBatchHandle, 0U, remoteBuffers[0U]);
 for (uint32_t channelIndex = 0U; channelIndex < channelNum; ++channelIndex) {
     auto& peerBatchHandle = hcomm.GetHandleRef(
         multiBatchHandle, channelIndex, remoteBuffers[channelIndex]);
@@ -121,8 +118,10 @@ ret = hcomm.BatchCommit(multiBatchHandle);
 ret = hcomm.Drain(multiBatchHandle);
 ```
 
-An index in `channelDescs` corresponds to the `channelIndex` passed to `GetHandleRef`. Use the returned inner reference
-for batch read and write operations, and use the outer multi-channel batch handle for `BatchCommit` and `Drain`.
+An index in `channelDescs` corresponds to the `channelIndex` passed to `GetHandleRef`. `remoteAddr` selects and caches
+a token from that logical channel's remote MR table; when null, it selects the first remote MR. Use the returned inner
+reference for batch read and write operations, and use the outer multi-channel batch handle for `BatchCommit` and
+`Drain`.
 
 ## Batch Buffer and CQE Configuration
 

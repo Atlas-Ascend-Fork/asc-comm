@@ -19,7 +19,7 @@ hcomm.BatchCommit(multiBatchHandle);
 hcomm.Drain(multiBatchHandle);
 ```
 
-`GetHandleRef`根据逻辑通道和远端地址返回内层BatchHandle引用；批量写使用该引用，`BatchCommit`和`Drain`使用外层多通道批量句柄。
+`channelIndex`与Host侧传入`MakeMultiChannelHandle`的`channelDescs`数组下标一致。`GetHandleRef`根据该索引和远端地址选择并缓存MR token，返回内层BatchHandle引用；批量写使用该引用，`BatchCommit`和`Drain`使用外层多通道批量句柄。
 
 ## 支持环境
 

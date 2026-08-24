@@ -101,14 +101,12 @@ HcclResult ret = MakeMultiChannelHandle(
     comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
 ```
 
-AICore侧创建多通道批量句柄，通过`GetHandleRef`取得统一的内层执行句柄。多通道批量句柄负责选择逻辑通道，内层执行句柄负责准备、提交WQE和等待完成：
+AICore侧创建多通道批量句柄，通过`GetHandleRef`取得统一的内层执行句柄。内层句柄用于准备WQE，外层多通道批量句柄用于`BatchCommit`和`Drain`：
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
 auto multiBatchHandle = hcomm.MakeBatchHandle(
     static_cast<AscendC::MultiChannelHandle>(multiChannel), batchBuffer, batchBufferLen);
-auto& batchHandle = hcomm.GetHandleRef(
-    multiBatchHandle, 0U, remoteBuffers[0U]);
 for (uint32_t channelIndex = 0U; channelIndex < channelNum; ++channelIndex) {
     auto& peerBatchHandle = hcomm.GetHandleRef(
         multiBatchHandle, channelIndex, remoteBuffers[channelIndex]);
@@ -119,7 +117,7 @@ ret = hcomm.BatchCommit(multiBatchHandle);
 ret = hcomm.Drain(multiBatchHandle);
 ```
 
-`channelDescs`数组下标对应`GetHandleRef`的`channelIndex`。批量读写使用该接口返回的内层引用；`BatchCommit`和`Drain`使用外层多通道批量句柄。
+`channelDescs`数组下标对应`GetHandleRef`的`channelIndex`。`remoteAddr`用于在该逻辑通道的远端MR表中选择并缓存token；为空时选择第一个远端MR。批量读写使用该接口返回的内层引用；`BatchCommit`和`Drain`使用外层多通道批量句柄。
 
 ## 批量缓冲区和CQE配置
 
