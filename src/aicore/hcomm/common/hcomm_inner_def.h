@@ -26,6 +26,8 @@
 
 namespace AscendC {
 
+enum class MultiChannelHandle : uint64_t {};
+
 constexpr int32_t HCOMM_FAILED = -1;
 constexpr int32_t HCOMM_SUCCESS = 0;
 constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
@@ -246,25 +248,21 @@ typedef struct {
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
 
 typedef struct {
-    uint64_t baseAddr;
-    uint64_t dbAddr;
-    uint64_t remoteEidLow;
-    uint64_t remoteEidHigh;
-    uint32_t depth;
-    uint32_t tpId;
-} BatchSqContext;
-
-typedef struct {
-    uint64_t baseAddr;
-    uint64_t dbAddr;
-    uint32_t depth;
-    uint32_t cqeSize;
-} BatchCqContext;
-
-typedef struct {
     uint32_t tokenId;
     uint32_t tokenValue;
-} BatchRemoteToken;
+    uint64_t remoteEidLow;
+    uint64_t remoteEidHigh;
+    uint32_t tpId;
+    uint32_t reserved;
+} BatchRemoteInfo;
+
+typedef struct {
+    uint64_t remoteBufferAddr;
+    uint32_t remoteBufferNum;
+    uint32_t tpId;
+    uint64_t remoteEidLow;
+    uint64_t remoteEidHigh;
+} MultiChannelRemoteInfo;
 
 typedef struct {
     uint32_t sqHead;
@@ -272,21 +270,36 @@ typedef struct {
     uint32_t cqHead;
     uint32_t cqTail;
     uint32_t preSqCnt;
-} BatchQueueCounters;
+} BatchQueueCursor;
 
 typedef struct {
     ChannelHandle channelHandle;
+    uint32_t channelNum;
+    uint32_t reserved;
+    uint64_t remoteInfoAddr;
+} MultiChannelEntity;
+
+typedef struct {
     LocalTensor<uint32_t> buffer;
-    // Capacity of buffer in WQEBBs.
     uint32_t bufferCapacity;
-    // Context fields cached by MakeBatchHandle. They stay valid while the caller exclusively owns the channel.
-    BatchSqContext sqContext;
-    BatchCqContext cqContext;
-    BatchRemoteToken remoteToken;
-    // cqHead includes CQEs prepared in the active batch. BatchCommit and Drain synchronize queue counters back to
-    // ChannelEntity.
-    BatchQueueCounters queueCounters;
+} BatchBuffer;
+
+typedef struct {
+    ChannelHandle channelHandle;
+    SqContext sqContext;
+    CqContext cqContext;
+    BatchQueueCursor cursor;
+    BatchRemoteInfo remoteInfo;
+    BatchBuffer buffer;
 } UbcCtpBatchHandle;
+
+typedef struct {
+    UbcCtpBatchHandle handle;
+    ChannelHandle channelHandle;
+    uint32_t channelNum;
+    uint32_t reserved;
+    uint64_t remoteInfoAddr;
+} UbcCtpMultiBatchHandle;
 
 template <typename T>
 struct ChannelTraits;
@@ -294,6 +307,11 @@ struct ChannelTraits;
 template <>
 struct ChannelTraits<ChannelHandle> {
     using BatchHandleType = UbcCtpBatchHandle;
+};
+
+template <>
+struct ChannelTraits<MultiChannelHandle> {
+    using BatchHandleType = UbcCtpMultiBatchHandle;
 };
 
 template <typename T>
@@ -305,6 +323,11 @@ struct BatchHandleTraits;
 template <>
 struct BatchHandleTraits<UbcCtpBatchHandle> {
     using ChannelType = ChannelHandle;
+};
+
+template <>
+struct BatchHandleTraits<UbcCtpMultiBatchHandle> {
+    using ChannelType = MultiChannelHandle;
 };
 
 // RoCE WQE, CQE, DB struct

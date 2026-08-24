@@ -46,11 +46,11 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
 | `channel` | 输入 | 普通接口使用的通信通道句柄。 |
-| `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的批量句柄。成功准备WQE后，句柄中的WQEBB计数会更新；`cqe = 1`时句柄本地`cqHead`也会增加。 |
-| `dst` | 输出 | 远端目的GM绝对地址。对于批量接口，调用方必须保证其访问范围与`batchHandle`缓存的`tokenId/tokenValue`匹配。 |
+| `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的单通道批量句柄，或`GetHandleRef`返回的BatchHandle引用。 |
+| `dst` | 输出 | 远端目的GM绝对地址。 |
 | `src` | 输入 | 本端源GM绝对地址。 |
 | `len` | 输入 | 写入长度，单位为字节。 |
-| `notifyAddr` | 输入 | 远端通知GM绝对地址。对于批量接口，调用方必须保证其访问范围与`batchHandle`缓存的`tokenId/tokenValue`匹配。 |
+| `notifyAddr` | 输入 | 远端通知GM绝对地址。批量接口复用数据写操作使用的token，调用方必须保证通知地址属于同一注册内存。 |
 | `notifyVal` | 输入 | 远端通知值。 |
 
 ## 模板参数
@@ -61,7 +61,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | `commitPipe` | 普通接口commit使用的pipe，默认`PIPE_S`。 |
 | `reqPipe` | 普通接口请求使用的pipe，默认`PIPE_MTE3`。 |
 | `config` | URMA WQE控制配置。默认为`URMA_DEFAULT_CFG`（强序 + fence + 使能CQE）。批量接口要求`inlineEn = 0`且`cqe`只能为`0`或`1`。 |
-| `T` | 批量句柄类型，由`batchHandle`实参推导；当前支持`UbcCtpBatchHandle`。 |
+| `T` | 批量句柄类型，由`batchHandle`实参推导。 |
 
 ## 返回值
 
@@ -86,11 +86,13 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - 当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 - 每个批量写通知任务占用2个64字节WQEBB，只在UB中准备，不复制到GM SQ，也不敲doorbell。
 - `config.inlineEn`必须为`0`，`config.cqe`支持`0`或`1`。同一批次的不同读、写、写通知任务可以使用不同的`cqe`配置。
-- `dst`和`notifyAddr`不会再次与远端注册内存范围进行校验，也不会再次查询远端注册表。通知上下文复用BatchHandle缓存的`tokenId/tokenValue`；调用方必须保证两个远端访问区间都属于`MakeBatchHandle`根据`remoteAddr`缓存token时所命中的同一注册内存。
+- 对批量句柄，数据地址和通知地址必须属于其选中的远端注册内存。
+- 两种模式下，`notifyAddr`都复用数据写操作的token，不单独查询或校验通知地址。调用方必须保证`dst`访问区间和`notifyAddr`属于同一注册内存。
 - 当缓冲区容量校验失败时返回`-1`，BatchHandle中的WQEBB计数和`cqHead`保持不变。
-- 准备完成后需要调用`BatchCommit`。BatchHandle使用期间需要独占对应通道。
+- 准备完成后需要调用`BatchCommit`。多通道模式通过`GetHandleRef`返回的内层BatchHandle引用准备WQE，并通过外层`UbcCtpMultiBatchHandle`提交。使用期间需要独占对应单通道或共享Jetty。
 
 ## 相关接口
 
 - [MakeBatchHandle](./MakeBatchHandle.md)
+- [GetHandleRef](./GetHandleRef.md)
 - [BatchCommit](./BatchCommit.md)

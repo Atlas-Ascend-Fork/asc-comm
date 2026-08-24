@@ -1,11 +1,18 @@
 # API Reference
 
+## Host Hcomm
+
+| Document | Description |
+| --- | --- |
+| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | Create a shared-Jetty channel group and its Device-side multi-channel handle. |
+
 ## AICore Hcomm
 | Document | Description |
 | --- | --- |
 | [Hcomm](./aicore/hcomm/Hcomm.md) | Overview of AICore-side point-to-point communication interface template, protocol capabilities and usage constraints. |
 | [Init](./aicore/hcomm/Init.md) | Initialize the temporary workspace used by ordinary Hcomm interfaces. |
 | [MakeBatchHandle](./aicore/hcomm/MakeBatchHandle.md) | Create a batch handle and bind its UB buffer for batched WQEs. |
+| [GetHandleRef](./aicore/hcomm/GetHandleRef.md) | Select a logical channel from a shared-Jetty multi-channel batch handle. |
 | [ReadNbi](./aicore/hcomm/ReadNbi.md) | Submit an ordinary read task or prepare a read WQE in a BatchHandle. |
 | [WriteNbi](./aicore/hcomm/WriteNbi.md) | Submit an ordinary write task or prepare a write WQE in a BatchHandle. |
 | [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or prepare one in a BatchHandle. |
@@ -40,6 +47,15 @@
 | [Sync](./aicore/ain/Sync.md) | Perform in-team barrier synchronization. |
 
 ## Header File
+
+Host side:
+
+```cpp
+#include "hcomm/hcomm_host.h"
+```
+
+AICore side:
+
 ```cpp
 #include "hcomm/hcomm.h"
 #include "ain/ain.h"

@@ -46,11 +46,11 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | `channel` | Input | Communication channel handle used by the ordinary interface. |
-| `batchHandle` | Input/Output | Batch handle created by `MakeBatchHandle`. Its WQEBB count is updated after a WQE is prepared successfully; its local `cqHead` is also incremented when `cqe = 1`. |
-| `dst` | Output | Absolute remote destination GM address. For the batch interface, the caller must ensure that its access range matches the `tokenId/tokenValue` cached in `batchHandle`. |
+| `batchHandle` | Input/Output | Single-channel batch handle created by `MakeBatchHandle`, or a BatchHandle reference returned by `GetHandleRef`. |
+| `dst` | Output | Absolute remote destination GM address. |
 | `src` | Input | Absolute local source GM address. |
 | `len` | Input | Write length in bytes. |
-| `notifyAddr` | Input | Absolute remote notification GM address. For the batch interface, the caller must ensure that its access range matches the `tokenId/tokenValue` cached in `batchHandle`. |
+| `notifyAddr` | Input | Absolute remote notification GM address. The batch interface reuses the token selected for the data write, so the caller must ensure that the notification address belongs to the same registered memory. |
 | `notifyVal` | Input | Remote notification value. |
 
 ## Template Parameters
@@ -61,7 +61,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | `commitPipe` | Pipe used for commit by the ordinary interface. Default: `PIPE_S`. |
 | `reqPipe` | Pipe used for the request by the ordinary interface. Default: `PIPE_MTE3`. |
 | `config` | URMA WQE control configuration. Default: `URMA_DEFAULT_CFG` (strongly ordered + fence + CQE enabled). The batch interface requires `inlineEn = 0`, and `cqe` must be `0` or `1`. |
-| `T` | Batch handle type, deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle`. |
+| `T` | Batch handle type, deduced from `batchHandle`. |
 
 ## Return Value
 
@@ -84,11 +84,13 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - Currently supported only on the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 - Each batch write-with-notify task occupies two 64-byte WQEBBs. It is prepared only in UB and does not copy data to the GM SQ or ring the doorbell.
 - `config.inlineEn` must be `0`, and `config.cqe` can be `0` or `1`. Different read, write, and write-with-notify tasks in the same batch may use different `cqe` settings.
-- `dst` and `notifyAddr` are not checked against the remote registration range again, and the remote registration table is not queried. The notification context reuses the `tokenId/tokenValue` cached in the BatchHandle. The caller must ensure that both remote access ranges belong to the same registered memory from which `MakeBatchHandle` cached the token using `remoteAddr`.
+- For a batch handle, the data and notification addresses must belong to its selected remote registered memory.
+- In both modes, `notifyAddr` reuses the token selected for the data write and is not looked up or validated separately. The caller must ensure that the `dst` range and `notifyAddr` belong to the same registered memory.
 - If buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
-- Call `BatchCommit` after preparation. The caller must exclusively own the channel while using the BatchHandle.
+- Call `BatchCommit` after preparation. In multi-channel mode, prepare WQEs through the inner BatchHandle reference returned by `GetHandleRef` and commit through the outer `UbcCtpMultiBatchHandle`. The caller must exclusively own the single channel or shared Jetty.
 
 ## Related Interfaces
 
 - [MakeBatchHandle](./MakeBatchHandle.md)
+- [GetHandleRef](./GetHandleRef.md)
 - [BatchCommit](./BatchCommit.md)

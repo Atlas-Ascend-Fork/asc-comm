@@ -72,20 +72,36 @@ public:
      * @param [in] channel: The handle of the communication channel.
      * @param [in] buff: The LocalTensor buffer used to prepare batched WQEs.
      * @param [in] buffLen: The buffer length in bytes.
-     * @param [in] remoteAddr: An address used for the one-time lookup of remote registered memory. If it is null,
-     *                         the first remote registered buffer is selected. This is the only remote registration
-     *                         lookup performed for the returned batch handle.
-     * @param [in] localAddr: Reserved local memory address.
+     * @param [in] remoteAddr: For ChannelHandle, an address used for the one-time lookup of remote registered memory.
+     *                         If it is null, the first remote registered buffer is selected. Reserved for
+     *                         MultiChannelHandle.
+     * @param [in] localAddr: Reserved local memory address. Reserved for MultiChannelHandle.
      * @return An initialized batch handle for commProtocol.
-     * @note For UBC CTP, the tokenId and tokenValue selected by remoteAddr are cached in the returned handle.
-     *       Subsequent batch operations neither read the remote registration table nor validate their remote
-     *       address ranges. The caller must ensure that every remote range belongs to the registered memory
-     *       represented by the cached tokenId/tokenValue. buffLen must be smaller than the SQ capacity in bytes.
+     * @note For UBC CTP, remote memory is selected here for ChannelHandle. Call GetHandleRef to select a logical
+     *       channel and remote registered-memory region for MultiChannelHandle. buffLen must be smaller than the SQ
+     *       capacity in bytes.
      */
     template <typename T, typename U>
     __aicore__ inline BatchHandle<T> MakeBatchHandle(
         T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr = nullptr,
         GM_ADDR localAddr = nullptr);
+
+    /*!
+     * @brief Get the execution batch handle for one channel.
+     * @tparam T: The batch handle type.
+     * @param [in,out] batchHandle: A batch handle created from ChannelHandle or MultiChannelHandle.
+     * @param [in] channelIndex: Index in the channel descriptor array used to create MultiChannelHandle. Ignored for
+     *                          ChannelHandle.
+     * @param [in] remoteAddr: An address in the remote registered-memory region to select. If it is null, the first
+     *                         remote registered buffer is selected. Ignored for ChannelHandle.
+     * @return For ChannelHandle, the input handle itself. For MultiChannelHandle, its inner BatchHandle configured for
+     *         the selected peer and remote registered-memory region.
+     * @note For ChannelHandle, remote memory remains bound as selected by MakeBatchHandle. For MultiChannelHandle,
+     *       remote buffers used through the returned handle must use the token cached by this call.
+     */
+    template <typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
+        T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
 
     /*!
      * @class Hcomm
@@ -117,8 +133,7 @@ public:
      * @param [in] src: The local source address.
      * @param [in] len: The length of the data to write in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note The destination range is not validated against the registration selected by MakeBatchHandle and the
-     *       remote registration table is not queried again.
+     * @note The destination range is not validated against the registration cached in batchHandle.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
@@ -201,9 +216,7 @@ public:
      *                         tokenId/tokenValue cached in batchHandle.
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
-     * @note The destination and notify ranges are not validated against the registration selected by
-     *       MakeBatchHandle, and the remote registration table is not queried again. The notify context reuses the
-     *       tokenId/tokenValue cached in batchHandle.
+     * @note The destination and notify ranges are not validated against the registration cached in batchHandle.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteWithNotifyNbi(
@@ -280,8 +293,7 @@ public:
      *                  tokenId/tokenValue cached in batchHandle.
      * @param [in] len: The length of the data to read in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note The source range is not validated against the registration selected by MakeBatchHandle and the remote
-     *       registration table is not queried again.
+     * @note The source range is not validated against the registration cached in batchHandle.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
@@ -322,8 +334,8 @@ public:
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: The batch handle whose WQE buffer is reused as CQE scratch space.
      * @return 0 indicates success. A non-zero value indicates failure.
-     * @note This overload does not require Init. It must be called after BatchCommit and before preparing
-     *       another batch on the same handle.
+     * @note This overload does not require Init. It must be called after BatchCommit. Multiple batches may be
+     *       committed before one Drain if the caller prevents SQ/CQ overflow.
      */
     template <pipe_t pipe = PIPE_MTE3, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t Drain(T& batchHandle);

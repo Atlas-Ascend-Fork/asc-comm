@@ -60,6 +60,14 @@ __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
 }
 
 template <CommProtocol commProtocol>
+template <typename T, typename BatchHandleTraits<T>::ChannelType*>
+__aicore__ inline BatchHandle<ChannelHandle>& Hcomm<commProtocol>::GetHandleRef(
+    T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
+{
+    return impl_.GetHandleRef(batchHandle, channelIndex, remoteAddr);
+}
+
+template <CommProtocol commProtocol>
 template <auto const& config, typename T, typename BatchHandleTraits<T>::ChannelType*>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
@@ -163,6 +171,7 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(T& batchHandle)
 {
     return impl_.template Drain<pipe>(batchHandle);
 }
+
 } // namespace AscendC
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H

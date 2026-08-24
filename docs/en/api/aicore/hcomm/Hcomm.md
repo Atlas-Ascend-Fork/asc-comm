@@ -8,7 +8,7 @@ Header file:
 #include "hcomm/hcomm.h"
 ```
 
-`AscendC::Hcomm` is a point-to-point communication interface template on the AICore side. Ordinary interfaces use a `ChannelHandle` to submit individual read, write, write-with-notify, and atomic tasks, and use `Commit` and `Drain` to control submission and completion. The UBC_CTP path also provides BatchHandle interfaces that prepare read, write, and write-with-notify WQEs in UB before submitting them together through `BatchCommit`.
+`AscendC::Hcomm` is a point-to-point communication interface template on the AICore side. Ordinary interfaces use a `ChannelHandle` to submit individual read, write, write-with-notify, and atomic tasks, and use `Commit` and `Drain` to control submission and completion. The UBC_CTP path also provides BatchHandle interfaces for single-channel submission and for preparing WQEs for multiple logical channels on a shared Jetty through `MultiChannelHandle` before submitting them together with `BatchCommit`.
 
 ## Template Parameters
 
@@ -21,9 +21,7 @@ class Hcomm;
 | --- | --- |
 | `commProtocol` | Communication protocol type. Supports `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP`. Default: `COMM_PROTOCOL_UBC_CTP`. |
 
-Batch interfaces derive and constrain their handle types through compile-time traits. Currently, only the
-`ChannelHandle` to `UbcCtpBatchHandle` mapping is provided, and the interfaces support only the
-`COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
+`MakeBatchHandle` derives its return type through compile-time traits. `ChannelHandle` maps to `UbcCtpBatchHandle`, while `MultiChannelHandle` maps to `UbcCtpMultiBatchHandle`. In multi-channel mode, batch read/write uses the inner `UbcCtpBatchHandle` reference returned by `GetHandleRef`, while `BatchCommit` and batch `Drain` use the outer `UbcCtpMultiBatchHandle`. Batch interfaces support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
 ## Protocol Capabilities
 
@@ -38,6 +36,7 @@ Batch interfaces derive and constrain their handle types through compile-time tr
 | Ordinary `Commit` | Supported. | Supported. |
 | Ordinary `Drain` | Supported. | Supported. |
 | `MakeBatchHandle` | Not supported. | Supported on Ascend 950. |
+| `GetHandleRef` | Not supported. | Supported by the shared-Jetty batch path on Ascend 950. |
 | Batch `ReadNbi` | Not supported. | Supported on Ascend 950. |
 | Batch `WriteNbi` | Not supported. | Supported on Ascend 950. |
 | Batch `WriteWithNotifyNbi` | Not supported. | Supported on Ascend 950. |
@@ -50,6 +49,7 @@ Batch interfaces derive and constrain their handle types through compile-time tr
 | --- | --- |
 | [Init](./Init.md) | Initialize the temporary workspace used by ordinary Hcomm interfaces. |
 | [MakeBatchHandle](./MakeBatchHandle.md) | Create a batch handle and bind its UB buffer for batched WQEs. |
+| [GetHandleRef](./GetHandleRef.md) | Select a logical channel from a shared-Jetty multi-channel batch handle. |
 | [ReadNbi](./ReadNbi.md) | Submit an ordinary read task or prepare a read WQE in a BatchHandle. |
 | [WriteNbi](./WriteNbi.md) | Submit an ordinary write task or prepare a write WQE in a BatchHandle. |
 | [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or prepare one in a BatchHandle. |
@@ -69,8 +69,10 @@ Interfaces that return a status code generally use `0` for success and `-1` for 
 - Ordinary `ChannelHandle` interfaces require a temporary workspace provided through `Init`. The BatchHandle workflow does not require `Init`; `MakeBatchHandle` provides its UB workspace.
 - The ordinary overloads of `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS` are supported only on the `COMM_PROTOCOL_UBC_CTP` path.
 - Batch interfaces currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
-- Ordinary and batch interfaces manage queue state differently. A BatchHandle caches SQ/CQ contexts and counters at creation time. The caller must exclusively own the channel while using it, and must not mix ordinary calls or use multiple BatchHandles concurrently on the same channel.
+- Ordinary and batch interfaces manage queue state differently. A BatchHandle caches SQ/CQ contexts and counters at creation time. The caller must exclusively own the single channel or shared Jetty while using it and must not mix ordinary calls or use multiple BatchHandles concurrently.
 - The passed `ChannelHandle` must point to a channel entity matching the selected protocol.
+
+See [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md) for the Host-side shared-Jetty handle creation API.
 
 ## Related Sample
 

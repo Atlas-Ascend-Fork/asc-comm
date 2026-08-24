@@ -93,6 +93,7 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
             HcommUrmaTestSuite.Aiv_Urma_BatchCommitDrain
             HcommUrmaTestSuite.Aiv_Urma_InitLocalTensor
             HcommUrmaTestSuite.Aiv_Urma_MakeBatchHandleLocalTensor
+            HcommUrmaTestSuite.Aiv_Urma_MultiChannelBatchUsesOuterHandleForCommitAndDrain
             HcommUrmaTestSuite.Aiv_Urma_BatchWriteNbi
             HcommUrmaTestSuite.Aiv_Urma_BatchReadNbi
             HcommUrmaTestSuite.Aiv_Urma_BatchWriteWithNotifyNbiMixed

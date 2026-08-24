@@ -47,11 +47,11 @@ ret = hcomm.Commit(channel);
 ret = hcomm.Drain(channel);
 ```
 
-## BatchHandle接口流程
+## 单通道BatchHandle接口流程
 
 BatchHandle接口当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径，不依赖`Init`。
 
-1. 准备UB缓冲区，并创建`UbcCtpBatchHandle`。调用侧建议使用`auto`接收返回值。
+1. 准备UB缓冲区，并从`ChannelHandle`创建批量句柄。调用侧建议使用`auto`接收返回值。
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
@@ -89,6 +89,36 @@ ret = hcomm.Drain(batchHandle);
 
 批量`Drain`复用BatchHandle WQE缓冲区的第一个64字节作为CQE临时空间，因此不需要`Init`。调用前BatchHandle中不能存在尚未`BatchCommit`的WQE。
 
+## 共享Jetty BatchHandle接口流程
+
+Host侧调用`MakeMultiChannelHandle`创建共享Jetty通道和`MultiChannelHandle`：
+
+```cpp
+#include "hcomm/hcomm_host.h"
+
+MultiChannelHandle multiChannel = 0U;
+HcclResult ret = MakeMultiChannelHandle(
+    comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
+```
+
+AICore侧创建多通道批量句柄，通过`GetHandleRef`取得统一的内层执行句柄。内层句柄用于准备WQE，外层多通道批量句柄用于`BatchCommit`和`Drain`：
+
+```cpp
+AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+auto multiBatchHandle = hcomm.MakeBatchHandle(
+    static_cast<AscendC::MultiChannelHandle>(multiChannel), batchBuffer, batchBufferLen);
+for (uint32_t channelIndex = 0U; channelIndex < channelNum; ++channelIndex) {
+    auto& peerBatchHandle = hcomm.GetHandleRef(
+        multiBatchHandle, channelIndex, remoteBuffers[channelIndex]);
+    ret = hcomm.WriteNbi(
+        peerBatchHandle, remoteBuffers[channelIndex], localBuffer, dataLen);
+}
+ret = hcomm.BatchCommit(multiBatchHandle);
+ret = hcomm.Drain(multiBatchHandle);
+```
+
+`channelDescs`数组下标对应`GetHandleRef`的`channelIndex`。`remoteAddr`用于在该逻辑通道的远端MR表中选择并缓存token；为空时选择第一个远端MR。批量读写使用该接口返回的内层引用；`BatchCommit`和`Drain`使用外层多通道批量句柄。
+
 ## 批量缓冲区和CQE配置
 
 - UBC_CTP的每个WQEBB为64字节。批量`ReadNbi`和`WriteNbi`各占1个WQEBB，批量`WriteWithNotifyNbi`占2个WQEBB。
@@ -111,14 +141,14 @@ ret = hcomm.Drain(batchHandle);
 - 使用`__ubuf__ uint8_t*`调用`Init`时，实现会对临时工作区起始地址做32字节对齐；使用`LocalTensor`时，调用方需要保证tensor容量满足工作区要求。
 - `MakeBatchHandle`使用的UB缓冲区起始地址必须按32字节对齐，其容量和生命周期由调用方负责。
 - `ChannelHandle`指向的通道实体由调用方负责初始化和维护。
-- BatchHandle缓存创建时的SQ/CQ上下文和队列计数。使用BatchHandle期间，调用方必须独占通道，不能在同一通道上交叉调用普通接口，也不能并发使用多个BatchHandle。
+- BatchHandle缓存创建时的SQ/CQ上下文和队列游标。使用BatchHandle期间，调用方必须独占对应单通道或共享Jetty，不能交叉调用普通接口，也不能并发使用多个BatchHandle。
 - 批量接口的单次数据长度不能大于`UINT32_MAX`。
 - `WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`普通接口仅支持`COMM_PROTOCOL_UBC_CTP`路径。
 - 原子操作的数据类型仅支持`int32_t`、`uint32_t`、`int64_t`和`uint64_t`。
 
 ## 样例
 
-可参考[hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README.md)了解普通接口的AIV Kernel侧调用方式和Host侧通信资源创建流程。该样例固定使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UBC_CTP`，不覆盖RoCE和BatchHandle流程。
+可参考[hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README.md)了解普通接口的AIV Kernel侧调用方式和Host侧通信资源创建流程；参考[hcomm_batch_write](../../../examples/hcomm_batch_write/README.md)了解共享Jetty批量写流程。
 
 该样例在两卡场景下对称执行普通`WriteNbi`和`ReadNbi`：
 
@@ -128,4 +158,4 @@ hcomm.ReadNbi(channel, localBuf + 2 * DATA_SIZE, remoteBuf, DATA_SIZE);
 hcomm.Drain(channel);
 ```
 
-样例运行依赖Ascend 950PR/Ascend 950DT和至少2张NPU；单卡环境仅支持编译验证。
+两个样例均依赖Ascend 950PR/Ascend 950DT和至少2张NPU完成运行验证；单卡环境仅支持编译验证。

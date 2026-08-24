@@ -76,7 +76,7 @@ Ascend 950 UBC_CTP批量接口调用流程如下：
 3. 调用`BatchCommit`将当前批次复制到GM SQ并敲doorbell。
 4. 可以复用句柄继续准备和提交批次，最后调用BatchHandle重载的`Drain`等待CQE。
 
-BatchHandle缓存创建时的SQ/CQ上下文和队列计数，使用期间调用方需要独占对应通道，不能在同一通道上混用普通接口。`MakeBatchHandle`只根据`remoteAddr`执行一次远端注册区查找并缓存`tokenId/tokenValue`；后续批量接口不再校验远端地址范围，调用方必须保证批量写目的区间、批量读源区间和通知地址均属于该token对应的注册内存。
+BatchHandle缓存创建时的SQ/CQ上下文和队列状态，使用期间调用方需要独占对应单通道或共享Jetty，不能混用普通接口。单通道`MakeBatchHandle`根据`remoteAddr`查找并缓存远端MR的token；共享Jetty模式由`GetHandleRef`根据逻辑通道和`remoteAddr`完成该查找。后续批量读写不会再次查询MR表，调用方必须保证远端访问使用本次缓存的token。
 
 协议能力说明：
 

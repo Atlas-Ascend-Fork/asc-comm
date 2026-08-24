@@ -34,8 +34,8 @@ __aicore__ inline int32_t WriteNbi(
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | `channel` | Input | Communication channel handle used by the ordinary interface. |
-| `batchHandle` | Input/Output | Batch handle created by `MakeBatchHandle`. Its WQEBB count is updated after a WQE is prepared successfully; its local `cqHead` is also incremented when `cqe = 1`. |
-| `dst` | Output | Absolute remote destination GM address. For the batch interface, the caller must ensure that `[dst, dst + len)` belongs to the registered memory represented by the `tokenId/tokenValue` cached in `batchHandle`. |
+| `batchHandle` | Input/Output | Single-channel batch handle created by `MakeBatchHandle`, or a BatchHandle reference returned by `GetHandleRef`. |
+| `dst` | Output | Absolute remote destination GM address. |
 | `src` | Input | Absolute local source GM address. |
 | `len` | Input | Write length in bytes. |
 
@@ -47,7 +47,7 @@ __aicore__ inline int32_t WriteNbi(
 | `commitPipe` | Pipe used for commit by the ordinary interface. Default: `PIPE_S`. |
 | `reqPipe` | Pipe used for the request by the ordinary interface. Default: `PIPE_MTE3`. |
 | `config` | URMA WQE control configuration. Default: `URMA_DEFAULT_CFG` (strongly ordered + fence + CQE enabled). The batch interface requires `inlineEn = 0`, and `cqe` must be `0` or `1`. |
-| `T` | Batch handle type, deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle`. |
+| `T` | Batch handle type, deduced from `batchHandle`. |
 
 ## Return Value
 
@@ -68,10 +68,12 @@ __aicore__ inline int32_t WriteNbi(
 - Currently supported only on the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 - Each batch write task occupies one 64-byte WQEBB. It is prepared only in UB and does not copy data to the GM SQ or ring the doorbell.
 - `config.inlineEn` must be `0`, and `config.cqe` can be `0` or `1`. Different read, write, and write-with-notify tasks in the same batch may use different `cqe` settings.
-- `dst` is not checked against the remote registration range again, and the remote registration table is not queried. The caller must ensure that `[dst, dst + len)` belongs to the same registered memory from which `MakeBatchHandle` cached `tokenId/tokenValue` using `remoteAddr`.
+- For a batch handle, `[dst, dst + len)` must belong to its selected remote registered memory.
 - If buffer capacity validation fails, the interface returns `-1` and leaves the BatchHandle WQEBB count and `cqHead` unchanged.
-- Call `BatchCommit` after preparation. The caller must exclusively own the channel while using the BatchHandle.
+- Call `BatchCommit` after preparation. In multi-channel mode, prepare WQEs through the inner BatchHandle reference returned by `GetHandleRef` and commit through the outer `UbcCtpMultiBatchHandle`. The caller must exclusively own the single channel or shared Jetty.
 
 ## Related Sample
 
-[hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README_en.md) demonstrates the ordinary AIV direct-driven URMA read/write workflow. See the [Hcomm Usage Guide](../../../guide/hcomm_usage.md) for the basic BatchHandle workflow.
+[hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README_en.md) demonstrates the ordinary AIV direct-driven URMA read/write workflow. [hcomm_batch_write](../../../../../examples/hcomm_batch_write/README_en.md) demonstrates shared-Jetty batch writes. See the [Hcomm Usage Guide](../../../guide/hcomm_usage.md) for the basic BatchHandle workflow.
+
+See [GetHandleRef](./GetHandleRef.md) for the multi-channel interface.
