@@ -147,7 +147,7 @@ HcclResult ring_ub_doorbell(HcommThreadEntity &thread, const HcommJfsContext &jf
 {
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
-    const Asc::UbJettyLiteId jettyId(thread.devInfo.dieId, thread.devInfo.funcId, jfs.jfsID);
+    const Asc::UbJettyLiteId jettyId(jfs.dieId, jfs.funcId, jfs.jfsID);
     return asccomm_rtsq_ub_db_send(*rtsq, jettyId, pi);
 }
 
