@@ -79,16 +79,16 @@ target_include_directories(asc_comm_dfx INTERFACE ${ASCCOMM_DFX_SRC_DIR})
 
 include(cmake/aicpu_asccomm.cmake)
 
-add_library(aicpu_asccomm_data_plane SHARED ${ASCCOMM_AICPU_SOURCES})
+add_library(asccomm_aicpu SHARED ${ASCCOMM_AICPU_SOURCES})
 
-target_compile_definitions(aicpu_asccomm_data_plane PRIVATE
+target_compile_definitions(asccomm_aicpu PRIVATE
     HCCD
     CCL_KERNEL_AICPU
     OPEN_BUILD_PROJECT
     _GLIBCXX_USE_CXX11_ABI=1
 )
 
-target_compile_options(aicpu_asccomm_data_plane PRIVATE
+target_compile_options(asccomm_aicpu PRIVATE
     -Wfloat-equal
     -Wall
     -fno-common
@@ -102,7 +102,7 @@ target_compile_options(aicpu_asccomm_data_plane PRIVATE
     -O3
 )
 
-target_include_directories(aicpu_asccomm_data_plane PRIVATE
+target_include_directories(asccomm_aicpu PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu
     ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu/hcomm
     ${HCOMM_SOURCE_DIR}/pkg_inc
@@ -118,7 +118,7 @@ target_include_directories(aicpu_asccomm_data_plane PRIVATE
     ${ASCCOMM_ROOT}/resource/stream
 )
 
-target_link_libraries(aicpu_asccomm_data_plane PRIVATE
+target_link_libraries(asccomm_aicpu PRIVATE
     asc_comm_dfx
     acl_rt_headers
     slog_headers
@@ -128,7 +128,7 @@ target_link_libraries(aicpu_asccomm_data_plane PRIVATE
     pthread
 )
 
-target_link_options(aicpu_asccomm_data_plane PRIVATE
+target_link_options(asccomm_aicpu PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
     -Wl,-z,noexecstack
@@ -136,7 +136,7 @@ target_link_options(aicpu_asccomm_data_plane PRIVATE
     -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/asccomm_exports.map
 )
 
-set_target_properties(aicpu_asccomm_data_plane PROPERTIES SKIP_BUILD_RPATH TRUE)
+set_target_properties(asccomm_aicpu PROPERTIES SKIP_BUILD_RPATH TRUE)
 
 if(ASCCOMM_BUILD_CCU)
     add_subdirectory(src/ccu)
