@@ -16,20 +16,38 @@ if [[ $# -eq 0 ]]; then
     exit 2
 fi
 
-output_file=$(mktemp)
+if ! output_file=$(mktemp); then
+    echo "Failed to create temporary output file" >&2
+    exit 1
+fi
 trap 'rm -f "${output_file}"' EXIT
 
 "$@" 2>&1 | tee "${output_file}"
-test_status=${PIPESTATUS[0]}
+pipeline_status=("${PIPESTATUS[@]}")
+test_status=${pipeline_status[0]}
+tee_status=${pipeline_status[1]}
 
 if [[ ${test_status} -ne 0 ]]; then
     exit "${test_status}"
 fi
+if [[ ${tee_status} -ne 0 ]]; then
+    echo "Failed to save test output (tee status: ${tee_status})" >&2
+    exit "${tee_status}"
+fi
 
 # Keep the output check as a fallback for runners that incorrectly return 0
 # after printing a GTest failure summary.
-if grep -Eq '\[[[:space:]]*FAILED[[:space:]]*\]|FAILED TESTS' "${output_file}"; then
-    exit 1
-fi
-
-exit 0
+grep -Eq '\[[[:space:]]*FAILED[[:space:]]*\]|FAILED TESTS' "${output_file}"
+grep_status=$?
+case ${grep_status} in
+    0)
+        exit 1
+        ;;
+    1)
+        exit 0
+        ;;
+    *)
+        echo "Failed to inspect test output (grep status: ${grep_status})" >&2
+        exit "${grep_status}"
+        ;;
+esac
