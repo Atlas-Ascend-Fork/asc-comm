@@ -23,7 +23,7 @@
 - 提供Hcomm UT工程，覆盖`ascend950pr_9599_AIV`的RoCE/URMA路径，以及`ascend910B1_AIC`基础接口用例。
 - 提供Ain UT工程，覆盖`ascend950pr_9599_AIV`的URMA路径下`Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession`接口用例。
 - 提供`hcomm_write_read_nbi`样例，演示AIV直驱URMA场景下`WriteNbi`和`ReadNbi`点对点通信流程，并包含运行样例所需的Host侧资源准备流程。
-- 提供SIMT URMA `WriteNbi`、`WriteValueNbi`、`ReadNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`和`Drain`，以及`simt_write`、`simt_notify_atomic`功能样例和`simt_write_perf`、`simt_notify_atomic_perf`性能样例。
+- 提供SIMT URMA `WriteNbi`、`WriteValueNbi`、`ReadNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`和`Drain`，以及`simt_urma`功能样例和`simt_urma_perftest`性能样例。
 
 ### 📖 资料文档
 
@@ -51,7 +51,7 @@ asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载A
 | UT验证 | UT覆盖`ascend950pr_9599_AIV`的Hcomm RoCE/URMA路径与Ain URMA路径，以及`ascend910B1_AIC`基础接口用例。 |
 | AIV直驱样例 | 提供`hcomm_write_read_nbi`样例，覆盖两卡AIV直驱URMA `WriteNbi`/`ReadNbi`对称通信和结果校验流程。 |
 | SIMT URMA接口 | 提供`WriteNbi`、`WriteValueNbi`、`ReadNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`和`Drain`；延迟任务由后续`commit=true`任务统一发布。 |
-| SIMT URMA样例 | 提供`simt_write`和`simt_notify_atomic`功能样例，覆盖单接口、连续提交和batch-last提交；提供`simt_write_perf`和`simt_notify_atomic_perf`性能样例，统计下发时延与完成带宽。 |
+| SIMT URMA样例 | 提供`simt_urma`功能样例，覆盖全部五个接口的单接口、连续提交和batch-last提交；提供`simt_urma_perftest`性能样例，统计下发时延与完成带宽。 |
 
 ### 如何使用Hcomm接口
 
@@ -113,10 +113,8 @@ Ain Kernel侧使用时包含如下头文件：
 ├── docs                          # 项目文档介绍
 ├── examples                      # asc-comm API样例目录
 │   ├── hcomm_write_read_nbi      # Hcomm AIV直驱URMA两卡P2P通信样例
-│   ├── simt_write                # Hcomm SIMT URMA WriteNbi/WriteValueNbi功能样例
-│   ├── simt_write_perf           # Hcomm SIMT URMA WriteNbi/WriteValueNbi性能样例
-│   ├── simt_notify_atomic        # Hcomm SIMT URMA Notify/FAA/CAS功能样例
-│   └── simt_notify_atomic_perf   # Hcomm SIMT URMA Notify/FAA/CAS性能样例
+│   ├── simt_urma                 # Hcomm SIMT URMA功能样例
+│   └── simt_urma_perftest        # Hcomm SIMT URMA性能样例
 ├── include                       # asc-comm API声明源代码
 │   ├── aicore/hcomm              # AICore侧Hcomm公开接口
 │   └── aicore/ain                # AICore侧Ain单边通信公开接口

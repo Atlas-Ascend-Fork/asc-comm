@@ -13,17 +13,22 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-  run.sh <nranks> <write|write_value> [options]
+  run.sh <nranks> <write|write_value|notify|faa|cas> [options]
+
+This is a point-to-point benchmark. <nranks> processes are launched (nranks >= 2),
+but only rank 0 (sender) and rank 1 (receiver) build the channel and run the
+benchmark; ranks >= 2 print SKIP and exit without joining the communicator.
 
 Options:
   --iterations N      Timed WQE count, default: 1024
   --warmup N          Warmup WQE count, default: 100
-  --payload-bytes N   WriteNbi payload bytes, default: 4096; minimum 2.
-                      write_value always carries 8B inline and ignores this.
+  --payload-bytes N   Payload bytes for write and notify, default: 4096; minimum 2.
+                      write_value always carries 8B inline; faa and cas always operate
+                      on one 8B word. Those three ignore this option.
   --commit-mode MODE  immediate (one doorbell per WQE) or last (defer all but
                       the last); default: immediate
   --sweep             Run a payload sweep: 8 16 64 256 1024 4096 16384 65536.
-                      Only meaningful for write; ignores --payload-bytes.
+                      Only meaningful for write and notify; ignores --payload-bytes.
   --log FILE          Output log file
 EOF
 }
@@ -34,7 +39,6 @@ if [[ $# -lt 2 ]]; then
 fi
 
 nranks="$1"
-
 api="$2"
 shift 2
 iterations=1024
@@ -57,9 +61,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ "$api" == "write" || "$api" == "write_value" ]] || {
-    echo "api must be write or write_value" >&2; exit 1;
-}
+case "$api" in
+    write | write_value | notify | faa | cas) ;;
+    *) echo "api must be write, write_value, notify, faa or cas" >&2; exit 1 ;;
+esac
 [[ "$nranks" =~ ^[0-9]+$ && "$nranks" -ge 2 ]] || {
     echo "nranks must be an integer greater than or equal to 2" >&2; exit 1;
 }
@@ -78,8 +83,15 @@ done
     echo "--commit-mode must be immediate or last" >&2; exit 1;
 }
 
+# Only write and notify vary with payload size, so sweeping the others would run the same
+# 8-byte case eight times over.
+if [[ "$sweep" -eq 1 && "$api" != "write" && "$api" != "notify" ]]; then
+    echo "--sweep only applies to write and notify: ${api} always moves 8 bytes" >&2
+    exit 1
+fi
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-binary="${script_dir}/build/simt_write_perf"
+binary="${script_dir}/build/simt_urma_perftest"
 [[ -x "$binary" ]] || { echo "build the example first: bash ${script_dir}/build.sh" >&2; exit 1; }
 
 mkdir -p "${script_dir}/results"
@@ -89,7 +101,7 @@ if [[ -z "$log_file" ]]; then
 fi
 mkdir -p "$(dirname "$log_file")"
 
-work_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_write_perf.XXXXXX")"
+work_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_urma_perftest.XXXXXX")"
 pids=()
 cleanup() {
     if [[ ${#pids[@]} -ne 0 ]]; then
@@ -110,15 +122,15 @@ status=0
 for payload in "${payloads[@]}"; do
     # A fresh sync dir per payload: stale markers from the previous run would let the
     # barrier pass immediately. The root info file lives in the same directory for the
-    # same reason -- rank 0 must publish fresh root info for every communicator.
+    # same reason -- rank 0 must publish fresh root info for every communicator. The
+    # directory is passed to the binary as an argument, not exported.
     run_dir="${work_dir}/p${payload}"
     mkdir -p "$run_dir"
-    export SIMT_WRITE_PERF_SYNC_DIR="$run_dir"
     root_info_file="${run_dir}/root_info.bin"
 
     pids=()
     for ((rank = 0; rank < nranks; ++rank)); do
-        "$binary" "$rank" "$nranks" "$root_info_file" "$api" \
+        "$binary" "$rank" "$nranks" "$root_info_file" "$run_dir" "$api" \
             "$iterations" "$warmup" "$payload" "$commit_mode" \
             >"${run_dir}/rank_${rank}.log" 2>&1 &
         pids+=("$!")

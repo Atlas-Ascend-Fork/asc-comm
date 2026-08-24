@@ -70,7 +70,7 @@ class HcommImpl<COMM_PROTOCOL_UBC_CTP> {
 public:
     __simt_callee__ inline HcommImpl();
     __simt_callee__ inline ~HcommImpl();
-    __simt_callee__ inline int32_t Init();
+    __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>

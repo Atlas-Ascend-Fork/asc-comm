@@ -21,7 +21,7 @@
 - Delivers Hcomm UT projects covering RoCE/URMA paths for `ascend950pr_9599_AIV` and basic interface test cases for `ascend910B1_AIC`.
 - Delivers Ain UT project covering `Put`/`Get`/`Signal`/`ReadSignal`/`WaitSignal`/`BarrierSession` test cases on the `ascend950pr_9599_AIV` URMA path.
 - Supplies the `hcomm_write_read_nbi` sample, demonstrating the point-to-point communication workflow of `WriteNbi` and `ReadNbi` under the AIV direct-driven URMA scenario, including Host-side resource preparation required to run the sample.
-- Provides SIMT URMA `WriteNbi`, `WriteValueNbi`, `ReadNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, and `Drain`, together with the `simt_write` and `simt_notify_atomic` functional samples and the `simt_write_perf` and `simt_notify_atomic_perf` performance samples.
+- Provides SIMT URMA `WriteNbi`, `WriteValueNbi`, `ReadNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, and `Drain`, together with the `simt_urma` functional sample and the `simt_urma_perftest` performance sample.
 
 ### 📖 Documentation
 - Added [Quick Start](./docs/quick_start_en.md), [Build & Test](./docs/en/guide/build_and_test.md), [Third-party Dependencies & Compatibility](./docs/en/guide/dependencies.md).
@@ -46,7 +46,7 @@ The public capabilities include `AscendC::Hcomm` point-to-point communication an
 | UT Verification | UTs cover Hcomm RoCE/URMA paths and the Ain URMA path on `ascend950pr_9599_AIV`, plus basic interface cases for `ascend910B1_AIC`. |
 | AIV Direct-drive Samples | `hcomm_write_read_nbi` demonstrates symmetric two-card AIV direct-driven URMA `WriteNbi`/`ReadNbi` communication and result validation. |
 | SIMT URMA Interfaces | Provides `WriteNbi`, `WriteValueNbi`, `ReadNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, and `Drain`; deferred tasks are published by a subsequent `commit=true` task. |
-| SIMT URMA Samples | `simt_write` and `simt_notify_atomic` cover isolated operations, serialized submission, and batch-last submission; `simt_write_perf` and `simt_notify_atomic_perf` report issue latency and completion bandwidth. |
+| SIMT URMA Samples | `simt_urma` covers isolated operations, serialized submission, and batch-last submission across all five interfaces; `simt_urma_perftest` reports issue latency and completion bandwidth. |
 
 ### How to Use Hcomm Interfaces
 Include the following header when invoking Hcomm on the Kernel side:
@@ -98,10 +98,8 @@ This repository contains AICore communication data plane APIs, device-side imple
 ├── docs                          # Project documentation
 ├── examples                      # asc-comm API samples
 │   ├── hcomm_write_read_nbi      # Two-card P2P communication sample for AIV direct-driven URMA Hcomm
-│   ├── simt_write                # Hcomm SIMT URMA WriteNbi/WriteValueNbi functional sample
-│   ├── simt_write_perf           # Hcomm SIMT URMA WriteNbi/WriteValueNbi performance sample
-│   ├── simt_notify_atomic        # Hcomm SIMT URMA Notify/FAA/CAS functional sample
-│   └── simt_notify_atomic_perf   # Hcomm SIMT URMA Notify/FAA/CAS performance sample
+│   ├── simt_urma                 # Hcomm SIMT URMA functional sample
+│   └── simt_urma_perftest        # Hcomm SIMT URMA performance sample
 ├── include                       # asc-comm API declarations
 │   ├── aicore/hcomm              # Public AICore Hcomm interfaces
 │   └── aicore/ain                # Public AICore Ain one-sided communication interfaces

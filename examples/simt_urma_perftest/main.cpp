@@ -10,7 +10,7 @@
 
 /*!
  * \file main.cpp
- * \brief Host side of the SIMT WriteNbi/WriteValueNbi performance example.
+ * \brief Host side of the SIMT URMA performance example.
  */
 
 #include <cerrno>
@@ -33,7 +33,7 @@
 #include "hccl/hccl_res.h"
 #include "hccl/hccl_types.h"
 
-#include "simt_write_perf_common.h"
+#include "simt_urma_perftest_common.h"
 
 #define ACLCHECK(ret)                                                                          \
     do {                                                                                       \
@@ -51,18 +51,18 @@
         }                                                                                       \
     } while (0)
 
-extern void LaunchSimtWritePerf(
+extern void LaunchSimtUrmaPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t payloadBytes,
     uint32_t slotBytes, uint32_t slotCount, uint32_t iterations, uint32_t warmup, uint32_t api, bool commitEach);
 
 namespace {
-using namespace simt_write_perf;
+using namespace simt_urma_perftest;
 
 constexpr uint32_t kBarrierWaitSeconds = 60U;
 constexpr uint32_t kBarrierPollMs = 100U;
 constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UBC_CTP;
-constexpr const char* kSendBufTag = "simtWritePerfSendBuf";
-constexpr const char* kRecvBufTag = "simtWritePerfRecvBuf";
+constexpr const char* kSendBufTag = "simtUrmaPerfSendBuf";
+constexpr const char* kRecvBufTag = "simtUrmaPerfRecvBuf";
 
 // Consecutive WQEs rotate over this many slots so they do not all land on one cache line.
 // Capped so a large payload does not blow the buffer up: the product is the allocation size.
@@ -141,25 +141,22 @@ HcclResult InitCommByRootInfo(uint32_t rank, uint32_t nranks, const std::string&
     return HCCL_SUCCESS;
 }
 
-std::string SyncDir()
-{
-    const char* value = std::getenv("SIMT_WRITE_PERF_SYNC_DIR");
-    return value == nullptr ? "/tmp/simt_write_perf" : value;
-}
-
 bool MarkerReady(const std::string& path)
 {
     struct stat st {};
     return stat(path.c_str(), &st) == 0 && st.st_size != 0;
 }
 
-HcclResult HostBarrier(int rank, int nranks, const char* name)
+// syncDir holds the barrier marker files and is passed in on the command line rather than through
+// the environment: an exported variable is easy to lose across a shell wrapper or a scheduler, and
+// losing it silently sent every rank to the same default directory, where markers from a previous
+// run could let a barrier pass immediately.
+HcclResult HostBarrier(int rank, int nranks, const std::string& syncDir, const char* name)
 {
-    const std::string dir = SyncDir();
-    if (mkdir(dir.c_str(), 0700) != 0 && errno != EEXIST) {
+    if (mkdir(syncDir.c_str(), 0700) != 0 && errno != EEXIST) {
         return HCCL_E_SYSCALL;
     }
-    const std::string prefix = dir + "/" + name + ".";
+    const std::string prefix = syncDir + "/" + name + ".";
     {
         std::ofstream marker(prefix + std::to_string(rank), std::ios::trunc);
         marker << '1';
@@ -183,16 +180,31 @@ HcclResult HostBarrier(int rank, int nranks, const char* name)
 
 size_t AlignUp(size_t value, size_t alignment) { return (value + alignment - 1U) / alignment * alignment; }
 
-// WriteValueNbi always carries 8 bytes inline, whatever --payload-bytes says.
+// Only WriteNbi and WriteWithNotifyNbi move a configurable payload; WriteValueNbi always
+// carries 8 bytes inline and the atomics always operate on one 8-byte word.
 uint32_t DataBytes(uint32_t api, uint32_t payloadBytes)
 {
-    return api == kApiWrite ? payloadBytes : static_cast<uint32_t>(sizeof(uint64_t));
+    return ApiUsesPayload(api) ? payloadBytes : static_cast<uint32_t>(sizeof(uint64_t));
+}
+
+// Bytes a slot must hold. Notify writes its signal word immediately after the payload, rounded
+// up to 8 bytes for alignment, so its slot needs room for both; every other interface only needs
+// the payload itself. This is deliberately not DataBytes: that reports what the interface moves,
+// for the bandwidth figure, whereas this sizes the buffer.
+uint32_t SlotFootprint(uint32_t api, uint32_t payloadBytes)
+{
+    const uint32_t dataBytes = DataBytes(api, payloadBytes);
+    if (api != kApiNotify) {
+        return dataBytes;
+    }
+    const uint32_t notifyOffset = static_cast<uint32_t>(AlignUp(dataBytes, sizeof(uint64_t)));
+    return notifyOffset + static_cast<uint32_t>(sizeof(uint64_t));
 }
 
 // Slots are padded so each starts on its own 128-byte boundary.
 uint32_t SlotBytes(uint32_t api, uint32_t payloadBytes)
 {
-    return static_cast<uint32_t>(AlignUp(DataBytes(api, payloadBytes), kSlotAlign));
+    return static_cast<uint32_t>(AlignUp(SlotFootprint(api, payloadBytes), kSlotAlign));
 }
 
 // Rotating over fewer slots is fine; rotating over more than the payload budget allows is not.
@@ -210,13 +222,19 @@ uint32_t SlotCount(uint32_t slotBytes)
 aclError InitBuffers(void* sendBuf, void* recvBuf, size_t bytes, uint32_t api)
 {
     std::vector<uint8_t> send(bytes, kPayloadByte);
-    if (api == kApiWriteValue) {
-        // The inline value comes from the WQE, so the send buffer is never read. Fill it with a
-        // different byte so a receive buffer that accidentally mirrors it is not mistaken for a
-        // correct inline write.
+    if (!ApiReadsSendBuffer(api)) {
+        // WriteValueNbi takes its payload from the WQE and the atomics only write a fetched value
+        // back, so the send buffer is never read as a source. Fill it with a different byte so a
+        // receive buffer that accidentally mirrors it is not mistaken for a correct write.
         std::fill(send.begin(), send.end(), static_cast<uint8_t>(0U));
     }
-    const std::vector<uint8_t> recv(bytes, 0U);
+    std::vector<uint8_t> recv(bytes, 0U);
+    if (api == kApiCas) {
+        // CAS only swaps when the target already holds kCasInitial. Seeding it means the first
+        // iteration performs a real swap rather than a no-op compare.
+        const uint64_t initial = kCasInitial;
+        std::memcpy(recv.data(), &initial, sizeof(initial));
+    }
     aclError ret = aclrtMemcpy(sendBuf, bytes, send.data(), bytes, ACL_MEMCPY_HOST_TO_DEVICE);
     return ret == ACL_SUCCESS ? aclrtMemcpy(recvBuf, bytes, recv.data(), bytes, ACL_MEMCPY_HOST_TO_DEVICE) : ret;
 }
@@ -273,10 +291,18 @@ HcclResult AcquirePeerChannel(
 // Every slot the run touched must hold the expected payload. Slots are revisited across
 // iterations, so the check is per slot rather than per operation: the last write to a slot
 // leaves the same bytes as the first.
+//
+// Only the two plain data movers are checked. Notify lands its payload too, but the signal word
+// follows it inside the same slot; the atomics mutate their single target every iteration. In
+// both cases the final image depends on the iteration count, so there is no fixed expectation to
+// compare against -- those runs rely on DrainStatus and Completed instead.
 bool CheckReceiver(
     void* recvBuf, size_t bytes, uint32_t api, uint32_t payloadBytes, uint32_t slotBytes, uint32_t slotCount,
     uint32_t totalOperations)
 {
+    if (!ApiHasStableReceiverImage(api)) {
+        return true;
+    }
     std::vector<uint8_t> actual(bytes, 0U);
     if (aclrtMemcpy(actual.data(), bytes, recvBuf, bytes, ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
         return false;
@@ -306,53 +332,88 @@ bool CheckReceiver(
     return true;
 }
 
+// One table drives both parsing and printing so an api can never be accepted under a name the
+// RESULT line does not report back.
+struct ApiEntry {
+    const char* name;
+    uint32_t api;
+};
+
+constexpr ApiEntry kApis[] = {
+    {"write", kApiWrite}, {"write_value", kApiWriteValue}, {"notify", kApiNotify}, {"faa", kApiFaa}, {"cas", kApiCas},
+};
+
 bool ParseApi(const std::string& name, uint32_t& api)
 {
-    if (name == "write") {
-        api = kApiWrite;
-        return true;
-    }
-    if (name == "write_value") {
-        api = kApiWriteValue;
-        return true;
+    for (const ApiEntry& entry : kApis) {
+        if (name == entry.name) {
+            api = entry.api;
+            return true;
+        }
     }
     return false;
 }
+
+// A committed WriteNbi fills the 128-byte DWQE window (two basic blocks); a deferred one fits in
+// a single 64-byte block. Every other interface is a fixed 2-BB WQE either way.
+uint32_t SqBlocksPerWqe(uint32_t api, bool commitEach) { return (api == kApiWrite && !commitEach) ? 1U : 2U; }
 
 } // namespace
 
 int main(int argc, char* argv[])
 {
-    if (argc != 9) {
+    if (argc != 10) {
         std::cout << "Usage: " << argv[0]
-                  << " <rank> <nranks> <root_info_file> <write|write_value>"
+                  << " <rank> <nranks> <root_info_file> <sync_dir> <write|write_value|notify|faa|cas>"
                      " <iterations> <warmup> <payload_bytes> <immediate|last>"
                   << std::endl;
+        std::cout << "  sync_dir: directory for host barrier marker files, shared by all ranks" << std::endl;
         return 1;
     }
     const int rank = std::atoi(argv[1]);
     const int nranks = std::atoi(argv[2]);
     const std::string rootInfoFile = argv[3];
-    const std::string apiName = argv[4];
-    const uint32_t iterations = static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10));
-    const uint32_t warmup = static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10));
-    const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
-    const std::string commitMode = argv[8];
+    const std::string syncDir = argv[4];
+    const std::string apiName = argv[5];
+    const uint32_t iterations = static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10));
+    const uint32_t warmup = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
+    const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
+    const std::string commitMode = argv[9];
 
     uint32_t api = kApiWrite;
-    if (nranks < 2) {
-        std::cout << "nranks must be at least 2." << std::endl;
+    // 这是点对点基准测试：允许拉起 nranks(>=2) 个进程，但只有 rank 0（发送方）和 rank 1
+    // （接收方）建链并计时，其余 rank 直接退出，不加入通信域。只有一个发送方计时，多方并发
+    // 发送会互相争抢链路和 SQ 资源，测出来的数字没有可比性。
+    if (nranks < kBenchRanks) {
+        std::cout << "nranks must be at least " << kBenchRanks
+                  << ": this benchmark measures point-to-point latency and bandwidth between rank 0 (sender) and "
+                     "rank 1 (receiver)."
+                  << std::endl;
+        return 1;
+    }
+    if (rank < 0 || rank >= nranks) {
+        std::cout << "rank must be in [0, " << nranks << ")." << std::endl;
+        return 1;
+    }
+    if (rank >= kBenchRanks) {
+        std::cout << "SKIP | Rank=" << rank << " | Only rank 0 and rank 1 run the point-to-point benchmark."
+                  << std::endl;
+        return 0;
+    }
+    if (syncDir.empty()) {
+        std::cout << "sync_dir must not be empty." << std::endl;
         return 1;
     }
     if (!ParseApi(apiName, api)) {
-        std::cout << "Unknown api: " << apiName << ". Expected write or write_value." << std::endl;
+        std::cout << "Unknown api: " << apiName << ". Expected write, write_value, notify, faa or cas." << std::endl;
         return 1;
     }
     if (iterations == 0U) {
         std::cout << "iterations must be greater than 0." << std::endl;
         return 1;
     }
-    if (payloadBytes < kMinPayloadBytes) {
+    // Only the payload-carrying interfaces are constrained here; the others ignore the value.
+    if (ApiUsesPayload(api) && payloadBytes < kMinPayloadBytes) {
         std::cout << "payload_bytes must be at least " << kMinPayloadBytes
                   << ": a committed WriteNbi splits its payload across two SGEs and an SGE length may not be 0."
                   << std::endl;
@@ -378,7 +439,8 @@ int main(int argc, char* argv[])
     aclrtStream stream = nullptr;
     ACLCHECK(aclrtCreateStream(&stream));
     HcclComm comm = nullptr;
-    HCCLCHECK(InitCommByRootInfo(rank, nranks, rootInfoFile, &comm));
+    // 通信域只包含参与测试的前两个 rank，其余 rank 已提前退出，不加入通信域。
+    HCCLCHECK(InitCommByRootInfo(rank, kBenchRanks, rootInfoFile, &comm));
 
     void* sendBuf = nullptr;
     void* recvBuf = nullptr;
@@ -396,7 +458,7 @@ int main(int argc, char* argv[])
     ChannelHandle channel = 0U;
     uint32_t remoteRecvIdx = 0U;
     HCCLCHECK(AcquirePeerChannel(comm, static_cast<uint32_t>(rank), peer, handles, channel, remoteRecvIdx));
-    HCCLCHECK(HostBarrier(rank, nranks, "ready"));
+    HCCLCHECK(HostBarrier(rank, kBenchRanks, syncDir, "ready"));
 
     void* timingBuf = nullptr;
     uint64_t timing[kTimingWords] = {};
@@ -406,7 +468,7 @@ int main(int argc, char* argv[])
     if (rank == kSenderRank) {
         ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
         ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
-        LaunchSimtWritePerf(
+        LaunchSimtUrmaPerf(
             stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, payloadBytes, slotBytes, slotCount, iterations,
             warmup, api, commitEach);
         ACLCHECK(aclrtSynchronizeStream(stream));
@@ -421,26 +483,21 @@ int main(int argc, char* argv[])
             timing[kCompletionCyclesIndex] == 0U ?
                 0.0 :
                 static_cast<double>(dataBytes) * iterations / timing[kCompletionCyclesIndex];
-        // A committed WriteNbi fills the 128-byte DWQE window (two basic blocks); a deferred one
-        // fits in a single 64-byte block. WriteValueNbi is always two blocks.
-        const uint32_t sqBlocksPerWqe = (api == kApiWrite && !commitEach) ? 1U : 2U;
         std::cout << std::fixed << std::setprecision(6) << "RESULT | Path=SIMT-t1"
                   << " | API=" << apiName << " | DataSize/B=" << dataBytes << " | WqeCount=" << iterations
                   << " | Warmup=" << warmup << " | CommitMode=" << (commitEach ? "Immediate" : "Last")
-                  << " | SqBlocksPerWqe=" << sqBlocksPerWqe << " | Slots=" << slotCount << " | IssueTime/us=" << issueUs
-                  << " | AverageIssue/ns=" << averageIssueNs << " | CompletionTime/us=" << completionUs
-                  << " | CompletionBandwidth/GB/s=" << completionBandwidth
+                  << " | SqBlocksPerWqe=" << SqBlocksPerWqe(api, commitEach) << " | Slots=" << slotCount
+                  << " | IssueTime/us=" << issueUs << " | AverageIssue/ns=" << averageIssueNs
+                  << " | CompletionTime/us=" << completionUs << " | CompletionBandwidth/GB/s=" << completionBandwidth
                   << " | DrainStatus=" << static_cast<int64_t>(timing[kDrainStatusIndex])
                   << " | Completed=" << timing[kCompletedIndex] << std::endl;
     }
 
-    HCCLCHECK(HostBarrier(rank, nranks, "completed"));
+    HCCLCHECK(HostBarrier(rank, kBenchRanks, syncDir, "completed"));
     if (rank == kReceiverRank) {
         const uint32_t totalOperations = iterations + warmup;
         pass = CheckReceiver(recvBuf, bufferBytes, api, payloadBytes, slotBytes, slotCount, totalOperations);
-    }
-    if (rank == kSenderRank || rank == kReceiverRank) {
-        std::cout << "[rank " << rank << "] " << apiName << " " << commitMode << " " << (pass ? "PASS" : "FAIL")
+        std::cout << "[rank " << rank << "] simt_urma_perftest " << apiName << " " << (pass ? "PASS" : "FAIL")
                   << std::endl;
     }
 
