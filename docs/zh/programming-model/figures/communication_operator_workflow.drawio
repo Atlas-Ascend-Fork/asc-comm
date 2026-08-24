@@ -1,0 +1,58 @@
+<mxfile host="app.diagrams.net" agent="Codex">
+  <diagram id="communication_operator_workflow" name="Page-1">
+    <mxGraphModel dx="2054" dy="1171" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1080" pageHeight="260" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="background" parent="1" style="html=1;fillColor=#ffffff;strokeColor=none;fontFamily=FZLTHJW;fontSize=15;" value="" vertex="1">
+          <mxGeometry height="260" width="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="title" parent="1" style="text;html=1;strokeColor=none;fillColor=none;whiteSpace=wrap;overflow=visible;fontFamily=FZLTHJW;fontSize=15;fontColor=#1f2937;align=center;verticalAlign=middle;spacing=0;fontStyle=1;" value="通信算子基本流程" vertex="1">
+          <mxGeometry height="28" width="200" x="440" y="8" as="geometry" />
+        </mxCell>
+        <mxCell id="control-plane" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#f4f7f9;strokeColor=#52616b;strokeWidth=1.5;fontFamily=FZLTHJW;fontSize=15;" value="" vertex="1">
+          <mxGeometry height="158" width="322" x="34" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="control-plane-label" parent="1" style="text;html=1;strokeColor=none;fillColor=none;whiteSpace=wrap;overflow=visible;fontFamily=FZLTHJW;fontSize=15;fontColor=#25313b;align=left;verticalAlign=middle;spacing=0;fontStyle=1;" value="控制面" vertex="1">
+          <mxGeometry height="22" width="60" x="54" y="64" as="geometry" />
+        </mxCell>
+        <mxCell id="data-plane" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#fafbfc;strokeColor=#52616b;strokeWidth=1.5;fontFamily=FZLTHJW;fontSize=15;" value="" vertex="1">
+          <mxGeometry height="158" width="658" x="388" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="data-plane-label" parent="1" style="text;html=1;strokeColor=none;fillColor=none;whiteSpace=wrap;overflow=visible;fontFamily=FZLTHJW;fontSize=15;fontColor=#25313b;align=left;verticalAlign=middle;spacing=0;fontStyle=1;" value="数据面" vertex="1">
+          <mxGeometry height="22" width="60" x="408" y="64" as="geometry" />
+        </mxCell>
+        <mxCell id="step-1" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=8;html=1;whiteSpace=wrap;fontFamily=FZLTHJW;fontSize=15;fontColor=#28573c;align=center;verticalAlign=middle;spacing=0;fillColor=#eef6ea;strokeColor=#4b8f68;strokeWidth=1;" value="1. 资源准备" vertex="1">
+          <mxGeometry height="64" width="210" x="90" y="102" as="geometry" />
+        </mxCell>
+        <mxCell id="step-2" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=8;html=1;whiteSpace=wrap;fontFamily=FZLTHJW;fontSize=15;fontColor=#3b3425;align=center;verticalAlign=middle;spacing=0;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1;" value="2. 前同步" vertex="1">
+          <mxGeometry height="64" width="158" x="412" y="102" as="geometry" />
+        </mxCell>
+        <mxCell id="step-3" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=8;html=1;whiteSpace=wrap;fontFamily=FZLTHJW;fontSize=15;fontColor=#3b3425;align=center;verticalAlign=middle;spacing=0;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1;" value="3. 算子执行" vertex="1">
+          <mxGeometry height="64" width="158" x="638" y="102" as="geometry" />
+        </mxCell>
+        <mxCell id="step-4" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=8;html=1;whiteSpace=wrap;fontFamily=FZLTHJW;fontSize=15;fontColor=#3b3425;align=center;verticalAlign=middle;spacing=0;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1;" value="4. 后同步" vertex="1">
+          <mxGeometry height="64" width="158" x="864" y="102" as="geometry" />
+        </mxCell>
+        <mxCell id="flow-1" edge="1" parent="1" style="edgeStyle=none;html=1;strokeColor=#3f3f3f;strokeWidth=1.6;endArrow=block;endFill=1;endSize=6;fontFamily=FZLTHJW;fontSize=15;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="300" y="134" as="sourcePoint" />
+            <mxPoint x="408" y="134" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="flow-2" edge="1" parent="1" style="edgeStyle=none;html=1;strokeColor=#3f3f3f;strokeWidth=1.6;endArrow=block;endFill=1;endSize=6;fontFamily=FZLTHJW;fontSize=15;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="570" y="134" as="sourcePoint" />
+            <mxPoint x="634" y="134" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="flow-3" edge="1" parent="1" style="edgeStyle=none;html=1;strokeColor=#3f3f3f;strokeWidth=1.6;endArrow=block;endFill=1;endSize=6;fontFamily=FZLTHJW;fontSize=15;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="796" y="134" as="sourcePoint" />
+            <mxPoint x="860" y="134" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
