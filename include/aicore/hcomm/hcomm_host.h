@@ -23,7 +23,7 @@ typedef uint64_t MultiChannelHandle;
 #define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_HOST_H
 #endif
 
-#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_host_impl.h"
+#include "../../../impl/comm_api/aicore/hcomm/host/hcomm_host_impl.h"
 
 #ifdef __cplusplus
 extern "C" {
