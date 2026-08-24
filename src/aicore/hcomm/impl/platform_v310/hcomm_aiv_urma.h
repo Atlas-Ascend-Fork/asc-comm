@@ -489,11 +489,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
     static_assert(config.cqe == 0 || config.cqe == 1, "BatchPostSend supports cqe values 0 and 1 only");
     static_assert(config.inlineEn == 0, "BatchPostSend does not support inline data");
 
-    if (batchHandle.channelHandle == 0U) {
-        KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with invalid batch handle\n");
-        return HCOMM_FAILED;
-    }
-
     constexpr bool withNotify = opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY;
     constexpr uint32_t wqebbCount = withNotify ? HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM : 1U;
 
@@ -891,10 +886,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle
 
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBatchHandle& batchHandle)
 {
-    if (batchHandle.channelHandle == 0U) {
-        return HCOMM_FAILED;
-    }
-
     uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
     if (preSqCnt == 0 || preSqCnt > batchHandle.buffer.bufferCapacity) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed with invalid WQEBB count\n");
