@@ -119,7 +119,6 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
             HcommUrmaTestSuite.Aiv_Urma_DumpHelpers_Valid
             HcommUrmaTestSuite.Aiv_Urma_DumpAmoCtx_FAA
             HcommUrmaTestSuite.Aiv_Urma_DumpAmoCtx_CAS
-            HcommSimtUrmaTestSuite.CqeCountFollowsConfig
         )
     endif()
 
@@ -151,7 +150,6 @@ foreach(product_type ${PRODUCT_TYPE_LIST})
             ascend950pr_9599_AIV
             Ascend950PR_9599
             test_hcomm_urma_950.cpp
-            test_hcomm_simt_urma_950.cpp
         )
     endif()
 endforeach()

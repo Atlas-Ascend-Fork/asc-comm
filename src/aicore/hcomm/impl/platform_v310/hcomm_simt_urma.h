@@ -490,8 +490,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolveUbPostCo
 
 template <bool commit>
 __simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReservePost(
-    ChannelHandle channel, const HcommSimtUbResolvedPost& post, uint32_t bbCnt, uint32_t cqeCnt,
-    uint64_t& headVal)
+    ChannelHandle channel, const HcommSimtUbResolvedPost& post, uint32_t bbCnt, uint32_t cqeCnt, uint64_t& headVal)
 {
     uint32_t requiredFreeBbCnt = bbCnt + (commit ? 0U : HCOMM_URMA_DWQE_BB_CNT);
     if (post.meta.sqDepth == 0U || requiredFreeBbCnt > post.meta.sqDepth) {

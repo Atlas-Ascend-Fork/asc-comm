@@ -137,8 +137,7 @@ private:
         ChannelHandle channel, __gm__ uint8_t* remoteAddr, uint64_t len, HcommSimtUbResolvedPost& post);
     template <bool commit>
     __simt_callee__ inline bool ReservePost(
-        ChannelHandle channel, const HcommSimtUbResolvedPost& post, uint32_t bbCnt, uint32_t cqeCnt,
-        uint64_t& headVal);
+        ChannelHandle channel, const HcommSimtUbResolvedPost& post, uint32_t bbCnt, uint32_t cqeCnt, uint64_t& headVal);
 
     template <
         bool commit = true, HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE, auto const& config = URMA_DEFAULT_CFG>
