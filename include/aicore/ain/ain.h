@@ -22,7 +22,7 @@
 
 #include "../hcomm/hcomm.h"
 #include "ain_common.h"
-#include "../../../../impl/comm_api/aicore/ain/impl/ain_impl_def.h"
+#include "/impl/comm_api/aicore/ain/impl/ain_impl_def.h"
 
 namespace AscendC {
 
