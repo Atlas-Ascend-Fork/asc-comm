@@ -522,7 +522,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
     batchHandle.cursor.preSqCnt = preSqCnt + wqebbCount;
     if constexpr (config.cqe == 1) {
         batchHandle.cursor.cqHead++;
-        batchHandle.cursor.sqTail = batchHandle.cursor.sqHead + preSqCnt + wqebbCount;
     }
     return HCOMM_SUCCESS;
 }
@@ -688,6 +687,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqImpl(
 
 #if defined(UT_TEST)
     curTail = expectIdx;
+    sqTail = expectIdx;
 #else
     while (true) {
         bool shouldContinue = false;
@@ -739,9 +739,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqImpl(
             return ret;
         }
         curTail++;
-        if constexpr (sqSafeMode) {
-            sqTail = cqeUb->entryIdx;
-        }
+        sqTail = cqeUb->entryIdx;
     }
 #endif
     return HCOMM_SUCCESS;
@@ -785,10 +783,10 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollBatchCq(
     }
 
     uint32_t curTail = batchHandle.cursor.cqTail;
-    uint32_t dummySqTail = 0xFFFFFFFFU;
     uint32_t ret = PollCqImpl<false>(
         batchHandle.cqContext.contextInfo.ubJfc.scqVa, batchHandle.cqContext.contextInfo.ubJfc.cqeSize,
-        batchHandle.cqContext.contextInfo.ubJfc.cqDepth, expectIdx, curTail, batchHandle.buffer.buffer, dummySqTail);
+        batchHandle.cqContext.contextInfo.ubJfc.cqDepth, expectIdx, curTail, batchHandle.buffer.buffer,
+        batchHandle.cursor.sqTail);
     if (ret != HCOMM_SUCCESS) {
         return ret;
     }
