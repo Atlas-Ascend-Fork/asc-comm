@@ -174,17 +174,17 @@ public:
         remoteInfos_[1].remoteEidLow = 0x9999AAAABBBBCCCCULL;
         remoteInfos_[1].remoteEidHigh = 0xDDDDEEEEFFFF0000ULL;
 
-        entity_.sqContext.baseAddr = reinterpret_cast<uint64_t>(sqBuffer_.data());
-        entity_.sqContext.headAddr = reinterpret_cast<uint64_t>(&sqHead_);
-        entity_.sqContext.tailAddr = reinterpret_cast<uint64_t>(&sqTail_);
-        entity_.sqContext.dbAddr = reinterpret_cast<uint64_t>(&sqDoorbell_);
-        entity_.sqContext.depth = URMA_SQ_DEPTH;
-        entity_.cqContext.baseAddr = reinterpret_cast<uint64_t>(cqBuffer_.data());
-        entity_.cqContext.headAddr = reinterpret_cast<uint64_t>(&cqHead_);
-        entity_.cqContext.tailAddr = reinterpret_cast<uint64_t>(&cqTail_);
-        entity_.cqContext.dbAddr = reinterpret_cast<uint64_t>(&cqDoorbell_);
-        entity_.cqContext.depth = URMA_SQ_DEPTH;
-        entity_.cqContext.cqeSize = URMA_CQE_SIZE;
+        entity_.sqContext.contextInfo.ubJfs.sqVa = reinterpret_cast<uint64_t>(sqBuffer_.data());
+        entity_.sqContext.contextInfo.ubJfs.headAddr = reinterpret_cast<uint64_t>(&sqHead_);
+        entity_.sqContext.contextInfo.ubJfs.tailAddr = reinterpret_cast<uint64_t>(&sqTail_);
+        entity_.sqContext.contextInfo.ubJfs.dbVa = reinterpret_cast<uint64_t>(&sqDoorbell_);
+        entity_.sqContext.contextInfo.ubJfs.sqDepth = URMA_SQ_DEPTH;
+        entity_.cqContext.contextInfo.ubJfc.scqVa = reinterpret_cast<uint64_t>(cqBuffer_.data());
+        entity_.cqContext.contextInfo.ubJfc.headAddr = reinterpret_cast<uint64_t>(&cqHead_);
+        entity_.cqContext.contextInfo.ubJfc.tailAddr = reinterpret_cast<uint64_t>(&cqTail_);
+        entity_.cqContext.contextInfo.ubJfc.dbVa = reinterpret_cast<uint64_t>(&cqDoorbell_);
+        entity_.cqContext.contextInfo.ubJfc.cqDepth = URMA_SQ_DEPTH;
+        entity_.cqContext.contextInfo.ubJfc.cqeSize = URMA_CQE_SIZE;
         entity_.channelNum = remoteInfos_.size();
         entity_.remoteInfoAddr = reinterpret_cast<uint64_t>(remoteInfos_.data());
     }
@@ -307,19 +307,19 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
     EXPECT_EQ(batchHandle.queueIndexSource, AscendC::BatchQueueIndexSource::CHANNEL_ENTITY);
     EXPECT_EQ(batchHandle.buffer.buffer.GetPhyAddr(), batchTensor.GetPhyAddr());
     EXPECT_EQ(batchHandle.buffer.bufferCapacity, 2U);
-    EXPECT_EQ(batchHandle.sqContext.baseAddr, reinterpret_cast<uint64_t>(channel.GetSqBuffer()));
-    EXPECT_EQ(batchHandle.sqContext.dbAddr, channel.GetSqDoorbellAddr());
+    EXPECT_EQ(batchHandle.sqContext.contextInfo.ubJfs.sqVa, reinterpret_cast<uint64_t>(channel.GetSqBuffer()));
+    EXPECT_EQ(batchHandle.sqContext.contextInfo.ubJfs.dbVa, channel.GetSqDoorbellAddr());
     EXPECT_EQ(batchHandle.remoteInfo.remoteEidLow, 0x1122334455667788ULL);
     EXPECT_EQ(batchHandle.remoteInfo.remoteEidHigh, 0x99AABBCCDDEEFF00ULL);
-    EXPECT_EQ(batchHandle.cqContext.baseAddr, reinterpret_cast<uint64_t>(channel.GetCqBuffer()));
-    EXPECT_EQ(batchHandle.cqContext.dbAddr, channel.GetCqDoorbellAddr());
+    EXPECT_EQ(batchHandle.cqContext.contextInfo.ubJfc.scqVa, reinterpret_cast<uint64_t>(channel.GetCqBuffer()));
+    EXPECT_EQ(batchHandle.cqContext.contextInfo.ubJfc.dbVa, channel.GetCqDoorbellAddr());
     EXPECT_EQ(batchHandle.remoteInfo.tokenId, 0x223456U);
     EXPECT_EQ(batchHandle.remoteInfo.tokenValue, 0x754321U);
     EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
-    EXPECT_EQ(batchHandle.sqContext.depth, URMA_SQ_DEPTH);
+    EXPECT_EQ(batchHandle.sqContext.contextInfo.ubJfs.sqDepth, URMA_SQ_DEPTH);
     EXPECT_EQ(batchHandle.remoteInfo.tpId, 1U);
-    EXPECT_EQ(batchHandle.cqContext.depth, URMA_SQ_DEPTH);
-    EXPECT_EQ(batchHandle.cqContext.cqeSize, URMA_CQE_SIZE);
+    EXPECT_EQ(batchHandle.cqContext.contextInfo.ubJfc.cqDepth, URMA_SQ_DEPTH);
+    EXPECT_EQ(batchHandle.cqContext.contextInfo.ubJfc.cqeSize, URMA_CQE_SIZE);
     EXPECT_EQ(batchHandle.cursor.sqHead, 3U);
     EXPECT_EQ(batchHandle.cursor.cqHead, 2U);
     EXPECT_EQ(batchHandle.cursor.cqTail, 1U);
@@ -656,7 +656,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchCommitRejectsInvalidCounts)
 
     invalidHandle = batchHandle;
     invalidHandle.cursor.preSqCnt = 1U;
-    invalidHandle.sqContext.depth = 0U;
+    invalidHandle.sqContext.contextInfo.ubJfs.sqDepth = 0U;
     EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
@@ -667,7 +667,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchCommitRejectsInvalidCounts)
     invalidHandle = batchHandle;
     invalidHandle.buffer.bufferCapacity = URMA_BATCH_QUEUE_DEPTH;
     invalidHandle.cursor.preSqCnt = URMA_BATCH_QUEUE_DEPTH;
-    invalidHandle.sqContext.depth = URMA_BATCH_QUEUE_DEPTH;
+    invalidHandle.sqContext.contextInfo.ubJfs.sqDepth = URMA_BATCH_QUEUE_DEPTH;
     EXPECT_EQ(hcomm.BatchCommit(invalidHandle), AscendC::HCOMM_FAILED);
 
     EXPECT_EQ(channel.GetSqHead(), 0U);
@@ -837,15 +837,15 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchDrainRejectsInvalidHandleState)
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
-    invalidHandle.cqContext.cqeSize = 0;
+    invalidHandle.cqContext.contextInfo.ubJfc.cqeSize = 0;
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
-    invalidHandle.cqContext.cqeSize = URMA_WQE_SIZE + 1U;
+    invalidHandle.cqContext.contextInfo.ubJfc.cqeSize = URMA_WQE_SIZE + 1U;
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 
     invalidHandle = batchHandle;
-    invalidHandle.cqContext.depth = 0;
+    invalidHandle.cqContext.contextInfo.ubJfc.cqDepth = 0;
     EXPECT_EQ(hcomm.Drain(invalidHandle), AscendC::HCOMM_FAILED);
 }
 
