@@ -37,9 +37,9 @@ constexpr uint32_t QUEUE_TAIL_WINDOW = 4U;
 struct ExceptionRecord {
     std::atomic<bool> pending{false};
     std::atomic<uint64_t> count{0};
-    uint32_t taskId = 0;
-    uint32_t streamId = 0;
-    uint32_t deviceId = 0;
+    std::atomic<uint32_t> taskId{0};
+    std::atomic<uint32_t> streamId{0};
+    std::atomic<uint32_t> deviceId{0};
 };
 
 ExceptionRecord g_exception;
@@ -434,13 +434,14 @@ void RecordException(aclrtExceptionInfo *exceptionInfo)
         return;
     }
 
-    g_exception.taskId = aclrtGetTaskIdFromExceptionInfo(exceptionInfo);
-    g_exception.streamId = aclrtGetStreamIdFromExceptionInfo(exceptionInfo);
-    g_exception.deviceId = aclrtGetDeviceIdFromExceptionInfo(exceptionInfo);
+    g_exception.taskId.store(aclrtGetTaskIdFromExceptionInfo(exceptionInfo), std::memory_order_relaxed);
+    g_exception.streamId.store(aclrtGetStreamIdFromExceptionInfo(exceptionInfo), std::memory_order_relaxed);
+    g_exception.deviceId.store(aclrtGetDeviceIdFromExceptionInfo(exceptionInfo), std::memory_order_relaxed);
     uint64_t count = g_exception.count.fetch_add(1U) + 1U;
     g_exception.pending.store(true, std::memory_order_release);
     std::printf("[HcommDfxDump] exception callback entered count=%llu task=%u stream=%u device=%u\n",
-        static_cast<unsigned long long>(count), g_exception.taskId, g_exception.streamId, g_exception.deviceId);
+        static_cast<unsigned long long>(count), g_exception.taskId.load(std::memory_order_relaxed),
+        g_exception.streamId.load(std::memory_order_relaxed), g_exception.deviceId.load(std::memory_order_relaxed));
     std::fflush(stdout);
 }
 
@@ -529,8 +530,7 @@ int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
         return HCOMM_FAILED;
     }
 
-    HcommDfx::g_exception.pending.store(false, std::memory_order_release);
-    HcommDfx::g_exception.count.store(0U, std::memory_order_release);
+    HcommDfx::ClearPendingException();
     std::printf("[HcommDfxDump] exception callback registered\n");
     std::fflush(stdout);
     return HCOMM_SUCCESS;
