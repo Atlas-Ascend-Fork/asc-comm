@@ -29,6 +29,10 @@ set(TEST_MOD "all" CACHE STRING "Comma-separated UT targets to build and run, or
 option(ASCCOMM_UT_RUN_AFTER_BUILD "Run UT targets after build" ON)
 option(ENABLE_GCOV "Enable gcov coverage for UT targets" OFF)
 
+if(ENABLE_GCOV AND NOT ASCCOMM_UT_RUN_AFTER_BUILD)
+    message(FATAL_ERROR "ENABLE_GCOV requires ASCCOMM_UT_RUN_AFTER_BUILD=ON")
+endif()
+
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCEND_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
 elseif(DEFINED ASCEND_CANN_PACKAGE_PATH)
@@ -165,6 +169,7 @@ add_custom_target(prepare_asccomm_ut_header_layout
 )
 
 set(ASCCOMM_COVERAGE_SCRIPT ${ASCCOMM_ROOT}/scripts/generate_cpp_cov.sh)
+set(ASCCOMM_GTEST_RUNNER ${ASCCOMM_ROOT}/scripts/run_gtest.sh)
 
 function(run_llt_test)
     cmake_parse_arguments(LLT "" "TARGET;TASK_NUM;ENV_FILE" "FILTERS;RUNTIME_DIRS" ${ARGN})
@@ -191,6 +196,7 @@ function(run_llt_test)
             )
         endif()
 
+        # Coverage collection must wait for the UT target, including its POST_BUILD GTest checks.
         add_dependencies(${_collect_coverage_data_target} ${LLT_TARGET})
     endif()
 
@@ -211,7 +217,7 @@ function(run_llt_test)
         foreach(test_filter ${LLT_FILTERS})
             add_custom_command(
                 TARGET ${LLT_TARGET} POST_BUILD
-                COMMAND ${ENV_PREFIX} ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${_llt_ld_library_path}:$ENV{LD_LIBRARY_PATH}" $<TARGET_FILE:${LLT_TARGET}> --gtest_filter=${test_filter}
+                COMMAND ${ENV_PREFIX} bash ${ASCCOMM_GTEST_RUNNER} ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${_llt_ld_library_path}:$ENV{LD_LIBRARY_PATH}" $<TARGET_FILE:${LLT_TARGET}> --gtest_filter=${test_filter}
                 COMMENT "Run ${LLT_TARGET} ${test_filter}"
             )
         endforeach()
@@ -221,7 +227,7 @@ function(run_llt_test)
     add_custom_command(
         TARGET ${LLT_TARGET} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory ${LLT_WORK_DIR}
-        COMMAND ${ENV_PREFIX} ${CMAKE_COMMAND} -E chdir ${LLT_WORK_DIR} ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${_llt_ld_library_path}:$ENV{LD_LIBRARY_PATH}" $<TARGET_FILE:${LLT_TARGET}>
+        COMMAND ${ENV_PREFIX} ${CMAKE_COMMAND} -E chdir ${LLT_WORK_DIR} bash ${ASCCOMM_GTEST_RUNNER} ${CMAKE_COMMAND} -E env "LD_LIBRARY_PATH=${_llt_ld_library_path}:$ENV{LD_LIBRARY_PATH}" $<TARGET_FILE:${LLT_TARGET}>
         COMMENT "Run ${LLT_TARGET}"
     )
 endfunction()
