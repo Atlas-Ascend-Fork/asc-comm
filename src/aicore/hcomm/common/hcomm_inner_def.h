@@ -265,24 +265,6 @@ typedef struct {
 } MultiChannelRemoteInfo;
 
 typedef struct {
-    uint64_t baseAddr;
-    uint64_t headAddr;
-    uint64_t tailAddr;
-    uint64_t dbAddr;
-    uint32_t depth;
-    uint32_t reserved;
-} BatchSqContext;
-
-typedef struct {
-    uint64_t baseAddr;
-    uint64_t headAddr;
-    uint64_t tailAddr;
-    uint64_t dbAddr;
-    uint32_t depth;
-    uint32_t cqeSize;
-} BatchCqContext;
-
-typedef struct {
     uint32_t sqHead;
     uint32_t sqTail;
     uint32_t cqHead;
@@ -297,8 +279,8 @@ enum class BatchQueueIndexSource : uint32_t {
 };
 
 typedef struct {
-    BatchSqContext sqContext;
-    BatchCqContext cqContext;
+    SqContext sqContext;
+    CqContext cqContext;
     uint32_t channelNum;
     uint64_t remoteInfoAddr;
 } MultiChannelEntity;
@@ -310,8 +292,8 @@ typedef struct {
 
 typedef struct {
     ChannelHandle channelHandle;
-    BatchSqContext sqContext;
-    BatchCqContext cqContext;
+    SqContext sqContext;
+    CqContext cqContext;
     BatchQueueCursor cursor;
     BatchQueueIndexSource queueIndexSource;
     BatchRemoteInfo remoteInfo;

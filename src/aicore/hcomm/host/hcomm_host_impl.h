@@ -124,26 +124,8 @@ typedef struct {
 } MultiChannelRemoteInfo;
 
 typedef struct {
-    uint64_t baseAddr;
-    uint64_t headAddr;
-    uint64_t tailAddr;
-    uint64_t dbAddr;
-    uint32_t depth;
-    uint32_t reserved;
-} BatchSqContext;
-
-typedef struct {
-    uint64_t baseAddr;
-    uint64_t headAddr;
-    uint64_t tailAddr;
-    uint64_t dbAddr;
-    uint32_t depth;
-    uint32_t cqeSize;
-} BatchCqContext;
-
-typedef struct {
-    BatchSqContext sqContext;
-    BatchCqContext cqContext;
+    SqContext sqContext;
+    CqContext cqContext;
     uint32_t channelNum;
     uint64_t remoteInfoAddr;
 } MultiChannelEntity;
@@ -287,17 +269,8 @@ static inline HcclResult HcommBuildMultiChannelEntity(
         channelInfos[i] = currentMetadata.remoteInfo;
     }
 
-    entity->sqContext.baseAddr = anchorMetadata.sqContext.contextInfo.ubJfs.sqVa;
-    entity->sqContext.headAddr = anchorMetadata.sqContext.contextInfo.ubJfs.headAddr;
-    entity->sqContext.tailAddr = anchorMetadata.sqContext.contextInfo.ubJfs.tailAddr;
-    entity->sqContext.dbAddr = anchorMetadata.sqContext.contextInfo.ubJfs.dbVa;
-    entity->sqContext.depth = anchorMetadata.sqContext.contextInfo.ubJfs.sqDepth;
-    entity->cqContext.baseAddr = anchorMetadata.cqContext.contextInfo.ubJfc.scqVa;
-    entity->cqContext.headAddr = anchorMetadata.cqContext.contextInfo.ubJfc.headAddr;
-    entity->cqContext.tailAddr = anchorMetadata.cqContext.contextInfo.ubJfc.tailAddr;
-    entity->cqContext.dbAddr = anchorMetadata.cqContext.contextInfo.ubJfc.dbVa;
-    entity->cqContext.depth = anchorMetadata.cqContext.contextInfo.ubJfc.cqDepth;
-    entity->cqContext.cqeSize = anchorMetadata.cqContext.contextInfo.ubJfc.cqeSize;
+    entity->sqContext = anchorMetadata.sqContext;
+    entity->cqContext = anchorMetadata.cqContext;
     entity->channelNum = channelNum;
 
     ret = hcclApi->engineCtxCreate(comm, sharedQueueTag, COMM_ENGINE_AIV, totalSize, deviceMemory);
