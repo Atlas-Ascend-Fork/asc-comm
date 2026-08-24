@@ -13,11 +13,6 @@ template <
     typename T,
     typename BatchHandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t BatchCommit(T& batchHandle);
-
-template <
-    typename T,
-    typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
-__aicore__ inline int32_t BatchCommit(T& batchHandle);
 ```
 
 ## Parameter Description
@@ -30,7 +25,7 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
 | Parameter | Description |
 | --- | --- |
-| `T` | Batch handle type, deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle` and `UbcCtpMultiBatchHandle`. |
+| `T` | Batch handle type deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle` and `UbcCtpMultiBatchHandle`. |
 
 ## Return Value
 

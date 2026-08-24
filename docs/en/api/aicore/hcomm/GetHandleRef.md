@@ -2,14 +2,14 @@
 
 ## Function Description
 
-Selects one logical channel and remote registered-memory region from a shared-Jetty multi-channel batch handle and returns the BatchHandle reference used by batch read, write, and write-with-notify APIs.
+Returns the BatchHandle reference used for batch operations. A single-channel handle is returned unchanged; for a multi-channel handle, the call selects a logical channel and remote registered-memory region.
 
 ## Function Prototype
 
 ```cpp
 template <
     typename T,
-    typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
+    typename BatchHandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
     T& batchHandle,
     uint32_t channelIndex,
@@ -20,28 +20,28 @@ __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `batchHandle` | Input/Output | Multi-channel batch handle created by `MakeBatchHandle(MultiChannelHandle, ...)`. |
-| `channelIndex` | Input | Logical channel index. It matches the index in the `channelDescs` array passed to Host-side `MakeMultiChannelHandle`. |
-| `remoteAddr` | Input | Address in a remote registered buffer of the selected logical channel. When null, the first remote registered buffer is selected. Default: `nullptr`. |
+| `batchHandle` | Input/Output | Single-channel or multi-channel batch handle created by `MakeBatchHandle`. |
+| `channelIndex` | Input | Multi-channel logical channel index. Ignored for a single-channel handle. |
+| `remoteAddr` | Input | Address in a multi-channel remote registered buffer. Ignored for a single-channel handle. Default: `nullptr`. |
 
 ## Return Value
 
-Returns the inner `BatchHandle<ChannelHandle>&` configured for the selected logical channel and remote MR.
+Returns the input handle itself for a single channel, or the inner `BatchHandle<ChannelHandle>&` configured for the selected logical channel and remote MR for multiple channels.
 
 ## Template Parameters
 
 | Parameter | Description |
 | --- | --- |
-| `T` | Multi-channel batch handle type deduced from `batchHandle`. Currently supports `UbcCtpMultiBatchHandle`. |
+| `T` | Batch handle type deduced from `batchHandle`. |
 
 ## Constraints
 
-- `batchHandle` must be created from a valid `MultiChannelHandle`; do not pass a single-channel `UbcCtpBatchHandle`.
-- `channelIndex` must be smaller than the `channelNum` used to create the `MultiChannelHandle`.
-- A non-null `remoteAddr` must belong to a remote registered buffer of the selected logical channel. When null, the channel must contain at least one remote registered buffer.
+- For a single-channel handle, `channelIndex` and `remoteAddr` do not modify the handle; remote memory remains selected by `MakeBatchHandle`.
+- For a multi-channel handle, `channelIndex` must be smaller than the `channelNum` used to create the `MultiChannelHandle`.
+- For a multi-channel handle, a non-null `remoteAddr` must belong to a remote registered buffer of the selected logical channel. When null, the channel must contain at least one remote registered buffer.
 - Repeated calls on the same multi-channel batch handle return the same inner BatchHandle reference. Each call updates the logical-channel and remote MR information currently selected in that inner handle.
-- Remote buffers accessed through the returned reference must use the token cached by this call. Call this interface again before accessing a remote buffer that uses a different token.
-- Use the returned inner reference with batch read, write, and write-with-notify APIs. Pass the outer multi-channel batch handle to `BatchCommit` and batch `Drain`.
+- Multi-channel remote buffers accessed through the returned reference must use the token cached by this call. Call this interface again before accessing a remote buffer that uses a different token.
+- For multiple channels, use the returned inner reference with batch read, write, and write-with-notify APIs. Pass the outer multi-channel batch handle to `BatchCommit` and batch `Drain`.
 
 ## Related APIs
 

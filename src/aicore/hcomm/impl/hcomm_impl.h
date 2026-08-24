@@ -60,7 +60,7 @@ __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
 }
 
 template <CommProtocol commProtocol>
-template <typename T, typename MultiBatchHandleTraits<T>::ChannelType*>
+template <typename T, typename BatchHandleTraits<T>::ChannelType*>
 __aicore__ inline BatchHandle<ChannelHandle>& Hcomm<commProtocol>::GetHandleRef(
     T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
 {
@@ -159,14 +159,6 @@ __aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(T& batchHandle)
 }
 
 template <CommProtocol commProtocol>
-template <typename T, typename MultiBatchHandleTraits<T>::ChannelType*>
-__aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(T& batchHandle)
-{
-    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "BatchHandle only supports COMM_PROTOCOL_UBC_CTP");
-    return impl_.BatchCommit(batchHandle.handle);
-}
-
-template <CommProtocol commProtocol>
 template <pipe_t pipe>
 __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 {
@@ -180,13 +172,6 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Drain(T& batchHandle)
     return impl_.template Drain<pipe>(batchHandle);
 }
 
-template <CommProtocol commProtocol>
-template <pipe_t pipe, typename T, typename MultiBatchHandleTraits<T>::ChannelType*>
-__aicore__ inline int32_t Hcomm<commProtocol>::Drain(T& batchHandle)
-{
-    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "BatchHandle only supports COMM_PROTOCOL_UBC_CTP");
-    return impl_.template Drain<pipe>(batchHandle.handle);
-}
 } // namespace AscendC
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H

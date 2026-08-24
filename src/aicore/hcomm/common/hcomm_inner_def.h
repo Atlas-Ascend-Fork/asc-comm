@@ -325,11 +325,8 @@ struct BatchHandleTraits<UbcCtpBatchHandle> {
     using ChannelType = ChannelHandle;
 };
 
-template <typename T>
-struct MultiBatchHandleTraits;
-
 template <>
-struct MultiBatchHandleTraits<UbcCtpMultiBatchHandle> {
+struct BatchHandleTraits<UbcCtpMultiBatchHandle> {
     using ChannelType = MultiChannelHandle;
 };
 

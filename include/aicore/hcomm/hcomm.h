@@ -87,16 +87,19 @@ public:
         GM_ADDR localAddr = nullptr);
 
     /*!
-     * @brief Select one peer and bind one of its remote registered-memory regions.
-     * @tparam T: The multi-channel batch handle type.
-     * @param [in,out] batchHandle: A batch handle created from MultiChannelHandle.
-     * @param [in] channelIndex: Index in the channel descriptor array used to create MultiChannelHandle.
+     * @brief Get the execution batch handle for one channel.
+     * @tparam T: The batch handle type.
+     * @param [in,out] batchHandle: A batch handle created from ChannelHandle or MultiChannelHandle.
+     * @param [in] channelIndex: Index in the channel descriptor array used to create MultiChannelHandle. Ignored for
+     *                          ChannelHandle.
      * @param [in] remoteAddr: An address in the remote registered-memory region to select. If it is null, the first
-     *                         remote registered buffer is selected.
-     * @return A BatchHandle reference configured for the selected peer and remote registered-memory region.
-     * @note Remote registered buffers used through the returned handle must use the token cached by this call.
+     *                         remote registered buffer is selected. Ignored for ChannelHandle.
+     * @return For ChannelHandle, the input handle itself. For MultiChannelHandle, its inner BatchHandle configured for
+     *         the selected peer and remote registered-memory region.
+     * @note For ChannelHandle, remote memory remains bound as selected by MakeBatchHandle. For MultiChannelHandle,
+     *       remote buffers used through the returned handle must use the token cached by this call.
      */
-    template <typename T, typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
+    template <typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
         T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
 
@@ -315,14 +318,6 @@ public:
     __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
     /*!
-     * @brief Submit all WQEs prepared through a multi-channel batch handle.
-     * @param [in,out] batchHandle: The multi-channel batch handle to submit.
-     * @return 0 indicates success and -1 indicates failure.
-     */
-    template <typename T, typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t BatchCommit(T& batchHandle);
-
-    /*!
      * @class Hcomm
      * @brief Block Aicore and drain comm tasks submitted on channel until finish processing.
      * @tparam pipe: The pipe type to use for drain, PIPE_MTE3 supported as default.
@@ -343,17 +338,6 @@ public:
      *       another batch on the same handle.
      */
     template <pipe_t pipe = PIPE_MTE3, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t Drain(T& batchHandle);
-
-    /*!
-     * @brief Block Aicore until all tasks submitted through a multi-channel batch handle are complete.
-     * @tparam pipe: The pipe type to use for drain, PIPE_MTE3 supported as default.
-     * @param [in,out] batchHandle: The multi-channel batch handle whose inner WQE buffer is reused as CQE scratch
-     *                              space.
-     * @return 0 indicates success. A non-zero value indicates failure.
-     */
-    template <
-        pipe_t pipe = PIPE_MTE3, typename T, typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t Drain(T& batchHandle);
 
 private:

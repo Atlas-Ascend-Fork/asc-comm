@@ -453,6 +453,14 @@ __aicore__ inline UbcCtpMultiBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
 }
 
 __aicore__ inline UbcCtpBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
+    UbcCtpBatchHandle& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
+{
+    (void)channelIndex;
+    (void)remoteAddr;
+    return batchHandle;
+}
+
+__aicore__ inline UbcCtpBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
     UbcCtpMultiBatchHandle& multiBatchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
 {
     multiBatchHandle.handle.remoteInfo = BatchRemoteInfo{};
@@ -934,6 +942,11 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpBa
     return HCOMM_SUCCESS;
 }
 
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcCtpMultiBatchHandle& batchHandle)
+{
+    return BatchCommit(batchHandle.handle);
+}
+
 template <pipe_t pipe>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle channel)
 {
@@ -973,6 +986,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHan
         return ret;
     }
     return HCOMM_SUCCESS;
+}
+
+template <pipe_t pipe>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpMultiBatchHandle& batchHandle)
+{
+    return Drain<pipe>(batchHandle.handle);
 }
 
 } // namespace AscendC

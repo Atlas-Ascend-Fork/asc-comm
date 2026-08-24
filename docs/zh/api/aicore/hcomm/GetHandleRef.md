@@ -2,14 +2,14 @@
 
 ## 功能说明
 
-从共享Jetty多通道批量句柄中选择一个逻辑通道和远端注册内存，返回执行批量读、写和写通知接口的BatchHandle引用。
+返回用于执行批量操作的BatchHandle引用。单通道时原样返回传入句柄；多通道时选择一个逻辑通道和远端注册内存。
 
 ## 函数原型
 
 ```cpp
 template <
     typename T,
-    typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
+    typename BatchHandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
     T& batchHandle,
     uint32_t channelIndex,
@@ -20,28 +20,28 @@ __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
 
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
-| `batchHandle` | 输入/输出 | 由`MakeBatchHandle(MultiChannelHandle, ...)`创建的多通道批量句柄。 |
-| `channelIndex` | 输入 | 逻辑通道索引，与Host侧`MakeMultiChannelHandle`传入的`channelDescs`数组下标一致。 |
-| `remoteAddr` | 输入 | 所选逻辑通道的远端已注册buffer内地址；为空时选择第一个远端已注册buffer。默认值为`nullptr`。 |
+| `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的单通道或多通道批量句柄。 |
+| `channelIndex` | 输入 | 多通道逻辑通道索引；单通道时忽略。 |
+| `remoteAddr` | 输入 | 多通道远端已注册buffer内地址；单通道时忽略。默认值为`nullptr`。 |
 
 ## 返回值
 
-返回配置为所选逻辑通道和远端MR的内层`BatchHandle<ChannelHandle>&`。
+单通道返回输入句柄本身；多通道返回配置为所选逻辑通道和远端MR的内层`BatchHandle<ChannelHandle>&`。
 
 ## 模板参数
 
 | 参数 | 说明 |
 | --- | --- |
-| `T` | 多通道批量句柄类型，由`batchHandle`实参推导，当前支持`UbcCtpMultiBatchHandle`。 |
+| `T` | 批量句柄类型，由`batchHandle`实参推导。 |
 
 ## 约束说明
 
-- `batchHandle`必须由有效的`MultiChannelHandle`创建，不能传入单通道`UbcCtpBatchHandle`。
-- `channelIndex`必须小于创建`MultiChannelHandle`时传入的`channelNum`。
-- `remoteAddr`非空时必须落在所选逻辑通道的一个远端已注册buffer中；为空时，该通道必须至少包含一个远端已注册buffer。
+- 单通道时`channelIndex`和`remoteAddr`不改变句柄，远端内存仍由`MakeBatchHandle`选择。
+- 多通道时，`channelIndex`必须小于创建`MultiChannelHandle`时传入的`channelNum`。
+- 多通道时，`remoteAddr`非空时必须落在所选逻辑通道的一个远端已注册buffer中；为空时，该通道必须至少包含一个远端已注册buffer。
 - 对同一个多通道批量句柄多次调用本接口时，返回的引用均指向同一个内层BatchHandle；每次调用会更新该内层句柄当前选择的逻辑通道和远端MR信息。
-- 返回引用的批量操作必须使用本次调用缓存的token；访问使用不同token的远端buffer前需要再次调用本接口。
-- 使用返回的内层引用调用批量读、写和写通知；将外层多通道批量句柄传入`BatchCommit`和批量`Drain`。
+- 多通道返回引用的批量操作必须使用本次调用缓存的token；访问使用不同token的远端buffer前需要再次调用本接口。
+- 多通道使用返回的内层引用调用批量读、写和写通知；将外层多通道批量句柄传入`BatchCommit`和批量`Drain`。
 
 ## 相关接口
 

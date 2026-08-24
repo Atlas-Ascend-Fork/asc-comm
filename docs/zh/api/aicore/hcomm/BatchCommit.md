@@ -13,11 +13,6 @@ template <
     typename T,
     typename BatchHandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t BatchCommit(T& batchHandle);
-
-template <
-    typename T,
-    typename MultiBatchHandleTraits<T>::ChannelType* = nullptr>
-__aicore__ inline int32_t BatchCommit(T& batchHandle);
 ```
 
 ## 参数说明
