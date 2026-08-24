@@ -170,10 +170,7 @@ __aicore__ inline void HcommUrmaFillSgeCtx(
 
 __aicore__ inline void HcommUrmaDumpAmoCtx(__ubuf__ HcommUrmaSqeCtx* sqeCtx, uint32_t atomicLen)
 {
-    if (sqeCtx == nullptr) {
-        AscendC::PRINTF("Hcomm URMA WQE: nullptr pointer \n");
-        return;
-    }
+    HCOMM_DEBUG_TRAP_IF(sqeCtx == nullptr, "Hcomm URMA WQE: nullptr pointer \n");
     auto opcode = sqeCtx->opcode;
     if (opcode == static_cast<uint32_t>(HcommUrmaOpCode::FAA)) {
         __ubuf__ uint8_t* amoDataAddr = (__ubuf__ uint8_t*)sqeCtx + sizeof(HcommUrmaSqeCtx) + sizeof(HcommUrmaSgeCtx);
@@ -194,10 +191,7 @@ __aicore__ inline void HcommUrmaDumpAmoCtx(__ubuf__ HcommUrmaSqeCtx* sqeCtx, uin
 __aicore__ inline void HcommUrmaDumpSgeCtx(
     __ubuf__ HcommUrmaSqeCtx* sqeCtx, __ubuf__ uint8_t* sgeAddr, uint32_t atomicLen)
 {
-    if (sqeCtx == nullptr || sgeAddr == nullptr) {
-        AscendC::PRINTF("Hcomm URMA WQE: nullptr pointer \n");
-        return;
-    }
+    HCOMM_DEBUG_TRAP_IF(sqeCtx == nullptr || sgeAddr == nullptr, "Hcomm URMA WQE: nullptr pointer \n");
     __ubuf__ HcommUrmaSgeCtx* sgeCtx = (__ubuf__ HcommUrmaSgeCtx*)sgeAddr;
     for (uint32_t i = 0; i < sqeCtx->sgeNum; i++) {
         auto sgeLen = sgeCtx->len;
@@ -224,10 +218,7 @@ __aicore__ inline void HcommUrmaDumpNotifyCtx(__ubuf__ HcommUrmaNotifyCtx* notif
 
 __aicore__ inline void HcommUrmaDumpWqeCtx(__ubuf__ HcommUrmaSqeCtx* sqeCtx, uint32_t atomicLen)
 {
-    if (sqeCtx == nullptr) {
-        AscendC::PRINTF("Hcomm URMA WQE: nullptr pointer \n");
-        return;
-    }
+    HCOMM_DEBUG_TRAP_IF(sqeCtx == nullptr, "Hcomm URMA WQE: nullptr pointer \n");
     auto sqeBbIdx = sqeCtx->sqeBbIdx;
     auto flag = sqeCtx->flag;
     auto rsv0 = sqeCtx->rsv0;
@@ -275,10 +266,7 @@ __aicore__ inline void HcommUrmaDumpWqeCtx(__ubuf__ HcommUrmaSqeCtx* sqeCtx, uin
 
 __aicore__ inline void HcommUrmaDumpCqeCtx(__ubuf__ HcommUrmaJfcCqeCtx* cqeCtx)
 {
-    if (cqeCtx == nullptr) {
-        AscendC::PRINTF("Hcomm URMA CQE: nullptr pointer \n");
-        return;
-    }
+    HCOMM_DEBUG_TRAP_IF(cqeCtx == nullptr, "Hcomm URMA CQE: nullptr pointer \n");
     uint32_t sR = cqeCtx->sR;
     uint32_t isJetty = cqeCtx->isJetty;
     uint32_t owner = cqeCtx->owner;

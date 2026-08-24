@@ -931,19 +931,19 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_InitLocalTensor)
     EXPECT_EQ(hcomm.Drain(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
 }
 
-// Dump helpers: nullptr early-return guards.
-// These guards are never reached through the normal send path, so exercise them directly.
+// Dump helpers: nullptr validation.
+// These checks are never reached through the normal send path, so exercise them through the debug wrapper.
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_DumpHelpers_Nullptr)
 {
-    AscendC::HcommUrmaDumpWqeCtx(nullptr, sizeof(uint8_t));
-    AscendC::HcommUrmaDumpCqeCtx(nullptr);
-    AscendC::HcommUrmaDumpSgeCtx(nullptr, nullptr, sizeof(uint8_t));
-    AscendC::HcommUrmaDumpAmoCtx(nullptr, sizeof(uint32_t));
+    HCOMM_DEBUG_FUNC(AscendC::HcommUrmaDumpWqeCtx, nullptr, sizeof(uint8_t));
+    HCOMM_DEBUG_FUNC(AscendC::HcommUrmaDumpCqeCtx, nullptr);
+    HCOMM_DEBUG_FUNC(AscendC::HcommUrmaDumpSgeCtx, nullptr, nullptr, sizeof(uint8_t));
+    HCOMM_DEBUG_FUNC(AscendC::HcommUrmaDumpAmoCtx, nullptr, sizeof(uint32_t));
 
     // sqeCtx non-null but sgeAddr null still hits the guard
     std::vector<uint8_t> sqeBuf(sizeof(AscendC::HcommUrmaSqeCtx), 0);
     auto* sqe = reinterpret_cast<__ubuf__ AscendC::HcommUrmaSqeCtx*>(sqeBuf.data());
-    AscendC::HcommUrmaDumpSgeCtx(sqe, nullptr, sizeof(uint8_t));
+    HCOMM_DEBUG_FUNC(AscendC::HcommUrmaDumpSgeCtx, sqe, nullptr, sizeof(uint8_t));
 }
 
 // Dump helpers: full function bodies.
