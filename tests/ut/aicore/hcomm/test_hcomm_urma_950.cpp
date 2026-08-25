@@ -1091,8 +1091,8 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_InitLocalTensor)
     EXPECT_EQ(hcomm.Drain(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
 }
 
-// Dump helpers: nullptr early-return guards.
-// These guards are never reached through the normal send path, so exercise them directly.
+// Dump helpers: nullptr validation.
+// These checks are never reached through the normal send path, so exercise them directly.
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_DumpHelpers_Nullptr)
 {
     AscendC::HcommUrmaDumpWqeCtx(nullptr, sizeof(uint8_t));
