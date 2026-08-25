@@ -91,14 +91,23 @@ Batch `Drain` reuses the first 64 bytes of the BatchHandle WQE buffer as CQE scr
 
 ## Shared-Jetty BatchHandle Workflow
 
-On the Host, call `MakeMultiChannelHandle` to create the shared-Jetty channels and `MultiChannelHandle`:
+When using an HCCL communicator, call `MakeMultiChannelHandleWithComm` on the Host to create the shared-Jetty channels and `MultiChannelHandle`:
 
 ```cpp
 #include "hcomm/hcomm_host.h"
 
 MultiChannelHandle multiChannel = 0U;
-HcclResult ret = MakeMultiChannelHandle(
+HcclResult ret = MakeMultiChannelHandleWithComm(
     comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
+```
+
+Without an HCCL communicator, pass an Hcomm Endpoint and `HcommChannelDesc` array to `MakeMultiChannelHandle`. Destroy the multi-channel handle before destroying the Endpoint:
+
+```cpp
+HcommResult ret = MakeMultiChannelHandle(endpointHandle, channelDescs, channelNum, &multiChannel);
+// Launch and synchronize the Kernel before destroying the handle.
+ret = DestroyMultiChannelHandle(multiChannel);
+ret = HcommEndpointDestroy(endpointHandle);
 ```
 
 On the AICore, create a multi-channel batch handle and call `GetHandleRef` to obtain the common inner execution

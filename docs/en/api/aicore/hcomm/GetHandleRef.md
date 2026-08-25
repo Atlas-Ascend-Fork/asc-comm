@@ -47,6 +47,7 @@ Returns the input handle itself for a single channel, or the inner `BatchHandle<
 ## Related APIs
 
 - [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md)
+- [MakeMultiChannelHandleWithComm](../../host/hcomm/MakeMultiChannelHandleWithComm.md)
 - [MakeBatchHandle](./MakeBatchHandle.md)
 - [BatchCommit](./BatchCommit.md)
 - [Drain](./Drain.md)

@@ -22,7 +22,7 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
-| `channel` | 输入 | UBC_CTP单通道`ChannelHandle`，或Host侧`MakeMultiChannelHandle`创建的共享Jetty `MultiChannelHandle`。 |
+| `channel` | 输入 | UBC_CTP单通道`ChannelHandle`，或Host侧多通道创建接口生成的共享Jetty `MultiChannelHandle`。 |
 | `buff` | 输入 | 调用方提供的UB `LocalTensor`，用于准备批量WQE，并由批量`Drain`复用为CQE临时缓冲区。 |
 | `buffLen` | 输入 | 缓冲区可用长度，单位为字节。 |
 | `remoteAddr` | 输入 | 单通道模式下用于选择远端已注册buffer；多通道模式下为保留参数。默认值为`nullptr`。 |
@@ -70,4 +70,5 @@ auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, channelIndex, peerR
 ## 相关接口
 
 - [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md)
+- [MakeMultiChannelHandleWithComm](../../host/hcomm/MakeMultiChannelHandleWithComm.md)
 - [GetHandleRef](./GetHandleRef.md)

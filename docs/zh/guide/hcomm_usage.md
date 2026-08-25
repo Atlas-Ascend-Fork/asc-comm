@@ -91,14 +91,23 @@ ret = hcomm.Drain(batchHandle);
 
 ## 共享Jetty BatchHandle接口流程
 
-Host侧调用`MakeMultiChannelHandle`创建共享Jetty通道和`MultiChannelHandle`：
+使用HCCL通信域时，Host侧调用`MakeMultiChannelHandleWithComm`创建共享Jetty通道和`MultiChannelHandle`：
 
 ```cpp
 #include "hcomm/hcomm_host.h"
 
 MultiChannelHandle multiChannel = 0U;
-HcclResult ret = MakeMultiChannelHandle(
+HcclResult ret = MakeMultiChannelHandleWithComm(
     comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
+```
+
+不使用HCCL通信域时，传入Hcomm Endpoint和`HcommChannelDesc`调用`MakeMultiChannelHandle`。使用结束后必须先销毁多通道句柄，再销毁Endpoint：
+
+```cpp
+HcommResult ret = MakeMultiChannelHandle(endpointHandle, channelDescs, channelNum, &multiChannel);
+// Launch and synchronize the Kernel before destroying the handle.
+ret = DestroyMultiChannelHandle(multiChannel);
+ret = HcommEndpointDestroy(endpointHandle);
 ```
 
 AICore侧创建多通道批量句柄，通过`GetHandleRef`取得统一的内层执行句柄。内层句柄用于准备WQE，外层多通道批量句柄用于`BatchCommit`和`Drain`：
