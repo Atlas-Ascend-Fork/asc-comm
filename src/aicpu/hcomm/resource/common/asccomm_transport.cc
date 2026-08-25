@@ -630,9 +630,16 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
         cfg.cqeEn = index == transferDescNum - 1;
         cfg.placeOdr = cfg.cqeEn ? UB_STRONG_ORDER : UB_RELAX_ORDER;
         cfg.compOrder = cfg.cqeEn ? UB_COMPLETION : UB_NO_COMPLETION;
+        cfg.userConfig = true;
         if (desc.transType == HCOMM_TRANSFER_TYPE_NOTIFY_RECORD) {
             Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
-            CHK_RET(build_ub_remote_notify(channel, desc.transferInfo.notifyRecord.notifyIdx, notify));
+            const uint32_t notifyIdx = desc.transferInfo.notifyRecord.notifyIdx;
+            CHK_RET(build_ub_remote_notify(channel, notifyIdx, notify));
+            if (notifyIdx == 1) {
+                cfg.cqeEn = true;
+                cfg.placeOdr = UB_STRONG_ORDER;
+                cfg.compOrder = UB_COMPLETION;
+            }
             const uint32_t value = NOTIFY_VALUE;
             connection.inline_write(reinterpret_cast<const uint8_t *>(&value), NOTIFY_SIZE,
                 notify, cfg, out);

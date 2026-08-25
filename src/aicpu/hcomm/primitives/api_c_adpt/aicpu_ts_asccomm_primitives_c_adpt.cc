@@ -208,9 +208,9 @@ int32_t asccomm_batch_mode_end(const char *batchTag)
     copy_dfx_tag(batchTag, event.params.batchModeEnd.batchTag);
     return execute_api(event, [&]() {
         asccomm_set_batch_launch_mode(false);
-        const HcclResult ret = asccomm_launch_registered_threads();
+        CHK_RET(asccomm_launch_registered_threads());
         asccomm_clear_registered_threads();
-        return ret;
+        return HCCL_SUCCESS;
     });
 }
 
