@@ -30,14 +30,14 @@ NPU内部参与通信的硬件可以归纳为通信引擎和存储单元：通�
 | --- | --- | --- |
 | AIV | Vector Core | 执行通信Kernel中的算法逻辑，以及数据处理、搬运和归约等操作。 |
 | AI CPU | AI CPU | 采用AI CPU+TS执行模式。AI CPU Kernel由STARS调度，并向任务队列提交数据搬运等通信任务，再由调度器交给相应的执行器。 |
-| CCU（Collective Communication Unit，集合通信加速单元） | 集合通信专用硬件引擎 | 执行预置通信指令，并使用内部ccuBuffer完成数据暂存、搬运、同步和片上归约等操作。 |
+| CCU（Collective Communication Unit，集合通信加速单元） | 集合通信专用硬件引擎 | 执行预置通信指令，并使用内部CCU Buffer完成数据暂存、搬运、同步和片上归约等操作。 |
 
 ### 存储单元
 
-存储单元可以从使用位置上分为Global Memory和ccuBuffer。
+存储单元可以从使用位置上分为Global Memory和CCU Buffer。
 
 - **Global Memory**：GM是Device侧的全局存储，用于保存通信输入、输出和中间数据，也是各通信引擎共享通信数据的主要存储空间。
-- **ccuBuffer**：ccuBuffer位于CCU内部，是CCU进行数据中转和片上归约时使用的本地片上缓存，底层存储单元为Memory Slice（MS）。它可以暂存待发送的数据、接收远端数据或保存归约中间结果，使数据在接收、归约和继续发送之间尽量保留在片上，减少集合通信过程中对GM的重复读写，并为计算任务留出更多GM访问带宽。ccuBuffer属于容量受限的分片缓存，适合分块处理通信数据，不能替代GM保存大规模通信数据。
+- **CCU Buffer**：CCU Buffer位于CCU内部，是CCU进行数据中转和片上归约时使用的本地片上缓存，底层存储单元为Memory Slice（MS）。它可以暂存待发送的数据、接收远端数据或保存归约中间结果，使数据在接收、归约和继续发送之间尽量保留在片上，减少集合通信过程中对GM的重复读写，并为计算任务留出更多GM访问带宽。CCU Buffer属于容量受限的分片缓存，适合分块处理通信数据，不能替代GM保存大规模通信数据。
 
 ## 通信通路
 
@@ -46,10 +46,10 @@ NPU内部参与通信的硬件可以归纳为通信引擎和存储单元：通�
 - **AIV通信通路**：`本端AIV → 本端GM → 对端GM → 对端AIV`。
 - **AI CPU通信通路**：`本端AI CPU → 本端GM → 对端GM → 对端AI CPU`。
 - **CCU通信通路**：
-  - `本端CCU的ccuBuffer → 本端GM → 对端GM → 对端CCU的ccuBuffer`
-  - `本端CCU的ccuBuffer → 对端GM → 对端CCU的ccuBuffer`
+  - `本端CCU的CCU Buffer → 本端GM → 对端GM → 对端CCU的CCU Buffer`
+  - `本端CCU的CCU Buffer → 对端GM → 对端CCU的CCU Buffer`
 
-这些通路中的跨NPU访问均以对端GM为目标，本端和对端ccuBuffer之间不能直接互访。不同通信引擎的特点、约束和适用场景，请参见[通信方式分类及选择](./communication_pattern_selection.md#通信引擎分类与选择)。
+这些通路中的跨NPU访问均以对端GM为目标，本端和对端CCU Buffer之间不能直接互访。不同通信引擎的特点、约束和适用场景，请参见[通信方式分类及选择](./communication_pattern_selection.md#通信引擎分类与选择)。
 
 ## 组网架构
 
