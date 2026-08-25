@@ -24,6 +24,8 @@
 
 #include <cstdint>
 
+#include "hcomm_multi_channel_def.h"
+
 namespace AscendC {
 
 enum class MultiChannelHandle : uint64_t {};
@@ -257,27 +259,12 @@ typedef struct {
 } BatchRemoteInfo;
 
 typedef struct {
-    uint64_t remoteBufferAddr;
-    uint32_t remoteBufferNum;
-    uint32_t tpId;
-    uint64_t remoteEidLow;
-    uint64_t remoteEidHigh;
-} MultiChannelRemoteInfo;
-
-typedef struct {
     uint32_t sqHead;
     uint32_t sqTail;
     uint32_t cqHead;
     uint32_t cqTail;
     uint32_t preSqCnt;
 } BatchQueueCursor;
-
-typedef struct {
-    ChannelHandle channelHandle;
-    uint32_t channelNum;
-    uint32_t reserved;
-    uint64_t remoteInfoAddr;
-} MultiChannelEntity;
 
 typedef struct {
     LocalTensor<uint32_t> buffer;
