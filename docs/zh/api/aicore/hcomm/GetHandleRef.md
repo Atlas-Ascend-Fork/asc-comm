@@ -47,6 +47,7 @@ __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
 ## 相关接口
 
 - [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md)
+- [MakeMultiChannelHandleWithComm](../../host/hcomm/MakeMultiChannelHandleWithComm.md)
 - [MakeBatchHandle](./MakeBatchHandle.md)
 - [BatchCommit](./BatchCommit.md)
 - [Drain](./Drain.md)

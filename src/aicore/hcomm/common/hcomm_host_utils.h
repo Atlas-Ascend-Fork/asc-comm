@@ -29,73 +29,46 @@
 #include "hccl/hccl_res.h"
 #include "hcomm/hcomm_res_entity_defs.h"
 
-typedef HcclResult (*HcommHcclChannelConfigCreateFunc)(HcclChannelConfig* config);
-typedef HcclResult (*HcommHcclChannelConfigDestroyFunc)(HcclChannelConfig config);
+typedef void* HcommHostChannelConfig;
+typedef int32_t HcommHostChannelConfigType;
+
+typedef HcclResult (*HcommHcclChannelConfigCreateFunc)(HcommHostChannelConfig* config);
+typedef HcclResult (*HcommHcclChannelConfigDestroyFunc)(HcommHostChannelConfig config);
 typedef HcclResult (*HcommHcclChannelConfigSetIntFunc)(
-    HcclChannelConfig config, HcclChannelConfigType type, uint32_t value);
+    HcommHostChannelConfig config, HcommHostChannelConfigType type, uint32_t value);
 typedef HcclResult (*HcommHcclChannelConfigSetStrFunc)(
-    HcclChannelConfig config, HcclChannelConfigType type, const char* value);
+    HcommHostChannelConfig config, HcommHostChannelConfigType type, const char* value);
 typedef HcclResult (*HcommHcclChannelAcquireWithConfigFunc)(
     HcclComm comm, CommEngine engine, const HcclChannelDesc* channelDescs, uint32_t channelNum,
-    HcclChannelConfig config, ChannelHandle* channels);
+    HcommHostChannelConfig config, ChannelHandle* channels);
 typedef HcclResult (*HcommHcclEngineCtxCreateFunc)(
     HcclComm comm, const char* ctxTag, CommEngine engine, uint64_t size, void** ctx);
 typedef HcclResult (*HcommHcclEngineCtxCopyFunc)(
     HcclComm comm, CommEngine engine, const char* ctxTag, const void* srcCtx, uint64_t size, uint64_t dstCtxOffset);
 typedef HcclResult (*HcommHcclEngineCtxDestroyFunc)(HcclComm comm, const char* ctxTag, CommEngine engine);
+typedef HcommResult (*HcommChannelConfigCreateFunc)(HcommHostChannelConfig* config);
+typedef HcommResult (*HcommChannelConfigDestroyFunc)(HcommHostChannelConfig config);
+typedef HcommResult (*HcommChannelConfigSetIntFunc)(
+    HcommHostChannelConfig config, HcommHostChannelConfigType type, uint32_t value);
+typedef HcommResult (*HcommChannelCreateWithConfigFunc)(
+    EndpointHandle endpointHandle, CommEngine engine, HcommChannelDesc* channelDescs, uint32_t channelNum,
+    HcommHostChannelConfig config, ChannelHandle* channels);
+typedef HcommResult (*HcommChannelGetStatusFunc)(
+    const ChannelHandle* channelList, uint32_t listNum, int32_t* statusList);
+typedef HcommResult (*HcommChannelDestroyFunc)(const ChannelHandle* channels, uint32_t channelNum);
+typedef HcommResult (*HcommEngineCtxCreateFunc)(CommEngine engine, uint64_t size, void** ctx);
+typedef HcommResult (*HcommEngineCtxCopyFunc)(CommEngine engine, void* dstCtx, const void* srcCtx, uint64_t size);
+typedef HcommResult (*HcommEngineCtxDestroyFunc)(CommEngine engine, void* ctx);
 
-class DlHcclApi {
+class DlHcommApi {
 public:
-    static HcclResult LoadLibrary()
-    {
-        HcclApi& api = GetApi();
-        if (api.referenceCount != 0U) {
-            ++api.referenceCount;
-            return HCCL_SUCCESS;
-        }
+    static HcclResult LoadHcclApi() { return LoadLibrary(ApiGroup::HCCL); }
 
-        api.handle = dlopen("libhcomm.so", RTLD_NOW | RTLD_LOCAL);
-        if (api.handle == nullptr) {
-            const char* error = dlerror();
-            fprintf(
-                stderr, "[ERROR] [%s] open libhcomm.so failed: %s.\n", __func__,
-                error == nullptr ? "unknown error" : error);
-            return HCCL_E_NOT_SUPPORT;
-        }
-
-#define HCOMM_LOAD_HCCL_SYMBOL(member, type, symbol)                            \
-    do {                                                                        \
-        (void)dlerror();                                                        \
-        api.member = reinterpret_cast<type>(dlsym(api.handle, symbol));         \
-        const char* hcommDlError = dlerror();                                   \
-        if (api.member == nullptr || hcommDlError != nullptr) {                 \
-            fprintf(                                                            \
-                stderr, "[ERROR] [%s] load %s failed: %s.\n", __func__, symbol, \
-                hcommDlError == nullptr ? "symbol not found" : hcommDlError);   \
-            CloseLibrary(api);                                                  \
-            return HCCL_E_NOT_SUPPORT;                                          \
-        }                                                                       \
-    } while (0)
-
-        HCOMM_LOAD_HCCL_SYMBOL(HcclChannelConfigCreate, HcommHcclChannelConfigCreateFunc, "HcclChannelConfigCreate");
-        HCOMM_LOAD_HCCL_SYMBOL(HcclChannelConfigDestroy, HcommHcclChannelConfigDestroyFunc, "HcclChannelConfigDestroy");
-        HCOMM_LOAD_HCCL_SYMBOL(HcclChannelConfigSetInt, HcommHcclChannelConfigSetIntFunc, "HcclChannelConfigSetInt");
-        HCOMM_LOAD_HCCL_SYMBOL(HcclChannelConfigSetStr, HcommHcclChannelConfigSetStrFunc, "HcclChannelConfigSetStr");
-        HCOMM_LOAD_HCCL_SYMBOL(
-            HcclChannelAcquireWithConfig, HcommHcclChannelAcquireWithConfigFunc, "HcclChannelAcquireWithConfig");
-        HCOMM_LOAD_HCCL_SYMBOL(HcclEngineCtxCreate, HcommHcclEngineCtxCreateFunc, "HcclEngineCtxCreate");
-        HCOMM_LOAD_HCCL_SYMBOL(HcclEngineCtxCopy, HcommHcclEngineCtxCopyFunc, "HcclEngineCtxCopy");
-        HCOMM_LOAD_HCCL_SYMBOL(HcclEngineCtxDestroy, HcommHcclEngineCtxDestroyFunc, "HcclEngineCtxDestroy");
-
-#undef HCOMM_LOAD_HCCL_SYMBOL
-
-        api.referenceCount = 1U;
-        return HCCL_SUCCESS;
-    }
+    static HcommResult LoadHcommApi() { return static_cast<HcommResult>(LoadLibrary(ApiGroup::HCOMM)); }
 
     static void CleanupLibrary()
     {
-        HcclApi& api = GetApi();
+        Api& api = GetApi();
         if (api.referenceCount == 0U) {
             return;
         }
@@ -105,31 +78,31 @@ public:
         }
     }
 
-    static inline HcclResult HcclChannelConfigCreate(HcclChannelConfig* config)
+    static inline HcclResult HcclChannelConfigCreate(HcommHostChannelConfig* config)
     {
         return GetApi().HcclChannelConfigCreate(config);
     }
 
-    static inline HcclResult HcclChannelConfigDestroy(HcclChannelConfig config)
+    static inline HcclResult HcclChannelConfigDestroy(HcommHostChannelConfig config)
     {
         return GetApi().HcclChannelConfigDestroy(config);
     }
 
     static inline HcclResult HcclChannelConfigSetInt(
-        HcclChannelConfig config, HcclChannelConfigType type, uint32_t value)
+        HcommHostChannelConfig config, HcommHostChannelConfigType type, uint32_t value)
     {
         return GetApi().HcclChannelConfigSetInt(config, type, value);
     }
 
     static inline HcclResult HcclChannelConfigSetStr(
-        HcclChannelConfig config, HcclChannelConfigType type, const char* value)
+        HcommHostChannelConfig config, HcommHostChannelConfigType type, const char* value)
     {
         return GetApi().HcclChannelConfigSetStr(config, type, value);
     }
 
     static inline HcclResult HcclChannelAcquireWithConfig(
         HcclComm comm, CommEngine engine, const HcclChannelDesc* channelDescs, uint32_t channelNum,
-        HcclChannelConfig config, ChannelHandle* channels)
+        HcommHostChannelConfig config, ChannelHandle* channels)
     {
         return GetApi().HcclChannelAcquireWithConfig(comm, engine, channelDescs, channelNum, config, channels);
     }
@@ -151,10 +124,67 @@ public:
         return GetApi().HcclEngineCtxDestroy(comm, ctxTag, engine);
     }
 
+    static inline HcommResult HcommChannelConfigCreate(HcommHostChannelConfig* config)
+    {
+        return GetApi().HcommChannelConfigCreate(config);
+    }
+
+    static inline HcommResult HcommChannelConfigDestroy(HcommHostChannelConfig config)
+    {
+        return GetApi().HcommChannelConfigDestroy(config);
+    }
+
+    static inline HcommResult HcommChannelConfigSetInt(
+        HcommHostChannelConfig config, HcommHostChannelConfigType type, uint32_t value)
+    {
+        return GetApi().HcommChannelConfigSetInt(config, type, value);
+    }
+
+    static inline HcommResult HcommChannelCreateWithConfig(
+        EndpointHandle endpointHandle, CommEngine engine, HcommChannelDesc* channelDescs, uint32_t channelNum,
+        HcommHostChannelConfig config, ChannelHandle* channels)
+    {
+        return GetApi().HcommChannelCreateWithConfig(
+            endpointHandle, engine, channelDescs, channelNum, config, channels);
+    }
+
+    static inline HcommResult HcommChannelGetStatus(
+        const ChannelHandle* channelList, uint32_t listNum, int32_t* statusList)
+    {
+        return GetApi().HcommChannelGetStatus(channelList, listNum, statusList);
+    }
+
+    static inline HcommResult HcommChannelDestroy(const ChannelHandle* channels, uint32_t channelNum)
+    {
+        return GetApi().HcommChannelDestroy(channels, channelNum);
+    }
+
+    static inline HcommResult HcommEngineCtxCreate(CommEngine engine, uint64_t size, void** ctx)
+    {
+        return GetApi().HcommEngineCtxCreate(engine, size, ctx);
+    }
+
+    static inline HcommResult HcommEngineCtxCopy(CommEngine engine, void* dstCtx, const void* srcCtx, uint64_t size)
+    {
+        return GetApi().HcommEngineCtxCopy(engine, dstCtx, srcCtx, size);
+    }
+
+    static inline HcommResult HcommEngineCtxDestroy(CommEngine engine, void* ctx)
+    {
+        return GetApi().HcommEngineCtxDestroy(engine, ctx);
+    }
+
 private:
-    struct HcclApi {
+    enum class ApiGroup : uint32_t {
+        NONE = 0U,
+        HCCL,
+        HCOMM,
+    };
+
+    struct Api {
         void* handle = nullptr;
         uint32_t referenceCount = 0U;
+        ApiGroup group = ApiGroup::NONE;
         HcommHcclChannelConfigCreateFunc HcclChannelConfigCreate = nullptr;
         HcommHcclChannelConfigDestroyFunc HcclChannelConfigDestroy = nullptr;
         HcommHcclChannelConfigSetIntFunc HcclChannelConfigSetInt = nullptr;
@@ -163,20 +193,94 @@ private:
         HcommHcclEngineCtxCreateFunc HcclEngineCtxCreate = nullptr;
         HcommHcclEngineCtxCopyFunc HcclEngineCtxCopy = nullptr;
         HcommHcclEngineCtxDestroyFunc HcclEngineCtxDestroy = nullptr;
+        HcommChannelConfigCreateFunc HcommChannelConfigCreate = nullptr;
+        HcommChannelConfigDestroyFunc HcommChannelConfigDestroy = nullptr;
+        HcommChannelConfigSetIntFunc HcommChannelConfigSetInt = nullptr;
+        HcommChannelCreateWithConfigFunc HcommChannelCreateWithConfig = nullptr;
+        HcommChannelGetStatusFunc HcommChannelGetStatus = nullptr;
+        HcommChannelDestroyFunc HcommChannelDestroy = nullptr;
+        HcommEngineCtxCreateFunc HcommEngineCtxCreate = nullptr;
+        HcommEngineCtxCopyFunc HcommEngineCtxCopy = nullptr;
+        HcommEngineCtxDestroyFunc HcommEngineCtxDestroy = nullptr;
     };
 
-    static HcclApi& GetApi()
+    static HcclResult LoadLibrary(ApiGroup group)
     {
-        static thread_local HcclApi api;
+        Api& api = GetApi();
+        if (api.referenceCount != 0U) {
+            if (api.group != group) {
+                fprintf(stderr, "[ERROR] [%s] cannot load HCCL and Hcomm Host APIs in one scope.\n", __func__);
+                return HCCL_E_INTERNAL;
+            }
+            ++api.referenceCount;
+            return HCCL_SUCCESS;
+        }
+
+        api.handle = dlopen("libhcomm.so", RTLD_NOW | RTLD_LOCAL);
+        if (api.handle == nullptr) {
+            const char* error = dlerror();
+            fprintf(
+                stderr, "[ERROR] [%s] open libhcomm.so failed: %s.\n", __func__,
+                error == nullptr ? "unknown error" : error);
+            return HCCL_E_NOT_SUPPORT;
+        }
+
+#define HCOMM_LOAD_SYMBOL(member, type, symbol)                                 \
+    do {                                                                        \
+        (void)dlerror();                                                        \
+        api.member = reinterpret_cast<type>(dlsym(api.handle, symbol));         \
+        const char* hcommDlError = dlerror();                                   \
+        if (api.member == nullptr || hcommDlError != nullptr) {                 \
+            fprintf(                                                            \
+                stderr, "[ERROR] [%s] load %s failed: %s.\n", __func__, symbol, \
+                hcommDlError == nullptr ? "symbol not found" : hcommDlError);   \
+            CloseLibrary(api);                                                  \
+            return HCCL_E_NOT_SUPPORT;                                          \
+        }                                                                       \
+    } while (0)
+
+        if (group == ApiGroup::HCCL) {
+            HCOMM_LOAD_SYMBOL(HcclChannelConfigCreate, HcommHcclChannelConfigCreateFunc, "HcclChannelConfigCreate");
+            HCOMM_LOAD_SYMBOL(HcclChannelConfigDestroy, HcommHcclChannelConfigDestroyFunc, "HcclChannelConfigDestroy");
+            HCOMM_LOAD_SYMBOL(HcclChannelConfigSetInt, HcommHcclChannelConfigSetIntFunc, "HcclChannelConfigSetInt");
+            HCOMM_LOAD_SYMBOL(HcclChannelConfigSetStr, HcommHcclChannelConfigSetStrFunc, "HcclChannelConfigSetStr");
+            HCOMM_LOAD_SYMBOL(
+                HcclChannelAcquireWithConfig, HcommHcclChannelAcquireWithConfigFunc, "HcclChannelAcquireWithConfig");
+            HCOMM_LOAD_SYMBOL(HcclEngineCtxCreate, HcommHcclEngineCtxCreateFunc, "HcclEngineCtxCreate");
+            HCOMM_LOAD_SYMBOL(HcclEngineCtxCopy, HcommHcclEngineCtxCopyFunc, "HcclEngineCtxCopy");
+            HCOMM_LOAD_SYMBOL(HcclEngineCtxDestroy, HcommHcclEngineCtxDestroyFunc, "HcclEngineCtxDestroy");
+        } else {
+            HCOMM_LOAD_SYMBOL(HcommChannelConfigCreate, HcommChannelConfigCreateFunc, "HcommChannelConfigCreate");
+            HCOMM_LOAD_SYMBOL(HcommChannelConfigDestroy, HcommChannelConfigDestroyFunc, "HcommChannelConfigDestroy");
+            HCOMM_LOAD_SYMBOL(HcommChannelConfigSetInt, HcommChannelConfigSetIntFunc, "HcommChannelConfigSetInt");
+            HCOMM_LOAD_SYMBOL(
+                HcommChannelCreateWithConfig, HcommChannelCreateWithConfigFunc, "HcommChannelCreateWithConfig");
+            HCOMM_LOAD_SYMBOL(HcommChannelGetStatus, HcommChannelGetStatusFunc, "HcommChannelGetStatus");
+            HCOMM_LOAD_SYMBOL(HcommChannelDestroy, HcommChannelDestroyFunc, "HcommChannelDestroy");
+            HCOMM_LOAD_SYMBOL(HcommEngineCtxCreate, HcommEngineCtxCreateFunc, "HcommEngineCtxCreate");
+            HCOMM_LOAD_SYMBOL(HcommEngineCtxCopy, HcommEngineCtxCopyFunc, "HcommEngineCtxCopy");
+            HCOMM_LOAD_SYMBOL(HcommEngineCtxDestroy, HcommEngineCtxDestroyFunc, "HcommEngineCtxDestroy");
+        }
+
+#undef HCOMM_LOAD_SYMBOL
+
+        api.group = group;
+        api.referenceCount = 1U;
+        return HCCL_SUCCESS;
+    }
+
+    static Api& GetApi()
+    {
+        static thread_local Api api;
         return api;
     }
 
-    static void CloseLibrary(HcclApi& api)
+    static void CloseLibrary(Api& api)
     {
         if (api.handle != nullptr) {
             (void)dlclose(api.handle);
         }
-        api = HcclApi{};
+        api = Api{};
     }
 };
 

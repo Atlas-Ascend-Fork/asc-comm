@@ -30,7 +30,7 @@ extern "C" {
 #endif
 
 /*!
- * @brief Create a group of shared-Jetty channels and the multi-channel handle used on the Device.
+ * @brief Create a group of communicator-owned shared-Jetty channels and the multi-channel handle used on the Device.
  * @param [in] comm: The initialized HCCL communicator that owns the channels and Device context.
  * @param [in] sharedQueueTag: The tag identifying the shared queue used by this channel group.
  * @param [in] channelDescs: The channel descriptor array. Its order defines the channelIndex used by GetHandleRef.
@@ -39,11 +39,39 @@ extern "C" {
  * @return HCCL_SUCCESS indicates success. Other values indicate an HCCL error.
  * @note The returned handle is managed by comm. The communicator must remain valid while a Kernel uses the handle.
  */
-static inline HcclResult MakeMultiChannelHandle(
+static inline HcclResult MakeMultiChannelHandleWithComm(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
 {
-    return HcommHostMakeMultiChannelHandle(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
+    return HcommHostMakeMultiChannelHandleWithComm(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
+}
+
+/*!
+ * @brief Create a group of shared-Jetty channels from an Hcomm Endpoint and the multi-channel handle used on the
+ * Device.
+ * @param [in] endpointHandle: The initialized Hcomm Endpoint that owns the channels.
+ * @param [in] channelDescs: The channel descriptor array. Its order defines the channelIndex used by GetHandleRef.
+ * @param [in] channelNum: The number of elements in channelDescs. It must be greater than 0.
+ * @param [out] multiChannel: The created Device-side multi-channel handle.
+ * @return HCCL_SUCCESS indicates success. Other values indicate an Hcomm error.
+ * @note Destroy the returned handle before destroying endpointHandle.
+ */
+static inline HcommResult MakeMultiChannelHandle(
+    EndpointHandle endpointHandle, HcommChannelDesc* channelDescs, uint32_t channelNum,
+    MultiChannelHandle* multiChannel)
+{
+    return HcommHostMakeMultiChannelHandle(endpointHandle, channelDescs, channelNum, multiChannel);
+}
+
+/*!
+ * @brief Destroy channels and Device context owned by a handle created by MakeMultiChannelHandle.
+ * @param [in] multiChannel: The multi-channel handle to destroy.
+ * @return HCCL_SUCCESS indicates success. Other values indicate an Hcomm error.
+ * @note Do not use this API for a communicator-owned handle created by MakeMultiChannelHandleWithComm.
+ */
+static inline HcommResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel)
+{
+    return HcommHostDestroyMultiChannelHandle(multiChannel);
 }
 
 #ifdef __cplusplus
