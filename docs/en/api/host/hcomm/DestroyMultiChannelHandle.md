@@ -2,7 +2,7 @@
 
 ## Function Description
 
-Destroys the shared-Jetty channels and Device context created by `MakeMultiChannelHandle`. The API calls `HcommChannelDestroy` for every owned channel, then calls `HcommEngineCtxDestroy` to release the multi-channel metadata.
+Destroys the shared-Jetty channels and Device context created by `MakeMultiChannelHandle`. The API calls `HcommChannelDestroy` for every owned channel, then calls `aclrtFree` to release the multi-channel metadata.
 
 ## Function Prototype
 

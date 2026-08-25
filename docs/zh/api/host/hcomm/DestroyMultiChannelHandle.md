@@ -2,7 +2,7 @@
 
 ## 功能说明
 
-销毁`MakeMultiChannelHandle`创建的共享Jetty通道和Device上下文。接口先调用`HcommChannelDestroy`销毁全部通道，再调用`HcommEngineCtxDestroy`释放多通道元数据。
+销毁`MakeMultiChannelHandle`创建的共享Jetty通道和Device上下文。接口先调用`HcommChannelDestroy`销毁全部通道，再调用`aclrtFree`释放多通道元数据。
 
 ## 函数原型
 
