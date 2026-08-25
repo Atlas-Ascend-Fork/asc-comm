@@ -71,6 +71,7 @@ struct ReduceIn {
 struct SqeConfigLite {
     SqeConfigLite() : placeOdr(1), compOrder(1), fence(1) {}
     bool cqeEn{true};
+    bool userConfig{false};
     u8 placeOdr : 2;
     u8 compOrder : 1;
     u8 fence : 1;
