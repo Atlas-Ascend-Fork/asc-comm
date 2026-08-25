@@ -34,13 +34,12 @@ public:
         context_->result = KERNEL_SUCCESS;
         context_->hcommResult = AscendC::HCOMM_SUCCESS;
         context_->elapsedCycles = 0U;
-        context_->completedWrites = 0U;
+        context_->completedReads = 0U;
         channelNum_ = context_->channelNum;
-        writesPerBatch_ = context_->writesPerBatch;
+        readsPerBatch_ = context_->readsPerBatch;
         uint32_t warmupBatches = context_->warmupBatches;
         uint32_t measureBatches = context_->measureBatches;
-        if (channelNum_ == 0U || writesPerBatch_ == 0U || writesPerBatch_ > MAX_WRITES_PER_BATCH ||
-            measureBatches == 0U) {
+        if (channelNum_ == 0U || readsPerBatch_ == 0U || readsPerBatch_ > MAX_READS_PER_BATCH || measureBatches == 0U) {
             context_->result = KERNEL_INVALID_ARGUMENT;
             return;
         }
@@ -66,12 +65,12 @@ private:
         uint64_t elapsedCycles = 0U;
         for (uint32_t batchIndex = 0U; batchIndex < measureBatches; ++batchIndex) {
             for (uint32_t channelIndex = 0U; channelIndex < channelNum_; ++channelIndex) {
-                GM_ADDR remoteAddr = reinterpret_cast<GM_ADDR>(remoteBuffers_[channelIndex]) + RECV_BASE_OFFSET;
+                GM_ADDR remoteAddr = reinterpret_cast<GM_ADDR>(remoteBuffers_[channelIndex]) + SEND_OFFSET;
                 auto& peerBatchHandle = hcomm_.GetHandleRef(multiBatchHandle, channelIndex, remoteAddr);
 
                 AscendC::PipeBarrier<PIPE_ALL>();
                 uint64_t beginCycle = static_cast<uint64_t>(AscendC::GetSystemCycle());
-                if (!PostChannelWrites(peerBatchHandle, channelIndex, remoteAddr)) {
+                if (!PostChannelReads(peerBatchHandle, channelIndex, remoteAddr)) {
                     return false;
                 }
                 AscendC::PipeBarrier<PIPE_ALL>();
@@ -92,30 +91,31 @@ private:
             }
         }
         context_->elapsedCycles = elapsedCycles;
-        context_->completedWrites = static_cast<uint64_t>(writesPerBatch_) * measureBatches;
+        context_->completedReads = static_cast<uint64_t>(readsPerBatch_) * measureBatches;
         return true;
     }
 
     __aicore__ inline bool PostAndCommitBatch(MultiBatchHandleType& multiBatchHandle)
     {
         for (uint32_t channelIndex = 0U; channelIndex < channelNum_; ++channelIndex) {
-            GM_ADDR remoteAddr = reinterpret_cast<GM_ADDR>(remoteBuffers_[channelIndex]) + RECV_BASE_OFFSET;
+            GM_ADDR remoteAddr = reinterpret_cast<GM_ADDR>(remoteBuffers_[channelIndex]) + SEND_OFFSET;
             auto& peerBatchHandle = hcomm_.GetHandleRef(multiBatchHandle, channelIndex, remoteAddr);
-            if (!PostChannelWrites(peerBatchHandle, channelIndex, remoteAddr)) {
+            if (!PostChannelReads(peerBatchHandle, channelIndex, remoteAddr)) {
                 return false;
             }
         }
         return CommitBatch(multiBatchHandle);
     }
 
-    __aicore__ inline bool PostChannelWrites(
+    __aicore__ inline bool PostChannelReads(
         PeerBatchHandleType& peerBatchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
     {
-        for (uint32_t writeIndex = channelIndex; writeIndex < writesPerBatch_; writeIndex += channelNum_) {
-            int32_t ret = hcomm_.WriteNbi(peerBatchHandle, remoteAddr, localBuffer_ + SEND_OFFSET, DATA_SIZE);
+        GM_ADDR localAddr = localBuffer_ + RECV_BASE_OFFSET + static_cast<uint64_t>(channelIndex) * DATA_SIZE;
+        for (uint32_t readIndex = channelIndex; readIndex < readsPerBatch_; readIndex += channelNum_) {
+            int32_t ret = hcomm_.ReadNbi(peerBatchHandle, localAddr, remoteAddr, DATA_SIZE);
             if (ret != AscendC::HCOMM_SUCCESS) {
                 context_->hcommResult = ret;
-                context_->result = KERNEL_WRITE_FAILED;
+                context_->result = KERNEL_READ_FAILED;
                 return false;
             }
         }
@@ -151,7 +151,7 @@ private:
     GM_ADDR localBuffer_{nullptr};
     uint64_t remoteBuffers_[MAX_CHANNEL_NUM]{};
     uint32_t channelNum_{0U};
-    uint32_t writesPerBatch_{0U};
+    uint32_t readsPerBatch_{0U};
 };
 
 } // namespace HcommBatchWritePerformanceExample

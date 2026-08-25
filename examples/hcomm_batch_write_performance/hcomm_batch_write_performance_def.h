@@ -23,8 +23,8 @@ constexpr uint64_t SEND_OFFSET = 0U;
 constexpr uint64_t RECV_BASE_OFFSET = DATA_SIZE;
 constexpr uint32_t WQEBB_SIZE = 64U;
 constexpr uint32_t BATCH_BUFFER_SIZE = 32U * 1024U;
-constexpr uint32_t DEFAULT_WRITES_PER_BATCH = 500U;
-constexpr uint32_t MAX_WRITES_PER_BATCH = BATCH_BUFFER_SIZE / WQEBB_SIZE;
+constexpr uint32_t DEFAULT_READS_PER_BATCH = 500U;
+constexpr uint32_t MAX_READS_PER_BATCH = BATCH_BUFFER_SIZE / WQEBB_SIZE;
 constexpr uint32_t DEFAULT_WARMUP_BATCHES = 100U;
 constexpr uint32_t DEFAULT_MEASURE_BATCHES = 1U;
 constexpr uint32_t MAX_BATCH_COUNT = 1000000U;
@@ -34,7 +34,7 @@ constexpr char SHARED_QUEUE_TAG_PREFIX[] = "asccomm_batch_write_performance_queu
 
 enum KernelResult : uint32_t {
     KERNEL_SUCCESS = 0U,
-    KERNEL_WRITE_FAILED,
+    KERNEL_READ_FAILED,
     KERNEL_COMMIT_FAILED,
     KERNEL_DRAIN_FAILED,
     KERNEL_INVALID_ARGUMENT,
@@ -45,9 +45,9 @@ struct BatchContext {
     uint64_t localBuffer;
     uint64_t remoteBuffers[MAX_CHANNEL_NUM];
     uint64_t elapsedCycles;
-    uint64_t completedWrites;
+    uint64_t completedReads;
     uint32_t channelNum;
-    uint32_t writesPerBatch;
+    uint32_t readsPerBatch;
     uint32_t warmupBatches;
     uint32_t measureBatches;
     KernelResult result;
