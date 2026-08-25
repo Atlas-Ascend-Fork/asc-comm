@@ -146,7 +146,7 @@ private:
     template <bool sqSafeMode = false>
     __aicore__ inline uint32_t PollCqImpl(
         uint64_t cqBaseAddr, uint32_t cqeSize, uint32_t cqDepth, uint32_t expectTail, uint32_t& curTail,
-        LocalTensor<uint32_t> cqeItem, uint32_t& sqTail, uint32_t sqHead = 0, uint32_t sqDepth = 0,
+        __ubuf__ uint8_t* cqeItem, uint32_t& sqTail, uint32_t sqHead = 0, uint32_t sqDepth = 0,
         uint32_t threshold = 0);
     template <bool sqSafeMode = false>
     __aicore__ inline uint32_t PollCq(
@@ -154,8 +154,8 @@ private:
     __aicore__ inline uint32_t PollBatchCq(UbcBatchHandle& batchHandle, uint32_t expectTail);
 
 private:
-    LocalTensor<uint32_t> wqeItem_;
-    LocalTensor<uint32_t> cqeItem_;
+    __ubuf__ uint8_t* wqeItem_ = nullptr;
+    __ubuf__ uint8_t* cqeItem_ = nullptr;
 };
 } // namespace AscendC
 

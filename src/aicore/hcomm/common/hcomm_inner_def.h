@@ -267,7 +267,7 @@ typedef struct {
 } BatchQueueCursor;
 
 typedef struct {
-    LocalTensor<uint32_t> buffer;
+    __ubuf__ uint8_t* buffer;
     uint32_t bufferCapacity;
 } BatchBuffer;
 

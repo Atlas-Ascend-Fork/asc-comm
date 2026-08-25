@@ -273,7 +273,7 @@ protected:
         ASSERT_EQ(ret, AscendC::HCOMM_SUCCESS);
         EXPECT_EQ(channel.GetSqHead(), 1U);
 
-        const auto* sqeCtx = reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(hcomm.impl_.wqeItem_.GetPhyAddr());
+        const auto* sqeCtx = reinterpret_cast<const AscendC::HcommUrmaSqeCtx*>(hcomm.impl_.wqeItem_);
         EXPECT_EQ(sqeCtx->opcode, static_cast<uint32_t>(AscendC::HcommUrmaOpCode::WRITE));
         EXPECT_EQ(sqeCtx->flag & AscendC::HCOMM_URMA_UDF_FLAG, AscendC::HCOMM_URMA_UDF_FLAG);
         EXPECT_EQ(sqeCtx->reduceDataType, expectedDataType);
@@ -305,7 +305,7 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
     auto batchHandle = hcomm.MakeBatchHandle(channel.GetHandle(), batchTensor, 128, reinterpret_cast<GM_ADDR>(0x3008));
 
     EXPECT_EQ(batchHandle.channelHandle, channel.GetHandle());
-    EXPECT_EQ(batchHandle.buffer.buffer.GetPhyAddr(), batchTensor.GetPhyAddr());
+    EXPECT_EQ(batchHandle.buffer.buffer, reinterpret_cast<__ubuf__ uint8_t*>(batchTensor.GetPhyAddr()));
     EXPECT_EQ(batchHandle.buffer.bufferCapacity, 2U);
     EXPECT_EQ(batchHandle.sqContext.contextInfo.ubJfs.sqVa, reinterpret_cast<uint64_t>(channel.GetSqBuffer()));
     EXPECT_EQ(batchHandle.sqContext.contextInfo.ubJfs.dbVa, channel.GetSqDoorbellAddr());
