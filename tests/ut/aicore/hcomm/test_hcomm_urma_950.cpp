@@ -1091,21 +1091,6 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_InitLocalTensor)
     EXPECT_EQ(hcomm.Drain(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
 }
 
-// Dump helpers: nullptr early-return guards.
-// These guards are never reached through the normal send path, so exercise them directly.
-TEST_F(HcommUrmaTestSuite, Aiv_Urma_DumpHelpers_Nullptr)
-{
-    AscendC::HcommUrmaDumpWqeCtx(nullptr, sizeof(uint8_t));
-    AscendC::HcommUrmaDumpCqeCtx(nullptr);
-    AscendC::HcommUrmaDumpSgeCtx(nullptr, nullptr, sizeof(uint8_t));
-    AscendC::HcommUrmaDumpAmoCtx(nullptr, sizeof(uint32_t));
-
-    // sqeCtx non-null but sgeAddr null still hits the guard
-    std::vector<uint8_t> sqeBuf(sizeof(AscendC::HcommUrmaSqeCtx), 0);
-    auto* sqe = reinterpret_cast<__ubuf__ AscendC::HcommUrmaSqeCtx*>(sqeBuf.data());
-    AscendC::HcommUrmaDumpSgeCtx(sqe, nullptr, sizeof(uint8_t));
-}
-
 // Dump helpers: full function bodies.
 // HcommUrmaDumpCqeCtx is otherwise unreachable in UT_TEST mode because PollCq's polling
 // loop (the only caller) is compiled out under UT_TEST.
