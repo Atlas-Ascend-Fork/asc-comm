@@ -21,7 +21,7 @@ class Hcomm;
 | --- | --- |
 | `commProtocol` | Communication protocol type. Supports `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP`. Default: `COMM_PROTOCOL_UBC_CTP`. |
 
-`MakeBatchHandle` derives its return type through compile-time traits. `ChannelHandle` maps to `UbcCtpBatchHandle`, while `MultiChannelHandle` maps to `UbcCtpMultiBatchHandle`. In multi-channel mode, batch read/write uses the inner `UbcCtpBatchHandle` reference returned by `GetHandleRef`, while `BatchCommit` and batch `Drain` use the outer `UbcCtpMultiBatchHandle`. Batch interfaces support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
+`MakeBatchHandle` derives its return type through compile-time traits. `ChannelHandle` maps to `UbcBatchHandle`, while `MultiChannelHandle` maps to `UbcMultiBatchHandle`. In multi-channel mode, batch read/write uses the inner `UbcBatchHandle` reference returned by `GetHandleRef`, while `BatchCommit` and batch `Drain` use the outer `UbcMultiBatchHandle`. Batch interfaces support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
 ## Protocol Capabilities
 

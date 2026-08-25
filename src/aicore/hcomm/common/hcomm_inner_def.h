@@ -291,27 +291,27 @@ typedef struct {
     BatchQueueCursor cursor;
     BatchRemoteInfo remoteInfo;
     BatchBuffer buffer;
-} UbcCtpBatchHandle;
+} UbcBatchHandle;
 
 typedef struct {
-    UbcCtpBatchHandle handle;
+    UbcBatchHandle handle;
     ChannelHandle channelHandle;
     uint32_t channelNum;
     uint32_t reserved;
     uint64_t remoteInfoAddr;
-} UbcCtpMultiBatchHandle;
+} UbcMultiBatchHandle;
 
 template <typename T>
 struct ChannelTraits;
 
 template <>
 struct ChannelTraits<ChannelHandle> {
-    using BatchHandleType = UbcCtpBatchHandle;
+    using BatchHandleType = UbcBatchHandle;
 };
 
 template <>
 struct ChannelTraits<MultiChannelHandle> {
-    using BatchHandleType = UbcCtpMultiBatchHandle;
+    using BatchHandleType = UbcMultiBatchHandle;
 };
 
 template <typename T>
@@ -321,12 +321,12 @@ template <typename T>
 struct BatchHandleTraits;
 
 template <>
-struct BatchHandleTraits<UbcCtpBatchHandle> {
+struct BatchHandleTraits<UbcBatchHandle> {
     using ChannelType = ChannelHandle;
 };
 
 template <>
-struct BatchHandleTraits<UbcCtpMultiBatchHandle> {
+struct BatchHandleTraits<UbcMultiBatchHandle> {
     using ChannelType = MultiChannelHandle;
 };
 
