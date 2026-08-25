@@ -11,7 +11,11 @@
 #ifndef ASCCOMM_PRIMITIVES_H
 #define ASCCOMM_PRIMITIVES_H
 
-#include <hcomm/hcomm_primitives_types.h>
+#ifdef ASCCOMM_SOURCE_BUILD
+#include "hcomm_primitives.h"
+#else
+#include <hccl/hcomm_primitives.h>
+#endif
 
 #if defined(__GNUC__)
 #define ASCCOMM_API __attribute__((visibility("default")))

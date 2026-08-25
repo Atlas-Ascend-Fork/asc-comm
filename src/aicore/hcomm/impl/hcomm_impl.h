@@ -22,8 +22,6 @@
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H
 
-#include <type_traits>
-
 #if __NPU_ARCH__ == 2201
 #include "platform_v220/hcomm_aiv.h"
 #elif __NPU_ARCH__ == 3510
@@ -44,34 +42,6 @@ template <typename T>
 __aicore__ inline int32_t Hcomm<commProtocol>::Init(const LocalTensor<T>& buff, uint32_t len)
 {
     return impl_.Init(buff, len);
-}
-
-template <CommProtocol commProtocol>
-template <typename T, typename U>
-__aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
-    T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
-{
-    static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "BatchHandle only supports COMM_PROTOCOL_UBC_CTP");
-    auto batchHandle = impl_.MakeBatchHandle(channel, buff, buffLen, remoteAddr, localAddr);
-    using ExpectedType = BatchHandle<T>;
-    static_assert(
-        std::is_same<decltype(batchHandle), ExpectedType>::value, "Channel type and BatchHandle type do not match");
-    return batchHandle;
-}
-
-template <CommProtocol commProtocol>
-template <typename T, typename BatchHandleTraits<T>::ChannelType*>
-__aicore__ inline BatchHandle<ChannelHandle>& Hcomm<commProtocol>::GetHandleRef(
-    T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
-{
-    return impl_.GetHandleRef(batchHandle, channelIndex, remoteAddr);
-}
-
-template <CommProtocol commProtocol>
-template <auto const& config, typename T, typename BatchHandleTraits<T>::ChannelType*>
-__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
-{
-    return impl_.template WriteNbi<config>(batchHandle, dst, src, len);
 }
 
 template <CommProtocol commProtocol>
@@ -97,14 +67,6 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteReduceNbi(
 }
 
 template <CommProtocol commProtocol>
-template <auto const& config, typename T, typename BatchHandleTraits<T>::ChannelType*>
-__aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
-    T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
-{
-    return impl_.template WriteWithNotifyNbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal);
-}
-
-template <CommProtocol commProtocol>
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
@@ -118,13 +80,6 @@ template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     return impl_.template ReadNbi<commit, commitPipe, reqPipe, config>(channel, dst, src, len);
-}
-
-template <CommProtocol commProtocol>
-template <auto const& config, typename T, typename BatchHandleTraits<T>::ChannelType*>
-__aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
-{
-    return impl_.template ReadNbi<config>(batchHandle, dst, src, len);
 }
 
 template <CommProtocol commProtocol>
@@ -152,26 +107,11 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Commit(ChannelHandle channel)
 }
 
 template <CommProtocol commProtocol>
-template <typename T, typename BatchHandleTraits<T>::ChannelType*>
-__aicore__ inline int32_t Hcomm<commProtocol>::BatchCommit(T& batchHandle)
-{
-    return impl_.BatchCommit(batchHandle);
-}
-
-template <CommProtocol commProtocol>
 template <pipe_t pipe>
 __aicore__ inline int32_t Hcomm<commProtocol>::Drain(ChannelHandle channel)
 {
     return impl_.template Drain<pipe>(channel);
 }
-
-template <CommProtocol commProtocol>
-template <pipe_t pipe, typename T, typename BatchHandleTraits<T>::ChannelType*>
-__aicore__ inline int32_t Hcomm<commProtocol>::Drain(T& batchHandle)
-{
-    return impl_.template Drain<pipe>(batchHandle);
-}
-
 } // namespace AscendC
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H

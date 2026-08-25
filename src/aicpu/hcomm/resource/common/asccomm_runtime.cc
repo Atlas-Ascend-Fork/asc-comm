@@ -28,20 +28,29 @@ HcclResult acquire_task_id(HcommRtsqContext &context, uint32_t &taskId)
 {
     CHK_PRT_RET(context.localSqeAddr == 0,
         HCCL_ERROR("[%s] local SQE buffer address is 0.", __func__), HCCL_E_PTR);
+    CHK_PRT_RET(context.taskIdAddr == 0,
+        HCCL_ERROR("[%s] Task ID buffer address is 0.", __func__), HCCL_E_PTR);
     CHK_PRT_RET(context.pendingSqeCnt >= HCOMM_POD_RTSQ_BATCH_SIZE,
         HCCL_ERROR("[%s] pending SQE count[%u] exceeds buffer capacity.", __func__, context.pendingSqeCnt),
         HCCL_E_INTERNAL);
-    if (context.taskId >= context.taskIdEnd) {
+    CHK_PRT_RET(context.taskIdNum > HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE,
+        HCCL_ERROR("[%s] invalid remaining Task ID count[%u].", __func__, context.taskIdNum), HCCL_E_INTERNAL);
+    auto *taskIds = reinterpret_cast<uint32_t *>(context.taskIdAddr);
+    if (context.taskIdNum == 0) {
+        uint32_t taskIdBegin = 0;
+        uint32_t taskIdEnd = 0;
         CHK_PRT_RET(aicpu::GetSqeId == nullptr,
             HCCL_ERROR("[%s] GetSqeId is unavailable.", __func__), HCCL_E_INTERNAL);
-        aicpu::GetSqeId(HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE, context.taskId, context.taskIdEnd);
-        CHK_PRT_RET(context.taskId >= context.taskIdEnd ||
-            context.taskIdEnd - context.taskId > HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE,
-            HCCL_ERROR("[%s] invalid Task ID range[%u, %u).", __func__, context.taskId, context.taskIdEnd),
-            HCCL_E_INTERNAL);
+        aicpu::GetSqeId(HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE, taskIdBegin, taskIdEnd);
+        CHK_PRT_RET(taskIdEnd <= taskIdBegin || taskIdEnd - taskIdBegin > HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE,
+            HCCL_ERROR("[%s] invalid Task ID range[%u, %u).", __func__, taskIdBegin, taskIdEnd), HCCL_E_INTERNAL);
+        context.taskIdNum = taskIdEnd - taskIdBegin;
+        for (uint32_t index = 0; index < context.taskIdNum; ++index) {
+            taskIds[context.taskIdNum - index - 1] = taskIdBegin + index;
+        }
     }
-    taskId = context.taskId;
-    ++context.taskId;
+    taskId = taskIds[context.taskIdNum - 1];
+    --context.taskIdNum;
     return HCCL_SUCCESS;
 }
 

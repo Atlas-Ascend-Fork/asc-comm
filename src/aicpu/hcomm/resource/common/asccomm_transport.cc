@@ -121,6 +121,8 @@ HcclResult build_ub_remote_notify(const HcommChannelEntity &channel, uint32_t in
 
 void fill_ub_param(const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
 {
+    param.dieId = jfs.dieId;
+    param.funcId = jfs.funcId;
     param.jettyId = jfs.jfsID;
     param.sqVa = jfs.sqVa;
     param.sqDepth = jfs.sqDepth;
