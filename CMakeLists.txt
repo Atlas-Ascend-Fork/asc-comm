@@ -24,7 +24,7 @@ endif()
 
 set(ASCCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu/hcomm")
 set(ASCCOMM_DFX_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/common/dfx")
-set(HCOMM_SOURCE_DIR "" CACHE PATH "HCOMM source directory providing include/ and pkg_inc/")
+set(HCOMM_SOURCE_DIR "" CACHE PATH "HCOMM source directory providing pkg_inc/")
 
 if(NOT HCOMM_SOURCE_DIR)
     get_filename_component(_default_hcomm_source_dir "${CMAKE_CURRENT_SOURCE_DIR}/../hcomm_pkg_inc" REALPATH)
@@ -32,7 +32,7 @@ if(NOT HCOMM_SOURCE_DIR)
         set(HCOMM_SOURCE_DIR "${_default_hcomm_source_dir}")
     endif()
 endif()
-if(NOT EXISTS "${HCOMM_SOURCE_DIR}/include/hcomm_primitives.h" OR
+if(NOT EXISTS "${HCOMM_SOURCE_DIR}/pkg_inc/hcomm/hcomm_primitives_types.h" OR
     NOT EXISTS "${HCOMM_SOURCE_DIR}/pkg_inc/hcomm/hcomm_pod_resource.h")
     message(FATAL_ERROR "Set HCOMM_SOURCE_DIR to the HCOMM source root")
 endif()
@@ -59,7 +59,6 @@ add_library(asccomm_aicpu SHARED ${ASCCOMM_AICPU_SOURCES})
 target_compile_definitions(asccomm_aicpu PRIVATE
     HCCD
     CCL_KERNEL_AICPU
-    ASCCOMM_SOURCE_BUILD
     OPEN_BUILD_PROJECT
     _GLIBCXX_USE_CXX11_ABI=1
 )
@@ -81,10 +80,8 @@ target_compile_options(asccomm_aicpu PRIVATE
 target_include_directories(asccomm_aicpu PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu
     ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu/hcomm
-    ${HCOMM_SOURCE_DIR}/include
     ${HCOMM_SOURCE_DIR}/pkg_inc
     ${HCOMM_SOURCE_DIR}/pkg_inc/hcomm
-    ${HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/inc
     ${ASCCOMM_ROOT}/primitives/api_c_adpt
     ${ASCCOMM_ROOT}/primitives/launch
     ${ASCCOMM_ROOT}/common/compat/hcomm
