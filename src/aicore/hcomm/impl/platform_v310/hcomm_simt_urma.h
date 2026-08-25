@@ -209,12 +209,6 @@ __simt_callee__ inline void HcommSimtWriteNopWqe(
                           (1ULL << 28U) | // descriptor valid flag (bit 28)
                           (1ULL << 29U) | // another control bit, copied from Write header
                           (owner << 31U) | (static_cast<uint64_t>(static_cast<uint32_t>(HcommUrmaOpCode::NOP)) << 40U);
-
-    // The NOP header is 6 words, but zero the full BB until the exact requirements are confirmed.
-#pragma unroll
-    for (uint32_t i = nopFirstWord + 1U; i < wordCnt; ++i) {
-        words[i] = 0U;
-    }
 }
 
 // Packs the inline payload into the whole 64-bit words that follow the SQE header. A type
@@ -444,7 +438,7 @@ struct HcommSimtInlineDesc {
         static_assert(config.inlineEn == 1, "WriteValueNbi requires inline data in WQE");
         static_assert(
             sizeof(T) <= HCOMM_URMA_WQE_BB_SIZE - sizeof(HcommUrmaSqeCtx),
-            "Inline value must fit in the WQE payload area");
+            "WriteValue<T>: sizeof(T) must be less equal than primitive type");
         HcommSimtWriteInlineWqe<T, wordCnt, config, commit>(words, remoteAddr, value, sqeTemplate, curHead, nextHead);
     }
 };
@@ -517,9 +511,6 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
         if (status != 0U || subStatus != 0U) {
             constexpr uint8_t statusShift = 8U;
             return (status << statusShift) | subStatus;
-        }
-        if (sqDepth == 0U) {
-            return 0xFFU;
         }
         uint32_t sqTailSlot = sqTail & sqMask;
         uint32_t completedSlot = (cqeWords[1] & 0xFFFFU) & sqMask;
