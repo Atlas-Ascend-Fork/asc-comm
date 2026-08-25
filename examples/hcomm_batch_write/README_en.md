@@ -20,7 +20,7 @@ hcomm.BatchCommit(multiBatchHandle);
 hcomm.Drain(multiBatchHandle);
 ```
 
-`channelIndex` matches the index in the `channelDescs` array passed to Host-side `MakeMultiChannelHandle`.
+`channelIndex` matches the index in the `channelDescs` array passed to Host-side `MakeMultiChannelHandleWithComm`.
 `GetHandleRef` selects and caches an MR token using that index and the remote address, and returns the inner BatchHandle
 reference. Use this reference for batch writes and the outer multi-channel batch handle for `BatchCommit` and `Drain`.
 

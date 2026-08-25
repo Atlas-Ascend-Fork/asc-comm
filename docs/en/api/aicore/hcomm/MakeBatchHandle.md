@@ -22,7 +22,7 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `channel` | Input | A UBC_CTP single-channel `ChannelHandle`, or a shared-Jetty `MultiChannelHandle` created by Host-side `MakeMultiChannelHandle`. |
+| `channel` | Input | A UBC_CTP single-channel `ChannelHandle`, or a shared-Jetty `MultiChannelHandle` created by a Host-side multi-channel creation API. |
 | `buff` | Input | Caller-provided UB `LocalTensor` used to prepare batched WQEs. Batch `Drain` also reuses it as CQE scratch space. |
 | `buffLen` | Input | Available buffer length in bytes. |
 | `remoteAddr` | Input | Selects a remote registered buffer in single-channel mode. Reserved in multi-channel mode. Default: `nullptr`. |
@@ -70,4 +70,5 @@ In multi-channel mode, call [GetHandleRef](./GetHandleRef.md) to select a logica
 ## Related APIs
 
 - [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md)
+- [MakeMultiChannelHandleWithComm](../../host/hcomm/MakeMultiChannelHandleWithComm.md)
 - [GetHandleRef](./GetHandleRef.md)

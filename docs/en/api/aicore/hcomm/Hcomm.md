@@ -72,7 +72,7 @@ Interfaces that return a status code generally use `0` for success and `-1` for 
 - Ordinary and batch interfaces manage queue state differently. A BatchHandle caches SQ/CQ contexts and counters at creation time. The caller must exclusively own the single channel or shared Jetty while using it and must not mix ordinary calls or use multiple BatchHandles concurrently.
 - The passed `ChannelHandle` must point to a channel entity matching the selected protocol.
 
-See [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md) for the Host-side shared-Jetty handle creation API.
+See [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md) and [MakeMultiChannelHandleWithComm](../../host/hcomm/MakeMultiChannelHandleWithComm.md) for the Host-side shared-Jetty handle creation APIs.
 
 ## Related Sample
 
