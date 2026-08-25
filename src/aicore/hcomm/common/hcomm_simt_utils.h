@@ -61,23 +61,21 @@ __simt_callee__ inline uint32_t HcommSimtWqeCnt(uint64_t headVal)
     return static_cast<uint32_t>((headVal >> 32U) & HCOMM_SIMT_WQE_CNT_MASK);
 }
 
-// Reserves SQ space for one submission without overwriting basic blocks the NIC has not
-// consumed yet, and reports the pre-reservation headAddr value through headVal.
+// Reserves SQ space for one submission without overwriting basic blocks the NIC has not consumed
+// yet, and reports the pre-reservation headAddr value through headVal.
 //
-// bbCnt is the number of 64B basic blocks occupied in the SQ; cqeCnt is the number of CQEs the
-// submission will produce (NOP padding produces none), so the high half of headAddr stays
-// directly comparable with the CQ tail consumed by PollCq. requiredFreeBbCnt may exceed bbCnt:
-// a deferred post must also leave room for the immediate 2-BB DWQE that will publish it later,
-// because SIMT has no standalone Commit interface.
+// bbCnt counts the 64B basic blocks occupied; cqeCnt counts the CQEs the submission will produce
+// (NOP padding produces none), keeping the high half of headAddr comparable with the CQ tail
+// PollCq consumes. requiredFreeBbCnt may exceed bbCnt: a deferred post must also leave room for
+// the immediate 2-BB DWQE that publishes it, since SIMT has no standalone Commit.
 //
-// The update is a plain read-modify-write, not an atomic one: a channel is driven by a single
-// lane (see hcomm_simt.h), so nothing else advances this head while the update is in flight.
-// Should a caller ever need several producers on one channel, this has to become an atomic CAS
-// loop again -- though an atomic claim alone would not make that safe, because a doorbell
-// publishes a head covering every slot below it, including a neighbour's half-written WQE.
+// The update is a plain read-modify-write rather than an atomic one because a channel is driven
+// by a single lane (see hcomm_simt.h). Supporting several producers would need more than an
+// atomic claim here: a doorbell publishes a head covering every slot below it, including a
+// neighbour's half-written WQE.
 //
-// headVal is written before any capacity check so a caller that fails can still read the
-// submitted wqeCnt out of it to decide how many CQEs are outstanding.
+// headVal is written before any capacity check so a failing caller can still read the submitted
+// wqeCnt out of it to decide how many CQEs are outstanding.
 __simt_callee__ inline bool HcommSimtTryReserve(
     __gm__ uint64_t* headAddr, __gm__ uint32_t* tailAddr, uint32_t sqDepth, uint32_t bbCnt, uint32_t requiredFreeBbCnt,
     uint32_t cqeCnt, uint64_t& headVal)

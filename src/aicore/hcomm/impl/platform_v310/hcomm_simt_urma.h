@@ -102,9 +102,8 @@ __simt_callee__ inline void HcommSimtCopyStageWqeToSq(
 }
 
 // Words a layout leaves unused are not cleared: the NIC reads only as far as the fields the
-// SQE header describes, so stale bytes from an earlier post on the same slot are never
-// consumed. Each writer below instead asserts that its own fields fit the window, which is
-// what the zero-fill used to check as a side effect.
+// SQE header describes, so stale bytes from an earlier post on the same slot are never consumed.
+// Each writer below instead asserts that its own fields fit the window.
 template <uint32_t usedWords, uint32_t wordCnt>
 __simt_callee__ inline constexpr void HcommSimtAssertWqeFits()
 {
@@ -121,12 +120,10 @@ __simt_callee__ inline void HcommSimtWriteSqeHeader(
     uint32_t nextHead, uint32_t inlineMsgLen = 0U)
 {
     static_assert(sgeNum <= 2U, "SIMT URMA supports at most two SGEs per WQE");
-    // The owner bit flips on every wrap of the ring so the NIC can tell a freshly written slot
-    // from the previous lap's. Testing `head & sqDepth` extracts the lap parity only because
-    // sqDepth is a power of two: the bit at that weight is exactly the one that toggles per lap,
-    // and it is the same trick as `(head / sqDepth) & 1`. For a non-power-of-two depth this would
-    // silently produce the wrong owner and the NIC would consume stale WQEs. PollCq relies on the
-    // same assumption to mask instead of taking a modulo.
+    // The owner bit flips each lap of the ring so the NIC can tell a freshly written slot from
+    // the previous lap's. `head & sqDepth` isolates the lap parity only because sqDepth is a power
+    // of two -- it is `(head / sqDepth) & 1` -- and a non-power-of-two depth would silently yield
+    // the wrong owner, letting the NIC consume stale WQEs. PollCq masks on the same assumption.
     uint64_t owner = (curHead & sqeTemplate.sqDepth) == 0U ? 1U : 0U;
     words[0] = static_cast<uint64_t>(nextHead & 0xFFFFU) |
                (static_cast<uint64_t>(HcommSimtUrmaFlag<config>() & 0xFFU) << 16U) | (1ULL << 28U) | (1ULL << 29U) |
@@ -191,10 +188,11 @@ __simt_callee__ inline void HcommSimtWriteNotifyWqe(
 }
 
 // Writes a NOP WQE into the second basic block (words 8..15) of a 2BB staging buffer. A NOP
-// occupies one BB and produces no CQE; it exists to pad the DWQE window when a 1BB WQE (inline
-// Write) needs to be published through the doorbell. The exact field layout is hardware-specific
-// and left as a placeholder: only the opcode and owner bit are set here; the remaining fields
-// may need tuning on real hardware to make the NIC accept the NOP without error.
+// occupies one BB and produces no CQE; it pads the DWQE window when a 1BB inline Write needs to be
+// published through the doorbell.
+//
+// Placeholder layout: only the opcode and owner bit are set. The remaining fields are zeroed as a
+// safe default and may need tuning on real hardware for the NIC to accept the NOP without error.
 template <uint32_t wordCnt, typename WordPtr>
 __simt_callee__ inline void HcommSimtWriteNopWqe(
     WordPtr words, const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t nextHead)
@@ -202,24 +200,17 @@ __simt_callee__ inline void HcommSimtWriteNopWqe(
     static_assert(wordCnt == HCOMM_SIMT_WQE_WORDS, "NOP padding requires a 2BB staging buffer");
     constexpr uint32_t nopFirstWord = HCOMM_SIMT_BB_WORDS; // Second BB starts at word 8
 
-    // Compute the owner bit for the second BB. The NOP occupies slot (nextHead), which is one BB
-    // beyond the inline Write at (curHead). The owner flips when crossing sqDepth, and as in
-    // HcommSimtWriteSqeHeader the `& sqDepth` test only isolates the lap parity because sqDepth is
-    // a power of two; a non-power-of-two depth would yield the wrong owner here too.
+    // The NOP occupies slot nextHead, one BB beyond the inline Write at curHead, so its owner bit
+    // is computed from nextHead. Same power-of-two assumption as HcommSimtWriteSqeHeader.
     uint64_t owner = (nextHead & sqeTemplate.sqDepth) == 0U ? 1U : 0U;
 
-    // Minimal NOP header: opcode=0x11, owner bit, nextHead index. The remaining fields (word1
-    // through word5, and any payload area) are zeroed as a safe default; hardware may require
-    // specific values in some of them for the NOP to be consumed without error. Adjust after
-    // testing on the NPU.
+    // Minimal NOP header: opcode=0x11, owner bit, nextHead index.
     words[nopFirstWord] = static_cast<uint64_t>((nextHead + 1U) & 0xFFFFU) |
                           (1ULL << 28U) | // descriptor valid flag (bit 28)
                           (1ULL << 29U) | // another control bit, copied from Write header
                           (owner << 31U) | (static_cast<uint64_t>(static_cast<uint32_t>(HcommUrmaOpCode::NOP)) << 40U);
 
-    // Zero the remaining words of the NOP WQE (words 9..15). The NOP occupies only the SQE header
-    // (6 words = 48 bytes), but zeroing the full 64-byte BB is safer until the exact requirements
-    // are confirmed on hardware.
+    // The NOP header is 6 words, but zero the full BB until the exact requirements are confirmed.
 #pragma unroll
     for (uint32_t i = nopFirstWord + 1U; i < wordCnt; ++i) {
         words[i] = 0U;
@@ -230,10 +221,8 @@ __simt_callee__ inline void HcommSimtWriteNopWqe(
 // shorter than a word occupies the low bytes of the first payload word, because the SQE
 // header is a whole number of words long.
 //
-// When commit is true, the WQE occupies two basic blocks: the first holds the inline Write,
-// the second holds a NOP that pads the DWQE window to 128B. A 1BB WQE cannot be published
-// through the doorbell directly, so the NOP completes it. The NOP's exact field layout is
-// left as a placeholder for hardware-specific tuning.
+// When commit is true the WQE spans two basic blocks: the inline Write, then a NOP padding the
+// DWQE window to 128B, because a 1BB WQE cannot be published through the doorbell on its own.
 template <typename T, uint32_t wordCnt, auto const& config, bool commit, typename WordPtr>
 __simt_callee__ inline void HcommSimtWriteInlineWqe(
     WordPtr words, __gm__ uint8_t* remoteAddr, T value, const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t curHead,
@@ -261,9 +250,7 @@ __simt_callee__ inline void HcommSimtWriteInlineWqe(
         words[HCOMM_SIMT_INLINE_FIRST_WORD + word] = packed;
     }
 
-    // If committing, fill the second basic block with a NOP WQE so the 128B DWQE window is
-    // complete. The NOP allows a 1BB inline Write to be published through the doorbell, which
-    // requires two BBs. The exact NOP layout is hardware-specific and left for tuning.
+    // Pad the DWQE window with a NOP so the doorbell has a full 128B to publish.
     if constexpr (commit) {
         HcommSimtWriteNopWqe<wordCnt>(words, sqeTemplate, nextHead);
     }
@@ -295,9 +282,9 @@ __simt_callee__ inline void HcommSimtWriteAtomicWqe(
     HcommSimtAssertWqeFits<amoWord + 2U, wordCnt>();
 }
 
-// The doorbell window is written with 128-bit stores. Plain 64-bit stores are not enough: an
-// earlier revision published the WQE from lane-private storage with ordinary stores and the NIC
-// consumed the header and the fetch SGE while losing the atomic operand words behind them.
+// The doorbell window must be written with 128-bit stores. With plain 64-bit stores the NIC has
+// been observed to consume the header and the fetch SGE while losing the atomic operand words
+// behind them.
 __simt_callee__ inline void HcommSimtCopyStageToDwqe(__gm__ uint8_t* dst, const HcommSimtWqeStage& stage)
 {
     __gm__ ulonglong2* dstWords = reinterpret_cast<__gm__ ulonglong2*>(dst);
@@ -360,10 +347,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolvePost(
     }
     __gm__ RegedBufferEntity* remoteMemInfo = &remoteBuffers[remoteIdx];
 
-    // Read SqContext fields. The 64-byte used range (offset 8..71) crosses a cache line, and
-    // trying to bulk-read it as an indexed array generates more instructions than direct field
-    // access because the layout has holes. So we keep the original per-field reads but group
-    // them tightly to let the compiler see the locality and potentially merge adjacent loads.
+    // The 64-byte used range (offset 8..71) crosses a cache line, and bulk-reading it as an
+    // indexed array costs more instructions than direct field access because the layout has holes.
+    // The per-field reads are grouped tightly so the compiler can see the locality.
     __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
     __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
     uint64_t sqVa = sqCtx->contextInfo.ubJfs.sqVa;
@@ -504,10 +490,9 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
     uint64_t cqBaseAddr = cqCtx->contextInfo.ubJfc.scqVa;
     uint32_t cqeSize = cqCtx->contextInfo.ubJfc.cqeSize;
     uint32_t cqDepth = cqCtx->contextInfo.ubJfc.cqDepth;
-    // The loop runs once per CQE to consume. HcommSimtWriteSqeHeader already assumes sqDepth
-    // is a power of two for its owner-bit computation (curHead & sqDepth), so we can replace
-    // the four modulo operations here with masks. Depth is loop-invariant, so compute the mask
-    // once outside.
+    // Both depths are powers of two (see the owner-bit computation in HcommSimtWriteSqeHeader),
+    // so the wrap arithmetic below uses masks instead of modulo. Depth is loop-invariant, so the
+    // masks are computed once here.
     uint32_t cqMask = cqDepth - 1U;
     uint32_t sqMask = sqDepth - 1U;
     while (curTail != expectIdx) {
