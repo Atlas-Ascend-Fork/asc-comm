@@ -166,14 +166,14 @@ bash build.sh --make_clean
 bash build.sh -t
 ```
 
-将仓库中当前Hcomm与Ain头文件制作为开发验证run包，并安装到已有CANN环境：
+将仓库中的asc-comm头文件制作为开发验证run包，并安装到已有CANN环境：
 
 ```bash
 bash build.sh --pkg
 ./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
 ```
 
-制包脚本会递归收集`include/aicore/hcomm/`、`src/aicore/hcomm/`、`include/aicore/ain/`和`src/aicore/ain/`中的头文件。安装目录、命令参数、权限和卸载说明见[构建与测试](./docs/zh/guide/build_and_test.md)。
+制包脚本会递归收集`include/`和`src/`中的头文件，其中Hcomm安装到`adv_api`，其他头文件按相对路径安装到`comm_api`。安装目录、命令参数、权限和卸载说明见[构建与测试](./docs/zh/guide/build_and_test.md)。
 
 如需直接使用CMake构建UT，可指定CANN三方依赖目录：
 

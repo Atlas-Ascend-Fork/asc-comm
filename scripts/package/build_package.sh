@@ -20,10 +20,8 @@ PACKAGE_VERSION=""
 STAGING_DIR="${PROJECT_ROOT}/build/package/asc-comm"
 PACKAGE_INPUT_PATHS=(
     build.sh
-    include/aicore/ain
-    include/aicore/hcomm
-    src/aicore/ain
-    src/aicore/hcomm
+    include
+    src
     scripts/package
     version.cmake
 )
@@ -164,17 +162,30 @@ copy_headers()
     local source_root=$1
     local destination_root=$2
     local mode=$3
+    shift 3
+    local excluded_path
     local source_file
     local relative_path
     local count=0
+    local skip
 
     while IFS= read -r -d '' source_file; do
         relative_path=${source_file#"${source_root}/"}
+        skip=false
+        for excluded_path in "$@"; do
+            case "${relative_path}" in
+                "${excluded_path}"|"${excluded_path}/"*)
+                    skip=true
+                    break
+                    ;;
+            esac
+        done
+        [[ "${skip}" == false ]] || continue
         install -D -m "${mode}" "${source_file}" "${destination_root}/${relative_path}"
         count=$((count + 1))
     done < <(find "${source_root}" -type f -name '*.h' -print0 | sort -z)
 
-    [[ ${count} -gt 0 ]] || fail "no header files found under ${source_root}"
+    [[ ${count} -gt 0 || $# -gt 0 ]] || fail "no header files found under ${source_root}"
 }
 
 write_manifest()
@@ -268,13 +279,15 @@ build_package()
         "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm" \
         550
     copy_headers \
-        "${PROJECT_ROOT}/include/aicore/ain" \
-        "${STAGING_DIR}/payload/asc/include/comm_api/aicore/ain" \
-        550
+        "${PROJECT_ROOT}/include" \
+        "${STAGING_DIR}/payload/asc/include/comm_api" \
+        550 \
+        aicore/hcomm
     copy_headers \
-        "${PROJECT_ROOT}/src/aicore/ain" \
-        "${STAGING_DIR}/payload/asc/impl/comm_api/aicore/ain" \
-        550
+        "${PROJECT_ROOT}/src" \
+        "${STAGING_DIR}/payload/asc/impl/comm_api" \
+        550 \
+        aicore/hcomm
     write_manifest
     write_link_manifest
     write_version_info \

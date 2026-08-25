@@ -39,7 +39,7 @@ build/ut-hcomm
 
 ## 构建开发验证run包
 
-本地修改Hcomm或Ain头文件后，可生成轻量开发验证包，将当前工作树中的相关头文件安装到已有CANN环境，无需重新生成完整toolkit包：
+本地修改asc-comm头文件后，可生成轻量开发验证包，将当前工作树中的相关头文件安装到已有CANN环境，无需重新生成完整toolkit包：
 
 ```bash
 bash build.sh --pkg
@@ -57,8 +57,8 @@ cann-asc-comm_9.2.0_linux-<arch>.run
 | --- | --- |
 | `include/aicore/hcomm/` | `asc/include/adv_api/hcomm/` |
 | `src/aicore/hcomm/` | `asc/impl/adv_api/detail/hcomm/` |
-| `include/aicore/ain/` | `asc/include/comm_api/aicore/ain/` |
-| `src/aicore/ain/` | `asc/impl/comm_api/aicore/ain/` |
+| `include/`中的其他目录 | `asc/include/comm_api/`，保留相对路径 |
+| `src/`中的其他目录 | `asc/impl/comm_api/`，保留相对路径 |
 
 安装目录沿用asc-devkit子包布局，各扫描目录内部的相对目录结构会保留。安装时还会创建以下Hcomm软链：
 
@@ -67,7 +67,7 @@ asc/include/comm_api/aicore/hcomm -> ../../adv_api/hcomm
 asc/impl/comm_api/aicore/hcomm    -> ../../adv_api/detail/hcomm
 ```
 
-run包仅收集上述目录中制包时存在的`.h`文件。在这些目录中新增头文件后重新制包，新文件会自动进入run包。
+例如，`include/aicore/ain/`安装到`asc/include/comm_api/aicore/ain/`，`include/ccu/`安装到`asc/include/comm_api/ccu/`。run包仅收集上述目录中制包时存在的`.h`文件；`.cpp`、`.inc`等其他类型的文件不会进入包。在这些目录中新增头文件后重新制包，新文件会自动进入run包。
 
 > 注意：run包不会清理目标CANN中未列入包清单的文件。验证头文件删除或重命名时，需要先清理目标CANN中的对应旧文件。
 
@@ -75,7 +75,7 @@ run包仅收集上述目录中制包时存在的`.h`文件。在这些目录中�
 
 | 参数 | 说明 |
 | --- | --- |
-| `--full` | 以full模式安装或更新包内全部Hcomm与Ain头文件及Hcomm软链。 |
+| `--full` | 以full模式安装或更新包内全部asc-comm头文件及Hcomm软链。 |
 | `--uninstall` | 恢复基线中的原文件，并删除安装前不存在的文件。 |
 | `--check` | 校验run包归档、payload和依赖兼容性，不修改CANN。 |
 | `--install-path=<PATH>` | 指定Ascend安装根目录；root默认使用`/usr/local/Ascend`，非root默认使用`$HOME/Ascend`。 |

@@ -93,8 +93,7 @@ REQUIRED_RUNTIME_VERSION=$(read_required_version "runtime")
 PACKAGE_GIT_DIRTY=$(awk -F= '$1 == "GitDirty" {print $2; exit}' "${EXTRACT_DIR}/version.info")
 EXPECTED_GIT_DIRTY=true
 if [[ -z "$(git -C "${PROJECT_ROOT}" status --porcelain --untracked-files=all -- \
-    build.sh include/aicore/ain include/aicore/hcomm \
-    src/aicore/ain src/aicore/hcomm scripts/package version.cmake)" ]]; then
+    build.sh include src scripts/package version.cmake)" ]]; then
     EXPECTED_GIT_DIRTY=false
 fi
 [[ "${PACKAGE_GIT_DIRTY}" == "${EXPECTED_GIT_DIRTY}" ]]
@@ -152,14 +151,17 @@ run_package --uninstall --install-path="${INTERNAL_LINK_CANN}"
 
 HCOMM_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/include/aicore/hcomm" -type f -name '*.h' | wc -l)
 HCOMM_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src/aicore/hcomm" -type f -name '*.h' | wc -l)
-AIN_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/include/aicore/ain" -type f -name '*.h' | wc -l)
-AIN_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src/aicore/ain" -type f -name '*.h' | wc -l)
+COMM_API_PUBLIC_HEADER_COUNT=$(find "${PROJECT_ROOT}/include" -type f -name '*.h' \
+    ! -path "${PROJECT_ROOT}/include/aicore/hcomm/*" | wc -l)
+COMM_API_IMPL_HEADER_COUNT=$(find "${PROJECT_ROOT}/src" -type f -name '*.h' \
+    ! -path "${PROJECT_ROOT}/src/aicore/hcomm/*" | wc -l)
 EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + HCOMM_IMPL_HEADER_COUNT + \
-    AIN_PUBLIC_HEADER_COUNT + AIN_IMPL_HEADER_COUNT))
+    COMM_API_PUBLIC_HEADER_COUNT + COMM_API_IMPL_HEADER_COUNT))
 [[ "$(wc -l < "${EXTRACT_DIR}/manifest.sha256")" -eq "${EXPECTED_FILE_COUNT}" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/include/adv_api/ain" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/hcomm" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/detail/ain" ]]
+[[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/ccu/ccu_host_launch.h" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/aarch64-linux" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/x86_64-linux" ]]
 diff -u <(printf '%s\t%s\n' \
@@ -178,16 +180,18 @@ while IFS= read -r -d '' source_file; do
 done < <(find "${PROJECT_ROOT}/src/aicore/hcomm" -type f -name '*.h' -print0 | sort -z)
 
 while IFS= read -r -d '' source_file; do
-    relative_path=${source_file#"${PROJECT_ROOT}/include/aicore/ain/"}
+    relative_path=${source_file#"${PROJECT_ROOT}/include/"}
     cmp "${source_file}" \
-        "${EXTRACT_DIR}/payload/asc/include/comm_api/aicore/ain/${relative_path}"
-done < <(find "${PROJECT_ROOT}/include/aicore/ain" -type f -name '*.h' -print0 | sort -z)
+        "${EXTRACT_DIR}/payload/asc/include/comm_api/${relative_path}"
+done < <(find "${PROJECT_ROOT}/include" -type f -name '*.h' \
+    ! -path "${PROJECT_ROOT}/include/aicore/hcomm/*" -print0 | sort -z)
 
 while IFS= read -r -d '' source_file; do
-    relative_path=${source_file#"${PROJECT_ROOT}/src/aicore/ain/"}
+    relative_path=${source_file#"${PROJECT_ROOT}/src/"}
     cmp "${source_file}" \
-        "${EXTRACT_DIR}/payload/asc/impl/comm_api/aicore/ain/${relative_path}"
-done < <(find "${PROJECT_ROOT}/src/aicore/ain" -type f -name '*.h' -print0 | sort -z)
+        "${EXTRACT_DIR}/payload/asc/impl/comm_api/${relative_path}"
+done < <(find "${PROJECT_ROOT}/src" -type f -name '*.h' \
+    ! -path "${PROJECT_ROOT}/src/aicore/hcomm/*" -print0 | sort -z)
 
 mkdir -p \
     "${FAKE_CANN}/asc/include/adv_api/hcomm" \
@@ -223,6 +227,7 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api/aicore")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api/aicore/ain")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
+[[ "$(stat -c %a -- "${FAKE_CANN}/asc/include/comm_api/ccu")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api/aicore")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
 [[ "$(stat -c %a -- "${FAKE_CANN}/asc/impl/comm_api/aicore/ain")" == "${EXPECTED_COMM_API_DIR_MODE}" ]]
@@ -231,7 +236,7 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 [[ -L "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm" ]]
 [[ "$(readlink -- "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm")" == "../../adv_api/detail/hcomm" ]]
 
-# Relative Hcomm and Ain includes must resolve through the installed layout and Hcomm links.
+# Relative includes must resolve through the installed layout and Hcomm links.
 while IFS= read -r installed_header; do
     while IFS= read -r include_path; do
         case "${include_path}" in
@@ -244,8 +249,8 @@ while IFS= read -r installed_header; do
 done < <(find \
     "${FAKE_CANN}/asc/include/adv_api/hcomm" \
     "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm" \
-    "${FAKE_CANN}/asc/include/comm_api/aicore/ain" \
-    "${FAKE_CANN}/asc/impl/comm_api/aicore/ain" \
+    "${FAKE_CANN}/asc/include/comm_api" \
+    "${FAKE_CANN}/asc/impl/comm_api" \
     -type f -name '*.h' | sort)
 
 [[ -f "${FAKE_CANN}/var/asc-comm-dev-patch/active.manifest.sha256" ]]

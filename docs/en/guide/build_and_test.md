@@ -33,7 +33,7 @@ build/ut-hcomm
 
 ## Build a Development Run Package
 
-After modifying Hcomm or Ain headers locally, build a lightweight development package to install the relevant headers from the current worktree into an existing CANN environment without rebuilding the complete toolkit package:
+After modifying asc-comm headers locally, build a lightweight development package to install the relevant headers from the current worktree into an existing CANN environment without rebuilding the complete toolkit package:
 
 ```bash
 bash build.sh --pkg
@@ -51,8 +51,8 @@ cann-asc-comm_9.2.0_linux-<arch>.run
 | --- | --- |
 | `include/aicore/hcomm/` | `asc/include/adv_api/hcomm/` |
 | `src/aicore/hcomm/` | `asc/impl/adv_api/detail/hcomm/` |
-| `include/aicore/ain/` | `asc/include/comm_api/aicore/ain/` |
-| `src/aicore/ain/` | `asc/impl/comm_api/aicore/ain/` |
+| Other directories under `include/` | `asc/include/comm_api/`, preserving relative paths |
+| Other directories under `src/` | `asc/impl/comm_api/`, preserving relative paths |
 
 The installation paths follow the asc-devkit subpackage layout. Relative subdirectories within each source directory are preserved. Installation also creates these Hcomm symbolic links:
 
@@ -61,7 +61,7 @@ asc/include/comm_api/aicore/hcomm -> ../../adv_api/hcomm
 asc/impl/comm_api/aicore/hcomm    -> ../../adv_api/detail/hcomm
 ```
 
-The run package collects only `.h` files that exist under these directories at packaging time. New headers are included automatically the next time the package is built.
+For example, `include/aicore/ain/` is installed under `asc/include/comm_api/aicore/ain/`, and `include/ccu/` is installed under `asc/include/comm_api/ccu/`. The run package collects only `.h` files that exist under these directories at packaging time; other file types such as `.cpp` and `.inc` are not included. New headers are included automatically the next time the package is built.
 
 > Note: The run package does not remove files from the target CANN installation when they are absent from its manifest. Before validating a header deletion or rename, remove the corresponding old file from the target CANN installation.
 
@@ -69,7 +69,7 @@ Common options are listed below:
 
 | Option | Description |
 | --- | --- |
-| `--full` | Install or update all packaged Hcomm and Ain headers and Hcomm links in full mode. |
+| `--full` | Install or update all packaged asc-comm headers and Hcomm links in full mode. |
 | `--uninstall` | Restore original files from the baseline and remove files that were previously absent. |
 | `--check` | Verify the run archive, payload, and dependency compatibility without modifying CANN. |
 | `--install-path=<PATH>` | Select the Ascend installation root; defaults to `/usr/local/Ascend` for root or `$HOME/Ascend` for non-root users. |
