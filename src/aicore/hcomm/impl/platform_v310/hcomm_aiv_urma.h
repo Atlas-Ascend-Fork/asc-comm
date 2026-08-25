@@ -372,22 +372,23 @@ __aicore__ inline bool HcommUrmaResolveBatchRemote(
     return true;
 }
 
-__aicore__ inline UbcBatchHandle HcommUrmaCreateBatchHandle(
-    ChannelHandle channel, GM_ADDR remoteAddr, const LocalTensor<uint32_t>& wqeBuffer, uint32_t buffLen)
+template <typename U>
+__aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+    ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
 {
+    (void)localAddr;
     __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    auto* remoteBuffers = channelEntity->remoteBufferAddr;
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     auto remoteEid = reinterpret_cast<const uint64_t*>(sqCtx.contextInfo.ubJfs.remoteEID);
-
     MultiChannelRemoteInfo remoteSource{};
-    remoteSource.remoteBufferAddr = reinterpret_cast<uint64_t>(remoteBuffers);
+    remoteSource.remoteBufferAddr = reinterpret_cast<uint64_t>(channelEntity->remoteBufferAddr);
     remoteSource.remoteBufferNum = channelEntity->remoteBufferNum;
     remoteSource.tpId = sqCtx.contextInfo.ubJfs.tpID;
     remoteSource.remoteEidLow = remoteEid[0];
     remoteSource.remoteEidHigh = remoteEid[1];
 
+    LocalTensor<uint32_t> wqeBuffer = buff.template ReinterpretCast<uint32_t>();
     UbcBatchHandle batchHandle{};
     if (!HcommUrmaResolveBatchRemote(remoteSource, remoteAddr, batchHandle.remoteInfo)) {
         return batchHandle;
@@ -406,15 +407,6 @@ __aicore__ inline UbcBatchHandle HcommUrmaCreateBatchHandle(
 }
 
 template <typename U>
-__aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
-    ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
-{
-    (void)localAddr;
-    LocalTensor<uint32_t> wqeBuffer = buff.template ReinterpretCast<uint32_t>();
-    return HcommUrmaCreateBatchHandle(channel, remoteAddr, wqeBuffer, buffLen);
-}
-
-template <typename U>
 __aicore__ inline UbcMultiBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
     MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr,
     GM_ADDR localAddr)
@@ -425,8 +417,7 @@ __aicore__ inline UbcMultiBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatc
         return UbcMultiBatchHandle{};
     }
 
-    uint64_t multiChannelValue = static_cast<uint64_t>(multiChannel);
-    auto* multiChannelEntity = reinterpret_cast<__gm__ MultiChannelEntity*>(multiChannelValue);
+    auto* multiChannelEntity = reinterpret_cast<__gm__ MultiChannelEntity*>(static_cast<uint64_t>(multiChannel));
     ChannelHandle channel = multiChannelEntity->channelHandle;
     if (channel == 0U || multiChannelEntity->channelNum == 0U || multiChannelEntity->remoteInfoAddr == 0U) {
         return UbcMultiBatchHandle{};
@@ -470,12 +461,7 @@ __aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef
     }
 
     auto* remoteInfos = reinterpret_cast<__gm__ MultiChannelRemoteInfo*>(multiBatchHandle.remoteInfoAddr);
-    MultiChannelRemoteInfo remoteSource{};
-    remoteSource.remoteBufferAddr = remoteInfos[channelIndex].remoteBufferAddr;
-    remoteSource.remoteBufferNum = remoteInfos[channelIndex].remoteBufferNum;
-    remoteSource.remoteEidLow = remoteInfos[channelIndex].remoteEidLow;
-    remoteSource.remoteEidHigh = remoteInfos[channelIndex].remoteEidHigh;
-    remoteSource.tpId = remoteInfos[channelIndex].tpId;
+    MultiChannelRemoteInfo remoteSource = remoteInfos[channelIndex];
     if (!HcommUrmaResolveBatchRemote(remoteSource, remoteAddr, multiBatchHandle.handle.remoteInfo)) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm GetHandleRef failed to resolve remote registered memory\n");
         return multiBatchHandle.handle;
