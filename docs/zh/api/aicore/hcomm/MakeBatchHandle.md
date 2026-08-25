@@ -4,7 +4,7 @@
 
 创建与通信协议匹配的批量句柄，并绑定用于批量准备WQE的UB缓冲区。当前批量句柄仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 
-接口根据句柄类型返回对应的BatchHandle类型，调用侧建议使用`auto`接收返回值。`ChannelHandle`映射为执行句柄`UbcCtpBatchHandle`；`MultiChannelHandle`映射为用于选择逻辑通道的`UbcCtpMultiBatchHandle`，通过`GetHandleRef`取得其中的`UbcCtpBatchHandle`执行句柄。
+接口根据句柄类型返回对应的BatchHandle类型，调用侧建议使用`auto`接收返回值。`ChannelHandle`映射为执行句柄`UbcBatchHandle`；`MultiChannelHandle`映射为用于选择逻辑通道的`UbcMultiBatchHandle`，通过`GetHandleRef`取得其中的`UbcBatchHandle`执行句柄。
 
 ## 函数原型
 
