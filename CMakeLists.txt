@@ -115,6 +115,7 @@ target_include_directories(asccomm_aicpu PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu/hcomm
     ${HCOMM_SOURCE_DIR}/include
     ${HCOMM_SOURCE_DIR}/pkg_inc
+    ${HCOMM_SOURCE_DIR}/pkg_inc/hcomm
     ${HCOMM_SOURCE_DIR}/src/legacy/ascend910/framework/inc
     ${ASCCOMM_ROOT}/primitives/api_c_adpt
     ${ASCCOMM_ROOT}/primitives/launch
