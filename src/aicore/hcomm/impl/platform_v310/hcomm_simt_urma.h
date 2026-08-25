@@ -121,6 +121,12 @@ __simt_callee__ inline void HcommSimtWriteSqeHeader(
     uint32_t nextHead, uint32_t inlineMsgLen = 0U)
 {
     static_assert(sgeNum <= 2U, "SIMT URMA supports at most two SGEs per WQE");
+    // The owner bit flips on every wrap of the ring so the NIC can tell a freshly written slot
+    // from the previous lap's. Testing `head & sqDepth` extracts the lap parity only because
+    // sqDepth is a power of two: the bit at that weight is exactly the one that toggles per lap,
+    // and it is the same trick as `(head / sqDepth) & 1`. For a non-power-of-two depth this would
+    // silently produce the wrong owner and the NIC would consume stale WQEs. PollCq relies on the
+    // same assumption to mask instead of taking a modulo.
     uint64_t owner = (curHead & sqeTemplate.sqDepth) == 0U ? 1U : 0U;
     words[0] = static_cast<uint64_t>(nextHead & 0xFFFFU) |
                (static_cast<uint64_t>(HcommSimtUrmaFlag<config>() & 0xFFU) << 16U) | (1ULL << 28U) | (1ULL << 29U) |
@@ -197,7 +203,9 @@ __simt_callee__ inline void HcommSimtWriteNopWqe(
     constexpr uint32_t nopFirstWord = HCOMM_SIMT_BB_WORDS; // Second BB starts at word 8
 
     // Compute the owner bit for the second BB. The NOP occupies slot (nextHead), which is one BB
-    // beyond the inline Write at (curHead). The owner flips when crossing sqDepth.
+    // beyond the inline Write at (curHead). The owner flips when crossing sqDepth, and as in
+    // HcommSimtWriteSqeHeader the `& sqDepth` test only isolates the lap parity because sqDepth is
+    // a power of two; a non-power-of-two depth would yield the wrong owner here too.
     uint64_t owner = (nextHead & sqeTemplate.sqDepth) == 0U ? 1U : 0U;
 
     // Minimal NOP header: opcode=0x11, owner bit, nextHead index. The remaining fields (word1
@@ -449,7 +457,7 @@ struct HcommSimtInlineDesc {
     {
         static_assert(config.inlineEn == 1, "WriteValueNbi requires inline data in WQE");
         static_assert(
-            sizeof(T) <= HCOMM_URMA_DWQE_SIZE - sizeof(HcommUrmaSqeCtx),
+            sizeof(T) <= HCOMM_URMA_WQE_BB_SIZE - sizeof(HcommUrmaSqeCtx),
             "Inline value must fit in the WQE payload area");
         HcommSimtWriteInlineWqe<T, wordCnt, config, commit>(words, remoteAddr, value, sqeTemplate, curHead, nextHead);
     }

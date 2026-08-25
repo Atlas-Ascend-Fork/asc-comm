@@ -53,7 +53,9 @@ block。同一批任务必须由同一个 lane 提交。
 | `cas` | 提交一次 CAS 操作，校验远端交换结果和本地取回的旧值 |
 | `single`（默认） | 串行提交 Notify、FAA 和 CAS，每次操作后分别调用 `Drain` |
 | `batch_last` | Notify 和 FAA 使用 `commit=false` 延迟提交，最后通过 `commit=true` 的 CAS 提交整个批次 |
-| `notify_immediate_repeat` | 单 lane 连续提交 100 个 `WriteWithNotifyNbi<true>`，每个 WQE 立即敲 DB，最后统一调用一次 `Drain`；用于覆盖连续立即提交场景 |
+| `notify_immediate_repeat` | 单 lane 连续提交 `kNotifyImmediateRepeatCount` 个 `WriteWithNotifyNbi<true>`，每个 WQE 立即敲 DB，最后统一调用一次 `Drain`；用于覆盖连续立即提交场景 |
+
+`kNotifyImmediateRepeatCount` 定义在 [`simt_urma_common.h`](./simt_urma_common.h) 中，当前为 100。
 
 两个系列使用互不重叠的 slot 布局：各自按自身操作需要观测的内容设计，分开之后每种模式的期望值表
 都更容易读。缓冲区按两者中较大的布局分配。

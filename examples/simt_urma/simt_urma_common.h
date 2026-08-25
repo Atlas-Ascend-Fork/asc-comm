@@ -20,11 +20,6 @@
 
 namespace simt_urma {
 
-// Only one rank drives the traffic. kSenderRank posts every operation into kReceiverRank's
-// buffer; kReceiverRank launches no kernel and its NIC lands the data passively.
-constexpr int kSenderRank = 0;
-constexpr int kReceiverRank = 1;
-
 constexpr uint64_t kSlotBytes = sizeof(uint64_t);
 
 // ---------------------------------------------------------------------------------------------

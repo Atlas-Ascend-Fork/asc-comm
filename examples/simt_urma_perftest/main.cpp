@@ -288,6 +288,19 @@ HcclResult AcquirePeerChannel(
     return HCCL_E_INTERNAL;
 }
 
+// 预热和正式计时是两轮独立的 SubmitSeries，各自的 slot 下标都从 0 重新开始，因此被写过的
+// slot 集合是两个前缀的并集，连续前缀长度取两者的较大值，而不是两者之和。
+//
+// 用和会有两个后果：小计数时把没写过的 slot 也纳入校验，例如 (warmup, iterations) = (1, 1) 只
+// 写了 slot 0，却会去检查 slot 1 并把正确的运行判成 FAIL；warmup + iterations 溢出 uint32_t 时
+// 还会回绕成 0，使校验被整体跳过。取 max 同时消掉这两个问题——两个操作数各自都不会超过
+// UINT32_MAX，不存在需要额外防护的加法。
+uint32_t TouchedSlotCount(uint32_t warmup, uint32_t iterations, uint32_t slotCount)
+{
+    const uint32_t reach = warmup > iterations ? warmup : iterations;
+    return reach < slotCount ? reach : slotCount;
+}
+
 // Every slot the run touched must hold the expected payload. Slots are revisited across
 // iterations, so the check is per slot rather than per operation: the last write to a slot
 // leaves the same bytes as the first.
@@ -297,8 +310,7 @@ HcclResult AcquirePeerChannel(
 // both cases the final image depends on the iteration count, so there is no fixed expectation to
 // compare against -- those runs rely on DrainStatus and Completed instead.
 bool CheckReceiver(
-    void* recvBuf, size_t bytes, uint32_t api, uint32_t payloadBytes, uint32_t slotBytes, uint32_t slotCount,
-    uint32_t totalOperations)
+    void* recvBuf, size_t bytes, uint32_t api, uint32_t payloadBytes, uint32_t slotBytes, uint32_t touchedSlots)
 {
     if (!ApiHasStableReceiverImage(api)) {
         return true;
@@ -307,8 +319,7 @@ bool CheckReceiver(
     if (aclrtMemcpy(actual.data(), bytes, recvBuf, bytes, ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
         return false;
     }
-    const uint32_t touched = totalOperations < slotCount ? totalOperations : slotCount;
-    for (uint32_t slot = 0U; slot < touched; ++slot) {
+    for (uint32_t slot = 0U; slot < touchedSlots; ++slot) {
         const size_t base = static_cast<size_t>(slot) * slotBytes;
         if (api == kApiWrite) {
             for (uint32_t i = 0U; i < payloadBytes; ++i) {
@@ -495,8 +506,8 @@ int main(int argc, char* argv[])
 
     HCCLCHECK(HostBarrier(rank, kBenchRanks, syncDir, "completed"));
     if (rank == kReceiverRank) {
-        const uint32_t totalOperations = iterations + warmup;
-        pass = CheckReceiver(recvBuf, bufferBytes, api, payloadBytes, slotBytes, slotCount, totalOperations);
+        const uint32_t touchedSlots = TouchedSlotCount(warmup, iterations, slotCount);
+        pass = CheckReceiver(recvBuf, bufferBytes, api, payloadBytes, slotBytes, touchedSlots);
         std::cout << "[rank " << rank << "] simt_urma_perftest " << apiName << " " << (pass ? "PASS" : "FAIL")
                   << std::endl;
     }

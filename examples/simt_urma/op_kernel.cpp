@@ -16,6 +16,8 @@
  * commit=true的提交发布覆盖整批的PI，而该PI无法区分是哪个lane写了哪个basic block。
  */
 
+#include <cstdio>
+
 #include "kernel_operator.h"
 #include "simt_api/asc_simt.h"
 
@@ -326,8 +328,14 @@ void LaunchSimtUrma(void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_
         case kModeNotifyAtomicBatchLast:
             SimtNotifyAtomicBatchLast<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
             break;
-        default:
+        case kModeNotifyAtomicSingle:
             SimtNotifyAtomicSingle<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
+            break;
+        // 每个 mode 都有显式 case，default 只用于兜住未知取值。这里不静默回落到某个模式：
+        // main.cpp 的 ParseMode 已经拒绝了无法识别的命令行取值，所以走到这里说明新增了 mode
+        // 却漏了分发，直接打印出来比按 single 跑掉更容易排查。
+        default:
+            std::printf("[simt_urma] unhandled mode %u, no kernel launched\n", mode);
             break;
     }
 }

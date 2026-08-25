@@ -99,7 +99,14 @@ __simt_callee__ inline int32_t SubmitSeries(
     } else {
         // Every WQE but the last is deferred, so each reserves its own SQ space; the final
         // committed WQE publishes the whole batch with one head update.
-        for (uint32_t i = 1U; i < count; ++i) {
+        //
+        // The deferred loop covers operations 0..count-2 and the committed post is operation
+        // count-1, so the slot sequence is identical to the commitEach branch. Starting the loop
+        // at 1 instead would skip slot 0 and post to the last slot twice: at count=2 the visited
+        // slots would be [1, 1] rather than [0, 1], which both skews the access distribution and
+        // leaves slot 0 unwritten -- and CheckReceiver expects slots [0, min(totalOps, slotCount))
+        // to all hold the payload, so a legitimately small iteration count would report FAIL.
+        for (uint32_t i = 0U; i + 1U < count; ++i) {
             uint32_t slot = RotatesSlots<api>() ? i % slotCount : 0U;
             int32_t status =
                 SubmitOne<api, false>(hcomm, channel, remoteBase, localBase, payloadBytes, slotBytes, slot);

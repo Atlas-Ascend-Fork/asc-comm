@@ -61,7 +61,9 @@ producer index carried by the final immediate post to sweep up the 31 deferred W
 | `cas` | Submits one CAS operation, verifying the remote swap and the locally fetched old value |
 | `single` (default) | Submits Notify, FAA, and CAS serially, calling `Drain` after each |
 | `batch_last` | Defers Notify and FAA with `commit=false`, then publishes the batch with a `commit=true` CAS |
-| `notify_immediate_repeat` | One lane submits 100 `WriteWithNotifyNbi<true>` back to back, ringing the doorbell for each WQE, then calls `Drain` once after the whole burst; covers repeated immediate submission |
+| `notify_immediate_repeat` | One lane submits `kNotifyImmediateRepeatCount` `WriteWithNotifyNbi<true>` posts back to back, ringing the doorbell for each WQE, then calls `Drain` once after the whole burst; covers repeated immediate submission |
+
+`kNotifyImmediateRepeatCount` is defined in [`simt_urma_common.h`](./simt_urma_common.h), currently 100.
 
 The two families use disjoint slot layouts: each was designed around what its own operations need to
 observe, and keeping them apart makes every mode's expected-value table easier to read. The buffer is
