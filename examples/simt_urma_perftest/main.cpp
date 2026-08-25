@@ -288,27 +288,18 @@ HcclResult AcquirePeerChannel(
     return HCCL_E_INTERNAL;
 }
 
-// 预热和正式计时是两轮独立的 SubmitSeries，各自的 slot 下标都从 0 重新开始，因此被写过的
-// slot 集合是两个前缀的并集，连续前缀长度取两者的较大值，而不是两者之和。
-//
-// 用和会有两个后果：小计数时把没写过的 slot 也纳入校验，例如 (warmup, iterations) = (1, 1) 只
-// 写了 slot 0，却会去检查 slot 1 并把正确的运行判成 FAIL；warmup + iterations 溢出 uint32_t 时
-// 还会回绕成 0，使校验被整体跳过。取 max 同时消掉这两个问题——两个操作数各自都不会超过
-// UINT32_MAX，不存在需要额外防护的加法。
+// 预热和正式计时是两轮独立的 SubmitSeries，slot 下标各自从 0 重新开始，因此被写过的连续前缀
+// 是两者的较大值，不是两者之和。用和会把没写过的 slot 也纳入校验（(1, 1) 只写了 slot 0 却会去
+// 检查 slot 1，把正确的运行判成 FAIL），相加还可能溢出 uint32_t 回绕成 0 而整体跳过校验。
+// 回归用例见 test_touched_slots.cpp。
 uint32_t TouchedSlotCount(uint32_t warmup, uint32_t iterations, uint32_t slotCount)
 {
     const uint32_t reach = warmup > iterations ? warmup : iterations;
     return reach < slotCount ? reach : slotCount;
 }
 
-// Every slot the run touched must hold the expected payload. Slots are revisited across
-// iterations, so the check is per slot rather than per operation: the last write to a slot
-// leaves the same bytes as the first.
-//
-// Only the two plain data movers are checked. Notify lands its payload too, but the signal word
-// follows it inside the same slot; the atomics mutate their single target every iteration. In
-// both cases the final image depends on the iteration count, so there is no fixed expectation to
-// compare against -- those runs rely on DrainStatus and Completed instead.
+// 按 slot 而不是按操作校验：slot 会被多轮迭代重复写入，而最后一次写入留下的字节与第一次相同。
+// 只有 ApiHasStableReceiverImage 为真的接口会走到实际比对。
 bool CheckReceiver(
     void* recvBuf, size_t bytes, uint32_t api, uint32_t payloadBytes, uint32_t slotBytes, uint32_t touchedSlots)
 {

@@ -50,27 +50,20 @@ constexpr uint32_t kDrainStatusIndex = 2U;
 constexpr uint32_t kCompletedIndex = 3U;
 constexpr uint32_t kTimingWords = 4U;
 
-// Which interface a run exercises.
-//   WRITE        WQE points at a local buffer through an SGE; payload length is configurable.
-//   WRITE_VALUE  8-byte payload carried inline in the WQE, no SGE and no local read.
-//   NOTIFY       WriteNbi plus a remote signal word written after the payload.
-//   FAA / CAS    8-byte atomics against a remote word.
+// NOTIFY 在 payload 之后还会写一个远端 signal word，因此它的 slot 占用比 payload 本身大。
 constexpr uint32_t kApiWrite = 0U;
 constexpr uint32_t kApiWriteValue = 1U;
 constexpr uint32_t kApiNotify = 2U;
 constexpr uint32_t kApiFaa = 3U;
 constexpr uint32_t kApiCas = 4U;
 
-// Only WRITE and NOTIFY move a configurable payload; the other three always move 8 bytes.
 constexpr bool ApiUsesPayload(uint32_t api) { return api == kApiWrite || api == kApiNotify; }
 
-// WRITE and NOTIFY read the local send buffer through an SGE. The others do not: WRITE_VALUE
-// carries its payload inline, and the atomics only write a fetched value back.
+// 另外三个不读发送缓冲区：WRITE_VALUE 的 payload 内联在 WQE 里，两个原子接口只回写取回值。
 constexpr bool ApiReadsSendBuffer(uint32_t api) { return api == kApiWrite || api == kApiNotify; }
 
-// The receiver can only be checked for the two plain data movers. NOTIFY also lands its payload,
-// but its signal word shares the slot, and the atomics mutate their target every iteration, so
-// neither has a stable expected image after an arbitrary iteration count.
+// 只有这两个接口的落地镜像与迭代次数无关：NOTIFY 的 signal word 与 payload 共用 slot，两个原子
+// 接口每次迭代都改写目标 word，都没有稳定的期望值可比。
 constexpr bool ApiHasStableReceiverImage(uint32_t api) { return api == kApiWrite || api == kApiWriteValue; }
 
 } // namespace simt_urma_perftest

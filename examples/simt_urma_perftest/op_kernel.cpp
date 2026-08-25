@@ -38,9 +38,8 @@ using namespace simt_urma_perftest;
 
 enum class PerfApi : uint32_t { WRITE, WRITE_VALUE, NOTIFY, FAA, CAS };
 
-// One operation. The address advances per iteration so consecutive WQEs do not all target the
-// same cache line, which would measure the remote memory system rather than the issue path.
-// The atomics are the exception: they must hit one word for the accumulation to mean anything.
+// 地址逐次前移，避免连续 WQE 都落在同一条 cache line 上——否则测到的是远端内存系统而不是下发
+// 路径。两个原子接口例外：必须打在同一个 word 上，累加才有意义。
 template <PerfApi api, bool commit>
 __simt_callee__ inline int32_t SubmitOne(
     AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
@@ -69,16 +68,13 @@ __simt_callee__ inline int32_t SubmitOne(
     }
 }
 
-// The atomics reuse one remote word, so rotating slots would change what they measure.
 template <PerfApi api>
 __simt_callee__ inline constexpr bool RotatesSlots()
 {
     return api != PerfApi::FAA && api != PerfApi::CAS;
 }
 
-// Issues count operations. commitEach selects the publishing strategy: true rings a doorbell per
-// WQE, false defers everything but the last. Returns on the first failure so a broken run reports
-// a status instead of a meaningless cycle count.
+// 首个失败即返回，避免用一个无意义的周期数报告一次坏的运行。
 template <PerfApi api, bool commitEach>
 __simt_callee__ inline int32_t SubmitSeries(
     AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remoteBase, __gm__ uint8_t* localBase,
@@ -97,15 +93,10 @@ __simt_callee__ inline int32_t SubmitSeries(
         }
         return 0;
     } else {
-        // Every WQE but the last is deferred, so each reserves its own SQ space; the final
-        // committed WQE publishes the whole batch with one head update.
-        //
-        // The deferred loop covers operations 0..count-2 and the committed post is operation
-        // count-1, so the slot sequence is identical to the commitEach branch. Starting the loop
-        // at 1 instead would skip slot 0 and post to the last slot twice: at count=2 the visited
-        // slots would be [1, 1] rather than [0, 1], which both skews the access distribution and
-        // leaves slot 0 unwritten -- and CheckReceiver expects slots [0, min(totalOps, slotCount))
-        // to all hold the payload, so a legitimately small iteration count would report FAIL.
+        // 延迟提交的 WQE 各自预留 SQ 空间，最后一条 commit=true 用一次 head 更新发布整批。
+        // 循环覆盖操作 0..count-2、末条提交是操作 count-1，slot 序列与 commitEach 分支完全一致。
+        // 若从 i=1 起循环会跳过 slot 0 且重复写末 slot（count=2 时访问 [1,1] 而非 [0,1]），
+        // 既扭曲访问分布，也会让接收侧对合法小迭代数报 FAIL。
         for (uint32_t i = 0U; i + 1U < count; ++i) {
             uint32_t slot = RotatesSlots<api>() ? i % slotCount : 0U;
             int32_t status =

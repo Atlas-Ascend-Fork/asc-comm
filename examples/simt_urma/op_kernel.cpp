@@ -35,8 +35,6 @@ __simt_callee__ inline bool IsDrivingLane() { return threadIdx.x == 0U && thread
 // ---------------------------------------------------------------------------------------------
 // Write family
 
-// kWriteSlotCount independent WriteNbi<commit=true> calls. Each post rings its own doorbell,
-// so nothing else is needed before Drain.
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteSingleVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
@@ -56,10 +54,8 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteSingleVf(
     (void)hcomm.Drain(channel);
 }
 
-// One lane issues kWriteSlotCount - 1 deferred posts serially, then a WriteNbi<commit=true>.
-// The last post rings the doorbell with a PI that covers the whole batch, so the deferred WQEs
-// are swept up together with it. No barrier is needed because a single lane cannot observe its
-// own WQEs half-written.
+// 最后一次立即提交的门铃发布覆盖整批的 PI，把前面的延迟 WQE 一并带出。单 lane 不会观察到自己
+// 写了一半的 WQE，因此不需要 barrier。
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteBatchLastVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
@@ -82,9 +78,8 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteBatchLastVf(
     (void)hcomm.Drain(channel);
 }
 
-// The WriteValueNbi counterpart of write_single. The value is carried inline in the WQE, so no
-// local address is passed and the sender's send buffer is never read. The values written must
-// still match SlotValue(i) so the receiver's check is identical for both write families.
+// 值内联在 WQE 中，因此不传本地地址、完全不读发送缓冲区。写入值仍取 SlotValue(i)，
+// 使接收侧对两个 write 系列使用同一套校验。
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteValueSingleVf(uint64_t channel, uint32_t recvBufIdx)
 {
     if (!IsDrivingLane()) {
@@ -102,8 +97,6 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteValueSingleVf(uint64_t 
     (void)hcomm.Drain(channel);
 }
 
-// The WriteValueNbi counterpart of write_batch_last. Deferred inline posts stay in the send
-// queue until the final commit=true post publishes a PI covering the whole batch.
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteValueBatchLastVf(uint64_t channel, uint32_t recvBufIdx)
 {
     if (!IsDrivingLane()) {
@@ -126,7 +119,6 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteValueBatchLastVf(uint64
 // ---------------------------------------------------------------------------------------------
 // Notify/atomic family
 
-// Isolated Notify case: exactly one immediate DWQE, followed by Drain.
 __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyVf(uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     if (!IsDrivingLane()) {
@@ -143,8 +135,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyVf(uint64_t channel, u
     reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
 }
 
-// Reproduces the immediate-post burst used by the performance benchmark: one lane rings
-// the DWQE doorbell for every 2-BB Notify WQE, then calls Drain only after the whole burst.
+// 每个 2BB Notify WQE 各敲一次 DWQE 门铃，整批发完才 Drain。
 __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyImmediateRepeatVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
@@ -164,7 +155,6 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyImmediateRepeatVf(
     reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
 }
 
-// Isolated FAA case: verifies both the remote sum and the fetched old value.
 __simt_vf__ __launch_bounds__(1024) inline void SimtFaaVf(uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     if (!IsDrivingLane()) {
@@ -180,7 +170,6 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtFaaVf(uint64_t channel, uint
     reinterpret_cast<__gm__ uint64_t*>(local)[kFaaDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
 }
 
-// Isolated CAS case: verifies both the remote swap and the fetched old value.
 __simt_vf__ __launch_bounds__(1024) inline void SimtCasVf(uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     if (!IsDrivingLane()) {
@@ -196,8 +185,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtCasVf(uint64_t channel, uint
     reinterpret_cast<__gm__ uint64_t*>(local)[kCasDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
 }
 
-// Strictly serialized single-lane case: wait for each CQE before reusing the DWQE window.
-// Drain return values are stored in otherwise-unused sender slots for diagnosis.
+// 逐个操作等 CQE 返回后再复用 DWQE 窗口。Drain 返回值写进发送侧空闲 slot，便于定位失败环节。
 __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicSingleVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
@@ -331,9 +319,6 @@ void LaunchSimtUrma(void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_
         case kModeNotifyAtomicSingle:
             SimtNotifyAtomicSingle<<<1, 0, stream>>>(channel, sendBufIdx, recvBufIdx);
             break;
-        // 每个 mode 都有显式 case，default 只用于兜住未知取值。这里不静默回落到某个模式：
-        // main.cpp 的 ParseMode 已经拒绝了无法识别的命令行取值，所以走到这里说明新增了 mode
-        // 却漏了分发，直接打印出来比按 single 跑掉更容易排查。
         default:
             std::printf("[simt_urma] unhandled mode %u, no kernel launched\n", mode);
             break;

@@ -145,9 +145,7 @@ HcclResult InitCommByRootInfo(uint32_t rank, uint32_t nranks, const std::string&
     return HCCL_SUCCESS;
 }
 
-// One table drives both directions so a mode can never parse under a name it does not print
-// back. The two examples this one replaces each had a hand-written if-chain plus a defaulting
-// ModeName, which is how "multi_lane" survived in their docs after the kernel was gone.
+// 一张表同时驱动解析和打印，避免某个 mode 能被解析、却打印成另一个名字。
 struct ModeEntry {
     const char* name;
     uint32_t mode;
@@ -508,8 +506,7 @@ int main(int argc, char* argv[])
     HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kSendMemHandleIdx]));
     HCCLCHECK(HcclCommMemReg(hcclComm, kRecvBufTag, &recvMem, &memHandles[kRecvMemHandleIdx]));
 
-    // 环形拓扑：每个 rank 向 next 发送，并校验从 prev 收到的数据。原先固定 rank 0 -> rank 1，
-    // 3 卡及以上时多出来的 rank 只是注册内存后干等，既不发送也不校验。
+    // 环形拓扑：每个 rank 向 next 发送，并校验从 prev 收到的数据，因此所有 rank 都参与收发。
     PeerRankCtx prev;
     PeerRankCtx next;
     const uint32_t uRank = static_cast<uint32_t>(rank);

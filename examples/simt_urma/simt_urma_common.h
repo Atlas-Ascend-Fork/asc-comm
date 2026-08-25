@@ -78,10 +78,8 @@ constexpr uint32_t kNotifyImmediateRepeatCount = 100U;
 // ---------------------------------------------------------------------------------------------
 // Modes
 //
-// Every Hcomm interface is called by a single lane, so all modes below drive one lane. The
-// write_* and notify/atomic modes are named apart because "single" and "batch_last" meant
-// different things in the two examples this one replaces: for writes they select how the 32
-// slot writes are published, for notify/atomic they select how Notify, FAA and CAS are combined.
+// write_* 与 notify/atomic 的模式名分开：两族的 "single"/"batch_last" 含义不同——前者选择 32 次
+// slot 写入如何发布，后者选择 Notify、FAA、CAS 三个操作如何组合。
 constexpr uint32_t kModeWriteSingle = 0U;    // one WriteNbi<commit=true> per slot
 constexpr uint32_t kModeWriteBatchLast = 1U; // N-1 serial WriteNbi<false> + WriteNbi<true>
 // WriteValueNbi carries the payload inline in the WQE instead of pointing at a local buffer,
