@@ -352,21 +352,24 @@ static inline HcommResult HcommBuildMultiChannelEntity(
         return prepareRet;
     }
 
-    HcommResult ret = DlHcommApi::HcommEngineCtxCreate(COMM_ENGINE_AIV, totalSize, deviceMemory);
-    if (ret != HCCL_SUCCESS || *deviceMemory == NULL) {
-        fprintf(stderr, "[ERROR] [%s] HcommEngineCtxCreate failed, ret[%d].\n", __func__, ret);
+    aclError aclRet = aclrtMalloc(deviceMemory, totalSize, ACL_MEM_MALLOC_HUGE_FIRST);
+    if (aclRet != ACL_SUCCESS || *deviceMemory == NULL) {
+        fprintf(stderr, "[ERROR] [%s] aclrtMalloc failed, ret[%d].\n", __func__, aclRet);
         free(hostMemory);
-        return ret == HCCL_SUCCESS ? HCCL_E_MEMORY : ret;
+        return aclRet == ACL_SUCCESS ? HCCL_E_MEMORY : HCCL_E_RUNTIME;
     }
     MultiChannelEntity* entity = (MultiChannelEntity*)hostMemory;
     entity->remoteInfoAddr = (uint64_t)(uintptr_t)*deviceMemory + sizeof(MultiChannelEntity);
-    ret = DlHcommApi::HcommEngineCtxCopy(COMM_ENGINE_AIV, *deviceMemory, hostMemory, totalSize);
+    aclRet = aclrtMemcpy(*deviceMemory, totalSize, hostMemory, totalSize, ACL_MEMCPY_HOST_TO_DEVICE);
     free(hostMemory);
-    if (ret != HCCL_SUCCESS) {
-        fprintf(stderr, "[ERROR] [%s] HcommEngineCtxCopy failed, ret[%d].\n", __func__, ret);
-        (void)DlHcommApi::HcommEngineCtxDestroy(COMM_ENGINE_AIV, *deviceMemory);
+    if (aclRet != ACL_SUCCESS) {
+        fprintf(stderr, "[ERROR] [%s] copy multi-channel entity to device failed, ret[%d].\n", __func__, aclRet);
+        aclError freeRet = aclrtFree(*deviceMemory);
+        if (freeRet != ACL_SUCCESS) {
+            fprintf(stderr, "[ERROR] [%s] cleanup aclrtFree failed, ret[%d].\n", __func__, freeRet);
+        }
         *deviceMemory = NULL;
-        return ret;
+        return HCCL_E_RUNTIME;
     }
     return HCCL_SUCCESS;
 }
@@ -403,7 +406,7 @@ static inline HcclResult HcommHostMakeMultiChannelHandleWithComm(
     if (ret == HCCL_SUCCESS) {
         ret = HcommBuildMultiChannelEntityWithComm(comm, channels, sharedQueueTag, channelNum, &deviceMemory);
     }
-    DlHcommApi::CleanupLibrary();
+    DlHcommApi::CleanupHcclApi();
     free(channels);
     if (ret != HCCL_SUCCESS) {
         return ret;
@@ -455,7 +458,7 @@ static inline HcommResult HcommHostMakeMultiChannelHandle(
             fprintf(stderr, "[ERROR] [%s] cleanup HcommChannelDestroy failed, ret[%d].\n", __func__, destroyRet);
         }
     }
-    DlHcommApi::CleanupLibrary();
+    DlHcommApi::CleanupHcommApi();
     free(channels);
     if (ret != HCCL_SUCCESS) {
         return ret;
@@ -520,13 +523,13 @@ static inline HcommResult HcommHostDestroyMultiChannelHandle(MultiChannelHandle 
     if (ret != HCCL_SUCCESS) {
         fprintf(stderr, "[ERROR] [%s] HcommChannelDestroy failed, ret[%d].\n", __func__, ret);
     }
-    HcommResult ctxRet = DlHcommApi::HcommEngineCtxDestroy(COMM_ENGINE_AIV, (void*)(uintptr_t)multiChannel);
-    if (ctxRet != HCCL_SUCCESS) {
-        fprintf(stderr, "[ERROR] [%s] HcommEngineCtxDestroy failed, ret[%d].\n", __func__, ctxRet);
+    aclRet = aclrtFree((void*)(uintptr_t)multiChannel);
+    if (aclRet != ACL_SUCCESS) {
+        fprintf(stderr, "[ERROR] [%s] aclrtFree failed, ret[%d].\n", __func__, aclRet);
     }
-    DlHcommApi::CleanupLibrary();
+    DlHcommApi::CleanupHcommApi();
     free(channels);
-    return ret == HCCL_SUCCESS ? ctxRet : ret;
+    return ret == HCCL_SUCCESS && aclRet != ACL_SUCCESS ? HCCL_E_RUNTIME : ret;
 }
 
 #ifdef __cplusplus
