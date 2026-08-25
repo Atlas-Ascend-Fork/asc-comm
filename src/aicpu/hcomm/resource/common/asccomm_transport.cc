@@ -119,10 +119,10 @@ HcclResult build_ub_remote_notify(const HcommChannelEntity &channel, uint32_t in
     return HCCL_SUCCESS;
 }
 
-void fill_ub_param(const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
+void fill_ub_param(const HcommChannelEntity &channel, const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
 {
-    param.dieId = jfs.dieId;
-    param.funcId = jfs.funcId;
+    param.dieId = channel.devInfo.dieId;
+    param.funcId = channel.devInfo.funcId;
     param.jettyId = jfs.jfsID;
     param.sqVa = jfs.sqVa;
     param.sqDepth = jfs.sqDepth;
@@ -145,11 +145,12 @@ void export_ub_state(Asc::UbConnLite &connection, HcommJfsContext &jfs)
     jfs.pi = pi;
 }
 
-HcclResult ring_ub_doorbell(HcommThreadEntity &thread, const HcommJfsContext &jfs, uint16_t pi)
+HcclResult ring_ub_doorbell(
+    HcommThreadEntity &thread, const HcommChannelEntity &channel, const HcommJfsContext &jfs, uint16_t pi)
 {
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
-    const Asc::UbJettyLiteId jettyId(jfs.dieId, jfs.funcId, jfs.jfsID);
+    const Asc::UbJettyLiteId jettyId(channel.devInfo.dieId, channel.devInfo.funcId, jfs.jfsID);
     return asccomm_rtsq_ub_db_send(*rtsq, jettyId, pi);
 }
 
@@ -176,7 +177,7 @@ HcclResult execute_ub_rma(HcommThreadEntity &thread, HcommChannelEntity &channel
     CHK_RET(build_ub_slices(channel, localAddr, remoteAddr, len, local, remote));
 
     Asc::UbConnLiteParam param{};
-    fill_ub_param(*jfs, param);
+    fill_ub_param(channel, *jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -184,7 +185,7 @@ HcclResult execute_ub_rma(HcommThreadEntity &thread, HcommChannelEntity &channel
     Asc::SqeConfigLite cfg = get_ub_config(channel);
     operation(connection, local, remote, cfg, out);
     export_ub_state(connection, *jfs);
-    return ring_ub_doorbell(thread, *jfs, out.pi);
+    return ring_ub_doorbell(thread, channel, *jfs, out.pi);
 }
 
 HcclResult get_rdma_contexts(HcommChannelEntity &channel, HcommRdmaSqContext *&sq,
@@ -516,7 +517,7 @@ HcclResult asccomm_notify_record(HcommThreadEntity &thread, HcommChannelEntity &
     Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
     CHK_RET(build_ub_remote_notify(channel, remoteNotifyIdx, notify));
     Asc::UbConnLiteParam param{};
-    fill_ub_param(*jfs, param);
+    fill_ub_param(channel, *jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -530,7 +531,7 @@ HcclResult asccomm_notify_record(HcommThreadEntity &thread, HcommChannelEntity &
     const uint32_t value = NOTIFY_VALUE;
     connection.inline_write(reinterpret_cast<const uint8_t *>(&value), NOTIFY_SIZE, notify, cfg, out);
     export_ub_state(connection, *jfs);
-    return ring_ub_doorbell(thread, *jfs, out.pi);
+    return ring_ub_doorbell(thread, channel, *jfs, out.pi);
 }
 
 HcclResult asccomm_notify_wait(HcommThreadEntity &thread, const HcommChannelEntity &channel,
@@ -590,7 +591,7 @@ HcclResult asccomm_drain(HcommThreadEntity &thread, HcommChannelEntity &channel)
         remoteResource.protectionInfo.memInfo.ub.tokenValue,
         std::numeric_limits<uint32_t>::max());
     Asc::UbConnLiteParam param{};
-    fill_ub_param(*jfs, param);
+    fill_ub_param(channel, *jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -602,7 +603,7 @@ HcclResult asccomm_drain(HcommThreadEntity &thread, HcommChannelEntity &channel)
     Asc::ConnLiteOperationOut out{};
     connection.read(local, remote, cfg, out);
     export_ub_state(connection, *jfs);
-    CHK_RET(ring_ub_doorbell(thread, *jfs, out.pi));
+    CHK_RET(ring_ub_doorbell(thread, channel, *jfs, out.pi));
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
     CHK_PRT_RET(localResource.notifyId < 0,
@@ -618,7 +619,7 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
     HcommJfsContext *jfs = nullptr;
     CHK_RET(get_ub_context(channel, jfs));
     Asc::UbConnLiteParam param{};
-    fill_ub_param(*jfs, param);
+    fill_ub_param(channel, *jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -710,5 +711,5 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
         }
     }
     export_ub_state(connection, *jfs);
-    return ring_ub_doorbell(thread, *jfs, out.pi);
+    return ring_ub_doorbell(thread, channel, *jfs, out.pi);
 }
