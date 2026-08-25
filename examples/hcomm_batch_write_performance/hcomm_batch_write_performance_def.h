@@ -21,10 +21,13 @@ constexpr uint32_t MAX_CHANNEL_NUM = MAX_RANK_NUM - 1U;
 constexpr uint32_t DATA_SIZE = 256U;
 constexpr uint64_t SEND_OFFSET = 0U;
 constexpr uint64_t RECV_BASE_OFFSET = DATA_SIZE;
+constexpr uint64_t NOTIFY_OFFSET = RECV_BASE_OFFSET + DATA_SIZE;
+constexpr uint64_t NOTIFY_VALUE = 0x1122334455667788ULL;
 constexpr uint32_t WQEBB_SIZE = 64U;
-constexpr uint32_t BATCH_BUFFER_SIZE = 32U * 1024U;
-constexpr uint32_t DEFAULT_READS_PER_BATCH = 500U;
-constexpr uint32_t MAX_READS_PER_BATCH = BATCH_BUFFER_SIZE / WQEBB_SIZE;
+constexpr uint32_t NOTIFY_WQEBB_COUNT = 2U;
+constexpr uint32_t BATCH_BUFFER_SIZE = 64U * 1024U;
+constexpr uint32_t DEFAULT_OPERATIONS_PER_BATCH = 500U;
+constexpr uint32_t MAX_OPERATIONS_PER_BATCH = BATCH_BUFFER_SIZE / (NOTIFY_WQEBB_COUNT * WQEBB_SIZE);
 constexpr uint32_t DEFAULT_WARMUP_BATCHES = 100U;
 constexpr uint32_t DEFAULT_MEASURE_BATCHES = 1U;
 constexpr uint32_t MAX_BATCH_COUNT = 1000000U;
@@ -34,7 +37,7 @@ constexpr char SHARED_QUEUE_TAG_PREFIX[] = "asccomm_batch_write_performance_queu
 
 enum KernelResult : uint32_t {
     KERNEL_SUCCESS = 0U,
-    KERNEL_READ_FAILED,
+    KERNEL_NOTIFY_FAILED,
     KERNEL_COMMIT_FAILED,
     KERNEL_DRAIN_FAILED,
     KERNEL_INVALID_ARGUMENT,
@@ -45,9 +48,9 @@ struct BatchContext {
     uint64_t localBuffer;
     uint64_t remoteBuffers[MAX_CHANNEL_NUM];
     uint64_t elapsedCycles;
-    uint64_t completedReads;
+    uint64_t completedOperations;
     uint32_t channelNum;
-    uint32_t readsPerBatch;
+    uint32_t operationsPerBatch;
     uint32_t warmupBatches;
     uint32_t measureBatches;
     KernelResult result;
