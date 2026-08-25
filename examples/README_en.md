@@ -11,6 +11,8 @@ This directory contains usage samples for asc-comm APIs.
 | [one_multi_path](./one_multi_path/README_en.md) | Queries a `UB_MEM` link, creates one path/multi path channels for every peer, processes peers serially, and concurrently moves and verifies each peer's remote data over two streams. | Ascend 950PR / Ascend 950DT |
 | [simt_urma](./simt_urma/README_en.md) | Demonstrates and validates every SIMT URMA interface: `WriteNbi`, `WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`, with immediate and batched submission. | Ascend 950PR / Ascend 950DT |
 | [simt_urma_perftest](./simt_urma_perftest/README_en.md) | Measures issue latency and completion bandwidth for those five SIMT URMA interfaces under immediate and deferred publication. | Ascend 950PR / Ascend 950DT |
+| [simt_batch](./simt_batch/README_en.md) | Provides a runnable minimal SIMT URMA explicit-batch path and full six-API regression. | Ascend 950PR / Ascend 950DT |
+| [simt_batch_perf](./simt_batch_perf/README_en.md) | Compares Immediate and ExplicitBatch baselines for all six SIMT URMA operations. | Ascend 950PR / Ascend 950DT |
 
 ## simt_urma
 
@@ -23,6 +25,20 @@ See [simt_urma/README_en.md](./simt_urma/README_en.md) for build and run instruc
 `simt_urma_perftest` measures those five interfaces, reporting issue latency and completion bandwidth, with payload sweeps for `write` and `notify`.
 
 See [simt_urma_perftest/README_en.md](./simt_urma_perftest/README_en.md) for performance testing instructions.
+
+## simt_batch
+
+`simt_batch` provides a runnable two-`WriteNbi` minimal path and full single-lane ExplicitBatch regression for
+`WriteNbi`, `ReadNbi`, `WriteWithNotifyNbi`, `WriteValueNbi`, `AtomicFAA`, and `AtomicCAS`.
+
+See [simt_batch/README_en.md](./simt_batch/README_en.md) for build and run instructions.
+
+## simt_batch_perf
+
+`simt_batch_perf` compares Immediate and ExplicitBatch per API and reports publication count, issue latency,
+completion latency including Drain, and data-validation status.
+
+See [simt_batch_perf/README_en.md](./simt_batch_perf/README_en.md) for build and run instructions.
 
 ## Runtime Constraints
 - Supported chips: Ascend 950PR / Ascend 950DT. CANN version 9.1.0 or later is required.
