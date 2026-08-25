@@ -459,7 +459,12 @@ __aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef
     }
 
     auto* remoteInfos = reinterpret_cast<__gm__ MultiChannelRemoteInfo*>(multiBatchHandle.remoteInfoAddr);
-    MultiChannelRemoteInfo remoteSource = remoteInfos[channelIndex];
+    MultiChannelRemoteInfo remoteSource{};
+    remoteSource.remoteBufferAddr = remoteInfos[channelIndex].remoteBufferAddr;
+    remoteSource.remoteBufferNum = remoteInfos[channelIndex].remoteBufferNum;
+    remoteSource.remoteEidLow = remoteInfos[channelIndex].remoteEidLow;
+    remoteSource.remoteEidHigh = remoteInfos[channelIndex].remoteEidHigh;
+    remoteSource.tpId = remoteInfos[channelIndex].tpId;
     if (!HcommUrmaResolveBatchRemote(remoteSource, remoteAddr, multiBatchHandle.handle.remoteInfo)) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm GetHandleRef failed to resolve remote registered memory\n");
         return multiBatchHandle.handle;
