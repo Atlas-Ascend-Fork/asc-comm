@@ -37,7 +37,7 @@ __aicore__ inline int32_t Drain(T& batchHandle);
 | Parameter | Description |
 | --- | --- |
 | `pipe` | Pipe used for drain operations. Default: `PIPE_MTE3`. |
-| `T` | Batch handle type deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle` and `UbcCtpMultiBatchHandle`. |
+| `T` | Batch handle type deduced from `batchHandle`. Currently supports `UbcBatchHandle` and `UbcMultiBatchHandle`. |
 
 ## Return Value
 

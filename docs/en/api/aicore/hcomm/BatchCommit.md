@@ -25,7 +25,7 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
 | Parameter | Description |
 | --- | --- |
-| `T` | Batch handle type deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle` and `UbcCtpMultiBatchHandle`. |
+| `T` | Batch handle type deduced from `batchHandle`. Currently supports `UbcBatchHandle` and `UbcMultiBatchHandle`. |
 
 ## Return Value
 

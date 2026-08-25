@@ -348,10 +348,10 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_MultiChannelBatchUsesOuterHandleForCommitAndDrain)
 {
     static_assert(
-        std::is_same<AscendC::BatchHandle<AscendC::ChannelHandle>, AscendC::UbcCtpBatchHandle>::value,
+        std::is_same<AscendC::BatchHandle<AscendC::ChannelHandle>, AscendC::UbcBatchHandle>::value,
         "ChannelHandle must create the execution BatchHandle");
     static_assert(
-        std::is_same<AscendC::BatchHandle<AscendC::MultiChannelHandle>, AscendC::UbcCtpMultiBatchHandle>::value,
+        std::is_same<AscendC::BatchHandle<AscendC::MultiChannelHandle>, AscendC::UbcMultiBatchHandle>::value,
         "MultiChannelHandle must create the peer-selection BatchHandle");
 
     UrmaMultiChannelResource multiChannel;
