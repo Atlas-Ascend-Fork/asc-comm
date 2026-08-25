@@ -77,6 +77,10 @@ write_dependency_versions()
 # build.sh must propagate packaging failures to CI and other callers.
 expect_failure env ASCEND_HOME_PATH="${TEST_ROOT}/missing-cann" \
     bash "${PROJECT_ROOT}/build.sh" --pkg
+expect_failure bash "${PROJECT_ROOT}/scripts/package/build_package.sh" \
+    --cann-path="${TEST_ROOT}/missing-cann"
+bash "${PROJECT_ROOT}/scripts/package/build_package.sh" --help > "${ERROR_LOG}"
+grep -q -- '--cann_path=<PATH>' "${ERROR_LOG}"
 
 "${RUN_FILE}" --noexec --extract="${EXTRACT_DIR}" >/dev/null
 REQUIRED_ASC_DEVKIT_VERSION=$(read_required_version "asc-devkit")
@@ -90,10 +94,17 @@ PACKAGE_GIT_DIRTY=$(awk -F= '$1 == "GitDirty" {print $2; exit}' "${EXTRACT_DIR}/
 EXPECTED_GIT_DIRTY=true
 if [[ -z "$(git -C "${PROJECT_ROOT}" status --porcelain --untracked-files=all -- \
     build.sh include/aicore/ain include/aicore/hcomm \
-    src/aicore/ain src/aicore/hcomm scripts/package)" ]]; then
+    src/aicore/ain src/aicore/hcomm scripts/package version.cmake)" ]]; then
     EXPECTED_GIT_DIRTY=false
 fi
 [[ "${PACKAGE_GIT_DIRTY}" == "${EXPECTED_GIT_DIRTY}" ]]
+EXPECTED_PACKAGE_VERSION=$(sed -nE \
+    's/^[[:space:]]*set\(ASCCOMM_VERSION[[:space:]]+"([^"]+)"\)[[:space:]]*$/\1/p' \
+    "${PROJECT_ROOT}/version.cmake")
+[[ "$(awk -F= '$1 == "PackageVersion" {print $2; exit}' "${EXTRACT_DIR}/version.info")" == \
+    "${EXPECTED_PACKAGE_VERSION}" ]]
+[[ "$(awk -F= '$1 == "Version" {print $2; exit}' "${EXTRACT_DIR}/version.info")" == \
+    "${EXPECTED_PACKAGE_VERSION}" ]]
 
 # Reject module-directory links that would redirect package writes outside CANN_ROOT.
 EXTERNAL_LINK_CANN="${TEST_ROOT}/external-link-cann"
@@ -178,21 +189,6 @@ while IFS= read -r -d '' source_file; do
         "${EXTRACT_DIR}/payload/asc/impl/comm_api/aicore/ain/${relative_path}"
 done < <(find "${PROJECT_ROOT}/src/aicore/ain" -type f -name '*.h' -print0 | sort -z)
 
-RELATIVE_DETAIL_INCLUDE_COUNT=0
-while IFS= read -r -d '' source_file; do
-    relative_path=${source_file#"${PROJECT_ROOT}/include/aicore/hcomm/"}
-    packaged_header="${EXTRACT_DIR}/payload/asc/include/adv_api/hcomm/${relative_path}"
-    while IFS= read -r include_path; do
-        case "${include_path}" in
-            ../../../impl/adv_api/detail/*)
-                [[ -f "$(dirname -- "${packaged_header}")/${include_path}" ]]
-                RELATIVE_DETAIL_INCLUDE_COUNT=$((RELATIVE_DETAIL_INCLUDE_COUNT + 1))
-                ;;
-        esac
-    done < <(awk -F '"' '/^[[:space:]]*#[[:space:]]*include[[:space:]]*"/ {print $2}' "${packaged_header}")
-done < <(find "${PROJECT_ROOT}/include/aicore/hcomm" -type f -name '*.h' -print0 | sort -z)
-[[ ${RELATIVE_DETAIL_INCLUDE_COUNT} -gt 0 ]]
-
 mkdir -p \
     "${FAKE_CANN}/asc/include/adv_api/hcomm" \
     "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm/common" \
@@ -235,7 +231,7 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 [[ -L "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm" ]]
 [[ "$(readlink -- "${FAKE_CANN}/asc/impl/comm_api/aicore/hcomm")" == "../../adv_api/detail/hcomm" ]]
 
-# Relative Ain includes must resolve from their deeper comm_api/aicore layout.
+# Relative Hcomm and Ain includes must resolve through the installed layout and Hcomm links.
 while IFS= read -r installed_header; do
     while IFS= read -r include_path; do
         case "${include_path}" in
@@ -246,6 +242,8 @@ while IFS= read -r installed_header; do
     done < <(awk -F '"' '/^[[:space:]]*#[[:space:]]*include[[:space:]]*"/ {print $2}' \
         "${installed_header}")
 done < <(find \
+    "${FAKE_CANN}/asc/include/adv_api/hcomm" \
+    "${FAKE_CANN}/asc/impl/adv_api/detail/hcomm" \
     "${FAKE_CANN}/asc/include/comm_api/aicore/ain" \
     "${FAKE_CANN}/asc/impl/comm_api/aicore/ain" \
     -type f -name '*.h' | sort)
@@ -308,6 +306,33 @@ run_package --uninstall --install-path="${PREEXISTING_LINK_CANN}"
     "../../adv_api/hcomm" ]]
 [[ "$(readlink -- "${PREEXISTING_LINK_CANN}/asc/impl/comm_api/aicore/hcomm")" == \
     "../../adv_api/detail/hcomm" ]]
+
+# Match devkit's --install-for-all behavior for a non-root installation as well.
+INSTALL_FOR_ALL_CANN="${TEST_ROOT}/install-for-all-cann"
+mkdir -p \
+    "${INSTALL_FOR_ALL_CANN}/asc/include/adv_api" \
+    "${INSTALL_FOR_ALL_CANN}/asc/impl/adv_api/detail"
+chmod 755 "${INSTALL_FOR_ALL_CANN}"
+write_dependency_versions "${INSTALL_FOR_ALL_CANN}"
+run_package --full --install-for-all --install-path="${INSTALL_FOR_ALL_CANN}"
+while read -r _ path; do
+    [[ "$(stat -c %a -- "${INSTALL_FOR_ALL_CANN}/${path}")" == "555" ]]
+done < "${EXTRACT_DIR}/manifest.sha256"
+[[ "$(stat -c %a -- "${INSTALL_FOR_ALL_CANN}/asc/include/adv_api/hcomm")" == "755" ]]
+[[ "$(stat -c %a -- "${INSTALL_FOR_ALL_CANN}/asc/include/comm_api")" == "555" ]]
+run_package --uninstall --install-path="${INSTALL_FOR_ALL_CANN}"
+
+if [[ $(id -u) -ne 0 ]]; then
+    RESTRICTED_CANN="${TEST_ROOT}/restricted-cann"
+    mkdir -p \
+        "${RESTRICTED_CANN}/asc/include/adv_api" \
+        "${RESTRICTED_CANN}/asc/impl/adv_api/detail"
+    chmod 750 "${RESTRICTED_CANN}"
+    write_dependency_versions "${RESTRICTED_CANN}"
+    expect_failure run_package --full --install-for-all --install-path="${RESTRICTED_CANN}"
+    grep -q 'does not support --install-for-all' "${ERROR_LOG}"
+    [[ ! -e "${RESTRICTED_CANN}/var/asc-comm-dev-patch" ]]
+fi
 
 # Wrong links and non-link occupants are never overwritten, including with --force.
 INVALID_LINK_CANN="${TEST_ROOT}/invalid-link-cann"

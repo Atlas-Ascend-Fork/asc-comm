@@ -170,10 +170,10 @@ bash build.sh -t
 
 ```bash
 bash build.sh --pkg
-./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
+./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
 ```
 
-制包脚本会递归收集`include/aicore/hcomm/`、`src/aicore/hcomm/`、`include/aicore/ain/`和`src/aicore/ain/`中的头文件，目录映射及Hcomm软链与asc-devkit当前出包逻辑一致。安装时会备份目标CANN中的原文件和软链状态；对于安装前不存在的新增内容，卸载时会将其删除。详细的目录映射、参数和限制见[构建与测试](./docs/zh/guide/build_and_test.md)。
+制包脚本会递归收集`include/aicore/hcomm/`、`src/aicore/hcomm/`、`include/aicore/ain/`和`src/aicore/ain/`中的头文件。安装目录、命令参数、权限和卸载说明见[构建与测试](./docs/zh/guide/build_and_test.md)。
 
 如需直接使用CMake构建UT，可指定CANN三方依赖目录：
 

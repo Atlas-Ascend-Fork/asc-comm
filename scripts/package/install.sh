@@ -65,6 +65,7 @@ Options:
   --check                 Verify payload and dependency compatibility without modifying CANN
   --install-path=<PATH>   Ascend install root; defaults to /usr/local/Ascend for root
                           or \$HOME/Ascend for a non-root user
+  --install-for-all       Allow all users to read and traverse installed files
   --force                 Ignore installed-file consistency checks
   -h, --help              Display this help
 EOF
@@ -201,6 +202,9 @@ parse_args()
             --install-path=*)
                 INSTALL_PATH=${1#*=}
                 ;;
+            --install-for-all)
+                INSTALL_FOR_ALL=true
+                ;;
             --force)
                 FORCE=true
                 ;;
@@ -264,6 +268,23 @@ check_owner()
     owner_uid=$(stat -c %u -- "${CANN_ROOT}")
     [[ "${current_uid}" == "${owner_uid}" ]] || fail_with_code "0x0093" \
         "current user uid ${current_uid} does not own CANN path ${CANN_ROOT} (uid ${owner_uid})"
+}
+
+check_install_for_all()
+{
+    local mode
+    local other_mode
+
+    [[ "${INSTALL_FOR_ALL}" == true ]] || return 0
+    mode=$(stat -c %a -- "${CANN_ROOT}")
+    other_mode=${mode: -1}
+    case "${other_mode}" in
+        5|7)
+            ;;
+        *)
+            fail "CANN path ${CANN_ROOT} permission ${mode} does not support --install-for-all"
+            ;;
+    esac
 }
 
 acquire_install_lock()
@@ -1328,6 +1349,7 @@ main()
     validate_state_dir
 
     if [[ "${ACTION}" == "--full" ]]; then
+        check_install_for_all
         install_patch
     else
         uninstall_patch
