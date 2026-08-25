@@ -1,0 +1,304 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+#include "kernel_operator.h"
+#include "simt_api/asc_simt.h"
+
+#include "hcomm/hcomm_simt.h"
+#include "simt_batch_common.h"
+
+namespace {
+using namespace simt_batch;
+
+// This is a Kernel-only sizing detail. Keep the shared example header independent of
+// device-side Hcomm headers because main.cpp includes it as ordinary Host C++.
+constexpr uint32_t kBatchBufferBytes = AscendC::simt::HcommSimtBatchBufferBytes(kOperationsPerBatch);
+
+__simt_callee__ inline void StoreDiagU64(__gm__ int32_t* status, uint32_t lowIndex, uint64_t value)
+{
+    status[lowIndex] = static_cast<int32_t>(value & 0xFFFFFFFFULL);
+    status[lowIndex + 1U] = static_cast<int32_t>(value >> 32U);
+}
+
+__simt_callee__ inline void RecordFirstAppendBefore(
+    const AscendC::simt::UbcCtpBatchHandle& batch, const __gm__ void* target, uint64_t len,
+    __gm__ int32_t* status)
+{
+    const uint64_t targetAddr = reinterpret_cast<uint64_t>(target);
+    const bool targetBelowBase = targetAddr < batch.remoteBaseAddr;
+    const uint64_t offset = targetBelowBase ? 0U : targetAddr - batch.remoteBaseAddr;
+    uint32_t guardMask = 0U;
+    guardMask |= batch.valid ? 0U : kDiagInvalidHandle;
+    guardMask |= batch.prepared >= batch.capacity ? kDiagCapacityExhausted : 0U;
+    guardMask |= len > 0xFFFFFFFFULL ? kDiagTargetLenTooLarge : 0U;
+    guardMask |= target == nullptr ? kDiagNullTarget : 0U;
+    guardMask |= targetBelowBase ? kDiagTargetBelowBase : 0U;
+    guardMask |= !targetBelowBase && offset > batch.remoteSize ? kDiagOffsetPastEnd : 0U;
+    guardMask |= !targetBelowBase && offset <= batch.remoteSize && len > batch.remoteSize - offset ?
+        kDiagLenPastEnd : 0U;
+
+    status[kDiagGuardMask] = static_cast<int32_t>(guardMask);
+    status[kDiagPreparedBefore] = static_cast<int32_t>(batch.prepared);
+    status[kDiagCapacity] = static_cast<int32_t>(batch.capacity);
+    StoreDiagU64(status, kDiagTargetAddrLow, targetAddr);
+    StoreDiagU64(status, kDiagTargetLenLow, len);
+    StoreDiagU64(status, kDiagRemoteBaseLow, batch.remoteBaseAddr);
+    StoreDiagU64(status, kDiagRemoteSizeLow, batch.remoteSize);
+    StoreDiagU64(status, kDiagOffsetLow, offset);
+}
+
+__simt_callee__ inline void RecordFirstAppendAfter(
+    const AscendC::simt::UbcCtpBatchHandle& batch, int32_t ret, __gm__ int32_t* status)
+{
+    status[kDiagAppendRet] = ret;
+    status[kDiagPreparedAfter] = static_cast<int32_t>(batch.prepared);
+}
+
+#if defined(HCOMM_SIMT_BATCH_DEBUG)
+__simt_callee__ inline void RecordCommitDebug(
+    const AscendC::simt::UbcCtpBatchHandle& batch, uint32_t commitIndex, __gm__ int32_t* status)
+{
+    const uint32_t base = kCommitDiagBase + commitIndex * kCommitDiagWordCount;
+    StoreDiagU64(status, base + kCommitDiagHeadSnapshot, batch.debug.commitHeadSnapshot);
+    StoreDiagU64(status, base + kCommitDiagHeadBefore, batch.debug.commitHeadBefore);
+    StoreDiagU64(status, base + kCommitDiagHeadVal, batch.debug.commitHeadVal);
+    StoreDiagU64(status, base + kCommitDiagHeadAfter, batch.debug.commitHeadAfter);
+    status[base + kCommitDiagPrepared] = static_cast<int32_t>(batch.debug.commitPrepared);
+    status[base + kCommitDiagPreparedCqe] = static_cast<int32_t>(batch.debug.commitPreparedCqe);
+    status[base + kCommitDiagSqTailBefore] = static_cast<int32_t>(batch.debug.commitSqTailBefore);
+    status[base + kCommitDiagChunkItems] = static_cast<int32_t>(batch.debug.commitChunkItems);
+    status[base + kCommitDiagTailItemHead] = static_cast<int32_t>(batch.debug.tailItemHead);
+    StoreDiagU64(status, base + kCommitDiagTailUbWord0, batch.debug.tailUbWord0);
+    StoreDiagU64(status, base + kCommitDiagTailSqWord0, batch.debug.tailSqWord0);
+    status[base + kCommitDiagRingReached] = static_cast<int32_t>(batch.debug.ringReached);
+    status[base + kCommitDiagPublishCount] = static_cast<int32_t>(batch.debug.commitPublishCount);
+    status[base + kCommitDiagTailSqMismatchMask] = static_cast<int32_t>(batch.debug.tailSqMismatchMask);
+}
+
+__simt_callee__ inline void RecordDrainDebug(
+    const AscendC::simt::UbcCtpBatchHandle& batch, __gm__ int32_t* status)
+{
+    status[kDrainDiagExpectedCqTail] = static_cast<int32_t>(batch.debug.pollExpectedCqTail);
+    status[kDrainDiagInitialCqTail] = static_cast<int32_t>(batch.debug.pollInitialCqTail);
+    status[kDrainDiagFinalCqTail] = static_cast<int32_t>(batch.debug.pollFinalCqTail);
+    status[kDrainDiagInitialSqTail] = static_cast<int32_t>(batch.debug.pollInitialSqTail);
+    status[kDrainDiagFinalSqTail] = static_cast<int32_t>(batch.debug.pollFinalSqTail);
+    status[kDrainDiagPollRet] = static_cast<int32_t>(batch.debug.pollRet);
+    status[kDrainDiagFailedCqIndex] = static_cast<int32_t>(batch.debug.pollFailedCqIndex);
+    status[kDrainDiagRetryCount] = static_cast<int32_t>(batch.debug.pollRetryCount);
+    status[kDrainDiagCqeWord0] = static_cast<int32_t>(batch.debug.pollCqeWord0);
+    status[kDrainDiagCqeWord1] = static_cast<int32_t>(batch.debug.pollCqeWord1);
+}
+#endif
+
+template <uint32_t api>
+__simt_callee__ inline int32_t AppendOperation(
+    AscendC::simt::Hcomm<>& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* local,
+    __gm__ uint8_t* remote, uint32_t operation)
+{
+    if constexpr (api == kApiWrite) {
+        const size_t offset = kWriteOffset + static_cast<size_t>(operation) * kPayloadBytes;
+        return hcomm.WriteNbi(batch, remote + offset, local + offset, kPayloadBytes);
+    } else if constexpr (api == kApiRead) {
+        const size_t offset = kReadOffset + static_cast<size_t>(operation) * kPayloadBytes;
+        return hcomm.ReadNbi(batch, local + offset, remote + offset, kPayloadBytes);
+    } else if constexpr (api == kApiNotify) {
+        const size_t dataOffset = kNotifyDataOffset + static_cast<size_t>(operation) * kPayloadBytes;
+        const size_t signalOffset = kNotifySignalOffset + static_cast<size_t>(operation) * sizeof(uint64_t);
+        return hcomm.WriteWithNotifyNbi(
+            batch, remote + dataOffset, local + dataOffset, kPayloadBytes, remote + signalOffset,
+            kNotifyValueBase + operation);
+    } else if constexpr (api == kApiWriteValue) {
+        return hcomm.WriteValueNbi<uint64_t>(
+            batch, remote + kWriteValueOffset + static_cast<size_t>(operation) * sizeof(uint64_t),
+            kWriteValueBase + operation);
+    } else if constexpr (api == kApiFaa) {
+        const uint32_t target = operation % kTargetCount;
+        return hcomm.AtomicFAA<uint64_t>(
+            batch, remote + kFaaTargetOffset + static_cast<size_t>(target) * sizeof(uint64_t),
+            local + kFaaFetchOffset + static_cast<size_t>(operation) * sizeof(uint64_t), kFaaAdd);
+    } else {
+        const uint32_t target = operation % kTargetCount;
+        return hcomm.AtomicCAS<uint64_t>(
+            batch, remote + kCasTargetOffset + static_cast<size_t>(target) * sizeof(uint64_t),
+            local + kCasFetchOffset + static_cast<size_t>(operation) * sizeof(uint64_t), kCasInitial, kCasSwap);
+    }
+}
+
+template <uint32_t api>
+__simt_callee__ inline int32_t RunHomogeneousCase(
+    AscendC::simt::Hcomm<>& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* local,
+    __gm__ uint8_t* remote, __gm__ int32_t* status, uint32_t operationsPerBatch = kOperationsPerBatch,
+    uint32_t batchCount = kBatchCount)
+{
+    const uint32_t base = kStatusCaseBase + api * kStatusFieldsPerCase;
+    status[base + kStatusAppend] = 0;
+    status[base + kStatusCommitCount] = 0;
+    for (uint32_t batchIndex = 0U; batchIndex < batchCount; ++batchIndex) {
+        const uint32_t begin = batchIndex * operationsPerBatch;
+        for (uint32_t item = 0U; item < operationsPerBatch; ++item) {
+            if constexpr (api == kApiWrite) {
+                if (batchIndex == 0U && item == 0U) {
+                    RecordFirstAppendBefore(batch, remote + kWriteOffset, kPayloadBytes, status);
+                }
+            }
+            const int32_t ret = AppendOperation<api>(hcomm, batch, local, remote, begin + item);
+            if constexpr (api == kApiWrite) {
+                if (batchIndex == 0U && item == 0U) {
+                    RecordFirstAppendAfter(batch, ret, status);
+                }
+            }
+            if (ret != 0) {
+                status[base + kStatusAppend] = ret;
+                return ret;
+            }
+        }
+        const int32_t ret = hcomm.BatchCommit(batch);
+        status[base + kStatusCommit] = ret;
+        if constexpr (api == kApiWrite) {
+#if defined(HCOMM_SIMT_BATCH_DEBUG)
+            RecordCommitDebug(batch, batchIndex, status);
+#endif
+        }
+        if (ret != 0) {
+            return ret;
+        }
+        ++status[base + kStatusCommitCount];
+    }
+    const int32_t ret = hcomm.Drain(batch);
+    status[base + kStatusDrain] = ret;
+    if constexpr (api == kApiWrite) {
+#if defined(HCOMM_SIMT_BATCH_DEBUG)
+        RecordDrainDebug(batch, status);
+#endif
+    }
+    return ret;
+}
+
+__simt_callee__ inline int32_t RunMixedCase(
+    AscendC::simt::Hcomm<>& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* local,
+    __gm__ uint8_t* remote, __gm__ int32_t* status)
+{
+    const uint32_t base = kStatusCaseBase + kCaseMixed * kStatusFieldsPerCase;
+    status[base + kStatusAppend] = 0;
+    status[base + kStatusCommitCount] = 0;
+    int32_t ret = hcomm.WriteNbi(batch, remote + kMixedWriteOffset, local + kMixedWriteOffset, sizeof(uint64_t));
+    ret = ret == 0 ? hcomm.ReadNbi(batch, local + kMixedReadOffset, remote + kMixedReadOffset, sizeof(uint64_t)) : ret;
+    ret = ret == 0 ? hcomm.WriteWithNotifyNbi(
+        batch, remote + kMixedNotifyDataOffset, local + kMixedNotifyDataOffset, sizeof(uint64_t),
+        remote + kMixedNotifySignalOffset, kMixedNotifyValue) : ret;
+    ret = ret == 0 ? hcomm.WriteValueNbi<uint64_t>(batch, remote + kMixedWriteValueOffset, kMixedInlineValue) : ret;
+    ret = ret == 0 ? hcomm.AtomicFAA<uint64_t>(
+        batch, remote + kMixedFaaTargetOffset, local + kMixedFaaFetchOffset, kMixedFaaAdd) : ret;
+    ret = ret == 0 ? hcomm.AtomicCAS<uint64_t>(
+        batch, remote + kMixedCasTargetOffset, local + kMixedCasFetchOffset, kMixedCasInitial,
+        kMixedCasSwap) : ret;
+    status[base + kStatusAppend] = ret;
+    if (ret != 0) {
+        return ret;
+    }
+    ret = hcomm.BatchCommit(batch);
+    status[base + kStatusCommit] = ret;
+    if (ret != 0) {
+        return ret;
+    }
+    status[base + kStatusCommitCount] = 1;
+    ret = hcomm.Drain(batch);
+    status[base + kStatusDrain] = ret;
+    return ret;
+}
+
+__simt_callee__ inline int32_t RunSingleCase(
+    AscendC::simt::Hcomm<>& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* remote,
+    __gm__ int32_t* status)
+{
+    const uint32_t base = kStatusCaseBase + kCaseSingle * kStatusFieldsPerCase;
+    status[base + kStatusCommitCount] = 0;
+    int32_t ret = hcomm.WriteValueNbi<uint64_t>(batch, remote + kSingleWriteValueOffset, kSingleWriteValue);
+    status[base + kStatusAppend] = ret;
+    if (ret != 0) {
+        return ret;
+    }
+    ret = hcomm.BatchCommit(batch);
+    status[base + kStatusCommit] = ret;
+    if (ret != 0) {
+        return ret;
+    }
+    status[base + kStatusCommitCount] = 1;
+    ret = hcomm.Drain(batch);
+    status[base + kStatusDrain] = ret;
+    return ret;
+}
+
+__simt_vf__ __launch_bounds__(32) inline void SimtBatchVf(
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* batchBuffer,
+    __gm__ int32_t* status, uint32_t operationsPerBatch, uint32_t batchCount, bool writeOnly)
+{
+    if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
+        return;
+    }
+    for (uint32_t index = 0U; index < kStatusCount; ++index) {
+        status[index] = kStatusNotRun;
+    }
+    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
+    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    AscendC::simt::Hcomm<> hcomm;
+    status[kStatusInit] = hcomm.Init(nullptr, 0);
+    if (status[kStatusInit] != 0) {
+        return;
+    }
+
+    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote);
+    // RemoteBufferAddr returns the selected registration's exact base in this example. Checking
+    // the cached base makes adjacent registrations an explicit regression for handle selection.
+    status[kStatusHandle] =
+        batch.valid && batch.remoteBaseAddr == reinterpret_cast<uint64_t>(remote) ? 0 : -1;
+    status[kStatusHandleCapacity] = static_cast<int32_t>(batch.capacity);
+    status[kStatusSqDepth] = static_cast<int32_t>(batch.sqDepth);
+    if (!batch.valid || operationsPerBatch == 0U || operationsPerBatch > kOperationsPerBatch ||
+        batchCount == 0U || batchCount > kBatchCount) {
+        return;
+    }
+    if (RunHomogeneousCase<kApiWrite>(
+            hcomm, batch, local, remote, status, operationsPerBatch, batchCount) != 0 || writeOnly) {
+        return;
+    }
+    if (
+        RunHomogeneousCase<kApiRead>(hcomm, batch, local, remote, status) != 0 ||
+        RunHomogeneousCase<kApiNotify>(hcomm, batch, local, remote, status) != 0 ||
+        RunHomogeneousCase<kApiWriteValue>(hcomm, batch, local, remote, status) != 0 ||
+        RunHomogeneousCase<kApiFaa>(hcomm, batch, local, remote, status) != 0 ||
+        RunHomogeneousCase<kApiCas>(hcomm, batch, local, remote, status) != 0 ||
+        RunMixedCase(hcomm, batch, local, remote, status) != 0) {
+        return;
+    }
+    (void)RunSingleCase(hcomm, batch, remote, status);
+}
+
+} // namespace
+
+extern "C" __global__ __vector__ void SimtBatch(
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ int32_t* status,
+    uint32_t operationsPerBatch, uint32_t batchCount, bool writeOnly)
+{
+    alignas(128) __ubuf__ uint64_t batchBuffer[kBatchBufferBytes / sizeof(uint64_t)];
+    asc_vf_call<SimtBatchVf>(
+        dim3(1), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), status,
+        operationsPerBatch, batchCount, writeOnly);
+}
+
+void LaunchSimtBatch(
+    void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* status,
+    uint32_t operationsPerBatch, uint32_t batchCount, bool writeOnly)
+{
+    SimtBatch<<<1, nullptr, stream>>>(
+        channel, sendBufIdx, recvBufIdx, reinterpret_cast<int32_t*>(status), operationsPerBatch, batchCount,
+        writeOnly);
+}

@@ -33,7 +33,14 @@ constexpr uint32_t HCOMM_URMA_DWQE_SIZE = 128U;
 constexpr uint32_t HCOMM_URMA_WQE_BB_SIZE = 64U;
 constexpr uint32_t HCOMM_URMA_WQE_BB_CNT = 1U;
 constexpr uint32_t HCOMM_URMA_DWQE_BB_CNT = HCOMM_URMA_DWQE_SIZE / HCOMM_URMA_WQE_BB_SIZE;
+static_assert(
+    HCOMM_URMA_DWQE_SIZE == HCOMM_SIMT_BATCH_ITEM_BYTES,
+    "The public SIMT batch workspace contract must match the staged DWQE size");
+#if defined(HCOMM_SIMT_BATCH_DEBUG)
+constexpr uint32_t HCOMM_SIMT_MAX_CQ_RETRY = 10000U;
+#else
 constexpr uint32_t HCOMM_SIMT_MAX_CQ_RETRY = 1000000U;
+#endif
 
 // The SQE fields one post needs, read from the channel and SQ contexts by ResolvePost.
 struct HcommSimtPostMeta {
@@ -71,23 +78,46 @@ public:
     __simt_callee__ inline HcommImpl();
     __simt_callee__ inline ~HcommImpl();
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
+    __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t WriteNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
     __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value);
+    template <typename T, auto const& config = URMA_INLINE_CFG>
+    __simt_callee__ inline int32_t WriteValueNbi(UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t ReadNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t ReadNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteWithNotifyNbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
         uint64_t notifyVal);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t WriteWithNotifyNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len,
+        __gm__ void* notifyAddr, uint64_t notifyVal);
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicFAA(ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
+    template <typename T, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t AtomicFAA(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicCAS(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
+    template <typename T, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t AtomicCAS(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
+    __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
+    template <auto pipe = 0>
+    __simt_callee__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
 
 private:
     bool initialized_ = false;
@@ -110,7 +140,12 @@ private:
     // in hcomm_simt_urma.h.
     template <typename Desc>
     __simt_callee__ inline int32_t PostWqe(ChannelHandle channel, const Desc& desc);
-    __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
+    template <typename Desc>
+    __simt_callee__ inline int32_t BatchPostWqe(UbcCtpBatchHandle& batchHandle, const Desc& desc);
+    __simt_callee__ inline bool BatchContainsRemote(
+        const UbcCtpBatchHandle& batchHandle, const __gm__ void* addr, uint64_t len) const;
+    __simt_callee__ inline uint32_t PollCq(
+        ChannelHandle channel, uint32_t expectIdx, HcommSimtBatchDebug* debug = nullptr);
 };
 
 } // namespace AscendC::simt

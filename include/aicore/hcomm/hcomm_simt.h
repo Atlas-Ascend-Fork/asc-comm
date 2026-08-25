@@ -89,6 +89,24 @@ public:
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
     /*!
+     * @brief Create a lane-private explicit batch bound to one remote registration.
+     * @param [in] channel: Channel exclusively used by this batch handle.
+     * @param [in] buff: Caller-owned UB storage; the basic implementation uses 128 bytes per item.
+     * @param [in] buffLen: Size of buff in bytes.
+     * @param [in] remoteBase: An address in the remote registration used by the batch.
+     * @note The logical UB capacity may exceed the channel's physical SQ capacity; BatchCommit
+     *       handles that difference internally.
+     * @note Use HcommSimtBatchBufferBytes(itemCapacity) to size buff for the requested number of
+     *       items. The current correctness-first format stores 128 bytes per item.
+     * @note Every remote data and notify range appended through the returned handle must stay in
+     *       the registration selected by remoteBase. The implementation checks the cached range
+     *       and returns -1 before preparing a WQE when this contract is violated.
+     * @note Do not post through another handle on channel while this batch contains prepared items.
+     */
+    __simt_callee__ inline BatchHandle<ChannelHandle> MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase);
+
+    /*!
      * @brief The task launching interface of the Write point-to-point communication operator.
      *        (task content: Write data of length len from src to dst through the specified channel.)
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
@@ -102,6 +120,10 @@ public:
      */
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t WriteNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     /*!
      * @brief The task launching interface of the inline Write point-to-point communication operator.
@@ -120,6 +142,9 @@ public:
     template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
     __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value);
 
+    template <typename T, auto const& config = URMA_INLINE_CFG>
+    __simt_callee__ inline int32_t WriteValueNbi(UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value);
+
     /*!
      * @brief The task launching interface of the Read point-to-point communication operator.
      *        (task content: Read data of length len from src to dst through the specified channel.)
@@ -134,6 +159,10 @@ public:
      */
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t ReadNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t ReadNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     /*!
      * @brief The task launching interface of the Write-with-notify point-to-point communication operator.
@@ -152,6 +181,11 @@ public:
         ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
         uint64_t notifyVal);
 
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t WriteWithNotifyNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len,
+        __gm__ void* notifyAddr, uint64_t notifyVal);
+
     /*!
      * @brief The task launching interface of the Fetch-and-add point-to-point communication operator.
      * @tparam T: The data type of the atomic operation.
@@ -165,6 +199,10 @@ public:
      */
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicFAA(ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
+
+    template <typename T, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t AtomicFAA(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
 
     /*!
      * @brief The task launching interface of the Compare-and-swap point-to-point communication operator.
@@ -182,6 +220,18 @@ public:
     __simt_callee__ inline int32_t AtomicCAS(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
 
+    template <typename T, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t AtomicCAS(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
+
+    /*!
+     * @brief Submit all WQEs prepared in batchHandle.
+     * @note The final item must request a CQE. A logical batch larger than the physical SQ is
+     *       transparently split into ordered internal publications. A failure before publication
+     *       leaves the batch intact; a failure after a partial publication invalidates the handle.
+     */
+    __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
+
     /*!
      * @brief Block and drain comm tasks submitted on channel until finish processing.
      * @tparam pipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
@@ -191,6 +241,9 @@ public:
      */
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
+
+    template <auto pipe = 0>
+    __simt_callee__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
 
 private:
     Group group_;
