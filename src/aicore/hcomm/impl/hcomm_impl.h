@@ -22,8 +22,6 @@
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_IMPL_H
 
-#include <type_traits>
-
 #if __NPU_ARCH__ == 2201
 #include "platform_v220/hcomm_aiv.h"
 #elif __NPU_ARCH__ == 3510
@@ -55,7 +53,7 @@ __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
     auto batchHandle = impl_.MakeBatchHandle(channel, buff, buffLen, remoteAddr, localAddr);
     using ExpectedType = BatchHandle<T>;
     static_assert(
-        std::is_same<decltype(batchHandle), ExpectedType>::value, "Channel type and BatchHandle type do not match");
+        IsSameType<decltype(batchHandle), ExpectedType>::value, "Channel type and BatchHandle type do not match");
     return batchHandle;
 }
 
