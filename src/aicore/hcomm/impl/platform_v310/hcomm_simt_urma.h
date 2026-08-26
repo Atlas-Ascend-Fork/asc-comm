@@ -54,9 +54,12 @@ __simt_callee__ inline void HcommSimtCopyStageToSq(__gm__ uint8_t* dst, const Hc
 {
     static_assert(byteSize % sizeof(uint64_t) == 0U, "WQE copy must use whole words");
     static_assert(byteSize <= HCOMM_URMA_DWQE_SIZE, "WQE copy must stay inside the DWQE window");
+
+    __gm__ ulonglong2* dstWords = reinterpret_cast<__gm__ ulonglong2*>(dst);
 #pragma unroll
-    for (uint32_t i = 0; i < byteSize / sizeof(uint64_t); ++i) {
-        reinterpret_cast<__gm__ uint64_t*>(dst)[i] = stage.words[i];
+    for (uint32_t i = 0; i < byteSize / sizeof(ulonglong2); ++i) {
+        uint32_t wordIdx = i * 2U;
+        asc_stwt(&dstWords[i], make_ulonglong2(stage.words[wordIdx], stage.words[wordIdx + 1U]));
     }
 }
 
