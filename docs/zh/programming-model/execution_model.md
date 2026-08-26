@@ -144,7 +144,7 @@ uint32_t* remoteBuf;   // 远端数据地址
 // 从对端remoteBuf读取4字节数据到localBuf。
 Read(channel, localBuf, remoteBuf, sizeof(uint32_t));
 // 轮询CQ，阻塞至本端读取完成。
-PollCQ(channel);
+Drain(channel);
 // 此处本端已完成读取，localBuf中的数据可用。
 if (*localBuf == expectValue) {
     Process();
@@ -159,7 +159,7 @@ if (*localBuf == expectValue) {
 
 建立点对点的跨Rank同步时，由对端在完成数据写入后发送同步信号，本端通过轮询该信号判断远端数据是否已就绪。
 
-以远端写操作为例，Rank 0向Rank 1写入数据，Rank 1必须通过点对点同步确认数据已写入完毕，再访问写入结果；否则可能读到半更新的数据，导致后续逻辑出错。
+以远端写操作为例，Rank 0向Rank 1写入数据，Rank 1必须通过点对点同步确认数据已写入完毕，再访问写入结果；否则会产生未定义行为，读取结果不可预测，可能读到旧数据或部分更新的数据，引发后续逻辑出错。
 
 ```text
 // 点对点同步：Rank 0向Rank 1写入数据，Rank 1等待同步信号后处理数据。
