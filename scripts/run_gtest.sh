@@ -30,6 +30,7 @@ tee_status=${pipeline_status[1]}
 if [[ ${test_status} -ne 0 ]]; then
     exit "${test_status}"
 fi
+
 if [[ ${tee_status} -ne 0 ]]; then
     echo "Failed to save test output (tee status: ${tee_status})" >&2
     exit "${tee_status}"
