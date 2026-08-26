@@ -256,7 +256,7 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchVf(
         }
         group.sync();
 
-        AscendC::simt::Hcomm hcomm(group);
+        AscendC::simt::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP, decltype(group)> hcomm(group);
         const int32_t initRet = hcomm.Init(
             reinterpret_cast<__ubuf__ uint8_t*>(groupState), kGroupStateWords * sizeof(uint32_t));
         auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote);
