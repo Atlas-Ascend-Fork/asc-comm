@@ -100,9 +100,9 @@ __simt_callee__ inline void RecordDrainDebug(
 }
 #endif
 
-template <uint32_t api>
+template <uint32_t api, typename HcommT>
 __simt_callee__ inline int32_t AppendOperation(
-    AscendC::simt::Hcomm<>& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* local,
+    HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* local,
     __gm__ uint8_t* remote, uint32_t operation)
 {
     if constexpr (api == kApiWrite) {
@@ -118,20 +118,52 @@ __simt_callee__ inline int32_t AppendOperation(
             batch, remote + dataOffset, local + dataOffset, kPayloadBytes, remote + signalOffset,
             kNotifyValueBase + operation);
     } else if constexpr (api == kApiWriteValue) {
-        return hcomm.WriteValueNbi<uint64_t>(
+        return hcomm.template WriteValueNbi<uint64_t>(
             batch, remote + kWriteValueOffset + static_cast<size_t>(operation) * sizeof(uint64_t),
             kWriteValueBase + operation);
     } else if constexpr (api == kApiFaa) {
         const uint32_t target = operation % kTargetCount;
-        return hcomm.AtomicFAA<uint64_t>(
+        return hcomm.template AtomicFAA<uint64_t>(
             batch, remote + kFaaTargetOffset + static_cast<size_t>(target) * sizeof(uint64_t),
             local + kFaaFetchOffset + static_cast<size_t>(operation) * sizeof(uint64_t), kFaaAdd);
     } else {
         const uint32_t target = operation % kTargetCount;
-        return hcomm.AtomicCAS<uint64_t>(
+        return hcomm.template AtomicCAS<uint64_t>(
             batch, remote + kCasTargetOffset + static_cast<size_t>(target) * sizeof(uint64_t),
             local + kCasFetchOffset + static_cast<size_t>(operation) * sizeof(uint64_t), kCasInitial, kCasSwap);
     }
+}
+
+template <uint32_t api, typename HcommT, typename Group>
+__simt_callee__ inline int32_t RunGroupCase(
+    HcommT& hcomm, const Group& group, AscendC::simt::UbcCtpBatchHandle& batch,
+    __gm__ uint8_t* local, __gm__ uint8_t* remote, __gm__ int32_t* status,
+    uint32_t operationsPerBatch, uint32_t batchCount)
+{
+    const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
+    const uint32_t base = kStatusCaseBase + api * kStatusFieldsPerCase;
+    if (rank == 0U) {
+        status[base + kStatusAppend] = 0;
+        status[base + kStatusCommitCount] = 0;
+    }
+    for (uint32_t batchIndex = 0U; batchIndex < batchCount; ++batchIndex) {
+        const uint32_t operation = batchIndex * operationsPerBatch + rank;
+        const int32_t appendRet = AppendOperation<api>(hcomm, batch, local, remote, operation);
+        const int32_t commitRet = hcomm.BatchCommit(batch);
+        if (rank == 0U) {
+            status[base + kStatusAppend] = appendRet;
+            status[base + kStatusCommit] = commitRet;
+            status[base + kStatusCommitCount] += commitRet == 0 ? 1 : 0;
+        }
+        if (commitRet != 0) {
+            return commitRet;
+        }
+    }
+    if (rank == 0U) {
+        status[base + kStatusDrain] = hcomm.Drain(batch);
+    }
+    group.sync();
+    return status[base + kStatusDrain];
 }
 
 template <uint32_t api>
@@ -242,11 +274,11 @@ __simt_callee__ inline int32_t RunSingleCase(
 __simt_vf__ __launch_bounds__(32) inline void SimtBatchVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* batchBuffer,
     __ubuf__ uint32_t* groupState, __gm__ int32_t* status, uint32_t operationsPerBatch,
-    uint32_t batchCount, bool writeOnly)
+    uint32_t batchCount, bool groupMode)
 {
     __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
-    if (writeOnly) {
+    if (groupMode) {
         auto group = cooperative_groups::this_thread_block();
         const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
         if (rank == 0U) {
@@ -260,31 +292,19 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchVf(
         const int32_t initRet = hcomm.Init(
             reinterpret_cast<__ubuf__ uint8_t*>(groupState), kGroupStateWords * sizeof(uint32_t));
         auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote);
-        const uint32_t base = kStatusCaseBase + kApiWrite * kStatusFieldsPerCase;
         if (rank == 0U) {
             status[kStatusInit] = initRet;
             status[kStatusHandle] = batch.valid ? 0 : -1;
             status[kStatusHandleCapacity] = static_cast<int32_t>(batch.capacity);
             status[kStatusSqDepth] = static_cast<int32_t>(batch.sqDepth);
-            status[base + kStatusAppend] = 0;
-            status[base + kStatusCommitCount] = 0;
         }
-        for (uint32_t batchIndex = 0U; batchIndex < batchCount; ++batchIndex) {
-            const uint32_t operation = batchIndex * operationsPerBatch + rank;
-            const size_t offset = kWriteOffset + static_cast<size_t>(operation) * kPayloadBytes;
-            const int32_t appendRet = hcomm.WriteNbi(batch, remote + offset, local + offset, kPayloadBytes);
-            const int32_t commitRet = hcomm.BatchCommit(batch);
-            if (rank == 0U) {
-                status[base + kStatusAppend] = appendRet;
-                status[base + kStatusCommit] = commitRet;
-                status[base + kStatusCommitCount] += commitRet == 0 ? 1 : 0;
-            }
-            if (commitRet != 0) {
-                return;
-            }
-        }
-        if (rank == 0U) {
-            status[base + kStatusDrain] = hcomm.Drain(batch);
+        if (RunGroupCase<kApiWrite>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
+            RunGroupCase<kApiRead>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
+            RunGroupCase<kApiNotify>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
+            RunGroupCase<kApiWriteValue>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
+            RunGroupCase<kApiFaa>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
+            RunGroupCase<kApiCas>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0) {
+            return;
         }
         return;
     }
@@ -313,7 +333,7 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchVf(
         return;
     }
     if (RunHomogeneousCase<kApiWrite>(
-            hcomm, batch, local, remote, status, operationsPerBatch, batchCount) != 0 || writeOnly) {
+            hcomm, batch, local, remote, status, operationsPerBatch, batchCount) != 0 || groupMode) {
         return;
     }
     if (
@@ -332,21 +352,21 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchVf(
 
 extern "C" __global__ __vector__ void SimtBatch(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ int32_t* status,
-    uint32_t operationsPerBatch, uint32_t batchCount, bool writeOnly)
+    uint32_t operationsPerBatch, uint32_t batchCount, bool groupMode)
 {
     alignas(128) __ubuf__ uint64_t batchBuffer[kBatchBufferBytes / sizeof(uint64_t)];
     alignas(16) __ubuf__ uint32_t groupState[kGroupStateWords];
     asc_vf_call<SimtBatchVf>(
-        dim3(writeOnly ? operationsPerBatch : 1U), channel, sendBufIdx, recvBufIdx,
+        dim3(groupMode ? operationsPerBatch : 1U), channel, sendBufIdx, recvBufIdx,
         reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState, status, operationsPerBatch, batchCount,
-        writeOnly);
+        groupMode);
 }
 
 void LaunchSimtBatch(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* status,
-    uint32_t operationsPerBatch, uint32_t batchCount, bool writeOnly)
+    uint32_t operationsPerBatch, uint32_t batchCount, bool groupMode)
 {
     SimtBatch<<<1, nullptr, stream>>>(
         channel, sendBufIdx, recvBufIdx, reinterpret_cast<int32_t*>(status), operationsPerBatch, batchCount,
-        writeOnly);
+        groupMode);
 }
