@@ -323,11 +323,8 @@ __simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::~HcommImpl() {}
 
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ uint8_t* buff, uint32_t len)
 {
-    // Nothing to set up: the WQE is staged on the stack for the duration of a post and every
-    // post resolves its channel from global memory, so there is no state to hand out, publish,
-    // or synchronize here. The buff and len parameters are kept for API compatibility but ignored.
-    (void)buff;
-    (void)len;
+    groupState_ = reinterpret_cast<__ubuf__ uint32_t*>(buff);
+    groupStateWords_ = len / sizeof(uint32_t);
     initialized_ = true;
     return HCOMM_SUCCESS;
 }
@@ -377,8 +374,16 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolvePost(
 __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase)
 {
+    return MakeBatchHandle(channel, buff, buffLen, remoteBase, 0U, 1U);
+}
+
+__simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
+    uint32_t groupRank, uint32_t groupSize)
+{
     UbcCtpBatchHandle batchHandle;
     if (!initialized_ || channel == 0U || buff == nullptr || remoteBase == nullptr ||
+        groupSize == 0U || groupRank >= groupSize ||
         (reinterpret_cast<uint64_t>(buff) % sizeof(ulonglong2)) != 0U) {
         return batchHandle;
     }
@@ -391,7 +396,7 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
     if (ResolvePost(channel, remoteAddr, 1U, post) != HCOMM_SUCCESS) {
         return batchHandle;
     }
-    uint32_t capacity = buffLen / HCOMM_URMA_DWQE_SIZE;
+    uint32_t capacity = (buffLen / HCOMM_URMA_DWQE_SIZE) / groupSize;
     // UB capacity describes how many operations the caller can prepare. It is independent of
     // SQ depth because the correctness-first BatchCommit reserves and publishes one item at a time.
     if (capacity == 0U || post.meta.sqDepth < HCOMM_URMA_DWQE_BB_CNT) {
@@ -408,7 +413,8 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
     __gm__ RegedBufferEntity* remoteMemInfo = &remoteBuffers[remoteIdx];
 
     batchHandle.channel = channel;
-    batchHandle.buffer = reinterpret_cast<__ubuf__ uint64_t*>(buff);
+    batchHandle.buffer = reinterpret_cast<__ubuf__ uint64_t*>(buff) +
+                         groupRank * capacity * HCOMM_SIMT_WQE_WORDS;
     batchHandle.capacity = capacity;
     batchHandle.remoteBaseAddr = remoteMemInfo->bufferInfo.rma.addr;
     batchHandle.remoteSize = remoteMemInfo->bufferInfo.rma.size;
@@ -1031,6 +1037,108 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     batchHandle.prepared = 0U;
     batchHandle.preparedCqe = 0U;
     batchHandle.lastCqe = 0U;
+    return HCOMM_SUCCESS;
+}
+
+template <typename Group>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
+    UbcCtpBatchHandle& batchHandle, const Group& group)
+{
+    const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
+    const uint32_t size = static_cast<uint32_t>(group.size());
+    constexpr uint32_t stateHeaderWords = 4U;
+    if (size <= 1U || groupState_ == nullptr || groupStateWords_ < stateHeaderWords + size) {
+        return HCOMM_FAILED;
+    }
+
+    const bool localReady = initialized_ && batchHandle.valid && batchHandle.prepared == 1U &&
+                            batchHandle.preparedCqe == 1U && batchHandle.lastCqe == 1U;
+    groupState_[stateHeaderWords + rank] = localReady ? HCOMM_SUCCESS : HCOMM_FAILED;
+    group.sync();
+
+    if (rank == 0U) {
+        int32_t status = HCOMM_SUCCESS;
+        for (uint32_t lane = 0U; lane < size; ++lane) {
+            if (static_cast<int32_t>(groupState_[stateHeaderWords + lane]) != HCOMM_SUCCESS) {
+                status = HCOMM_FAILED;
+            }
+        }
+        uint64_t headVal = 0U;
+        const uint32_t totalBb = size * HCOMM_URMA_DWQE_BB_CNT;
+        if (status == HCOMM_SUCCESS) {
+            __gm__ HcommSimtChannelEntity* channelEntity =
+                reinterpret_cast<__gm__ HcommSimtChannelEntity*>(batchHandle.channel);
+            __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
+            __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
+            __gm__ uint64_t* headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
+            __gm__ uint32_t* tailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx->contextInfo.ubJfs.tailAddr);
+            status = *headAddr == batchHandle.headSnapshot && HcommSimtTryReserve(
+                headAddr, tailAddr, sqCtx->contextInfo.ubJfs.sqDepth, totalBb, totalBb, size, headVal) ?
+                HCOMM_SUCCESS : HCOMM_FAILED;
+        }
+        groupState_[0] = static_cast<uint32_t>(status);
+        groupState_[2] = static_cast<uint32_t>(headVal);
+        groupState_[3] = static_cast<uint32_t>(headVal >> 32U);
+    }
+    group.sync();
+
+    if (static_cast<int32_t>(groupState_[0]) != HCOMM_SUCCESS) {
+        return HCOMM_FAILED;
+    }
+
+    __gm__ HcommSimtChannelEntity* channelEntity =
+        reinterpret_cast<__gm__ HcommSimtChannelEntity*>(batchHandle.channel);
+    __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
+    __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
+    __gm__ uint64_t* remoteEid = reinterpret_cast<__gm__ uint64_t*>(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
+    HcommSimtResolvedPost post;
+    post.headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
+    post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx->contextInfo.ubJfs.tailAddr);
+    post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+        sqCtx->contextInfo.ubJfs.dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
+    post.sqBaseAddr = sqCtx->contextInfo.ubJfs.sqVa;
+    post.sqWqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
+    post.meta.sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
+    post.meta.tpId = sqCtx->contextInfo.ubJfs.tpID;
+    post.meta.remoteEidL = remoteEid[0];
+    post.meta.remoteEidH = remoteEid[1];
+    post.meta.remoteTokenId = batchHandle.remoteTokenId;
+    post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
+
+    HcommSimtWqeStage stage;
+#pragma unroll
+    for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
+        stage.words[word] = batchHandle.buffer[word];
+    }
+    const uint64_t headVal = static_cast<uint64_t>(groupState_[2]) |
+                             (static_cast<uint64_t>(groupState_[3]) << 32U);
+    const uint32_t curHead = HcommSimtHeadIdx(headVal) + rank * HCOMM_URMA_DWQE_BB_CNT;
+    const uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
+    constexpr uint64_t nextHeadMask = 0xFFFFULL;
+    constexpr uint64_t ownerMask = 1ULL << 31U;
+    const uint64_t owner = (curHead & post.meta.sqDepth) == 0U ? 1U : 0U;
+    stage.words[0] = (stage.words[0] & ~(nextHeadMask | ownerMask)) |
+                     (static_cast<uint64_t>(nextHead) & nextHeadMask) | (owner << 31U);
+    const uint32_t inlineMsgLen = static_cast<uint32_t>((stage.words[0] >> 54U) & 0x3FFU);
+    if (inlineMsgLen != 0U) {
+        const uint64_t nopOwner = (nextHead & post.meta.sqDepth) == 0U ? 1U : 0U;
+        stage.words[HCOMM_SIMT_BB_WORDS] =
+            (stage.words[HCOMM_SIMT_BB_WORDS] & ~(nextHeadMask | ownerMask)) |
+            (static_cast<uint64_t>(nextHead + 1U) & nextHeadMask) | (nopOwner << 31U);
+    }
+    HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(post, curHead, stage);
+    asc_threadfence();
+    group.sync();
+    if (rank + 1U == size) {
+        HcommSimtRingDwqe(post.dwqeAddr, stage);
+    }
+    group.sync();
+
+    batchHandle.headSnapshot = *post.headAddr;
+    batchHandle.prepared = 0U;
+    batchHandle.preparedCqe = 0U;
+    batchHandle.lastCqe = 0U;
+    batchHandle.lastCommitPublishCount = 1U;
     return HCOMM_SUCCESS;
 }
 

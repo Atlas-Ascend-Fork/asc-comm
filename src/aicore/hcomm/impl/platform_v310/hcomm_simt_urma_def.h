@@ -80,6 +80,9 @@ public:
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
     __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase);
+    __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
+        uint32_t groupRank, uint32_t groupSize);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
@@ -114,6 +117,8 @@ public:
     __simt_callee__ inline int32_t AtomicCAS(
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
     __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
+    template <typename Group>
+    __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle, const Group& group);
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
     template <auto pipe = 0>
@@ -121,6 +126,8 @@ public:
 
 private:
     bool initialized_ = false;
+    __ubuf__ uint32_t* groupState_ = nullptr;
+    uint32_t groupStateWords_ = 0U;
 
     // Reads the channel entity and SQ context from global memory on every post. Nothing is
     // cached across calls: a channel may change from one post to the next, so a cache would

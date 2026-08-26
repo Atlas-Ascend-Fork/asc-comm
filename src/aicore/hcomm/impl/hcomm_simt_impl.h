@@ -28,6 +28,28 @@
 
 namespace AscendC::simt {
 
+template <typename Group>
+__simt_callee__ inline uint32_t HcommGroupRank(const Group& group)
+{
+    return static_cast<uint32_t>(group.thread_rank());
+}
+
+__simt_callee__ inline uint32_t HcommGroupRank(const detail::HcommUnboundGroup&)
+{
+    return 0U;
+}
+
+template <typename Group>
+__simt_callee__ inline uint32_t HcommGroupSize(const Group& group)
+{
+    return static_cast<uint32_t>(group.size());
+}
+
+__simt_callee__ inline uint32_t HcommGroupSize(const detail::HcommUnboundGroup&)
+{
+    return 1U;
+}
+
 template <CommProtocol commProtocol, typename Group>
 __simt_callee__ inline Hcomm<commProtocol, Group>::Hcomm()
 {}
@@ -51,7 +73,8 @@ __simt_callee__ inline BatchHandle<ChannelHandle> Hcomm<commProtocol, Group>::Ma
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase)
 {
     static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
-    return impl_.MakeBatchHandle(channel, buff, buffLen, remoteBase);
+    return impl_.MakeBatchHandle(
+        channel, buff, buffLen, remoteBase, HcommGroupRank(group_), HcommGroupSize(group_));
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -155,7 +178,10 @@ __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicCAS(
 template <CommProtocol commProtocol, typename Group>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::BatchCommit(UbcCtpBatchHandle& batchHandle)
 {
-    return impl_.BatchCommit(batchHandle);
+    if (HcommGroupSize(group_) == 1U) {
+        return impl_.BatchCommit(batchHandle);
+    }
+    return impl_.BatchCommit(batchHandle, group_);
 }
 
 template <CommProtocol commProtocol, typename Group>

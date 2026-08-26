@@ -49,12 +49,10 @@ struct HcommUnboundGroup {};
  * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
- * @note Every interface of this class is called by a single lane, and an Hcomm object is lane-private
- *       state that must not be shared between lanes. In particular, a channel must not carry deferred
- *       tasks from more than one lane: an uncommitted task sits in the send queue until some later
- *       committed task publishes a producer index covering it, and that index cannot distinguish
- *       which lane wrote which basic block. A lane committing its own task would publish another
- *       lane's WQE that may still be half-written. Post all tasks of one batch from one lane.
+ * @note An Hcomm object remains lane-private. Non-batch interfaces are called by one lane. A batch
+ *       bound to a cooperative group is prepared lane-locally and BatchCommit is called collectively;
+ *       the implementation reserves the whole SQ range before any lane writes it and publishes only
+ *       after every lane has finished its SQ write.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
  *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
  *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
@@ -70,26 +68,24 @@ public:
 
     /*!
      * @brief Construct Hcomm and bind it to a cooperative group.
-     * @param [in] group: The cooperative group used by future group-level communication APIs.
-     * @note Binding a group does not change the behavior of existing per-lane APIs.
+     * @param [in] group: The cooperative group used by collective batch submission.
+     * @note Binding a group does not change the behavior of non-batch per-lane APIs.
      */
     __simt_callee__ inline explicit Hcomm(const Group& group);
     __simt_callee__ inline ~Hcomm();
 
     /*!
      * @brief Initialize Hcomm.
-     * @param [in] buff: Workspace buffer (unused in current implementation).
-     * @param [in] len: Workspace buffer length (unused in current implementation).
+     * @param [in] buff: Shared UB workspace for a group batch, or nullptr for a single-lane object.
+     * @param [in] len: Workspace length. A group batch needs at least (4 + group.size()) uint32_t words.
      * @return 0 indicates success and -1 indicates failure.
-     * @note No workspace is required: a WQE is staged in lane-private storage for the duration of a
-     *       post, and every post resolves its channel from global memory. Every lane that posts must
-     *       call Init on its own object. The buff and len parameters are kept for API compatibility
-     *       but are ignored.
+     * @note Every posting lane calls Init on its own Hcomm object. All lanes in a bound group pass
+     *       the same workspace because BatchCommit uses it to exchange reservation status and head.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
     /*!
-     * @brief Create a lane-private explicit batch bound to one remote registration.
+     * @brief Create an explicit batch bound to one remote registration.
      * @param [in] channel: Channel exclusively used by this batch handle.
      * @param [in] buff: Caller-owned UB storage; the basic implementation uses 128 bytes per item.
      * @param [in] buffLen: Size of buff in bytes.
@@ -97,7 +93,8 @@ public:
      * @note The logical UB capacity may exceed the channel's physical SQ capacity; BatchCommit
      *       handles that difference internally.
      * @note Use HcommSimtBatchBufferBytes(itemCapacity) to size buff for the requested number of
-     *       items. The current correctness-first format stores 128 bytes per item.
+     *       items. A bound group partitions this common buffer evenly between its lanes; the first
+     *       group implementation prepares one item per lane and commits those items collectively.
      * @note Every remote data and notify range appended through the returned handle must stay in
      *       the registration selected by remoteBase. The implementation checks the cached range
      *       and returns -1 before preparing a WQE when this contract is violated.
@@ -226,6 +223,8 @@ public:
 
     /*!
      * @brief Submit all WQEs prepared in batchHandle.
+     * @note On a group-bound object this is collective: every group lane must call it, and the
+     *       current implementation requires exactly one prepared WQE per lane.
      * @note The final item must request a CQE. A logical batch larger than the physical SQ is
      *       transparently split into ordered internal publications. A failure before publication
      *       leaves the batch intact; a failure after a partial publication invalidates the handle.
