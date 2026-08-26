@@ -760,7 +760,7 @@ int main(int argc, char* argv[])
             (mode == RunMode::SINGLE_LAST ? CheckSingleLastStatus(statusBuf) :
                 CheckStatus(statusBuf, batchCount, mode == RunMode::MATRIX) &&
                     (mode == RunMode::MATRIX ?
-                        CheckSender(sendBuf, operationsPerBatch * batchCount, false) : CheckSender(sendBuf))));
+                        CheckSender(sendBuf, operationsPerBatch * batchCount, false) : CheckSender(sendBuf)));
     }
 
     logStage("CompletedBarrier.begin");
