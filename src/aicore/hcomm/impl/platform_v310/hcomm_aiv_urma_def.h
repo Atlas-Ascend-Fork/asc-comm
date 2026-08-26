@@ -146,11 +146,10 @@ private:
     template <bool sqSafeMode = false>
     __aicore__ inline uint32_t PollCqImpl(
         uint64_t cqBaseAddr, uint32_t cqeSize, uint32_t cqDepth, uint32_t expectTail, uint32_t& curTail,
-        LocalTensor<uint32_t> cqeItem, uint32_t& sqTail, uint32_t sqHead = 0, uint32_t sqDepth = 0,
-        uint32_t threshold = 0);
+        LocalTensor<uint32_t> cqeItem, uint32_t& sqTail, uint32_t sqDepth, uint32_t sqHead = 0, uint32_t threshold = 0);
     template <bool sqSafeMode = false>
     __aicore__ inline uint32_t PollCq(
-        ChannelHandle channel, uint32_t expectIdx, uint32_t sqHead = 0, uint32_t sqDepth = 0, uint32_t threshold = 0);
+        ChannelHandle channel, uint32_t expectIdx, uint32_t sqDepth, uint32_t sqHead = 0, uint32_t threshold = 0);
     __aicore__ inline uint32_t PollBatchCq(UbcCtpBatchHandle& batchHandle, uint32_t expectTail);
 
 private:
