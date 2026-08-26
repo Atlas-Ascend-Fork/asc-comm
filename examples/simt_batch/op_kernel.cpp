@@ -10,6 +10,7 @@
 
 #include "kernel_operator.h"
 #include "simt_api/asc_simt.h"
+#include "simt_api/cooperative_groups.h"
 
 #include "hcomm/hcomm_simt.h"
 #include "simt_batch_common.h"
@@ -20,6 +21,7 @@ using namespace simt_batch;
 // This is a Kernel-only sizing detail. Keep the shared example header independent of
 // device-side Hcomm headers because main.cpp includes it as ordinary Host C++.
 constexpr uint32_t kBatchBufferBytes = AscendC::simt::HcommSimtBatchBufferBytes(kOperationsPerBatch);
+constexpr uint32_t kGroupStateWords = 4U + kOperationsPerBatch;
 
 __simt_callee__ inline void StoreDiagU64(__gm__ int32_t* status, uint32_t lowIndex, uint64_t value)
 {
@@ -239,16 +241,60 @@ __simt_callee__ inline int32_t RunSingleCase(
 
 __simt_vf__ __launch_bounds__(32) inline void SimtBatchVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* batchBuffer,
-    __gm__ int32_t* status, uint32_t operationsPerBatch, uint32_t batchCount, bool writeOnly)
+    __ubuf__ uint32_t* groupState, __gm__ int32_t* status, uint32_t operationsPerBatch,
+    uint32_t batchCount, bool writeOnly)
 {
+    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
+    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    if (writeOnly) {
+        auto group = cooperative_groups::this_thread_block();
+        const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
+        if (rank == 0U) {
+            for (uint32_t index = 0U; index < kStatusCount; ++index) {
+                status[index] = kStatusNotRun;
+            }
+        }
+        group.sync();
+
+        AscendC::simt::Hcomm hcomm(group);
+        const int32_t initRet = hcomm.Init(
+            reinterpret_cast<__ubuf__ uint8_t*>(groupState), kGroupStateWords * sizeof(uint32_t));
+        auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote);
+        const uint32_t base = kStatusCaseBase + kApiWrite * kStatusFieldsPerCase;
+        if (rank == 0U) {
+            status[kStatusInit] = initRet;
+            status[kStatusHandle] = batch.valid ? 0 : -1;
+            status[kStatusHandleCapacity] = static_cast<int32_t>(batch.capacity);
+            status[kStatusSqDepth] = static_cast<int32_t>(batch.sqDepth);
+            status[base + kStatusAppend] = 0;
+            status[base + kStatusCommitCount] = 0;
+        }
+        for (uint32_t batchIndex = 0U; batchIndex < batchCount; ++batchIndex) {
+            const uint32_t operation = batchIndex * operationsPerBatch + rank;
+            const size_t offset = kWriteOffset + static_cast<size_t>(operation) * kPayloadBytes;
+            const int32_t appendRet = hcomm.WriteNbi(batch, remote + offset, local + offset, kPayloadBytes);
+            const int32_t commitRet = hcomm.BatchCommit(batch);
+            if (rank == 0U) {
+                status[base + kStatusAppend] = appendRet;
+                status[base + kStatusCommit] = commitRet;
+                status[base + kStatusCommitCount] += commitRet == 0 ? 1 : 0;
+            }
+            if (commitRet != 0) {
+                return;
+            }
+        }
+        if (rank == 0U) {
+            status[base + kStatusDrain] = hcomm.Drain(batch);
+        }
+        return;
+    }
+
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
     for (uint32_t index = 0U; index < kStatusCount; ++index) {
         status[index] = kStatusNotRun;
     }
-    __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
-    __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
     AscendC::simt::Hcomm<> hcomm;
     status[kStatusInit] = hcomm.Init(nullptr, 0);
     if (status[kStatusInit] != 0) {
@@ -289,9 +335,11 @@ extern "C" __global__ __vector__ void SimtBatch(
     uint32_t operationsPerBatch, uint32_t batchCount, bool writeOnly)
 {
     alignas(128) __ubuf__ uint64_t batchBuffer[kBatchBufferBytes / sizeof(uint64_t)];
+    alignas(16) __ubuf__ uint32_t groupState[kGroupStateWords];
     asc_vf_call<SimtBatchVf>(
-        dim3(1), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), status,
-        operationsPerBatch, batchCount, writeOnly);
+        dim3(writeOnly ? operationsPerBatch : 1U), channel, sendBufIdx, recvBufIdx,
+        reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState, status, operationsPerBatch, batchCount,
+        writeOnly);
 }
 
 void LaunchSimtBatch(
