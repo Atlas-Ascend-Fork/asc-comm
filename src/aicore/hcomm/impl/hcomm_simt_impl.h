@@ -50,6 +50,20 @@ __simt_callee__ inline uint32_t HcommGroupSize(const detail::HcommUnboundGroup&)
     return 1U;
 }
 
+template <CommProtocol commProtocol>
+__simt_callee__ inline int32_t HcommBatchCommit(
+    HcommImpl<commProtocol>& impl, UbcCtpBatchHandle& batchHandle, const detail::HcommUnboundGroup&)
+{
+    return impl.BatchCommit(batchHandle);
+}
+
+template <CommProtocol commProtocol, typename Group>
+__simt_callee__ inline int32_t HcommBatchCommit(
+    HcommImpl<commProtocol>& impl, UbcCtpBatchHandle& batchHandle, const Group& group)
+{
+    return group.size() == 1U ? impl.BatchCommit(batchHandle) : impl.BatchCommit(batchHandle, group);
+}
+
 template <CommProtocol commProtocol, typename Group>
 __simt_callee__ inline Hcomm<commProtocol, Group>::Hcomm()
 {}
@@ -178,10 +192,7 @@ __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicCAS(
 template <CommProtocol commProtocol, typename Group>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::BatchCommit(UbcCtpBatchHandle& batchHandle)
 {
-    if (HcommGroupSize(group_) == 1U) {
-        return impl_.BatchCommit(batchHandle);
-    }
-    return impl_.BatchCommit(batchHandle, group_);
+    return HcommBatchCommit(impl_, batchHandle, group_);
 }
 
 template <CommProtocol commProtocol, typename Group>
