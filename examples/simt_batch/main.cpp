@@ -49,7 +49,7 @@
 
 extern void LaunchSimtBatch(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* status,
-    uint32_t operationsPerBatch, uint32_t batchCount, bool writeOnly);
+    uint32_t operationsPerBatch, uint32_t batchCount, bool groupMode);
 extern void LaunchSimtBatchBasic(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* status);
 extern void LaunchSimtSingleLast(
@@ -260,7 +260,7 @@ HcclResult AcquirePeerChannel(
     return HCCL_E_INTERNAL;
 }
 
-bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, bool writeOnly = false)
+bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, bool groupMode = false)
 {
     std::array<int32_t, kStatusCount> status {};
     constexpr std::array<const char*, kCaseCount> cases = {
@@ -280,7 +280,8 @@ bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, boo
               << " | Capacity=" << status[kStatusHandleCapacity] << " | SqDepth=" << status[kStatusSqDepth]
               << " | " << (handlePass ? "PASS" : "FAIL") << std::endl;
     pass = pass && handlePass;
-    const auto loadDiagU64 = [&status](uint32_t lowIndex) {
+    if (!groupMode) {
+        const auto loadDiagU64 = [&status](uint32_t lowIndex) {
         return static_cast<uint64_t>(static_cast<uint32_t>(status[lowIndex])) |
                (static_cast<uint64_t>(static_cast<uint32_t>(status[lowIndex + 1U])) << 32U);
     };
@@ -354,7 +355,7 @@ bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, boo
     }
     const uint32_t cqeWord0 = static_cast<uint32_t>(status[kDrainDiagCqeWord0]);
     const uint32_t cqeWord1 = static_cast<uint32_t>(status[kDrainDiagCqeWord1]);
-    std::cout << "DIAG | Point=Drain"
+        std::cout << "DIAG | Point=Drain"
               << " | ExpectedCqTail=" << status[kDrainDiagExpectedCqTail]
               << " | InitialCqTail=" << status[kDrainDiagInitialCqTail]
               << " | FinalCqTail=" << status[kDrainDiagFinalCqTail]
@@ -369,8 +370,9 @@ bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, boo
               << " | CqeStatus=" << ((cqeWord0 >> 24U) & 0xFFU)
               << " | CqeSubstatus=" << ((cqeWord0 >> 16U) & 0xFFU)
               << " | CqeEntryIdx=" << (cqeWord1 & 0xFFFFU)
-              << std::endl;
-    const uint32_t checkedCaseCount = writeOnly ? 1U : kCaseCount;
+                  << std::endl;
+    }
+    const uint32_t checkedCaseCount = groupMode ? kApiCas + 1U : kCaseCount;
     for (uint32_t testCase = 0U; testCase < checkedCaseCount; ++testCase) {
         for (uint32_t field = 0U; field < steps.size(); ++field) {
             const uint32_t index = kStatusCaseBase + testCase * kStatusFieldsPerCase + field;
@@ -502,11 +504,12 @@ uint64_t LoadWord(const std::vector<uint8_t>& buffer, size_t offset)
 }
 
 bool CheckPayloads(
-    const std::vector<uint8_t>& actual, size_t offset, uint8_t valueBase, const char* api)
+    const std::vector<uint8_t>& actual, size_t offset, uint8_t valueBase, const char* api,
+    uint32_t operationCount = kOperationCount)
 {
     uint32_t executionBitmap = 0U;
     bool pass = true;
-    for (uint32_t operation = 0U; operation < kOperationCount; ++operation) {
+    for (uint32_t operation = 0U; operation < operationCount; ++operation) {
         const uint8_t expected = valueBase + operation;
         const size_t operationOffset = offset + static_cast<size_t>(operation) * kPayloadBytes;
         bool operationPass = true;
@@ -526,12 +529,12 @@ bool CheckPayloads(
     }
     std::cout << "DIAG | API=" << api << " | ExecutionBitmap=0x" << std::hex << executionBitmap
               << " | FirstBytes=";
-    for (uint32_t operation = 0U; operation < kOperationCount; ++operation) {
+    for (uint32_t operation = 0U; operation < operationCount; ++operation) {
         std::cout << (operation == 0U ? "" : ",") << std::dec
                   << static_cast<uint32_t>(actual[offset + static_cast<size_t>(operation) * kPayloadBytes]);
     }
     std::cout << std::endl;
-    std::cout << "CHECK | API=" << api << " | Operations=" << kOperationCount << " | PayloadBytes="
+    std::cout << "CHECK | API=" << api << " | Operations=" << operationCount << " | PayloadBytes="
               << kPayloadBytes << " | " << (pass ? "PASS" : "FAIL") << std::endl;
     return pass;
 }
@@ -547,16 +550,16 @@ bool CheckWord(const std::vector<uint8_t>& actual, size_t offset, uint64_t expec
     return true;
 }
 
-bool CheckSender(void* sendBuf)
+bool CheckSender(void* sendBuf, uint32_t operationCount = kOperationCount, bool includeMixed = true)
 {
     std::vector<uint8_t> actual(kBufferBytes);
     if (aclrtMemcpy(actual.data(), kBufferBytes, sendBuf, kBufferBytes, ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
         return false;
     }
-    const bool readPass = CheckPayloads(actual, kReadOffset, kReadByteBase, "ReadNbi.fetch");
+    const bool readPass = CheckPayloads(actual, kReadOffset, kReadByteBase, "ReadNbi.fetch", operationCount);
     bool faaPass = true;
     bool casPass = true;
-    for (uint32_t operation = 0U; operation < kOperationCount; ++operation) {
+    for (uint32_t operation = 0U; operation < operationCount; ++operation) {
         const uint64_t expectedFaa = operation < kTargetCount ? kFaaInitial : kFaaInitial + kFaaAdd;
         const uint64_t expectedCas = operation < kTargetCount ? kCasInitial : kCasSwap;
         faaPass = CheckWord(actual, kFaaFetchOffset + static_cast<size_t>(operation) * sizeof(uint64_t),
@@ -564,67 +567,76 @@ bool CheckSender(void* sendBuf)
         casPass = CheckWord(actual, kCasFetchOffset + static_cast<size_t>(operation) * sizeof(uint64_t),
             expectedCas, "AtomicCAS.fetch", operation) && casPass;
     }
-    std::cout << "CHECK | API=AtomicFAA.fetch | Items=" << kOperationCount << " | "
+    std::cout << "CHECK | API=AtomicFAA.fetch | Items=" << operationCount << " | "
               << (faaPass ? "PASS" : "FAIL") << std::endl;
-    std::cout << "CHECK | API=AtomicCAS.fetch | Items=" << kOperationCount << " | "
+    std::cout << "CHECK | API=AtomicCAS.fetch | Items=" << operationCount << " | "
               << (casPass ? "PASS" : "FAIL") << std::endl;
-    bool mixedPass = CheckWord(actual, kMixedReadOffset, kMixedReadValue, "Mixed.ReadNbi.fetch", 0U);
-    mixedPass = CheckWord(actual, kMixedFaaFetchOffset, kMixedFaaInitial, "Mixed.AtomicFAA.fetch", 0U) && mixedPass;
-    mixedPass = CheckWord(actual, kMixedCasFetchOffset, kMixedCasInitial, "Mixed.AtomicCAS.fetch", 0U) && mixedPass;
-    std::cout << "CHECK | API=Mixed.fetch | Items=3 | " << (mixedPass ? "PASS" : "FAIL") << std::endl;
+    bool mixedPass = true;
+    if (includeMixed) {
+        mixedPass = CheckWord(actual, kMixedReadOffset, kMixedReadValue, "Mixed.ReadNbi.fetch", 0U);
+        mixedPass = CheckWord(actual, kMixedFaaFetchOffset, kMixedFaaInitial, "Mixed.AtomicFAA.fetch", 0U) && mixedPass;
+        mixedPass = CheckWord(actual, kMixedCasFetchOffset, kMixedCasInitial, "Mixed.AtomicCAS.fetch", 0U) && mixedPass;
+        std::cout << "CHECK | API=Mixed.fetch | Items=3 | " << (mixedPass ? "PASS" : "FAIL") << std::endl;
+    }
     const bool pass = readPass && faaPass && casPass && mixedPass;
     std::cout << "CHECK | Side=Sender | Status=" << (pass ? "PASS" : "FAIL") << std::endl;
     return pass;
 }
 
-bool CheckReceiver(void* recvBuf)
+bool CheckReceiver(
+    void* recvBuf, uint32_t operationCount = kOperationCount, bool includeExtended = true)
 {
     std::vector<uint8_t> actual(kBufferBytes);
     if (aclrtMemcpy(actual.data(), kBufferBytes, recvBuf, kBufferBytes, ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
         return false;
     }
-    const bool writePass = CheckPayloads(actual, kWriteOffset, kWriteByteBase, "WriteNbi.target");
-    const bool readPass = CheckPayloads(actual, kReadOffset, kReadByteBase, "ReadNbi.source");
+    const bool writePass = CheckPayloads(actual, kWriteOffset, kWriteByteBase, "WriteNbi.target", operationCount);
+    const bool readPass = CheckPayloads(actual, kReadOffset, kReadByteBase, "ReadNbi.source", operationCount);
     const bool notifyDataPass = CheckPayloads(
-        actual, kNotifyDataOffset, kNotifyByteBase, "WriteWithNotifyNbi.data");
+        actual, kNotifyDataOffset, kNotifyByteBase, "WriteWithNotifyNbi.data", operationCount);
     bool notifySignalPass = true;
     bool writeValuePass = true;
-    for (uint32_t operation = 0U; operation < kOperationCount; ++operation) {
+    for (uint32_t operation = 0U; operation < operationCount; ++operation) {
         notifySignalPass = CheckWord(
             actual, kNotifySignalOffset + static_cast<size_t>(operation) * sizeof(uint64_t),
             kNotifyValueBase + operation, "WriteWithNotifyNbi.notify", operation) && notifySignalPass;
         writeValuePass = CheckWord(actual, kWriteValueOffset + static_cast<size_t>(operation) * sizeof(uint64_t),
             kWriteValueBase + operation, "WriteValueNbi.target", operation) && writeValuePass;
     }
-    std::cout << "CHECK | API=WriteWithNotifyNbi.notify | Items=" << kOperationCount << " | "
+    std::cout << "CHECK | API=WriteWithNotifyNbi.notify | Items=" << operationCount << " | "
               << (notifySignalPass ? "PASS" : "FAIL") << std::endl;
-    std::cout << "CHECK | API=WriteValueNbi.target | Items=" << kOperationCount << " | "
+    std::cout << "CHECK | API=WriteValueNbi.target | Items=" << operationCount << " | "
               << (writeValuePass ? "PASS" : "FAIL") << std::endl;
     bool faaPass = true;
     bool casPass = true;
     for (uint32_t target = 0U; target < kTargetCount; ++target) {
+        const uint32_t targetUpdates = operationCount > target ?
+            (operationCount - 1U - target) / kTargetCount + 1U : 0U;
         faaPass = CheckWord(actual, kFaaTargetOffset + static_cast<size_t>(target) * sizeof(uint64_t),
-            kFaaInitial + kBatchCount * kFaaAdd, "AtomicFAA.target", target) && faaPass;
+            kFaaInitial + targetUpdates * kFaaAdd, "AtomicFAA.target", target) && faaPass;
         casPass = CheckWord(actual, kCasTargetOffset + static_cast<size_t>(target) * sizeof(uint64_t),
-            kCasSwap, "AtomicCAS.target", target) && casPass;
+            targetUpdates == 0U ? kCasInitial : kCasSwap, "AtomicCAS.target", target) && casPass;
     }
     std::cout << "CHECK | API=AtomicFAA.target | Items=" << kTargetCount << " | "
               << (faaPass ? "PASS" : "FAIL") << std::endl;
     std::cout << "CHECK | API=AtomicCAS.target | Items=" << kTargetCount << " | "
               << (casPass ? "PASS" : "FAIL") << std::endl;
-    bool mixedPass = CheckWord(actual, kMixedWriteOffset, kMixedWriteValue, "Mixed.WriteNbi.target", 0U);
-    mixedPass = CheckWord(actual, kMixedReadOffset, kMixedReadValue, "Mixed.ReadNbi.source", 0U) && mixedPass;
-    mixedPass = CheckWord(actual, kMixedNotifyDataOffset, kMixedNotifyData, "Mixed.Notify.data", 0U) && mixedPass;
-    mixedPass = CheckWord(actual, kMixedNotifySignalOffset, kMixedNotifyValue, "Mixed.Notify.signal", 0U) && mixedPass;
-    mixedPass = CheckWord(
-        actual, kMixedWriteValueOffset, kMixedInlineValue, "Mixed.WriteValue.target", 0U) && mixedPass;
-    mixedPass = CheckWord(actual, kMixedFaaTargetOffset, kMixedFaaInitial + kMixedFaaAdd,
-        "Mixed.AtomicFAA.target", 0U) && mixedPass;
-    mixedPass = CheckWord(actual, kMixedCasTargetOffset, kMixedCasSwap, "Mixed.AtomicCAS.target", 0U) && mixedPass;
-    const bool singlePass = CheckWord(
-        actual, kSingleWriteValueOffset, kSingleWriteValue, "WriteValueNbi.single", 0U);
-    std::cout << "CHECK | API=Mixed.target | Items=7 | " << (mixedPass ? "PASS" : "FAIL") << std::endl;
-    std::cout << "CHECK | API=WriteValueNbi.single | Items=1 | " << (singlePass ? "PASS" : "FAIL") << std::endl;
+    bool mixedPass = true;
+    bool singlePass = true;
+    if (includeExtended) {
+        mixedPass = CheckWord(actual, kMixedWriteOffset, kMixedWriteValue, "Mixed.WriteNbi.target", 0U);
+        mixedPass = CheckWord(actual, kMixedReadOffset, kMixedReadValue, "Mixed.ReadNbi.source", 0U) && mixedPass;
+        mixedPass = CheckWord(actual, kMixedNotifyDataOffset, kMixedNotifyData, "Mixed.Notify.data", 0U) && mixedPass;
+        mixedPass = CheckWord(actual, kMixedNotifySignalOffset, kMixedNotifyValue, "Mixed.Notify.signal", 0U) && mixedPass;
+        mixedPass = CheckWord(
+            actual, kMixedWriteValueOffset, kMixedInlineValue, "Mixed.WriteValue.target", 0U) && mixedPass;
+        mixedPass = CheckWord(actual, kMixedFaaTargetOffset, kMixedFaaInitial + kMixedFaaAdd,
+            "Mixed.AtomicFAA.target", 0U) && mixedPass;
+        mixedPass = CheckWord(actual, kMixedCasTargetOffset, kMixedCasSwap, "Mixed.AtomicCAS.target", 0U) && mixedPass;
+        singlePass = CheckWord(actual, kSingleWriteValueOffset, kSingleWriteValue, "WriteValueNbi.single", 0U);
+        std::cout << "CHECK | API=Mixed.target | Items=7 | " << (mixedPass ? "PASS" : "FAIL") << std::endl;
+        std::cout << "CHECK | API=WriteValueNbi.single | Items=1 | " << (singlePass ? "PASS" : "FAIL") << std::endl;
+    }
     const bool pass = writePass && readPass && notifyDataPass && notifySignalPass && writeValuePass && faaPass &&
         casPass && mixedPass && singlePass;
     std::cout << "CHECK | Side=Receiver | Status=" << (pass ? "PASS" : "FAIL") << std::endl;
@@ -747,7 +759,8 @@ int main(int argc, char* argv[])
         pass = mode == RunMode::BASIC ? CheckBasicStatus(statusBuf) :
             (mode == RunMode::SINGLE_LAST ? CheckSingleLastStatus(statusBuf) :
                 CheckStatus(statusBuf, batchCount, mode == RunMode::MATRIX) &&
-                    (mode == RunMode::MATRIX || CheckSender(sendBuf)));
+                    (mode == RunMode::MATRIX ?
+                        CheckSender(sendBuf, operationsPerBatch * batchCount, false) : CheckSender(sendBuf))));
     }
 
     logStage("CompletedBarrier.begin");
@@ -755,8 +768,8 @@ int main(int argc, char* argv[])
     logStage("CompletedBarrier.end");
     if (rank == static_cast<int>(kReceiverRank)) {
         pass = mode == RunMode::FULL ? CheckReceiver(recvBuf) :
-            CheckBasicReceiver(recvBuf, mode == RunMode::MATRIX ? operationsPerBatch * batchCount :
-                kBasicOperationCount);
+            (mode == RunMode::MATRIX ? CheckReceiver(recvBuf, operationsPerBatch * batchCount, false) :
+                CheckBasicReceiver(recvBuf));
     }
     const std::string suiteName = mode == RunMode::BASIC ? "simt_batch_basic" :
         (mode == RunMode::SINGLE_LAST ? "simt_single_last_control" :
