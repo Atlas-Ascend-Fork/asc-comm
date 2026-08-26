@@ -59,11 +59,7 @@ template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteValueNbi(
     ChannelHandle channel, __gm__ void* dst, T value)
 {
-    static_assert(sizeof(T) == 0U, "SIMT WriteValueNbi is not supported");
-    (void)channel;
-    (void)dst;
-    (void)value;
-    return HCOMM_FAILED;
+    return impl_.template WriteValueNbi<T, commit, config>(channel, dst, value);
 }
 
 template <CommProtocol commProtocol, typename Group>

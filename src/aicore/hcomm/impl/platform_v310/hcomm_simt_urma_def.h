@@ -35,9 +35,8 @@ constexpr uint32_t HCOMM_URMA_WQE_BB_CNT = 1U;
 constexpr uint32_t HCOMM_URMA_DWQE_BB_CNT = HCOMM_URMA_DWQE_SIZE / HCOMM_URMA_WQE_BB_SIZE;
 constexpr uint32_t HCOMM_SIMT_MAX_CQ_RETRY = 1000000U;
 
-// Immutable for one channel while a kernel is running. The remote token fields
-// are refreshed whenever the target address leaves the cached registered range.
-struct HcommSimtUbPostMeta {
+// The SQE fields one post needs, read from the channel and SQ contexts by ResolvePost.
+struct HcommSimtPostMeta {
     uint32_t sqDepth = 0U;
     uint32_t tpId = 0U;
     uint64_t remoteEidL = 0U;
@@ -46,48 +45,11 @@ struct HcommSimtUbPostMeta {
     uint32_t remoteTokenValue = 0U;
 };
 
-// One read-only copy per SIMT block. Per-WQE token fields stay lane-local in
-// HcommSimtUbPostMeta because lanes may target different registered buffers.
-struct HcommSimtUbPostContext {
-    uint32_t state;
-    uint32_t reserved;
-    ChannelHandle channel;
-    uint64_t remoteBuffersAddr;
-    uint64_t headAddr;
-    uint64_t sqTailAddr;
-    uint64_t dwqeAddr;
-    uint64_t sqBaseAddr;
-    uint32_t sqWqeSize;
-    uint32_t remoteBufferNum;
-    uint32_t sqDepth;
-    uint32_t tpId;
-    uint64_t remoteEidL;
-    uint64_t remoteEidH;
-};
-
-// Mutable remote-registration state is lane-private. Keeping it outside the
-// block-shared post context avoids races when lanes target different buffers.
-struct HcommSimtUbRemoteCache {
-    uint64_t baseAddr;
-    uint64_t size;
-    uint32_t tokenId;
-    uint32_t tokenValue;
-    uint32_t valid;
-    uint32_t reserved;
-};
-
-static_assert(sizeof(HcommSimtUbRemoteCache) == 32U, "SIMT per-lane remote cache entry must remain 32 bytes");
-constexpr uint32_t HCOMM_SIMT_UB_POST_CONTEXT_BYTES = 128U;
-static_assert(
-    sizeof(HcommSimtUbPostContext) <= HCOMM_SIMT_UB_POST_CONTEXT_BYTES,
-    "SIMT shared post context must fit in its 128-byte workspace region");
-constexpr uint32_t HCOMM_SIMT_UB_CONTEXT_EMPTY = 0U;
-constexpr uint32_t HCOMM_SIMT_UB_CONTEXT_INITIALIZING = 1U;
-constexpr uint32_t HCOMM_SIMT_UB_CONTEXT_READY = 2U;
-
-struct HcommSimtUbResolvedPost {
-    HcommSimtUbPostMeta meta;
+struct HcommSimtResolvedPost {
+    HcommSimtPostMeta meta;
     __gm__ uint64_t* headAddr;
+    // The SQ consumer index PollCq advances. The reservation reads it to tell how many basic
+    // blocks the NIC has already released.
     __gm__ uint32_t* sqTailAddr;
     __gm__ uint8_t* dwqeAddr;
     uint64_t sqBaseAddr;
@@ -111,6 +73,8 @@ public:
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
+    __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t ReadNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
@@ -126,32 +90,26 @@ public:
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
 
 private:
-    __ubuf__ uint8_t* wqeItem_ = nullptr;
-    __ubuf__ HcommSimtUbPostContext* ubPostContext_ = nullptr;
-    __ubuf__ HcommSimtUbRemoteCache* ubRemoteCache_ = nullptr;
-    bool ubPostContextReady_ = false;
+    bool initialized_ = false;
 
-    __simt_callee__ inline void InitUbPostContext(ChannelHandle channel);
-    __simt_callee__ inline bool EnsureUbPostContext(ChannelHandle channel);
-    __simt_callee__ inline int32_t ResolveUbPostContext(
-        ChannelHandle channel, __gm__ uint8_t* remoteAddr, uint64_t len, HcommSimtUbResolvedPost& post);
+    // Reads the channel entity and SQ context from global memory on every post. Nothing is
+    // cached across calls: a channel may change from one post to the next, so a cache would
+    // rarely hit while still costing a validity check and an invalidation on each post.
+    __simt_callee__ inline int32_t ResolvePost(
+        ChannelHandle channel, __gm__ uint8_t* remoteAddr, uint64_t len, HcommSimtResolvedPost& post);
+
+    // Claims SQ space for one submission, draining completed CQEs to release capacity when the
+    // queue is full. commit selects how much free space the claim requires: a deferred post also
+    // reserves room for the immediate DWQE that will publish it.
     template <bool commit>
     __simt_callee__ inline bool ReservePost(
-        ChannelHandle channel, const HcommSimtUbResolvedPost& post, uint32_t bbCnt, uint64_t& headVal);
+        ChannelHandle channel, const HcommSimtResolvedPost& post, uint32_t bbCnt, uint64_t& headVal);
 
-    template <
-        bool commit = true, HcommUrmaOpCode opCode = HcommUrmaOpCode::WRITE, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t PostSend(
-        ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len);
-    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t PostWriteWithNotify(
-        ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* localAddr, uint64_t len,
-        __gm__ uint8_t* notifyAddr, uint64_t notifyVal);
-    template <
-        typename T, bool commit = true, HcommUrmaOpCode opCode = HcommUrmaOpCode::FAA,
-        auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t PostAtomic(
-        ChannelHandle channel, __gm__ uint8_t* remoteAddr, __gm__ uint8_t* fetchAddr, T value, T cond);
+    // The one posting path shared by every operator. Desc describes what distinguishes them:
+    // the SQ footprint (bbCnt/sgeNum) and how the WQE words are laid out. See the descriptors
+    // in hcomm_simt_urma.h.
+    template <typename Desc>
+    __simt_callee__ inline int32_t PostWqe(ChannelHandle channel, const Desc& desc);
     __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
 };
 
