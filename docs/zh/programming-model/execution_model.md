@@ -6,6 +6,8 @@
 
 通信任务按发起方与执行方的关系分为两种执行模式：
 
+**表1** 执行模式
+
 | 模式 | 任务发起方 | 任务执行方 | 特点 | 适用场景 |
 | --- | --- | --- | --- | --- |
 | 直驱模式 | 通信引擎 | 通信引擎 | 通信引擎直接下发并执行通信任务，用户通过数据面接口控制任务提交、保序与同步。 | 对通信时序和资源占用有精细控制需求的场景 |
@@ -99,6 +101,8 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 
 **Order标志**，指定以下三种执行序：
 
+**表2** Order标志的执行序
+
 | 执行序 | 说明 |
 |--------|------|
 | No Order | 乱序执行，无任何执行序限制。 |
@@ -106,6 +110,8 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 | Strong Order | 保序执行，强序事务必须等待前面所有弱序事务和强序事务都完成后才能执行。 |
 
 **Fence标志**，指定以下两种执行序：
+
+**表3** Fence标志的执行序
 
 | 执行序 | 说明 |
 |--------|------|
@@ -131,15 +137,15 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 
 以远端读操作为例，本端从对端内存读取数据后，必须通过本端同步确认读取完成，再访问读取结果；否则可能读到未更新完毕的数据，导致后续逻辑出错。
 
-```cpp
-// 本端同步：提交远端读事务后轮询CQ，确认本端读取完成后再使用数据
+```text
+// 本端同步：提交远端读事务后轮询CQ，确认本端读取完成后再使用数据。
 uint32_t* localBuf;    // 本端接收缓冲区
 uint32_t* remoteBuf;   // 远端数据地址
-// 从对端remoteBuf读取4字节数据到localBuf
+// 从对端remoteBuf读取4字节数据到localBuf。
 Read(channel, localBuf, remoteBuf, sizeof(uint32_t));
-// 轮询CQ，阻塞至本端读取完成
+// 轮询CQ，阻塞至本端读取完成。
 PollCQ(channel);
-// 此处本端已完成读取，localBuf中的数据可用
+// 此处本端已完成读取，localBuf中的数据可用。
 if (*localBuf == expectValue) {
     Process();
 }
@@ -155,20 +161,20 @@ if (*localBuf == expectValue) {
 
 以远端写操作为例，Rank 0向Rank 1写入数据，Rank 1必须通过点对点同步确认数据已写入完毕，再访问写入结果；否则可能读到半更新的数据，导致后续逻辑出错。
 
-```cpp
-// 点对点同步：Rank 0向Rank 1写入数据，Rank 1等待同步信号后处理数据
+```text
+// 点对点同步：Rank 0向Rank 1写入数据，Rank 1等待同步信号后处理数据。
 uint32_t* localBuf;    // 本端数据缓冲区
 uint32_t* remoteBuf;   // 远端数据缓冲区
 uint32_t* notifyBuf;   // 同步信号缓冲区
 uint32_t notifyVal;    // 预期同步信号值
 
 if (rankId == 0) {
-    // Rank 0：从本端localBuf写4字节数据到远端remoteBuf，并写同步信号值到同步缓冲区
+    // Rank 0：从本端localBuf写4字节数据到远端remoteBuf，并写同步信号值到同步缓冲区。
     WriteWithNotify(channel, remoteBuf, localBuf, sizeof(uint32_t), notifyBuf, notifyVal);
 } else {
-    // Rank 1：轮询同步信号缓冲区，直至接收到预期同步信号
+    // Rank 1：轮询同步信号缓冲区，直至接收到预期同步信号。
     while (*notifyBuf != notifyVal) {}
-    // 此时Rank 0的数据已完整写入Rank 1的localBuf（对应Rank 0的remoteBuf），可安全访问
+    // 此时Rank 0的数据已完整写入Rank 1的localBuf（对应Rank 0的remoteBuf），可安全访问。
     Process(localBuf);
 }
 ```
@@ -179,16 +185,16 @@ if (rankId == 0) {
 
 以集合通信AlltoAll操作为例：通信组内所有Rank交换数据，交换前需保证各Rank的发送缓冲区已完成预处理，交换后需保证所有数据已交换完毕。若缺少前屏障，部分Rank可能读到尚未预处理完毕的发送数据；若缺少后屏障，部分Rank的后处理可能提前释放或覆盖缓冲区，污染尚未完成交换的数据。
 
-```cpp
-// 屏障同步：通信组team内所有Rank在AlltoAll前后施加同步
+```text
+// 屏障同步：通信组team内所有Rank在AlltoAll前后施加同步。
 Team team;
 uint32_t* sendBuf; // 发送数据缓冲区
 uint32_t* recvBuf; // 接收数据缓冲区
 
 PreProcess(sendBuf);              // 预处理发送数据
-Barrier(team);                    // 前屏障：等待所有Rank完成预处理，确保发送数据就绪
-AlltoAll(team, sendBuf, recvBuf); // 通信组内所有Rank交换数据
-Barrier(team);                    // 后屏障：等待所有Rank完成交换，确保接收数据完整
+Barrier(team);                    // 前屏障：等待所有Rank完成预处理，确保发送数据就绪。
+AlltoAll(team, sendBuf, recvBuf); // 通信组内所有Rank交换数据。
+Barrier(team);                    // 后屏障：等待所有Rank完成交换，确保接收数据完整。
 PostProcess(sendBuf, recvBuf);    // 后处理发送数据和接收数据
 ```
 
@@ -201,6 +207,8 @@ PostProcess(sendBuf, recvBuf);    // 后处理发送数据和接收数据
 代理模式将通信任务的准备与数据传输分离。客户端在当前算子Kernel中准备并提交通信请求，服务端在独立执行单元上完成本端与对端之间的数据传输，并向客户端反馈完成状态。
 
 当前客户端支持AI Core，服务端支持AICPU_TS和CCU。不同服务端使用的代理介质如下：
+
+**表4** 不同服务端使用的代理介质
 
 | 客户端 | 服务端 | 任务参数传递 | 执行条件和完成状态传递 |
 | --- | --- | --- | --- |
@@ -222,6 +230,8 @@ PostProcess(sendBuf, recvBuf);    // 后处理发送数据和接收数据
 ![代理模式执行机制](./figures/proxy_execution_model.png "代理模式执行机制")<a id="fig-proxy-execution-model"></a>
 
 代理模式包含以下参与方：
+
+**表5** 代理模式参与方
 
 | 参与方 | 职责 |
 | --- | --- |
