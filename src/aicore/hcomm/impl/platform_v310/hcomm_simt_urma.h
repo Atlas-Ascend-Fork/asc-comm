@@ -953,13 +953,36 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
             stage.words[word] = srcWords[word];
         }
 
-        // Re-resolve and publish every staged item through the validated single-post path.
-        // Word 5 is the common remote-address field in every supported URMA SQE layout.
+        // Keep the registered remote token cached, but reload the queue context as ResolvePost
+        // does so the two parts of per-item resolution can be validated independently.
+        __gm__ HcommSimtChannelEntity* channelEntity =
+            reinterpret_cast<__gm__ HcommSimtChannelEntity*>(batchHandle.channel);
+        __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
+        __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
+        uint64_t sqVa = sqCtx->contextInfo.ubJfs.sqVa;
+        uint64_t headAddr = sqCtx->contextInfo.ubJfs.headAddr;
+        uint64_t sqTailAddr = sqCtx->contextInfo.ubJfs.tailAddr;
+        uint64_t dbVa = sqCtx->contextInfo.ubJfs.dbVa;
+        uint32_t wqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
+        uint32_t sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
+        uint32_t tpID = sqCtx->contextInfo.ubJfs.tpID;
+        __gm__ uint64_t* remoteEid = reinterpret_cast<__gm__ uint64_t*>(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
+
         HcommSimtResolvedPost post;
-        __gm__ uint8_t* remoteAddr = reinterpret_cast<__gm__ uint8_t*>(stage.words[5]);
+        post.headAddr = reinterpret_cast<__gm__ uint64_t*>(headAddr);
+        post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqTailAddr);
+        post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
+        post.sqBaseAddr = sqVa;
+        post.sqWqeSize = wqeSize;
+        post.meta.sqDepth = sqDepth;
+        post.meta.tpId = tpID;
+        post.meta.remoteEidL = remoteEid[0];
+        post.meta.remoteEidH = remoteEid[1];
+        post.meta.remoteTokenId = batchHandle.remoteTokenId;
+        post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
+
         uint64_t headVal = 0U;
-        if (ResolvePost(batchHandle.channel, remoteAddr, 1U, post) != HCOMM_SUCCESS ||
-            !ReservePost<true>(batchHandle.channel, post, HCOMM_URMA_DWQE_BB_CNT, headVal)) {
+        if (!ReservePost<true>(batchHandle.channel, post, HCOMM_URMA_DWQE_BB_CNT, headVal)) {
             batchHandle.valid = false;
             return HCOMM_FAILED;
         }
