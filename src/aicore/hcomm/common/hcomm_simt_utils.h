@@ -51,16 +51,6 @@ __simt_callee__ inline int32_t HcommSimtFindBufferIdx(
     return HCOMM_FAILED;
 }
 
-__simt_callee__ inline uint64_t HcommSimtLoadLe64(__gm__ const uint8_t* addr)
-{
-    uint64_t value = 0U;
-#pragma unroll
-    for (uint32_t i = 0; i < sizeof(uint64_t); ++i) {
-        value |= static_cast<uint64_t>(addr[i]) << (i * 8U);
-    }
-    return value;
-}
-
 __simt_callee__ inline uint32_t HcommSimtHeadIdx(uint64_t headVal)
 {
     return static_cast<uint32_t>(headVal & 0xFFFFFFFFU);
@@ -71,31 +61,40 @@ __simt_callee__ inline uint32_t HcommSimtWqeCnt(uint64_t headVal)
     return static_cast<uint32_t>((headVal >> 32U) & HCOMM_SIMT_WQE_CNT_MASK);
 }
 
-// Atomically reserves SQ space for one submission without overwriting unconsumed BBs.
-// requiredFreeBbCnt may exceed bbCnt when a deferred post must leave room for the
-// immediate DWQE that will publish it later.
+// Reserves SQ space for one submission without overwriting basic blocks the NIC has not consumed
+// yet, and reports the pre-reservation headAddr value through headVal.
+//
+// bbCnt counts the 64B basic blocks occupied; cqeCnt counts the CQEs the submission will produce
+// (NOP padding produces none), keeping the high half of headAddr comparable with the CQ tail
+// PollCq consumes. requiredFreeBbCnt may exceed bbCnt: a deferred post must also leave room for
+// the immediate 2-BB DWQE that publishes it, since SIMT has no standalone Commit.
+//
+// The update is a plain read-modify-write rather than an atomic one because a channel is driven
+// by a single lane (see hcomm_simt.h). Supporting several producers would need more than an
+// atomic claim here: a doorbell publishes a head covering every slot below it, including a
+// neighbour's half-written WQE.
+//
+// headVal is written before any capacity check so a failing caller can still read the submitted
+// wqeCnt out of it to decide how many CQEs are outstanding.
 __simt_callee__ inline bool HcommSimtTryReserve(
     __gm__ uint64_t* headAddr, __gm__ uint32_t* tailAddr, uint32_t sqDepth, uint32_t bbCnt, uint32_t requiredFreeBbCnt,
     uint32_t cqeCnt, uint64_t& headVal)
 {
+    headVal = *headAddr;
     if (sqDepth == 0U || requiredFreeBbCnt > sqDepth) {
         return false;
     }
 
-    uint64_t delta = (static_cast<uint64_t>(cqeCnt) << 32U) | static_cast<uint64_t>(bbCnt);
-    headVal = *headAddr;
-    while (true) {
-        uint32_t usedBbCnt = HcommSimtHeadIdx(headVal) - *tailAddr;
-        if (usedBbCnt > sqDepth || requiredFreeBbCnt > sqDepth - usedBbCnt) {
-            return false;
-        }
-
-        uint64_t previous = asc_atomic_cas(headAddr, headVal, headVal + delta);
-        if (previous == headVal) {
-            return true;
-        }
-        headVal = previous;
+    // Both counters are free-running, so the subtraction is done in modular arithmetic; the
+    // usedBbCnt > sqDepth guard rejects a head/tail pair that cannot be consistent.
+    uint32_t usedBbCnt = HcommSimtHeadIdx(headVal) - *tailAddr;
+    if (usedBbCnt > sqDepth || requiredFreeBbCnt > sqDepth - usedBbCnt) {
+        return false;
     }
+
+    uint64_t delta = (static_cast<uint64_t>(cqeCnt) << 32U) | static_cast<uint64_t>(bbCnt);
+    *headAddr = headVal + delta;
+    return true;
 }
 
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtLocalBuffers(ChannelHandle channel)

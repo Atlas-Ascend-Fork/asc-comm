@@ -26,6 +26,8 @@
 
 namespace AscendC {
 
+enum class MultiChannelHandle : uint64_t {};
+
 constexpr int32_t HCOMM_FAILED = -1;
 constexpr int32_t HCOMM_SUCCESS = 0;
 constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
@@ -244,6 +246,89 @@ typedef struct {
 } ChannelEntity;
 
 static_assert(sizeof(ChannelEntity) == 256, "ChannelEntity size must keep aligned with hcomm");
+
+typedef struct {
+    uint32_t tokenId;
+    uint32_t tokenValue;
+    uint64_t remoteEidLow;
+    uint64_t remoteEidHigh;
+    uint32_t tpId;
+    uint32_t reserved;
+} BatchRemoteInfo;
+
+typedef struct {
+    uint64_t remoteBufferAddr;
+    uint32_t remoteBufferNum;
+    uint32_t tpId;
+    uint64_t remoteEidLow;
+    uint64_t remoteEidHigh;
+} MultiChannelRemoteInfo;
+
+typedef struct {
+    uint32_t sqHead;
+    uint32_t sqTail;
+    uint32_t cqHead;
+    uint32_t cqTail;
+    uint32_t preSqCnt;
+} BatchQueueCursor;
+
+typedef struct {
+    ChannelHandle channelHandle;
+    uint32_t channelNum;
+    uint32_t reserved;
+    uint64_t remoteInfoAddr;
+} MultiChannelEntity;
+
+typedef struct {
+    LocalTensor<uint32_t> buffer;
+    uint32_t bufferCapacity;
+} BatchBuffer;
+
+typedef struct {
+    ChannelHandle channelHandle;
+    SqContext sqContext;
+    CqContext cqContext;
+    BatchQueueCursor cursor;
+    BatchRemoteInfo remoteInfo;
+    BatchBuffer buffer;
+} UbcCtpBatchHandle;
+
+typedef struct {
+    UbcCtpBatchHandle handle;
+    ChannelHandle channelHandle;
+    uint32_t channelNum;
+    uint32_t reserved;
+    uint64_t remoteInfoAddr;
+} UbcCtpMultiBatchHandle;
+
+template <typename T>
+struct ChannelTraits;
+
+template <>
+struct ChannelTraits<ChannelHandle> {
+    using BatchHandleType = UbcCtpBatchHandle;
+};
+
+template <>
+struct ChannelTraits<MultiChannelHandle> {
+    using BatchHandleType = UbcCtpMultiBatchHandle;
+};
+
+template <typename T>
+using BatchHandle = typename ChannelTraits<T>::BatchHandleType;
+
+template <typename T>
+struct BatchHandleTraits;
+
+template <>
+struct BatchHandleTraits<UbcCtpBatchHandle> {
+    using ChannelType = ChannelHandle;
+};
+
+template <>
+struct BatchHandleTraits<UbcCtpMultiBatchHandle> {
+    using ChannelType = MultiChannelHandle;
+};
 
 // RoCE WQE, CQE, DB struct
 typedef struct {

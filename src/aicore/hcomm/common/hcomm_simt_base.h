@@ -51,6 +51,15 @@ public:
         return HCOMM_FAILED;
     }
 
+    template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value)
+    {
+        (void)channel;
+        (void)dst;
+        (void)value;
+        return HCOMM_FAILED;
+    }
+
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t ReadNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
     {
