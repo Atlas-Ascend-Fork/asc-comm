@@ -52,14 +52,6 @@ constexpr uint32_t kBasicStatusCommit = 5U;
 constexpr uint32_t kBasicStatusDrain = 6U;
 constexpr uint32_t kBasicFunctionalStatusCount = 7U;
 
-// Isolated control path for diagnosing DWQE publication: one deferred Write followed by one
-// immediate Write, matching the validated single-thread "batch last" usage without BatchHandle.
-constexpr uint32_t kSingleLastStatusInit = 0U;
-constexpr uint32_t kSingleLastStatusDeferred = 1U;
-constexpr uint32_t kSingleLastStatusImmediate = 2U;
-constexpr uint32_t kSingleLastStatusDrain = 3U;
-constexpr uint32_t kSingleLastStatusCount = 4U;
-
 constexpr size_t kWriteOffset = 0U;
 constexpr size_t kReadOffset = kWriteOffset + kOperationCount * kPayloadBytes;
 constexpr size_t kNotifyDataOffset = kReadOffset + kOperationCount * kPayloadBytes;
@@ -115,73 +107,9 @@ constexpr uint32_t kStatusCommit = 1U;
 constexpr uint32_t kStatusDrain = 2U;
 constexpr uint32_t kStatusCommitCount = 3U;
 
-// Diagnostics for the first WriteNbi append. Keep these in the example output buffer rather
-// than in the batch implementation so observing a failure does not change the library path.
 constexpr uint32_t kFunctionalStatusCount = kStatusCaseBase + kCaseCount * kStatusFieldsPerCase;
-constexpr uint32_t kDiagBase = kFunctionalStatusCount;
-constexpr uint32_t kDiagGuardMask = kDiagBase;
-constexpr uint32_t kDiagAppendRet = kDiagBase + 1U;
-constexpr uint32_t kDiagPreparedBefore = kDiagBase + 2U;
-constexpr uint32_t kDiagPreparedAfter = kDiagBase + 3U;
-constexpr uint32_t kDiagCapacity = kDiagBase + 4U;
-constexpr uint32_t kDiagTargetAddrLow = kDiagBase + 5U;
-constexpr uint32_t kDiagTargetAddrHigh = kDiagBase + 6U;
-constexpr uint32_t kDiagTargetLenLow = kDiagBase + 7U;
-constexpr uint32_t kDiagTargetLenHigh = kDiagBase + 8U;
-constexpr uint32_t kDiagRemoteBaseLow = kDiagBase + 9U;
-constexpr uint32_t kDiagRemoteBaseHigh = kDiagBase + 10U;
-constexpr uint32_t kDiagRemoteSizeLow = kDiagBase + 11U;
-constexpr uint32_t kDiagRemoteSizeHigh = kDiagBase + 12U;
-constexpr uint32_t kDiagOffsetLow = kDiagBase + 13U;
-constexpr uint32_t kDiagOffsetHigh = kDiagBase + 14U;
-constexpr uint32_t kAppendDiagEnd = kDiagBase + 15U;
-
-// Two structured commit snapshots for the first homogeneous Write case. Every 64-bit field
-// occupies a low/high pair so the same int32_t GM status buffer can be printed by the Host.
-constexpr uint32_t kCommitDiagWordCount = 20U;
-constexpr uint32_t kCommitDiagHeadSnapshot = 0U;
-constexpr uint32_t kCommitDiagHeadBefore = 2U;
-constexpr uint32_t kCommitDiagHeadVal = 4U;
-constexpr uint32_t kCommitDiagHeadAfter = 6U;
-constexpr uint32_t kCommitDiagPrepared = 8U;
-constexpr uint32_t kCommitDiagPreparedCqe = 9U;
-constexpr uint32_t kCommitDiagSqTailBefore = 10U;
-constexpr uint32_t kCommitDiagChunkItems = 11U;
-constexpr uint32_t kCommitDiagTailItemHead = 12U;
-constexpr uint32_t kCommitDiagTailUbWord0 = 13U;
-constexpr uint32_t kCommitDiagTailSqWord0 = 15U;
-constexpr uint32_t kCommitDiagRingReached = 17U;
-constexpr uint32_t kCommitDiagPublishCount = 18U;
-constexpr uint32_t kCommitDiagTailSqMismatchMask = 19U;
-constexpr uint32_t kCommitDiagBase = kAppendDiagEnd;
-
-constexpr uint32_t kDrainDiagBase = kCommitDiagBase + kBatchCount * kCommitDiagWordCount;
-constexpr uint32_t kDrainDiagExpectedCqTail = kDrainDiagBase;
-constexpr uint32_t kDrainDiagInitialCqTail = kDrainDiagBase + 1U;
-constexpr uint32_t kDrainDiagFinalCqTail = kDrainDiagBase + 2U;
-constexpr uint32_t kDrainDiagInitialSqTail = kDrainDiagBase + 3U;
-constexpr uint32_t kDrainDiagFinalSqTail = kDrainDiagBase + 4U;
-constexpr uint32_t kDrainDiagPollRet = kDrainDiagBase + 5U;
-constexpr uint32_t kDrainDiagFailedCqIndex = kDrainDiagBase + 6U;
-constexpr uint32_t kDrainDiagRetryCount = kDrainDiagBase + 7U;
-constexpr uint32_t kDrainDiagCqeWord0 = kDrainDiagBase + 8U;
-constexpr uint32_t kDrainDiagCqeWord1 = kDrainDiagBase + 9U;
-constexpr uint32_t kStatusCount = kDrainDiagBase + 10U;
-
-constexpr uint32_t kBasicCommitDiagBase = kBasicFunctionalStatusCount;
-constexpr uint32_t kBasicDrainDiagBase = kBasicCommitDiagBase + kCommitDiagWordCount;
-constexpr uint32_t kBasicStatusCount = kBasicDrainDiagBase + 10U;
-static_assert(kCommitDiagTailSqMismatchMask + 1U == kCommitDiagWordCount, "commit diagnostic layout mismatch");
-static_assert(kDrainDiagCqeWord1 + 1U == kStatusCount, "full status buffer layout mismatch");
-static_assert(kBasicDrainDiagBase + 10U == kBasicStatusCount, "basic status buffer layout mismatch");
-
-constexpr uint32_t kDiagInvalidHandle = 1U << 0U;
-constexpr uint32_t kDiagCapacityExhausted = 1U << 1U;
-constexpr uint32_t kDiagTargetLenTooLarge = 1U << 2U;
-constexpr uint32_t kDiagNullTarget = 1U << 3U;
-constexpr uint32_t kDiagTargetBelowBase = 1U << 4U;
-constexpr uint32_t kDiagOffsetPastEnd = 1U << 5U;
-constexpr uint32_t kDiagLenPastEnd = 1U << 6U;
+constexpr uint32_t kStatusCount = kFunctionalStatusCount;
+constexpr uint32_t kBasicStatusCount = kBasicFunctionalStatusCount;
 
 } // namespace simt_batch
 

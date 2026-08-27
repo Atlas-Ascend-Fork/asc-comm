@@ -76,32 +76,6 @@ The basic implementation uses 128 bytes of UB per item to reuse the validated im
 uses the public `HcommSimtBatchBufferBytes` helper rather than an internal magic number. Per-operator WQEBB
 compaction is a later optimization and is not part of the current API semantics.
 
-## DWQE root-cause diagnostics
-
-The functional executable also provides a `single-last` control mode that is isolated from the instructional
-`basic` path. It issues one `WriteNbi<false>` to ordinary SQ and one `WriteNbi<true>` to SQ and DWQE to publish
-both operations. It uses the same two 64-byte Write payloads as `basic`, but does not create a BatchHandle, so it
-directly checks the validated SIMT single-thread tail-publication path.
-
-```bash
-bash run_diag.sh
-```
-
-The script runs `single-last` and `basic` in two fresh process environments so the first run cannot change the
-second run's SQ/CQ counters. The `basic` and `full` ASC Kernels enable `HCOMM_SIMT_BATCH_DEBUG`, store fixed-size
-snapshots in the GM status area, and let the Host print them after Kernel completion instead of calling device
-`printf` in the DWQE critical path. The output includes:
-
-- packed head values before and after the batch reservation, SQ tail, and item/CQE counts;
-- tail WQE word 0 in UB and ordinary SQ, the tail item head, and whether execution reached the ring;
-- expected/actual CQ and SQ tails, the raw Poll result, and the first two words of the failing CQE;
-- an execution bitmap and first byte of every RMA item in the full regression, without stopping at the first
-  data mismatch.
-
-The diagnostic macro is enabled only for ASC compilation of `examples/simt_batch`; `simt_batch_perf` does not
-enable it, so benchmark results do not include snapshot overhead. `single-last` is diagnostic and is not a batch
-API pass criterion.
-
 ## Pass criteria
 
 - The handle is valid and bound to the selected remote registration, all device steps return zero, and
@@ -125,12 +99,10 @@ source /usr/local/Ascend/cann/set_env.sh
 cd examples/simt_batch
 bash build.sh
 bash run_basic.sh  # minimal usage path
-bash run_diag.sh   # single-thread Last versus two-item batch
 bash run.sh
 ```
 
-`run.sh` runs the full six-API regression and can also be invoked explicitly as `bash run.sh full`;
-`bash run.sh single-last` runs only the control path. Set
+`run.sh` runs the full six-API regression and can also be invoked explicitly as `bash run.sh full`. Set
 `BUILD_JOBS=8 bash build.sh` to control build parallelism. The run scripts create and remove temporary
 root-info/synchronization files and print the current `CodeVersion` first. Key output lines are:
 

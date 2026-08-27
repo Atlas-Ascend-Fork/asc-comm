@@ -105,7 +105,7 @@ __simt_callee__ inline int32_t SubmitBatchSeries(
             failureOperation = begin;
             return status;
         }
-        publishCount += batch.lastCommitPublishCount;
+        ++publishCount;
     }
     return 0;
 }

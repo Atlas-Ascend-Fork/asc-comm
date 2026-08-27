@@ -22,7 +22,6 @@ set_source_files_properties(op_kernel.cpp basic_op_kernel.cpp PROPERTIES LANGUAG
 add_executable(simt_batch main.cpp op_kernel.cpp basic_op_kernel.cpp)
 target_compile_definitions(simt_batch PRIVATE
     USE_SIMT
-    $<$<COMPILE_LANGUAGE:ASC>:HCOMM_SIMT_BATCH_DEBUG>
 )
 set_target_properties(simt_batch PROPERTIES LINKER_LANGUAGE ASC)
 
