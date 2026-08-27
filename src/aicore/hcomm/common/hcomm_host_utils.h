@@ -25,6 +25,7 @@
 #include <dlfcn.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <mutex>
 
 #include "hccl/hccl_res.h"
 #include "hcomm/hcomm_res_entity_defs.h"
@@ -62,20 +63,6 @@ public:
     static HcclResult LoadHcclApi() { return LoadHcclLibrary(); }
 
     static HcommResult LoadHcommApi() { return static_cast<HcommResult>(LoadHcommLibrary()); }
-
-    static void CleanupHcclApi()
-    {
-        HcommLibrary& library = GetLibrary();
-        ReleaseSymbols(library.hcclApi);
-        CloseLibraryIfUnused(library);
-    }
-
-    static void CleanupHcommApi()
-    {
-        HcommLibrary& library = GetLibrary();
-        ReleaseSymbols(library.hcommApi);
-        CloseLibraryIfUnused(library);
-    }
 
     static inline HcclResult HcclChannelConfigCreate(HcommHostChannelConfig* config)
     {
@@ -160,7 +147,7 @@ public:
 
 private:
     struct HcclApi {
-        uint32_t referenceCount = 0U;
+        bool loaded = false;
         HcommHcclChannelConfigCreateFunc HcclChannelConfigCreate = nullptr;
         HcommHcclChannelConfigDestroyFunc HcclChannelConfigDestroy = nullptr;
         HcommHcclChannelConfigSetIntFunc HcclChannelConfigSetInt = nullptr;
@@ -172,7 +159,7 @@ private:
     };
 
     struct HcommApi {
-        uint32_t referenceCount = 0U;
+        bool loaded = false;
         HcommChannelConfigCreateFunc HcommChannelConfigCreate = nullptr;
         HcommChannelConfigDestroyFunc HcommChannelConfigDestroy = nullptr;
         HcommChannelConfigSetIntFunc HcommChannelConfigSetInt = nullptr;
@@ -189,10 +176,10 @@ private:
 
     static HcclResult LoadHcclLibrary()
     {
+        std::lock_guard<std::mutex> guard(GetMutex());
         HcommLibrary& library = GetLibrary();
         HcclApi& api = library.hcclApi;
-        if (api.referenceCount != 0U) {
-            ++api.referenceCount;
+        if (api.loaded) {
             return HCCL_SUCCESS;
         }
         HcclResult ret = OpenLibrary(library);
@@ -221,16 +208,16 @@ private:
 
 #undef HCOMM_LOAD_SYMBOL
 
-        api.referenceCount = 1U;
+        api.loaded = true;
         return HCCL_SUCCESS;
     }
 
     static HcclResult LoadHcommLibrary()
     {
+        std::lock_guard<std::mutex> guard(GetMutex());
         HcommLibrary& library = GetLibrary();
         HcommApi& api = library.hcommApi;
-        if (api.referenceCount != 0U) {
-            ++api.referenceCount;
+        if (api.loaded) {
             return HCCL_SUCCESS;
         }
         HcclResult ret = OpenLibrary(library);
@@ -257,7 +244,7 @@ private:
 
 #undef HCOMM_LOAD_SYMBOL
 
-        api.referenceCount = 1U;
+        api.loaded = true;
         return HCCL_SUCCESS;
     }
 
@@ -299,31 +286,25 @@ private:
 
     static HcommLibrary& GetLibrary()
     {
-        static thread_local HcommLibrary library;
+        static HcommLibrary library;
         return library;
     }
 
-    template <typename SymbolTable>
-    static void ReleaseSymbols(SymbolTable& symbols)
+    static std::mutex& GetMutex()
     {
-        if (symbols.referenceCount == 0U) {
-            return;
-        }
-        --symbols.referenceCount;
-        if (symbols.referenceCount == 0U) {
-            symbols = SymbolTable{};
-        }
+        static std::mutex mutex;
+        return mutex;
     }
 
     static void CloseLibraryIfUnused(HcommLibrary& library)
     {
-        if (library.hcclApi.referenceCount != 0U || library.hcommApi.referenceCount != 0U) {
+        if (library.hcclApi.loaded || library.hcommApi.loaded) {
             return;
         }
         if (library.handle != nullptr) {
             (void)dlclose(library.handle);
         }
-        library = HcommLibrary{};
+        library.handle = nullptr;
     }
 };
 
