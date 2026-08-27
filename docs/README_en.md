@@ -18,7 +18,6 @@ docs/
 | [Quick Start](./quick_start_en.md) | Environment setup, source compilation and UT verification for asc-comm. |
 | [API Reference](./en/api/README.md) | List of currently published asc-comm APIs. |
 | [Hcomm Usage Guide](./en/guide/hcomm_usage.md) | Basic workflow for Hcomm point-to-point communication interfaces. |
-| [Hcomm SIMT Batch Design](./en/guide/simt_batch_design.md) | Single-lane and multi-lane SIMT batching, DWQE publication, and verification design. |
 | [Build & Test](./en/guide/build_and_test.md) | CANN environment, development run package, UT compilation and sample build instructions. |
 | [Third-party Dependencies & Compatibility](./en/guide/dependencies.md) | Direct repository dependencies, sample runtime dependencies, installation configuration and integration boundaries. |
 | [API Documentation Contribution Guide](./api_contributing_en.md) | Structure, constraints and checklist for adding or updating API documents. |
