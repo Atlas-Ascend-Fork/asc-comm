@@ -168,6 +168,18 @@ __aicore__ inline void HcommUrmaFillSgeCtx(
     }
 }
 
+__aicore__ inline __gm__ uint32_t* HcommUrmaGetLockAddr(__gm__ ChannelEntity* channelEntity)
+{
+    // cqContextAddr shares a cache line with the channel counters. Read it bypassing DataCache to avoid caching
+    // stale counters before the lock is acquired, then use the default CQ context's ubJfc.headAddr as the lock address.
+    __gm__ uint64_t* cqContextsAddrField = reinterpret_cast<__gm__ uint64_t*>(
+        reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, cqContextAddr));
+    uint64_t cqContextsAddr = ld_dev(cqContextsAddrField, 0);
+    __gm__ CqContext* cqContext = reinterpret_cast<__gm__ CqContext*>(cqContextsAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
+    uint64_t lockAddrValue = cqContext->contextInfo.ubJfc.headAddr;
+    return reinterpret_cast<__gm__ uint32_t*>(lockAddrValue);
+}
+
 __aicore__ inline void HcommUrmaDumpAmoCtx(__ubuf__ HcommUrmaSqeCtx* sqeCtx, uint32_t atomicLen)
 {
     if (sqeCtx == nullptr) {
@@ -989,6 +1001,37 @@ template <pipe_t pipe>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpMultiBatchHandle& batchHandle)
 {
     return Drain<pipe>(batchHandle.handle);
+}
+
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle channel)
+{
+    if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    __gm__ uint32_t* lockAddr = HcommUrmaGetLockAddr(channelEntity);
+    while (AtomicCas(lockAddr, HCOMM_LOCK_FREE, HCOMM_LOCK_HELD) != HCOMM_LOCK_FREE) {
+        // Back off for 800 cycles before retrying to reduce atomic contention.
+        Nop<800>();
+    }
+    return HCOMM_SUCCESS;
+}
+
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Unlock(ChannelHandle channel)
+{
+    if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    __gm__ uint8_t* counterAddr = reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, sqHead);
+    // Flush the four contiguous channel counters: sqHead, sqTail, cqHead, and cqTail.
+    CacheWriteThrough<uint8_t>(counterAddr, 4U * sizeof(uint32_t));
+
+    __gm__ uint32_t* lockAddr = HcommUrmaGetLockAddr(channelEntity);
+    uint32_t oldValue = AtomicCas(lockAddr, HCOMM_LOCK_HELD, HCOMM_LOCK_FREE);
+    return oldValue == HCOMM_LOCK_HELD ? HCOMM_SUCCESS : HCOMM_FAILED;
 }
 
 } // namespace AscendC

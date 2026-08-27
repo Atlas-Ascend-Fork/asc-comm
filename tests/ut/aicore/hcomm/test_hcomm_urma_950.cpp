@@ -48,6 +48,9 @@ AscendC::LocalTensor<uint8_t> WrapUbBuffer(std::array<uint8_t, N>& buffer)
     return tensor;
 }
 
+static_assert(offsetof(AscendC::ChannelEntity, sqHead) == 96);
+static_assert(sizeof(AscendC::ChannelEntity) == 256);
+
 class UrmaChannelResource {
 public:
     explicit UrmaChannelResource(uint32_t queueDepth = URMA_SQ_DEPTH)
@@ -94,6 +97,8 @@ public:
     AscendC::ChannelHandle GetHandle() { return reinterpret_cast<AscendC::ChannelHandle>(&channel_); }
 
     uint32_t GetSqHead() const { return channel_.sqHead; }
+
+    uint32_t GetLock() const { return *reinterpret_cast<const uint32_t*>(cqCtx_.contextInfo.ubJfc.headAddr); }
 
     uint32_t GetCqHead() const { return channel_.cqHead; }
 
@@ -861,6 +866,40 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchDrainWithoutInit)
     EXPECT_EQ(batchHandle.cursor.cqTail, 2U);
     EXPECT_EQ(channel.GetCqTail(), 2U);
     EXPECT_EQ(channel.GetCqDoorbell(), 2U);
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockUnlock)
+{
+    UrmaChannelResource channel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+    EXPECT_EQ(hcomm.Lock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_HELD);
+    EXPECT_EQ(hcomm.Unlock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_UnlockWithoutLock)
+{
+    UrmaChannelResource channel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+    EXPECT_EQ(hcomm.Unlock(channel.GetHandle()), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockUnlockInvalidChannel)
+{
+    UrmaChannelResource channel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+    ChannelHandle misalignedChannel = channel.GetHandle() + 1U;
+
+    EXPECT_EQ(hcomm.Lock(0U), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(hcomm.Unlock(0U), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(hcomm.Lock(misalignedChannel), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(hcomm.Unlock(misalignedChannel), AscendC::HCOMM_FAILED);
 }
 
 // ReadNbi with default commit=true: auto-commit internally, then Drain succeeds
