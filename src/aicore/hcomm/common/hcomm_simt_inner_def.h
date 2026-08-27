@@ -80,8 +80,10 @@ struct UbcCtpBatchHandle {
     __ubuf__ uint64_t* buffer = nullptr;
     uint32_t capacity = 0U;
     uint32_t prepared = 0U;
+    uint32_t preparedBb = 0U;
     uint32_t preparedCqe = 0U;
     uint32_t lastCqe = 0U;
+    uint32_t groupSize = 1U;
     uint64_t remoteBaseAddr = 0U;
     uint64_t remoteSize = 0U;
     __gm__ uint64_t* headAddr = nullptr;
