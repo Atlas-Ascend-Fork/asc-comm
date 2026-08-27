@@ -245,15 +245,15 @@ static Options ParseOptions(int argc, char** argv)
         const std::string arg(argv[i]);
         if (arg == "--devices" && i + 1 < argc) {
             options.devices = ParseDevices(argv[++i]);
-        } else if (arg == "--count_" && i + 1 < argc) {
-            options.count = std::stoull(argv[++i]);
+        } else if (arg == "--count" && i + 1 < argc) {
+            options.count_ = std::stoull(argv[++i]);
         } else if (arg == "--input-dir" && i + 1 < argc) {
             options.inputDir = argv[++i];
         } else if (arg == "--output-dir" && i + 1 < argc) {
             options.outputDir = argv[++i];
         } else {
             throw std::invalid_argument("usage: ccu_allgather_mesh1d_mem2mem [--devices 0,1] "
-                                        "[--count_ 256] [--input-dir ./input] "
+                                        "[--count 256] [--input-dir ./input] "
                                         "[--output-dir ./output]");
         }
     }
@@ -270,7 +270,7 @@ static int run(int argc, char** argv)
         return 2;
     }
     if (options.devices.empty() || options.devices.size() > MAX_RANKS) {
-        std::cerr << "rank count_ must be in [1, " << MAX_RANKS << "]\n";
+        std::cerr << "rank count must be in [1, " << MAX_RANKS << "]\n";
         return 1;
     }
     const std::set<uint32_t> uniqueDevices(options.devices.begin(), options.devices.end());
@@ -305,7 +305,7 @@ static int run(int argc, char** argv)
     for (uint32_t rank = 0; rank < rankSize; ++rank) {
         workers.emplace_back([&, rank]() {
             status[rank] = RunRank(
-                rootInfo, rank, rankSize, options.devices[rank], options.count, options.inputDir, options.outputDir);
+                rootInfo, rank, rankSize, options.devices[rank], options.count_, options.inputDir, options.outputDir);
         });
     }
     for (auto& worker : workers) {

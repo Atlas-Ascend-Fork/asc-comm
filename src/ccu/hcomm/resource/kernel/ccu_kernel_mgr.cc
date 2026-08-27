@@ -247,10 +247,16 @@ static void dump_res_req_info(const asc_ccu_res_request& total_res)
     }
 }
 
+static size_t compute_kernel_instr_region_size(ccu_kernel& kernel)
+{
+    return static_cast<size_t>(kernel.get_instr_count()) +
+        ccu_rep::ccu_rep_translator::get_instr_num() + kernel.get_const_value2_var_map().size() +
+        static_cast<size_t>(kernel.get_rep_need_to_add_latency()) * ccu_rep::ccu_cke_raw_latency;
+}
+
 static CcuResult set_instr_request(std::unique_ptr<ccu_kernel>& kernel, asc_ccu_res_request &request)
 {
-    const size_t instr_count = static_cast<size_t>(kernel->get_instr_count()) +
-        ccu_rep::ccu_rep_translator::get_instr_num() + kernel->get_const_value2_var_map().size();
+    const size_t instr_count = compute_kernel_instr_region_size(*kernel);
     const uint32_t die_id = kernel->get_die_id();
     return set_request_count(request.instruction[die_id], instr_count);
 }
@@ -683,6 +689,11 @@ HcclResult ccu_kernel_mgr::trans_rep_sequence_to_microcode(const std::vector<ccu
         try {
             const auto& instr_info = translators_[die_id][mission_id]->translate(
                 kernel, kernel->get_rep_sequence(), kernel->get_instr_id(), is_func_block);
+            const size_t region_size = compute_kernel_instr_region_size(*kernel);
+            CHK_PRT_RET(instr_info.instr_vec.size() > region_size,
+                HCCL_ERROR("[CcuKernelMgr][%s] optimized instruction count[%zu] exceeds reserved region[%zu].",
+                    __func__, instr_info.instr_vec.size(), region_size),
+                HcclResult::HCCL_E_INTERNAL);
             CHK_RET(load_instruction(instr_info, die_id));
             kernel->set_ccu_instr_info(instr_info); // 指令下发成功后可以对kernel进行launch
         } catch (const ::AscendC::ccu::detail::ccu_exception& exception) {

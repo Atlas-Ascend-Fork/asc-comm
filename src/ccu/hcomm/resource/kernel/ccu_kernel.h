@@ -89,6 +89,7 @@ public:
     void set_instr_id(uint32_t instr_id);
     uint32_t get_instr_id() const;
     uint32_t get_instr_count();
+    uint32_t get_rep_need_to_add_latency() const;
     void set_ccu_instr_info(const ccu_rep::ccu_instr_info& instr_info);
     void set_instruction_resource(const HcommCcuResRangePod& range);
     bool get_instruction_resource(HcommCcuResRangePod& range) const;
