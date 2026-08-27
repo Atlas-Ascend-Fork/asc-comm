@@ -1,0 +1,106 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="Ix2_Fiik_45_WbT44BoS">
+    <mxGraphModel dx="1146" dy="657" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-268" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#ffffff;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="370" width="600" x="736" y="1025.6" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-269" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontFamily=FZLTHJT;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-283">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1246" y="1355.6" />
+            </Array>
+            <mxPoint x="1146" y="1355.6" as="sourcePoint" />
+            <mxPoint x="1246" y="1301.9699999999998" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-270" parent="1" style="rounded=1;arcSize=9;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=FZLTHJT;" value="硬件通路" vertex="1">
+          <mxGeometry height="60" width="260" x="886" y="1325.6" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-271" parent="1" style="rounded=1;arcSize=9;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=FZLTHJT;" value="通信引擎" vertex="1">
+          <mxGeometry height="60" width="260" x="886" y="1035.6" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-272" connectable="0" parent="1" style="group;" value="" vertex="1">
+          <mxGeometry x="736" y="1025.6" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-273" parent="mT1LLKWBsifzJR55_ZJA-272" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="170" width="246.67" x="153.33" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-274" parent="mT1LLKWBsifzJR55_ZJA-272" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontFamily=FZLTHJT;" value="WQE" vertex="1">
+          <mxGeometry height="35" width="66.67" x="180" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-275" parent="mT1LLKWBsifzJR55_ZJA-272" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontFamily=FZLTHJT;" value="WQE" vertex="1">
+          <mxGeometry height="35" width="66.67" x="180" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-276" parent="mT1LLKWBsifzJR55_ZJA-272" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontFamily=FZLTHJT;" value="WQE" vertex="1">
+          <mxGeometry height="35" width="66.67" x="180" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-277" parent="mT1LLKWBsifzJR55_ZJA-272" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="35" width="66.67" x="180" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-278" parent="mT1LLKWBsifzJR55_ZJA-272" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontFamily=FZLTHJT;" value="CQE" vertex="1">
+          <mxGeometry height="35" width="66.67" x="313.33" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-279" parent="mT1LLKWBsifzJR55_ZJA-272" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontFamily=FZLTHJT;" value="CQE" vertex="1">
+          <mxGeometry height="35" width="66.67" x="313.33" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-280" parent="mT1LLKWBsifzJR55_ZJA-272" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontFamily=FZLTHJT;" value="CQE" vertex="1">
+          <mxGeometry height="35" width="66.67" x="313.33" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-281" parent="mT1LLKWBsifzJR55_ZJA-272" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="35" width="66.67" x="313.33" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-282" edge="1" parent="mT1LLKWBsifzJR55_ZJA-272" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontFamily=FZLTHJT;entryX=0.242;entryY=0.007;entryDx=0;entryDy=0;entryPerimeter=0;" target="mT1LLKWBsifzJR55_ZJA-270">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="213.16" y="260" as="sourcePoint" />
+            <mxPoint x="214" y="294.4000000000001" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-283" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=FZLTHJT;" value="远&lt;br&gt;端&lt;br&gt;内&lt;br&gt;存" vertex="1">
+          <mxGeometry height="120" width="60" x="1216" y="1175.6" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-284" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="①写WQE，下发通信任务" vertex="1">
+          <mxGeometry height="30" width="150" x="786" y="1095.6" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-285" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="②硬件处理WQE请求" vertex="1">
+          <mxGeometry height="30" width="150" x="786" y="1295.6" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-286" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="③访问远端内存" vertex="1">
+          <mxGeometry height="30" width="150" x="1136" y="1355.6" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-287" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="④硬件处理完成，写CQE" vertex="1">
+          <mxGeometry height="30" width="150" x="1086" y="1295.6" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-288" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="⑤轮询完成" vertex="1">
+          <mxGeometry height="30" width="150" x="1056" y="1095.6" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-289" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontFamily=FZLTHJT;entryX=0.197;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" target="mT1LLKWBsifzJR55_ZJA-288">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1086" y="1145.6" as="sourcePoint" />
+            <mxPoint x="1085.9" y="1102.57" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-290" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontFamily=FZLTHJT;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-281">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1082.69" y="1325.6" />
+            </Array>
+            <mxPoint x="1081" y="1325.6" as="sourcePoint" />
+            <mxPoint x="1082.67" y="1291.9699999999998" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-291" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#000000;fontFamily=FZLTHJT;entryX=0.45;entryY=-0.011;entryDx=0;entryDy=0;entryPerimeter=0;" target="mT1LLKWBsifzJR55_ZJA-274">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="946.11" y="1095.6" as="sourcePoint" />
+            <mxPoint x="946.11" y="1140" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-292" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="Channel" vertex="1">
+          <mxGeometry height="30" width="60" x="982.67" y="1125.6" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

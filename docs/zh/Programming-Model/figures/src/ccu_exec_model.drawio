@@ -1,0 +1,91 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="Ix2_Fiik_45_WbT44BoS">
+    <mxGraphModel dx="802" dy="460" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-247" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#ffffff;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="279.2" width="498.4" x="470" y="660" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-248" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#d79b00;fontFamily=FZLTHJT;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-251">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="778.4000000000001" y="709.2" as="sourcePoint" />
+            <mxPoint x="778.3900000000001" y="752.84" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-249" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=FZLTHJT;" value="Host" vertex="1">
+          <mxGeometry height="40" width="90" x="733.4000000000001" y="669.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-250" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="30" width="160" x="698.4000000000001" y="759.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-251" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="30" width="33.33" x="761.73" y="759.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-252" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=FZLTHJT;" value="调度器" vertex="1">
+          <mxGeometry height="40" width="90" x="568.4000000000001" y="754.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-253" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#d79b00;fontFamily=FZLTHJT;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-252">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="698.4000000000001" y="774.2" as="sourcePoint" />
+            <mxPoint x="664.7700000000001" y="774.2" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-254" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="任务队列" vertex="1">
+          <mxGeometry height="30" width="60" x="866.73" y="759.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-255" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#d79b00;fontFamily=FZLTHJT;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-260">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="613.4000000000001" y="794.2" as="sourcePoint" />
+            <mxPoint x="613.4000000000001" y="856.47" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-256" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="①创建通信资源，&lt;br&gt;下发CCU指令流和CCU Kernel" vertex="1">
+          <mxGeometry height="30" width="170" x="778.4000000000001" y="709.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-257" edge="1" parent="1" style="endArrow=none;html=1;rounded=0;strokeColor=#999999;dashed=1;fontFamily=FZLTHJT;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="478.4000000000001" y="739.2" as="sourcePoint" />
+            <mxPoint x="958.4000000000001" y="739.2" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-258" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=1;fontFamily=FZLTHJT;" value="Host" vertex="1">
+          <mxGeometry height="30" width="60" x="495.9000000000001" y="709.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-259" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontStyle=1;fontFamily=FZLTHJT;" value="Device" vertex="1">
+          <mxGeometry height="30" width="60" x="495.9000000000001" y="739.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-260" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=FZLTHJT;" value="" vertex="1">
+          <mxGeometry height="60" width="115" x="555.9000000000001" y="869.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-261" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="CCU" vertex="1">
+          <mxGeometry height="30" width="60" x="555.9000000000001" y="884.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-262" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=FZLTHJT;" value="指&lt;br&gt;令&lt;br&gt;流" vertex="1">
+          <mxGeometry height="50" width="30" x="625.9000000000001" y="874.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-263" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#d79b00;fontFamily=FZLTHJT;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-262">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="778.4000000000001" y="709.2" as="sourcePoint" />
+            <mxPoint x="649.0500000000001" y="864.4200000000001" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-264" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;strokeColor=#d79b00;fontFamily=FZLTHJT;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="mT1LLKWBsifzJR55_ZJA-265">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="655.9000000000001" y="899.2" as="sourcePoint" />
+            <mxPoint x="775.6600000000001" y="899.2" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-265" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontFamily=FZLTHJT;" value="URMA" vertex="1">
+          <mxGeometry height="40" width="100" x="788.4000000000001" y="879.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-266" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="②调度器将CCU Kernel交给CCU执行" vertex="1">
+          <mxGeometry height="30" width="130" x="478.4000000000001" y="819.2" as="geometry" />
+        </mxCell>
+        <mxCell id="mT1LLKWBsifzJR55_ZJA-267" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontFamily=FZLTHJT;" value="③CCU执行对应指令流，利用URMA完成数据搬运" vertex="1">
+          <mxGeometry height="30" width="100" x="678.4000000000001" y="854.2" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
