@@ -63,6 +63,20 @@ __simt_callee__ inline void HcommSimtCopyStageToSq(__gm__ uint8_t* dst, const Hc
     }
 }
 
+template <uint32_t byteSize>
+__simt_callee__ inline void HcommSimtCopyUbToSq(__gm__ uint8_t* dst, __ubuf__ uint64_t* srcWords)
+{
+    static_assert(byteSize % sizeof(ulonglong2) == 0U, "WQE copy must use complete vector words");
+    static_assert(byteSize <= HCOMM_URMA_DWQE_SIZE, "WQE copy must stay inside the DWQE window");
+
+    __gm__ ulonglong2* dstWords = reinterpret_cast<__gm__ ulonglong2*>(dst);
+#pragma unroll
+    for (uint32_t i = 0; i < byteSize / sizeof(ulonglong2); ++i) {
+        uint32_t wordIdx = i * 2U;
+        asc_stwt(&dstWords[i], make_ulonglong2(srcWords[wordIdx], srcWords[wordIdx + 1U]));
+    }
+}
+
 static_assert(sizeof(HcommUrmaSqeCtx) == 48U, "Packed SIMT SQE assumes a 48-byte SQE context");
 static_assert(sizeof(HcommUrmaNotifyCtx) == 32U, "Packed SIMT Notify assumes a 32-byte notify context");
 static_assert(sizeof(HcommUrmaSgeCtx) == 16U, "Packed SIMT SQE assumes a 16-byte SGE context");
@@ -102,6 +116,25 @@ __simt_callee__ inline void HcommSimtCopyStageWqeToSq(
         }
     }
     HcommSimtCopyStageToSq<bbCnt * HCOMM_URMA_WQE_BB_SIZE>(sqeAddr, stage);
+}
+
+template <uint32_t bbCnt>
+__simt_callee__ inline void HcommSimtCopyUbWqeToSq(
+    uint64_t sqBaseAddr, __gm__ uint8_t* sqeAddr, uint32_t sqDepth, uint32_t curHead,
+    __ubuf__ uint64_t* srcWords)
+{
+    static_assert(
+        bbCnt == HCOMM_URMA_WQE_BB_CNT || bbCnt == HCOMM_URMA_DWQE_BB_CNT,
+        "SIMT SQ copy supports one-BB or two-BB WQEs");
+    if constexpr (bbCnt == HCOMM_URMA_DWQE_BB_CNT) {
+        if ((curHead % sqDepth) == sqDepth - 1U) {
+            HcommSimtCopyUbToSq<HCOMM_URMA_WQE_BB_SIZE>(sqeAddr, srcWords);
+            HcommSimtCopyUbToSq<HCOMM_URMA_WQE_BB_SIZE>(
+                reinterpret_cast<__gm__ uint8_t*>(sqBaseAddr), srcWords + HCOMM_SIMT_BB_WORDS);
+            return;
+        }
+    }
+    HcommSimtCopyUbToSq<bbCnt * HCOMM_URMA_WQE_BB_SIZE>(sqeAddr, srcWords);
 }
 
 // Words a layout leaves unused are not cleared: the NIC reads only as far as the fields the
@@ -874,12 +907,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     uint64_t batchHeadVal = 0U;
     bool batchReserved = false;
     for (uint32_t item = 0U; item < batchHandle.prepared; ++item) {
-        HcommSimtWqeStage stage;
         __ubuf__ uint64_t* srcWords = batchHandle.buffer + item * HCOMM_SIMT_WQE_WORDS;
-#pragma unroll
-        for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
-            stage.words[word] = srcWords[word];
-        }
 
         // Keep the registered remote token cached, but reload the queue context as ResolvePost
         // does so the two parts of per-item resolution can be validated independently.
@@ -927,13 +955,21 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
             HcommSimtHeadIdx(batchHeadVal) + item * HCOMM_URMA_DWQE_BB_CNT : HcommSimtHeadIdx(headVal);
         uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
         uint64_t owner = (curHead & post.meta.sqDepth) == 0U ? 1U : 0U;
-        stage.words[0] = (stage.words[0] & ~(nextHeadMask | ownerMask)) |
-                         (static_cast<uint64_t>(nextHead) & nextHeadMask) | (owner << 31U);
+        srcWords[0] = (srcWords[0] & ~(nextHeadMask | ownerMask)) |
+                      (static_cast<uint64_t>(nextHead) & nextHeadMask) | (owner << 31U);
         const bool publish = item + 1U == batchHandle.prepared;
         if (publish) {
+            HcommSimtWqeStage stage;
+#pragma unroll
+            for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
+                stage.words[word] = srcWords[word];
+            }
             HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, true>(post, curHead, stage);
         } else {
-            HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(post, curHead, stage);
+            __gm__ uint8_t* sqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+                post.sqBaseAddr + post.sqWqeSize * (curHead % post.meta.sqDepth));
+            HcommSimtCopyUbWqeToSq<HCOMM_URMA_DWQE_BB_CNT>(
+                post.sqBaseAddr, sqeAddr, post.meta.sqDepth, curHead, srcWords);
         }
         batchHandle.headSnapshot = *post.headAddr;
     }
