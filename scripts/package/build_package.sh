@@ -157,6 +157,8 @@ read_package_compat_version()
     echo "${compat_version}"
 }
 
+# Copy headers while preserving paths relative to source_root. Arguments after
+# mode are excluded relative path prefixes; a filtered source may copy no files.
 copy_headers()
 {
     local source_root=$1
