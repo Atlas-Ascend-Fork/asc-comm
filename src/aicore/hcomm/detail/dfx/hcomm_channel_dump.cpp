@@ -12,7 +12,7 @@
 #include "hcomm_dfx_channel_dump_impl.h"
 
 #define HCOMM_INCLUDE_INTERNAL_HEADERS
-#include "../common/hcomm_inner_def.h"
+#include "../../common/hcomm_inner_def.h"
 #undef HCOMM_INCLUDE_INTERNAL_HEADERS
 
 #include "acl/acl.h"
@@ -517,6 +517,8 @@ void ClearPendingException()
 int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
 {
     if (kernelSymbol == nullptr) {
+        std::printf("[HcommDfxDump] bind exception callback failed: kernelSymbol is null\n");
+        std::fflush(stdout);
         return HCOMM_FAILED;
     }
 
@@ -548,16 +550,24 @@ int32_t HcommChannelInfoDump(ChannelHandle channel)
     uint32_t dumpLen = 0;
     int32_t ret = HcommDfx::GetChannelDumpInfoSize(1U, &channel, &dumpLen);
     if (ret != HCOMM_SUCCESS || dumpLen == 0) {
+        std::printf("[HcommDfxDump] get dump size failed ret=%d len=%u\n", ret, dumpLen);
+        std::fflush(stdout);
         return ret;
     }
 
-    void *dumpBuffer = std::malloc(dumpLen);
+    void *dumpBuffer = nullptr;
+    aclError allocRet = aclrtMallocHost(&dumpBuffer, dumpLen);
+    if (allocRet != ACL_SUCCESS) {
+        std::printf("[HcommDfxDump] allocate dump buffer failed ret=%d len=%u\n", allocRet, dumpLen);
+        std::fflush(stdout);
+        return HCOMM_FAILED;
+    }
     if (dumpBuffer == nullptr) {
         return HCOMM_FAILED;
     }
     std::memset(dumpBuffer, 0, dumpLen);
     ret = HcommDfx::DumpChannelInfo(1U, &channel, dumpBuffer, dumpLen);
-    std::free(dumpBuffer);
+    (void)aclrtFreeHost(dumpBuffer);
     std::printf("[HcommDfxDump] HcommChannelInfoDump ret=%d len=%u\n", ret, dumpLen);
     std::fflush(stdout);
     return ret;

@@ -135,6 +135,19 @@ ret = hcomm.Drain(multiBatchHandle);
 | `COMM_PROTOCOL_ROCE` | 支持普通`ReadNbi`、`WriteNbi`、`Commit`和`Drain`，不支持BatchHandle接口。 |
 | `COMM_PROTOCOL_UBC_CTP` | 支持普通读、写、写通知、原子、提交和等待接口；Ascend 950还支持批量读、写、写通知、`BatchCommit`和批量`Drain`。 |
 
+## DFX通道Dump
+
+HCOMM DFX通道dump能力提供一个轻量的异常回调注册接口和一个host侧dump接口，用于在kernel异常后诊断通道状态。
+
+```cpp
+AscendC::HcommChannelExceptionCallbackRegister(reinterpret_cast<const void *>(kernel_symbol));
+kernel_symbol<<<1, nullptr, stream>>>(devContext);
+aclrtSynchronizeStream(stream);
+AscendC::HcommChannelInfoDump(channel);
+```
+
+dump接口可以无条件调用。只有当注册回调已经记录到异常时，接口才会打印诊断信息。第一次成功dump会消费已记录的异常状态。
+
 ## 注意事项
 
 - 普通接口需要先调用`Init`提供临时工作区，当前最小工作区大小为512字节。BatchHandle接口不需要调用`Init`。

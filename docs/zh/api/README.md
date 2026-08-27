@@ -23,6 +23,13 @@
 | [BatchCommit](./aicore/hcomm/BatchCommit.md) | 提交BatchHandle中已准备的全部WQE。 |
 | [Drain](./aicore/hcomm/Drain.md) | 等待普通通道或BatchHandle已提交的通信任务完成。 |
 
+### Hcomm DFX
+
+| 文档 | 内容 |
+| --- | --- |
+| [HcommChannelExceptionCallbackRegister](./aicore/hcomm/HcommChannelExceptionCallbackRegister.md) | 在launch前为目标kernel绑定异常回调。 |
+| [HcommChannelInfoDump](./aicore/hcomm/HcommChannelInfoDump.md) | 在host安全点采集并打印异常后的通道现场。 |
+
 ## AICore Ain
 
 ### Ain类

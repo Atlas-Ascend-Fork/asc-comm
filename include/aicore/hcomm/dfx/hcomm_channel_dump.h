@@ -17,16 +17,21 @@
 
 namespace AscendC {
 
-// 算子接入 HCOMM 通道维测能力的两个公开接口。
-//
-// HcommChannelExceptionCallbackRegister：launch 前调用一次，为目标 kernel 绑定异常回调。
-//   绑定后，一旦 kernel 触发 AIC Error，框架会在回调里轻量记录现场（仅置 pending，不做
-//   任何 D2H / 打印 / launch，避免在异常态挂死）。不注册则异常发生时不记录，后续 dump 静默返回。
+/*!
+ * @brief Registers the exception callback for the target kernel.
+ * @param [in] kernelSymbol Kernel symbol used to bind the exception callback.
+ * @return 0 on success, -1 on failure.
+ * @note Call this before launching the target kernel. Once the kernel triggers an AIC Error, the framework only
+ *       records the exception state and does not perform D2H, printing, or launch operations inside the callback.
+ */
 int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol);
 
-// HcommChannelInfoDump：aclrtSynchronizeStream 返回错误后，在 host 安全点调用。
-//   若存在已记录的异常，则采集并打印该 channel 的 Channel / SQ / CQ / WQE / CQE 现场；
-//   无异常则直接返回成功，可无条件调用。
+/*!
+ * @brief Dumps and prints the channel diagnostics at a host safe point after stream synchronization fails.
+ * @param [in] channel Channel handle owned by the operator.
+ * @return 0 on success, -1 on failure.
+ * @note Safe to call unconditionally. If no exception has been recorded, this API returns success without printing.
+ */
 int32_t HcommChannelInfoDump(ChannelHandle channel);
 
 } // namespace AscendC
