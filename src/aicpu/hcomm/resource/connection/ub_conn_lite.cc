@@ -268,19 +268,14 @@ void UbConnLite::process_one_wqe(UdmaSqeWrite *sqe, UdmaSqOpcode opCode)
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
     u32 sqOffset = pi % sqDepth_;
-    if (sqOffset < sqDepth_ && (sqOffset + 1) >= sqDepth_) {
-        piDetourCount++;
-    }
     // pi维护用于传入DB Send用于Rtsq 敲door bell，要求u16数据结构并且自然增长
     pi = pi + 1;
 
     // 写wqe到va
     u8 *va = reinterpret_cast<u8 *>(sqVa_ + sqOffset * SQE_SIZE_64);
-    if (!dwqeCacheLocked_) {
-        auto ret = memcpy_sp(va, SQE_SIZE_64, sqe, SQE_SIZE_64);
-        if (UNLIKELY(ret != 0)) {
-            throw_exception<InternalException>(string_format("[UbConnLite::%s] memcpy_sp failed, ret = %d", __func__, ret));
-        }
+    auto ret = memcpy_sp(va, SQE_SIZE_64, sqe, SQE_SIZE_64);
+    if (UNLIKELY(ret != 0)) {
+        throw_exception<InternalException>(string_format("[UbConnLite::%s] memcpy_sp failed, ret = %d", __func__, ret));
     }
 
     HCCL_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
@@ -295,9 +290,6 @@ void UbConnLite::process_one_wqe_with_notify(const RmaBufSliceLite &loc, const R
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
     u32 sqOffset = pi % sqDepth_;
-    if (sqOffset < sqDepth_ && (sqOffset + PI_NUM_TWO) >= sqDepth_) {
-        piDetourCount++;
-    }
     // pi维护用于传入DB Send用于Rtsq 敲door bell，要求u16数据结构并且自然增长
     pi = pi + PI_NUM_TWO;
     // 填充sqe
@@ -312,15 +304,13 @@ void UbConnLite::process_one_wqe_with_notify(const RmaBufSliceLite &loc, const R
     sqe->rsv2 = 0;
 
     u8 *va = reinterpret_cast<u8 *>((sqVa_) + sqOffset * SQE_SIZE_64);
-    if (!dwqeCacheLocked_) {
-        // 带notify的wqe是96字节, 需要占用两个wqebb, 实际占用128字节
-        if (sqOffset == sqDepth_ - 1) {
-            memory_set_and_copy(va, SQE_SIZE_64, sqe);
-            va  = reinterpret_cast<u8 *>(sqVa_);
-            memory_set_and_copy(va, SQE_SIZE_64, reinterpret_cast<u8 *>(sqe) + SQE_SIZE_64);
-        } else {
-            memory_set_and_copy(va, SQE_SIZE_128, sqe);
-        }
+    // 带notify的wqe是96字节, 需要占用两个wqebb, 实际占用128字节
+    if (sqOffset == sqDepth_ - 1) {
+        memory_set_and_copy(va, SQE_SIZE_64, sqe);
+        va  = reinterpret_cast<u8 *>(sqVa_);
+        memory_set_and_copy(va, SQE_SIZE_64, reinterpret_cast<u8 *>(sqe) + SQE_SIZE_64);
+    } else {
+        memory_set_and_copy(va, SQE_SIZE_128, sqe);
     }
 
     HCCL_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
@@ -475,23 +465,20 @@ void UbConnLite::import_context(const UbConnLiteParam &liteParam)
     jettyId_ = liteParam.jettyId;
     sqVa_ = liteParam.sqVa;
     sqDepth_ = liteParam.sqDepth;
-    dwqeCacheLocked_ = liteParam.dwqeCacheLocked;
     tpn_ = liteParam.tpn;
     maxReadSize = liteParam.maxReadSize;
     maxWriteSize = liteParam.maxWriteSize;
     (void)memcpy_sp(rmtEid_, sizeof(rmtEid_), liteParam.rmtEid, sizeof(liteParam.rmtEid));
 }
 
-void UbConnLite::import_queue_state(u16 queuePi, u32 queuePiDetourCount)
+void UbConnLite::import_queue_state(u16 queuePi)
 {
     pi = queuePi;
-    piDetourCount = queuePiDetourCount;
 }
 
-void UbConnLite::export_queue_state(u16 &queuePi, u32 &queuePiDetourCount) const
+void UbConnLite::export_queue_state(u16 &queuePi) const
 {
     queuePi = pi;
-    queuePiDetourCount = piDetourCount;
 }
 
 } // namespace Asc

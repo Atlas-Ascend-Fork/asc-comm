@@ -44,13 +44,10 @@ struct UbJettyLiteAttr {
     const u64  sqVa_;
     const u32  sqDepth_;
     const u32  tpn_;
-    const bool dwqeCacheLocked_;
     const u32  jfcPollMode_; // 0代表STARS POLL， 1代表软件Poll
     const u64  sqCiAddr_;    // 预留给 软件poll CQ 的Jetty使用
-    UbJettyLiteAttr(u64 dbAddr, u64 sqVa, u32 sqDepth, u32 tpn, bool dwqeCacheLocked = false, u32 jfcPollMode = 0,
-                    u64 sqCiAddr = 0)
-        : dbAddr_(dbAddr), sqVa_(sqVa), sqDepth_(sqDepth), tpn_(tpn), dwqeCacheLocked_(dwqeCacheLocked),
-          jfcPollMode_(jfcPollMode), sqCiAddr_(sqCiAddr)
+    UbJettyLiteAttr(u64 dbAddr, u64 sqVa, u32 sqDepth, u32 tpn, u32 jfcPollMode = 0, u64 sqCiAddr = 0)
+        : dbAddr_(dbAddr), sqVa_(sqVa), sqDepth_(sqDepth), tpn_(tpn), jfcPollMode_(jfcPollMode), sqCiAddr_(sqCiAddr)
     {
     }
 };

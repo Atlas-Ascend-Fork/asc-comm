@@ -28,7 +28,6 @@ struct UbConnLiteParam {
     u64  sqVa;
     u32  sqDepth;
     u32  tpn;
-    bool dwqeCacheLocked;
     u8 rmtEid[16];
 
     u32 maxReadSize;
@@ -39,8 +38,8 @@ class UbConnLite {
 public:
     void import_context(const UbConnLiteParam &liteParam);
 
-    void import_queue_state(u16 queuePi, u32 queuePiDetourCount);
-    void export_queue_state(u16 &queuePi, u32 &queuePiDetourCount) const;
+    void import_queue_state(u16 queuePi);
+    void export_queue_state(u16 &queuePi) const;
 
     void read(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
                  ConnLiteOperationOut &out);
@@ -67,7 +66,6 @@ public:
 
 private:
     u16  pi{0};
-    u32  piDetourCount{0};
     u32  maxReadSize{0};
     u32  maxWriteSize{0};
     u32  dieId_{0};
@@ -75,7 +73,6 @@ private:
     u32  jettyId_{0};
     u64  sqVa_{0};
     u32  sqDepth_{0};
-    bool dwqeCacheLocked_{false};
     u32  tpn_{0};
     u8   rmtEid_[16]{};
     void process_slices(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, u32 maxSliceSize,

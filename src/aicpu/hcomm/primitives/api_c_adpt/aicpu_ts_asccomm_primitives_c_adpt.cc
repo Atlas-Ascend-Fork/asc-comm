@@ -64,10 +64,10 @@ HcclResult get_thread_notify_id(const HcommThreadEntity &thread, uint32_t notify
     CHK_PRT_RET(notifyIdx >= thread.localNotifyNum || thread.localNotifyAddr == nullptr,
         HCCL_ERROR("[%s] local notify index[%u] out of range[%u].", __func__, notifyIdx,
             thread.localNotifyNum), HCCL_E_PARA);
-    CHK_PRT_RET(thread.localNotifyAddr[notifyIdx].type != HCOMM_NOTIFY_TYPE_LOCAL,
-        HCCL_ERROR("[%s] local notify type[%u] is not LOCAL.", __func__,
+    CHK_PRT_RET(thread.localNotifyAddr[notifyIdx].type != HCOMM_REGED_NOTIFY_IPC_RT,
+        HCCL_ERROR("[%s] local notify type[%u] is not IPC_RT.", __func__,
             thread.localNotifyAddr[notifyIdx].type), HCCL_E_PARA);
-    const int32_t resourceId = thread.localNotifyAddr[notifyIdx].notify.local.notifyId;
+    const int32_t resourceId = thread.localNotifyAddr[notifyIdx].notifyInfo.ipcRt.notifyId;
     CHK_PRT_RET(resourceId < 0, HCCL_ERROR("[%s] invalid notify id[%d].", __func__, resourceId), HCCL_E_PARA);
     notifyId = static_cast<uint32_t>(resourceId);
     return HCCL_SUCCESS;
