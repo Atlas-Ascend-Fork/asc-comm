@@ -73,6 +73,43 @@ struct HcommSimtChannelEntity {
 
 static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");
 
+// A batch handle is lane-private. The basic implementation stages the same 128-byte WQE used
+// by the validated immediate path for every item, so capacity and prepared are counted in WQEs.
+struct UbcCtpBatchHandle {
+    ChannelHandle channel = 0U;
+    __ubuf__ uint64_t* buffer = nullptr;
+    uint32_t capacity = 0U;
+    uint32_t prepared = 0U;
+    uint32_t preparedCqe = 0U;
+    uint32_t lastCqe = 0U;
+    uint64_t remoteBaseAddr = 0U;
+    uint64_t remoteSize = 0U;
+    __gm__ uint64_t* headAddr = nullptr;
+    __gm__ uint32_t* sqTailAddr = nullptr;
+    __gm__ uint8_t* dwqeAddr = nullptr;
+    uint64_t sqBaseAddr = 0U;
+    uint32_t sqWqeSize = 0U;
+    uint32_t sqDepth = 0U;
+    uint32_t tpId = 0U;
+    uint64_t remoteEidL = 0U;
+    uint64_t remoteEidH = 0U;
+    uint32_t remoteTokenId = 0U;
+    uint32_t remoteTokenValue = 0U;
+    uint64_t headSnapshot = 0U;
+    bool valid = false;
+};
+
+template <typename T>
+struct ChannelTraits;
+
+template <>
+struct ChannelTraits<ChannelHandle> {
+    using BatchHandleType = UbcCtpBatchHandle;
+};
+
+template <typename T>
+using BatchHandle = typename ChannelTraits<T>::BatchHandleType;
+
 } // namespace AscendC::simt
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_SIMT_INNER_DEF_H

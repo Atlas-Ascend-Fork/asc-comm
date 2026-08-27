@@ -42,6 +42,20 @@ enum class HcommUrmaReduceOp : uint32_t {
     SUM = 0xAU,
 };
 
+namespace simt {
+
+// The correctness-first explicit-batch format stores one complete 128-byte DWQE per item.
+// Callers own the UB workspace and can use this helper instead of depending on an internal
+// WQE layout constant when sizing it for a requested item capacity.
+constexpr uint32_t HCOMM_SIMT_BATCH_ITEM_BYTES = 128U;
+
+constexpr uint32_t HcommSimtBatchBufferBytes(uint32_t itemCapacity)
+{
+    return itemCapacity * HCOMM_SIMT_BATCH_ITEM_BYTES;
+}
+
+} // namespace simt
+
 } // namespace AscendC
 
 #endif // INCLUDE_ADV_API_HCOMM_HCOMM_COMMON_H
