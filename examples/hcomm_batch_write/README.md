@@ -2,9 +2,7 @@
 
 ## 功能说明
 
-本样例演示多个`COMM_PROTOCOL_UBC_CTP` Channel共享一个Jetty。Rank 0按照本端Endpoint对peer进行分组，
-每组创建一个`MultiChannelHandle`；AIV Kernel将组内多个peer的`WriteNbi`任务写入同一批次，通过一次
-`BatchCommit`提交到共享SQ，再调用`Drain`等待完成。接收端最终校验Rank 0写入的数据。
+本样例演示多个`COMM_PROTOCOL_UBC_CTP` Channel共享一个Jetty。Rank 0按照本端Endpoint对peer进行分组，每组创建一个`MultiChannelHandle`；AIV Kernel将组内多个peer的`WriteNbi`任务写入同一批次，通过一次`BatchCommit`提交到共享SQ，再调用`Drain`等待完成。接收端最终校验Rank 0写入的数据。
 
 Kernel侧主要流程如下：
 
@@ -25,7 +23,6 @@ hcomm.Drain(multiBatchHandle);
 
 - Ascend 950PR或Ascend 950DT；
 - 至少两张NPU，仅支持单机多卡；
-- 当前CANN环境已安装包含共享Jetty Batch接口的asc-comm包。
 
 使用三张及以上NPU时，Rank 0可以构造面向多个peer的Batch；实际分组数量由RankGraph中的本端Endpoint决定。
 
