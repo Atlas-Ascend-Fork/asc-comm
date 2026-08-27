@@ -2,10 +2,7 @@
 
 ## Overview
 
-This sample demonstrates multiple `COMM_PROTOCOL_UBC_CTP` channels sharing one Jetty. Rank 0 groups peers by
-local endpoint and creates one `MultiChannelHandle` for each group. The AIV kernel prepares `WriteNbi` requests for
-the peers in a shared batch, submits them to the shared SQ with one `BatchCommit`, and calls `Drain` for completion.
-Each receiving rank verifies the data written by rank 0.
+This sample demonstrates multiple `COMM_PROTOCOL_UBC_CTP` channels sharing one Jetty. Rank 0 groups peers by local endpoint and creates one `MultiChannelHandle` for each group. The AIV kernel prepares `WriteNbi` requests for the peers in a shared batch, submits them to the shared SQ with one `BatchCommit`, and calls `Drain` for completion. Each receiving rank verifies the data written by rank 0.
 
 The kernel uses the following flow:
 
@@ -28,10 +25,8 @@ reference. Use this reference for batch writes and the outer multi-channel batch
 
 - Ascend 950PR or Ascend 950DT;
 - at least two NPUs on one host;
-- an asc-comm package containing the shared-Jetty Batch APIs installed in the active CANN environment.
 
-With three or more NPUs, rank 0 can build a batch for multiple peers. The actual grouping depends on the local
-endpoints reported by RankGraph.
+With three or more NPUs, rank 0 can build a batch for multiple peers. The actual grouping depends on the local endpoints reported by RankGraph.
 
 ## Build and Run
 
