@@ -126,56 +126,11 @@ HcclResult get_reduce_params(HcommDataType dataType, HcommReduceOp reduceOp, uin
     return HCCL_SUCCESS;
 }
 
-HcommPodDfxEvent create_dfx_event(HcommPodDfxApi api)
-{
-    HcommPodDfxEvent event{};
-    event.abiHeader = {HCOMM_POD_DFX_VERSION, HCOMM_POD_DFX_MAGIC_WORD, sizeof(HcommPodDfxEvent), 0};
-    event.api = api;
-    event.stage = HCOMM_POD_DFX_STAGE_INVALID;
-    return event;
-}
-
-void copy_dfx_tag(const char *tag, char (&dst)[HCOMM_POD_DFX_TAG_MAX_LEN])
-{
-    if (tag == nullptr) {
-        return;
-    }
-    size_t index = 0;
-    while (index + 1 < HCOMM_POD_DFX_TAG_MAX_LEN && tag[index] != '\0') {
-        dst[index] = tag[index];
-        ++index;
-    }
-    dst[index] = '\0';
-}
-
-HcommPodDfxCallback get_dfx_callback()
-{
-    static HcommPodDfxCallback callback = []() {
-        HcommPodDfxCallback result = nullptr;
-        return HcommGetPodDfxCallback(&result) == HCCL_SUCCESS ? result : nullptr;
-    }();
-    return callback;
-}
-
-void report_dfx_event(HcommPodDfxEvent &event, HcommPodDfxStage stage, HcclResult result)
-{
-    HcommPodDfxCallback callback = get_dfx_callback();
-    if (callback == nullptr) {
-        return;
-    }
-    event.stage = stage;
-    event.result = result;
-    callback(&event);
-}
-
 template <typename Operation>
-HcclResult execute_api(HcommPodDfxEvent &event, Operation operation)
+HcclResult execute_api(Operation operation)
 {
-    report_dfx_event(event, HCOMM_POD_DFX_STAGE_START, HCCL_SUCCESS);
     HcclResult ret = HCCL_SUCCESS;
     EXCEPTION_CATCH(ret = operation(), ret = HCCL_E_INTERNAL);
-    const HcommPodDfxStage stage = ret == HCCL_SUCCESS ? HCOMM_POD_DFX_STAGE_SUCCESS : HCOMM_POD_DFX_STAGE_FAIL;
-    report_dfx_event(event, stage, ret);
     return ret;
 }
 
@@ -194,9 +149,8 @@ HcclResult convert_timeout(float timeout, uint32_t &timeoutSeconds)
 
 int32_t asccomm_batch_mode_start(const char *batchTag)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_BATCH_MODE_START);
-    copy_dfx_tag(batchTag, event.params.batchModeStart.batchTag);
-    return execute_api(event, [&]() {
+    (void)batchTag;
+    return execute_api([&]() {
         asccomm_set_batch_launch_mode(true);
         return HCCL_SUCCESS;
     });
@@ -204,9 +158,8 @@ int32_t asccomm_batch_mode_start(const char *batchTag)
 
 int32_t asccomm_batch_mode_end(const char *batchTag)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_BATCH_MODE_END);
-    copy_dfx_tag(batchTag, event.params.batchModeEnd.batchTag);
-    return execute_api(event, [&]() {
+    (void)batchTag;
+    return execute_api([&]() {
         asccomm_set_batch_launch_mode(false);
         CHK_RET(asccomm_launch_registered_threads());
         asccomm_clear_registered_threads();
@@ -216,12 +169,7 @@ int32_t asccomm_batch_mode_end(const char *batchTag)
 
 int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void *dst, const void *src, uint64_t len)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_LOCAL_COPY);
-    event.params.localCopy.thread = thread;
-    event.params.localCopy.dst = reinterpret_cast<uintptr_t>(dst);
-    event.params.localCopy.src = reinterpret_cast<uintptr_t>(src);
-    event.params.localCopy.length = len;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
         HcommThreadEntity *threadEntity = nullptr;
@@ -243,14 +191,7 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void *dst, const void 
 int32_t asccomm_local_reduce_on_thread(
     ThreadHandle thread, void *dst, const void *src, uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_LOCAL_REDUCE);
-    event.params.localReduce.thread = thread;
-    event.params.localReduce.dst = reinterpret_cast<uintptr_t>(dst);
-    event.params.localReduce.src = reinterpret_cast<uintptr_t>(src);
-    event.params.localReduce.count = count;
-    event.params.localReduce.dataType = dataType;
-    event.params.localReduce.reduceOp = reduceOp;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
         Asc::ReduceIn reduceIn{Asc::DataType::INVALID, Asc::ReduceOp::INVALID};
@@ -274,11 +215,7 @@ int32_t asccomm_local_reduce_on_thread(
 
 int32_t asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_THREAD_NOTIFY_RECORD);
-    event.params.threadNotifyRecord.thread = thread;
-    event.params.threadNotifyRecord.dstThread = dstThread;
-    event.params.threadNotifyRecord.dstNotifyIdx = dstNotifyIdx;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         HcommThreadEntity *threadEntity = nullptr;
         HcommThreadEntity *dstThreadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, threadEntity));
@@ -291,11 +228,7 @@ int32_t asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle
 
 int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_THREAD_NOTIFY_WAIT);
-    event.params.threadNotifyWait.thread = thread;
-    event.params.threadNotifyWait.notifyIdx = notifyIdx;
-    event.params.threadNotifyWait.timeOut = timeOut;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         HcommThreadEntity *threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, threadEntity));
         uint32_t notifyId = 0;
@@ -306,10 +239,7 @@ int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notif
 
 int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstNotifyId)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_ACLRT_NOTIFY_RECORD);
-    event.params.aclrtNotifyRecord.thread = thread;
-    event.params.aclrtNotifyRecord.dstNotifyId = dstNotifyId;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         HcommThreadEntity *threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, threadEntity));
         return asccomm_rtsq_notify_record(*threadEntity->sqContextAddr, static_cast<uint32_t>(dstNotifyId));
@@ -318,11 +248,7 @@ int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstN
 
 int32_t asccomm_aclrt_notify_wait_on_thread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_ACLRT_NOTIFY_WAIT);
-    event.params.aclrtNotifyWait.thread = thread;
-    event.params.aclrtNotifyWait.notifyId = notifyId;
-    event.params.aclrtNotifyWait.timeOut = timeOut;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         HcommThreadEntity *threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, threadEntity));
         return asccomm_rtsq_notify_wait(*threadEntity->sqContextAddr, static_cast<uint32_t>(notifyId), timeOut);
@@ -331,13 +257,7 @@ int32_t asccomm_aclrt_notify_wait_on_thread(ThreadHandle thread, uint64_t notify
 
 int32_t asccomm_write_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_WRITE);
-    event.params.write.thread = thread;
-    event.params.write.channel = channel;
-    event.params.write.dst = reinterpret_cast<uintptr_t>(dst);
-    event.params.write.src = reinterpret_cast<uintptr_t>(src);
-    event.params.write.length = len;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
         CommContext context{};
@@ -351,15 +271,7 @@ int32_t asccomm_write_reduce_on_thread(
     ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, HcommDataType dataType,
     HcommReduceOp reduceOp)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_WRITE_REDUCE);
-    event.params.writeReduce.thread = thread;
-    event.params.writeReduce.channel = channel;
-    event.params.writeReduce.dst = reinterpret_cast<uintptr_t>(dst);
-    event.params.writeReduce.src = reinterpret_cast<uintptr_t>(src);
-    event.params.writeReduce.count = count;
-    event.params.writeReduce.dataType = dataType;
-    event.params.writeReduce.reduceOp = reduceOp;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
         Asc::ReduceIn reduceIn{Asc::DataType::INVALID, Asc::ReduceOp::INVALID};
@@ -376,14 +288,7 @@ int32_t asccomm_write_reduce_on_thread(
 int32_t asccomm_write_with_notify_on_thread(
     ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len, uint32_t remoteNotifyIdx)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_WRITE_WITH_NOTIFY);
-    event.params.writeWithNotify.thread = thread;
-    event.params.writeWithNotify.channel = channel;
-    event.params.writeWithNotify.dst = reinterpret_cast<uintptr_t>(dst);
-    event.params.writeWithNotify.src = reinterpret_cast<uintptr_t>(src);
-    event.params.writeWithNotify.length = len;
-    event.params.writeWithNotify.remoteNotifyIdx = remoteNotifyIdx;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
         CommContext context{};
@@ -398,16 +303,7 @@ int32_t asccomm_write_reduce_with_notify_on_thread(
     ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, HcommDataType dataType,
     HcommReduceOp reduceOp, uint32_t remoteNotifyIdx)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_WRITE_REDUCE_WITH_NOTIFY);
-    event.params.writeReduceWithNotify.thread = thread;
-    event.params.writeReduceWithNotify.channel = channel;
-    event.params.writeReduceWithNotify.dst = reinterpret_cast<uintptr_t>(dst);
-    event.params.writeReduceWithNotify.src = reinterpret_cast<uintptr_t>(src);
-    event.params.writeReduceWithNotify.count = count;
-    event.params.writeReduceWithNotify.dataType = dataType;
-    event.params.writeReduceWithNotify.reduceOp = reduceOp;
-    event.params.writeReduceWithNotify.remoteNotifyIdx = remoteNotifyIdx;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
         Asc::ReduceIn reduceIn{Asc::DataType::INVALID, Asc::ReduceOp::INVALID};
@@ -423,13 +319,7 @@ int32_t asccomm_write_reduce_with_notify_on_thread(
 
 int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_READ);
-    event.params.read.thread = thread;
-    event.params.read.channel = channel;
-    event.params.read.dst = reinterpret_cast<uintptr_t>(dst);
-    event.params.read.src = reinterpret_cast<uintptr_t>(src);
-    event.params.read.length = len;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
         CommContext context{};
@@ -443,15 +333,7 @@ int32_t asccomm_read_reduce_on_thread(
     ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, HcommDataType dataType,
     HcommReduceOp reduceOp)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_READ_REDUCE);
-    event.params.readReduce.thread = thread;
-    event.params.readReduce.channel = channel;
-    event.params.readReduce.dst = reinterpret_cast<uintptr_t>(dst);
-    event.params.readReduce.src = reinterpret_cast<uintptr_t>(src);
-    event.params.readReduce.count = count;
-    event.params.readReduce.dataType = dataType;
-    event.params.readReduce.reduceOp = reduceOp;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
         Asc::ReduceIn reduceIn{Asc::DataType::INVALID, Asc::ReduceOp::INVALID};
@@ -468,11 +350,7 @@ int32_t asccomm_read_reduce_on_thread(
 int32_t asccomm_batch_transfer_on_thread(
     ThreadHandle thread, ChannelHandle channel, const HcommBatchTransferDesc *transferDescs, uint32_t transferDescNum)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_BATCH_TRANSFER);
-    event.params.batchTransfer.thread = thread;
-    event.params.batchTransfer.channel = channel;
-    event.params.batchTransfer.transferDescNum = transferDescNum;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CHK_PTR_NULL(transferDescs);
         CommContext context{};
         CHK_RET(get_context(thread, channel, true, context));
@@ -482,11 +360,7 @@ int32_t asccomm_batch_transfer_on_thread(
 
 int32_t asccomm_channel_notify_record_on_thread(ThreadHandle thread, ChannelHandle channel, uint32_t remoteNotifyIdx)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_CHANNEL_NOTIFY_RECORD);
-    event.params.channelNotifyRecord.thread = thread;
-    event.params.channelNotifyRecord.channel = channel;
-    event.params.channelNotifyRecord.remoteNotifyIdx = remoteNotifyIdx;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CommContext context{};
         CHK_RET(get_context(thread, channel, true, context));
         return asccomm_notify_record(*context.thread, *context.channel, remoteNotifyIdx);
@@ -496,12 +370,7 @@ int32_t asccomm_channel_notify_record_on_thread(ThreadHandle thread, ChannelHand
 int32_t asccomm_channel_notify_wait_on_thread(
     ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx, uint32_t timeOut)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_CHANNEL_NOTIFY_WAIT);
-    event.params.channelNotifyWait.thread = thread;
-    event.params.channelNotifyWait.channel = channel;
-    event.params.channelNotifyWait.localNotifyIdx = localNotifyIdx;
-    event.params.channelNotifyWait.timeOut = timeOut;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CommContext context{};
         CHK_RET(get_context(thread, channel, true, context));
         return asccomm_notify_wait(*context.thread, *context.channel, localNotifyIdx, timeOut);
@@ -510,10 +379,7 @@ int32_t asccomm_channel_notify_wait_on_thread(
 
 int32_t asccomm_channel_fence_on_thread(ThreadHandle thread, ChannelHandle channel)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_CHANNEL_FENCE);
-    event.params.channelFence.thread = thread;
-    event.params.channelFence.channel = channel;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CommContext context{};
         CHK_RET(get_context(thread, channel, false, context));
         return asccomm_fence(*context.channel);
@@ -523,13 +389,8 @@ int32_t asccomm_channel_fence_on_thread(ThreadHandle thread, ChannelHandle chann
 int32_t asccomm_channel_notify_wait_on_thread_with_default_timeout(
     ThreadHandle thread, ChannelHandle channel, uint32_t localNotifyIdx)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_CHANNEL_NOTIFY_WAIT_DEFAULT);
-    event.params.channelNotifyWaitDefault.thread = thread;
-    event.params.channelNotifyWaitDefault.channel = channel;
-    event.params.channelNotifyWaitDefault.localNotifyIdx = localNotifyIdx;
     const uint32_t timeout = asccomm_get_notify_wait_timeout();
-    event.params.channelNotifyWaitDefault.timeOut = timeout;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CommContext context{};
         CHK_RET(get_context(thread, channel, true, context));
         return asccomm_notify_wait(*context.thread, *context.channel, localNotifyIdx, timeout);
@@ -538,12 +399,8 @@ int32_t asccomm_channel_notify_wait_on_thread_with_default_timeout(
 
 int32_t asccomm_thread_notify_wait_on_thread_with_default_timeout(ThreadHandle thread, uint32_t notifyIdx)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_THREAD_NOTIFY_WAIT_DEFAULT);
-    event.params.threadNotifyWaitDefault.thread = thread;
-    event.params.threadNotifyWaitDefault.notifyIdx = notifyIdx;
     const uint32_t timeout = asccomm_get_notify_wait_timeout();
-    event.params.threadNotifyWaitDefault.timeOut = timeout;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         HcommThreadEntity *threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, threadEntity));
         uint32_t notifyId = 0;
@@ -554,9 +411,7 @@ int32_t asccomm_thread_notify_wait_on_thread_with_default_timeout(ThreadHandle t
 
 int32_t asccomm_set_notify_wait_timeout(float timeOut)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_SET_NOTIFY_WAIT_TIMEOUT);
-    event.params.setNotifyWaitTimeOut.timeOut = timeOut;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         uint32_t timeoutSeconds = 0;
         CHK_RET(convert_timeout(timeOut, timeoutSeconds));
         asccomm_set_notify_wait_timeout(timeoutSeconds);
@@ -566,9 +421,7 @@ int32_t asccomm_set_notify_wait_timeout(float timeOut)
 
 int32_t asccomm_thread_res_acquire_timeout(float timeOut)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_THREAD_RES_ACQUIRE_TIMEOUT);
-    event.params.threadResAcquireTimeOut.timeOut = timeOut;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         uint32_t timeoutSeconds = 0;
         CHK_RET(convert_timeout(timeOut, timeoutSeconds));
         asccomm_set_sq_full_timeout(timeoutSeconds);
@@ -578,10 +431,7 @@ int32_t asccomm_thread_res_acquire_timeout(float timeOut)
 
 int32_t asccomm_channel_drain_on_thread(ThreadHandle thread, ChannelHandle channel)
 {
-    HcommPodDfxEvent event = create_dfx_event(HCOMM_POD_DFX_API_CHANNEL_DRAIN);
-    event.params.channelDrain.thread = thread;
-    event.params.channelDrain.channel = channel;
-    return execute_api(event, [&]() {
+    return execute_api([&]() {
         CommContext context{};
         CHK_RET(get_context(thread, channel, true, context));
         return asccomm_drain(*context.thread, *context.channel);
