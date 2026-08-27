@@ -996,8 +996,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle c
     }
 
     __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
-    uint64_t lockAddrValue =
-        channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX].contextInfo.ubJfc.headAddr;
+    __gm__ uint64_t* cqContextsAddrField = reinterpret_cast<__gm__ uint64_t*>(
+        reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, cqContextAddr));
+    uint64_t cqContextsAddr = ld_dev(cqContextsAddrField, 0);
+    __gm__ CqContext* cqContext =
+        reinterpret_cast<__gm__ CqContext*>(cqContextsAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
+    uint64_t lockAddrValue = ld_dev(&cqContext->contextInfo.ubJfc.headAddr, 0);
     __gm__ uint32_t* lockAddr =
         reinterpret_cast<__gm__ uint32_t*>(lockAddrValue);
     while (AtomicCas(lockAddr, HCOMM_LOCK_FREE, HCOMM_LOCK_HELD) != HCOMM_LOCK_FREE) {
@@ -1018,8 +1022,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Unlock(ChannelHandle
     CacheWriteThrough<uint8_t>(counterAddr, 4U * sizeof(uint32_t));
     DataSyncBarrier<MemDsbT::DDR>();
 
-    uint64_t lockAddrValue =
-        channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX].contextInfo.ubJfc.headAddr;
+    __gm__ uint64_t* cqContextsAddrField = reinterpret_cast<__gm__ uint64_t*>(
+        reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, cqContextAddr));
+    uint64_t cqContextsAddr = ld_dev(cqContextsAddrField, 0);
+    __gm__ CqContext* cqContext =
+        reinterpret_cast<__gm__ CqContext*>(cqContextsAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
+    uint64_t lockAddrValue = ld_dev(&cqContext->contextInfo.ubJfc.headAddr, 0);
     __gm__ uint32_t* lockAddr =
         reinterpret_cast<__gm__ uint32_t*>(lockAddrValue);
     uint32_t oldValue = AtomicExch(lockAddr, HCOMM_LOCK_FREE);
