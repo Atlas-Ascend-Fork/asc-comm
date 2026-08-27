@@ -59,7 +59,7 @@ __aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
 
 template <CommProtocol commProtocol>
 template <typename T, typename BatchHandleTraits<T>::ChannelType*>
-__aicore__ inline BatchHandle<ChannelHandle>& Hcomm<commProtocol>::GetHandleRef(
+__aicore__ inline typename BatchHandleTraits<T>::HandleRefType& Hcomm<commProtocol>::GetHandleRef(
     T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
 {
     return impl_.GetHandleRef(batchHandle, channelIndex, remoteAddr);

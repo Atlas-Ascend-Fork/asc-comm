@@ -10,7 +10,7 @@ Returns the BatchHandle reference used for batch operations. A single-channel ha
 template <
     typename T,
     typename BatchHandleTraits<T>::ChannelType* = nullptr>
-__aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
+__aicore__ inline typename BatchHandleTraits<T>::HandleRefType& GetHandleRef(
     T& batchHandle,
     uint32_t channelIndex,
     GM_ADDR remoteAddr = nullptr);
@@ -26,7 +26,7 @@ __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
 
 ## Return Value
 
-Returns the input handle itself for a single channel, or the inner `BatchHandle<ChannelHandle>&` configured for the selected logical channel and remote MR for multiple channels.
+Returns the input handle itself for a single channel, or the inner BatchHandle reference defined by `BatchHandleTraits<T>::HandleRefType` and configured for the selected logical channel and remote MR for multiple channels.
 
 ## Template Parameters
 
