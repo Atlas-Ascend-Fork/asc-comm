@@ -864,25 +864,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     UbcCtpBatchHandle& batchHandle)
 {
     if (!initialized_ || !batchHandle.valid || batchHandle.prepared == 0U ||
-        batchHandle.preparedCqe != batchHandle.prepared || batchHandle.lastCqe != 1U) {
-        return HCOMM_FAILED;
-    }
-
-    // Take one fresh queue snapshot for this commit. Queue position may have changed since
-    // MakeBatchHandle, but the single-producer contract keeps this snapshot stable until the
-    // tail DWQE publishes the batch.
-    __gm__ HcommSimtChannelEntity* channelEntity =
-        reinterpret_cast<__gm__ HcommSimtChannelEntity*>(batchHandle.channel);
-    __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
-    __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
-    uint64_t sqVa = sqCtx->contextInfo.ubJfs.sqVa;
-    __gm__ uint64_t* headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
-    __gm__ uint32_t* sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx->contextInfo.ubJfs.tailAddr);
-    __gm__ uint8_t* dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
-        sqCtx->contextInfo.ubJfs.dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
-    uint32_t wqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
-    uint32_t sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
-    if (headAddr != batchHandle.headAddr || *headAddr != batchHandle.headSnapshot) {
+        batchHandle.preparedCqe != batchHandle.prepared || batchHandle.lastCqe != 1U ||
+        *batchHandle.headAddr != batchHandle.headSnapshot) {
         return HCOMM_FAILED;
     }
 
@@ -898,10 +881,23 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
             stage.words[word] = srcWords[word];
         }
 
+        // Reload queue-position fields per item, but reuse the connection identity captured by
+        // MakeBatchHandle. TP ID and remote EID do not advance with SQ head/tail.
+        __gm__ HcommSimtChannelEntity* channelEntity =
+            reinterpret_cast<__gm__ HcommSimtChannelEntity*>(batchHandle.channel);
+        __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
+        __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
+        uint64_t sqVa = sqCtx->contextInfo.ubJfs.sqVa;
+        uint64_t headAddr = sqCtx->contextInfo.ubJfs.headAddr;
+        uint64_t sqTailAddr = sqCtx->contextInfo.ubJfs.tailAddr;
+        uint64_t dbVa = sqCtx->contextInfo.ubJfs.dbVa;
+        uint32_t wqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
+        uint32_t sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
+
         HcommSimtResolvedPost post;
-        post.headAddr = headAddr;
-        post.sqTailAddr = sqTailAddr;
-        post.dwqeAddr = dwqeAddr;
+        post.headAddr = reinterpret_cast<__gm__ uint64_t*>(headAddr);
+        post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqTailAddr);
+        post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
         post.sqBaseAddr = sqVa;
         post.sqWqeSize = wqeSize;
         post.meta.sqDepth = sqDepth;
@@ -937,9 +933,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         } else {
             HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(post, curHead, stage);
         }
+        batchHandle.headSnapshot = *post.headAddr;
     }
 
-    batchHandle.headSnapshot = *headAddr;
     batchHandle.prepared = 0U;
     batchHandle.preparedCqe = 0U;
     batchHandle.lastCqe = 0U;
