@@ -120,7 +120,7 @@ For a non-root installation that needs to be available to other users, run:
 ```
 
 - Permission behavior follows the asc-devkit subpackage. A root installation sets header files to mode `555`, Hcomm directories to mode `755`, and managed directories under `comm_api` to mode `555`.
-- A non-root installation uses modes `550`, `750`, and `550` by default. With `--install-for-all`, it uses `555`, `755`, and `555`. The target CANN root must allow other users to read and traverse it.
+- A non-root installation uses modes `550`, `750`, and `550` by default. With `--install-for-all`, it uses `555`, `755`, and `555`. The target CANN root and its parent directories must allow other users to read and traverse them; otherwise, the installer refuses to proceed.
 - The installer saves existing managed files and valid Hcomm links. It does not overwrite an incorrect link target or a regular file or directory occupying a link path.
 - The package records the major and minor versions of asc-devkit, hcomm, and runtime, as well as the system architecture. The architecture must match. An incompatible dependency version produces a warning and installation continues.
 
