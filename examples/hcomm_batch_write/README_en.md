@@ -18,8 +18,9 @@ hcomm.Drain(multiBatchHandle);
 ```
 
 `channelIndex` matches the index in the `channelDescs` array passed to Host-side `MakeMultiChannelHandleWithComm`.
-`GetHandleRef` selects and caches an MR token using that index and the remote address, and returns the inner BatchHandle
-reference. Use this reference for batch writes and the outer multi-channel batch handle for `BatchCommit` and `Drain`.
+`GetHandleRef` selects and caches an MR token using that index and the remote address, and returns the inner BatchHandle reference. Use this reference for batch writes and the outer multi-channel batch handle for `BatchCommit` and `Drain`.
+
+After all Kernels have completed and synchronized, the sample calls `DestroyMultiChannelHandleWithComm` to release the Device context for each shared queue tag. HCCL continues to manage the shared channels.
 
 ## Requirements
 

@@ -39,11 +39,12 @@ Returns `HCCL_SUCCESS` on success or the corresponding HCCL error code on failur
 
 - Channels use `COMM_ENGINE_AIV` and UB_CTP and satisfy the HCCL shared-queue channel constraints.
 - Each `sharedQueueTag` can be used by only one successful call within a communicator.
-- The handle and Device context are managed by `comm`; do not call `DestroyMultiChannelHandle` for this handle. Do not destroy the communicator before Kernels using the handle have completed.
+- After Kernels using the handle have completed and synchronized, call `DestroyMultiChannelHandleWithComm` to release the Device context early. If it is not called, the context is released with `comm`. Shared channels always remain managed by `comm`.
 - Use `MakeMultiChannelHandle` for the path without a communicator.
 
 ## Related APIs
 
 - [MakeMultiChannelHandle](MakeMultiChannelHandle.md)
+- [DestroyMultiChannelHandleWithComm](DestroyMultiChannelHandleWithComm.md)
 - [MakeBatchHandle](../../aicore/hcomm/MakeBatchHandle.md)
 - [GetHandleRef](../../aicore/hcomm/GetHandleRef.md)

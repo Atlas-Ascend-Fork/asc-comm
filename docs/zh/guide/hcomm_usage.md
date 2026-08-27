@@ -99,6 +99,8 @@ ret = hcomm.Drain(batchHandle);
 MultiChannelHandle multiChannel = 0U;
 HcclResult ret = MakeMultiChannelHandleWithComm(
     comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
+// Kernel执行并同步完成后释放Device上下文；共享通道仍由通信域管理。
+ret = DestroyMultiChannelHandleWithComm(comm, sharedQueueTag);
 ```
 
 不使用HCCL通信域时，传入Hcomm Endpoint和`HcommChannelDesc`调用`MakeMultiChannelHandle`。使用结束后必须先销毁多通道句柄，再销毁Endpoint：

@@ -19,6 +19,8 @@ hcomm.Drain(multiBatchHandle);
 
 `channelIndex`与Host侧传入`MakeMultiChannelHandleWithComm`的`channelDescs`数组下标一致。`GetHandleRef`根据该索引和远端地址选择并缓存MR token，返回内层BatchHandle引用；批量写使用该引用，`BatchCommit`和`Drain`使用外层多通道批量句柄。
 
+所有Kernel执行并同步完成后，样例调用`DestroyMultiChannelHandleWithComm`释放每个共享队列标签对应的Device上下文；共享通道由HCCL通信域统一管理。
+
 ## 支持环境
 
 - Ascend 950PR或Ascend 950DT；

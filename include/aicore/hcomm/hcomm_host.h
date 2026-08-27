@@ -47,6 +47,19 @@ static inline HcclResult MakeMultiChannelHandleWithComm(
 }
 
 /*!
+ * @brief Destroy the Device context created by MakeMultiChannelHandleWithComm.
+ * @param [in] comm: The HCCL communicator passed to MakeMultiChannelHandleWithComm.
+ * @param [in] sharedQueueTag: The shared queue tag passed to MakeMultiChannelHandleWithComm.
+ * @return HCCL_SUCCESS indicates success. Other values indicate an HCCL error.
+ * @note Call this API only after Kernels using the multi-channel handle have completed.
+ * Shared channels remain managed by comm.
+ */
+static inline HcclResult DestroyMultiChannelHandleWithComm(HcclComm comm, const char* sharedQueueTag)
+{
+    return HcommHostDestroyMultiChannelHandleWithComm(comm, sharedQueueTag);
+}
+
+/*!
  * @brief Create a group of shared-Jetty channels from an Hcomm Endpoint and the multi-channel handle used on the
  * Device.
  * @param [in] endpointHandle: The initialized Hcomm Endpoint that owns the channels.

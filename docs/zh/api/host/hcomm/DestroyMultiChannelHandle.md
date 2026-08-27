@@ -30,3 +30,4 @@ HcommResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel);
 ## 相关接口
 
 - [MakeMultiChannelHandle](MakeMultiChannelHandle.md)
+- [DestroyMultiChannelHandleWithComm](DestroyMultiChannelHandleWithComm.md)

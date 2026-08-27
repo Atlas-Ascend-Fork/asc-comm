@@ -99,6 +99,8 @@ When using an HCCL communicator, call `MakeMultiChannelHandleWithComm` on the Ho
 MultiChannelHandle multiChannel = 0U;
 HcclResult ret = MakeMultiChannelHandleWithComm(
     comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
+// Release the Device context after the Kernel has completed and synchronized. Shared channels remain communicator-managed.
+ret = DestroyMultiChannelHandleWithComm(comm, sharedQueueTag);
 ```
 
 Without an HCCL communicator, pass an Hcomm Endpoint and `HcommChannelDesc` array to `MakeMultiChannelHandle`. Destroy the multi-channel handle before destroying the Endpoint:
