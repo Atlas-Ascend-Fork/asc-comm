@@ -881,8 +881,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
             stage.words[word] = srcWords[word];
         }
 
-        // Reload queue-position fields per item, but reuse the connection identity captured by
-        // MakeBatchHandle. TP ID and remote EID do not advance with SQ head/tail.
+        // Keep the registered remote token cached, but reload the queue context as ResolvePost
+        // does so the two parts of per-item resolution can be validated independently.
         __gm__ HcommSimtChannelEntity* channelEntity =
             reinterpret_cast<__gm__ HcommSimtChannelEntity*>(batchHandle.channel);
         __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
@@ -893,6 +893,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         uint64_t dbVa = sqCtx->contextInfo.ubJfs.dbVa;
         uint32_t wqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
         uint32_t sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
+        uint32_t tpID = sqCtx->contextInfo.ubJfs.tpID;
+        __gm__ uint64_t* remoteEid = reinterpret_cast<__gm__ uint64_t*>(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
 
         HcommSimtResolvedPost post;
         post.headAddr = reinterpret_cast<__gm__ uint64_t*>(headAddr);
@@ -901,9 +903,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         post.sqBaseAddr = sqVa;
         post.sqWqeSize = wqeSize;
         post.meta.sqDepth = sqDepth;
-        post.meta.tpId = batchHandle.tpId;
-        post.meta.remoteEidL = batchHandle.remoteEidL;
-        post.meta.remoteEidH = batchHandle.remoteEidH;
+        post.meta.tpId = tpID;
+        post.meta.remoteEidL = remoteEid[0];
+        post.meta.remoteEidH = remoteEid[1];
         post.meta.remoteTokenId = batchHandle.remoteTokenId;
         post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
 
