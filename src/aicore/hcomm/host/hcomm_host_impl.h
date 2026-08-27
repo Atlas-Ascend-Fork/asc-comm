@@ -391,7 +391,6 @@ static inline HcclResult HcommHostMakeMultiChannelHandleWithComm(
     if (ret == HCCL_SUCCESS) {
         ret = HcommBuildMultiChannelEntityWithComm(comm, channels, sharedQueueTag, channelNum, &deviceMemory);
     }
-    DlHcommApi::CleanupHcclApi();
     free(channels);
     if (ret != HCCL_SUCCESS) {
         return ret;
@@ -443,7 +442,6 @@ static inline HcommResult HcommHostMakeMultiChannelHandle(
             fprintf(stderr, "[ERROR] [%s] cleanup HcommChannelDestroy failed, ret[%d].\n", __func__, destroyRet);
         }
     }
-    DlHcommApi::CleanupHcommApi();
     free(channels);
     if (ret != HCCL_SUCCESS) {
         return ret;
@@ -512,7 +510,6 @@ static inline HcommResult HcommHostDestroyMultiChannelHandle(MultiChannelHandle 
     if (aclRet != ACL_SUCCESS) {
         fprintf(stderr, "[ERROR] [%s] aclrtFree failed, ret[%d].\n", __func__, aclRet);
     }
-    DlHcommApi::CleanupHcommApi();
     free(channels);
     return ret == HCCL_SUCCESS && aclRet != ACL_SUCCESS ? HCCL_E_RUNTIME : ret;
 }
