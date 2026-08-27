@@ -12,6 +12,8 @@
 | [one_multi_path](./one_multi_path/README.md) | 查询`UB_MEM`链路，为每个peer创建one path/multi path Channel，逐个处理peer，并通过双Stream并发搬运和校验该peer的远端数据。 | Ascend 950PR/Ascend 950DT |
 | [simt_urma](./simt_urma/README.md) | 演示并验证全部 SIMT URMA 接口：`WriteNbi`、`WriteValueNbi`、`WriteWithNotifyNbi`、`AtomicFAA` 和 `AtomicCAS`，覆盖立即提交与批量提交。 | Ascend 950PR / Ascend 950DT |
 | [simt_urma_perftest](./simt_urma_perftest/README.md) | 测量上述五个 SIMT URMA 接口的下发时延与完成带宽，覆盖立即提交/延迟提交两种发布策略。 | Ascend 950PR / Ascend 950DT |
+| [simt_batch](./simt_batch/README.md) | 提供SIMT URMA显式Batch最小可执行用法及六类接口完整回归。 | Ascend 950PR / Ascend 950DT |
+| [simt_batch_perf](./simt_batch_perf/README.md) | 对比SIMT URMA六类接口的Immediate与ExplicitBatch性能基线。 | Ascend 950PR / Ascend 950DT |
 
 ## simt_urma
 
@@ -26,6 +28,20 @@
 支持payload扫描。
 
 性能测试方式参见[simt_urma_perftest/README.md](./simt_urma_perftest/README.md)。
+
+## simt_batch
+
+`simt_batch`提供两项`WriteNbi`的最小可执行路径，并验证单lane显式Batch中的`WriteNbi`、`ReadNbi`、
+`WriteWithNotifyNbi`、`WriteValueNbi`、`AtomicFAA`和`AtomicCAS`完整回归场景。
+
+编译运行方式参见[simt_batch/README.md](./simt_batch/README.md)。
+
+## simt_batch_perf
+
+`simt_batch_perf`逐接口对比Immediate与ExplicitBatch路径，报告发布次数、下发时延、包含Drain的完成时延
+与数据校验结果。
+
+编译运行方式参见[simt_batch_perf/README.md](./simt_batch_perf/README.md)。
 
 ## 运行约束
 
