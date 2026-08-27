@@ -28,7 +28,10 @@ constexpr uint64_t ccu_ms_size = 4096;
 constexpr uint64_t ccu_ms_interleave = 8;
 constexpr uint64_t ccu_ms_default_loop_count = 128;
 
-constexpr uint16_t ccu_load_to_xn_sec_info = 1;
+    constexpr uint16_t ccu_load_to_xn_sec_info = 1;
+
+    // V2 CKE 写后读需要的最坏延迟，调度补 NOP 与指令空间预留必须共用该值。
+    constexpr uint32_t ccu_cke_raw_latency = 14;
 
 #pragma pack(push, 1)
 // instr common header
