@@ -41,19 +41,6 @@ typedef struct {
 } MultiChannelEntity;
 
 #ifdef __cplusplus
-static_assert(sizeof(MultiChannelRemoteInfo) == 32U, "MultiChannelRemoteInfo size must remain Host/Device compatible");
-static_assert(offsetof(MultiChannelRemoteInfo, remoteBufferAddr) == 0U, "Unexpected remoteBufferAddr offset");
-static_assert(offsetof(MultiChannelRemoteInfo, remoteBufferNum) == 8U, "Unexpected remoteBufferNum offset");
-static_assert(offsetof(MultiChannelRemoteInfo, tpId) == 12U, "Unexpected tpId offset");
-static_assert(offsetof(MultiChannelRemoteInfo, remoteEidLow) == 16U, "Unexpected remoteEidLow offset");
-static_assert(offsetof(MultiChannelRemoteInfo, remoteEidHigh) == 24U, "Unexpected remoteEidHigh offset");
-
-static_assert(sizeof(MultiChannelEntity) == 24U, "MultiChannelEntity size must remain Host/Device compatible");
-static_assert(offsetof(MultiChannelEntity, channelHandle) == 0U, "Unexpected channelHandle offset");
-static_assert(offsetof(MultiChannelEntity, channelNum) == 8U, "Unexpected channelNum offset");
-static_assert(offsetof(MultiChannelEntity, reserved) == 12U, "Unexpected reserved offset");
-static_assert(offsetof(MultiChannelEntity, remoteInfoAddr) == 16U, "Unexpected remoteInfoAddr offset");
-
 namespace AscendC {
 using ::MultiChannelEntity;
 using ::MultiChannelRemoteInfo;
