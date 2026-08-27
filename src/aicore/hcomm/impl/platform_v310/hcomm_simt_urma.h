@@ -871,6 +871,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
 
     constexpr uint64_t nextHeadMask = 0xFFFFULL;
     constexpr uint64_t ownerMask = 1ULL << 31U;
+    uint64_t batchHeadVal = 0U;
+    bool batchReserved = false;
     for (uint32_t item = 0U; item < batchHandle.prepared; ++item) {
         HcommSimtWqeStage stage;
         __ubuf__ uint64_t* srcWords = batchHandle.buffer + item * HCOMM_SIMT_WQE_WORDS;
@@ -907,13 +909,22 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         post.meta.remoteTokenId = batchHandle.remoteTokenId;
         post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
 
+        if (item == 0U) {
+            const uint32_t totalBb = batchHandle.prepared * HCOMM_URMA_DWQE_BB_CNT;
+            batchReserved = HcommSimtTryReserve(
+                post.headAddr, post.sqTailAddr, post.meta.sqDepth, totalBb, totalBb,
+                batchHandle.prepared, batchHeadVal);
+        }
+
         uint64_t headVal = 0U;
-        if (!ReservePost<true>(batchHandle.channel, post, HCOMM_URMA_DWQE_BB_CNT, headVal)) {
+        if (!batchReserved && !ReservePost<true>(
+                batchHandle.channel, post, HCOMM_URMA_DWQE_BB_CNT, headVal)) {
             batchHandle.valid = false;
             return HCOMM_FAILED;
         }
 
-        uint32_t curHead = HcommSimtHeadIdx(headVal);
+        uint32_t curHead = batchReserved ?
+            HcommSimtHeadIdx(batchHeadVal) + item * HCOMM_URMA_DWQE_BB_CNT : HcommSimtHeadIdx(headVal);
         uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
         uint64_t owner = (curHead & post.meta.sqDepth) == 0U ? 1U : 0U;
         stage.words[0] = (stage.words[0] & ~(nextHeadMask | ownerMask)) |
