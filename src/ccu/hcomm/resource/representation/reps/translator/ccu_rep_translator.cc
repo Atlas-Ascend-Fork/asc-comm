@@ -19,6 +19,7 @@
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loop_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_loadarg_v1.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
+#include "hcomm/resource/microcode_opt/microcode_optimizer.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
@@ -238,6 +239,13 @@ ccu_instr_info ccu_rep_translator::translate(
 
     dump_rep(rep_vec, instr_info);
     dump_instruction(instr_info);
+
+    if (ccu_version == HCOMM_CCU_VERSION_V2) {
+        auto optimized = ccu_opt::microcode_optimizer::run(
+            instr_info, trans_dep_.reserve_xn_id, trans_dep_.reserve_cke_id);
+        dump_instruction(optimized);
+        return optimized;
+    }
 
     return instr_info;
 }
