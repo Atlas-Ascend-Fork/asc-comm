@@ -30,3 +30,4 @@ Returns `HCCL_SUCCESS` on success or the corresponding Hcomm error code on failu
 ## Related APIs
 
 - [MakeMultiChannelHandle](MakeMultiChannelHandle.md)
+- [DestroyMultiChannelHandleWithComm](DestroyMultiChannelHandleWithComm.md)

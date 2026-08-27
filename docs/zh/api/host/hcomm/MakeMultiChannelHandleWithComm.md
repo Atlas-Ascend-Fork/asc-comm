@@ -39,11 +39,12 @@ HcclResult MakeMultiChannelHandleWithComm(
 
 - 通道使用`COMM_ENGINE_AIV`和UB_CTP协议，并满足HCCL共享队列通道约束。
 - 同一通信域内，每个`sharedQueueTag`仅用于一次成功调用。
-- 句柄及其Device上下文由`comm`管理，无需调用`DestroyMultiChannelHandle`。Kernel使用完成前不能销毁通信域。
+- Kernel使用并同步完成后，可以调用`DestroyMultiChannelHandleWithComm`提前释放Device上下文；未显式销毁时，上下文随`comm`释放。共享通道始终由`comm`统一管理。
 - 无通信域路径请使用`MakeMultiChannelHandle`。
 
 ## 相关接口
 
 - [MakeMultiChannelHandle](MakeMultiChannelHandle.md)
+- [DestroyMultiChannelHandleWithComm](DestroyMultiChannelHandleWithComm.md)
 - [MakeBatchHandle](../../aicore/hcomm/MakeBatchHandle.md)
 - [GetHandleRef](../../aicore/hcomm/GetHandleRef.md)
