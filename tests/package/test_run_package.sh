@@ -21,6 +21,7 @@ RUN_FILE=$(readlink -f -- "${RUN_FILE}")
 
 TEST_ROOT=$(mktemp -d)
 trap 'rm -rf -- "${TEST_ROOT}"' EXIT
+chmod 755 "${TEST_ROOT}"
 EXTRACT_DIR="${TEST_ROOT}/extracted"
 FAKE_CANN="${TEST_ROOT}/cann"
 BASELINE_DIR="${TEST_ROOT}/baseline"
@@ -326,6 +327,18 @@ done < "${EXTRACT_DIR}/manifest.sha256"
 [[ "$(stat -c %a -- "${INSTALL_FOR_ALL_CANN}/asc/include/adv_api/hcomm")" == "755" ]]
 [[ "$(stat -c %a -- "${INSTALL_FOR_ALL_CANN}/asc/include/comm_api")" == "555" ]]
 run_package --uninstall --install-path="${INSTALL_FOR_ALL_CANN}"
+
+# A restrictive public parent directory must reject install-for-all before mutation.
+RESTRICTED_PARENT_CANN="${TEST_ROOT}/restricted-parent-cann"
+mkdir -p \
+    "${RESTRICTED_PARENT_CANN}/asc/include/adv_api" \
+    "${RESTRICTED_PARENT_CANN}/asc/impl/adv_api/detail"
+chmod 755 "${RESTRICTED_PARENT_CANN}"
+chmod 750 "${RESTRICTED_PARENT_CANN}/asc"
+write_dependency_versions "${RESTRICTED_PARENT_CANN}"
+expect_failure run_package --full --install-for-all --install-path="${RESTRICTED_PARENT_CANN}"
+grep -q 'directory .* does not support --install-for-all' "${ERROR_LOG}"
+[[ ! -e "${RESTRICTED_PARENT_CANN}/var/asc-comm-dev-patch" ]]
 
 if [[ $(id -u) -ne 0 ]]; then
     RESTRICTED_CANN="${TEST_ROOT}/restricted-cann"

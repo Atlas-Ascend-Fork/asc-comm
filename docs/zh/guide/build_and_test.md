@@ -126,7 +126,7 @@ asc/impl/comm_api/aicore/hcomm    -> ../../adv_api/detail/hcomm
 ```
 
 - 权限行为与asc-devkit子包一致。root安装时，头文件权限为`555`，Hcomm目录权限为`755`，`comm_api`下的受管目录权限为`555`。
-- 非root安装默认将上述权限分别设置为`550`、`750`和`550`；使用`--install-for-all`后设置为`555`、`755`和`555`。目标CANN根目录需要允许其他用户读取和进入。
+- 非root安装默认将上述权限分别设置为`550`、`750`和`550`；使用`--install-for-all`后设置为`555`、`755`和`555`。目标CANN根目录及其父目录需要允许其他用户读取和进入，否则安装器会拒绝操作。
 - 安装器会保存安装前已存在的受管文件和正确的Hcomm软链。目标错误的软链，或者占用软链路径的普通文件、目录，不会被覆盖。
 - 制包时会记录asc-devkit、hcomm、runtime的主次版本和系统架构。系统架构必须匹配；依赖版本不兼容时会输出告警并继续安装。
 
@@ -158,7 +158,7 @@ asc/impl/comm_api/aicore/hcomm    -> ../../adv_api/detail/hcomm
 
 安装、重复安装和卸载过程会写入日志。root用户日志目录为`/var/log/ascend_seclog`，非root用户为`$HOME/var/log/ascend_seclog`；过程日志写入`ascend_install.log`，操作审计写入`operation.log`。
 
-安装完成后需要重新编译待验证的Ascend C Kernel，已有`.o`或`.bin`不会自动更新。
+安装完成后需要重新编译待验证的内容，已有`.o`或`.bin`不会自动更新。
 
 run包版本从仓库根目录的`version.cmake`读取。可以直接调用制包脚本指定输出目录和制包所用CANN：
 
