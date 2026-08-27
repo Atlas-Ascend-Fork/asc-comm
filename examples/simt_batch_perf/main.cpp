@@ -415,8 +415,9 @@ int main(int argc, char* argv[])
         const double bandwidth = timing[kCompletionCyclesIndex] == 0U ? 0.0 :
             static_cast<double>(dataBytes) * iterations / timing[kCompletionCyclesIndex];
         const uint32_t lanes = mode == "group" ? batchSize : 1U;
+        const uint32_t batchItems = mode == "immediate" ? 1U : batchSize;
         std::cout << std::fixed << std::setprecision(6) << "PERF_DATA | API=" << apiName
-                  << " | DataSize/B=" << dataBytes << " | Lanes=" << lanes
+                  << " | DataSize/B=" << dataBytes << " | BatchSize=" << batchItems << " | Lanes=" << lanes
                   << " | DBCount=" << timing[kPublishCountIndex]
                   << " | Mode=" << (mode == "group" ? "GroupBatch" : mode == "batch" ? "ExplicitBatch" : "Immediate")
                   << " | Bandwidth/GB/s=" << bandwidth << " | IssueTime/ns=" << issueNs << std::endl;

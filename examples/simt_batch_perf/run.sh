@@ -32,6 +32,8 @@ iterations=1024
 warmup=96
 payload_bytes=64
 batch_size=8
+reference_batch_size=128
+large_batch_size=1024
 group_lanes="2,4,8,16,32"
 devices=2
 mode=compare
@@ -89,7 +91,7 @@ if [[ -z "$log_file" ]]; then
 fi
 mkdir -p "$(dirname "$log_file")"
 exec > >(tee "$log_file") 2>&1
-echo "TEST_INFO | Suite=simt_batch_perf | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | PayloadBytes=${payload_bytes} | BatchSize=${batch_size} | LargeBatchSize=1024 | GroupLanes=${group_lanes}"
+echo "TEST_INFO | Suite=simt_batch_perf | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | PayloadBytes=${payload_bytes} | PrimaryBatchSize=${batch_size} | ReferenceBatchSize=${reference_batch_size} | LargeBatchSize=${large_batch_size} | GroupLanes=${group_lanes}"
 apis=(write read notify write_value faa cas)
 [[ "$api" == "all" ]] || apis=("$api")
 active_dir=""
@@ -143,7 +145,10 @@ for current_api in "${apis[@]}"; do
     if [[ "$mode" == "compare" ]]; then
         if ! run_case "$current_api" immediate "$batch_size"; then status=1; fi
         if ! run_case "$current_api" batch "$batch_size"; then status=1; fi
-        if ! run_case "$current_api" batch 1024; then status=1; fi
+        if [[ "$batch_size" != "$reference_batch_size" ]] &&
+            ! run_case "$current_api" batch "$reference_batch_size"; then status=1; fi
+        if [[ "$batch_size" != "$large_batch_size" ]] &&
+            ! run_case "$current_api" batch "$large_batch_size"; then status=1; fi
         for lanes in "${lane_counts[@]}"; do
             if ! run_case "$current_api" group "$lanes"; then status=1; fi
         done
