@@ -1021,6 +1021,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
             if (laneItems == 0U) {
                 status = HCOMM_FAILED;
             }
+            groupState_[stateHeaderWords + lane] = totalItems;
             totalItems += laneItems;
         }
         uint64_t headVal = 0U;
@@ -1065,10 +1066,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     post.meta.remoteTokenId = batchHandle.remoteTokenId;
     post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
 
-    uint32_t itemOffset = 0U;
-    for (uint32_t lane = 0U; lane < rank; ++lane) {
-        itemOffset += groupState_[stateHeaderWords + lane];
-    }
+    const uint32_t itemOffset = groupState_[stateHeaderWords + rank];
     const uint64_t headVal = static_cast<uint64_t>(groupState_[2]) |
                              (static_cast<uint64_t>(groupState_[3]) << 32U);
     constexpr uint64_t nextHeadMask = 0xFFFFULL;
