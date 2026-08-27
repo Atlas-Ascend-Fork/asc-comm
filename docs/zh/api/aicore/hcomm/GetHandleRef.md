@@ -10,7 +10,7 @@
 template <
     typename T,
     typename BatchHandleTraits<T>::ChannelType* = nullptr>
-__aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
+__aicore__ inline typename BatchHandleTraits<T>::HandleRefType& GetHandleRef(
     T& batchHandle,
     uint32_t channelIndex,
     GM_ADDR remoteAddr = nullptr);
@@ -26,7 +26,7 @@ __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
 
 ## 返回值
 
-单通道返回输入句柄本身；多通道返回配置为所选逻辑通道和远端MR的内层`BatchHandle<ChannelHandle>&`。
+单通道返回输入句柄本身；多通道返回由`BatchHandleTraits<T>::HandleRefType`定义、且配置为所选逻辑通道和远端MR的内层BatchHandle引用。
 
 ## 模板参数
 

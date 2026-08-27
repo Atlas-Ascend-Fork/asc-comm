@@ -100,7 +100,7 @@ public:
      *       remote buffers used through the returned handle must use the token cached by this call.
      */
     template <typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
-    __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
+    __aicore__ inline typename BatchHandleTraits<T>::HandleRefType& GetHandleRef(
         T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
 
     /*!
