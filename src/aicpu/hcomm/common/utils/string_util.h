@@ -14,7 +14,6 @@
 #include <string>
 #include <vector>
 #include "securec.h"
-#include "log/hcomm_log.h"
 
 namespace Asc {
 
@@ -24,8 +23,7 @@ template <typename... Args> inline std::string string_format(const char *format,
     constexpr size_t bufSize = BUFSIZ;
     char             buffer[bufSize];
     int result = snprintf_s(&buffer[0], bufSize, bufSize, format, args...);
-     if (result < 0) {
-        HCCL_ERROR("[string_format] data snprintf_s failed.");
+    if (result < 0) {
         return "";
     }
     size_t actualSize = static_cast<size_t>(result);
@@ -33,8 +31,7 @@ template <typename... Args> inline std::string string_format(const char *format,
         actualSize++;
         std::vector<char> newbuffer(actualSize);
         auto ret = snprintf_s(newbuffer.data(), actualSize, actualSize, format, args...);
-        if(ret != EOK){
-            HCCL_ERROR("[string_format] data snprintf_s failed.");
+        if (ret != EOK) {
             return "";
         }
         return newbuffer.data();

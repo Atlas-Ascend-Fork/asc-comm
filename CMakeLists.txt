@@ -54,7 +54,6 @@ option(ASCCOMM_BUILD_AICPU_DATA_PLANE "Build AICPU data plane shared library" OF
 
 if(ASCCOMM_BUILD_AICPU_DATA_PLANE)
     set(ASCCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu/hcomm")
-    set(ASCCOMM_DFX_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/common/dfx")
     set(HCOMM_SOURCE_DIR "" CACHE PATH "HCOMM source directory providing pkg_inc/")
 
     if(NOT HCOMM_SOURCE_DIR)
@@ -74,11 +73,6 @@ if(ASCCOMM_BUILD_AICPU_DATA_PLANE)
     find_cann_package(acl_rt MODULE REQUIRED)
     find_cann_package(ascend_hal MODULE REQUIRED)
     find_cann_package(securec MODULE REQUIRED)
-    find_cann_package(unified_dlog MODULE REQUIRED)
-
-    add_library(asc_comm_dfx INTERFACE)
-    target_include_directories(asc_comm_dfx INTERFACE ${ASCCOMM_DFX_SRC_DIR})
-
     include(cmake/aicpu_asccomm.cmake)
 
     add_library(asccomm_aicpu SHARED ${ASCCOMM_AICPU_SOURCES})
@@ -122,9 +116,7 @@ if(ASCCOMM_BUILD_AICPU_DATA_PLANE)
     )
 
     target_link_libraries(asccomm_aicpu PRIVATE
-        asc_comm_dfx
         acl_rt_headers
-        slog_headers
         ascend_hal
         c_sec
         dl

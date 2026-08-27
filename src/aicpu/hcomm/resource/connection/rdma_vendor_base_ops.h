@@ -20,7 +20,7 @@
 
 #include "../../common/utils/exception_util.h"
 #include "../../common/exception/internal_exception.h"
-#include "log/hcomm_log.h"
+#include "result_check.h"
 #include "../buffer/rma_buf_slice_lite.h"
 #include "../buffer/rmt_rma_buf_slice_lite.h"
 #include "asccomm_backend_types.h"
@@ -167,7 +167,6 @@ public:
             // 逐一Poll Cq，并处理cqe
             ret = poll_cq_impl(numEntries - totalPollNum, errList);
             if (ret == static_cast<int32_t>(CqPollStatus::ERROR)) {
-                HCCL_ERROR("[RdmaBaseOps::%s][Poll cq] Poll Cq Error.", __func__);
                 return HCCL_E_REMOTE;
             }
 
@@ -183,14 +182,10 @@ public:
             }
 
             if ((std::chrono::steady_clock::now() - startTime) > timeLimit) {
-                HCCL_ERROR("[RdmaBaseOps::%s][Poll cq] Poll Cq timeout, expected[%d], actual[%d], lastRet[%d]",
-                    __func__, numEntries, totalPollNum, ret);
                 return HCCL_E_TIMEOUT;
             }
         }
 
-        HCCL_INFO("[RdmaBaseOps::%s][Poll cq] Poll Cq success, expected[%d], actual[%d]",
-            __func__, numEntries, totalPollNum);
         return HCCL_SUCCESS;
     }
 
@@ -221,7 +216,7 @@ protected:
         (void)loc;
         (void)rmt;
         (void)cfg;
-        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support read Now.", __func__);
+
         return HCCL_E_NOT_SUPPORT;
     }
 
@@ -229,7 +224,7 @@ protected:
         (void)loc;
         (void)rmt;
         (void)cfg;
-        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support write Now.", __func__);
+
         return HCCL_E_NOT_SUPPORT;
     }
 
@@ -240,7 +235,7 @@ protected:
         (void)cfg;
         (void)dataType;
         (void)reduceOp;
-        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support write_reduce Now.", __func__);
+
         return HCCL_E_NOT_SUPPORT;
     }
 
@@ -251,25 +246,17 @@ protected:
 
     virtual int32_t poll_cq_impl(int32_t numEntries, std::vector<int32_t> &errList) {
         (void)numEntries;
-        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support poll_cq Now.", __func__);
+
         return HCCL_E_NOT_SUPPORT;
     }
 
     // 搬运wqe(通用实现), 把 Wqe 写到 SQ
     HcclResult commit_wqe(const void *wqe, uint32_t wqeSize)
     {
-        HCCL_INFO("[RdmaBaseOps::%s] Memcpy wqe start, Now SQ PI: [%u]", __func__, sqHead_);
-
         // 写wqe到va
         auto sqDepth = sqContext_->depth;
         uint32_t sqPIMask = sqDepth - 1;
         u8 *va = reinterpret_cast<u8 *>(sqContext_->sqVa + (sqHead_ & sqPIMask) * wqeSize);
-
-        HCCL_INFO("[RdmaBaseOps][Wqe write] before copy, sqHead[%u], slot[%u], sqVa[0x%llx], dst[0x%llx], size[%u]",
-            sqHead_, sqHead_ & sqPIMask,
-            static_cast<unsigned long long>(sqContext_->sqVa),
-            reinterpret_cast<unsigned long long>(va),
-            wqeSize);
 
         auto ret = memcpy_sp(va, wqeSize, wqe, wqeSize);
         if (UNLIKELY(ret != 0)) {
@@ -282,7 +269,6 @@ protected:
         // write InValid Wqebb
         CHK_RET(write_invalid_wqebb(sqHead_));
 
-        HCCL_INFO("[RdmaBaseOps::%s] Memcpy wqe end, Now SQ PI: [%u]", __func__, sqHead_);
         return HCCL_SUCCESS;
     }
 
@@ -291,7 +277,6 @@ protected:
         bool timeOutFlag = false;
         auto startTime = std::chrono::steady_clock::now();
 
-        HCCL_INFO("[RdmaBaseOps::%s] Operate: sqTail = %u", __func__, sqTail_);
         while (!timeOutFlag) {
             // sq 队列能放下，直接成功返回
             if (static_cast<uint32_t>(sqHead_ - sqTail_ + wqeNum) <= sqContext_->depth) {
@@ -302,7 +287,7 @@ protected:
         }
 
         // 超时处理
-        HCCL_ERROR("[RdmaBaseOps::%s] Sq is Full !! Operate: sqTail = %u Failed. ", __func__, sqTail_);
+
         return HCCL_E_TIMEOUT;
     }
 
@@ -310,9 +295,6 @@ protected:
     HcclResult update_sq_pi() {
         // 更新Sq PI指针
         uint32_t sqHeadNum = htonl32(sqHead_);
-
-        HCCL_INFO("[RdmaBaseOps][Wqe write] write soft PI, sqHead host[%u], dbSwVa[0x%llx]",
-                sqHead_, static_cast<unsigned long long>(sqContext_->dbSwVa));
 
         auto status = memcpy_sp(reinterpret_cast<void *>(sqContext_->dbSwVa), sizeof(uint32_t), &sqHeadNum,
                                 sizeof(uint32_t));

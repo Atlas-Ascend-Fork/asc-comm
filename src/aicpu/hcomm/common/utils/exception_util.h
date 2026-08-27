@@ -12,14 +12,12 @@
 #define ASCCOMM_EXCEPTION_UTIL_H
 
 #include <string>
-#include "log/hcomm_log.h"
 #include "string_util.h"
 
 namespace Asc {
 
 template <typename Exception> [[noreturn]] inline void throw_exception(const std::string &message)
 {
-    HCCL_ERROR("%s", message.c_str());
     throw Exception(message);
 }
 

@@ -16,7 +16,7 @@
 #include "../connection/ub_jetty_lite.h"
 #include "../connection/rdma_vendor_1825_ops.h"
 #include "securec.h"
-#include "log/hcomm_log.h"
+#include "result_check.h"
 
 namespace {
 
@@ -53,8 +53,6 @@ const HcommRegedBufferEntity *find_buffer(const HcommRegedBufferEntity *buffers,
         }
     }
     if (useFirstAsFallback && buffers[0].type == HCOMM_REGED_BUFFER_RMA) {
-        HCCL_WARNING("[%s] addr[0x%llx], size[0x%llx] is outside local buffers; use the first protection.",
-            __func__, addr, size);
         return &buffers[0];
     }
     return nullptr;
@@ -69,15 +67,12 @@ HcclResult get_rtsq(HcommThreadEntity &thread, HcommRtsqContext *&rtsq)
 
 HcclResult get_ub_context(HcommChannelEntity &channel, HcommJfsContext *&jfs)
 {
-    CHK_PRT_RET(!is_ub_protocol(channel.protocol),
-        HCCL_ERROR("[%s] protocol[%d] is not UB.", __func__, channel.protocol), HCCL_E_NOT_SUPPORT);
-    CHK_PRT_RET(channel.sqNum == 0, HCCL_ERROR("[%s] UB SQ context is empty.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(!is_ub_protocol(channel.protocol), HCCL_E_NOT_SUPPORT);
+    CHK_PRT_RET(channel.sqNum == 0, HCCL_E_PARA);
     CHK_PTR_NULL(channel.sqContextAddr);
-    CHK_PRT_RET(channel.sqContextAddr[0].type != HCOMM_SQ_CONTEXT_TYPE_UB_JFS,
-        HCCL_ERROR("[%s] SQ context is not UB JFS.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(channel.sqContextAddr[0].type != HCOMM_SQ_CONTEXT_TYPE_UB_JFS, HCCL_E_PARA);
     jfs = &channel.sqContextAddr[0].contextInfo.ubJfs;
-    CHK_PRT_RET(jfs->sqDepth == 0 || jfs->sqVa == 0 || jfs->maxReadSize == 0 || jfs->maxWriteSize == 0,
-        HCCL_ERROR("[%s] invalid UB JFS context.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(jfs->sqDepth == 0 || jfs->sqVa == 0 || jfs->maxReadSize == 0 || jfs->maxWriteSize == 0, HCCL_E_PARA);
     return HCCL_SUCCESS;
 }
 
@@ -92,9 +87,10 @@ HcclResult build_ub_slices(const HcommChannelEntity &channel, uintptr_t localAdd
     CHK_PTR_NULL(remoteBuffer);
     const auto &localResource = localBuffer->bufferInfo.rma;
     const auto &remoteResource = remoteBuffer->bufferInfo.rma;
-    CHK_PRT_RET(localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA ||
-        remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA,
-        HCCL_ERROR("[%s] UB buffer requires URMA protection.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(
+        localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA ||
+            remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA,
+        HCCL_E_PARA);
     local = Asc::RmaBufSliceLite(localAddr, len, 0, localResource.protectionInfo.memInfo.ub.tokenId);
     remote = Asc::RmtRmaBufSliceLite(remoteAddr, len, 0,
         remoteResource.protectionInfo.memInfo.ub.tokenId, remoteResource.protectionInfo.memInfo.ub.tokenValue,
@@ -105,14 +101,10 @@ HcclResult build_ub_slices(const HcommChannelEntity &channel, uintptr_t localAdd
 HcclResult build_ub_remote_notify(const HcommChannelEntity &channel, uint32_t index,
                                Asc::RmtRmaBufSliceLite &notify)
 {
-    CHK_PRT_RET(index >= channel.remoteNotifyNum || channel.remoteNotifyAddr == nullptr,
-        HCCL_ERROR("[%s] remote notify index[%u] out of range[%u].", __func__, index,
-            channel.remoteNotifyNum), HCCL_E_PARA);
-    CHK_PRT_RET(channel.remoteNotifyAddr[index].type != HCOMM_REGED_NOTIFY_RMA_RT,
-        HCCL_ERROR("[%s] remote notify is not RMA RT.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(index >= channel.remoteNotifyNum || channel.remoteNotifyAddr == nullptr, HCCL_E_PARA);
+    CHK_PRT_RET(channel.remoteNotifyAddr[index].type != HCOMM_REGED_NOTIFY_RMA_RT, HCCL_E_PARA);
     const auto &resource = channel.remoteNotifyAddr[index].notifyInfo.rmaRt;
-    CHK_PRT_RET(resource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA,
-        HCCL_ERROR("[%s] UB notify requires URMA protection.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(resource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA, HCCL_E_PARA);
     notify = Asc::RmtRmaBufSliceLite(resource.addr, resource.size, 0,
         resource.protectionInfo.memInfo.ub.tokenId,
         resource.protectionInfo.memInfo.ub.tokenValue, resource.notifyId);
@@ -190,19 +182,17 @@ HcclResult execute_ub_rma(HcommThreadEntity &thread, HcommChannelEntity &channel
 HcclResult get_rdma_contexts(HcommChannelEntity &channel, HcommRdmaSqContext *&sq,
                            HcommRdmaCqContext *&cq)
 {
-    CHK_PRT_RET(channel.protocol != COMM_PROTOCOL_ROCE,
-        HCCL_ERROR("[%s] protocol[%d] is not RoCE.", __func__, channel.protocol), HCCL_E_NOT_SUPPORT);
-    CHK_PRT_RET(channel.sqNum == 0 || channel.cqNum == 0,
-        HCCL_ERROR("[%s] RoCE SQ/CQ context is empty.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(channel.protocol != COMM_PROTOCOL_ROCE, HCCL_E_NOT_SUPPORT);
+    CHK_PRT_RET(channel.sqNum == 0 || channel.cqNum == 0, HCCL_E_PARA);
     CHK_PTR_NULL(channel.sqContextAddr);
     CHK_PTR_NULL(channel.cqContextAddr);
-    CHK_PRT_RET(channel.sqContextAddr[0].type != HCOMM_SQ_CONTEXT_TYPE_ROCE ||
-        channel.cqContextAddr[0].type != HCOMM_CQ_CONTEXT_TYPE_ROCE,
-        HCCL_ERROR("[%s] SQ/CQ context is not RoCE.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(
+        channel.sqContextAddr[0].type != HCOMM_SQ_CONTEXT_TYPE_ROCE ||
+            channel.cqContextAddr[0].type != HCOMM_CQ_CONTEXT_TYPE_ROCE,
+        HCCL_E_PARA);
     sq = &channel.sqContextAddr[0].contextInfo.roceSq;
     cq = &channel.cqContextAddr[0].contextInfo.roceCq;
-    CHK_PRT_RET(sq->depth == 0 || sq->sqVa == 0 || cq->cqDepth == 0 || cq->cqVa == 0,
-        HCCL_ERROR("[%s] invalid RoCE SQ/CQ context.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(sq->depth == 0 || sq->sqVa == 0 || cq->cqDepth == 0 || cq->cqVa == 0, HCCL_E_PARA);
     return HCCL_SUCCESS;
 }
 
@@ -232,9 +222,10 @@ HcclResult build_rdma_slices(const HcommChannelEntity &channel, uintptr_t localA
     CHK_PTR_NULL(remoteBuffer);
     const auto &localResource = localBuffer->bufferInfo.rma;
     const auto &remoteResource = remoteBuffer->bufferInfo.rma;
-    CHK_PRT_RET(localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA ||
-        remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA,
-        HCCL_ERROR("[%s] RoCE buffer requires RDMA protection.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(
+        localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA ||
+            remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA,
+        HCCL_E_PARA);
     local = Asc::RmaBufSliceLite(localAddr, len, localResource.protectionInfo.memInfo.roce.lkey, 0);
     remote = Asc::RmtRmaBufSliceLite(remoteAddr, len, remoteResource.protectionInfo.memInfo.roce.rkey,
         0, 0, std::numeric_limits<uint32_t>::max());
@@ -244,19 +235,19 @@ HcclResult build_rdma_slices(const HcommChannelEntity &channel, uintptr_t localA
 HcclResult build_rdma_notify_slices(const HcommChannelEntity &channel, uint32_t index,
                                  Asc::RmaBufSliceLite &local, Asc::RmtRmaBufSliceLite &remote)
 {
-    CHK_PRT_RET(index >= channel.remoteNotifyNum || channel.remoteNotifyAddr == nullptr,
-        HCCL_ERROR("[%s] remote notify index[%u] out of range[%u].", __func__, index,
-            channel.remoteNotifyNum), HCCL_E_PARA);
+    CHK_PRT_RET(index >= channel.remoteNotifyNum || channel.remoteNotifyAddr == nullptr, HCCL_E_PARA);
     CHK_PTR_NULL(channel.localBufferAddr);
     const HcommRegedBufferEntity *notifyValueBuffer = &channel.localBufferAddr[channel.localBufferNum];
-    CHK_PRT_RET(notifyValueBuffer->type != HCOMM_REGED_BUFFER_RMA ||
-        channel.remoteNotifyAddr[index].type != HCOMM_REGED_NOTIFY_RMA_RT,
-        HCCL_ERROR("[%s] RoCE notify resource type is invalid.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(
+        notifyValueBuffer->type != HCOMM_REGED_BUFFER_RMA ||
+            channel.remoteNotifyAddr[index].type != HCOMM_REGED_NOTIFY_RMA_RT,
+        HCCL_E_PARA);
     const auto &localResource = notifyValueBuffer->bufferInfo.rma;
     const auto &remoteResource = channel.remoteNotifyAddr[index].notifyInfo.rmaRt;
-    CHK_PRT_RET(localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA ||
-        remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA,
-        HCCL_ERROR("[%s] RoCE notify requires RDMA protection.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(
+        localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA ||
+            remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_RDMA,
+        HCCL_E_PARA);
     local = Asc::RmaBufSliceLite(localResource.addr, localResource.size,
         localResource.protectionInfo.memInfo.roce.lkey, 0);
     remote = Asc::RmtRmaBufSliceLite(remoteResource.addr, remoteResource.size,
@@ -403,8 +394,7 @@ HcclResult convert_batch_reduce(HcommDataType dataType, HcommReduceOp reduceOp,
         case HCOMM_REDUCE_MIN: innerOp = Asc::ReduceOp::MIN; break;
         default: return HCCL_E_PARA;
     }
-    CHK_PRT_RET(count > std::numeric_limits<uint64_t>::max() / typeSize,
-        HCCL_ERROR("[%s] reduce length overflow.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(count > std::numeric_limits<uint64_t>::max() / typeSize, HCCL_E_PARA);
     len = count * typeSize;
     reduceIn = Asc::ReduceIn(innerType, innerOp);
     return HCCL_SUCCESS;
@@ -536,21 +526,18 @@ HcclResult asccomm_notify_record(HcommThreadEntity &thread, HcommChannelEntity &
 HcclResult asccomm_notify_wait(HcommThreadEntity &thread, const HcommChannelEntity &channel,
                               uint32_t localNotifyIdx, uint32_t timeout)
 {
-    CHK_PRT_RET(localNotifyIdx >= channel.localNotifyNum || channel.localNotifyAddr == nullptr,
-        HCCL_ERROR("[%s] local notify index[%u] out of range[%u].", __func__, localNotifyIdx,
-            channel.localNotifyNum), HCCL_E_PARA);
+    CHK_PRT_RET(localNotifyIdx >= channel.localNotifyNum || channel.localNotifyAddr == nullptr, HCCL_E_PARA);
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
-    CHK_PRT_RET(channel.localNotifyAddr[localNotifyIdx].type != HCOMM_REGED_NOTIFY_RMA_RT,
-        HCCL_ERROR("[%s] local notify is not RMA RT.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(channel.localNotifyAddr[localNotifyIdx].type != HCOMM_REGED_NOTIFY_RMA_RT, HCCL_E_PARA);
     const int32_t notifyId = channel.localNotifyAddr[localNotifyIdx].notifyInfo.rmaRt.notifyId;
-    CHK_PRT_RET(notifyId < 0, HCCL_ERROR("[%s] invalid notify id[%d].", __func__, notifyId), HCCL_E_PARA);
+    CHK_PRT_RET(notifyId < 0, HCCL_E_PARA);
     return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(notifyId), timeout);
 }
 
 HcclResult asccomm_fence(HcommChannelEntity &channel)
 {
-    CHK_PRT_RET(channel.sqNum == 0, HCCL_ERROR("[%s] SQ context is empty.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(channel.sqNum == 0, HCCL_E_PARA);
     CHK_PTR_NULL(channel.sqContextAddr);
     channel.sqContextAddr[0].fence = 1;
     return HCCL_SUCCESS;
@@ -561,26 +548,25 @@ HcclResult asccomm_drain(HcommThreadEntity &thread, HcommChannelEntity &channel)
     if (channel.protocol == COMM_PROTOCOL_ROCE) {
         return HCCL_SUCCESS;
     }
-    CHK_PRT_RET(!is_ub_protocol(channel.protocol),
-        HCCL_ERROR("[%s] protocol[%d] is not supported.", __func__, channel.protocol), HCCL_E_NOT_SUPPORT);
+    CHK_PRT_RET(!is_ub_protocol(channel.protocol), HCCL_E_NOT_SUPPORT);
     CHK_PTR_NULL(channel.localNotifyAddr);
     CHK_PTR_NULL(channel.remoteBufferAddr);
     const HcommRegedNotifyEntity *localDrainNotify = &channel.localNotifyAddr[channel.localNotifyNum];
     const HcommRegedBufferEntity *remoteDrainBuffer = &channel.remoteBufferAddr[channel.remoteBufferNum];
     if (localDrainNotify->notifyInfo.rmaRt.size == 0 || remoteDrainBuffer->bufferInfo.rma.size == 0) {
-        HCCL_WARNING("[%s] drain resource is empty; skip.", __func__);
         return HCCL_SUCCESS;
     }
     HcommJfsContext *jfs = nullptr;
     CHK_RET(get_ub_context(channel, jfs));
-    CHK_PRT_RET(localDrainNotify->type != HCOMM_REGED_NOTIFY_RMA_RT ||
-        remoteDrainBuffer->type != HCOMM_REGED_BUFFER_RMA,
-        HCCL_ERROR("[%s] UB drain resource type is invalid.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(
+        localDrainNotify->type != HCOMM_REGED_NOTIFY_RMA_RT || remoteDrainBuffer->type != HCOMM_REGED_BUFFER_RMA,
+        HCCL_E_PARA);
     const auto &localResource = localDrainNotify->notifyInfo.rmaRt;
     const auto &remoteResource = remoteDrainBuffer->bufferInfo.rma;
-    CHK_PRT_RET(localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA ||
-        remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA,
-        HCCL_ERROR("[%s] UB drain requires URMA protection.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(
+        localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA ||
+            remoteResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA,
+        HCCL_E_PARA);
     Asc::RmaBufSliceLite local(localResource.addr, localResource.size, 0,
         localResource.protectionInfo.memInfo.ub.tokenId);
     Asc::RmtRmaBufSliceLite remote(remoteResource.addr, remoteResource.size, 0,
@@ -603,8 +589,7 @@ HcclResult asccomm_drain(HcommThreadEntity &thread, HcommChannelEntity &channel)
     CHK_RET(ring_ub_doorbell(thread, channel, *jfs, out.pi));
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
-    CHK_PRT_RET(localResource.notifyId < 0,
-        HCCL_ERROR("[%s] invalid drain notify id[%d].", __func__, localResource.notifyId), HCCL_E_PARA);
+    CHK_PRT_RET(localResource.notifyId < 0, HCCL_E_PARA);
     return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(localResource.notifyId), DEFAULT_TIMEOUT);
 }
 
@@ -612,7 +597,7 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
                                  const HcommBatchTransferDesc *transferDescs, uint32_t transferDescNum)
 {
     CHK_PTR_NULL(transferDescs);
-    CHK_PRT_RET(transferDescNum == 0, HCCL_ERROR("[%s] transferDescNum is 0.", __func__), HCCL_E_PARA);
+    CHK_PRT_RET(transferDescNum == 0, HCCL_E_PARA);
     HcommJfsContext *jfs = nullptr;
     CHK_RET(get_ub_context(channel, jfs));
     Asc::UbConnLiteParam param{};
@@ -680,11 +665,9 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
                 desc.transferInfo.writeReduceWithNotify.reduceOp, reduceIn,
                 desc.transferInfo.writeReduceWithNotify.count, len));
         } else {
-            HCCL_ERROR("[%s] unsupported transfer type[%d].", __func__, desc.transType);
             return HCCL_E_PARA;
         }
-        CHK_PRT_RET(localAddr == 0 || remoteAddr == 0,
-            HCCL_ERROR("[%s] null address at batch index[%u].", __func__, index), HCCL_E_PTR);
+        CHK_PRT_RET(localAddr == 0 || remoteAddr == 0, HCCL_E_PTR);
         Asc::RmaBufSliceLite local(0, 0, 0, 0);
         Asc::RmtRmaBufSliceLite remote(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
         CHK_RET(build_ub_slices(channel, localAddr, remoteAddr, len, local, remote));
