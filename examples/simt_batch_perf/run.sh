@@ -17,7 +17,7 @@ Options:
   --iterations N      Timed operation count, default: 1024
   --warmup N          Warmup operation count, default: 96
   --payload-bytes N   Write/Read/Notify payload, default: 64
-  --batch-size N      Operations per single-lane batch (1..1024), default: 8
+  --batch-size N      Operations per batch (1..1024), default: 8
   --group-lanes LIST  GroupBatch lane counts, default: 2,4,8,16,32
   --devices N         Device count, 2 or 8; default: 2
   --mode MODE         compare, immediate, batch, or group; default: compare
@@ -71,11 +71,16 @@ valid_api() {
 IFS=',' read -r -a lane_counts <<< "$group_lanes"
 [[ ${#lane_counts[@]} -gt 0 ]] || { echo "group lane list must not be empty" >&2; exit 1; }
 if [[ "$mode" == "group" || "$mode" == "compare" ]]; then
+    group_batch_size="$batch_size"
+    [[ "$mode" == "group" ]] || group_batch_size="$reference_batch_size"
+    ((iterations % group_batch_size == 0)) || {
+        echo "iterations must be divisible by group batch size ${group_batch_size}" >&2; exit 1;
+    }
     for lanes in "${lane_counts[@]}"; do
         [[ "$lanes" =~ ^[0-9]+$ ]] && ((lanes >= 2 && lanes <= 32)) || {
             echo "group lanes must be comma-separated values in 2..32" >&2; exit 1;
         }
-        ((iterations % lanes == 0 && warmup % lanes == 0)) || {
+        ((group_batch_size % lanes == 0 && iterations % lanes == 0 && warmup % lanes == 0)) || {
             echo "iterations/warmup must be divisible by every group lane count" >&2; exit 1;
         }
     done
@@ -105,7 +110,8 @@ trap cleanup EXIT
 trap 'cleanup; exit 130' INT TERM
 
 run_case() {
-    local case_api="$1" case_mode="$2" case_batch_size="$3" work_dir root_info_file status rank pair_status perf_line
+    local case_api="$1" case_mode="$2" case_batch_size="$3" case_lanes="${4:-1}"
+    local work_dir root_info_file status rank pair_status perf_line
     work_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_batch_perf.XXXXXX")"
     active_dir="$work_dir"
     root_info_file="${work_dir}/root_info.bin"
@@ -113,7 +119,8 @@ run_case() {
     active_pids=()
     for ((rank = 0; rank < devices; ++rank)); do
         "$binary" "$rank" "$devices" "$root_info_file" "$case_api" "$iterations" "$warmup" \
-            "$payload_bytes" "$case_batch_size" "$case_mode" >"${work_dir}/rank_${rank}.log" 2>&1 &
+            "$payload_bytes" "$case_batch_size" "$case_mode" "$case_lanes" \
+            >"${work_dir}/rank_${rank}.log" 2>&1 &
         active_pids+=("$!")
     done
     status=0
@@ -150,11 +157,11 @@ for current_api in "${apis[@]}"; do
         if [[ "$batch_size" != "$large_batch_size" ]] &&
             ! run_case "$current_api" batch "$large_batch_size"; then status=1; fi
         for lanes in "${lane_counts[@]}"; do
-            if ! run_case "$current_api" group "$lanes"; then status=1; fi
+            if ! run_case "$current_api" group "$reference_batch_size" "$lanes"; then status=1; fi
         done
     elif [[ "$mode" == "group" ]]; then
         for lanes in "${lane_counts[@]}"; do
-            if ! run_case "$current_api" group "$lanes"; then status=1; fi
+            if ! run_case "$current_api" group "$batch_size" "$lanes"; then status=1; fi
         done
     elif ! run_case "$current_api" "$mode" "$batch_size"; then
         status=1

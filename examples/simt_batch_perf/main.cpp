@@ -48,7 +48,7 @@
 extern void LaunchSimtBatchPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t payloadBytes,
     uint32_t slotBytes, uint32_t iterations, uint32_t warmup, uint32_t batchSize, uint32_t api, bool explicitBatch,
-    bool groupBatch);
+    bool groupBatch, uint32_t groupLanes);
 
 namespace {
 using namespace simt_batch_perf;
@@ -341,10 +341,10 @@ bool CheckAtomicFetchBuffer(
 
 int main(int argc, char* argv[])
 {
-    if (argc != 10) {
+    if (argc != 11) {
         std::cout << "Usage: " << argv[0]
                   << " <rank> <nranks> <root_info_file> <api> <iterations> <warmup> <payload> <batch_size>"
-                     " <immediate|batch|group>" << std::endl;
+                     " <immediate|batch|group> <group_lanes>" << std::endl;
         return 1;
     }
     const int rank = std::atoi(argv[1]);
@@ -356,11 +356,13 @@ int main(int argc, char* argv[])
     const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
     const uint32_t batchSize = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
     const std::string mode = argv[9];
+    const uint32_t groupLanes = static_cast<uint32_t>(std::strtoul(argv[10], nullptr, 10));
     if ((nranks != 2 && nranks != 8) || rank < 0 || rank >= nranks || !ValidApi(apiName) || iterations == 0U ||
         payloadBytes < 2U || batchSize == 0U || batchSize > kMaxBatchSize ||
         (mode != "immediate" && mode != "batch" && mode != "group") ||
-        (mode == "group" && (batchSize <= 1U || batchSize > kMaxGroupLanes || iterations % batchSize != 0U ||
-         warmup % batchSize != 0U))) {
+        (mode == "group" && (groupLanes <= 1U || groupLanes > kMaxGroupLanes || batchSize % groupLanes != 0U ||
+         iterations % batchSize != 0U || warmup % groupLanes != 0U || (warmup != 0U && warmup < groupLanes))) ||
+        (mode != "group" && groupLanes != 1U)) {
         return 1;
     }
     const bool isSender = (static_cast<uint32_t>(rank) & 1U) == 0U;
@@ -397,7 +399,7 @@ int main(int argc, char* argv[])
         ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
         ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
         LaunchSimtBatchPerf(stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, payloadBytes, slotBytes,
-            iterations, warmup, batchSize, api, mode != "immediate", mode == "group");
+            iterations, warmup, batchSize, api, mode != "immediate", mode == "group", groupLanes);
         ACLCHECK(aclrtSynchronizeStream(stream));
         ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
         const bool devicePass = static_cast<int64_t>(timing[kStatusIndex]) == 0 &&
@@ -414,7 +416,7 @@ int main(int argc, char* argv[])
         const double issueNs = static_cast<double>(timing[kIssueCyclesIndex]) / iterations;
         const double bandwidth = timing[kCompletionCyclesIndex] == 0U ? 0.0 :
             static_cast<double>(dataBytes) * iterations / timing[kCompletionCyclesIndex];
-        const uint32_t lanes = mode == "group" ? batchSize : 1U;
+        const uint32_t lanes = mode == "group" ? groupLanes : 1U;
         const uint32_t batchItems = mode == "immediate" ? 1U : batchSize;
         std::cout << std::fixed << std::setprecision(6) << "PERF_DATA | API=" << apiName
                   << " | DataSize/B=" << dataBytes << " | BatchSize=" << batchItems << " | Lanes=" << lanes
