@@ -7,7 +7,7 @@
 两条路径使用相同的数据大小、WQE 数量、预热次数及地址轮转方式；显式 batch 路径每组只调用一次
 `BatchCommit`，随后通过 `Drain(batch)` 等待完成。
 
-每条 `KERNEL_RESULT` 均包含明确的 `API` 和 `Mode`，并输出：
+每条`KERNEL_RESULT`均包含明确的`Rank`、`Peer`、`API`和`Mode`，并输出：
 
 - `PublishCount`：实际硬件发布次数；当前基础正确性版本逐项复用已验证的immediate DWQE发布路径；
 - `IssueTime/us` 和 `AverageIssue/ns`：任务下发耗时；
@@ -17,11 +17,12 @@
   Immediate、Append、BatchCommit 或 Drain；
 - `DeviceStatus` 和 `LocalCheck`：只描述 Kernel/本地返回数据，不冒充远端数据的最终结论。
 
-rank 1 随后输出远端 `CHECK`；一对 rank 都成功后，脚本才输出唯一的
-`CASE | API=... | Mode=... | Status=PASS`。FAA/CAS 同时校验每个 slot 最后一次 fetch 的旧值，FAA
+每对中的奇数rank随后输出远端`CHECK`；所有通信对都成功后，脚本才输出唯一的
+`CASE | API=... | Mode=... | Devices=... | Status=PASS`。FAA/CAS同时校验每个slot最后一次fetch的旧值，FAA
 远端累计值按实际操作次数计算。任何数据不匹配都会打印首个失败的 slot、字段、Actual 和 Expected。
 
-用例通过 `HcclGetRootInfo`/`HcclCommInitRootInfo` 创建双 rank 通信域，不依赖 rank table。
+用例通过`HcclGetRootInfo`/`HcclCommInitRootInfo`创建2卡或8卡通信域，不依赖rank table。8卡时
+0→1、2→3、4→5和6→7四对并发执行相同配置，每对分别输出性能和校验结果。
 
 ## 基线设计
 
@@ -71,17 +72,18 @@ bash run.sh
 ```bash
 bash run.sh write --iterations 4096 --warmup 100 --payload-bytes 64 --batch-size 8
 bash run.sh cas --iterations 4096 --batch-size 16
+bash run.sh all --devices 8
 ```
 
 使用 `--mode immediate` 或 `--mode batch` 可只运行一条路径，`--log FILE` 可指定日志路径；默认日志保存到
-`results/`。`--batch-size` 支持 1 到 32；建议至少重复运行三次，并以稳定结果比较 `AverageIssue/ns` 和
+`results/`。`--devices`支持2或8，默认2；`--batch-size`支持1到32。建议至少重复运行三次，并以稳定结果比较`AverageIssue/ns`和
 `CompletionTime/us`。
 
 输出示例：
 
 ```text
 TEST_INFO | Suite=simt_batch_perf | CodeVersion=... | ...
-KERNEL_RESULT | API=write | Mode=ExplicitBatch | ... | FailureAction=None | DeviceStatus=PASS | LocalCheck=PASS
-CHECK | API=write | Mode=ExplicitBatch | PASS
-CASE | API=write | Mode=ExplicitBatch | CodeVersion=... | Status=PASS
+KERNEL_RESULT | Rank=0 | Peer=1 | API=write | Mode=ExplicitBatch | ... | DeviceStatus=PASS | LocalCheck=PASS
+CHECK | Rank=1 | Peer=0 | API=write | Mode=ExplicitBatch | PASS
+CASE | API=write | Mode=ExplicitBatch | CodeVersion=... | Devices=8 | Pairs=4 | Status=PASS
 ```

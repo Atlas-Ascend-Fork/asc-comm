@@ -16,8 +16,7 @@
 
 namespace simt_batch {
 
-constexpr uint32_t kSenderRank = 0U;
-constexpr uint32_t kReceiverRank = 1U;
+constexpr uint32_t kRootRank = 0U;
 
 constexpr uint32_t kApiWrite = 0U;
 constexpr uint32_t kApiRead = 1U;

@@ -11,22 +11,33 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 [basic|full|matrix]"
+    echo "Usage: $0 [basic|full|matrix] [--devices 2|8]"
 }
 
-if [[ $# -gt 1 ]]; then
-    usage
+mode="full"
+devices=2
+mode_set=0
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        basic | full | matrix | matrix-1x1 | matrix-2x1 | matrix-8x1 | matrix-2x2 | matrix-8x2)
+            [[ "$mode_set" -eq 0 ]] || { echo "mode specified more than once" >&2; usage; exit 1; }
+            mode="$1"
+            mode_set=1
+            shift
+            ;;
+        --devices)
+            [[ $# -ge 2 ]] || { echo "--devices requires a value" >&2; usage; exit 1; }
+            devices="$2"
+            shift 2
+            ;;
+        -h | --help) usage; exit 0 ;;
+        *) echo "unknown option: $1" >&2; usage; exit 1 ;;
+    esac
+done
+[[ "$devices" == "2" || "$devices" == "8" ]] || {
+    echo "--devices must be 2 or 8" >&2
     exit 1
-fi
-
-mode="${1:-full}"
-case "$mode" in
-    basic | full | matrix | matrix-1x1 | matrix-2x1 | matrix-8x1 | matrix-2x2 | matrix-8x2) ;;
-    *)
-        usage
-        exit 1
-        ;;
-esac
+}
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 binary="${script_dir}/build/simt_batch"
@@ -34,21 +45,21 @@ binary="${script_dir}/build/simt_batch"
 if [[ "$mode" == "matrix" ]]; then
     matrix_status=0
     for matrix_case in matrix-1x1 matrix-2x1 matrix-8x1 matrix-2x2 matrix-8x2; do
-        bash "${script_dir}/run.sh" "$matrix_case" || matrix_status=1
+        bash "${script_dir}/run.sh" "$matrix_case" --devices "$devices" || matrix_status=1
     done
     exit "$matrix_status"
 fi
 code_version="$(git -C "${script_dir}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 if [[ "$mode" == "basic" ]]; then
     suite_name="simt_batch_basic"
-    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | BatchSize=2 | BatchCount=1 | PayloadBytes=64"
+    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | BatchSize=2 | BatchCount=1 | PayloadBytes=64"
 elif [[ "$mode" == matrix-* ]]; then
     matrix_shape="${mode#matrix-}"
     suite_name="simt_batch_${mode}"
-    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | BatchSize=${matrix_shape%x*} | BatchCount=${matrix_shape#*x} | PayloadBytes=64"
+    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | BatchSize=${matrix_shape%x*} | BatchCount=${matrix_shape#*x} | PayloadBytes=64"
 else
     suite_name="simt_batch"
-    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | BatchSize=8 | BatchCount=2 | PayloadBytes=64"
+    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | BatchSize=8 | BatchCount=2 | PayloadBytes=64"
 fi
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_batch.XXXXXX")"
@@ -64,9 +75,9 @@ trap cleanup EXIT INT TERM
 export SIMT_BATCH_SYNC_DIR="$work_dir"
 
 timeout_seconds="${SIMT_BATCH_TIMEOUT_SECONDS:-60}"
-for rank in 0 1; do
+for ((rank = 0; rank < devices; ++rank)); do
     timeout --signal=TERM "${timeout_seconds}s" stdbuf -oL -eL \
-        "$binary" "$rank" 2 "$root_info_file" "$mode" 2>&1 \
+        "$binary" "$rank" "$devices" "$root_info_file" "$mode" 2>&1 \
         | sed -u "s/^/[process rank ${rank}] /" \
         | tee "${work_dir}/rank_${rank}.log" &
     pids+=("$!")
@@ -80,5 +91,5 @@ for pid in "${pids[@]}"; do
 done
 pids=()
 
-echo "SUITE | Name=${suite_name} | CodeVersion=${code_version} | Status=$([[ "$status" -eq 0 ]] && echo PASS || echo FAIL)"
+echo "SUITE | Name=${suite_name} | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | Status=$([[ "$status" -eq 0 ]] && echo PASS || echo FAIL)"
 exit "$status"

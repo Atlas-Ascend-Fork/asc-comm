@@ -2,15 +2,15 @@
 
 [English](./README_en.md)
 
-该用例沿用仓库中其他 SIMT 用例的双 rank 结构：rank 0 通过 `HcclGetRootInfo` 生成 root info，两个 rank
-通过 `HcclCommInitRootInfo` 创建 HCCL 通信域，不依赖 rank table。Host 侧注册本地内存并获取 UBC CTP
-通道；rank 0 启动单 lane SIMT Kernel，rank 1 校验远端结果。
+该用例支持2卡或8卡：rank 0通过`HcclGetRootInfo`生成root info，所有rank通过
+`HcclCommInitRootInfo`创建同一个HCCL通信域，不依赖rank table。相邻rank组成独立通信对：偶数rank
+0/2/4/6启动SIMT Kernel，奇数rank 1/3/5/7校验对应远端结果。
 
 ## 最小可执行用例
 
 `basic_op_kernel.cpp`提供用户首次使用batch接口时需要的完整最小路径：准备可容纳两项的UB，创建
 BatchHandle，连续加入两个`WriteNbi`，调用一次`BatchCommit`发布，再由`Drain`等待完成。该路径没有
-模板分发、混合接口或状态矩阵，可以直接编译并在双rank环境执行：
+模板分发、混合接口或状态矩阵，可以直接编译并在2卡或8卡环境执行：
 
 ```bash
 cd examples/simt_batch
@@ -61,8 +61,8 @@ UB由调用方提供，容量也由调用方选择；`HcommSimtBatchBufferBytes`
 
 用例首先记录handle的有效性、是否绑定到`RemoteBufferAddr`选择的注册区、逻辑容量和实际SQ深度；
 每个场景分别记录`Append`、`BatchCommit`、
-`Drain` 和 `BatchCommitCount`，并检查 rank 0 的
-Read/FAA/CAS 返回值以及 rank 1 的全部远端数据。任一设备返回码、发布次数或数据不匹配都会使对应
+`Drain` 和 `BatchCommitCount`，并检查每对中偶数rank的
+Read/FAA/CAS返回值以及奇数rank的全部远端数据。任一设备返回码、发布次数或数据不匹配都会使对应
 rank 返回非零，不能仅凭 Kernel 返回成功打印 PASS。
 
 普通 immediate 接口的单接口正确性由仓库现有 SIMT 用例负责；性能用例使用相同参数逐接口比较
@@ -75,13 +75,13 @@ Immediate 与 ExplicitBatch。这里保留混合与单项场景作为补充，�
 ## 通过标准
 
 - handle有效并绑定到目标远端注册区，八个功能场景的设备步骤全部返回0，BatchCommit调用次数符合设计；
-- rank 0 的 Read 数据、FAA 每次旧值、CAS 每次旧值全部正确；
-- rank 1 的 Write/Notify/WriteValue 数据、Notify 信号、FAA/CAS 最终值全部正确；
-- 两个 rank 和最终 `SUITE` 均输出 PASS，否则脚本返回非零。
+- 每对偶数rank的Read数据、FAA每次旧值、CAS每次旧值全部正确；
+- 每对奇数rank的Write/Notify/WriteValue数据、Notify信号、FAA/CAS最终值全部正确；
+- 2个或8个rank和最终`SUITE`均输出PASS，否则脚本返回非零。
 
 ## 环境要求
 
-- 支持 `dav-3510` 的 CANN/ASC 编译环境及 UBC CTP 双 rank 运行环境；
+- 支持`dav-3510`的CANN/ASC编译环境及2卡或8卡UBC CTP运行环境；
 - 已安装包含本分支 SIMT batch API 与实现的 asc-comm 开发包。
 
 ```bash
@@ -93,10 +93,13 @@ source /usr/local/Ascend/cann/set_env.sh
 ```bash
 cd examples/simt_batch
 bash build.sh
-bash run_basic.sh  # 最小使用路径
-bash run.sh
+bash run_basic.sh                 # 默认2卡最小使用路径
+bash run_basic.sh --devices 8     # 8卡最小使用路径
+bash run.sh --devices 2           # 默认完整回归
+bash run.sh matrix --devices 8    # 8卡完整矩阵
 ```
 
+`--devices`只接受2或8，默认值为2。8卡模式并发执行0→1、2→3、4→5和6→7四对验证。
 `run.sh`执行六接口完整回归，也可显式执行`bash run.sh full`。可通过
 `BUILD_JOBS=8 bash build.sh`指定并行编译数。执行脚本自动创建并清理root-info/同步文件，
 并首先打印当前 `CodeVersion`。关键日志格式如下：
@@ -106,5 +109,5 @@ STATUS | Case=WriteNbi.homogeneous | Step=BatchCommit | Code=0 | PASS
 CHECK | API=AtomicFAA.fetch | ...
 [rank 0] simt_batch PASS
 [rank 1] simt_batch PASS
-SUITE | Name=simt_batch | CodeVersion=... | Status=PASS
+SUITE | Name=simt_batch | CodeVersion=... | Devices=8 | Pairs=4 | Status=PASS
 ```

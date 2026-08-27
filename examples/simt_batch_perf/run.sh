@@ -18,6 +18,7 @@ Options:
   --warmup N          Warmup operation count, default: 100
   --payload-bytes N   Write/Read/Notify payload, default: 64
   --batch-size N      Operations per explicit batch (1..32), default: 8
+  --devices N         Device count, 2 or 8; default: 2
   --mode MODE         compare, immediate, or batch; default: compare
   --log FILE          Output log file
 EOF
@@ -30,6 +31,7 @@ iterations=1024
 warmup=100
 payload_bytes=64
 batch_size=8
+devices=2
 mode=compare
 log_file=""
 while [[ $# -gt 0 ]]; do
@@ -38,6 +40,7 @@ while [[ $# -gt 0 ]]; do
         --warmup) warmup="$2"; shift 2 ;;
         --payload-bytes) payload_bytes="$2"; shift 2 ;;
         --batch-size) batch_size="$2"; shift 2 ;;
+        --devices) devices="$2"; shift 2 ;;
         --mode) mode="$2"; shift 2 ;;
         --log) log_file="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
@@ -56,6 +59,7 @@ valid_api() {
 [[ "$batch_size" =~ ^[0-9]+$ && "$batch_size" -ge 1 && "$batch_size" -le 32 ]] || {
     echo "batch size must be 1..32" >&2; exit 1;
 }
+[[ "$devices" == "2" || "$devices" == "8" ]] || { echo "devices must be 2 or 8" >&2; exit 1; }
 [[ "$mode" == "compare" || "$mode" == "immediate" || "$mode" == "batch" ]] || {
     echo "invalid mode: $mode" >&2; exit 1;
 }
@@ -70,7 +74,7 @@ if [[ -z "$log_file" ]]; then
 fi
 mkdir -p "$(dirname "$log_file")"
 exec > >(tee "$log_file") 2>&1
-echo "TEST_INFO | Suite=simt_batch_perf | CodeVersion=${code_version} | Iterations=${iterations} | Warmup=${warmup} | PayloadBytes=${payload_bytes} | BatchSize=${batch_size}"
+echo "TEST_INFO | Suite=simt_batch_perf | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | PayloadBytes=${payload_bytes} | BatchSize=${batch_size}"
 apis=(write read notify write_value faa cas)
 [[ "$api" == "all" ]] || apis=("$api")
 modes=(immediate batch)
@@ -91,8 +95,8 @@ run_case() {
     root_info_file="${work_dir}/root_info.bin"
     export SIMT_BATCH_PERF_SYNC_DIR="$work_dir"
     active_pids=()
-    for rank in 0 1; do
-        "$binary" "$rank" 2 "$root_info_file" "$case_api" "$iterations" "$warmup" \
+    for ((rank = 0; rank < devices; ++rank)); do
+        "$binary" "$rank" "$devices" "$root_info_file" "$case_api" "$iterations" "$warmup" \
             "$payload_bytes" "$batch_size" "$case_mode" >"${work_dir}/rank_${rank}.log" 2>&1 &
         active_pids+=("$!")
     done
@@ -101,8 +105,8 @@ run_case() {
         if ! wait "$pid"; then status=1; fi
     done
     active_pids=()
-    for rank in 0 1; do cat "${work_dir}/rank_${rank}.log"; done
-    echo "CASE | API=${case_api} | Mode=$([[ "$case_mode" == batch ]] && echo ExplicitBatch || echo Immediate) | CodeVersion=${code_version} | Status=$([[ "$status" -eq 0 ]] && echo PASS || echo FAIL)"
+    for ((rank = 0; rank < devices; ++rank)); do cat "${work_dir}/rank_${rank}.log"; done
+    echo "CASE | API=${case_api} | Mode=$([[ "$case_mode" == batch ]] && echo ExplicitBatch || echo Immediate) | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | Status=$([[ "$status" -eq 0 ]] && echo PASS || echo FAIL)"
     rm -rf -- "$work_dir"
     active_dir=""
     return "$status"

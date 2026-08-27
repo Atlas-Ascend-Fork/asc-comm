@@ -97,7 +97,7 @@ HcclResult InitComm(uint32_t rank, uint32_t nranks, const std::string& path, Hcc
 {
     HcclRootInfo rootInfo {};
     HcclResult ret = HCCL_SUCCESS;
-    if (rank == kSenderRank) {
+    if (rank == kRootRank) {
         HCCLCHECK(HcclGetRootInfo(&rootInfo));
         ret = WriteRootInfo(path, rootInfo);
     } else {
@@ -355,11 +355,12 @@ int main(int argc, char* argv[])
     const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
     const uint32_t batchSize = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
     const std::string mode = argv[9];
-    if (nranks != 2 || rank < 0 || rank >= nranks || !ValidApi(apiName) || iterations == 0U ||
+    if ((nranks != 2 && nranks != 8) || rank < 0 || rank >= nranks || !ValidApi(apiName) || iterations == 0U ||
         payloadBytes < 2U || batchSize == 0U || batchSize > kMaxBatchSize ||
         (mode != "immediate" && mode != "batch")) {
         return 1;
     }
+    const bool isSender = (static_cast<uint32_t>(rank) & 1U) == 0U;
     const uint32_t api = ApiIndex(apiName);
     const uint32_t slotBytes = SlotBytes(api, payloadBytes);
     const size_t bufferBytes = static_cast<size_t>(slotBytes) * kSlotCount;
@@ -382,13 +383,13 @@ int main(int argc, char* argv[])
     HCCLCHECK(HcclCommMemReg(comm, kRecvBufTag, &recvMem, &handles[1]));
     ChannelHandle channel = 0U;
     uint32_t remoteRecvIdx = 0U;
-    const uint32_t peer = rank == static_cast<int>(kSenderRank) ? kReceiverRank : kSenderRank;
+    const uint32_t peer = static_cast<uint32_t>(rank) ^ 1U;
     HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
     HCCLCHECK(HostBarrier(rank, nranks, "ready"));
 
     void* timingBuf = nullptr;
     bool pass = true;
-    if (rank == static_cast<int>(kSenderRank)) {
+    if (isSender) {
         uint64_t timing[kTimingWords] = {};
         ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
         ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
@@ -412,7 +413,8 @@ int main(int argc, char* argv[])
         const double completionUs = static_cast<double>(timing[kCompletionCyclesIndex]) / 1000.0;
         const double bandwidth = timing[kCompletionCyclesIndex] == 0U ? 0.0 :
             static_cast<double>(dataBytes) * iterations / timing[kCompletionCyclesIndex];
-        std::cout << std::fixed << std::setprecision(6) << "KERNEL_RESULT | API=" << apiName
+        std::cout << std::fixed << std::setprecision(6) << "KERNEL_RESULT | Rank=" << rank
+                  << " | Peer=" << peer << " | API=" << apiName
                   << " | Mode=" << (mode == "batch" ? "ExplicitBatch" : "Immediate")
                   << " | BatchSize=" << (mode == "batch" ? batchSize : 1U) << " | DataSize/B=" << dataBytes
                   << " | WqeCount=" << iterations << " | PublishCount=" << timing[kPublishCountIndex]
@@ -428,9 +430,9 @@ int main(int argc, char* argv[])
     }
 
     HCCLCHECK(HostBarrier(rank, nranks, "completed"));
-    if (rank == static_cast<int>(kReceiverRank) && api != kApiRead) {
+    if (!isSender && api != kApiRead) {
         pass = CheckBuffer(recvBuf, bufferBytes, api, payloadBytes, slotBytes, iterations, warmup);
-        std::cout << "CHECK | API=" << apiName << " | Mode="
+        std::cout << "CHECK | Rank=" << rank << " | Peer=" << peer << " | API=" << apiName << " | Mode="
                   << (mode == "batch" ? "ExplicitBatch" : "Immediate") << " | "
                   << (pass ? "PASS" : "FAIL") << std::endl;
     }

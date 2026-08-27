@@ -7,7 +7,7 @@ for each of `WriteNbi`, `ReadNbi`, `WriteWithNotifyNbi`, `WriteValueNbi`, `Atomi
 use identical payload sizes, WQE counts, warmup counts, and address rotation. The explicit path calls
 `BatchCommit` once per group and completes through `Drain(batch)`.
 
-Every `KERNEL_RESULT` identifies the `API` and `Mode` and reports:
+Every `KERNEL_RESULT` identifies `Rank`, `Peer`, `API`, and `Mode` and reports:
 
 - `PublishCount`: actual hardware publications. The current correctness baseline reuses the validated immediate
   DWQE publication path for every staged item;
@@ -18,12 +18,13 @@ Every `KERNEL_RESULT` identifies the `API` and `Mode` and reports:
   Append, BatchCommit, or Drain operation that failed;
 - `DeviceStatus` and `LocalCheck`: kernel/local-fetch results only, never a substitute for the remote check.
 
-Rank 1 then prints the remote `CHECK`. Only after both ranks succeed does the script print the authoritative
-`CASE | API=... | Mode=... | Status=PASS`. FAA/CAS also validate the final fetched old value in every slot, and
+The odd rank in every pair then prints the remote `CHECK`. Only after every pair succeeds does the script print the authoritative
+`CASE | API=... | Mode=... | Devices=... | Status=PASS`. FAA/CAS also validate the final fetched old value in every slot, and
 the remote FAA expectation is derived from the actual operation count. A mismatch prints the first failing slot,
 field, Actual, and Expected values.
 
-The two-rank communicator uses `HcclGetRootInfo`/`HcclCommInitRootInfo`; no rank table is required.
+The two- or eight-device communicator uses `HcclGetRootInfo`/`HcclCommInitRootInfo`; no rank table is required.
+In eight-device mode, pairs 0→1, 2→3, 4→5, and 6→7 run the same configuration concurrently and report results independently.
 
 ## Baseline design
 
@@ -79,17 +80,18 @@ Run a single API with custom parameters:
 ```bash
 bash run.sh write --iterations 4096 --warmup 100 --payload-bytes 64 --batch-size 8
 bash run.sh cas --iterations 4096 --batch-size 16
+bash run.sh all --devices 8
 ```
 
 Use `--mode immediate` or `--mode batch` to run only one path, and `--log FILE` to select a log path. Logs go to
-`results/` by default. `--batch-size` accepts 1 through 32. Run each configuration at least three times and
+`results/` by default. `--devices` accepts 2 or 8 and defaults to 2; `--batch-size` accepts 1 through 32. Run each configuration at least three times and
 compare stable `AverageIssue/ns` and `CompletionTime/us` values.
 
 Example output:
 
 ```text
 TEST_INFO | Suite=simt_batch_perf | CodeVersion=... | ...
-KERNEL_RESULT | API=write | Mode=ExplicitBatch | ... | FailureAction=None | DeviceStatus=PASS | LocalCheck=PASS
-CHECK | API=write | Mode=ExplicitBatch | PASS
-CASE | API=write | Mode=ExplicitBatch | CodeVersion=... | Status=PASS
+KERNEL_RESULT | Rank=0 | Peer=1 | API=write | Mode=ExplicitBatch | ... | DeviceStatus=PASS | LocalCheck=PASS
+CHECK | Rank=1 | Peer=0 | API=write | Mode=ExplicitBatch | PASS
+CASE | API=write | Mode=ExplicitBatch | CodeVersion=... | Devices=8 | Pairs=4 | Status=PASS
 ```

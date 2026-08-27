@@ -2,16 +2,15 @@
 
 [中文](./README.md)
 
-This example follows the repository's two-rank SIMT structure. Rank 0 creates root info with `HcclGetRootInfo`,
-and both ranks create the HCCL communicator with `HcclCommInitRootInfo`, so no rank table is required. The host
-registers memory and acquires a UBC CTP channel; rank 0 launches a single-lane SIMT kernel and rank 1 validates
-the remote results.
+This example supports two or eight devices. Rank 0 creates root info with `HcclGetRootInfo`, and every rank joins
+one HCCL communicator with `HcclCommInitRootInfo`, so no rank table is required. Adjacent ranks form independent
+pairs: even ranks 0/2/4/6 launch the SIMT kernel, and odd ranks 1/3/5/7 validate their peer's remote results.
 
 ## Runnable minimal example
 
 `basic_op_kernel.cpp` contains the complete minimal path for a first-time batch user: allocate UB for two items,
 create a BatchHandle, append two `WriteNbi` operations, publish them with one `BatchCommit`, and wait with `Drain`.
-It has no template dispatch, mixed operations, or status matrix and can be built and run directly on two ranks:
+It has no template dispatch, mixed operations, or status matrix and runs directly on two or eight devices:
 
 ```bash
 cd examples/simt_batch
@@ -65,7 +64,7 @@ all APIs:
 The suite first records handle validity, verifies that it selected the registration returned by `RemoteBufferAddr`,
 and records logical capacity and physical SQ depth. Each scenario records `Append`, `BatchCommit`, `Drain`, and
 `BatchCommitCount`. The suite validates local
-Read/FAA/CAS results on rank 0 and all remote data on rank 1. Any device status, publish-count, or data mismatch
+Read/FAA/CAS results on every even rank and all remote data on its odd-rank peer. Any device status, publish-count, or data mismatch
 makes the corresponding rank fail; successful kernel submission alone cannot produce an overall PASS.
 
 The existing per-API SIMT examples own immediate-path correctness. The performance suite compares Immediate and
@@ -80,13 +79,13 @@ compaction is a later optimization and is not part of the current API semantics.
 
 - The handle is valid and bound to the selected remote registration, all device steps return zero, and
   BatchCommit call counts match the design.
-- Rank 0 validates Read data and every FAA/CAS old value.
-- Rank 1 validates Write/Notify/WriteValue data, Notify signals, and final FAA/CAS values.
-- Both ranks and the final `SUITE` line report PASS; otherwise the script returns non-zero.
+- Every even rank validates Read data and every FAA/CAS old value.
+- Every odd rank validates Write/Notify/WriteValue data, Notify signals, and final FAA/CAS values.
+- All two or eight ranks and the final `SUITE` line report PASS; otherwise the script returns non-zero.
 
 ## Prerequisites
 
-- A CANN/ASC environment supporting `dav-3510` and a two-rank UBC CTP runtime environment.
+- A CANN/ASC environment supporting `dav-3510` and a two- or eight-device UBC CTP runtime environment.
 - An asc-comm development package containing this branch's SIMT batch API and implementation.
 
 ```bash
@@ -98,11 +97,14 @@ source /usr/local/Ascend/cann/set_env.sh
 ```bash
 cd examples/simt_batch
 bash build.sh
-bash run_basic.sh  # minimal usage path
-bash run.sh
+bash run_basic.sh                 # two-device minimal path (default)
+bash run_basic.sh --devices 8     # eight-device minimal path
+bash run.sh --devices 2           # full regression (default)
+bash run.sh matrix --devices 8    # eight-device matrix
 ```
 
-`run.sh` runs the full six-API regression and can also be invoked explicitly as `bash run.sh full`. Set
+`--devices` accepts only 2 or 8 and defaults to 2. Eight-device mode concurrently validates pairs 0→1, 2→3,
+4→5, and 6→7. `run.sh` runs the full six-API regression and can also be invoked explicitly as `bash run.sh full`. Set
 `BUILD_JOBS=8 bash build.sh` to control build parallelism. The run scripts create and remove temporary
 root-info/synchronization files and print the current `CodeVersion` first. Key output lines are:
 
@@ -111,5 +113,5 @@ STATUS | Case=WriteNbi.homogeneous | Step=BatchCommit | Code=0 | PASS
 CHECK | API=AtomicFAA.fetch | ...
 [rank 0] simt_batch PASS
 [rank 1] simt_batch PASS
-SUITE | Name=simt_batch | CodeVersion=... | Status=PASS
+SUITE | Name=simt_batch | CodeVersion=... | Devices=8 | Pairs=4 | Status=PASS
 ```

@@ -122,7 +122,7 @@ HcclResult InitCommByRootInfo(uint32_t rank, uint32_t nranks, const std::string&
 {
     HcclRootInfo rootInfo {};
     HcclResult ret = HCCL_SUCCESS;
-    if (rank == kSenderRank) {
+    if (rank == kRootRank) {
         HCCLCHECK(HcclGetRootInfo(&rootInfo));
         ret = WriteRootInfoFile(rootInfoFile, rootInfo);
     } else {
@@ -512,10 +512,11 @@ int main(int argc, char* argv[])
         (modeName.find("matrix-2x") == 0U ? 2U : kOperationsPerBatch);
     const uint32_t batchCount = matrixMode && modeName.back() == '1' ? 1U : kBatchCount;
     const RunMode mode = modeName == "basic" ? RunMode::BASIC : (matrixMode ? RunMode::MATRIX : RunMode::FULL);
-    if (nranks != 2 || rank < 0 || rank >= nranks) {
-        std::cout << "simt_batch requires exactly two valid ranks." << std::endl;
+    if ((nranks != 2 && nranks != 8) || rank < 0 || rank >= nranks) {
+        std::cout << "simt_batch requires 2 or 8 valid ranks." << std::endl;
         return 1;
     }
+    const bool isSender = (static_cast<uint32_t>(rank) & 1U) == 0U;
 
     ACLCHECK(aclInit(nullptr));
     ACLCHECK(aclrtSetDevice(rank));
@@ -537,7 +538,7 @@ int main(int argc, char* argv[])
     HCCLCHECK(HcclCommMemReg(comm, kSendBufTag, &sendMem, &handles[0]));
     HCCLCHECK(HcclCommMemReg(comm, kRecvBufTag, &recvMem, &handles[1]));
 
-    const uint32_t peer = rank == static_cast<int>(kSenderRank) ? kReceiverRank : kSenderRank;
+    const uint32_t peer = static_cast<uint32_t>(rank) ^ 1U;
     ChannelHandle channel = 0U;
     uint32_t remoteRecvIdx = 0U;
     HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
@@ -545,7 +546,7 @@ int main(int argc, char* argv[])
 
     void* statusBuf = nullptr;
     bool pass = true;
-    if (rank == static_cast<int>(kSenderRank)) {
+    if (isSender) {
         const size_t statusCount = mode == RunMode::BASIC ? kBasicStatusCount : kStatusCount;
         const size_t statusBytes = statusCount * sizeof(int32_t);
         ACLCHECK(aclrtMalloc(&statusBuf, statusBytes, ACL_MEM_MALLOC_HUGE_FIRST));
@@ -565,7 +566,7 @@ int main(int argc, char* argv[])
     }
 
     HCCLCHECK(HostBarrier(rank, nranks, "completed"));
-    if (rank == static_cast<int>(kReceiverRank)) {
+    if (!isSender) {
         pass = mode == RunMode::FULL ? CheckReceiver(recvBuf) :
             (mode == RunMode::MATRIX ? CheckReceiver(recvBuf, operationsPerBatch * batchCount, false) :
                 CheckBasicReceiver(recvBuf));
