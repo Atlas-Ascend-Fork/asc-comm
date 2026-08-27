@@ -36,11 +36,7 @@ constexpr uint32_t HCOMM_URMA_DWQE_BB_CNT = HCOMM_URMA_DWQE_SIZE / HCOMM_URMA_WQ
 static_assert(
     HCOMM_URMA_DWQE_SIZE == HCOMM_SIMT_BATCH_ITEM_BYTES,
     "The public SIMT batch workspace contract must match the staged DWQE size");
-#if defined(HCOMM_SIMT_BATCH_DEBUG)
-constexpr uint32_t HCOMM_SIMT_MAX_CQ_RETRY = 10000U;
-#else
 constexpr uint32_t HCOMM_SIMT_MAX_CQ_RETRY = 1000000U;
-#endif
 
 // The SQE fields one post needs, read from the channel and SQ contexts by ResolvePost.
 struct HcommSimtPostMeta {
@@ -151,8 +147,7 @@ private:
     __simt_callee__ inline int32_t BatchPostWqe(UbcCtpBatchHandle& batchHandle, const Desc& desc);
     __simt_callee__ inline bool BatchContainsRemote(
         const UbcCtpBatchHandle& batchHandle, const __gm__ void* addr, uint64_t len) const;
-    __simt_callee__ inline uint32_t PollCq(
-        ChannelHandle channel, uint32_t expectIdx, HcommSimtBatchDebug* debug = nullptr);
+    __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
 };
 
 } // namespace AscendC::simt

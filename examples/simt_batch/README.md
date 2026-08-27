@@ -72,28 +72,6 @@ Immediate 与 ExplicitBatch。这里保留混合与单项场景作为补充，�
 `HcommSimtBatchBufferBytes`计算workspace，不直接依赖内部魔法数字。按接口压缩WQEBB
 属于后续性能优化，不是当前接口语义的一部分。
 
-## DWQE 根因调试
-
-功能可执行程序还提供一个与教学用`basic`隔离的`single-last`对照模式：先调用一次
-`WriteNbi<false>`只写普通SQ，再调用一次`WriteNbi<true>`写SQ和DWQE并发布两项。它使用与
-`basic`相同的两个64B Write负载，但不创建BatchHandle，用来确认已经验证的SIMT单线程尾项发布路径。
-
-```bash
-bash run_diag.sh
-```
-
-脚本在两个全新进程环境中依次运行`single-last`和`basic`，避免前一次提交改变后一次的SQ/CQ计数。
-`basic`和`full`的ASC Kernel启用`HCOMM_SIMT_BATCH_DEBUG`，将固定大小快照写入GM状态区，Host在
-Kernel结束后输出以下信息，而不在DWQE关键路径调用设备侧`printf`：
-
-- 整批预留前后的packed head、SQ tail、item/CQE数量；
-- 尾WQE在UB与普通SQ中的word 0、tail item head以及是否执行到ring；
-- Drain期望/实际CQ tail、SQ tail、原始Poll返回值和失败CQE的两个头部word；
-- 完整回归中每个RMA场景的执行位图和每项首字节，不再在首个数据错误后停止。
-
-该诊断宏只对`examples/simt_batch`的ASC编译启用；`simt_batch_perf`不启用，性能数据不会包含这些
-快照开销。`single-last`只用于定位，不属于batch API的通过门槛。
-
 ## 通过标准
 
 - handle有效并绑定到目标远端注册区，八个功能场景的设备步骤全部返回0，BatchCommit调用次数符合设计；
@@ -116,12 +94,10 @@ source /usr/local/Ascend/cann/set_env.sh
 cd examples/simt_batch
 bash build.sh
 bash run_basic.sh  # 最小使用路径
-bash run_diag.sh   # 单线程Last与两项batch对照
 bash run.sh
 ```
 
-`run.sh`执行六接口完整回归，也可显式执行`bash run.sh full`；`bash run.sh single-last`可单独执行
-对照路径。可通过
+`run.sh`执行六接口完整回归，也可显式执行`bash run.sh full`。可通过
 `BUILD_JOBS=8 bash build.sh`指定并行编译数。执行脚本自动创建并清理root-info/同步文件，
 并首先打印当前 `CodeVersion`。关键日志格式如下：
 

@@ -11,7 +11,7 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 [basic|full|single-last|matrix]"
+    echo "Usage: $0 [basic|full|matrix]"
 }
 
 if [[ $# -gt 1 ]]; then
@@ -21,7 +21,7 @@ fi
 
 mode="${1:-full}"
 case "$mode" in
-    basic | full | single-last | matrix | matrix-1x1 | matrix-2x1 | matrix-8x1 | matrix-2x2 | matrix-8x2) ;;
+    basic | full | matrix | matrix-1x1 | matrix-2x1 | matrix-8x1 | matrix-2x2 | matrix-8x2) ;;
     *)
         usage
         exit 1
@@ -42,9 +42,6 @@ code_version="$(git -C "${script_dir}" rev-parse --short HEAD 2>/dev/null || ech
 if [[ "$mode" == "basic" ]]; then
     suite_name="simt_batch_basic"
     echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | BatchSize=2 | BatchCount=1 | PayloadBytes=64"
-elif [[ "$mode" == "single-last" ]]; then
-    suite_name="simt_single_last_control"
-    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | DeferredWrites=1 | ImmediateWrites=1 | PayloadBytes=64"
 elif [[ "$mode" == matrix-* ]]; then
     matrix_shape="${mode#matrix-}"
     suite_name="simt_batch_${mode}"

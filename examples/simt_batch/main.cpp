@@ -52,8 +52,6 @@ extern void LaunchSimtBatch(
     uint32_t operationsPerBatch, uint32_t batchCount, bool groupMode);
 extern void LaunchSimtBatchBasic(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* status);
-extern void LaunchSimtSingleLast(
-    void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* status);
 
 namespace {
 using namespace simt_batch;
@@ -68,7 +66,6 @@ constexpr const char* kRecvBufTag = "simtBatchRecvBuf";
 enum class RunMode : uint32_t {
     BASIC,
     FULL,
-    SINGLE_LAST,
     MATRIX,
 };
 
@@ -126,21 +123,15 @@ HcclResult InitCommByRootInfo(uint32_t rank, uint32_t nranks, const std::string&
     HcclRootInfo rootInfo {};
     HcclResult ret = HCCL_SUCCESS;
     if (rank == kSenderRank) {
-        std::cout << "PROGRESS | Rank=" << rank << " | Stage=GetRootInfo.begin" << std::endl;
         HCCLCHECK(HcclGetRootInfo(&rootInfo));
-        std::cout << "PROGRESS | Rank=" << rank << " | Stage=GetRootInfo.end" << std::endl;
         ret = WriteRootInfoFile(rootInfoFile, rootInfo);
     } else {
-        std::cout << "PROGRESS | Rank=" << rank << " | Stage=ReadRootInfo.begin" << std::endl;
         ret = ReadRootInfoFile(rootInfoFile, &rootInfo);
-        std::cout << "PROGRESS | Rank=" << rank << " | Stage=ReadRootInfo.end | Code=" << ret << std::endl;
     }
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
-    std::cout << "PROGRESS | Rank=" << rank << " | Stage=HcclCommInitRootInfo.begin" << std::endl;
     HCCLCHECK(HcclCommInitRootInfo(nranks, &rootInfo, rank, comm));
-    std::cout << "PROGRESS | Rank=" << rank << " | Stage=HcclCommInitRootInfo.end" << std::endl;
     return HCCL_SUCCESS;
 }
 
@@ -280,98 +271,6 @@ bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, boo
               << " | Capacity=" << status[kStatusHandleCapacity] << " | SqDepth=" << status[kStatusSqDepth]
               << " | " << (handlePass ? "PASS" : "FAIL") << std::endl;
     pass = pass && handlePass;
-    if (!groupMode) {
-        const auto loadDiagU64 = [&status](uint32_t lowIndex) {
-        return static_cast<uint64_t>(static_cast<uint32_t>(status[lowIndex])) |
-               (static_cast<uint64_t>(static_cast<uint32_t>(status[lowIndex + 1U])) << 32U);
-    };
-    const uint32_t guardMask = static_cast<uint32_t>(status[kDiagGuardMask]);
-    std::cout << "DIAG | Point=FirstWriteAppend"
-              << " | Ret=" << status[kDiagAppendRet]
-              << " | GuardMask=0x" << std::hex << guardMask
-              << " | Valid=" << ((guardMask & kDiagInvalidHandle) == 0U ? 1 : 0)
-              << " | Prepared=" << std::dec << status[kDiagPreparedBefore] << "->"
-              << status[kDiagPreparedAfter]
-              << " | Capacity=" << status[kDiagCapacity]
-              << " | Target=0x" << std::hex << loadDiagU64(kDiagTargetAddrLow)
-              << " | Len=" << std::dec << loadDiagU64(kDiagTargetLenLow)
-              << " | RemoteBase=0x" << std::hex << loadDiagU64(kDiagRemoteBaseLow)
-              << " | RemoteSize=" << std::dec << loadDiagU64(kDiagRemoteSizeLow)
-              << " | Offset=" << loadDiagU64(kDiagOffsetLow)
-              << std::endl;
-    if (status[kDiagAppendRet] == kStatusNotRun) {
-        std::cout << "DIAG | Point=FirstWriteAppend | FailedGuards=NOT_RUN" << std::endl;
-    } else if (guardMask != 0U) {
-        std::cout << "DIAG | Point=FirstWriteAppend | FailedGuards=";
-        const char* separator = "";
-        const auto printGuard = [&separator, guardMask](uint32_t bit, const char* name) {
-            if ((guardMask & bit) != 0U) {
-                std::cout << separator << name;
-                separator = ",";
-            }
-        };
-        printGuard(kDiagInvalidHandle, "InvalidHandle");
-        printGuard(kDiagCapacityExhausted, "CapacityExhausted");
-        printGuard(kDiagTargetLenTooLarge, "TargetLenTooLarge");
-        printGuard(kDiagNullTarget, "NullTarget");
-        printGuard(kDiagTargetBelowBase, "TargetBelowRemoteBase");
-        printGuard(kDiagOffsetPastEnd, "OffsetPastRemoteEnd");
-        printGuard(kDiagLenPastEnd, "LengthPastRemoteEnd");
-        std::cout << std::endl;
-    } else {
-        std::cout << "DIAG | Point=FirstWriteAppend | FailedGuards=NoneObserved" << std::endl;
-    }
-    for (uint32_t commit = 0U; commit < expectedBatchCount; ++commit) {
-        const uint32_t base = kCommitDiagBase + commit * kCommitDiagWordCount;
-        const uint64_t tailUbWord0 = loadDiagU64(base + kCommitDiagTailUbWord0);
-        const uint64_t tailSqWord0 = loadDiagU64(base + kCommitDiagTailSqWord0);
-        const uint64_t headBefore = loadDiagU64(base + kCommitDiagHeadBefore);
-        const uint64_t headAfter = loadDiagU64(base + kCommitDiagHeadAfter);
-        std::cout << "DIAG | Point=BatchCommit"
-                  << " | Commit=" << commit
-                  << " | Prepared=" << status[base + kCommitDiagPrepared]
-                  << " | PreparedCqe=" << status[base + kCommitDiagPreparedCqe]
-                  << " | ChunkItems=" << status[base + kCommitDiagChunkItems]
-                  << " | SqTailBefore=" << status[base + kCommitDiagSqTailBefore]
-                  << " | HeadSnapshot=0x" << std::hex << loadDiagU64(base + kCommitDiagHeadSnapshot)
-                  << " | HeadBefore=0x" << headBefore
-                  << " | HeadVal=0x" << loadDiagU64(base + kCommitDiagHeadVal)
-                  << " | HeadAfter=0x" << headAfter
-                  << " | HeadBb=" << std::dec << static_cast<uint32_t>(headBefore) << "->"
-                  << static_cast<uint32_t>(headAfter)
-                  << " | HeadCqe=" << static_cast<uint32_t>(headBefore >> 32U) << "->"
-                  << static_cast<uint32_t>(headAfter >> 32U)
-                  << " | TailItemHead=" << std::dec << status[base + kCommitDiagTailItemHead]
-                  << " | TailUbWord0=0x" << std::hex << tailUbWord0
-                  << " | TailSqWord0=0x" << tailSqWord0
-                  << " | TailNextHead=" << std::dec << (tailUbWord0 & 0xFFFFU)
-                  << " | TailOwner=" << ((tailUbWord0 >> 31U) & 1U)
-                  << " | TailOpcode=0x" << std::hex << ((tailUbWord0 >> 40U) & 0xFFU)
-                  << " | RingReached=" << std::dec << status[base + kCommitDiagRingReached]
-                  << " | PublishCount=" << status[base + kCommitDiagPublishCount]
-                  << " | TailSqMismatchMask=0x" << std::hex
-                  << static_cast<uint32_t>(status[base + kCommitDiagTailSqMismatchMask])
-                  << std::endl;
-    }
-    const uint32_t cqeWord0 = static_cast<uint32_t>(status[kDrainDiagCqeWord0]);
-    const uint32_t cqeWord1 = static_cast<uint32_t>(status[kDrainDiagCqeWord1]);
-        std::cout << "DIAG | Point=Drain"
-              << " | ExpectedCqTail=" << status[kDrainDiagExpectedCqTail]
-              << " | InitialCqTail=" << status[kDrainDiagInitialCqTail]
-              << " | FinalCqTail=" << status[kDrainDiagFinalCqTail]
-              << " | InitialSqTail=" << status[kDrainDiagInitialSqTail]
-              << " | FinalSqTail=" << status[kDrainDiagFinalSqTail]
-              << " | PollRet=0x" << std::hex << static_cast<uint32_t>(status[kDrainDiagPollRet])
-              << " | FailedCqIndex=" << std::dec << status[kDrainDiagFailedCqIndex]
-              << " | RetryCount=" << status[kDrainDiagRetryCount]
-              << " | CqeWord0=0x" << std::hex << cqeWord0
-              << " | CqeWord1=0x" << cqeWord1
-              << " | CqeOwner=" << std::dec << ((cqeWord0 >> 2U) & 1U)
-              << " | CqeStatus=" << ((cqeWord0 >> 24U) & 0xFFU)
-              << " | CqeSubstatus=" << ((cqeWord0 >> 16U) & 0xFFU)
-              << " | CqeEntryIdx=" << (cqeWord1 & 0xFFFFU)
-                  << std::endl;
-    }
     const uint32_t checkedCaseCount = groupMode ? kApiCas + 1U : kCaseCount;
     for (uint32_t testCase = 0U; testCase < checkedCaseCount; ++testCase) {
         for (uint32_t field = 0U; field < steps.size(); ++field) {
@@ -423,76 +322,6 @@ bool CheckBasicStatus(void* statusBuf)
                   << std::endl;
         pass = pass && itemPass;
     }
-    const auto loadDiagU64 = [&status](uint32_t lowIndex) {
-        return static_cast<uint64_t>(static_cast<uint32_t>(status[lowIndex])) |
-               (static_cast<uint64_t>(static_cast<uint32_t>(status[lowIndex + 1U])) << 32U);
-    };
-    const uint32_t base = kBasicCommitDiagBase;
-    const uint64_t tailUbWord0 = loadDiagU64(base + kCommitDiagTailUbWord0);
-    const uint64_t tailSqWord0 = loadDiagU64(base + kCommitDiagTailSqWord0);
-    const uint64_t headBefore = loadDiagU64(base + kCommitDiagHeadBefore);
-    const uint64_t headAfter = loadDiagU64(base + kCommitDiagHeadAfter);
-    std::cout << "DIAG | Point=BasicBatchCommit"
-              << " | Prepared=" << status[base + kCommitDiagPrepared]
-              << " | PreparedCqe=" << status[base + kCommitDiagPreparedCqe]
-              << " | ChunkItems=" << status[base + kCommitDiagChunkItems]
-              << " | SqTailBefore=" << status[base + kCommitDiagSqTailBefore]
-              << " | HeadSnapshot=0x" << std::hex << loadDiagU64(base + kCommitDiagHeadSnapshot)
-              << " | HeadBefore=0x" << headBefore
-              << " | HeadVal=0x" << loadDiagU64(base + kCommitDiagHeadVal)
-              << " | HeadAfter=0x" << headAfter
-              << " | HeadBb=" << std::dec << static_cast<uint32_t>(headBefore) << "->"
-              << static_cast<uint32_t>(headAfter)
-              << " | HeadCqe=" << static_cast<uint32_t>(headBefore >> 32U) << "->"
-              << static_cast<uint32_t>(headAfter >> 32U)
-              << " | TailItemHead=" << std::dec << status[base + kCommitDiagTailItemHead]
-              << " | TailUbWord0=0x" << std::hex << tailUbWord0
-              << " | TailSqWord0=0x" << tailSqWord0
-              << " | TailNextHead=" << std::dec << (tailUbWord0 & 0xFFFFU)
-              << " | RingReached=" << status[base + kCommitDiagRingReached]
-              << " | PublishCount=" << status[base + kCommitDiagPublishCount]
-              << " | TailSqMismatchMask=0x" << std::hex
-              << static_cast<uint32_t>(status[base + kCommitDiagTailSqMismatchMask])
-              << std::endl;
-    const uint32_t drainBase = kBasicDrainDiagBase;
-    const uint32_t cqeWord0 = static_cast<uint32_t>(status[drainBase + 8U]);
-    const uint32_t cqeWord1 = static_cast<uint32_t>(status[drainBase + 9U]);
-    std::cout << "DIAG | Point=BasicDrain"
-              << " | ExpectedCqTail=" << status[drainBase]
-              << " | InitialCqTail=" << status[drainBase + 1U]
-              << " | FinalCqTail=" << status[drainBase + 2U]
-              << " | InitialSqTail=" << status[drainBase + 3U]
-              << " | FinalSqTail=" << status[drainBase + 4U]
-              << " | PollRet=0x" << std::hex << static_cast<uint32_t>(status[drainBase + 5U])
-              << " | FailedCqIndex=" << std::dec << status[drainBase + 6U]
-              << " | RetryCount=" << status[drainBase + 7U]
-              << " | CqeWord0=0x" << std::hex << cqeWord0
-              << " | CqeWord1=0x" << cqeWord1
-              << " | CqeOwner=" << std::dec << ((cqeWord0 >> 2U) & 1U)
-              << " | CqeStatus=" << ((cqeWord0 >> 24U) & 0xFFU)
-              << " | CqeSubstatus=" << ((cqeWord0 >> 16U) & 0xFFU)
-              << " | CqeEntryIdx=" << (cqeWord1 & 0xFFFFU)
-              << std::endl;
-    return pass;
-}
-
-bool CheckSingleLastStatus(void* statusBuf)
-{
-    std::array<int32_t, kSingleLastStatusCount> status {};
-    if (aclrtMemcpy(status.data(), sizeof(status), statusBuf, sizeof(status), ACL_MEMCPY_DEVICE_TO_HOST) !=
-        ACL_SUCCESS) {
-        return false;
-    }
-    constexpr std::array<const char*, kSingleLastStatusCount> steps = {
-        "Init", "WriteNbi<false>", "WriteNbi<true>", "Drain"};
-    bool pass = true;
-    for (uint32_t index = 0U; index < status.size(); ++index) {
-        const int32_t code = status[index];
-        const bool itemPass = code == 0;
-        std::cout << "STATUS | Control=SingleLast | Step=" << steps[index] << " | Code=" << code << " | "
-                  << (itemPass ? "PASS" : (code == kBasicStatusNotRun ? "NOT_RUN" : "FAIL")) << std::endl;
-        pass = pass && itemPass;
-    }
     return pass;
 }
 
@@ -507,7 +336,6 @@ bool CheckPayloads(
     const std::vector<uint8_t>& actual, size_t offset, uint8_t valueBase, const char* api,
     uint32_t operationCount = kOperationCount)
 {
-    uint32_t executionBitmap = 0U;
     bool pass = true;
     for (uint32_t operation = 0U; operation < operationCount; ++operation) {
         const uint8_t expected = valueBase + operation;
@@ -522,18 +350,8 @@ bool CheckPayloads(
                 break;
             }
         }
-        if (operationPass) {
-            executionBitmap |= 1U << operation;
-        }
         pass = pass && operationPass;
     }
-    std::cout << "DIAG | API=" << api << " | ExecutionBitmap=0x" << std::hex << executionBitmap
-              << " | FirstBytes=";
-    for (uint32_t operation = 0U; operation < operationCount; ++operation) {
-        std::cout << (operation == 0U ? "" : ",") << std::dec
-                  << static_cast<uint32_t>(actual[offset + static_cast<size_t>(operation) * kPayloadBytes]);
-    }
-    std::cout << std::endl;
     std::cout << "CHECK | API=" << api << " | Operations=" << operationCount << " | PayloadBytes="
               << kPayloadBytes << " | " << (pass ? "PASS" : "FAIL") << std::endl;
     return pass;
@@ -676,7 +494,7 @@ int main(int argc, char* argv[])
 {
     if (argc != 4 && argc != 5) {
         std::cout << "Usage: " << argv[0]
-                  << " <rank> <nranks> <root_info_file> [basic|full|single-last|matrix-1x1|matrix-{2,8}x{1,2}]"
+                  << " <rank> <nranks> <root_info_file> [basic|full|matrix-1x1|matrix-{2,8}x{1,2}]"
                   << std::endl;
         return 1;
     }
@@ -686,33 +504,26 @@ int main(int argc, char* argv[])
     const std::string modeName = argc == 5 ? argv[4] : "full";
     const bool matrixMode = modeName == "matrix-1x1" || modeName == "matrix-2x1" || modeName == "matrix-8x1" ||
         modeName == "matrix-2x2" || modeName == "matrix-8x2";
-    if (modeName != "basic" && modeName != "full" && modeName != "single-last" && !matrixMode) {
+    if (modeName != "basic" && modeName != "full" && !matrixMode) {
         std::cout << "invalid mode." << std::endl;
         return 1;
     }
     const uint32_t operationsPerBatch = modeName == "matrix-1x1" ? 1U :
         (modeName.find("matrix-2x") == 0U ? 2U : kOperationsPerBatch);
     const uint32_t batchCount = matrixMode && modeName.back() == '1' ? 1U : kBatchCount;
-    const RunMode mode = modeName == "basic" ? RunMode::BASIC :
-        (modeName == "single-last" ? RunMode::SINGLE_LAST : (matrixMode ? RunMode::MATRIX : RunMode::FULL));
+    const RunMode mode = modeName == "basic" ? RunMode::BASIC : (matrixMode ? RunMode::MATRIX : RunMode::FULL);
     if (nranks != 2 || rank < 0 || rank >= nranks) {
         std::cout << "simt_batch requires exactly two valid ranks." << std::endl;
         return 1;
     }
 
-    auto logStage = [rank](const char* stage) {
-        std::cout << "PROGRESS | Rank=" << rank << " | Stage=" << stage << std::endl;
-    };
-    logStage("AclInit.begin");
     ACLCHECK(aclInit(nullptr));
     ACLCHECK(aclrtSetDevice(rank));
     aclrtStream stream = nullptr;
     ACLCHECK(aclrtCreateStream(&stream));
     HcclComm comm = nullptr;
-    logStage("InitComm.begin");
     HCCLCHECK(InitCommByRootInfo(
         static_cast<uint32_t>(rank), static_cast<uint32_t>(nranks), rootInfoFile, &comm));
-    logStage("InitComm.end");
 
     void* sendBuf = nullptr;
     void* recvBuf = nullptr;
@@ -729,51 +540,38 @@ int main(int argc, char* argv[])
     const uint32_t peer = rank == static_cast<int>(kSenderRank) ? kReceiverRank : kSenderRank;
     ChannelHandle channel = 0U;
     uint32_t remoteRecvIdx = 0U;
-    logStage("AcquirePeerChannel.begin");
     HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
-    logStage("AcquirePeerChannel.end");
-    logStage("ReadyBarrier.begin");
     HCCLCHECK(HostBarrier(rank, nranks, "ready"));
-    logStage("ReadyBarrier.end");
 
     void* statusBuf = nullptr;
     bool pass = true;
     if (rank == static_cast<int>(kSenderRank)) {
-        const size_t statusCount = mode == RunMode::BASIC ? kBasicStatusCount :
-            (mode == RunMode::SINGLE_LAST ? kSingleLastStatusCount : kStatusCount);
+        const size_t statusCount = mode == RunMode::BASIC ? kBasicStatusCount : kStatusCount;
         const size_t statusBytes = statusCount * sizeof(int32_t);
         ACLCHECK(aclrtMalloc(&statusBuf, statusBytes, ACL_MEM_MALLOC_HUGE_FIRST));
         ACLCHECK(aclrtMemset(statusBuf, statusBytes, 0xFF, statusBytes));
         if (mode == RunMode::BASIC) {
             LaunchSimtBatchBasic(stream, channel, kLocalSendIdx, remoteRecvIdx, statusBuf);
-        } else if (mode == RunMode::SINGLE_LAST) {
-            LaunchSimtSingleLast(stream, channel, kLocalSendIdx, remoteRecvIdx, statusBuf);
         } else {
             LaunchSimtBatch(
                 stream, channel, kLocalSendIdx, remoteRecvIdx, statusBuf, operationsPerBatch, batchCount,
                 mode == RunMode::MATRIX);
         }
-        logStage("StreamSynchronize.begin");
         ACLCHECK(aclrtSynchronizeStream(stream));
-        logStage("StreamSynchronize.end");
         pass = mode == RunMode::BASIC ? CheckBasicStatus(statusBuf) :
-            (mode == RunMode::SINGLE_LAST ? CheckSingleLastStatus(statusBuf) :
-                CheckStatus(statusBuf, batchCount, mode == RunMode::MATRIX) &&
-                    (mode == RunMode::MATRIX ?
-                        CheckSender(sendBuf, operationsPerBatch * batchCount, false) : CheckSender(sendBuf)));
+            CheckStatus(statusBuf, batchCount, mode == RunMode::MATRIX) &&
+                (mode == RunMode::MATRIX ?
+                    CheckSender(sendBuf, operationsPerBatch * batchCount, false) : CheckSender(sendBuf));
     }
 
-    logStage("CompletedBarrier.begin");
     HCCLCHECK(HostBarrier(rank, nranks, "completed"));
-    logStage("CompletedBarrier.end");
     if (rank == static_cast<int>(kReceiverRank)) {
         pass = mode == RunMode::FULL ? CheckReceiver(recvBuf) :
             (mode == RunMode::MATRIX ? CheckReceiver(recvBuf, operationsPerBatch * batchCount, false) :
                 CheckBasicReceiver(recvBuf));
     }
     const std::string suiteName = mode == RunMode::BASIC ? "simt_batch_basic" :
-        (mode == RunMode::SINGLE_LAST ? "simt_single_last_control" :
-            (mode == RunMode::MATRIX ? "simt_batch_" + modeName : "simt_batch"));
+        (mode == RunMode::MATRIX ? "simt_batch_" + modeName : "simt_batch");
     std::cout << "[rank " << rank << "] " << suiteName << " " << (pass ? "PASS" : "FAIL") << std::endl;
 
     if (statusBuf != nullptr) {

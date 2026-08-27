@@ -532,13 +532,9 @@ struct HcommSimtAtomicDesc {
 };
 
 __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
-    ChannelHandle channel, uint32_t expectIdx, HcommSimtBatchDebug* debug)
+    ChannelHandle channel, uint32_t expectIdx)
 {
     if (expectIdx == 0U) {
-        if (debug != nullptr) {
-            debug->pollExpectedCqTail = 0U;
-            debug->pollRet = HCOMM_SUCCESS;
-        }
         return HCOMM_SUCCESS;
     }
     __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
@@ -552,19 +548,6 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
     __gm__ uint32_t* sqTailAddr = (__gm__ uint32_t*)sqCtx->contextInfo.ubJfs.tailAddr;
     uint32_t sqTail = *sqTailAddr;
     uint32_t sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
-
-    if (debug != nullptr) {
-        debug->pollExpectedCqTail = expectIdx;
-        debug->pollInitialCqTail = curTail;
-        debug->pollFinalCqTail = curTail;
-        debug->pollInitialSqTail = sqTail;
-        debug->pollFinalSqTail = sqTail;
-        debug->pollRet = HCOMM_SUCCESS;
-        debug->pollFailedCqIndex = curTail;
-        debug->pollRetryCount = 0U;
-        debug->pollCqeWord0 = 0U;
-        debug->pollCqeWord1 = 0U;
-    }
 
     uint64_t cqBaseAddr = cqCtx->contextInfo.ubJfc.scqVa;
     uint32_t cqeSize = cqCtx->contextInfo.ubJfc.cqeSize;
@@ -588,64 +571,16 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
         }
         if (retry >= HCOMM_SIMT_MAX_CQ_RETRY) {
             // No CQE arrived: the WQE was never consumed.
-            if (debug != nullptr) {
-                debug->pollFinalCqTail = curTail;
-                debug->pollFinalSqTail = sqTail;
-                debug->pollRet = 0xFFU;
-                debug->pollFailedCqIndex = curTail;
-                debug->pollRetryCount = retry;
-                debug->pollCqeWord0 = cqeWords[0];
-                debug->pollCqeWord1 = cqeWords[1];
-            }
             return 0xFFU;
         }
         uint32_t cqeHead = cqeWords[0];
         uint32_t status = (cqeHead >> 24U) & 0xFFU;
         uint32_t subStatus = (cqeHead >> 16U) & 0xFFU;
         if (status != 0U || subStatus != 0U) {
-#if defined(HCOMM_SIMT_BATCH_DEBUG)
-            uint32_t snapshotCount = expectIdx - curTail;
-            snapshotCount = snapshotCount < 8U ? snapshotCount : 8U;
-            for (uint32_t offset = 0U; offset < snapshotCount; ++offset) {
-                uint32_t snapshotIdx = curTail + offset;
-                __gm__ uint32_t* snapshotWords =
-                    (__gm__ uint32_t*)(cqBaseAddr + cqeSize * (snapshotIdx & cqMask));
-                asc_dcci_single(snapshotWords);
-                uint32_t word0 = snapshotWords[0];
-                uint32_t word1 = snapshotWords[1];
-                uint32_t owner = (word0 >> 2U) & 1U;
-                uint32_t expectedOwner = (snapshotIdx / cqDepth) & 1U;
-                KERNEL_LOG(
-                    KERNEL_ERROR,
-                    "Hcomm SIMT CQE snapshot idx=%u ready=%u owner=%u status=%u substatus=%u entryIdx=%u "
-                    "word0=0x%x word1=0x%x\n",
-                    snapshotIdx, owner != expectedOwner, owner, (word0 >> 24U) & 0xFFU,
-                    (word0 >> 16U) & 0xFFU, word1 & 0xFFFFU, word0, word1);
-            }
-#endif
             constexpr uint8_t statusShift = 8U;
-            uint32_t pollRet = (status << statusShift) | subStatus;
-            if (debug != nullptr) {
-                debug->pollFinalCqTail = curTail;
-                debug->pollFinalSqTail = sqTail;
-                debug->pollRet = pollRet;
-                debug->pollFailedCqIndex = curTail;
-                debug->pollRetryCount = retry;
-                debug->pollCqeWord0 = cqeWords[0];
-                debug->pollCqeWord1 = cqeWords[1];
-            }
-            return pollRet;
+            return (status << statusShift) | subStatus;
         }
         if (sqDepth == 0U) {
-            if (debug != nullptr) {
-                debug->pollFinalCqTail = curTail;
-                debug->pollFinalSqTail = sqTail;
-                debug->pollRet = 0xFFU;
-                debug->pollFailedCqIndex = curTail;
-                debug->pollRetryCount = retry;
-                debug->pollCqeWord0 = cqeWords[0];
-                debug->pollCqeWord1 = cqeWords[1];
-            }
             return 0xFFU;
         }
         uint32_t sqTailSlot = sqTail & sqMask;
@@ -663,12 +598,6 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
     *cqDbAddr = curTail & 0xFFFFFFU;
 
     *sqTailAddr = sqTail;
-    if (debug != nullptr) {
-        debug->pollFinalCqTail = curTail;
-        debug->pollFinalSqTail = sqTail;
-        debug->pollRet = HCOMM_SUCCESS;
-        debug->pollFailedCqIndex = curTail;
-    }
     return HCOMM_SUCCESS;
 }
 
@@ -934,14 +863,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     UbcCtpBatchHandle& batchHandle)
 {
-#if defined(HCOMM_SIMT_BATCH_DEBUG)
-    batchHandle.debug = HcommSimtBatchDebug{};
-    batchHandle.debug.commitHeadSnapshot = batchHandle.headSnapshot;
-    batchHandle.debug.commitHeadBefore = batchHandle.headAddr == nullptr ? 0U : *batchHandle.headAddr;
-    batchHandle.debug.commitPrepared = batchHandle.prepared;
-    batchHandle.debug.commitPreparedCqe = batchHandle.preparedCqe;
-    batchHandle.debug.commitSqTailBefore = batchHandle.sqTailAddr == nullptr ? 0U : *batchHandle.sqTailAddr;
-#endif
     if (!initialized_ || !batchHandle.valid || batchHandle.prepared == 0U ||
         batchHandle.preparedCqe != batchHandle.prepared || batchHandle.lastCqe != 1U ||
         *batchHandle.headAddr != batchHandle.headSnapshot) {
@@ -950,7 +871,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
 
     constexpr uint64_t nextHeadMask = 0xFFFFULL;
     constexpr uint64_t ownerMask = 1ULL << 31U;
-    batchHandle.lastCommitPublishCount = 0U;
     for (uint32_t item = 0U; item < batchHandle.prepared; ++item) {
         HcommSimtWqeStage stage;
         __ubuf__ uint64_t* srcWords = batchHandle.buffer + item * HCOMM_SIMT_WQE_WORDS;
@@ -998,40 +918,13 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         uint64_t owner = (curHead & post.meta.sqDepth) == 0U ? 1U : 0U;
         stage.words[0] = (stage.words[0] & ~(nextHeadMask | ownerMask)) |
                          (static_cast<uint64_t>(nextHead) & nextHeadMask) | (owner << 31U);
-#if defined(HCOMM_SIMT_BATCH_DEBUG)
-        batchHandle.debug.commitHeadVal = headVal;
-        batchHandle.debug.commitHeadAfter = *post.headAddr;
-        batchHandle.debug.commitChunkItems = batchHandle.prepared;
-        batchHandle.debug.tailItemHead = curHead;
-        batchHandle.debug.tailUbWord0 = stage.words[0];
-#endif
         const bool publish = item + 1U == batchHandle.prepared;
         if (publish) {
             HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, true>(post, curHead, stage);
-            ++batchHandle.lastCommitPublishCount;
         } else {
             HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(post, curHead, stage);
         }
         batchHandle.headSnapshot = *post.headAddr;
-#if defined(HCOMM_SIMT_BATCH_DEBUG)
-        batchHandle.debug.ringReached |= publish ? 1U : 0U;
-        uint32_t mismatchMask = 0U;
-#pragma unroll
-        for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
-            uint32_t bbOffset = word / HCOMM_SIMT_BB_WORDS;
-            uint32_t wordInBb = word % HCOMM_SIMT_BB_WORDS;
-            uint32_t sqSlot = (curHead + bbOffset) % post.meta.sqDepth;
-            __gm__ uint64_t* sqWords = reinterpret_cast<__gm__ uint64_t*>(
-                post.sqBaseAddr + post.sqWqeSize * sqSlot);
-            uint64_t sqWord = sqWords[wordInBb];
-            mismatchMask |= sqWord == stage.words[word] ? 0U : (1U << word);
-            if (word == 0U) {
-                batchHandle.debug.tailSqWord0 = sqWord;
-            }
-        }
-        batchHandle.debug.tailSqMismatchMask = mismatchMask;
-        batchHandle.debug.commitPublishCount = batchHandle.lastCommitPublishCount;
-#endif
     }
 
     batchHandle.prepared = 0U;
@@ -1138,7 +1031,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     batchHandle.prepared = 0U;
     batchHandle.preparedCqe = 0U;
     batchHandle.lastCqe = 0U;
-    batchHandle.lastCommitPublishCount = 1U;
     return HCOMM_SUCCESS;
 }
 
@@ -1164,13 +1056,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBat
     if (!batchHandle.valid || batchHandle.prepared != 0U) {
         return HCOMM_FAILED;
     }
-#if defined(HCOMM_SIMT_BATCH_DEBUG)
-    uint64_t headVal = *batchHandle.headAddr;
-    uint32_t pollRet = PollCq(batchHandle.channel, HcommSimtWqeCnt(headVal), &batchHandle.debug);
-    return pollRet == HCOMM_SUCCESS ? HCOMM_SUCCESS : HCOMM_FAILED;
-#else
     return Drain<pipe>(batchHandle.channel);
-#endif
 }
 
 } // namespace AscendC::simt

@@ -73,37 +73,6 @@ struct HcommSimtChannelEntity {
 
 static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");
 
-// Fixed-size diagnostics used only by the functional batch example when HCOMM_SIMT_BATCH_DEBUG
-// is enabled. Keeping the snapshot lane-local avoids device printf in the SQ/DWQE critical path;
-// the example copies it to GM and lets the Host format the result after the Kernel completes.
-struct HcommSimtBatchDebug {
-    uint64_t commitHeadSnapshot = 0U;
-    uint64_t commitHeadBefore = 0U;
-    uint64_t commitHeadVal = 0U;
-    uint64_t commitHeadAfter = 0U;
-    uint64_t tailUbWord0 = 0U;
-    uint64_t tailSqWord0 = 0U;
-    uint32_t commitPrepared = 0U;
-    uint32_t commitPreparedCqe = 0U;
-    uint32_t commitSqTailBefore = 0U;
-    uint32_t commitChunkItems = 0U;
-    uint32_t tailItemHead = 0U;
-    uint32_t ringReached = 0U;
-    uint32_t commitPublishCount = 0U;
-    uint32_t tailSqMismatchMask = 0U;
-
-    uint32_t pollExpectedCqTail = 0U;
-    uint32_t pollInitialCqTail = 0U;
-    uint32_t pollFinalCqTail = 0U;
-    uint32_t pollInitialSqTail = 0U;
-    uint32_t pollFinalSqTail = 0U;
-    uint32_t pollRet = 0U;
-    uint32_t pollFailedCqIndex = 0U;
-    uint32_t pollRetryCount = 0U;
-    uint32_t pollCqeWord0 = 0U;
-    uint32_t pollCqeWord1 = 0U;
-};
-
 // A batch handle is lane-private. The basic implementation stages the same 128-byte WQE used
 // by the validated immediate path for every item, so capacity and prepared are counted in WQEs.
 struct UbcCtpBatchHandle {
@@ -113,11 +82,6 @@ struct UbcCtpBatchHandle {
     uint32_t prepared = 0U;
     uint32_t preparedCqe = 0U;
     uint32_t lastCqe = 0U;
-    // Number of hardware publications performed by the most recent BatchCommit. The
-    // correctness-first implementation publishes every staged item through the validated
-    // immediate SQ + DWQE path; a later optimization may combine them behind one tail WQE.
-    uint32_t lastCommitPublishCount = 0U;
-
     uint64_t remoteBaseAddr = 0U;
     uint64_t remoteSize = 0U;
     __gm__ uint64_t* headAddr = nullptr;
@@ -133,9 +97,6 @@ struct UbcCtpBatchHandle {
     uint32_t remoteTokenValue = 0U;
     uint64_t headSnapshot = 0U;
     bool valid = false;
-#if defined(HCOMM_SIMT_BATCH_DEBUG)
-    HcommSimtBatchDebug debug;
-#endif
 };
 
 template <typename T>

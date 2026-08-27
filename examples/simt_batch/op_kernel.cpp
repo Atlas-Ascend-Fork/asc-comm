@@ -23,83 +23,6 @@ using namespace simt_batch;
 constexpr uint32_t kBatchBufferBytes = AscendC::simt::HcommSimtBatchBufferBytes(kOperationsPerBatch);
 constexpr uint32_t kGroupStateWords = 4U + kOperationsPerBatch;
 
-__simt_callee__ inline void StoreDiagU64(__gm__ int32_t* status, uint32_t lowIndex, uint64_t value)
-{
-    status[lowIndex] = static_cast<int32_t>(value & 0xFFFFFFFFULL);
-    status[lowIndex + 1U] = static_cast<int32_t>(value >> 32U);
-}
-
-__simt_callee__ inline void RecordFirstAppendBefore(
-    const AscendC::simt::UbcCtpBatchHandle& batch, const __gm__ void* target, uint64_t len,
-    __gm__ int32_t* status)
-{
-    const uint64_t targetAddr = reinterpret_cast<uint64_t>(target);
-    const bool targetBelowBase = targetAddr < batch.remoteBaseAddr;
-    const uint64_t offset = targetBelowBase ? 0U : targetAddr - batch.remoteBaseAddr;
-    uint32_t guardMask = 0U;
-    guardMask |= batch.valid ? 0U : kDiagInvalidHandle;
-    guardMask |= batch.prepared >= batch.capacity ? kDiagCapacityExhausted : 0U;
-    guardMask |= len > 0xFFFFFFFFULL ? kDiagTargetLenTooLarge : 0U;
-    guardMask |= target == nullptr ? kDiagNullTarget : 0U;
-    guardMask |= targetBelowBase ? kDiagTargetBelowBase : 0U;
-    guardMask |= !targetBelowBase && offset > batch.remoteSize ? kDiagOffsetPastEnd : 0U;
-    guardMask |= !targetBelowBase && offset <= batch.remoteSize && len > batch.remoteSize - offset ?
-        kDiagLenPastEnd : 0U;
-
-    status[kDiagGuardMask] = static_cast<int32_t>(guardMask);
-    status[kDiagPreparedBefore] = static_cast<int32_t>(batch.prepared);
-    status[kDiagCapacity] = static_cast<int32_t>(batch.capacity);
-    StoreDiagU64(status, kDiagTargetAddrLow, targetAddr);
-    StoreDiagU64(status, kDiagTargetLenLow, len);
-    StoreDiagU64(status, kDiagRemoteBaseLow, batch.remoteBaseAddr);
-    StoreDiagU64(status, kDiagRemoteSizeLow, batch.remoteSize);
-    StoreDiagU64(status, kDiagOffsetLow, offset);
-}
-
-__simt_callee__ inline void RecordFirstAppendAfter(
-    const AscendC::simt::UbcCtpBatchHandle& batch, int32_t ret, __gm__ int32_t* status)
-{
-    status[kDiagAppendRet] = ret;
-    status[kDiagPreparedAfter] = static_cast<int32_t>(batch.prepared);
-}
-
-#if defined(HCOMM_SIMT_BATCH_DEBUG)
-__simt_callee__ inline void RecordCommitDebug(
-    const AscendC::simt::UbcCtpBatchHandle& batch, uint32_t commitIndex, __gm__ int32_t* status)
-{
-    const uint32_t base = kCommitDiagBase + commitIndex * kCommitDiagWordCount;
-    StoreDiagU64(status, base + kCommitDiagHeadSnapshot, batch.debug.commitHeadSnapshot);
-    StoreDiagU64(status, base + kCommitDiagHeadBefore, batch.debug.commitHeadBefore);
-    StoreDiagU64(status, base + kCommitDiagHeadVal, batch.debug.commitHeadVal);
-    StoreDiagU64(status, base + kCommitDiagHeadAfter, batch.debug.commitHeadAfter);
-    status[base + kCommitDiagPrepared] = static_cast<int32_t>(batch.debug.commitPrepared);
-    status[base + kCommitDiagPreparedCqe] = static_cast<int32_t>(batch.debug.commitPreparedCqe);
-    status[base + kCommitDiagSqTailBefore] = static_cast<int32_t>(batch.debug.commitSqTailBefore);
-    status[base + kCommitDiagChunkItems] = static_cast<int32_t>(batch.debug.commitChunkItems);
-    status[base + kCommitDiagTailItemHead] = static_cast<int32_t>(batch.debug.tailItemHead);
-    StoreDiagU64(status, base + kCommitDiagTailUbWord0, batch.debug.tailUbWord0);
-    StoreDiagU64(status, base + kCommitDiagTailSqWord0, batch.debug.tailSqWord0);
-    status[base + kCommitDiagRingReached] = static_cast<int32_t>(batch.debug.ringReached);
-    status[base + kCommitDiagPublishCount] = static_cast<int32_t>(batch.debug.commitPublishCount);
-    status[base + kCommitDiagTailSqMismatchMask] = static_cast<int32_t>(batch.debug.tailSqMismatchMask);
-}
-
-__simt_callee__ inline void RecordDrainDebug(
-    const AscendC::simt::UbcCtpBatchHandle& batch, __gm__ int32_t* status)
-{
-    status[kDrainDiagExpectedCqTail] = static_cast<int32_t>(batch.debug.pollExpectedCqTail);
-    status[kDrainDiagInitialCqTail] = static_cast<int32_t>(batch.debug.pollInitialCqTail);
-    status[kDrainDiagFinalCqTail] = static_cast<int32_t>(batch.debug.pollFinalCqTail);
-    status[kDrainDiagInitialSqTail] = static_cast<int32_t>(batch.debug.pollInitialSqTail);
-    status[kDrainDiagFinalSqTail] = static_cast<int32_t>(batch.debug.pollFinalSqTail);
-    status[kDrainDiagPollRet] = static_cast<int32_t>(batch.debug.pollRet);
-    status[kDrainDiagFailedCqIndex] = static_cast<int32_t>(batch.debug.pollFailedCqIndex);
-    status[kDrainDiagRetryCount] = static_cast<int32_t>(batch.debug.pollRetryCount);
-    status[kDrainDiagCqeWord0] = static_cast<int32_t>(batch.debug.pollCqeWord0);
-    status[kDrainDiagCqeWord1] = static_cast<int32_t>(batch.debug.pollCqeWord1);
-}
-#endif
-
 template <uint32_t api, typename HcommT>
 __simt_callee__ inline int32_t AppendOperation(
     HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* local,
@@ -178,17 +101,7 @@ __simt_callee__ inline int32_t RunHomogeneousCase(
     for (uint32_t batchIndex = 0U; batchIndex < batchCount; ++batchIndex) {
         const uint32_t begin = batchIndex * operationsPerBatch;
         for (uint32_t item = 0U; item < operationsPerBatch; ++item) {
-            if constexpr (api == kApiWrite) {
-                if (batchIndex == 0U && item == 0U) {
-                    RecordFirstAppendBefore(batch, remote + kWriteOffset, kPayloadBytes, status);
-                }
-            }
             const int32_t ret = AppendOperation<api>(hcomm, batch, local, remote, begin + item);
-            if constexpr (api == kApiWrite) {
-                if (batchIndex == 0U && item == 0U) {
-                    RecordFirstAppendAfter(batch, ret, status);
-                }
-            }
             if (ret != 0) {
                 status[base + kStatusAppend] = ret;
                 return ret;
@@ -196,11 +109,6 @@ __simt_callee__ inline int32_t RunHomogeneousCase(
         }
         const int32_t ret = hcomm.BatchCommit(batch);
         status[base + kStatusCommit] = ret;
-        if constexpr (api == kApiWrite) {
-#if defined(HCOMM_SIMT_BATCH_DEBUG)
-            RecordCommitDebug(batch, batchIndex, status);
-#endif
-        }
         if (ret != 0) {
             return ret;
         }
@@ -208,11 +116,6 @@ __simt_callee__ inline int32_t RunHomogeneousCase(
     }
     const int32_t ret = hcomm.Drain(batch);
     status[base + kStatusDrain] = ret;
-    if constexpr (api == kApiWrite) {
-#if defined(HCOMM_SIMT_BATCH_DEBUG)
-        RecordDrainDebug(batch, status);
-#endif
-    }
     return ret;
 }
 
