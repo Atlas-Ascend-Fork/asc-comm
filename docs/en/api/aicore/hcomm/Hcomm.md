@@ -54,5 +54,9 @@ class Hcomm;
 - `AtomicFAA` and `AtomicCAS` are only supported for the `COMM_PROTOCOL_UBC_CTP` path. Supported data types are limited to `int32_t`, `uint32_t`, `int64_t`, `uint64_t`.
 - The passed `ChannelHandle` must point to a channel entity matching the selected protocol.
 
+## Related DFX APIs
+- [HcommChannelExceptionCallbackRegister](./HcommChannelExceptionCallbackRegister.md)
+- [HcommChannelInfoDump](./HcommChannelInfoDump.md)
+
 ## Related Sample
 [hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README_en.md) demonstrates that the AIV Kernel invokes `WriteNbi` and `ReadNbi` over the `COMM_PROTOCOL_UBC_CTP` path in a two-card scenario. This sample does not cover the RoCE path.

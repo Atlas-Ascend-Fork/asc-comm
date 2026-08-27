@@ -54,6 +54,19 @@ ret = hcomm.Drain(channel);
 | `COMM_PROTOCOL_ROCE` | RoCE点对点通信路径，支持`ReadNbi`、`WriteNbi`、`Commit`、`Drain`，不支持`WriteWithNotifyNbi`。 |
 | `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA路径，支持`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`。 |
 
+## DFX通道Dump
+
+HCOMM DFX通道dump能力提供一个轻量的异常回调注册接口和一个host侧dump接口，用于在kernel异常后诊断通道状态。
+
+```cpp
+AscendC::HcommChannelExceptionCallbackRegister(reinterpret_cast<const void *>(kernel_symbol));
+kernel_symbol<<<1, nullptr, stream>>>(devContext);
+aclrtSynchronizeStream(stream);
+AscendC::HcommChannelInfoDump(channel);
+```
+
+dump接口可以无条件调用。只有当注册回调已经记录到异常时，接口才会打印诊断信息。第一次成功dump会消费已记录的异常状态。
+
 ## 注意事项
 
 - `COMM_PROTOCOL_ROCE`和`COMM_PROTOCOL_UBC_CTP`路径均需要先调用`Init`提供临时工作区，当前最小工作区大小为512字节。

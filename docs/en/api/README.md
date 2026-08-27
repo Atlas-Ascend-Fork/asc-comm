@@ -13,6 +13,13 @@
 | [Commit](./aicore/hcomm/Commit.md) | Explicitly submit pending communication tasks on the channel. |
 | [Drain](./aicore/hcomm/Drain.md) | Wait for all communication tasks on the channel to complete. |
 
+### Hcomm DFX
+
+| Document | Description |
+| --- | --- |
+| [HcommChannelExceptionCallbackRegister](./aicore/hcomm/HcommChannelExceptionCallbackRegister.md) | Bind an exception callback to the target kernel before launch. |
+| [HcommChannelInfoDump](./aicore/hcomm/HcommChannelInfoDump.md) | Dump and print the channel diagnostics at a host safe point after an exception is observed. |
+
 ## AICore Ain
 
 ### Ain Class

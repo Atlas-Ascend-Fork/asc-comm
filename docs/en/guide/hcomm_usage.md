@@ -45,6 +45,19 @@ ret = hcomm.Drain(channel);
 | `COMM_PROTOCOL_ROCE` | RoCE point-to-point communication path. Supports `ReadNbi`, `WriteNbi`, `Commit`, `Drain`. `WriteWithNotifyNbi` is not supported. |
 | `COMM_PROTOCOL_UBC_CTP` | UBC CTP/URMA path. Supports `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, `Drain`. |
 
+## DFX Channel Dump
+
+The HCOMM DFX channel dump helper provides a lightweight exception-callback registration API and a host-side dump API for diagnosing channel state after a kernel fault.
+
+```cpp
+AscendC::HcommChannelExceptionCallbackRegister(reinterpret_cast<const void *>(kernel_symbol));
+kernel_symbol<<<1, nullptr, stream>>>(devContext);
+aclrtSynchronizeStream(stream);
+AscendC::HcommChannelInfoDump(channel);
+```
+
+The dump API is safe to call unconditionally. It prints diagnostics only when an exception has already been recorded by the registered callback. The first successful dump consumes the recorded exception state.
+
 ## Notes
 - Both `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP` paths require a temporary workspace allocated via `Init`. The minimum workspace size is currently 512 bytes.
 - When initialized with `__ubuf__ uint8_t*`, the implementation aligns the start address of the temporary workspace to 32 bytes. When initialized with `LocalTensor`, the caller must ensure the tensor capacity meets workspace requirements.

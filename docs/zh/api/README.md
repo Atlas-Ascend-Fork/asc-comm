@@ -14,6 +14,13 @@
 | [Commit](./aicore/hcomm/Commit.md) | 显式提交通道上的待执行通信任务。 |
 | [Drain](./aicore/hcomm/Drain.md) | 等待通道上的通信任务完成。 |
 
+### Hcomm DFX
+
+| 文档 | 内容 |
+| --- | --- |
+| [HcommChannelExceptionCallbackRegister](./aicore/hcomm/HcommChannelExceptionCallbackRegister.md) | 在launch前为目标kernel绑定异常回调。 |
+| [HcommChannelInfoDump](./aicore/hcomm/HcommChannelInfoDump.md) | 在host安全点采集并打印异常后的通道现场。 |
+
 ## AICore Ain
 
 ### Ain类
