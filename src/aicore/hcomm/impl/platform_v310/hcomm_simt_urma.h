@@ -1005,6 +1005,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     int32_t status = HCOMM_SUCCESS;
     uint64_t headVal = 0U;
     uint32_t itemOffsetBb = 0U;
+    HcommSimtResolvedPost post{};
     if (size <= warpSize) {
         if (asc_all(localReady ? 1 : 0) == 0) {
             return HCOMM_FAILED;
@@ -1038,14 +1039,26 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
                 reinterpret_cast<__gm__ HcommSimtChannelEntity*>(batchHandle.channel);
             __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
             __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
-            __gm__ uint64_t* headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
-            __gm__ uint32_t* tailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx->contextInfo.ubJfs.tailAddr);
-            status = *headAddr == batchHandle.headSnapshot && HcommSimtTryReserve(
-                headAddr, tailAddr, sqCtx->contextInfo.ubJfs.sqDepth, totalBb, totalBb, totalItems, headVal) ?
+            post.headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
+            post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx->contextInfo.ubJfs.tailAddr);
+            post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+                sqCtx->contextInfo.ubJfs.dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
+            post.sqBaseAddr = sqCtx->contextInfo.ubJfs.sqVa;
+            post.sqWqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
+            post.meta.sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
+            status = *post.headAddr == batchHandle.headSnapshot && HcommSimtTryReserve(
+                post.headAddr, post.sqTailAddr, post.meta.sqDepth, totalBb, totalBb, totalItems, headVal) ?
                 HCOMM_SUCCESS : HCOMM_FAILED;
         }
         status = asc_shfl(status, 0);
         headVal = asc_shfl(headVal, 0);
+        post.headAddr = reinterpret_cast<__gm__ uint64_t*>(
+            asc_shfl(reinterpret_cast<uint64_t>(post.headAddr), 0));
+        post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+            asc_shfl(reinterpret_cast<uint64_t>(post.dwqeAddr), 0));
+        post.sqBaseAddr = asc_shfl(post.sqBaseAddr, 0);
+        post.sqWqeSize = asc_shfl(post.sqWqeSize, 0);
+        post.meta.sqDepth = asc_shfl(post.meta.sqDepth, 0);
     } else {
         groupState_[stateHeaderWords + rank] = localReady ?
             batchHandle.prepared | (batchHandle.preparedBb << 16U) : 0U;
@@ -1095,22 +1108,23 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         return HCOMM_FAILED;
     }
 
-    __gm__ HcommSimtChannelEntity* channelEntity =
-        reinterpret_cast<__gm__ HcommSimtChannelEntity*>(batchHandle.channel);
-    __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
-    __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
-    __gm__ uint64_t* remoteEid = reinterpret_cast<__gm__ uint64_t*>(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
-    HcommSimtResolvedPost post;
-    post.headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
-    post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx->contextInfo.ubJfs.tailAddr);
-    post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
-        sqCtx->contextInfo.ubJfs.dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
-    post.sqBaseAddr = sqCtx->contextInfo.ubJfs.sqVa;
-    post.sqWqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
-    post.meta.sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
-    post.meta.tpId = sqCtx->contextInfo.ubJfs.tpID;
-    post.meta.remoteEidL = remoteEid[0];
-    post.meta.remoteEidH = remoteEid[1];
+    if (size > warpSize) {
+        __gm__ HcommSimtChannelEntity* channelEntity =
+            reinterpret_cast<__gm__ HcommSimtChannelEntity*>(batchHandle.channel);
+        __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
+        __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
+        __gm__ uint64_t* remoteEid = reinterpret_cast<__gm__ uint64_t*>(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
+        post.headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
+        post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx->contextInfo.ubJfs.tailAddr);
+        post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+            sqCtx->contextInfo.ubJfs.dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
+        post.sqBaseAddr = sqCtx->contextInfo.ubJfs.sqVa;
+        post.sqWqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
+        post.meta.sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
+        post.meta.tpId = sqCtx->contextInfo.ubJfs.tpID;
+        post.meta.remoteEidL = remoteEid[0];
+        post.meta.remoteEidH = remoteEid[1];
+    }
     post.meta.remoteTokenId = batchHandle.remoteTokenId;
     post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
 
