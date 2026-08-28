@@ -78,6 +78,21 @@ constexpr uint32_t HCOMM_SIMT_SGE_WORDS = sizeof(HcommUrmaSgeCtx) / sizeof(uint6
 // The inline payload and the first SGE both start right after the SQE header.
 constexpr uint32_t HCOMM_SIMT_INLINE_FIRST_WORD = HCOMM_SIMT_SQE_WORDS;
 
+// A compact non-publishing Write/Read occupies one basic block and never needs the
+// 128-byte DWQE stage. Patch its queue-position word while copying the remaining
+// words directly from the batch buffer into the reserved SQ slot.
+__simt_callee__ inline void HcommSimtCopyBatchBbToSq(
+    __gm__ uint8_t* dst, __ubuf__ uint64_t* srcWords, uint64_t firstWord)
+{
+    __gm__ ulonglong2* dstWords = reinterpret_cast<__gm__ ulonglong2*>(dst);
+    asc_stwt(&dstWords[0], make_ulonglong2(firstWord, srcWords[1]));
+#pragma unroll
+    for (uint32_t i = 1U; i < HCOMM_SIMT_BB_WORDS / 2U; ++i) {
+        const uint32_t wordIdx = i * 2U;
+        asc_stwt(&dstWords[i], make_ulonglong2(srcWords[wordIdx], srcWords[wordIdx + 1U]));
+    }
+}
+
 // Copies a staged WQE into its reserved SQ slot. A 2-BB WQE landing on the last slot of the ring
 // is split: the first basic block goes to the slot, the second wraps to the base of the SQ. The
 // WQE stays logically contiguous for the NIC, which reads the ring modulo its depth, but the
@@ -1119,18 +1134,27 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     HcommSimtWqeStage stage;
     for (uint32_t item = 0U; item < batchHandle.prepared; ++item) {
         __ubuf__ uint64_t* srcWords = batchHandle.buffer + item * HCOMM_SIMT_WQE_WORDS;
-#pragma unroll
-        for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
-            stage.words[word] = srcWords[word];
-        }
-        const uint32_t itemBb = HcommSimtBatchWqeBb(stage.words);
+        const uint32_t itemBb = HcommSimtBatchWqeBb(srcWords);
         const bool publish = rank + 1U == size && item + 1U == batchHandle.prepared;
         const uint32_t commitBb = publish ? HCOMM_URMA_DWQE_BB_CNT : itemBb;
         const uint32_t curHead = HcommSimtHeadIdx(headVal) + itemOffsetBb;
         const uint32_t nextHead = curHead + commitBb;
         const uint64_t owner = (curHead & post.meta.sqDepth) == 0U ? 1U : 0U;
-        stage.words[0] = (stage.words[0] & ~(nextHeadMask | ownerMask)) |
-                         (static_cast<uint64_t>(nextHead) & nextHeadMask) | (owner << 31U);
+        const uint64_t firstWord = (srcWords[0] & ~(nextHeadMask | ownerMask)) |
+                                   (static_cast<uint64_t>(nextHead) & nextHeadMask) | (owner << 31U);
+        if (!publish && itemBb == HCOMM_URMA_WQE_BB_CNT) {
+            __gm__ uint8_t* sqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+                post.sqBaseAddr + post.sqWqeSize * (curHead % post.meta.sqDepth));
+            HcommSimtCopyBatchBbToSq(sqeAddr, srcWords, firstWord);
+            itemOffsetBb += commitBb;
+            continue;
+        }
+
+#pragma unroll
+        for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
+            stage.words[word] = srcWords[word];
+        }
+        stage.words[0] = firstWord;
         const uint32_t inlineMsgLen = static_cast<uint32_t>((stage.words[0] >> 54U) & 0x3FFU);
         if (inlineMsgLen != 0U) {
             const uint64_t nopOwner = (nextHead & post.meta.sqDepth) == 0U ? 1U : 0U;
