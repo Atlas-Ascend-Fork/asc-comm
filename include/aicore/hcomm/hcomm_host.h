@@ -25,10 +25,6 @@ typedef uint64_t MultiChannelHandle;
 
 #include "../../../impl/comm_api/aicore/hcomm/host/hcomm_host_impl.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*!
  * @brief Create a group of communicator-owned shared-Jetty channels and the multi-channel handle used on the Device.
  * @param [in] comm: The initialized HCCL communicator that owns the channels and Device context.
@@ -39,24 +35,11 @@ extern "C" {
  * @return HCCL_SUCCESS indicates success. Other values indicate an HCCL error.
  * @note The returned handle is managed by comm. The communicator must remain valid while a Kernel uses the handle.
  */
-static inline HcclResult MakeMultiChannelHandleWithComm(
+static inline HcclResult MakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
 {
     return HcommHostMakeMultiChannelHandleWithComm(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
-}
-
-/*!
- * @brief Destroy the Device context created by MakeMultiChannelHandleWithComm.
- * @param [in] comm: The HCCL communicator passed to MakeMultiChannelHandleWithComm.
- * @param [in] sharedQueueTag: The shared queue tag passed to MakeMultiChannelHandleWithComm.
- * @return HCCL_SUCCESS indicates success. Other values indicate an HCCL error.
- * @note Call this API only after Kernels using the multi-channel handle have completed.
- * Shared channels remain managed by comm.
- */
-static inline HcclResult DestroyMultiChannelHandleWithComm(HcclComm comm, const char* sharedQueueTag)
-{
-    return HcommHostDestroyMultiChannelHandleWithComm(comm, sharedQueueTag);
 }
 
 /*!
@@ -80,16 +63,12 @@ static inline HcommResult MakeMultiChannelHandle(
  * @brief Destroy channels and Device context owned by a handle created by MakeMultiChannelHandle.
  * @param [in] multiChannel: The multi-channel handle to destroy.
  * @return HCCL_SUCCESS indicates success. Other values indicate an Hcomm error.
- * @note Do not use this API for a communicator-owned handle created by MakeMultiChannelHandleWithComm.
+ * @note Use this API only for a handle created by the Endpoint overload of MakeMultiChannelHandle.
  */
 static inline HcommResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel)
 {
     return HcommHostDestroyMultiChannelHandle(multiChannel);
 }
-
-#ifdef __cplusplus
-}
-#endif
 
 #if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_HOST_H)
 #undef HCOMM_INCLUDE_INTERNAL_HEADERS

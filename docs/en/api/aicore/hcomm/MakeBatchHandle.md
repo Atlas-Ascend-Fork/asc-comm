@@ -70,5 +70,4 @@ In multi-channel mode, call [GetHandleRef](./GetHandleRef.md) to select a logica
 ## Related APIs
 
 - [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md)
-- [MakeMultiChannelHandleWithComm](../../host/hcomm/MakeMultiChannelHandleWithComm.md)
 - [GetHandleRef](./GetHandleRef.md)

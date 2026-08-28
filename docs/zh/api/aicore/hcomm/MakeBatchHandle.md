@@ -70,5 +70,4 @@ auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, channelIndex, peerR
 ## 相关接口
 
 - [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md)
-- [MakeMultiChannelHandleWithComm](../../host/hcomm/MakeMultiChannelHandleWithComm.md)
 - [GetHandleRef](./GetHandleRef.md)

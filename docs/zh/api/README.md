@@ -4,10 +4,8 @@
 
 | 文档 | 内容 |
 | --- | --- |
-| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | 基于Hcomm Endpoint创建共享Jetty通道组及Device侧多通道句柄。 |
-| [MakeMultiChannelHandleWithComm](./host/hcomm/MakeMultiChannelHandleWithComm.md) | 基于HCCL通信域创建共享Jetty通道组及Device侧多通道句柄。 |
-| [DestroyMultiChannelHandleWithComm](./host/hcomm/DestroyMultiChannelHandleWithComm.md) | 释放HCCL通信域路径创建的多通道Device上下文。 |
-| [DestroyMultiChannelHandle](./host/hcomm/DestroyMultiChannelHandle.md) | 销毁Hcomm Endpoint路径创建的多通道句柄及其通道资源。 |
+| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | 基于HCCL通信域或Hcomm Endpoint创建共享Jetty通道组及Device侧多通道句柄。 |
+| [DestroyMultiChannelHandle](./host/hcomm/DestroyMultiChannelHandle.md) | 释放Hcomm Endpoint路径创建的多通道资源。 |
 
 ## AICore Hcomm
 

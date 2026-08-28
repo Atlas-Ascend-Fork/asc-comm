@@ -2,7 +2,7 @@
 
 ## Function Description
 
-Creates a group of shared-Jetty UB_CTP channels from an Hcomm Endpoint and creates the `MultiChannelHandle` used on the Device. The API calls `HcommChannelCreateWithConfig`, waits until every channel is ready, and stores remote communication metadata in `channelDescs` order.
+Creates a group of shared-Jetty UB_CTP channels and the `MultiChannelHandle` used on the Device. The API provides overloads for an HCCL communicator and an Hcomm Endpoint and stores remote communication metadata in `channelDescs` order.
 
 Header file:
 
@@ -13,6 +13,13 @@ Header file:
 ## Function Prototype
 
 ```cpp
+HcclResult MakeMultiChannelHandle(
+    HcclComm comm,
+    const char* sharedQueueTag,
+    const HcclChannelDesc* channelDescs,
+    uint32_t channelNum,
+    MultiChannelHandle* multiChannel);
+
 HcommResult MakeMultiChannelHandle(
     EndpointHandle endpointHandle,
     HcommChannelDesc* channelDescs,
@@ -24,26 +31,27 @@ HcommResult MakeMultiChannelHandle(
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
+| `comm` | Input | Initialized HCCL communicator that manages the shared-Jetty channels and Device context. |
+| `sharedQueueTag` | Input | Tag for this shared queue and Device context. It must be unique within the communicator. |
 | `endpointHandle` | Input | Initialized Hcomm Endpoint that supports the AIV engine and UB_CTP protocol. |
-| `channelDescs` | Input | Hcomm channel descriptor array containing `channelNum` elements. Array order determines the `channelIndex` used by `GetHandleRef`. |
+| `channelDescs` | Input | HCCL or Hcomm channel descriptor array containing `channelNum` elements. Array order determines the `channelIndex` used by `GetHandleRef`. |
 | `channelNum` | Input | Number of channel descriptors. It must be greater than 0. |
 | `multiChannel` | Output | Device-side multi-channel handle. It is set to 0 when creation fails. |
 
 ## Return Value
 
-Returns `HCCL_SUCCESS` on success or the corresponding Hcomm error code on failure. If connection establishment fails, resources are unavailable, or all channels are not ready within 120 seconds, the API destroys the channels it created and returns an error.
+Returns `HCCL_SUCCESS` on success. The communicator overload returns an HCCL error code on failure, and the Endpoint overload returns an Hcomm error code. If Endpoint connection establishment fails, resources are unavailable, or all channels are not ready within 120 seconds, the API destroys the channels it created and returns an error.
 
 ## Constraints
 
-- Input pointers must not be `nullptr`, and `channelNum` must not be 0.
-- Channels use `COMM_ENGINE_AIV` and UB_CTP and follow the shared-Jetty constraints of `HcommChannelCreateWithConfig`.
-- Channels with the same source and destination Endpoint Pair under one Endpoint share a Jetty. Shared-Jetty channels cannot be used concurrently.
-- The returned handle owns the created channels and Device context. After the Kernel has completed and synchronized, call `DestroyMultiChannelHandle` before destroying `endpointHandle`.
-- Use `MakeMultiChannelHandleWithComm` for the communicator-owned path.
+- Input pointers for both overloads must not be `nullptr`, and `channelNum` must not be 0.
+- The communicator overload creates channels through `HcclChannelAcquireWithConfig`. Each `sharedQueueTag` can be used by only one successful call within a communicator. The communicator manages and automatically releases the shared channels and Device context; do not call `DestroyMultiChannelHandle` for this handle.
+- The Endpoint overload creates channels through `HcommChannelCreateWithConfig` and waits for them to become ready. The returned handle owns the channels and Device context and must be destroyed before `endpointHandle`.
+- Channels use `COMM_ENGINE_AIV` and UB_CTP. Shared-Jetty channels cannot be used concurrently.
+- After Kernels using a handle created by the Endpoint overload have completed and synchronized, call `DestroyMultiChannelHandle`.
 
 ## Related APIs
 
 - [DestroyMultiChannelHandle](DestroyMultiChannelHandle.md)
-- [MakeMultiChannelHandleWithComm](MakeMultiChannelHandleWithComm.md)
 - [MakeBatchHandle](../../aicore/hcomm/MakeBatchHandle.md)
 - [GetHandleRef](../../aicore/hcomm/GetHandleRef.md)
