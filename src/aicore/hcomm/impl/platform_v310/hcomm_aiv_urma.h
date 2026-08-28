@@ -588,8 +588,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflow(
     uint32_t sqDepth = sqCtx.contextInfo.ubJfs.sqDepth;
     uint16_t outstanding = (uint16_t)((uint16_t)(sqHead & 0xFFFFU) - (uint16_t)(sqTail & 0xFFFFU));
     if ((uint32_t)outstanding + POLL_CQ_THRESHOLD >= sqDepth) {
-        constexpr uint32_t dummyExpectIdx = 0xFFFFFFFFU;
-        (void)PollCq<true>(channel, dummyExpectIdx, sqHead, sqDepth, POLL_CQ_THRESHOLD);
+        (void)PollCq<true>(channel, channelEntity->cqHead, sqHead, sqDepth, POLL_CQ_THRESHOLD);
     }
 }
 
@@ -707,8 +706,10 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqImpl(
         bool shouldContinue = false;
         if constexpr (sqSafeMode) {
             uint16_t outstanding = (uint16_t)((uint16_t)(sqHead & 0xFFFFU) - (uint16_t)(sqTail & 0xFFFFU));
-            shouldContinue = (uint32_t)outstanding + threshold >= sqDepth;
+            // Poll early when SQ is near-full, but only while CQEs remain un-consumed (curTail != expectIdx).
+            shouldContinue = (uint32_t)outstanding + threshold >= sqDepth && curTail != expectIdx;
         } else {
+            // Keep polling while CQEs remain, until reaching expectIdx.
             shouldContinue = curTail != expectIdx;
         }
         if (!shouldContinue) {
@@ -780,8 +781,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
 
     // update CQ tail
     channelEntity->cqTail = curTail;
-    __ubuf__ HcommUrmaJfcCqeCtx* cqeUb = (__ubuf__ HcommUrmaJfcCqeCtx*)cqeItem_.GetPhyAddr();
-    channelEntity->sqTail = cqeUb->entryIdx;
+    channelEntity->sqTail = sqTail;
 
     // ring CQ doorbell
     st_dev(curTail & 0xFFFFFFU, (__gm__ uint32_t*)cqCtx.contextInfo.ubJfc.dbVa, 0);
