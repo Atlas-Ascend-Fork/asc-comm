@@ -58,7 +58,7 @@ static inline HcclResult HcommAcquireSharedChannelsWithComm(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     ChannelHandle* channels)
 {
-    HcommHostChannelConfig config = NULL;
+    HcclChannelConfig config = NULL;
     HcclResult ret = DlHcommApi::HcclChannelConfigCreate(&config);
     if (ret != HCCL_SUCCESS) {
         fprintf(stderr, "[ERROR] [%s] HcclChannelConfigCreate failed, ret[%d].\n", __func__, ret);
@@ -98,7 +98,7 @@ static inline HcommResult HcommCreateSharedChannels(
     EndpointHandle endpointHandle, HcommChannelDesc* channelDescs, uint32_t channelNum, ChannelHandle* channels,
     int* channelsCreated)
 {
-    HcommHostChannelConfig config = NULL;
+    HcommChannelConfig config = NULL;
     HcommResult ret = DlHcommApi::HcommChannelConfigCreate(&config);
     if (ret != HCCL_SUCCESS) {
         fprintf(stderr, "[ERROR] [%s] HcommChannelConfigCreate failed, ret[%d].\n", __func__, ret);
