@@ -781,13 +781,8 @@ template <auto const& config>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    if (batchHandle.groupSize == 1U) {
-        return BatchPostWqe(
-            batchHandle, HcommSimtDataDesc<false, HcommUrmaOpCode::WRITE, config>{
-                             reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(src), len});
-    }
     return BatchPostWqe(
-        batchHandle, HcommSimtDataDesc<true, HcommUrmaOpCode::WRITE, config>{
+        batchHandle, HcommSimtDataDesc<false, HcommUrmaOpCode::WRITE, config>{
                          reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(src), len});
 }
 
@@ -820,13 +815,8 @@ template <auto const& config>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    if (batchHandle.groupSize == 1U) {
-        return BatchPostWqe(
-            batchHandle, HcommSimtDataDesc<false, HcommUrmaOpCode::READ, config>{
-                             reinterpret_cast<__gm__ uint8_t*>(src), reinterpret_cast<__gm__ uint8_t*>(dst), len});
-    }
     return BatchPostWqe(
-        batchHandle, HcommSimtDataDesc<true, HcommUrmaOpCode::READ, config>{
+        batchHandle, HcommSimtDataDesc<false, HcommUrmaOpCode::READ, config>{
                          reinterpret_cast<__gm__ uint8_t*>(src), reinterpret_cast<__gm__ uint8_t*>(dst), len});
 }
 
@@ -1008,24 +998,36 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         return HCOMM_FAILED;
     }
 
+    constexpr uint32_t countMask = 0xFFFFU;
     const bool localReady = initialized_ && batchHandle.valid && batchHandle.prepared != 0U &&
+                            batchHandle.prepared <= countMask && batchHandle.preparedBb <= countMask &&
                             batchHandle.preparedCqe == batchHandle.prepared && batchHandle.lastCqe == 1U;
-    groupState_[stateHeaderWords + rank] = localReady ? batchHandle.prepared : 0U;
+    groupState_[stateHeaderWords + rank] = localReady ?
+        batchHandle.prepared | (batchHandle.preparedBb << 16U) : 0U;
+    if (rank + 1U == size && localReady) {
+        __ubuf__ uint64_t* lastWords = batchHandle.buffer +
+                                       (batchHandle.prepared - 1U) * HCOMM_SIMT_WQE_WORDS;
+        groupState_[1] = HcommSimtBatchWqeBb(lastWords);
+    }
     group.sync();
 
     if (rank == 0U) {
         int32_t status = HCOMM_SUCCESS;
         uint32_t totalItems = 0U;
+        uint32_t totalBb = 0U;
         for (uint32_t lane = 0U; lane < size; ++lane) {
-            const uint32_t laneItems = groupState_[stateHeaderWords + lane];
+            const uint32_t laneState = groupState_[stateHeaderWords + lane];
+            const uint32_t laneItems = laneState & countMask;
+            const uint32_t laneBb = laneState >> 16U;
             if (laneItems == 0U) {
                 status = HCOMM_FAILED;
             }
-            groupState_[stateHeaderWords + lane] = totalItems;
+            groupState_[stateHeaderWords + lane] = totalBb;
             totalItems += laneItems;
+            totalBb += laneBb;
         }
+        totalBb += groupState_[1] == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U;
         uint64_t headVal = 0U;
-        const uint32_t totalBb = totalItems * HCOMM_URMA_DWQE_BB_CNT;
         if (status == HCOMM_SUCCESS) {
             __gm__ HcommSimtChannelEntity* channelEntity =
                 reinterpret_cast<__gm__ HcommSimtChannelEntity*>(batchHandle.channel);
@@ -1066,7 +1068,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     post.meta.remoteTokenId = batchHandle.remoteTokenId;
     post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
 
-    const uint32_t itemOffset = groupState_[stateHeaderWords + rank];
+    uint32_t itemOffsetBb = groupState_[stateHeaderWords + rank];
     const uint64_t headVal = static_cast<uint64_t>(groupState_[2]) |
                              (static_cast<uint64_t>(groupState_[3]) << 32U);
     constexpr uint64_t nextHeadMask = 0xFFFFULL;
@@ -1078,9 +1080,11 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
             stage.words[word] = srcWords[word];
         }
-        const uint32_t curHead = HcommSimtHeadIdx(headVal) +
-                                 (itemOffset + item) * HCOMM_URMA_DWQE_BB_CNT;
-        const uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
+        const uint32_t itemBb = HcommSimtBatchWqeBb(stage.words);
+        const bool publish = rank + 1U == size && item + 1U == batchHandle.prepared;
+        const uint32_t commitBb = publish ? HCOMM_URMA_DWQE_BB_CNT : itemBb;
+        const uint32_t curHead = HcommSimtHeadIdx(headVal) + itemOffsetBb;
+        const uint32_t nextHead = curHead + commitBb;
         const uint64_t owner = (curHead & post.meta.sqDepth) == 0U ? 1U : 0U;
         stage.words[0] = (stage.words[0] & ~(nextHeadMask | ownerMask)) |
                          (static_cast<uint64_t>(nextHead) & nextHeadMask) | (owner << 31U);
@@ -1091,7 +1095,15 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
                 (stage.words[HCOMM_SIMT_BB_WORDS] & ~(nextHeadMask | ownerMask)) |
                 (static_cast<uint64_t>(nextHead + 1U) & nextHeadMask) | (nopOwner << 31U);
         }
-        HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(post, curHead, stage);
+        if (publish && itemBb == HCOMM_URMA_WQE_BB_CNT) {
+            HcommSimtExpandDataTail(stage);
+        }
+        if (commitBb == HCOMM_URMA_WQE_BB_CNT) {
+            HcommSimtPublishReservedStage<HCOMM_URMA_WQE_BB_CNT, false>(post, curHead, stage);
+        } else {
+            HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(post, curHead, stage);
+        }
+        itemOffsetBb += commitBb;
     }
     asc_threadfence();
     group.sync();
