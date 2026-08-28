@@ -27,33 +27,32 @@
 #include <stdio.h>
 #include <mutex>
 
+#include "hccl/hccl_channel.h"
 #include "hccl/hccl_res.h"
+#include "hcomm/hcomm_channel.h"
 #include "hcomm/hcomm_res_entity_defs.h"
 
-typedef void* HcommHostChannelConfig;
-typedef int32_t HcommHostChannelConfigType;
-
-typedef HcclResult (*HcommHcclChannelConfigCreateFunc)(HcommHostChannelConfig* config);
-typedef HcclResult (*HcommHcclChannelConfigDestroyFunc)(HcommHostChannelConfig config);
+typedef HcclResult (*HcommHcclChannelConfigCreateFunc)(HcclChannelConfig* config);
+typedef HcclResult (*HcommHcclChannelConfigDestroyFunc)(HcclChannelConfig config);
 typedef HcclResult (*HcommHcclChannelConfigSetIntFunc)(
-    HcommHostChannelConfig config, HcommHostChannelConfigType type, uint32_t value);
+    HcclChannelConfig config, HcclChannelConfigType type, uint32_t value);
 typedef HcclResult (*HcommHcclChannelConfigSetStrFunc)(
-    HcommHostChannelConfig config, HcommHostChannelConfigType type, const char* value);
+    HcclChannelConfig config, HcclChannelConfigType type, const char* value);
 typedef HcclResult (*HcommHcclChannelAcquireWithConfigFunc)(
     HcclComm comm, CommEngine engine, const HcclChannelDesc* channelDescs, uint32_t channelNum,
-    HcommHostChannelConfig config, ChannelHandle* channels);
+    HcclChannelConfig config, ChannelHandle* channels);
 typedef HcclResult (*HcommHcclEngineCtxCreateFunc)(
     HcclComm comm, const char* ctxTag, CommEngine engine, uint64_t size, void** ctx);
 typedef HcclResult (*HcommHcclEngineCtxCopyFunc)(
     HcclComm comm, CommEngine engine, const char* ctxTag, const void* srcCtx, uint64_t size, uint64_t dstCtxOffset);
 typedef HcclResult (*HcommHcclEngineCtxDestroyFunc)(HcclComm comm, const char* ctxTag, CommEngine engine);
-typedef HcommResult (*HcommChannelConfigCreateFunc)(HcommHostChannelConfig* config);
-typedef HcommResult (*HcommChannelConfigDestroyFunc)(HcommHostChannelConfig config);
+typedef HcommResult (*HcommChannelConfigCreateFunc)(HcommChannelConfig* config);
+typedef HcommResult (*HcommChannelConfigDestroyFunc)(HcommChannelConfig config);
 typedef HcommResult (*HcommChannelConfigSetIntFunc)(
-    HcommHostChannelConfig config, HcommHostChannelConfigType type, uint32_t value);
+    HcommChannelConfig config, HcommChannelConfigType type, uint32_t value);
 typedef HcommResult (*HcommChannelCreateWithConfigFunc)(
     EndpointHandle endpointHandle, CommEngine engine, HcommChannelDesc* channelDescs, uint32_t channelNum,
-    HcommHostChannelConfig config, ChannelHandle* channels);
+    HcommChannelConfig config, ChannelHandle* channels);
 typedef HcommResult (*HcommChannelGetStatusFunc)(
     const ChannelHandle* channelList, uint32_t listNum, int32_t* statusList);
 typedef HcommResult (*HcommChannelDestroyFunc)(const ChannelHandle* channels, uint32_t channelNum);
@@ -64,31 +63,31 @@ public:
 
     static HcommResult LoadHcommApi() { return LoadHcommLibrary(); }
 
-    static inline HcclResult HcclChannelConfigCreate(HcommHostChannelConfig* config)
+    static inline HcclResult HcclChannelConfigCreate(HcclChannelConfig* config)
     {
         return GetHcclApi().HcclChannelConfigCreate(config);
     }
 
-    static inline HcclResult HcclChannelConfigDestroy(HcommHostChannelConfig config)
+    static inline HcclResult HcclChannelConfigDestroy(HcclChannelConfig config)
     {
         return GetHcclApi().HcclChannelConfigDestroy(config);
     }
 
     static inline HcclResult HcclChannelConfigSetInt(
-        HcommHostChannelConfig config, HcommHostChannelConfigType type, uint32_t value)
+        HcclChannelConfig config, HcclChannelConfigType type, uint32_t value)
     {
         return GetHcclApi().HcclChannelConfigSetInt(config, type, value);
     }
 
     static inline HcclResult HcclChannelConfigSetStr(
-        HcommHostChannelConfig config, HcommHostChannelConfigType type, const char* value)
+        HcclChannelConfig config, HcclChannelConfigType type, const char* value)
     {
         return GetHcclApi().HcclChannelConfigSetStr(config, type, value);
     }
 
     static inline HcclResult HcclChannelAcquireWithConfig(
         HcclComm comm, CommEngine engine, const HcclChannelDesc* channelDescs, uint32_t channelNum,
-        HcommHostChannelConfig config, ChannelHandle* channels)
+        HcclChannelConfig config, ChannelHandle* channels)
     {
         return GetHcclApi().HcclChannelAcquireWithConfig(comm, engine, channelDescs, channelNum, config, channels);
     }
@@ -110,25 +109,25 @@ public:
         return GetHcclApi().HcclEngineCtxDestroy(comm, ctxTag, engine);
     }
 
-    static inline HcommResult HcommChannelConfigCreate(HcommHostChannelConfig* config)
+    static inline HcommResult HcommChannelConfigCreate(HcommChannelConfig* config)
     {
         return GetHcommApi().HcommChannelConfigCreate(config);
     }
 
-    static inline HcommResult HcommChannelConfigDestroy(HcommHostChannelConfig config)
+    static inline HcommResult HcommChannelConfigDestroy(HcommChannelConfig config)
     {
         return GetHcommApi().HcommChannelConfigDestroy(config);
     }
 
     static inline HcommResult HcommChannelConfigSetInt(
-        HcommHostChannelConfig config, HcommHostChannelConfigType type, uint32_t value)
+        HcommChannelConfig config, HcommChannelConfigType type, uint32_t value)
     {
         return GetHcommApi().HcommChannelConfigSetInt(config, type, value);
     }
 
     static inline HcommResult HcommChannelCreateWithConfig(
         EndpointHandle endpointHandle, CommEngine engine, HcommChannelDesc* channelDescs, uint32_t channelNum,
-        HcommHostChannelConfig config, ChannelHandle* channels)
+        HcommChannelConfig config, ChannelHandle* channels)
     {
         return GetHcommApi().HcommChannelCreateWithConfig(
             endpointHandle, engine, channelDescs, channelNum, config, channels);
