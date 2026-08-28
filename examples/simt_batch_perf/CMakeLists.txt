@@ -17,10 +17,16 @@ project(simt_batch_perf LANGUAGES ASC CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+option(SIMT_BATCH_ENABLE_LARGE_GROUP "Compile the 1024-lane GroupBatch maintenance path" ON)
 set_source_files_properties(op_kernel.cpp PROPERTIES LANGUAGE ASC)
 
 add_executable(simt_batch_perf main.cpp op_kernel.cpp)
 target_compile_definitions(simt_batch_perf PRIVATE USE_SIMT)
+if(SIMT_BATCH_ENABLE_LARGE_GROUP)
+    target_compile_definitions(simt_batch_perf PRIVATE SIMT_BATCH_ENABLE_LARGE_GROUP=1)
+else()
+    target_compile_definitions(simt_batch_perf PRIVATE SIMT_BATCH_ENABLE_LARGE_GROUP=0)
+endif()
 set_target_properties(simt_batch_perf PROPERTIES LINKER_LANGUAGE ASC)
 target_include_directories(simt_batch_perf BEFORE PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}

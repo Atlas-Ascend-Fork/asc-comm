@@ -16,6 +16,19 @@ if [[ -z "${ASCEND_HOME_PATH:-}" ]]; then
 fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 build_dir="${script_dir}/build"
-rm -rf -- "$build_dir"
-cmake -S "$script_dir" -B "$build_dir" -DCMAKE_ASC_ARCHITECTURES=dav-3510
+large_group=ON
+clean=0
+for option in "$@"; do
+    case "$option" in
+        --quick) large_group=OFF ;;
+        --full) large_group=ON ;;
+        --clean) clean=1 ;;
+        *) echo "Usage: build.sh [--quick|--full] [--clean]" >&2; exit 1 ;;
+    esac
+done
+if [[ "$clean" == "1" ]]; then
+    rm -rf -- "$build_dir"
+fi
+cmake -S "$script_dir" -B "$build_dir" -DCMAKE_ASC_ARCHITECTURES=dav-3510 \
+    -DSIMT_BATCH_ENABLE_LARGE_GROUP="$large_group"
 cmake --build "$build_dir" --verbose --parallel "${BUILD_JOBS:-$(nproc)}"

@@ -332,6 +332,18 @@ DEFINE_BATCH_PERF_KERNEL(SimtCasBatchPerf, kApiCas, true)
 
 #undef DEFINE_BATCH_PERF_KERNEL
 
+#if SIMT_BATCH_ENABLE_LARGE_GROUP
+#define LAUNCH_LARGE_GROUP_BATCH(api)                                                                          \
+    else {                                                                                                     \
+        asc_vf_call<SimtGroupBatchPerfVf<api, kMaxGroupLanes>>(                                                \
+            dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),     \
+            payloadBytes, slotBytes, iterations, warmup, batchSize,                                            \
+            reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState);                                     \
+    }
+#else
+#define LAUNCH_LARGE_GROUP_BATCH(api)
+#endif
+
 #define DEFINE_GROUP_BATCH_PERF_KERNEL(kernelName, api)                                                       \
     extern "C" __global__ __vector__ void kernelName(                                                        \
         uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ void* timing, uint32_t payloadBytes, \
@@ -344,12 +356,7 @@ DEFINE_BATCH_PERF_KERNEL(SimtCasBatchPerf, kApiCas, true)
                 dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), \
                 payloadBytes, slotBytes, iterations, warmup, batchSize,                                        \
                 reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState);                                 \
-        } else {                                                                                               \
-            asc_vf_call<SimtGroupBatchPerfVf<api, kMaxGroupLanes>>(                                            \
-                dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), \
-                payloadBytes, slotBytes, iterations, warmup, batchSize,                                        \
-                reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState);                                 \
-        }                                                                                                      \
+        } LAUNCH_LARGE_GROUP_BATCH(api)                                                                        \
     }
 
 DEFINE_GROUP_BATCH_PERF_KERNEL(SimtWriteGroupBatchPerf, kApiWrite)
@@ -360,6 +367,7 @@ DEFINE_GROUP_BATCH_PERF_KERNEL(SimtFaaGroupBatchPerf, kApiFaa)
 DEFINE_GROUP_BATCH_PERF_KERNEL(SimtCasGroupBatchPerf, kApiCas)
 
 #undef DEFINE_GROUP_BATCH_PERF_KERNEL
+#undef LAUNCH_LARGE_GROUP_BATCH
 
 void LaunchSimtBatchPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t payloadBytes,
