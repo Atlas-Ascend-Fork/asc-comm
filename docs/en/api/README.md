@@ -4,10 +4,8 @@
 
 | Document | Description |
 | --- | --- |
-| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | Create a shared-Jetty channel group and Device handle from an Hcomm Endpoint. |
-| [MakeMultiChannelHandleWithComm](./host/hcomm/MakeMultiChannelHandleWithComm.md) | Create a shared-Jetty channel group and Device handle from an HCCL communicator. |
-| [DestroyMultiChannelHandleWithComm](./host/hcomm/DestroyMultiChannelHandleWithComm.md) | Release a multi-channel Device context created through an HCCL communicator. |
-| [DestroyMultiChannelHandle](./host/hcomm/DestroyMultiChannelHandle.md) | Destroy an Endpoint-owned multi-channel handle and its channels. |
+| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | Create a shared-Jetty channel group and Device handle from an HCCL communicator or Hcomm Endpoint. |
+| [DestroyMultiChannelHandle](./host/hcomm/DestroyMultiChannelHandle.md) | Release multi-channel resources created through the Hcomm Endpoint path. |
 
 ## AICore Hcomm
 | Document | Description |

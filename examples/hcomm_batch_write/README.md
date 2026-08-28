@@ -17,9 +17,9 @@ hcomm.BatchCommit(multiBatchHandle);
 hcomm.Drain(multiBatchHandle);
 ```
 
-`channelIndex`与Host侧传入`MakeMultiChannelHandleWithComm`的`channelDescs`数组下标一致。`GetHandleRef`根据该索引和远端地址选择并缓存MR token，返回内层BatchHandle引用；批量写使用该引用，`BatchCommit`和`Drain`使用外层多通道批量句柄。
+`channelIndex`与Host侧传入`MakeMultiChannelHandle`通信域重载的`channelDescs`数组下标一致。`GetHandleRef`根据该索引和远端地址选择并缓存MR token，返回内层BatchHandle引用；批量写使用该引用，`BatchCommit`和`Drain`使用外层多通道批量句柄。
 
-所有Kernel执行并同步完成后，样例调用`DestroyMultiChannelHandleWithComm`释放每个共享队列标签对应的Device上下文；共享通道由HCCL通信域统一管理。
+共享通道和每个共享队列标签对应的Device上下文均由HCCL通信域统一管理，并在通信域销毁时自动释放，样例不需要手动调用销毁接口。
 
 ## 支持环境
 

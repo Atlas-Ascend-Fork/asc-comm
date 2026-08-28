@@ -2,7 +2,13 @@
 
 ## Function Description
 
-Destroys the shared-Jetty channels and Device context created by `MakeMultiChannelHandle`. The API calls `HcommChannelDestroy` for every owned channel, then calls `aclrtFree` to release the multi-channel metadata.
+Destroys the shared-Jetty channels and Device context created by the Endpoint overload of `MakeMultiChannelHandle`. The API calls `HcommChannelDestroy` for all channels and then calls `aclrtFree` for the multi-channel metadata.
+
+Header file:
+
+```cpp
+#include "hcomm/hcomm_host.h"
+```
 
 ## Function Prototype
 
@@ -14,7 +20,7 @@ HcommResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel);
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `multiChannel` | Input | Valid handle returned by `MakeMultiChannelHandle`. |
+| `multiChannel` | Input | Valid handle returned by the Endpoint overload of `MakeMultiChannelHandle`. |
 
 ## Return Value
 
@@ -23,11 +29,9 @@ Returns `HCCL_SUCCESS` on success or the corresponding Hcomm error code on failu
 ## Constraints
 
 - Ensure that all Kernels using the handle have completed and synchronized before calling this API.
-- Destroy each handle only once and do not use it after destruction.
-- Do not pass a communicator-managed handle returned by `MakeMultiChannelHandleWithComm`.
-- Call this API before `HcommEndpointDestroy`.
+- Use this API only for a handle created by the Endpoint overload and call it before `HcommEndpointDestroy`. Resources created by the communicator overload are released automatically with the communicator and must not be passed to this API.
+- Destroy each multi-channel handle only once and do not use it after destruction.
 
 ## Related APIs
 
 - [MakeMultiChannelHandle](MakeMultiChannelHandle.md)
-- [DestroyMultiChannelHandleWithComm](DestroyMultiChannelHandleWithComm.md)

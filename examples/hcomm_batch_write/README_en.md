@@ -17,10 +17,10 @@ hcomm.BatchCommit(multiBatchHandle);
 hcomm.Drain(multiBatchHandle);
 ```
 
-`channelIndex` matches the index in the `channelDescs` array passed to Host-side `MakeMultiChannelHandleWithComm`.
+`channelIndex` matches the index in the `channelDescs` array passed to the Host-side communicator overload of `MakeMultiChannelHandle`.
 `GetHandleRef` selects and caches an MR token using that index and the remote address, and returns the inner BatchHandle reference. Use this reference for batch writes and the outer multi-channel batch handle for `BatchCommit` and `Drain`.
 
-After all Kernels have completed and synchronized, the sample calls `DestroyMultiChannelHandleWithComm` to release the Device context for each shared queue tag. HCCL continues to manage the shared channels.
+HCCL manages the shared channels and the Device context for each shared queue tag and releases them automatically when the communicator is destroyed, so the sample does not call a manual destruction API.
 
 ## Requirements
 

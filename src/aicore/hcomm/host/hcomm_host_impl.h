@@ -334,7 +334,6 @@ static inline HcclResult HcommBuildMultiChannelEntityWithComm(
     free(hostMemory);
     if (ret != HCCL_SUCCESS) {
         fprintf(stderr, "[ERROR] [%s] HcclEngineCtxCopy failed, ret[%d].\n", __func__, ret);
-        (void)DlHcommApi::HcclEngineCtxDestroy(comm, sharedQueueTag, COMM_ENGINE_AIV);
         *deviceMemory = NULL;
         return ret;
     }
@@ -468,24 +467,6 @@ static inline HcommResult HcommHostMakeMultiChannelHandle(
 
     *multiChannel = (MultiChannelHandle)(uintptr_t)deviceMemory;
     return HCCL_SUCCESS;
-}
-
-static inline HcclResult HcommHostDestroyMultiChannelHandleWithComm(HcclComm comm, const char* sharedQueueTag)
-{
-    if (comm == NULL || sharedQueueTag == NULL) {
-        fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
-        return HCCL_E_PARA;
-    }
-
-    HcclResult ret = DlHcommApi::LoadHcclApi();
-    if (ret != HCCL_SUCCESS) {
-        return ret;
-    }
-    ret = DlHcommApi::HcclEngineCtxDestroy(comm, sharedQueueTag, COMM_ENGINE_AIV);
-    if (ret != HCCL_SUCCESS) {
-        fprintf(stderr, "[ERROR] [%s] HcclEngineCtxDestroy failed, ret[%d].\n", __func__, ret);
-    }
-    return ret;
 }
 
 static inline HcommResult HcommHostDestroyMultiChannelHandle(MultiChannelHandle multiChannel)

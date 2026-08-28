@@ -91,19 +91,18 @@ Batch `Drain` reuses the first 64 bytes of the BatchHandle WQE buffer as CQE scr
 
 ## Shared-Jetty BatchHandle Workflow
 
-When using an HCCL communicator, call `MakeMultiChannelHandleWithComm` on the Host to create the shared-Jetty channels and `MultiChannelHandle`:
+When using an HCCL communicator, call the communicator overload of `MakeMultiChannelHandle` on the Host to create the shared-Jetty channels and `MultiChannelHandle`:
 
 ```cpp
 #include "hcomm/hcomm_host.h"
 
 MultiChannelHandle multiChannel = 0U;
-HcclResult ret = MakeMultiChannelHandleWithComm(
+HcclResult ret = MakeMultiChannelHandle(
     comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
-// Release the Device context after the Kernel has completed and synchronized. Shared channels remain communicator-managed.
-ret = DestroyMultiChannelHandleWithComm(comm, sharedQueueTag);
+// The communicator manages and automatically releases the shared channels and Device context.
 ```
 
-Without an HCCL communicator, pass an Hcomm Endpoint and `HcommChannelDesc` array to `MakeMultiChannelHandle`. Destroy the multi-channel handle before destroying the Endpoint:
+Without an HCCL communicator, pass an Hcomm Endpoint and `HcommChannelDesc` array to `MakeMultiChannelHandle`. These resources are not communicator-managed, so destroy the multi-channel handle before destroying the Endpoint:
 
 ```cpp
 HcommResult ret = MakeMultiChannelHandle(endpointHandle, channelDescs, channelNum, &multiChannel);

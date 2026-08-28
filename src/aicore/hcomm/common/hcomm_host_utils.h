@@ -27,9 +27,7 @@
 #include <stdio.h>
 #include <mutex>
 
-#include "hccl/hccl_channel.h"
 #include "hccl/hccl_res.h"
-#include "hcomm/hcomm_channel.h"
 #include "hcomm/hcomm_res_entity_defs.h"
 
 typedef HcclResult (*HcommHcclChannelConfigCreateFunc)(HcclChannelConfig* config);
@@ -45,7 +43,6 @@ typedef HcclResult (*HcommHcclEngineCtxCreateFunc)(
     HcclComm comm, const char* ctxTag, CommEngine engine, uint64_t size, void** ctx);
 typedef HcclResult (*HcommHcclEngineCtxCopyFunc)(
     HcclComm comm, CommEngine engine, const char* ctxTag, const void* srcCtx, uint64_t size, uint64_t dstCtxOffset);
-typedef HcclResult (*HcommHcclEngineCtxDestroyFunc)(HcclComm comm, const char* ctxTag, CommEngine engine);
 typedef HcommResult (*HcommChannelConfigCreateFunc)(HcommChannelConfig* config);
 typedef HcommResult (*HcommChannelConfigDestroyFunc)(HcommChannelConfig config);
 typedef HcommResult (*HcommChannelConfigSetIntFunc)(
@@ -104,11 +101,6 @@ public:
         return GetHcclApi().HcclEngineCtxCopy(comm, engine, ctxTag, srcCtx, size, dstCtxOffset);
     }
 
-    static inline HcclResult HcclEngineCtxDestroy(HcclComm comm, const char* ctxTag, CommEngine engine)
-    {
-        return GetHcclApi().HcclEngineCtxDestroy(comm, ctxTag, engine);
-    }
-
     static inline HcommResult HcommChannelConfigCreate(HcommChannelConfig* config)
     {
         return GetHcommApi().HcommChannelConfigCreate(config);
@@ -154,7 +146,6 @@ private:
         HcommHcclChannelAcquireWithConfigFunc HcclChannelAcquireWithConfig = nullptr;
         HcommHcclEngineCtxCreateFunc HcclEngineCtxCreate = nullptr;
         HcommHcclEngineCtxCopyFunc HcclEngineCtxCopy = nullptr;
-        HcommHcclEngineCtxDestroyFunc HcclEngineCtxDestroy = nullptr;
     };
 
     struct HcommApi {
@@ -203,7 +194,6 @@ private:
         HCOMM_LOAD_SYMBOL(HcclChannelAcquireWithConfig, "HcclChannelAcquireWithConfig");
         HCOMM_LOAD_SYMBOL(HcclEngineCtxCreate, "HcclEngineCtxCreate");
         HCOMM_LOAD_SYMBOL(HcclEngineCtxCopy, "HcclEngineCtxCopy");
-        HCOMM_LOAD_SYMBOL(HcclEngineCtxDestroy, "HcclEngineCtxDestroy");
 
 #undef HCOMM_LOAD_SYMBOL
 

@@ -91,19 +91,18 @@ ret = hcomm.Drain(batchHandle);
 
 ## 共享Jetty BatchHandle接口流程
 
-使用HCCL通信域时，Host侧调用`MakeMultiChannelHandleWithComm`创建共享Jetty通道和`MultiChannelHandle`：
+使用HCCL通信域时，Host侧调用`MakeMultiChannelHandle`的通信域重载创建共享Jetty通道和`MultiChannelHandle`：
 
 ```cpp
 #include "hcomm/hcomm_host.h"
 
 MultiChannelHandle multiChannel = 0U;
-HcclResult ret = MakeMultiChannelHandleWithComm(
+HcclResult ret = MakeMultiChannelHandle(
     comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
-// Kernel执行并同步完成后释放Device上下文；共享通道仍由通信域管理。
-ret = DestroyMultiChannelHandleWithComm(comm, sharedQueueTag);
+// 共享通道和Device上下文由通信域管理，并在通信域销毁时自动释放。
 ```
 
-不使用HCCL通信域时，传入Hcomm Endpoint和`HcommChannelDesc`调用`MakeMultiChannelHandle`。使用结束后必须先销毁多通道句柄，再销毁Endpoint：
+不使用HCCL通信域时，传入Hcomm Endpoint和`HcommChannelDesc`调用`MakeMultiChannelHandle`。该路径的资源不由通信域管理，使用结束后必须先销毁多通道句柄，再销毁Endpoint：
 
 ```cpp
 HcommResult ret = MakeMultiChannelHandle(endpointHandle, channelDescs, channelNum, &multiChannel);
