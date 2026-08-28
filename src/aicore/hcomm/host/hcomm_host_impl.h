@@ -31,11 +31,25 @@
 #include "securec.h"
 
 #include "../common/hcomm_host_utils.h"
-#include "../common/hcomm_multi_channel_def.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct {
+    uint64_t remoteBufferAddr;
+    uint32_t remoteBufferNum;
+    uint32_t tpId;
+    uint64_t remoteEidLow;
+    uint64_t remoteEidHigh;
+} MultiChannelRemoteInfo;
+
+typedef struct {
+    ChannelHandle channelHandle;
+    uint32_t channelNum;
+    uint32_t reserved;
+    uint64_t remoteInfoAddr;
+} MultiChannelEntity;
 
 typedef struct {
     SqContext sqContext;
