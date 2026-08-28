@@ -36,6 +36,7 @@
                 <filteritem type="filename" name="SECURITY.md" desc="security statement"/>
                 <filteritem type="filename" name="Third_Party_Open_Source_Software_List.yaml" desc="third party software list"/>
                 <filteritem type="filename" name="Third_Party_Open_Source_Software_Notice" desc="third party notice"/>
+                <filteritem type="filename" name="*.png" desc="image file"/>
             </filefilter>
             <filefilter name="copyrightPolicyFilter" desc="Filters for copyright header policies">
                 <filteritem type="filename" name="*.gitignore" desc="git ignore file"/>
@@ -50,6 +51,7 @@
                 <filteritem type="filename" name="SECURITY.md" desc="security statement"/>
                 <filteritem type="filename" name="Third_Party_Open_Source_Software_List.yaml" desc="third party software list"/>
                 <filteritem type="filename" name="Third_Party_Open_Source_Software_Notice" desc="third party notice"/>
+                <filteritem type="filename" name="*.png" desc="image file"/>
             </filefilter>
             <filefilter name="licenseFileNamePolicyFilter" desc="Filters for LICENSE file policies">
             </filefilter>
@@ -58,6 +60,7 @@
             <filefilter name="readmeOpenSourcefileNamePolicyFilter" desc="Filters for README.OpenSource file policies">
             </filefilter>
             <filefilter name="binaryFileTypePolicyFilter" desc="Filters for binary file policies">
+                <filteritem type="filename" name="*.png" desc="image file"/>
             </filefilter>
         </filefilterlist>
         <licensematcherlist>
