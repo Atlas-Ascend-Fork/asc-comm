@@ -237,8 +237,8 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchPerfVf(
     timing[kFailureActionIndex] = status == 0 ? kActionNone : kActionDrain;
 }
 
-template <uint32_t api>
-__simt_vf__ __launch_bounds__(32) inline void SimtGroupBatchPerfVf(
+template <uint32_t api, uint32_t maxGroupLanes>
+__simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ uint64_t* timing, uint32_t payloadBytes,
     uint32_t slotBytes, uint32_t iterations, uint32_t warmup, uint32_t batchSize, __ubuf__ uint8_t* batchBuffer,
     __ubuf__ uint32_t* groupState)
@@ -339,10 +339,17 @@ DEFINE_BATCH_PERF_KERNEL(SimtCasBatchPerf, kApiCas, true)
     {                                                                                                          \
         alignas(128) __ubuf__ uint64_t batchBuffer[kBatchBufferBytes / sizeof(uint64_t)];                      \
         alignas(16) __ubuf__ uint32_t groupState[4U + kMaxGroupLanes];                                        \
-        asc_vf_call<SimtGroupBatchPerfVf<api>>(                                                                \
-            dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),     \
-            payloadBytes, slotBytes, iterations, warmup, batchSize,                                            \
-            reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState);                                     \
+        if (groupLanes <= 32U) {                                                                               \
+            asc_vf_call<SimtGroupBatchPerfVf<api, 32U>>(                                                       \
+                dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), \
+                payloadBytes, slotBytes, iterations, warmup, batchSize,                                        \
+                reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState);                                 \
+        } else {                                                                                               \
+            asc_vf_call<SimtGroupBatchPerfVf<api, kMaxGroupLanes>>(                                            \
+                dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), \
+                payloadBytes, slotBytes, iterations, warmup, batchSize,                                        \
+                reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState);                                 \
+        }                                                                                                      \
     }
 
 DEFINE_GROUP_BATCH_PERF_KERNEL(SimtWriteGroupBatchPerf, kApiWrite)

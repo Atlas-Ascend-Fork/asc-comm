@@ -77,8 +77,8 @@ if [[ "$mode" == "group" || "$mode" == "compare" ]]; then
         echo "iterations must be divisible by group batch size ${group_batch_size}" >&2; exit 1;
     }
     for lanes in "${lane_counts[@]}"; do
-        [[ "$lanes" =~ ^[0-9]+$ ]] && ((lanes >= 2 && lanes <= 32)) || {
-            echo "group lanes must be comma-separated values in 2..32" >&2; exit 1;
+        [[ "$lanes" =~ ^[0-9]+$ ]] && ((lanes >= 2 && lanes <= 1024)) || {
+            echo "group lanes must be comma-separated values in 2..1024" >&2; exit 1;
         }
         ((group_batch_size % lanes == 0 && iterations % lanes == 0 && warmup % lanes == 0)) || {
             echo "iterations/warmup must be divisible by every group lane count" >&2; exit 1;
@@ -111,6 +111,7 @@ trap 'cleanup; exit 130' INT TERM
 
 run_case() {
     local case_api="$1" case_mode="$2" case_batch_size="$3" case_lanes="${4:-1}"
+    local case_warmup="${5:-$warmup}"
     local work_dir root_info_file status rank pair_status perf_line
     work_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_batch_perf.XXXXXX")"
     active_dir="$work_dir"
@@ -118,7 +119,7 @@ run_case() {
     export SIMT_BATCH_PERF_SYNC_DIR="$work_dir"
     active_pids=()
     for ((rank = 0; rank < devices; ++rank)); do
-        "$binary" "$rank" "$devices" "$root_info_file" "$case_api" "$iterations" "$warmup" \
+        "$binary" "$rank" "$devices" "$root_info_file" "$case_api" "$iterations" "$case_warmup" \
             "$payload_bytes" "$case_batch_size" "$case_mode" "$case_lanes" \
             >"${work_dir}/rank_${rank}.log" 2>&1 &
         active_pids+=("$!")
@@ -167,5 +168,8 @@ for current_api in "${apis[@]}"; do
         status=1
     fi
 done
+if [[ "$mode" == "compare" && ( "$api" == "all" || "$api" == "write" ) ]]; then
+    if ! run_case write group "$large_batch_size" 1024 0; then status=1; fi
+fi
 echo "Log file: $log_file"
 exit "$status"

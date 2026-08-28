@@ -18,7 +18,7 @@ namespace simt_batch_perf {
 constexpr uint32_t kRootRank = 0U;
 constexpr uint32_t kSlotCount = 64U;
 constexpr uint32_t kMaxBatchSize = 1024U;
-constexpr uint32_t kMaxGroupLanes = 32U;
+constexpr uint32_t kMaxGroupLanes = 1024U;
 // The correctness-first batch format stages the validated 128-byte immediate layout per item.
 constexpr uint32_t kBatchItemBytes = 128U;
 constexpr uint32_t kBatchBufferBytes = kMaxBatchSize * kBatchItemBytes;
