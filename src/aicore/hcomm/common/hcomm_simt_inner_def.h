@@ -73,8 +73,8 @@ struct HcommSimtChannelEntity {
 
 static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");
 
-// A batch handle is lane-private. capacity remains the caller-visible operation capacity, while
-// bufferBbCapacity and preparedBb track the compact 64-byte basic blocks stored in this lane's UB.
+// A batch handle is lane-private. The public workspace contract keeps 128 bytes per operation,
+// while Append stores one compact 64-byte request descriptor and preparedBb tracks its final SQ footprint.
 struct UbcCtpBatchHandle {
     ChannelHandle channel = 0U;
     __ubuf__ uint64_t* buffer = nullptr;
