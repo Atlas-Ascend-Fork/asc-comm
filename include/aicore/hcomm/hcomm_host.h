@@ -39,7 +39,7 @@ static inline HcclResult MakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
 {
-    return HcommHostMakeMultiChannelHandleWithComm(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
+    return HcommHostMakeMultiChannelHandle(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
 }
 
 /*!
@@ -63,7 +63,7 @@ static inline HcommResult MakeMultiChannelHandle(
  * @brief Destroy channels and Device context owned by a handle created by MakeMultiChannelHandle.
  * @param [in] multiChannel: The multi-channel handle to destroy.
  * @return HCCL_SUCCESS indicates success. Other values indicate an Hcomm error.
- * @note Use this API only for a handle created by the Endpoint overload of MakeMultiChannelHandle.
+ * @note This is the destroy API corresponding to the MakeMultiChannelHandle overload without an HCCL communicator (the EndpointHandle overload). Do not use it for a handle created by the HcclComm overload.
  */
 static inline HcommResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel)
 {

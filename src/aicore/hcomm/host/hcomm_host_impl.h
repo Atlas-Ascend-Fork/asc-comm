@@ -32,10 +32,6 @@
 
 #include "../common/hcomm_host_utils.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct {
     uint64_t remoteBufferAddr;
     uint32_t remoteBufferNum;
@@ -372,7 +368,7 @@ static inline HcommResult HcommBuildMultiChannelEntity(
     return HCCL_SUCCESS;
 }
 
-static inline HcclResult HcommHostMakeMultiChannelHandleWithComm(
+static inline HcclResult HcommHostMakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
 {
@@ -531,10 +527,6 @@ static inline HcommResult HcommHostDestroyMultiChannelHandle(MultiChannelHandle 
     free(channels);
     return ret == HCCL_SUCCESS && aclRet != ACL_SUCCESS ? HCCL_E_RUNTIME : ret;
 }
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_HOST_HCOMM_HOST_IMPL_H
 
