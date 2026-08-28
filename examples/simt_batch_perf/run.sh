@@ -160,6 +160,7 @@ for current_api in "${apis[@]}"; do
         for lanes in "${lane_counts[@]}"; do
             if ! run_case "$current_api" group "$reference_batch_size" "$lanes"; then status=1; fi
         done
+        if ! run_case "$current_api" group "$large_batch_size" 1024 0; then status=1; fi
     elif [[ "$mode" == "group" ]]; then
         for lanes in "${lane_counts[@]}"; do
             if ! run_case "$current_api" group "$batch_size" "$lanes"; then status=1; fi
@@ -168,8 +169,5 @@ for current_api in "${apis[@]}"; do
         status=1
     fi
 done
-if [[ "$mode" == "compare" && ( "$api" == "all" || "$api" == "write" ) ]]; then
-    if ! run_case write group "$large_batch_size" 1024 0; then status=1; fi
-fi
 echo "Log file: $log_file"
 exit "$status"
