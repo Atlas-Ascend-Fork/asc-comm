@@ -147,14 +147,14 @@ Build and execute Hcomm and Ain unit tests:
 bash build.sh -t
 ```
 
-Build the current Hcomm and Ain headers into a development run package and install it into an existing CANN environment:
+Build the asc-comm headers into a development run package and install it into an existing CANN environment:
 
 ```bash
 bash build.sh --pkg
-./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
+./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
 ```
 
-The packaging script recursively collects headers under `include/aicore/hcomm/`, `src/aicore/hcomm/`, `include/aicore/ain/`, and `src/aicore/ain/`. Its directory mapping and Hcomm symbolic links match the current asc-devkit packaging logic. Installation backs up existing target files and link state, while content that did not exist before installation is removed during uninstallation. See [Build & Test](./docs/en/guide/build_and_test.md) for directory mappings, options, and limitations.
+The packaging script recursively collects headers under `include/` and `src/`. Hcomm is installed under `adv_api`; other headers preserve their relative paths under `comm_api`. See [Build & Test](./docs/en/guide/build_and_test.md) for installation paths, command options, permissions, and uninstallation instructions.
 
 To build UTs directly via CMake, specify the CANN third-party library path:
 ```bash
