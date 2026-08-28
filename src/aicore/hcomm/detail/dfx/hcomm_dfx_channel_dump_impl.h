@@ -12,8 +12,11 @@
 #define ASCCOMM_SRC_AICORE_HCOMM_DETAIL_DFX_HCOMM_DFX_CHANNEL_DUMP_IMPL_H
 
 #include "hcomm_channel_dump_info.h"
+#include "hcomm/hcomm_common.h"
 
 #include <cstdint>
+
+typedef struct rtExceptionInfo aclrtExceptionInfo;
 
 namespace AscendC {
 
@@ -33,9 +36,20 @@ struct HcommDfxQueueReadResult {
     uint8_t data[HCOMM_DFX_QUEUE_ENTRY_BYTES];
 };
 
+struct HcommDfxChannelDumpData;
+struct HcommDfxChannelInfo;
+
 namespace HcommDfx {
 
 void Trace(const char *format, ...);
+void ExceptionCallback(aclrtExceptionInfo *exceptionInfo, void *userData);
+bool HasPendingException();
+void ClearPendingException();
+
+int32_t GetChannelDumpInfoSize(uint32_t channelNum, const ChannelHandle *channels, uint32_t *len);
+int32_t DumpChannelInfo(uint32_t channelNum, const ChannelHandle *channels, void *buffer, uint32_t len);
+int32_t ParseAndPrintChannelDump(const HcommDfxChannelDumpData &dump);
+
 void *CreateQueueReader();
 void DestroyQueueReader(void *reader);
 bool ReadQueueEntry(void *reader, uint64_t addr, uint8_t *data, uint32_t size);
