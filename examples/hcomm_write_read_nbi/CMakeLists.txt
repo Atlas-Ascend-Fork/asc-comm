@@ -25,7 +25,7 @@ get_filename_component(ASCCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE
 set_source_files_properties(
     hcomm_write_read_nbi_kernel.cpp
     utils.cpp
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_dfx_queue_reader.cpp
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx_queue_reader.cpp
     hcomm_rw_def.h
     PROPERTIES LANGUAGE ASC
 )
@@ -34,17 +34,19 @@ add_executable(demo
     hcomm_write_read_nbi.asc
     hcomm_write_read_nbi_kernel.cpp
     hcomm_rw_def.h
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_channel_dump.cpp
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_channel_dump_exception.cpp
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_channel_dump_collect.cpp
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_channel_dump_parse.cpp
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx/hcomm_dfx_queue_reader.cpp
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx.cpp
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx_exception.cpp
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx_collect.cpp
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx_parse.cpp
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx_queue_reader.cpp
     utils.cpp
 )
 
 target_include_directories(demo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/detail/dfx
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/common
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host
+    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/impl
     ${ASCCOMM_ROOT}/include/aicore
     $ENV{ASCEND_HOME_PATH}/asc/include
     $ENV{ASCEND_HOME_PATH}/asc/include/basic_api

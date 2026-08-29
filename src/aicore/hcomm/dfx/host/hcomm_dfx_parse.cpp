@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm_dfx_channel_dump_impl.h"
+#include "hcomm_dfx_impl.h"
 
 #define HCOMM_INCLUDE_INTERNAL_HEADERS
 #include "../../common/hcomm_inner_def.h"

@@ -8,11 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef ASCCOMM_SRC_AICORE_HCOMM_DETAIL_DFX_HCOMM_DFX_QUEUE_READ_KERNEL_H
-#define ASCCOMM_SRC_AICORE_HCOMM_DETAIL_DFX_HCOMM_DFX_QUEUE_READ_KERNEL_H
+#ifndef ASCCOMM_SRC_AICORE_HCOMM_DFX_IMPL_HCOMM_DFX_QUEUE_READER_KERNEL_H
+#define ASCCOMM_SRC_AICORE_HCOMM_DFX_IMPL_HCOMM_DFX_QUEUE_READER_KERNEL_H
 
 #include "kernel_operator.h"
-#include "hcomm_dfx_channel_dump_impl.h"
+#include "hcomm_dfx_impl.h"
 
 using namespace AscendC;
 
@@ -49,4 +49,4 @@ extern "C" __vector__ __global__ __aicore__ void hcomm_dfx_queue_read_kernel(Hco
 
 HCOMM_DFX_EXPORT_AIV_META_INFO(hcomm_dfx_queue_read_kernel);
 
-#endif // ASCCOMM_SRC_AICORE_HCOMM_DETAIL_DFX_HCOMM_DFX_QUEUE_READ_KERNEL_H
+#endif // ASCCOMM_SRC_AICORE_HCOMM_DFX_IMPL_HCOMM_DFX_QUEUE_READER_KERNEL_H

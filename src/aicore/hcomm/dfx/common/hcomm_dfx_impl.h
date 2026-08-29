@@ -8,10 +8,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef ASCCOMM_SRC_AICORE_HCOMM_DETAIL_DFX_HCOMM_DFX_CHANNEL_DUMP_IMPL_H
-#define ASCCOMM_SRC_AICORE_HCOMM_DETAIL_DFX_HCOMM_DFX_CHANNEL_DUMP_IMPL_H
+#ifndef ASCCOMM_SRC_AICORE_HCOMM_DFX_COMMON_HCOMM_DFX_IMPL_H
+#define ASCCOMM_SRC_AICORE_HCOMM_DFX_COMMON_HCOMM_DFX_IMPL_H
 
-#include "hcomm_channel_dump_info.h"
+#include "hcomm_dfx_info.h"
 #include "hcomm/hcomm_common.h"
 
 #include <cstdint>
@@ -57,4 +57,4 @@ bool ReadQueueEntry(void *reader, uint64_t addr, uint8_t *data, uint32_t size);
 } // namespace HcommDfx
 } // namespace AscendC
 
-#endif // ASCCOMM_SRC_AICORE_HCOMM_DETAIL_DFX_HCOMM_DFX_CHANNEL_DUMP_IMPL_H
+#endif // ASCCOMM_SRC_AICORE_HCOMM_DFX_COMMON_HCOMM_DFX_IMPL_H
