@@ -2,7 +2,7 @@
 
 ## Function Description
 
-Creates a group of shared-Jetty UB_CTP channels and the `MultiChannelHandle` used on the Device. The API provides overloads for an HCCL communicator and an Hcomm Endpoint and stores remote communication metadata in `channelDescs` order.
+Creates a group of shared-Jetty UB_CTP channels and the `MultiChannelHandle` used on the Device. The API provides overloads for an HCCL communicator and an Hcomm Endpoint and stores the remote communication information of each logical channel in `channelDescs` order.
 
 Header file:
 
@@ -46,7 +46,7 @@ Returns `HCCL_SUCCESS` on success. The communicator overload returns an HCCL err
 
 - Input pointers for both overloads must not be `nullptr`, and `channelNum` must not be 0.
 - The communicator overload creates channels through `HcclChannelAcquireWithConfig`. Each `sharedQueueTag` can be used by only one successful call within a communicator. The communicator manages and automatically releases the shared channels and Device context; do not call `DestroyMultiChannelHandle` for this handle.
-- The Endpoint overload creates channels through `HcommChannelCreateWithConfig` and waits for them to become ready. The returned handle owns the channels and Device context and must be destroyed before `endpointHandle`.
+- The Endpoint overload creates channels through `HcommChannelCreateWithConfig` and waits for connection establishment to complete. The returned handle owns the newly created channels and Device context, and the corresponding `DestroyMultiChannelHandle` overload must be called before `endpointHandle` is destroyed.
 - Channels use `COMM_ENGINE_AIV` and UB_CTP. Shared-Jetty channels cannot be used concurrently.
 - After Kernels using a handle created by the Endpoint overload have completed and synchronized, call `DestroyMultiChannelHandle`.
 

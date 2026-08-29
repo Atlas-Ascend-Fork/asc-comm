@@ -1,35 +1,64 @@
 # Hcomm
 
+## Product Support
+
+<!-- npu="950" id1 -->
+- Ascend 950PR/Ascend 950DT: Supported
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3 training series products/Atlas A3 inference series products: Supports the RoCE protocol but not the URMA protocol
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2 training series products/Atlas A2 inference series products: Supports the RoCE protocol but not the URMA protocol
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2 inference products: Supports the RoCE protocol but not the URMA protocol
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas inference series products AI Core: Supports the RoCE protocol but not the URMA protocol
+- Atlas inference series products Vector Core: Supports the RoCE protocol but not the URMA protocol
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas training series products: Supports the RoCE protocol but not the URMA protocol
+<!-- end id6 -->
+<!-- npu="x90" id7 -->
+- Kirin X90: Supports the RoCE protocol but not the URMA protocol
+<!-- end id7 -->
+
 ## Function Description
 
-Header file:
+The header file is:
 
 ```cpp
 #include "hcomm/hcomm.h"
 ```
 
-`AscendC::Hcomm` is a point-to-point communication interface template on the AICore side. Ordinary interfaces use a `ChannelHandle` to submit individual read, write, write-with-notify, and atomic tasks, and use `Commit` and `Drain` to control submission and completion. The UBC_CTP path also provides BatchHandle interfaces for single-channel submission and for preparing WQEs for multiple logical channels on a shared Jetty through `MultiChannelHandle` before submitting them together with `BatchCommit`.
+`AscendC::Hcomm` is a point-to-point communication interface template on the AICore side. Ordinary interfaces submit individual read, write, write-with-notify, and atomic operation tasks through a `ChannelHandle`, and use `Commit` and `Drain` to control task submission and completion waiting. The UBC_CTP path also provides BatchHandle interfaces, which support both single-channel batch submission and preparing WQEs for multiple logical channels on a shared Jetty through `MultiChannelHandle`, followed by a single `BatchCommit` submission.
 
-## Template Parameters
+## Function Prototype
 
 ```cpp
 template <AscendC::CommProtocol commProtocol = AscendC::COMM_PROTOCOL_UBC_CTP>
 class Hcomm;
 ```
 
+## Parameter Description
+
+**Table 1**  Template parameters
+
 | Parameter | Description |
 | --- | --- |
 | `commProtocol` | Communication protocol type. Supports `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP`. Default: `COMM_PROTOCOL_UBC_CTP`. |
 
-`MakeBatchHandle` derives its return type through compile-time traits. `ChannelHandle` maps to `UbcBatchHandle`, while `MultiChannelHandle` maps to `UbcMultiBatchHandle`. In multi-channel mode, batch read/write uses the inner `UbcBatchHandle` reference returned by `GetHandleRef`, while `BatchCommit` and batch `Drain` use the outer `UbcMultiBatchHandle`. Batch interfaces support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
+`MakeBatchHandle` derives its return type through compile-time traits: `ChannelHandle` maps to `UbcCtpBatchHandle`, and `MultiChannelHandle` maps to `UbcCtpMultiBatchHandle`. In multi-channel mode, batch read and write are performed through the inner `UbcCtpBatchHandle` reference returned by `GetHandleRef`, and `BatchCommit` and batch `Drain` are performed through the outer `UbcCtpMultiBatchHandle`. Batch interfaces support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
 ## Protocol Capabilities
 
-| API | `COMM_PROTOCOL_ROCE` | `COMM_PROTOCOL_UBC_CTP` |
+| Interface | `COMM_PROTOCOL_ROCE` | `COMM_PROTOCOL_UBC_CTP` |
 | --- | --- | --- |
-| `Init` | Supported for the UB temporary workspace used by ordinary interfaces. | Supported for the URMA temporary workspace used by ordinary interfaces. |
-| `Lock` | Not supported. | Supported only by AIV on Ascend 950. |
-| `Unlock` | Not supported. | Supported only by AIV on Ascend 950. |
+| `Init` | Supported; provides the UB temporary workspace for ordinary interfaces. | Supported; provides the URMA temporary workspace for ordinary interfaces. |
+| `Lock` | Not supported. | Supported, only by AIV on the Ascend 950 platform. |
+| `Unlock` | Not supported. | Supported, only by AIV on the Ascend 950 platform. |
 | Ordinary `ReadNbi` | Supported. | Supported. |
 | Ordinary `WriteNbi` | Supported. | Supported. |
 | Ordinary `WriteValueNbi` | Not supported; invocation returns failure. | Supported. |
@@ -48,17 +77,17 @@ class Hcomm;
 
 ## Common APIs
 
-| API | Description |
+| Interface | Description |
 | --- | --- |
 | [Init](./Init.md) | Initialize the temporary workspace used by ordinary Hcomm interfaces. |
-| [MakeBatchHandle](./MakeBatchHandle.md) | Create a batch handle and bind its UB buffer for batched WQEs. |
+| [MakeBatchHandle](./MakeBatchHandle.md) | Create a batch handle and bind the UB buffer for batch WQEs. |
 | [GetHandleRef](./GetHandleRef.md) | Select a logical channel from a shared-Jetty multi-channel batch handle. |
 | [Lock](./Lock.md) | Acquire the cross-AI-Core lock of a communication channel. |
 | [Unlock](./Unlock.md) | Release the cross-AI-Core lock of a communication channel. |
-| [ReadNbi](./ReadNbi.md) | Submit an ordinary read task or prepare a read WQE in a BatchHandle. |
-| [WriteNbi](./WriteNbi.md) | Submit an ordinary write task or prepare a write WQE in a BatchHandle. |
-| [WriteValueNbi](./WriteValueNbi.md) | Submit an immediate-value write task over an ordinary channel, inlining `value` in the WQE to the remote side. |
-| [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or prepare one in a BatchHandle. |
+| [ReadNbi](./ReadNbi.md) | Submit a read task through an ordinary channel, or prepare a read WQE in a BatchHandle. |
+| [WriteNbi](./WriteNbi.md) | Submit a write task through an ordinary channel, or prepare a write WQE in a BatchHandle. |
+| [WriteValueNbi](./WriteValueNbi.md) | Submit an immediate-value write task through an ordinary channel, carrying `value` inline in the WQE to write to the remote side. |
+| [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | Submit a write-with-notify task through an ordinary channel, or prepare a write-with-notify WQE in a BatchHandle. |
 | [AtomicFAA](./AtomicFAA.md) | Submit a Fetch-and-add atomic operation task. |
 | [AtomicCAS](./AtomicCAS.md) | Submit a Compare-and-swap atomic operation task. |
 | [Commit](./Commit.md) | Explicitly submit pending tasks on an ordinary channel. |
@@ -67,19 +96,30 @@ class Hcomm;
 
 ## Return Value
 
-Interfaces that return a status code generally use `0` for success and `-1` for failure. `Drain` may also return an underlying CQ polling error code. `MakeBatchHandle` returns a protocol-specific batch handle directly instead of a status code. See the corresponding API document for exact return values.
+Interfaces that return a status code generally use `0` for success and `-1` for failure. `Drain` may also return an underlying CQ polling error code. `MakeBatchHandle` directly returns a protocol-specific batch handle instead of a status code. See the corresponding API document for the specific return values of each interface.
 
-## Usage Constraints
+## Constraints
 
-- Communication channel resources must be initialized by the caller before communication APIs are invoked.
-- Ordinary `ChannelHandle` interfaces require a temporary workspace provided through `Init`. The BatchHandle workflow does not require `Init`; `MakeBatchHandle` provides its UB workspace.
-- `WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS` are supported only on the `COMM_PROTOCOL_UBC_CTP` path.
+- Communication channel resources must be initialized by the caller before communication interfaces are invoked.
+- Ordinary `ChannelHandle` interfaces require a temporary workspace provided through `Init` first. The BatchHandle workflow does not depend on `Init`; its UB workspace is provided by `MakeBatchHandle`.
+- `WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS` support only the `COMM_PROTOCOL_UBC_CTP` path.
 - Batch interfaces currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
-- Ordinary and batch interfaces manage queue state differently. A BatchHandle caches SQ/CQ contexts and counters at creation time. The caller must exclusively own the single channel or shared Jetty while using it and must not mix ordinary calls or use multiple BatchHandles concurrently.
-- The passed `ChannelHandle` must point to a channel entity matching the selected protocol.
+- Ordinary and batch interfaces use different queue state management. A BatchHandle caches the SQ/CQ contexts and queue counters at creation time. While it is in use, the caller must exclusively own the corresponding single channel or shared Jetty and must not mix ordinary interfaces or use multiple BatchHandles concurrently.
+- The passed `ChannelHandle` must point to a channel entity that matches the protocol.
+- If the `commit` template parameter of an ordinary interface is set to `false`, the number of consecutive calls must not exceed `sqDepth`. Pending tasks must be committed through `Commit` or automatic commit before the SQ is exhausted; otherwise subsequent `PostSend` fails due to SQ overflow.
+- In the batched-submission scenario of ordinary interfaces (multiple delayed commits + one final commit), only the last commit should produce a CQE (that is, `config.cqe` is set to `0` for intermediate tasks and `1` for the last one).
 
-See [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md) for the Host-side shared-Jetty handle creation API. It provides overloads for an HCCL communicator and an Hcomm Endpoint.
+See [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md) for the Host-side handle creation interface of a shared Jetty.
 
-## Related Sample
+## Example
 
-[hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README_en.md) demonstrates ordinary `WriteNbi` and `ReadNbi` calls over the `COMM_PROTOCOL_UBC_CTP` path in a two-card scenario. It does not cover the RoCE or BatchHandle workflow.
+The calling example of ordinary Hcomm interfaces is as follows:
+
+```cpp
+AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+pipe->InitBuffer(hcommBuf, HCOMM_WORKSPACE_SIZE);
+auto hcommTensor = hcommBuf.Get<uint8_t>();
+hcomm.Init(hcommTensor, HCOMM_WORKSPACE_SIZE);
+hcomm.WriteNbi(channel, writeDst, writeSrc, DATA_SIZE);
+hcomm.Drain(channel);
+```

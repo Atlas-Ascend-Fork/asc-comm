@@ -1,5 +1,30 @@
 # Wait
 
+## Product Support
+
+<!-- npu="950" id1 -->
+- Ascend 950PR/Ascend 950DT: Supports the URMA protocol
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3 training series products/Atlas A3 inference series products: Not supported
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2 training series products/Atlas A2 inference series products: Not supported
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2 inference products: Not supported
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas inference series products AI Core: Not supported
+- Atlas inference series products Vector Core: Not supported
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas training series products: Not supported
+<!-- end id6 -->
+<!-- npu="x90" id7 -->
+- Kirin X90: Not supported
+<!-- end id7 -->
+
 ## Function Description
 
 Wait for communication tasks on a specified communication channel to complete.
@@ -14,6 +39,8 @@ __aicore__ inline void Wait(AscendC::ChannelHandle& channelHandle);
 
 ## Parameter Description
 
+**Table 1**  API parameters
+
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | `channelHandle` | Input | Communication channel handle, usually returned by `FlushAsync`. |
@@ -22,8 +49,19 @@ __aicore__ inline void Wait(AscendC::ChannelHandle& channelHandle);
 
 No return value.
 
-## Usage Constraints
+## Constraints
 
 - `channelHandle` must be a valid communication channel handle.
 - `Wait` blocks and waits for submitted tasks on this channel to complete through the underlying Hcomm completion-wait API.
 - Currently, only the `COMM_PROTOCOL_UBC_CTP` protocol path is supported.
+
+## Example
+
+The calling example of Wait is as follows:
+
+```cpp
+AscendC::ChannelHandle channelHandle;
+ain.Put(team, peer, dstWin, dstOffset, srcWin, srcOffset, bytes);
+ain.FlushAsync(team, peer, &channelHandle);
+ain.Wait(channelHandle);    // Wait for tasks on the specified channel to complete
+```
