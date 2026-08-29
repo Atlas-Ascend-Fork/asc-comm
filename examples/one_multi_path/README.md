@@ -2,8 +2,7 @@
 
 ## 概述
 
-本样例演示如何通过HCCL Resource API查询`COMM_PROTOCOL_UB_MEM`链路，在同一个通信域中为每个peer创建
-`pathMode=2`和`pathMode=3`两条Channel。各peer按顺序处理；处理单个peer时，通过两个Stream并发搬运
+本样例演示如何通过HCCL Resource API查询`COMM_PROTOCOL_UB_MEM`链路，在同一个通信域中为每个peer创建`pathMode=1`和`pathMode=2`两条Channel。各peer按顺序处理；处理单个peer时，通过两个Stream并发搬运
 不同的数据分片。
 
 样例采用一进程一Device的运行方式。每个rank使用自己的rank ID填充本端HCCL Buffer，再从其他rank读取
@@ -42,15 +41,15 @@ peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端�
 
 | Channel顺序 | 链路协议 | `pathMode` | 路径类型 | 数据范围 |
 | --- | --- | --- | --- | --- |
-| 1 | `COMM_PROTOCOL_UB_MEM` | `2` | one path | 前2 KB |
-| 2 | `COMM_PROTOCOL_UB_MEM` | `3` | multi path | 后2 KB |
+| 1 | `COMM_PROTOCOL_UB_MEM` | `1` | one path | 前2 KB |
+| 2 | `COMM_PROTOCOL_UB_MEM` | `2` | multi path | 后2 KB |
 
 ### 实现流程
 
 1. rank 0生成并分发一份`HcclRootInfo`，各rank初始化同一个通信域。
 2. 每个rank获取本端HCCL Buffer并写入rank ID，再通过`HcclCommMemReg`注册Channel所需的内存资源。
 3. 每个rank遍历RankGraph各层，为每个peer筛选一条`COMM_PROTOCOL_UB_MEM`链路。
-4. 每个peer基于同一组Endpoint构造`pathMode=2`和`pathMode=3`两个描述。
+4. 每个peer基于同一组Endpoint构造`pathMode=1`和`pathMode=2`两个描述。
 5. 将所有peer的Channel描述一次性传入`HcclChannelAcquire`，批量创建Channel。
 6. 各peer按顺序处理；单个peer的两条Channel分别在两个Stream上读取前后两个2 KB分片，两个Kernel均下发后
    再同步Stream，因此并发范围仅限同一peer的两条path。
@@ -122,7 +121,7 @@ peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端�
 
   ```text
   rank 0/2: device=0, channels_per_peer=2, channel_descs=2
-  rank 0: peer=1, rank_graph_topo=5, protocol=UB_MEM, path_modes=2/3
+  rank 0: peer=1, rank_graph_topo=5, protocol=UB_MEM, path_modes=1/2
   rank 0: dual-path data copy from remote rank 1 passed, bytes=4096
   rank 0: dual-path validation passed
   ```
