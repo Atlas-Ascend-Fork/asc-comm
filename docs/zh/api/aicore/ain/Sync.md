@@ -1,5 +1,30 @@
 ﻿# Sync
 
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR/Ascend 950DT：支持URMA协议
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas 训练系列产品：不支持
+<!-- end id6 -->
+<!-- npu="x90" id7 -->
+- Kirin X90：不支持
+<!-- end id7 -->
+
 ## 功能说明
 
 执行`AinBarrierSession`绑定team内的barrier同步。
@@ -25,25 +50,27 @@ __aicore__ inline int32_t Sync(
 
 ## 参数说明
 
-| 参数 | 输入/输出 | 说明 |
+**表1**  模板参数说明
+
+| 参数名 | 描述 |
+| --- | --- |
+| `DescriptorUbuf` | UBuf临时工作区描述类型，默认`AinDescriptorUbuf`。 |
+
+**表2**  接口参数说明
+
+| 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
 | `order` | 输入 | barrier signal等待内存序，当前支持`AIN_MEMORY_ORDER_RELAX`。 |
 | `timeoutCycles` | 输入 | 最大轮询次数，仅带超时重载使用。 |
 | `ubuf` | 输入 | 底层Hcomm使用的UBuf临时工作区描述。 |
 
-## 模板参数
-
-| 参数 | 说明 |
-| --- | --- |
-| `DescriptorUbuf` | UBuf临时工作区描述类型，默认`AinDescriptorUbuf`。 |
-
-## 返回值
+## 返回值说明
 
 无超时重载无返回值。
 
 带超时重载返回值如下：
 
-| 返回值 | 说明 |
+| 返回值 | 描述 |
 | --- | --- |
 | `0` | 同步成功。 |
 | `-1` | 等待超过`timeoutCycles`，同步失败。 |
@@ -57,3 +84,21 @@ __aicore__ inline int32_t Sync(
 - 无超时重载会持续轮询直到所有其他rank到达barrier，调用方需要保证team内rank对称调用，避免Kernel永久等待。
 - 带超时重载的`timeoutCycles`表示轮询次数，返回`-1`时只表示本rank等待超时，不会回滚已经发出的signal。
 - 当前只支持`COMM_PROTOCOL_UBC_CTP`协议路径。
+
+## 调用示例
+
+Sync接口的调用示例如下。
+
+```cpp
+AscendC::Ain<> ain;
+AscendC::AinBarrierSession<> barrierSession(&ain, team, 0);
+
+// 无超时同步
+barrierSession.Sync(AscendC::AIN_MEMORY_ORDER_RELAX);
+
+// 带超时同步
+int32_t ret = barrierSession.Sync(AscendC::AIN_MEMORY_ORDER_RELAX, 10000);
+if (ret != 0) {
+    // 超时处理
+}
+```
