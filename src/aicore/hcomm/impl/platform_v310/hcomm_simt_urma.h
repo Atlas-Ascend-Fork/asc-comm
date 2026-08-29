@@ -425,28 +425,30 @@ __simt_callee__ inline void HcommSimtStorePreparedBatchWqeToSq(
         (static_cast<uint64_t>(sgeNum) << 24U);
     __gm__ uint8_t* sqeAddr = reinterpret_cast<__gm__ uint8_t*>(
         post.sqBaseAddr + post.sqWqeSize * (curHead % post.meta.sqDepth));
-    __gm__ ulonglong2* firstBb = reinterpret_cast<__gm__ ulonglong2*>(sqeAddr);
-    asc_stwt(&firstBb[0], make_ulonglong2(firstWord, word1));
-    asc_stwt(&firstBb[1], make_ulonglong2(baseTemplate.remoteEidL, baseTemplate.remoteEidH));
-    asc_stwt(&firstBb[2], make_ulonglong2(baseTemplate.tokenWord, item->words[5]));
+    __gm__ ulonglong4* firstBb = reinterpret_cast<__gm__ ulonglong4*>(sqeAddr);
+    asc_stwt(&firstBb[0], make_ulonglong4(
+        firstWord, word1, baseTemplate.remoteEidL, baseTemplate.remoteEidH));
     if (kind == HcommSimtBatchKind::NOTIFY) {
         const uint64_t notifyToken = static_cast<uint64_t>((baseTemplate.word1 >> 32U) & 0xFFFFFU) |
             ((baseTemplate.tokenWord & 0xFFFFFFFFULL) << 32U);
-        asc_stwt(&firstBb[3], make_ulonglong2(notifyToken, item->words[7]));
+        asc_stwt(&firstBb[1], make_ulonglong4(
+            baseTemplate.tokenWord, item->words[5], notifyToken, item->words[7]));
     } else {
-        asc_stwt(&firstBb[3], make_ulonglong2(item->words[6], item->words[7]));
+        asc_stwt(&firstBb[1], make_ulonglong4(
+            baseTemplate.tokenWord, item->words[5], item->words[6], item->words[7]));
     }
     if (itemBb == HCOMM_URMA_WQE_BB_CNT) {
         return;
     }
 
-    __gm__ ulonglong2* secondBb = (curHead % post.meta.sqDepth) == post.meta.sqDepth - 1U ?
-        reinterpret_cast<__gm__ ulonglong2*>(post.sqBaseAddr) : firstBb + HCOMM_SIMT_BB_WORDS / 2U;
+    __gm__ uint8_t* secondBbAddr = (curHead % post.meta.sqDepth) == post.meta.sqDepth - 1U ?
+        reinterpret_cast<__gm__ uint8_t*>(post.sqBaseAddr) : sqeAddr + HCOMM_URMA_WQE_BB_SIZE;
     if (kind == HcommSimtBatchKind::NOTIFY) {
-        asc_stwt(&secondBb[0], make_ulonglong2(item->words[8], 0U));
-        asc_stwt(&secondBb[1], make_ulonglong2(item->words[10], item->words[11]));
+        asc_stwt(reinterpret_cast<__gm__ ulonglong4*>(secondBbAddr), make_ulonglong4(
+            item->words[8], 0U, item->words[10], item->words[11]));
     } else {
-        asc_stwt(&secondBb[0], make_ulonglong2(item->words[8], item->words[9]));
+        asc_stwt(reinterpret_cast<__gm__ ulonglong2*>(secondBbAddr), make_ulonglong2(
+            item->words[8], item->words[9]));
     }
 }
 
