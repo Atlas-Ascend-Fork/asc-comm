@@ -20,7 +20,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -142,9 +141,15 @@ static inline HcommResult HcommCreateSharedChannels(
 
 static inline HcommResult HcommWaitChannelsReady(const ChannelHandle* channels, uint32_t channelNum)
 {
-    int32_t* statuses = (int32_t*)calloc(channelNum, sizeof(int32_t));
-    if (statuses == NULL) {
-        fprintf(stderr, "[ERROR] [%s] allocate channel status array failed, channelNum[%u].\n", __func__, channelNum);
+    int32_t* statuses = NULL;
+    aclError aclRet = aclrtMallocHost((void**)&statuses, (size_t)channelNum * sizeof(int32_t));
+    if (aclRet != ACL_SUCCESS || statuses == NULL) {
+        fprintf(
+            stderr, "[ERROR] [%s] aclrtMallocHost channel status array failed, channelNum[%u], ret[%d].\n", __func__,
+            channelNum, aclRet);
+        if (statuses != NULL) {
+            (void)aclrtFreeHost(statuses);
+        }
         return HCCL_E_MEMORY;
     }
 
@@ -152,7 +157,7 @@ static inline HcommResult HcommWaitChannelsReady(const ChannelHandle* channels, 
         HcommResult ret = DlHcommApi::HcommChannelGetStatus(channels, channelNum, statuses);
         if (ret != HCCL_SUCCESS && ret != HCCL_E_AGAIN) {
             fprintf(stderr, "[ERROR] [%s] HcommChannelGetStatus failed, ret[%d].\n", __func__, ret);
-            free(statuses);
+            (void)aclrtFreeHost(statuses);
             return ret;
         }
         if (ret == HCCL_E_AGAIN) {
@@ -164,19 +169,19 @@ static inline HcommResult HcommWaitChannelsReady(const ChannelHandle* channels, 
         for (uint32_t i = 0U; i < channelNum; ++i) {
             if (statuses[i] == HCOMM_CHANNEL_STATUS_FAILED) {
                 fprintf(stderr, "[ERROR] [%s] channel[%u] connection failed.\n", __func__, i);
-                free(statuses);
+                (void)aclrtFreeHost(statuses);
                 return HCCL_E_INTERNAL;
             }
             if (statuses[i] == HCOMM_CHANNEL_STATUS_TIMEOUT) {
                 fprintf(stderr, "[ERROR] [%s] channel[%u] connection timed out.\n", __func__, i);
-                free(statuses);
+                (void)aclrtFreeHost(statuses);
                 return HCCL_E_TIMEOUT;
             }
             if (statuses[i] == HCOMM_CHANNEL_STATUS_RES_LOC_UNAVAIL ||
                 statuses[i] == HCOMM_CHANNEL_STATUS_RES_RMT_UNAVAIL) {
                 fprintf(
                     stderr, "[ERROR] [%s] channel[%u] resource unavailable, status[%d].\n", __func__, i, statuses[i]);
-                free(statuses);
+                (void)aclrtFreeHost(statuses);
                 return HCCL_E_UNAVAIL;
             }
             if (statuses[i] != HCOMM_CHANNEL_STATUS_READY) {
@@ -184,14 +189,14 @@ static inline HcommResult HcommWaitChannelsReady(const ChannelHandle* channels, 
             }
         }
         if (allReady != 0) {
-            free(statuses);
+            (void)aclrtFreeHost(statuses);
             return HCCL_SUCCESS;
         }
         (void)usleep(HCOMM_CHANNEL_READY_RETRY_INTERVAL_US);
     }
 
     fprintf(stderr, "[ERROR] [%s] waiting for channels timed out.\n", __func__);
-    free(statuses);
+    (void)aclrtFreeHost(statuses);
     return HCCL_E_TIMEOUT;
 }
 
@@ -274,17 +279,28 @@ static inline int32_t HcommPrepareMultiChannelEntity(
         *totalSize += (size_t)channelNum * sizeof(ChannelHandle);
     }
 
-    *hostMemory = calloc(1U, *totalSize);
-    if (*hostMemory == NULL) {
-        fprintf(stderr, "[ERROR] [%s] allocate host staging memory failed.\n", __func__);
+    aclError aclRet = aclrtMallocHost(hostMemory, *totalSize);
+    if (aclRet != ACL_SUCCESS || *hostMemory == NULL) {
+        fprintf(stderr, "[ERROR] [%s] aclrtMallocHost staging memory failed, ret[%d].\n", __func__, aclRet);
+        if (*hostMemory != NULL) {
+            (void)aclrtFreeHost(*hostMemory);
+            *hostMemory = NULL;
+        }
         return HCCL_E_MEMORY;
+    }
+    errno_t secureRet = memset_s(*hostMemory, *totalSize, 0, *totalSize);
+    if (secureRet != EOK) {
+        fprintf(stderr, "[ERROR] [%s] initialize host staging memory failed, ret[%d].\n", __func__, secureRet);
+        (void)aclrtFreeHost(*hostMemory);
+        *hostMemory = NULL;
+        return HCCL_E_INTERNAL;
     }
     entity = (MultiChannelEntity*)*hostMemory;
     channelInfos = (MultiChannelRemoteInfo*)((uint8_t*)*hostMemory + sizeof(MultiChannelEntity));
     for (uint32_t i = 0U; i < channelNum; ++i) {
         ret = HcommExtractChannelMetadata(channels[i], i, &currentMetadata);
         if (ret != HCCL_SUCCESS) {
-            free(*hostMemory);
+            (void)aclrtFreeHost(*hostMemory);
             *hostMemory = NULL;
             return ret;
         }
@@ -300,7 +316,7 @@ static inline int32_t HcommPrepareMultiChannelEntity(
             (size_t)channelNum * sizeof(ChannelHandle));
         if (secureRet != EOK) {
             fprintf(stderr, "[ERROR] [%s] copy owned channel handles failed, ret[%d].\n", __func__, secureRet);
-            free(*hostMemory);
+            (void)aclrtFreeHost(*hostMemory);
             *hostMemory = NULL;
             return HCCL_E_INTERNAL;
         }
@@ -321,13 +337,13 @@ static inline HcclResult HcommBuildMultiChannelEntityWithComm(
     HcclResult ret = DlHcommApi::HcclEngineCtxCreate(comm, sharedQueueTag, COMM_ENGINE_AIV, totalSize, deviceMemory);
     if (ret != HCCL_SUCCESS || *deviceMemory == NULL) {
         fprintf(stderr, "[ERROR] [%s] HcclEngineCtxCreate failed, ret[%d].\n", __func__, ret);
-        free(hostMemory);
+        (void)aclrtFreeHost(hostMemory);
         return ret == HCCL_SUCCESS ? HCCL_E_MEMORY : ret;
     }
     MultiChannelEntity* entity = (MultiChannelEntity*)hostMemory;
     entity->remoteInfoAddr = (uint64_t)(uintptr_t)*deviceMemory + sizeof(MultiChannelEntity);
     ret = DlHcommApi::HcclEngineCtxCopy(comm, COMM_ENGINE_AIV, sharedQueueTag, hostMemory, totalSize, 0U);
-    free(hostMemory);
+    (void)aclrtFreeHost(hostMemory);
     if (ret != HCCL_SUCCESS) {
         fprintf(stderr, "[ERROR] [%s] HcclEngineCtxCopy failed, ret[%d].\n", __func__, ret);
         *deviceMemory = NULL;
@@ -349,13 +365,13 @@ static inline HcommResult HcommBuildMultiChannelEntity(
     aclError aclRet = aclrtMalloc(deviceMemory, totalSize, ACL_MEM_MALLOC_HUGE_FIRST);
     if (aclRet != ACL_SUCCESS || *deviceMemory == NULL) {
         fprintf(stderr, "[ERROR] [%s] aclrtMalloc failed, ret[%d].\n", __func__, aclRet);
-        free(hostMemory);
+        (void)aclrtFreeHost(hostMemory);
         return aclRet == ACL_SUCCESS ? HCCL_E_MEMORY : HCCL_E_RUNTIME;
     }
     MultiChannelEntity* entity = (MultiChannelEntity*)hostMemory;
     entity->remoteInfoAddr = (uint64_t)(uintptr_t)*deviceMemory + sizeof(MultiChannelEntity);
     aclRet = aclrtMemcpy(*deviceMemory, totalSize, hostMemory, totalSize, ACL_MEMCPY_HOST_TO_DEVICE);
-    free(hostMemory);
+    (void)aclrtFreeHost(hostMemory);
     if (aclRet != ACL_SUCCESS) {
         fprintf(stderr, "[ERROR] [%s] copy multi-channel entity to device failed, ret[%d].\n", __func__, aclRet);
         aclError freeRet = aclrtFree(*deviceMemory);
@@ -372,9 +388,10 @@ static inline HcclResult HcommHostMakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
 {
-    ChannelHandle* channels;
+    ChannelHandle* channels = NULL;
     void* deviceMemory = NULL;
     HcclResult ret;
+    aclError aclRet;
 
     if (multiChannel == NULL) {
         fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
@@ -386,21 +403,29 @@ static inline HcclResult HcommHostMakeMultiChannelHandle(
         return HCCL_E_PARA;
     }
 
-    channels = (ChannelHandle*)calloc(channelNum, sizeof(ChannelHandle));
-    if (channels == NULL) {
-        fprintf(stderr, "[ERROR] [%s] allocate channel handles failed, channelNum[%u].\n", __func__, channelNum);
+    aclRet = aclrtMallocHost((void**)&channels, (size_t)channelNum * sizeof(ChannelHandle));
+    if (aclRet != ACL_SUCCESS || channels == NULL) {
+        fprintf(
+            stderr, "[ERROR] [%s] aclrtMallocHost channel handles failed, channelNum[%u], ret[%d].\n", __func__,
+            channelNum, aclRet);
+        if (channels != NULL) {
+            (void)aclrtFreeHost(channels);
+        }
         return HCCL_E_MEMORY;
     }
     ret = DlHcommApi::LoadHcclApi();
     if (ret != HCCL_SUCCESS) {
-        free(channels);
+        (void)aclrtFreeHost(channels);
         return ret;
     }
     ret = HcommAcquireSharedChannelsWithComm(comm, sharedQueueTag, channelDescs, channelNum, channels);
     if (ret == HCCL_SUCCESS) {
         ret = HcommBuildMultiChannelEntityWithComm(comm, channels, sharedQueueTag, channelNum, &deviceMemory);
     }
-    free(channels);
+    aclError freeRet = aclrtFreeHost(channels);
+    if (freeRet != ACL_SUCCESS && ret == HCCL_SUCCESS) {
+        ret = HCCL_E_RUNTIME;
+    }
     if (ret != HCCL_SUCCESS) {
         return ret;
     }
@@ -432,6 +457,9 @@ static inline HcommResult HcommHostMakeMultiChannelHandle(
     aclRet = aclrtMallocHost((void**)&channels, (size_t)channelNum * sizeof(ChannelHandle));
     if (aclRet != ACL_SUCCESS || channels == NULL) {
         fprintf(stderr, "[ERROR] [%s] aclrtMallocHost failed, channelNum[%u], ret[%d].\n", __func__, channelNum, aclRet);
+        if (channels != NULL) {
+            (void)aclrtFreeHost(channels);
+        }
         return HCCL_E_MEMORY;
     }
     ret = DlHcommApi::LoadHcommApi();
@@ -496,9 +524,14 @@ static inline HcommResult HcommHostDestroyMultiChannelHandle(MultiChannelHandle 
         return HCCL_E_INTERNAL;
     }
 
-    channels = (ChannelHandle*)calloc(entity.channelNum, sizeof(ChannelHandle));
-    if (channels == NULL) {
-        fprintf(stderr, "[ERROR] [%s] allocate channel handles failed, channelNum[%u].\n", __func__, entity.channelNum);
+    aclRet = aclrtMallocHost((void**)&channels, (size_t)entity.channelNum * sizeof(ChannelHandle));
+    if (aclRet != ACL_SUCCESS || channels == NULL) {
+        fprintf(
+            stderr, "[ERROR] [%s] aclrtMallocHost channel handles failed, channelNum[%u], ret[%d].\n", __func__,
+            entity.channelNum, aclRet);
+        if (channels != NULL) {
+            (void)aclrtFreeHost(channels);
+        }
         return HCCL_E_MEMORY;
     }
     aclRet = aclrtMemcpy(
@@ -507,13 +540,13 @@ static inline HcommResult HcommHostDestroyMultiChannelHandle(MultiChannelHandle 
         ACL_MEMCPY_DEVICE_TO_HOST);
     if (aclRet != ACL_SUCCESS) {
         fprintf(stderr, "[ERROR] [%s] copy owned channel handles from device failed, ret[%d].\n", __func__, aclRet);
-        free(channels);
+        (void)aclrtFreeHost(channels);
         return HCCL_E_RUNTIME;
     }
 
     ret = DlHcommApi::LoadHcommApi();
     if (ret != HCCL_SUCCESS) {
-        free(channels);
+        (void)aclrtFreeHost(channels);
         return ret;
     }
     ret = DlHcommApi::HcommChannelDestroy(channels, entity.channelNum);
@@ -524,7 +557,7 @@ static inline HcommResult HcommHostDestroyMultiChannelHandle(MultiChannelHandle 
     if (aclRet != ACL_SUCCESS) {
         fprintf(stderr, "[ERROR] [%s] aclrtFree failed, ret[%d].\n", __func__, aclRet);
     }
-    free(channels);
+    (void)aclrtFreeHost(channels);
     return ret == HCCL_SUCCESS && aclRet != ACL_SUCCESS ? HCCL_E_RUNTIME : ret;
 }
 
