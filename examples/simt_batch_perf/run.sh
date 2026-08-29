@@ -80,15 +80,24 @@ if [[ "$mode" == "group" || "$mode" == "compare" ]]; then
         [[ "$lanes" =~ ^[0-9]+$ ]] && ((lanes >= 2 && lanes <= 1024)) || {
             echo "group lanes must be comma-separated values in 2..1024" >&2; exit 1;
         }
-        ((group_batch_size % lanes == 0 && iterations % lanes == 0 && warmup % lanes == 0)) || {
-            echo "iterations/warmup must be divisible by every group lane count" >&2; exit 1;
-        }
     done
 fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 binary="${script_dir}/build/simt_batch_perf"
 [[ -x "$binary" ]] || { echo "build first: bash ${script_dir}/build.sh" >&2; exit 1; }
+large_group_enabled=OFF
+if [[ -f "${script_dir}/build/large_group_enabled" ]]; then
+    large_group_enabled="$(<"${script_dir}/build/large_group_enabled")"
+fi
+if [[ "$large_group_enabled" != "ON" && ("$mode" == "group" || "$mode" == "compare") ]]; then
+    for lanes in "${lane_counts[@]}"; do
+        if ((lanes > 32)); then
+            echo "group lanes >32 require: bash ${script_dir}/build.sh --full" >&2
+            exit 1
+        fi
+    done
+fi
 code_version="$(git -C "${script_dir}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 mkdir -p "${script_dir}/results"
 if [[ -z "$log_file" ]]; then
@@ -96,7 +105,7 @@ if [[ -z "$log_file" ]]; then
 fi
 mkdir -p "$(dirname "$log_file")"
 exec > >(tee "$log_file") 2>&1
-echo "TEST_INFO | Suite=simt_batch_perf | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | PayloadBytes=${payload_bytes} | PrimaryBatchSize=${batch_size} | ReferenceBatchSize=${reference_batch_size} | LargeBatchSize=${large_batch_size} | GroupLanes=${group_lanes}"
+echo "TEST_INFO | Suite=simt_batch_perf | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | PayloadBytes=${payload_bytes} | PrimaryBatchSize=${batch_size} | ReferenceBatchSize=${reference_batch_size} | LargeBatchSize=${large_batch_size} | GroupLanes=${group_lanes} | LargeGroup=${large_group_enabled}"
 apis=(write read notify write_value faa cas)
 [[ "$api" == "all" ]] || apis=("$api")
 active_dir=""
@@ -159,8 +168,11 @@ for current_api in "${apis[@]}"; do
             ! run_case "$current_api" batch "$large_batch_size"; then status=1; fi
         for lanes in "${lane_counts[@]}"; do
             if ! run_case "$current_api" group "$reference_batch_size" "$lanes"; then status=1; fi
+            if ((lanes > batch_size)) &&
+                ! run_case "$current_api" group "$batch_size" "$lanes"; then status=1; fi
         done
-        if ! run_case "$current_api" group "$large_batch_size" 1024 0; then status=1; fi
+        if [[ "$large_group_enabled" == "ON" ]] &&
+            ! run_case "$current_api" group "$large_batch_size" 1024 0; then status=1; fi
     elif [[ "$mode" == "group" ]]; then
         for lanes in "${lane_counts[@]}"; do
             if ! run_case "$current_api" group "$batch_size" "$lanes"; then status=1; fi

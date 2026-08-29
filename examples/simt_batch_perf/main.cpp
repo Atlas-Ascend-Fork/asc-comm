@@ -360,8 +360,8 @@ int main(int argc, char* argv[])
     if ((nranks != 2 && nranks != 8) || rank < 0 || rank >= nranks || !ValidApi(apiName) || iterations == 0U ||
         payloadBytes < 2U || batchSize == 0U || batchSize > kMaxBatchSize ||
         (mode != "immediate" && mode != "batch" && mode != "group") ||
-        (mode == "group" && (groupLanes <= 1U || groupLanes > kMaxGroupLanes || batchSize % groupLanes != 0U ||
-         iterations % batchSize != 0U || warmup % groupLanes != 0U || (warmup != 0U && warmup < groupLanes))) ||
+        (mode == "group" && (groupLanes <= 1U || groupLanes > kMaxGroupLanes ||
+         iterations % batchSize != 0U)) ||
         (mode != "group" && groupLanes != 1U)) {
         return 1;
     }

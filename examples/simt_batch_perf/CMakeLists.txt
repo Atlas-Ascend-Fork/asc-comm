@@ -17,7 +17,7 @@ project(simt_batch_perf LANGUAGES ASC CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-option(SIMT_BATCH_ENABLE_LARGE_GROUP "Compile the 1024-lane GroupBatch maintenance path" ON)
+option(SIMT_BATCH_ENABLE_LARGE_GROUP "Compile the 1024-lane GroupBatch maintenance path" OFF)
 set_source_files_properties(op_kernel.cpp PROPERTIES LANGUAGE ASC)
 
 add_executable(simt_batch_perf main.cpp op_kernel.cpp)

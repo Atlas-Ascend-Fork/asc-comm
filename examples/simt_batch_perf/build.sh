@@ -16,7 +16,7 @@ if [[ -z "${ASCEND_HOME_PATH:-}" ]]; then
 fi
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 build_dir="${script_dir}/build"
-large_group=ON
+large_group=OFF
 clean=0
 for option in "$@"; do
     case "$option" in
@@ -32,3 +32,4 @@ fi
 cmake -S "$script_dir" -B "$build_dir" -DCMAKE_ASC_ARCHITECTURES=dav-3510 \
     -DSIMT_BATCH_ENABLE_LARGE_GROUP="$large_group"
 cmake --build "$build_dir" --verbose --parallel "${BUILD_JOBS:-$(nproc)}"
+printf '%s\n' "$large_group" >"${build_dir}/large_group_enabled"
