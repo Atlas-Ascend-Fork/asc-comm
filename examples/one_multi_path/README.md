@@ -42,8 +42,8 @@ peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端�
 
 | Channel顺序 | 链路协议 | `pathMode` | 路径类型 | 数据范围 |
 | --- | --- | --- | --- | --- |
-| 1 | `COMM_PROTOCOL_UB_MEM` | `2` | one path | 前2 KB |
-| 2 | `COMM_PROTOCOL_UB_MEM` | `3` | multi path | 后2 KB |
+| 1 | `COMM_PROTOCOL_UB_MEM` | `1` | one path | 前2 KB |
+| 2 | `COMM_PROTOCOL_UB_MEM` | `2` | multi path | 后2 KB |
 
 ### 实现流程
 

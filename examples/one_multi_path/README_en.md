@@ -45,8 +45,8 @@ For the same peer, the two channels use the same communication endpoints and are
 
 | Channel Order | Link Protocol | `pathMode` | Path Type | Data Range |
 | --- | --- | --- | --- | --- |
-| 1 | `COMM_PROTOCOL_UB_MEM` | `2` | one path | First 2 KB |
-| 2 | `COMM_PROTOCOL_UB_MEM` | `3` | multi path | Second 2 KB |
+| 1 | `COMM_PROTOCOL_UB_MEM` | `1` | one path | First 2 KB |
+| 2 | `COMM_PROTOCOL_UB_MEM` | `2` | multi path | Second 2 KB |
 
 ### Implementation Flow
 

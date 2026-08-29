@@ -56,8 +56,8 @@ namespace {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 constexpr size_t CHANNEL_MEMORY_BYTES = 2UL * 1024UL * 1024UL;
 constexpr uint32_t VERIFY_BYTES = 4UL * 1024UL;
-constexpr uint8_t PATH_MODE_ONE = 2;
-constexpr uint8_t PATH_MODE_MULTI = 3;
+constexpr uint8_t PATH_MODE_ONE = 1;
+constexpr uint8_t PATH_MODE_MULTI = 2;
 constexpr CommProtocol TARGET_PROTOCOL = COMM_PROTOCOL_UB_MEM;
 constexpr uint32_t PATH_COUNT = 2;
 constexpr time_t SOCKET_IO_TIMEOUT_SECONDS = 30;
