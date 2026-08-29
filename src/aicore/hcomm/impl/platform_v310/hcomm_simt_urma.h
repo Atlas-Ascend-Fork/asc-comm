@@ -1030,22 +1030,31 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
 {
     if (!initialized_ || !batchHandle.valid || batchHandle.prepared == 0U ||
         batchHandle.preparedCqe != batchHandle.prepared || batchHandle.lastCqe != 1U ||
-        batchHandle.lastBb == 0U || *batchHandle.headAddr != batchHandle.headSnapshot) {
+        batchHandle.lastBb == 0U) {
         return HCOMM_FAILED;
     }
 
+    __gm__ HcommSimtChannelEntity* channelEntity =
+        reinterpret_cast<__gm__ HcommSimtChannelEntity*>(batchHandle.channel);
+    __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
+    __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
     HcommSimtResolvedPost post;
-    post.headAddr = batchHandle.headAddr;
-    post.sqTailAddr = batchHandle.sqTailAddr;
-    post.dwqeAddr = batchHandle.dwqeAddr;
-    post.sqBaseAddr = batchHandle.sqBaseAddr;
-    post.sqWqeSize = batchHandle.sqWqeSize;
-    post.meta.sqDepth = batchHandle.sqDepth;
-    post.meta.tpId = batchHandle.tpId;
-    post.meta.remoteEidL = batchHandle.remoteEidL;
-    post.meta.remoteEidH = batchHandle.remoteEidH;
+    post.headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
+    post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx->contextInfo.ubJfs.tailAddr);
+    post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+        sqCtx->contextInfo.ubJfs.dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
+    post.sqBaseAddr = sqCtx->contextInfo.ubJfs.sqVa;
+    post.sqWqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
+    post.meta.sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
+    post.meta.tpId = sqCtx->contextInfo.ubJfs.tpID;
+    __gm__ uint64_t* remoteEid = reinterpret_cast<__gm__ uint64_t*>(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
+    post.meta.remoteEidL = remoteEid[0];
+    post.meta.remoteEidH = remoteEid[1];
     post.meta.remoteTokenId = batchHandle.remoteTokenId;
     post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
+    if (*post.headAddr != batchHandle.headSnapshot) {
+        return HCOMM_FAILED;
+    }
 
     const uint32_t totalBb = batchHandle.preparedBb +
         (batchHandle.lastBb == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U);
