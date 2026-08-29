@@ -362,11 +362,8 @@ __simt_callee__ inline void HcommSimtBuildBatchWqe(
     const uint32_t owner = (curHead & baseTemplate.sqDepth) == 0U ? 1U : 0U;
 
     // The descriptor is smaller than a WQE, so build the final layout only after reservation.
-    // Clearing the stage makes the 128-byte DWQE tail deterministic without adding UB traffic.
-#pragma unroll
-    for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
-        stage.words[word] = 0U;
-    }
+    // Unused words are not consumed by the NIC and need no initialization; every field in the
+    // active layout is assigned explicitly below.
     stage.words[0] = static_cast<uint64_t>(nextHead & 0xFFFFU) |
         (static_cast<uint64_t>(flag) << 16U) | (1ULL << 28U) | (1ULL << 29U) |
         (static_cast<uint64_t>(owner) << 31U) | (static_cast<uint64_t>(opcode) << 40U) |
@@ -394,6 +391,7 @@ __simt_callee__ inline void HcommSimtBuildBatchWqe(
             ((baseTemplate.tokenWord & 0xFFFFFFFFULL) << 32U);
         stage.words[7] = item->auxAddr;
         stage.words[8] = item->arg1;
+        stage.words[9] = 0U;
         stage.words[10] = static_cast<uint32_t>(item->arg0);
         stage.words[11] = item->localAddr;
     } else if (kind == HcommSimtBatchKind::INLINE) {
