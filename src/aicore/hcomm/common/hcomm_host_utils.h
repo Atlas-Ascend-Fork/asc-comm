@@ -30,18 +30,18 @@
 #include "hccl/hccl_res.h"
 #include "hcomm/hcomm_res_entity_defs.h"
 
-typedef HcclResult (*HcommHcclChannelConfigCreateFunc)(HcclChannelConfig* config);
-typedef HcclResult (*HcommHcclChannelConfigDestroyFunc)(HcclChannelConfig config);
-typedef HcclResult (*HcommHcclChannelConfigSetIntFunc)(
+typedef HcclResult (*HcclChannelConfigCreateFunc)(HcclChannelConfig* config);
+typedef HcclResult (*HcclChannelConfigDestroyFunc)(HcclChannelConfig config);
+typedef HcclResult (*HcclChannelConfigSetIntFunc)(
     HcclChannelConfig config, HcclChannelConfigType type, uint32_t value);
-typedef HcclResult (*HcommHcclChannelConfigSetStrFunc)(
+typedef HcclResult (*HcclChannelConfigSetStrFunc)(
     HcclChannelConfig config, HcclChannelConfigType type, const char* value);
-typedef HcclResult (*HcommHcclChannelAcquireWithConfigFunc)(
+typedef HcclResult (*HcclChannelAcquireWithConfigFunc)(
     HcclComm comm, CommEngine engine, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     HcclChannelConfig config, ChannelHandle* channels);
-typedef HcclResult (*HcommHcclEngineCtxCreateFunc)(
+typedef HcclResult (*HcclEngineCtxCreateFunc)(
     HcclComm comm, const char* ctxTag, CommEngine engine, uint64_t size, void** ctx);
-typedef HcclResult (*HcommHcclEngineCtxCopyFunc)(
+typedef HcclResult (*HcclEngineCtxCopyFunc)(
     HcclComm comm, CommEngine engine, const char* ctxTag, const void* srcCtx, uint64_t size, uint64_t dstCtxOffset);
 typedef HcommResult (*HcommChannelConfigCreateFunc)(HcommChannelConfig* config);
 typedef HcommResult (*HcommChannelConfigDestroyFunc)(HcommChannelConfig config);
@@ -62,43 +62,43 @@ public:
 
     static inline HcclResult HcclChannelConfigCreate(HcclChannelConfig* config)
     {
-        return GetHcclApi().HcclChannelConfigCreate(config);
+        return GetHcommApi().HcclChannelConfigCreate(config);
     }
 
     static inline HcclResult HcclChannelConfigDestroy(HcclChannelConfig config)
     {
-        return GetHcclApi().HcclChannelConfigDestroy(config);
+        return GetHcommApi().HcclChannelConfigDestroy(config);
     }
 
     static inline HcclResult HcclChannelConfigSetInt(
         HcclChannelConfig config, HcclChannelConfigType type, uint32_t value)
     {
-        return GetHcclApi().HcclChannelConfigSetInt(config, type, value);
+        return GetHcommApi().HcclChannelConfigSetInt(config, type, value);
     }
 
     static inline HcclResult HcclChannelConfigSetStr(
         HcclChannelConfig config, HcclChannelConfigType type, const char* value)
     {
-        return GetHcclApi().HcclChannelConfigSetStr(config, type, value);
+        return GetHcommApi().HcclChannelConfigSetStr(config, type, value);
     }
 
     static inline HcclResult HcclChannelAcquireWithConfig(
         HcclComm comm, CommEngine engine, const HcclChannelDesc* channelDescs, uint32_t channelNum,
         HcclChannelConfig config, ChannelHandle* channels)
     {
-        return GetHcclApi().HcclChannelAcquireWithConfig(comm, engine, channelDescs, channelNum, config, channels);
+        return GetHcommApi().HcclChannelAcquireWithConfig(comm, engine, channelDescs, channelNum, config, channels);
     }
 
     static inline HcclResult HcclEngineCtxCreate(
         HcclComm comm, const char* ctxTag, CommEngine engine, uint64_t size, void** ctx)
     {
-        return GetHcclApi().HcclEngineCtxCreate(comm, ctxTag, engine, size, ctx);
+        return GetHcommApi().HcclEngineCtxCreate(comm, ctxTag, engine, size, ctx);
     }
 
     static inline HcclResult HcclEngineCtxCopy(
         HcclComm comm, CommEngine engine, const char* ctxTag, const void* srcCtx, uint64_t size, uint64_t dstCtxOffset)
     {
-        return GetHcclApi().HcclEngineCtxCopy(comm, engine, ctxTag, srcCtx, size, dstCtxOffset);
+        return GetHcommApi().HcclEngineCtxCopy(comm, engine, ctxTag, srcCtx, size, dstCtxOffset);
     }
 
     static inline HcommResult HcommChannelConfigCreate(HcommChannelConfig* config)
@@ -137,19 +137,16 @@ public:
     }
 
 private:
-    struct HcclApi {
-        bool loaded = false;
-        HcommHcclChannelConfigCreateFunc HcclChannelConfigCreate = nullptr;
-        HcommHcclChannelConfigDestroyFunc HcclChannelConfigDestroy = nullptr;
-        HcommHcclChannelConfigSetIntFunc HcclChannelConfigSetInt = nullptr;
-        HcommHcclChannelConfigSetStrFunc HcclChannelConfigSetStr = nullptr;
-        HcommHcclChannelAcquireWithConfigFunc HcclChannelAcquireWithConfig = nullptr;
-        HcommHcclEngineCtxCreateFunc HcclEngineCtxCreate = nullptr;
-        HcommHcclEngineCtxCopyFunc HcclEngineCtxCopy = nullptr;
-    };
-
     struct HcommApi {
-        bool loaded = false;
+        bool hcclLoaded = false;
+        bool hcommLoaded = false;
+        HcclChannelConfigCreateFunc HcclChannelConfigCreate = nullptr;
+        HcclChannelConfigDestroyFunc HcclChannelConfigDestroy = nullptr;
+        HcclChannelConfigSetIntFunc HcclChannelConfigSetInt = nullptr;
+        HcclChannelConfigSetStrFunc HcclChannelConfigSetStr = nullptr;
+        HcclChannelAcquireWithConfigFunc HcclChannelAcquireWithConfig = nullptr;
+        HcclEngineCtxCreateFunc HcclEngineCtxCreate = nullptr;
+        HcclEngineCtxCopyFunc HcclEngineCtxCopy = nullptr;
         HcommChannelConfigCreateFunc HcommChannelConfigCreate = nullptr;
         HcommChannelConfigDestroyFunc HcommChannelConfigDestroy = nullptr;
         HcommChannelConfigSetIntFunc HcommChannelConfigSetInt = nullptr;
@@ -160,7 +157,6 @@ private:
 
     struct HcommLibrary {
         void* handle = nullptr;
-        HcclApi hcclApi;
         HcommApi hcommApi;
     };
 
@@ -168,8 +164,8 @@ private:
     {
         std::lock_guard<std::mutex> guard(GetMutex());
         HcommLibrary& library = GetLibrary();
-        HcclApi& api = library.hcclApi;
-        if (api.loaded) {
+        HcommApi& api = library.hcommApi;
+        if (api.hcclLoaded) {
             return HCCL_SUCCESS;
         }
         HcclResult ret = static_cast<HcclResult>(OpenLibrary(library));
@@ -177,16 +173,17 @@ private:
             return ret;
         }
 
-#define HCOMM_LOAD_SYMBOL(member, symbol)                                              \
-    do {                                                                               \
-        ret = static_cast<HcclResult>(LoadSymbol(library.handle, symbol, api.member)); \
-        if (ret != HCCL_SUCCESS) {                                                     \
-            api = HcclApi{};                                                           \
-            CloseLibraryIfUnused(library);                                             \
-            return ret;                                                                \
-        }                                                                              \
+#define HCOMM_LOAD_SYMBOL(member, symbol)                                                \
+    do {                                                                                 \
+        ret = static_cast<HcclResult>(LoadSymbol(                                        \
+            library.handle, symbol, loadedApi.member));                                 \
+        if (ret != HCCL_SUCCESS) {                                                       \
+            CloseLibraryIfUnused(library);                                               \
+            return ret;                                                                  \
+        }                                                                                \
     } while (0)
 
+        HcommApi loadedApi = api;
         HCOMM_LOAD_SYMBOL(HcclChannelConfigCreate, "HcclChannelConfigCreate");
         HCOMM_LOAD_SYMBOL(HcclChannelConfigDestroy, "HcclChannelConfigDestroy");
         HCOMM_LOAD_SYMBOL(HcclChannelConfigSetInt, "HcclChannelConfigSetInt");
@@ -197,7 +194,8 @@ private:
 
 #undef HCOMM_LOAD_SYMBOL
 
-        api.loaded = true;
+        loadedApi.hcclLoaded = true;
+        api = loadedApi;
         return HCCL_SUCCESS;
     }
 
@@ -206,7 +204,7 @@ private:
         std::lock_guard<std::mutex> guard(GetMutex());
         HcommLibrary& library = GetLibrary();
         HcommApi& api = library.hcommApi;
-        if (api.loaded) {
+        if (api.hcommLoaded) {
             return HCCL_SUCCESS;
         }
         HcommResult ret = static_cast<HcommResult>(OpenLibrary(library));
@@ -214,16 +212,17 @@ private:
             return ret;
         }
 
-#define HCOMM_LOAD_SYMBOL(member, symbol)                                               \
-    do {                                                                                \
-        ret = static_cast<HcommResult>(LoadSymbol(library.handle, symbol, api.member)); \
-        if (ret != HCCL_SUCCESS) {                                                      \
-            api = HcommApi{};                                                           \
-            CloseLibraryIfUnused(library);                                              \
-            return ret;                                                                 \
-        }                                                                               \
+#define HCOMM_LOAD_SYMBOL(member, symbol)                                                 \
+    do {                                                                                  \
+        ret = static_cast<HcommResult>(LoadSymbol(                                         \
+            library.handle, symbol, loadedApi.member));                                  \
+        if (ret != HCCL_SUCCESS) {                                                        \
+            CloseLibraryIfUnused(library);                                                \
+            return ret;                                                                   \
+        }                                                                                 \
     } while (0)
 
+        HcommApi loadedApi = api;
         HCOMM_LOAD_SYMBOL(HcommChannelConfigCreate, "HcommChannelConfigCreate");
         HCOMM_LOAD_SYMBOL(HcommChannelConfigDestroy, "HcommChannelConfigDestroy");
         HCOMM_LOAD_SYMBOL(HcommChannelConfigSetInt, "HcommChannelConfigSetInt");
@@ -233,7 +232,8 @@ private:
 
 #undef HCOMM_LOAD_SYMBOL
 
-        api.loaded = true;
+        loadedApi.hcommLoaded = true;
+        api = loadedApi;
         return HCCL_SUCCESS;
     }
 
@@ -269,8 +269,6 @@ private:
         return HCCL_SUCCESS;
     }
 
-    static HcclApi& GetHcclApi() { return GetLibrary().hcclApi; }
-
     static HcommApi& GetHcommApi() { return GetLibrary().hcommApi; }
 
     static HcommLibrary& GetLibrary()
@@ -287,7 +285,7 @@ private:
 
     static void CloseLibraryIfUnused(HcommLibrary& library)
     {
-        if (library.hcclApi.loaded || library.hcommApi.loaded) {
+        if (library.hcommApi.hcclLoaded || library.hcommApi.hcommLoaded) {
             return;
         }
         if (library.handle != nullptr) {
