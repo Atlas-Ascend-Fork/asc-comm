@@ -969,7 +969,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteValueNbi(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value)
 {
     return BatchPostWqe(
-        batchHandle, HcommSimtInlineDesc<T, true, config>{reinterpret_cast<__gm__ uint8_t*>(dst), value});
+        batchHandle, HcommSimtInlineDesc<T, false, config>{reinterpret_cast<__gm__ uint8_t*>(dst), value});
 }
 
 // Read swaps dst/src relative to Write: src is the remote address, dst the local one.
