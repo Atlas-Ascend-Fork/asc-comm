@@ -1,5 +1,30 @@
 # WriteWithNotifyNbi
 
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR/Ascend 950DT：支持URMA协议，不支持RoCE协议
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas 训练系列产品：不支持
+<!-- end id6 -->
+<!-- npu="x90" id7 -->
+- Kirin X90：不支持
+<!-- end id7 -->
+
 ## 功能说明
 
 将数据从本端`src`写入远端`dst`，并携带远端通知地址和通知值。接口提供普通`ChannelHandle`重载和BatchHandle重载：普通重载直接向通道提交任务；批量重载只在BatchHandle的UB缓冲区中准备写通知WQE，后续由`BatchCommit`统一提交。
@@ -43,7 +68,19 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 
 ## 参数说明
 
-| 参数 | 输入/输出 | 说明 |
+**表1**  模板参数说明
+
+| 参数名 | 描述 |
+| --- | --- |
+| `commit` | 普通接口是否在提交任务时立即commit。批量接口不提供该参数。 |
+| `commitPipe` | 普通接口commit使用的pipe，默认`PIPE_S`。 |
+| `reqPipe` | 普通接口请求使用的pipe，默认`PIPE_MTE3`。 |
+| `config` | URMA WQE控制配置。默认为`URMA_DEFAULT_CFG`(执行序为relax order + CQE保序上报 + 使能fence + 需要上报CQE)。批量接口要求`inlineEn = 0`且`cqe`只能为`0`或`1`。 |
+| `T` | 批量句柄类型，由`batchHandle`实参推导。 |
+
+**表2**  接口参数说明
+
+| 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
 | `channel` | 输入 | 普通接口使用的通信通道句柄。 |
 | `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的单通道批量句柄，或`GetHandleRef`返回的BatchHandle引用。 |
@@ -53,19 +90,9 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | `notifyAddr` | 输入 | 远端通知GM绝对地址。批量接口复用数据写操作使用的token，调用方必须保证通知地址属于同一注册内存。 |
 | `notifyVal` | 输入 | 远端通知值。 |
 
-## 模板参数
+## 返回值说明
 
-| 参数 | 说明 |
-| --- | --- |
-| `commit` | 普通接口是否在提交任务时立即commit。批量接口不提供该参数。 |
-| `commitPipe` | 普通接口commit使用的pipe，默认`PIPE_S`。 |
-| `reqPipe` | 普通接口请求使用的pipe，默认`PIPE_MTE3`。 |
-| `config` | URMA WQE控制配置。默认为`URMA_DEFAULT_CFG`（强序 + fence + 使能CQE）。批量接口要求`inlineEn = 0`且`cqe`只能为`0`或`1`。 |
-| `T` | 批量句柄类型，由`batchHandle`实参推导。 |
-
-## 返回值
-
-| 返回值 | 说明 |
+| 返回值 | 描述 |
 | --- | --- |
 | `0` | 普通任务提交成功，或批量WQE准备成功。 |
 | `-1` | 操作失败。批量接口中包括UB缓冲区剩余空间不足。`COMM_PROTOCOL_ROCE`普通路径也返回失败。 |
@@ -89,10 +116,20 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - 对批量句柄，数据地址和通知地址必须属于其选中的远端注册内存。
 - 两种模式下，`notifyAddr`都复用数据写操作的token，不单独查询或校验通知地址。调用方必须保证`dst`访问区间和`notifyAddr`属于同一注册内存。
 - 当缓冲区容量校验失败时返回`-1`，BatchHandle中的WQEBB计数和`cqHead`保持不变。
-- 准备完成后需要调用`BatchCommit`。多通道模式通过`GetHandleRef`返回的内层BatchHandle引用准备WQE，并通过外层`UbcMultiBatchHandle`提交。使用期间需要独占对应单通道或共享Jetty。
+- 准备完成后需要调用`BatchCommit`。多通道模式通过`GetHandleRef`返回的内层BatchHandle引用准备WQE，并通过外层`UbcCtpMultiBatchHandle`提交。使用期间需要独占对应单通道或共享Jetty。
 
-## 相关接口
+## 调用示例
 
-- [MakeBatchHandle](./MakeBatchHandle.md)
-- [GetHandleRef](./GetHandleRef.md)
-- [BatchCommit](./BatchCommit.md)
+WriteWithNotifyNbi接口的调用示例如下。
+
+```cpp
+// 普通接口
+hcomm.WriteWithNotifyNbi(channel, dst, src, len, notifyAddr, notifyVal);
+hcomm.Drain(channel);
+
+// 批量接口
+auto batchHandle = hcomm.MakeBatchHandle(channel, batchBuffer, batchBufferLen);
+hcomm.WriteWithNotifyNbi(batchHandle, dst, src, len, notifyAddr, notifyVal);
+hcomm.BatchCommit(batchHandle);
+hcomm.Drain(batchHandle);
+```
