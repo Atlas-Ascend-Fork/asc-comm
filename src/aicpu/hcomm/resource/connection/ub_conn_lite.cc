@@ -268,6 +268,9 @@ void UbConnLite::process_one_wqe(UdmaSqeWrite *sqe, UdmaSqOpcode opCode)
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
     u32 sqOffset = pi % sqDepth_;
+    if (sqOffset < sqDepth_ && (sqOffset + 1) >= sqDepth_) {
+        piDetourCount++;
+    }
     // pi维护用于传入DB Send用于Rtsq 敲door bell，要求u16数据结构并且自然增长
     pi = pi + 1;
 
@@ -290,6 +293,9 @@ void UbConnLite::process_one_wqe_with_notify(const RmaBufSliceLite &loc, const R
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
     u32 sqOffset = pi % sqDepth_;
+    if (sqOffset < sqDepth_ && (sqOffset + PI_NUM_TWO) >= sqDepth_) {
+        piDetourCount++;
+    }
     // pi维护用于传入DB Send用于Rtsq 敲door bell，要求u16数据结构并且自然增长
     pi = pi + PI_NUM_TWO;
     // 填充sqe
@@ -471,14 +477,16 @@ void UbConnLite::import_context(const UbConnLiteParam &liteParam)
     (void)memcpy_sp(rmtEid_, sizeof(rmtEid_), liteParam.rmtEid, sizeof(liteParam.rmtEid));
 }
 
-void UbConnLite::import_queue_state(u16 queuePi)
+void UbConnLite::import_queue_state(u16 queuePi, u32 queuePiDetourCount)
 {
     pi = queuePi;
+    piDetourCount = queuePiDetourCount;
 }
 
-void UbConnLite::export_queue_state(u16 &queuePi) const
+void UbConnLite::export_queue_state(u16 &queuePi, u32 &queuePiDetourCount) const
 {
     queuePi = pi;
+    queuePiDetourCount = piDetourCount;
 }
 
 } // namespace Asc

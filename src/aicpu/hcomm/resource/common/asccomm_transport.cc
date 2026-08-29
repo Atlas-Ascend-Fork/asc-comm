@@ -134,13 +134,13 @@ void fill_ub_param(const HcommChannelEntity &channel, const HcommJfsContext &jfs
 
 void import_ub_state(const HcommJfsContext &jfs, Asc::UbConnLite &connection)
 {
-    connection.import_queue_state(static_cast<uint16_t>(jfs.sqHead));
+    connection.import_queue_state(static_cast<uint16_t>(jfs.sqHead), jfs.piDetourCount);
 }
 
 void export_ub_state(Asc::UbConnLite &connection, HcommJfsContext &jfs)
 {
     uint16_t pi = 0;
-    connection.export_queue_state(pi);
+    connection.export_queue_state(pi, jfs.piDetourCount);
     jfs.sqHead = pi;
 }
 
