@@ -356,6 +356,12 @@ __simt_callee__ inline void HcommSimtBuildBatchWqe(
         (kind == HcommSimtBatchKind::DATA && publish ? 2U : 1U);
     const uint32_t owner = (curHead & baseTemplate.sqDepth) == 0U ? 1U : 0U;
 
+    // Only the global tail uses a local stage now. Initialize its complete DWQE image so the
+    // 128-byte SQ/DWQE copies never read indeterminate lane-local words.
+#pragma unroll
+    for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
+        stage.words[word] = 0U;
+    }
     stage.words[0] = (preparedFirstWord & ~((1ULL << 31U) | 0xFFFFULL)) |
         static_cast<uint64_t>(nextHead & 0xFFFFU) | (static_cast<uint64_t>(owner) << 31U);
     stage.words[1] = (baseTemplate.word1 & ~(0xFFULL << 24U)) | (static_cast<uint64_t>(sgeNum) << 24U);
