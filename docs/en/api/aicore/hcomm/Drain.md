@@ -21,7 +21,7 @@ Batch interface:
 template <
     pipe_t pipe = PIPE_MTE3,
     typename T,
-    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    typename HandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t Drain(T& batchHandle);
 ```
 
