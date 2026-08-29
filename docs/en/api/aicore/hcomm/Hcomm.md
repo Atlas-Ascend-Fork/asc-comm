@@ -32,6 +32,7 @@ class Hcomm;
 | `Unlock` | Not supported. | Supported only by AIV on Ascend 950. |
 | Ordinary `ReadNbi` | Supported. | Supported. |
 | Ordinary `WriteNbi` | Supported. | Supported. |
+| Ordinary `WriteValueNbi` | Not supported; invocation returns failure. | Supported. |
 | Ordinary `WriteWithNotifyNbi` | Not supported; invocation returns failure. | Supported. |
 | `AtomicFAA` | Not supported. | Supported. |
 | `AtomicCAS` | Not supported. | Supported. |
@@ -56,6 +57,7 @@ class Hcomm;
 | [Unlock](./Unlock.md) | Release the cross-AI-Core lock of a communication channel. |
 | [ReadNbi](./ReadNbi.md) | Submit an ordinary read task or prepare a read WQE in a BatchHandle. |
 | [WriteNbi](./WriteNbi.md) | Submit an ordinary write task or prepare a write WQE in a BatchHandle. |
+| [WriteValueNbi](./WriteValueNbi.md) | Submit an immediate-value write task over an ordinary channel, inlining `value` in the WQE to the remote side. |
 | [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or prepare one in a BatchHandle. |
 | [AtomicFAA](./AtomicFAA.md) | Submit a Fetch-and-add atomic operation task. |
 | [AtomicCAS](./AtomicCAS.md) | Submit a Compare-and-swap atomic operation task. |
@@ -71,7 +73,7 @@ Interfaces that return a status code generally use `0` for success and `-1` for 
 
 - Communication channel resources must be initialized by the caller before communication APIs are invoked.
 - Ordinary `ChannelHandle` interfaces require a temporary workspace provided through `Init`. The BatchHandle workflow does not require `Init`; `MakeBatchHandle` provides its UB workspace.
-- The ordinary overloads of `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS` are supported only on the `COMM_PROTOCOL_UBC_CTP` path.
+- `WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS` are supported only on the `COMM_PROTOCOL_UBC_CTP` path.
 - Batch interfaces currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 - Ordinary and batch interfaces manage queue state differently. A BatchHandle caches SQ/CQ contexts and counters at creation time. The caller must exclusively own the single channel or shared Jetty while using it and must not mix ordinary calls or use multiple BatchHandles concurrently.
 - The passed `ChannelHandle` must point to a channel entity matching the selected protocol.

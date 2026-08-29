@@ -17,6 +17,7 @@
 | [Unlock](./aicore/hcomm/Unlock.md) | Release the cross-AI-Core lock of a communication channel. |
 | [ReadNbi](./aicore/hcomm/ReadNbi.md) | Submit an ordinary read task or prepare a read WQE in a BatchHandle. |
 | [WriteNbi](./aicore/hcomm/WriteNbi.md) | Submit an ordinary write task or prepare a write WQE in a BatchHandle. |
+| [WriteValueNbi](./aicore/hcomm/WriteValueNbi.md) | Submit a point-to-point immediate-value write task, inlining `value` in the WQE to the remote side. |
 | [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or prepare one in a BatchHandle. |
 | [AtomicFAA](./aicore/hcomm/AtomicFAA.md) | Submit a Fetch-and-add atomic operation task. |
 | [AtomicCAS](./aicore/hcomm/AtomicCAS.md) | Submit a Compare-and-swap atomic operation task. |
