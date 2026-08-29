@@ -1,5 +1,30 @@
 # MakeBatchHandle
 
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR/Ascend 950DT：支持URMA协议，不支持RoCE协议
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas 推理系列产品AI Core：不支持
+- Atlas 推理系列产品Vector Core：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas 训练系列产品：不支持
+<!-- end id6 -->
+<!-- npu="x90" id7 -->
+- Kirin X90：不支持
+<!-- end id7 -->
+
 ## 功能说明
 
 创建与通信协议匹配的批量句柄，并绑定用于批量准备WQE的UB缓冲区。当前批量句柄仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
@@ -20,22 +45,24 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 
 ## 参数说明
 
-| 参数 | 输入/输出 | 说明 |
+**表1**  模板参数说明
+
+| 参数名 | 描述 |
+| --- | --- |
+| `T` | 通道句柄类型，当前支持`ChannelHandle`和`MultiChannelHandle`。 |
+| `U` | `LocalTensor`的元素类型。 |
+
+**表2**  接口参数说明
+
+| 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| `channel` | 输入 | UBC_CTP单通道`ChannelHandle`，或Host侧多通道创建接口生成的共享资源的 `MultiChannelHandle`。 |
+| `channel` | 输入 | UBC_CTP单通道`ChannelHandle`，或Host侧`MakeMultiChannelHandle`创建的共享Jetty `MultiChannelHandle`。 |
 | `buff` | 输入 | 调用方提供的UB `LocalTensor`，用于准备批量WQE，并由批量`Drain`复用为CQE临时缓冲区。 |
 | `buffLen` | 输入 | 缓冲区可用长度，单位为字节。 |
 | `remoteAddr` | 输入 | 单通道模式下用于选择远端已注册buffer；多通道模式下为保留参数。默认值为`nullptr`。 |
 | `localAddr` | 输入 | 保留参数，本版本暂不使用。默认值为`nullptr`。 |
 
-## 模板参数
-
-| 参数 | 说明 |
-| --- | --- |
-| `T` | 通道句柄类型，当前支持`ChannelHandle`和`MultiChannelHandle`。 |
-| `U` | `LocalTensor`的元素类型。 |
-
-## 返回值
+## 返回值说明
 
 返回`BatchHandle<T>`。仅`COMM_PROTOCOL_UBC_CTP`支持该接口。
 
@@ -55,6 +82,8 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 - BatchHandle应作为逻辑上的不透明句柄使用，不建议调用方直接访问或修改其成员。
 
 ## 调用示例
+
+MakeBatchHandle接口的调用示例如下。
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;

@@ -92,7 +92,8 @@ public:
      * @brief The task launching interface of the Write point-to-point communication operator.
      *        (task content: Write data of length len from src to dst through the specified channel.)
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
@@ -109,7 +110,7 @@ public:
      * @tparam T: The value type to write.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam config: URMA WQE control config.
-     *         Default: strongly ordered + fence + CQE + inline enabled.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE + inline enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] value: The inline value to write.
@@ -124,7 +125,8 @@ public:
      * @brief The task launching interface of the Read point-to-point communication operator.
      *        (task content: Read data of length len from src to dst through the specified channel.)
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
@@ -138,7 +140,8 @@ public:
     /*!
      * @brief The task launching interface of the Write-with-notify point-to-point communication operator.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
@@ -156,7 +159,8 @@ public:
      * @brief The task launching interface of the Fetch-and-add point-to-point communication operator.
      * @tparam T: The data type of the atomic operation.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [out] fetchAddr: The address to store the old value before atomic add.
@@ -170,7 +174,8 @@ public:
      * @brief The task launching interface of the Compare-and-swap point-to-point communication operator.
      * @tparam T: The data type of the atomic operation.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
-     * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config.
+     *                 Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [out] fetchAddr: The address to store the old value before atomic compare-and-swap.

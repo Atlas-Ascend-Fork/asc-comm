@@ -37,7 +37,7 @@ __aicore__ inline int32_t AtomicCAS(
 | `commit` | Whether to perform an immediate commit when submitting the task. |
 | `commitPipe` | Pipe used for commit operations. Default: `PIPE_S`. |
 | `reqPipe` | Pipe used for requests. Default: `PIPE_MTE3`. |
-| `config` | URMA WQE control configuration, only used for URMA path. Defaults to `URMA_DEFAULT_CFG` (strong ordering + fence + CQE enabled). |
+| `config` | URMA WQE control configuration, only used for URMA path. Defaults to `URMA_DEFAULT_CFG` (Relax Order(RO) + in order CQE + FenceOn + CqeOn). |
 
 ## Return Value
 | Return Value | Description |
