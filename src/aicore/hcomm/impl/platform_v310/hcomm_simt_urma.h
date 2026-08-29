@@ -542,10 +542,16 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
     if (ResolvePost(channel, remoteAddr, 1U, post) != HCOMM_SUCCESS) {
         return batchHandle;
     }
-    uint32_t capacity = (buffLen / HCOMM_URMA_DWQE_SIZE) / groupSize;
-    // Preserve the caller-visible operation capacity derived from the worst-case 2-BB WQE.
-    // Every lane owns one prepared 128-byte operation slot per capacity entry.
-    if (capacity == 0U || post.meta.sqDepth < HCOMM_URMA_DWQE_BB_CNT) {
+    const uint32_t totalCapacity = buffLen / HCOMM_URMA_DWQE_SIZE;
+    // Divide the operation slots unevenly when the batch is smaller than the group. The first
+    // lanes own one slot and the remaining lanes own none, but every lane still gets a valid
+    // handle so it can participate in the collective BatchCommit.
+    const uint32_t baseCapacity = totalCapacity / groupSize;
+    const uint32_t extraCapacity = totalCapacity % groupSize;
+    const uint32_t capacity = baseCapacity + (groupRank < extraCapacity ? 1U : 0U);
+    const uint32_t capacityOffset = groupRank * baseCapacity +
+        (groupRank < extraCapacity ? groupRank : extraCapacity);
+    if (totalCapacity == 0U || post.meta.sqDepth < HCOMM_URMA_DWQE_BB_CNT) {
         return batchHandle;
     }
 
@@ -560,7 +566,7 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
 
     batchHandle.channel = channel;
     batchHandle.buffer = reinterpret_cast<__ubuf__ uint64_t*>(buff) +
-                         groupRank * capacity * HCOMM_SIMT_WQE_WORDS;
+                         capacityOffset * HCOMM_SIMT_WQE_WORDS;
     batchHandle.capacity = capacity;
     batchHandle.bufferBbCapacity = capacity * HCOMM_URMA_DWQE_BB_CNT;
     batchHandle.groupSize = groupSize;
@@ -1145,13 +1151,20 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     }
 
     constexpr uint32_t countMask = 0xFFFFU;
-    const bool localReady = initialized_ && batchHandle.valid && batchHandle.prepared != 0U &&
-                            batchHandle.prepared <= countMask && batchHandle.preparedBb <= countMask &&
-                            batchHandle.lastBb != 0U &&
-                            batchHandle.preparedCqe == batchHandle.prepared && batchHandle.lastCqe == 1U;
+    constexpr uint32_t readyBit = 1U << 31U;
+    constexpr uint32_t stateWordsPerWarp = 4U;
+    const bool hasItems = batchHandle.prepared != 0U;
+    const bool localShapeValid = hasItems ?
+        (batchHandle.lastBb != 0U && batchHandle.preparedCqe == batchHandle.prepared &&
+         batchHandle.lastCqe == 1U) :
+        (batchHandle.preparedBb == 0U && batchHandle.lastBb == 0U &&
+         batchHandle.preparedCqe == 0U && batchHandle.lastCqe == 0U);
+    const bool localReady = initialized_ && batchHandle.valid && batchHandle.prepared <= countMask &&
+                            batchHandle.preparedBb <= countMask && localShapeValid;
     int32_t status = HCOMM_SUCCESS;
     uint64_t headVal = 0U;
     uint32_t itemOffsetBb = 0U;
+    uint32_t publisherRank = 0U;
     HcommSimtResolvedPost post{};
     if (rank == 0U) {
         __gm__ HcommSimtChannelEntity* channelEntity =
@@ -1189,15 +1202,13 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         const int32_t lastLane = static_cast<int32_t>(size - 1U);
         const uint32_t totalItems = asc_shfl(inclusiveItems, lastLane);
         uint32_t totalBb = asc_shfl(inclusiveBb, lastLane);
-        uint32_t lastBb = 0U;
-        if (rank + 1U == size) {
-            lastBb = batchHandle.lastBb;
-        }
-        lastBb = asc_shfl(lastBb, lastLane);
+        const uint32_t activeMask = asc_ballot(hasItems ? 1 : 0);
+        publisherRank = activeMask == 0U ? 0U : 31U - static_cast<uint32_t>(__clz(activeMask));
+        const uint32_t lastBb = asc_shfl(batchHandle.lastBb, static_cast<int32_t>(publisherRank));
         totalBb += lastBb == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U;
 
         if (rank == 0U) {
-            status = *post.headAddr == batchHandle.headSnapshot && HcommSimtTryReserve(
+            status = totalItems != 0U && *post.headAddr == batchHandle.headSnapshot && HcommSimtTryReserve(
                 post.headAddr, post.sqTailAddr, post.meta.sqDepth,
                 totalBb, totalBb, totalItems, headVal) ?
                 HCOMM_SUCCESS : HCOMM_FAILED;
@@ -1221,43 +1232,65 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         const uint32_t warpLaneCount = size - warpIndex * warpSize < warpSize ?
             size - warpIndex * warpSize : warpSize;
         const bool warpReady = asc_all(localReady ? 1 : 0) != 0;
+        const uint32_t activeMask = asc_ballot(hasItems ? 1 : 0);
+        const uint32_t lastActiveLane = activeMask == 0U ? 0U :
+            31U - static_cast<uint32_t>(__clz(activeMask));
+        const uint32_t lastActivePlusOne = activeMask == 0U ? 0U :
+            warpIndex * warpSize + lastActiveLane + 1U;
+        const uint32_t warpLastBb = activeMask == 0U ? 0U :
+            asc_shfl(batchHandle.lastBb, static_cast<int32_t>(lastActiveLane));
         if (laneInWarp + 1U == warpLaneCount) {
-            groupState_[stateHeaderWords + 2U * warpIndex] = warpReady ? inclusiveItems : 0U;
-            groupState_[stateHeaderWords + 2U * warpIndex + 1U] = inclusiveBb;
-        }
-        if (rank + 1U == size && localReady) {
-            groupState_[1] = batchHandle.lastBb;
+            const uint32_t stateBase = stateHeaderWords + stateWordsPerWarp * warpIndex;
+            groupState_[stateBase] = inclusiveItems | (warpReady ? readyBit : 0U);
+            groupState_[stateBase + 1U] = inclusiveBb;
+            groupState_[stateBase + 2U] = lastActivePlusOne;
+            groupState_[stateBase + 3U] = warpLastBb;
         }
         group.sync();
 
         if (rank == 0U) {
             uint32_t totalItems = 0U;
             uint32_t totalBb = 0U;
+            uint32_t lastBb = 0U;
+            uint32_t lastActive = 0U;
             for (uint32_t warp = 0U; warp < warpCount; ++warp) {
-                const uint32_t warpItems = groupState_[stateHeaderWords + 2U * warp];
-                const uint32_t warpBb = groupState_[stateHeaderWords + 2U * warp + 1U];
-                if (warpItems == 0U) {
+                const uint32_t stateBase = stateHeaderWords + stateWordsPerWarp * warp;
+                const uint32_t encodedItems = groupState_[stateBase];
+                const uint32_t warpItems = encodedItems & ~readyBit;
+                const uint32_t warpBb = groupState_[stateBase + 1U];
+                const uint32_t warpLastActive = groupState_[stateBase + 2U];
+                if ((encodedItems & readyBit) == 0U) {
                     status = HCOMM_FAILED;
                 }
-                groupState_[stateHeaderWords + 2U * warp] = totalBb;
+                groupState_[stateBase] = totalBb;
                 totalItems += warpItems;
                 totalBb += warpBb;
+                if (warpLastActive > lastActive) {
+                    lastActive = warpLastActive;
+                    lastBb = groupState_[stateBase + 3U];
+                }
             }
-            totalBb += groupState_[1] == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U;
-            if (status == HCOMM_SUCCESS) {
+            publisherRank = lastActive == 0U ? 0U : lastActive - 1U;
+            totalBb += lastBb == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U;
+            if (status == HCOMM_SUCCESS && totalItems != 0U) {
                 status = *post.headAddr == batchHandle.headSnapshot && HcommSimtTryReserve(
                     post.headAddr, post.sqTailAddr, post.meta.sqDepth,
                     totalBb, totalBb, totalItems, headVal) ?
                     HCOMM_SUCCESS : HCOMM_FAILED;
+            } else {
+                status = HCOMM_FAILED;
             }
             groupState_[0] = static_cast<uint32_t>(status);
+            groupState_[1] = publisherRank;
             groupState_[2] = static_cast<uint32_t>(headVal);
             groupState_[3] = static_cast<uint32_t>(headVal >> 32U);
         }
         group.sync();
         status = static_cast<int32_t>(groupState_[0]);
+        publisherRank = groupState_[1];
         headVal = static_cast<uint64_t>(groupState_[2]) | (static_cast<uint64_t>(groupState_[3]) << 32U);
-        itemOffsetBb = groupState_[stateHeaderWords + 2U * warpIndex] + inclusiveBb - batchHandle.preparedBb;
+        itemOffsetBb = groupState_[stateHeaderWords + stateWordsPerWarp * warpIndex] +
+            inclusiveBb - batchHandle.preparedBb;
     }
     if (status != HCOMM_SUCCESS) {
         return HCOMM_FAILED;
@@ -1330,7 +1363,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     for (uint32_t item = 0U; item < batchHandle.prepared; ++item) {
         __ubuf__ HcommSimtPreparedBatchWqe* batchItem = &items[item];
         const uint32_t itemBb = HcommSimtPreparedBatchBb(batchItem->words[0]);
-        const bool publish = rank + 1U == size && item + 1U == batchHandle.prepared;
+        const bool publish = rank == publisherRank && item + 1U == batchHandle.prepared;
         const uint32_t commitBb = publish ? HCOMM_URMA_DWQE_BB_CNT : itemBb;
         const uint32_t curHead = laneHead + sqOffsetBb;
         if (publish) {
@@ -1342,7 +1375,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         sqOffsetBb += commitBb;
     }
 
-    const bool publisher = rank + 1U == size;
+    const bool publisher = rank == publisherRank;
     if (publisher) {
         HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(
             post, tailHead, tailStage);
