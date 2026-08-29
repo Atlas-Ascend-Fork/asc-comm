@@ -11,7 +11,7 @@
 ```cpp
 template <
     typename T,
-    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    typename HandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t BatchCommit(T& batchHandle);
 ```
 

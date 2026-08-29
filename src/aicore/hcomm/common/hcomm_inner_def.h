@@ -304,34 +304,32 @@ typedef struct {
 } UbcMultiBatchHandle;
 
 template <typename T>
-struct ChannelTraits;
+struct HandleTraits;
 
+// For channel types, BatchHandleType is the MakeBatchHandle result; for batch types, it is the execution handle.
 template <>
-struct ChannelTraits<ChannelHandle> {
+struct HandleTraits<ChannelHandle> {
     using BatchHandleType = UbcBatchHandle;
 };
 
 template <>
-struct ChannelTraits<MultiChannelHandle> {
+struct HandleTraits<MultiChannelHandle> {
     using BatchHandleType = UbcMultiBatchHandle;
 };
 
 template <typename T>
-using BatchHandle = typename ChannelTraits<T>::BatchHandleType;
-
-template <typename T>
-struct BatchHandleTraits;
+using BatchHandle = typename HandleTraits<T>::BatchHandleType;
 
 template <>
-struct BatchHandleTraits<UbcBatchHandle> {
+struct HandleTraits<UbcBatchHandle> {
+    using BatchHandleType = UbcBatchHandle;
     using ChannelType = ChannelHandle;
-    using HandleRefType = UbcBatchHandle;
 };
 
 template <>
-struct BatchHandleTraits<UbcMultiBatchHandle> {
+struct HandleTraits<UbcMultiBatchHandle> {
+    using BatchHandleType = UbcBatchHandle;
     using ChannelType = MultiChannelHandle;
-    using HandleRefType = UbcBatchHandle;
 };
 
 // RoCE WQE, CQE, DB struct

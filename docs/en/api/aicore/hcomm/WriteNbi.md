@@ -24,7 +24,7 @@ Batch interface:
 template <
     auto const& config = URMA_DEFAULT_CFG,
     typename T,
-    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    typename HandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t WriteNbi(
     T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
 ```

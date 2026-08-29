@@ -352,6 +352,12 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MultiChannelBatchUsesOuterHandleForCommitAnd
     static_assert(
         IsSameType<AscendC::BatchHandle<AscendC::MultiChannelHandle>, AscendC::UbcMultiBatchHandle>::value,
         "MultiChannelHandle must create the peer-selection BatchHandle");
+    static_assert(
+        IsSameType<AscendC::BatchHandle<AscendC::UbcBatchHandle>, AscendC::UbcBatchHandle>::value,
+        "UbcBatchHandle must resolve to the execution BatchHandle");
+    static_assert(
+        IsSameType<AscendC::BatchHandle<AscendC::UbcMultiBatchHandle>, AscendC::UbcBatchHandle>::value,
+        "UbcMultiBatchHandle must resolve to its execution BatchHandle");
 
     UrmaMultiChannelResource multiChannel;
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;

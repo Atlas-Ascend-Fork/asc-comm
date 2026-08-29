@@ -31,7 +31,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 template <
     auto const& config = URMA_DEFAULT_CFG,
     typename T,
-    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    typename HandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t WriteWithNotifyNbi(
     T& batchHandle,
     GM_ADDR dst,
