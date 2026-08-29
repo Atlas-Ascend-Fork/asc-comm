@@ -32,6 +32,7 @@ class Hcomm;
 | `Unlock` | 不支持。 | 支持，仅限Ascend 950平台的AIV。 |
 | 普通`ReadNbi` | 支持。 | 支持。 |
 | 普通`WriteNbi` | 支持。 | 支持。 |
+| 普通`WriteValueNbi` | 不支持，调用会返回失败。 | 支持。 |
 | 普通`WriteWithNotifyNbi` | 不支持，调用会返回失败。 | 支持。 |
 | `AtomicFAA` | 不支持。 | 支持。 |
 | `AtomicCAS` | 不支持。 | 支持。 |
@@ -56,6 +57,7 @@ class Hcomm;
 | [Unlock](./Unlock.md) | 释放通信通道的跨AI Core锁。 |
 | [ReadNbi](./ReadNbi.md) | 通过普通通道提交读任务，或在BatchHandle中准备读WQE。 |
 | [WriteNbi](./WriteNbi.md) | 通过普通通道提交写任务，或在BatchHandle中准备写WQE。 |
+| [WriteValueNbi](./WriteValueNbi.md) | 通过普通通道提交立即数写任务，将`value`内联携带在WQE中写入远端。 |
 | [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | 通过普通通道提交写通知任务，或在BatchHandle中准备写通知WQE。 |
 | [AtomicFAA](./AtomicFAA.md) | 提交Fetch-and-add原子操作任务。 |
 | [AtomicCAS](./AtomicCAS.md) | 提交Compare-and-swap原子操作任务。 |
@@ -71,7 +73,7 @@ class Hcomm;
 
 - 调用通信接口前，通信通道资源需要由调用方完成初始化。
 - 普通`ChannelHandle`接口需要先通过`Init`提供临时工作区。BatchHandle调用链不依赖`Init`，其UB工作区由`MakeBatchHandle`提供。
-- `WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`的普通重载仅支持`COMM_PROTOCOL_UBC_CTP`路径。
+- `WriteValueNbi`、`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`仅支持`COMM_PROTOCOL_UBC_CTP`路径。
 - 当前批量接口仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 - 普通接口和批量接口使用不同的队列状态管理方式。BatchHandle缓存创建时的SQ/CQ上下文和队列计数，使用期间必须独占对应单通道或共享Jetty，不能混用普通接口或并发使用多个BatchHandle。
 - 传入的`ChannelHandle`需要指向与协议匹配的通道实体。
