@@ -9,7 +9,7 @@
  */
 
 #include "hcomm/dfx/hcomm_channel_dump.h"
-#include "hcomm_dfx_channel_dump_impl.h"
+#include "hcomm_dfx_impl.h"
 
 #include "acl/acl.h"
 #include "acl/acl_rt.h"
