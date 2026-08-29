@@ -152,7 +152,7 @@ Uninstallation restores files and permissions that existed before installation a
 
 Installation, reinstallation, and uninstallation operations write logs. Root writes under `/var/log/ascend_seclog`, while non-root users write under `$HOME/var/log/ascend_seclog`. Process logs are appended to `ascend_install.log`, and operation audit records are appended to `operation.log`.
 
-After installation, recompile the target Ascend C kernel before verification. Existing `.o` and `.bin` files are not updated automatically.
+After installation, recompile the content to be verified. Existing `.o` and `.bin` files are not updated automatically.
 
 The run package version is read from `version.cmake` in the repository root. To specify the output directory and CANN environment used for packaging, invoke the packaging script directly:
 
