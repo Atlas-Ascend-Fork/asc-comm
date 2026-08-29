@@ -45,7 +45,7 @@ __aicore__ inline void PutValue(
 | `RemoteAction` | Remote action type. Supports `AinRemoteNone`, `AinSignalInc` and `AinSignalAdd`. |
 | `DescriptorUbuf` | UBuf temporary workspace descriptor type. Default: `AinDescriptorUbuf`. |
 | `CommitFlags` | Task submission mode. `AIN_COMMIT_IMMED` means assembling the WQE and ringing the doorbell immediately. `AIN_COMMIT_DELAYED` means assembling only the WQE, and requires a subsequent `AIN_COMMIT_IMMED` task to be called to trigger submission. |
-| `Config` | URMA WQE control configuration. Default: `URMA_INLINE_CFG`(strong ordering / FenceOn / CqeOn / Inline mode). |
+| `Config` | URMA WQE control configuration. Default: `URMA_INLINE_CFG`(Relax Order(RO) + in order CQE + FenceOn + CqeOn + Inline mode). |
 
 ## Remote Actions
 

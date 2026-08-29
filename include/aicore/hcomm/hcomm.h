@@ -110,7 +110,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
@@ -147,7 +148,7 @@ public:
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA.
-     *         Default: strongly ordered + fence + CQE + inline enabled.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE + inline enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] value: The inline value to write.
@@ -168,7 +169,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The remote destination address of the reduction.
      * @param [in] src: The local source address of the reduction.
@@ -187,7 +189,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
@@ -229,7 +232,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [out] fetchAddr: The address to store the old value before atomic add.
@@ -249,7 +253,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [out] fetchAddr: The address to store the old value before atomic compare-and-swap.
@@ -270,7 +275,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.

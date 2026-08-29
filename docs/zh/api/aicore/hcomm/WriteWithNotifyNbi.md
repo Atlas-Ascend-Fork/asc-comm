@@ -60,7 +60,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | `commit` | 普通接口是否在提交任务时立即commit。批量接口不提供该参数。 |
 | `commitPipe` | 普通接口commit使用的pipe，默认`PIPE_S`。 |
 | `reqPipe` | 普通接口请求使用的pipe，默认`PIPE_MTE3`。 |
-| `config` | URMA WQE控制配置。默认为`URMA_DEFAULT_CFG`（强序 + fence + 使能CQE）。批量接口要求`inlineEn = 0`且`cqe`只能为`0`或`1`。 |
+| `config` | URMA WQE控制配置。默认为`URMA_DEFAULT_CFG`(Relax Order(RO) + in order CQE + FenceOn + CqeOn)。批量接口要求`inlineEn = 0`且`cqe`只能为`0`或`1`。 |
 | `T` | 批量句柄类型，由`batchHandle`实参推导。 |
 
 ## 返回值

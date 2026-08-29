@@ -37,7 +37,7 @@ __aicore__ inline void Signal(
 | `RemoteAction` | Signal action type. Supports `AinSignalInc` and `AinSignalAdd`. |
 | `DescriptorUbuf` | UBuf temporary workspace descriptor type. Default: `AinDescriptorUbuf`. |
 | `CommitFlags` | Task submission mode. `AIN_COMMIT_IMMED` means assembling the WQE and ringing the doorbell immediately. `AIN_COMMIT_DELAYED` means assembling only the WQE, and requires a subsequent `AIN_COMMIT_IMMED` task to be called to trigger submission. |
-| `Config` | URMA WQE control configuration. Default: `URMA_DEFAULT_CFG`(strong ordering / FenceOn / CqeOn). |
+| `Config` | URMA WQE control configuration. Default: `URMA_DEFAULT_CFG`(Relax Order(RO) + in order CQE + FenceOn + CqeOn). |
 
 ## Signal Actions
 

@@ -60,7 +60,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | `commit` | Whether the ordinary interface commits the task immediately. The batch interface does not provide this parameter. |
 | `commitPipe` | Pipe used for commit by the ordinary interface. Default: `PIPE_S`. |
 | `reqPipe` | Pipe used for the request by the ordinary interface. Default: `PIPE_MTE3`. |
-| `config` | URMA WQE control configuration. Default: `URMA_DEFAULT_CFG` (strongly ordered + fence + CQE enabled). The batch interface requires `inlineEn = 0`, and `cqe` must be `0` or `1`. |
+| `config` | URMA WQE control configuration. Default: `URMA_DEFAULT_CFG` (Relax Order(RO) + in order CQE + FenceOn + CqeOn). The batch interface requires `inlineEn = 0`, and `cqe` must be `0` or `1`. |
 | `T` | Batch handle type, deduced from `batchHandle`. |
 
 ## Return Value

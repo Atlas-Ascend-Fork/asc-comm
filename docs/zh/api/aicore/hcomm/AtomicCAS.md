@@ -41,7 +41,7 @@ __aicore__ inline int32_t AtomicCAS(
 | `commit` | 是否在提交任务时立即commit。 |
 | `commitPipe` | commit使用的pipe，默认`PIPE_S`。 |
 | `reqPipe` | 请求使用的pipe，默认`PIPE_MTE3`。 |
-| `config` | URMA WQE控制配置，仅URMA路径使用。默认为`URMA_DEFAULT_CFG`（强序 + fence + 使能CQE）。 |
+| `config` | URMA WQE控制配置，仅URMA路径使用。默认为`URMA_DEFAULT_CFG`(Relax Order(RO) + in order CQE + FenceOn + CqeOn)。 |
 
 ## 返回值
 

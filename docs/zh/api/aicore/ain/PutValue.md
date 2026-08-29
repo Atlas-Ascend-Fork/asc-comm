@@ -45,7 +45,7 @@ __aicore__ inline void PutValue(
 | `RemoteAction` | 远端动作类型，支持`AinRemoteNone`、`AinSignalInc`和`AinSignalAdd`。 |
 | `DescriptorUbuf` | UBuf临时工作区描述类型，默认`AinDescriptorUbuf`。 |
 | `CommitFlags` | 任务提交方式。`AIN_COMMIT_IMMED`表示组装WQE后立即响铃提交；`AIN_COMMIT_DELAYED`表示只组装WQE，需后续调用一个`AIN_COMMIT_IMMED`任务统一触发提交。 |
-| `Config` | URMA WQE控制配置，默认`URMA_INLINE_CFG`(强保序/FenceOn/CqeOn/Inline模式)。 |
+| `Config` | URMA WQE控制配置，默认`URMA_INLINE_CFG`(Relax Order(RO) + in order CQE + FenceOn + CqeOn + Inline模式)。 |
 
 ## 远端动作
 
