@@ -219,11 +219,6 @@ static inline int32_t HcommExtractChannelMetadata(
     ChannelEntity channelEntity;
     int32_t ret;
 
-    if (channel == 0U || metadata == NULL) {
-        fprintf(stderr, "[ERROR] [%s] invalid channel[%u].\n", __func__, channelIndex);
-        return HCCL_E_PTR;
-    }
-
     ret = HcommCopyFromDevice(
         &channelEntity, sizeof(channelEntity), (const void*)(uintptr_t)channel, channelIndex, "ChannelEntity");
     if (ret != HCCL_SUCCESS) {
@@ -266,10 +261,6 @@ static inline int32_t HcommPrepareMultiChannelEntity(
     MultiChannelRemoteInfo* channelInfos = NULL;
     int32_t ret = HCCL_SUCCESS;
 
-    if ((size_t)channelNum > (SIZE_MAX - sizeof(MultiChannelEntity)) / sizeof(MultiChannelRemoteInfo)) {
-        fprintf(stderr, "[ERROR] [%s] multi-channel entity size overflow, channelNum[%u].\n", __func__, channelNum);
-        return HCCL_E_MEMORY;
-    }
     *totalSize = sizeof(MultiChannelEntity) + (size_t)channelNum * sizeof(MultiChannelRemoteInfo);
     if (ownsChannels != 0) {
         if ((size_t)channelNum > (SIZE_MAX - *totalSize) / sizeof(ChannelHandle)) {
@@ -393,15 +384,14 @@ static inline HcclResult HcommHostMakeMultiChannelHandle(
     HcclResult ret;
     aclError aclRet;
 
-    if (multiChannel == NULL) {
+    if (multiChannel == NULL || comm == NULL || sharedQueueTag == NULL || channelDescs == NULL || channelNum == 0U) {
+        if (multiChannel != NULL) {
+            *multiChannel = 0U;
+        }
         fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
         return HCCL_E_PARA;
     }
     *multiChannel = 0U;
-    if (comm == NULL || sharedQueueTag == NULL || channelDescs == NULL || channelNum == 0U) {
-        fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
-        return HCCL_E_PARA;
-    }
 
     aclRet = aclrtMallocHost((void**)&channels, (size_t)channelNum * sizeof(ChannelHandle));
     if (aclRet != ACL_SUCCESS || channels == NULL) {
@@ -444,15 +434,14 @@ static inline HcommResult HcommHostMakeMultiChannelHandle(
     aclError aclRet;
     int channelsCreated = 0;
 
-    if (multiChannel == NULL) {
+    if (multiChannel == NULL || endpointHandle == NULL || channelDescs == NULL || channelNum == 0U) {
+        if (multiChannel != NULL) {
+            *multiChannel = 0U;
+        }
         fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
         return HCCL_E_PARA;
     }
     *multiChannel = 0U;
-    if (endpointHandle == NULL || channelDescs == NULL || channelNum == 0U) {
-        fprintf(stderr, "[ERROR] [%s] invalid parameter.\n", __func__);
-        return HCCL_E_PARA;
-    }
 
     aclRet = aclrtMallocHost((void**)&channels, (size_t)channelNum * sizeof(ChannelHandle));
     if (aclRet != ACL_SUCCESS || channels == NULL) {
@@ -463,9 +452,11 @@ static inline HcommResult HcommHostMakeMultiChannelHandle(
         return HCCL_E_MEMORY;
     }
     ret = DlHcommApi::LoadHcommApi();
-    if (ret == HCCL_SUCCESS) {
-        ret = HcommCreateSharedChannels(endpointHandle, channelDescs, channelNum, channels, &channelsCreated);
+    if (ret != HCCL_SUCCESS) {
+        (void)aclrtFreeHost(channels);
+        return ret;
     }
+    ret = HcommCreateSharedChannels(endpointHandle, channelDescs, channelNum, channels, &channelsCreated);
     if (ret == HCCL_SUCCESS) {
         ret = HcommWaitChannelsReady(channels, channelNum);
     }
