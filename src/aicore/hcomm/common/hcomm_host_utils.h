@@ -24,11 +24,11 @@
 
 #include <dlfcn.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <mutex>
 
 #include "hccl/hccl_res.h"
 #include "hcomm/hcomm_res_entity_defs.h"
+#include "utils/log/asc_cpu_log.h"
 
 typedef HcclResult (*HcclChannelConfigCreateFunc)(HcclChannelConfig* config);
 typedef HcclResult (*HcclChannelConfigDestroyFunc)(HcclChannelConfig config);
@@ -246,8 +246,7 @@ private:
         library.handle = dlopen("libhcomm.so", RTLD_NOW | RTLD_LOCAL);
         if (library.handle == nullptr) {
             const char* error = dlerror();
-            fprintf(
-                stderr, "[ERROR] [%s] open libhcomm.so failed: %s.\n", __func__,
+            ASC_CPU_LOG_ERROR("[ERROR] [%s] open libhcomm.so failed: %s.", __func__,
                 error == nullptr ? "unknown error" : error);
             return HCCL_E_NOT_SUPPORT;
         }
@@ -261,8 +260,7 @@ private:
         func = reinterpret_cast<Func>(dlsym(handle, symbol));
         const char* error = dlerror();
         if (func == nullptr || error != nullptr) {
-            fprintf(
-                stderr, "[ERROR] [%s] load %s failed: %s.\n", __func__, symbol,
+            ASC_CPU_LOG_ERROR("[ERROR] [%s] load %s failed: %s.", __func__, symbol,
                 error == nullptr ? "symbol not found" : error);
             return HCCL_E_NOT_SUPPORT;
         }
