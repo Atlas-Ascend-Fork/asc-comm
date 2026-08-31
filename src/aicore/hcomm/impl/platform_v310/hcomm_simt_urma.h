@@ -1221,7 +1221,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         const uint32_t totalItems = asc_shfl(inclusiveItems, lastLane);
         uint32_t totalBb = asc_shfl(inclusiveBb, lastLane);
         const uint32_t activeMask = asc_ballot(hasItems ? 1 : 0);
-        publisherRank = activeMask == 0U ? 0U : 31U - static_cast<uint32_t>(__clz(activeMask));
+        publisherRank = activeMask == 0U ? 0U :
+            31U - static_cast<uint32_t>(__clz(static_cast<int32_t>(activeMask)));
         const uint32_t lastBb = asc_shfl(batchHandle.lastBb, static_cast<int32_t>(publisherRank));
         totalBb += lastBb == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U;
 
@@ -1252,7 +1253,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         const bool warpReady = asc_all(localReady ? 1 : 0) != 0;
         const uint32_t activeMask = asc_ballot(hasItems ? 1 : 0);
         const uint32_t lastActiveLane = activeMask == 0U ? 0U :
-            31U - static_cast<uint32_t>(__clz(activeMask));
+            31U - static_cast<uint32_t>(__clz(static_cast<int32_t>(activeMask)));
         const uint32_t lastActivePlusOne = activeMask == 0U ? 0U :
             warpIndex * warpSize + lastActiveLane + 1U;
         const uint32_t warpLastBb = activeMask == 0U ? 0U :
