@@ -8,8 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#define HCOMM_SIMT_BATCH_STAGE_PROFILE 1
-
 #include "kernel_operator.h"
 #include "simt_api/asc_simt.h"
 #include "simt_api/cooperative_groups.h"
@@ -44,7 +42,7 @@ __simt_callee__ inline int32_t SubmitImmediate(
 }
 
 template <uint32_t api, typename HcommT>
-__simt_callee__ inline int32_t AppendBatch(
+__simt_callee__ inline int32_t AppendOneWqe(
     HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* remote,
     __gm__ uint8_t* local, uint32_t payloadBytes, uint32_t slotBytes, uint32_t slot)
 {
@@ -94,7 +92,7 @@ __simt_callee__ inline int32_t SubmitBatchSeries(
     for (uint32_t begin = 0U; begin < count; begin += batchSize) {
         const uint32_t end = begin + batchSize < count ? begin + batchSize : count;
         for (uint32_t i = begin; i < end; ++i) {
-            int32_t status = AppendBatch<api>(
+            int32_t status = AppendOneWqe<api>(
                 hcomm, batch, remote, local, payloadBytes, slotBytes, i % kSlotCount);
             if (status != 0) {
                 failureAction = kActionAppend;
@@ -102,9 +100,13 @@ __simt_callee__ inline int32_t SubmitBatchSeries(
                 return status;
             }
         }
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         const uint64_t commitBegin = clock();
+#endif
         int32_t status = hcomm.BatchCommit(batch);
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         commitCycles += clock() - commitBegin;
+#endif
         if (status != 0) {
             failureAction = kActionCommit;
             failureOperation = begin;
@@ -116,30 +118,31 @@ __simt_callee__ inline int32_t SubmitBatchSeries(
 }
 
 template <uint32_t api, typename HcommT, typename Group>
-__simt_callee__ inline int32_t SubmitGroupBatchSeries(
+__simt_callee__ inline int32_t SubmitGroupBatches(
     HcommT& hcomm, const Group& group, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* remote,
-    __gm__ uint8_t* local, uint32_t payloadBytes, uint32_t slotBytes, uint32_t count, uint32_t batchSize,
+    __gm__ uint8_t* local, uint32_t payloadBytes, uint32_t slotBytes, uint32_t count,
     uint32_t& publishCount, uint32_t& failureAction, uint32_t& failureOperation, uint64_t& commitCycles)
 {
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t size = static_cast<uint32_t>(group.size());
+    if (count % size != 0U) {
+        return -1;
+    }
     publishCount = 0U;
-    for (uint32_t begin = 0U; begin < count; begin += batchSize) {
-        int32_t appendStatus = 0;
-        const uint32_t end = begin + batchSize < count ? begin + batchSize : count;
-        uint32_t operation = begin + rank;
-        for (; operation < end; operation += size) {
-            appendStatus = AppendBatch<api>(
-                hcomm, batch, remote, local, payloadBytes, slotBytes, operation % kSlotCount);
-            if (appendStatus != 0) {
-                break;
-            }
-        }
+    for (uint32_t begin = 0U; begin < count; begin += size) {
+        const uint32_t operation = begin + rank;
+        // One group lane prepares exactly one WQE for this batch.
+        const int32_t appendStatus = AppendOneWqe<api>(
+            hcomm, batch, remote, local, payloadBytes, slotBytes, operation % kSlotCount);
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         const uint64_t commitBegin = rank == 0U ? clock() : 0U;
+#endif
         int32_t commitStatus = hcomm.BatchCommit(batch);
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         if (rank == 0U) {
             commitCycles += clock() - commitBegin;
         }
+#endif
         if (appendStatus != 0 || commitStatus != 0) {
             failureAction = appendStatus != 0 ? kActionAppend : kActionCommit;
             failureOperation = operation;
@@ -209,11 +212,13 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchPerfVf(
     }
 
     commitCycles = 0U;
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     if constexpr (explicitBatch) {
         batch.profilePlanCycles = 0U;
         batch.profileEmitCycles = 0U;
         batch.profilePublishCycles = 0U;
     }
+#endif
     uint64_t begin = clock();
     failureAction = kActionNone;
     failureOperation = 0U;
@@ -251,17 +256,19 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchPerfVf(
     timing[kFailureOperationIndex] = status == 0 ? 0U : iterations;
     timing[kFailureActionIndex] = status == 0 ? kActionNone : kActionDrain;
     if constexpr (explicitBatch) {
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         timing[kCommitCyclesIndex] = commitCycles;
         timing[kPlanCyclesIndex] = batch.profilePlanCycles;
         timing[kEmitCyclesIndex] = batch.profileEmitCycles;
         timing[kDwqePublishCyclesIndex] = batch.profilePublishCycles;
+#endif
     }
 }
 
 template <uint32_t api, uint32_t maxGroupLanes>
 __simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ uint64_t* timing, uint32_t payloadBytes,
-    uint32_t slotBytes, uint32_t iterations, uint32_t warmup, uint32_t batchSize, __ubuf__ uint8_t* batchBuffer,
+    uint32_t slotBytes, uint32_t iterations, uint32_t warmup, __ubuf__ uint8_t* batchBuffer,
     __ubuf__ uint32_t* groupState)
 {
     auto group = cooperative_groups::this_thread_block();
@@ -271,14 +278,14 @@ __simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
     AscendC::simt::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP, decltype(group)> hcomm(group);
     int32_t status = hcomm.Init(
         reinterpret_cast<__ubuf__ uint8_t*>(groupState), (4U + group.size()) * sizeof(uint32_t));
-    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, batchSize * kBatchItemBytes, remote);
+    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, group.size() * kBatchItemBytes, remote);
     uint32_t publishCount = 0U;
     uint32_t failureAction = kActionNone;
     uint32_t failureOperation = 0U;
     uint64_t commitCycles = 0U;
     if (status == 0) {
-        status = SubmitGroupBatchSeries<api>(
-            hcomm, group, batch, remote, local, payloadBytes, slotBytes, warmup, batchSize, publishCount,
+        status = SubmitGroupBatches<api>(
+            hcomm, group, batch, remote, local, payloadBytes, slotBytes, warmup, publishCount,
             failureAction, failureOperation, commitCycles);
     }
     if (status == 0 && warmup != 0U) {
@@ -301,14 +308,16 @@ __simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
 
     group.sync();
     commitCycles = 0U;
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     batch.profilePlanCycles = 0U;
     batch.profileEmitCycles = 0U;
     batch.profilePublishCycles = 0U;
+#endif
     uint64_t begin = rank == 0U ? clock() : 0U;
     failureAction = kActionNone;
     failureOperation = 0U;
-    status = SubmitGroupBatchSeries<api>(
-        hcomm, group, batch, remote, local, payloadBytes, slotBytes, iterations, batchSize, publishCount,
+    status = SubmitGroupBatches<api>(
+        hcomm, group, batch, remote, local, payloadBytes, slotBytes, iterations, publishCount,
         failureAction, failureOperation, commitCycles);
     uint64_t issueEnd = rank == 0U ? clock() : 0U;
     if (status == 0 && rank == 0U) {
@@ -326,10 +335,12 @@ __simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
         timing[kFailureOperationIndex] = status == 0 ? 0U : failureOperation;
         timing[kFailureActionIndex] = status == 0 ? kActionNone :
             (failureAction == kActionNone ? kActionDrain : failureAction);
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         timing[kCommitCyclesIndex] = commitCycles;
         timing[kPlanCyclesIndex] = batch.profilePlanCycles;
         timing[kEmitCyclesIndex] = batch.profileEmitCycles;
         timing[kDwqePublishCyclesIndex] = batch.profilePublishCycles;
+#endif
     }
     group.sync();
 }
@@ -367,7 +378,7 @@ DEFINE_BATCH_PERF_KERNEL(SimtCasBatchPerf, kApiCas, true)
     else {                                                                                                     \
         asc_vf_call<SimtGroupBatchPerfVf<api, kMaxGroupLanes>>(                                                \
             dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),     \
-            payloadBytes, slotBytes, iterations, warmup, batchSize,                                            \
+            payloadBytes, slotBytes, iterations, warmup,                                                       \
             reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState);                                     \
     }
 #else
@@ -381,10 +392,13 @@ DEFINE_BATCH_PERF_KERNEL(SimtCasBatchPerf, kApiCas, true)
     {                                                                                                          \
         alignas(128) __ubuf__ uint64_t batchBuffer[kBatchBufferBytes / sizeof(uint64_t)];                      \
         alignas(16) __ubuf__ uint32_t groupState[4U + kMaxGroupLanes];                                        \
-        if (groupLanes <= 32U) {                                                                               \
-            asc_vf_call<SimtGroupBatchPerfVf<api, 32U>>(                                                       \
+        if (batchSize != groupLanes) {                                                                         \
+            return;                                                                                            \
+        }                                                                                                      \
+        if (groupLanes <= 128U) {                                                                              \
+            asc_vf_call<SimtGroupBatchPerfVf<api, 128U>>(                                                      \
                 dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), \
-                payloadBytes, slotBytes, iterations, warmup, batchSize,                                        \
+                payloadBytes, slotBytes, iterations, warmup,                                                   \
                 reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState);                                 \
         } LAUNCH_LARGE_GROUP_BATCH(api)                                                                        \
     }

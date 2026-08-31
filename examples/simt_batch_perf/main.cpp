@@ -360,8 +360,8 @@ int main(int argc, char* argv[])
     if ((nranks != 2 && nranks != 8) || rank < 0 || rank >= nranks || !ValidApi(apiName) || iterations == 0U ||
         payloadBytes < 2U || batchSize == 0U || batchSize > kMaxBatchSize ||
         (mode != "immediate" && mode != "batch" && mode != "group") ||
-        (mode == "group" && (groupLanes <= 1U || groupLanes > kMaxGroupLanes ||
-         iterations % batchSize != 0U)) ||
+        (mode == "group" && (groupLanes <= 1U || groupLanes > kMaxGroupLanes || batchSize != groupLanes ||
+         iterations % groupLanes != 0U || warmup % groupLanes != 0U)) ||
         (mode != "group" && groupLanes != 1U)) {
         return 1;
     }
@@ -423,6 +423,7 @@ int main(int argc, char* argv[])
                   << " | DBCount=" << timing[kPublishCountIndex]
                   << " | Mode=" << (mode == "group" ? "GroupBatch" : mode == "batch" ? "ExplicitBatch" : "Immediate")
                   << " | Bandwidth/GB/s=" << bandwidth << " | IssueTime/ns=" << issueNs;
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         if (mode != "immediate") {
             const double commitNs = static_cast<double>(timing[kCommitCyclesIndex]) / iterations;
             const double appendNs = issueNs > commitNs ? issueNs - commitNs : 0.0;
@@ -435,6 +436,7 @@ int main(int argc, char* argv[])
                       << " | PlanTime/ns=" << planNs << " | EmitTime/ns=" << emitNs
                       << " | PublishTime/ns=" << publishNs << " | CommitOtherTime/ns=" << otherNs;
         }
+#endif
         std::cout << std::endl;
         if (!pass) {
             std::cout << "FAIL_DETAIL | Rank=" << rank << " | Peer=" << peer

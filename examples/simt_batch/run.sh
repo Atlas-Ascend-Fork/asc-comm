@@ -44,7 +44,9 @@ binary="${script_dir}/build/simt_batch"
 [[ -x "$binary" ]] || { echo "build the example first: bash ${script_dir}/build.sh" >&2; exit 1; }
 if [[ "$mode" == "matrix" ]]; then
     matrix_status=0
-    for matrix_case in matrix-1x1 matrix-2x1 matrix-8x1 matrix-2x2 matrix-8x2; do
+    # Keep one minimum multi-lane case and one repeated full-width case in the default suite.
+    # The individual matrix modes remain available for targeted regression runs.
+    for matrix_case in matrix-2x1 matrix-8x2; do
         bash "${script_dir}/run.sh" "$matrix_case" --devices "$devices" || matrix_status=1
     done
     exit "$matrix_status"

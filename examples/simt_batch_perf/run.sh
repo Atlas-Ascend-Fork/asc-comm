@@ -12,13 +12,13 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: run.sh [write|read|notify|write_value|faa|cas|all] [options]
+Usage: run.sh [core|write|read|notify|write_value|faa|cas|all] [options]
 Options:
   --iterations N      Timed operation count, default: 1024
   --warmup N          Warmup operation count, default: 96
   --payload-bytes N   Write/Read/Notify payload, default: 64
-  --batch-size N      Operations per batch (1..1024), default: 8
-  --group-lanes LIST  GroupBatch lane counts, default: 2,4,8,16,32
+  --batch-size N      ExplicitBatch size (1..1024), default: 128
+  --group-lanes LIST  GroupBatch sizes/lane counts, default: 2,4,8,16,32,128
   --devices N         Device count, 2 or 8; default: 2
   --mode MODE         compare, immediate, batch, or group; default: compare
   --log FILE          Output log file
@@ -26,15 +26,13 @@ EOF
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then usage; exit 0; fi
-api="${1:-all}"
+api="${1:-core}"
 if [[ $# -gt 0 ]]; then shift; fi
 iterations=1024
 warmup=96
 payload_bytes=64
-batch_size=8
-reference_batch_size=128
-large_batch_size=1024
-group_lanes="2,4,8,16,32"
+batch_size=128
+group_lanes="2,4,8,16,32,128"
 devices=2
 mode=compare
 log_file=""
@@ -57,7 +55,7 @@ valid_api() {
     [[ "$1" == "write" || "$1" == "read" || "$1" == "notify" || "$1" == "write_value" ||
         "$1" == "faa" || "$1" == "cas" ]]
 }
-[[ "$api" == "all" ]] || valid_api "$api" || { echo "invalid API: $api" >&2; exit 1; }
+[[ "$api" == "core" || "$api" == "all" ]] || valid_api "$api" || { echo "invalid API: $api" >&2; exit 1; }
 [[ "$iterations" =~ ^[0-9]+$ && "$iterations" -gt 0 ]] || { echo "iterations must be positive" >&2; exit 1; }
 [[ "$warmup" =~ ^[0-9]+$ ]] || { echo "warmup must be non-negative" >&2; exit 1; }
 [[ "$payload_bytes" =~ ^[0-9]+$ && "$payload_bytes" -ge 2 ]] || { echo "payload must be at least 2" >&2; exit 1; }
@@ -71,14 +69,12 @@ valid_api() {
 IFS=',' read -r -a lane_counts <<< "$group_lanes"
 [[ ${#lane_counts[@]} -gt 0 ]] || { echo "group lane list must not be empty" >&2; exit 1; }
 if [[ "$mode" == "group" || "$mode" == "compare" ]]; then
-    group_batch_size="$batch_size"
-    [[ "$mode" == "group" ]] || group_batch_size="$reference_batch_size"
-    ((iterations % group_batch_size == 0)) || {
-        echo "iterations must be divisible by group batch size ${group_batch_size}" >&2; exit 1;
-    }
     for lanes in "${lane_counts[@]}"; do
         [[ "$lanes" =~ ^[0-9]+$ ]] && ((lanes >= 2 && lanes <= 1024)) || {
             echo "group lanes must be comma-separated values in 2..1024" >&2; exit 1;
+        }
+        ((iterations % lanes == 0)) || {
+            echo "iterations must be divisible by GroupBatch lanes ${lanes}" >&2; exit 1;
         }
     done
 fi
@@ -92,8 +88,8 @@ if [[ -f "${script_dir}/build/large_group_enabled" ]]; then
 fi
 if [[ "$large_group_enabled" != "ON" && ("$mode" == "group" || "$mode" == "compare") ]]; then
     for lanes in "${lane_counts[@]}"; do
-        if ((lanes > 32)); then
-            echo "group lanes >32 require: bash ${script_dir}/build.sh --full" >&2
+        if ((lanes > 128)); then
+            echo "group lanes >128 require: bash ${script_dir}/build.sh --full" >&2
             exit 1
         fi
     done
@@ -105,9 +101,13 @@ if [[ -z "$log_file" ]]; then
 fi
 mkdir -p "$(dirname "$log_file")"
 exec > >(tee "$log_file") 2>&1
-echo "TEST_INFO | Suite=simt_batch_perf | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | PayloadBytes=${payload_bytes} | PrimaryBatchSize=${batch_size} | ReferenceBatchSize=${reference_batch_size} | LargeBatchSize=${large_batch_size} | GroupLanes=${group_lanes} | LargeGroup=${large_group_enabled}"
+echo "TEST_INFO | Suite=simt_batch_perf | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | WarmupPolicy=FullGroup | PayloadBytes=${payload_bytes} | ExplicitBatchSize=${batch_size} | GroupBatchSizes=${group_lanes} | LargeGroup=${large_group_enabled}"
 apis=(write read notify write_value faa cas)
-[[ "$api" == "all" ]] || apis=("$api")
+if [[ "$api" == "core" ]]; then
+    apis=(write read notify)
+elif [[ "$api" != "all" ]]; then
+    apis=("$api")
+fi
 active_dir=""
 active_pids=()
 rank_status=()
@@ -122,6 +122,9 @@ run_case() {
     local case_api="$1" case_mode="$2" case_batch_size="$3" case_lanes="${4:-1}"
     local case_warmup="${5:-$warmup}"
     local work_dir root_info_file status rank pair_status perf_line
+    if [[ "$case_mode" == "group" && "$case_warmup" -ne 0 ]]; then
+        case_warmup=$(( (case_warmup + case_lanes - 1) / case_lanes * case_lanes ))
+    fi
     work_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_batch_perf.XXXXXX")"
     active_dir="$work_dir"
     root_info_file="${work_dir}/root_info.bin"
@@ -161,21 +164,12 @@ status=0
 for current_api in "${apis[@]}"; do
     if [[ "$mode" == "compare" ]]; then
         if ! run_case "$current_api" immediate "$batch_size"; then status=1; fi
-        if ! run_case "$current_api" batch "$batch_size"; then status=1; fi
-        if [[ "$batch_size" != "$reference_batch_size" ]] &&
-            ! run_case "$current_api" batch "$reference_batch_size"; then status=1; fi
-        if [[ "$batch_size" != "$large_batch_size" ]] &&
-            ! run_case "$current_api" batch "$large_batch_size"; then status=1; fi
         for lanes in "${lane_counts[@]}"; do
-            if ! run_case "$current_api" group "$reference_batch_size" "$lanes"; then status=1; fi
-            if ((lanes > batch_size)) &&
-                ! run_case "$current_api" group "$batch_size" "$lanes"; then status=1; fi
+            if ! run_case "$current_api" group "$lanes" "$lanes"; then status=1; fi
         done
-        if [[ "$large_group_enabled" == "ON" ]] &&
-            ! run_case "$current_api" group "$large_batch_size" 1024 0; then status=1; fi
     elif [[ "$mode" == "group" ]]; then
         for lanes in "${lane_counts[@]}"; do
-            if ! run_case "$current_api" group "$batch_size" "$lanes"; then status=1; fi
+            if ! run_case "$current_api" group "$lanes" "$lanes"; then status=1; fi
         done
     elif ! run_case "$current_api" "$mode" "$batch_size"; then
         status=1
