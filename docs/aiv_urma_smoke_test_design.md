@@ -438,18 +438,19 @@ for (each MSG_LEN in {256, 4K, 64K, 1M, 16M, 256M}) {
 
 #### K7.1 数据存放方式
 ```cpp
-GM_ADDR srcBuf = scratch;   // 发送源：BATCH_N*MSG_LEN 字节，任意 pattern（不校验内容）
+GM_ADDR srcBuf = scratch;   // 发送源：一片 MSG_LEN 字节，64×int32 全填 10 + myRank
+GM_ADDR dstBuf = dstSlot;   // 写目标：固定一片，所有循环/所有 WQE 都写这里（性能测试不分散落点）
 ```
-**初值要求**：无需特定初值；对端落点不比对。
+**初值要求**：`srcBuf` 填 `10 + myRank`；本卡接收区 `recvSlot`（对端写进来的那片）清 `0`。所有循环复用同一 `srcBuf` / `dstBuf`。
 
 #### K7.2 测试接口伪码
 ```cpp
 hcomm.Init(workspaceTensor, WORKSPACE_SIZE);
 auto batchHandle = hcomm.MakeBatchHandle(channel, batchTensor, BATCH_LEN, remoteBase, localBase);
 
-// warmup
+// warmup —— 每个 WQE 都用同一 src/dst
 for (b = 0; b < WARMUP; ++b) {
-    for (j = 0; j < BATCH_N; ++j) hcomm.WriteNbi(batchHandle, dstSlot + j*MSG_LEN, srcBuf, MSG_LEN);
+    for (j = 0; j < BATCH_N; ++j) hcomm.WriteNbi(batchHandle, dstBuf, srcBuf, MSG_LEN);
     hcomm.BatchCommit(batchHandle);
     hcomm.Drain(batchHandle);
 }
@@ -458,7 +459,7 @@ for (b = 0; b < WARMUP; ++b) {
 AscendC::PipeBarrier<PIPE_ALL>();
 uint64_t t0 = AscendC::GetSystemCycle();
 for (b = 0; b < ITERS; ++b) {
-    for (j = 0; j < BATCH_N; ++j) hcomm.WriteNbi(batchHandle, dstSlot + j*MSG_LEN, srcBuf, MSG_LEN);
+    for (j = 0; j < BATCH_N; ++j) hcomm.WriteNbi(batchHandle, dstBuf, srcBuf, MSG_LEN);
     hcomm.BatchCommit(batchHandle);
     hcomm.Drain(batchHandle);
 }
@@ -468,7 +469,15 @@ uint64_t t1 = AscendC::GetSystemCycle();
 ```
 
 #### K7.3 精度校验
-不做逐字节数据校验，只校验：返回码为 0 + 计时结果合理；可与 K6 单发 avg 对比，验证 batch 每 WQE 均摊时延更低。
+以性能为主，数据面做一次轻量最终态校验（所有循环写同一片，末轮值即最终值）；一律读本地。
+
+| 校验地址（本地） | 预期数据 |
+|-----------------|---------|
+| `recvSlot`（对端写进来的那片），64×int32 | 每个 == 对端源 `10 + peerRank` |
+
+- 返回码：所有 `WriteNbi/BatchCommit/Drain` == `0`，无死锁 / 无超时。
+- 计时：`avg_per_wqe` 落在合理区间；可与 K6 单发 avg 对比，验证 batch 每 WQE 均摊时延更低。
+- 数据校验只在全部循环结束后做一次（中间不校验，避免干扰计时）。
 
 ### K8 — Lock/Unlock 多核互斥（`kernel_urma_lock`）
 目的：验证同设备**多个 AI Core 共享同一通道**时，`Lock`/`Unlock` 能互斥保护对通道状态的更新。单核跑测不出互斥语义，故必须多核并发同一 channel。V310 支持（本仓库）。
