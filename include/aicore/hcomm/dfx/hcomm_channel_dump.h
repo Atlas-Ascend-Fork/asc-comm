@@ -50,7 +50,7 @@ inline int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
     if (kernelSymbol == nullptr) {
         std::printf("[HcommDfxDump] bind exception callback failed: kernelSymbol is null\n");
         std::fflush(stdout);
-        return HCOMM_FAILED;
+        return -1;
     }
 
     aclrtFuncHandle funcHandle = nullptr;
@@ -60,13 +60,13 @@ inline int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
         aclrtBinarySetExceptionCallback(binHandle, HcommDfx::ExceptionCallback, nullptr) != ACL_SUCCESS) {
         std::printf("[HcommDfxDump] bind exception callback failed\n");
         std::fflush(stdout);
-        return HCOMM_FAILED;
+        return -1;
     }
 
     HcommDfx::ClearPendingException();
     std::printf("[HcommDfxDump] exception callback registered\n");
     std::fflush(stdout);
-    return HCOMM_SUCCESS;
+    return 0;
 }
 
 /*!
@@ -81,7 +81,7 @@ inline int32_t HcommChannelInfoDump(ChannelHandle channel, bool usePendingGate =
 {
     if (usePendingGate) {
         if (!HcommDfx::HasPendingException()) {
-            return HCOMM_SUCCESS;
+            return 0;
         }
         HcommDfx::ClearPendingException();
         std::printf("[HcommDfxDump] pending exception detected, dump channel info\n");
@@ -93,7 +93,7 @@ inline int32_t HcommChannelInfoDump(ChannelHandle channel, bool usePendingGate =
 
     uint32_t dumpLen = 0;
     int32_t ret = HcommDfx::GetChannelDumpInfoSize(1U, &channel, &dumpLen);
-    if (ret != HCOMM_SUCCESS || dumpLen == 0) {
+    if (ret != 0 || dumpLen == 0) {
         std::printf("[HcommDfxDump] get dump size failed ret=%d len=%u\n", ret, dumpLen);
         std::fflush(stdout);
         return ret;
@@ -104,10 +104,10 @@ inline int32_t HcommChannelInfoDump(ChannelHandle channel, bool usePendingGate =
     if (allocRet != ACL_SUCCESS) {
         std::printf("[HcommDfxDump] allocate dump buffer failed ret=%d len=%u\n", allocRet, dumpLen);
         std::fflush(stdout);
-        return HCOMM_FAILED;
+        return -1;
     }
     if (dumpBuffer == nullptr) {
-        return HCOMM_FAILED;
+        return -1;
     }
 
     std::memset(dumpBuffer, 0, dumpLen);
