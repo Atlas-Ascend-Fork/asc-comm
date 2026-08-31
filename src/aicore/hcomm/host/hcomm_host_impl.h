@@ -104,8 +104,7 @@ static inline HcclResult HcommAcquireSharedChannelsWithComm(
 }
 
 static inline HcommResult HcommCreateSharedChannels(
-    EndpointHandle endpointHandle, HcommChannelDesc* channelDescs, uint32_t channelNum, ChannelHandle* channels,
-    int* channelsCreated)
+    EndpointHandle endpointHandle, HcommChannelDesc* channelDescs, uint32_t channelNum, ChannelHandle* channels)
 {
     HcommChannelConfig config = NULL;
     HcommResult ret = DlHcommApi::HcommChannelConfigCreate(&config);
@@ -124,8 +123,6 @@ static inline HcommResult HcommCreateSharedChannels(
             endpointHandle, COMM_ENGINE_AIV, channelDescs, channelNum, config, channels);
         if (ret != HCCL_SUCCESS) {
             fprintf(stderr, "[ERROR] [%s] HcommChannelCreateWithConfig failed, ret[%d].\n", __func__, ret);
-        } else {
-            *channelsCreated = 1;
         }
     }
 
@@ -432,7 +429,6 @@ static inline HcommResult HcommHostMakeMultiChannelHandle(
     void* deviceMemory = NULL;
     HcommResult ret;
     aclError aclRet;
-    int channelsCreated = 0;
 
     if (multiChannel == NULL || endpointHandle == NULL || channelDescs == NULL || channelNum == 0U) {
         if (multiChannel != NULL) {
@@ -456,14 +452,17 @@ static inline HcommResult HcommHostMakeMultiChannelHandle(
         (void)aclrtFreeHost(channels);
         return ret;
     }
-    ret = HcommCreateSharedChannels(endpointHandle, channelDescs, channelNum, channels, &channelsCreated);
-    if (ret == HCCL_SUCCESS) {
-        ret = HcommWaitChannelsReady(channels, channelNum);
+    ret = HcommCreateSharedChannels(endpointHandle, channelDescs, channelNum, channels);
+    if (ret != HCCL_SUCCESS) {
+        (void)aclrtFreeHost(channels);
+        return ret;
     }
+
+    ret = HcommWaitChannelsReady(channels, channelNum);
     if (ret == HCCL_SUCCESS) {
         ret = HcommBuildMultiChannelEntity(channels, channelNum, &deviceMemory);
     }
-    if (ret != HCCL_SUCCESS && channelsCreated != 0) {
+    if (ret != HCCL_SUCCESS) {
         HcommResult destroyRet = DlHcommApi::HcommChannelDestroy(channels, channelNum);
         if (destroyRet != HCCL_SUCCESS) {
             fprintf(stderr, "[ERROR] [%s] cleanup HcommChannelDestroy failed, ret[%d].\n", __func__, destroyRet);
