@@ -97,6 +97,20 @@ __simt_callee__ inline bool HcommSimtTryReserve(
     return true;
 }
 
+// Checks an exclusive producer's SQ range without publishing it through headAddr. BatchCommit uses
+// this before writing SQ, then advances headAddr only after every WQE in the planned range is ready.
+__simt_callee__ inline bool HcommSimtTryPlanExclusiveReservation(
+    __gm__ uint64_t* headAddr, __gm__ uint32_t* tailAddr, uint32_t sqDepth, uint32_t requiredFreeBbCnt,
+    uint64_t& headVal)
+{
+    headVal = *headAddr;
+    if (sqDepth == 0U || requiredFreeBbCnt > sqDepth) {
+        return false;
+    }
+    uint32_t usedBbCnt = HcommSimtHeadIdx(headVal) - *tailAddr;
+    return usedBbCnt <= sqDepth && requiredFreeBbCnt <= sqDepth - usedBbCnt;
+}
+
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtLocalBuffers(ChannelHandle channel)
 {
     __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);

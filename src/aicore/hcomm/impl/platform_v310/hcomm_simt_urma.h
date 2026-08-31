@@ -1204,9 +1204,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     const uint32_t totalBb = batchHandle.preparedBb +
         (batchHandle.lastBb == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U);
     uint64_t headVal = 0U;
-    if (!HcommSimtTryReserve(
-            post.headAddr, post.sqTailAddr, post.meta.sqDepth, totalBb, totalBb,
-            batchHandle.prepared, headVal)) {
+    if (!HcommSimtTryPlanExclusiveReservation(
+            post.headAddr, post.sqTailAddr, post.meta.sqDepth, totalBb, headVal)) {
         return HCOMM_FAILED;
     }
 
@@ -1238,8 +1237,13 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     const uint64_t profileEmitEnd = clock();
 #endif
-    HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, true>(
+    HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(
         post, tailHead, tailStage);
+    asc_threadfence();
+    const uint64_t delta = (static_cast<uint64_t>(batchHandle.prepared) << 32U) | totalBb;
+    const uint64_t publishedHead = headVal + delta;
+    *post.headAddr = publishedHead;
+    HcommSimtRingDwqe(post.dwqeAddr, tailStage);
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     const uint64_t profilePublishEnd = clock();
     batchHandle.profilePlanCycles += profilePlanEnd - profileBegin;
@@ -1247,8 +1251,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     batchHandle.profilePublishCycles += profilePublishEnd - profileEmitEnd;
 #endif
 
-    const uint64_t delta = (static_cast<uint64_t>(batchHandle.prepared) << 32U) | totalBb;
-    batchHandle.headSnapshot = headVal + delta;
+    batchHandle.headSnapshot = publishedHead;
     batchHandle.prepared = 0U;
     batchHandle.preparedBb = 0U;
     batchHandle.lastBb = 0U;
@@ -1284,6 +1287,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
                             batchHandle.preparedBb <= countMask && localShapeValid;
     int32_t status = HCOMM_SUCCESS;
     uint64_t headVal = 0U;
+    uint32_t totalItems = 0U;
+    uint32_t totalBb = 0U;
     uint32_t itemOffsetBb = 0U;
     uint32_t publisherRank = 0U;
     HcommSimtResolvedPost post{};
@@ -1307,8 +1312,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         }
         itemOffsetBb = inclusiveBb - batchHandle.preparedBb;
         const int32_t lastLane = static_cast<int32_t>(size - 1U);
-        const uint32_t totalItems = asc_shfl(inclusiveItems, lastLane);
-        uint32_t totalBb = asc_shfl(inclusiveBb, lastLane);
+        totalItems = asc_shfl(inclusiveItems, lastLane);
+        totalBb = asc_shfl(inclusiveBb, lastLane);
         const uint32_t activeMask = asc_ballot(hasItems ? 1 : 0);
         publisherRank = activeMask == 0U ? 0U :
             31U - static_cast<uint32_t>(__clz(static_cast<int32_t>(activeMask)));
@@ -1316,9 +1321,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         totalBb += lastBb == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U;
 
         if (rank == 0U) {
-            status = totalItems != 0U && *post.headAddr == batchHandle.headSnapshot && HcommSimtTryReserve(
-                post.headAddr, post.sqTailAddr, post.meta.sqDepth,
-                totalBb, totalBb, totalItems, headVal) ?
+            status = totalItems != 0U && *post.headAddr == batchHandle.headSnapshot &&
+                HcommSimtTryPlanExclusiveReservation(
+                    post.headAddr, post.sqTailAddr, post.meta.sqDepth, totalBb, headVal) ?
                 HCOMM_SUCCESS : HCOMM_FAILED;
         }
         status = asc_shfl(status, 0);
@@ -1357,8 +1362,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         group.sync();
 
         if (rank == 0U) {
-            uint32_t totalItems = 0U;
-            uint32_t totalBb = 0U;
             uint32_t lastBb = 0U;
             uint32_t lastActive = 0U;
             for (uint32_t warp = 0U; warp < warpCount; ++warp) {
@@ -1381,9 +1384,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
             publisherRank = lastActive == 0U ? 0U : lastActive - 1U;
             totalBb += lastBb == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U;
             if (status == HCOMM_SUCCESS && totalItems != 0U) {
-                status = *post.headAddr == batchHandle.headSnapshot && HcommSimtTryReserve(
-                    post.headAddr, post.sqTailAddr, post.meta.sqDepth,
-                    totalBb, totalBb, totalItems, headVal) ?
+                status = *post.headAddr == batchHandle.headSnapshot &&
+                    HcommSimtTryPlanExclusiveReservation(
+                        post.headAddr, post.sqTailAddr, post.meta.sqDepth, totalBb, headVal) ?
                     HCOMM_SUCCESS : HCOMM_FAILED;
             } else {
                 status = HCOMM_FAILED;
@@ -1495,6 +1498,12 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     const uint64_t profileEmitEnd = rank == 0U ? clock() : 0U;
 #endif
+    if (rank == 0U) {
+        const uint64_t delta = (static_cast<uint64_t>(totalItems) << 32U) | totalBb;
+        *post.headAddr = headVal + delta;
+    }
+    asc_threadfence();
+    group.sync();
     if (publisher) {
         HcommSimtRingDwqe(post.dwqeAddr, tailStage);
     }
