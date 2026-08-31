@@ -93,8 +93,8 @@ public:
      * @note The logical UB capacity may exceed the channel's physical SQ capacity; BatchCommit
      *       handles that difference internally.
      * @note Use HcommSimtBatchBufferBytes(itemCapacity) to size buff for the requested number of
-     *       items. A bound group partitions this common buffer evenly between its lanes; the first
-     *       group implementation prepares one item per lane and commits those items collectively.
+     *       items. A bound group needs at least one 128-byte slot per lane; each lane owns the slot
+     *       at its group rank and prepares exactly one item before the collective BatchCommit.
      * @note Every remote data and notify range appended through the returned handle must stay in
      *       the registration selected by remoteBase. The implementation checks the cached range
      *       and returns -1 before preparing a WQE when this contract is violated.
