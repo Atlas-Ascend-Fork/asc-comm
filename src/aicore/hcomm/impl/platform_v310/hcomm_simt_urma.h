@@ -940,6 +940,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
 
     __ubuf__ HcommSimtPreparedBatchWqe* items =
         reinterpret_cast<__ubuf__ HcommSimtPreparedBatchWqe*>(batchHandle.buffer);
+    // Keep the lane-local BB offset with the prepared item. Group Commit can then redistribute
+    // consecutive WQEs across a warp without rescanning the owner's preceding descriptors.
+    items[batchHandle.prepared].words[HCOMM_SIMT_WQE_WORDS - 1U] = batchHandle.preparedBb;
     desc.StoreBatch(&items[batchHandle.prepared]);
     ++batchHandle.prepared;
     batchHandle.preparedBb += Desc::bbCnt;
@@ -1182,6 +1185,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     uint64_t headVal = 0U;
     uint32_t itemOffsetBb = 0U;
     uint32_t publisherRank = 0U;
+    uint32_t laneInclusiveItems = 0U;
+    uint32_t laneInclusiveBb = 0U;
+    uint32_t groupItemCount = 0U;
     HcommSimtResolvedPost post{};
     if (rank == 0U) {
         __gm__ HcommSimtChannelEntity* channelEntity =
@@ -1218,6 +1224,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         itemOffsetBb = inclusiveBb - batchHandle.preparedBb;
         const int32_t lastLane = static_cast<int32_t>(size - 1U);
         const uint32_t totalItems = asc_shfl(inclusiveItems, lastLane);
+        laneInclusiveItems = inclusiveItems;
+        laneInclusiveBb = inclusiveBb;
+        groupItemCount = totalItems;
         uint32_t totalBb = asc_shfl(inclusiveBb, lastLane);
         const uint32_t activeMask = asc_ballot(hasItems ? 1 : 0);
         publisherRank = activeMask == 0U ? 0U :
@@ -1373,30 +1382,80 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     const uint64_t profilePlanEnd = rank == 0U ? clock() : 0U;
 #endif
 
-    const uint32_t laneHead = HcommSimtHeadIdx(headVal) + itemOffsetBb;
+    const uint32_t batchHead = HcommSimtHeadIdx(headVal);
+    const uint32_t laneHead = batchHead + itemOffsetBb;
     HcommSimtPackedSqeTemplate sqeTemplate;
     HcommSimtBuildPackedSqeTemplate<0U>(post.meta, sqeTemplate);
     __ubuf__ HcommSimtPreparedBatchWqe* items =
         reinterpret_cast<__ubuf__ HcommSimtPreparedBatchWqe*>(batchHandle.buffer);
-    uint32_t sqOffsetBb = 0U;
     uint32_t tailHead = 0U;
     HcommSimtWqeStage tailStage;
-    for (uint32_t item = 0U; item < batchHandle.prepared; ++item) {
-        __ubuf__ HcommSimtPreparedBatchWqe* batchItem = &items[item];
-        const uint32_t itemBb = HcommSimtPreparedBatchBb(batchItem->words[0]);
-        const bool publish = rank == publisherRank && item + 1U == batchHandle.prepared;
-        const uint32_t commitBb = publish ? HCOMM_URMA_DWQE_BB_CNT : itemBb;
-        const uint32_t curHead = laneHead + sqOffsetBb;
-        if (publish) {
-            tailHead = curHead;
-            HcommSimtBuildBatchWqe(batchItem, sqeTemplate, curHead, curHead + commitBb, true, tailStage);
-        } else {
-            HcommSimtStorePreparedBatchWqeToSq(post, batchItem, sqeTemplate, curHead);
+    uint32_t emitPublisherRank = publisherRank;
+    if (size <= warpSize) {
+        // Logical WQE order remains lane-major, but workers consume that order round-robin. Thus
+        // one warp iteration targets adjacent SQ positions instead of one item from each strided
+        // lane-owned region. The owner lookup also preserves per-lane remote registrations.
+        emitPublisherRank = (groupItemCount - 1U) % size;
+        for (uint32_t globalItem = rank; globalItem < groupItemCount; globalItem += size) {
+            uint32_t owner = 0U;
+            uint32_t low = 0U;
+            uint32_t high = size;
+            while (low < high) {
+                const uint32_t mid = (low + high) >> 1U;
+                const uint32_t ownerItemEnd = asc_shfl(laneInclusiveItems, static_cast<int32_t>(mid));
+                if (globalItem < ownerItemEnd) {
+                    high = mid;
+                } else {
+                    low = mid + 1U;
+                }
+            }
+            owner = low;
+            const uint32_t ownerItemBegin = owner == 0U ? 0U :
+                asc_shfl(laneInclusiveItems, static_cast<int32_t>(owner - 1U));
+            const uint32_t ownerBbBegin = owner == 0U ? 0U :
+                asc_shfl(laneInclusiveBb, static_cast<int32_t>(owner - 1U));
+            const uint64_t ownerBuffer = asc_shfl(
+                reinterpret_cast<uint64_t>(batchHandle.buffer), static_cast<int32_t>(owner));
+            __ubuf__ HcommSimtPreparedBatchWqe* ownerItems =
+                reinterpret_cast<__ubuf__ HcommSimtPreparedBatchWqe*>(ownerBuffer);
+            __ubuf__ HcommSimtPreparedBatchWqe* batchItem = &ownerItems[globalItem - ownerItemBegin];
+            const uint32_t itemBb = HcommSimtPreparedBatchBb(batchItem->words[0]);
+            const uint32_t localBb = static_cast<uint32_t>(batchItem->words[HCOMM_SIMT_WQE_WORDS - 1U]);
+            const bool publish = globalItem + 1U == groupItemCount;
+            const uint32_t commitBb = publish ? HCOMM_URMA_DWQE_BB_CNT : itemBb;
+            const uint32_t curHead = batchHead + ownerBbBegin + localBb;
+            HcommSimtPackedSqeTemplate itemTemplate = sqeTemplate;
+            const uint32_t tokenId = asc_shfl(batchHandle.remoteTokenId, static_cast<int32_t>(owner));
+            itemTemplate.word1 = (itemTemplate.word1 & ~(0xFFFFFULL << 32U)) |
+                (static_cast<uint64_t>(tokenId & 0xFFFFFU) << 32U);
+            itemTemplate.tokenWord = asc_shfl(batchHandle.remoteTokenValue, static_cast<int32_t>(owner));
+            if (publish) {
+                tailHead = curHead;
+                HcommSimtBuildBatchWqe(
+                    batchItem, itemTemplate, curHead, curHead + commitBb, true, tailStage);
+            } else {
+                HcommSimtStorePreparedBatchWqeToSq(post, batchItem, itemTemplate, curHead);
+            }
         }
-        sqOffsetBb += commitBb;
+    } else {
+        uint32_t sqOffsetBb = 0U;
+        for (uint32_t item = 0U; item < batchHandle.prepared; ++item) {
+            __ubuf__ HcommSimtPreparedBatchWqe* batchItem = &items[item];
+            const uint32_t itemBb = HcommSimtPreparedBatchBb(batchItem->words[0]);
+            const bool publish = rank == publisherRank && item + 1U == batchHandle.prepared;
+            const uint32_t commitBb = publish ? HCOMM_URMA_DWQE_BB_CNT : itemBb;
+            const uint32_t curHead = laneHead + sqOffsetBb;
+            if (publish) {
+                tailHead = curHead;
+                HcommSimtBuildBatchWqe(batchItem, sqeTemplate, curHead, curHead + commitBb, true, tailStage);
+            } else {
+                HcommSimtStorePreparedBatchWqeToSq(post, batchItem, sqeTemplate, curHead);
+            }
+            sqOffsetBb += commitBb;
+        }
     }
 
-    const bool publisher = rank == publisherRank;
+    const bool publisher = rank == emitPublisherRank;
     if (publisher) {
         HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(
             post, tailHead, tailStage);
