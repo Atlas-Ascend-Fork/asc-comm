@@ -929,10 +929,12 @@ template <typename Desc>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
     UbcCtpBatchHandle& batchHandle, const Desc& desc)
 {
+    // As in the SIMD batch path, the handle caches one remote token and callers keep every
+    // appended remote address inside the registration selected by MakeBatchHandle.
     if (!initialized_ || !batchHandle.valid || batchHandle.prepared >= batchHandle.capacity ||
         batchHandle.preparedBb > batchHandle.bufferBbCapacity ||
         Desc::bbCnt > batchHandle.bufferBbCapacity - batchHandle.preparedBb ||
-        desc.targetLen > 0xFFFFFFFFULL || !BatchContainsRemote(batchHandle, desc.remoteAddr, desc.targetLen)) {
+        desc.targetLen > 0xFFFFFFFFULL) {
         return HCOMM_FAILED;
     }
 
@@ -1015,9 +1017,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotify
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len,
     __gm__ void* notifyAddr, uint64_t notifyVal)
 {
-    if (!BatchContainsRemote(batchHandle, notifyAddr, sizeof(uint64_t))) {
-        return HCOMM_FAILED;
-    }
     return BatchPostWqe(
         batchHandle, HcommSimtNotifyDesc<true, config>{
                          reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(src), len,
