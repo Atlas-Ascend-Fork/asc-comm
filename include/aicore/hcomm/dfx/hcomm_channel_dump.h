@@ -14,6 +14,27 @@
 #include "hcomm/hcomm_common.h"
 
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
+
+#include "acl/acl.h"
+#include "acl/acl_rt.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+aclError aclrtGetFuncBySymbol(const void *symbol, aclrtFuncHandle *funcHandle);
+aclError aclrtFunctionGetBinary(aclrtFuncHandle funcHandle, aclrtBinHandle *binHandle);
+#ifdef __cplusplus
+}
+#endif
+
+#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
+#define HCOMM_INCLUDE_INTERNAL_HEADERS
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_CHANNEL_DUMP_H
+#endif
+
+#include "../../../../impl/adv_api/detail/hcomm/dfx/common/hcomm_dfx_impl.h"
 
 namespace AscendC {
 
@@ -24,16 +45,84 @@ namespace AscendC {
  * @note Call this before launching the target kernel. Once the kernel triggers an AIC Error, the framework only
  *       records the exception state and does not perform D2H, printing, or launch operations inside the callback.
  */
-int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol);
+inline int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
+{
+    if (kernelSymbol == nullptr) {
+        std::printf("[HcommDfxDump] bind exception callback failed: kernelSymbol is null\n");
+        std::fflush(stdout);
+        return HCOMM_FAILED;
+    }
+
+    aclrtFuncHandle funcHandle = nullptr;
+    aclrtBinHandle binHandle = nullptr;
+    if (aclrtGetFuncBySymbol(kernelSymbol, &funcHandle) != ACL_SUCCESS ||
+        aclrtFunctionGetBinary(funcHandle, &binHandle) != ACL_SUCCESS ||
+        aclrtBinarySetExceptionCallback(binHandle, HcommDfx::ExceptionCallback, nullptr) != ACL_SUCCESS) {
+        std::printf("[HcommDfxDump] bind exception callback failed\n");
+        std::fflush(stdout);
+        return HCOMM_FAILED;
+    }
+
+    HcommDfx::ClearPendingException();
+    std::printf("[HcommDfxDump] exception callback registered\n");
+    std::fflush(stdout);
+    return HCOMM_SUCCESS;
+}
 
 /*!
  * @brief Dumps and prints the channel diagnostics at a host safe point after stream synchronization fails.
  * @param [in] channel Channel handle owned by the operator.
+ * @param [in] usePendingGate Whether to keep the legacy pending-based gate. False means dump directly.
  * @return 0 on success, -1 on failure.
- * @note Safe to call unconditionally. If no exception has been recorded, this API returns success without printing.
+ * @note Safe to call unconditionally. When usePendingGate is true, this API keeps the legacy behavior and only dumps
+ *       after an exception has been recorded. When it is false, the channel is dumped directly.
  */
-int32_t HcommChannelInfoDump(ChannelHandle channel);
+inline int32_t HcommChannelInfoDump(ChannelHandle channel, bool usePendingGate = false)
+{
+    if (usePendingGate) {
+        if (!HcommDfx::HasPendingException()) {
+            return HCOMM_SUCCESS;
+        }
+        HcommDfx::ClearPendingException();
+        std::printf("[HcommDfxDump] pending exception detected, dump channel info\n");
+        std::fflush(stdout);
+    } else {
+        std::printf("[HcommDfxDump] dump channel info directly\n");
+        std::fflush(stdout);
+    }
+
+    uint32_t dumpLen = 0;
+    int32_t ret = HcommDfx::GetChannelDumpInfoSize(1U, &channel, &dumpLen);
+    if (ret != HCOMM_SUCCESS || dumpLen == 0) {
+        std::printf("[HcommDfxDump] get dump size failed ret=%d len=%u\n", ret, dumpLen);
+        std::fflush(stdout);
+        return ret;
+    }
+
+    void *dumpBuffer = nullptr;
+    aclError allocRet = aclrtMallocHost(&dumpBuffer, dumpLen);
+    if (allocRet != ACL_SUCCESS) {
+        std::printf("[HcommDfxDump] allocate dump buffer failed ret=%d len=%u\n", allocRet, dumpLen);
+        std::fflush(stdout);
+        return HCOMM_FAILED;
+    }
+    if (dumpBuffer == nullptr) {
+        return HCOMM_FAILED;
+    }
+
+    std::memset(dumpBuffer, 0, dumpLen);
+    ret = HcommDfx::DumpChannelInfo(1U, &channel, dumpBuffer, dumpLen);
+    (void)aclrtFreeHost(dumpBuffer);
+    std::printf("[HcommDfxDump] HcommChannelInfoDump ret=%d len=%u\n", ret, dumpLen);
+    std::fflush(stdout);
+    return ret;
+}
 
 } // namespace AscendC
+
+#if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_CHANNEL_DUMP_H)
+#undef HCOMM_INCLUDE_INTERNAL_HEADERS
+#undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_CHANNEL_DUMP_H
+#endif
 
 #endif // ASCCOMM_INCLUDE_AICORE_HCOMM_DFX_HCOMM_CHANNEL_DUMP_H
