@@ -47,7 +47,11 @@ constexpr uint32_t kPublishCountIndex = 4U;
 constexpr uint32_t kFailurePhaseIndex = 5U;
 constexpr uint32_t kFailureOperationIndex = 6U;
 constexpr uint32_t kFailureActionIndex = 7U;
-constexpr uint32_t kTimingWords = 8U;
+constexpr uint32_t kCommitCyclesIndex = 8U;
+constexpr uint32_t kPlanCyclesIndex = 9U;
+constexpr uint32_t kEmitCyclesIndex = 10U;
+constexpr uint32_t kDwqePublishCyclesIndex = 11U;
+constexpr uint32_t kTimingWords = 12U;
 
 constexpr uint32_t kPhaseSuccess = 0U;
 constexpr uint32_t kPhaseInit = 1U;

@@ -100,6 +100,11 @@ struct UbcCtpBatchHandle {
     uint32_t remoteTokenId = 0U;
     uint32_t remoteTokenValue = 0U;
     uint64_t headSnapshot = 0U;
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    uint64_t profilePlanCycles = 0U;
+    uint64_t profileEmitCycles = 0U;
+    uint64_t profilePublishCycles = 0U;
+#endif
     bool valid = false;
 };
 

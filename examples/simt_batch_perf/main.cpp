@@ -422,7 +422,20 @@ int main(int argc, char* argv[])
                   << " | DataSize/B=" << dataBytes << " | BatchSize=" << batchItems << " | Lanes=" << lanes
                   << " | DBCount=" << timing[kPublishCountIndex]
                   << " | Mode=" << (mode == "group" ? "GroupBatch" : mode == "batch" ? "ExplicitBatch" : "Immediate")
-                  << " | Bandwidth/GB/s=" << bandwidth << " | IssueTime/ns=" << issueNs << std::endl;
+                  << " | Bandwidth/GB/s=" << bandwidth << " | IssueTime/ns=" << issueNs;
+        if (mode != "immediate") {
+            const double commitNs = static_cast<double>(timing[kCommitCyclesIndex]) / iterations;
+            const double appendNs = issueNs > commitNs ? issueNs - commitNs : 0.0;
+            const double planNs = static_cast<double>(timing[kPlanCyclesIndex]) / iterations;
+            const double emitNs = static_cast<double>(timing[kEmitCyclesIndex]) / iterations;
+            const double publishNs = static_cast<double>(timing[kDwqePublishCyclesIndex]) / iterations;
+            const double otherNs = commitNs > planNs + emitNs + publishNs ?
+                commitNs - planNs - emitNs - publishNs : 0.0;
+            std::cout << " | AppendTime/ns=" << appendNs << " | CommitTime/ns=" << commitNs
+                      << " | PlanTime/ns=" << planNs << " | EmitTime/ns=" << emitNs
+                      << " | PublishTime/ns=" << publishNs << " | CommitOtherTime/ns=" << otherNs;
+        }
+        std::cout << std::endl;
         if (!pass) {
             std::cout << "FAIL_DETAIL | Rank=" << rank << " | Peer=" << peer
                       << " | StatusCode=" << static_cast<int64_t>(timing[kStatusIndex])
