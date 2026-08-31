@@ -166,6 +166,24 @@ copy_headers()
     [[ ${count} -gt 0 ]] || fail "no header files found under ${source_root}"
 }
 
+copy_source_files()
+{
+    local source_root=$1
+    local destination_root=$2
+    local mode=$3
+    local source_file
+    local relative_path
+    local count=0
+
+    while IFS= read -r -d '' source_file; do
+        relative_path=${source_file#"${source_root}/"}
+        install -D -m "${mode}" "${source_file}" "${destination_root}/${relative_path}"
+        count=$((count + 1))
+    done < <(find "${source_root}" -type f \( -name '*.h' -o -name '*.cpp' \) -print0 | sort -z)
+
+    [[ ${count} -gt 0 ]] || fail "no source files found under ${source_root}"
+}
+
 write_manifest()
 {
     local file
@@ -173,7 +191,7 @@ write_manifest()
         cd "${STAGING_DIR}/payload"
         while IFS= read -r -d '' file; do
             sha256sum "${file}"
-        done < <(find asc -type f -name '*.h' -print0 | sort -z)
+        done < <(find asc -type f \( -name '*.h' -o -name '*.cpp' \) -print0 | sort -z)
     ) > "${STAGING_DIR}/manifest.sha256"
 }
 
@@ -251,7 +269,7 @@ build_package()
         550
     [[ -f "${STAGING_DIR}/payload/asc/include/adv_api/hcomm/hcomm_host.h" ]] || \
         fail "shared Jetty Host API was not staged: hcomm_host.h"
-    copy_headers \
+    copy_source_files \
         "${PROJECT_ROOT}/src/aicore/hcomm" \
         "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm" \
         550
