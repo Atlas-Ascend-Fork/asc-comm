@@ -597,6 +597,27 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolvePost(
     return HCOMM_SUCCESS;
 }
 
+// Queue placement fields are consumed at Commit, so load one current SQ context there instead of
+// relying on the snapshot taken while the batch handle was created.
+__simt_callee__ inline void HcommSimtLoadBatchQueuePost(
+    ChannelHandle channel, HcommSimtResolvedPost& post)
+{
+    __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
+    __gm__ SqContext* sqContexts = reinterpret_cast<__gm__ SqContext*>(channelEntity->sqContextAddr);
+    __gm__ SqContext* sqCtx = &sqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
+    post.headAddr = reinterpret_cast<__gm__ uint64_t*>(sqCtx->contextInfo.ubJfs.headAddr);
+    post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(sqCtx->contextInfo.ubJfs.tailAddr);
+    post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+        sqCtx->contextInfo.ubJfs.dbVa - HCOMM_URMA_DWQE_DB_OFFSET);
+    post.sqBaseAddr = sqCtx->contextInfo.ubJfs.sqVa;
+    post.sqWqeSize = sqCtx->contextInfo.ubJfs.wqeSize;
+    post.meta.sqDepth = sqCtx->contextInfo.ubJfs.sqDepth;
+    post.meta.tpId = sqCtx->contextInfo.ubJfs.tpID;
+    __gm__ uint64_t* remoteEid = reinterpret_cast<__gm__ uint64_t*>(&sqCtx->contextInfo.ubJfs.remoteEID[0]);
+    post.meta.remoteEidL = remoteEid[0];
+    post.meta.remoteEidH = remoteEid[1];
+}
+
 __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase)
 {
@@ -1173,15 +1194,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     }
 
     HcommSimtResolvedPost post;
-    post.headAddr = batchHandle.headAddr;
-    post.sqTailAddr = batchHandle.sqTailAddr;
-    post.dwqeAddr = batchHandle.dwqeAddr;
-    post.sqBaseAddr = batchHandle.sqBaseAddr;
-    post.sqWqeSize = batchHandle.sqWqeSize;
-    post.meta.sqDepth = batchHandle.sqDepth;
-    post.meta.tpId = batchHandle.tpId;
-    post.meta.remoteEidL = batchHandle.remoteEidL;
-    post.meta.remoteEidH = batchHandle.remoteEidH;
+    HcommSimtLoadBatchQueuePost(batchHandle.channel, post);
     post.meta.remoteTokenId = batchHandle.remoteTokenId;
     post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
     if (*post.headAddr != batchHandle.headSnapshot) {
@@ -1274,17 +1287,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     uint32_t itemOffsetBb = 0U;
     uint32_t publisherRank = 0U;
     HcommSimtResolvedPost post{};
-    post.headAddr = batchHandle.headAddr;
-    post.sqTailAddr = batchHandle.sqTailAddr;
-    post.dwqeAddr = batchHandle.dwqeAddr;
-    post.sqBaseAddr = batchHandle.sqBaseAddr;
-    post.sqWqeSize = batchHandle.sqWqeSize;
-    post.meta.sqDepth = batchHandle.sqDepth;
-    post.meta.tpId = batchHandle.tpId;
-    post.meta.remoteEidL = batchHandle.remoteEidL;
-    post.meta.remoteEidH = batchHandle.remoteEidH;
-    post.meta.remoteTokenId = batchHandle.remoteTokenId;
-    post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
+    if (rank == 0U) {
+        HcommSimtLoadBatchQueuePost(batchHandle.channel, post);
+    }
     if (size <= warpSize) {
         if (asc_all(localReady ? 1 : 0) == 0) {
             return HCOMM_FAILED;
@@ -1398,6 +1403,61 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     if (status != HCOMM_SUCCESS) {
         return HCOMM_FAILED;
     }
+
+    if (size <= warpSize) {
+        post.headAddr = reinterpret_cast<__gm__ uint64_t*>(
+            asc_shfl(reinterpret_cast<uint64_t>(post.headAddr), 0));
+        post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(
+            asc_shfl(reinterpret_cast<uint64_t>(post.sqTailAddr), 0));
+        post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+            asc_shfl(reinterpret_cast<uint64_t>(post.dwqeAddr), 0));
+        post.sqBaseAddr = asc_shfl(post.sqBaseAddr, 0);
+        post.sqWqeSize = asc_shfl(post.sqWqeSize, 0);
+        post.meta.sqDepth = asc_shfl(post.meta.sqDepth, 0);
+        post.meta.tpId = asc_shfl(post.meta.tpId, 0);
+        post.meta.remoteEidL = asc_shfl(post.meta.remoteEidL, 0);
+        post.meta.remoteEidH = asc_shfl(post.meta.remoteEidH, 0);
+    } else {
+        group.sync();
+        if (rank == 0U) {
+            const uint64_t headAddr = reinterpret_cast<uint64_t>(post.headAddr);
+            const uint64_t tailAddr = reinterpret_cast<uint64_t>(post.sqTailAddr);
+            const uint64_t dwqeAddr = reinterpret_cast<uint64_t>(post.dwqeAddr);
+            groupState_[0] = static_cast<uint32_t>(headAddr);
+            groupState_[1] = static_cast<uint32_t>(headAddr >> 32U);
+            groupState_[2] = static_cast<uint32_t>(tailAddr);
+            groupState_[3] = static_cast<uint32_t>(tailAddr >> 32U);
+            groupState_[4] = static_cast<uint32_t>(dwqeAddr);
+            groupState_[5] = static_cast<uint32_t>(dwqeAddr >> 32U);
+            groupState_[6] = static_cast<uint32_t>(post.sqBaseAddr);
+            groupState_[7] = static_cast<uint32_t>(post.sqBaseAddr >> 32U);
+            groupState_[8] = post.sqWqeSize;
+            groupState_[9] = post.meta.sqDepth;
+            groupState_[10] = post.meta.tpId;
+            groupState_[11] = static_cast<uint32_t>(post.meta.remoteEidL);
+            groupState_[12] = static_cast<uint32_t>(post.meta.remoteEidL >> 32U);
+            groupState_[13] = static_cast<uint32_t>(post.meta.remoteEidH);
+            groupState_[14] = static_cast<uint32_t>(post.meta.remoteEidH >> 32U);
+        }
+        group.sync();
+        post.headAddr = reinterpret_cast<__gm__ uint64_t*>(
+            static_cast<uint64_t>(groupState_[0]) | (static_cast<uint64_t>(groupState_[1]) << 32U));
+        post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(
+            static_cast<uint64_t>(groupState_[2]) | (static_cast<uint64_t>(groupState_[3]) << 32U));
+        post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+            static_cast<uint64_t>(groupState_[4]) | (static_cast<uint64_t>(groupState_[5]) << 32U));
+        post.sqBaseAddr = static_cast<uint64_t>(groupState_[6]) |
+            (static_cast<uint64_t>(groupState_[7]) << 32U);
+        post.sqWqeSize = groupState_[8];
+        post.meta.sqDepth = groupState_[9];
+        post.meta.tpId = groupState_[10];
+        post.meta.remoteEidL = static_cast<uint64_t>(groupState_[11]) |
+            (static_cast<uint64_t>(groupState_[12]) << 32U);
+        post.meta.remoteEidH = static_cast<uint64_t>(groupState_[13]) |
+            (static_cast<uint64_t>(groupState_[14]) << 32U);
+    }
+    post.meta.remoteTokenId = batchHandle.remoteTokenId;
+    post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
 
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     const uint64_t profilePlanEnd = rank == 0U ? clock() : 0U;
