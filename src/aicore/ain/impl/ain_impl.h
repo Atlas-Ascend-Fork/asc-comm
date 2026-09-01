@@ -252,6 +252,19 @@ AIN_DEVICE void Ain<CommEngineMask>::WaitSignal(
     }
 }
 
+template <unsigned CommEngineMask>
+AIN_DEVICE HcommMemHandle Ain<CommEngineMask>::GetPeerPointer(
+    HcommTeamHandle team, uint32_t peer, HcommWindowHandle window, size_t offset) const
+{
+    static_assert(CommEngineMask == AIN_MASK_UBMEM, "GetPeerPointer is only supported with AIN_MASK_UBMEM");
+
+    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    auto lsaWindow = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window))->lsaWin;
+    size_t peerOffset = hcommTeam->worldTeamIds[peer] * lsaWindow.stride + offset;
+    HcommMemHandle ptr = reinterpret_cast<HcommMemHandle>(reinterpret_cast<uintptr_t>(lsaWindow.baseVa) + peerOffset);  // 确认一下返回类型  windowHandle返回windowHandle？   是不是可以抽出通用的util？  看下nv  shmem怎么用
+    return ptr;
+}
+
 // ===================== AinBarrierSession =====================
 
 template <unsigned CommEngineMask>
