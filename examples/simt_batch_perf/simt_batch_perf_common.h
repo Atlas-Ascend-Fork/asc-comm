@@ -19,9 +19,9 @@ constexpr uint32_t kRootRank = 0U;
 constexpr uint32_t kSlotCount = 64U;
 constexpr uint32_t kMaxBatchSize = 1024U;
 constexpr uint32_t kMaxGroupLanes = 1024U;
-// The correctness-first batch format stages the validated 128-byte immediate layout per item.
+// One shared 128-byte UB region holds the stable queue and remote Jetty context.
 constexpr uint32_t kBatchItemBytes = 128U;
-constexpr uint32_t kBatchBufferBytes = kMaxBatchSize * kBatchItemBytes;
+constexpr uint32_t kBatchBufferBytes = kBatchItemBytes;
 
 constexpr uint8_t kPayloadByte = 0x5AU;
 constexpr uint8_t kRemoteInitialByte = 0x3CU;
@@ -47,11 +47,7 @@ constexpr uint32_t kPublishCountIndex = 4U;
 constexpr uint32_t kFailurePhaseIndex = 5U;
 constexpr uint32_t kFailureOperationIndex = 6U;
 constexpr uint32_t kFailureActionIndex = 7U;
-constexpr uint32_t kCommitCyclesIndex = 8U;
-constexpr uint32_t kPlanCyclesIndex = 9U;
-constexpr uint32_t kEmitCyclesIndex = 10U;
-constexpr uint32_t kDwqePublishCyclesIndex = 11U;
-constexpr uint32_t kTimingWords = 12U;
+constexpr uint32_t kTimingWords = 8U;
 
 constexpr uint32_t kPhaseSuccess = 0U;
 constexpr uint32_t kPhaseInit = 1U;

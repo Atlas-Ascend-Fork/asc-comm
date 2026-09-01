@@ -8,8 +8,8 @@ pairs: even ranks 0/2/4/6 launch the SIMT kernel, and odd ranks 1/3/5/7 validate
 
 ## Runnable minimal example
 
-`basic_op_kernel.cpp` contains the complete minimal path for a first-time batch user: allocate UB for two items,
-create a BatchHandle, append two `WriteNbi` operations, publish them with one `BatchCommit`, and wait with `Drain`.
+`basic_op_kernel.cpp` contains the complete minimal path for a first-time batch user: allocate shared-context UB,
+create a BatchHandle, execute two `WriteNbi` plus `BatchCommit` pairs, and finally wait with `Drain`.
 It has no template dispatch, mixed operations, or status matrix and runs directly on two or eight devices:
 
 ```bash
@@ -21,8 +21,7 @@ bash run_basic.sh
 The Kernel-side call sequence is:
 
 ```cpp
-constexpr uint32_t kItemCount = 2U;
-constexpr uint32_t kWorkspaceBytes = AscendC::simt::HcommSimtBatchBufferBytes(kItemCount);
+constexpr uint32_t kWorkspaceBytes = AscendC::simt::HcommSimtBatchBufferBytes(1U);
 alignas(128) __ubuf__ uint64_t batchBuffer[kWorkspaceBytes / sizeof(uint64_t)];
 
 AscendC::simt::Hcomm<> hcomm;
@@ -31,9 +30,12 @@ if (hcomm.Init(nullptr, 0) != 0) {
 }
 auto batch = hcomm.MakeBatchHandle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), kWorkspaceBytes, remote);
-if (!batch.valid ||
+if (batch.context == nullptr ||
     hcomm.WriteNbi(batch, remote, local, 64U) != 0 ||
-    hcomm.WriteNbi(batch, remote + 64U, local + 64U, 64U) != 0 ||
+    hcomm.BatchCommit(batch) != 0) {
+    return;
+}
+if (hcomm.WriteNbi(batch, remote + 64U, local + 64U, 64U) != 0 ||
     hcomm.BatchCommit(batch) != 0) {
     return;
 }
@@ -42,10 +44,11 @@ if (hcomm.Drain(batch) != 0) {
 }
 ```
 
-The caller owns the UB and chooses its capacity. `HcommSimtBatchBufferBytes` exposes the current basic-format
-sizing rule so user code does not depend on an internal WQE constant. A BatchHandle binds one remote
-registration selected by `remote`; subsequent data and Notify ranges must stay inside it. The implementation
-performs a lightweight check against the base and size cached in the handle.
+The caller-owned UB stores one copy of stable queue addresses and remote Jetty fields; its size no longer grows
+with the lane count. A BatchHandle binds the remote registration selected by `remote`, and subsequent data and
+Notify addresses must remain in it. This is a caller contract and is not rechecked in the hot path. One lane
+prepares one request, so Group Batch size equals its lane count, and all operations in a batch must use the same
+WQEBB count.
 
 ## Full regression design
 
@@ -54,30 +57,29 @@ all APIs:
 
 | Scenario | Batch shape | Main assertion |
 | --- | --- | --- |
-| Homogeneous Write/Read/Notify/WriteValue/FAA/CAS | Two batches of eight items per API, then one Drain | Every API is the publishing tail; consecutive commits complete |
+| Single-lane Write/Read/Notify/WriteValue/FAA/CAS | One Append and Commit per item, then one Drain | Single-item boundary and consecutive publication |
+| Group Write/Read/Notify/WriteValue/FAA/CAS | N lanes and one item per lane | Parallel SQ writes and one publication for same-BB operations |
 | RMA data | 64 bytes per item and a distinct pattern for all 16 items | Lengths, addresses, and WQEs do not alias |
 | FAA | Eight targets updated twice, with 16 separate fetch destinations | No operation is lost/duplicated; every old value is checked |
 | CAS | Eight targets compared twice, with 16 separate fetch destinations | First CAS succeeds, second compare fails, and every old value is checked |
-| Mixed partial batch | One item from every API, six items total | Different WQE types coexist; CAS is the tail |
-| Single-item batch | One `WriteValueNbi` | The `batch-size=1` boundary |
+| APIs sequential | One single-item batch from each API | Reuse one handle across different APIs |
 
-The suite first records handle validity, verifies that it selected the registration returned by `RemoteBufferAddr`,
-and records logical capacity and physical SQ depth. Each scenario records `Append`, `BatchCommit`, `Drain`, and
+The suite first records the handle context and physical SQ depth. Each scenario records `Append`, `BatchCommit`, `Drain`, and
 `BatchCommitCount`. The suite validates local
 Read/FAA/CAS results on every even rank and all remote data on its odd-rank peer. Any device status, publish-count, or data mismatch
 makes the corresponding rank fail; successful kernel submission alone cannot produce an overall PASS.
 
 The existing per-API SIMT examples own immediate-path correctness. The performance suite compares Immediate and
-ExplicitBatch per API with identical parameters. Mixed and single-item cases are supplemental; homogeneous
-multi-item and multi-commit submission is the primary gate.
+single-lane single-item Batch and Group Batch per API with identical parameters. Group Batch is the primary
+batched-performance path.
 
-The basic implementation uses 128 bytes of UB per item to reuse the validated immediate WQE layout. The example
-uses the public `HcommSimtBatchBufferBytes` helper rather than an internal magic number. Per-operator WQEBB
-compaction is a later optimization and is not part of the current API semantics.
+Append generates position-independent request fields in lane-private state. `BatchCommit` has lane 0 reserve the
+whole SQ range once, lets every lane merge its request with shared Jetty fields directly into its final SQ slot,
+then has the tail lane publish the batch through DWQE after all SQ writes finish.
 
 ## Pass criteria
 
-- The handle is valid and bound to the selected remote registration, all device steps return zero, and
+- The handle context is valid, all device steps return zero, and
   BatchCommit call counts match the design.
 - Every even rank validates Read data and every FAA/CAS old value.
 - Every odd rank validates Write/Notify/WriteValue data, Notify signals, and final FAA/CAS values.

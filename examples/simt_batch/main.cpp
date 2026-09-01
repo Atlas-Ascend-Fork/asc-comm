@@ -256,7 +256,7 @@ bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, boo
     std::array<int32_t, kStatusCount> status {};
     constexpr std::array<const char*, kCaseCount> cases = {
         "WriteNbi.homogeneous", "ReadNbi.homogeneous", "WriteWithNotifyNbi.homogeneous",
-        "WriteValueNbi.homogeneous", "AtomicFAA.homogeneous", "AtomicCAS.homogeneous", "Mixed.partial",
+        "WriteValueNbi.homogeneous", "AtomicFAA.homogeneous", "AtomicCAS.homogeneous", "APIs.sequential",
         "WriteValueNbi.single"};
     constexpr std::array<const char*, 3U> steps = {"Append", "BatchCommit", "Drain"};
     if (aclrtMemcpy(status.data(), sizeof(status), statusBuf, sizeof(status), ACL_MEMCPY_DEVICE_TO_HOST) !=
@@ -268,7 +268,6 @@ bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, boo
               << (pass ? "PASS" : "FAIL") << std::endl;
     const bool handlePass = status[kStatusHandle] == 0;
     std::cout << "STATUS | Case=Handle | Step=MakeBatchHandle | Code=" << status[kStatusHandle]
-              << " | Capacity=" << status[kStatusHandleCapacity] << " | SqDepth=" << status[kStatusSqDepth]
               << " | " << (handlePass ? "PASS" : "FAIL") << std::endl;
     pass = pass && handlePass;
     const uint32_t checkedCaseCount = groupMode ? kApiCas + 1U : kCaseCount;
@@ -282,7 +281,9 @@ bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, boo
                       << (itemPass ? "PASS" : (value == kStatusNotRun ? "NOT_RUN" : "FAIL")) << std::endl;
             pass = pass && itemPass;
         }
-        const int32_t expectedCommits = testCase < kCaseMixed ? static_cast<int32_t>(expectedBatchCount) : 1;
+        const int32_t expectedCommits = testCase < kCaseMixed ?
+            static_cast<int32_t>(expectedBatchCount * (groupMode ? 1U : kOperationsPerBatch)) :
+            (testCase == kCaseMixed ? 6 : 1);
         const uint32_t commitIndex = kStatusCaseBase + testCase * kStatusFieldsPerCase + kStatusCommitCount;
         const int32_t actualCommits = status[commitIndex];
         const bool commitPass = actualCommits == expectedCommits;
@@ -291,40 +292,6 @@ bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, boo
                   << (commitPass ? "PASS" : (actualCommits == kStatusNotRun ? "NOT_RUN" : "FAIL"))
                   << std::endl;
         pass = pass && commitPass;
-    }
-    if (groupMode && static_cast<uint32_t>(status[kDiagMagic]) == kDiagMagicValue) {
-        const auto word64 = [&status](uint32_t index) {
-            return static_cast<uint64_t>(static_cast<uint32_t>(status[index])) |
-                (static_cast<uint64_t>(static_cast<uint32_t>(status[index + 1U])) << 32U);
-        };
-        std::cout << std::hex << std::setfill('0')
-                  << "DIAG | HeadBefore=0x" << std::setw(16) << word64(kDiagHeadBefore)
-                  << " | Published=0x" << std::setw(16) << word64(kDiagPublishedHead)
-                  << " | HeadAfter=0x" << std::setw(16) << word64(kDiagHeadAfterPublish)
-                  << " | ContextMismatchMask=0x" << std::setw(8)
-                  << static_cast<uint32_t>(status[kDiagGroupSize])
-                  << std::dec << " | LaneHead=" << status[kDiagLaneHead]
-                  << " | TotalBb=" << status[kDiagTotalBb] << " | SqTail=" << status[kDiagSqTailAfterDrain]
-                  << " | CqTail=" << status[kDiagCqTailBefore] << "->" << status[kDiagCqTailAfterDrain]
-                  << std::endl;
-        for (uint32_t word = 0U; word < 16U; ++word) {
-            const uint64_t expected = word64(kDiagExpectedStage + word * 2U);
-            const uint64_t actual = word64(kDiagSqStage + word * 2U);
-            std::cout << std::hex << std::setfill('0') << "DIAG | TailWord=" << std::dec << word
-                      << " | Expected=0x" << std::hex << std::setw(16) << expected
-                      << " | SQ=0x" << std::setw(16) << actual
-                      << " | Match=" << (expected == actual ? "YES" : "NO") << std::dec << std::endl;
-        }
-        const uint32_t expectedOwner =
-            (static_cast<uint32_t>(status[kDiagCqTailBefore]) / static_cast<uint32_t>(status[kDiagCqDepth])) & 1U;
-        for (uint32_t item = 0U; item < 2U; ++item) {
-            const uint32_t head = static_cast<uint32_t>(status[kDiagCqe + item * 2U]);
-            const uint32_t word1 = static_cast<uint32_t>(status[kDiagCqe + item * 2U + 1U]);
-            std::cout << "DIAG | CQE=" << item << " | Ready=" << (((head >> 2U) & 1U) != expectedOwner)
-                      << " | Owner=" << ((head >> 2U) & 1U) << " | Status=" << ((head >> 24U) & 0xFFU)
-                      << " | SubStatus=" << ((head >> 16U) & 0xFFU) << " | EntryIdx=" << (word1 & 0xFFFFU)
-                      << std::endl;
-        }
     }
     return pass;
 }
@@ -344,14 +311,8 @@ bool CheckBasicStatus(void* statusBuf)
     bool pass = true;
     for (uint32_t item = 0U; item < steps.size(); ++item) {
         const int32_t code = status[indices[item]];
-        bool itemPass = code == 0;
+        const bool itemPass = code == 0;
         std::cout << "STATUS | API=" << steps[item] << " | Code=" << code;
-        if (indices[item] == kBasicStatusHandle) {
-            const bool capacityPass = status[kBasicStatusCapacity] == static_cast<int32_t>(kBasicOperationCount);
-            itemPass = itemPass && capacityPass;
-            std::cout << " | Capacity=" << status[kBasicStatusCapacity]
-                      << " | ExpectedCapacity=" << kBasicOperationCount;
-        }
         std::cout << " | " << (itemPass ? "PASS" : (code == kBasicStatusNotRun ? "NOT_RUN" : "FAIL"))
                   << std::endl;
         pass = pass && itemPass;

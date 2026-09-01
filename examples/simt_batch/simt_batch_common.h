@@ -28,8 +28,8 @@ constexpr uint32_t kCaseMixed = 6U;
 constexpr uint32_t kCaseSingle = 7U;
 constexpr uint32_t kCaseCount = 8U;
 
-// The common batch path submits two full batches and drains once. This covers each API as
-// the publishing tail, more than one BatchCommit, and completion of outstanding batches.
+// The non-group path has one lane and therefore one request per batch. Repeating it covers
+// consecutive publication and completion; the group path submits one request per lane.
 constexpr uint32_t kOperationsPerBatch = 8U;
 constexpr uint32_t kBatchCount = 2U;
 constexpr uint32_t kOperationCount = kOperationsPerBatch * kBatchCount;
@@ -37,19 +37,17 @@ constexpr uint32_t kTargetCount = kOperationsPerBatch;
 constexpr uint32_t kPayloadBytes = 64U;
 constexpr size_t kBufferBytes = 4096U;
 
-// The runnable basic mode intentionally stays linear: two WriteNbi appends, one commit and one
-// drain. It shares the full suite's buffers and Host setup without exposing that test machinery
-// in the basic Kernel.
+// The runnable basic mode intentionally stays linear: two one-request WriteNbi batches and one
+// drain. It shares the full suite's buffers and Host setup without exposing that test machinery.
 constexpr uint32_t kBasicOperationCount = 2U;
 constexpr int32_t kBasicStatusNotRun = -2;
 constexpr uint32_t kBasicStatusInit = 0U;
 constexpr uint32_t kBasicStatusHandle = 1U;
-constexpr uint32_t kBasicStatusCapacity = 2U;
-constexpr uint32_t kBasicStatusAppendFirst = 3U;
-constexpr uint32_t kBasicStatusAppendSecond = 4U;
-constexpr uint32_t kBasicStatusCommit = 5U;
-constexpr uint32_t kBasicStatusDrain = 6U;
-constexpr uint32_t kBasicFunctionalStatusCount = 7U;
+constexpr uint32_t kBasicStatusAppendFirst = 2U;
+constexpr uint32_t kBasicStatusAppendSecond = 3U;
+constexpr uint32_t kBasicStatusCommit = 4U;
+constexpr uint32_t kBasicStatusDrain = 5U;
+constexpr uint32_t kBasicFunctionalStatusCount = 6U;
 
 constexpr size_t kWriteOffset = 0U;
 constexpr size_t kReadOffset = kWriteOffset + kOperationCount * kPayloadBytes;
@@ -97,9 +95,7 @@ constexpr uint64_t kSingleWriteValue = 109U;
 constexpr uint32_t kStatusFieldsPerCase = 4U;
 constexpr uint32_t kStatusInit = 0U;
 constexpr uint32_t kStatusHandle = 1U;
-constexpr uint32_t kStatusHandleCapacity = 2U;
-constexpr uint32_t kStatusSqDepth = 3U;
-constexpr uint32_t kStatusCaseBase = 4U;
+constexpr uint32_t kStatusCaseBase = 2U;
 constexpr int32_t kStatusNotRun = -2;
 constexpr uint32_t kStatusAppend = 0U;
 constexpr uint32_t kStatusCommit = 1U;
@@ -107,26 +103,7 @@ constexpr uint32_t kStatusDrain = 2U;
 constexpr uint32_t kStatusCommitCount = 3U;
 
 constexpr uint32_t kFunctionalStatusCount = kStatusCaseBase + kCaseCount * kStatusFieldsPerCase;
-// Temporary post-publication diagnostics. Keep the capture outside the library hot path and
-// remove it once the fixed-2BB tail failure is resolved.
-constexpr uint32_t kDiagBase = kFunctionalStatusCount;
-constexpr uint32_t kDiagMagic = kDiagBase;
-constexpr uint32_t kDiagGroupSize = kDiagBase + 1U;
-constexpr uint32_t kDiagTotalBb = kDiagBase + 2U;
-constexpr uint32_t kDiagLaneHead = kDiagBase + 3U;
-constexpr uint32_t kDiagHeadBefore = kDiagBase + 4U;
-constexpr uint32_t kDiagPublishedHead = kDiagBase + 6U;
-constexpr uint32_t kDiagHeadAfterPublish = kDiagBase + 8U;
-constexpr uint32_t kDiagSqTailAfterDrain = kDiagBase + 10U;
-constexpr uint32_t kDiagCqTailBefore = kDiagBase + 11U;
-constexpr uint32_t kDiagCqTailAfterDrain = kDiagBase + 12U;
-constexpr uint32_t kDiagCqDepth = kDiagBase + 13U;
-constexpr uint32_t kDiagExpectedStage = kDiagBase + 14U;
-constexpr uint32_t kDiagSqStage = kDiagExpectedStage + 32U;
-constexpr uint32_t kDiagCqe = kDiagSqStage + 32U;
-constexpr uint32_t kDiagWordCount = kDiagCqe + 4U - kDiagBase;
-constexpr uint32_t kDiagMagicValue = 0x42415443U;
-constexpr uint32_t kStatusCount = kFunctionalStatusCount + kDiagWordCount;
+constexpr uint32_t kStatusCount = kFunctionalStatusCount;
 constexpr uint32_t kBasicStatusCount = kBasicFunctionalStatusCount;
 
 } // namespace simt_batch

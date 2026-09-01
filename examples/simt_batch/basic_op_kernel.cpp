@@ -18,7 +18,7 @@ namespace {
 using namespace simt_batch;
 
 constexpr uint32_t kBasicBatchBufferBytes =
-    AscendC::simt::HcommSimtBatchBufferBytes(kBasicOperationCount);
+    AscendC::simt::HcommSimtBatchBufferBytes(1U);
 
 __simt_vf__ __launch_bounds__(32) inline void SimtBatchBasicVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __ubuf__ uint8_t* batchBuffer,
@@ -40,8 +40,7 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchBasicVf(
     }
 
     auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBasicBatchBufferBytes, remote);
-    status[kBasicStatusHandle] = batch.valid ? 0 : -1;
-    status[kBasicStatusCapacity] = static_cast<int32_t>(batch.capacity);
+    status[kBasicStatusHandle] = batch.context != nullptr ? 0 : -1;
     if (status[kBasicStatusHandle] != 0) {
         return;
     }
@@ -51,12 +50,15 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchBasicVf(
     if (status[kBasicStatusAppendFirst] != 0) {
         return;
     }
+    status[kBasicStatusCommit] = hcomm.BatchCommit(batch);
+    if (status[kBasicStatusCommit] != 0) {
+        return;
+    }
     status[kBasicStatusAppendSecond] = hcomm.WriteNbi(
         batch, remote + kWriteOffset + kPayloadBytes, local + kWriteOffset + kPayloadBytes, kPayloadBytes);
     if (status[kBasicStatusAppendSecond] != 0) {
         return;
     }
-
     status[kBasicStatusCommit] = hcomm.BatchCommit(batch);
     if (status[kBasicStatusCommit] != 0) {
         return;

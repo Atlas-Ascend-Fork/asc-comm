@@ -17,7 +17,7 @@ Options:
   --iterations N      Timed operation count, default: 1024
   --warmup N          Warmup operation count, default: 96
   --payload-bytes N   Write/Read/Notify payload, default: 64
-  --batch-size N      ExplicitBatch size (1..1024), default: 128
+  --batch-size N      Single-lane Batch size; only 1 is supported, default: 1
   --group-lanes LIST  GroupBatch sizes/lane counts, default: 2,4,8,16,32,128
   --devices N         Device count, 2 or 8; default: 2
   --mode MODE         compare, immediate, batch, or group; default: compare
@@ -31,7 +31,7 @@ if [[ $# -gt 0 ]]; then shift; fi
 iterations=1024
 warmup=96
 payload_bytes=64
-batch_size=128
+batch_size=1
 group_lanes="2,4,8,16,32,128"
 devices=2
 mode=compare
@@ -66,6 +66,10 @@ valid_api() {
 [[ "$mode" == "compare" || "$mode" == "immediate" || "$mode" == "batch" || "$mode" == "group" ]] || {
     echo "invalid mode: $mode" >&2; exit 1;
 }
+if [[ "$mode" == "batch" && "$batch_size" -ne 1 ]]; then
+    echo "single-lane ExplicitBatch requires --batch-size 1; GroupBatch uses batch-size = lanes" >&2
+    exit 1
+fi
 IFS=',' read -r -a lane_counts <<< "$group_lanes"
 [[ ${#lane_counts[@]} -gt 0 ]] || { echo "group lane list must not be empty" >&2; exit 1; }
 if [[ "$mode" == "group" || "$mode" == "compare" ]]; then
@@ -101,7 +105,7 @@ if [[ -z "$log_file" ]]; then
 fi
 mkdir -p "$(dirname "$log_file")"
 exec > >(tee "$log_file") 2>&1
-echo "TEST_INFO | Suite=simt_batch_perf | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | WarmupPolicy=FullGroup | PayloadBytes=${payload_bytes} | ExplicitBatchSize=${batch_size} | GroupBatchSizes=${group_lanes} | LargeGroup=${large_group_enabled}"
+echo "TEST_INFO | Suite=simt_batch_perf | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | WarmupPolicy=FullGroup | PayloadBytes=${payload_bytes} | SingleLaneBatchSize=${batch_size} | GroupBatchSizes=${group_lanes} | LargeGroup=${large_group_enabled}"
 apis=(write read notify write_value faa cas)
 if [[ "$api" == "core" ]]; then
     apis=(write read notify)

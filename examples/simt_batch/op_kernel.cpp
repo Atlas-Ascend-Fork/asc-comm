@@ -21,100 +21,7 @@ using namespace simt_batch;
 // This is a Kernel-only sizing detail. Keep the shared example header independent of
 // device-side Hcomm headers because main.cpp includes it as ordinary Host C++.
 constexpr uint32_t kBatchBufferBytes = AscendC::simt::HcommSimtBatchBufferBytes(kOperationsPerBatch);
-constexpr uint32_t kGroupStateWords = 4U + kOperationsPerBatch;
-
-__simt_callee__ inline void StoreDiag64(__gm__ int32_t* status, uint32_t index, uint64_t value)
-{
-    status[index] = static_cast<int32_t>(value);
-    status[index + 1U] = static_cast<int32_t>(value >> 32U);
-}
-
-__simt_callee__ inline void CaptureTailAfterCommit(
-    AscendC::simt::UbcCtpBatchHandle& batch, __gm__ int32_t* status, uint32_t rank, uint32_t size)
-{
-    if (rank + 1U != size) {
-        return;
-    }
-    // The homogeneous Write diagnostic follows the validated compact layout: every non-tail
-    // request occupies one BB, while the publisher is expanded to the two-BB DWQE image.
-    const uint32_t totalBb = size + AscendC::simt::HCOMM_URMA_WQE_BB_CNT;
-    const uint64_t delta = (static_cast<uint64_t>(size) << 32U) | totalBb;
-    const uint64_t headBefore = batch.headSnapshot - delta;
-    const uint32_t laneHead = AscendC::simt::HcommSimtHeadIdx(headBefore) + rank;
-    AscendC::simt::HcommSimtPostMeta meta{batch.sqDepth, batch.tpId, batch.remoteEidL,
-        batch.remoteEidH, batch.remoteTokenId, batch.remoteTokenValue};
-    AscendC::simt::HcommSimtPackedSqeTemplate sqeTemplate;
-    AscendC::simt::HcommSimtBuildPackedSqeTemplate<0U>(meta, sqeTemplate);
-    AscendC::simt::HcommSimtWqeStage expected{};
-    auto item = AscendC::simt::HcommSimtBatchDescriptorAt(batch.buffer, 0U);
-    AscendC::simt::HcommSimtBuildBatchDescriptorStage(
-        item, sqeTemplate, laneHead, laneHead + AscendC::simt::HCOMM_URMA_DWQE_BB_CNT, true, expected);
-    auto channel = reinterpret_cast<__gm__ AscendC::simt::HcommSimtChannelEntity*>(batch.channel);
-    auto sq = &reinterpret_cast<__gm__ AscendC::SqContext*>(channel->sqContextAddr)[0];
-    auto remoteEid = reinterpret_cast<__gm__ uint64_t*>(&sq->contextInfo.ubJfs.remoteEID[0]);
-    const uint64_t currentHeadAddr = sq->contextInfo.ubJfs.headAddr;
-    const uint64_t currentTailAddr = sq->contextInfo.ubJfs.tailAddr;
-    const uint64_t currentDwqeAddr = sq->contextInfo.ubJfs.dbVa - AscendC::simt::HCOMM_URMA_DWQE_DB_OFFSET;
-    uint32_t contextMismatch = 0U;
-    contextMismatch |= reinterpret_cast<uint64_t>(batch.headAddr) != currentHeadAddr ? 1U << 0U : 0U;
-    contextMismatch |= reinterpret_cast<uint64_t>(batch.sqTailAddr) != currentTailAddr ? 1U << 1U : 0U;
-    contextMismatch |= reinterpret_cast<uint64_t>(batch.dwqeAddr) != currentDwqeAddr ? 1U << 2U : 0U;
-    contextMismatch |= batch.sqBaseAddr != sq->contextInfo.ubJfs.sqVa ? 1U << 3U : 0U;
-    contextMismatch |= batch.sqWqeSize != sq->contextInfo.ubJfs.wqeSize ? 1U << 4U : 0U;
-    contextMismatch |= batch.sqDepth != sq->contextInfo.ubJfs.sqDepth ? 1U << 5U : 0U;
-    contextMismatch |= batch.tpId != sq->contextInfo.ubJfs.tpID ? 1U << 6U : 0U;
-    contextMismatch |= batch.remoteEidL != remoteEid[0] ? 1U << 7U : 0U;
-    contextMismatch |= batch.remoteEidH != remoteEid[1] ? 1U << 8U : 0U;
-    status[kDiagGroupSize] = static_cast<int32_t>(contextMismatch);
-    status[kDiagTotalBb] = static_cast<int32_t>(totalBb);
-    status[kDiagLaneHead] = static_cast<int32_t>(laneHead);
-    StoreDiag64(status, kDiagHeadBefore, headBefore);
-    StoreDiag64(status, kDiagPublishedHead, batch.headSnapshot);
-    StoreDiag64(status, kDiagHeadAfterPublish, *batch.headAddr);
-    auto cq = &reinterpret_cast<__gm__ AscendC::CqContext*>(channel->cqContextAddr)[0];
-    status[kDiagCqTailBefore] = *reinterpret_cast<__gm__ int32_t*>(cq->contextInfo.ubJfc.tailAddr);
-    status[kDiagCqDepth] = static_cast<int32_t>(cq->contextInfo.ubJfc.cqDepth);
-#pragma unroll
-    for (uint32_t word = 0U; word < AscendC::simt::HCOMM_SIMT_WQE_WORDS; ++word) {
-        StoreDiag64(status, kDiagExpectedStage + word * 2U, expected.words[word]);
-    }
-    status[kDiagMagic] = static_cast<int32_t>(kDiagMagicValue);
-}
-
-__simt_callee__ inline void CaptureQueueAfterDrain(
-    AscendC::simt::UbcCtpBatchHandle& batch, __gm__ int32_t* status)
-{
-    const uint32_t laneHead = static_cast<uint32_t>(status[kDiagLaneHead]);
-    const uint32_t mask = batch.sqDepth - 1U;
-    auto firstBb = reinterpret_cast<__gm__ uint64_t*>(
-        batch.sqBaseAddr + batch.sqWqeSize * (laneHead & mask));
-    auto secondBb = reinterpret_cast<__gm__ uint64_t*>(
-        batch.sqBaseAddr + batch.sqWqeSize * ((laneHead + 1U) & mask));
-    asc_dcci_single(firstBb);
-    asc_dcci_single(secondBb);
-#pragma unroll
-    for (uint32_t word = 0U; word < AscendC::simt::HCOMM_SIMT_WQE_WORDS; ++word) {
-        StoreDiag64(status, kDiagSqStage + word * 2U,
-            word < AscendC::simt::HCOMM_SIMT_BB_WORDS ? firstBb[word] :
-                secondBb[word - AscendC::simt::HCOMM_SIMT_BB_WORDS]);
-    }
-    status[kDiagSqTailAfterDrain] = static_cast<int32_t>(*batch.sqTailAddr);
-    auto channel = reinterpret_cast<__gm__ AscendC::simt::HcommSimtChannelEntity*>(batch.channel);
-    auto cq = &reinterpret_cast<__gm__ AscendC::CqContext*>(channel->cqContextAddr)[0];
-    const uint32_t cqTail = *reinterpret_cast<__gm__ uint32_t*>(cq->contextInfo.ubJfc.tailAddr);
-    status[kDiagCqTailAfterDrain] = static_cast<int32_t>(cqTail);
-    const uint32_t cqMask = cq->contextInfo.ubJfc.cqDepth - 1U;
-    auto cqe = reinterpret_cast<__gm__ uint32_t*>(cq->contextInfo.ubJfc.scqVa +
-        cq->contextInfo.ubJfc.cqeSize * (cqTail & cqMask));
-    asc_dcci_single(cqe);
-    status[kDiagCqe] = static_cast<int32_t>(cqe[0]);
-    status[kDiagCqe + 1U] = static_cast<int32_t>(cqe[1]);
-    cqe = reinterpret_cast<__gm__ uint32_t*>(cq->contextInfo.ubJfc.scqVa +
-        cq->contextInfo.ubJfc.cqeSize * ((cqTail + 1U) & cqMask));
-    asc_dcci_single(cqe);
-    status[kDiagCqe + 2U] = static_cast<int32_t>(cqe[0]);
-    status[kDiagCqe + 3U] = static_cast<int32_t>(cqe[1]);
-}
+constexpr uint32_t kGroupStateWords = 3U;
 
 template <uint32_t api, typename HcommT>
 __simt_callee__ inline int32_t AppendOperation(
@@ -166,12 +73,6 @@ __simt_callee__ inline int32_t RunGroupCase(
         const uint32_t operation = batchIndex * operationsPerBatch + rank;
         const int32_t appendRet = AppendOperation<api>(hcomm, batch, local, remote, operation);
         const int32_t commitRet = hcomm.BatchCommit(batch);
-        if constexpr (api == kApiWrite) {
-            if (batchIndex == 0U) {
-                CaptureTailAfterCommit(batch, status, rank, static_cast<uint32_t>(group.size()));
-                group.sync();
-            }
-        }
         if (rank == 0U) {
             status[base + kStatusAppend] = appendRet;
             status[base + kStatusCommit] = commitRet;
@@ -183,9 +84,6 @@ __simt_callee__ inline int32_t RunGroupCase(
     }
     if (rank == 0U) {
         status[base + kStatusDrain] = hcomm.Drain(batch);
-        if constexpr (api == kApiWrite) {
-            CaptureQueueAfterDrain(batch, status);
-        }
     }
     group.sync();
     return status[base + kStatusDrain];
@@ -208,13 +106,13 @@ __simt_callee__ inline int32_t RunHomogeneousCase(
                 status[base + kStatusAppend] = ret;
                 return ret;
             }
+            const int32_t commitRet = hcomm.BatchCommit(batch);
+            status[base + kStatusCommit] = commitRet;
+            if (commitRet != 0) {
+                return commitRet;
+            }
+            ++status[base + kStatusCommitCount];
         }
-        const int32_t ret = hcomm.BatchCommit(batch);
-        status[base + kStatusCommit] = ret;
-        if (ret != 0) {
-            return ret;
-        }
-        ++status[base + kStatusCommitCount];
     }
     const int32_t ret = hcomm.Drain(batch);
     status[base + kStatusDrain] = ret;
@@ -229,26 +127,33 @@ __simt_callee__ inline int32_t RunMixedCase(
     status[base + kStatusAppend] = 0;
     status[base + kStatusCommitCount] = 0;
     int32_t ret = hcomm.WriteNbi(batch, remote + kMixedWriteOffset, local + kMixedWriteOffset, sizeof(uint64_t));
+    ret = ret == 0 ? hcomm.BatchCommit(batch) : ret;
+    status[base + kStatusCommitCount] += ret == 0 ? 1 : 0;
     ret = ret == 0 ? hcomm.ReadNbi(batch, local + kMixedReadOffset, remote + kMixedReadOffset, sizeof(uint64_t)) : ret;
+    ret = ret == 0 ? hcomm.BatchCommit(batch) : ret;
+    status[base + kStatusCommitCount] += ret == 0 ? 1 : 0;
     ret = ret == 0 ? hcomm.WriteWithNotifyNbi(
         batch, remote + kMixedNotifyDataOffset, local + kMixedNotifyDataOffset, sizeof(uint64_t),
         remote + kMixedNotifySignalOffset, kMixedNotifyValue) : ret;
+    ret = ret == 0 ? hcomm.BatchCommit(batch) : ret;
+    status[base + kStatusCommitCount] += ret == 0 ? 1 : 0;
     ret = ret == 0 ? hcomm.WriteValueNbi<uint64_t>(batch, remote + kMixedWriteValueOffset, kMixedInlineValue) : ret;
+    ret = ret == 0 ? hcomm.BatchCommit(batch) : ret;
+    status[base + kStatusCommitCount] += ret == 0 ? 1 : 0;
     ret = ret == 0 ? hcomm.AtomicFAA<uint64_t>(
         batch, remote + kMixedFaaTargetOffset, local + kMixedFaaFetchOffset, kMixedFaaAdd) : ret;
+    ret = ret == 0 ? hcomm.BatchCommit(batch) : ret;
+    status[base + kStatusCommitCount] += ret == 0 ? 1 : 0;
     ret = ret == 0 ? hcomm.AtomicCAS<uint64_t>(
         batch, remote + kMixedCasTargetOffset, local + kMixedCasFetchOffset, kMixedCasInitial,
         kMixedCasSwap) : ret;
+    ret = ret == 0 ? hcomm.BatchCommit(batch) : ret;
+    status[base + kStatusCommitCount] += ret == 0 ? 1 : 0;
     status[base + kStatusAppend] = ret;
     if (ret != 0) {
         return ret;
     }
-    ret = hcomm.BatchCommit(batch);
     status[base + kStatusCommit] = ret;
-    if (ret != 0) {
-        return ret;
-    }
-    status[base + kStatusCommitCount] = 1;
     ret = hcomm.Drain(batch);
     status[base + kStatusDrain] = ret;
     return ret;
@@ -299,9 +204,7 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchVf(
         auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote);
         if (rank == 0U) {
             status[kStatusInit] = initRet;
-            status[kStatusHandle] = batch.valid ? 0 : -1;
-            status[kStatusHandleCapacity] = static_cast<int32_t>(batch.capacity);
-            status[kStatusSqDepth] = static_cast<int32_t>(batch.sqDepth);
+            status[kStatusHandle] = batch.context != nullptr ? 0 : -1;
         }
         if (RunGroupCase<kApiWrite>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
             RunGroupCase<kApiRead>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
@@ -327,13 +230,8 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchVf(
     }
 
     auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote);
-    // RemoteBufferAddr returns the selected registration's exact base in this example. Checking
-    // the cached base makes adjacent registrations an explicit regression for handle selection.
-    status[kStatusHandle] =
-        batch.valid && batch.remoteBaseAddr == reinterpret_cast<uint64_t>(remote) ? 0 : -1;
-    status[kStatusHandleCapacity] = static_cast<int32_t>(batch.capacity);
-    status[kStatusSqDepth] = static_cast<int32_t>(batch.sqDepth);
-    if (!batch.valid || operationsPerBatch == 0U || operationsPerBatch > kOperationsPerBatch ||
+    status[kStatusHandle] = batch.context != nullptr ? 0 : -1;
+    if (operationsPerBatch == 0U || operationsPerBatch > kOperationsPerBatch ||
         batchCount == 0U || batchCount > kBatchCount) {
         return;
     }
