@@ -293,42 +293,42 @@ typedef struct {
     BatchQueueCursor cursor;
     BatchRemoteInfo remoteInfo;
     BatchBuffer buffer;
-} UbcCtpBatchHandle;
+} UbcBatchHandle;
 
 typedef struct {
-    UbcCtpBatchHandle handle;
+    UbcBatchHandle handle;
     ChannelHandle channelHandle;
     uint32_t channelNum;
     uint32_t reserved;
     uint64_t remoteInfoAddr;
-} UbcCtpMultiBatchHandle;
+} UbcMultiBatchHandle;
 
 template <typename T>
-struct ChannelTraits;
+struct HandleTraits;
 
+// For channel types, BatchHandleType is the MakeBatchHandle result; for batch types, it is the execution handle.
 template <>
-struct ChannelTraits<ChannelHandle> {
-    using BatchHandleType = UbcCtpBatchHandle;
+struct HandleTraits<ChannelHandle> {
+    using BatchHandleType = UbcBatchHandle;
 };
 
 template <>
-struct ChannelTraits<MultiChannelHandle> {
-    using BatchHandleType = UbcCtpMultiBatchHandle;
+struct HandleTraits<MultiChannelHandle> {
+    using BatchHandleType = UbcMultiBatchHandle;
 };
 
 template <typename T>
-using BatchHandle = typename ChannelTraits<T>::BatchHandleType;
-
-template <typename T>
-struct BatchHandleTraits;
+using BatchHandle = typename HandleTraits<T>::BatchHandleType;
 
 template <>
-struct BatchHandleTraits<UbcCtpBatchHandle> {
+struct HandleTraits<UbcBatchHandle> {
+    using BatchHandleType = UbcBatchHandle;
     using ChannelType = ChannelHandle;
 };
 
 template <>
-struct BatchHandleTraits<UbcCtpMultiBatchHandle> {
+struct HandleTraits<UbcMultiBatchHandle> {
+    using BatchHandleType = UbcBatchHandle;
     using ChannelType = MultiChannelHandle;
 };
 

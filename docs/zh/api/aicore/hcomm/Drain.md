@@ -21,7 +21,7 @@ __aicore__ inline int32_t Drain(AscendC::ChannelHandle channel);
 template <
     pipe_t pipe = PIPE_MTE3,
     typename T,
-    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    typename HandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t Drain(T& batchHandle);
 ```
 
@@ -37,7 +37,7 @@ __aicore__ inline int32_t Drain(T& batchHandle);
 | 参数 | 说明 |
 | --- | --- |
 | `pipe` | drain使用的pipe，默认`PIPE_MTE3`。 |
-| `T` | 批量句柄类型，由`batchHandle`实参推导；当前支持`UbcCtpBatchHandle`和`UbcCtpMultiBatchHandle`。 |
+| `T` | 批量句柄类型，由`batchHandle`实参推导；当前支持`UbcBatchHandle`和`UbcMultiBatchHandle`。 |
 
 ## 返回值
 

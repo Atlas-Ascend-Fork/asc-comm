@@ -21,7 +21,7 @@ Batch interface:
 template <
     pipe_t pipe = PIPE_MTE3,
     typename T,
-    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    typename HandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t Drain(T& batchHandle);
 ```
 
@@ -37,7 +37,7 @@ __aicore__ inline int32_t Drain(T& batchHandle);
 | Parameter | Description |
 | --- | --- |
 | `pipe` | Pipe used for drain operations. Default: `PIPE_MTE3`. |
-| `T` | Batch handle type deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle` and `UbcCtpMultiBatchHandle`. |
+| `T` | Batch handle type deduced from `batchHandle`. Currently supports `UbcBatchHandle` and `UbcMultiBatchHandle`. |
 
 ## Return Value
 

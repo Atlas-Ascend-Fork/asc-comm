@@ -4,7 +4,7 @@
 
 创建与通信协议匹配的批量句柄，并绑定用于批量准备WQE的UB缓冲区。当前批量句柄仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 
-接口根据句柄类型返回对应的BatchHandle类型，调用侧建议使用`auto`接收返回值。`ChannelHandle`映射为执行句柄`UbcCtpBatchHandle`；`MultiChannelHandle`映射为用于选择逻辑通道的`UbcCtpMultiBatchHandle`，通过`GetHandleRef`取得其中的`UbcCtpBatchHandle`执行句柄。
+接口根据句柄类型返回对应的BatchHandle类型，调用侧建议使用`auto`接收返回值。`ChannelHandle`映射为执行句柄`UbcBatchHandle`；`MultiChannelHandle`映射为用于选择逻辑通道的`UbcMultiBatchHandle`，通过`GetHandleRef`取得其中的`UbcBatchHandle`执行句柄。
 
 ## 函数原型
 
@@ -22,7 +22,7 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
-| `channel` | 输入 | UBC_CTP单通道`ChannelHandle`，或Host侧`MakeMultiChannelHandle`创建的共享Jetty `MultiChannelHandle`。 |
+| `channel` | 输入 | UBC_CTP单通道`ChannelHandle`，或Host侧多通道创建接口生成的共享资源的 `MultiChannelHandle`。 |
 | `buff` | 输入 | 调用方提供的UB `LocalTensor`，用于准备批量WQE，并由批量`Drain`复用为CQE临时缓冲区。 |
 | `buffLen` | 输入 | 缓冲区可用长度，单位为字节。 |
 | `remoteAddr` | 输入 | 单通道模式下用于选择远端已注册buffer；多通道模式下为保留参数。默认值为`nullptr`。 |

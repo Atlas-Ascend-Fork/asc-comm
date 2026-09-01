@@ -1,37 +1,16 @@
-# Hcomm Shared-Jetty Batch Write Sample
+# Hcomm Batch Write Sample
 
 ## Overview
 
-This sample demonstrates multiple `COMM_PROTOCOL_UBC_CTP` channels sharing one Jetty. Rank 0 groups peers by
-local endpoint and creates one `MultiChannelHandle` for each group. The AIV kernel prepares `WriteNbi` requests for
-the peers in a shared batch, submits them to the shared SQ with one `BatchCommit`, and calls `Drain` for completion.
-Each receiving rank verifies the data written by rank 0.
-
-The kernel uses the following flow:
-
-```cpp
-auto multiBatchHandle = hcomm.MakeBatchHandle(multiChannel, batchBuffer, batchBufferSize);
-for (uint32_t index = 0; index < channelNum; ++index) {
-    GM_ADDR remoteAddr = remoteBuffers[index] + recvOffset;
-    auto& peerBatchHandle = hcomm.GetHandleRef(multiBatchHandle, index, remoteAddr);
-    hcomm.WriteNbi(peerBatchHandle, remoteAddr, localBuffer, dataSize);
-}
-hcomm.BatchCommit(multiBatchHandle);
-hcomm.Drain(multiBatchHandle);
-```
-
-`channelIndex` matches the index in the `channelDescs` array passed to Host-side `MakeMultiChannelHandle`.
-`GetHandleRef` selects and caches an MR token using that index and the remote address, and returns the inner BatchHandle
-reference. Use this reference for batch writes and the outer multi-channel batch handle for `BatchCommit` and `Drain`.
+This sample demonstrates Hcomm batch writes on multiple NPUs in one host. Rank 0 writes data to the other ranks by preparing a group of write operations, submitting them together, and waiting for completion. The receiving ranks verify the data, and the parent process reports the overall result.
 
 ## Requirements
 
 - Ascend 950PR or Ascend 950DT;
 - at least two NPUs on one host;
-- an asc-comm package containing the shared-Jetty Batch APIs installed in the active CANN environment.
+- 2 to 16 ranks, limited by the number of available NPUs.
 
-With three or more NPUs, rank 0 can build a batch for multiple peers. The actual grouping depends on the local
-endpoints reported by RankGraph.
+Use two ranks for the minimal validation, or pass a larger rank count to verify writes to multiple destinations.
 
 ## Build and Run
 
@@ -41,7 +20,7 @@ Set up the CANN environment first:
 source ${install_path}/cann/set_env.sh
 ```
 
-Build and run with two NPUs by default, or pass a rank count:
+Build and run with two NPUs by default, or pass a rank count from `2` to `16`:
 
 ```bash
 bash examples/hcomm_batch_write/run.sh
@@ -57,8 +36,14 @@ cmake --build build/examples/hcomm_batch_write -j
 ./build/examples/hcomm_batch_write/hcomm_batch_write 4
 ```
 
-A successful four-rank run ends with:
+The final command starts four ranks. Before running, make sure the requested number of NPUs is available and that the current user can access them.
+
+## Result
+
+Each receiving rank prints a verification message when its data is correct. A successful four-rank run ends with:
 
 ```text
 hcomm 4-rank grouped batch write test passed
 ```
+
+`failed` in the parent-process summary or an error from any rank means that the batch write or data verification did not complete successfully.

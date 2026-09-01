@@ -31,7 +31,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 template <
     auto const& config = URMA_DEFAULT_CFG,
     typename T,
-    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    typename HandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t WriteWithNotifyNbi(
     T& batchHandle,
     GM_ADDR dst,
@@ -89,7 +89,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - 对批量句柄，数据地址和通知地址必须属于其选中的远端注册内存。
 - 两种模式下，`notifyAddr`都复用数据写操作的token，不单独查询或校验通知地址。调用方必须保证`dst`访问区间和`notifyAddr`属于同一注册内存。
 - 当缓冲区容量校验失败时返回`-1`，BatchHandle中的WQEBB计数和`cqHead`保持不变。
-- 准备完成后需要调用`BatchCommit`。多通道模式通过`GetHandleRef`返回的内层BatchHandle引用准备WQE，并通过外层`UbcCtpMultiBatchHandle`提交。使用期间需要独占对应单通道或共享Jetty。
+- 准备完成后需要调用`BatchCommit`。多通道模式通过`GetHandleRef`返回的内层BatchHandle引用准备WQE，并通过外层`UbcMultiBatchHandle`提交。使用期间需要独占对应单通道或共享Jetty。
 
 ## 相关接口
 

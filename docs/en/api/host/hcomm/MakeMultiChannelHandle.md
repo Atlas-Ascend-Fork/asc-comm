@@ -2,9 +2,7 @@
 
 ## Function Description
 
-Creates a group of UBC_CTP communication channels that share one Jetty on the Host and creates the `MultiChannelHandle` used on the Device.
-
-The interface stores per-channel remote communication information in the order of `channelDescs`. Pass the returned handle to an AICore Kernel and use `MakeBatchHandle` to create a multi-channel batch handle.
+Creates a group of shared-Jetty UB_CTP channels and the `MultiChannelHandle` used on the Device. The API provides overloads for an HCCL communicator and an Hcomm Endpoint and stores remote communication metadata in `channelDescs` order.
 
 Header file:
 
@@ -21,33 +19,39 @@ HcclResult MakeMultiChannelHandle(
     const HcclChannelDesc* channelDescs,
     uint32_t channelNum,
     MultiChannelHandle* multiChannel);
+
+HcommResult MakeMultiChannelHandle(
+    EndpointHandle endpointHandle,
+    HcommChannelDesc* channelDescs,
+    uint32_t channelNum,
+    MultiChannelHandle* multiChannel);
 ```
 
 ## Parameter Description
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `comm` | Input | Initialized HCCL communicator. The shared-Jetty channels and Device context created by this interface are managed by this communicator. |
-| `sharedQueueTag` | Input | Shared queue tag. Within one communicator, this tag identifies the shared-Jetty channel group and its Device context. |
-| `channelDescs` | Input | Array containing `channelNum` channel descriptors. The array order determines the `channelIndex` used by `GetHandleRef`. |
+| `comm` | Input | Initialized HCCL communicator that manages the shared-Jetty channels and Device context. |
+| `sharedQueueTag` | Input | Tag for this shared queue and Device context. It must be unique within the communicator. |
+| `endpointHandle` | Input | Initialized Hcomm Endpoint that supports the AIV engine and UB_CTP protocol. |
+| `channelDescs` | Input | HCCL or Hcomm channel descriptor array containing `channelNum` elements. Array order determines the `channelIndex` used by `GetHandleRef`. |
 | `channelNum` | Input | Number of channel descriptors. It must be greater than 0. |
-| `multiChannel` | Output | Device-side multi-channel handle. Its underlying value is the address of a Device context managed by the communicator. |
+| `multiChannel` | Output | Device-side multi-channel handle. It is set to 0 when creation fails. |
 
 ## Return Value
 
-| Return Value | Description |
-| --- | --- |
-| `HCCL_SUCCESS` | Creation succeeds and `multiChannel` receives a valid handle. |
-| Other value | Creation fails. When `multiChannel` is not null, it is set to 0, and the corresponding HCCL error code is returned. |
+Returns `HCCL_SUCCESS` on success. The communicator overload returns an HCCL error code on failure, and the Endpoint overload returns an Hcomm error code. If Endpoint connection establishment fails, resources are unavailable, or all channels are not ready within 120 seconds, the API destroys the channels it created and returns an error.
 
 ## Constraints
 
-- Input pointers must not be `nullptr`, and `channelNum` must not be 0.
-- Channels described by `channelDescs` must use `COMM_ENGINE_AIV` and `COMM_PROTOCOL_UBC_CTP` and satisfy HCCL shared-queue channel constraints.
-- Within one communicator, each `sharedQueueTag` can be used by only one successful `MakeMultiChannelHandle` call. Repeated creation returns an error.
-- The returned handle and its Device context are managed by `comm` and require no separate destruction. Do not destroy the communicator before Kernels using the handle have completed.
+- Input pointers for both overloads must not be `nullptr`, and `channelNum` must not be 0.
+- The communicator overload creates channels through `HcclChannelAcquireWithConfig`. Each `sharedQueueTag` can be used by only one successful call within a communicator. The communicator manages and automatically releases the shared channels and Device context; do not call `DestroyMultiChannelHandle` for this handle.
+- The Endpoint overload creates channels through `HcommChannelCreateWithConfig` and waits for them to become ready. The returned handle owns the channels and Device context and must be destroyed before `endpointHandle`.
+- Channels use `COMM_ENGINE_AIV` and UB_CTP. Shared-Jetty channels cannot be used concurrently.
+- After Kernels using a handle created by the Endpoint overload have completed and synchronized, call `DestroyMultiChannelHandle`.
 
 ## Related APIs
 
+- [DestroyMultiChannelHandle](DestroyMultiChannelHandle.md)
 - [MakeBatchHandle](../../aicore/hcomm/MakeBatchHandle.md)
 - [GetHandleRef](../../aicore/hcomm/GetHandleRef.md)

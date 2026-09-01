@@ -4,7 +4,8 @@
 
 | Document | Description |
 | --- | --- |
-| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | Create a shared-Jetty channel group and its Device-side multi-channel handle. |
+| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | Create a shared-Jetty channel group and Device handle from an HCCL communicator or Hcomm Endpoint. |
+| [DestroyMultiChannelHandle](./host/hcomm/DestroyMultiChannelHandle.md) | Release multi-channel resources created through the Hcomm Endpoint path. |
 
 ## AICore Hcomm
 | Document | Description |

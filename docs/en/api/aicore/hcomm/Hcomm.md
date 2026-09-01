@@ -21,7 +21,7 @@ class Hcomm;
 | --- | --- |
 | `commProtocol` | Communication protocol type. Supports `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP`. Default: `COMM_PROTOCOL_UBC_CTP`. |
 
-`MakeBatchHandle` derives its return type through compile-time traits. `ChannelHandle` maps to `UbcCtpBatchHandle`, while `MultiChannelHandle` maps to `UbcCtpMultiBatchHandle`. In multi-channel mode, batch read/write uses the inner `UbcCtpBatchHandle` reference returned by `GetHandleRef`, while `BatchCommit` and batch `Drain` use the outer `UbcCtpMultiBatchHandle`. Batch interfaces support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
+`MakeBatchHandle` derives its return type through compile-time traits. `ChannelHandle` maps to `UbcBatchHandle`, while `MultiChannelHandle` maps to `UbcMultiBatchHandle`. In multi-channel mode, batch read/write uses the inner `UbcBatchHandle` reference returned by `GetHandleRef`, while `BatchCommit` and batch `Drain` use the outer `UbcMultiBatchHandle`. Batch interfaces support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
 ## Protocol Capabilities
 
@@ -76,7 +76,7 @@ Interfaces that return a status code generally use `0` for success and `-1` for 
 - Ordinary and batch interfaces manage queue state differently. A BatchHandle caches SQ/CQ contexts and counters at creation time. The caller must exclusively own the single channel or shared Jetty while using it and must not mix ordinary calls or use multiple BatchHandles concurrently.
 - The passed `ChannelHandle` must point to a channel entity matching the selected protocol.
 
-See [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md) for the Host-side shared-Jetty handle creation API.
+See [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md) for the Host-side shared-Jetty handle creation API. It provides overloads for an HCCL communicator and an Hcomm Endpoint.
 
 ## Related Sample
 

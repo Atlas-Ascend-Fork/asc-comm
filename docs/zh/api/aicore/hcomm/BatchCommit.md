@@ -11,7 +11,7 @@
 ```cpp
 template <
     typename T,
-    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    typename HandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t BatchCommit(T& batchHandle);
 ```
 
@@ -25,7 +25,7 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
 | 参数 | 说明 |
 | --- | --- |
-| `T` | 批量句柄类型，由`batchHandle`实参推导；当前支持`UbcCtpBatchHandle`和`UbcCtpMultiBatchHandle`。 |
+| `T` | 批量句柄类型，由`batchHandle`实参推导；当前支持`UbcBatchHandle`和`UbcMultiBatchHandle`。 |
 
 ## 返回值
 

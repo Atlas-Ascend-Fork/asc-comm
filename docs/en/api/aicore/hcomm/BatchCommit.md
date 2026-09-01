@@ -11,7 +11,7 @@ This interface currently supports only the `COMM_PROTOCOL_UBC_CTP` path on Ascen
 ```cpp
 template <
     typename T,
-    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    typename HandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t BatchCommit(T& batchHandle);
 ```
 
@@ -25,7 +25,7 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
 | Parameter | Description |
 | --- | --- |
-| `T` | Batch handle type deduced from `batchHandle`. Currently supports `UbcCtpBatchHandle` and `UbcCtpMultiBatchHandle`. |
+| `T` | Batch handle type deduced from `batchHandle`. Currently supports `UbcBatchHandle` and `UbcMultiBatchHandle`. |
 
 ## Return Value
 
