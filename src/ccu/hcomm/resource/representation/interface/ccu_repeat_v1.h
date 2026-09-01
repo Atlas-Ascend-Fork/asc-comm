@@ -26,7 +26,7 @@ class repeat {
 public:
     repeat(ccu_rep_context* context, ccu_relational_operator<variable, uint64_t> rel);
     ~repeat();
-    void Break();
+    void Break() const;
     bool check() const;
     void run();
 

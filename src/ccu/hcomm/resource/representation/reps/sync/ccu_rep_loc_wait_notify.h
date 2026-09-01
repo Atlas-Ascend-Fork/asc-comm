@@ -22,12 +22,12 @@ public:
         ccu_ins_generater_base* ins_gen_ptr, const local_notify& notify, const uint32_t mask, bool is_profiling = true);
     bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
     std::string describe() override;
-    uint32_t get_mask() { return mask_; };
+    uint32_t get_mask() const { return mask_; };
     uint16_t get_notify_id() { return notify_.id(); };
 
     local_notify get_notify() { return notify_; }
 
-    bool get_is_profiling() { return is_profiling_; }
+    bool get_is_profiling() const { return is_profiling_; }
 
 private:
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};

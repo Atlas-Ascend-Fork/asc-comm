@@ -106,8 +106,8 @@ variable ccu_rep_assign::get_var_a() { return var_a_; }
 
 variable ccu_rep_assign::get_var_b() { return var_b_; }
 
-uint64_t ccu_rep_assign::get_immed() { return immediate_; }
+uint64_t ccu_rep_assign::get_immed() const { return immediate_; }
 
-assign_sub_type ccu_rep_assign::get_sub_type() { return sub_type_; }
+assign_sub_type ccu_rep_assign::get_sub_type() const { return sub_type_; }
 }; // namespace CcuRep
 }; // namespace asc

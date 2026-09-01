@@ -23,7 +23,7 @@ public:
     bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
     std::string describe() override;
     uint16_t get_event_id() { return event_.id(); }
-    uint32_t get_mask() { return mask_; }
+    uint32_t get_mask() const { return mask_; }
 
     completed_event get_event() { return event_; }
 

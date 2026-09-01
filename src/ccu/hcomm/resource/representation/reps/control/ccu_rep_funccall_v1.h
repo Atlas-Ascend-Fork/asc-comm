@@ -42,8 +42,8 @@ public:
     variable get_func_addr_var() { return func_addr_var_; }
     std::vector<ccu_rep_arg>& get_in_args() { return in_args_; }
     std::vector<ccu_rep_arg>& get_out_args() { return out_args_; }
-    uint32_t get_in_arg_count() { return in_arg_count_; }
-    uint32_t get_out_arg_count() { return out_arg_count_; }
+    uint32_t get_in_arg_count() const { return in_arg_count_; }
+    uint32_t get_out_arg_count() const { return out_arg_count_; }
     ccu_instr* get_instr() { return instr_; }
 
 private:
