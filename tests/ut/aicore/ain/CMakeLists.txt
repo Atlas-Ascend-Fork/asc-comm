@@ -96,6 +96,8 @@ function(add_ain_ut target_name product_type tikicpu_product_dir)
             AinUrmaTestSuite.BarrierSessionSyncSignalsPeersAndWaits
             AinUrmaTestSuite.BarrierSessionSyncWithTimeout
             AinUrmaTestSuite.BarrierSessionSyncTimeoutExpired
+            AinUrmaTestSuite.GetPeerPointerReturnsPeerAddressFromWorldTeamId
+            AinUrmaTestSuite.GetPeerPointerReturnsSelfAddressWithoutStride
         )
     endif()
 
