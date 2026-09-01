@@ -9,7 +9,6 @@
  */
 
 #include "hcomm_dfx_impl.h"
-#include "../common/hcomm_dfx_host_compat.h"
 
 #define HCOMM_INCLUDE_INTERNAL_HEADERS
 #include "../../common/hcomm_inner_def.h"
