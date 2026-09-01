@@ -107,7 +107,26 @@ constexpr uint32_t kStatusDrain = 2U;
 constexpr uint32_t kStatusCommitCount = 3U;
 
 constexpr uint32_t kFunctionalStatusCount = kStatusCaseBase + kCaseCount * kStatusFieldsPerCase;
-constexpr uint32_t kStatusCount = kFunctionalStatusCount;
+// Temporary post-publication diagnostics. Keep the capture outside the library hot path and
+// remove it once the fixed-2BB tail failure is resolved.
+constexpr uint32_t kDiagBase = kFunctionalStatusCount;
+constexpr uint32_t kDiagMagic = kDiagBase;
+constexpr uint32_t kDiagGroupSize = kDiagBase + 1U;
+constexpr uint32_t kDiagTotalBb = kDiagBase + 2U;
+constexpr uint32_t kDiagLaneHead = kDiagBase + 3U;
+constexpr uint32_t kDiagHeadBefore = kDiagBase + 4U;
+constexpr uint32_t kDiagPublishedHead = kDiagBase + 6U;
+constexpr uint32_t kDiagHeadAfterPublish = kDiagBase + 8U;
+constexpr uint32_t kDiagSqTailAfterDrain = kDiagBase + 10U;
+constexpr uint32_t kDiagCqTailBefore = kDiagBase + 11U;
+constexpr uint32_t kDiagCqTailAfterDrain = kDiagBase + 12U;
+constexpr uint32_t kDiagCqDepth = kDiagBase + 13U;
+constexpr uint32_t kDiagExpectedStage = kDiagBase + 14U;
+constexpr uint32_t kDiagSqStage = kDiagExpectedStage + 32U;
+constexpr uint32_t kDiagCqe = kDiagSqStage + 32U;
+constexpr uint32_t kDiagWordCount = kDiagCqe + 4U - kDiagBase;
+constexpr uint32_t kDiagMagicValue = 0x42415443U;
+constexpr uint32_t kStatusCount = kFunctionalStatusCount + kDiagWordCount;
 constexpr uint32_t kBasicStatusCount = kBasicFunctionalStatusCount;
 
 } // namespace simt_batch

@@ -292,6 +292,38 @@ bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, boo
                   << std::endl;
         pass = pass && commitPass;
     }
+    if (groupMode && static_cast<uint32_t>(status[kDiagMagic]) == kDiagMagicValue) {
+        const auto word64 = [&status](uint32_t index) {
+            return static_cast<uint64_t>(static_cast<uint32_t>(status[index])) |
+                (static_cast<uint64_t>(static_cast<uint32_t>(status[index + 1U])) << 32U);
+        };
+        std::cout << std::hex << std::setfill('0')
+                  << "DIAG | HeadBefore=0x" << std::setw(16) << word64(kDiagHeadBefore)
+                  << " | Published=0x" << std::setw(16) << word64(kDiagPublishedHead)
+                  << " | HeadAfter=0x" << std::setw(16) << word64(kDiagHeadAfterPublish)
+                  << std::dec << " | LaneHead=" << status[kDiagLaneHead]
+                  << " | TotalBb=" << status[kDiagTotalBb] << " | SqTail=" << status[kDiagSqTailAfterDrain]
+                  << " | CqTail=" << status[kDiagCqTailBefore] << "->" << status[kDiagCqTailAfterDrain]
+                  << std::endl;
+        for (uint32_t word = 0U; word < 16U; ++word) {
+            const uint64_t expected = word64(kDiagExpectedStage + word * 2U);
+            const uint64_t actual = word64(kDiagSqStage + word * 2U);
+            std::cout << std::hex << std::setfill('0') << "DIAG | TailWord=" << std::dec << word
+                      << " | Expected=0x" << std::hex << std::setw(16) << expected
+                      << " | SQ=0x" << std::setw(16) << actual
+                      << " | Match=" << (expected == actual ? "YES" : "NO") << std::dec << std::endl;
+        }
+        const uint32_t expectedOwner =
+            (static_cast<uint32_t>(status[kDiagCqTailBefore]) / static_cast<uint32_t>(status[kDiagCqDepth])) & 1U;
+        for (uint32_t item = 0U; item < 2U; ++item) {
+            const uint32_t head = static_cast<uint32_t>(status[kDiagCqe + item * 2U]);
+            const uint32_t word1 = static_cast<uint32_t>(status[kDiagCqe + item * 2U + 1U]);
+            std::cout << "DIAG | CQE=" << item << " | Ready=" << (((head >> 2U) & 1U) != expectedOwner)
+                      << " | Owner=" << ((head >> 2U) & 1U) << " | Status=" << ((head >> 24U) & 0xFFU)
+                      << " | SubStatus=" << ((head >> 16U) & 0xFFU) << " | EntryIdx=" << (word1 & 0xFFFFU)
+                      << std::endl;
+        }
+    }
     return pass;
 }
 

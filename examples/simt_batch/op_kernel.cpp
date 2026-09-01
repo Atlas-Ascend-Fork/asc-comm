@@ -23,6 +23,83 @@ using namespace simt_batch;
 constexpr uint32_t kBatchBufferBytes = AscendC::simt::HcommSimtBatchBufferBytes(kOperationsPerBatch);
 constexpr uint32_t kGroupStateWords = 4U + kOperationsPerBatch;
 
+__simt_callee__ inline void StoreDiag64(__gm__ int32_t* status, uint32_t index, uint64_t value)
+{
+    status[index] = static_cast<int32_t>(value);
+    status[index + 1U] = static_cast<int32_t>(value >> 32U);
+}
+
+__simt_callee__ inline void CaptureTailAfterCommit(
+    AscendC::simt::UbcCtpBatchHandle& batch, __gm__ int32_t* status, uint32_t rank, uint32_t size)
+{
+    if (rank + 1U != size) {
+        return;
+    }
+    const uint32_t totalBb = size * AscendC::simt::HCOMM_URMA_DWQE_BB_CNT;
+    const uint64_t delta = (static_cast<uint64_t>(size) << 32U) | totalBb;
+    const uint64_t headBefore = batch.headSnapshot - delta;
+    const uint32_t laneHead = AscendC::simt::HcommSimtHeadIdx(headBefore) +
+        rank * AscendC::simt::HCOMM_URMA_DWQE_BB_CNT;
+    AscendC::simt::HcommSimtPostMeta meta{batch.sqDepth, batch.tpId, batch.remoteEidL,
+        batch.remoteEidH, batch.remoteTokenId, batch.remoteTokenValue};
+    AscendC::simt::HcommSimtPackedSqeTemplate sqeTemplate;
+    AscendC::simt::HcommSimtBuildPackedSqeTemplate<0U>(meta, sqeTemplate);
+    AscendC::simt::HcommSimtWqeStage expected{};
+    auto item = reinterpret_cast<__ubuf__ AscendC::simt::HcommSimtPreparedBatchWqe*>(batch.buffer);
+    AscendC::simt::HcommSimtBuildPreparedBatchTail(
+        item, sqeTemplate, laneHead, laneHead + AscendC::simt::HCOMM_URMA_DWQE_BB_CNT, expected);
+    status[kDiagGroupSize] = static_cast<int32_t>(size);
+    status[kDiagTotalBb] = static_cast<int32_t>(totalBb);
+    status[kDiagLaneHead] = static_cast<int32_t>(laneHead);
+    StoreDiag64(status, kDiagHeadBefore, headBefore);
+    StoreDiag64(status, kDiagPublishedHead, batch.headSnapshot);
+    StoreDiag64(status, kDiagHeadAfterPublish, *batch.headAddr);
+    auto channel = reinterpret_cast<__gm__ AscendC::simt::HcommSimtChannelEntity*>(batch.channel);
+    auto cq = &reinterpret_cast<__gm__ AscendC::CqContext*>(channel->cqContextAddr)[0];
+    status[kDiagCqTailBefore] = *reinterpret_cast<__gm__ int32_t*>(cq->contextInfo.ubJfc.tailAddr);
+    status[kDiagCqDepth] = static_cast<int32_t>(cq->contextInfo.ubJfc.cqDepth);
+#pragma unroll
+    for (uint32_t word = 0U; word < AscendC::simt::HCOMM_SIMT_WQE_WORDS; ++word) {
+        StoreDiag64(status, kDiagExpectedStage + word * 2U, expected.words[word]);
+    }
+    status[kDiagMagic] = static_cast<int32_t>(kDiagMagicValue);
+}
+
+__simt_callee__ inline void CaptureQueueAfterDrain(
+    AscendC::simt::UbcCtpBatchHandle& batch, __gm__ int32_t* status)
+{
+    const uint32_t laneHead = static_cast<uint32_t>(status[kDiagLaneHead]);
+    const uint32_t mask = batch.sqDepth - 1U;
+    auto firstBb = reinterpret_cast<__gm__ uint64_t*>(
+        batch.sqBaseAddr + batch.sqWqeSize * (laneHead & mask));
+    auto secondBb = reinterpret_cast<__gm__ uint64_t*>(
+        batch.sqBaseAddr + batch.sqWqeSize * ((laneHead + 1U) & mask));
+    asc_dcci_single(firstBb);
+    asc_dcci_single(secondBb);
+#pragma unroll
+    for (uint32_t word = 0U; word < AscendC::simt::HCOMM_SIMT_WQE_WORDS; ++word) {
+        StoreDiag64(status, kDiagSqStage + word * 2U,
+            word < AscendC::simt::HCOMM_SIMT_BB_WORDS ? firstBb[word] :
+                secondBb[word - AscendC::simt::HCOMM_SIMT_BB_WORDS]);
+    }
+    status[kDiagSqTailAfterDrain] = static_cast<int32_t>(*batch.sqTailAddr);
+    auto channel = reinterpret_cast<__gm__ AscendC::simt::HcommSimtChannelEntity*>(batch.channel);
+    auto cq = &reinterpret_cast<__gm__ AscendC::CqContext*>(channel->cqContextAddr)[0];
+    const uint32_t cqTail = *reinterpret_cast<__gm__ uint32_t*>(cq->contextInfo.ubJfc.tailAddr);
+    status[kDiagCqTailAfterDrain] = static_cast<int32_t>(cqTail);
+    const uint32_t cqMask = cq->contextInfo.ubJfc.cqDepth - 1U;
+    auto cqe = reinterpret_cast<__gm__ uint32_t*>(cq->contextInfo.ubJfc.scqVa +
+        cq->contextInfo.ubJfc.cqeSize * (cqTail & cqMask));
+    asc_dcci_single(cqe);
+    status[kDiagCqe] = static_cast<int32_t>(cqe[0]);
+    status[kDiagCqe + 1U] = static_cast<int32_t>(cqe[1]);
+    cqe = reinterpret_cast<__gm__ uint32_t*>(cq->contextInfo.ubJfc.scqVa +
+        cq->contextInfo.ubJfc.cqeSize * ((cqTail + 1U) & cqMask));
+    asc_dcci_single(cqe);
+    status[kDiagCqe + 2U] = static_cast<int32_t>(cqe[0]);
+    status[kDiagCqe + 3U] = static_cast<int32_t>(cqe[1]);
+}
+
 template <uint32_t api, typename HcommT>
 __simt_callee__ inline int32_t AppendOperation(
     HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* local,
@@ -73,6 +150,12 @@ __simt_callee__ inline int32_t RunGroupCase(
         const uint32_t operation = batchIndex * operationsPerBatch + rank;
         const int32_t appendRet = AppendOperation<api>(hcomm, batch, local, remote, operation);
         const int32_t commitRet = hcomm.BatchCommit(batch);
+        if constexpr (api == kApiWrite) {
+            if (batchIndex == 0U) {
+                CaptureTailAfterCommit(batch, status, rank, static_cast<uint32_t>(group.size()));
+                group.sync();
+            }
+        }
         if (rank == 0U) {
             status[base + kStatusAppend] = appendRet;
             status[base + kStatusCommit] = commitRet;
@@ -84,6 +167,9 @@ __simt_callee__ inline int32_t RunGroupCase(
     }
     if (rank == 0U) {
         status[base + kStatusDrain] = hcomm.Drain(batch);
+        if constexpr (api == kApiWrite) {
+            CaptureQueueAfterDrain(batch, status);
+        }
     }
     group.sync();
     return status[base + kStatusDrain];
