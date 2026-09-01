@@ -1202,7 +1202,15 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         size - warpIndex * warpSize : warpSize;
     HcommSimtResolvedPost post{};
     if (rank == 0U) {
-        HcommSimtLoadBatchQueuePost(batchHandle.channel, post);
+        post.headAddr = batchHandle.headAddr;
+        post.sqTailAddr = batchHandle.sqTailAddr;
+        post.dwqeAddr = batchHandle.dwqeAddr;
+        post.sqBaseAddr = batchHandle.sqBaseAddr;
+        post.sqWqeSize = batchHandle.sqWqeSize;
+        post.meta.sqDepth = batchHandle.sqDepth;
+        post.meta.tpId = batchHandle.tpId;
+        post.meta.remoteEidL = batchHandle.remoteEidL;
+        post.meta.remoteEidH = batchHandle.remoteEidH;
     }
     if (size <= warpSize) {
         if (asc_all(localReady ? 1 : 0) == 0) {
