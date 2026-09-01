@@ -26,7 +26,8 @@ add_executable(ccu_reduce_scatter
 target_include_directories(ccu_reduce_scatter PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
     ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_ccu
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../include
+    ${ASCEND_HOME_PATH}/asc/include/comm_api
+    ${ASCEND_HOME_PATH}/pkg_inc/asccomm
     ${ASCEND_HOME_PATH}/include
     ${ASCEND_HOME_PATH}/pkg_inc
 )
