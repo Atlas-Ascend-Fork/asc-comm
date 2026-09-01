@@ -34,16 +34,16 @@ public:
     uint16_t get_rem_token_id() { return rem_.token.id(); }
     uint16_t get_len_id() { return len_.id(); }
     uint16_t get_sem_id() { return sem_.id(); }
-    uint32_t get_channel_id() { return channel_id_; }
-    ChannelHandle get_channel() { return channel_; }
+    uint32_t get_channel_id() const { return channel_id_; }
+    ChannelHandle get_channel() const { return channel_; }
     local_addr get_loc() { return loc_; }
     remote_addr get_rem() { return rem_; }
     variable get_len() { return len_; }
     completed_event get_sem() { return sem_; }
-    uint16_t get_mask() { return mask_; }
-    uint16_t get_data_type() { return data_type_; }
-    uint16_t get_op_type() { return op_type_; }
-    uint16_t get_reduce_flag() { return reduce_flag_; }
+    uint16_t get_mask() const { return mask_; }
+    uint16_t get_data_type() const { return data_type_; }
+    uint16_t get_op_type() const { return op_type_; }
+    uint16_t get_reduce_flag() const { return reduce_flag_; }
 
 private:
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};

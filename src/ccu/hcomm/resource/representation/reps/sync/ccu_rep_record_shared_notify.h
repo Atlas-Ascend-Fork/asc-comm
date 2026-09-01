@@ -25,7 +25,7 @@ public:
     uint16_t get_notify_id() { return notify_.id(); }
     local_notify get_notify() { return notify_; }
 
-    uint16_t get_mask() { return mask_; }
+    uint16_t get_mask() const { return mask_; }
 
 private:
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};

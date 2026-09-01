@@ -25,7 +25,7 @@ ccu_rep_loop_group_bundle::ccu_rep_loop_group_bundle(
 
 ccu_rep_loop_group_bundle::ccu_rep_loop_group_bundle(
     ccu_ins_generater_base* ins_gen_ptr, const variable& parallel_var, const variable& offset_var)
-    : ins_gen_ptr_(ins_gen_ptr), parallel_var_(parallel_var), offset_var_(offset_var), layout_(layout::packed_var)
+    : ins_gen_ptr_(ins_gen_ptr), config_{}, parallel_var_(parallel_var), offset_var_(offset_var), layout_(layout::packed_var)
 {
     type_ = ccu_rep_type::loop_group;
 }
@@ -41,7 +41,10 @@ uint16_t ccu_rep_loop_group_bundle::loop_group_instr_offset_in_bundle() const
             var_based_loop_count++;
         }
     }
-    return (loop_count - var_based_loop_count) + (var_based_loop_count * 2) + (layout_ != layout::config ? 0 : 2);
+    constexpr uint16_t k_var_based_loop_instr_count = 2;
+    constexpr uint16_t k_config_layout_extra_instr_count = 2;
+    return (loop_count - var_based_loop_count) + (var_based_loop_count * k_var_based_loop_instr_count)
+           + (layout_ != layout::config ? 0 : k_config_layout_extra_instr_count);
 }
 
 uint16_t ccu_rep_loop_group_bundle::get_start_loop_instr_id() const { return instr_id_ + loop_group_instr_offset_in_bundle() + 3; }

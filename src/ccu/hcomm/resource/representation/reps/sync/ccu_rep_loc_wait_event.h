@@ -24,12 +24,12 @@ public:
         ccu_ins_generater_base* ins_gen_ptr, const completed_event& event, uint32_t mask, bool is_profiling = true);
     bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
     std::string describe() override;
-    uint32_t get_mask() { return mask_; };
+    uint32_t get_mask() const { return mask_; };
     uint32_t get_event_id() { return event_.id(); };
 
     completed_event get_event() { return event_; }
 
-    bool get_is_profiling() { return is_profiling_; }
+    bool get_is_profiling() const { return is_profiling_; }
     void set_dependency_info(const std::unordered_map<uint32_t, std::vector<std::shared_ptr<ccu_rep_base>>>& dep_info);
     std::vector<std::shared_ptr<ccu_rep_base>> get_dependency_info(uint32_t bit);
 

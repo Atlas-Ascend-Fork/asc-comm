@@ -47,12 +47,12 @@ public:
     variable get_var_a();
     variable get_var_b();
     variable get_var_c();
-    uint16_t get_immed_b();
-    mul_sub_type get_sub_type();
+    uint16_t get_immed_b() const;
+    mul_sub_type get_sub_type() const;
 
 private:
     void set_common_info();
-    void validate_ins_gen_ptr_for_mul();
+    void validate_ins_gen_ptr_for_mul() const;
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};
     mul_sub_type sub_type_{mul_sub_type::invalid};
     variable var_a_;

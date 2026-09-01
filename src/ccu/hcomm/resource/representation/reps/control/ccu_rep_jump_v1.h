@@ -40,11 +40,11 @@ public:
 
     variable& get_expected_var() { return expected_var_; }
 
-    uint64_t get_expected_num() { return expected_; }
+    uint64_t get_expected_num() const { return expected_; }
 
     ccu_instr* get_instr() { return instr_; }
 
-    bool is_compared_with_immd() { return comp2_immed_; }
+    bool is_compared_with_immd() const { return comp2_immed_; }
 
 protected:
     CcuResult init_instr(ccu_instr*& instr, uint16_t& instr_id);
