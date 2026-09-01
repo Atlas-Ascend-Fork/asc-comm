@@ -26,7 +26,7 @@ __aicore__ inline BatchHandle<T>& GetHandleRef(
 
 ## 返回值
 
-单通道返回输入句柄本身；多通道返回`BatchHandle<T>`类型的内层BatchHandle引用，且该引用已配置为所选逻辑通道和远端MR。
+单通道返回输入句柄本身；多通道返回`BatchHandle<T>`类型的内层BatchHandle引用，且该引用已配置为所选逻辑通道和远端地址。
 
 ## 模板参数
 

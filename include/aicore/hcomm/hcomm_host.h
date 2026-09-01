@@ -39,7 +39,7 @@ static inline HcclResult MakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
 {
-    return HcommHostMakeMultiChannelHandle(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
+    return HostMakeMultiChannelHandle(comm, sharedQueueTag, channelDescs, channelNum, multiChannel);
 }
 
 /*!
@@ -56,7 +56,7 @@ static inline HcommResult MakeMultiChannelHandle(
     EndpointHandle endpointHandle, HcommChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
 {
-    return HcommHostMakeMultiChannelHandle(endpointHandle, channelDescs, channelNum, multiChannel);
+    return HostMakeMultiChannelHandle(endpointHandle, channelDescs, channelNum, multiChannel);
 }
 
 /*!
@@ -67,7 +67,7 @@ static inline HcommResult MakeMultiChannelHandle(
  */
 static inline HcommResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel)
 {
-    return HcommHostDestroyMultiChannelHandle(multiChannel);
+    return HostDestroyMultiChannelHandle(multiChannel);
 }
 
 #if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_HOST_H)
