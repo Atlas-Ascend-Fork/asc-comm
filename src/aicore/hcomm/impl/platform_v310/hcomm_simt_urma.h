@@ -78,8 +78,9 @@ constexpr uint32_t HCOMM_SIMT_SGE_WORDS = sizeof(HcommUrmaSgeCtx) / sizeof(uint6
 // The inline payload and the first SGE both start right after the SQE header.
 constexpr uint32_t HCOMM_SIMT_INLINE_FIRST_WORD = HCOMM_SIMT_SQE_WORDS;
 
-// Append stores one WQE in every public 128-byte slot. Every group lane prepares a complete
-// 2-BB image so the fixed SQ layout contains no uninitialized gap between neighbouring WQEs.
+// Append stores one WQE in every public 128-byte slot. Non-publisher group lanes materialize a
+// complete 2-BB SQ image; the fixed final lane keeps its request fields for deterministic DWQE
+// construction after the final queue position has been reserved.
 enum class HcommSimtBatchKind : uint32_t { DATA, NOTIFY, INLINE, ATOMIC };
 
 struct alignas(sizeof(ulonglong2)) HcommSimtPreparedBatchWqe {
@@ -949,6 +950,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
 
     constexpr uint32_t wordCnt = Desc::bbCnt * HCOMM_SIMT_BB_WORDS;
     const bool groupBatch = batchHandle.groupSize > 1U;
+    const bool tail = groupBatch && batchHandle.groupRank + 1U == batchHandle.groupSize;
     const uint32_t slotBb = groupBatch ? HCOMM_URMA_DWQE_BB_CNT : Desc::bbCnt;
     __ubuf__ HcommSimtPreparedBatchWqe* items =
         reinterpret_cast<__ubuf__ HcommSimtPreparedBatchWqe*>(batchHandle.buffer);
@@ -964,17 +966,20 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
         (groupBatch ? batchHandle.groupRank * HCOMM_URMA_DWQE_BB_CNT : batchHandle.preparedBb);
     __ubuf__ HcommSimtPreparedBatchWqe* item = &items[batchHandle.prepared];
     desc.template Store<wordCnt>(item->words, sqeTemplate, curHead, curHead + slotBb);
-    if (groupBatch) {
-        HcommSimtWqeStage tailStage;
-        HcommSimtBuildPreparedBatchTail(item, sqeTemplate, curHead, curHead + slotBb, tailStage);
+    if (groupBatch && !tail) {
+        HcommSimtWqeStage preparedStage;
+        preparedStage.words[9] = 0U;
+        preparedStage.words[10] = 0U;
+        preparedStage.words[11] = 0U;
+        HcommSimtBuildPreparedBatchTail(item, sqeTemplate, curHead, curHead + slotBb, preparedStage);
 #pragma unroll
-        for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
-            item->words[word] = tailStage.words[word];
+        for (uint32_t word = 0U; word < 12U; ++word) {
+            item->words[word] = preparedStage.words[word];
         }
     }
     ++batchHandle.prepared;
     batchHandle.preparedBb += slotBb;
-    batchHandle.lastBb = groupBatch ? HCOMM_URMA_DWQE_BB_CNT : Desc::bbCnt;
+    batchHandle.lastBb = groupBatch && !tail ? HCOMM_URMA_DWQE_BB_CNT : Desc::bbCnt;
     batchHandle.preparedCqe += Desc::cqeCnt;
     batchHandle.lastCqe = Desc::cqeCnt;
     return HCOMM_SUCCESS;
@@ -1273,8 +1278,12 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     if (publisher) {
 #pragma unroll
         for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
-            tailStage.words[word] = batchItem->words[word];
+            tailStage.words[word] = 0U;
         }
+        HcommSimtPackedSqeTemplate sqeTemplate;
+        HcommSimtBuildPackedSqeTemplate<0U>(post.meta, sqeTemplate);
+        HcommSimtBuildPreparedBatchTail(
+            batchItem, sqeTemplate, laneHead, laneHead + HCOMM_URMA_DWQE_BB_CNT, tailStage);
         HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(
             post, laneHead, tailStage);
     } else {
