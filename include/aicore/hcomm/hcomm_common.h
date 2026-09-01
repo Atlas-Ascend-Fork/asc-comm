@@ -44,14 +44,14 @@ enum class HcommUrmaReduceOp : uint32_t {
 
 namespace simt {
 
-// The correctness-first explicit-batch format stores one complete 128-byte DWQE per item.
-// Callers own the UB workspace and can use this helper instead of depending on an internal
-// WQE layout constant when sizing it for a requested item capacity.
+// A batch stores one shared static queue/Jetty context in UB. Requests stay lane-private until
+// Commit writes them directly to SQ, so the workspace no longer grows with the lane count.
 constexpr uint32_t HCOMM_SIMT_BATCH_ITEM_BYTES = 128U;
 
 constexpr uint32_t HcommSimtBatchBufferBytes(uint32_t itemCapacity)
 {
-    return itemCapacity * HCOMM_SIMT_BATCH_ITEM_BYTES;
+    (void)itemCapacity;
+    return HCOMM_SIMT_BATCH_ITEM_BYTES;
 }
 
 } // namespace simt

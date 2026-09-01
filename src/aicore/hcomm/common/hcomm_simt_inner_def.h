@@ -73,40 +73,20 @@ struct HcommSimtChannelEntity {
 
 static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");
 
-// A batch handle is lane-private. The public workspace contract keeps 128 bytes per operation.
-// A bound group also records its lane rank so Commit can place its prepared WQE by group prefix.
+constexpr uint32_t HCOMM_SIMT_BATCH_REQUEST_WORDS = 12U;
+
+// A batch handle is lane-private. The shared UB context is written once by MakeBatchHandle;
+// Append keeps only position-independent request words here, and Commit writes them directly
+// to the final SQ slot.
 struct UbcCtpBatchHandle {
     ChannelHandle channel = 0U;
-    __ubuf__ uint64_t* buffer = nullptr;
-    uint32_t capacity = 0U;
-    uint32_t bufferBbCapacity = 0U;
-    uint32_t prepared = 0U;
-    uint32_t preparedBb = 0U;
-    uint32_t lastBb = 0U;
-    uint32_t preparedCqe = 0U;
-    uint32_t lastCqe = 0U;
+    __ubuf__ uint64_t* context = nullptr;
+    uint64_t requestWords[HCOMM_SIMT_BATCH_REQUEST_WORDS] {};
+    uint32_t requestBb = 0U;
     uint32_t groupRank = 0U;
     uint32_t groupSize = 1U;
-    uint64_t remoteBaseAddr = 0U;
-    uint64_t remoteSize = 0U;
-    __gm__ uint64_t* headAddr = nullptr;
-    __gm__ uint32_t* sqTailAddr = nullptr;
-    __gm__ uint8_t* dwqeAddr = nullptr;
-    uint64_t sqBaseAddr = 0U;
-    uint32_t sqWqeSize = 0U;
-    uint32_t sqDepth = 0U;
-    uint32_t tpId = 0U;
-    uint64_t remoteEidL = 0U;
-    uint64_t remoteEidH = 0U;
-    uint32_t remoteTokenId = 0U;
-    uint32_t remoteTokenValue = 0U;
-    uint64_t headSnapshot = 0U;
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    uint64_t profilePlanCycles = 0U;
-    uint64_t profileEmitCycles = 0U;
-    uint64_t profilePublishCycles = 0U;
-#endif
-    bool valid = false;
+    bool patchSecondHeader = false;
+    bool patchNotifyToken = false;
 };
 
 template <typename T>

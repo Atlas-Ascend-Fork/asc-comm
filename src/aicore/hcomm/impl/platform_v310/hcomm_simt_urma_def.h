@@ -126,7 +126,6 @@ public:
 private:
     bool initialized_ = false;
     __ubuf__ uint32_t* groupState_ = nullptr;
-    uint32_t groupStateWords_ = 0U;
 
     // Reads the channel entity and SQ context from global memory on every post. Nothing is
     // cached across calls: a channel may change from one post to the next, so a cache would
@@ -148,8 +147,6 @@ private:
     __simt_callee__ inline int32_t PostWqe(ChannelHandle channel, const Desc& desc);
     template <typename Desc>
     __simt_callee__ inline int32_t BatchPostWqe(UbcCtpBatchHandle& batchHandle, const Desc& desc);
-    __simt_callee__ inline bool BatchContainsRemote(
-        const UbcCtpBatchHandle& batchHandle, const __gm__ void* addr, uint64_t len) const;
     __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
 };
 

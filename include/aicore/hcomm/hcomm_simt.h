@@ -77,7 +77,7 @@ public:
     /*!
      * @brief Initialize Hcomm.
      * @param [in] buff: Shared UB workspace for a group batch, or nullptr for a single-lane object.
-     * @param [in] len: Workspace length. A group batch needs at least (4 + group.size()) uint32_t words.
+     * @param [in] len: Workspace length. A group batch needs at least three uint32_t words.
      * @return 0 indicates success and -1 indicates failure.
      * @note Every posting lane calls Init on its own Hcomm object. All lanes in a bound group pass
      *       the same workspace because BatchCommit uses it to exchange reservation status and head.
@@ -87,18 +87,14 @@ public:
     /*!
      * @brief Create an explicit batch bound to one remote registration.
      * @param [in] channel: Channel exclusively used by this batch handle.
-     * @param [in] buff: Caller-owned UB storage; the basic implementation uses 128 bytes per item.
+     * @param [in] buff: Caller-owned 128-byte UB storage for the shared batch context.
      * @param [in] buffLen: Size of buff in bytes.
      * @param [in] remoteBase: An address in the remote registration used by the batch.
-     * @note The logical UB capacity may exceed the channel's physical SQ capacity; BatchCommit
-     *       handles that difference internally.
-     * @note Use HcommSimtBatchBufferBytes(itemCapacity) to size buff for the requested number of
-     *       items. A bound group needs at least one 128-byte slot per lane; each lane owns the slot
-     *       at its group rank and prepares exactly one item before the collective BatchCommit.
+     * @note Use HcommSimtBatchBufferBytes(itemCapacity) to size buff. The current collective
+     *       contract prepares exactly one request per lane, so the workspace size is constant.
      * @note Every remote data and notify range appended through the returned handle must stay in
-     *       the registration selected by remoteBase. The implementation checks the cached range
-     *       and returns -1 before preparing a WQE when this contract is violated.
-     * @note Do not post through another handle on channel while this batch contains prepared items.
+     *       the registration selected by remoteBase. The caller owns this contract.
+     * @note All lanes in one batch must append operations with the same WQEBB count.
      */
     __simt_callee__ inline BatchHandle<ChannelHandle> MakeBatchHandle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase);
