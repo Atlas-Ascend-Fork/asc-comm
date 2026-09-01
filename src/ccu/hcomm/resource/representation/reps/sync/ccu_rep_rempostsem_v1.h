@@ -23,11 +23,11 @@ public:
     bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
     std::string describe() override;
     uint32_t get_id() override;
-    uint32_t get_channel_id() { return channel_id_; }
+    uint32_t get_channel_id() const { return channel_id_; }
 
-    ChannelHandle get_channel() { return channel_; }
-    uint16_t get_sem_index() { return sem_index_; }
-    uint16_t get_mask() { return mask_; }
+    ChannelHandle get_channel() const { return channel_; }
+    uint16_t get_sem_index() const { return sem_index_; }
+    uint16_t get_mask() const { return mask_; }
 
 private:
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};

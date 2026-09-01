@@ -56,7 +56,7 @@ public:
         ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_record_shared_notify* ccu_rep_record_shared_notify,
         const trans_dep& dep) = 0;
     virtual HcclResult ccu_rep_rem_wait_sem_translate(
-        ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_wait_sem* cu_rep_rem_wait_sem) = 0;
+        ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_wait_sem* ccu_rep_rem_wait_sem) = 0;
     virtual HcclResult ccu_rep_rem_post_var_translate(
         ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_post_var* ccu_rep_rem_post_var) = 0;
     virtual HcclResult ccu_rep_rem_post_sem_translate(
@@ -119,7 +119,7 @@ public:
     virtual HcclResult ccu_rep_loop_group_bundle_translate(
         ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_loop_group_bundle* bundle_ptr,
         const trans_dep& dep) = 0;
-    virtual uint16_t ccu_rep_loop_group_bundle_instr_count(ccu_rep_loop_group_bundle* bundle_ptr) = 0;
+    virtual uint16_t ccu_rep_loop_group_bundle_instr_count(const ccu_rep_loop_group_bundle* bundle_ptr) const = 0;
 
     // common
     virtual HcclResult ccu_rep_load_translate(
@@ -158,7 +158,7 @@ protected:
         std::vector<variable> formal_ins;
     };
 
-    HcclResult prepare_func_call_context(ccu_rep_func_call* func_call_ptr, func_call_context& ctx)
+    HcclResult prepare_func_call_context(ccu_rep_func_call* func_call_ptr, func_call_context& ctx) const
     {
         CHK_PTR_NULL(func_call_ptr);
         ctx.in_arg_count = func_call_ptr->get_in_arg_count();

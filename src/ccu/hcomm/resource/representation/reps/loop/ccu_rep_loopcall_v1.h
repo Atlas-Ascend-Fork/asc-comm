@@ -39,7 +39,7 @@ public:
 
     std::shared_ptr<ccu_rep_loop_block> get_loop_block() { return loop_block_; }
     std::vector<ccu_rep_arg>& get_in_args() { return in_args_; }
-    uint32_t get_in_arg_count() { return in_arg_count_; }
+    uint32_t get_in_arg_count() const { return in_arg_count_; }
 
 private:
     ccu_ins_generater_base* ins_generator_ptr_;

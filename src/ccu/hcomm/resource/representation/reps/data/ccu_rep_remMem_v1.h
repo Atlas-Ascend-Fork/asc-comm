@@ -23,7 +23,7 @@ public:
     bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
     std::string describe() override;
 
-    ChannelHandle get_channel() { return channel_; }
+    ChannelHandle get_channel() const { return channel_; }
     remote_addr get_rem() { return rem_; }
 
 private:

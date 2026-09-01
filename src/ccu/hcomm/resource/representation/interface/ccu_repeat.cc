@@ -23,7 +23,7 @@ repeat::repeat(ccu_rep_context* context, ccu_relational_operator<variable, uint6
 
 repeat::~repeat() {}
 
-void repeat::Break() {}
+void repeat::Break() const {}
 
 bool repeat::check() const { return !is_executed_; }
 

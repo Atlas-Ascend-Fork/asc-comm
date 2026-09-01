@@ -21,7 +21,7 @@ public:
     ccu_ins_generater_v1() {}
 
     // 虚析构函数，确保派生类对象正确析构
-    virtual ~ccu_ins_generater_v1() = default;
+    virtual ~ccu_ins_generater_v1() override = default;
 
     // data
     HcclResult ccu_rep_loc_cpy_translate(
@@ -49,7 +49,7 @@ public:
     HcclResult ccu_rep_rem_post_sem_translate(
         ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_post_sem* ccu_rep_rem_post_sem, const trans_dep& dep) override;
     HcclResult ccu_rep_rem_wait_sem_translate(
-        ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_wait_sem* cu_rep_rem_wait_sem) override;
+        ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_wait_sem* ccu_rep_rem_wait_sem) override;
     HcclResult ccu_rep_loc_record_event_translate(
         ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_loc_record_event* ccu_rep_loc_record_event) override;
     HcclResult ccu_rep_loc_wait_event_translate(
@@ -92,7 +92,7 @@ public:
     HcclResult ccu_rep_loop_group_bundle_translate(
         ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, ccu_rep_loop_group_bundle* bundle_ptr,
         const trans_dep& dep) override;
-    uint16_t ccu_rep_loop_group_bundle_instr_count(ccu_rep_loop_group_bundle* bundle_ptr) override;
+    uint16_t ccu_rep_loop_group_bundle_instr_count(const ccu_rep_loop_group_bundle* bundle_ptr) const override;
 
     // control
     HcclResult ccu_rep_func_block_translate(
@@ -146,11 +146,16 @@ public:
 
 private:
     void load_func_call_in_args(
-        ccu_instr* instr, std::vector<ccu_rep_arg>& in_args, std::vector<variable>& formal_ins, uint16_t reserve_xn_id);
+        ccu_instr* instr, std::vector<ccu_rep_arg>& in_args, std::vector<variable>& formal_ins, uint16_t reserve_xn_id) const;
     void load_func_call_out_args(
         ccu_instr* instr, uint32_t offset, std::vector<ccu_rep_arg>& out_args, ccu_rep_reference_manager* func_manager,
         uint16_t reserve_xn_id);
-    HcclResult load_loop_call_arg(ccu_instr*& instr, const ccu_rep_arg& in_arg, const ccu_rep_arg& blk_arg, const trans_dep& dep);
+    HcclResult
+    load_loop_call_arg(ccu_instr*& instr, const ccu_rep_arg& in_arg, const ccu_rep_arg& blk_arg, const trans_dep& dep) const;
+    void load_loop_group_params(
+        ccu_instr*& instr, uint16_t& cur_instr_id, const ccu_rep_loop_group_bundle* bundle_ptr, const trans_dep& dep) const;
+    void load_loop_group_bundle_config(
+        ccu_instr*& instr, uint16_t& cur_instr_id, const ccu_rep_loop_group_bundle* bundle_ptr) const;
 
     std::unordered_map<ccu_rep_type, uint32_t> rep_type_instr_count_ = {
         {ccu_rep_type::read, 1},

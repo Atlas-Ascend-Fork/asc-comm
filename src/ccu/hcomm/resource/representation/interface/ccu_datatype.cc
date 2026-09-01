@@ -128,7 +128,7 @@ void variable::operator*=(const variable& other)
     append_to_context(context_, std::make_shared<ccu_rep_mul>(context_->get_ins_generator(), *this, other));
 }
 
-void variable::operator*=(uint16_t immediate)
+void variable::operator*=(const uint16_t immediate)
 {
     append_to_context(context_, std::make_shared<ccu_rep_mul>(context_->get_ins_generator(), *this, immediate));
 }
@@ -138,7 +138,7 @@ void variable::operator-=(const variable& other)
     append_to_context(context_, std::make_shared<ccu_rep_sub>(context_->get_ins_generator(), *this, other));
 }
 
-void variable::operator-=(uint16_t immediate)
+void variable::operator-=(const uint16_t immediate)
 {
     append_to_context(context_, std::make_shared<ccu_rep_sub>(context_->get_ins_generator(), *this, immediate));
 }

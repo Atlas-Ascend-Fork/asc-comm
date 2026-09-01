@@ -24,7 +24,7 @@ public:
     std::string describe() override;
 
     ccu_rep::variable get_var() { return var_; }
-    uint16_t get_arg_id() { return arg_id_; }
+    uint16_t get_arg_id() const { return arg_id_; }
     uint16_t get_var_id() const { return var_.id(); }
     uint16_t get_full_arg_id() const { return full_arg_id_; }
 

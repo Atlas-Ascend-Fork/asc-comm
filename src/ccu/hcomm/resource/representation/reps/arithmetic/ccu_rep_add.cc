@@ -113,7 +113,7 @@ ccu_rep_add::ccu_rep_add(ccu_ins_generater_base* ins_gen_ptr, const variable& va
     support_ccu_v1_ = false;
 }
 
-void ccu_rep_add::validate_ins_gen_ptr_for_add()
+void ccu_rep_add::validate_ins_gen_ptr_for_add() const
 {
     ccu_ins_generater_v1* tmp_ptr_v1 = dynamic_cast<ccu_ins_generater_v1*>(ins_gen_ptr_);
     CHK_PRT_THROW(
@@ -200,8 +200,8 @@ variable ccu_rep_add::get_var_b() { return var_b_; }
 
 variable ccu_rep_add::get_var_c() { return var_c_; }
 
-uint16_t ccu_rep_add::get_immed_b() { return immed_b_; }
+uint16_t ccu_rep_add::get_immed_b() const { return immed_b_; }
 
-add_sub_type ccu_rep_add::get_sub_type() { return sub_type_; }
+add_sub_type ccu_rep_add::get_sub_type() const { return sub_type_; }
 }; // namespace CcuRep
 }; // namespace asc
