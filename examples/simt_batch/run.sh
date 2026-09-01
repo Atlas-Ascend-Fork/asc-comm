@@ -54,14 +54,14 @@ fi
 code_version="$(git -C "${script_dir}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 if [[ "$mode" == "basic" ]]; then
     suite_name="simt_batch_basic"
-    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | BatchSize=2 | BatchCount=1 | PayloadBytes=64"
+    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | LaneCount=1 | BatchSize=1 | BatchCount=2 | PayloadBytes=64"
 elif [[ "$mode" == matrix-* ]]; then
     matrix_shape="${mode#matrix-}"
     suite_name="simt_batch_${mode}"
-    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | BatchSize=${matrix_shape%x*} | BatchCount=${matrix_shape#*x} | PayloadBytes=64"
+    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | LaneCount=${matrix_shape%x*} | BatchSize=${matrix_shape%x*} | BatchCount=${matrix_shape#*x} | PayloadBytes=64"
 else
     suite_name="simt_batch"
-    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | BatchSize=8 | BatchCount=2 | PayloadBytes=64"
+    echo "TEST_INFO | Suite=${suite_name} | CodeVersion=${code_version} | Devices=${devices} | Pairs=$((devices / 2)) | LaneCount=1 | BatchSize=1 | BatchCount=$((8 * 2)) | PayloadBytes=64"
 fi
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_batch.XXXXXX")"
