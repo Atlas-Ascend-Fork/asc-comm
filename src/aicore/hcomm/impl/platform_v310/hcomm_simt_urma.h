@@ -705,7 +705,7 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, const Group& group)
 {
     constexpr uint32_t commonValueCount = 14U;
-    static_assert(commonValueCount * sizeof(uint64_t) <= HCOMM_URMA_DWQE_SIZE, "Batch context must fit one slot");
+    constexpr uint32_t commonStateWords = commonValueCount * 2U;
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t size = static_cast<uint32_t>(group.size());
     UbcCtpBatchHandle leaderHandle;
@@ -730,28 +730,28 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
         common[13] = leaderHandle.valid ? 1U : 0U;
     }
 
-    if (size == 1U) {
-        // The leader already owns the complete handle.
+    if (size <= warpSize) {
+#pragma unroll
+        for (uint32_t i = 0U; i < commonValueCount; ++i) {
+            common[i] = asc_shfl(common[i], 0);
+        }
     } else {
-        // A shuffle from lane 0 is not a reliable broadcast for a partially populated warp.
-        // Make runs before Append, so the first caller-owned batch slot is available as a
-        // temporary shared transfer area without increasing the Init workspace contract.
-        if (buff == nullptr || buffLen / HCOMM_URMA_DWQE_SIZE < size ||
-            (reinterpret_cast<uint64_t>(buff) % sizeof(ulonglong2)) != 0U) {
+        if (groupState_ == nullptr || groupStateWords_ < commonStateWords) {
             UbcCtpBatchHandle invalidHandle;
             return invalidHandle;
         }
-        __ubuf__ uint64_t* sharedCommon = reinterpret_cast<__ubuf__ uint64_t*>(buff);
         if (rank == 0U) {
 #pragma unroll
             for (uint32_t i = 0U; i < commonValueCount; ++i) {
-                sharedCommon[i] = common[i];
+                groupState_[2U * i] = static_cast<uint32_t>(common[i]);
+                groupState_[2U * i + 1U] = static_cast<uint32_t>(common[i] >> 32U);
             }
         }
         group.sync();
 #pragma unroll
         for (uint32_t i = 0U; i < commonValueCount; ++i) {
-            common[i] = sharedCommon[i];
+            common[i] = static_cast<uint64_t>(groupState_[2U * i]) |
+                (static_cast<uint64_t>(groupState_[2U * i + 1U]) << 32U);
         }
         group.sync();
     }
@@ -1360,10 +1360,12 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
 #endif
     constexpr uint32_t readyBit = 1U << 31U;
     constexpr uint32_t stateHeaderWords = 4U;
+    constexpr uint32_t contextStateWords = 15U;
+    constexpr uint32_t sharedStateWords = stateHeaderWords + contextStateWords;
     constexpr uint32_t stateWordsPerWarp = 2U;
     const uint32_t warpCount = (size + warpSize - 1U) / warpSize;
     const uint32_t requiredStateWords = size <= warpSize ? stateHeaderWords :
-        stateHeaderWords + stateWordsPerWarp * warpCount;
+        sharedStateWords + stateWordsPerWarp * warpCount;
     if (size <= 1U || groupState_ == nullptr || groupStateWords_ < requiredStateWords) {
         return HCOMM_FAILED;
     }
@@ -1383,21 +1385,18 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     const uint32_t warpIndex = rank / warpSize;
     const uint32_t warpLaneCount = size - warpIndex * warpSize < warpSize ?
         size - warpIndex * warpSize : warpSize;
-    // MakeBatchHandle has already distributed the immutable queue/remote context to every lane.
-    // Only the current head/tail reservation is collective state; rebuilding and broadcasting
-    // this context for every commit is redundant.
     HcommSimtResolvedPost post{};
-    post.headAddr = batchHandle.headAddr;
-    post.sqTailAddr = batchHandle.sqTailAddr;
-    post.dwqeAddr = batchHandle.dwqeAddr;
-    post.sqBaseAddr = batchHandle.sqBaseAddr;
-    post.sqWqeSize = batchHandle.sqWqeSize;
-    post.meta.sqDepth = batchHandle.sqDepth;
-    post.meta.tpId = batchHandle.tpId;
-    post.meta.remoteEidL = batchHandle.remoteEidL;
-    post.meta.remoteEidH = batchHandle.remoteEidH;
-    post.meta.remoteTokenId = batchHandle.remoteTokenId;
-    post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
+    if (rank == 0U) {
+        post.headAddr = batchHandle.headAddr;
+        post.sqTailAddr = batchHandle.sqTailAddr;
+        post.dwqeAddr = batchHandle.dwqeAddr;
+        post.sqBaseAddr = batchHandle.sqBaseAddr;
+        post.sqWqeSize = batchHandle.sqWqeSize;
+        post.meta.sqDepth = batchHandle.sqDepth;
+        post.meta.tpId = batchHandle.tpId;
+        post.meta.remoteEidL = batchHandle.remoteEidL;
+        post.meta.remoteEidH = batchHandle.remoteEidH;
+    }
     if (size <= warpSize) {
         if (asc_all(localReady ? 1 : 0) == 0) {
             return HCOMM_FAILED;
@@ -1429,7 +1428,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         }
         const bool warpReady = asc_all(localReady ? 1 : 0) != 0;
         if (laneInWarp + 1U == warpLaneCount) {
-            const uint32_t stateBase = stateHeaderWords + stateWordsPerWarp * warpIndex;
+            const uint32_t stateBase = sharedStateWords + stateWordsPerWarp * warpIndex;
             groupState_[stateBase] = laneInclusiveBb | (warpReady ? readyBit : 0U);
             groupState_[stateBase + 1U] = batchHandle.lastBb;
         }
@@ -1438,7 +1437,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         if (rank == 0U) {
             uint32_t lastBb = 0U;
             for (uint32_t warp = 0U; warp < warpCount; ++warp) {
-                const uint32_t stateBase = stateHeaderWords + stateWordsPerWarp * warp;
+                const uint32_t stateBase = sharedStateWords + stateWordsPerWarp * warp;
                 const uint32_t encodedBb = groupState_[stateBase];
                 if ((encodedBb & readyBit) == 0U) {
                     status = HCOMM_FAILED;
@@ -1456,17 +1455,70 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
             groupState_[1] = totalBb;
             groupState_[2] = static_cast<uint32_t>(headVal);
             groupState_[3] = static_cast<uint32_t>(headVal >> 32U);
+
+            // The same collective that publishes the reservation also broadcasts the queue
+            // context. Keeping both in one shared-state epoch removes a second full CTA sync.
+            const uint64_t headAddr = reinterpret_cast<uint64_t>(post.headAddr);
+            const uint64_t tailAddr = reinterpret_cast<uint64_t>(post.sqTailAddr);
+            const uint64_t dwqeAddr = reinterpret_cast<uint64_t>(post.dwqeAddr);
+            groupState_[4] = static_cast<uint32_t>(headAddr);
+            groupState_[5] = static_cast<uint32_t>(headAddr >> 32U);
+            groupState_[6] = static_cast<uint32_t>(tailAddr);
+            groupState_[7] = static_cast<uint32_t>(tailAddr >> 32U);
+            groupState_[8] = static_cast<uint32_t>(dwqeAddr);
+            groupState_[9] = static_cast<uint32_t>(dwqeAddr >> 32U);
+            groupState_[10] = static_cast<uint32_t>(post.sqBaseAddr);
+            groupState_[11] = static_cast<uint32_t>(post.sqBaseAddr >> 32U);
+            groupState_[12] = post.sqWqeSize;
+            groupState_[13] = post.meta.sqDepth;
+            groupState_[14] = post.meta.tpId;
+            groupState_[15] = static_cast<uint32_t>(post.meta.remoteEidL);
+            groupState_[16] = static_cast<uint32_t>(post.meta.remoteEidL >> 32U);
+            groupState_[17] = static_cast<uint32_t>(post.meta.remoteEidH);
+            groupState_[18] = static_cast<uint32_t>(post.meta.remoteEidH >> 32U);
         }
         group.sync();
         status = static_cast<int32_t>(groupState_[0]);
         totalBb = groupState_[1];
         headVal = static_cast<uint64_t>(groupState_[2]) | (static_cast<uint64_t>(groupState_[3]) << 32U);
-        warpBbBase = groupState_[stateHeaderWords + stateWordsPerWarp * warpIndex];
+        warpBbBase = groupState_[sharedStateWords + stateWordsPerWarp * warpIndex];
     }
     if (status != HCOMM_SUCCESS) {
         return HCOMM_FAILED;
     }
 
+    if (size <= warpSize) {
+        post.headAddr = reinterpret_cast<__gm__ uint64_t*>(
+            asc_shfl(reinterpret_cast<uint64_t>(post.headAddr), 0));
+        post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(
+            asc_shfl(reinterpret_cast<uint64_t>(post.sqTailAddr), 0));
+        post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+            asc_shfl(reinterpret_cast<uint64_t>(post.dwqeAddr), 0));
+        post.sqBaseAddr = asc_shfl(post.sqBaseAddr, 0);
+        post.sqWqeSize = asc_shfl(post.sqWqeSize, 0);
+        post.meta.sqDepth = asc_shfl(post.meta.sqDepth, 0);
+        post.meta.tpId = asc_shfl(post.meta.tpId, 0);
+        post.meta.remoteEidL = asc_shfl(post.meta.remoteEidL, 0);
+        post.meta.remoteEidH = asc_shfl(post.meta.remoteEidH, 0);
+    } else {
+        post.headAddr = reinterpret_cast<__gm__ uint64_t*>(
+            static_cast<uint64_t>(groupState_[4]) | (static_cast<uint64_t>(groupState_[5]) << 32U));
+        post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(
+            static_cast<uint64_t>(groupState_[6]) | (static_cast<uint64_t>(groupState_[7]) << 32U));
+        post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+            static_cast<uint64_t>(groupState_[8]) | (static_cast<uint64_t>(groupState_[9]) << 32U));
+        post.sqBaseAddr = static_cast<uint64_t>(groupState_[10]) |
+            (static_cast<uint64_t>(groupState_[11]) << 32U);
+        post.sqWqeSize = groupState_[12];
+        post.meta.sqDepth = groupState_[13];
+        post.meta.tpId = groupState_[14];
+        post.meta.remoteEidL = static_cast<uint64_t>(groupState_[15]) |
+            (static_cast<uint64_t>(groupState_[16]) << 32U);
+        post.meta.remoteEidH = static_cast<uint64_t>(groupState_[17]) |
+            (static_cast<uint64_t>(groupState_[18]) << 32U);
+    }
+    post.meta.remoteTokenId = batchHandle.remoteTokenId;
+    post.meta.remoteTokenValue = batchHandle.remoteTokenValue;
     const uint64_t delta = (static_cast<uint64_t>(size) << 32U) | totalBb;
     const uint64_t publishedHead = headVal + delta;
 
