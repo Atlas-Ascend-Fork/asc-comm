@@ -46,9 +46,9 @@ __simt_callee__ inline void CaptureTailAfterCommit(
     AscendC::simt::HcommSimtPackedSqeTemplate sqeTemplate;
     AscendC::simt::HcommSimtBuildPackedSqeTemplate<0U>(meta, sqeTemplate);
     AscendC::simt::HcommSimtWqeStage expected{};
-    auto item = reinterpret_cast<__ubuf__ AscendC::simt::HcommSimtPreparedBatchWqe*>(batch.buffer);
-    AscendC::simt::HcommSimtBuildPreparedBatchTail(
-        item, sqeTemplate, laneHead, laneHead + AscendC::simt::HCOMM_URMA_DWQE_BB_CNT, expected);
+    auto item = AscendC::simt::HcommSimtBatchDescriptorAt(batch.buffer, 0U);
+    AscendC::simt::HcommSimtBuildBatchDescriptorStage(
+        item, sqeTemplate, laneHead, laneHead + AscendC::simt::HCOMM_URMA_DWQE_BB_CNT, true, expected);
     auto channel = reinterpret_cast<__gm__ AscendC::simt::HcommSimtChannelEntity*>(batch.channel);
     auto sq = &reinterpret_cast<__gm__ AscendC::SqContext*>(channel->sqContextAddr)[0];
     auto remoteEid = reinterpret_cast<__gm__ uint64_t*>(&sq->contextInfo.ubJfs.remoteEID[0]);
