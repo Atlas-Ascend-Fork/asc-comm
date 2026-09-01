@@ -33,7 +33,7 @@ public:
     ccu_buf get_dst() { return dst_; }
     variable get_len() { return len_; }
     completed_event get_sem() { return sem_; }
-    uint16_t get_mask() { return mask_; }
+    uint16_t get_mask() const { return mask_; }
 
 private:
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};

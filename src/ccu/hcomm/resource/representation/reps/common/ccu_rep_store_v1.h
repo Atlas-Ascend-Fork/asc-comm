@@ -25,9 +25,9 @@ public:
     std::string describe() override;
 
     ccu_rep::variable get_var() { return var_; }
-    uint64_t get_addr() { return addr_; }
-    uint32_t get_num() { return num_; }
-    uint16_t get_mask() { return mask_; }
+    uint64_t get_addr() const { return addr_; }
+    uint32_t get_num() const { return num_; }
+    uint16_t get_mask() const { return mask_; }
 
 private:
     uint16_t mask_{1};

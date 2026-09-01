@@ -31,8 +31,8 @@ public:
     address get_addr_b();
     variable get_var_a();
     variable get_var_b();
-    uint64_t get_immed();
-    assign_sub_type get_sub_type();
+    uint64_t get_immed() const;
+    assign_sub_type get_sub_type() const;
 
 private:
     void set_common_info();

@@ -30,13 +30,13 @@ public:
     uint16_t get_dst_addr_id() { return dst_.id(); }
     uint16_t get_len_id() { return len_.id(); }
     uint16_t get_sem_id() { return sem_.id(); }
-    uint32_t get_channel_id() { return channel_id_; }
+    uint32_t get_channel_id() const { return channel_id_; }
     remote_addr get_src() { return src_; }
     ccu_buf get_dst() { return dst_; }
     variable get_len() { return len_; }
     completed_event get_sem() { return sem_; }
-    uint32_t get_mask() { return mask_; }
-    ChannelHandle get_channel() { return channel_; }
+    uint32_t get_mask() const { return mask_; }
+    ChannelHandle get_channel() const { return channel_; }
 
 private:
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};

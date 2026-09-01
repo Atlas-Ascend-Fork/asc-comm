@@ -27,12 +27,12 @@ public:
     bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
     std::string describe() override;
     const std::vector<ccu_buf>& get_mem() { return mem_; }
-    uint16_t get_count() { return count_; }
-    uint16_t get_data_type() { return data_type_; }
-    uint16_t get_output_data_type() { return output_data_type_; }
-    uint16_t get_op_type() { return op_type_; }
+    uint16_t get_count() const { return count_; }
+    uint16_t get_data_type() const { return data_type_; }
+    uint16_t get_output_data_type() const { return output_data_type_; }
+    uint16_t get_op_type() const { return op_type_; }
     uint16_t get_xn_length_id() { return xn_id_length_.id(); }
-    uint16_t get_mask() { return mask_; }
+    uint16_t get_mask() const { return mask_; }
     uint16_t get_sem_id() { return sem_.id(); }
 
     completed_event get_sem() { return sem_; }

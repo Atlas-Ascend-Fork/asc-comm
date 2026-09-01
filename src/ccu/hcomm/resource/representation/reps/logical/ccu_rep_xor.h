@@ -26,7 +26,7 @@ public:
     variable get_var_a() { return var_a_; }
     variable get_var_b() { return var_b_; }
     variable get_var_c() { return var_c_; }
-    xor_sub_type get_sub_type() { return sub_type_; }
+    xor_sub_type get_sub_type() const { return sub_type_; }
 
     std::string describe() override;
 

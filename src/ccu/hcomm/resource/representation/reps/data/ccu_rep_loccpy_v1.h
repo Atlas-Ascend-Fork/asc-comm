@@ -38,23 +38,23 @@ public:
     uint16_t get_dst_token_id() { return dst_.token.id(); }
     uint16_t get_len_id() { return len_.id(); }
     uint16_t get_sem_id() { return sem_.id(); }
-    uint16_t get_data_type() { return data_type_; }
-    uint16_t get_op_type() { return op_type_; }
+    uint16_t get_data_type() const { return data_type_; }
+    uint16_t get_op_type() const { return op_type_; }
     const std::vector<ccu_buf>& get_bufs() { return bufs_; }
 
     local_addr get_dst() { return dst_; }
     local_addr get_src() { return src_; }
     variable get_len() { return len_; }
     completed_event get_sem() { return sem_; }
-    uint16_t get_mask() { return mask_; }
-    uint16_t get_reduce_flag() { return reduce_flag_; }
-    bool get_use_ccu_buffer() { return use_ccu_buffer_; }
+    uint16_t get_mask() const { return mask_; }
+    uint16_t get_reduce_flag() const { return reduce_flag_; }
+    bool get_use_ccu_buffer() const { return use_ccu_buffer_; }
 
     uint16_t get_first_buf_id();
     uint16_t get_used_buf_num();
 
 private:
-    void validate_ins_generator_for_loc_cpy();
+    void validate_ins_generator_for_loc_cpy() const;
 
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};
     local_addr dst_;

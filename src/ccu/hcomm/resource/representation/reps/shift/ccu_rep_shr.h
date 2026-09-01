@@ -24,9 +24,9 @@ public:
     ccu_rep_sh_r(ccu_ins_generater_base* ins_gen_ptr, const address& addr_d, const variable& var_n, const variable& var_m);
     ccu_rep_sh_r(ccu_ins_generater_base* ins_gen_ptr, const address& addr_d, const variable& var_m);
     bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& cur_instr_id, const trans_dep& dep) override;
-    shift_sub_type get_shift_sub_type() { return sub_type_; }
+    shift_sub_type get_shift_sub_type() const { return sub_type_; }
 
-    shift_type get_shift_type() { return shift_type_; }
+    shift_type get_shift_type() const { return shift_type_; }
 
     variable get_var_n() { return var_n_; }
 

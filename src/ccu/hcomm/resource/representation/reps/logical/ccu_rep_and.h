@@ -28,7 +28,7 @@ public:
 
     variable get_var_c() { return var_c_; }
 
-    and_sub_type get_sub_type() { return sub_type_; }
+    and_sub_type get_sub_type() const { return sub_type_; }
 
     std::string describe() override;
 

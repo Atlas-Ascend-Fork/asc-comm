@@ -127,7 +127,7 @@ void ccu_rep_context::add_sqe_profiling(const std::string& kernel_name)
 {
     constexpr uint32_t default_die_id = 0; // 首次填写profiling时dieId未确定
     // 生成SQE粒度profiling信息
-    ccu_profiling_info_cache.type = (uint8_t)ccu_profilin_type::ccu_task_profiling;
+    ccu_profiling_info_cache.type = static_cast<uint8_t>(ccu_profilin_type::ccu_task_profiling);
     ccu_profiling_info_cache.name = kernel_name.c_str();
     ccu_profiling_info_cache.die_id = default_die_id;
     HCCL_DEBUG(
@@ -138,7 +138,7 @@ void ccu_rep_context::add_sqe_profiling(const std::string& kernel_name)
 
 int32_t ccu_rep_context::add_profiling(const std::string& name, uint32_t mask)
 {
-    ccu_profiling_info_cache.type = (uint8_t)ccu_profilin_type::ccu_waitcke_profiling;
+    ccu_profiling_info_cache.type = static_cast<uint8_t>(ccu_profilin_type::ccu_waitcke_profiling);
     ccu_profiling_info_cache.name = name;
     ccu_profiling_info_cache.cke_id = invalid_cke_id;
     ccu_profiling_info_cache.mask = mask;
@@ -157,7 +157,7 @@ int32_t ccu_rep_context::add_profiling(
     ccu_channel channel_impl(channel);
     CHK_RET(channel_impl.get_result());
 
-    ccu_profiling_info_cache.type = (uint8_t)ccu_profilin_type::ccu_waitcke_profiling;
+    ccu_profiling_info_cache.type = static_cast<uint8_t>(ccu_profilin_type::ccu_waitcke_profiling);
     ccu_profiling_info_cache.name = name;
     CHK_RET(channel_impl->get_loc_cke_by_index(signal_index, ccu_profiling_info_cache.cke_id));
     ccu_profiling_info_cache.mask = mask;
@@ -178,7 +178,7 @@ int32_t ccu_rep_context::add_profiling(
 int32_t ccu_rep_context::add_profiling(const ChannelHandle* channels, uint32_t channel_num)
 {
     CHK_PTR_NULL(channels);
-    ccu_profiling_info_cache.type = (uint8_t)ccu_profilin_type::ccu_loopgroup_profiling;
+    ccu_profiling_info_cache.type = static_cast<uint8_t>(ccu_profilin_type::ccu_loopgroup_profiling);
     ccu_profiling_info_cache.name = "GroupBroadcast";
     ccu_profiling_info_cache.reduce_op_type = 0xFF;   // 0xFF 无效值
     ccu_profiling_info_cache.input_data_type = 0xFF;  // 0xFF 无效值
@@ -215,7 +215,7 @@ int32_t ccu_rep_context::add_profiling(
     HcclReduceOp op_type = static_cast<HcclReduceOp>(hcomm_op_type);
 
     CHK_PTR_NULL(channels);
-    ccu_profiling_info_cache.type = (uint8_t)ccu_profilin_type::ccu_loopgroup_profiling;
+    ccu_profiling_info_cache.type = static_cast<uint8_t>(ccu_profilin_type::ccu_loopgroup_profiling);
     ccu_profiling_info_cache.name = "GroupReduce";
     ccu_profiling_info_cache.reduce_op_type = op_type;
     ccu_profiling_info_cache.input_data_type = data_type;
