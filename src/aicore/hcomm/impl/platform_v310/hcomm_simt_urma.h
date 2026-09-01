@@ -705,7 +705,7 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, const Group& group)
 {
     constexpr uint32_t commonValueCount = 14U;
-    constexpr uint32_t commonStateWords = commonValueCount * 2U;
+    static_assert(commonValueCount * sizeof(uint64_t) <= HCOMM_URMA_DWQE_SIZE, "Batch context must fit one slot");
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t size = static_cast<uint32_t>(group.size());
     UbcCtpBatchHandle leaderHandle;
@@ -730,28 +730,28 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
         common[13] = leaderHandle.valid ? 1U : 0U;
     }
 
-    if (size <= warpSize) {
-#pragma unroll
-        for (uint32_t i = 0U; i < commonValueCount; ++i) {
-            common[i] = asc_shfl(common[i], 0);
-        }
+    if (size == 1U) {
+        // The leader already owns the complete handle.
     } else {
-        if (groupState_ == nullptr || groupStateWords_ < commonStateWords) {
+        // A shuffle from lane 0 is not a reliable broadcast for a partially populated warp.
+        // Make runs before Append, so the first caller-owned batch slot is available as a
+        // temporary shared transfer area without increasing the Init workspace contract.
+        if (buff == nullptr || buffLen / HCOMM_URMA_DWQE_SIZE < size ||
+            (reinterpret_cast<uint64_t>(buff) % sizeof(ulonglong2)) != 0U) {
             UbcCtpBatchHandle invalidHandle;
             return invalidHandle;
         }
+        __ubuf__ uint64_t* sharedCommon = reinterpret_cast<__ubuf__ uint64_t*>(buff);
         if (rank == 0U) {
 #pragma unroll
             for (uint32_t i = 0U; i < commonValueCount; ++i) {
-                groupState_[2U * i] = static_cast<uint32_t>(common[i]);
-                groupState_[2U * i + 1U] = static_cast<uint32_t>(common[i] >> 32U);
+                sharedCommon[i] = common[i];
             }
         }
         group.sync();
 #pragma unroll
         for (uint32_t i = 0U; i < commonValueCount; ++i) {
-            common[i] = static_cast<uint64_t>(groupState_[2U * i]) |
-                (static_cast<uint64_t>(groupState_[2U * i + 1U]) << 32U);
+            common[i] = sharedCommon[i];
         }
         group.sync();
     }
