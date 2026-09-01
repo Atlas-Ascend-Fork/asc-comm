@@ -28,26 +28,21 @@
 
 namespace AscendC::simt {
 
-template <typename Group>
-__simt_callee__ inline uint32_t HcommGroupRank(const Group& group)
+template <CommProtocol commProtocol>
+__simt_callee__ inline UbcCtpBatchHandle HcommMakeBatchHandle(
+    HcommImpl<commProtocol>& impl, ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen,
+    __gm__ void* remoteBase, const detail::HcommUnboundGroup&)
 {
-    return static_cast<uint32_t>(group.thread_rank());
+    return impl.MakeBatchHandle(channel, buff, buffLen, remoteBase);
 }
 
-__simt_callee__ inline uint32_t HcommGroupRank(const detail::HcommUnboundGroup&)
+template <CommProtocol commProtocol, typename Group>
+__simt_callee__ inline UbcCtpBatchHandle HcommMakeBatchHandle(
+    HcommImpl<commProtocol>& impl, ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen,
+    __gm__ void* remoteBase, const Group& group)
 {
-    return 0U;
-}
-
-template <typename Group>
-__simt_callee__ inline uint32_t HcommGroupSize(const Group& group)
-{
-    return static_cast<uint32_t>(group.size());
-}
-
-__simt_callee__ inline uint32_t HcommGroupSize(const detail::HcommUnboundGroup&)
-{
-    return 1U;
+    return group.size() == 1U ? impl.MakeBatchHandle(channel, buff, buffLen, remoteBase) :
+        impl.MakeBatchHandle(channel, buff, buffLen, remoteBase, group);
 }
 
 template <CommProtocol commProtocol>
@@ -87,8 +82,7 @@ __simt_callee__ inline BatchHandle<ChannelHandle> Hcomm<commProtocol, Group>::Ma
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase)
 {
     static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
-    return impl_.MakeBatchHandle(
-        channel, buff, buffLen, remoteBase, HcommGroupRank(group_), HcommGroupSize(group_));
+    return HcommMakeBatchHandle(impl_, channel, buff, buffLen, remoteBase, group_);
 }
 
 template <CommProtocol commProtocol, typename Group>

@@ -79,6 +79,9 @@ public:
     __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
         uint32_t groupRank, uint32_t groupSize);
+    template <typename Group>
+    __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, const Group& group);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
