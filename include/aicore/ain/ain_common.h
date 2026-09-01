@@ -31,6 +31,11 @@ namespace AscendC {
 using HcommWindowHandle = __gm__ void*;
 
 /*!
+ * @brief Opaque handle to a symmetric communication virtual memory.
+ */
+using HcommMemHandle = __gm__ void*;
+
+/*!
  * @brief Opaque handle to a communication team.
  */
 using HcommTeamHandle = __gm__ void*;
