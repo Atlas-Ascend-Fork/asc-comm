@@ -139,8 +139,7 @@ __aicore__ inline void HcommUrmaFillBatchSqeCtx(
 }
 
 __aicore__ inline void HcommUrmaFillBatchNotifyCtx(
-    __ubuf__ HcommUrmaNotifyCtx* notifyCtx, const UbcBatchHandle& batchHandle, GM_ADDR notifyAddr,
-    uint64_t notifyVal)
+    __ubuf__ HcommUrmaNotifyCtx* notifyCtx, const UbcBatchHandle& batchHandle, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
     uint64_t notifyAddrValue = reinterpret_cast<uint64_t>(notifyAddr);
     notifyCtx->notifyTokenId = batchHandle.remoteInfo.tokenId & 0xFFFFFU;

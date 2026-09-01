@@ -32,8 +32,7 @@
 
 typedef HcclResult (*HcclChannelConfigCreateFunc)(HcclChannelConfig* config);
 typedef HcclResult (*HcclChannelConfigDestroyFunc)(HcclChannelConfig config);
-typedef HcclResult (*HcclChannelConfigSetIntFunc)(
-    HcclChannelConfig config, HcclChannelConfigType type, uint32_t value);
+typedef HcclResult (*HcclChannelConfigSetIntFunc)(HcclChannelConfig config, HcclChannelConfigType type, uint32_t value);
 typedef HcclResult (*HcclChannelConfigSetStrFunc)(
     HcclChannelConfig config, HcclChannelConfigType type, const char* value);
 typedef HcclResult (*HcclChannelAcquireWithConfigFunc)(
@@ -173,14 +172,13 @@ private:
             return ret;
         }
 
-#define HCOMM_LOAD_SYMBOL(member, symbol)                                                \
-    do {                                                                                 \
-        ret = static_cast<HcclResult>(LoadSymbol(                                        \
-            library.handle, symbol, loadedApi.member));                                 \
-        if (ret != HCCL_SUCCESS) {                                                       \
-            CloseLibraryIfUnused(library);                                               \
-            return ret;                                                                  \
-        }                                                                                \
+#define HCOMM_LOAD_SYMBOL(member, symbol)                                                    \
+    do {                                                                                     \
+        ret = static_cast<HcclResult>(LoadSymbol(library.handle, symbol, loadedApi.member)); \
+        if (ret != HCCL_SUCCESS) {                                                           \
+            CloseLibraryIfUnused(library);                                                   \
+            return ret;                                                                      \
+        }                                                                                    \
     } while (0)
 
         HcommApi loadedApi = api;
@@ -212,14 +210,13 @@ private:
             return ret;
         }
 
-#define HCOMM_LOAD_SYMBOL(member, symbol)                                                 \
-    do {                                                                                  \
-        ret = static_cast<HcommResult>(LoadSymbol(                                         \
-            library.handle, symbol, loadedApi.member));                                  \
-        if (ret != HCCL_SUCCESS) {                                                        \
-            CloseLibraryIfUnused(library);                                                \
-            return ret;                                                                   \
-        }                                                                                 \
+#define HCOMM_LOAD_SYMBOL(member, symbol)                                                     \
+    do {                                                                                      \
+        ret = static_cast<HcommResult>(LoadSymbol(library.handle, symbol, loadedApi.member)); \
+        if (ret != HCCL_SUCCESS) {                                                            \
+            CloseLibraryIfUnused(library);                                                    \
+            return ret;                                                                       \
+        }                                                                                     \
     } while (0)
 
         HcommApi loadedApi = api;
@@ -246,8 +243,8 @@ private:
         library.handle = dlopen("libhcomm.so", RTLD_NOW | RTLD_LOCAL);
         if (library.handle == nullptr) {
             const char* error = dlerror();
-            ASC_CPU_LOG_ERROR("[ERROR] [%s] open libhcomm.so failed: %s.", __func__,
-                error == nullptr ? "unknown error" : error);
+            ASC_CPU_LOG_ERROR(
+                "[ERROR] [%s] open libhcomm.so failed: %s.", __func__, error == nullptr ? "unknown error" : error);
             return HCCL_E_NOT_SUPPORT;
         }
         return HCCL_SUCCESS;
@@ -260,8 +257,8 @@ private:
         func = reinterpret_cast<Func>(dlsym(handle, symbol));
         const char* error = dlerror();
         if (func == nullptr || error != nullptr) {
-            ASC_CPU_LOG_ERROR("[ERROR] [%s] load %s failed: %s.", __func__, symbol,
-                error == nullptr ? "symbol not found" : error);
+            ASC_CPU_LOG_ERROR(
+                "[ERROR] [%s] load %s failed: %s.", __func__, symbol, error == nullptr ? "symbol not found" : error);
             return HCCL_E_NOT_SUPPORT;
         }
         return HCCL_SUCCESS;

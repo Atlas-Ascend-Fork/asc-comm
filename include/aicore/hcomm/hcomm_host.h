@@ -63,7 +63,8 @@ static inline HcommResult MakeMultiChannelHandle(
  * @brief Destroy channels and Device context owned by a handle created by MakeMultiChannelHandle.
  * @param [in] multiChannel: The multi-channel handle to destroy.
  * @return HCCL_SUCCESS indicates success. Other values indicate an Hcomm error.
- * @note This is the destroy API corresponding to the MakeMultiChannelHandle overload without an HCCL communicator (the EndpointHandle overload). Do not use it for a handle created by the HcclComm overload.
+ * @note This is the destroy API corresponding to the MakeMultiChannelHandle overload without an HCCL communicator (the
+ * EndpointHandle overload). Do not use it for a handle created by the HcclComm overload.
  */
 static inline HcommResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel)
 {

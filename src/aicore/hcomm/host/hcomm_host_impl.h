@@ -140,8 +140,9 @@ static inline HcommResult HcommWaitChannelsReady(const ChannelHandle* channels, 
     int32_t* statuses = NULL;
     aclError aclRet = aclrtMallocHost((void**)&statuses, (size_t)channelNum * sizeof(int32_t));
     if (aclRet != ACL_SUCCESS || statuses == NULL) {
-        ASC_CPU_LOG_ERROR("[ERROR] [%s] aclrtMallocHost channel status array failed, channelNum[%u], ret[%d].", __func__,
-            channelNum, aclRet);
+        ASC_CPU_LOG_ERROR(
+            "[ERROR] [%s] aclrtMallocHost channel status array failed, channelNum[%u], ret[%d].", __func__, channelNum,
+            aclRet);
         if (statuses != NULL) {
             (void)aclrtFreeHost(statuses);
         }
@@ -174,7 +175,8 @@ static inline HcommResult HcommWaitChannelsReady(const ChannelHandle* channels, 
             }
             if (statuses[i] == HCOMM_CHANNEL_STATUS_RES_LOC_UNAVAIL ||
                 statuses[i] == HCOMM_CHANNEL_STATUS_RES_RMT_UNAVAIL) {
-                ASC_CPU_LOG_ERROR("[ERROR] [%s] channel[%u] resource unavailable, status[%d].", __func__, i, statuses[i]);
+                ASC_CPU_LOG_ERROR(
+                    "[ERROR] [%s] channel[%u] resource unavailable, status[%d].", __func__, i, statuses[i]);
                 (void)aclrtFreeHost(statuses);
                 return HCCL_E_UNAVAIL;
             }
@@ -199,8 +201,8 @@ static inline int32_t HcommCopyFromDevice(
 {
     aclError aclRet = aclrtMemcpy(dst, size, src, size, ACL_MEMCPY_DEVICE_TO_HOST);
     if (aclRet != ACL_SUCCESS) {
-        ASC_CPU_LOG_ERROR("[ERROR] [%s] copy channel[%u] %s from device failed, ret[%d].", __func__, channelIndex, dataName,
-            aclRet);
+        ASC_CPU_LOG_ERROR(
+            "[ERROR] [%s] copy channel[%u] %s from device failed, ret[%d].", __func__, channelIndex, dataName, aclRet);
         return HCCL_E_RUNTIME;
     }
     return HCCL_SUCCESS;
@@ -219,7 +221,8 @@ static inline int32_t HcommExtractChannelMetadata(
     }
     if (channelEntity.sqContextAddr == NULL || channelEntity.cqContextAddr == NULL ||
         channelEntity.remoteBufferAddr == NULL || channelEntity.remoteBufferNum == 0U) {
-        ASC_CPU_LOG_ERROR("[ERROR] [%s] channel[%u] has invalid SQ/CQ context or remote MR table.", __func__, channelIndex);
+        ASC_CPU_LOG_ERROR(
+            "[ERROR] [%s] channel[%u] has invalid SQ/CQ context or remote MR table.", __func__, channelIndex);
         return HCCL_E_NOT_SUPPORT;
     }
 
@@ -389,8 +392,9 @@ static inline HcclResult HostMakeMultiChannelHandle(
 
     aclRet = aclrtMallocHost((void**)&channels, (size_t)channelNum * sizeof(ChannelHandle));
     if (aclRet != ACL_SUCCESS || channels == NULL) {
-        ASC_CPU_LOG_ERROR("[ERROR] [%s] aclrtMallocHost channel handles failed, channelNum[%u], ret[%d].", __func__,
-            channelNum, aclRet);
+        ASC_CPU_LOG_ERROR(
+            "[ERROR] [%s] aclrtMallocHost channel handles failed, channelNum[%u], ret[%d].", __func__, channelNum,
+            aclRet);
         if (channels != NULL) {
             (void)aclrtFreeHost(channels);
         }
@@ -439,7 +443,8 @@ static inline HcommResult HostMakeMultiChannelHandle(
 
     aclRet = aclrtMallocHost((void**)&channels, (size_t)channelNum * sizeof(ChannelHandle));
     if (aclRet != ACL_SUCCESS || channels == NULL) {
-        ASC_CPU_LOG_ERROR("[ERROR] [%s] aclrtMallocHost failed, channelNum[%u], ret[%d].", __func__, channelNum, aclRet);
+        ASC_CPU_LOG_ERROR(
+            "[ERROR] [%s] aclrtMallocHost failed, channelNum[%u], ret[%d].", __func__, channelNum, aclRet);
         if (channels != NULL) {
             (void)aclrtFreeHost(channels);
         }
@@ -514,7 +519,8 @@ static inline HcommResult HostDestroyMultiChannelHandle(MultiChannelHandle multi
 
     aclRet = aclrtMallocHost((void**)&channels, (size_t)entity.channelNum * sizeof(ChannelHandle));
     if (aclRet != ACL_SUCCESS || channels == NULL) {
-        ASC_CPU_LOG_ERROR("[ERROR] [%s] aclrtMallocHost channel handles failed, channelNum[%u], ret[%d].", __func__,
+        ASC_CPU_LOG_ERROR(
+            "[ERROR] [%s] aclrtMallocHost channel handles failed, channelNum[%u], ret[%d].", __func__,
             entity.channelNum, aclRet);
         if (channels != NULL) {
             (void)aclrtFreeHost(channels);
