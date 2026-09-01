@@ -23,6 +23,7 @@ namespace HcommDfx {
 namespace {
 struct ExceptionRecord {
     std::atomic<bool> pending{false};
+    std::atomic<bool> callbackBound{false};
     std::atomic<uint64_t> count{0};
     std::atomic<uint32_t> taskId{0};
     std::atomic<uint32_t> streamId{0};
@@ -81,6 +82,16 @@ void ExceptionCallback(aclrtExceptionInfo *exceptionInfo, void *userData)
 bool HasPendingException()
 {
     return g_exception.pending.load(std::memory_order_acquire);
+}
+
+bool IsExceptionCallbackBound()
+{
+    return g_exception.callbackBound.load(std::memory_order_acquire);
+}
+
+void MarkExceptionCallbackBound()
+{
+    g_exception.callbackBound.store(true, std::memory_order_release);
 }
 
 void ClearPendingException()
