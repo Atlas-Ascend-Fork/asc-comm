@@ -47,6 +47,8 @@ if(ASCEND_CANN_PACKAGE_PATH AND NOT EXISTS "${ASCCOMM_CANN_ARCH_DIR}")
         "Architecture-specific CANN package path" FORCE)
 endif()
 
+# ASCOMM_HCOMM_SOURCE_DIR 指向 hcomm 侧源码树或安装根，编译期仅使用其 pkg_inc 头文件；
+# hcomm 源码树的 src/include 不进入数据面编译路径（控制面/数据面源码解耦）。
 if(NOT ASCOMM_HCOMM_SOURCE_DIR)
     foreach(_candidate
         "${CMAKE_CURRENT_SOURCE_DIR}/../hcomm"
