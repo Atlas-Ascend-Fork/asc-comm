@@ -10,7 +10,6 @@
 
 #include "hcomm/dfx/hcomm_channel_dump.h"
 #include "hcomm_dfx_impl.h"
-#include "../common/hcomm_dfx_host_compat.h"
 #include "../../common/hcomm_inner_def.h"
 
 #include "acl/acl.h"
