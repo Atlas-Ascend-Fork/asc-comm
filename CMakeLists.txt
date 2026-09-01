@@ -11,6 +11,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 include(version.cmake)
+include(cmake/fetch_cann_cmake.cmake)
 project(asc_comm VERSION "${ASCCOMM_VERSION}" LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 11)
@@ -19,6 +20,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ASCCOMM_BUILD_CCU "Build asc-comm CCU launch wrapper library" ON)
+option(ASCCOMM_BUILD_AICPU_DATA_PLANE "Build asc-comm AICPU POD data-plane library" OFF)
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCCOMM_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
@@ -49,4 +51,98 @@ endif()
 
 if(ASCCOMM_BUILD_CCU)
     add_subdirectory(src/ccu)
+endif()
+
+if(ASCCOMM_BUILD_AICPU_DATA_PLANE)
+    set(ASCCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/aicpu/hcomm")
+    set(ASCCOMM_DFX_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/common/dfx")
+    set(ASCCOMM_HCOMM_SOURCE_DIR "" CACHE PATH "HCOMM source directory providing pkg_inc/")
+    set(HCOMM_SOURCE_DIR "" CACHE PATH "HCOMM source directory providing pkg_inc/")
+    if(NOT HCOMM_SOURCE_DIR AND ASCCOMM_HCOMM_SOURCE_DIR)
+        set(HCOMM_SOURCE_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}")
+    endif()
+    if(NOT HCOMM_SOURCE_DIR)
+        foreach(_hcomm_candidate
+            "${CMAKE_CURRENT_SOURCE_DIR}/../hcomm_pkg_inc"
+            "${CMAKE_CURRENT_SOURCE_DIR}/../hcomm")
+            if(EXISTS "${_hcomm_candidate}/pkg_inc/hcomm/hcomm_primitives_types.h" AND
+                EXISTS "${_hcomm_candidate}/pkg_inc/hcomm/hcomm_pod_resource.h")
+                get_filename_component(HCOMM_SOURCE_DIR "${_hcomm_candidate}" REALPATH)
+                break()
+            endif()
+        endforeach()
+    endif()
+    if(NOT EXISTS "${HCOMM_SOURCE_DIR}/pkg_inc/hcomm/hcomm_primitives_types.h" OR
+        NOT EXISTS "${HCOMM_SOURCE_DIR}/pkg_inc/hcomm/hcomm_pod_resource.h")
+        message(FATAL_ERROR
+            "Set HCOMM_SOURCE_DIR to the HCOMM source root containing pkg_inc/hcomm/")
+    endif()
+
+    if(COMMAND init_cann_project AND NOT CANN_PROJECT_INITED)
+        init_cann_project(PREPEND_MODULE_PATH)
+    endif()
+    if(COMMAND find_cann_package)
+        find_cann_package(acl_rt MODULE REQUIRED)
+        find_cann_package(ascend_hal MODULE REQUIRED)
+        find_cann_package(securec MODULE REQUIRED)
+        find_cann_package(unified_dlog MODULE REQUIRED)
+    endif()
+
+    include(cmake/aicpu_asccomm.cmake)
+    add_library(asccomm_aicpu SHARED ${ASCCOMM_AICPU_SOURCES})
+    target_compile_definitions(asccomm_aicpu PRIVATE
+        HCCD
+        CCL_KERNEL_AICPU
+        OPEN_BUILD_PROJECT
+        _GLIBCXX_USE_CXX11_ABI=1
+    )
+    target_compile_options(asccomm_aicpu PRIVATE
+        -Wfloat-equal
+        -Wall
+        -fno-common
+        -fstack-protector-strong
+        -fno-strict-aliasing
+        -ffunction-sections
+        -fdata-sections
+        -fvisibility=hidden
+        -fvisibility-inlines-hidden
+        -pipe
+        -O3
+    )
+    target_include_directories(asccomm_aicpu PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/aicpu/hcomm
+        ${ASCCOMM_DFX_SRC_DIR}
+        ${HCOMM_SOURCE_DIR}/pkg_inc
+        ${HCOMM_SOURCE_DIR}/pkg_inc/hcomm
+        ${ASCCOMM_ROOT}/primitives/api_c_adpt
+        ${ASCCOMM_ROOT}/primitives/launch
+        ${ASCCOMM_ROOT}/common/compat/hcomm
+        ${ASCCOMM_ROOT}/common/compat/hcomm/hccl
+        ${ASCCOMM_ROOT}/common/exception
+        ${ASCCOMM_ROOT}/common/utils
+        ${ASCCOMM_ROOT}/resource/buffer
+        ${ASCCOMM_ROOT}/resource/common
+        ${ASCCOMM_ROOT}/resource/connection
+        ${ASCCOMM_ROOT}/resource/stream
+    )
+    set(_asccomm_aicpu_link_targets)
+    foreach(_target acl_rt_headers slog_headers ascend_hal c_sec)
+        if(TARGET ${_target})
+            list(APPEND _asccomm_aicpu_link_targets ${_target})
+        endif()
+    endforeach()
+    target_link_libraries(asccomm_aicpu PRIVATE
+        ${_asccomm_aicpu_link_targets}
+        dl
+        pthread
+    )
+    target_link_options(asccomm_aicpu PRIVATE
+        -Wl,-z,relro
+        -Wl,-z,now
+        -Wl,-z,noexecstack
+        -Wl,--gc-sections
+        -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/cmake/asccomm_exports.map
+    )
+    set_target_properties(asccomm_aicpu PROPERTIES SKIP_BUILD_RPATH TRUE)
 endif()
