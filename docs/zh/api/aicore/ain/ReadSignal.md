@@ -11,7 +11,7 @@
 ```cpp
 __aicore__ inline uint64_t ReadSignal(
     AscendC::HcommTeamHandle team,
-    AscendC::HcommWindowHandle signalWindow,
+    AscendC::HcclCommSymWindow signalWindow,
     size_t signalOffset,
     uint32_t bits = 64,
     AscendC::AinMemoryOrder order = AscendC::AIN_MEMORY_ORDER_RELAX) const;

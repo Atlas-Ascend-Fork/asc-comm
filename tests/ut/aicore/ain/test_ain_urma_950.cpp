@@ -33,6 +33,7 @@ constexpr uint64_t REMOTE_PEER_SIZE = 0x1000;
 constexpr uint32_t DESCRIPTOR_SIZE = AscendC::HCOMM_URMA_TMP_BUF_SIZE + 32;
 constexpr uint32_t AIN_SIGNAL_COUNT = 16;
 constexpr uint32_t AIN_SIGNAL_POOL_SIZE = AIN_SIGNAL_COUNT * 2;
+constexpr uint64_t LSA_STRIDE = 0x100;
 
 class UrmaChannelResource {
 public:
@@ -127,19 +128,27 @@ class AinTeamResource {
 public:
     explicit AinTeamResource(UrmaChannelResource& channel)
     {
+        team_.engine = ::COMM_ENGINE_AIV;
         team_.memberNum = AIN_RANK_SIZE;
         team_.selfMemberId = 0;
+        team_.netLayer = 0;
         channelEntities_[PEER * MAX_CONTEXTS + 0] = channel.GetChannelEntity();
         channel.SetActiveEntity(&channelEntities_[PEER * MAX_CONTEXTS + 0]);
-        team_.channelsBaseAddr = reinterpret_cast<ChannelHandle>(channelEntities_.data());
-        team_.channelNumPerMember = channelNumPerMember_.data();
-        channelNumPerMember_[0] = MAX_CONTEXTS;
-        channelNumPerMember_[1] = MAX_CONTEXTS;
+        team_.channelsBaseAddr = reinterpret_cast<uint64_t>(channelEntities_.data());
+        team_.channelCntAccumulatePerMember = channelCntAccumulatePerMember_.data();
+        for (uint32_t i = 0; i < MAX_TEAM_MEMBERS; ++i) {
+            channelCntAccumulatePerMember_[i] = i * MAX_CONTEXTS;
+        }
+        team_.worldTeamIds = worldTeamIds_.data();
+        worldTeamIds_[0] = 0;
+        worldTeamIds_[1] = MAX_TEAM_MEMBERS - 1;
         team_.syncMem.remoteMems = remoteMems_.data();
         team_.syncMem.remoteMemsNum = AIN_RANK_SIZE;
         team_.syncMem.shadowMem.type = COMM_MEM_TYPE_DEVICE;
         team_.syncMem.shadowMem.addr = shadowPool_.data();
         team_.syncMem.shadowMem.size = shadowPool_.size() * sizeof(uint64_t);
+        team_.syncMem.syncMemReq.signalCount = AIN_SIGNAL_COUNT;
+        team_.syncMem.syncMemSize = shadowPool_.size() * sizeof(uint64_t);
 
         remoteMems_[0].type = COMM_MEM_TYPE_DEVICE;
         remoteMems_[0].addr = signalPool_.data();
@@ -148,8 +157,19 @@ public:
         remoteMems_[1].addr = reinterpret_cast<void*>(REMOTE_PEER_BASE);
         remoteMems_[1].size = REMOTE_PEER_SIZE;
 
-        win_.mems = remoteMems_.data();
-        win_.memsNum = AIN_RANK_SIZE;
+        baseRemoteMemAddrs_[0] = reinterpret_cast<uint64_t>(signalPool_.data());
+        for (uint32_t i = 1; i < MAX_TEAM_MEMBERS; ++i) {
+            baseRemoteMemAddrs_[i] = REMOTE_PEER_BASE;
+        }
+        win_.netWin.baseRemoteMemAddr = reinterpret_cast<uint64_t>(baseRemoteMemAddrs_.data());
+        win_.netWin.windowSize = REMOTE_PEER_SIZE;
+        win_.netWin.worldTeamAccumulateId = worldTeamAccumulateId_.data();
+        win_.netWin.netLayerNum = 1;
+        worldTeamAccumulateId_[0] = 0;
+
+        win_.lsaWin.baseVa = reinterpret_cast<uint64_t>(lsaBase_.data());
+        win_.lsaWin.stride = LSA_STRIDE;
+        win_.lsaWin.userSize = lsaBase_.size();
 
         channel.SetRemoteBuffer(
             0, reinterpret_cast<uint64_t>(signalPool_.data()), signalPool_.size() * sizeof(uint64_t));
@@ -157,16 +177,26 @@ public:
 
     AscendC::HcommTeamHandle GetTeam() { return reinterpret_cast<AscendC::HcommTeamHandle>(&team_); }
 
-    AscendC::HcommWindowHandle GetWin() { return reinterpret_cast<AscendC::HcommWindowHandle>(&win_); }
+    AscendC::HcclCommSymWindow GetWin() { return reinterpret_cast<AscendC::HcclCommSymWindow>(&win_); }
 
     uint64_t* GetSignalPool() { return signalPool_.data(); }
 
     uint64_t* GetShadowPool() { return shadowPool_.data(); }
 
+    uint64_t GetLsaBaseVa() const { return reinterpret_cast<uint64_t>(lsaBase_.data()); }
+
+    uint64_t GetLsaStride() const { return win_.lsaWin.stride; }
+
+    uint32_t GetWorldTeamId(uint32_t memberId) const { return worldTeamIds_[memberId]; }
+
 private:
     HcommTeam team_ = {};
     HcommWindow win_ = {};
-    std::array<uint32_t, MAX_TEAM_MEMBERS> channelNumPerMember_ = {};
+    std::array<uint32_t, MAX_TEAM_MEMBERS> channelCntAccumulatePerMember_ = {};
+    std::array<uint32_t, AIN_RANK_SIZE> worldTeamIds_ = {};
+    std::array<uint64_t, MAX_TEAM_MEMBERS> baseRemoteMemAddrs_ = {};
+    std::array<uint32_t, 1> worldTeamAccumulateId_ = {};
+    std::array<uint8_t, 0x1000> lsaBase_ = {};
     std::array<AscendC::ChannelEntity, MAX_TEAM_MEMBERS * MAX_CONTEXTS> channelEntities_ = {};
     std::array<CommMem, AIN_RANK_SIZE> remoteMems_ = {};
     std::array<uint64_t, AIN_SIGNAL_POOL_SIZE> signalPool_ = {};
@@ -440,4 +470,26 @@ TEST_F(AinUrmaTestSuite, BarrierSessionSyncTimeoutExpired)
     int32_t result = barrierSession.Sync(AscendC::AIN_MEMORY_ORDER_RELAX, 1ULL, GetDescriptor());
 
     EXPECT_EQ(result, -1);
+}
+
+TEST_F(AinUrmaTestSuite, GetPeerPointerReturnsPeerAddressFromWorldTeamId)
+{
+    UrmaChannelResource channel;
+    AinTeamResource ainResource(channel);
+
+    AscendC::HcommMemHandle ptr = GetPeerPointer(ainResource.GetTeam(), PEER, ainResource.GetWin(), 0x40);
+
+    uint64_t expected = ainResource.GetLsaBaseVa() +
+                        static_cast<uint64_t>(ainResource.GetWorldTeamId(PEER)) * ainResource.GetLsaStride() + 0x40;
+    EXPECT_EQ(reinterpret_cast<uint64_t>(ptr), expected);
+}
+
+TEST_F(AinUrmaTestSuite, GetPeerPointerReturnsSelfAddressWithoutStride)
+{
+    UrmaChannelResource channel;
+    AinTeamResource ainResource(channel);
+
+    AscendC::HcommMemHandle ptr = GetPeerPointer(ainResource.GetTeam(), 0, ainResource.GetWin(), 0x80);
+
+    EXPECT_EQ(reinterpret_cast<uint64_t>(ptr), ainResource.GetLsaBaseVa() + 0x80);
 }

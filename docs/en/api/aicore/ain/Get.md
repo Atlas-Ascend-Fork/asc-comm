@@ -16,9 +16,9 @@ template <
 __aicore__ inline void Get(
     AscendC::HcommTeamHandle team,
     uint32_t peer,
-    AscendC::HcommWindowHandle dstWin,
+    AscendC::HcclCommSymWindow dstWin,
     uint64_t dstOffset,
-    AscendC::HcommWindowHandle srcWin,
+    AscendC::HcclCommSymWindow srcWin,
     uint64_t srcOffset,
     uint64_t bytes,
     const DescriptorUbuf& ubuf = DescriptorUbuf{});

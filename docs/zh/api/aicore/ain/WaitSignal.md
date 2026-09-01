@@ -11,7 +11,7 @@
 ```cpp
 __aicore__ inline void WaitSignal(
     AscendC::HcommTeamHandle team,
-    AscendC::HcommWindowHandle signalWindow,
+    AscendC::HcclCommSymWindow signalWindow,
     size_t signalOffset,
     uint64_t least,
     uint32_t bits = 64,
