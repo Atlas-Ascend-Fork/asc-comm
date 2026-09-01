@@ -26,7 +26,6 @@
 #include "hccl/hccl_res.h"
 #include "hcomm/hcomm_res.h"
 #include "hcomm/hcomm_res_entity_defs.h"
-#include "securec.h"
 
 #include "../common/hcomm_host_utils.h"
 
@@ -62,7 +61,18 @@ typedef enum {
 static const uint32_t HCOMM_CHANNEL_READY_RETRY_COUNT = 120000U;
 static const uint32_t HCOMM_CHANNEL_READY_RETRY_INTERVAL_US = 1000U;
 
-static inline HcclResult HcommAcquireSharedChannelsWithComm(
+template <typename ConfigType, typename ResultType>
+static inline ResultType DestroyChannelConfig(
+    ConfigType config, ResultType (*destroyFunc)(ConfigType), const char* configName)
+{
+    ResultType destroyRet = destroyFunc(config);
+    if (destroyRet != static_cast<ResultType>(HCCL_SUCCESS)) {
+        ASC_CPU_LOG_ERROR("[ERROR] [%s] %s failed, ret[%d].", __func__, configName, destroyRet);
+    }
+    return destroyRet;
+}
+
+static inline HcclResult HcclAcquireSharedChannelsWithComm(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     ChannelHandle* channels)
 {
@@ -76,30 +86,25 @@ static inline HcclResult HcommAcquireSharedChannelsWithComm(
     ret = DlHcommApi::HcclChannelConfigSetInt(config, HCCL_CHANNEL_CONFIG_TYPE_IS_SHARED_QUEUE, 1U);
     if (ret != HCCL_SUCCESS) {
         ASC_CPU_LOG_ERROR("[ERROR] [%s] set shared queue config failed, ret[%d].", __func__, ret);
+        (void)DestroyChannelConfig(config, DlHcommApi::HcclChannelConfigDestroy, "HcclChannelConfigDestroy");
+        return ret;
     }
 
-    if (ret == HCCL_SUCCESS) {
-        ret = DlHcommApi::HcclChannelConfigSetStr(config, HCCL_CHANNEL_CONFIG_TYPE_SHARED_QUEUE_TAG, sharedQueueTag);
-        if (ret != HCCL_SUCCESS) {
-            ASC_CPU_LOG_ERROR("[ERROR] [%s] set shared queue tag failed, ret[%d].", __func__, ret);
-        }
+    ret = DlHcommApi::HcclChannelConfigSetStr(config, HCCL_CHANNEL_CONFIG_TYPE_SHARED_QUEUE_TAG, sharedQueueTag);
+    if (ret != HCCL_SUCCESS) {
+        ASC_CPU_LOG_ERROR("[ERROR] [%s] set shared queue tag failed, ret[%d].", __func__, ret);
+        (void)DestroyChannelConfig(config, DlHcommApi::HcclChannelConfigDestroy, "HcclChannelConfigDestroy");
+        return ret;
     }
 
-    if (ret == HCCL_SUCCESS) {
-        ret = DlHcommApi::HcclChannelAcquireWithConfig(comm, COMM_ENGINE_AIV, channelDescs, channelNum, config, channels);
-        if (ret != HCCL_SUCCESS) {
-            ASC_CPU_LOG_ERROR("[ERROR] [%s] HcclChannelAcquireWithConfig failed, ret[%d].", __func__, ret);
-        }
+    ret = DlHcommApi::HcclChannelAcquireWithConfig(comm, COMM_ENGINE_AIV, channelDescs, channelNum, config, channels);
+    if (ret != HCCL_SUCCESS) {
+        ASC_CPU_LOG_ERROR("[ERROR] [%s] HcclChannelAcquireWithConfig failed, ret[%d].", __func__, ret);
+        (void)DestroyChannelConfig(config, DlHcommApi::HcclChannelConfigDestroy, "HcclChannelConfigDestroy");
+        return ret;
     }
 
-    HcclResult destroyRet = DlHcommApi::HcclChannelConfigDestroy(config);
-    if (destroyRet != HCCL_SUCCESS) {
-        ASC_CPU_LOG_ERROR("[ERROR] [%s] HcclChannelConfigDestroy failed, ret[%d].", __func__, destroyRet);
-        if (ret == HCCL_SUCCESS) {
-            ret = destroyRet;
-        }
-    }
-    return ret;
+    return DestroyChannelConfig(config, DlHcommApi::HcclChannelConfigDestroy, "HcclChannelConfigDestroy");
 }
 
 static inline HcommResult HcommCreateSharedChannels(
@@ -115,24 +120,19 @@ static inline HcommResult HcommCreateSharedChannels(
     ret = DlHcommApi::HcommChannelConfigSetInt(config, HCOMM_CHANNEL_CONFIG_TYPE_IS_SHARED_QUEUE, 1U);
     if (ret != HCCL_SUCCESS) {
         ASC_CPU_LOG_ERROR("[ERROR] [%s] set shared queue config failed, ret[%d].", __func__, ret);
+        (void)DestroyChannelConfig(config, DlHcommApi::HcommChannelConfigDestroy, "HcommChannelConfigDestroy");
+        return ret;
     }
 
-    if (ret == HCCL_SUCCESS) {
-        ret = DlHcommApi::HcommChannelCreateWithConfig(
-            endpointHandle, COMM_ENGINE_AIV, channelDescs, channelNum, config, channels);
-        if (ret != HCCL_SUCCESS) {
-            ASC_CPU_LOG_ERROR("[ERROR] [%s] HcommChannelCreateWithConfig failed, ret[%d].", __func__, ret);
-        }
+    ret = DlHcommApi::HcommChannelCreateWithConfig(
+        endpointHandle, COMM_ENGINE_AIV, channelDescs, channelNum, config, channels);
+    if (ret != HCCL_SUCCESS) {
+        ASC_CPU_LOG_ERROR("[ERROR] [%s] HcommChannelCreateWithConfig failed, ret[%d].", __func__, ret);
+        (void)DestroyChannelConfig(config, DlHcommApi::HcommChannelConfigDestroy, "HcommChannelConfigDestroy");
+        return ret;
     }
 
-    HcommResult destroyRet = DlHcommApi::HcommChannelConfigDestroy(config);
-    if (destroyRet != HCCL_SUCCESS) {
-        ASC_CPU_LOG_ERROR("[ERROR] [%s] HcommChannelConfigDestroy failed, ret[%d].", __func__, destroyRet);
-        if (ret == HCCL_SUCCESS) {
-            ret = destroyRet;
-        }
-    }
-    return ret;
+    return DestroyChannelConfig(config, DlHcommApi::HcommChannelConfigDestroy, "HcommChannelConfigDestroy");
 }
 
 static inline HcommResult HcommWaitChannelsReady(const ChannelHandle* channels, uint32_t channelNum)
@@ -232,10 +232,11 @@ static inline int32_t HcommExtractChannelMetadata(
     metadata->remoteInfo.remoteBufferNum = channelEntity.remoteBufferNum;
     metadata->remoteInfo.tpId = metadata->sqContext.contextInfo.ubJfs.tpID;
     uint64_t remoteEid[2];
-    errno_t secureRet =
-        memcpy_s(remoteEid, sizeof(remoteEid), metadata->sqContext.contextInfo.ubJfs.remoteEID, sizeof(remoteEid));
-    if (secureRet != EOK) {
-        ASC_CPU_LOG_ERROR("[ERROR] [%s] copy channel[%u] remote EID failed, ret[%d].", __func__, channelIndex, secureRet);
+    aclError copyRet = aclrtMemcpy(
+        remoteEid, sizeof(remoteEid), metadata->sqContext.contextInfo.ubJfs.remoteEID, sizeof(remoteEid),
+        ACL_MEMCPY_HOST_TO_HOST);
+    if (copyRet != ACL_SUCCESS) {
+        ASC_CPU_LOG_ERROR("[ERROR] [%s] copy channel[%u] remote EID failed, ret[%d].", __func__, channelIndex, copyRet);
         return HCCL_E_INTERNAL;
     }
     metadata->remoteInfo.remoteEidLow = remoteEid[0];
@@ -270,9 +271,9 @@ static inline int32_t HcommPrepareMultiChannelEntity(
         }
         return HCCL_E_MEMORY;
     }
-    errno_t secureRet = memset_s(*hostMemory, *totalSize, 0, *totalSize);
-    if (secureRet != EOK) {
-        ASC_CPU_LOG_ERROR("[ERROR] [%s] initialize host staging memory failed, ret[%d].", __func__, secureRet);
+    aclError memsetRet = aclrtMemset(*hostMemory, *totalSize, 0, *totalSize);
+    if (memsetRet != ACL_SUCCESS) {
+        ASC_CPU_LOG_ERROR("[ERROR] [%s] initialize host staging memory failed, ret[%d].", __func__, memsetRet);
         (void)aclrtFreeHost(*hostMemory);
         *hostMemory = NULL;
         return HCCL_E_INTERNAL;
@@ -293,11 +294,11 @@ static inline int32_t HcommPrepareMultiChannelEntity(
     entity->channelNum = channelNum;
     if (ownsChannels != 0) {
         void* ownedChannels = (uint8_t*)channelInfos + (size_t)channelNum * sizeof(MultiChannelRemoteInfo);
-        errno_t secureRet = memcpy_s(
+        aclError copyRet = aclrtMemcpy(
             ownedChannels, (size_t)channelNum * sizeof(ChannelHandle), channels,
-            (size_t)channelNum * sizeof(ChannelHandle));
-        if (secureRet != EOK) {
-            ASC_CPU_LOG_ERROR("[ERROR] [%s] copy owned channel handles failed, ret[%d].", __func__, secureRet);
+            (size_t)channelNum * sizeof(ChannelHandle), ACL_MEMCPY_HOST_TO_HOST);
+        if (copyRet != ACL_SUCCESS) {
+            ASC_CPU_LOG_ERROR("[ERROR] [%s] copy owned channel handles failed, ret[%d].", __func__, copyRet);
             (void)aclrtFreeHost(*hostMemory);
             *hostMemory = NULL;
             return HCCL_E_INTERNAL;
@@ -306,7 +307,7 @@ static inline int32_t HcommPrepareMultiChannelEntity(
     return HCCL_SUCCESS;
 }
 
-static inline HcclResult HcommBuildMultiChannelEntityWithComm(
+static inline HcclResult HcclBuildMultiChannelEntityWithComm(
     HcclComm comm, const ChannelHandle* channels, const char* sharedQueueTag, uint32_t channelNum, void** deviceMemory)
 {
     void* hostMemory = NULL;
@@ -366,7 +367,7 @@ static inline HcommResult HcommBuildMultiChannelEntity(
     return HCCL_SUCCESS;
 }
 
-static inline HcclResult HcommHostMakeMultiChannelHandle(
+static inline HcclResult HostMakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
 {
@@ -375,14 +376,16 @@ static inline HcclResult HcommHostMakeMultiChannelHandle(
     HcclResult ret;
     aclError aclRet;
 
-    if (multiChannel == NULL || comm == NULL || sharedQueueTag == NULL || channelDescs == NULL || channelNum == 0U) {
-        if (multiChannel != NULL) {
-            *multiChannel = 0U;
-        }
+    if (multiChannel == NULL) {
         ASC_CPU_LOG_ERROR("[ERROR] [%s] invalid parameter.", __func__);
         return HCCL_E_PARA;
     }
     *multiChannel = 0U;
+
+    if (comm == NULL || sharedQueueTag == NULL || channelDescs == NULL || channelNum == 0U) {
+        ASC_CPU_LOG_ERROR("[ERROR] [%s] invalid parameter.", __func__);
+        return HCCL_E_PARA;
+    }
 
     aclRet = aclrtMallocHost((void**)&channels, (size_t)channelNum * sizeof(ChannelHandle));
     if (aclRet != ACL_SUCCESS || channels == NULL) {
@@ -398,9 +401,9 @@ static inline HcclResult HcommHostMakeMultiChannelHandle(
         (void)aclrtFreeHost(channels);
         return ret;
     }
-    ret = HcommAcquireSharedChannelsWithComm(comm, sharedQueueTag, channelDescs, channelNum, channels);
+    ret = HcclAcquireSharedChannelsWithComm(comm, sharedQueueTag, channelDescs, channelNum, channels);
     if (ret == HCCL_SUCCESS) {
-        ret = HcommBuildMultiChannelEntityWithComm(comm, channels, sharedQueueTag, channelNum, &deviceMemory);
+        ret = HcclBuildMultiChannelEntityWithComm(comm, channels, sharedQueueTag, channelNum, &deviceMemory);
     }
     aclError freeRet = aclrtFreeHost(channels);
     if (freeRet != ACL_SUCCESS && ret == HCCL_SUCCESS) {
@@ -414,7 +417,7 @@ static inline HcclResult HcommHostMakeMultiChannelHandle(
     return HCCL_SUCCESS;
 }
 
-static inline HcommResult HcommHostMakeMultiChannelHandle(
+static inline HcommResult HostMakeMultiChannelHandle(
     EndpointHandle endpointHandle, HcommChannelDesc* channelDescs, uint32_t channelNum,
     MultiChannelHandle* multiChannel)
 {
@@ -423,14 +426,16 @@ static inline HcommResult HcommHostMakeMultiChannelHandle(
     HcommResult ret;
     aclError aclRet;
 
-    if (multiChannel == NULL || endpointHandle == NULL || channelDescs == NULL || channelNum == 0U) {
-        if (multiChannel != NULL) {
-            *multiChannel = 0U;
-        }
+    if (multiChannel == NULL) {
         ASC_CPU_LOG_ERROR("[ERROR] [%s] invalid parameter.", __func__);
         return HCCL_E_PARA;
     }
     *multiChannel = 0U;
+
+    if (endpointHandle == NULL || channelDescs == NULL || channelNum == 0U) {
+        ASC_CPU_LOG_ERROR("[ERROR] [%s] invalid parameter.", __func__);
+        return HCCL_E_PARA;
+    }
 
     aclRet = aclrtMallocHost((void**)&channels, (size_t)channelNum * sizeof(ChannelHandle));
     if (aclRet != ACL_SUCCESS || channels == NULL) {
@@ -476,7 +481,7 @@ static inline HcommResult HcommHostMakeMultiChannelHandle(
     return HCCL_SUCCESS;
 }
 
-static inline HcommResult HcommHostDestroyMultiChannelHandle(MultiChannelHandle multiChannel)
+static inline HcommResult HostDestroyMultiChannelHandle(MultiChannelHandle multiChannel)
 {
     MultiChannelEntity entity;
     ChannelHandle* channels = NULL;

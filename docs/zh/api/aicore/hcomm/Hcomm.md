@@ -8,7 +8,7 @@
 #include "hcomm/hcomm.h"
 ```
 
-`AscendC::Hcomm`是AICore侧点对点通信接口模板。普通接口通过`ChannelHandle`提交单个读、写、写通知和原子操作任务，并通过`Commit`和`Drain`控制任务提交与完成等待。UBC_CTP路径还提供BatchHandle接口，既支持单通道批量提交，也支持通过MultiChannelHandle`在共享Jetty上为多个逻辑通道准备WQE，再通过`BatchCommit`一次提交。
+`AscendC::Hcomm`是AICore侧点对点通信接口模板。普通接口通过`ChannelHandle`提交单个读、写、写通知和原子操作任务，并通过`Commit`和`Drain`控制任务提交与完成等待。UBC_CTP路径还提供BatchHandle接口，既支持单通道批量提交，也支持通过`MultiChannelHandle`在共享Jetty上为多个逻辑通道准备WQE，再通过`BatchCommit`一次提交。
 
 ## 模板参数
 
