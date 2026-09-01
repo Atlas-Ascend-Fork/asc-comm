@@ -134,6 +134,8 @@ namespace HcommDfx {
 void Trace(const char *format, ...);
 void ExceptionCallback(aclrtExceptionInfo *exceptionInfo, void *userData);
 bool HasPendingException();
+bool IsExceptionCallbackBound();
+void MarkExceptionCallbackBound();
 void ClearPendingException();
 
 int32_t GetChannelDumpInfoSize(uint32_t channelNum, const ChannelHandle *channels, uint32_t *len);

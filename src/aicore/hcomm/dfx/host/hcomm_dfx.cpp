@@ -41,6 +41,7 @@ int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
         return HCOMM_FAILED;
     }
 
+    HcommDfx::MarkExceptionCallbackBound();
     HcommDfx::ClearPendingException();
     std::printf("[HcommDfxDump] exception callback registered\n");
     std::fflush(stdout);
@@ -49,10 +50,13 @@ int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
 
 int32_t HcommChannelInfoDump(ChannelHandle channel)
 {
-    if (!HcommDfx::HasPendingException()) {
+    const bool callbackBound = HcommDfx::IsExceptionCallbackBound();
+    if (callbackBound && !HcommDfx::HasPendingException()) {
         return HCOMM_SUCCESS;
     }
-    HcommDfx::ClearPendingException();
+    if (callbackBound) {
+        HcommDfx::ClearPendingException();
+    }
 
     uint32_t dumpLen = 0;
     int32_t ret = HcommDfx::GetChannelDumpInfoSize(1U, &channel, &dumpLen);
