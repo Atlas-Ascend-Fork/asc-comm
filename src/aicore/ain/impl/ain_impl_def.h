@@ -28,6 +28,14 @@
 
 namespace AscendC {
 
+static constexpr struct UrmaWqeEntry SIGNAL_WQE_CONFIG = {
+    .odr = 6,
+    .fence = 1,
+    .se = 0,
+    .cqe = 0,
+    .inlineEn = 0,
+}; 
+
 constexpr CommProtocol MaskToCommProtocol(unsigned commEngineMask)
 {
     switch (commEngineMask) {

@@ -27,12 +27,23 @@
 
 namespace AscendC {
 
+AIN_DEVICE HcommMemHandle GetPeerPointer(
+    HcommTeamHandle team, uint32_t peer, HcommWindowHandle window, size_t offset)
+{
+    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
+    auto hcommWindow = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window));
+    size_t peerOffset = hcommTeam->worldTeamIds[peer] * hcommWindow->lsaWin.stride + offset;
+    HcommMemHandle ptr = reinterpret_cast<HcommMemHandle>(
+        reinterpret_cast<uintptr_t>(hcommWindow->lsaWin.baseVa) + peerOffset);
+    return ptr;
+}
+
 AIN_DEVICE ChannelHandle GetChannelHandle(const __gm__ HcommTeam* team, const uint32_t peer, const uint32_t index)
 {
-    uint64_t channelIndex = index;
-    for (uint32_t i = 0; i < peer; ++i) {
-        channelIndex += team->channelNumPerMember[i];
-    }
+    const auto channelCntAccumulatePerMember = team->channelCntAccumulatePerMember;
+    const auto channelIndexBase = ReadGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(
+        reinterpret_cast<uintptr_t>(channelCntAccumulatePerMember) + peer * sizeof(uint32_t)));
+    uint64_t channelIndex = index + channelIndexBase;
     ChannelHandle channel = team->channelsBaseAddr + channelIndex * sizeof(ChannelEntity);
     return channel;
 }
@@ -40,10 +51,11 @@ AIN_DEVICE ChannelHandle GetChannelHandle(const __gm__ HcommTeam* team, const ui
 AIN_DEVICE GM_ADDR
 GetCommMemPtr(const __gm__ HcommTeam* team, const HcommWindowHandle window, uint32_t memberId, uint64_t offset)
 {
-    auto win = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window));
-    CommMem mem = win->mems[memberId];
-    // volatile: Prevent complier folding optimization from causing address space cast failure.
-    volatile uint64_t memHandle = reinterpret_cast<uint64_t>(mem.addr) + offset;
+    auto hcommWin = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window));
+    auto remoteMem = reinterpret_cast<uint64_t*>(hcommWin->netWin.baseRemoteMemAddr);
+    auto worldTeamAccumulateId = hcommWin->netWin.worldTeamAccumulateId;
+    uint64_t remoteMemId = team->worldTeamIds[memberId] + worldTeamAccumulateId[team->netLayer];
+    uint64_t memHandle = remoteMem[remoteMemId] + offset;
     return reinterpret_cast<GM_ADDR>(memHandle);
 }
 
@@ -111,7 +123,7 @@ AIN_DEVICE void Ain<CommEngineMask>::Put(
     }
 
     if constexpr (IsSameType<RemoteAction, AinSignalInc>::value || IsSameType<RemoteAction, AinSignalAdd>::value) {
-        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, Config>(team, peer, remoteAction, ubuf);
+        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, SIGNAL_WQE_CONFIG>(team, peer, remoteAction, ubuf);
     }
 }
 
@@ -139,7 +151,7 @@ AIN_DEVICE void Ain<CommEngineMask>::PutValue(
     }
 
     if constexpr (IsSameType<RemoteAction, AinSignalInc>::value || IsSameType<RemoteAction, AinSignalAdd>::value) {
-        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags>(team, peer, remoteAction, ubuf);
+        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, SIGNAL_WQE_CONFIG>(team, peer, remoteAction, ubuf);
     }
 }
 
