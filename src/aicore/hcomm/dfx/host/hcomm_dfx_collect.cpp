@@ -9,7 +9,6 @@
  */
 
 #include "hcomm_dfx_impl.h"
-#include "hcomm_dfx_queue_reader_kernel.h"
 
 #define HCOMM_INCLUDE_INTERNAL_HEADERS
 #include "../../common/hcomm_inner_def.h"
