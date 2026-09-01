@@ -22,6 +22,17 @@ project(kernel_samples LANGUAGES ASC CXX)
 
 get_filename_component(ASCCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
 
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
+    set(ASCCOMM_CANN_ARCH "aarch64-linux")
+else()
+    set(ASCCOMM_CANN_ARCH "x86_64-linux")
+endif()
+
+set(ASCEND_CANN_ARCH_DIR "$ENV{ASCEND_HOME_PATH}/${ASCCOMM_CANN_ARCH}")
+if(NOT EXISTS "${ASCEND_CANN_ARCH_DIR}")
+    set(ASCEND_CANN_ARCH_DIR "$ENV{ASCEND_HOME_PATH}/aarch64-linux")
+endif()
+
 set_source_files_properties(
     hcomm_write_read_nbi_kernel.cpp
     utils.cpp
@@ -50,6 +61,7 @@ target_include_directories(demo PRIVATE
     ${ASCCOMM_ROOT}/include/aicore
     $ENV{ASCEND_HOME_PATH}/asc/include
     $ENV{ASCEND_HOME_PATH}/asc/include/basic_api
+    ${ASCEND_CANN_ARCH_DIR}/asc/impl/basic_api
     $ENV{ASCEND_HOME_PATH}/include
 )
 
