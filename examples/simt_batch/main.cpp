@@ -301,6 +301,8 @@ bool CheckStatus(void* statusBuf, uint32_t expectedBatchCount = kBatchCount, boo
                   << "DIAG | HeadBefore=0x" << std::setw(16) << word64(kDiagHeadBefore)
                   << " | Published=0x" << std::setw(16) << word64(kDiagPublishedHead)
                   << " | HeadAfter=0x" << std::setw(16) << word64(kDiagHeadAfterPublish)
+                  << " | ContextMismatchMask=0x" << std::setw(8)
+                  << static_cast<uint32_t>(status[kDiagGroupSize])
                   << std::dec << " | LaneHead=" << status[kDiagLaneHead]
                   << " | TotalBb=" << status[kDiagTotalBb] << " | SqTail=" << status[kDiagSqTailAfterDrain]
                   << " | CqTail=" << status[kDiagCqTailBefore] << "->" << status[kDiagCqTailAfterDrain]
