@@ -19,8 +19,6 @@ set(UT_COMMON_INCLUDE_LIST
     ${ASCCOMM_ROOT}/src/ccu
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/include
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
     ${ASCCOMM_UT_ROOT}/../ccu/stub
     ${ASCCOMM_CANN_INCLUDE_DIRS}
 )
