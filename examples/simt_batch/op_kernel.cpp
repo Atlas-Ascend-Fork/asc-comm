@@ -35,11 +35,12 @@ __simt_callee__ inline void CaptureTailAfterCommit(
     if (rank + 1U != size) {
         return;
     }
-    const uint32_t totalBb = size * AscendC::simt::HCOMM_URMA_DWQE_BB_CNT;
+    // The homogeneous Write diagnostic follows the validated compact layout: every non-tail
+    // request occupies one BB, while the publisher is expanded to the two-BB DWQE image.
+    const uint32_t totalBb = size + AscendC::simt::HCOMM_URMA_WQE_BB_CNT;
     const uint64_t delta = (static_cast<uint64_t>(size) << 32U) | totalBb;
     const uint64_t headBefore = batch.headSnapshot - delta;
-    const uint32_t laneHead = AscendC::simt::HcommSimtHeadIdx(headBefore) +
-        rank * AscendC::simt::HCOMM_URMA_DWQE_BB_CNT;
+    const uint32_t laneHead = AscendC::simt::HcommSimtHeadIdx(headBefore) + rank;
     AscendC::simt::HcommSimtPostMeta meta{batch.sqDepth, batch.tpId, batch.remoteEidL,
         batch.remoteEidH, batch.remoteTokenId, batch.remoteTokenValue};
     AscendC::simt::HcommSimtPackedSqeTemplate sqeTemplate;

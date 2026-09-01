@@ -74,7 +74,7 @@ struct HcommSimtChannelEntity {
 static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");
 
 // A batch handle is lane-private. The public workspace contract keeps 128 bytes per operation.
-// A bound group also records its lane rank so every lane can prepare its fixed 2-BB SQ slot.
+// A bound group also records its lane rank so Commit can place its compact WQE by group prefix.
 struct UbcCtpBatchHandle {
     ChannelHandle channel = 0U;
     __ubuf__ uint64_t* buffer = nullptr;
