@@ -28,6 +28,62 @@
 
 namespace AscendC {
 
+typedef struct {
+    CommAbiHeader header;
+    struct {
+        uint64_t baseRemoteMemAddr; /* 远端内存addr数组基地址，按(worldTeamAccumulateId[netLayer] + worldTeamId) *
+                                       sizeof(uint64_t)偏移访问 */
+        uint64_t windowSize;        /* window大小 */
+        uint32_t* worldTeamAccumulateId; /* 数组，表示sum(worldTeamSizePerNetLayer[0..netLayerNum-1]) */
+        uint32_t netLayerNum;            /* netLayer的数量 */
+        uint32_t reserved[8];
+    } netWin;
+
+    struct {
+        uint64_t baseVa;
+        uint64_t stride;
+        uint64_t userSize;
+        uint32_t reserved[8];
+    } lsaWin;
+
+    uint64_t legacySymWindow; // SymmetricWindow结构体device侧指针
+    uint32_t reserved[8];
+} HcommWindow;
+
+typedef struct {
+    CommMem* remoteMems; // 从远端交换过来的内存,
+                         // 用作signal/barrier等，如果memberId是selfMemberId，则是本地内存，否则是远端内存
+    uint32_t remoteMemsNum;
+    CommMem
+        shadowMem; // 申请一块(signalCount + counterCount + barrierCount) * sizeof(uint64_t) * memberNum的device侧内存
+    HcommTeamSyncMemRequirement syncMemReq;
+    uint64_t syncMemSize; // (signalCount + counterCount + barrierCount) * sizeof(uint64_t) * memberNum
+    uint32_t reserved[5];
+} HcommTeamSyncMem;
+
+// hcommTeamRes存放worldTeam的资源，使用subTeam来寻找hcommTeamRes
+typedef struct {
+    CommAbiHeader header;
+    CommEngine engine; /* COMM_ENGINE_AICPU_TS / CCU 等 */
+    uint32_t memberNum;
+    uint32_t selfMemberId;
+    uint64_t channelsBaseAddr; /* 连续ChannelEntity数组的基地址，按(channelCntAccumulatePerMember[peer] + channelIdx) *
+                                  sizeof(ChannelEntity)偏移访问 */
+    uint32_t* channelCntAccumulatePerMember; /* 长度为memberNum，表示sum(channelNumPerMember[0..peer-1]) */
+    uint32_t netLayer;                       /* 用户希望使用的网络层，0表示默认选择 */
+    uint32_t* worldTeamIds;
+    HcommTeamSyncMem syncMem;
+    uint32_t reserved[8];
+} HcommTeam;
+
+static constexpr struct UrmaWqeEntry SIGNAL_WQE_CONFIG = {
+    .odr = 6,
+    .fence = 1,
+    .se = 0,
+    .cqe = 0,
+    .inlineEn = 0,
+}; 
+
 constexpr CommProtocol MaskToCommProtocol(unsigned commEngineMask)
 {
     switch (commEngineMask) {
