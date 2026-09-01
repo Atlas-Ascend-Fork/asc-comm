@@ -59,6 +59,7 @@ target_include_directories(demo PRIVATE
     ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host
     ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/impl
     ${ASCCOMM_ROOT}/include/aicore
+    ${ASCEND_CANN_ARCH_DIR}/asc
     $ENV{ASCEND_HOME_PATH}/asc/include
     $ENV{ASCEND_HOME_PATH}/asc/include/basic_api
     ${ASCEND_CANN_ARCH_DIR}/asc/impl/basic_api
