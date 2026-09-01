@@ -78,8 +78,8 @@ constexpr uint32_t HCOMM_SIMT_SGE_WORDS = sizeof(HcommUrmaSgeCtx) / sizeof(uint6
 // The inline payload and the first SGE both start right after the SQE header.
 constexpr uint32_t HCOMM_SIMT_INLINE_FIRST_WORD = HCOMM_SIMT_SQE_WORDS;
 
-// Append stores one WQE in every public 128-byte slot. A group lane owns a fixed 2-BB SQ slot,
-// while the global tail is prepared as a complete DWQE image before BatchCommit.
+// Append stores one WQE in every public 128-byte slot. Every group lane prepares a complete
+// 2-BB image so the fixed SQ layout contains no uninitialized gap between neighbouring WQEs.
 enum class HcommSimtBatchKind : uint32_t { DATA, NOTIFY, INLINE, ATOMIC };
 
 struct alignas(sizeof(ulonglong2)) HcommSimtPreparedBatchWqe {
@@ -949,7 +949,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
 
     constexpr uint32_t wordCnt = Desc::bbCnt * HCOMM_SIMT_BB_WORDS;
     const bool groupBatch = batchHandle.groupSize > 1U;
-    const bool tail = groupBatch && batchHandle.groupRank + 1U == batchHandle.groupSize;
     const uint32_t slotBb = groupBatch ? HCOMM_URMA_DWQE_BB_CNT : Desc::bbCnt;
     __ubuf__ HcommSimtPreparedBatchWqe* items =
         reinterpret_cast<__ubuf__ HcommSimtPreparedBatchWqe*>(batchHandle.buffer);
@@ -965,7 +964,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
         (groupBatch ? batchHandle.groupRank * HCOMM_URMA_DWQE_BB_CNT : batchHandle.preparedBb);
     __ubuf__ HcommSimtPreparedBatchWqe* item = &items[batchHandle.prepared];
     desc.template Store<wordCnt>(item->words, sqeTemplate, curHead, curHead + slotBb);
-    if (tail) {
+    if (groupBatch) {
         HcommSimtWqeStage tailStage;
         HcommSimtBuildPreparedBatchTail(item, sqeTemplate, curHead, curHead + slotBb, tailStage);
 #pragma unroll
@@ -975,7 +974,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
     }
     ++batchHandle.prepared;
     batchHandle.preparedBb += slotBb;
-    batchHandle.lastBb = tail ? HCOMM_URMA_DWQE_BB_CNT : Desc::bbCnt;
+    batchHandle.lastBb = groupBatch ? HCOMM_URMA_DWQE_BB_CNT : Desc::bbCnt;
     batchHandle.preparedCqe += Desc::cqeCnt;
     batchHandle.lastCqe = Desc::cqeCnt;
     return HCOMM_SUCCESS;
