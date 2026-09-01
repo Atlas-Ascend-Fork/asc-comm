@@ -179,6 +179,18 @@ public:
         HcommTeamHandle team, HcommWindowHandle signalWindow, size_t signalOffset, uint64_t least, uint32_t bits = 64,
         AinMemoryOrder order = AIN_MEMORY_ORDER_RELAX) const;
 
+    /*!
+     * @brief Get a pointer to a remote peer's memory location within a symmetric window.
+     * @param [in] team: The communication team handle.
+     * @param [in] peer: Peer rank id within the team.
+     * @param [in] window: Symmetric window handle.
+     * @param [in] offset: Byte offset into the window.
+     * @return An opaque memory handle pointing to the remote peer's location.
+     * @note This function is only supported when CommEngineMask == AIN_MASK_UBMEM.
+     */
+    AIN_DEVICE HcommMemHandle GetPeerPointer(
+        HcommTeamHandle team, uint32_t peer, HcommWindowHandle window, size_t offset) const;
+
 private:
     static constexpr CommProtocol commProtocol = MaskToCommProtocol(CommEngineMask);
     uint32_t contextIndex_ = 0;
