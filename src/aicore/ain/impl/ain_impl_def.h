@@ -24,9 +24,61 @@
 #define IMPL_COMM_API_AICORE_AIN_IMPL_AIN_IMPL_DEF_H
 
 #include "../../hcomm/impl/hcomm_impl_def.h"
-#include "hcomm/hcomm_team_entity_defs.h"
+#include "hcomm_res_defs.h"
+#include "hcomm_team_defs.h"
+
+typedef struct {
+    CommAbiHeader header;
+    struct {
+        uint64_t baseRemoteMemAddr;
+        uint64_t windowSize;
+        uint32_t* worldTeamAccumulateId;
+        uint32_t netLayerNum;
+        uint32_t reserved[8];
+    } netWin;
+
+    struct {
+        uint64_t baseVa;
+        uint64_t stride;
+        uint64_t userSize;
+        uint32_t reserved[8];
+    } lsaWin;
+
+    uint64_t legacySymWindow;
+    uint32_t reserved[8];
+} HcommWindow;
+
+typedef struct {
+    CommMem* remoteMems;
+    uint32_t remoteMemsNum;
+    CommMem shadowMem;
+    HcommTeamSyncMemRequirement syncMemReq;
+    uint64_t syncMemSize;
+    uint32_t reserved[5];
+} HcommTeamSyncMem;
+
+typedef struct {
+    CommAbiHeader header;
+    CommEngine engine;
+    uint32_t memberNum;
+    uint32_t selfMemberId;
+    uint64_t channelsBaseAddr;
+    uint32_t* channelCntAccumulatePerMember;
+    uint32_t netLayer;
+    uint32_t* worldTeamIds;
+    HcommTeamSyncMem syncMem;
+    uint32_t reserved[8];
+} HcommTeam;
 
 namespace AscendC {
+
+static constexpr struct UrmaWqeEntry SIGNAL_WQE_CONFIG = {
+    .odr = 6,
+    .fence = 1,
+    .se = 0,
+    .cqe = 0,
+    .inlineEn = 0,
+};
 
 constexpr CommProtocol MaskToCommProtocol(unsigned commEngineMask)
 {
