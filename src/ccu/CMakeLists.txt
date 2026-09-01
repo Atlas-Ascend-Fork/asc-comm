@@ -35,11 +35,6 @@ if(NOT ASCCOMM_CANN_ARCH_DIR AND ASCEND_CANN_PACKAGE_PATH)
     set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}")
 endif()
 
-# hcomm 侧只允许通过 pkg_inc 向数据面暴露头文件；
-# 源码树的 src/include 不进入编译路径（控制面/数据面源码解耦）。
-asccomm_collect_header_dirs(ASCCOMM_HCOMM_HEADER_DIRS
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
-)
 set(ASCCOMM_CANN_BASE_INCLUDE_DIRS
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
@@ -51,7 +46,6 @@ asccomm_collect_header_dirs(ASCCOMM_CANN_HEADER_DIRS ${ASCCOMM_CANN_BASE_INCLUDE
 add_library(asccomm_ccu_headers INTERFACE)
 target_include_directories(asccomm_ccu_headers INTERFACE
     ${ASCCOMM_ROOT}/include
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
 )
 
 add_library(asccomm_ccu_dataplane_obj OBJECT)
@@ -72,8 +66,7 @@ target_link_libraries(asccomm_ccu_dataplane_obj PRIVATE
 )
 target_include_directories(asccomm_ccu_dataplane_obj PRIVATE
     ${ASCCOMM_CCU_ROOT}
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
-    ${ASCCOMM_HCOMM_HEADER_DIRS}
+    ${ASCCOMM_ROOT}/include
 )
 target_include_directories(asccomm_ccu_dataplane_obj SYSTEM PRIVATE
     ${ASCCOMM_CANN_BASE_INCLUDE_DIRS}
