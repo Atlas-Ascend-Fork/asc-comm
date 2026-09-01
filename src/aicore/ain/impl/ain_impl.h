@@ -40,10 +40,16 @@ AIN_DEVICE ChannelHandle GetChannelHandle(const __gm__ HcommTeam* team, const ui
 AIN_DEVICE GM_ADDR
 GetCommMemPtr(const __gm__ HcommTeam* team, const HcommWindowHandle window, uint32_t memberId, uint64_t offset)
 {
-    auto win = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window));
-    CommMem mem = win->mems[memberId];
+    auto hcommWin = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window));
+    auto remoteMemBase = hcommWin->netWin.remoteMemAddr;
+    auto worldTeamSizePerNetLayer = hcommWin->netWin.worldTeamSizePerNetLayer;
+    uint64_t remoteMemId = team->worldTeamIds[memberId];
+    for (uint32_t i = 0; i < team->netLayer; ++i) {
+        remoteMemId += worldTeamSizePerNetLayer[i];
+    }
+    uint64_t mem = remoteMemBase + remoteMemId * sizeof(CommMem);
     // volatile: Prevent complier folding optimization from causing address space cast failure.
-    volatile uint64_t memHandle = reinterpret_cast<uint64_t>(mem.addr) + offset;
+    volatile uint64_t memHandle = reinterpret_cast<uint64_t>(reinterpret_cast<CommMem*>(mem)->addr) + offset;
     return reinterpret_cast<GM_ADDR>(memHandle);
 }
 
@@ -111,7 +117,7 @@ AIN_DEVICE void Ain<CommEngineMask>::Put(
     }
 
     if constexpr (IsSameType<RemoteAction, AinSignalInc>::value || IsSameType<RemoteAction, AinSignalAdd>::value) {
-        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, Config>(team, peer, remoteAction, ubuf);
+        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, SIGNAL_WQE_CONFIG>(team, peer, remoteAction, ubuf);
     }
 }
 
@@ -139,7 +145,7 @@ AIN_DEVICE void Ain<CommEngineMask>::PutValue(
     }
 
     if constexpr (IsSameType<RemoteAction, AinSignalInc>::value || IsSameType<RemoteAction, AinSignalAdd>::value) {
-        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags>(team, peer, remoteAction, ubuf);
+        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, SIGNAL_WQE_CONFIG>(team, peer, remoteAction, ubuf);
     }
 }
 
