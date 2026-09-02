@@ -147,10 +147,11 @@ The HCOMM DFX channel dump helper provides a lightweight exception-callback regi
 AscendC::HcommChannelExceptionCallbackRegister(reinterpret_cast<const void *>(kernel_symbol));
 kernel_symbol<<<1, nullptr, stream>>>(devContext);
 aclrtSynchronizeStream(stream);
-AscendC::HcommChannelInfoDump(channel);
+AscendC::HcommDfxChannelDumpData dumpInfo {};
+AscendC::HcommChannelInfoDump(channel, &dumpInfo);
 ```
 
-The dump API is safe to call unconditionally. It prints diagnostics only when an exception has already been recorded by the registered callback. The first successful dump consumes the recorded exception state.
+The dump API is safe to call unconditionally. It prints diagnostics only when an exception has already been recorded by the registered callback. When `dumpInfo` is provided, the parsed data is also returned to the caller. The first successful dump consumes the recorded exception state.
 
 ## Notes
 

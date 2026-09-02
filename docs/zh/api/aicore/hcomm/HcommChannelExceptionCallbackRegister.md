@@ -22,4 +22,4 @@ int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol);
 ## 约束说明
 - 必须在launch目标kernel之前调用。
 - 回调只记录异常状态，不在异常回调中执行D2H、打印或kernel launch操作。
-- 如果不注册该接口，后续dump不会记录异常现场，调用dump接口会静默返回。
+- 如果不注册该接口，后续 dump 不会记录异常现场，调用 dump 接口会静默返回。

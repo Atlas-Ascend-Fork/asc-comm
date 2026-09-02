@@ -48,7 +48,7 @@ int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
     return HCOMM_SUCCESS;
 }
 
-int32_t HcommChannelInfoDump(ChannelHandle channel)
+int32_t HcommChannelInfoDump(ChannelHandle channel, HcommDfxChannelDumpData *dump)
 {
     const bool callbackBound = HcommDfx::IsExceptionCallbackBound();
     if (callbackBound && !HcommDfx::HasPendingException()) {
@@ -66,20 +66,28 @@ int32_t HcommChannelInfoDump(ChannelHandle channel)
         return ret;
     }
 
-    void *dumpBuffer = nullptr;
-    aclError allocRet = aclrtMallocHost(&dumpBuffer, dumpLen);
-    if (allocRet != ACL_SUCCESS) {
-        std::printf("[HcommDfxDump] allocate dump buffer failed ret=%d len=%u\n", allocRet, dumpLen);
-        std::fflush(stdout);
-        return HCOMM_FAILED;
-    }
-    if (dumpBuffer == nullptr) {
-        return HCOMM_FAILED;
+    HcommDfxChannelDumpData *dumpData = dump;
+    void *dumpBuffer = dumpData;
+    void *allocatedBuffer = nullptr;
+    if (dumpData == nullptr) {
+        aclError allocRet = aclrtMallocHost(&allocatedBuffer, dumpLen);
+        if (allocRet != ACL_SUCCESS) {
+            std::printf("[HcommDfxDump] allocate dump buffer failed ret=%d len=%u\n", allocRet, dumpLen);
+            std::fflush(stdout);
+            return HCOMM_FAILED;
+        }
+        if (allocatedBuffer == nullptr) {
+            return HCOMM_FAILED;
+        }
+        dumpBuffer = allocatedBuffer;
+        dumpData = reinterpret_cast<HcommDfxChannelDumpData *>(dumpBuffer);
     }
 
     std::memset(dumpBuffer, 0, dumpLen);
     ret = HcommDfx::DumpChannelInfo(1U, &channel, dumpBuffer, dumpLen);
-    (void)aclrtFreeHost(dumpBuffer);
+    if (allocatedBuffer != nullptr) {
+        (void)aclrtFreeHost(allocatedBuffer);
+    }
     std::printf("[HcommDfxDump] HcommChannelInfoDump ret=%d len=%u\n", ret, dumpLen);
     std::fflush(stdout);
     return ret;

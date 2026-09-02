@@ -143,10 +143,11 @@ HCOMM DFX通道dump能力提供一个轻量的异常回调注册接口和一个h
 AscendC::HcommChannelExceptionCallbackRegister(reinterpret_cast<const void *>(kernel_symbol));
 kernel_symbol<<<1, nullptr, stream>>>(devContext);
 aclrtSynchronizeStream(stream);
-AscendC::HcommChannelInfoDump(channel);
+AscendC::HcommDfxChannelDumpData dumpInfo {};
+AscendC::HcommChannelInfoDump(channel, &dumpInfo);
 ```
 
-dump接口可以无条件调用。只有当注册回调已经记录到异常时，接口才会打印诊断信息。第一次成功dump会消费已记录的异常状态。
+dump接口可以无条件调用。只有当回调已经记录异常时，接口才会打印诊断信息；当传入`dumpInfo`时，还会把解析结果返回给调用方。第一次成功 dump 后会清掉已记录的异常状态。
 
 ## 注意事项
 
