@@ -87,15 +87,24 @@ public:
     template <auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <auto const& config, typename Group>
+    __simt_callee__ inline int32_t WriteNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group);
     template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
     __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value);
     template <typename T, auto const& config = URMA_INLINE_CFG>
     __simt_callee__ inline int32_t WriteValueNbi(UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value);
+    template <typename T, auto const& config, typename Group>
+    __simt_callee__ inline int32_t WriteValueNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value, const Group& group);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t ReadNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t ReadNbi(
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <auto const& config, typename Group>
+    __simt_callee__ inline int32_t ReadNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteWithNotifyNbi(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
@@ -104,17 +113,28 @@ public:
     __simt_callee__ inline int32_t WriteWithNotifyNbi(
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len,
         __gm__ void* notifyAddr, uint64_t notifyVal);
+    template <auto const& config, typename Group>
+    __simt_callee__ inline int32_t WriteWithNotifyNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len,
+        __gm__ void* notifyAddr, uint64_t notifyVal, const Group& group);
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicFAA(ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
     template <typename T, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicFAA(
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
+    template <typename T, auto const& config, typename Group>
+    __simt_callee__ inline int32_t AtomicFAA(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal, const Group& group);
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicCAS(
         ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
     template <typename T, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicCAS(
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
+    template <typename T, auto const& config, typename Group>
+    __simt_callee__ inline int32_t AtomicCAS(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal,
+        const Group& group);
     __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
     template <typename Group>
     __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle, const Group& group);
@@ -147,6 +167,9 @@ private:
     __simt_callee__ inline int32_t PostWqe(ChannelHandle channel, const Desc& desc);
     template <typename Desc>
     __simt_callee__ inline int32_t BatchPostWqe(UbcCtpBatchHandle& batchHandle, const Desc& desc);
+    template <typename Desc, typename Group>
+    __simt_callee__ inline int32_t BatchPostWqe(
+        UbcCtpBatchHandle& batchHandle, const Desc& desc, const Group& group);
     __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
 };
 

@@ -73,15 +73,16 @@ struct HcommSimtChannelEntity {
 
 static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");
 
-constexpr uint32_t HCOMM_SIMT_BATCH_REQUEST_WORDS = 12U;
+constexpr uint32_t HCOMM_SIMT_BATCH_REQUEST_WORDS = 16U;
 
 // A batch handle is lane-private. The shared UB context is written once by MakeBatchHandle;
-// Append keeps only position-independent request words here, and Commit writes them directly
-// to the final SQ slot.
+// Append writes the final SQ slot and retains the publisher's final 128-byte WQE here so
+// BatchCommit only needs to publish the already prepared range.
 struct UbcCtpBatchHandle {
     ChannelHandle channel = 0U;
     __ubuf__ uint64_t* context = nullptr;
     uint64_t requestWords[HCOMM_SIMT_BATCH_REQUEST_WORDS] {};
+    uint64_t publishedHead = 0U;
     uint32_t requestBb = 0U;
     uint32_t groupRank = 0U;
     uint32_t groupSize = 1U;

@@ -98,7 +98,12 @@ template <auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteNbi(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    return impl_.template WriteNbi<config>(batchHandle, dst, src, len);
+    if constexpr (std::is_same_v<Group, detail::HcommUnboundGroup>) {
+        return impl_.template WriteNbi<config>(batchHandle, dst, src, len);
+    } else {
+        return group_.size() == 1U ? impl_.template WriteNbi<config>(batchHandle, dst, src, len) :
+            impl_.template WriteNbi<config>(batchHandle, dst, src, len, group_);
+    }
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -114,7 +119,12 @@ template <typename T, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteValueNbi(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value)
 {
-    return impl_.template WriteValueNbi<T, config>(batchHandle, dst, value);
+    if constexpr (std::is_same_v<Group, detail::HcommUnboundGroup>) {
+        return impl_.template WriteValueNbi<T, config>(batchHandle, dst, value);
+    } else {
+        return group_.size() == 1U ? impl_.template WriteValueNbi<T, config>(batchHandle, dst, value) :
+            impl_.template WriteValueNbi<T, config>(batchHandle, dst, value, group_);
+    }
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -130,7 +140,12 @@ template <auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::ReadNbi(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    return impl_.template ReadNbi<config>(batchHandle, dst, src, len);
+    if constexpr (std::is_same_v<Group, detail::HcommUnboundGroup>) {
+        return impl_.template ReadNbi<config>(batchHandle, dst, src, len);
+    } else {
+        return group_.size() == 1U ? impl_.template ReadNbi<config>(batchHandle, dst, src, len) :
+            impl_.template ReadNbi<config>(batchHandle, dst, src, len, group_);
+    }
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -148,7 +163,13 @@ __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteWithNotifyNbi(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
     uint64_t notifyVal)
 {
-    return impl_.template WriteWithNotifyNbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal);
+    if constexpr (std::is_same_v<Group, detail::HcommUnboundGroup>) {
+        return impl_.template WriteWithNotifyNbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal);
+    } else {
+        return group_.size() == 1U ?
+            impl_.template WriteWithNotifyNbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal) :
+            impl_.template WriteWithNotifyNbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal, group_);
+    }
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -164,7 +185,12 @@ template <typename T, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicFAA(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
 {
-    return impl_.template AtomicFAA<T, config>(batchHandle, dst, fetchAddr, addVal);
+    if constexpr (std::is_same_v<Group, detail::HcommUnboundGroup>) {
+        return impl_.template AtomicFAA<T, config>(batchHandle, dst, fetchAddr, addVal);
+    } else {
+        return group_.size() == 1U ? impl_.template AtomicFAA<T, config>(batchHandle, dst, fetchAddr, addVal) :
+            impl_.template AtomicFAA<T, config>(batchHandle, dst, fetchAddr, addVal, group_);
+    }
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -180,7 +206,13 @@ template <typename T, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicCAS(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
 {
-    return impl_.template AtomicCAS<T, config>(batchHandle, dst, fetchAddr, compareVal, swapVal);
+    if constexpr (std::is_same_v<Group, detail::HcommUnboundGroup>) {
+        return impl_.template AtomicCAS<T, config>(batchHandle, dst, fetchAddr, compareVal, swapVal);
+    } else {
+        return group_.size() == 1U ?
+            impl_.template AtomicCAS<T, config>(batchHandle, dst, fetchAddr, compareVal, swapVal) :
+            impl_.template AtomicCAS<T, config>(batchHandle, dst, fetchAddr, compareVal, swapVal, group_);
+    }
 }
 
 template <CommProtocol commProtocol, typename Group>

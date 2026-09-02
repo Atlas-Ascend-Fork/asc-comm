@@ -131,7 +131,7 @@ __simt_callee__ inline int32_t SubmitGroupBatches(
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         const uint64_t commitBegin = rank == 0U ? clock() : 0U;
 #endif
-        int32_t commitStatus = hcomm.BatchCommit(batch);
+        int32_t commitStatus = appendStatus == 0 ? hcomm.BatchCommit(batch) : appendStatus;
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         if (rank == 0U) {
             commitCycles += clock() - commitBegin;

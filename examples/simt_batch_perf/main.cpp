@@ -431,11 +431,12 @@ int main(int argc, char* argv[])
             const double planNs = static_cast<double>(timing[kPlanCyclesIndex]) / iterations;
             const double emitNs = static_cast<double>(timing[kEmitCyclesIndex]) / iterations;
             const double publishNs = static_cast<double>(timing[kDwqePublishCyclesIndex]) / iterations;
-            const double otherNs = commitNs > planNs + emitNs + publishNs ?
-                commitNs - planNs - emitNs - publishNs : 0.0;
+            const double appendOtherNs = appendNs > planNs + emitNs ? appendNs - planNs - emitNs : 0.0;
+            const double commitOtherNs = commitNs > publishNs ? commitNs - publishNs : 0.0;
             std::cout << " | AppendTime/ns=" << appendNs << " | CommitTime/ns=" << commitNs
-                      << " | PlanTime/ns=" << planNs << " | EmitTime/ns=" << emitNs
-                      << " | PublishTime/ns=" << publishNs << " | CommitOtherTime/ns=" << otherNs;
+                       << " | PlanTime/ns=" << planNs << " | EmitTime/ns=" << emitNs
+                       << " | PublishTime/ns=" << publishNs << " | AppendOtherTime/ns=" << appendOtherNs
+                       << " | CommitOtherTime/ns=" << commitOtherNs;
         }
 #endif
         std::cout << std::endl;

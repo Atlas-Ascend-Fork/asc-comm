@@ -72,7 +72,7 @@ __simt_callee__ inline int32_t RunGroupCase(
     for (uint32_t batchIndex = 0U; batchIndex < batchCount; ++batchIndex) {
         const uint32_t operation = batchIndex * operationsPerBatch + rank;
         const int32_t appendRet = AppendOperation<api>(hcomm, batch, local, remote, operation);
-        const int32_t commitRet = hcomm.BatchCommit(batch);
+        const int32_t commitRet = appendRet == 0 ? hcomm.BatchCommit(batch) : appendRet;
         if (rank == 0U) {
             status[base + kStatusAppend] = appendRet;
             status[base + kStatusCommit] = commitRet;

@@ -17,6 +17,7 @@
 #define INCLUDE_ADV_API_HCOMM_HCOMM_SIMT_H
 
 #include <cstdint>
+#include <type_traits>
 
 #include "hcomm_common.h"
 
@@ -49,10 +50,9 @@ struct HcommUnboundGroup {};
  * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
- * @note An Hcomm object remains lane-private. Non-batch interfaces are called by one lane. A batch
- *       bound to a cooperative group is prepared lane-locally and BatchCommit is called collectively;
- *       the implementation reserves the whole SQ range before any lane writes it and publishes only
- *       after every lane has finished its SQ write.
+ * @note An Hcomm object remains lane-private. Non-batch interfaces are called by one lane. On a
+ *       group-bound object, each batch posting API is collective: one lane plans the SQ range, every
+ *       lane writes its final slot, and BatchCommit publishes after those writes are ready.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
  *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
  *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
@@ -80,7 +80,7 @@ public:
      * @param [in] len: Workspace length. A group batch needs at least three uint32_t words.
      * @return 0 indicates success and -1 indicates failure.
      * @note Every posting lane calls Init on its own Hcomm object. All lanes in a bound group pass
-     *       the same workspace because BatchCommit uses it to exchange reservation status and head.
+     *       the same workspace because the collective batch posting call exchanges reservation state.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
@@ -218,12 +218,11 @@ public:
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
 
     /*!
-     * @brief Submit all WQEs prepared in batchHandle.
+     * @brief Publish the SQ range prepared by the preceding batch posting call.
      * @note On a group-bound object this is collective: every group lane must call it, and the
      *       current implementation requires exactly one prepared WQE per lane.
-     * @note The final item must request a CQE. A logical batch larger than the physical SQ is
-     *       transparently split into ordered internal publications. A failure before publication
-     *       leaves the batch intact; a failure after a partial publication invalidates the handle.
+     * @note The final item must request a CQE. If the preceding posting call fails to reserve SQ
+     *       space, the caller must not call BatchCommit for that batch.
      */
     __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
 
