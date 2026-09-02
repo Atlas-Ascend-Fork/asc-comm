@@ -121,7 +121,7 @@ Ain Kernel侧使用时包含如下头文件：
 
 ## 🔍目录结构说明
 
-本仓主要包含asc-comm AICore侧通信数据面API、设备侧实现、样例、文档和UT用例，目录结构如下：
+本仓主要包含asc-comm AICore侧通信数据面与AICPU POD数据面实现、样例、文档和UT用例，目录结构如下：
 
 ```text
 ├── cmake                         # asc-comm CMake辅助模块
@@ -131,10 +131,12 @@ Ain Kernel侧使用时包含如下头文件：
 │   ├── simt_urma                 # Hcomm SIMT URMA功能样例
 │   └── simt_urma_perftest        # Hcomm SIMT URMA性能样例
 ├── include                       # asc-comm API声明源代码
+│   ├── aicpu/hcomm               # AICPU POD数据面公开原语
 │   ├── aicore/hcomm              # AICore侧Hcomm公开接口
 │   └── aicore/ain                # AICore侧Ain单边通信公开接口
 ├── scripts                       # 脚本
 ├── src                           # asc-comm API实现源代码
+│   ├── aicpu/hcomm               # AICPU POD数据面实现
 │   ├── aicore/hcomm              # AICore侧Hcomm实现细节
 │   │   ├── common                # Hcomm公共定义和工具
 │   │   └── impl                  # Hcomm协议实现与平台差异代码
@@ -154,11 +156,20 @@ Ain Kernel侧使用时包含如下头文件：
 source /usr/local/Ascend/cann/set_env.sh
 ```
 
-默认构建用于检查基础环境。当前AICore Hcomm与Ain代码以头文件形式集成，非UT构建不会生成独立库：
+根目录已直接集成原`pod_only`工程，默认构建生成
+`build/aicpu-data-plane/libasccomm_aicpu.so`。HCOMM负责控制面和资源管理，本仓POD实现直接使用
+HCOMM提供的资源ABI与查询接口，不再包含legacy数据面、资源转换接口或HCOMM公共接口副本。
+
+默认从asc-comm同级的`hcomm_pkg_inc`目录获取HCOMM头文件；其他目录布局可通过
+`--hcomm-source-dir`指定：
 
 ```bash
 bash build.sh
+bash build.sh --hcomm-source-dir=/path/to/hcomm
 ```
+
+POD接口使用`include/aicpu/hcomm/asccomm_primitives.h`，接口名统一为`asccomm_*`；基础原语和资源接口由HCOMM工程的
+`include/`与`pkg_inc/`目录提供。
 
 默认构建会复用已有的`build/`目录，不会自动删除构建产物。如需清理构建目录，请显式执行：
 

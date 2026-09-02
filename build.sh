@@ -28,12 +28,14 @@ THREAD_NUM="${CPU_CORES}"
 
 Ascend_CANN_PACKAGE_PATH=""
 CANN_3RD_LIB_PATH="${SCRIPT_DIR}/third_party"
+ASC_COMM_HCOMM_SOURCE_DIR="${HCOMM_SOURCE_DIR:-}"
 
 # 分割线，用于日志美化
 dotted_line="----------------------------------------"
 
 TEST=false
 COV=false
+AICPU_DATA_PLANE=true
 PACKAGE=false
 
 LOG_LEVEL=0
@@ -90,9 +92,13 @@ usage() {
     echo "    -t, --test           Build and run all unit tests"
     echo "    --pkg, --package     Build an asc-comm development run package"
     echo "    --cov                Enable code coverage for unit tests"
+    echo "    --no-aicpu-data-plane"
+    echo "                         Skip AICPU data-plane shared object build"
     echo "    --make_clean         Clean build artifacts"
     echo "    --cann_3rd_lib_path=<PATH>"
     echo "                         Set CANN third_party package install path, Default:./third_party"
+    echo "    --hcomm-source-dir=<PATH>"
+    echo "                         Set the HCOMM source directory providing include/ and pkg_inc/"
 }
 
 parse_args() {
@@ -122,6 +128,14 @@ parse_args() {
                 CANN_3RD_LIB_PATH="$(realpath "${1#*=}")"
                 shift
                 ;;
+            --hcomm-source-dir=*)
+                ASC_COMM_HCOMM_SOURCE_DIR="$(realpath "${1#*=}")"
+                shift
+                ;;
+            --no-aicpu-data-plane)
+                AICPU_DATA_PLANE=false
+                shift
+                ;;
             *)
                 log "ERROR" "未知参数：$1"
                 usage
@@ -143,8 +157,13 @@ set_env() {
     fi
     log "INFO" "the path of cann package is ${ASCEND_HOME_PATH}"
     Ascend_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
+    export TOOLCHAIN_DIR="${Ascend_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc"
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
     CUSTOM_OPTION+=("-DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
+    CUSTOM_OPTION+=("-DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/cmake/aarch64-hcc-toolchain.cmake")
+    if [[ -n "${ASC_COMM_HCOMM_SOURCE_DIR}" ]]; then
+        CUSTOM_OPTION+=("-DHCOMM_SOURCE_DIR=${ASC_COMM_HCOMM_SOURCE_DIR}")
+    fi
 }
 
 clean_build() {
@@ -191,7 +210,11 @@ main(){
     parse_args "$@"
     set_env
     echo "${CUSTOM_OPTION[@]}"
-    local ut_build_dir="${BUILD_DIR}/ut-hcomm"
+    if [[ "${AICPU_DATA_PLANE}" == true ]]; then
+        local aicpu_build_dir="${BUILD_DIR}/aicpu-data-plane"
+        cmake_config "${SCRIPT_DIR}" "${aicpu_build_dir}" "${CUSTOM_OPTION[@]}"
+        build "${aicpu_build_dir}"
+    fi
 
     if [[ "${PACKAGE}" == true ]]; then
         bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \
@@ -207,9 +230,6 @@ main(){
 
     if [[ "${COV}" == true ]]; then
         CUSTOM_OPTION+=("-DENABLE_GCOV=ON")
-    fi
-
-    if [[ "${COV}" == true ]]; then
         TARGETS="--target collect_coverage_data"
     else
         TARGETS=""

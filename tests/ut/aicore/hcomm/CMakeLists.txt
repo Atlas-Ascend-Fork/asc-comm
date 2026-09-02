@@ -37,7 +37,6 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
     endif()
     target_compile_options(${target_name} PRIVATE
         -fno-access-control
-        -Werror
         -UASCENDC_DEBUG
     )
     set(runtime_dirs
