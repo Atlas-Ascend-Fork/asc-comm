@@ -28,7 +28,7 @@ inline void PrintBuffer(const char *tag, uint32_t idx, const HcommDfxBufferDump 
         return;
     }
     RegedBufferEntity buffer;
-    std::memcpy(&buffer, dump.raw, sizeof(buffer));
+    std::memcpy(&buffer, dump.raw, std::min<uint32_t>(dump.rawSize, static_cast<uint32_t>(sizeof(buffer))));
     const uint64_t bufAddr = buffer.type == REGED_BUFFER_IPC ? buffer.bufferInfo.ipc.addr : buffer.bufferInfo.rma.addr;
     const uint64_t bufSize = buffer.type == REGED_BUFFER_IPC ? buffer.bufferInfo.ipc.size : buffer.bufferInfo.rma.size;
     std::printf("[HcommDfxDump][parsed] %s[%u] type=%d addr=0x%llx size=%llu\n", tag, idx,

@@ -21,7 +21,9 @@ struct LocalTensor {};
 
 #include <cstdint>
 
-typedef struct rtExceptionInfo aclrtExceptionInfo;
+#ifndef __aicore__
+#include "acl/acl_rt.h"
+#endif
 
 namespace AscendC {
 constexpr uint32_t HCOMM_DFX_QUEUE_READ_SUCCESS = 0U;
@@ -40,6 +42,7 @@ struct HcommDfxQueueReadResult {
     uint8_t data[HCOMM_DFX_QUEUE_ENTRY_BYTES];
 };
 
+#ifndef __aicore__
 namespace HcommDfx {
 
 void Trace(const char *format, ...);
@@ -58,6 +61,7 @@ void DestroyQueueReader(void *reader);
 bool ReadQueueEntry(void *reader, uint64_t addr, uint8_t *data, uint32_t size);
 
 } // namespace HcommDfx
+#endif // !__aicore__
 } // namespace AscendC
 
 #endif // ASCCOMM_SRC_AICORE_HCOMM_DFX_COMMON_HCOMM_DFX_IMPL_H
