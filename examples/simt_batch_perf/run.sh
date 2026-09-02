@@ -143,7 +143,13 @@ run_case() {
     status=0
     rank_status=()
     for ((rank = 0; rank < devices; ++rank)); do
-        if wait "${active_pids[$rank]}"; then rank_status[$rank]=0; else rank_status[$rank]=1; status=1; fi
+        if wait "${active_pids[$rank]}"; then
+            rank_status[$rank]=0
+        else
+            rank_status[$rank]=1
+            status=1
+            kill "${active_pids[@]:rank+1}" 2>/dev/null || true
+        fi
     done
     active_pids=()
     for ((rank = 0; rank < devices; rank += 2)); do
