@@ -47,6 +47,9 @@ cd examples/simt_batch_perf
 bash build.sh
 ```
 
+Use `bash build.sh --profile` to report Append/Commit/Plan/Emit/Publish timing. This mode adds extra `clock()`
+operations; use the default build for final performance comparisons.
+
 ## Run
 
 With no arguments, the script runs Immediate and the default GroupBatch lane counts for all six APIs:

@@ -976,6 +976,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     UbcCtpBatchHandle& batchHandle)
 {
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    const uint64_t profileBegin = clock();
+#endif
     __ubuf__ HcommSimtBatchStaticContext* context =
         reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
     HcommSimtResolvedPost post;
@@ -987,15 +990,27 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
             post.headAddr, post.sqTailAddr, post.meta.sqDepth, totalBb, headVal)) {
         return HCOMM_FAILED;
     }
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    const uint64_t profilePlanEnd = clock();
+#endif
     const uint32_t tailHead = HcommSimtHeadIdx(headVal);
     HcommSimtWqeStage tailStage;
     HcommSimtBuildBatchTailStage(context, batchHandle, tailHead, tailStage);
     HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(post, tailHead, tailStage);
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    const uint64_t profileEmitEnd = clock();
+#endif
     asc_threadfence();
     const uint64_t delta = (1ULL << 32U) | totalBb;
     const uint64_t publishedHead = headVal + delta;
     *post.headAddr = publishedHead;
     HcommSimtRingDwqe(post.dwqeAddr, tailStage);
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    const uint64_t profilePublishEnd = clock();
+    batchHandle.profilePlanCycles += profilePlanEnd - profileBegin;
+    batchHandle.profileEmitCycles += profileEmitEnd - profilePlanEnd;
+    batchHandle.profilePublishCycles += profilePublishEnd - profileEmitEnd;
+#endif
     return HCOMM_SUCCESS;
 }
 
@@ -1005,6 +1020,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
 {
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t size = static_cast<uint32_t>(group.size());
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    const uint64_t profileBegin = rank == 0U ? clock() : 0U;
+#endif
     __ubuf__ HcommSimtBatchStaticContext* context =
         reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
     HcommSimtResolvedPost post;
@@ -1040,6 +1058,9 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     }
     const uint64_t delta = (static_cast<uint64_t>(size) << 32U) | totalBb;
     const uint64_t publishedHead = headVal + delta;
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    const uint64_t profilePlanEnd = rank == 0U ? clock() : 0U;
+#endif
     const uint32_t laneHead = HcommSimtHeadIdx(headVal) + rank * itemBb;
     const bool publisher = rank + 1U == size;
     HcommSimtWqeStage tailStage;
@@ -1052,12 +1073,23 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     }
     asc_threadfence();
     group.sync();
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    const uint64_t profileEmitEnd = rank == 0U ? clock() : 0U;
+#endif
     if (publisher) {
         // The same lane owns the fully built tail and publishes the collectively reserved range.
         *post.headAddr = publishedHead;
         HcommSimtRingDwqe(post.dwqeAddr, tailStage);
     }
     group.sync();
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    if (rank == 0U) {
+        const uint64_t profilePublishEnd = clock();
+        batchHandle.profilePlanCycles += profilePlanEnd - profileBegin;
+        batchHandle.profileEmitCycles += profileEmitEnd - profilePlanEnd;
+        batchHandle.profilePublishCycles += profilePublishEnd - profileEmitEnd;
+    }
+#endif
     return HCOMM_SUCCESS;
 }
 

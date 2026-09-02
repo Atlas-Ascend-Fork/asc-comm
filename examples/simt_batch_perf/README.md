@@ -42,6 +42,9 @@ cd examples/simt_batch_perf
 bash build.sh
 ```
 
+定位阶段耗时时使用`bash build.sh --profile`，输出Append/Commit/Plan/Emit/Publish；该模式会引入额外
+`clock()`，正式性能对比应使用默认构建。
+
 ## 执行
 
 不带参数会依次运行Immediate和默认Lane数的GroupBatch：

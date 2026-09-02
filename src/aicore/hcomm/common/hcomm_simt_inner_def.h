@@ -87,6 +87,11 @@ struct UbcCtpBatchHandle {
     uint32_t groupSize = 1U;
     bool patchSecondHeader = false;
     bool patchNotifyToken = false;
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    uint64_t profilePlanCycles = 0U;
+    uint64_t profileEmitCycles = 0U;
+    uint64_t profilePublishCycles = 0U;
+#endif
 };
 
 template <typename T>
