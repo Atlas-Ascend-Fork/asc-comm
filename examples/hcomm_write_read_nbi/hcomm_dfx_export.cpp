@@ -8,7 +8,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm/dfx/host/hcomm_dfx.h"
+// This TU is compiled in ASC mode and must pull the implementation so the public
+// DFX APIs are emitted into the example binary.
+#define HCOMM_DFX_INCLUDE_IMPLEMENTATION
+#include "hcomm/dfx/hcomm_channel_dump.h"
 
 extern "C" __attribute__((used)) void HcommDfxForceLink()
 {
