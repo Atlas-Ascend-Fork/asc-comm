@@ -16,7 +16,7 @@
 #include <cstring>
 
 #include "../../common/hcomm_inner_def.h"
-#include "hcomm_dfx_impl.h"
+#include "../common/hcomm_dfx_impl.h"
 
 namespace AscendC {
 namespace HcommDfx {
