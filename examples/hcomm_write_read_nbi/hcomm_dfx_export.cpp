@@ -10,9 +10,10 @@
 
 #include "hcomm/dfx/host/hcomm_dfx.h"
 
-namespace {
-[[maybe_unused]] auto *const g_hcomm_dfx_register_force_link =
-    &AscendC::HcommChannelExceptionCallbackRegister;
-[[maybe_unused]] auto *const g_hcomm_dfx_dump_force_link =
-    &AscendC::HcommChannelInfoDump;
-} // namespace
+extern "C" __attribute__((used)) void HcommDfxForceLink()
+{
+    auto *registerFn = &AscendC::HcommChannelExceptionCallbackRegister;
+    auto *dumpFn = &AscendC::HcommChannelInfoDump;
+    (void)registerFn;
+    (void)dumpFn;
+}
