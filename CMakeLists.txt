@@ -19,6 +19,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ASCCOMM_BUILD_CCU "Build asc-comm CCU launch wrapper library" ON)
+option(ASCCOMM_BUILD_AICPU "Build asc-comm AICPU data plane library" ON)
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCCOMM_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
@@ -49,4 +50,7 @@ endif()
 
 if(ASCCOMM_BUILD_CCU)
     add_subdirectory(src/ccu)
+endif()
+if(ASCCOMM_BUILD_AICPU)
+    add_subdirectory(src/aicpu)
 endif()
