@@ -3,25 +3,25 @@
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm_dfx_impl.h"
-
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#include "../../common/hcomm_inner_def.h"
-#undef HCOMM_INCLUDE_INTERNAL_HEADERS
+#ifndef ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_PARSE_H
+#define ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_PARSE_H
 
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
 
+#include "../../common/hcomm_inner_def.h"
+#include "hcomm_dfx_impl.h"
+
 namespace AscendC {
 namespace HcommDfx {
-namespace {
-void PrintBuffer(const char *tag, uint32_t idx, const HcommDfxBufferDump &dump)
+
+inline void PrintBuffer(const char *tag, uint32_t idx, const HcommDfxBufferDump &dump)
 {
     if (dump.rawSize < sizeof(RegedBufferEntity)) {
         std::printf("[HcommDfxDump][parsed] %s[%u] rawSize=%u (truncated)\n", tag, idx, dump.rawSize);
@@ -36,7 +36,7 @@ void PrintBuffer(const char *tag, uint32_t idx, const HcommDfxBufferDump &dump)
         static_cast<unsigned long long>(bufSize));
 }
 
-void PrintSqContext(uint32_t idx, const HcommDfxQueueCtxDump &dump)
+inline void PrintSqContext(uint32_t idx, const HcommDfxQueueCtxDump &dump)
 {
     SqContext ctx;
     std::memset(&ctx, 0, sizeof(ctx));
@@ -48,13 +48,13 @@ void PrintSqContext(uint32_t idx, const HcommDfxQueueCtxDump &dump)
             idx, jfs.jfsID, static_cast<unsigned long long>(jfs.sqVa), jfs.sqDepth, jfs.wqeSize,
             static_cast<unsigned long long>(jfs.dbVa), dump.head, dump.headValid, dump.tail, dump.tailValid);
     } else {
-        std::printf("[HcommDfxDump][parsed] SqContext[%u] type=%d (non-URMA, raw only) "
-                    "head=%u(valid=%u) tail=%u(valid=%u)\n",
+        std::printf("[HcommDfxDump][parsed] SqContext[%u] type=%d (non-URMA, raw only) head=%u(valid=%u) "
+                    "tail=%u(valid=%u)\n",
             idx, static_cast<int32_t>(ctx.type), dump.head, dump.headValid, dump.tail, dump.tailValid);
     }
 }
 
-void PrintCqContext(uint32_t idx, const HcommDfxQueueCtxDump &dump)
+inline void PrintCqContext(uint32_t idx, const HcommDfxQueueCtxDump &dump)
 {
     CqContext ctx;
     std::memset(&ctx, 0, sizeof(ctx));
@@ -66,13 +66,13 @@ void PrintCqContext(uint32_t idx, const HcommDfxQueueCtxDump &dump)
             idx, jfc.jfcID, static_cast<unsigned long long>(jfc.scqVa), jfc.cqDepth, jfc.cqeSize,
             static_cast<unsigned long long>(jfc.dbVa), dump.head, dump.headValid, dump.tail, dump.tailValid);
     } else {
-        std::printf("[HcommDfxDump][parsed] CqContext[%u] type=%d (non-URMA, raw only) "
-                    "head=%u(valid=%u) tail=%u(valid=%u)\n",
+        std::printf("[HcommDfxDump][parsed] CqContext[%u] type=%d (non-URMA, raw only) head=%u(valid=%u) "
+                    "tail=%u(valid=%u)\n",
             idx, static_cast<int32_t>(ctx.type), dump.head, dump.headValid, dump.tail, dump.tailValid);
     }
 }
 
-void PrintWqe(const HcommDfxQueueEntry &entry)
+inline void PrintWqe(const HcommDfxQueueEntry &entry)
 {
     if (entry.readStatus != HCOMM_DFX_READ_OK) {
         std::printf("[HcommDfxDump][parsed] Hcomm URMA WQE queue=%u index=%u cursor=%u addr=0x%llx readStatus=%u "
@@ -91,7 +91,7 @@ void PrintWqe(const HcommDfxQueueEntry &entry)
         static_cast<unsigned long long>(wqe.rmtEidH), static_cast<unsigned long long>(wqe.rmtEidL));
 }
 
-void PrintCqe(const HcommDfxQueueEntry &entry)
+inline void PrintCqe(const HcommDfxQueueEntry &entry)
 {
     if (entry.readStatus != HCOMM_DFX_READ_OK) {
         std::printf("[HcommDfxDump][parsed] Hcomm URMA CQE queue=%u index=%u cursor=%u addr=0x%llx readStatus=%u "
@@ -109,7 +109,7 @@ void PrintCqe(const HcommDfxQueueEntry &entry)
         cqe.status, cqe.substatus, cqe.opcode, cqe.sR, cqe.entryIdx, cqe.byteCnt, cqe.tpn);
 }
 
-void PrintChannel(uint32_t channelIdx, const HcommDfxChannelInfo &channel)
+inline void PrintChannel(uint32_t channelIdx, const HcommDfxChannelInfo &channel)
 {
     ChannelEntity entity;
     std::memset(&entity, 0, sizeof(entity));
@@ -149,9 +149,8 @@ void PrintChannel(uint32_t channelIdx, const HcommDfxChannelInfo &channel)
         }
     }
 }
-} // namespace
 
-int32_t ParseAndPrintChannelDump(const HcommDfxChannelDumpData &dump)
+inline int32_t ParseAndPrintChannelDump(const HcommDfxChannelDumpData &dump)
 {
     if (dump.magic != HCOMM_DFX_CHANNEL_DUMP_MAGIC || dump.size < sizeof(HcommDfxChannelDumpData)) {
         std::printf("[HcommDfxDump][parsed] invalid dump magic=0x%x size=%u\n", dump.magic, dump.size);
@@ -170,3 +169,5 @@ int32_t ParseAndPrintChannelDump(const HcommDfxChannelDumpData &dump)
 
 } // namespace HcommDfx
 } // namespace AscendC
+
+#endif // ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_PARSE_H

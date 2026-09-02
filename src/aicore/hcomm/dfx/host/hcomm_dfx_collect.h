@@ -3,157 +3,152 @@
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm_dfx_impl.h"
-
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#include "../../common/hcomm_inner_def.h"
-#undef HCOMM_INCLUDE_INTERNAL_HEADERS
-
-#include "acl/acl.h"
-#include "acl/acl_rt.h"
+#ifndef ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_COLLECT_H
+#define ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_COLLECT_H
 
 #include <algorithm>
 #include <cstring>
 #include <new>
 
+#include "acl/acl.h"
+#include "acl/acl_rt.h"
+
+#include "../impl/hcomm_dfx_queue_reader_kernel.h"
+#include "hcomm_dfx_exception.h"
+#include "hcomm_dfx_parse.h"
+
 namespace AscendC {
 namespace HcommDfx {
-namespace {
-constexpr uint32_t QUEUE_LEADING_WINDOW = 4U;
-constexpr uint32_t QUEUE_TAIL_WINDOW = 4U;
 
-// Reads queue entries (WQE/CQE) that live in device-side queue regions. These VAs
-// are not plain D2H-readable, so a helper AIV kernel copies them out for us.
-class QueueReader {
-public:
-    QueueReader() : reader_(CreateQueueReader())
-    {}
-
-    QueueReader(const QueueReader &) = delete;
-    QueueReader &operator=(const QueueReader &) = delete;
-
-    ~QueueReader()
-    {
-        DestroyQueueReader(reader_);
-    }
-
-    bool Read(uint64_t addr, uint8_t *data, uint32_t size)
-    {
-        if (reader_ == nullptr || addr == 0 || data == nullptr || size == 0 || size > HCOMM_DFX_QUEUE_ENTRY_BYTES) {
-            return false;
-        }
-        return ReadQueueEntry(reader_, addr, data, size);
-    }
-
-private:
-    void *reader_ = nullptr;
+struct QueueReadContext {
+    void *deviceResult = nullptr;
+    aclrtStream stream = nullptr;
 };
 
-// Copy sizeof(T) bytes from a device VA into a host value. The output is always
-// zero-filled first, so callers observe a defined value even when addr is null or
-// the copy fails.
-template <typename T>
-bool CopyFromDevice(uint64_t addr, T &value, const char *name)
+inline uint64_t PtrToU64(const void *ptr)
 {
-    std::memset(&value, 0, sizeof(T));
-    if (addr == 0) {
+    return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr));
+}
+
+inline bool CopyFromDevice(void *dst, uint32_t dstSize, uint64_t src, uint32_t size)
+{
+    if (dst == nullptr || dstSize == 0U) {
         return false;
     }
-    aclError ret = aclrtMemcpy(&value, sizeof(T), reinterpret_cast<const void *>(addr), sizeof(T),
-        ACL_MEMCPY_DEVICE_TO_HOST);
+    if (src == 0U || size == 0U) {
+        std::memset(dst, 0, dstSize);
+        return false;
+    }
+    const uint32_t copySize = std::min(dstSize, size);
+    std::memset(dst, 0, dstSize);
+    return aclrtMemcpy(dst, copySize, reinterpret_cast<void *>(src), copySize, ACL_MEMCPY_DEVICE_TO_HOST) == ACL_SUCCESS;
+}
+
+inline uint32_t SqWqeReadBytes(uint32_t wqeSize)
+{
+    uint32_t bytes = wqeSize <= HCOMM_DFX_QUEUE_ENTRY_BYTES / 2U ? wqeSize * 2U : wqeSize;
+    return std::min<uint32_t>(bytes, HCOMM_DFX_QUEUE_ENTRY_BYTES);
+}
+
+inline void *CreateQueueReader()
+{
+    auto *ctx = new (std::nothrow) QueueReadContext;
+    if (ctx == nullptr) {
+        Trace("new queue read context failed");
+        return nullptr;
+    }
+    aclError ret = aclrtMalloc(&ctx->deviceResult, sizeof(HcommDfxQueueReadResult), ACL_MEM_MALLOC_HUGE_FIRST);
     if (ret != ACL_SUCCESS) {
-        Trace("copy %s failed addr=0x%llx size=%llu ret=%d", name, static_cast<unsigned long long>(addr),
-            static_cast<unsigned long long>(sizeof(T)), ret);
+        Trace("aclrtMalloc queue read result failed ret=%d", ret);
+        delete ctx;
+        return nullptr;
+    }
+
+    ret = aclrtCreateStream(&ctx->stream);
+    if (ret != ACL_SUCCESS) {
+        Trace("aclrtCreateStream queue read failed ret=%d", ret);
+        (void)aclrtFree(ctx->deviceResult);
+        delete ctx;
+        return nullptr;
+    }
+    return ctx;
+}
+
+inline void DestroyQueueReader(void *reader)
+{
+    auto *ctx = reinterpret_cast<QueueReadContext *>(reader);
+    if (ctx == nullptr) {
+        return;
+    }
+    if (ctx->stream != nullptr) {
+        (void)aclrtDestroyStream(ctx->stream);
+    }
+    if (ctx->deviceResult != nullptr) {
+        (void)aclrtFree(ctx->deviceResult);
+    }
+    delete ctx;
+}
+
+inline bool ReadQueueEntry(void *reader, uint64_t addr, uint8_t *data, uint32_t size)
+{
+    auto *ctx = reinterpret_cast<QueueReadContext *>(reader);
+    if (ctx == nullptr || addr == 0 || data == nullptr || size == 0 || size > HCOMM_DFX_QUEUE_ENTRY_BYTES) {
         return false;
     }
+
+    HcommDfxQueueReadArgs args = {addr, reinterpret_cast<uint64_t>(ctx->deviceResult), size, 0};
+    hcomm_dfx_queue_read_kernel<<<1, 0, ctx->stream>>>(args);
+    aclError ret = aclrtSynchronizeStream(ctx->stream);
+
+    HcommDfxQueueReadResult result;
+    std::memset(&result, 0, sizeof(result));
+    if (ret == ACL_SUCCESS) {
+        ret = aclrtMemcpy(&result, sizeof(result), ctx->deviceResult, sizeof(result), ACL_MEMCPY_DEVICE_TO_HOST);
+    }
+
+    if (ret != ACL_SUCCESS || result.ret != HCOMM_DFX_QUEUE_READ_SUCCESS || result.size != size) {
+        Trace("queue read failed addr=0x%llx ret=%d entryRet=%u size=%u expect=%u",
+            static_cast<unsigned long long>(addr), ret, result.ret, result.size, size);
+        return false;
+    }
+
+    std::memcpy(data, result.data, size);
     return true;
 }
 
-uint64_t PtrToU64(const void *ptr)
+inline bool AppendQueueEntry(ChannelHandle channel, void *reader, uint32_t entryType, uint32_t queueIndex,
+                             uint32_t entryIndex, uint32_t cursor, uint64_t addr, uint32_t size,
+                             HcommDfxChannelInfo &out)
 {
-    return reinterpret_cast<uint64_t>(ptr);
-}
-
-// Record one sampled queue entry: dedup against already-collected slots, then read
-// its raw bytes via the helper kernel and tag it with a read status. Returns whether
-// the entry's payload is available.
-bool AppendQueueEntry(HcommDfxChannelInfo &channel, QueueReader &reader, uint32_t entryType, uint32_t queueIndex,
-    uint32_t entryIndex, uint32_t cursor, uint64_t addr, uint32_t size)
-{
-    if (channel.queueEntryDumpNum >= HCOMM_DFX_MAX_QUEUE_ENTRIES || addr == 0 || size == 0) {
+    (void)channel;
+    if (out.queueEntryDumpNum >= HCOMM_DFX_MAX_QUEUE_ENTRIES || addr == 0 || size == 0) {
         return false;
     }
-    for (uint32_t idx = 0; idx < channel.queueEntryDumpNum; ++idx) {
-        const HcommDfxQueueEntry &entry = channel.queueEntries[idx];
+    for (uint32_t idx = 0; idx < out.queueEntryDumpNum; ++idx) {
+        const HcommDfxQueueEntry &entry = out.queueEntries[idx];
         if (entry.entryType == entryType && entry.queueIndex == queueIndex && entry.entryIndex == entryIndex &&
             entry.addr == addr) {
             return entry.readStatus == HCOMM_DFX_READ_OK;
         }
     }
-    HcommDfxQueueEntry &entry = channel.queueEntries[channel.queueEntryDumpNum++];
+    HcommDfxQueueEntry &entry = out.queueEntries[out.queueEntryDumpNum++];
     entry.entryType = entryType;
     entry.queueIndex = queueIndex;
     entry.entryIndex = entryIndex;
     entry.cursor = cursor;
     entry.addr = addr;
     entry.size = std::min<uint32_t>(size, HCOMM_DFX_QUEUE_ENTRY_BYTES);
-    entry.readStatus = reader.Read(addr, entry.data, entry.size) ? HCOMM_DFX_READ_OK : HCOMM_DFX_READ_LAUNCH_FAIL;
+    entry.readStatus = ReadQueueEntry(reader, addr, entry.data, entry.size) ? HCOMM_DFX_READ_OK :
+        HCOMM_DFX_READ_LAUNCH_FAIL;
     return entry.readStatus == HCOMM_DFX_READ_OK;
 }
 
-// A URMA WQE occupies at least two 32B basic-blocks; when the descriptor is small
-// enough, sample two blocks so an inline payload following it is captured too. The
-// result is clamped to the entry buffer size.
-uint32_t SqWqeReadBytes(uint32_t wqeSize)
-{
-    uint32_t bytes = wqeSize <= HCOMM_DFX_QUEUE_ENTRY_BYTES / 2U ? wqeSize * 2U : wqeSize;
-    return std::min<uint32_t>(bytes, HCOMM_DFX_QUEUE_ENTRY_BYTES);
-}
-
-// Sample the leading WQEs plus a short window around the current SQ head.
-void SampleSqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, uint32_t wqeSize, uint32_t head,
-    HcommDfxChannelInfo &channel, QueueReader &reader)
-{
-    const uint32_t readBytes = SqWqeReadBytes(wqeSize);
-    const uint32_t leading = std::min<uint32_t>(depth, QUEUE_LEADING_WINDOW);
-    for (uint32_t idx = 0; idx < leading; ++idx) {
-        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, idx, idx,
-            va + static_cast<uint64_t>(idx) * wqeSize, readBytes);
-    }
-    const uint32_t window = head == 0 ? 1U : std::min<uint32_t>(head, QUEUE_TAIL_WINDOW);
-    const uint32_t start = head >= window ? head - window : 0U;
-    for (uint32_t idx = 0; idx < window; ++idx) {
-        const uint32_t slot = (start + idx) % depth;
-        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, slot, start + idx,
-            va + static_cast<uint64_t>(slot) * wqeSize, readBytes);
-    }
-}
-
-// Sample the leading CQEs plus a short window ending at the current CQ tail.
-void SampleCqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, uint32_t cqeSize, uint32_t tail,
-    HcommDfxChannelInfo &channel, QueueReader &reader)
-{
-    const uint32_t leading = std::min<uint32_t>(depth, QUEUE_LEADING_WINDOW);
-    for (uint32_t idx = 0; idx < leading; ++idx) {
-        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_CQE, queueIndex, idx, idx,
-            va + static_cast<uint64_t>(idx) * cqeSize, cqeSize);
-    }
-    const uint32_t window = tail < (QUEUE_TAIL_WINDOW - 1U) ? tail + 1U : QUEUE_TAIL_WINDOW;
-    const uint32_t start = tail >= window ? tail - window + 1U : 0U;
-    for (uint32_t idx = 0; idx < window; ++idx) {
-        const uint32_t cursor = start + idx;
-        const uint32_t slot = cursor % depth;
-        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_CQE, queueIndex, slot, cursor,
-            va + static_cast<uint64_t>(slot) * cqeSize, cqeSize);
-    }
-}
-
-void CollectBuffers(uint64_t addr, uint32_t num, HcommDfxBufferDump *buffers, uint32_t &dumpNum)
+inline void CollectBuffers(uint64_t addr, uint32_t num, HcommDfxBufferDump *buffers, uint32_t &dumpNum)
 {
     dumpNum = 0;
     if (addr == 0 || buffers == nullptr) {
@@ -172,7 +167,43 @@ void CollectBuffers(uint64_t addr, uint32_t num, HcommDfxBufferDump *buffers, ui
     }
 }
 
-void CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo &channel, QueueReader &reader)
+inline void SampleSqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, uint32_t wqeSize, uint32_t head,
+    HcommDfxChannelInfo &channel, void *reader)
+{
+    const uint32_t readBytes = SqWqeReadBytes(wqeSize);
+    const uint32_t leading = std::min<uint32_t>(depth, QUEUE_LEADING_WINDOW);
+    for (uint32_t idx = 0; idx < leading; ++idx) {
+        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, idx, idx,
+            va + static_cast<uint64_t>(idx) * wqeSize, readBytes, channel);
+    }
+    const uint32_t window = head == 0 ? 1U : std::min<uint32_t>(head, QUEUE_TAIL_WINDOW);
+    const uint32_t start = head >= window ? head - window : 0U;
+    for (uint32_t idx = 0; idx < window; ++idx) {
+        const uint32_t slot = (start + idx) % depth;
+        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, slot, start + idx,
+            va + static_cast<uint64_t>(slot) * wqeSize, readBytes, channel);
+    }
+}
+
+inline void SampleCqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, uint32_t cqeSize, uint32_t tail,
+    HcommDfxChannelInfo &channel, void *reader)
+{
+    const uint32_t leading = std::min<uint32_t>(depth, QUEUE_LEADING_WINDOW);
+    for (uint32_t idx = 0; idx < leading; ++idx) {
+        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_CQE, queueIndex, idx, idx,
+            va + static_cast<uint64_t>(idx) * cqeSize, cqeSize, channel);
+    }
+    const uint32_t window = tail < (QUEUE_TAIL_WINDOW - 1U) ? tail + 1U : QUEUE_TAIL_WINDOW;
+    const uint32_t start = tail >= window ? tail - window + 1U : 0U;
+    for (uint32_t idx = 0; idx < window; ++idx) {
+        const uint32_t cursor = start + idx;
+        const uint32_t slot = cursor % depth;
+        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_CQE, queueIndex, slot, cursor,
+            va + static_cast<uint64_t>(slot) * cqeSize, cqeSize, channel);
+    }
+}
+
+inline void CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo &channel, void *reader)
 {
     channel.sqContextDumpNum = 0;
     if (addr == 0) {
@@ -200,7 +231,7 @@ void CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo &chann
     }
 }
 
-void CollectCqContexts(uint64_t addr, uint32_t cqNum, HcommDfxChannelInfo &channel, QueueReader &reader)
+inline void CollectCqContexts(uint64_t addr, uint32_t cqNum, HcommDfxChannelInfo &channel, void *reader)
 {
     channel.cqContextDumpNum = 0;
     if (addr == 0) {
@@ -228,7 +259,7 @@ void CollectCqContexts(uint64_t addr, uint32_t cqNum, HcommDfxChannelInfo &chann
     }
 }
 
-bool CollectChannel(ChannelHandle channelHandle, HcommDfxChannelInfo &channel, QueueReader &reader)
+inline bool CollectChannel(ChannelHandle channelHandle, HcommDfxChannelInfo &channel, void *reader)
 {
     std::memset(&channel, 0, sizeof(channel));
     channel.handle = channelHandle;
@@ -252,9 +283,8 @@ bool CollectChannel(ChannelHandle channelHandle, HcommDfxChannelInfo &channel, Q
     CollectCqContexts(PtrToU64(entity.cqContextAddr), entity.cqNum, channel, reader);
     return true;
 }
-} // namespace
 
-int32_t GetChannelDumpInfoSize(uint32_t channelNum, const ChannelHandle *channels, uint32_t *len)
+inline int32_t GetChannelDumpInfoSize(uint32_t channelNum, const ChannelHandle *channels, uint32_t *len)
 {
     if (len == nullptr || (channelNum != 0 && channels == nullptr)) {
         return HCOMM_FAILED;
@@ -263,7 +293,7 @@ int32_t GetChannelDumpInfoSize(uint32_t channelNum, const ChannelHandle *channel
     return HCOMM_SUCCESS;
 }
 
-int32_t DumpChannelInfo(uint32_t channelNum, const ChannelHandle *channels, void *buffer, uint32_t len)
+inline int32_t DumpChannelInfo(uint32_t channelNum, const ChannelHandle *channels, void *buffer, uint32_t len)
 {
     if (channelNum == 0 || channels == nullptr || buffer == nullptr || len < sizeof(HcommDfxChannelDumpData)) {
         return HCOMM_FAILED;
@@ -276,16 +306,23 @@ int32_t DumpChannelInfo(uint32_t channelNum, const ChannelHandle *channels, void
     dump->size = sizeof(HcommDfxChannelDumpData);
     dump->channelNum = std::min<uint32_t>(channelNum, HCOMM_DFX_MAX_CHANNELS);
 
-    QueueReader reader;
+    auto *reader = CreateQueueReader();
+    if (reader == nullptr) {
+        return HCOMM_FAILED;
+    }
+
     int32_t ret = HCOMM_SUCCESS;
     for (uint32_t idx = 0; idx < dump->channelNum; ++idx) {
         if (!CollectChannel(channels[idx], dump->channels[idx], reader)) {
             ret = HCOMM_FAILED;
         }
     }
+    DestroyQueueReader(reader);
     (void)ParseAndPrintChannelDump(*dump);
     return ret;
 }
 
 } // namespace HcommDfx
 } // namespace AscendC
+
+#endif // ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_COLLECT_H

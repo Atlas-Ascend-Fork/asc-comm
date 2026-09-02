@@ -3,24 +3,27 @@
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm_dfx_impl.h"
+#ifndef ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_EXCEPTION_H
+#define ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_EXCEPTION_H
 
-#include "acl/acl.h"
-#include "acl/acl_rt.h"
-
+#ifndef __aicore__
 #include <atomic>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 
+#include "acl/acl.h"
+#include "acl/acl_rt.h"
+#endif
+
 namespace AscendC {
 namespace HcommDfx {
-namespace {
+
 struct ExceptionRecord {
     std::atomic<bool> pending{false};
     std::atomic<bool> callbackBound{false};
@@ -30,36 +33,15 @@ struct ExceptionRecord {
     std::atomic<uint32_t> deviceId{0};
 };
 
-ExceptionRecord g_exception;
+inline ExceptionRecord g_exception{};
 
-bool IsTraceEnabled()
+inline bool IsTraceEnabled()
 {
     const char *enabled = std::getenv("HCOMM_DFX_DUMP_TRACE");
     return enabled != nullptr && enabled[0] != '\0' && enabled[0] != '0';
 }
 
-void RecordException(aclrtExceptionInfo *exceptionInfo)
-{
-    if (exceptionInfo == nullptr) {
-        return;
-    }
-
-    uint32_t taskId = aclrtGetTaskIdFromExceptionInfo(exceptionInfo);
-    uint32_t streamId = aclrtGetStreamIdFromExceptionInfo(exceptionInfo);
-    uint32_t deviceId = aclrtGetDeviceIdFromExceptionInfo(exceptionInfo);
-
-    g_exception.taskId.store(taskId, std::memory_order_relaxed);
-    g_exception.streamId.store(streamId, std::memory_order_relaxed);
-    g_exception.deviceId.store(deviceId, std::memory_order_relaxed);
-    uint64_t count = g_exception.count.fetch_add(1U) + 1U;
-    g_exception.pending.store(true, std::memory_order_release);
-    std::printf("[HcommDfxDump] exception callback entered count=%llu task=%u stream=%u device=%u\n",
-        static_cast<unsigned long long>(count), taskId, streamId, deviceId);
-    std::fflush(stdout);
-}
-} // namespace
-
-void Trace(const char *format, ...)
+inline void Trace(const char *format, ...)
 {
     if (!IsTraceEnabled()) {
         return;
@@ -73,28 +55,46 @@ void Trace(const char *format, ...)
     std::fflush(stderr);
 }
 
-void ExceptionCallback(aclrtExceptionInfo *exceptionInfo, void *userData)
+inline void RecordException(aclrtExceptionInfo *exceptionInfo)
+{
+    if (exceptionInfo == nullptr) {
+        return;
+    }
+
+    g_exception.taskId.store(aclrtGetTaskIdFromExceptionInfo(exceptionInfo), std::memory_order_relaxed);
+    g_exception.streamId.store(aclrtGetStreamIdFromExceptionInfo(exceptionInfo), std::memory_order_relaxed);
+    g_exception.deviceId.store(aclrtGetDeviceIdFromExceptionInfo(exceptionInfo), std::memory_order_relaxed);
+    g_exception.count.fetch_add(1U, std::memory_order_relaxed);
+    g_exception.pending.store(true, std::memory_order_release);
+    Trace("record exception task=%u stream=%u device=%u count=%llu",
+          g_exception.taskId.load(std::memory_order_relaxed),
+          g_exception.streamId.load(std::memory_order_relaxed),
+          g_exception.deviceId.load(std::memory_order_relaxed),
+          static_cast<unsigned long long>(g_exception.count.load(std::memory_order_relaxed)));
+}
+
+inline void ExceptionCallback(aclrtExceptionInfo *exceptionInfo, void *userData)
 {
     (void)userData;
     RecordException(exceptionInfo);
 }
 
-bool HasPendingException()
+inline bool HasPendingException()
 {
     return g_exception.pending.load(std::memory_order_acquire);
 }
 
-bool IsExceptionCallbackBound()
+inline bool IsExceptionCallbackBound()
 {
     return g_exception.callbackBound.load(std::memory_order_acquire);
 }
 
-void MarkExceptionCallbackBound()
+inline void MarkExceptionCallbackBound()
 {
     g_exception.callbackBound.store(true, std::memory_order_release);
 }
 
-void ClearPendingException()
+inline void ClearPendingException()
 {
     g_exception.pending.store(false, std::memory_order_release);
     g_exception.count.store(0U, std::memory_order_release);
@@ -102,3 +102,5 @@ void ClearPendingException()
 
 } // namespace HcommDfx
 } // namespace AscendC
+
+#endif // ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_EXCEPTION_H
