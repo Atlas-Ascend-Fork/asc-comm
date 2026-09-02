@@ -17,7 +17,7 @@
 
 namespace AscendC {
 
-__attribute__((used)) inline int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
+inline int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
 {
     if (kernelSymbol == nullptr) {
         std::printf("[HcommDfxDump] bind exception callback failed: kernelSymbol is null\n");
@@ -42,7 +42,7 @@ __attribute__((used)) inline int32_t HcommChannelExceptionCallbackRegister(const
     return HCOMM_SUCCESS;
 }
 
-__attribute__((used)) inline int32_t HcommChannelInfoDump(ChannelHandle channel, HcommDfxChannelDumpData *dump)
+inline int32_t HcommChannelInfoDump(ChannelHandle channel, HcommDfxChannelDumpData *dump)
 {
     const bool callbackBound = HcommDfx::IsExceptionCallbackBound();
     if (callbackBound && !HcommDfx::HasPendingException()) {
