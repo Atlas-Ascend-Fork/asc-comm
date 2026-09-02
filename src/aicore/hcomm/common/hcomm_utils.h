@@ -69,33 +69,30 @@ __aicore__ inline __ubuf__ uint8_t* AlignAddrTo32Bytes(__ubuf__ uint8_t* buff)
     return reinterpret_cast<__ubuf__ uint8_t*>(alignedAddr);
 }
 
-__aicore__ inline int32_t HcommFindBufferIdx(
+__aicore__ inline bool HcommCheckBuffer(
     RegedBufferEntity* bufferAddr, uint32_t bufferNum, GM_ADDR addr, uint64_t len)
 {
-    if (bufferAddr == nullptr) {
-        KERNEL_LOG(KERNEL_ERROR, "HcommFindBufferIdx failed with null bufferAddr, bufferNum=%u\n", bufferNum);
-        return HCOMM_FAILED;
+    if (bufferAddr == nullptr || bufferNum == 0U) {
+        KERNEL_LOG(KERNEL_ERROR, "HcommCheckBuffer failed with invalid buffer, bufferNum=%u\n", bufferNum);
+        return false;
     }
     uint64_t targetAddr = reinterpret_cast<uint64_t>(addr);
-    for (uint32_t i = 0; i < bufferNum; i++) {
-        uint64_t baseAddr = bufferAddr[i].bufferInfo.rma.addr;
-        uint64_t bufferSize = bufferAddr[i].bufferInfo.rma.size;
-        if (targetAddr < baseAddr) {
-            continue;
-        }
+    uint64_t baseAddr = bufferAddr[0].bufferInfo.rma.addr;
+    uint64_t bufferSize = bufferAddr[0].bufferInfo.rma.size;
+    if (targetAddr >= baseAddr) {
         uint64_t offset = targetAddr - baseAddr;
         if (offset <= bufferSize && len <= bufferSize - offset) {
             KERNEL_LOG(
-                KERNEL_INFO, "HcommFindBufferIdx hit idx=%u addr=%llu len=%llu base=%llu size=%llu\n", i,
+                KERNEL_INFO, "HcommCheckBuffer hit idx=0 addr=%llu len=%llu base=%llu size=%llu\n",
                 static_cast<uint64_t>(targetAddr), static_cast<uint64_t>(len), static_cast<uint64_t>(baseAddr),
                 static_cast<uint64_t>(bufferSize));
-            return static_cast<int32_t>(i);
+            return true;
         }
     }
     KERNEL_LOG(
-        KERNEL_ERROR, "HcommFindBufferIdx failed addr=%llu len=%llu bufferNum=%u\n", static_cast<uint64_t>(targetAddr),
+        KERNEL_ERROR, "HcommCheckBuffer failed addr=%llu len=%llu bufferNum=%u\n", static_cast<uint64_t>(targetAddr),
         static_cast<uint64_t>(len), bufferNum);
-    return HCOMM_FAILED;
+    return false;
 }
 
 template <typename T>

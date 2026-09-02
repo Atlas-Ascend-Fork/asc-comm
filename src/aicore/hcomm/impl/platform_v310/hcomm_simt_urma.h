@@ -338,10 +338,10 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::ResolvePost(
     __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
     __gm__ RegedBufferEntity* remoteBuffers =
         reinterpret_cast<__gm__ RegedBufferEntity*>(channelEntity->remoteBufferAddr);
-    int32_t remoteIdx = HcommSimtFindBufferIdx(remoteBuffers, channelEntity->remoteBufferNum, remoteAddr, len);
-    if (remoteIdx == HCOMM_FAILED) {
+    if (!HcommSimtCheckBuffer(remoteBuffers, channelEntity->remoteBufferNum, remoteAddr, len)) {
         return HCOMM_FAILED;
     }
+    constexpr int32_t remoteIdx = 0;
     __gm__ RegedBufferEntity* remoteMemInfo = &remoteBuffers[remoteIdx];
 
     // The 64-byte used range (offset 8..71) crosses a cache line, and bulk-reading it as an
