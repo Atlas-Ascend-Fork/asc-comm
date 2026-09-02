@@ -47,6 +47,10 @@ add_executable(demo
     utils.cpp
 )
 
+target_sources(demo PRIVATE
+    hcomm_dfx_export.cpp
+)
+
 target_include_directories(demo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${ASCCOMM_ROOT}/src/aicore
