@@ -37,6 +37,7 @@ set_source_files_properties(
     hcomm_write_read_nbi_kernel.cpp
     utils.cpp
     hcomm_rw_def.h
+    hcomm_dfx_export.cpp
     PROPERTIES LANGUAGE ASC
 )
 

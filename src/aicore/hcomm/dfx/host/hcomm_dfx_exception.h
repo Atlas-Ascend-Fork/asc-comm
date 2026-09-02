@@ -11,7 +11,6 @@
 #ifndef ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_EXCEPTION_H
 #define ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_EXCEPTION_H
 
-#ifndef __aicore__
 #include <atomic>
 #include <cstdarg>
 #include <cstdio>
@@ -19,7 +18,6 @@
 
 #include "acl/acl.h"
 #include "acl/acl_rt.h"
-#endif
 
 namespace AscendC {
 namespace HcommDfx {

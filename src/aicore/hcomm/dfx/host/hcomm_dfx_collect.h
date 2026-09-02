@@ -30,6 +30,9 @@ struct QueueReadContext {
     aclrtStream stream = nullptr;
 };
 
+constexpr uint32_t QUEUE_LEADING_WINDOW = 4U;
+constexpr uint32_t QUEUE_TAIL_WINDOW = 4U;
+
 inline uint64_t PtrToU64(const void *ptr)
 {
     return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr));
@@ -47,6 +50,13 @@ inline bool CopyFromDevice(void *dst, uint32_t dstSize, uint64_t src, uint32_t s
     const uint32_t copySize = std::min(dstSize, size);
     std::memset(dst, 0, dstSize);
     return aclrtMemcpy(dst, copySize, reinterpret_cast<void *>(src), copySize, ACL_MEMCPY_DEVICE_TO_HOST) == ACL_SUCCESS;
+}
+
+template <typename T>
+inline bool CopyFromDevice(uint64_t src, T &dst, const char *tag)
+{
+    (void)tag;
+    return CopyFromDevice(&dst, static_cast<uint32_t>(sizeof(T)), src, static_cast<uint32_t>(sizeof(T)));
 }
 
 inline uint32_t SqWqeReadBytes(uint32_t wqeSize)
@@ -121,11 +131,9 @@ inline bool ReadQueueEntry(void *reader, uint64_t addr, uint8_t *data, uint32_t 
     return true;
 }
 
-inline bool AppendQueueEntry(ChannelHandle channel, void *reader, uint32_t entryType, uint32_t queueIndex,
-                             uint32_t entryIndex, uint32_t cursor, uint64_t addr, uint32_t size,
-                             HcommDfxChannelInfo &out)
+inline bool AppendQueueEntry(void *reader, uint32_t entryType, uint32_t queueIndex, uint32_t entryIndex,
+                             uint32_t cursor, uint64_t addr, uint32_t size, HcommDfxChannelInfo &out)
 {
-    (void)channel;
     if (out.queueEntryDumpNum >= HCOMM_DFX_MAX_QUEUE_ENTRIES || addr == 0 || size == 0) {
         return false;
     }
@@ -173,14 +181,14 @@ inline void SampleSqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, ui
     const uint32_t readBytes = SqWqeReadBytes(wqeSize);
     const uint32_t leading = std::min<uint32_t>(depth, QUEUE_LEADING_WINDOW);
     for (uint32_t idx = 0; idx < leading; ++idx) {
-        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, idx, idx,
+        (void)AppendQueueEntry(reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, idx, idx,
             va + static_cast<uint64_t>(idx) * wqeSize, readBytes, channel);
     }
     const uint32_t window = head == 0 ? 1U : std::min<uint32_t>(head, QUEUE_TAIL_WINDOW);
     const uint32_t start = head >= window ? head - window : 0U;
     for (uint32_t idx = 0; idx < window; ++idx) {
         const uint32_t slot = (start + idx) % depth;
-        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, slot, start + idx,
+        (void)AppendQueueEntry(reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, slot, start + idx,
             va + static_cast<uint64_t>(slot) * wqeSize, readBytes, channel);
     }
 }
@@ -190,7 +198,7 @@ inline void SampleCqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, ui
 {
     const uint32_t leading = std::min<uint32_t>(depth, QUEUE_LEADING_WINDOW);
     for (uint32_t idx = 0; idx < leading; ++idx) {
-        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_CQE, queueIndex, idx, idx,
+        (void)AppendQueueEntry(reader, HCOMM_DFX_ENTRY_URMA_CQE, queueIndex, idx, idx,
             va + static_cast<uint64_t>(idx) * cqeSize, cqeSize, channel);
     }
     const uint32_t window = tail < (QUEUE_TAIL_WINDOW - 1U) ? tail + 1U : QUEUE_TAIL_WINDOW;
@@ -198,7 +206,7 @@ inline void SampleCqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, ui
     for (uint32_t idx = 0; idx < window; ++idx) {
         const uint32_t cursor = start + idx;
         const uint32_t slot = cursor % depth;
-        (void)AppendQueueEntry(channel, reader, HCOMM_DFX_ENTRY_URMA_CQE, queueIndex, slot, cursor,
+        (void)AppendQueueEntry(reader, HCOMM_DFX_ENTRY_URMA_CQE, queueIndex, slot, cursor,
             va + static_cast<uint64_t>(slot) * cqeSize, cqeSize, channel);
     }
 }
