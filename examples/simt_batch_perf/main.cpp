@@ -179,6 +179,72 @@ const char* FailureAction(uint64_t action)
     return action < sizeof(names) / sizeof(names[0]) ? names[action] : "Unknown";
 }
 
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+const char* LeaderStage(uint64_t stage)
+{
+    switch (stage) {
+        case 90U: return "AppendCall";
+        case 100U: return "PlanStart";
+        case 110U: return "PlanBroadcastWait";
+        case 120U: return "PlanDone";
+        case 130U: return "EmitWait";
+        case 140U: return "AppendDone";
+        case 200U: return "CommitWait";
+        case 240U: return "CommitDone";
+        case 300U: return "Drain";
+        case 340U: return "Done";
+        default: return "NotReached";
+    }
+}
+
+const char* PublisherStage(uint64_t stage)
+{
+    switch (stage) {
+        case 131U: return "TailEmitStart";
+        case 132U: return "TailEmitDone";
+        case 210U: return "PublishStart";
+        case 220U: return "HeadWritten";
+        case 230U: return "DwqeWritten";
+        default: return "NotReached";
+    }
+}
+
+void PrintProfileProgress(void* timingBuf)
+{
+    aclrtStream diagnosticStream = nullptr;
+    void* snapshotBuffer = nullptr;
+    aclError ret = aclrtCreateStream(&diagnosticStream);
+    if (ret == ACL_SUCCESS) {
+        ret = aclrtMallocHost(&snapshotBuffer, kTimingWords * sizeof(uint64_t));
+    }
+    if (ret == ACL_SUCCESS) {
+        ret = aclrtMemcpyAsync(snapshotBuffer, kTimingWords * sizeof(uint64_t), timingBuf,
+            kTimingWords * sizeof(uint64_t), ACL_MEMCPY_DEVICE_TO_HOST, diagnosticStream);
+    }
+    if (ret == ACL_SUCCESS) {
+        ret = aclrtSynchronizeStreamWithTimeout(diagnosticStream, 2000);
+    }
+    if (ret == ACL_SUCCESS) {
+        const uint64_t* trace = static_cast<const uint64_t*>(snapshotBuffer);
+        std::cout << "DIAG_PROGRESS | Phase=" << FailurePhase(trace[kTracePhaseIndex])
+                  << " | Operation=" << trace[kTraceOperationIndex]
+                  << " | LeaderStage=" << LeaderStage(trace[kTraceLeaderStageIndex])
+                  << "(" << trace[kTraceLeaderStageIndex] << ")"
+                  << " | PublisherStage=" << PublisherStage(trace[kTracePublisherStageIndex])
+                  << "(" << trace[kTracePublisherStageIndex] << ")"
+                  << " | Head=" << trace[kTraceHeadIndex] << std::endl;
+    } else {
+        std::cout << "DIAG_PROGRESS | SnapshotFailed=" << ret << std::endl;
+    }
+    if (snapshotBuffer != nullptr) {
+        (void)aclrtFreeHost(snapshotBuffer);
+    }
+    if (diagnosticStream != nullptr) {
+        (void)aclrtDestroyStream(diagnosticStream);
+    }
+}
+#endif
+
 uint32_t AlignUp(uint32_t value, uint32_t alignment)
 {
     return (value + alignment - 1U) / alignment * alignment;
@@ -401,7 +467,16 @@ int main(int argc, char* argv[])
         ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
         LaunchSimtBatchPerf(stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, payloadBytes, slotBytes,
             iterations, warmup, batchSize, api, mode != "immediate", mode == "group", groupLanes);
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+        const aclError syncRet = aclrtSynchronizeStreamWithTimeout(stream, 5000);
+        if (syncRet != ACL_SUCCESS) {
+            PrintProfileProgress(timingBuf);
+            std::cout << "DIAG_PROGRESS | ComputeStreamSync=" << syncRet << std::endl;
+            return syncRet;
+        }
+#else
         ACLCHECK(aclrtSynchronizeStream(stream));
+#endif
         ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
         const bool devicePass = static_cast<int64_t>(timing[kStatusIndex]) == 0 &&
             timing[kCompletedIndex] == iterations;
