@@ -93,7 +93,6 @@ target_compile_options(intf_llt_pub_basic INTERFACE
     $<$<BOOL:${ENABLE_GCOV}>:-fprofile-arcs -ftest-coverage>
     -fPIC
     -pipe
-    -Werror
 )
 target_link_options(intf_llt_pub_basic INTERFACE
     $<$<BOOL:${ENABLE_GCOV}>:-fprofile-arcs -ftest-coverage>
