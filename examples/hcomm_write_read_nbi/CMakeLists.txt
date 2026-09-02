@@ -45,6 +45,7 @@ add_executable(demo
     hcomm_write_read_nbi_kernel.cpp
     hcomm_rw_def.h
     utils.cpp
+    hcomm_dfx_export.cpp
 )
 
 target_include_directories(demo PRIVATE
