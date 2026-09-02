@@ -37,6 +37,7 @@ inline int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
 
     HcommDfx::MarkExceptionCallbackBound();
     HcommDfx::ClearPendingException();
+    // Runs once per process at application request; print unconditionally so the callback binding stays visible by default.
     std::printf("[HcommDfxDump] exception callback registered\n");
     std::fflush(stdout);
     return HCOMM_SUCCESS;
@@ -44,46 +45,37 @@ inline int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
 
 inline int32_t HcommChannelInfoDump(ChannelHandle channel, HcommDfxChannelDumpData *dump)
 {
-    const bool callbackBound = HcommDfx::IsExceptionCallbackBound();
-    if (callbackBound && !HcommDfx::HasPendingException()) {
+    constexpr uint32_t dumpLen = sizeof(HcommDfxChannelDumpData);
+
+    bool shouldDump = !HcommDfx::IsExceptionCallbackBound() || HcommDfx::HasPendingException();
+    if (!shouldDump) {
+        // Successful no-op. The caller's buffer must still end up deterministic: zero it so it never
+        // carries stale data from an earlier dump, and a zeroed magic lets the caller detect "no dump".
+        if (dump != nullptr) {
+            std::memset(dump, 0, dumpLen);
+        }
         return HCOMM_SUCCESS;
     }
-    if (callbackBound) {
-        HcommDfx::ClearPendingException();
-    }
 
-    uint32_t dumpLen = 0;
-    int32_t ret = HcommDfx::GetChannelDumpInfoSize(1U, &channel, &dumpLen);
-    if (ret != HCOMM_SUCCESS || dumpLen == 0) {
-        std::printf("[HcommDfxDump] get dump size failed ret=%d len=%u\n", ret, dumpLen);
-        std::fflush(stdout);
-        return ret;
-    }
-
-    HcommDfxChannelDumpData *dumpData = dump;
-    void *dumpBuffer = dumpData;
-    void *allocatedBuffer = nullptr;
-    if (dumpData == nullptr) {
-        aclError allocRet = aclrtMallocHost(&allocatedBuffer, dumpLen);
-        if (allocRet != ACL_SUCCESS) {
+    void *buf = dump;
+    bool needFree = (buf == nullptr);
+    if (needFree) {
+        aclError allocRet = aclrtMallocHost(&buf, dumpLen);
+        if (allocRet != ACL_SUCCESS || buf == nullptr) {
             std::printf("[HcommDfxDump] allocate dump buffer failed ret=%d len=%u\n", allocRet, dumpLen);
             std::fflush(stdout);
             return HCOMM_FAILED;
         }
-        if (allocatedBuffer == nullptr) {
-            return HCOMM_FAILED;
-        }
-        dumpBuffer = allocatedBuffer;
-        dumpData = reinterpret_cast<HcommDfxChannelDumpData *>(dumpBuffer);
     }
 
-    std::memset(dumpBuffer, 0, dumpLen);
-    ret = HcommDfx::DumpChannelInfo(1U, &channel, dumpBuffer, dumpLen);
-    if (allocatedBuffer != nullptr) {
-        (void)aclrtFreeHost(allocatedBuffer);
+    int32_t ret = HcommDfx::DumpChannelInfo(1U, &channel, buf, dumpLen);
+    if (ret == HCOMM_SUCCESS) {
+        HcommDfx::ClearPendingException();
     }
-    std::printf("[HcommDfxDump] HcommChannelInfoDump ret=%d len=%u\n", ret, dumpLen);
-    std::fflush(stdout);
+    if (needFree) {
+        (void)aclrtFreeHost(buf);
+    }
+    HcommDfx::Trace("HcommChannelInfoDump ret=%d len=%u", ret, dumpLen);
     return ret;
 }
 

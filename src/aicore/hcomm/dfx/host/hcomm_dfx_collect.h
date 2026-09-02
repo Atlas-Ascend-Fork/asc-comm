@@ -292,15 +292,6 @@ inline bool CollectChannel(ChannelHandle channelHandle, HcommDfxChannelInfo &cha
     return true;
 }
 
-inline int32_t GetChannelDumpInfoSize(uint32_t channelNum, const ChannelHandle *channels, uint32_t *len)
-{
-    if (len == nullptr || (channelNum != 0 && channels == nullptr)) {
-        return HCOMM_FAILED;
-    }
-    *len = sizeof(HcommDfxChannelDumpData);
-    return HCOMM_SUCCESS;
-}
-
 inline int32_t DumpChannelInfo(uint32_t channelNum, const ChannelHandle *channels, void *buffer, uint32_t len)
 {
     if (channelNum == 0 || channels == nullptr || buffer == nullptr || len < sizeof(HcommDfxChannelDumpData)) {

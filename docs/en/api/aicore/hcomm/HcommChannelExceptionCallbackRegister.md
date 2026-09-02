@@ -22,4 +22,4 @@ int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol);
 ## Constraints
 - Call this API before launching the target kernel.
 - The callback only records the exception state. It does not perform device-to-host copy, printing, or kernel launch operations inside the exception callback.
-- If registration is not performed, no exception state is recorded and a later dump call becomes a no-op.
+- Without registration, no exception state is recorded and the channel dump API performs a direct dump whenever it is called.

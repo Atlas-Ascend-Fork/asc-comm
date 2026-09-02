@@ -52,7 +52,6 @@ bool IsExceptionCallbackBound();
 void MarkExceptionCallbackBound();
 void ClearPendingException();
 
-int32_t GetChannelDumpInfoSize(uint32_t channelNum, const ChannelHandle *channels, uint32_t *len);
 int32_t DumpChannelInfo(uint32_t channelNum, const ChannelHandle *channels, void *buffer, uint32_t len);
 int32_t ParseAndPrintChannelDump(const HcommDfxChannelDumpData &dump);
 

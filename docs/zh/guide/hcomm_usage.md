@@ -174,7 +174,9 @@ AscendC::HcommDfxChannelDumpData dumpInfo {};
 AscendC::HcommChannelInfoDump(channel, &dumpInfo);
 ```
 
-dump接口可以无条件调用。只有当回调已经记录异常时，接口才会打印诊断信息；当传入`dumpInfo`时，还会把解析结果返回给调用方。第一次成功 dump 后会清掉已记录的异常状态。
+dump接口可以无条件调用。仅当已注册异常回调且无pending异常时接口才会跳过执行并直接返回成功；其余情况都会执行采集与打印。当传入`dumpInfo`时，接口会把采集到的原始数据写入该缓冲区。在"跳过执行并返回成功"的分支里，缓冲区会被清零，不会残留上一次dump的旧数据——调用方可通过`magic`为0判断本次调用未产生dump。dump成功后清掉已记录的异常状态，失败则保留以便重试。
+
+默认情况下该helper只打印必要的一次性提示（如异常回调注册成功）。设置环境变量`HCOMM_DFX_DUMP_TRACE=1`后，还会向stderr输出每次调用的`[TRACE]`调试行（如每次dump的返回码）。该开关只控制这些调试打印，不影响dump行为本身。
 
 ## 注意事项
 

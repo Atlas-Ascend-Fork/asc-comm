@@ -161,8 +161,8 @@ make -j
 
 **接入维测能力只需两步**（见 `hcomm_write_read_nbi.asc` 中 `HcommRW`，默认已接入，正常路径零开销）：
 
-1. **注册**：launch 前调用 `AscendC::HcommChannelExceptionCallbackRegister(kernelSymbol)`，为目标 kernel 绑定异常回调。缺此步则异常发生时框架不记录现场，后续 dump 会静默返回。维测注册失败不应阻断业务主流程，样例直接调用，不检查返回值。
-2. **采集**：核函数执行后（`aclrtSynchronizeStream` 之后，无论成功与否），在 host 侧安全点调用 `AscendC::HcommChannelInfoDump(channel, &dumpInfo)`。`channel` 即算子持有的 `ChannelHandle`；接口内部先判断是否有异常记录，有异常才采集并打印通道现场，同时把解析结果写入 `dumpInfo`，无异常直接返回成功，因此**可无条件调用**、无需先判断 kernel 是否出错。
+1. **注册**：launch 前调用 `AscendC::HcommChannelExceptionCallbackRegister(kernelSymbol)`，为目标 kernel 绑定异常回调。注册后正常路径（无异常记录）dump 会跳过执行、直接返回成功；缺此步则 dump 每次都会无条件执行完整采集。维测注册失败不应阻断业务主流程，样例直接调用，不检查返回值。
+2. **采集**：核函数执行后（`aclrtSynchronizeStream` 之后，无论成功与否），在 host 侧安全点调用 `AscendC::HcommChannelInfoDump(channel, &dumpInfo)`。`channel` 即算子持有的 `ChannelHandle`；接口仅当已注册异常回调且无pending异常时跳过执行并返回成功（此时 `dumpInfo` 会被清零，不会残留旧数据），其余情况都会执行采集与打印，并把采集到的原始数据写入 `dumpInfo`，因此**可无条件调用**、无需先判断 kernel 是否出错。
 
 **想触发异常看 dump 效果**：取消 `hcomm_write_read_nbi_kernel.cpp` 中 `trap()` 行的注释后重新编译运行。正常读写完成后核函数 `trap`，`aclrtSynchronizeStream` 返回错误码，随后 rank 0 打印 dump 出的 Channel / SQ / CQ / WQE / CQE 现场，终端最终打印 `test failed!`（异常被触发，属预期）。
 
@@ -185,7 +185,7 @@ rank 0 test pass!
 rank 1 test pass!
 test pass!
 ```
-> `exception callback registered` 表示 DFX 注册步骤生效；正常路径无异常记录，`HcommChannelInfoDump` 静默返回，不产生任何 dump 输出。`dumpInfo` 仅在需要自行处理解析结果时使用。
+> `exception callback registered` 表示 DFX 注册步骤生效（进程内各 rank 各打印一次）。正常路径无异常记录时，`HcommChannelInfoDump` 直接返回成功，不产生任何 dump 输出。`dumpInfo` 仅用于接收采集到的原始数据，跳过执行时会被清零。设置环境变量 `HCOMM_DFX_DUMP_TRACE=1` 可额外输出每次调用的 `[TRACE]` 调试行（仅控制调试打印，不影响 dump 行为）。
 
 **取消 `trap()` 注释后走异常路径**，rank 0 会打印 dump 出的通道现场并最终以 `test failed!` 结束（异常被触发，属预期，DFX dump 即演示重点）：
 ```text

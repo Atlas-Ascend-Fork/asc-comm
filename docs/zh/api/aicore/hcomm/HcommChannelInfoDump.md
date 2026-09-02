@@ -1,7 +1,7 @@
 # HcommChannelInfoDump
 
 ## 功能说明
-在`aclrtSynchronizeStream`返回错误后的host侧安全点，采集、解析并打印通信通道诊断信息。没有记录到异常时也可以无条件调用，接口会直接返回成功；同时可以把解析结果返回给调用方。
+在`aclrtSynchronizeStream`返回错误后的host侧安全点，采集、解析并打印通信通道诊断信息。接口可无条件调用，无论是否记录到异常；也可以传入输出缓冲区接收采集到的原始数据，供调用方自行分析。
 
 ## 函数原型
 ```cpp
@@ -12,7 +12,7 @@ int32_t HcommChannelInfoDump(AscendC::ChannelHandle channel, AscendC::HcommDfxCh
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
 | `channel` | 输入 | 算子持有的通信通道句柄。 |
-| `dump` | 输出 | 解析后的dump数据。若只需要默认打印，可传`nullptr`。 |
+| `dump` | 输出 | 可选，接收采集到的原始数据。若只需要默认打印，传`nullptr`。 |
 
 ## 返回值
 | 返回值 | 说明 |
@@ -21,7 +21,7 @@ int32_t HcommChannelInfoDump(AscendC::ChannelHandle channel, AscendC::HcommDfxCh
 | `-1` | dump失败。 |
 
 ## 约束说明
-- 必须在流同步失败后的host安全点调用。
-- 接口内部会检查pending异常状态，调用方无需手动判断kernel是否出错。
-- 第一次成功 dump 后会清掉已记录的异常状态，后续重复调用会直接返回成功，不再打印旧现场。
-- 当`dump`不为`nullptr`时，接口会先填充解析结果，再执行默认打屏。
+- 在host安全点调用，通常是流同步失败之后。
+- 接口内部会检查pending异常状态：仅在已注册异常回调且无pending异常时跳过dump并直接返回成功，其余情况都会执行采集。
+- dump成功后会清掉已记录的异常状态，后续重复调用会直接返回成功，不再打印旧现场；dump失败则保留异常状态，调用方可以重试。
+- 当`dump`不为`nullptr`时，接口先把采集到的原始数据写入该缓冲区，再执行默认打屏。

@@ -178,7 +178,9 @@ AscendC::HcommDfxChannelDumpData dumpInfo {};
 AscendC::HcommChannelInfoDump(channel, &dumpInfo);
 ```
 
-The dump API is safe to call unconditionally. It prints diagnostics only when an exception has already been recorded by the registered callback. When `dumpInfo` is provided, the parsed data is also returned to the caller. The first successful dump consumes the recorded exception state.
+The dump API is safe to call unconditionally. It skips execution and returns success only when an exception callback is registered and no exception is pending; otherwise it collects and prints. When `dumpInfo` is provided, the raw collected data is stored into it. On a successful call that performs no dump (the skip case above), the buffer is zeroed so it never carries stale data from an earlier dump — a zeroed `magic` means "no dump occurred this call". A successful dump clears the recorded exception state; a failed one keeps it so the caller can retry.
+
+By default the helper prints only essential one-time messages (e.g. successful exception-callback registration). Set the environment variable `HCOMM_DFX_DUMP_TRACE=1` to also print per-call `[TRACE]` debug lines (for example each dump return code) to stderr. It only gates these debug prints; it does not change dump behavior.
 
 ## Notes
 

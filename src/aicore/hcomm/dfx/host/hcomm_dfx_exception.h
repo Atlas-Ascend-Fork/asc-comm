@@ -35,8 +35,12 @@ inline ExceptionRecord g_exception{};
 
 inline bool IsTraceEnabled()
 {
-    const char *enabled = std::getenv("HCOMM_DFX_DUMP_TRACE");
-    return enabled != nullptr && enabled[0] != '\0' && enabled[0] != '0';
+    // Read once at first use: avoids calling the non-thread-safe getenv() on every Trace().
+    static const bool enabled = [] {
+        const char *value = std::getenv("HCOMM_DFX_DUMP_TRACE");
+        return value != nullptr && value[0] != '\0' && value[0] != '0';
+    }();
+    return enabled;
 }
 
 inline void Trace(const char *format, ...)

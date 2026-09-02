@@ -30,11 +30,11 @@ int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol);
 /*!
  * @brief Dumps, parses, and prints the channel diagnostics at a host safe point after stream synchronization fails.
  * @param [in] channel Channel handle owned by the operator.
- * @param [out] dump Parsed dump data. Set to nullptr when the caller only needs the default printing side effect.
+ * @param [out] dump Raw collected dump data. Set to nullptr when the caller only needs the default printing.
  * @return 0 on success, -1 on failure.
  * @note Safe to call unconditionally. After the exception callback has been registered, this API returns success
  *       without printing when no exception is pending. Without callback binding, the API performs a direct dump.
- * @note When @p dump is not nullptr, the API fills the parsed dump structure before printing.
+ * @note When @p dump is not nullptr, the collected data is stored into it before the printing side effect runs.
  */
 int32_t HcommChannelInfoDump(ChannelHandle channel, HcommDfxChannelDumpData *dump = nullptr);
 
