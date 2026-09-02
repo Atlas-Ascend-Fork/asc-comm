@@ -373,24 +373,6 @@ __simt_callee__ inline void HcommSimtBuildBatchTailStage(
     }
 }
 
-__simt_callee__ inline void HcommSimtSaveBatchTail(
-    UbcCtpBatchHandle& batchHandle, const HcommSimtWqeStage& stage)
-{
-#pragma unroll
-    for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
-        batchHandle.requestWords[word] = stage.words[word];
-    }
-}
-
-__simt_callee__ inline void HcommSimtLoadBatchTail(
-    const UbcCtpBatchHandle& batchHandle, HcommSimtWqeStage& stage)
-{
-#pragma unroll
-    for (uint32_t word = 0U; word < HCOMM_SIMT_WQE_WORDS; ++word) {
-        stage.words[word] = batchHandle.requestWords[word];
-    }
-}
-
 // Non-publishers stream their lane-private request directly to the final SQ slot. Static Jetty
 // words come from the single shared UB context; no complete WQE is staged or reloaded from UB.
 __simt_callee__ inline void HcommSimtWriteBatchRequestToSq(
@@ -857,8 +839,8 @@ template <typename Desc>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
     UbcCtpBatchHandle& batchHandle, const Desc& desc)
 {
-    // A single-lane Append knows the whole batch. Plan its final SQ range now, write the
-    // publisher WQE into that slot and retain the same bytes for the later DWQE publication.
+    // A single-lane Append knows the whole batch. Plan its final SQ range now and write the
+    // publisher WQE into that slot; BatchCommit only rebuilds the tail image needed by DWQE.
     HcommSimtPackedSqeTemplate requestTemplate {};
     requestTemplate.sqDepth = 1U;
     requestTemplate.word1 = static_cast<uint64_t>(Desc::publisherSgeNum) << 24U;
@@ -889,7 +871,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
     HcommSimtWqeStage tailStage;
     HcommSimtBuildBatchTailStage(context, batchHandle, tailHead, tailStage);
     HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(post, tailHead, tailStage);
-    HcommSimtSaveBatchTail(batchHandle, tailStage);
     batchHandle.publishedHead = headVal + ((1ULL << 32U) | totalBb);
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     const uint64_t profileEmitEnd = clock();
@@ -966,7 +947,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
         HcommSimtWqeStage tailStage;
         HcommSimtBuildBatchTailStage(context, batchHandle, laneHead, tailStage);
         HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(post, laneHead, tailStage);
-        HcommSimtSaveBatchTail(batchHandle, tailStage);
     } else {
         HcommSimtWriteBatchRequestToSq(post, context, batchHandle, laneHead);
     }
@@ -1165,7 +1145,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     HcommSimtResolvedPost post;
     HcommSimtLoadBatchStaticPost(context, post);
     HcommSimtWqeStage tailStage;
-    HcommSimtLoadBatchTail(batchHandle, tailStage);
+    const uint32_t tailHead = HcommSimtHeadIdx(batchHandle.publishedHead) - HCOMM_URMA_DWQE_BB_CNT;
+    HcommSimtBuildBatchTailStage(context, batchHandle, tailHead, tailStage);
     asc_threadfence();
     *post.headAddr = batchHandle.publishedHead;
     HcommSimtRingDwqe(post.dwqeAddr, tailStage);
@@ -1191,7 +1172,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         HcommSimtResolvedPost post;
         HcommSimtLoadBatchStaticPost(context, post);
         HcommSimtWqeStage tailStage;
-        HcommSimtLoadBatchTail(batchHandle, tailStage);
+        const uint32_t tailHead = HcommSimtHeadIdx(batchHandle.publishedHead) - HCOMM_URMA_DWQE_BB_CNT;
+        HcommSimtBuildBatchTailStage(context, batchHandle, tailHead, tailStage);
         asc_threadfence();
         *post.headAddr = batchHandle.publishedHead;
         HcommSimtRingDwqe(post.dwqeAddr, tailStage);

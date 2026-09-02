@@ -44,8 +44,8 @@ enum class HcommUrmaReduceOp : uint32_t {
 
 namespace simt {
 
-// A batch stores one shared static queue/Jetty context in UB. Per-lane requests and the retained
-// publisher WQE stay lane-private, so the workspace does not grow with the lane count.
+// A batch stores one shared static queue/Jetty context in UB. Per-lane request fields stay
+// lane-private, so the workspace does not grow with the lane count.
 constexpr uint32_t HCOMM_SIMT_BATCH_ITEM_BYTES = 128U;
 
 constexpr uint32_t HcommSimtBatchBufferBytes(uint32_t itemCapacity)
