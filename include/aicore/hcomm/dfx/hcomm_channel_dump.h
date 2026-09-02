@@ -12,6 +12,7 @@
 #define ASCCOMM_INCLUDE_AICORE_HCOMM_DFX_HCOMM_CHANNEL_DUMP_H
 
 #include "hcomm/hcomm_common.h"
+#include "hcomm_channel_dump_info.h"
 
 #include <cstdint>
 
@@ -27,13 +28,20 @@ namespace AscendC {
 int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol);
 
 /*!
- * @brief Dumps and prints the channel diagnostics at a host safe point after stream synchronization fails.
+ * @brief Dumps, parses, and prints the channel diagnostics at a host safe point after stream synchronization fails.
  * @param [in] channel Channel handle owned by the operator.
+ * @param [out] dump Parsed dump data. Set to nullptr when the caller only needs the default printing side effect.
  * @return 0 on success, -1 on failure.
- * @note Safe to call unconditionally. If no exception has been recorded, this API returns success without printing.
+ * @note Safe to call unconditionally. After the exception callback has been registered, this API returns success
+ *       without printing when no exception is pending. Without callback binding, the API performs a direct dump.
+ * @note When @p dump is not nullptr, the API fills the parsed dump structure before printing.
  */
-int32_t HcommChannelInfoDump(ChannelHandle channel);
+int32_t HcommChannelInfoDump(ChannelHandle channel, HcommDfxChannelDumpData *dump = nullptr);
 
 } // namespace AscendC
+
+#if !defined(__aicore__) || defined(HCOMM_DFX_INCLUDE_IMPLEMENTATION)
+#include "../../../../src/aicore/hcomm/dfx/host/hcomm_dfx.h"
+#endif
 
 #endif // ASCCOMM_INCLUDE_AICORE_HCOMM_DFX_HCOMM_CHANNEL_DUMP_H
