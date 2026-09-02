@@ -36,7 +36,6 @@ endif()
 set_source_files_properties(
     hcomm_write_read_nbi_kernel.cpp
     utils.cpp
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx_queue_reader.cpp
     hcomm_rw_def.h
     PROPERTIES LANGUAGE ASC
 )
@@ -45,19 +44,12 @@ add_executable(demo
     hcomm_write_read_nbi.asc
     hcomm_write_read_nbi_kernel.cpp
     hcomm_rw_def.h
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx.cpp
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx_exception.cpp
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx_collect.cpp
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx_parse.cpp
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host/hcomm_dfx_queue_reader.cpp
     utils.cpp
 )
 
 target_include_directories(demo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/common
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/host
-    ${ASCCOMM_ROOT}/src/aicore/hcomm/dfx/impl
+    ${ASCCOMM_ROOT}/src/aicore
     ${ASCCOMM_ROOT}/include/aicore
     $ENV{ASCEND_HOME_PATH}/asc
     ${ASCEND_CANN_ARCH_DIR}/asc

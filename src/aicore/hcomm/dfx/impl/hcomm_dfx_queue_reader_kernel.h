@@ -12,7 +12,7 @@
 #define ASCCOMM_SRC_AICORE_HCOMM_DFX_IMPL_HCOMM_DFX_QUEUE_READER_KERNEL_H
 
 #include "kernel_operator.h"
-#include "hcomm_dfx_impl.h"
+#include "../common/hcomm_dfx_impl.h"
 
 using namespace AscendC;
 

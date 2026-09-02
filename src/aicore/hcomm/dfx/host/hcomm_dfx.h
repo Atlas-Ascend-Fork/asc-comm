@@ -3,27 +3,21 @@
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm/dfx/hcomm_channel_dump.h"
-#include "hcomm_dfx_impl.h"
-#include "../../common/hcomm_inner_def.h"
+#ifndef ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_H
+#define ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_H
 
-#include "acl/acl.h"
-#include "acl/acl_rt.h"
-
-#include <cstdio>
-#include <cstring>
-
-extern "C" aclError aclrtGetFuncBySymbol(const void *symbol, aclrtFuncHandle *funcHandle);
-extern "C" aclError aclrtFunctionGetBinary(aclrtFuncHandle funcHandle, aclrtBinHandle *binHandle);
+#include "hcomm_dfx_collect.h"
+#include "hcomm_dfx_exception.h"
+#include "hcomm_dfx_parse.h"
 
 namespace AscendC {
 
-int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
+inline int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
 {
     if (kernelSymbol == nullptr) {
         std::printf("[HcommDfxDump] bind exception callback failed: kernelSymbol is null\n");
@@ -48,7 +42,7 @@ int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
     return HCOMM_SUCCESS;
 }
 
-int32_t HcommChannelInfoDump(ChannelHandle channel)
+inline int32_t HcommChannelInfoDump(ChannelHandle channel, HcommDfxChannelDumpData *dump)
 {
     const bool callbackBound = HcommDfx::IsExceptionCallbackBound();
     if (callbackBound && !HcommDfx::HasPendingException()) {
@@ -66,23 +60,33 @@ int32_t HcommChannelInfoDump(ChannelHandle channel)
         return ret;
     }
 
-    void *dumpBuffer = nullptr;
-    aclError allocRet = aclrtMallocHost(&dumpBuffer, dumpLen);
-    if (allocRet != ACL_SUCCESS) {
-        std::printf("[HcommDfxDump] allocate dump buffer failed ret=%d len=%u\n", allocRet, dumpLen);
-        std::fflush(stdout);
-        return HCOMM_FAILED;
-    }
-    if (dumpBuffer == nullptr) {
-        return HCOMM_FAILED;
+    HcommDfxChannelDumpData *dumpData = dump;
+    void *dumpBuffer = dumpData;
+    void *allocatedBuffer = nullptr;
+    if (dumpData == nullptr) {
+        aclError allocRet = aclrtMallocHost(&allocatedBuffer, dumpLen);
+        if (allocRet != ACL_SUCCESS) {
+            std::printf("[HcommDfxDump] allocate dump buffer failed ret=%d len=%u\n", allocRet, dumpLen);
+            std::fflush(stdout);
+            return HCOMM_FAILED;
+        }
+        if (allocatedBuffer == nullptr) {
+            return HCOMM_FAILED;
+        }
+        dumpBuffer = allocatedBuffer;
+        dumpData = reinterpret_cast<HcommDfxChannelDumpData *>(dumpBuffer);
     }
 
     std::memset(dumpBuffer, 0, dumpLen);
     ret = HcommDfx::DumpChannelInfo(1U, &channel, dumpBuffer, dumpLen);
-    (void)aclrtFreeHost(dumpBuffer);
+    if (allocatedBuffer != nullptr) {
+        (void)aclrtFreeHost(allocatedBuffer);
+    }
     std::printf("[HcommDfxDump] HcommChannelInfoDump ret=%d len=%u\n", ret, dumpLen);
     std::fflush(stdout);
     return ret;
 }
 
 } // namespace AscendC
+
+#endif // ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_H

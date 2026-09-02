@@ -197,7 +197,14 @@ write_manifest()
         cd "${STAGING_DIR}/payload"
         while IFS= read -r -d '' file; do
             sha256sum "${file}"
-        done < <(find asc -type f -name '*.h' -print0 | sort -z)
+        done < <(
+            {
+                find asc -type f -name '*.h' -print0
+                if [[ -d lib64 ]]; then
+                    find lib64 -type f -name '*.so' -print0
+                fi
+            } | sort -z
+        )
     ) > "${STAGING_DIR}/manifest.sha256"
 }
 
