@@ -154,7 +154,7 @@ __simt_callee__ inline int32_t SubmitJetty(
 
 template <uint32_t batchSize, uint32_t laneCapacity>
 __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
-    __gm__ uint64_t* channels, __gm__ uint64_t* remotes, __gm__ uint8_t* local, __gm__ uint64_t* timing,
+    __gm__ uint64_t* channels, __gm__ uint32_t* remoteIndices, __gm__ uint64_t* timing,
     uint32_t api, uint32_t payloadBytes, uint32_t slotBytes, uint32_t regionBytes, uint32_t iterations, uint32_t warmup,
     uint32_t jettyCount, __ubuf__ uint8_t* batchBuffers, __ubuf__ uint32_t* groupStates,
     __ubuf__ int32_t* statuses, __ubuf__ uint32_t* failurePhases, __ubuf__ uint32_t* failureOperations,
@@ -174,7 +174,8 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
     for (uint32_t wave = 0U; wave < waveCount; ++wave) {
         const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
         auto* groupState = groupStates + jetty * 3U;
-        auto* remote = reinterpret_cast<__gm__ uint8_t*>(remotes[jetty]) + jetty * regionBytes;
+        auto* remote = AscendC::simt::RemoteBufferAddr(channels[jetty], remoteIndices[jetty]) +
+            jetty * regionBytes;
         (void)hcomm.Init(reinterpret_cast<__ubuf__ uint8_t*>(groupState), 3U * sizeof(uint32_t));
         batches[wave] = hcomm.MakeBatchHandle(
             channels[jetty], batchBuffers + jetty * kSimtBatchBufferBytes, kSimtBatchBufferBytes,
@@ -191,11 +192,13 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
         if (batches[wave].context == nullptr) {
             continue;
         }
-        auto* remote = reinterpret_cast<__gm__ uint8_t*>(remotes[jetty]) + jetty * regionBytes;
+        auto* remote = AscendC::simt::RemoteBufferAddr(channels[jetty], remoteIndices[jetty]) +
+            jetty * regionBytes;
+        auto* local = AscendC::simt::LocalBufferAddr(channels[jetty], 0U) + jetty * regionBytes;
         uint32_t failurePhase = kDiagPhaseNone;
         uint32_t failureOperation = 0U;
         const int32_t status = SubmitJetty(
-            hcomm, batches[wave], api, remote, local + jetty * regionBytes,
+            hcomm, batches[wave], api, remote, local,
             payloadBytes, slotBytes, warmup, rank, batchSize, kDiagPhaseWarmupAppend, kDiagPhaseWarmupCommit,
             failurePhase, failureOperation);
         if (rank == 0U) {
@@ -237,11 +240,13 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
     const uint64_t begin = threadIdx.x == 0U ? clock() : 0U;
     for (uint32_t wave = 0U; wave < waveCount; ++wave) {
         const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
-        auto* remote = reinterpret_cast<__gm__ uint8_t*>(remotes[jetty]) + jetty * regionBytes;
+        auto* remote = AscendC::simt::RemoteBufferAddr(channels[jetty], remoteIndices[jetty]) +
+            jetty * regionBytes;
+        auto* local = AscendC::simt::LocalBufferAddr(channels[jetty], 0U) + jetty * regionBytes;
         uint32_t failurePhase = kDiagPhaseNone;
         uint32_t failureOperation = 0U;
         const int32_t status = SubmitJetty(
-            hcomm, batches[wave], api, remote, local + jetty * regionBytes,
+            hcomm, batches[wave], api, remote, local,
             payloadBytes, slotBytes, iterations, rank, batchSize, kDiagPhaseTimedAppend, kDiagPhaseTimedCommit,
             failurePhase, failureOperation);
         if (rank == 0U) {
@@ -288,13 +293,12 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
 } // namespace
 
 extern "C" __global__ __vector__ void SimtMultiJettyPerfKernel(
-    __gm__ void* channelsAddr, __gm__ void* remotesAddr, __gm__ void* localAddr, __gm__ void* timingAddr,
+    __gm__ void* channelsAddr, __gm__ void* remoteIndicesAddr, __gm__ void* timingAddr,
     uint32_t api, uint32_t payloadBytes, uint32_t slotBytes, uint32_t regionBytes, uint32_t iterations, uint32_t warmup,
     uint32_t batchSize, uint32_t jettyCount)
 {
     auto* channels = reinterpret_cast<__gm__ uint64_t*>(channelsAddr);
-    auto* remotes = reinterpret_cast<__gm__ uint64_t*>(remotesAddr);
-    auto* local = reinterpret_cast<__gm__ uint8_t*>(localAddr);
+    auto* remoteIndices = reinterpret_cast<__gm__ uint32_t*>(remoteIndicesAddr);
     auto* timing = reinterpret_cast<__gm__ uint64_t*>(timingAddr);
     alignas(128) __ubuf__ uint8_t batchBuffers[kMaxJettyCount * kSimtBatchBufferBytes];
     alignas(16) __ubuf__ uint32_t groupStates[kMaxJettyCount * 3U];
@@ -306,7 +310,7 @@ extern "C" __global__ __vector__ void SimtMultiJettyPerfKernel(
     laneCount = laneCount < 1024U ? laneCount : 1024U;
 #define LAUNCH_BATCH(size, capacity)                                                                           \
     asc_vf_call<SimtMultiJettyPerfVf<size##U, capacity##U>>(                                                    \
-        dim3(laneCount), channels, remotes, local, timing, api, payloadBytes, slotBytes, regionBytes,       \
+        dim3(laneCount), channels, remoteIndices, timing, api, payloadBytes, slotBytes, regionBytes,      \
         iterations, warmup,                                                                                 \
         jettyCount, batchBuffers, groupStates, statuses, failurePhases, failureOperations, tileBuffer)
     if (batchSize == 1U) {
@@ -326,11 +330,11 @@ extern "C" __global__ __vector__ void SimtMultiJettyPerfKernel(
 }
 
 void LaunchSimtMultiJettyPerf(
-    void* stream, void* channels, void* remotes, void* local, void* timing, uint32_t api,
+    void* stream, void* channels, void* remoteIndices, void* timing, uint32_t api,
     uint32_t payloadBytes, uint32_t slotBytes, uint32_t regionBytes, uint32_t iterations, uint32_t warmup,
     uint32_t batchSize, uint32_t jettyCount)
 {
     SimtMultiJettyPerfKernel<<<1U, 0U, stream>>>(
-        channels, remotes, local, timing, api, payloadBytes, slotBytes, regionBytes, iterations, warmup, batchSize,
+        channels, remoteIndices, timing, api, payloadBytes, slotBytes, regionBytes, iterations, warmup, batchSize,
         jettyCount);
 }

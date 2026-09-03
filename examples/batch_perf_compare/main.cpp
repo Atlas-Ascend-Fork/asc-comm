@@ -36,7 +36,7 @@ extern void LaunchSimdBatchPerf(
     void* stream, uint64_t channel, void* local, void* remote, void* timing, uint32_t api,
     uint32_t payloadBytes, uint32_t slotBytes, uint32_t iterations, uint32_t warmup, uint32_t batchSize);
 extern void LaunchSimtMultiJettyPerf(
-    void* stream, void* channels, void* remotes, void* local, void* timing, uint32_t api,
+    void* stream, void* channels, void* remoteIndices, void* timing, uint32_t api,
     uint32_t payloadBytes, uint32_t slotBytes, uint32_t regionBytes, uint32_t iterations, uint32_t warmup,
     uint32_t batchSize, uint32_t jettyCount);
 
@@ -208,7 +208,8 @@ HcclResult BuildChannelDesc(
 
 HcclResult AcquireChannels(
     HcclComm comm, uint32_t rank, uint32_t peer, HcclMemHandle* handles, uint32_t count,
-    std::vector<ChannelHandle>& channels, std::vector<uint64_t>& remoteRecvAddrs)
+    std::vector<ChannelHandle>& channels, std::vector<uint64_t>& remoteRecvAddrs,
+    std::vector<uint32_t>& remoteRecvIndices)
 {
     HcclChannelDesc baseDesc {};
     CHECK_HCCL(BuildChannelDesc(comm, rank, peer, handles, baseDesc));
@@ -216,6 +217,7 @@ HcclResult AcquireChannels(
     channels.resize(count);
     CHECK_HCCL(HcclChannelAcquire(comm, COMM_ENGINE_AIV, descs.data(), count, channels.data()));
     remoteRecvAddrs.resize(count);
+    remoteRecvIndices.resize(count);
     for (uint32_t channelIndex = 0U; channelIndex < count; ++channelIndex) {
         uint32_t memCount = 0U;
         CommMem* remoteMems = nullptr;
@@ -226,6 +228,7 @@ HcclResult AcquireChannels(
         for (uint32_t mem = 0U; mem < memCount; ++mem) {
             if (tags[mem] != nullptr && std::strcmp(tags[mem], kRecvTag) == 0) {
                 remoteRecvAddrs[channelIndex] = reinterpret_cast<uint64_t>(remoteMems[mem].addr);
+                remoteRecvIndices[channelIndex] = mem;
                 found = true;
                 break;
             }
@@ -328,12 +331,14 @@ int main(int argc, char* argv[])
 
     std::vector<ChannelHandle> channels;
     std::vector<uint64_t> remoteRecvAddrs;
-    CHECK_HCCL(AcquireChannels(comm, rank, peer, handles, jettyCount, channels, remoteRecvAddrs));
+    std::vector<uint32_t> remoteRecvIndices;
+    CHECK_HCCL(AcquireChannels(
+        comm, rank, peer, handles, jettyCount, channels, remoteRecvAddrs, remoteRecvIndices));
     CHECK_HCCL(HostBarrier(rank, nranks, "ready"));
 
     void* timingDevice = nullptr;
     void* channelsDevice = nullptr;
-    void* remotesDevice = nullptr;
+    void* remoteIndicesDevice = nullptr;
     uint64_t timing[kTimingWords] = {};
     bool pass = true;
     if (sender) {
@@ -346,15 +351,16 @@ int main(int argc, char* argv[])
         } else {
             std::vector<uint64_t> channelValues(channels.begin(), channels.end());
             CHECK_ACL(aclrtMalloc(&channelsDevice, channelValues.size() * sizeof(uint64_t), ACL_MEM_MALLOC_HUGE_FIRST));
-            CHECK_ACL(aclrtMalloc(&remotesDevice, remoteRecvAddrs.size() * sizeof(uint64_t), ACL_MEM_MALLOC_HUGE_FIRST));
+            CHECK_ACL(aclrtMalloc(
+                &remoteIndicesDevice, remoteRecvIndices.size() * sizeof(uint32_t), ACL_MEM_MALLOC_HUGE_FIRST));
             CHECK_ACL(aclrtMemcpy(
                 channelsDevice, channelValues.size() * sizeof(uint64_t), channelValues.data(),
                 channelValues.size() * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
             CHECK_ACL(aclrtMemcpy(
-                remotesDevice, remoteRecvAddrs.size() * sizeof(uint64_t), remoteRecvAddrs.data(),
-                remoteRecvAddrs.size() * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
+                remoteIndicesDevice, remoteRecvIndices.size() * sizeof(uint32_t), remoteRecvIndices.data(),
+                remoteRecvIndices.size() * sizeof(uint32_t), ACL_MEMCPY_HOST_TO_DEVICE));
             LaunchSimtMultiJettyPerf(
-                stream, channelsDevice, remotesDevice, sendBuffer, timingDevice, api, payloadBytes, slotBytes,
+                stream, channelsDevice, remoteIndicesDevice, timingDevice, api, payloadBytes, slotBytes,
                 regionBytes, iterations, warmup, batchSize, jettyCount);
         }
         CHECK_ACL(aclrtSynchronizeStream(stream));
@@ -388,8 +394,8 @@ int main(int argc, char* argv[])
     if (channelsDevice != nullptr) {
         CHECK_ACL(aclrtFree(channelsDevice));
     }
-    if (remotesDevice != nullptr) {
-        CHECK_ACL(aclrtFree(remotesDevice));
+    if (remoteIndicesDevice != nullptr) {
+        CHECK_ACL(aclrtFree(remoteIndicesDevice));
     }
     CHECK_ACL(aclrtFree(sendBuffer));
     CHECK_ACL(aclrtFree(recvBuffer));
