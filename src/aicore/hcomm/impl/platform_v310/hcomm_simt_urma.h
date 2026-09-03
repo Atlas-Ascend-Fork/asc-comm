@@ -431,6 +431,29 @@ __simt_callee__ inline void HcommSimtRingBatchDwqe(
     asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
 }
 
+template <typename Group>
+__simt_callee__ inline void HcommSimtRingBatchDwqe(
+    __gm__ uint8_t* dwqeAddr, const __ubuf__ uint64_t* words, const Group& group)
+{
+    const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
+    const uint32_t size = static_cast<uint32_t>(group.size());
+    __gm__ ulonglong2* dstWords = reinterpret_cast<__gm__ ulonglong2*>(dwqeAddr);
+
+    // The publisher has updated head after the preceding ready barrier. Make that update visible
+    // before up to eight lanes write the independent 16-byte DWQE fragments.
+    group.sync();
+    for (uint32_t i = rank; i < HCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2); i += size) {
+        const uint32_t word = i * 2U;
+        asc_stwt(&dstWords[i], make_ulonglong2(words[word], words[word + 1U]));
+    }
+    asc_threadfence();
+    group.sync();
+    if (rank + 1U == size) {
+        asc_dcci_single(dwqeAddr);
+        asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
+    }
+}
+
 __simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::HcommImpl() {}
 
 __simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::~HcommImpl() {}
@@ -1242,17 +1265,19 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         batchHandle.profileReadySyncCycles += clock() - readyBegin;
     }
 #endif
-    if (publisher) {
-        HcommSimtResolvedPost post;
-        HcommSimtLoadBatchStaticPost(context, post);
-        const uint32_t totalBb = HcommSimtBatchTotalBb(size, context->itemBb);
-        const uint64_t publishedHead = context->reservedHead +
-            ((static_cast<uint64_t>(size) << 32U) | totalBb);
+    HcommSimtResolvedPost post;
+    HcommSimtLoadBatchStaticPost(context, post);
+    const uint32_t totalBb = HcommSimtBatchTotalBb(size, context->itemBb);
+    const uint64_t publishedHead = context->reservedHead +
+        ((static_cast<uint64_t>(size) << 32U) | totalBb);
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-        const uint64_t publishBegin = clock();
+    const uint64_t publishBegin = publisher ? clock() : 0U;
 #endif
+    if (publisher) {
         *post.headAddr = publishedHead;
-        HcommSimtRingBatchDwqe(post.dwqeAddr, HcommSimtBatchPublisherWords(context));
+    }
+    HcommSimtRingBatchDwqe(post.dwqeAddr, HcommSimtBatchPublisherWords(context), group);
+    if (publisher) {
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         context->profilePublishCycles = clock() - publishBegin;
         const uint64_t reserveBegin = clock();
