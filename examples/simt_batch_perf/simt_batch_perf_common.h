@@ -51,12 +51,7 @@ constexpr uint32_t kCommitCyclesIndex = 8U;
 constexpr uint32_t kPlanCyclesIndex = 9U;
 constexpr uint32_t kEmitCyclesIndex = 10U;
 constexpr uint32_t kDwqePublishCyclesIndex = 11U;
-constexpr uint32_t kTraceLeaderStageIndex = 12U;
-constexpr uint32_t kTracePublisherStageIndex = 13U;
-constexpr uint32_t kTraceHeadIndex = 14U;
-constexpr uint32_t kTracePhaseIndex = 15U;
-constexpr uint32_t kTraceOperationIndex = 16U;
-constexpr uint32_t kTimingWords = 17U;
+constexpr uint32_t kTimingWords = 12U;
 
 constexpr uint32_t kPhaseSuccess = 0U;
 constexpr uint32_t kPhaseInit = 1U;

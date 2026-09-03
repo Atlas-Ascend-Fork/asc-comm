@@ -91,7 +91,6 @@ struct UbcCtpBatchHandle {
     uint64_t profilePlanCycles = 0U;
     uint64_t profileEmitCycles = 0U;
     uint64_t profilePublishCycles = 0U;
-    __gm__ volatile uint64_t* profileTrace = nullptr;
 #endif
 };
 

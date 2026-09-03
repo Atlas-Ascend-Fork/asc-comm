@@ -78,16 +78,6 @@ constexpr uint32_t HCOMM_SIMT_SGE_WORDS = sizeof(HcommUrmaSgeCtx) / sizeof(uint6
 // The inline payload and the first SGE both start right after the SQE header.
 constexpr uint32_t HCOMM_SIMT_INLINE_FIRST_WORD = HCOMM_SIMT_SQE_WORDS;
 
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-__simt_callee__ inline void HcommSimtSetBatchTrace(
-    const UbcCtpBatchHandle& batchHandle, uint32_t index, uint64_t value)
-{
-    if (batchHandle.profileTrace != nullptr) {
-        batchHandle.profileTrace[index] = value;
-    }
-}
-#endif
-
 // MakeBatchHandle writes one shared copy of the stable queue addresses and remote Jetty
 // fields. The mutable head value is deliberately absent and is read when Append plans a batch.
 struct alignas(sizeof(ulonglong2)) HcommSimtBatchStaticContext {
@@ -1117,9 +1107,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     const bool publisher = rank + 1U == size;
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     const uint64_t profileBegin = rank == 0U ? clock() : 0U;
-    if (rank == 0U) {
-        HcommSimtSetBatchTrace(batchHandle, 0U, 200U);
-    }
 #endif
     __ubuf__ HcommSimtBatchStaticContext* context =
         reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
@@ -1156,10 +1143,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     }
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     const uint64_t profilePlanEnd = rank == 0U ? clock() : 0U;
-    if (rank == 0U) {
-        HcommSimtSetBatchTrace(batchHandle, 0U, 210U);
-        HcommSimtSetBatchTrace(batchHandle, 2U, headVal);
-    }
 #endif
     batchHandle.publishedHead = headVal + ((static_cast<uint64_t>(size) << 32U) | totalBb);
     const uint32_t laneHead = HcommSimtHeadIdx(headVal) + rank * itemBb;
@@ -1170,19 +1153,11 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     } else {
         HcommSimtWriteStagedBatchWqeToSq(post, context, batchHandle, laneHead);
     }
-    asc_threadfence();
     group.sync();
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     const uint64_t profileEmitEnd = rank == 0U ? clock() : 0U;
-    if (rank == 0U) {
-        HcommSimtSetBatchTrace(batchHandle, 0U, 220U);
-    }
 #endif
     if (publisher) {
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-        HcommSimtSetBatchTrace(batchHandle, 1U, 221U);
-#endif
-        asc_threadfence();
         *post.headAddr = batchHandle.publishedHead;
         if (itemBb == HCOMM_URMA_WQE_BB_CNT) {
             // A one-BB request is expanded into a two-BB publisher. Rebuild that image after
@@ -1193,14 +1168,10 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         } else {
             HcommSimtRingDwqe(post.dwqeAddr, tailStage);
         }
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-        HcommSimtSetBatchTrace(batchHandle, 1U, 230U);
-#endif
     }
     group.sync();
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     if (rank == 0U) {
-        HcommSimtSetBatchTrace(batchHandle, 0U, 240U);
         const uint64_t profileEnd = clock();
         batchHandle.profilePlanCycles += profilePlanEnd - profileBegin;
         batchHandle.profileEmitCycles += profileEmitEnd - profilePlanEnd;

@@ -125,12 +125,6 @@ __simt_callee__ inline int32_t SubmitGroupBatches(
     publishCount = 0U;
     for (uint32_t begin = 0U; begin < count; begin += size) {
         const uint32_t operation = begin + rank;
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-        if (rank == 0U) {
-            batch.profileTrace[4] = begin;
-            batch.profileTrace[0] = 90U;
-        }
-#endif
         // One group lane prepares exactly one WQE for this batch.
         const int32_t appendStatus = AppendOneWqe<api>(
             hcomm, batch, remote, local, payloadBytes, slotBytes, operation % kSlotCount);
@@ -282,12 +276,6 @@ __simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
     uint32_t failureAction = kActionNone;
     uint32_t failureOperation = 0U;
     uint64_t commitCycles = 0U;
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    batch.profileTrace = timing + kTraceLeaderStageIndex;
-    if (rank == 0U) {
-        batch.profileTrace[3] = kPhaseWarmupSubmit;
-    }
-#endif
     if (status == 0) {
         status = SubmitGroupBatches<api>(
             hcomm, group, batch, remote, local, payloadBytes, slotBytes, warmup, publishCount,
@@ -295,14 +283,7 @@ __simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
     }
     if (status == 0 && warmup != 0U) {
         if (rank == 0U) {
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-            batch.profileTrace[0] = 300U;
-            batch.profileTrace[3] = kPhaseWarmupDrain;
-#endif
             status = hcomm.Drain(batch);
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-            batch.profileTrace[0] = 340U;
-#endif
             groupState[0] = static_cast<uint32_t>(status);
         }
         group.sync();
@@ -324,9 +305,6 @@ __simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
     batch.profilePlanCycles = 0U;
     batch.profileEmitCycles = 0U;
     batch.profilePublishCycles = 0U;
-    if (rank == 0U) {
-        batch.profileTrace[3] = kPhaseTimedSubmit;
-    }
 #endif
     uint64_t begin = rank == 0U ? clock() : 0U;
     failureAction = kActionNone;
@@ -336,14 +314,7 @@ __simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
         failureAction, failureOperation, commitCycles);
     uint64_t issueEnd = rank == 0U ? clock() : 0U;
     if (status == 0 && rank == 0U) {
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-        batch.profileTrace[0] = 300U;
-        batch.profileTrace[3] = kPhaseTimedDrain;
-#endif
         status = hcomm.Drain(batch);
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-        batch.profileTrace[0] = 340U;
-#endif
     }
     if (rank == 0U) {
         const uint64_t completionEnd = clock();
