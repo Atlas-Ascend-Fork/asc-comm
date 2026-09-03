@@ -31,18 +31,18 @@ namespace AscendC::simt {
 template <CommProtocol commProtocol>
 __simt_callee__ inline UbcCtpBatchHandle HcommMakeBatchHandle(
     HcommImpl<commProtocol>& impl, ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen,
-    __gm__ void* remoteBase, const detail::HcommUnboundGroup&)
+    __gm__ void* remoteBase, uint32_t itemBb, const detail::HcommUnboundGroup&)
 {
-    return impl.MakeBatchHandle(channel, buff, buffLen, remoteBase);
+    return impl.MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb);
 }
 
 template <CommProtocol commProtocol, typename Group>
 __simt_callee__ inline UbcCtpBatchHandle HcommMakeBatchHandle(
     HcommImpl<commProtocol>& impl, ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen,
-    __gm__ void* remoteBase, const Group& group)
+    __gm__ void* remoteBase, uint32_t itemBb, const Group& group)
 {
-    return group.size() == 1U ? impl.MakeBatchHandle(channel, buff, buffLen, remoteBase) :
-        impl.MakeBatchHandle(channel, buff, buffLen, remoteBase, group);
+    return group.size() == 1U ? impl.MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb) :
+        impl.MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb, group);
 }
 
 template <CommProtocol commProtocol>
@@ -79,10 +79,11 @@ __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Init(__ubuf__ uint8_t
 
 template <CommProtocol commProtocol, typename Group>
 __simt_callee__ inline BatchHandle<ChannelHandle> Hcomm<commProtocol, Group>::MakeBatchHandle(
-    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase)
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
+    uint32_t itemBb)
 {
     static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
-    return HcommMakeBatchHandle(impl_, channel, buff, buffLen, remoteBase, group_);
+    return HcommMakeBatchHandle(impl_, channel, buff, buffLen, remoteBase, itemBb, group_);
 }
 
 template <CommProtocol commProtocol, typename Group>

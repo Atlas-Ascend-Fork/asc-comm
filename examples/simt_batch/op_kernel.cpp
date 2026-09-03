@@ -23,6 +23,12 @@ using namespace simt_batch;
 constexpr uint32_t kBatchBufferBytes = AscendC::simt::HcommSimtBatchBufferBytes(kOperationsPerBatch);
 constexpr uint32_t kGroupStateWords = 3U;
 
+template <uint32_t api>
+constexpr uint32_t BatchItemBb()
+{
+    return api == kApiNotify || api == kApiFaa || api == kApiCas ? 2U : 1U;
+}
+
 template <uint32_t api, typename HcommT>
 __simt_callee__ inline int32_t AppendOperation(
     HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* local,
@@ -59,12 +65,14 @@ __simt_callee__ inline int32_t AppendOperation(
 
 template <uint32_t api, typename HcommT, typename Group>
 __simt_callee__ inline int32_t RunGroupCase(
-    HcommT& hcomm, const Group& group, AscendC::simt::UbcCtpBatchHandle& batch,
+    HcommT& hcomm, const Group& group, uint64_t channel, __ubuf__ uint8_t* batchBuffer,
     __gm__ uint8_t* local, __gm__ uint8_t* remote, __gm__ int32_t* status,
     uint32_t operationsPerBatch, uint32_t batchCount)
 {
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t base = kStatusCaseBase + api * kStatusFieldsPerCase;
+    auto batch = hcomm.MakeBatchHandle(
+        channel, batchBuffer, kBatchBufferBytes, remote, BatchItemBb<api>());
     if (rank == 0U) {
         status[base + kStatusAppend] = 0;
         status[base + kStatusCommitCount] = 0;
@@ -91,11 +99,13 @@ __simt_callee__ inline int32_t RunGroupCase(
 
 template <uint32_t api>
 __simt_callee__ inline int32_t RunHomogeneousCase(
-    AscendC::simt::Hcomm<>& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* local,
-    __gm__ uint8_t* remote, __gm__ int32_t* status, uint32_t operationsPerBatch = kOperationsPerBatch,
-    uint32_t batchCount = kBatchCount)
+    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __ubuf__ uint8_t* batchBuffer,
+    __gm__ uint8_t* local, __gm__ uint8_t* remote, __gm__ int32_t* status,
+    uint32_t operationsPerBatch = kOperationsPerBatch, uint32_t batchCount = kBatchCount)
 {
     const uint32_t base = kStatusCaseBase + api * kStatusFieldsPerCase;
+    auto batch = hcomm.MakeBatchHandle(
+        channel, batchBuffer, kBatchBufferBytes, remote, BatchItemBb<api>());
     status[base + kStatusAppend] = 0;
     status[base + kStatusCommitCount] = 0;
     for (uint32_t batchIndex = 0U; batchIndex < batchCount; ++batchIndex) {
@@ -120,26 +130,30 @@ __simt_callee__ inline int32_t RunHomogeneousCase(
 }
 
 __simt_callee__ inline int32_t RunMixedCase(
-    AscendC::simt::Hcomm<>& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* local,
-    __gm__ uint8_t* remote, __gm__ int32_t* status)
+    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __ubuf__ uint8_t* batchBuffer,
+    __gm__ uint8_t* local, __gm__ uint8_t* remote, __gm__ int32_t* status)
 {
     const uint32_t base = kStatusCaseBase + kCaseMixed * kStatusFieldsPerCase;
     status[base + kStatusAppend] = 0;
     status[base + kStatusCommitCount] = 0;
+    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, 1U);
     int32_t ret = hcomm.WriteNbi(batch, remote + kMixedWriteOffset, local + kMixedWriteOffset, sizeof(uint64_t));
     ret = ret == 0 ? hcomm.BatchCommit(batch) : ret;
     status[base + kStatusCommitCount] += ret == 0 ? 1 : 0;
     ret = ret == 0 ? hcomm.ReadNbi(batch, local + kMixedReadOffset, remote + kMixedReadOffset, sizeof(uint64_t)) : ret;
     ret = ret == 0 ? hcomm.BatchCommit(batch) : ret;
     status[base + kStatusCommitCount] += ret == 0 ? 1 : 0;
+    batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, 2U);
     ret = ret == 0 ? hcomm.WriteWithNotifyNbi(
         batch, remote + kMixedNotifyDataOffset, local + kMixedNotifyDataOffset, sizeof(uint64_t),
         remote + kMixedNotifySignalOffset, kMixedNotifyValue) : ret;
     ret = ret == 0 ? hcomm.BatchCommit(batch) : ret;
     status[base + kStatusCommitCount] += ret == 0 ? 1 : 0;
+    batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, 1U);
     ret = ret == 0 ? hcomm.WriteValueNbi<uint64_t>(batch, remote + kMixedWriteValueOffset, kMixedInlineValue) : ret;
     ret = ret == 0 ? hcomm.BatchCommit(batch) : ret;
     status[base + kStatusCommitCount] += ret == 0 ? 1 : 0;
+    batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, 2U);
     ret = ret == 0 ? hcomm.AtomicFAA<uint64_t>(
         batch, remote + kMixedFaaTargetOffset, local + kMixedFaaFetchOffset, kMixedFaaAdd) : ret;
     ret = ret == 0 ? hcomm.BatchCommit(batch) : ret;
@@ -160,10 +174,11 @@ __simt_callee__ inline int32_t RunMixedCase(
 }
 
 __simt_callee__ inline int32_t RunSingleCase(
-    AscendC::simt::Hcomm<>& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* remote,
-    __gm__ int32_t* status)
+    AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __ubuf__ uint8_t* batchBuffer,
+    __gm__ uint8_t* remote, __gm__ int32_t* status)
 {
     const uint32_t base = kStatusCaseBase + kCaseSingle * kStatusFieldsPerCase;
+    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, 1U);
     status[base + kStatusCommitCount] = 0;
     int32_t ret = hcomm.WriteValueNbi<uint64_t>(batch, remote + kSingleWriteValueOffset, kSingleWriteValue);
     status[base + kStatusAppend] = ret;
@@ -201,17 +216,22 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchVf(
         AscendC::simt::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP, decltype(group)> hcomm(group);
         const int32_t initRet = hcomm.Init(
             reinterpret_cast<__ubuf__ uint8_t*>(groupState), kGroupStateWords * sizeof(uint32_t));
-        auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote);
         if (rank == 0U) {
             status[kStatusInit] = initRet;
-            status[kStatusHandle] = batch.context != nullptr ? 0 : -1;
+            status[kStatusHandle] = initRet;
         }
-        if (RunGroupCase<kApiWrite>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
-            RunGroupCase<kApiRead>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
-            RunGroupCase<kApiNotify>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
-            RunGroupCase<kApiWriteValue>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
-            RunGroupCase<kApiFaa>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0 ||
-            RunGroupCase<kApiCas>(hcomm, group, batch, local, remote, status, operationsPerBatch, batchCount) != 0) {
+        if (RunGroupCase<kApiWrite>(
+                hcomm, group, channel, batchBuffer, local, remote, status, operationsPerBatch, batchCount) != 0 ||
+            RunGroupCase<kApiRead>(
+                hcomm, group, channel, batchBuffer, local, remote, status, operationsPerBatch, batchCount) != 0 ||
+            RunGroupCase<kApiNotify>(
+                hcomm, group, channel, batchBuffer, local, remote, status, operationsPerBatch, batchCount) != 0 ||
+            RunGroupCase<kApiWriteValue>(
+                hcomm, group, channel, batchBuffer, local, remote, status, operationsPerBatch, batchCount) != 0 ||
+            RunGroupCase<kApiFaa>(
+                hcomm, group, channel, batchBuffer, local, remote, status, operationsPerBatch, batchCount) != 0 ||
+            RunGroupCase<kApiCas>(
+                hcomm, group, channel, batchBuffer, local, remote, status, operationsPerBatch, batchCount) != 0) {
             return;
         }
         return;
@@ -229,26 +249,25 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchVf(
         return;
     }
 
-    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote);
-    status[kStatusHandle] = batch.context != nullptr ? 0 : -1;
+    status[kStatusHandle] = 0;
     if (operationsPerBatch == 0U || operationsPerBatch > kOperationsPerBatch ||
         batchCount == 0U || batchCount > kBatchCount) {
         return;
     }
     if (RunHomogeneousCase<kApiWrite>(
-            hcomm, batch, local, remote, status, operationsPerBatch, batchCount) != 0 || groupMode) {
+            hcomm, channel, batchBuffer, local, remote, status, operationsPerBatch, batchCount) != 0 || groupMode) {
         return;
     }
     if (
-        RunHomogeneousCase<kApiRead>(hcomm, batch, local, remote, status) != 0 ||
-        RunHomogeneousCase<kApiNotify>(hcomm, batch, local, remote, status) != 0 ||
-        RunHomogeneousCase<kApiWriteValue>(hcomm, batch, local, remote, status) != 0 ||
-        RunHomogeneousCase<kApiFaa>(hcomm, batch, local, remote, status) != 0 ||
-        RunHomogeneousCase<kApiCas>(hcomm, batch, local, remote, status) != 0 ||
-        RunMixedCase(hcomm, batch, local, remote, status) != 0) {
+        RunHomogeneousCase<kApiRead>(hcomm, channel, batchBuffer, local, remote, status) != 0 ||
+        RunHomogeneousCase<kApiNotify>(hcomm, channel, batchBuffer, local, remote, status) != 0 ||
+        RunHomogeneousCase<kApiWriteValue>(hcomm, channel, batchBuffer, local, remote, status) != 0 ||
+        RunHomogeneousCase<kApiFaa>(hcomm, channel, batchBuffer, local, remote, status) != 0 ||
+        RunHomogeneousCase<kApiCas>(hcomm, channel, batchBuffer, local, remote, status) != 0 ||
+        RunMixedCase(hcomm, channel, batchBuffer, local, remote, status) != 0) {
         return;
     }
-    (void)RunSingleCase(hcomm, batch, remote, status);
+    (void)RunSingleCase(hcomm, channel, batchBuffer, remote, status);
 }
 
 } // namespace

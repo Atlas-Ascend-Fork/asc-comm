@@ -87,17 +87,20 @@ public:
     /*!
      * @brief Create an explicit batch bound to one remote registration.
      * @param [in] channel: Channel exclusively used by this batch handle.
-     * @param [in] buff: Caller-owned 128-byte UB storage for the shared batch context.
+     * @param [in] buff: Caller-owned UB storage for the shared context and publisher image.
      * @param [in] buffLen: Size of buff in bytes.
      * @param [in] remoteBase: An address in the remote registration used by the batch.
+     * @param [in] itemBb: Fixed WQEBB count of every request submitted through this handle (1 or 2).
      * @note Use HcommSimtBatchBufferBytes(itemCapacity) to size buff. The current collective
      *       contract prepares exactly one request per lane, so the workspace size is constant.
      * @note Every remote data and notify range appended through the returned handle must stay in
      *       the registration selected by remoteBase. The caller owns this contract.
-     * @note All lanes in one batch must append operations with the same WQEBB count.
+     * @note The handle keeps itemBb and the group size fixed for its lifetime. Every batch contains
+     *       exactly one request per lane. A channel is exclusively owned by one live batch handle.
      */
     __simt_callee__ inline BatchHandle<ChannelHandle> MakeBatchHandle(
-        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase);
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
+        uint32_t itemBb = 1U);
 
     /*!
      * @brief The task launching interface of the Write point-to-point communication operator.

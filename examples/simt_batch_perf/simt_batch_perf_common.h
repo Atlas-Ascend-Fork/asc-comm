@@ -19,9 +19,9 @@ constexpr uint32_t kRootRank = 0U;
 constexpr uint32_t kSlotCount = 64U;
 constexpr uint32_t kMaxBatchSize = 1024U;
 constexpr uint32_t kMaxGroupLanes = 1024U;
-// One shared 128-byte UB region holds the stable queue and remote Jetty context.
+// One 128-byte block holds the shared context and one holds the publisher DWQE image.
 constexpr uint32_t kBatchItemBytes = 128U;
-constexpr uint32_t kBatchBufferBytes = kBatchItemBytes;
+constexpr uint32_t kBatchBufferBytes = 2U * kBatchItemBytes;
 
 constexpr uint8_t kPayloadByte = 0x5AU;
 constexpr uint8_t kRemoteInitialByte = 0x3CU;

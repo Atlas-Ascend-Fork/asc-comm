@@ -39,7 +39,7 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchBasicVf(
         return;
     }
 
-    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBasicBatchBufferBytes, remote);
+    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBasicBatchBufferBytes, remote, 1U);
     status[kBasicStatusHandle] = batch.context != nullptr ? 0 : -1;
     if (status[kBasicStatusHandle] != 0) {
         return;

@@ -73,20 +73,13 @@ struct HcommSimtChannelEntity {
 
 static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");
 
-constexpr uint32_t HCOMM_SIMT_BATCH_STAGED_WORDS = 12U;
-
-// A batch handle is lane-private. Append prepares one near-final WQE per lane without a
-// collective; BatchCommit patches its queue position and emits it to the reserved SQ range.
+// The handle is lane-private, while context points at the shared reservation state and publisher
+// image. Append writes its final SQ slot directly; it does not retain a per-lane request image.
 struct UbcCtpBatchHandle {
     ChannelHandle channel = 0U;
     __ubuf__ uint64_t* context = nullptr;
-    uint64_t stagedWords[HCOMM_SIMT_BATCH_STAGED_WORDS] {};
-    uint64_t publishedHead = 0U;
-    uint32_t stagedBb = 0U;
     uint32_t groupRank = 0U;
     uint32_t groupSize = 1U;
-    bool patchSecondHeader = false;
-    bool patchNotifyToken = false;
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     uint64_t profilePlanCycles = 0U;
     uint64_t profileEmitCycles = 0U;
