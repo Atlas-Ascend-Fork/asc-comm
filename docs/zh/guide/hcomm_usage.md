@@ -170,11 +170,18 @@ HCOMM DFX通道dump能力提供一个轻量的异常回调注册接口和一个h
 AscendC::HcommChannelExceptionCallbackRegister(reinterpret_cast<const void *>(kernel_symbol));
 kernel_symbol<<<1, nullptr, stream>>>(devContext);
 aclrtSynchronizeStream(stream);
-AscendC::HcommDfxChannelDumpData dumpInfo {};
-AscendC::HcommChannelInfoDump(channel, &dumpInfo);
+// 只需打屏定位时直接调用即可；如需接收原始快照，按接口返回的大小分配 char 缓冲区
+AscendC::HcommChannelInfoDump(channel);
+// 或：
+uint32_t len = AscendC::HcommChannelGetDumpInfoSize();
+std::vector<char> buf(len);
+AscendC::HcommChannelInfoDump(channel, buf.data(), len);
 ```
 
-dump接口可以无条件调用。仅当已注册异常回调且无pending异常时接口才会跳过执行并直接返回成功；其余情况都会执行采集与打印。当传入`dumpInfo`时，接口会把采集到的原始数据写入该缓冲区。在"跳过执行并返回成功"的分支里，缓冲区会被清零，不会残留上一次dump的旧数据——调用方可通过`magic`为0判断本次调用未产生dump。dump成功后清掉已记录的异常状态，失败则保留以便重试。
+dump接口可以无条件调用。仅当已注册异常回调且无pending异常时接口才会跳过执行并直接返回成功；其余情况都会执行采集与打印。若需要原始快照，先用`HcommChannelGetDumpInfoSize()`获取所需字节数并自行分配一段`char`缓冲区传入，接口会把原始字节写入该缓冲区（不暴露内部结构体）。在"跳过执行并返回成功"的分支里，缓冲区会被清零，不会残留上一次dump的旧数据——调用方可通过起始`magic`为0判断本次调用未产生dump。dump成功后清掉已记录的异常状态，失败则保留以便重试。
+
+一次dump的全部输出会先在内部拼成一整块文本再一次性写出，避免多rank并发dump时逐行交错。输出按`Channel → SqContext/CqContext → WQE → CQE`的顺序、以字段顺序紧凑打印；`head/tail`读取失败会单独输出`ERROR`行。采样范围为未完成的任务：WQE取`[sqTail, sqHead)`、CQE取`[cqTail, cqHead)`。若这些游标全为0，通常是kernel异常退出时未对`ChannelEntity`游标刷`dcci`、host从DRAM读回零值所致，此时未完成区间为空、不打印误导性条目，属预期行为。
+
 
 默认情况下该helper只打印必要的一次性提示（如异常回调注册成功）。设置环境变量`HCOMM_DFX_DUMP_TRACE=1`后，还会向stderr输出每次调用的`[TRACE]`调试行（如每次dump的返回码）。该开关只控制这些调试打印，不影响dump行为本身。
 

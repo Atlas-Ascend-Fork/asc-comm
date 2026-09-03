@@ -43,19 +43,35 @@ inline int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
     return HCOMM_SUCCESS;
 }
 
-inline int32_t HcommChannelInfoDump(ChannelHandle channel)
+inline uint32_t HcommChannelGetDumpInfoSize()
 {
+    return static_cast<uint32_t>(sizeof(HcommDfxChannelDumpData));
+}
+
+inline int32_t HcommChannelInfoDump(ChannelHandle channel, char *buf, uint32_t len)
+{
+    const uint32_t dumpLen = static_cast<uint32_t>(sizeof(HcommDfxChannelDumpData));
+    const bool callerBufUsable = (buf != nullptr && len >= dumpLen);
+
     bool shouldDump = !HcommDfx::IsExceptionCallbackBound() || HcommDfx::HasPendingException();
     if (!shouldDump) {
+        // Successful no-op. Leave a deterministic snapshot: zero the caller buffer so it never carries stale
+        // bytes from an earlier dump; a zeroed magic lets the caller detect "no dump occurred this call".
+        if (callerBufUsable) {
+            std::memset(buf, 0, dumpLen);
+        }
         return HCOMM_SUCCESS;
     }
 
-    HcommDfxChannelDumpData dump {};
-    int32_t ret = HcommDfx::DumpChannelInfo(1U, &channel, &dump, static_cast<uint32_t>(sizeof(dump)));
+    // Collect into the caller buffer when it is usable; otherwise fall back to a local snapshot (print only).
+    HcommDfxChannelDumpData local;
+    void *work = callerBufUsable ? static_cast<void *>(buf) : static_cast<void *>(&local);
+    int32_t ret = HcommDfx::DumpChannelInfo(1U, &channel, work, dumpLen);
     if (ret == HCOMM_SUCCESS) {
         HcommDfx::ClearPendingException();
     }
-    HcommDfx::Trace("HcommChannelInfoDump ret=%d len=%u", ret, static_cast<uint32_t>(sizeof(dump)));
+    HcommDfx::Trace("HcommChannelInfoDump ret=%d len=%u callerBuf=%d", ret, dumpLen,
+        callerBufUsable ? 1 : 0);
     return ret;
 }
 

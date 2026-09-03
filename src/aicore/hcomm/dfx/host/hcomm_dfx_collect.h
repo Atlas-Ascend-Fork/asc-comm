@@ -30,9 +30,6 @@ struct QueueReadContext {
     aclrtStream stream = nullptr;
 };
 
-constexpr uint32_t QUEUE_LEADING_WINDOW = 4U;
-constexpr uint32_t QUEUE_TAIL_WINDOW = 4U;
-
 inline uint64_t PtrToU64(const void *ptr)
 {
     return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr));
@@ -274,62 +271,49 @@ inline void CollectBuffers(uint64_t addr, uint32_t num, HcommDfxBufferDump *buff
 }
 
 inline bool SampleSqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, uint32_t wqeSize, uint32_t sqHead,
-    HcommDfxChannelInfo &channel, void *reader)
+    uint32_t sqTail, HcommDfxChannelInfo &channel, void *reader)
 {
     if (depth == 0U || wqeSize == 0U) {
-        Trace("sq sample invalid queue=%u base=0x%llx depth=%u wqeSize=%u head=%u", queueIndex,
-              static_cast<unsigned long long>(va), depth, wqeSize, sqHead);
+        Trace("sq sample invalid queue=%u base=0x%llx depth=%u wqeSize=%u head=%u tail=%u", queueIndex,
+              static_cast<unsigned long long>(va), depth, wqeSize, sqHead, sqTail);
         return false;
     }
     const uint32_t readBytes = SqWqeReadBytes(wqeSize);
-    const uint32_t leading = std::min<uint32_t>(depth, QUEUE_LEADING_WINDOW);
-    for (uint32_t idx = 0; idx < leading; ++idx) {
-        if (!AppendQueueEntry(reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, idx, idx,
-            va + static_cast<uint64_t>(idx) * wqeSize, readBytes, channel)) {
-            Trace("sq leading sample stop queue=%u slot=%u cursor=%u base=0x%llx depth=%u wqeSize=%u readBytes=%u",
-                  queueIndex, idx, idx, static_cast<unsigned long long>(va), depth, wqeSize, readBytes);
-            return false;
-        }
-    }
-    const uint32_t window = sqHead == 0U ? 1U : std::min<uint32_t>(sqHead, QUEUE_TAIL_WINDOW);
-    const uint32_t start = sqHead >= window ? sqHead - window : 0U;
-    for (uint32_t idx = 0; idx < window; ++idx) {
-        const uint32_t slot = (start + idx) % depth;
-        if (!AppendQueueEntryWrapped(reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, slot, start + idx,
+    // Outstanding (submitted but not yet consumed) WQEs occupy [sqTail, sqHead). sqHead/sqTail are free-running BB
+    // counters, so the subtraction is wrap-safe; clamp to what the ring and the dump buffer can actually hold.
+    const uint32_t outstanding = sqHead - sqTail;
+    const uint32_t count = std::min<uint32_t>(outstanding, std::min<uint32_t>(depth, HCOMM_DFX_MAX_QUEUE_ENTRIES));
+    for (uint32_t idx = 0; idx < count; ++idx) {
+        const uint32_t cursor = sqTail + idx;
+        const uint32_t slot = cursor % depth;
+        if (!AppendQueueEntryWrapped(reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, slot, cursor,
                                      va, depth, wqeSize, readBytes, channel)) {
-            Trace("sq tail append stop queue=%u slot=%u cursor=%u base=0x%llx depth=%u wqeSize=%u readBytes=%u",
-                  queueIndex, slot, start + idx, static_cast<unsigned long long>(va), depth, wqeSize, readBytes);
+            Trace("sq sample stop queue=%u slot=%u cursor=%u base=0x%llx depth=%u wqeSize=%u readBytes=%u",
+                  queueIndex, slot, cursor, static_cast<unsigned long long>(va), depth, wqeSize, readBytes);
             return false;
         }
     }
     return true;
 }
 
-inline bool SampleCqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, uint32_t cqeSize, uint32_t cqTail,
-    HcommDfxChannelInfo &channel, void *reader)
+inline bool SampleCqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, uint32_t cqeSize, uint32_t cqHead,
+    uint32_t cqTail, HcommDfxChannelInfo &channel, void *reader)
 {
     if (depth == 0U || cqeSize == 0U) {
-        Trace("cq sample invalid queue=%u base=0x%llx depth=%u cqeSize=%u tail=%u", queueIndex,
-              static_cast<unsigned long long>(va), depth, cqeSize, cqTail);
+        Trace("cq sample invalid queue=%u base=0x%llx depth=%u cqeSize=%u head=%u tail=%u", queueIndex,
+              static_cast<unsigned long long>(va), depth, cqeSize, cqHead, cqTail);
         return false;
     }
-    const uint32_t leading = std::min<uint32_t>(depth, QUEUE_LEADING_WINDOW);
-    for (uint32_t idx = 0; idx < leading; ++idx) {
-        if (!AppendQueueEntry(reader, HCOMM_DFX_ENTRY_URMA_CQE, queueIndex, idx, idx,
-            va + static_cast<uint64_t>(idx) * cqeSize, cqeSize, channel)) {
-            Trace("cq leading sample stop queue=%u slot=%u cursor=%u base=0x%llx depth=%u cqeSize=%u",
-                  queueIndex, idx, idx, static_cast<unsigned long long>(va), depth, cqeSize);
-            return false;
-        }
-    }
-    const uint32_t window = cqTail < (QUEUE_TAIL_WINDOW - 1U) ? cqTail + 1U : QUEUE_TAIL_WINDOW;
-    const uint32_t start = cqTail >= window ? cqTail - window + 1U : 0U;
-    for (uint32_t idx = 0; idx < window; ++idx) {
-        const uint32_t cursor = start + idx;
+    // Produced-but-not-consumed CQEs occupy [cqTail, cqHead): cqHead is the expected CQE count, cqTail the consumed
+    // count. Wrap-safe subtraction, clamped to ring depth and dump capacity.
+    const uint32_t outstanding = cqHead - cqTail;
+    const uint32_t count = std::min<uint32_t>(outstanding, std::min<uint32_t>(depth, HCOMM_DFX_MAX_QUEUE_ENTRIES));
+    for (uint32_t idx = 0; idx < count; ++idx) {
+        const uint32_t cursor = cqTail + idx;
         const uint32_t slot = cursor % depth;
         if (!AppendQueueEntryWrapped(reader, HCOMM_DFX_ENTRY_URMA_CQE, queueIndex, slot, cursor,
                                      va, depth, cqeSize, cqeSize, channel)) {
-            Trace("cq tail append stop queue=%u slot=%u cursor=%u base=0x%llx depth=%u cqeSize=%u",
+            Trace("cq sample stop queue=%u slot=%u cursor=%u base=0x%llx depth=%u cqeSize=%u",
                   queueIndex, slot, cursor, static_cast<unsigned long long>(va), depth, cqeSize);
             return false;
         }
@@ -338,7 +322,7 @@ inline bool SampleCqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, ui
 }
 
 inline bool CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo &channel, void *reader,
-                              uint32_t sqHead)
+                              uint32_t sqHead, uint32_t sqTail)
 {
     channel.sqContextDumpNum = 0;
     if (addr == 0) {
@@ -370,9 +354,9 @@ inline bool CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo
         if (jfs.sqVa == 0 || jfs.sqDepth == 0 || jfs.wqeSize == 0) {
             continue;
         }
-        if (!SampleSqEntries(idx, jfs.sqVa, jfs.sqDepth, jfs.wqeSize, sqHead, channel, reader)) {
-            Trace("sq sample failed queue=%u sqVa=0x%llx depth=%u wqeSize=%u sqHead=%u", idx,
-                  static_cast<unsigned long long>(jfs.sqVa), jfs.sqDepth, jfs.wqeSize, sqHead);
+        if (!SampleSqEntries(idx, jfs.sqVa, jfs.sqDepth, jfs.wqeSize, sqHead, sqTail, channel, reader)) {
+            Trace("sq sample failed queue=%u sqVa=0x%llx depth=%u wqeSize=%u sqHead=%u sqTail=%u", idx,
+                  static_cast<unsigned long long>(jfs.sqVa), jfs.sqDepth, jfs.wqeSize, sqHead, sqTail);
             return false;
         }
     }
@@ -380,7 +364,7 @@ inline bool CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo
 }
 
 inline bool CollectCqContexts(uint64_t addr, uint32_t cqNum, HcommDfxChannelInfo &channel, void *reader,
-                              uint32_t cqTail)
+                              uint32_t cqHead, uint32_t cqTail)
 {
     channel.cqContextDumpNum = 0;
     if (addr == 0) {
@@ -412,9 +396,9 @@ inline bool CollectCqContexts(uint64_t addr, uint32_t cqNum, HcommDfxChannelInfo
         if (jfc.scqVa == 0 || jfc.cqDepth == 0 || jfc.cqeSize == 0) {
             continue;
         }
-        if (!SampleCqEntries(idx, jfc.scqVa, jfc.cqDepth, jfc.cqeSize, cqTail, channel, reader)) {
-            Trace("cq sample failed queue=%u cqVa=0x%llx depth=%u cqeSize=%u cqTail=%u", idx,
-                  static_cast<unsigned long long>(jfc.scqVa), jfc.cqDepth, jfc.cqeSize, cqTail);
+        if (!SampleCqEntries(idx, jfc.scqVa, jfc.cqDepth, jfc.cqeSize, cqHead, cqTail, channel, reader)) {
+            Trace("cq sample failed queue=%u cqVa=0x%llx depth=%u cqeSize=%u cqHead=%u cqTail=%u", idx,
+                  static_cast<unsigned long long>(jfc.scqVa), jfc.cqDepth, jfc.cqeSize, cqHead, cqTail);
             return false;
         }
     }
@@ -443,14 +427,16 @@ inline bool CollectChannel(ChannelHandle channelHandle, HcommDfxChannelInfo &cha
         channel.localBufferDumpNum);
     CollectBuffers(PtrToU64(entity.remoteBufferAddr), entity.remoteBufferNum, channel.remoteBuffers,
         channel.remoteBufferDumpNum);
-    if (!CollectSqContexts(PtrToU64(entity.sqContextAddr), entity.sqNum, channel, reader, entity.sqHead)) {
-        Trace("collect sq contexts failed channel=0x%llx sqNum=%u sqHead=%u",
-              static_cast<unsigned long long>(channelHandle), entity.sqNum, entity.sqHead);
+    if (!CollectSqContexts(PtrToU64(entity.sqContextAddr), entity.sqNum, channel, reader, entity.sqHead,
+                           entity.sqTail)) {
+        Trace("collect sq contexts failed channel=0x%llx sqNum=%u sqHead=%u sqTail=%u",
+              static_cast<unsigned long long>(channelHandle), entity.sqNum, entity.sqHead, entity.sqTail);
         return false;
     }
-    if (!CollectCqContexts(PtrToU64(entity.cqContextAddr), entity.cqNum, channel, reader, entity.cqTail)) {
-        Trace("collect cq contexts failed channel=0x%llx cqNum=%u cqTail=%u",
-              static_cast<unsigned long long>(channelHandle), entity.cqNum, entity.cqTail);
+    if (!CollectCqContexts(PtrToU64(entity.cqContextAddr), entity.cqNum, channel, reader, entity.cqHead,
+                           entity.cqTail)) {
+        Trace("collect cq contexts failed channel=0x%llx cqNum=%u cqHead=%u cqTail=%u",
+              static_cast<unsigned long long>(channelHandle), entity.cqNum, entity.cqHead, entity.cqTail);
         return false;
     }
     return true;
