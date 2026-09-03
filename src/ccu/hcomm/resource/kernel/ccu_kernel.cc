@@ -43,6 +43,8 @@ namespace asc {
 
 constexpr uint32_t token_value_index = 2;
 constexpr uint16_t invalid_u16 = 65535;
+constexpr uint32_t max_loop_engine_pool_size_v1 = 128;
+constexpr uint32_t max_loop_engine_pool_size_v2 = 512;
 
 using ccu_rep::ccu_ins_generater_base;
 using ccu_rep::ccu_ins_generater_v1;
@@ -2240,6 +2242,13 @@ CcuResult ccu_kernel::ensure_loop_engine_pool(uint32_t max_loop_num)
         HCCL_ERROR("[CcuKernel::EnsureLoopEnginePool] maxLoopNum must be > 0");
         return CcuResult::CCU_E_PARA;
     }
+    const uint32_t max_pool_size = (ccu_version_ == HCOMM_CCU_VERSION_V2) ?
+        max_loop_engine_pool_size_v2 : max_loop_engine_pool_size_v1;
+    if (max_loop_num > max_pool_size) {
+        HCCL_ERROR(
+            "[CcuKernel::EnsureLoopEnginePool] maxLoopNum(%u) exceeds max supported %u", max_loop_num, max_pool_size);
+        return CcuResult::CCU_E_PARA;
+    }
     constexpr uint32_t pool_die_id = 0;
     auto& loop_engine_pool = res_.block_executor[pool_die_id];
     if (max_loop_num <= loop_engine_pool.size()) {
@@ -2597,6 +2606,11 @@ bool is_cke_wait_rep(const std::shared_ptr<ccu_rep::ccu_rep_base>& rep)
         case ccu_rep::ccu_rep_type::loc_wait_event:
         case ccu_rep::ccu_rep_type::loc_wait_notify:
         case ccu_rep::ccu_rep_type::rem_wait_sem:
+        case ccu_rep::ccu_rep_type::load:
+        case ccu_rep::ccu_rep_type::load_var:
+        case ccu_rep::ccu_rep_type::store:
+        case ccu_rep::ccu_rep_type::store_var:
+        case ccu_rep::ccu_rep_type::record_shared_notify:
             return true;
         default:
             return false;
