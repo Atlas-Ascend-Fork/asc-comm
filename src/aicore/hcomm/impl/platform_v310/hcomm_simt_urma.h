@@ -1236,10 +1236,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     if (context->reservationStatus != HCOMM_SUCCESS) {
         return HCOMM_FAILED;
     }
-    // Each lane writes a different SQ slot.  The publisher's fence cannot order stores issued
-    // by the other lanes, so every producer must make its own SQ writes device-visible before
-    // the group declares the batch ready and the final lane rings DWQE.
-    asc_threadfence();
     group.sync();
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     if (rank == 0U) {
