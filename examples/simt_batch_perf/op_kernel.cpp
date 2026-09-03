@@ -263,13 +263,27 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchPerfVf(
 #endif
 }
 
-template <uint32_t api, uint32_t maxGroupLanes>
-__simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
+template <uint32_t groupCapacity>
+__simt_callee__ inline auto MakePerfGroup(__ubuf__ uint8_t* tileBuffer)
+{
+    if constexpr (groupCapacity <= 32U) {
+        (void)tileBuffer;
+        return cooperative_groups::coalesced_threads();
+    } else {
+        auto& tileMemory = *reinterpret_cast<__ubuf__ cooperative_groups::block_tile_memory<groupCapacity>*>(
+            tileBuffer);
+        auto block = cooperative_groups::this_thread_block(tileMemory);
+        return cooperative_groups::tiled_partition<groupCapacity>(block);
+    }
+}
+
+template <uint32_t api, uint32_t groupCapacity>
+__simt_vf__ __launch_bounds__(groupCapacity) inline void SimtGroupBatchPerfVf(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ uint64_t* timing, uint32_t payloadBytes,
     uint32_t slotBytes, uint32_t iterations, uint32_t warmup, __ubuf__ uint8_t* batchBuffer,
-    __ubuf__ uint32_t* groupState)
+    __ubuf__ uint32_t* groupState, __ubuf__ uint8_t* tileBuffer)
 {
-    auto group = cooperative_groups::this_thread_block();
+    auto group = MakePerfGroup<groupCapacity>(tileBuffer);
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
@@ -382,7 +396,7 @@ DEFINE_BATCH_PERF_KERNEL(SimtCasBatchPerf, kApiCas, true)
         asc_vf_call<SimtGroupBatchPerfVf<api, kMaxGroupLanes>>(                                                \
             dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),     \
             payloadBytes, slotBytes, iterations, warmup,                                                       \
-            reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState);                                     \
+            reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState, tileBuffer);                         \
     }
 #else
 #define LAUNCH_LARGE_GROUP_BATCH(api)
@@ -396,11 +410,22 @@ DEFINE_BATCH_PERF_KERNEL(SimtCasBatchPerf, kApiCas, true)
         (void)batchSize;                                                                                        \
         alignas(128) __ubuf__ uint64_t batchBuffer[kBatchBufferBytes / sizeof(uint64_t)];                      \
         alignas(16) __ubuf__ uint32_t groupState[3U];                                                         \
-        if (groupLanes <= 128U) {                                                                              \
+        alignas(16) __ubuf__ uint8_t tileBuffer[sizeof(cooperative_groups::block_tile_memory<kMaxGroupLanes>)]; \
+        if (groupLanes <= 32U) {                                                                               \
+            asc_vf_call<SimtGroupBatchPerfVf<api, 32U>>(                                                       \
+                dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), \
+                payloadBytes, slotBytes, iterations, warmup,                                                   \
+                reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState, tileBuffer);                     \
+        } else if (groupLanes == 64U) {                                                                        \
+            asc_vf_call<SimtGroupBatchPerfVf<api, 64U>>(                                                       \
+                dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), \
+                payloadBytes, slotBytes, iterations, warmup,                                                   \
+                reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState, tileBuffer);                     \
+        } else if (groupLanes == 128U) {                                                                       \
             asc_vf_call<SimtGroupBatchPerfVf<api, 128U>>(                                                      \
                 dim3(groupLanes), channel, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), \
                 payloadBytes, slotBytes, iterations, warmup,                                                   \
-                reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState);                                 \
+                reinterpret_cast<__ubuf__ uint8_t*>(batchBuffer), groupState, tileBuffer);                     \
         } LAUNCH_LARGE_GROUP_BATCH(api)                                                                        \
     }
 

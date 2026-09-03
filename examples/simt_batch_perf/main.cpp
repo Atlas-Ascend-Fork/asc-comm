@@ -179,6 +179,11 @@ const char* FailureAction(uint64_t action)
     return action < sizeof(names) / sizeof(names[0]) ? names[action] : "Unknown";
 }
 
+bool ValidGroupLanes(uint32_t lanes)
+{
+    return (lanes >= 2U && lanes <= 32U) || lanes == 64U || lanes == 128U || lanes == 1024U;
+}
+
 uint32_t AlignUp(uint32_t value, uint32_t alignment)
 {
     return (value + alignment - 1U) / alignment * alignment;
@@ -361,7 +366,7 @@ int main(int argc, char* argv[])
         payloadBytes < 2U || batchSize == 0U || batchSize > kMaxBatchSize ||
         (mode != "immediate" && mode != "batch" && mode != "group") ||
         (mode == "batch" && batchSize != 1U) ||
-        (mode == "group" && (groupLanes <= 1U || groupLanes > kMaxGroupLanes || batchSize != groupLanes ||
+        (mode == "group" && (!ValidGroupLanes(groupLanes) || batchSize != groupLanes ||
          iterations % groupLanes != 0U || warmup % groupLanes != 0U)) ||
         (mode != "group" && groupLanes != 1U)) {
         return 1;
