@@ -1295,24 +1295,19 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
 {
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t size = static_cast<uint32_t>(group.size());
+    const bool publisher = rank + 1U == size;
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     const uint64_t profileBegin = rank == 0U ? clock() : 0U;
     if (rank == 0U) {
         HcommSimtSetBatchTrace(batchHandle, 0U, 200U);
     }
 #endif
-    const uint32_t tailHead = HcommSimtHeadIdx(batchHandle.publishedHead) - HCOMM_URMA_DWQE_BB_CNT;
-    constexpr uint32_t dwqeChunks = HCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2);
-    const uint32_t workerCount = size < dwqeChunks ? size : dwqeChunks;
-    HcommSimtResolvedPost post;
-    if (rank < workerCount) {
+    if (publisher) {
         __ubuf__ HcommSimtBatchStaticContext* context =
             reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
+        HcommSimtResolvedPost post;
         HcommSimtLoadBatchStaticPost(context, post);
-    }
-    // Append's closing group.sync() made every SQ slot ready. The publishing workers are all in
-    // warp 0, so the leader-only head update reconverges before they copy disjoint 16-byte chunks.
-    if (rank == 0U) {
+        const uint32_t tailHead = HcommSimtHeadIdx(batchHandle.publishedHead) - HCOMM_URMA_DWQE_BB_CNT;
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         HcommSimtSetBatchTrace(batchHandle, 1U, 210U);
 #endif
@@ -1321,25 +1316,19 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         HcommSimtSetBatchTrace(batchHandle, 1U, 220U);
 #endif
-    }
-
-    if (rank < workerCount) {
-        for (uint32_t chunk = rank; chunk < dwqeChunks; chunk += workerCount) {
+#pragma unroll
+        for (uint32_t chunk = 0U; chunk < HCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2); ++chunk) {
             HcommSimtCopyBatchTailChunkToDwqe(post, tailHead, chunk);
         }
-    }
-    if (rank == 0U) {
         asc_dcci_single(post.dwqeAddr);
-        if (size == 1U) {
-            asc_dcci_single(post.dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
-        }
-    } else if (rank == 1U) {
         asc_dcci_single(post.dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+        HcommSimtSetBatchTrace(batchHandle, 1U, 230U);
+#endif
     }
     group.sync();
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     if (rank == 0U) {
-        HcommSimtSetBatchTrace(batchHandle, 1U, 230U);
         HcommSimtSetBatchTrace(batchHandle, 0U, 240U);
         batchHandle.profilePublishCycles += clock() - profileBegin;
     }
