@@ -41,7 +41,7 @@ int32_t HcommChannelInfoDump(ChannelHandle channel, HcommDfxChannelDumpData *dum
 } // namespace AscendC
 
 #if !defined(__aicore__) || defined(HCOMM_DFX_INCLUDE_IMPLEMENTATION)
-#include "../../../../impl/adv_api/detail/hcomm/dfx/host/hcomm_dfx.h"
+#include "../../../../impl/comm_api/aicore/hcomm/dfx/host/hcomm_dfx.h"
 #endif
 
 #endif // ASCCOMM_INCLUDE_AICORE_HCOMM_DFX_HCOMM_CHANNEL_DUMP_H
