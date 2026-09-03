@@ -2,7 +2,7 @@
 
 ## 功能说明
 
-创建一组共享Jetty的UB_CTP通信通道及Device侧使用的`MultiChannelHandle`。接口提供HCCL通信域和Hcomm Endpoint两种重载，并按照`channelDescs`顺序保存各逻辑通道的远端通信信息。
+创建批量接口多通道模式所需的通信资源，并返回Device侧使用的`MultiChannelHandle`。接口提供HCCL通信域和Hcomm Endpoint两种重载。
 
 头文件为：
 
@@ -31,24 +31,26 @@ HcommResult MakeMultiChannelHandle(
 
 | 参数 | 输入/输出 | 说明 |
 | --- | --- | --- |
-| `comm` | 输入 | 已初始化的HCCL通信域。共享Jetty通道和Device上下文由该通信域管理。 |
-| `sharedQueueTag` | 输入 | 本组共享队列及Device上下文的标签，在同一通信域内必须唯一。 |
-| `endpointHandle` | 输入 | 已初始化的Hcomm Endpoint。该Endpoint必须支持AIV引擎的UB_CTP协议。 |
-| `channelDescs` | 输入 | 包含`channelNum`个元素的HCCL或Hcomm通道描述数组。数组顺序决定`GetHandleRef`使用的`channelIndex`。 |
+| `comm` | 输入 | 已初始化的HCCL通信域。 |
+| `sharedQueueTag` | 输入 | 本组多通道资源的标签，在同一通信域内必须唯一。 |
+| `endpointHandle` | 输入 | 已初始化且支持AIV引擎UB_CTP协议的Hcomm Endpoint。 |
+| `channelDescs` | 输入 | 包含`channelNum`个元素的HCCL或Hcomm通道描述数组。数组下标对应Device侧`GetHandleRef`的`channelIndex`。 |
 | `channelNum` | 输入 | 通道描述数量，必须大于0。 |
 | `multiChannel` | 输出 | Device侧多通道句柄。创建失败时置为0。 |
 
 ## 返回值
 
-成功返回`HCCL_SUCCESS`。通信域重载失败时返回对应的HCCL错误码；Endpoint重载失败时返回对应的Hcomm错误码。Endpoint重载在建链失败、资源不足或120秒内未全部就绪时销毁已创建的通道并返回错误。
+HCCL通信域重载成功时返回`HCCL_SUCCESS`，失败时返回对应的HCCL错误码。Hcomm Endpoint重载成功时返回成功码，失败时返回对应的Hcomm错误码。
 
 ## 约束说明
 
-- 两种重载的输入指针均不能为`nullptr`，`channelNum`不能为0。
-- 通信域重载使用`HcclChannelAcquireWithConfig`创建通道。同一通信域内，每个`sharedQueueTag`仅用于一次成功调用；共享通道和Device上下文由`comm`管理，并在通信域销毁时自动释放，用户不能调用`DestroyMultiChannelHandle`释放该句柄。
-- Endpoint重载使用`HcommChannelCreateWithConfig`创建通道并等待建链就绪。返回句柄拥有新建的通道和Device上下文，必须在销毁`endpointHandle`前调用对应的`DestroyMultiChannelHandle`重载。
-- 通道使用`COMM_ENGINE_AIV`和UB_CTP协议。共享Jetty通道不能并发使用。
-- Endpoint重载创建的句柄在Kernel使用并同步完成后，必须调用`DestroyMultiChannelHandle`释放。
+- 所有输入指针均不能为`nullptr`，`channelNum`必须大于0。
+- 通信域重载要求`comm`已完成初始化。同一通信域内，每个`sharedQueueTag`只能用于一次成功调用。
+- 通信域重载创建的资源由`comm`管理，并随通信域销毁自动释放，不能调用`DestroyMultiChannelHandle`释放。
+- Endpoint重载要求`endpointHandle`已完成初始化并支持`COMM_ENGINE_AIV`和UB_CTP协议。
+- Endpoint重载创建的资源由调用方管理。使用该句柄的Kernel执行并同步完成后，必须调用`DestroyMultiChannelHandle`，然后才能销毁`endpointHandle`。
+- 创建的多通道资源不能被并发使用。
+- `channelDescs`在Host侧的数组下标必须与Device侧传给`GetHandleRef`的`channelIndex`保持一致。
 
 ## 相关接口
 
