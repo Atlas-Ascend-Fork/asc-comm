@@ -162,6 +162,22 @@ if (lockRet == 0) {
 
 锁不可重入。每次成功调用`Lock`后都必须由同一AI Core调用`Unlock`，错误退出路径也需要释放锁。接口仅同步同一设备上共享同一通道的AI Core。
 
+## DFX通道Dump
+
+HCOMM DFX通道dump能力提供一个轻量的异常回调注册接口和一个host侧dump接口，用于在kernel异常后诊断通道状态。
+
+```cpp
+AscendC::HcommChannelExceptionCallbackRegister(reinterpret_cast<const void *>(kernel_symbol));
+kernel_symbol<<<1, nullptr, stream>>>(devContext);
+aclrtSynchronizeStream(stream);
+AscendC::HcommDfxChannelDumpData dumpInfo {};
+AscendC::HcommChannelInfoDump(channel, &dumpInfo);
+```
+
+dump接口可以无条件调用。仅当已注册异常回调且无pending异常时接口才会跳过执行并直接返回成功；其余情况都会执行采集与打印。当传入`dumpInfo`时，接口会把采集到的原始数据写入该缓冲区。在"跳过执行并返回成功"的分支里，缓冲区会被清零，不会残留上一次dump的旧数据——调用方可通过`magic`为0判断本次调用未产生dump。dump成功后清掉已记录的异常状态，失败则保留以便重试。
+
+默认情况下该helper只打印必要的一次性提示（如异常回调注册成功）。设置环境变量`HCOMM_DFX_DUMP_TRACE=1`后，还会向stderr输出每次调用的`[TRACE]`调试行（如每次dump的返回码）。该开关只控制这些调试打印，不影响dump行为本身。
+
 ## 注意事项
 
 - 普通接口需要先调用`Init`提供临时工作区，当前最小工作区大小为512字节。BatchHandle接口不需要调用`Init`。

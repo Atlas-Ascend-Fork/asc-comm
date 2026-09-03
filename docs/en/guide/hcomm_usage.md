@@ -166,6 +166,22 @@ if (lockRet == 0) {
 
 The lock is not reentrant. Every successful `Lock` must be paired with `Unlock` on the same AI Core, including on error paths. These interfaces synchronize only AI Cores sharing the same channel on the same device.
 
+## DFX Channel Dump
+
+The HCOMM DFX channel dump helper provides a lightweight exception-callback registration API and a host-side dump API for diagnosing channel state after a kernel fault.
+
+```cpp
+AscendC::HcommChannelExceptionCallbackRegister(reinterpret_cast<const void *>(kernel_symbol));
+kernel_symbol<<<1, nullptr, stream>>>(devContext);
+aclrtSynchronizeStream(stream);
+AscendC::HcommDfxChannelDumpData dumpInfo {};
+AscendC::HcommChannelInfoDump(channel, &dumpInfo);
+```
+
+The dump API is safe to call unconditionally. It skips execution and returns success only when an exception callback is registered and no exception is pending; otherwise it collects and prints. When `dumpInfo` is provided, the raw collected data is stored into it. On a successful call that performs no dump (the skip case above), the buffer is zeroed so it never carries stale data from an earlier dump — a zeroed `magic` means "no dump occurred this call". A successful dump clears the recorded exception state; a failed one keeps it so the caller can retry.
+
+By default the helper prints only essential one-time messages (e.g. successful exception-callback registration). Set the environment variable `HCOMM_DFX_DUMP_TRACE=1` to also print per-call `[TRACE]` debug lines (for example each dump return code) to stderr. It only gates these debug prints; it does not change dump behavior.
+
 ## Notes
 
 - Ordinary interfaces require a temporary workspace allocated through `Init`. The current minimum size is 512 bytes. BatchHandle interfaces do not require `Init`.

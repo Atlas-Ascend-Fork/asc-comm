@@ -155,16 +155,50 @@ make -j
 ./demo 4
 ```
 
-### 4. 编译选项说明
+### 4. 异常自诊断（DFX 通道 Dump）演示
+
+核函数 `Process()` 末尾预留了一行**被注释的 `trap()`**，用于稳定复现一次 AIC Error，从而演示 HCOMM DFX 的「异常发生 → host 安全点采集通道现场 → 打印定位」能力，无需预埋 printf、无需重新出包。样例**默认按纯通信路径运行**，正常运行不会走到这行。
+
+**接入维测能力只需两步**（见 `hcomm_write_read_nbi.asc` 中 `HcommRW`，默认已接入，正常路径零开销）：
+
+1. **注册**：launch 前调用 `AscendC::HcommChannelExceptionCallbackRegister(kernelSymbol)`，为目标 kernel 绑定异常回调。注册后正常路径（无异常记录）dump 会跳过执行、直接返回成功；缺此步则 dump 每次都会无条件执行完整采集。维测注册失败不应阻断业务主流程，样例直接调用，不检查返回值。
+2. **采集**：核函数执行后（`aclrtSynchronizeStream` 之后，无论成功与否），在 host 侧安全点调用 `AscendC::HcommChannelInfoDump(channel, &dumpInfo)`。`channel` 即算子持有的 `ChannelHandle`；接口仅当已注册异常回调且无pending异常时跳过执行并返回成功（此时 `dumpInfo` 会被清零，不会残留旧数据），其余情况都会执行采集与打印，并把采集到的原始数据写入 `dumpInfo`，因此**可无条件调用**、无需先判断 kernel 是否出错。
+
+**想触发异常看 dump 效果**：取消 `hcomm_write_read_nbi_kernel.cpp` 中 `trap()` 行的注释后重新编译运行。正常读写完成后核函数 `trap`，`aclrtSynchronizeStream` 返回错误码，随后 rank 0 打印 dump 出的 Channel / SQ / CQ / WQE / CQE 现场，终端最终打印 `test failed!`（异常被触发，属预期）。
+
+> **说明：** 核函数中的 `trap()` 行**仅用于让样例可复现异常**。真实算子无需它——异常由业务自身缺陷自然触发，算子只需保留上面的注册与采集两步。
+
+### 5. 编译选项说明
 | 选项 | 可选值 | 说明 |
 |------|--------|------|
 | `CMAKE_ASC_ARCHITECTURES` | `dav-3510`（默认） | NPU架构：`dav-3510`对应Ascend 950PR / Ascend 950DT |
 
-### 5. 执行结果
-多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
+### 6. 执行结果
+
+样例默认走**纯通信路径**（核函数中 `trap()` 已注释，见第 4 节）。多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
 ```text
+[INFO] rank 0: devNum = 2
+[INFO] rank 1: devNum = 2
+[HcommDfxDump] exception callback registered
+[HcommDfxDump] exception callback registered
 rank 0 test pass!
 rank 1 test pass!
 test pass!
 ```
+> `exception callback registered` 表示 DFX 注册步骤生效（进程内各 rank 各打印一次）。正常路径无异常记录时，`HcommChannelInfoDump` 直接返回成功，不产生任何 dump 输出。`dumpInfo` 仅用于接收采集到的原始数据，跳过执行时会被清零。设置环境变量 `HCOMM_DFX_DUMP_TRACE=1` 可额外输出每次调用的 `[TRACE]` 调试行（仅控制调试打印，不影响 dump 行为）。
+
+**取消 `trap()` 注释后走异常路径**，rank 0 会打印 dump 出的通道现场并最终以 `test failed!` 结束（异常被触发，属预期，DFX dump 即演示重点）：
+```text
+[HcommDfxDump] exception callback entered count=1 task=2 stream=61 device=0
+[CHECK ERROR][rank=0] aclrtSynchronizeStream ret=507035
+[HcommDfxDump][Channel] rank=0 idx=0 handle=0x120066c00000 engine=4 protocol=4
+[HcommDfxDump][SqContext] type=UB_JFS sqVa=0x3fff0400000 depth=32768 head=2 tail=2
+[HcommDfxDump][CqContext] type=UB_JFC cqVa=0x3fff0600000 head=0 tail=2
+[HcommDfxDump][WQE]  queue=0 index=0 opcode=0x3 rmtEid=0x000000000df00000a ...
+[HcommDfxDump][WQE]  queue=0 index=1 opcode=0x6 rmtEid=0x000000000df00000a ...
+[HcommDfxDump][CQE]  status=0 ...
+HcommChannelInfoDump ret=0 len=66896
+test failed!
+```
+
 > **注意：** 单卡环境仅支持编译验证，实际运行本样例需至少配备2张NPU。
