@@ -111,14 +111,18 @@ inline bool ReadQueueEntry(void *reader, uint64_t addr, uint8_t *data, uint32_t 
         return false;
     }
 
+    Trace("queue read launch addr=0x%llx size=%u stream=%p", static_cast<unsigned long long>(addr), size, ctx->stream);
     HcommDfxQueueReadArgs args = {addr, reinterpret_cast<uint64_t>(ctx->deviceResult), size, 0};
     hcomm_dfx_queue_read_kernel<<<1, 0, ctx->stream>>>(args);
     aclError ret = aclrtSynchronizeStream(ctx->stream);
+    Trace("queue read sync done addr=0x%llx size=%u ret=%d", static_cast<unsigned long long>(addr), size, ret);
 
     HcommDfxQueueReadResult result;
     std::memset(&result, 0, sizeof(result));
     if (ret == ACL_SUCCESS) {
         ret = aclrtMemcpy(&result, sizeof(result), ctx->deviceResult, sizeof(result), ACL_MEMCPY_DEVICE_TO_HOST);
+        Trace("queue read memcpy done addr=0x%llx size=%u ret=%d resultRet=%u resultSize=%u",
+              static_cast<unsigned long long>(addr), size, ret, result.ret, result.size);
     }
 
     if (ret != ACL_SUCCESS || result.ret != HCOMM_DFX_QUEUE_READ_SUCCESS || result.size != size) {
