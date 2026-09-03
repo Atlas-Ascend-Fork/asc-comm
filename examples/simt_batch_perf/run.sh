@@ -74,9 +74,8 @@ IFS=',' read -r -a lane_counts <<< "$group_lanes"
 [[ ${#lane_counts[@]} -gt 0 ]] || { echo "group lane list must not be empty" >&2; exit 1; }
 if [[ "$mode" == "group" || "$mode" == "compare" ]]; then
     for lanes in "${lane_counts[@]}"; do
-        [[ "$lanes" =~ ^[0-9]+$ ]] &&
-            (( (lanes >= 2 && lanes <= 32) || lanes == 64 || lanes == 128 || lanes == 1024 )) || {
-            echo "group lanes must be values in 2..32,64,128,1024" >&2; exit 1;
+        [[ "$lanes" =~ ^[0-9]+$ ]] && ((lanes >= 2 && lanes <= 1024)) || {
+            echo "group lanes must be comma-separated values in 2..1024" >&2; exit 1;
         }
         ((iterations % lanes == 0)) || {
             echo "iterations must be divisible by GroupBatch lanes ${lanes}" >&2; exit 1;
