@@ -1083,6 +1083,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
         HcommSimtSetBatchTrace(batchHandle, 1U, 132U);
     }
 #endif
+    asc_threadfence();
     group.sync();
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     if (rank == 0U) {
