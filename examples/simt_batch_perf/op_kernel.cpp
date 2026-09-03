@@ -19,12 +19,6 @@ namespace {
 using namespace simt_batch_perf;
 
 template <uint32_t api>
-constexpr uint32_t BatchItemBb()
-{
-    return api == kApiNotify || api == kApiFaa || api == kApiCas ? 2U : 1U;
-}
-
-template <uint32_t api>
 __simt_callee__ inline int32_t SubmitImmediate(
     AscendC::simt::Hcomm<>& hcomm, uint64_t channel, __gm__ uint8_t* remote, __gm__ uint8_t* local,
     uint32_t payloadBytes, uint32_t slotBytes, uint32_t slot)
@@ -178,7 +172,8 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchPerfVf(
     int32_t status = 0;
     AscendC::simt::UbcCtpBatchHandle batch;
     if constexpr (explicitBatch) {
-        batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, BatchItemBb<api>());
+        constexpr uint32_t itemBb = api == kApiNotify || api == kApiFaa || api == kApiCas ? 2U : 1U;
+        batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, itemBb);
         status = SubmitBatchSeries<api>(
             hcomm, batch, remote, local, payloadBytes, slotBytes, warmup, publishCount,
             failureAction, failureOperation, commitCycles);
@@ -277,8 +272,8 @@ __simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
     AscendC::simt::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP, decltype(group)> hcomm(group);
     int32_t status = hcomm.Init(
         reinterpret_cast<__ubuf__ uint8_t*>(groupState), 3U * sizeof(uint32_t));
-    auto batch = hcomm.MakeBatchHandle(
-        channel, batchBuffer, kBatchBufferBytes, remote, BatchItemBb<api>());
+    constexpr uint32_t itemBb = api == kApiNotify || api == kApiFaa || api == kApiCas ? 2U : 1U;
+    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, itemBb);
     uint32_t publishCount = 0U;
     uint32_t failureAction = kActionNone;
     uint32_t failureOperation = 0U;

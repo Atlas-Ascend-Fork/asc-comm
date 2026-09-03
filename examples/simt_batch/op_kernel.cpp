@@ -23,12 +23,6 @@ using namespace simt_batch;
 constexpr uint32_t kBatchBufferBytes = AscendC::simt::HcommSimtBatchBufferBytes(kOperationsPerBatch);
 constexpr uint32_t kGroupStateWords = 3U;
 
-template <uint32_t api>
-constexpr uint32_t BatchItemBb()
-{
-    return api == kApiNotify || api == kApiFaa || api == kApiCas ? 2U : 1U;
-}
-
 template <uint32_t api, typename HcommT>
 __simt_callee__ inline int32_t AppendOperation(
     HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* local,
@@ -71,8 +65,8 @@ __simt_callee__ inline int32_t RunGroupCase(
 {
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t base = kStatusCaseBase + api * kStatusFieldsPerCase;
-    auto batch = hcomm.MakeBatchHandle(
-        channel, batchBuffer, kBatchBufferBytes, remote, BatchItemBb<api>());
+    constexpr uint32_t itemBb = api == kApiNotify || api == kApiFaa || api == kApiCas ? 2U : 1U;
+    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, itemBb);
     if (rank == 0U) {
         status[base + kStatusAppend] = 0;
         status[base + kStatusCommitCount] = 0;
@@ -104,8 +98,8 @@ __simt_callee__ inline int32_t RunHomogeneousCase(
     uint32_t operationsPerBatch = kOperationsPerBatch, uint32_t batchCount = kBatchCount)
 {
     const uint32_t base = kStatusCaseBase + api * kStatusFieldsPerCase;
-    auto batch = hcomm.MakeBatchHandle(
-        channel, batchBuffer, kBatchBufferBytes, remote, BatchItemBb<api>());
+    constexpr uint32_t itemBb = api == kApiNotify || api == kApiFaa || api == kApiCas ? 2U : 1U;
+    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, itemBb);
     status[base + kStatusAppend] = 0;
     status[base + kStatusCommitCount] = 0;
     for (uint32_t batchIndex = 0U; batchIndex < batchCount; ++batchIndex) {
