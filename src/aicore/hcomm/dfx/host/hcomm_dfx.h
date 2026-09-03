@@ -43,39 +43,19 @@ inline int32_t HcommChannelExceptionCallbackRegister(const void *kernelSymbol)
     return HCOMM_SUCCESS;
 }
 
-inline int32_t HcommChannelInfoDump(ChannelHandle channel, HcommDfxChannelDumpData *dump)
+inline int32_t HcommChannelInfoDump(ChannelHandle channel)
 {
-    constexpr uint32_t dumpLen = sizeof(HcommDfxChannelDumpData);
-
     bool shouldDump = !HcommDfx::IsExceptionCallbackBound() || HcommDfx::HasPendingException();
     if (!shouldDump) {
-        // Successful no-op. The caller's buffer must still end up deterministic: zero it so it never
-        // carries stale data from an earlier dump, and a zeroed magic lets the caller detect "no dump".
-        if (dump != nullptr) {
-            std::memset(dump, 0, dumpLen);
-        }
         return HCOMM_SUCCESS;
     }
 
-    void *buf = dump;
-    bool needFree = (buf == nullptr);
-    if (needFree) {
-        aclError allocRet = aclrtMallocHost(&buf, dumpLen);
-        if (allocRet != ACL_SUCCESS || buf == nullptr) {
-            std::printf("[HcommDfxDump] allocate dump buffer failed ret=%d len=%u\n", allocRet, dumpLen);
-            std::fflush(stdout);
-            return HCOMM_FAILED;
-        }
-    }
-
-    int32_t ret = HcommDfx::DumpChannelInfo(1U, &channel, buf, dumpLen);
+    HcommDfxChannelDumpData dump {};
+    int32_t ret = HcommDfx::DumpChannelInfo(1U, &channel, &dump, static_cast<uint32_t>(sizeof(dump)));
     if (ret == HCOMM_SUCCESS) {
         HcommDfx::ClearPendingException();
     }
-    if (needFree) {
-        (void)aclrtFreeHost(buf);
-    }
-    HcommDfx::Trace("HcommChannelInfoDump ret=%d len=%u", ret, dumpLen);
+    HcommDfx::Trace("HcommChannelInfoDump ret=%d len=%u", ret, static_cast<uint32_t>(sizeof(dump)));
     return ret;
 }
 
