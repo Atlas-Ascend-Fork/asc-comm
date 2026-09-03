@@ -48,13 +48,13 @@ inline void Trace(const char *format, ...)
     if (!IsTraceEnabled()) {
         return;
     }
-    std::fprintf(stderr, "[HcommDfxDump][TRACE] ");
+    std::printf("[HcommDfxDump][TRACE] ");
     va_list args;
     va_start(args, format);
-    std::vfprintf(stderr, format, args);
+    std::vprintf(format, args);
     va_end(args);
-    std::fprintf(stderr, "\n");
-    std::fflush(stderr);
+    std::printf("\n");
+    std::fflush(stdout);
 }
 
 inline void RecordException(aclrtExceptionInfo *exceptionInfo)
