@@ -2,7 +2,7 @@
 
 ## Function Description
 
-This is the destroy API corresponding to the `MakeMultiChannelHandle` overload without an HCCL communicator (the `EndpointHandle` overload). It destroys the shared-Jetty channels and Device context by calling `HcommChannelDestroy` for all channels and then calling `aclrtFree` for the multi-channel metadata.
+Releases multi-channel resources created by the Hcomm Endpoint overload of `MakeMultiChannelHandle`.
 
 Header file:
 
@@ -24,7 +24,7 @@ HcommResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel);
 
 ## Return Value
 
-Returns `HCCL_SUCCESS` on success or the corresponding Hcomm error code on failure. The API attempts to release the Device context even if channel destruction fails.
+Returns `HCCL_SUCCESS` on success or the corresponding Hcomm error code on failure.
 
 ## Constraints
 
