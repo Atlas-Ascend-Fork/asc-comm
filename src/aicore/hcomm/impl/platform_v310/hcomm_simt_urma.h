@@ -912,6 +912,33 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
     return HCOMM_SUCCESS;
 }
 
+// Reserve the next batch range. A fast producer may fill the SQ before the NIC updates sqTail;
+// consume completed CQEs and retry instead of leaving the handle permanently unreservable.
+__simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::PlanNextBatch(
+    ChannelHandle channel, __ubuf__ HcommSimtBatchStaticContext* context, uint64_t headVal)
+{
+    if (HcommSimtPlanBatchFromHead(context, headVal)) {
+        return true;
+    }
+    const uint32_t totalBb = HcommSimtBatchTotalBb(context->groupSize, context->itemBb);
+    if (context->sqDepth == 0U || totalBb > context->sqDepth) {
+        context->reservationStatus = HCOMM_FAILED;
+        return false;
+    }
+
+    __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
+    __gm__ CqContext* cqContexts = reinterpret_cast<__gm__ CqContext*>(channelEntity->cqContextAddr);
+    __gm__ CqContext* cqCtx = &cqContexts[HCOMM_URMA_DEFAULT_QP_IDX];
+    __gm__ uint32_t* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx->contextInfo.ubJfc.tailAddr);
+    do {
+        const uint32_t cqTail = *cqTailAddr;
+        if (cqTail == HcommSimtWqeCnt(headVal) || PollCq(channel, cqTail + 1U) != HCOMM_SUCCESS) {
+            return false;
+        }
+    } while (!HcommSimtPlanBatchFromHead(context, headVal));
+    return true;
+}
+
 // Claims SQ space for one submission. The fast path is a single reservation attempt; when the
 // queue is full it consumes completed CQEs one at a time to let PollCq advance sqTail, retrying
 // after each. Waiting for every submitted WQE would be wrong: wqeCnt may include deferred WQEs
@@ -1237,7 +1264,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     batchHandle.profilePublishCycles += clock() - publishBegin;
     const uint64_t reserveBegin = clock();
 #endif
-    HcommSimtPlanBatchFromHead(context, publishedHead);
+    (void)PlanNextBatch(batchHandle.channel, context, publishedHead);
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     batchHandle.profileReserveCycles += clock() - reserveBegin;
 #endif
@@ -1282,7 +1309,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         context->profilePublishCycles = clock() - publishBegin;
         const uint64_t reserveBegin = clock();
 #endif
-        HcommSimtPlanBatchFromHead(context, publishedHead);
+        (void)PlanNextBatch(batchHandle.channel, context, publishedHead);
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         context->profileReserveCycles = clock() - reserveBegin;
 #endif

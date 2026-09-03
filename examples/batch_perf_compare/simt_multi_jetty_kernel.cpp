@@ -45,9 +45,13 @@ __simt_callee__ inline int32_t SubmitJetty(
     for (uint32_t begin = 0U; begin < count; begin += groupSize) {
         const int32_t appendStatus = AppendSimt(
             hcomm, batch, api, remote, local, payloadBytes, slotBytes, begin + rank);
+        if (appendStatus != 0) {
+            status = appendStatus;
+            break;
+        }
         const int32_t commitStatus = hcomm.BatchCommit(batch);
-        if (appendStatus != 0 || commitStatus != 0) {
-            status = appendStatus != 0 ? appendStatus : commitStatus;
+        if (commitStatus != 0) {
+            status = commitStatus;
             break;
         }
     }
