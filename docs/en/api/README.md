@@ -4,7 +4,7 @@
 
 | Document | Description |
 | --- | --- |
-| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | Create a shared-Jetty channel group and Device handle from an HCCL communicator or Hcomm Endpoint. |
+| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | Create the multi-channel resources required by batch interfaces from an HCCL communicator or Hcomm Endpoint. |
 | [DestroyMultiChannelHandle](./host/hcomm/DestroyMultiChannelHandle.md) | Release multi-channel resources created through the Hcomm Endpoint path. |
 
 ## AICore Hcomm
@@ -13,18 +13,18 @@
 | --- | --- |
 | [Hcomm](./aicore/hcomm/Hcomm.md) | Overview of AICore-side point-to-point communication interface template, protocol capabilities and usage constraints. |
 | [Init](./aicore/hcomm/Init.md) | Initialize the temporary workspace used by ordinary Hcomm interfaces. |
-| [MakeBatchHandle](./aicore/hcomm/MakeBatchHandle.md) | Create a batch handle and bind its UB buffer for batched WQEs. |
-| [GetHandleRef](./aicore/hcomm/GetHandleRef.md) | Select a logical channel from a shared-Jetty multi-channel batch handle. |
+| [MakeBatchHandle](./aicore/hcomm/MakeBatchHandle.md) | Create a batch handle and bind the UB workspace required by batch operations. |
+| [GetHandleRef](./aicore/hcomm/GetHandleRef.md) | Select a logical channel from a multi-channel batch handle. |
 | [Lock](./aicore/hcomm/Lock.md) | Acquire the cross-AI-Core lock of a communication channel. |
 | [Unlock](./aicore/hcomm/Unlock.md) | Release the cross-AI-Core lock of a communication channel. |
-| [ReadNbi](./aicore/hcomm/ReadNbi.md) | Submit an ordinary read task or prepare a read WQE in a BatchHandle. |
-| [WriteNbi](./aicore/hcomm/WriteNbi.md) | Submit an ordinary write task or prepare a write WQE in a BatchHandle. |
+| [ReadNbi](./aicore/hcomm/ReadNbi.md) | Submit an ordinary read task or add a read task to a BatchHandle. |
+| [WriteNbi](./aicore/hcomm/WriteNbi.md) | Submit an ordinary write task or add a write task to a BatchHandle. |
 | [WriteValueNbi](./aicore/hcomm/WriteValueNbi.md) | Submit a point-to-point immediate-value write task, inlining `value` in the WQE to the remote side. |
-| [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or prepare one in a BatchHandle. |
+| [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or add one to a BatchHandle. |
 | [AtomicFAA](./aicore/hcomm/AtomicFAA.md) | Submit a Fetch-and-add atomic operation task. |
 | [AtomicCAS](./aicore/hcomm/AtomicCAS.md) | Submit a Compare-and-swap atomic operation task. |
 | [Commit](./aicore/hcomm/Commit.md) | Explicitly submit pending communication tasks on the channel. |
-| [BatchCommit](./aicore/hcomm/BatchCommit.md) | Submit all WQEs prepared in a BatchHandle. |
+| [BatchCommit](./aicore/hcomm/BatchCommit.md) | Submit all tasks in a BatchHandle. |
 | [Drain](./aicore/hcomm/Drain.md) | Wait for tasks submitted through an ordinary channel or BatchHandle to complete. |
 
 ## AICore Ain

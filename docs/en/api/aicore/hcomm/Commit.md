@@ -4,7 +4,7 @@
 
 Notifies an ordinary channel that its prepared communication tasks can start execution. It is normally called after setting `commit` to `false` on ordinary `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, or `AtomicCAS` calls.
 
-This interface accepts only a `ChannelHandle` and does not submit WQEs stored in a BatchHandle. Use [BatchCommit](./BatchCommit.md) for the batch workflow.
+This interface accepts only a `ChannelHandle`. Submit tasks in a BatchHandle through [BatchCommit](./BatchCommit.md).
 
 ## Function Prototype
 
@@ -35,4 +35,4 @@ __aicore__ inline int32_t Commit(AscendC::ChannelHandle channel);
 ## Constraints
 
 - Call `Init` to provide temporary workspace for ordinary interfaces before this interface.
-- WQEs in a BatchHandle can be submitted only by `BatchCommit`. Ordinary `Commit` and `BatchCommit` manage queue state differently and must not be mixed on the same channel.
+- Tasks in a BatchHandle can be submitted only by `BatchCommit`. Do not mix ordinary `Commit` and `BatchCommit` on the same channel.
