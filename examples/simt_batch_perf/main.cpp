@@ -506,8 +506,11 @@ int main(int argc, char* argv[])
             const double planNs = static_cast<double>(timing[kPlanCyclesIndex]) / iterations;
             const double emitNs = static_cast<double>(timing[kEmitCyclesIndex]) / iterations;
             const double publishNs = static_cast<double>(timing[kDwqePublishCyclesIndex]) / iterations;
-            const double appendOtherNs = appendNs > planNs + emitNs ? appendNs - planNs - emitNs : 0.0;
-            const double commitOtherNs = commitNs > publishNs ? commitNs - publishNs : 0.0;
+            const bool groupBatch = mode == "group";
+            const double appendOtherNs = groupBatch ? appendNs :
+                (appendNs > planNs + emitNs ? appendNs - planNs - emitNs : 0.0);
+            const double measuredCommitNs = groupBatch ? planNs + emitNs + publishNs : publishNs;
+            const double commitOtherNs = commitNs > measuredCommitNs ? commitNs - measuredCommitNs : 0.0;
             std::cout << " | AppendTime/ns=" << appendNs << " | CommitTime/ns=" << commitNs
                        << " | PlanTime/ns=" << planNs << " | EmitTime/ns=" << emitNs
                        << " | PublishTime/ns=" << publishNs << " | AppendOtherTime/ns=" << appendOtherNs
