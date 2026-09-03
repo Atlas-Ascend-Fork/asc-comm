@@ -78,6 +78,10 @@ HcclResult get_ub_context(HcommChannelEntity &channel, HcommJfsContext *&jfs)
     jfs = &channel.sqContextAddr[0].contextInfo.ubJfs;
     CHK_PRT_RET(jfs->sqDepth == 0 || jfs->sqVa == 0 || jfs->maxReadSize == 0 || jfs->maxWriteSize == 0,
         HCCL_ERROR("[%s] invalid UB JFS context.", __func__), HCCL_E_PARA);
+    // 打印jetty生产者索引状态：若pi为0但引擎消费索引(tailAddr指向的SQ CI)非0，
+    // 说明PI与引擎错位，doorbell会被UB引擎拒绝，数据面将卡死在notify_wait
+    HCCL_INFO("[%s] jfs queue state: pi[%u] piDetourCount[%u] sqDepth[%u] sqCiAddr[0x%llx]", __func__,
+        jfs->pi, jfs->piDetourCount, jfs->sqDepth, static_cast<unsigned long long>(jfs->tailAddr));
     return HCCL_SUCCESS;
 }
 
