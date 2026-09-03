@@ -68,8 +68,6 @@ struct HcommSimtPackedSqeTemplate {
     uint32_t sqDepth = 0U;
 };
 
-struct HcommSimtBatchStaticContext;
-
 template <>
 class HcommImpl<COMM_PROTOCOL_UBC_CTP> {
 public:
@@ -175,8 +173,6 @@ private:
     __simt_callee__ inline int32_t BatchPostWqe(
         UbcCtpBatchHandle& batchHandle, const Desc& desc, const Group& group);
     __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
-    __simt_callee__ inline bool PlanNextBatch(
-        ChannelHandle channel, __ubuf__ HcommSimtBatchStaticContext* context, uint64_t headVal);
 };
 
 } // namespace AscendC::simt
