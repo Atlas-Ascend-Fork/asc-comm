@@ -18,6 +18,95 @@
 namespace {
 using namespace batch_perf_compare;
 
+__simt_callee__ inline void CaptureBatchFailure(
+    __gm__ uint64_t* timing, uint32_t jetty, uint32_t phase, int32_t status, uint32_t operation,
+    const AscendC::simt::UbcCtpBatchHandle& batch)
+{
+    __gm__ uint64_t* diag = timing + kDiagBaseIndex + jetty * kDiagWordsPerJetty;
+    diag[0] = phase;
+    diag[1] = static_cast<uint64_t>(static_cast<int64_t>(status));
+    diag[2] = operation;
+    diag[3] = batch.groupRank;
+    if (batch.context == nullptr) {
+        return;
+    }
+
+    auto* context = reinterpret_cast<__ubuf__ AscendC::simt::HcommSimtBatchStaticContext*>(batch.context);
+    diag[5] = context->reservedHead;
+    diag[7] = context->cachedSqTail;
+    diag[8] = context->sqDepth;
+    diag[9] = context->itemBb;
+    diag[10] = context->groupSize;
+    diag[11] = static_cast<uint64_t>(static_cast<int64_t>(context->reservationStatus));
+    diag[28] = context->headAddr;
+    diag[29] = context->dwqeAddr;
+    diag[30] = context->sqBaseAddr;
+    diag[31] = reinterpret_cast<uint64_t>(batch.context);
+    if (context->headAddr == 0U || context->sqTailAddr == 0U || context->sqDepth == 0U) {
+        return;
+    }
+
+    const uint64_t headVal = *reinterpret_cast<__gm__ uint64_t*>(context->headAddr);
+    diag[4] = headVal;
+    diag[6] = *reinterpret_cast<__gm__ uint32_t*>(context->sqTailAddr);
+    auto* channelEntity = reinterpret_cast<__gm__ AscendC::simt::HcommSimtChannelEntity*>(batch.channel);
+    auto* cqContexts = reinterpret_cast<__gm__ AscendC::CqContext*>(channelEntity->cqContextAddr);
+    auto* cqCtx = &cqContexts[AscendC::HCOMM_URMA_DEFAULT_QP_IDX];
+    auto* cqTailAddr = reinterpret_cast<__gm__ uint32_t*>(cqCtx->contextInfo.ubJfc.tailAddr);
+    const uint32_t cqTail = *cqTailAddr;
+    diag[12] = cqTail;
+    const uint32_t cqDepth = cqCtx->contextInfo.ubJfc.cqDepth;
+    diag[13] = cqDepth;
+    if (cqDepth == 0U) {
+        return;
+    }
+    auto* cqe = reinterpret_cast<__gm__ uint32_t*>(
+        cqCtx->contextInfo.ubJfc.scqVa + cqCtx->contextInfo.ubJfc.cqeSize *
+        (cqTail % cqDepth));
+    diag[14] = cqe[0];
+    diag[15] = cqe[1];
+
+    const uint32_t totalBb = context->groupSize * context->itemBb +
+        (context->itemBb == 1U ? 1U : 0U);
+    const uint32_t publisherHead = AscendC::simt::HcommSimtHeadIdx(headVal) - totalBb +
+        (context->groupSize - 1U) * context->itemBb;
+    diag[16] = publisherHead;
+    auto* publisher = AscendC::simt::HcommSimtBatchPublisherWords(context);
+    auto* sqFirst = reinterpret_cast<__gm__ uint64_t*>(
+        context->sqBaseAddr + context->sqWqeSize * (publisherHead % context->sqDepth));
+    auto* sqSecond = reinterpret_cast<__gm__ uint64_t*>(
+        (publisherHead % context->sqDepth) + 1U == context->sqDepth ? context->sqBaseAddr :
+        reinterpret_cast<uint64_t>(sqFirst + 8U));
+    auto* dwqe = reinterpret_cast<__gm__ uint64_t*>(context->dwqeAddr);
+    uint32_t sqMismatch = 0U;
+    uint32_t dwqeMismatch = 0U;
+    for (uint32_t word = 0U; word < 12U; ++word) {
+        const uint64_t sqWord = word < 8U ? sqFirst[word] : sqSecond[word - 8U];
+        const uint64_t ubWord = publisher[word];
+        if (sqWord != ubWord) {
+            sqMismatch |= 1U << word;
+            if (diag[19] == 0U) {
+                diag[19] = word + 1U;
+                diag[20] = ubWord;
+                diag[21] = sqWord;
+            }
+        }
+        if (dwqe[word] != ubWord) {
+            dwqeMismatch |= 1U << word;
+            if (diag[22] == 0U) {
+                diag[22] = word + 1U;
+                diag[23] = ubWord;
+                diag[24] = dwqe[word];
+            }
+        }
+    }
+    diag[17] = sqMismatch;
+    diag[18] = dwqeMismatch;
+    diag[25] = publisher[0];
+    diag[26] = sqFirst[0];
+    diag[27] = dwqe[0];
+}
+
 template <typename HcommT>
 __simt_callee__ inline int32_t AppendSimt(
     HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, uint32_t api, __gm__ uint8_t* remote,
@@ -39,7 +128,8 @@ template <typename HcommT>
 __simt_callee__ inline int32_t SubmitJetty(
     HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, uint32_t api, __gm__ uint8_t* remote,
     __gm__ uint8_t* local, uint32_t payloadBytes, uint32_t slotBytes, uint32_t count,
-    uint32_t rank, uint32_t groupSize)
+    uint32_t rank, uint32_t groupSize, uint32_t appendPhase, uint32_t commitPhase,
+    uint32_t& failurePhase, uint32_t& failureOperation)
 {
     int32_t status = 0;
     for (uint32_t begin = 0U; begin < count; begin += groupSize) {
@@ -47,11 +137,15 @@ __simt_callee__ inline int32_t SubmitJetty(
             hcomm, batch, api, remote, local, payloadBytes, slotBytes, begin + rank);
         if (appendStatus != 0) {
             status = appendStatus;
+            failurePhase = appendPhase;
+            failureOperation = begin + rank;
             break;
         }
         const int32_t commitStatus = hcomm.BatchCommit(batch);
         if (commitStatus != 0) {
             status = commitStatus;
+            failurePhase = commitPhase;
+            failureOperation = begin + rank;
             break;
         }
     }
@@ -63,7 +157,8 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
     __gm__ uint64_t* channels, __gm__ uint64_t* remotes, __gm__ uint8_t* local, __gm__ uint64_t* timing,
     uint32_t api, uint32_t payloadBytes, uint32_t slotBytes, uint32_t regionBytes, uint32_t iterations, uint32_t warmup,
     uint32_t jettyCount, __ubuf__ uint8_t* batchBuffers, __ubuf__ uint32_t* groupStates,
-    __ubuf__ int32_t* statuses, __ubuf__ uint8_t* tileBuffer)
+    __ubuf__ int32_t* statuses, __ubuf__ uint32_t* failurePhases, __ubuf__ uint32_t* failureOperations,
+    __ubuf__ uint8_t* tileBuffer)
 {
     auto& tileMemory =
         *reinterpret_cast<__ubuf__ cooperative_groups::block_tile_memory<laneCapacity>*>(tileBuffer);
@@ -84,22 +179,43 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
         batches[wave] = hcomm.MakeBatchHandle(
             channels[jetty], batchBuffers + jetty * kSimtBatchBufferBytes, kSimtBatchBufferBytes,
             remote, api == kApiNotify ? 2U : 1U);
+        if (rank == 0U) {
+            statuses[jetty] = batches[wave].context == nullptr ? -1 : 0;
+            failurePhases[jetty] = batches[wave].context == nullptr ? kDiagPhaseMakeHandle : kDiagPhaseNone;
+            failureOperations[jetty] = 0U;
+        }
     }
 
     for (uint32_t wave = 0U; wave < waveCount; ++wave) {
         const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
+        if (batches[wave].context == nullptr) {
+            continue;
+        }
         auto* remote = reinterpret_cast<__gm__ uint8_t*>(remotes[jetty]) + jetty * regionBytes;
+        uint32_t failurePhase = kDiagPhaseNone;
+        uint32_t failureOperation = 0U;
         const int32_t status = SubmitJetty(
             hcomm, batches[wave], api, remote, local + jetty * regionBytes,
-            payloadBytes, slotBytes, warmup, rank, batchSize);
+            payloadBytes, slotBytes, warmup, rank, batchSize, kDiagPhaseWarmupAppend, kDiagPhaseWarmupCommit,
+            failurePhase, failureOperation);
         if (rank == 0U) {
             statuses[jetty] = status;
+            failurePhases[jetty] = failurePhase;
+            failureOperations[jetty] = failureOperation;
         }
     }
     for (uint32_t wave = 0U; wave < waveCount; ++wave) {
         const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
         if (rank == 0U && statuses[jetty] == 0 && warmup != 0U) {
             statuses[jetty] = hcomm.Drain(batches[wave]);
+            if (statuses[jetty] != 0) {
+                failurePhases[jetty] = kDiagPhaseWarmupDrain;
+                failureOperations[jetty] = warmup;
+            }
+        }
+        if (rank == 0U && statuses[jetty] != 0) {
+            CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
+                failureOperations[jetty], batches[wave]);
         }
         group.sync();
     }
@@ -122,11 +238,16 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
     for (uint32_t wave = 0U; wave < waveCount; ++wave) {
         const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
         auto* remote = reinterpret_cast<__gm__ uint8_t*>(remotes[jetty]) + jetty * regionBytes;
+        uint32_t failurePhase = kDiagPhaseNone;
+        uint32_t failureOperation = 0U;
         const int32_t status = SubmitJetty(
             hcomm, batches[wave], api, remote, local + jetty * regionBytes,
-            payloadBytes, slotBytes, iterations, rank, batchSize);
+            payloadBytes, slotBytes, iterations, rank, batchSize, kDiagPhaseTimedAppend, kDiagPhaseTimedCommit,
+            failurePhase, failureOperation);
         if (rank == 0U) {
             statuses[jetty] = status;
+            failurePhases[jetty] = failurePhase;
+            failureOperations[jetty] = failureOperation;
         }
     }
     block.sync();
@@ -135,6 +256,14 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
         const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
         if (rank == 0U && statuses[jetty] == 0) {
             statuses[jetty] = hcomm.Drain(batches[wave]);
+            if (statuses[jetty] != 0) {
+                failurePhases[jetty] = kDiagPhaseTimedDrain;
+                failureOperations[jetty] = iterations;
+            }
+        }
+        if (rank == 0U && statuses[jetty] != 0) {
+            CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
+                failureOperations[jetty], batches[wave]);
         }
         group.sync();
     }
@@ -170,6 +299,8 @@ extern "C" __global__ __vector__ void SimtMultiJettyPerfKernel(
     alignas(128) __ubuf__ uint8_t batchBuffers[kMaxJettyCount * kSimtBatchBufferBytes];
     alignas(16) __ubuf__ uint32_t groupStates[kMaxJettyCount * 3U];
     alignas(16) __ubuf__ int32_t statuses[kMaxJettyCount];
+    alignas(16) __ubuf__ uint32_t failurePhases[kMaxJettyCount];
+    alignas(16) __ubuf__ uint32_t failureOperations[kMaxJettyCount];
     alignas(16) __ubuf__ uint8_t tileBuffer[sizeof(cooperative_groups::block_tile_memory<1024U>)];
     uint32_t laneCount = batchSize * jettyCount;
     laneCount = laneCount < 1024U ? laneCount : 1024U;
@@ -177,7 +308,7 @@ extern "C" __global__ __vector__ void SimtMultiJettyPerfKernel(
     asc_vf_call<SimtMultiJettyPerfVf<size##U, capacity##U>>(                                                    \
         dim3(laneCount), channels, remotes, local, timing, api, payloadBytes, slotBytes, regionBytes,       \
         iterations, warmup,                                                                                 \
-        jettyCount, batchBuffers, groupStates, statuses, tileBuffer)
+        jettyCount, batchBuffers, groupStates, statuses, failurePhases, failureOperations, tileBuffer)
     if (batchSize == 1U) {
         LAUNCH_BATCH(1, 32);
     } else if (batchSize == 8U) {

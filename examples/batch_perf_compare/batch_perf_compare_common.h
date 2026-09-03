@@ -35,7 +35,18 @@ constexpr uint32_t kCompletionCyclesIndex = 1U;
 constexpr uint32_t kStatusIndex = 2U;
 constexpr uint32_t kCompletedIndex = 3U;
 constexpr uint32_t kPublishCountIndex = 4U;
-constexpr uint32_t kTimingWords = 5U;
+constexpr uint32_t kDiagBaseIndex = 5U;
+constexpr uint32_t kDiagWordsPerJetty = 32U;
+constexpr uint32_t kTimingWords = kDiagBaseIndex + kMaxJettyCount * kDiagWordsPerJetty;
+
+constexpr uint32_t kDiagPhaseNone = 0U;
+constexpr uint32_t kDiagPhaseMakeHandle = 1U;
+constexpr uint32_t kDiagPhaseWarmupAppend = 2U;
+constexpr uint32_t kDiagPhaseWarmupCommit = 3U;
+constexpr uint32_t kDiagPhaseWarmupDrain = 4U;
+constexpr uint32_t kDiagPhaseTimedAppend = 5U;
+constexpr uint32_t kDiagPhaseTimedCommit = 6U;
+constexpr uint32_t kDiagPhaseTimedDrain = 7U;
 
 } // namespace batch_perf_compare
 

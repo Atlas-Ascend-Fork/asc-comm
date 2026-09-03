@@ -128,6 +128,39 @@ uint32_t ApiIndex(const std::string& api)
     return api == "write" ? kApiWrite : api == "read" ? kApiRead : kApiNotify;
 }
 
+const char* DiagPhase(uint64_t phase)
+{
+    constexpr const char* names[] = {
+        "None", "MakeHandle", "WarmupAppend", "WarmupCommit", "WarmupDrain",
+        "TimedAppend", "TimedCommit", "TimedDrain"};
+    return phase < sizeof(names) / sizeof(names[0]) ? names[phase] : "Unknown";
+}
+
+void PrintDiagnostics(const uint64_t* timing, uint32_t jettyCount)
+{
+    for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
+        const uint64_t* d = timing + kDiagBaseIndex + jetty * kDiagWordsPerJetty;
+        if (d[0] == kDiagPhaseNone) {
+            continue;
+        }
+        std::cout << "DIAG | Jetty=" << jetty << " | Phase=" << DiagPhase(d[0])
+                  << " | Status=" << static_cast<int64_t>(d[1]) << " | Operation=" << d[2]
+                  << " | Rank=" << d[3] << " | Head=0x" << std::hex << d[4]
+                  << " | ReservedHead=0x" << d[5] << std::dec << " | SqTail=" << d[6]
+                  << " | CachedSqTail=" << d[7] << " | SqDepth=" << d[8]
+                  << " | ItemBB=" << d[9] << " | GroupSize=" << d[10]
+                  << " | ReservationStatus=" << static_cast<int64_t>(d[11])
+                  << " | CqTail=" << d[12] << " | CqDepth=" << d[13]
+                  << " | Cqe0=0x" << std::hex << d[14] << " | Cqe1=0x" << d[15]
+                  << " | PublisherHead=" << std::dec << d[16] << " | SqDiffMask=0x" << std::hex << d[17]
+                  << " | DwqeDiffMask=0x" << d[18] << " | SqFirstDiff=" << std::dec << d[19]
+                  << " | SqExpected=0x" << std::hex << d[20] << " | SqActual=0x" << d[21]
+                  << " | DwqeFirstDiff=" << std::dec << d[22] << " | DwqeExpected=0x" << std::hex << d[23]
+                  << " | DwqeActual=0x" << d[24] << " | UbWord0=0x" << d[25]
+                  << " | SqWord0=0x" << d[26] << " | DwqeWord0=0x" << d[27] << std::dec << std::endl;
+    }
+}
+
 uint32_t AlignUp(uint32_t value, uint32_t alignment)
 {
     return (value + alignment - 1U) / alignment * alignment;
@@ -218,6 +251,9 @@ bool CheckData(
             const uint8_t* value = actual.data() + region * regionBytes + static_cast<size_t>(slot) * slotBytes;
             for (uint32_t byte = 0U; byte < payloadBytes; ++byte) {
                 if (value[byte] != expected) {
+                    std::cout << "DATA_DIAG | Region=" << region << " | Slot=" << slot << " | Byte=" << byte
+                              << " | Actual=" << static_cast<uint32_t>(value[byte])
+                              << " | Expected=" << static_cast<uint32_t>(expected) << std::endl;
                     return false;
                 }
             }
@@ -225,6 +261,9 @@ bool CheckData(
                 uint64_t notify = 0U;
                 std::memcpy(&notify, value + slotBytes - sizeof(notify), sizeof(notify));
                 if (notify != kNotifyValue) {
+                    std::cout << "DATA_DIAG | Region=" << region << " | Slot=" << slot
+                              << " | Notify=0x" << std::hex << notify << " | Expected=0x" << kNotifyValue
+                              << std::dec << std::endl;
                     return false;
                 }
             }
@@ -320,6 +359,7 @@ int main(int argc, char* argv[])
         }
         CHECK_ACL(aclrtSynchronizeStream(stream));
         CHECK_ACL(aclrtMemcpy(timing, sizeof(timing), timingDevice, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
+        PrintDiagnostics(timing, simd ? 0U : jettyCount);
         const uint32_t totalOperations = iterations * (simd ? 1U : jettyCount);
         pass = static_cast<int64_t>(timing[kStatusIndex]) == 0 && timing[kCompletedIndex] == totalOperations;
         if (pass && api == kApiRead) {
