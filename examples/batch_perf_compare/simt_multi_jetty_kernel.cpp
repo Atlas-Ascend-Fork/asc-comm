@@ -194,7 +194,7 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
         }
         auto* remote = AscendC::simt::RemoteBufferAddr(channels[jetty], remoteIndices[jetty]) +
             jetty * regionBytes;
-        auto* local = AscendC::simt::LocalBufferAddr(channels[jetty], 0U) + jetty * regionBytes;
+        auto* local = AscendC::simt::LocalBufferAddr(channels[jetty], 1U) + jetty * regionBytes;
         uint32_t failurePhase = kDiagPhaseNone;
         uint32_t failureOperation = 0U;
         const int32_t status = SubmitJetty(
@@ -242,7 +242,7 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
         const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
         auto* remote = AscendC::simt::RemoteBufferAddr(channels[jetty], remoteIndices[jetty]) +
             jetty * regionBytes;
-        auto* local = AscendC::simt::LocalBufferAddr(channels[jetty], 0U) + jetty * regionBytes;
+        auto* local = AscendC::simt::LocalBufferAddr(channels[jetty], 1U) + jetty * regionBytes;
         uint32_t failurePhase = kDiagPhaseNone;
         uint32_t failureOperation = 0U;
         const int32_t status = SubmitJetty(
