@@ -349,7 +349,7 @@ __simt_callee__ inline uint64_t HcommSimtBatchFirstWord(
     const UbcCtpBatchHandle& batchHandle, uint32_t sqDepth, uint32_t curHead, uint32_t nextHead)
 {
     const uint64_t owner = (curHead & sqDepth) == 0U ? 1U : 0U;
-    return (batchHandle.requestWords[0] & ~((1ULL << 31U) | 0xFFFFULL)) |
+    return (batchHandle.stagedWords[0] & ~((1ULL << 31U) | 0xFFFFULL)) |
         static_cast<uint64_t>(nextHead & 0xFFFFU) | (owner << 31U);
 }
 
@@ -358,7 +358,7 @@ __simt_callee__ inline uint64_t HcommSimtBatchWord6(
 {
     return batchHandle.patchNotifyToken ?
         ((context->word1Base >> 32U) & 0xFFFFFULL) | ((context->tokenWord & 0xFFFFFFFFULL) << 32U) :
-        batchHandle.requestWords[6];
+        batchHandle.stagedWords[6];
 }
 
 __simt_callee__ inline void HcommSimtBuildBatchTailStage(
@@ -367,13 +367,13 @@ __simt_callee__ inline void HcommSimtBuildBatchTailStage(
 {
     const uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
     stage.words[0] = HcommSimtBatchFirstWord(batchHandle, context->sqDepth, curHead, nextHead);
-    stage.words[1] = context->word1Base | (batchHandle.requestWords[1] & (0xFFULL << 24U));
+    stage.words[1] = context->word1Base | (batchHandle.stagedWords[1] & (0xFFULL << 24U));
     stage.words[2] = context->remoteEidL;
     stage.words[3] = context->remoteEidH;
     stage.words[4] = context->tokenWord;
 #pragma unroll
-    for (uint32_t word = 5U; word < HCOMM_SIMT_BATCH_REQUEST_WORDS; ++word) {
-        stage.words[word] = batchHandle.requestWords[word];
+    for (uint32_t word = 5U; word < HCOMM_SIMT_BATCH_STAGED_WORDS; ++word) {
+        stage.words[word] = batchHandle.stagedWords[word];
     }
     stage.words[6] = HcommSimtBatchWord6(context, batchHandle);
     if (batchHandle.patchSecondHeader) {
@@ -381,34 +381,6 @@ __simt_callee__ inline void HcommSimtBuildBatchTailStage(
         stage.words[8] = (stage.words[8] & ~((1ULL << 31U) | 0xFFFFULL)) |
             static_cast<uint64_t>((nextHead + 1U) & 0xFFFFU) | (nopOwner << 31U);
     }
-}
-
-// Non-publishers stream their lane-private request directly to the final SQ slot. Static Jetty
-// words come from the single shared UB context; no complete WQE is staged or reloaded from UB.
-__simt_callee__ inline void HcommSimtWriteBatchRequestToSq(
-    const HcommSimtResolvedPost& post, __ubuf__ HcommSimtBatchStaticContext* context,
-    const UbcCtpBatchHandle& batchHandle, uint32_t curHead)
-{
-    const uint32_t itemBb = batchHandle.requestBb;
-    const uint32_t sqSlot = curHead % post.meta.sqDepth;
-    __gm__ uint8_t* sqeAddr = reinterpret_cast<__gm__ uint8_t*>(
-        post.sqBaseAddr + post.sqWqeSize * sqSlot);
-    __gm__ ulonglong4* firstBb = reinterpret_cast<__gm__ ulonglong4*>(sqeAddr);
-    asc_stwt(&firstBb[0], make_ulonglong4(
-        HcommSimtBatchFirstWord(batchHandle, post.meta.sqDepth, curHead, curHead + itemBb),
-        context->word1Base | (batchHandle.requestWords[1] & (0xFFULL << 24U)),
-        context->remoteEidL, context->remoteEidH));
-    asc_stwt(&firstBb[1], make_ulonglong4(
-        context->tokenWord, batchHandle.requestWords[5],
-        HcommSimtBatchWord6(context, batchHandle), batchHandle.requestWords[7]));
-    if (itemBb == HCOMM_URMA_WQE_BB_CNT) {
-        return;
-    }
-    __gm__ uint8_t* secondBbAddr = sqSlot + 1U == post.meta.sqDepth ?
-        reinterpret_cast<__gm__ uint8_t*>(post.sqBaseAddr) : sqeAddr + HCOMM_URMA_WQE_BB_SIZE;
-    asc_stwt(reinterpret_cast<__gm__ ulonglong4*>(secondBbAddr), make_ulonglong4(
-        batchHandle.requestWords[8], batchHandle.requestWords[9],
-        batchHandle.requestWords[10], batchHandle.requestWords[11]));
 }
 
 // Rings the doorbell by copying the staged 128B WQE into the DWQE window. The fence orders the
@@ -679,6 +651,35 @@ struct HcommSimtAtomicDesc {
     }
 };
 
+// Append stores request-specific fields in each lane-private handle. Once BatchCommit has
+// reserved the batch range, every non-publisher patches only the queue-dependent words and
+// streams its staged WQE to the final SQ slot.
+__simt_callee__ inline void HcommSimtWriteStagedBatchWqeToSq(
+    const HcommSimtResolvedPost& post, __ubuf__ HcommSimtBatchStaticContext* context,
+    const UbcCtpBatchHandle& batchHandle, uint32_t curHead)
+{
+    const uint32_t itemBb = batchHandle.stagedBb;
+    const uint32_t sqSlot = curHead % post.meta.sqDepth;
+    __gm__ uint8_t* sqeAddr = reinterpret_cast<__gm__ uint8_t*>(
+        post.sqBaseAddr + post.sqWqeSize * sqSlot);
+    __gm__ ulonglong4* firstBb = reinterpret_cast<__gm__ ulonglong4*>(sqeAddr);
+    asc_stwt(&firstBb[0], make_ulonglong4(
+        HcommSimtBatchFirstWord(batchHandle, post.meta.sqDepth, curHead, curHead + itemBb),
+        context->word1Base | (batchHandle.stagedWords[1] & (0xFFULL << 24U)),
+        context->remoteEidL, context->remoteEidH));
+    asc_stwt(&firstBb[1], make_ulonglong4(
+        context->tokenWord, batchHandle.stagedWords[5],
+        HcommSimtBatchWord6(context, batchHandle), batchHandle.stagedWords[7]));
+    if (itemBb == HCOMM_URMA_WQE_BB_CNT) {
+        return;
+    }
+    __gm__ uint8_t* secondBbAddr = sqSlot + 1U == post.meta.sqDepth ?
+        reinterpret_cast<__gm__ uint8_t*>(post.sqBaseAddr) : sqeAddr + HCOMM_URMA_WQE_BB_SIZE;
+    asc_stwt(reinterpret_cast<__gm__ ulonglong4*>(secondBbAddr), make_ulonglong4(
+        batchHandle.stagedWords[8], batchHandle.stagedWords[9],
+        batchHandle.stagedWords[10], batchHandle.stagedWords[11]));
+}
+
 __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
     ChannelHandle channel, uint32_t expectIdx)
 {
@@ -855,8 +856,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
     requestTemplate.sqDepth = 1U;
     requestTemplate.word1 = static_cast<uint64_t>(Desc::publisherSgeNum) << 24U;
     desc.template StorePublisher<HCOMM_SIMT_WQE_WORDS>(
-        batchHandle.requestWords, requestTemplate, 0U, HCOMM_URMA_DWQE_BB_CNT);
-    batchHandle.requestBb = Desc::bbCnt;
+        batchHandle.stagedWords, requestTemplate, 0U, HCOMM_URMA_DWQE_BB_CNT);
+    batchHandle.stagedBb = Desc::bbCnt;
     batchHandle.patchSecondHeader = Desc::bbCnt == HCOMM_URMA_WQE_BB_CNT && Desc::sgeNum == 0U;
     batchHandle.patchNotifyToken = Desc::usesNotifyToken;
 
@@ -894,105 +895,22 @@ template <typename Desc, typename Group>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
     UbcCtpBatchHandle& batchHandle, const Desc& desc, const Group& group)
 {
-    const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
-    const uint32_t size = static_cast<uint32_t>(group.size());
-    const bool publisher = rank + 1U == size;
-    HcommSimtPackedSqeTemplate requestTemplate {};
-    requestTemplate.sqDepth = 1U;
+    (void)group;
+    const bool publisher = batchHandle.groupRank + 1U == batchHandle.groupSize;
+    HcommSimtPackedSqeTemplate stagedTemplate {};
+    stagedTemplate.sqDepth = 1U;
     if (publisher) {
-        requestTemplate.word1 = static_cast<uint64_t>(Desc::publisherSgeNum) << 24U;
+        stagedTemplate.word1 = static_cast<uint64_t>(Desc::publisherSgeNum) << 24U;
         desc.template StorePublisher<HCOMM_SIMT_WQE_WORDS>(
-            batchHandle.requestWords, requestTemplate, 0U, HCOMM_URMA_DWQE_BB_CNT);
+            batchHandle.stagedWords, stagedTemplate, 0U, HCOMM_URMA_DWQE_BB_CNT);
     } else {
-        requestTemplate.word1 = static_cast<uint64_t>(Desc::sgeNum) << 24U;
+        stagedTemplate.word1 = static_cast<uint64_t>(Desc::sgeNum) << 24U;
         desc.template Store<Desc::bbCnt * HCOMM_SIMT_BB_WORDS>(
-            batchHandle.requestWords, requestTemplate, 0U, Desc::bbCnt);
+            batchHandle.stagedWords, stagedTemplate, 0U, Desc::bbCnt);
     }
-    batchHandle.requestBb = Desc::bbCnt;
+    batchHandle.stagedBb = Desc::bbCnt;
     batchHandle.patchSecondHeader = publisher && Desc::bbCnt == HCOMM_URMA_WQE_BB_CNT && Desc::sgeNum == 0U;
     batchHandle.patchNotifyToken = Desc::usesNotifyToken;
-
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    const uint64_t profileBegin = rank == 0U ? clock() : 0U;
-    if (rank == 0U) {
-        HcommSimtSetBatchTrace(batchHandle, 0U, 100U);
-    }
-#endif
-    __ubuf__ HcommSimtBatchStaticContext* context =
-        reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
-    HcommSimtResolvedPost post;
-    HcommSimtLoadBatchStaticPost(context, post);
-    const uint32_t itemBb = Desc::bbCnt;
-    const uint32_t totalBb = size * itemBb +
-        (itemBb == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U);
-    int32_t status = HCOMM_SUCCESS;
-    uint64_t headVal = 0U;
-    if (size <= warpSize) {
-        if (rank == 0U) {
-            status = HcommSimtTryPlanExclusiveReservation(
-                post.headAddr, post.sqTailAddr, post.meta.sqDepth, totalBb, headVal) ?
-                HCOMM_SUCCESS : HCOMM_FAILED;
-        }
-        status = asc_shfl(status, 0);
-        headVal = asc_shfl(headVal, 0);
-    } else {
-        if (rank == 0U) {
-            status = HcommSimtTryPlanExclusiveReservation(
-                post.headAddr, post.sqTailAddr, post.meta.sqDepth, totalBb, headVal) ?
-                HCOMM_SUCCESS : HCOMM_FAILED;
-            groupState_[0] = static_cast<uint32_t>(status);
-            groupState_[1] = static_cast<uint32_t>(headVal);
-            groupState_[2] = static_cast<uint32_t>(headVal >> 32U);
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-            HcommSimtSetBatchTrace(batchHandle, 0U, 110U);
-#endif
-        }
-        group.sync();
-        status = static_cast<int32_t>(groupState_[0]);
-        headVal = static_cast<uint64_t>(groupState_[1]) | (static_cast<uint64_t>(groupState_[2]) << 32U);
-    }
-    if (status != HCOMM_SUCCESS) {
-        return HCOMM_FAILED;
-    }
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    if (rank == 0U) {
-        HcommSimtSetBatchTrace(batchHandle, 0U, 120U);
-        HcommSimtSetBatchTrace(batchHandle, 2U, headVal);
-    }
-    const uint64_t profilePlanEnd = rank == 0U ? clock() : 0U;
-#endif
-    batchHandle.publishedHead = headVal + ((static_cast<uint64_t>(size) << 32U) | totalBb);
-    const uint32_t laneHead = HcommSimtHeadIdx(headVal) + rank * itemBb;
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    if (rank == 0U) {
-        HcommSimtSetBatchTrace(batchHandle, 0U, 130U);
-    }
-    if (publisher) {
-        HcommSimtSetBatchTrace(batchHandle, 1U, 131U);
-    }
-#endif
-    if (publisher) {
-        HcommSimtWqeStage tailStage;
-        HcommSimtBuildBatchTailStage(context, batchHandle, laneHead, tailStage);
-        HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(post, laneHead, tailStage);
-    } else {
-        HcommSimtWriteBatchRequestToSq(post, context, batchHandle, laneHead);
-    }
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    if (publisher) {
-        HcommSimtSetBatchTrace(batchHandle, 1U, 132U);
-    }
-#endif
-    asc_threadfence();
-    group.sync();
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    if (rank == 0U) {
-        HcommSimtSetBatchTrace(batchHandle, 0U, 140U);
-        const uint64_t profileEmitEnd = clock();
-        batchHandle.profilePlanCycles += profilePlanEnd - profileBegin;
-        batchHandle.profileEmitCycles += profileEmitEnd - profilePlanEnd;
-    }
-#endif
     return HCOMM_SUCCESS;
 }
 
@@ -1203,23 +1121,78 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         HcommSimtSetBatchTrace(batchHandle, 0U, 200U);
     }
 #endif
+    __ubuf__ HcommSimtBatchStaticContext* context =
+        reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
+    HcommSimtResolvedPost post;
+    HcommSimtLoadBatchStaticPost(context, post);
+    const uint32_t itemBb = batchHandle.stagedBb;
+    const uint32_t totalBb = size * itemBb +
+        (itemBb == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U);
+    int32_t status = HCOMM_SUCCESS;
+    uint64_t headVal = 0U;
+    if (size <= warpSize) {
+        if (rank == 0U) {
+            status = HcommSimtTryPlanExclusiveReservation(
+                post.headAddr, post.sqTailAddr, post.meta.sqDepth, totalBb, headVal) ?
+                HCOMM_SUCCESS : HCOMM_FAILED;
+        }
+        status = asc_shfl(status, 0);
+        headVal = asc_shfl(headVal, 0);
+    } else {
+        if (rank == 0U) {
+            status = HcommSimtTryPlanExclusiveReservation(
+                post.headAddr, post.sqTailAddr, post.meta.sqDepth, totalBb, headVal) ?
+                HCOMM_SUCCESS : HCOMM_FAILED;
+            groupState_[0] = static_cast<uint32_t>(status);
+            groupState_[1] = static_cast<uint32_t>(headVal);
+            groupState_[2] = static_cast<uint32_t>(headVal >> 32U);
+        }
+        group.sync();
+        status = static_cast<int32_t>(groupState_[0]);
+        headVal = static_cast<uint64_t>(groupState_[1]) | (static_cast<uint64_t>(groupState_[2]) << 32U);
+    }
+    if (status != HCOMM_SUCCESS) {
+        return HCOMM_FAILED;
+    }
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    const uint64_t profilePlanEnd = rank == 0U ? clock() : 0U;
+    if (rank == 0U) {
+        HcommSimtSetBatchTrace(batchHandle, 0U, 210U);
+        HcommSimtSetBatchTrace(batchHandle, 2U, headVal);
+    }
+#endif
+    batchHandle.publishedHead = headVal + ((static_cast<uint64_t>(size) << 32U) | totalBb);
+    const uint32_t laneHead = HcommSimtHeadIdx(headVal) + rank * itemBb;
+    HcommSimtWqeStage tailStage;
+    if (publisher) {
+        HcommSimtBuildBatchTailStage(context, batchHandle, laneHead, tailStage);
+        HcommSimtPublishReservedStage<HCOMM_URMA_DWQE_BB_CNT, false>(post, laneHead, tailStage);
+    } else {
+        HcommSimtWriteStagedBatchWqeToSq(post, context, batchHandle, laneHead);
+    }
+    asc_threadfence();
+    group.sync();
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    const uint64_t profileEmitEnd = rank == 0U ? clock() : 0U;
+    if (rank == 0U) {
+        HcommSimtSetBatchTrace(batchHandle, 0U, 220U);
+    }
+#endif
     if (publisher) {
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-        HcommSimtSetBatchTrace(batchHandle, 1U, 210U);
+        HcommSimtSetBatchTrace(batchHandle, 1U, 221U);
 #endif
-        __ubuf__ HcommSimtBatchStaticContext* context =
-            reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
-        HcommSimtResolvedPost post;
-        HcommSimtLoadBatchStaticPost(context, post);
-        HcommSimtWqeStage tailStage;
-        const uint32_t tailHead = HcommSimtHeadIdx(batchHandle.publishedHead) - HCOMM_URMA_DWQE_BB_CNT;
-        HcommSimtBuildBatchTailStage(context, batchHandle, tailHead, tailStage);
         asc_threadfence();
         *post.headAddr = batchHandle.publishedHead;
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-        HcommSimtSetBatchTrace(batchHandle, 1U, 220U);
-#endif
-        HcommSimtRingDwqe(post.dwqeAddr, tailStage);
+        if (itemBb == HCOMM_URMA_WQE_BB_CNT) {
+            // A one-BB request is expanded into a two-BB publisher. Rebuild that image after
+            // the collective barrier instead of carrying the temporary SQ image across it.
+            HcommSimtWqeStage publishStage;
+            HcommSimtBuildBatchTailStage(context, batchHandle, laneHead, publishStage);
+            HcommSimtRingDwqe(post.dwqeAddr, publishStage);
+        } else {
+            HcommSimtRingDwqe(post.dwqeAddr, tailStage);
+        }
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         HcommSimtSetBatchTrace(batchHandle, 1U, 230U);
 #endif
@@ -1228,7 +1201,10 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     if (rank == 0U) {
         HcommSimtSetBatchTrace(batchHandle, 0U, 240U);
-        batchHandle.profilePublishCycles += clock() - profileBegin;
+        const uint64_t profileEnd = clock();
+        batchHandle.profilePlanCycles += profilePlanEnd - profileBegin;
+        batchHandle.profileEmitCycles += profileEmitEnd - profilePlanEnd;
+        batchHandle.profilePublishCycles += profileEnd - profileEmitEnd;
     }
 #endif
     return HCOMM_SUCCESS;
