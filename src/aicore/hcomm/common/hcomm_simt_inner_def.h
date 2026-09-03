@@ -75,8 +75,8 @@ static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT Cha
 
 constexpr uint32_t HCOMM_SIMT_BATCH_REQUEST_WORDS = 12U;
 
-// A batch handle is lane-private. The shared UB context is written once by MakeBatchHandle;
-// Append writes the final SQ slot and retains only the publisher's request fields here.
+// A batch handle is lane-private. The shared UB context is written once by MakeBatchHandle.
+// Group Append writes the final SQ slot directly; the request fields remain for single-lane Batch.
 struct UbcCtpBatchHandle {
     ChannelHandle channel = 0U;
     __ubuf__ uint64_t* context = nullptr;
