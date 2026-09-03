@@ -208,9 +208,11 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchPerfVf(
     commitCycles = 0U;
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     if constexpr (explicitBatch) {
-        batch.profilePlanCycles = 0U;
         batch.profileEmitCycles = 0U;
         batch.profilePublishCycles = 0U;
+        batch.profileReserveCycles = 0U;
+        batch.profileReadySyncCycles = 0U;
+        batch.profileReturnSyncCycles = 0U;
     }
 #endif
     uint64_t begin = clock();
@@ -252,9 +254,11 @@ __simt_vf__ __launch_bounds__(32) inline void SimtBatchPerfVf(
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     if constexpr (explicitBatch) {
         timing[kCommitCyclesIndex] = commitCycles;
-        timing[kPlanCyclesIndex] = batch.profilePlanCycles;
+        timing[kReserveCyclesIndex] = batch.profileReserveCycles;
         timing[kEmitCyclesIndex] = batch.profileEmitCycles;
         timing[kDwqePublishCyclesIndex] = batch.profilePublishCycles;
+        timing[kReadySyncCyclesIndex] = batch.profileReadySyncCycles;
+        timing[kReturnSyncCyclesIndex] = batch.profileReturnSyncCycles;
     }
 #endif
 }
@@ -304,9 +308,11 @@ __simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
     group.sync();
     commitCycles = 0U;
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    batch.profilePlanCycles = 0U;
     batch.profileEmitCycles = 0U;
     batch.profilePublishCycles = 0U;
+    batch.profileReserveCycles = 0U;
+    batch.profileReadySyncCycles = 0U;
+    batch.profileReturnSyncCycles = 0U;
 #endif
     uint64_t begin = rank == 0U ? clock() : 0U;
     failureAction = kActionNone;
@@ -332,9 +338,11 @@ __simt_vf__ __launch_bounds__(maxGroupLanes) inline void SimtGroupBatchPerfVf(
             (failureAction == kActionNone ? kActionDrain : failureAction);
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
         timing[kCommitCyclesIndex] = commitCycles;
-        timing[kPlanCyclesIndex] = batch.profilePlanCycles;
+        timing[kReserveCyclesIndex] = batch.profileReserveCycles;
         timing[kEmitCyclesIndex] = batch.profileEmitCycles;
         timing[kDwqePublishCyclesIndex] = batch.profilePublishCycles;
+        timing[kReadySyncCyclesIndex] = batch.profileReadySyncCycles;
+        timing[kReturnSyncCyclesIndex] = batch.profileReturnSyncCycles;
 #endif
     }
     group.sync();

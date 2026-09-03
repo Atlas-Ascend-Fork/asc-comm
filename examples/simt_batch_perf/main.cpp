@@ -436,17 +436,21 @@ int main(int argc, char* argv[])
         if (mode != "immediate") {
             const double commitNs = static_cast<double>(timing[kCommitCyclesIndex]) / iterations;
             const double appendNs = issueNs > commitNs ? issueNs - commitNs : 0.0;
-            const double planNs = static_cast<double>(timing[kPlanCyclesIndex]) / iterations;
+            const double reserveNs = static_cast<double>(timing[kReserveCyclesIndex]) / iterations;
             const double emitNs = static_cast<double>(timing[kEmitCyclesIndex]) / iterations;
             const double publishNs = static_cast<double>(timing[kDwqePublishCyclesIndex]) / iterations;
+            const double readySyncNs = static_cast<double>(timing[kReadySyncCyclesIndex]) / iterations;
+            const double returnSyncNs = static_cast<double>(timing[kReturnSyncCyclesIndex]) / iterations;
             const bool groupBatch = mode == "group";
-            const double appendOtherNs = groupBatch ? appendNs :
-                (appendNs > planNs + emitNs ? appendNs - planNs - emitNs : 0.0);
-            const double measuredCommitNs = groupBatch ? planNs + emitNs + publishNs : publishNs;
+            const double appendOtherNs = appendNs > emitNs ? appendNs - emitNs : 0.0;
+            // In GroupBatch, Publish/Reserve execute on the tail lane while ReturnSync measures
+            // how long lane 0 waits for that work. They overlap and must not be added together.
+            const double measuredCommitNs = groupBatch ? readySyncNs + returnSyncNs : publishNs + reserveNs;
             const double commitOtherNs = commitNs > measuredCommitNs ? commitNs - measuredCommitNs : 0.0;
             std::cout << " | AppendTime/ns=" << appendNs << " | CommitTime/ns=" << commitNs
-                       << " | PlanTime/ns=" << planNs << " | EmitTime/ns=" << emitNs
-                       << " | PublishTime/ns=" << publishNs << " | AppendOtherTime/ns=" << appendOtherNs
+                       << " | EmitTime/ns=" << emitNs << " | AppendOtherTime/ns=" << appendOtherNs
+                       << " | ReadySyncTime/ns=" << readySyncNs << " | PublishTime/ns=" << publishNs
+                       << " | ReserveTime/ns=" << reserveNs << " | ReturnSyncTime/ns=" << returnSyncNs
                        << " | CommitOtherTime/ns=" << commitOtherNs;
         }
 #endif

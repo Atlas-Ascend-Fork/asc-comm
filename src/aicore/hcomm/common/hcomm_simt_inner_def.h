@@ -81,9 +81,11 @@ struct UbcCtpBatchHandle {
     uint32_t groupRank = 0U;
     uint32_t groupSize = 1U;
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    uint64_t profilePlanCycles = 0U;
     uint64_t profileEmitCycles = 0U;
     uint64_t profilePublishCycles = 0U;
+    uint64_t profileReserveCycles = 0U;
+    uint64_t profileReadySyncCycles = 0U;
+    uint64_t profileReturnSyncCycles = 0U;
 #endif
 };
 

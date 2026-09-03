@@ -96,6 +96,10 @@ struct alignas(sizeof(ulonglong2)) HcommSimtBatchStaticContext {
     uint32_t itemBb;
     uint32_t groupSize;
     int32_t reservationStatus;
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    uint64_t profilePublishCycles;
+    uint64_t profileReserveCycles;
+#endif
 };
 static_assert(
     sizeof(HcommSimtBatchStaticContext) <= HCOMM_URMA_DWQE_SIZE,
@@ -1099,9 +1103,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     UbcCtpBatchHandle& batchHandle)
 {
-#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    const uint64_t profileBegin = clock();
-#endif
     __ubuf__ HcommSimtBatchStaticContext* context =
         reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
     if (context->reservationStatus != HCOMM_SUCCESS) {
@@ -1111,11 +1112,18 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     HcommSimtLoadBatchStaticPost(context, post);
     const uint64_t publishedHead = context->reservedHead +
         ((1ULL << 32U) | HcommSimtBatchTotalBb(1U, context->itemBb));
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    const uint64_t publishBegin = clock();
+#endif
     *post.headAddr = publishedHead;
     HcommSimtRingBatchDwqe(post.dwqeAddr, HcommSimtBatchPublisherWords(context));
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    batchHandle.profilePublishCycles += clock() - publishBegin;
+    const uint64_t reserveBegin = clock();
+#endif
     HcommSimtPlanBatchFromHead(context, publishedHead);
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    batchHandle.profilePublishCycles += clock() - profileBegin;
+    batchHandle.profileReserveCycles += clock() - reserveBegin;
 #endif
     return HCOMM_SUCCESS;
 }
@@ -1128,7 +1136,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
     const uint32_t size = static_cast<uint32_t>(group.size());
     const bool publisher = rank + 1U == size;
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
-    const uint64_t profileBegin = rank == 0U ? clock() : 0U;
+    const uint64_t readyBegin = rank == 0U ? clock() : 0U;
 #endif
     __ubuf__ HcommSimtBatchStaticContext* context =
         reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
@@ -1136,21 +1144,40 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
         return HCOMM_FAILED;
     }
     group.sync();
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    if (rank == 0U) {
+        batchHandle.profileReadySyncCycles += clock() - readyBegin;
+    }
+#endif
     if (publisher) {
         HcommSimtResolvedPost post;
         HcommSimtLoadBatchStaticPost(context, post);
         const uint32_t totalBb = HcommSimtBatchTotalBb(size, context->itemBb);
         const uint64_t publishedHead = context->reservedHead +
             ((static_cast<uint64_t>(size) << 32U) | totalBb);
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+        const uint64_t publishBegin = clock();
+#endif
         *post.headAddr = publishedHead;
         HcommSimtRingBatchDwqe(post.dwqeAddr, HcommSimtBatchPublisherWords(context));
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+        context->profilePublishCycles = clock() - publishBegin;
+        const uint64_t reserveBegin = clock();
+#endif
         HcommSimtPlanBatchFromHead(context, publishedHead);
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+        context->profileReserveCycles = clock() - reserveBegin;
+#endif
     }
+#if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
+    const uint64_t returnBegin = rank == 0U ? clock() : 0U;
+#endif
     group.sync();
 #if defined(HCOMM_SIMT_BATCH_STAGE_PROFILE)
     if (rank == 0U) {
-        const uint64_t profileEnd = clock();
-        batchHandle.profilePublishCycles += profileEnd - profileBegin;
+        batchHandle.profileReturnSyncCycles += clock() - returnBegin;
+        batchHandle.profilePublishCycles += context->profilePublishCycles;
+        batchHandle.profileReserveCycles += context->profileReserveCycles;
     }
 #endif
     return HCOMM_SUCCESS;
