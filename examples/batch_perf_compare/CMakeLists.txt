@@ -43,7 +43,7 @@ target_include_directories(batch_perf_compare BEFORE PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${HCOMM_SOURCE_OVERLAY}/include/adv_api
     $ENV{ASCEND_HOME_PATH}/include
-    $<$<COMPILE_LANGUAGE:ASC>:$ENV{ASCEND_HOME_PATH}/asc/include/adv_api>
+    $ENV{ASCEND_HOME_PATH}/asc/include/adv_api
 )
 target_link_directories(batch_perf_compare PRIVATE
     $ENV{ASCEND_HOME_PATH}/lib64
