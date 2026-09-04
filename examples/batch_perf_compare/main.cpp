@@ -162,6 +162,20 @@ void PrintDiagnostics(const uint64_t* timing, uint32_t jettyCount)
                   << " | HeadAddr=0x" << d[28] << " | DwqeAddr=0x" << d[29]
                   << " | SqBaseAddr=0x" << d[30] << " | Context=0x" << d[31]
                   << " | Channel=0x" << d[32] << std::dec << std::endl;
+        for (uint32_t batch = 0U; batch < 3U; ++batch) {
+            const uint32_t offset = 34U + batch * 4U;
+            if (d[offset + 1U] == 0U) {
+                continue;
+            }
+            const uint64_t word0 = d[offset + 1U];
+            std::cout << "TAIL_WQE | Jetty=" << jetty << " | Batch=" << batch
+                      << " | FirstBatchHead=" << d[33] << " | CurHead=" << d[offset]
+                      << " | NextHead=" << (word0 & 0xFFFFU)
+                      << " | Owner=" << ((word0 >> 31U) & 1U)
+                      << " | Word0=0x" << std::hex << word0
+                      << " | Word1=0x" << d[offset + 2U]
+                      << " | RemoteAddr=0x" << d[offset + 3U] << std::dec << std::endl;
+        }
     }
 }
 

@@ -106,6 +106,25 @@ __simt_callee__ inline void CaptureBatchFailure(
     diag[25] = publisher[0];
     diag[26] = sqFirst[0];
     diag[27] = dwqe[0];
+
+    if ((phase == kDiagPhaseWarmupDrain || phase == kDiagPhaseTimedDrain) &&
+        operation >= context->groupSize) {
+        const uint32_t batchCount = operation / context->groupSize;
+        const uint32_t firstBatchHead = AscendC::simt::HcommSimtHeadIdx(context->reservedHead) -
+            batchCount * totalBb;
+        diag[33] = firstBatchHead;
+        for (uint32_t batchIdx = 0U; batchIdx < 3U && batchIdx < batchCount; ++batchIdx) {
+            const uint32_t batchHead = firstBatchHead + batchIdx * totalBb;
+            const uint32_t tailHead = batchHead + (context->groupSize - 1U) * context->itemBb;
+            auto* tailSq = reinterpret_cast<__gm__ uint64_t*>(
+                context->sqBaseAddr + context->sqWqeSize * (tailHead % context->sqDepth));
+            const uint32_t offset = 34U + batchIdx * 4U;
+            diag[offset] = tailHead;
+            diag[offset + 1U] = tailSq[0];
+            diag[offset + 2U] = tailSq[1];
+            diag[offset + 3U] = tailSq[5];
+        }
+    }
 }
 
 template <typename HcommT>
@@ -125,31 +144,24 @@ __simt_callee__ inline int32_t AppendSimt(
         remote + offset + slotBytes - sizeof(uint64_t), kNotifyValue);
 }
 
-template <typename HcommT, typename BlockT>
+template <typename HcommT>
 __simt_callee__ inline int32_t SubmitJetty(
     HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, uint32_t api, __gm__ uint8_t* remote,
     __gm__ uint8_t* local, uint32_t payloadBytes, uint32_t slotBytes, uint32_t count,
-    uint32_t rank, uint32_t groupSize, const BlockT& block, uint32_t jetty, uint32_t jettyCount,
-    uint32_t appendPhase, uint32_t commitPhase, uint32_t& failurePhase, uint32_t& failureOperation)
+    uint32_t rank, uint32_t groupSize, uint32_t appendPhase, uint32_t commitPhase,
+    uint32_t& failurePhase, uint32_t& failureOperation)
 {
     int32_t status = 0;
     for (uint32_t begin = 0U; begin < count; begin += groupSize) {
         const int32_t appendStatus = AppendSimt(
             hcomm, batch, api, remote, local, payloadBytes, slotBytes, begin + rank);
-        block.sync();
         if (appendStatus != 0) {
             status = appendStatus;
             failurePhase = appendPhase;
             failureOperation = begin + rank;
             break;
         }
-        int32_t commitStatus = 0;
-        for (uint32_t commitJetty = 0U; commitJetty < jettyCount; ++commitJetty) {
-            if (jetty == commitJetty) {
-                commitStatus = hcomm.BatchCommit(batch);
-            }
-            block.sync();
-        }
+        const int32_t commitStatus = hcomm.BatchCommit(batch);
         if (commitStatus != 0) {
             status = commitStatus;
             failurePhase = commitPhase;
@@ -220,8 +232,8 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
         uint32_t failureOperation = 0U;
         const int32_t status = SubmitJetty(
             hcomm, batches[wave], api, remote, local,
-            payloadBytes, slotBytes, warmup, rank, batchSize, block, jetty, jettyCount,
-            kDiagPhaseWarmupAppend, kDiagPhaseWarmupCommit, failurePhase, failureOperation);
+            payloadBytes, slotBytes, warmup, rank, batchSize, kDiagPhaseWarmupAppend, kDiagPhaseWarmupCommit,
+            failurePhase, failureOperation);
         if (rank == 0U) {
             statuses[jetty] = status;
             failurePhases[jetty] = failurePhase;
@@ -268,8 +280,8 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
         uint32_t failureOperation = 0U;
         const int32_t status = SubmitJetty(
             hcomm, batches[wave], api, remote, local,
-            payloadBytes, slotBytes, iterations, rank, batchSize, block, jetty, jettyCount,
-            kDiagPhaseTimedAppend, kDiagPhaseTimedCommit, failurePhase, failureOperation);
+            payloadBytes, slotBytes, iterations, rank, batchSize, kDiagPhaseTimedAppend, kDiagPhaseTimedCommit,
+            failurePhase, failureOperation);
         if (rank == 0U) {
             statuses[jetty] = status;
             failurePhases[jetty] = failurePhase;
