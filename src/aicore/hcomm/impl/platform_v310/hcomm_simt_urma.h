@@ -427,6 +427,8 @@ __simt_callee__ inline void HcommSimtRingBatchDwqe(
         const uint32_t word = i * 2U;
         asc_stwt(&dstWords[i], make_ulonglong2(words[word], words[word + 1U]));
     }
+    // Keep the complete 128B DWQE visible before publishing its two cache lines.
+    asc_threadfence();
     asc_dcci_single(dwqeAddr);
     asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
 }
