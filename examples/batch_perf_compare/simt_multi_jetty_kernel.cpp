@@ -152,6 +152,16 @@ __simt_callee__ inline int32_t SubmitJetty(
     return status;
 }
 
+template <uint32_t batchSize, typename Block>
+__simt_callee__ inline auto MakeJettyGroup(const Block& block)
+{
+    if constexpr (batchSize <= 32U) {
+        return cooperative_groups::tiled_partition(cooperative_groups::coalesced_threads(), batchSize);
+    } else {
+        return cooperative_groups::tiled_partition<batchSize>(block);
+    }
+}
+
 template <uint32_t batchSize, uint32_t laneCapacity>
 __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
     __gm__ uint64_t* channels, __gm__ uint32_t* remoteIndices, __gm__ uint64_t* timing,
@@ -163,9 +173,9 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
     auto& tileMemory =
         *reinterpret_cast<__ubuf__ cooperative_groups::block_tile_memory<laneCapacity>*>(tileBuffer);
     auto block = cooperative_groups::this_thread_block(tileMemory);
-    auto group = cooperative_groups::tiled_partition<batchSize>(block);
+    auto group = MakeJettyGroup<batchSize>(block);
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
-    const uint32_t physicalGroup = static_cast<uint32_t>(group.meta_group_rank());
+    const uint32_t physicalGroup = static_cast<uint32_t>(threadIdx.x) / batchSize;
     const uint32_t physicalGroupCount = static_cast<uint32_t>(block.size()) / batchSize;
     const uint32_t waveCount = (jettyCount + physicalGroupCount - 1U) / physicalGroupCount;
     AscendC::simt::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP, decltype(group)> hcomm(group);

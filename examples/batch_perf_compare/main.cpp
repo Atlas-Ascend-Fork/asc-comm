@@ -9,6 +9,7 @@
  */
 
 #include <algorithm>
+#include <array>
 #include <cerrno>
 #include <chrono>
 #include <cstdint>
@@ -206,38 +207,25 @@ HcclResult BuildChannelDesc(
     return HCCL_E_NOT_SUPPORT;
 }
 
-HcclResult AcquireChannels(
-    HcclComm comm, uint32_t rank, uint32_t peer, HcclMemHandle* handles, uint32_t count,
-    std::vector<ChannelHandle>& channels, std::vector<uint64_t>& remoteRecvAddrs,
-    std::vector<uint32_t>& remoteRecvIndices)
+HcclResult AcquireChannel(
+    HcclComm comm, uint32_t rank, uint32_t peer, HcclMemHandle* handles, ChannelHandle& channel,
+    uint64_t& remoteRecvAddr, uint32_t& remoteRecvIndex)
 {
-    HcclChannelDesc baseDesc {};
-    CHECK_HCCL(BuildChannelDesc(comm, rank, peer, handles, baseDesc));
-    std::vector<HcclChannelDesc> descs(count, baseDesc);
-    channels.resize(count);
-    CHECK_HCCL(HcclChannelAcquire(comm, COMM_ENGINE_AIV, descs.data(), count, channels.data()));
-    remoteRecvAddrs.resize(count);
-    remoteRecvIndices.resize(count);
-    for (uint32_t channelIndex = 0U; channelIndex < count; ++channelIndex) {
-        uint32_t memCount = 0U;
-        CommMem* remoteMems = nullptr;
-        char** tags = nullptr;
-        CHECK_HCCL(HcclChannelGetRemoteMems(
-            comm, channels[channelIndex], &memCount, &remoteMems, &tags));
-        bool found = false;
-        for (uint32_t mem = 0U; mem < memCount; ++mem) {
-            if (tags[mem] != nullptr && std::strcmp(tags[mem], kRecvTag) == 0) {
-                remoteRecvAddrs[channelIndex] = reinterpret_cast<uint64_t>(remoteMems[mem].addr);
-                remoteRecvIndices[channelIndex] = mem;
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            return HCCL_E_INTERNAL;
+    HcclChannelDesc desc {};
+    CHECK_HCCL(BuildChannelDesc(comm, rank, peer, handles, desc));
+    CHECK_HCCL(HcclChannelAcquire(comm, COMM_ENGINE_AIV, &desc, 1U, &channel));
+    uint32_t memCount = 0U;
+    CommMem* remoteMems = nullptr;
+    char** tags = nullptr;
+    CHECK_HCCL(HcclChannelGetRemoteMems(comm, channel, &memCount, &remoteMems, &tags));
+    for (uint32_t mem = 0U; mem < memCount; ++mem) {
+        if (tags[mem] != nullptr && std::strcmp(tags[mem], kRecvTag) == 0) {
+            remoteRecvAddr = reinterpret_cast<uint64_t>(remoteMems[mem].addr);
+            remoteRecvIndex = mem;
+            return HCCL_SUCCESS;
         }
     }
-    return HCCL_SUCCESS;
+    return HCCL_E_INTERNAL;
 }
 
 bool CheckData(
@@ -315,8 +303,11 @@ int main(int argc, char* argv[])
     CHECK_ACL(aclrtSetDevice(static_cast<int32_t>(rank)));
     aclrtStream stream = nullptr;
     CHECK_ACL(aclrtCreateStream(&stream));
-    HcclComm comm = nullptr;
-    CHECK_HCCL(InitComm(rank, nranks, rootFile, &comm));
+    const uint32_t commCount = simd ? 1U : jettyCount;
+    std::vector<HcclComm> comms(commCount, nullptr);
+    for (uint32_t jetty = 0U; jetty < commCount; ++jetty) {
+        CHECK_HCCL(InitComm(rank, nranks, rootFile + ".jetty_" + std::to_string(jetty), &comms[jetty]));
+    }
 
     void* sendBuffer = nullptr;
     void* recvBuffer = nullptr;
@@ -325,15 +316,17 @@ int main(int argc, char* argv[])
     CHECK_ACL(InitBuffers(sendBuffer, recvBuffer, bufferBytes));
     CommMem sendMem {COMM_MEM_TYPE_DEVICE, sendBuffer, bufferBytes};
     CommMem recvMem {COMM_MEM_TYPE_DEVICE, recvBuffer, bufferBytes};
-    HcclMemHandle handles[2] = {nullptr, nullptr};
-    CHECK_HCCL(HcclCommMemReg(comm, kSendTag, &sendMem, &handles[0]));
-    CHECK_HCCL(HcclCommMemReg(comm, kRecvTag, &recvMem, &handles[1]));
-
-    std::vector<ChannelHandle> channels;
-    std::vector<uint64_t> remoteRecvAddrs;
-    std::vector<uint32_t> remoteRecvIndices;
-    CHECK_HCCL(AcquireChannels(
-        comm, rank, peer, handles, jettyCount, channels, remoteRecvAddrs, remoteRecvIndices));
+    std::vector<std::array<HcclMemHandle, 2U>> handles(commCount, {nullptr, nullptr});
+    std::vector<ChannelHandle> channels(commCount);
+    std::vector<uint64_t> remoteRecvAddrs(commCount);
+    std::vector<uint32_t> remoteRecvIndices(commCount);
+    for (uint32_t jetty = 0U; jetty < commCount; ++jetty) {
+        CHECK_HCCL(HcclCommMemReg(comms[jetty], kSendTag, &sendMem, &handles[jetty][0]));
+        CHECK_HCCL(HcclCommMemReg(comms[jetty], kRecvTag, &recvMem, &handles[jetty][1]));
+        CHECK_HCCL(AcquireChannel(
+            comms[jetty], rank, peer, handles[jetty].data(), channels[jetty], remoteRecvAddrs[jetty],
+            remoteRecvIndices[jetty]));
+    }
     CHECK_HCCL(HostBarrier(rank, nranks, "ready"));
 
     void* timingDevice = nullptr;
@@ -399,7 +392,9 @@ int main(int argc, char* argv[])
     }
     CHECK_ACL(aclrtFree(sendBuffer));
     CHECK_ACL(aclrtFree(recvBuffer));
-    CHECK_HCCL(HcclCommDestroy(comm));
+    for (HcclComm comm : comms) {
+        CHECK_HCCL(HcclCommDestroy(comm));
+    }
     CHECK_ACL(aclrtDestroyStream(stream));
     CHECK_ACL(aclFinalize());
     return pass ? 0 : 2;
