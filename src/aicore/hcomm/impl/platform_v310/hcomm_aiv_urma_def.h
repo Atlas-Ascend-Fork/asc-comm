@@ -41,6 +41,17 @@ constexpr uint32_t HCOMM_URMA_MUTEX_ID = 29U;
 constexpr uint32_t HCOMM_URMA_WQEBB_SIZE = 64U;
 constexpr uint32_t HCOMM_URMA_WQEBB_U32_NUM = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
 constexpr uint32_t HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM = 2U;
+constexpr uint32_t HCOMM_URMA_BATCH_MIN_SGE_NUM = 1U;
+constexpr uint32_t HCOMM_URMA_BATCH_MAX_WQE_BYTES = 256U;
+constexpr uint32_t HCOMM_URMA_BATCH_MAX_WQEBB_NUM = HCOMM_URMA_BATCH_MAX_WQE_BYTES / HCOMM_URMA_WQEBB_SIZE;
+constexpr uint32_t HCOMM_URMA_BATCH_DATA_MAX_SGE_NUM =
+    (HCOMM_URMA_BATCH_MAX_WQE_BYTES - sizeof(HcommUrmaSqeCtx)) / sizeof(HcommUrmaSgeCtx);
+constexpr uint32_t HCOMM_URMA_BATCH_NOTIFY_MAX_SGE_NUM =
+    (HCOMM_URMA_BATCH_MAX_WQE_BYTES - sizeof(HcommUrmaSqeCtx) - sizeof(HcommUrmaNotifyCtx)) /
+    sizeof(HcommUrmaSgeCtx);
+static_assert(HCOMM_URMA_BATCH_MAX_WQEBB_NUM == 4U, "Batch WQE must occupy at most four WQEBBs");
+static_assert(HCOMM_URMA_BATCH_DATA_MAX_SGE_NUM == 13U, "Write and Read must support at most 13 SGEs");
+static_assert(HCOMM_URMA_BATCH_NOTIFY_MAX_SGE_NUM == 11U, "WriteWithNotify must support at most 11 SGEs");
 
 constexpr uint32_t HCOMM_URMA_INVALID_REDUCE_DATA_TYPE = 0xFFFFFFFFU;
 template <typename T>
@@ -87,6 +98,9 @@ public:
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(
+        UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR const* srcList, const uint32_t* lenList, uint32_t sgeNum);
     template <
         typename T, HcommUrmaReduceOp reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,
         pipe_t reqPipe = PIPE_MTE3, auto const& config = URMA_DEFAULT_CFG>
@@ -97,6 +111,9 @@ public:
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t ReadNbi(
+        UbcBatchHandle& batchHandle, GM_ADDR const* dstList, const uint32_t* lenList, GM_ADDR src, uint32_t sgeNum);
     template <
         typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_INLINE_CFG>
@@ -109,6 +126,10 @@ public:
     template <auto const& config = URMA_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
         UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR const* srcList, const uint32_t* lenList, uint32_t sgeNum,
+        GM_ADDR notifyAddr, uint64_t notifyVal);
     template <
         typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = URMA_DEFAULT_CFG>
@@ -141,6 +162,10 @@ private:
     __aicore__ inline int32_t BatchPostSend(
         UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, GM_ADDR localAddr, uint32_t len, GM_ADDR notifyAddr = nullptr,
         uint64_t notifyVal = 0);
+    template <HcommUrmaOpCode opCode, auto const& config>
+    __aicore__ inline int32_t BatchPostSend(
+        UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, GM_ADDR const* localAddrList,
+        const uint32_t* localLenList, uint32_t sgeNum, GM_ADDR notifyAddr = nullptr, uint64_t notifyVal = 0);
     __aicore__ inline void CommitImpl(ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt);
     __aicore__ inline void PollCqWhenCqOverflow(
         ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt);
