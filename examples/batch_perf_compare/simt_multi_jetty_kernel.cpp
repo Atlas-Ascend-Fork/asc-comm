@@ -221,22 +221,23 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
             failureOperations[jetty] = failureOperation;
         }
     }
-    for (uint32_t wave = 0U; wave < waveCount; ++wave) {
-        const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
-        if (rank == 0U && statuses[jetty] == 0 && warmup != 0U) {
-            statuses[jetty] = hcomm.Drain(batches[wave]);
-            if (statuses[jetty] != 0) {
-                failurePhases[jetty] = kDiagPhaseWarmupDrain;
-                failureOperations[jetty] = warmup;
+    for (uint32_t drainJetty = 0U; drainJetty < jettyCount; ++drainJetty) {
+        for (uint32_t wave = 0U; wave < waveCount; ++wave) {
+            const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
+            if (jetty == drainJetty && rank == 0U && statuses[jetty] == 0 && warmup != 0U) {
+                statuses[jetty] = hcomm.Drain(batches[wave]);
+                if (statuses[jetty] != 0) {
+                    failurePhases[jetty] = kDiagPhaseWarmupDrain;
+                    failureOperations[jetty] = warmup;
+                }
+            }
+            if (jetty == drainJetty && rank == 0U && statuses[jetty] != 0) {
+                CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
+                    failureOperations[jetty], batches[wave]);
             }
         }
-        if (rank == 0U && statuses[jetty] != 0) {
-            CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
-                failureOperations[jetty], batches[wave]);
-        }
-        group.sync();
+        block.sync();
     }
-    block.sync();
     if (threadIdx.x == 0U) {
         for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
             if (statuses[jetty] != 0) {
@@ -271,22 +272,23 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
     }
     block.sync();
     const uint64_t issueEnd = threadIdx.x == 0U ? clock() : 0U;
-    for (uint32_t wave = 0U; wave < waveCount; ++wave) {
-        const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
-        if (rank == 0U && statuses[jetty] == 0) {
-            statuses[jetty] = hcomm.Drain(batches[wave]);
-            if (statuses[jetty] != 0) {
-                failurePhases[jetty] = kDiagPhaseTimedDrain;
-                failureOperations[jetty] = iterations;
+    for (uint32_t drainJetty = 0U; drainJetty < jettyCount; ++drainJetty) {
+        for (uint32_t wave = 0U; wave < waveCount; ++wave) {
+            const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
+            if (jetty == drainJetty && rank == 0U && statuses[jetty] == 0) {
+                statuses[jetty] = hcomm.Drain(batches[wave]);
+                if (statuses[jetty] != 0) {
+                    failurePhases[jetty] = kDiagPhaseTimedDrain;
+                    failureOperations[jetty] = iterations;
+                }
+            }
+            if (jetty == drainJetty && rank == 0U && statuses[jetty] != 0) {
+                CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
+                    failureOperations[jetty], batches[wave]);
             }
         }
-        if (rank == 0U && statuses[jetty] != 0) {
-            CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
-                failureOperations[jetty], batches[wave]);
-        }
-        group.sync();
+        block.sync();
     }
-    block.sync();
     if (threadIdx.x == 0U) {
         int32_t finalStatus = 0;
         for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
