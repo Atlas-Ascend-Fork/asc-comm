@@ -138,6 +138,23 @@ public:
     __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
 
     /*!
+     * @brief Prepare a scatter/gather Write WQE in a protocol-specific batch handle.
+     * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: The single-channel batch handle to append the WQE to.
+     * @param [out] dst: The remote destination base address.
+     * @param [in] srcList: The local source GM address array.
+     * @param [in] lenList: The byte-length array paired with srcList by index.
+     * @param [in] sgeNum: The length of both arrays.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note The caller must provide a single-channel batch handle and valid arrays, payload addresses and lengths.
+     *       These contracts are not validated by the batch fast path.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t WriteNbi(
+        T& batchHandle, GM_ADDR dst, GM_ADDR const* srcList, const uint32_t* lenList, uint32_t sgeNum);
+
+    /*!
      * @class Hcomm
      * @brief The task launching interface of the inline Write point-to-point communication operator.
      *        The source data is provided by value and carried inline in the WQE.
@@ -222,6 +239,26 @@ public:
         T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
 
     /*!
+     * @brief Prepare a scatter/gather Write-with-notify WQE in a protocol-specific batch handle.
+     * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: The single-channel batch handle to append the WQE to.
+     * @param [out] dst: The remote destination base address.
+     * @param [in] srcList: The local source GM address array.
+     * @param [in] lenList: The byte-length array paired with srcList by index.
+     * @param [in] sgeNum: The length of both arrays.
+     * @param [in] notifyAddr: The remote notify address.
+     * @param [in] notifyVal: The remote notify value.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note The caller must provide a single-channel batch handle and valid arrays, payload/notify addresses and
+     *       lengths. These contracts are not validated by the batch fast path.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        T& batchHandle, GM_ADDR dst, GM_ADDR const* srcList, const uint32_t* lenList, uint32_t sgeNum,
+        GM_ADDR notifyAddr, uint64_t notifyVal);
+
+    /*!
      * @class Hcomm
      * @brief @brief The task launching interface of the Fetch-and-add point-to-point communication operator.
      * @tparam T: The data type of the atomic operation. Only int32_t, uint32_t, int64_t, uint64_t is supported.
@@ -296,6 +333,23 @@ public:
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+
+    /*!
+     * @brief Prepare a scatter/gather Read WQE in a protocol-specific batch handle.
+     * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: The single-channel batch handle to append the WQE to.
+     * @param [out] dstList: The local destination GM address array.
+     * @param [in] lenList: The byte-length array paired with dstList by index.
+     * @param [in] src: The remote source base address.
+     * @param [in] sgeNum: The length of both arrays.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note The caller must provide a single-channel batch handle and valid arrays, payload addresses and lengths.
+     *       These contracts are not validated by the batch fast path.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t ReadNbi(
+        T& batchHandle, GM_ADDR const* dstList, const uint32_t* lenList, GM_ADDR src, uint32_t sgeNum);
 
     /*!
      * @class Hcomm
