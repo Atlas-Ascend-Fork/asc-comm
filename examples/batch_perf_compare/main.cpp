@@ -31,10 +31,7 @@
 #include "hccl/hccl_rank_graph.h"
 #include "hccl/hccl_res.h"
 
-// The example is built directly from the source tree, while hcomm_host.h is only
-// available after packaging. Include the same implementation from its source path.
-typedef uint64_t MultiChannelHandle;
-#include "../../src/aicore/hcomm/host/hcomm_host_impl.h"
+#include "hcomm/hcomm_host.h"
 
 #include "batch_perf_compare_common.h"
 
@@ -372,7 +369,7 @@ int main(int argc, char* argv[])
         for (HcclChannelDesc& desc : channelDescs) {
             CHECK_HCCL(BuildChannelDesc(comm, rank, peer, handles.data(), desc));
         }
-        CHECK_HCCL(HcommHostMakeMultiChannelHandle(
+        CHECK_HCCL(MakeMultiChannelHandle(
             comm, "batchPerfCompareSharedQueue", channelDescs.data(), jettyCount, &multiChannel));
     }
     CHECK_HCCL(HostBarrier(rank, nranks, "ready"));

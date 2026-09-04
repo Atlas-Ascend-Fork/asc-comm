@@ -20,10 +20,28 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set_source_files_properties(simd_kernel.cpp simt_multi_jetty_kernel.cpp PROPERTIES LANGUAGE ASC)
 set_property(SOURCE simt_multi_jetty_kernel.cpp APPEND PROPERTY COMPILE_DEFINITIONS USE_SIMT)
 
+get_filename_component(ASCCOMM_SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+set(HCOMM_SOURCE_OVERLAY "${CMAKE_CURRENT_BINARY_DIR}/source_overlay/asc")
+file(MAKE_DIRECTORY
+    "${HCOMM_SOURCE_OVERLAY}/include/adv_api/hcomm"
+    "${HCOMM_SOURCE_OVERLAY}/impl/comm_api/aicore/hcomm/host"
+)
+configure_file(
+    "${ASCCOMM_SOURCE_ROOT}/include/aicore/hcomm/hcomm_host.h"
+    "${HCOMM_SOURCE_OVERLAY}/include/adv_api/hcomm/hcomm_host.h"
+    COPYONLY
+)
+configure_file(
+    "${ASCCOMM_SOURCE_ROOT}/src/aicore/hcomm/host/hcomm_host_impl.h"
+    "${HCOMM_SOURCE_OVERLAY}/impl/comm_api/aicore/hcomm/host/hcomm_host_impl.h"
+    COPYONLY
+)
+
 add_executable(batch_perf_compare main.cpp simd_kernel.cpp simt_multi_jetty_kernel.cpp)
 set_target_properties(batch_perf_compare PROPERTIES LINKER_LANGUAGE ASC)
 target_include_directories(batch_perf_compare BEFORE PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${HCOMM_SOURCE_OVERLAY}/include/adv_api
     $ENV{ASCEND_HOME_PATH}/include
     $<$<COMPILE_LANGUAGE:ASC>:$ENV{ASCEND_HOME_PATH}/asc/include/adv_api>
 )
