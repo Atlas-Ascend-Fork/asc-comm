@@ -31,13 +31,15 @@
 #include "hccl/hccl_rank_graph.h"
 #include "hccl/hccl_res.h"
 
+#include "hcomm/hcomm_host.h"
+
 #include "batch_perf_compare_common.h"
 
 extern void LaunchSimdBatchPerf(
     void* stream, uint64_t channel, void* local, void* remote, void* timing, uint32_t api,
     uint32_t payloadBytes, uint32_t slotBytes, uint32_t iterations, uint32_t warmup, uint32_t batchSize);
 extern void LaunchSimtMultiJettyPerf(
-    void* stream, void* channels, void* remoteIndices, void* timing, uint32_t api,
+    void* stream, uint64_t multiChannel, void* timing, uint32_t api,
     uint32_t payloadBytes, uint32_t slotBytes, uint32_t regionBytes, uint32_t iterations, uint32_t warmup,
     uint32_t batchSize, uint32_t jettyCount);
 
@@ -342,11 +344,8 @@ int main(int argc, char* argv[])
     CHECK_ACL(aclrtSetDevice(static_cast<int32_t>(rank)));
     aclrtStream stream = nullptr;
     CHECK_ACL(aclrtCreateStream(&stream));
-    const uint32_t commCount = simd ? 1U : jettyCount;
-    std::vector<HcclComm> comms(commCount, nullptr);
-    for (uint32_t jetty = 0U; jetty < commCount; ++jetty) {
-        CHECK_HCCL(InitComm(rank, nranks, rootFile + ".jetty_" + std::to_string(jetty), &comms[jetty]));
-    }
+    HcclComm comm = nullptr;
+    CHECK_HCCL(InitComm(rank, nranks, rootFile + ".jetty_0", &comm));
 
     void* sendBuffer = nullptr;
     void* recvBuffer = nullptr;
@@ -355,22 +354,27 @@ int main(int argc, char* argv[])
     CHECK_ACL(InitBuffers(sendBuffer, recvBuffer, bufferBytes));
     CommMem sendMem {COMM_MEM_TYPE_DEVICE, sendBuffer, bufferBytes};
     CommMem recvMem {COMM_MEM_TYPE_DEVICE, recvBuffer, bufferBytes};
-    std::vector<std::array<HcclMemHandle, 2U>> handles(commCount, {nullptr, nullptr});
-    std::vector<ChannelHandle> channels(commCount);
-    std::vector<uint64_t> remoteRecvAddrs(commCount);
-    std::vector<uint32_t> remoteRecvIndices(commCount);
-    for (uint32_t jetty = 0U; jetty < commCount; ++jetty) {
-        CHECK_HCCL(HcclCommMemReg(comms[jetty], kSendTag, &sendMem, &handles[jetty][0]));
-        CHECK_HCCL(HcclCommMemReg(comms[jetty], kRecvTag, &recvMem, &handles[jetty][1]));
+    std::array<HcclMemHandle, 2U> handles {nullptr, nullptr};
+    CHECK_HCCL(HcclCommMemReg(comm, kSendTag, &sendMem, &handles[0]));
+    CHECK_HCCL(HcclCommMemReg(comm, kRecvTag, &recvMem, &handles[1]));
+    ChannelHandle channel = 0U;
+    uint64_t remoteRecvAddr = 0U;
+    uint32_t remoteRecvIndex = 0U;
+    MultiChannelHandle multiChannel = 0U;
+    if (simd) {
         CHECK_HCCL(AcquireChannel(
-            comms[jetty], rank, peer, handles[jetty].data(), channels[jetty], remoteRecvAddrs[jetty],
-            remoteRecvIndices[jetty]));
+            comm, rank, peer, handles.data(), channel, remoteRecvAddr, remoteRecvIndex));
+    } else {
+        std::vector<HcclChannelDesc> channelDescs(jettyCount);
+        for (HcclChannelDesc& desc : channelDescs) {
+            CHECK_HCCL(BuildChannelDesc(comm, rank, peer, handles.data(), desc));
+        }
+        CHECK_HCCL(MakeMultiChannelHandle(
+            comm, "batchPerfCompareSharedQueue", channelDescs.data(), jettyCount, &multiChannel));
     }
     CHECK_HCCL(HostBarrier(rank, nranks, "ready"));
 
     void* timingDevice = nullptr;
-    void* channelsDevice = nullptr;
-    void* remoteIndicesDevice = nullptr;
     uint64_t timing[kTimingWords] = {};
     bool pass = true;
     if (sender) {
@@ -378,21 +382,11 @@ int main(int argc, char* argv[])
         CHECK_ACL(aclrtMemset(timingDevice, sizeof(timing), 0, sizeof(timing)));
         if (simd) {
             LaunchSimdBatchPerf(
-                stream, channels[0], sendBuffer, reinterpret_cast<void*>(remoteRecvAddrs[0]), timingDevice, api,
+                stream, channel, sendBuffer, reinterpret_cast<void*>(remoteRecvAddr), timingDevice, api,
                 payloadBytes, slotBytes, iterations, warmup, batchSize);
         } else {
-            std::vector<uint64_t> channelValues(channels.begin(), channels.end());
-            CHECK_ACL(aclrtMalloc(&channelsDevice, channelValues.size() * sizeof(uint64_t), ACL_MEM_MALLOC_HUGE_FIRST));
-            CHECK_ACL(aclrtMalloc(
-                &remoteIndicesDevice, remoteRecvIndices.size() * sizeof(uint32_t), ACL_MEM_MALLOC_HUGE_FIRST));
-            CHECK_ACL(aclrtMemcpy(
-                channelsDevice, channelValues.size() * sizeof(uint64_t), channelValues.data(),
-                channelValues.size() * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
-            CHECK_ACL(aclrtMemcpy(
-                remoteIndicesDevice, remoteRecvIndices.size() * sizeof(uint32_t), remoteRecvIndices.data(),
-                remoteRecvIndices.size() * sizeof(uint32_t), ACL_MEMCPY_HOST_TO_DEVICE));
             LaunchSimtMultiJettyPerf(
-                stream, channelsDevice, remoteIndicesDevice, timingDevice, api, payloadBytes, slotBytes,
+                stream, multiChannel, timingDevice, api, payloadBytes, slotBytes,
                 regionBytes, iterations, warmup, batchSize, jettyCount);
         }
         CHECK_ACL(aclrtSynchronizeStream(stream));
@@ -423,17 +417,9 @@ int main(int argc, char* argv[])
     if (timingDevice != nullptr) {
         CHECK_ACL(aclrtFree(timingDevice));
     }
-    if (channelsDevice != nullptr) {
-        CHECK_ACL(aclrtFree(channelsDevice));
-    }
-    if (remoteIndicesDevice != nullptr) {
-        CHECK_ACL(aclrtFree(remoteIndicesDevice));
-    }
     CHECK_ACL(aclrtFree(sendBuffer));
     CHECK_ACL(aclrtFree(recvBuffer));
-    for (HcclComm comm : comms) {
-        CHECK_HCCL(HcclCommDestroy(comm));
-    }
+    CHECK_HCCL(HcclCommDestroy(comm));
     CHECK_ACL(aclrtDestroyStream(stream));
     CHECK_ACL(aclFinalize());
     return pass ? 0 : 2;

@@ -105,6 +105,21 @@ static_assert(
     sizeof(HcommSimtBatchStaticContext) <= HCOMM_URMA_DWQE_SIZE,
     "The shared SIMT batch context must fit in the public UB workspace");
 
+// Per-Jetty fields used to construct a WQE. A shared-queue batch has one queue
+// context but may target a different Jetty from each lane.
+struct HcommSimtBatchRemoteContext {
+    uint64_t word1Base;
+    uint64_t remoteEidL;
+    uint64_t remoteEidH;
+    uint64_t tokenWord;
+};
+
+__simt_callee__ inline HcommSimtBatchRemoteContext HcommSimtBatchRemote(
+    const __ubuf__ HcommSimtBatchStaticContext* context)
+{
+    return {context->word1Base, context->remoteEidL, context->remoteEidH, context->tokenWord};
+}
+
 // Copies a staged WQE into its reserved SQ slot. A 2-BB WQE landing on the last slot of the ring
 // is split: the first basic block goes to the slot, the second wraps to the base of the SQ. The
 // WQE stays logically contiguous for the NIC, which reads the ring modulo its depth, but the
@@ -427,8 +442,6 @@ __simt_callee__ inline void HcommSimtRingBatchDwqe(
         const uint32_t word = i * 2U;
         asc_stwt(&dstWords[i], make_ulonglong2(words[word], words[word + 1U]));
     }
-    // Keep the complete 128B DWQE visible before publishing its two cache lines.
-    asc_threadfence();
     asc_dcci_single(dwqeAddr);
     asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
 }
@@ -699,24 +712,24 @@ struct HcommSimtAtomicDesc {
 template <bool publisher, bool commitFlag, HcommUrmaOpCode opCode, auto const& config>
 __simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
     __ubuf__ HcommSimtBatchStaticContext* context, __gm__ uint8_t* firstBb, __gm__ uint8_t* secondBb,
-    uint32_t curHead,
+    uint32_t curHead, const HcommSimtBatchRemoteContext& remote,
     const HcommSimtDataDesc<commitFlag, opCode, config>& desc)
 {
     constexpr uint32_t sgeNum = publisher ? 2U : HcommSimtDataDesc<commitFlag, opCode, config>::sgeNum;
     const uint32_t nextHead = curHead + (publisher ? HCOMM_URMA_DWQE_BB_CNT : context->itemBb);
     const uint64_t word0 = HcommSimtBatchSqeWord0<opCode, config>(context, curHead, nextHead);
-    const uint64_t word1 = context->word1Base | (static_cast<uint64_t>(sgeNum) << 24U);
+    const uint64_t word1 = remote.word1Base | (static_cast<uint64_t>(sgeNum) << 24U);
     HcommSimtStoreBatchVector<publisher>(
-        context, firstBb, secondBb, 0U, word0, word1, context->remoteEidL, context->remoteEidH);
+        context, firstBb, secondBb, 0U, word0, word1, remote.remoteEidL, remote.remoteEidH);
     if constexpr (publisher) {
         const uint32_t firstLen = static_cast<uint32_t>(desc.targetLen >> 1U);
         const uint32_t lastLen = static_cast<uint32_t>(desc.targetLen - firstLen);
-        HcommSimtStoreBatchVector<true>(context, firstBb, secondBb, 1U, context->tokenWord,
+        HcommSimtStoreBatchVector<true>(context, firstBb, secondBb, 1U, remote.tokenWord,
             reinterpret_cast<uint64_t>(desc.remoteAddr), firstLen, reinterpret_cast<uint64_t>(desc.localAddr));
         HcommSimtStoreBatchVector<true>(context, firstBb, secondBb, 2U, lastLen,
             reinterpret_cast<uint64_t>(desc.localAddr + firstLen), 0U, 0U);
     } else {
-        HcommSimtStoreBatchVector<false>(context, firstBb, secondBb, 1U, context->tokenWord,
+        HcommSimtStoreBatchVector<false>(context, firstBb, secondBb, 1U, remote.tokenWord,
             reinterpret_cast<uint64_t>(desc.remoteAddr), static_cast<uint32_t>(desc.targetLen),
             reinterpret_cast<uint64_t>(desc.localAddr));
     }
@@ -725,18 +738,18 @@ __simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
 template <bool publisher, bool commitFlag, auto const& config>
 __simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
     __ubuf__ HcommSimtBatchStaticContext* context, __gm__ uint8_t* firstBb, __gm__ uint8_t* secondBb,
-    uint32_t curHead,
+    uint32_t curHead, const HcommSimtBatchRemoteContext& remote,
     const HcommSimtNotifyDesc<commitFlag, config>& desc)
 {
     const uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
     const uint64_t word0 = HcommSimtBatchSqeWord0<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config>(
         context, curHead, nextHead);
-    const uint64_t word1 = context->word1Base | (1ULL << 24U);
+    const uint64_t word1 = remote.word1Base | (1ULL << 24U);
     const uint64_t notifyToken = static_cast<uint64_t>((word1 >> 32U) & 0xFFFFFU) |
-        ((context->tokenWord & 0xFFFFFFFFULL) << 32U);
+        ((remote.tokenWord & 0xFFFFFFFFULL) << 32U);
     HcommSimtStoreBatchVector<publisher>(
-        context, firstBb, secondBb, 0U, word0, word1, context->remoteEidL, context->remoteEidH);
-    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 1U, context->tokenWord,
+        context, firstBb, secondBb, 0U, word0, word1, remote.remoteEidL, remote.remoteEidH);
+    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 1U, remote.tokenWord,
         reinterpret_cast<uint64_t>(desc.remoteAddr), notifyToken, reinterpret_cast<uint64_t>(desc.notifyAddr));
     HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 2U, desc.notifyVal, 0U,
         static_cast<uint32_t>(desc.targetLen), reinterpret_cast<uint64_t>(desc.localAddr));
@@ -745,7 +758,7 @@ __simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
 template <bool publisher, typename T, bool commitFlag, auto const& config>
 __simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
     __ubuf__ HcommSimtBatchStaticContext* context, __gm__ uint8_t* firstBb, __gm__ uint8_t* secondBb,
-    uint32_t curHead,
+    uint32_t curHead, const HcommSimtBatchRemoteContext& remote,
     const HcommSimtInlineDesc<T, commitFlag, config>& desc)
 {
     static_assert(config.inlineEn == 1, "WriteValueNbi requires inline data in WQE");
@@ -762,9 +775,9 @@ __simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
         payload[byte / sizeof(uint64_t)] |=
             static_cast<uint64_t>(valueAddr[byte]) << ((byte % sizeof(uint64_t)) * 8U);
     }
-    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 0U, word0, context->word1Base,
-        context->remoteEidL, context->remoteEidH);
-    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 1U, context->tokenWord,
+    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 0U, word0, remote.word1Base,
+        remote.remoteEidL, remote.remoteEidH);
+    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 1U, remote.tokenWord,
         reinterpret_cast<uint64_t>(desc.remoteAddr), payload[0], payload[1]);
     if constexpr (publisher) {
         const uint64_t owner = (nextHead & context->sqDepth) == 0U ? 1U : 0U;
@@ -777,12 +790,12 @@ __simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
 template <bool publisher, typename T, bool commitFlag, HcommUrmaOpCode opCode, auto const& config>
 __simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
     __ubuf__ HcommSimtBatchStaticContext* context, __gm__ uint8_t* firstBb, __gm__ uint8_t* secondBb,
-    uint32_t curHead,
+    uint32_t curHead, const HcommSimtBatchRemoteContext& remote,
     const HcommSimtAtomicDesc<T, commitFlag, opCode, config>& desc)
 {
     const uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
     const uint64_t word0 = HcommSimtBatchSqeWord0<opCode, config>(context, curHead, nextHead);
-    const uint64_t word1 = context->word1Base | (1ULL << 24U);
+    const uint64_t word1 = remote.word1Base | (1ULL << 24U);
     uint64_t operand0 = static_cast<uint64_t>(desc.value);
     uint64_t operand1 = opCode == HcommUrmaOpCode::CAS ? static_cast<uint64_t>(desc.cond) : 0U;
     if constexpr (sizeof(T) == sizeof(uint32_t)) {
@@ -792,15 +805,16 @@ __simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
         operand1 = 0U;
     }
     HcommSimtStoreBatchVector<publisher>(
-        context, firstBb, secondBb, 0U, word0, word1, context->remoteEidL, context->remoteEidH);
-    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 1U, context->tokenWord,
+        context, firstBb, secondBb, 0U, word0, word1, remote.remoteEidL, remote.remoteEidH);
+    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 1U, remote.tokenWord,
         reinterpret_cast<uint64_t>(desc.remoteAddr), sizeof(T), reinterpret_cast<uint64_t>(desc.fetchAddr));
     HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 2U, operand0, operand1, 0U, 0U);
 }
 
 template <typename Desc>
 __simt_callee__ inline int32_t HcommSimtAppendFinalBatchWqe(
-    __ubuf__ HcommSimtBatchStaticContext* context, uint32_t rank, uint32_t size, const Desc& desc)
+    __ubuf__ HcommSimtBatchStaticContext* context, uint32_t rank, uint32_t size, const Desc& desc,
+    const HcommSimtBatchRemoteContext& remote)
 {
     if (context->reservationStatus != HCOMM_SUCCESS) {
         return HCOMM_FAILED;
@@ -814,11 +828,18 @@ __simt_callee__ inline int32_t HcommSimtAppendFinalBatchWqe(
     __gm__ uint8_t* secondBb = (curHead % post.meta.sqDepth) + 1U == post.meta.sqDepth ?
         reinterpret_cast<__gm__ uint8_t*>(post.sqBaseAddr) : firstBb + HCOMM_URMA_WQE_BB_SIZE;
     if (publisher) {
-        HcommSimtEmitFinalBatchWqe<true>(context, firstBb, secondBb, curHead, desc);
+        HcommSimtEmitFinalBatchWqe<true>(context, firstBb, secondBb, curHead, remote, desc);
         return HCOMM_SUCCESS;
     }
-    HcommSimtEmitFinalBatchWqe<false>(context, firstBb, secondBb, curHead, desc);
+    HcommSimtEmitFinalBatchWqe<false>(context, firstBb, secondBb, curHead, remote, desc);
     return HCOMM_SUCCESS;
+}
+
+template <typename Desc>
+__simt_callee__ inline int32_t HcommSimtAppendFinalBatchWqe(
+    __ubuf__ HcommSimtBatchStaticContext* context, uint32_t rank, uint32_t size, const Desc& desc)
+{
+    return HcommSimtAppendFinalBatchWqe(context, rank, size, desc, HcommSimtBatchRemote(context));
 }
 
 __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
