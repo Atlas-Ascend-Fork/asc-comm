@@ -128,7 +128,12 @@ void fill_ub_param(const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
     param.dwqeCacheLocked = jfs.dwqeCacheLocked != 0;
     param.maxReadSize = jfs.maxReadSize;
     param.maxWriteSize = jfs.maxWriteSize;
-    (void)memcpy_sp(param.rmtEid, sizeof(param.rmtEid), jfs.remoteEID, sizeof(jfs.remoteEID));
+    // WQE硬件格式要求远端EID为逐字节逆序形态(等价hcomm侧GetReverseEid)。
+    // hcomm控制面序列化jfs.remoteEID传入的是原始EID，数据面在消费处做逆序，
+    // 与host自驱URMA路径(WQE填rmtReverseEid)的语义对齐。
+    for (uint32_t i = 0; i < sizeof(param.rmtEid); i++) {
+        param.rmtEid[i] = jfs.remoteEID[sizeof(jfs.remoteEID) - i - 1];
+    }
 }
 
 void import_ub_state(const HcommJfsContext &jfs, Asc::UbConnLite &connection)
