@@ -42,6 +42,7 @@ __simt_callee__ inline void CaptureBatchFailure(
     diag[29] = context->dwqeAddr;
     diag[30] = context->sqBaseAddr;
     diag[31] = reinterpret_cast<uint64_t>(batch.context);
+    diag[32] = batch.channel;
     if (context->headAddr == 0U || context->sqTailAddr == 0U || context->sqDepth == 0U) {
         return;
     }
@@ -155,8 +156,11 @@ __simt_callee__ inline int32_t SubmitJetty(
 template <uint32_t batchSize, typename Block>
 __simt_callee__ inline auto MakeJettyGroup(const Block& block)
 {
-    if constexpr (batchSize <= 32U) {
+    if constexpr (batchSize < 32U) {
         return cooperative_groups::tiled_partition(cooperative_groups::coalesced_threads(), batchSize);
+    } else if constexpr (batchSize == 32U) {
+        (void)block;
+        return cooperative_groups::coalesced_threads();
     } else {
         return cooperative_groups::tiled_partition<batchSize>(block);
     }

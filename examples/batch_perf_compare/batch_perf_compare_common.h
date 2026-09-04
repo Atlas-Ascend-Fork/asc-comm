@@ -36,7 +36,7 @@ constexpr uint32_t kStatusIndex = 2U;
 constexpr uint32_t kCompletedIndex = 3U;
 constexpr uint32_t kPublishCountIndex = 4U;
 constexpr uint32_t kDiagBaseIndex = 5U;
-constexpr uint32_t kDiagWordsPerJetty = 32U;
+constexpr uint32_t kDiagWordsPerJetty = 33U;
 constexpr uint32_t kTimingWords = kDiagBaseIndex + kMaxJettyCount * kDiagWordsPerJetty;
 
 constexpr uint32_t kDiagPhaseNone = 0U;

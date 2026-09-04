@@ -158,7 +158,10 @@ void PrintDiagnostics(const uint64_t* timing, uint32_t jettyCount)
                   << " | SqExpected=0x" << std::hex << d[20] << " | SqActual=0x" << d[21]
                   << " | DwqeFirstDiff=" << std::dec << d[22] << " | DwqeExpected=0x" << std::hex << d[23]
                   << " | DwqeActual=0x" << d[24] << " | UbWord0=0x" << d[25]
-                  << " | SqWord0=0x" << d[26] << " | DwqeWord0=0x" << d[27] << std::dec << std::endl;
+                  << " | SqWord0=0x" << d[26] << " | DwqeWord0=0x" << d[27]
+                  << " | HeadAddr=0x" << d[28] << " | DwqeAddr=0x" << d[29]
+                  << " | SqBaseAddr=0x" << d[30] << " | Context=0x" << d[31]
+                  << " | Channel=0x" << d[32] << std::dec << std::endl;
     }
 }
 
@@ -237,30 +240,52 @@ bool CheckData(
     }
     const uint8_t expected = api == kApiRead ? kRemoteInitialByte : kPayloadByte;
     const size_t regionBytes = static_cast<size_t>(slotBytes) * kSlotCount;
+    bool allPass = true;
     for (uint32_t region = 0U; region < regionCount; ++region) {
+        uint32_t passedSlots = 0U;
+        uint32_t firstFailedSlot = kSlotCount;
+        uint32_t firstFailedByte = 0U;
+        uint64_t firstActual = 0U;
+        uint64_t firstExpected = 0U;
         for (uint32_t slot = 0U; slot < kSlotCount; ++slot) {
             const uint8_t* value = actual.data() + region * regionBytes + static_cast<size_t>(slot) * slotBytes;
+            bool slotPass = true;
             for (uint32_t byte = 0U; byte < payloadBytes; ++byte) {
                 if (value[byte] != expected) {
-                    std::cout << "DATA_DIAG | Region=" << region << " | Slot=" << slot << " | Byte=" << byte
-                              << " | Actual=" << static_cast<uint32_t>(value[byte])
-                              << " | Expected=" << static_cast<uint32_t>(expected) << std::endl;
-                    return false;
+                    slotPass = false;
+                    if (firstFailedSlot == kSlotCount) {
+                        firstFailedSlot = slot;
+                        firstFailedByte = byte;
+                        firstActual = value[byte];
+                        firstExpected = expected;
+                    }
+                    break;
                 }
             }
-            if (api == kApiNotify) {
+            if (slotPass && api == kApiNotify) {
                 uint64_t notify = 0U;
                 std::memcpy(&notify, value + slotBytes - sizeof(notify), sizeof(notify));
                 if (notify != kNotifyValue) {
-                    std::cout << "DATA_DIAG | Region=" << region << " | Slot=" << slot
-                              << " | Notify=0x" << std::hex << notify << " | Expected=0x" << kNotifyValue
-                              << std::dec << std::endl;
-                    return false;
+                    slotPass = false;
+                    if (firstFailedSlot == kSlotCount) {
+                        firstFailedSlot = slot;
+                        firstFailedByte = slotBytes - sizeof(notify);
+                        firstActual = notify;
+                        firstExpected = kNotifyValue;
+                    }
                 }
             }
+            passedSlots += slotPass ? 1U : 0U;
+        }
+        if (passedSlots != kSlotCount) {
+            allPass = false;
+            std::cout << "DATA_DIAG | Region=" << region << " | PassedSlots=" << passedSlots
+                      << " | TotalSlots=" << kSlotCount << " | FirstFailedSlot=" << firstFailedSlot
+                      << " | FirstFailedByte=" << firstFailedByte << " | Actual=0x" << std::hex << firstActual
+                      << " | Expected=0x" << firstExpected << std::dec << std::endl;
         }
     }
-    return true;
+    return allPass;
 }
 } // namespace
 
