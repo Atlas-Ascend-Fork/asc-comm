@@ -387,6 +387,7 @@ struct HcommSimtDataDesc {
     static constexpr bool commit = commitFlag;
     static constexpr uint32_t sgeNum = commitFlag ? 2U : 1U;
     static constexpr uint32_t bbCnt = commitFlag ? HCOMM_URMA_DWQE_BB_CNT : HCOMM_URMA_WQE_BB_CNT;
+    static constexpr uint32_t cqeCnt = config.cqe;
 
     __gm__ uint8_t* remoteAddr;
     __gm__ uint8_t* localAddr;
@@ -406,6 +407,7 @@ struct HcommSimtNotifyDesc {
     static constexpr bool commit = commitFlag;
     static constexpr uint32_t sgeNum = 1U;
     static constexpr uint32_t bbCnt = HCOMM_URMA_DWQE_BB_CNT;
+    static constexpr uint32_t cqeCnt = config.cqe;
 
     __gm__ uint8_t* remoteAddr;
     __gm__ uint8_t* localAddr;
@@ -429,6 +431,7 @@ struct HcommSimtInlineDesc {
     // A deferred inline Write occupies one BB; a committed one occupies two (the second is a NOP
     // that pads the DWQE window to 128B so the doorbell can publish it).
     static constexpr uint32_t bbCnt = commit ? HCOMM_URMA_DWQE_BB_CNT : HCOMM_URMA_WQE_BB_CNT;
+    static constexpr uint32_t cqeCnt = config.cqe;
 
     __gm__ uint8_t* remoteAddr;
     T value;
@@ -451,6 +454,7 @@ struct HcommSimtAtomicDesc {
     static constexpr bool commit = commitFlag;
     static constexpr uint32_t sgeNum = 1U;
     static constexpr uint32_t bbCnt = HCOMM_URMA_DWQE_BB_CNT;
+    static constexpr uint32_t cqeCnt = config.cqe;
 
     __gm__ uint8_t* remoteAddr;
     __gm__ uint8_t* fetchAddr;
@@ -537,16 +541,20 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
 // queue is full it consumes completed CQEs one at a time to let PollCq advance sqTail, retrying
 // after each. Waiting for every submitted WQE would be wrong: wqeCnt may include deferred WQEs
 // that no doorbell has published yet, so those completions never arrive.
-template <bool commit>
+template <typename Desc>
 __simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReservePost(
-    ChannelHandle channel, const HcommSimtResolvedPost& post, uint32_t bbCnt, uint64_t& headVal)
+    ChannelHandle channel, const HcommSimtResolvedPost& post, uint64_t& headVal)
 {
+    constexpr bool commit = Desc::commit;
+    constexpr uint32_t bbCnt = Desc::bbCnt;
+    constexpr uint32_t cqeCnt = Desc::cqeCnt;
     // SIMT has no standalone Commit interface, so a deferred post must also leave room for the
     // immediate 2-BB DWQE that will later publish the batch it belongs to.
     constexpr uint32_t extraFreeBbCnt = commit ? 0U : HCOMM_URMA_DWQE_BB_CNT;
     uint32_t requiredFreeBbCnt = bbCnt + extraFreeBbCnt;
 
-    if (HcommSimtTryReserve(post.headAddr, post.sqTailAddr, post.meta.sqDepth, bbCnt, requiredFreeBbCnt, 1U, headVal)) {
+    if (HcommSimtTryReserve(
+            post.headAddr, post.sqTailAddr, post.meta.sqDepth, bbCnt, requiredFreeBbCnt, cqeCnt, headVal)) {
         return true;
     }
     if (post.meta.sqDepth == 0U || requiredFreeBbCnt > post.meta.sqDepth) {
@@ -566,7 +574,7 @@ __simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReservePost(
             return false;
         }
         if (HcommSimtTryReserve(
-                post.headAddr, post.sqTailAddr, post.meta.sqDepth, bbCnt, requiredFreeBbCnt, 1U, headVal)) {
+                post.headAddr, post.sqTailAddr, post.meta.sqDepth, bbCnt, requiredFreeBbCnt, cqeCnt, headVal)) {
             return true;
         }
     }
@@ -599,7 +607,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
     }
 
     uint64_t headVal = 0U;
-    if (!ReservePost<Desc::commit>(channel, post, bbCnt, headVal)) {
+    if (!ReservePost<Desc>(channel, post, headVal)) {
         return HCOMM_FAILED;
     }
     uint32_t curHead = HcommSimtHeadIdx(headVal);

@@ -101,9 +101,9 @@ private:
     // Claims SQ space for one submission, draining completed CQEs to release capacity when the
     // queue is full. commit selects how much free space the claim requires: a deferred post also
     // reserves room for the immediate DWQE that will publish it.
-    template <bool commit>
+    template <typename Desc>
     __simt_callee__ inline bool ReservePost(
-        ChannelHandle channel, const HcommSimtResolvedPost& post, uint32_t bbCnt, uint64_t& headVal);
+        ChannelHandle channel, const HcommSimtResolvedPost& post, uint64_t& headVal);
 
     // The one posting path shared by every operator. Desc describes what distinguishes them:
     // the SQ footprint (bbCnt/sgeNum) and how the WQE words are laid out. See the descriptors
