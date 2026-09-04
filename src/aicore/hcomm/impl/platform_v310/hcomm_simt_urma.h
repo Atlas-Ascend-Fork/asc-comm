@@ -541,10 +541,13 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
 // queue is full it consumes completed CQEs one at a time to let PollCq advance sqTail, retrying
 // after each. Waiting for every submitted WQE would be wrong: wqeCnt may include deferred WQEs
 // that no doorbell has published yet, so those completions never arrive.
-template <bool commit>
+template <typename Desc>
 __simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReservePost(
-    ChannelHandle channel, const HcommSimtResolvedPost& post, uint32_t bbCnt, uint32_t cqeCnt, uint64_t& headVal)
+    ChannelHandle channel, const HcommSimtResolvedPost& post, uint64_t& headVal)
 {
+    constexpr bool commit = Desc::commit;
+    constexpr uint32_t bbCnt = Desc::bbCnt;
+    constexpr uint32_t cqeCnt = Desc::cqeCnt;
     // SIMT has no standalone Commit interface, so a deferred post must also leave room for the
     // immediate 2-BB DWQE that will later publish the batch it belongs to.
     constexpr uint32_t extraFreeBbCnt = commit ? 0U : HCOMM_URMA_DWQE_BB_CNT;
@@ -604,7 +607,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
     }
 
     uint64_t headVal = 0U;
-    if (!ReservePost<Desc::commit>(channel, post, bbCnt, Desc::cqeCnt, headVal)) {
+    if (!ReservePost<Desc>(channel, post, headVal)) {
         return HCOMM_FAILED;
     }
     uint32_t curHead = HcommSimtHeadIdx(headVal);
