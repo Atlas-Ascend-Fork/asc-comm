@@ -1,0 +1,302 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software and you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See the License in the root of the software repository for the full text of the License.
+ */
+
+#ifndef HCOMM_POD_RESOURCE_H
+#define HCOMM_POD_RESOURCE_H
+
+// POD ABI resource definitions shared by resource producers and POD primitives.
+// 契约总则：
+//   1. 控制面(hcomm)负责从活对象平铺填充本文件中的POD实体，字段一律填"最终消费值"，
+//      数据面(asc-comm)零转换直取。
+//   2. 所有内存单位为字节；sqDepth等需要换算的量由控制面完成换算(如UB sqDepth*4)。
+//   3. remoteEID 为正序业务形态(等价 hcomm DevUbConnection::rmtEid = GetEid())；
+//      WQE硬件格式要求逆序，由数据面消费时自行 Reversed()，与hcomm自有数据面
+//      (UbConnLite: rmtReverseEid_ = rmtEid_.Reversed())语义一致。
+
+#include <stdint.h>
+#include <stddef.h>
+#include "hcomm_primitives_types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define HCOMM_POD_CHANNEL_VERSION 1U             ///< Channel POD ABI版本号
+#define HCOMM_POD_CHANNEL_MAGIC_WORD 0x0fcf0f5fU ///< Channel POD合法性校验魔术字
+#define HCOMM_POD_THREAD_VERSION 0U              ///< Thread POD ABI版本号
+#define HCOMM_POD_THREAD_MAGIC_WORD 0x0fcf0f6fU  ///< Thread POD合法性校验魔术字
+#define HCOMM_POD_RTSQ_SQE_SIZE 64U              ///< 单个RTSQ SQE占用字节数
+#define HCOMM_POD_RTSQ_BATCH_SIZE 128U           ///< 本地最多缓存的RTSQ SQE数量
+#define HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE 1024U  ///< 单次申请的RTSQ Task ID数量
+#define HCOMM_POD_CHANNEL_ENTITY_SIZE 256U       ///< Channel POD ABI固定大小
+#define HCOMM_POD_THREAD_ENTITY_SIZE 1024U       ///< Thread POD ABI固定大小
+#define HCOMM_POD_DRAIN_IDX_INVALID 0xFFFFFFFFU  ///< drain资源索引无效值
+
+#pragma pack(push, 4)
+
+typedef enum {
+    HCOMM_PROTECTION_TYPE_INVALID = -1,
+    HCOMM_PROTECTION_TYPE_ROCE = 0,
+    HCOMM_PROTECTION_TYPE_RDMA = HCOMM_PROTECTION_TYPE_ROCE,
+    HCOMM_PROTECTION_TYPE_UB = 1,
+    HCOMM_PROTECTION_TYPE_URMA = HCOMM_PROTECTION_TYPE_UB,
+} HcommProtectionType;
+
+typedef enum {
+    HCOMM_SQ_CONTEXT_TYPE_INVALID = -1,
+    HCOMM_SQ_CONTEXT_TYPE_UB_JFS = 0,
+    HCOMM_SQ_CONTEXT_TYPE_ROCE = 1,
+} HcommSqContextType;
+
+typedef enum {
+    HCOMM_CQ_CONTEXT_TYPE_INVALID = -1,
+    HCOMM_CQ_CONTEXT_TYPE_UB_JFC = 0,
+    HCOMM_CQ_CONTEXT_TYPE_ROCE = 1,
+} HcommCqContextType;
+
+typedef enum {
+    HCOMM_REGED_NOTIFY_INVALID = -1,
+    HCOMM_REGED_NOTIFY_IPC_RT = 0,
+    HCOMM_REGED_NOTIFY_IPC_MEM = 1,
+    HCOMM_REGED_NOTIFY_RMA_RT = 2,
+    HCOMM_REGED_NOTIFY_RMA_MEM = 3,
+} HcommRegedNotifyType;
+
+typedef enum {
+    HCOMM_REGED_BUFFER_INVALID = -1,
+    HCOMM_REGED_BUFFER_IPC = 0,
+    HCOMM_REGED_BUFFER_RMA = 1,
+} HcommRegedBufferType;
+
+typedef enum {
+    HCOMM_NOTIFY_TYPE_HCCS = 0,
+    HCOMM_NOTIFY_TYPE_RMA = 1,
+    HCOMM_NOTIFY_TYPE_LOCAL = 2,
+} HcommNotifyType;
+
+typedef struct {
+    HcommProtectionType type;
+    union {
+        struct {
+            uint32_t lkey;
+            uint32_t rkey;
+        } roce;
+        struct {
+            uint32_t tokenId;
+            uint32_t tokenValue;
+        } ub;
+        uint8_t raws[24];
+    } memInfo;
+} HcommProtectionInfo;
+
+typedef struct {
+    HcommRegedBufferType type;
+    union {
+        struct {
+            uint64_t addr;
+            uint64_t size;
+        } ipc;
+        struct {
+            uint64_t addr;
+            uint64_t size;
+            HcommProtectionInfo protectionInfo;
+        } rma;
+        uint8_t raws[56];
+    } bufferInfo;
+} HcommRegedBufferEntity;
+
+typedef struct {
+    HcommRegedNotifyType type;
+    union {
+        struct {
+            uint64_t addr;
+            uint32_t size;
+            int32_t notifyId;
+        } ipcRt;
+        struct {
+            uint64_t addr;
+            uint32_t size;
+        } ipcMem;
+        struct {
+            uint64_t addr;
+            uint32_t size;
+            int32_t notifyId;
+            HcommProtectionInfo protectionInfo;
+        } rmaRt;
+        struct {
+            uint64_t addr;
+            uint32_t size;
+            HcommProtectionInfo protectionInfo;
+        } rmaMem;
+        uint8_t raws[56];
+    } notifyInfo;
+} HcommRegedNotifyEntity;
+
+typedef struct {
+    HcommSqContextType type; ///< SQ上下文类型
+    uint8_t fence;           ///< 一次性Fence标志，由下一次相关传输消费并清零(独立字段，不与union重叠)
+    uint8_t reserved[3];     ///< 对齐保留
+    union {
+        struct {
+            uint64_t sqVa;         ///< UB SQ的CPU虚拟地址(WQE写入位置)
+            uint64_t headAddr;     ///< SQ硬件Head地址(预留)
+            uint64_t tailAddr;     ///< SQ CI地址(软件轮询预留，当前恒0)
+            uint64_t dbVa;         ///< Doorbell寄存器地址(预留，doorbell走RTSQ UBDMA SQE)
+            uint32_t jfsID;        ///< Jetty ID
+            uint32_t wqeSize;      ///< 单个WQE字节数(64)
+            uint32_t sqDepth;      ///< WQEBB深度(控制面已乘4，数据面直用)
+            uint32_t tpID;         ///< TP号
+            uint8_t remoteEID[16]; ///< 远端EID【正序业务形态】；数据面消费时Reversed()填入WQE.rmtEid
+            uint32_t sqHead;       ///< 软件维护的SQ生产者索引(pi，数据面持续自增)
+            uint32_t sqTail;       ///< 已完成WQE计数(ci，数据面维护；当前无消费方可恒0)
+            uint32_t maxReadSize;  ///< 单个UB Read WQE允许的最大传输字节数
+            uint32_t maxWriteSize; ///< 单个UB Write WQE允许的最大传输字节数
+        } ubJfs;
+        struct {
+            uint64_t sqVa;
+            uint64_t headAddr;
+            uint64_t tailAddr;
+            uint64_t dbHwVa;
+            uint64_t dbSwVa;
+            uint32_t qpn;
+            uint32_t wqeSize;
+            uint32_t depth;
+            uint8_t sl;
+            uint64_t dbVendorSpecified; ///< RoCE厂商Doorbell字段，包含mtuShift和dbCos
+            uint32_t sqHead;            ///< 软件维护的SQ生产者索引
+            uint32_t sqTail;            ///< 已完成WQE计数
+        } roceSq;
+        uint8_t raws[120];
+    } contextInfo;
+} HcommSqContext;
+
+typedef struct {
+    HcommCqContextType type; ///< CQ上下文类型
+    union {
+        struct {
+            uint64_t scqVa;
+            uint64_t headAddr;
+            uint64_t tailAddr;
+            uint64_t dbVa;
+            uint32_t jfcID;
+            uint32_t cqeSize;
+            uint32_t cqDepth;
+        } ubJfc;
+        struct {
+            uint64_t cqVa;
+            uint64_t headAddr;
+            uint64_t tailAddr;
+            uint64_t dbHwVa;
+            uint64_t dbSwVa;
+            uint32_t cqn;
+            uint32_t cqeSize;
+            uint32_t cqDepth;
+            uint32_t cqHead;   ///< 软件轮询的下一个CQE索引
+            uint32_t cqTail;   ///< 已消费CQE计数
+            uint8_t cqDbFlush; ///< 是否需要刷新CQ软件Doorbell
+        } roceCq;
+        uint8_t raws[124];
+    } contextInfo;
+} HcommCqContext;
+
+typedef struct {
+    uint32_t version;    ///< 设备信息结构版本号
+    uint32_t devId;      ///< 设备物理或逻辑ID，由资源创建端约定
+    uint8_t dieId;       ///< 设备Die编号(UB doorbell jetty三元素之一)
+    uint8_t funcId;      ///< 设备Function编号(UB doorbell jetty三元素之一)
+    uint8_t reserve[30]; ///< 设备信息扩展空间，创建资源时置0
+} HcommDevInfo;
+
+typedef struct {
+    CommAbiHeader abiHeader;
+    CommEngine engine;
+    CommProtocol protocol;
+    HcommDevInfo devInfo; ///< Channel本地通信资源所属设备信息(dieId/funcId为doorbell唯一来源)
+    uint32_t localNotifyNum;
+    uint32_t remoteNotifyNum;
+    uint32_t localBufferNum;
+    uint32_t remoteBufferNum;
+    uint32_t sqNum;
+    uint32_t cqNum;
+    HcommRegedNotifyEntity* localNotifyAddr;
+    HcommRegedNotifyEntity* remoteNotifyAddr;
+    HcommRegedBufferEntity* localBufferAddr;
+    HcommRegedBufferEntity* remoteBufferAddr;
+    HcommSqContext* sqContextAddr;
+    HcommCqContext* cqContextAddr;
+    uint32_t drainNotifyIdx;  ///< localNotifyAddr中drain notify的下标；HCOMM_POD_DRAIN_IDX_INVALID表示无drain资源
+    uint32_t drainBufferIdx;  ///< remoteBufferAddr中drain buffer的下标；HCOMM_POD_DRAIN_IDX_INVALID表示无drain资源
+} HcommChannelEntity;
+
+typedef struct {
+    uint32_t localDevId;    ///< 调用halSqCqQuery/halSqCqConfig使用的本地设备ID
+    uint32_t streamId;      ///< RTSQ关联的Stream ID，写入部分SQE或用于诊断
+    uint32_t sqId;          ///< 硬件RTSQ编号
+    uint32_t sqDepth;       ///< 硬件RTSQ可容纳的SQE数量
+    uint32_t sqHead;        ///< 最近一次查询到的硬件RTSQ Head
+    uint32_t sqTail;        ///< POD运行时维护的硬件RTSQ Tail
+    uint64_t sqBaseAddr;    ///< 硬件RTSQ SQE环形缓冲区的CPU虚拟地址
+    uint64_t localSqeAddr;  ///< 控制面申请、数据面维护的本地SQE缓存地址
+    uint32_t taskId;        ///< 数据面下一次使用的Task ID，控制面创建资源时置0
+    uint32_t taskIdEnd;     ///< 当前已申请Task ID区间的开区间上界，控制面创建资源时置0
+    uint32_t pendingSqeCnt; ///< 本地缓存中尚未提交的SQE数量
+    uint8_t launchFlag;     ///< 非0时在非Batch模式下每生成一个SQE立即提交
+    uint8_t reserved[3];    ///< RTSQ状态扩展及对齐空间，创建资源时置0
+} HcommRtsqContext;
+
+typedef struct {
+    union {
+        struct {
+            CommAbiHeader abiHeader;       ///< ABI版本、魔术字和结构大小，用于句柄合法性校验
+            HcommDevInfo devInfo;          ///< Thread所属设备信息
+            uint32_t localNotifyNum;       ///< localNotifyAddr数组元素个数
+            HcommRegedNotifyEntity* localNotifyAddr; ///< Thread本地Notify数组，用于线程间Record/Wait(type=IPC_RT)
+            HcommRtsqContext* sqContextAddr;         ///< Thread直接持有的POD RTSQ运行上下文
+        };
+        uint8_t raw[HCOMM_POD_THREAD_ENTITY_SIZE]; ///< Thread整块存储及ABI预留扩展空间
+    };
+} HcommThreadEntity;
+
+#pragma pack(pop)
+
+#if defined(__GNUC__)
+#define HCOMM_POD_RESOURCE_API __attribute__((visibility("default")))
+#else
+#define HCOMM_POD_RESOURCE_API
+#endif
+
+HCOMM_POD_RESOURCE_API int32_t HcommGetPodThreadResource(ThreadHandle thread, HcommThreadEntity** resource);
+HCOMM_POD_RESOURCE_API int32_t HcommGetPodChannelResource(ChannelHandle channel, HcommChannelEntity** resource);
+
+#ifdef __cplusplus
+}
+#endif
+
+#ifdef __cplusplus
+#include <type_traits>
+using HcommRdmaMemProtectionInfo = decltype(((HcommProtectionInfo*)nullptr)->memInfo.roce);
+using HcommUrmaMemProtectionInfo = decltype(((HcommProtectionInfo*)nullptr)->memInfo.ub);
+using HcommJfsContext = decltype(((HcommSqContext*)nullptr)->contextInfo.ubJfs);
+using HcommRdmaSqContext = decltype(((HcommSqContext*)nullptr)->contextInfo.roceSq);
+using HcommRdmaCqContext = decltype(((HcommCqContext*)nullptr)->contextInfo.roceCq);
+static_assert(std::is_pod<HcommProtectionInfo>::value, "HcommProtectionInfo must be POD");
+static_assert(std::is_pod<HcommRegedBufferEntity>::value, "HcommRegedBufferEntity must be POD");
+static_assert(std::is_pod<HcommRegedNotifyEntity>::value, "HcommRegedNotifyEntity must be POD");
+static_assert(std::is_pod<HcommSqContext>::value, "HcommSqContext must be POD");
+static_assert(std::is_pod<HcommCqContext>::value, "HcommCqContext must be POD");
+static_assert(sizeof(HcommChannelEntity) <= HCOMM_POD_CHANNEL_ENTITY_SIZE,
+    "HcommChannelEntity ABI size must not exceed 256 bytes");
+static_assert(sizeof(HcommThreadEntity) == HCOMM_POD_THREAD_ENTITY_SIZE,
+    "HcommThreadEntity ABI size must be 1024 bytes");
+static_assert(alignof(HcommChannelEntity) == 4, "HcommChannelEntity ABI alignment must be 4 bytes");
+static_assert(alignof(HcommThreadEntity) == 4, "HcommThreadEntity ABI alignment must be 4 bytes");
+#endif
+
+#endif // HCOMM_POD_RESOURCE_H
