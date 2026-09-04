@@ -73,6 +73,26 @@ struct HcommSimtChannelEntity {
 
 static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");
 
+// The handle is lane-private, while context points at the shared reservation state and publisher
+// image. Append writes its final SQ slot directly; it does not retain a per-lane request image.
+struct UbcCtpBatchHandle {
+    ChannelHandle channel = 0U;
+    __ubuf__ uint64_t* context = nullptr;
+    uint32_t groupRank = 0U;
+    uint32_t groupSize = 1U;
+};
+
+template <typename T>
+struct ChannelTraits;
+
+template <>
+struct ChannelTraits<ChannelHandle> {
+    using BatchHandleType = UbcCtpBatchHandle;
+};
+
+template <typename T>
+using BatchHandle = typename ChannelTraits<T>::BatchHandleType;
+
 } // namespace AscendC::simt
 
 #endif // IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_SIMT_INNER_DEF_H

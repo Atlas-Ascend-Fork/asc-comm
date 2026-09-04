@@ -78,6 +78,29 @@ constexpr uint32_t HCOMM_SIMT_SGE_WORDS = sizeof(HcommUrmaSgeCtx) / sizeof(uint6
 // The inline payload and the first SGE both start right after the SQE header.
 constexpr uint32_t HCOMM_SIMT_INLINE_FIRST_WORD = HCOMM_SIMT_SQE_WORDS;
 
+// Static queue/Jetty fields and the exclusive producer cursor are shared by all lanes. The
+// second 128-byte workspace block holds the final publisher WQE used to ring DWQE.
+struct alignas(sizeof(ulonglong2)) HcommSimtBatchStaticContext {
+    uint64_t headAddr;
+    uint64_t sqTailAddr;
+    uint64_t dwqeAddr;
+    uint64_t sqBaseAddr;
+    uint64_t word1Base;
+    uint64_t remoteEidL;
+    uint64_t remoteEidH;
+    uint64_t tokenWord;
+    uint64_t reservedHead;
+    uint32_t sqWqeSize;
+    uint32_t sqDepth;
+    uint32_t cachedSqTail;
+    uint32_t itemBb;
+    uint32_t groupSize;
+    int32_t reservationStatus;
+};
+static_assert(
+    sizeof(HcommSimtBatchStaticContext) <= HCOMM_URMA_DWQE_SIZE,
+    "The shared SIMT batch context must fit in the public UB workspace");
+
 // Copies a staged WQE into its reserved SQ slot. A 2-BB WQE landing on the last slot of the ring
 // is split: the first basic block goes to the slot, the second wraps to the base of the SQ. The
 // WQE stays logically contiguous for the NIC, which reads the ring modulo its depth, but the
@@ -194,8 +217,8 @@ __simt_callee__ inline void HcommSimtWriteNotifyWqe(
 // occupies one BB and produces no CQE; it pads the DWQE window when a 1BB inline Write needs to be
 // published through the doorbell.
 //
-// Placeholder layout: only the opcode and owner bit are set. The remaining fields are zeroed as a
-// safe default and may need tuning on real hardware for the NIC to accept the NOP without error.
+// Placeholder layout: only the opcode and owner bit are set. As with other unused WQE words, the
+// remaining fields are ignored according to the NOP opcode and are not initialized.
 template <uint32_t wordCnt, typename WordPtr>
 __simt_callee__ inline void HcommSimtWriteNopWqe(
     WordPtr words, const HcommSimtPackedSqeTemplate& sqeTemplate, uint32_t nextHead)
@@ -306,6 +329,79 @@ __simt_callee__ inline void HcommSimtBuildPackedSqeTemplate(
     sqeTemplate.sqDepth = meta.sqDepth;
 }
 
+__simt_callee__ inline void HcommSimtLoadBatchStaticPost(
+    __ubuf__ HcommSimtBatchStaticContext* context, HcommSimtResolvedPost& post)
+{
+    post.headAddr = reinterpret_cast<__gm__ uint64_t*>(context->headAddr);
+    post.sqTailAddr = reinterpret_cast<__gm__ uint32_t*>(context->sqTailAddr);
+    post.dwqeAddr = reinterpret_cast<__gm__ uint8_t*>(context->dwqeAddr);
+    post.sqBaseAddr = context->sqBaseAddr;
+    post.sqWqeSize = context->sqWqeSize;
+    post.meta.sqDepth = context->sqDepth;
+}
+
+__simt_callee__ inline __ubuf__ uint64_t* HcommSimtBatchPublisherWords(
+    __ubuf__ HcommSimtBatchStaticContext* context)
+{
+    return reinterpret_cast<__ubuf__ uint64_t*>(
+        reinterpret_cast<__ubuf__ uint8_t*>(context) + HCOMM_SIMT_BATCH_CONTEXT_BYTES);
+}
+
+template <HcommUrmaOpCode opCode, auto const& config>
+__simt_callee__ inline uint64_t HcommSimtBatchSqeWord0(
+    const __ubuf__ HcommSimtBatchStaticContext* context, uint32_t curHead, uint32_t nextHead,
+    uint32_t inlineMsgLen = 0U)
+{
+    const uint64_t owner = (curHead & context->sqDepth) == 0U ? 1U : 0U;
+    return static_cast<uint64_t>(nextHead & 0xFFFFU) |
+           (static_cast<uint64_t>(HcommSimtUrmaFlag<config>() & 0xFFU) << 16U) | (1ULL << 28U) | (1ULL << 29U) |
+           (owner << 31U) | (static_cast<uint64_t>(static_cast<uint32_t>(opCode) & 0xFFU) << 40U) |
+           (static_cast<uint64_t>(inlineMsgLen & 0x3FFU) << 54U);
+}
+
+// Batch Emit constructs each final 32-byte SQ vector directly. Publisher vectors are mirrored
+// into the shared UB image as they are produced, avoiding a lane-local 128-byte staging array and
+// a second pass over it. Only the first three vectors can contain valid fields in the supported
+// layouts; the unused final 32 bytes of the DWQE image are deliberately left untouched.
+template <bool publisher>
+__simt_callee__ inline void HcommSimtStoreBatchVector(
+    __ubuf__ HcommSimtBatchStaticContext* context, __gm__ uint8_t* firstBb, __gm__ uint8_t* secondBb,
+    uint32_t vectorIdx, uint64_t word0, uint64_t word1, uint64_t word2, uint64_t word3)
+{
+    __gm__ uint8_t* vectorAddr = vectorIdx < 2U ? firstBb + vectorIdx * sizeof(ulonglong4) : secondBb;
+    asc_stwt(reinterpret_cast<__gm__ ulonglong4*>(vectorAddr), make_ulonglong4(word0, word1, word2, word3));
+    if constexpr (publisher) {
+        __ubuf__ uint64_t* publisherWords = HcommSimtBatchPublisherWords(context) + vectorIdx * 4U;
+        publisherWords[0] = word0;
+        publisherWords[1] = word1;
+        publisherWords[2] = word2;
+        publisherWords[3] = word3;
+    }
+}
+
+__simt_callee__ inline uint32_t HcommSimtBatchTotalBb(uint32_t groupSize, uint32_t itemBb)
+{
+    return groupSize * itemBb + (itemBb == HCOMM_URMA_WQE_BB_CNT ? HCOMM_URMA_WQE_BB_CNT : 0U);
+}
+
+// Advance the private producer cursor without publishing it. The cached tail is sufficient on the
+// normal path; it is refreshed from GM only when the cached free range has been exhausted.
+__simt_callee__ inline bool HcommSimtPlanBatchFromHead(
+    __ubuf__ HcommSimtBatchStaticContext* context, uint64_t headVal)
+{
+    const uint32_t totalBb = HcommSimtBatchTotalBb(context->groupSize, context->itemBb);
+    const uint32_t head = HcommSimtHeadIdx(headVal);
+    uint32_t usedBb = head - context->cachedSqTail;
+    if (usedBb > context->sqDepth || totalBb > context->sqDepth - usedBb) {
+        context->cachedSqTail = *reinterpret_cast<__gm__ uint32_t*>(context->sqTailAddr);
+        usedBb = head - context->cachedSqTail;
+    }
+    context->reservedHead = headVal;
+    context->reservationStatus =
+        usedBb <= context->sqDepth && totalBb <= context->sqDepth - usedBb ? HCOMM_SUCCESS : HCOMM_FAILED;
+    return context->reservationStatus == HCOMM_SUCCESS;
+}
+
 // Rings the doorbell by copying the staged 128B WQE into the DWQE window. The fence orders the
 // preceding SQ write against the doorbell; the two cache invalidations cover both basic blocks
 // of the window.
@@ -317,15 +413,27 @@ __simt_callee__ inline void HcommSimtRingDwqe(__gm__ uint8_t* dwqeAddr, const Hc
     asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
 }
 
+__simt_callee__ inline void HcommSimtRingBatchDwqe(
+    __gm__ uint8_t* dwqeAddr, const __ubuf__ uint64_t* words)
+{
+    asc_threadfence();
+    __gm__ ulonglong2* dstWords = reinterpret_cast<__gm__ ulonglong2*>(dwqeAddr);
+#pragma unroll
+    for (uint32_t i = 0; i < HCOMM_URMA_DWQE_SIZE / sizeof(ulonglong2); ++i) {
+        const uint32_t word = i * 2U;
+        asc_stwt(&dstWords[i], make_ulonglong2(words[word], words[word + 1U]));
+    }
+    asc_threadfence();
+    asc_dcci_single(dwqeAddr);
+    asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
+}
+
 __simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::HcommImpl() {}
 
 __simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::~HcommImpl() {}
 
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ uint8_t* buff, uint32_t len)
 {
-    // Nothing to set up: the WQE is staged on the stack for the duration of a post and every
-    // post resolves its channel from global memory, so there is no state to hand out, publish,
-    // or synchronize here. The buff and len parameters are kept for API compatibility but ignored.
     (void)buff;
     (void)len;
     initialized_ = true;
@@ -374,9 +482,78 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolvePost(
     return HCOMM_SUCCESS;
 }
 
-// One descriptor per operator. Each carries the operator's SQ footprint as compile-time
-// constants and knows how to lay its own words out; everything else about posting is shared
-// by PostWqe. targetLen is the length PostWqe validates against the registered remote range.
+__simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
+    uint32_t itemBb)
+{
+    return MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb, 0U, 1U);
+}
+
+__simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
+    uint32_t itemBb, uint32_t groupRank, uint32_t groupSize)
+{
+    (void)buffLen;
+    UbcCtpBatchHandle batchHandle;
+    __ubuf__ HcommSimtBatchStaticContext* context =
+        reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(buff);
+    context->headAddr = 0U;
+    HcommSimtResolvedPost post;
+    __gm__ uint8_t* remoteAddr = reinterpret_cast<__gm__ uint8_t*>(remoteBase);
+    if (ResolvePost(channel, remoteAddr, 1U, post) != HCOMM_SUCCESS) {
+        return batchHandle;
+    }
+
+    context->headAddr = reinterpret_cast<uint64_t>(post.headAddr);
+    context->sqTailAddr = reinterpret_cast<uint64_t>(post.sqTailAddr);
+    context->dwqeAddr = reinterpret_cast<uint64_t>(post.dwqeAddr);
+    context->sqBaseAddr = post.sqBaseAddr;
+    context->word1Base = static_cast<uint64_t>(post.meta.tpId & 0xFFFFFFU) |
+        (static_cast<uint64_t>(post.meta.remoteTokenId & 0xFFFFFU) << 32U);
+    context->remoteEidL = post.meta.remoteEidL;
+    context->remoteEidH = post.meta.remoteEidH;
+    context->tokenWord = post.meta.remoteTokenValue;
+    context->sqWqeSize = post.sqWqeSize;
+    context->sqDepth = post.meta.sqDepth;
+    context->cachedSqTail = *post.sqTailAddr;
+    context->itemBb = itemBb;
+    context->groupSize = groupSize;
+    HcommSimtPlanBatchFromHead(context, *post.headAddr);
+
+    batchHandle.channel = channel;
+    batchHandle.context = reinterpret_cast<__ubuf__ uint64_t*>(context);
+    batchHandle.groupRank = groupRank;
+    batchHandle.groupSize = groupSize;
+    return batchHandle;
+}
+
+template <typename Group>
+__simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+    ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
+    uint32_t itemBb, const Group& group)
+{
+    const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
+    const uint32_t size = static_cast<uint32_t>(group.size());
+    if (rank == 0U) {
+        (void)MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb, 0U, size);
+    }
+    group.sync();
+
+    UbcCtpBatchHandle batchHandle;
+    __ubuf__ HcommSimtBatchStaticContext* context =
+        reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(buff);
+    if (context->headAddr == 0U) {
+        return batchHandle;
+    }
+    batchHandle.channel = channel;
+    batchHandle.context = reinterpret_cast<__ubuf__ uint64_t*>(context);
+    batchHandle.groupRank = rank;
+    batchHandle.groupSize = size;
+    return batchHandle;
+}
+
+// Each operator prepares its request-specific values at final WQE offsets. The same-BB contract
+// lets Group Commit derive every final SQ position directly from group rank.
 //
 // bbCnt is 2 for every operator except a deferred Write/Read: those are the only WQEs that
 // fit in one basic block, and they must stay inside it because the next block may already
@@ -467,7 +644,133 @@ struct HcommSimtAtomicDesc {
     }
 };
 
-__simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandle channel, uint32_t expectIdx)
+template <bool publisher, bool commitFlag, HcommUrmaOpCode opCode, auto const& config>
+__simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
+    __ubuf__ HcommSimtBatchStaticContext* context, __gm__ uint8_t* firstBb, __gm__ uint8_t* secondBb,
+    uint32_t curHead,
+    const HcommSimtDataDesc<commitFlag, opCode, config>& desc)
+{
+    constexpr uint32_t sgeNum = publisher ? 2U : HcommSimtDataDesc<commitFlag, opCode, config>::sgeNum;
+    const uint32_t nextHead = curHead + (publisher ? HCOMM_URMA_DWQE_BB_CNT : context->itemBb);
+    const uint64_t word0 = HcommSimtBatchSqeWord0<opCode, config>(context, curHead, nextHead);
+    const uint64_t word1 = context->word1Base | (static_cast<uint64_t>(sgeNum) << 24U);
+    HcommSimtStoreBatchVector<publisher>(
+        context, firstBb, secondBb, 0U, word0, word1, context->remoteEidL, context->remoteEidH);
+    if constexpr (publisher) {
+        const uint32_t firstLen = static_cast<uint32_t>(desc.targetLen >> 1U);
+        const uint32_t lastLen = static_cast<uint32_t>(desc.targetLen - firstLen);
+        HcommSimtStoreBatchVector<true>(context, firstBb, secondBb, 1U, context->tokenWord,
+            reinterpret_cast<uint64_t>(desc.remoteAddr), firstLen, reinterpret_cast<uint64_t>(desc.localAddr));
+        HcommSimtStoreBatchVector<true>(context, firstBb, secondBb, 2U, lastLen,
+            reinterpret_cast<uint64_t>(desc.localAddr + firstLen), 0U, 0U);
+    } else {
+        HcommSimtStoreBatchVector<false>(context, firstBb, secondBb, 1U, context->tokenWord,
+            reinterpret_cast<uint64_t>(desc.remoteAddr), static_cast<uint32_t>(desc.targetLen),
+            reinterpret_cast<uint64_t>(desc.localAddr));
+    }
+}
+
+template <bool publisher, bool commitFlag, auto const& config>
+__simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
+    __ubuf__ HcommSimtBatchStaticContext* context, __gm__ uint8_t* firstBb, __gm__ uint8_t* secondBb,
+    uint32_t curHead,
+    const HcommSimtNotifyDesc<commitFlag, config>& desc)
+{
+    const uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
+    const uint64_t word0 = HcommSimtBatchSqeWord0<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config>(
+        context, curHead, nextHead);
+    const uint64_t word1 = context->word1Base | (1ULL << 24U);
+    const uint64_t notifyToken = static_cast<uint64_t>((word1 >> 32U) & 0xFFFFFU) |
+        ((context->tokenWord & 0xFFFFFFFFULL) << 32U);
+    HcommSimtStoreBatchVector<publisher>(
+        context, firstBb, secondBb, 0U, word0, word1, context->remoteEidL, context->remoteEidH);
+    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 1U, context->tokenWord,
+        reinterpret_cast<uint64_t>(desc.remoteAddr), notifyToken, reinterpret_cast<uint64_t>(desc.notifyAddr));
+    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 2U, desc.notifyVal, 0U,
+        static_cast<uint32_t>(desc.targetLen), reinterpret_cast<uint64_t>(desc.localAddr));
+}
+
+template <bool publisher, typename T, bool commitFlag, auto const& config>
+__simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
+    __ubuf__ HcommSimtBatchStaticContext* context, __gm__ uint8_t* firstBb, __gm__ uint8_t* secondBb,
+    uint32_t curHead,
+    const HcommSimtInlineDesc<T, commitFlag, config>& desc)
+{
+    static_assert(config.inlineEn == 1, "WriteValueNbi requires inline data in WQE");
+    static_assert(
+        sizeof(T) <= HCOMM_URMA_WQE_BB_SIZE - sizeof(HcommUrmaSqeCtx),
+        "WriteValue<T>: sizeof(T) must be less equal than primitive type");
+    const uint32_t nextHead = curHead + (publisher ? HCOMM_URMA_DWQE_BB_CNT : context->itemBb);
+    const uint64_t word0 = HcommSimtBatchSqeWord0<HcommUrmaOpCode::WRITE, config>(
+        context, curHead, nextHead, sizeof(T));
+    uint64_t payload[2] = {0U, 0U};
+    const uint8_t* valueAddr = reinterpret_cast<const uint8_t*>(&desc.value);
+#pragma unroll
+    for (uint32_t byte = 0U; byte < sizeof(T); ++byte) {
+        payload[byte / sizeof(uint64_t)] |=
+            static_cast<uint64_t>(valueAddr[byte]) << ((byte % sizeof(uint64_t)) * 8U);
+    }
+    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 0U, word0, context->word1Base,
+        context->remoteEidL, context->remoteEidH);
+    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 1U, context->tokenWord,
+        reinterpret_cast<uint64_t>(desc.remoteAddr), payload[0], payload[1]);
+    if constexpr (publisher) {
+        const uint64_t owner = (nextHead & context->sqDepth) == 0U ? 1U : 0U;
+        const uint64_t nopWord = static_cast<uint64_t>((nextHead + 1U) & 0xFFFFU) | (1ULL << 28U) | (1ULL << 29U) |
+            (owner << 31U) | (static_cast<uint64_t>(static_cast<uint32_t>(HcommUrmaOpCode::NOP)) << 40U);
+        HcommSimtStoreBatchVector<true>(context, firstBb, secondBb, 2U, nopWord, 0U, 0U, 0U);
+    }
+}
+
+template <bool publisher, typename T, bool commitFlag, HcommUrmaOpCode opCode, auto const& config>
+__simt_callee__ inline void HcommSimtEmitFinalBatchWqe(
+    __ubuf__ HcommSimtBatchStaticContext* context, __gm__ uint8_t* firstBb, __gm__ uint8_t* secondBb,
+    uint32_t curHead,
+    const HcommSimtAtomicDesc<T, commitFlag, opCode, config>& desc)
+{
+    const uint32_t nextHead = curHead + HCOMM_URMA_DWQE_BB_CNT;
+    const uint64_t word0 = HcommSimtBatchSqeWord0<opCode, config>(context, curHead, nextHead);
+    const uint64_t word1 = context->word1Base | (1ULL << 24U);
+    uint64_t operand0 = static_cast<uint64_t>(desc.value);
+    uint64_t operand1 = opCode == HcommUrmaOpCode::CAS ? static_cast<uint64_t>(desc.cond) : 0U;
+    if constexpr (sizeof(T) == sizeof(uint32_t)) {
+        operand0 = static_cast<uint64_t>(static_cast<uint32_t>(desc.value)) |
+            (static_cast<uint64_t>(static_cast<uint32_t>(
+                 opCode == HcommUrmaOpCode::CAS ? desc.cond : static_cast<T>(0))) << 32U);
+        operand1 = 0U;
+    }
+    HcommSimtStoreBatchVector<publisher>(
+        context, firstBb, secondBb, 0U, word0, word1, context->remoteEidL, context->remoteEidH);
+    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 1U, context->tokenWord,
+        reinterpret_cast<uint64_t>(desc.remoteAddr), sizeof(T), reinterpret_cast<uint64_t>(desc.fetchAddr));
+    HcommSimtStoreBatchVector<publisher>(context, firstBb, secondBb, 2U, operand0, operand1, 0U, 0U);
+}
+
+template <typename Desc>
+__simt_callee__ inline int32_t HcommSimtAppendFinalBatchWqe(
+    __ubuf__ HcommSimtBatchStaticContext* context, uint32_t rank, uint32_t size, const Desc& desc)
+{
+    if (context->reservationStatus != HCOMM_SUCCESS) {
+        return HCOMM_FAILED;
+    }
+    HcommSimtResolvedPost post;
+    HcommSimtLoadBatchStaticPost(context, post);
+    const bool publisher = rank + 1U == size;
+    const uint32_t curHead = HcommSimtHeadIdx(context->reservedHead) + rank * context->itemBb;
+    __gm__ uint8_t* firstBb = reinterpret_cast<__gm__ uint8_t*>(
+        post.sqBaseAddr + post.sqWqeSize * (curHead % post.meta.sqDepth));
+    __gm__ uint8_t* secondBb = (curHead % post.meta.sqDepth) + 1U == post.meta.sqDepth ?
+        reinterpret_cast<__gm__ uint8_t*>(post.sqBaseAddr) : firstBb + HCOMM_URMA_WQE_BB_SIZE;
+    if (publisher) {
+        HcommSimtEmitFinalBatchWqe<true>(context, firstBb, secondBb, curHead, desc);
+        return HCOMM_SUCCESS;
+    }
+    HcommSimtEmitFinalBatchWqe<false>(context, firstBb, secondBb, curHead, desc);
+    return HCOMM_SUCCESS;
+}
+
+__simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
+    ChannelHandle channel, uint32_t expectIdx)
 {
     if (expectIdx == 0U) {
         return HCOMM_SUCCESS;
@@ -514,6 +817,9 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
         if (status != 0U || subStatus != 0U) {
             constexpr uint8_t statusShift = 8U;
             return (status << statusShift) | subStatus;
+        }
+        if (sqDepth == 0U) {
+            return 0xFFU;
         }
         uint32_t sqTailSlot = sqTail & sqMask;
         uint32_t completedSlot = (cqeWords[1] & 0xFFFFU) & sqMask;
@@ -572,6 +878,18 @@ __simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReservePost(
     }
 }
 
+template <uint32_t bbCnt, bool commit>
+__simt_callee__ inline void HcommSimtPublishReservedStage(
+    const HcommSimtResolvedPost& post, uint32_t curHead, const HcommSimtWqeStage& stage)
+{
+    __gm__ uint8_t* sqeAddr =
+        reinterpret_cast<__gm__ uint8_t*>(post.sqBaseAddr + post.sqWqeSize * (curHead % post.meta.sqDepth));
+    HcommSimtCopyStageWqeToSq<bbCnt>(post.sqBaseAddr, sqeAddr, post.meta.sqDepth, curHead, stage);
+    if constexpr (commit) {
+        HcommSimtRingDwqe(post.dwqeAddr, stage);
+    }
+}
+
 // The single posting path: resolve the target, claim SQ space, lay the WQE down and, when the
 // task is committed, ring the doorbell. Every step is lane-local; a caller that needs several
 // lanes to post must serialize them itself.
@@ -605,9 +923,6 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
     uint32_t curHead = HcommSimtHeadIdx(headVal);
     uint32_t nextHead = curHead + bbCnt;
 
-    __gm__ uint8_t* sqeAddr =
-        reinterpret_cast<__gm__ uint8_t*>(post.sqBaseAddr + post.sqWqeSize * (curHead % post.meta.sqDepth));
-
     HcommSimtPackedSqeTemplate sqeTemplate;
     HcommSimtBuildPackedSqeTemplate<Desc::sgeNum>(post.meta, sqeTemplate);
 
@@ -616,15 +931,28 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
     // doorbell out of the same staged bytes.
     HcommSimtWqeStage stage;
     desc.template Store<wordCnt>(stage.words, sqeTemplate, curHead, nextHead);
-    HcommSimtCopyStageWqeToSq<bbCnt>(post.sqBaseAddr, sqeAddr, post.meta.sqDepth, curHead, stage);
-
-    // A deferred post needs no fence of its own: its SQ bytes are not published until some later
-    // committed post rings the doorbell, and that post's fence orders every write issued before
-    // it, this one included. Only the doorbell needs ordering, so only it fences.
-    if constexpr (Desc::commit) {
-        HcommSimtRingDwqe(post.dwqeAddr, stage);
-    }
+    HcommSimtPublishReservedStage<bbCnt, Desc::commit>(post, curHead, stage);
     return HCOMM_SUCCESS;
+}
+
+template <typename Desc>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
+    UbcCtpBatchHandle& batchHandle, const Desc& desc)
+{
+    __ubuf__ HcommSimtBatchStaticContext* context =
+        reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
+    return HcommSimtAppendFinalBatchWqe(context, 0U, 1U, desc);
+}
+
+template <typename Desc, typename Group>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostWqe(
+    UbcCtpBatchHandle& batchHandle, const Desc& desc, const Group& group)
+{
+    (void)group;
+    __ubuf__ HcommSimtBatchStaticContext* context =
+        reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
+    return HcommSimtAppendFinalBatchWqe(
+        context, batchHandle.groupRank, batchHandle.groupSize, desc);
 }
 
 template <bool commit, auto const& config>
@@ -636,11 +964,45 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
                      reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(src), len});
 }
 
+template <auto const& config>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtDataDesc<false, HcommUrmaOpCode::WRITE, config>{
+                         reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(src), len});
+}
+
+template <auto const& config, typename Group>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtDataDesc<false, HcommUrmaOpCode::WRITE, config>{
+                         reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(src), len}, group);
+}
+
 template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteValueNbi(
     ChannelHandle channel, __gm__ void* dst, T value)
 {
     return PostWqe(channel, HcommSimtInlineDesc<T, commit, config>{reinterpret_cast<__gm__ uint8_t*>(dst), value});
+}
+
+template <typename T, auto const& config>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteValueNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtInlineDesc<T, false, config>{reinterpret_cast<__gm__ uint8_t*>(dst), value});
+}
+
+template <typename T, auto const& config, typename Group>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteValueNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value, const Group& group)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtInlineDesc<T, false, config>{reinterpret_cast<__gm__ uint8_t*>(dst), value}, group);
 }
 
 // Read swaps dst/src relative to Write: src is the remote address, dst the local one.
@@ -651,6 +1013,24 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
     return PostWqe(
         channel, HcommSimtDataDesc<commit, HcommUrmaOpCode::READ, config>{
                      reinterpret_cast<__gm__ uint8_t*>(src), reinterpret_cast<__gm__ uint8_t*>(dst), len});
+}
+
+template <auto const& config>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtDataDesc<false, HcommUrmaOpCode::READ, config>{
+                         reinterpret_cast<__gm__ uint8_t*>(src), reinterpret_cast<__gm__ uint8_t*>(dst), len});
+}
+
+template <auto const& config, typename Group>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtDataDesc<false, HcommUrmaOpCode::READ, config>{
+                         reinterpret_cast<__gm__ uint8_t*>(src), reinterpret_cast<__gm__ uint8_t*>(dst), len}, group);
 }
 
 template <bool commit, auto const& config>
@@ -664,6 +1044,28 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotify
                      reinterpret_cast<__gm__ uint8_t*>(notifyAddr), notifyVal});
 }
 
+template <auto const& config>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len,
+    __gm__ void* notifyAddr, uint64_t notifyVal)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtNotifyDesc<true, config>{
+                         reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(src), len,
+                         reinterpret_cast<__gm__ uint8_t*>(notifyAddr), notifyVal});
+}
+
+template <auto const& config, typename Group>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len,
+    __gm__ void* notifyAddr, uint64_t notifyVal, const Group& group)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtNotifyDesc<true, config>{
+                         reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(src), len,
+                         reinterpret_cast<__gm__ uint8_t*>(notifyAddr), notifyVal}, group);
+}
+
 template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicFAA(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
@@ -674,6 +1076,26 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicFAA(
                      static_cast<T>(0)});
 }
 
+template <typename T, auto const& config>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicFAA(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtAtomicDesc<T, true, HcommUrmaOpCode::FAA, config>{
+                         reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(fetchAddr), addVal,
+                         static_cast<T>(0)});
+}
+
+template <typename T, auto const& config, typename Group>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicFAA(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal, const Group& group)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtAtomicDesc<T, true, HcommUrmaOpCode::FAA, config>{
+                         reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(fetchAddr), addVal,
+                         static_cast<T>(0)}, group);
+}
+
 template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
@@ -682,6 +1104,72 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
         channel,
         HcommSimtAtomicDesc<T, commit, HcommUrmaOpCode::CAS, config>{
             reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(fetchAddr), swapVal, compareVal});
+}
+
+template <typename T, auto const& config>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtAtomicDesc<T, true, HcommUrmaOpCode::CAS, config>{
+                         reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(fetchAddr), swapVal,
+                         compareVal});
+}
+
+template <typename T, auto const& config, typename Group>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
+    UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal,
+    const Group& group)
+{
+    return BatchPostWqe(
+        batchHandle, HcommSimtAtomicDesc<T, true, HcommUrmaOpCode::CAS, config>{
+                         reinterpret_cast<__gm__ uint8_t*>(dst), reinterpret_cast<__gm__ uint8_t*>(fetchAddr), swapVal,
+                         compareVal}, group);
+}
+
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
+    UbcCtpBatchHandle& batchHandle)
+{
+    __ubuf__ HcommSimtBatchStaticContext* context =
+        reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
+    if (context->reservationStatus != HCOMM_SUCCESS) {
+        return HCOMM_FAILED;
+    }
+    HcommSimtResolvedPost post;
+    HcommSimtLoadBatchStaticPost(context, post);
+    const uint64_t publishedHead = context->reservedHead +
+        ((1ULL << 32U) | HcommSimtBatchTotalBb(1U, context->itemBb));
+    *post.headAddr = publishedHead;
+    HcommSimtRingBatchDwqe(post.dwqeAddr, HcommSimtBatchPublisherWords(context));
+    HcommSimtPlanBatchFromHead(context, publishedHead);
+    return HCOMM_SUCCESS;
+}
+
+template <typename Group>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(
+    UbcCtpBatchHandle& batchHandle, const Group& group)
+{
+    const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
+    const uint32_t size = static_cast<uint32_t>(group.size());
+    const bool publisher = rank + 1U == size;
+    __ubuf__ HcommSimtBatchStaticContext* context =
+        reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batchHandle.context);
+    if (context->reservationStatus != HCOMM_SUCCESS) {
+        return HCOMM_FAILED;
+    }
+    group.sync();
+    if (publisher) {
+        HcommSimtResolvedPost post;
+        HcommSimtLoadBatchStaticPost(context, post);
+        const uint32_t totalBb = HcommSimtBatchTotalBb(size, context->itemBb);
+        const uint64_t publishedHead = context->reservedHead +
+            ((static_cast<uint64_t>(size) << 32U) | totalBb);
+        *post.headAddr = publishedHead;
+        HcommSimtRingBatchDwqe(post.dwqeAddr, HcommSimtBatchPublisherWords(context));
+        HcommSimtPlanBatchFromHead(context, publishedHead);
+    }
+    group.sync();
+    return HCOMM_SUCCESS;
 }
 
 template <auto pipe>
@@ -698,6 +1186,12 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHa
     uint32_t wqeCnt = HcommSimtWqeCnt(headVal);
     uint32_t pollRet = PollCq(channel, wqeCnt);
     return pollRet == HCOMM_SUCCESS ? HCOMM_SUCCESS : HCOMM_FAILED;
+}
+
+template <auto pipe>
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcCtpBatchHandle& batchHandle)
+{
+    return Drain<pipe>(batchHandle.channel);
 }
 
 } // namespace AscendC::simt
