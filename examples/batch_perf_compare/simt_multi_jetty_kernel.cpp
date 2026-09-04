@@ -198,31 +198,25 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
     auto block = cooperative_groups::this_thread_block(tileMemory);
     auto group = MakeJettyGroup<batchSize>(block);
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
-    const uint32_t physicalGroup = static_cast<uint32_t>(threadIdx.x) / batchSize;
-    const uint32_t physicalGroupCount = static_cast<uint32_t>(block.size()) / batchSize;
-    const uint32_t waveCount = (jettyCount + physicalGroupCount - 1U) / physicalGroupCount;
     AscendC::simt::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP, decltype(group)> hcomm(group);
-    AscendC::simt::UbcCtpBatchHandle batches[2U];
+    AscendC::simt::UbcCtpBatchHandle batches[kMaxJettyCount];
+    (void)hcomm.Init(reinterpret_cast<__ubuf__ uint8_t*>(groupStates), 3U * sizeof(uint32_t));
 
-    for (uint32_t wave = 0U; wave < waveCount; ++wave) {
-        const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
-        auto* groupState = groupStates + jetty * 3U;
+    for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
         auto* remote = AscendC::simt::RemoteBufferAddr(channels[jetty], remoteIndices[jetty]) +
             jetty * regionBytes;
-        (void)hcomm.Init(reinterpret_cast<__ubuf__ uint8_t*>(groupState), 3U * sizeof(uint32_t));
-        batches[wave] = hcomm.MakeBatchHandle(
+        batches[jetty] = hcomm.MakeBatchHandle(
             channels[jetty], batchBuffers + jetty * kSimtBatchBufferBytes, kSimtBatchBufferBytes,
             remote, api == kApiNotify ? 2U : 1U);
         if (rank == 0U) {
-            statuses[jetty] = batches[wave].context == nullptr ? -1 : 0;
-            failurePhases[jetty] = batches[wave].context == nullptr ? kDiagPhaseMakeHandle : kDiagPhaseNone;
+            statuses[jetty] = batches[jetty].context == nullptr ? -1 : 0;
+            failurePhases[jetty] = batches[jetty].context == nullptr ? kDiagPhaseMakeHandle : kDiagPhaseNone;
             failureOperations[jetty] = 0U;
         }
     }
 
-    for (uint32_t wave = 0U; wave < waveCount; ++wave) {
-        const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
-        if (batches[wave].context == nullptr) {
+    for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
+        if (batches[jetty].context == nullptr) {
             continue;
         }
         auto* remote = AscendC::simt::RemoteBufferAddr(channels[jetty], remoteIndices[jetty]) +
@@ -231,7 +225,7 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
         uint32_t failurePhase = kDiagPhaseNone;
         uint32_t failureOperation = 0U;
         const int32_t status = SubmitJetty(
-            hcomm, batches[wave], api, remote, local,
+            hcomm, batches[jetty], api, remote, local,
             payloadBytes, slotBytes, warmup, rank, batchSize, kDiagPhaseWarmupAppend, kDiagPhaseWarmupCommit,
             failurePhase, failureOperation);
         if (rank == 0U) {
@@ -240,10 +234,9 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
             failureOperations[jetty] = failureOperation;
         }
     }
-    for (uint32_t wave = 0U; wave < waveCount; ++wave) {
-        const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
+    for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
         if (rank == 0U && statuses[jetty] == 0 && warmup != 0U) {
-            statuses[jetty] = hcomm.Drain(batches[wave]);
+            statuses[jetty] = hcomm.Drain(batches[jetty]);
             if (statuses[jetty] != 0) {
                 failurePhases[jetty] = kDiagPhaseWarmupDrain;
                 failureOperations[jetty] = warmup;
@@ -251,7 +244,7 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
         }
         if (rank == 0U && statuses[jetty] != 0) {
             CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
-                failureOperations[jetty], batches[wave]);
+                failureOperations[jetty], batches[jetty]);
         }
         group.sync();
     }
@@ -271,15 +264,14 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
 
     block.sync();
     const uint64_t begin = threadIdx.x == 0U ? clock() : 0U;
-    for (uint32_t wave = 0U; wave < waveCount; ++wave) {
-        const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
+    for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
         auto* remote = AscendC::simt::RemoteBufferAddr(channels[jetty], remoteIndices[jetty]) +
             jetty * regionBytes;
         auto* local = AscendC::simt::LocalBufferAddr(channels[jetty], 1U) + jetty * regionBytes;
         uint32_t failurePhase = kDiagPhaseNone;
         uint32_t failureOperation = 0U;
         const int32_t status = SubmitJetty(
-            hcomm, batches[wave], api, remote, local,
+            hcomm, batches[jetty], api, remote, local,
             payloadBytes, slotBytes, iterations, rank, batchSize, kDiagPhaseTimedAppend, kDiagPhaseTimedCommit,
             failurePhase, failureOperation);
         if (rank == 0U) {
@@ -290,10 +282,9 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
     }
     block.sync();
     const uint64_t issueEnd = threadIdx.x == 0U ? clock() : 0U;
-    for (uint32_t wave = 0U; wave < waveCount; ++wave) {
-        const uint32_t jetty = wave * physicalGroupCount + physicalGroup;
+    for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
         if (rank == 0U && statuses[jetty] == 0) {
-            statuses[jetty] = hcomm.Drain(batches[wave]);
+            statuses[jetty] = hcomm.Drain(batches[jetty]);
             if (statuses[jetty] != 0) {
                 failurePhases[jetty] = kDiagPhaseTimedDrain;
                 failureOperations[jetty] = iterations;
@@ -301,7 +292,7 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
         }
         if (rank == 0U && statuses[jetty] != 0) {
             CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
-                failureOperations[jetty], batches[wave]);
+                failureOperations[jetty], batches[jetty]);
         }
         group.sync();
     }
@@ -334,13 +325,14 @@ extern "C" __global__ __vector__ void SimtMultiJettyPerfKernel(
     auto* remoteIndices = reinterpret_cast<__gm__ uint32_t*>(remoteIndicesAddr);
     auto* timing = reinterpret_cast<__gm__ uint64_t*>(timingAddr);
     alignas(128) __ubuf__ uint8_t batchBuffers[kMaxJettyCount * kSimtBatchBufferBytes];
-    alignas(16) __ubuf__ uint32_t groupStates[kMaxJettyCount * 3U];
+    alignas(16) __ubuf__ uint32_t groupStates[3U];
     alignas(16) __ubuf__ int32_t statuses[kMaxJettyCount];
     alignas(16) __ubuf__ uint32_t failurePhases[kMaxJettyCount];
     alignas(16) __ubuf__ uint32_t failureOperations[kMaxJettyCount];
     alignas(16) __ubuf__ uint8_t tileBuffer[sizeof(cooperative_groups::block_tile_memory<1024U>)];
-    uint32_t laneCount = batchSize * jettyCount;
-    laneCount = laneCount < 1024U ? laneCount : 1024U;
+    // A BatchHandle is owned by one cooperative group and one channel. Reuse the same
+    // batchSize-lane group across Jettys instead of concurrently publishing several DWQEs.
+    const uint32_t laneCount = batchSize;
 #define LAUNCH_BATCH(size, capacity)                                                                           \
     asc_vf_call<SimtMultiJettyPerfVf<size##U, capacity##U>>(                                                    \
         dim3(laneCount), channels, remoteIndices, timing, api, payloadBytes, slotBytes, regionBytes,      \

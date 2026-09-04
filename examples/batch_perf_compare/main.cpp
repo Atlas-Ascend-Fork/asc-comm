@@ -403,8 +403,8 @@ int main(int argc, char* argv[])
         if (pass && api == kApiRead) {
             pass = CheckData(sendBuffer, bufferBytes, api, payloadBytes, slotBytes, jettyCount);
         }
-        const uint32_t lanes = simd ? 1U : std::min(batchSize * jettyCount, 1024U);
-        const uint32_t waves = simd ? 1U : (batchSize * jettyCount + 1023U) / 1024U;
+        const uint32_t lanes = simd ? 1U : batchSize;
+        const uint32_t waves = 1U;
         const double issueNs = static_cast<double>(timing[kIssueCyclesIndex]) / totalOperations;
         const double bandwidth = timing[kCompletionCyclesIndex] == 0U ? 0.0 :
             static_cast<double>(payloadBytes) * totalOperations / timing[kCompletionCyclesIndex];
