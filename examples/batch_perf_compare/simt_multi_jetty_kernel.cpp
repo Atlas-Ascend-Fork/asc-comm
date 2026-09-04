@@ -232,19 +232,17 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
             statuses[jetty] = status;
             failurePhases[jetty] = failurePhase;
             failureOperations[jetty] = failureOperation;
-        }
-    }
-    for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
-        if (rank == 0U && statuses[jetty] == 0 && warmup != 0U) {
-            statuses[jetty] = hcomm.Drain(batches[jetty]);
-            if (statuses[jetty] != 0) {
-                failurePhases[jetty] = kDiagPhaseWarmupDrain;
-                failureOperations[jetty] = warmup;
+            if (statuses[jetty] == 0 && warmup != 0U) {
+                statuses[jetty] = hcomm.Drain(batches[jetty]);
+                if (statuses[jetty] != 0) {
+                    failurePhases[jetty] = kDiagPhaseWarmupDrain;
+                    failureOperations[jetty] = warmup;
+                }
             }
-        }
-        if (rank == 0U && statuses[jetty] != 0) {
-            CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
-                failureOperations[jetty], batches[jetty]);
+            if (statuses[jetty] != 0) {
+                CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
+                    failureOperations[jetty], batches[jetty]);
+            }
         }
         group.sync();
     }
@@ -263,36 +261,35 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
     }
 
     block.sync();
-    const uint64_t begin = threadIdx.x == 0U ? clock() : 0U;
+    const uint64_t completionBegin = threadIdx.x == 0U ? clock() : 0U;
+    uint64_t issueCycles = 0U;
     for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
         auto* remote = AscendC::simt::RemoteBufferAddr(channels[jetty], remoteIndices[jetty]) +
             jetty * regionBytes;
         auto* local = AscendC::simt::LocalBufferAddr(channels[jetty], 1U) + jetty * regionBytes;
         uint32_t failurePhase = kDiagPhaseNone;
         uint32_t failureOperation = 0U;
+        const uint64_t issueBegin = rank == 0U ? clock() : 0U;
         const int32_t status = SubmitJetty(
             hcomm, batches[jetty], api, remote, local,
             payloadBytes, slotBytes, iterations, rank, batchSize, kDiagPhaseTimedAppend, kDiagPhaseTimedCommit,
             failurePhase, failureOperation);
         if (rank == 0U) {
+            issueCycles += clock() - issueBegin;
             statuses[jetty] = status;
             failurePhases[jetty] = failurePhase;
             failureOperations[jetty] = failureOperation;
-        }
-    }
-    block.sync();
-    const uint64_t issueEnd = threadIdx.x == 0U ? clock() : 0U;
-    for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
-        if (rank == 0U && statuses[jetty] == 0) {
-            statuses[jetty] = hcomm.Drain(batches[jetty]);
-            if (statuses[jetty] != 0) {
-                failurePhases[jetty] = kDiagPhaseTimedDrain;
-                failureOperations[jetty] = iterations;
+            if (statuses[jetty] == 0) {
+                statuses[jetty] = hcomm.Drain(batches[jetty]);
+                if (statuses[jetty] != 0) {
+                    failurePhases[jetty] = kDiagPhaseTimedDrain;
+                    failureOperations[jetty] = iterations;
+                }
             }
-        }
-        if (rank == 0U && statuses[jetty] != 0) {
-            CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
-                failureOperations[jetty], batches[jetty]);
+            if (statuses[jetty] != 0) {
+                CaptureBatchFailure(timing, jetty, failurePhases[jetty], statuses[jetty],
+                    failureOperations[jetty], batches[jetty]);
+            }
         }
         group.sync();
     }
@@ -307,8 +304,8 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtMultiJettyPerfVf(
         }
         const uint64_t completionEnd = clock();
         const uint32_t totalOperations = iterations * jettyCount;
-        timing[kIssueCyclesIndex] = issueEnd - begin;
-        timing[kCompletionCyclesIndex] = completionEnd - begin;
+        timing[kIssueCyclesIndex] = issueCycles;
+        timing[kCompletionCyclesIndex] = completionEnd - completionBegin;
         timing[kStatusIndex] = static_cast<uint64_t>(finalStatus);
         timing[kCompletedIndex] = finalStatus == 0 ? totalOperations : 0U;
         timing[kPublishCountIndex] = iterations / batchSize * jettyCount;
