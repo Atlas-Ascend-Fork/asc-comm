@@ -33,6 +33,10 @@ __aicore__ __forceinline__ HcommPeer::HcommPeer(
         return;
     }
     auto remoteBuffer = jetty->remoteBufferAddr[bufferIdx];
+    if (remoteBuffer.type != REGED_BUFFER_RMA ||
+        remoteBuffer.bufferInfo.rma.addr == 0U || remoteBuffer.bufferInfo.rma.size == 0U) {
+        return;
+    }
     peerInfo->remoteTokenValueUdf = remoteBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     peerInfo->remoteBaseAddr = remoteBuffer.bufferInfo.rma.addr;
     peerInfo->remoteBufferSize = remoteBuffer.bufferInfo.rma.size;
@@ -93,7 +97,7 @@ __aicore__ __forceinline__ bool HcommJetty::BuildWriteSqe(
     __gm__ void* notifySymPtr, uint64_t notifyValue)
 {
     if (!valid_ || !peer.valid || jettyInfo_ == nullptr || ubSqe_ == nullptr || peer.peerInfo == nullptr ||
-        localBase == nullptr ||
+        localBase == nullptr || srcPtr == nullptr ||
         dstSymPtr == nullptr || (kWithNotify && notifySymPtr == nullptr)) {
         return false;
     }

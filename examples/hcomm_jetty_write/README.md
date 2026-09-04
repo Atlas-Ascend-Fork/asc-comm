@@ -1,180 +1,69 @@
-# Hcomm AIV直驱URMA Jetty WRITE 调试样例
+# Hcomm Jetty WRITE 样例
 
-这是一个最小的双 rank Jetty 层调试样例。Host 将单个 `ChannelHandle` 放入 device GM 的 Jetty 表，Kernel 通过 `HcommPeer`、`HcommJetty::Put` 和 `HcommJetty::Drain` 向对端对称 buffer 写入 256 字节。
+本样例演示 AIV Kernel 通过 `hcomm_jetty.h` 中的 `HcommPeer`、`HcommJetty::Put` 和
+`HcommJetty::Drain` 发起 URMA Jetty WRITE。每个 rank 向其他所有 rank 写入 256 字节，
+远端数据落在按发送 rank 划分的接收槽位中。
 
-构建：
+样例代码采用与 `ain/basic_ring` 类似的单文件 ASC 组织方式：`hcomm_jetty_write.asc`
+同时包含 Host 侧资源准备、kernel 启动和设备侧 kernel 实现。通信实现仍使用
+`hcomm_jetty.h`，没有改为 AIN 接口。
+
+## 目录结构
+
+```text
+hcomm_jetty_write
+├── CMakeLists.txt
+├── hcomm_jetty_write.asc  // Host、kernel 和共享定义
+├── run.sh
+├── README.md
+└── README_en.md
+```
+
+## 样例流程
+
+1. rank 0 将 `HcclRootInfo` 写入临时文件，其余 rank 轮询读取后初始化 HCCL 通信域。
+2. Host 注册通信 buffer，并为每个非本 rank peer 获取 `COMM_ENGINE_AIV` 的 UBC_CTP channel。
+3. Host 将 channel handle 写入 device Jetty table，同时下发本端 buffer 地址、远端 buffer index
+   和目标槽位 offset。
+4. Host 只下发一个 kernel；Kernel 遍历所有 peer context，分别构造 `HcommPeer`/`HcommJetty`，调用 `Put` 写入 256 字节，再调用 `Drain` 等待完成。
+5. 所有 rank 通过 HCCL barrier 同步，Host 回读 buffer 并校验每个 peer 的数据 pattern。
+
+## 编译
 
 ```bash
+source /usr/local/Ascend/cann/set_env.sh
 cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510
-cmake --build build -j2
-./build/demo
+cmake --build build -j
 ```
 
-## 概述
+也可以将 `/usr/local/Ascend/cann` 替换为实际 CANN 安装目录。
 
-本样例展示如何在Ascend C AIV Kernel中，基于**AIV直驱URMA**架构，使用`Hcomm`类的`WriteNbi`和`ReadNbi`接口实现NPU间低时延的点对点（P2P）通信。样例进程数由`./demo [nranks]`指定；不传入参数时默认启动双卡。每个rank在环形拓扑中与前后相邻rank建立P2P通道，通过地址偏移区分数据段，最后在Host侧校验通信结果。
+## 运行
 
-## 支持的产品及CANN软件版本
+```bash
+./run.sh <nranks>
+```
 
-| 产品 | CANN软件版本 |
-|------|-------------|
-| Ascend 950PR / Ascend 950DT | >= CANN 9.1.0 |
+例如在本机两张卡上运行：
 
-## 目录结构介绍
+```bash
+./run.sh 2
+```
+
+直接启动单个 rank：
 
 ```text
-├── hcomm_jetty_write
-│   ├── CMakeLists.txt              // 编译工程文件
-│   ├── README.md                   // 样例说明文档
-│   ├── README_en.md                // 英文样例说明文档
-│   ├── hcomm_jetty_write.asc
-│   ├── hcomm_jetty_write_kernel.cpp
-│   ├── hcomm_jetty_write_def.h
-│   ├── jetty_utils.cpp
-│   └── jetty_utils.h
+./build/hcomm_jetty_write <rank> <nranks> <root_info_file>
 ```
 
-## 样例描述
+所有 rank 输出 `Jetty WRITE validation passed` 表示校验成功。
 
-### 样例功能
-本样例重点演示**AIV直驱URMA**场景下的P2P通信接口。Host侧只负责创建通信域、注册通信内存和建立通道；通信任务由AIV Kernel直接提交，数据面执行期间不需要Host逐次参与。该模式适用于MoE Dispatch/Combine、Pipeline并行等对通信时延敏感的场景。
+## 支持范围
 
-| API | 数据流向 | 语义说明 (AIV直驱URMA) |
-|------|---------|------|
-| `WriteNbi` | 本地GM → 远端GM | AIV直驱URMA写接口：将本地Global Memory数据直接写入远端NPU指定地址，无需远端CPU介入。 |
-| `ReadNbi` | 远端GM → 本地GM | AIV直驱URMA读接口：直接从远端NPU指定地址读取数据到本地Global Memory，无需远端CPU介入。 |
-
-### 样例实现
-
-#### 1. Host侧通信域准备
-在Ascend 950系列上，通信域需以多进程方式创建（每个进程对应一个rank）。关键步骤如下，重点体现AIV直驱模式的配置：
-
-1. **交换RootInfo**：Rank 0调用`HcclGetRootInfo`获取root信息，通过TCP发送给其他rank。
-2. **创建通信域**：各Rank调用`HcclCommInitRootInfoConfig`创建通信域。**注意：AIV直驱模式下，无需配置`hcclOpExpansionMode`。**
-3. **注册通信内存**：调用`HcclCommMemReg`向通信域注册本卡的通信buffer，Channel创建时该内存信息会自动交换给对端。
-4. **建立TCP环形拓扑**：每个rank监听`BASE_PORT + rank`，主动连接`next = (rank + 1) % nranks`，同时接受来自`prev = (rank - 1 + nranks) % nranks`的连接。该环形连接用于RootInfo交换后的Host侧barrier，确保各rank在关键阶段同步推进。
-5. **获取链路Endpoint**：通过`HcclRankGraphGetLayers`和`HcclRankGraphGetLinks`分别获取本Rank到`prev`和`next`的物理链路Endpoint信息。
-6. **创建P2P通道（AIV直驱）**：调用`HcclChannelAcquire`创建到相邻rank的P2P通道。此处需明确指定引擎为`COMM_ENGINE_AIV`、协议为`COMM_PROTOCOL_UBC_CTP`（URMA协议），并传入待交换的内存句柄。
-7. **获取对端内存地址**：调用`HcclChannelGetRemoteMems`获取相邻rank注册的内存地址，作为Kernel侧`WriteNbi`/`ReadNbi`的远端目标地址。
-8. **下发Context**：Host预初始化seg0（填充基于rankId的伪随机pattern），将`ChannelHandle`和buffer地址封装到`CommContext`并下发到各卡GM。
-
-```cpp
-// 1. 各rank各自创建通信域 (AIV直驱模式无需配置hcclOpExpansionMode)
-HcclCommConfig config;
-HcclCommConfigInit(&config);
-config.hcclWorldRankID = rank;
-HcclCommInitRootInfoConfig(nranks, &rootInfo, rank, &config, &comm);
-
-// 2. 注册通信内存
-HcclCommMemReg(comm, "shareBuf", &regMem, &memHandle);
-
-// 3. 获取链路endpoint
-HcclRankGraphGetLinks(comm, layerId, rank, peerRank, &links, &linkNum);
-
-// 4. 创建AIV直驱URMA P2P通道
-channelDesc.remoteRank = peerRank;
-channelDesc.channelProtocol = COMM_PROTOCOL_UBC_CTP; // URMA协议
-channelDesc.memHandles = &memHandle;
-channelDesc.memHandleNum = 1;
-HcclChannelAcquire(comm, COMM_ENGINE_AIV, &channelDesc, 1, &channel); // 指定COMM_ENGINE_AIV
-
-// 5. 获取对端内存地址
-HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMems, &memTags);
-```
-
-#### 2. Kernel侧执行
-通信流程分为三步：`Init()` → `WriteNbi()`/`ReadNbi()` → `Drain()`。各rank执行相同的Kernel逻辑，通过地址偏移区分三段数据：
-- **seg0** `[0, DATA_SIZE)`：本卡pattern（Host预初始化）
-- **seg1** `[DATA_SIZE, 2*DATA_SIZE)`：接收对端`WriteNbi`写入的数据
-- **seg2** `[2*DATA_SIZE, 3*DATA_SIZE)`：接收本卡`ReadNbi`从对端seg0读回的数据
-
-- **`Init`**：分配UB工作空间（>= 512字节），用于存放Hcomm内部WQE/CQE等状态。
-- **`WriteNbi` / `ReadNbi`**：调用**AIV直驱URMA API**将通信任务入队到SQ。默认`commit=true`，入队后立即触发doorbell；如需批量优化，可改用`commit=false`多次入队后统一调用`Commit()`。
-- **`Drain`**：轮询CQ等待通信任务完成，返回后数据可见性才有保证。
-
-```cpp
-// 单个rank上的AIV直驱URMA通信操作示例：
-// 1. 本卡seg0 → 对端seg1 (WriteNbi)
-hcomm_.WriteNbi(channel, remoteBuf + DATA_SIZE, localBuf, DATA_SIZE);
-
-// 2. 对端seg0 → 本卡seg2 (ReadNbi)
-hcomm_.ReadNbi(channel, localBuf + 2 * DATA_SIZE, remoteBuf, DATA_SIZE);
-
-// 3. 等待AIV硬件通信任务完成
-hcomm_.Drain(channel);
-```
-
-#### 3. 环形拓扑通信过程
-运行时rank数量为`nranks`。每个rank计算相邻节点：
-- `prev = (rank - 1 + nranks) % nranks`
-- `next = (rank + 1) % nranks`
-
-Host侧为`prev`和`next`分别准备通信上下文。当前样例的数据面只使用`next`方向：Kernel执行时，将本卡seg0通过`WriteNbi`写入`next`的seg1，并通过`ReadNbi`从`next`的seg0读到本卡seg2。因此，每个rank的seg1来自`prev`写入，seg2来自`next`读取。当`nranks == 2`时，`prev`和`next`都指向同一个对端rank，seg1和seg2会校验同一个对端pattern。
-
-Host侧在Kernel执行前后通过TCP环形barrier同步所有rank，避免某个rank提前校验尚未完成的通信结果。
-
-#### 4. 如何扩展为all-to-neighbor
-当前样例已经建立了`prev`和`next`两个方向的P2P通道，但默认只执行`next`方向的数据面操作。若要扩展为完整的all-to-neighbor通信，可以复用已建立的`prev`通道，让每个rank同时覆盖“对前驱读”和“向后继写”两个方向。
-
-一种直接实现方式是执行两次Kernel：第一次使用`prev`通道执行`ReadNbi`，从`prev`的seg0读到本卡seg2；第二次使用`next`通道执行`WriteNbi`，将本卡seg0写入`next`的seg1。这样每个rank的seg1由`prev`通过`WriteNbi`写入，seg2由本rank通过`ReadNbi`从`prev`读回，两段数据都应匹配`prev`的pattern。Host侧需要分别回读两次Kernel对应通信上下文中的`testResult`，并继续校验seg1和seg2的pattern。
-
-扩展时建议保留Kernel前后的Host侧barrier：Kernel前确保所有rank完成内存注册、通道建立和context初始化；Kernel后确保所有rank完成对应方向的`Drain`后再回读`testResult`并校验数据。若新增或调整数据段偏移，需要同步更新Host侧pattern校验的期望rank和offset。
-
-### 校验机制
-- 每个rank在Host侧预初始化seg0时，通过线性同余生成器（LCG，使用Knuth乘法哈希常数`0x9E3779B9U`等参数）生成用于通信校验的随机pattern，确保不同rank的数据来源可区分。
-- Kernel执行完毕后，Host侧通过`aclrtMemcpy`回读`CommContext::testResult`。
-- Host侧进一步校验seg1（`prev`通过`WriteNbi`写入）和seg2（本卡通过`ReadNbi`从`next`读回）的数据是否与对应对端pattern完全一致。当校验结果码testResult为0（即seg1/seg2数据与对端pattern完全一致）时，打印test pass!。
-
-## 编译与运行
-
-在本样例根目录下执行如下步骤，编译并执行样例。
-
-### 1. 配置环境变量
-请根据当前环境上CANN开发套件包的安装方式，配置环境变量：
-```bash
-source ${install_path}/cann/set_env.sh
-```
-> **说明：** `${install_path}`为CANN包安装目录，未指定安装目录时默认安装至`/usr/local/Ascend`下。
-
-### 2. 编译工程
-
-在本样例目录下执行如下命令：
-```bash
-mkdir -p build && cd build
-cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
-make -j
-```
-
-### 3. 样例执行
-本样例使用自动Fork多进程方式启动，命令格式如下：
-
-```bash
-./demo [nranks]
-```
-
-`nranks`表示启动的rank数量，必须大于等于2，并且不应超过当前可用NPU数量。不传入参数时，默认启动双卡：
-
-```bash
-# 默认双卡
-./demo
-
-# 显式指定双卡
-./demo 2
-
-# 指定4卡环形拓扑
-./demo 4
-```
-
-### 4. 编译选项说明
-| 选项 | 可选值 | 说明 |
-|------|--------|------|
-| `CMAKE_ASC_ARCHITECTURES` | `dav-3510`（默认） | NPU架构：`dav-3510`对应Ascend 950PR / Ascend 950DT |
-
-### 5. 执行结果
-多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
-```text
-rank 0 test pass!
-rank 1 test pass!
-test pass!
-```
-> **注意：** 单卡环境仅支持编译验证，实际运行本样例需至少配备2张NPU。
+| 项目 | 说明 |
+| --- | --- |
+| 产品 | `Ascend 950PR / Ascend 950DT` |
+| NPU 架构 | `dav-3510` |
+| 通信引擎 | `COMM_ENGINE_AIV` |
+| 通信协议 | `COMM_PROTOCOL_UBC_CTP` |
+| 部署形态 | 单机多卡 |
