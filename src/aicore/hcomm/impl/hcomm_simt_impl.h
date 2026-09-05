@@ -28,78 +28,116 @@
 
 namespace AscendC::simt {
 
-template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline Hcomm<commProtocol, Group>::Hcomm()
+template <CommProtocol commProtocol>
+__simt_callee__ inline Hcomm<commProtocol>::Hcomm()
 {}
 
-template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline Hcomm<commProtocol, Group>::Hcomm(const Group& group) : group_(group)
+template <CommProtocol commProtocol>
+__simt_callee__ inline Hcomm<commProtocol>::~Hcomm()
 {}
 
-template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline Hcomm<commProtocol, Group>::~Hcomm()
-{}
-
-template <CommProtocol commProtocol, typename Group>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Init(__ubuf__ uint8_t* buff, uint32_t len)
+template <CommProtocol commProtocol>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::Init(__ubuf__ uint8_t* buff, uint32_t len)
 {
     return impl_.Init(buff, len);
 }
 
-template <CommProtocol commProtocol, typename Group>
-template <bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteNbi(
-    ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
+template <CommProtocol commProtocol>
+template <typename Coop, bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteNbi(
+    Coop coop, ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    return impl_.template WriteNbi<commit, config>(channel, dst, src, len);
+    coop.sync();
+    int32_t ret = -1;
+    if (coop.thread_rank() == 0) {
+        ret = impl_.template WriteNbi<commit, config>(channel, dst, src, len);
+    }
+    coop.sync();
+    return ret;
 }
 
-template <CommProtocol commProtocol, typename Group>
-template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteValueNbi(
-    ChannelHandle channel, __gm__ void* dst, T value)
+template <CommProtocol commProtocol>
+template <typename Coop, typename T, bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteValueNbi(
+    Coop coop, ChannelHandle channel, __gm__ void* dst, T value)
 {
-    return impl_.template WriteValueNbi<T, commit, config>(channel, dst, value);
+    coop.sync();
+    int32_t ret = -1;
+    if (coop.thread_rank() == 0) {
+        ret = impl_.template WriteValueNbi<T, commit, config>(channel, dst, value);
+    }
+    coop.sync();
+    return ret;
 }
 
-template <CommProtocol commProtocol, typename Group>
-template <bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::ReadNbi(
-    ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
+template <CommProtocol commProtocol>
+template <typename Coop, bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::ReadNbi(
+    Coop coop, ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    return impl_.template ReadNbi<commit, config>(channel, dst, src, len);
+    coop.sync();
+    int32_t ret = -1;
+    if (coop.thread_rank() == 0) {
+        ret = impl_.template ReadNbi<commit, config>(channel, dst, src, len);
+    }
+    coop.sync();
+    return ret;
 }
 
-template <CommProtocol commProtocol, typename Group>
-template <bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteWithNotifyNbi(
-    ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+template <CommProtocol commProtocol>
+template <typename Coop, bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
+    Coop coop, ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
     uint64_t notifyVal)
 {
-    return impl_.template WriteWithNotifyNbi<commit, config>(channel, dst, src, len, notifyAddr, notifyVal);
+    coop.sync();
+    int32_t ret = -1;
+    if (coop.thread_rank() == 0) {
+        ret = impl_.template WriteWithNotifyNbi<commit, config>(channel, dst, src, len, notifyAddr, notifyVal);
+    }
+    coop.sync();
+    return ret;
 }
 
-template <CommProtocol commProtocol, typename Group>
-template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicFAA(
-    ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
+template <CommProtocol commProtocol>
+template <typename Coop, typename T, bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::AtomicFAA(
+    Coop coop, ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
 {
-    return impl_.template AtomicFAA<T, commit, config>(channel, dst, fetchAddr, addVal);
+    coop.sync();
+    int32_t ret = -1;
+    if (coop.thread_rank() == 0) {
+        ret = impl_.template AtomicFAA<T, commit, config>(channel, dst, fetchAddr, addVal);
+    }
+    coop.sync();
+    return ret;
 }
 
-template <CommProtocol commProtocol, typename Group>
-template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicCAS(
-    ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
+template <CommProtocol commProtocol>
+template <typename Coop, typename T, bool commit, auto const& config>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::AtomicCAS(
+    Coop coop, ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
 {
-    return impl_.template AtomicCAS<T, commit, config>(channel, dst, fetchAddr, compareVal, swapVal);
+    coop.sync();
+    int32_t ret = -1;
+    if (coop.thread_rank() == 0) {
+        ret = impl_.template AtomicCAS<T, commit, config>(channel, dst, fetchAddr, compareVal, swapVal);
+    }
+    coop.sync();
+    return ret;
 }
 
-template <CommProtocol commProtocol, typename Group>
-template <auto pipe>
-__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Drain(ChannelHandle channel)
+template <CommProtocol commProtocol>
+template <typename Coop, auto pipe>
+__simt_callee__ inline int32_t Hcomm<commProtocol>::Drain(Coop coop, ChannelHandle channel)
 {
-    return impl_.template Drain<pipe>(channel);
+    coop.sync();
+    int32_t ret = 0;
+    if (coop.thread_rank() == 0) {
+        ret = impl_.template Drain<pipe>(channel);
+    }
+    coop.sync();
+    return ret;
 }
 
 __simt_callee__ inline __gm__ uint8_t* LocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx)

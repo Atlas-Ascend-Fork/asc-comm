@@ -49,9 +49,10 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteSingleVf(
         return;
     }
     for (uint32_t i = 0; i < kWriteSlotCount; ++i) {
-        (void)hcomm.WriteNbi<true>(channel, remoteAddr + i * kSlotBytes, localAddr + i * kSlotBytes, kSlotBytes);
+        (void)hcomm.WriteNbi(AscendC::simt::HcommCoopThread{}, channel, remoteAddr + i * kSlotBytes,
+                             localAddr + i * kSlotBytes, kSlotBytes);
     }
-    (void)hcomm.Drain(channel);
+    (void)hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel);
 }
 
 // 最后一次立即提交的门铃发布覆盖整批的 PI，把前面的延迟 WQE 一并带出。单 lane 不会观察到自己
@@ -70,12 +71,13 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteBatchLastVf(
         return;
     }
     for (uint32_t i = 0; i < kWriteSlotCount - 1U; ++i) {
-        (void)hcomm.WriteNbi<false>(channel, remoteAddr + i * kSlotBytes, localAddr + i * kSlotBytes, kSlotBytes);
+        (void)hcomm.WriteNbi<AscendC::simt::HcommCoopThread, false>(
+            channel, remoteAddr + i * kSlotBytes, localAddr + i * kSlotBytes, kSlotBytes);
     }
     (void)hcomm.WriteNbi(
-        channel, remoteAddr + (kWriteSlotCount - 1U) * kSlotBytes, localAddr + (kWriteSlotCount - 1U) * kSlotBytes,
-        kSlotBytes);
-    (void)hcomm.Drain(channel);
+        AscendC::simt::HcommCoopThread{}, channel, remoteAddr + (kWriteSlotCount - 1U) * kSlotBytes,
+        localAddr + (kWriteSlotCount - 1U) * kSlotBytes, kSlotBytes);
+    (void)hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel);
 }
 
 // 值内联在 WQE 中，因此不传本地地址、完全不读发送缓冲区。写入值仍取 SlotValue(i)，
@@ -92,9 +94,9 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteValueSingleVf(uint64_t 
         return;
     }
     for (uint32_t i = 0; i < kWriteSlotCount; ++i) {
-        (void)hcomm.WriteValueNbi<uint64_t, true>(channel, remoteAddr + i * kSlotBytes, SlotValue(i));
+        (void)hcomm.WriteValueNbi(AscendC::simt::HcommCoopThread{}, channel, remoteAddr + i * kSlotBytes, SlotValue(i));
     }
-    (void)hcomm.Drain(channel);
+    (void)hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel);
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void SimtWriteValueBatchLastVf(uint64_t channel, uint32_t recvBufIdx)
@@ -109,11 +111,12 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtWriteValueBatchLastVf(uint64
         return;
     }
     for (uint32_t i = 0; i < kWriteSlotCount - 1U; ++i) {
-        (void)hcomm.WriteValueNbi<uint64_t, false>(channel, remoteAddr + i * kSlotBytes, SlotValue(i));
+        (void)hcomm.WriteValueNbi<AscendC::simt::HcommCoopThread, uint64_t, false>(
+            channel, remoteAddr + i * kSlotBytes, SlotValue(i));
     }
-    (void)hcomm.WriteValueNbi<uint64_t, true>(
+    (void)hcomm.WriteValueNbi<AscendC::simt::HcommCoopThread, uint64_t, true>(
         channel, remoteAddr + (kWriteSlotCount - 1U) * kSlotBytes, SlotValue(kWriteSlotCount - 1U));
-    (void)hcomm.Drain(channel);
+    (void)hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -130,9 +133,10 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyVf(uint64_t channel, u
     AscendC::simt::Hcomm<> hcomm;
     (void)hcomm.Init(nullptr, 0);
     (void)hcomm.WriteWithNotifyNbi(
-        channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
-        kNotifySignal);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+        AscendC::simt::HcommCoopThread{}, channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes,
+        remote + kNotifySignalSlot * kSlotBytes, kNotifySignal);
+    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] =
+        static_cast<uint64_t>(hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel));
 }
 
 // 每个 2BB Notify WQE 各敲一次 DWQE 门铃，整批发完才 Drain。
@@ -148,11 +152,12 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyImmediateRepeatVf(
     AscendC::simt::Hcomm<> hcomm;
     (void)hcomm.Init(nullptr, 0);
     for (uint32_t i = 0; i < kNotifyImmediateRepeatCount; ++i) {
-        (void)hcomm.WriteWithNotifyNbi<true>(
-            channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
-            kNotifySignal);
+        (void)hcomm.WriteWithNotifyNbi(
+            AscendC::simt::HcommCoopThread{}, channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes,
+            remote + kNotifySignalSlot * kSlotBytes, kNotifySignal);
     }
-    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] =
+        static_cast<uint64_t>(hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel));
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void SimtFaaVf(uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
@@ -165,9 +170,11 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtFaaVf(uint64_t channel, uint
 
     AscendC::simt::Hcomm<> hcomm;
     (void)hcomm.Init(nullptr, 0);
-    (void)hcomm.AtomicFAA<uint64_t>(
-        channel, remote + kFaaTargetSlot * kSlotBytes, local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kFaaDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+    (void)hcomm.AtomicFAA(
+        AscendC::simt::HcommCoopThread{}, channel, remote + kFaaTargetSlot * kSlotBytes,
+        local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
+    reinterpret_cast<__gm__ uint64_t*>(local)[kFaaDrainSlot] =
+        static_cast<uint64_t>(hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel));
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void SimtCasVf(uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx)
@@ -180,9 +187,11 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtCasVf(uint64_t channel, uint
 
     AscendC::simt::Hcomm<> hcomm;
     (void)hcomm.Init(nullptr, 0);
-    (void)hcomm.AtomicCAS<uint64_t>(
-        channel, remote + kCasTargetSlot * kSlotBytes, local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kCasDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+    (void)hcomm.AtomicCAS(
+        AscendC::simt::HcommCoopThread{}, channel, remote + kCasTargetSlot * kSlotBytes,
+        local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
+    reinterpret_cast<__gm__ uint64_t*>(local)[kCasDrainSlot] =
+        static_cast<uint64_t>(hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel));
 }
 
 // 逐个操作等 CQE 返回后再复用 DWQE 窗口。Drain 返回值写进发送侧空闲 slot，便于定位失败环节。
@@ -198,15 +207,20 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicSingleVf(
     AscendC::simt::Hcomm<> hcomm;
     (void)hcomm.Init(nullptr, 0);
     (void)hcomm.WriteWithNotifyNbi(
-        channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
-        kNotifySignal);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
-    (void)hcomm.AtomicFAA<uint64_t>(
-        channel, remote + kFaaTargetSlot * kSlotBytes, local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kFaaDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
-    (void)hcomm.AtomicCAS<uint64_t>(
-        channel, remote + kCasTargetSlot * kSlotBytes, local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kCasDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+        AscendC::simt::HcommCoopThread{}, channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes,
+        remote + kNotifySignalSlot * kSlotBytes, kNotifySignal);
+    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] =
+        static_cast<uint64_t>(hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel));
+    (void)hcomm.AtomicFAA(
+        AscendC::simt::HcommCoopThread{}, channel, remote + kFaaTargetSlot * kSlotBytes,
+        local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
+    reinterpret_cast<__gm__ uint64_t*>(local)[kFaaDrainSlot] =
+        static_cast<uint64_t>(hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel));
+    (void)hcomm.AtomicCAS(
+        AscendC::simt::HcommCoopThread{}, channel, remote + kCasTargetSlot * kSlotBytes,
+        local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
+    reinterpret_cast<__gm__ uint64_t*>(local)[kCasDrainSlot] =
+        static_cast<uint64_t>(hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel));
 }
 
 // One lane defers Notify and FAA, then CAS with commit=true publishes the batch.
@@ -221,14 +235,16 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtNotifyAtomicBatchLastVf(
 
     AscendC::simt::Hcomm<> hcomm;
     (void)hcomm.Init(nullptr, 0);
-    (void)hcomm.WriteWithNotifyNbi<false>(
+    (void)hcomm.WriteWithNotifyNbi<AscendC::simt::HcommCoopThread, false>(
         channel, remote + kNotifyDataSlot * kSlotBytes, local, kSlotBytes, remote + kNotifySignalSlot * kSlotBytes,
         kNotifySignal);
-    (void)hcomm.AtomicFAA<uint64_t, false>(
+    (void)hcomm.AtomicFAA<AscendC::simt::HcommCoopThread, uint64_t, false>(
         channel, remote + kFaaTargetSlot * kSlotBytes, local + kFaaFetchSlot * kSlotBytes, kFaaAdd);
-    (void)hcomm.AtomicCAS<uint64_t>(
-        channel, remote + kCasTargetSlot * kSlotBytes, local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
-    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] = static_cast<uint64_t>(hcomm.Drain(channel));
+    (void)hcomm.AtomicCAS(
+        AscendC::simt::HcommCoopThread{}, channel, remote + kCasTargetSlot * kSlotBytes,
+        local + kCasFetchSlot * kSlotBytes, kCasInitial, kCasSwap);
+    reinterpret_cast<__gm__ uint64_t*>(local)[kNotifyDrainSlot] =
+        static_cast<uint64_t>(hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel));
 }
 
 } // namespace

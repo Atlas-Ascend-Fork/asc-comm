@@ -28,9 +28,101 @@
 
 namespace AscendC::simt {
 
-namespace detail {
-struct HcommUnboundGroup {};
-} // namespace detail
+namespace coop_detail {
+/*!
+ * @brief Thread-level coop (single lane). Equivalent to NCCL ncclCoopThread.
+ * @note  thread_rank()=0, size()=1, sync()=no-op.
+ */
+struct Thread {
+    int thread_rank() const { return 0; }
+    int size() const { return 1; }
+    int num_threads() const { return 1; }
+    void sync() {}
+};
+
+/*!
+ * @brief Warp-level coop (32 lanes). Equivalent to NCCL ncclCoopWarp.
+ * @note  Wraps cooperative_groups::thread_block_tile<32>.
+ */
+struct Warp {
+    int thread_rank() const { return static_cast<int>(laneid()); }
+    int size() const { return 32; }
+    int num_threads() const { return 32; }
+    void sync() { asc_threadfence_block(); }
+};
+
+/*!
+ * @brief Block-level coop (entire CTU/block). Equivalent to NCCL ncclCoopCta.
+ * @note  Wraps cooperative_groups::thread_block.
+ */
+struct Block {
+    int thread_rank() const { return static_cast<int>(blockIdx_local()); }
+    int size() const { return static_cast<int>(blockDim_global()); }
+    int num_threads() const { return static_cast<int>(blockDim_global()); }
+    void sync() { asc_syncthreads(); }
+};
+
+/*!
+ * @brief Tile of N lanes within a warp. Equivalent to NCCL ncclCoopTile<N>.
+ * @tparam N: Power-of-2 tile size (1, 2, 4, 8, 16, 32).
+ */
+template <int N>
+struct Tile {
+    static_assert(N > 0 && N <= 32 && (N & (N - 1)) == 0, "N must be power of 2 in [1,32]");
+    int thread_rank() const { return static_cast<int>(laneid()) & (N - 1); }
+    int size() const { return N; }
+    int num_threads() const { return N; }
+    void sync() { asc_threadfence_block(); }
+};
+
+/*!
+ * @brief Coalesced lanes (active mask). Equivalent to NCCL ncclCoopLanes.
+ */
+struct Lanes {
+    unsigned int lmask;
+    Lanes(unsigned int mask = 0xFFFFFFFF) : lmask(mask) {}
+    int thread_rank() const { return __popc(lmask & (1u << laneid()) - 1); }
+    int size() const { return __popc(lmask); }
+    int num_threads() const { return __popc(lmask); }
+    void sync() { asc_threadfence_block(); }
+};
+} // namespace coop_detail
+
+/*!
+ * @brief Cooperative group type for single-lane operation (default).
+ *        Matches NCCL ncclCoopThread semantics: thread_rank()=0, size()=1, sync()=no-op.
+ */
+using HcommCoopThread = coop_detail::Thread;
+
+/*!
+ * @brief Cooperative group type for single warp (32 lanes).
+ *        Matches NCCL ncclCoopWarp semantics.
+ */
+using HcommCoopWarp = coop_detail::Warp;
+
+/*!
+ * @brief Cooperative group type for entire block (all threads).
+ *        Matches NCCL ncclCoopCta semantics.
+ */
+using HcommCoopBlock = coop_detail::Block;
+
+/*!
+ * @brief Cooperative group template for a tile of N lanes within a warp.
+ *        N must be power of 2: 1, 2, 4, 8, 16, or 32.
+ */
+template <int N>
+using HcommCoopTile = coop_detail::Tile<N>;
+
+/*!
+ * @brief Cooperative group type for active lane mask.
+ *        Matches NCCL ncclCoopLanes semantics.
+ */
+using HcommCoopLanes = coop_detail::Lanes;
+
+/*!
+ * @brief Default unbound group for backward compatibility with per-lane API.
+ */
+using HcommUnboundGroup = coop_detail::Thread;
 
 /*!
  * @class Hcomm
@@ -40,21 +132,30 @@ struct HcommUnboundGroup {};
  *        available.
  *        The typical usage of this class is as follows:
  *          1) Create Hcomm object.
- *          2) Launch comm tasks asynchronously through the corresponding interface.
+ *          2) Launch comm tasks asynchronously through the corresponding interface, passing a
+ *             cooperative group per call to control which lanes participate.
  *          3) Call the Drain interface (blocking) to wait for completion of the comm tasks.
  * @tparam commProtocol: The communication protocol to use, UBC_CTP supported as default.
+ * @note All communication APIs accept a cooperative group `coop` as the first parameter.
+ *       They follow the sync-act-sync pattern: only the lane with coop.thread_rank()==0
+ *       issues the operation, bracketed by coop.sync() calls. This matches NCCL GIN semantics
+ *       where the coop is a per-call argument, not a per-object binding.
+ *       Available cooperative group types:
+ *         - HcommCoopThread: single lane (default, same as HcommUnboundGroup)
+ *         - HcommCoopWarp: full warp (32 lanes)
+ *         - HcommCoopBlock: entire block (all threads)
+ *         - HcommCoopTile<N>: tile of N lanes within a warp (N = 1,2,4,8,16,32)
+ *         - HcommCoopLanes: active lane mask
  * @note Unlike the SIMD path, the doorbell is rung by copying a 128-byte DWQE rather than writing
  *       a scalar register. A deferred Write/Read occupies one SQ basic block, while an immediate
  *       Write/Read and the two-BB Notify/atomic WQEs occupy two.
  * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
- * @note Every interface of this class is called by a single lane, and an Hcomm object is lane-private
- *       state that must not be shared between lanes. In particular, a channel must not carry deferred
- *       tasks from more than one lane: an uncommitted task sits in the send queue until some later
- *       committed task publishes a producer index covering it, and that index cannot distinguish
- *       which lane wrote which basic block. A lane committing its own task would publish another
- *       lane's WQE that may still be half-written. Post all tasks of one batch from one lane.
+ * @note When a coop.group of size > 1 is passed, only the lane with thread_rank()==0 actually
+ *       issues the communication operation; all other lanes in the group participate in sync() but
+ *       do not post to the send queue. A channel must not carry deferred tasks from more than one
+ *       lane that shares the same coop and posts through this object.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
  *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
  *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
@@ -63,17 +164,10 @@ struct HcommUnboundGroup {};
  *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
  *       packs curHead and wqeCnt into the u64 at SqContext::ubJfs::headAddr.
  */
-template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP, typename Group = detail::HcommUnboundGroup>
+template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
 class Hcomm {
 public:
     __simt_callee__ inline Hcomm();
-
-    /*!
-     * @brief Construct Hcomm and bind it to a cooperative group.
-     * @param [in] group: The cooperative group used by future group-level communication APIs.
-     * @note Binding a group does not change the behavior of existing per-lane APIs.
-     */
-    __simt_callee__ inline explicit Hcomm(const Group& group);
     __simt_callee__ inline ~Hcomm();
 
     /*!
@@ -91,114 +185,128 @@ public:
     /*!
      * @brief The task launching interface of the Write point-to-point communication operator.
      *        (task content: Write data of length len from src to dst through the specified channel.)
+     * @tparam Coop: Cooperative group type controlling lane participation.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
+     * @param [in] coop: Cooperative group. Only the lane with coop.thread_rank()==0 issues the op.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
      * @param [in] len: The length of the data to write, using byte as the basic unit.
-     * @return 0 indicates success and -1 indicates failure.
+     * @return 0 for the lane with thread_rank()==0, -1 for other lanes.
      * @note Must be called after channel initialization. len must fit in 32 bits.
      */
-    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <typename Coop, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t WriteNbi(
+        Coop coop, ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     /*!
      * @brief The task launching interface of the inline Write point-to-point communication operator.
      *        The source data is provided by value and carried inline in the WQE.
+     * @tparam Coop: Cooperative group type controlling lane participation.
      * @tparam T: The value type to write.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam config: URMA WQE control config.
      *         Default: strongly ordered + fence + CQE + inline enabled.
+     * @param [in] coop: Cooperative group. Only the lane with coop.thread_rank()==0 issues the op.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] value: The inline value to write.
-     * @return 0 indicates success and -1 indicates failure.
+     * @return 0 for the lane with thread_rank()==0, -1 for other lanes.
      * @note Must be called after channel initialization. config must have inline enabled, and
      *       sizeof(T) must fit in the WQE inline payload area.
      */
-    template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
-    __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value);
+    template <typename Coop, typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
+    __simt_callee__ inline int32_t WriteValueNbi(
+        Coop coop, ChannelHandle channel, __gm__ void* dst, T value);
 
     /*!
      * @brief The task launching interface of the Read point-to-point communication operator.
      *        (task content: Read data of length len from src to dst through the specified channel.)
+     * @tparam Coop: Cooperative group type controlling lane participation.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
+     * @param [in] coop: Cooperative group. Only the lane with coop.thread_rank()==0 issues the op.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
      * @param [in] len: The length of the data to read, using byte as the basic unit.
-     * @return 0 indicates success and -1 indicates failure.
+     * @return 0 for the lane with thread_rank()==0, -1 for other lanes.
      * @note Must be called after channel initialization. len must fit in 32 bits.
      */
-    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t ReadNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
+    template <typename Coop, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t ReadNbi(
+        Coop coop, ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     /*!
      * @brief The task launching interface of the Write-with-notify point-to-point communication operator.
+     * @tparam Coop: Cooperative group type controlling lane participation.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
+     * @param [in] coop: Cooperative group. Only the lane with coop.thread_rank()==0 issues the op.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
      * @param [in] len: The length of the data to write, using byte as the basic unit.
      * @param [in] notifyAddr: The remote notify address.
      * @param [in] notifyVal: The remote notify value.
-     * @return 0 indicates success and -1 indicates failure.
+     * @return 0 for the lane with thread_rank()==0, -1 for other lanes.
      */
-    template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
+    template <typename Coop, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteWithNotifyNbi(
-        ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+        Coop coop, ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
         uint64_t notifyVal);
 
     /*!
      * @brief The task launching interface of the Fetch-and-add point-to-point communication operator.
+     * @tparam Coop: Cooperative group type controlling lane participation.
      * @tparam T: The data type of the atomic operation.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
+     * @param [in] coop: Cooperative group. Only the lane with coop.thread_rank()==0 issues the op.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [out] fetchAddr: The address to store the old value before atomic add.
      * @param [in] addVal: The remote add value.
-     * @return 0 indicates success and -1 indicates failure.
+     * @return 0 for the lane with thread_rank()==0, -1 for other lanes.
      */
-    template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
-    __simt_callee__ inline int32_t AtomicFAA(ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
+    template <typename Coop, typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t AtomicFAA(
+        Coop coop, ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
 
     /*!
      * @brief The task launching interface of the Compare-and-swap point-to-point communication operator.
+     * @tparam Coop: Cooperative group type controlling lane participation.
      * @tparam T: The data type of the atomic operation.
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam config: URMA WQE control config. Default: strongly ordered + fence + CQE enabled.
+     * @param [in] coop: Cooperative group. Only the lane with coop.thread_rank()==0 issues the op.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [out] fetchAddr: The address to store the old value before atomic compare-and-swap.
      * @param [in] compareVal: The value to compare against the value at the destination address.
      * @param [in] swapVal: The value to swap into the destination address if comparison succeeds.
-     * @return 0 indicates success and -1 indicates failure.
+     * @return 0 for the lane with thread_rank()==0, -1 for other lanes.
      */
-    template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
+    template <typename Coop, typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicCAS(
-        ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
+        Coop coop, ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
 
     /*!
      * @brief Block and drain comm tasks submitted on channel until finish processing.
+     * @tparam Coop: Cooperative group type controlling lane participation.
      * @tparam pipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
+     * @param [in] coop: Cooperative group. Only the lane with coop.thread_rank()==0 issues the op.
      * @param [in] channel: The handle of the communication channel.
-     * @return 0 indicates success and -1 indicates failure.
+     * @return 0 for the lane with thread_rank()==0, -1 for other lanes.
      * @note Must be called by a single lane, after every posting lane has returned.
      */
-    template <auto pipe = 0>
-    __simt_callee__ inline int32_t Drain(ChannelHandle channel);
+    template <typename Coop, auto pipe = 0>
+    __simt_callee__ inline int32_t Drain(Coop coop, ChannelHandle channel);
 
 private:
-    Group group_;
     HcommImpl<commProtocol> impl_;
 };
-
-template <typename Group>
-Hcomm(const Group&) -> Hcomm<COMM_PROTOCOL_UBC_CTP, Group>;
 
 /*!
  * @brief Resolve the base address of a locally registered buffer on the channel.

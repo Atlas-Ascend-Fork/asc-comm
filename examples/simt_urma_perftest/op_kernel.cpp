@@ -47,23 +47,27 @@ __simt_callee__ inline int32_t SubmitOne(
 {
     uint64_t offset = static_cast<uint64_t>(slot) * slotBytes;
     if constexpr (api == PerfApi::WRITE) {
-        return hcomm.WriteNbi<commit>(channel, remoteBase + offset, localBase + offset, payloadBytes);
+        return hcomm.WriteNbi<AscendC::simt::HcommCoopThread, commit>(
+            channel, remoteBase + offset, localBase + offset, payloadBytes);
     } else if constexpr (api == PerfApi::WRITE_VALUE) {
-        return hcomm.WriteValueNbi<uint64_t, commit>(channel, remoteBase + offset, kInlineValue);
+        return hcomm.WriteValueNbi<AscendC::simt::HcommCoopThread, uint64_t, commit>(
+            channel, remoteBase + offset, kInlineValue);
     } else if constexpr (api == PerfApi::NOTIFY) {
         // The signal word sits immediately after the payload, rounded up to 8 bytes so the
         // notify address stays aligned.
         uint32_t notifyOffset = (payloadBytes + sizeof(uint64_t) - 1U) & ~(sizeof(uint64_t) - 1U);
         __gm__ uint8_t* remote = remoteBase + offset;
-        return hcomm.WriteWithNotifyNbi<commit>(
+        return hcomm.WriteWithNotifyNbi<AscendC::simt::HcommCoopThread, commit>(
             channel, remote, localBase + offset, payloadBytes, remote + notifyOffset, kNotifySignal);
     } else {
         __gm__ uint64_t* remote = reinterpret_cast<__gm__ uint64_t*>(remoteBase);
         __gm__ uint64_t* local = reinterpret_cast<__gm__ uint64_t*>(localBase);
         if constexpr (api == PerfApi::FAA) {
-            return hcomm.AtomicFAA<uint64_t, commit>(channel, &remote[0], &local[0], kFaaAdd);
+            return hcomm.AtomicFAA<AscendC::simt::HcommCoopThread, uint64_t, commit>(
+                channel, &remote[0], &local[0], kFaaAdd);
         } else {
-            return hcomm.AtomicCAS<uint64_t, commit>(channel, &remote[0], &local[0], kCasInitial, kCasSwap);
+            return hcomm.AtomicCAS<AscendC::simt::HcommCoopThread, uint64_t, commit>(
+                channel, &remote[0], &local[0], kCasInitial, kCasSwap);
         }
     }
 }
@@ -140,7 +144,7 @@ __simt_vf__ __launch_bounds__(32) inline void SimtUrmaPerfVf(
 
     int32_t status =
         SubmitSeries<api, commitEach>(hcomm, channel, remote, local, payloadBytes, slotBytes, slotCount, warmup);
-    int32_t drainStatus = status != 0 ? status : (warmup == 0U ? 0 : hcomm.Drain(channel));
+    int32_t drainStatus = status != 0 ? status : (warmup == 0U ? 0 : hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel));
     if (drainStatus != 0) {
         ReportFailure(timing, drainStatus);
         return;
@@ -150,7 +154,7 @@ __simt_vf__ __launch_bounds__(32) inline void SimtUrmaPerfVf(
     status =
         SubmitSeries<api, commitEach>(hcomm, channel, remote, local, payloadBytes, slotBytes, slotCount, iterations);
     uint64_t issueEnd = clock();
-    drainStatus = status != 0 ? status : hcomm.Drain(channel);
+    drainStatus = status != 0 ? status : hcomm.Drain(AscendC::simt::HcommCoopThread{}, channel);
     uint64_t completionEnd = clock();
 
     timing[kIssueCyclesIndex] = issueEnd - begin;
