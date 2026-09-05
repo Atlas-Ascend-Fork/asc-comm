@@ -25,6 +25,15 @@
 #include "../../../../impl/comm_api/aicore/ain/impl/ain_impl_def.h"
 
 namespace AscendC {
+/*!
+ * @brief Get a pointer to a remote peer's memory location within a symmetric window.
+ * @param [in] team: The communication team handle.
+ * @param [in] peer: Peer rank id within the team.
+ * @param [in] window: Symmetric window handle.
+ * @param [in] offset: Byte offset into the window.
+ * @return An opaque memory handle pointing to the remote peer's location.
+ */
+AIN_DEVICE HcommMemHandle GetPeerPointer(HcommTeamHandle team, uint32_t peer, HcclCommSymWindow window, size_t offset);
 
 /*!
  * @class Ain
@@ -86,7 +95,7 @@ public:
         typename RemoteAction = AinRemoteNone, typename DescriptorUbuf = AinDescriptorUbuf,
         AinCommitFlags CommitFlags = AIN_COMMIT_IMMED, auto const& Config = URMA_DEFAULT_CFG>
     AIN_DEVICE void Put(
-        HcommTeamHandle team, uint32_t peer, HcommWindowHandle dstWin, uint64_t dstOffset, HcommWindowHandle srcWin,
+        HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
         uint64_t srcOffset, uint64_t bytes, RemoteAction remoteAction = RemoteAction{},
         const DescriptorUbuf& ubuf = DescriptorUbuf{});
 
@@ -111,7 +120,7 @@ public:
         typename T, typename RemoteAction = AinRemoteNone, typename DescriptorUbuf = AinDescriptorUbuf,
         AinCommitFlags CommitFlags = AIN_COMMIT_IMMED, auto const& Config = URMA_INLINE_CFG>
     AIN_DEVICE void PutValue(
-        HcommTeamHandle team, uint32_t peer, HcommWindowHandle dstWin, uint64_t dstOffset, T value,
+        HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, T value,
         RemoteAction remoteAction = RemoteAction{}, const DescriptorUbuf& ubuf = DescriptorUbuf{});
 
     /*!
@@ -133,7 +142,7 @@ public:
         typename DescriptorUbuf = AinDescriptorUbuf, AinCommitFlags CommitFlags = AIN_COMMIT_IMMED,
         auto const& Config = URMA_DEFAULT_CFG>
     AIN_DEVICE void Get(
-        HcommTeamHandle team, uint32_t peer, HcommWindowHandle dstWin, uint64_t dstOffset, HcommWindowHandle srcWin,
+        HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
         uint64_t srcOffset, uint64_t bytes, const DescriptorUbuf& ubuf = DescriptorUbuf{});
 
     /*!
@@ -163,7 +172,7 @@ public:
      * @return The masked signal value.
      */
     AIN_DEVICE uint64_t ReadSignal(
-        HcommTeamHandle team, HcommWindowHandle signalWindow, size_t signalOffset, uint32_t bits = 64,
+        HcommTeamHandle team, HcclCommSymWindow signalWindow, size_t signalOffset, uint32_t bits = 64,
         AinMemoryOrder order = AIN_MEMORY_ORDER_RELAX) const;
 
     /*!
@@ -176,7 +185,7 @@ public:
      * @param [in] order: Memory order, defaults to AIN_MEMORY_ORDER_RELAX.
      */
     AIN_DEVICE void WaitSignal(
-        HcommTeamHandle team, HcommWindowHandle signalWindow, size_t signalOffset, uint64_t least, uint32_t bits = 64,
+        HcommTeamHandle team, HcclCommSymWindow signalWindow, size_t signalOffset, uint64_t least, uint32_t bits = 64,
         AinMemoryOrder order = AIN_MEMORY_ORDER_RELAX) const;
 
 private:
