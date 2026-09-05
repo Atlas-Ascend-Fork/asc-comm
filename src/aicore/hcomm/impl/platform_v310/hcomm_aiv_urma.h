@@ -172,11 +172,9 @@ __aicore__ inline void HcommUrmaFillBatchNotifyToken(
 __aicore__ inline void HcommUrmaFillBatchNotifyDynamicCtx(
     __ubuf__ HcommUrmaNotifyCtx* notifyCtx, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
-    uint64_t notifyAddrValue = reinterpret_cast<uint64_t>(notifyAddr);
-    notifyCtx->notifyAddrL = notifyAddrValue & 0xFFFFFFFFU;
-    notifyCtx->notifyAddrH = (notifyAddrValue >> 32) & 0xFFFFFFFFU;
-    notifyCtx->notifyDataL = notifyVal & 0xFFFFFFFFU;
-    notifyCtx->notifyDataH = (notifyVal >> 32) & 0xFFFFFFFFU;
+    __ubuf__ uint64_t* notifyWords = reinterpret_cast<__ubuf__ uint64_t*>(notifyCtx);
+    notifyWords[1] = reinterpret_cast<uint64_t>(notifyAddr);
+    notifyWords[2] = notifyVal;
 }
 
 __aicore__ inline void HcommUrmaFillBatchNotifyCtx(
@@ -203,8 +201,10 @@ template <HcommUrmaOpCode opCode, typename T>
 __aicore__ inline void HcommUrmaFillSgeCtx(
     __ubuf__ HcommUrmaSgeCtx* sgeCtx, uint64_t messageLen, __gm__ uint8_t* localAddr, UdmaParams<T> params)
 {
-    sgeCtx->len = static_cast<uint32_t>(messageLen);
-    sgeCtx->va = reinterpret_cast<uint64_t>(localAddr);
+    __ubuf__ uint64_t* sgeWords = reinterpret_cast<__ubuf__ uint64_t*>(sgeCtx);
+    // QW0 contains the 32-bit length and a zero tokenId in its high half.
+    sgeWords[0] = static_cast<uint64_t>(static_cast<uint32_t>(messageLen));
+    sgeWords[1] = reinterpret_cast<uint64_t>(localAddr);
     if constexpr (opCode == HcommUrmaOpCode::FAA) {
         __ubuf__ T* addDataAddr = (__ubuf__ T*)((__ubuf__ uint8_t*)sgeCtx + sizeof(HcommUrmaSgeCtx));
         *addDataAddr = params.value;
@@ -597,8 +597,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with insufficient buffer\n");
         return HCOMM_FAILED;
     }
-    LocalTensor<uint32_t> currentWqe = batchHandle.buffer.buffer[preSqCnt * HCOMM_URMA_WQEBB_U32_NUM];
-    __ubuf__ uint8_t* currentWqeAddr = reinterpret_cast<__ubuf__ uint8_t*>(currentWqe.GetPhyAddr());
+    __ubuf__ uint8_t* currentWqeAddr = reinterpret_cast<__ubuf__ uint8_t*>(
+        batchHandle.buffer.buffer.GetPhyAddr(preSqCnt * HCOMM_URMA_WQEBB_U32_NUM));
 
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqeAddr);
     Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
