@@ -67,6 +67,7 @@ public:
 
     /*!
      * @brief Create a protocol-specific batch handle using a LocalTensor buffer.
+     * @tparam opcode: Required for ChannelHandle: WRITE, READ or WRITE_WITH_NOTIFY. Ignored for MultiChannelHandle.
      * @tparam T: The communication channel handle type.
      * @tparam U: The element type of the LocalTensor.
      * @param [in] channel: The handle of the communication channel.
@@ -80,8 +81,10 @@ public:
      * @note For UBC CTP, remote memory is selected here for ChannelHandle. Call GetHandleRef to select a logical
      *       channel and remote registered-memory region for MultiChannelHandle. buffLen must be smaller than the SQ
      *       capacity in bytes.
+     * @note Single-channel creation prefills fixed WQE fields in buff and binds opcode for the handle lifetime.
+     *       Write/Read require at least 64 bytes; WriteWithNotify requires at least 128 bytes.
      */
-    template <typename T, typename U>
+    template <HcommUrmaOpCode opcode = HCOMM_URMA_BATCH_OPCODE_UNBOUND, typename T, typename U>
     __aicore__ inline BatchHandle<T> MakeBatchHandle(
         T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr = nullptr,
         GM_ADDR localAddr = nullptr);
@@ -133,6 +136,7 @@ public:
      * @param [in] len: The length of the data to write in bytes.
      * @return 0 indicates success and -1 indicates failure.
      * @note The destination range is not validated against the registration cached in batchHandle.
+     *       Single-channel handles must be bound to WRITE; a mismatch fails without modifying UB or queue counts.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
@@ -216,6 +220,7 @@ public:
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
      * @note The destination and notify ranges are not validated against the registration cached in batchHandle.
+     *       Single-channel handles must be bound to WRITE_WITH_NOTIFY; a mismatch leaves UB and counts unchanged.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteWithNotifyNbi(
@@ -293,6 +298,7 @@ public:
      * @param [in] len: The length of the data to read in bytes.
      * @return 0 indicates success and -1 indicates failure.
      * @note The source range is not validated against the registration cached in batchHandle.
+     *       Single-channel handles must be bound to READ; a mismatch fails without modifying UB or queue counts.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
@@ -335,6 +341,8 @@ public:
      * @return 0 indicates success. A non-zero value indicates failure.
      * @note This overload does not require Init. It must be called after BatchCommit. Multiple batches may be
      *       committed before one Drain if the caller prevents SQ/CQ overflow.
+     *       After CQ polling, single-channel handles restore the first WQE's fixed fields for subsequent reuse,
+     *       including when polling returns an error. Restoring these fields does not clear the error.
      */
     template <pipe_t pipe = PIPE_MTE3, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t Drain(T& batchHandle);
