@@ -28,101 +28,9 @@
 
 namespace AscendC::simt {
 
-namespace coop_detail {
-/*!
- * @brief Thread-level coop (single lane). Equivalent to NCCL ncclCoopThread.
- * @note  thread_rank()=0, size()=1, sync()=no-op.
- */
-struct Thread {
-    int thread_rank() const { return 0; }
-    int size() const { return 1; }
-    int num_threads() const { return 1; }
-    void sync() {}
-};
-
-/*!
- * @brief Warp-level coop (32 lanes). Equivalent to NCCL ncclCoopWarp.
- * @note  Wraps cooperative_groups::thread_block_tile<32>.
- */
-struct Warp {
-    int thread_rank() const { return static_cast<int>(laneid()); }
-    int size() const { return 32; }
-    int num_threads() const { return 32; }
-    void sync() { asc_threadfence_block(); }
-};
-
-/*!
- * @brief Block-level coop (entire CTU/block). Equivalent to NCCL ncclCoopCta.
- * @note  Wraps cooperative_groups::thread_block.
- */
-struct Block {
-    int thread_rank() const { return static_cast<int>(blockIdx_local()); }
-    int size() const { return static_cast<int>(blockDim_global()); }
-    int num_threads() const { return static_cast<int>(blockDim_global()); }
-    void sync() { asc_syncthreads(); }
-};
-
-/*!
- * @brief Tile of N lanes within a warp. Equivalent to NCCL ncclCoopTile<N>.
- * @tparam N: Power-of-2 tile size (1, 2, 4, 8, 16, 32).
- */
-template <int N>
-struct Tile {
-    static_assert(N > 0 && N <= 32 && (N & (N - 1)) == 0, "N must be power of 2 in [1,32]");
-    int thread_rank() const { return static_cast<int>(laneid()) & (N - 1); }
-    int size() const { return N; }
-    int num_threads() const { return N; }
-    void sync() { asc_threadfence_block(); }
-};
-
-/*!
- * @brief Coalesced lanes (active mask). Equivalent to NCCL ncclCoopLanes.
- */
-struct Lanes {
-    unsigned int lmask;
-    Lanes(unsigned int mask = 0xFFFFFFFF) : lmask(mask) {}
-    int thread_rank() const { return __popc(lmask & (1u << laneid()) - 1); }
-    int size() const { return __popc(lmask); }
-    int num_threads() const { return __popc(lmask); }
-    void sync() { asc_threadfence_block(); }
-};
-} // namespace coop_detail
-
-/*!
- * @brief Cooperative group type for single-lane operation (default).
- *        Matches NCCL ncclCoopThread semantics: thread_rank()=0, size()=1, sync()=no-op.
- */
-using HcommCoopThread = coop_detail::Thread;
-
-/*!
- * @brief Cooperative group type for single warp (32 lanes).
- *        Matches NCCL ncclCoopWarp semantics.
- */
-using HcommCoopWarp = coop_detail::Warp;
-
-/*!
- * @brief Cooperative group type for entire block (all threads).
- *        Matches NCCL ncclCoopCta semantics.
- */
-using HcommCoopBlock = coop_detail::Block;
-
-/*!
- * @brief Cooperative group template for a tile of N lanes within a warp.
- *        N must be power of 2: 1, 2, 4, 8, 16, or 32.
- */
-template <int N>
-using HcommCoopTile = coop_detail::Tile<N>;
-
-/*!
- * @brief Cooperative group type for active lane mask.
- *        Matches NCCL ncclCoopLanes semantics.
- */
-using HcommCoopLanes = coop_detail::Lanes;
-
-/*!
- * @brief Default unbound group for backward compatibility with per-lane API.
- */
-using HcommUnboundGroup = coop_detail::Thread;
+namespace detail {
+struct HcommUnboundGroup {};
+} // namespace detail
 
 /*!
  * @class Hcomm
@@ -131,26 +39,22 @@ using HcommUnboundGroup = coop_detail::Thread;
  *        execution space, where LocalTensor and the pipe synchronization primitives are not
  *        available.
  *        The typical usage of this class is as follows:
- *          1) Create Hcomm object, optionally binding it to a cooperative group.
+ *          1) Create Hcomm object.
  *          2) Launch comm tasks asynchronously through the corresponding interface.
  *          3) Call the Drain interface (blocking) to wait for completion of the comm tasks.
  * @tparam commProtocol: The communication protocol to use, UBC_CTP supported as default.
- * @tparam Group: The cooperative group type. All communication APIs follow the
- *         sync-act-sync pattern using the group: only the lane with thread_rank()==0
- *         issues the operation, bracketed by group.sync() calls.
- *         Default (HcommUnboundGroup) is equivalent to single-lane operation.
- *         Users may pass cooperative_groups::thread_block, thread_block_tile<N>, or
- *         coalesced_group for group-level communication.
  * @note Unlike the SIMD path, the doorbell is rung by copying a 128-byte DWQE rather than writing
  *       a scalar register. A deferred Write/Read occupies one SQ basic block, while an immediate
  *       Write/Read and the two-BB Notify/atomic WQEs occupy two.
  * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
- * @note When a cooperative group of size > 1 is bound, only the lane with thread_rank()==0 actually
- *       issues the communication operation; all other lanes in the group participate in sync() but
- *       do not post to the send queue. A channel must not carry deferred tasks from more than one
- *       lane that shares the same group and posts through this object.
+ * @note Every interface of this class is called by a single lane, and an Hcomm object is lane-private
+ *       state that must not be shared between lanes. In particular, a channel must not carry deferred
+ *       tasks from more than one lane: an uncommitted task sits in the send queue until some later
+ *       committed task publishes a producer index covering it, and that index cannot distinguish
+ *       which lane wrote which basic block. A lane committing its own task would publish another
+ *       lane's WQE that may still be half-written. Post all tasks of one batch from one lane.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
  *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
  *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
@@ -159,16 +63,15 @@ using HcommUnboundGroup = coop_detail::Thread;
  *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
  *       packs curHead and wqeCnt into the u64 at SqContext::ubJfs::headAddr.
  */
-template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP, typename Group = HcommUnboundGroup>
+template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP, typename Group = detail::HcommUnboundGroup>
 class Hcomm {
 public:
     __simt_callee__ inline Hcomm();
 
     /*!
      * @brief Construct Hcomm and bind it to a cooperative group.
-     * @param [in] group: The cooperative group that controls group-level communication.
-     *        All communication APIs use the sync-act-sync pattern:
-     *        group.sync() -> if thread_rank()==0: issue op -> group.sync()
+     * @param [in] group: The cooperative group used by future group-level communication APIs.
+     * @note Binding a group does not change the behavior of existing per-lane APIs.
      */
     __simt_callee__ inline explicit Hcomm(const Group& group);
     __simt_callee__ inline ~Hcomm();

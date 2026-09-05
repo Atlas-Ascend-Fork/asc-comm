@@ -51,13 +51,7 @@ template <bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    group_.sync();
-    int32_t ret = -1;
-    if (group_.thread_rank() == 0) {
-        ret = impl_.template WriteNbi<commit, config>(channel, dst, src, len);
-    }
-    group_.sync();
-    return ret;
+    return impl_.template WriteNbi<commit, config>(channel, dst, src, len);
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -65,13 +59,7 @@ template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteValueNbi(
     ChannelHandle channel, __gm__ void* dst, T value)
 {
-    group_.sync();
-    int32_t ret = -1;
-    if (group_.thread_rank() == 0) {
-        ret = impl_.template WriteValueNbi<T, commit, config>(channel, dst, value);
-    }
-    group_.sync();
-    return ret;
+    return impl_.template WriteValueNbi<T, commit, config>(channel, dst, value);
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -79,13 +67,7 @@ template <bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::ReadNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
-    group_.sync();
-    int32_t ret = -1;
-    if (group_.thread_rank() == 0) {
-        ret = impl_.template ReadNbi<commit, config>(channel, dst, src, len);
-    }
-    group_.sync();
-    return ret;
+    return impl_.template ReadNbi<commit, config>(channel, dst, src, len);
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -94,13 +76,7 @@ __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WriteWithNotifyNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
     uint64_t notifyVal)
 {
-    group_.sync();
-    int32_t ret = -1;
-    if (group_.thread_rank() == 0) {
-        ret = impl_.template WriteWithNotifyNbi<commit, config>(channel, dst, src, len, notifyAddr, notifyVal);
-    }
-    group_.sync();
-    return ret;
+    return impl_.template WriteWithNotifyNbi<commit, config>(channel, dst, src, len, notifyAddr, notifyVal);
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -108,13 +84,7 @@ template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicFAA(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
 {
-    group_.sync();
-    int32_t ret = -1;
-    if (group_.thread_rank() == 0) {
-        ret = impl_.template AtomicFAA<T, commit, config>(channel, dst, fetchAddr, addVal);
-    }
-    group_.sync();
-    return ret;
+    return impl_.template AtomicFAA<T, commit, config>(channel, dst, fetchAddr, addVal);
 }
 
 template <CommProtocol commProtocol, typename Group>
@@ -122,26 +92,14 @@ template <typename T, bool commit, auto const& config>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::AtomicCAS(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
 {
-    group_.sync();
-    int32_t ret = -1;
-    if (group_.thread_rank() == 0) {
-        ret = impl_.template AtomicCAS<T, commit, config>(channel, dst, fetchAddr, compareVal, swapVal);
-    }
-    group_.sync();
-    return ret;
+    return impl_.template AtomicCAS<T, commit, config>(channel, dst, fetchAddr, compareVal, swapVal);
 }
 
 template <CommProtocol commProtocol, typename Group>
 template <auto pipe>
 __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Drain(ChannelHandle channel)
 {
-    group_.sync();
-    int32_t ret = 0;
-    if (group_.thread_rank() == 0) {
-        ret = impl_.template Drain<pipe>(channel);
-    }
-    group_.sync();
-    return ret;
+    return impl_.template Drain<pipe>(channel);
 }
 
 __simt_callee__ inline __gm__ uint8_t* LocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
