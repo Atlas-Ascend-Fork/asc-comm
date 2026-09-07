@@ -29,6 +29,17 @@
 #include <simt_api/device_functions.h>
 #include <simt_api/vector_functions.h>
 
+#if defined(__CCE__)
+#define HCOMM_JETTY_ASSERT(cond) \
+    do {                         \
+        if (!(cond)) {           \
+            return;              \
+        }                        \
+    } while (0)
+#else
+#define HCOMM_JETTY_ASSERT(cond) assert(cond)
+#endif
+
 #if !defined(USE_SIMT)
 #include <c_api/asc_simd.h>
 #include <c_api/sync/sync.h>
@@ -102,9 +113,9 @@ struct HcommPeer {
     {
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = *(jetty_table + jetty_idx);
-        assert(jetty_value != 0);
+        HCOMM_JETTY_ASSERT(jetty_value != 0);
         const auto jetty = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
-        assert(jetty->remoteBufferNum > 0);
+        HCOMM_JETTY_ASSERT(jetty->remoteBufferNum > 0);
         const auto remote_buffer = jetty->remoteBufferAddr[jetty->remoteBufferNum - 1];
         peer_info->rmt_token_value_udf = remote_buffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
         peer_info->rmt_base_addr = remote_buffer.bufferInfo.rma.addr;
@@ -151,7 +162,7 @@ struct HcommJetty {
         constexpr uint32_t kDwqeDbOffset = 0x80U;
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = *(jetty_table + jetty_idx);
-        assert(jetty_value != 0);
+        HCOMM_JETTY_ASSERT(jetty_value != 0);
         const auto jetty = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
         const auto sq_context = jetty->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
         const auto cq_context = jetty->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
@@ -168,9 +179,9 @@ struct HcommJetty {
         jetty_info->num_cqe_bytes = cq_context.contextInfo.ubJfc.cqeSize;
         jetty_info->cq_depth = cq_context.contextInfo.ubJfc.cqDepth;
         jetty_info->packed_head = *reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr);
-        assert(jetty_info->num_wqebb_bytes == kNumWQEBBBytes);
-        assert(jetty_detail::IsPowerOf2(jetty_info->sq_depth));
-        assert(jetty_info->sq_depth >= kNumSimtWriteWQEBBs);
+        HCOMM_JETTY_ASSERT(jetty_info->num_wqebb_bytes == kNumWQEBBBytes);
+        HCOMM_JETTY_ASSERT(jetty_detail::IsPowerOf2(jetty_info->sq_depth));
+        HCOMM_JETTY_ASSERT(jetty_info->sq_depth >= kNumSimtWriteWQEBBs);
     }
 
     template <int64_t kNumTimeoutCycles>
@@ -280,13 +291,13 @@ struct HcommJetty {
             const HcommSge (&sges)[kNumSGEs])
     {
         static_assert(kNumSGEs >= 2, "SIMT jetty requires at least two SGEs");
-        assert(*num_writes > 0);
-        assert((*num_writes) * static_cast<int>(kNumSimtWriteWQEBBs) <= static_cast<int>(jetty_info->sq_depth));
+        HCOMM_JETTY_ASSERT(*num_writes > 0);
+        HCOMM_JETTY_ASSERT((*num_writes) * static_cast<int>(kNumSimtWriteWQEBBs) <= static_cast<int>(jetty_info->sq_depth));
 
         PollCqWhenSqOverflow<kNumTimeoutCycles>();
         const int write_idx = asc_atomic_add(write_counter, 1);
-        assert(write_idx >= 0);
-        assert(write_idx < *num_writes);
+        HCOMM_JETTY_ASSERT(write_idx >= 0);
+        HCOMM_JETTY_ASSERT(write_idx < *num_writes);
 
         const auto current_head = static_cast<uint32_t>(jetty_info->packed_head) +
             static_cast<uint32_t>(write_idx) * kNumSimtWriteWQEBBs;
@@ -366,7 +377,7 @@ struct HcommJetty {
             return;
         }
 
-        assert(total_writes * static_cast<int>(kNumSimtWriteWQEBBs) <= static_cast<int>(jetty_info->sq_depth));
+        HCOMM_JETTY_ASSERT(total_writes * static_cast<int>(kNumSimtWriteWQEBBs) <= static_cast<int>(jetty_info->sq_depth));
 
         const auto old_head = static_cast<uint32_t>(jetty_info->packed_head);
         const auto new_head = old_head + total_writes * kNumSimtWriteWQEBBs;
@@ -522,9 +533,9 @@ struct HcommPeer {
     {
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = *(jetty_table + jetty_idx);
-        assert(jetty_value != 0);
+        HCOMM_JETTY_ASSERT(jetty_value != 0);
         const auto jetty = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
-        assert(jetty->remoteBufferNum > 0);
+        HCOMM_JETTY_ASSERT(jetty->remoteBufferNum > 0);
         const auto remote_buffer = jetty->remoteBufferAddr[jetty->remoteBufferNum - 1];
         peer_info->rmt_token_value_udf = remote_buffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
         peer_info->rmt_base_addr = remote_buffer.bufferInfo.rma.addr;
@@ -571,7 +582,7 @@ struct HcommJetty {
         constexpr uint32_t kDwqeDbOffset = 0x80U;
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = *(jetty_table + jetty_idx);
-        assert(jetty_value != 0);
+        HCOMM_JETTY_ASSERT(jetty_value != 0);
         const auto jetty = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
         const auto sq_context = jetty->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
         const auto cq_context = jetty->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
@@ -588,9 +599,9 @@ struct HcommJetty {
         jetty_info->num_cqe_bytes = cq_context.contextInfo.ubJfc.cqeSize;
         jetty_info->cq_depth = cq_context.contextInfo.ubJfc.cqDepth;
         jetty_info->packed_head = *reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr);
-        assert(jetty_info->num_wqebb_bytes == kNumWQEBBBytes);
-        assert(jetty_detail::IsPowerOf2(jetty_info->sq_depth));
-        assert(jetty_info->sq_depth >= kNumSimtWriteWQEBBs);
+        HCOMM_JETTY_ASSERT(jetty_info->num_wqebb_bytes == kNumWQEBBBytes);
+        HCOMM_JETTY_ASSERT(jetty_detail::IsPowerOf2(jetty_info->sq_depth));
+        HCOMM_JETTY_ASSERT(jetty_info->sq_depth >= kNumSimtWriteWQEBBs);
     }
 
     template <int64_t kNumTimeoutCycles>
@@ -697,13 +708,13 @@ struct HcommJetty {
             const HcommSge (&sges)[kNumSGEs])
     {
         static_assert(kNumSGEs >= 2, "SIMT jetty requires at least two SGEs");
-        assert(*num_writes > 0);
-        assert((*num_writes) * static_cast<int>(kNumSimtWriteWQEBBs) <= static_cast<int>(jetty_info->sq_depth));
+        HCOMM_JETTY_ASSERT(*num_writes > 0);
+        HCOMM_JETTY_ASSERT((*num_writes) * static_cast<int>(kNumSimtWriteWQEBBs) <= static_cast<int>(jetty_info->sq_depth));
 
         PollCqWhenSqOverflow<kNumTimeoutCycles>();
         const int write_idx = (*write_counter)++;
-        assert(write_idx >= 0);
-        assert(write_idx < *num_writes);
+        HCOMM_JETTY_ASSERT(write_idx >= 0);
+        HCOMM_JETTY_ASSERT(write_idx < *num_writes);
 
         const auto current_head = static_cast<uint32_t>(jetty_info->packed_head) +
             static_cast<uint32_t>(write_idx) * kNumSimtWriteWQEBBs;
@@ -783,7 +794,7 @@ struct HcommJetty {
             return;
         }
 
-        assert(total_writes * static_cast<int>(kNumSimtWriteWQEBBs) <= static_cast<int>(jetty_info->sq_depth));
+        HCOMM_JETTY_ASSERT(total_writes * static_cast<int>(kNumSimtWriteWQEBBs) <= static_cast<int>(jetty_info->sq_depth));
 
         const auto old_head = static_cast<uint32_t>(jetty_info->packed_head);
         const auto new_head = old_head + total_writes * kNumSimtWriteWQEBBs;
@@ -839,7 +850,7 @@ private:
                 if (cqe_owner != tail_phase) {
                     const auto substatus = static_cast<uint8_t>(cqe_header >> 16);
                     const auto status = static_cast<uint8_t>(cqe_header >> 24);
-                    assert(status == 0 && substatus == 0);
+                    HCOMM_JETTY_ASSERT(status == 0 && substatus == 0);
                     break;
                 }
             }
@@ -855,6 +866,8 @@ private:
 
 } // namespace jetty
 } // namespace simt
+
+#undef HCOMM_JETTY_ASSERT
 
 #endif
 
