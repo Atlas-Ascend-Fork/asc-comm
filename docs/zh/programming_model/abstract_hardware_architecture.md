@@ -10,7 +10,7 @@ NPU内部参与通信的硬件可以抽象为[**通信引擎**](#通信引擎)�
 
 **图 1** 通信抽象硬件架构图
 
-![通信抽象硬件架构图](./figures/comm_hardware.png)
+![通信抽象硬件架构图](./figures/src/comm_hardware.svg)
 
 [图1](#fig-communication-hardware)所示组网是Ascend 950PR/Ascend 950DT推荐的一种标准组网形态，由AI机柜和超节点逐级构成：一个超节点包含多个AI机柜，多个超节点通过上层网络进一步互联。为说明组网中通信端点的内部结构，图中展开超节点1内的AI机柜1，并选取NPU 0和NPU 1作为一对通信端点，展示单个NPU内参与通信的硬件组件以及两个NPU之间的点对点通信通路；其余AI机柜和超节点仅保留组网关系。图中以NPU 0向NPU 1的数据传输为例，实际通信支持沿相应通路在两个NPU之间互相传输数据。
 
@@ -57,6 +57,7 @@ NPU内部参与通信的硬件可以归纳为通信引擎和存储单元：通�
 随着模型规模和计算规模扩大，参与通信的NPU数量随之增加，需要通过组网将点对点连接组织成更大规模的通信网络。[图1](#fig-communication-hardware)展示了组网从AI机柜到超节点的逐级扩展关系：超节点1中的AI机柜1展开了NPU、CPU、DPU和交换网络，其余AI机柜以相同结构接入上层交换网络；超节点N省略内部结构，按照与超节点1相同的方式扩展并建立超节点间连接。
 
 下面从通信连接和组网拓扑两个方面进行介绍：
+
 - 通信连接说明不同设备和组网层级使用何种链路与交换网络建立可达路径。
 - 组网拓扑说明这些连接如何组织，并决定通信两端是否具备直连链路、需要经过多少转发节点以及网络的扩展方式。
 
@@ -82,7 +83,7 @@ Clos是一种基于多级交换的拓扑。NPU或局部拓扑单元接入底层�
 
 **图 2** Clos拓扑
 
-![Clos拓扑](./figures/clos_topology.png)
+![Clos拓扑](./figures/src/clos_topology.svg)
 
 
 #### nD-FullMesh
@@ -95,7 +96,7 @@ nD-FullMesh在FullMesh的基础上按多个逻辑维度扩展组网。1D-FullMes
 
 **图 3** nD-FullMesh拓扑
 
-![nD-FullMesh拓扑](./figures/nd_fullmesh_topology.png)
+![nD-FullMesh拓扑](./figures/src/nd_fullmesh_topology.svg)
 
 #### nD-Mesh
 
@@ -105,6 +106,6 @@ nD-Mesh将NPU按n个逻辑维度排列，每个NPU与各维度上的相邻NPU直
 
 **图 4** nD-Mesh拓扑
 
-![nD-Mesh拓扑](./figures/nd_mesh_topology.png)
+![nD-Mesh拓扑](./figures/src/nd_mesh_topology.svg)
 
 Clos、nD-FullMesh和nD-Mesh既可以独立组网，也可以分层组合，具体组合取决于设备端口和部署规模。
