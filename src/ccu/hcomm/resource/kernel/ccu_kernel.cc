@@ -295,7 +295,7 @@ CcuResult ccu_kernel::gene_task_params(const uint64_t* task_args, uint32_t args_
 {
     CCU_CHK_RET(validate_task_args(task_args, args_num));
 
-    // 如果agrs数量超过sqe arg的最大数量，则返回多个TaskParam，前面几个只从sqe中加载args;
+    // 如果args数量超过sqe arg的最大数量，则返回多个TaskParam，前面几个只从sqe中加载args;
     // args数量大于等于0、小于等于最大值时，返回1个TaskParam
     const uint32_t seq_num =
         (args_num / ccu_sqe_args_len) + ((args_num % ccu_sqe_args_len) == 0 ? 0 : 1) + (args_num == 0 ? 1 : 0);
