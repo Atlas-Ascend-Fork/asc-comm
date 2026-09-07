@@ -51,9 +51,9 @@ __aicore__ __forceinline__ HcommPeer::HcommPeer(
 }
 
 __aicore__ __forceinline__ HcommJetty::HcommJetty(
-    __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubSqe,
+    __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe,
     __gm__ void* jettyTable, uint32_t jettyIdx)
-    : jettyInfo_(jettyInfo), ubSqe_(ubSqe)
+    : jettyInfo_(jettyInfo), ubufSqe_(ubufSqe)
 {
     if (jettyInfo == nullptr || jettyTable == nullptr) {
         return;
@@ -92,23 +92,24 @@ __aicore__ __forceinline__ HcommJetty::HcommJetty(
 
 template <bool kWithNotify>
 __aicore__ __forceinline__ bool HcommJetty::BuildWriteSqe(
-    const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
+    const HcommPeer& peer, __gm__ void* localSymmetricBase, __gm__ void* dstSymmetricPtr,
     __gm__ void* srcPtr, uint64_t numBytes, uint32_t currentHead,
     __gm__ void* notifySymPtr, uint64_t notifyValue)
 {
-    if (!valid_ || !peer.valid || jettyInfo_ == nullptr || ubSqe_ == nullptr || peer.peerInfo == nullptr ||
-        localBase == nullptr || srcPtr == nullptr ||
-        dstSymPtr == nullptr || (kWithNotify && notifySymPtr == nullptr)) {
+    if (!valid_ || !peer.valid || jettyInfo_ == nullptr || ubufSqe_ == nullptr || peer.peerInfo == nullptr ||
+        localSymmetricBase == nullptr || srcPtr == nullptr ||
+        dstSymmetricPtr == nullptr || (kWithNotify && notifySymPtr == nullptr)) {
         return false;
     }
     auto* info = peer.peerInfo;
-    uint64_t dstOffset = reinterpret_cast<uint64_t>(dstSymPtr) - reinterpret_cast<uint64_t>(localBase);
+    uint64_t dstOffset = reinterpret_cast<uint64_t>(dstSymmetricPtr) -
+        reinterpret_cast<uint64_t>(localSymmetricBase);
     if (dstOffset > info->remoteBufferSize || numBytes > info->remoteBufferSize - dstOffset ||
         numBytes > 0xFFFFFFFFULL) {
         return false;
     }
     uint64_t remoteAddr = info->remoteBaseAddr + dstOffset;
-    auto* sqe = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(ubSqe_);
+    auto* sqe = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(ubufSqe_);
     sqe->sqeBbIdx = 0;
     sqe->flag = HCOMM_JETTY_WRITE_SQE_FLAG;
     sqe->rsv0 = 0;
@@ -133,9 +134,10 @@ __aicore__ __forceinline__ bool HcommJetty::BuildWriteSqe(
     sqe->rsv3 = 0;
     sqe->rmtAddrLOrTokenId = static_cast<uint32_t>(remoteAddr);
     sqe->rmtAddrHOrTokenValue = static_cast<uint32_t>(remoteAddr >> 32U);
-    __ubuf__ uint8_t* sgeAddr = ubSqe_ + sizeof(HcommUrmaSqeCtx);
+    __ubuf__ uint8_t* sgeAddr = ubufSqe_ + sizeof(HcommUrmaSqeCtx);
     if constexpr (kWithNotify) {
-        uint64_t notifyOffset = reinterpret_cast<uint64_t>(notifySymPtr) - reinterpret_cast<uint64_t>(localBase);
+        uint64_t notifyOffset = reinterpret_cast<uint64_t>(notifySymPtr) -
+            reinterpret_cast<uint64_t>(localSymmetricBase);
         if (notifyOffset > info->remoteBufferSize || sizeof(uint64_t) > info->remoteBufferSize - notifyOffset) {
             return false;
         }
@@ -166,11 +168,11 @@ __aicore__ __forceinline__ void HcommJetty::CopySqeToSq(uint32_t currentHead, ui
     asc_sync_notify(PIPE_S, PIPE_MTE3, EVENT_ID0);
     asc_sync_wait(PIPE_S, PIPE_MTE3, EVENT_ID0);
     asc_copy_ub2gm_align(reinterpret_cast<__gm__ uint8_t*>(jettyInfo_->sqBaseAddr +
-        static_cast<uint64_t>(jettyInfo_->numWqebbBytes) * sqIdx), ubSqe_, 1,
+        static_cast<uint64_t>(jettyInfo_->numWqebbBytes) * sqIdx), ubufSqe_, 1,
         jettyInfo_->numWqebbBytes * first, static_cast<uint8_t>(ST_L2CacheType::L2_CACHE_HINT_NOTALLOC_CI), 0, 0);
     if (first < numWqebbs) {
         asc_copy_ub2gm_align(reinterpret_cast<__gm__ uint8_t*>(jettyInfo_->sqBaseAddr),
-            ubSqe_ + jettyInfo_->numWqebbBytes * first, 1,
+            ubufSqe_ + jettyInfo_->numWqebbBytes * first, 1,
             jettyInfo_->numWqebbBytes * (numWqebbs - first),
             static_cast<uint8_t>(ST_L2CacheType::L2_CACHE_HINT_NOTALLOC_CI), 0, 0);
     }
@@ -237,17 +239,17 @@ __aicore__ __forceinline__ int32_t HcommJetty::PollCq(uint32_t expectedTail)
 
 template <int64_t kNumTimeoutCycles, bool kWithNotify, bool kDoCommit>
 __aicore__ __forceinline__ int32_t HcommJetty::PostWrite(
-    const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
+    const HcommPeer& peer, __gm__ void* localSymmetricBase, __gm__ void* dstSymmetricPtr,
     __gm__ void* srcPtr, uint64_t numBytes, __gm__ void* notifySymPtr, uint64_t notifyValue)
 {
-    if (!valid_ || jettyInfo_ == nullptr || ubSqe_ == nullptr || jettyInfo_->sqDepth == 0U ||
+    if (!valid_ || jettyInfo_ == nullptr || ubufSqe_ == nullptr || jettyInfo_->sqDepth == 0U ||
         jettyInfo_->cqDepth == 0U) {
         return HCOMM_FAILED;
     }
     uint32_t head = static_cast<uint32_t>(jettyInfo_->packedHead);
     PollCqWhenSqOverflow<kNumTimeoutCycles>();
     const uint32_t numWqebbs = kWithNotify ? kNumWriteWithNotifyWqebbs : kNumWriteWqebbs;
-    if (!BuildWriteSqe<kWithNotify>(peer, localBase, dstSymPtr, srcPtr, numBytes, head,
+    if (!BuildWriteSqe<kWithNotify>(peer, localSymmetricBase, dstSymmetricPtr, srcPtr, numBytes, head,
         notifySymPtr, notifyValue)) {
         return HCOMM_FAILED;
     }
@@ -261,20 +263,20 @@ __aicore__ __forceinline__ int32_t HcommJetty::PostWrite(
 
 template <int64_t kNumTimeoutCycles, bool kDoCommit>
 __aicore__ __forceinline__ int32_t HcommJetty::Put(
-    const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
+    const HcommPeer& peer, __gm__ void* localSymmetricBase, __gm__ void* dstSymmetricPtr,
     __gm__ void* srcPtr, uint64_t numBytes)
 {
     return PostWrite<kNumTimeoutCycles, false, kDoCommit>(
-        peer, localBase, dstSymPtr, srcPtr, numBytes, nullptr, 0U);
+        peer, localSymmetricBase, dstSymmetricPtr, srcPtr, numBytes, nullptr, 0U);
 }
 
 template <int64_t kNumTimeoutCycles>
 __aicore__ __forceinline__ int32_t HcommJetty::PutWithNotify(
-    const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
+    const HcommPeer& peer, __gm__ void* localSymmetricBase, __gm__ void* dstSymmetricPtr,
     __gm__ void* srcPtr, uint64_t numBytes, __gm__ void* notifySymPtr, uint64_t notifyValue)
 {
     return PostWrite<kNumTimeoutCycles, true, true>(
-        peer, localBase, dstSymPtr, srcPtr, numBytes, notifySymPtr, notifyValue);
+        peer, localSymmetricBase, dstSymmetricPtr, srcPtr, numBytes, notifySymPtr, notifyValue);
 }
 
 template <int64_t kNumTimeoutCycles>

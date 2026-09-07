@@ -59,19 +59,19 @@ public:
     static constexpr uint32_t kNumMaxSqeBytes = kNumWriteWithNotifyWqebbs * 64U;
 
     __aicore__ __forceinline__ HcommJetty(
-        __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubSqe,
+        __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe,
         __gm__ void* jettyTable, uint32_t jettyIdx);
 
     // Set kDoCommit=false to enqueue the WQE without ringing the SQ doorbell.
     // A later Put<..., true> publishes the accumulated SQ entries.
     template <int64_t kNumTimeoutCycles, bool kDoCommit = true>
     __aicore__ __forceinline__ int32_t Put(
-        const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
+        const HcommPeer& peer, __gm__ void* localSymmetricBase, __gm__ void* dstSymmetricPtr,
         __gm__ void* srcPtr, uint64_t numBytes);
 
     template <int64_t kNumTimeoutCycles>
     __aicore__ __forceinline__ int32_t PutWithNotify(
-        const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
+        const HcommPeer& peer, __gm__ void* localSymmetricBase, __gm__ void* dstSymmetricPtr,
         __gm__ void* srcPtr, uint64_t numBytes, __gm__ void* notifySymPtr, uint64_t notifyValue);
 
     template <int64_t kNumTimeoutCycles>
@@ -80,12 +80,12 @@ public:
 private:
     template <int64_t kNumTimeoutCycles, bool kWithNotify, bool kDoCommit>
     __aicore__ __forceinline__ int32_t PostWrite(
-        const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
+        const HcommPeer& peer, __gm__ void* localSymmetricBase, __gm__ void* dstSymmetricPtr,
         __gm__ void* srcPtr, uint64_t numBytes, __gm__ void* notifySymPtr, uint64_t notifyValue);
 
     template <bool kWithNotify>
     __aicore__ __forceinline__ bool BuildWriteSqe(
-        const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
+        const HcommPeer& peer, __gm__ void* localSymmetricBase, __gm__ void* dstSymmetricPtr,
         __gm__ void* srcPtr, uint64_t numBytes, uint32_t currentHead,
         __gm__ void* notifySymPtr, uint64_t notifyValue);
 
@@ -100,7 +100,7 @@ private:
     __aicore__ __forceinline__ void PollCqWhenSqOverflow();
 
     __ubuf__ HcommJettyInfo* jettyInfo_ = nullptr;
-    __ubuf__ uint8_t* ubSqe_ = nullptr;
+    __ubuf__ uint8_t* ubufSqe_ = nullptr;
     bool valid_ = false;
 };
 
