@@ -40,7 +40,7 @@ AIN_DEVICE HcommMemHandle GetPeerPointer(HcommTeamHandle team, uint32_t peer, Hc
 AIN_DEVICE ChannelHandle GetChannelHandle(const __gm__ HcommTeam* team, const uint32_t peer, const uint32_t index)
 {
     const auto channelCntAccumulatePerMember = team->channelCntAccumulatePerMember;
-    const auto channelIndexBase = ReadGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(
+    const auto channelIndexBase = ReadGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(
         reinterpret_cast<uintptr_t>(channelCntAccumulatePerMember) + peer * sizeof(uint32_t)));
     uint64_t channelIndex = index + channelIndexBase;
     ChannelHandle channel = team->channelsBaseAddr + channelIndex * sizeof(ChannelEntity);
