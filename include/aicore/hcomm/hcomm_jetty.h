@@ -69,6 +69,11 @@ public:
     __aicore__ __forceinline__ int32_t Put(
         const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes);
 
+    // PutValue carries value inline in a single WQEBB; T must fit after the SQE header.
+    template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit = true>
+    __aicore__ __forceinline__ int32_t PutValue(
+        const HcommPeer& peer, __gm__ void* dstPtr, T value);
+
     // dstPtr and notifyAddr are externally supplied remote device addresses.
     template <int64_t kNumTimeoutCycles>
     __aicore__ __forceinline__ int32_t PutWithNotify(
@@ -84,10 +89,18 @@ private:
         const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
         __gm__ void* notifyAddr, uint64_t notifyValue);
 
+    template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit>
+    __aicore__ __forceinline__ int32_t PostWriteValue(
+        const HcommPeer& peer, __gm__ void* dstPtr, T value);
+
     template <bool kWithNotify>
     __aicore__ __forceinline__ bool BuildWriteSqe(
         const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
         uint32_t currentHead, __gm__ void* notifyAddr, uint64_t notifyValue);
+
+    template <typename T>
+    __aicore__ __forceinline__ bool BuildWriteValueSqe(
+        const HcommPeer& peer, __gm__ void* dstPtr, T value, uint32_t currentHead);
 
     __aicore__ __forceinline__ void CopySqeToSq(uint32_t currentHead, uint32_t numWqebbs);
     __aicore__ __forceinline__ void AdvanceSq(uint32_t numWqebbs);

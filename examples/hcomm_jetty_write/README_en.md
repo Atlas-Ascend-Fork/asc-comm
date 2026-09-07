@@ -28,7 +28,9 @@ hcomm_jetty_write
 3. The host writes each channel handle into a device Jetty table and passes the local buffer
    address, externally supplied remote destination device address, and remote buffer index to the kernel.
 4. The host launches one kernel. The kernel iterates over all peer contexts, constructs an
-   `HcommPeer` and `HcommJetty` for each peer, calls `Put` for 256 bytes, and waits with `Drain`.
+   `HcommPeer` and `HcommJetty` for each peer, calls `Put` for 256 bytes, then issues one inline
+   `PutValue` call to a separate marker address and waits with `Drain`; the host validates both
+   the data slot and the marker.
 5. Ranks synchronize with an HCCL barrier, then the host copies the buffer back and validates every
    peer pattern.
 

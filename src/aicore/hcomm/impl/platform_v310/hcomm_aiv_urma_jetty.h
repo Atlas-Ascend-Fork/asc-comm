@@ -9,6 +9,7 @@
 namespace AscendC {
 
 static constexpr uint32_t HCOMM_JETTY_WRITE_SQE_FLAG = 5U | (1U << 3U) | (1U << 5U);
+static constexpr uint32_t HCOMM_JETTY_WRITE_VALUE_SQE_FLAG = HCOMM_JETTY_WRITE_SQE_FLAG | (1U << 6U);
 
 __aicore__ __forceinline__ HcommPeer::HcommPeer(
     __ubuf__ HcommJettyPeerInfo* peerInfo, __gm__ void* jettyTable,
@@ -151,6 +152,47 @@ __aicore__ __forceinline__ bool HcommJetty::BuildWriteSqe(
     return true;
 }
 
+template <typename T>
+__aicore__ __forceinline__ bool HcommJetty::BuildWriteValueSqe(
+    const HcommPeer& peer, __gm__ void* dstPtr, T value, uint32_t currentHead)
+{
+    static_assert(sizeof(T) <= HcommJetty::kNumWriteWqebbs * 64U - sizeof(HcommUrmaSqeCtx),
+        "PutValue value is too large for one WQEBB");
+    if (!valid_ || !peer.valid || jettyInfo_ == nullptr || ubufSqe_ == nullptr || peer.peerInfo == nullptr) {
+        return false;
+    }
+    auto* info = peer.peerInfo;
+    const uint64_t remoteAddr = reinterpret_cast<uint64_t>(dstPtr);
+    auto* sqe = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(ubufSqe_);
+    sqe->sqeBbIdx = 0;
+    sqe->flag = HCOMM_JETTY_WRITE_VALUE_SQE_FLAG;
+    sqe->rsv0 = 0;
+    sqe->nf = 0;
+    sqe->tokenEn = 1;
+    sqe->rmtJettyType = 1;
+    sqe->owner = (currentHead & jettyInfo_->sqDepth) == 0U ? 1U : 0U;
+    sqe->targetHint = 0;
+    sqe->opcode = static_cast<uint32_t>(HcommUrmaOpCode::WRITE);
+    sqe->rsv1 = 0;
+    sqe->inlineMsgLen = sizeof(T);
+    sqe->tpId = static_cast<uint32_t>(info->tpIdNumSgesRemoteTokenId);
+    sqe->sgeNum = 0;
+    sqe->rmtJettyOrSegId = static_cast<uint32_t>(info->tpIdNumSgesRemoteTokenId >> 32U);
+    sqe->rsv2 = 0;
+    sqe->rmtEidL = info->remoteEid[0];
+    sqe->rmtEidH = info->remoteEid[1];
+    sqe->rmtTokenValue = static_cast<uint32_t>(info->remoteTokenValueUdf);
+    sqe->udfType = 0;
+    sqe->reduceDataType = 0;
+    sqe->reduceOpcode = 0;
+    sqe->rsv3 = 0;
+    sqe->rmtAddrLOrTokenId = static_cast<uint32_t>(remoteAddr);
+    sqe->rmtAddrHOrTokenValue = static_cast<uint32_t>(remoteAddr >> 32U);
+    auto* inlineAddr = reinterpret_cast<__ubuf__ T*>(ubufSqe_ + sizeof(HcommUrmaSqeCtx));
+    *inlineAddr = value;
+    return true;
+}
+
 __aicore__ __forceinline__ void HcommJetty::CopySqeToSq(uint32_t currentHead, uint32_t numWqebbs)
 {
     uint32_t sqIdx = currentHead & (jettyInfo_->sqDepth - 1U);
@@ -250,12 +292,40 @@ __aicore__ __forceinline__ int32_t HcommJetty::PostWrite(
     return HCOMM_SUCCESS;
 }
 
+template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit>
+__aicore__ __forceinline__ int32_t HcommJetty::PostWriteValue(
+    const HcommPeer& peer, __gm__ void* dstPtr, T value)
+{
+    if (!valid_ || jettyInfo_ == nullptr || ubufSqe_ == nullptr || jettyInfo_->sqDepth == 0U ||
+        jettyInfo_->cqDepth == 0U) {
+        return HCOMM_FAILED;
+    }
+    const uint32_t head = static_cast<uint32_t>(jettyInfo_->packedHead);
+    PollCqWhenSqOverflow<kNumTimeoutCycles>();
+    if (!BuildWriteValueSqe<T>(peer, dstPtr, value, head)) {
+        return HCOMM_FAILED;
+    }
+    CopySqeToSq(head, HcommJetty::kNumWriteWqebbs);
+    AdvanceSq(HcommJetty::kNumWriteWqebbs);
+    if constexpr (kDoCommit) {
+        RingDoorbell();
+    }
+    return HCOMM_SUCCESS;
+}
+
 template <int64_t kNumTimeoutCycles, bool kDoCommit>
 __aicore__ __forceinline__ int32_t HcommJetty::Put(
     const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes)
 {
     return PostWrite<kNumTimeoutCycles, false, kDoCommit>(
         peer, dstPtr, srcPtr, numBytes, nullptr, 0U);
+}
+
+template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit>
+__aicore__ __forceinline__ int32_t HcommJetty::PutValue(
+    const HcommPeer& peer, __gm__ void* dstPtr, T value)
+{
+    return PostWriteValue<kNumTimeoutCycles, T, kDoCommit>(peer, dstPtr, value);
 }
 
 template <int64_t kNumTimeoutCycles>
