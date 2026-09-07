@@ -72,6 +72,8 @@ typedef enum {
 } CommProtocol;
 #endif
 
+#ifndef HCOMM_REDUCE_OP_DEFINED
+#define HCOMM_REDUCE_OP_DEFINED
 typedef enum {
     HCOMM_REDUCE_SUM = 0,
     HCOMM_REDUCE_PROD = 1,
@@ -79,7 +81,10 @@ typedef enum {
     HCOMM_REDUCE_MIN = 3,
     HCOMM_REDUCE_RESERVED = 255
 } HcommReduceOp;
+#endif
 
+#ifndef HCOMM_DATA_TYPE_DEFINED
+#define HCOMM_DATA_TYPE_DEFINED
 typedef enum {
     HCOMM_DATA_TYPE_INT8 = 0,
     HCOMM_DATA_TYPE_INT16 = 1,
@@ -100,7 +105,10 @@ typedef enum {
     HCOMM_DATA_TYPE_FP8E8M0 = 17,
     HCOMM_DATA_TYPE_RESERVED = 255
 } HcommDataType;
+#endif
 
+#ifndef HCOMM_TRANSFER_TYPE_DEFINED
+#define HCOMM_TRANSFER_TYPE_DEFINED
 typedef enum {
     HCOMM_TRANSFER_TYPE_INVALID = -1,
     HCOMM_TRANSFER_TYPE_WRITE = 0,
@@ -111,7 +119,10 @@ typedef enum {
     HCOMM_TRANSFER_TYPE_READ_REDUCE = 5,
     HCOMM_TRANSFER_TYPE_NOTIFY_RECORD = 6,
 } HcommTransferType;
+#endif
 
+#ifndef HCOMM_BATCH_TRANSFER_DESC_DEFINED
+#define HCOMM_BATCH_TRANSFER_DESC_DEFINED
 typedef struct {
     HcommTransferType transType;
     uint8_t reserved[4];
@@ -153,6 +164,7 @@ typedef struct {
         } writeReduceWithNotify;
     } transferInfo;
 } HcommBatchTransferDesc;
+#endif
 
 #ifdef __cplusplus
 }
