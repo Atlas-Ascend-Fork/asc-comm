@@ -567,6 +567,7 @@ private:
     template <int64_t kNumTimeoutCycles>
     __simt_callee__ inline void PollCq(const uint32_t expected_tail) const
     {
+        static_assert(kNumTimeoutCycles > 0, "SIMT jetty CQ timeout must be positive");
         static constexpr uint32_t kNumCQDoorbellBits = 24;
         static constexpr uint32_t kCQEOwnerBit = 2;
         auto current_tail = asc_ldcg(
@@ -579,15 +580,18 @@ private:
                 jetty_info->cq_base_addr + static_cast<uint64_t>(jetty_info->num_cqe_bytes) *
                 (current_tail & (jetty_info->cq_depth - 1)));
             const auto tail_phase = (current_tail / jetty_info->cq_depth) & 1;
-            while (true) {
-                const auto cqe_header = asc_ldcg(cqe);
-                if (((cqe_header >> kCQEOwnerBit) & 1) != tail_phase) {
-                    const auto substatus = static_cast<uint8_t>(cqe_header >> 16);
-                    const auto status = static_cast<uint8_t>(cqe_header >> 24);
-                    HCOMM_JETTY_ASSERT(status == 0 && substatus == 0);
-                    break;
-                }
+            int64_t retry = 0;
+            auto cqe_header = asc_ldcg(cqe);
+            while (((cqe_header >> kCQEOwnerBit) & 1) == tail_phase && retry < kNumTimeoutCycles) {
+                asc_threadfence();
+                asc_dcci_single(cqe);
+                cqe_header = asc_ldcg(cqe);
+                ++retry;
             }
+            HCOMM_JETTY_ASSERT(retry < kNumTimeoutCycles);
+            const auto substatus = static_cast<uint8_t>(cqe_header >> 16);
+            const auto status = static_cast<uint8_t>(cqe_header >> 24);
+            HCOMM_JETTY_ASSERT(status == 0 && substatus == 0);
             ++current_tail;
         }
         *reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr) = current_tail;
