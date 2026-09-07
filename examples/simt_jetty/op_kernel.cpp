@@ -22,14 +22,11 @@ using namespace simt_jetty;
 
 template <bool kPadSecondSge>
 __simt_callee__ inline void SimtJettyWriteThreadImpl(
+    __ubuf__ AscendC::HcommPeerInfo* peerInfo, __ubuf__ AscendC::HcommJettyInfo* jettyInfo,
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
-    alignas(8) __ubuf__ uint64_t peerInfoStorage[sizeof(AscendC::HcommPeerInfo) / sizeof(uint64_t)];
-    alignas(8) __ubuf__ uint64_t jettyInfoStorage[sizeof(AscendC::HcommJettyInfo) / sizeof(uint64_t)];
-    auto* peerInfo = reinterpret_cast<__ubuf__ AscendC::HcommPeerInfo*>(peerInfoStorage);
-    auto* jettyInfo = reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(jettyInfoStorage);
 
     AscendC::simt::jetty::HcommPeer peer(peerInfo, jettyPtrTable, 0);
     AscendC::simt::jetty::HcommJetty jetty(jettyInfo, jettyPtrTable, 0);
@@ -48,14 +45,12 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
 
 template <typename Coop, bool kPadSecondSge>
 __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
-    const Coop& coop, uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+    const Coop& coop, __ubuf__ AscendC::HcommPeerInfo* peerInfo,
+    __ubuf__ AscendC::HcommJettyInfo* jettyInfo, uint64_t channel,
+    __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
-    alignas(8) __ubuf__ uint64_t peerInfoStorage[sizeof(AscendC::HcommPeerInfo) / sizeof(uint64_t)];
-    alignas(8) __ubuf__ uint64_t jettyInfoStorage[sizeof(AscendC::HcommJettyInfo) / sizeof(uint64_t)];
-    auto* peerInfo = reinterpret_cast<__ubuf__ AscendC::HcommPeerInfo*>(peerInfoStorage);
-    auto* jettyInfo = reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(jettyInfoStorage);
     AscendC::simt::jetty::HcommPeer peer(peerInfo);
     AscendC::simt::jetty::HcommJetty jetty(jettyInfo);
 
@@ -78,16 +73,13 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
 }
 
 __simt_callee__ inline void SimtJettyWriteDispatchImpl(
+    __ubuf__ AscendC::HcommPeerInfo* peerInfo, __ubuf__ AscendC::HcommJettyInfo* jettyInfo,
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     AscendC::simt::HcommCoopGroup group;
     AscendC::simt::HcommCoopWarp warp;
     __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
-    alignas(8) __ubuf__ uint64_t peerInfoStorage[sizeof(AscendC::HcommPeerInfo) / sizeof(uint64_t)];
-    alignas(8) __ubuf__ uint64_t jettyInfoStorage[sizeof(AscendC::HcommJettyInfo) / sizeof(uint64_t)];
-    auto* peerInfo = reinterpret_cast<__ubuf__ AscendC::HcommPeerInfo*>(peerInfoStorage);
-    auto* jettyInfo = reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(jettyInfoStorage);
     AscendC::simt::jetty::HcommPeer peer(peerInfo);
     AscendC::simt::jetty::HcommJetty jetty(jettyInfo);
 
@@ -111,32 +103,36 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteThreadVf(
+    __ubuf__ AscendC::HcommPeerInfo* peerInfo, __ubuf__ AscendC::HcommJettyInfo* jettyInfo,
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
-    SimtJettyWriteThreadImpl<false>(channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+    SimtJettyWriteThreadImpl<false>(peerInfo, jettyInfo, channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteWarpPadZeroVf(
+    __ubuf__ AscendC::HcommPeerInfo* peerInfo, __ubuf__ AscendC::HcommJettyInfo* jettyInfo,
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopWarp, true>(
-        AscendC::simt::HcommCoopWarp{}, channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+        AscendC::simt::HcommCoopWarp{}, peerInfo, jettyInfo, channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteGroupVf(
+    __ubuf__ AscendC::HcommPeerInfo* peerInfo, __ubuf__ AscendC::HcommJettyInfo* jettyInfo,
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopGroup, false>(
-        AscendC::simt::HcommCoopGroup{}, channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+        AscendC::simt::HcommCoopGroup{}, peerInfo, jettyInfo, channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteDispatchVf(
+    __ubuf__ AscendC::HcommPeerInfo* peerInfo, __ubuf__ AscendC::HcommJettyInfo* jettyInfo,
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
-    SimtJettyWriteDispatchImpl(channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+    SimtJettyWriteDispatchImpl(peerInfo, jettyInfo, channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
 } // namespace
@@ -144,25 +140,45 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteDispatchVf(
 extern "C" __global__ __vector__ void SimtJettyWriteThread(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
-    asc_vf_call<SimtJettyWriteThreadVf>(dim3(1), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+    alignas(8) __ubuf__ uint64_t peerInfoStorage[sizeof(AscendC::HcommPeerInfo) / sizeof(uint64_t)];
+    alignas(8) __ubuf__ uint64_t jettyInfoStorage[sizeof(AscendC::HcommJettyInfo) / sizeof(uint64_t)];
+    asc_vf_call<SimtJettyWriteThreadVf>(
+        dim3(1), reinterpret_cast<__ubuf__ AscendC::HcommPeerInfo*>(peerInfoStorage),
+        reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(jettyInfoStorage),
+        channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
 extern "C" __global__ __vector__ void SimtJettyWriteWarpPadZero(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
-    asc_vf_call<SimtJettyWriteWarpPadZeroVf>(dim3(32), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+    alignas(8) __ubuf__ uint64_t peerInfoStorage[sizeof(AscendC::HcommPeerInfo) / sizeof(uint64_t)];
+    alignas(8) __ubuf__ uint64_t jettyInfoStorage[sizeof(AscendC::HcommJettyInfo) / sizeof(uint64_t)];
+    asc_vf_call<SimtJettyWriteWarpPadZeroVf>(
+        dim3(32), reinterpret_cast<__ubuf__ AscendC::HcommPeerInfo*>(peerInfoStorage),
+        reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(jettyInfoStorage),
+        channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
 extern "C" __global__ __vector__ void SimtJettyWriteGroup(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
-    asc_vf_call<SimtJettyWriteGroupVf>(dim3(32), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+    alignas(8) __ubuf__ uint64_t peerInfoStorage[sizeof(AscendC::HcommPeerInfo) / sizeof(uint64_t)];
+    alignas(8) __ubuf__ uint64_t jettyInfoStorage[sizeof(AscendC::HcommJettyInfo) / sizeof(uint64_t)];
+    asc_vf_call<SimtJettyWriteGroupVf>(
+        dim3(32), reinterpret_cast<__ubuf__ AscendC::HcommPeerInfo*>(peerInfoStorage),
+        reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(jettyInfoStorage),
+        channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
 extern "C" __global__ __vector__ void SimtJettyWriteDispatch(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
-    asc_vf_call<SimtJettyWriteDispatchVf>(dim3(64), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+    alignas(8) __ubuf__ uint64_t peerInfoStorage[sizeof(AscendC::HcommPeerInfo) / sizeof(uint64_t)];
+    alignas(8) __ubuf__ uint64_t jettyInfoStorage[sizeof(AscendC::HcommJettyInfo) / sizeof(uint64_t)];
+    asc_vf_call<SimtJettyWriteDispatchVf>(
+        dim3(64), reinterpret_cast<__ubuf__ AscendC::HcommPeerInfo*>(peerInfoStorage),
+        reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(jettyInfoStorage),
+        channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
 void LaunchSimtJetty(
