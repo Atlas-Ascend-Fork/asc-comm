@@ -51,7 +51,7 @@ __aicore__ __forceinline__ HcommPeer::HcommPeer(
     valid = true;
 }
 
-__aicore__ __forceinline__ HcommJetty::HcommJetty(
+__aicore__ __forceinline__ HcommJettyImpl::HcommJettyImpl(
     __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe,
     __gm__ void* jettyTable, uint32_t jettyIdx)
     : jettyInfo_(jettyInfo), ubufSqe_(ubufSqe)
@@ -92,7 +92,7 @@ __aicore__ __forceinline__ HcommJetty::HcommJetty(
 }
 
 template <bool kWithNotify>
-__aicore__ __forceinline__ bool HcommJetty::BuildWriteSqe(
+__aicore__ __forceinline__ bool HcommJettyImpl::BuildWriteSqe(
     const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
     uint32_t currentHead, __gm__ void* notifyAddr, uint64_t notifyValue)
 {
@@ -153,11 +153,9 @@ __aicore__ __forceinline__ bool HcommJetty::BuildWriteSqe(
 }
 
 template <typename T>
-__aicore__ __forceinline__ bool HcommJetty::BuildWriteValueSqe(
+__aicore__ __forceinline__ bool HcommJettyImpl::BuildWriteValueSqe(
     const HcommPeer& peer, __gm__ void* dstPtr, T value, uint32_t currentHead)
 {
-    static_assert(sizeof(T) <= HcommJetty::kNumWriteWqebbs * 64U - sizeof(HcommUrmaSqeCtx),
-        "WriteValue value is too large for one WQEBB");
     if (!valid_ || !peer.valid || jettyInfo_ == nullptr || ubufSqe_ == nullptr || peer.peerInfo == nullptr) {
         return false;
     }
@@ -193,7 +191,7 @@ __aicore__ __forceinline__ bool HcommJetty::BuildWriteValueSqe(
     return true;
 }
 
-__aicore__ __forceinline__ void HcommJetty::CopySqeToSq(uint32_t currentHead, uint32_t numWqebbs)
+__aicore__ __forceinline__ void HcommJettyImpl::CopySqeToSq(uint32_t currentHead, uint32_t numWqebbs)
 {
     uint32_t sqIdx = currentHead & (jettyInfo_->sqDepth - 1U);
     uint32_t first = numWqebbs < jettyInfo_->sqDepth - sqIdx ? numWqebbs : jettyInfo_->sqDepth - sqIdx;
@@ -212,7 +210,7 @@ __aicore__ __forceinline__ void HcommJetty::CopySqeToSq(uint32_t currentHead, ui
     asc_sync_wait(PIPE_MTE3, PIPE_S, EVENT_ID0);
 }
 
-__aicore__ __forceinline__ void HcommJetty::AdvanceSq(uint32_t numWqebbs)
+__aicore__ __forceinline__ void HcommJettyImpl::AdvanceSq(uint32_t numWqebbs)
 {
     uint32_t newHead = static_cast<uint32_t>(jettyInfo_->packedHead) + numWqebbs;
     uint32_t completions = static_cast<uint32_t>(jettyInfo_->packedHead >> 32U) + 1U;
@@ -220,14 +218,14 @@ __aicore__ __forceinline__ void HcommJetty::AdvanceSq(uint32_t numWqebbs)
     WriteGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr), jettyInfo_->packedHead);
 }
 
-__aicore__ __forceinline__ void HcommJetty::RingDoorbell()
+__aicore__ __forceinline__ void HcommJettyImpl::RingDoorbell()
 {
     WriteGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqDoorbellAddr),
         static_cast<uint32_t>(jettyInfo_->packedHead));
 }
 
 template <int64_t kNumTimeoutCycles>
-__aicore__ __forceinline__ void HcommJetty::PollCqWhenSqOverflow()
+__aicore__ __forceinline__ void HcommJettyImpl::PollCqWhenSqOverflow()
 {
     constexpr uint32_t threshold = 10U;
     constexpr uint32_t pollCount = 100U;
@@ -239,7 +237,7 @@ __aicore__ __forceinline__ void HcommJetty::PollCqWhenSqOverflow()
 }
 
 template <int64_t kNumTimeoutCycles>
-__aicore__ __forceinline__ int32_t HcommJetty::PollCq(uint32_t expectedTail)
+__aicore__ __forceinline__ int32_t HcommJettyImpl::PollCq(uint32_t expectedTail)
 {
     uint32_t currentTail = ReadGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqTailAddr));
     while (currentTail != expectedTail) {
@@ -270,9 +268,9 @@ __aicore__ __forceinline__ int32_t HcommJetty::PollCq(uint32_t expectedTail)
 }
 
 template <int64_t kNumTimeoutCycles, bool kWithNotify, bool kDoCommit>
-__aicore__ __forceinline__ int32_t HcommJetty::PostWrite(
+__aicore__ __forceinline__ int32_t HcommJettyImpl::PostWrite(
     const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
-    __gm__ void* notifyAddr, uint64_t notifyValue)
+    __gm__ void* notifyAddr, uint64_t notifyValue, uint32_t numWqebbs)
 {
     if (!valid_ || jettyInfo_ == nullptr || ubufSqe_ == nullptr || jettyInfo_->sqDepth == 0U ||
         jettyInfo_->cqDepth == 0U) {
@@ -280,7 +278,6 @@ __aicore__ __forceinline__ int32_t HcommJetty::PostWrite(
     }
     uint32_t head = static_cast<uint32_t>(jettyInfo_->packedHead);
     PollCqWhenSqOverflow<kNumTimeoutCycles>();
-    const uint32_t numWqebbs = kWithNotify ? kNumWriteWithNotifyWqebbs : kNumWriteWqebbs;
     if (!BuildWriteSqe<kWithNotify>(peer, dstPtr, srcPtr, numBytes, head, notifyAddr, notifyValue)) {
         return HCOMM_FAILED;
     }
@@ -293,8 +290,8 @@ __aicore__ __forceinline__ int32_t HcommJetty::PostWrite(
 }
 
 template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit>
-__aicore__ __forceinline__ int32_t HcommJetty::PostWriteValue(
-    const HcommPeer& peer, __gm__ void* dstPtr, T value)
+__aicore__ __forceinline__ int32_t HcommJettyImpl::PostWriteValue(
+    const HcommPeer& peer, __gm__ void* dstPtr, T value, uint32_t numWqebbs)
 {
     if (!valid_ || jettyInfo_ == nullptr || ubufSqe_ == nullptr || jettyInfo_->sqDepth == 0U ||
         jettyInfo_->cqDepth == 0U) {
@@ -305,40 +302,16 @@ __aicore__ __forceinline__ int32_t HcommJetty::PostWriteValue(
     if (!BuildWriteValueSqe<T>(peer, dstPtr, value, head)) {
         return HCOMM_FAILED;
     }
-    CopySqeToSq(head, HcommJetty::kNumWriteWqebbs);
-    AdvanceSq(HcommJetty::kNumWriteWqebbs);
+    CopySqeToSq(head, numWqebbs);
+    AdvanceSq(numWqebbs);
     if constexpr (kDoCommit) {
         RingDoorbell();
     }
     return HCOMM_SUCCESS;
 }
 
-template <int64_t kNumTimeoutCycles, bool kDoCommit>
-__aicore__ __forceinline__ int32_t HcommJetty::Write(
-    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes)
-{
-    return PostWrite<kNumTimeoutCycles, false, kDoCommit>(
-        peer, dstPtr, srcPtr, numBytes, nullptr, 0U);
-}
-
-template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit>
-__aicore__ __forceinline__ int32_t HcommJetty::WriteValue(
-    const HcommPeer& peer, __gm__ void* dstPtr, T value)
-{
-    return PostWriteValue<kNumTimeoutCycles, T, kDoCommit>(peer, dstPtr, value);
-}
-
 template <int64_t kNumTimeoutCycles>
-__aicore__ __forceinline__ int32_t HcommJetty::WriteWithNotify(
-    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
-    __gm__ void* notifyAddr, uint64_t notifyValue)
-{
-    return PostWrite<kNumTimeoutCycles, true, true>(
-        peer, dstPtr, srcPtr, numBytes, notifyAddr, notifyValue);
-}
-
-template <int64_t kNumTimeoutCycles>
-__aicore__ __forceinline__ int32_t HcommJetty::Drain()
+__aicore__ __forceinline__ int32_t HcommJettyImpl::Drain()
 {
     if (!valid_ || jettyInfo_ == nullptr) {
         return HCOMM_FAILED;
@@ -348,6 +321,45 @@ __aicore__ __forceinline__ int32_t HcommJetty::Drain()
     }
     uint64_t head = ReadGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
     return PollCq<kNumTimeoutCycles>(static_cast<uint32_t>(head >> 32U));
+}
+
+__aicore__ __forceinline__ HcommJetty::HcommJetty(
+    __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe,
+    __gm__ void* jettyTable, uint32_t jettyIdx)
+    : impl_(jettyInfo, ubufSqe, jettyTable, jettyIdx)
+{}
+
+template <int64_t kNumTimeoutCycles, bool kDoCommit>
+__aicore__ __forceinline__ int32_t HcommJetty::Write(
+    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes)
+{
+    return impl_.PostWrite<kNumTimeoutCycles, false, kDoCommit>(
+        peer, dstPtr, srcPtr, numBytes, nullptr, 0U, kNumWriteWqebbs);
+}
+
+template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit>
+__aicore__ __forceinline__ int32_t HcommJetty::WriteValue(
+    const HcommPeer& peer, __gm__ void* dstPtr, T value)
+{
+    static_assert(sizeof(T) <= kNumWriteWqebbs * 64U - sizeof(HcommUrmaSqeCtx),
+        "WriteValue value is too large for one WQEBB");
+    return impl_.PostWriteValue<kNumTimeoutCycles, T, kDoCommit>(
+        peer, dstPtr, value, kNumWriteWqebbs);
+}
+
+template <int64_t kNumTimeoutCycles>
+__aicore__ __forceinline__ int32_t HcommJetty::WriteWithNotify(
+    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
+    __gm__ void* notifyAddr, uint64_t notifyValue)
+{
+    return impl_.PostWrite<kNumTimeoutCycles, true, true>(
+        peer, dstPtr, srcPtr, numBytes, notifyAddr, notifyValue, kNumWriteWithNotifyWqebbs);
+}
+
+template <int64_t kNumTimeoutCycles>
+__aicore__ __forceinline__ int32_t HcommJetty::Drain()
+{
+    return impl_.Drain<kNumTimeoutCycles>();
 }
 
 } // namespace AscendC

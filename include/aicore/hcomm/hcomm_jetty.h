@@ -52,6 +52,21 @@ struct HcommPeer {
         uint32_t remoteBufferIdx = HCOMM_JETTY_LAST_REMOTE_BUFFER);
 };
 
+} // namespace AscendC
+
+#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
+#define HCOMM_INCLUDE_INTERNAL_HEADERS
+#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_JETTY_H
+#endif
+
+#if defined(ASCCOMM_BUILD_FROM_SOURCE)
+#include "../../../src/aicore/hcomm/impl/hcomm_jetty_impl_def.h"
+#else
+#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_jetty_impl_def.h"
+#endif
+
+namespace AscendC {
+
 class HcommJetty {
 public:
     static constexpr uint32_t kNumWriteWqebbs = 1U;
@@ -84,50 +99,15 @@ public:
     __aicore__ __forceinline__ int32_t Drain();
 
 private:
-    template <int64_t kNumTimeoutCycles, bool kWithNotify, bool kDoCommit>
-    __aicore__ __forceinline__ int32_t PostWrite(
-        const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
-        __gm__ void* notifyAddr, uint64_t notifyValue);
-
-    template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit>
-    __aicore__ __forceinline__ int32_t PostWriteValue(
-        const HcommPeer& peer, __gm__ void* dstPtr, T value);
-
-    template <bool kWithNotify>
-    __aicore__ __forceinline__ bool BuildWriteSqe(
-        const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
-        uint32_t currentHead, __gm__ void* notifyAddr, uint64_t notifyValue);
-
-    template <typename T>
-    __aicore__ __forceinline__ bool BuildWriteValueSqe(
-        const HcommPeer& peer, __gm__ void* dstPtr, T value, uint32_t currentHead);
-
-    __aicore__ __forceinline__ void CopySqeToSq(uint32_t currentHead, uint32_t numWqebbs);
-    __aicore__ __forceinline__ void AdvanceSq(uint32_t numWqebbs);
-    __aicore__ __forceinline__ void RingDoorbell();
-
-    template <int64_t kNumTimeoutCycles>
-    __aicore__ __forceinline__ int32_t PollCq(uint32_t expectedTail);
-
-    template <int64_t kNumTimeoutCycles>
-    __aicore__ __forceinline__ void PollCqWhenSqOverflow();
-
-    __ubuf__ HcommJettyInfo* jettyInfo_ = nullptr;
-    __ubuf__ uint8_t* ubufSqe_ = nullptr;
-    bool valid_ = false;
+    HcommJettyImpl impl_;
 };
 
 } // namespace AscendC
 
-#if !defined(HCOMM_INCLUDE_INTERNAL_HEADERS)
-#define HCOMM_INCLUDE_INTERNAL_HEADERS
-#define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_JETTY_H
-#endif
-
 #if defined(ASCCOMM_BUILD_FROM_SOURCE)
-#include "../../../src/aicore/hcomm/impl/hcomm_jetty_impl_def.h"
+#include "../../../src/aicore/hcomm/impl/hcomm_jetty_impl.h"
 #else
-#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_jetty_impl_def.h"
+#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_jetty_impl.h"
 #endif
 
 #if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_JETTY_H)
