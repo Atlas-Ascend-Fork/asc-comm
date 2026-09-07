@@ -286,6 +286,26 @@ typedef struct {
     uint32_t bufferCapacity;
 } BatchBuffer;
 
+enum class HcommUrmaOpCode : uint32_t {
+    SEND = 0U,
+    SEND_WITH_IMM,
+    SEND_WITH_INV,
+    WRITE,
+    WRITE_WITH_IMM,
+    WRITE_WITH_NOTIFY,
+    READ,
+    CAS,
+    ATOMIC_SWAP,
+    ATOMIC_STORE,
+    ATOMIC_LOAD,
+    FAA = 0xBU,
+    WRITE_WITH_REDUCE = 0x10U,
+    NOP = 0x11U,
+};
+
+// Only multi-channel batch handles may use the unbound, non-prefilled path.
+constexpr HcommUrmaOpCode HCOMM_URMA_BATCH_OPCODE_UNBOUND = static_cast<HcommUrmaOpCode>(0xFFFFFFFFU);
+
 typedef struct {
     ChannelHandle channelHandle;
     SqContext sqContext;
@@ -293,6 +313,7 @@ typedef struct {
     BatchQueueCursor cursor;
     BatchRemoteInfo remoteInfo;
     BatchBuffer buffer;
+    HcommUrmaOpCode opcode;
 } UbcBatchHandle;
 
 typedef struct {
@@ -422,23 +443,6 @@ typedef struct {
 
 // URMA struct
 constexpr uint32_t HCOMM_URMA_DEFAULT_QP_IDX = 0U;
-
-enum class HcommUrmaOpCode : uint32_t {
-    SEND = 0U,
-    SEND_WITH_IMM,
-    SEND_WITH_INV,
-    WRITE,
-    WRITE_WITH_IMM,
-    WRITE_WITH_NOTIFY,
-    READ,
-    CAS,
-    ATOMIC_SWAP,
-    ATOMIC_STORE,
-    ATOMIC_LOAD,
-    FAA = 0xBU,
-    WRITE_WITH_REDUCE = 0x10U,
-    NOP = 0x11U,
-};
 
 typedef struct {
     uint32_t sqeBbIdx : 16;

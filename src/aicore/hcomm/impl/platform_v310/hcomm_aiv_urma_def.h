@@ -70,7 +70,7 @@ public:
     __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
     template <typename T>
     __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
-    template <typename U>
+    template <HcommUrmaOpCode opcode, typename U>
     __aicore__ inline UbcBatchHandle MakeBatchHandle(
         ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr);
     template <typename U>
