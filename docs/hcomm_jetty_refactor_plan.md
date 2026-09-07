@@ -6,8 +6,6 @@
 
 | 类型 | 命名空间 | 执行模型 | 功能 |
 |------|----------|----------|------|
-| `HcommPeer` | `AscendC` | `__aicore__` | 缓存远端 token/EID 到 ubuf |
-| `HcommJetty` | `AscendC` | `__aicore__` | 标量 WQE 构建 + ubuf stage + SQ copy + drain |
 | `HcommJetty` | `AscendC::simt::jetty` | `__simt_callee__` | warp 协作 WQE + DWQE doorbell + commit |
 | `HcommSge` | `AscendC::simt::jetty` | — | SGE 描述符 |
 
@@ -15,15 +13,7 @@
 
 ## 2. 对齐方向
 
-### 2.1 SIMD / AIV 路径 —— 保持现状
-
-`AscendC::HcommJetty` 只做 Jetty 级能力，不改接口：
-
-- 直接地址模型（dst/src 绝对 GM 指针）
-- ubuf stage + `CopySqeToSq` + `WriteGmByPassDCache` 触发 doorbell
-- `Put` / `PutWithNotify` / `Drain` 接口不变
-
-### 2.2 SIMT 路径 —— 重构方向
+### 2.1 SIMT 路径
 
 #### 原则一：运行时 num_sges 改为模板参数
 
@@ -54,7 +44,7 @@ void Write(const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge);
 |-----------|------|------|
 | `thread` | 单 lane | 单 SGE，不参与 shuffle |
 | `warp` | 1 warp (32 lanes) | 一个 warp 协作构建 1 个 4BB WQE |
-| `wrap` | N warps | 多个 warp 各自构建 1 个 WQE，共享 write_counter |
+| `group` | N warps | 多个 warp 各自构建 1 个 WQE，共享 Jetty 内部批次状态 |
 | `block` | 整个 block | block 内所有 warp 参与，统一 commit |
 
 ```c++
@@ -82,14 +72,18 @@ asc_dcci_single(dwqe_addr);
 asc_dcci_single(dwqe_addr + kNumWQEBBBytes);
 ```
 
+#### 原则四：批次计数由 Jetty 管理
+
+`Write()` 在 `HcommJettyInfo` 中原子累计实际生成的 WQE 数，`Commit()` 使用该数量推进 SQ head，
+并在发布完成后清零。普通用户不需要提供或初始化 `write_counter / num_writes`；DeepEP dispatch
+可以继续由多个 warp 并行调用 `Write<12>()`，随后由 group 中一个线程统一调用 `Commit()`。
+
 ---
 
 ## 3. 重构不涉及的改动
 
 以下已收编且正确的内容保持不变：
 
-- `HcommPeerInfo` / `HcommJettyInfo` 结构体定义
-- `HcommPeer` 构造函数（缓存远端 token/EID）
+- `HcommPeer` 初始化逻辑（缓存远端 token/EID）
 - 直接地址模型（无对称内存偏移）
-- 命名空间划分：`AscendC` (SIMD) / `AscendC::simt::jetty` (SIMT)
 - 头文件收编位置（`hcomm_simt.h` / `hcomm_impl.h` 的 include 链）

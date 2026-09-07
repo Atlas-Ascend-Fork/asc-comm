@@ -28,14 +28,11 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
     alignas(8) __ubuf__ uint64_t peerInfoStorage[sizeof(AscendC::HcommPeerInfo) / sizeof(uint64_t)];
     alignas(8) __ubuf__ uint64_t jettyInfoStorage[sizeof(AscendC::HcommJettyInfo) / sizeof(uint64_t)];
-    alignas(8) __ubuf__ int counters[2];
     auto* peerInfo = reinterpret_cast<__ubuf__ AscendC::HcommPeerInfo*>(peerInfoStorage);
     auto* jettyInfo = reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(jettyInfoStorage);
 
-    counters[0] = 0;
-    counters[1] = 1;
     AscendC::simt::jetty::HcommPeer peer(peerInfo, jettyPtrTable, 0);
-    AscendC::simt::jetty::HcommJetty jetty(jettyInfo, &counters[0], &counters[1], jettyPtrTable, 0);
+    AscendC::simt::jetty::HcommJetty jetty(jettyInfo, jettyPtrTable, 0);
     AscendC::simt::jetty::HcommSge sges[2] = {
         {reinterpret_cast<uint64_t>(localSrc), static_cast<int>(kSlotBytes)},
         {reinterpret_cast<uint64_t>(localSrc) + kSlotBytes, static_cast<int>(kSlotBytes)},
@@ -57,15 +54,12 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
     alignas(8) __ubuf__ uint64_t peerInfoStorage[sizeof(AscendC::HcommPeerInfo) / sizeof(uint64_t)];
     alignas(8) __ubuf__ uint64_t jettyInfoStorage[sizeof(AscendC::HcommJettyInfo) / sizeof(uint64_t)];
-    alignas(8) __ubuf__ int counters[2];
     auto* peerInfo = reinterpret_cast<__ubuf__ AscendC::HcommPeerInfo*>(peerInfoStorage);
     auto* jettyInfo = reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(jettyInfoStorage);
     AscendC::simt::jetty::HcommPeer peer(peerInfo);
-    AscendC::simt::jetty::HcommJetty jetty(jettyInfo, &counters[0], &counters[1]);
+    AscendC::simt::jetty::HcommJetty jetty(jettyInfo);
 
     if (coop.thread_rank() == 0) {
-        counters[0] = 0;
-        counters[1] = 1;
         peer.Init(jettyPtrTable, 0);
         jetty.Init(jettyPtrTable, 0);
     }
@@ -81,6 +75,39 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
     jetty.template Put<2, false>(coop, peer, remoteDst, sge);
     jetty.Commit(coop);
     jetty.template Drain<1000000>(coop);
+}
+
+__simt_callee__ inline void SimtJettyWriteDispatchImpl(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    AscendC::simt::HcommCoopGroup group;
+    AscendC::simt::HcommCoopWarp warp;
+    __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
+    __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    alignas(8) __ubuf__ uint64_t peerInfoStorage[sizeof(AscendC::HcommPeerInfo) / sizeof(uint64_t)];
+    alignas(8) __ubuf__ uint64_t jettyInfoStorage[sizeof(AscendC::HcommJettyInfo) / sizeof(uint64_t)];
+    auto* peerInfo = reinterpret_cast<__ubuf__ AscendC::HcommPeerInfo*>(peerInfoStorage);
+    auto* jettyInfo = reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(jettyInfoStorage);
+    AscendC::simt::jetty::HcommPeer peer(peerInfo);
+    AscendC::simt::jetty::HcommJetty jetty(jettyInfo);
+
+    if (group.thread_rank() == 0) {
+        peer.Init(jettyPtrTable, 0);
+        jetty.Init(jettyPtrTable, 0);
+    }
+    group.sync();
+
+    AscendC::simt::jetty::HcommSge sge{};
+    const int laneIdx = warp.thread_rank();
+    if (laneIdx < 2) {
+        sge.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx) * kSlotBytes;
+        sge.len = static_cast<int>(kSlotBytes);
+    }
+
+    // Each warp reserves one WQE. The block commits the actual number of WQEs after all warps finish.
+    jetty.template Write<12>(warp, peer, remoteDst, sge);
+    jetty.Commit(group);
+    jetty.template Drain<1000000>(group);
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteThreadVf(
@@ -106,6 +133,12 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteGroupVf(
         AscendC::simt::HcommCoopGroup{}, channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
+__simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteDispatchVf(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    SimtJettyWriteDispatchImpl(channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+}
+
 } // namespace
 
 extern "C" __global__ __vector__ void SimtJettyWriteThread(
@@ -126,6 +159,12 @@ extern "C" __global__ __vector__ void SimtJettyWriteGroup(
     asc_vf_call<SimtJettyWriteGroupVf>(dim3(32), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
+extern "C" __global__ __vector__ void SimtJettyWriteDispatch(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    asc_vf_call<SimtJettyWriteDispatchVf>(dim3(64), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+}
+
 void LaunchSimtJetty(
     void* stream, uint64_t channel, void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode)
 {
@@ -138,6 +177,9 @@ void LaunchSimtJetty(
             break;
         case 2U:
             SimtJettyWriteGroup<<<1, 0, stream>>>(channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+            break;
+        case 3U:
+            SimtJettyWriteDispatch<<<1, 0, stream>>>(channel, jettyPtrTable, sendBufIdx, recvBufIdx);
             break;
         default:
             std::printf("[simt_jetty] unhandled mode %u, no kernel launched\n", mode);

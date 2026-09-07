@@ -1,6 +1,7 @@
 # simt_jetty
 
-SIMT 侧 Jetty / DWQE 样例，`thread / warp / group` 三种协作方式都在这里验证。
+SIMT 侧 Jetty / DWQE 样例，验证 `thread / warp / group` 三种协作方式，以及多个 warp
+并行生成 WQE、group 统一提交的 dispatch 模式。
 
 ## 编译
 
