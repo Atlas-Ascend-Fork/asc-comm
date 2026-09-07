@@ -27,7 +27,7 @@ hcomm_jetty_write_perf
 2. The host registers the communication buffer and acquires a UBC_CTP channel through
    `COMM_ENGINE_AIV` for every non-local peer.
 3. The host writes each channel handle into a device Jetty table and passes the local buffer
-   address, remote buffer index, and destination slot offset to the kernel.
+   address, externally supplied remote destination device address, and remote buffer index to the kernel.
 4. The host launches one kernel. The kernel iterates over all peer contexts, constructs an
    `HcommPeer` and `HcommJetty` for each peer, records the cycles around the 1000-call 256-byte
    `Put` loop and divides by 1000, then calls `Drain` only after the timed loop.

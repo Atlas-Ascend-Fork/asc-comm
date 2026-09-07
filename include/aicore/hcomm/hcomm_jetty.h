@@ -64,16 +64,16 @@ public:
 
     // Set kDoCommit=false to enqueue the WQE without ringing the SQ doorbell.
     // A later Put<..., true> publishes the accumulated SQ entries.
-    // dstOffset is a byte offset in the remote registered buffer selected by peer.
+    // dstPtr is the externally supplied remote device address.
     template <int64_t kNumTimeoutCycles, bool kDoCommit = true>
     __aicore__ __forceinline__ int32_t Put(
-        const HcommPeer& peer, uint64_t dstOffset, __gm__ void* srcPtr, uint64_t numBytes);
+        const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes);
 
-    // dstOffset and notifyOffset are byte offsets in the remote registered buffer selected by peer.
+    // dstPtr and notifyAddr are externally supplied remote device addresses.
     template <int64_t kNumTimeoutCycles>
     __aicore__ __forceinline__ int32_t PutWithNotify(
-        const HcommPeer& peer, uint64_t dstOffset, __gm__ void* srcPtr, uint64_t numBytes,
-        uint64_t notifyOffset, uint64_t notifyValue);
+        const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
+        __gm__ void* notifyAddr, uint64_t notifyValue);
 
     template <int64_t kNumTimeoutCycles>
     __aicore__ __forceinline__ int32_t Drain();
@@ -81,13 +81,13 @@ public:
 private:
     template <int64_t kNumTimeoutCycles, bool kWithNotify, bool kDoCommit>
     __aicore__ __forceinline__ int32_t PostWrite(
-        const HcommPeer& peer, uint64_t dstOffset, __gm__ void* srcPtr, uint64_t numBytes,
-        uint64_t notifyOffset, uint64_t notifyValue);
+        const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
+        __gm__ void* notifyAddr, uint64_t notifyValue);
 
     template <bool kWithNotify>
     __aicore__ __forceinline__ bool BuildWriteSqe(
-        const HcommPeer& peer, uint64_t dstOffset, __gm__ void* srcPtr, uint64_t numBytes,
-        uint32_t currentHead, uint64_t notifyOffset, uint64_t notifyValue);
+        const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
+        uint32_t currentHead, __gm__ void* notifyAddr, uint64_t notifyValue);
 
     __aicore__ __forceinline__ void CopySqeToSq(uint32_t currentHead, uint32_t numWqebbs);
     __aicore__ __forceinline__ void AdvanceSq(uint32_t numWqebbs);

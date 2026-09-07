@@ -92,19 +92,18 @@ __aicore__ __forceinline__ HcommJetty::HcommJetty(
 
 template <bool kWithNotify>
 __aicore__ __forceinline__ bool HcommJetty::BuildWriteSqe(
-    const HcommPeer& peer, uint64_t dstOffset, __gm__ void* srcPtr, uint64_t numBytes,
-    uint32_t currentHead, uint64_t notifyOffset, uint64_t notifyValue)
+    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
+    uint32_t currentHead, __gm__ void* notifyAddr, uint64_t notifyValue)
 {
     if (!valid_ || !peer.valid || jettyInfo_ == nullptr || ubufSqe_ == nullptr || peer.peerInfo == nullptr ||
         srcPtr == nullptr) {
         return false;
     }
     auto* info = peer.peerInfo;
-    if (dstOffset > info->remoteBufferSize || numBytes > info->remoteBufferSize - dstOffset ||
-        numBytes > 0xFFFFFFFFULL) {
+    if (numBytes > 0xFFFFFFFFULL) {
         return false;
     }
-    uint64_t remoteAddr = info->remoteBaseAddr + dstOffset;
+    uint64_t remoteAddr = reinterpret_cast<uint64_t>(dstPtr);
     auto* sqe = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(ubufSqe_);
     sqe->sqeBbIdx = 0;
     sqe->flag = HCOMM_JETTY_WRITE_SQE_FLAG;
@@ -132,11 +131,8 @@ __aicore__ __forceinline__ bool HcommJetty::BuildWriteSqe(
     sqe->rmtAddrHOrTokenValue = static_cast<uint32_t>(remoteAddr >> 32U);
     __ubuf__ uint8_t* sgeAddr = ubufSqe_ + sizeof(HcommUrmaSqeCtx);
     if constexpr (kWithNotify) {
-        if (notifyOffset > info->remoteBufferSize || sizeof(uint64_t) > info->remoteBufferSize - notifyOffset) {
-            return false;
-        }
         auto* notify = reinterpret_cast<__ubuf__ HcommUrmaNotifyCtx*>(sgeAddr);
-        uint64_t remoteNotifyAddr = info->remoteBaseAddr + notifyOffset;
+        uint64_t remoteNotifyAddr = reinterpret_cast<uint64_t>(notifyAddr);
         notify->notifyTokenId = static_cast<uint32_t>(info->tpIdNumSgesRemoteTokenId >> 32U);
         notify->rsv = 0;
         notify->notifyTokenValue = static_cast<uint32_t>(info->remoteTokenValueUdf);
@@ -233,8 +229,8 @@ __aicore__ __forceinline__ int32_t HcommJetty::PollCq(uint32_t expectedTail)
 
 template <int64_t kNumTimeoutCycles, bool kWithNotify, bool kDoCommit>
 __aicore__ __forceinline__ int32_t HcommJetty::PostWrite(
-    const HcommPeer& peer, uint64_t dstOffset, __gm__ void* srcPtr, uint64_t numBytes,
-    uint64_t notifyOffset, uint64_t notifyValue)
+    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
+    __gm__ void* notifyAddr, uint64_t notifyValue)
 {
     if (!valid_ || jettyInfo_ == nullptr || ubufSqe_ == nullptr || jettyInfo_->sqDepth == 0U ||
         jettyInfo_->cqDepth == 0U) {
@@ -243,7 +239,7 @@ __aicore__ __forceinline__ int32_t HcommJetty::PostWrite(
     uint32_t head = static_cast<uint32_t>(jettyInfo_->packedHead);
     PollCqWhenSqOverflow<kNumTimeoutCycles>();
     const uint32_t numWqebbs = kWithNotify ? kNumWriteWithNotifyWqebbs : kNumWriteWqebbs;
-    if (!BuildWriteSqe<kWithNotify>(peer, dstOffset, srcPtr, numBytes, head, notifyOffset, notifyValue)) {
+    if (!BuildWriteSqe<kWithNotify>(peer, dstPtr, srcPtr, numBytes, head, notifyAddr, notifyValue)) {
         return HCOMM_FAILED;
     }
     CopySqeToSq(head, numWqebbs);
@@ -256,19 +252,19 @@ __aicore__ __forceinline__ int32_t HcommJetty::PostWrite(
 
 template <int64_t kNumTimeoutCycles, bool kDoCommit>
 __aicore__ __forceinline__ int32_t HcommJetty::Put(
-    const HcommPeer& peer, uint64_t dstOffset, __gm__ void* srcPtr, uint64_t numBytes)
+    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes)
 {
     return PostWrite<kNumTimeoutCycles, false, kDoCommit>(
-        peer, dstOffset, srcPtr, numBytes, 0U, 0U);
+        peer, dstPtr, srcPtr, numBytes, nullptr, 0U);
 }
 
 template <int64_t kNumTimeoutCycles>
 __aicore__ __forceinline__ int32_t HcommJetty::PutWithNotify(
-    const HcommPeer& peer, uint64_t dstOffset, __gm__ void* srcPtr, uint64_t numBytes,
-    uint64_t notifyOffset, uint64_t notifyValue)
+    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
+    __gm__ void* notifyAddr, uint64_t notifyValue)
 {
     return PostWrite<kNumTimeoutCycles, true, true>(
-        peer, dstOffset, srcPtr, numBytes, notifyOffset, notifyValue);
+        peer, dstPtr, srcPtr, numBytes, notifyAddr, notifyValue);
 }
 
 template <int64_t kNumTimeoutCycles>

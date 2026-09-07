@@ -23,8 +23,8 @@ hcomm_jetty_write
 
 1. rank 0 将 `HcclRootInfo` 写入临时文件，其余 rank 轮询读取后初始化 HCCL 通信域。
 2. Host 注册通信 buffer，并为每个非本 rank peer 获取 `COMM_ENGINE_AIV` 的 UBC_CTP channel。
-3. Host 将 channel handle 写入 device Jetty table，同时下发本端 buffer 地址、远端 buffer index
-   和目标槽位 offset。
+3. Host 将 channel handle 写入 device Jetty table，同时下发本端 buffer 地址、外部提供的远端目标
+   device 地址和远端 buffer index。
 4. Host 只下发一个 kernel；Kernel 遍历所有 peer context，分别构造 `HcommPeer`/`HcommJetty`，调用 `Put` 写入 256 字节，再调用 `Drain` 等待完成。
 5. 所有 rank 通过 HCCL barrier 同步，Host 回读 buffer 并校验每个 peer 的数据 pattern。
 
