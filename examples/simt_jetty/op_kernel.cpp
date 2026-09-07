@@ -20,9 +20,9 @@ namespace {
 
 using namespace simt_jetty;
 
-template <typename Coop, bool kPadSecondSge>
-__simt_callee__ inline void SimtJettyWriteImpl(
-    const Coop& coop, uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+template <bool kPadSecondSge>
+__simt_callee__ inline void SimtJettyWriteRank0(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
@@ -32,9 +32,11 @@ __simt_callee__ inline void SimtJettyWriteImpl(
     counters[0] = 0;
     counters[1] = 1;
     alignas(8) __ubuf__ uint8_t sqeBuf[AscendC::simt::jetty::HcommJetty::kNumMaxSQEBytes] = {};
+    alignas(8) __ubuf__ uint64_t dwqeStage[32] = {};
 
     AscendC::simt::jetty::HcommPeer peer(&peerInfo, jettyPtrTable, 0);
-    AscendC::simt::jetty::HcommJetty jetty(&jettyInfo, &counters[0], &counters[1], sqeBuf, jettyPtrTable, 0);
+    AscendC::simt::jetty::HcommJetty jetty;
+    jetty.Init(&jettyInfo, &counters[0], &counters[1], sqeBuf, dwqeStage, jettyPtrTable, 0);
 
     AscendC::simt::jetty::HcommSge sges[2] = {
         {reinterpret_cast<uint64_t>(localSrc), static_cast<int>(kSlotBytes)},
@@ -45,8 +47,19 @@ __simt_callee__ inline void SimtJettyWriteImpl(
         sges[1].len = 0;
     }
 
-    jetty.template Put<2>(coop, peer, remoteDst, sges);
-    jetty.template Drain<1000000>(coop);
+    jetty.template Put<2>(peer, remoteDst, sges);
+    jetty.template Drain<1000000>();
+}
+
+template <typename Coop, bool kPadSecondSge>
+__simt_callee__ inline void SimtJettyWriteImpl(
+    const Coop& coop, uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    coop.sync();
+    if (coop.thread_rank() == 0) {
+        SimtJettyWriteRank0<kPadSecondSge>(channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+    }
+    coop.sync();
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteThreadVf(

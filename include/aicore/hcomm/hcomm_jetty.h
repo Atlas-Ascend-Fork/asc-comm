@@ -566,19 +566,35 @@ struct HcommJetty {
     __ubuf__ int* write_counter = nullptr;
     __ubuf__ int* num_writes = nullptr;
     __ubuf__ uint8_t* ub_sqe = nullptr;
-    uint64_t dwqe_stage[32] = {};
+    __ubuf__ uint64_t* dwqe_stage = nullptr;
+
+    __simt_callee__ inline HcommJetty() = default;
 
     __simt_callee__ inline HcommJetty(
             __ubuf__ HcommJettyInfo* jetty_info,
             __ubuf__ int* write_counter,
             __ubuf__ int* num_writes,
             __ubuf__ uint8_t* ub_sqe,
+            __ubuf__ uint64_t* dwqe_stage,
             __gm__ void* jetty_ptrs, const int jetty_idx):
-        jetty_info(jetty_info),
-        write_counter(write_counter),
-        num_writes(num_writes),
-        ub_sqe(ub_sqe)
+        HcommJetty()
     {
+        Init(jetty_info, write_counter, num_writes, ub_sqe, dwqe_stage, jetty_ptrs, jetty_idx);
+    }
+
+    __simt_callee__ inline void Init(
+            __ubuf__ HcommJettyInfo* jetty_info,
+            __ubuf__ int* write_counter,
+            __ubuf__ int* num_writes,
+            __ubuf__ uint8_t* ub_sqe,
+            __ubuf__ uint64_t* dwqe_stage,
+            __gm__ void* jetty_ptrs, const int jetty_idx)
+    {
+        this->jetty_info = jetty_info;
+        this->write_counter = write_counter;
+        this->num_writes = num_writes;
+        this->ub_sqe = ub_sqe;
+        this->dwqe_stage = dwqe_stage;
         constexpr uint32_t kDwqeDbOffset = 0x80U;
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = *(jetty_table + jetty_idx);
