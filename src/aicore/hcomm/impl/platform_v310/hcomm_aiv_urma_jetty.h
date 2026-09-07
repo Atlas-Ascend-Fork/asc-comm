@@ -157,7 +157,7 @@ __aicore__ __forceinline__ bool HcommJetty::BuildWriteValueSqe(
     const HcommPeer& peer, __gm__ void* dstPtr, T value, uint32_t currentHead)
 {
     static_assert(sizeof(T) <= HcommJetty::kNumWriteWqebbs * 64U - sizeof(HcommUrmaSqeCtx),
-        "PutValue value is too large for one WQEBB");
+        "WriteValue value is too large for one WQEBB");
     if (!valid_ || !peer.valid || jettyInfo_ == nullptr || ubufSqe_ == nullptr || peer.peerInfo == nullptr) {
         return false;
     }
@@ -314,7 +314,7 @@ __aicore__ __forceinline__ int32_t HcommJetty::PostWriteValue(
 }
 
 template <int64_t kNumTimeoutCycles, bool kDoCommit>
-__aicore__ __forceinline__ int32_t HcommJetty::Put(
+__aicore__ __forceinline__ int32_t HcommJetty::Write(
     const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes)
 {
     return PostWrite<kNumTimeoutCycles, false, kDoCommit>(
@@ -322,14 +322,14 @@ __aicore__ __forceinline__ int32_t HcommJetty::Put(
 }
 
 template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit>
-__aicore__ __forceinline__ int32_t HcommJetty::PutValue(
+__aicore__ __forceinline__ int32_t HcommJetty::WriteValue(
     const HcommPeer& peer, __gm__ void* dstPtr, T value)
 {
     return PostWriteValue<kNumTimeoutCycles, T, kDoCommit>(peer, dstPtr, value);
 }
 
 template <int64_t kNumTimeoutCycles>
-__aicore__ __forceinline__ int32_t HcommJetty::PutWithNotify(
+__aicore__ __forceinline__ int32_t HcommJetty::WriteWithNotify(
     const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
     __gm__ void* notifyAddr, uint64_t notifyValue)
 {

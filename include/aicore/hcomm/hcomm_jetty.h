@@ -63,20 +63,20 @@ public:
         __gm__ void* jettyTable, uint32_t jettyIdx);
 
     // Set kDoCommit=false to enqueue the WQE without ringing the SQ doorbell.
-    // A later Put<..., true> publishes the accumulated SQ entries.
+    // A later Write<..., true> publishes the accumulated SQ entries.
     // dstPtr is the externally supplied remote device address.
     template <int64_t kNumTimeoutCycles, bool kDoCommit = true>
-    __aicore__ __forceinline__ int32_t Put(
+    __aicore__ __forceinline__ int32_t Write(
         const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes);
 
-    // PutValue carries value inline in a single WQEBB; T must fit after the SQE header.
+    // WriteValue carries value inline in a single WQEBB; T must fit after the SQE header.
     template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit = true>
-    __aicore__ __forceinline__ int32_t PutValue(
+    __aicore__ __forceinline__ int32_t WriteValue(
         const HcommPeer& peer, __gm__ void* dstPtr, T value);
 
     // dstPtr and notifyAddr are externally supplied remote device addresses.
     template <int64_t kNumTimeoutCycles>
-    __aicore__ __forceinline__ int32_t PutWithNotify(
+    __aicore__ __forceinline__ int32_t WriteWithNotify(
         const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
         __gm__ void* notifyAddr, uint64_t notifyValue);
 

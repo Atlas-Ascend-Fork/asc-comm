@@ -1,7 +1,7 @@
 # Hcomm Jetty WRITE Sample
 
 This sample demonstrates an URMA Jetty WRITE issued from an AIV kernel through the
-`HcommPeer`, `HcommJetty::Put`, and `HcommJetty::Drain` interfaces in `hcomm_jetty.h`. Each rank
+`HcommPeer`, `HcommJetty::Write`, and `HcommJetty::Drain` interfaces in `hcomm_jetty.h`. Each rank
 writes 256 bytes to every other rank, with the remote data placed in a slot assigned to the source
 rank.
 
@@ -28,8 +28,8 @@ hcomm_jetty_write
 3. The host writes each channel handle into a device Jetty table and passes the local buffer
    address, externally supplied remote destination device address, and remote buffer index to the kernel.
 4. The host launches one kernel. The kernel iterates over all peer contexts, constructs an
-   `HcommPeer` and `HcommJetty` for each peer, calls `Put` for 256 bytes, then issues one inline
-   `PutValue` call to a separate marker address and waits with `Drain`; the host validates both
+   `HcommPeer` and `HcommJetty` for each peer, calls `Write` for 256 bytes, then issues one inline
+   `WriteValue` call to a separate marker address and waits with `Drain`; the host validates both
    the data slot and the marker.
 5. Ranks synchronize with an HCCL barrier, then the host copies the buffer back and validates every
    peer pattern.

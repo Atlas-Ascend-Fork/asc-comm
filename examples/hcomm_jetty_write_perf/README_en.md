@@ -1,8 +1,8 @@
 # Hcomm Jetty WRITE Performance Sample
 
 This sample demonstrates an URMA Jetty WRITE issued from an AIV kernel through the
-`HcommPeer`, `HcommJetty::Put`, and `HcommJetty::Drain` interfaces in `hcomm_jetty.h`. Each rank
-submits 1000 256-byte `Put` calls to every other rank, reports their average interface latency in device
+`HcommPeer`, `HcommJetty::Write`, and `HcommJetty::Drain` interfaces in `hcomm_jetty.h`. Each rank
+submits 1000 256-byte `Write` calls to every other rank, reports their average interface latency in device
 cycles, and excludes the `Drain` wait after the submission loop. Remote data is placed in a slot
 assigned to the source rank.
 
@@ -30,7 +30,7 @@ hcomm_jetty_write_perf
    address, externally supplied remote destination device address, and remote buffer index to the kernel.
 4. The host launches one kernel. The kernel iterates over all peer contexts, constructs an
    `HcommPeer` and `HcommJetty` for each peer, records the cycles around the 1000-call 256-byte
-   `Put` loop and divides by 1000, then calls `Drain` only after the timed loop.
+   `Write` loop and divides by 1000, then calls `Drain` only after the timed loop.
 5. Ranks synchronize with an HCCL barrier, then the host copies the buffer back and validates every
    peer pattern.
 
@@ -56,7 +56,7 @@ For two local devices:
 ./run.sh 2
 ```
 
-Each rank prints the average latency of 1000 `Put` submissions per peer in device cycles. The
+Each rank prints the average latency of 1000 `Write` submissions per peer in device cycles. The
 reported interval surrounds only the submission loop and excludes `Drain`.
 
 To start one rank directly:

@@ -1,6 +1,6 @@
 # Hcomm Jetty WRITE 样例
 
-本样例演示 AIV Kernel 通过 `hcomm_jetty.h` 中的 `HcommPeer`、`HcommJetty::Put` 和
+本样例演示 AIV Kernel 通过 `hcomm_jetty.h` 中的 `HcommPeer`、`HcommJetty::Write` 和
 `HcommJetty::Drain` 发起 URMA Jetty WRITE。每个 rank 向其他所有 rank 写入 256 字节，
 远端数据落在按发送 rank 划分的接收槽位中。
 
@@ -25,7 +25,7 @@ hcomm_jetty_write
 2. Host 注册通信 buffer，并为每个非本 rank peer 获取 `COMM_ENGINE_AIV` 的 UBC_CTP channel。
 3. Host 将 channel handle 写入 device Jetty table，同时下发本端 buffer 地址、外部提供的远端目标
    device 地址和远端 buffer index。
-4. Host 只下发一个 kernel；Kernel 遍历所有 peer context，分别构造 `HcommPeer`/`HcommJetty`，调用 `Put` 写入 256 字节，再向独立 marker 地址调用一次 `PutValue`，最后调用 `Drain` 等待完成；Host 分别校验数据槽和 marker。
+4. Host 只下发一个 kernel；Kernel 遍历所有 peer context，分别构造 `HcommPeer`/`HcommJetty`，调用 `Write` 写入 256 字节，再向独立 marker 地址调用一次 `WriteValue`，最后调用 `Drain` 等待完成；Host 分别校验数据槽和 marker。
 5. 所有 rank 通过 HCCL barrier 同步，Host 回读 buffer 并校验每个 peer 的数据 pattern。
 
 ## 编译
