@@ -13,21 +13,35 @@
 
 #include <stdint.h>
 
+// 数据面随仓副本：hcomm侧的hcomm_primitives_types.h复用include/hcomm_res_defs.h
+// 权威定义(带guard宏)。数据面编译环境无该头，此副本提供同构定义。
+// 字段/枚举值必须与hcomm_res_defs.h保持一致(hcomm侧guard宏兼容两套包含)。
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+#ifndef CHANNEL_HANDLE_DEFINED
+#define CHANNEL_HANDLE_DEFINED
 typedef uint64_t ChannelHandle;
+#endif
 
+#ifndef THREAD_HANDLE_DEFINED
+#define THREAD_HANDLE_DEFINED
 typedef uint64_t ThreadHandle;
+#endif
 
+#ifndef COMM_ABI_HEADER_DEFINED
+#define COMM_ABI_HEADER_DEFINED
 typedef struct {
     uint32_t version;
     uint32_t magicWord;
     uint32_t size;
     uint32_t reserved;
 } CommAbiHeader;
+#endif
 
+#ifndef COMM_ENGINE_DEFINED
+#define COMM_ENGINE_DEFINED
 typedef enum {
     COMM_ENGINE_RESERVED = -1,
     COMM_ENGINE_CPU = 0,
@@ -37,7 +51,10 @@ typedef enum {
     COMM_ENGINE_AIV = 4,
     COMM_ENGINE_CCU = 5,
 } CommEngine;
+#endif
 
+#ifndef COMM_PROTOCOL_DEFINED
+#define COMM_PROTOCOL_DEFINED
 typedef enum {
     COMM_PROTOCOL_RESERVED = -1,
     COMM_PROTOCOL_HCCS = 0,
@@ -53,6 +70,7 @@ typedef enum {
     COMM_PROTOCOL_UB_RTP = 9,
     COMM_PROTOCOL_UBG = COMM_PROTOCOL_UB_RTP,
 } CommProtocol;
+#endif
 
 typedef enum {
     HCOMM_REDUCE_SUM = 0,
