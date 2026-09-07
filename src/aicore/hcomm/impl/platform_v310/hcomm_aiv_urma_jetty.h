@@ -235,28 +235,8 @@ __aicore__ __forceinline__ int32_t HcommJetty::PollCq(uint32_t expectedTail)
     return HCOMM_SUCCESS;
 }
 
-template <int64_t kNumTimeoutCycles>
-__aicore__ __forceinline__ int32_t HcommJetty::Put(
-    const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
-    __gm__ void* srcPtr, uint64_t numBytes)
-{
-    if (!valid_ || jettyInfo_ == nullptr || ubSqe_ == nullptr || jettyInfo_->sqDepth == 0U ||
-        jettyInfo_->cqDepth == 0U) {
-        return HCOMM_FAILED;
-    }
-    uint32_t head = static_cast<uint32_t>(jettyInfo_->packedHead);
-    PollCqWhenSqOverflow<kNumTimeoutCycles>();
-    if (!BuildWriteSqe<false>(peer, localBase, dstSymPtr, srcPtr, numBytes, head, nullptr, 0U)) {
-        return HCOMM_FAILED;
-    }
-    CopySqeToSq(head, kNumWriteWqebbs);
-    AdvanceSq(kNumWriteWqebbs);
-    RingDoorbell();
-    return HCOMM_SUCCESS;
-}
-
-template <int64_t kNumTimeoutCycles>
-__aicore__ __forceinline__ int32_t HcommJetty::PutWithNotify(
+template <int64_t kNumTimeoutCycles, bool kWithNotify, bool kDoCommit>
+__aicore__ __forceinline__ int32_t HcommJetty::PostWrite(
     const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
     __gm__ void* srcPtr, uint64_t numBytes, __gm__ void* notifySymPtr, uint64_t notifyValue)
 {
@@ -266,13 +246,35 @@ __aicore__ __forceinline__ int32_t HcommJetty::PutWithNotify(
     }
     uint32_t head = static_cast<uint32_t>(jettyInfo_->packedHead);
     PollCqWhenSqOverflow<kNumTimeoutCycles>();
-    if (!BuildWriteSqe<true>(peer, localBase, dstSymPtr, srcPtr, numBytes, head, notifySymPtr, notifyValue)) {
+    const uint32_t numWqebbs = kWithNotify ? kNumWriteWithNotifyWqebbs : kNumWriteWqebbs;
+    if (!BuildWriteSqe<kWithNotify>(peer, localBase, dstSymPtr, srcPtr, numBytes, head,
+        notifySymPtr, notifyValue)) {
         return HCOMM_FAILED;
     }
-    CopySqeToSq(head, kNumWriteWithNotifyWqebbs);
-    AdvanceSq(kNumWriteWithNotifyWqebbs);
-    RingDoorbell();
+    CopySqeToSq(head, numWqebbs);
+    AdvanceSq(numWqebbs);
+    if constexpr (kDoCommit) {
+        RingDoorbell();
+    }
     return HCOMM_SUCCESS;
+}
+
+template <int64_t kNumTimeoutCycles, bool kDoCommit>
+__aicore__ __forceinline__ int32_t HcommJetty::Put(
+    const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
+    __gm__ void* srcPtr, uint64_t numBytes)
+{
+    return PostWrite<kNumTimeoutCycles, false, kDoCommit>(
+        peer, localBase, dstSymPtr, srcPtr, numBytes, nullptr, 0U);
+}
+
+template <int64_t kNumTimeoutCycles>
+__aicore__ __forceinline__ int32_t HcommJetty::PutWithNotify(
+    const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
+    __gm__ void* srcPtr, uint64_t numBytes, __gm__ void* notifySymPtr, uint64_t notifyValue)
+{
+    return PostWrite<kNumTimeoutCycles, true, true>(
+        peer, localBase, dstSymPtr, srcPtr, numBytes, notifySymPtr, notifyValue);
 }
 
 template <int64_t kNumTimeoutCycles>

@@ -62,7 +62,9 @@ public:
         __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubSqe,
         __gm__ void* jettyTable, uint32_t jettyIdx);
 
-    template <int64_t kNumTimeoutCycles>
+    // Set kDoCommit=false to enqueue the WQE without ringing the SQ doorbell.
+    // A later Put<..., true> publishes the accumulated SQ entries.
+    template <int64_t kNumTimeoutCycles, bool kDoCommit = true>
     __aicore__ __forceinline__ int32_t Put(
         const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
         __gm__ void* srcPtr, uint64_t numBytes);
@@ -76,6 +78,11 @@ public:
     __aicore__ __forceinline__ int32_t Drain();
 
 private:
+    template <int64_t kNumTimeoutCycles, bool kWithNotify, bool kDoCommit>
+    __aicore__ __forceinline__ int32_t PostWrite(
+        const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
+        __gm__ void* srcPtr, uint64_t numBytes, __gm__ void* notifySymPtr, uint64_t notifyValue);
+
     template <bool kWithNotify>
     __aicore__ __forceinline__ bool BuildWriteSqe(
         const HcommPeer& peer, __gm__ void* localBase, __gm__ void* dstSymPtr,
