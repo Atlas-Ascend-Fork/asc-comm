@@ -587,36 +587,36 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
     constexpr bool withNotify = opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY;
     constexpr uint32_t wqebbCount = withNotify ? HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM : 1U;
 
-    bool unboundOpcode = batchHandle.opcode == HCOMM_URMA_BATCH_OPCODE_UNBOUND;
-    if (batchHandle.channelHandle == 0U || (!unboundOpcode && batchHandle.opcode != opCode)) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with invalid handle or mismatched opcode\n");
-        return HCOMM_FAILED;
-    }
-    uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
-    if (preSqCnt > batchHandle.buffer.bufferCapacity || wqebbCount > batchHandle.buffer.bufferCapacity - preSqCnt) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with insufficient buffer\n");
-        return HCOMM_FAILED;
-    }
+    // bool unboundOpcode = batchHandle.opcode == HCOMM_URMA_BATCH_OPCODE_UNBOUND;
+    // if (batchHandle.channelHandle == 0U || (!unboundOpcode && batchHandle.opcode != opCode)) {
+    //     HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with invalid handle or mismatched opcode\n");
+    //     return HCOMM_FAILED;
+    // }
+    // uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
+    // if (preSqCnt > batchHandle.buffer.bufferCapacity || wqebbCount > batchHandle.buffer.bufferCapacity - preSqCnt) {
+    //     HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with insufficient buffer\n");
+    //     return HCOMM_FAILED;
+    // }
     __ubuf__ uint8_t* currentWqeAddr = reinterpret_cast<__ubuf__ uint8_t*>(
         batchHandle.buffer.buffer.GetPhyAddr(preSqCnt * HCOMM_URMA_WQEBB_U32_NUM));
 
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqeAddr);
     Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-    if (unboundOpcode) {
-        HcommUrmaFillBatchSqeCtx<opCode, config>(sqeCtx, reinterpret_cast<__gm__ uint8_t*>(remoteAddr), batchHandle);
-    } else {
+    // if (unboundOpcode) {
+    //     HcommUrmaFillBatchSqeCtx<opCode, config>(sqeCtx, reinterpret_cast<__gm__ uint8_t*>(remoteAddr), batchHandle);
+    // } else {
         HcommUrmaFillBatchSqeDynamicCtx<opCode, config>(
             sqeCtx, reinterpret_cast<__gm__ uint8_t*>(remoteAddr), batchHandle);
-    }
+    // }
 
     __ubuf__ uint8_t* sgeAddr = currentWqeAddr + sizeof(HcommUrmaSqeCtx);
     if constexpr (withNotify) {
         __ubuf__ HcommUrmaNotifyCtx* notifyCtx = reinterpret_cast<__ubuf__ HcommUrmaNotifyCtx*>(sgeAddr);
-        if (unboundOpcode) {
-            HcommUrmaFillBatchNotifyCtx(notifyCtx, batchHandle, notifyAddr, notifyVal);
-        } else {
+        // if (unboundOpcode) {
+        //     HcommUrmaFillBatchNotifyCtx(notifyCtx, batchHandle, notifyAddr, notifyVal);
+        // } else {
             HcommUrmaFillBatchNotifyDynamicCtx(notifyCtx, notifyAddr, notifyVal);
-        }
+        // }
         sgeAddr += sizeof(HcommUrmaNotifyCtx);
     }
     __ubuf__ HcommUrmaSgeCtx* sgeCtx = reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(sgeAddr);
