@@ -146,7 +146,6 @@ struct HcommJetty {
     __ubuf__ int* write_counter = nullptr;
     __ubuf__ int* num_writes = nullptr;
     __ubuf__ uint8_t* ub_sqe = nullptr;
-    uint64_t dwqe_stage[32] = {};
 
     __aicore__ inline HcommJetty(
             __ubuf__ HcommJettyInfo* jetty_info,
@@ -213,7 +212,6 @@ struct HcommJetty {
         auto* sqe_words = reinterpret_cast<__ubuf__ uint64_t*>(ub_sqe);
         for (uint32_t i = 0; i < kNumSimtWQEWords; ++i) {
             sqe_words[i] = 0;
-            dwqe_stage[i] = 0;
         }
 
         const auto sq_wqebb_idx = current_head % jetty_info->sq_depth;
@@ -236,9 +234,6 @@ struct HcommJetty {
             sqe_words[word_idx + 1U] = addr;
         }
 
-        for (uint32_t i = 0; i < kNumSimtWQEWords; ++i) {
-            dwqe_stage[i] = sqe_words[i];
-        }
     }
 
     template <int kNumSGEs>
@@ -566,7 +561,6 @@ struct HcommJetty {
     __ubuf__ int* write_counter = nullptr;
     __ubuf__ int* num_writes = nullptr;
     __ubuf__ uint8_t* ub_sqe = nullptr;
-    uint64_t dwqe_stage[32] = {};
 
     __simt_callee__ inline HcommJetty(
             __ubuf__ HcommJettyInfo* jetty_info,
@@ -633,7 +627,6 @@ struct HcommJetty {
         auto* sqe_words = reinterpret_cast<__ubuf__ uint64_t*>(ub_sqe);
         for (uint32_t i = 0; i < kNumSimtWQEWords; ++i) {
             sqe_words[i] = 0;
-            dwqe_stage[i] = 0;
         }
 
         const auto sq_wqebb_idx = current_head % jetty_info->sq_depth;
@@ -656,9 +649,6 @@ struct HcommJetty {
             sqe_words[word_idx + 1U] = addr;
         }
 
-        for (uint32_t i = 0; i < kNumSimtWQEWords; ++i) {
-            dwqe_stage[i] = sqe_words[i];
-        }
     }
 
     template <int kNumSGEs>
@@ -803,10 +793,11 @@ struct HcommJetty {
             (static_cast<uint64_t>(new_num_completions) << 32);
 
         auto* dwqe_words = reinterpret_cast<__gm__ ulonglong2*>(jetty_info->dwqe_addr);
-        dwqe_words[0] = make_ulonglong2(dwqe_stage[24], dwqe_stage[25]);
-        dwqe_words[1] = make_ulonglong2(dwqe_stage[26], dwqe_stage[27]);
-        dwqe_words[2] = make_ulonglong2(dwqe_stage[28], dwqe_stage[29]);
-        dwqe_words[3] = make_ulonglong2(dwqe_stage[30], dwqe_stage[31]);
+        const auto* sqe_words = reinterpret_cast<const __ubuf__ uint64_t*>(ub_sqe);
+        dwqe_words[0] = make_ulonglong2(sqe_words[24], sqe_words[25]);
+        dwqe_words[1] = make_ulonglong2(sqe_words[26], sqe_words[27]);
+        dwqe_words[2] = make_ulonglong2(sqe_words[28], sqe_words[29]);
+        dwqe_words[3] = make_ulonglong2(sqe_words[30], sqe_words[31]);
         dwqe_words[4] = make_ulonglong2(jetty_info->packed_head, 0ULL);
         dwqe_words[5] = make_ulonglong2(0ULL, 0ULL);
         dwqe_words[6] = make_ulonglong2(0ULL, 0ULL);
