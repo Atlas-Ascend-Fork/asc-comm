@@ -9,6 +9,12 @@ source /usr/local/Ascend/cann/set_env.sh
 bash build.sh
 ```
 
+没有硬件时，可在编译阶段检查 SIMT VF 的栈和寄存器占用：
+
+```bash
+CCE_RES_USAGE=1 bash build.sh
+```
+
 ## 执行
 
 ```bash

@@ -19,6 +19,8 @@ find_package(ASC REQUIRED)
 
 project(simt_jetty LANGUAGES ASC CXX)
 
+option(HCOMM_CCE_RES_USAGE "Print CCE stack and register usage" OFF)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -64,4 +66,5 @@ target_link_libraries(simt_jetty PRIVATE
 target_compile_options(simt_jetty PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
     $<$<COMPILE_LANGUAGE:ASC>:--cce-auto-infer-kernel-type=false>
+    $<$<AND:$<COMPILE_LANGUAGE:ASC>,$<BOOL:${HCOMM_CCE_RES_USAGE}>>:--cce-res-usage>
 )

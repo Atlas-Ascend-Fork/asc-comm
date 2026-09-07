@@ -26,7 +26,9 @@
 #include "hcomm.h"
 #include <kernel_operator.h>
 #include <c_api/sys_var/sys_var.h>
+#include <simt_api/device_atomic_functions.h>
 #include <simt_api/device_functions.h>
+#include <simt_api/device_warp_functions.h>
 #include <simt_api/vector_functions.h>
 
 #if defined(__CCE__)
@@ -337,7 +339,7 @@ struct HcommJetty {
         coop.sync();
     }
 
-    template <int kNumSGEs, typename Coop, bool kDoCommit = true>
+    template <int kNumSGEs, bool kDoCommit = true, typename Coop>
     __aicore__ inline void Put(
             const Coop& coop,
             const HcommPeer& peer,
@@ -477,6 +479,7 @@ namespace simt {
 
 struct HcommCoopThread {
     __simt_callee__ inline void sync() const {}
+    __simt_callee__ inline int size() const { return 1; }
     __simt_callee__ inline int thread_rank() const
     {
         return 0;
@@ -493,6 +496,10 @@ struct HcommCoopWarp {
     __simt_callee__ inline void sync() const
     {
         group_.sync();
+    }
+    __simt_callee__ inline int size() const
+    {
+        return 32;
     }
     __simt_callee__ inline int thread_rank() const
     {
@@ -511,6 +518,10 @@ struct HcommCoopGroup {
     {
         group_.sync();
     }
+    __simt_callee__ inline int size() const
+    {
+        return static_cast<int>(group_.size());
+    }
 
     __simt_callee__ inline int thread_rank() const
     {
@@ -524,14 +535,27 @@ struct alignas(8) HcommSge {
     uint64_t addr = 0;
     int len = 0;
 };
+static_assert(sizeof(HcommSge) == 16, "SIMT HcommSge size mismatch");
+static_assert(alignof(HcommSge) == 8, "SIMT HcommSge alignment mismatch");
 
 struct HcommPeer {
     __ubuf__ HcommPeerInfo* peer_info = nullptr;
+
+    __simt_callee__ inline HcommPeer() = default;
+
+    __simt_callee__ inline explicit HcommPeer(__ubuf__ HcommPeerInfo* peer_info):
+        peer_info(peer_info)
+    {}
 
     __simt_callee__ inline HcommPeer(
             __ubuf__ HcommPeerInfo* peer_info,
             __gm__ void* jetty_ptrs, const int jetty_idx):
         peer_info(peer_info)
+    {
+        Init(jetty_ptrs, jetty_idx);
+    }
+
+    __simt_callee__ inline void Init(__gm__ void* jetty_ptrs, const int jetty_idx)
     {
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = *(jetty_table + jetty_idx);
@@ -557,51 +581,68 @@ struct HcommPeer {
         }
     }
 };
-
 struct HcommJetty {
-    static constexpr uint32_t kNumSimtWriteWQEBBs = 4;
-    static constexpr uint32_t kNumSimtWQEWords = kNumSimtWriteWQEBBs * (kNumWQEBBBytes / sizeof(uint64_t));
-    static constexpr uint32_t kNumMaxSQEBytes = kNumSimtWriteWQEBBs * kNumWQEBBBytes;
+    static constexpr int kWarpSize = 32;
+    static constexpr int kNumMaxSGEsPerWrite = 2 * kNumMaxSGEPairsPerSQE;
+    static constexpr int kNumWQEBBsPerWrite =
+        (sizeof(HcommUrmaSqeCtx) + kNumMaxSGEsPerWrite * sizeof(HcommUrmaSgeCtx) + kNumWQEBBBytes - 1) /
+        kNumWQEBBBytes;
+    static constexpr int kNumWQEBBLanes = kNumWQEBBBytes / sizeof(uint64_t);
+    static constexpr int kNumWriteHeaderLanes = sizeof(HcommUrmaSqeCtx) / sizeof(uint64_t);
+    static constexpr uint32_t kNumSimtWriteWQEBBs = kNumWQEBBsPerWrite;
+    static constexpr uint32_t kNumMaxSQEBytes = kNumWQEBBsPerWrite * kNumWQEBBBytes;
     static constexpr int64_t kDefaultTimeoutCycles = 1000000LL;
+
+    static_assert(kNumWriteHeaderLanes == 6, "SIMT URMA SQE header must contain six 64-bit words");
+    static_assert(kNumWQEBBsPerWrite == 4, "SIMT URMA write reservation must contain four WQEBBs");
+    static_assert(kNumMaxSGEsPerWrite <= kWarpSize - kNumWriteHeaderLanes,
+                  "SIMT URMA SGE layout must fit in one warp");
 
     __ubuf__ HcommJettyInfo* jetty_info = nullptr;
     __ubuf__ int* write_counter = nullptr;
     __ubuf__ int* num_writes = nullptr;
-    __ubuf__ uint8_t* ub_sqe = nullptr;
-    __ubuf__ uint64_t* dwqe_stage = nullptr;
 
     __simt_callee__ inline HcommJetty() = default;
 
     __simt_callee__ inline HcommJetty(
             __ubuf__ HcommJettyInfo* jetty_info,
             __ubuf__ int* write_counter,
+            __ubuf__ int* num_writes):
+        jetty_info(jetty_info), write_counter(write_counter), num_writes(num_writes)
+    {}
+
+    __simt_callee__ inline HcommJetty(
+            __ubuf__ HcommJettyInfo* jetty_info,
+            __ubuf__ int* write_counter,
             __ubuf__ int* num_writes,
-            __ubuf__ uint8_t* ub_sqe,
-            __ubuf__ uint64_t* dwqe_stage,
             __gm__ void* jetty_ptrs, const int jetty_idx):
-        HcommJetty()
+        HcommJetty(jetty_info, write_counter, num_writes)
     {
-        Init(jetty_info, write_counter, num_writes, ub_sqe, dwqe_stage, jetty_ptrs, jetty_idx);
+        Init(jetty_ptrs, jetty_idx);
     }
 
     __simt_callee__ inline void Init(
             __ubuf__ HcommJettyInfo* jetty_info,
             __ubuf__ int* write_counter,
             __ubuf__ int* num_writes,
-            __ubuf__ uint8_t* ub_sqe,
-            __ubuf__ uint64_t* dwqe_stage,
             __gm__ void* jetty_ptrs, const int jetty_idx)
     {
         this->jetty_info = jetty_info;
         this->write_counter = write_counter;
         this->num_writes = num_writes;
-        this->ub_sqe = ub_sqe;
-        this->dwqe_stage = dwqe_stage;
+        Init(jetty_ptrs, jetty_idx);
+    }
+
+    // Load queue metadata once from the cooperative caller's lane 0.
+    __simt_callee__ inline void Init(__gm__ void* jetty_ptrs, const int jetty_idx)
+    {
         constexpr uint32_t kDwqeDbOffset = 0x80U;
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = *(jetty_table + jetty_idx);
         HCOMM_JETTY_ASSERT(jetty_value != 0);
         const auto jetty = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
+        HCOMM_JETTY_ASSERT(jetty->sqNum > 0 && jetty->cqNum > 0);
+
         const auto sq_context = jetty->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
         const auto cq_context = jetty->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
         jetty_info->sq_base_addr = sq_context.contextInfo.ubJfs.sqVa;
@@ -609,17 +650,17 @@ struct HcommJetty {
         jetty_info->completion_tail_addr = sq_context.contextInfo.ubJfs.tailAddr;
         jetty_info->sq_doorbell_addr = sq_context.contextInfo.ubJfs.dbVa;
         jetty_info->dwqe_addr = sq_context.contextInfo.ubJfs.dbVa - kDwqeDbOffset;
-        jetty_info->sq_depth = sq_context.contextInfo.ubJfs.sqDepth;
-        jetty_info->num_wqebb_bytes = sq_context.contextInfo.ubJfs.wqeSize;
         jetty_info->cq_base_addr = cq_context.contextInfo.ubJfc.scqVa;
         jetty_info->cq_tail_addr = cq_context.contextInfo.ubJfc.tailAddr;
         jetty_info->cq_doorbell_addr = cq_context.contextInfo.ubJfc.dbVa;
-        jetty_info->num_cqe_bytes = cq_context.contextInfo.ubJfc.cqeSize;
-        jetty_info->cq_depth = cq_context.contextInfo.ubJfc.cqDepth;
         jetty_info->packed_head = *reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr);
+        jetty_info->num_wqebb_bytes = sq_context.contextInfo.ubJfs.wqeSize;
+        jetty_info->num_cqe_bytes = cq_context.contextInfo.ubJfc.cqeSize;
+        jetty_info->sq_depth = sq_context.contextInfo.ubJfs.sqDepth;
+        jetty_info->cq_depth = cq_context.contextInfo.ubJfc.cqDepth;
         HCOMM_JETTY_ASSERT(jetty_info->num_wqebb_bytes == kNumWQEBBBytes);
         HCOMM_JETTY_ASSERT(jetty_detail::IsPowerOf2(jetty_info->sq_depth));
-        HCOMM_JETTY_ASSERT(jetty_info->sq_depth >= kNumSimtWriteWQEBBs);
+        HCOMM_JETTY_ASSERT(jetty_info->sq_depth >= kNumWQEBBsPerWrite);
     }
 
     template <int64_t kNumTimeoutCycles>
@@ -629,155 +670,191 @@ struct HcommJetty {
         static constexpr uint32_t kNumCQEsPerPoll = 100;
         const auto num_completions = static_cast<uint32_t>(jetty_info->packed_head >> 32);
         const auto completion_tail = *reinterpret_cast<__gm__ uint32_t*>(jetty_info->completion_tail_addr);
-
         if ((num_completions + kNumPollCQThreshold) % jetty_info->cq_depth ==
             completion_tail % jetty_info->cq_depth) {
-            PollCq<kNumTimeoutCycles>(
-                jetty_detail::Min(completion_tail + kNumCQEsPerPoll, num_completions));
+            PollCq<kNumTimeoutCycles>(jetty_detail::Min(completion_tail + kNumCQEsPerPoll, num_completions));
         }
     }
 
     template <int kNumSGEs>
-    __simt_callee__ inline void BuildWriteSqe(
-            const HcommPeer& peer,
-            __gm__ void* dst,
-            const HcommSge (&sges)[kNumSGEs],
-            const uint32_t current_head)
+    __simt_callee__ inline void PostWriteWarp(
+            const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge)
     {
         static_assert(kNumSGEs >= 2, "SIMT jetty requires at least two SGEs");
-        static_assert(kNumSGEs <= kNumMaxSGEPairsPerSQE * 2, "SIMT jetty SGE count exceeds the SQE layout");
+        static_assert(kNumSGEs <= kNumMaxSGEsPerWrite, "SIMT jetty SGE count exceeds the SQE layout");
 
+        const int lane_idx = static_cast<int>(threadIdx.x) % kWarpSize;
         const auto peer_info_words = reinterpret_cast<__ubuf__ uint64_t*>(peer.peer_info);
-        auto* sqe_words = reinterpret_cast<__ubuf__ uint64_t*>(ub_sqe);
-        for (uint32_t i = 0; i < kNumSimtWQEWords; ++i) {
-            sqe_words[i] = 0;
-            dwqe_stage[i] = 0;
+        int write_idx = 0;
+        if (lane_idx == 0) {
+            HCOMM_JETTY_ASSERT(*num_writes > 0);
+            HCOMM_JETTY_ASSERT(*num_writes * kNumWQEBBsPerWrite <= static_cast<int>(jetty_info->sq_depth));
+            PollCqWhenSqOverflow<kDefaultTimeoutCycles>();
+            write_idx = atomicAdd(
+                reinterpret_cast<__ubuf__ int32_t*>(write_counter), static_cast<int32_t>(1));
         }
-
-        const auto sq_wqebb_idx = current_head % jetty_info->sq_depth;
-        const auto owner_bit = static_cast<uint64_t>((current_head & jetty_info->sq_depth) == 0) << 31;
-
-        sqe_words[0] = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
-        sqe_words[1] = peer_info_words[0] | (static_cast<uint64_t>(kNumSGEs) << 24);
-        sqe_words[2] = peer_info_words[1];
-        sqe_words[3] = peer_info_words[2];
-        sqe_words[4] = peer_info_words[3];
-        sqe_words[5] = reinterpret_cast<uint64_t>(dst);
-
-        constexpr uint32_t kSgeWordBase = 6;
-        for (int sge_idx = 0; sge_idx < kNumSGEs; ++sge_idx) {
-            const auto& sge = sges[sge_idx];
-            const uint32_t word_idx = kSgeWordBase + static_cast<uint32_t>(sge_idx) * 2U;
-            const uint64_t len = (sge.addr == 0 || sge.len <= 0) ? 0ULL : static_cast<uint64_t>(sge.len);
-            const uint64_t addr = (sge.addr == 0 || sge.len <= 0) ? 0ULL : sge.addr;
-            sqe_words[word_idx] = len;
-            sqe_words[word_idx + 1U] = addr;
-        }
-
-        for (uint32_t i = 0; i < kNumSimtWQEWords; ++i) {
-            dwqe_stage[i] = sqe_words[i];
-        }
-    }
-
-    template <int kNumSGEs>
-    __simt_callee__ inline void CopySqeToSq(const uint32_t current_head) const
-    {
-        const auto sq_idx = current_head & (jetty_info->sq_depth - 1);
-        const auto num_first_wqebbs =
-            jetty_detail::Min<uint32_t>(kNumSimtWriteWQEBBs, jetty_info->sq_depth - sq_idx);
-        constexpr uint32_t kNumWordsPerWqebb = kNumWQEBBBytes / sizeof(uint64_t);
-        const auto* sqe_words = reinterpret_cast<const __ubuf__ uint64_t*>(ub_sqe);
-        auto* sq_words = reinterpret_cast<__gm__ ulonglong2*>(
-            jetty_info->sq_base_addr + static_cast<uint64_t>(jetty_info->num_wqebb_bytes) * sq_idx);
-
-        for (uint32_t i = 0; i < num_first_wqebbs * (kNumWQEBBBytes / sizeof(ulonglong2)); ++i) {
-            const uint32_t word_idx = i * 2U;
-            sq_words[i] = make_ulonglong2(sqe_words[word_idx], sqe_words[word_idx + 1U]);
-        }
-        if (num_first_wqebbs < kNumSimtWriteWQEBBs) {
-            auto* sq_words_head = reinterpret_cast<__gm__ ulonglong2*>(jetty_info->sq_base_addr);
-            const uint32_t offset_words = num_first_wqebbs * (kNumWQEBBBytes / sizeof(ulonglong2));
-            const uint32_t tail_words = (kNumSimtWriteWQEBBs - num_first_wqebbs) * (kNumWQEBBBytes / sizeof(ulonglong2));
-            for (uint32_t i = 0; i < tail_words; ++i) {
-                const uint32_t word_idx = offset_words + i * 2U;
-                sq_words_head[i] = make_ulonglong2(sqe_words[word_idx], sqe_words[word_idx + 1U]);
-            }
-        }
-    }
-
-    __simt_callee__ inline void AdvanceSq(const uint32_t num_wqebbs)
-    {
-        const auto new_head = static_cast<uint32_t>(jetty_info->packed_head) + num_wqebbs;
-        const auto new_num_completions = static_cast<uint32_t>(jetty_info->packed_head >> 32) + 1;
-        jetty_info->packed_head = static_cast<uint64_t>(new_head) |
-            (static_cast<uint64_t>(new_num_completions) << 32);
-        *reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr) = jetty_info->packed_head;
-    }
-
-    __simt_callee__ inline void RingDoorbell()
-    {
-        *reinterpret_cast<__gm__ uint32_t*>(jetty_info->sq_doorbell_addr) = static_cast<uint32_t>(jetty_info->packed_head);
-    }
-
-    template <int64_t kNumTimeoutCycles, int kNumSGEs, bool kDoCommit>
-    __simt_callee__ inline void PostWrite(
-            const HcommPeer& peer,
-            __gm__ void* dst,
-            const HcommSge (&sges)[kNumSGEs])
-    {
-        static_assert(kNumSGEs >= 2, "SIMT jetty requires at least two SGEs");
-        HCOMM_JETTY_ASSERT(*num_writes > 0);
-        HCOMM_JETTY_ASSERT((*num_writes) * static_cast<int>(kNumSimtWriteWQEBBs) <= static_cast<int>(jetty_info->sq_depth));
-
-        PollCqWhenSqOverflow<kNumTimeoutCycles>();
-        const int write_idx = (*write_counter)++;
+        write_idx = __shfl(write_idx, 0, kWarpSize);
         HCOMM_JETTY_ASSERT(write_idx >= 0);
         HCOMM_JETTY_ASSERT(write_idx < *num_writes);
 
-        const auto current_head = static_cast<uint32_t>(jetty_info->packed_head) +
-            static_cast<uint32_t>(write_idx) * kNumSimtWriteWQEBBs;
+        const uint32_t current_head = static_cast<uint32_t>(jetty_info->packed_head) +
+            static_cast<uint32_t>(write_idx) * kNumWQEBBsPerWrite;
+        const uint32_t wqebb_head = current_head + static_cast<uint32_t>(lane_idx / kNumWQEBBLanes);
+        const uint32_t sq_wqebb_idx = wqebb_head % jetty_info->sq_depth;
+        const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & jetty_info->sq_depth) == 0) << 31;
+        const int raw_sge_lane = (lane_idx - kNumWriteHeaderLanes) / 2;
+        const int sge_lane = raw_sge_lane < 0 ? 0 :
+            (raw_sge_lane >= kNumMaxSGEsPerWrite ? kNumMaxSGEsPerWrite - 1 : raw_sge_lane);
+        const uint64_t shuffled_sge_addr = __shfl(sge.addr, sge_lane, kWarpSize);
+        const int shuffled_sge_len = __shfl(sge.len, sge_lane, kWarpSize);
 
-        BuildWriteSqe<kNumSGEs>(peer, dst, sges, current_head);
-        CopySqeToSq<kNumSGEs>(current_head);
-
-        if constexpr (kDoCommit) {
-            AdvanceSq(kNumSimtWriteWQEBBs);
-            RingDoorbell();
+        uint64_t sqe_word = 0;
+        if (lane_idx == 0) {
+            sqe_word = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
+            if (write_idx + 1 == *num_writes) {
+                sqe_word |= kWriteSQEFinalFlags;
+            }
+        } else if (lane_idx < kNumWriteHeaderLanes) {
+            sqe_word = peer_info_words[lane_idx - 1];
+            if (lane_idx == 1) {
+                sqe_word |= static_cast<uint64_t>(kNumSGEs) << 24;
+            }
+            if (lane_idx == 5) {
+                sqe_word = reinterpret_cast<uint64_t>(dst);
+            }
+        } else if (lane_idx < kNumWriteHeaderLanes + kNumSGEs * 2) {
+            const bool is_len_word = ((lane_idx - kNumWriteHeaderLanes) % 2) == 0;
+            const bool valid_sge = shuffled_sge_addr != 0 && shuffled_sge_len > 0;
+            sqe_word = valid_sge ? (is_len_word ? static_cast<uint64_t>(shuffled_sge_len) : shuffled_sge_addr) : 0;
+        } else if (lane_idx % kNumWQEBBLanes == 0) {
+            // Unused BBs in the fixed four-BB reservation are real NOP WQEs.
+            sqe_word = kNopSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
         }
+
+        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_base_addr);
+        __stg<ST_L2CacheType::L2_CACHE_HINT_NORMAL_FV, L1CacheType::CACHEABLE>(
+            sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes,
+            sqe_word);
+    }
+
+    template <int kNumSGEs>
+    __simt_callee__ inline void PostWriteScalar(
+            const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs])
+    {
+        static_assert(kNumSGEs >= 2, "SIMT jetty requires at least two SGEs");
+        static_assert(kNumSGEs <= kNumMaxSGEsPerWrite, "SIMT jetty SGE count exceeds the SQE layout");
+        HCOMM_JETTY_ASSERT(*num_writes > 0);
+        HCOMM_JETTY_ASSERT(*num_writes * kNumWQEBBsPerWrite <= static_cast<int>(jetty_info->sq_depth));
+        PollCqWhenSqOverflow<kDefaultTimeoutCycles>();
+        const int write_idx = atomicAdd(
+            reinterpret_cast<__ubuf__ int32_t*>(write_counter), static_cast<int32_t>(1));
+        HCOMM_JETTY_ASSERT(write_idx >= 0 && write_idx < *num_writes);
+
+        const uint32_t current_head = static_cast<uint32_t>(jetty_info->packed_head) +
+            static_cast<uint32_t>(write_idx) * kNumWQEBBsPerWrite;
+        const auto peer_info_words = reinterpret_cast<__ubuf__ uint64_t*>(peer.peer_info);
+        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_base_addr);
+        for (int lane_idx = 0; lane_idx < kWarpSize; ++lane_idx) {
+            const uint32_t wqebb_head = current_head + static_cast<uint32_t>(lane_idx / kNumWQEBBLanes);
+            const uint32_t sq_wqebb_idx = wqebb_head % jetty_info->sq_depth;
+            const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & jetty_info->sq_depth) == 0) << 31;
+            uint64_t sqe_word = 0;
+            if (lane_idx == 0) {
+                sqe_word = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
+                if (write_idx + 1 == *num_writes) {
+                    sqe_word |= kWriteSQEFinalFlags;
+                }
+            } else if (lane_idx < kNumWriteHeaderLanes) {
+                sqe_word = peer_info_words[lane_idx - 1];
+                if (lane_idx == 1) {
+                    sqe_word |= static_cast<uint64_t>(kNumSGEs) << 24;
+                }
+                if (lane_idx == 5) {
+                    sqe_word = reinterpret_cast<uint64_t>(dst);
+                }
+            } else if (lane_idx < kNumWriteHeaderLanes + kNumSGEs * 2) {
+                const int sge_idx = (lane_idx - kNumWriteHeaderLanes) / 2;
+                const auto& scalar_sge = sges[sge_idx];
+                const bool is_len_word = ((lane_idx - kNumWriteHeaderLanes) % 2) == 0;
+                const bool valid_sge = scalar_sge.addr != 0 && scalar_sge.len > 0;
+                sqe_word = valid_sge ?
+                    (is_len_word ? static_cast<uint64_t>(scalar_sge.len) : scalar_sge.addr) : 0;
+            } else if (lane_idx % kNumWQEBBLanes == 0) {
+                sqe_word = kNopSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
+            }
+            __stg<ST_L2CacheType::L2_CACHE_HINT_NORMAL_FV, L1CacheType::CACHEABLE>(
+                sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes,
+                sqe_word);
+        }
+    }
+
+    template <int kNumSGEs>
+    __simt_callee__ inline void PostWriteScalar(
+            const HcommPeer& peer, __gm__ void* dst, const HcommSge& first_sge)
+    {
+        HcommSge sges[kNumSGEs] = {};
+        sges[0] = first_sge;
+        PostWriteScalar<kNumSGEs>(peer, dst, sges);
     }
 
     template <int kNumSGEs>
     __simt_callee__ inline void Write(
-            const HcommPeer& peer,
-            __gm__ void* dst,
-            const HcommSge (&sges)[kNumSGEs]) const
+            const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
     {
-        const_cast<HcommJetty*>(this)->template PostWrite<kDefaultTimeoutCycles, kNumSGEs, false>(peer, dst, sges);
+        const_cast<HcommJetty*>(this)->template PostWriteScalar<kNumSGEs>(peer, dst, sge);
+    }
+
+    template <int kNumSGEs>
+    __simt_callee__ inline void Write(
+            const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs]) const
+    {
+        const_cast<HcommJetty*>(this)->template PostWriteScalar<kNumSGEs>(peer, dst, sges);
     }
 
     template <int kNumSGEs, typename Coop>
     __simt_callee__ inline void Write(
-            const Coop& coop,
-            const HcommPeer& peer,
-            __gm__ void* dst,
-            const HcommSge (&sges)[kNumSGEs]) const
+            const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
     {
         coop.sync();
-        if (coop.thread_rank() == 0) {
-            const_cast<HcommJetty*>(this)->template PostWrite<kDefaultTimeoutCycles, kNumSGEs, false>(
-                peer, dst, sges);
+        auto* self = const_cast<HcommJetty*>(this);
+        if (coop.size() >= kWarpSize) {
+            if (coop.thread_rank() < kWarpSize) {
+                self->template PostWriteWarp<kNumSGEs>(peer, dst, sge);
+            }
+        } else if (coop.thread_rank() == 0) {
+            self->template PostWriteScalar<kNumSGEs>(peer, dst, sge);
         }
         coop.sync();
     }
 
-    template <int kNumSGEs, typename Coop, bool kDoCommit = true>
-    __simt_callee__ inline void Put(
-            const Coop& coop,
-            const HcommPeer& peer,
-            __gm__ void* dst,
+    template <int kNumSGEs, typename Coop>
+    __simt_callee__ inline void Write(
+            const Coop& coop, const HcommPeer& peer, __gm__ void* dst,
             const HcommSge (&sges)[kNumSGEs]) const
     {
-        Write(coop, peer, dst, sges);
+        coop.sync();
+        if (coop.thread_rank() == 0) {
+            const_cast<HcommJetty*>(this)->template PostWriteScalar<kNumSGEs>(peer, dst, sges);
+        }
+        coop.sync();
+    }
+
+    template <int kNumSGEs, bool kDoCommit = true, typename Coop>
+    __simt_callee__ inline void Put(
+            const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
+    {
+        Write<kNumSGEs>(coop, peer, dst, sge);
+        if constexpr (kDoCommit) {
+            Commit(coop);
+        }
+    }
+
+    template <int kNumSGEs, bool kDoCommit = true, typename Coop>
+    __simt_callee__ inline void Put(
+            const Coop& coop, const HcommPeer& peer, __gm__ void* dst,
+            const HcommSge (&sges)[kNumSGEs]) const
+    {
+        Write<kNumSGEs>(coop, peer, dst, sges);
         if constexpr (kDoCommit) {
             Commit(coop);
         }
@@ -785,11 +862,19 @@ struct HcommJetty {
 
     template <int kNumSGEs, bool kDoCommit = true>
     __simt_callee__ inline void Put(
-            const HcommPeer& peer,
-            __gm__ void* dst,
-            const HcommSge (&sges)[kNumSGEs]) const
+            const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
     {
-        Write(peer, dst, sges);
+        Write<kNumSGEs>(peer, dst, sge);
+        if constexpr (kDoCommit) {
+            const_cast<HcommJetty*>(this)->Commit();
+        }
+    }
+
+    template <int kNumSGEs, bool kDoCommit = true>
+    __simt_callee__ inline void Put(
+            const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs]) const
+    {
+        Write<kNumSGEs>(peer, dst, sges);
         if constexpr (kDoCommit) {
             const_cast<HcommJetty*>(this)->Commit();
         }
@@ -811,25 +896,38 @@ struct HcommJetty {
         if (total_writes == 0) {
             return;
         }
+        HCOMM_JETTY_ASSERT(total_writes * kNumWQEBBsPerWrite <= static_cast<int>(jetty_info->sq_depth));
 
-        HCOMM_JETTY_ASSERT(total_writes * static_cast<int>(kNumSimtWriteWQEBBs) <= static_cast<int>(jetty_info->sq_depth));
-
-        const auto old_head = static_cast<uint32_t>(jetty_info->packed_head);
-        const auto new_head = old_head + total_writes * kNumSimtWriteWQEBBs;
-        const auto new_num_completions = static_cast<uint32_t>(jetty_info->packed_head >> 32) + 1;
-        jetty_info->packed_head = static_cast<uint64_t>(new_head) |
+        const uint32_t old_head = static_cast<uint32_t>(jetty_info->packed_head);
+        const uint32_t new_head = old_head + static_cast<uint32_t>(total_writes) * kNumWQEBBsPerWrite;
+        const uint32_t new_num_completions = static_cast<uint32_t>(jetty_info->packed_head >> 32) + 1;
+        const uint64_t new_packed_head = static_cast<uint64_t>(new_head) |
             (static_cast<uint64_t>(new_num_completions) << 32);
-        *reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr) = jetty_info->packed_head;
 
+        asc_threadfence();
+        *reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr) = new_packed_head;
         auto* dwqe_words = reinterpret_cast<__gm__ ulonglong2*>(jetty_info->dwqe_addr);
-        dwqe_words[0] = make_ulonglong2(dwqe_stage[24], dwqe_stage[25]);
-        dwqe_words[1] = make_ulonglong2(dwqe_stage[26], dwqe_stage[27]);
-        dwqe_words[2] = make_ulonglong2(dwqe_stage[28], dwqe_stage[29]);
-        dwqe_words[3] = make_ulonglong2(dwqe_stage[30], dwqe_stage[31]);
-        dwqe_words[4] = make_ulonglong2(jetty_info->packed_head, 0ULL);
-        dwqe_words[5] = make_ulonglong2(0ULL, 0ULL);
-        dwqe_words[6] = make_ulonglong2(0ULL, 0ULL);
-        dwqe_words[7] = make_ulonglong2(static_cast<uint64_t>(new_head), 0ULL);
+        const uint32_t last_wqebb_head = old_head +
+            static_cast<uint32_t>(total_writes) * kNumWQEBBsPerWrite - 1U;
+        const uint32_t last_sq_idx = last_wqebb_head % jetty_info->sq_depth;
+        const auto* last_sq_words = reinterpret_cast<__gm__ uint64_t*>(
+            jetty_info->sq_base_addr + static_cast<uint64_t>(jetty_info->num_wqebb_bytes) * last_sq_idx);
+        for (uint32_t pair = 0; pair < kNumWQEBBBytes / sizeof(ulonglong2); ++pair) {
+            const uint32_t word = pair * 2U;
+            __stg<ST_L2CacheType::L2_CACHE_HINT_NORMAL_FV, L1CacheType::CACHEABLE>(
+                &dwqe_words[pair], make_ulonglong2(last_sq_words[word], last_sq_words[word + 1U]));
+        }
+        __stg<ST_L2CacheType::L2_CACHE_HINT_NORMAL_FV, L1CacheType::CACHEABLE>(
+            &dwqe_words[4], make_ulonglong2(new_packed_head, 0ULL));
+        __stg<ST_L2CacheType::L2_CACHE_HINT_NORMAL_FV, L1CacheType::CACHEABLE>(
+            &dwqe_words[5], make_ulonglong2(0ULL, 0ULL));
+        __stg<ST_L2CacheType::L2_CACHE_HINT_NORMAL_FV, L1CacheType::CACHEABLE>(
+            &dwqe_words[6], make_ulonglong2(0ULL, 0ULL));
+        __stg<ST_L2CacheType::L2_CACHE_HINT_NORMAL_FV, L1CacheType::CACHEABLE>(
+            &dwqe_words[7], make_ulonglong2(static_cast<uint64_t>(new_head), 0ULL));
+        __asc_simt_vf::asc_dcci_single(reinterpret_cast<__gm__ void*>(jetty_info->dwqe_addr));
+        asc_dcci_single(reinterpret_cast<__gm__ uint8_t*>(jetty_info->dwqe_addr) + kNumWQEBBBytes);
+        jetty_info->packed_head = new_packed_head;
     }
 
     template <int64_t kNumTimeoutCycles>
@@ -855,18 +953,15 @@ private:
     {
         static constexpr uint32_t kNumCQDoorbellBits = 24;
         static constexpr uint32_t kCQEOwnerBit = 2;
-
         auto current_tail = *reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr);
         while (current_tail != expected_tail) {
             const auto cqe = reinterpret_cast<__gm__ uint32_t*>(
-                jetty_info->cq_base_addr +
-                static_cast<uint64_t>(jetty_info->num_cqe_bytes) *
-                    (current_tail & (jetty_info->cq_depth - 1)));
+                jetty_info->cq_base_addr + static_cast<uint64_t>(jetty_info->num_cqe_bytes) *
+                (current_tail & (jetty_info->cq_depth - 1)));
             const auto tail_phase = (current_tail / jetty_info->cq_depth) & 1;
             while (true) {
                 const auto cqe_header = *cqe;
-                const auto cqe_owner = (cqe_header >> kCQEOwnerBit) & 1;
-                if (cqe_owner != tail_phase) {
+                if (((cqe_header >> kCQEOwnerBit) & 1) != tail_phase) {
                     const auto substatus = static_cast<uint8_t>(cqe_header >> 16);
                     const auto status = static_cast<uint8_t>(cqe_header >> 24);
                     HCOMM_JETTY_ASSERT(status == 0 && substatus == 0);
@@ -875,7 +970,6 @@ private:
             }
             ++current_tail;
         }
-
         *reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr) = current_tail;
         *reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_doorbell_addr) =
             current_tail & ((1U << kNumCQDoorbellBits) - 1);
