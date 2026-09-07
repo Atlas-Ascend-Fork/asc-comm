@@ -276,6 +276,7 @@ struct HcommJetty {
         const auto new_num_completions = static_cast<uint32_t>(jetty_info->packed_head >> 32) + 1;
         jetty_info->packed_head = static_cast<uint64_t>(new_head) |
             (static_cast<uint64_t>(new_num_completions) << 32);
+        // Mirror the published head back to GM so Drain/PollCq observe the same producer state.
         *reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr) = jetty_info->packed_head;
     }
 
@@ -295,7 +296,8 @@ struct HcommJetty {
         HCOMM_JETTY_ASSERT((*num_writes) * static_cast<int>(kNumSimtWriteWQEBBs) <= static_cast<int>(jetty_info->sq_depth));
 
         PollCqWhenSqOverflow<kNumTimeoutCycles>();
-        const int write_idx = asc_atomic_add(write_counter, 1);
+        const int write_idx = asc_atomic_add(
+            reinterpret_cast<__ubuf__ int32_t*>(write_counter), static_cast<int32_t>(1));
         HCOMM_JETTY_ASSERT(write_idx >= 0);
         HCOMM_JETTY_ASSERT(write_idx < *num_writes);
 
@@ -817,6 +819,7 @@ struct HcommJetty {
         const auto new_num_completions = static_cast<uint32_t>(jetty_info->packed_head >> 32) + 1;
         jetty_info->packed_head = static_cast<uint64_t>(new_head) |
             (static_cast<uint64_t>(new_num_completions) << 32);
+        *reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr) = jetty_info->packed_head;
 
         auto* dwqe_words = reinterpret_cast<__gm__ ulonglong2*>(jetty_info->dwqe_addr);
         dwqe_words[0] = make_ulonglong2(dwqe_stage[24], dwqe_stage[25]);
