@@ -524,7 +524,7 @@ struct HcommJetty {
         __stg<ST_L2CacheType::L2_CACHE_HINT_NORMAL_FV, L1CacheType::CACHEABLE>(last_write_header, final_header);
 
         asc_threadfence();
-        asc_stwt(reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr), new_packed_head);
+        *reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr) = new_packed_head;
         auto* dwqe_words = reinterpret_cast<__gm__ ulonglong2*>(jetty_info->dwqe_addr);
         const uint32_t last_wqebb_head = old_head +
             static_cast<uint32_t>(total_writes) * kNumWQEBBsPerWrite - 1U;
@@ -571,6 +571,9 @@ private:
         static constexpr uint32_t kCQEOwnerBit = 2;
         auto current_tail = asc_ldcg(
             reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr));
+        if (current_tail == expected_tail) {
+            return;
+        }
         while (current_tail != expected_tail) {
             const auto cqe = reinterpret_cast<__gm__ uint32_t*>(
                 jetty_info->cq_base_addr + static_cast<uint64_t>(jetty_info->num_cqe_bytes) *
@@ -587,11 +590,10 @@ private:
             }
             ++current_tail;
         }
-        asc_stwt(reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr), current_tail);
-        asc_stwt(
-            reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_doorbell_addr),
-            current_tail & ((1U << kNumCQDoorbellBits) - 1));
-        asc_stwt(reinterpret_cast<__gm__ uint32_t*>(jetty_info->completion_tail_addr), current_tail);
+        *reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr) = current_tail;
+        *reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_doorbell_addr) =
+            current_tail & ((1U << kNumCQDoorbellBits) - 1);
+        *reinterpret_cast<__gm__ uint32_t*>(jetty_info->completion_tail_addr) = current_tail;
     }
 };
 
