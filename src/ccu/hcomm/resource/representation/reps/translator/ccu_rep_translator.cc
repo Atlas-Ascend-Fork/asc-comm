@@ -100,7 +100,7 @@ uint32_t ccu_rep_translator::get_instr_num()
 void ccu_rep_translator::get_res(ccu_rep_resource& res)
 {
     int var_num = xn_num;
-    int gsa_num = ccu_version == HCOMM_CCU_VERSION_V1 ? gsa_num : 0;
+    int gsa_num = ccu_version == HCOMM_CCU_VERSION_V1 ? ccu_translator_gsa_num : 0;
     for (int i = 0; i < var_num; i++) {
         res.variable[trans_dep_.die_id].push_back(var_[i]);
     }
