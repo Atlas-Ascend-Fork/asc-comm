@@ -16,9 +16,10 @@
 //   1. 控制面(hcomm)负责从活对象平铺填充本文件中的POD实体，字段一律填"最终消费值"，
 //      数据面(asc-comm)零转换直取。
 //   2. 所有内存单位为字节；sqDepth等需要换算的量由控制面完成换算(如UB sqDepth*4)。
-//   3. remoteEID 为正序业务形态(等价 hcomm DevUbConnection::rmtEid = GetEid())；
-//      WQE硬件格式要求逆序，由数据面消费时自行 Reversed()，与hcomm自有数据面
-//      (UbConnLite: rmtReverseEid_ = rmtEid_.Reversed())语义一致。
+//   3. remoteEID 为硬件逆序形态(等价 hcomm UbConnLite::rmtReverseEid_，即WQE.rmtEid
+//      要求的逐字节逆序)；由控制面平铺时一次性完成 Reversed()，数据面零转换直取。
+//      与res_entity链路(DevUbConnection::SetSqContextInfo填rmtReverseEid)语义一致。
+//      CHANNEL ABI版本随之升2(v1为正序业务形态+数据面消费时Reversed())。
 
 #include <stdint.h>
 #include <stddef.h>
@@ -28,7 +29,7 @@
 extern "C" {
 #endif
 
-#define HCOMM_POD_CHANNEL_VERSION 1U             ///< Channel POD ABI版本号
+#define HCOMM_POD_CHANNEL_VERSION 2U             ///< Channel POD ABI版本号
 #define HCOMM_POD_CHANNEL_MAGIC_WORD 0x0fcf0f5fU ///< Channel POD合法性校验魔术字
 #define HCOMM_POD_THREAD_VERSION 0U              ///< Thread POD ABI版本号
 #define HCOMM_POD_THREAD_MAGIC_WORD 0x0fcf0f6fU  ///< Thread POD合法性校验魔术字
@@ -153,7 +154,7 @@ typedef struct {
             uint32_t wqeSize;      ///< 单个WQE字节数(64)
             uint32_t sqDepth;      ///< WQEBB深度(控制面已乘4，数据面直用)
             uint32_t tpID;         ///< TP号
-            uint8_t remoteEID[16]; ///< 远端EID【正序业务形态】；数据面消费时Reversed()填入WQE.rmtEid
+            uint8_t remoteEID[16]; ///< 远端EID【硬件逆序形态】；控制面已Reversed()，数据面直取填入WQE.rmtEid
             uint32_t sqHead;       ///< 软件维护的SQ生产者索引(pi，数据面持续自增)
             uint32_t sqTail;       ///< 已完成WQE计数(ci，数据面维护；当前无消费方可恒0)
             uint32_t maxReadSize;  ///< 单个UB Read WQE允许的最大传输字节数
