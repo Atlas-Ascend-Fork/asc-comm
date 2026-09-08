@@ -19,7 +19,6 @@
 #ifndef INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_H
 #define INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_H
 
-#include <cassert>
 #include <cstdint>
 
 #include "hcomm.h"
@@ -34,16 +33,12 @@
 #include <simt_api/cooperative_groups.h>
 #endif
 
-#if defined(__CCE__)
-#define HCOMM_JETTY_ASSERT(cond) \
-    do {                         \
-        if (!(cond)) {           \
-            return;              \
-        }                        \
+#define HCOMM_JETTY_CHECK_OR_RETURN(cond) \
+    do {                                  \
+        if (!(cond)) {                    \
+            return;                       \
+        }                                 \
     } while (0)
-#else
-#define HCOMM_JETTY_ASSERT(cond) assert(cond)
-#endif
 
 namespace AscendC {
 
@@ -54,43 +49,7 @@ constexpr uint64_t kNopSQEHeaderTemplate = 0x0000110000000000ULL;
 constexpr uint64_t kWriteSQEHeaderTemplate = 0x0000030030010000ULL;
 constexpr uint64_t kWriteSQEFinalFlags = (1ULL << 18) | (1ULL << 19) | (1ULL << 21);
 
-struct alignas(8) HcommPeerInfo {
-    uint64_t tp_id_num_sges_rmt_token_id;
-    uint64_t rmt_eid[2];
-    uint64_t rmt_token_value_udf;
-    uint64_t rmt_base_addr;
-    uint64_t rmt_buffer_size;
-};
-static_assert(sizeof(HcommPeerInfo) == 48, "HcommPeerInfo size mismatch");
-static_assert(alignof(HcommPeerInfo) == 8, "HcommPeerInfo alignment mismatch");
-
-struct alignas(8) HcommJettyInfo {
-    uint64_t sq_base_addr;
-    uint64_t sq_head_addr;
-    uint64_t completion_tail_addr;
-    uint64_t sq_doorbell_addr;
-    uint64_t cq_base_addr;
-    uint64_t cq_tail_addr;
-    uint64_t cq_doorbell_addr;
-    uint64_t dwqe_addr;
-    uint64_t packed_head;
-    uint32_t num_wqebb_bytes;
-    uint32_t num_cqe_bytes;
-    uint32_t sq_depth;
-    uint32_t cq_depth;
-    int32_t pending_writes;
-};
-static_assert(sizeof(HcommJettyInfo) == 96, "HcommJettyInfo size mismatch");
-static_assert(alignof(HcommJettyInfo) == 8, "HcommJettyInfo alignment mismatch");
-
 namespace jetty_detail {
-
-template <typename dtype_t>
-constexpr __aicore__ inline dtype_t Min(dtype_t a, dtype_t b)
-{
-    return a < b ? a : b;
-}
-
 template <typename dtype_t>
 constexpr __aicore__ inline bool IsPowerOf2(dtype_t value)
 {
@@ -104,55 +63,32 @@ constexpr __aicore__ inline bool IsPowerOf2(dtype_t value)
 namespace simt {
 
 struct HcommCoopThread {
-    __simt_callee__ inline void sync() const {}
-    __simt_callee__ inline int size() const { return 1; }
-    __simt_callee__ inline int thread_rank() const
-    {
-        return 0;
-    }
+    __simt_callee__ __forceinline__ void sync() const {}
+    __simt_callee__ __forceinline__ int size() const { return 1; }
+    __simt_callee__ __forceinline__ int thread_rank() const { return 0; }
 };
 
 struct HcommCoopWarp {
     cooperative_groups::thread_block_tile<32, cooperative_groups::thread_block> group_;
 
-    __simt_callee__ inline HcommCoopWarp()
+    __simt_callee__ __forceinline__ HcommCoopWarp()
         : group_(cooperative_groups::tiled_partition<32>(cooperative_groups::this_thread_block()))
     {}
 
-    __simt_callee__ inline void sync() const
-    {
-        group_.sync();
-    }
-    __simt_callee__ inline int size() const
-    {
-        return 32;
-    }
-    __simt_callee__ inline int thread_rank() const
-    {
-        return static_cast<int>(group_.thread_rank());
-    }
+    __simt_callee__ __forceinline__ void sync() const { group_.sync(); }
+    __simt_callee__ __forceinline__ int size() const { return 32; }
+    __simt_callee__ __forceinline__ int thread_rank() const { return static_cast<int>(group_.thread_rank()); }
 };
 
 struct HcommCoopGroup {
     cooperative_groups::thread_block group_;
 
-    __simt_callee__ inline HcommCoopGroup()
-        : group_(cooperative_groups::this_thread_block())
-    {}
+    __simt_callee__ __forceinline__ HcommCoopGroup() : group_(cooperative_groups::this_thread_block()) {}
 
-    __simt_callee__ inline void sync() const
-    {
-        group_.sync();
-    }
-    __simt_callee__ inline int size() const
-    {
-        return static_cast<int>(group_.size());
-    }
+    __simt_callee__ __forceinline__ void sync() const { group_.sync(); }
+    __simt_callee__ __forceinline__ int size() const { return static_cast<int>(group_.size()); }
 
-    __simt_callee__ inline int thread_rank() const
-    {
-        return static_cast<int>(group_.thread_rank());
-    }
+    __simt_callee__ __forceinline__ int thread_rank() const { return static_cast<int>(group_.thread_rank()); }
 };
 
 namespace jetty {
@@ -165,162 +101,88 @@ static_assert(sizeof(HcommSge) == 16, "SIMT HcommSge size mismatch");
 static_assert(alignof(HcommSge) == 8, "SIMT HcommSge alignment mismatch");
 
 struct HcommPeer {
-    __ubuf__ HcommPeerInfo* peer_info = nullptr;
+    __gm__ ChannelEntity* channel = nullptr;
 
-    __simt_callee__ inline HcommPeer() = default;
+    __simt_callee__ __forceinline__ HcommPeer() = default;
 
-    __simt_callee__ inline explicit HcommPeer(__ubuf__ HcommPeerInfo* peer_info):
-        peer_info(peer_info)
-    {}
-
-    __simt_callee__ inline HcommPeer(
-            __ubuf__ HcommPeerInfo* peer_info,
-            __gm__ void* jetty_ptrs, const int jetty_idx):
-        peer_info(peer_info)
+    __simt_callee__ __forceinline__ HcommPeer(__gm__ void* jetty_ptrs, const int jetty_idx)
     {
         Init(jetty_ptrs, jetty_idx);
     }
 
-    __simt_callee__ inline void Init(__gm__ void* jetty_ptrs, const int jetty_idx)
+    __simt_callee__ __forceinline__ void Init(__gm__ void* jetty_ptrs, const int jetty_idx)
     {
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = asc_ldcg(jetty_table + jetty_idx);
-        HCOMM_JETTY_ASSERT(jetty_value != 0);
-        const auto jetty = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
-        HCOMM_JETTY_ASSERT(jetty->remoteBufferNum > 0);
-        const auto remote_buffer = jetty->remoteBufferAddr[jetty->remoteBufferNum - 1];
-        peer_info->rmt_token_value_udf = remote_buffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
-        peer_info->rmt_base_addr = remote_buffer.bufferInfo.rma.addr;
-        peer_info->rmt_buffer_size = remote_buffer.bufferInfo.rma.size;
-
-        const auto sq_context = jetty->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-        peer_info->tp_id_num_sges_rmt_token_id =
-            static_cast<uint64_t>(sq_context.contextInfo.ubJfs.tpID) |
-            (static_cast<uint64_t>(remote_buffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId) << 32);
-        peer_info->rmt_eid[0] = 0;
-        peer_info->rmt_eid[1] = 0;
-        for (int byte_idx = 0; byte_idx < 8; ++byte_idx) {
-            peer_info->rmt_eid[0] |=
-                static_cast<uint64_t>(sq_context.contextInfo.ubJfs.remoteEID[byte_idx]) << (byte_idx * 8);
-            peer_info->rmt_eid[1] |=
-                static_cast<uint64_t>(sq_context.contextInfo.ubJfs.remoteEID[byte_idx + 8]) << (byte_idx * 8);
-        }
+        HCOMM_JETTY_CHECK_OR_RETURN(jetty_value != 0);
+        channel = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
+        HCOMM_JETTY_CHECK_OR_RETURN(channel->remoteBufferNum > 0 && channel->sqNum > 0);
     }
 };
+static_assert(sizeof(HcommPeer) == sizeof(uint64_t), "SIMT peer handle must only contain a GM channel pointer");
+
 struct HcommJetty {
     static constexpr int kWarpSize = 32;
     static constexpr int kNumMaxSGEsPerWrite = 2 * kNumMaxSGEPairsPerSQE;
     static constexpr int kNumWQEBBsPerWrite =
-        (sizeof(HcommUrmaSqeCtx) + kNumMaxSGEsPerWrite * sizeof(HcommUrmaSgeCtx) + kNumWQEBBBytes - 1) /
-        kNumWQEBBBytes;
+        (sizeof(HcommUrmaSqeCtx) + kNumMaxSGEsPerWrite * sizeof(HcommUrmaSgeCtx) + kNumWQEBBBytes - 1) / kNumWQEBBBytes;
     static constexpr int kNumWQEBBLanes = kNumWQEBBBytes / sizeof(uint64_t);
     static constexpr int kNumWriteHeaderLanes = sizeof(HcommUrmaSqeCtx) / sizeof(uint64_t);
     static constexpr uint32_t kNumSimtWriteWQEBBs = kNumWQEBBsPerWrite;
     static constexpr uint32_t kNumMaxSQEBytes = kNumWQEBBsPerWrite * kNumWQEBBBytes;
-    static constexpr int64_t kDefaultTimeoutCycles = 1000000LL;
-
     static_assert(kNumWriteHeaderLanes == 6, "SIMT URMA SQE header must contain six 64-bit words");
     static_assert(kNumWQEBBsPerWrite == 4, "SIMT URMA write reservation must contain four WQEBBs");
-    static_assert(kNumMaxSGEsPerWrite <= kWarpSize - kNumWriteHeaderLanes,
-                  "SIMT URMA SGE layout must fit in one warp");
+    static_assert(kNumMaxSGEsPerWrite <= kWarpSize - kNumWriteHeaderLanes, "SIMT URMA SGE layout must fit in one warp");
 
-    __ubuf__ HcommJettyInfo* jetty_info = nullptr;
+    // One channel batch has one owner: all participating warps reserve through this GM head,
+    // then the batch's group leader calls Commit after every writer has synchronized.
+    __gm__ ChannelEntity* channel = nullptr;
+    uint32_t batch_begin_head = 0;
 
-    __simt_callee__ inline HcommJetty() = default;
+    __simt_callee__ __forceinline__ HcommJetty() = default;
 
-    __simt_callee__ inline explicit HcommJetty(__ubuf__ HcommJettyInfo* jetty_info):
-        jetty_info(jetty_info)
-    {}
-
-    __simt_callee__ inline HcommJetty(
-            __ubuf__ HcommJettyInfo* jetty_info,
-            __gm__ void* jetty_ptrs, const int jetty_idx):
-        HcommJetty(jetty_info)
+    __simt_callee__ __forceinline__ HcommJetty(__gm__ void* jetty_ptrs, const int jetty_idx)
     {
         Init(jetty_ptrs, jetty_idx);
     }
 
-    __simt_callee__ inline void Init(
-            __ubuf__ HcommJettyInfo* jetty_info,
-            __gm__ void* jetty_ptrs, const int jetty_idx)
+    __simt_callee__ __forceinline__ void Init(__gm__ void* jetty_ptrs, const int jetty_idx)
     {
-        this->jetty_info = jetty_info;
-        Init(jetty_ptrs, jetty_idx);
-    }
-
-    // Load queue metadata once from the cooperative caller's lane 0.
-    __simt_callee__ inline void Init(__gm__ void* jetty_ptrs, const int jetty_idx)
-    {
-        constexpr uint32_t kDwqeDbOffset = 0x80U;
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = asc_ldcg(jetty_table + jetty_idx);
-        HCOMM_JETTY_ASSERT(jetty_value != 0);
-        const auto jetty = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
-        HCOMM_JETTY_ASSERT(jetty->sqNum > 0 && jetty->cqNum > 0);
-
-        const auto sq_context = jetty->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-        const auto cq_context = jetty->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-        jetty_info->sq_base_addr = sq_context.contextInfo.ubJfs.sqVa;
-        jetty_info->sq_head_addr = sq_context.contextInfo.ubJfs.headAddr;
-        jetty_info->completion_tail_addr = sq_context.contextInfo.ubJfs.tailAddr;
-        jetty_info->sq_doorbell_addr = sq_context.contextInfo.ubJfs.dbVa;
-        jetty_info->dwqe_addr = sq_context.contextInfo.ubJfs.dbVa - kDwqeDbOffset;
-        jetty_info->cq_base_addr = cq_context.contextInfo.ubJfc.scqVa;
-        jetty_info->cq_tail_addr = cq_context.contextInfo.ubJfc.tailAddr;
-        jetty_info->cq_doorbell_addr = cq_context.contextInfo.ubJfc.dbVa;
-        jetty_info->packed_head = asc_ldcg(
-            reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr));
-        jetty_info->num_wqebb_bytes = sq_context.contextInfo.ubJfs.wqeSize;
-        jetty_info->num_cqe_bytes = cq_context.contextInfo.ubJfc.cqeSize;
-        jetty_info->sq_depth = sq_context.contextInfo.ubJfs.sqDepth;
-        jetty_info->cq_depth = cq_context.contextInfo.ubJfc.cqDepth;
-        jetty_info->pending_writes = 0;
-        HCOMM_JETTY_ASSERT(jetty_info->num_wqebb_bytes == kNumWQEBBBytes);
-        HCOMM_JETTY_ASSERT(jetty_detail::IsPowerOf2(jetty_info->sq_depth));
-        HCOMM_JETTY_ASSERT(jetty_info->sq_depth >= kNumWQEBBsPerWrite);
-    }
-
-    template <int64_t kNumTimeoutCycles>
-    __simt_callee__ inline void PollCqWhenSqOverflow() const
-    {
-        static constexpr uint32_t kNumPollCQThreshold = 10;
-        static constexpr uint32_t kNumCQEsPerPoll = 100;
-        const auto num_completions = static_cast<uint32_t>(jetty_info->packed_head >> 32);
-        const auto completion_tail = asc_ldcg(
-            reinterpret_cast<__gm__ uint32_t*>(jetty_info->completion_tail_addr));
-        if ((num_completions + kNumPollCQThreshold) % jetty_info->cq_depth ==
-            completion_tail % jetty_info->cq_depth) {
-            PollCq<kNumTimeoutCycles>(jetty_detail::Min(completion_tail + kNumCQEsPerPoll, num_completions));
-        }
+        HCOMM_JETTY_CHECK_OR_RETURN(jetty_value != 0);
+        channel = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
+        HCOMM_JETTY_CHECK_OR_RETURN(channel->sqNum > 0 && channel->cqNum > 0);
+        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        HCOMM_JETTY_CHECK_OR_RETURN(sq_context->contextInfo.ubJfs.wqeSize == kNumWQEBBBytes);
+        HCOMM_JETTY_CHECK_OR_RETURN(jetty_detail::IsPowerOf2(sq_context->contextInfo.ubJfs.sqDepth));
+        HCOMM_JETTY_CHECK_OR_RETURN(sq_context->contextInfo.ubJfs.sqDepth >= kNumWQEBBsPerWrite);
+        const auto head_addr = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.headAddr);
+        batch_begin_head = static_cast<uint32_t>(*head_addr);
     }
 
     template <int kNumSGEs>
-    __simt_callee__ inline void PostWriteWarp(
-            const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge)
+    __simt_callee__ __forceinline__ void PostWriteWarp(const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge)
     {
         static_assert(kNumSGEs >= 2, "SIMT jetty requires at least two SGEs");
         static_assert(kNumSGEs <= kNumMaxSGEsPerWrite, "SIMT jetty SGE count exceeds the SQE layout");
 
         const int lane_idx = static_cast<int>(threadIdx.x) % kWarpSize;
-        const auto peer_info_words = reinterpret_cast<__ubuf__ uint64_t*>(peer.peer_info);
-        int write_idx = 0;
+        uint32_t current_head = kInvalidHead;
         if (lane_idx == 0) {
-            PollCqWhenSqOverflow<kDefaultTimeoutCycles>();
-            write_idx = asc_atomic_add(
-                reinterpret_cast<__ubuf__ int32_t*>(&jetty_info->pending_writes), static_cast<int32_t>(1));
+            current_head = ReserveWrite();
         }
-        write_idx = __shfl(write_idx, 0, kWarpSize);
-        HCOMM_JETTY_ASSERT(write_idx >= 0);
-        HCOMM_JETTY_ASSERT((write_idx + 1) * kNumWQEBBsPerWrite <= static_cast<int>(jetty_info->sq_depth));
+        current_head = __shfl(current_head, 0, kWarpSize);
+        HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
 
-        const uint32_t current_head = static_cast<uint32_t>(jetty_info->packed_head) +
-            static_cast<uint32_t>(write_idx) * kNumWQEBBsPerWrite;
+        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
         const uint32_t wqebb_head = current_head + static_cast<uint32_t>(lane_idx / kNumWQEBBLanes);
-        const uint32_t sq_wqebb_idx = wqebb_head % jetty_info->sq_depth;
-        const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & jetty_info->sq_depth) == 0) << 31;
+        const uint32_t sq_wqebb_idx = wqebb_head & (sq_depth - 1U);
+        const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & sq_depth) == 0) << 31;
         const int raw_sge_lane = (lane_idx - kNumWriteHeaderLanes) / 2;
-        const int sge_lane = raw_sge_lane < 0 ? 0 :
-            (raw_sge_lane >= kNumMaxSGEsPerWrite ? kNumMaxSGEsPerWrite - 1 : raw_sge_lane);
+        const int sge_lane =
+            raw_sge_lane < 0 ? 0 : (raw_sge_lane >= kNumMaxSGEsPerWrite ? kNumMaxSGEsPerWrite - 1 : raw_sge_lane);
         const uint64_t shuffled_sge_addr = __shfl(sge.addr, sge_lane, kWarpSize);
         const int shuffled_sge_len = __shfl(sge.len, sge_lane, kWarpSize);
 
@@ -328,13 +190,7 @@ struct HcommJetty {
         if (lane_idx == 0) {
             sqe_word = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
         } else if (lane_idx < kNumWriteHeaderLanes) {
-            sqe_word = peer_info_words[lane_idx - 1];
-            if (lane_idx == 1) {
-                sqe_word |= static_cast<uint64_t>(kNumSGEs) << 24;
-            }
-            if (lane_idx == 5) {
-                sqe_word = reinterpret_cast<uint64_t>(dst);
-            }
+            sqe_word = PeerHeaderWord<kNumSGEs>(peer, lane_idx, dst);
         } else if (lane_idx < kNumWriteHeaderLanes + kNumSGEs * 2) {
             const bool is_len_word = ((lane_idx - kNumWriteHeaderLanes) % 2) == 0;
             const bool valid_sge = shuffled_sge_addr != 0 && shuffled_sge_len > 0;
@@ -344,62 +200,48 @@ struct HcommJetty {
             sqe_word = kNopSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
         }
 
-        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_base_addr);
+        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
         __stg<ST_L2CacheType::L2_CACHE_HINT_NORMAL_FV, L1CacheType::CACHEABLE>(
-            sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes,
-            sqe_word);
+            sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes, sqe_word);
     }
 
     template <int kNumSGEs>
-    __simt_callee__ inline void PostWriteScalar(
-            const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs])
+    __simt_callee__ __forceinline__ void PostWriteScalar(
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs])
     {
         static_assert(kNumSGEs >= 2, "SIMT jetty requires at least two SGEs");
         static_assert(kNumSGEs <= kNumMaxSGEsPerWrite, "SIMT jetty SGE count exceeds the SQE layout");
-        PollCqWhenSqOverflow<kDefaultTimeoutCycles>();
-        const int write_idx = asc_atomic_add(
-            reinterpret_cast<__ubuf__ int32_t*>(&jetty_info->pending_writes), static_cast<int32_t>(1));
-        HCOMM_JETTY_ASSERT(write_idx >= 0);
-        HCOMM_JETTY_ASSERT((write_idx + 1) * kNumWQEBBsPerWrite <= static_cast<int>(jetty_info->sq_depth));
-
-        const uint32_t current_head = static_cast<uint32_t>(jetty_info->packed_head) +
-            static_cast<uint32_t>(write_idx) * kNumWQEBBsPerWrite;
-        const auto peer_info_words = reinterpret_cast<__ubuf__ uint64_t*>(peer.peer_info);
-        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_base_addr);
+        const uint32_t current_head = ReserveWrite();
+        HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
+        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
+        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
         for (int lane_idx = 0; lane_idx < kWarpSize; ++lane_idx) {
             const uint32_t wqebb_head = current_head + static_cast<uint32_t>(lane_idx / kNumWQEBBLanes);
-            const uint32_t sq_wqebb_idx = wqebb_head % jetty_info->sq_depth;
-            const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & jetty_info->sq_depth) == 0) << 31;
+            const uint32_t sq_wqebb_idx = wqebb_head & (sq_depth - 1U);
+            const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & sq_depth) == 0) << 31;
             uint64_t sqe_word = 0;
             if (lane_idx == 0) {
                 sqe_word = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
             } else if (lane_idx < kNumWriteHeaderLanes) {
-                sqe_word = peer_info_words[lane_idx - 1];
-                if (lane_idx == 1) {
-                    sqe_word |= static_cast<uint64_t>(kNumSGEs) << 24;
-                }
-                if (lane_idx == 5) {
-                    sqe_word = reinterpret_cast<uint64_t>(dst);
-                }
+                sqe_word = PeerHeaderWord<kNumSGEs>(peer, lane_idx, dst);
             } else if (lane_idx < kNumWriteHeaderLanes + kNumSGEs * 2) {
                 const int sge_idx = (lane_idx - kNumWriteHeaderLanes) / 2;
                 const auto& scalar_sge = sges[sge_idx];
                 const bool is_len_word = ((lane_idx - kNumWriteHeaderLanes) % 2) == 0;
                 const bool valid_sge = scalar_sge.addr != 0 && scalar_sge.len > 0;
-                sqe_word = valid_sge ?
-                    (is_len_word ? static_cast<uint64_t>(scalar_sge.len) : scalar_sge.addr) : 0;
+                sqe_word = valid_sge ? (is_len_word ? static_cast<uint64_t>(scalar_sge.len) : scalar_sge.addr) : 0;
             } else if (lane_idx % kNumWQEBBLanes == 0) {
                 sqe_word = kNopSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
             }
             __stg<ST_L2CacheType::L2_CACHE_HINT_NORMAL_FV, L1CacheType::CACHEABLE>(
-                sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes,
-                sqe_word);
+                sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes, sqe_word);
         }
     }
 
     template <int kNumSGEs>
-    __simt_callee__ inline void PostWriteScalar(
-            const HcommPeer& peer, __gm__ void* dst, const HcommSge& first_sge)
+    __simt_callee__ __forceinline__ void PostWriteScalar(
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge& first_sge)
     {
         HcommSge sges[kNumSGEs] = {};
         sges[0] = first_sge;
@@ -407,22 +249,21 @@ struct HcommJetty {
     }
 
     template <int kNumSGEs>
-    __simt_callee__ inline void Write(
-            const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
+    __simt_callee__ __forceinline__ void Write(const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
     {
         const_cast<HcommJetty*>(this)->template PostWriteScalar<kNumSGEs>(peer, dst, sge);
     }
 
     template <int kNumSGEs>
-    __simt_callee__ inline void Write(
-            const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs]) const
+    __simt_callee__ __forceinline__ void Write(
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs]) const
     {
         const_cast<HcommJetty*>(this)->template PostWriteScalar<kNumSGEs>(peer, dst, sges);
     }
 
     template <int kNumSGEs, typename Coop>
-    __simt_callee__ inline void Write(
-            const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
+    __simt_callee__ __forceinline__ void Write(
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
     {
         coop.sync();
         auto* self = const_cast<HcommJetty*>(this);
@@ -437,9 +278,8 @@ struct HcommJetty {
     }
 
     template <int kNumSGEs, typename Coop>
-    __simt_callee__ inline void Write(
-            const Coop& coop, const HcommPeer& peer, __gm__ void* dst,
-            const HcommSge (&sges)[kNumSGEs]) const
+    __simt_callee__ __forceinline__ void Write(
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs]) const
     {
         coop.sync();
         if (coop.thread_rank() == 0) {
@@ -449,8 +289,8 @@ struct HcommJetty {
     }
 
     template <int kNumSGEs, bool kDoCommit = true, typename Coop>
-    __simt_callee__ inline void Put(
-            const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
+    __simt_callee__ __forceinline__ void Put(
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
     {
         Write<kNumSGEs>(coop, peer, dst, sge);
         if constexpr (kDoCommit) {
@@ -459,9 +299,8 @@ struct HcommJetty {
     }
 
     template <int kNumSGEs, bool kDoCommit = true, typename Coop>
-    __simt_callee__ inline void Put(
-            const Coop& coop, const HcommPeer& peer, __gm__ void* dst,
-            const HcommSge (&sges)[kNumSGEs]) const
+    __simt_callee__ __forceinline__ void Put(
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs]) const
     {
         Write<kNumSGEs>(coop, peer, dst, sges);
         if constexpr (kDoCommit) {
@@ -470,8 +309,7 @@ struct HcommJetty {
     }
 
     template <int kNumSGEs, bool kDoCommit = true>
-    __simt_callee__ inline void Put(
-            const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
+    __simt_callee__ __forceinline__ void Put(const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
     {
         Write<kNumSGEs>(peer, dst, sge);
         if constexpr (kDoCommit) {
@@ -480,8 +318,8 @@ struct HcommJetty {
     }
 
     template <int kNumSGEs, bool kDoCommit = true>
-    __simt_callee__ inline void Put(
-            const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs]) const
+    __simt_callee__ __forceinline__ void Put(
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs]) const
     {
         Write<kNumSGEs>(peer, dst, sges);
         if constexpr (kDoCommit) {
@@ -490,7 +328,7 @@ struct HcommJetty {
     }
 
     template <typename Coop>
-    __simt_callee__ inline void Commit(const Coop& coop) const
+    __simt_callee__ __forceinline__ void Commit(const Coop& coop) const
     {
         coop.sync();
         if (coop.thread_rank() == 0) {
@@ -499,62 +337,59 @@ struct HcommJetty {
         coop.sync();
     }
 
-    __simt_callee__ inline void Commit()
+    __simt_callee__ __forceinline__ void Commit()
     {
-        const auto total_writes = jetty_info->pending_writes;
-        if (total_writes == 0) {
+        constexpr uint64_t kCompletionDelta = 1ULL << 32U;
+        constexpr uint32_t kDwqeDbOffset = 0x80U;
+        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        auto* head_addr = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.headAddr);
+        const uint64_t packed_head = *head_addr;
+        const uint32_t new_head = static_cast<uint32_t>(packed_head);
+        const uint32_t batch_wqebbs = new_head - batch_begin_head;
+        if (batch_wqebbs == 0U) {
             return;
         }
-        HCOMM_JETTY_ASSERT(total_writes * kNumWQEBBsPerWrite <= static_cast<int>(jetty_info->sq_depth));
+        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
+        HCOMM_JETTY_CHECK_OR_RETURN(batch_wqebbs <= sq_depth && batch_wqebbs % kNumWQEBBsPerWrite == 0U);
 
-        const uint32_t old_head = static_cast<uint32_t>(jetty_info->packed_head);
-        const uint32_t new_head = old_head + static_cast<uint32_t>(total_writes) * kNumWQEBBsPerWrite;
-        const uint32_t new_num_completions = static_cast<uint32_t>(jetty_info->packed_head >> 32) + 1;
-        const uint64_t new_packed_head = static_cast<uint64_t>(new_head) |
-            (static_cast<uint64_t>(new_num_completions) << 32);
-
-        const uint32_t last_write_head = old_head +
-            static_cast<uint32_t>(total_writes - 1) * kNumWQEBBsPerWrite;
-        const uint32_t last_write_idx = last_write_head % jetty_info->sq_depth;
-        auto* last_write_header = reinterpret_cast<__gm__ uint64_t*>(
-            jetty_info->sq_base_addr + static_cast<uint64_t>(jetty_info->num_wqebb_bytes) * last_write_idx);
-        const auto owner_bit = static_cast<uint64_t>((last_write_head & jetty_info->sq_depth) == 0) << 31;
-        const auto final_header = kWriteSQEHeaderTemplate | owner_bit |
-            static_cast<uint64_t>(last_write_idx) | kWriteSQEFinalFlags;
+        const uint32_t last_write_head = new_head - kNumWQEBBsPerWrite;
+        const uint32_t last_write_idx = last_write_head & (sq_depth - 1U);
+        auto* last_write_header = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa) +
+                                  static_cast<uint64_t>(last_write_idx) * kNumWQEBBLanes;
+        const auto owner_bit = static_cast<uint64_t>((last_write_head & sq_depth) == 0U) << 31;
+        const auto final_header =
+            kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(new_head & 0xFFFFU) | kWriteSQEFinalFlags;
         __stg<ST_L2CacheType::L2_CACHE_HINT_NORMAL_FV, L1CacheType::CACHEABLE>(last_write_header, final_header);
 
         asc_threadfence();
-        *reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr) = new_packed_head;
-        auto* dwqe_words = reinterpret_cast<__gm__ ulonglong2*>(jetty_info->dwqe_addr);
-        const uint32_t last_wqebb_head = old_head +
-            static_cast<uint32_t>(total_writes) * kNumWQEBBsPerWrite - 1U;
-        const uint32_t last_sq_idx = last_wqebb_head % jetty_info->sq_depth;
-        const auto* last_sq_words = reinterpret_cast<__gm__ uint64_t*>(
-            jetty_info->sq_base_addr + static_cast<uint64_t>(jetty_info->num_wqebb_bytes) * last_sq_idx);
-        for (uint32_t pair = 0; pair < kNumWQEBBBytes / sizeof(ulonglong2); ++pair) {
-            const uint32_t word = pair * 2U;
-            asc_stwt(&dwqe_words[pair], make_ulonglong2(last_sq_words[word], last_sq_words[word + 1U]));
+        (void)asc_atomic_add(head_addr, kCompletionDelta);
+        auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(sq_context->contextInfo.ubJfs.dbVa - kDwqeDbOffset);
+        auto* dwqe_words = reinterpret_cast<__gm__ ulonglong2*>(dwqe_addr);
+#pragma unroll
+        for (uint32_t pair = 0; pair < 2U * kNumWQEBBBytes / sizeof(ulonglong2); ++pair) {
+            const uint32_t first_word = pair * 2U;
+            const uint32_t first_bb = first_word / kNumWQEBBLanes;
+            const uint32_t word_in_bb = first_word % kNumWQEBBLanes;
+            const uint32_t source_idx = (last_write_head + first_bb) & (sq_depth - 1U);
+            const auto source_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa) +
+                                      static_cast<uint64_t>(source_idx) * kNumWQEBBLanes + word_in_bb;
+            asc_stwt(&dwqe_words[pair], make_ulonglong2(source_words[0], source_words[1]));
         }
-        asc_stwt(&dwqe_words[4], make_ulonglong2(new_packed_head, 0ULL));
-        asc_stwt(&dwqe_words[5], make_ulonglong2(0ULL, 0ULL));
-        asc_stwt(&dwqe_words[6], make_ulonglong2(0ULL, 0ULL));
-        asc_stwt(&dwqe_words[7], make_ulonglong2(static_cast<uint64_t>(new_head), 0ULL));
-        __asc_simt_vf::asc_dcci_single(reinterpret_cast<__gm__ void*>(jetty_info->dwqe_addr));
-        asc_dcci_single(reinterpret_cast<__gm__ uint8_t*>(jetty_info->dwqe_addr) + kNumWQEBBBytes);
-        jetty_info->packed_head = new_packed_head;
-        jetty_info->pending_writes = 0;
+        asc_dcci_single(dwqe_addr);
+        asc_dcci_single(dwqe_addr + kNumWQEBBBytes);
+        batch_begin_head = new_head;
     }
 
     template <int64_t kNumTimeoutCycles>
-    __simt_callee__ inline void Drain() const
+    __simt_callee__ __forceinline__ void Drain() const
     {
-        PollCq<kNumTimeoutCycles>(
-            static_cast<uint32_t>(asc_ldcg(
-                reinterpret_cast<__gm__ uint64_t*>(jetty_info->sq_head_addr)) >> 32));
+        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        const auto head_addr = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.headAddr);
+        PollCq<kNumTimeoutCycles>(static_cast<uint32_t>(*head_addr >> 32U));
     }
 
     template <int64_t kNumTimeoutCycles, typename Coop>
-    __simt_callee__ inline void Drain(const Coop& coop) const
+    __simt_callee__ __forceinline__ void Drain(const Coop& coop) const
     {
         coop.sync();
         if (coop.thread_rank() == 0) {
@@ -564,49 +399,112 @@ struct HcommJetty {
     }
 
 private:
+    static constexpr uint32_t kInvalidHead = 0xFFFFFFFFU;
+
+    template <int kNumSGEs>
+    __simt_callee__ __forceinline__ static uint64_t PeerHeaderWord(
+        const HcommPeer& peer, const int lane_idx, __gm__ void* dst)
+    {
+        const auto peer_channel = peer.channel;
+        const auto sq_context = peer_channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        const auto remote_buffer = peer_channel->remoteBufferAddr + peer_channel->remoteBufferNum - 1;
+        if (lane_idx == 1) {
+            return static_cast<uint64_t>(sq_context->contextInfo.ubJfs.tpID) |
+                   (static_cast<uint64_t>(kNumSGEs) << 24U) |
+                   (static_cast<uint64_t>(remote_buffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId) << 32U);
+        }
+        if (lane_idx == 2 || lane_idx == 3) {
+            uint64_t remote_eid_word = 0;
+            const int first_byte = (lane_idx - 2) * 8;
+#pragma unroll
+            for (int byte_idx = 0; byte_idx < 8; ++byte_idx) {
+                remote_eid_word |= static_cast<uint64_t>(sq_context->contextInfo.ubJfs.remoteEID[first_byte + byte_idx])
+                                   << (byte_idx * 8);
+            }
+            return remote_eid_word;
+        }
+        if (lane_idx == 4) {
+            return remote_buffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+        }
+        return reinterpret_cast<uint64_t>(dst);
+    }
+
+    __simt_callee__ __forceinline__ uint32_t ReserveWrite() const
+    {
+        static constexpr uint32_t kMaxReservationRetries = 1024U;
+        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        auto* head_addr = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.headAddr);
+        const auto tail_addr = reinterpret_cast<__gm__ uint32_t*>(sq_context->contextInfo.ubJfs.tailAddr);
+        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
+        for (uint32_t retry = 0; retry < kMaxReservationRetries; ++retry) {
+            const uint64_t packed_head = *head_addr;
+            const uint32_t current_head = static_cast<uint32_t>(packed_head);
+            const uint32_t used_wqebbs = current_head - *tail_addr;
+            if (used_wqebbs > sq_depth || kNumWQEBBsPerWrite > sq_depth - used_wqebbs) {
+                return kInvalidHead;
+            }
+            const uint64_t next_packed_head =
+                (packed_head & 0xFFFFFFFF00000000ULL) | static_cast<uint64_t>(current_head + kNumWQEBBsPerWrite);
+            if (asc_atomic_cas(head_addr, packed_head, next_packed_head) == packed_head) {
+                return current_head;
+            }
+        }
+        return kInvalidHead;
+    }
+
     template <int64_t kNumTimeoutCycles>
-    __simt_callee__ inline void PollCq(const uint32_t expected_tail) const
+    __simt_callee__ __forceinline__ void PollCq(const uint32_t expected_tail) const
     {
         static_assert(kNumTimeoutCycles > 0, "SIMT jetty CQ timeout must be positive");
         static constexpr uint32_t kNumCQDoorbellBits = 24;
         static constexpr uint32_t kCQEOwnerBit = 2;
-        auto current_tail = asc_ldcg(
-            reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr));
+        const auto cq_context = channel->cqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        auto* cq_tail_addr = reinterpret_cast<__gm__ uint32_t*>(cq_context->contextInfo.ubJfc.tailAddr);
+        auto* sq_tail_addr = reinterpret_cast<__gm__ uint32_t*>(sq_context->contextInfo.ubJfs.tailAddr);
+        uint32_t current_tail = *cq_tail_addr;
         if (current_tail == expected_tail) {
             return;
         }
+        uint32_t sq_tail = *sq_tail_addr;
+        const uint32_t cq_depth = cq_context->contextInfo.ubJfc.cqDepth;
+        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
         while (current_tail != expected_tail) {
             const auto cqe = reinterpret_cast<__gm__ uint32_t*>(
-                jetty_info->cq_base_addr + static_cast<uint64_t>(jetty_info->num_cqe_bytes) *
-                (current_tail & (jetty_info->cq_depth - 1)));
-            const auto tail_phase = (current_tail / jetty_info->cq_depth) & 1;
+                cq_context->contextInfo.ubJfc.scqVa +
+                static_cast<uint64_t>(cq_context->contextInfo.ubJfc.cqeSize) * (current_tail & (cq_depth - 1U)));
+            const uint32_t tail_phase = (current_tail / cq_depth) & 1U;
             int64_t retry = 0;
-            auto cqe_header = asc_ldcg(cqe);
-            while (((cqe_header >> kCQEOwnerBit) & 1) == tail_phase && retry < kNumTimeoutCycles) {
+            uint32_t cqe_header = *cqe;
+            while (((cqe_header >> kCQEOwnerBit) & 1U) == tail_phase && retry < kNumTimeoutCycles) {
                 asc_threadfence();
                 asc_dcci_single(cqe);
-                cqe_header = asc_ldcg(cqe);
+                cqe_header = *cqe;
                 ++retry;
             }
-            HCOMM_JETTY_ASSERT(retry < kNumTimeoutCycles);
+            HCOMM_JETTY_CHECK_OR_RETURN(retry < kNumTimeoutCycles);
             const auto substatus = static_cast<uint8_t>(cqe_header >> 16);
             const auto status = static_cast<uint8_t>(cqe_header >> 24);
-            HCOMM_JETTY_ASSERT(status == 0 && substatus == 0);
+            HCOMM_JETTY_CHECK_OR_RETURN(status == 0 && substatus == 0);
+            const uint32_t sq_tail_slot = sq_tail & (sq_depth - 1U);
+            const uint32_t completed_slot = cqe[1] & (sq_depth - 1U);
+            sq_tail += ((completed_slot + sq_depth - sq_tail_slot) & (sq_depth - 1U)) + 1U;
             ++current_tail;
         }
-        *reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_tail_addr) = current_tail;
-        *reinterpret_cast<__gm__ uint32_t*>(jetty_info->cq_doorbell_addr) =
-            current_tail & ((1U << kNumCQDoorbellBits) - 1);
-        *reinterpret_cast<__gm__ uint32_t*>(jetty_info->completion_tail_addr) = current_tail;
+        *cq_tail_addr = current_tail;
+        *reinterpret_cast<__gm__ uint32_t*>(cq_context->contextInfo.ubJfc.dbVa) =
+            current_tail & ((1U << kNumCQDoorbellBits) - 1U);
+        *sq_tail_addr = sq_tail;
     }
 };
+static_assert(sizeof(HcommJetty) == 16, "SIMT jetty handle must not contain workspace pointers");
 
 } // namespace jetty
 } // namespace simt
 
 #endif
 
-#undef HCOMM_JETTY_ASSERT
+#undef HCOMM_JETTY_CHECK_OR_RETURN
 
 } // namespace AscendC
 

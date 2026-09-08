@@ -7,7 +7,8 @@
 | 类型 | 命名空间 | 执行模型 | 功能 |
 |------|----------|----------|------|
 | `HcommJetty` | `AscendC::simt::jetty` | `__simt_callee__` | warp 协作 WQE + DWQE doorbell + commit |
-| `HcommSge` | `AscendC::simt::jetty` | — | SGE 描述符 |
+| `HcommPeer` | `AscendC::simt::jetty` | `__simt_callee__` | GM Jetty 远端信息句柄 |
+| `HcommSge` | `AscendC::simt::jetty` | - | SGE 描述符 |
 
 ---
 
@@ -72,11 +73,12 @@ asc_dcci_single(dwqe_addr);
 asc_dcci_single(dwqe_addr + kNumWQEBBBytes);
 ```
 
-#### 原则四：批次计数由 Jetty 管理
+#### 原则四：队列状态只保存在 GM
 
-`Write()` 在 `HcommJettyInfo` 中原子累计实际生成的 WQE 数，`Commit()` 使用该数量推进 SQ head，
-并在发布完成后清零。普通用户不需要提供或初始化 `write_counter / num_writes`；DeepEP dispatch
-可以继续由多个 warp 并行调用 `Write<12>()`，随后由 group 中一个线程统一调用 `Commit()`。
+`Write()` 由每个 warp 的 lane 0 在 SQ context 的 GM packed head 上原子预留 WQE；`Commit()`
+使用句柄内的普通标量批次起点定位最终 WQE，并统一发布 DWQE。普通用户不需要提供或初始化
+`HcommPeerInfo / HcommJettyInfo / write_counter / num_writes` 等 UB workspace；DeepEP dispatch
+可以由多个 warp 并行调用 `Write<12>()`，随后由 group 中一个线程统一调用 `Commit()`。
 
 ---
 
@@ -84,6 +86,6 @@ asc_dcci_single(dwqe_addr + kNumWQEBBBytes);
 
 以下已收编且正确的内容保持不变：
 
-- `HcommPeer` 初始化逻辑（缓存远端 token/EID）
+- `HcommPeer` 从 GM Jetty 解析远端 token/EID 的逻辑
 - 直接地址模型（无对称内存偏移）
 - 头文件收编位置（`hcomm_simt.h` / `hcomm_impl.h` 的 include 链）
