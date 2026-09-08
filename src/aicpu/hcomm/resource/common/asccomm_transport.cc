@@ -119,7 +119,7 @@ HcclResult build_ub_remote_notify(const HcommChannelEntity &channel, uint32_t in
     return HCCL_SUCCESS;
 }
 
-// 契约v2适配：jfs字段直取；remoteEID为正序，此处Reversed()得到硬件格式(对齐hcomm自有数据面)
+// 契约(CHANNEL ABI=2)：jfs字段直取；remoteEID为硬件逆序形态(控制面已Reversed())，零转换透传
 void fill_ub_param(const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
 {
     param.jettyId = jfs.jfsID;
@@ -129,9 +129,7 @@ void fill_ub_param(const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
     param.dwqeCacheLocked = false; // 契约v2：恒按直写WQE处理
     param.maxReadSize = jfs.maxReadSize;
     param.maxWriteSize = jfs.maxWriteSize;
-    for (uint32_t i = 0; i < sizeof(param.rmtEid); i++) {
-        param.rmtEid[i] = jfs.remoteEID[sizeof(jfs.remoteEID) - i - 1];
-    }
+    (void)memcpy_sp(param.rmtEid, sizeof(param.rmtEid), jfs.remoteEID, sizeof(jfs.remoteEID));
 }
 
 void import_ub_state(const HcommJfsContext &jfs, Asc::UbConnLite &connection)
