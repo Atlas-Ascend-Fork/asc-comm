@@ -177,6 +177,17 @@ target_compile_options(asccomm_ccu_obj PRIVATE
 add_library(asccomm_ccu SHARED
     $<TARGET_OBJECTS:asccomm_ccu_obj>
 )
+find_library(ASCCOMM_ASCENDCL_LIBRARY
+    NAMES ascendcl
+    PATHS
+        ${ASCCOMM_CANN_ARCH_DIR}/lib64
+        ${ASCCOMM_CANN_ARCH_DIR}/devlib
+        ${ASCEND_CANN_PACKAGE_PATH}/lib64
+    NO_DEFAULT_PATH
+)
+if(NOT ASCCOMM_ASCENDCL_LIBRARY)
+    message(FATAL_ERROR "libascendcl was not found under ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH}")
+endif()
 if(NOT ASCCOMM_LIBRARY_OUTPUT_DIRECTORY)
     set(ASCCOMM_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 endif()
@@ -184,7 +195,10 @@ set_target_properties(asccomm_ccu PROPERTIES
     OUTPUT_NAME asccomm_ccu
     LIBRARY_OUTPUT_DIRECTORY ${ASCCOMM_LIBRARY_OUTPUT_DIRECTORY}
 )
-target_link_libraries(asccomm_ccu PRIVATE asccomm_ccu_headers)
+target_link_libraries(asccomm_ccu PRIVATE
+    asccomm_ccu_headers
+    ${ASCCOMM_ASCENDCL_LIBRARY}
+)
 
 if(NOT INSTALL_LIBRARY_DIR)
     set(INSTALL_LIBRARY_DIR lib64)

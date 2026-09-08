@@ -10,6 +10,7 @@
 
 #include "ccu/ccu_host_launch.h"
 
+#include "acl/acl_rt.h"
 #include "rt_external_kernel.h"
 
 #include <algorithm>
@@ -20,8 +21,6 @@
 #include <vector>
 
 #include "xxhash_impl.inc"
-
-int32_t HcclGetThreadDeviceId();
 
 #ifndef HCOMM_WEAK_SYMBOL
 #define HCOMM_WEAK_SYMBOL __attribute__((weak))
@@ -74,6 +73,19 @@ constexpr uint64_t CCU_DIE1_MASK = 0x02U;
 constexpr uint32_t CCU_DIE0_ID = 0U;
 constexpr uint32_t CCU_DIE1_ID = 1U;
 constexpr uint32_t CCU_SUPPORTED_NUM_BLOCKS = 1U;
+
+CcuResult GetCurrentDeviceId(int32_t& deviceId)
+{
+    deviceId = -1;
+    const aclError ret = aclrtGetDevice(&deviceId);
+    if (ret != ACL_SUCCESS) {
+        return CCU_E_RUNTIME;
+    }
+    if (deviceId < 0) {
+        return CCU_E_INTERNAL;
+    }
+    return CCU_SUCCESS;
+}
 
 bool IsCcuKernelLaunchApiAvailable()
 {
@@ -142,8 +154,8 @@ CcuResult RegisterCcuKernel(
 class KernelHandleCache {
 public:
     CcuResult Match(
-        const void* kernelFunc, const asccomm_launch_kernel_cfg* cfg, void* args, CcuKernelHandle& kernelHandle,
-        uint32_t& taskArgsNum)
+        int32_t deviceId, const void* kernelFunc, const asccomm_launch_kernel_cfg* cfg, void* args,
+        CcuKernelHandle& kernelHandle, uint32_t& taskArgsNum)
     {
         const uint64_t cacheTag = cfg->ccu_schd.binary_cache_tag;
         if (cacheTag == 0U) {
@@ -151,8 +163,9 @@ public:
         }
 
         std::lock_guard<std::mutex> lock(mutex_);
-        auto iter = cache_.find(cacheTag);
-        if (iter != cache_.end()) {
+        auto& deviceCache = cache_[deviceId];
+        auto iter = deviceCache.find(cacheTag);
+        if (iter != deviceCache.end()) {
             kernelHandle = iter->second;
             return HcommCcuGetTaskArgsNum(kernelHandle, &taskArgsNum);
         }
@@ -161,7 +174,7 @@ public:
         if (ret != CCU_SUCCESS) {
             return ret;
         }
-        cache_[cacheTag] = kernelHandle;
+        deviceCache[cacheTag] = kernelHandle;
         return CCU_SUCCESS;
     }
 
@@ -182,7 +195,7 @@ private:
     }
 
     std::mutex mutex_;
-    std::unordered_map<uint64_t, CcuKernelHandle> cache_;
+    std::unordered_map<int32_t, std::unordered_map<uint64_t, CcuKernelHandle>> cache_;
 };
 
 KernelHandleCache& GetKernelHandleCache()
@@ -204,7 +217,8 @@ CcuResult VoidKernelTrampoline(CcuKernelArg arg)
 }
 
 CcuResult GetSingleTaskParam(
-    CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum, hcomm::CcuTaskParam& taskParam)
+    int32_t deviceId, CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t argNum,
+    hcomm::CcuTaskParam& taskParam)
 {
     if (kernelHandle == 0) {
         return CCU_E_PARA;
@@ -217,8 +231,7 @@ CcuResult GetSingleTaskParam(
     }
 
     try {
-        const uint32_t devLogicId = static_cast<uint32_t>(HcclGetThreadDeviceId());
-        auto& kernelMgr = hcomm::CcuKernelMgr::GetInstance(devLogicId);
+        auto& kernelMgr = hcomm::CcuKernelMgr::GetInstance(deviceId);
         auto* kernel = kernelMgr.GetKernel(kernelHandle);
         if (kernel == nullptr) {
             return CCU_E_PTR;
@@ -289,15 +302,20 @@ extern "C" ccu_result asccomm_ccu_host_kernel_launch(
         return CCU_E_NOT_SUPPORT;
     }
 
+    int32_t deviceId = -1;
+    ret = GetCurrentDeviceId(deviceId);
+    if (ret != CCU_SUCCESS) {
+        return ret;
+    }
     CcuKernelHandle kernelHandle = 0;
     uint32_t taskArgsNum = 0;
-    ret = GetKernelHandleCache().Match(kernel_func, cfg, args, kernelHandle, taskArgsNum);
+    ret = GetKernelHandleCache().Match(deviceId, kernel_func, cfg, args, kernelHandle, taskArgsNum);
     if (ret != CCU_SUCCESS) {
         return ret;
     }
 
     hcomm::CcuTaskParam taskParam{};
-    ret = GetSingleTaskParam(kernelHandle, args, taskArgsNum, taskParam);
+    ret = GetSingleTaskParam(deviceId, kernelHandle, args, taskArgsNum, taskParam);
     if (ret != CCU_SUCCESS) {
         return ret;
     }

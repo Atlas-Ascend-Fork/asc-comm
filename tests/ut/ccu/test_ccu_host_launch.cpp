@@ -12,10 +12,19 @@
 
 #include <vector>
 
+#include "acl/acl_rt.h"
 #include "ccu/ccu_host_launch.h"
 
 namespace {
 constexpr uint32_t CCU_SQE_ARGS_LEN = 13;
+
+aclError g_getDeviceResult = ACL_SUCCESS;
+int32_t g_currentDeviceId = 0;
+uint32_t g_getDeviceCallCount = 0;
+uint32_t g_kernelMgrGetInstanceCallCount = 0;
+uint32_t g_registerStartCallCount = 0;
+int32_t g_observedKernelMgrDeviceId = -1;
+CcuKernelHandle g_nextKernelHandle = 1;
 
 void DummyKernel(void*) {}
 
@@ -30,7 +39,41 @@ asccomm_launch_kernel_cfg MakeLaunchCfg()
 }
 } // namespace
 
-int32_t HcclGetThreadDeviceId() { return 0; }
+extern "C" aclError aclrtGetDevice(int32_t* deviceId)
+{
+    ++g_getDeviceCallCount;
+    if (g_getDeviceResult == ACL_SUCCESS && deviceId != nullptr) {
+        *deviceId = g_currentDeviceId;
+    }
+    return g_getDeviceResult;
+}
+
+extern "C" CcuResult HcommCcuKernelRegisterStart(CcuInsHandle)
+{
+    ++g_registerStartCallCount;
+    return CCU_SUCCESS;
+}
+
+extern "C" CcuResult HcommCcuKernelRegister(
+    CcuInsHandle, uint32_t, const char*, const void*, const void**, uint32_t, CcuKernelHandle* kernelHandle)
+{
+    if (kernelHandle == nullptr) {
+        return CCU_E_PTR;
+    }
+    *kernelHandle = g_nextKernelHandle++;
+    return CCU_SUCCESS;
+}
+
+extern "C" CcuResult HcommCcuKernelRegisterEnd(CcuInsHandle) { return CCU_SUCCESS; }
+
+extern "C" CcuResult HcommCcuGetTaskArgsNum(CcuKernelHandle, uint32_t* taskArgsNum)
+{
+    if (taskArgsNum == nullptr) {
+        return CCU_E_PTR;
+    }
+    *taskArgsNum = 0;
+    return CCU_SUCCESS;
+}
 
 extern "C" int rtCCULaunch(void*, void* const) { return 0; }
 
@@ -64,8 +107,10 @@ CcuResult CcuKernel::GeneTaskParams(const uint64_t*, uint32_t, std::vector<CcuTa
     return CCU_SUCCESS;
 }
 
-CcuKernelMgr& CcuKernelMgr::GetInstance(int32_t)
+CcuKernelMgr& CcuKernelMgr::GetInstance(int32_t deviceId)
 {
+    ++g_kernelMgrGetInstanceCallCount;
+    g_observedKernelMgrDeviceId = deviceId;
     static CcuKernelMgr mgr;
     return mgr;
 }
@@ -77,7 +122,18 @@ CcuKernel* CcuKernelMgr::GetKernel(CcuKernelHandle)
 }
 } // namespace hcomm
 
-class TestCcuHostLaunch : public testing::Test {};
+class TestCcuHostLaunch : public testing::Test {
+protected:
+    void SetUp() override
+    {
+        g_getDeviceResult = ACL_SUCCESS;
+        g_currentDeviceId = 0;
+        g_getDeviceCallCount = 0;
+        g_kernelMgrGetInstanceCallCount = 0;
+        g_registerStartCallCount = 0;
+        g_observedKernelMgrDeviceId = -1;
+    }
+};
 
 TEST_F(TestCcuHostLaunch, NullArgumentsReturnPtr)
 {
@@ -122,6 +178,76 @@ TEST_F(TestCcuHostLaunch, UnsupportedNumBlocksReturnsPara)
 
     cfg.ccu_schd.num_blocks = 2;
     EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_E_PARA);
+}
+
+TEST_F(TestCcuHostLaunch, CurrentDeviceIdIsPassedToKernelManager)
+{
+    asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
+    uint64_t args[] = {1, 2, 3};
+    g_currentDeviceId = 7;
+
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_SUCCESS);
+    EXPECT_EQ(g_getDeviceCallCount, 1U);
+    EXPECT_EQ(g_kernelMgrGetInstanceCallCount, 1U);
+    EXPECT_EQ(g_observedKernelMgrDeviceId, 7);
+}
+
+TEST_F(TestCcuHostLaunch, GetDeviceFailureStopsLaunch)
+{
+    asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
+    uint64_t args[] = {1, 2, 3};
+    g_getDeviceResult = static_cast<aclError>(1);
+
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_E_RUNTIME);
+    EXPECT_EQ(g_kernelMgrGetInstanceCallCount, 0U);
+    EXPECT_EQ(g_registerStartCallCount, 0U);
+}
+
+TEST_F(TestCcuHostLaunch, NegativeDeviceIdStopsLaunch)
+{
+    asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
+    uint64_t args[] = {1, 2, 3};
+    g_currentDeviceId = -1;
+
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_E_INTERNAL);
+    EXPECT_EQ(g_kernelMgrGetInstanceCallCount, 0U);
+    EXPECT_EQ(g_registerStartCallCount, 0U);
+}
+
+TEST_F(TestCcuHostLaunch, DeviceSwitchIsObservedWithoutThreadLocalCache)
+{
+    asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
+    uint64_t args[] = {1, 2, 3};
+
+    g_currentDeviceId = 1;
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_SUCCESS);
+    EXPECT_EQ(g_observedKernelMgrDeviceId, 1);
+
+    g_currentDeviceId = 2;
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_SUCCESS);
+    EXPECT_EQ(g_observedKernelMgrDeviceId, 2);
+    EXPECT_EQ(g_getDeviceCallCount, 2U);
+}
+
+TEST_F(TestCcuHostLaunch, KernelHandleCacheIsIsolatedByDevice)
+{
+    asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
+    uint64_t args[] = {1, 2, 3};
+    cfg.ccu_schd.binary_cache_tag = 0xCC1234ULL;
+
+    g_currentDeviceId = 1;
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_SUCCESS);
+    EXPECT_EQ(g_registerStartCallCount, 1U);
+
+    g_currentDeviceId = 2;
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_SUCCESS);
+    EXPECT_EQ(g_registerStartCallCount, 2U);
+
+    g_currentDeviceId = 1;
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_SUCCESS);
+    EXPECT_EQ(g_registerStartCallCount, 2U);
 }
 
 TEST_F(TestCcuHostLaunch, LaunchHashTagReturnsStableNonZeroValue)
