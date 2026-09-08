@@ -692,8 +692,13 @@ struct HcommJetty {
         (void)asc_atomic_add(head_addr, kCompletionDelta);
         auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(sq_context->contextInfo.ubJfs.dbVa - kDwqeDbOffset);
         auto* dwqe_words = reinterpret_cast<__gm__ ulonglong2*>(dwqe_addr);
+        // DWQE is always exactly two WQEBBs. A larger WQE remains complete in SQ and is fetched
+        // from there after this 128-byte prefix publishes its header and PI.
+        constexpr uint32_t kDwqeWqebbCount = 2U;
+        constexpr uint32_t kDwqeWordCount = kDwqeWqebbCount * kNumWQEBBLanes;
+        static_assert(kDwqeWordCount * sizeof(uint64_t) == 2U * kNumWQEBBBytes, "DWQE must be 128 bytes");
 #pragma unroll
-        for (uint32_t pair = 0; pair < 2U * kNumWQEBBBytes / sizeof(ulonglong2); ++pair) {
+        for (uint32_t pair = 0; pair < kDwqeWordCount / 2U; ++pair) {
             const uint32_t first_word = pair * 2U;
             const uint32_t first_bb = first_word / kNumWQEBBLanes;
             const uint32_t word_in_bb = first_word % kNumWQEBBLanes;
