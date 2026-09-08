@@ -76,7 +76,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
 
     AscendC::simt::jetty::HcommSge sge{};
     const int laneIdx = warp.thread_rank();
-    if (laneIdx < 2) {
+    if (laneIdx < static_cast<int>(kSlotCount)) {
         sge.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx) * kSlotBytes;
         sge.len = static_cast<int>(kSlotBytes);
     }

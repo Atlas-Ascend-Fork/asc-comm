@@ -9,7 +9,8 @@ SGE 压紧，未使用的 WQEBB 使用 NOP 对齐。
 
 同一个 channel 的并发 `Write` 必须属于同一个 batch，并在所有参与 warp 完成后由 group leader
 统一调用 `Commit`。所有 lane 构造 `HcommJetty` 后、任一 warp 开始 `Write` 前必须先做一次
-group 同步；dispatch 样例演示了该调用顺序。
+group 同步；dispatch 样例使用 12 个有效 SGE 生成 4BB WQE，验证 DWQE 作为 doorbell 发布完整
+SQ 的路径。
 
 ## 编译
 

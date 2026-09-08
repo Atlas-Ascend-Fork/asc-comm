@@ -402,6 +402,14 @@ struct HcommJetty {
             kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(new_head & 0xFFFFU) | kWriteSQEFinalFlags;
         asc_stwt(last_write_header, final_header);
 
+        // A large WQE is fetched from SQ after the DWQE header rings the doorbell. Clean every
+        // WQEBB in this batch so the device never observes only the 128-byte DWQE prefix.
+        asc_threadfence();
+        auto* sq_base = reinterpret_cast<__gm__ uint8_t*>(sq_context->contextInfo.ubJfs.sqVa);
+        for (uint32_t bb_offset = 0; bb_offset < batch_wqebbs; ++bb_offset) {
+            const uint32_t sq_idx = (batch_begin_head + bb_offset) & (sq_depth - 1U);
+            asc_dcci_single(sq_base + static_cast<uint64_t>(sq_idx) * kNumWQEBBBytes);
+        }
         asc_threadfence();
         (void)asc_atomic_add(head_addr, kCompletionDelta);
         auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(sq_context->contextInfo.ubJfs.dbVa - kDwqeDbOffset);

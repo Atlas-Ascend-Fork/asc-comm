@@ -260,7 +260,10 @@ int main(int argc, char* argv[])
     void* recvBuf = nullptr;
     ACLCHECK(aclrtMalloc(&sendBuf, simt_jetty::kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
     ACLCHECK(aclrtMalloc(&recvBuf, simt_jetty::kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
-    uint64_t sendInit[simt_jetty::kSlotCount] = {simt_jetty::SlotValue(0), simt_jetty::SlotValue(1)};
+    uint64_t sendInit[simt_jetty::kSlotCount] = {};
+    for (uint32_t slot = 0; slot < simt_jetty::kSlotCount; ++slot) {
+        sendInit[slot] = simt_jetty::SlotValue(slot);
+    }
     uint64_t recvInit[simt_jetty::kSlotCount] = {};
     ACLCHECK(aclrtMemcpy(sendBuf, simt_jetty::kBufferBytes, sendInit, simt_jetty::kBufferBytes, ACL_MEMCPY_HOST_TO_DEVICE));
     ACLCHECK(aclrtMemcpy(recvBuf, simt_jetty::kBufferBytes, recvInit, simt_jetty::kBufferBytes, ACL_MEMCPY_HOST_TO_DEVICE));
@@ -308,7 +311,8 @@ int main(int argc, char* argv[])
         HCCLCHECK(WaitMarkerFile(syncDir + "/dispatch_checked.1"));
     } else {
         HCCLCHECK(WaitMarkerFile(syncDir + "/thread_done.0"));
-        uint64_t expectedNormal[simt_jetty::kSlotCount] = {simt_jetty::SlotValue(0), simt_jetty::SlotValue(1)};
+        uint64_t expectedNormal[simt_jetty::kSlotCount] = {
+            simt_jetty::SlotValue(0), simt_jetty::SlotValue(1)};
         pass = CheckWords(recvBuf, expectedNormal);
         if (!pass) {
             std::cout << "[rank 1] simt_jetty thread write FAIL" << std::endl;
@@ -316,7 +320,7 @@ int main(int argc, char* argv[])
         ACLCHECK(aclrtMemset(recvBuf, simt_jetty::kBufferBytes, 0, simt_jetty::kBufferBytes));
         HCCLCHECK(WriteMarkerFile(syncDir + "/thread_checked.1"));
         HCCLCHECK(WaitMarkerFile(syncDir + "/warp_done.0"));
-        uint64_t expectedPad[simt_jetty::kSlotCount] = {simt_jetty::SlotValue(0), 0U};
+        uint64_t expectedPad[simt_jetty::kSlotCount] = {simt_jetty::SlotValue(0)};
         const bool padPass = CheckWords(recvBuf, expectedPad);
         pass = pass && padPass;
         if (!padPass) {
@@ -333,7 +337,11 @@ int main(int argc, char* argv[])
         ACLCHECK(aclrtMemset(recvBuf, simt_jetty::kBufferBytes, 0, simt_jetty::kBufferBytes));
         HCCLCHECK(WriteMarkerFile(syncDir + "/group_checked.1"));
         HCCLCHECK(WaitMarkerFile(syncDir + "/dispatch_done.0"));
-        const bool dispatchPass = CheckWords(recvBuf, expectedNormal);
+        uint64_t expectedDispatch[simt_jetty::kSlotCount] = {};
+        for (uint32_t slot = 0; slot < simt_jetty::kSlotCount; ++slot) {
+            expectedDispatch[slot] = simt_jetty::SlotValue(slot);
+        }
+        const bool dispatchPass = CheckWords(recvBuf, expectedDispatch);
         pass = pass && dispatchPass;
         if (!dispatchPass) {
             std::cout << "[rank 1] simt_jetty dispatch write FAIL" << std::endl;

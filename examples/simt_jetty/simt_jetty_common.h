@@ -16,7 +16,7 @@
 namespace simt_jetty {
 
 constexpr uint64_t kSlotBytes = sizeof(uint64_t);
-constexpr uint32_t kSlotCount = 2U;
+constexpr uint32_t kSlotCount = 12U;
 constexpr uint64_t kBufferBytes = kSlotCount * kSlotBytes;
 
 #if defined(__CCE_KT_TEST__) || defined(__DAV_C310__) || defined(__NPU_ARCH__)
