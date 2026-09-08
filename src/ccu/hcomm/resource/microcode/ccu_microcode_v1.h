@@ -724,11 +724,11 @@ struct ccu_instr_trans_mem {
     uint16_t xc_id;  // 存储使用的channelId
     uint16_t xn_id;  // 存储notify/atomic的目的地址
     uint16_t xnt_id; // 存储notify/atomic的目的Token
-    uint32_t value; // notify value, atomic store add value, immeidata data, 视不同的opCode确定, 只支持32bit
+    uint32_t value; // notify value, atomic store add value, immediate data, 视不同的opCode确定, 只支持32bit
     uint16_t udf_type : 8;
     uint16_t reduce_data_type : 4;
     uint16_t reduce_op_code : 4;
-    uint16_t dma_op_code : 8; // wqe中的opcode，支持0x0: send，0x1: send with immediata，0x3: Write，0x5: Write
+    uint16_t dma_op_code : 8; // wqe中的opcode，支持0x0: send，0x1: send with immediate，0x3: Write，0x5: Write
                             // with Notify，0x6: Read，0x70: Write with atomic store add
     uint16_t order : 3;
     uint16_t fence : 1;
