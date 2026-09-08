@@ -349,14 +349,38 @@ inline bool CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo
             continue;
         }
         const auto &jfs = ctx.contextInfo.ubJfs;
-        out.headValid = CopyFromDevice(jfs.headAddr, out.head, "SqHead") ? 1U : 0U;
-        out.tailValid = CopyFromDevice(jfs.tailAddr, out.tail, "SqTail") ? 1U : 0U;
+        // The cursor source differs by implementation. SIMT keeps an incrementing counter at the
+        // u64 *jfs.headAddr (low 32 = curHead, high 32 = wqeCnt) and at the u32 *jfs.tailAddr, and
+        // never touches ChannelEntity.sqHead/sqTail (those stay 0). AIV does the reverse: it
+        // maintains ChannelEntity.sqHead/sqTail and writes jfs.headAddr/tailAddr as no cursor at all
+        // (the spin lock lives in ubJfc.headAddr), so the device read there is not a cursor. A
+        // non-zero channel cursor can only come from AIV and is authoritative; when it is 0 (SIMT, or
+        // an AIV queue that never advanced) fall back to the device counter, trusting it only when it
+        // is non-zero. Both cases mark the value present so parse prints no spurious ERROR line.
+        // For SIMT the SQ head is the low 32 bits of the packed u64 (curHead); mirror the CQ side's
+        // u64 read below so the value is not split by a 4-byte copy of a possibly-8-byte pointer.
+        uint64_t headVal = 0U;
+        uint32_t devHead = 0U;
+        uint32_t devTail = 0U;
+        bool devHeadOk = CopyFromDevice(jfs.headAddr, headVal, "SqHead") && (headVal & 0xFFFFFFFFULL) != 0U;
+        bool devTailOk = CopyFromDevice(jfs.tailAddr, devTail, "SqTail") && devTail != 0U;
+        if (devHeadOk) {
+            devHead = static_cast<uint32_t>(headVal & 0xFFFFFFFFULL);
+        }
+        out.head = (sqHead != 0U) ? sqHead : (devHeadOk ? devHead : 0U);
+        out.tail = (sqTail != 0U) ? sqTail : (devTailOk ? devTail : 0U);
+        out.headValid = 1U;
+        out.tailValid = 1U;
         if (jfs.sqVa == 0 || jfs.sqDepth == 0 || jfs.wqeSize == 0) {
             continue;
         }
-        if (!SampleSqEntries(idx, jfs.sqVa, jfs.sqDepth, jfs.wqeSize, sqHead, sqTail, channel, reader)) {
+        // Sample with the same resolved cursors shown above: SIMT's channel sqHead/sqTail are never
+        // written (stay 0), so sampling on those would miss every WQE. out.head/out.tail already
+        // prefer the channel value (AIV) or fall back to the device counter (SIMT), so sampling and
+        // display stay consistent.
+        if (!SampleSqEntries(idx, jfs.sqVa, jfs.sqDepth, jfs.wqeSize, out.head, out.tail, channel, reader)) {
             Trace("sq sample failed queue=%u sqVa=0x%llx depth=%u wqeSize=%u sqHead=%u sqTail=%u", idx,
-                  static_cast<unsigned long long>(jfs.sqVa), jfs.sqDepth, jfs.wqeSize, sqHead, sqTail);
+                  static_cast<unsigned long long>(jfs.sqVa), jfs.sqDepth, jfs.wqeSize, out.head, out.tail);
             return false;
         }
     }
@@ -364,7 +388,7 @@ inline bool CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo
 }
 
 inline bool CollectCqContexts(uint64_t addr, uint32_t cqNum, HcommDfxChannelInfo &channel, void *reader,
-                              uint32_t cqHead, uint32_t cqTail)
+                              uint64_t sqContextAddr, uint32_t cqHead, uint32_t cqTail)
 {
     channel.cqContextDumpNum = 0;
     if (addr == 0) {
@@ -391,14 +415,37 @@ inline bool CollectCqContexts(uint64_t addr, uint32_t cqNum, HcommDfxChannelInfo
             continue;
         }
         const auto &jfc = ctx.contextInfo.ubJfc;
-        out.headValid = CopyFromDevice(jfc.headAddr, out.head, "CqHead") ? 1U : 0U;
-        out.tailValid = CopyFromDevice(jfc.tailAddr, out.tail, "CqTail") ? 1U : 0U;
+        // Cursor source differs by implementation. SIMT keeps its SQ head in the low 32 bits and the
+        // produced-CQE count (wqeCnt, which is exactly its CQ head) in the high 32 bits of the same
+        // u64 at the paired SQ's *headAddr, and its CQ tail at *jfc.tailAddr; ChannelEntity.cqHead/
+        // cqTail stay 0. AIV does the reverse: it maintains cqHead/cqTail, while ubJfc.headAddr is
+        // its Lock/Unlock spin address and never a cursor. Prefer the channel cursor when non-zero
+        // (AIV, authoritative); otherwise read the paired SQ's headVal for the CQ head and
+        // jfc.tailAddr for the tail (SIMT). Mark both present so parse prints no false ERROR line.
+        uint32_t devHead = 0U;
+        uint32_t devTail = 0U;
+        bool devTailOk = CopyFromDevice(jfc.tailAddr, devTail, "CqTail") && devTail != 0U;
+        if (cqHead == 0U && sqContextAddr != 0U) {
+            SqContext pairedSq;
+            if (CopyFromDevice(sqContextAddr + static_cast<uint64_t>(idx) * sizeof(SqContext), pairedSq,
+                    "paired SqContext")) {
+                uint64_t headVal = 0U;
+                if (CopyFromDevice(pairedSq.contextInfo.ubJfs.headAddr, headVal, "SimtCqHead")) {
+                    devHead = static_cast<uint32_t>(headVal >> 32U);  // wqeCnt == CQ head
+                }
+            }
+        }
+        out.head = (cqHead != 0U) ? cqHead : devHead;
+        out.tail = (cqTail != 0U) ? cqTail : (devTailOk ? devTail : 0U);
+        out.headValid = 1U;
+        out.tailValid = 1U;
         if (jfc.scqVa == 0 || jfc.cqDepth == 0 || jfc.cqeSize == 0) {
             continue;
         }
-        if (!SampleCqEntries(idx, jfc.scqVa, jfc.cqDepth, jfc.cqeSize, cqHead, cqTail, channel, reader)) {
+        // Sample with the same resolved cursors shown above (Simt's channel cqHead/cqTail stay 0).
+        if (!SampleCqEntries(idx, jfc.scqVa, jfc.cqDepth, jfc.cqeSize, out.head, out.tail, channel, reader)) {
             Trace("cq sample failed queue=%u cqVa=0x%llx depth=%u cqeSize=%u cqHead=%u cqTail=%u", idx,
-                  static_cast<unsigned long long>(jfc.scqVa), jfc.cqDepth, jfc.cqeSize, cqHead, cqTail);
+                  static_cast<unsigned long long>(jfc.scqVa), jfc.cqDepth, jfc.cqeSize, out.head, out.tail);
             return false;
         }
     }
@@ -433,8 +480,8 @@ inline bool CollectChannel(ChannelHandle channelHandle, HcommDfxChannelInfo &cha
               static_cast<unsigned long long>(channelHandle), entity.sqNum, entity.sqHead, entity.sqTail);
         return false;
     }
-    if (!CollectCqContexts(PtrToU64(entity.cqContextAddr), entity.cqNum, channel, reader, entity.cqHead,
-                           entity.cqTail)) {
+    if (!CollectCqContexts(PtrToU64(entity.cqContextAddr), entity.cqNum, channel, reader,
+                           PtrToU64(entity.sqContextAddr), entity.cqHead, entity.cqTail)) {
         Trace("collect cq contexts failed channel=0x%llx cqNum=%u cqHead=%u cqTail=%u",
               static_cast<unsigned long long>(channelHandle), entity.cqNum, entity.cqHead, entity.cqTail);
         return false;
