@@ -1,159 +1,166 @@
 # Hcomm SIMT URMA 功能样例
 
-验证 `hcomm/hcomm_simt.h` 中全部 SIMT URMA 点对点接口：`WriteNbi`、`WriteValueNbi`、
-`WriteWithNotifyNbi`、`AtomicFAA` 和 `AtomicCAS`，以及它们的立即提交和延迟提交两种发布方式。
+## 概述
 
-拓扑是环形的：每个 rank 把操作送进 `next = (rank + 1) % nranks` 注册的内存，并校验 `prev =
-(rank - 1 + nranks) % nranks` 写进来的结果。因此 3 卡及以上时所有 rank 都参与收发，而不是只有
-前两张卡在工作、其余干等。
+本样例验证`hcomm/hcomm_simt.h`中全部SIMT URMA点对点通信接口：`WriteNbi`、`WriteValueNbi`、
+`WriteWithNotifyNbi`、`AtomicFAA`和`AtomicCAS`，并覆盖立即提交和延迟提交两种发布方式。
 
-每个 rank 既是发送方也是接收方，两侧都校验：`sendBuf` 里是本 rank 取回的 fetch 值，`recvBuf` 里
-是 prev 写进来的数据。远端写入只落在 `recvBuf`（peer 的下标按 `kRecvBufTag` 查得，`sendBuf` 虽然
-也注册在通道上但从不作为远端目标），环上每个 `recvBuf` 恰好只有一个写者，所以两项校验的期望值都
-是确定的。
+拓扑为环形：每个rank把操作发送到`next = (rank + 1) % nranks`的注册内存，并校验
+`prev = (rank - 1 + nranks) % nranks`写入的结果。每个rank既是发送方也是接收方，两侧都校验：
+`sendBuf`保存本rank原子操作取回的旧值，`recvBuf`保存prev写入的数据，环上每个`recvBuf`恰好只有
+一个写者，因此期望值都是确定的。
 
-发送内容与 rank 无关，因此接收侧的期望值表不需要按来源 rank 区分。
+所有操作均由单个SIMT线程发起。一个channel必须由一个lane驱动：延迟提交的WQE停留在发送队列中，
+由后续`commit=true`的提交发布覆盖整批PI，因此同一批任务必须由同一个lane提交。
 
-所有场景都由单个 SIMT 线程发起。一个 channel 必须由一个 lane 驱动：延迟 WQE 停留在发送队列中，
-直到后续 `commit=true` 的提交发布覆盖整批的 PI，而该 PI 无法区分是哪个 lane 写入了哪个 basic
-block。同一批任务必须由同一个 lane 提交。
+## 本样例支持的产品及CANN软件版本
 
-## 测试模式
+| 产品 | CANN软件版本 |
+| --- | --- |
+| Ascend 950PR/Ascend 950DT | >= CANN 9.1.0 |
 
-### Write 系列
-
-`WriteNbi` 从本地缓冲区取数据，WQE 里放的是指向该缓冲区的 SGE。第 `i` 个 slot 携带值 `i + 1`，
-因此缓冲区读出来是 1, 2, ... 32，任何错值都能直接定位到它本该来自哪个 slot。
-
-| `mode` | Kernel | 提交方式 |
-|---|---|---|
-| `write_single` | `SimtWriteSingle` | 32 次独立的 `WriteNbi<commit=true>` |
-| `write_batch_last` | `SimtWriteBatchLast` | 31 次串行 `WriteNbi<false>`，随后 1 次 `WriteNbi<true>` |
-
-`WriteValueNbi` 把待写的值直接内联在 WQE 中，没有指向本地内存的 SGE，因此这两种模式完全不读发送
-缓冲区（该缓冲区仍然注册，只为让两个 rank 的缓冲区表保持对称）：
-
-| `mode` | Kernel | 提交方式 |
-|---|---|---|
-| `write_value_single` | `SimtWriteValueSingle` | 32 次独立的 `WriteValueNbi<commit=true>` |
-| `write_value_batch_last` | `SimtWriteValueBatchLast` | 31 次串行 `WriteValueNbi<false>`，随后 1 次 `WriteValueNbi<true>` |
-
-四种模式都覆盖全部 32 个 slot，接收侧校验逻辑完全相同。`*_single` 的每次提交都由自己的门铃发布；
-`*_batch_last` 依赖最后一次立即提交携带的 PI 一并覆盖前面 31 条延迟 WQE。
-
-`WriteValueNbi` 要求 `config` 开启 inline（默认即 `URMA_INLINE_CFG`），且 `sizeof(T)` 不超过 WQE
-内联负载区；两者都有编译期检查。
-
-### Notify/Atomic 系列
-
-| `mode` | 说明 |
-|---|---|
-| `notify` | 提交一次 Notify 操作并调用 `Drain` |
-| `faa` | 提交一次 FAA 操作，校验远端累加结果和本地取回的旧值 |
-| `cas` | 提交一次 CAS 操作，校验远端交换结果和本地取回的旧值 |
-| `single`（默认） | 串行提交 Notify、FAA 和 CAS，每次操作后分别调用 `Drain` |
-| `batch_last` | Notify 和 FAA 使用 `commit=false` 延迟提交，最后通过 `commit=true` 的 CAS 提交整个批次 |
-| `notify_immediate_repeat` | 单 lane 连续提交 `kNotifyImmediateRepeatCount` 个 `WriteWithNotifyNbi<true>`，每个 WQE 立即敲 DB，最后统一调用一次 `Drain`；用于覆盖连续立即提交场景 |
-
-`kNotifyImmediateRepeatCount` 定义在 [`simt_urma_common.h`](./simt_urma_common.h) 中，当前为 100。
-
-两个系列使用互不重叠的 slot 布局：各自按自身操作需要观测的内容设计，分开之后每种模式的期望值表
-都更容易读。缓冲区按两者中较大的布局分配。
-
-SIMT 没有 `Commit` 接口，延迟提交的任务只能由后续一次 `commit=true` 的提交带出。所有模式最后都
-调用 `Drain`，确保 kernel 返回前 CQ 已被消费。
-
-## 准备开发验证环境
-
-样例编译时使用已安装到 CANN 目录的 asc-comm 头文件。先在仓库根目录生成并安装开发验证 run 包：
-
-```bash
-source /usr/local/Ascend/cann/set_env.sh
-bash build.sh --pkg
-./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
-```
-
-如果需要指定 CANN 目录，可增加 `--install-path=/path/to/cann`。完整参数参见
-[`docs/zh/guide/build_and_test.md`](../../docs/zh/guide/build_and_test.md)。
-
-## 编译
-
-```bash
-cd examples/simt_urma
-bash build.sh
-```
-
-`build.sh` 会先清理旧的 `build` 目录，再重新配置和编译样例，避免复用旧头文件或旧目标文件。
-
-产物为 `examples/simt_urma/build/simt_urma`。
-
-## 运行
-
-通信域通过 `HcclGetRootInfo` 和 `HcclCommInitRootInfo` 创建，因此不需要 rank table。`run.sh` 为每
-次运行创建临时 root info 文件，rank 0 写入，其余 rank 读取。rank `i` 运行在 device `i` 上。
-
-```bash
-examples/simt_urma/run.sh <nranks> [mode]
-```
-
-`nranks` 可以是任意 ≥2 的值：所有 rank 都会在环上收发。
-
-无法识别的 `mode` 会直接报错，而不是静默回退到默认值。
-
-```bash
-examples/simt_urma/run.sh 2 write_single
-examples/simt_urma/run.sh 2 write_batch_last
-examples/simt_urma/run.sh 2 write_value_single
-examples/simt_urma/run.sh 2 write_value_batch_last
-examples/simt_urma/run.sh 2 notify
-examples/simt_urma/run.sh 2 faa
-examples/simt_urma/run.sh 2 cas
-examples/simt_urma/run.sh 2 single
-examples/simt_urma/run.sh 2 batch_last
-examples/simt_urma/run.sh 2 notify_immediate_repeat
-```
-
-预期输出（以 2 卡为例，每个 rank 各打印一组）：
+## 目录结构介绍
 
 ```text
-[rank 0] simt_urma mode=<mode> sending to rank 1
-[rank 1] simt_urma mode=<mode> sending to rank 0
-[rank 0] simt_urma <mode> PASS | sent to rank 1, received from rank 1
-[rank 1] simt_urma <mode> PASS | sent to rank 0, received from rank 0
-RESULT | Mode=<mode> | Status=PASS
+simt_urma
+├── CMakeLists.txt          // 编译工程文件
+├── main.cpp                // Host侧通信域、内存注册和校验流程
+├── op_kernel.cpp           // SIMT Kernel侧URMA接口调用
+├── simt_urma_common.h      // Host与Kernel共享定义
+├── README.md               // 中文样例说明
+├── README_en.md            // 英文样例说明
+└── run.sh                  // 多rank启动脚本
 ```
 
-`run.sh` 捕获 `SIGINT`/`SIGTERM` 并杀掉它启动的 rank 进程，因此 Ctrl+C 不会留下阻塞在 Host
-barrier 上、仍占用设备的进程。
+## 样例描述
 
-## 缓冲区下标约束
+### 功能说明
 
-Kernel 侧通过 `AscendC::simt::LocalBufferAddr` 和 `RemoteBufferAddr` 解析缓冲区基址，两者都接受
-一个通道缓冲区表的下标，而不是传给 `HcclChannelAcquire` 的 `memHandles` 数组下标。本地表下标 0 由
-CCL buffer 预留，因此本样例中第一个显式注册的 `sendBuf` 使用下标 1；远端 `recvBuf` 下标通过
-`HcclChannelGetRemoteMems` 按 tag 查找，因为远端表里可能包含本样例未注册的条目。
+样例提供十种测试模式，覆盖五个接口各自的立即提交与延迟提交：
 
-直接传 `memHandles` 下标会解析到 CCL buffer：此时 WQE、远端地址和 token 都合法，网卡会正常完成并
-返回干净的 CQE，但接收方看到的是 CCL buffer 的内容而不是 payload。
+**Write系列**
 
-## Host 侧同步
+`WriteNbi`从本地缓冲区取数据，WQE中是指向该缓冲区的SGE。第`i`个slot携带值`i + 1`，因此接收侧
+任何错值都能直接定位到它本该来自哪个slot。
 
-两个 Host barrier 保证校验结果可信，它们使用每次运行独立的临时目录下的标记文件。
+`WriteValueNbi`把待写值直接内联在WQE中，不读发送缓冲区。要求`config`开启inline（默认即
+`URMA_INLINE_CFG`），且`sizeof(T)`不超过WQE内联负载区，两者均有编译期检查。
 
-| Barrier | 作用 |
-|---|---|
-| `ready` | 所有 rank 都完成内存注册和通道创建，才开始写入 |
-| `sent` | 每个 rank 都已通过 `aclrtSynchronizeStream`，此时才可以读自己的 recvBuf |
+| `mode` | 提交方式 |
+| --- | --- |
+| `write_single` | 32次独立的`WriteNbi<commit=true>` |
+| `write_batch_last` | 31次串行`WriteNbi<false>`，最后1次`WriteNbi<true>` |
+| `write_value_single` | 32次独立的`WriteValueNbi<commit=true>` |
+| `write_value_batch_last` | 31次串行`WriteValueNbi<false>`，最后1次`WriteValueNbi<true>` |
 
-`sent` barrier 是结果可信的关键。没有它，一个 rank 会从 `ready` 直接跑到 `aclrtMemcpy`，与写入它
-的那个 rank 的 kernel 之间没有任何顺序约束，读到的是被清零的缓冲区，于是即使 CQE 全部正常返回，
-也会把每个 slot 都报成没有落地。
+**Notify/Atomic系列**
 
-目录路径通过命令行参数传入，而不是环境变量：导出的变量容易在 shell wrapper 或调度器上丢掉，一旦
-丢掉，所有 rank 会静默回落到同一个默认目录，上一轮遗留的标记文件就可能让 barrier 直接通过。
+| `mode` | 说明 |
+| --- | --- |
+| `notify` | 提交一次Notify操作并调用`Drain` |
+| `faa` | 提交一次FAA操作，校验远端累加结果和本地取回的旧值 |
+| `cas` | 提交一次CAS操作，校验远端交换结果和本地取回的旧值 |
+| `single`（默认） | 串行提交Notify、FAA和CAS，每次操作后分别调用`Drain` |
+| `batch_last` | Notify和FAA使用`commit=false`延迟提交，最后由`commit=true`的CAS提交整批 |
+| `notify_immediate_repeat` | 单lane连续提交`kNotifyImmediateRepeatCount`个`WriteWithNotifyNbi<true>`（当前为100），最后统一调用一次`Drain` |
 
-## 运行约束
+两个系列使用互不重叠的slot布局，缓冲区按两者中较大的布局分配。SIMT没有`Commit`接口，延迟提交
+的任务只能由后续一次`commit=true`的提交带出；所有模式最后都调用`Drain`，确保kernel返回前CQ已被
+消费。
 
-- 支持 Ascend 950PR / Ascend 950DT，CANN 软件版本要求 9.1.0 或以上。
-- 运行需要同一主机上至少两张 NPU；单卡环境仅支持编译验证。
-- 编译依赖 CANN ASC CMake 能力，并在链接阶段依赖 CANN `hcomm` 库。
+### 样例规格
+
+| 项目 | 说明 |
+| --- | --- |
+| 通信模式 | 环形拓扑SIMT URMA点对点通信 |
+| 调用方式 | SIMT Kernel内直接调用URMA接口 |
+| 测试模式 | `write_single`、`write_batch_last`、`write_value_single`、`write_value_batch_last`、`notify`、`faa`、`cas`、`single`、`batch_last`、`notify_immediate_repeat` |
+| 支持rank数 | 任意 >= 2 |
+
+### 实现流程
+
+1. rank 0通过`HcclGetRootInfo`生成root info写入临时文件，其余rank读取后调用
+   `HcclCommInitRootInfo`创建通信域。
+2. 每个rank通过`HcclCommMemReg`注册`sendBuf`和`recvBuf`。
+3. 通过`HcclRankGraphGetLayers`/`HcclRankGraphGetLinks`获取到`next`的链路Endpoint，调用
+   `HcclChannelAcquire`创建Channel，并通过`HcclChannelGetRemoteMems`获取对端内存地址。
+4. Kernel侧按选定模式提交URMA操作，最后调用`Drain`等待完成。
+5. Host侧通过两次文件barrier（`ready`、`sent`）保证所有rank完成注册和写入后再回读校验。
+6. 校验`sendBuf`取回值和`recvBuf`落地数据，输出PASS/FAIL。
+
+## 编译运行
+
+在本样例根目录下执行如下步骤，编译并运行样例。本样例仅支持NPU运行模式。
+
+- 配置环境变量
+
+  样例编译时使用已安装到CANN目录的asc-comm头文件。若尚未安装，先在仓库根目录生成并安装开发验证
+  run包，参数说明参见[`docs/zh/guide/build_and_test.md`](../../docs/zh/guide/build_and_test.md)：
+
+  ```bash
+  bash build.sh --pkg
+  ./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
+  ```
+
+  然后加载CANN环境变量：
+
+  ```bash
+  source ${install_path}/cann/set_env.sh
+  ```
+
+  > **说明：** `${install_path}`为CANN包安装目录，未指定安装目录时默认安装至`/usr/local/Ascend`。
+
+- 样例执行
+
+  在本样例目录下执行如下命令。
+
+  ```bash
+  mkdir -p build
+  cd build
+  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+  make -j
+  cd ..
+  ./run.sh <nranks> [mode]
+  ```
+
+- 启动参数说明
+
+  | 参数 | 默认值 | 说明 |
+  | --- | --- | --- |
+  | `<nranks>` | 无默认 | 通信域rank数，必须为不小于2的整数 |
+  | `[mode]` | `single` | 测试模式，取值见样例描述；无法识别的mode会直接报错，不会静默回退 |
+
+- 编译选项说明
+
+  | 选项 | 可选值 | 说明 |
+  | --- | --- | --- |
+  | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行 |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR/Ascend 950DT |
+
+- 执行结果
+
+  以2卡运行`write_single`为例，每个rank打印一组结果：
+
+  ```text
+  [rank 0] simt_urma mode=write_single sending to rank 1
+  [rank 1] simt_urma mode=write_single sending to rank 0
+  [rank 0] simt_urma write_single PASS | sent to rank 1, received from rank 1
+  [rank 1] simt_urma write_single PASS | sent to rank 0, received from rank 0
+  RESULT | Mode=write_single | Status=PASS
+  ```
+
+  所有rank均输出PASS且脚本输出`Status=PASS`，表示样例执行成功。
+
+## 注意事项
+
+- 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+- Kernel侧通过`AscendC::simt::LocalBufferAddr`和`RemoteBufferAddr`解析缓冲区基址时，传入的是
+  通道缓冲区表的下标，而不是`memHandles`数组下标：本地表下标0由CCL buffer预留，第一个显式注册的
+  缓冲区使用下标1；远端缓冲区下标通过`HcclChannelGetRemoteMems`按tag查找。直接传`memHandles`
+  下标会解析到CCL buffer，此时CQE正常返回但接收方看到的是CCL buffer内容而非payload。
+- Host侧`sent` barrier是校验结果可信的关键：没有它，某rank会在写入方kernel尚未完成时读到清零的
+  缓冲区。barrier目录通过命令行参数传给可执行文件而非环境变量，避免在shell wrapper或调度器上
+  丢失后所有rank静默共用同一默认目录、被上一轮遗留的标记文件误通过。
+- `run.sh`捕获`SIGINT`/`SIGTERM`并杀掉它启动的rank进程，Ctrl+C不会留下阻塞在Host barrier上、
+  仍占用设备的进程。
+- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。

@@ -92,7 +92,7 @@ fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 binary="${script_dir}/build/simt_urma_perftest"
-[[ -x "$binary" ]] || { echo "build the example first: bash ${script_dir}/build.sh" >&2; exit 1; }
+[[ -x "$binary" ]] || { echo "build the sample first: cmake + make in ${script_dir}" >&2; exit 1; }
 
 mkdir -p "${script_dir}/results"
 if [[ -z "$log_file" ]]; then
