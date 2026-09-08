@@ -38,8 +38,8 @@ private:
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};
 
 public:
-    shift_sub_type get_shift_sub_type() { return sub_type_; }
-    shift_type get_shift_type() { return shift_type_; }
+    shift_sub_type get_shift_sub_type() const { return sub_type_; }
+    shift_type get_shift_type() const { return shift_type_; }
     variable get_var_n() { return var_n_; }
     variable get_var_m() { return var_m_; }
     variable get_var_d() { return var_d_; }

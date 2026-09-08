@@ -26,8 +26,8 @@ public:
 
     ccu_rep::variable get_var() { return var_; }
     ccu_rep::variable get_src() { return src_; }
-    uint32_t get_num() { return num_; }
-    uint16_t get_mask() { return mask_; }
+    uint32_t get_num() const { return num_; }
+    uint16_t get_mask() const { return mask_; }
 
 private:
     ccu_ins_generater_base* ins_generator_ptr_{nullptr};

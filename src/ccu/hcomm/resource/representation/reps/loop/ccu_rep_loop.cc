@@ -40,7 +40,7 @@ ccu_rep_loop::ccu_rep_loop(
     support_ccu_v1_ = false; // loopParam按照A6格式填写，不适用A5
 }
 
-void ccu_rep_loop::validate_ins_generator_for_loop()
+void ccu_rep_loop::validate_ins_generator_for_loop() const
 {
     ccu_ins_generater_v1* tmp_ptr_v1 = dynamic_cast<ccu_ins_generater_v1*>(ins_generator_ptr_);
     if (tmp_ptr_v1 && !support_ccu_v1_) {

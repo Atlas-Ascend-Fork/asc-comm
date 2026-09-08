@@ -24,15 +24,15 @@ public:
         uint16_t sem_index, uint16_t mask);
     bool translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t& instr_id, const trans_dep& dep) override;
     std::string describe() override;
-    uint32_t get_rmt_xn_id() { return rmt_xn_id_; }
-    uint32_t get_rmt_cke_id() { return rmt_cke_id_; }
-    uint16_t get_param_index() { return param_index_; }
+    uint32_t get_rmt_xn_id() const { return rmt_xn_id_; }
+    uint32_t get_rmt_cke_id() const { return rmt_cke_id_; }
+    uint16_t get_param_index() const { return param_index_; }
     variable get_param() { return param_; }
-    uint32_t get_channel_id() { return channel_id_; }
+    uint32_t get_channel_id() const { return channel_id_; }
 
-    ChannelHandle get_channel() { return channel_; }
-    uint16_t get_sem_index() { return sem_index_; }
-    uint16_t get_mask() { return mask_; }
+    ChannelHandle get_channel() const { return channel_; }
+    uint16_t get_sem_index() const { return sem_index_; }
+    uint16_t get_mask() const { return mask_; }
 
 private:
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};

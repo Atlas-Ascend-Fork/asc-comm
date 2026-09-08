@@ -47,19 +47,6 @@ if(ASCEND_CANN_PACKAGE_PATH AND NOT EXISTS "${ASCCOMM_CANN_ARCH_DIR}")
         "Architecture-specific CANN package path" FORCE)
 endif()
 
-if(NOT ASCOMM_HCOMM_SOURCE_DIR)
-    foreach(_candidate
-        "${CMAKE_CURRENT_SOURCE_DIR}/../hcomm"
-        "${CMAKE_CURRENT_SOURCE_DIR}/../../hcomm"
-        "${CANN_3RD_LIB_PATH}/hcomm")
-        if(EXISTS "${_candidate}/CMakeLists.txt")
-            get_filename_component(ASCCOMM_HCOMM_SOURCE_DIR "${_candidate}" ABSOLUTE)
-            break()
-        endif()
-    endforeach()
-endif()
-set(ASCCOMM_HCOMM_SOURCE_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}" CACHE PATH "Original hcomm source tree")
-
 if(ASCCOMM_BUILD_CCU)
     add_subdirectory(src/ccu)
 endif()

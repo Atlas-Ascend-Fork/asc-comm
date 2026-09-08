@@ -290,27 +290,27 @@ HcclResult ccu_ins_generater_v1::ccu_rep_loc_wait_notify_translate(
 }
 
 HcclResult ccu_ins_generater_v1::ccu_rep_rem_wait_sem_translate(
-    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_wait_sem* cu_rep_rem_wait_sem)
+    ccu_kernel* ccu_kernel, ccu_instr*& instr, ccu_rep_rem_wait_sem* ccu_rep_rem_wait_sem)
 {
     UNUSED(ccu_kernel);
-    CHK_PTR_NULL(cu_rep_rem_wait_sem);
-    ccu_channel channel_impl(cu_rep_rem_wait_sem->get_channel());
+    CHK_PTR_NULL(ccu_rep_rem_wait_sem);
+    ccu_channel channel_impl(ccu_rep_rem_wait_sem->get_channel());
     CHK_PRT_RET(
         channel_impl.get_result() != HcclResult::HCCL_SUCCESS,
-        HCCL_ERROR("failed to get ccu channel, type[%d]", cu_rep_rem_wait_sem->type()), HCCL_E_INTERNAL);
+        HCCL_ERROR("failed to get ccu channel, type[%d]", ccu_rep_rem_wait_sem->type()), HCCL_E_INTERNAL);
     uint32_t loc_cke_id{0};
     CHK_PRT_RET(
-        channel_impl->get_loc_cke_by_index(cu_rep_rem_wait_sem->get_sem_index(), loc_cke_id) != HcclResult::HCCL_SUCCESS,
+        channel_impl->get_loc_cke_by_index(ccu_rep_rem_wait_sem->get_sem_index(), loc_cke_id) != HcclResult::HCCL_SUCCESS,
         HCCL_ERROR(
             "[CcuRepRemWaitSem][%s] failed to get loc cke id, channelHandle[0x%llx], semIndex[%u].", __func__,
-            cu_rep_rem_wait_sem->get_channel(), cu_rep_rem_wait_sem->get_sem_index()),
+            ccu_rep_rem_wait_sem->get_channel(), ccu_rep_rem_wait_sem->get_sem_index()),
         HCCL_E_UNAVAIL);
 
     // 需要profiling的使用SetCKEInstr, 否则使用ClearCKEInstr
-    if (cu_rep_rem_wait_sem->get_is_profiling()) {
-        set_cke_instr(instr++, 0, 0, loc_cke_id, cu_rep_rem_wait_sem->get_mask(), 1);
+    if (ccu_rep_rem_wait_sem->get_is_profiling()) {
+        set_cke_instr(instr++, 0, 0, loc_cke_id, ccu_rep_rem_wait_sem->get_mask(), 1);
     } else {
-        clear_cke_instr(instr++, 0, 0, loc_cke_id, cu_rep_rem_wait_sem->get_mask(), 1);
+        clear_cke_instr(instr++, 0, 0, loc_cke_id, ccu_rep_rem_wait_sem->get_mask(), 1);
     }
 
     return HcclResult::HCCL_SUCCESS;
@@ -576,7 +576,8 @@ HcclResult ccu_ins_generater_v1::ccu_rep_func_block_translate(
 }
 
 void ccu_ins_generater_v1::load_func_call_in_args(
-    ccu_instr* instr, std::vector<ccu_rep_arg>& in_args, std::vector<variable>& formal_ins, uint16_t reserve_xn_id)
+    ccu_instr* instr, std::vector<ccu_rep_arg>& in_args, std::vector<variable>& formal_ins,
+    uint16_t reserve_xn_id) const
 {
     uint32_t idx = 0;
     for (uint32_t i = 0; i < in_args.size(); i++) {
@@ -770,7 +771,7 @@ HcclResult ccu_ins_generater_v1::ccu_rep_loop_translate(
 }
 
 HcclResult ccu_ins_generater_v1::load_loop_call_arg(
-    ccu_instr*& instr, const ccu_rep_arg& in_arg, const ccu_rep_arg& blk_arg, const trans_dep& dep)
+    ccu_instr*& instr, const ccu_rep_arg& in_arg, const ccu_rep_arg& blk_arg, const trans_dep& dep) const
 {
     switch (in_arg.type) {
         case ccu_arg_type::variable:
@@ -966,35 +967,12 @@ HcclResult ccu_ins_generater_v1::ccu_rep_loop_group_bundle_translate(
     CHK_PTR_NULL(bundle_ptr);
     const auto& loops = bundle_ptr->get_loops();
 
-    for (const auto& loop : loops) {
-        if (loop.layout_value == ccu_rep_loop_group_bundle::layout::config) {
-            uint64_t lp_imm = get_loop_param(loop.executor_value.id(), loop.config.addr_offset, loop.config.iter_num);
-            load_imd_to_xn_instr(instr++, loop.loop_param_var.id(), lp_imm);
-            cur_instr_id++;
-        } else {
-            uint64_t ctx_imm = static_cast<uint64_t>(loop.executor_value.id()) << 45; // 左移45位到对应字段然后相加
-            load_imd_to_xn_instr(instr++, dep.reserve_xn_id, ctx_imm);
-            cur_instr_id++;
-            load_xx_instr(instr++, loop.loop_param_var.id(), loop.loop_param_var.id(), dep.reserve_xn_id);
-            cur_instr_id++;
-        }
-    }
+    load_loop_group_params(instr, cur_instr_id, bundle_ptr, dep);
+    load_loop_group_bundle_config(instr, cur_instr_id, bundle_ptr);
 
-    if (bundle_ptr->get_layout() == ccu_rep_loop_group_bundle::layout::config) {
-        uint64_t parallel_imm = get_parallel_param(
-            bundle_ptr->get_config().clone_num, bundle_ptr->get_repeat_loop_idx(), bundle_ptr->get_total_loop_num());
-        load_imd_to_xn_instr(instr++, bundle_ptr->get_parallel_var().id(), parallel_imm);
-        cur_instr_id++;
-
-        uint64_t offset_imm = ::asc::ccu_rep::get_offset_param(
-            bundle_ptr->get_config().addr_offset, bundle_ptr->get_config().ccu_buffer_offset,
-            bundle_ptr->get_config().event_offset);
-        load_imd_to_xn_instr(instr++, bundle_ptr->get_offset_param().id(), offset_imm);
-        cur_instr_id++;
-    }
-
+    constexpr uint16_t k_loop_entry_instr_offset = 3;
     loop_group_instr(
-        instr++, cur_instr_id + 3, bundle_ptr->get_parallel_var().id(), bundle_ptr->get_offset_param().id(),
+        instr++, cur_instr_id + k_loop_entry_instr_offset, bundle_ptr->get_parallel_var().id(), bundle_ptr->get_offset_param().id(),
         0); // 向后3条为loop指令
     cur_instr_id++;
 
@@ -1019,7 +997,45 @@ HcclResult ccu_ins_generater_v1::ccu_rep_loop_group_bundle_translate(
     return HcclResult::HCCL_SUCCESS;
 }
 
-uint16_t ccu_ins_generater_v1::ccu_rep_loop_group_bundle_instr_count(ccu_rep_loop_group_bundle* bundle_ptr)
+void ccu_ins_generater_v1::load_loop_group_params(
+    ccu_instr*& instr, uint16_t& cur_instr_id, const ccu_rep_loop_group_bundle* bundle_ptr, const trans_dep& dep) const
+{
+    const auto& loops = bundle_ptr->get_loops();
+    for (const auto& loop : loops) {
+        if (loop.layout_value == ccu_rep_loop_group_bundle::layout::config) {
+            uint64_t lp_imm = get_loop_param(loop.executor_value.id(), loop.config.addr_offset, loop.config.iter_num);
+            load_imd_to_xn_instr(instr++, loop.loop_param_var.id(), lp_imm);
+            cur_instr_id++;
+        } else {
+            uint64_t ctx_imm = static_cast<uint64_t>(loop.executor_value.id()) << 45; // 左移45位到对应字段然后相加
+            load_imd_to_xn_instr(instr++, dep.reserve_xn_id, ctx_imm);
+            cur_instr_id++;
+            load_xx_instr(instr++, loop.loop_param_var.id(), loop.loop_param_var.id(), dep.reserve_xn_id);
+            cur_instr_id++;
+        }
+    }
+}
+
+void ccu_ins_generater_v1::load_loop_group_bundle_config(
+    ccu_instr*& instr, uint16_t& cur_instr_id, const ccu_rep_loop_group_bundle* bundle_ptr) const
+{
+    if (bundle_ptr->get_layout() != ccu_rep_loop_group_bundle::layout::config) {
+        return;
+    }
+    uint64_t parallel_imm = get_parallel_param(
+        bundle_ptr->get_config().clone_num, bundle_ptr->get_repeat_loop_idx(), bundle_ptr->get_total_loop_num());
+    load_imd_to_xn_instr(instr++, bundle_ptr->get_parallel_var().id(), parallel_imm);
+    cur_instr_id++;
+
+    uint64_t offset_imm = ::asc::ccu_rep::get_offset_param(
+        bundle_ptr->get_config().addr_offset, bundle_ptr->get_config().ccu_buffer_offset,
+        bundle_ptr->get_config().event_offset);
+    load_imd_to_xn_instr(instr++, bundle_ptr->get_offset_param().id(), offset_imm);
+    cur_instr_id++;
+}
+
+uint16_t ccu_ins_generater_v1::ccu_rep_loop_group_bundle_instr_count(
+    const ccu_rep_loop_group_bundle* bundle_ptr) const
 {
     if (bundle_ptr == nullptr) {
         asc::throw_ccu_internal("[%s] bundlePtr is nullptr", __func__);

@@ -27,9 +27,9 @@ public:
 
     variable get_var() { return var_; }
     variable get_dst() { return dst_; }
-    uint32_t get_num() { return num_; }
-    uint16_t get_mask() { return mask_; }
-    bool get_hscb_flag() { return hscb_flag_; }
+    uint32_t get_num() const { return num_; }
+    uint16_t get_mask() const { return mask_; }
+    bool get_hscb_flag() const { return hscb_flag_; }
 
 private:
     ccu_ins_generater_base* ins_generator_ptr_{nullptr};
