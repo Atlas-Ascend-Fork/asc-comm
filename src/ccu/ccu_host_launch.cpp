@@ -12,6 +12,7 @@
 
 #include "acl/acl_rt.h"
 #include "rt_external_kernel.h"
+#include "utils/log/asc_cpu_log.h"
 
 #include <algorithm>
 #include <cstring>
@@ -74,6 +75,14 @@ constexpr uint32_t CCU_DIE0_ID = 0U;
 constexpr uint32_t CCU_DIE1_ID = 1U;
 constexpr uint32_t CCU_SUPPORTED_NUM_BLOCKS = 1U;
 
+// Keep host launch behavior usable with test/minimal runtimes that omit the weak log backend.
+#define ASCCOMM_CCU_LOG_ERROR(...)             \
+    do {                                       \
+        if (DlogRecord != nullptr) {           \
+            ASC_CPU_LOG_ERROR(__VA_ARGS__);   \
+        }                                      \
+    } while (0)
+
 CcuResult GetCurrentDeviceId(int32_t& deviceId)
 {
     deviceId = -1;
@@ -106,9 +115,15 @@ uint32_t GetDieIdByMask(uint64_t phyDieMask) { return phyDieMask == CCU_DIE1_MAS
 CcuResult ValidateLaunchCfg(const asccomm_launch_kernel_cfg* cfg)
 {
     if (cfg->ccu_schd.num_blocks != CCU_SUPPORTED_NUM_BLOCKS) {
+        ASCCOMM_CCU_LOG_ERROR(
+            "[ERROR] [%s] unsupported num_blocks[%u], expected[%u].", __func__, cfg->ccu_schd.num_blocks,
+            CCU_SUPPORTED_NUM_BLOCKS);
         return CCU_E_PARA;
     }
     if (!IsSupportedSingleDieMask(cfg->ccu_schd.phy_die_mask)) {
+        ASCCOMM_CCU_LOG_ERROR(
+            "[ERROR] [%s] unsupported phy_die_mask[0x%llx], expected[0x1 or 0x2].", __func__,
+            static_cast<unsigned long long>(cfg->ccu_schd.phy_die_mask));
         return CCU_E_PARA;
     }
     return CCU_SUCCESS;
@@ -224,6 +239,9 @@ CcuResult GetSingleTaskParam(
         return CCU_E_PARA;
     }
     if (argNum > hcomm::CCU_SQE_ARGS_LEN) {
+        ASCCOMM_CCU_LOG_ERROR(
+            "[ERROR] [%s] SQE argument count[%u] exceeds maximum[%u].", __func__, argNum,
+            hcomm::CCU_SQE_ARGS_LEN);
         return CCU_E_NOT_SUPPORT;
     }
     if (argNum > 0 && taskArgs == nullptr) {
@@ -257,6 +275,7 @@ CcuResult GetSingleTaskParam(
 CcuResult LaunchSingleCcuTask(const hcomm::CcuTaskParam& param, aclrtStream stream)
 {
     if (stream == nullptr) {
+        ASCCOMM_CCU_LOG_ERROR("[ERROR] [%s] stream is nullptr.", __func__);
         return CCU_E_PTR;
     }
 

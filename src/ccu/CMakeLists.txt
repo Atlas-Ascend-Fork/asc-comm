@@ -198,6 +198,7 @@ set_target_properties(asccomm_ccu PROPERTIES
 target_link_libraries(asccomm_ccu PRIVATE
     asccomm_ccu_headers
     ${ASCCOMM_ASCENDCL_LIBRARY}
+    $<$<TARGET_EXISTS:unified_dlog>:unified_dlog>
 )
 
 if(NOT INSTALL_LIBRARY_DIR)
