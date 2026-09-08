@@ -11,18 +11,63 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <nranks> [all|thread|warp|warp-pad|group|dispatch]"
+    cat <<'EOF'
+Usage: run.sh <nranks> [all|thread|warp|warp-pad|group|dispatch] [options]
+
+Options:
+  --iterations N  Number of correctness iterations, default: 1
+  --warmup N      Warmup iterations for --timing, default: 0
+  --timing        Run all iterations in one kernel and report device clock cycles
+EOF
 }
 
-if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
+if [ "$#" -lt 1 ]; then
     usage
     exit 1
 fi
 
 nranks="$1"
-requested_mode="${2:-all}"
+shift
+requested_mode="all"
+if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
+    requested_mode="$1"
+    shift
+fi
+iterations=1
+warmup=0
+timing=0
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --iterations)
+            [ "$#" -ge 2 ] || { echo "--iterations requires a value" >&2; exit 1; }
+            iterations="$2"
+            shift 2
+            ;;
+        --warmup)
+            [ "$#" -ge 2 ] || { echo "--warmup requires a value" >&2; exit 1; }
+            warmup="$2"
+            shift 2
+            ;;
+        --timing) timing=1; shift ;;
+        -h|--help) usage; exit 0 ;;
+        *) echo "unknown option: $1" >&2; usage; exit 1 ;;
+    esac
+done
+
 if ! [[ "$nranks" =~ ^[0-9]+$ ]] || [ "$nranks" -lt 2 ]; then
     echo "nranks must be an integer greater than or equal to 2"
+    exit 1
+fi
+if ! [[ "$iterations" =~ ^[0-9]+$ ]] || [ "$iterations" -lt 1 ]; then
+    echo "--iterations must be a positive integer"
+    exit 1
+fi
+if ! [[ "$warmup" =~ ^[0-9]+$ ]]; then
+    echo "--warmup must be a non-negative integer"
+    exit 1
+fi
+if [ "$timing" -eq 0 ] && [ "$warmup" -ne 0 ]; then
+    echo "--warmup requires --timing"
     exit 1
 fi
 
@@ -70,10 +115,10 @@ run_mode() {
     active_dirs=("$root_info_dir" "$sync_dir")
     local root_info_file="${root_info_dir}/root_info.bin"
 
-    echo "[Running] mode=${mode_name}"
+    echo "[Running] mode=${mode_name} iterations=${iterations} warmup=${warmup} timing=${timing}"
     pids=()
     for ((rank = 0; rank < nranks; ++rank)); do
-        "$binary" "$rank" "$nranks" "$root_info_file" "$sync_dir" "$id" &
+        "$binary" "$rank" "$nranks" "$root_info_file" "$sync_dir" "$id" "$iterations" "$warmup" "$timing" &
         pids+=("$!")
     done
 

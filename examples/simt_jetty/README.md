@@ -48,4 +48,33 @@ bash run.sh 2 dispatch
 `thread` 和 `warp` 都发送两个有效 SGE，用于对比同一个 80B/2BB WQE；`warp-pad` 验证
 `1BB WRITE + 1BB NOP`；`dispatch` 验证 12 SGE、4BB WQE。
 
+## 正确性压测
+
+`stress.sh` 在同一个 channel/SQ 上重复执行，每一轮均等待接收端校验完成。接收端校验后会清零
+目标缓冲区，避免后一轮未实际下发时被前一轮结果掩盖。默认每个模式执行 100 次：
+
+```bash
+bash stress.sh 2
+bash stress.sh 2 warp-pad 1000
+```
+
+也可以直接通过通用脚本指定次数：
+
+```bash
+bash run.sh 2 all --iterations 100
+```
+
+## 性能测试
+
+`perf.sh` 使用设备侧 `clock()` 打点。每轮分别在 `Put` 前、`Put` 后和 `Drain` 后取点，输出
+平均下发耗时 `average_issue_us` 和平均完成耗时 `average_completion_us`。默认 warmup 100 次，
+随后计时 1000 次；每轮都会 Drain，确保 SQ tail 持续推进：
+
+```bash
+bash perf.sh 2
+bash perf.sh 2 warp 10000 1000
+```
+
+结果中的周期按当前设备 1 GHz 时钟换算为微秒，与 `simt_urma_perftest` 的统计方式一致。
+
 `nranks` 必须大于等于 2。样例只实际使用 rank 0 和 rank 1，其余 rank 会直接退出。
