@@ -49,6 +49,7 @@ constexpr int kNumWQEBBBytes = 64;
 constexpr uint64_t kNopSQEHeaderTemplate = 0x0000110000000000ULL;
 constexpr uint64_t kWriteSQEHeaderTemplate = 0x0000030030010000ULL;
 constexpr uint64_t kWriteSQEFinalFlags = (1ULL << 18) | (1ULL << 19) | (1ULL << 21);
+constexpr uint64_t kNopSQEControlFlags = (1ULL << 28) | (1ULL << 29);
 constexpr uint64_t kNopSQEFinalFlags = (1ULL << 16) | kWriteSQEFinalFlags | (1ULL << 28) | (1ULL << 29);
 
 namespace jetty_detail {
@@ -362,11 +363,8 @@ struct HcommJetty {
             const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & sq_depth) == 0U) << 31U;
             uint64_t sqe_word = 0;
             if (word_idx == 0) {
-                const uint32_t write_idx = payload_wqebbs == 2U ? new_head : current_head;
-                sqe_word = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(write_idx & 0xFFFFU);
-                if (payload_wqebbs == 2U) {
-                    sqe_word |= kWriteSQEFinalFlags;
-                }
+                sqe_word = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(new_head & 0xFFFFU) |
+                           kWriteSQEFinalFlags;
             } else if (word_idx < kNumWriteHeaderLanes) {
                 sqe_word = PeerHeaderWord(peer, remote_buffer_idx, word_idx, dst, num_valid_sges);
             } else if (word_idx < kNumWriteHeaderLanes + num_valid_sges * 2) {
@@ -385,8 +383,9 @@ struct HcommJetty {
                 const bool is_len_word = ((word_idx - kNumWriteHeaderLanes) % 2) == 0;
                 sqe_word = is_len_word ? static_cast<uint64_t>(packed_sge.len) : packed_sge.addr;
             } else if (payload_wqebbs == 1U && word_idx == kNumWQEBBLanes) {
-                sqe_word =
-                    kNopSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(new_head & 0xFFFFU) | kNopSQEFinalFlags;
+                const uint64_t nop_owner_bit = static_cast<uint64_t>((new_head & sq_depth) == 0U) << 31U;
+                sqe_word = kNopSQEHeaderTemplate | nop_owner_bit |
+                           static_cast<uint64_t>((new_head + 1U) & 0xFFFFU) | kNopSQEControlFlags;
             }
             stage[word_idx] = sqe_word;
         }
@@ -455,19 +454,17 @@ struct HcommJetty {
         const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & sq_depth) == 0U) << 31U;
         uint64_t sqe_word = 0;
         if (lane_idx == 0) {
-            const uint32_t write_idx = payload_wqebbs == 2U ? new_head : current_head;
-            sqe_word = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(write_idx & 0xFFFFU);
-            if (payload_wqebbs == 2U) {
-                sqe_word |= kWriteSQEFinalFlags;
-            }
+            sqe_word = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(new_head & 0xFFFFU) |
+                       kWriteSQEFinalFlags;
         } else if (lane_idx < kNumWriteHeaderLanes) {
             sqe_word = PeerHeaderWord(peer, remote_buffer_idx, lane_idx, dst, num_valid_sges);
         } else if (lane_idx < kNumWriteHeaderLanes + num_valid_sges * 2) {
             const bool is_len_word = ((lane_idx - kNumWriteHeaderLanes) % 2) == 0;
             sqe_word = is_len_word ? static_cast<uint64_t>(packed_sge_len) : packed_sge_addr;
         } else if (payload_wqebbs == 1U && lane_idx == kNumWQEBBLanes) {
-            sqe_word =
-                kNopSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(new_head & 0xFFFFU) | kNopSQEFinalFlags;
+            const uint64_t nop_owner_bit = static_cast<uint64_t>((new_head & sq_depth) == 0U) << 31U;
+            sqe_word = kNopSQEHeaderTemplate | nop_owner_bit |
+                       static_cast<uint64_t>((new_head + 1U) & 0xFFFFU) | kNopSQEControlFlags;
         }
 
         auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
