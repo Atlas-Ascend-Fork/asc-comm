@@ -205,77 +205,18 @@ struct HcommJetty {
         static_assert(kNumSGEs <= kNumMaxSGEsPerWrite, "SIMT jetty SGE count exceeds the SQE layout");
 
         const int lane_idx = static_cast<int>(threadIdx.x) % kWarpSize;
-        const int raw_sge_lane = (lane_idx - kNumWriteHeaderLanes) / 2;
-        const int sge_lane =
-            raw_sge_lane < 0 ? 0 : (raw_sge_lane >= kNumMaxSGEsPerWrite ? kNumMaxSGEsPerWrite - 1 : raw_sge_lane);
-        uint64_t target_len = 0;
-        uint64_t packed_sge_addr = 0;
-        int packed_sge_len = 0;
-        int num_valid_sges = 0;
+        HcommSge gathered_sges[kNumSGEs] = {};
 #pragma unroll
         for (int sge_idx = 0; sge_idx < kNumSGEs; ++sge_idx) {
-            const uint64_t candidate_addr = asc_shfl(sge.addr, sge_idx, kWarpSize);
-            const int candidate_len = asc_shfl(sge.len, sge_idx, kWarpSize);
-            if (candidate_addr != 0 && candidate_len > 0) {
-                if (num_valid_sges == sge_lane) {
-                    packed_sge_addr = candidate_addr;
-                    packed_sge_len = candidate_len;
-                }
-                target_len += static_cast<uint64_t>(candidate_len);
-                ++num_valid_sges;
-            }
-        }
-        HCOMM_JETTY_CHECK_OR_RETURN(num_valid_sges > 0);
-        uint32_t remote_buffer_idx = kInvalidRemoteBuffer;
-        if (lane_idx == 0) {
-            remote_buffer_idx = FindRemoteBuffer(peer.channel, dst, target_len);
-        }
-        remote_buffer_idx = asc_shfl(remote_buffer_idx, 0, kWarpSize);
-        HCOMM_JETTY_CHECK_OR_RETURN(remote_buffer_idx != kInvalidRemoteBuffer);
-
-        uint32_t current_head = kInvalidHead;
-        if (lane_idx == 0) {
-            current_head = ReserveWrite();
-        }
-        current_head = asc_shfl(current_head, 0, kWarpSize);
-        HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
-
-        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
-        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
-        const uint32_t wqebb_head = current_head + static_cast<uint32_t>(lane_idx / kNumWQEBBLanes);
-        const uint32_t sq_wqebb_idx = wqebb_head & (sq_depth - 1U);
-        const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & sq_depth) == 0) << 31;
-        const int num_write_words = kNumWriteHeaderLanes + num_valid_sges * 2;
-        const int num_write_wqebbs = (num_write_words + kNumWQEBBLanes - 1) / kNumWQEBBLanes;
-
-        uint64_t sqe_word = 0;
-        if (lane_idx == 0) {
-            sqe_word = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
-        } else if (lane_idx < kNumWriteHeaderLanes) {
-            sqe_word = PeerHeaderWord(peer, remote_buffer_idx, lane_idx, dst, num_valid_sges);
-        } else if (lane_idx < num_write_words) {
-            const bool is_len_word = ((lane_idx - kNumWriteHeaderLanes) % 2) == 0;
-            sqe_word = is_len_word ? static_cast<uint64_t>(packed_sge_len) : packed_sge_addr;
-        } else if (lane_idx >= num_write_wqebbs * kNumWQEBBLanes && lane_idx % kNumWQEBBLanes == 0) {
-            // Unused BBs in the fixed four-BB reservation are real NOP WQEs.
-            sqe_word = kNopSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
-        }
-
-        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
-#pragma unroll
-        for (int word_pair = 0; word_pair < kWarpSize / 2; ++word_pair) {
-            const int first_lane = word_pair * 2;
-            const uint64_t first_word = asc_shfl(sqe_word, first_lane, kWarpSize);
-            const uint64_t second_word = asc_shfl(sqe_word, first_lane + 1, kWarpSize);
+            const uint64_t gathered_addr = asc_shfl(sge.addr, sge_idx, kWarpSize);
+            const int gathered_len = asc_shfl(sge.len, sge_idx, kWarpSize);
             if (lane_idx == 0) {
-                const uint32_t pair_wqebb_head = current_head + static_cast<uint32_t>(first_lane / kNumWQEBBLanes);
-                const uint32_t pair_wqebb_idx = pair_wqebb_head & (sq_depth - 1U);
-                auto* sq_pairs = reinterpret_cast<__gm__ ulonglong2*>(
-                    sq_words + static_cast<uint64_t>(pair_wqebb_idx) * kNumWQEBBLanes);
-                asc_stwt(
-                    sq_pairs + (first_lane % kNumWQEBBLanes) / 2,
-                    make_ulonglong2(first_word, second_word));
+                gathered_sges[sge_idx].addr = gathered_addr;
+                gathered_sges[sge_idx].len = gathered_len;
             }
+        }
+        if (lane_idx == 0) {
+            PostWriteScalar<kNumSGEs>(peer, dst, gathered_sges);
         }
     }
 
