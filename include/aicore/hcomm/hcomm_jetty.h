@@ -208,8 +208,8 @@ struct HcommJetty {
         uint64_t target_len = 0;
 #pragma unroll
         for (int sge_idx = 0; sge_idx < kNumSGEs; ++sge_idx) {
-            const uint64_t candidate_addr = __shfl(sge.addr, sge_idx, kWarpSize);
-            const int candidate_len = __shfl(sge.len, sge_idx, kWarpSize);
+            const uint64_t candidate_addr = asc_shfl(sge.addr, sge_idx, kWarpSize);
+            const int candidate_len = asc_shfl(sge.len, sge_idx, kWarpSize);
             if (candidate_addr != 0 && candidate_len > 0) {
                 target_len += static_cast<uint64_t>(candidate_len);
             }
@@ -218,14 +218,14 @@ struct HcommJetty {
         if (lane_idx == 0) {
             remote_buffer_idx = FindRemoteBuffer(peer.channel, dst, target_len);
         }
-        remote_buffer_idx = __shfl(remote_buffer_idx, 0, kWarpSize);
+        remote_buffer_idx = asc_shfl(remote_buffer_idx, 0, kWarpSize);
         HCOMM_JETTY_CHECK_OR_RETURN(remote_buffer_idx != kInvalidRemoteBuffer);
 
         uint32_t current_head = kInvalidHead;
         if (lane_idx == 0) {
             current_head = ReserveWrite();
         }
-        current_head = __shfl(current_head, 0, kWarpSize);
+        current_head = asc_shfl(current_head, 0, kWarpSize);
         HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
 
         const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
@@ -236,8 +236,8 @@ struct HcommJetty {
         const int raw_sge_lane = (lane_idx - kNumWriteHeaderLanes) / 2;
         const int sge_lane =
             raw_sge_lane < 0 ? 0 : (raw_sge_lane >= kNumMaxSGEsPerWrite ? kNumMaxSGEsPerWrite - 1 : raw_sge_lane);
-        const uint64_t shuffled_sge_addr = __shfl(sge.addr, sge_lane, kWarpSize);
-        const int shuffled_sge_len = __shfl(sge.len, sge_lane, kWarpSize);
+        const uint64_t shuffled_sge_addr = asc_shfl(sge.addr, sge_lane, kWarpSize);
+        const int shuffled_sge_len = asc_shfl(sge.len, sge_lane, kWarpSize);
 
         uint64_t sqe_word = 0;
         if (lane_idx == 0) {
