@@ -71,14 +71,7 @@ struct HcommDfxChannelInfo {
     uint32_t sqContextDumpNum;
     uint32_t cqContextDumpNum;
     uint32_t queueEntryDumpNum;
-    // Device-side (coherent) cursor snapshot used for sampling and display; the host-copied entity.xxHead/xxTail
-    // values stay in channelEntity[] and are noted as stale after an AIC error. cursorsDevice=1 when the snapshot
-    // was read on the AICe coherence domain, 0 when it fell back to the copied entity values.
-    uint32_t sqHead;
-    uint32_t sqTail;
-    uint32_t cqHead;
-    uint32_t cqTail;
-    uint32_t cursorsDevice;
+    uint32_t reserved;
     HcommDfxBufferDump localBuffers[HCOMM_DFX_MAX_BUFFERS];
     HcommDfxBufferDump remoteBuffers[HCOMM_DFX_MAX_BUFFERS];
     HcommDfxQueueCtxDump sqContexts[HCOMM_DFX_MAX_QUEUE_CONTEXTS];

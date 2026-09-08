@@ -179,15 +179,11 @@ inline void AppendChannel(std::string &out, uint32_t channelIdx, const HcommDfxC
         std::memcpy(&entity, channel.channelEntity, std::min<uint32_t>(channel.channelEntitySize, sizeof(entity)));
     }
     DfxAppend(out, "[HcommDfxDump] Channel[%u] handle=0x%llx valid=%u engine=%d protocol=%d localBufNum=%u "
-                   "remoteBufNum=%u sqNum=%u cqNum=%u sqHead=%u sqTail=%u cqHead=%u cqTail=%u cursor=%s\n",
+                   "remoteBufNum=%u sqNum=%u cqNum=%u sqHead=%u sqTail=%u cqHead=%u cqTail=%u\n",
         channelIdx, static_cast<unsigned long long>(channel.handle), channel.valid,
         static_cast<int32_t>(entity.engine), static_cast<int32_t>(entity.protocol), entity.localBufferNum,
-        entity.remoteBufferNum, entity.sqNum, entity.cqNum,
-        channel.cursorsDevice != 0U ? channel.sqHead : entity.sqHead,
-        channel.cursorsDevice != 0U ? channel.sqTail : entity.sqTail,
-        channel.cursorsDevice != 0U ? channel.cqHead : entity.cqHead,
-        channel.cursorsDevice != 0U ? channel.cqTail : entity.cqTail,
-        channel.cursorsDevice != 0U ? "device" : "host");
+        entity.remoteBufferNum, entity.sqNum, entity.cqNum, entity.sqHead, entity.sqTail, entity.cqHead,
+        entity.cqTail);
 
     const uint32_t localNum = std::min<uint32_t>(channel.localBufferDumpNum, HCOMM_DFX_MAX_BUFFERS);
     for (uint32_t idx = 0; idx < localNum; ++idx) {
