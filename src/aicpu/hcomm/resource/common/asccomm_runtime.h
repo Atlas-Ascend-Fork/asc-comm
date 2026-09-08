@@ -33,7 +33,7 @@ HcclResult asccomm_rtsq_ub_db_send(
     HcommRtsqContext &context, const Asc::UbJettyLiteId &jettyId, uint16_t piValue);
 HcclResult asccomm_rtsq_rdma_db_send(HcommRtsqContext &context, uint64_t dbAddr, uint64_t dbValue);
 
-HcclResult asccomm_task_launch(ThreadHandle *threads, uint32_t threadNum);
-HcclResult asccomm_try_launch(ThreadHandle *threads, uint32_t threadNum);
+HcclResult asccomm_task_launch(HcommThreadEntity **threads, uint32_t threadNum);
+HcclResult asccomm_try_launch(HcommThreadEntity **threads, uint32_t threadNum);
 
 #endif // ASCCOMM_RUNTIME_H
