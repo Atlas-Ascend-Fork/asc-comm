@@ -267,15 +267,6 @@ typedef struct {
 
 #pragma pack(pop)
 
-#if defined(__GNUC__)
-#define HCOMM_POD_RESOURCE_API __attribute__((visibility("default")))
-#else
-#define HCOMM_POD_RESOURCE_API
-#endif
-
-HCOMM_POD_RESOURCE_API int32_t HcommGetPodThreadResource(ThreadHandle thread, HcommThreadEntity** resource);
-HCOMM_POD_RESOURCE_API int32_t HcommGetPodChannelResource(ChannelHandle channel, HcommChannelEntity** resource);
-
 #ifdef __cplusplus
 }
 #endif
