@@ -2,11 +2,12 @@
 
 ## 概述
 
-本样例演示如何通过HCCL Resource API查询`COMM_PROTOCOL_UB_MEM`链路，在同一个通信域中为每个peer创建`pathMode=1`和`pathMode=2`两条Channel。各peer按顺序处理；处理单个peer时，通过两个Stream并发搬运
-不同的数据分片。
+本样例演示如何通过HCCL Resource API查询`COMM_PROTOCOL_UB_MEM`链路，在同一个通信域中为每个peer
+创建`pathMode=1`和`pathMode=2`两条Channel。各peer按顺序处理；处理单个peer时，通过两个Stream
+并发搬运不同的数据分片。
 
-样例采用一进程一Device的运行方式。每个rank使用自己的rank ID填充本端HCCL Buffer，再从其他rank读取
-4 KB数据并校验。`run.sh`负责启动本机rank进程，rank 0进程负责分发`HcclRootInfo`。
+样例采用一进程一Device的运行方式。每个rank使用自己的rank ID填充本端HCCL Buffer，再从其他rank
+读取4 KB数据并校验。`run.sh`负责启动本机rank进程，rank 0进程负责分发`HcclRootInfo`。
 
 ## 本样例支持的产品及CANN软件版本
 
@@ -18,20 +19,21 @@
 
 ```text
 one_multi_path
-├── CMakeLists.txt          // 编译工程文件
-├── main.cpp                // Host侧通信域、Channel和校验流程
-├── README.md               // 中文样例说明
-├── README_en.md            // 英文样例说明
-├── run.sh                  // 多rank启动脚本
-└── ubmem_data_copy.asc     // Ascend C数据搬运Kernel
+├── CMakeLists.txt      // 编译工程文件
+├── main.cpp            // Host侧通信域、Channel和校验流程
+├── ubmem_data_copy.asc // Ascend C数据搬运Kernel
+├── README.md           // 中文样例说明
+├── README_en.md        // 英文样例说明
+└── run.sh              // 多rank启动脚本
 ```
 
 ## 样例描述
 
 ### 功能说明
 
-每个rank先获取本端HCCL Buffer，并使用自己的rank ID填充前4 KB。Channel创建完成后，每个rank通过每个
-peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端校验Buffer，最后拷贝到Host侧逐字节校验。
+每个rank先获取本端HCCL Buffer，并使用自己的rank ID填充前4 KB。Channel创建完成后，每个rank
+通过每个peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端校验Buffer，最后拷贝到
+Host侧逐字节校验。
 
 ```text
 对端HCCL Buffer -> UB_MEM链路 -> Ascend C DataCopy -> 本端校验Buffer -> Host校验
@@ -44,6 +46,15 @@ peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端�
 | 1 | `COMM_PROTOCOL_UB_MEM` | `1` | one path | 前2 KB |
 | 2 | `COMM_PROTOCOL_UB_MEM` | `2` | multi path | 后2 KB |
 
+### 样例规格
+
+| 项目 | 说明 |
+| --- | --- |
+| 通信模式 | 每peer两条`COMM_PROTOCOL_UB_MEM`路径（one path/multi path）并发读取 |
+| 调用方式 | Host侧Resource API创建Channel + Ascend C DataCopy Kernel |
+| 数据规模 | 每peer读取4 KB（两条path各2 KB） |
+| 部署形态 | 单机多卡/多机多卡 |
+
 ### 实现流程
 
 1. rank 0生成并分发一份`HcclRootInfo`，各rank初始化同一个通信域。
@@ -51,12 +62,10 @@ peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端�
 3. 每个rank遍历RankGraph各层，为每个peer筛选一条`COMM_PROTOCOL_UB_MEM`链路。
 4. 每个peer基于同一组Endpoint构造`pathMode=1`和`pathMode=2`两个描述。
 5. 将所有peer的Channel描述一次性传入`HcclChannelAcquire`，批量创建Channel。
-6. 各peer按顺序处理；单个peer的两条Channel分别在两个Stream上读取前后两个2 KB分片，两个Kernel均下发后
-   再同步Stream，因此并发范围仅限同一peer的两条path。
+6. 各peer按顺序处理；单个peer的两条Channel分别在两个Stream上读取前后两个2 KB分片，两个Kernel
+   均下发后再同步Stream，因此并发范围仅限同一peer的两条path。
 7. 将本端校验Buffer拷贝到Host，检查每个字节是否等于对端rank ID。
 8. 所有peer的数据校验完成后执行`HcclBarrier`，确保全部rank完成远端读取后再销毁通信资源。
-
-`rank_graph_topo`日志只显示所选UB_MEM链路所在的RankGraph层，不参与`pathMode`选择。
 
 ## 编译运行
 
@@ -64,8 +73,7 @@ peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端�
 
 - 配置环境变量
 
-  请根据当前环境上CANN开发套件包的[安装方式](../../docs/quick_start.md)配置
-  环境变量。
+  请根据当前环境上CANN开发套件包的[安装方式](../../docs/quick_start.md)配置环境变量。
 
   ```bash
   source ${install_path}/cann/set_env.sh
@@ -78,8 +86,11 @@ peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端�
   默认启动两个进程，分别使用Device 0和Device 1。
 
   ```bash
-  cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510
-  cmake --build build -j
+  mkdir -p build
+  cd build
+  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+  make -j
+  cd ..
   bash run.sh
   ```
 
@@ -130,9 +141,10 @@ peer对应的两条Channel读取对端HCCL Buffer，将读取结果写入本端�
 
 ## 注意事项
 
-- 默认场景需要Device 0和Device 1可用，且两个Device之间存在`COMM_PROTOCOL_UB_MEM`链路。
+- 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+- 默认场景需要Device 0和Device 1可用，且两个Device之间存在`COMM_PROTOCOL_UB_MEM`链路；出现
+  `no UB_MEM link found`时，表示当前rank与目标rank之间不存在可用的`COMM_PROTOCOL_UB_MEM`链路。
+- `rank_graph_topo`日志只显示所选UB_MEM链路所在的RankGraph层，不参与`pathMode`选择。
 - 多机运行时，所有机器必须使用相同的`-pes`，rank范围必须完整且不能重复。
 - `-ipport`只用于分发`HcclRootInfo`，不参与HCCL数据链路选择。
 - `HcclChannelAcquire`失败时，可根据前序`peer`链路筛选日志定位失败范围。
-- 出现`no UB_MEM link found`时，表示当前rank与目标rank之间不存在可用的
-  `COMM_PROTOCOL_UB_MEM`链路。

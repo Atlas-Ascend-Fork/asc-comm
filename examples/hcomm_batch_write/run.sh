@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2026 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# This program is free software: you can redistribute it and/or modify it under the terms and conditions of
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
 # THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
@@ -20,15 +20,14 @@ fi
 
 readonly RANK_NUM=${1:-2}
 readonly SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-readonly REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." && pwd)"
-readonly BUILD_DIR="${REPO_ROOT}/build/examples/hcomm_batch_write"
+readonly BINARY="${SCRIPT_DIR}/build/hcomm_batch_write"
 
-if [[ -z ${ASCEND_HOME_PATH:-} ]]; then
-    echo "ASCEND_HOME_PATH is not set. Source the CANN environment before running this sample." >&2
+if [[ ! -x "${BINARY}" ]]; then
+    echo "binary does not exist or is not executable: ${BINARY}" >&2
+    echo "build the sample first:" >&2
+    echo "  mkdir -p ${SCRIPT_DIR}/build && cd ${SCRIPT_DIR}/build" >&2
+    echo "  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 .. && make -j" >&2
     exit 1
 fi
 
-cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" -DCMAKE_ASC_ARCHITECTURES=dav-3510
-cmake --build "${BUILD_DIR}" -j"$(nproc)"
-
-exec "${BUILD_DIR}/hcomm_batch_write" "${RANK_NUM}"
+exec "${BINARY}" "${RANK_NUM}"
