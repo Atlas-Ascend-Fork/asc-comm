@@ -20,8 +20,6 @@
 
 namespace AscendC {
 
-constexpr uint32_t HCOMM_JETTY_LAST_REMOTE_BUFFER = 0xFFFFFFFFU;
-
 struct alignas(8) HcommJettyPeerInfo {
     uint64_t tpIdNumSgesRemoteTokenId;
     uint64_t remoteEid[2];
@@ -52,8 +50,7 @@ struct HcommPeer {
     bool valid = false;
 
     __aicore__ __forceinline__ HcommPeer(
-        __ubuf__ HcommJettyPeerInfo* peerInfo, __gm__ void* jettyTable, uint32_t jettyIdx,
-        uint32_t remoteBufferIdx = HCOMM_JETTY_LAST_REMOTE_BUFFER);
+        __ubuf__ HcommJettyPeerInfo* peerInfo, __gm__ void* jettyTable, uint32_t jettyIdx);
 };
 
 } // namespace AscendC

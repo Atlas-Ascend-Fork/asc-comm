@@ -23,7 +23,7 @@ static constexpr uint32_t HCOMM_JETTY_WRITE_VALUE_SQE_FLAG = HCOMM_JETTY_WRITE_S
 
 __aicore__ __forceinline__ HcommPeer::HcommPeer(
     __ubuf__ HcommJettyPeerInfo* peerInfo, __gm__ void* jettyTable,
-    uint32_t jettyIdx, uint32_t remoteBufferIdx)
+    uint32_t jettyIdx)
     : peerInfo(peerInfo)
 {
     if (peerInfo == nullptr || jettyTable == nullptr) {
@@ -38,12 +38,8 @@ __aicore__ __forceinline__ HcommPeer::HcommPeer(
     if (jetty->remoteBufferNum == 0U || jetty->remoteBufferAddr == nullptr || jetty->sqContextAddr == nullptr) {
         return;
     }
-    uint32_t bufferIdx = remoteBufferIdx == HCOMM_JETTY_LAST_REMOTE_BUFFER
-        ? jetty->remoteBufferNum - 1U : remoteBufferIdx;
-    if (bufferIdx >= jetty->remoteBufferNum) {
-        return;
-    }
-    auto remoteBuffer = jetty->remoteBufferAddr[bufferIdx];
+    // The last registered buffer carries the shared remote token metadata.
+    auto remoteBuffer = jetty->remoteBufferAddr[jetty->remoteBufferNum - 1U];
     if (remoteBuffer.type != REGED_BUFFER_RMA ||
         remoteBuffer.bufferInfo.rma.addr == 0U || remoteBuffer.bufferInfo.rma.size == 0U) {
         return;
