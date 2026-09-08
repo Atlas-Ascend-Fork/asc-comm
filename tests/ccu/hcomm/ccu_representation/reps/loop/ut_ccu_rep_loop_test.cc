@@ -31,7 +31,11 @@
 #include "internal_exception.h"
 #include "ccu/hcomm/ccu_api_types.h"
 
-namespace hcomm {
+#include "ccu/hcomm/ccu_utils.hpp"
+
+using CcuUtException = ::AscendC::ccu::detail::ccu_exception;
+
+namespace asc {
 namespace ccu_rep {
 namespace {
 
@@ -147,7 +151,7 @@ TEST_F(CcuRepLoopTest, Translate_NullLoopBlock)
     uint16_t instrId = 0;
     trans_dep dep{};
 
-    EXPECT_THROW(loop.translate(nullptr, instrPtr, instrId, dep), Hccl::NullPtrException);
+    EXPECT_THROW(loop.translate(nullptr, instrPtr, instrId, dep), CcuUtException);
 }
 
 TEST_F(CcuRepLoopTest, Translate_UntranslatedLoopBlock)
@@ -164,7 +168,7 @@ TEST_F(CcuRepLoopTest, Translate_UntranslatedLoopBlock)
     uint16_t instrId = 0;
     trans_dep dep{};
 
-    EXPECT_THROW(loop.translate(nullptr, instrPtr, instrId, dep), Hccl::CcuApiException);
+    EXPECT_THROW(loop.translate(nullptr, instrPtr, instrId, dep), CcuUtException);
 }
 
 TEST_F(CcuRepLoopTest, Translate_InstrIdOverflow)
@@ -219,7 +223,7 @@ TEST_F(CcuRepLoopBlockTest, DefineArg_Variable)
     loop_block_.define_arg(var_);
 
     ccu_rep_arg& arg = loop_block_.get_arg(0);
-    EXPECT_EQ(arg.type_, ccu_arg_type::variable);
+    EXPECT_EQ(arg.type, ccu_arg_type::variable);
 }
 
 TEST_F(CcuRepLoopBlockTest, DefineArg_Memory)
@@ -232,7 +236,7 @@ TEST_F(CcuRepLoopBlockTest, DefineArg_Memory)
     loop_block_.define_arg(mem_);
 
     ccu_rep_arg& arg = loop_block_.get_arg(0);
-    EXPECT_EQ(arg.type_, ccu_arg_type::memory);
+    EXPECT_EQ(arg.type, ccu_arg_type::memory);
 }
 
 TEST_F(CcuRepLoopBlockTest, DefineArg_LocalAddr)
@@ -245,7 +249,7 @@ TEST_F(CcuRepLoopBlockTest, DefineArg_LocalAddr)
     loop_block_.define_arg(local_addr);
 
     ccu_rep_arg& arg = loop_block_.get_arg(0);
-    EXPECT_EQ(arg.type_, ccu_arg_type::local_addr);
+    EXPECT_EQ(arg.type, ccu_arg_type::local_addr);
 }
 
 TEST_F(CcuRepLoopBlockTest, DefineArg_RemoteAddr)
@@ -258,7 +262,7 @@ TEST_F(CcuRepLoopBlockTest, DefineArg_RemoteAddr)
     loop_block_.define_arg(remote_addr);
 
     ccu_rep_arg& arg = loop_block_.get_arg(0);
-    EXPECT_EQ(arg.type_, ccu_arg_type::remote_addr);
+    EXPECT_EQ(arg.type, ccu_arg_type::remote_addr);
 }
 
 TEST_F(CcuRepLoopBlockTest, DefineArg_VariableList)
@@ -269,7 +273,7 @@ TEST_F(CcuRepLoopBlockTest, DefineArg_VariableList)
     loop_block_.define_arg(var_list);
 
     ccu_rep_arg& arg = loop_block_.get_arg(0);
-    EXPECT_EQ(arg.type_, ccu_arg_type::variable_list);
+    EXPECT_EQ(arg.type, ccu_arg_type::variable_list);
     EXPECT_EQ(arg.var_list.size(), 2U);
 }
 
@@ -283,7 +287,7 @@ TEST_F(CcuRepLoopBlockTest, DefineArg_MemoryList)
     loop_block_.define_arg(mem_list);
 
     ccu_rep_arg& arg = loop_block_.get_arg(0);
-    EXPECT_EQ(arg.type_, ccu_arg_type::memory_list);
+    EXPECT_EQ(arg.type, ccu_arg_type::memory_list);
     EXPECT_EQ(arg.mem_list.size(), 2U);
 }
 
@@ -297,7 +301,7 @@ TEST_F(CcuRepLoopBlockTest, DefineArg_LocalAddrList)
     loop_block_.define_arg(addr_list);
 
     ccu_rep_arg& arg = loop_block_.get_arg(0);
-    EXPECT_EQ(arg.type_, ccu_arg_type::local_addr_list);
+    EXPECT_EQ(arg.type, ccu_arg_type::local_addr_list);
     EXPECT_EQ(arg.local_addr_list.size(), 2U);
 }
 
@@ -311,7 +315,7 @@ TEST_F(CcuRepLoopBlockTest, DefineArg_RemoteAddrList)
     loop_block_.define_arg(addr_list);
 
     ccu_rep_arg& arg = loop_block_.get_arg(0);
-    EXPECT_EQ(arg.type_, ccu_arg_type::remote_addr_list);
+    EXPECT_EQ(arg.type, ccu_arg_type::remote_addr_list);
     EXPECT_EQ(arg.remote_addr_list.size(), 2U);
 }
 
@@ -319,7 +323,7 @@ TEST_F(CcuRepLoopBlockTest, GetArg_OutOfRange)
 {
     ccu_rep_loop_block loop_block_(&insGen, "test_block");
 
-    EXPECT_THROW(loop_block_.get_arg(0), Hccl::CcuApiException);
+    EXPECT_THROW(loop_block_.get_arg(0), CcuUtException);
 }
 
 class CcuRepLoopCallTest : public ::testing::Test {
@@ -485,17 +489,17 @@ protected:
         ccu_ins_generater_v1 insGen;
         ccu_rep_loop_group_bundle::loop_entry entry;
         entry.config = ccu_loop_config{};
-        entry.executor = executor(nullptr);
-        entry.rep_loop_block_ = std::make_shared<ccu_rep_loop_block>(&insGen, "loop_block");
-        entry.rep_loop_block_->append(std::make_shared<ccu_rep_nop>(&insGen));
+        entry.executor_value = executor(nullptr);
+        entry.rep_loop_block = std::make_shared<ccu_rep_loop_block>(&insGen, "loop_block");
+        entry.rep_loop_block->append(std::make_shared<ccu_rep_nop>(&insGen));
         entry.loop_param_var = variable(nullptr);
-        entry.layout = ccu_rep_loop_group_bundle::layout::config;
+        entry.layout_value = ccu_rep_loop_group_bundle::layout::config;
 
         ccu_instr blockInstr[1]{};
         ccu_instr* blockPtr = blockInstr;
         uint16_t blockInstrId = 0;
         trans_dep blockDep{0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
-        entry.rep_loop_block_->translate(nullptr, blockPtr, blockInstrId, blockDep);
+        entry.rep_loop_block->translate(nullptr, blockPtr, blockInstrId, blockDep);
         return entry;
     }
 };
@@ -507,7 +511,7 @@ TEST_F(CcuRepLoopGroupBundleTest, Constructor)
     variable offsetParam(nullptr);
     ccu_rep_loop_group_bundle bundle(&insGen, grpCfg, parallel_param, offsetParam);
 
-    EXPECT_EQ(bundle.type(), ccu_rep_type::loopgroup);
+    EXPECT_EQ(bundle.type(), ccu_rep_type::loop_group);
 }
 
 TEST_F(CcuRepLoopGroupBundleTest, get_offset_param)
@@ -584,9 +588,9 @@ TEST_F(CcuRepSetLoopTest, Constructor)
     ccu_rep_set_loop setLoop(&insGen, loop_param_, executor, var_);
 
     EXPECT_EQ(setLoop.type(), ccu_rep_type::set_loop);
-    EXPECT_EQ(setLoop.loop_param_.id(), loop_param_.id());
-    EXPECT_EQ(setLoop.executor.id(), executor.id());
-    EXPECT_EQ(setLoop.var_.id(), var_.id());
+    EXPECT_EQ(setLoop.loop_param.id(), loop_param_.id());
+    EXPECT_EQ(setLoop.executor_value.id(), executor.id());
+    EXPECT_EQ(setLoop.var.id(), var_.id());
 }
 
 TEST_F(CcuRepSetLoopTest, translate)
@@ -616,10 +620,228 @@ TEST_F(CcuRepSetLoopTest, describe)
     ccu_rep_set_loop setLoop(&insGen, loop_param_, executor, var_);
 
     std::string desc = setLoop.describe();
-    EXPECT_NE(desc.find("loop_param_"), std::string::npos);
-    EXPECT_NE(desc.find("var_"), std::string::npos);
+    EXPECT_NE(desc.find("loopParam["), std::string::npos);
+    EXPECT_NE(desc.find("var["), std::string::npos);
+}
+
+TEST_F(CcuRepLoopTest, Constructor_A6Variant)
+{
+    variable loop_param_(nullptr);
+    variable loop_iter_num_(nullptr);
+    variable loop_gsa_offset_(nullptr);
+    ccu_rep_loop loop(&insGen, "a6_loop", loop_param_, loop_iter_num_, loop_gsa_offset_);
+
+    EXPECT_EQ(loop.type(), ccu_rep_type::loop);
+    EXPECT_EQ(loop.get_label(), "a6_loop");
+}
+
+TEST_F(CcuRepLoopTest, Translate_A6Variant_V1GeneratorThrows)
+{
+    // A6 构造(supportCcuV1=false) + v1 生成器: validate 抛错
+    variable loop_param_(nullptr);
+    variable loop_iter_num_(nullptr);
+    variable loop_gsa_offset_(nullptr);
+    ccu_rep_loop loop(&insGen, "a6_loop", loop_param_, loop_iter_num_, loop_gsa_offset_);
+
+    ccu_instr instr_[2]{};
+    ccu_instr* instrPtr = instr_;
+    uint16_t instrId = 0;
+    trans_dep dep{};
+
+    EXPECT_THROW(loop.translate(nullptr, instrPtr, instrId, dep), CcuUtException);
+}
+
+TEST_F(CcuRepLoopTest, TranslateViaGenerator_Loop)
+{
+    variable loop_param_(nullptr);
+    ccu_rep_loop loop(&insGen, "gen_loop", loop_param_);
+
+    auto loop_block_ = std::make_shared<ccu_rep_loop_block>(&insGen, "gen_loop_block");
+    loop_block_->append(std::make_shared<ccu_rep_nop>(&insGen));
+    loop.reference(loop_block_);
+
+    ccu_instr instr_[2]{};
+    ccu_instr* instrPtr = instr_;
+    uint16_t instrId = 0;
+    trans_dep dep{};
+
+    loop_block_->translate(nullptr, instrPtr, instrId, dep);
+    instrPtr = instr_;
+    instrId = 0;
+
+    HcclResult ret = insGen.ccu_rep_loop_translate(nullptr, instrPtr, instrId, &loop);
+    EXPECT_EQ(ret, HcclResult::HCCL_SUCCESS);
+}
+
+class CcuRepLoopCallGeneratorTest : public ::testing::Test {
+protected:
+    ccu_ins_generater_v1 insGen{};
+    trans_dep dep{};
+
+    void SetUp() override
+    {
+        dep.reserve_gsa_id = 1;
+        dep.reserve_xn_id = 2;
+    }
+};
+
+TEST_F(CcuRepLoopCallGeneratorTest, TranslateViaGenerator_AllArgTypes)
+{
+    address addr_(nullptr);
+    variable token(nullptr);
+    variable var_(nullptr);
+    memory mem_(addr_, token);
+    local_addr local_(addr_, token);
+    remote_addr remote_(addr_, token);
+
+    auto block = std::make_shared<ccu_rep_loop_block>(&insGen, "args_block");
+    block->define_arg(var_);
+    block->define_arg(std::vector<variable>{var_, var_});
+    block->define_arg(mem_);
+    block->define_arg(std::vector<memory>{mem_, mem_});
+    block->define_arg(local_);
+    block->define_arg(std::vector<local_addr>{local_, local_});
+    block->define_arg(remote_);
+    block->define_arg(std::vector<remote_addr>{remote_, remote_});
+
+    ccu_rep_loop_call call(&insGen, "args_block");
+    call.set_in_arg(var_);
+    call.set_in_arg(std::vector<variable>{var_, var_});
+    call.set_in_arg(mem_);
+    call.set_in_arg(std::vector<memory>{mem_, mem_});
+    call.set_in_arg(local_);
+    call.set_in_arg(std::vector<local_addr>{local_, local_});
+    call.set_in_arg(remote_);
+    call.set_in_arg(std::vector<remote_addr>{remote_, remote_});
+    call.reference(block);
+
+    ccu_instr instrs[32] = {};
+    ccu_instr* instrPtr = instrs;
+    uint16_t instrId = 0;
+
+    HcclResult ret = insGen.ccu_rep_loop_call_translate(nullptr, instrPtr, instrId, &call, dep);
+    EXPECT_EQ(ret, HcclResult::HCCL_SUCCESS);
+}
+
+TEST_F(CcuRepLoopCallGeneratorTest, TranslateViaGenerator_ListSizeMismatch)
+{
+    variable var_(nullptr);
+
+    auto block = std::make_shared<ccu_rep_loop_block>(&insGen, "mismatch_block");
+    block->define_arg(std::vector<variable>{var_, var_});
+
+    ccu_rep_loop_call call(&insGen, "mismatch_block");
+    call.set_in_arg(std::vector<variable>{var_});
+    call.reference(block);
+
+    ccu_instr instrs[8] = {};
+    ccu_instr* instrPtr = instrs;
+    uint16_t instrId = 0;
+
+    HcclResult ret = insGen.ccu_rep_loop_call_translate(nullptr, instrPtr, instrId, &call, dep);
+    EXPECT_EQ(ret, HcclResult::HCCL_E_PARA);
+}
+
+TEST_F(CcuRepLoopCallGeneratorTest, TranslateViaGenerator_ArgTypeMismatch)
+{
+    address addr_(nullptr);
+    variable token(nullptr);
+    variable var_(nullptr);
+    memory mem_(addr_, token);
+
+    auto block = std::make_shared<ccu_rep_loop_block>(&insGen, "type_block");
+    block->define_arg(var_);
+
+    ccu_rep_loop_call call(&insGen, "type_block");
+    call.set_in_arg(mem_);
+    call.reference(block);
+
+    ccu_instr instrs[8] = {};
+    ccu_instr* instrPtr = instrs;
+    uint16_t instrId = 0;
+
+    HcclResult ret = insGen.ccu_rep_loop_call_translate(nullptr, instrPtr, instrId, &call, dep);
+    EXPECT_EQ(ret, HcclResult::HCCL_E_PARA);
+}
+
+TEST_F(CcuRepLoopCallGeneratorTest, TranslateViaGenerator_NullLoopBlock)
+{
+    variable var_(nullptr);
+    ccu_rep_loop_call call(&insGen, "null_block");
+
+    ccu_instr instrs[8] = {};
+    ccu_instr* instrPtr = instrs;
+    uint16_t instrId = 0;
+
+    HcclResult ret = insGen.ccu_rep_loop_call_translate(nullptr, instrPtr, instrId, &call, dep);
+    EXPECT_NE(ret, HcclResult::HCCL_SUCCESS);
+}
+
+TEST_F(CcuRepSetLoopTest, TranslateViaGenerator)
+{
+    variable loop_param_(nullptr);
+    executor executor_(nullptr);
+    variable var_(nullptr);
+    ccu_rep_set_loop setLoop(&insGen, loop_param_, executor_, var_);
+
+    ccu_instr instr_[2] = {};
+    ccu_instr* instrPtr = instr_;
+    uint16_t instrId = 0;
+    trans_dep dep{};
+
+    HcclResult ret = insGen.ccu_rep_set_loop_translate(nullptr, instrPtr, instrId, &setLoop);
+    EXPECT_EQ(ret, HcclResult::HCCL_SUCCESS);
+}
+
+TEST_F(CcuRepLoopGroupBundleTest, TranslatePackedVarLayout)
+{
+    variable parallel_param(nullptr);
+    variable offsetParam(nullptr);
+    ccu_rep_loop_group_bundle bundle(&insGen, parallel_param, offsetParam);
+    auto entry = MakeTranslatedLoopEntry();
+    entry.layout_value = ccu_rep_loop_group_bundle::layout::version_v2;
+    bundle.add_loop(entry);
+
+    ccu_instr instr_[16] = {};
+    ccu_instr* instrPtr = instr_;
+    uint16_t instrId = 0;
+    trans_dep dep{0, 0, 1, 1, 0, {0, 0}, {0}, 0, 0, {0, 0, 0}, {0, 0}, 0, false};
+
+    bool result = bundle.translate(nullptr, instrPtr, instrId, dep);
+
+    EXPECT_TRUE(result);
+    // 1个var类loop: 2条参数载入 + 1条loopgroup + 2条跳过 + 1条loop + 1条收尾 = 7
+    EXPECT_EQ(instrId, 7U);
+}
+
+TEST_F(CcuRepLoopGroupBundleTest, InstrCount_ConfigLayout)
+{
+    ccu_loop_group_config grpCfg{};
+    variable parallel_param(nullptr);
+    variable offsetParam(nullptr);
+    ccu_rep_loop_group_bundle bundle(&insGen, grpCfg, parallel_param, offsetParam);
+    bundle.add_loop(MakeTranslatedLoopEntry());
+
+    EXPECT_EQ(bundle.instr_count(), 8U);
+}
+
+TEST_F(CcuRepLoopGroupBundleTest, InstrCount_PackedVarLayout)
+{
+    variable parallel_param(nullptr);
+    variable offsetParam(nullptr);
+    ccu_rep_loop_group_bundle bundle(&insGen, parallel_param, offsetParam);
+    auto entry = MakeTranslatedLoopEntry();
+    entry.layout_value = ccu_rep_loop_group_bundle::layout::version_v2;
+    bundle.add_loop(entry);
+
+    EXPECT_EQ(bundle.instr_count(), 7U);
+}
+
+TEST_F(CcuRepLoopGroupBundleTest, InstrCount_NullBundleThrows)
+{
+    EXPECT_THROW(insGen.ccu_rep_loop_group_bundle_instr_count(nullptr), CcuUtException);
 }
 
 } // namespace
 } // namespace ccu_rep
-} // namespace hcomm
+} // namespace asc

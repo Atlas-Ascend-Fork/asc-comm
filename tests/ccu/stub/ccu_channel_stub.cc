@@ -10,7 +10,7 @@
 
 #include "ccu_urma_channel_compat.h"
 
-namespace hcomm {
+namespace asc {
 CcuTransport::~CcuTransport() {}
 CcuConnection::~CcuConnection() {}
 // key function 实现（生成 vtable/typeinfo）
@@ -53,4 +53,4 @@ HcclResult Channel::UpdateMemInfo(HcommMemHandle* memHandles, uint32_t memHandle
 HcommChannelKind Channel::GetChannelKind() const { return HcommChannelKind{}; }
 HcclResult Channel::Serialize(std::shared_ptr<hccl::DeviceMem>& out) { return HCCL_SUCCESS; }
 void Channel::AddPtrArrayDevMem(std::shared_ptr<hccl::DeviceMem> ptrArrayMem) {}
-} // namespace hcomm
+} // namespace asc

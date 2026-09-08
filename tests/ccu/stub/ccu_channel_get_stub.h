@@ -11,14 +11,14 @@
 #ifndef ASCCOMM_CCU_CHANNEL_GET_STUB_H
 #define ASCCOMM_CCU_CHANNEL_GET_STUB_H
 
-#include "hccl/hccl_types.h"
-#include "hcomm/hcomm_ccu_channel_api.h"
+#include "hcomm/hcomm_types.h"
+#include "hcomm/hcomm_ccu_channel.h"
 
-namespace hcomm {
+namespace asc {
 
-void SetHcommCcuChannelGetPodStub(const HcommCcuChannelPod &channelPod);
-void SetHcommCcuChannelGetPodStubResult(HcommResult result);
-void ResetHcommCcuChannelGetPodStub();
-} // namespace hcomm
+void SetHcommCcuChannelQueryStub(const HcommCcuChannelPod &channelPod);
+void SetHcommCcuChannelQueryStubResult(int32_t result);
+void ResetHcommCcuChannelQueryStub();
+} // namespace asc
 
 #endif

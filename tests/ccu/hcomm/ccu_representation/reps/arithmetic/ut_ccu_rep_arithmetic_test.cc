@@ -21,7 +21,7 @@
 #include <gtest/gtest.h>
 #include <string>
 
-namespace hcomm {
+namespace asc {
 namespace ccu_rep {
 namespace {
 
@@ -124,7 +124,7 @@ TEST_F(CcuRepAddTest, Translate_AddrPlusVarToAddr)
     EXPECT_EQ(instr_.v1.load_gsa_xn.gs_ad_id, addr_c_.id());
     EXPECT_EQ(instr_.v1.load_gsa_xn.gs_am_id, addr_a_.id());
     EXPECT_EQ(instr_.v1.load_gsa_xn.xn_id, var_b_.id());
-    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.type, 0x0);
     EXPECT_EQ(instr_.header.code, 0x4);
 }
 
@@ -145,7 +145,7 @@ TEST_F(CcuRepAddTest, Translate_AddrPlusAddrToAddr)
     EXPECT_EQ(instr_.v1.load_gsagsa.gs_ad_id, addr_c_.id());
     EXPECT_EQ(instr_.v1.load_gsagsa.gs_am_id, addr_a_.id());
     EXPECT_EQ(instr_.v1.load_gsagsa.gs_an_id, addr_b_.id());
-    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.type, 0x0);
     EXPECT_EQ(instr_.header.code, 0x5);
 }
 
@@ -166,7 +166,7 @@ TEST_F(CcuRepAddTest, Translate_VarPlusVarToVar)
     EXPECT_EQ(instr_.v1.load_xx.xd_id, var_c_.id());
     EXPECT_EQ(instr_.v1.load_xx.xm_id, var_a_.id());
     EXPECT_EQ(instr_.v1.load_xx.xn_id, var_b_.id());
-    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.header.type, 0x0);
     EXPECT_EQ(instr_.header.code, 0x6);
 }
 
@@ -215,9 +215,9 @@ TEST_F(CcuRepAddTest, Describe_AddrPlusVarToAddr)
     ccu_rep_add rep(&insGen, addr_c_, addr_a_, var_b_);
 
     std::string desc = rep.describe();
-    EXPECT_NE(desc.find("address[1]"), std::string::npos);
-    EXPECT_NE(desc.find("address[2]"), std::string::npos);
-    EXPECT_NE(desc.find("variable[3]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[1]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Variable[3]"), std::string::npos);
 }
 
 TEST_F(CcuRepAddTest, Describe_AddrPlusAddrToAddr)
@@ -231,9 +231,9 @@ TEST_F(CcuRepAddTest, Describe_AddrPlusAddrToAddr)
     ccu_rep_add rep(&insGen, addr_c_, addr_a_, addr_b_);
 
     std::string desc = rep.describe();
-    EXPECT_NE(desc.find("address[1]"), std::string::npos);
-    EXPECT_NE(desc.find("address[2]"), std::string::npos);
-    EXPECT_NE(desc.find("address[3]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[1]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[3]"), std::string::npos);
 }
 
 TEST_F(CcuRepAddTest, Describe_VarPlusVarToVar)
@@ -247,9 +247,9 @@ TEST_F(CcuRepAddTest, Describe_VarPlusVarToVar)
     ccu_rep_add rep(&insGen, var_c_, var_a_, var_b_);
 
     std::string desc = rep.describe();
-    EXPECT_NE(desc.find("variable[1]"), std::string::npos);
-    EXPECT_NE(desc.find("variable[2]"), std::string::npos);
-    EXPECT_NE(desc.find("variable[3]"), std::string::npos);
+    EXPECT_NE(desc.find("Variable[1]"), std::string::npos);
+    EXPECT_NE(desc.find("Variable[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Variable[3]"), std::string::npos);
 }
 
 TEST_F(CcuRepAddTest, Describe_SelfAddAddress)
@@ -261,8 +261,8 @@ TEST_F(CcuRepAddTest, Describe_SelfAddAddress)
     ccu_rep_add rep(&insGen, addr_a_, offset);
 
     std::string desc = rep.describe();
-    EXPECT_NE(desc.find("address[5]"), std::string::npos);
-    EXPECT_NE(desc.find("variable[7]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[5]"), std::string::npos);
+    EXPECT_NE(desc.find("Variable[7]"), std::string::npos);
 }
 
 TEST_F(CcuRepAddTest, Describe_SelfAddVariable)
@@ -274,8 +274,8 @@ TEST_F(CcuRepAddTest, Describe_SelfAddVariable)
     ccu_rep_add rep(&insGen, var_a_, offset);
 
     std::string desc = rep.describe();
-    EXPECT_NE(desc.find("variable[5]"), std::string::npos);
-    EXPECT_NE(desc.find("variable[7]"), std::string::npos);
+    EXPECT_NE(desc.find("Variable[5]"), std::string::npos);
+    EXPECT_NE(desc.find("Variable[7]"), std::string::npos);
 }
 
 class CcuRepAssignTest : public ::testing::Test {
@@ -366,8 +366,8 @@ TEST_F(CcuRepAssignTest, Translate_ImdToVariable)
     EXPECT_TRUE(result);
     EXPECT_TRUE(rep.translated());
     EXPECT_EQ(instr_.v1.load_imd_to_xn.xn_id, var_a_.id());
-    EXPECT_EQ(instr_.v1.load_imd_to_xn.immediate_, immediate_);
-    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.v1.load_imd_to_xn.immediate, immediate_);
+    EXPECT_EQ(instr_.header.type, 0x0);
     EXPECT_EQ(instr_.header.code, 0x3);
 }
 
@@ -383,8 +383,8 @@ TEST_F(CcuRepAssignTest, Translate_ImdToAddr)
 
     EXPECT_TRUE(result);
     EXPECT_EQ(instr_.v1.load_imd_to_gsa.gsa_id, addr_a_.id());
-    EXPECT_EQ(instr_.v1.load_imd_to_gsa.immediate_, immediate_);
-    EXPECT_EQ(instr_.header.type_, 0x0);
+    EXPECT_EQ(instr_.v1.load_imd_to_gsa.immediate, immediate_);
+    EXPECT_EQ(instr_.header.type, 0x0);
     EXPECT_EQ(instr_.header.code, 0x2);
 }
 
@@ -446,7 +446,7 @@ TEST_F(CcuRepAssignTest, Describe_ImdToVariable)
     ccu_rep_assign rep(&insGen, var_a_, 100);
 
     std::string desc = rep.describe();
-    EXPECT_NE(desc.find("variable[1]"), std::string::npos);
+    EXPECT_NE(desc.find("Variable[1]"), std::string::npos);
     EXPECT_NE(desc.find("Value[100]"), std::string::npos);
 }
 
@@ -457,7 +457,7 @@ TEST_F(CcuRepAssignTest, Describe_ImdToAddr)
     ccu_rep_assign rep(&insGen, addr_a_, 200);
 
     std::string desc = rep.describe();
-    EXPECT_NE(desc.find("address[1]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[1]"), std::string::npos);
     EXPECT_NE(desc.find("Value[200]"), std::string::npos);
 }
 
@@ -470,8 +470,8 @@ TEST_F(CcuRepAssignTest, Describe_VarToAddr)
     ccu_rep_assign rep(&insGen, addr_a_, var_a_);
 
     std::string desc = rep.describe();
-    EXPECT_NE(desc.find("address[1]"), std::string::npos);
-    EXPECT_NE(desc.find("variable[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[1]"), std::string::npos);
+    EXPECT_NE(desc.find("Variable[2]"), std::string::npos);
 }
 
 TEST_F(CcuRepAssignTest, Describe_AddrToAddr)
@@ -483,8 +483,8 @@ TEST_F(CcuRepAssignTest, Describe_AddrToAddr)
     ccu_rep_assign rep(&insGen, addr_b_, addr_a_);
 
     std::string desc = rep.describe();
-    EXPECT_NE(desc.find("address[1]"), std::string::npos);
-    EXPECT_NE(desc.find("address[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[1]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[2]"), std::string::npos);
 }
 
 TEST_F(CcuRepAssignTest, Describe_VarToVar)
@@ -510,7 +510,7 @@ TEST_F(CcuOperatorTest, VariablePlusVariable)
     var_b_.reset(2);
     auto op = var_a_ + var_b_;
 
-    EXPECT_EQ(op.type_, ccu_arithmetic_operator_type::addition);
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::addition);
     EXPECT_EQ(op.lhs.id(), var_a_.id());
     EXPECT_EQ(op.rhs.id(), var_b_.id());
 }
@@ -523,7 +523,7 @@ TEST_F(CcuOperatorTest, VariablePlusAddress)
     addr_b_.reset(2);
     auto op = var_a_ + addr_b_;
 
-    EXPECT_EQ(op.type_, ccu_arithmetic_operator_type::addition);
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::addition);
     EXPECT_EQ(op.lhs.id(), var_a_.id());
     EXPECT_EQ(op.rhs.id(), addr_b_.id());
 }
@@ -536,7 +536,7 @@ TEST_F(CcuOperatorTest, AddressPlusVariable)
     var_b_.reset(2);
     auto op = addr_a_ + var_b_;
 
-    EXPECT_EQ(op.type_, ccu_arithmetic_operator_type::addition);
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::addition);
     EXPECT_EQ(op.lhs.id(), var_b_.id());
     EXPECT_EQ(op.rhs.id(), addr_a_.id());
 }
@@ -549,7 +549,7 @@ TEST_F(CcuOperatorTest, AddressPlusAddress)
     addr_b_.reset(2);
     auto op = addr_a_ + addr_b_;
 
-    EXPECT_EQ(op.type_, ccu_arithmetic_operator_type::addition);
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::addition);
     EXPECT_EQ(op.lhs.id(), addr_a_.id());
     EXPECT_EQ(op.rhs.id(), addr_b_.id());
 }
@@ -560,7 +560,7 @@ TEST_F(CcuOperatorTest, VariableNotEqualImmediate)
     var_a_.reset(1);
     auto op = var_a_ != 100;
 
-    EXPECT_EQ(op.type_, ccu_relational_operator_type::not_equal);
+    EXPECT_EQ(op.type, ccu_relational_operator_type::not_equal);
     EXPECT_EQ(op.lhs.id(), var_a_.id());
     EXPECT_EQ(op.rhs, 100);
 }
@@ -571,9 +571,151 @@ TEST_F(CcuOperatorTest, VariableEqualImmediate)
     var_a_.reset(1);
     auto op = var_a_ == 200;
 
-    EXPECT_EQ(op.type_, ccu_relational_operator_type::equal);
+    EXPECT_EQ(op.type, ccu_relational_operator_type::equal);
     EXPECT_EQ(op.lhs.id(), var_a_.id());
     EXPECT_EQ(op.rhs, 200);
+}
+
+TEST_F(CcuOperatorTest, VariableMulVariable)
+{
+    variable var_a_;
+    variable var_b_;
+    var_a_.reset(1);
+    var_b_.reset(2);
+    auto op = var_a_ * var_b_;
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::multiplication);
+    EXPECT_EQ(op.lhs.id(), var_a_.id());
+    EXPECT_EQ(op.rhs.id(), var_b_.id());
+}
+
+TEST_F(CcuOperatorTest, VariableMulAddress)
+{
+    variable var_a_;
+    address addr_b_;
+    var_a_.reset(1);
+    addr_b_.reset(2);
+    auto op = var_a_ * addr_b_;
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::multiplication);
+}
+
+TEST_F(CcuOperatorTest, VariableMulImmediate)
+{
+    variable var_a_;
+    var_a_.reset(1);
+    auto op = var_a_ * uint16_t(10);
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::multiplication);
+}
+
+TEST_F(CcuOperatorTest, VariableSubVariable)
+{
+    variable var_a_;
+    variable var_b_;
+    var_a_.reset(1);
+    var_b_.reset(2);
+    auto op = var_a_ - var_b_;
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::subtraction);
+}
+
+TEST_F(CcuOperatorTest, VariableSubAddress)
+{
+    variable var_a_;
+    address addr_b_;
+    var_a_.reset(1);
+    addr_b_.reset(2);
+    auto op = var_a_ - addr_b_;
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::subtraction);
+}
+
+TEST_F(CcuOperatorTest, VariableSubImmediate)
+{
+    variable var_a_;
+    var_a_.reset(1);
+    auto op = var_a_ - uint16_t(10);
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::subtraction);
+}
+
+TEST_F(CcuOperatorTest, AddressMulVariable)
+{
+    address addr_a_;
+    variable var_b_;
+    addr_a_.reset(1);
+    var_b_.reset(2);
+    auto op = addr_a_ * var_b_;
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::multiplication);
+}
+
+TEST_F(CcuOperatorTest, AddressMulAddress)
+{
+    address addr_a_;
+    address addr_b_;
+    addr_a_.reset(1);
+    addr_b_.reset(2);
+    auto op = addr_a_ * addr_b_;
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::multiplication);
+}
+
+TEST_F(CcuOperatorTest, AddressMulImmediate)
+{
+    address addr_a_;
+    addr_a_.reset(1);
+    auto op = addr_a_ * uint16_t(10);
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::multiplication);
+}
+
+TEST_F(CcuOperatorTest, AddressSubVariable)
+{
+    address addr_a_;
+    variable var_b_;
+    addr_a_.reset(1);
+    var_b_.reset(2);
+    auto op = addr_a_ - var_b_;
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::subtraction);
+}
+
+TEST_F(CcuOperatorTest, AddressSubAddress)
+{
+    address addr_a_;
+    address addr_b_;
+    addr_a_.reset(1);
+    addr_b_.reset(2);
+    auto op = addr_a_ - addr_b_;
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::subtraction);
+}
+
+TEST_F(CcuOperatorTest, AddressSubImmediate)
+{
+    address addr_a_;
+    addr_a_.reset(1);
+    auto op = addr_a_ - uint16_t(10);
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::subtraction);
+}
+
+TEST_F(CcuOperatorTest, AddressPlusVariable_OrderConsistency)
+{
+    address addr_a_;
+    variable var_b_;
+    addr_a_.reset(1);
+    var_b_.reset(2);
+    auto op = addr_a_ + var_b_;
+    // address + variable 内部 lhs=variable, rhs=address (与 variable+address 对称)
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::addition);
+}
+
+TEST_F(CcuOperatorTest, AddressPlusImmediate)
+{
+    address addr_a_;
+    addr_a_.reset(1);
+    auto op = addr_a_ + uint16_t(10);
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::addition);
+}
+
+TEST_F(CcuOperatorTest, VariablePlusImmediate)
+{
+    variable var_a_;
+    var_a_.reset(1);
+    auto op = var_a_ + uint16_t(10);
+    EXPECT_EQ(op.type, ccu_arithmetic_operator_type::addition);
+    EXPECT_EQ(op.rhs, 10);
 }
 
 class CcuRepMulTest : public ::testing::Test {
@@ -651,8 +793,8 @@ TEST_F(CcuRepMulTest, Describe_AllSubTypes)
     EXPECT_NE(ccu_rep_mul(&insGen, var_c_, var_a_, uint16_t(10)).describe().find("Immed"), std::string::npos);
     EXPECT_NE(ccu_rep_mul(&insGen, var_a_, var_b_).describe().find("*="), std::string::npos);
     EXPECT_NE(ccu_rep_mul(&insGen, var_a_, uint16_t(10)).describe().find("*="), std::string::npos);
-    EXPECT_NE(ccu_rep_mul(&insGen, addr_c_, var_a_, var_b_).describe().find("address"), std::string::npos);
-    EXPECT_NE(ccu_rep_mul(&insGen, addr_c_, var_a_, addr_b_).describe().find("address"), std::string::npos);
+    EXPECT_NE(ccu_rep_mul(&insGen, addr_c_, var_a_, var_b_).describe().find("Address"), std::string::npos);
+    EXPECT_NE(ccu_rep_mul(&insGen, addr_c_, var_a_, addr_b_).describe().find("Address"), std::string::npos);
     EXPECT_NE(ccu_rep_mul(&insGen, addr_a_, var_b_).describe().find("*="), std::string::npos);
     EXPECT_NE(ccu_rep_mul(&insGen, addr_c_, addr_a_, uint16_t(10)).describe().find("Immed"), std::string::npos);
     EXPECT_NE(ccu_rep_mul(&insGen, addr_c_, var_a_, uint16_t(10)).describe().find("Immed"), std::string::npos);
@@ -765,7 +907,7 @@ TEST_F(CcuRepSubTest, Describe_AllSubTypes)
     EXPECT_NE(ccu_rep_sub(&insGen, var_c_, var_a_, uint16_t(10)).describe().find("Immed"), std::string::npos);
     EXPECT_NE(ccu_rep_sub(&insGen, var_a_, var_b_).describe().find("-="), std::string::npos);
     EXPECT_NE(ccu_rep_sub(&insGen, var_a_, uint16_t(10)).describe().find("Immed"), std::string::npos);
-    EXPECT_NE(ccu_rep_sub(&insGen, addr_c_, addr_a_, var_b_).describe().find("variable"), std::string::npos);
+    EXPECT_NE(ccu_rep_sub(&insGen, addr_c_, addr_a_, var_b_).describe().find("Variable"), std::string::npos);
     EXPECT_NE(ccu_rep_sub(&insGen, addr_c_, addr_a_, uint16_t(10)).describe().find("Immed"), std::string::npos);
     EXPECT_NE(ccu_rep_sub(&insGen, addr_a_, var_b_).describe().find("-="), std::string::npos);
     EXPECT_NE(ccu_rep_sub(&insGen, addr_a_, uint16_t(10)).describe().find("Immed"), std::string::npos);
@@ -875,6 +1017,130 @@ TEST_F(CcuRepSubTest, Translate_AllSubTypes)
     EXPECT_ANY_THROW(s4.translate(nullptr, instrPtr, instrId, dep));
 }
 
+TEST_F(CcuRepMulTest, TranslateViaGenerator_NotSupported)
+{
+    variable var_c_(nullptr);
+    variable var_a_(nullptr);
+    variable var_b_(nullptr);
+    var_c_.reset(1);
+    var_a_.reset(2);
+    var_b_.reset(3);
+
+    ccu_rep_mul rep(&insGen, var_c_, var_a_, var_b_);
+    ccu_instr instr_[2] = {};
+    ccu_instr* instrPtr = instr_;
+    uint16_t instrId = 0;
+    trans_dep dep{};
+
+    HcclResult ret = insGen.ccu_rep_mul_translate(nullptr, instrPtr, &rep);
+    EXPECT_EQ(ret, HcclResult::HCCL_E_NOT_SUPPORT);
+}
+
+TEST_F(CcuRepSubTest, TranslateViaGenerator_NotSupported)
+{
+    variable var_c_(nullptr);
+    variable var_a_(nullptr);
+    variable var_b_(nullptr);
+    var_c_.reset(1);
+    var_a_.reset(2);
+    var_b_.reset(3);
+
+    ccu_rep_sub rep(&insGen, var_c_, var_a_, var_b_);
+    ccu_instr instr_[2] = {};
+    ccu_instr* instrPtr = instr_;
+    uint16_t instrId = 0;
+    trans_dep dep{};
+
+    HcclResult ret = insGen.ccu_rep_sub_translate(nullptr, instrPtr, &rep);
+    EXPECT_EQ(ret, HcclResult::HCCL_E_NOT_SUPPORT);
+}
+
+TEST_F(CcuRepAddTest, Constructor_A6SubTypes_AndDescribe)
+{
+    variable var_c_;
+    variable var_a_;
+    variable var_b_;
+    var_c_.reset(1);
+    var_a_.reset(2);
+    var_b_.reset(3);
+    address addr_a_;
+    address addr_b_;
+    address addr_c_;
+    addr_a_.reset(4);
+    addr_b_.reset(5);
+    addr_c_.reset(6);
+
+    ccu_rep_add r1(&insGen, addr_c_, addr_a_, uint16_t(10));
+    EXPECT_EQ(r1.get_sub_type(), add_sub_type::addr_plus_immed_to_addr);
+    EXPECT_NE(r1.describe().find("Addr"), std::string::npos);
+
+    ccu_rep_add r2(&insGen, addr_a_, uint16_t(10));
+    EXPECT_EQ(r2.get_sub_type(), add_sub_type::self_add_immed_address);
+
+    ccu_rep_add r3(&insGen, addr_c_, var_a_, var_b_);
+    EXPECT_EQ(r3.get_sub_type(), add_sub_type::var_plus_var_to_addr);
+
+    ccu_rep_add r4(&insGen, addr_c_, var_a_, uint16_t(10));
+    EXPECT_EQ(r4.get_sub_type(), add_sub_type::var_plus_immed_to_addr);
+
+    ccu_rep_add r5(&insGen, var_c_, addr_a_, addr_b_);
+    EXPECT_EQ(r5.get_sub_type(), add_sub_type::addr_plus_addr_to_var);
+
+    ccu_rep_add r6(&insGen, var_c_, addr_a_, uint16_t(10));
+    EXPECT_EQ(r6.get_sub_type(), add_sub_type::addr_plus_immed_to_var);
+    EXPECT_NE(r6.describe().find("Immed"), std::string::npos);
+}
+
+class fake_success_ins_generater : public ccu_ins_generater_v1 {
+public:
+    uint32_t get_instr_count(ccu_rep_type rep_type) override { return 1; }
+};
+
+TEST_F(CcuRepMulTest, Constructor_RemainingSubTypes_AndDescribe)
+{
+    variable var_c_;
+    variable var_a_;
+    address addr_a_;
+    address addr_c_;
+    var_c_.reset(1);
+    var_a_.reset(2);
+    addr_a_.reset(3);
+    addr_c_.reset(4);
+
+    ccu_rep_mul r1(&insGen, addr_a_, var_a_);
+    EXPECT_EQ(r1.get_sub_type(), mul_sub_type::self_mul_var_address);
+
+    ccu_rep_mul r2(&insGen, addr_c_, addr_a_, uint16_t(10));
+    EXPECT_EQ(r2.get_sub_type(), mul_sub_type::addr_mul_immed_to_addr);
+
+    ccu_rep_mul r3(&insGen, addr_c_, var_a_, uint16_t(10));
+    EXPECT_EQ(r3.get_sub_type(), mul_sub_type::var_mul_immed_to_addr);
+
+    ccu_rep_mul r4(&insGen, addr_a_, uint16_t(10));
+    EXPECT_EQ(r4.get_sub_type(), mul_sub_type::self_mul_immed_address);
+
+    ccu_rep_mul r5(&insGen, var_c_, addr_a_, uint16_t(10));
+    EXPECT_EQ(r5.get_sub_type(), mul_sub_type::addr_mul_immed_to_var);
+    EXPECT_NE(r5.describe().find("Immed"), std::string::npos);
+}
+
+TEST_F(CcuRepMulTest, Translate_A6SubType_V1GeneratorThrows)
+{
+    // v1 生成器对 mul 恒返回 NOT_SUPPORT, translate 抛错
+    variable var_c_;
+    address addr_a_;
+    var_c_.reset(1);
+    addr_a_.reset(2);
+
+    ccu_rep_mul rep(&insGen, var_c_, addr_a_, uint16_t(10));
+    ccu_instr instr_[2] = {};
+    ccu_instr* instrPtr = instr_;
+    uint16_t instrId = 0;
+    trans_dep dep{};
+
+    EXPECT_ANY_THROW(rep.translate(nullptr, instrPtr, instrId, dep));
+}
+
 } // namespace
 } // namespace ccu_rep
-} // namespace hcomm
+} // namespace asc
