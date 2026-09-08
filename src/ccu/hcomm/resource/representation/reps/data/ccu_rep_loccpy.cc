@@ -49,7 +49,7 @@ ccu_rep_loc_cpy::ccu_rep_loc_cpy(
     use_ccu_buffer_ = true;
 }
 
-void ccu_rep_loc_cpy::validate_ins_generator_for_loc_cpy()
+void ccu_rep_loc_cpy::validate_ins_generator_for_loc_cpy() const
 {
     ccu_ins_generater_v1* tmp_ptr_v1 = dynamic_cast<ccu_ins_generater_v1*>(ins_gen_ptr_);
     if (tmp_ptr_v1 && use_ccu_buffer_) {

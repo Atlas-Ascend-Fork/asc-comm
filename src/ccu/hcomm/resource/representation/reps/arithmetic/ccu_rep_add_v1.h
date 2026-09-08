@@ -54,11 +54,11 @@ public:
     variable get_var_a();
     variable get_var_b();
     variable get_var_c();
-    uint16_t get_immed_b();
-    add_sub_type get_sub_type();
+    uint16_t get_immed_b() const;
+    add_sub_type get_sub_type() const;
 
 private:
-    void validate_ins_gen_ptr_for_add();
+    void validate_ins_gen_ptr_for_add() const;
     void set_common_info();
 
     ccu_ins_generater_base* ins_gen_ptr_{nullptr};

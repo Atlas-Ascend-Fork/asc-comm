@@ -15,14 +15,8 @@
 #include "hcomm/resource/representation/reps/common/ccu_rep_loadarg_v1.h"
 #include "hcomm/resource/representation/reps/arithmetic/ccu_rep_add_v1.h"
 #include "hcomm/resource/representation/reps/arithmetic/ccu_rep_assign_v1.h"
-
-#include "hcomm/resource/representation/reps/logical/ccu_rep_and.h"
-#include "hcomm/resource/representation/reps/logical/ccu_rep_or.h"
-#include "hcomm/resource/representation/reps/logical/ccu_rep_not.h"
-#include "hcomm/resource/representation/reps/logical/ccu_rep_xor.h"
-
-#include "hcomm/resource/representation/reps/shift/ccu_rep_shl.h"
-#include "hcomm/resource/representation/reps/shift/ccu_rep_shr.h"
+#include "hcomm/resource/representation/reps/arithmetic/ccu_rep_mul_v1.h"
+#include "hcomm/resource/representation/reps/arithmetic/ccu_rep_sub_v1.h"
 
 #include "hcomm/resource/representation/reps/loop/ccu_rep_setloop_v1.h"
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loop_v1.h"
@@ -52,16 +46,11 @@
 
 #include "hcomm/resource/representation/reps/control/ccu_rep_funccall_v1.h"
 #include "hcomm/resource/representation/reps/control/ccu_rep_funcblock_v1.h"
-#include "hcomm/resource/representation/reps/control/ccu_rep_jump_v1.h"
-#include "hcomm/resource/representation/reps/control/ccu_rep_jumplabel_v1.h"
-
 #include "hcomm/resource/representation/interface/ccu_condition_v1.h"
 #include "hcomm/resource/representation/interface/ccu_repeat_v1.h"
 #include "hcomm/resource/representation/interface/ccu_loopblock_v1.h"
 #include "hcomm/resource/representation/interface/ccu_funcblock_v1.h"
 #include "hcomm/resource/representation/interface/ccu_funccall_v1.h"
-#include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
-
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_load_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_store_v1.h"
@@ -71,9 +60,12 @@
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 
-#include "hcomm/resource/representation/reps/arithmetic/ccu_rep_add_v1.h"
-#include "hcomm/resource/representation/reps/arithmetic/ccu_rep_assign_v1.h"
-#include "hcomm/resource/representation/reps/arithmetic/ccu_rep_mul_v1.h"
-#include "hcomm/resource/representation/reps/arithmetic/ccu_rep_sub_v1.h"
+#include "hcomm/resource/representation/reps/logical/ccu_rep_and.h"
+#include "hcomm/resource/representation/reps/logical/ccu_rep_or.h"
+#include "hcomm/resource/representation/reps/logical/ccu_rep_not.h"
+#include "hcomm/resource/representation/reps/logical/ccu_rep_xor.h"
+
+#include "hcomm/resource/representation/reps/shift/ccu_rep_shl.h"
+#include "hcomm/resource/representation/reps/shift/ccu_rep_shr.h"
 
 #endif // HCCL_CCU_REPRESENTATION

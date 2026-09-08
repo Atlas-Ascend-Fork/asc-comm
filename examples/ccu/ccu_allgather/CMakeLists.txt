@@ -26,6 +26,8 @@ add_executable(ccu_allgather
 target_include_directories(ccu_allgather PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
     ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_ccu
+    ${ASCEND_HOME_PATH}/asc/include/comm_api
+    ${ASCEND_HOME_PATH}/pkg_inc/asccomm
     ${ASCEND_HOME_PATH}/include
     ${ASCEND_HOME_PATH}/pkg_inc
 )

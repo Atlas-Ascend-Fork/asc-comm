@@ -39,7 +39,7 @@ public:
     variable get_loop_gsa_offset() { return loop_gsa_offset_; }
 
 private:
-    void validate_ins_generator_for_loop();
+    void validate_ins_generator_for_loop() const;
 
     ccu_ins_generater_base* ins_generator_ptr_;
     std::string label_;
