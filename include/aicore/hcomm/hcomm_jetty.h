@@ -588,13 +588,18 @@ public:
         const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
     {
         coop.sync();
-        auto* self = const_cast<HcommJetty*>(this);
-        if (coop.size() >= kWarpSize) {
-            if (coop.thread_rank() < kWarpSize) {
-                self->template PostWriteWarp<kNumSGEs>(peer, dst, sge);
+        if constexpr (HcommCoopTraits<Coop>::kWarpCapable) {
+            if constexpr (HcommCoopTraits<Coop>::kIsWarp) {
+                const_cast<HcommJetty*>(this)->template PostWriteWarp<kNumSGEs>(peer, dst, sge);
+            } else {
+                if (coop.thread_rank() < kWarpSize) {
+                    const_cast<HcommJetty*>(this)->template PostWriteWarp<kNumSGEs>(peer, dst, sge);
+                }
             }
-        } else if (coop.thread_rank() == 0) {
-            self->template PostWriteScalar<kNumSGEs>(peer, dst, sge);
+        } else {
+            if (coop.thread_rank() == 0) {
+                const_cast<HcommJetty*>(this)->template PostWriteScalar<kNumSGEs>(peer, dst, sge);
+            }
         }
         asc_threadfence();
         coop.sync();

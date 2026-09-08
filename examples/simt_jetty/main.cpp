@@ -303,7 +303,7 @@ int main(int argc, char* argv[])
     constexpr uint32_t kLocalSendIdx = 1U;
     bool pass = true;
     void* timingBuf = nullptr;
-    uint64_t timing[3] = {};
+    uint64_t timing[4] = {};
     if (rank == 0) {
         if (deviceTiming) {
             ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
@@ -320,17 +320,20 @@ int main(int argc, char* argv[])
                 warmup);
             ACLCHECK(aclrtSynchronizeStream(stream));
             ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
-            pass = timing[2] == iterations;
-            const double averageIssueCycles = static_cast<double>(timing[0]) / iterations;
-            const double averageCompletionCycles = static_cast<double>(timing[1]) / iterations;
+            pass = timing[3] == iterations;
+            const double averageWriteCycles = static_cast<double>(timing[0]) / iterations;
+            const double averageCommitCycles = static_cast<double>(timing[1]) / iterations;
+            const double averageCompletionCycles = static_cast<double>(timing[2]) / iterations;
             std::cout << std::fixed << std::setprecision(3) << "PERF | mode=" << ModeName(mode)
                       << " | iterations=" << iterations << " | warmup=" << warmup
-                      << " | issue_cycles=" << timing[0] << " | average_issue_cycles=" << averageIssueCycles
-                      << " | average_issue_us=" << averageIssueCycles / 1000.0
-                      << " | completion_cycles=" << timing[1]
+                      << " | write_cycles=" << timing[0] << " | average_write_cycles=" << averageWriteCycles
+                      << " | average_write_us=" << averageWriteCycles / 1000.0
+                      << " | commit_cycles=" << timing[1] << " | average_commit_cycles=" << averageCommitCycles
+                      << " | average_commit_us=" << averageCommitCycles / 1000.0
+                      << " | completion_cycles=" << timing[2]
                       << " | average_completion_cycles=" << averageCompletionCycles
                       << " | average_completion_us=" << averageCompletionCycles / 1000.0
-                      << " | completed=" << timing[2] << std::endl;
+                      << " | completed=" << timing[3] << std::endl;
         } else {
             for (uint32_t iteration = 0U; iteration < iterations; ++iteration) {
                 LaunchSimtJetty(

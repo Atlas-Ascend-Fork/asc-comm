@@ -66,9 +66,10 @@ bash run.sh 2 all --iterations 100
 
 ## 性能测试
 
-`perf.sh` 使用设备侧 `clock()` 打点。每轮分别在 `Put` 前、`Put` 后和 `Drain` 后取点，输出
-平均下发耗时 `average_issue_us` 和平均完成耗时 `average_completion_us`。默认 warmup 100 次，
-随后计时 1000 次；每轮都会 Drain，确保 SQ tail 持续推进：
+`perf.sh` 使用设备侧 `clock()` 打点。性能循环单独调用 `Write` 组 WQE，在 `Write` 返回后记录
+`write_cycles`，再调用 `Commit` 并单独记录 `commit_cycles`，最后在 `Drain` 返回后记录完整完成
+耗时 `completion_cycles`。因此 `average_write_us` 不包含 commit 时间。默认 warmup 100 次，随后
+计时 1000 次；每轮都会 Drain，确保 SQ tail 持续推进：
 
 ```bash
 bash perf.sh 2
