@@ -276,6 +276,7 @@ struct HcommJetty {
     uint64_t ub_sqe_addr = 0;
     uint32_t batch_begin_head = 0;
     uint32_t last_write_wqebbs = 0;
+    uint32_t last_write_payload_wqebbs = 0;
 
     __simt_callee__ __forceinline__ HcommJetty() = default;
 
@@ -322,6 +323,8 @@ struct HcommJetty {
         info->cq_depth = cq_context->contextInfo.ubJfc.cqDepth;
         info->cqe_bytes = cq_context->contextInfo.ubJfc.cqeSize;
         batch_begin_head = static_cast<uint32_t>(info->packed_head);
+        last_write_wqebbs = 0;
+        last_write_payload_wqebbs = 0;
     }
 
     __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* GetInfo() const
@@ -336,6 +339,8 @@ struct HcommJetty {
         jetty_info_addr = reinterpret_cast<uint64_t>(jetty_info);
         ub_sqe_addr = reinterpret_cast<uint64_t>(ub_sqe);
         batch_begin_head = static_cast<uint32_t>(GetInfo()->packed_head);
+        last_write_wqebbs = 0;
+        last_write_payload_wqebbs = 0;
     }
 public:
 
@@ -373,8 +378,6 @@ public:
         }
         current_head = asc_shfl(current_head, 0, kWarpSize);
         HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
-        last_write_wqebbs = kWriteWqebbs;
-
         if (lane_idx >= static_cast<int>(kWriteWqebbs) * kNumWQEBBLanes) {
             return;
         }
@@ -384,6 +387,8 @@ public:
         const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & sq_depth) == 0U) << 31;
         const int num_write_words = kNumWriteHeaderLanes + num_valid_sges * 2;
         const int num_write_wqebbs = (num_write_words + kNumWQEBBLanes - 1) / kNumWQEBBLanes;
+        last_write_wqebbs = kWriteWqebbs;
+        last_write_payload_wqebbs = static_cast<uint32_t>(num_write_wqebbs);
 
         uint64_t sqe_word = 0;
         if (lane_idx == 0) {
@@ -397,7 +402,7 @@ public:
             sqe_word = kNopSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
         }
         auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(SqBaseAddr());
-        asc_stwt(sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes, sqe_word);
+        asc_stcg(sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes, sqe_word);
     }
 
     template <int kNumSGEs>
@@ -418,11 +423,12 @@ public:
         constexpr uint32_t kWriteWqebbs = NumWriteWqebbs<kNumSGEs>();
         const uint32_t current_head = ReserveWrite(kWriteWqebbs);
         HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
-        last_write_wqebbs = kWriteWqebbs;
         const uint32_t sq_depth = SqDepth();
         auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(SqBaseAddr());
         const int num_write_words = kNumWriteHeaderLanes + num_valid_sges * 2;
         const int num_write_wqebbs = (num_write_words + kNumWQEBBLanes - 1) / kNumWQEBBLanes;
+        last_write_wqebbs = kWriteWqebbs;
+        last_write_payload_wqebbs = static_cast<uint32_t>(num_write_wqebbs);
         for (int lane_idx = 0; lane_idx < static_cast<int>(kWriteWqebbs) * kNumWQEBBLanes; ++lane_idx) {
             const uint32_t wqebb_head = current_head + static_cast<uint32_t>(lane_idx / kNumWQEBBLanes);
             const uint32_t sq_wqebb_idx = wqebb_head & (sq_depth - 1U);
@@ -450,7 +456,7 @@ public:
             } else if (lane_idx >= num_write_wqebbs * kNumWQEBBLanes && lane_idx % kNumWQEBBLanes == 0) {
                 sqe_word = kNopSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
             }
-            asc_stwt(
+            asc_stcg(
                 sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes, sqe_word);
         }
     }
@@ -538,7 +544,7 @@ public:
             const uint32_t sq_idx = (current_head + bb_offset) & (sq_depth - 1U);
             auto* sq_pairs =
                 reinterpret_cast<__gm__ ulonglong2*>(sq_words + static_cast<uint64_t>(sq_idx) * kNumWQEBBLanes);
-            asc_stwt(sq_pairs + (pair_lane % kNumWQEBBLanes) / 2, pair);
+            asc_stcg(sq_pairs + (pair_lane % kNumWQEBBLanes) / 2, pair);
         }
 
         // A single fence and warp barrier publish all SQ pairs before any lane exposes the
@@ -553,10 +559,11 @@ public:
 
         if (lane_idx < kNumDwqeWords && (lane_idx & 1) == 0) {
             const auto pair = make_ulonglong2(sqe_word, second_word);
-            asc_stwt(&dwqe_pairs[pair_lane / 2], pair);
+            asc_stcg(&dwqe_pairs[pair_lane / 2], pair);
         }
         if (lane_idx == 0) {
             last_write_wqebbs = 2U;
+            last_write_payload_wqebbs = payload_wqebbs;
             batch_begin_head = new_head;
         }
     }
@@ -723,9 +730,7 @@ public:
         const uint32_t last_write_idx = last_write_head & (sq_depth - 1U);
         auto* last_write_header = sq_words + static_cast<uint64_t>(last_write_idx) * kNumWQEBBLanes;
         asc_threadfence();
-        const uint32_t num_sges = static_cast<uint32_t>((asc_ldcg(last_write_header + 1) >> 24U) & 0xFFU);
-        const uint32_t num_write_words = kNumWriteHeaderLanes + num_sges * 2U;
-        const uint32_t payload_wqebbs = (num_write_words + kNumWQEBBLanes - 1U) / kNumWQEBBLanes;
+        const uint32_t payload_wqebbs = last_write_payload_wqebbs;
         HCOMM_JETTY_CHECK_OR_RETURN(payload_wqebbs > 0U && payload_wqebbs <= last_write_wqebbs);
 
         // Padding BBs are standalone NOP WQEs. If padding exists, the last NOP carries the
@@ -741,14 +746,14 @@ public:
             const uint32_t nop_idx = dwqe_source_head & (sq_depth - 1U);
             const auto nop_owner_bit = static_cast<uint64_t>((dwqe_source_head & sq_depth) == 0U) << 31;
             auto* nop_header = sq_words + static_cast<uint64_t>(nop_idx) * kNumWQEBBLanes;
-            asc_stwt(
+            asc_stcg(
                 nop_header,
                 kNopSQEHeaderTemplate | nop_owner_bit | static_cast<uint64_t>(new_head & 0xFFFFU) | kNopSQEFinalFlags);
         }
-        asc_stwt(last_write_header, write_header);
+        asc_stcg(last_write_header, write_header);
 
-        // asc_stwt writes the SQ directly for the device; the fence above orders the complete
-        // batch before the DWQE is assembled. No dcci is needed for this write path.
+        // asc_stcg is non-cacheable, so the complete SQ batch is already visible to the device
+        // after the fence. This avoids relying on a later dcci when a ring slot is reused.
         asc_threadfence();
         GetInfo()->packed_head += kCompletionDelta;
         PublishHead();
@@ -772,7 +777,7 @@ public:
             const bool outside_nop = nop_padding && first_bb > 0U;
             const uint64_t first_value = outside_nop ? 0U : asc_ldcg(source_words);
             const uint64_t second_value = outside_nop ? 0U : asc_ldcg(source_words + 1);
-            asc_stwt(&dwqe_words[pair], make_ulonglong2(first_value, second_value));
+            asc_stcg(&dwqe_words[pair], make_ulonglong2(first_value, second_value));
         }
         batch_begin_head = new_head;
     }
@@ -926,7 +931,7 @@ private:
             const uint32_t sq_idx = (current_head + bb_offset) & (sq_depth - 1U);
             auto* sq_pairs =
                 reinterpret_cast<__gm__ ulonglong2*>(sq_words + static_cast<uint64_t>(sq_idx) * kNumWQEBBLanes);
-            asc_stwt(
+            asc_stcg(
                 sq_pairs + (first_word % kNumWQEBBLanes) / 2,
                 make_ulonglong2(stage[first_word], stage[first_word + 1]));
         }
@@ -941,7 +946,7 @@ private:
 #pragma unroll
         for (int pair_idx = 0; pair_idx < kNumDwqeWords / 2; ++pair_idx) {
             const int first_word = pair_idx * 2;
-            asc_stwt(&dwqe_pairs[pair_idx], make_ulonglong2(stage[first_word], stage[first_word + 1]));
+            asc_stcg(&dwqe_pairs[pair_idx], make_ulonglong2(stage[first_word], stage[first_word + 1]));
         }
     }
 
@@ -998,7 +1003,7 @@ private:
 
     __simt_callee__ __forceinline__ void PublishHead() const
     {
-        asc_stwt(reinterpret_cast<__gm__ uint64_t*>(SqHeadAddr()), GetInfo()->packed_head);
+        asc_stcg(reinterpret_cast<__gm__ uint64_t*>(SqHeadAddr()), GetInfo()->packed_head);
     }
 
     template <int64_t kNumTimeoutCycles>
@@ -1009,11 +1014,11 @@ private:
         static constexpr uint32_t kCQEOwnerBit = 2;
         auto* cq_tail_addr = reinterpret_cast<__gm__ uint32_t*>(CqTailAddr());
         auto* sq_tail_addr = reinterpret_cast<__gm__ uint32_t*>(SqTailAddr());
-        uint32_t current_tail = *cq_tail_addr;
+        uint32_t current_tail = asc_ldcg(cq_tail_addr);
         if (current_tail == expected_tail) {
             return;
         }
-        uint32_t sq_tail = *sq_tail_addr;
+        uint32_t sq_tail = asc_ldcg(sq_tail_addr);
         const uint32_t cq_depth = CqDepth();
         const uint32_t sq_depth = SqDepth();
         while (current_tail != expected_tail) {
@@ -1021,11 +1026,10 @@ private:
                 CqBaseAddr() + static_cast<uint64_t>(CqeBytes()) * (current_tail & (cq_depth - 1U)));
             const uint32_t tail_phase = (current_tail / cq_depth) & 1U;
             int64_t retry = 0;
-            uint32_t cqe_header = *cqe;
+            uint32_t cqe_header = asc_ldcg(cqe);
             while (((cqe_header >> kCQEOwnerBit) & 1U) == tail_phase && retry < kNumTimeoutCycles) {
                 asc_threadfence();
-                asc_dcci_single(cqe);
-                cqe_header = *cqe;
+                cqe_header = asc_ldcg(cqe);
                 ++retry;
             }
             HCOMM_JETTY_CHECK_OR_RETURN(retry < kNumTimeoutCycles);
@@ -1033,17 +1037,16 @@ private:
             const auto status = static_cast<uint8_t>(cqe_header >> 24);
             HCOMM_JETTY_CHECK_OR_RETURN(status == 0 && substatus == 0);
             const uint32_t sq_tail_slot = sq_tail & (sq_depth - 1U);
-            const uint32_t completed_slot = cqe[1] & (sq_depth - 1U);
+            const uint32_t completed_slot = asc_ldcg(cqe + 1) & (sq_depth - 1U);
             sq_tail += ((completed_slot + sq_depth - sq_tail_slot) & (sq_depth - 1U)) + 1U;
             ++current_tail;
         }
-        *cq_tail_addr = current_tail;
-        *reinterpret_cast<__gm__ uint32_t*>(CqDoorbellAddr()) =
-            current_tail & ((1U << kNumCQDoorbellBits) - 1U);
-        *sq_tail_addr = sq_tail;
+        asc_stcg(cq_tail_addr, current_tail);
+        asc_stcg(reinterpret_cast<__gm__ uint32_t*>(CqDoorbellAddr()), current_tail & ((1U << kNumCQDoorbellBits) - 1U));
+        asc_stcg(sq_tail_addr, sq_tail);
     }
 };
-static_assert(sizeof(HcommJetty) == 32, "SIMT jetty handle layout mismatch");
+static_assert(sizeof(HcommJetty) == 40, "SIMT jetty handle layout mismatch");
 
 } // namespace jetty
 } // namespace simt
