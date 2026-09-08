@@ -307,20 +307,43 @@ int main(int argc, char* argv[])
     if (rank == 0) {
         if (deviceTiming) {
             ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
-            ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
-            LaunchSimtJetty(
-                stream,
-                static_cast<uint64_t>(channel),
-                jettyPtrTable,
-                kLocalSendIdx,
-                remoteRecvIdx,
-                mode,
-                timingBuf,
-                iterations,
-                warmup);
-            ACLCHECK(aclrtSynchronizeStream(stream));
-            ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
-            pass = timing[3] == iterations;
+            // Keep one WQE/Commit/Drain sequence per kernel. This follows the correctness stress
+            // path and prevents a long-running VF from accumulating CQ/SQ state across iterations.
+            // The reported values are still device clock cycles; host launch and synchronization
+            // time are outside the measured interval.
+            for (uint32_t i = 0U; i < warmup; ++i) {
+                LaunchSimtJetty(
+                    stream,
+                    static_cast<uint64_t>(channel),
+                    jettyPtrTable,
+                    kLocalSendIdx,
+                    remoteRecvIdx,
+                    mode,
+                    timingBuf,
+                    1U,
+                    0U);
+                ACLCHECK(aclrtSynchronizeStream(stream));
+            }
+            for (uint32_t i = 0U; i < iterations; ++i) {
+                LaunchSimtJetty(
+                    stream,
+                    static_cast<uint64_t>(channel),
+                    jettyPtrTable,
+                    kLocalSendIdx,
+                    remoteRecvIdx,
+                    mode,
+                    timingBuf,
+                    1U,
+                    0U);
+                ACLCHECK(aclrtSynchronizeStream(stream));
+                uint64_t sample[4] = {};
+                ACLCHECK(aclrtMemcpy(sample, sizeof(sample), timingBuf, sizeof(sample), ACL_MEMCPY_DEVICE_TO_HOST));
+                pass = pass && sample[3] == 1U;
+                timing[0] += sample[0];
+                timing[1] += sample[1];
+                timing[2] += sample[2];
+            }
+            timing[3] = iterations;
             const double averageWriteCycles = static_cast<double>(timing[0]) / iterations;
             const double averageCommitCycles = static_cast<double>(timing[1]) / iterations;
             const double averageCompletionCycles = static_cast<double>(timing[2]) / iterations;

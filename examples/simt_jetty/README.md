@@ -69,7 +69,8 @@ bash run.sh 2 all --iterations 100
 `perf.sh` 使用设备侧 `clock()` 打点。性能循环单独调用 `Write` 组 WQE，在 `Write` 返回后记录
 `write_cycles`，再调用 `Commit` 并单独记录 `commit_cycles`，最后在 `Drain` 返回后记录完整完成
 耗时 `completion_cycles`。因此 `average_write_us` 不包含 commit 时间。默认 warmup 100 次，随后
-计时 1000 次；每轮都会 Drain，确保 SQ tail 持续推进：
+计时 1000 次。每个 warmup/计时样本单独 launch 一个 kernel，与压力测试使用相同的执行边界；
+每轮都会 Drain，确保 SQ tail 持续推进。host launch 和同步时间不计入上述设备周期：
 
 ```bash
 bash perf.sh 2
