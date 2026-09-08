@@ -125,6 +125,24 @@ struct HcommCoopGroup {
     __simt_callee__ __forceinline__ int thread_rank() const { return static_cast<int>(group_.thread_rank()); }
 };
 
+template <typename Coop>
+struct HcommCoopTraits {
+    static constexpr bool kWarpCapable = false;
+    static constexpr bool kIsWarp = false;
+};
+
+template <>
+struct HcommCoopTraits<HcommCoopWarp> {
+    static constexpr bool kWarpCapable = true;
+    static constexpr bool kIsWarp = true;
+};
+
+template <>
+struct HcommCoopTraits<HcommCoopGroup> {
+    static constexpr bool kWarpCapable = true;
+    static constexpr bool kIsWarp = false;
+};
+
 namespace jetty {
 
 struct alignas(8) HcommSge {
@@ -211,23 +229,23 @@ struct HcommJetty {
         const int lane_idx = static_cast<int>(laneid());
         const int raw_sge_lane = (lane_idx - kNumWriteHeaderLanes) / 2;
         const int sge_lane = raw_sge_lane < 0 ? 0 : (raw_sge_lane >= kNumSGEs ? kNumSGEs - 1 : raw_sge_lane);
+        const uint64_t packed_sge_addr = asc_shfl(sge.addr, sge_lane, kWarpSize);
+        const int packed_sge_len = asc_shfl(sge.len, sge_lane, kWarpSize);
         uint64_t target_len = 0;
-        uint64_t packed_sge_addr = 0;
-        int packed_sge_len = 0;
         int num_valid_sges = 0;
+        if (lane_idx == 0) {
 #pragma unroll
-        for (int sge_idx = 0; sge_idx < kNumSGEs; ++sge_idx) {
-            const uint64_t candidate_addr = asc_shfl(sge.addr, sge_idx, kWarpSize);
-            const int candidate_len = asc_shfl(sge.len, sge_idx, kWarpSize);
-            if (candidate_addr != 0 && candidate_len > 0) {
-                if (num_valid_sges == sge_lane) {
-                    packed_sge_addr = candidate_addr;
-                    packed_sge_len = candidate_len;
+            for (int sge_idx = 0; sge_idx < kNumSGEs; ++sge_idx) {
+                const uint64_t candidate_addr = asc_shfl(sge.addr, sge_idx, kWarpSize);
+                const int candidate_len = asc_shfl(sge.len, sge_idx, kWarpSize);
+                if (candidate_addr != 0 && candidate_len > 0) {
+                    target_len += static_cast<uint64_t>(candidate_len);
+                    ++num_valid_sges;
                 }
-                target_len += static_cast<uint64_t>(candidate_len);
-                ++num_valid_sges;
             }
         }
+        target_len = asc_shfl(target_len, 0, kWarpSize);
+        num_valid_sges = asc_shfl(num_valid_sges, 0, kWarpSize);
         HCOMM_JETTY_CHECK_OR_RETURN(num_valid_sges > 0);
 
         uint32_t remote_buffer_idx = kInvalidRemoteBuffer;
@@ -407,7 +425,7 @@ struct HcommJetty {
 
     template <int kNumSGEs>
     __simt_callee__ __forceinline__ void PostWriteWarpImmediate(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge)
+        const HcommCoopWarp& warp, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge)
     {
         static_assert(NumWriteWqebbs<kNumSGEs>() == 2U, "Immediate DWQE path requires a fixed two-BB slot");
         const int lane_idx = static_cast<int>(laneid());
@@ -470,32 +488,29 @@ struct HcommJetty {
         auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
         auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(sq_context->contextInfo.ubJfs.dbVa - kDwqeDbOffset);
         auto* dwqe_pairs = reinterpret_cast<__gm__ ulonglong2*>(dwqe_addr);
-#pragma unroll
-        for (int pair_idx = 0; pair_idx < kNumDwqeWords / 2; ++pair_idx) {
-            const int first_lane = pair_idx * 2;
-            const uint64_t first_word = asc_shfl(sqe_word, first_lane, kWarpSize);
-            const uint64_t second_word = asc_shfl(sqe_word, first_lane + 1, kWarpSize);
-            if (lane_idx == 0) {
-                const uint32_t bb_offset = static_cast<uint32_t>(first_lane / kNumWQEBBLanes);
-                const uint32_t sq_idx = (current_head + bb_offset) & (sq_depth - 1U);
-                auto* sq_pairs =
-                    reinterpret_cast<__gm__ ulonglong2*>(sq_words + static_cast<uint64_t>(sq_idx) * kNumWQEBBLanes);
-                asc_stwt(sq_pairs + (first_lane % kNumWQEBBLanes) / 2, make_ulonglong2(first_word, second_word));
-            }
+        // Every even lane owns one 128-bit pair. The DWQE is deliberately limited to its first
+        // two WQEBBs; a larger WQE stays in SQ and is not copied past the DWQE window.
+        const int pair_lane = lane_idx & ~1;
+        const uint64_t second_word = asc_shfl(sqe_word, pair_lane + 1, kWarpSize);
+        if (lane_idx < kNumDwqeWords && (lane_idx & 1) == 0) {
+            const auto pair = make_ulonglong2(sqe_word, second_word);
+            const uint32_t bb_offset = static_cast<uint32_t>(pair_lane / kNumWQEBBLanes);
+            const uint32_t sq_idx = (current_head + bb_offset) & (sq_depth - 1U);
+            auto* sq_pairs =
+                reinterpret_cast<__gm__ ulonglong2*>(sq_words + static_cast<uint64_t>(sq_idx) * kNumWQEBBLanes);
+            asc_stwt(sq_pairs + (pair_lane % kNumWQEBBLanes) / 2, pair);
         }
+
+        // A single fence and warp barrier publish all SQ pairs before any lane exposes the
+        // DWQE. Fencing inside the even-lane branch makes one post execute eight fences.
         asc_threadfence();
-#pragma unroll
-        for (int pair_idx = 0; pair_idx < kNumDwqeWords / 2; ++pair_idx) {
-            const int first_lane = pair_idx * 2;
-            const uint64_t first_word = asc_shfl(sqe_word, first_lane, kWarpSize);
-            const uint64_t second_word = asc_shfl(sqe_word, first_lane + 1, kWarpSize);
-            if (lane_idx == 0) {
-                asc_stwt(&dwqe_pairs[pair_idx], make_ulonglong2(first_word, second_word));
-            }
+        warp.sync();
+
+        if (lane_idx < kNumDwqeWords && (lane_idx & 1) == 0) {
+            const auto pair = make_ulonglong2(sqe_word, second_word);
+            asc_stwt(&dwqe_pairs[pair_lane / 2], pair);
         }
         if (lane_idx == 0) {
-            asc_dcci_single(dwqe_addr);
-            asc_dcci_single(dwqe_addr + kNumWQEBBBytes);
             last_write_wqebbs = 2U;
             batch_begin_head = new_head;
         }
@@ -559,12 +574,19 @@ struct HcommJetty {
         if constexpr (kDoCommit && NumWriteWqebbs<kNumSGEs>() == 2U) {
             coop.sync();
             auto* self = const_cast<HcommJetty*>(this);
-            if (coop.size() >= kWarpSize) {
-                if (coop.thread_rank() < kWarpSize) {
-                    self->template PostWriteWarpImmediate<kNumSGEs>(peer, dst, sge);
+            if constexpr (HcommCoopTraits<Coop>::kWarpCapable) {
+                if constexpr (HcommCoopTraits<Coop>::kIsWarp) {
+                    self->template PostWriteWarpImmediate<kNumSGEs>(coop, peer, dst, sge);
+                } else {
+                    HcommCoopWarp warp;
+                    if (coop.thread_rank() < kWarpSize) {
+                        self->template PostWriteWarpImmediate<kNumSGEs>(warp, peer, dst, sge);
+                    }
                 }
-            } else if (coop.thread_rank() == 0) {
-                self->template PostWriteScalarImmediate<kNumSGEs>(peer, dst, sge);
+            } else {
+                if (coop.thread_rank() == 0) {
+                    self->template PostWriteScalarImmediate<kNumSGEs>(peer, dst, sge);
+                }
             }
             asc_threadfence();
             coop.sync();
@@ -654,8 +676,6 @@ struct HcommJetty {
         const uint32_t last_write_idx = last_write_head & (sq_depth - 1U);
         auto* last_write_header = sq_words + static_cast<uint64_t>(last_write_idx) * kNumWQEBBLanes;
         asc_threadfence();
-        asc_dcci_single(last_write_header);
-        asc_threadfence();
         const uint32_t num_sges = static_cast<uint32_t>((asc_ldcg(last_write_header + 1) >> 24U) & 0xFFU);
         const uint32_t num_write_words = kNumWriteHeaderLanes + num_sges * 2U;
         const uint32_t payload_wqebbs = (num_write_words + kNumWQEBBLanes - 1U) / kNumWQEBBLanes;
@@ -680,14 +700,8 @@ struct HcommJetty {
         }
         asc_stwt(last_write_header, write_header);
 
-        // A large WQE is fetched from SQ after the DWQE header rings the doorbell. Clean every
-        // WQEBB in this batch so the device never observes only the 128-byte DWQE prefix.
-        asc_threadfence();
-        auto* sq_base = reinterpret_cast<__gm__ uint8_t*>(sq_context->contextInfo.ubJfs.sqVa);
-        for (uint32_t bb_offset = 0; bb_offset < batch_wqebbs; ++bb_offset) {
-            const uint32_t sq_idx = (batch_begin_head + bb_offset) & (sq_depth - 1U);
-            asc_dcci_single(sq_base + static_cast<uint64_t>(sq_idx) * kNumWQEBBBytes);
-        }
+        // asc_stwt writes the SQ directly for the device; the fence above orders the complete
+        // batch before the DWQE is assembled. No dcci is needed for this write path.
         asc_threadfence();
         (void)asc_atomic_add(head_addr, kCompletionDelta);
         auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(sq_context->contextInfo.ubJfs.dbVa - kDwqeDbOffset);
@@ -696,9 +710,11 @@ struct HcommJetty {
         // from there after this 128-byte prefix publishes its header and PI.
         constexpr uint32_t kDwqeWqebbCount = 2U;
         constexpr uint32_t kDwqeWordCount = kDwqeWqebbCount * kNumWQEBBLanes;
+        static_assert(sizeof(ulonglong2) == 2U * sizeof(uint64_t), "ulonglong2 must contain two 64-bit words");
         static_assert(kDwqeWordCount * sizeof(uint64_t) == 2U * kNumWQEBBBytes, "DWQE must be 128 bytes");
+        constexpr uint32_t kDwqePairCount = kDwqeWordCount * sizeof(uint64_t) / sizeof(ulonglong2);
 #pragma unroll
-        for (uint32_t pair = 0; pair < kDwqeWordCount / 2U; ++pair) {
+        for (uint32_t pair = 0; pair < kDwqePairCount; ++pair) {
             const uint32_t first_word = pair * 2U;
             const uint32_t first_bb = first_word / kNumWQEBBLanes;
             const uint32_t word_in_bb = first_word % kNumWQEBBLanes;
@@ -710,8 +726,6 @@ struct HcommJetty {
             const uint64_t second_value = outside_nop ? 0U : asc_ldcg(source_words + 1);
             asc_stwt(&dwqe_words[pair], make_ulonglong2(first_value, second_value));
         }
-        asc_dcci_single(dwqe_addr);
-        asc_dcci_single(dwqe_addr + kNumWQEBBBytes);
         batch_begin_head = new_head;
     }
 
@@ -767,8 +781,6 @@ private:
             const int first_word = pair_idx * 2;
             asc_stwt(&dwqe_pairs[pair_idx], make_ulonglong2(stage[first_word], stage[first_word + 1]));
         }
-        asc_dcci_single(dwqe_addr);
-        asc_dcci_single(dwqe_addr + kNumWQEBBBytes);
     }
 
     __simt_callee__ __forceinline__ static uint32_t FindRemoteBuffer(
