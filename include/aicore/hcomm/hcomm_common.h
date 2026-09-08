@@ -17,8 +17,15 @@
 
 #include <cstdint>
 
+#include "kernel_basic_intf.h"
+
 namespace AscendC {
 using ChannelHandle = uint64_t;
+
+struct BufDesc {
+    GM_ADDR addr;
+    uint32_t len;
+};
 
 /**
  * @brief 通信协议类型枚举

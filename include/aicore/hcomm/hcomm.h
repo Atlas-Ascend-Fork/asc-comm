@@ -98,6 +98,9 @@ public:
      *         the selected peer and remote registered-memory region.
      * @note For ChannelHandle, remote memory remains bound as selected by MakeBatchHandle. For MultiChannelHandle,
      *       remote buffers used through the returned handle must use the token cached by this call.
+     *       Different requests in one multi-channel batch may select different logical channels. Prepare each
+     *       request immediately after its GetHandleRef call; all SGEs of one request belong to that selected channel,
+     *       and one WQE cannot span channels. Repeated calls return the same inner handle reference.
      */
     template <typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline BatchHandle<T>& GetHandleRef(T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
@@ -141,18 +144,20 @@ public:
      * @brief Prepare a scatter/gather Write WQE in a protocol-specific batch handle.
      * @tparam config: URMA WQE control config. Inline WQE is not supported.
      * @tparam T: The protocol-specific batch handle type.
-     * @param [in,out] batchHandle: The single-channel batch handle to append the WQE to.
+     * @param [in,out] batchHandle: A single-channel batch handle, or the inner execution handle returned by
+     *                              GetHandleRef for one logical channel of a multi-channel batch.
      * @param [out] dst: The remote destination base address.
-     * @param [in] srcList: The local source GM address array.
-     * @param [in] lenList: The byte-length array paired with srcList by index.
-     * @param [in] sgeNum: The length of both arrays.
+     * @param [in] srcDescs: The local source buffer descriptor array.
+     * @param [in] srcNum: The number of elements in srcDescs.
      * @return 0 indicates success and -1 indicates failure.
-     * @note The caller must provide a single-channel batch handle and valid arrays, payload addresses and lengths.
-     *       These contracts are not validated by the batch fast path.
+     * @note In multi-channel mode, one call creates one WQE for the logical channel selected by the immediately
+     *       preceding GetHandleRef call. All SGEs in that WQE belong to that one request and cannot span channels.
+     *       The caller must provide a valid descriptor array, payload addresses and lengths. These contracts are not
+     *       validated by the batch fast path.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteNbi(
-        T& batchHandle, GM_ADDR dst, GM_ADDR const* srcList, const uint32_t* lenList, uint32_t sgeNum);
+        T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum);
 
     /*!
      * @class Hcomm
@@ -242,21 +247,23 @@ public:
      * @brief Prepare a scatter/gather Write-with-notify WQE in a protocol-specific batch handle.
      * @tparam config: URMA WQE control config. Inline WQE is not supported.
      * @tparam T: The protocol-specific batch handle type.
-     * @param [in,out] batchHandle: The single-channel batch handle to append the WQE to.
+     * @param [in,out] batchHandle: A single-channel batch handle, or the inner execution handle returned by
+     *                              GetHandleRef for one logical channel of a multi-channel batch.
      * @param [out] dst: The remote destination base address.
-     * @param [in] srcList: The local source GM address array.
-     * @param [in] lenList: The byte-length array paired with srcList by index.
-     * @param [in] sgeNum: The length of both arrays.
+     * @param [in] srcDescs: The local source buffer descriptor array.
+     * @param [in] srcNum: The number of elements in srcDescs.
      * @param [in] notifyAddr: The remote notify address.
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
-     * @note The caller must provide a single-channel batch handle and valid arrays, payload/notify addresses and
-     *       lengths. These contracts are not validated by the batch fast path.
+     * @note In multi-channel mode, one call creates one WQE for the logical channel selected by the immediately
+     *       preceding GetHandleRef call. All SGEs and the notification in that WQE target the same logical channel;
+     *       one WQE cannot span channels. The caller must provide a valid descriptor array, payload/notify addresses
+     *       and lengths. These contracts are not validated by the batch fast path.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteWithNotifyNbi(
-        T& batchHandle, GM_ADDR dst, GM_ADDR const* srcList, const uint32_t* lenList, uint32_t sgeNum,
-        GM_ADDR notifyAddr, uint64_t notifyVal);
+        T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr,
+        uint64_t notifyVal);
 
     /*!
      * @class Hcomm
@@ -338,18 +345,20 @@ public:
      * @brief Prepare a scatter/gather Read WQE in a protocol-specific batch handle.
      * @tparam config: URMA WQE control config. Inline WQE is not supported.
      * @tparam T: The protocol-specific batch handle type.
-     * @param [in,out] batchHandle: The single-channel batch handle to append the WQE to.
-     * @param [out] dstList: The local destination GM address array.
-     * @param [in] lenList: The byte-length array paired with dstList by index.
+     * @param [in,out] batchHandle: A single-channel batch handle, or the inner execution handle returned by
+     *                              GetHandleRef for one logical channel of a multi-channel batch.
+     * @param [in] dstDescs: The local destination buffer descriptor array. Read payload is written to each addr.
+     * @param [in] dstNum: The number of elements in dstDescs.
      * @param [in] src: The remote source base address.
-     * @param [in] sgeNum: The length of both arrays.
      * @return 0 indicates success and -1 indicates failure.
-     * @note The caller must provide a single-channel batch handle and valid arrays, payload addresses and lengths.
-     *       These contracts are not validated by the batch fast path.
+     * @note In multi-channel mode, one call creates one WQE for the logical channel selected by the immediately
+     *       preceding GetHandleRef call. All SGEs in that WQE belong to that one request and cannot span channels.
+     *       The caller must provide a valid descriptor array, payload addresses and lengths. These contracts are not
+     *       validated by the batch fast path.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t ReadNbi(
-        T& batchHandle, GM_ADDR const* dstList, const uint32_t* lenList, GM_ADDR src, uint32_t sgeNum);
+        T& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src);
 
     /*!
      * @class Hcomm
