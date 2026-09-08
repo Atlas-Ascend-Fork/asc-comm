@@ -1,119 +1,159 @@
 # Hcomm SIMT URMA 性能样例
 
-测量 SIMT 路径上五个点对点接口的发送性能：`WriteNbi`、`WriteValueNbi`、`WriteWithNotifyNbi`、
-`AtomicFAA` 和 `AtomicCAS`。rank 0 发送并计时，rank 1 只持有注册内存并校验落地结果。
+## 概述
 
-所有用例都由单个 lane 发起：一个 channel 必须由一个 lane 驱动。
+本样例测量SIMT路径上五个点对点接口的发送性能：`WriteNbi`、`WriteValueNbi`、`WriteWithNotifyNbi`、
+`AtomicFAA`和`AtomicCAS`，覆盖立即提交与延迟提交两种发布策略，分别统计WQE下发时延和完成带宽。
 
-## 只有前两个 rank 参与
+这是点对点基准测试：`<nranks>`可以 >= 2，但只有rank 0（发送方）和rank 1（接收方）建链并计时，
+其余rank打印`SKIP`后直接退出。只保留一个发送方是有意的——多方并发发送会互相争抢链路和SQ资源，
+测出的时延和带宽不再具有可比性。需要多卡收发验证时使用
+[`simt_urma`](../simt_urma/README.md)功能样例。
 
-这是点对点基准测试：`<nranks>` 可以 ≥2，但只有 rank 0（发送方）和 rank 1（接收方）建链并计时，
-其余 rank 打印 `SKIP` 后直接退出，不加入通信域。只保留一个发送方是有意的——多方并发发送会互相
-争抢链路和 SQ 资源，测出来的时延和带宽不再具有可比性。
+所有操作均由单个lane发起，一个channel必须由一个lane驱动。
 
-需要多卡收发验证时使用 [`simt_urma`](../simt_urma/README.md)，它是环形拓扑，所有 rank 都参与。
+## 本样例支持的产品及CANN软件版本
 
-## 测什么
+| 产品 | CANN软件版本 |
+| --- | --- |
+| Ascend 950PR/Ascend 950DT | >= CANN 9.1.0 |
+
+## 目录结构介绍
+
+```text
+simt_urma_perftest
+├── CMakeLists.txt               // 编译工程文件
+├── main.cpp                     // Host侧通信域、内存注册和计时流程
+├── op_kernel.cpp                // SIMT Kernel侧URMA接口调用
+├── simt_urma_perftest_common.h  // Host与Kernel共享定义
+├── README.md                    // 中文样例说明
+├── README_en.md                 // 英文样例说明
+└── run.sh                       // 多rank启动脚本
+```
+
+## 样例描述
+
+### 功能说明
 
 五个接口 × 两种发布策略：
 
 | `api` | 说明 |
 | --- | --- |
-| `write` | `WriteNbi`，WQE 通过 SGE 指向本地缓冲区，payload 长度可变 |
-| `write_value` | `WriteValueNbi`，8 字节 payload 内联在 WQE 中，不读本地缓冲区 |
-| `notify` | `WriteWithNotifyNbi`，payload 之后再写一个远端 signal word，payload 长度可变 |
-| `faa` | `AtomicFAA`，对同一个远端 8 字节 word 累加 |
-| `cas` | `AtomicCAS`，对同一个远端 8 字节 word 比较交换 |
+| `write` | `WriteNbi`，WQE通过SGE指向本地缓冲区，payload长度可变 |
+| `write_value` | `WriteValueNbi`，8字节payload内联在WQE中，不读本地缓冲区 |
+| `notify` | `WriteWithNotifyNbi`，payload之后再写一个远端signal word，payload长度可变 |
+| `faa` | `AtomicFAA`，对同一个远端8字节word累加 |
+| `cas` | `AtomicCAS`，对同一个远端8字节word比较交换 |
 
 | `commit-mode` | 说明 |
 | --- | --- |
-| `immediate` | 每条 WQE 都 `commit=true`，各自敲一次 doorbell |
-| `last` | 除最后一条外全部 `commit=false`，由最后一条提交发布整批 |
+| `immediate` | 每条WQE都`commit=true`，各自敲一次doorbell |
+| `last` | 除最后一条外全部`commit=false`，由最后一条提交发布整批 |
 
-这两种策略的差异不只在 doorbell 次数上，SQ 占用也不同：延迟提交的 `WriteNbi` 是 1 个 basic
-block，立即提交的要把 payload 拆成两个 SGE 以填满 128 字节 DWQE 窗口，占 2 个。其余四个接口无论
-哪种策略都是固定 2 BB 的 WQE。日志中的 `SqBlocksPerWqe` 给出实际占用。
+两种策略的SQ占用也不同：延迟提交的`WriteNbi`占1个basic block，立即提交的要把payload拆成两个SGE
+以填满128字节DWQE窗口，占2个；其余四个接口无论哪种策略都是固定2 BB。日志中的`SqBlocksPerWqe`
+给出实际占用。
 
-连续的 WQE 轮转多个 slot，避免都落在同一条 cache line 上——否则测到的是远端内存系统而不是下发路
-径。两个原子接口是例外：它们必须打在同一个 word 上，累加才有意义，因此不轮转。
+计时流程为：warmup次接口下发后`Drain`（不计时），随后正式下发`iterations`次并记录`IssueTime`
+（只统计正式WQE下发，用于比较接口提交时延），`Drain`结束记录`CompletionTime`（仅用于计算
+`CompletionBandwidth`）。`DrainStatus`和`Completed`用于确认本次下发最终正确完成。
 
-## 计时流程
+连续的WQE轮转多个slot，避免都落在同一条cache line上——否则测到的是远端内存系统而不是下发路径。
+两个原子接口是例外：它们必须打在同一个word上，累加才有意义，因此不轮转。
 
-```text
-执行 warmup 次接口
-Drain                         不计时
+### 样例规格
 
-begin = clock()
-执行 iterations 次接口
-issueEnd = clock()
-Drain
-completionEnd = clock()
-```
+| 项目 | 说明 |
+| --- | --- |
+| 通信模式 | 点对点基准测试，仅rank 0发送、rank 1接收 |
+| 调用方式 | SIMT Kernel内直接调用URMA接口 |
+| 测试接口 | `write`、`write_value`、`notify`、`faa`、`cas` |
+| 发布策略 | `immediate`（默认）、`last` |
+| 支持rank数 | 任意 >= 2（rank 2及以上不参与通信） |
 
-`IssueTime` 和 `AverageIssue` 只统计正式 WQE 下发，用于比较接口提交时延；`CompletionTime` 从正式
-下发开始统计到 `Drain` 结束，仅用于计算 `CompletionBandwidth`。`DrainStatus` 和 `Completed` 用于
-确认本次下发最终正确完成。
+### 实现流程
 
-## 编译
+1. rank 0通过`HcclGetRootInfo`生成root info写入临时文件，其余rank读取后创建通信域。
+2. rank 0和rank 1各自注册内存、创建Channel并交换内存地址。
+3. rank 0下发warmup次接口后`Drain`，随后计时下发`iterations`次接口，再次`Drain`。
+4. rank 0记录`IssueTime`、`CompletionTime`和`Completed`，rank 1校验落地数据。
+5. 输出RESULT行；使用`--sweep`时对每个payload各起一轮独立进程。
 
-```bash
-source /usr/local/Ascend/cann/set_env.sh
-bash examples/simt_urma_perftest/build.sh
-```
+## 编译运行
 
-## 用法
+在本样例根目录下执行如下步骤，编译并运行样例。本样例仅支持NPU运行模式。
 
-通信域通过 `HcclGetRootInfo` 和 `HcclCommInitRootInfo` 创建，因此不需要 rank table。`run.sh` 为每
-轮运行创建临时 root info 文件，rank 0 写入，其余 rank 读取。
+- 配置环境变量
 
-```bash
-# 单点
-examples/simt_urma_perftest/run.sh 2 write
+  样例编译时使用已安装到CANN目录的asc-comm头文件。若尚未安装，先在仓库根目录生成并安装开发验证
+  run包，参数说明参见[`docs/zh/guide/build_and_test.md`](../../docs/zh/guide/build_and_test.md)：
 
-# 延迟提交
-examples/simt_urma_perftest/run.sh 2 write --commit-mode last
+  ```bash
+  bash build.sh --pkg
+  ./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
+  ```
 
-# payload 扫描：8 16 64 256 1024 4096 16384 65536
-examples/simt_urma_perftest/run.sh 2 write --sweep
+  然后加载CANN环境变量：
 
-# 内联写
-examples/simt_urma_perftest/run.sh 2 write_value
+  ```bash
+  source ${install_path}/cann/set_env.sh
+  ```
 
-# Notify 与原子操作
-examples/simt_urma_perftest/run.sh 2 notify --payload-bytes 4096
-examples/simt_urma_perftest/run.sh 2 faa
-examples/simt_urma_perftest/run.sh 2 cas
-```
+  > **说明：** `${install_path}`为CANN包安装目录，未指定安装目录时默认安装至`/usr/local/Ascend`。
 
-选项：`--iterations`（默认 1024）、`--warmup`（默认 100）、`--payload-bytes`（默认 4096）、
-`--commit-mode`（默认 immediate）、`--sweep`、`--log`。
+- 样例执行
 
-`--payload-bytes` 只对 `write` 和 `notify` 有效，其余三个接口恒为 8 字节并忽略该选项；对它们使用
-`--sweep` 会直接报错，而不是把同一个 8 字节用例重复跑八遍。
+  在本样例目录下执行如下命令。
 
-`--sweep` 会为每个 payload 起一轮新进程，并各自使用独立的同步目录和 root info 文件——否则上一轮的
-barrier 标记文件会让下一轮直接通过，上一轮的 root info 也会被下一轮误读。该目录通过命令行参数传给
-可执行文件，而不是环境变量：导出的变量容易在 shell wrapper 或调度器上丢掉，一旦丢掉，所有轮次会
-静默共用同一个默认目录。
+  ```bash
+  mkdir -p build
+  cd build
+  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+  make -j
+  cd ..
+  ./run.sh 2 write
+  ```
 
-## 输出
+- 启动参数说明
 
-```text
-RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
-[rank 1] simt_urma_perftest write PASS
-```
+  ```bash
+  ./run.sh <nranks> <write|write_value|notify|faa|cas> [options]
+  ```
 
-## 约束
+  | 参数 | 默认值 | 说明 |
+  | --- | --- | --- |
+  | `--iterations` | `1024` | 计时的WQE数量 |
+  | `--warmup` | `100` | 预热WQE数量 |
+  | `--payload-bytes` | `4096` | `write`和`notify`的payload字节数，最小为2；`write_value`恒为8字节，`faa`和`cas`恒为8字节，三者忽略该选项 |
+  | `--commit-mode` | `immediate` | `immediate`（每WQE一次doorbell）或`last`（除最后一条外全部延迟提交） |
+  | `--sweep` | 关闭 | payload扫描：`8 16 64 256 1024 4096 16384 65536`，仅对`write`和`notify`有效 |
+  | `--log` | 自动生成 | 输出日志文件路径 |
 
-**`--payload-bytes` 最小为 2。** 立即提交的 `WriteNbi` 把 payload 拆成 `firstLen = len >> 1` 和
-`lastLen = len - firstLen` 两段，1 字节会让第一段长度为 0，而 URMA 不接受长度为 0 的 SGE。
+- 编译选项说明
 
-**接收侧只校验 `write` 和 `write_value`。** `notify` 的 signal word 与 payload 共用同一个 slot，
-两个原子接口每次迭代都会改写目标 word，落地镜像取决于迭代次数，没有稳定的期望值可比。这两类用例
-依赖 `DrainStatus` 和 `Completed` 判断是否正确完成。
+  | 选项 | 可选值 | 说明 |
+  | --- | --- | --- |
+  | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行 |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR/Ascend 950DT |
 
-## 运行约束
+- 执行结果
 
-- 支持 Ascend 950PR / Ascend 950DT，CANN 软件版本要求 9.1.0 或以上。
-- 运行需要同一主机上至少两张 NPU；单卡环境仅支持编译验证。
-- 编译依赖 CANN ASC CMake 能力，并在链接阶段依赖 CANN `hcomm` 库。
+  ```text
+  RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
+  [rank 1] simt_urma_perftest write PASS
+  ```
+
+  `DrainStatus=0`、`Completed`与`WqeCount`一致且rank 1输出PASS，表示样例执行成功。
+
+## 注意事项
+
+- 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+- `--payload-bytes`最小为2：立即提交的`WriteNbi`把payload拆成两段SGE，1字节会让第一段长度为0，
+  而URMA不接受长度为0的SGE。
+- 接收侧只校验`write`和`write_value`：`notify`的signal word与payload共用同一个slot，两个原子
+  接口每次迭代都会改写目标word，落地镜像取决于迭代次数，没有稳定的期望值。这两类用例依赖
+  `DrainStatus`和`Completed`判断是否正确完成。
+- 对`write_value`、`faa`、`cas`使用`--sweep`会直接报错，而不是把同一个8字节用例重复跑八遍。
+- `--sweep`为每个payload起一轮新进程，并各自使用独立的同步目录和root info文件，避免上一轮的
+  barrier标记文件让下一轮直接通过；该目录通过命令行参数传给可执行文件而非环境变量。
+- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。
