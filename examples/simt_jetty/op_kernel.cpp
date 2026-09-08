@@ -72,6 +72,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
     AscendC::simt::jetty::HcommPeer peer(jettyPtrTable, 0);
     AscendC::simt::jetty::HcommJetty jetty(jettyPtrTable, 0);
+    group.sync();
 
     AscendC::simt::jetty::HcommSge sge{};
     const int laneIdx = warp.thread_rank();

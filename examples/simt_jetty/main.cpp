@@ -313,19 +313,31 @@ int main(int argc, char* argv[])
         if (!pass) {
             std::cout << "[rank 1] simt_jetty thread write FAIL" << std::endl;
         }
+        ACLCHECK(aclrtMemset(recvBuf, simt_jetty::kBufferBytes, 0, simt_jetty::kBufferBytes));
         HCCLCHECK(WriteMarkerFile(syncDir + "/thread_checked.1"));
         HCCLCHECK(WaitMarkerFile(syncDir + "/warp_done.0"));
         uint64_t expectedPad[simt_jetty::kSlotCount] = {simt_jetty::SlotValue(0), 0U};
         const bool padPass = CheckWords(recvBuf, expectedPad);
         pass = pass && padPass;
+        if (!padPass) {
+            std::cout << "[rank 1] simt_jetty warp pad-zero write FAIL" << std::endl;
+        }
+        ACLCHECK(aclrtMemset(recvBuf, simt_jetty::kBufferBytes, 0, simt_jetty::kBufferBytes));
         HCCLCHECK(WriteMarkerFile(syncDir + "/warp_checked.1"));
         HCCLCHECK(WaitMarkerFile(syncDir + "/group_done.0"));
         const bool groupPass = CheckWords(recvBuf, expectedNormal);
         pass = pass && groupPass;
+        if (!groupPass) {
+            std::cout << "[rank 1] simt_jetty group write FAIL" << std::endl;
+        }
+        ACLCHECK(aclrtMemset(recvBuf, simt_jetty::kBufferBytes, 0, simt_jetty::kBufferBytes));
         HCCLCHECK(WriteMarkerFile(syncDir + "/group_checked.1"));
         HCCLCHECK(WaitMarkerFile(syncDir + "/dispatch_done.0"));
         const bool dispatchPass = CheckWords(recvBuf, expectedNormal);
         pass = pass && dispatchPass;
+        if (!dispatchPass) {
+            std::cout << "[rank 1] simt_jetty dispatch write FAIL" << std::endl;
+        }
         if (!pass) {
             std::cout << "[rank 1] simt_jetty FAIL" << std::endl;
         } else {

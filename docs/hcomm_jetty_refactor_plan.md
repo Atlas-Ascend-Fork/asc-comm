@@ -59,16 +59,17 @@ void Write(const Group& group, const HcommPeer& peer, __gm__ void* dst, const Hc
 保留 hcomm simt 里 DWQE 的"写 128B doorbell window"原理：
 
 1. WQE 先写到 SQ 槽（`asc_stcg`）
-2. 同时将每 lane 的 SQE word 暂存到 `dwqe_stage`
+2. `Commit()` 将最终 WRITE 的 header 更新为强序、有 fence 且请求 CQE
 3. `Commit()` 时：
    - `asc_threadfence()` 保证 SQ 写入完成
-   - `asc_stwt` + `make_ulonglong2` 将 stage 的最后 128B 以 128-bit 粒度写入 `dwqe_addr`（`dbVa - 0x80`）
+   - `asc_ldcg` 从 SQ 读取最终 WRITE 的前 128B
+   - `asc_stwt` + `make_ulonglong2` 以 128-bit 粒度写入 `dwqe_addr`（`dbVa - 0x80`）
    - `asc_dcci_single` × 2 刷新 DWQE 两行 cache
 
 ```c++
 // 保留的核心 doorbell 流程
 asc_threadfence();
-asc_stwt(&dwqe_words[i], make_ulonglong2(dwqe_stage[...], dwqe_stage[...+1]));
+asc_stwt(&dwqe_words[i], make_ulonglong2(asc_ldcg(sq_words), asc_ldcg(sq_words + 1)));
 asc_dcci_single(dwqe_addr);
 asc_dcci_single(dwqe_addr + kNumWQEBBBytes);
 ```
@@ -79,6 +80,8 @@ asc_dcci_single(dwqe_addr + kNumWQEBBBytes);
 使用句柄内的普通标量批次起点定位最终 WQE，并统一发布 DWQE。普通用户不需要提供或初始化
 `HcommPeerInfo / HcommJettyInfo / write_counter / num_writes` 等 UB workspace；DeepEP dispatch
 可以由多个 warp 并行调用 `Write<12>()`，随后由 group 中一个线程统一调用 `Commit()`。
+多 warp 场景必须在所有 lane 完成 `HcommJetty` 构造后做一次 group 同步，再允许任一 warp 调用
+`Write()`，保证 group leader 记录的批次起点早于本批次的全部预留。
 
 ---
 
