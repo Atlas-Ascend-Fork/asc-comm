@@ -75,9 +75,9 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(T& batchHandle, GM_ADDR 
 template <CommProtocol commProtocol>
 template <auto const& config, typename T, typename HandleTraits<T>::ChannelType*>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(
-    T& batchHandle, GM_ADDR dst, GM_ADDR const* srcList, const uint32_t* lenList, uint32_t sgeNum)
+    T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum)
 {
-    return impl_.template WriteNbi<config>(batchHandle, dst, srcList, lenList, sgeNum);
+    return impl_.template WriteNbi<config>(batchHandle, dst, srcDescs, srcNum);
 }
 
 template <CommProtocol commProtocol>
@@ -113,11 +113,11 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
 template <CommProtocol commProtocol>
 template <auto const& config, typename T, typename HandleTraits<T>::ChannelType*>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
-    T& batchHandle, GM_ADDR dst, GM_ADDR const* srcList, const uint32_t* lenList, uint32_t sgeNum,
-    GM_ADDR notifyAddr, uint64_t notifyVal)
+    T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr,
+    uint64_t notifyVal)
 {
     return impl_.template WriteWithNotifyNbi<config>(
-        batchHandle, dst, srcList, lenList, sgeNum, notifyAddr, notifyVal);
+        batchHandle, dst, srcDescs, srcNum, notifyAddr, notifyVal);
 }
 
 template <CommProtocol commProtocol>
@@ -146,9 +146,9 @@ __aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(T& batchHandle, GM_ADDR d
 template <CommProtocol commProtocol>
 template <auto const& config, typename T, typename HandleTraits<T>::ChannelType*>
 __aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(
-    T& batchHandle, GM_ADDR const* dstList, const uint32_t* lenList, GM_ADDR src, uint32_t sgeNum)
+    T& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src)
 {
-    return impl_.template ReadNbi<config>(batchHandle, dstList, lenList, src, sgeNum);
+    return impl_.template ReadNbi<config>(batchHandle, dstDescs, dstNum, src);
 }
 
 template <CommProtocol commProtocol>

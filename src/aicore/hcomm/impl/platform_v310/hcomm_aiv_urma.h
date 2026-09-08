@@ -533,8 +533,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
 
 template <HcommUrmaOpCode opCode, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
-    UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, GM_ADDR const* localAddrList,
-    const uint32_t* localLenList, uint32_t sgeNum, GM_ADDR notifyAddr, uint64_t notifyVal)
+    UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t sgeNum,
+    GM_ADDR notifyAddr, uint64_t notifyVal)
 {
     static_assert(
         opCode == HcommUrmaOpCode::WRITE || opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY ||
@@ -562,9 +562,11 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
         return HCOMM_FAILED;
     }
 
-    // Contract: batchHandle comes from a single-channel MakeBatchHandle call; both arrays contain exactly sgeNum
-    // elements; every local address and length is valid; remoteAddr/notifyAddr belong to the MR cached by the handle.
-    // These conditions are intentionally not checked on this batch fast path.
+    // Contract: batchHandle either comes from a single-channel MakeBatchHandle call or is the inner execution handle
+    // selected by GetHandleRef for one logical channel of a multi-channel batch. One WQE, including all of its SGEs
+    // and optional notification, belongs to that selected channel and cannot span channels. localDescs contains
+    // exactly sgeNum elements; every local address and length is valid; remoteAddr/notifyAddr belong to the MR cached
+    // by the handle. These conditions are intentionally not checked on this batch fast path.
     LocalTensor<uint32_t> currentWqe = batchHandle.buffer.buffer[preSqCnt * HCOMM_URMA_WQEBB_U32_NUM];
     __ubuf__ uint8_t* currentWqeAddr = reinterpret_cast<__ubuf__ uint8_t*>(currentWqe.GetPhyAddr());
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqeAddr);
@@ -581,9 +583,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
     }
     __ubuf__ HcommUrmaSgeCtx* sgeCtx = reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(sgeAddr);
     for (uint32_t i = 0U; i < sgeNum; ++i) {
-        sgeCtx[i].len = localLenList[i];
+        sgeCtx[i].len = localDescs[i].len;
         sgeCtx[i].tokenId = 0U;
-        sgeCtx[i].va = reinterpret_cast<uint64_t>(localAddrList[i]);
+        sgeCtx[i].va = reinterpret_cast<uint64_t>(localDescs[i].addr);
     }
     Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
 
@@ -603,9 +605,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
 
 template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
-    UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR const* srcList, const uint32_t* lenList, uint32_t sgeNum)
+    UbcBatchHandle& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum)
 {
-    return BatchPostSend<HcommUrmaOpCode::WRITE, config>(batchHandle, dst, srcList, lenList, sgeNum);
+    return BatchPostSend<HcommUrmaOpCode::WRITE, config>(batchHandle, dst, srcDescs, srcNum);
 }
 
 template <auto const& config>
@@ -617,9 +619,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
 
 template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
-    UbcBatchHandle& batchHandle, GM_ADDR const* dstList, const uint32_t* lenList, GM_ADDR src, uint32_t sgeNum)
+    UbcBatchHandle& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src)
 {
-    return BatchPostSend<HcommUrmaOpCode::READ, config>(batchHandle, src, dstList, lenList, sgeNum);
+    return BatchPostSend<HcommUrmaOpCode::READ, config>(batchHandle, src, dstDescs, dstNum);
 }
 
 template <auto const& config>
@@ -631,11 +633,11 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
 
 template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
-    UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR const* srcList, const uint32_t* lenList, uint32_t sgeNum,
-    GM_ADDR notifyAddr, uint64_t notifyVal)
+    UbcBatchHandle& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr,
+    uint64_t notifyVal)
 {
     return BatchPostSend<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config>(
-        batchHandle, dst, srcList, lenList, sgeNum, notifyAddr, notifyVal);
+        batchHandle, dst, srcDescs, srcNum, notifyAddr, notifyVal);
 }
 
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenCqOverflow(
