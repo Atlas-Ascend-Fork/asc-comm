@@ -13,7 +13,6 @@ target_sources(asccomm_ccu_dataplane_obj PRIVATE
     common/ccu_dev_mem.cc
     primitives/ccu_primitives_impl.cc
     primitives/ccu_launch.cc
-    primitives/ccu_host_launch.cc
 )
 
 target_sources(asccomm_ccu_dataplane_obj PRIVATE
@@ -28,6 +27,9 @@ target_sources(asccomm_ccu_dataplane_obj PRIVATE
     resource/kernel/ccu_kernel_mgr.cc
     resource/microcode/ccu_microcode.cc
     resource/microcode/ccu_assist.cc
+    resource/microcode_opt/extract_operands.cc
+    resource/microcode_opt/instruction_scheduler.cc
+    resource/microcode_opt/microcode_optimizer.cc
 )
 
 target_sources(asccomm_ccu_dataplane_obj PRIVATE
