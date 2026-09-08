@@ -11,6 +11,21 @@
 set(ASCCOMM_CCU_ROOT ${CMAKE_CURRENT_LIST_DIR})
 get_filename_component(ASCCOMM_ROOT ${ASCCOMM_CCU_ROOT}/../.. ABSOLUTE)
 
+function(asccomm_collect_header_dirs out_var)
+    set(_dirs)
+    foreach(_root IN LISTS ARGN)
+        if(EXISTS "${_root}")
+            file(GLOB_RECURSE _headers CONFIGURE_DEPENDS "${_root}/*.h" "${_root}/*.hpp")
+            foreach(_header IN LISTS _headers)
+                get_filename_component(_dir "${_header}" DIRECTORY)
+                list(APPEND _dirs "${_dir}")
+            endforeach()
+        endif()
+    endforeach()
+    list(REMOVE_DUPLICATES _dirs)
+    set(${out_var} ${_dirs} PARENT_SCOPE)
+endfunction()
+
 if(NOT ASCCOMM_CANN_ARCH_DIR AND ASCEND_CANN_PACKAGE_PATH)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
         set(_ASCCOMM_CANN_ARCH "aarch64-linux")
@@ -19,6 +34,19 @@ if(NOT ASCCOMM_CANN_ARCH_DIR AND ASCEND_CANN_PACKAGE_PATH)
     endif()
     set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}")
 endif()
+
+asccomm_collect_header_dirs(ASCCOMM_HCOMM_HEADER_DIRS
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/src
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/include
+    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
+)
+set(ASCCOMM_CANN_BASE_INCLUDE_DIRS
+    ${ASCEND_CANN_PACKAGE_PATH}/include
+    ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
+    ${ASCCOMM_CANN_ARCH_DIR}/include
+    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc
+)
+asccomm_collect_header_dirs(ASCCOMM_CANN_HEADER_DIRS ${ASCCOMM_CANN_BASE_INCLUDE_DIRS})
 
 add_library(asccomm_ccu_headers INTERFACE)
 target_include_directories(asccomm_ccu_headers INTERFACE
@@ -45,12 +73,11 @@ target_link_libraries(asccomm_ccu_dataplane_obj PRIVATE
 target_include_directories(asccomm_ccu_dataplane_obj PRIVATE
     ${ASCCOMM_CCU_ROOT}
     ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
+    ${ASCCOMM_HCOMM_HEADER_DIRS}
 )
 target_include_directories(asccomm_ccu_dataplane_obj SYSTEM PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/include
-    ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
-    ${ASCCOMM_CANN_ARCH_DIR}/include
-    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc
+    ${ASCCOMM_CANN_BASE_INCLUDE_DIRS}
+    ${ASCCOMM_CANN_HEADER_DIRS}
 )
 target_compile_definitions(asccomm_ccu_dataplane_obj PRIVATE
     ASCCOMM_CCU_LOCAL_LOGGING
@@ -68,6 +95,9 @@ add_library(asccomm_ccu_dataplane SHARED
 )
 set_target_properties(asccomm_ccu_dataplane PROPERTIES
     OUTPUT_NAME asccomm_ccu_dataplane
+)
+target_link_directories(asccomm_ccu_dataplane PRIVATE
+    ${ASCCOMM_CANN_ARCH_DIR}/lib64
 )
 target_link_libraries(asccomm_ccu_dataplane PRIVATE
     asccomm_ccu_headers

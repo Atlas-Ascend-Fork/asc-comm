@@ -9,6 +9,8 @@
  */
 
 #include "hcomm/resource/kernel/ccu_kernel.h"
+
+#include <algorithm>
 #include "hcomm/resource/representation/ccu_rep_v1.h"
 #include "hcomm/resource/common/ccu_kernel_resource.h"
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
@@ -134,7 +136,7 @@ static void move_resources_to_die(ccu_rep_resource& res, uint32_t target_die_id)
     if (target_die_id == 0)
         return; // 初始资源位于die0，不用设置
 
-    auto move_and_set = [&](auto& arr) {
+    auto move_and_set = [&target_die_id](auto& arr) {
         arr[target_die_id] = std::move(arr[0]);
         for (auto& item : arr[target_die_id])
             item.set_die_id(target_die_id);
@@ -2585,6 +2587,54 @@ uint32_t ccu_kernel::get_instr_count()
     return instr_count;
 }
 
+namespace {
+bool is_cke_wait_rep(const std::shared_ptr<ccu_rep::ccu_rep_base>& rep)
+{
+    if (rep == nullptr) {
+        return false;
+    }
+    switch (rep->type()) {
+        case ccu_rep::ccu_rep_type::loc_wait_event:
+        case ccu_rep::ccu_rep_type::loc_wait_notify:
+        case ccu_rep::ccu_rep_type::rem_wait_sem:
+            return true;
+        default:
+            return false;
+    }
+}
+
+uint32_t count_cke_wait_rep_in_block(const std::shared_ptr<ccu_rep::ccu_rep_base>& rep)
+{
+    const auto type = rep->type();
+    if (type != ccu_rep::ccu_rep_type::block && type != ccu_rep::ccu_rep_type::func_block &&
+        type != ccu_rep::ccu_rep_type::loop_block) {
+        return 0;
+    }
+    const auto* block = static_cast<const ccu_rep::ccu_rep_block*>(rep.get());
+    uint32_t count = 0;
+    for (const auto& child : const_cast<ccu_rep::ccu_rep_block*>(block)->get_reps()) {
+        count += is_cke_wait_rep(child) ? 1U : 0U;
+    }
+    return count;
+}
+} // namespace
+
+uint32_t ccu_kernel::get_rep_need_to_add_latency() const
+{
+    if (ccu_version_ != HCOMM_CCU_VERSION_V2) {
+        return 0;
+    }
+    uint32_t count = 0;
+    for (const auto& rep : const_cast<ccu_kernel*>(this)->get_rep_sequence()) {
+        if (rep == nullptr) {
+            continue;
+        }
+        count += is_cke_wait_rep(rep) ? 1U : 0U;
+        count += count_cke_wait_rep_in_block(rep);
+    }
+    return count;
+}
+
 void ccu_kernel::set_ccu_instr_info(const ccu_rep::ccu_instr_info& instr_info) { this->instr_info_ = instr_info; }
 
 ccu_rep::variable ccu_kernel::create_variable() { return create_res_assist(res_.continuous_variable); }
@@ -2833,7 +2883,15 @@ HcclResult ccu_kernel::collect_loop_group_profiling_info(
         "[GetCcuProfilingInfo] process loop group profiling start: "
         "lgsize(%lu), goSize(%lu)",
         lg_prof_info.lg_profiling_reps.size(), group_op_size_info_.size());
-    for (uint32_t i = 0; i < lg_prof_info.lg_profiling_reps.size();
+    const size_t safe_size = std::min({lg_prof_info.lg_profiling_reps.size(), group_op_size_info_.size(),
+        lg_prof_info.ccu_profiling_infos.size()});
+    if (safe_size != lg_prof_info.lg_profiling_reps.size()) {
+        HCCL_WARNING(
+            "[CollectLoopGroupProfilingInfo] size mismatch: lgReps[%zu], goSize[%zu], profiles[%zu], safeSize[%zu].",
+            lg_prof_info.lg_profiling_reps.size(), group_op_size_info_.size(),
+            lg_prof_info.ccu_profiling_infos.size(), safe_size);
+    }
+    for (uint32_t i = 0; i < safe_size;
          i += 2) { // 2: 一个goSize对应一个ccu_profiling_info，对应1个loopGroup Rep
         if (arg_size == 0 || var_id2_arg_index_map.empty()) {
             continue;
@@ -2857,6 +2915,12 @@ HcclResult ccu_kernel::collect_loop_group_profiling_info(
         }
 
         if (parallel_param != 0) {
+            if (i + 1 >= safe_size) {
+                HCCL_WARNING(
+                    "[CollectLoopGroupProfilingInfo] no paired rep for parallel branch, index[%u], safeSize[%zu].",
+                    i, safe_size);
+                continue;
+            }
             HCCL_INFO("[GetCcuProfilingInfo] collect lg, residual start i=%lu", i);
             uint64_t residual{0};
             CHK_RET(get_arg_index(
@@ -2899,7 +2963,7 @@ HcclResult ccu_kernel::add_profiling_info(
     HcclReduceOp op_type, const std::string& op_name)
 {
     CHK_PTR_NULL(channels);
-    ccu_profiling_info_cache.type = (uint8_t)ccu_profilin_type::ccu_loopgroup_profiling;
+    ccu_profiling_info_cache.type = static_cast<uint8_t>(ccu_profilin_type::ccu_loopgroup_profiling);
     ccu_profiling_info_cache.name = op_name;
     ccu_profiling_info_cache.reduce_op_type = op_type;
     ccu_profiling_info_cache.input_data_type = data_type;
