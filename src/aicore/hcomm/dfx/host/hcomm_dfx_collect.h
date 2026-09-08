@@ -46,7 +46,12 @@ inline bool CopyFromDevice(void *dst, uint32_t dstSize, uint64_t src, uint32_t s
     }
     const uint32_t copySize = std::min(dstSize, size);
     std::memset(dst, 0, dstSize);
-    return aclrtMemcpy(dst, copySize, reinterpret_cast<void *>(src), copySize, ACL_MEMCPY_DEVICE_TO_HOST) == ACL_SUCCESS;
+    aclError err = aclrtMemcpy(dst, copySize, reinterpret_cast<void *>(src), copySize, ACL_MEMCPY_DEVICE_TO_HOST);
+    if (err != ACL_SUCCESS) {
+        Trace("CopyFromDevice failed src=0x%llx size=%u dstSize=%u ret=%d",
+              static_cast<unsigned long long>(src), copySize, dstSize, static_cast<int>(err));
+    }
+    return err == ACL_SUCCESS;
 }
 
 template <typename T>
@@ -469,6 +474,9 @@ inline bool CollectChannel(ChannelHandle channelHandle, HcommDfxChannelInfo &cha
     channel.valid = 1U;
     channel.channelEntitySize = std::min<uint32_t>(sizeof(ChannelEntity), HCOMM_DFX_CHANNEL_ENTITY_BYTES);
     std::memcpy(channel.channelEntity, &entity, channel.channelEntitySize);
+    Trace("collect channel handle=0x%llx sqCtx=0x%llx cqCtx=0x%llx sqHead=%u sqTail=%u cqHead=%u cqTail=%u",
+          static_cast<unsigned long long>(channelHandle), PtrToU64(entity.sqContextAddr),
+          PtrToU64(entity.cqContextAddr), entity.sqHead, entity.sqTail, entity.cqHead, entity.cqTail);
 
     CollectBuffers(PtrToU64(entity.localBufferAddr), entity.localBufferNum, channel.localBuffers,
         channel.localBufferDumpNum);
