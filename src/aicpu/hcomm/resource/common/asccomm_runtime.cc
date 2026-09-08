@@ -294,26 +294,23 @@ HcclResult asccomm_rtsq_rdma_db_send(HcommRtsqContext &context, uint64_t dbAddr,
     return refresh_rtsq(context);
 }
 
-HcclResult asccomm_task_launch(ThreadHandle *threads, uint32_t threadNum)
+// 契约(CHANNEL ABI=2)：参数为控制面预解析的POD实体，数据面零解析
+HcclResult asccomm_task_launch(HcommThreadEntity **threads, uint32_t threadNum)
 {
     CHK_PTR_NULL(threads);
     for (uint32_t index = 0; index < threadNum; ++index) {
-        HcommThreadEntity *thread = nullptr;
-        CHK_RET(static_cast<HcclResult>(HcommGetPodThreadResource(threads[index], &thread)));
-        CHK_RET(validate_thread_entity(thread));
-        CHK_RET(asccomm_rtsq_launch(*thread->sqContextAddr));
+        CHK_RET(validate_thread_entity(threads[index]));
+        CHK_RET(asccomm_rtsq_launch(*threads[index]->sqContextAddr));
     }
     return HCCL_SUCCESS;
 }
 
-HcclResult asccomm_try_launch(ThreadHandle *threads, uint32_t threadNum)
+HcclResult asccomm_try_launch(HcommThreadEntity **threads, uint32_t threadNum)
 {
     CHK_PTR_NULL(threads);
     for (uint32_t index = 0; index < threadNum; ++index) {
-        HcommThreadEntity *thread = nullptr;
-        CHK_RET(static_cast<HcclResult>(HcommGetPodThreadResource(threads[index], &thread)));
-        CHK_RET(validate_thread_entity(thread));
-        CHK_RET(asccomm_rtsq_try_launch(*thread->sqContextAddr));
+        CHK_RET(validate_thread_entity(threads[index]));
+        CHK_RET(asccomm_rtsq_try_launch(*threads[index]->sqContextAddr));
     }
     return HCCL_SUCCESS;
 }
