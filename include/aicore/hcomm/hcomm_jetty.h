@@ -1,7 +1,11 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms of the
- * CANN Open Software License Agreement Version 2.0.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 /*!
@@ -79,20 +83,20 @@ public:
 
     // Set kDoCommit=false to enqueue the WQE without ringing the SQ doorbell.
     // A later Write<..., true> publishes the accumulated SQ entries.
-    // dstPtr is the externally supplied remote device address.
+    // dstAddr is the externally supplied remote device address.
     template <int64_t kNumTimeoutCycles, bool kDoCommit = true>
     __aicore__ __forceinline__ int32_t Write(
-        const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes);
+        const HcommPeer& peer, __gm__ void* dstAddr, __gm__ void* srcAddr, uint64_t numBytes);
 
     // WriteValue carries value inline in a single WQEBB; T must fit after the SQE header.
     template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit = true>
     __aicore__ __forceinline__ int32_t WriteValue(
-        const HcommPeer& peer, __gm__ void* dstPtr, T value);
+        const HcommPeer& peer, __gm__ void* dstAddr, T value);
 
-    // dstPtr and notifyAddr are externally supplied remote device addresses.
+    // dstAddr and notifyAddr are externally supplied remote device addresses.
     template <int64_t kNumTimeoutCycles>
     __aicore__ __forceinline__ int32_t WriteWithNotify(
-        const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
+        const HcommPeer& peer, __gm__ void* dstAddr, __gm__ void* srcAddr, uint64_t numBytes,
         __gm__ void* notifyAddr, uint64_t notifyValue);
 
     template <int64_t kNumTimeoutCycles>

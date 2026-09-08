@@ -1,3 +1,13 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_JETTY_H
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_JETTY_H
 
@@ -93,18 +103,18 @@ __aicore__ __forceinline__ HcommJettyImpl::HcommJettyImpl(
 
 template <bool kWithNotify>
 __aicore__ __forceinline__ bool HcommJettyImpl::BuildWriteSqe(
-    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
+    const HcommPeer& peer, __gm__ void* dstAddr, __gm__ void* srcAddr, uint64_t numBytes,
     uint32_t currentHead, __gm__ void* notifyAddr, uint64_t notifyValue)
 {
     if (!valid_ || !peer.valid || jettyInfo_ == nullptr || ubufSqe_ == nullptr || peer.peerInfo == nullptr ||
-        srcPtr == nullptr) {
+        srcAddr == nullptr) {
         return false;
     }
     auto* info = peer.peerInfo;
     if (numBytes > 0xFFFFFFFFULL) {
         return false;
     }
-    uint64_t remoteAddr = reinterpret_cast<uint64_t>(dstPtr);
+    uint64_t remoteAddr = reinterpret_cast<uint64_t>(dstAddr);
     auto* sqe = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(ubufSqe_);
     sqe->sqeBbIdx = 0;
     sqe->flag = HCOMM_JETTY_WRITE_SQE_FLAG;
@@ -148,19 +158,19 @@ __aicore__ __forceinline__ bool HcommJettyImpl::BuildWriteSqe(
     auto* sge = reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(sgeAddr);
     sge->len = static_cast<uint32_t>(numBytes);
     sge->tokenId = 0;
-    sge->va = reinterpret_cast<uint64_t>(srcPtr);
+    sge->va = reinterpret_cast<uint64_t>(srcAddr);
     return true;
 }
 
 template <typename T>
 __aicore__ __forceinline__ bool HcommJettyImpl::BuildWriteValueSqe(
-    const HcommPeer& peer, __gm__ void* dstPtr, T value, uint32_t currentHead)
+    const HcommPeer& peer, __gm__ void* dstAddr, T value, uint32_t currentHead)
 {
     if (!valid_ || !peer.valid || jettyInfo_ == nullptr || ubufSqe_ == nullptr || peer.peerInfo == nullptr) {
         return false;
     }
     auto* info = peer.peerInfo;
-    const uint64_t remoteAddr = reinterpret_cast<uint64_t>(dstPtr);
+    const uint64_t remoteAddr = reinterpret_cast<uint64_t>(dstAddr);
     auto* sqe = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(ubufSqe_);
     sqe->sqeBbIdx = 0;
     sqe->flag = HCOMM_JETTY_WRITE_VALUE_SQE_FLAG;
@@ -269,7 +279,7 @@ __aicore__ __forceinline__ int32_t HcommJettyImpl::PollCq(uint32_t expectedTail)
 
 template <int64_t kNumTimeoutCycles, bool kWithNotify, bool kDoCommit>
 __aicore__ __forceinline__ int32_t HcommJettyImpl::PostWrite(
-    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
+    const HcommPeer& peer, __gm__ void* dstAddr, __gm__ void* srcAddr, uint64_t numBytes,
     __gm__ void* notifyAddr, uint64_t notifyValue, uint32_t numWqebbs)
 {
     if (!valid_ || jettyInfo_ == nullptr || ubufSqe_ == nullptr || jettyInfo_->sqDepth == 0U ||
@@ -278,7 +288,7 @@ __aicore__ __forceinline__ int32_t HcommJettyImpl::PostWrite(
     }
     uint32_t head = static_cast<uint32_t>(jettyInfo_->packedHead);
     PollCqWhenSqOverflow<kNumTimeoutCycles>();
-    if (!BuildWriteSqe<kWithNotify>(peer, dstPtr, srcPtr, numBytes, head, notifyAddr, notifyValue)) {
+    if (!BuildWriteSqe<kWithNotify>(peer, dstAddr, srcAddr, numBytes, head, notifyAddr, notifyValue)) {
         return HCOMM_FAILED;
     }
     CopySqeToSq(head, numWqebbs);
@@ -291,7 +301,7 @@ __aicore__ __forceinline__ int32_t HcommJettyImpl::PostWrite(
 
 template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit>
 __aicore__ __forceinline__ int32_t HcommJettyImpl::PostWriteValue(
-    const HcommPeer& peer, __gm__ void* dstPtr, T value, uint32_t numWqebbs)
+    const HcommPeer& peer, __gm__ void* dstAddr, T value, uint32_t numWqebbs)
 {
     if (!valid_ || jettyInfo_ == nullptr || ubufSqe_ == nullptr || jettyInfo_->sqDepth == 0U ||
         jettyInfo_->cqDepth == 0U) {
@@ -299,7 +309,7 @@ __aicore__ __forceinline__ int32_t HcommJettyImpl::PostWriteValue(
     }
     const uint32_t head = static_cast<uint32_t>(jettyInfo_->packedHead);
     PollCqWhenSqOverflow<kNumTimeoutCycles>();
-    if (!BuildWriteValueSqe<T>(peer, dstPtr, value, head)) {
+    if (!BuildWriteValueSqe<T>(peer, dstAddr, value, head)) {
         return HCOMM_FAILED;
     }
     CopySqeToSq(head, numWqebbs);
@@ -331,29 +341,29 @@ __aicore__ __forceinline__ HcommJetty::HcommJetty(
 
 template <int64_t kNumTimeoutCycles, bool kDoCommit>
 __aicore__ __forceinline__ int32_t HcommJetty::Write(
-    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes)
+    const HcommPeer& peer, __gm__ void* dstAddr, __gm__ void* srcAddr, uint64_t numBytes)
 {
     return impl_.PostWrite<kNumTimeoutCycles, false, kDoCommit>(
-        peer, dstPtr, srcPtr, numBytes, nullptr, 0U, kNumWriteWqebbs);
+        peer, dstAddr, srcAddr, numBytes, nullptr, 0U, kNumWriteWqebbs);
 }
 
 template <int64_t kNumTimeoutCycles, typename T, bool kDoCommit>
 __aicore__ __forceinline__ int32_t HcommJetty::WriteValue(
-    const HcommPeer& peer, __gm__ void* dstPtr, T value)
+    const HcommPeer& peer, __gm__ void* dstAddr, T value)
 {
     static_assert(sizeof(T) <= kNumWriteWqebbs * 64U - sizeof(HcommUrmaSqeCtx),
         "WriteValue value is too large for one WQEBB");
     return impl_.PostWriteValue<kNumTimeoutCycles, T, kDoCommit>(
-        peer, dstPtr, value, kNumWriteWqebbs);
+        peer, dstAddr, value, kNumWriteWqebbs);
 }
 
 template <int64_t kNumTimeoutCycles>
 __aicore__ __forceinline__ int32_t HcommJetty::WriteWithNotify(
-    const HcommPeer& peer, __gm__ void* dstPtr, __gm__ void* srcPtr, uint64_t numBytes,
+    const HcommPeer& peer, __gm__ void* dstAddr, __gm__ void* srcAddr, uint64_t numBytes,
     __gm__ void* notifyAddr, uint64_t notifyValue)
 {
     return impl_.PostWrite<kNumTimeoutCycles, true, true>(
-        peer, dstPtr, srcPtr, numBytes, notifyAddr, notifyValue, kNumWriteWithNotifyWqebbs);
+        peer, dstAddr, srcAddr, numBytes, notifyAddr, notifyValue, kNumWriteWithNotifyWqebbs);
 }
 
 template <int64_t kNumTimeoutCycles>
