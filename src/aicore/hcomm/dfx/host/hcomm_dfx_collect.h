@@ -12,6 +12,7 @@
 #define ASCCOMM_SRC_AICORE_HCOMM_DFX_HOST_HCOMM_DFX_COLLECT_H
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <new>
 
@@ -270,6 +271,29 @@ inline void CollectBuffers(uint64_t addr, uint32_t num, HcommDfxBufferDump *buff
     }
 }
 
+// Reads sqHead/sqTail/cqHead/cqTail from the device ChannelEntity in one device-side access. A host aclrtMemcpy
+// is not DCCI-ordered with the AICe's L2 write cache, so after an AIC error traps the kernel mid-commit it can
+// observe a stale (all-zero) cursor snapshot even though the cursors were already written. The queue-reader kernel
+// runs in the AICe coherence domain and sees the latest values, so cursors must be read the same way the WQE/CQE
+// payloads already are. Returns false when the read fails, leaving cursors as the caller's fallback.
+inline bool ReadChannelCursors(void *reader, uint64_t channelHandle, uint32_t &sqHead, uint32_t &sqTail,
+                               uint32_t &cqHead, uint32_t &cqTail)
+{
+    if (reader == nullptr || channelHandle == 0U) {
+        return false;
+    }
+    const uint64_t cursorAddr = channelHandle + static_cast<uint64_t>(offsetof(ChannelEntity, sqHead));
+    uint8_t data[sizeof(uint32_t) * 4];
+    if (!ReadQueueEntry(reader, cursorAddr, data, sizeof(data))) {
+        return false;
+    }
+    std::memcpy(&sqHead, data, sizeof(sqHead));
+    std::memcpy(&sqTail, data + sizeof(sqHead), sizeof(sqTail));
+    std::memcpy(&cqHead, data + sizeof(sqHead) + sizeof(sqTail), sizeof(cqHead));
+    std::memcpy(&cqTail, data + sizeof(sqHead) + sizeof(sqTail) + sizeof(cqHead), sizeof(cqTail));
+    return true;
+}
+
 inline bool SampleSqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, uint32_t wqeSize, uint32_t sqHead,
     uint32_t sqTail, HcommDfxChannelInfo &channel, void *reader)
 {
@@ -321,6 +345,23 @@ inline bool SampleCqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, ui
     return true;
 }
 
+// Reads an adjacent head/tail pair (8 bytes) from a device address on the AICe coherence domain, so the printed
+// cursor matches the sampled WQE/CQE batch. A failed or null-address read leaves the pair at 0 with valid=0, which
+// the parser turns into an explicit ERROR line rather than a misleading value.
+inline bool ReadDevicePair(void *reader, uint64_t addr, uint32_t &head, uint32_t &tail)
+{
+    if (reader == nullptr || addr == 0U) {
+        return false;
+    }
+    uint8_t data[sizeof(uint32_t) * 2];
+    if (!ReadQueueEntry(reader, addr, data, sizeof(data))) {
+        return false;
+    }
+    std::memcpy(&head, data, sizeof(head));
+    std::memcpy(&tail, data + sizeof(head), sizeof(tail));
+    return true;
+}
+
 inline bool CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo &channel, void *reader,
                               uint32_t sqHead, uint32_t sqTail)
 {
@@ -349,8 +390,16 @@ inline bool CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo
             continue;
         }
         const auto &jfs = ctx.contextInfo.ubJfs;
-        out.headValid = CopyFromDevice(jfs.headAddr, out.head, "SqHead") ? 1U : 0U;
-        out.tailValid = CopyFromDevice(jfs.tailAddr, out.tail, "SqTail") ? 1U : 0U;
+        out.head = 0U;
+        out.tail = 0U;
+        out.headValid = 0U;
+        out.tailValid = 0U;
+        if (jfs.headAddr != 0U && jfs.tailAddr != 0U) {
+            // Device-side read so the printed cursor matches the sampled WQE batch (host aclrtMemcpy may be stale).
+            // A failed read keeps the pair at 0 and valid=0, which the parser turns into an explicit ERROR line.
+            out.headValid = ReadDevicePair(reader, jfs.headAddr, out.head, out.tail) ? 1U : 0U;
+            out.tailValid = out.headValid;
+        }
         if (jfs.sqVa == 0 || jfs.sqDepth == 0 || jfs.wqeSize == 0) {
             continue;
         }
@@ -391,8 +440,15 @@ inline bool CollectCqContexts(uint64_t addr, uint32_t cqNum, HcommDfxChannelInfo
             continue;
         }
         const auto &jfc = ctx.contextInfo.ubJfc;
-        out.headValid = CopyFromDevice(jfc.headAddr, out.head, "CqHead") ? 1U : 0U;
-        out.tailValid = CopyFromDevice(jfc.tailAddr, out.tail, "CqTail") ? 1U : 0U;
+        out.head = 0U;
+        out.tail = 0U;
+        out.headValid = 0U;
+        out.tailValid = 0U;
+        if (jfc.headAddr != 0U && jfc.tailAddr != 0U) {
+            // Device-side read so the printed cursor matches the sampled CQE batch (host aclrtMemcpy may be stale).
+            out.headValid = ReadDevicePair(reader, jfc.headAddr, out.head, out.tail) ? 1U : 0U;
+            out.tailValid = out.headValid;
+        }
         if (jfc.scqVa == 0 || jfc.cqDepth == 0 || jfc.cqeSize == 0) {
             continue;
         }
@@ -427,16 +483,28 @@ inline bool CollectChannel(ChannelHandle channelHandle, HcommDfxChannelInfo &cha
         channel.localBufferDumpNum);
     CollectBuffers(PtrToU64(entity.remoteBufferAddr), entity.remoteBufferNum, channel.remoteBuffers,
         channel.remoteBufferDumpNum);
-    if (!CollectSqContexts(PtrToU64(entity.sqContextAddr), entity.sqNum, channel, reader, entity.sqHead,
-                           entity.sqTail)) {
+    // Sample cursors from the device side; the entity's copies are a host aclrtMemcpy that may be stale after an AIC
+    // error (see ReadChannelCursors). Fall back to the copied values when the device read fails.
+    uint32_t sqHead = entity.sqHead;
+    uint32_t sqTail = entity.sqTail;
+    uint32_t cqHead = entity.cqHead;
+    uint32_t cqTail = entity.cqTail;
+    const bool cursorsOk = ReadChannelCursors(reader, channelHandle, sqHead, sqTail, cqHead, cqTail);
+    channel.sqHead = sqHead;
+    channel.sqTail = sqTail;
+    channel.cqHead = cqHead;
+    channel.cqTail = cqTail;
+    channel.cursorsDevice = cursorsOk ? 1U : 0U;
+    Trace("collect channel cursors device=%d sqHead=%u sqTail=%u cqHead=%u cqTail=%u",
+          cursorsOk, sqHead, sqTail, cqHead, cqTail);
+    if (!CollectSqContexts(PtrToU64(entity.sqContextAddr), entity.sqNum, channel, reader, sqHead, sqTail)) {
         Trace("collect sq contexts failed channel=0x%llx sqNum=%u sqHead=%u sqTail=%u",
-              static_cast<unsigned long long>(channelHandle), entity.sqNum, entity.sqHead, entity.sqTail);
+              static_cast<unsigned long long>(channelHandle), entity.sqNum, sqHead, sqTail);
         return false;
     }
-    if (!CollectCqContexts(PtrToU64(entity.cqContextAddr), entity.cqNum, channel, reader, entity.cqHead,
-                           entity.cqTail)) {
+    if (!CollectCqContexts(PtrToU64(entity.cqContextAddr), entity.cqNum, channel, reader, cqHead, cqTail)) {
         Trace("collect cq contexts failed channel=0x%llx cqNum=%u cqHead=%u cqTail=%u",
-              static_cast<unsigned long long>(channelHandle), entity.cqNum, entity.cqHead, entity.cqTail);
+              static_cast<unsigned long long>(channelHandle), entity.cqNum, cqHead, cqTail);
         return false;
     }
     return true;
