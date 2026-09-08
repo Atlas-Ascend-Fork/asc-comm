@@ -229,8 +229,8 @@ bool CheckWords(void* deviceBuf, const uint64_t expected[simt_jetty::kSlotCount]
 
 int main(int argc, char* argv[])
 {
-    if (argc != 5) {
-        std::cout << "Usage: " << argv[0] << " <rank> <nranks> <root_info_file> <sync_dir>" << std::endl;
+    if (argc != 6) {
+        std::cout << "Usage: " << argv[0] << " <rank> <nranks> <root_info_file> <sync_dir> <mode>" << std::endl;
         return 1;
     }
 
@@ -238,9 +238,10 @@ int main(int argc, char* argv[])
     const int nranks = std::atoi(argv[2]);
     const std::string rootInfoFile = argv[3];
     const std::string syncDir = argv[4];
+    const uint32_t mode = static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10));
 
-    if (nranks < 2 || rank < 0 || rank >= nranks || syncDir.empty()) {
-        std::cout << "invalid rank/nranks/sync_dir" << std::endl;
+    if (nranks < 2 || rank < 0 || rank >= nranks || syncDir.empty() || mode > 4U) {
+        std::cout << "invalid rank/nranks/sync_dir/mode" << std::endl;
         return 1;
     }
     if (rank >= 2) {
@@ -290,68 +291,26 @@ int main(int argc, char* argv[])
     constexpr uint32_t kLocalSendIdx = 1U;
     bool pass = true;
     if (rank == 0) {
-        LaunchSimtJetty(stream, static_cast<uint64_t>(channel), jettyPtrTable, kLocalSendIdx, remoteRecvIdx, 0U);
+        LaunchSimtJetty(stream, static_cast<uint64_t>(channel), jettyPtrTable, kLocalSendIdx, remoteRecvIdx, mode);
         ACLCHECK(aclrtSynchronizeStream(stream));
-        HCCLCHECK(WriteMarkerFile(syncDir + "/thread_done.0"));
-        HCCLCHECK(WaitMarkerFile(syncDir + "/thread_checked.1"));
-
-        LaunchSimtJetty(stream, static_cast<uint64_t>(channel), jettyPtrTable, kLocalSendIdx, remoteRecvIdx, 1U);
-        ACLCHECK(aclrtSynchronizeStream(stream));
-        HCCLCHECK(WriteMarkerFile(syncDir + "/warp_done.0"));
-        HCCLCHECK(WaitMarkerFile(syncDir + "/warp_checked.1"));
-
-        LaunchSimtJetty(stream, static_cast<uint64_t>(channel), jettyPtrTable, kLocalSendIdx, remoteRecvIdx, 2U);
-        ACLCHECK(aclrtSynchronizeStream(stream));
-        HCCLCHECK(WriteMarkerFile(syncDir + "/group_done.0"));
-        HCCLCHECK(WaitMarkerFile(syncDir + "/group_checked.1"));
-
-        LaunchSimtJetty(stream, static_cast<uint64_t>(channel), jettyPtrTable, kLocalSendIdx, remoteRecvIdx, 3U);
-        ACLCHECK(aclrtSynchronizeStream(stream));
-        HCCLCHECK(WriteMarkerFile(syncDir + "/dispatch_done.0"));
-        HCCLCHECK(WaitMarkerFile(syncDir + "/dispatch_checked.1"));
+        HCCLCHECK(WriteMarkerFile(syncDir + "/done.0"));
+        HCCLCHECK(WaitMarkerFile(syncDir + "/checked.1"));
     } else {
-        HCCLCHECK(WaitMarkerFile(syncDir + "/thread_done.0"));
-        uint64_t expectedNormal[simt_jetty::kSlotCount] = {
-            simt_jetty::SlotValue(0), simt_jetty::SlotValue(1)};
-        pass = CheckWords(recvBuf, expectedNormal);
-        if (!pass) {
-            std::cout << "[rank 1] simt_jetty thread write FAIL" << std::endl;
-        }
-        ACLCHECK(aclrtMemset(recvBuf, simt_jetty::kBufferBytes, 0, simt_jetty::kBufferBytes));
-        HCCLCHECK(WriteMarkerFile(syncDir + "/thread_checked.1"));
-        HCCLCHECK(WaitMarkerFile(syncDir + "/warp_done.0"));
-        uint64_t expectedPad[simt_jetty::kSlotCount] = {simt_jetty::SlotValue(0)};
-        const bool padPass = CheckWords(recvBuf, expectedPad);
-        pass = pass && padPass;
-        if (!padPass) {
-            std::cout << "[rank 1] simt_jetty warp pad-zero write FAIL" << std::endl;
-        }
-        ACLCHECK(aclrtMemset(recvBuf, simt_jetty::kBufferBytes, 0, simt_jetty::kBufferBytes));
-        HCCLCHECK(WriteMarkerFile(syncDir + "/warp_checked.1"));
-        HCCLCHECK(WaitMarkerFile(syncDir + "/group_done.0"));
-        const bool groupPass = CheckWords(recvBuf, expectedNormal);
-        pass = pass && groupPass;
-        if (!groupPass) {
-            std::cout << "[rank 1] simt_jetty group write FAIL" << std::endl;
-        }
-        ACLCHECK(aclrtMemset(recvBuf, simt_jetty::kBufferBytes, 0, simt_jetty::kBufferBytes));
-        HCCLCHECK(WriteMarkerFile(syncDir + "/group_checked.1"));
-        HCCLCHECK(WaitMarkerFile(syncDir + "/dispatch_done.0"));
-        uint64_t expectedDispatch[simt_jetty::kSlotCount] = {};
-        for (uint32_t slot = 0; slot < simt_jetty::kSlotCount; ++slot) {
-            expectedDispatch[slot] = simt_jetty::SlotValue(slot);
-        }
-        const bool dispatchPass = CheckWords(recvBuf, expectedDispatch);
-        pass = pass && dispatchPass;
-        if (!dispatchPass) {
-            std::cout << "[rank 1] simt_jetty dispatch write FAIL" << std::endl;
-        }
-        if (!pass) {
-            std::cout << "[rank 1] simt_jetty FAIL" << std::endl;
+        HCCLCHECK(WaitMarkerFile(syncDir + "/done.0"));
+        uint64_t expected[simt_jetty::kSlotCount] = {};
+        if (mode == 1U) {
+            expected[0] = simt_jetty::SlotValue(0);
+        } else if (mode == 3U) {
+            for (uint32_t slot = 0; slot < simt_jetty::kSlotCount; ++slot) {
+                expected[slot] = simt_jetty::SlotValue(slot);
+            }
         } else {
-            std::cout << "[rank 1] simt_jetty PASS" << std::endl;
+            expected[0] = simt_jetty::SlotValue(0);
+            expected[1] = simt_jetty::SlotValue(1);
         }
-        HCCLCHECK(WriteMarkerFile(syncDir + "/dispatch_checked.1"));
+        pass = CheckWords(recvBuf, expected);
+        std::cout << "[rank 1] simt_jetty mode " << mode << (pass ? " PASS" : " FAIL") << std::endl;
+        HCCLCHECK(WriteMarkerFile(syncDir + "/checked.1"));
     }
 
     ACLCHECK(aclrtFree(jettyPtrTable));

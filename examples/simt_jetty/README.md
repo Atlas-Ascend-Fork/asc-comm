@@ -31,4 +31,18 @@ CCE_RES_USAGE=1 bash build.sh
 bash run.sh 2
 ```
 
+默认按独立 communicator/channel 依次执行所有模式。也可以只执行一个模式，避免失败用例污染后续
+SQ/CQ 状态：
+
+```bash
+bash run.sh 2 thread
+bash run.sh 2 warp
+bash run.sh 2 warp-pad
+bash run.sh 2 group
+bash run.sh 2 dispatch
+```
+
+`thread` 和 `warp` 都发送两个有效 SGE，用于对比同一个 80B/2BB WQE；`warp-pad` 验证
+`1BB WRITE + 1BB NOP`；`dispatch` 验证 12 SGE、4BB WQE。
+
 `nranks` 必须大于等于 2。样例只实际使用 rank 0 和 rank 1，其余 rank 会直接退出。

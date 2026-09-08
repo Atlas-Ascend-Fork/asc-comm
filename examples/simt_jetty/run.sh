@@ -11,15 +11,16 @@
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 <nranks>"
+    echo "Usage: $0 <nranks> [all|thread|warp|warp-pad|group|dispatch]"
 }
 
-if [ "$#" -ne 1 ]; then
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
     usage
     exit 1
 fi
 
 nranks="$1"
+requested_mode="${2:-all}"
 if ! [[ "$nranks" =~ ^[0-9]+$ ]] || [ "$nranks" -lt 2 ]; then
     echo "nranks must be an integer greater than or equal to 2"
     exit 1
@@ -34,29 +35,73 @@ if [ ! -x "$binary" ]; then
     exit 1
 fi
 
-root_info_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_jetty_root_info.XXXXXX")"
-sync_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_jetty_sync.XXXXXX")"
-root_info_file="${root_info_dir}/root_info.bin"
-trap 'rm -rf "$root_info_dir" "$sync_dir"' EXIT
-
 pids=()
+active_dirs=()
 cleanup() {
-    echo -e "\n[Terminating] Caught Ctrl+C, killing background processes..."
     if [ ${#pids[@]} -ne 0 ]; then
         kill "${pids[@]}" 2>/dev/null || true
     fi
-    exit 1
+    if [ ${#active_dirs[@]} -ne 0 ]; then
+        rm -rf "${active_dirs[@]}"
+    fi
 }
-trap cleanup SIGINT SIGTERM
+trap cleanup EXIT
+trap 'exit 1' SIGINT SIGTERM
 
-for ((rank = 0; rank < nranks; ++rank)); do
-    "$binary" "$rank" "$nranks" "$root_info_file" "$sync_dir" &
-    pids+=("$!")
-done
+mode_id() {
+    case "$1" in
+        thread) echo 0 ;;
+        warp-pad) echo 1 ;;
+        group) echo 2 ;;
+        dispatch) echo 3 ;;
+        warp) echo 4 ;;
+        *) return 1 ;;
+    esac
+}
+
+run_mode() {
+    local mode_name="$1"
+    local id
+    id="$(mode_id "$mode_name")"
+    local root_info_dir
+    local sync_dir
+    root_info_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_jetty_root_info.XXXXXX")"
+    sync_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_jetty_sync.XXXXXX")"
+    active_dirs=("$root_info_dir" "$sync_dir")
+    local root_info_file="${root_info_dir}/root_info.bin"
+
+    echo "[Running] mode=${mode_name}"
+    pids=()
+    for ((rank = 0; rank < nranks; ++rank)); do
+        "$binary" "$rank" "$nranks" "$root_info_file" "$sync_dir" "$id" &
+        pids+=("$!")
+    done
+
+    local mode_status=0
+    for pid in "${pids[@]}"; do
+        if ! wait "$pid"; then
+            mode_status=1
+        fi
+    done
+    pids=()
+    rm -rf "$root_info_dir" "$sync_dir"
+    active_dirs=()
+    return "$mode_status"
+}
 
 status=0
-for pid in "${pids[@]}"; do
-    if ! wait "$pid"; then
+if [ "$requested_mode" = "all" ]; then
+    modes=(thread warp warp-pad group dispatch)
+else
+    if ! mode_id "$requested_mode" >/dev/null; then
+        usage
+        exit 1
+    fi
+    modes=("$requested_mode")
+fi
+
+for mode in "${modes[@]}"; do
+    if ! run_mode "$mode"; then
         status=1
     fi
 done

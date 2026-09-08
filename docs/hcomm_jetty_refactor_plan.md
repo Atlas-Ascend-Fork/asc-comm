@@ -44,7 +44,7 @@ void Write(const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge);
 | Group 类型 | 粒度 | 语义 |
 |-----------|------|------|
 | `thread` | 单 lane | 单 SGE，不参与 shuffle |
-| `warp` | 1 warp (32 lanes) | 一个 warp 协作构建 1 个 4BB WQE |
+| `warp` | 1 warp (32 lanes) | 一个 warp 按模板 SGE 数协作构建 1 个固定 2/3/4BB 槽 |
 | `group` | N warps | 多个 warp 各自构建 1 个 WQE，共享 Jetty 内部批次状态 |
 | `block` | 整个 block | block 内所有 warp 参与，统一 commit |
 
@@ -59,11 +59,12 @@ void Write(const Group& group, const HcommPeer& peer, __gm__ void* dst, const Hc
 保留 hcomm simt 里 DWQE 的"写 128B doorbell window"原理：
 
 1. WQE 先通过与 Hcomm SIMT 相同的 write-through store（`asc_stwt`）写到 SQ 槽
-2. `Commit()` 将最终 WRITE 的 header 更新为强序、有 fence 且请求 CQE
+2. 模板 SGE 数决定固定槽大小，实际有效 SGE 仍按 WRITE 自身大小布局；剩余 BB 是独立 NOP WQE
 3. `Commit()` 时：
    - cooperative 写入由每个参与 lane 执行 `asc_threadfence()`，再同步到 commit leader
-   - commit leader 执行 `asc_threadfence()`，保证最终 header 写入完成
-   - `asc_ldcg` 从 SQ 读取最终 WRITE 的前 128B
+   - 无 NOP 时，最终 WRITE header 携带最终 PI/CQE/fence，DWQE 读取该 WRITE 的头 128B
+   - 有 NOP 时，最后一个 NOP header 携带最终 PI/CQE/fence，DWQE 从该独立 NOP 开始
+   - commit leader 刷新本批次的完整 SQ 后再发布 DWQE
    - `asc_stwt` + `make_ulonglong2` 以 128-bit 粒度写入 `dwqe_addr`（`dbVa - 0x80`）
    - `asc_dcci_single` × 2 刷新 DWQE 两行 cache
 

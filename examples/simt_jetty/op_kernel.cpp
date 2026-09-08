@@ -103,6 +103,13 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteWarpPadZeroVf(
         AscendC::simt::HcommCoopWarp{}, channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
+__simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteWarpVf(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopWarp, false>(
+        AscendC::simt::HcommCoopWarp{}, channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+}
+
 __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteGroupVf(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
@@ -128,6 +135,12 @@ extern "C" __global__ __vector__ void SimtJettyWriteWarpPadZero(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
     asc_vf_call<SimtJettyWriteWarpPadZeroVf>(dim3(32), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+}
+
+extern "C" __global__ __vector__ void SimtJettyWriteWarp(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    asc_vf_call<SimtJettyWriteWarpVf>(dim3(32), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 }
 
 extern "C" __global__ __vector__ void SimtJettyWriteGroup(
@@ -157,6 +170,9 @@ void LaunchSimtJetty(
             break;
         case 3U:
             SimtJettyWriteDispatch<<<1, 0, stream>>>(channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+            break;
+        case 4U:
+            SimtJettyWriteWarp<<<1, 0, stream>>>(channel, jettyPtrTable, sendBufIdx, recvBufIdx);
             break;
         default:
             std::printf("[simt_jetty] unhandled mode %u, no kernel launched\n", mode);
