@@ -19,6 +19,7 @@
 #ifndef INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_H
 #define INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_H
 
+#include <cstddef>
 #include <cstdint>
 
 #include "hcomm.h"
@@ -55,6 +56,37 @@ constexpr __aicore__ inline bool IsPowerOf2(dtype_t value)
 {
     return value > 0 and (value & (value - 1)) == 0;
 }
+
+#if defined(USE_SIMT)
+// ChannelEntity is shared with host/AIV code, so its pointer members do not carry a SIMT
+// address-space qualifier. Load those ABI fields as integers before forming __gm__ pointers;
+// directly following channel->sqContextAddr/cqContextAddr can turn the loaded value into a
+// private VF pointer and surface as an RTS stack-address fault.
+template <typename T>
+__simt_callee__ __forceinline__ T LoadChannelField(const uint64_t channel, const uint32_t offset)
+{
+    const auto field = reinterpret_cast<__gm__ T*>(reinterpret_cast<__gm__ uint8_t*>(channel) + offset);
+    return *field;
+}
+
+__simt_callee__ __forceinline__ __gm__ SqContext* GetSqContexts(const uint64_t channel)
+{
+    const uint64_t address = LoadChannelField<uint64_t>(channel, offsetof(ChannelEntity, sqContextAddr));
+    return reinterpret_cast<__gm__ SqContext*>(address);
+}
+
+__simt_callee__ __forceinline__ __gm__ CqContext* GetCqContexts(const uint64_t channel)
+{
+    const uint64_t address = LoadChannelField<uint64_t>(channel, offsetof(ChannelEntity, cqContextAddr));
+    return reinterpret_cast<__gm__ CqContext*>(address);
+}
+
+__simt_callee__ __forceinline__ __gm__ RegedBufferEntity* GetRemoteBuffers(const uint64_t channel)
+{
+    const uint64_t address = LoadChannelField<uint64_t>(channel, offsetof(ChannelEntity, remoteBufferAddr));
+    return reinterpret_cast<__gm__ RegedBufferEntity*>(address);
+}
+#endif
 
 } // namespace jetty_detail
 
@@ -101,7 +133,7 @@ static_assert(sizeof(HcommSge) == 16, "SIMT HcommSge size mismatch");
 static_assert(alignof(HcommSge) == 8, "SIMT HcommSge alignment mismatch");
 
 struct HcommPeer {
-    __gm__ ChannelEntity* channel = nullptr;
+    uint64_t channel = 0;
 
     __simt_callee__ __forceinline__ HcommPeer() = default;
 
@@ -115,8 +147,11 @@ struct HcommPeer {
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = asc_ldcg(jetty_table + jetty_idx);
         HCOMM_JETTY_CHECK_OR_RETURN(jetty_value != 0);
-        channel = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
-        HCOMM_JETTY_CHECK_OR_RETURN(channel->remoteBufferNum > 0 && channel->sqNum > 0);
+        channel = jetty_value;
+        const uint32_t remote_buffer_num =
+            jetty_detail::LoadChannelField<uint32_t>(channel, offsetof(ChannelEntity, remoteBufferNum));
+        const uint32_t sq_num = jetty_detail::LoadChannelField<uint32_t>(channel, offsetof(ChannelEntity, sqNum));
+        HCOMM_JETTY_CHECK_OR_RETURN(remote_buffer_num > 0 && sq_num > 0);
     }
 };
 static_assert(sizeof(HcommPeer) == sizeof(uint64_t), "SIMT peer handle must only contain a GM channel pointer");
@@ -136,7 +171,7 @@ struct HcommJetty {
 
     // One channel batch has one owner: all participating warps reserve through this GM head,
     // then the batch's group leader calls Commit after every writer has synchronized.
-    __gm__ ChannelEntity* channel = nullptr;
+    uint64_t channel = 0;
     uint32_t batch_begin_head = 0;
 
     __simt_callee__ __forceinline__ HcommJetty() = default;
@@ -151,9 +186,11 @@ struct HcommJetty {
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = asc_ldcg(jetty_table + jetty_idx);
         HCOMM_JETTY_CHECK_OR_RETURN(jetty_value != 0);
-        channel = reinterpret_cast<__gm__ ChannelEntity*>(jetty_value);
-        HCOMM_JETTY_CHECK_OR_RETURN(channel->sqNum > 0 && channel->cqNum > 0);
-        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        channel = jetty_value;
+        const uint32_t sq_num = jetty_detail::LoadChannelField<uint32_t>(channel, offsetof(ChannelEntity, sqNum));
+        const uint32_t cq_num = jetty_detail::LoadChannelField<uint32_t>(channel, offsetof(ChannelEntity, cqNum));
+        HCOMM_JETTY_CHECK_OR_RETURN(sq_num > 0 && cq_num > 0);
+        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
         HCOMM_JETTY_CHECK_OR_RETURN(sq_context->contextInfo.ubJfs.wqeSize == kNumWQEBBBytes);
         HCOMM_JETTY_CHECK_OR_RETURN(jetty_detail::IsPowerOf2(sq_context->contextInfo.ubJfs.sqDepth));
         HCOMM_JETTY_CHECK_OR_RETURN(sq_context->contextInfo.ubJfs.sqDepth >= kNumWQEBBsPerWrite);
@@ -175,7 +212,7 @@ struct HcommJetty {
         current_head = __shfl(current_head, 0, kWarpSize);
         HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
 
-        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
         const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
         const uint32_t wqebb_head = current_head + static_cast<uint32_t>(lane_idx / kNumWQEBBLanes);
         const uint32_t sq_wqebb_idx = wqebb_head & (sq_depth - 1U);
@@ -213,7 +250,7 @@ struct HcommJetty {
         static_assert(kNumSGEs <= kNumMaxSGEsPerWrite, "SIMT jetty SGE count exceeds the SQE layout");
         const uint32_t current_head = ReserveWrite();
         HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
-        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
         const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
         auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
         for (int lane_idx = 0; lane_idx < kWarpSize; ++lane_idx) {
@@ -341,7 +378,7 @@ struct HcommJetty {
     {
         constexpr uint64_t kCompletionDelta = 1ULL << 32U;
         constexpr uint32_t kDwqeDbOffset = 0x80U;
-        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
         auto* head_addr = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.headAddr);
         const uint64_t packed_head = *head_addr;
         const uint32_t new_head = static_cast<uint32_t>(packed_head);
@@ -383,7 +420,7 @@ struct HcommJetty {
     template <int64_t kNumTimeoutCycles>
     __simt_callee__ __forceinline__ void Drain() const
     {
-        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
         const auto head_addr = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.headAddr);
         PollCq<kNumTimeoutCycles>(static_cast<uint32_t>(*head_addr >> 32U));
     }
@@ -406,8 +443,10 @@ private:
         const HcommPeer& peer, const int lane_idx, __gm__ void* dst)
     {
         const auto peer_channel = peer.channel;
-        const auto sq_context = peer_channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
-        const auto remote_buffer = peer_channel->remoteBufferAddr + peer_channel->remoteBufferNum - 1;
+        const auto sq_context = jetty_detail::GetSqContexts(peer_channel) + HCOMM_URMA_DEFAULT_QP_IDX;
+        const uint32_t remote_buffer_num =
+            jetty_detail::LoadChannelField<uint32_t>(peer_channel, offsetof(ChannelEntity, remoteBufferNum));
+        const auto remote_buffer = jetty_detail::GetRemoteBuffers(peer_channel) + remote_buffer_num - 1U;
         if (lane_idx == 1) {
             return static_cast<uint64_t>(sq_context->contextInfo.ubJfs.tpID) |
                    (static_cast<uint64_t>(kNumSGEs) << 24U) |
@@ -432,7 +471,7 @@ private:
     __simt_callee__ __forceinline__ uint32_t ReserveWrite() const
     {
         static constexpr uint32_t kMaxReservationRetries = 1024U;
-        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
         auto* head_addr = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.headAddr);
         const auto tail_addr = reinterpret_cast<__gm__ uint32_t*>(sq_context->contextInfo.ubJfs.tailAddr);
         const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
@@ -458,8 +497,8 @@ private:
         static_assert(kNumTimeoutCycles > 0, "SIMT jetty CQ timeout must be positive");
         static constexpr uint32_t kNumCQDoorbellBits = 24;
         static constexpr uint32_t kCQEOwnerBit = 2;
-        const auto cq_context = channel->cqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
-        const auto sq_context = channel->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+        const auto cq_context = jetty_detail::GetCqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
+        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
         auto* cq_tail_addr = reinterpret_cast<__gm__ uint32_t*>(cq_context->contextInfo.ubJfc.tailAddr);
         auto* sq_tail_addr = reinterpret_cast<__gm__ uint32_t*>(sq_context->contextInfo.ubJfs.tailAddr);
         uint32_t current_tail = *cq_tail_addr;
