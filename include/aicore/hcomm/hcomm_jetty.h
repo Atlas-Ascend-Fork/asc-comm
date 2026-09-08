@@ -152,17 +152,53 @@ struct alignas(8) HcommSge {
 static_assert(sizeof(HcommSge) == 16, "SIMT HcommSge size mismatch");
 static_assert(alignof(HcommSge) == 8, "SIMT HcommSge alignment mismatch");
 
+struct alignas(8) HcommPeerInfo {
+    uint64_t tp_id_num_sges_rmt_token_id = 0;
+    uint64_t rmt_eid[2] = {};
+    uint64_t rmt_token_value_udf = 0;
+    uint64_t rmt_base_addr = 0;
+    uint64_t rmt_buffer_size = 0;
+    uint32_t remote_buffer_idx = 0xFFFFFFFFU;
+};
+static_assert(sizeof(HcommPeerInfo) == 56, "SIMT peer metadata size mismatch");
+static_assert(alignof(HcommPeerInfo) == 8, "SIMT peer metadata alignment mismatch");
+
+struct alignas(8) HcommJettyInfo {
+    uint64_t sq_base_addr = 0;
+    uint64_t sq_head_addr = 0;
+    uint64_t sq_tail_addr = 0;
+    uint64_t sq_doorbell_addr = 0;
+    uint64_t cq_base_addr = 0;
+    uint64_t cq_tail_addr = 0;
+    uint64_t cq_doorbell_addr = 0;
+    uint64_t packed_head = 0;
+    uint32_t sq_depth = 0;
+    uint32_t cq_depth = 0;
+    uint32_t cqe_bytes = 0;
+    uint32_t reserved = 0;
+};
+static_assert(sizeof(HcommJettyInfo) == 80, "SIMT jetty metadata size mismatch");
+static_assert(alignof(HcommJettyInfo) == 8, "SIMT jetty metadata alignment mismatch");
+
 struct HcommPeer {
     uint64_t channel = 0;
+    uint64_t peer_info_addr = 0;
 
     __simt_callee__ __forceinline__ HcommPeer() = default;
 
-    __simt_callee__ __forceinline__ HcommPeer(__gm__ void* jetty_ptrs, const int jetty_idx)
+    __simt_callee__ __forceinline__ HcommPeer(
+        __ubuf__ HcommPeerInfo* peer_info, __gm__ void* jetty_ptrs, const int jetty_idx)
     {
-        Init(jetty_ptrs, jetty_idx);
+        Init(peer_info, jetty_ptrs, jetty_idx);
     }
 
-    __simt_callee__ __forceinline__ void Init(__gm__ void* jetty_ptrs, const int jetty_idx)
+    __simt_callee__ __forceinline__ HcommPeer(__ubuf__ HcommPeerInfo* peer_info, const uint64_t channel_addr)
+    {
+        Attach(peer_info, channel_addr);
+    }
+
+    __simt_callee__ __forceinline__ void Init(
+        __ubuf__ HcommPeerInfo* peer_info, __gm__ void* jetty_ptrs, const int jetty_idx)
     {
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = asc_ldcg(jetty_table + jetty_idx);
@@ -172,9 +208,52 @@ struct HcommPeer {
             jetty_detail::LoadChannelField<uint32_t>(channel, offsetof(ChannelEntity, remoteBufferNum));
         const uint32_t sq_num = jetty_detail::LoadChannelField<uint32_t>(channel, offsetof(ChannelEntity, sqNum));
         HCOMM_JETTY_CHECK_OR_RETURN(remote_buffer_num > 0 && sq_num > 0);
+        peer_info_addr = reinterpret_cast<uint64_t>(peer_info);
+        auto* info = GetInfo();
+        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
+        info->tp_id_num_sges_rmt_token_id = static_cast<uint64_t>(sq_context->contextInfo.ubJfs.tpID);
+        info->rmt_eid[0] = 0;
+        info->rmt_eid[1] = 0;
+#pragma unroll
+        for (int byte_idx = 0; byte_idx < 8; ++byte_idx) {
+            info->rmt_eid[0] |= static_cast<uint64_t>(sq_context->contextInfo.ubJfs.remoteEID[byte_idx]) << (byte_idx * 8);
+            info->rmt_eid[1] |=
+                static_cast<uint64_t>(sq_context->contextInfo.ubJfs.remoteEID[byte_idx + 8]) << (byte_idx * 8);
+        }
+        const auto remote_buffers = jetty_detail::GetRemoteBuffers(channel);
+        CacheRemoteBuffer(remote_buffer_num - 1U, remote_buffers + remote_buffer_num - 1U);
+    }
+
+    __simt_callee__ __forceinline__ __ubuf__ HcommPeerInfo* GetInfo() const
+    {
+        return reinterpret_cast<__ubuf__ HcommPeerInfo*>(peer_info_addr);
+    }
+
+    __simt_callee__ __forceinline__ void Attach(__ubuf__ HcommPeerInfo* peer_info, const uint64_t channel_addr)
+    {
+        channel = channel_addr;
+        peer_info_addr = reinterpret_cast<uint64_t>(peer_info);
+    }
+
+    __simt_callee__ __forceinline__ void CacheRemoteBuffer(
+        const uint32_t remote_buffer_idx, const __gm__ RegedBufferEntity* remote_buffer) const
+    {
+        auto* info = GetInfo();
+        info->tp_id_num_sges_rmt_token_id =
+            (info->tp_id_num_sges_rmt_token_id & 0x0000000000FFFFFFULL) |
+            (static_cast<uint64_t>(remote_buffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId & 0xFFFFFU) << 32U);
+        info->rmt_token_value_udf = remote_buffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+        info->rmt_base_addr = remote_buffer->bufferInfo.rma.addr;
+        info->rmt_buffer_size = remote_buffer->bufferInfo.rma.size;
+        info->remote_buffer_idx = remote_buffer_idx;
+    }
+
+    __simt_callee__ __forceinline__ uint32_t RemoteBufferIndex() const
+    {
+        return GetInfo()->remote_buffer_idx;
     }
 };
-static_assert(sizeof(HcommPeer) == sizeof(uint64_t), "SIMT peer handle must only contain a GM channel pointer");
+static_assert(sizeof(HcommPeer) == 16, "SIMT peer handle layout mismatch");
 
 struct HcommJetty {
     static constexpr int kWarpSize = 32;
@@ -193,17 +272,27 @@ struct HcommJetty {
     // One channel batch has one owner: all participating warps reserve through this GM head,
     // then the batch's group leader calls Commit after every writer has synchronized.
     uint64_t channel = 0;
+    uint64_t jetty_info_addr = 0;
+    uint64_t ub_sqe_addr = 0;
     uint32_t batch_begin_head = 0;
     uint32_t last_write_wqebbs = 0;
 
     __simt_callee__ __forceinline__ HcommJetty() = default;
 
-    __simt_callee__ __forceinline__ HcommJetty(__gm__ void* jetty_ptrs, const int jetty_idx)
+    __simt_callee__ __forceinline__ HcommJetty(
+        __ubuf__ HcommJettyInfo* jetty_info, __ubuf__ uint8_t* ub_sqe, __gm__ void* jetty_ptrs, const int jetty_idx)
     {
-        Init(jetty_ptrs, jetty_idx);
+        Init(jetty_info, ub_sqe, jetty_ptrs, jetty_idx);
     }
 
-    __simt_callee__ __forceinline__ void Init(__gm__ void* jetty_ptrs, const int jetty_idx)
+    __simt_callee__ __forceinline__ HcommJetty(
+        __ubuf__ HcommJettyInfo* jetty_info, __ubuf__ uint8_t* ub_sqe, const uint64_t channel_addr)
+    {
+        Attach(jetty_info, ub_sqe, channel_addr);
+    }
+
+    __simt_callee__ __forceinline__ void Init(
+        __ubuf__ HcommJettyInfo* jetty_info, __ubuf__ uint8_t* ub_sqe, __gm__ void* jetty_ptrs, const int jetty_idx)
     {
         const auto jetty_table = static_cast<__gm__ uint64_t*>(jetty_ptrs);
         const auto jetty_value = asc_ldcg(jetty_table + jetty_idx);
@@ -216,9 +305,39 @@ struct HcommJetty {
         HCOMM_JETTY_CHECK_OR_RETURN(sq_context->contextInfo.ubJfs.wqeSize == kNumWQEBBBytes);
         HCOMM_JETTY_CHECK_OR_RETURN(jetty_detail::IsPowerOf2(sq_context->contextInfo.ubJfs.sqDepth));
         HCOMM_JETTY_CHECK_OR_RETURN(sq_context->contextInfo.ubJfs.sqDepth >= 2U);
-        const auto head_addr = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.headAddr);
-        batch_begin_head = static_cast<uint32_t>(asc_ldcg(head_addr));
+        jetty_info_addr = reinterpret_cast<uint64_t>(jetty_info);
+        ub_sqe_addr = reinterpret_cast<uint64_t>(ub_sqe);
+        auto* info = GetInfo();
+        info->sq_base_addr = sq_context->contextInfo.ubJfs.sqVa;
+        info->sq_head_addr = sq_context->contextInfo.ubJfs.headAddr;
+        info->sq_tail_addr = sq_context->contextInfo.ubJfs.tailAddr;
+        info->sq_doorbell_addr = sq_context->contextInfo.ubJfs.dbVa;
+        const auto cq_context = jetty_detail::GetCqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
+        info->cq_base_addr = cq_context->contextInfo.ubJfc.scqVa;
+        info->cq_tail_addr = cq_context->contextInfo.ubJfc.tailAddr;
+        info->cq_doorbell_addr = cq_context->contextInfo.ubJfc.dbVa;
+        const auto head_addr = reinterpret_cast<__gm__ uint64_t*>(info->sq_head_addr);
+        info->packed_head = static_cast<uint64_t>(asc_ldcg(head_addr));
+        info->sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
+        info->cq_depth = cq_context->contextInfo.ubJfc.cqDepth;
+        info->cqe_bytes = cq_context->contextInfo.ubJfc.cqeSize;
+        batch_begin_head = static_cast<uint32_t>(info->packed_head);
     }
+
+    __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* GetInfo() const
+    {
+        return reinterpret_cast<__ubuf__ HcommJettyInfo*>(jetty_info_addr);
+    }
+
+    __simt_callee__ __forceinline__ void Attach(
+        __ubuf__ HcommJettyInfo* jetty_info, __ubuf__ uint8_t* ub_sqe, const uint64_t channel_addr)
+    {
+        channel = channel_addr;
+        jetty_info_addr = reinterpret_cast<uint64_t>(jetty_info);
+        ub_sqe_addr = reinterpret_cast<uint64_t>(ub_sqe);
+        batch_begin_head = static_cast<uint32_t>(GetInfo()->packed_head);
+    }
+public:
 
     template <int kNumSGEs>
     __simt_callee__ __forceinline__ void PostWriteWarp(const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge)
@@ -231,7 +350,6 @@ struct HcommJetty {
         const int sge_lane = raw_sge_lane < 0 ? 0 : (raw_sge_lane >= kNumSGEs ? kNumSGEs - 1 : raw_sge_lane);
         const uint64_t packed_sge_addr = asc_shfl(sge.addr, sge_lane, kWarpSize);
         const int packed_sge_len = asc_shfl(sge.len, sge_lane, kWarpSize);
-        uint64_t target_len = 0;
         int num_valid_sges = 0;
         if (lane_idx == 0) {
 #pragma unroll
@@ -239,21 +357,14 @@ struct HcommJetty {
                 const uint64_t candidate_addr = asc_shfl(sge.addr, sge_idx, kWarpSize);
                 const int candidate_len = asc_shfl(sge.len, sge_idx, kWarpSize);
                 if (candidate_addr != 0 && candidate_len > 0) {
-                    target_len += static_cast<uint64_t>(candidate_len);
                     ++num_valid_sges;
                 }
             }
         }
-        target_len = asc_shfl(target_len, 0, kWarpSize);
         num_valid_sges = asc_shfl(num_valid_sges, 0, kWarpSize);
         HCOMM_JETTY_CHECK_OR_RETURN(num_valid_sges > 0);
 
-        uint32_t remote_buffer_idx = kInvalidRemoteBuffer;
-        if (lane_idx == 0) {
-            remote_buffer_idx = FindRemoteBuffer(peer.channel, dst, target_len);
-        }
-        remote_buffer_idx = asc_shfl(remote_buffer_idx, 0, kWarpSize);
-        HCOMM_JETTY_CHECK_OR_RETURN(remote_buffer_idx != kInvalidRemoteBuffer);
+        const uint32_t remote_buffer_idx = peer.RemoteBufferIndex();
 
         constexpr uint32_t kWriteWqebbs = NumWriteWqebbs<kNumSGEs>();
         uint32_t current_head = kInvalidHead;
@@ -267,8 +378,7 @@ struct HcommJetty {
         if (lane_idx >= static_cast<int>(kWriteWqebbs) * kNumWQEBBLanes) {
             return;
         }
-        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
-        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
+        const uint32_t sq_depth = SqDepth();
         const uint32_t wqebb_head = current_head + static_cast<uint32_t>(lane_idx / kNumWQEBBLanes);
         const uint32_t sq_wqebb_idx = wqebb_head & (sq_depth - 1U);
         const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & sq_depth) == 0U) << 31;
@@ -286,7 +396,7 @@ struct HcommJetty {
         } else if (lane_idx >= num_write_wqebbs * kNumWQEBBLanes && lane_idx % kNumWQEBBLanes == 0) {
             sqe_word = kNopSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
         }
-        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
+        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(SqBaseAddr());
         asc_stwt(sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes, sqe_word);
     }
 
@@ -296,25 +406,21 @@ struct HcommJetty {
     {
         static_assert(kNumSGEs >= 2, "SIMT jetty requires at least two SGEs");
         static_assert(kNumSGEs <= kNumMaxSGEsPerWrite, "SIMT jetty SGE count exceeds the SQE layout");
-        uint64_t target_len = 0;
         int num_valid_sges = 0;
 #pragma unroll
         for (int sge_idx = 0; sge_idx < kNumSGEs; ++sge_idx) {
             if (sges[sge_idx].addr != 0 && sges[sge_idx].len > 0) {
-                target_len += static_cast<uint64_t>(sges[sge_idx].len);
                 ++num_valid_sges;
             }
         }
         HCOMM_JETTY_CHECK_OR_RETURN(num_valid_sges > 0);
-        const uint32_t remote_buffer_idx = FindRemoteBuffer(peer.channel, dst, target_len);
-        HCOMM_JETTY_CHECK_OR_RETURN(remote_buffer_idx != kInvalidRemoteBuffer);
+        const uint32_t remote_buffer_idx = peer.RemoteBufferIndex();
         constexpr uint32_t kWriteWqebbs = NumWriteWqebbs<kNumSGEs>();
         const uint32_t current_head = ReserveWrite(kWriteWqebbs);
         HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
         last_write_wqebbs = kWriteWqebbs;
-        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
-        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
-        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
+        const uint32_t sq_depth = SqDepth();
+        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(SqBaseAddr());
         const int num_write_words = kNumWriteHeaderLanes + num_valid_sges * 2;
         const int num_write_wqebbs = (num_write_words + kNumWQEBBLanes - 1) / kNumWQEBBLanes;
         for (int lane_idx = 0; lane_idx < static_cast<int>(kWriteWqebbs) * kNumWQEBBLanes; ++lane_idx) {
@@ -353,65 +459,7 @@ struct HcommJetty {
     __simt_callee__ __forceinline__ void PostWriteScalarImmediate(
         const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs])
     {
-        static_assert(NumWriteWqebbs<kNumSGEs>() == 2U, "Immediate DWQE path requires a fixed two-BB slot");
-        uint64_t target_len = 0;
-        int num_valid_sges = 0;
-#pragma unroll
-        for (int sge_idx = 0; sge_idx < kNumSGEs; ++sge_idx) {
-            if (sges[sge_idx].addr != 0 && sges[sge_idx].len > 0) {
-                target_len += static_cast<uint64_t>(sges[sge_idx].len);
-                ++num_valid_sges;
-            }
-        }
-        HCOMM_JETTY_CHECK_OR_RETURN(num_valid_sges > 0);
-        const uint32_t remote_buffer_idx = FindRemoteBuffer(peer.channel, dst, target_len);
-        HCOMM_JETTY_CHECK_OR_RETURN(remote_buffer_idx != kInvalidRemoteBuffer);
-        const uint32_t current_head = ReserveWrite(2U, true);
-        HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
-
-        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
-        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
-        const uint32_t new_head = current_head + 2U;
-        const uint32_t payload_wqebbs = num_valid_sges == 1 ? 1U : 2U;
-        alignas(sizeof(ulonglong2)) uint64_t stage[kNumDwqeWords] = {};
-#pragma unroll
-        for (int word_idx = 0; word_idx < kNumDwqeWords; ++word_idx) {
-            const uint32_t wqebb_head = current_head + static_cast<uint32_t>(word_idx / kNumWQEBBLanes);
-            const uint32_t sq_wqebb_idx = wqebb_head & (sq_depth - 1U);
-            const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & sq_depth) == 0U) << 31U;
-            uint64_t sqe_word = 0;
-            if (word_idx == 0) {
-                sqe_word = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(new_head & 0xFFFFU) |
-                           kWriteSQEFinalFlags;
-            } else if (word_idx < kNumWriteHeaderLanes) {
-                sqe_word = PeerHeaderWord(peer, remote_buffer_idx, word_idx, dst, num_valid_sges);
-            } else if (word_idx < kNumWriteHeaderLanes + num_valid_sges * 2) {
-                const int packed_sge_idx = (word_idx - kNumWriteHeaderLanes) / 2;
-                int valid_sge_idx = 0;
-                HcommSge packed_sge{};
-#pragma unroll
-                for (int sge_idx = 0; sge_idx < kNumSGEs; ++sge_idx) {
-                    if (sges[sge_idx].addr != 0 && sges[sge_idx].len > 0) {
-                        if (valid_sge_idx == packed_sge_idx) {
-                            packed_sge = sges[sge_idx];
-                        }
-                        ++valid_sge_idx;
-                    }
-                }
-                const bool is_len_word = ((word_idx - kNumWriteHeaderLanes) % 2) == 0;
-                sqe_word = is_len_word ? static_cast<uint64_t>(packed_sge.len) : packed_sge.addr;
-            } else if (payload_wqebbs == 1U && word_idx == kNumWQEBBLanes) {
-                const uint64_t nop_owner_bit = static_cast<uint64_t>((new_head & sq_depth) == 0U) << 31U;
-                sqe_word = kNopSQEHeaderTemplate | nop_owner_bit |
-                           static_cast<uint64_t>((new_head + 1U) & 0xFFFFU) | kNopSQEControlFlags;
-            }
-            stage[word_idx] = sqe_word;
-        }
-
-        CopyTwoBbStageToSq(sq_context, current_head, stage);
-        RingDwqe(sq_context, stage);
-        last_write_wqebbs = 2U;
-        batch_begin_head = new_head;
+        PostWriteScalarImmediateImpl(peer, dst, sges, GetUbSqeWords());
     }
 
     template <int kNumSGEs>
@@ -433,7 +481,6 @@ struct HcommJetty {
         const int sge_lane = raw_sge_lane < 0 ? 0 : (raw_sge_lane >= kNumSGEs ? kNumSGEs - 1 : raw_sge_lane);
         uint64_t packed_sge_addr = 0;
         int packed_sge_len = 0;
-        uint64_t target_len = 0;
         int num_valid_sges = 0;
 #pragma unroll
         for (int sge_idx = 0; sge_idx < kNumSGEs; ++sge_idx) {
@@ -444,27 +491,20 @@ struct HcommJetty {
                     packed_sge_addr = candidate_addr;
                     packed_sge_len = candidate_len;
                 }
-                target_len += static_cast<uint64_t>(candidate_len);
                 ++num_valid_sges;
             }
         }
         HCOMM_JETTY_CHECK_OR_RETURN(num_valid_sges > 0);
 
-        uint32_t remote_buffer_idx = kInvalidRemoteBuffer;
         uint32_t current_head = kInvalidHead;
-        if (lane_idx == 0) {
-            remote_buffer_idx = FindRemoteBuffer(peer.channel, dst, target_len);
-        }
-        remote_buffer_idx = asc_shfl(remote_buffer_idx, 0, kWarpSize);
-        HCOMM_JETTY_CHECK_OR_RETURN(remote_buffer_idx != kInvalidRemoteBuffer);
+        const uint32_t remote_buffer_idx = peer.RemoteBufferIndex();
         if (lane_idx == 0) {
             current_head = ReserveWrite(2U, true);
         }
         current_head = asc_shfl(current_head, 0, kWarpSize);
         HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
 
-        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
-        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
+        const uint32_t sq_depth = SqDepth();
         const uint32_t new_head = current_head + 2U;
         const uint32_t payload_wqebbs = num_valid_sges == 1 ? 1U : 2U;
         const uint32_t wqebb_head = current_head + static_cast<uint32_t>(lane_idx / kNumWQEBBLanes);
@@ -485,8 +525,8 @@ struct HcommJetty {
                        static_cast<uint64_t>((new_head + 1U) & 0xFFFFU) | kNopSQEControlFlags;
         }
 
-        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
-        auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(sq_context->contextInfo.ubJfs.dbVa - kDwqeDbOffset);
+        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(SqBaseAddr());
+        auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(DoorbellAddr() - kDwqeDbOffset);
         auto* dwqe_pairs = reinterpret_cast<__gm__ ulonglong2*>(dwqe_addr);
         // Every even lane owns one 128-bit pair. The DWQE is deliberately limited to its first
         // two WQEBBs; a larger WQE stays in SQ and is not copied past the DWQE window.
@@ -504,6 +544,11 @@ struct HcommJetty {
         // A single fence and warp barrier publish all SQ pairs before any lane exposes the
         // DWQE. Fencing inside the even-lane branch makes one post execute eight fences.
         asc_threadfence();
+        warp.sync();
+
+        if (lane_idx == 0) {
+            PublishHead();
+        }
         warp.sync();
 
         if (lane_idx < kNumDwqeWords && (lane_idx & 1) == 0) {
@@ -657,22 +702,19 @@ struct HcommJetty {
     __simt_callee__ __forceinline__ void Commit()
     {
         constexpr uint64_t kCompletionDelta = 1ULL << 32U;
-        constexpr uint32_t kDwqeDbOffset = 0x80U;
-        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
-        auto* head_addr = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.headAddr);
-        const uint64_t packed_head = asc_ldcg(head_addr);
+        const uint64_t packed_head = GetInfo()->packed_head;
         const uint32_t new_head = static_cast<uint32_t>(packed_head);
         const uint32_t batch_wqebbs = new_head - batch_begin_head;
         if (batch_wqebbs == 0U) {
             return;
         }
-        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
+        const uint32_t sq_depth = SqDepth();
         HCOMM_JETTY_CHECK_OR_RETURN(
             batch_wqebbs <= sq_depth && last_write_wqebbs >= 2U && last_write_wqebbs <= kNumWQEBBsPerWrite &&
             last_write_wqebbs <= batch_wqebbs);
 
         const uint32_t last_write_head = new_head - last_write_wqebbs;
-        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
+        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(SqBaseAddr());
         const uint32_t last_write_idx = last_write_head & (sq_depth - 1U);
         auto* last_write_header = sq_words + static_cast<uint64_t>(last_write_idx) * kNumWQEBBLanes;
         asc_threadfence();
@@ -703,8 +745,9 @@ struct HcommJetty {
         // asc_stwt writes the SQ directly for the device; the fence above orders the complete
         // batch before the DWQE is assembled. No dcci is needed for this write path.
         asc_threadfence();
-        (void)asc_atomic_add(head_addr, kCompletionDelta);
-        auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(sq_context->contextInfo.ubJfs.dbVa - kDwqeDbOffset);
+        GetInfo()->packed_head += kCompletionDelta;
+        PublishHead();
+        auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(DoorbellAddr() - kDwqeDbOffset);
         auto* dwqe_words = reinterpret_cast<__gm__ ulonglong2*>(dwqe_addr);
         // DWQE is always exactly two WQEBBs. A larger WQE remains complete in SQ and is fetched
         // from there after this 128-byte prefix publishes its header and PI.
@@ -732,9 +775,8 @@ struct HcommJetty {
     template <int64_t kNumTimeoutCycles>
     __simt_callee__ __forceinline__ void Drain() const
     {
-        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
-        const auto head_addr = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.headAddr);
-        PollCq<kNumTimeoutCycles>(static_cast<uint32_t>(asc_ldcg(head_addr) >> 32U));
+        const uint64_t packed_head = GetInfo()->packed_head;
+        PollCq<kNumTimeoutCycles>(static_cast<uint32_t>(packed_head >> 32U));
     }
 
     template <int64_t kNumTimeoutCycles, typename Coop>
@@ -749,14 +791,129 @@ struct HcommJetty {
 
 private:
     static constexpr uint32_t kInvalidHead = 0xFFFFFFFFU;
-    static constexpr uint32_t kInvalidRemoteBuffer = 0xFFFFFFFFU;
     static constexpr uint32_t kDwqeDbOffset = 0x80U;
 
-    __simt_callee__ __forceinline__ static void CopyTwoBbStageToSq(
-        __gm__ SqContext* sq_context, const uint32_t current_head, const uint64_t (&stage)[kNumDwqeWords])
+    __simt_callee__ __forceinline__ __ubuf__ uint64_t* GetUbSqeWords() const
     {
-        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
-        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
+        return reinterpret_cast<__ubuf__ uint64_t*>(ub_sqe_addr);
+    }
+
+    template <int kNumSGEs, typename StagePtr>
+    __simt_callee__ __forceinline__ void PostWriteScalarImmediateImpl(
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kNumSGEs], StagePtr stage)
+    {
+        static_assert(NumWriteWqebbs<kNumSGEs>() == 2U, "Immediate DWQE path requires a fixed two-BB slot");
+        int num_valid_sges = 0;
+#pragma unroll
+        for (int sge_idx = 0; sge_idx < kNumSGEs; ++sge_idx) {
+            if (sges[sge_idx].addr != 0 && sges[sge_idx].len > 0) {
+                ++num_valid_sges;
+            }
+        }
+        HCOMM_JETTY_CHECK_OR_RETURN(num_valid_sges > 0);
+        const uint32_t remote_buffer_idx = peer.RemoteBufferIndex();
+        const uint32_t current_head = ReserveWrite(2U, true);
+        HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
+
+        const uint32_t sq_depth = SqDepth();
+        const uint32_t new_head = current_head + 2U;
+        const uint32_t payload_wqebbs = num_valid_sges == 1 ? 1U : 2U;
+#pragma unroll
+        for (int word_idx = 0; word_idx < kNumDwqeWords; ++word_idx) {
+            const uint32_t wqebb_head = current_head + static_cast<uint32_t>(word_idx / kNumWQEBBLanes);
+            const uint32_t sq_wqebb_idx = wqebb_head & (sq_depth - 1U);
+            const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & sq_depth) == 0U) << 31U;
+            uint64_t sqe_word = 0;
+            if (word_idx == 0) {
+                sqe_word = kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(new_head & 0xFFFFU) |
+                           kWriteSQEFinalFlags;
+            } else if (word_idx < kNumWriteHeaderLanes) {
+                sqe_word = PeerHeaderWord(peer, remote_buffer_idx, word_idx, dst, num_valid_sges);
+            } else if (word_idx < kNumWriteHeaderLanes + num_valid_sges * 2) {
+                const int packed_sge_idx = (word_idx - kNumWriteHeaderLanes) / 2;
+                int valid_sge_idx = 0;
+                HcommSge packed_sge{};
+#pragma unroll
+                for (int sge_idx = 0; sge_idx < kNumSGEs; ++sge_idx) {
+                    if (sges[sge_idx].addr != 0 && sges[sge_idx].len > 0) {
+                        if (valid_sge_idx == packed_sge_idx) {
+                            packed_sge = sges[sge_idx];
+                        }
+                        ++valid_sge_idx;
+                    }
+                }
+                const bool is_len_word = ((word_idx - kNumWriteHeaderLanes) % 2) == 0;
+                sqe_word = is_len_word ? static_cast<uint64_t>(packed_sge.len) : packed_sge.addr;
+            } else if (payload_wqebbs == 1U && word_idx == kNumWQEBBLanes) {
+                const uint64_t nop_owner_bit = static_cast<uint64_t>((new_head & sq_depth) == 0U) << 31U;
+                sqe_word = kNopSQEHeaderTemplate | nop_owner_bit |
+                           static_cast<uint64_t>((new_head + 1U) & 0xFFFFU) | kNopSQEControlFlags;
+            }
+            stage[word_idx] = sqe_word;
+        }
+
+        CopyTwoBbStageToSq(SqBaseAddr(), sq_depth, current_head, stage);
+        PublishHead();
+        RingDwqe(DoorbellAddr(), stage);
+        last_write_wqebbs = 2U;
+        batch_begin_head = new_head;
+    }
+
+    __simt_callee__ __forceinline__ uint64_t SqBaseAddr() const
+    {
+        return GetInfo()->sq_base_addr;
+    }
+
+    __simt_callee__ __forceinline__ uint64_t SqHeadAddr() const
+    {
+        return GetInfo()->sq_head_addr;
+    }
+
+    __simt_callee__ __forceinline__ uint64_t SqTailAddr() const
+    {
+        return GetInfo()->sq_tail_addr;
+    }
+
+    __simt_callee__ __forceinline__ uint64_t DoorbellAddr() const
+    {
+        return GetInfo()->sq_doorbell_addr;
+    }
+
+    __simt_callee__ __forceinline__ uint64_t CqBaseAddr() const
+    {
+        return GetInfo()->cq_base_addr;
+    }
+
+    __simt_callee__ __forceinline__ uint64_t CqTailAddr() const
+    {
+        return GetInfo()->cq_tail_addr;
+    }
+
+    __simt_callee__ __forceinline__ uint64_t CqDoorbellAddr() const
+    {
+        return GetInfo()->cq_doorbell_addr;
+    }
+
+    __simt_callee__ __forceinline__ uint32_t SqDepth() const
+    {
+        return GetInfo()->sq_depth;
+    }
+
+    __simt_callee__ __forceinline__ uint32_t CqDepth() const
+    {
+        return GetInfo()->cq_depth;
+    }
+
+    __simt_callee__ __forceinline__ uint32_t CqeBytes() const
+    {
+        return GetInfo()->cqe_bytes;
+    }
+
+    template <typename StagePtr>
+    __simt_callee__ __forceinline__ static void CopyTwoBbStageToSq(
+        const uint64_t sq_base_addr, const uint32_t sq_depth, const uint32_t current_head, StagePtr stage)
+    {
+        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_base_addr);
 #pragma unroll
         for (int pair_idx = 0; pair_idx < kNumDwqeWords / 2; ++pair_idx) {
             const int first_word = pair_idx * 2;
@@ -770,10 +927,10 @@ private:
         }
     }
 
-    __simt_callee__ __forceinline__ static void RingDwqe(
-        __gm__ SqContext* sq_context, const uint64_t (&stage)[kNumDwqeWords])
+    template <typename StagePtr>
+    __simt_callee__ __forceinline__ static void RingDwqe(const uint64_t doorbell_addr, StagePtr stage)
     {
-        auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(sq_context->contextInfo.ubJfs.dbVa - kDwqeDbOffset);
+        auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(doorbell_addr - kDwqeDbOffset);
         auto* dwqe_pairs = reinterpret_cast<__gm__ ulonglong2*>(dwqe_addr);
         asc_threadfence();
 #pragma unroll
@@ -783,52 +940,22 @@ private:
         }
     }
 
-    __simt_callee__ __forceinline__ static uint32_t FindRemoteBuffer(
-        const uint64_t peer_channel, __gm__ void* dst, const uint64_t len)
-    {
-        const uint64_t target_addr = reinterpret_cast<uint64_t>(dst);
-        const uint32_t remote_buffer_num =
-            jetty_detail::LoadChannelField<uint32_t>(peer_channel, offsetof(ChannelEntity, remoteBufferNum));
-        const auto remote_buffers = jetty_detail::GetRemoteBuffers(peer_channel);
-        for (uint32_t buffer_idx = 0; buffer_idx < remote_buffer_num; ++buffer_idx) {
-            const uint64_t base_addr = remote_buffers[buffer_idx].bufferInfo.rma.addr;
-            const uint64_t buffer_size = remote_buffers[buffer_idx].bufferInfo.rma.size;
-            if (target_addr < base_addr) {
-                continue;
-            }
-            const uint64_t offset = target_addr - base_addr;
-            if (offset <= buffer_size && len <= buffer_size - offset) {
-                return buffer_idx;
-            }
-        }
-        return kInvalidRemoteBuffer;
-    }
-
     __simt_callee__ __forceinline__ static uint64_t PeerHeaderWord(
         const HcommPeer& peer, const uint32_t remote_buffer_idx, const int lane_idx, __gm__ void* dst,
         const int num_sges)
     {
-        const auto peer_channel = peer.channel;
-        const auto sq_context = jetty_detail::GetSqContexts(peer_channel) + HCOMM_URMA_DEFAULT_QP_IDX;
-        const auto remote_buffer = jetty_detail::GetRemoteBuffers(peer_channel) + remote_buffer_idx;
+        (void)remote_buffer_idx;
         if (lane_idx == 1) {
-            return static_cast<uint64_t>(sq_context->contextInfo.ubJfs.tpID & 0xFFFFFFU) |
+            const auto* info = peer.GetInfo();
+            return (info->tp_id_num_sges_rmt_token_id & 0x0000000000FFFFFFULL) |
                    (static_cast<uint64_t>(num_sges) << 24U) |
-                   (static_cast<uint64_t>(remote_buffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId & 0xFFFFFU)
-                    << 32U);
+                   (info->tp_id_num_sges_rmt_token_id & 0x000FFFFF00000000ULL);
         }
         if (lane_idx == 2 || lane_idx == 3) {
-            uint64_t remote_eid_word = 0;
-            const int first_byte = (lane_idx - 2) * 8;
-#pragma unroll
-            for (int byte_idx = 0; byte_idx < 8; ++byte_idx) {
-                remote_eid_word |= static_cast<uint64_t>(sq_context->contextInfo.ubJfs.remoteEID[first_byte + byte_idx])
-                                   << (byte_idx * 8);
-            }
-            return remote_eid_word;
+            return peer.GetInfo()->rmt_eid[lane_idx - 2];
         }
         if (lane_idx == 4) {
-            return remote_buffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+            return peer.GetInfo()->rmt_token_value_udf;
         }
         return reinterpret_cast<uint64_t>(dst);
     }
@@ -845,25 +972,28 @@ private:
     ReserveWrite(const uint32_t num_wqebbs, const bool count_completion = false) const
     {
         static constexpr uint32_t kMaxReservationRetries = 1024U;
-        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
-        auto* head_addr = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.headAddr);
-        const auto tail_addr = reinterpret_cast<__gm__ uint32_t*>(sq_context->contextInfo.ubJfs.tailAddr);
-        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
+        const auto tail_addr = reinterpret_cast<__gm__ uint32_t*>(SqTailAddr());
+        const uint32_t sq_depth = SqDepth();
+        auto* ub_head_addr = reinterpret_cast<__ubuf__ uint32_t*>(&GetInfo()->packed_head);
         for (uint32_t retry = 0; retry < kMaxReservationRetries; ++retry) {
-            const uint64_t packed_head = asc_ldcg(head_addr);
-            const uint32_t current_head = static_cast<uint32_t>(packed_head);
+            const uint32_t current_head = *ub_head_addr;
             const uint32_t used_wqebbs = current_head - asc_ldcg(tail_addr);
             if (used_wqebbs > sq_depth || num_wqebbs > sq_depth - used_wqebbs) {
                 return kInvalidHead;
             }
-            const uint64_t completion_delta = count_completion ? (1ULL << 32U) : 0U;
-            const uint64_t next_packed_head = ((packed_head + completion_delta) & 0xFFFFFFFF00000000ULL) |
-                                              static_cast<uint64_t>(current_head + num_wqebbs);
-            if (asc_atomic_cas(head_addr, packed_head, next_packed_head) == packed_head) {
+            if (asc_atomic_cas(ub_head_addr, current_head, current_head + num_wqebbs) == current_head) {
+                if (count_completion) {
+                    GetInfo()->packed_head += 1ULL << 32U;
+                }
                 return current_head;
             }
         }
         return kInvalidHead;
+    }
+
+    __simt_callee__ __forceinline__ void PublishHead() const
+    {
+        asc_stwt(reinterpret_cast<__gm__ uint64_t*>(SqHeadAddr()), GetInfo()->packed_head);
     }
 
     template <int64_t kNumTimeoutCycles>
@@ -872,21 +1002,18 @@ private:
         static_assert(kNumTimeoutCycles > 0, "SIMT jetty CQ timeout must be positive");
         static constexpr uint32_t kNumCQDoorbellBits = 24;
         static constexpr uint32_t kCQEOwnerBit = 2;
-        const auto cq_context = jetty_detail::GetCqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
-        const auto sq_context = jetty_detail::GetSqContexts(channel) + HCOMM_URMA_DEFAULT_QP_IDX;
-        auto* cq_tail_addr = reinterpret_cast<__gm__ uint32_t*>(cq_context->contextInfo.ubJfc.tailAddr);
-        auto* sq_tail_addr = reinterpret_cast<__gm__ uint32_t*>(sq_context->contextInfo.ubJfs.tailAddr);
+        auto* cq_tail_addr = reinterpret_cast<__gm__ uint32_t*>(CqTailAddr());
+        auto* sq_tail_addr = reinterpret_cast<__gm__ uint32_t*>(SqTailAddr());
         uint32_t current_tail = *cq_tail_addr;
         if (current_tail == expected_tail) {
             return;
         }
         uint32_t sq_tail = *sq_tail_addr;
-        const uint32_t cq_depth = cq_context->contextInfo.ubJfc.cqDepth;
-        const uint32_t sq_depth = sq_context->contextInfo.ubJfs.sqDepth;
+        const uint32_t cq_depth = CqDepth();
+        const uint32_t sq_depth = SqDepth();
         while (current_tail != expected_tail) {
             const auto cqe = reinterpret_cast<__gm__ uint32_t*>(
-                cq_context->contextInfo.ubJfc.scqVa +
-                static_cast<uint64_t>(cq_context->contextInfo.ubJfc.cqeSize) * (current_tail & (cq_depth - 1U)));
+                CqBaseAddr() + static_cast<uint64_t>(CqeBytes()) * (current_tail & (cq_depth - 1U)));
             const uint32_t tail_phase = (current_tail / cq_depth) & 1U;
             int64_t retry = 0;
             uint32_t cqe_header = *cqe;
@@ -906,12 +1033,12 @@ private:
             ++current_tail;
         }
         *cq_tail_addr = current_tail;
-        *reinterpret_cast<__gm__ uint32_t*>(cq_context->contextInfo.ubJfc.dbVa) =
+        *reinterpret_cast<__gm__ uint32_t*>(CqDoorbellAddr()) =
             current_tail & ((1U << kNumCQDoorbellBits) - 1U);
         *sq_tail_addr = sq_tail;
     }
 };
-static_assert(sizeof(HcommJetty) == 16, "SIMT jetty handle must not contain workspace pointers");
+static_assert(sizeof(HcommJetty) == 32, "SIMT jetty handle layout mismatch");
 
 } // namespace jetty
 } // namespace simt
