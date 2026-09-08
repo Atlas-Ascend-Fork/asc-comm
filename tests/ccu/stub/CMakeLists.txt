@@ -33,10 +33,8 @@ target_include_directories(asccomm_ccu_rep_assist_stub PRIVATE
 )
 target_link_libraries(asccomm_ccu_rep_assist_stub PRIVATE
     asccomm_ccu_hcomm_compat
-    $<BUILD_INTERFACE:json>
 )
 target_link_libraries(asccomm_ccu_llt_stub PUBLIC
     asccomm_ccu_hcomm_compat
-    $<BUILD_INTERFACE:json>
     asccomm_ccu_rep_assist_stub
 )

@@ -15,8 +15,8 @@
 #include "hcomm/resource/microcode/ccu_microcode_v1.h"
 #include "log.h"
 
-using namespace hcomm;
-using namespace hcomm::ccu_rep;
+using namespace asc;
+using namespace asc::ccu_rep;
 
 class CcuMicroCodeTest : public testing::Test {
 protected:
@@ -47,7 +47,7 @@ TEST_F(CcuMicroCodeTest, ParseMSList_CountExceedsMax)
     ccu_instr ccuInstr = {};
     uint16_t ms_id[ccu_reduce_max_ms] = {0, 1, 2, 3, 4, 5, 6, 7};
     add_instr(&ccuInstr, ms_id, 8, 0, 0, 0, 0x1, 0, 0xff, 1, 0);
-    ccuInstr.v1.add.count_ = 7;
+    ccuInstr.v1.add.count = 7;
     std::string result = parse_instr(&ccuInstr);
     EXPECT_TRUE(result.find("MS[]") != std::string::npos);
 }

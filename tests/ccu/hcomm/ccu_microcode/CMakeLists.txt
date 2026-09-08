@@ -11,10 +11,10 @@
 set(src_to_test_list
     main.cc
     ut_ccu_microcode_v1_test.cc
-    ut_ccu_microcode_v2_test.cc
     ut_ccu_assist_test.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_microcode.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_microcode_v2_.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/channel/ccu_channel.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/common/ccu_device_context.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_assist.cc
 )
 

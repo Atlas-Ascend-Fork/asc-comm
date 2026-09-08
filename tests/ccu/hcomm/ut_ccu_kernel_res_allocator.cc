@@ -12,7 +12,7 @@
 
 #include "hcomm/resource/kernel/ccu_kernel_res_allocator.h"
 
-namespace hcomm {
+namespace asc {
 namespace {
 
 HcommCcuResRangePod Range(uint32_t type_, uint32_t startId, uint32_t count_)
@@ -26,24 +26,24 @@ TEST(CcuKernelResAllocatorTest, NormalRequestFallsBackToBlockPool)
     available.block_cke[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_CKE, 10, 48));
     available.block_gsa[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_GSA, 100, 400));
     asc_ccu_res_request request{};
-    request.count_[HCOMM_CCU_BATCH_RES_CKE][0] = 1;
-    request.count_[HCOMM_CCU_BATCH_RES_GSA][0] = 8;
+    request.count[HCOMM_CCU_BATCH_RES_CKE][0] = 1;
+    request.count[HCOMM_CCU_BATCH_RES_GSA][0] = 8;
 
     asc_ccu_res_repository remaining{};
     asc_ccu_res_repository allocated{};
     ASSERT_EQ(plan_kernel_resources(available, request, remaining, allocated), CcuResult::CCU_SUCCESS);
     ASSERT_EQ(allocated.cke[0].size(), 1);
-    EXPECT_EQ(allocated.cke[0][0].resource_type, HCOMM_CCU_BATCH_RES_CKE);
-    EXPECT_EQ(allocated.cke[0][0].start_id, 10);
-    EXPECT_EQ(allocated.cke[0][0].count_, 1);
+    EXPECT_EQ(allocated.cke[0][0].resourceType, HCOMM_CCU_BATCH_RES_CKE);
+    EXPECT_EQ(allocated.cke[0][0].startId, 10);
+    EXPECT_EQ(allocated.cke[0][0].count, 1);
     ASSERT_EQ(allocated.gsa[0].size(), 1);
-    EXPECT_EQ(allocated.gsa[0][0].resource_type, HCOMM_CCU_BATCH_RES_GSA);
-    EXPECT_EQ(allocated.gsa[0][0].start_id, 100);
-    EXPECT_EQ(allocated.gsa[0][0].count_, 8);
+    EXPECT_EQ(allocated.gsa[0][0].resourceType, HCOMM_CCU_BATCH_RES_GSA);
+    EXPECT_EQ(allocated.gsa[0][0].startId, 100);
+    EXPECT_EQ(allocated.gsa[0][0].count, 8);
     ASSERT_EQ(remaining.block_cke[0].size(), 1);
-    EXPECT_EQ(remaining.block_cke[0][0].count_, 47);
+    EXPECT_EQ(remaining.block_cke[0][0].count, 47);
     ASSERT_EQ(remaining.block_gsa[0].size(), 1);
-    EXPECT_EQ(remaining.block_gsa[0][0].count_, 392);
+    EXPECT_EQ(remaining.block_gsa[0][0].count, 392);
 }
 
 TEST(CcuKernelResAllocatorTest, BlockRequestIsPlannedBeforeNormalRequest)
@@ -52,19 +52,19 @@ TEST(CcuKernelResAllocatorTest, BlockRequestIsPlannedBeforeNormalRequest)
     available.cke[0].push_back(Range(HCOMM_CCU_BATCH_RES_CKE, 100, 2));
     available.block_cke[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_CKE, 0, 10));
     asc_ccu_res_request request{};
-    request.count_[HCOMM_CCU_BATCH_RES_BLOCK_CKE][0] = 8;
-    request.count_[HCOMM_CCU_BATCH_RES_CKE][0] = 4;
+    request.count[HCOMM_CCU_BATCH_RES_BLOCK_CKE][0] = 8;
+    request.count[HCOMM_CCU_BATCH_RES_CKE][0] = 4;
 
     asc_ccu_res_repository remaining{};
     asc_ccu_res_repository allocated{};
     ASSERT_EQ(plan_kernel_resources(available, request, remaining, allocated), CcuResult::CCU_SUCCESS);
     ASSERT_EQ(allocated.block_cke[0].size(), 1);
-    EXPECT_EQ(allocated.block_cke[0][0].start_id, 0);
-    EXPECT_EQ(allocated.block_cke[0][0].count_, 8);
+    EXPECT_EQ(allocated.block_cke[0][0].startId, 0);
+    EXPECT_EQ(allocated.block_cke[0][0].count, 8);
     ASSERT_EQ(allocated.cke[0].size(), 2);
-    EXPECT_EQ(allocated.cke[0][0].start_id, 100);
-    EXPECT_EQ(allocated.cke[0][1].start_id, 8);
-    EXPECT_EQ(allocated.cke[0][1].resource_type, HCOMM_CCU_BATCH_RES_CKE);
+    EXPECT_EQ(allocated.cke[0][0].startId, 100);
+    EXPECT_EQ(allocated.cke[0][1].startId, 8);
+    EXPECT_EQ(allocated.cke[0][1].resourceType, HCOMM_CCU_BATCH_RES_CKE);
 }
 
 TEST(CcuKernelResAllocatorTest, FragmentedBlockPoolFailsWithoutChangingOutputs)
@@ -73,7 +73,7 @@ TEST(CcuKernelResAllocatorTest, FragmentedBlockPoolFailsWithoutChangingOutputs)
     available.block_cke[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_CKE, 0, 3));
     available.block_cke[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_CKE, 10, 3));
     asc_ccu_res_request request{};
-    request.count_[HCOMM_CCU_BATCH_RES_BLOCK_CKE][0] = 5;
+    request.count[HCOMM_CCU_BATCH_RES_BLOCK_CKE][0] = 5;
     asc_ccu_res_repository remaining{};
     remaining.ms[0].push_back(Range(HCOMM_CCU_BATCH_RES_MS, 77, 1));
     asc_ccu_res_repository allocated{};
@@ -81,9 +81,9 @@ TEST(CcuKernelResAllocatorTest, FragmentedBlockPoolFailsWithoutChangingOutputs)
 
     EXPECT_EQ(plan_kernel_resources(available, request, remaining, allocated), CcuResult::CCU_E_UNAVAIL);
     ASSERT_EQ(remaining.ms[0].size(), 1);
-    EXPECT_EQ(remaining.ms[0][0].start_id, 77);
+    EXPECT_EQ(remaining.ms[0][0].startId, 77);
     ASSERT_EQ(allocated.gsa[0].size(), 1);
-    EXPECT_EQ(allocated.gsa[0][0].start_id, 88);
+    EXPECT_EQ(allocated.gsa[0][0].startId, 88);
 }
 
 TEST(CcuKernelResAllocatorTest, NormalRequestPreservesReservedGap)
@@ -92,18 +92,18 @@ TEST(CcuKernelResAllocatorTest, NormalRequestPreservesReservedGap)
     available.block_gsa[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_GSA, 0, 4));
     available.block_gsa[0].push_back(Range(HCOMM_CCU_BATCH_RES_BLOCK_GSA, 8, 4));
     asc_ccu_res_request request{};
-    request.count_[HCOMM_CCU_BATCH_RES_GSA][0] = 6;
+    request.count[HCOMM_CCU_BATCH_RES_GSA][0] = 6;
 
     asc_ccu_res_repository remaining{};
     asc_ccu_res_repository allocated{};
     ASSERT_EQ(plan_kernel_resources(available, request, remaining, allocated), CcuResult::CCU_SUCCESS);
     ASSERT_EQ(allocated.gsa[0].size(), 2);
-    EXPECT_EQ(allocated.gsa[0][0].start_id, 0);
-    EXPECT_EQ(allocated.gsa[0][0].count_, 4);
-    EXPECT_EQ(allocated.gsa[0][1].start_id, 8);
-    EXPECT_EQ(allocated.gsa[0][1].count_, 2);
+    EXPECT_EQ(allocated.gsa[0][0].startId, 0);
+    EXPECT_EQ(allocated.gsa[0][0].count, 4);
+    EXPECT_EQ(allocated.gsa[0][1].startId, 8);
+    EXPECT_EQ(allocated.gsa[0][1].count, 2);
     ASSERT_EQ(remaining.block_gsa[0].size(), 1);
-    EXPECT_EQ(remaining.block_gsa[0][0].start_id, 10);
+    EXPECT_EQ(remaining.block_gsa[0][0].startId, 10);
 }
 
 TEST(CcuKernelResAllocatorTest, InstructionRequestNeedsContiguousRange)
@@ -118,12 +118,12 @@ TEST(CcuKernelResAllocatorTest, InstructionRequestNeedsContiguousRange)
     asc_ccu_res_repository allocated{};
     ASSERT_EQ(plan_kernel_resources(available, request, remaining, allocated), CcuResult::CCU_SUCCESS);
     ASSERT_EQ(allocated.instruction[0].size(), 1);
-    EXPECT_EQ(allocated.instruction[0][0].start_id, 8);
-    EXPECT_EQ(allocated.instruction[0][0].count_, 6);
+    EXPECT_EQ(allocated.instruction[0][0].startId, 8);
+    EXPECT_EQ(allocated.instruction[0][0].count, 6);
     ASSERT_EQ(remaining.instruction[0].size(), 2);
-    EXPECT_EQ(remaining.instruction[0][1].start_id, 14);
-    EXPECT_EQ(remaining.instruction[0][1].count_, 2);
+    EXPECT_EQ(remaining.instruction[0][1].startId, 14);
+    EXPECT_EQ(remaining.instruction[0][1].count, 2);
 }
 
 } // namespace
-} // namespace hcomm
+} // namespace asc

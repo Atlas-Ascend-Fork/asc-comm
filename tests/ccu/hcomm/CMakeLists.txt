@@ -40,19 +40,32 @@ add_subdirectory(../stub stub)
 # ut_ccu_interface_assist.cc use mockcpp which is built with CXX11_ABI=0; the
 # system gtest from intf_llt_pub_basic is ABI=1 and incompatible, so features
 # links its own ABI=0 gtest from the third_party cache).
-set(ASCCOMM_MOCKCPP_ROOT ${ASCCOMM_ROOT}/third_party/lib_cache/mockcpp)
+add_cann_third_party(boost)
+add_cann_third_party(boost)
+add_cann_third_party(mockcpp)
+
+set(ASCCOMM_MOCKCPP_ROOT ${CANN_3RD_LIB_PATH}/lib_cache/mockcpp)
 add_library(asccomm_mockcpp STATIC IMPORTED)
+add_dependencies(asccomm_mockcpp mockcpp)
 set_target_properties(asccomm_mockcpp PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${ASCCOMM_MOCKCPP_ROOT}/include;${ASCCOMM_ROOT}/third_party/boost"
+    INTERFACE_INCLUDE_DIRECTORIES "${ASCCOMM_MOCKCPP_ROOT}/include;${CANN_3RD_LIB_PATH}/boost"
     IMPORTED_LOCATION "${ASCCOMM_MOCKCPP_ROOT}/lib/libmockcpp.a"
 )
+if(NOT EXISTS "${ASCCOMM_MOCKCPP_ROOT}/include")
+    file(MAKE_DIRECTORY "${ASCCOMM_MOCKCPP_ROOT}/include")
+endif()
 
-set(ASCCOMM_GTEST_ROOT ${ASCCOMM_ROOT}/third_party/lib_cache/gtest)
-add_library(asccomm_gtest_abi0 STATIC IMPORTED)
-set_target_properties(asccomm_gtest_abi0 PROPERTIES
-    INTERFACE_INCLUDE_DIRECTORIES "${ASCCOMM_GTEST_ROOT}/include"
-    IMPORTED_LOCATION "${ASCCOMM_GTEST_ROOT}/lib/libgtest.a"
-)
+set(ASCCOMM_GTEST_ROOT ${CANN_3RD_LIB_PATH}/lib_cache/gtest)
+if(NOT TARGET asccomm_gtest_abi0)
+    add_library(asccomm_gtest_abi0 STATIC IMPORTED)
+    set_target_properties(asccomm_gtest_abi0 PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${ASCCOMM_GTEST_ROOT}/include"
+        IMPORTED_LOCATION "${ASCCOMM_GTEST_ROOT}/lib/libgtest.a"
+    )
+endif()
+if(NOT EXISTS "${ASCCOMM_GTEST_ROOT}/include")
+    file(MAKE_DIRECTORY "${ASCCOMM_GTEST_ROOT}/include")
+endif()
 
 # CCU features target (f8c8fd2 baseline): ut_ccu_microcode + ut_ccu_interface_assist
 # + groupcopy demo. groupcopy has no tests but is part of the f8c8fd2 features target.
@@ -62,9 +75,36 @@ set(CCU_FEATURES_IMPL_SOURCES
     ${CCU_REP_DIR}/interface/ccu_interface_assist.cc
     ${CCU_REP_DIR}/interface/ccu_datatype.cc
     ${CCU_REP_DIR}/reps/common/ccu_rep_base.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/channel/ccu_channel.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/common/ccu_device_context.cc
     ${CCU_REP_DIR}/reps/common/ccu_rep_block.cc
     ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_add.cc
     ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_assign.cc
+    ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_sub.cc
+    ${CCU_REP_DIR}/reps/arithmetic/ccu_rep_mul.cc
+    ${CCU_REP_DIR}/reps/arithmetic/ccu_operator.cc
+    ${CCU_REP_DIR}/reps/logical/ccu_rep_and.cc
+    ${CCU_REP_DIR}/reps/logical/ccu_rep_or.cc
+    ${CCU_REP_DIR}/reps/logical/ccu_rep_not.cc
+    ${CCU_REP_DIR}/reps/logical/ccu_rep_xor.cc
+    ${CCU_REP_DIR}/reps/shift/ccu_rep_shl.cc
+    ${CCU_REP_DIR}/reps/shift/ccu_rep_shr.cc
+    ${CCU_REP_DIR}/reps/translator/ccu_ins_generater_v1.cc
+    ${CCU_REP_DIR}/reps/translator/ccu_rep_translator.cc
+    ${CCU_REP_DIR}/reps/translator/ccu_rep_reference_manager.cc
+    ${CCU_MICROCODE_DIR}/ccu_assist.cc
+    ${CCU_REP_DIR}/reps/control/ccu_rep_funcblock.cc
+    ${CCU_REP_DIR}/reps/control/ccu_rep_funccall.cc
+    ${CCU_REP_DIR}/reps/loop/ccu_rep_loop.cc
+    ${CCU_REP_DIR}/reps/loop/ccu_rep_loopblock.cc
+    ${CCU_REP_DIR}/reps/loop/ccu_rep_loopcall.cc
+    ${CCU_REP_DIR}/reps/loop/ccu_rep_setloop.cc
+    ${CCU_REP_DIR}/reps/loop/ccu_rep_loopgroup_bundle.cc
+    ${CCU_REP_DIR}/reps/common/ccu_rep_loadarg.cc
+    ${CCU_REP_DIR}/reps/common/ccu_rep_nop.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode_opt/microcode_optimizer.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode_opt/extract_operands.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode_opt/instruction_scheduler.cc
 )
 
 set(src_to_test_list
@@ -132,7 +172,11 @@ add_subdirectory(ccu_representation/reps/common)
 add_subdirectory(ccu_representation/reps/data)
 add_subdirectory(ccu_representation/reps/arithmetic)
 add_subdirectory(ccu_representation/reps/loop)
+add_subdirectory(ccu_representation/reps/logical)
+add_subdirectory(ccu_representation/reps/shift)
 add_subdirectory(ccu_representation/context)
 add_subdirectory(ccu_representation/interface)
+add_subdirectory(ccu_representation/translator)
 add_subdirectory(ccu_microcode)
+add_subdirectory(ccu_microcode_opt)
 add_subdirectory(resource/channel)

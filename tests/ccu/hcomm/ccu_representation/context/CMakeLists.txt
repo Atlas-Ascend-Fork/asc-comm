@@ -13,6 +13,37 @@ set(src_to_test_list
     ut_ccu_rep_context_test.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/context/ccu_rep_context.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_base.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/channel/ccu_channel.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/common/ccu_device_context.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/arithmetic/ccu_rep_sub.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/arithmetic/ccu_rep_mul.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/logical/ccu_rep_and.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/control/ccu_rep_funcblock.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loop.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loopblock.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loopcall.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_setloop.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loopgroup_bundle.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/control/ccu_rep_jump.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/control/ccu_rep_jumplabel.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_load.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_load_var.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_store.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_store_var.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_nop.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_loadarg.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/control/ccu_rep_funccall.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/logical/ccu_rep_or.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/logical/ccu_rep_not.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/logical/ccu_rep_xor.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/shift/ccu_rep_shl.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/shift/ccu_rep_shr.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/translator/ccu_rep_translator.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/translator/ccu_rep_reference_manager.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode_opt/microcode_optimizer.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode_opt/extract_operands.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode_opt/instruction_scheduler.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_block.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_nop.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/arithmetic/ccu_rep_add.cc
