@@ -12,7 +12,8 @@
 #define CCU_UTILS_HPP
 
 #include <exception>
-#include <string>
+#include <cstdint>
+#include <cstdio>
 
 #include "hcomm/hcomm_ccu_common.h"
 
@@ -22,27 +23,34 @@ namespace detail {
 
 struct no_alloc_tag {};
 
+// 该异常对象会跨越"样例二进制(用户 gcc 编译) -> libasccomm_ccu_dataplane.so(出包 gcc 编译)"边界：
+// dataplane 侧 catch 后读取 what()/code()。因此对象布局与生成代码不得依赖编译器世代
+// (std::string 成员/内联 STL 操作在不同 gcc 世代下布局与实现不同，会导致跨 SO 读取崩溃)。
+// 这里使用定长 char 缓冲 + POD 成员，保证布局跨 gcc 冻结；snprintf 为 libc 符号，进程内单份实现。
 class ccu_exception : public std::exception {
 public:
-    ccu_exception(CcuResult code, const char* what) : code_(code), what_(build_message(code, what)) {}
+    static constexpr uint32_t what_buf_len = 192;
 
-    const char* what() const noexcept override { return what_.c_str(); }
+    explicit ccu_exception(CcuResult code, const char* what) noexcept : code_(code)
+    {
+        (void)snprintf(what_, sizeof(what_), "[ccu] %s (CcuResult=%d)",
+            (what != nullptr) ? what : "(unknown)", static_cast<int>(code));
+    }
+
+    const char* what() const noexcept override { return what_; }
     CcuResult code() const noexcept { return code_; }
 
 private:
-    static std::string build_message(CcuResult code, const char* what)
-    {
-        std::string msg = "[ccu] ";
-        msg += (what != nullptr) ? what : "(unknown)";
-        msg += " (CcuResult=";
-        msg += std::to_string(static_cast<int>(code));
-        msg += ")";
-        return msg;
-    }
-
     CcuResult code_;
-    std::string what_;
+    char what_[what_buf_len];
 };
+
+// 布局冻结自检：ccu_exception 跨 SO 传递，两端(样例/数据面 SO)各自编译本头文件，
+// 总大小必须恰为"成员之和向上取整到对齐"，且不含任何编译器世代敏感成员。
+static_assert(sizeof(ccu_exception) >= sizeof(std::exception) + sizeof(CcuResult) + ccu_exception::what_buf_len
+        && sizeof(ccu_exception) - (sizeof(std::exception) + sizeof(CcuResult) + ccu_exception::what_buf_len)
+            < alignof(ccu_exception),
+    "ccu_exception layout is part of the cross-SO boundary and must stay frozen");
 enum class ccu_arithmetic_operator_type { addition, invalid };
 enum class ccu_shift_operator_type { left, right, invalid };
 
