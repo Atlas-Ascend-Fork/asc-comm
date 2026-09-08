@@ -12,6 +12,9 @@ SGE 压紧，未使用的 WQEBB 使用 NOP 对齐。
 group 同步；dispatch 样例使用 12 个有效 SGE 生成 4BB WQE，验证 DWQE 作为 doorbell 发布完整
 SQ 的路径。
 
+固定 2BB 的立即 `Put` 在一次调用内由同一份 WQE 数据双写 SQ 和 DWQE，不从 SQ 回读。
+`thread / warp / warp-pad / group` 验证该路径；`dispatch` 单独验证多 warp 的 `Write + Commit` 路径。
+
 ## 编译
 
 ```bash

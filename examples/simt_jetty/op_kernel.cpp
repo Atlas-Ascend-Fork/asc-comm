@@ -58,8 +58,7 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
         sge.len = static_cast<int>(kSlotBytes);
     }
 
-    jetty.template Put<2, false>(coop, peer, remoteDst, sge);
-    jetty.Commit(coop);
+    jetty.template Put<2>(coop, peer, remoteDst, sge);
     jetty.template Drain<1000000>(coop);
 }
 
