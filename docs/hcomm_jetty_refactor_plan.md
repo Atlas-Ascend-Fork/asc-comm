@@ -58,10 +58,11 @@ void Write(const Group& group, const HcommPeer& peer, __gm__ void* dst, const Hc
 
 保留 hcomm simt 里 DWQE 的"写 128B doorbell window"原理：
 
-1. WQE 先写到 SQ 槽（`asc_stcg`）
+1. WQE 先通过与 Hcomm SIMT 相同的 write-through store（`asc_stwt`）写到 SQ 槽
 2. `Commit()` 将最终 WRITE 的 header 更新为强序、有 fence 且请求 CQE
 3. `Commit()` 时：
-   - `asc_threadfence()` 保证 SQ 写入完成
+   - cooperative 写入由每个参与 lane 执行 `asc_threadfence()`，再同步到 commit leader
+   - commit leader 执行 `asc_threadfence()`，保证最终 header 写入完成
    - `asc_ldcg` 从 SQ 读取最终 WRITE 的前 128B
    - `asc_stwt` + `make_ulonglong2` 以 128-bit 粒度写入 `dwqe_addr`（`dbVa - 0x80`）
    - `asc_dcci_single` × 2 刷新 DWQE 两行 cache

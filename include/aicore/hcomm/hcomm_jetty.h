@@ -254,7 +254,7 @@ struct HcommJetty {
         }
 
         auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(sq_context->contextInfo.ubJfs.sqVa);
-        asc_stcg(
+        asc_stwt(
             sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes,
             sqe_word);
     }
@@ -297,7 +297,7 @@ struct HcommJetty {
             } else if (lane_idx % kNumWQEBBLanes == 0) {
                 sqe_word = kNopSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(sq_wqebb_idx);
             }
-            asc_stcg(
+            asc_stwt(
                 sq_words + static_cast<uint64_t>(sq_wqebb_idx) * kNumWQEBBLanes + lane_idx % kNumWQEBBLanes,
                 sqe_word);
         }
@@ -338,6 +338,7 @@ struct HcommJetty {
         } else if (coop.thread_rank() == 0) {
             self->template PostWriteScalar<kNumSGEs>(peer, dst, sge);
         }
+        asc_threadfence();
         coop.sync();
     }
 
@@ -349,6 +350,7 @@ struct HcommJetty {
         if (coop.thread_rank() == 0) {
             const_cast<HcommJetty*>(this)->template PostWriteScalar<kNumSGEs>(peer, dst, sges);
         }
+        asc_threadfence();
         coop.sync();
     }
 
@@ -423,7 +425,7 @@ struct HcommJetty {
         const auto owner_bit = static_cast<uint64_t>((last_write_head & sq_depth) == 0U) << 31;
         const auto final_header =
             kWriteSQEHeaderTemplate | owner_bit | static_cast<uint64_t>(new_head & 0xFFFFU) | kWriteSQEFinalFlags;
-        asc_stcg(last_write_header, final_header);
+        asc_stwt(last_write_header, final_header);
 
         asc_threadfence();
         (void)asc_atomic_add(head_addr, kCompletionDelta);
