@@ -1,49 +1,109 @@
-# Hcomm Batch Write 样例
+# Hcomm Batch Write样例
 
-## 功能说明
+## 概述
 
-本样例演示如何使用 Hcomm 批量写接口，在单机多卡环境中由 Rank 0 向其他 Rank 写入数据。程序会准备待发送数据，提交一批写操作并等待完成；接收 Rank 随后校验收到的数据，主进程最后汇总所有 Rank 的执行结果。
+本样例演示如何使用Hcomm批量写接口，在单机多卡环境中由rank 0向其他rank批量写入数据。多个URMA
+Channel共享同一个Jetty，通过`MakeBatchHandle`、`GetHandleRef`、`BatchCommit`和`Drain`批量提交
+跨peer写任务。程序会准备待发送数据，提交一批写操作并等待完成；接收rank随后校验收到的数据，主进程
+最后汇总所有rank的执行结果。
 
-## 支持环境
+## 本样例支持的产品及CANN软件版本
 
-- Ascend 950PR 或 Ascend 950DT；
-- 至少两张 NPU，仅支持单机多卡；
-- Rank 数量为 2 至 16，且不能超过本机可用 NPU 数量。
+| 产品 | CANN软件版本 |
+| --- | --- |
+| Ascend 950PR/Ascend 950DT | >= CANN 9.1.0 |
 
-运行时使用两个 Rank 进行最小验证，也可以传入更多 Rank 验证一次批量写入多个目标。
+## 目录结构介绍
+
+```text
+hcomm_batch_write
+├── CMakeLists.txt               // 编译工程文件
+├── hcomm_batch_write.asc        // Host侧资源准备与Kernel调用
+├── hcomm_batch_write_kernel.cpp // AIV Kernel侧批量写调用
+├── hcomm_batch_write_def.h      // Host与Kernel共享定义
+├── README.md                    // 中文样例说明
+├── README_en.md                 // 英文样例说明
+└── run.sh                       // 多rank启动脚本
+```
+
+## 样例描述
+
+### 功能说明
+
+rank 0将一段本端数据通过批量写接口同时写入其他所有rank的接收缓冲区。批量提交将多个写任务打包为
+一个batch handle，通过一次`BatchCommit`统一下发，减少提交次数；`Drain`等待整批任务完成后，各
+接收rank校验落地的数据是否与本端发送数据一致。
+
+### 样例规格
+
+| 项目 | 说明 |
+| --- | --- |
+| 通信模式 | rank 0到其他所有rank的一对多批量写 |
+| 调用方式 | AIV Kernel内`MakeBatchHandle`/`GetHandleRef`/`BatchCommit`/`Drain` |
+| 数据校验 | 每个接收rank校验落地数据 |
+| 支持rank数 | 2至16，且不超过本机可用NPU数量 |
+
+### 实现流程
+
+1. 每个rank初始化运行环境并创建通信域，rank 0准备待发送数据。
+2. 各rank注册通信内存，rank 0与每个peer建立共享Jetty的URMA Channel。
+3. Kernel侧构造batch handle，为每个peer填充一个写任务引用后统一`BatchCommit`。
+4. `Drain`等待整批任务完成。
+5. 各接收rank校验落地数据，主进程汇总所有rank的执行结果。
 
 ## 编译运行
 
-先配置 CANN 环境：
+在本样例根目录下执行如下步骤，编译并运行样例。本样例仅支持NPU运行模式。
 
-```bash
-source ${install_path}/cann/set_env.sh
-```
+- 配置环境变量
 
-使用脚本编译并运行，默认使用两张 NPU：
+  请根据当前环境上CANN开发套件包的安装方式配置环境变量。
 
-```bash
-bash examples/hcomm_batch_write/run.sh
-bash examples/hcomm_batch_write/run.sh 4
-```
+  ```bash
+  source ${install_path}/cann/set_env.sh
+  ```
 
-脚本参数为 Rank 数量，取值范围为 `2-16`。也可以手动执行：
+  > **说明：** `${install_path}`为CANN包安装目录，未指定安装目录时默认安装至`/usr/local/Ascend`。
 
-```bash
-cmake -S examples/hcomm_batch_write -B build/examples/hcomm_batch_write \
-    -DCMAKE_ASC_ARCHITECTURES=dav-3510
-cmake --build build/examples/hcomm_batch_write -j
-./build/examples/hcomm_batch_write/hcomm_batch_write 4
-```
+- 样例执行
 
-其中最后一条命令中的 `4` 表示启动 4 个 Rank。运行前请确认对应数量的 NPU 可用，并确保当前用户具备设备访问权限。
+  在本样例目录下执行如下命令。默认使用两张NPU，也可以传入更多rank验证一次批量写入多个目标。
 
-## 结果判断
+  ```bash
+  mkdir -p build
+  cd build
+  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+  make -j
+  cd ..
+  ./run.sh          # 默认2 rank
+  ./run.sh 4        # 4 rank
+  ```
 
-成功时每个接收 Rank 会输出校验通过信息，主进程最终输出：
+- 启动参数说明
 
-```text
-hcomm 4-rank grouped batch write test passed
-```
+  | 参数 | 默认值 | 说明 |
+  | --- | --- | --- |
+  | `[rank_num]` | `2` | 启动的rank数量，取值范围`2-16`，不能超过本机可用NPU数量 |
 
-主进程输出 `failed` 或任一 Rank 报错时，表示本次批量写入或数据校验未通过。
+- 编译选项说明
+
+  | 选项 | 可选值 | 说明 |
+  | --- | --- | --- |
+  | `CMAKE_ASC_RUN_MODE` | `npu`（默认） | 运行模式，本样例仅支持NPU运行 |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU架构，对应Ascend 950PR/Ascend 950DT |
+
+- 执行结果
+
+  4卡运行成功时，每个接收rank输出校验通过信息，主进程最终输出：
+
+  ```text
+  hcomm 4-rank grouped batch write test passed
+  ```
+
+  主进程输出`failed`或任一rank报错时，表示本次批量写入或数据校验未通过。
+
+## 注意事项
+
+- 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+- rank数量不能超过本机可用NPU数量，且运行用户需具备设备访问权限。
+- 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。
