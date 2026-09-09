@@ -64,7 +64,7 @@ Perform the following steps in the sample root directory. This sample supports N
 - Set Environment Variables
 
   Configure the environment variables according to the CANN development toolkit
-  [installation method](../../docs/quick_start_en.md).
+  [installation method](../../../../docs/quick_start_en.md).
 
   ```bash
   source ${install_path}/cann/set_env.sh
