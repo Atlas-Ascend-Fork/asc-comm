@@ -703,8 +703,17 @@ public:
             // The SQ header was just changed to the final publication header. Read the
             // remaining words from SQ, but use the locally built header so a cached SQ load
             // cannot reintroduce the pre-commit header into the DWQE.
-            const uint64_t first_value = first_word == 0U ? write_header : asc_ldcg(source_words);
-            const uint64_t second_value = asc_ldcg(source_words + 1);
+            uint64_t first_value = first_word == 0U ? write_header : asc_ldcg(source_words);
+            uint64_t second_value = asc_ldcg(source_words + 1);
+            if (last_write_wqebbs > 2U && word_in_bb == 0U) {
+                const uint32_t nop_head = source_base + first_bb;
+                const uint64_t nop_owner = static_cast<uint64_t>((nop_head & sqDepth) == 0U) << 31U;
+                first_value = kNopSQEHeaderTemplate | nop_owner | static_cast<uint64_t>(nop_head & 0xFFFFU);
+                if (first_bb == 1U) {
+                    first_value = kNopSQEHeaderTemplate | nop_owner | static_cast<uint64_t>(new_head & 0xFFFFU) |
+                                  kNopSQEFinalFlags;
+                }
+            }
             asc_stwt(&dwqe_words[pair], make_ulonglong2(first_value, second_value));
         }
         batch_begin_head = new_head;
