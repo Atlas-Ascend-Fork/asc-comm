@@ -27,6 +27,14 @@ struct alignas(16) SimtJettyUbLayout {
     alignas(16) uint64_t dwqe_stage[2 * AscendC::simt::jetty::HcommJetty::kNumWQEBBLanes] = {};
 };
 
+static_assert(sizeof(AscendC::simt::jetty::HcommJettyInfo) == sizeof(AscendC::HcommJettyInfo),
+              "SIMT and SIMD Jetty metadata must share an ABI");
+static_assert(offsetof(AscendC::simt::jetty::HcommJettyInfo, packedHead) ==
+                  offsetof(AscendC::HcommJettyInfo, packedHead),
+              "SIMT/SIMD packed head offset mismatch");
+static_assert(sizeof(AscendC::simt::jetty::HcommPeerInfo) == sizeof(AscendC::HcommJettyPeerInfo),
+              "SIMT and SIMD peer metadata must share an ABI");
+
 __simt_callee__ __forceinline__ __ubuf__ SimtJettyUbLayout* GetSimtJettyUbLayout()
 {
     return reinterpret_cast<__ubuf__ SimtJettyUbLayout*>(0);
