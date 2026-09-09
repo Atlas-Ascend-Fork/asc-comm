@@ -86,7 +86,7 @@ simt_urma_perftest
 - 配置环境变量
 
   样例编译时使用已安装到CANN目录的asc-comm头文件。若尚未安装，先在仓库根目录生成并安装开发验证
-  run包，参数说明参见[`docs/zh/guide/build_and_test.md`](../../docs/zh/guide/build_and_test.md)：
+  run包，参数说明参见[`docs/zh/guide/build_and_test.md`](../../../../docs/zh/guide/build_and_test.md)：
 
   ```bash
   bash build.sh --pkg
