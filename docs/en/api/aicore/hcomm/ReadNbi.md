@@ -1,5 +1,27 @@
 # ReadNbi
 
+## Product Support
+
+<!-- npu="950" id1 -->
+- Ascend 950PR/Ascend 950DT: Supported
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3 training series products/Atlas A3 inference series products: Not supported
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2 training series products/Atlas A2 inference series products: Not supported
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2 inference products: Not supported
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas inference series products AI Core: Not supported
+- Atlas inference series products Vector Core: Not supported
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas training series products: Not supported
+<!-- end id6 -->
+
 ## Function Description
 
 Reads data from remote `src` to local `dst`. The interface provides an ordinary `ChannelHandle` overload and a BatchHandle overload. The ordinary overload submits a read task to the channel, while the batch overload adds a read task to the current batch for a later `BatchCommit`.
@@ -31,15 +53,7 @@ __aicore__ inline int32_t ReadNbi(
 
 ## Parameter Description
 
-| Parameter | Input/Output | Description |
-| --- | --- | --- |
-| `channel` | Input | Communication channel handle used by the ordinary interface. |
-| `batchHandle` | Input/Output | Single-channel batch handle created by `MakeBatchHandle`, or a BatchHandle reference returned by `GetHandleRef`. |
-| `dst` | Output | Absolute local destination GM address. |
-| `src` | Input | Absolute remote source GM address. |
-| `len` | Input | Read length in bytes. |
-
-## Template Parameters
+**Table 1**  Template Parameter Description
 
 | Parameter | Description |
 | --- | --- |
@@ -48,6 +62,16 @@ __aicore__ inline int32_t ReadNbi(
 | `reqPipe` | Pipe used for the request by the ordinary interface. Default: `PIPE_MTE3`. |
 | `config` | URMA task configuration. Default: `URMA_DEFAULT_CFG`. The batch interface requires `inlineEn = 0`, and `cqe` must be `0` or `1`. |
 | `T` | Batch handle type, deduced from `batchHandle`. |
+
+**Table 2**  Interface Parameter Description
+
+| Parameter | Input/Output | Description |
+| --- | --- | --- |
+| `channel` | Input | Communication channel handle used by the ordinary interface. |
+| `batchHandle` | Input/Output | Single-channel batch handle created by `MakeBatchHandle`, or a BatchHandle reference returned by `GetHandleRef`. |
+| `dst` | Output | Absolute local destination GM address. |
+| `src` | Input | Absolute remote source GM address. |
+| `len` | Input | Read length in bytes. |
 
 ## Return Value
 
@@ -71,8 +95,41 @@ __aicore__ inline int32_t ReadNbi(
 - The interface returns `-1` if the remaining batch workspace is insufficient.
 - Call `BatchCommit` after adding tasks. In multi-channel mode, add tasks through the handle reference returned by `GetHandleRef` and submit them through the multi-channel batch handle returned by `MakeBatchHandle`. Exclusively own the associated channel resources while using the BatchHandle.
 
-## Related Sample
+## Example
 
-[hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README_en.md) demonstrates the ordinary AIV direct-driven URMA read/write workflow. See the [Hcomm Usage Guide](../../../guide/hcomm_usage.md) for the basic BatchHandle workflow.
+Ordinary interface:
 
-See [GetHandleRef](./GetHandleRef.md) for the multi-channel interface.
+```cpp
+AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+AscendC::ChannelHandle channel; // Initialized UBC_CTP channel handle
+GM_ADDR localDst; // Valid local destination address
+GM_ADDR remoteSrc; // Registered remote source address
+uint64_t dataLen = 64U;
+
+int32_t ret = hcomm.ReadNbi(channel, localDst, remoteSrc, dataLen);
+if (ret == 0) {
+    ret = hcomm.Drain(channel);
+}
+```
+
+Batch interface:
+
+```cpp
+AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+AscendC::ChannelHandle channel; // Initialized UBC_CTP channel handle
+AscendC::LocalTensor<uint8_t> batchBuffer; // Allocated from UB memory
+GM_ADDR remoteSrc; // Registered remote source address
+GM_ADDR localDst; // Valid local destination address
+uint32_t batchBufferLen = 64U;
+uint32_t dataLen = 64U;
+
+auto batchHandle = hcomm.MakeBatchHandle(
+    channel, batchBuffer, batchBufferLen, remoteSrc);
+int32_t ret = hcomm.ReadNbi(batchHandle, localDst, remoteSrc, dataLen);
+if (ret == 0) {
+    ret = hcomm.BatchCommit(batchHandle);
+}
+if (ret == 0) {
+    ret = hcomm.Drain(batchHandle);
+}
+```

@@ -1,5 +1,27 @@
 # MakeBatchHandle
 
+## Product Support
+
+<!-- npu="950" id1 -->
+- Ascend 950PR/Ascend 950DT: Supported
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3 training series products/Atlas A3 inference series products: Not supported
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2 training series products/Atlas A2 inference series products: Not supported
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2 inference products: Not supported
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas inference series products AI Core: Not supported
+- Atlas inference series products Vector Core: Not supported
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas training series products: Not supported
+<!-- end id6 -->
+
 ## Function Description
 
 Creates a batch handle and binds the UB workspace required by batch operations. This API currently supports only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
@@ -20,6 +42,15 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 
 ## Parameter Description
 
+**Table 1**  Template Parameter Description
+
+| Parameter | Description |
+| --- | --- |
+| `T` | Channel handle type. `ChannelHandle` and `MultiChannelHandle` are supported. |
+| `U` | Element type of the `LocalTensor`. |
+
+**Table 2**  Interface Parameter Description
+
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | `channel` | Input | A UBC_CTP single-channel `ChannelHandle`, or a `MultiChannelHandle` created by Host-side `MakeMultiChannelHandle`. |
@@ -27,13 +58,6 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 | `buffLen` | Input | Available workspace length in bytes. |
 | `remoteAddr` | Input | Selects remote registered memory in single-channel mode. If `nullptr`, the first remote registered buffer is selected. Ignored in multi-channel mode. Default: `nullptr`. |
 | `localAddr` | Input | Reserved. Default: `nullptr`. |
-
-## Template Parameters
-
-| Parameter | Description |
-| --- | --- |
-| `T` | Channel handle type. `ChannelHandle` and `MultiChannelHandle` are supported. |
-| `U` | Element type of the `LocalTensor`. |
 
 ## Return Value
 
@@ -55,24 +79,23 @@ Returns the `BatchHandle<T>` corresponding to `channel`. This API does not retur
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-AscendC::LocalTensor<uint8_t> batchBuffer = batchTBuf.Get<uint8_t>();
+AscendC::ChannelHandle channel; // Initialized UBC_CTP channel handle
+AscendC::LocalTensor<uint8_t> batchBuffer; // Allocated from UB memory
+GM_ADDR remoteAddr; // Registered remote address
+uint32_t batchBufferLen = 64U;
 
-// Single channel
 auto batchHandle = hcomm.MakeBatchHandle(
     channel, batchBuffer, batchBufferLen, remoteAddr);
-
-// Multiple channels
-auto multiBatchHandle = hcomm.MakeBatchHandle(
-    multiChannel, batchBuffer, batchBufferLen);
-auto& peerBatchHandle = hcomm.GetHandleRef(
-    multiBatchHandle, channelIndex, peerRemoteAddr);
 ```
 
-In multi-channel mode, use `peerBatchHandle` to add batch tasks and use `multiBatchHandle` with `BatchCommit` and batch `Drain`.
+Multi-channel mode:
 
-## Related APIs
+```cpp
+AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+AscendC::MultiChannelHandle multiChannel; // Valid multi-channel handle created on the Host
+AscendC::LocalTensor<uint8_t> batchBuffer; // Allocated from UB memory
+uint32_t batchBufferLen = 64U;
 
-- [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md)
-- [GetHandleRef](./GetHandleRef.md)
-- [BatchCommit](./BatchCommit.md)
-- [Drain](./Drain.md)
+auto multiBatchHandle = hcomm.MakeBatchHandle(
+    multiChannel, batchBuffer, batchBufferLen);
+```

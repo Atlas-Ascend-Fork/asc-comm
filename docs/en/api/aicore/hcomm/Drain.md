@@ -1,5 +1,27 @@
 # Drain
 
+## Product Support
+
+<!-- npu="950" id1 -->
+- Ascend 950PR/Ascend 950DT: Supported
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3 training series products/Atlas A3 inference series products: Not supported
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2 training series products/Atlas A2 inference series products: Not supported
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2 inference products: Not supported
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas inference series products AI Core: Not supported
+- Atlas inference series products Vector Core: Not supported
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas training series products: Not supported
+<!-- end id6 -->
+
 ## Function Description
 
 Blocks until communication tasks submitted through an ordinary channel or a BatchHandle complete execution.
@@ -27,17 +49,19 @@ __aicore__ inline int32_t Drain(T& batchHandle);
 
 ## Parameter Description
 
-| Parameter | Input/Output | Description |
-| --- | --- | --- |
-| `channel` | Input | Communication channel handle used by the ordinary interface. |
-| `batchHandle` | Input/Output | Single-channel or multi-channel batch handle created by `MakeBatchHandle`. The call waits for communication tasks submitted through this handle. |
-
-## Template Parameters
+**Table 1**  Template Parameter Description
 
 | Parameter | Description |
 | --- | --- |
 | `pipe` | Pipe used for drain operations. Default: `PIPE_MTE3`. |
 | `T` | Batch handle type deduced from `batchHandle`. |
+
+**Table 2**  Interface Parameter Description
+
+| Parameter | Input/Output | Description |
+| --- | --- | --- |
+| `channel` | Input | Communication channel handle used by the ordinary interface. |
+| `batchHandle` | Input/Output | Single-channel or multi-channel batch handle created by `MakeBatchHandle`. The call waits for communication tasks submitted through this handle. |
 
 ## Return Value
 
@@ -63,7 +87,41 @@ __aicore__ inline int32_t Drain(T& batchHandle);
 - If all submitted tasks use `cqe = 0`, this API returns directly and does not confirm that those tasks have completed. To confirm completion of the batch through this API, set `cqe = 1` for a task that represents completion of the entire batch. The default `URMA_DEFAULT_CFG` enables this option.
 - Exclusively own the channel resources associated with the BatchHandle while using it. Do not mix ordinary `Drain` calls.
 
-## Related APIs
+## Example
 
-- [GetHandleRef](./GetHandleRef.md)
-- [BatchCommit](./BatchCommit.md)
+Ordinary interface:
+
+```cpp
+AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+AscendC::ChannelHandle channel; // Initialized UBC_CTP channel handle
+GM_ADDR remoteDst; // Registered remote destination address
+GM_ADDR localSrc; // Valid local source address
+uint64_t dataLen = 64U;
+
+int32_t ret = hcomm.WriteNbi(channel, remoteDst, localSrc, dataLen);
+if (ret == 0) {
+    ret = hcomm.Drain(channel);
+}
+```
+
+Batch interface:
+
+```cpp
+AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+AscendC::ChannelHandle channel; // Initialized UBC_CTP channel handle
+AscendC::LocalTensor<uint8_t> batchBuffer; // Allocated from UB memory
+GM_ADDR remoteDst; // Registered remote destination address
+GM_ADDR localSrc; // Valid local source address
+uint32_t batchBufferLen = 64U;
+uint32_t dataLen = 64U;
+
+auto batchHandle = hcomm.MakeBatchHandle(
+    channel, batchBuffer, batchBufferLen, remoteDst);
+int32_t ret = hcomm.WriteNbi(batchHandle, remoteDst, localSrc, dataLen);
+if (ret == 0) {
+    ret = hcomm.BatchCommit(batchHandle);
+}
+if (ret == 0) {
+    ret = hcomm.Drain(batchHandle);
+}
+```
