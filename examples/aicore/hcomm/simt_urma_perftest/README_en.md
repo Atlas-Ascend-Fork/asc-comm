@@ -64,7 +64,7 @@ the run actually completed correctly.
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
-bash examples/simt_urma_perftest/build.sh
+bash examples/aicore/hcomm/simt_urma_perftest/build.sh
 ```
 
 ## Usage
@@ -75,21 +75,21 @@ the other ranks.
 
 ```bash
 # single point
-examples/simt_urma_perftest/run.sh 2 write
+examples/aicore/hcomm/simt_urma_perftest/run.sh 2 write
 
 # deferred publication
-examples/simt_urma_perftest/run.sh 2 write --commit-mode last
+examples/aicore/hcomm/simt_urma_perftest/run.sh 2 write --commit-mode last
 
 # payload sweep: 8 16 64 256 1024 4096 16384 65536
-examples/simt_urma_perftest/run.sh 2 write --sweep
+examples/aicore/hcomm/simt_urma_perftest/run.sh 2 write --sweep
 
 # inline write
-examples/simt_urma_perftest/run.sh 2 write_value
+examples/aicore/hcomm/simt_urma_perftest/run.sh 2 write_value
 
 # Notify and the atomics
-examples/simt_urma_perftest/run.sh 2 notify --payload-bytes 4096
-examples/simt_urma_perftest/run.sh 2 faa
-examples/simt_urma_perftest/run.sh 2 cas
+examples/aicore/hcomm/simt_urma_perftest/run.sh 2 notify --payload-bytes 4096
+examples/aicore/hcomm/simt_urma_perftest/run.sh 2 faa
+examples/aicore/hcomm/simt_urma_perftest/run.sh 2 cas
 ```
 
 Options: `--iterations` (default 1024), `--warmup` (default 100), `--payload-bytes` (default 4096),
