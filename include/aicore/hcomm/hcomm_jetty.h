@@ -60,7 +60,7 @@ struct HcommPeer {
 #define HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_JETTY_H
 #endif
 
-#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_jetty_impl_def.h"
+#include "../../../src/aicore/hcomm/impl/platform_v310/hcomm_aiv_urma_jetty_def.h"
 
 namespace AscendC {
 
@@ -104,7 +104,7 @@ private:
 
 } // namespace AscendC
 
-#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_jetty_impl.h"
+#include "../../../src/aicore/hcomm/impl/platform_v310/hcomm_aiv_urma_jetty.h"
 
 #if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_JETTY_H)
 #undef HCOMM_INCLUDE_INTERNAL_HEADERS
