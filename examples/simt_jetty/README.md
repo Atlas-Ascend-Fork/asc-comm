@@ -45,8 +45,9 @@ bash run.sh 2 group
 bash run.sh 2 dispatch
 ```
 
-`thread` 和 `warp` 都发送两个有效 SGE，用于对比同一个 80B/2BB WQE；`warp-pad` 验证
-`1BB WRITE + 1BB NOP`；`dispatch` 验证 12 SGE、4BB WQE。
+`thread` 发送 12 个有效 SGE，验证标量线程构造的 4BB WQE；`warp` 发送两个有效 SGE，
+用于验证同一个 80B/2BB WQE；`warp-pad` 验证 `1BB WRITE + 1BB NOP`；`dispatch` 验证
+12 SGE、4BB WQE。
 
 ## 正确性压测
 
