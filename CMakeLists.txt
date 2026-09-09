@@ -19,7 +19,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ASCCOMM_BUILD_CCU "Build asc-comm CCU launch wrapper library" ON)
-option(ASCCOMM_BUILD_AICPU "Build asc-comm AICPU data plane library" ON)
+# AICPU数据面(实体直入版)默认关闭：仅独立构建数据面时由build.sh显式开启。
+# 第三方嵌入(如asc-devkit超构建，仅需CCU组件)不设置该选项，避免配置src/aicpu——
+# 其对hcomm源码(pkg_inc契约头)的强校验会拦截无完整hcomm源的嵌入场景
+option(ASCCOMM_BUILD_AICPU "Build asc-comm AICPU data plane library" OFF)
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCCOMM_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
