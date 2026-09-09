@@ -84,19 +84,19 @@ bash build.sh --pkg
 ```
 
 Pass `--install-path=/path/to/cann` to select a different CANN directory. See
-[`docs/en/guide/build_and_test.md`](../../docs/en/guide/build_and_test.md) for the full option list.
+[`docs/en/guide/build_and_test.md`](../../../../docs/en/guide/build_and_test.md) for the full option list.
 
 ## Build
 
 ```bash
-cd examples/simt_urma
+cd examples/aicore/hcomm/simt_urma
 bash build.sh
 ```
 
 `build.sh` removes the existing `build` directory before reconfiguring and rebuilding, so stale
 headers and object files are never reused.
 
-The output is `examples/simt_urma/build/simt_urma`.
+The output is `examples/aicore/hcomm/simt_urma/build/simt_urma`.
 
 ## Run
 
@@ -105,7 +105,7 @@ required. `run.sh` creates a temporary root info file for each run, written by r
 other ranks. Rank `i` runs on device `i`.
 
 ```bash
-examples/simt_urma/run.sh <nranks> [mode]
+examples/aicore/hcomm/simt_urma/run.sh <nranks> [mode]
 ```
 
 `nranks` may be any value >= 2: every rank sends and receives on the ring.
@@ -113,16 +113,16 @@ examples/simt_urma/run.sh <nranks> [mode]
 An unrecognized `mode` is rejected outright rather than silently falling back to the default.
 
 ```bash
-examples/simt_urma/run.sh 2 write_single
-examples/simt_urma/run.sh 2 write_batch_last
-examples/simt_urma/run.sh 2 write_value_single
-examples/simt_urma/run.sh 2 write_value_batch_last
-examples/simt_urma/run.sh 2 notify
-examples/simt_urma/run.sh 2 faa
-examples/simt_urma/run.sh 2 cas
-examples/simt_urma/run.sh 2 single
-examples/simt_urma/run.sh 2 batch_last
-examples/simt_urma/run.sh 2 notify_immediate_repeat
+examples/aicore/hcomm/simt_urma/run.sh 2 write_single
+examples/aicore/hcomm/simt_urma/run.sh 2 write_batch_last
+examples/aicore/hcomm/simt_urma/run.sh 2 write_value_single
+examples/aicore/hcomm/simt_urma/run.sh 2 write_value_batch_last
+examples/aicore/hcomm/simt_urma/run.sh 2 notify
+examples/aicore/hcomm/simt_urma/run.sh 2 faa
+examples/aicore/hcomm/simt_urma/run.sh 2 cas
+examples/aicore/hcomm/simt_urma/run.sh 2 single
+examples/aicore/hcomm/simt_urma/run.sh 2 batch_last
+examples/aicore/hcomm/simt_urma/run.sh 2 notify_immediate_repeat
 ```
 
 Expected output (two cards, one group printed per rank):
