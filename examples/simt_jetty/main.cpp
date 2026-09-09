@@ -60,7 +60,7 @@ constexpr const char* kRecvBufTag = "simtJettyRecvBuf";
 
 const char* ModeName(uint32_t mode)
 {
-    constexpr const char* kModeNames[] = {"thread", "warp-pad", "group", "dispatch", "warp"};
+    constexpr const char* kModeNames[] = {"thread", "warp-pad", "group", "dispatch", "warp", "mixed"};
     return mode < sizeof(kModeNames) / sizeof(kModeNames[0]) ? kModeNames[mode] : "unknown";
 }
 
@@ -357,7 +357,7 @@ int main(int argc, char* argv[])
         }
     } else {
         uint64_t expected[simt_jetty::kSlotCount] = {};
-        if (mode == 0U || mode == 3U) {
+        if (mode == 0U || mode == 3U || mode == 5U) {
             for (uint32_t slot = 0; slot < simt_jetty::kSlotCount; ++slot) {
                 expected[slot] = simt_jetty::SlotValue(slot);
             }

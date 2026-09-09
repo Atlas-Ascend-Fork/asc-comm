@@ -428,6 +428,10 @@ void LaunchSimtJetty(
             SimtJettyWriteWarp<<<1, 0, stream>>>(
                 channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup);
             break;
+        case 5U:
+            SimtJettyWriteDispatch<<<1, 0, stream>>>(
+                channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup);
+            break;
         default:
             std::printf("[simt_jetty] unhandled mode %u, no kernel launched\n", mode);
             break;

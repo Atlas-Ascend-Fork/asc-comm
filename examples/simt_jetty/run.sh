@@ -12,7 +12,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: run.sh <nranks> [all|thread|warp|warp-pad|group|dispatch] [options]
+Usage: run.sh <nranks> [all|thread|warp|warp-pad|group|dispatch|mixed] [options]
 
 Options:
   --iterations N  Number of correctness iterations, default: 1
@@ -100,6 +100,7 @@ mode_id() {
         group) echo 2 ;;
         dispatch) echo 3 ;;
         warp) echo 4 ;;
+        mixed) echo 5 ;;
         *) return 1 ;;
     esac
 }
@@ -136,7 +137,7 @@ run_mode() {
 
 status=0
 if [ "$requested_mode" = "all" ]; then
-    modes=(thread warp warp-pad group dispatch)
+    modes=(thread warp warp-pad group dispatch mixed)
 else
     if ! mode_id "$requested_mode" >/dev/null; then
         usage
