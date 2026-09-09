@@ -21,11 +21,13 @@
 
 #include "xxhash_impl.inc"
 
-int32_t HcclGetThreadDeviceId();
-
 #ifndef HCOMM_WEAK_SYMBOL
 #define HCOMM_WEAK_SYMBOL __attribute__((weak))
 #endif
+
+// legacy host-launch 路径依赖的 hcomm 侧符号在新版 hcomm 中已不再导出，
+// 全部按弱符号引用：缺失时该路径整体不可用（见 IsCcuKernelLaunchApiAvailable）。
+int32_t HcclGetThreadDeviceId() HCOMM_WEAK_SYMBOL;
 
 #ifndef ASCCOMM_CCU_HOST_LAUNCH_HAS_HCOMM_TYPES
 typedef uint64_t CcuKernelHandle;
@@ -57,13 +59,14 @@ struct CcuTaskParam {
 
 class CcuKernel {
 public:
-    CcuResult GeneTaskParams(const uint64_t* taskArgs, uint32_t argsNum, std::vector<CcuTaskParam>& taskParams);
+    CcuResult GeneTaskParams(const uint64_t* taskArgs, uint32_t argsNum, std::vector<CcuTaskParam>& taskParams)
+        HCOMM_WEAK_SYMBOL;
 };
 
 class CcuKernelMgr {
 public:
-    static CcuKernelMgr& GetInstance(int32_t deviceLogicId);
-    CcuKernel* GetKernel(CcuKernelHandle kernelHandle);
+    static CcuKernelMgr& GetInstance(int32_t deviceLogicId) HCOMM_WEAK_SYMBOL;
+    CcuKernel* GetKernel(CcuKernelHandle kernelHandle) HCOMM_WEAK_SYMBOL;
 };
 } // namespace hcomm
 
@@ -81,7 +84,17 @@ bool IsCcuKernelLaunchApiAvailable()
     auto registerKernel = HcommCcuKernelRegister;
     auto registerEnd = HcommCcuKernelRegisterEnd;
     auto getTaskArgsNum = HcommCcuGetTaskArgsNum;
-    return registerStart != nullptr && registerKernel != nullptr && registerEnd != nullptr && getTaskArgsNum != nullptr;
+    if (registerStart == nullptr || registerKernel == nullptr || registerEnd == nullptr || getTaskArgsNum == nullptr) {
+        return false;
+    }
+    // 任务参数生成走 legacy hcomm::CcuKernelMgr ABI，新版 hcomm 已不再导出；
+    // 弱符号未解析时 host-launch 路径整体不可用，提前返回不支持。
+    auto getThreadDeviceId = HcclGetThreadDeviceId;
+    auto kernelMgrInstance = &hcomm::CcuKernelMgr::GetInstance;
+    auto getKernel = &hcomm::CcuKernelMgr::GetKernel;
+    auto geneTaskParams = &hcomm::CcuKernel::GeneTaskParams;
+    return getThreadDeviceId != nullptr && kernelMgrInstance != nullptr && getKernel != nullptr &&
+           geneTaskParams != nullptr;
 }
 
 bool IsSupportedSingleDieMask(uint64_t phyDieMask)
