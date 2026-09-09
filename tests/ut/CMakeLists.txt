@@ -300,3 +300,4 @@ endfunction()
 
 add_subdirectory(aicore/hcomm)
 add_subdirectory(aicore/ain)
+add_subdirectory(ccu/hcomm ccu_hcomm)
