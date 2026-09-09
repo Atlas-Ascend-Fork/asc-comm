@@ -175,7 +175,7 @@ if (lockRet == 0) {
 
 ## 样例
 
-可参考[hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README.md)了解普通接口的AIV Kernel侧调用方式和Host侧通信资源创建流程；参考[hcomm_batch_write](../../../examples/hcomm_batch_write/README.md)了解共享Jetty批量写流程。
+可参考[hcomm_write_read_nbi](../../../examples/aicore/hcomm/hcomm_write_read_nbi/README.md)了解普通接口的AIV Kernel侧调用方式和Host侧通信资源创建流程；参考[hcomm_batch_write](../../../examples/aicore/hcomm/hcomm_batch_write/README.md)了解共享Jetty批量写流程。
 
 该样例在两卡场景下对称执行普通`WriteNbi`和`ReadNbi`：
 
