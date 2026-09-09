@@ -63,7 +63,8 @@ repos:
           ]
 
   # OAT 合规性检查 (Open Source Audit Tool)
-  - repo: local
+  - repo: https://gitcode.com/HiAgent/Compliance
+    rev: v1.0.5
     hooks:
       - id: oat-check
         name: OAT Compliance Check
