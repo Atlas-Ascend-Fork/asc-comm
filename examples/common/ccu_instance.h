@@ -15,14 +15,15 @@
 
 #include <hccl/hccl_rank_graph.h>
 #include <ccu/hcomm/ccu_api_types.h>
+#include <hcomm/hcomm_ccu_common.h>
 
-extern "C" HcclResult HcclCommQueryCcuIns(HcclComm comm, CcuInsHandle* insHandles, uint32_t* insNum);
+extern "C" HcclResult HcclCommQueryCcuIns(HcclComm comm, CcuInstanceHandle* insHandles, uint32_t* insNum);
 
 namespace asccomm_examples {
 
 constexpr uint32_t CCU_MAX_DIE_NUM = 2;
 
-inline HcclResult QueryCcuInstance(HcclComm comm, CcuInsHandle &insHandle)
+inline HcclResult QueryCcuInstance(HcclComm comm, CcuInstanceHandle &insHandle)
 {
     uint32_t insNum = 0;
     HcclResult ret = HcclCommQueryCcuIns(comm, &insHandle, &insNum);
