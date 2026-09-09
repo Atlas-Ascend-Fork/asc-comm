@@ -27,11 +27,11 @@ enum class ccu_var_event_type {
 };
 
 struct ccu_var_event_res {
-    CcuInsHandle ins_handle{0};
+    CcuInstanceHandle ins_handle{};
     int32_t dev_logic_id{-1};
     uint8_t die_id{0};
     ccu_var_event_type type{ccu_var_event_type::variable};
-    std::vector<HcommCcuResRangePod> res_ranges{};
+    std::vector<asc_ccu_res_range> res_ranges{};
     // 借用指针，指向发起预约的 CcuKernelRegistry 名下 AscCcuResSnapshot 持有的资源仓，本类不持有所有权。
     // 有效性依赖既定时序：~CcuKernelRegistry 中 ReleaseByInstance 先于 resSnapshot_ 置空执行，
     // CcuKernelRegistry::Reset 调 ExcludeAllocatedFromRepo 时资源仓亦仍存活。
@@ -66,7 +66,7 @@ public:
     static ccu_var_event_res_mgr &get_instance(const int32_t device_logic_id);
 
     // 预约一段连续资源并在申请期完成地址映射；任一阶段失败均整笔回滚，仅全程成功才写 handle
-    CcuResult acquire(CcuInsHandle ins_handle, asc_ccu_res_repository &res_repo, ccu_var_event_type type,
+    CcuResult acquire(CcuInstanceHandle ins_handle, asc_ccu_res_repository &res_repo, ccu_var_event_type type,
         uint8_t die_id, uint32_t num, uint64_t &handle);
     CcuResult get_variable_xn_id(uint64_t handle, uint32_t index, uint8_t &die_id, uint32_t &xn_id) const;
     CcuResult get_event_cke_id(uint64_t handle, uint32_t index, uint8_t &die_id, uint32_t &cke_id) const;
@@ -75,8 +75,8 @@ public:
     // 返回 Alloc 阶段已注册的第 index 个资源 VA
     CcuResult get_saved_addr(ccu_var_event_type type, uint64_t handle, uint32_t index, uint64_t &va) const;
     CcuResult release_by_handle(uint64_t handle);
-    CcuResult release_by_instance(CcuInsHandle ins_handle);
-    CcuResult exclude_allocated_from_repo(CcuInsHandle ins_handle) const;
+    CcuResult release_by_instance(CcuInstanceHandle ins_handle);
+    CcuResult exclude_allocated_from_repo(CcuInstanceHandle ins_handle) const;
 
 private:
     explicit ccu_var_event_res_mgr() = default;
@@ -86,16 +86,16 @@ private:
     ccu_var_event_res_mgr &operator=(const ccu_var_event_res_mgr &that) = delete;
 
     // 校验参数、选池、切出连续块并登记到 resMap_，成功时经 newHandle 返回新句柄
-    CcuResult alloc_and_record(CcuInsHandle ins_handle, asc_ccu_res_repository &res_repo,
+    CcuResult alloc_and_record(CcuInstanceHandle ins_handle, asc_ccu_res_repository &res_repo,
         ccu_var_event_type type, uint8_t die_id, uint32_t num, uint64_t &new_handle);
     // 为 handle 名下 num 个资源逐个注册进程可访问 VA 并缓存；失败时解除本次已完成的映射，
     // 资源池的归还由 Acquire 与切池动作配对完成
     CcuResult register_addrs(ccu_var_event_type type, uint64_t handle, uint32_t num);
 
-    static CcuResult alloc_from_pool(std::vector<HcommCcuResRangePod> &pool, uint32_t num,
-        std::vector<HcommCcuResRangePod> &out);
-    static void return_to_pool(std::vector<HcommCcuResRangePod> &pool,
-        const std::vector<HcommCcuResRangePod> &ranges);
+    static CcuResult alloc_from_pool(std::vector<asc_ccu_res_range> &pool, uint32_t num,
+        std::vector<asc_ccu_res_range> &out);
+    static void return_to_pool(std::vector<asc_ccu_res_range> &pool,
+        const std::vector<asc_ccu_res_range> &ranges);
     // 释放资源前，将 Alloc 阶段映射的进程可访问 VA 逐个 unmap（仅处理已保存 VA 的资源）；
     // 返回首个 unmap 失败的错误码，失败不中断，其余资源继续 unmap
     static CcuResult unmap_saved_addrs(const ccu_var_event_res &res);

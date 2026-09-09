@@ -1,16 +1,19 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * This program is free software: you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the License).
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #include "ccu_channel_get_stub.h"
 
 #include "hcomm/common/ccu_device_context.h"
+
+// 本文件底部提供的 stub 入口（定档 ascCustom 槽 0：返回实体借用地址）
+extern "C" int32_t HcommCcuGetChannelEntity(ChannelHandle channel, uint64_t *channelPodEntityPtr);
 
 namespace hcomm {
 namespace {
@@ -27,12 +30,10 @@ void SetHcommCcuChannelGetPodStub(const HcommCcuChannelPod &channelPod)
     queryResultStub = HCCL_SUCCESS;
     channelPodStubConfigured = true;
 
-    HcommCcuControlOpsPod controlOps{};
-    controlOps.header.version = HCOMM_CCU_CONTROL_ABI_VERSION;
-    controlOps.header.magic_word = HCOMM_CCU_CONTROL_OPS_MAGIC_WORD;
-    controlOps.header.size = sizeof(HcommCcuControlOpsPod);
-    controlOps.channel_query = HcommCcuChannelGetPod;
-    set_current_ccu_control_ops(controlOps);
+    // 定档槽位数组：仅注入本 stub 关心的槽 0（getChannelEntity）
+    uint64_t ops[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]{};
+    ops[HCOMM_CCU_ASC_CUSTOM_CHANNEL_ENTITY] = reinterpret_cast<uint64_t>(HcommCcuGetChannelEntity);
+    asc::set_current_ccu_control_ops(ops);
 }
 
 void SetHcommCcuChannelGetPodStubResult(HcommResult result)
@@ -45,20 +46,28 @@ void ResetHcommCcuChannelGetPodStub()
     channelPodStub = {};
     queryResultStub = HCCL_SUCCESS;
     channelPodStubConfigured = false;
-    set_current_ccu_control_ops({});
+    asc::set_current_ccu_control_ops({});
 }
 
 } // namespace hcomm
 
-HcommResult HcommCcuChannelGetPod(ChannelHandle, HcommCcuChannelPod *channelPod)
+namespace hcomm {
+namespace {
+HcommCcuChannelPod channelEntityStorage{}; // stub 的"实体"存储：借出该地址
+}
+}
+
+// 定档 ascCustom 槽 0 的 stub 实现：借用地址指向预置快照
+int32_t HcommCcuGetChannelEntity(ChannelHandle, uint64_t *channelPodEntityPtr)
 {
-    if (channelPod == nullptr || !hcomm::channelPodStubConfigured) {
-        return HCCL_E_PTR;
+    if (channelPodEntityPtr == nullptr || !hcomm::channelPodStubConfigured) {
+        return static_cast<int32_t>(HCCL_E_PTR);
     }
     if (hcomm::queryResultStub != HCCL_SUCCESS) {
-        return hcomm::queryResultStub;
+        return static_cast<int32_t>(hcomm::queryResultStub);
     }
 
-    *channelPod = hcomm::channelPodStub;
-    return HCCL_SUCCESS;
+    hcomm::channelEntityStorage = hcomm::channelPodStub;
+    *channelPodEntityPtr = reinterpret_cast<uint64_t>(&hcomm::channelEntityStorage);
+    return static_cast<int32_t>(HCCL_SUCCESS);
 }

@@ -20,6 +20,8 @@
 
 #include <stdint.h>
 
+#include "hcomm/hcomm_ccu_abi.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -50,11 +52,40 @@ typedef enum {
     CCU_RESERVED = 255
 } CcuInstanceType;
 
-/** CCU Instance 句柄：64 位不透明注册上下文句柄；hcomm 负责编码、校验、销毁，asc-comm 只能按值保存和回传 */
-typedef uint64_t CcuInsHandle;
+struct HcommCcuInstance;
+
+enum {
+    HCOMM_CCU_INSTANCE_HANDLE_ABI_VERSION = 1,        // CcuInstanceHandle ABI 版本
+    HCOMM_CCU_INSTANCE_HANDLE_MAGIC_WORD = 0x43435548U, // "CCUH"，句柄魔数
+};
+
+/**
+ * CCU Instance 句柄（定档结构体口径，对应定档 CommAbiHeader + ccuInsKey + ccuInsPtr 三字段）：
+ * header 为 ABI 头：version/magic/size 校验，防两仓布局不一致时按值传递越界读；
+ * ccuInsKey 为 hcomm 位编码的不透明键（generation<<32 | slot+1），用于跨 SO 传递与查找；
+ * ccuInsPtr 指向 hcomm 持有的 HcommCcuInstance（只读借用，随 RegisterContext 生命周期有效）。
+ * hcomm 负责编码、校验、销毁，asc-comm 只能按值保存和回传，不得解引用 ccuInsPtr 之外的成员。
+ */
+typedef struct {
+    HcommCcuAbiHeaderPod header;               // ABI 头：version/magic/size 校验
+    uint64_t ccuInsKey;                        // 不透明实例键（0 为无效句柄哨兵）
+    const struct HcommCcuInstance *ccuInsPtr;  // hcomm 持有的 CCU Instance 借用指针
+} CcuInstanceHandle;
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+#include <stddef.h>
+#include <type_traits>
+static_assert(std::is_standard_layout<CcuInstanceHandle>::value,
+    "CcuInstanceHandle must be standard-layout");
+static_assert(std::is_trivially_copyable<CcuInstanceHandle>::value,
+    "CcuInstanceHandle must be trivially copyable");
+static_assert(sizeof(CcuInstanceHandle) == 32, "CcuInstanceHandle ABI size changed");
+static_assert(offsetof(CcuInstanceHandle, ccuInsKey) == 16, "CcuInstanceHandle.ccuInsKey ABI offset changed");
+static_assert(offsetof(CcuInstanceHandle, ccuInsPtr) == 24, "CcuInstanceHandle.ccuInsPtr ABI offset changed");
 #endif
 
 #endif // HCOMM_CCU_COMMON_H

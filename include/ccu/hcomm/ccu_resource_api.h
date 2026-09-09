@@ -27,7 +27,7 @@ extern "C" {
  * @param_[out] var_handle Reservation handle; set to zero on failure.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
-extern CcuResult asccomm_ccu_variable_alloc(CcuInsHandle ins_handle, uint8_t die_id, uint32_t num_,
+extern CcuResult asccomm_ccu_variable_alloc(CcuInstanceHandle ins_handle, uint8_t die_id, uint32_t num_,
     ccu_variable_handle *var_handle);
 
 /**
@@ -38,7 +38,7 @@ extern CcuResult asccomm_ccu_variable_alloc(CcuInsHandle ins_handle, uint8_t die
  * @param_[out] event_handle Reservation handle; set to zero on failure.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
-extern CcuResult asccomm_ccu_event_alloc(CcuInsHandle ins_handle, uint8_t die_id, uint32_t num_,
+extern CcuResult asccomm_ccu_event_alloc(CcuInstanceHandle ins_handle, uint8_t die_id, uint32_t num_,
     ccu_event_handle *event_handle);
 
 /**

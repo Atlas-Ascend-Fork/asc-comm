@@ -8,6 +8,12 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------------------------------------
 
+# 同一构建树内可能被多个上层各自 add_subdirectory 本目录（如 hcomm 的 asccomm-ccu.cmake
+# 与 asc-devkit 的构建脚本），target 只允许创建一次：已存在则直接复用，跳过重复定义。
+if(TARGET asccomm_ccu_dataplane)
+    return()
+endif()
+
 set(ASCCOMM_CCU_ROOT ${CMAKE_CURRENT_LIST_DIR})
 get_filename_component(ASCCOMM_ROOT ${ASCCOMM_CCU_ROOT}/../.. ABSOLUTE)
 

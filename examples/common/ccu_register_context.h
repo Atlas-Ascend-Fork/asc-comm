@@ -15,11 +15,11 @@
 #include <hcomm/hcomm_ccu_res.h>
 
 extern "C" HcclResult HcclCommQueryCcuRegisterContext(
-    HcclComm comm, HcommCcuRegisterContextHandle* context);
+    HcclComm comm, HcommCcuInstanceHandle* context);
 
 namespace asccomm_examples {
 
-inline HcclResult QueryCcuRegisterContext(HcclComm comm, HcommCcuRegisterContextHandle &context)
+inline HcclResult QueryCcuRegisterContext(HcclComm comm, HcommCcuInstanceHandle &context)
 {
     context = nullptr;
     return HcclCommQueryCcuRegisterContext(comm, &context);
