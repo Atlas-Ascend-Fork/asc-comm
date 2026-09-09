@@ -171,5 +171,69 @@ TEST(AscCcuResSnapshotTest, SupportsTwoDies)
     EXPECT_EQ(pack.get_ccu_res_repo().loop_engine[1][0].startId, 20U);
 }
 
+TEST(AscCcuResSnapshotTest, LoadsAllRepositoryResourceTypes)
+{
+    ContextStorage storage;
+    // 覆盖 get_ranges 的全部资源类型分支
+    storage.instance = {
+        {HCOMM_CCU_BATCH_RES_LOOP, 0, 10, 4},        {HCOMM_CCU_BATCH_RES_BLOCK_LOOP, 0, 11, 4},
+        {HCOMM_CCU_BATCH_RES_MS, 0, 12, 4},           {HCOMM_CCU_BATCH_RES_BLOCK_MS, 0, 13, 4},
+        {HCOMM_CCU_BATCH_RES_CKE, 0, 14, 4},          {HCOMM_CCU_BATCH_RES_BLOCK_CKE, 0, 15, 4},
+        {HCOMM_CCU_BATCH_RES_XN, 0, 16, 4},           {HCOMM_CCU_BATCH_RES_BLOCK_XN, 0, 17, 4},
+        {HCOMM_CCU_BATCH_RES_GSA, 0, 18, 4},          {HCOMM_CCU_BATCH_RES_BLOCK_GSA, 0, 19, 4},
+        {HCOMM_CCU_BATCH_RES_MISSION, 0, 20, 4},      {HCOMM_CCU_RES_INSTRUCTION, 0, 21, 4},
+    };
+    storage.RefreshViews();
+
+    asc::asc_ccu_res_snapshot pack;
+    ASSERT_EQ(pack.load(storage.context_), CcuResult::CCU_SUCCESS);
+    const asc_ccu_res_repository &repo = pack.get_ccu_res_repo();
+    EXPECT_EQ(repo.loop_engine[0].size(), 1U);
+    EXPECT_EQ(repo.block_loop_engine[0].size(), 1U);
+    EXPECT_EQ(repo.ms[0].size(), 1U);
+    EXPECT_EQ(repo.block_ms[0].size(), 1U);
+    EXPECT_EQ(repo.cke[0].size(), 1U);
+    EXPECT_EQ(repo.block_cke[0].size(), 1U);
+    EXPECT_EQ(repo.xn[0].size(), 1U);
+    EXPECT_EQ(repo.block_xn[0].size(), 1U);
+    EXPECT_EQ(repo.gsa[0].size(), 1U);
+    EXPECT_EQ(repo.block_gsa[0].size(), 1U);
+    EXPECT_EQ(repo.mission[0].size(), 1U);
+    EXPECT_EQ(repo.instruction[0].size(), 1U);
+}
+
+TEST(AscCcuResSnapshotTest, RejectsUnknownResourceType)
+{
+    ContextStorage storage;
+    storage.instance = {{0xFFFF, 0, 10, 4}}; // 未定义的资源类型
+    storage.RefreshViews();
+
+    asc::asc_ccu_res_snapshot pack;
+    EXPECT_EQ(pack.load(storage.context_), CcuResult::CCU_E_PARA);
+}
+
+TEST(AscCcuResSnapshotTest, ResetWithoutLoadReturnsUnavail)
+{
+    asc::asc_ccu_res_snapshot pack;
+    EXPECT_EQ(pack.reset(), CcuResult::CCU_E_UNAVAIL);
+}
+
+TEST(AscCcuResSnapshotTest, GettersExposeSnapshotFields)
+{
+    ContextStorage storage;
+    asc::asc_ccu_res_snapshot pack;
+    ASSERT_EQ(pack.load(storage.context_), CcuResult::CCU_SUCCESS);
+
+    EXPECT_EQ(pack.get_generation(), storage.context_.generation);
+    EXPECT_EQ(pack.get_device_logic_id(), storage.context_.deviceLogicId);
+    EXPECT_EQ(pack.get_ccu_version(), storage.context_.ccuVersion);
+    EXPECT_EQ(pack.get_valid_die_mask(), storage.context_.validDieMask);
+    EXPECT_NE(pack.get_die_metadata(0), nullptr);
+    EXPECT_EQ(pack.get_die_metadata(1), nullptr); // validDieMask=1, die1 无效
+    EXPECT_EQ(pack.get_die_metadata(HCOMM_CCU_MAX_DIE_NUM), nullptr); // 越界
+    // control_ops 快照与原 POD 一致
+    EXPECT_EQ(pack.get_control_ops().header.magicWord, storage.context_.controlOps.header.magicWord);
+}
+
 } // namespace
 } // namespace asc

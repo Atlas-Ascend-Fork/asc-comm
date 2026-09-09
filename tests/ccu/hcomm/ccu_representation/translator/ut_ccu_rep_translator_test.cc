@@ -72,8 +72,8 @@ TEST_F(CcuRepTranslatorTest, GetInstrNum_V2_Is13)
 
 TEST_F(CcuRepTranslatorTest, GetRes_PopulatesAllResourceTypes)
 {
-    // 单测进程内通过; 全量运行时与前序用例存在静态状态干扰(疑似仓内既有 ODR 问题), 暂跳过
-    GTEST_SKIP() << "ODR interference under full-suite run";
+    // 历史 GTEST_SKIP 原因（全量运行静态状态干扰）已定位为桩库与 UT 目标
+    // CXX11 ABI 不一致（见 tests/ccu/stub/CMakeLists.txt 注释），修复后恢复启用。
     ccu_rep_translator translator(refMgr, dep);
     ccu_rep_resource res;
     translator.get_res(res);

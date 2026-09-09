@@ -1141,6 +1141,149 @@ TEST_F(CcuRepMulTest, Translate_A6SubType_V1GeneratorThrows)
     EXPECT_ANY_THROW(rep.translate(nullptr, instrPtr, instrId, dep));
 }
 
+// ==================== V2 imm 变体 describe 覆盖 ====================
+
+TEST_F(CcuRepAddTest, Describe_SelfAddImmedVariable)
+{
+    variable var_a_;
+    var_a_.reset(7);
+    ccu_rep_add rep(&insGen, var_a_, uint16_t(10));
+    std::string desc = rep.describe();
+    EXPECT_NE(desc.find("Variable[7]"), std::string::npos);
+    EXPECT_NE(desc.find("Immed[10]"), std::string::npos);
+}
+
+TEST_F(CcuRepAddTest, Describe_VarPlusImmedToVar)
+{
+    variable var_c_;
+    variable var_a_;
+    var_c_.reset(1);
+    var_a_.reset(2);
+    ccu_rep_add rep(&insGen, var_c_, var_a_, uint16_t(3));
+    std::string desc = rep.describe();
+    EXPECT_NE(desc.find("Variable[1]"), std::string::npos);
+    EXPECT_NE(desc.find("Variable[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Immed[3]"), std::string::npos);
+}
+
+TEST_F(CcuRepAddTest, Describe_AddrPlusImmedToAddr)
+{
+    address addr_c_;
+    address addr_a_;
+    addr_c_.reset(1);
+    addr_a_.reset(2);
+    ccu_rep_add rep(&insGen, addr_c_, addr_a_, uint16_t(3));
+    std::string desc = rep.describe();
+    EXPECT_NE(desc.find("Address[1]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Immed[3]"), std::string::npos);
+}
+
+TEST_F(CcuRepAddTest, Describe_SelfAddImmedAddress)
+{
+    address addr_a_;
+    addr_a_.reset(5);
+    ccu_rep_add rep(&insGen, addr_a_, uint16_t(9));
+    std::string desc = rep.describe();
+    EXPECT_NE(desc.find("Address[5]"), std::string::npos);
+    EXPECT_NE(desc.find("Immed[9]"), std::string::npos);
+}
+
+TEST_F(CcuRepAddTest, Describe_VarPlusImmedToAddr)
+{
+    address addr_c_;
+    variable var_a_;
+    addr_c_.reset(1);
+    var_a_.reset(2);
+    ccu_rep_add rep(&insGen, addr_c_, var_a_, uint16_t(3));
+    std::string desc = rep.describe();
+    EXPECT_NE(desc.find("Address[1]"), std::string::npos);
+    EXPECT_NE(desc.find("varA[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Immed[3]"), std::string::npos);
+}
+
+TEST_F(CcuRepAddTest, Describe_AddrPlusImmedToVar)
+{
+    variable var_c_;
+    address addr_a_;
+    var_c_.reset(1);
+    addr_a_.reset(2);
+    ccu_rep_add rep(&insGen, var_c_, addr_a_, uint16_t(3));
+    std::string desc = rep.describe();
+    EXPECT_NE(desc.find("Variable[1]"), std::string::npos);
+    EXPECT_NE(desc.find("Address[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Immed[3]"), std::string::npos);
+}
+
+TEST_F(CcuRepSubTest, Describe_AddrMinusImmedToVar)
+{
+    variable var_c_;
+    address addr_a_;
+    var_c_.reset(1);
+    addr_a_.reset(2);
+    ccu_rep_sub rep(&insGen, var_c_, addr_a_, uint16_t(3));
+    std::string desc = rep.describe();
+    EXPECT_NE(desc.find("Variable[1]"), std::string::npos);
+    EXPECT_NE(desc.find("address[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Immed[3]"), std::string::npos);
+}
+
+TEST_F(CcuRepSubTest, Getters_AddrFields)
+{
+    address addr_c_;
+    address addr_a_;
+    addr_c_.reset(1);
+    addr_a_.reset(11);
+    variable var_b_;
+    var_b_.reset(22);
+    // (addr_c, addr_a, var_b): Address[1] = Address[11] - Variable[22]
+    ccu_rep_sub rep(&insGen, addr_c_, addr_a_, var_b_);
+    EXPECT_EQ(rep.get_addr_a().id(), 11u);
+    EXPECT_EQ(rep.get_addr_c().id(), 1u);
+    EXPECT_EQ(rep.get_var_b().id(), 22u);
+}
+
+TEST_F(CcuRepMulTest, Describe_AddrMulImmedToVar)
+{
+    variable var_c_;
+    address addr_a_;
+    var_c_.reset(1);
+    addr_a_.reset(2);
+    ccu_rep_mul rep(&insGen, var_c_, addr_a_, uint16_t(3));
+    std::string desc = rep.describe();
+    EXPECT_NE(desc.find("Variable[1]"), std::string::npos);
+    EXPECT_NE(desc.find("address[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Immed[3]"), std::string::npos);
+}
+
+TEST_F(CcuRepAddTest, LogicAndShiftOperatorCheckSpecializations)
+{
+    // 触发 ccu_logic_operator / ccu_arithmetic_operator 各模板特化的 check():
+    // var&addr, addr&var, addr*addr, addr*var, addr*imm16, ~var
+    ccu_rep_context context_;
+    variable var_(&context_);
+    variable var_b_(&context_);
+    address addr_;
+
+    EXPECT_NO_THROW((void)(var_ & addr_));
+    EXPECT_NO_THROW((void)(addr_ & var_));
+    EXPECT_NO_THROW((void)(addr_ * addr_));
+    EXPECT_NO_THROW((void)(addr_ * var_));
+    EXPECT_NO_THROW((void)(addr_ * uint16_t(5)));
+    EXPECT_NO_THROW((void)(~var_));
+}
+
+TEST_F(CcuRepAddTest, VarMulVarAssignAppendsMulRep)
+{
+    // 覆盖 variable::operator=(ccu_arithmetic_operator<variable, variable>) 的 multiplication 分支
+    ccu_rep_context context_;
+    variable var_(&context_);
+    variable lhs_(&context_);
+    variable rhs_(&context_);
+
+    EXPECT_NO_THROW(var_ = lhs_ * rhs_);
+}
+
 } // namespace
 } // namespace ccu_rep
 } // namespace asc
