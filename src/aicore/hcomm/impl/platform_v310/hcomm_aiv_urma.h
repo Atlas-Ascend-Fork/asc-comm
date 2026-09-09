@@ -756,7 +756,8 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqImpl(
         }
         HCOMM_KERNEL_LOG(
             KERNEL_INFO, "Hcomm URMA CQE cqVa=0x%llx cursor=%u entryIdx=%u status=%u substatus=%u\n",
-            static_cast<unsigned long long>(cqBaseAddr), curTail, cqeUb->entryIdx, cqeUb->status, cqeUb->substatus);
+            static_cast<unsigned long long>(cqBaseAddr), curTail, static_cast<uint32_t>(cqeUb->entryIdx),
+            static_cast<uint32_t>(cqeUb->status), static_cast<uint32_t>(cqeUb->substatus));
         curTail++;
         sqTail = cqeUb->entryIdx;
     }
