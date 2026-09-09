@@ -140,6 +140,7 @@ add_library(asccomm_ccu_obj OBJECT
 )
 target_link_libraries(asccomm_ccu_obj PRIVATE
     asccomm_ccu_headers
+    ${CMAKE_DL_LIBS}
     $<$<TARGET_EXISTS:intf_pub>:intf_pub>
     $<$<TARGET_EXISTS:error_manager_headers>:error_manager_headers>
     $<$<TARGET_EXISTS:acl_rt_headers>:acl_rt_headers>
@@ -184,7 +185,7 @@ set_target_properties(asccomm_ccu PROPERTIES
     OUTPUT_NAME asccomm_ccu
     LIBRARY_OUTPUT_DIRECTORY ${ASCCOMM_LIBRARY_OUTPUT_DIRECTORY}
 )
-target_link_libraries(asccomm_ccu PRIVATE asccomm_ccu_headers)
+target_link_libraries(asccomm_ccu PRIVATE asccomm_ccu_headers ${CMAKE_DL_LIBS})
 
 if(NOT INSTALL_LIBRARY_DIR)
     set(INSTALL_LIBRARY_DIR lib64)

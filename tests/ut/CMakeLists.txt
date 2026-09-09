@@ -274,6 +274,7 @@ target_compile_options(asccomm_ut_ccu_host_launch PRIVATE
 target_link_libraries(asccomm_ut_ccu_host_launch PRIVATE
     intf_llt_pub_basic
     asccomm_ccu_host_launch
+    ${CMAKE_DL_LIBS}
 )
 
 run_llt_test(
