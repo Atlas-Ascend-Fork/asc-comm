@@ -37,7 +37,7 @@ __aicore__ inline int32_t WriteNbi(
 | `batchHandle` | Input/Output | Single-channel batch handle created by `MakeBatchHandle`, or a BatchHandle reference returned by `GetHandleRef`. |
 | `dst` | Output | Absolute remote destination GM address. |
 | `src` | Input | Absolute local source GM address. |
-| `len` | Input | Write length in bytes. |
+| `len` | Input | Write length in bytes. Must be less than 256 MB (256 * 1024 * 1024 bytes). |
 
 ## Template Parameters
 

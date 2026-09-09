@@ -49,7 +49,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的单通道批量句柄，或`GetHandleRef`返回的BatchHandle引用。 |
 | `dst` | 输出 | 远端目的GM绝对地址。 |
 | `src` | 输入 | 本端源GM绝对地址。 |
-| `len` | 输入 | 写入长度，单位为字节。 |
+| `len` | 输入 | 写入长度，单位为字节。必须小于 256 MB（256 * 1024 * 1024 字节）。 |
 | `notifyAddr` | 输入 | 远端通知GM绝对地址。批量接口中，该地址必须与`dst`属于同一远端注册内存。 |
 | `notifyVal` | 输入 | 远端通知值。 |
 
