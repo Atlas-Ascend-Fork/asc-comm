@@ -74,6 +74,6 @@ __aicore__ inline int32_t WriteNbi(
 
 ## Related Sample
 
-[hcomm_write_read_nbi](../../../../../examples/aicore/hcomm/hcomm_write_read_nbi/README_en.md) demonstrates the ordinary AIV direct-driven URMA read/write workflow. [hcomm_batch_write](../../../../../examples/aicore/hcomm/hcomm_batch_write/README_en.md) demonstrates shared-Jetty batch writes. See the [Hcomm Usage Guide](../../../guide/hcomm_usage.md) for the basic BatchHandle workflow.
+[hcomm_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md) demonstrates the ordinary AIV direct-driven URMA read/write workflow. [hcomm_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_batch_write/README_en.md) demonstrates shared-Jetty batch writes. See the [Hcomm Usage Guide](../../../guide/hcomm_usage.md) for the basic BatchHandle workflow.
 
 See [GetHandleRef](./GetHandleRef.md) for the multi-channel interface.
