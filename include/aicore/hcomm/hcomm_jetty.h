@@ -658,8 +658,7 @@ public:
         // The SQ is written with write-through stores. Keep the fence before the DWQE so the
         // device cannot observe the publish window before the complete SQ batch is visible.
         asc_threadfence();
-        auto* packed_head_addr = PackedHeadAddr();
-        asc_atomic_add(reinterpret_cast<__gm__ uint64_t*>(packed_head_addr), kCompletionDelta);
+        asc_atomic_add(reinterpret_cast<__ubuf__ uint32_t*>(&GetInfo()->packedHead) + 1, 1U);
         PublishHead();
         auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(DoorbellAddr() - kDwqeDbOffset);
         auto* dwqe_words = reinterpret_cast<__gm__ ulonglong2*>(dwqe_addr);
@@ -708,14 +707,9 @@ private:
     static constexpr uint32_t kInvalidHead = 0xFFFFFFFFU;
     static constexpr uint32_t kDwqeDbOffset = 0x80U;
 
-    __simt_callee__ __forceinline__ __gm__ uint64_t* PackedHeadAddr() const
-    {
-        return reinterpret_cast<__gm__ uint64_t*>(SqHeadAddr());
-    }
-
     __simt_callee__ __forceinline__ uint64_t ReadPackedHead() const
     {
-        return asc_ldcg(PackedHeadAddr());
+        return GetInfo()->packedHead;
     }
 
     template <bool kImmediate = false>
@@ -1155,16 +1149,16 @@ private:
         static constexpr uint32_t kMaxReservationRetries = 1024U;
         const auto tail_addr = reinterpret_cast<__gm__ uint32_t*>(SqTailAddr());
         const uint32_t sqDepth = SqDepth();
-        auto* gm_head_addr = reinterpret_cast<__gm__ uint32_t*>(PackedHeadAddr());
+        auto* ub_head_addr = reinterpret_cast<__ubuf__ uint32_t*>(&GetInfo()->packedHead);
         for (uint32_t retry = 0; retry < kMaxReservationRetries; ++retry) {
-            const uint32_t current_head = *gm_head_addr;
+            const uint32_t current_head = *ub_head_addr;
             const uint32_t used_wqebbs = current_head - asc_ldcg(tail_addr);
             if (used_wqebbs > sqDepth || num_wqebbs > sqDepth - used_wqebbs) {
                 return kInvalidHead;
             }
-            if (asc_atomic_cas(gm_head_addr, current_head, current_head + num_wqebbs) == current_head) {
+            if (asc_atomic_cas(ub_head_addr, current_head, current_head + num_wqebbs) == current_head) {
                 if (count_completion) {
-                    asc_atomic_add(reinterpret_cast<__gm__ uint64_t*>(PackedHeadAddr()), 1ULL << 32U);
+                    asc_atomic_add(reinterpret_cast<__ubuf__ uint32_t*>(&GetInfo()->packedHead) + 1, 1U);
                 }
                 return current_head;
             }
