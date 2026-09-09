@@ -605,7 +605,7 @@ public:
     __simt_callee__ __forceinline__ void Commit()
     {
         constexpr uint64_t kCompletionDelta = 1ULL << 32U;
-        const uint64_t packedHead = GetInfo()->packedHead;
+        const uint64_t packedHead = ReadPackedHead();
         const uint32_t new_head = static_cast<uint32_t>(packedHead);
         const uint32_t batch_wqebbs = new_head - batch_begin_head;
         if (batch_wqebbs == 0U) {
@@ -645,7 +645,8 @@ public:
         // The SQ is written with write-through stores. Keep the fence before the DWQE so the
         // device cannot observe the publish window before the complete SQ batch is visible.
         asc_threadfence();
-        GetInfo()->packedHead += kCompletionDelta;
+        auto* packed_head_addr = PackedHeadAddr();
+        asc_atomic_add(reinterpret_cast<__gm__ uint64_t*>(packed_head_addr), kCompletionDelta);
         PublishHead();
         auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(DoorbellAddr() - kDwqeDbOffset);
         auto* dwqe_words = reinterpret_cast<__gm__ ulonglong2*>(dwqe_addr);
@@ -676,7 +677,7 @@ public:
     template <int64_t kNumTimeoutCycles>
     __simt_callee__ __forceinline__ void Drain() const
     {
-        const uint64_t packedHead = GetInfo()->packedHead;
+        const uint64_t packedHead = ReadPackedHead();
         PollCq<kNumTimeoutCycles>(static_cast<uint32_t>(packedHead >> 32U));
     }
 
@@ -1131,16 +1132,16 @@ private:
         static constexpr uint32_t kMaxReservationRetries = 1024U;
         const auto tail_addr = reinterpret_cast<__gm__ uint32_t*>(SqTailAddr());
         const uint32_t sqDepth = SqDepth();
-        auto* ub_head_addr = reinterpret_cast<__ubuf__ uint32_t*>(&GetInfo()->packedHead);
+        auto* gm_head_addr = reinterpret_cast<__gm__ uint32_t*>(PackedHeadAddr());
         for (uint32_t retry = 0; retry < kMaxReservationRetries; ++retry) {
-            const uint32_t current_head = *ub_head_addr;
+            const uint32_t current_head = *gm_head_addr;
             const uint32_t used_wqebbs = current_head - asc_ldcg(tail_addr);
             if (used_wqebbs > sqDepth || num_wqebbs > sqDepth - used_wqebbs) {
                 return kInvalidHead;
             }
-            if (asc_atomic_cas(ub_head_addr, current_head, current_head + num_wqebbs) == current_head) {
+            if (asc_atomic_cas(gm_head_addr, current_head, current_head + num_wqebbs) == current_head) {
                 if (count_completion) {
-                    GetInfo()->packedHead += 1ULL << 32U;
+                    asc_atomic_add(reinterpret_cast<__gm__ uint64_t*>(PackedHeadAddr()), 1ULL << 32U);
                 }
                 return current_head;
             }
@@ -1150,7 +1151,7 @@ private:
 
     __simt_callee__ __forceinline__ void PublishHead() const
     {
-        asc_stwt(reinterpret_cast<__gm__ uint64_t*>(SqHeadAddr()), GetInfo()->packedHead);
+        asc_stwt(reinterpret_cast<__gm__ uint64_t*>(SqHeadAddr()), ReadPackedHead());
     }
 
     template <int64_t kNumTimeoutCycles>
