@@ -625,6 +625,17 @@ public:
     {
         const uint64_t packed_head = ReadPackedHead();
         const uint32_t new_head = static_cast<uint32_t>(packed_head);
+        const uint32_t sq_depth = SqDepth();
+        HCOMM_JETTY_CHECK_OR_RETURN(new_head != batch_begin_head && last_write_wqebbs >= 2U &&
+                                    last_write_wqebbs <= kNumWQEBBsPerWrite);
+        const uint32_t last_write_head = new_head - last_write_wqebbs;
+        auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(SqBaseAddr());
+        const uint32_t sq_idx = last_write_head & (sq_depth - 1U);
+        const uint64_t owner_bit = static_cast<uint64_t>((last_write_head & sq_depth) == 0U) << 31U;
+        const uint64_t final_header = kWriteSQEHeaderTemplate | owner_bit |
+                                      static_cast<uint64_t>(new_head & 0xFFFFU) | kWriteSQEFinalFlags;
+        asc_threadfence();
+        asc_stwt(sq_words + static_cast<uint64_t>(sq_idx) * kNumWQEBBLanes, final_header);
         const uint64_t published = packed_head + (1ULL << 32U);
         GetInfo()->packedHead = published;
         PublishHead();
