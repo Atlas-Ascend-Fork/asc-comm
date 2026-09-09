@@ -1,6 +1,6 @@
-# asc-comm样例
+﻿# asc-comm 样例
 
-本目录提供asc-comm API的使用样例。
+本目录提供 asc-comm API 的使用样例。
 
 ## 样例列表
 
