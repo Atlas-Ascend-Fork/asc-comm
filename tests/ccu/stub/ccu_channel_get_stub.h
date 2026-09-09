@@ -11,11 +11,12 @@
 #ifndef ASCCOMM_CCU_CHANNEL_GET_STUB_H
 #define ASCCOMM_CCU_CHANNEL_GET_STUB_H
 
-#include "hccl/hccl_types.h"
-#include "hcomm/hcomm_ccu_channel_api.h"
+#include "hcomm/hcomm_ccu_channel.h"
+#include "hcomm/hcomm_types.h"
 
 namespace hcomm {
 
+// 定档 ascCustom 槽 0（getChannelEntity）的 stub：预置快照 + 可注入的失败返回
 void SetHcommCcuChannelGetPodStub(const HcommCcuChannelPod &channelPod);
 void SetHcommCcuChannelGetPodStubResult(HcommResult result);
 void ResetHcommCcuChannelGetPodStub();

@@ -23,13 +23,13 @@ extern "C" {
 #endif // __cplusplus
 
 extern CcuResult asccomm_ccu_kernel_register_start(
-    CcuInsHandle ins_handle, HcommCcuRegisterContextHandle context_);
+    CcuInstanceHandle ins_handle, HcommCcuInstanceHandle context_);
 
 extern CcuResult asccomm_ccu_kernel_register(
-    CcuInsHandle ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func, const void** kernel_args,
+    CcuInstanceHandle ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func, const void** kernel_args,
     uint32_t arg_num, ccu_kernel_handle* kernel_handle);
 
-extern CcuResult asccomm_ccu_kernel_register_end(CcuInsHandle ins_handle);
+extern CcuResult asccomm_ccu_kernel_register_end(CcuInstanceHandle ins_handle);
 
 extern CcuResult asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle, uint32_t* task_args_num);
 
