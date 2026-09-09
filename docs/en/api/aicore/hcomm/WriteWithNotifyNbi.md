@@ -78,11 +78,13 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - The `ChannelHandle` must identify a `COMM_PROTOCOL_UBC_CTP` channel.
 - The `COMM_PROTOCOL_ROCE` path does not support this interface and returns `-1`.
 - An ordinary write-with-notify task occupies two WQEBBs in the URMA SQ.
+- `len` must be less than 256 MB (`256 * 1024 * 1024` bytes). A write length greater than 256 MB may cause a completion queue timeout (CQ timeout).
 
 ### Batch Interface
 
 - Currently supported only on the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 - Each batch write-with-notify task occupies two 64-byte WQEBBs. It is prepared only in UB and does not copy data to the GM SQ or ring the doorbell.
+- `len` must be less than 256 MB (`256 * 1024 * 1024` bytes). A write length greater than 256 MB may cause a completion queue timeout (CQ timeout).
 - `config.inlineEn` must be `0`, and `config.cqe` can be `0` or `1`. Different read, write, and write-with-notify tasks in the same batch may use different `cqe` settings.
 - For a batch handle, the data and notification addresses must belong to its selected remote registered memory.
 - In both modes, `notifyAddr` reuses the token selected for the data write and is not looked up or validated separately. The caller must ensure that the `dst` range and `notifyAddr` belong to the same registered memory.

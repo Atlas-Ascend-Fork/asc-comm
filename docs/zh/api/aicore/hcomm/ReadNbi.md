@@ -62,12 +62,14 @@ __aicore__ inline int32_t ReadNbi(
 
 - 调用前通信通道需已完成初始化，并通过`Init`提供临时工作区。
 - `COMM_PROTOCOL_UBC_CTP`路径下，`src`需要落在通道注册的远端buffer范围内，`dst`为本端目标地址。
+- `len`必须小于256 MB（即`256 * 1024 * 1024`字节）。当读取长度大于256 MB时，通信完成队列（CQ）可能发生超时（CQ timeout）。
 - 若`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续`PostSend`将因SQ溢出而失败。
 - 批量提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应产生CQE（即中间任务的`config.cqe`设为0，最后一次设为1）。
 
 ### 批量接口
 
 - 当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
+- `len`必须小于256 MB（即`256 * 1024 * 1024`字节）。当读取长度大于256 MB时，通信完成队列（CQ）可能发生超时（CQ timeout）。
 - 每个批量读任务占用1个64字节WQEBB，只在UB中准备，不复制到GM SQ，也不敲doorbell。
 - `config.inlineEn`必须为`0`，`config.cqe`支持`0`或`1`。同一批次的不同读、写、写通知任务可以使用不同的`cqe`配置。
 - 对批量句柄，`[src, src + len)`必须属于其选中的远端注册内存。

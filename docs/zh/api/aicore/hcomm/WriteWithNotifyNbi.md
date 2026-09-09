@@ -78,6 +78,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - 传入的`ChannelHandle`需要对应`COMM_PROTOCOL_UBC_CTP`通道。
 - `COMM_PROTOCOL_ROCE`路径不支持该接口，调用会返回`-1`。
 - 单个普通写通知任务在URMA SQ中占用2个WQEBB。
+- `len`必须小于256 MB（即`256 * 1024 * 1024`字节）。当写入长度大于256 MB时，通信完成队列（CQ）可能发生超时（CQ timeout）。
 - 若`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续`PostSend`将因SQ溢出而失败。
 - 批量提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应产生CQE（即中间任务的`config.cqe`设为0，最后一次设为1）。
 
@@ -85,6 +86,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 
 - 当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 - 每个批量写通知任务占用2个64字节WQEBB，只在UB中准备，不复制到GM SQ，也不敲doorbell。
+- `len`必须小于256 MB（即`256 * 1024 * 1024`字节）。当写入长度大于256 MB时，通信完成队列（CQ）可能发生超时（CQ timeout）。
 - `config.inlineEn`必须为`0`，`config.cqe`支持`0`或`1`。同一批次的不同读、写、写通知任务可以使用不同的`cqe`配置。
 - 对批量句柄，数据地址和通知地址必须属于其选中的远端注册内存。
 - 两种模式下，`notifyAddr`都复用数据写操作的token，不单独查询或校验通知地址。调用方必须保证`dst`访问区间和`notifyAddr`属于同一注册内存。

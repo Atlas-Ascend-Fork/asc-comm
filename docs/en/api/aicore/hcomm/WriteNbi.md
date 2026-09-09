@@ -62,10 +62,12 @@ __aicore__ inline int32_t WriteNbi(
 
 - The communication channel must be initialized, and `Init` must provide temporary workspace before this interface is called.
 - On the `COMM_PROTOCOL_UBC_CTP` path, `dst` must fall within a remote buffer registered for the channel, and `src` is a local source address.
+- `len` must be less than 256 MB (`256 * 1024 * 1024` bytes). A write length greater than 256 MB may cause a completion queue timeout (CQ timeout).
 
 ### Batch Interface
 
 - Currently supported only on the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
+- `len` must be less than 256 MB (`256 * 1024 * 1024` bytes). A write length greater than 256 MB may cause a completion queue timeout (CQ timeout).
 - Each batch write task occupies one 64-byte WQEBB. It is prepared only in UB and does not copy data to the GM SQ or ring the doorbell.
 - `config.inlineEn` must be `0`, and `config.cqe` can be `0` or `1`. Different read, write, and write-with-notify tasks in the same batch may use different `cqe` settings.
 - For a batch handle, `[dst, dst + len)` must belong to its selected remote registered memory.
