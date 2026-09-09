@@ -15,6 +15,9 @@ SQ 的路径。
 固定 2BB 的立即 `Put` 在一次调用内由同一份 WQE 数据双写 SQ 和 DWQE，不从 SQ 回读。
 `thread / warp / warp-pad / group` 验证该路径；`dispatch` 单独验证多 warp 的 `Write + Commit` 路径。
 
+`mixed` 使用 DeepEP 风格的 `__global__ __mix__` 入口：SIMT VF 只组织并完成 SQ，随后由 SIMD/AIV
+主体读取共享 SQ head 并通过普通 doorbell 发布。SIMD 不使用 DWQE。
+
 ## 编译
 
 ```bash
