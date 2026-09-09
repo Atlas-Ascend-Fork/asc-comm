@@ -390,9 +390,6 @@ public:
         static_assert(kNumSGEs <= kNumMaxSGEsPerWrite, "SIMT jetty SGE count exceeds the SQE layout");
         const int num_valid_sges = CountValidSges(sges);
         HCOMM_JETTY_CHECK_OR_RETURN(num_valid_sges > 0);
-        // This overload carries one concrete SGE. The template argument is the
-        // caller's maximum SGE capacity and must not inflate the reservation for
-        // a scalar SGE into a larger, mostly empty WQE.
         constexpr uint32_t kWriteWqebbs = NumWriteWqebbs<kNumSGEs>();
         const uint32_t current_head = ReserveWrite(kWriteWqebbs);
         HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
