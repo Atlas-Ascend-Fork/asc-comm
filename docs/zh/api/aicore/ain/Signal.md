@@ -1,4 +1,4 @@
-﻿# Signal
+# Signal
 
 ## 功能说明
 

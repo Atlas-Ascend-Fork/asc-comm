@@ -1,4 +1,4 @@
-# Hcomm使用说明
+# Hcomm通信接口使用说明
 
 ## 概述
 
@@ -8,44 +8,44 @@ Hcomm是asc-comm当前提供的AICore侧点对点通信接口。使用方通过`
 
 1. 包含头文件。
 
-```cpp
-#include "hcomm/hcomm.h"
-```
+   ```cpp
+   #include "hcomm/hcomm.h"
+   ```
 
 2. 创建Hcomm对象。
 
-```cpp
-AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-```
+   ```cpp
+   AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+   ```
 
 3. 调用`Init`初始化普通接口使用的临时工作区。
 
-```cpp
-int32_t ret = hcomm.Init(tmpBuf, tmpLen);
-```
+   ```cpp
+   int32_t ret = hcomm.Init(tmpBuf, tmpLen);
+   ```
 
 4. 提交通信任务。
 
-```cpp
-ret = hcomm.WriteNbi(channel, dst, src, len);
-ret = hcomm.ReadNbi(channel, dst, src, len);
-ret = hcomm.WriteWithNotifyNbi(channel, dst, src, len, notifyAddr, notifyVal);
-ret = hcomm.AtomicFAA<uint64_t>(channel, remoteCounter, fetchAddr, addVal);
-ret = hcomm.AtomicCAS<uint64_t>(channel, remoteValue, fetchAddr, compareVal, swapVal);
-```
+   ```cpp
+   ret = hcomm.WriteNbi(channel, dst, src, len);
+   ret = hcomm.ReadNbi(channel, dst, src, len);
+   ret = hcomm.WriteWithNotifyNbi(channel, dst, src, len, notifyAddr,    notifyVal);
+   ret = hcomm.AtomicFAA<uint64_t>(channel, remoteCounter, fetchAddr,    addVal);
+   ret = hcomm.AtomicCAS<uint64_t>(channel, remoteValue, fetchAddr,    compareVal, swapVal);
+   ```
 
 5. 如果提交任务时设置`commit = false`，显式调用`Commit`。
 
-```cpp
-ret = hcomm.WriteNbi<false>(channel, dst, src, len);
-ret = hcomm.Commit(channel);
-```
+   ```cpp
+   ret = hcomm.WriteNbi<false>(channel, dst, src, len);
+   ret = hcomm.Commit(channel);
+   ```
 
 6. 调用普通`Drain`等待任务完成。
 
-```cpp
-ret = hcomm.Drain(channel);
-```
+   ```cpp
+   ret = hcomm.Drain(channel);
+   ```
 
 ## 单通道BatchHandle接口流程
 
@@ -53,41 +53,41 @@ BatchHandle接口当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径，
 
 1. 准备UB缓冲区，并从`ChannelHandle`创建批量句柄。调用侧建议使用`auto`接收返回值。
 
-```cpp
-AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-AscendC::LocalTensor<uint8_t> batchBuffer = batchTBuf.Get<uint8_t>();
-auto batchHandle = hcomm.MakeBatchHandle(
-    channel, batchBuffer, batchBufferLen, remoteAddr, localAddr);
-```
+   ```cpp
+   AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+   AscendC::LocalTensor<uint8_t> batchBuffer = batchTBuf.Get<uint8_t>   ();
+   auto batchHandle = hcomm.MakeBatchHandle(
+       channel, batchBuffer, batchBufferLen, remoteAddr, localAddr);
+   ```
 
-`remoteAddr`非空时需要落在通道的远端已注册buffer中；为空时，接口选择远端注册表中的第0个buffer。这是唯一一次远端注册区查找：接口缓存选中buffer的`tokenId/tokenValue`，后续批量接口不再校验远端地址范围；`localAddr`在当前版本中为预留参数。
+   `remoteAddr`非空时需要落在通道的远端已注册buffer中；为空时，接口选择远端注册表中的第0个buffer。这是唯一一次远端注册区查找：接口缓存选中buffer的`tokenId/tokenValue`，后续批量接口不再校验远端地址范围；`localAddr`在当前版本中为预留参数。
 
 2. 在BatchHandle的UB缓冲区中准备WQE。读、写和写通知任务可以在同一批次中混合。
 
-```cpp
-int32_t ret = hcomm.WriteNbi(batchHandle, remoteWriteDst, localWriteSrc, writeLen);
-ret = hcomm.ReadNbi(batchHandle, localReadDst, remoteReadSrc, readLen);
-ret = hcomm.WriteWithNotifyNbi(
-    batchHandle, remoteNotifyDst, localNotifySrc, notifyLen, notifyAddr, notifyVal);
-```
+   ```cpp
+   int32_t ret = hcomm.WriteNbi(batchHandle, remoteWriteDst,    localWriteSrc, writeLen);
+   ret = hcomm.ReadNbi(batchHandle, localReadDst, remoteReadSrc,    readLen);
+   ret = hcomm.WriteWithNotifyNbi(
+       batchHandle, remoteNotifyDst, localNotifySrc, notifyLen,    notifyAddr, notifyVal);
+   ```
 
-这些调用只准备WQE，不复制到GM SQ，也不敲doorbell。调用方必须保证批量Write/WriteWithNotify的远端目的区间、批量Read的远端源区间以及`notifyAddr`，都属于创建句柄时缓存的`tokenId/tokenValue`所代表的注册内存。
+   这些调用只准备WQE，不复制到GM SQ，也不敲doorbell。调用方必须保证批量Write/WriteWithNotify的远端目的区间、批量Read的远端源区间以及`notifyAddr`，都属于创建句柄时缓存的`tokenId/tokenValue`所代表的注册内存。
 
 3. 调用`BatchCommit`复制并提交当前批次。该接口成功后始终敲SQ doorbell。
 
-```cpp
-ret = hcomm.BatchCommit(batchHandle);
-```
-
-提交成功后，BatchHandle和UB缓冲区可以继续准备下一个批次。可以执行多次`BatchCommit`，但调用方必须保证累计未完成任务不会覆盖SQ中尚未消费的WQE，且自上次批量`Drain`以来累计生成但尚未消费的CQE不能超过CQ容量。提交阶段不会自动轮询CQ。
+   ```cpp
+   ret = hcomm.BatchCommit(batchHandle);
+   ```
+   
+   提交成功后，BatchHandle和UB缓冲区可以继续准备下一个批次。可以执行多次   `BatchCommit`，但调用方必须保证累计未完成任务不会覆盖SQ中尚未消费的WQE，   且自上次批量`Drain`以来累计生成但尚未消费的CQE不能超过CQ容量。提交阶段不   会自动轮询CQ。
 
 4. 调用批量`Drain`等待已提交任务。
 
-```cpp
-ret = hcomm.Drain(batchHandle);
-```
-
-批量`Drain`复用BatchHandle WQE缓冲区的第一个64字节作为CQE临时空间，因此不需要`Init`。调用前BatchHandle中不能存在尚未`BatchCommit`的WQE。
+   ```cpp
+   ret = hcomm.Drain(batchHandle);
+   ```
+   
+   批量`Drain`复用BatchHandle WQE缓冲区的第一个64字节作为CQE临时空间，因此   不需要`Init`。调用前BatchHandle中不能存在尚未`BatchCommit`的WQE。
 
 ## 共享Jetty BatchHandle接口流程
 

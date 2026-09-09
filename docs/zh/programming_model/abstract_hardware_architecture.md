@@ -6,9 +6,7 @@
 
 NPU内部参与通信的硬件可以抽象为[**通信引擎**](#通信引擎)和[**存储单元**](#存储单元)。NPU间通信时，两端的通信引擎和存储单元通过互联网络协同完成数据传输，由此形成[**通信通路**](#通信通路)。当通信从两个NPU扩展到多个NPU时，还需要利用不同的通信连接和拓扑组织这些NPU，构成[**组网架构**](#组网架构)。[图1](#fig-communication-hardware)展示了NPU内部通信硬件如何协同完成数据传输，以及多个NPU如何通过组网实现互联。
 
-<a id="fig-communication-hardware"></a>
-
-**图 1** 通信抽象硬件架构图
+**图 1** 通信抽象硬件架构图<a id="fig-communication-hardware"></a>
 
 ![通信抽象硬件架构图](./figures/comm_hardware.png)
 
@@ -57,6 +55,7 @@ NPU内部参与通信的硬件可以归纳为通信引擎和存储单元：通�
 随着模型规模和计算规模扩大，参与通信的NPU数量随之增加，需要通过组网将点对点连接组织成更大规模的通信网络。[图1](#fig-communication-hardware)展示了组网从AI机柜到超节点的逐级扩展关系：超节点1中的AI机柜1展开了NPU、CPU、DPU和交换网络，其余AI机柜以相同结构接入上层交换网络；超节点N省略内部结构，按照与超节点1相同的方式扩展并建立超节点间连接。
 
 下面从通信连接和组网拓扑两个方面进行介绍：
+
 - 通信连接说明不同设备和组网层级使用何种链路与交换网络建立可达路径。
 - 组网拓扑说明这些连接如何组织，并决定通信两端是否具备直连链路、需要经过多少转发节点以及网络的扩展方式。
 
@@ -78,12 +77,9 @@ UB组网可采用的拓扑结构包括：Clos、nD-FullMesh和nD-Mesh。
 
 Clos是一种基于多级交换的拓扑。NPU或局部拓扑单元接入底层交换设备，底层交换设备再连接更高层交换设备，跨分支通信通过交换网络完成。
 
-<a id="fig-clos-topology"></a>
-
-**图 2** Clos拓扑
+**图 2** Clos拓扑<a id="fig-clos-topology"></a>
 
 ![Clos拓扑](./figures/clos_topology.png)
-
 
 #### nD-FullMesh
 
@@ -91,9 +87,7 @@ FullMesh即全互联拓扑，同一FullMesh内的任意两个NPU均直接连接�
 
 nD-FullMesh在FullMesh的基础上按多个逻辑维度扩展组网。1D-FullMesh由一组NPU两两直接连接构成；扩展到更高维度时，将低一维FullMesh复制为多个拓扑单元，并将不同单元中位置对应的NPU在新增维度上两两直接连接，逐级形成2D、3D直至nD-FullMesh。与将全部NPU组成一个单一FullMesh不同，nD-FullMesh在各维度内分别建立全互联关系，通过增加维度扩大组网规模。
 
-<a id="fig-nd-fullmesh-topology"></a>
-
-**图 3** nD-FullMesh拓扑
+**图 3** nD-FullMesh拓扑<a id="fig-nd-fullmesh-topology"></a>
 
 ![nD-FullMesh拓扑](./figures/nd_fullmesh_topology.png)
 
@@ -101,9 +95,7 @@ nD-FullMesh在FullMesh的基础上按多个逻辑维度扩展组网。1D-FullMes
 
 nD-Mesh将NPU按n个逻辑维度排列，每个NPU与各维度上的相邻NPU直接连接；非相邻NPU之间的数据沿一个或多个维度逐跳转发。
 
-<a id="fig-nd-mesh-topology"></a>
-
-**图 4** nD-Mesh拓扑
+**图 4** nD-Mesh拓扑<a id="fig-nd-mesh-topology"></a>
 
 ![nD-Mesh拓扑](./figures/nd_mesh_topology.png)
 
