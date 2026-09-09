@@ -357,8 +357,9 @@ public:
 
         constexpr uint32_t kWriteWqebbs = NumWriteWqebbs<kNumSGEs>();
         uint32_t current_head = kInvalidHead;
+        constexpr uint32_t kReservationWqebbs = kWriteWqebbs > 2U ? kWriteWqebbs + 2U : kWriteWqebbs;
         if (lane_idx == 0) {
-            current_head = ReserveWrite(kWriteWqebbs);
+            current_head = ReserveWrite(kReservationWqebbs);
         }
         current_head = asc_shfl(current_head, 0, kWarpSize);
         HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
@@ -369,14 +370,14 @@ public:
         const int num_write_words = kNumWriteHeaderLanes + num_valid_sges * 2;
         const int num_write_wqebbs = (num_write_words + kNumWQEBBLanes - 1) / kNumWQEBBLanes;
         if (lane_idx == 0) {
-            last_write_wqebbs = kWriteWqebbs;
+            last_write_wqebbs = kReservationWqebbs;
             last_write_payload_wqebbs = static_cast<uint32_t>(num_write_wqebbs);
         }
 
         const uint64_t sqe_word = BuildWriteSqeWord(
             peer, lane_idx, sq_wqebb_idx, owner_bit, dst, num_valid_sges, num_write_words,
             num_write_wqebbs, num_write_wqebbs, current_head, current_head, packed_sge_addr, packed_sge_len);
-        const int total_words = static_cast<int>(kWriteWqebbs) * kNumWQEBBLanes;
+        const int total_words = static_cast<int>(kReservationWqebbs) * kNumWQEBBLanes;
         const int pair_lane = lane_idx & ~1;
         const int pair_source_lane = pair_lane + 1 < total_words ? pair_lane + 1 : total_words - 1;
         const uint64_t second_word = asc_shfl(sqe_word, pair_source_lane, kWarpSize);
@@ -395,15 +396,16 @@ public:
         const int num_valid_sges = CountValidSges(sges);
         HCOMM_JETTY_CHECK_OR_RETURN(num_valid_sges > 0);
         constexpr uint32_t kWriteWqebbs = NumWriteWqebbs<kNumSGEs>();
-        const uint32_t current_head = ReserveWrite(kWriteWqebbs);
+        constexpr uint32_t kReservationWqebbs = kWriteWqebbs > 2U ? kWriteWqebbs + 2U : kWriteWqebbs;
+        const uint32_t current_head = ReserveWrite(kReservationWqebbs);
         HCOMM_JETTY_CHECK_OR_RETURN(current_head != kInvalidHead);
         const uint32_t sqDepth = SqDepth();
         auto* sq_words = reinterpret_cast<__gm__ uint64_t*>(SqBaseAddr());
         const int num_write_words = kNumWriteHeaderLanes + num_valid_sges * 2;
         const int num_write_wqebbs = (num_write_words + kNumWQEBBLanes - 1) / kNumWQEBBLanes;
-        last_write_wqebbs = kWriteWqebbs;
+        last_write_wqebbs = kReservationWqebbs;
         last_write_payload_wqebbs = static_cast<uint32_t>(num_write_wqebbs);
-        for (int lane_idx = 0; lane_idx < static_cast<int>(kWriteWqebbs) * kNumWQEBBLanes; ++lane_idx) {
+        for (int lane_idx = 0; lane_idx < static_cast<int>(kReservationWqebbs) * kNumWQEBBLanes; ++lane_idx) {
             const uint32_t wqebb_head = current_head + static_cast<uint32_t>(lane_idx / kNumWQEBBLanes);
             const uint32_t sq_wqebb_idx = wqebb_head & (sqDepth - 1U);
             const uint64_t owner_bit = static_cast<uint64_t>((wqebb_head & sqDepth) == 0) << 31;
@@ -695,7 +697,8 @@ public:
             const uint32_t first_word = pair * 2U;
             const uint32_t first_bb = first_word / kNumWQEBBLanes;
             const uint32_t word_in_bb = first_word % kNumWQEBBLanes;
-            const uint32_t source_idx = (last_write_head + first_bb) & (sqDepth - 1U);
+            const uint32_t source_base = last_write_wqebbs > 2U ? new_head - 2U : last_write_head;
+            const uint32_t source_idx = (source_base + first_bb) & (sqDepth - 1U);
             const auto source_words = sq_words + static_cast<uint64_t>(source_idx) * kNumWQEBBLanes + word_in_bb;
             // The SQ header was just changed to the final publication header. Read the
             // remaining words from SQ, but use the locally built header so a cached SQ load
