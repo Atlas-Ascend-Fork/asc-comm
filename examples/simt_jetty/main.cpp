@@ -376,10 +376,6 @@ int main(int argc, char* argv[])
             if (!iterationPass) {
                 std::cout << "[rank 1] simt_jetty mode " << mode << " iteration " << iteration << " FAIL"
                           << " checks=" << (mode == 0U || mode == 3U ? simt_jetty::kSlotCount : 2U) << std::endl;
-                for (uint32_t slot = 0; slot < simt_jetty::kSlotCount; ++slot) {
-                    std::cout << "  slot " << slot << ": actual=" << recvBuf[slot]
-                              << " expected=" << expected[slot] << std::endl;
-                }
             }
             if (!deviceTiming && iteration + 1U < checks) {
                 ACLCHECK(aclrtMemset(recvBuf, simt_jetty::kBufferBytes, 0, simt_jetty::kBufferBytes));
