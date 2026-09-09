@@ -153,12 +153,11 @@ CANN包分为CANN toolkit包和CANN ops包。
     > 安装说明
     > 当前[Hcomm AIV直驱URMA样例](../examples/hcomm_write_read_nbi/README.md)不依赖ops包；仅在后续使用依赖算子包的功能时按需安装。
 
-
 | 参数 | 说明 |
-| :--- | :--- |
-| `${cann_version}` | CANN包版本号 |
-| `${soc_name}` | NPU型号，如`910b` |
-| `${install_path}` | 安装路径，toolkit包和ops包需相同。默认：root用户`/usr/local/Ascend`，非root用户`$HOME/Ascend` |
+| :--- | :-------------------------------- |
+| `${cann_version}` | CANN包版本号。 |
+| `${soc_name}` | NPU型号，如`910b`。 |
+| `${install_path}` | 安装路径，toolkit包和ops包需相同。root用户默认路径：`/usr/local/Ascend`，非root用户默认路径：`$HOME/Ascend`。|
 
 ## ✅ 环境验证<a name="cann-verify"></a>
 

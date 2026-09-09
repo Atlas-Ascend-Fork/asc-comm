@@ -1,4 +1,4 @@
-﻿# FlushAsync
+# FlushAsync
 
 ## 功能说明
 

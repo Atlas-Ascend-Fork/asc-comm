@@ -1,6 +1,9 @@
 # Project Documentation
 
+English | [简体中文](./README.md)
+
 ## Directory Layout
+
 ```text
 docs/
 ├── zh/api/              # Chinese API reference documents
@@ -12,7 +15,6 @@ docs/
 └── quick_start_en.md       # Quick Start
 ```
 
-## Document Index
 | Document | Description |
 | --- | --- |
 | [Quick Start](./quick_start_en.md) | Environment setup, source compilation and UT verification for asc-comm. |

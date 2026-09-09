@@ -2,6 +2,8 @@
 
 # asc-comm
 
+简体中文 | [English](./README_en.md)
+
 <h4>面向昇腾AI处理器通信场景，提供Hcomm与Ain通信API、AIV直驱实现、样例和验证用例</h4>
 
 [![docs](https://img.shields.io/badge/docs-repo-blue.svg?style=flat)](./docs)
