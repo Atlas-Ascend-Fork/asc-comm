@@ -16,7 +16,11 @@
 #include "ccu_api_exception.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
 
-using namespace hcomm;
+#include "ccu/hcomm/ccu_utils.hpp"
+
+using CcuUtException = ::AscendC::ccu::detail::ccu_exception;
+
+using namespace asc;
 
 class AppendToContextTest : public testing::Test {
 protected:
@@ -47,5 +51,5 @@ TEST_F(AppendToContextTest, Ut_AppendToContext_When_NullContext_Expect_ShouldThr
     ccu_rep::ccu_ins_generater_v1 insGen;
     std::shared_ptr<ccu_rep::ccu_rep_base> rep = std::make_shared<ccu_rep::ccu_rep_block>(&insGen, "test_rep");
 
-    EXPECT_THROW(append_to_context(nullptr, rep), Hccl::CcuApiException);
+    EXPECT_THROW(append_to_context(nullptr, rep), CcuUtException);
 }

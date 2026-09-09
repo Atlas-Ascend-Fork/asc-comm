@@ -12,6 +12,7 @@ add_executable(hccl_utest_comms_ccu_channel
     ${ASCCOMM_ROOT}/tests/ccu/hcomm/main.cc
     ut_ccu_channel_test.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/channel/ccu_channel.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/common/ccu_device_context.cc
 )
 
 target_include_directories(hccl_utest_comms_ccu_channel PRIVATE

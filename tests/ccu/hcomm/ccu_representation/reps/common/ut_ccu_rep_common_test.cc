@@ -15,7 +15,7 @@
 #include <string>
 #include <memory>
 
-namespace hcomm {
+namespace asc {
 namespace ccu_rep {
 namespace {
 
@@ -165,7 +165,7 @@ TEST_F(CcuRepLoadTest, describe)
     var_.reset(1);
     ccu_rep_load load(&insGen, 0x1000, var_, 1);
     std::string desc = load.describe();
-    EXPECT_NE(desc.find("load"), std::string::npos);
+    EXPECT_NE(desc.find("Load("), std::string::npos);
 }
 
 TEST_F(CcuRepLoadTest, translate)
@@ -214,7 +214,7 @@ TEST_F(CcuRepLoadArgTest, describe)
     var_.reset(2);
     ccu_rep_load_arg loadArg(&insGen, var_, 1, 1);
     std::string desc = loadArg.describe();
-    EXPECT_NE(desc.find("variable[2]"), std::string::npos);
+    EXPECT_NE(desc.find("Variable[2]"), std::string::npos);
     EXPECT_NE(desc.find("Arg[1]"), std::string::npos);
 }
 
@@ -275,7 +275,7 @@ TEST_F(CcuRepLoadVarTest, describe)
     var_.reset(2);
     ccu_rep_load_var loadVar(&insGen, src_, var_);
     std::string desc = loadVar.describe();
-    EXPECT_NE(desc.find("load Var"), std::string::npos);
+    EXPECT_NE(desc.find("Load Var("), std::string::npos);
 }
 
 TEST_F(CcuRepLoadVarTest, translate)
@@ -319,7 +319,7 @@ TEST_F(CcuRepNopTest, describe)
 {
     ccu_rep_nop nop(&insGen);
     std::string desc = nop.describe();
-    EXPECT_NE(desc.find("nop"), std::string::npos);
+    EXPECT_NE(desc.find("Nop"), std::string::npos);
 }
 
 TEST_F(CcuRepNopTest, translate)
@@ -440,4 +440,4 @@ TEST_F(CcuRepStoreVarTest, translate)
 
 } // namespace
 } // namespace ccu_rep
-} // namespace hcomm
+} // namespace asc

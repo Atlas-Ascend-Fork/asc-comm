@@ -8,17 +8,19 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "hcomm/resource/representation/context_/ccu_rep_context_v1.h"
+#include "hcomm/resource/representation/context/ccu_rep_context_v1.h"
 #include "hcomm/resource/representation/reps/arithmetic/ccu_rep_assign_v1.h"
 #include "hcomm/resource/representation/reps/loop/ccu_rep_loopgroup_bundle_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_nop_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_v1.h"
+#include "hcomm/common/ccu_device_context.h"
 #include "ccu/hcomm/ccu_api_types.h"
+#include "ccu_channel_get_stub.h"
 #include <gtest/gtest.h>
 #include <memory>
 #include <string>
 
-namespace hcomm {
+namespace asc {
 namespace ccu_rep {
 namespace {
 
@@ -185,7 +187,7 @@ TEST_F(CcuRepContextTest, add_sqe_profiling)
     context_.set_die_id(3);
     context_.add_sqe_profiling("context_kernel");
     EXPECT_EQ(context_.get_profiling_info().size(), 1U);
-    EXPECT_EQ(context_.get_profiling_info()[0].type_, static_cast<uint8_t>(ccu_profilin_type::ccu_task_profiling));
+    EXPECT_EQ(context_.get_profiling_info()[0].type, static_cast<uint8_t>(ccu_profilin_type::ccu_task_profiling));
     EXPECT_EQ(context_.get_profiling_info()[0].die_id, 0U);
     EXPECT_EQ(context_.get_profiling_info()[0].name, "context_kernel");
 }
@@ -198,7 +200,7 @@ TEST_F(CcuRepContextTest, AddProfiling_Simple)
     int32_t result = context_.add_profiling(name, mask_);
     EXPECT_EQ(result, HCCL_SUCCESS);
     EXPECT_EQ(context_.get_profiling_info().size(), 1U);
-    EXPECT_EQ(context_.get_profiling_info()[0].type_, static_cast<uint8_t>(ccu_profilin_type::ccu_waitcke_profiling));
+    EXPECT_EQ(context_.get_profiling_info()[0].type, static_cast<uint8_t>(ccu_profilin_type::ccu_waitcke_profiling));
     EXPECT_EQ(context_.get_profiling_info()[0].name, name);
 }
 
@@ -249,6 +251,100 @@ TEST_F(CcuRepContextTest, MultipleBlocks_SetCurrentBlock)
     EXPECT_EQ(block2->get_reps().size(), 1U);
 }
 
+class CcuRepContextProfilingTest : public ::testing::Test {
+protected:
+    ccu_ins_generater_v1 insGen{};
+
+    void SetUp() override
+    {
+        HcommCcuChannelPod channelPod{};
+        channelPod.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
+        channelPod.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
+        channelPod.header.size = sizeof(HcommCcuChannelPod);
+        channelPod.localXnIds[0] = 0;
+        channelPod.remoteXnIds[0] = 0;
+        channelPod.localCkeIds[0] = 5;
+        channelPod.remoteCkeIds[0] = 6;
+        channelPod.rmtCcuBufSize = 1;
+        SetHcommCcuChannelQueryStub(channelPod);
+    }
+
+    void TearDown() override { ResetHcommCcuChannelQueryStub(); }
+};
+
+TEST_F(CcuRepContextProfilingTest, AddProfiling_WithChannel)
+{
+    ccu_rep_context context_;
+    ChannelHandle ch = 0;
+    int32_t ret = context_.add_profiling(ch, std::string("wait_cke"), 0, 0xF);
+    EXPECT_EQ(ret, HCCL_SUCCESS);
+    EXPECT_EQ(context_.get_profiling_info().size(), 1U);
+    EXPECT_EQ(context_.get_profiling_info()[0].type,
+              static_cast<uint8_t>(ccu_profilin_type::ccu_waitcke_profiling));
+}
+
+TEST_F(CcuRepContextProfilingTest, AddProfiling_ChannelArrayBroadcast)
+{
+    ccu_rep_context context_;
+    ChannelHandle channels[2] = {0, 0};
+    int32_t ret = context_.add_profiling(channels, 2);
+    EXPECT_EQ(ret, HCCL_SUCCESS);
+    EXPECT_FALSE(context_.get_lg_profiling_info().ccu_profiling_infos.empty());
+    EXPECT_EQ(context_.get_lg_profiling_info().ccu_profiling_infos[0].name, "GroupBroadcast");
+}
+
+TEST_F(CcuRepContextProfilingTest, AddProfiling_ChannelArrayReduce)
+{
+    ccu_rep_context context_;
+    ccu_loop_group_config grpCfg{};
+    variable parallel_param(nullptr);
+    variable offsetParam(nullptr);
+    auto loopGroupPtr = std::make_shared<ccu_rep_loop_group_bundle>(&insGen, grpCfg, parallel_param, offsetParam);
+    context_.collect_profiling_reps(loopGroupPtr);
+
+    ChannelHandle channels[2] = {0, 0};
+    int32_t ret = context_.add_profiling(channels, 2, 0, 0, 0);
+    EXPECT_EQ(ret, HCCL_SUCCESS);
+    EXPECT_FALSE(context_.get_lg_profiling_info().ccu_profiling_infos.empty());
+    EXPECT_EQ(context_.get_lg_profiling_info().ccu_profiling_infos[0].name, "GroupReduce");
+    EXPECT_FALSE(context_.get_lg_profiling_info().lg_profiling_reps.empty());
+}
+
+TEST_F(CcuRepContextProfilingTest, AddProfiling_NullChannelArray)
+{
+    ccu_rep_context context_;
+    int32_t ret = context_.add_profiling(nullptr, 2);
+    EXPECT_NE(ret, HCCL_SUCCESS);
+}
+
+TEST_F(CcuRepContextTest, GetRepByInstrId_Found)
+{
+    ccu_rep_context context_;
+    variable var_a_(nullptr);
+    auto assignPtr = std::make_shared<ccu_rep_assign>(&insGen, var_a_, uint64_t(5));
+    context_.append(assignPtr);
+
+    auto found = context_.get_rep_by_instr_id(0);
+    EXPECT_EQ(found, assignPtr);
+    EXPECT_EQ(context_.get_rep_by_instr_id(1000), nullptr);
+}
+
+TEST_F(CcuRepContextTest, DeviceLogicId_SetAndGet)
+{
+    set_current_ccu_device_logic_id(7);
+    EXPECT_EQ(get_current_ccu_device_logic_id(), 7);
+    set_current_ccu_device_logic_id(-1);
+}
+
+TEST_F(CcuRepContextProfilingTest, AddProfiling_WithChannel_StubFailure)
+{
+    SetHcommCcuChannelQueryStubResult(-1);
+    ccu_rep_context context_;
+    ChannelHandle ch = 0;
+    int32_t ret = context_.add_profiling(ch, std::string("wait_cke"), 0, 0xF);
+    EXPECT_NE(ret, HCCL_SUCCESS);
+}
+
 } // namespace
 } // namespace ccu_rep
-} // namespace hcomm
+} // namespace asc

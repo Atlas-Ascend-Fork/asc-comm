@@ -13,13 +13,13 @@
 
 #include <stdint.h>
 
-#include <hccl/hccl_types.h>
+#include "hcomm/hcomm_types.h"
 
-namespace hcomm {
+namespace asc {
 class CcuDevMgrImp {
 public:
     static HcclResult GetXnBaseAddr(uint32_t dev_logic_id, uint8_t dieId, uint64_t& xnBaseAddr);
 };
-} // namespace hcomm
+} // namespace asc
 
 #endif

@@ -13,7 +13,7 @@
 
 #include <memory>
 
-#include <hccl/hccl_types.h>
+#include "hcomm/hcomm_types.h"
 
 #include "hcomm_primitives.h"
 
@@ -21,7 +21,7 @@ namespace hccl {
 class DeviceMem;
 }
 
-namespace hcomm {
+namespace asc {
 using EndpointHandle = void*;
 struct HcommChannelDesc {};
 struct HcommMemHandle {};
@@ -72,6 +72,6 @@ public:
     HcclResult get_loc_xn_by_index(uint32_t index, uint32_t& loc_xn_id) const;
     HcclResult get_rmt_buffer(uint64_t& addr_, uint32_t& size, uint32_t& token_id, uint32_t& token_value) const;
 };
-} // namespace hcomm
+} // namespace asc
 
 #endif
