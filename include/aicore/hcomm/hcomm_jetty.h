@@ -95,6 +95,9 @@ public:
     template <int64_t kNumTimeoutCycles>
     __aicore__ __forceinline__ int32_t Drain();
 
+    // Ring the doorbell for SQ state prepared in the shared Jetty metadata.
+    __aicore__ __forceinline__ void PublishSq();
+
 private:
     HcommJettyImpl impl_;
 };

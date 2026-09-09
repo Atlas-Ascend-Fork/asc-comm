@@ -230,6 +230,15 @@ __aicore__ __forceinline__ void HcommJettyImpl::RingDoorbell()
         static_cast<uint32_t>(jettyInfo_->packedHead));
 }
 
+__aicore__ __forceinline__ void HcommJettyImpl::PublishSq()
+{
+    if (!valid_ || jettyInfo_ == nullptr || jettyInfo_->sqHeadAddr == 0U || jettyInfo_->sqDoorbellAddr == 0U) {
+        return;
+    }
+    jettyInfo_->packedHead = ReadGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
+    RingDoorbell();
+}
+
 template <int64_t kNumTimeoutCycles>
 __aicore__ __forceinline__ void HcommJettyImpl::PollCqWhenSqOverflow()
 {
@@ -366,6 +375,11 @@ template <int64_t kNumTimeoutCycles>
 __aicore__ __forceinline__ int32_t HcommJetty::Drain()
 {
     return impl_.Drain<kNumTimeoutCycles>();
+}
+
+__aicore__ __forceinline__ void HcommJetty::PublishSq()
+{
+    impl_.PublishSq();
 }
 
 } // namespace AscendC
