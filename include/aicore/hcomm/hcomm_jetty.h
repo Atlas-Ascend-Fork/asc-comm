@@ -681,6 +681,14 @@ public:
         asc_threadfence();
         asc_atomic_add(reinterpret_cast<__ubuf__ uint32_t*>(&GetInfo()->packedHead) + 1, 1U);
         PublishHead();
+        // A DWQE contains only two WQEBBs. Until the multi-BB DWQE layout is
+        // validated on hardware, publish larger writes through the regular
+        // 32-bit doorbell after the complete SQ payload is visible.
+        if (last_write_wqebbs > 2U) {
+            asc_stwt(reinterpret_cast<__gm__ uint32_t*>(DoorbellAddr()), new_head);
+            batch_begin_head = new_head;
+            return;
+        }
         auto* dwqe_addr = reinterpret_cast<__gm__ uint8_t*>(DoorbellAddr() - kDwqeDbOffset);
         auto* dwqe_words = reinterpret_cast<__gm__ ulonglong2*>(dwqe_addr);
         // DWQE is always exactly two WQEBBs. A larger WQE remains complete in SQ and is fetched
