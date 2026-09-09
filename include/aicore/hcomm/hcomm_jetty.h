@@ -160,6 +160,8 @@ struct alignas(8) HcommJettyPeerInfo {
 };
 using HcommPeerInfo = HcommJettyPeerInfo;
 static_assert(sizeof(HcommJettyPeerInfo) == 48U, "HcommJettyPeerInfo must be 48 bytes");
+static_assert(offsetof(HcommJettyPeerInfo, remoteEid) == 8U, "HcommJettyPeerInfo remoteEid offset mismatch");
+static_assert(offsetof(HcommJettyPeerInfo, remoteBaseAddr) == 32U, "HcommJettyPeerInfo remoteBaseAddr offset mismatch");
 
 struct alignas(8) HcommJettyInfo {
     uint64_t sqBaseAddr = 0;
@@ -177,6 +179,8 @@ struct alignas(8) HcommJettyInfo {
 };
 static_assert(sizeof(HcommJettyInfo) == 80U, "HcommJettyInfo must be 80 bytes");
 static_assert(alignof(HcommJettyInfo) == 8, "HcommJettyInfo alignment mismatch");
+static_assert(offsetof(HcommJettyInfo, packedHead) == 56U, "HcommJettyInfo packedHead offset mismatch");
+static_assert(offsetof(HcommJettyInfo, numWqebbBytes) == 64U, "HcommJettyInfo scalar fields offset mismatch");
 
 struct HcommPeer {
     uint64_t channel = 0;
