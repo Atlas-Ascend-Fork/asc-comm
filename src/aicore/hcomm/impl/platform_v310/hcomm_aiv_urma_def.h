@@ -40,7 +40,6 @@ constexpr uint32_t HCOMM_URMA_MUTEX_ID = 29U;
 #endif
 constexpr uint32_t HCOMM_URMA_WQEBB_SIZE = 64U;
 constexpr uint32_t HCOMM_URMA_WQEBB_U32_NUM = HCOMM_URMA_WQEBB_SIZE / sizeof(uint32_t);
-constexpr uint32_t HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM = 2U;
 constexpr uint32_t HCOMM_URMA_BATCH_MIN_SGE_NUM = 1U;
 constexpr uint32_t HCOMM_URMA_BATCH_MAX_WQE_BYTES = 256U;
 constexpr uint32_t HCOMM_URMA_BATCH_MAX_WQEBB_NUM = HCOMM_URMA_BATCH_MAX_WQE_BYTES / HCOMM_URMA_WQEBB_SIZE;
@@ -158,13 +157,9 @@ private:
     __aicore__ inline int32_t PostSend(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr = nullptr,
         const UdmaParams<T>& params = UdmaParams<T>{});
-    template <HcommUrmaOpCode opCode, auto const& config>
+    template <HcommUrmaOpCode opCode, auto const& config, typename LocalDataType>
     __aicore__ inline int32_t BatchPostSend(
-        UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, GM_ADDR localAddr, uint32_t len, GM_ADDR notifyAddr = nullptr,
-        uint64_t notifyVal = 0);
-    template <HcommUrmaOpCode opCode, auto const& config>
-    __aicore__ inline int32_t BatchPostSend(
-        UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t sgeNum,
+        UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, LocalDataType localData, uint32_t lenOrSgeNum,
         GM_ADDR notifyAddr = nullptr, uint64_t notifyVal = 0);
     __aicore__ inline void CommitImpl(ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt);
     __aicore__ inline void PollCqWhenCqOverflow(
