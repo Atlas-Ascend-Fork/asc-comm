@@ -13,6 +13,7 @@
 #include <cstdio>
 
 #include "hcomm/hcomm_simt.h"
+#include "hcomm/hcomm_jetty.h"
 
 #include "simt_jetty_common.h"
 
@@ -138,7 +139,7 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
     }
 }
 
-template <bool kMeasure>
+template <bool kMeasure, bool kPublish = true>
 __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, const AscendC::simt::jetty::HcommPeer& peer,
     AscendC::simt::jetty::HcommJetty& jetty, uint64_t& writeCycles, uint64_t& commitCycles,
@@ -167,7 +168,9 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     if constexpr (kMeasure) {
         writeEnd = clock();
     }
-    jetty.AdvanceSq(group, 4U, 4U);
+    if constexpr (kPublish) {
+        jetty.AdvanceSq(group, 4U, 4U);
+    }
     uint64_t commitEnd = writeEnd;
     if constexpr (kMeasure) {
         commitEnd = clock();
@@ -187,7 +190,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteThreadVf(
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
-    auto* ub_layout = GetSimtJettyUbLayout();
+    auto* ub_layout = reinterpret_cast<__ubuf__ SimtJettyUbLayout*>(0);
     AscendC::simt::HcommCoopThread thread;
     AscendC::simt::jetty::HcommPeer peer;
     AscendC::simt::jetty::HcommJetty jetty;
@@ -325,7 +328,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteDispatchVf(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ uint64_t* timing,
     uint32_t iterations, uint32_t warmup)
 {
-    auto* ub_layout = GetSimtJettyUbLayout();
+    auto* ub_layout = reinterpret_cast<__ubuf__ SimtJettyUbLayout*>(0);
     const AscendC::simt::HcommCoopGroup group{};
     AscendC::simt::jetty::HcommPeer peer;
     AscendC::simt::jetty::HcommJetty jetty;
@@ -354,6 +357,21 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteDispatchVf(
                 channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
         }
     }
+}
+
+__simt_vf__ __aicore__ __launch_bounds__(64) inline void SimtJettyWriteMixedWorker(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    auto* ub_layout = GetSimtJettyUbLayout();
+    AscendC::simt::HcommCoopGroup group;
+    AscendC::simt::jetty::HcommPeer peer;
+    AscendC::simt::jetty::HcommJetty jetty;
+    PrepareJetty(group, channel, jettyPtrTable, ub_layout, peer, jetty);
+    uint64_t writeCycles = 0;
+    uint64_t commitCycles = 0;
+    uint64_t completionCycles = 0;
+    SimtJettyWriteDispatchImpl<false, false>(channel, sendBufIdx, recvBufIdx, peer, jetty,
+                                              writeCycles, commitCycles, completionCycles);
 }
 
 } // namespace
@@ -403,6 +421,18 @@ extern "C" __global__ __vector__ void SimtJettyWriteDispatch(
         warmup);
 }
 
+extern "C" __global__ __mix__(1, 1) void SimtJettyWriteMixed(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    auto* ub_layout = reinterpret_cast<__ubuf__ SimtJettyUbLayout*>(0);
+    AscendC::Simt::VF_CALL<SimtJettyWriteMixedWorker>(
+        AscendC::Simt::Dim3(64, 1, 1), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+    AscendC::HcommJetty simdJetty(
+        reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(&ub_layout->jetty_info),
+        reinterpret_cast<__ubuf__ uint8_t*>(ub_layout->dwqe_stage), jettyPtrTable, 0);
+    simdJetty.PublishSq();
+}
+
 void LaunchSimtJetty(
     void* stream, uint64_t channel, void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode,
     void* timing, uint32_t iterations, uint32_t warmup)
@@ -429,8 +459,7 @@ void LaunchSimtJetty(
                 channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup);
             break;
         case 5U:
-            SimtJettyWriteDispatch<<<1, 0, stream>>>(
-                channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup);
+            SimtJettyWriteMixed<<<1, 0, stream>>>(channel, jettyPtrTable, sendBufIdx, recvBufIdx);
             break;
         default:
             std::printf("[simt_jetty] unhandled mode %u, no kernel launched\n", mode);

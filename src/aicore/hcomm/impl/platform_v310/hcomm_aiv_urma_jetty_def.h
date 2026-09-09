@@ -18,6 +18,7 @@ public:
     __aicore__ __forceinline__ HcommJettyImpl(
         __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe,
         __gm__ void* jettyTable, uint32_t jettyIdx);
+    __aicore__ __forceinline__ void PublishSq();
 
     template <int64_t kNumTimeoutCycles, bool kWithNotify, bool kDoCommit>
     __aicore__ __forceinline__ int32_t PostWrite(
@@ -44,8 +45,6 @@ private:
     __aicore__ __forceinline__ void CopySqeToSq(uint32_t currentHead, uint32_t numWqebbs);
     __aicore__ __forceinline__ void AdvanceSq(uint32_t numWqebbs);
     __aicore__ __forceinline__ void RingDoorbell();
-    // Publish a producer index prepared by another producer sharing jettyInfo.
-    __aicore__ __forceinline__ void PublishSq();
 
     template <int64_t kNumTimeoutCycles>
     __aicore__ __forceinline__ int32_t PollCq(uint32_t expectedTail);
