@@ -357,12 +357,12 @@ int main(int argc, char* argv[])
         }
     } else {
         uint64_t expected[simt_jetty::kSlotCount] = {};
-        if (mode == 1U) {
-            expected[0] = simt_jetty::SlotValue(0);
-        } else if (mode == 3U) {
+        if (mode == 0U || mode == 3U) {
             for (uint32_t slot = 0; slot < simt_jetty::kSlotCount; ++slot) {
                 expected[slot] = simt_jetty::SlotValue(slot);
             }
+        } else if (mode == 1U) {
+            expected[0] = simt_jetty::SlotValue(0);
         } else {
             expected[0] = simt_jetty::SlotValue(0);
             expected[1] = simt_jetty::SlotValue(1);
