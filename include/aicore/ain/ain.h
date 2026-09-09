@@ -80,7 +80,8 @@ public:
      * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
      * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
      *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
-     * @tparam Config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam Config: URMA WQE control config, only used by URMA.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
      * @param [in] dstWin: Destination symmetric window of the peer.
@@ -107,7 +108,7 @@ public:
      * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
      *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
      * @tparam Config: URMA WQE control config, only used by URMA.
-     *         Default: strongly ordered + fence + CQE + inline enabled.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE + inline enabled.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
      * @param [in] dstWin: Destination symmetric window of the peer.
@@ -128,7 +129,8 @@ public:
      * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
      * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
      *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
-     * @tparam Config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam Config: URMA WQE control config, only used by URMA.
+     *         Default: odr = Relax Order(RO) with in-order completion + fence + CQE enabled.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
      * @param [in] dstWin: Destination symmetric window of the local rank.
