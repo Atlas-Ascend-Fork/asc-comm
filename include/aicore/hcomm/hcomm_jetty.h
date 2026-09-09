@@ -602,6 +602,19 @@ public:
         coop.sync();
     }
 
+    // Publish the current UB-organized batch directly through the SQ/DWQE path.
+    // The batch start is reset by the publishing implementation for the next batch.
+    __simt_callee__ __forceinline__ void AdvanceSq()
+    {
+        Commit();
+    }
+
+    template <typename Coop>
+    __simt_callee__ __forceinline__ void AdvanceSq(const Coop& coop) const
+    {
+        Commit(coop);
+    }
+
     __simt_callee__ __forceinline__ void Commit()
     {
         constexpr uint64_t kCompletionDelta = 1ULL << 32U;
@@ -694,6 +707,16 @@ public:
 private:
     static constexpr uint32_t kInvalidHead = 0xFFFFFFFFU;
     static constexpr uint32_t kDwqeDbOffset = 0x80U;
+
+    __simt_callee__ __forceinline__ __gm__ uint64_t* PackedHeadAddr() const
+    {
+        return reinterpret_cast<__gm__ uint64_t*>(SqHeadAddr());
+    }
+
+    __simt_callee__ __forceinline__ uint64_t ReadPackedHead() const
+    {
+        return asc_ldcg(PackedHeadAddr());
+    }
 
     template <bool kImmediate = false>
     __simt_callee__ __forceinline__ static uint64_t BuildWriteSqeWord(
@@ -873,7 +896,7 @@ private:
         } else {
             Write<kNumSGEs>(coop, peer, dst, sges);
             if constexpr (kDoCommit) {
-                Commit(coop);
+                AdvanceSq(coop);
             }
         }
     }
@@ -887,7 +910,7 @@ private:
         } else {
             Write<kNumSGEs>(peer, dst, sges);
             if constexpr (kDoCommit) {
-                const_cast<HcommJetty*>(this)->Commit();
+                const_cast<HcommJetty*>(this)->AdvanceSq();
             }
         }
     }
