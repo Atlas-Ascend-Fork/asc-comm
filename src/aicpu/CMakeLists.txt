@@ -33,12 +33,17 @@ endif()
 set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}")
 message(STATUS "ASCCOMM_CANN_ARCH_DIR = ${ASCCOMM_CANN_ARCH_DIR}")
 
-# 查找 hcomm 代码：优先显式指定的 HCOMM_SOURCE_DIR(build.sh透传)与ASCCOMM_HCOMM_SOURCE_DIR，
-# 其次探测样例仓同级目录(hcomm_pkg_inc/hcomm)，最后校验pkg_inc契约头存在
-if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
-    if(HCOMM_SOURCE_DIR)
-        set(ASCCOMM_HCOMM_SOURCE_DIR "${HCOMM_SOURCE_DIR}")
-    endif()
+# hcomm源码定位(可选依赖)：AICPU数据面自包含随仓契约头(include/aicpu/hcomm/)编译，
+# hcomm源码存在时附加其pkg_inc包含路径(兼容旧依赖链)，不存在时自包含构建。
+# 显式指定(HCOMM_SOURCE_DIR/ASCCOMM_HCOMM_SOURCE_DIR)但目录无效时报错(防拼写错误)；
+# 未指定且同级目录探测失败仅告警并自包含——第三方超构建(如CANN cann_device)的
+# asc-comm集成不携带hcomm源码路径，依赖此前"探测失败被容忍"的行为。
+set(_asccomm_hcomm_explicit FALSE)
+if(ASCCOMM_HCOMM_SOURCE_DIR)
+    set(_asccomm_hcomm_explicit TRUE)
+elseif(HCOMM_SOURCE_DIR)
+    set(ASCCOMM_HCOMM_SOURCE_DIR "${HCOMM_SOURCE_DIR}")
+    set(_asccomm_hcomm_explicit TRUE)
 endif()
 if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
     foreach(_candidate
@@ -51,15 +56,22 @@ if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
         endif()
     endforeach()
 endif()
-set(ASCCOMM_HCOMM_SOURCE_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}" CACHE PATH "Original hcomm source tree")
-if(NOT EXISTS "${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hcomm/hcomm_pod_resource.h")
-    message(FATAL_ERROR
-        "hcomm source not found (looked for pkg_inc/hcomm/hcomm_pod_resource.h under "
-        "HCOMM_SOURCE_DIR/ASCCOMM_HCOMM_SOURCE_DIR=${ASCCOMM_HCOMM_SOURCE_DIR}, "
-        "${ASCCOMM_ROOT}/../hcomm_pkg_inc, ${ASCCOMM_ROOT}/../hcomm). "
-        "Set HCOMM_SOURCE_DIR to the HCOMM source root.")
+if(ASCCOMM_HCOMM_SOURCE_DIR AND NOT EXISTS "${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hcomm/hcomm_pod_resource.h")
+    if(_asccomm_hcomm_explicit)
+        message(FATAL_ERROR
+            "HCOMM_SOURCE_DIR(${ASCCOMM_HCOMM_SOURCE_DIR}) has no pkg_inc/hcomm/hcomm_pod_resource.h; "
+            "fix the path or unset it to build the AICPU data plane self-contained.")
+    endif()
+    # 探测命中但无效(非源码根)：退回自包含
+    set(ASCCOMM_HCOMM_SOURCE_DIR "")
 endif()
-message(STATUS "ASCCOMM_HCOMM_SOURCE_DIR = ${ASCCOMM_HCOMM_SOURCE_DIR}")
+if(ASCCOMM_HCOMM_SOURCE_DIR)
+    set(ASCCOMM_HCOMM_SOURCE_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}" CACHE PATH "Original hcomm source tree")
+    message(STATUS "ASCCOMM_HCOMM_SOURCE_DIR = ${ASCCOMM_HCOMM_SOURCE_DIR}")
+else()
+    message(STATUS "ASCCOMM_HCOMM_SOURCE_DIR not set; "
+        "build AICPU data plane self-contained from in-repo contract headers")
+endif()
 
 add_library(asc_comm_dfx INTERFACE)
 target_include_directories(asc_comm_dfx INTERFACE ${ASCCOMM_DFX_SRC_DIR})
@@ -91,8 +103,6 @@ target_compile_options(asccomm_aicpu PRIVATE
 target_include_directories(asccomm_aicpu PRIVATE
     ${ASCCOMM_ROOT}/include/aicpu
     ${ASCCOMM_ROOT}/include/aicpu/hcomm
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc # hcomm 源码
-    ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hcomm
     # CANN包公共依赖头(securec.h/dlog_pub.h/ascend_hal.h/acl头)，
     # 独立构建不依赖cann-cmake导入目标，直接取CANN包目录
     ${ASCCOMM_CANN_ARCH_DIR}/include
@@ -109,6 +119,12 @@ target_include_directories(asccomm_aicpu PRIVATE
     ${ASCCOMM_AICPU_ROOT}/hcomm/resource/connection
     ${ASCCOMM_AICPU_ROOT}/hcomm/resource/stream
 )
+# hcomm源码可用时附加其pkg_inc包含路径(可选依赖，自包含构建时跳过)
+if(ASCCOMM_HCOMM_SOURCE_DIR)
+    target_include_directories(asccomm_aicpu PRIVATE
+        ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
+        ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hcomm)
+endif()
 
 # 设备侧库：securec/dlog/驱动符号由设备运行环境(ccl_kernel/内核驱动)在加载期解析，
 # 链接期不强制落地；cann-cmake导入目标存在时按需附加，避免独立构建缺目标报错
