@@ -252,7 +252,7 @@ int main(int argc, char* argv[])
     const uint32_t warmup = argc == 9 ? static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10)) : 0U;
     const bool deviceTiming = argc == 9 && std::strtoul(argv[8], nullptr, 10) != 0U;
 
-    if (nranks < 2 || rank < 0 || rank >= nranks || syncDir.empty() || mode > 4U || iterations == 0U) {
+    if (nranks < 2 || rank < 0 || rank >= nranks || syncDir.empty() || mode > 5U || iterations == 0U) {
         std::cout << "invalid rank/nranks/sync_dir/mode/iterations" << std::endl;
         return 1;
     }
