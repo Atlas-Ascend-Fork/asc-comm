@@ -220,6 +220,8 @@ __simt_callee__ inline __gm__ uint8_t* RemoteBufferAddr(ChannelHandle channel, u
 
 #include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_simt_impl.h"
 
+#include "hcomm_jetty.h"
+
 #if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_H)
 #undef HCOMM_INCLUDE_INTERNAL_HEADERS
 #undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_SIMT_H
