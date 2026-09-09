@@ -21,6 +21,15 @@ add_library(asccomm_ccu_llt_stub STATIC
 add_library(asccomm_ccu_rep_assist_stub STATIC
     ccu_rep_assist_stub.cc
 )
+# 桩库必须与 UT 目标同为 CXX11_ABI=0：桩内实现的析构/构造会跨 TU 作用于
+# 测试目标构造的对象（如 ccu_kernel），ABI 不一致会导致 std::string 等成员
+# 布局错位，析构时在错误偏移上操作引发段错误。
+target_compile_definitions(asccomm_ccu_llt_stub PRIVATE
+    _GLIBCXX_USE_CXX11_ABI=0
+)
+target_compile_definitions(asccomm_ccu_rep_assist_stub PRIVATE
+    _GLIBCXX_USE_CXX11_ABI=0
+)
 target_include_directories(asccomm_ccu_llt_stub PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
