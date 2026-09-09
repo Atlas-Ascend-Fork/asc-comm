@@ -10,6 +10,8 @@
 
 #include "ccu/ccu_host_launch.h"
 
+#include "acl/acl_rt.h"
+#include "base/dlog_pub.h"
 #include "rt_external_kernel.h"
 
 #include <algorithm>
@@ -20,8 +22,6 @@
 #include <vector>
 
 #include "xxhash_impl.inc"
-
-int32_t HcclGetThreadDeviceId();
 
 #ifndef HCOMM_WEAK_SYMBOL
 #define HCOMM_WEAK_SYMBOL __attribute__((weak))
@@ -74,6 +74,28 @@ constexpr uint64_t CCU_DIE1_MASK = 0x02U;
 constexpr uint32_t CCU_DIE0_ID = 0U;
 constexpr uint32_t CCU_DIE1_ID = 1U;
 constexpr uint32_t CCU_SUPPORTED_NUM_BLOCKS = 1U;
+constexpr int32_t CCU_LOG_MODULE_ID = 5;
+
+// Keep host launch behavior usable with test/minimal runtimes that omit the weak log backend.
+#define ASCCOMM_CCU_LOG_ERROR(...)             \
+    do {                                       \
+        if (DlogRecord != nullptr) {           \
+            dlog_error(CCU_LOG_MODULE_ID, __VA_ARGS__); \
+        }                                      \
+    } while (0)
+
+CcuResult GetCurrentDeviceId(int32_t& deviceId)
+{
+    deviceId = -1;
+    const aclError ret = aclrtGetDevice(&deviceId);
+    if (ret != ACL_SUCCESS) {
+        return CCU_E_RUNTIME;
+    }
+    if (deviceId < 0) {
+        return CCU_E_INTERNAL;
+    }
+    return CCU_SUCCESS;
+}
 
 bool IsCcuKernelLaunchApiAvailable()
 {
@@ -94,9 +116,15 @@ uint32_t GetDieIdByMask(uint64_t phyDieMask) { return phyDieMask == CCU_DIE1_MAS
 CcuResult ValidateLaunchCfg(const asccomm_launch_kernel_cfg* cfg)
 {
     if (cfg->ccu_schd.num_blocks != CCU_SUPPORTED_NUM_BLOCKS) {
+        ASCCOMM_CCU_LOG_ERROR(
+            "[ERROR] [%s] unsupported num_blocks[%u], expected[%u].", __func__, cfg->ccu_schd.num_blocks,
+            CCU_SUPPORTED_NUM_BLOCKS);
         return CCU_E_PARA;
     }
     if (!IsSupportedSingleDieMask(cfg->ccu_schd.phy_die_mask)) {
+        ASCCOMM_CCU_LOG_ERROR(
+            "[ERROR] [%s] unsupported phy_die_mask[0x%llx], expected[0x1 or 0x2].", __func__,
+            static_cast<unsigned long long>(cfg->ccu_schd.phy_die_mask));
         return CCU_E_PARA;
     }
     return CCU_SUCCESS;
@@ -210,6 +238,9 @@ CcuResult GetSingleTaskParam(
         return CCU_E_PARA;
     }
     if (argNum > hcomm::CCU_SQE_ARGS_LEN) {
+        ASCCOMM_CCU_LOG_ERROR(
+            "[ERROR] [%s] SQE argument count[%u] exceeds maximum[%u].", __func__, argNum,
+            hcomm::CCU_SQE_ARGS_LEN);
         return CCU_E_NOT_SUPPORT;
     }
     if (argNum > 0 && taskArgs == nullptr) {
@@ -217,7 +248,11 @@ CcuResult GetSingleTaskParam(
     }
 
     try {
-        const uint32_t devLogicId = static_cast<uint32_t>(HcclGetThreadDeviceId());
+        int32_t devLogicId = -1;
+        const CcuResult deviceRet = GetCurrentDeviceId(devLogicId);
+        if (deviceRet != CCU_SUCCESS) {
+            return deviceRet;
+        }
         auto& kernelMgr = hcomm::CcuKernelMgr::GetInstance(devLogicId);
         auto* kernel = kernelMgr.GetKernel(kernelHandle);
         if (kernel == nullptr) {
@@ -244,6 +279,7 @@ CcuResult GetSingleTaskParam(
 CcuResult LaunchSingleCcuTask(const hcomm::CcuTaskParam& param, aclrtStream stream)
 {
     if (stream == nullptr) {
+        ASCCOMM_CCU_LOG_ERROR("[ERROR] [%s] stream is nullptr.", __func__);
         return CCU_E_PTR;
     }
 
