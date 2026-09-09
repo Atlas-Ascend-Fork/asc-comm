@@ -736,6 +736,50 @@ TEST_F(CcuRepFuncCallTest, SetOutArg_VarListExceedsMaxThrows)
     EXPECT_ANY_THROW(func_call_.set_out_arg(std::vector<variable>{v1, v2}));
 }
 
+TEST_F(CcuRepJumpTest, Constructor_JumpNE_VarExpectedVariant)
+{
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    variable condition_(&context_);
+    variable expected_var_(&context_);
+    // var 期望值变体: (ins, label, target, condition, expected_var), 仅用于 A6 翻译
+    ccu_rep_jump_ne jumpNE(&insGen, "testJumpNEVar", target_instr_id_, condition_, expected_var_);
+    EXPECT_EQ(jumpNE.type(), ccu_rep_type::jump_ne);
+}
+
+TEST_F(CcuRepJumpTest, Constructor_JumpEQ_VarExpectedVariant)
+{
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    variable condition_(&context_);
+    variable expected_var_(&context_);
+    // var 期望值变体: (ins, label, target, condition, expected_var), 仅用于 A6 翻译
+    ccu_rep_jump_eq jumpEQ(&insGen, "testJumpEQVar", target_instr_id_, condition_, expected_var_);
+    EXPECT_EQ(jumpEQ.type(), ccu_rep_type::jump_eq);
+}
+
+TEST_F(CcuRepJumpTest, Describe_JumpNE_VarExpectedVariant)
+{
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    variable condition_(&context_);
+    variable expected_var_(&context_);
+    ccu_rep_jump_ne jumpNE(&insGen, "testJumpNEVar", target_instr_id_, condition_, expected_var_);
+    std::string desc = jumpNE.describe();
+    EXPECT_NE(desc.find("testJumpNEVar"), std::string::npos);
+}
+
+TEST_F(CcuRepJumpTest, Describe_JumpEQ_VarExpectedVariant)
+{
+    ccu_rep_context context_;
+    variable target_instr_id_(&context_);
+    variable condition_(&context_);
+    variable expected_var_(&context_);
+    ccu_rep_jump_eq jumpEQ(&insGen, "testJumpEQVar", target_instr_id_, condition_, expected_var_);
+    std::string desc = jumpEQ.describe();
+    EXPECT_NE(desc.find("testJumpEQVar"), std::string::npos);
+}
+
 } // namespace
 } // namespace ccu_rep
 } // namespace asc

@@ -66,6 +66,40 @@ endif()
 if(NOT EXISTS "${ASCCOMM_GTEST_ROOT}/include")
     file(MAKE_DIRECTORY "${ASCCOMM_GTEST_ROOT}/include")
 endif()
+# cann-cmake 的 gtest.cmake 只在系统无 gtest（tests/ut 里 find_package(GTest) 失败）
+# 时才生成 third_party_gtest 并填充 lib_cache/gtest；宿主机装有系统 gtest（ABI=1）
+# 时该缓存永远不会被填充，上面的导入目标无库可链，导致 make 报
+# "No rule to make target .../lib_cache/gtest/lib/libgtest.a"。
+# 这里在缓存缺失且 cann-cmake 未接管时，用与 gtest.cmake 相同的来源（本地归档优先，
+# 否则 CANN OBS 镜像）构建 CXX11_ABI=0 的 googletest 1.14.0 并安装到同一缓存位置。
+if(TARGET third_party_gtest)
+    # cann-cmake 已接管 gtest 缓存，只需保证它在链接 features 前完成安装。
+    add_dependencies(asccomm_gtest_abi0 third_party_gtest)
+elseif(NOT EXISTS "${ASCCOMM_GTEST_ROOT}/lib/libgtest.a")
+    set(ASCCOMM_GTEST_TARBALL "googletest-1.14.0.tar.gz")
+    if(EXISTS "${CANN_3RD_LIB_PATH}/gtest/${ASCCOMM_GTEST_TARBALL}")
+        set(ASCCOMM_GTEST_URL "${CANN_3RD_LIB_PATH}/gtest/${ASCCOMM_GTEST_TARBALL}")
+    elseif(EXISTS "${CANN_3RD_LIB_PATH}/pkg/${ASCCOMM_GTEST_TARBALL}")
+        set(ASCCOMM_GTEST_URL "${CANN_3RD_LIB_PATH}/pkg/${ASCCOMM_GTEST_TARBALL}")
+    else()
+        set(ASCCOMM_GTEST_URL
+            "https://cann-3rd.obs.cn-north-4.myhuaweicloud.com/googletest/${ASCCOMM_GTEST_TARBALL}")
+    endif()
+    include(ExternalProject)
+    ExternalProject_Add(asccomm_gtest_abi0_build
+        URL ${ASCCOMM_GTEST_URL}
+        DOWNLOAD_DIR ${CANN_3RD_LIB_PATH}/pkg
+        CMAKE_ARGS
+            -DCMAKE_CXX_FLAGS=-D_GLIBCXX_USE_CXX11_ABI=0
+            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_INSTALL_PREFIX=${ASCCOMM_GTEST_ROOT}
+            -DCMAKE_INSTALL_LIBDIR=lib
+            -DBUILD_TESTING=OFF
+            -DBUILD_SHARED_LIBS=OFF
+        EXCLUDE_FROM_ALL TRUE
+    )
+    add_dependencies(asccomm_gtest_abi0 asccomm_gtest_abi0_build)
+endif()
 
 # CCU features target (f8c8fd2 baseline): ut_ccu_microcode + ut_ccu_interface_assist
 # + groupcopy demo. groupcopy has no tests but is part of the f8c8fd2 features target.
@@ -143,13 +177,13 @@ target_link_libraries(hccl_utest_comms_ccu_features PRIVATE
     asccomm_gtest_abi0
     asccomm_mockcpp
     -pthread
-    asccomm_ccu_llt_stub
+    asccomm_ccu_llt_stub_abi0
     -lgcov
     -lrt
     -ldl
 )
 
-add_dependencies(hccl_utest_comms_ccu_features asccomm_ccu_llt_stub)
+add_dependencies(hccl_utest_comms_ccu_features asccomm_ccu_llt_stub_abi0)
 
 add_test(NAME hccl_utest_comms_ccu_features COMMAND hccl_utest_comms_ccu_features)
 

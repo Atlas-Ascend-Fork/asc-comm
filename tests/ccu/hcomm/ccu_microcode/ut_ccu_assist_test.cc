@@ -166,6 +166,42 @@ TEST_F(CcuAssistTest, GetUBDataType_Unsupported)
     EXPECT_THROW(get_ub_data_type(HCCL_DATA_TYPE_RESERVED), CcuUtException);
 }
 
+TEST_F(CcuAssistTest, GetParallelParamV2_EncodesFields)
+{
+    uint64_t result = get_parallel_param_v2(/*repeat_num=*/3, /*repeat_loop_index=*/2, /*total_loop_num=*/7);
+
+    // 位域布局: total_loop_num 占低 10 位, repeat_loop_index 占第 10~18 位, repeat_num 占第 19~27 位
+    EXPECT_EQ(result & 0x3FF, 7u);
+    EXPECT_EQ((result >> 10) & 0x1FF, 2u);
+    EXPECT_EQ((result >> 19) & 0x1FF, 3u);
+}
+
+TEST_F(CcuAssistTest, GetParallelParamV2_ZeroInputs)
+{
+    EXPECT_EQ(get_parallel_param_v2(0, 0, 0), 0);
+}
+
+TEST_F(CcuAssistTest, GetParallelParamV2_SaturatesEachField)
+{
+    // 各字段超位宽时按掩码截断: repeat_loop_index 传 10 位值 0x3FF, 9 位字段只保留低 9 位
+    uint64_t result = get_parallel_param_v2(0x1FF, 0x3FF, 0x1FF);
+    EXPECT_EQ(result & 0x3FF, 0x1FF);
+    EXPECT_EQ((result >> 10) & 0x1FF, 0x1FF);
+    EXPECT_EQ((result >> 19) & 0x1FF, 0x1FF);
+}
+
+TEST_F(CcuAssistTest, CcuCombineTokenInfo_DelegatesToGetToken)
+{
+    uint64_t combined = ccu_combine_token_info(/*token_id=*/5, /*token_value=*/0xAB, /*token_valid=*/1);
+    EXPECT_EQ(combined, get_token(5, 0xAB, 1));
+}
+
+TEST_F(CcuAssistTest, CcuCombineTokenInfo_ZeroValid)
+{
+    uint64_t combined = ccu_combine_token_info(3, 0x10, 0);
+    EXPECT_EQ(combined, get_token(3, 0x10, 0));
+}
+
 } // namespace
 } // namespace ccu_rep
 } // namespace asc
