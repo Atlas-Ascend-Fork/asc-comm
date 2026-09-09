@@ -84,6 +84,7 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
             jetty.AdvanceSq();
         } else {
             jetty.template Put<kSegmentSges>(peer, segmentDst, segmentSges);
+            jetty.AdvanceSq();
         }
     }
     uint64_t writeEnd = 0U;
@@ -91,11 +92,8 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
         writeEnd = clock();
     }
     uint64_t commitEnd = writeEnd;
-    if constexpr (!kStandaloneWrite) {
-        jetty.AdvanceSq();
-        if constexpr (kMeasure) {
-            commitEnd = clock();
-        }
+    if constexpr (kMeasure) {
+        commitEnd = clock();
     }
     jetty.template Drain<1000000>();
     if constexpr (kMeasure) {
