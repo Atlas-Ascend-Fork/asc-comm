@@ -620,8 +620,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     uint32_t curHead = channelEntity->sqHead;
     uint32_t cqeCnt = channelEntity->cqHead;
     HCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA PostSend resolved remoteIdx=%d curHead=%u sqDepth=%u \n", remoteIdx, curHead,
-        sqCtx.contextInfo.ubJfs.sqDepth);
+        KERNEL_INFO, "Hcomm URMA PostSend channel=0x%llx remoteIdx=%d curHead=%u sqDepth=%u \n",
+        static_cast<unsigned long long>(channel), remoteIdx, curHead, sqCtx.contextInfo.ubJfs.sqDepth);
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     PollCqWhenSqOverflow(channel, sqCtx, curHead);
 
@@ -682,6 +682,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     if constexpr (commit) {
         CommitImpl(channel, sqCtx, curHead, cqeCnt);
     }
+    HCOMM_KERNEL_LOG(
+        KERNEL_INFO, "Hcomm URMA WQE channel=0x%llx slot=%u bbCount=%u sqAddr=0x%llx\n",
+        static_cast<unsigned long long>(channel), (curHead - wqeBbCnt) % baseBlockCount, wqeBbCnt,
+        static_cast<unsigned long long>(reinterpret_cast<uint64_t>(sqeAddr)));
     HCOMM_DEBUG_FUNC(HcommUrmaDumpWqeCtx, sqeCtx, sizeof(T));
     return HCOMM_SUCCESS;
 }
@@ -750,6 +754,9 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqImpl(
         if (ret != HCOMM_SUCCESS) {
             return ret;
         }
+        HCOMM_KERNEL_LOG(
+            KERNEL_INFO, "Hcomm URMA CQE cqVa=0x%llx cursor=%u entryIdx=%u status=%u substatus=%u\n",
+            static_cast<unsigned long long>(cqBaseAddr), curTail, cqeUb->entryIdx, cqeUb->status, cqeUb->substatus);
         curTail++;
         sqTail = cqeUb->entryIdx;
     }
@@ -769,6 +776,9 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
     uint32_t curTail = channelEntity->cqTail;
     uint32_t sqTail = channelEntity->sqTail;
 
+    HCOMM_KERNEL_LOG(
+        KERNEL_INFO, "Hcomm URMA PollCq channel=0x%llx cqVa=0x%llx\n", static_cast<unsigned long long>(channel),
+        static_cast<unsigned long long>(cqCtx.contextInfo.ubJfc.scqVa));
     uint32_t ret = PollCqImpl<sqSafeMode>(
         cqCtx.contextInfo.ubJfc.scqVa, cqCtx.contextInfo.ubJfc.cqeSize, cqCtx.contextInfo.ubJfc.cqDepth, expectIdx,
         curTail, cqeItem_, sqTail, sqHead, sqDepth, threshold);
@@ -779,6 +789,9 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
     // update CQ tail
     channelEntity->cqTail = curTail;
     channelEntity->sqTail = sqTail;
+    HCOMM_KERNEL_LOG(
+        KERNEL_INFO, "Hcomm URMA PollCqDone channel=0x%llx sqHead=%u sqTail=%u cqHead=%u cqTail=%u\n",
+        static_cast<unsigned long long>(channel), channelEntity->sqHead, sqTail, channelEntity->cqHead, curTail);
 
     // ring CQ doorbell
     st_dev(curTail & 0xFFFFFFU, (__gm__ uint32_t*)cqCtx.contextInfo.ubJfc.dbVa, 0);

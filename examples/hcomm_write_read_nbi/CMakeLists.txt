@@ -47,3 +47,8 @@ if(ASCENDC_DEBUG)
         ASCENDC_DEBUG
     )
 endif()
+
+option(HCOMM_DFX_TEST_TRAP "Inject a device exception after successful communication" OFF)
+if(HCOMM_DFX_TEST_TRAP)
+    target_compile_definitions(demo PRIVATE HCOMM_DFX_TEST_TRAP)
+endif()

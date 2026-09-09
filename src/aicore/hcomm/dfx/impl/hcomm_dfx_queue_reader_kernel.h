@@ -16,10 +16,9 @@
 
 using namespace AscendC;
 
-#define HCOMM_DFX_EXPORT_AIV_META_INFO(kernel_name) \
-static const struct FunLevelKType kernel_name##_kernel_type_section __attribute__ \
-((used, section (".ascend.meta." #kernel_name))) \
-= {{F_TYPE_KTYPE, sizeof(unsigned int), K_TYPE_AIV}}
+#define HCOMM_DFX_EXPORT_AIV_META_INFO(kernel_name)                                     \
+    static const struct FunLevelKType kernel_name##_kernel_type_section __attribute__(( \
+        used, section(".ascend.meta." #kernel_name))) = {{F_TYPE_KTYPE, sizeof(unsigned int), K_TYPE_AIV}}
 
 extern "C" __vector__ __global__ __aicore__ void hcomm_dfx_queue_read_kernel(HcommDfxQueueReadArgs args)
 {
@@ -27,8 +26,7 @@ extern "C" __vector__ __global__ __aicore__ void hcomm_dfx_queue_read_kernel(Hco
         return;
     }
 
-    __gm__ HcommDfxQueueReadResult *result =
-        reinterpret_cast<__gm__ HcommDfxQueueReadResult *>(args.resultAddr);
+    __gm__ HcommDfxQueueReadResult* result = reinterpret_cast<__gm__ HcommDfxQueueReadResult*>(args.resultAddr);
     if (result == nullptr) {
         return;
     }
@@ -39,7 +37,7 @@ extern "C" __vector__ __global__ __aicore__ void hcomm_dfx_queue_read_kernel(Hco
         return;
     }
 
-    __gm__ uint8_t *src = reinterpret_cast<__gm__ uint8_t *>(args.srcAddr);
+    __gm__ uint8_t* src = reinterpret_cast<__gm__ uint8_t*>(args.srcAddr);
     for (uint32_t idx = 0; idx < args.size; ++idx) {
         result->data[idx] = src[idx];
     }
@@ -48,5 +46,12 @@ extern "C" __vector__ __global__ __aicore__ void hcomm_dfx_queue_read_kernel(Hco
 }
 
 HCOMM_DFX_EXPORT_AIV_META_INFO(hcomm_dfx_queue_read_kernel);
+
+namespace AscendC::HcommDfx {
+inline void LaunchQueueRead(HcommDfxQueueReadArgs args, aclrtStream stream)
+{
+    hcomm_dfx_queue_read_kernel<<<1, 0, stream>>>(args);
+}
+} // namespace AscendC::HcommDfx
 
 #endif // ASCCOMM_SRC_AICORE_HCOMM_DFX_IMPL_HCOMM_DFX_QUEUE_READER_KERNEL_H
