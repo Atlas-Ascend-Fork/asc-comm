@@ -615,6 +615,20 @@ public:
         Commit(coop);
     }
 
+    template <typename Coop>
+    __simt_callee__ __forceinline__ void AdvanceSq(
+        const Coop& coop, const uint32_t last_wqebbs, const uint32_t payload_wqebbs) const
+    {
+        coop.sync();
+        if (coop.thread_rank() == 0) {
+            auto* self = const_cast<HcommJetty*>(this);
+            self->last_write_wqebbs = last_wqebbs;
+            self->last_write_payload_wqebbs = payload_wqebbs;
+            self->Commit();
+        }
+        coop.sync();
+    }
+
     __simt_callee__ __forceinline__ void Commit()
     {
         constexpr uint64_t kCompletionDelta = 1ULL << 32U;

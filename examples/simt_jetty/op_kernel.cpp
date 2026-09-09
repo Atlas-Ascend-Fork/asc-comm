@@ -167,7 +167,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     if constexpr (kMeasure) {
         writeEnd = clock();
     }
-    jetty.AdvanceSq(group);
+    jetty.AdvanceSq(group, 4U, 4U);
     uint64_t commitEnd = writeEnd;
     if constexpr (kMeasure) {
         commitEnd = clock();
