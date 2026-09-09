@@ -23,17 +23,17 @@ source ${install_path}/cann/set_env.sh
 Build and run with two NPUs by default, or pass a rank count from `2` to `16`:
 
 ```bash
-bash examples/aicore/hcomm/hcomm_batch_write/run.sh
-bash examples/aicore/hcomm/hcomm_batch_write/run.sh 4
+bash examples/aicore/hcomm/02_hcomm_batch_write/run.sh
+bash examples/aicore/hcomm/02_hcomm_batch_write/run.sh 4
 ```
 
 To build and run manually:
 
 ```bash
-cmake -S examples/aicore/hcomm/hcomm_batch_write -B build/examples/aicore/hcomm/hcomm_batch_write \
+cmake -S examples/aicore/hcomm/02_hcomm_batch_write -B build/examples/aicore/hcomm/02_hcomm_batch_write \
     -DCMAKE_ASC_ARCHITECTURES=dav-3510
-cmake --build build/examples/aicore/hcomm/hcomm_batch_write -j
-./build/examples/aicore/hcomm/hcomm_batch_write/hcomm_batch_write 4
+cmake --build build/examples/aicore/hcomm/02_hcomm_batch_write -j
+./build/examples/aicore/hcomm/02_hcomm_batch_write/hcomm_batch_write 4
 ```
 
 The final command starts four ranks. Before running, make sure the requested number of NPUs is available and that the current user can access them.

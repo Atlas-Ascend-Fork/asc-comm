@@ -8,7 +8,7 @@
 这是点对点基准测试：`<nranks>`可以 >= 2，但只有rank 0（发送方）和rank 1（接收方）建链并计时，
 其余rank打印`SKIP`后直接退出。只保留一个发送方是有意的——多方并发发送会互相争抢链路和SQ资源，
 测出的时延和带宽不再具有可比性。需要多卡收发验证时使用
-[`simt_urma`](../simt_urma/README.md)功能样例。
+[`simt_urma`](../04_simt_urma/README.md)功能样例。
 
 所有操作均由单个lane发起，一个channel必须由一个lane驱动。
 
