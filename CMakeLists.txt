@@ -20,9 +20,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ASCCOMM_BUILD_CCU "Build asc-comm CCU launch wrapper library" ON)
 # AICPU数据面(实体直入版)默认关闭：仅独立构建数据面时由build.sh显式开启。
-# 第三方嵌入(如asc-devkit超构建，仅需CCU组件)不设置该选项，避免配置src/aicpu——
-# 其对hcomm源码(pkg_inc契约头)的强校验会拦截无完整hcomm源的嵌入场景
+# 第三方嵌入(如asc-devkit超构建，仅需CCU组件)不设置该选项，避免配置src/aicpu。
+# 兼容旧选项名：重构前(0b2c201之前)的pod-split集成(hcomm cmake/third_party/asc-comm-pod.cmake)
+# 以ASCCOMM_BUILD_AICPU_DATA_PLANE开关数据面，置ON时映射到新选项
 option(ASCCOMM_BUILD_AICPU "Build asc-comm AICPU data plane library" OFF)
+if(ASCCOMM_BUILD_AICPU_DATA_PLANE)
+    set(ASCCOMM_BUILD_AICPU ON CACHE BOOL "Build asc-comm AICPU data plane library" FORCE)
+endif()
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCCOMM_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
