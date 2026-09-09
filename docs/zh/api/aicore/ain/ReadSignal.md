@@ -1,6 +1,29 @@
 # ReadSignal
 
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR/Ascend 950DT：支持
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas 推理系列产品：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas 训练系列产品：不支持
+<!-- end id6 -->
+
 ## 功能说明
+
+头文件路径为：`"comm_api/aicore/ain/ain.h"`。
 
 读取本rank本地signal值，并按`bits`指定的低位宽度返回掩码后的结果。
 
@@ -19,7 +42,9 @@ __aicore__ inline uint64_t ReadSignal(
 
 ## 参数说明
 
-| 参数 | 输入/输出 | 说明 |
+**表1**  接口参数说明
+
+| 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
 | `team` | 输入 | 通信team句柄。 |
 | `signalWindow` | 输入 | signal所在对称window句柄。 |
@@ -27,9 +52,9 @@ __aicore__ inline uint64_t ReadSignal(
 | `bits` | 输入 | 读取低位bit数，取值范围为1-64，默认64。 |
 | `order` | 输入 | signal读内存序，默认`AIN_MEMORY_ORDER_RELAX`。 |
 
-## 返回值
+## 返回值说明
 
-| 返回值 | 说明 |
+| 返回值 | 描述 |
 | --- | --- |
 | `uint64_t` | 本rank本地signal低`bits`位掩码后的值。 |
 
@@ -41,4 +66,41 @@ __aicore__ inline uint64_t ReadSignal(
 - signal地址应按`uint64_t`访问要求准备。
 - `bits`用于生成低位掩码；取值范围为1-64，当`bits`为64时读取完整64位signal值。
 - 当前仅支持`AIN_MEMORY_ORDER_RELAX`。该内存序只保证signal原子读写及阈值检查，不保证signal操作前后普通数据访问的内存序。
-- 当前只支持`COMM_PROTOCOL_UBC_CTP`协议路径。
+- 当前只支持`COMM_PROTOCOL_UB_CTP`协议路径。
+
+## 调用示例
+
+ReadSignal接口的调用示例如下。
+
+```cpp
+extern "C" __global__ __aicore__ void ain_kernel(
+      __gm__ void* team, __gm__ void* signalWin, uint32_t rankNum, uint32_t rankId)
+{
+    // 准备UBuf工作区
+    AscendC::TPipe pipe;
+    AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf;
+    pipe.InitBuffer(hcommBuf, AscendC::HCOMM_URMA_TMP_BUF_SIZE);
+    AscendC::LocalTensor<uint8_t> hcommLocal = hcommBuf.Get<uint8_t>();
+    AscendC::AinDescriptorUbuf hcommUbuf{
+        reinterpret_cast<__ubuf__ uint8_t*>(hcommLocal.GetPhyAddr()),
+        AscendC::HCOMM_URMA_TMP_BUF_SIZE, 0U};
+    // 创建Ain对象
+    AscendC::Ain ain;
+    // 对端rankId
+    uint32_t peer = (rankId + 1) % rankNum;
+    // 对远端signal执行原子递增操作，每次调用加1
+    ain.Signal<AscendC::AinSignalInc>(team, peer,
+        AscendC::AinSignalInc{signalWin, 0}, hcommUbuf);
+    // 期望的signal阈值
+    uint64_t expectVal = 1;
+    // 阻塞等待signal信号
+    while(true) {
+        // 读取本端signal值
+        uint64_t signalVal = ain.ReadSignal(team, signalWin, 0);
+        // 阻塞直至收到远端发来的signal信号：signalVal >= expectVal
+        if (signalVal >= expectVal) {
+            break;
+        }
+    }
+}
+```
