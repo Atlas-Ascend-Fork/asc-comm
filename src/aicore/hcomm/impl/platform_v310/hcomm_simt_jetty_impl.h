@@ -619,6 +619,28 @@ public:
         Commit(coop);
     }
 
+    // Advance the shared SQ head and completion count without publishing a doorbell.
+    // A SIMD/AIV producer can publish the prepared batch afterwards.
+    __simt_callee__ __forceinline__ void AdvanceSqNoDoorbell()
+    {
+        const uint64_t packed_head = ReadPackedHead();
+        const uint32_t new_head = static_cast<uint32_t>(packed_head);
+        const uint64_t published = packed_head + (1ULL << 32U);
+        GetInfo()->packedHead = published;
+        PublishHead();
+        batch_begin_head = new_head;
+    }
+
+    template <typename Coop>
+    __simt_callee__ __forceinline__ void AdvanceSqNoDoorbell(const Coop& coop) const
+    {
+        coop.sync();
+        if (coop.thread_rank() == 0) {
+            const_cast<HcommJetty*>(this)->AdvanceSqNoDoorbell();
+        }
+        coop.sync();
+    }
+
     template <typename Coop>
     __simt_callee__ __forceinline__ void AdvanceSq(
         const Coop& coop, const uint32_t last_wqebbs, const uint32_t payload_wqebbs) const

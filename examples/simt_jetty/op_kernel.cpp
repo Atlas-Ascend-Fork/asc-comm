@@ -139,7 +139,7 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
     }
 }
 
-template <bool kMeasure, bool kPublish = true>
+template <bool kMeasure, bool kPublish = true, bool kDrain = true>
 __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, const AscendC::simt::jetty::HcommPeer& peer,
     AscendC::simt::jetty::HcommJetty& jetty, uint64_t& writeCycles, uint64_t& commitCycles,
@@ -175,7 +175,9 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     if constexpr (kMeasure) {
         commitEnd = clock();
     }
-    jetty.template Drain<1000000>(group);
+    if constexpr (kDrain) {
+        jetty.template Drain<1000000>(group);
+    }
     if constexpr (kMeasure) {
         writeCycles += writeEnd - begin;
         commitCycles += commitEnd - writeEnd;
@@ -370,8 +372,9 @@ __simt_vf__ __aicore__ __launch_bounds__(64) inline void SimtJettyWriteMixedWork
     uint64_t writeCycles = 0;
     uint64_t commitCycles = 0;
     uint64_t completionCycles = 0;
-    SimtJettyWriteDispatchImpl<false, false>(channel, sendBufIdx, recvBufIdx, peer, jetty,
+    SimtJettyWriteDispatchImpl<false, false, false>(channel, sendBufIdx, recvBufIdx, peer, jetty,
                                               writeCycles, commitCycles, completionCycles);
+    jetty.AdvanceSqNoDoorbell(group);
 }
 
 } // namespace
