@@ -71,17 +71,27 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
     if constexpr (kMeasure) {
         begin = clock();
     }
-    if constexpr (kStandaloneWrite) {
-        jetty.template Write<kNumSGEs>(peer, remoteDst, sges);
-    } else {
-        jetty.template Put<kNumSGEs>(peer, remoteDst, sges);
+    // The SIMT DWQE hardware path is limited to a two-BB WRITE. Split larger
+    // thread payloads into 2-SGE segments while preserving the contiguous
+    // remote layout expected by the sample.
+    constexpr int kSegmentSges = 2;
+    for (int segment = 0; segment < kNumSGEs; segment += kSegmentSges) {
+        AscendC::simt::jetty::HcommSge segmentSges[kSegmentSges] = {
+            sges[segment], sges[segment + 1]};
+        __gm__ void* segmentDst = remoteDst + static_cast<uint64_t>(segment) * kSlotBytes;
+        if constexpr (kStandaloneWrite) {
+            jetty.template Write<kSegmentSges>(peer, segmentDst, segmentSges);
+            jetty.AdvanceSq();
+        } else {
+            jetty.template Put<kSegmentSges>(peer, segmentDst, segmentSges);
+        }
     }
     uint64_t writeEnd = 0U;
     if constexpr (kMeasure) {
         writeEnd = clock();
     }
     uint64_t commitEnd = writeEnd;
-    if constexpr (kStandaloneWrite) {
+    if constexpr (!kStandaloneWrite) {
         jetty.AdvanceSq();
         if constexpr (kMeasure) {
             commitEnd = clock();
