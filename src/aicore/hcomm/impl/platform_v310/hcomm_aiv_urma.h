@@ -487,53 +487,9 @@ __aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef
     return multiBatchHandle.handle;
 }
 
-template <HcommUrmaOpCode opCode, auto const& config>
+template <HcommUrmaOpCode opCode, auto const& config, typename LocalDataType>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
-    UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, GM_ADDR localAddr, uint32_t len, GM_ADDR notifyAddr,
-    uint64_t notifyVal)
-{
-    static_assert(
-        opCode == HcommUrmaOpCode::WRITE || opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY ||
-            opCode == HcommUrmaOpCode::READ,
-        "BatchPostSend only supports Write, WriteWithNotify and Read");
-    static_assert(config.cqe == 0 || config.cqe == 1, "BatchPostSend supports cqe values 0 and 1 only");
-    static_assert(config.inlineEn == 0, "BatchPostSend does not support inline data");
-
-    constexpr bool withNotify = opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY;
-    constexpr uint32_t wqebbCount = withNotify ? HCOMM_URMA_WRITE_WITH_NOTIFY_WQEBB_NUM : 1U;
-
-    uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
-    if (preSqCnt > batchHandle.buffer.bufferCapacity || wqebbCount > batchHandle.buffer.bufferCapacity - preSqCnt) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with insufficient buffer\n");
-        return HCOMM_FAILED;
-    }
-    LocalTensor<uint32_t> currentWqe = batchHandle.buffer.buffer[preSqCnt * HCOMM_URMA_WQEBB_U32_NUM];
-    __ubuf__ uint8_t* currentWqeAddr = reinterpret_cast<__ubuf__ uint8_t*>(currentWqe.GetPhyAddr());
-
-    __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqeAddr);
-    Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-    HcommUrmaFillBatchSqeCtx<opCode, config>(sqeCtx, reinterpret_cast<__gm__ uint8_t*>(remoteAddr), batchHandle);
-
-    __ubuf__ uint8_t* sgeAddr = currentWqeAddr + sizeof(HcommUrmaSqeCtx);
-    if constexpr (withNotify) {
-        __ubuf__ HcommUrmaNotifyCtx* notifyCtx = reinterpret_cast<__ubuf__ HcommUrmaNotifyCtx*>(sgeAddr);
-        HcommUrmaFillBatchNotifyCtx(notifyCtx, batchHandle, notifyAddr, notifyVal);
-        sgeAddr += sizeof(HcommUrmaNotifyCtx);
-    }
-    __ubuf__ HcommUrmaSgeCtx* sgeCtx = reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(sgeAddr);
-    HcommUrmaFillSgeCtx<opCode>(sgeCtx, len, reinterpret_cast<__gm__ uint8_t*>(localAddr), UdmaParams<uint64_t>{});
-    Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-
-    batchHandle.cursor.preSqCnt = preSqCnt + wqebbCount;
-    if constexpr (config.cqe == 1) {
-        batchHandle.cursor.cqHead++;
-    }
-    return HCOMM_SUCCESS;
-}
-
-template <HcommUrmaOpCode opCode, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
-    UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t sgeNum,
+    UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, LocalDataType localData, uint32_t lenOrSgeNum,
     GM_ADDR notifyAddr, uint64_t notifyVal)
 {
     static_assert(
@@ -543,12 +499,20 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
     static_assert(config.cqe == 0 || config.cqe == 1, "BatchPostSend supports cqe values 0 and 1 only");
     static_assert(config.inlineEn == 0, "BatchPostSend does not support inline data");
 
+    constexpr bool isMultiSge = std::is_same<LocalDataType, const BufDesc*>::value;
+    constexpr bool isSingleSge = std::is_same<LocalDataType, GM_ADDR>::value;
+    static_assert(isMultiSge || isSingleSge, "BatchPostSend only supports GM_ADDR or const BufDesc*");
+
     constexpr bool withNotify = opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY;
+    uint32_t sgeNum = 1U;
     constexpr uint32_t maxSgeNum =
         withNotify ? HCOMM_URMA_BATCH_NOTIFY_MAX_SGE_NUM : HCOMM_URMA_BATCH_DATA_MAX_SGE_NUM;
-    if (sgeNum < HCOMM_URMA_BATCH_MIN_SGE_NUM || sgeNum > maxSgeNum) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with invalid SGE count\n");
-        return HCOMM_FAILED;
+    if constexpr (isMultiSge) {
+        sgeNum = lenOrSgeNum;
+        if (sgeNum < HCOMM_URMA_BATCH_MIN_SGE_NUM || sgeNum > maxSgeNum) {
+            HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with invalid SGE count\n");
+            return HCOMM_FAILED;
+        }
     }
 
     constexpr uint32_t fixedBytes =
@@ -564,9 +528,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
 
     // Contract: batchHandle either comes from a single-channel MakeBatchHandle call or is the inner execution handle
     // selected by GetHandleRef for one logical channel of a multi-channel batch. One WQE, including all of its SGEs
-    // and optional notification, belongs to that selected channel and cannot span channels. localDescs contains
-    // exactly sgeNum elements; every local address and length is valid; remoteAddr/notifyAddr belong to the MR cached
-    // by the handle. These conditions are intentionally not checked on this batch fast path.
+    // and optional notification, belongs to that selected channel and cannot span channels. In multi-SGE mode,
+    // localData points to exactly sgeNum valid descriptors. In single-SGE mode, localData and lenOrSgeNum are the
+    // valid local address and length. remoteAddr/notifyAddr belong to the MR cached by the handle. These conditions
+    // are intentionally not checked on this batch fast path.
     LocalTensor<uint32_t> currentWqe = batchHandle.buffer.buffer[preSqCnt * HCOMM_URMA_WQEBB_U32_NUM];
     __ubuf__ uint8_t* currentWqeAddr = reinterpret_cast<__ubuf__ uint8_t*>(currentWqe.GetPhyAddr());
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqeAddr);
@@ -582,10 +547,15 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
         sgeAddr += sizeof(HcommUrmaNotifyCtx);
     }
     __ubuf__ HcommUrmaSgeCtx* sgeCtx = reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(sgeAddr);
-    for (uint32_t i = 0U; i < sgeNum; ++i) {
-        sgeCtx[i].len = localDescs[i].len;
-        sgeCtx[i].tokenId = 0U;
-        sgeCtx[i].va = reinterpret_cast<uint64_t>(localDescs[i].addr);
+    if constexpr (isMultiSge) {
+        for (uint32_t i = 0U; i < sgeNum; ++i) {
+            sgeCtx[i].len = localData[i].len;
+            sgeCtx[i].tokenId = 0U;
+            sgeCtx[i].va = reinterpret_cast<uint64_t>(localData[i].addr);
+        }
+    } else {
+        HcommUrmaFillSgeCtx<opCode>(
+            sgeCtx, lenOrSgeNum, reinterpret_cast<__gm__ uint8_t*>(localData), UdmaParams<uint64_t>{});
     }
     Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
 
