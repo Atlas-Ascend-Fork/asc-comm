@@ -24,6 +24,7 @@ add_executable(ccu_broadcast
 )
 
 target_include_directories(ccu_broadcast PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/../../../include  # 源码仓 DSL 头（ccu/hcomm/*.hpp），优先于 CANN 安装包
     ${CMAKE_CURRENT_SOURCE_DIR}/op_host
     ${CMAKE_CURRENT_SOURCE_DIR}/op_kernel_ccu
     ${ASCEND_HOME_PATH}/asc/include/comm_api

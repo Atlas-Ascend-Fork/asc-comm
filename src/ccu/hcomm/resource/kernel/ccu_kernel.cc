@@ -2564,13 +2564,13 @@ void ccu_kernel::set_instr_id(uint32_t instr_id) { instr_info_.start_instr_id = 
 
 uint32_t ccu_kernel::get_instr_id() const { return instr_info_.start_instr_id; }
 
-void ccu_kernel::set_instruction_resource(const HcommCcuResRangePod& range)
+void ccu_kernel::set_instruction_resource(const asc_ccu_res_range& range)
 {
     instruction_resource_ = range;
     has_instruction_resource_ = true;
 }
 
-bool ccu_kernel::get_instruction_resource(HcommCcuResRangePod& range) const
+bool ccu_kernel::get_instruction_resource(asc_ccu_res_range& range) const
 {
     if (!has_instruction_resource_) {
         return false;

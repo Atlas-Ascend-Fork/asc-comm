@@ -35,8 +35,8 @@ ccu_var_event_res_mgr &ccu_var_event_res_mgr::get_instance(const int32_t device_
     return res_mgrs[dev_logic_id];
 }
 
-CcuResult ccu_var_event_res_mgr::alloc_from_pool(std::vector<HcommCcuResRangePod> &pool, uint32_t num,
-    std::vector<HcommCcuResRangePod> &out)
+CcuResult ccu_var_event_res_mgr::alloc_from_pool(std::vector<asc_ccu_res_range> &pool, uint32_t num,
+    std::vector<asc_ccu_res_range> &out)
 {
     for (auto it = pool.begin(); it != pool.end(); ++it) {
         if (it->count < num) {
@@ -44,12 +44,12 @@ CcuResult ccu_var_event_res_mgr::alloc_from_pool(std::vector<HcommCcuResRangePod
         }
 
         out.clear();
-        out.emplace_back(HcommCcuResRangePod{it->resourceType, it->dieId, it->startId, num});
+        out.emplace_back(asc_ccu_res_range{it->resource_type, it->die_id, it->start_id, num});
 
         if (it->count == num) {
             pool.erase(it);
         } else {
-            it->startId += num;
+            it->start_id += num;
             it->count   -= num;
         }
         return CCU_SUCCESS;
@@ -58,8 +58,8 @@ CcuResult ccu_var_event_res_mgr::alloc_from_pool(std::vector<HcommCcuResRangePod
     return CCU_E_UNAVAIL;
 }
 
-void ccu_var_event_res_mgr::return_to_pool(std::vector<HcommCcuResRangePod> &pool,
-    const std::vector<HcommCcuResRangePod> &ranges)
+void ccu_var_event_res_mgr::return_to_pool(std::vector<asc_ccu_res_range> &pool,
+    const std::vector<asc_ccu_res_range> &ranges)
 {
     for (const auto &range : ranges) {
         if (range.count == 0) {
@@ -69,7 +69,7 @@ void ccu_var_event_res_mgr::return_to_pool(std::vector<HcommCcuResRangePod> &poo
     }
 }
 
-static std::vector<HcommCcuResRangePod> *select_pool(asc_ccu_res_repository &res_repo,
+static std::vector<asc_ccu_res_range> *select_pool(asc_ccu_res_repository &res_repo,
     ccu_var_event_type type, uint8_t die_id)
 {
     switch (type) {
@@ -212,7 +212,7 @@ CcuResult ccu_var_event_res_mgr::register_addrs(ccu_var_event_type type, uint64_
     return CCU_SUCCESS;
 }
 
-CcuResult ccu_var_event_res_mgr::alloc_and_record(CcuInsHandle ins_handle, asc_ccu_res_repository &res_repo,
+CcuResult ccu_var_event_res_mgr::alloc_and_record(CcuInstanceHandle ins_handle, asc_ccu_res_repository &res_repo,
     ccu_var_event_type type, uint8_t die_id, uint32_t num, uint64_t &new_handle)
 {
     if (die_id >= HCOMM_CCU_MAX_DIE_NUM) {
@@ -225,14 +225,14 @@ CcuResult ccu_var_event_res_mgr::alloc_and_record(CcuInsHandle ins_handle, asc_c
         return CCU_E_PARA;
     }
 
-    std::vector<HcommCcuResRangePod> *pool = select_pool(res_repo, type, die_id);
+    std::vector<asc_ccu_res_range> *pool = select_pool(res_repo, type, die_id);
     if (pool == nullptr) {
         HCCL_ERROR("[CcuVarEventResMgr][%s] failed, unsupported type[%d].",
             __func__, static_cast<int32_t>(type));
         return CCU_E_PARA;
     }
 
-    std::vector<HcommCcuResRangePod> res_ranges{};
+    std::vector<asc_ccu_res_range> res_ranges{};
     CcuResult ret = alloc_from_pool(*pool, num, res_ranges);
     if (ret != CCU_SUCCESS) {
         HCCL_ERROR("[CcuVarEventResMgr][%s] failed, no consecutive block of num[%u] in ins_handle[0x%llx] "
@@ -256,7 +256,7 @@ CcuResult ccu_var_event_res_mgr::alloc_and_record(CcuInsHandle ins_handle, asc_c
     return CCU_SUCCESS;
 }
 
-CcuResult ccu_var_event_res_mgr::acquire(CcuInsHandle ins_handle, asc_ccu_res_repository &res_repo,
+CcuResult ccu_var_event_res_mgr::acquire(CcuInstanceHandle ins_handle, asc_ccu_res_repository &res_repo,
     ccu_var_event_type type, uint8_t die_id, uint32_t num, uint64_t &handle)
 {
     uint64_t new_handle = 0;
@@ -305,7 +305,7 @@ CcuResult ccu_var_event_res_mgr::get_variable_xn_id(uint64_t handle, uint32_t in
         return CCU_E_NOT_SUPPORT;
     }
 
-    const HcommCcuResRangePod &range = res.res_ranges[0];
+    const asc_ccu_res_range &range = res.res_ranges[0];
     if (index >= range.count) {
         HCCL_ERROR("[CcuVarEventResMgr][%s] get variable resource id failed, index[%u] out of range, block count[%u].",
             __func__, index, range.count);
@@ -313,7 +313,7 @@ CcuResult ccu_var_event_res_mgr::get_variable_xn_id(uint64_t handle, uint32_t in
     }
 
     die_id = res.die_id;
-    xn_id  = range.startId + index;
+    xn_id  = range.start_id + index;
     return CCU_SUCCESS;
 }
 
@@ -339,7 +339,7 @@ CcuResult ccu_var_event_res_mgr::get_event_cke_id(uint64_t handle, uint32_t inde
         return CCU_E_NOT_SUPPORT;
     }
 
-    const HcommCcuResRangePod &range = res.res_ranges[0];
+    const asc_ccu_res_range &range = res.res_ranges[0];
     if (index >= range.count) {
         HCCL_ERROR("[CcuVarEventResMgr][%s] failed, index[%u] out of range, block count[%u].",
             __func__, index, range.count);
@@ -347,7 +347,7 @@ CcuResult ccu_var_event_res_mgr::get_event_cke_id(uint64_t handle, uint32_t inde
     }
 
     die_id = res.die_id;
-    cke_id = range.startId + index;
+    cke_id = range.start_id + index;
     return CCU_SUCCESS;
 }
 
@@ -414,7 +414,7 @@ CcuResult ccu_var_event_res_mgr::unmap_saved_addrs(const ccu_var_event_res &res)
 {
     // 仅 unmap Alloc 阶段已成功映射并保存 VA 的资源；错误回滚路径中 va_list 为空，天然跳过。
     // 不变量：va_list 非空 <=> SaveAddrs 已成功，而 SaveAddrs 强校验 res_ranges 为单个连续块且
-    // va_list.size() == res_ranges[0].count，故下面用 res_ranges[0].startId + index 反推 res_id 恒成立
+    // va_list.size() == res_ranges[0].count，故下面用 res_ranges[0].start_id + index 反推 res_id 恒成立
     if (res.va_list.empty() || res.res_ranges.empty()) {
         return CCU_SUCCESS;
     }
@@ -434,7 +434,7 @@ CcuResult ccu_var_event_res_mgr::unmap_saved_addrs(const ccu_var_event_res &res)
     }
 
     CcuResult first_err = CCU_SUCCESS;
-    const uint32_t start_id = res.res_ranges[0].startId;
+    const uint32_t start_id = res.res_ranges[0].start_id;
     for (uint32_t index = 0; index < res.va_list.size(); index++) {
         CcuResult ret = unmap_dev_res_address(res.die_id, res_type, start_id + index);
         if (ret != CCU_SUCCESS && first_err == CCU_SUCCESS) {
@@ -469,7 +469,7 @@ CcuResult ccu_var_event_res_mgr::release_by_handle(uint64_t handle)
     if (res.res_repo == nullptr) {
         return unmap_ret;
     }
-    std::vector<HcommCcuResRangePod> *pool = select_pool(*res.res_repo, res.type, res.die_id);
+    std::vector<asc_ccu_res_range> *pool = select_pool(*res.res_repo, res.type, res.die_id);
     if (pool == nullptr) {
         HCCL_ERROR("[CcuVarEventResMgr][%s] failed to return, handle[0x%llx] type[%d].",
             __func__, handle, static_cast<int32_t>(res.type));
@@ -479,13 +479,13 @@ CcuResult ccu_var_event_res_mgr::release_by_handle(uint64_t handle)
     return unmap_ret;
 }
 
-CcuResult ccu_var_event_res_mgr::release_by_instance(CcuInsHandle ins_handle)
+CcuResult ccu_var_event_res_mgr::release_by_instance(CcuInstanceHandle ins_handle)
 {
     std::vector<ccu_var_event_res> to_release{};
     {
         std::unique_lock<std::shared_timed_mutex> lock(map_mutex_);
         for (auto it = res_map_.begin(); it != res_map_.end();) {
-            if (it->second.ins_handle == ins_handle) {
+            if (it->second.ins_handle.ccuInsKey == ins_handle.ccuInsKey) {
                 to_release.push_back(std::move(it->second));
                 it = res_map_.erase(it);
             } else {
@@ -506,7 +506,7 @@ CcuResult ccu_var_event_res_mgr::release_by_instance(CcuInsHandle ins_handle)
         if (res.res_repo == nullptr) {
             continue;
         }
-        std::vector<HcommCcuResRangePod> *pool = select_pool(*res.res_repo, res.type, res.die_id);
+        std::vector<asc_ccu_res_range> *pool = select_pool(*res.res_repo, res.type, res.die_id);
         if (pool == nullptr) {
             HCCL_ERROR("[CcuVarEventResMgr][%s] failed to return, ins_handle[0x%llx] type[%d].",
                 __func__, ins_handle, static_cast<int32_t>(res.type));
@@ -521,54 +521,54 @@ CcuResult ccu_var_event_res_mgr::release_by_instance(CcuInsHandle ins_handle)
 }
 
 // 从空闲块列表 pool 中扣除区间 [start, start+count)必要时把命中的空闲块拆分成左右两段。
-static void remove_range_from_pool(std::vector<HcommCcuResRangePod> &pool, uint32_t start, uint32_t count)
+static void remove_range_from_pool(std::vector<asc_ccu_res_range> &pool, uint32_t start, uint32_t count)
 {
     if (count == 0) {
         return;
     }
     const uint32_t end = start + count;
-    std::vector<HcommCcuResRangePod> result{};
+    std::vector<asc_ccu_res_range> result{};
     result.reserve(pool.size() + 1);
     for (const auto &block : pool) {
-        const uint32_t blockStart = block.startId;
-        const uint32_t blockEnd = block.startId + block.count;
+        const uint32_t blockStart = block.start_id;
+        const uint32_t blockEnd = block.start_id + block.count;
         if (end <= blockStart || start >= blockEnd) {
             result.push_back(block);
             continue;
         }
         if (blockStart < start) {
-            result.emplace_back(HcommCcuResRangePod{block.resourceType, block.dieId,
+            result.emplace_back(asc_ccu_res_range{block.resource_type, block.die_id,
                 blockStart, start - blockStart});
         }
         if (end < blockEnd) {
-            result.emplace_back(HcommCcuResRangePod{block.resourceType, block.dieId,
+            result.emplace_back(asc_ccu_res_range{block.resource_type, block.die_id,
                 end, blockEnd - end});
         }
     }
     pool.swap(result);
 }
 
-CcuResult ccu_var_event_res_mgr::exclude_allocated_from_repo(CcuInsHandle ins_handle) const
+CcuResult ccu_var_event_res_mgr::exclude_allocated_from_repo(CcuInstanceHandle ins_handle) const
 {
     // shared_lock 用于只读遍历 res_map_；被修改的 *pool 属于该 ins_handle 自己的 AscCcuResSnapshot，
     // 其并发安全由“同一 instance 单线程串行访问”契约保证，详见头文件线程安全契约说明
     std::shared_lock<std::shared_timed_mutex> lock(map_mutex_);
     for (const auto &kv : res_map_) {
         const ccu_var_event_res &res = kv.second;
-        if (res.ins_handle != ins_handle || res.res_repo == nullptr) {
+        if (res.ins_handle.ccuInsKey != ins_handle.ccuInsKey || res.res_repo == nullptr) {
             continue;
         }
-        std::vector<HcommCcuResRangePod> *pool = select_pool(*res.res_repo, res.type, res.die_id);
+        std::vector<asc_ccu_res_range> *pool = select_pool(*res.res_repo, res.type, res.die_id);
         if (pool == nullptr) {
             HCCL_ERROR("[CcuVarEventResMgr][%s] failed, ins_handle[0x%llx] type[%d].",
                 __func__, ins_handle, static_cast<int32_t>(res.type));
             continue;
         }
         for (const auto &range : res.res_ranges) {
-            remove_range_from_pool(*pool, range.startId, range.count);
+            remove_range_from_pool(*pool, range.start_id, range.count);
             HCCL_INFO("[CcuVarEventResMgr][%s] exclude acquired res, ins_handle[0x%llx] type[%d] "
                 "die_id[%u] start_id[%u] count[%u].", __func__, ins_handle,
-                static_cast<int32_t>(res.type), res.die_id, range.startId, range.count);
+                static_cast<int32_t>(res.type), res.die_id, range.start_id, range.count);
         }
     }
     return CCU_SUCCESS;

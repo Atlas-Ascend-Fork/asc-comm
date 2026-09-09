@@ -39,13 +39,20 @@ protected:
     {
         HcommCcuChannelPod channelPod{};
         channelPod.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
-        channelPod.header.magic_word = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
+        channelPod.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
         channelPod.header.size = sizeof(HcommCcuChannelPod);
-        channelPod.local_xn_ids[0] = 0;
-        channelPod.remote_xn_ids[0] = 0;
-        channelPod.local_cke_ids[0] = 0;
-        channelPod.remote_cke_ids[0] = 0;
-        channelPod.rmt_ccu_buf_size = 1;
+        channelPod.localVarNum = 1;
+        channelPod.remoteVarNum = 1;
+        channelPod.localEventNum = 1;
+        channelPod.remoteEventNum = 1;
+        channelPod.localVarIds[0] = 0;
+        channelPod.remoteVarIds[0] = 0;
+        channelPod.localEventIds[0] = 0;
+        channelPod.remoteEventIds[0] = 0;
+        channelPod.rmtCcuResBuffer.type = REGED_BUFFER_RMA;
+        channelPod.rmtCcuResBuffer.bufferInfo.rma.addr = 0x1000;
+        channelPod.rmtCcuResBuffer.bufferInfo.rma.size = 1;
+        channelPod.rmtCcuResBuffer.bufferInfo.rma.protectionInfo.type = PROTECTION_TYPE_UB;
         SetHcommCcuChannelGetPodStub(channelPod);
     }
     void TearDown() override

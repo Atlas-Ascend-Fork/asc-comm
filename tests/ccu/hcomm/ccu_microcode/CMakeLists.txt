@@ -14,7 +14,7 @@ set(src_to_test_list
     ut_ccu_microcode_v2_test.cc
     ut_ccu_assist_test.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_microcode.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_microcode_v2_.cc
+    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_microcode_v2.cpp
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_assist.cc
 )
 
