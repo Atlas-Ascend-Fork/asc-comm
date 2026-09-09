@@ -79,7 +79,7 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
     }
     uint64_t commitEnd = writeEnd;
     if constexpr (kStandaloneWrite) {
-        jetty.Commit();
+        jetty.AdvanceSq();
         if constexpr (kMeasure) {
             commitEnd = clock();
         }
@@ -122,7 +122,7 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
     }
     uint64_t commitEnd = writeEnd;
     if constexpr (kStandaloneWrite) {
-        jetty.Commit(coop);
+        jetty.AdvanceSq(coop);
         if constexpr (kMeasure) {
             commitEnd = clock();
         }
@@ -164,7 +164,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     if constexpr (kMeasure) {
         writeEnd = clock();
     }
-    jetty.Commit(group);
+    jetty.AdvanceSq(group);
     uint64_t commitEnd = writeEnd;
     if constexpr (kMeasure) {
         commitEnd = clock();
