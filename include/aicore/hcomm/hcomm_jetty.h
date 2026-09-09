@@ -622,6 +622,9 @@ public:
         coop.sync();
         if (coop.thread_rank() == 0) {
             auto* self = const_cast<HcommJetty*>(this);
+            HCOMM_JETTY_CHECK_OR_RETURN(
+                last_wqebbs >= 2U && last_wqebbs <= kNumWQEBBsPerWrite && payload_wqebbs > 0U &&
+                payload_wqebbs <= last_wqebbs);
             self->last_write_wqebbs = last_wqebbs;
             self->last_write_payload_wqebbs = payload_wqebbs;
             self->Commit();
