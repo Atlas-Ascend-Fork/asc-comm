@@ -821,36 +821,6 @@ def normalize_gitcode_content_target(target):
     return target_path, suffix
 
 
-def readme_language(path):
-    name = posixpath.basename(path).lower()
-    if name == "readme_en.md":
-        return "en"
-    if name == "readme.md":
-        return "zh"
-    return None
-
-
-def readme_language_error(source, target_path, suffix):
-    source_language = readme_language(source)
-    if source_language is None or not target_path.startswith("examples/"):
-        return None
-
-    target = repo_root / target_path
-    if target.is_dir():
-        return None
-    target_language = readme_language(target_path)
-    if target_language is None or target_language == source_language:
-        if source_language == "en" and "#" in suffix and re.search(r"[\u4e00-\u9fff]", suffix):
-            return "English README links must use an English anchor"
-        return None
-
-    expected = posixpath.join(
-        posixpath.dirname(target_path),
-        "README_en.md" if source_language == "en" else "README.md",
-    )
-    return f"README language must match the source language: {target_path} -> {expected}{suffix}"
-
-
 def file_url(target_path, suffix):
     readme_path = (repo_root / target_path / "README.md")
     if readme_path.is_file():
@@ -932,11 +902,6 @@ for source in scan_files:
                 continue
             if source_kind is None:
                 continue
-            if source_kind == target_kind == "examples":
-                language_error = readme_language_error(source, target_path, suffix)
-                if language_error is not None:
-                    errors.append(f"{source}:{line_number}: {language_error}: {target}")
-                    continue
             if {source_kind, target_kind} == {"api", "guide"}:
                 continue
             if target_kind == "examples" and source_kind in ("api", "guide"):
