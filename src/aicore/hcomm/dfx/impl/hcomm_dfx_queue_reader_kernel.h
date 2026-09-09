@@ -14,28 +14,26 @@
 #include "basic_api/kernel_common.h"
 #include "../common/hcomm_dfx_impl.h"
 
-using namespace AscendC;
-
 #define HCOMM_DFX_EXPORT_AIV_META_INFO(kernel_name) \
 static const struct FunLevelKType kernel_name##_kernel_type_section __attribute__ \
 ((used, section (".ascend.meta." #kernel_name))) \
 = {{F_TYPE_KTYPE, sizeof(unsigned int), K_TYPE_AIV}}
 
-extern "C" __vector__ __global__ __aicore__ void hcomm_dfx_queue_read_kernel(HcommDfxQueueReadArgs args)
+extern "C" __vector__ __global__ __aicore__ void hcomm_dfx_queue_read_kernel(AscendC::HcommDfxQueueReadArgs args)
 {
-    if (GetBlockIdx() != 0) {
+    if (AscendC::GetBlockIdx() != 0) {
         return;
     }
 
-    __gm__ HcommDfxQueueReadResult *result =
-        reinterpret_cast<__gm__ HcommDfxQueueReadResult *>(args.resultAddr);
+    __gm__ AscendC::HcommDfxQueueReadResult *result =
+        reinterpret_cast<__gm__ AscendC::HcommDfxQueueReadResult *>(args.resultAddr);
     if (result == nullptr) {
         return;
     }
 
-    result->ret = HCOMM_DFX_QUEUE_READ_INVALID_PARAM;
+    result->ret = AscendC::HCOMM_DFX_QUEUE_READ_INVALID_PARAM;
     result->size = 0;
-    if (args.srcAddr == 0 || args.size == 0 || args.size > HCOMM_DFX_QUEUE_ENTRY_BYTES) {
+    if (args.srcAddr == 0 || args.size == 0 || args.size > AscendC::HCOMM_DFX_QUEUE_ENTRY_BYTES) {
         return;
     }
 
@@ -44,7 +42,7 @@ extern "C" __vector__ __global__ __aicore__ void hcomm_dfx_queue_read_kernel(Hco
         result->data[idx] = src[idx];
     }
     result->size = args.size;
-    result->ret = HCOMM_DFX_QUEUE_READ_SUCCESS;
+    result->ret = AscendC::HCOMM_DFX_QUEUE_READ_SUCCESS;
 }
 
 HCOMM_DFX_EXPORT_AIV_META_INFO(hcomm_dfx_queue_read_kernel);
