@@ -12,10 +12,28 @@
 #define HCOMM_RW_DEF_H
 
 #include <cstdint>
+#include <cstdio>
 
 #include "adv_api/hcomm/hcomm.h"
 #include "hccl/hccl.h"
 #include "hccl/hccl_comm.h"
+
+// Host侧流程的返回值与错误检查宏（原TCP环工具utils.h中仅剩的被使用部分）。
+constexpr int32_t SUCCESS = 0;
+constexpr int32_t FAIL = -1;
+
+#define CHECK(call, expect, rank)                                                              \
+    do {                                                                                       \
+        auto _check_ret = (call);                                                              \
+        auto _check_expect = (expect);                                                         \
+        if (_check_ret != _check_expect) {                                                     \
+            fprintf(                                                                           \
+                stderr, "[CHECK ERROR][rank=%u] %s failed, ret=%lld, expect=%lld, at %s:%d\n", \
+                static_cast<unsigned>(rank), #call, static_cast<long long>(_check_ret),        \
+                static_cast<long long>(_check_expect), __FILE__, __LINE__);                    \
+            return FAIL;                                                                       \
+        }                                                                                      \
+    } while (0)
 
 constexpr uint32_t DATA_SIZE = 256U;
 constexpr uint64_t COMM_BUF_SIZE = 4096U;
@@ -24,8 +42,6 @@ constexpr uint64_t WRITE_RESULT_OFFSET = DATA_SIZE;
 constexpr uint64_t READ_RESULT_OFFSET = 2U * DATA_SIZE;
 
 constexpr uint32_t NRANKS = 2U;
-constexpr uint16_t BASE_PORT = 29620U;
-constexpr uint32_t ROOT_SERVER_RANK = 0U;
 constexpr CommProtocol HOST_COMM_PROTOCOL = COMM_PROTOCOL_UB_CTP;
 constexpr AscendC::CommProtocol KERNEL_COMM_PROTOCOL = AscendC::COMM_PROTOCOL_UB_CTP;
 static_assert(

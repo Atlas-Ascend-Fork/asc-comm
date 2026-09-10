@@ -19,8 +19,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -36,6 +34,7 @@
 #include "hccl/hccl_types.h"
 
 #include "utils/process_manager/process_manager.h"
+#include "utils/rank_sync/rank_sync.h"
 
 #include "simt_urma_perftest_common.h"
 
@@ -62,34 +61,9 @@ extern void LaunchSimtUrmaPerf(
 namespace {
 using namespace simt_urma_perftest;
 
-constexpr uint32_t kBarrierWaitSeconds = 60U;
-constexpr uint32_t kBarrierPollMs = 100U;
 constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UB_CTP;
 constexpr const char* kSendBufTag = "simtUrmaPerfSendBuf";
 constexpr const char* kRecvBufTag = "simtUrmaPerfRecvBuf";
-
-// 在系统临时目录下创建形如<prefix>.XXXXXX的一次性目录；失败返回空串。
-std::string MakeTempDir(const std::string& prefix)
-{
-    const char* tmpdir = std::getenv("TMPDIR");
-    std::string tmpl =
-        std::string((tmpdir != nullptr && tmpdir[0] != '\0') ? tmpdir : "/tmp") + "/" + prefix + ".XXXXXX";
-    std::vector<char> buf(tmpl.begin(), tmpl.end());
-    buf.push_back('\0');
-    const char* dir = mkdtemp(buf.data());
-    return dir != nullptr ? std::string(dir) : std::string();
-}
-
-void RemoveTempDir(const std::string& dir)
-{
-    if (!dir.empty()) {
-        // 目录里只有本程序写入的root info文件与barrier标记文件，无子目录。
-        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-            std::filesystem::remove(entry.path());
-        }
-        std::filesystem::remove(dir);
-    }
-}
 
 // Consecutive WQEs rotate over this many slots so they do not all land on one cache line.
 // Capped so a large payload does not blow the buffer up: the product is the allocation size.
@@ -99,111 +73,6 @@ constexpr size_t kSlotAlign = 128U;
 
 // Rank 0通过HcclGetRootInfo生成root info并写入文件，其余rank从文件读取后调用
 // HcclCommInitRootInfo创建通信域，从而摆脱rank table依赖。
-bool IsRootInfoFileReady(const std::string& path)
-{
-    struct stat st {};
-    return stat(path.c_str(), &st) == 0 && st.st_size >= static_cast<off_t>(sizeof(HcclRootInfo));
-}
-
-HcclResult WriteRootInfoFile(const std::string& path, const HcclRootInfo& rootInfo)
-{
-    const std::string tmpPath = path + ".tmp";
-    std::ofstream ofs(tmpPath, std::ios::binary | std::ios::trunc);
-    if (!ofs.is_open()) {
-        std::cout << "Open root info tmp file failed: " << tmpPath << std::endl;
-        return HCCL_E_OPEN_FILE_FAILURE;
-    }
-    ofs.write(reinterpret_cast<const char*>(&rootInfo), sizeof(rootInfo));
-    ofs.close();
-    if (!ofs) {
-        std::cout << "Write root info file failed: " << tmpPath << std::endl;
-        return HCCL_E_SYSCALL;
-    }
-    if (std::rename(tmpPath.c_str(), path.c_str()) != 0) {
-        std::cout << "Rename root info file failed: " << tmpPath << " -> " << path << std::endl;
-        return HCCL_E_SYSCALL;
-    }
-    return HCCL_SUCCESS;
-}
-
-HcclResult ReadRootInfoFile(const std::string& path, HcclRootInfo* rootInfo)
-{
-    const uint32_t maxPollTimes = kBarrierWaitSeconds * 1000U / kBarrierPollMs;
-    for (uint32_t i = 0; i < maxPollTimes; ++i) {
-        if (!IsRootInfoFileReady(path)) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
-            continue;
-        }
-        std::ifstream ifs(path, std::ios::binary);
-        if (!ifs.is_open()) {
-            return HCCL_E_OPEN_FILE_FAILURE;
-        }
-        ifs.read(reinterpret_cast<char*>(rootInfo), sizeof(*rootInfo));
-        if (ifs.gcount() == static_cast<std::streamsize>(sizeof(*rootInfo))) {
-            return HCCL_SUCCESS;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
-    }
-    std::cout << "Wait root info file timeout: " << path << std::endl;
-    return HCCL_E_TIMEOUT;
-}
-
-HcclResult InitCommByRootInfo(uint32_t rank, uint32_t nranks, const std::string& rootInfoFile, HcclComm* comm)
-{
-    HcclRootInfo rootInfo{};
-    HcclResult ret = HCCL_SUCCESS;
-    if (rank == 0U) {
-        HCCLCHECK(HcclGetRootInfo(&rootInfo));
-        ret = WriteRootInfoFile(rootInfoFile, rootInfo);
-        if (ret != HCCL_SUCCESS) {
-            return ret;
-        }
-    } else {
-        ret = ReadRootInfoFile(rootInfoFile, &rootInfo);
-        if (ret != HCCL_SUCCESS) {
-            return ret;
-        }
-    }
-    HCCLCHECK(HcclCommInitRootInfo(nranks, &rootInfo, rank, comm));
-    return HCCL_SUCCESS;
-}
-
-bool MarkerReady(const std::string& path)
-{
-    struct stat st {};
-    return stat(path.c_str(), &st) == 0 && st.st_size != 0;
-}
-
-// syncDir holds the barrier marker files and is passed in on the command line rather than through
-// the environment: an exported variable is easy to lose across a shell wrapper or a scheduler, and
-// losing it silently sent every rank to the same default directory, where markers from a previous
-// run could let a barrier pass immediately.
-HcclResult HostBarrier(int rank, int nranks, const std::string& syncDir, const char* name)
-{
-    if (mkdir(syncDir.c_str(), 0700) != 0 && errno != EEXIST) {
-        return HCCL_E_SYSCALL;
-    }
-    const std::string prefix = syncDir + "/" + name + ".";
-    {
-        std::ofstream marker(prefix + std::to_string(rank), std::ios::trunc);
-        marker << '1';
-        if (!marker) {
-            return HCCL_E_SYSCALL;
-        }
-    }
-    const uint32_t maxPolls = kBarrierWaitSeconds * 1000U / kBarrierPollMs;
-    for (uint32_t poll = 0U; poll < maxPolls; ++poll) {
-        bool ready = true;
-        for (int i = 0; i < nranks; ++i) {
-            ready = ready && MarkerReady(prefix + std::to_string(i));
-        }
-        if (ready) {
-            return HCCL_SUCCESS;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
-    }
-    return HCCL_E_TIMEOUT;
-}
 
 size_t AlignUp(size_t value, size_t alignment) { return (value + alignment - 1U) / alignment * alignment; }
 
@@ -391,10 +260,13 @@ uint32_t SqBlocksPerWqe(uint32_t api, bool commitEach) { return (api == kApiWrit
 
 // 单个rank的基准流程。由ProcessGroup在每个子进程中调用：只有rank 0（发送方）和
 // rank 1（接收方）建链并计时，其余rank直接退出，不加入通信域。
+// 本样例两个host侧同步点的tag。
+constexpr uint32_t kTagReady = examples::kTagUserBase;
+constexpr uint32_t kTagCompleted = examples::kTagUserBase + 1U;
+
 int RunPerftestRank(
-    uint32_t rank, uint32_t nranks, const std::string& rootInfoFile, const std::string& syncDir,
-    const std::string& apiName, uint32_t iterations, uint32_t warmup, uint32_t payloadBytes,
-    const std::string& commitMode)
+    uint32_t rank, uint32_t nranks, const std::string& ctrlEndpoint, const std::string& apiName, uint32_t iterations,
+    uint32_t warmup, uint32_t payloadBytes, const std::string& commitMode)
 {
     // 这是点对点基准测试：只有一个发送方计时，多方并发发送会互相争抢链路和 SQ 资源，
     // 测出来的数字没有可比性。
@@ -410,6 +282,13 @@ int RunPerftestRank(
                   << std::endl;
         return 0;
     }
+    examples::RankSyncContext sync = rank == 0U ? examples::RankSyncContext::Listen(ctrlEndpoint, nranks) :
+                                                  examples::RankSyncContext::Connect(rank, nranks, ctrlEndpoint);
+    if (!sync.Ok()) {
+        std::cout << "rank " << rank << ": control channel setup failed" << std::endl;
+        return 1;
+    }
+
     uint32_t api = kApiWrite;
     if (!ParseApi(apiName, api)) {
         std::cout << "Unknown api: " << apiName << ". Expected write, write_value, notify, faa or cas." << std::endl;
@@ -447,7 +326,7 @@ int RunPerftestRank(
     ACLCHECK(aclrtCreateStream(&stream));
     HcclComm comm = nullptr;
     // 通信域只包含参与测试的前两个 rank，其余 rank 已提前退出，不加入通信域。
-    HCCLCHECK(InitCommByRootInfo(rank, kBenchRanks, rootInfoFile, &comm));
+    HCCLCHECK(sync.InitCommByRootInfo(&comm));
 
     void* sendBuf = nullptr;
     void* recvBuf = nullptr;
@@ -465,7 +344,10 @@ int RunPerftestRank(
     ChannelHandle channel = 0U;
     uint32_t remoteRecvIdx = 0U;
     HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
-    HCCLCHECK(HostBarrier(rank, kBenchRanks, syncDir, "ready"));
+    if (!sync.Barrier(kTagReady)) {
+        std::cout << "rank " << rank << ": ready barrier failed" << std::endl;
+        return 1;
+    }
 
     void* timingBuf = nullptr;
     uint64_t timing[kTimingWords] = {};
@@ -500,7 +382,10 @@ int RunPerftestRank(
                   << " | Completed=" << timing[kCompletedIndex] << std::endl;
     }
 
-    HCCLCHECK(HostBarrier(rank, kBenchRanks, syncDir, "completed"));
+    if (!sync.Barrier(kTagCompleted)) {
+        std::cout << "rank " << rank << ": completed barrier failed" << std::endl;
+        return 1;
+    }
     if (rank == kReceiverRank) {
         const uint32_t touchedSlots = TouchedSlotCount(warmup, iterations, slotCount);
         pass = CheckReceiver(recvBuf, bufferBytes, api, payloadBytes, slotBytes, touchedSlots);
@@ -523,8 +408,9 @@ int RunPerftestRank(
 // 运行的临时目录，拉起全部rank进程并等待结果。
 int main(int argc, char* argv[])
 {
-    if (argc < 3) {
-        std::cout << "Usage: " << argv[0] << " <nranks> <write|write_value|notify|faa|cas> [options]" << std::endl;
+    if (argc < 4) {
+        std::cout << "Usage: " << argv[0] << " <tcp://ip:port> <nranks> <write|write_value|notify|faa|cas> [options]"
+                  << std::endl;
         std::cout << "Options:" << std::endl;
         std::cout << "  --iterations N      Timed WQE count, default: 1024" << std::endl;
         std::cout << "  --warmup N          Warmup WQE count, default: 100" << std::endl;
@@ -534,20 +420,20 @@ int main(int argc, char* argv[])
                   << std::endl;
         return 1;
     }
-
-    const int nranksValue = std::atoi(argv[1]);
+    const std::string endpoint = argv[1];
+    const int nranksValue = std::atoi(argv[2]);
     if (nranksValue < 2) {
         std::cout << "nranks must be at least 2." << std::endl;
         return 1;
     }
     const uint32_t nranks = static_cast<uint32_t>(nranksValue);
-    const std::string apiName = argv[2];
+    const std::string apiName = argv[3];
 
     uint32_t iterations = 1024U;
     uint32_t warmup = 100U;
     uint32_t payloadBytes = 4096U;
     std::string commitMode = "immediate";
-    for (int i = 3; i < argc; ++i) {
+    for (int i = 4; i < argc; ++i) {
         const std::string option = argv[i];
         const bool hasValue = i + 1 < argc;
         if (option == "--iterations" && hasValue) {
@@ -564,32 +450,18 @@ int main(int argc, char* argv[])
         }
     }
 
-    // 每次运行都创建全新目录：上次残留的root info会让其余rank读到过期内容，残留的
-    // barrier标记会让barrier直接通过。
-    const std::string runDir = MakeTempDir("simt_urma_perftest_run");
-    if (runDir.empty()) {
-        std::cout << "create temp run dir failed" << std::endl;
-        return 1;
-    }
-    const std::string rootInfoFile = runDir + "/root_info.bin";
-    const std::string syncDir = runDir;
-
-    std::vector<std::tuple<
-        uint32_t, uint32_t, std::string, std::string, std::string, uint32_t, uint32_t, uint32_t, std::string>>
+    std::vector<std::tuple<uint32_t, uint32_t, std::string, std::string, uint32_t, uint32_t, uint32_t, std::string>>
         perRankArgs;
     perRankArgs.reserve(nranks);
     for (uint32_t rank = 0; rank < nranks; ++rank) {
-        perRankArgs.emplace_back(
-            rank, nranks, rootInfoFile, syncDir, apiName, iterations, warmup, payloadBytes, commitMode);
+        perRankArgs.emplace_back(rank, nranks, endpoint, apiName, iterations, warmup, payloadBytes, commitMode);
     }
 
     examples::ProcessGroup group;
     if (!group.Launch(nranks, RunPerftestRank, std::move(perRankArgs))) {
-        RemoveTempDir(runDir);
         return 1;
     }
     const bool pass = group.WaitAll();
-    RemoveTempDir(runDir);
 
     if (group.Interrupted()) {
         std::cout << "RESULT | API=" << apiName << " | Status=INTERRUPTED" << std::endl;
