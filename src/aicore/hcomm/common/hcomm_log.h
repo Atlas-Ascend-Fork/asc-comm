@@ -35,7 +35,10 @@
             AscendC::Trap();                     \
         }                                        \
     } while (0)
-#define HCOMM_KERNEL_LOG(level, fmt, ...) KERNEL_LOG(level, fmt, ##__VA_ARGS__)
+#define HCOMM_KERNEL_LOG(level, fmt, ...)    \
+    do {                                     \
+        AscendC::PRINTF(fmt, ##__VA_ARGS__); \
+    } while (0)
 #else
 #define HCOMM_DEBUG_FUNC(func, ...) ((void)0)
 #define HCOMM_DEBUG_TRAP_IF(condition, fmt, ...) ((void)0)

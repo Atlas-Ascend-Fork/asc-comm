@@ -168,3 +168,31 @@ rank 1 test pass!
 test pass!
 ```
 > **注意：** 单卡环境仅支持编译验证，实际运行本样例需至少配备2张NPU。
+
+## 开启 Hcomm 调试日志
+
+调试日志通过编译宏 `ASCENDC_DEBUG` 控制，属于编译期选项，运行时不能切换。默认关闭。使用自己的用例时，除配置该选项外，还需要在用例的 `CMakeLists.txt` 中为实际的 target 添加宏定义：
+
+```cmake
+option(ASCENDC_DEBUG "Enable AscendC/Hcomm kernel debug logs" OFF)
+
+if(ASCENDC_DEBUG)
+    target_compile_definitions(<your_target> PRIVATE ASCENDC_DEBUG)
+endif()
+```
+
+将 `<your_target>` 替换为用例实际的可执行文件或库名称。配置并重新编译：
+
+```bash
+rm -rf build
+cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DASCENDC_DEBUG=ON
+cmake --build build -j
+```
+
+开启后，运行日志中会出现 `PostSend`、WQE、CQE 和 `PollCq` 等 Hcomm 调试信息，例如：
+
+```text
+[AIV Block 0/1] Hcomm URMA PostSend ...
+[AIV Block 0/1] Hcomm URMA WQE: ...
+[AIV Block 0/1] Hcomm URMA CQE: ...
+```

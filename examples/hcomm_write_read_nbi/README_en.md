@@ -168,3 +168,31 @@ rank 1 test pass!
 test pass!
 ```
 > **Note:** A single-card environment only supports compilation verification. Running this sample requires at least 2 NPUs.
+
+## Enable Hcomm Debug Logging
+
+Debug logging is controlled by the compile-time `ASCENDC_DEBUG` macro and cannot be changed at runtime. It is disabled by default. When using your own sample, set this option and add the macro definition to the actual target in its `CMakeLists.txt`:
+
+```cmake
+option(ASCENDC_DEBUG "Enable AscendC/Hcomm kernel debug logs" OFF)
+
+if(ASCENDC_DEBUG)
+    target_compile_definitions(<your_target> PRIVATE ASCENDC_DEBUG)
+endif()
+```
+
+Replace `<your_target>` with the executable or library name used by your sample. Configure and rebuild:
+
+```bash
+rm -rf build
+cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DASCENDC_DEBUG=ON
+cmake --build build -j
+```
+
+When enabled, the runtime log contains Hcomm debug messages such as `PostSend`, WQE, CQE, and `PollCq`:
+
+```text
+[AIV Block 0/1] Hcomm URMA PostSend ...
+[AIV Block 0/1] Hcomm URMA WQE: ...
+[AIV Block 0/1] Hcomm URMA CQE: ...
+```
