@@ -352,11 +352,9 @@ public:
             else if (word < kSqeHeaderWords + count * 2U) {
                 const uint32_t sourceOrdinal = (word - kSqeHeaderWords) / 2U;
                 const bool isLen = ((word - kSqeHeaderWords) & 1U) == 0U;
-                uint64_t sgeValue = 0U;
                 const int source = detail::NthSet(mask, sourceOrdinal);
-                if (laneRank == static_cast<uint32_t>(source) && active && detail::Valid(laneSge)) sgeValue = isLen ?
-                    static_cast<uint64_t>(laneSge.len) : laneSge.addr;
-                value = asc_shfl(sgeValue, source, kWarpSize);
+                value = isLen ? static_cast<uint64_t>(asc_shfl(laneSge.len, source, kWarpSize)) :
+                    asc_shfl(laneSge.addr, source, kWarpSize);
             } else if ((word % kWqebbLanes) == 0U) {
                 const uint32_t nopHead = head + word / kWqebbLanes;
                 value = kNopHeader | (static_cast<uint64_t>(detail::Owner(nopHead, depth)) << 31U) |
@@ -415,12 +413,13 @@ public:
                 const uint32_t ordinal = (lane - kSqeHeaderWords) / 2U;
                 const bool isLen = ((lane - kSqeHeaderWords) & 1U) == 0U;
                 const int source = ordinal < firstCount ? detail::NthSet(firstMask, ordinal) : detail::NthSet(secondMask, ordinal - firstCount);
-                uint64_t local = 0U;
-                if (laneRank == static_cast<uint32_t>(source)) {
-                    const HcommSge& sge = ordinal < firstCount ? laneSges.first : laneSges.second;
-                    local = isLen ? static_cast<uint64_t>(sge.len) : sge.addr;
+                if (ordinal < firstCount) {
+                    value = isLen ? static_cast<uint64_t>(asc_shfl(laneSges.first.len, source, kWarpSize)) :
+                        asc_shfl(laneSges.first.addr, source, kWarpSize);
+                } else {
+                    value = isLen ? static_cast<uint64_t>(asc_shfl(laneSges.second.len, source, kWarpSize)) :
+                        asc_shfl(laneSges.second.addr, source, kWarpSize);
                 }
-                value = asc_shfl(local, source, kWarpSize);
             } else if ((lane % kWqebbLanes) == 0U) {
                 value = kNopHeader | (static_cast<uint64_t>(detail::Owner(bb, depth)) << 31U) | idx;
             }
@@ -514,12 +513,9 @@ public:
         } else if (word < kSqeHeaderWords + count * 2U) {
             const uint32_t ordinal = (word - kSqeHeaderWords) / 2U;
             const int source = detail::NthSet(mask, ordinal);
-            uint64_t local = 0U;
-            if (laneRank == static_cast<uint32_t>(source) && detail::Valid(laneSge)) {
-                local = ((word - kSqeHeaderWords) & 1U) == 0U ?
-                    static_cast<uint64_t>(laneSge.len) : laneSge.addr;
-            }
-            value = asc_shfl(local, source, kWarpSize);
+            value = ((word - kSqeHeaderWords) & 1U) == 0U ?
+                static_cast<uint64_t>(asc_shfl(laneSge.len, source, kWarpSize)) :
+                asc_shfl(laneSge.addr, source, kWarpSize);
         } else if (word == kWqebbLanes) {
             value = kNopHeader | owner | idx;
         }
@@ -711,7 +707,7 @@ public:
         const uint32_t idx = last & (info->sqDepth - 1U);
         const uint64_t owner = static_cast<uint64_t>(detail::Owner(last, info->sqDepth)) << 31U;
         uint64_t header = kWriteHeader | owner | idx;
-        if (payloadWqebbs == kSlotWqebbs) {
+        if (payloadWqebbs == reservedWqebbs) {
             header = kWriteHeader | owner | (end & 0xFFFFU) | kFinalFlags;
         } else {
             const uint32_t nopHead = end - 1U;

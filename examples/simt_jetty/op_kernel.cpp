@@ -156,20 +156,17 @@ __simt_callee__ inline void SimtJettyWriteDispatchWarpImpl(
 {
     __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
-    AscendC::simt::jetty::HcommSgeList laneSges{};
+    AscendC::simt::jetty::HcommSge laneSge{};
     const int laneIdx = warp.thread_rank();
-    if (laneIdx < 6) {
-        laneSges.first.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx * 2) * kSlotBytes;
-        laneSges.first.len = static_cast<int>(kSlotBytes);
-        laneSges.second.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx * 2 + 1) * kSlotBytes;
-        laneSges.second.len = static_cast<int>(kSlotBytes);
-        laneSges.count = 2U;
+    if (laneIdx < static_cast<int>(kSlotCount)) {
+        laneSge.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx) * kSlotBytes;
+        laneSge.len = static_cast<int>(kSlotBytes);
     }
     uint64_t begin = 0U;
     if constexpr (kMeasure) {
         begin = clock();
     }
-    jetty.template Write<12>(warp, peer, remoteDst, laneSges, batch);
+    jetty.template Write<12>(warp, peer, remoteDst, laneSge, batch);
     if constexpr (kMeasure) {
         writeCycles += clock() - begin;
     }
