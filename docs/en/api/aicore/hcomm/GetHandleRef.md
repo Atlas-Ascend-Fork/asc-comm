@@ -9,8 +9,8 @@ Returns the BatchHandle reference used for batch operations. A single-channel ha
 ```cpp
 template <
     typename T,
-    typename BatchHandleTraits<T>::ChannelType* = nullptr>
-__aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
+    typename HandleTraits<T>::ChannelType* = nullptr>
+__aicore__ inline BatchHandle<T>& GetHandleRef(
     T& batchHandle,
     uint32_t channelIndex,
     GM_ADDR remoteAddr = nullptr);
@@ -26,7 +26,7 @@ __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
 
 ## Return Value
 
-Returns the input handle itself for a single channel, or the inner `BatchHandle<ChannelHandle>&` configured for the selected logical channel and remote MR for multiple channels.
+Returns the input handle itself for a single channel, or the inner `BatchHandle<T>` reference configured for the selected logical channel and remote address for multiple channels.
 
 ## Template Parameters
 
@@ -39,8 +39,8 @@ Returns the input handle itself for a single channel, or the inner `BatchHandle<
 - For a single-channel handle, `channelIndex` and `remoteAddr` do not modify the handle; remote memory remains selected by `MakeBatchHandle`.
 - For a multi-channel handle, `channelIndex` must be smaller than the `channelNum` used to create the `MultiChannelHandle`.
 - For a multi-channel handle, a non-null `remoteAddr` must belong to a remote registered buffer of the selected logical channel. When null, the first remote registered buffer of that channel is selected.
-- This interface has no status return. The caller must provide a valid logical-channel index and remote-MR address for a multi-channel handle.
-- Repeated calls on the same multi-channel batch handle return the same inner BatchHandle reference. Each call updates the logical-channel and remote MR information currently selected in that inner handle.
+- This interface has no status return. The caller must provide a valid logical-channel index and remote address for a multi-channel handle.
+- Repeated calls on the same multi-channel batch handle return the same inner BatchHandle reference. Each call updates the logical-channel and remote address information currently selected in that inner handle.
 - Multi-channel remote buffers accessed through the returned reference must use the token cached by this call. Call this interface again before accessing a remote buffer that uses a different token.
 - For multiple channels, use the returned inner reference with batch read, write, and write-with-notify APIs. Pass the outer multi-channel batch handle to `BatchCommit` and batch `Drain`.
 

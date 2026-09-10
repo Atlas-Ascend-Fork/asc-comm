@@ -99,9 +99,8 @@ public:
      * @note For ChannelHandle, remote memory remains bound as selected by MakeBatchHandle. For MultiChannelHandle,
      *       remote buffers used through the returned handle must use the token cached by this call.
      */
-    template <typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
-    __aicore__ inline BatchHandle<ChannelHandle>& GetHandleRef(
-        T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
+    template <typename T, typename HandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline BatchHandle<T>& GetHandleRef(T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
 
     /*!
      * @class Hcomm
@@ -135,7 +134,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note The destination range is not validated against the registration cached in batchHandle.
      */
-    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
 
     /*!
@@ -218,7 +217,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note The destination and notify ranges are not validated against the registration cached in batchHandle.
      */
-    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteWithNotifyNbi(
         T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
 
@@ -295,7 +294,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note The source range is not validated against the registration cached in batchHandle.
      */
-    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
 
     /*!
@@ -314,7 +313,7 @@ public:
      * @param [in,out] batchHandle: The batch handle to submit. Its prepared WQEBB count is reset after success.
      * @return 0 indicates success and -1 indicates failure.
      */
-    template <typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    template <typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
     /*!
@@ -337,8 +336,27 @@ public:
      * @note This overload does not require Init. It must be called after BatchCommit. Multiple batches may be
      *       committed before one Drain if the caller prevents SQ/CQ overflow.
      */
-    template <pipe_t pipe = PIPE_MTE3, typename T, typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    template <pipe_t pipe = PIPE_MTE3, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t Drain(T& batchHandle);
+
+    /*!
+     * @brief Acquire the cross-AI-Core lock of a channel.
+     * @param [in] channel: The handle of the communication channel.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note This interface is supported only by COMM_PROTOCOL_UBC_CTP on Ascend 950. It blocks until the lock is
+     *       acquired and does not guarantee acquisition order among AI Cores. All accesses that update the channel
+     *       state must be protected by Lock and Unlock.
+     */
+    __aicore__ inline int32_t Lock(ChannelHandle channel);
+
+    /*!
+     * @brief Flush the channel state and release its cross-AI-Core lock.
+     * @param [in] channel: The handle of the communication channel.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note This interface is supported only by COMM_PROTOCOL_UBC_CTP on Ascend 950. It must be called by the AI Core
+     *       that successfully acquired the channel lock, after the last operation that updates the channel state.
+     */
+    __aicore__ inline int32_t Unlock(ChannelHandle channel);
 
 private:
     HcommImpl<commProtocol> impl_;

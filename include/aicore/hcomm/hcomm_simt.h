@@ -32,7 +32,6 @@ namespace detail {
 struct HcommUnboundGroup {};
 } // namespace detail
 
-// clang-format off
 /*!
  * @class Hcomm
  * @brief The SIMT counterpart of AscendC::Hcomm. It provides the same point-to-point
@@ -50,9 +49,12 @@ struct HcommUnboundGroup {};
  * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
- * @note Multiple lanes may concurrently post with commit=false on the same channel. The caller
- *       must synchronize them before one lane posts with commit=true and then calls Drain.
- *       Concurrent commit=true calls on the same channel are not supported.
+ * @note Every interface of this class is called by a single lane, and an Hcomm object is lane-private
+ *       state that must not be shared between lanes. In particular, a channel must not carry deferred
+ *       tasks from more than one lane: an uncommitted task sits in the send queue until some later
+ *       committed task publishes a producer index covering it, and that index cannot distinguish
+ *       which lane wrote which basic block. A lane committing its own task would publish another
+ *       lane's WQE that may still be half-written. Post all tasks of one batch from one lane.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
  *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
  *       head if no completion arrives before the retry limit. Deferred posts reserve two basic blocks
@@ -75,15 +77,14 @@ public:
     __simt_callee__ inline ~Hcomm();
 
     /*!
-     * @brief Initialize Hcomm workspace.
-     * @param [in] buff: The UB buffer provided by caller.
-     * @param [in] len: The buffer length in bytes.
+     * @brief Initialize Hcomm.
+     * @param [in] buff: Workspace buffer (unused in current implementation).
+     * @param [in] len: Workspace buffer length (unused in current implementation).
      * @return 0 indicates success and -1 indicates failure.
-     * @note Hcomm requires 128 bytes of WQE staging space for every lane in the block. If the workspace also
-     *       contains 32 bytes per lane and one aligned 128-byte region, Hcomm automatically enables a per-lane
-     *       remote-registration cache and one block-shared post context. The cache is optional and falls back
-     *       to global-memory lookup when absent. Every posting lane must call Init; when the full cached layout
-     *       is supplied, every lane in the block must call Init because the shared context is synchronized there.
+     * @note No workspace is required: a WQE is staged in lane-private storage for the duration of a
+     *       post, and every post resolves its channel from global memory. Every lane that posts must
+     *       call Init on its own object. The buff and len parameters are kept for API compatibility
+     *       but are ignored.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
@@ -103,8 +104,18 @@ public:
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
 
     /*!
-     * @brief Inline Write is not supported by the SIMT Hcomm implementation.
-     * @note Instantiating this interface causes a compile-time error.
+     * @brief The task launching interface of the inline Write point-to-point communication operator.
+     *        The source data is provided by value and carried inline in the WQE.
+     * @tparam T: The value type to write.
+     * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
+     * @tparam config: URMA WQE control config.
+     *         Default: strongly ordered + fence + CQE + inline enabled.
+     * @param [in] channel: The handle of the communication channel.
+     * @param [out] dst: The destination address of the data.
+     * @param [in] value: The inline value to write.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note Must be called after channel initialization. config must have inline enabled, and
+     *       sizeof(T) must fit in the WQE inline payload area.
      */
     template <typename T, bool commit = true, auto const& config = URMA_INLINE_CFG>
     __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value);
@@ -176,8 +187,7 @@ public:
      * @tparam pipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Must be called by one lane after all posting lanes have completed and the batch has
-     *       been published by a single commit=true call.
+     * @note Must be called by a single lane, after every posting lane has returned.
      */
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(ChannelHandle channel);
@@ -189,7 +199,6 @@ private:
 
 template <typename Group>
 Hcomm(const Group&) -> Hcomm<COMM_PROTOCOL_UBC_CTP, Group>;
-// clang-format on
 
 /*!
  * @brief Resolve the base address of a locally registered buffer on the channel.

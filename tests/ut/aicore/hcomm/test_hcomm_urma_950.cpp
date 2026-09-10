@@ -11,7 +11,6 @@
 #include <array>
 #include <cstring>
 #include <gtest/gtest.h>
-#include <type_traits>
 #include <vector>
 #define private public
 #include "kernel_operator.h"
@@ -47,6 +46,9 @@ AscendC::LocalTensor<uint8_t> WrapUbBuffer(std::array<uint8_t, N>& buffer)
     tensor.SetAddr(addr);
     return tensor;
 }
+
+static_assert(offsetof(AscendC::ChannelEntity, sqHead) == 96);
+static_assert(sizeof(AscendC::ChannelEntity) == 256);
 
 class UrmaChannelResource {
 public:
@@ -94,6 +96,8 @@ public:
     AscendC::ChannelHandle GetHandle() { return reinterpret_cast<AscendC::ChannelHandle>(&channel_); }
 
     uint32_t GetSqHead() const { return channel_.sqHead; }
+
+    uint32_t GetLock() const { return *reinterpret_cast<const uint32_t*>(cqCtx_.contextInfo.ubJfc.headAddr); }
 
     uint32_t GetCqHead() const { return channel_.cqHead; }
 
@@ -343,11 +347,17 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_MakeBatchHandleLocalTensor)
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_MultiChannelBatchUsesOuterHandleForCommitAndDrain)
 {
     static_assert(
-        std::is_same<AscendC::BatchHandle<AscendC::ChannelHandle>, AscendC::UbcCtpBatchHandle>::value,
+        IsSameType<AscendC::BatchHandle<AscendC::ChannelHandle>, AscendC::UbcBatchHandle>::value,
         "ChannelHandle must create the execution BatchHandle");
     static_assert(
-        std::is_same<AscendC::BatchHandle<AscendC::MultiChannelHandle>, AscendC::UbcCtpMultiBatchHandle>::value,
+        IsSameType<AscendC::BatchHandle<AscendC::MultiChannelHandle>, AscendC::UbcMultiBatchHandle>::value,
         "MultiChannelHandle must create the peer-selection BatchHandle");
+    static_assert(
+        IsSameType<AscendC::BatchHandle<AscendC::UbcBatchHandle>, AscendC::UbcBatchHandle>::value,
+        "UbcBatchHandle must resolve to the execution BatchHandle");
+    static_assert(
+        IsSameType<AscendC::BatchHandle<AscendC::UbcMultiBatchHandle>, AscendC::UbcBatchHandle>::value,
+        "UbcMultiBatchHandle must resolve to its execution BatchHandle");
 
     UrmaMultiChannelResource multiChannel;
     AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
@@ -861,6 +871,40 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_BatchDrainWithoutInit)
     EXPECT_EQ(batchHandle.cursor.cqTail, 2U);
     EXPECT_EQ(channel.GetCqTail(), 2U);
     EXPECT_EQ(channel.GetCqDoorbell(), 2U);
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockUnlock)
+{
+    UrmaChannelResource channel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+    EXPECT_EQ(hcomm.Lock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_HELD);
+    EXPECT_EQ(hcomm.Unlock(channel.GetHandle()), AscendC::HCOMM_SUCCESS);
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_UnlockWithoutLock)
+{
+    UrmaChannelResource channel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+    EXPECT_EQ(hcomm.Unlock(channel.GetHandle()), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(channel.GetLock(), AscendC::HCOMM_LOCK_FREE);
+}
+
+TEST_F(HcommUrmaTestSuite, Aiv_Urma_LockUnlockInvalidChannel)
+{
+    UrmaChannelResource channel;
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+    ChannelHandle misalignedChannel = channel.GetHandle() + 1U;
+
+    EXPECT_EQ(hcomm.Lock(0U), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(hcomm.Unlock(0U), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(hcomm.Lock(misalignedChannel), AscendC::HCOMM_FAILED);
+    EXPECT_EQ(hcomm.Unlock(misalignedChannel), AscendC::HCOMM_FAILED);
 }
 
 // ReadNbi with default commit=true: auto-commit internally, then Drain succeeds

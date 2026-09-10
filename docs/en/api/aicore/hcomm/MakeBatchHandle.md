@@ -4,7 +4,7 @@
 
 Creates a protocol-specific batch handle and binds the UB buffer used to prepare batched WQEs. Batch handles currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
-The interface returns the corresponding BatchHandle type based on the channel handle type. Use `auto` to receive the return value. `ChannelHandle` maps to the `UbcCtpBatchHandle` execution handle. `MultiChannelHandle` maps to `UbcCtpMultiBatchHandle`, which selects logical channels; call `GetHandleRef` to obtain its inner `UbcCtpBatchHandle` execution handle.
+The interface returns the corresponding BatchHandle type based on the channel handle type. Use `auto` to receive the return value. `ChannelHandle` maps to the `UbcBatchHandle` execution handle. `MultiChannelHandle` maps to `UbcMultiBatchHandle`, which selects logical channels; call `GetHandleRef` to obtain its inner `UbcBatchHandle` execution handle.
 
 ## Function Prototype
 
@@ -22,7 +22,7 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `channel` | Input | A UBC_CTP single-channel `ChannelHandle`, or a shared-Jetty `MultiChannelHandle` created by Host-side `MakeMultiChannelHandle`. |
+| `channel` | Input | A UBC_CTP single-channel `ChannelHandle`, or a shared-Jetty `MultiChannelHandle` created by a Host-side multi-channel creation API. |
 | `buff` | Input | Caller-provided UB `LocalTensor` used to prepare batched WQEs. Batch `Drain` also reuses it as CQE scratch space. |
 | `buffLen` | Input | Available buffer length in bytes. |
 | `remoteAddr` | Input | Selects a remote registered buffer in single-channel mode. Reserved in multi-channel mode. Default: `nullptr`. |

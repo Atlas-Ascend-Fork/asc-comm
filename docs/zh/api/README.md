@@ -4,7 +4,8 @@
 
 | 文档 | 内容 |
 | --- | --- |
-| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | 创建共享Jetty通道组及Device侧多通道句柄。 |
+| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | 基于HCCL通信域或Hcomm Endpoint创建共享通信资源及Device侧多通道句柄。 |
+| [DestroyMultiChannelHandle](./host/hcomm/DestroyMultiChannelHandle.md) | 释放Hcomm Endpoint路径创建的多通道资源。 |
 
 ## AICore Hcomm
 
@@ -14,14 +15,25 @@
 | [Init](./aicore/hcomm/Init.md) | 初始化普通Hcomm接口使用的临时工作区。 |
 | [MakeBatchHandle](./aicore/hcomm/MakeBatchHandle.md) | 创建批量句柄并绑定批量WQE的UB缓冲区。 |
 | [GetHandleRef](./aicore/hcomm/GetHandleRef.md) | 从共享Jetty多通道批量句柄中选择逻辑通道。 |
+| [Lock](./aicore/hcomm/Lock.md) | 获取通信通道的跨AI Core锁。 |
+| [Unlock](./aicore/hcomm/Unlock.md) | 释放通信通道的跨AI Core锁。 |
 | [ReadNbi](./aicore/hcomm/ReadNbi.md) | 提交普通读任务或在BatchHandle中准备读WQE。 |
 | [WriteNbi](./aicore/hcomm/WriteNbi.md) | 提交普通写任务或在BatchHandle中准备写WQE。 |
+| [WriteValueNbi](./aicore/hcomm/WriteValueNbi.md) | 提交点对点立即数写任务，将`value`内联携带在WQE中写入远端。 |
 | [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | 提交普通写通知任务或在BatchHandle中准备写通知WQE。 |
 | [AtomicFAA](./aicore/hcomm/AtomicFAA.md) | 提交Fetch-and-add原子操作任务。 |
 | [AtomicCAS](./aicore/hcomm/AtomicCAS.md) | 提交Compare-and-swap原子操作任务。 |
 | [Commit](./aicore/hcomm/Commit.md) | 显式提交通道上的待执行通信任务。 |
 | [BatchCommit](./aicore/hcomm/BatchCommit.md) | 提交BatchHandle中已准备的全部WQE。 |
 | [Drain](./aicore/hcomm/Drain.md) | 等待普通通道或BatchHandle已提交的通信任务完成。 |
+
+### Hcomm DFX
+
+| 文档 | 内容 |
+| --- | --- |
+| [HcommChannelExceptionCallbackRegister](./aicore/hcomm/HcommChannelExceptionCallbackRegister.md) | 在launch前为目标kernel绑定异常回调。 |
+| [HcommChannelGetDumpInfoSize](./aicore/hcomm/HcommChannelGetDumpInfoSize.md) | 返回接收一次通道dump原始快照所需的缓冲区字节数。 |
+| [HcommChannelInfoDump](./aicore/hcomm/HcommChannelInfoDump.md) | 在host安全点采集并打印异常后的通道现场。 |
 
 ## AICore Ain
 

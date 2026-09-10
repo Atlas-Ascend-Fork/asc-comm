@@ -24,7 +24,7 @@ __aicore__ inline int32_t ReadNbi(
 template <
     auto const& config = URMA_DEFAULT_CFG,
     typename T,
-    typename BatchHandleTraits<T>::ChannelType* = nullptr>
+    typename HandleTraits<T>::ChannelType* = nullptr>
 __aicore__ inline int32_t ReadNbi(
     T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
 ```
@@ -72,7 +72,7 @@ __aicore__ inline int32_t ReadNbi(
 - `config.inlineEn`必须为`0`，`config.cqe`支持`0`或`1`。同一批次的不同读、写、写通知任务可以使用不同的`cqe`配置。
 - 对批量句柄，`[src, src + len)`必须属于其选中的远端注册内存。
 - 当缓冲区容量校验失败时返回`-1`，BatchHandle中的WQEBB计数和`cqHead`保持不变。
-- 准备完成后需要调用`BatchCommit`。多通道模式通过`GetHandleRef`返回的内层BatchHandle引用准备WQE，并通过外层`UbcCtpMultiBatchHandle`提交。使用期间需要独占对应单通道或共享Jetty。
+- 准备完成后需要调用`BatchCommit`。多通道模式通过`GetHandleRef`返回的内层BatchHandle引用准备WQE，并通过外层`UbcMultiBatchHandle`提交。使用期间需要独占对应单通道或共享通信资源。
 
 ## 相关样例
 

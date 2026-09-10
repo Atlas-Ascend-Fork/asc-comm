@@ -65,6 +65,7 @@ Options:
   --check                 Verify payload and dependency compatibility without modifying CANN
   --install-path=<PATH>   Ascend install root; defaults to /usr/local/Ascend for root
                           or \$HOME/Ascend for a non-root user
+  --install-for-all       Allow all users to read and traverse installed files
   --force                 Ignore installed-file consistency checks
   -h, --help              Display this help
 EOF
@@ -201,6 +202,9 @@ parse_args()
             --install-path=*)
                 INSTALL_PATH=${1#*=}
                 ;;
+            --install-for-all)
+                INSTALL_FOR_ALL=true
+                ;;
             --force)
                 FORCE=true
                 ;;
@@ -266,6 +270,76 @@ check_owner()
         "current user uid ${current_uid} does not own CANN path ${CANN_ROOT} (uid ${owner_uid})"
 }
 
+collect_install_for_all_parent_directories()
+{
+    local path=$1
+    local managed_directories=$2
+    local output=$3
+    local directory
+    local relative_directory
+
+    # Avoid a double slash when the CANN root itself is `/`; some dirname
+    # implementations preserve `//`, which would otherwise never reach `/`.
+    directory=$(dirname -- "${CANN_ROOT%/}/${path}")
+    while :; do
+        if [[ "${directory}" == "${CANN_ROOT}" ]]; then
+            relative_directory=""
+        elif [[ "${CANN_ROOT}" == "/" ]]; then
+            relative_directory=${directory#/}
+        elif [[ "${directory}" == "${CANN_ROOT}/"* ]]; then
+            relative_directory=${directory#"${CANN_ROOT}/"}
+        else
+            relative_directory=""
+        fi
+        if [[ -z "${relative_directory}" ]] || \
+            ! grep -Fqx -- "${relative_directory}" "${managed_directories}"; then
+            if [[ -d "${directory}" ]]; then
+                printf '%s\n' "${directory}" >> "${output}"
+            fi
+        fi
+        [[ "${directory}" == "/" ]] && break
+        directory=$(dirname -- "${directory}")
+    done
+}
+
+check_install_for_all()
+{
+    local package_paths=$1
+    local managed_directories=$2
+    local directories_to_check="${WORK_DIR}/install-for-all.directories"
+    local path
+    local directory
+    local mode
+    local other_mode
+
+    [[ "${INSTALL_FOR_ALL}" == true ]] || return 0
+    : > "${directories_to_check}"
+
+    # Check every existing parent of a package path. Directories recorded in
+    # managed_directories receive an explicit mode later and do not need this
+    # pre-check; their un-managed parents must already be traversable by all users.
+    while IFS= read -r path; do
+        collect_install_for_all_parent_directories \
+            "${path}" "${managed_directories}" "${directories_to_check}"
+    done < "${package_paths}"
+    while IFS=$'\t' read -r path _; do
+        collect_install_for_all_parent_directories \
+            "${path}" "${managed_directories}" "${directories_to_check}"
+    done < "${PACKAGE_LINKS}"
+
+    while IFS= read -r directory; do
+        mode=$(stat -c %a -- "${directory}")
+        other_mode=${mode: -1}
+        case "${other_mode}" in
+            5|7)
+                ;;
+            *)
+                fail "directory ${directory} permission ${mode} does not support --install-for-all"
+                ;;
+        esac
+    done < <(sort -u "${directories_to_check}")
+}
+
 acquire_install_lock()
 {
     command -v flock >/dev/null 2>&1 || fail "command flock was not found"
@@ -325,7 +399,7 @@ is_allowed_path()
     local path=$1
     case "${path}" in
         asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h|\
-        asc/include/comm_api/aicore/*/*.h|asc/impl/comm_api/aicore/*/*.h)
+        asc/include/comm_api/*.h|asc/impl/comm_api/*.h)
             ;;
         *)
             return 1
@@ -341,8 +415,8 @@ is_allowed_directory_path()
     local path=$1
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
-        asc/include/comm_api|asc/include/comm_api/aicore|asc/include/comm_api/aicore/*|\
-        asc/impl/comm_api|asc/impl/comm_api/aicore|asc/impl/comm_api/aicore/*)
+        asc/include/comm_api|asc/include/comm_api/*|\
+        asc/impl/comm_api|asc/impl/comm_api/*)
             ;;
         *)
             return 1
@@ -360,7 +434,7 @@ payload_file_mode()
 
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
-        asc/include/comm_api/aicore/*|asc/impl/comm_api/aicore/*)
+        asc/include/comm_api/*|asc/impl/comm_api/*)
             mode=550
             ;;
         *)
@@ -379,8 +453,8 @@ managed_directory_mode()
         asc/include/adv_api/*|asc/impl/adv_api/detail/*)
             mode=750
             ;;
-        asc/include/comm_api|asc/include/comm_api/aicore|asc/include/comm_api/aicore/*|\
-        asc/impl/comm_api|asc/impl/comm_api/aicore|asc/impl/comm_api/aicore/*)
+        asc/include/comm_api|asc/include/comm_api/*|\
+        asc/impl/comm_api|asc/impl/comm_api/*)
             mode=550
             ;;
         *)
@@ -428,10 +502,10 @@ collect_managed_directories()
                 module=${relative_path%%/*}
                 managed_root="asc/impl/adv_api/detail/${module}"
                 ;;
-            asc/include/comm_api/aicore/*)
+            asc/include/comm_api/*)
                 managed_root="asc/include/comm_api"
                 ;;
-            asc/impl/comm_api/aicore/*)
+            asc/impl/comm_api/*)
                 managed_root="asc/impl/comm_api"
                 ;;
         esac
@@ -1151,6 +1225,7 @@ install_patch()
 
     collect_checksum_paths "${PACKAGE_MANIFEST}" "${package_paths}"
     collect_managed_directories "${package_paths}" "${package_directories}"
+    check_install_for_all "${package_paths}" "${package_directories}"
     verify_checksums "${PAYLOAD_DIR}" "${PACKAGE_MANIFEST}" || fail "package payload checksum verification failed"
     : > "${baseline_paths}"
     : > "${active_paths}"

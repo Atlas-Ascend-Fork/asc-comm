@@ -1,18 +1,18 @@
 asc-comm development patch package
 
-  --full                          Install or update packaged Hcomm and Ain headers
+  --full                          Install or update packaged asc-comm headers
   --uninstall                     Restore first-install originals and remove new files
   --check                         Verify payload and dependencies without modifying CANN
   --install-path=<ASCEND_ROOT>     Select the Ascend install root; default follows
                                    CANN packages (/usr/local/Ascend or $HOME/Ascend)
+  --install-for-all               Allow all users to read and traverse installed files
   --force                         Override installed-file consistency checks
 
 Hcomm headers are installed under asc/include/adv_api/hcomm/ and
 asc/impl/adv_api/detail/hcomm/. Ain headers are installed under
-asc/include/comm_api/aicore/ain/ and asc/impl/comm_api/aicore/ain/. Hcomm
-links are created under comm_api/aicore/. Existing files and link state are
-backed up under var/asc-comm-dev-patch/baseline/. This package is intended
-only for local development verification. Recompile the target Ascend C kernel
-after installation. Only paths present in the package manifest are managed;
-this is not a full directory mirror. --force does not override architecture
-or payload checksum checks.
+asc/include/comm_api/aicore/ain/ and asc/impl/comm_api/aicore/ain/. Other
+headers preserve their paths under asc/include/comm_api/ or
+asc/impl/comm_api/. Hcomm links are created under comm_api/aicore/. Recompile
+the target Ascend C kernel after installation. Pass the same --install-path
+when uninstalling. --force discards local changes to managed files, but does
+not override architecture or payload checksum checks.

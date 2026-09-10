@@ -21,15 +21,18 @@ class Hcomm;
 | --- | --- |
 | `commProtocol` | Communication protocol type. Supports `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP`. Default: `COMM_PROTOCOL_UBC_CTP`. |
 
-`MakeBatchHandle` derives its return type through compile-time traits. `ChannelHandle` maps to `UbcCtpBatchHandle`, while `MultiChannelHandle` maps to `UbcCtpMultiBatchHandle`. In multi-channel mode, batch read/write uses the inner `UbcCtpBatchHandle` reference returned by `GetHandleRef`, while `BatchCommit` and batch `Drain` use the outer `UbcCtpMultiBatchHandle`. Batch interfaces support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
+`MakeBatchHandle` derives its return type through compile-time traits. `ChannelHandle` maps to `UbcBatchHandle`, while `MultiChannelHandle` maps to `UbcMultiBatchHandle`. In multi-channel mode, batch read/write uses the inner `UbcBatchHandle` reference returned by `GetHandleRef`, while `BatchCommit` and batch `Drain` use the outer `UbcMultiBatchHandle`. Batch interfaces support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 
 ## Protocol Capabilities
 
 | API | `COMM_PROTOCOL_ROCE` | `COMM_PROTOCOL_UBC_CTP` |
 | --- | --- | --- |
 | `Init` | Supported for the UB temporary workspace used by ordinary interfaces. | Supported for the URMA temporary workspace used by ordinary interfaces. |
+| `Lock` | Not supported. | Supported only by AIV on Ascend 950. |
+| `Unlock` | Not supported. | Supported only by AIV on Ascend 950. |
 | Ordinary `ReadNbi` | Supported. | Supported. |
 | Ordinary `WriteNbi` | Supported. | Supported. |
+| Ordinary `WriteValueNbi` | Not supported; invocation returns failure. | Supported. |
 | Ordinary `WriteWithNotifyNbi` | Not supported; invocation returns failure. | Supported. |
 | `AtomicFAA` | Not supported. | Supported. |
 | `AtomicCAS` | Not supported. | Supported. |
@@ -50,8 +53,11 @@ class Hcomm;
 | [Init](./Init.md) | Initialize the temporary workspace used by ordinary Hcomm interfaces. |
 | [MakeBatchHandle](./MakeBatchHandle.md) | Create a batch handle and bind its UB buffer for batched WQEs. |
 | [GetHandleRef](./GetHandleRef.md) | Select a logical channel from a shared-Jetty multi-channel batch handle. |
+| [Lock](./Lock.md) | Acquire the cross-AI-Core lock of a communication channel. |
+| [Unlock](./Unlock.md) | Release the cross-AI-Core lock of a communication channel. |
 | [ReadNbi](./ReadNbi.md) | Submit an ordinary read task or prepare a read WQE in a BatchHandle. |
 | [WriteNbi](./WriteNbi.md) | Submit an ordinary write task or prepare a write WQE in a BatchHandle. |
+| [WriteValueNbi](./WriteValueNbi.md) | Submit an immediate-value write task over an ordinary channel, inlining `value` in the WQE to the remote side. |
 | [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or prepare one in a BatchHandle. |
 | [AtomicFAA](./AtomicFAA.md) | Submit a Fetch-and-add atomic operation task. |
 | [AtomicCAS](./AtomicCAS.md) | Submit a Compare-and-swap atomic operation task. |
@@ -67,12 +73,16 @@ Interfaces that return a status code generally use `0` for success and `-1` for 
 
 - Communication channel resources must be initialized by the caller before communication APIs are invoked.
 - Ordinary `ChannelHandle` interfaces require a temporary workspace provided through `Init`. The BatchHandle workflow does not require `Init`; `MakeBatchHandle` provides its UB workspace.
-- The ordinary overloads of `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS` are supported only on the `COMM_PROTOCOL_UBC_CTP` path.
+- `WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS` are supported only on the `COMM_PROTOCOL_UBC_CTP` path.
 - Batch interfaces currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950.
 - Ordinary and batch interfaces manage queue state differently. A BatchHandle caches SQ/CQ contexts and counters at creation time. The caller must exclusively own the single channel or shared Jetty while using it and must not mix ordinary calls or use multiple BatchHandles concurrently.
 - The passed `ChannelHandle` must point to a channel entity matching the selected protocol.
 
-See [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md) for the Host-side shared-Jetty handle creation API.
+See [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md) for the Host-side shared-Jetty handle creation API. It provides overloads for an HCCL communicator and an Hcomm Endpoint.
+
+## Related DFX APIs
+- [HcommChannelExceptionCallbackRegister](./HcommChannelExceptionCallbackRegister.md)
+- [HcommChannelInfoDump](./HcommChannelInfoDump.md)
 
 ## Related Sample
 

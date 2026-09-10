@@ -24,10 +24,12 @@
 
 #include <cstdint>
 
-// SIMT intrinsics used by UB context initialization and doorbell ordering.
+// SIMT intrinsics used throughout the SIMT implementation: asc_atomic_add (reserve),
+// asc_threadfence (ordering before the doorbell).
 #include "simt_api/asc_simt.h"
 #include "simt_api/device_atomic_functions.h"
 #include "simt_api/device_sync_functions.h"
+#include "simt_api/device_warp_functions.h"
 
 #include "hcomm/hcomm_common.h"
 
@@ -36,7 +38,8 @@
 namespace AscendC::simt {
 
 // headAddr stores curHead in low 32 bits and wqeCnt in high 32 bits.
-// Concurrent deferred posts reserve it atomically; publication and Drain are single-lane.
+// A single lane drives a channel, so the reservation is a plain read-modify-write of both
+// counters; Drain is likewise called by a single lane.
 constexpr uint64_t HCOMM_SIMT_WQE_CNT_MASK = 0xFFFFFFFFULL;
 
 // SIMT view of ChannelEntity: the shared definition stores typed host pointers, which the SIMT
@@ -58,10 +61,8 @@ struct HcommSimtChannelEntity {
     uint64_t remoteBufferAddr;
     uint64_t sqContextAddr;
     uint64_t cqContextAddr;
-    // The SIMD path tracks its queue state in these four counters. SIMT does not use them: it packs
-    // curHead and wqeCnt into the single u64 at SqContext::ubJfs::headAddr. Posting interfaces for
-    // one channel are single-lane; the packed update keeps both counters consistent in one store.
-    // These fields are listed here only to keep this view
+    // Unused by SIMT, which packs curHead and wqeCnt into the single u64 at
+    // SqContext::ubJfs::headAddr so both advance in one store. Listed only to keep this view
     // field-for-field identical to ChannelEntity.
     uint32_t sqHead;
     uint32_t sqTail;

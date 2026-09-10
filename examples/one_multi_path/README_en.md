@@ -2,12 +2,9 @@
 
 ## Overview
 
-This sample demonstrates how to query a `COMM_PROTOCOL_UB_MEM` link through HCCL Resource APIs and create two
-channels with `pathMode=2` and `pathMode=3` for every peer in one communication domain. Peers are processed
-serially; for each peer, separate data shards are copied concurrently on two streams.
+This sample demonstrates how to query a `COMM_PROTOCOL_UB_MEM` link through HCCL Resource APIs and create two channels with `pathMode=1` and `pathMode=2` for every peer in one communication domain. Peers are processed serially; for each peer, separate data shards are copied concurrently on two streams.
 
-The sample uses one process per device. Each rank fills its local HCCL Buffer with its rank ID, reads 4 KB from
-every peer, and verifies the data. `run.sh` starts the local rank processes, and rank 0 distributes
+The sample uses one process per device. Each rank fills its local HCCL Buffer with its rank ID, reads 4 KB from every peer, and verifies the data. `run.sh` starts the local rank processes, and rank 0 distributes
 `HcclRootInfo`.
 
 ## Supported Products and CANN Software Versions
@@ -32,9 +29,7 @@ one_multi_path
 
 ### Functionality
 
-Each rank obtains its local HCCL Buffer and fills the first 4 KB with its rank ID. After the channels are
-created, each rank reads every peer HCCL Buffer through the two channels for that peer, writes the data to its
-local verification buffer, copies the buffer to the host, and verifies every byte.
+Each rank obtains its local HCCL Buffer and fills the first 4 KB with its rank ID. After the channels are created, each rank reads every peer HCCL Buffer through the two channels for that peer, writes the data to its local verification buffer, copies the buffer to the host, and verifies every byte.
 
 ```text
 Peer HCCL Buffer -> UB_MEM link -> Ascend C DataCopy -> local verification buffer -> host verification
@@ -45,23 +40,19 @@ For the same peer, the two channels use the same communication endpoints and are
 
 | Channel Order | Link Protocol | `pathMode` | Path Type | Data Range |
 | --- | --- | --- | --- | --- |
-| 1 | `COMM_PROTOCOL_UB_MEM` | `2` | one path | First 2 KB |
-| 2 | `COMM_PROTOCOL_UB_MEM` | `3` | multi path | Second 2 KB |
+| 1 | `COMM_PROTOCOL_UB_MEM` | `1` | one path | First 2 KB |
+| 2 | `COMM_PROTOCOL_UB_MEM` | `2` | multi path | Second 2 KB |
 
 ### Implementation Flow
 
 1. Rank 0 creates and distributes one `HcclRootInfo`, and every rank initializes the same communication domain.
-2. Each rank obtains its local HCCL Buffer, fills it with the rank ID, and registers the memory resource required
-   by the channels through `HcclCommMemReg`.
+2. Each rank obtains its local HCCL Buffer, fills it with the rank ID, and registers the memory resource required by the channels through `HcclCommMemReg`.
 3. Each rank scans the RankGraph layers and selects one `COMM_PROTOCOL_UB_MEM` link for every peer.
-4. For every peer, the sample builds two descriptors with the same endpoints and `pathMode=2` and `pathMode=3`.
+4. For every peer, the sample builds two descriptors with the same endpoints and `pathMode=1` and `pathMode=2`.
 5. All peer channel descriptors are passed to one `HcclChannelAcquire` call to create the channels in one batch.
-6. Peers are processed serially. For each peer, the two channels read the first and second 2 KB shards on
-   separate streams, and both kernels are submitted before either stream is synchronized. Concurrency is limited
-   to the two paths of that peer.
+6. Peers are processed serially. For each peer, the two channels read the first and second 2 KB shards on separate streams, and both kernels are submitted before either stream is synchronized. Concurrency is limited to the two paths of that peer.
 7. The local verification buffer is copied to the host, where every byte is checked against the peer rank ID.
-8. After all peer data is verified, `HcclBarrier` ensures that every rank has completed its remote reads before
-   communication resources are destroyed.
+8. After all peer data is verified, `HcclBarrier` ensures that every rank has completed its remote reads before communication resources are destroyed.
 
 The `rank_graph_topo` log reports only the RankGraph layer containing the selected UB_MEM link. It does not
 select `pathMode`.
@@ -104,8 +95,7 @@ Perform the following steps in the sample root directory. This sample supports N
 
 - Run on Multiple Hosts
 
-  For eight devices across two hosts, start the first command on the rank 0 host, followed by the second command
-  on the other host:
+  For eight devices across two hosts, start the first command on the rank 0 host, followed by the second command on the other host:
 
   ```bash
   # Host A: ranks 0-3, devices 0-3
@@ -115,8 +105,7 @@ Perform the following steps in the sample root directory. This sample supports N
   bash run.sh -pes 8 -ipport tcp://<host_A_IP>:8899 -gnpus 4 -fpe 4 -fnpu 0
   ```
 
-  For 16 devices with eight devices per host, set `-pes` to `16`, `-gnpus` to `8`, and use `-fpe 0` and
-  `-fpe 8` on the two hosts.
+  For 16 devices with eight devices per host, set `-pes` to `16`, `-gnpus` to `8`, and use `-fpe 0` and `-fpe 8` on the two hosts.
 
 - Build Options
 
@@ -131,7 +120,7 @@ Perform the following steps in the sample root directory. This sample supports N
 
   ```text
   rank 0/2: device=0, channels_per_peer=2, channel_descs=2
-  rank 0: peer=1, rank_graph_topo=5, protocol=UB_MEM, path_modes=2/3
+  rank 0: peer=1, rank_graph_topo=5, protocol=UB_MEM, path_modes=1/2
   rank 0: dual-path data copy from remote rank 1 passed, bytes=4096
   rank 0: dual-path validation passed
   ```

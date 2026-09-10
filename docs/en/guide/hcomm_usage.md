@@ -91,7 +91,7 @@ Batch `Drain` reuses the first 64 bytes of the BatchHandle WQE buffer as CQE scr
 
 ## Shared-Jetty BatchHandle Workflow
 
-On the Host, call `MakeMultiChannelHandle` to create the shared-Jetty channels and `MultiChannelHandle`:
+When using an HCCL communicator, call the communicator overload of `MakeMultiChannelHandle` on the Host to create the shared-Jetty channels and `MultiChannelHandle`:
 
 ```cpp
 #include "hcomm/hcomm_host.h"
@@ -99,6 +99,16 @@ On the Host, call `MakeMultiChannelHandle` to create the shared-Jetty channels a
 MultiChannelHandle multiChannel = 0U;
 HcclResult ret = MakeMultiChannelHandle(
     comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
+// The communicator manages and automatically releases the shared channels and Device context.
+```
+
+Without an HCCL communicator, pass an Hcomm Endpoint and `HcommChannelDesc` array to `MakeMultiChannelHandle`. These resources are not communicator-managed, so destroy the multi-channel handle before destroying the Endpoint:
+
+```cpp
+HcommResult ret = MakeMultiChannelHandle(endpointHandle, channelDescs, channelNum, &multiChannel);
+// Launch and synchronize the Kernel before destroying the handle.
+ret = DestroyMultiChannelHandle(multiChannel);
+ret = HcommEndpointDestroy(endpointHandle);
 ```
 
 On the AICore, create a multi-channel batch handle and call `GetHandleRef` to obtain the common inner execution
@@ -137,7 +147,46 @@ reference for batch read and write operations, and use the outer multi-channel b
 | Protocol | Description |
 | --- | --- |
 | `COMM_PROTOCOL_ROCE` | Supports ordinary `ReadNbi`, `WriteNbi`, `Commit`, and `Drain`. BatchHandle interfaces are not supported. |
-| `COMM_PROTOCOL_UBC_CTP` | Supports ordinary read, write, write-with-notify, atomic, commit, and drain interfaces. Ascend 950 also supports batch read, write, write-with-notify, `BatchCommit`, and batch `Drain`. |
+| `COMM_PROTOCOL_UBC_CTP` | Supports ordinary read, write, write-with-notify, atomic, commit, and drain interfaces. AIV on Ascend 950 also supports `Lock`, `Unlock`, batch read, batch write, batch write-with-notify, `BatchCommit`, and batch `Drain`. |
+
+## Sharing a Channel Across AI Cores
+
+On Ascend 950, when multiple AIVs share the same `COMM_PROTOCOL_UBC_CTP` channel, use [Lock](../api/aicore/hcomm/Lock.md) and [Unlock](../api/aicore/hcomm/Unlock.md) to protect accesses that update channel state. Each AI Core may use an independent Hcomm object and UB temporary workspace while passing the same `ChannelHandle`.
+
+```cpp
+int32_t lockRet = hcomm.Lock(channel);
+if (lockRet == 0) {
+    int32_t opRet = hcomm.WriteNbi(channel, dst, src, len);
+
+    // A successfully acquired lock must be released even if the communication API fails.
+    int32_t unlockRet = hcomm.Unlock(channel);
+    // Handle opRet and unlockRet separately.
+}
+```
+
+The lock is not reentrant. Every successful `Lock` must be paired with `Unlock` on the same AI Core, including on error paths. These interfaces synchronize only AI Cores sharing the same channel on the same device.
+
+## DFX Channel Dump
+
+The HCOMM DFX channel dump helper provides a lightweight exception-callback registration API and a host-side dump API for diagnosing channel state after a kernel fault.
+
+```cpp
+AscendC::HcommChannelExceptionCallbackRegister(reinterpret_cast<const void *>(kernel_symbol));
+kernel_symbol<<<1, nullptr, stream>>>(devContext);
+aclrtSynchronizeStream(stream);
+// Printing only: just call it. To also receive the raw snapshot, allocate a char buffer of the reported size:
+AscendC::HcommChannelInfoDump(channel);
+// or:
+uint32_t len = AscendC::HcommChannelGetDumpInfoSize();
+std::vector<char> buf(len);
+AscendC::HcommChannelInfoDump(channel, buf.data(), len);
+```
+
+The dump API is safe to call unconditionally. It skips execution and returns success only when an exception callback is registered and no exception is pending; otherwise it collects and prints. To receive the raw snapshot, query the required byte count from `HcommChannelGetDumpInfoSize()`, allocate a `char` buffer of that size, and pass it in; the API writes the raw bytes into it (no internal struct is exposed). On a successful call that performs no dump (the skip case above), the buffer is zeroed so it never carries stale data from an earlier dump — a zeroed leading `magic` means "no dump occurred this call". A successful dump clears the recorded exception state; a failed one keeps it so the caller can retry.
+
+The full output of one dump is assembled into a single text block and written out once, so concurrent dumps from multiple ranks never interleave line-by-line. It is printed compactly in field order, in the sequence `Channel → SqContext/CqContext → WQE → CQE`; a failed `head/tail` read produces a separate `ERROR` line. The sampled range covers outstanding work: WQEs over `[sqTail, sqHead)` and CQEs over `[cqTail, cqHead)`. If those cursors are all `0`, it is typically because the kernel exited abnormally without flushing the `ChannelEntity` cursors with `dcci`, so the host reads back zeros from DRAM; the outstanding range is then empty and no misleading entries are printed, which is expected.
+
+By default the helper prints only essential one-time messages (e.g. successful exception-callback registration). Set the environment variable `HCOMM_DFX_DUMP_TRACE=1` to also print per-call `[TRACE]` debug lines (for example each dump return code) to stderr. It only gates these debug prints; it does not change dump behavior.
 
 ## Notes
 

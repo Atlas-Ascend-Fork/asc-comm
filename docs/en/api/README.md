@@ -4,7 +4,8 @@
 
 | Document | Description |
 | --- | --- |
-| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | Create a shared-Jetty channel group and its Device-side multi-channel handle. |
+| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | Create a shared-Jetty channel group and Device handle from an HCCL communicator or Hcomm Endpoint. |
+| [DestroyMultiChannelHandle](./host/hcomm/DestroyMultiChannelHandle.md) | Release multi-channel resources created through the Hcomm Endpoint path. |
 
 ## AICore Hcomm
 | Document | Description |
@@ -13,14 +14,25 @@
 | [Init](./aicore/hcomm/Init.md) | Initialize the temporary workspace used by ordinary Hcomm interfaces. |
 | [MakeBatchHandle](./aicore/hcomm/MakeBatchHandle.md) | Create a batch handle and bind its UB buffer for batched WQEs. |
 | [GetHandleRef](./aicore/hcomm/GetHandleRef.md) | Select a logical channel from a shared-Jetty multi-channel batch handle. |
+| [Lock](./aicore/hcomm/Lock.md) | Acquire the cross-AI-Core lock of a communication channel. |
+| [Unlock](./aicore/hcomm/Unlock.md) | Release the cross-AI-Core lock of a communication channel. |
 | [ReadNbi](./aicore/hcomm/ReadNbi.md) | Submit an ordinary read task or prepare a read WQE in a BatchHandle. |
 | [WriteNbi](./aicore/hcomm/WriteNbi.md) | Submit an ordinary write task or prepare a write WQE in a BatchHandle. |
+| [WriteValueNbi](./aicore/hcomm/WriteValueNbi.md) | Submit a point-to-point immediate-value write task, inlining `value` in the WQE to the remote side. |
 | [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or prepare one in a BatchHandle. |
 | [AtomicFAA](./aicore/hcomm/AtomicFAA.md) | Submit a Fetch-and-add atomic operation task. |
 | [AtomicCAS](./aicore/hcomm/AtomicCAS.md) | Submit a Compare-and-swap atomic operation task. |
 | [Commit](./aicore/hcomm/Commit.md) | Explicitly submit pending communication tasks on the channel. |
 | [BatchCommit](./aicore/hcomm/BatchCommit.md) | Submit all WQEs prepared in a BatchHandle. |
 | [Drain](./aicore/hcomm/Drain.md) | Wait for tasks submitted through an ordinary channel or BatchHandle to complete. |
+
+### Hcomm DFX
+
+| Document | Description |
+| --- | --- |
+| [HcommChannelExceptionCallbackRegister](./aicore/hcomm/HcommChannelExceptionCallbackRegister.md) | Bind an exception callback to the target kernel before launch. |
+| [HcommChannelGetDumpInfoSize](./aicore/hcomm/HcommChannelGetDumpInfoSize.md) | Return the buffer size in bytes needed to receive one raw channel dump snapshot. |
+| [HcommChannelInfoDump](./aicore/hcomm/HcommChannelInfoDump.md) | Dump and print the channel diagnostics at a host safe point after an exception is observed. |
 
 ## AICore Ain
 
