@@ -33,26 +33,11 @@
 #include "hccl/hccl_res.h"
 #include "hccl/hccl_types.h"
 
+#include "utils/check/check.h"
 #include "utils/process_manager/process_manager.h"
 #include "utils/rank_sync/rank_sync.h"
 
 #include "simt_urma_perftest_common.h"
-
-#define ACLCHECK(ret)                                                                          \
-    do {                                                                                       \
-        if ((ret) != ACL_SUCCESS) {                                                            \
-            std::printf("acl interface failed at %s:%d, ret=%d\n", __FILE__, __LINE__, (ret)); \
-            return (ret);                                                                      \
-        }                                                                                      \
-    } while (0)
-
-#define HCCLCHECK(ret)                                                                          \
-    do {                                                                                        \
-        if ((ret) != HCCL_SUCCESS) {                                                            \
-            std::printf("hccl interface failed at %s:%d, ret=%d\n", __FILE__, __LINE__, (ret)); \
-            return (ret);                                                                       \
-        }                                                                                       \
-    } while (0)
 
 extern void LaunchSimtUrmaPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t payloadBytes,
@@ -140,7 +125,7 @@ HcclResult AcquirePeerChannel(
     uint32_t& remoteRecvIdx)
 {
     HcclChannelDesc desc;
-    HCCLCHECK(HcclChannelDescInit(&desc, 1));
+    EXAMPLES_HCCLCHECK(HcclChannelDescInit(&desc, 1));
     desc.remoteRank = peerRank;
     desc.channelProtocol = kTargetCommProtocol;
     desc.notifyNum = 0;
@@ -149,13 +134,13 @@ HcclResult AcquirePeerChannel(
 
     uint32_t* layers = nullptr;
     uint32_t layerNum = 0U;
-    HCCLCHECK(HcclRankGraphGetLayers(comm, &layers, &layerNum));
+    EXAMPLES_HCCLCHECK(HcclRankGraphGetLayers(comm, &layers, &layerNum));
     if (layerNum == 0U || layers == nullptr) {
         return HCCL_E_INTERNAL;
     }
     CommLink* links = nullptr;
     uint32_t linkNum = 0U;
-    HCCLCHECK(HcclRankGraphGetLinks(comm, layers[0], rank, peerRank, &links, &linkNum));
+    EXAMPLES_HCCLCHECK(HcclRankGraphGetLinks(comm, layers[0], rank, peerRank, &links, &linkNum));
     bool found = false;
     for (uint32_t i = 0U; i < linkNum; ++i) {
         if (links[i].linkAttr.linkProtocol == kTargetCommProtocol) {
@@ -169,12 +154,12 @@ HcclResult AcquirePeerChannel(
         std::cout << "no UB_CTP link to peer " << peerRank << ", SIMT requires the URMA path" << std::endl;
         return HCCL_E_NOT_SUPPORT;
     }
-    HCCLCHECK(HcclChannelAcquire(comm, COMM_ENGINE_AIV, &desc, 1U, &channel));
+    EXAMPLES_HCCLCHECK(HcclChannelAcquire(comm, COMM_ENGINE_AIV, &desc, 1U, &channel));
 
     uint32_t memNum = 0U;
     CommMem* remoteMems = nullptr;
     char** tags = nullptr;
-    HCCLCHECK(HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMems, &tags));
+    EXAMPLES_HCCLCHECK(HcclChannelGetRemoteMems(comm, channel, &memNum, &remoteMems, &tags));
     for (uint32_t i = 0U; i < memNum; ++i) {
         if (tags[i] != nullptr && std::strcmp(tags[i], kRecvBufTag) == 0) {
             remoteRecvIdx = i;
@@ -320,30 +305,30 @@ int RunPerftestRank(
     }
     const size_t bufferBytes = static_cast<size_t>(slotBytes) * slotCount;
 
-    ACLCHECK(aclInit(nullptr));
-    ACLCHECK(aclrtSetDevice(rank));
+    EXAMPLES_ACLCHECK(aclInit(nullptr));
+    EXAMPLES_ACLCHECK(aclrtSetDevice(rank));
     aclrtStream stream = nullptr;
-    ACLCHECK(aclrtCreateStream(&stream));
+    EXAMPLES_ACLCHECK(aclrtCreateStream(&stream));
     HcclComm comm = nullptr;
     // 通信域只包含参与测试的前两个 rank，其余 rank 已提前退出，不加入通信域。
-    HCCLCHECK(sync.InitCommByRootInfo(&comm));
+    EXAMPLES_HCCLCHECK(sync.InitCommByRootInfo(&comm));
 
     void* sendBuf = nullptr;
     void* recvBuf = nullptr;
-    ACLCHECK(aclrtMalloc(&sendBuf, bufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
-    ACLCHECK(aclrtMalloc(&recvBuf, bufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
-    ACLCHECK(InitBuffers(sendBuf, recvBuf, bufferBytes, api));
+    EXAMPLES_ACLCHECK(aclrtMalloc(&sendBuf, bufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
+    EXAMPLES_ACLCHECK(aclrtMalloc(&recvBuf, bufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
+    EXAMPLES_ACLCHECK(InitBuffers(sendBuf, recvBuf, bufferBytes, api));
 
     CommMem sendMem{COMM_MEM_TYPE_DEVICE, sendBuf, bufferBytes};
     CommMem recvMem{COMM_MEM_TYPE_DEVICE, recvBuf, bufferBytes};
     HcclMemHandle handles[2] = {nullptr, nullptr};
-    HCCLCHECK(HcclCommMemReg(comm, kSendBufTag, &sendMem, &handles[0]));
-    HCCLCHECK(HcclCommMemReg(comm, kRecvBufTag, &recvMem, &handles[1]));
+    EXAMPLES_HCCLCHECK(HcclCommMemReg(comm, kSendBufTag, &sendMem, &handles[0]));
+    EXAMPLES_HCCLCHECK(HcclCommMemReg(comm, kRecvBufTag, &recvMem, &handles[1]));
 
     const uint32_t peer = rank == kSenderRank ? kReceiverRank : kSenderRank;
     ChannelHandle channel = 0U;
     uint32_t remoteRecvIdx = 0U;
-    HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
+    EXAMPLES_HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
     if (!sync.Barrier(kTagReady)) {
         std::cout << "rank " << rank << ": ready barrier failed" << std::endl;
         return 1;
@@ -355,13 +340,13 @@ int RunPerftestRank(
     // Local table index 0 is the CCL buffer, so the explicitly registered send buffer is at 1.
     constexpr uint32_t kLocalSendIdx = 1U;
     if (rank == kSenderRank) {
-        ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
-        ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
+        EXAMPLES_ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
+        EXAMPLES_ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
         LaunchSimtUrmaPerf(
             stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, payloadBytes, slotBytes, slotCount, iterations,
             warmup, api, commitEach);
-        ACLCHECK(aclrtSynchronizeStream(stream));
-        ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
+        EXAMPLES_ACLCHECK(aclrtSynchronizeStream(stream));
+        EXAMPLES_ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
 
         pass = static_cast<int64_t>(timing[kDrainStatusIndex]) == 0 && timing[kCompletedIndex] == iterations;
         const uint32_t dataBytes = DataBytes(api, payloadBytes);
@@ -394,13 +379,13 @@ int RunPerftestRank(
     }
 
     if (timingBuf != nullptr) {
-        ACLCHECK(aclrtFree(timingBuf));
+        EXAMPLES_ACLCHECK(aclrtFree(timingBuf));
     }
-    ACLCHECK(aclrtFree(sendBuf));
-    ACLCHECK(aclrtFree(recvBuf));
-    HCCLCHECK(HcclCommDestroy(comm));
-    ACLCHECK(aclrtDestroyStream(stream));
-    ACLCHECK(aclFinalize());
+    EXAMPLES_ACLCHECK(aclrtFree(sendBuf));
+    EXAMPLES_ACLCHECK(aclrtFree(recvBuf));
+    EXAMPLES_HCCLCHECK(HcclCommDestroy(comm));
+    EXAMPLES_ACLCHECK(aclrtDestroyStream(stream));
+    EXAMPLES_ACLCHECK(aclFinalize());
     return pass ? 0 : 2;
 }
 
