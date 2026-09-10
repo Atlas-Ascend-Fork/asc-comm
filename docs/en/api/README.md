@@ -27,6 +27,14 @@
 | [BatchCommit](./aicore/hcomm/BatchCommit.md) | Submit all tasks in a BatchHandle. |
 | [Drain](./aicore/hcomm/Drain.md) | Wait for tasks submitted through an ordinary channel or BatchHandle to complete. |
 
+### Hcomm DFX
+
+| Document | Description |
+| --- | --- |
+| [HcommChannelExceptionCallbackRegister](./aicore/hcomm/HcommChannelExceptionCallbackRegister.md) | Bind an exception callback to the target kernel before launch. |
+| [HcommChannelGetDumpInfoSize](./aicore/hcomm/HcommChannelGetDumpInfoSize.md) | Return the buffer size in bytes needed to receive one raw channel dump snapshot. |
+| [HcommChannelInfoDump](./aicore/hcomm/HcommChannelInfoDump.md) | Dump and print the channel diagnostics at a host safe point after an exception is observed. |
+
 ## AICore Ain
 
 ### Ain Class

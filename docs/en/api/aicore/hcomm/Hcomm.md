@@ -80,6 +80,10 @@ Interfaces that return a status code generally use `0` for success and a non-zer
 
 See [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md) for the Host-side multi-channel handle creation API. It provides overloads for an HCCL communicator and an Hcomm Endpoint.
 
+## Related DFX APIs
+- [HcommChannelExceptionCallbackRegister](./HcommChannelExceptionCallbackRegister.md)
+- [HcommChannelInfoDump](./HcommChannelInfoDump.md)
+
 ## Related Sample
 
 [hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README_en.md) demonstrates ordinary `WriteNbi` and `ReadNbi` calls over the `COMM_PROTOCOL_UBC_CTP` path in a two-card scenario. It does not cover the RoCE or BatchHandle workflow.
