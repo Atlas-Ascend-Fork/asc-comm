@@ -150,6 +150,15 @@ __simt_callee__ __forceinline__ int NthSet(const uint32_t mask, const uint32_t o
     }
     return -1;
 }
+__simt_callee__ __forceinline__ void PackWarpSge(
+    const HcommSge& laneSge, const uint32_t mask, const int ordinal, uint64_t& addr, int& len)
+{
+    const int source = ordinal >= 0 ? NthSet(mask, static_cast<uint32_t>(ordinal)) : 0;
+    const uint64_t packedAddr = asc_shfl(laneSge.addr, source, kWarpSize);
+    const int packedLen = asc_shfl(laneSge.len, source, kWarpSize);
+    addr = ordinal >= 0 ? packedAddr : 0U;
+    len = ordinal >= 0 ? packedLen : 0;
+}
 } // namespace detail
 
 struct HcommPeer {
@@ -346,22 +355,25 @@ public:
             const uint32_t bbHead = head + word / kWqebbLanes;
             const uint32_t sqIdx = bbHead & (depth - 1U);
             const uint64_t owner = static_cast<uint64_t>(detail::Owner(bbHead, depth)) << 31U;
+            const bool isSgeWord = word >= kSqeHeaderWords && word < kSqeHeaderWords + count * 2U;
+            const int sourceOrdinal = isSgeWord ? static_cast<int>((word - kSqeHeaderWords) / 2U) : -1;
+            uint64_t packedSgeAddr = 0U;
+            int packedSgeLen = 0;
+            detail::PackWarpSge(laneSge, mask, sourceOrdinal, packedSgeAddr, packedSgeLen);
             uint64_t value = 0U;
             if (word == 0U) value = kWriteHeader | owner | sqIdx;
             else if (word < kSqeHeaderWords) value = detail::PeerWord(peer.Info(), word, count, dst);
-            else if (word < kSqeHeaderWords + count * 2U) {
-                const uint32_t sourceOrdinal = (word - kSqeHeaderWords) / 2U;
+            else if (isSgeWord) {
                 const bool isLen = ((word - kSqeHeaderWords) & 1U) == 0U;
-                const int source = detail::NthSet(mask, sourceOrdinal);
-                value = isLen ? static_cast<uint64_t>(asc_shfl(laneSge.len, source, kWarpSize)) :
-                    asc_shfl(laneSge.addr, source, kWarpSize);
+                value = isLen ? static_cast<uint64_t>(packedSgeLen) : packedSgeAddr;
             } else if ((word % kWqebbLanes) == 0U) {
                 const uint32_t nopHead = head + word / kWqebbLanes;
                 value = kNopHeader | (static_cast<uint64_t>(detail::Owner(nopHead, depth)) << 31U) |
                     (nopHead & 0xFFFFU);
             }
+            const uint32_t pairWord = word & ~1U;
+            const uint64_t second = asc_shfl(value, static_cast<int>(pairWord + 1U), kWarpSize);
             if ((word & 1U) == 0U) {
-                const uint64_t second = asc_shfl(value, static_cast<int>(lane + 1U), kWarpSize);
                 auto* dstWords = reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr) +
                     static_cast<uint64_t>(sqIdx) * kWqebbLanes + (word % kWqebbLanes);
                 asc_stwt(reinterpret_cast<__gm__ ulonglong2*>(dstWords), make_ulonglong2(value, second));
@@ -406,25 +418,33 @@ public:
             const uint32_t bb = head + lane / kWqebbLanes;
             const uint32_t idx = bb & (depth - 1U);
             const uint64_t owner = static_cast<uint64_t>(detail::Owner(bb, depth)) << 31U;
+            const bool isSgeWord = lane >= kSqeHeaderWords && lane < kSqeHeaderWords + count * 2U;
+            const int ordinal = isSgeWord ? static_cast<int>((lane - kSqeHeaderWords) / 2U) : -1;
+            const int firstOrdinal = ordinal >= 0 && ordinal < static_cast<int>(firstCount) ? ordinal : -1;
+            const int secondOrdinal = ordinal >= static_cast<int>(firstCount) ?
+                ordinal - static_cast<int>(firstCount) : -1;
+            uint64_t firstAddr = 0U;
+            uint64_t secondAddr = 0U;
+            int firstLen = 0;
+            int secondLen = 0;
+            detail::PackWarpSge(laneSges.first, firstMask, firstOrdinal, firstAddr, firstLen);
+            detail::PackWarpSge(laneSges.second, secondMask, secondOrdinal, secondAddr, secondLen);
             uint64_t value = 0U;
             if (lane == 0U) value = kWriteHeader | owner | idx;
             else if (lane < kSqeHeaderWords) value = detail::PeerWord(peer.Info(), lane, count, dst);
-            else if (lane < kSqeHeaderWords + count * 2U) {
-                const uint32_t ordinal = (lane - kSqeHeaderWords) / 2U;
+            else if (isSgeWord) {
                 const bool isLen = ((lane - kSqeHeaderWords) & 1U) == 0U;
-                const int source = ordinal < firstCount ? detail::NthSet(firstMask, ordinal) : detail::NthSet(secondMask, ordinal - firstCount);
-                if (ordinal < firstCount) {
-                    value = isLen ? static_cast<uint64_t>(asc_shfl(laneSges.first.len, source, kWarpSize)) :
-                        asc_shfl(laneSges.first.addr, source, kWarpSize);
+                if (ordinal < static_cast<int>(firstCount)) {
+                    value = isLen ? static_cast<uint64_t>(firstLen) : firstAddr;
                 } else {
-                    value = isLen ? static_cast<uint64_t>(asc_shfl(laneSges.second.len, source, kWarpSize)) :
-                        asc_shfl(laneSges.second.addr, source, kWarpSize);
+                    value = isLen ? static_cast<uint64_t>(secondLen) : secondAddr;
                 }
             } else if ((lane % kWqebbLanes) == 0U) {
                 value = kNopHeader | (static_cast<uint64_t>(detail::Owner(bb, depth)) << 31U) | idx;
             }
+            const uint32_t pairLane = lane & ~1U;
+            const uint64_t second = asc_shfl(value, static_cast<int>(pairLane + 1U), kWarpSize);
             if ((lane & 1U) == 0U) {
-                const uint64_t second = asc_shfl(value, static_cast<int>(laneId + 1U), kWarpSize);
                 auto* dstWords = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr) +
                     static_cast<uint64_t>(idx) * kWqebbLanes + lane % kWqebbLanes;
                 asc_stwt(reinterpret_cast<__gm__ ulonglong2*>(dstWords), make_ulonglong2(value, second));
@@ -482,7 +502,7 @@ public:
     {
         static_assert(kMaxSges == 2U, "two-BB path requires two SGE lanes");
         const uint32_t laneRank = static_cast<uint32_t>(coop.thread_rank());
-        const uint32_t mask = asc_ballot(detail::Valid(laneSge));
+        const uint32_t mask = asc_ballot(detail::Valid(laneSge)) & ((1U << kMaxSges) - 1U);
         const uint32_t count = static_cast<uint32_t>(__builtin_popcount(mask));
         if (count == 0U) {
             coop.sync();
@@ -506,21 +526,24 @@ public:
         const uint32_t bb = head + word / kWqebbLanes;
         const uint32_t idx = bb & (depth - 1U);
         const uint64_t owner = static_cast<uint64_t>(detail::Owner(bb, depth)) << 31U;
+        const bool isSgeWord = word >= kSqeHeaderWords && word < kSqeHeaderWords + count * 2U;
+        const int ordinal = isSgeWord ? static_cast<int>((word - kSqeHeaderWords) / 2U) : -1;
+        uint64_t packedSgeAddr = 0U;
+        int packedSgeLen = 0;
+        detail::PackWarpSge(laneSge, mask, ordinal, packedSgeAddr, packedSgeLen);
         if (word == 0U) {
             value = kWriteHeader | owner | idx;
         } else if (word < kSqeHeaderWords) {
             value = detail::PeerWord(peer.Info(), word, count, dst);
-        } else if (word < kSqeHeaderWords + count * 2U) {
-            const uint32_t ordinal = (word - kSqeHeaderWords) / 2U;
-            const int source = detail::NthSet(mask, ordinal);
+        } else if (isSgeWord) {
             value = ((word - kSqeHeaderWords) & 1U) == 0U ?
-                static_cast<uint64_t>(asc_shfl(laneSge.len, source, kWarpSize)) :
-                asc_shfl(laneSge.addr, source, kWarpSize);
+                static_cast<uint64_t>(packedSgeLen) : packedSgeAddr;
         } else if (word == kWqebbLanes) {
             value = kNopHeader | owner | idx;
         }
+        const uint32_t pairWord = word & ~1U;
+        uint64_t second = asc_shfl(value, static_cast<int>(pairWord + 1U), kWarpSize);
         if (word < kNumDwqeWords && (word & 1U) == 0U) {
-            const uint64_t second = asc_shfl(value, static_cast<int>(word + 1U), kWarpSize);
             auto* sq = reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr);
             asc_stwt(reinterpret_cast<__gm__ ulonglong2*>(sq + static_cast<uint64_t>(idx) * kWqebbLanes +
                                                           (word % kWqebbLanes)),
@@ -541,8 +564,8 @@ public:
             const uint64_t nopOwner = static_cast<uint64_t>(detail::Owner(nopHead, depth)) << 31U;
             value = kNopHeader | nopOwner | ((head + 2U) & 0xFFFFU) | kNopFinalFlags;
         }
+        second = asc_shfl(value, static_cast<int>(pairWord + 1U), kWarpSize);
         if (word < kNumDwqeWords && (word & 1U) == 0U) {
-            const uint64_t second = asc_shfl(value, static_cast<int>(word + 1U), kWarpSize);
             auto* dwqe = reinterpret_cast<__gm__ ulonglong2*>(Info()->sqDoorbellAddr - kDwqeDbOffset);
             asc_stwt(&dwqe[word / 2U], make_ulonglong2(value, second));
         }
