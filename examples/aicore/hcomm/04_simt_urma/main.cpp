@@ -33,9 +33,9 @@
 #include "hccl/hccl_types.h"
 #include "hccl/hccl_rank_graph.h"
 
-#include "utils/check/check.h"
-#include "utils/process_manager/process_manager.h"
-#include "utils/rank_sync/rank_sync.h"
+#include "utils/check.h"
+#include "utils/process_manager.h"
+#include "utils/rank_sync.h"
 
 #include "simt_urma_common.h"
 
@@ -428,7 +428,7 @@ int main(int argc, char* argv[])
     const uint32_t nranks = static_cast<uint32_t>(nranksValue);
     const std::string modeName = argc > 3 ? argv[3] : "";
 
-    std::vector<std::tuple<uint32_t, uint32_t, std::string, std::string>> perRankArgs;
+    std::vector<examples::ArgsOf<decltype(RunSimtUrmaRank)>> perRankArgs;
     perRankArgs.reserve(nranks);
     for (uint32_t rank = 0; rank < nranks; ++rank) {
         perRankArgs.emplace_back(rank, nranks, endpoint, modeName);
