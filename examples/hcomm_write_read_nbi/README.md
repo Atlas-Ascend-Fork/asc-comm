@@ -159,6 +159,31 @@ make -j
 | 选项 | 可选值 | 说明 |
 |------|--------|------|
 | `CMAKE_ASC_ARCHITECTURES` | `dav-3510`（默认） | NPU架构：`dav-3510`对应Ascend 950PR / Ascend 950DT |
+| `ASCENDC_DEBUG` | `ON` / `OFF`（默认） | 是否开启 AIV Kernel 侧 Hcomm 调试打印 |
+
+`Hcomm URMA` 的 `PostSend`、WQE、CQE 和 `PollCq` 等打印由编译宏
+`ASCENDC_DEBUG` 控制，属于编译期选项，运行时不能切换。默认关闭调试打印；需要定位通信问题时，重新配置并编译：
+
+```bash
+rm -rf build
+cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DASCENDC_DEBUG=ON
+cmake --build build -j
+```
+
+关闭打印时省略该选项，或显式指定 `-DASCENDC_DEBUG=OFF`，然后重新编译：
+
+```bash
+cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DASCENDC_DEBUG=OFF
+cmake --build build -j
+```
+
+开启后，运行日志中会出现类似以下信息：
+
+```text
+[AIV Block 0/1] Hcomm URMA PostSend ...
+[AIV Block 0/1] Hcomm URMA WQE: ...
+[AIV Block 0/1] Hcomm URMA CQE: ...
+```
 
 ### 5. 执行结果
 多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
