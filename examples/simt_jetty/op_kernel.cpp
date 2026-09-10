@@ -159,25 +159,34 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
     group.sync();
 
-    AscendC::simt::jetty::HcommSge sge{};
+    AscendC::simt::jetty::HcommSgeList laneSges{};
     const int laneIdx = warp.thread_rank();
-    if (laneIdx < static_cast<int>(kSlotCount)) {
-        sge.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx) * kSlotBytes;
-        sge.len = static_cast<int>(kSlotBytes);
+    if (laneIdx < 6) {
+        laneSges.first.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx * 2) * kSlotBytes;
+        laneSges.first.len = static_cast<int>(kSlotBytes);
+        laneSges.second.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx * 2 + 1) * kSlotBytes;
+        laneSges.second.len = static_cast<int>(kSlotBytes);
+        laneSges.count = 2U;
     }
+    AscendC::simt::jetty::HcommJettyBatch batch = jetty.BeginBatch();
 
     // Each warp reserves one WQE. The block commits the actual number of WQEs after all warps finish.
     uint64_t begin = 0U;
     if constexpr (kMeasure) {
         begin = clock();
     }
-    jetty.template Write<12>(warp, peer, remoteDst, sge);
+    jetty.template Write<12>(warp, peer, remoteDst, laneSges, batch);
     uint64_t writeEnd = 0U;
     if constexpr (kMeasure) {
         writeEnd = clock();
     }
     if constexpr (kPublish) {
-        jetty.AdvanceSq(group, 4U, 4U);
+        jetty.Commit(group, batch);
+        group.sync();
+        if (group.thread_rank() == 0) {
+            jetty.PublishSq();
+        }
+        group.sync();
     }
     uint64_t commitEnd = writeEnd;
     if constexpr (kMeasure) {

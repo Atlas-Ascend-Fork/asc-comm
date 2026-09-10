@@ -71,7 +71,8 @@ __aicore__ __forceinline__ HcommJettyImpl::HcommJettyImpl(
         return;
     }
     auto* jetty = reinterpret_cast<__gm__ ChannelEntity*>(jettyValue);
-    if (jetty->sqContextAddr == nullptr || jetty->cqContextAddr == nullptr) {
+    if (jetty->sqNum == 0U || jetty->cqNum == 0U || jetty->sqContextAddr == nullptr ||
+        jetty->cqContextAddr == nullptr) {
         return;
     }
     auto sqContext = jetty->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
@@ -83,7 +84,6 @@ __aicore__ __forceinline__ HcommJettyImpl::HcommJettyImpl(
     jettyInfo_->cqBaseAddr = cqContext.contextInfo.ubJfc.scqVa;
     jettyInfo_->cqTailAddr = cqContext.contextInfo.ubJfc.tailAddr;
     jettyInfo_->cqDoorbellAddr = cqContext.contextInfo.ubJfc.dbVa;
-    jettyInfo_->packedHead = ReadGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
     jettyInfo_->numWqebbBytes = sqContext.contextInfo.ubJfs.wqeSize;
     jettyInfo_->numCqeBytes = cqContext.contextInfo.ubJfc.cqeSize;
     jettyInfo_->sqDepth = sqContext.contextInfo.ubJfs.sqDepth;
@@ -94,6 +94,15 @@ __aicore__ __forceinline__ HcommJettyImpl::HcommJettyImpl(
         jettyInfo_->cqDepth == 0U) {
         return;
     }
+    // Validate all context-derived addresses before dereferencing the SQ head. The context
+    // object can be present while queue setup is still incomplete; reading headAddr first
+    // would turn that transient state into an AIV out-of-bounds access.
+    if (jettyInfo_->numWqebbBytes != 64U ||
+        (jettyInfo_->sqDepth & (jettyInfo_->sqDepth - 1U)) != 0U ||
+        (jettyInfo_->cqDepth & (jettyInfo_->cqDepth - 1U)) != 0U) {
+        return;
+    }
+    jettyInfo_->packedHead = ReadGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
     valid_ = true;
 }
 
