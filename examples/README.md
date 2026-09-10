@@ -2,6 +2,8 @@
 
 简体中文 | [English](./README_en.md)
 
+简体中文 | [English](./README_en.md)
+
 本目录提供asc-comm API的使用样例。
 
 ## 样例列表
