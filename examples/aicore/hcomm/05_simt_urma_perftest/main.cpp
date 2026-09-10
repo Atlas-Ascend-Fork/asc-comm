@@ -19,11 +19,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include <sys/stat.h>
@@ -32,6 +34,8 @@
 #include "hccl/hccl_rank_graph.h"
 #include "hccl/hccl_res.h"
 #include "hccl/hccl_types.h"
+
+#include "utils/process_manager/process_manager.h"
 
 #include "simt_urma_perftest_common.h"
 
@@ -63,6 +67,29 @@ constexpr uint32_t kBarrierPollMs = 100U;
 constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UB_CTP;
 constexpr const char* kSendBufTag = "simtUrmaPerfSendBuf";
 constexpr const char* kRecvBufTag = "simtUrmaPerfRecvBuf";
+
+// 在系统临时目录下创建形如<prefix>.XXXXXX的一次性目录；失败返回空串。
+std::string MakeTempDir(const std::string& prefix)
+{
+    const char* tmpdir = std::getenv("TMPDIR");
+    std::string tmpl =
+        std::string((tmpdir != nullptr && tmpdir[0] != '\0') ? tmpdir : "/tmp") + "/" + prefix + ".XXXXXX";
+    std::vector<char> buf(tmpl.begin(), tmpl.end());
+    buf.push_back('\0');
+    const char* dir = mkdtemp(buf.data());
+    return dir != nullptr ? std::string(dir) : std::string();
+}
+
+void RemoveTempDir(const std::string& dir)
+{
+    if (!dir.empty()) {
+        // 目录里只有本程序写入的root info文件与barrier标记文件，无子目录。
+        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+            std::filesystem::remove(entry.path());
+        }
+        std::filesystem::remove(dir);
+    }
+}
 
 // Consecutive WQEs rotate over this many slots so they do not all land on one cache line.
 // Capped so a large payload does not blow the buffer up: the product is the allocation size.
@@ -362,30 +389,15 @@ uint32_t SqBlocksPerWqe(uint32_t api, bool commitEach) { return (api == kApiWrit
 
 } // namespace
 
-int main(int argc, char* argv[])
+// 单个rank的基准流程。由ProcessGroup在每个子进程中调用：只有rank 0（发送方）和
+// rank 1（接收方）建链并计时，其余rank直接退出，不加入通信域。
+int RunPerftestRank(
+    uint32_t rank, uint32_t nranks, const std::string& rootInfoFile, const std::string& syncDir,
+    const std::string& apiName, uint32_t iterations, uint32_t warmup, uint32_t payloadBytes,
+    const std::string& commitMode)
 {
-    if (argc != 10) {
-        std::cout << "Usage: " << argv[0]
-                  << " <rank> <nranks> <root_info_file> <sync_dir> <write|write_value|notify|faa|cas>"
-                     " <iterations> <warmup> <payload_bytes> <immediate|last>"
-                  << std::endl;
-        std::cout << "  sync_dir: directory for host barrier marker files, shared by all ranks" << std::endl;
-        return 1;
-    }
-    const int rank = std::atoi(argv[1]);
-    const int nranks = std::atoi(argv[2]);
-    const std::string rootInfoFile = argv[3];
-    const std::string syncDir = argv[4];
-    const std::string apiName = argv[5];
-    const uint32_t iterations = static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10));
-    const uint32_t warmup = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
-    const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
-    const std::string commitMode = argv[9];
-
-    uint32_t api = kApiWrite;
-    // 这是点对点基准测试：允许拉起 nranks(>=2) 个进程，但只有 rank 0（发送方）和 rank 1
-    // （接收方）建链并计时，其余 rank 直接退出，不加入通信域。只有一个发送方计时，多方并发
-    // 发送会互相争抢链路和 SQ 资源，测出来的数字没有可比性。
+    // 这是点对点基准测试：只有一个发送方计时，多方并发发送会互相争抢链路和 SQ 资源，
+    // 测出来的数字没有可比性。
     if (nranks < kBenchRanks) {
         std::cout << "nranks must be at least " << kBenchRanks
                   << ": this benchmark measures point-to-point latency and bandwidth between rank 0 (sender) and "
@@ -393,19 +405,12 @@ int main(int argc, char* argv[])
                   << std::endl;
         return 1;
     }
-    if (rank < 0 || rank >= nranks) {
-        std::cout << "rank must be in [0, " << nranks << ")." << std::endl;
-        return 1;
-    }
     if (rank >= kBenchRanks) {
         std::cout << "SKIP | Rank=" << rank << " | Only rank 0 and rank 1 run the point-to-point benchmark."
                   << std::endl;
         return 0;
     }
-    if (syncDir.empty()) {
-        std::cout << "sync_dir must not be empty." << std::endl;
-        return 1;
-    }
+    uint32_t api = kApiWrite;
     if (!ParseApi(apiName, api)) {
         std::cout << "Unknown api: " << apiName << ". Expected write, write_value, notify, faa or cas." << std::endl;
         return 1;
@@ -459,7 +464,7 @@ int main(int argc, char* argv[])
     const uint32_t peer = rank == kSenderRank ? kReceiverRank : kSenderRank;
     ChannelHandle channel = 0U;
     uint32_t remoteRecvIdx = 0U;
-    HCCLCHECK(AcquirePeerChannel(comm, static_cast<uint32_t>(rank), peer, handles, channel, remoteRecvIdx));
+    HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
     HCCLCHECK(HostBarrier(rank, kBenchRanks, syncDir, "ready"));
 
     void* timingBuf = nullptr;
@@ -512,4 +517,87 @@ int main(int argc, char* argv[])
     ACLCHECK(aclrtDestroyStream(stream));
     ACLCHECK(aclFinalize());
     return pass ? 0 : 2;
+}
+
+// 父进程流程：解析命令行（<nranks> <api> [options]，与原run.sh的参数一致），创建本次
+// 运行的临时目录，拉起全部rank进程并等待结果。
+int main(int argc, char* argv[])
+{
+    if (argc < 3) {
+        std::cout << "Usage: " << argv[0] << " <nranks> <write|write_value|notify|faa|cas> [options]" << std::endl;
+        std::cout << "Options:" << std::endl;
+        std::cout << "  --iterations N      Timed WQE count, default: 1024" << std::endl;
+        std::cout << "  --warmup N          Warmup WQE count, default: 100" << std::endl;
+        std::cout << "  --payload-bytes N   Payload bytes for write and notify, default: 4096; minimum 2." << std::endl;
+        std::cout << "  --commit-mode MODE  immediate (one doorbell per WQE) or last (defer all but the last); "
+                     "default: immediate"
+                  << std::endl;
+        return 1;
+    }
+
+    const int nranksValue = std::atoi(argv[1]);
+    if (nranksValue < 2) {
+        std::cout << "nranks must be at least 2." << std::endl;
+        return 1;
+    }
+    const uint32_t nranks = static_cast<uint32_t>(nranksValue);
+    const std::string apiName = argv[2];
+
+    uint32_t iterations = 1024U;
+    uint32_t warmup = 100U;
+    uint32_t payloadBytes = 4096U;
+    std::string commitMode = "immediate";
+    for (int i = 3; i < argc; ++i) {
+        const std::string option = argv[i];
+        const bool hasValue = i + 1 < argc;
+        if (option == "--iterations" && hasValue) {
+            iterations = static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 10));
+        } else if (option == "--warmup" && hasValue) {
+            warmup = static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 10));
+        } else if (option == "--payload-bytes" && hasValue) {
+            payloadBytes = static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 10));
+        } else if (option == "--commit-mode" && hasValue) {
+            commitMode = argv[++i];
+        } else {
+            std::cout << "Unknown or incomplete option: " << option << std::endl;
+            return 1;
+        }
+    }
+
+    // 每次运行都创建全新目录：上次残留的root info会让其余rank读到过期内容，残留的
+    // barrier标记会让barrier直接通过。
+    const std::string runDir = MakeTempDir("simt_urma_perftest_run");
+    if (runDir.empty()) {
+        std::cout << "create temp run dir failed" << std::endl;
+        return 1;
+    }
+    const std::string rootInfoFile = runDir + "/root_info.bin";
+    const std::string syncDir = runDir;
+
+    std::vector<std::tuple<
+        uint32_t, uint32_t, std::string, std::string, std::string, uint32_t, uint32_t, uint32_t, std::string>>
+        perRankArgs;
+    perRankArgs.reserve(nranks);
+    for (uint32_t rank = 0; rank < nranks; ++rank) {
+        perRankArgs.emplace_back(
+            rank, nranks, rootInfoFile, syncDir, apiName, iterations, warmup, payloadBytes, commitMode);
+    }
+
+    examples::ProcessGroup group;
+    if (!group.Launch(nranks, RunPerftestRank, std::move(perRankArgs))) {
+        RemoveTempDir(runDir);
+        return 1;
+    }
+    const bool pass = group.WaitAll();
+    RemoveTempDir(runDir);
+
+    if (group.Interrupted()) {
+        std::cout << "RESULT | API=" << apiName << " | Status=INTERRUPTED" << std::endl;
+        return 1;
+    }
+    if (!pass) {
+        std::cout << "RESULT | API=" << apiName << " | Status=FAIL" << std::endl;
+        return 1;
+    }
+    return 0;
 }
