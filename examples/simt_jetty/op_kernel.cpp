@@ -444,9 +444,19 @@ extern "C" __global__ __vector__ void SimtJettyWriteDispatch(
 extern "C" __global__ __mix__(1, 1) void SimtJettyWriteMixed(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
 {
+    AscendC::InitSocState();
+    if ASCEND_IS_AIC {
+        return;
+    }
+
     auto* ub_layout = reinterpret_cast<__ubuf__ SimtJettyUbLayout*>(0);
     AscendC::Simt::VF_CALL<SimtJettyWriteMixedWorker>(
         AscendC::Simt::Dim3(64, 1, 1), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+
+    // VF_CALL is asynchronous; scalar must wait before accessing the shared UB metadata.
+    asc_sync_notify(PIPE_V, PIPE_S, EVENT_ID0);
+    asc_sync_wait(PIPE_V, PIPE_S, EVENT_ID0);
+
     AscendC::HcommJetty simdJetty(
         reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(&ub_layout->jetty_info),
         reinterpret_cast<__ubuf__ uint8_t*>(ub_layout->dwqe_stage), jettyPtrTable, 0);
