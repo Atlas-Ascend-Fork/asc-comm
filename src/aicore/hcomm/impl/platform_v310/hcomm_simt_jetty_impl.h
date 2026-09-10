@@ -68,6 +68,8 @@ constexpr uint32_t kDwqeDbOffset = 0x80U;
 constexpr uint64_t kWriteHeader = 0x0000030030010000ULL;
 constexpr uint64_t kNopHeader = 0x0000110000000000ULL;
 constexpr uint64_t kFinalFlags = (1ULL << 18U) | (1ULL << 19U) | (1ULL << 21U);
+constexpr uint64_t kNopControlFlags = (1ULL << 28U) | (1ULL << 29U);
+constexpr uint64_t kNopFinalFlags = (1ULL << 16U) | kFinalFlags | kNopControlFlags;
 
 struct alignas(8) HcommPeerInfo {
     uint64_t tpIdNumSgesRemoteTokenId = 0U;
@@ -107,6 +109,7 @@ struct HcommSgeList {
 struct HcommJettyBatch {
     uint32_t beginHead = 0U;
     uint32_t reservedWqebbs = 0U;
+    uint32_t payloadWqebbs = 0U;
     bool valid = false;
 };
 
@@ -327,6 +330,7 @@ public:
         }
         const uint32_t depth = Info()->sqDepth;
         const uint32_t payloadWords = kSqeHeaderWords + count * 2U;
+        reservation.payloadWqebbs = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
         const uint32_t lane = static_cast<uint32_t>(laneid());
         for (uint32_t wordIndex = lane; wordIndex < kSlotWqebbs * kWqebbLanes; wordIndex += kWarpSize) {
             const uint32_t word = wordIndex;
@@ -389,6 +393,7 @@ public:
         auto* info = Info();
         const uint32_t depth = info->sqDepth;
         const uint32_t payloadWords = kSqeHeaderWords + count * 2U;
+        reservation.payloadWqebbs = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
         const uint32_t laneId = static_cast<uint32_t>(laneid());
         for (uint32_t lane = laneId; lane < kSlotWqebbs * kWqebbLanes; lane += kWarpSize) {
             const uint32_t bb = head + lane / kWqebbLanes;
@@ -521,6 +526,7 @@ public:
                       "inline value does not fit in a URMA WQEBB");
         HcommJettyBatch batch{};
         if (Reserve<kSlotWqebbs>(batch) != 0) return -1;
+        batch.payloadWqebbs = (kSqeHeaderWords + (sizeof(T) + 7U) / 8U + kWqebbLanes - 1U) / kWqebbLanes;
         auto* info = Info();
         const uint32_t head = batch.beginHead;
         const uint32_t depth = info->sqDepth;
@@ -559,6 +565,7 @@ public:
     {
         HcommJettyBatch batch{};
         if (Reserve<2U>(batch) != 0) return -1;
+        batch.payloadWqebbs = 2U;
         auto* info = Info();
         const uint32_t head = batch.beginHead;
         const uint32_t depth = info->sqDepth;
@@ -605,12 +612,24 @@ public:
         const uint32_t end = static_cast<uint32_t>(*reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead));
         const uint32_t begin = batch.valid ? batch.beginHead : implicitBeginHead_;
         if (end <= begin) return;
-        const uint32_t last = end - kSlotWqebbs;
+        const uint32_t reservedWqebbs = batch.reservedWqebbs == 0U ? kSlotWqebbs : batch.reservedWqebbs;
+        if (reservedWqebbs > kSlotWqebbs || reservedWqebbs > end - begin) return;
+        const uint32_t last = end - reservedWqebbs;
+        const uint32_t payloadWqebbs = batch.payloadWqebbs == 0U ? reservedWqebbs : batch.payloadWqebbs;
+        if (payloadWqebbs > reservedWqebbs) return;
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
         const uint32_t idx = last & (info->sqDepth - 1U);
-        const uint64_t header = kWriteHeader |
-            (static_cast<uint64_t>(detail::Owner(last, info->sqDepth)) << 31U) |
-            (end & 0xFFFFU) | kFinalFlags;
+        const uint64_t owner = static_cast<uint64_t>(detail::Owner(last, info->sqDepth)) << 31U;
+        uint64_t header = kWriteHeader | owner | idx;
+        if (payloadWqebbs == kSlotWqebbs) {
+            header = kWriteHeader | owner | (end & 0xFFFFU) | kFinalFlags;
+        } else {
+            const uint32_t nopHead = end - 1U;
+            const uint32_t nopIdx = nopHead & (info->sqDepth - 1U);
+            const uint64_t nopOwner = static_cast<uint64_t>(detail::Owner(nopHead, info->sqDepth)) << 31U;
+            const uint64_t nop = kNopHeader | nopOwner | (end & 0xFFFFU) | kNopFinalFlags;
+            asc_stwt(reinterpret_cast<__gm__ uint64_t*>(sq + static_cast<uint64_t>(nopIdx) * kWqebbLanes), nop);
+        }
         asc_threadfence();
         asc_stwt(reinterpret_cast<__gm__ uint64_t*>(sq + static_cast<uint64_t>(idx) * kWqebbLanes), header);
         asc_atomic_add(reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead) + 1, 1U);
@@ -743,6 +762,7 @@ private:
         for (uint32_t i = 0U; i < kMaxSges; ++i) count += detail::Valid(sges[i]) ? 1U : 0U;
         if (count == 0U || count > kMaxSges) return -1;
         if (Reserve<kSlotWqebbs>(reservation) != 0) return -1;
+        reservation.payloadWqebbs = (kSqeHeaderWords + count * 2U + kWqebbLanes - 1U) / kWqebbLanes;
         const uint32_t head = reservation.beginHead;
         auto* info = Info();
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
