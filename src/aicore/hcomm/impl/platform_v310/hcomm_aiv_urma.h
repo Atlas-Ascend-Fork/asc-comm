@@ -589,6 +589,13 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::CommitImpl(
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
     st_dev(sqHead, reinterpret_cast<__gm__ uint32_t*>(sqCtx.contextInfo.ubJfs.dbVa), 0);
+    // Flush the four contiguous channel cursors (sqHead/sqTail/cqHead/cqTail). The doorbell above only makes the
+    // NIC see the WQE; it does not push the ChannelEntity cursor cacheline to GM. Without this flush an AIC error
+    // trapping here would leave the cursors readable only in the faulted AICe's (now non-coherent) L2, so both a
+    // host aclrtMemcpy and a device-side queue-read dump would observe stale/zero values. Same primitive and same
+    // 16-byte region as Unlock (Lock/Unlock), so batch and non-batch commit paths flush identically.
+    CacheWriteThrough<uint8_t>(
+        reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, sqHead), 4U * sizeof(uint32_t));
     Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
     PollCqWhenCqOverflow(channel, sqCtx, cqCtx, sqHead, cqeCnt);
 }
@@ -612,9 +619,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     uint32_t curHead = channelEntity->sqHead;
     uint32_t cqeCnt = channelEntity->cqHead;
-    HCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA PostSend resolved remoteIdx=%d curHead=%u sqDepth=%u \n", remoteIdx, curHead,
-        sqCtx.contextInfo.ubJfs.sqDepth);
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     PollCqWhenSqOverflow(channel, sqCtx, curHead);
 
@@ -685,8 +689,6 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqImpl(
     LocalTensor<uint32_t> cqeItem, uint32_t& sqTail, uint32_t sqHead, uint32_t sqDepth, uint32_t threshold)
 {
     __ubuf__ HcommUrmaJfcCqeCtx* cqeUb = (__ubuf__ HcommUrmaJfcCqeCtx*)cqeItem.GetPhyAddr();
-    HCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm URMA PollCq enter expectIdx=%u curTail=%u cqDepth=%u \n", expectIdx, curTail, cqDepth);
 
 #if defined(UT_TEST)
     curTail = expectIdx;
@@ -775,6 +777,10 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
 
     // ring CQ doorbell
     st_dev(curTail & 0xFFFFFFU, (__gm__ uint32_t*)cqCtx.contextInfo.ubJfc.dbVa, 0);
+    // Flush the four contiguous channel cursors (sqHead/sqTail/cqHead/cqTail) so a trap after this poll leaves them
+    // in GM rather than only in the AICe's L2. Same primitive and 16-byte region as CommitImpl/Unlock.
+    CacheWriteThrough<uint8_t>(
+        reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, sqHead), 4U * sizeof(uint32_t));
 
     return HCOMM_SUCCESS;
 }
@@ -800,6 +806,10 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollBatchCq(
     channelEntity->sqTail = batchHandle.cursor.sqTail;
     channelEntity->cqTail = curTail;
     st_dev(curTail & 0xFFFFFFU, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.dbVa), 0);
+    // Flush the four contiguous channel cursors so a trap right after this poll leaves them in GM rather than only
+    // in the AICe's L2. Same primitive and 16-byte region as CommitImpl/Unlock.
+    CacheWriteThrough<uint8_t>(
+        reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, sqHead), 4U * sizeof(uint32_t));
     return HCOMM_SUCCESS;
 }
 
@@ -935,6 +945,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcBatch
     channelEntity->cqHead = batchHandle.cursor.cqHead;
     Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
     st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.contextInfo.ubJfs.dbVa), 0);
+    // Flush the four contiguous channel cursors so a trap right after this commit leaves them in GM rather than only
+    // in the AICe's L2. Same primitive and 16-byte region as CommitImpl/Unlock.
+    CacheWriteThrough<uint8_t>(
+        reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, sqHead), 4U * sizeof(uint32_t));
     Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
 
     batchHandle.cursor.preSqCnt = 0;
