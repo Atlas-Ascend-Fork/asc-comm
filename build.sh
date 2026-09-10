@@ -212,8 +212,11 @@ main(){
     echo "${CUSTOM_OPTION[@]}"
     if [[ "${AICPU_DATA_PLANE}" == true ]]; then
         local aicpu_build_dir="${BUILD_DIR}/aicpu-data-plane"
-        # 根CMakeLists的ASCCOMM_BUILD_AICPU默认OFF(第三方嵌入只需CCU)，独立构建数据面时显式开启
-        cmake_config "${SCRIPT_DIR}" "${aicpu_build_dir}" "-DASCCOMM_BUILD_AICPU=ON" "${CUSTOM_OPTION[@]}"
+        # 根CMakeLists的ASCCOMM_BUILD_AICPU默认OFF(第三方嵌入只需CCU)，独立构建数据面时显式开启；
+        # CCU数据面(asccomm_ccu_dataplane)依赖cann-cmake提供的intf_pub等目标，仅能在UT/asc-devkit
+        # 超构建中编译，根级自包含构建需关闭CCU组件
+        cmake_config "${SCRIPT_DIR}" "${aicpu_build_dir}" "-DASCCOMM_BUILD_AICPU=ON" "-DASCCOMM_BUILD_CCU=OFF" \
+            "${CUSTOM_OPTION[@]}"
         build "${aicpu_build_dir}"
     fi
 
