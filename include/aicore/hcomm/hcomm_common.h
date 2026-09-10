@@ -22,9 +22,10 @@
 namespace AscendC {
 using ChannelHandle = uint64_t;
 
+/** @brief Describes one local GM buffer segment for scatter/gather operations. */
 struct BufDesc {
-    GM_ADDR addr;
-    uint32_t len;
+    GM_ADDR addr; ///< Start address of the local GM buffer segment.
+    uint32_t len; ///< Length of the segment in bytes.
 };
 
 /**
