@@ -97,8 +97,7 @@ __aicore__ inline void HcommUrmaFillSqeCtx(
 
 template <HcommUrmaOpCode opCode, auto const& config>
 __aicore__ inline void HcommUrmaFillBatchSqeCtx(
-    __ubuf__ HcommUrmaSqeCtx* sqeCtx, __gm__ uint8_t* remoteAddr, const UbcBatchHandle& batchHandle,
-    uint32_t sgeNum = 1U)
+    __ubuf__ HcommUrmaSqeCtx* sqeCtx, __gm__ uint8_t* remoteAddr, const UbcBatchHandle& batchHandle, uint32_t sgeNum)
 {
     static_assert(
         opCode == HcommUrmaOpCode::WRITE || opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY ||
@@ -487,9 +486,9 @@ __aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef
     return multiBatchHandle.handle;
 }
 
-template <HcommUrmaOpCode opCode, auto const& config, typename LocalDataType>
+template <HcommUrmaOpCode opCode, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
-    UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, LocalDataType localData, uint32_t lenOrSgeNum,
+    UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t sgeNum,
     GM_ADDR notifyAddr, uint64_t notifyVal)
 {
     static_assert(
@@ -499,20 +498,14 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
     static_assert(config.cqe == 0 || config.cqe == 1, "BatchPostSend supports cqe values 0 and 1 only");
     static_assert(config.inlineEn == 0, "BatchPostSend does not support inline data");
 
-    constexpr bool isMultiSge = std::is_same<LocalDataType, const BufDesc*>::value;
-    constexpr bool isSingleSge = std::is_same<LocalDataType, GM_ADDR>::value;
-    static_assert(isMultiSge || isSingleSge, "BatchPostSend only supports GM_ADDR or const BufDesc*");
-
     constexpr bool withNotify = opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY;
-    uint32_t sgeNum = 1U;
     constexpr uint32_t maxSgeNum =
         withNotify ? HCOMM_URMA_BATCH_NOTIFY_MAX_SGE_NUM : HCOMM_URMA_BATCH_DATA_MAX_SGE_NUM;
-    if constexpr (isMultiSge) {
-        sgeNum = lenOrSgeNum;
-        if (sgeNum < HCOMM_URMA_BATCH_MIN_SGE_NUM || sgeNum > maxSgeNum) {
-            HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with invalid SGE count\n");
-            return HCOMM_FAILED;
-        }
+    if (sgeNum < HCOMM_URMA_BATCH_MIN_SGE_NUM || sgeNum > maxSgeNum) {
+        HCOMM_KERNEL_LOG(
+            KERNEL_ERROR, "Hcomm BatchPostSend failed with invalid SGE count sgeNum=%u validRange=[%u, %u]\n",
+            sgeNum, HCOMM_URMA_BATCH_MIN_SGE_NUM, maxSgeNum);
+        return HCOMM_FAILED;
     }
 
     constexpr uint32_t fixedBytes =
@@ -526,12 +519,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
         return HCOMM_FAILED;
     }
 
-    // Contract: batchHandle either comes from a single-channel MakeBatchHandle call or is the inner execution handle
-    // selected by GetHandleRef for one logical channel of a multi-channel batch. One WQE, including all of its SGEs
-    // and optional notification, belongs to that selected channel and cannot span channels. In multi-SGE mode,
-    // localData points to exactly sgeNum valid descriptors. In single-SGE mode, localData and lenOrSgeNum are the
-    // valid local address and length. remoteAddr/notifyAddr belong to the MR cached by the handle. These conditions
-    // are intentionally not checked on this batch fast path.
+    // Contract: descriptors and remote addresses are valid for the channel/MR selected by batchHandle.
+    // These caller guarantees are not revalidated here.
     LocalTensor<uint32_t> currentWqe = batchHandle.buffer.buffer[preSqCnt * HCOMM_URMA_WQEBB_U32_NUM];
     __ubuf__ uint8_t* currentWqeAddr = reinterpret_cast<__ubuf__ uint8_t*>(currentWqe.GetPhyAddr());
     __ubuf__ HcommUrmaSqeCtx* sqeCtx = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(currentWqeAddr);
@@ -547,14 +536,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
         sgeAddr += sizeof(HcommUrmaNotifyCtx);
     }
     __ubuf__ HcommUrmaSgeCtx* sgeCtx = reinterpret_cast<__ubuf__ HcommUrmaSgeCtx*>(sgeAddr);
-    if constexpr (isMultiSge) {
-        for (uint32_t i = 0U; i < sgeNum; ++i) {
-            sgeCtx[i].len = localData[i].len;
-            sgeCtx[i].va = reinterpret_cast<uint64_t>(localData[i].addr);
-        }
-    } else {
+    for (uint32_t i = 0U; i < sgeNum; ++i) {
         HcommUrmaFillSgeCtx<opCode>(
-            sgeCtx, lenOrSgeNum, reinterpret_cast<__gm__ uint8_t*>(localData), UdmaParams<uint64_t>{});
+            &sgeCtx[i], localDescs[i].len, reinterpret_cast<__gm__ uint8_t*>(localDescs[i].addr),
+            UdmaParams<uint64_t>{});
     }
     Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
 
@@ -569,7 +554,8 @@ template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
     UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
-    return BatchPostSend<HcommUrmaOpCode::WRITE, config>(batchHandle, dst, src, len);
+    const BufDesc srcDesc{src, len};
+    return BatchPostSend<HcommUrmaOpCode::WRITE, config>(batchHandle, dst, &srcDesc, 1U);
 }
 
 template <auto const& config>
@@ -583,7 +569,8 @@ template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
     UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
-    return BatchPostSend<HcommUrmaOpCode::READ, config>(batchHandle, src, dst, len);
+    const BufDesc dstDesc{dst, len};
+    return BatchPostSend<HcommUrmaOpCode::READ, config>(batchHandle, src, &dstDesc, 1U);
 }
 
 template <auto const& config>
@@ -597,7 +584,9 @@ template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
     UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
-    return BatchPostSend<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config>(batchHandle, dst, src, len, notifyAddr, notifyVal);
+    const BufDesc srcDesc{src, len};
+    return BatchPostSend<HcommUrmaOpCode::WRITE_WITH_NOTIFY, config>(
+        batchHandle, dst, &srcDesc, 1U, notifyAddr, notifyVal);
 }
 
 template <auto const& config>
