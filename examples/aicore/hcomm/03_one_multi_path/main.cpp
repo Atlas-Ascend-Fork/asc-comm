@@ -33,6 +33,7 @@
 #include "hccl/hccl_types.h"
 
 #include "utils/process_manager/process_manager.h"
+#include "utils/rank_sync/rank_sync.h"
 
 #define HCCLCHECK(ret)                                                                          \
     do {                                                                                        \
@@ -63,9 +64,10 @@ constexpr uint8_t PATH_MODE_ONE = 1;
 constexpr uint8_t PATH_MODE_MULTI = 2;
 constexpr CommProtocol TARGET_PROTOCOL = COMM_PROTOCOL_UB_MEM;
 constexpr uint32_t PATH_COUNT = 2;
-constexpr time_t SOCKET_IO_TIMEOUT_SECONDS = 30;
 constexpr uint8_t TARGET_PATH_MODES[PATH_COUNT] = {PATH_MODE_ONE, PATH_MODE_MULTI};
 static_assert(VERIFY_BYTES % PATH_COUNT == 0, "VERIFY_BYTES must be divisible by PATH_COUNT");
+// 收尾barrier的tag：本样例只有这一个host侧同步点。
+constexpr uint32_t kTagFinalRelease = examples::kTagUserBase;
 
 struct Options {
     uint32_t rankSize = 0;
@@ -81,7 +83,6 @@ struct CommResources {
     void* verifyBuffer = nullptr;
 };
 
-int ExchangeRootInfo(uint32_t rank, uint32_t rankSize, const std::string& ipPort, HcclRootInfo& rootInfo);
 int ReportError(uint32_t rank, const char* operation, int result);
 int BuildChannelDescs(
     HcclComm comm, uint32_t rank, uint32_t peerRank, HcclMemHandle& memHandle, HcclChannelDesc* descs);
@@ -89,14 +90,14 @@ int TransferAndVerifyShards(
     uint32_t rank, uint32_t peerRank, HcclComm comm, const ChannelHandle* channels, CommResources& resources);
 int CleanupCommRes(CommResources& resources, int status);
 
-int TestDualPath(const Options& options, const HcclRootInfo& rootInfo)
+int TestDualPath(const Options& options, examples::RankSyncContext& sync)
 {
     CommResources resources;
     HcclMemHandle memHandle = nullptr;
     std::vector<uint32_t> peerRanks;
 
     // Initialize the communication domain and prepare data in the local HCCL Buffer.
-    int result = HcclCommInitRootInfo(options.rankSize, &rootInfo, options.rank, &resources.comm);
+    int result = sync.InitCommByRootInfo(&resources.comm);
     if (result != HCCL_SUCCESS) {
         return CleanupCommRes(resources, ReportError(options.rank, "HcclCommInitRootInfo", result));
     }
@@ -191,14 +192,11 @@ int TestDualPath(const Options& options, const HcclRootInfo& rootInfo)
         }
     }
 
-    // Keep every rank's HCCL Buffer valid until all remote reads have completed.
-    result = HcclBarrier(resources.comm, resources.streams[0]);
-    if (result != HCCL_SUCCESS) {
-        return CleanupCommRes(resources, ReportError(options.rank, "HcclBarrier", result));
-    }
-    result = aclrtSynchronizeStream(resources.streams[0]);
-    if (result != ACL_SUCCESS) {
-        return CleanupCommRes(resources, ReportError(options.rank, "aclrtSynchronizeStream after HcclBarrier", result));
+    // Keep every rank's HCCL Buffer valid until all remote reads have completed. Each rank has
+    // already synchronized its own streams above, so the host-side barrier suffices: once every
+    // rank passes it, all remote reads in the group are done and freeing is safe.
+    if (!sync.Barrier(kTagFinalRelease)) {
+        return CleanupCommRes(resources, ReportError(options.rank, "Barrier", HCCL_E_INTERNAL));
     }
     return CleanupCommRes(resources, HCCL_SUCCESS);
 }
@@ -388,250 +386,21 @@ bool ParseNonNegativeInt(const char* text, int& value)
     return true;
 }
 
-bool ParseIpPort(const std::string& ipPort, std::string& host, uint16_t& port)
-{
-    constexpr const char* TCP_PREFIX = "tcp://";
-    std::string value = ipPort;
-    if (value.compare(0, std::strlen(TCP_PREFIX), TCP_PREFIX) == 0) {
-        value = value.substr(std::strlen(TCP_PREFIX));
-    }
-
-    size_t separator = value.rfind(':');
-    if (separator == std::string::npos || separator == 0 || separator + 1 >= value.size()) {
-        return false;
-    }
-
-    const std::string portText = value.substr(separator + 1);
-    char* parseEnd = nullptr;
-    errno = 0;
-    const long parsedPort = std::strtol(portText.c_str(), &parseEnd, 10);
-    if (errno == ERANGE || parseEnd == portText.c_str() || *parseEnd != '\0' || parsedPort <= 0 ||
-        parsedPort > UINT16_MAX) {
-        return false;
-    }
-    host = value.substr(0, separator);
-    if (host.front() == '[') {
-        if (host.size() < 3 || host.back() != ']') {
-            return false;
-        }
-        host = host.substr(1, host.size() - 2);
-    }
-    port = static_cast<uint16_t>(parsedPort);
-    return true;
-}
-
-bool SendAll(int fd, const void* data, size_t size)
-{
-    const char* buffer = static_cast<const char*>(data);
-    size_t sent = 0;
-    while (sent < size) {
-        const ssize_t count = send(fd, buffer + sent, size - sent, MSG_NOSIGNAL);
-        if (count < 0 && errno == EINTR) {
-            continue;
-        }
-        if (count < 0) {
-            std::cerr << "send failed, errno=" << errno << std::endl;
-            return false;
-        }
-        if (count == 0) {
-            std::cerr << "send returned 0 before all data was sent" << std::endl;
-            return false;
-        }
-        sent += static_cast<size_t>(count);
-    }
-    return true;
-}
-
-bool RecvAll(int fd, void* data, size_t size)
-{
-    char* buffer = static_cast<char*>(data);
-    size_t received = 0;
-    while (received < size) {
-        const ssize_t count = recv(fd, buffer + received, size - received, 0);
-        if (count < 0 && errno == EINTR) {
-            continue;
-        }
-        if (count < 0) {
-            std::cerr << "recv failed, errno=" << errno << std::endl;
-            return false;
-        }
-        if (count == 0) {
-            std::cerr << "peer closed the connection before all data was received" << std::endl;
-            return false;
-        }
-        received += static_cast<size_t>(count);
-    }
-    return true;
-}
-
-bool SetSocketTimeouts(int fd)
-{
-    timeval timeout{};
-    timeout.tv_sec = SOCKET_IO_TIMEOUT_SECONDS;
-    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) != 0) {
-        std::cerr << "setsockopt SO_RCVTIMEO failed, errno=" << errno << std::endl;
-        return false;
-    }
-    if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) != 0) {
-        std::cerr << "setsockopt SO_SNDTIMEO failed, errno=" << errno << std::endl;
-        return false;
-    }
-    return true;
-}
-
-int CreateListenSocket(const std::string& host, uint16_t port)
-{
-    addrinfo hints{};
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE;
-    const std::string portText = std::to_string(port);
-    addrinfo* addresses = nullptr;
-    const int resolveResult = getaddrinfo(host.c_str(), portText.c_str(), &hints, &addresses);
-    if (resolveResult != 0) {
-        std::cerr << "getaddrinfo for listen address failed: " << gai_strerror(resolveResult) << std::endl;
-        return -1;
-    }
-
-    int listenFd = -1;
-    int lastError = 0;
-    for (const addrinfo* address = addresses; address != nullptr; address = address->ai_next) {
-        int fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
-        if (fd < 0) {
-            lastError = errno;
-            continue;
-        }
-        if (!SetSocketTimeouts(fd)) {
-            lastError = errno;
-            close(fd);
-            continue;
-        }
-        int reuseAddress = 1;
-        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuseAddress, sizeof(reuseAddress)) != 0) {
-            lastError = errno;
-            close(fd);
-            continue;
-        }
-        if (bind(fd, address->ai_addr, address->ai_addrlen) != 0 || listen(fd, 64) != 0) {
-            lastError = errno;
-            close(fd);
-            continue;
-        }
-        listenFd = fd;
-        break;
-    }
-    freeaddrinfo(addresses);
-    if (listenFd < 0) {
-        std::cerr << "listen on " << host << ":" << port << " failed, errno=" << lastError << std::endl;
-    }
-    return listenFd;
-}
-
-int ConnectToRoot(const std::string& host, uint16_t port)
-{
-    constexpr int RETRY_TIMES = 300;
-    constexpr int RETRY_INTERVAL_MS = 100;
-
-    addrinfo hints{};
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    const std::string portText = std::to_string(port);
-    addrinfo* addresses = nullptr;
-    const int resolveResult = getaddrinfo(host.c_str(), portText.c_str(), &hints, &addresses);
-    if (resolveResult != 0) {
-        std::cerr << "getaddrinfo for root address failed: " << gai_strerror(resolveResult) << std::endl;
-        return -1;
-    }
-
-    for (int retry = 0; retry < RETRY_TIMES; ++retry) {
-        for (const addrinfo* address = addresses; address != nullptr; address = address->ai_next) {
-            int fd = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
-            if (fd < 0) {
-                continue;
-            }
-            if (!SetSocketTimeouts(fd)) {
-                close(fd);
-                continue;
-            }
-            if (connect(fd, address->ai_addr, address->ai_addrlen) == 0) {
-                freeaddrinfo(addresses);
-                return fd;
-            }
-            close(fd);
-        }
-        if (retry + 1 < RETRY_TIMES) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_INTERVAL_MS));
-        }
-    }
-    freeaddrinfo(addresses);
-    return -1;
-}
-
-int ExchangeRootInfo(uint32_t rank, uint32_t rankSize, const std::string& ipPort, HcclRootInfo& rootInfo)
-{
-    std::string host;
-    uint16_t port = 0;
-    if (!ParseIpPort(ipPort, host, port)) {
-        std::cerr << "invalid ipport: " << ipPort << std::endl;
-        return -1;
-    }
-
-    if (rank == 0) {
-        int listenFd = CreateListenSocket(host, port);
-        if (listenFd < 0) {
-            return -1;
-        }
-        for (uint32_t peer = 1; peer < rankSize; ++peer) {
-            int connectionFd = -1;
-            do {
-                connectionFd = accept(listenFd, nullptr, nullptr);
-            } while (connectionFd < 0 && errno == EINTR);
-            if (connectionFd < 0) {
-                std::cerr << "accept failed, errno=" << errno << std::endl;
-                close(listenFd);
-                return -1;
-            }
-            if (!SetSocketTimeouts(connectionFd)) {
-                close(connectionFd);
-                close(listenFd);
-                return -1;
-            }
-            if (!SendAll(connectionFd, &rootInfo, sizeof(rootInfo))) {
-                std::cerr << "send root info failed" << std::endl;
-                close(connectionFd);
-                close(listenFd);
-                return -1;
-            }
-            close(connectionFd);
-        }
-        close(listenFd);
-        return 0;
-    }
-
-    int fd = ConnectToRoot(host, port);
-    if (fd < 0) {
-        std::cerr << "connect ipport failed: " << ipPort << std::endl;
-        return -1;
-    }
-    if (!RecvAll(fd, &rootInfo, sizeof(rootInfo))) {
-        std::cerr << "recv root info failed" << std::endl;
-        close(fd);
-        return -1;
-    }
-    close(fd);
-    return 0;
-}
-
 } // namespace
 
-// 单机模式下全部rank与本机TCP地址交换root info。
-constexpr const char* kLocalIpPort = "tcp://127.0.0.1:8899";
-
-// 单个rank的完整流程，单机与多机模式共用。由ProcessGroup（单机）或main的5参数
-// 分支（多机）调用。root info仍通过ipPort指定的TCP地址交换。
+// 单个rank的完整流程，单机与多机模式共用。由ProcessGroup（单机）或main的5参数分支
+// （多机）调用；endpoint一律来自命令行，rank 0 Listen绑定，其余rank Connect。
+// rank间的root info交换与收尾同步都经examples::RankSyncContext的TCP星形通道完成。
 int RunOneMultiPathRank(uint32_t rankSize, uint32_t rank, const std::string& ipPort, uint32_t device)
 {
     Options options{rankSize, rank, device, ipPort};
+
+    examples::RankSyncContext sync = rank == 0U ? examples::RankSyncContext::Listen(ipPort, rankSize) :
+                                                  examples::RankSyncContext::Connect(rank, rankSize, ipPort);
+    if (!sync.Ok()) {
+        std::cerr << "rank " << rank << ": control channel setup failed" << std::endl;
+        return 1;
+    }
 
     ACLCHECK(aclInit(nullptr));
     uint32_t deviceCount = 0;
@@ -642,17 +411,12 @@ int RunOneMultiPathRank(uint32_t rankSize, uint32_t rank, const std::string& ipP
     }
     ACLCHECK(aclrtSetDevice(static_cast<int32_t>(options.device)));
 
-    HcclRootInfo rootInfo{};
-    if (options.rank == 0) {
-        HCCLCHECK(HcclGetRootInfo(&rootInfo));
-    }
-
     int status = HCCL_E_INTERNAL;
-    if (ExchangeRootInfo(options.rank, options.rankSize, options.ipPort, rootInfo) == 0) {
+    {
         std::cout << "rank " << options.rank << "/" << options.rankSize << ": device=" << options.device
                   << ", channels_per_peer=" << PATH_COUNT << ", channel_descs=" << (options.rankSize - 1) * PATH_COUNT
                   << std::endl;
-        status = TestDualPath(options, rootInfo);
+        status = TestDualPath(options, sync);
         if (status == HCCL_SUCCESS) {
             std::cout << "rank " << options.rank << ": dual-path validation passed" << std::endl;
         }
@@ -667,13 +431,16 @@ int RunOneMultiPathRank(uint32_t rankSize, uint32_t rank, const std::string& ipP
     return status == HCCL_SUCCESS ? 0 : 1;
 }
 
-// 单机模式：one_multi_path <nranks>，父进程fork全部rank进程，本机TCP地址交换root info，
-// device固定为rank对应的NPU。多机模式保持原有的每rank一进程参数（见下方分支）。
+// 单机模式：one_multi_path <tcp://ip:port> <nranks>，父进程fork全部rank进程，
+// device固定为rank对应的NPU。多机模式：one_multi_path <tcp://ip:port> <rank_size> <rank> <device>，
+// 每台机器各自启动本机的rank进程，endpoint统一指向rank 0所在机器。
 int main(int argc, char* argv[])
 {
-    if (argc == 2) {
+    // 单机：endpoint + nranks。
+    if (argc == 3) {
+        const std::string endpoint = argv[1];
         int rankSize = 0;
-        if (!ParseNonNegativeInt(argv[1], rankSize) || rankSize < 2) {
+        if (!ParseNonNegativeInt(argv[2], rankSize) || rankSize < 2) {
             std::cerr << "invalid arguments: rank_size must be an integer of at least 2" << std::endl;
             return 1;
         }
@@ -682,7 +449,7 @@ int main(int argc, char* argv[])
         std::vector<std::tuple<uint32_t, uint32_t, std::string, uint32_t>> perRankArgs;
         perRankArgs.reserve(uRankSize);
         for (uint32_t rank = 0; rank < uRankSize; ++rank) {
-            perRankArgs.emplace_back(uRankSize, rank, kLocalIpPort, rank);
+            perRankArgs.emplace_back(uRankSize, rank, endpoint, rank);
         }
 
         examples::ProcessGroup group;
@@ -697,10 +464,10 @@ int main(int argc, char* argv[])
         return pass ? 0 : 1;
     }
 
-    // 多机模式：每rank一进程，参数为 <rank_size> <rank> <tcp://ip:port> <device>。
+    // 多机：每rank一进程，参数为 <endpoint> <rank_size> <rank> <device>。
     if (argc != 5) {
-        std::cerr << "Usage: " << argv[0] << " <nranks>    (single machine)" << std::endl;
-        std::cerr << "       " << argv[0] << " <rank_size> <rank> <tcp://ip:port> <device>    (per-rank, multi machine)"
+        std::cerr << "Usage: " << argv[0] << " <tcp://ip:port> <nranks>    (single machine)" << std::endl;
+        std::cerr << "       " << argv[0] << " <tcp://ip:port> <rank_size> <rank> <device>    (per-rank, multi machine)"
                   << std::endl;
         return 1;
     }
@@ -708,7 +475,7 @@ int main(int argc, char* argv[])
     int rankSize = 0;
     int rank = 0;
     int device = 0;
-    if (!ParseNonNegativeInt(argv[1], rankSize) || !ParseNonNegativeInt(argv[2], rank) ||
+    if (!ParseNonNegativeInt(argv[2], rankSize) || !ParseNonNegativeInt(argv[3], rank) ||
         !ParseNonNegativeInt(argv[4], device) || rankSize < 2 || rank >= rankSize) {
         std::cerr << "invalid arguments: rank_size must be at least 2, rank must be in [0, rank_size), and device "
                      "must be a non-negative integer"
@@ -716,5 +483,5 @@ int main(int argc, char* argv[])
         return 1;
     }
     return RunOneMultiPathRank(
-        static_cast<uint32_t>(rankSize), static_cast<uint32_t>(rank), argv[3], static_cast<uint32_t>(device));
+        static_cast<uint32_t>(rankSize), static_cast<uint32_t>(rank), argv[1], static_cast<uint32_t>(device));
 }
