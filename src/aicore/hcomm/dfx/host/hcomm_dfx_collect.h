@@ -276,7 +276,7 @@ inline void CollectBuffers(uint64_t addr, uint32_t num, HcommDfxBufferDump *buff
 }
 
 inline bool SampleSqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, uint32_t wqeSize, uint32_t sqHead,
-    uint32_t sqTail, HcommDfxChannelInfo &channel, void *reader)
+    uint32_t sqTail, uint32_t cqHead, uint32_t cqTail, HcommDfxChannelInfo &channel, void *reader)
 {
     if (depth == 0U || wqeSize == 0U) {
         Trace("sq sample invalid queue=%u base=0x%llx depth=%u wqeSize=%u head=%u tail=%u", queueIndex,
@@ -284,17 +284,21 @@ inline bool SampleSqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, ui
         return false;
     }
     const uint32_t readBytes = SqWqeReadBytes(wqeSize);
-    // Outstanding (submitted but not yet consumed) WQEs occupy [sqTail, sqHead). sqHead/sqTail are free-running BB
-    // counters, so the subtraction is wrap-safe; clamp to what the ring and the dump buffer can actually hold.
-    const uint32_t outstanding = sqHead - sqTail;
+    // Outstanding (submitted but not yet consumed) WQEs. sqHead is a free-running BB count (advanced by
+    // wqeBbCnt per post, 1 or 2 BBs) while sqTail is the slot index of the last consumed CQE's starting WQE,
+    // so sqHead - sqTail is dimensionally invalid. The valid pair is the CQ-side count of posted vs consumed
+    // WQEs: cqHead - cqTail. Both are free-running WQE-count gauges, so the subtraction is wrap-safe.
+    const uint32_t outstanding = cqHead - cqTail;
     const uint32_t count = std::min<uint32_t>(outstanding, std::min<uint32_t>(depth, HCOMM_DFX_MAX_QUEUE_ENTRIES));
     for (uint32_t idx = 0; idx < count; ++idx) {
         const uint32_t cursor = sqTail + idx;
         const uint32_t slot = cursor % depth;
         if (!AppendQueueEntryWrapped(reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, slot, cursor,
                                      va, depth, wqeSize, readBytes, channel)) {
-            Trace("sq sample stop queue=%u slot=%u cursor=%u base=0x%llx depth=%u wqeSize=%u readBytes=%u",
-                  queueIndex, slot, cursor, static_cast<unsigned long long>(va), depth, wqeSize, readBytes);
+            Trace("sq sample stop queue=%u slot=%u cursor=%u base=0x%llx depth=%u wqeSize=%u readBytes=%u "
+                  "sqHead=%u sqTail=%u cqHead=%u cqTail=%u",
+                  queueIndex, slot, cursor, static_cast<unsigned long long>(va), depth, wqeSize, readBytes,
+                  sqHead, sqTail, cqHead, cqTail);
             return false;
         }
     }
@@ -327,7 +331,8 @@ inline bool SampleCqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, ui
 }
 
 inline bool CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo &channel, void *reader,
-                              uint32_t sqHead, uint32_t sqTail)
+                              uint32_t sqHead, uint32_t sqTail, uint32_t cqHead, uint32_t cqTail,
+                              uint64_t cqContextAddr)
 {
     channel.sqContextDumpNum = 0;
     if (addr == 0) {
@@ -379,13 +384,37 @@ inline bool CollectSqContexts(uint64_t addr, uint32_t sqNum, HcommDfxChannelInfo
         if (jfs.sqVa == 0 || jfs.sqDepth == 0 || jfs.wqeSize == 0) {
             continue;
         }
-        // Sample with the same resolved cursors shown above: SIMT's channel sqHead/sqTail are never
-        // written (stay 0), so sampling on those would miss every WQE. out.head/out.tail already
-        // prefer the channel value (AIV) or fall back to the device counter (SIMT), so sampling and
-        // display stay consistent.
-        if (!SampleSqEntries(idx, jfs.sqVa, jfs.sqDepth, jfs.wqeSize, out.head, out.tail, channel, reader)) {
-            Trace("sq sample failed queue=%u sqVa=0x%llx depth=%u wqeSize=%u sqHead=%u sqTail=%u", idx,
-                  static_cast<unsigned long long>(jfs.sqVa), jfs.sqDepth, jfs.wqeSize, out.head, out.tail);
+        // The CQ-side cursor must resolve for SIMT too: SIMT keeps its produced-CQE count (wqeCnt,
+        // exactly its CQ head) in the high 32 bits of the same u64 at the paired SQ's *headAddr that
+        // gave us sqHead, and its consumed-CQE count in the paired CQ context's *jfc.tailAddr. Its
+        // channel cqHead/cqTail stay 0. AIV keeps the channel cqHead/cqTail authoritative. Prefer the
+        // channel value (AIV), else fall back to the device counters (SIMT) — mirroring CollectCqContexts.
+        uint32_t resCqHead = cqHead;
+        uint32_t resCqTail = cqTail;
+        if (cqHead == 0U && devHeadOk) {
+            resCqHead = static_cast<uint32_t>(headVal >> 32U);  // wqeCnt == CQ head
+        }
+        if (cqTail == 0U && cqContextAddr != 0U) {
+            CqContext pairedCq;
+            if (CopyFromDevice(cqContextAddr + static_cast<uint64_t>(idx) * sizeof(CqContext), pairedCq,
+                    "paired CqContext")) {
+                uint32_t devCqTail = 0U;
+                if (CopyFromDevice(pairedCq.contextInfo.ubJfc.tailAddr, devCqTail, "SimtCqTail") && devCqTail != 0U) {
+                    resCqTail = devCqTail;
+                }
+            }
+        }
+        // Count outstanding WQEs with the CQ-side gauge (cqHead − cqTail, both WQE counts) rather than
+        // sqHead − sqTail: for AIV sqHead is a free-running BB count while sqTail is the last consumed
+        // CQE's starting slot index, so they are dimensionally incompatible. The CQ-side pair is valid
+        // for both SIMT (resolved from device counters above) and AIV (channel cursors). sqHead/sqTail
+        // still seed the sampling start slot.
+        if (!SampleSqEntries(idx, jfs.sqVa, jfs.sqDepth, jfs.wqeSize, out.head, out.tail, resCqHead, resCqTail,
+                             channel, reader)) {
+            Trace("sq sample failed queue=%u sqVa=0x%llx depth=%u wqeSize=%u sqHead=%u sqTail=%u "
+                  "cqHead=%u cqTail=%u",
+                  idx, static_cast<unsigned long long>(jfs.sqVa), jfs.sqDepth, jfs.wqeSize, out.head, out.tail,
+                  resCqHead, resCqTail);
             return false;
         }
     }
@@ -474,16 +503,13 @@ inline bool CollectChannel(ChannelHandle channelHandle, HcommDfxChannelInfo &cha
     channel.valid = 1U;
     channel.channelEntitySize = std::min<uint32_t>(sizeof(ChannelEntity), HCOMM_DFX_CHANNEL_ENTITY_BYTES);
     std::memcpy(channel.channelEntity, &entity, channel.channelEntitySize);
-    Trace("collect channel handle=0x%llx sqCtx=0x%llx cqCtx=0x%llx sqHead=%u sqTail=%u cqHead=%u cqTail=%u",
-          static_cast<unsigned long long>(channelHandle), PtrToU64(entity.sqContextAddr),
-          PtrToU64(entity.cqContextAddr), entity.sqHead, entity.sqTail, entity.cqHead, entity.cqTail);
 
     CollectBuffers(PtrToU64(entity.localBufferAddr), entity.localBufferNum, channel.localBuffers,
         channel.localBufferDumpNum);
     CollectBuffers(PtrToU64(entity.remoteBufferAddr), entity.remoteBufferNum, channel.remoteBuffers,
         channel.remoteBufferDumpNum);
     if (!CollectSqContexts(PtrToU64(entity.sqContextAddr), entity.sqNum, channel, reader, entity.sqHead,
-                           entity.sqTail)) {
+                           entity.sqTail, entity.cqHead, entity.cqTail, PtrToU64(entity.cqContextAddr))) {
         Trace("collect sq contexts failed channel=0x%llx sqNum=%u sqHead=%u sqTail=%u",
               static_cast<unsigned long long>(channelHandle), entity.sqNum, entity.sqHead, entity.sqTail);
         return false;
