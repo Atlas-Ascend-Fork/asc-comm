@@ -34,9 +34,9 @@ add_executable(hcomm_jetty_write
 
 target_include_directories(hcomm_jetty_write PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../include
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/aicore/hcomm
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/aicore/hcomm/impl
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/aicore/hcomm/impl/platform_v310
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/aicore/jetty
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/aicore/jetty/impl
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/aicore/jetty/impl/platform_v310
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm

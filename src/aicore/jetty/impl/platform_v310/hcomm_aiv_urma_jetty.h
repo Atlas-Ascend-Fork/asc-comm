@@ -11,7 +11,7 @@
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_JETTY_H
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_JETTY_H
 
-#include "../../common/hcomm_inner_def.h"
+#include "../../../hcomm/common/hcomm_inner_def.h"
 #include <c_api/sys_var/sys_var.h>
 #include <c_api/sync/sync.h>
 #include <c_api/vector_datamove/vector_datamove.h>
@@ -366,6 +366,11 @@ template <int64_t kNumTimeoutCycles>
 __aicore__ __forceinline__ int32_t HcommJetty::Drain()
 {
     return impl_.Drain<kNumTimeoutCycles>();
+}
+
+__aicore__ __forceinline__ void HcommJetty::AdvanceSq(uint32_t numWqebbs)
+{
+    impl_.AdvanceSq(numWqebbs);
 }
 
 } // namespace AscendC

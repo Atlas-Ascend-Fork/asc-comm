@@ -16,7 +16,7 @@
 #define INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_H
 
 #include "kernel_basic_intf.h"
-#include "hcomm_common.h"
+#include "../hcomm/hcomm_common.h"
 
 namespace AscendC {
 
@@ -61,9 +61,9 @@ struct HcommPeer {
 #endif
 
 #if defined(ASCCOMM_BUILD_FROM_SOURCE)
-#include "../../../src/aicore/hcomm/impl/hcomm_jetty_impl_def.h"
+#include "../../../src/aicore/jetty/impl/hcomm_jetty_impl_def.h"
 #else
-#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_jetty_impl_def.h"
+#include "../../../impl/comm_api/aicore/jetty/impl/hcomm_jetty_impl_def.h"
 #endif
 
 namespace AscendC {
@@ -99,6 +99,8 @@ public:
     template <int64_t kNumTimeoutCycles>
     __aicore__ __forceinline__ int32_t Drain();
 
+    __aicore__ __forceinline__ void AdvanceSq(uint32_t numWqebbs);
+
 private:
     HcommJettyImpl impl_;
 };
@@ -106,9 +108,9 @@ private:
 } // namespace AscendC
 
 #if defined(ASCCOMM_BUILD_FROM_SOURCE)
-#include "../../../src/aicore/hcomm/impl/hcomm_jetty_impl.h"
+#include "../../../src/aicore/jetty/impl/hcomm_jetty_impl.h"
 #else
-#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_jetty_impl.h"
+#include "../../../impl/comm_api/aicore/jetty/impl/hcomm_jetty_impl.h"
 #endif
 
 #if defined(HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_JETTY_H)
