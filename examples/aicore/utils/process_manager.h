@@ -30,6 +30,7 @@
 #include <cstring>
 #include <thread>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -38,6 +39,19 @@
 #include <unistd.h>
 
 namespace examples {
+
+// ArgsOf：函数类型F -> 参数tuple类型（FunctionTrait惯用法）。
+// 用法：std::vector<ArgsOf<decltype(fn)>> ts{{1, false}, {2, true}};
+template <class F>
+struct FunctionTrait;
+
+template <class R, class... Args>
+struct FunctionTrait<R(Args...)> {
+    using type = std::tuple<Args...>;
+};
+
+template <class F>
+using ArgsOf = typename FunctionTrait<F>::type;
 
 // 进程组配置。
 struct ProcessGroupOptions {
