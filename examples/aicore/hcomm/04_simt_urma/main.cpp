@@ -19,10 +19,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include <sys/stat.h>
@@ -32,6 +34,8 @@
 #include "hccl/hccl_res.h"
 #include "hccl/hccl_types.h"
 #include "hccl/hccl_rank_graph.h"
+
+#include "utils/process_manager/process_manager.h"
 
 #include "simt_urma_common.h"
 
@@ -66,6 +70,29 @@ struct PeerRankCtx {
 
 constexpr uint32_t kBarrierWaitSeconds = 60;
 constexpr uint32_t kBarrierPollMs = 100;
+
+// 在系统临时目录下创建形如<prefix>.XXXXXX的一次性目录；失败返回空串。
+std::string MakeTempDir(const std::string& prefix)
+{
+    std::string tmpl =
+        (std::string(std::getenv("TMPDIR") && std::getenv("TMPDIR")[0] != '\0' ? std::getenv("TMPDIR") : "/tmp") + "/" +
+         prefix + ".XXXXXX");
+    std::vector<char> buf(tmpl.begin(), tmpl.end());
+    buf.push_back('\0');
+    const char* dir = mkdtemp(buf.data());
+    return dir != nullptr ? std::string(dir) : std::string();
+}
+
+void RemoveTempDir(const std::string& dir)
+{
+    if (!dir.empty()) {
+        // 目录里只有本程序写入的root info文件与barrier标记文件，无子目录。
+        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
+            std::filesystem::remove(entry.path());
+        }
+        std::filesystem::remove(dir);
+    }
+}
 
 // SIMT接口只在UBC_CTP/URMA协议上实现，其余链路协议无对应实现。
 constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UBC_CTP;
@@ -441,35 +468,15 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
 
 } // namespace
 
-int main(int argc, char* argv[])
+// 单个rank的完整流程。由ProcessGroup在每个子进程中调用，root_info_file与sync_dir
+// 指向本次运行的临时目录（父进程创建，见main）。
+int RunSimtUrmaRank(
+    uint32_t rank, uint32_t nranks, const std::string& rootInfoFile, const std::string& syncDir,
+    const std::string& modeName)
 {
-    if (argc < 5) {
-        std::cout << "Usage: " << argv[0] << " <rank> <nranks> <root_info_file> <sync_dir> [mode]" << std::endl;
-        std::cout << "  sync_dir: directory for host barrier marker files, shared by all ranks" << std::endl;
-        PrintModes();
-        return 1;
-    }
-
-    const int rank = std::atoi(argv[1]);
-    const int nranks = std::atoi(argv[2]);
-    const std::string rootInfoFile = argv[3];
-    const std::string syncDir = argv[4];
-    if (nranks < 2) {
-        std::cout << "nranks must be at least 2." << std::endl;
-        return 1;
-    }
-    if (rank < 0 || rank >= nranks) {
-        std::cout << "rank must be in [0, " << nranks << ")." << std::endl;
-        return 1;
-    }
-    if (syncDir.empty()) {
-        std::cout << "sync_dir must not be empty." << std::endl;
-        return 1;
-    }
-
     uint32_t mode = kDefaultMode;
-    if (argc > 5 && !ParseMode(argv[5], mode)) {
-        std::cout << "Unknown mode: " << argv[5] << std::endl;
+    if (!modeName.empty() && !ParseMode(modeName.c_str(), mode)) {
+        std::cout << "Unknown mode: " << modeName << std::endl;
         PrintModes();
         return 1;
     }
@@ -509,19 +516,17 @@ int main(int argc, char* argv[])
     // 环形拓扑：每个 rank 向 next 发送，并校验从 prev 收到的数据，因此所有 rank 都参与收发。
     PeerRankCtx prev;
     PeerRankCtx next;
-    const uint32_t uRank = static_cast<uint32_t>(rank);
-    const uint32_t uNranks = static_cast<uint32_t>(nranks);
-    prev.rankId = (uRank + uNranks - 1U) % uNranks;
-    next.rankId = (uRank + 1U) % uNranks;
+    prev.rankId = (rank + nranks - 1U) % nranks;
+    next.rankId = (rank + 1U) % nranks;
 
     // 建链顺序按 rank 奇偶错开。两个 rank 若都先等对方作为 prev 的那条链，会形成环上的循环
     // 等待；错开之后每一步都有一侧在主动应答。
     if (rank % 2 == 0) {
-        HCCLCHECK(AcquirePeerChannel(hcclComm, uRank, prev, memHandles, 2U));
-        HCCLCHECK(AcquirePeerChannel(hcclComm, uRank, next, memHandles, 2U));
+        HCCLCHECK(AcquirePeerChannel(hcclComm, rank, prev, memHandles, 2U));
+        HCCLCHECK(AcquirePeerChannel(hcclComm, rank, next, memHandles, 2U));
     } else {
-        HCCLCHECK(AcquirePeerChannel(hcclComm, uRank, next, memHandles, 2U));
-        HCCLCHECK(AcquirePeerChannel(hcclComm, uRank, prev, memHandles, 2U));
+        HCCLCHECK(AcquirePeerChannel(hcclComm, rank, next, memHandles, 2U));
+        HCCLCHECK(AcquirePeerChannel(hcclComm, rank, prev, memHandles, 2U));
     }
 
     HCCLCHECK(HostFileBarrier(rank, nranks, syncDir, "ready"));
@@ -565,4 +570,55 @@ int main(int argc, char* argv[])
     ACLCHECK(aclrtDestroyStream(stream));
     ACLCHECK(aclFinalize());
     return pass ? 0 : 2;
+}
+
+// 父进程流程：解析命令行（<nranks> [mode]），创建本次运行的临时目录（root info 文件
+// 与 host barrier 标记都放这里），拉起全部rank进程并等待结果。
+int main(int argc, char* argv[])
+{
+    if (argc < 2 || argc > 3) {
+        std::cout << "Usage: " << argv[0] << " <nranks> [mode]" << std::endl;
+        PrintModes();
+        return 1;
+    }
+    const int nranksValue = std::atoi(argv[1]);
+    if (nranksValue < 2) {
+        std::cout << "nranks must be at least 2." << std::endl;
+        return 1;
+    }
+    const uint32_t nranks = static_cast<uint32_t>(nranksValue);
+    const std::string modeName = argc > 2 ? argv[2] : "";
+
+    // 每次运行都创建全新目录：上次残留的root info会让其余rank读到过期内容，残留的
+    // barrier标记会让barrier直接通过。
+    const std::string runDir = MakeTempDir("simt_urma_run");
+    if (runDir.empty()) {
+        std::cout << "create temp run dir failed" << std::endl;
+        return 1;
+    }
+    const std::string rootInfoFile = runDir + "/root_info.bin";
+    const std::string syncDir = runDir;
+
+    std::vector<std::tuple<uint32_t, uint32_t, std::string, std::string, std::string>> perRankArgs;
+    perRankArgs.reserve(nranks);
+    for (uint32_t rank = 0; rank < nranks; ++rank) {
+        perRankArgs.emplace_back(rank, nranks, rootInfoFile, syncDir, modeName);
+    }
+
+    examples::ProcessGroup group;
+    if (!group.Launch(nranks, RunSimtUrmaRank, std::move(perRankArgs))) {
+        RemoveTempDir(runDir);
+        return 1;
+    }
+    const bool pass = group.WaitAll();
+    RemoveTempDir(runDir);
+
+    if (group.Interrupted()) {
+        std::cout << "RESULT | Mode=" << (modeName.empty() ? "single" : modeName) << " | Status=INTERRUPTED"
+                  << std::endl;
+        return 1;
+    }
+    std::cout << "RESULT | Mode=" << (modeName.empty() ? "single" : modeName)
+              << " | Status=" << (pass ? "PASS" : "FAIL") << std::endl;
+    return pass ? 0 : 1;
 }
