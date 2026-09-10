@@ -57,7 +57,7 @@ class Hcomm;
 | [Unlock](./Unlock.md) | 释放通信通道的跨AI Core锁。 |
 | [ReadNbi](./ReadNbi.md) | 通过普通通道提交读任务，或向BatchHandle添加读任务。 |
 | [WriteNbi](./WriteNbi.md) | 通过普通通道提交写任务，或向BatchHandle添加写任务。 |
-| [WriteValueNbi](./WriteValueNbi.md) | 通过普通通道提交立即数写任务，将`value`内联携带在WQE中写入远端。 |
+| [WriteValueNbi](./WriteValueNbi.md) | 通过普通通道提交立即数写任务，将`value`作为内联数据写入远端。 |
 | [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | 通过普通通道提交写通知任务，或向BatchHandle添加写通知任务。 |
 | [AtomicFAA](./AtomicFAA.md) | 提交Fetch-and-add原子操作任务。 |
 | [AtomicCAS](./AtomicCAS.md) | 提交Compare-and-swap原子操作任务。 |
@@ -67,7 +67,7 @@ class Hcomm;
 
 ## 返回值
 
-返回状态码的接口通常以`0`表示成功、非`0`值表示失败。`MakeBatchHandle`直接返回批量句柄，不返回状态码。各接口的具体返回值见对应API文档。
+返回状态码的接口通常以`0`表示成功、非`0`值表示失败。`Drain`在`COMM_PROTOCOL_UBC_CTP`路径下还会直接返回完成记录轮询的详细错误码，用于区分轮询超时和完成状态错误。`MakeBatchHandle`直接返回批量句柄，不返回状态码。各接口的具体返回值见对应API文档。
 
 ## 使用约束
 
@@ -77,8 +77,8 @@ class Hcomm;
 - 当前批量接口仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
 - 使用BatchHandle期间必须独占其关联的通道资源，不能混用普通接口或并发使用多个BatchHandle。
 - 传入的`ChannelHandle`需要指向与协议匹配的通道实体。
-- 若普通接口`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续`PostSend`将因SQ溢出而失败。
-- 普通接口批量提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应产生CQE（即中间任务的`config.cqe`设为0，最后一次设为1）。
+- 若普通接口`commit`模板参数设为`false`，连续积攒的任务槽位不得超过通道的任务提交容量；需在容量耗尽前通过`Commit`或自动commit提交，否则后续任务提交将失败。
+- 普通接口批量提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应生成完成记录（即中间任务的`config.cqe`设为0，最后一次设为1）。
 
 多通道模式的Host侧句柄创建接口见[MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md)。该接口提供HCCL通信域和Hcomm Endpoint两种重载。
 

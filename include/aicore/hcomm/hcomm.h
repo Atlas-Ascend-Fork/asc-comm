@@ -74,10 +74,12 @@ public:
      * @param [in] buffLen: The workspace length in bytes.
      * @param [in] remoteAddr: For ChannelHandle, an address in the remote registered memory to select. If it is null,
      *                         the first remote registered buffer is selected. Ignored for MultiChannelHandle.
-     * @param [in] localAddr: Reserved local memory address. Reserved for MultiChannelHandle.
-     * @return A batch handle for commProtocol.
+     * @param [in] localAddr: Reserved parameter. Not used in the current version.
+     * @return A batch handle for commProtocol. Returns a zero-valued invalid handle if the multi-channel handle is
+     *         invalid or remote registered-memory selection fails.
      * @note For MultiChannelHandle, call GetHandleRef to select a logical channel and remote registered memory.
-     *       buffLen must be smaller than sqDepth * 64 bytes.
+     *       The 64-byte task slots used by one batch must be fewer than the channel task-submission capacity, which is
+     *       determined when channel resources are created on the Host.
      */
     template <typename T, typename U>
     __aicore__ inline BatchHandle<T> MakeBatchHandle(
@@ -94,7 +96,8 @@ public:
      *                         remote registered buffer is selected. Ignored for ChannelHandle.
      * @return A batch handle reference for the selected logical channel and remote registered memory. For
      *         ChannelHandle, returns the input handle itself.
-     * @note Batch operations through the returned handle must access the selected remote registered memory.
+     * @note Batch operations through the returned handle must access the selected remote registered memory. Repeated
+     *       calls for one MultiChannelHandle return the same inner handle reference and update its current selection.
      */
     template <typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline BatchHandle<T>& GetHandleRef(T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
@@ -121,7 +124,8 @@ public:
 
     /*!
      * @brief Add a Write task to a batch handle.
-     * @tparam config: URMA task configuration. Inline mode is not supported.
+     * @tparam config: URMA task configuration. URMA_DEFAULT_CFG uses strong ordering and fence, and each task generates
+     *                 a completion record. Inline mode is not supported.
      * @tparam T: The batch handle type.
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The remote destination address in the remote registered memory selected for batchHandle.
@@ -199,7 +203,8 @@ public:
 
     /*!
      * @brief Add a Write-with-notify task to a batch handle.
-     * @tparam config: URMA task configuration. Inline mode is not supported.
+     * @tparam config: URMA task configuration. URMA_DEFAULT_CFG uses strong ordering and fence, and each task generates
+     *                 a completion record. Inline mode is not supported.
      * @tparam T: The batch handle type.
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The remote destination address in the remote registered memory selected for batchHandle.
@@ -276,7 +281,8 @@ public:
 
     /*!
      * @brief Add a Read task to a batch handle.
-     * @tparam config: URMA task configuration. Inline mode is not supported.
+     * @tparam config: URMA task configuration. URMA_DEFAULT_CFG uses strong ordering and fence, and each task generates
+     *                 a completion record. Inline mode is not supported.
      * @tparam T: The batch handle type.
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The local destination address.
@@ -318,11 +324,12 @@ public:
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
     /*!
-     * @brief Block Aicore until all communication tasks submitted through a batch handle are complete.
+     * @brief Block Aicore until all completion records generated through a batch handle are available.
      * @tparam pipe: The pipe type to use for drain, PIPE_MTE3 supported as default.
      * @tparam T: The batch handle type.
-     * @param [in,out] batchHandle: The batch handle whose submitted tasks are awaited.
-     * @return 0 indicates success. A non-zero value indicates failure.
+     * @param [in,out] batchHandle: The batch handle whose generated completion records are awaited.
+     * @return 0 indicates success. A non-zero value indicates failure. For COMM_PROTOCOL_UBC_CTP, 0xFF indicates a
+     *         completion-record polling timeout; other positive values encode status and substatus.
      * @note This overload does not require Init. It must be called after all tasks in the current batch are submitted
      *       through BatchCommit. Multiple batches may be submitted before one Drain if channel capacity permits.
      */

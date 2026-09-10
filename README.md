@@ -73,7 +73,7 @@ Hcomm Kernel侧使用时包含如下头文件：
 
 Ascend 950 UBC_CTP批量接口调用流程如下：
 
-1. 准备UB缓冲区，通过`MakeBatchHandle`创建批量句柄。该流程不依赖`Init`。
+1. 准备UB工作区，通过`MakeBatchHandle`创建批量句柄。该流程不依赖`Init`。
 2. 通过BatchHandle重载的`ReadNbi`、`WriteNbi`或`WriteWithNotifyNbi`向当前批次添加任务，同一批次可以混合三种任务。
 3. 调用`BatchCommit`提交当前批次。
 4. 可以复用句柄继续添加和提交任务，最后调用BatchHandle重载的`Drain`等待任务完成。

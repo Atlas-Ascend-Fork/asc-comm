@@ -54,7 +54,7 @@ __aicore__ inline int32_t ReadNbi(
 | Return Value | Description |
 | --- | --- |
 | `0` | The ordinary task is submitted, or the read task is added to the current batch successfully. |
-| `-1` | The operation fails. For the batch interface, this includes insufficient space in the UB buffer. |
+| `-1` | The operation fails. For the batch interface, this includes insufficient space in the batch workspace. |
 
 ## Constraints
 

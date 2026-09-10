@@ -35,4 +35,6 @@ __aicore__ inline int32_t Commit(AscendC::ChannelHandle channel);
 ## Constraints
 
 - Call `Init` to provide temporary workspace for ordinary interfaces before this interface.
+- If the `commit` template parameter is set to `false`, the accumulated task slots must not exceed the channel task-submission capacity. Submit the accumulated tasks through `Commit` or automatic commit before the capacity is exhausted; otherwise, subsequent task submission fails.
+- In a batched-submission scenario (multiple deferred commits followed by a final commit), only the final commit should generate a completion record. For URMA tasks, `config` is the task configuration passed to each communication interface, and its `cqe` field controls whether the task generates a completion record. Set `config.cqe` to `0` for intermediate tasks and to `1` for the final task.
 - Tasks in a BatchHandle can be submitted only by `BatchCommit`. Do not mix ordinary `Commit` and `BatchCommit` on the same channel.

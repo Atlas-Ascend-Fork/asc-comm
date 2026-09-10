@@ -19,7 +19,7 @@ __aicore__ inline int32_t Init(const AscendC::LocalTensor<T>& buff, uint32_t len
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `buff` | Input | User-provided UB buffer or `LocalTensor`. |
+| `buff` | Input | User-provided UB workspace, passed as either a raw pointer or a `LocalTensor`. |
 | `len` | Input | Buffer length in bytes. |
 
 ## Return Value
@@ -31,8 +31,8 @@ __aicore__ inline int32_t Init(const AscendC::LocalTensor<T>& buff, uint32_t len
 
 ## Constraints
 
-- For the RoCE path, `buff` serves as the temporary workspace for WQE/CQE/doorbell. The minimum workspace size is currently 512 bytes.
-- For the UBC_CTP/URMA path, `buff` serves as the temporary workspace for WQE/CQE. The minimum workspace size is currently 512 bytes.
+- On the RoCE path, `buff` serves as temporary workspace for communication-task and completion-state management. The minimum workspace size is currently 512 bytes.
+- On the UBC_CTP/URMA path, `buff` serves as temporary workspace for communication-task and completion-state management. The minimum workspace size is currently 512 bytes.
 - When initialized with `__ubuf__ uint8_t*`, the implementation takes the 32-byte aligned address of `buff` as the start address of the temporary workspace.
 - When initialized with `LocalTensor`, the implementation directly uses the input tensor. For the RoCE path, both `len` and `buff.GetSize()` must be no less than 512 bytes. For the UBC_CTP/URMA path, `len` must be no less than 512 bytes and must not exceed `buff.GetSize()`.
 - This interface is used only by the ordinary `ChannelHandle` workflow. BatchHandle interfaces do not require it.
