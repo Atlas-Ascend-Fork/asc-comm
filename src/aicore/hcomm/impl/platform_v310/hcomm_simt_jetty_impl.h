@@ -523,7 +523,7 @@ public:
         } else if (word == kWqebbLanes) {
             value = kNopHeader | owner | idx;
         }
-        if ((word & 1U) == 0U) {
+        if (word < kNumDwqeWords && (word & 1U) == 0U) {
             const uint64_t second = asc_shfl(value, static_cast<int>(word + 1U), kWarpSize);
             auto* sq = reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr);
             asc_stwt(reinterpret_cast<__gm__ ulonglong2*>(sq + static_cast<uint64_t>(idx) * kWqebbLanes +
@@ -545,7 +545,7 @@ public:
             const uint64_t nopOwner = static_cast<uint64_t>(detail::Owner(nopHead, depth)) << 31U;
             value = kNopHeader | nopOwner | ((head + 2U) & 0xFFFFU) | kNopFinalFlags;
         }
-        if ((word & 1U) == 0U) {
+        if (word < kNumDwqeWords && (word & 1U) == 0U) {
             const uint64_t second = asc_shfl(value, static_cast<int>(word + 1U), kWarpSize);
             auto* dwqe = reinterpret_cast<__gm__ ulonglong2*>(Info()->sqDoorbellAddr - kDwqeDbOffset);
             asc_stwt(&dwqe[word / 2U], make_ulonglong2(value, second));

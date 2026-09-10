@@ -25,6 +25,7 @@ struct alignas(16) SimtJettyUbLayout {
     AscendC::simt::jetty::HcommJettyInfo jetty_info;
     AscendC::simt::jetty::HcommPeerInfo peer_info;
     alignas(16) uint64_t dwqe_stage[2 * AscendC::simt::jetty::HcommJetty::kNumWQEBBLanes] = {};
+    uint32_t mixed_ready = 0U;
 };
 
 static_assert(sizeof(AscendC::simt::jetty::HcommJettyInfo) == sizeof(AscendC::HcommJettyInfo),
@@ -399,6 +400,9 @@ __simt_vf__ __aicore__ __launch_bounds__(64) inline void SimtJettyWriteMixedWork
     AscendC::simt::jetty::HcommJettyBatch batch = jetty.BeginBatch();
     SimtJettyWriteDispatchWarpImpl<false>(channel, sendBufIdx, recvBufIdx, warp, peer, jetty, batch, writeCycles);
     jetty.AdvanceSqNoDoorbell(group, batch);
+    if (group.thread_rank() == 0) {
+        ub_layout->mixed_ready = 1U;
+    }
 }
 
 } // namespace
@@ -457,12 +461,15 @@ extern "C" __global__ __mix__(1, 1) void SimtJettyWriteMixed(
     }
 
     auto* ub_layout = reinterpret_cast<__ubuf__ SimtJettyUbLayout*>(0);
+    ub_layout->mixed_ready = 0U;
+    asc_sync_notify(PIPE_S, PIPE_V, EVENT_ID0);
+    asc_sync_wait(PIPE_S, PIPE_V, EVENT_ID0);
     AscendC::Simt::VF_CALL<SimtJettyWriteMixedWorker>(
         AscendC::Simt::Dim3(64, 1, 1), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
 
-    // VF_CALL is asynchronous; scalar must wait before accessing the shared UB metadata.
-    asc_sync_notify(PIPE_V, PIPE_S, EVENT_ID0);
-    asc_sync_wait(PIPE_V, PIPE_S, EVENT_ID0);
+    while (*reinterpret_cast<volatile __ubuf__ uint32_t*>(&ub_layout->mixed_ready) != 1U) {
+        asm volatile("nop");
+    }
 
     const uint64_t doorbellAddr = ub_layout->jetty_info.sqDoorbellAddr;
     const uint32_t publishedHead = static_cast<uint32_t>(ub_layout->jetty_info.packedHead);
