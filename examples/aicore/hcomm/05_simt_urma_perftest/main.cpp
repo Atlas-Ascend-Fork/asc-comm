@@ -33,9 +33,9 @@
 #include "hccl/hccl_res.h"
 #include "hccl/hccl_types.h"
 
-#include "utils/check/check.h"
-#include "utils/process_manager/process_manager.h"
-#include "utils/rank_sync/rank_sync.h"
+#include "utils/check.h"
+#include "utils/process_manager.h"
+#include "utils/rank_sync.h"
 
 #include "simt_urma_perftest_common.h"
 
@@ -435,8 +435,7 @@ int main(int argc, char* argv[])
         }
     }
 
-    std::vector<std::tuple<uint32_t, uint32_t, std::string, std::string, uint32_t, uint32_t, uint32_t, std::string>>
-        perRankArgs;
+    std::vector<examples::ArgsOf<decltype(RunPerftestRank)>> perRankArgs;
     perRankArgs.reserve(nranks);
     for (uint32_t rank = 0; rank < nranks; ++rank) {
         perRankArgs.emplace_back(rank, nranks, endpoint, apiName, iterations, warmup, payloadBytes, commitMode);

@@ -32,9 +32,9 @@
 #include "hccl/hccl_res.h"
 #include "hccl/hccl_types.h"
 
-#include "utils/check/check.h"
-#include "utils/process_manager/process_manager.h"
-#include "utils/rank_sync/rank_sync.h"
+#include "utils/check.h"
+#include "utils/process_manager.h"
+#include "utils/rank_sync.h"
 
 extern "C" aclError LaunchUbmemDataCopy(void* dst, void* src, uint32_t byteSize, aclrtStream stream);
 
@@ -429,7 +429,7 @@ int main(int argc, char* argv[])
         }
         const uint32_t uRankSize = static_cast<uint32_t>(rankSize);
 
-        std::vector<std::tuple<uint32_t, uint32_t, std::string, uint32_t>> perRankArgs;
+        std::vector<examples::ArgsOf<decltype(RunOneMultiPathRank)>> perRankArgs;
         perRankArgs.reserve(uRankSize);
         for (uint32_t rank = 0; rank < uRankSize; ++rank) {
             perRankArgs.emplace_back(uRankSize, rank, endpoint, rank);
