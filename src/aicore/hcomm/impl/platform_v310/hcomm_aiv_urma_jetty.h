@@ -47,11 +47,11 @@ __aicore__ __forceinline__ HcommPeer::HcommPeer(
     peerInfo->remoteTokenValueUdf = remoteBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     peerInfo->remoteBaseAddr = remoteBuffer.bufferInfo.rma.addr;
     peerInfo->remoteBufferSize = remoteBuffer.bufferInfo.rma.size;
-    auto sqContext = jetty->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    auto* sqContext = jetty->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
     peerInfo->tpIdNumSgesRemoteTokenId =
-        static_cast<uint64_t>(sqContext.contextInfo.ubJfs.tpID) |
+        static_cast<uint64_t>(sqContext->contextInfo.ubJfs.tpID) |
         (static_cast<uint64_t>(remoteBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId) << 32U);
-    auto remoteEid = reinterpret_cast<const uint64_t*>(sqContext.contextInfo.ubJfs.remoteEID);
+    auto remoteEid = reinterpret_cast<const uint64_t*>(sqContext->contextInfo.ubJfs.remoteEID);
     peerInfo->remoteEid[0] = remoteEid[0];
     peerInfo->remoteEid[1] = remoteEid[1];
     valid = true;
@@ -75,19 +75,19 @@ __aicore__ __forceinline__ HcommJettyImpl::HcommJettyImpl(
         jetty->cqContextAddr == nullptr) {
         return;
     }
-    auto sqContext = jetty->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    auto cqContext = jetty->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
-    jettyInfo_->sqBaseAddr = sqContext.contextInfo.ubJfs.sqVa;
-    jettyInfo_->sqHeadAddr = sqContext.contextInfo.ubJfs.headAddr;
-    jettyInfo_->completionTailAddr = sqContext.contextInfo.ubJfs.tailAddr;
-    jettyInfo_->sqDoorbellAddr = sqContext.contextInfo.ubJfs.dbVa;
-    jettyInfo_->cqBaseAddr = cqContext.contextInfo.ubJfc.scqVa;
-    jettyInfo_->cqTailAddr = cqContext.contextInfo.ubJfc.tailAddr;
-    jettyInfo_->cqDoorbellAddr = cqContext.contextInfo.ubJfc.dbVa;
-    jettyInfo_->numWqebbBytes = sqContext.contextInfo.ubJfs.wqeSize;
-    jettyInfo_->numCqeBytes = cqContext.contextInfo.ubJfc.cqeSize;
-    jettyInfo_->sqDepth = sqContext.contextInfo.ubJfs.sqDepth;
-    jettyInfo_->cqDepth = cqContext.contextInfo.ubJfc.cqDepth;
+    auto* sqContext = jetty->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+    auto* cqContext = jetty->cqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
+    jettyInfo_->sqBaseAddr = sqContext->contextInfo.ubJfs.sqVa;
+    jettyInfo_->sqHeadAddr = sqContext->contextInfo.ubJfs.headAddr;
+    jettyInfo_->completionTailAddr = sqContext->contextInfo.ubJfs.tailAddr;
+    jettyInfo_->sqDoorbellAddr = sqContext->contextInfo.ubJfs.dbVa;
+    jettyInfo_->cqBaseAddr = cqContext->contextInfo.ubJfc.scqVa;
+    jettyInfo_->cqTailAddr = cqContext->contextInfo.ubJfc.tailAddr;
+    jettyInfo_->cqDoorbellAddr = cqContext->contextInfo.ubJfc.dbVa;
+    jettyInfo_->numWqebbBytes = sqContext->contextInfo.ubJfs.wqeSize;
+    jettyInfo_->numCqeBytes = cqContext->contextInfo.ubJfc.cqeSize;
+    jettyInfo_->sqDepth = sqContext->contextInfo.ubJfs.sqDepth;
+    jettyInfo_->cqDepth = cqContext->contextInfo.ubJfc.cqDepth;
     if (jettyInfo_->sqBaseAddr == 0U || jettyInfo_->sqHeadAddr == 0U || jettyInfo_->sqDoorbellAddr == 0U ||
         jettyInfo_->cqBaseAddr == 0U || jettyInfo_->cqTailAddr == 0U || jettyInfo_->cqDoorbellAddr == 0U ||
         jettyInfo_->numWqebbBytes == 0U || jettyInfo_->numCqeBytes == 0U || jettyInfo_->sqDepth == 0U ||
