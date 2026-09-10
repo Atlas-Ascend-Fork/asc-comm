@@ -69,7 +69,7 @@ Ordinary interface workflow:
 
 Ascend 950 UBC_CTP batch interface workflow:
 
-1. Prepare a UB buffer and create a batch handle through `MakeBatchHandle`. This workflow does not depend on `Init`.
+1. Prepare a UB workspace and create a batch handle through `MakeBatchHandle`. This workflow does not depend on `Init`.
 2. Use the BatchHandle overloads of `ReadNbi`, `WriteNbi`, or `WriteWithNotifyNbi` to add tasks to the current batch. The three task types can be mixed in one batch.
 3. Call `BatchCommit` to submit the current batch.
 4. Reuse the handle to add and submit more tasks as needed, then call the BatchHandle overload of `Drain` to wait for completion.

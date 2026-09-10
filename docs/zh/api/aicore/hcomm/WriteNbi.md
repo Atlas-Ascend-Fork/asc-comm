@@ -54,7 +54,7 @@ __aicore__ inline int32_t WriteNbi(
 | 返回值 | 说明 |
 | --- | --- |
 | `0` | 普通任务提交成功，或写任务成功添加到当前批次。 |
-| `-1` | 操作失败。批量接口中包括UB缓冲区剩余空间不足。 |
+| `-1` | 操作失败。批量接口中包括批量工作区剩余空间不足。 |
 
 ## 约束说明
 
@@ -62,8 +62,8 @@ __aicore__ inline int32_t WriteNbi(
 
 - 调用前通信通道需已完成初始化，并通过`Init`提供临时工作区。
 - `COMM_PROTOCOL_UBC_CTP`路径下，`dst`需要落在通道注册的远端buffer范围内，`src`为本端源地址。
-- 若`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续`PostSend`将因SQ溢出而失败。
-- 批量提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应产生CQE（即中间任务的`config.cqe`设为0，最后一次设为1）。
+- 若`commit`模板参数设为`false`，连续积攒的任务槽位不得超过通道的任务提交容量；需在容量耗尽前通过`Commit`或自动commit提交，否则后续任务提交将失败。
+- 批量提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应生成完成记录（即中间任务的`config.cqe`设为0，最后一次设为1）。
 
 ### 批量接口
 

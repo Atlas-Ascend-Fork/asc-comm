@@ -68,7 +68,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 | Return Value | Description |
 | --- | --- |
 | `0` | The ordinary task is submitted, or the write-with-notify task is added to the current batch successfully. |
-| `-1` | The operation fails. For the batch interface, this includes insufficient space in the UB buffer. The ordinary `COMM_PROTOCOL_ROCE` path also returns failure. |
+| `-1` | The operation fails. For the batch interface, this includes insufficient space in the batch workspace. The ordinary `COMM_PROTOCOL_ROCE` path also returns failure. |
 
 ## Constraints
 
@@ -77,7 +77,7 @@ __aicore__ inline int32_t WriteWithNotifyNbi(
 - The communication channel must be initialized, and `Init` must provide temporary workspace before this interface is called.
 - The `ChannelHandle` must identify a `COMM_PROTOCOL_UBC_CTP` channel.
 - The `COMM_PROTOCOL_ROCE` path does not support this interface and returns `-1`.
-- An ordinary write-with-notify task occupies two WQEBBs in the URMA SQ.
+- An ordinary write-with-notify task occupies two task-submission slots.
 
 ### Batch Interface
 

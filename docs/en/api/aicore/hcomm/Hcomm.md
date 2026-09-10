@@ -57,7 +57,7 @@ Batch interfaces support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950. In
 | [Unlock](./Unlock.md) | Release the cross-AI-Core lock of a communication channel. |
 | [ReadNbi](./ReadNbi.md) | Submit an ordinary read task or add a read task to a BatchHandle. |
 | [WriteNbi](./WriteNbi.md) | Submit an ordinary write task or add a write task to a BatchHandle. |
-| [WriteValueNbi](./WriteValueNbi.md) | Submit an immediate-value write task over an ordinary channel, inlining `value` in the WQE to the remote side. |
+| [WriteValueNbi](./WriteValueNbi.md) | Submit an immediate-value write task over an ordinary channel, writing `value` to the remote side as inline data. |
 | [WriteWithNotifyNbi](./WriteWithNotifyNbi.md) | Submit an ordinary write-with-notify task or add one to a BatchHandle. |
 | [AtomicFAA](./AtomicFAA.md) | Submit a Fetch-and-add atomic operation task. |
 | [AtomicCAS](./AtomicCAS.md) | Submit a Compare-and-swap atomic operation task. |
@@ -67,7 +67,7 @@ Batch interfaces support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950. In
 
 ## Return Value
 
-Interfaces that return a status code generally use `0` for success and a non-zero value for failure. `MakeBatchHandle` returns a batch handle directly instead of a status code. See the corresponding API document for exact return values.
+Interfaces that return a status code generally use `0` for success and a non-zero value for failure. On the `COMM_PROTOCOL_UBC_CTP` path, `Drain` also returns detailed completion-record polling errors directly to distinguish a polling timeout from a completion-status error. `MakeBatchHandle` returns a batch handle directly instead of a status code. See the corresponding API document for exact return values.
 
 ## Usage Constraints
 
