@@ -862,49 +862,95 @@ private:
         one[0] = sge;
         return WriteScalarArray<kMaxSges>(peer, dst, one, batch);
     }
+
+    template <uint32_t kMaxSges>
+    __simt_callee__ __forceinline__ static uint32_t CountValidSges(const HcommSge (&sges)[kMaxSges])
+    {
+        uint32_t count = 0U;
+#pragma unroll
+        for (uint32_t i = 0U; i < kMaxSges; ++i) {
+            count += detail::Valid(sges[i]) ? 1U : 0U;
+        }
+        return count;
+    }
+
+    template <uint32_t kMaxSges>
+    __simt_callee__ __forceinline__ static void GetValidSge(
+        const HcommSge (&sges)[kMaxSges], const uint32_t ordinal, uint64_t& addr, int& len)
+    {
+        uint32_t seen = 0U;
+#pragma unroll
+        for (uint32_t i = 0U; i < kMaxSges; ++i) {
+            if (detail::Valid(sges[i])) {
+                if (seen == ordinal) {
+                    addr = sges[i].addr;
+                    len = sges[i].len;
+                    return;
+                }
+                ++seen;
+            }
+        }
+    }
+
+    __simt_callee__ __forceinline__ static uint64_t BuildScalarWriteWord(
+        const HcommPeer& peer, __gm__ void* dst, const uint32_t word, const uint32_t sqIdx,
+        const uint64_t owner, const uint32_t count, const uint32_t payloadWords, const uint64_t sgeAddr,
+        const int sgeLen)
+    {
+        if (word == 0U) return kWriteHeader | owner | sqIdx;
+        if (word < kSqeHeaderWords) return detail::PeerWord(peer.Info(), word, count, dst);
+        if (word < payloadWords) {
+            return ((word - kSqeHeaderWords) & 1U) == 0U ? static_cast<uint64_t>(sgeLen) : sgeAddr;
+        }
+        if ((word % kWqebbLanes) == 0U) return kNopHeader | owner | sqIdx;
+        return 0U;
+    }
+
+    __simt_callee__ __forceinline__ static void StoreSqePair(
+        __gm__ uint64_t* sq, const uint32_t depth, const uint32_t head, const uint32_t firstWord,
+        const uint64_t first, const uint64_t second)
+    {
+        const uint32_t bbOffset = firstWord / kWqebbLanes;
+        const uint32_t sqIdx = (head + bbOffset) & (depth - 1U);
+        auto* pairs = reinterpret_cast<__gm__ ulonglong2*>(
+            sq + static_cast<uint64_t>(sqIdx) * kWqebbLanes);
+        asc_stwt(pairs + (firstWord % kWqebbLanes) / 2U, make_ulonglong2(first, second));
+    }
+
     template <uint32_t kMaxSges>
     __simt_callee__ __forceinline__ int32_t WriteScalarArray(
         const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges],
         HcommJettyBatch& reservation) const
     {
-        uint32_t count = 0U;
-        for (uint32_t i = 0U; i < kMaxSges; ++i) count += detail::Valid(sges[i]) ? 1U : 0U;
+        static_assert(kMaxSges > 0U && kMaxSges <= 12U, "invalid scalar SGE count");
+        const uint32_t count = CountValidSges(sges);
         if (count == 0U || count > kMaxSges) return -1;
         if (Reserve<kSlotWqebbs>(reservation) != 0) return -1;
-        reservation.payloadWqebbs = (kSqeHeaderWords + count * 2U + kWqebbLanes - 1U) / kWqebbLanes;
+        const uint32_t payloadWords = kSqeHeaderWords + count * 2U;
+        reservation.payloadWqebbs = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
         const uint32_t head = reservation.beginHead;
         auto* info = Info();
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
-        for (uint32_t lane = 0U; lane < kSlotWqebbs * kWqebbLanes; lane += 2U) {
-            uint64_t values[2] = {};
-            const uint32_t bbHead = head + lane / kWqebbLanes;
+        for (uint32_t firstWord = 0U; firstWord < kSlotWqebbs * kWqebbLanes; firstWord += 2U) {
+            const uint32_t bbHead = head + firstWord / kWqebbLanes;
             const uint32_t idx = bbHead & (info->sqDepth - 1U);
-            for (uint32_t j = 0U; j < 2U; ++j) {
-                const uint32_t word = lane + j;
-                if (word == 0U) {
-                    values[j] = kWriteHeader | (static_cast<uint64_t>(detail::Owner(bbHead, info->sqDepth)) << 31U) | idx;
-                } else if (word < kSqeHeaderWords) {
-                    values[j] = detail::PeerWord(peer.Info(), word, count, dst);
-                } else if (word < kSqeHeaderWords + count * 2U) {
-                    const uint32_t ordinal = (word - kSqeHeaderWords) / 2U;
-                    uint32_t seen = 0U;
-                    uint32_t source = 0U;
-                    for (uint32_t s = 0U; s < kMaxSges; ++s) {
-                        if (detail::Valid(sges[s]) && seen++ == ordinal) {
-                            source = s;
-                            break;
-                        }
-                    }
-                    values[j] = ((word - kSqeHeaderWords) & 1U) == 0U ?
-                        static_cast<uint64_t>(sges[source].len) : sges[source].addr;
-                } else if ((word % kWqebbLanes) == 0U) {
-                    values[j] = kNopHeader |
-                        (static_cast<uint64_t>(detail::Owner(bbHead, info->sqDepth)) << 31U) | idx;
-                }
+            const uint64_t owner = static_cast<uint64_t>(detail::Owner(bbHead, info->sqDepth)) << 31U;
+            uint64_t firstAddr = 0U;
+            int firstLen = 0;
+            if (firstWord >= kSqeHeaderWords && firstWord < payloadWords) {
+                GetValidSge(sges, (firstWord - kSqeHeaderWords) / 2U, firstAddr, firstLen);
             }
-            auto* pair = reinterpret_cast<__gm__ ulonglong2*>(
-                sq + static_cast<uint64_t>(idx) * kWqebbLanes + (lane % kWqebbLanes));
-            asc_stwt(pair, make_ulonglong2(values[0], values[1]));
+            const uint32_t secondWord = firstWord + 1U;
+            uint64_t secondAddr = 0U;
+            int secondLen = 0;
+            if (secondWord >= kSqeHeaderWords && secondWord < payloadWords) {
+                GetValidSge(sges, (secondWord - kSqeHeaderWords) / 2U, secondAddr, secondLen);
+            }
+            const uint64_t first = BuildScalarWriteWord(
+                peer, dst, firstWord, idx, owner, count, payloadWords, firstAddr, firstLen);
+            const uint64_t second = BuildScalarWriteWord(
+                peer, dst, secondWord, idx, owner, count, payloadWords, secondAddr, secondLen);
+            StoreSqePair(sq, info->sqDepth, head, firstWord, first, second);
         }
         asc_threadfence();
         return 0;

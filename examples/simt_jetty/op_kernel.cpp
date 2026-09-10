@@ -414,9 +414,9 @@ extern "C" __global__ __vector__ void SimtJettyWriteThread(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ void* timing,
     uint32_t iterations, uint32_t warmup)
 {
-    asc_vf_call<SimtJettyWriteDispatchVf>(
-        dim3(64), channel, jettyPtrTable, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),
-        iterations, warmup);
+    asc_vf_call<SimtJettyWriteThreadVf>(
+        dim3(1), channel, jettyPtrTable, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), iterations,
+        warmup);
 }
 
 extern "C" __global__ __vector__ void SimtJettyWriteWarpPadZero(
