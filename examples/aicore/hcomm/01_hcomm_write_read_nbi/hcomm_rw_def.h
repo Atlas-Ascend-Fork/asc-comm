@@ -22,19 +22,6 @@
 constexpr int32_t SUCCESS = 0;
 constexpr int32_t FAIL = -1;
 
-#define CHECK(call, expect, rank)                                                              \
-    do {                                                                                       \
-        auto _check_ret = (call);                                                              \
-        auto _check_expect = (expect);                                                         \
-        if (_check_ret != _check_expect) {                                                     \
-            fprintf(                                                                           \
-                stderr, "[CHECK ERROR][rank=%u] %s failed, ret=%lld, expect=%lld, at %s:%d\n", \
-                static_cast<unsigned>(rank), #call, static_cast<long long>(_check_ret),        \
-                static_cast<long long>(_check_expect), __FILE__, __LINE__);                    \
-            return FAIL;                                                                       \
-        }                                                                                      \
-    } while (0)
-
 constexpr uint32_t DATA_SIZE = 256U;
 constexpr uint64_t COMM_BUF_SIZE = 4096U;
 constexpr uint64_t SEND_DATA_OFFSET = 0U;
