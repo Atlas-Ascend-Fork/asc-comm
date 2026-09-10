@@ -464,10 +464,11 @@ extern "C" __global__ __mix__(1, 1) void SimtJettyWriteMixed(
     asc_sync_notify(PIPE_V, PIPE_S, EVENT_ID0);
     asc_sync_wait(PIPE_V, PIPE_S, EVENT_ID0);
 
-    AscendC::HcommJetty simdJetty(
-        reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(&ub_layout->jetty_info),
-        reinterpret_cast<__ubuf__ uint8_t*>(ub_layout->dwqe_stage), jettyPtrTable, 0);
-    simdJetty.PublishSq();
+    const uint64_t doorbellAddr = ub_layout->jetty_info.sqDoorbellAddr;
+    const uint32_t publishedHead = static_cast<uint32_t>(ub_layout->jetty_info.packedHead);
+    if (doorbellAddr != 0U) {
+        AscendC::WriteGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(doorbellAddr), publishedHead);
+    }
 }
 
 void LaunchSimtJetty(

@@ -477,10 +477,91 @@ public:
         return WriteScalarArray<kMaxSges>(peer, dst, sges, unused);
     }
 
+    template <uint32_t kMaxSges, typename Coop>
+    __simt_callee__ __forceinline__ int32_t PutTwoBb(
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const
+    {
+        static_assert(kMaxSges == 2U, "two-BB path requires two SGE lanes");
+        const uint32_t laneRank = static_cast<uint32_t>(coop.thread_rank());
+        const uint32_t mask = asc_ballot(detail::Valid(laneSge));
+        const uint32_t count = static_cast<uint32_t>(__builtin_popcount(mask));
+        if (count == 0U) {
+            coop.sync();
+            return -1;
+        }
+        coop.sync();
+        HcommJettyBatch batch = BeginBatch();
+        uint32_t head = 0xFFFFFFFFU;
+        if (laneRank == 0U && Reserve<2U>(batch) == 0) {
+            head = batch.beginHead;
+            batch.payloadWqebbs = count == 1U ? 1U : 2U;
+        }
+        head = asc_shfl(head, 0, kWarpSize);
+        if (head == 0xFFFFFFFFU) {
+            coop.sync();
+            return -1;
+        }
+        const uint32_t depth = Info()->sqDepth;
+        uint64_t value = 0U;
+        const uint32_t word = static_cast<uint32_t>(laneid());
+        const uint32_t bb = head + word / kWqebbLanes;
+        const uint32_t idx = bb & (depth - 1U);
+        const uint64_t owner = static_cast<uint64_t>(detail::Owner(bb, depth)) << 31U;
+        if (word == 0U) {
+            value = kWriteHeader | owner | idx;
+        } else if (word < kSqeHeaderWords) {
+            value = detail::PeerWord(peer.Info(), word, count, dst);
+        } else if (word < kSqeHeaderWords + count * 2U) {
+            const uint32_t ordinal = (word - kSqeHeaderWords) / 2U;
+            const int source = detail::NthSet(mask, ordinal);
+            uint64_t local = 0U;
+            if (laneRank == static_cast<uint32_t>(source) && detail::Valid(laneSge)) {
+                local = ((word - kSqeHeaderWords) & 1U) == 0U ?
+                    static_cast<uint64_t>(laneSge.len) : laneSge.addr;
+            }
+            value = asc_shfl(local, source, kWarpSize);
+        } else if (word == kWqebbLanes) {
+            value = kNopHeader | owner | idx;
+        }
+        if ((word & 1U) == 0U) {
+            const uint64_t second = asc_shfl(value, static_cast<int>(word + 1U), kWarpSize);
+            auto* sq = reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr);
+            asc_stwt(reinterpret_cast<__gm__ ulonglong2*>(sq + static_cast<uint64_t>(idx) * kWqebbLanes +
+                                                          (word % kWqebbLanes)),
+                     make_ulonglong2(value, second));
+        }
+        coop.sync();
+        Commit(coop, batch);
+        coop.sync();
+
+        // Commit has installed the final header in SQ. Recreate those two words in the
+        // DWQE before exposing its doorbell window.
+        if (word == 0U) {
+            const uint32_t end = head + 2U;
+            if (count == 2U) value = kWriteHeader | owner | (end & 0xFFFFU) | kFinalFlags;
+            else value = kWriteHeader | owner | (head & 0xFFFFU);
+        } else if (count == 1U && word == kWqebbLanes) {
+            const uint32_t nopHead = head + 1U;
+            const uint64_t nopOwner = static_cast<uint64_t>(detail::Owner(nopHead, depth)) << 31U;
+            value = kNopHeader | nopOwner | ((head + 2U) & 0xFFFFU) | kNopFinalFlags;
+        }
+        if ((word & 1U) == 0U) {
+            const uint64_t second = asc_shfl(value, static_cast<int>(word + 1U), kWarpSize);
+            auto* dwqe = reinterpret_cast<__gm__ ulonglong2*>(Info()->sqDoorbellAddr - kDwqeDbOffset);
+            asc_stwt(&dwqe[word / 2U], make_ulonglong2(value, second));
+        }
+        asc_threadfence();
+        coop.sync();
+        return 0;
+    }
+
     template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop>
     __simt_callee__ __forceinline__ int32_t Put(
         const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const
     {
+        if constexpr (kDoCommit && kMaxSges == 2U) {
+            return PutTwoBb<kMaxSges>(coop, peer, dst, laneSge);
+        }
         HcommJettyBatch batch = BeginBatch();
         const int32_t result = Write<kMaxSges>(coop, peer, dst, laneSge, batch);
         if (result == 0 && kDoCommit) Commit(coop, batch);
