@@ -241,7 +241,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteThreadVf(
         timing[3] = iterations;
     } else {
         for (uint32_t i = 0U; i < iterations; ++i) {
-            SimtJettyWriteThreadImpl<12, false, false>(
+            SimtJettyWriteThreadImpl<12, false, false, true>(
                 channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
         }
     }
