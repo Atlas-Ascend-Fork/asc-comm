@@ -33,26 +33,11 @@
 #include "hccl/hccl_types.h"
 #include "hccl/hccl_rank_graph.h"
 
+#include "utils/check/check.h"
 #include "utils/process_manager/process_manager.h"
 #include "utils/rank_sync/rank_sync.h"
 
 #include "simt_urma_common.h"
-
-#define ACLCHECK(ret)                                                                            \
-    do {                                                                                         \
-        if ((ret) != ACL_SUCCESS) {                                                              \
-            printf("acl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, (ret)); \
-            return (ret);                                                                        \
-        }                                                                                        \
-    } while (0)
-
-#define HCCLCHECK(ret)                                                                            \
-    do {                                                                                          \
-        if ((ret) != HCCL_SUCCESS) {                                                              \
-            printf("hccl interface return err %s:%d, retcode: %d \n", __FILE__, __LINE__, (ret)); \
-            return (ret);                                                                         \
-        }                                                                                         \
-    } while (0)
 
 extern void LaunchSimtUrma(void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode);
 
@@ -165,7 +150,7 @@ HcclResult AcquirePeerChannel(
     HcclComm comm, uint32_t rank, PeerRankCtx& peer, HcclMemHandle* memHandles, uint32_t memHandleNum)
 {
     HcclChannelDesc channelDesc;
-    HCCLCHECK(HcclChannelDescInit(&channelDesc, 1));
+    EXAMPLES_HCCLCHECK(HcclChannelDescInit(&channelDesc, 1));
     channelDesc.remoteRank = peer.rankId;
     channelDesc.channelProtocol = kTargetCommProtocol;
     channelDesc.notifyNum = 0;
@@ -174,7 +159,7 @@ HcclResult AcquirePeerChannel(
 
     uint32_t* netLayers = nullptr;
     uint32_t netLayerNum = 0;
-    HCCLCHECK(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
+    EXAMPLES_HCCLCHECK(HcclRankGraphGetLayers(comm, &netLayers, &netLayerNum));
     if (netLayerNum == 0 || netLayers == nullptr) {
         std::cout << "[rank " << rank << "] no net layer reported" << std::endl;
         return HCCL_E_INTERNAL;
@@ -182,7 +167,7 @@ HcclResult AcquirePeerChannel(
 
     CommLink* links = nullptr;
     uint32_t linkNum = 0;
-    HCCLCHECK(HcclRankGraphGetLinks(comm, netLayers[0], rank, peer.rankId, &links, &linkNum));
+    EXAMPLES_HCCLCHECK(HcclRankGraphGetLinks(comm, netLayers[0], rank, peer.rankId, &links, &linkNum));
     if (linkNum == 0 || links == nullptr) {
         std::cout << "[rank " << rank << "] no link to peer " << peer.rankId << std::endl;
         return HCCL_E_INTERNAL;
@@ -203,7 +188,7 @@ HcclResult AcquirePeerChannel(
         return HCCL_E_NOT_SUPPORT;
     }
 
-    HCCLCHECK(HcclChannelAcquire(comm, COMM_ENGINE_AIV, &channelDesc, 1, &peer.channel));
+    EXAMPLES_HCCLCHECK(HcclChannelAcquire(comm, COMM_ENGINE_AIV, &channelDesc, 1, &peer.channel));
     if (peer.channel == 0) {
         std::cout << "[rank " << rank << "] channel acquire returned an invalid handle" << std::endl;
         return HCCL_E_INTERNAL;
@@ -212,7 +197,7 @@ HcclResult AcquirePeerChannel(
     uint32_t memNum = 0;
     CommMem* remoteMems = nullptr;
     char** memTags = nullptr;
-    HCCLCHECK(HcclChannelGetRemoteMems(comm, peer.channel, &memNum, &remoteMems, &memTags));
+    EXAMPLES_HCCLCHECK(HcclChannelGetRemoteMems(comm, peer.channel, &memNum, &remoteMems, &memTags));
     if (memNum == 0 || remoteMems == nullptr || memTags == nullptr) {
         std::cout << "[rank " << rank << "] no remote memory reported on the channel" << std::endl;
         return HCCL_E_INTERNAL;
@@ -328,19 +313,19 @@ int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpo
         return 1;
     }
 
-    ACLCHECK(aclInit(nullptr));
-    ACLCHECK(aclrtSetDevice(rank));
+    EXAMPLES_ACLCHECK(aclInit(nullptr));
+    EXAMPLES_ACLCHECK(aclrtSetDevice(rank));
     aclrtStream stream = nullptr;
-    ACLCHECK(aclrtCreateStream(&stream));
+    EXAMPLES_ACLCHECK(aclrtCreateStream(&stream));
 
     HcclComm hcclComm = nullptr;
-    HCCLCHECK(sync.InitCommByRootInfo(&hcclComm));
+    EXAMPLES_HCCLCHECK(sync.InitCommByRootInfo(&hcclComm));
 
     void* sendBuf = nullptr;
-    ACLCHECK(aclrtMalloc(&sendBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
+    EXAMPLES_ACLCHECK(aclrtMalloc(&sendBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
     void* recvBuf = nullptr;
-    ACLCHECK(aclrtMalloc(&recvBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
-    ACLCHECK(InitBuffers(sendBuf, recvBuf, mode));
+    EXAMPLES_ACLCHECK(aclrtMalloc(&recvBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
+    EXAMPLES_ACLCHECK(InitBuffers(sendBuf, recvBuf, mode));
 
     // Both ranks register both buffers under the same tags, so the sender can look up the
     // receiver's recv buffer by tag and the buffer tables stay symmetric.
@@ -357,8 +342,8 @@ int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpo
     // and the token are all valid, so the NIC completes it and returns a clean CQE while the
     // receiver observes the CCL buffer's contents rather than the payload.
     constexpr uint32_t kLocalSendIdx = kSendMemHandleIdx + 1U;
-    HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kSendMemHandleIdx]));
-    HCCLCHECK(HcclCommMemReg(hcclComm, kRecvBufTag, &recvMem, &memHandles[kRecvMemHandleIdx]));
+    EXAMPLES_HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kSendMemHandleIdx]));
+    EXAMPLES_HCCLCHECK(HcclCommMemReg(hcclComm, kRecvBufTag, &recvMem, &memHandles[kRecvMemHandleIdx]));
 
     // 环形拓扑：每个 rank 向 next 发送，并校验从 prev 收到的数据，因此所有 rank 都参与收发。
     PeerRankCtx prev;
@@ -369,11 +354,11 @@ int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpo
     // 建链顺序按 rank 奇偶错开。两个 rank 若都先等对方作为 prev 的那条链，会形成环上的循环
     // 等待；错开之后每一步都有一侧在主动应答。
     if (rank % 2 == 0) {
-        HCCLCHECK(AcquirePeerChannel(hcclComm, rank, prev, memHandles, 2U));
-        HCCLCHECK(AcquirePeerChannel(hcclComm, rank, next, memHandles, 2U));
+        EXAMPLES_HCCLCHECK(AcquirePeerChannel(hcclComm, rank, prev, memHandles, 2U));
+        EXAMPLES_HCCLCHECK(AcquirePeerChannel(hcclComm, rank, next, memHandles, 2U));
     } else {
-        HCCLCHECK(AcquirePeerChannel(hcclComm, rank, next, memHandles, 2U));
-        HCCLCHECK(AcquirePeerChannel(hcclComm, rank, prev, memHandles, 2U));
+        EXAMPLES_HCCLCHECK(AcquirePeerChannel(hcclComm, rank, next, memHandles, 2U));
+        EXAMPLES_HCCLCHECK(AcquirePeerChannel(hcclComm, rank, prev, memHandles, 2U));
     }
 
     if (!sync.Barrier(kTagReady)) {
@@ -389,7 +374,7 @@ int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpo
     std::cout << "[rank " << rank << "] simt_urma mode=" << ModeName(mode) << " sending to rank " << next.rankId
               << std::endl;
     LaunchSimtUrma(stream, next.channel, kLocalSendIdx, next.remoteRecvIdx, mode);
-    ACLCHECK(aclrtSynchronizeStream(stream));
+    EXAMPLES_ACLCHECK(aclrtSynchronizeStream(stream));
 
     // Separates each rank's own kernel from its read of what prev wrote. Every rank only arrives
     // here after its own aclrtSynchronizeStream, so no rank samples its recv buffer while the
@@ -417,11 +402,11 @@ int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpo
                   << ", received from rank " << prev.rankId << std::endl;
     }
 
-    ACLCHECK(aclrtFree(sendBuf));
-    ACLCHECK(aclrtFree(recvBuf));
-    HCCLCHECK(HcclCommDestroy(hcclComm));
-    ACLCHECK(aclrtDestroyStream(stream));
-    ACLCHECK(aclFinalize());
+    EXAMPLES_ACLCHECK(aclrtFree(sendBuf));
+    EXAMPLES_ACLCHECK(aclrtFree(recvBuf));
+    EXAMPLES_HCCLCHECK(HcclCommDestroy(hcclComm));
+    EXAMPLES_ACLCHECK(aclrtDestroyStream(stream));
+    EXAMPLES_ACLCHECK(aclFinalize());
     return pass ? 0 : 2;
 }
 
