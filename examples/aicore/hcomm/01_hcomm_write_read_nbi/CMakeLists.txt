@@ -16,16 +16,11 @@ if(NOT DEFINED ENV{ASCEND_HOME_PATH})
     message(FATAL_ERROR "ASCEND_HOME_PATH is not set. Source the CANN environment (set_env.sh) first.")
 endif()
 
-set_source_files_properties(
-    hcomm_write_read_nbi_kernel.cpp
-    utils.cpp
-    PROPERTIES LANGUAGE ASC
-)
+set_source_files_properties(hcomm_write_read_nbi_kernel.cpp PROPERTIES LANGUAGE ASC)
 
 add_executable(hcomm_write_read_nbi
     hcomm_write_read_nbi.asc
     hcomm_write_read_nbi_kernel.cpp
-    utils.cpp
 )
 
 
