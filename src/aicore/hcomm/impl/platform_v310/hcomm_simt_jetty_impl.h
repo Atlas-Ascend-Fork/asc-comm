@@ -317,7 +317,14 @@ public:
             if (laneRank != 0U || count == 0U) return -1;
             return WriteScalar<kMaxSges>(peer, dst, laneSge, reservation);
         }
+        const bool hasValidSge = count != 0U;
         coop.sync();
+        if (!hasValidSge) {
+            coop.sync();
+            // A thread-block group may contain inactive warps. They still report success so
+            // every lane reaches the group-wide Commit synchronization.
+            return 0;
+        }
         uint32_t head = 0xFFFFFFFFU;
         if (laneRank == 0U) {
             if (Reserve<kSlotWqebbs>(reservation) != 0) head = 0xFFFFFFFFU;
@@ -326,7 +333,9 @@ public:
         head = asc_shfl(head, 0, kWarpSize);
         if (head == 0xFFFFFFFFU) {
             coop.sync();
-            return -1;
+            // Keep a block-wide group aligned with Commit even when its writer warp
+            // cannot reserve an SQ slot.
+            return coop.size() > kWarpSize ? 0 : -1;
         }
         const uint32_t depth = Info()->sqDepth;
         const uint32_t payloadWords = kSqeHeaderWords + count * 2U;
