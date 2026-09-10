@@ -19,8 +19,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -36,6 +34,7 @@
 #include "hccl/hccl_rank_graph.h"
 
 #include "utils/process_manager/process_manager.h"
+#include "utils/rank_sync/rank_sync.h"
 
 #include "simt_urma_common.h"
 
@@ -68,109 +67,12 @@ struct PeerRankCtx {
     uint32_t remoteRecvIdx{0};
 };
 
-constexpr uint32_t kBarrierWaitSeconds = 60;
-constexpr uint32_t kBarrierPollMs = 100;
-
-// 在系统临时目录下创建形如<prefix>.XXXXXX的一次性目录；失败返回空串。
-std::string MakeTempDir(const std::string& prefix)
-{
-    std::string tmpl =
-        (std::string(std::getenv("TMPDIR") && std::getenv("TMPDIR")[0] != '\0' ? std::getenv("TMPDIR") : "/tmp") + "/" +
-         prefix + ".XXXXXX");
-    std::vector<char> buf(tmpl.begin(), tmpl.end());
-    buf.push_back('\0');
-    const char* dir = mkdtemp(buf.data());
-    return dir != nullptr ? std::string(dir) : std::string();
-}
-
-void RemoveTempDir(const std::string& dir)
-{
-    if (!dir.empty()) {
-        // 目录里只有本程序写入的root info文件与barrier标记文件，无子目录。
-        for (const auto& entry : std::filesystem::directory_iterator(dir)) {
-            std::filesystem::remove(entry.path());
-        }
-        std::filesystem::remove(dir);
-    }
-}
-
 // SIMT接口只在UBC_CTP/URMA协议上实现，其余链路协议无对应实现。
 constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UBC_CTP;
 
 // 两块内存注册到通信域时使用的tag。两个rank使用相同tag，远端内存才能按tag查回。
 constexpr const char* kSendBufTag = "simtUrmaSendBuf";
 constexpr const char* kRecvBufTag = "simtUrmaRecvBuf";
-
-// Rank 0通过HcclGetRootInfo生成root info并写入文件，其余rank从文件读取后调用
-// HcclCommInitRootInfo创建通信域，从而摆脱rank table依赖。
-bool IsRootInfoFileReady(const std::string& path)
-{
-    struct stat st {};
-    return stat(path.c_str(), &st) == 0 && st.st_size >= static_cast<off_t>(sizeof(HcclRootInfo));
-}
-
-HcclResult WriteRootInfoFile(const std::string& path, const HcclRootInfo& rootInfo)
-{
-    const std::string tmpPath = path + ".tmp";
-    std::ofstream ofs(tmpPath, std::ios::binary | std::ios::trunc);
-    if (!ofs.is_open()) {
-        std::cout << "Open root info tmp file failed: " << tmpPath << std::endl;
-        return HCCL_E_OPEN_FILE_FAILURE;
-    }
-    ofs.write(reinterpret_cast<const char*>(&rootInfo), sizeof(rootInfo));
-    ofs.close();
-    if (!ofs) {
-        std::cout << "Write root info file failed: " << tmpPath << std::endl;
-        return HCCL_E_SYSCALL;
-    }
-    if (std::rename(tmpPath.c_str(), path.c_str()) != 0) {
-        std::cout << "Rename root info file failed: " << tmpPath << " -> " << path << std::endl;
-        return HCCL_E_SYSCALL;
-    }
-    return HCCL_SUCCESS;
-}
-
-HcclResult ReadRootInfoFile(const std::string& path, HcclRootInfo* rootInfo)
-{
-    const uint32_t maxPollTimes = kBarrierWaitSeconds * 1000 / kBarrierPollMs;
-    for (uint32_t i = 0; i < maxPollTimes; ++i) {
-        if (!IsRootInfoFileReady(path)) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
-            continue;
-        }
-        std::ifstream ifs(path, std::ios::binary);
-        if (!ifs.is_open()) {
-            return HCCL_E_OPEN_FILE_FAILURE;
-        }
-        ifs.read(reinterpret_cast<char*>(rootInfo), sizeof(*rootInfo));
-        if (ifs.gcount() == static_cast<std::streamsize>(sizeof(*rootInfo))) {
-            return HCCL_SUCCESS;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
-    }
-    std::cout << "Wait root info file timeout: " << path << std::endl;
-    return HCCL_E_TIMEOUT;
-}
-
-HcclResult InitCommByRootInfo(uint32_t rank, uint32_t nranks, const std::string& rootInfoFile, HcclComm* comm)
-{
-    HcclRootInfo rootInfo{};
-    HcclResult ret = HCCL_SUCCESS;
-    if (rank == 0U) {
-        HCCLCHECK(HcclGetRootInfo(&rootInfo));
-        ret = WriteRootInfoFile(rootInfoFile, rootInfo);
-        if (ret != HCCL_SUCCESS) {
-            return ret;
-        }
-    } else {
-        ret = ReadRootInfoFile(rootInfoFile, &rootInfo);
-        if (ret != HCCL_SUCCESS) {
-            return ret;
-        }
-    }
-    HCCLCHECK(HcclCommInitRootInfo(nranks, &rootInfo, rank, comm));
-    return HCCL_SUCCESS;
-}
 
 // 一张表同时驱动解析和打印，避免某个 mode 能被解析、却打印成另一个名字。
 struct ModeEntry {
@@ -221,70 +123,6 @@ void PrintModes()
 {
     std::cout << "  mode: write_single | write_batch_last | write_value_single | write_value_batch_last" << std::endl;
     std::cout << "        notify | faa | cas | single (default) | batch_last | notify_immediate_repeat" << std::endl;
-}
-
-bool IsMarkerFileReady(const std::string& path)
-{
-    struct stat st {};
-    return stat(path.c_str(), &st) == 0 && st.st_size >= 1;
-}
-
-HcclResult WriteMarkerFile(const std::string& path, const std::string& payload = "1")
-{
-    const std::string tmpPath = path + ".tmp";
-    std::ofstream ofs(tmpPath, std::ios::binary | std::ios::trunc);
-    if (!ofs.is_open()) {
-        std::cout << "Open marker tmp file failed: " << tmpPath << std::endl;
-        return HCCL_E_OPEN_FILE_FAILURE;
-    }
-    ofs << payload;
-    ofs.close();
-    if (!ofs) {
-        std::cout << "Write marker file failed: " << tmpPath << std::endl;
-        return HCCL_E_SYSCALL;
-    }
-    if (std::rename(tmpPath.c_str(), path.c_str()) != 0) {
-        std::cout << "Rename marker file failed: " << tmpPath << " -> " << path << std::endl;
-        return HCCL_E_SYSCALL;
-    }
-    return HCCL_SUCCESS;
-}
-
-// Keeps the check deterministic: a rank must not read its recv buffer until the rank
-// writing into it has finished. HCCL is already up at this point, but this example
-// deliberately avoids issuing collectives so only the SIMT posts touch the QP.
-// syncDir holds the barrier marker files and is passed in on the command line rather than through
-// the environment: an exported variable is easy to lose across a shell wrapper or a scheduler, and
-// losing it silently sent every rank to the same default directory, where markers from a previous
-// run could let a barrier pass immediately.
-HcclResult HostFileBarrier(
-    int rank, int nranks, const std::string& syncDir, const std::string& tag, const std::string& payload = "1")
-{
-    if (mkdir(syncDir.c_str(), 0700) != 0 && errno != EEXIST) {
-        std::cout << "Create sync dir failed: " << syncDir << std::endl;
-        return HCCL_E_SYSCALL;
-    }
-    const std::string markerPrefix = syncDir + "/" + tag + ".";
-    HcclResult ret = WriteMarkerFile(markerPrefix + std::to_string(rank), payload);
-    if (ret != HCCL_SUCCESS) {
-        return ret;
-    }
-    const uint32_t maxPollTimes = kBarrierWaitSeconds * 1000 / kBarrierPollMs;
-    for (uint32_t poll = 0; poll < maxPollTimes; ++poll) {
-        bool ready = true;
-        for (int i = 0; i < nranks; ++i) {
-            if (!IsMarkerFileReady(markerPrefix + std::to_string(i))) {
-                ready = false;
-                break;
-            }
-        }
-        if (ready) {
-            return HCCL_SUCCESS;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
-    }
-    std::cout << "Wait host barrier timeout: " << tag << std::endl;
-    return HCCL_E_TIMEOUT;
 }
 
 // Fills the sender's buffer with the values the receiver will check for, and clears the
@@ -468,16 +306,25 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
 
 } // namespace
 
-// 单个rank的完整流程。由ProcessGroup在每个子进程中调用，root_info_file与sync_dir
-// 指向本次运行的临时目录（父进程创建，见main）。
-int RunSimtUrmaRank(
-    uint32_t rank, uint32_t nranks, const std::string& rootInfoFile, const std::string& syncDir,
-    const std::string& modeName)
+// 本样例两个host侧同步点的tag。
+constexpr uint32_t kTagReady = examples::kTagUserBase;
+constexpr uint32_t kTagSent = examples::kTagUserBase + 1U;
+
+// 单个rank的完整流程。由ProcessGroup在每个子进程中调用：rank 0 Listen绑定命令行传入
+// 的endpoint，其余rank Connect；root info交换与barrier都经该通道。
+int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpoint, const std::string& modeName)
 {
     uint32_t mode = kDefaultMode;
     if (!modeName.empty() && !ParseMode(modeName.c_str(), mode)) {
         std::cout << "Unknown mode: " << modeName << std::endl;
         PrintModes();
+        return 1;
+    }
+
+    examples::RankSyncContext sync = rank == 0U ? examples::RankSyncContext::Listen(ctrlEndpoint, nranks) :
+                                                  examples::RankSyncContext::Connect(rank, nranks, ctrlEndpoint);
+    if (!sync.Ok()) {
+        std::cout << "rank " << rank << ": control channel setup failed" << std::endl;
         return 1;
     }
 
@@ -487,7 +334,7 @@ int RunSimtUrmaRank(
     ACLCHECK(aclrtCreateStream(&stream));
 
     HcclComm hcclComm = nullptr;
-    HCCLCHECK(InitCommByRootInfo(rank, nranks, rootInfoFile, &hcclComm));
+    HCCLCHECK(sync.InitCommByRootInfo(&hcclComm));
 
     void* sendBuf = nullptr;
     ACLCHECK(aclrtMalloc(&sendBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
@@ -529,7 +376,10 @@ int RunSimtUrmaRank(
         HCCLCHECK(AcquirePeerChannel(hcclComm, rank, prev, memHandles, 2U));
     }
 
-    HCCLCHECK(HostFileBarrier(rank, nranks, syncDir, "ready"));
+    if (!sync.Barrier(kTagReady)) {
+        std::cout << "rank " << rank << ": ready barrier failed" << std::endl;
+        return HCCL_E_INTERNAL;
+    }
 
     // 每个 rank 都通过 next 通道发送。发送内容与 rank 无关，因此 prev 写进来的数据和本 rank
     // 写出去的数据期望值相同，接收侧校验表不需要按来源 rank 区分。
@@ -545,7 +395,10 @@ int RunSimtUrmaRank(
     // here after its own aclrtSynchronizeStream, so no rank samples its recv buffer while the
     // WQEs targeting it are still in flight. Without this a rank races ahead straight from the
     // "ready" barrier and reads the zeroed buffer, which looks like nothing landed.
-    HCCLCHECK(HostFileBarrier(rank, nranks, syncDir, "sent"));
+    if (!sync.Barrier(kTagSent)) {
+        std::cout << "rank " << rank << ": sent barrier failed" << std::endl;
+        return HCCL_E_INTERNAL;
+    }
 
     // 环上每个 rank 同时是发送方和接收方，两侧都要校验：sendBuf 里是本 rank 取回的 fetch 值，
     // recvBuf 里是 prev 写进来的数据。
@@ -572,46 +425,35 @@ int RunSimtUrmaRank(
     return pass ? 0 : 2;
 }
 
-// 父进程流程：解析命令行（<nranks> [mode]），创建本次运行的临时目录（root info 文件
-// 与 host barrier 标记都放这里），拉起全部rank进程并等待结果。
+// 父进程流程：解析命令行（<tcp://ip:port> <nranks> [mode]），拉起全部rank进程并等待结果。
+// endpoint是rank 0的监听地址，由外部传入；并行运行多个实例时错开端口。
 int main(int argc, char* argv[])
 {
-    if (argc < 2 || argc > 3) {
-        std::cout << "Usage: " << argv[0] << " <nranks> [mode]" << std::endl;
+    if (argc < 3 || argc > 4) {
+        std::cout << "Usage: " << argv[0] << " <tcp://ip:port> <nranks> [mode]" << std::endl;
         PrintModes();
         return 1;
     }
-    const int nranksValue = std::atoi(argv[1]);
+    const std::string endpoint = argv[1];
+    const int nranksValue = std::atoi(argv[2]);
     if (nranksValue < 2) {
         std::cout << "nranks must be at least 2." << std::endl;
         return 1;
     }
     const uint32_t nranks = static_cast<uint32_t>(nranksValue);
-    const std::string modeName = argc > 2 ? argv[2] : "";
+    const std::string modeName = argc > 3 ? argv[3] : "";
 
-    // 每次运行都创建全新目录：上次残留的root info会让其余rank读到过期内容，残留的
-    // barrier标记会让barrier直接通过。
-    const std::string runDir = MakeTempDir("simt_urma_run");
-    if (runDir.empty()) {
-        std::cout << "create temp run dir failed" << std::endl;
-        return 1;
-    }
-    const std::string rootInfoFile = runDir + "/root_info.bin";
-    const std::string syncDir = runDir;
-
-    std::vector<std::tuple<uint32_t, uint32_t, std::string, std::string, std::string>> perRankArgs;
+    std::vector<std::tuple<uint32_t, uint32_t, std::string, std::string>> perRankArgs;
     perRankArgs.reserve(nranks);
     for (uint32_t rank = 0; rank < nranks; ++rank) {
-        perRankArgs.emplace_back(rank, nranks, rootInfoFile, syncDir, modeName);
+        perRankArgs.emplace_back(rank, nranks, endpoint, modeName);
     }
 
     examples::ProcessGroup group;
     if (!group.Launch(nranks, RunSimtUrmaRank, std::move(perRankArgs))) {
-        RemoveTempDir(runDir);
         return 1;
     }
     const bool pass = group.WaitAll();
-    RemoveTempDir(runDir);
 
     if (group.Interrupted()) {
         std::cout << "RESULT | Mode=" << (modeName.empty() ? "single" : modeName) << " | Status=INTERRUPTED"
