@@ -18,6 +18,7 @@
 #include <limits>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <vector>
 
 #include <netdb.h>
@@ -30,6 +31,8 @@
 #include "hccl/hccl_rank_graph.h"
 #include "hccl/hccl_res.h"
 #include "hccl/hccl_types.h"
+
+#include "utils/process_manager/process_manager.h"
 
 #define HCCLCHECK(ret)                                                                          \
     do {                                                                                        \
@@ -621,25 +624,14 @@ int ExchangeRootInfo(uint32_t rank, uint32_t rankSize, const std::string& ipPort
 
 } // namespace
 
-int main(int argc, char* argv[])
-{
-    if (argc != 5) {
-        std::cerr << "invalid arguments" << std::endl;
-        return 1;
-    }
+// 单机模式下全部rank与本机TCP地址交换root info。
+constexpr const char* kLocalIpPort = "tcp://127.0.0.1:8899";
 
-    int rankSize = 0;
-    int rank = 0;
-    int device = 0;
-    if (!ParseNonNegativeInt(argv[1], rankSize) || !ParseNonNegativeInt(argv[2], rank) ||
-        !ParseNonNegativeInt(argv[4], device) || rankSize < 2 || rank >= rankSize) {
-        std::cerr << "invalid arguments: rank_size must be at least 2, rank must be in [0, rank_size), and device "
-                     "must be a non-negative integer"
-                  << std::endl;
-        return 1;
-    }
-    Options options{
-        static_cast<uint32_t>(rankSize), static_cast<uint32_t>(rank), static_cast<uint32_t>(device), argv[3]};
+// 单个rank的完整流程，单机与多机模式共用。由ProcessGroup（单机）或main的5参数
+// 分支（多机）调用。root info仍通过ipPort指定的TCP地址交换。
+int RunOneMultiPathRank(uint32_t rankSize, uint32_t rank, const std::string& ipPort, uint32_t device)
+{
+    Options options{rankSize, rank, device, ipPort};
 
     ACLCHECK(aclInit(nullptr));
     uint32_t deviceCount = 0;
@@ -673,4 +665,56 @@ int main(int argc, char* argv[])
         status = cleanupStatus;
     }
     return status == HCCL_SUCCESS ? 0 : 1;
+}
+
+// 单机模式：one_multi_path <nranks>，父进程fork全部rank进程，本机TCP地址交换root info，
+// device固定为rank对应的NPU。多机模式保持原有的每rank一进程参数（见下方分支）。
+int main(int argc, char* argv[])
+{
+    if (argc == 2) {
+        int rankSize = 0;
+        if (!ParseNonNegativeInt(argv[1], rankSize) || rankSize < 2) {
+            std::cerr << "invalid arguments: rank_size must be an integer of at least 2" << std::endl;
+            return 1;
+        }
+        const uint32_t uRankSize = static_cast<uint32_t>(rankSize);
+
+        std::vector<std::tuple<uint32_t, uint32_t, std::string, uint32_t>> perRankArgs;
+        perRankArgs.reserve(uRankSize);
+        for (uint32_t rank = 0; rank < uRankSize; ++rank) {
+            perRankArgs.emplace_back(uRankSize, rank, kLocalIpPort, rank);
+        }
+
+        examples::ProcessGroup group;
+        if (!group.Launch(uRankSize, RunOneMultiPathRank, std::move(perRankArgs))) {
+            return 1;
+        }
+        const bool pass = group.WaitAll();
+        if (group.Interrupted()) {
+            std::cerr << "test interrupted" << std::endl;
+            return 1;
+        }
+        return pass ? 0 : 1;
+    }
+
+    // 多机模式：每rank一进程，参数为 <rank_size> <rank> <tcp://ip:port> <device>。
+    if (argc != 5) {
+        std::cerr << "Usage: " << argv[0] << " <nranks>    (single machine)" << std::endl;
+        std::cerr << "       " << argv[0] << " <rank_size> <rank> <tcp://ip:port> <device>    (per-rank, multi machine)"
+                  << std::endl;
+        return 1;
+    }
+
+    int rankSize = 0;
+    int rank = 0;
+    int device = 0;
+    if (!ParseNonNegativeInt(argv[1], rankSize) || !ParseNonNegativeInt(argv[2], rank) ||
+        !ParseNonNegativeInt(argv[4], device) || rankSize < 2 || rank >= rankSize) {
+        std::cerr << "invalid arguments: rank_size must be at least 2, rank must be in [0, rank_size), and device "
+                     "must be a non-negative integer"
+                  << std::endl;
+        return 1;
+    }
+    return RunOneMultiPathRank(
+        static_cast<uint32_t>(rankSize), static_cast<uint32_t>(rank), argv[3], static_cast<uint32_t>(device));
 }
