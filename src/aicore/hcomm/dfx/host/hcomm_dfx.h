@@ -70,8 +70,12 @@ inline int32_t HcommChannelInfoDump(ChannelHandle channel, char *buf, uint32_t l
     if (ret == HCOMM_SUCCESS) {
         HcommDfx::ClearPendingException();
     }
-    HcommDfx::Trace("HcommChannelInfoDump ret=%d len=%u callerBuf=%d", ret, dumpLen,
-        callerBufUsable ? 1 : 0);
+    int32_t curDev = -1;
+    (void)aclrtGetDevice(&curDev);
+    HcommDfx::Trace("HcommChannelInfoDump ret=%d len=%u callerBuf=%d chan=0x%llx curDev=%d excDev=%u pending=%d", ret,
+        dumpLen, callerBufUsable ? 1 : 0, static_cast<unsigned long long>(channel), curDev,
+        HcommDfx::g_exception.deviceId.load(std::memory_order_relaxed),
+        HcommDfx::HasPendingException() ? 1 : 0);
     return ret;
 }
 
