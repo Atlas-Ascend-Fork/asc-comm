@@ -32,26 +32,9 @@
 #include "hccl/hccl_res.h"
 #include "hccl/hccl_types.h"
 
+#include "utils/check/check.h"
 #include "utils/process_manager/process_manager.h"
 #include "utils/rank_sync/rank_sync.h"
-
-#define HCCLCHECK(ret)                                                                          \
-    do {                                                                                        \
-        const HcclResult checkRet = (ret);                                                      \
-        if (checkRet != HCCL_SUCCESS) {                                                         \
-            std::fprintf(stderr, "%s:%d: %s return %d.\n", __FILE__, __LINE__, #ret, checkRet); \
-            return checkRet;                                                                    \
-        }                                                                                       \
-    } while (0)
-
-#define ACLCHECK(ret)                                                                           \
-    do {                                                                                        \
-        const aclError checkRet = (ret);                                                        \
-        if (checkRet != ACL_SUCCESS) {                                                          \
-            std::fprintf(stderr, "%s:%d: %s return %d.\n", __FILE__, __LINE__, #ret, checkRet); \
-            return HCCL_E_RUNTIME;                                                              \
-        }                                                                                       \
-    } while (0)
 
 extern "C" aclError LaunchUbmemDataCopy(void* dst, void* src, uint32_t byteSize, aclrtStream stream);
 
@@ -402,14 +385,14 @@ int RunOneMultiPathRank(uint32_t rankSize, uint32_t rank, const std::string& ipP
         return 1;
     }
 
-    ACLCHECK(aclInit(nullptr));
+    EXAMPLES_ACLCHECK(aclInit(nullptr));
     uint32_t deviceCount = 0;
-    ACLCHECK(aclrtGetDeviceCount(&deviceCount));
+    EXAMPLES_ACLCHECK(aclrtGetDeviceCount(&deviceCount));
     if (options.device >= deviceCount) {
         std::cerr << "device " << options.device << " is out of range, device_count=" << deviceCount << std::endl;
         return 1;
     }
-    ACLCHECK(aclrtSetDevice(static_cast<int32_t>(options.device)));
+    EXAMPLES_ACLCHECK(aclrtSetDevice(static_cast<int32_t>(options.device)));
 
     int status = HCCL_E_INTERNAL;
     {
