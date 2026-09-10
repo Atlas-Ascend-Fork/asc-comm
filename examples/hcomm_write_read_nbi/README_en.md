@@ -159,6 +159,32 @@ This sample starts ranks through automatic multi-process fork. The command forma
 | Option | Allowed Values | Description |
 |--------|----------------|-------------|
 | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` (default) | NPU Architecture: `dav-3510` corresponds to Ascend 950PR / Ascend 950DT |
+| `ASCENDC_DEBUG` | `ON` / `OFF` (default) | Enable or disable Hcomm debug prints in the AIV kernel |
+
+The `Hcomm URMA` `PostSend`, WQE, CQE, and `PollCq` messages are controlled by
+the compile-time `ASCENDC_DEBUG` definition. The setting cannot be changed at runtime.
+Debug printing is disabled by default. To enable it for communication debugging, reconfigure and rebuild:
+
+```bash
+rm -rf build
+cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DASCENDC_DEBUG=ON
+cmake --build build -j
+```
+
+To disable the messages, omit the option or explicitly set `-DASCENDC_DEBUG=OFF`, then rebuild:
+
+```bash
+cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DASCENDC_DEBUG=OFF
+cmake --build build -j
+```
+
+When enabled, the runtime log contains messages such as:
+
+```text
+[AIV Block 0/1] Hcomm URMA PostSend ...
+[AIV Block 0/1] Hcomm URMA WQE: ...
+[AIV Block 0/1] Hcomm URMA CQE: ...
+```
 
 ### 5. Expected Output
 For a successful multiple-rank run, the terminal will output the following, indicating that AIV Direct-Drive URMA communication completed successfully and the write/read results are consistent:
