@@ -82,7 +82,7 @@ ret = hcomm.BatchCommit(batchHandle);
 
 提交成功后，可以复用批量句柄和工作区继续添加并提交下一批任务。
 
-4. 等待通过该批量句柄提交的任务完成。
+4. 等待通过该批量句柄提交的任务所生成的完成记录。
 
 ```cpp
 ret = hcomm.Drain(batchHandle);
@@ -132,16 +132,16 @@ ret = hcomm.BatchCommit(multiBatchHandle);
 ret = hcomm.Drain(multiBatchHandle);
 ```
 
-`channelIndex`对应创建`MultiChannelHandle`时`channelDescs`中的数组下标。切换逻辑通道或远端注册buffer时，需要重新调用`GetHandleRef`。
+`channelIndex`对应创建`MultiChannelHandle`时`channelDescs`中的数组下标。切换逻辑通道或远端注册buffer时，需要重新调用`GetHandleRef`。对同一个多通道批量句柄重复调用时，返回的引用指向同一个内层BatchHandle，并随最近一次调用更新其逻辑通道和远端注册内存选择。
 
 ## 批量接口约束
 
 - 仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径，不支持`COMM_PROTOCOL_ROCE`。
 - 批量流程不需要调用`Init`，其UB工作区由`MakeBatchHandle`绑定。
-- 工作区起始地址必须按32字节对齐；`batchBufferLen`至少为64字节，不能超过`batchBuffer`的实际容量，并且必须小于`sqDepth * 64`字节。
-- 每个批量`ReadNbi`或`WriteNbi`任务占用64字节工作区，每个批量`WriteWithNotifyNbi`任务占用128字节。单批次任务占用的工作区总量不能超过`batchBufferLen`。
+- 工作区起始地址必须按32字节对齐；`batchBufferLen`至少为64字节，且不能超过`batchBuffer`的实际容量。
+- 每个批量`ReadNbi`或`WriteNbi`任务占用64字节工作区，每个批量`WriteWithNotifyNbi`任务占用128字节。单批次任务占用的工作区总量不能超过`batchBufferLen`，占用的64字节任务槽位数量还必须小于Host侧创建通道资源时确定的任务提交容量，否则`BatchCommit`返回`-1`。
 - 批量接口要求`config.inlineEn = 0`，`config.cqe`只能为`0`或`1`。
-- 默认`URMA_DEFAULT_CFG`的`cqe`为`1`。若所有已提交任务均设置为`cqe = 0`，批量`Drain`会直接返回，但不能用于确认任务已经完成。
+- 默认`URMA_DEFAULT_CFG`的`cqe`为`1`，因此每个任务都会生成完成记录。若所有已提交任务均设置为`cqe = 0`，批量`Drain`会直接返回，但不能用于确认任务已经完成。
 - 在顺序和fence配置能够保证最后一个任务在之前任务之后完成时，可以只为最后一个任务设置`cqe = 1`，再通过批量`Drain`确认整批任务完成。
 - 批量`WriteNbi`和`WriteWithNotifyNbi`的远端目的区间、批量`ReadNbi`的远端源区间，必须属于创建或选择BatchHandle时指定的远端注册内存。
 - 批量`WriteWithNotifyNbi`的远端目的区间和`notifyAddr`必须属于同一远端注册内存。
