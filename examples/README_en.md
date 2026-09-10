@@ -1,5 +1,7 @@
 # asc-comm Samples
 
+English | [简体中文](./README.md)
+
 This directory contains usage samples for asc-comm APIs.
 
 ## Sample List

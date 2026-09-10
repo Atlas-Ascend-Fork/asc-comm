@@ -2,6 +2,8 @@
 
 # asc-comm
 
+English | [简体中文](./README.md)
+
 <h4>Provides Hcomm and Ain communication APIs, AIV direct drive implementation, samples and verification cases for communication scenarios on Ascend AI Processors</h4>
 
 [![docs](https://img.shields.io/badge/docs-repo-blue.svg?style=flat)](./docs)

@@ -19,15 +19,14 @@
 
 内存层级和通信能力如[图1](#fig-memory-hierarchy-communication-capability)所示：
 
-**图 1** 内存层级和通信能力
+**图 1** 内存层级和通信能力<a id="fig-memory-hierarchy-communication-capability"></a>
 
-![内存层级和通信能力](./figures/memory_model.png "内存层级和通信能力")<a id="fig-memory-hierarchy-communication-capability"></a>
+![内存层级和通信能力](./figures/memory_model.png "内存层级和通信能力")
 
 [图1](#fig-memory-hierarchy-communication-capability)从上到下展示GM、L2 Cache和执行引擎片内资源之间的层级关系，本端和远端分别拥有各自的GM、L2 Cache和片内资源。
 [图1](#fig-memory-hierarchy-communication-capability)中的箭头仅表示通信相关的数据通路，不展开AI Core内部Unified Buffer、SIMD/SIMT寄存器与计算单元之间的计算数据流。[图1](#fig-memory-hierarchy-communication-capability)只绘制了从本端到远端的写入方向；从远端到本端的读取或写入通路与之对称。
 
 在这些资源中，通信内存和CCU片上资源能够直接参与跨端通信：通信内存可以作为远端读的源范围或远端写的目的范围；CCU的CCU Buffer可以在本端CCU发起的传输中与对端GM搬运数据，CCU寄存器可以通过Channel与对端传递通信参数和同步通知。Unified Buffer和AI Core寄存器主要承担本端缓存、数据暂存和计算。基于这种能力差异，下文重点说明通信内存的组织与访问机制，以及CCU片上资源的通信方式。
-
 
 ## 通信内存
 
@@ -35,12 +34,11 @@
 
 通信开始前，控制面记录通信内存的有效范围，并为其建立通信关系和访问授权；数据面依据这些资源执行通信操作。通信内存从准备到组织的过程如[图2](#fig-communication-memory-flow)所示。
 
-**图 2** 通信内存的准备与组织
+**图 2** 通信内存的准备与组织<a id="fig-communication-memory-flow"></a>
 
-![通信内存的准备与组织](./figures/communication_memory_flow.png "通信内存的准备与组织")<a id="fig-communication-memory-flow"></a>
+![通信内存的准备与组织](./figures/communication_memory_flow.png "通信内存的准备与组织")
 
 下文依次说明通信内存如何建立远端可见性、访问凭据如何保护内存范围，以及程序如何组织通信内存并描述目标成员和内存位置。
-
 
 ### 远端可见性
 
@@ -60,7 +58,6 @@
 - 访问凭据用于表明本次操作获得了目标内存范围的访问授权。
 
 具体的通信内存注册、Channel创建和远端内存获取流程，可参考[Hcomm AIV直驱URMA样例](../../../examples/hcomm_write_read_nbi/README.md)。
-
 
 ### 访问凭据
 
@@ -83,9 +80,9 @@
 4. 成员0发起写操作时，通信任务携带内存A的本地地址和`lkey_A`，以及内存B的远端地址和`rkey_B`。
 5. 发起端通信硬件使用`lkey_A`校验对内存A的读取，目标端通信硬件使用`rkey_B`校验对内存B的写入。两项校验通过后，数据才能写入内存B。
 
-**图 3** RoCE远端写访问过程
+**图 3** RoCE远端写访问过程<a id="fig-roce-remote-write"></a>
 
-![RoCE远端写访问过程](./figures/roce_remote_write.png "RoCE远端写访问过程")<a id="fig-roce-remote-write"></a>
+![RoCE远端写访问过程](./figures/roce_remote_write.png "RoCE远端写访问过程")
 
 一次RoCE远端写同时使用发起端本地源内存的`lkey`和目标端目的内存的`rkey`。二者分别保护本地操作数和远端操作数，并与各自的注册内存范围匹配。
 
@@ -99,9 +96,9 @@
 4. 目标端通信硬件根据`tokenId_B`定位内存B对应的保护信息，使用`tokenValue_B`校验访问权限，并检查远端地址和访问长度是否落在该保护信息对应的注册范围内。
 5. `Token`和目标内存范围均匹配后，数据才能写入内存B。
 
-**图 4** UB类协议远端写访问过程
+**图 4** UB类协议远端写访问过程<a id="fig-ub-remote-write"></a>
 
-![UB类协议远端写访问过程](./figures/ub_remote_write.png "UB类协议远端写访问过程")<a id="fig-ub-remote-write"></a>
+![UB类协议远端写访问过程](./figures/ub_remote_write.png "UB类协议远端写访问过程")
 
 完成内存注册、Channel建立和访问凭据交换后，通信双方已经具备访问对端通信内存的基础条件。上层编程模型还需要向用户提供一种方式，用于指定目标成员及其内存位置。
 
@@ -220,6 +217,7 @@ CCU Buffer是CCU内部的片上缓存，支持以下数据搬运路径：
 跨端搬运由持有CCU Buffer的本端CCU发起，远端操作数位于对端GM。对端发起远端写时，目的范围位于本端GM中的通信内存。
 
 归约时，CCU可以将不同来源的数据暂存在CCU Buffer中，在片上按序完成归约，再将结果写入本端或对端GM。中间数据保留在CCU片上，可以减少集合通信过程中对GM的重复读写。
+
 ### CCU寄存器
 
 CCU寄存器位于CCU硬件内部，包括地址寄存器、通用寄存器和同步寄存器。三类寄存器分别承担以下作用：

@@ -8,44 +8,44 @@ Hcomm is the AICore-side point-to-point communication interface provided by asc-
 
 1. Include the header file.
 
-```cpp
-#include "hcomm/hcomm.h"
-```
+   ```cpp
+   #include "hcomm/hcomm.h"
+   ```
 
 2. Instantiate the Hcomm object.
 
-```cpp
-AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-```
+   ```cpp
+   AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+   ```
 
 3. Call `Init` to initialize the temporary workspace used by ordinary interfaces.
 
-```cpp
-int32_t ret = hcomm.Init(tmpBuf, tmpLen);
-```
+   ```cpp
+   int32_t ret = hcomm.Init(tmpBuf, tmpLen);
+   ```
 
 4. Submit communication tasks.
 
-```cpp
-ret = hcomm.WriteNbi(channel, dst, src, len);
-ret = hcomm.ReadNbi(channel, dst, src, len);
-ret = hcomm.WriteWithNotifyNbi(channel, dst, src, len, notifyAddr, notifyVal);
-ret = hcomm.AtomicFAA<uint64_t>(channel, remoteCounter, fetchAddr, addVal);
-ret = hcomm.AtomicCAS<uint64_t>(channel, remoteValue, fetchAddr, compareVal, swapVal);
-```
+   ```cpp
+   ret = hcomm.WriteNbi(channel, dst, src, len);
+   ret = hcomm.ReadNbi(channel, dst, src, len);
+   ret = hcomm.WriteWithNotifyNbi(channel, dst, src, len, notifyAddr,    notifyVal);
+   ret = hcomm.AtomicFAA<uint64_t>(channel, remoteCounter, fetchAddr, addVal);
+   ret = hcomm.AtomicCAS<uint64_t>(channel, remoteValue, fetchAddr, compareVal,    swapVal);
+   ```
 
 5. If `commit = false` is set during task submission, explicitly call `Commit`.
 
-```cpp
-ret = hcomm.WriteNbi<false>(channel, dst, src, len);
-ret = hcomm.Commit(channel);
-```
+   ```cpp
+   ret = hcomm.WriteNbi<false>(channel, dst, src, len);
+   ret = hcomm.Commit(channel);
+   ```
 
 6. Call ordinary `Drain` to wait for task completion.
 
-```cpp
-ret = hcomm.Drain(channel);
-```
+   ```cpp
+   ret = hcomm.Drain(channel);
+   ```
 
 ## Single-Channel BatchHandle Workflow
 
@@ -53,41 +53,41 @@ BatchHandle interfaces currently support only the `COMM_PROTOCOL_UBC_CTP` path o
 
 1. Prepare a UB buffer and create a batch handle from a `ChannelHandle`. Use `auto` to receive the return value.
 
-```cpp
-AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
-AscendC::LocalTensor<uint8_t> batchBuffer = batchTBuf.Get<uint8_t>();
-auto batchHandle = hcomm.MakeBatchHandle(
-    channel, batchBuffer, batchBufferLen, remoteAddr, localAddr);
-```
-
-A non-null `remoteAddr` must fall within a remote registered buffer of the channel. When it is null, the interface selects remote registered buffer 0. This is the only remote registration lookup: the interface caches the selected buffer's `tokenId/tokenValue`, and subsequent batch operations do not validate their remote address ranges. `localAddr` is reserved in the current version.
+   ```cpp
+   AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
+   AscendC::LocalTensor<uint8_t> batchBuffer = batchTBuf.Get<uint8_t>();
+   auto batchHandle = hcomm.MakeBatchHandle(
+       channel, batchBuffer, batchBufferLen, remoteAddr, localAddr);
+   ```
+   
+   A non-null `remoteAddr` must fall within a remote registered buffer of the    channel. When it is null, the interface selects remote registered buffer 0.    This is the only remote registration lookup: the interface caches the    selected buffer's `tokenId/tokenValue`, and subsequent batch operations do    not validate their remote address ranges. `localAddr` is reserved in the    current version.
 
 2. Prepare WQEs in the UB buffer of the BatchHandle. Read, write, and write-with-notify tasks can be mixed in the same batch.
 
-```cpp
-int32_t ret = hcomm.WriteNbi(batchHandle, remoteWriteDst, localWriteSrc, writeLen);
-ret = hcomm.ReadNbi(batchHandle, localReadDst, remoteReadSrc, readLen);
-ret = hcomm.WriteWithNotifyNbi(
-    batchHandle, remoteNotifyDst, localNotifySrc, notifyLen, notifyAddr, notifyVal);
-```
-
-These calls only prepare WQEs. They do not copy to the GM SQ or ring the doorbell. The caller must ensure that the remote Write/WriteWithNotify destination ranges, the remote Read source ranges, and `notifyAddr` all belong to the registered memory represented by the `tokenId/tokenValue` cached when the handle was created.
+   ```cpp
+   int32_t ret = hcomm.WriteNbi(batchHandle, remoteWriteDst, localWriteSrc,    writeLen);
+   ret = hcomm.ReadNbi(batchHandle, localReadDst, remoteReadSrc, readLen);
+   ret = hcomm.WriteWithNotifyNbi(
+       batchHandle, remoteNotifyDst, localNotifySrc, notifyLen, notifyAddr,    notifyVal);
+   ```
+   
+   These calls only prepare WQEs. They do not copy to the GM SQ or ring the    doorbell. The caller must ensure that the remote Write/WriteWithNotify    destination ranges, the remote Read source ranges, and `notifyAddr` all    belong to the registered memory represented by the `tokenId/tokenValue`    cached when the handle was created.
 
 3. Call `BatchCommit` to copy and submit the current batch. A successful call always rings the SQ doorbell.
 
-```cpp
-ret = hcomm.BatchCommit(batchHandle);
-```
-
-After a successful commit, the BatchHandle and UB buffer can prepare another batch. Multiple `BatchCommit` calls are allowed, but the caller must ensure that accumulated outstanding tasks do not overwrite WQEs in the SQ that have not yet been consumed. CQEs generated but not consumed since the previous batch `Drain` must not exceed the CQ capacity. Submission does not poll the CQ automatically.
+   ```cpp
+   ret = hcomm.BatchCommit(batchHandle);
+   ```
+   
+   After a successful commit, the BatchHandle and UB buffer can prepare another    batch. Multiple `BatchCommit` calls are allowed, but the caller must ensure    that accumulated outstanding tasks do not overwrite WQEs in the SQ that have    not yet been consumed. CQEs generated but not consumed since the previous    batch `Drain` must not exceed the CQ capacity. Submission does not poll the    CQ automatically.
 
 4. Call batch `Drain` to wait for submitted tasks.
 
-```cpp
-ret = hcomm.Drain(batchHandle);
-```
-
-Batch `Drain` reuses the first 64 bytes of the BatchHandle WQE buffer as CQE scratch space, so it does not require `Init`. The BatchHandle must not contain WQEs that have not been submitted through `BatchCommit`.
+   ```cpp
+   ret = hcomm.Drain(batchHandle);
+   ```
+   
+   Batch `Drain` reuses the first 64 bytes of the BatchHandle WQE buffer as CQE    scratch space, so it does not require `Init`. The BatchHandle must not    contain WQEs that have not been submitted through `BatchCommit`.
 
 ## Shared-Jetty BatchHandle Workflow
 

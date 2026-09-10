@@ -27,9 +27,9 @@
 
 AICPU_TS采用任务描述符下发模式，执行流程如[图1](#fig-aicpu-ts-direct-execution-model)所示。
 
-**图 1** AICPU_TS直驱执行机制
+**图 1** AICPU_TS直驱执行机制<a id="fig-aicpu-ts-direct-execution-model"></a>
 
-![AICPU_TS直驱执行机制](./figures/aicpu_ts_exec_model.png "AICPU_TS直驱执行机制")<a id="fig-aicpu-ts-direct-execution-model"></a>
+![AICPU_TS直驱执行机制](./figures/aicpu_ts_exec_model.png "AICPU_TS直驱执行机制")
 
 1. Host提交AICPU Kernel至任务队列。
 2. 任务调度器将AICPU Kernel分发至AICPU执行。
@@ -46,9 +46,9 @@ CCU采用专用加速单元执行模式，执行流程如[图2](#fig-ccu-direct-
 
 CCU（Collective Communication Unit，集合通信加速单元）是位于IO Die的专用集合通信协处理器。
 
-**图 2** CCU直驱执行机制
+**图 2** CCU直驱执行机制<a id="fig-ccu-direct-execution-model"></a>
 
-![CCU直驱执行机制](./figures/ccu_exec_model.png "CCU直驱执行机制")<a id="fig-ccu-direct-execution-model"></a>
+![CCU直驱执行机制](./figures/ccu_exec_model.png "CCU直驱执行机制")
 
 1. Host将CCU指令序列（由CCU可识别的指令组成）下发至CCU指令空间，同时提交CCU Kernel任务至任务队列。
 2. CCU Kernel被调度器调度后发送至CCU执行。
@@ -62,9 +62,9 @@ CCU（Collective Communication Unit，集合通信加速单元）是位于IO Die
 
 AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-execution-model)所示。
 
-**图 3** AIV直驱执行机制
+**图 3** AIV直驱执行机制<a id="fig-aiv-direct-execution-model"></a>
 
-![AIV直驱执行机制](./figures/aiv_exec_model.png "AIV直驱执行机制")<a id="fig-aiv-direct-execution-model"></a>
+![AIV直驱执行机制](./figures/aiv_exec_model.png "AIV直驱执行机制")
 
 1. Host提交AIV Kernel至任务队列。
 2. 任务调度器将AIV Kernel分发至Vector Core。
@@ -79,9 +79,9 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 事务（Transaction）指用户发起的一次独立内存或消息操作，一系列事务构成事务流，由工作队列（Work Queue，WQ）进行管理。
 如[图4](#fig-task-execution-model)所示，数据面通过构造WQE（Work Queue Element，工作队列项）描述单个事务，提交至Channel执行；再通过异步轮询完成队列（Completion Queue，CQ）判断事务是否执行完成。WQ内WQE的执行完成状态由CQ反馈，CQ中存储的CQE（Completion Queue Element，完成队列项）用于记录对应事务的执行结果。
 
-**图 4** 通信任务下发执行流程
+**图 4** 通信任务下发执行流程<a id="fig-task-execution-model"></a>
 
-![通信任务下发执行流程](./figures/task_exec_model.png "通信任务下发执行流程")<a id="fig-task-execution-model"></a>
+![通信任务下发执行流程](./figures/task_exec_model.png "通信任务下发执行流程")
 
 硬件工作队列虽按提交顺序接收WQE，但受网络路由、DMA调度、硬件通道竞争等因素影响，事务实际完成顺序可能与提交顺序不一致。当存在一组具有依赖关系的事务时，若缺少保序机制，会出现操作乱序，引发数据错乱、业务逻辑异常等问题，因此需要引入保序机制，约束事务的执行与完成顺序，保障任务按照预期逻辑执行。
 
@@ -225,9 +225,9 @@ PostProcess(sendBuf, recvBuf);    // 后处理发送数据和接收数据
 
 代理模式的执行机制如[图5](#fig-proxy-execution-model)所示。
 
-**图 5** 代理模式执行机制
+**图 5** 代理模式执行机制<a id="fig-proxy-execution-model"></a>
 
-![代理模式执行机制](./figures/proxy_execution_model.png "代理模式执行机制")<a id="fig-proxy-execution-model"></a>
+![代理模式执行机制](./figures/proxy_execution_model.png "代理模式执行机制")
 
 代理模式包含以下参与方：
 
@@ -252,8 +252,8 @@ PostProcess(sendBuf, recvBuf);    // 后处理发送数据和接收数据
 
 代理模式将通信任务交给独立的服务端执行，使服务端与客户端可以分别执行通信和计算，为通算融合提供了并行执行基础。通算融合算子可以根据数据依赖关系安排通信和计算，一种典型编排如[图6](#fig-proxy-execution-parallel)所示：
 
-**图 6** 代理模式下的通算融合编排
+**图 6** 代理模式下的通算融合编排<a id="fig-proxy-execution-parallel"></a>
 
-![代理模式下的通算融合编排](./figures/proxy_execution_parallel.png "代理模式下的通算融合编排")<a id="fig-proxy-execution-parallel"></a>
+![代理模式下的通算融合编排](./figures/proxy_execution_parallel.png "代理模式下的通算融合编排")
 
 在这种编排中，Commit发布任务执行条件后，服务端开始从源内存读取本轮数据并将通信结果写入目的内存，客户端继续使用其他数据区域执行与本轮通信没有数据依赖的计算。客户端在首次需要使用通信结果的位置执行Wait；Wait完成后，目的内存中的通信结果可以用于后续计算。通过将独立计算安排在Commit与Wait之间，通算融合算子可以重叠通信与计算的执行时间。

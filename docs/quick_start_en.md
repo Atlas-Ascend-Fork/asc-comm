@@ -1,6 +1,7 @@
 # Quick Start
 
 ## 🛠️ Environment Preparation<a name="prepare-install"></a>
+
 Select the corresponding environment setup method according to **whether local NPU devices are available** and your usage goals:
 
 <table>
@@ -33,6 +34,7 @@ Select the corresponding environment setup method according to **whether local N
 > - The `hcomm_write_read_nbi` sample requires at least two NPUs for runtime execution.
 
 ### 1️⃣ Cloud Development Environment<a name="cloud-dev-env"></a>
+
 Users without physical NPU hardware can directly use the **CANNLab Cloud Development Environment**, a one-stop development platform. It provides an online ready-to-run Ascend ARM environment with pre-installed drivers, firmware, software packages and dependencies without manual setup. This platform currently supports Atlas A2 series products and offers two access methods:
 
 - **WebIDE**: Lightweight web-based development experience.
@@ -55,6 +57,7 @@ Users without physical NPU hardware can directly use the **CANNLab Cloud Develop
 > - The [Huawei Developer Space Extension](https://marketplace.visualstudio.com/items?itemName=HuaweiCloud.developerspace) enables VSCode IDE connectivity to the cloud environment.
 
 ### 2️⃣ Official CANN Docker Image<a name="cann-docker-image"></a>
+
 Users with physical NPU hardware can develop with the official CANN Docker image.
 
 1. Verify host prerequisites
@@ -63,6 +66,7 @@ Users with physical NPU hardware can develop with the official CANN Docker image
 
 2. Pull the CANN image
     Fetch the pre-integrated CANN image from the Ascend Hub repository:
+
     ```bash
     # Example: CANN community package tag 9.0.0-beta.2
     # docker pull swr.cn-south-1.myhuaweicloud.com/ascendhub/cann:9.0.0-beta.2-910b-ubuntu22.04-py3.11
@@ -76,6 +80,7 @@ Users with physical NPU hardware can develop with the official CANN Docker image
 
 3. Launch the Docker container
     After pulling the image, start the container with dedicated parameters to grant access to host NPUs.
+
     ```bash
     docker run --name <cann_container> \
         --ipc=host --net=host --privileged \
@@ -114,9 +119,11 @@ Users with physical NPU hardware can develop with the official CANN Docker image
     | `bash` | Command executed immediately after container startup | - |
 
 ### 📥 Download and Install CANN Package<a name="cann-install"></a>
+
 CANN packages include the CANN toolkit package and CANN ops package.
 
 #### Download CANN Packages
+
 1. <a name="download-cann-commercial-community"></a>Download CANN Commercial / Community Release
     To use officially published CANN builds, visit [CANN Download Page - Ascend Community](https://www.hiascend.com/cann/download) to obtain the corresponding release.
 
@@ -124,13 +131,16 @@ CANN packages include the CANN toolkit package and CANN ops package.
     To test CANN master branch builds, visit the [CANN master OBS mirror website](https://ascend.devcloud.huaweicloud.com/artifactory/cann-run-mirror/software/master) and download the most recent CANN packages by date.
 
 #### Install CANN Packages
+
 1. Install CANN toolkit package (Mandatory)
+
     ```bash
     chmod +x Ascend-cann-toolkit_${cann_version}_linux-$(uname -m).run
     ./Ascend-cann-toolkit_${cann_version}_linux-$(uname -m).run --install --install-path=${install_path}
     ```
 
 2. Install CANN ops package (Optional)
+
     ```bash
     chmod +x Ascend-cann-${soc_name}-ops_${cann_version}_linux-$(uname -m).run
     ./Ascend-cann-${soc_name}-ops_${cann_version}_linux-$(uname -m).run --install --install-path=${install_path}
@@ -141,12 +151,13 @@ CANN packages include the CANN toolkit package and CANN ops package.
     > The [AIV direct-driven URMA Hcomm sample](../examples/hcomm_write_read_nbi/README_en.md) does not depend on the ops package. Install it later only when you require features relying on the operator package.
 
 | Parameter | Description |
-| :--- | :--- |
-| `${cann_version}` | CANN package version string |
-| `${soc_name}` | NPU model name, e.g. `910b` |
-| `${install_path}` | Installation directory. Toolkit and ops packages must share the same path. Default: `/usr/local/Ascend` for root users, `$HOME/Ascend` for non-root users |
+| :--- | :-------------------------------- |
+| `${cann_version}` | CANN package version string. |
+| `${soc_name}` | NPU model name, e.g. `910b`. |
+| `${install_path}` | Installation directory. Toolkit and ops packages must share the same path. Default: `/usr/local/Ascend` for root users, `$HOME/Ascend` for non-root users. |
 
 ## ✅ Environment Verification<a name="cann-verify"></a>
+
 > [!NOTE]
 > Precondition
 > The cloud development environment and official CANN Docker images come with pre-installed CANN packages; you may directly execute the verification commands.
@@ -154,23 +165,27 @@ CANN packages include the CANN toolkit package and CANN ops package.
 Verify environment and driver health:
 
 - **Check NPU devices**:
+
     ```bash
     # Normal output indicates functional drivers
     npu-smi info
     ```
 
 - **Check CANN package installation**:
+
     ```bash
     # View CANN Toolkit version info (default installation path)
     cat /usr/local/Ascend/cann/$(uname -m)-linux/ascend_toolkit_install.info
     ```
 
 ## ⚡ Environment Variable Setup<a name="cann-env-setup"></a>
+
 > [!NOTE]
 > Precondition
 > Cloud development environments and official CANN Docker images configure environment variables automatically; skip this section.
 
 Select the corresponding command to load environment variables:
+
 ```bash
 # Default installation path (root user example; replace /usr/local with ${HOME} for non-root users)
 source /usr/local/Ascend/cann/set_env.sh
@@ -179,51 +194,65 @@ source /usr/local/Ascend/cann/set_env.sh
 ```
 
 ## 🔨 Source Compilation Steps<a name="source-build"></a>
+
 ### 📥 Clone Source Code<a name="source-download"></a>
+
 Clone this repository:
+
 ```bash
 git clone https://gitcode.com/cann/asc-comm.git
 cd asc-comm
 ```
 
 ### 📦 Dependency Check<a name="dependency-check"></a>
+
 > [!NOTE]
 > Precondition
 > If you use **containerization technology**, required dependencies are pre-installed inside the container and this step can be skipped.
 
 Prerequisites for source compilation and UT validation:
+
 - python >= 3.7.0
 - gcc/g++ with C++17 support
 - cmake >= 3.16.0
 
 ### ⚡ Build Source Code<a name="compile-install"></a>
+
 Enter repository root and execute:
+
 ```bash
 bash build.sh
 ```
 
 ### 🧪 Unit Test Verification<a name="ut-verify"></a>
+
 #### Dependency Preparation
+
 UTs depend on googletest. If system GTest is unavailable, point `CANN_3RD_LIB_PATH` to the CANN third-party directory.
 
 #### Run UTs
+
 Option 1: Build Hcomm UTs from repository root
+
 ```bash
 bash build.sh -t
 ```
 
 Specify the CANN third-party directory when needed:
+
 ```bash
 bash build.sh -t --cann_3rd_lib_path=<path-to-third-party>
 ```
 
 Option 2: Direct CMake invocation with offline GTest path
+
 ```bash
 cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<path-to-third-party>
 cmake --build build/ut-hcomm
 ```
 
 #### Open-Source Third-Party Dependencies
+
 Third-party open-source software used for UT execution:
 
 | Software | Version |
@@ -231,10 +260,12 @@ Third-party open-source software used for UT execution:
 | googletest | 1.14.0 |
 
 ### 🧩 Sample Verification<a name="sample-verify"></a>
+
 [hcomm_write_read_nbi](../examples/hcomm_write_read_nbi/README_en.md) provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`.
 The sample supports Ascend 950PR / Ascend 950DT and requires CANN 9.1.0 or newer. At least two NPUs are required for runtime; single-NPU environments only support compilation verification.
 
 Navigate to the sample directory and run:
+
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
 cd examples/hcomm_write_read_nbi
@@ -246,6 +277,7 @@ make -j
 ```
 
 Successful execution outputs:
+
 ```text
 rank 0 test pass!
 rank 1 test pass!

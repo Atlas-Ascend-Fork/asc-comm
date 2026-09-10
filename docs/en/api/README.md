@@ -8,6 +8,7 @@
 | [DestroyMultiChannelHandle](./host/hcomm/DestroyMultiChannelHandle.md) | Release multi-channel resources created through the Hcomm Endpoint path. |
 
 ## AICore Hcomm
+
 | Document | Description |
 | --- | --- |
 | [Hcomm](./aicore/hcomm/Hcomm.md) | Overview of AICore-side point-to-point communication interface template, protocol capabilities and usage constraints. |
@@ -66,6 +67,7 @@ AICore side:
 ```
 
 ## Related Documents
+
 - [Hcomm Usage Guide](../guide/hcomm_usage.md)
 - [AIV Direct-driven URMA WriteNbi/ReadNbi Sample](../../../examples/hcomm_write_read_nbi/README_en.md)
 - [Ain Basic Ring Sample](../../../examples/ain/basic_ring/README_en.md)
