@@ -41,6 +41,7 @@ HcclResult check_thread_entity(HcommThreadEntity *thread, bool registerThread)
     CHK_PTR_NULL(thread->sqContextAddr);
     if (registerThread) {
         asccomm_register_thread(thread);
+        CHK_RET(asccomm_ensure_rtsq_resolved(*thread));
     }
     return HCCL_SUCCESS;
 }
