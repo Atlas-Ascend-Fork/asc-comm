@@ -488,8 +488,8 @@ __aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef
 
 template <HcommUrmaOpCode opCode, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
-    UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t sgeNum,
-    GM_ADDR notifyAddr, uint64_t notifyVal)
+    UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t sgeNum, GM_ADDR notifyAddr,
+    uint64_t notifyVal)
 {
     static_assert(
         opCode == HcommUrmaOpCode::WRITE || opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY ||
@@ -499,22 +499,19 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
     static_assert(config.inlineEn == 0, "BatchPostSend does not support inline data");
 
     constexpr bool withNotify = opCode == HcommUrmaOpCode::WRITE_WITH_NOTIFY;
-    constexpr uint32_t maxSgeNum =
-        withNotify ? HCOMM_URMA_BATCH_NOTIFY_MAX_SGE_NUM : HCOMM_URMA_BATCH_DATA_MAX_SGE_NUM;
+    constexpr uint32_t maxSgeNum = withNotify ? HCOMM_URMA_BATCH_NOTIFY_MAX_SGE_NUM : HCOMM_URMA_BATCH_DATA_MAX_SGE_NUM;
     if (sgeNum < HCOMM_URMA_BATCH_MIN_SGE_NUM || sgeNum > maxSgeNum) {
         HCOMM_KERNEL_LOG(
-            KERNEL_ERROR, "Hcomm BatchPostSend failed with invalid SGE count sgeNum=%u validRange=[%u, %u]\n",
-            sgeNum, HCOMM_URMA_BATCH_MIN_SGE_NUM, maxSgeNum);
+            KERNEL_ERROR, "Hcomm BatchPostSend failed with invalid SGE count sgeNum=%u validRange=[%u, %u]\n", sgeNum,
+            HCOMM_URMA_BATCH_MIN_SGE_NUM, maxSgeNum);
         return HCOMM_FAILED;
     }
 
-    constexpr uint32_t fixedBytes =
-        sizeof(HcommUrmaSqeCtx) + (withNotify ? sizeof(HcommUrmaNotifyCtx) : 0U);
+    constexpr uint32_t fixedBytes = sizeof(HcommUrmaSqeCtx) + (withNotify ? sizeof(HcommUrmaNotifyCtx) : 0U);
     uint32_t wqeBytes = fixedBytes + sgeNum * sizeof(HcommUrmaSgeCtx);
     uint32_t wqebbCount = (wqeBytes + HCOMM_URMA_WQEBB_SIZE - 1U) / HCOMM_URMA_WQEBB_SIZE;
     uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
-    if (preSqCnt > batchHandle.buffer.bufferCapacity ||
-        wqebbCount > batchHandle.buffer.bufferCapacity - preSqCnt) {
+    if (preSqCnt > batchHandle.buffer.bufferCapacity || wqebbCount > batchHandle.buffer.bufferCapacity - preSqCnt) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend failed with insufficient buffer\n");
         return HCOMM_FAILED;
     }

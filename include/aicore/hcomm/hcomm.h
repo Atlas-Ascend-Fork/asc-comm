@@ -157,8 +157,7 @@ public:
      *       a valid descriptor array, payload addresses and lengths.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t WriteNbi(
-        T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum);
+    __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum);
 
     /*!
      * @class Hcomm
@@ -264,8 +263,7 @@ public:
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteWithNotifyNbi(
-        T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr,
-        uint64_t notifyVal);
+        T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr, uint64_t notifyVal);
 
     /*!
      * @class Hcomm
@@ -360,8 +358,7 @@ public:
      *       provide a valid descriptor array, payload addresses and lengths.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
-    __aicore__ inline int32_t ReadNbi(
-        T& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src);
+    __aicore__ inline int32_t ReadNbi(T& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src);
 
     /*!
      * @class Hcomm

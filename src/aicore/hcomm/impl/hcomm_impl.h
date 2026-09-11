@@ -113,11 +113,9 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
 template <CommProtocol commProtocol>
 template <auto const& config, typename T, typename HandleTraits<T>::ChannelType*>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
-    T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr,
-    uint64_t notifyVal)
+    T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
-    return impl_.template WriteWithNotifyNbi<config>(
-        batchHandle, dst, srcDescs, srcNum, notifyAddr, notifyVal);
+    return impl_.template WriteWithNotifyNbi<config>(batchHandle, dst, srcDescs, srcNum, notifyAddr, notifyVal);
 }
 
 template <CommProtocol commProtocol>

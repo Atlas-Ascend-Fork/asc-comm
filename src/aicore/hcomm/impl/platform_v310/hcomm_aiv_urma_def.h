@@ -46,8 +46,7 @@ constexpr uint32_t HCOMM_URMA_BATCH_MAX_WQEBB_NUM = HCOMM_URMA_BATCH_MAX_WQE_BYT
 constexpr uint32_t HCOMM_URMA_BATCH_DATA_MAX_SGE_NUM =
     (HCOMM_URMA_BATCH_MAX_WQE_BYTES - sizeof(HcommUrmaSqeCtx)) / sizeof(HcommUrmaSgeCtx);
 constexpr uint32_t HCOMM_URMA_BATCH_NOTIFY_MAX_SGE_NUM =
-    (HCOMM_URMA_BATCH_MAX_WQE_BYTES - sizeof(HcommUrmaSqeCtx) - sizeof(HcommUrmaNotifyCtx)) /
-    sizeof(HcommUrmaSgeCtx);
+    (HCOMM_URMA_BATCH_MAX_WQE_BYTES - sizeof(HcommUrmaSqeCtx) - sizeof(HcommUrmaNotifyCtx)) / sizeof(HcommUrmaSgeCtx);
 
 constexpr uint32_t HCOMM_URMA_INVALID_REDUCE_DATA_TYPE = 0xFFFFFFFFU;
 template <typename T>
