@@ -14,7 +14,7 @@ Ascend C通信编程采用控制面与数据面分工的方式。控制面运行
 
 从开发者视角出发，一次通信过程可以分为资源准备、前同步、算子执行和后同步四个阶段，如[图1](#fig-communication-operator-workflow)所示。
 
-**图1** 通信算子基本流程<a id="fig-communication-operator-workflow"></a>
+**图 1** 通信算子基本流程<a id="fig-communication-operator-workflow"></a>
 
 ![通信算子基本流程](./figures/communication_operator_workflow.png)
 
@@ -38,6 +38,7 @@ Ascend C通信编程采用控制面与数据面分工的方式。控制面运行
 | [通信模型](./communication_model.md) | 介绍通信实体、Endpoint、Channel和通信内存等对象之间的关系。 |
 | [内存模型](./memory_model.md) | 介绍通信相关存储资源、通信内存的远端可见性、访问授权和寻址方式。 |
 | [执行模型](./execution_model.md) | 介绍通信任务从准备、提交、执行、同步到完成的过程。 |
+| [CCU编程](./ccu_programming.md) | 介绍CCU的硬件架构和编程模型。 |
 
 ## 产品支持情况
 
