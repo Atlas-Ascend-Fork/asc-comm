@@ -41,6 +41,10 @@ asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载A
 
 当前公开能力包括`AscendC::Hcomm`点对点通信和`AscendC::Ain`单边通信，面向算子Kernel侧通信数据路径。Hcomm侧使用方通过`AscendC::Hcomm`模板选择通信协议：普通接口通过`ChannelHandle`逐条提交通信任务；Ascend 950 UBC_CTP路径还可以通过BatchHandle添加多个通信任务，并通过`BatchCommit`统一提交。两种流程分别通过对应的`Drain`重载管理完成等待。Ain侧使用方通过`AscendC::Ain`模板基于对称窗口（Symmetric Window）发起`Put`/`Get`/`Signal`等单边操作，通过`Flush`或`FlushAsync`+`Wait`管理完成等待。
 
+### 交付与构建方式
+
+asc-comm 数据面产物（`libasccomm_ccu_dataplane.so`、CCU DSL 头和其 hcomm ABI 头副本）由 asc-devkit run 包联合编译并交付；本仓以构建挂接方式成为 asc-devkit 的构建子工程（源码仓独立、同级放置）。编译期不依赖 hcomm 源码树或已安装 hcomm 头文件；跨 SO ABI 头原样保存在本仓 `include/hcomm` 下。本仓另提供开发期头文件热补丁包（`build.sh --pkg`，仅 aicore 头，不含 SO）。
+
 ### 数据面能力
 
 | 能力 | 当前状态 |

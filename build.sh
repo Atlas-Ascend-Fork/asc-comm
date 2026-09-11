@@ -186,10 +186,32 @@ function build () {
     cmake --build "${build_dir}" "$@" -j "${THREAD_NUM}"
 }
 
+function run_ccu_ut() {
+    local ut_build_dir="$1"
+    local ccu_ctest_dir="${ut_build_dir}/ccu_hcomm"
+
+    if [[ ! -f "${ccu_ctest_dir}/CTestTestfile.cmake" ]]; then
+        log "ERROR" "CCU CTest registration not found: ${ccu_ctest_dir}"
+        return 1
+    fi
+
+    log "INFO" "run CCU UT through CTest"
+    (cd "${ccu_ctest_dir}" && ctest --output-on-failure)
+}
+
+function collect_coverage() {
+    local ut_build_dir="$1"
+
+    log "INFO" "collect UT coverage report"
+    cmake --build "${ut_build_dir}" --target collect_coverage_data -j "${THREAD_NUM}"
+}
+
 main(){
     parse_args "$@"
     set_env
     echo "${CUSTOM_OPTION[@]}"
+    local ut_build_dir="${BUILD_DIR}/ut-hcomm"
+
     if [[ "${AICPU_DATA_PLANE}" == true ]]; then
         local aicpu_build_dir="${BUILD_DIR}/aicpu-data-plane"
         # 根CMakeLists的ASCCOMM_BUILD_AICPU默认OFF(第三方嵌入只需CCU)，独立构建数据面时显式开启；
@@ -219,13 +241,12 @@ main(){
         TARGETS=""
     fi
 
-    if [[ "${TEST}" == true ]]; then
-        local ut_build_dir="${BUILD_DIR}/ut-hcomm"
-        cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
-        build "${ut_build_dir}" ${TARGETS}
-        if [[ "${COV}" == true ]]; then
-            log "INFO" "coverage report generated at ${ut_build_dir}/cov_report/index.html"
-        fi
+    cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
+    build "${ut_build_dir}"
+    run_ccu_ut "${ut_build_dir}"
+    if [[ "${COV}" == true ]]; then
+        collect_coverage "${ut_build_dir}"
+        log "INFO" "coverage report generated at ${ut_build_dir}/cov_report/index.html"
     fi
 }
 

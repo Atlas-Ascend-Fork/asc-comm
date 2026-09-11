@@ -96,8 +96,11 @@ public:
      *                         remote registered buffer is selected. Ignored for ChannelHandle.
      * @return A batch handle reference for the selected logical channel and remote registered memory. For
      *         ChannelHandle, returns the input handle itself.
-     * @note Batch operations through the returned handle must access the selected remote registered memory. Repeated
-     *       calls for one MultiChannelHandle return the same inner handle reference and update its current selection.
+     * @note For ChannelHandle, remote memory remains bound as selected by MakeBatchHandle. For MultiChannelHandle,
+     *       batch operations through the returned handle access the selected remote registered memory. Repeated calls
+     *       return the same inner handle reference and update its current selection. Different requests in one batch
+     *       may select different logical channels. Add each request immediately after its GetHandleRef call; all
+     *       segments of one scatter/gather request use that selected channel, and one request cannot span channels.
      */
     template <typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline BatchHandle<T>& GetHandleRef(T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
@@ -113,7 +116,8 @@ public:
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
-     * @param [in] len: The length of the data to write, using byte as the basic unit.
+     * @param [in] len: The length of the data to write, using byte as the basic unit. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
      */
@@ -130,11 +134,31 @@ public:
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The remote destination address in the remote registered memory selected for batchHandle.
      * @param [in] src: The local source address.
-     * @param [in] len: The length of the data to write in bytes.
+     * @param [in] len: The length of the data to write in bytes. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @return 0 indicates success and -1 indicates failure.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+
+    /*!
+     * @brief Add a scatter/gather Write task to a batch handle. Data is gathered from srcDescs in array order and
+     *        written contiguously starting at dst.
+     * @tparam config: URMA task control config. Inline data is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
+     *                              one logical channel of a multi-channel batch.
+     * @param [out] dst: The remote destination base address. Source segments are written contiguously from this
+     *                   address in srcDescs order.
+     * @param [in] srcDescs: The local source buffer descriptor array.
+     * @param [in] srcNum: The number of elements in srcDescs.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note In multi-channel mode, the immediately preceding GetHandleRef call selects the logical channel for this
+     *       task. All source segments are sent through that channel and cannot span channels. The caller must provide
+     *       a valid descriptor array, payload addresses and lengths.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum);
 
     /*!
      * @class Hcomm
@@ -189,7 +213,8 @@ public:
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
-     * @param [in] len: The length of the data to write, using byte as the basic unit.
+     * @param [in] len: The length of the data to write, using byte as the basic unit. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @param [in] notifyAddr: The remote notify address.
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
@@ -209,7 +234,8 @@ public:
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The remote destination address in the remote registered memory selected for batchHandle.
      * @param [in] src: The local source address.
-     * @param [in] len: The length of the data to write in bytes.
+     * @param [in] len: The length of the data to write in bytes. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @param [in] notifyAddr: The remote notify address. It must belong to the same remote registered memory as dst.
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
@@ -217,6 +243,28 @@ public:
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteWithNotifyNbi(
         T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
+
+    /*!
+     * @brief Add a scatter/gather Write-with-notify task to a batch handle. Data is gathered from srcDescs in array
+     *        order and written contiguously starting at dst.
+     * @tparam config: URMA task control config. Inline data is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
+     *                              one logical channel of a multi-channel batch.
+     * @param [out] dst: The remote destination base address. Source segments are written contiguously from this
+     *                   address in srcDescs order.
+     * @param [in] srcDescs: The local source buffer descriptor array.
+     * @param [in] srcNum: The number of elements in srcDescs.
+     * @param [in] notifyAddr: The remote notify address.
+     * @param [in] notifyVal: The remote notify value.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note In multi-channel mode, the immediately preceding GetHandleRef call selects the logical channel for this
+     *       task. All source segments and the notification use that channel and cannot span channels. The caller must
+     *       provide a valid descriptor array, payload/notify addresses and lengths.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr, uint64_t notifyVal);
 
     /*!
      * @class Hcomm
@@ -270,7 +318,8 @@ public:
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
-     * @param [in] len: The length of the data to read, using byte as the basic unit.
+     * @param [in] len: The length of the data to read, using byte as the basic unit. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
      */
@@ -287,11 +336,31 @@ public:
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The local destination address.
      * @param [in] src: The remote source address in the remote registered memory selected for batchHandle.
-     * @param [in] len: The length of the data to read in bytes.
+     * @param [in] len: The length of the data to read in bytes. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @return 0 indicates success and -1 indicates failure.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+
+    /*!
+     * @brief Add a scatter/gather Read task to a batch handle. Data is read contiguously starting at src and scattered
+     *        into dstDescs in array order.
+     * @tparam config: URMA task control config. Inline data is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
+     *                              one logical channel of a multi-channel batch.
+     * @param [in] dstDescs: The local destination buffer descriptor array. The payload is scattered into these
+     *                       buffers in array order.
+     * @param [in] dstNum: The number of elements in dstDescs.
+     * @param [in] src: The remote source base address. The total payload is read contiguously from this address.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note In multi-channel mode, the immediately preceding GetHandleRef call selects the logical channel for this
+     *       task. All destination segments receive data through that channel and cannot span channels. The caller must
+     *       provide a valid descriptor array, payload addresses and lengths.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t ReadNbi(T& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src);
 
     /*!
      * @class Hcomm
