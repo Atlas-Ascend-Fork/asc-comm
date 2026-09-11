@@ -32,11 +32,11 @@
 
 ## 直驱模式
 
-如[图1](#fig-direct-communication-model)所示，Rank 0与Rank 1两个通信实体之间的通信流程整体划分为**控制面通信资源创建**和**数据面通信任务执行**两个阶段：黑色实线代表控制面的资源创建与绑定过程，棕色实线代表数据面的任务下发流程。
+Rank 0与Rank 1两个通信实体之间的通信流程整体划分为**控制面通信资源创建**和**数据面通信任务执行**两个阶段：黑色实线代表控制面的资源创建与绑定过程，棕色实线代表数据面的任务下发流程，具体如[图1](#fig-direct-communication-model)所示。
 
-**图1** 直驱通信模型
+**图1** 直驱通信模型<a id="fig-direct-communication-model"></a>
 
-![直驱通信模型](./figures/direct_communication_model.png "直驱通信模型")<a id="fig-direct-communication-model"></a>
+![直驱通信模型](./figures/direct_communication_model.png "直驱通信模型")
 
 ### 控制面：创建通信资源
 
@@ -56,9 +56,9 @@
 
 使用AICPU_TS服务端时，AI Core与AICPU_TS通过消息区传递通信请求和任务状态，本端与对端之间的数据通过通信通路传输，具体如[图2](#fig-aicpu-ts-proxy-communication-model)所示。
 
-**图2** AICPU_TS代理模式通信模型
+**图2** AICPU_TS代理模式通信模型<a id="fig-aicpu-ts-proxy-communication-model"></a>
 
-![AICPU_TS代理模式通信模型](./figures/aicpu_proxy_communication_model.png "AICPU_TS代理模式通信模型")<a id="fig-aicpu-ts-proxy-communication-model"></a>
+![AICPU_TS代理模式通信模型](./figures/aicpu_proxy_communication_model.png "AICPU_TS代理模式通信模型")
 
 AI Core客户端通过消息区写入通信请求和任务参数，并通知AICPU_TS处理；AICPU_TS服务端读取请求后操作Channel完成本端与对端之间的数据传输，再通过消息区返回完成状态。
 
@@ -66,8 +66,8 @@ AI Core客户端通过消息区写入通信请求和任务参数，并通知AICP
 
 使用CCU服务端时，AI Core与CCU通过通用寄存器和同步寄存器传递通信请求和任务状态。通用寄存器保存通信操作、数据位置和数据量等信息，同步寄存器记录任务开始和完成状态，具体如[图3](#fig-ccu-proxy-communication-model)所示。
 
-**图3** CCU代理模式通信模型
+**图3** CCU代理模式通信模型<a id="fig-ccu-proxy-communication-model"></a>
 
-![CCU代理模式通信模型](./figures/ccu_proxy_communication_model.png "CCU代理模式通信模型")<a id="fig-ccu-proxy-communication-model"></a>
+![CCU代理模式通信模型](./figures/ccu_proxy_communication_model.png "CCU代理模式通信模型")
 
 AI Core客户端通过通用寄存器写入通信请求和任务参数，并通过同步寄存器通知CCU处理；CCU服务端读取请求后操作Channel完成本端与对端之间的数据传输，再更新同步寄存器中的完成状态。
