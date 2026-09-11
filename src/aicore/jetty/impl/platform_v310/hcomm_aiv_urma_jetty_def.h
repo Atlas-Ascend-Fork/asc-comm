@@ -16,17 +16,15 @@ namespace AscendC {
 class HcommJettyImpl {
 public:
     __aicore__ inline HcommJettyImpl(
-        __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe,
-        GM_ADDR jettyTable, uint32_t jettyIdx);
+        __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe, GM_ADDR jettyTable, uint32_t jettyIdx);
 
     template <int64_t timeoutCycles, bool withNotify, bool doCommit>
     __aicore__ inline int32_t PostWrite(
-        const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes,
-        GM_ADDR notifyAddr, uint64_t notifyValue, uint32_t numWqebbs);
+        const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes, GM_ADDR notifyAddr,
+        uint64_t notifyValue, uint32_t numWqebbs);
 
     template <int64_t timeoutCycles, typename T, bool doCommit>
-    __aicore__ inline int32_t PostWriteValue(
-        const HcommPeer& peer, GM_ADDR dstAddr, T value, uint32_t numWqebbs);
+    __aicore__ inline int32_t PostWriteValue(const HcommPeer& peer, GM_ADDR dstAddr, T value, uint32_t numWqebbs);
 
     template <int64_t timeoutCycles>
     __aicore__ inline int32_t Drain();
@@ -44,16 +42,15 @@ private:
 
     template <bool withNotify>
     __aicore__ inline bool BuildWriteSqe(
-        const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes,
-        uint32_t currentHead, GM_ADDR notifyAddr, uint64_t notifyValue);
+        const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes, uint32_t currentHead,
+        GM_ADDR notifyAddr, uint64_t notifyValue);
 
     template <typename T>
-    __aicore__ inline bool BuildWriteValueSqe(
-        const HcommPeer& peer, GM_ADDR dstAddr, T value, uint32_t currentHead);
+    __aicore__ inline bool BuildWriteValueSqe(const HcommPeer& peer, GM_ADDR dstAddr, T value, uint32_t currentHead);
 
     __aicore__ inline void FillWriteSqeHeader(
-        const HcommPeer& peer, GM_ADDR dstAddr, uint32_t currentHead, uint32_t opcode,
-        uint32_t inlineMsgLen, uint32_t sgeNum, const UrmaWqeEntry& config);
+        const HcommPeer& peer, GM_ADDR dstAddr, uint32_t currentHead, uint32_t opcode, uint32_t inlineMsgLen,
+        uint32_t sgeNum, const UrmaWqeEntry& config);
 
     __aicore__ inline void CopySqeToSq(uint32_t currentHead, uint32_t numWqebbs);
 

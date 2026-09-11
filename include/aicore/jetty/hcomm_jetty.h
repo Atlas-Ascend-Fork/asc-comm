@@ -30,20 +30,20 @@ struct alignas(8) HcommJettyPeerInfo {
 static_assert(sizeof(HcommJettyPeerInfo) == 48U, "HcommJettyPeerInfo must be 48 bytes");
 
 struct alignas(8) HcommJettyInfo {
-    uint64_t sqBaseAddr;         // SQ base address in device memory.
-    uint64_t sqHeadAddr;         // Address of the packed 64-bit SQ head: low 32 bits are the head in
-                                 // WQEBBs, high 32 bits are the expected CQE count.
-    uint64_t sqTailAddr; // Address of the 32-bit SQ completion tail published by the hardware.
-    uint64_t sqDoorbellAddr;     // SQ doorbell address.
-    uint64_t cqBaseAddr;         // CQ base address in device memory.
-    uint64_t cqTailAddr;         // Address of the 32-bit CQ tail.
-    uint64_t cqDoorbellAddr;     // CQ doorbell address.
-    uint32_t sqHead;             // SQ producer head in WQEBBs.
-    uint32_t expectedCqeCnt;     // Number of CQEs expected from the submitted WQEs.
-    uint32_t numWqebbBytes;      // WQEBB size in bytes.
-    uint32_t numCqeBytes;        // CQE size in bytes.
-    uint32_t sqDepth;            // SQ depth in WQEBBs.
-    uint32_t cqDepth;            // CQ depth in CQEs.
+    uint64_t sqBaseAddr;     // SQ base address in device memory.
+    uint64_t sqHeadAddr;     // Address of the packed 64-bit SQ head: low 32 bits are the head in
+                             // WQEBBs, high 32 bits are the expected CQE count.
+    uint64_t sqTailAddr;     // Address of the 32-bit SQ completion tail published by the hardware.
+    uint64_t sqDoorbellAddr; // SQ doorbell address.
+    uint64_t cqBaseAddr;     // CQ base address in device memory.
+    uint64_t cqTailAddr;     // Address of the 32-bit CQ tail.
+    uint64_t cqDoorbellAddr; // CQ doorbell address.
+    uint32_t sqHead;         // SQ producer head in WQEBBs.
+    uint32_t expectedCqeCnt; // Number of CQEs expected from the submitted WQEs.
+    uint32_t numWqebbBytes;  // WQEBB size in bytes.
+    uint32_t numCqeBytes;    // CQE size in bytes.
+    uint32_t sqDepth;        // SQ depth in WQEBBs.
+    uint32_t cqDepth;        // CQ depth in CQEs.
 };
 static_assert(sizeof(HcommJettyInfo) == 80U, "HcommJettyInfo must be 80 bytes");
 
@@ -58,8 +58,7 @@ struct HcommPeer {
      * @param [in] jettyIdx: The index of the jetty in the table.
      * @note Must be called after the jetty is initialized; violations trap in debug builds.
      */
-    __aicore__ inline HcommPeer(
-        __ubuf__ HcommJettyPeerInfo* peerInfo, GM_ADDR jettyTable, uint32_t jettyIdx);
+    __aicore__ inline HcommPeer(__ubuf__ HcommJettyPeerInfo* peerInfo, GM_ADDR jettyTable, uint32_t jettyIdx);
 };
 
 } // namespace AscendC
@@ -93,8 +92,7 @@ public:
      * @note Must be called after the jetty is initialized; violations trap in debug builds.
      */
     __aicore__ inline HcommJetty(
-        __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe,
-        GM_ADDR jettyTable, uint32_t jettyIdx);
+        __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe, GM_ADDR jettyTable, uint32_t jettyIdx);
 
     /*!
      * @brief Enqueue a URMA write WQE on the jetty SQ without waiting for completion.
@@ -108,8 +106,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      */
     template <int64_t timeoutCycles, bool doCommit = true>
-    __aicore__ inline int32_t Write(
-        const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes);
+    __aicore__ inline int32_t Write(const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes);
 
     /*!
      * @brief Enqueue a URMA write WQE that carries the value inline in a single WQEBB.
@@ -122,8 +119,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      */
     template <int64_t timeoutCycles, typename T, bool doCommit = true>
-    __aicore__ inline int32_t WriteValue(
-        const HcommPeer& peer, GM_ADDR dstAddr, T value);
+    __aicore__ inline int32_t WriteValue(const HcommPeer& peer, GM_ADDR dstAddr, T value);
 
     /*!
      * @brief Enqueue a URMA write WQE and notify the remote side once it completes.
@@ -138,8 +134,8 @@ public:
      */
     template <int64_t timeoutCycles>
     __aicore__ inline int32_t WriteWithNotify(
-        const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes,
-        GM_ADDR notifyAddr, uint64_t notifyValue);
+        const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes, GM_ADDR notifyAddr,
+        uint64_t notifyValue);
 
     /*!
      * @brief Poll the CQ until all submitted WQEs complete.

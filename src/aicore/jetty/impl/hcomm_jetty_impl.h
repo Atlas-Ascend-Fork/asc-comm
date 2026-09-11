@@ -18,33 +18,29 @@
 namespace AscendC {
 
 __aicore__ inline HcommJetty::HcommJetty(
-    __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe,
-    GM_ADDR jettyTable, uint32_t jettyIdx)
+    __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe, GM_ADDR jettyTable, uint32_t jettyIdx)
     : impl_(jettyInfo, ubufSqe, jettyTable, jettyIdx)
 {}
 
 template <int64_t timeoutCycles, bool doCommit>
-__aicore__ inline int32_t HcommJetty::Write(
-    const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes)
+__aicore__ inline int32_t HcommJetty::Write(const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes)
 {
     return impl_.PostWrite<timeoutCycles, false, doCommit>(
         peer, dstAddr, srcAddr, numBytes, nullptr, 0U, kNumWriteWqebbs);
 }
 
 template <int64_t timeoutCycles, typename T, bool doCommit>
-__aicore__ inline int32_t HcommJetty::WriteValue(
-    const HcommPeer& peer, GM_ADDR dstAddr, T value)
+__aicore__ inline int32_t HcommJetty::WriteValue(const HcommPeer& peer, GM_ADDR dstAddr, T value)
 {
-    static_assert(sizeof(T) <= kNumWriteWqebbs * 64U - sizeof(HcommUrmaSqeCtx),
-        "WriteValue value is too large for one WQEBB");
-    return impl_.PostWriteValue<timeoutCycles, T, doCommit>(
-        peer, dstAddr, value, kNumWriteWqebbs);
+    static_assert(
+        sizeof(T) <= kNumWriteWqebbs * 64U - sizeof(HcommUrmaSqeCtx), "WriteValue value is too large for one WQEBB");
+    return impl_.PostWriteValue<timeoutCycles, T, doCommit>(peer, dstAddr, value, kNumWriteWqebbs);
 }
 
 template <int64_t timeoutCycles>
 __aicore__ inline int32_t HcommJetty::WriteWithNotify(
-    const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes,
-    GM_ADDR notifyAddr, uint64_t notifyValue)
+    const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes, GM_ADDR notifyAddr,
+    uint64_t notifyValue)
 {
     return impl_.PostWrite<timeoutCycles, true, true>(
         peer, dstAddr, srcAddr, numBytes, notifyAddr, notifyValue, kNumWriteWithNotifyWqebbs);
@@ -56,15 +52,9 @@ __aicore__ inline int32_t HcommJetty::Drain()
     return impl_.Drain<timeoutCycles>();
 }
 
-__aicore__ inline void HcommJetty::AdvanceSq(uint32_t numWqebbs)
-{
-    impl_.AdvanceSq(numWqebbs);
-}
+__aicore__ inline void HcommJetty::AdvanceSq(uint32_t numWqebbs) { impl_.AdvanceSq(numWqebbs); }
 
-__aicore__ inline void HcommJetty::RingDoorbell()
-{
-    impl_.RingDoorbell();
-}
+__aicore__ inline void HcommJetty::RingDoorbell() { impl_.RingDoorbell(); }
 
 } // namespace AscendC
 
