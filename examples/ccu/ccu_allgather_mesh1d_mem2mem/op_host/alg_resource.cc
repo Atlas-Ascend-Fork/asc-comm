@@ -22,7 +22,7 @@
 #include <sstream>
 #include <vector>
 
-#include <hccl/hccl.h>
+#include <hccl/hccl_comm.h>
 #include <hccl/hccl_rank_graph.h>
 #include <hccl/hcomm_primitives.h>
 
