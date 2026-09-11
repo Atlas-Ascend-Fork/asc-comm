@@ -12,7 +12,8 @@ enable_language(ASC)
 set(ASCCOMM_DFX_ROOT ${CMAKE_CURRENT_LIST_DIR})
 get_filename_component(ASCCOMM_ROOT ${ASCCOMM_DFX_ROOT}/../../../../ ABSOLUTE)
 
-ascendc_library(mc2_client_dfx SHARED hcomm_dfx.asc)
+set_source_files_properties(hcomm_dfx.cpp PROPERTIES LANGUAGE ASC)
+ascendc_library(mc2_client_dfx SHARED hcomm_dfx.cpp)
 set_target_properties(mc2_client_dfx PROPERTIES OUTPUT_NAME mc2_client_dfx)
 target_include_directories(mc2_client_dfx PRIVATE
     ${ASCCOMM_ROOT}/include
