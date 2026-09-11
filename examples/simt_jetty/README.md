@@ -32,6 +32,13 @@ bash build.sh
 CCE_RES_USAGE=1 bash build.sh
 ```
 
+调试时可打开 SIMT Jetty 的参数、地址和队列状态校验；Release 默认编译掉这些判断：
+
+```bash
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug -DHCOMM_SIMT_JETTY_DEBUG_CHECKS=ON
+cmake --build build-debug --parallel 4
+```
+
 ## 执行
 
 ```bash

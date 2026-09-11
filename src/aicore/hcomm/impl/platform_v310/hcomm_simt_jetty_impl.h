@@ -58,6 +58,12 @@ struct HcommCoopTraits<HcommCoopGroup> {
 
 namespace jetty {
 
+#if defined(ASCENDC_DEBUG) || defined(HCOMM_SIMT_JETTY_DEBUG)
+inline constexpr bool kDebugChecks = true;
+#else
+inline constexpr bool kDebugChecks = false;
+#endif
+
 constexpr uint32_t kWqebbBytes = 64U;
 constexpr uint32_t kWqebbLanes = kWqebbBytes / sizeof(uint64_t);
 constexpr uint32_t kWarpSize = 32U;
@@ -70,6 +76,24 @@ constexpr uint64_t kNopHeader = 0x0000110000000000ULL;
 constexpr uint64_t kFinalFlags = (1ULL << 18U) | (1ULL << 19U) | (1ULL << 21U);
 constexpr uint64_t kNopControlFlags = (1ULL << 28U) | (1ULL << 29U);
 constexpr uint64_t kNopFinalFlags = (1ULL << 16U) | kFinalFlags | kNopControlFlags;
+
+enum class HcommPostOpcode : uint8_t {
+    kWrite,
+    kWriteValue,
+    kWriteWithNotify,
+};
+
+template <uint32_t kSgeNum, HcommPostOpcode kOpcode>
+__simt_callee__ constexpr uint32_t PostSendPayloadWqebbs()
+{
+    if constexpr (kOpcode == HcommPostOpcode::kWrite) {
+        return (kSqeHeaderWords + kSgeNum * 2U + kWqebbLanes - 1U) / kWqebbLanes;
+    } else if constexpr (kOpcode == HcommPostOpcode::kWriteWithNotify) {
+        return 2U;
+    } else {
+        return 1U;
+    }
+}
 
 struct alignas(8) HcommPeerInfo {
     uint64_t tpIdNumSgesRemoteTokenId = 0U;
@@ -176,13 +200,20 @@ struct HcommPeer {
         __ubuf__ HcommPeerInfo* info, __gm__ void* jettyTable, uint32_t jettyIdx)
     {
         const uint64_t table = reinterpret_cast<uint64_t>(jettyTable);
+        if constexpr (kDebugChecks) {
+            if (table == 0U || info == nullptr) return;
+        }
         const uint64_t channelAddr = *reinterpret_cast<__gm__ uint64_t*>(table + jettyIdx * sizeof(uint64_t));
         Attach(info, channelAddr);
-        if (channelAddr == 0U || info == nullptr) return;
+        if constexpr (kDebugChecks) {
+            if (channelAddr == 0U) return;
+        }
         const uint64_t sqCtxAddr = detail::Load<uint64_t>(channelAddr, offsetof(ChannelEntity, sqContextAddr));
         const uint64_t rbAddr = detail::Load<uint64_t>(channelAddr, offsetof(ChannelEntity, remoteBufferAddr));
         const uint32_t rbNum = detail::Load<uint32_t>(channelAddr, offsetof(ChannelEntity, remoteBufferNum));
-        if (sqCtxAddr == 0U || rbAddr == 0U || rbNum == 0U) return;
+        if constexpr (kDebugChecks) {
+            if (sqCtxAddr == 0U || rbAddr == 0U || rbNum == 0U) return;
+        }
         auto* sq = reinterpret_cast<__gm__ SqContext*>(sqCtxAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
         auto* rb = reinterpret_cast<__gm__ RegedBufferEntity*>(rbAddr) + rbNum - 1U;
         info->tpIdNumSgesRemoteTokenId = static_cast<uint64_t>(sq->contextInfo.ubJfs.tpID) |
@@ -226,13 +257,20 @@ public:
         __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
     {
         const uint64_t tableAddr = reinterpret_cast<uint64_t>(table);
+        if constexpr (kDebugChecks) {
+            if (tableAddr == 0U || info == nullptr) return;
+        }
         const uint64_t channelAddr =
-            tableAddr == 0U ? 0U : *reinterpret_cast<__gm__ uint64_t*>(tableAddr + index * sizeof(uint64_t));
+            *reinterpret_cast<__gm__ uint64_t*>(tableAddr + index * sizeof(uint64_t));
         Attach(info, stage, channelAddr);
-        if (channelAddr == 0U || info == nullptr) return;
+        if constexpr (kDebugChecks) {
+            if (channelAddr == 0U) return;
+        }
         const uint64_t sqCtxAddr = detail::Load<uint64_t>(channelAddr, offsetof(ChannelEntity, sqContextAddr));
         const uint64_t cqCtxAddr = detail::Load<uint64_t>(channelAddr, offsetof(ChannelEntity, cqContextAddr));
-        if (sqCtxAddr == 0U || cqCtxAddr == 0U) return;
+        if constexpr (kDebugChecks) {
+            if (sqCtxAddr == 0U || cqCtxAddr == 0U) return;
+        }
         auto* sq = reinterpret_cast<__gm__ SqContext*>(sqCtxAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
         auto* cq = reinterpret_cast<__gm__ CqContext*>(cqCtxAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
         info->sqBaseAddr = sq->contextInfo.ubJfs.sqVa;
@@ -246,9 +284,10 @@ public:
         info->numCqeBytes = cq->contextInfo.ubJfc.cqeSize;
         info->sqDepth = sq->contextInfo.ubJfs.sqDepth;
         info->cqDepth = cq->contextInfo.ubJfc.cqDepth;
-        if (info->sqHeadAddr != 0U) {
-            info->packedHead = *reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr);
+        if constexpr (kDebugChecks) {
+            if (info->sqHeadAddr == 0U) return;
         }
+        info->packedHead = *reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr);
     }
     __simt_callee__ __forceinline__ void Attach(
         __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
@@ -268,13 +307,17 @@ public:
     {
         static_assert(kSlots > 0U && kSlots <= kSlotWqebbs, "invalid SQ reservation");
         auto* info = Info();
-        if (info == nullptr || info->sqDepth == 0U || info->sqHeadAddr == 0U) return -1;
+        if constexpr (kDebugChecks) {
+            if (info == nullptr || info->sqDepth == 0U || info->sqHeadAddr == 0U ||
+                info->completionTailAddr == 0U) return -1;
+        }
         auto* head = reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead);
         auto* tail = reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
+        const uint32_t depth = info->sqDepth;
         for (uint32_t retry = 0U; retry < 1024U; ++retry) {
             const uint32_t oldHead = *head;
-            const uint32_t consumed = tail == nullptr ? 0U : (oldHead - *tail);
-            if (consumed > info->sqDepth || kSlots > info->sqDepth - consumed) return -1;
+            const uint32_t consumed = oldHead - *tail;
+            if (consumed > depth || kSlots > depth - consumed) return -1;
             if (asc_atomic_cas(head, oldHead, oldHead + kSlots) == oldHead) {
                 if (!implicitActive_) {
                     implicitBeginHead_ = oldHead;
@@ -299,65 +342,122 @@ public:
         const uint32_t rank = static_cast<uint32_t>(coop.thread_rank());
         const uint32_t laneRank = rank % kWarpSize;
         const bool active = laneRank < kMaxSges;
-        uint32_t mask = asc_ballot(active && detail::Valid(laneSge));
+        const uint32_t mask = asc_ballot(active && detail::Valid(laneSge));
         const uint32_t count = static_cast<uint32_t>(__builtin_popcount(mask));
+        return PostSend<kMaxSges, HcommPostOpcode::kWrite, kDoCommit>(
+            coop, peer, dst, laneSge, nullptr, mask, count, nullptr, 0U, nullptr, 0U, nullptr, 0U);
+    }
+
+    template <uint32_t kMaxSges, bool kDoCommit = true>
+    __simt_callee__ __forceinline__ int32_t Write(
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges]) const
+    {
+        HcommCoopThread thread;
+        const uint32_t count = CountValidSges(sges);
+        return PostSend<kMaxSges, HcommPostOpcode::kWrite, kDoCommit>(
+            thread, peer, dst, HcommSge{}, sges, 0U, count, nullptr, 0U, nullptr, 0U, nullptr, 0U);
+    }
+
+private:
+    template <uint32_t kSgeNum, HcommPostOpcode kOpcode, bool kDoCommit, typename Coop>
+    __simt_callee__ __forceinline__ int32_t PostSend(
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge,
+        const HcommSge* scalarSges, const uint32_t mask, const uint32_t count, __gm__ void* src,
+        const uint64_t len, __gm__ void* notifyAddr, const uint64_t notifyValue,
+        const uint8_t* inlineValue, const uint32_t inlineBytes) const
+    {
+        static_assert(kOpcode == HcommPostOpcode::kWrite || kSgeNum == 0U,
+                      "non-write posts do not carry SGEs");
+        static_assert(kSgeNum <= kMaxSges, "invalid SGE count");
+        constexpr uint32_t kReserveWqebbs = kOpcode == HcommPostOpcode::kWriteWithNotify ? 2U : kSlotWqebbs;
+        static_assert(kReserveWqebbs >= PostSendPayloadWqebbs<kSgeNum, kOpcode>(),
+                      "post-send payload does not fit the reserved SQ slot");
+        const uint32_t rank = static_cast<uint32_t>(coop.thread_rank());
+        const uint32_t laneRank = rank % kWarpSize;
         if (coop.size() == 1) {
-            if (laneRank != 0U || count == 0U) return -1;
-            const int32_t result = WriteScalar<kMaxSges>(peer, dst, laneSge);
-            if (result == 0 && kDoCommit) Commit();
-            return result;
-        }
-        const bool hasValidSge = count != 0U;
-        coop.sync();
-        if (!hasValidSge) {
+            if constexpr (kOpcode == HcommPostOpcode::kWrite) {
+                if (count == 0U) return -1;
+            }
+        } else {
+            const bool hasValidSge = kOpcode == HcommPostOpcode::kWrite && count != 0U;
             coop.sync();
-            // A thread-block group may contain inactive warps. They still report success so
-            // every lane reaches the group-wide Commit synchronization.
-            return 0;
+            if (!hasValidSge) {
+                coop.sync();
+                return 0;
+            }
         }
+
         uint32_t head = 0xFFFFFFFFU;
-        if (laneRank == 0U) {
-            if (Reserve<kSlotWqebbs>() == 0) head = implicitBeginHead_;
+        if (coop.size() == 1) {
+            if (Reserve<kReserveWqebbs>() == 0) head = implicitBeginHead_;
+        } else if (laneRank == 0U) {
+            if (Reserve<kReserveWqebbs>() == 0) head = implicitBeginHead_;
         }
-        head = asc_shfl(head, 0, kWarpSize);
+        if (coop.size() > 1) head = asc_shfl(head, 0, kWarpSize);
         if (head == 0xFFFFFFFFU) {
-            coop.sync();
-            // Keep a block-wide group aligned with Commit even when its writer warp
-            // cannot reserve an SQ slot.
+            if (coop.size() > 1) coop.sync();
             return coop.size() > kWarpSize ? 0 : -1;
         }
-        const uint32_t depth = Info()->sqDepth;
-        const uint32_t payloadWords = kSqeHeaderWords + count * 2U;
+
+        const uint32_t payloadWords =
+            kOpcode == HcommPostOpcode::kWrite ? kSqeHeaderWords + count * 2U :
+            kOpcode == HcommPostOpcode::kWriteValue ? kSqeHeaderWords + (inlineBytes + 7U) / 8U :
+            2U * kWqebbLanes;
         implicitPayloadWqebbs_ = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
-        const uint32_t lane = static_cast<uint32_t>(laneid());
-        for (uint32_t wordIndex = lane; wordIndex < kSlotWqebbs * kWqebbLanes; wordIndex += kWarpSize) {
-            const uint32_t word = wordIndex;
+        const uint32_t depth = Info()->sqDepth;
+        const uint32_t totalWords = kReserveWqebbs * kWqebbLanes;
+        const uint32_t workerCount = static_cast<uint32_t>(coop.size());
+        const uint32_t stepWords = (coop.size() > 1 ? workerCount : 1U) * 2U;
+        const uint32_t firstWord = (coop.size() > 1 ? rank : 0U) * 2U;
+        for (uint32_t word = firstWord; word < totalWords; word += stepWords) {
             const uint32_t bbHead = head + word / kWqebbLanes;
             const uint32_t sqIdx = bbHead & (depth - 1U);
             const uint64_t owner = static_cast<uint64_t>(detail::Owner(bbHead, depth)) << 31U;
-            const bool isSgeWord = word >= kSqeHeaderWords && word < kSqeHeaderWords + count * 2U;
-            const int sourceOrdinal = isSgeWord ? static_cast<int>((word - kSqeHeaderWords) / 2U) : -1;
-            uint64_t packedSgeAddr = 0U;
-            int packedSgeLen = 0;
-            detail::PackWarpSge(laneSge, mask, sourceOrdinal, packedSgeAddr, packedSgeLen);
-            uint64_t value = 0U;
-            if (word == 0U) value = kWriteHeader | owner | sqIdx;
-            else if (word < kSqeHeaderWords) value = detail::PeerWord(peer.Info(), word, count, dst);
-            else if (isSgeWord) {
-                const bool isLen = ((word - kSqeHeaderWords) & 1U) == 0U;
-                value = isLen ? static_cast<uint64_t>(packedSgeLen) : packedSgeAddr;
-            } else if ((word % kWqebbLanes) == 0U) {
-                const uint32_t nopHead = head + word / kWqebbLanes;
-                value = kNopHeader | (static_cast<uint64_t>(detail::Owner(nopHead, depth)) << 31U) |
-                    (nopHead & 0xFFFFU);
+            const bool firstIsSge = kOpcode == HcommPostOpcode::kWrite &&
+                word >= kSqeHeaderWords && word < payloadWords;
+            const bool secondIsSge = kOpcode == HcommPostOpcode::kWrite &&
+                word + 1U >= kSqeHeaderWords && word + 1U < payloadWords;
+            uint64_t firstAddr = 0U;
+            int firstLen = 0;
+            uint64_t secondAddr = 0U;
+            int secondLen = 0;
+            if constexpr (kOpcode == HcommPostOpcode::kWrite && HcommCoopTraits<Coop>::kWarpCapable) {
+                if (firstIsSge) {
+                    const int ordinal = static_cast<int>((word - kSqeHeaderWords) / 2U);
+                    detail::PackWarpSge(laneSge, mask, ordinal, firstAddr, firstLen);
+                    secondAddr = firstAddr;
+                    secondLen = firstLen;
+                }
+            } else if constexpr (kOpcode == HcommPostOpcode::kWrite) {
+                uint32_t seen = 0U;
+                for (uint32_t i = 0U; i < kSgeNum; ++i) {
+                    if (detail::Valid(scalarSges[i])) {
+                        if (firstIsSge && seen == (word - kSqeHeaderWords) / 2U) {
+                            firstAddr = scalarSges[i].addr;
+                            firstLen = scalarSges[i].len;
+                        }
+                        if (secondIsSge && seen == (word - kSqeHeaderWords + 1U) / 2U) {
+                            secondAddr = scalarSges[i].addr;
+                            secondLen = scalarSges[i].len;
+                        }
+                        ++seen;
+                    }
+                }
             }
-            const uint32_t pairWord = word & ~1U;
-            const uint64_t second = asc_shfl(value, static_cast<int>(pairWord + 1U), kWarpSize);
-            if ((word & 1U) == 0U) {
-                auto* dstWords = reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr) +
-                    static_cast<uint64_t>(sqIdx) * kWqebbLanes + (word % kWqebbLanes);
-                asc_stwt(reinterpret_cast<__gm__ ulonglong2*>(dstWords), make_ulonglong2(value, second));
+            const uint32_t secondWord = word + 1U;
+            uint64_t first = 0U;
+            uint64_t second = 0U;
+            if constexpr (kOpcode == HcommPostOpcode::kWrite) {
+                first = BuildWriteWord(peer, dst, word, sqIdx, owner, count, payloadWords, firstAddr, firstLen);
+                second = BuildWriteWord(peer, dst, secondWord, sqIdx, owner, count, payloadWords, secondAddr, secondLen);
+            } else if constexpr (kOpcode == HcommPostOpcode::kWriteValue) {
+                first = BuildValueWord(peer, dst, word, sqIdx, owner, inlineValue, inlineBytes, payloadWords);
+                second = BuildValueWord(peer, dst, secondWord, sqIdx, owner, inlineValue, inlineBytes, payloadWords);
+            } else {
+                first = BuildNotifyWord(peer, dst, word, sqIdx, owner, src, len, notifyAddr, notifyValue);
+                second = BuildNotifyWord(peer, dst, secondWord, sqIdx, owner, src, len, notifyAddr, notifyValue);
             }
+            StoreSqePair(reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr), depth, head, word, first, second);
         }
         asc_threadfence();
         coop.sync();
@@ -365,16 +465,6 @@ public:
         return 0;
     }
 
-    template <uint32_t kMaxSges, bool kDoCommit = true>
-    __simt_callee__ __forceinline__ int32_t Write(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges]) const
-    {
-        const int32_t result = WriteScalarArray<kMaxSges>(peer, dst, sges);
-        if (result == 0 && kDoCommit) Commit();
-        return result;
-    }
-
-private:
     template <uint32_t kMaxSges, typename Coop>
     __simt_callee__ __forceinline__ int32_t WriteTwoBb(
         const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const
@@ -458,9 +548,10 @@ public:
         const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len)
     {
         HcommSge sge{reinterpret_cast<uint64_t>(src), static_cast<int>(len)};
-        const int32_t result = WriteScalar<1U>(peer, dst, sge);
-        if (result == 0 && kDoCommit) Commit();
-        return result;
+        HcommCoopThread thread;
+        return PostSend<1U, HcommPostOpcode::kWrite, kDoCommit>(
+            thread, peer, dst, HcommSge{}, &sge, 0U, detail::Valid(sge) ? 1U : 0U,
+            nullptr, 0U, nullptr, 0U, nullptr, 0U);
     }
 
     template <int64_t, typename T, bool kDoCommit = true>
@@ -468,37 +559,10 @@ public:
     {
         static_assert(sizeof(T) <= kWqebbBytes - kSqeHeaderWords * sizeof(uint64_t),
                       "inline value does not fit in a URMA WQEBB");
-        if (Reserve<kSlotWqebbs>() != 0) return -1;
-        implicitPayloadWqebbs_ = (kSqeHeaderWords + (sizeof(T) + 7U) / 8U + kWqebbLanes - 1U) / kWqebbLanes;
-        auto* info = Info();
-        const uint32_t head = implicitBeginHead_;
-        const uint32_t depth = info->sqDepth;
-        auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
-        for (uint32_t word = 0U; word < kSlotWqebbs * kWqebbLanes; word += 2U) {
-            uint64_t values[2] = {};
-            for (uint32_t j = 0U; j < 2U; ++j) {
-                const uint32_t w = word + j;
-                const uint32_t bb = head + w / kWqebbLanes;
-                const uint32_t idx = bb & (depth - 1U);
-                if (w == 0U) values[j] = kWriteHeader | (static_cast<uint64_t>(detail::Owner(bb, depth)) << 31U) |
-                    idx | (1ULL << 22U) | (static_cast<uint64_t>(sizeof(T) & 0x3FFU) << 54U);
-                else if (w < kSqeHeaderWords) values[j] = detail::PeerWord(peer.Info(), w, 0U, dst);
-                else if (w < kSqeHeaderWords + (sizeof(T) + 7U) / 8U) {
-                    const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&value);
-                    const uint32_t offset = (w - kSqeHeaderWords) * 8U;
-                    for (uint32_t b = 0U; b < 8U && offset + b < sizeof(T); ++b)
-                        values[j] |= static_cast<uint64_t>(bytes[offset + b]) << (8U * b);
-                } else if (w % kWqebbLanes == 0U) values[j] = kNopHeader |
-                    (static_cast<uint64_t>(detail::Owner(bb, depth)) << 31U) | idx;
-            }
-            const uint32_t bb = head + word / kWqebbLanes;
-            const uint32_t idx = bb & (depth - 1U);
-            asc_stwt(reinterpret_cast<__gm__ ulonglong2*>(sq + static_cast<uint64_t>(idx) * kWqebbLanes + word % kWqebbLanes),
-                     make_ulonglong2(values[0], values[1]));
-        }
-        asc_threadfence();
-        if (kDoCommit) Commit();
-        return 0;
+        HcommCoopThread thread;
+        return PostSend<0U, HcommPostOpcode::kWriteValue, kDoCommit>(
+            thread, peer, dst, HcommSge{}, nullptr, 0U, 0U, nullptr, 0U, nullptr, 0U,
+            reinterpret_cast<const uint8_t*>(&value), sizeof(T));
     }
 
     template <int64_t, bool kDoCommit = true>
@@ -506,38 +570,9 @@ public:
         const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len,
         __gm__ void* notifyAddr, uint64_t notifyValue)
     {
-        if (Reserve<2U>() != 0) return -1;
-        implicitPayloadWqebbs_ = 2U;
-        auto* info = Info();
-        const uint32_t head = implicitBeginHead_;
-        const uint32_t depth = info->sqDepth;
-        auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
-        for (uint32_t word = 0U; word < 2U * kWqebbLanes; word += 2U) {
-            uint64_t values[2] = {};
-            for (uint32_t j = 0U; j < 2U; ++j) {
-                const uint32_t w = word + j;
-                const uint32_t bb = head + w / kWqebbLanes;
-                const uint32_t idx = bb & (depth - 1U);
-                if (w == 0U) values[j] = (kWriteHeader & ~(0xFFULL << 40U)) |
-                    (static_cast<uint64_t>(0x0CU) << 40U) |
-                    (static_cast<uint64_t>(detail::Owner(bb, depth)) << 31U) | idx;
-                else if (w < kSqeHeaderWords) values[j] = detail::PeerWord(peer.Info(), w, 1U, dst);
-                else if (w == kSqeHeaderWords) values[j] =
-                    static_cast<uint64_t>((peer.Info()->tpIdNumSgesRemoteTokenId >> 32U) & 0xFFFFFU) |
-                    ((peer.Info()->remoteTokenValueUdf & 0xFFFFFFFFULL) << 32U);
-                else if (w == kSqeHeaderWords + 1U) values[j] = reinterpret_cast<uint64_t>(notifyAddr);
-                else if (w == kSqeHeaderWords + 2U) values[j] = notifyValue;
-                else if (w == kSqeHeaderWords + 4U) values[j] = static_cast<uint64_t>(len);
-                else if (w == kSqeHeaderWords + 5U) values[j] = reinterpret_cast<uint64_t>(src);
-            }
-            const uint32_t bb = head + word / kWqebbLanes;
-            const uint32_t idx = bb & (depth - 1U);
-            asc_stwt(reinterpret_cast<__gm__ ulonglong2*>(sq + static_cast<uint64_t>(idx) * kWqebbLanes + word % kWqebbLanes),
-                     make_ulonglong2(values[0], values[1]));
-        }
-        asc_threadfence();
-        if (kDoCommit) Commit();
-        return 0;
+        HcommCoopThread thread;
+        return PostSend<0U, HcommPostOpcode::kWriteWithNotify, kDoCommit>(
+            thread, peer, dst, HcommSge{}, nullptr, 0U, 0U, src, len, notifyAddr, notifyValue, nullptr, 0U);
     }
 
     template <typename Coop>
@@ -553,12 +588,15 @@ public:
         auto* info = Info();
         const uint32_t end = static_cast<uint32_t>(*reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead));
         const uint32_t begin = implicitBeginHead_;
-        if (end <= begin) return;
         const uint32_t reservedWqebbs = implicitReservedWqebbs_;
-        if (reservedWqebbs > kSlotWqebbs || reservedWqebbs > end - begin) return;
+        if constexpr (kDebugChecks) {
+            if (end <= begin || reservedWqebbs > kSlotWqebbs || reservedWqebbs > end - begin) return;
+        }
         const uint32_t last = end - reservedWqebbs;
         const uint32_t payloadWqebbs = implicitPayloadWqebbs_ == 0U ? reservedWqebbs : implicitPayloadWqebbs_;
-        if (payloadWqebbs > reservedWqebbs) return;
+        if constexpr (kDebugChecks) {
+            if (payloadWqebbs > reservedWqebbs) return;
+        }
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
         const uint32_t idx = last & (info->sqDepth - 1U);
         const uint64_t owner = static_cast<uint64_t>(detail::Owner(last, info->sqDepth)) << 31U;
@@ -603,7 +641,9 @@ public:
     __simt_callee__ __forceinline__ void PublishSq() const
     {
         auto* info = Info();
-        if (info == nullptr || info->sqHeadAddr == 0U || info->sqDoorbellAddr == 0U) return;
+        if constexpr (kDebugChecks) {
+            if (info == nullptr || info->sqHeadAddr == 0U || info->sqDoorbellAddr == 0U) return;
+        }
         info->packedHead = *reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr);
         *reinterpret_cast<__gm__ uint32_t*>(info->sqDoorbellAddr) = static_cast<uint32_t>(info->packedHead);
     }
@@ -611,7 +651,11 @@ public:
     __simt_callee__ __forceinline__ int32_t Drain() const
     {
         auto* info = Info();
-        if (info == nullptr || info->cqTailAddr == 0U) return -1;
+        if constexpr (kDebugChecks) {
+            if (info == nullptr || info->cqTailAddr == 0U || info->cqBaseAddr == 0U ||
+                info->cqDepth == 0U || info->numCqeBytes == 0U || info->completionTailAddr == 0U ||
+                info->cqDoorbellAddr == 0U) return -1;
+        }
         const uint32_t expected = static_cast<uint32_t>(info->packedHead >> 32U);
         auto* tail = reinterpret_cast<__gm__ uint32_t*>(info->cqTailAddr);
         auto* sqTail = reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
@@ -659,15 +703,6 @@ private:
     mutable bool implicitActive_ = false;
 
     template <uint32_t kMaxSges>
-    __simt_callee__ __forceinline__ int32_t WriteScalar(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
-    {
-        HcommSge one[kMaxSges] = {};
-        one[0] = sge;
-        return WriteScalarArray<kMaxSges>(peer, dst, one);
-    }
-
-    template <uint32_t kMaxSges>
     __simt_callee__ __forceinline__ static uint32_t CountValidSges(const HcommSge (&sges)[kMaxSges])
     {
         uint32_t count = 0U;
@@ -678,25 +713,7 @@ private:
         return count;
     }
 
-    template <uint32_t kMaxSges>
-    __simt_callee__ __forceinline__ static void GetValidSge(
-        const HcommSge (&sges)[kMaxSges], const uint32_t ordinal, uint64_t& addr, int& len)
-    {
-        uint32_t seen = 0U;
-#pragma unroll
-        for (uint32_t i = 0U; i < kMaxSges; ++i) {
-            if (detail::Valid(sges[i])) {
-                if (seen == ordinal) {
-                    addr = sges[i].addr;
-                    len = sges[i].len;
-                    return;
-                }
-                ++seen;
-            }
-        }
-    }
-
-    __simt_callee__ __forceinline__ static uint64_t BuildScalarWriteWord(
+    __simt_callee__ __forceinline__ static uint64_t BuildWriteWord(
         const HcommPeer& peer, __gm__ void* dst, const uint32_t word, const uint32_t sqIdx,
         const uint64_t owner, const uint32_t count, const uint32_t payloadWords, const uint64_t sgeAddr,
         const int sgeLen)
@@ -707,6 +724,47 @@ private:
             return ((word - kSqeHeaderWords) & 1U) == 0U ? static_cast<uint64_t>(sgeLen) : sgeAddr;
         }
         if ((word % kWqebbLanes) == 0U) return kNopHeader | owner | sqIdx;
+        return 0U;
+    }
+
+    __simt_callee__ __forceinline__ static uint64_t BuildValueWord(
+        const HcommPeer& peer, __gm__ void* dst, const uint32_t word, const uint32_t sqIdx,
+        const uint64_t owner, const uint8_t* value, const uint32_t valueBytes, const uint32_t payloadWords)
+    {
+        if (word == 0U) {
+            return kWriteHeader | owner | sqIdx | (1ULL << 22U) |
+                (static_cast<uint64_t>(valueBytes & 0x3FFU) << 54U);
+        }
+        if (word < kSqeHeaderWords) return detail::PeerWord(peer.Info(), word, 0U, dst);
+        if (word < payloadWords) {
+            const uint32_t offset = (word - kSqeHeaderWords) * sizeof(uint64_t);
+            uint64_t result = 0U;
+            for (uint32_t byte = 0U; byte < sizeof(uint64_t) && offset + byte < valueBytes; ++byte) {
+                result |= static_cast<uint64_t>(value[offset + byte]) << (byte * 8U);
+            }
+            return result;
+        }
+        if ((word % kWqebbLanes) == 0U) return kNopHeader | owner | sqIdx;
+        return 0U;
+    }
+
+    __simt_callee__ __forceinline__ static uint64_t BuildNotifyWord(
+        const HcommPeer& peer, __gm__ void* dst, const uint32_t word, const uint32_t sqIdx,
+        const uint64_t owner, __gm__ void* src, const uint64_t len, __gm__ void* notifyAddr,
+        const uint64_t notifyValue)
+    {
+        if (word == 0U) {
+            return (kWriteHeader & ~(0xFFULL << 40U)) | (static_cast<uint64_t>(0x0CU) << 40U) | owner | sqIdx;
+        }
+        if (word < kSqeHeaderWords) return detail::PeerWord(peer.Info(), word, 1U, dst);
+        if (word == kSqeHeaderWords) {
+            return static_cast<uint64_t>((peer.Info()->tpIdNumSgesRemoteTokenId >> 32U) & 0xFFFFFU) |
+                ((peer.Info()->remoteTokenValueUdf & 0xFFFFFFFFULL) << 32U);
+        }
+        if (word == kSqeHeaderWords + 1U) return reinterpret_cast<uint64_t>(notifyAddr);
+        if (word == kSqeHeaderWords + 2U) return notifyValue;
+        if (word == kSqeHeaderWords + 4U) return static_cast<uint64_t>(len);
+        if (word == kSqeHeaderWords + 5U) return reinterpret_cast<uint64_t>(src);
         return 0U;
     }
 
@@ -721,43 +779,6 @@ private:
         asc_stwt(pairs + (firstWord % kWqebbLanes) / 2U, make_ulonglong2(first, second));
     }
 
-    template <uint32_t kMaxSges>
-    __simt_callee__ __forceinline__ int32_t WriteScalarArray(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges]) const
-    {
-        static_assert(kMaxSges > 0U && kMaxSges <= 12U, "invalid scalar SGE count");
-        const uint32_t count = CountValidSges(sges);
-        if (count == 0U || count > kMaxSges) return -1;
-        if (Reserve<kSlotWqebbs>() != 0) return -1;
-        const uint32_t payloadWords = kSqeHeaderWords + count * 2U;
-        implicitPayloadWqebbs_ = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
-        const uint32_t head = implicitBeginHead_;
-        auto* info = Info();
-        auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
-        for (uint32_t firstWord = 0U; firstWord < kSlotWqebbs * kWqebbLanes; firstWord += 2U) {
-            const uint32_t bbHead = head + firstWord / kWqebbLanes;
-            const uint32_t idx = bbHead & (info->sqDepth - 1U);
-            const uint64_t owner = static_cast<uint64_t>(detail::Owner(bbHead, info->sqDepth)) << 31U;
-            uint64_t firstAddr = 0U;
-            int firstLen = 0;
-            if (firstWord >= kSqeHeaderWords && firstWord < payloadWords) {
-                GetValidSge(sges, (firstWord - kSqeHeaderWords) / 2U, firstAddr, firstLen);
-            }
-            const uint32_t secondWord = firstWord + 1U;
-            uint64_t secondAddr = 0U;
-            int secondLen = 0;
-            if (secondWord >= kSqeHeaderWords && secondWord < payloadWords) {
-                GetValidSge(sges, (secondWord - kSqeHeaderWords) / 2U, secondAddr, secondLen);
-            }
-            const uint64_t first = BuildScalarWriteWord(
-                peer, dst, firstWord, idx, owner, count, payloadWords, firstAddr, firstLen);
-            const uint64_t second = BuildScalarWriteWord(
-                peer, dst, secondWord, idx, owner, count, payloadWords, secondAddr, secondLen);
-            StoreSqePair(sq, info->sqDepth, head, firstWord, first, second);
-        }
-        asc_threadfence();
-        return 0;
-    }
 };
 
 } // namespace AscendC::simt::jetty

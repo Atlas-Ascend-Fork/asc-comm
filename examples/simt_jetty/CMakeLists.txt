@@ -20,6 +20,7 @@ find_package(ASC REQUIRED)
 project(simt_jetty LANGUAGES ASC CXX)
 
 option(HCOMM_CCE_RES_USAGE "Print CCE stack and register usage" OFF)
+option(HCOMM_SIMT_JETTY_DEBUG_CHECKS "Enable SIMT Jetty runtime validation" OFF)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -32,7 +33,10 @@ add_executable(simt_jetty
     op_kernel.cpp
 )
 
-target_compile_definitions(simt_jetty PRIVATE USE_SIMT)
+target_compile_definitions(simt_jetty PRIVATE
+    USE_SIMT
+    $<$<OR:$<CONFIG:Debug>,$<BOOL:${HCOMM_SIMT_JETTY_DEBUG_CHECKS}>>:HCOMM_SIMT_JETTY_DEBUG>
+)
 
 set_target_properties(simt_jetty PROPERTIES LINKER_LANGUAGE ASC)
 
