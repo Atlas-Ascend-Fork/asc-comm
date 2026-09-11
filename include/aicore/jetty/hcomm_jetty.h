@@ -21,9 +21,10 @@
 namespace AscendC {
 
 struct alignas(8) HcommJettyPeerInfo {
-    uint64_t tpIdNumSgesRemoteTokenId;
+    uint32_t tpId;
+    uint32_t remoteTokenId;
     uint64_t remoteEid[2];
-    uint64_t remoteTokenValueUdf;
+    uint64_t remoteTokenValue;
     uint64_t remoteBaseAddr;
     uint64_t remoteBufferSize;
 };

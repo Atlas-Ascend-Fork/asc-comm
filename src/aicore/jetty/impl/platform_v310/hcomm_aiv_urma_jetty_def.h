@@ -36,23 +36,23 @@ public:
 private:
     __aicore__ inline bool Ready();
 
-    // Submit the SQE already staged in ubufSqe_: poll for SQ space, copy, advance and ring the doorbell.
+    // Submit the WQE already staged in ubufSqe_: poll for SQ space, copy, advance and ring the doorbell.
     template <int64_t timeoutCycles, bool doCommit>
     __aicore__ inline int32_t PostSqe(uint32_t numWqebbs);
 
     template <bool withNotify>
-    __aicore__ inline bool BuildWriteSqe(
-        const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes, uint32_t currentHead,
-        GM_ADDR notifyAddr, uint64_t notifyValue);
+    __aicore__ inline void BuildWriteSqe(
+        const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes, GM_ADDR notifyAddr,
+        uint64_t notifyValue);
 
     template <typename T>
-    __aicore__ inline bool BuildWriteValueSqe(const HcommPeer& peer, GM_ADDR dstAddr, T value, uint32_t currentHead);
+    __aicore__ inline void BuildWriteValueSqe(const HcommPeer& peer, GM_ADDR dstAddr, T value);
 
+    template <HcommUrmaOpCode opCode, auto const& config>
     __aicore__ inline void FillWriteSqeHeader(
-        const HcommPeer& peer, GM_ADDR dstAddr, uint32_t currentHead, uint32_t opcode, uint32_t inlineMsgLen,
-        uint32_t sgeNum, const UrmaWqeEntry& config);
+        const HcommPeer& peer, GM_ADDR dstAddr, uint32_t inlineMsgLen, uint32_t sgeNum);
 
-    __aicore__ inline void CopySqeToSq(uint32_t currentHead, uint32_t numWqebbs);
+    __aicore__ inline void CopyWqeToSq(uint32_t currentHead, uint32_t numWqebbs);
 
     template <int64_t timeoutCycles>
     __aicore__ inline int32_t PollCq(uint32_t expectedTail);

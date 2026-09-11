@@ -47,11 +47,10 @@ __aicore__ inline HcommPeer::HcommPeer(__ubuf__ HcommJettyPeerInfo* peerInfo, GM
         "jetty info is nullptr\n");
     // The last registered buffer carries the shared remote token metadata.
     auto* remoteBuffer = jetty->remoteBufferAddr + (jetty->remoteBufferNum - 1U);
-    peerInfo->remoteTokenValueUdf = remoteBuffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    peerInfo->remoteTokenValue = remoteBuffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    peerInfo->remoteTokenId = remoteBuffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
     auto* sqContext = jetty->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
-    peerInfo->tpIdNumSgesRemoteTokenId =
-        static_cast<uint64_t>(sqContext->contextInfo.ubJfs.tpID) |
-        (static_cast<uint64_t>(remoteBuffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId) << 32U);
+    peerInfo->tpId = sqContext->contextInfo.ubJfs.tpID;
     auto* remoteEid = reinterpret_cast<const uint32_t*>(sqContext->contextInfo.ubJfs.remoteEID);
     peerInfo->remoteEid[0] = static_cast<uint64_t>(remoteEid[0]) | (static_cast<uint64_t>(remoteEid[1]) << 32U);
     peerInfo->remoteEid[1] = static_cast<uint64_t>(remoteEid[2]) | (static_cast<uint64_t>(remoteEid[3]) << 32U);
@@ -87,44 +86,37 @@ __aicore__ inline HcommJettyImpl::HcommJettyImpl(
     valid_ = true;
 }
 
+template <HcommUrmaOpCode opCode, auto const& config>
 __aicore__ inline void HcommJettyImpl::FillWriteSqeHeader(
-    const HcommPeer& peer, GM_ADDR dstAddr, uint32_t currentHead, uint32_t opcode, uint32_t inlineMsgLen,
-    uint32_t sgeNum, const UrmaWqeEntry& config)
+    const HcommPeer& peer, GM_ADDR dstAddr, uint32_t inlineMsgLen, uint32_t sgeNum)
 {
     auto* info = peer.peerInfo;
-    const uint32_t tpId = static_cast<uint32_t>(info->tpIdNumSgesRemoteTokenId);
-    const uint32_t remoteTokenId = static_cast<uint32_t>(info->tpIdNumSgesRemoteTokenId >> 32U);
-    const uint32_t remoteTokenValue = static_cast<uint32_t>(info->remoteTokenValueUdf);
-    const uint32_t owner = (currentHead & jettyInfo_->sqDepth) == 0U ? 1U : 0U;
+    const uint32_t owner = (jettyInfo_->sqHead & jettyInfo_->sqDepth) == 0U ? 1U : 0U;
     // Fill HcommUrmaSqeCtx with one 64-bit store per word: word0/1 pack the bitfields, word5 is rmtAddr.
     __ubuf__ uint64_t* sqeWords = reinterpret_cast<__ubuf__ uint64_t*>(ubufSqe_);
     sqeWords[0] = (static_cast<uint64_t>(HcommJettyPackSqeFlag(config) & 0xFFU) << 16U) | (1U << 28U) | (1U << 29U) |
-                  (static_cast<uint64_t>(owner) << 31U) | (static_cast<uint64_t>(opcode) << 40U) |
+                  (static_cast<uint64_t>(owner) << 31U) | (static_cast<uint64_t>(opCode) << 40U) |
                   (static_cast<uint64_t>(inlineMsgLen) << 54U);
-    sqeWords[1] = (static_cast<uint64_t>(tpId) & 0xFFFFFFU) | (static_cast<uint64_t>(sgeNum) << 24U) |
-                  ((static_cast<uint64_t>(remoteTokenId) & 0xFFFFFU) << 32U);
+    sqeWords[1] = (static_cast<uint64_t>(info->tpId) & 0xFFFFFFU) | (static_cast<uint64_t>(sgeNum) << 24U) |
+                  ((static_cast<uint64_t>(info->remoteTokenId) & 0xFFFFFU) << 32U);
     sqeWords[2] = info->remoteEid[0];
     sqeWords[3] = info->remoteEid[1];
-    sqeWords[4] = static_cast<uint64_t>(remoteTokenValue);
+    sqeWords[4] = static_cast<uint64_t>(info->remoteTokenValue);
     sqeWords[5] = reinterpret_cast<uint64_t>(dstAddr);
 }
 
 template <bool withNotify>
-__aicore__ inline bool HcommJettyImpl::BuildWriteSqe(
-    const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes, uint32_t currentHead,
-    GM_ADDR notifyAddr, uint64_t notifyValue)
+__aicore__ inline void HcommJettyImpl::BuildWriteSqe(
+    const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes, GM_ADDR notifyAddr,
+    uint64_t notifyValue)
 {
-    auto* info = peer.peerInfo;
-    const uint32_t opcode = withNotify ? static_cast<uint32_t>(HcommUrmaOpCode::WRITE_WITH_NOTIFY) :
-                                         static_cast<uint32_t>(HcommUrmaOpCode::WRITE);
-    FillWriteSqeHeader(peer, dstAddr, currentHead, opcode, 0U, 1U, URMA_DEFAULT_CFG);
+    constexpr HcommUrmaOpCode opCode = withNotify ? HcommUrmaOpCode::WRITE_WITH_NOTIFY : HcommUrmaOpCode::WRITE;
+    FillWriteSqeHeader<opCode, URMA_DEFAULT_CFG>(peer, dstAddr, 0U, 1U);
     __ubuf__ uint64_t* sgeWords = reinterpret_cast<__ubuf__ uint64_t*>(ubufSqe_ + sizeof(HcommUrmaSqeCtx));
     if constexpr (withNotify) {
-        const uint32_t remoteTokenId = static_cast<uint32_t>(info->tpIdNumSgesRemoteTokenId >> 32U);
-        const uint32_t remoteTokenValue = static_cast<uint32_t>(info->remoteTokenValueUdf);
         // Fill HcommUrmaNotifyCtx with one 64-bit store per word: word1 is notifyAddr, word2 is notifyData.
-        sgeWords[0] =
-            (static_cast<uint64_t>(remoteTokenId) & 0xFFFFFU) | (static_cast<uint64_t>(remoteTokenValue) << 32U);
+        sgeWords[0] = (static_cast<uint64_t>(peer.peerInfo->remoteTokenId) & 0xFFFFFU) |
+                      (static_cast<uint64_t>(peer.peerInfo->remoteTokenValue) << 32U);
         sgeWords[1] = reinterpret_cast<uint64_t>(notifyAddr);
         sgeWords[2] = notifyValue;
         sgeWords[3] = 0U;
@@ -133,21 +125,16 @@ __aicore__ inline bool HcommJettyImpl::BuildWriteSqe(
     // Fill HcommUrmaSgeCtx with one 64-bit store per word: word1 is the source va.
     sgeWords[0] = static_cast<uint64_t>(static_cast<uint32_t>(numBytes));
     sgeWords[1] = reinterpret_cast<uint64_t>(srcAddr);
-    return true;
 }
 
 template <typename T>
-__aicore__ inline bool HcommJettyImpl::BuildWriteValueSqe(
-    const HcommPeer& peer, GM_ADDR dstAddr, T value, uint32_t currentHead)
+__aicore__ inline void HcommJettyImpl::BuildWriteValueSqe(const HcommPeer& peer, GM_ADDR dstAddr, T value)
 {
-    FillWriteSqeHeader(
-        peer, dstAddr, currentHead, static_cast<uint32_t>(HcommUrmaOpCode::WRITE), static_cast<uint32_t>(sizeof(T)), 0U,
-        URMA_INLINE_CFG);
+    FillWriteSqeHeader<HcommUrmaOpCode::WRITE, URMA_INLINE_CFG>(peer, dstAddr, static_cast<uint32_t>(sizeof(T)), 0U);
     *reinterpret_cast<__ubuf__ T*>(ubufSqe_ + sizeof(HcommUrmaSqeCtx)) = value;
-    return true;
 }
 
-__aicore__ inline void HcommJettyImpl::CopySqeToSq(uint32_t currentHead, uint32_t numWqebbs)
+__aicore__ inline void HcommJettyImpl::CopyWqeToSq(uint32_t currentHead, uint32_t numWqebbs)
 {
     uint32_t sqIdx = currentHead & (jettyInfo_->sqDepth - 1U);
     uint32_t first = numWqebbs < jettyInfo_->sqDepth - sqIdx ? numWqebbs : jettyInfo_->sqDepth - sqIdx;
@@ -243,7 +230,7 @@ __aicore__ inline int32_t HcommJettyImpl::PostSqe(uint32_t numWqebbs)
 {
     uint32_t head = jettyInfo_->sqHead;
     PollCqWhenSqOverflow<timeoutCycles>();
-    CopySqeToSq(head, numWqebbs);
+    CopyWqeToSq(head, numWqebbs);
     AdvanceSq(numWqebbs);
     if constexpr (doCommit) {
         RingDoorbell();
@@ -256,10 +243,8 @@ __aicore__ inline int32_t HcommJettyImpl::PostWrite(
     const HcommPeer& peer, GM_ADDR dstAddr, GM_ADDR srcAddr, uint64_t numBytes, GM_ADDR notifyAddr,
     uint64_t notifyValue, uint32_t numWqebbs)
 {
-    if (!Ready() ||
-        !BuildWriteSqe<withNotify>(peer, dstAddr, srcAddr, numBytes, jettyInfo_->sqHead, notifyAddr, notifyValue)) {
-        return HCOMM_FAILED;
-    }
+    HCOMM_DEBUG_TRAP_IF(!Ready(), "HcommJetty PostWrite on an unready jetty\n");
+    BuildWriteSqe<withNotify>(peer, dstAddr, srcAddr, numBytes, notifyAddr, notifyValue);
     return PostSqe<timeoutCycles, doCommit>(numWqebbs);
 }
 
@@ -267,18 +252,15 @@ template <int64_t timeoutCycles, typename T, bool doCommit>
 __aicore__ inline int32_t HcommJettyImpl::PostWriteValue(
     const HcommPeer& peer, GM_ADDR dstAddr, T value, uint32_t numWqebbs)
 {
-    if (!Ready() || !BuildWriteValueSqe<T>(peer, dstAddr, value, jettyInfo_->sqHead)) {
-        return HCOMM_FAILED;
-    }
+    HCOMM_DEBUG_TRAP_IF(!Ready(), "HcommJetty PostWriteValue on an unready jetty\n");
+    BuildWriteValueSqe<T>(peer, dstAddr, value);
     return PostSqe<timeoutCycles, doCommit>(numWqebbs);
 }
 
 template <int64_t timeoutCycles>
 __aicore__ inline int32_t HcommJettyImpl::Drain()
 {
-    if (!valid_ || jettyInfo_ == nullptr || jettyInfo_->cqDepth == 0U || jettyInfo_->numCqeBytes == 0U) {
-        return HCOMM_FAILED;
-    }
+    HCOMM_DEBUG_TRAP_IF(!Ready() || jettyInfo_->numCqeBytes == 0U, "HcommJetty Drain on an unready jetty\n");
     uint64_t packedHead = ReadGmBypassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
     return PollCq<timeoutCycles>(static_cast<uint32_t>(packedHead >> 32U));
 }
