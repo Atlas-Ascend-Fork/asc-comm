@@ -6,7 +6,7 @@
 
 通信任务按发起方与执行方的关系分为两种执行模式：
 
-**表 1** 执行模式
+**表1** 执行模式
 
 | 模式 | 任务发起方 | 任务执行方 | 特点 | 适用场景 |
 | --- | --- | --- | --- | --- |
@@ -27,7 +27,7 @@
 
 AICPU_TS采用任务描述符下发模式，执行流程如[图1](#fig-aicpu-ts-direct-execution-model)所示。
 
-**图 1** AICPU_TS直驱执行机制<a id="fig-aicpu-ts-direct-execution-model"></a>
+**图1** AICPU_TS直驱执行机制<a id="fig-aicpu-ts-direct-execution-model"></a>
 
 ![AICPU_TS直驱执行机制](./figures/aicpu_ts_exec_model.png "AICPU_TS直驱执行机制")
 
@@ -46,7 +46,7 @@ CCU采用专用加速单元执行模式，执行流程如[图2](#fig-ccu-direct-
 
 CCU（Collective Communication Unit，集合通信加速单元）是位于IO Die的专用集合通信协处理器。
 
-**图 2** CCU直驱执行机制<a id="fig-ccu-direct-execution-model"></a>
+**图2** CCU直驱执行机制<a id="fig-ccu-direct-execution-model"></a>
 
 ![CCU直驱执行机制](./figures/ccu_exec_model.png "CCU直驱执行机制")
 
@@ -62,7 +62,7 @@ CCU（Collective Communication Unit，集合通信加速单元）是位于IO Die
 
 AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-execution-model)所示。
 
-**图 3** AIV直驱执行机制<a id="fig-aiv-direct-execution-model"></a>
+**图3** AIV直驱执行机制<a id="fig-aiv-direct-execution-model"></a>
 
 ![AIV直驱执行机制](./figures/aiv_exec_model.png "AIV直驱执行机制")
 
@@ -79,7 +79,7 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 事务（Transaction）指用户发起的一次独立内存或消息操作，一系列事务构成事务流，由工作队列（Work Queue，WQ）进行管理。
 如[图4](#fig-task-execution-model)所示，数据面通过构造WQE（Work Queue Element，工作队列项）描述单个事务，提交至Channel执行；再通过异步轮询完成队列（Completion Queue，CQ）判断事务是否执行完成。WQ内WQE的执行完成状态由CQ反馈，CQ中存储的CQE（Completion Queue Element，完成队列项）用于记录对应事务的执行结果。
 
-**图 4** 通信任务下发执行流程<a id="fig-task-execution-model"></a>
+**图4** 通信任务下发执行流程<a id="fig-task-execution-model"></a>
 
 ![通信任务下发执行流程](./figures/task_exec_model.png "通信任务下发执行流程")
 
@@ -101,7 +101,7 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 
 **Order标志**，指定以下三种执行序：
 
-**表 2** Order标志的执行序
+**表2** Order标志的执行序
 
 | 执行序 | 说明 |
 |--------|------|
@@ -111,7 +111,7 @@ AIV采用Vector Core执行模式，执行流程如[图3](#fig-aiv-direct-executi
 
 **Fence标志**，指定以下两种执行序：
 
-**表 3** Fence标志的执行序
+**表3** Fence标志的执行序
 
 | 执行序 | 说明 |
 |--------|------|
@@ -208,7 +208,7 @@ PostProcess(sendBuf, recvBuf);    // 后处理发送数据和接收数据
 
 当前客户端支持AI Core，服务端支持AICPU_TS和CCU。不同服务端使用的代理介质如下：
 
-**表 4** 不同服务端使用的代理介质
+**表4** 不同服务端使用的代理介质
 
 | 客户端 | 服务端 | 任务参数传递 | 执行条件和完成状态传递 |
 | --- | --- | --- | --- |
@@ -225,13 +225,13 @@ PostProcess(sendBuf, recvBuf);    // 后处理发送数据和接收数据
 
 代理模式的执行机制如[图5](#fig-proxy-execution-model)所示。
 
-**图 5** 代理模式执行机制<a id="fig-proxy-execution-model"></a>
+**图5** 代理模式执行机制<a id="fig-proxy-execution-model"></a>
 
 ![代理模式执行机制](./figures/proxy_execution_model.png "代理模式执行机制")
 
 代理模式包含以下参与方：
 
-**表 5** 代理模式参与方
+**表5** 代理模式参与方
 
 | 参与方 | 职责 |
 | --- | --- |
@@ -252,7 +252,7 @@ PostProcess(sendBuf, recvBuf);    // 后处理发送数据和接收数据
 
 代理模式将通信任务交给独立的服务端执行，使服务端与客户端可以分别执行通信和计算，为通算融合提供了并行执行基础。通算融合算子可以根据数据依赖关系安排通信和计算，一种典型编排如[图6](#fig-proxy-execution-parallel)所示：
 
-**图 6** 代理模式下的通算融合编排<a id="fig-proxy-execution-parallel"></a>
+**图6** 代理模式下的通算融合编排<a id="fig-proxy-execution-parallel"></a>
 
 ![代理模式下的通算融合编排](./figures/proxy_execution_parallel.png "代理模式下的通算融合编排")
 

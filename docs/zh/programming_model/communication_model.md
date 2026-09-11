@@ -12,7 +12,7 @@
 
 两个通信实体之间通过以下四个**原语概念**构建通信过程：
 
-**表 1** 通信原语概念
+**表1** 通信原语概念
 
 | 概念 | 一句话解释 | 主要对应硬件 |
 |------|-----------|---------|
@@ -23,7 +23,7 @@
 
 通信模型围绕上述四个原语概念构建，通信任务按发起方与执行方的关系分为两种模式：
 
-**表 2** 通信模式
+**表2** 通信模式
 
 | 模式 | 任务发起方 | 任务执行方 | 特点 |
 | --- | --- | --- | --- |
@@ -34,7 +34,7 @@
 
 如[图1](#fig-direct-communication-model)所示，Rank 0与Rank 1两个通信实体之间的通信流程整体划分为**控制面通信资源创建**和**数据面通信任务执行**两个阶段：黑色实线代表控制面的资源创建与绑定过程，棕色实线代表数据面的任务下发流程。
 
-**图 1** 直驱通信模型
+**图1** 直驱通信模型
 
 ![直驱通信模型](./figures/direct_communication_model.png "直驱通信模型")<a id="fig-direct-communication-model"></a>
 
@@ -56,7 +56,7 @@
 
 使用AICPU_TS服务端时，AI Core与AICPU_TS通过消息区传递通信请求和任务状态，本端与对端之间的数据通过通信通路传输，具体如[图2](#fig-aicpu-ts-proxy-communication-model)所示。
 
-**图 2** AICPU_TS代理模式通信模型
+**图2** AICPU_TS代理模式通信模型
 
 ![AICPU_TS代理模式通信模型](./figures/aicpu_proxy_communication_model.png "AICPU_TS代理模式通信模型")<a id="fig-aicpu-ts-proxy-communication-model"></a>
 
@@ -66,7 +66,7 @@ AI Core客户端通过消息区写入通信请求和任务参数，并通知AICP
 
 使用CCU服务端时，AI Core与CCU通过通用寄存器和同步寄存器传递通信请求和任务状态。通用寄存器保存通信操作、数据位置和数据量等信息，同步寄存器记录任务开始和完成状态，具体如[图3](#fig-ccu-proxy-communication-model)所示。
 
-**图 3** CCU代理模式通信模型
+**图3** CCU代理模式通信模型
 
 ![CCU代理模式通信模型](./figures/ccu_proxy_communication_model.png "CCU代理模式通信模型")<a id="fig-ccu-proxy-communication-model"></a>
 
