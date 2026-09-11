@@ -60,6 +60,15 @@ bash run.sh 2 dispatch
 用于验证同一个 80B/2BB WQE；`warp-pad` 验证 `1BB WRITE + 1BB NOP`；`dispatch` 验证
 12 SGE、4BB WQE。
 
+thread 模式可以指定有效 SGE 数量，用于逐个定位标量 WQE 的布局问题。前 N 个 SGE 始终填入
+有效地址和长度，不构造空 SGE：
+
+```bash
+bash run.sh 2 thread --sge-num 1
+bash run.sh 2 thread --sge-num 6
+bash run.sh 2 thread --sge-num 12
+```
+
 ## 正确性压测
 
 `stress.sh` 在同一个 channel/SQ 上重复执行，每一轮均等待接收端校验完成。接收端校验后会清零
