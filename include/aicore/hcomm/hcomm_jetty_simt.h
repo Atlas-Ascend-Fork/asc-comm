@@ -47,13 +47,6 @@ public:
     __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* Info() const { return impl_.Info(); }
     __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* GetInfo() const { return impl_.GetInfo(); }
 
-    // Reserve is retained for explicit single-producer use. A non-committing
-    // multi-warp batch allocates from the shared UB stage and is published by
-    // AdvanceSq after all participating warps have synchronized.
-    template <uint32_t kSlots = 1U, bool kConcurrent = true>
-    __simt_callee__ __forceinline__ int32_t Reserve() const
-    { return impl_.template Reserve<kSlots, kConcurrent>(); }
-
     template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop>
     __simt_callee__ __forceinline__ int32_t Write(
         const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const

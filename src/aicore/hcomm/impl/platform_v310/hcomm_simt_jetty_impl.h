@@ -1,10 +1,9 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  *
- * SIMT Jetty implementation.  A Jetty reserves fixed four-BB SQ slots, which
- * is the largest URMA WRITE WQE accepted by the dispatch path (48-byte header
- * plus at most twelve 16-byte SGEs).  SIMT fills the SQ; publication can be
- * performed by SIMD through PublishSq().
+ * SIMT Jetty implementation. A WRITE occupies the WQEBBs required by its
+ * 48-byte header and active SGEs, up to four WQEBBs for twelve SGEs. SIMT
+ * fills the SQ; publication can be performed by SIMD through PublishSq().
  */
 #ifndef INCLUDE_ADV_API_HCOMM_HCOMM_SIMT_JETTY_IMPL_H
 #define INCLUDE_ADV_API_HCOMM_HCOMM_SIMT_JETTY_IMPL_H
@@ -234,6 +233,12 @@ struct HcommPeer {
 };
 
 class HcommJettyImpl {
+    struct BatchState {
+        uint32_t wqebbCount;
+        uint32_t lastOffset;
+        uint32_t failed;
+    };
+
 public:
     static constexpr uint32_t kNumWQEBBLanes = kWqebbLanes;
     static constexpr uint32_t kNumWQEBBsPerSQESlot = kSlotWqebbs;
@@ -266,6 +271,12 @@ public:
         const uint64_t channelAddr =
             *reinterpret_cast<__gm__ uint64_t*>(tableAddr + index * sizeof(uint64_t));
         Attach(info, stage, channelAddr);
+        if (stage != nullptr) {
+            auto* batch = reinterpret_cast<__ubuf__ BatchState*>(stage);
+            batch->wqebbCount = 0U;
+            batch->lastOffset = 0U;
+            batch->failed = 0U;
+        }
         if constexpr (kDebugChecks) {
             if (channelAddr == 0U) return;
         }
@@ -306,109 +317,9 @@ public:
     __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* GetInfo() const { return Info(); }
 
 private:
-    __simt_callee__ __forceinline__ int32_t ReserveSlots(const uint32_t slots, const bool concurrent) const
-    {
-        auto* info = Info();
-        if constexpr (kDebugChecks) {
-            if (info == nullptr || info->sqDepth == 0U || info->sqHeadAddr == 0U ||
-                info->completionTailAddr == 0U || slots == 0U || slots > kSlotWqebbs) return -1;
-        }
-        auto* head = reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead);
-        auto* tail = reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
-        const uint32_t depth = info->sqDepth;
-        if (!concurrent) {
-            for (uint32_t retry = 0U; retry < 1024U; ++retry) {
-                const uint32_t oldHead = *head;
-                const uint32_t consumed = oldHead - *tail;
-                if (consumed <= depth && slots <= depth - consumed) {
-                    *head = oldHead + slots;
-                    if (!implicitActive_) {
-                        implicitBeginHead_ = oldHead;
-                        implicitReservedWqebbs_ = 0U;
-                        implicitPayloadWqebbs_ = 0U;
-                        implicitActive_ = true;
-                    }
-                    implicitReservedWqebbs_ += slots;
-                    return 0;
-                }
-                if (!PullCqOne()) return -1;
-            }
-            return -1;
-        }
-        for (uint32_t retry = 0U; retry < 1024U; ++retry) {
-            const uint32_t oldHead = *head;
-            const uint32_t consumed = oldHead - *tail;
-            if (consumed > depth || slots > depth - consumed) return -1;
-            if (asc_atomic_cas(head, oldHead, oldHead + slots) == oldHead) {
-                if (!implicitActive_) {
-                    implicitBeginHead_ = oldHead;
-                    implicitReservedWqebbs_ = 0U;
-                    implicitPayloadWqebbs_ = 0U;
-                    implicitActive_ = true;
-                }
-                implicitReservedWqebbs_ += slots;
-                return 0;
-            }
-        }
-        return -1;
-    }
-
-public:
-    template <uint32_t kSlots = 1U, bool kConcurrent = true>
-    __simt_callee__ __forceinline__ int32_t Reserve() const
-    {
-        static_assert(kSlots > 0U && kSlots <= kSlotWqebbs, "invalid SQ reservation");
-        return ReserveSlots(kSlots, kConcurrent);
-    }
-
-private:
-    // Non-committing posts share this small state in the caller-provided UB stage.
-    // A warp claims the actual payload-sized SQE range by incrementing reservedWqebbs; the hardware
-    // head is advanced only once, after the enclosing cooperative group has joined.
-    struct BatchState {
-        uint32_t baseHead;
-        uint32_t reservedWqebbs;
-        uint32_t lastHead;
-    };
-
     __simt_callee__ __forceinline__ __ubuf__ BatchState* Batch() const
     {
         return reinterpret_cast<__ubuf__ BatchState*>(stageAddr_);
-    }
-
-    __simt_callee__ __forceinline__ bool ReserveBatch(const uint32_t slots, uint32_t& head) const
-    {
-        if (stageAddr_ == 0U) return false;
-        auto* info = Info();
-        auto* batch = Batch();
-        if constexpr (kDebugChecks) {
-            if (info == nullptr || batch == nullptr || info->sqDepth == 0U ||
-                info->completionTailAddr == 0U || slots == 0U || slots > kSlotWqebbs) return false;
-        }
-        const uint32_t depth = info->sqDepth;
-        auto* tail = reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
-        for (;;) {
-            uint32_t reserved = batch->reservedWqebbs;
-            uint32_t base = batch->baseHead;
-            if (reserved == 0U) {
-                base = static_cast<uint32_t>(info->packedHead);
-                batch->baseHead = base;
-            }
-            const uint32_t consumed = base - *tail;
-            if (consumed > depth || reserved > depth - consumed || slots > depth - consumed - reserved) {
-                return false;
-            }
-            if (asc_atomic_cas(&batch->reservedWqebbs, reserved, reserved + slots) != reserved) continue;
-            head = base + reserved;
-            uint32_t last = batch->lastHead;
-            while (last < head) {
-                const uint32_t observed = asc_atomic_cas(&batch->lastHead, last, head);
-                if (observed == last) break;
-                last = observed;
-            }
-            return true;
-        }
-        return false;
     }
 
 public:
@@ -454,6 +365,12 @@ private:
                       "post-send payload exceeds the SQ slot");
         const uint32_t rank = static_cast<uint32_t>(coop.thread_rank());
         const uint32_t laneRank = rank % kWarpSize;
+        if constexpr (kDoCommit) {
+            if (coop.size() > static_cast<int>(kWarpSize)) {
+                coop.sync();
+                return -1;
+            }
+        }
         if (coop.size() == 1) {
             if constexpr (kOpcode == HcommPostOpcode::kWrite) {
                 if (count == 0U) return -1;
@@ -472,14 +389,44 @@ private:
             kOpcode == HcommPostOpcode::kWriteValue ? kSqeHeaderWords + (inlineBytes + 7U) / 8U :
             2U * kWqebbLanes;
         const uint32_t payloadWqebbs = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
-        const uint32_t reserveWqebbs = payloadWqebbs;
         uint32_t head = 0xFFFFFFFFU;
-        const bool reserveLeader = laneRank == 0U;
-        if (reserveLeader) {
-            const bool reserved = kDoCommit ?
-                ReserveSlots(reserveWqebbs, HcommCoopTraits<Coop>::kIsWarp) == 0 :
-                ReserveBatch(reserveWqebbs, head);
-            if (reserved && kDoCommit) head = implicitBeginHead_;
+        if (laneRank == 0U) {
+            auto* info = Info();
+            if constexpr (kDoCommit) {
+                // Immediate commit is a single-producer mode. Keep the uncontended
+                // path to one head/tail check and pull CQ only when the SQ is full.
+                auto* sqHead = reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead);
+                auto* sqTail = reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
+                const uint32_t depth = info->sqDepth;
+                const uint32_t oldHead = *sqHead;
+                uint32_t consumed = oldHead - *sqTail;
+                while ((consumed > depth || payloadWqebbs > depth - consumed) && PullCqOne()) {
+                    consumed = oldHead - *sqTail;
+                }
+                if (consumed <= depth && payloadWqebbs <= depth - consumed) {
+                    head = oldHead;
+                    *sqHead = oldHead + payloadWqebbs;
+                    implicitBeginHead_ = oldHead;
+                    implicitWqebbs_ = payloadWqebbs;
+                    implicitPayloadWqebbs_ = payloadWqebbs;
+                    implicitActive_ = true;
+                }
+            } else if (stageAddr_ != 0U) {
+                // Deferred multi-warp mode mirrors dispatch: packedHead remains the
+                // published base while each warp atomically claims a UB-local offset.
+                auto* batch = Batch();
+                const uint32_t offset = asc_atomic_add(&batch->wqebbCount, payloadWqebbs);
+                const uint32_t base = static_cast<uint32_t>(info->packedHead);
+                const uint32_t consumed = base -
+                    *reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
+                if (consumed <= info->sqDepth && offset <= info->sqDepth - consumed &&
+                    payloadWqebbs <= info->sqDepth - consumed - offset) {
+                    head = base + offset;
+                    asc_atomic_max(&batch->lastOffset, offset);
+                } else {
+                    asc_atomic_exch(&batch->failed, 1U);
+                }
+            }
         }
         if (coop.size() > 1) head = asc_shfl(head, 0, kWarpSize);
         if (head == 0xFFFFFFFFU) {
@@ -487,9 +434,8 @@ private:
             return coop.size() > kWarpSize ? 0 : -1;
         }
 
-        if constexpr (kDoCommit) implicitPayloadWqebbs_ = payloadWqebbs;
         const uint32_t depth = Info()->sqDepth;
-        const uint32_t totalWords = reserveWqebbs * kWqebbLanes;
+        const uint32_t totalWords = payloadWqebbs * kWqebbLanes;
         const uint32_t workerCount = static_cast<uint32_t>(coop.size());
         const uint32_t stepWords = (coop.size() > 1 ? workerCount : 1U) * 2U;
         const uint32_t firstWord = (coop.size() > 1 ? rank : 0U) * 2U;
@@ -563,9 +509,24 @@ private:
         }
         coop.sync();
         uint32_t head = 0xFFFFFFFFU;
-        if (laneRank == 0U && Reserve<2U, HcommCoopTraits<Coop>::kIsWarp>() == 0) {
-            head = implicitBeginHead_;
-            implicitPayloadWqebbs_ = count == 1U ? 1U : 2U;
+        if (laneRank == 0U) {
+            auto* info = Info();
+            auto* sqHead = reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead);
+            auto* sqTail = reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
+            const uint32_t depth = info->sqDepth;
+            const uint32_t oldHead = *sqHead;
+            uint32_t consumed = oldHead - *sqTail;
+            while ((consumed > depth || 2U > depth - consumed) && PullCqOne()) {
+                consumed = oldHead - *sqTail;
+            }
+            if (consumed <= depth && 2U <= depth - consumed) {
+                head = oldHead;
+                *sqHead = oldHead + 2U;
+                implicitBeginHead_ = oldHead;
+                implicitWqebbs_ = 2U;
+                implicitPayloadWqebbs_ = count == 1U ? 1U : 2U;
+                implicitActive_ = true;
+            }
         }
         head = asc_shfl(head, 0, kWarpSize);
         if (head == 0xFFFFFFFFU) {
@@ -659,24 +620,22 @@ public:
             thread, peer, dst, HcommSge{}, nullptr, 0U, 0U, src, len, notifyAddr, notifyValue, nullptr, 0U);
     }
 
-    template <typename Coop>
-    __simt_callee__ __forceinline__ void Commit(const Coop& coop) const
-    {
-        coop.sync();
-        if (coop.thread_rank() == 0U) Commit();
-        coop.sync();
-    }
-
 private:
     __simt_callee__ __forceinline__ void AdvanceBatch() const
     {
         auto* info = Info();
         auto* batch = Batch();
-        const uint32_t reserved = batch->reservedWqebbs;
-        if (reserved == 0U) return;
-        const uint32_t begin = batch->baseHead;
-        const uint32_t end = begin + reserved;
-        const uint32_t last = batch->lastHead;
+        const uint32_t count = batch->wqebbCount;
+        if (count == 0U) return;
+        if (batch->failed != 0U) {
+            batch->wqebbCount = 0U;
+            batch->lastOffset = 0U;
+            batch->failed = 0U;
+            return;
+        }
+        const uint32_t begin = static_cast<uint32_t>(info->packedHead);
+        const uint32_t end = begin + count;
+        const uint32_t last = begin + batch->lastOffset;
         const uint32_t depth = info->sqDepth;
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
         const uint32_t idx = last & (depth - 1U);
@@ -688,48 +647,35 @@ private:
             ((static_cast<uint64_t>(static_cast<uint32_t>(info->packedHead >> 32U) + 1U)) << 32U);
         info->packedHead = packed;
         asc_stwt(reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr), packed);
-        auto* dwqe = reinterpret_cast<__gm__ ulonglong2*>(info->sqDoorbellAddr - kDwqeDbOffset);
-        for (uint32_t i = 0U; i + 1U < kNumDwqeWords; i += 2U) {
-            const uint32_t srcIdx = (idx + i / kWqebbLanes) & (depth - 1U);
-            asc_stwt(&dwqe[i / 2U], make_ulonglong2(
-                *reinterpret_cast<__gm__ uint64_t*>(sq + static_cast<uint64_t>(srcIdx) * kWqebbLanes + (i % kWqebbLanes)),
-                *reinterpret_cast<__gm__ uint64_t*>(sq + static_cast<uint64_t>(srcIdx) * kWqebbLanes + (i % kWqebbLanes) + 1U)));
-        }
-        asc_threadfence();
-        asc_stwt(reinterpret_cast<__gm__ uint32_t*>(info->sqDoorbellAddr), end);
-        batch->reservedWqebbs = 0U;
-        batch->lastHead = 0U;
-    }
-
-    template <typename Coop>
-    __simt_callee__ __forceinline__ void AdvanceBatch(const Coop& coop) const
-    {
-        coop.sync();
-        if (coop.thread_rank() == 0U) AdvanceBatch();
-        coop.sync();
+        batch->wqebbCount = 0U;
+        batch->lastOffset = 0U;
+        batch->failed = 0U;
     }
 
 public:
     __simt_callee__ __forceinline__ void Commit() const
     {
-        if (!implicitActive_ || implicitReservedWqebbs_ == 0U) return;
+        if (!implicitActive_ || implicitWqebbs_ == 0U) {
+            if (stageAddr_ != 0U && Batch()->wqebbCount != 0U) AdvanceBatch();
+            return;
+        }
         auto* info = Info();
         const uint32_t end = static_cast<uint32_t>(*reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead));
         const uint32_t begin = implicitBeginHead_;
-        const uint32_t reservedWqebbs = implicitReservedWqebbs_;
+        const uint32_t submittedWqebbs = implicitWqebbs_;
         if constexpr (kDebugChecks) {
-            if (end <= begin || reservedWqebbs > kSlotWqebbs || reservedWqebbs > end - begin) return;
+            if (end <= begin || submittedWqebbs > kSlotWqebbs || submittedWqebbs > end - begin) return;
         }
-        const uint32_t last = end - reservedWqebbs;
-        const uint32_t payloadWqebbs = implicitPayloadWqebbs_ == 0U ? reservedWqebbs : implicitPayloadWqebbs_;
+        const uint32_t last = end - submittedWqebbs;
+        const uint32_t payloadWqebbs = implicitPayloadWqebbs_ == 0U ? submittedWqebbs : implicitPayloadWqebbs_;
         if constexpr (kDebugChecks) {
-            if (payloadWqebbs > reservedWqebbs) return;
+            if (payloadWqebbs > submittedWqebbs) return;
         }
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
         const uint32_t idx = last & (info->sqDepth - 1U);
         const uint64_t owner = static_cast<uint64_t>(detail::Owner(last, info->sqDepth)) << 31U;
         uint64_t header = kWriteHeader | owner | idx;
-        if (payloadWqebbs == reservedWqebbs) {
+        if (payloadWqebbs == submittedWqebbs) {
             header = kWriteHeader | owner | (end & 0xFFFFU) | kFinalFlags;
         } else {
             const uint32_t nopHead = end - 1U;
@@ -753,20 +699,24 @@ public:
         asc_threadfence();
         asc_stwt(reinterpret_cast<__gm__ uint32_t*>(info->sqDoorbellAddr), end);
         implicitActive_ = false;
-        implicitReservedWqebbs_ = 0U;
+        implicitWqebbs_ = 0U;
         implicitPayloadWqebbs_ = 0U;
+    }
+    template <typename Coop>
+    __simt_callee__ __forceinline__ void Commit(const Coop& coop) const
+    {
+        coop.sync();
+        if (coop.thread_rank() == 0U) Commit();
+        coop.sync();
     }
     __simt_callee__ __forceinline__ void AdvanceSq() const
     {
-        if (implicitActive_) Commit();
-        else if (stageAddr_ != 0U && Batch()->reservedWqebbs != 0U) AdvanceBatch();
+        Commit();
     }
     template <typename Coop>
     __simt_callee__ __forceinline__ void AdvanceSq(const Coop& coop) const
     {
-        // For a multi-warp batch, Coop must cover every participating warp.
-        if (implicitActive_) Commit(coop);
-        else if (stageAddr_ != 0U && Batch()->reservedWqebbs != 0U) AdvanceBatch(coop);
+        Commit(coop);
     }
     template <typename Coop>
     __simt_callee__ __forceinline__ void AdvanceSq(
@@ -839,7 +789,7 @@ private:
     uint64_t stageAddr_ = 0U;
     uint64_t channel_ = 0U;
     mutable uint32_t implicitBeginHead_ = 0U;
-    mutable uint32_t implicitReservedWqebbs_ = 0U;
+    mutable uint32_t implicitWqebbs_ = 0U;
     mutable uint32_t implicitPayloadWqebbs_ = 0U;
     mutable bool implicitActive_ = false;
 
