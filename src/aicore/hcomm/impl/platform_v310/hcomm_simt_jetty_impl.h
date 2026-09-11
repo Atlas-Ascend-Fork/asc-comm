@@ -12,49 +12,13 @@
 #include <cstdint>
 
 #include "../../common/hcomm_inner_def.h"
+#include "../../../utils/simt_utils.h"
 #include <kernel_operator.h>
 #include <simt_api/device_atomic_functions.h>
 #include <simt_api/device_warp_functions.h>
 #include <simt_api/cooperative_groups.h>
 
 namespace AscendC::simt {
-
-struct HcommCoopThread {
-    __simt_callee__ __forceinline__ void sync() const {}
-    __simt_callee__ __forceinline__ int size() const { return 1; }
-    __simt_callee__ __forceinline__ int thread_rank() const { return 0; }
-};
-struct HcommCoopWarp {
-    cooperative_groups::thread_block_tile<32, cooperative_groups::thread_block> group_;
-    __simt_callee__ __forceinline__ HcommCoopWarp()
-        : group_(cooperative_groups::tiled_partition<32>(cooperative_groups::this_thread_block())) {}
-    __simt_callee__ __forceinline__ void sync() const { group_.sync(); }
-    __simt_callee__ __forceinline__ int size() const { return 32; }
-    __simt_callee__ __forceinline__ int thread_rank() const { return static_cast<int>(group_.thread_rank()); }
-};
-struct HcommCoopGroup {
-    cooperative_groups::thread_block group_;
-    __simt_callee__ __forceinline__ HcommCoopGroup() : group_(cooperative_groups::this_thread_block()) {}
-    __simt_callee__ __forceinline__ void sync() const { group_.sync(); }
-    __simt_callee__ __forceinline__ int size() const { return static_cast<int>(group_.size()); }
-    __simt_callee__ __forceinline__ int thread_rank() const { return static_cast<int>(group_.thread_rank()); }
-};
-template <typename Coop>
-struct HcommCoopTraits {
-    static constexpr bool kWarpCapable = false;
-    static constexpr bool kIsWarp = false;
-};
-template <>
-struct HcommCoopTraits<HcommCoopWarp> {
-    static constexpr bool kWarpCapable = true;
-    static constexpr bool kIsWarp = true;
-};
-template <>
-struct HcommCoopTraits<HcommCoopGroup> {
-    static constexpr bool kWarpCapable = true;
-    static constexpr bool kIsWarp = false;
-};
-
 namespace jetty {
 
 #if defined(ASCENDC_DEBUG) || defined(HCOMM_SIMT_JETTY_DEBUG)
@@ -220,12 +184,14 @@ struct HcommPeer {
         auto* rb = reinterpret_cast<__gm__ RegedBufferEntity*>(rbAddr) + rbNum - 1U;
         info->tpIdNumSgesRemoteTokenId = static_cast<uint64_t>(sq->contextInfo.ubJfs.tpID) |
             (static_cast<uint64_t>(rb->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId) << 32U);
-        info->remoteEid[0] = 0U;
-        info->remoteEid[1] = 0U;
+        uint64_t remoteEidL = 0U;
+        uint64_t remoteEidH = 0U;
         for (uint32_t i = 0U; i < 8U; ++i) {
-            info->remoteEid[0] |= static_cast<uint64_t>(sq->contextInfo.ubJfs.remoteEID[i]) << (i * 8U);
-            info->remoteEid[1] |= static_cast<uint64_t>(sq->contextInfo.ubJfs.remoteEID[i + 8U]) << (i * 8U);
+            remoteEidL |= static_cast<uint64_t>(sq->contextInfo.ubJfs.remoteEID[i]) << (i * 8U);
+            remoteEidH |= static_cast<uint64_t>(sq->contextInfo.ubJfs.remoteEID[i + 8U]) << (i * 8U);
         }
+        info->remoteEid[0] = remoteEidL;
+        info->remoteEid[1] = remoteEidH;
         info->remoteTokenValueUdf = rb->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
         info->remoteBaseAddr = rb->bufferInfo.rma.addr;
         info->remoteBufferSize = rb->bufferInfo.rma.size;
@@ -351,10 +317,10 @@ public:
     }
 
 private:
-    template <uint32_t kSgeNum, HcommPostOpcode kOpcode, bool kDoCommit, typename Coop>
+    template <uint32_t kSgeNum, HcommPostOpcode kOpcode, bool kDoCommit, typename Coop, typename ScalarSges>
     __simt_callee__ __forceinline__ int32_t PostSend(
         const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge,
-        const HcommSge* scalarSges, const uint32_t mask, const uint32_t count, __gm__ void* src,
+        const ScalarSges& scalarSges, const uint32_t mask, const uint32_t count, __gm__ void* src,
         const uint64_t len, __gm__ void* notifyAddr, const uint64_t notifyValue,
         const uint8_t* inlineValue, const uint32_t inlineBytes) const
     {
@@ -437,27 +403,40 @@ private:
         const uint32_t depth = Info()->sqDepth;
         const uint32_t totalWords = payloadWqebbs * kWqebbLanes;
         const uint32_t workerCount = static_cast<uint32_t>(coop.size());
-        const uint32_t stepWords = (coop.size() > 1 ? workerCount : 1U) * 2U;
-        const uint32_t firstWord = (coop.size() > 1 ? rank : 0U) * 2U;
-        for (uint32_t word = firstWord; word < totalWords; word += stepWords) {
-            const uint32_t bbHead = head + word / kWqebbLanes;
+        // StoreSqePair writes a complete 128-bit pair.  Keep every worker on an
+        // even word boundary; the scalar path must follow the same rule or its
+        // odd-word iteration would overwrite the preceding pair (including the
+        // WQE header).
+        const uint32_t stepWords = workerCount * 2U;
+        const uint32_t firstWord = rank * 2U;
+        constexpr bool kWarpSgePath =
+            HcommCoopTraits<Coop>::kWarpCapable && kOpcode == HcommPostOpcode::kWrite;
+        const uint32_t roundCount = kWarpSgePath ?
+            (totalWords + kWarpSize * 2U - 1U) / (kWarpSize * 2U) :
+            (totalWords + stepWords - 1U) / stepWords;
+        for (uint32_t round = 0U; round < roundCount; ++round) {
+            const uint32_t word = kWarpSgePath ?
+                round * kWarpSize * 2U + laneRank * 2U : firstWord + round * stepWords;
+            const bool validWord = word < totalWords;
+            // Keep every lane in a warp on the same shuffle sequence. Invalid lanes
+            // participate with a harmless word and skip the SQ store below.
+            const uint32_t buildWord = validWord ? word : 0U;
+            const uint32_t bbHead = head + buildWord / kWqebbLanes;
             const uint32_t sqIdx = bbHead & (depth - 1U);
             const uint64_t owner = static_cast<uint64_t>(detail::Owner(bbHead, depth)) << 31U;
             const bool firstIsSge = kOpcode == HcommPostOpcode::kWrite &&
-                word >= kSqeHeaderWords && word < payloadWords;
+                validWord && word >= kSqeHeaderWords && word < payloadWords;
             const bool secondIsSge = kOpcode == HcommPostOpcode::kWrite &&
-                word + 1U >= kSqeHeaderWords && word + 1U < payloadWords;
+                validWord && word + 1U >= kSqeHeaderWords && word + 1U < payloadWords;
             uint64_t firstAddr = 0U;
             int firstLen = 0;
             uint64_t secondAddr = 0U;
             int secondLen = 0;
             if constexpr (kOpcode == HcommPostOpcode::kWrite && HcommCoopTraits<Coop>::kWarpCapable) {
-                if (firstIsSge) {
-                    const int ordinal = static_cast<int>((word - kSqeHeaderWords) / 2U);
-                    detail::PackWarpSge(laneSge, mask, ordinal, firstAddr, firstLen);
-                    secondAddr = firstAddr;
-                    secondLen = firstLen;
-                }
+                const int ordinal = firstIsSge ? static_cast<int>((word - kSqeHeaderWords) / 2U) : -1;
+                detail::PackWarpSge(laneSge, mask, ordinal, firstAddr, firstLen);
+                secondAddr = firstAddr;
+                secondLen = firstLen;
             } else if constexpr (kOpcode == HcommPostOpcode::kWrite) {
                 uint32_t seen = 0U;
                 for (uint32_t i = 0U; i < kSgeNum; ++i) {
@@ -474,7 +453,7 @@ private:
                     }
                 }
             }
-            const uint32_t secondWord = word + 1U;
+            const uint32_t secondWord = buildWord + 1U;
             uint64_t first = 0U;
             uint64_t second = 0U;
             if constexpr (kOpcode == HcommPostOpcode::kWrite) {
@@ -487,7 +466,9 @@ private:
                 first = BuildNotifyWord(peer, dst, word, sqIdx, owner, src, len, notifyAddr, notifyValue);
                 second = BuildNotifyWord(peer, dst, secondWord, sqIdx, owner, src, len, notifyAddr, notifyValue);
             }
-            StoreSqePair(reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr), depth, head, word, first, second);
+            if (validWord) {
+                StoreSqePair(reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr), depth, head, word, first, second);
+            }
         }
         asc_threadfence();
         coop.sync();
