@@ -153,18 +153,23 @@ target_link_options(asccomm_aicpu PRIVATE
 
 set_target_properties(asccomm_aicpu PROPERTIES SKIP_BUILD_RPATH TRUE)
 
-# 出包参照 src/ccu：库安装至 lib64、契约头安装至 pkg_inc/asccomm(数据面SO与hcomm控制面
-# 通过POD实体解耦，交付物=库+契约头，消费者从安装目录引用而非源码目录耦合)
-if(NOT INSTALL_LIBRARY_DIR)
-    set(INSTALL_LIBRARY_DIR lib64)
+# 出包install规则仅在asc-comm根工程(独立/自包含构建)下生效：
+# 第三方超构建(runtime cann_device/devkit)直接add_subdirectory(src/aicpu)时由宿主
+# 自行install/打包(如runtime的DEVICE_LIBRARY_PATH+aicpu_kernels_device tar)；
+# 本仓注册的COMPONENT hcomm规则会在宿主CPack的hcomm组件安装阶段触发，
+# 而设备超构建默认目标集可能不包含本目标，导致"file INSTALL cannot find"硬失败
+if("${PROJECT_SOURCE_DIR}" STREQUAL "${ASCCOMM_ROOT}")
+    if(NOT INSTALL_LIBRARY_DIR)
+        set(INSTALL_LIBRARY_DIR lib64)
+    endif()
+    if(NOT INSTALL_PKG_INCLUDE_DIR)
+        set(INSTALL_PKG_INCLUDE_DIR pkg_inc)
+    endif()
+    install(TARGETS asccomm_aicpu
+        LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
+        COMPONENT hcomm)
+    install(DIRECTORY ${ASCCOMM_ROOT}/include/aicpu/hcomm/
+        DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/asccomm
+        COMPONENT hcomm
+        FILES_MATCHING PATTERN "*.h")
 endif()
-if(NOT INSTALL_PKG_INCLUDE_DIR)
-    set(INSTALL_PKG_INCLUDE_DIR pkg_inc)
-endif()
-install(TARGETS asccomm_aicpu
-    LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
-    COMPONENT hcomm)
-install(DIRECTORY ${ASCCOMM_ROOT}/include/aicpu/hcomm/
-    DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/asccomm
-    COMPONENT hcomm
-    FILES_MATCHING PATTERN "*.h")
