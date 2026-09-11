@@ -236,8 +236,12 @@ typedef struct {
     uint32_t drainBufferIdx;  ///< remoteBufferAddr中drain buffer的下标；HCOMM_POD_DRAIN_IDX_INVALID表示无drain资源
 } HcommChannelEntity;
 
+// RTSQ硬件字段(localDevId/sqBaseAddr/sqDepth/sqHead/sqTail)由数据面在AICPU上
+// 首用时自解析(drvGetLocalDevIDByHostDevID为device-only驱动接口，host控制面
+// 不查询硬件)：host仅填streamId/sqId/localSqeAddr并清零硬件字段，
+// 数据面经asccomm_ensure_rtsq_resolved按devInfo.devId(host物理设备id)解析。
 typedef struct {
-    uint32_t localDevId;    ///< 调用halSqCqQuery/halSqCqConfig使用的本地设备ID
+    uint32_t localDevId;    ///< 调用halSqCqQuery/halSqCqConfig使用的本地设备ID(数据面device侧解析)
     uint32_t streamId;      ///< RTSQ关联的Stream ID，写入部分SQE或用于诊断
     uint32_t sqId;          ///< 硬件RTSQ编号
     uint32_t sqDepth;       ///< 硬件RTSQ可容纳的SQE数量
