@@ -28,15 +28,15 @@ namespace AscendC {
 constexpr uint32_t ROCE_CQE_POS = 128;
 constexpr uint32_t ROCE_DB_POS = 192;
 
-constexpr uint32_t ROCE_1825_WQE_OWNER_SHIFT = 7;   // owner_sl owner bit
-constexpr uint32_t ROCE_1825_WQE_CTRL_VALUE = 0x40; // owner_sl fixed part
-constexpr uint32_t ROCE_1825_WQE_VA_VALUE = 0x20;   // df_tsl VA bit
+constexpr uint32_t ROCE_1825_WQE_OWNER_SHIFT = 7;    // owner_sl owner bit
+constexpr uint32_t ROCE_1825_WQE_CTRL_VALUE = 0x40;  // owner_sl fixed part
+constexpr uint32_t ROCE_1825_WQE_SQ_VA_VALUE = 0x20; // df_tsl VA bit
 constexpr uint32_t ROCE_1825_WQE_SQ_SIGNAL_SHIFT = 7;
 constexpr uint32_t ROCE_1825_WQE_CQE_SIGNAL_SHIFT = 7; // df_tsl CR bit
 constexpr uint32_t ROCE_1825_WQE_CMP_TASK_LEN1 = 1U;
 constexpr uint32_t ROCE_1825_WQE_CMP_TASK_LEN_SHIFT = 28; // cl_pi CL field
-constexpr uint32_t ROCE_1825_WQE_CMP_TASK_SEG_ALIGN = 8;
-constexpr uint32_t ROCE_1825_WQE_FAST_DMSA_SHIFT = 10;
+constexpr uint32_t ROCE_1825_WQE_TASK_SEG_ALIGN = 8;
+constexpr uint32_t ROCE_1825_WQE_FAST_DMA_SHIFT = 10;
 constexpr uint32_t ROCE_1825_WQE_SSN_MASK = 0x3; // low 2 bits of SQ WQE sequence number
 constexpr uint32_t ROCE_1825_WQE_SSN_SHIFT = 12; // wf_bdsl wqe_msn field
 constexpr uint32_t ROCE_1825_WQE_DATA_SEG_SHIFT = 4;
