@@ -284,11 +284,12 @@ inline bool SampleSqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, ui
         return false;
     }
     const uint32_t readBytes = SqWqeReadBytes(wqeSize);
-    // Outstanding (submitted but not yet consumed) WQEs. sqHead is a free-running BB count (advanced by
-    // wqeBbCnt per post, 1 or 2 BBs) while sqTail is the slot index of the last consumed CQE's starting WQE,
-    // so sqHead - sqTail is dimensionally invalid. The valid pair is the CQ-side count of posted vs consumed
-    // WQEs: cqHead - cqTail. Both are free-running WQE-count gauges, so the subtraction is wrap-safe.
-    const uint32_t outstanding = cqHead - cqTail;
+    // Prefer the CQ-side count while CQEs are pending. After a timeout or CQE error, the failing CQE can already
+    // be consumed while the SQ cursor still identifies a residual WQE that must be included in the dump. In that
+    // case, fall back to the AIV SQ cursors so the failed WQE is not silently omitted.
+    const uint32_t cqOutstanding = cqHead - cqTail;
+    const uint32_t sqOutstanding = sqHead - sqTail;
+    const uint32_t outstanding = cqOutstanding != 0U ? cqOutstanding : sqOutstanding;
     const uint32_t count = std::min<uint32_t>(outstanding, std::min<uint32_t>(depth, HCOMM_DFX_MAX_QUEUE_ENTRIES));
     for (uint32_t idx = 0; idx < count; ++idx) {
         const uint32_t cursor = sqTail + idx;
