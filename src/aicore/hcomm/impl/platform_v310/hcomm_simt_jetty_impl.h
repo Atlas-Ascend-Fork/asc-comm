@@ -503,6 +503,7 @@ public:
         return result;
     }
 
+private:
     template <uint32_t kMaxSges, typename Coop>
     __simt_callee__ __forceinline__ int32_t WriteTwoBb(
         const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const
@@ -581,6 +582,7 @@ public:
         return 0;
     }
 
+public:
     template <int64_t, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t Write(
         const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len)
