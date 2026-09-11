@@ -11,8 +11,8 @@
 /**
  * SIMT Jetty API.
  *
- * `Write` is the submission API. Calls without a batch commit the WQE by default;
- * use the batch overload when several writers must join before one `Commit`.
+ * `Write` is the submission API. Calls commit the WQE by default; pass `false`
+ * as the commit template argument when several writers must join before one `Commit`.
  * `Commit` publishes the packed SQ head to GM but does not ring the doorbell;
  * an AIV can call the SIMD `HcommJetty::PublishSq` on the same 80-byte metadata
  * object. `PublishSq` remains available here for a SIMT-only path.

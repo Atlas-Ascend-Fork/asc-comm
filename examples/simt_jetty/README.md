@@ -7,10 +7,10 @@ SIMT 侧 Jetty / DWQE 样例，验证 `thread / warp / group` 三种协作方式
 workspace。固定 SGE 模板参数范围为 2 到 12；地址或长度为 0 的 SGE 不计入 WRITE，并将有效
 SGE 压紧，未使用的 WQEBB 使用 NOP 对齐。
 
-同一个 channel 的并发 `Write` 必须属于同一个 batch，并在所有参与 warp 完成后由 group leader
-统一调用 `Commit`。不带 batch 的 `Write` 默认立即提交；带 batch 的 `Write` 只构造 WQE，等待显式
+同一个 channel 的并发 `Write` 必须在同一组同步中完成，并在所有参与 warp 完成后由 group leader
+统一调用 `Commit`。`Write` 默认立即提交；使用 `Write<12, false>` 时只构造 WQE，等待显式
 `Commit`。所有 lane 构造 `HcommJetty` 后、任一 warp 开始 `Write` 前必须先做一次
-group 同步；dispatch 样例使用 `HcommJettyBatch` 和 `HcommSgeList`，每个 warp 生成一个含 12 个有效
+group 同步；dispatch 样例中每个 warp 生成一个含 12 个有效
 SGE 的 4BB WQE，再由 group 统一 Commit 和 PublishSq。
 
 固定 2BB 的立即 `Write` 在一次调用内由同一份 WQE 数据双写 SQ 和 DWQE，不从 SQ 回读。

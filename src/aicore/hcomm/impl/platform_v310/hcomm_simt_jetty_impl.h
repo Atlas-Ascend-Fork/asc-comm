@@ -100,19 +100,6 @@ struct HcommSge {
     uint64_t addr = 0U;
     int len = 0;
 };
-struct HcommSgeList {
-    HcommSge first{};
-    HcommSge second{};
-    uint32_t count = 0U;
-};
-
-struct HcommJettyBatch {
-    uint32_t beginHead = 0U;
-    uint32_t reservedWqebbs = 0U;
-    uint32_t payloadWqebbs = 0U;
-    bool valid = false;
-};
-
 namespace detail {
 template <typename T>
 __simt_callee__ __forceinline__ T Load(const uint64_t addr, const uint32_t offset)
@@ -276,18 +263,8 @@ public:
     }
     __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* GetInfo() const { return Info(); }
 
-    __simt_callee__ __forceinline__ HcommJettyBatch BeginBatch() const
-    {
-        HcommJettyBatch batch{};
-        if (Info() != nullptr) {
-            batch.beginHead = *reinterpret_cast<__ubuf__ uint32_t*>(&Info()->packedHead);
-            batch.valid = true;
-        }
-        return batch;
-    }
-
     template <uint32_t kSlots = 1U>
-    __simt_callee__ __forceinline__ int32_t Reserve(HcommJettyBatch& batch) const
+    __simt_callee__ __forceinline__ int32_t Reserve() const
     {
         static_assert(kSlots > 0U && kSlots <= kSlotWqebbs, "invalid SQ reservation");
         auto* info = Info();
@@ -299,24 +276,26 @@ public:
             const uint32_t consumed = tail == nullptr ? 0U : (oldHead - *tail);
             if (consumed > info->sqDepth || kSlots > info->sqDepth - consumed) return -1;
             if (asc_atomic_cas(head, oldHead, oldHead + kSlots) == oldHead) {
-                if (!batch.valid || batch.reservedWqebbs == 0U) batch.beginHead = oldHead;
-                batch.reservedWqebbs += kSlots;
-                batch.valid = true;
                 if (!implicitActive_) {
                     implicitBeginHead_ = oldHead;
+                    implicitReservedWqebbs_ = 0U;
+                    implicitPayloadWqebbs_ = 0U;
                     implicitActive_ = true;
                 }
+                implicitReservedWqebbs_ += kSlots;
                 return 0;
             }
         }
         return -1;
     }
 
-    template <uint32_t kMaxSges, typename Coop>
+    template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop>
     __simt_callee__ __forceinline__ int32_t Write(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge,
-        HcommJettyBatch& reservation) const
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const
     {
+        if constexpr (kDoCommit && kMaxSges == 2U) {
+            return WriteTwoBb<kMaxSges>(coop, peer, dst, laneSge);
+        }
         const uint32_t rank = static_cast<uint32_t>(coop.thread_rank());
         const uint32_t laneRank = rank % kWarpSize;
         const bool active = laneRank < kMaxSges;
@@ -324,7 +303,9 @@ public:
         const uint32_t count = static_cast<uint32_t>(__builtin_popcount(mask));
         if (coop.size() == 1) {
             if (laneRank != 0U || count == 0U) return -1;
-            return WriteScalar<kMaxSges>(peer, dst, laneSge, reservation);
+            const int32_t result = WriteScalar<kMaxSges>(peer, dst, laneSge);
+            if (result == 0 && kDoCommit) Commit();
+            return result;
         }
         const bool hasValidSge = count != 0U;
         coop.sync();
@@ -336,8 +317,7 @@ public:
         }
         uint32_t head = 0xFFFFFFFFU;
         if (laneRank == 0U) {
-            if (Reserve<kSlotWqebbs>(reservation) != 0) head = 0xFFFFFFFFU;
-            else head = reservation.beginHead;
+            if (Reserve<kSlotWqebbs>() == 0) head = implicitBeginHead_;
         }
         head = asc_shfl(head, 0, kWarpSize);
         if (head == 0xFFFFFFFFU) {
@@ -348,7 +328,7 @@ public:
         }
         const uint32_t depth = Info()->sqDepth;
         const uint32_t payloadWords = kSqeHeaderWords + count * 2U;
-        reservation.payloadWqebbs = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
+        implicitPayloadWqebbs_ = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
         const uint32_t lane = static_cast<uint32_t>(laneid());
         for (uint32_t wordIndex = lane; wordIndex < kSlotWqebbs * kWqebbLanes; wordIndex += kWarpSize) {
             const uint32_t word = wordIndex;
@@ -381,125 +361,16 @@ public:
         }
         asc_threadfence();
         coop.sync();
+        if constexpr (kDoCommit) Commit(coop);
         return 0;
-    }
-
-    // Dispatch commonly contributes two SGEs per lane (payload and metadata).  This overload
-    // compacts both lane-local entries into one WQE without exposing any SQE fields to the caller.
-    template <uint32_t kMaxSges, typename Coop>
-    __simt_callee__ __forceinline__ int32_t Write(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSgeList& laneSges,
-        HcommJettyBatch& reservation) const
-    {
-        static_assert(kMaxSges > 0U && kMaxSges <= 12U, "invalid SGE count");
-        const uint32_t rank = static_cast<uint32_t>(coop.thread_rank());
-        const uint32_t laneRank = rank % kWarpSize;
-        const uint32_t firstMask = asc_ballot(detail::Valid(laneSges.first));
-        const uint32_t secondMask = asc_ballot(laneSges.count > 1U && detail::Valid(laneSges.second));
-        const uint32_t firstCount = static_cast<uint32_t>(__builtin_popcount(firstMask));
-        const uint32_t count = firstCount + static_cast<uint32_t>(__builtin_popcount(secondMask));
-        if (count == 0U || count > kMaxSges) return -1;
-        coop.sync();
-        uint32_t head = 0xFFFFFFFFU;
-        if (laneRank == 0U) {
-            if (Reserve<kSlotWqebbs>(reservation) == 0) head = reservation.beginHead;
-        }
-        head = asc_shfl(head, 0, kWarpSize);
-        if (head == 0xFFFFFFFFU) {
-            coop.sync();
-            return -1;
-        }
-        auto* info = Info();
-        const uint32_t depth = info->sqDepth;
-        const uint32_t payloadWords = kSqeHeaderWords + count * 2U;
-        reservation.payloadWqebbs = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
-        const uint32_t laneId = static_cast<uint32_t>(laneid());
-        for (uint32_t lane = laneId; lane < kSlotWqebbs * kWqebbLanes; lane += kWarpSize) {
-            const uint32_t bb = head + lane / kWqebbLanes;
-            const uint32_t idx = bb & (depth - 1U);
-            const uint64_t owner = static_cast<uint64_t>(detail::Owner(bb, depth)) << 31U;
-            const bool isSgeWord = lane >= kSqeHeaderWords && lane < kSqeHeaderWords + count * 2U;
-            const int ordinal = isSgeWord ? static_cast<int>((lane - kSqeHeaderWords) / 2U) : -1;
-            const int firstOrdinal = ordinal >= 0 && ordinal < static_cast<int>(firstCount) ? ordinal : -1;
-            const int secondOrdinal = ordinal >= static_cast<int>(firstCount) ?
-                ordinal - static_cast<int>(firstCount) : -1;
-            uint64_t firstAddr = 0U;
-            uint64_t secondAddr = 0U;
-            int firstLen = 0;
-            int secondLen = 0;
-            detail::PackWarpSge(laneSges.first, firstMask, firstOrdinal, firstAddr, firstLen);
-            detail::PackWarpSge(laneSges.second, secondMask, secondOrdinal, secondAddr, secondLen);
-            uint64_t value = 0U;
-            if (lane == 0U) value = kWriteHeader | owner | idx;
-            else if (lane < kSqeHeaderWords) value = detail::PeerWord(peer.Info(), lane, count, dst);
-            else if (isSgeWord) {
-                const bool isLen = ((lane - kSqeHeaderWords) & 1U) == 0U;
-                if (ordinal < static_cast<int>(firstCount)) {
-                    value = isLen ? static_cast<uint64_t>(firstLen) : firstAddr;
-                } else {
-                    value = isLen ? static_cast<uint64_t>(secondLen) : secondAddr;
-                }
-            } else if ((lane % kWqebbLanes) == 0U) {
-                value = kNopHeader | (static_cast<uint64_t>(detail::Owner(bb, depth)) << 31U) | idx;
-            }
-            const uint32_t pairLane = lane & ~1U;
-            const uint64_t second = asc_shfl(value, static_cast<int>(pairLane + 1U), kWarpSize);
-            if ((lane & 1U) == 0U) {
-                auto* dstWords = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr) +
-                    static_cast<uint64_t>(idx) * kWqebbLanes + lane % kWqebbLanes;
-                asc_stwt(reinterpret_cast<__gm__ ulonglong2*>(dstWords), make_ulonglong2(value, second));
-            }
-        }
-        asc_threadfence();
-        coop.sync();
-        return 0;
-    }
-
-    template <uint32_t kMaxSges>
-    __simt_callee__ __forceinline__ int32_t Write(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges],
-        HcommJettyBatch& reservation) const
-    {
-        const HcommJettyBatch before = reservation;
-        if (before.valid) {
-            return WriteScalarArray<kMaxSges>(peer, dst, sges, reservation);
-        }
-        return -1;
-    }
-
-    template <uint32_t kMaxSges, typename Coop>
-    __simt_callee__ __forceinline__ int32_t Write(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges],
-        HcommJettyBatch& reservation) const
-    {
-        coop.sync();
-        int32_t result = 0;
-        if (coop.thread_rank() == 0U) result = WriteScalarArray<kMaxSges>(peer, dst, sges, reservation);
-        result = asc_shfl(result, 0, kWarpSize);
-        coop.sync();
-        return result;
-    }
-
-    template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop>
-    __simt_callee__ __forceinline__ int32_t Write(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const
-    {
-        if constexpr (kDoCommit && kMaxSges == 2U) {
-            return WriteTwoBb<kMaxSges>(coop, peer, dst, laneSge);
-        }
-        HcommJettyBatch batch = BeginBatch();
-        const int32_t result = Write<kMaxSges>(coop, peer, dst, laneSge, batch);
-        if (result == 0 && kDoCommit) Commit(coop, batch);
-        return result;
     }
 
     template <uint32_t kMaxSges, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t Write(
         const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges]) const
     {
-        HcommJettyBatch batch = BeginBatch();
-        const int32_t result = WriteScalarArray<kMaxSges>(peer, dst, sges, batch);
-        if (result == 0 && kDoCommit) Commit(batch);
+        const int32_t result = WriteScalarArray<kMaxSges>(peer, dst, sges);
+        if (result == 0 && kDoCommit) Commit();
         return result;
     }
 
@@ -517,11 +388,10 @@ private:
             return -1;
         }
         coop.sync();
-        HcommJettyBatch batch = BeginBatch();
         uint32_t head = 0xFFFFFFFFU;
-        if (laneRank == 0U && Reserve<2U>(batch) == 0) {
-            head = batch.beginHead;
-            batch.payloadWqebbs = count == 1U ? 1U : 2U;
+        if (laneRank == 0U && Reserve<2U>() == 0) {
+            head = implicitBeginHead_;
+            implicitPayloadWqebbs_ = count == 1U ? 1U : 2U;
         }
         head = asc_shfl(head, 0, kWarpSize);
         if (head == 0xFFFFFFFFU) {
@@ -558,7 +428,7 @@ private:
                      make_ulonglong2(value, second));
         }
         coop.sync();
-        Commit(coop, batch);
+        Commit(coop);
         coop.sync();
 
         // Commit has installed the final header in SQ. Recreate those two words in the
@@ -588,9 +458,8 @@ public:
         const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len)
     {
         HcommSge sge{reinterpret_cast<uint64_t>(src), static_cast<int>(len)};
-        HcommJettyBatch batch = BeginBatch();
-        const int32_t result = WriteScalar<1U>(peer, dst, sge, batch);
-        if (result == 0 && kDoCommit) Commit(batch);
+        const int32_t result = WriteScalar<1U>(peer, dst, sge);
+        if (result == 0 && kDoCommit) Commit();
         return result;
     }
 
@@ -599,11 +468,10 @@ public:
     {
         static_assert(sizeof(T) <= kWqebbBytes - kSqeHeaderWords * sizeof(uint64_t),
                       "inline value does not fit in a URMA WQEBB");
-        HcommJettyBatch batch{};
-        if (Reserve<kSlotWqebbs>(batch) != 0) return -1;
-        batch.payloadWqebbs = (kSqeHeaderWords + (sizeof(T) + 7U) / 8U + kWqebbLanes - 1U) / kWqebbLanes;
+        if (Reserve<kSlotWqebbs>() != 0) return -1;
+        implicitPayloadWqebbs_ = (kSqeHeaderWords + (sizeof(T) + 7U) / 8U + kWqebbLanes - 1U) / kWqebbLanes;
         auto* info = Info();
-        const uint32_t head = batch.beginHead;
+        const uint32_t head = implicitBeginHead_;
         const uint32_t depth = info->sqDepth;
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
         for (uint32_t word = 0U; word < kSlotWqebbs * kWqebbLanes; word += 2U) {
@@ -629,7 +497,7 @@ public:
                      make_ulonglong2(values[0], values[1]));
         }
         asc_threadfence();
-        if (kDoCommit) Commit(batch);
+        if (kDoCommit) Commit();
         return 0;
     }
 
@@ -638,11 +506,10 @@ public:
         const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len,
         __gm__ void* notifyAddr, uint64_t notifyValue)
     {
-        HcommJettyBatch batch{};
-        if (Reserve<2U>(batch) != 0) return -1;
-        batch.payloadWqebbs = 2U;
+        if (Reserve<2U>() != 0) return -1;
+        implicitPayloadWqebbs_ = 2U;
         auto* info = Info();
-        const uint32_t head = batch.beginHead;
+        const uint32_t head = implicitBeginHead_;
         const uint32_t depth = info->sqDepth;
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
         for (uint32_t word = 0U; word < 2U * kWqebbLanes; word += 2U) {
@@ -669,28 +536,28 @@ public:
                      make_ulonglong2(values[0], values[1]));
         }
         asc_threadfence();
-        if (kDoCommit) Commit(batch);
+        if (kDoCommit) Commit();
         return 0;
     }
 
     template <typename Coop>
-    __simt_callee__ __forceinline__ void Commit(const Coop& coop, const HcommJettyBatch& batch) const
+    __simt_callee__ __forceinline__ void Commit(const Coop& coop) const
     {
         coop.sync();
-        if (coop.thread_rank() == 0U) Commit(batch);
+        if (coop.thread_rank() == 0U) Commit();
         coop.sync();
     }
-    __simt_callee__ __forceinline__ void Commit(const HcommJettyBatch& batch) const
+    __simt_callee__ __forceinline__ void Commit() const
     {
-        if ((!batch.valid || batch.reservedWqebbs == 0U) && !implicitActive_) return;
+        if (!implicitActive_ || implicitReservedWqebbs_ == 0U) return;
         auto* info = Info();
         const uint32_t end = static_cast<uint32_t>(*reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead));
-        const uint32_t begin = batch.valid ? batch.beginHead : implicitBeginHead_;
+        const uint32_t begin = implicitBeginHead_;
         if (end <= begin) return;
-        const uint32_t reservedWqebbs = batch.reservedWqebbs == 0U ? kSlotWqebbs : batch.reservedWqebbs;
+        const uint32_t reservedWqebbs = implicitReservedWqebbs_;
         if (reservedWqebbs > kSlotWqebbs || reservedWqebbs > end - begin) return;
         const uint32_t last = end - reservedWqebbs;
-        const uint32_t payloadWqebbs = batch.payloadWqebbs == 0U ? reservedWqebbs : batch.payloadWqebbs;
+        const uint32_t payloadWqebbs = implicitPayloadWqebbs_ == 0U ? reservedWqebbs : implicitPayloadWqebbs_;
         if (payloadWqebbs > reservedWqebbs) return;
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
         const uint32_t idx = last & (info->sqDepth - 1U);
@@ -710,59 +577,28 @@ public:
         asc_atomic_add(reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead) + 1, 1U);
         asc_stwt(reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr), info->packedHead);
         implicitActive_ = false;
-    }
-    __simt_callee__ __forceinline__ void Commit() const
-    {
-        HcommJettyBatch batch = BeginBatch();
-        batch.beginHead = implicitActive_ ? implicitBeginHead_ : batch.beginHead;
-        Commit(batch);
-    }
-    template <typename Coop>
-    __simt_callee__ __forceinline__ void Commit(const Coop& coop) const
-    {
-        HcommJettyBatch batch = BeginBatch();
-        batch.beginHead = implicitActive_ ? implicitBeginHead_ : batch.beginHead;
-        Commit(coop, batch);
+        implicitReservedWqebbs_ = 0U;
+        implicitPayloadWqebbs_ = 0U;
     }
     __simt_callee__ __forceinline__ void AdvanceSq() const
     {
-        HcommJettyBatch batch = BeginBatch();
-        batch.beginHead = implicitActive_ ? implicitBeginHead_ : batch.beginHead;
-        Commit(batch);
+        Commit();
     }
     template <typename Coop>
     __simt_callee__ __forceinline__ void AdvanceSq(const Coop& coop) const
     {
-        HcommJettyBatch batch = BeginBatch();
-        batch.beginHead = implicitActive_ ? implicitBeginHead_ : batch.beginHead;
-        Commit(coop, batch);
+        Commit(coop);
     }
     template <typename Coop>
     __simt_callee__ __forceinline__ void AdvanceSq(
         const Coop& coop, uint32_t, uint32_t) const
     {
-        HcommJettyBatch batch = BeginBatch();
-        batch.beginHead = implicitActive_ ? implicitBeginHead_ : batch.beginHead;
-        Commit(coop, batch);
+        Commit(coop);
     }
-    __simt_callee__ __forceinline__ void AdvanceSqNoDoorbell(const HcommJettyBatch& batch) const { Commit(batch); }
     template <typename Coop>
     __simt_callee__ __forceinline__ void AdvanceSqNoDoorbell(const Coop& coop) const
     {
-        HcommJettyBatch batch = BeginBatch();
-        batch.beginHead = implicitActive_ ? implicitBeginHead_ : batch.beginHead;
-        Commit(coop, batch);
-    }
-    template <typename Coop>
-    __simt_callee__ __forceinline__ void AdvanceSqNoDoorbell(const Coop& coop, const HcommJettyBatch& batch) const
-    {
-        coop.sync();
-        if (coop.thread_rank() == 0U) FinalizeNoDoorbell(batch);
-        coop.sync();
-    }
-    __simt_callee__ __forceinline__ void FinalizeNoDoorbell(const HcommJettyBatch& batch) const
-    {
-        Commit(batch);
+        Commit(coop);
     }
     __simt_callee__ __forceinline__ void PublishSq() const
     {
@@ -818,15 +654,17 @@ private:
     uint64_t stageAddr_ = 0U;
     uint64_t channel_ = 0U;
     mutable uint32_t implicitBeginHead_ = 0U;
+    mutable uint32_t implicitReservedWqebbs_ = 0U;
+    mutable uint32_t implicitPayloadWqebbs_ = 0U;
     mutable bool implicitActive_ = false;
 
     template <uint32_t kMaxSges>
     __simt_callee__ __forceinline__ int32_t WriteScalar(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge, HcommJettyBatch& batch) const
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
     {
         HcommSge one[kMaxSges] = {};
         one[0] = sge;
-        return WriteScalarArray<kMaxSges>(peer, dst, one, batch);
+        return WriteScalarArray<kMaxSges>(peer, dst, one);
     }
 
     template <uint32_t kMaxSges>
@@ -885,16 +723,15 @@ private:
 
     template <uint32_t kMaxSges>
     __simt_callee__ __forceinline__ int32_t WriteScalarArray(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges],
-        HcommJettyBatch& reservation) const
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges]) const
     {
         static_assert(kMaxSges > 0U && kMaxSges <= 12U, "invalid scalar SGE count");
         const uint32_t count = CountValidSges(sges);
         if (count == 0U || count > kMaxSges) return -1;
-        if (Reserve<kSlotWqebbs>(reservation) != 0) return -1;
+        if (Reserve<kSlotWqebbs>() != 0) return -1;
         const uint32_t payloadWords = kSqeHeaderWords + count * 2U;
-        reservation.payloadWqebbs = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
-        const uint32_t head = reservation.beginHead;
+        implicitPayloadWqebbs_ = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
+        const uint32_t head = implicitBeginHead_;
         auto* info = Info();
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
         for (uint32_t firstWord = 0U; firstWord < kSlotWqebbs * kWqebbLanes; firstWord += 2U) {
@@ -927,12 +764,10 @@ private:
 } // namespace AscendC::simt
 
 namespace AscendC::simt {
-using jetty::HcommJettyBatch;
 using jetty::HcommJettyInfo;
 using jetty::HcommPeer;
 using jetty::HcommPeerInfo;
 using jetty::HcommSge;
-using jetty::HcommSgeList;
 using jetty::HcommJetty;
 }
 

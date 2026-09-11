@@ -157,8 +157,7 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
 template <bool kMeasure>
 __simt_callee__ inline void SimtJettyWriteDispatchWarpImpl(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, const AscendC::simt::HcommCoopWarp& warp,
-    const AscendC::simt::jetty::HcommPeer& peer, AscendC::simt::jetty::HcommJetty& jetty,
-    AscendC::simt::jetty::HcommJettyBatch& batch, uint64_t& writeCycles)
+    const AscendC::simt::jetty::HcommPeer& peer, AscendC::simt::jetty::HcommJetty& jetty, uint64_t& writeCycles)
 {
     __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
@@ -172,7 +171,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchWarpImpl(
     if constexpr (kMeasure) {
         begin = clock();
     }
-    jetty.template Write<12>(warp, peer, remoteDst, laneSge, batch);
+    jetty.template Write<12, false>(warp, peer, remoteDst, laneSge);
     if constexpr (kMeasure) {
         writeCycles += clock() - begin;
     }
@@ -187,13 +186,12 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     AscendC::simt::HcommCoopGroup group;
     AscendC::simt::HcommCoopWarp warp;
     group.sync();
-    AscendC::simt::jetty::HcommJettyBatch batch = jetty.BeginBatch();
     const uint64_t begin = kMeasure ? clock() : 0U;
     SimtJettyWriteDispatchWarpImpl<kMeasure>(
-        channel, sendBufIdx, recvBufIdx, warp, peer, jetty, batch, writeCycles);
+        channel, sendBufIdx, recvBufIdx, warp, peer, jetty, writeCycles);
     if constexpr (kPublish) {
         const uint64_t commitBegin = kMeasure ? clock() : 0U;
-        jetty.Commit(group, batch);
+        jetty.Commit(group);
         group.sync();
         if (group.thread_rank() == 0) {
             jetty.PublishSq();
@@ -400,9 +398,8 @@ __simt_vf__ __aicore__ __launch_bounds__(64) inline void SimtJettyWriteMixedWork
     uint64_t commitCycles = 0;
     uint64_t completionCycles = 0;
     group.sync();
-    AscendC::simt::jetty::HcommJettyBatch batch = jetty.BeginBatch();
-    SimtJettyWriteDispatchWarpImpl<false>(channel, sendBufIdx, recvBufIdx, warp, peer, jetty, batch, writeCycles);
-    jetty.AdvanceSqNoDoorbell(group, batch);
+    SimtJettyWriteDispatchWarpImpl<false>(channel, sendBufIdx, recvBufIdx, warp, peer, jetty, writeCycles);
+    jetty.AdvanceSqNoDoorbell(group);
     if (group.thread_rank() == 0) {
         ub_layout->mixed_ready = 1U;
     }
