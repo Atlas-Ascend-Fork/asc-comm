@@ -480,24 +480,31 @@ public:
         return result;
     }
 
-    template <uint32_t kMaxSges, typename Coop>
+    template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop>
     __simt_callee__ __forceinline__ int32_t Write(
         const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const
     {
-        HcommJettyBatch unused = BeginBatch();
-        return Write<kMaxSges>(coop, peer, dst, laneSge, unused);
+        if constexpr (kDoCommit && kMaxSges == 2U) {
+            return WriteTwoBb<kMaxSges>(coop, peer, dst, laneSge);
+        }
+        HcommJettyBatch batch = BeginBatch();
+        const int32_t result = Write<kMaxSges>(coop, peer, dst, laneSge, batch);
+        if (result == 0 && kDoCommit) Commit(coop, batch);
+        return result;
     }
 
-    template <uint32_t kMaxSges>
+    template <uint32_t kMaxSges, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t Write(
         const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges]) const
     {
-        HcommJettyBatch unused = BeginBatch();
-        return WriteScalarArray<kMaxSges>(peer, dst, sges, unused);
+        HcommJettyBatch batch = BeginBatch();
+        const int32_t result = WriteScalarArray<kMaxSges>(peer, dst, sges, batch);
+        if (result == 0 && kDoCommit) Commit(batch);
+        return result;
     }
 
     template <uint32_t kMaxSges, typename Coop>
-    __simt_callee__ __forceinline__ int32_t PutTwoBb(
+    __simt_callee__ __forceinline__ int32_t WriteTwoBb(
         const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const
     {
         static_assert(kMaxSges == 2U, "two-BB path requires two SGE lanes");
@@ -572,49 +579,6 @@ public:
         asc_threadfence();
         coop.sync();
         return 0;
-    }
-
-    template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop>
-    __simt_callee__ __forceinline__ int32_t Put(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const
-    {
-        if constexpr (kDoCommit && kMaxSges == 2U) {
-            return PutTwoBb<kMaxSges>(coop, peer, dst, laneSge);
-        }
-        HcommJettyBatch batch = BeginBatch();
-        const int32_t result = Write<kMaxSges>(coop, peer, dst, laneSge, batch);
-        if (result == 0 && kDoCommit) Commit(coop, batch);
-        return result;
-    }
-
-    template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop>
-    __simt_callee__ __forceinline__ int32_t Put(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges]) const
-    {
-        HcommJettyBatch batch = BeginBatch();
-        const int32_t result = Write<kMaxSges>(coop, peer, dst, sges, batch);
-        if (result == 0 && kDoCommit) Commit(coop, batch);
-        return result;
-    }
-
-    template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop>
-    __simt_callee__ __forceinline__ int32_t Put(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSgeList& laneSges) const
-    {
-        HcommJettyBatch batch = BeginBatch();
-        const int32_t result = Write<kMaxSges>(coop, peer, dst, laneSges, batch);
-        if (result == 0 && kDoCommit) Commit(coop, batch);
-        return result;
-    }
-
-    template <uint32_t kMaxSges, bool kDoCommit = true>
-    __simt_callee__ __forceinline__ int32_t Put(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges]) const
-    {
-        HcommJettyBatch batch = BeginBatch();
-        const int32_t result = WriteScalarArray<kMaxSges>(peer, dst, sges, batch);
-        if (result == 0 && kDoCommit) Commit(batch);
-        return result;
     }
 
     template <int64_t, bool kDoCommit = true>

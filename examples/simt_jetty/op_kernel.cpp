@@ -82,9 +82,9 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
         begin = clock();
     }
     if constexpr (kStandaloneWrite) {
-        jetty.template Write<kNumSGEs>(peer, remoteDst, sges);
+        jetty.template Write<kNumSGEs, false>(peer, remoteDst, sges);
     } else {
-        jetty.template Put<kNumSGEs>(peer, remoteDst, sges);
+        jetty.template Write<kNumSGEs>(peer, remoteDst, sges);
     }
     uint64_t writeEnd = 0U;
     if constexpr (kMeasure) {
@@ -126,9 +126,9 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
         begin = clock();
     }
     if constexpr (kStandaloneWrite) {
-        jetty.template Write<2>(coop, peer, remoteDst, sge);
+        jetty.template Write<2, false>(coop, peer, remoteDst, sge);
     } else {
-        jetty.template Put<2>(coop, peer, remoteDst, sge);
+        jetty.template Write<2>(coop, peer, remoteDst, sge);
     }
     uint64_t writeEnd = 0U;
     if constexpr (kMeasure) {
