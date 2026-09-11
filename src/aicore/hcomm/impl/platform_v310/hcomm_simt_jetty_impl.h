@@ -355,25 +355,31 @@ private:
             kOpcode == HcommPostOpcode::kWriteValue ? kSqeHeaderWords + (inlineBytes + 7U) / 8U :
             2U * kWqebbLanes;
         const uint32_t payloadWqebbs = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
+        // Scalar posts retain the four-BB slot layout used by the original scalar
+        // builder. Warp/group posts use their payload-sized range.
+        constexpr bool kScalarWrite = !HcommCoopTraits<Coop>::kWarpCapable &&
+            kOpcode == HcommPostOpcode::kWrite;
+        const uint32_t reserveWqebbs = kScalarWrite ? kSlotWqebbs : payloadWqebbs;
         uint32_t head = 0xFFFFFFFFU;
         if (laneRank == 0U) {
             auto* info = Info();
-            if constexpr (kDoCommit) {
-                // Immediate commit is a single-producer mode. Keep the uncontended
-                // path to one head/tail check and pull CQ only when the SQ is full.
+            if constexpr (kDoCommit || kScalarWrite) {
+                // Immediate posts and scalar deferred posts are single-producer paths.
+                // Keep the reservation in implicit state; only cooperative deferred
+                // posts need the shared batch protocol below.
                 auto* sqHead = reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead);
                 auto* sqTail = reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
                 const uint32_t depth = info->sqDepth;
                 const uint32_t oldHead = *sqHead;
                 uint32_t consumed = oldHead - *sqTail;
-                while ((consumed > depth || payloadWqebbs > depth - consumed) && PullCqOne()) {
+                while ((consumed > depth || reserveWqebbs > depth - consumed) && PullCqOne()) {
                     consumed = oldHead - *sqTail;
                 }
-                if (consumed <= depth && payloadWqebbs <= depth - consumed) {
+                if (consumed <= depth && reserveWqebbs <= depth - consumed) {
                     head = oldHead;
-                    *sqHead = oldHead + payloadWqebbs;
+                    *sqHead = oldHead + reserveWqebbs;
                     implicitBeginHead_ = oldHead;
-                    implicitWqebbs_ = payloadWqebbs;
+                    implicitWqebbs_ = reserveWqebbs;
                     implicitPayloadWqebbs_ = payloadWqebbs;
                     implicitActive_ = true;
                 }
@@ -381,12 +387,12 @@ private:
                 // Deferred multi-warp mode mirrors dispatch: packedHead remains the
                 // published base while each warp atomically claims a UB-local offset.
                 auto* batch = Batch();
-                const uint32_t offset = asc_atomic_add(&batch->wqebbCount, payloadWqebbs);
+                const uint32_t offset = asc_atomic_add(&batch->wqebbCount, reserveWqebbs);
                 const uint32_t base = static_cast<uint32_t>(info->packedHead);
                 const uint32_t consumed = base -
                     *reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
                 if (consumed <= info->sqDepth && offset <= info->sqDepth - consumed &&
-                    payloadWqebbs <= info->sqDepth - consumed - offset) {
+                    reserveWqebbs <= info->sqDepth - consumed - offset) {
                     head = base + offset;
                     asc_atomic_max(&batch->lastOffset, offset);
                 } else {
@@ -401,7 +407,7 @@ private:
         }
 
         const uint32_t depth = Info()->sqDepth;
-        const uint32_t totalWords = payloadWqebbs * kWqebbLanes;
+        const uint32_t totalWords = reserveWqebbs * kWqebbLanes;
         const uint32_t workerCount = static_cast<uint32_t>(coop.size());
         // StoreSqePair writes a complete 128-bit pair.  Keep every worker on an
         // even word boundary; the scalar path must follow the same rule or its
