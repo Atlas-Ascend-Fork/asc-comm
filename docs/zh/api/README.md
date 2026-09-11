@@ -19,7 +19,6 @@
 | [Unlock](./aicore/hcomm/Unlock.md) | 释放通信通道的跨AI Core锁。 |
 | [ReadNbi](./aicore/hcomm/ReadNbi.md) | 提交普通读任务或在BatchHandle中准备读WQE。 |
 | [WriteNbi](./aicore/hcomm/WriteNbi.md) | 提交普通写任务或在BatchHandle中准备写WQE。 |
-| [WriteValueNbi](./aicore/hcomm/WriteValueNbi.md) | 提交点对点立即数写任务，将`value`内联携带在WQE中写入远端。 |
 | [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | 提交普通写通知任务或在BatchHandle中准备写通知WQE。 |
 | [AtomicFAA](./aicore/hcomm/AtomicFAA.md) | 提交Fetch-and-add原子操作任务。 |
 | [AtomicCAS](./aicore/hcomm/AtomicCAS.md) | 提交Compare-and-swap原子操作任务。 |
