@@ -33,23 +33,18 @@ endif()
 set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}")
 message(STATUS "ASCCOMM_CANN_ARCH_DIR = ${ASCCOMM_CANN_ARCH_DIR}")
 
-# hcomm源码定位(可选依赖)：AICPU数据面自包含随仓契约头(include/aicpu/hcomm/)编译，
-# hcomm源码存在时附加其pkg_inc包含路径(兼容旧依赖链)，不存在时自包含构建。
-# 显式指定(HCOMM_SOURCE_DIR/ASCCOMM_HCOMM_SOURCE_DIR)但目录无效时报错(防拼写错误)；
-# 未指定且同级目录探测失败仅告警并自包含——第三方超构建(如CANN cann_device)的
-# asc-comm集成不携带hcomm源码路径，依赖此前"探测失败被容忍"的行为。
-set(_asccomm_hcomm_explicit FALSE)
+# 查找 hcomm 代码(对齐PR129形态)：AICPU数据面自包含随仓契约头(include/aicpu/hcomm/)编译，
+# ASCCOMM_HCOMM_SOURCE_DIR/HCOMM_SOURCE_DIR存在时附加其pkg_inc包含路径(不校验内容，
+# devkit超构建的asc-comm.cmake会把ASCCOMM_HCOMM_SOURCE_DIR设为devkit内hccl/cc路径，
+# 该路径无pkg_inc，AICPU侧忽略即可)，不存在时自包含构建。
 if(ASCCOMM_HCOMM_SOURCE_DIR)
-    set(_asccomm_hcomm_explicit TRUE)
+    # 显式指定，直接使用
 elseif(HCOMM_SOURCE_DIR)
     set(ASCCOMM_HCOMM_SOURCE_DIR "${HCOMM_SOURCE_DIR}")
-    set(_asccomm_hcomm_explicit TRUE)
-endif()
-if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
+else()
     foreach(_candidate
         "${ASCCOMM_ROOT}/../hcomm_pkg_inc"
-        "${ASCCOMM_ROOT}/../hcomm"
-        "${CANN_3RD_LIB_PATH}/hcomm")
+        "${ASCCOMM_ROOT}/../hcomm")
         if(EXISTS "${_candidate}/pkg_inc/hcomm/hcomm_pod_resource.h")
             get_filename_component(ASCCOMM_HCOMM_SOURCE_DIR "${_candidate}" ABSOLUTE)
             break()
@@ -57,16 +52,11 @@ if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
     endforeach()
 endif()
 if(ASCCOMM_HCOMM_SOURCE_DIR AND NOT EXISTS "${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hcomm/hcomm_pod_resource.h")
-    if(_asccomm_hcomm_explicit)
-        message(FATAL_ERROR
-            "HCOMM_SOURCE_DIR(${ASCCOMM_HCOMM_SOURCE_DIR}) has no pkg_inc/hcomm/hcomm_pod_resource.h; "
-            "fix the path or unset it to build the AICPU data plane self-contained.")
-    endif()
-    # 探测命中但无效(非源码根)：退回自包含
+    # 指定路径无AICPU契约头(如devkit的hccl/cc)：退回自包含，不报错
     set(ASCCOMM_HCOMM_SOURCE_DIR "")
 endif()
+set(ASCCOMM_HCOMM_SOURCE_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}" CACHE PATH "Original hcomm source tree")
 if(ASCCOMM_HCOMM_SOURCE_DIR)
-    set(ASCCOMM_HCOMM_SOURCE_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}" CACHE PATH "Original hcomm source tree")
     message(STATUS "ASCCOMM_HCOMM_SOURCE_DIR = ${ASCCOMM_HCOMM_SOURCE_DIR}")
 else()
     message(STATUS "ASCCOMM_HCOMM_SOURCE_DIR not set; "
