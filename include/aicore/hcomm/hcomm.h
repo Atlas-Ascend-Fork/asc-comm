@@ -66,20 +66,20 @@ public:
     __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
 
     /*!
-     * @brief Create a protocol-specific batch handle using a LocalTensor buffer.
+     * @brief Create a batch handle and bind a LocalTensor workspace.
      * @tparam T: The communication channel handle type.
      * @tparam U: The element type of the LocalTensor.
      * @param [in] channel: The handle of the communication channel.
-     * @param [in] buff: The LocalTensor buffer used to prepare batched WQEs.
-     * @param [in] buffLen: The buffer length in bytes.
-     * @param [in] remoteAddr: For ChannelHandle, an address used for the one-time lookup of remote registered memory.
-     *                         If it is null, the first remote registered buffer is selected. Reserved for
-     *                         MultiChannelHandle.
-     * @param [in] localAddr: Reserved local memory address. Reserved for MultiChannelHandle.
-     * @return An initialized batch handle for commProtocol.
-     * @note For UBC CTP, remote memory is selected here for ChannelHandle. Call GetHandleRef to select a logical
-     *       channel and remote registered-memory region for MultiChannelHandle. buffLen must be smaller than the SQ
-     *       capacity in bytes.
+     * @param [in] buff: The LocalTensor workspace used by batch operations.
+     * @param [in] buffLen: The workspace length in bytes.
+     * @param [in] remoteAddr: For ChannelHandle, an address in the remote registered memory to select. If it is null,
+     *                         the first remote registered buffer is selected. Ignored for MultiChannelHandle.
+     * @param [in] localAddr: Reserved parameter. Not used in the current version.
+     * @return A batch handle for commProtocol. Returns a zero-valued invalid handle if the multi-channel handle is
+     *         invalid or remote registered-memory selection fails.
+     * @note For MultiChannelHandle, call GetHandleRef to select a logical channel and remote registered memory.
+     *       The 64-byte task slots used by one batch must be fewer than the channel task-submission capacity, which is
+     *       determined when channel resources are created on the Host.
      */
     template <typename T, typename U>
     __aicore__ inline BatchHandle<T> MakeBatchHandle(
@@ -87,17 +87,17 @@ public:
         GM_ADDR localAddr = nullptr);
 
     /*!
-     * @brief Get the execution batch handle for one channel.
+     * @brief Get the batch handle reference used to add tasks for one logical channel.
      * @tparam T: The batch handle type.
      * @param [in,out] batchHandle: A batch handle created from ChannelHandle or MultiChannelHandle.
      * @param [in] channelIndex: Index in the channel descriptor array used to create MultiChannelHandle. Ignored for
      *                          ChannelHandle.
      * @param [in] remoteAddr: An address in the remote registered-memory region to select. If it is null, the first
      *                         remote registered buffer is selected. Ignored for ChannelHandle.
-     * @return For ChannelHandle, the input handle itself. For MultiChannelHandle, its inner BatchHandle configured for
-     *         the selected peer and remote registered-memory region.
-     * @note For ChannelHandle, remote memory remains bound as selected by MakeBatchHandle. For MultiChannelHandle,
-     *       remote buffers used through the returned handle must use the token cached by this call.
+     * @return A batch handle reference for the selected logical channel and remote registered memory. For
+     *         ChannelHandle, returns the input handle itself.
+     * @note Batch operations through the returned handle must access the selected remote registered memory. Repeated
+     *       calls for one MultiChannelHandle return the same inner handle reference and update its current selection.
      */
     template <typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline BatchHandle<T>& GetHandleRef(T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
@@ -123,16 +123,15 @@ public:
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
-     * @brief Prepare a Write WQE in a protocol-specific batch handle.
-     * @tparam config: URMA WQE control config. Inline WQE is not supported.
-     * @tparam T: The protocol-specific batch handle type.
-     * @param [in,out] batchHandle: The batch handle to append the WQE to.
-     * @param [out] dst: The remote destination address. The caller must ensure that its access range matches the
-     *                   tokenId/tokenValue cached in batchHandle.
+     * @brief Add a Write task to a batch handle.
+     * @tparam config: URMA task configuration. URMA_DEFAULT_CFG uses strong ordering and fence, and each task generates
+     *                 a completion record. Inline mode is not supported.
+     * @tparam T: The batch handle type.
+     * @param [in,out] batchHandle: The batch handle to add the task to.
+     * @param [out] dst: The remote destination address in the remote registered memory selected for batchHandle.
      * @param [in] src: The local source address.
      * @param [in] len: The length of the data to write in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note The destination range is not validated against the registration cached in batchHandle.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
@@ -203,19 +202,17 @@ public:
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
 
     /*!
-     * @brief Prepare a Write-with-notify WQE in a protocol-specific batch handle.
-     * @tparam config: URMA WQE control config. Inline WQE is not supported.
-     * @tparam T: The protocol-specific batch handle type.
-     * @param [in,out] batchHandle: The batch handle to append the WQE to.
-     * @param [out] dst: The remote destination address. The caller must ensure that its access range matches the
-     *                   tokenId/tokenValue cached in batchHandle.
+     * @brief Add a Write-with-notify task to a batch handle.
+     * @tparam config: URMA task configuration. URMA_DEFAULT_CFG uses strong ordering and fence, and each task generates
+     *                 a completion record. Inline mode is not supported.
+     * @tparam T: The batch handle type.
+     * @param [in,out] batchHandle: The batch handle to add the task to.
+     * @param [out] dst: The remote destination address in the remote registered memory selected for batchHandle.
      * @param [in] src: The local source address.
      * @param [in] len: The length of the data to write in bytes.
-     * @param [in] notifyAddr: The remote notify address. The caller must ensure that its access range matches the
-     *                         tokenId/tokenValue cached in batchHandle.
+     * @param [in] notifyAddr: The remote notify address. It must belong to the same remote registered memory as dst.
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
-     * @note The destination and notify ranges are not validated against the registration cached in batchHandle.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteWithNotifyNbi(
@@ -283,16 +280,15 @@ public:
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
 
     /*!
-     * @brief Prepare a Read WQE in a protocol-specific batch handle.
-     * @tparam config: URMA WQE control config. Inline WQE is not supported.
-     * @tparam T: The protocol-specific batch handle type.
-     * @param [in,out] batchHandle: The batch handle to append the WQE to.
+     * @brief Add a Read task to a batch handle.
+     * @tparam config: URMA task configuration. URMA_DEFAULT_CFG uses strong ordering and fence, and each task generates
+     *                 a completion record. Inline mode is not supported.
+     * @tparam T: The batch handle type.
+     * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The local destination address.
-     * @param [in] src: The remote source address. The caller must ensure that its access range matches the
-     *                  tokenId/tokenValue cached in batchHandle.
+     * @param [in] src: The remote source address in the remote registered memory selected for batchHandle.
      * @param [in] len: The length of the data to read in bytes.
      * @return 0 indicates success and -1 indicates failure.
-     * @note The source range is not validated against the registration cached in batchHandle.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
@@ -308,9 +304,9 @@ public:
     __aicore__ inline int32_t Commit(ChannelHandle channel);
 
     /*!
-     * @brief Submit all WQEs prepared in a protocol-specific batch handle.
-     * @tparam T: The protocol-specific batch handle type.
-     * @param [in,out] batchHandle: The batch handle to submit. Its prepared WQEBB count is reset after success.
+     * @brief Submit all tasks in the current batch of a batch handle.
+     * @tparam T: The batch handle type.
+     * @param [in,out] batchHandle: The batch handle to submit. Tasks can be added to a new batch after success.
      * @return 0 indicates success and -1 indicates failure.
      */
     template <typename T, typename HandleTraits<T>::ChannelType* = nullptr>
@@ -328,13 +324,14 @@ public:
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
     /*!
-     * @brief Block Aicore until all communication tasks submitted through a batch handle are complete.
+     * @brief Block Aicore until all completion records generated through a batch handle are available.
      * @tparam pipe: The pipe type to use for drain, PIPE_MTE3 supported as default.
-     * @tparam T: The protocol-specific batch handle type.
-     * @param [in,out] batchHandle: The batch handle whose WQE buffer is reused as CQE scratch space.
-     * @return 0 indicates success. A non-zero value indicates failure.
-     * @note This overload does not require Init. It must be called after BatchCommit. Multiple batches may be
-     *       committed before one Drain if the caller prevents SQ/CQ overflow.
+     * @tparam T: The batch handle type.
+     * @param [in,out] batchHandle: The batch handle whose generated completion records are awaited.
+     * @return 0 indicates success. A non-zero value indicates failure. For COMM_PROTOCOL_UBC_CTP, 0xFF indicates a
+     *         completion-record polling timeout; other positive values encode status and substatus.
+     * @note This overload does not require Init. It must be called after all tasks in the current batch are submitted
+     *       through BatchCommit. Multiple batches may be submitted before one Drain if channel capacity permits.
      */
     template <pipe_t pipe = PIPE_MTE3, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t Drain(T& batchHandle);

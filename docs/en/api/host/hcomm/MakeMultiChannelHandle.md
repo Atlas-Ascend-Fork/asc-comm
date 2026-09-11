@@ -2,7 +2,7 @@
 
 ## Function Description
 
-Creates a group of shared-Jetty UB_CTP channels and the `MultiChannelHandle` used on the Device. The API provides overloads for an HCCL communicator and an Hcomm Endpoint and stores remote communication metadata in `channelDescs` order.
+Creates the communication resources required by the multi-channel batch workflow and returns the `MultiChannelHandle` used on the Device. The API provides overloads for an HCCL communicator and an Hcomm Endpoint.
 
 Header file:
 
@@ -31,24 +31,26 @@ HcommResult MakeMultiChannelHandle(
 
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
-| `comm` | Input | Initialized HCCL communicator that manages the shared-Jetty channels and Device context. |
-| `sharedQueueTag` | Input | Tag for this shared queue and Device context. It must be unique within the communicator. |
+| `comm` | Input | Initialized HCCL communicator. |
+| `sharedQueueTag` | Input | Tag for this group of multi-channel resources. It must be unique within the communicator. |
 | `endpointHandle` | Input | Initialized Hcomm Endpoint that supports the AIV engine and UB_CTP protocol. |
-| `channelDescs` | Input | HCCL or Hcomm channel descriptor array containing `channelNum` elements. Array order determines the `channelIndex` used by `GetHandleRef`. |
-| `channelNum` | Input | Number of channel descriptors. It must be greater than 0. |
-| `multiChannel` | Output | Device-side multi-channel handle. It is set to 0 when creation fails. |
+| `channelDescs` | Input | HCCL or Hcomm channel descriptor array containing `channelNum` elements. Each array index corresponds to the `channelIndex` passed to Device-side `GetHandleRef`. |
+| `channelNum` | Input | Number of channel descriptors. Must be greater than 0. |
+| `multiChannel` | Output | Device-side multi-channel handle. Set to 0 if creation fails. |
 
 ## Return Value
 
-Returns `HCCL_SUCCESS` on success. The communicator overload returns an HCCL error code on failure, and the Endpoint overload returns an Hcomm error code. If Endpoint connection establishment fails, resources are unavailable, or all channels are not ready within 120 seconds, the API destroys the channels it created and returns an error.
+The HCCL communicator overload returns `HCCL_SUCCESS` on success or the corresponding HCCL error code on failure. The Hcomm Endpoint overload returns the success code or the corresponding Hcomm error code.
 
 ## Constraints
 
-- Input pointers for both overloads must not be `nullptr`, and `channelNum` must not be 0.
-- The communicator overload creates channels through `HcclChannelAcquireWithConfig`. Each `sharedQueueTag` can be used by only one successful call within a communicator. The communicator manages and automatically releases the shared channels and Device context; do not call `DestroyMultiChannelHandle` for this handle.
-- The Endpoint overload creates channels through `HcommChannelCreateWithConfig` and waits for them to become ready. The returned handle owns the channels and Device context and must be destroyed before `endpointHandle`.
-- Channels use `COMM_ENGINE_AIV` and UB_CTP. Shared-Jetty channels cannot be used concurrently.
-- After Kernels using a handle created by the Endpoint overload have completed and synchronized, call `DestroyMultiChannelHandle`.
+- All input pointers must be non-null, and `channelNum` must be greater than 0.
+- The communicator overload requires an initialized `comm`. Within one communicator, each `sharedQueueTag` can be used by only one successful call.
+- Resources created by the communicator overload are managed by `comm` and released automatically when the communicator is destroyed. Do not pass this handle to `DestroyMultiChannelHandle`.
+- The Endpoint overload requires an initialized `endpointHandle` that supports `COMM_ENGINE_AIV` and UB_CTP.
+- Resources created by the Endpoint overload are managed by the caller. After all Kernels using the handle have completed and synchronized, call `DestroyMultiChannelHandle` before destroying `endpointHandle`.
+- Do not use the created multi-channel resources concurrently.
+- Keep each Host-side index in `channelDescs` consistent with the `channelIndex` passed to Device-side `GetHandleRef`.
 
 ## Related APIs
 

@@ -2,7 +2,7 @@
 
 ## 功能说明
 
-将数据从远端`src`读取到本端`dst`。接口提供普通`ChannelHandle`重载和BatchHandle重载：普通重载直接向通道提交读任务；批量重载只在BatchHandle的UB缓冲区中准备读WQE，后续由`BatchCommit`统一提交。
+将数据从远端`src`读取到本端`dst`。接口提供普通`ChannelHandle`重载和BatchHandle重载：普通重载直接向通道提交读任务；批量重载将读任务添加到当前批次，后续由`BatchCommit`统一提交。
 
 ## 函数原型
 
@@ -46,15 +46,15 @@ __aicore__ inline int32_t ReadNbi(
 | `commit` | 普通接口是否在提交任务时立即commit。批量接口不提供该参数。 |
 | `commitPipe` | 普通接口commit使用的pipe，默认`PIPE_S`。 |
 | `reqPipe` | 普通接口请求使用的pipe，默认`PIPE_MTE3`。 |
-| `config` | URMA WQE控制配置。默认为`URMA_DEFAULT_CFG`（强序 + fence + 使能CQE）。批量接口要求`inlineEn = 0`且`cqe`只能为`0`或`1`。 |
+| `config` | URMA任务配置。默认为`URMA_DEFAULT_CFG`。批量接口要求`inlineEn = 0`，且`cqe`只能为`0`或`1`。 |
 | `T` | 批量句柄类型，由`batchHandle`实参推导。 |
 
 ## 返回值
 
 | 返回值 | 说明 |
 | --- | --- |
-| `0` | 普通任务提交成功，或批量WQE准备成功。 |
-| `-1` | 操作失败。批量接口中包括UB缓冲区剩余空间不足。 |
+| `0` | 普通任务提交成功，或读任务成功添加到当前批次。 |
+| `-1` | 操作失败。批量接口中包括批量工作区剩余空间不足。 |
 
 ## 约束说明
 
@@ -62,17 +62,16 @@ __aicore__ inline int32_t ReadNbi(
 
 - 调用前通信通道需已完成初始化，并通过`Init`提供临时工作区。
 - `COMM_PROTOCOL_UBC_CTP`路径下，`src`需要落在通道注册的远端buffer范围内，`dst`为本端目标地址。
-- 若`commit`模板参数设为`false`，连续调用次数不得超过`sqDepth`，需在SQ耗尽前通过`Commit`或自动commit提交积攒的任务，否则后续`PostSend`将因SQ溢出而失败。
-- 批量提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应产生CQE（即中间任务的`config.cqe`设为0，最后一次设为1）。
+- 若`commit`模板参数设为`false`，连续积攒的任务槽位不得超过通道的任务提交容量；需在容量耗尽前通过`Commit`或自动commit提交，否则后续任务提交将失败。
+- 批量提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应生成完成记录（即中间任务的`config.cqe`设为0，最后一次设为1）。
 
 ### 批量接口
 
 - 当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
-- 每个批量读任务占用1个64字节WQEBB，只在UB中准备，不复制到GM SQ，也不敲doorbell。
-- `config.inlineEn`必须为`0`，`config.cqe`支持`0`或`1`。同一批次的不同读、写、写通知任务可以使用不同的`cqe`配置。
+- 每个批量读任务占用64字节批量工作区。
 - 对批量句柄，`[src, src + len)`必须属于其选中的远端注册内存。
-- 当缓冲区容量校验失败时返回`-1`，BatchHandle中的WQEBB计数和`cqHead`保持不变。
-- 准备完成后需要调用`BatchCommit`。多通道模式通过`GetHandleRef`返回的内层BatchHandle引用准备WQE，并通过外层`UbcMultiBatchHandle`提交。使用期间需要独占对应单通道或共享通信资源。
+- 批量工作区剩余空间不足时返回`-1`。
+- 添加完成后需要调用`BatchCommit`。多通道模式通过`GetHandleRef`返回的句柄引用添加任务，并通过`MakeBatchHandle`返回的多通道批量句柄提交。使用期间需要独占关联的通道资源。
 
 ## 相关样例
 

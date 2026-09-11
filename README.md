@@ -39,7 +39,7 @@
 
 asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载AICore侧公开API、AIV直驱设备侧实现、API文档、样例和验证能力。
 
-当前公开能力包括`AscendC::Hcomm`点对点通信和`AscendC::Ain`单边通信，面向算子Kernel侧通信数据路径。Hcomm侧使用方通过`AscendC::Hcomm`模板选择通信协议：普通接口通过`ChannelHandle`逐条提交通信任务；Ascend 950 UBC_CTP路径还可以通过BatchHandle在UB中批量准备WQE，并通过`BatchCommit`统一提交。两种流程分别通过对应的`Drain`重载管理完成等待。Ain侧使用方通过`AscendC::Ain`模板基于对称窗口（Symmetric Window）发起`Put`/`Get`/`Signal`等单边操作，通过`Flush`或`FlushAsync`+`Wait`管理完成等待。
+当前公开能力包括`AscendC::Hcomm`点对点通信和`AscendC::Ain`单边通信，面向算子Kernel侧通信数据路径。Hcomm侧使用方通过`AscendC::Hcomm`模板选择通信协议：普通接口通过`ChannelHandle`逐条提交通信任务；Ascend 950 UBC_CTP路径还可以通过BatchHandle添加多个通信任务，并通过`BatchCommit`统一提交。两种流程分别通过对应的`Drain`重载管理完成等待。Ain侧使用方通过`AscendC::Ain`模板基于对称窗口（Symmetric Window）发起`Put`/`Get`/`Signal`等单边操作，通过`Flush`或`FlushAsync`+`Wait`管理完成等待。
 
 ### 数据面能力
 
@@ -73,12 +73,12 @@ Hcomm Kernel侧使用时包含如下头文件：
 
 Ascend 950 UBC_CTP批量接口调用流程如下：
 
-1. 准备UB缓冲区，通过`MakeBatchHandle`创建批量句柄。该流程不依赖`Init`。
-2. 通过BatchHandle重载的`ReadNbi`、`WriteNbi`或`WriteWithNotifyNbi`在UB中准备WQE，同一批次可以混合三种任务。
-3. 调用`BatchCommit`将当前批次复制到GM SQ并敲doorbell。
-4. 可以复用句柄继续准备和提交批次，最后调用BatchHandle重载的`Drain`等待CQE。
+1. 准备UB工作区，通过`MakeBatchHandle`创建批量句柄。该流程不依赖`Init`。
+2. 通过BatchHandle重载的`ReadNbi`、`WriteNbi`或`WriteWithNotifyNbi`向当前批次添加任务，同一批次可以混合三种任务。
+3. 调用`BatchCommit`提交当前批次。
+4. 可以复用句柄继续添加和提交任务，最后调用BatchHandle重载的`Drain`等待任务完成。
 
-BatchHandle缓存创建时的SQ/CQ上下文和队列状态，使用期间调用方需要独占对应单通道或共享Jetty，不能混用普通接口。单通道`MakeBatchHandle`根据`remoteAddr`查找并缓存远端MR的token；共享Jetty模式由`GetHandleRef`根据逻辑通道和`remoteAddr`完成该查找。后续批量读写不会再次查询MR表，调用方必须保证远端访问使用本次缓存的token。
+使用BatchHandle期间，调用方需要独占其关联的通道资源，不能混用普通接口或并发使用其他BatchHandle。批量操作访问的远端地址必须属于创建或选择批量句柄时指定的远端注册内存。
 
 协议能力说明：
 
