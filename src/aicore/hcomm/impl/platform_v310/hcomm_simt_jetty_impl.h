@@ -230,7 +230,7 @@ struct HcommPeer {
     }
 };
 
-class HcommJetty {
+class HcommJettyImpl {
 public:
     static constexpr uint32_t kNumWQEBBLanes = kWqebbLanes;
     static constexpr uint32_t kNumWQEBBsPerSQESlot = kSlotWqebbs;
@@ -241,13 +241,13 @@ public:
     static constexpr uint32_t kNumWQEBBsPerWrite = kSlotWqebbs;
     static constexpr uint32_t kNumDwqeWords = 2U * kWqebbLanes;
 
-    __simt_callee__ __forceinline__ HcommJetty() = default;
-    __simt_callee__ __forceinline__ HcommJetty(
+    __simt_callee__ __forceinline__ HcommJettyImpl() = default;
+    __simt_callee__ __forceinline__ HcommJettyImpl(
         __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
     {
         Init(info, stage, table, index);
     }
-    __simt_callee__ __forceinline__ HcommJetty(
+    __simt_callee__ __forceinline__ HcommJettyImpl(
         __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
     {
         Attach(info, stage, channelAddr);
@@ -302,7 +302,7 @@ public:
     }
     __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* GetInfo() const { return Info(); }
 
-    template <uint32_t kSlots = 1U>
+    template <uint32_t kSlots = 1U, bool kConcurrent = true>
     __simt_callee__ __forceinline__ int32_t Reserve() const
     {
         static_assert(kSlots > 0U && kSlots <= kSlotWqebbs, "invalid SQ reservation");
@@ -314,6 +314,25 @@ public:
         auto* head = reinterpret_cast<__ubuf__ uint32_t*>(&info->packedHead);
         auto* tail = reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
         const uint32_t depth = info->sqDepth;
+        if constexpr (!kConcurrent) {
+            for (uint32_t retry = 0U; retry < 1024U; ++retry) {
+                const uint32_t oldHead = *head;
+                const uint32_t consumed = oldHead - *tail;
+                if (consumed <= depth && kSlots <= depth - consumed) {
+                    *head = oldHead + kSlots;
+                    if (!implicitActive_) {
+                        implicitBeginHead_ = oldHead;
+                        implicitReservedWqebbs_ = 0U;
+                        implicitPayloadWqebbs_ = 0U;
+                        implicitActive_ = true;
+                    }
+                    implicitReservedWqebbs_ += kSlots;
+                    return 0;
+                }
+                if (!PullCqOne()) return -1;
+            }
+            return -1;
+        }
         for (uint32_t retry = 0U; retry < 1024U; ++retry) {
             const uint32_t oldHead = *head;
             const uint32_t consumed = oldHead - *tail;
@@ -391,7 +410,7 @@ private:
         if (coop.size() == 1) {
             if (Reserve<kReserveWqebbs>() == 0) head = implicitBeginHead_;
         } else if (laneRank == 0U) {
-            if (Reserve<kReserveWqebbs>() == 0) head = implicitBeginHead_;
+            if (Reserve<kReserveWqebbs, HcommCoopTraits<Coop>::kIsWarp>() == 0) head = implicitBeginHead_;
         }
         if (coop.size() > 1) head = asc_shfl(head, 0, kWarpSize);
         if (head == 0xFFFFFFFFU) {
@@ -479,7 +498,7 @@ private:
         }
         coop.sync();
         uint32_t head = 0xFFFFFFFFU;
-        if (laneRank == 0U && Reserve<2U>() == 0) {
+        if (laneRank == 0U && Reserve<2U, HcommCoopTraits<Coop>::kIsWarp>() == 0) {
             head = implicitBeginHead_;
             implicitPayloadWqebbs_ = count == 1U ? 1U : 2U;
         }
@@ -713,6 +732,37 @@ private:
         return count;
     }
 
+    // Reap one completed CQE, matching the SIMD PullCq behavior. This is used only by
+    // the single-producer path, where no other producer can race the CQ tail update.
+    __simt_callee__ __forceinline__ bool PullCqOne() const
+    {
+        auto* info = Info();
+        const uint32_t expected = static_cast<uint32_t>(info->packedHead >> 32U);
+        auto* cqTail = reinterpret_cast<__gm__ uint32_t*>(info->cqTailAddr);
+        auto* sqTail = reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
+        uint32_t current = *cqTail;
+        if (current == expected) return false;
+        auto* cqe = reinterpret_cast<__gm__ uint32_t*>(
+            info->cqBaseAddr + static_cast<uint64_t>(info->numCqeBytes) * (current & (info->cqDepth - 1U)));
+        const uint32_t phase = (current / info->cqDepth) & 1U;
+        uint32_t header = *cqe;
+        for (uint32_t retry = 0U; ((header >> 2U) & 1U) == phase && retry < 1024U; ++retry) {
+            asc_threadfence();
+            header = *cqe;
+        }
+        if (((header >> 2U) & 1U) == phase || ((header >> 16U) & 0xFFU) != 0U ||
+            ((header >> 24U) & 0xFFU) != 0U) return false;
+        uint32_t released = *sqTail;
+        const uint32_t completed = cqe[1] & (info->sqDepth - 1U);
+        released += (completed + info->sqDepth - (released & (info->sqDepth - 1U))) & (info->sqDepth - 1U);
+        ++released;
+        ++current;
+        *cqTail = current;
+        *reinterpret_cast<__gm__ uint32_t*>(info->cqDoorbellAddr) = current & 0xFFFFFFU;
+        *sqTail = released;
+        return true;
+    }
+
     __simt_callee__ __forceinline__ static uint64_t BuildWriteWord(
         const HcommPeer& peer, __gm__ void* dst, const uint32_t word, const uint32_t sqIdx,
         const uint64_t owner, const uint32_t count, const uint32_t payloadWords, const uint64_t sgeAddr,
@@ -789,7 +839,7 @@ using jetty::HcommJettyInfo;
 using jetty::HcommPeer;
 using jetty::HcommPeerInfo;
 using jetty::HcommSge;
-using jetty::HcommJetty;
+using jetty::HcommJettyImpl;
 }
 
 #endif

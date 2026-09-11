@@ -8,15 +8,96 @@
 #ifndef INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_SIMT_H
 #define INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_SIMT_H
 
+#include <cstddef>
+#include <cstdint>
+
+#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_simt_jetty_impl.h"
+
+namespace AscendC::simt::jetty {
+
 /**
- * SIMT Jetty API.
- *
- * `Write` is the submission API. Calls commit the WQE by default; pass `false`
- * as the commit template argument when several writers must join before one `Commit`.
- * `Commit` publishes the packed SQ head to GM but does not ring the doorbell;
- * an AIV can call the SIMD `HcommJetty::PublishSq` on the same 80-byte metadata
- * object. `PublishSq` remains available here for a SIMT-only path.
+ * Public SIMT Jetty API. A call to Write commits by default; use
+ * kDoCommit=false for a group of posts followed by Commit or AdvanceSq.
  */
-#include "../../../src/aicore/hcomm/impl/platform_v310/hcomm_simt_jetty_impl.h"
+class HcommJetty {
+public:
+    static constexpr uint32_t kNumWQEBBLanes = HcommJettyImpl::kNumWQEBBLanes;
+    static constexpr uint32_t kNumWQEBBsPerSQESlot = HcommJettyImpl::kNumWQEBBsPerSQESlot;
+    static constexpr uint32_t kNumMaxSGEsPerWrite = HcommJettyImpl::kNumMaxSGEsPerWrite;
+    static constexpr uint32_t kNumWriteWqebbs = HcommJettyImpl::kNumWriteWqebbs;
+    static constexpr uint32_t kNumWriteWithNotifyWqebbs = HcommJettyImpl::kNumWriteWithNotifyWqebbs;
+    static constexpr uint32_t kNumMaxSQEBytes = HcommJettyImpl::kNumMaxSQEBytes;
+    static constexpr uint32_t kNumWQEBBsPerWrite = HcommJettyImpl::kNumWQEBBsPerWrite;
+    static constexpr uint32_t kNumDwqeWords = HcommJettyImpl::kNumDwqeWords;
+
+    __simt_callee__ __forceinline__ HcommJetty() = default;
+    __simt_callee__ __forceinline__ HcommJetty(
+        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
+        : impl_(info, stage, table, index) {}
+    __simt_callee__ __forceinline__ HcommJetty(
+        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
+        : impl_(info, stage, channelAddr) {}
+
+    __simt_callee__ __forceinline__ void Init(
+        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
+    { impl_.Init(info, stage, table, index); }
+    __simt_callee__ __forceinline__ void Attach(
+        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
+    { impl_.Attach(info, stage, channelAddr); }
+    __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* Info() const { return impl_.Info(); }
+    __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* GetInfo() const { return impl_.GetInfo(); }
+
+    // Set kConcurrent=false only when this Jetty has one warp producer.
+    template <uint32_t kSlots = 1U, bool kConcurrent = true>
+    __simt_callee__ __forceinline__ int32_t Reserve() const
+    { return impl_.template Reserve<kSlots, kConcurrent>(); }
+
+    template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop>
+    __simt_callee__ __forceinline__ int32_t Write(
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const
+    { return impl_.template Write<kMaxSges, kDoCommit>(coop, peer, dst, laneSge); }
+    template <uint32_t kMaxSges, bool kDoCommit = true>
+    __simt_callee__ __forceinline__ int32_t Write(
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges]) const
+    { return impl_.template Write<kMaxSges, kDoCommit>(peer, dst, sges); }
+    template <int64_t kTimeout, bool kDoCommit = true>
+    __simt_callee__ __forceinline__ int32_t Write(
+        const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len)
+    { return impl_.template Write<kTimeout, kDoCommit>(peer, dst, src, len); }
+    template <int64_t kTimeout, typename T, bool kDoCommit = true>
+    __simt_callee__ __forceinline__ int32_t WriteValue(
+        const HcommPeer& peer, __gm__ void* dst, T value)
+    { return impl_.template WriteValue<kTimeout, T, kDoCommit>(peer, dst, value); }
+    template <int64_t kTimeout, bool kDoCommit = true>
+    __simt_callee__ __forceinline__ int32_t WriteWithNotify(
+        const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len,
+        __gm__ void* notifyAddr, uint64_t notifyValue)
+    { return impl_.template WriteWithNotify<kTimeout, kDoCommit>(peer, dst, src, len, notifyAddr, notifyValue); }
+
+    template <typename Coop>
+    __simt_callee__ __forceinline__ void Commit(const Coop& coop) const { impl_.Commit(coop); }
+    __simt_callee__ __forceinline__ void Commit() const { impl_.Commit(); }
+    __simt_callee__ __forceinline__ void AdvanceSq() const { impl_.AdvanceSq(); }
+    template <typename Coop>
+    __simt_callee__ __forceinline__ void AdvanceSq(const Coop& coop) const { impl_.AdvanceSq(coop); }
+    template <typename Coop>
+    __simt_callee__ __forceinline__ void AdvanceSq(
+        const Coop& coop, uint32_t a, uint32_t b) const { impl_.AdvanceSq(coop, a, b); }
+    template <typename Coop>
+    __simt_callee__ __forceinline__ void AdvanceSqNoDoorbell(const Coop& coop) const
+    { impl_.AdvanceSqNoDoorbell(coop); }
+    __simt_callee__ __forceinline__ void PublishSq() const { impl_.PublishSq(); }
+
+    template <int64_t kTimeout>
+    __simt_callee__ __forceinline__ int32_t Drain() const { return impl_.template Drain<kTimeout>(); }
+    template <int64_t kTimeout, typename Coop>
+    __simt_callee__ __forceinline__ int32_t Drain(const Coop& coop) const
+    { return impl_.template Drain<kTimeout>(coop); }
+
+private:
+    HcommJettyImpl impl_;
+};
+
+} // namespace AscendC::simt::jetty
 
 #endif
