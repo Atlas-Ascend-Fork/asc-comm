@@ -73,6 +73,14 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(T& batchHandle, GM_ADDR 
 }
 
 template <CommProtocol commProtocol>
+template <auto const& config, typename T, typename HandleTraits<T>::ChannelType*>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(
+    T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum)
+{
+    return impl_.template WriteNbi<config>(batchHandle, dst, srcDescs, srcNum);
+}
+
+template <CommProtocol commProtocol>
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
@@ -103,6 +111,14 @@ __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
 }
 
 template <CommProtocol commProtocol>
+template <auto const& config, typename T, typename HandleTraits<T>::ChannelType*>
+__aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
+    T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr, uint64_t notifyVal)
+{
+    return impl_.template WriteWithNotifyNbi<config>(batchHandle, dst, srcDescs, srcNum, notifyAddr, notifyVal);
+}
+
+template <CommProtocol commProtocol>
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
@@ -123,6 +139,14 @@ template <auto const& config, typename T, typename HandleTraits<T>::ChannelType*
 __aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     return impl_.template ReadNbi<config>(batchHandle, dst, src, len);
+}
+
+template <CommProtocol commProtocol>
+template <auto const& config, typename T, typename HandleTraits<T>::ChannelType*>
+__aicore__ inline int32_t Hcomm<commProtocol>::ReadNbi(
+    T& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src)
+{
+    return impl_.template ReadNbi<config>(batchHandle, dstDescs, dstNum, src);
 }
 
 template <CommProtocol commProtocol>

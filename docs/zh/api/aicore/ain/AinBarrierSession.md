@@ -1,4 +1,4 @@
-﻿# AinBarrierSession
+# AinBarrierSession
 
 ## 功能说明
 

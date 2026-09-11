@@ -1,4 +1,4 @@
-﻿# ReadSignal
+# ReadSignal
 
 ## 功能说明
 

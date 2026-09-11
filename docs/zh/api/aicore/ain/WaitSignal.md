@@ -1,4 +1,4 @@
-﻿# WaitSignal
+# WaitSignal
 
 ## 功能说明
 
