@@ -400,20 +400,16 @@ typedef struct {
     uint32_t opSrWqebb;  // dw2: op_type(31:27) + s_r(26) + inline(25) + merge(24) + fake(23) + wqebb_cnt(19:0)
     uint32_t byteCnt;    // dw3: transferred byte count
     uint32_t immData;    // dw4: immediate data / invalidate key (receive side)
-    uinon
-    {
+    union {
         struct {
             uint8_t smac[2];
             uint16_t vlanIdPri;
         } macVlanId;
-    }
-    dw4;
-    uinon
-    {
+    } dw4;
+    union {
         uint8_t smac[4];
         uint32_t wqeNum;
-    }
-    dw5;
+    } dw5;
     uint32_t vlanQueueIndex; // dw7: srqn_rqpn (RC = SRQN, not read by SHMEM)
     uint8_t syndrome;        // dw8[7:0]: error syndrome, valid only when op_type = error(0x1e)
     uint8_t rsvd;            // dw8[15:8]

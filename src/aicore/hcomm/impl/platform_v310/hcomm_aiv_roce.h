@@ -89,7 +89,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::FillTaskSeg(
     wqePtr->task.dataLen = HtoNL((uint32_t)len);
     wqePtr->task.immData = 0;
     wqePtr->task.dw3.value =
-        (opType == (uint32_t)HCOMM_ROCE_OP_TYPE::READ) ? HtoNL(ROCE_1825_RDMA_READ_LAST_EXT_LEN) : 0;
+        (opType == (uint32_t)HCOMM_ROCE_OP_TYPE::READ) ? HtoNL(ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN) : 0;
     wqePtr->task.vaRemote = HtoNLL((uint64_t)dst);
     wqePtr->task.rKey = HtoNL(rKey);
     wqePtr->task.ulp = HtoNL(lKey & 0xffffU);
@@ -185,7 +185,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
         }
     }
 
-    if (MakeWqe(chnlPtr, dst, src, len, opType, sqHead, sqDepth) != HCOMM_SUCCESS) {
+    if (MakeWqe(chnlPtr, dst, src, len, opType, sqHead, sqDepth, config.cqe, config.fence) != HCOMM_SUCCESS) {
         KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend: MakeWqe failed.\n");
         return HCOMM_FAILED;
     }
@@ -261,7 +261,7 @@ __aicore__ inline uint64_t HcommImpl<COMM_PROTOCOL_ROCE>::GetDbValue(uint32_t sq
     dbEntry.dw0.bs.qpn = qpn;
     dbEntry.dw0.bs.subType = 0;
     dbEntry.dw0.bs.resv = 0;
-    dbEntry.dw0.bs.pi = ((sqHead >> 8) & 0xffU);
+    dbEntry.dw0.bs.pi = ((sqHead >> ROCE_1825_SQ_DB_PI_HIGH_SHIFT) & 0xffU);
     dbEntry.dw0.bs.sgidIdx = ROCE_1825_SQ_DB_SGIT_IDX;
     dbEntry.dw0.bs.type = ROCE_1825_SQ_DB_TYPE;
     dbEntry.dw0.bs.mtuShift =
