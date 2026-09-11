@@ -2,7 +2,7 @@
 
 ## 功能说明
 
-本接口是不带HCCL通信域的`MakeMultiChannelHandle`重载（`EndpointHandle`重载）对应的销毁接口。接口先调用`HcommChannelDestroy`销毁全部共享Jetty通道，再调用`aclrtFree`释放Device侧多通道元数据。
+释放通过`MakeMultiChannelHandle`的Hcomm Endpoint重载创建的多通道资源。
 
 头文件为：
 
@@ -24,7 +24,7 @@ HcommResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel);
 
 ## 返回值
 
-成功返回`HCCL_SUCCESS`，失败返回对应的Hcomm错误码。无论通道销毁是否成功，接口都会尝试释放Device上下文。
+成功返回`HCCL_SUCCESS`，失败返回对应的Hcomm错误码。
 
 ## 约束说明
 

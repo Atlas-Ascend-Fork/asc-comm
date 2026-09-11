@@ -2,7 +2,7 @@
 
 ## Overview
 
-Hcomm is the AICore-side point-to-point communication interface provided by asc-comm. Users select a communication protocol through the `AscendC::Hcomm` template. Ordinary interfaces submit tasks individually through a `ChannelHandle`. The UBC_CTP/URMA path on Ascend 950 also supports BatchHandle, which prepares WQEs in UB before copying and submitting them to the GM SQ together.
+Hcomm is the AICore-side point-to-point communication interface provided by asc-comm. Users select a communication protocol through the `AscendC::Hcomm` template. Ordinary interfaces submit tasks individually through a `ChannelHandle`. The UBC_CTP/URMA path on Ascend 950 also supports adding multiple tasks to a BatchHandle and submitting them together.
 
 ## Ordinary Interface Workflow
 
@@ -12,7 +12,7 @@ Hcomm is the AICore-side point-to-point communication interface provided by asc-
    #include "hcomm/hcomm.h"
    ```
 
-2. Instantiate the Hcomm object.
+2. Create an Hcomm object.
 
    ```cpp
    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
@@ -34,64 +34,63 @@ Hcomm is the AICore-side point-to-point communication interface provided by asc-
    ret = hcomm.AtomicCAS<uint64_t>(channel, remoteValue, fetchAddr, compareVal,    swapVal);
    ```
 
-5. If `commit = false` is set during task submission, explicitly call `Commit`.
+5. If a task is added with `commit = false`, explicitly call `Commit`.
 
    ```cpp
    ret = hcomm.WriteNbi<false>(channel, dst, src, len);
    ret = hcomm.Commit(channel);
    ```
 
-6. Call ordinary `Drain` to wait for task completion.
+6. Call ordinary `Drain` to wait for completion.
 
    ```cpp
    ret = hcomm.Drain(channel);
    ```
 
-## Single-Channel BatchHandle Workflow
+## Single-Channel Batch Workflow
 
-BatchHandle interfaces currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950 and do not depend on `Init`.
+Batch interfaces currently support only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950 and do not require `Init`.
 
-1. Prepare a UB buffer and create a batch handle from a `ChannelHandle`. Use `auto` to receive the return value.
+1. Prepare a UB workspace and create a batch handle from a `ChannelHandle`. Use `auto` to receive the return value.
 
    ```cpp
    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
    AscendC::LocalTensor<uint8_t> batchBuffer = batchTBuf.Get<uint8_t>();
    auto batchHandle = hcomm.MakeBatchHandle(
-       channel, batchBuffer, batchBufferLen, remoteAddr, localAddr);
+       channel, batchBuffer, batchBufferLen, remoteAddr);
    ```
-   
-   A non-null `remoteAddr` must fall within a remote registered buffer of the    channel. When it is null, the interface selects remote registered buffer 0.    This is the only remote registration lookup: the interface caches the    selected buffer's `tokenId/tokenValue`, and subsequent batch operations do    not validate their remote address ranges. `localAddr` is reserved in the    current version.
 
-2. Prepare WQEs in the UB buffer of the BatchHandle. Read, write, and write-with-notify tasks can be mixed in the same batch.
+   `remoteAddr` selects the remote registered memory accessed by the batch. If it is `nullptr`, the first remote registered buffer is selected.
+
+2. Add read, write, or write-with-notify tasks to the current batch. The three APIs can be mixed in one batch.
 
    ```cpp
-   int32_t ret = hcomm.WriteNbi(batchHandle, remoteWriteDst, localWriteSrc,    writeLen);
-   ret = hcomm.ReadNbi(batchHandle, localReadDst, remoteReadSrc, readLen);
+   int32_t ret = hcomm.WriteNbi(
+       batchHandle, remoteWriteDst, localWriteSrc, writeLen);
+   ret = hcomm.ReadNbi(
+       batchHandle, localReadDst, remoteReadSrc, readLen);
    ret = hcomm.WriteWithNotifyNbi(
-       batchHandle, remoteNotifyDst, localNotifySrc, notifyLen, notifyAddr,    notifyVal);
+       batchHandle, remoteNotifyDst, localNotifySrc,
+       notifyLen, notifyAddr, notifyVal);
    ```
-   
-   These calls only prepare WQEs. They do not copy to the GM SQ or ring the    doorbell. The caller must ensure that the remote Write/WriteWithNotify    destination ranges, the remote Read source ranges, and `notifyAddr` all    belong to the registered memory represented by the `tokenId/tokenValue`    cached when the handle was created.
 
-3. Call `BatchCommit` to copy and submit the current batch. A successful call always rings the SQ doorbell.
+3. Submit the current batch.
 
    ```cpp
    ret = hcomm.BatchCommit(batchHandle);
    ```
-   
-   After a successful commit, the BatchHandle and UB buffer can prepare another    batch. Multiple `BatchCommit` calls are allowed, but the caller must ensure    that accumulated outstanding tasks do not overwrite WQEs in the SQ that have    not yet been consumed. CQEs generated but not consumed since the previous    batch `Drain` must not exceed the CQ capacity. Submission does not poll the    CQ automatically.
 
-4. Call batch `Drain` to wait for submitted tasks.
+   After a successful submission, reuse the batch handle and workspace to add and submit another batch.
+
+4. Wait for completion records generated by tasks submitted through the batch handle.
 
    ```cpp
    ret = hcomm.Drain(batchHandle);
    ```
-   
-   Batch `Drain` reuses the first 64 bytes of the BatchHandle WQE buffer as CQE    scratch space, so it does not require `Init`. The BatchHandle must not    contain WQEs that have not been submitted through `BatchCommit`.
 
-## Shared-Jetty BatchHandle Workflow
+## Multi-Channel Batch Workflow
 
-When using an HCCL communicator, call the communicator overload of `MakeMultiChannelHandle` on the Host to create the shared-Jetty channels and `MultiChannelHandle`:
+When using an HCCL communicator, call the communicator overload of `MakeMultiChannelHandle` on the Host to create a `MultiChannelHandle`:
 
 ```cpp
 #include "hcomm/hcomm_host.h"
@@ -99,59 +98,68 @@ When using an HCCL communicator, call the communicator overload of `MakeMultiCha
 MultiChannelHandle multiChannel = 0U;
 HcclResult ret = MakeMultiChannelHandle(
     comm, sharedQueueTag, channelDescs, channelNum, &multiChannel);
-// The communicator manages and automatically releases the shared channels and Device context.
 ```
 
-Without an HCCL communicator, pass an Hcomm Endpoint and `HcommChannelDesc` array to `MakeMultiChannelHandle`. These resources are not communicator-managed, so destroy the multi-channel handle before destroying the Endpoint:
+Resources created this way are managed by the HCCL communicator and released automatically when the communicator is destroyed.
+
+Without an HCCL communicator, call the other overload with an Hcomm Endpoint and `HcommChannelDesc`. After the Kernel has completed and synchronized, destroy the multi-channel handle before destroying the Endpoint:
 
 ```cpp
-HcommResult ret = MakeMultiChannelHandle(endpointHandle, channelDescs, channelNum, &multiChannel);
+HcommResult ret = MakeMultiChannelHandle(
+    endpointHandle, channelDescs, channelNum, &multiChannel);
+
 // Launch and synchronize the Kernel before destroying the handle.
 ret = DestroyMultiChannelHandle(multiChannel);
 ret = HcommEndpointDestroy(endpointHandle);
 ```
 
-On the AICore, create a multi-channel batch handle and call `GetHandleRef` to obtain the common inner execution
-handle. Use the inner handle to prepare WQEs and the outer multi-channel batch handle for `BatchCommit` and `Drain`:
+On the AICore, use `GetHandleRef` to select a logical channel and remote registered memory. Add tasks through the returned handle reference, and submit and wait through the multi-channel batch handle returned by `MakeBatchHandle`:
 
 ```cpp
 AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP> hcomm;
 auto multiBatchHandle = hcomm.MakeBatchHandle(
-    static_cast<AscendC::MultiChannelHandle>(multiChannel), batchBuffer, batchBufferLen);
+    static_cast<AscendC::MultiChannelHandle>(multiChannel),
+    batchBuffer, batchBufferLen);
+
 for (uint32_t channelIndex = 0U; channelIndex < channelNum; ++channelIndex) {
     auto& peerBatchHandle = hcomm.GetHandleRef(
         multiBatchHandle, channelIndex, remoteBuffers[channelIndex]);
     ret = hcomm.WriteNbi(
         peerBatchHandle, remoteBuffers[channelIndex], localBuffer, dataLen);
 }
+
 ret = hcomm.BatchCommit(multiBatchHandle);
 ret = hcomm.Drain(multiBatchHandle);
 ```
 
-An index in `channelDescs` corresponds to the `channelIndex` passed to `GetHandleRef`. `remoteAddr` selects and caches
-a token from that logical channel's remote MR table; when null, it selects the first remote MR. Use the returned inner
-reference for batch read and write operations, and use the outer multi-channel batch handle for `BatchCommit` and
-`Drain`.
+`channelIndex` corresponds to the array index in `channelDescs` used to create the `MultiChannelHandle`. Call `GetHandleRef` again when switching to another logical channel or remote registered buffer. Repeated calls for the same multi-channel batch handle return a reference to the same inner BatchHandle and update its logical-channel and remote registered-memory selection to the most recent call.
 
-## Batch Buffer and CQE Configuration
+## Batch Interface Constraints
 
-- Each UBC_CTP WQEBB is 64 bytes. Batch `ReadNbi` and `WriteNbi` each occupy one WQEBB, while batch `WriteWithNotifyNbi` occupies two.
-- The buffer WQEBB capacity is `batchBufferLen / 64`. A batch requires "number of reads + number of writes + 2 x number of write-with-notify tasks" WQEBBs.
-- `batchBufferLen` must be at least 64 bytes and strictly smaller than `sqDepth * 64` bytes.
-- Batch interfaces require `config.inlineEn = 0`. `config.cqe` can be `0` or `1`, and both settings can be mixed in one batch.
-- The default `URMA_DEFAULT_CFG` generates a CQE for every request. If all submitted requests use `cqe = 0`, batch `Drain` has no CQE to poll and returns directly; this does not confirm that hardware has completed those requests.
-- If ordering and fence settings guarantee that the final request completes after all preceding requests, only the final request needs `cqe = 1`, followed by one batch `Drain`.
+- Only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950 is supported. `COMM_PROTOCOL_ROCE` is not supported.
+- The batch workflow does not require `Init`. Its UB workspace is bound by `MakeBatchHandle`.
+- The workspace start address must be 32-byte aligned. `batchBufferLen` must be at least 64 bytes and must not exceed the actual capacity of `batchBuffer`.
+- Each batch `ReadNbi` or `WriteNbi` task uses 64 bytes of workspace. Each batch `WriteWithNotifyNbi` task uses 128 bytes. The total workspace used by one batch must not exceed `batchBufferLen`, and the number of 64-byte task slots used must be smaller than the task-submission capacity determined when channel resources are created on the Host; otherwise, `BatchCommit` returns `-1`.
+- Batch interfaces require `config.inlineEn = 0`, and `config.cqe` must be `0` or `1`.
+- The default `URMA_DEFAULT_CFG` sets `cqe` to `1`, so every task produces a completion record. If all submitted tasks use `cqe = 0`, batch `Drain` returns directly and does not confirm that the tasks have completed.
+- If the ordering and fence settings ensure that the final task completes after all preceding tasks, only the final task needs `cqe = 1` before batch `Drain` is used to confirm completion of the batch.
+- Remote destination ranges for batch `WriteNbi` and `WriteWithNotifyNbi`, and remote source ranges for batch `ReadNbi`, must belong to the remote registered memory selected when creating or configuring the BatchHandle.
+- The remote destination range and `notifyAddr` of batch `WriteWithNotifyNbi` must belong to the same remote registered memory.
+- The current batch must contain at least one task before `BatchCommit`. All tasks in the current batch must be submitted before batch `Drain`.
+- Multiple `BatchCommit` calls can be followed by one batch `Drain`, but accumulated incomplete tasks and completion records must not exceed their corresponding configured channel capacities.
+- While using a BatchHandle, exclusively own its associated channel resources. Do not mix ordinary interfaces or use another BatchHandle concurrently.
+- The caller manages the lifetimes of the BatchHandle, channel resources, `MultiChannelHandle`, and batch workspace. Do not release or concurrently reuse them until all batch operations are complete.
 
-## Protocol Description
+## Protocols
 
 | Protocol | Description |
 | --- | --- |
 | `COMM_PROTOCOL_ROCE` | Supports ordinary `ReadNbi`, `WriteNbi`, `Commit`, and `Drain`. BatchHandle interfaces are not supported. |
-| `COMM_PROTOCOL_UBC_CTP` | Supports ordinary read, write, write-with-notify, atomic, commit, and drain interfaces. AIV on Ascend 950 also supports `Lock`, `Unlock`, batch read, batch write, batch write-with-notify, `BatchCommit`, and batch `Drain`. |
+| `COMM_PROTOCOL_UBC_CTP` | Supports ordinary read, write, write-with-notify, atomic, commit, and wait interfaces. AIV on Ascend 950 also supports `Lock`, `Unlock`, and BatchHandle interfaces. |
 
 ## Sharing a Channel Across AI Cores
 
-On Ascend 950, when multiple AIVs share the same `COMM_PROTOCOL_UBC_CTP` channel, use [Lock](../api/aicore/hcomm/Lock.md) and [Unlock](../api/aicore/hcomm/Unlock.md) to protect accesses that update channel state. Each AI Core may use an independent Hcomm object and UB temporary workspace while passing the same `ChannelHandle`.
+On Ascend 950, when multiple AIVs share the same `COMM_PROTOCOL_UBC_CTP` channel, protect accesses that update channel state with [Lock](../api/aicore/hcomm/Lock.md) and [Unlock](../api/aicore/hcomm/Unlock.md). Each AI Core can use a separate Hcomm object and UB temporary workspace while passing the same `ChannelHandle`.
 
 ```cpp
 int32_t lockRet = hcomm.Lock(channel);
@@ -164,29 +172,18 @@ if (lockRet == 0) {
 }
 ```
 
-The lock is not reentrant. Every successful `Lock` must be paired with `Unlock` on the same AI Core, including on error paths. These interfaces synchronize only AI Cores sharing the same channel on the same device.
+The lock is not reentrant. Every successful `Lock` must be followed by `Unlock` on the same AI Core, including error paths. The APIs synchronize only AI Cores on the same device that share the same channel.
 
 ## Notes
 
-- Ordinary interfaces require a temporary workspace allocated through `Init`. The current minimum size is 512 bytes. BatchHandle interfaces do not require `Init`.
-- When `Init` uses `__ubuf__ uint8_t*`, the implementation aligns the start address of the temporary workspace to 32 bytes. With `LocalTensor`, the caller must ensure sufficient tensor capacity.
-- The UB buffer passed to `MakeBatchHandle` must start at a 32-byte aligned address. The caller manages its capacity and lifetime.
-- The caller is responsible for initializing and maintaining the channel entity referenced by `ChannelHandle`.
-- A BatchHandle caches SQ/CQ contexts and queue cursors at creation time. The caller must exclusively own the corresponding single channel or shared Jetty while using it. Do not mix ordinary interfaces or use multiple BatchHandles concurrently.
-- A single transfer through a batch interface must not exceed `UINT32_MAX` bytes.
-- The ordinary `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS` interfaces are only available for the `COMM_PROTOCOL_UBC_CTP` path.
-- Supported data types for atomic operations are limited to `int32_t`, `uint32_t`, `int64_t`, and `uint64_t`.
+- Ordinary interfaces require temporary workspace provided through `Init`. The current minimum workspace size is 512 bytes.
+- When `Init` is called with `__ubuf__ uint8_t*`, the implementation aligns the workspace start address to 32 bytes. When `LocalTensor` is used, the caller must ensure that the tensor capacity satisfies workspace requirements.
+- The caller initializes and maintains the channel entity referenced by `ChannelHandle`.
+- Ordinary `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS` are supported only on the `COMM_PROTOCOL_UBC_CTP` path.
+- Atomic operations support only `int32_t`, `uint32_t`, `int64_t`, and `uint64_t`.
 
-## Sample
+## Samples
 
-Refer to [hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README_en.md) for the ordinary AIV Kernel-side API workflow and Host-side communication resource creation. Refer to [hcomm_batch_write](../../../examples/hcomm_batch_write/README_en.md) for the shared-Jetty batch write workflow.
+See [hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README_en.md) for the ordinary AIV Kernel-side API workflow and Host-side communication resource creation. See [hcomm_batch_write](../../../examples/hcomm_batch_write/README_en.md) for the multi-channel batch write workflow.
 
-The sample executes ordinary `WriteNbi` and `ReadNbi` symmetrically in a two-card scenario:
-
-```cpp
-hcomm.WriteNbi(channel, remoteBuf + DATA_SIZE, localBuf, DATA_SIZE);
-hcomm.ReadNbi(channel, localBuf + 2 * DATA_SIZE, remoteBuf, DATA_SIZE);
-hcomm.Drain(channel);
-```
-
-Both samples require Ascend 950PR/Ascend 950DT and at least two NPUs for runtime verification. Single-NPU environments only support compilation checks.
+Both samples require Ascend 950PR/Ascend 950DT and at least two NPUs for runtime verification. A single-device environment supports compilation only.
