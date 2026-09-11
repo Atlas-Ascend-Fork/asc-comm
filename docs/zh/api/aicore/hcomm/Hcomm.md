@@ -80,10 +80,6 @@ class Hcomm;
 
 共享Jetty的Host侧句柄创建接口见[MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md)。该接口提供HCCL通信域和Hcomm Endpoint两种重载。
 
-## DFX相关接口
-- [HcommChannelExceptionCallbackRegister](./HcommChannelExceptionCallbackRegister.md)
-- [HcommChannelInfoDump](./HcommChannelInfoDump.md)
-
 ## 相关样例
 
 [hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README.md)演示两卡场景下，AIV Kernel通过`COMM_PROTOCOL_UBC_CTP`路径调用普通`WriteNbi`和`ReadNbi`。该样例不覆盖RoCE路径和BatchHandle流程。

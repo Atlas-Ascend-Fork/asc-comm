@@ -20,6 +20,7 @@ PACKAGE_VERSION=""
 STAGING_DIR="${PROJECT_ROOT}/build/package/asc-comm"
 PACKAGE_INPUT_PATHS=(
     build.sh
+    CMakeLists.txt
     include
     src
     scripts/package
@@ -197,7 +198,7 @@ write_manifest()
         cd "${STAGING_DIR}/payload"
         while IFS= read -r -d '' file; do
             sha256sum "${file}"
-        done < <(find asc -type f -name '*.h' -print0 | sort -z)
+        done < <(find . -type f ! -name 'manifest.sha256' -printf '%P\0' | sort -z)
     ) > "${STAGING_DIR}/manifest.sha256"
 }
 
@@ -269,6 +270,17 @@ build_package()
     rm -rf -- "${STAGING_DIR}"
     mkdir -p "${STAGING_DIR}/payload"
 
+    # Build the host DFX API and its embedded ASC queue-reader kernel before
+    # assembling the CANN payload.  The public header is declaration-only.
+    local dfx_build_dir="${PROJECT_ROOT}/build/package/dfx"
+    export ASCEND_HOME_PATH="${CANN_PATH}"
+    cmake -S "${PROJECT_ROOT}" -B "${dfx_build_dir}" \
+        -DASCCOMM_BUILD_CCU=OFF \
+        -DASCCOMM_BUILD_DFX=ON \
+        -DASCEND_CANN_PACKAGE_PATH="${CANN_PATH}" \
+        -DCMAKE_LIBRARY_OUTPUT_DIRECTORY="${dfx_build_dir}"
+    cmake --build "${dfx_build_dir}" --target mc2_client_dfx
+
     # Match the Hcomm layout installed by asc-devkit's asc-comm integration.
     copy_headers \
         "${PROJECT_ROOT}/include/aicore/hcomm" \
@@ -285,6 +297,9 @@ build_package()
         "${STAGING_DIR}/payload/asc/include/comm_api" \
         550 \
         aicore/hcomm
+    install -D -m 550 \
+        "${dfx_build_dir}/libmc2_client_dfx.so" \
+        "${STAGING_DIR}/payload/lib64/libmc2_client_dfx.so"
     copy_headers \
         "${PROJECT_ROOT}/src" \
         "${STAGING_DIR}/payload/asc/impl/comm_api" \
