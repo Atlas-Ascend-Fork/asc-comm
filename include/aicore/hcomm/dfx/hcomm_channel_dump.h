@@ -11,8 +11,6 @@
 #ifndef ASCCOMM_INCLUDE_AICORE_HCOMM_DFX_HCOMM_CHANNEL_DUMP_H
 #define ASCCOMM_INCLUDE_AICORE_HCOMM_DFX_HCOMM_CHANNEL_DUMP_H
 
-#include "hcomm/hcomm_common.h"
-
 #include <cstdint>
 
 namespace AscendC {
@@ -45,7 +43,7 @@ uint32_t HcommChannelGetDumpInfoSize();
  * @note The snapshot is written as raw bytes, not a public struct. When no exception is pending and @p buf is a
  *       usable buffer, it is zero-filled so the caller never reads stale bytes.
  */
-int32_t HcommChannelInfoDump(ChannelHandle channel, char *buf = nullptr, uint32_t len = 0);
+int32_t HcommChannelInfoDump(uint64_t channel, char *buf = nullptr, uint32_t len = 0);
 
 } // namespace AscendC
 

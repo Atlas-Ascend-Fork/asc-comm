@@ -48,8 +48,9 @@ uint32_t HcommChannelGetDumpInfoSize()
     return static_cast<uint32_t>(sizeof(HcommDfxChannelDumpData));
 }
 
-int32_t HcommChannelInfoDump(ChannelHandle channel, char *buf, uint32_t len)
+int32_t HcommChannelInfoDump(uint64_t channel, char *buf, uint32_t len)
 {
+    const ChannelHandle channelHandle = static_cast<ChannelHandle>(channel);
     const uint32_t dumpLen = static_cast<uint32_t>(sizeof(HcommDfxChannelDumpData));
     const bool callerBufUsable = (buf != nullptr && len >= dumpLen);
 
@@ -66,7 +67,7 @@ int32_t HcommChannelInfoDump(ChannelHandle channel, char *buf, uint32_t len)
     // Collect into the caller buffer when it is usable; otherwise fall back to a local snapshot (print only).
     HcommDfxChannelDumpData local;
     void *work = callerBufUsable ? static_cast<void *>(buf) : static_cast<void *>(&local);
-    int32_t ret = HcommDfx::DumpChannelInfo(1U, &channel, work, dumpLen);
+    int32_t ret = HcommDfx::DumpChannelInfo(1U, &channelHandle, work, dumpLen);
     if (ret == HCOMM_SUCCESS) {
         HcommDfx::ClearPendingException();
     }
