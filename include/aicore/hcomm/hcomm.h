@@ -113,7 +113,8 @@ public:
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
-     * @param [in] len: The length of the data to write, using byte as the basic unit.
+     * @param [in] len: The length of the data to write, using byte as the basic unit. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
      */
@@ -130,7 +131,8 @@ public:
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The remote destination address in the remote registered memory selected for batchHandle.
      * @param [in] src: The local source address.
-     * @param [in] len: The length of the data to write in bytes.
+     * @param [in] len: The length of the data to write in bytes. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @return 0 indicates success and -1 indicates failure.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
@@ -189,7 +191,8 @@ public:
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
-     * @param [in] len: The length of the data to write, using byte as the basic unit.
+     * @param [in] len: The length of the data to write, using byte as the basic unit. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @param [in] notifyAddr: The remote notify address.
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
@@ -209,7 +212,8 @@ public:
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The remote destination address in the remote registered memory selected for batchHandle.
      * @param [in] src: The local source address.
-     * @param [in] len: The length of the data to write in bytes.
+     * @param [in] len: The length of the data to write in bytes. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @param [in] notifyAddr: The remote notify address. It must belong to the same remote registered memory as dst.
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
@@ -270,7 +274,8 @@ public:
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
-     * @param [in] len: The length of the data to read, using byte as the basic unit.
+     * @param [in] len: The length of the data to read, using byte as the basic unit. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
      */
@@ -287,7 +292,8 @@ public:
      * @param [in,out] batchHandle: The batch handle to add the task to.
      * @param [out] dst: The local destination address.
      * @param [in] src: The remote source address in the remote registered memory selected for batchHandle.
-     * @param [in] len: The length of the data to read in bytes.
+     * @param [in] len: The length of the data to read in bytes. Must be less than 256 MB
+     *                  (256 * 1024 * 1024 bytes).
      * @return 0 indicates success and -1 indicates failure.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>

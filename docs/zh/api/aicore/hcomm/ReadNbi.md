@@ -37,7 +37,7 @@ __aicore__ inline int32_t ReadNbi(
 | `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的单通道批量句柄，或`GetHandleRef`返回的BatchHandle引用。 |
 | `dst` | 输出 | 本端目的GM绝对地址。 |
 | `src` | 输入 | 远端源GM绝对地址。 |
-| `len` | 输入 | 读取长度，单位为字节。 |
+| `len` | 输入 | 读取长度，单位为字节。必须小于 256 MB（256 * 1024 * 1024 字节）。 |
 
 ## 模板参数
 
