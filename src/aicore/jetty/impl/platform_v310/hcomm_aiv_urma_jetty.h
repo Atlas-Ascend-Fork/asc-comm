@@ -11,7 +11,8 @@
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_JETTY_H
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_JETTY_H
 
-#include "../../common/hcomm_inner_def.h"
+#include "../../../hcomm/common/hcomm_inner_def.h"
+#include "../../../hcomm/common/hcomm_log.h"
 #include <c_api/sys_var/sys_var.h>
 #include <c_api/sync/sync.h>
 #include <c_api/vector_datamove/vector_datamove.h>
@@ -26,27 +27,17 @@ __aicore__ __forceinline__ HcommPeer::HcommPeer(
     uint32_t jettyIdx)
     : peerInfo(peerInfo)
 {
-    if (peerInfo == nullptr || jettyTable == nullptr) {
-        return;
-    }
+    HCOMM_DEBUG_TRAP_IF(peerInfo == nullptr || jettyTable == nullptr, "peerInfo or jettyTable is nullptr\n");
     auto* table = reinterpret_cast<__gm__ uint64_t*>(jettyTable);
     uint64_t jettyValue = ReadGmByPassDCache(table + jettyIdx);
-    if (jettyValue == 0U) {
-        return;
-    }
+    HCOMM_DEBUG_TRAP_IF(jettyValue == 0U, "jettyTable[%u] is 0\n", jettyIdx);
     auto* jetty = reinterpret_cast<__gm__ ChannelEntity*>(jettyValue);
-    if (jetty->remoteBufferNum == 0U || jetty->remoteBufferAddr == nullptr || jetty->sqContextAddr == nullptr) {
-        return;
-    }
+    HCOMM_DEBUG_TRAP_IF(
+        jetty->remoteBufferNum == 0U || jetty->remoteBufferAddr == nullptr || jetty->sqContextAddr == nullptr,
+        "jetty info is nullptr\n");
     // The last registered buffer carries the shared remote token metadata.
     auto remoteBuffer = jetty->remoteBufferAddr[jetty->remoteBufferNum - 1U];
-    if (remoteBuffer.type != REGED_BUFFER_RMA ||
-        remoteBuffer.bufferInfo.rma.addr == 0U || remoteBuffer.bufferInfo.rma.size == 0U) {
-        return;
-    }
     peerInfo->remoteTokenValueUdf = remoteBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
-    peerInfo->remoteBaseAddr = remoteBuffer.bufferInfo.rma.addr;
-    peerInfo->remoteBufferSize = remoteBuffer.bufferInfo.rma.size;
     auto sqContext = jetty->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     peerInfo->tpIdNumSgesRemoteTokenId =
         static_cast<uint64_t>(sqContext.contextInfo.ubJfs.tpID) |
@@ -62,18 +53,12 @@ __aicore__ __forceinline__ HcommJettyImpl::HcommJettyImpl(
     __gm__ void* jettyTable, uint32_t jettyIdx)
     : jettyInfo_(jettyInfo), ubufSqe_(ubufSqe)
 {
-    if (jettyInfo == nullptr || jettyTable == nullptr) {
-        return;
-    }
+    HCOMM_DEBUG_TRAP_IF(jettyInfo == nullptr || jettyTable == nullptr, "jettyInfo or jettyTable is nullptr\n");
     auto* table = reinterpret_cast<__gm__ uint64_t*>(jettyTable);
     uint64_t jettyValue = ReadGmByPassDCache(table + jettyIdx);
-    if (jettyValue == 0U) {
-        return;
-    }
+    HCOMM_DEBUG_TRAP_IF(jettyValue == 0U, "jettyTable[%u] is 0\n", jettyIdx);
     auto* jetty = reinterpret_cast<__gm__ ChannelEntity*>(jettyValue);
-    if (jetty->sqContextAddr == nullptr || jetty->cqContextAddr == nullptr) {
-        return;
-    }
+    HCOMM_DEBUG_TRAP_IF(jetty->sqContextAddr == nullptr || jetty->cqContextAddr == nullptr, "jetty info is nullptr\n");
     auto sqContext = jetty->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     auto cqContext = jetty->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     jettyInfo_->sqBaseAddr = sqContext.contextInfo.ubJfs.sqVa;
@@ -88,12 +73,6 @@ __aicore__ __forceinline__ HcommJettyImpl::HcommJettyImpl(
     jettyInfo_->numCqeBytes = cqContext.contextInfo.ubJfc.cqeSize;
     jettyInfo_->sqDepth = sqContext.contextInfo.ubJfs.sqDepth;
     jettyInfo_->cqDepth = cqContext.contextInfo.ubJfc.cqDepth;
-    if (jettyInfo_->sqBaseAddr == 0U || jettyInfo_->sqHeadAddr == 0U || jettyInfo_->sqDoorbellAddr == 0U ||
-        jettyInfo_->cqBaseAddr == 0U || jettyInfo_->cqTailAddr == 0U || jettyInfo_->cqDoorbellAddr == 0U ||
-        jettyInfo_->numWqebbBytes == 0U || jettyInfo_->numCqeBytes == 0U || jettyInfo_->sqDepth == 0U ||
-        jettyInfo_->cqDepth == 0U) {
-        return;
-    }
     valid_ = true;
 }
 
@@ -102,14 +81,7 @@ __aicore__ __forceinline__ bool HcommJettyImpl::BuildWriteSqe(
     const HcommPeer& peer, __gm__ void* dstAddr, __gm__ void* srcAddr, uint64_t numBytes,
     uint32_t currentHead, __gm__ void* notifyAddr, uint64_t notifyValue)
 {
-    if (!valid_ || !peer.valid || jettyInfo_ == nullptr || ubufSqe_ == nullptr || peer.peerInfo == nullptr ||
-        srcAddr == nullptr) {
-        return false;
-    }
     auto* info = peer.peerInfo;
-    if (numBytes > 0xFFFFFFFFULL) {
-        return false;
-    }
     uint64_t remoteAddr = reinterpret_cast<uint64_t>(dstAddr);
     auto* sqe = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(ubufSqe_);
     sqe->sqeBbIdx = 0;
@@ -155,6 +127,7 @@ __aicore__ __forceinline__ bool HcommJettyImpl::BuildWriteSqe(
     sge->len = static_cast<uint32_t>(numBytes);
     sge->tokenId = 0;
     sge->va = reinterpret_cast<uint64_t>(srcAddr);
+    // 增加HcommUrmaSqeCtx dump
     return true;
 }
 
@@ -162,9 +135,6 @@ template <typename T>
 __aicore__ __forceinline__ bool HcommJettyImpl::BuildWriteValueSqe(
     const HcommPeer& peer, __gm__ void* dstAddr, T value, uint32_t currentHead)
 {
-    if (!valid_ || !peer.valid || jettyInfo_ == nullptr || ubufSqe_ == nullptr || peer.peerInfo == nullptr) {
-        return false;
-    }
     auto* info = peer.peerInfo;
     const uint64_t remoteAddr = reinterpret_cast<uint64_t>(dstAddr);
     auto* sqe = reinterpret_cast<__ubuf__ HcommUrmaSqeCtx*>(ubufSqe_);
@@ -194,6 +164,7 @@ __aicore__ __forceinline__ bool HcommJettyImpl::BuildWriteValueSqe(
     sqe->rmtAddrHOrTokenValue = static_cast<uint32_t>(remoteAddr >> 32U);
     auto* inlineAddr = reinterpret_cast<__ubuf__ T*>(ubufSqe_ + sizeof(HcommUrmaSqeCtx));
     *inlineAddr = value;
+    // 增加HcommUrmaSqeCtx dump
     return true;
 }
 
@@ -366,6 +337,11 @@ template <int64_t kNumTimeoutCycles>
 __aicore__ __forceinline__ int32_t HcommJetty::Drain()
 {
     return impl_.Drain<kNumTimeoutCycles>();
+}
+
+__aicore__ __forceinline__ void HcommJetty::AdvanceSq(uint32_t numWqebbs)
+{
+    impl_.AdvanceSq(numWqebbs);
 }
 
 } // namespace AscendC

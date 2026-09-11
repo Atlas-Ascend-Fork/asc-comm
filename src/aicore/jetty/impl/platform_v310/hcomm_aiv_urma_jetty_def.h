@@ -31,6 +31,8 @@ public:
     template <int64_t kNumTimeoutCycles>
     __aicore__ __forceinline__ int32_t Drain();
 
+    __aicore__ __forceinline__ void AdvanceSq(uint32_t numWqebbs);
+
 private:
     template <bool kWithNotify>
     __aicore__ __forceinline__ bool BuildWriteSqe(
@@ -42,7 +44,6 @@ private:
         const HcommPeer& peer, __gm__ void* dstAddr, T value, uint32_t currentHead);
 
     __aicore__ __forceinline__ void CopySqeToSq(uint32_t currentHead, uint32_t numWqebbs);
-    __aicore__ __forceinline__ void AdvanceSq(uint32_t numWqebbs);
     __aicore__ __forceinline__ void RingDoorbell();
 
     template <int64_t kNumTimeoutCycles>
