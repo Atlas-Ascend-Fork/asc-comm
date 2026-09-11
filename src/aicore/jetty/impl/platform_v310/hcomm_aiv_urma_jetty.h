@@ -20,6 +20,14 @@
 
 namespace AscendC {
 
+// HcommUrmaJfcCqeCtx first-word field positions, read as a raw uint32_t header by PollCq.
+static constexpr uint32_t HCOMM_JETTY_CQE_OWNER_BIT = 2U;
+static constexpr uint32_t HCOMM_JETTY_CQE_SUBSTATUS_BIT = 16U;
+static constexpr uint32_t HCOMM_JETTY_CQE_STATUS_BIT = 24U;
+static constexpr uint32_t HCOMM_JETTY_CQE_FIELD_MASK = 0xFFU;
+// The CQ doorbell only takes the low 24 bits of the CQ tail.
+static constexpr uint32_t HCOMM_JETTY_CQ_DOORBELL_MASK = 0xFFFFFFU;
+
 __aicore__ inline uint32_t HcommJettyPackSqeFlag(const UrmaWqeEntry& config)
 {
     return (config.odr & 0x7U) | ((config.fence & 0x1U) << 3U) | ((config.se & 0x1U) << 4U) |
@@ -176,12 +184,15 @@ __aicore__ inline void HcommJettyImpl::RingDoorbell()
 template <int64_t timeoutCycles>
 __aicore__ inline void HcommJettyImpl::PollCqWhenSqOverflow()
 {
-    constexpr uint32_t threshold = 10U;
-    constexpr uint32_t pollCount = 100U;
+    // Poll once the outstanding CQEs (expected minus completed) come within the threshold of
+    // cqDepth. Use >= instead of ==: multiple WQEs may be posted between two checks, so the
+    // distance can jump past an exact value and an equality test would never fire.
+    constexpr uint32_t nearFullThreshold = 10U;
+    constexpr uint32_t reclaimBatch = 100U;
     uint32_t completions = jettyInfo_->expectedCqeCnt;
     uint32_t tail = ReadGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqTailAddr));
-    if ((completions + threshold) % jettyInfo_->cqDepth == tail % jettyInfo_->cqDepth) {
-        PollCq<timeoutCycles>(tail + pollCount < completions ? tail + pollCount : completions);
+    if (completions - tail + nearFullThreshold >= jettyInfo_->cqDepth) {
+        PollCq<timeoutCycles>(tail + reclaimBatch < completions ? tail + reclaimBatch : completions);
     }
 }
 
@@ -197,7 +208,7 @@ __aicore__ inline int32_t HcommJettyImpl::PollCq(uint32_t expectedTail)
         uint32_t header;
         do {
             header = ReadGmBypassDCache(cqe);
-            if (((header >> 2U) & 1U) != phase) {
+            if (((header >> HCOMM_JETTY_CQE_OWNER_BIT) & 1U) != phase) {
                 break;
             }
             if (static_cast<uint64_t>(asc_get_system_cycle()) - start >= static_cast<uint64_t>(timeoutCycles)) {
@@ -208,13 +219,15 @@ __aicore__ inline int32_t HcommJettyImpl::PollCq(uint32_t expectedTail)
             }
             Nop<300>();
         } while (true);
-        if (((header >> 16U) & 0xFFU) != 0U || ((header >> 24U) & 0xFFU) != 0U) {
+        if (((header >> HCOMM_JETTY_CQE_SUBSTATUS_BIT) & HCOMM_JETTY_CQE_FIELD_MASK) != 0U ||
+            ((header >> HCOMM_JETTY_CQE_STATUS_BIT) & HCOMM_JETTY_CQE_FIELD_MASK) != 0U) {
             return HCOMM_FAILED;
         }
         ++currentTail;
     }
     WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqTailAddr), currentTail);
-    WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqDoorbellAddr), currentTail & 0xFFFFFFU);
+    WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqDoorbellAddr),
+        currentTail & HCOMM_JETTY_CQ_DOORBELL_MASK);
     WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqTailAddr), currentTail);
     return HCOMM_SUCCESS;
 }
