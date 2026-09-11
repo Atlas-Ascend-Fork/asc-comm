@@ -14,9 +14,7 @@ Ascend C通信编程采用控制面与数据面分工的方式。控制面运行
 
 从开发者视角出发，一次通信过程可以分为资源准备、前同步、算子执行和后同步四个阶段，如[图1](#fig-communication-operator-workflow)所示。
 
-<a id="fig-communication-operator-workflow"></a>
-
-**图 1** 通信算子基本流程
+**图1** 通信算子基本流程<a id="fig-communication-operator-workflow"></a>
 
 ![通信算子基本流程](./figures/communication_operator_workflow.png)
 
@@ -31,7 +29,7 @@ Ascend C通信编程采用控制面与数据面分工的方式。控制面运行
 
 后续各章节的内容如表1所示。
 
-**表 1** 后续章节内容
+**表1** 后续章节内容
 
 | 章节 | 主要内容 |
 | --- | --- |
@@ -44,9 +42,8 @@ Ascend C通信编程采用控制面与数据面分工的方式。控制面运行
 ## 产品支持情况
 
 - Ascend 950PR/Ascend 950DT：支持
-- Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
-- Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
+- Atlas A3 训练系列产品/Atlas A3 推理系列产品：支持
+- Atlas A2 训练系列产品/Atlas A2 推理系列产品：支持
 - Atlas 200I/500 A2 推理产品：不支持
-- Atlas 推理系列产品AI Core：不支持
-- Atlas 推理系列产品Vector Core：不支持
+- Atlas 推理系列产品：不支持
 - Atlas 训练系列产品：不支持
