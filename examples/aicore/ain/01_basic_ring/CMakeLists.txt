@@ -39,6 +39,7 @@ target_include_directories(basic_ring_demo PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../..
     $ENV{ASCEND_HOME_PATH}/include
     $ENV{ASCEND_HOME_PATH}/include/hcomm
+    $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/pkg_inc
     $ENV{ASCEND_HOME_PATH}/asc/include/comm_api/aicore
 )
 
