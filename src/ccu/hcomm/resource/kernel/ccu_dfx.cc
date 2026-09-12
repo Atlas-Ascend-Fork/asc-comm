@@ -63,7 +63,7 @@ public:
             ops_.missionContextQuery(request_.deviceId, request_.dieId, request_.execMissionId, &mission) != 0) {
             return static_cast<int32_t>(CcuResult::CCU_E_INTERNAL);
         }
-        ccu_kernel* kernel = ccu_kernel_mgr::get_instance(request_.deviceId).get_kernel(request_.kernelHandle);
+        auto kernel = ccu_kernel_mgr::get_instance(request_.deviceId).get_kernel(request_.kernelHandle);
         if (kernel == nullptr) {
             return static_cast<int32_t>(CcuResult::CCU_E_NOT_FOUND);
         }

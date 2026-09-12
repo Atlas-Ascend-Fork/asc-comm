@@ -13,6 +13,8 @@
 #include "hcomm/hcomm_ccu_launch.h"
 
 #include <chrono>
+#include <limits>
+#include <memory>
 #include <vector>
 
 // 同步 launch 需要 acl 运行时接口（rt 相关 API），与 runtime 头配合使用
@@ -29,7 +31,16 @@
 
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 
-CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle, HcommCcuRegisterContextHandle context_handle)
+static CcuResult ccu_kernel_try_configure(
+    int32_t device_logic_id, asc::asc_ccu_res_snapshot& res_snapshot)
+{
+    CCU_EXCEPTION_HANDLE_BEGIN
+    return asc::ccu_kernel_mgr::get_instance(device_logic_id).configure(res_snapshot);
+    CCU_EXCEPTION_HANDLE_END
+}
+
+CcuResult asccomm_ccu_kernel_register_start(
+    CcuInsHandle ins_handle, HcommCcuRegisterContextHandle context_handle)
 {
     CCU_CHK_PTR_NULL(context_handle);
     const auto* context = reinterpret_cast<const HcommCcuRegisterContextPod*>(context_handle);
@@ -39,21 +50,36 @@ CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle, HcommCcuReg
             static_cast<unsigned long long>(context->instanceHandle), static_cast<unsigned long long>(ins_handle));
         return CcuResult::CCU_E_PARA;
     }
-    asc::ccu_kernel_registry* ccu_ins = nullptr;
-    CCU_CHK_RET(asc::ccu_kernel_registry_mgr::get_instance(context->deviceLogicId)
-                    .get_or_create(context->deviceLogicId, ins_handle, ccu_ins));
+    std::shared_ptr<asc::ccu_kernel_registry> ccu_ins;
+    CCU_CHK_RET(asc::ccu_kernel_registry_mgr::get_instance(context->deviceLogicId).get_or_create(
+        context->deviceLogicId, ins_handle, ccu_ins));
     CCU_CHK_PTR_NULL(ccu_ins);
     CCU_CHK_RET(ccu_ins->begin_register());
 
-    CcuResult ret = ccu_ins->load_register_context(*context);
+    bool requires_configuration = false;
+    CcuResult ret = ccu_ins->load_register_context(*context, requires_configuration);
     if (ret == CcuResult::CCU_SUCCESS) {
-        auto* res_snapshot = ccu_ins->get_res_snapshot();
-        CCU_CHK_PTR_NULL(res_snapshot);
-        ret = asc::ccu_kernel_mgr::get_instance(context->deviceLogicId).configure(*res_snapshot);
+        ret = ccu_ins->checkpoint_register_resources();
+    }
+    if (ret == CcuResult::CCU_SUCCESS && requires_configuration) {
+        auto *res_snapshot = ccu_ins->get_res_snapshot();
+        if (res_snapshot == nullptr) {
+            ret = CcuResult::CCU_E_PTR;
+        } else {
+            ret = ccu_kernel_try_configure(context->deviceLogicId, *res_snapshot);
+        }
+        if (ret == CcuResult::CCU_SUCCESS) {
+            // Translator resources are persistent and therefore form the rollback baseline for this round.
+            ret = ccu_ins->checkpoint_register_resources();
+        }
+        if (ret == CcuResult::CCU_SUCCESS) {
+            ret = ccu_ins->mark_configured();
+        }
     }
     if (ret != CcuResult::CCU_SUCCESS) {
+        ccu_ins->abort_register();
         (void)ccu_ins->end_register();
-        HCCL_ERROR("[%s] failed to load register context, ret[%d].", __func__, ret);
+        HCCL_ERROR("[%s] failed to prepare register context, ret[%d].", __func__, ret);
         return ret;
     }
     asc::set_current_ccu_device_logic_id(context->deviceLogicId);
@@ -62,17 +88,29 @@ CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle, HcommCcuReg
 }
 
 static CcuResult ccu_kernel_try_register(
-    asc::ccu_kernel_registry* ccu_ins, asc::asc_ccu_res_snapshot* res_snapshot, uint32_t dev_logic_id, uint32_t die_id,
+    const std::shared_ptr<asc::ccu_kernel_registry>& ccu_ins, asc::asc_ccu_res_snapshot* res_snapshot,
+    uint32_t dev_logic_id, uint32_t die_id,
     const char* kernel_func_name, const void* kernel_func, const void** kernel_args, uint32_t arg_num,
     ccu_kernel_handle& new_handle)
 {
     CCU_EXCEPTION_HANDLE_BEGIN
     auto& kernel_mgr = asc::ccu_kernel_mgr::get_instance(dev_logic_id);
-    CCU_CHK_RET(
-        kernel_mgr.Register(*res_snapshot, die_id, kernel_func_name, kernel_func, kernel_args, arg_num, new_handle));
-    CCU_CHK_RET(ccu_ins->save_kernel(new_handle));
+    CCU_CHK_RET(kernel_mgr.Register(*res_snapshot, die_id, kernel_func_name, kernel_func, kernel_args, arg_num, new_handle));
+    const CcuResult save_ret = ccu_ins->save_kernel(new_handle);
+    if (save_ret != CcuResult::CCU_SUCCESS) {
+        (void)kernel_mgr.un_register(new_handle);
+        return save_ret;
+    }
     CCU_EXCEPTION_HANDLE_END
     return CcuResult::CCU_SUCCESS;
+}
+
+static CcuResult ccu_kernel_try_translate(
+    asc::ccu_kernel_mgr& kernel_mgr, const std::vector<ccu_kernel_handle>& kernel_handles)
+{
+    CCU_EXCEPTION_HANDLE_BEGIN
+    return kernel_mgr.translate(kernel_handles);
+    CCU_EXCEPTION_HANDLE_END
 }
 
 CcuResult asccomm_ccu_kernel_register(
@@ -90,7 +128,7 @@ CcuResult asccomm_ccu_kernel_register(
     }
 
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
-    auto* ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(ins_handle);
+    auto ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(ins_handle);
     CCU_CHK_PTR_NULL(ccu_ins);
 
     CCU_CHK_RET(ccu_ins->check_registering());
@@ -123,19 +161,32 @@ CcuResult asccomm_ccu_kernel_register(
 CcuResult asccomm_ccu_kernel_register_end(CcuInsHandle ins_handle)
 {
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
-    auto* ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(ins_handle);
+    auto ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(ins_handle);
     CCU_CHK_PTR_NULL(ccu_ins);
 
-    CCU_CHK_RET(ccu_ins->end_register());
-    const auto& new_kernels = ccu_ins->get_untranslated_kernels();
+    const CcuResult state_ret = ccu_ins->check_registering();
+    if (state_ret != CcuResult::CCU_SUCCESS) {
+        // Register() 失败后会把本轮标记为 aborted；End() 仍负责闭合该轮事务。
+        return ccu_ins->end_register();
+    }
+
+    std::vector<ccu_kernel_handle> new_kernels;
+    CcuResult ret = ccu_ins->get_untranslated_kernels(new_kernels);
+    if (ret != CcuResult::CCU_SUCCESS) {
+        ccu_ins->abort_register();
+        (void)ccu_ins->end_register();
+        return ret;
+    }
 
     auto& kernel_mgr = asc::ccu_kernel_mgr::get_instance(dev_logic_id);
-    // 当前翻译内部流程可能抛异常
-    CCU_EXCEPTION_HANDLE_BEGIN
-    CCU_CHK_RET(kernel_mgr.translate(new_kernels));
-    CCU_EXCEPTION_HANDLE_END
+    ret = ccu_kernel_try_translate(kernel_mgr, new_kernels);
+    if (ret != CcuResult::CCU_SUCCESS) {
+        ccu_ins->abort_register();
+        (void)ccu_ins->end_register();
+        return ret;
+    }
 
-    return CcuResult::CCU_SUCCESS;
+    return ccu_ins->end_register();
 }
 
 CcuResult asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle, uint32_t* task_args_num)
@@ -272,7 +323,9 @@ static CcuResult launch_ccu_tasks(
     task_info.instCnt = param.inst_cnt;
     task_info.key = param.key;
     task_info.argSize = param.arg_size;
-    task_info.timeout = exec_time_out_sec;
+    task_info.timeout = exec_time_out_sec >= std::numeric_limits<uint16_t>::max()
+        ? std::numeric_limits<uint16_t>::max()
+        : static_cast<uint16_t>(exec_time_out_sec);
     std::copy(std::begin(param.args), std::end(param.args), std::begin(task_info.args));
 
     auto ret = rtCCULaunch(&task_info, stream);
@@ -293,10 +346,11 @@ static bool is_launch_context_valid(const HcommCcuLaunchContextPod& context)
 }
 
 CcuResult asccomm_ccu_kernel_launch(
-    const HcommCcuLaunchContextPod* launch_context, ccu_kernel_handle kernel_handle, const void* task_args,
-    uint32_t arg_num)
+    const HcommCcuLaunchContextPod *asccomm_ccu_kernel_launch, ccu_kernel_handle kernel_handle,
+    const void* task_args, uint32_t arg_num)
 {
     const auto start_time = std::chrono::steady_clock::now();
+    const auto *launch_context = asccomm_ccu_kernel_launch;
 
     CCU_CHK_PTR_NULL(launch_context);
     CHK_PRT_RET(
@@ -319,7 +373,7 @@ CcuResult asccomm_ccu_kernel_launch(
     // launch 使用线程实际所属设备，避免依赖 asc-comm 内部设备上下文与调用线程状态一致。
     const int32_t dev_logic_id = launch_context->deviceLogicId;
     auto& kernel_mgr = asc::ccu_kernel_mgr::get_instance(dev_logic_id);
-    auto* kernel = kernel_mgr.get_kernel(kernel_handle);
+    auto kernel = kernel_mgr.get_kernel(kernel_handle);
     CCU_CHK_PTR_NULL(kernel);
 
     CCU_EXCEPTION_HANDLE_BEGIN
@@ -341,7 +395,7 @@ CcuResult asccomm_ccu_kernel_launch(
 
     std::vector<asc::ccu_profiling_info> all_ccu_profiling_info;
     CCU_CHK_RET(construct_profiling_info(
-        kernel, static_cast<const uint64_t*>(task_args), arg_num, all_ccu_profiling_info, is_save_profiling_data));
+        kernel.get(), static_cast<const uint64_t*>(task_args), arg_num, all_ccu_profiling_info, is_save_profiling_data));
     log_ccu_task_info(task_params, kernel_handle, launch_context->timeoutSec);
     std::vector<HcommCcuProfileDetailPod> ccu_detail_info;
     CCU_CHK_RET(construct_ccu_detail_info(all_ccu_profiling_info, is_save_profiling_data, ccu_detail_info));
@@ -394,7 +448,7 @@ static CcuResult ccu_alloc_var_event_res(
     CcuInsHandle ins_handle, asc::ccu_var_event_type type, uint8_t die_id, uint32_t num, uint64_t& out_handle)
 {
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
-    auto* ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(ins_handle);
+    auto ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(ins_handle);
     CCU_CHK_PTR_NULL(ccu_ins);
 
     auto* res_pack = ccu_ins->get_res_snapshot();

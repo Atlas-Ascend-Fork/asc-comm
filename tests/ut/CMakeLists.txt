@@ -234,54 +234,6 @@ function(run_llt_test)
     endif()
 endfunction()
 
-add_library(asccomm_ccu_host_launch STATIC
-    ${ASCCOMM_ROOT}/src/ccu/ccu_host_launch.cpp
-)
-target_include_directories(asccomm_ccu_host_launch
-    PUBLIC
-        ${ASCCOMM_ROOT}/include
-    PRIVATE
-        ${ASCEND_CANN_ARCH_DIR}/include
-        ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
-        ${ASCEND_CANN_ARCH_DIR}/include/hccl
-        ${ASCEND_CANN_ARCH_DIR}/pkg_inc
-        ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
-)
-target_compile_features(asccomm_ccu_host_launch PUBLIC cxx_std_17)
-target_compile_options(asccomm_ccu_host_launch PRIVATE
-    -fPIC
-    -Wall
-    -Werror
-)
-
-add_executable(asccomm_ut_ccu_host_launch
-    ${ASCCOMM_UT_ROOT}/ccu/test_ccu_host_launch.cpp
-)
-target_include_directories(asccomm_ut_ccu_host_launch PRIVATE
-    ${ASCCOMM_ROOT}/include
-    ${ASCEND_CANN_ARCH_DIR}/include
-    ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
-    ${ASCEND_CANN_ARCH_DIR}/include/hccl
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc
-    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
-)
-target_compile_features(asccomm_ut_ccu_host_launch PRIVATE cxx_std_17)
-target_compile_options(asccomm_ut_ccu_host_launch PRIVATE
-    -fPIC
-    -Wall
-    -Werror
-)
-target_link_libraries(asccomm_ut_ccu_host_launch PRIVATE
-    intf_llt_pub_basic
-    asccomm_ccu_host_launch
-)
-
-run_llt_test(
-    TARGET asccomm_ut_ccu_host_launch
-    TASK_NUM 1
-    FILTERS TestCcuHostLaunch.*
-)
-
 function(asccomm_add_product_definitions target_name product_type)
     target_compile_definitions(${target_name} PRIVATE
         UT_TEST

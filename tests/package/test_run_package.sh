@@ -162,7 +162,7 @@ EXPECTED_FILE_COUNT=$((HCOMM_PUBLIC_HEADER_COUNT + HCOMM_IMPL_HEADER_COUNT + \
 [[ ! -e "${EXTRACT_DIR}/payload/asc/include/adv_api/ain" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/hcomm" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/asc/impl/adv_api/detail/ain" ]]
-[[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/ccu/ccu_host_launch.h" ]]
+[[ -f "${EXTRACT_DIR}/payload/asc/include/comm_api/ccu/hcomm/ccu_host_launch.h" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/aarch64-linux" ]]
 [[ ! -e "${EXTRACT_DIR}/payload/x86_64-linux" ]]
 diff -u <(printf '%s\t%s\n' \
