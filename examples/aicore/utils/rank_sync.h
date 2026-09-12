@@ -29,9 +29,7 @@
 #include <arpa/inet.h>
 #include <cerrno>
 #include <chrono>
-#include <cstdarg>
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
 #include <netinet/in.h>
 #include <string>
@@ -66,11 +64,6 @@ public:
         int fd = -1;
         if (ParseEndpoint(endpoint, host, port)) {
             fd = CreateListenSocket(host, port);
-            if (fd < 0) {
-                ctx.Log("listen failed: bind %s:%u, errno=%d", host.c_str(), port, errno);
-            }
-        } else {
-            ctx.Log("invalid endpoint '%s' (expect tcp://ip:port)", endpoint.c_str());
         }
         ctx.SetupServer(fd);
         return ctx;
@@ -85,24 +78,15 @@ public:
         int fd = -1;
         if (ParseEndpoint(endpoint, host, port)) {
             fd = ConnectWithRetry(host, port);
-            if (fd < 0) {
-                ctx.Log(
-                    "connect to %s:%u failed after %u retries (%.0f s)", host.c_str(), port, kConnectRetryTimes,
-                    kConnectRetryTimes * kConnectRetryIntervalMs / 1000.0);
-            } else {
+            if (fd >= 0) {
                 // 连接后先报身份，rank 0据此建立 fd -> rank 映射。
                 const uint32_t self = rank;
                 if (SendAll(fd, &self, sizeof(self))) {
                     ctx.peerFds_[0] = fd;
                     fd = -1; // 所有权已转移
                     ctx.ok_ = true;
-                    ctx.Log("connected to rank 0 at %s:%u", host.c_str(), port);
-                } else {
-                    ctx.Log("send rank id to rank 0 failed, errno=%d", errno);
                 }
             }
-        } else {
-            ctx.Log("invalid endpoint '%s' (expect tcp://ip:port)", endpoint.c_str());
         }
         if (fd >= 0) {
             close(fd);
@@ -146,19 +130,12 @@ public:
     bool Allgather(uint32_t tag, const void* send, uint32_t len, void* recv)
     {
         if (!ok_ || len == 0U) {
-            Log("allgather tag=%u rejected: ok=%d len=%u", tag, static_cast<int>(ok_), len);
             return false;
         }
         if (rank_ == 0U) {
-            Log("allgather tag=%u len=%u start (server, nranks=%u)", tag, len, nranks_);
-            const bool ok = ServerAllgather(tag, send, len, recv);
-            Log("allgather tag=%u len=%u %s (server)", tag, len, ok ? "done" : "FAILED");
-            return ok;
+            return ServerAllgather(tag, send, len, recv);
         }
-        Log("allgather tag=%u len=%u start (client)", tag, len);
-        const bool ok = ClientAllgather(tag, send, len, recv);
-        Log("allgather tag=%u len=%u %s (client)", tag, len, ok ? "done" : "FAILED");
-        return ok;
+        return ClientAllgather(tag, send, len, recv);
     }
 
     // barrier：allgather的4字节特例。不同调用点用不同tag。
@@ -175,22 +152,6 @@ private:
     static constexpr int kSockTimeoutSec = 60;
     static constexpr uint32_t kConnectRetryTimes = 300U;
     static constexpr uint32_t kConnectRetryIntervalMs = 100U;
-
-    // 排查日志：统一前缀[RANKSYNC][rank N]打到stderr。默认开启，便于定位建链/集合
-    // 通信问题；定义RANK_SYNC_QUIET可关闭。
-    void Log(const char* fmt, ...) const
-    {
-#ifdef RANK_SYNC_QUIET
-        (void)fmt;
-#else
-        std::fprintf(stderr, "[RANKSYNC][rank %u] ", rank_);
-        va_list args;
-        va_start(args, fmt);
-        std::vfprintf(stderr, fmt, args);
-        va_end(args);
-        std::fprintf(stderr, "\n");
-#endif
-    }
 
     static bool ParseEndpoint(const std::string& endpoint, std::string& host, uint16_t& port)
     {
@@ -317,36 +278,21 @@ private:
             do {
                 fd = accept(listenFd, nullptr, nullptr);
             } while (fd < 0 && errno == EINTR);
-            if (fd < 0) {
-                Log("accept failed after %u/%u peers, errno=%d", accepted, nranks_ - 1U, errno);
-                return;
-            }
-            if (!SetSockTimeouts(fd)) {
-                Log("setsockopt on accepted fd failed, errno=%d", errno);
-                close(fd);
+            if (fd < 0 || !SetSockTimeouts(fd)) {
+                if (fd >= 0) {
+                    close(fd);
+                }
                 return;
             }
             uint32_t peerRank = 0U;
-            if (!RecvAll(fd, &peerRank, sizeof(peerRank))) {
-                Log("recv rank id from new connection failed, errno=%d", errno);
-                close(fd);
-                return;
-            }
-            if (peerRank == 0U || peerRank >= nranks_) {
-                Log("invalid peer rank %u (nranks=%u) from new connection", peerRank, nranks_);
-                close(fd);
-                return;
-            }
-            if (peerFds_[peerRank] >= 0) {
-                Log("duplicate connection from rank %u", peerRank);
+            if (!RecvAll(fd, &peerRank, sizeof(peerRank)) || peerRank == 0U || peerRank >= nranks_ ||
+                peerFds_[peerRank] >= 0) {
                 close(fd);
                 return;
             }
             peerFds_[peerRank] = fd;
-            Log("accepted rank %u (%u/%u)", peerRank, accepted + 1U, nranks_ - 1U);
         }
         ok_ = true;
-        Log("server ready: all %u peers connected", nranks_ - 1U);
     }
 
     bool ServerAllgather(uint32_t tag, const void* send, uint32_t len, void* recv)
@@ -355,36 +301,18 @@ private:
         std::memcpy(out, send, len); // slot 0：rank 0自己的载荷
         for (uint32_t peer = 1U; peer < nranks_; ++peer) {
             RankSyncMsgHeader header = {};
-            if (peerFds_[peer] < 0) {
-                Log("allgather tag=%u: no connection to rank %u (not accepted?)", tag, peer);
-                return false;
-            }
-            if (!RecvAll(peerFds_[peer], &header, sizeof(header))) {
-                Log("allgather tag=%u: recv header from rank %u failed (peer closed/timeout, errno=%d)", tag, peer,
-                    errno);
-                return false;
-            }
-            if (header.tag != tag || header.len != len) {
-                Log("allgather tag=%u: header mismatch from rank %u, got tag=%u len=%u (expect tag=%u len=%u) — "
-                    "ranks disagree on call order or payload size",
-                    tag, peer, header.tag, header.len, tag, len);
+            if (!RecvAll(peerFds_[peer], &header, sizeof(header)) || header.tag != tag || header.len != len) {
                 return false;
             }
             if (!RecvAll(peerFds_[peer], out + static_cast<size_t>(peer) * len, len)) {
-                Log("allgather tag=%u: recv payload from rank %u failed (peer closed/timeout, errno=%d)", tag, peer,
-                    errno);
                 return false;
             }
         }
         // 全员数据到齐后回发整表。
         for (uint32_t peer = 1U; peer < nranks_; ++peer) {
             const RankSyncMsgHeader reply = {tag, nranks_ * len};
-            if (!SendAll(peerFds_[peer], &reply, sizeof(reply))) {
-                Log("allgather tag=%u: send reply header to rank %u failed (errno=%d)", tag, peer, errno);
-                return false;
-            }
-            if (!SendAll(peerFds_[peer], out, static_cast<size_t>(nranks_) * len)) {
-                Log("allgather tag=%u: send reply payload to rank %u failed (errno=%d)", tag, peer, errno);
+            if (!SendAll(peerFds_[peer], &reply, sizeof(reply)) ||
+                !SendAll(peerFds_[peer], out, static_cast<size_t>(nranks_) * len)) {
                 return false;
             }
         }
@@ -393,34 +321,15 @@ private:
 
     bool ClientAllgather(uint32_t tag, const void* send, uint32_t len, void* recv)
     {
-        if (peerFds_[0] < 0) {
-            Log("allgather tag=%u: no connection to rank 0 (connect failed?)", tag);
-            return false;
-        }
         const RankSyncMsgHeader header = {tag, len};
-        if (!SendAll(peerFds_[0], &header, sizeof(header))) {
-            Log("allgather tag=%u: send header to rank 0 failed (errno=%d)", tag, errno);
-            return false;
-        }
-        if (!SendAll(peerFds_[0], send, len)) {
-            Log("allgather tag=%u: send payload to rank 0 failed (errno=%d)", tag, errno);
+        if (!SendAll(peerFds_[0], &header, sizeof(header)) || !SendAll(peerFds_[0], send, len)) {
             return false;
         }
         RankSyncMsgHeader reply = {};
-        if (!RecvAll(peerFds_[0], &reply, sizeof(reply))) {
-            Log("allgather tag=%u: recv reply header failed (rank 0 closed/timeout, errno=%d)", tag, errno);
+        if (!RecvAll(peerFds_[0], &reply, sizeof(reply)) || reply.tag != tag || reply.len != nranks_ * len) {
             return false;
         }
-        if (reply.tag != tag || reply.len != nranks_ * len) {
-            Log("allgather tag=%u: reply mismatch, got tag=%u len=%u (expect tag=%u len=%u)", tag, reply.tag, reply.len,
-                tag, nranks_ * len);
-            return false;
-        }
-        if (!RecvAll(peerFds_[0], recv, static_cast<size_t>(nranks_) * len)) {
-            Log("allgather tag=%u: recv reply payload failed (rank 0 closed/timeout, errno=%d)", tag, errno);
-            return false;
-        }
-        return true;
+        return RecvAll(peerFds_[0], recv, static_cast<size_t>(nranks_) * len);
     }
 
     uint32_t rank_;

@@ -373,8 +373,7 @@ bool ParseNonNegativeInt(const char* text, int& value)
 } // namespace
 
 // 单个rank的完整流程，单机与多机模式共用。由ProcessGroup（单机）或main的5参数分支
-// （多机）调用；endpoint一律来自命令行，rank 0 Listen绑定，其余rank Connect。
-// rank间的root info交换与收尾同步都经examples::RankSyncContext的TCP星形通道完成。
+// （多机）调用。
 int RunOneMultiPathRank(uint32_t rankSize, uint32_t rank, const std::string& ipPort, uint32_t device)
 {
     Options options{rankSize, rank, device, ipPort};
@@ -382,7 +381,7 @@ int RunOneMultiPathRank(uint32_t rankSize, uint32_t rank, const std::string& ipP
     examples::RankSyncContext sync = rank == 0U ? examples::RankSyncContext::Listen(ipPort, rankSize) :
                                                   examples::RankSyncContext::Connect(rank, rankSize, ipPort);
     if (!sync.Ok()) {
-        std::cerr << "rank " << rank << ": control channel setup failed" << std::endl;
+        std::cerr << "[rank " << rank << "] control channel setup failed" << std::endl;
         return 1;
     }
 
@@ -397,12 +396,11 @@ int RunOneMultiPathRank(uint32_t rankSize, uint32_t rank, const std::string& ipP
 
     int status = HCCL_E_INTERNAL;
     {
-        std::cout << "rank " << options.rank << "/" << options.rankSize << ": device=" << options.device
-                  << ", channels_per_peer=" << PATH_COUNT << ", channel_descs=" << (options.rankSize - 1) * PATH_COUNT
-                  << std::endl;
+        std::cout << "[rank " << options.rank << "] one_multi_path | channels_per_peer=" << PATH_COUNT
+                  << ", channel_descs=" << (options.rankSize - 1) * PATH_COUNT << std::endl;
         status = TestDualPath(options, sync);
         if (status == HCCL_SUCCESS) {
-            std::cout << "rank " << options.rank << ": dual-path validation passed" << std::endl;
+            std::cout << "[rank " << options.rank << "] one_multi_path | dual-path validation | PASS" << std::endl;
         }
     }
 
@@ -442,9 +440,10 @@ int main(int argc, char* argv[])
         }
         const bool pass = group.WaitAll();
         if (group.Interrupted()) {
-            std::cerr << "test interrupted" << std::endl;
+            std::cerr << "RESULT | Example=one_multi_path | Status=INTERRUPTED" << std::endl;
             return 1;
         }
+        std::cout << "RESULT | Example=one_multi_path | Status=" << (pass ? "PASS" : "FAIL") << std::endl;
         return pass ? 0 : 1;
     }
 
