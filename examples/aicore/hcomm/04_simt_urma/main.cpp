@@ -81,8 +81,7 @@ constexpr ModeEntry kModes[] = {
 
 constexpr uint32_t kDefaultMode = kModeNotifyAtomicSingle;
 
-// Unlike a defaulted environment variable, an explicit command-line argument that does not
-// match any mode is a typo rather than a request for the default, so it is rejected.
+// 显式传入却不匹配任何 mode 是笔误而非取默认值，因此直接拒绝。
 bool ParseMode(const char* arg, uint32_t& mode)
 {
     const std::string name(arg);
@@ -111,14 +110,8 @@ void PrintModes()
     std::cout << "        notify | faa | cas | single (default) | batch_last | notify_immediate_repeat" << std::endl;
 }
 
-// Fills the sender's buffer with the values the receiver will check for, and clears the
-// recv buffer so a slot that never lands reads back as 0 rather than as stale data.
-// Both ranks call this: the sender needs the payload, the receiver needs the clean slate.
-//
-// The two families seed different things. The write modes need an ascending payload in the send
-// buffer and a zeroed receive buffer. The notify/atomic modes need one data word to send, and
-// the FAA/CAS targets pre-seeded on the receiving side, because those operations are defined
-// against a known starting value.
+// write 系列需要递增序列的发送 payload 和清零的接收 buffer；notify/atomic 系列需要一个
+// 数据字和接收侧预置的 FAA/CAS 初值（这两个操作定义在已知初值之上）。
 aclError InitBuffers(void* sendBuf, void* recvBuf, uint32_t mode)
 {
     uint64_t send[kSlotCount] = {};
@@ -139,14 +132,9 @@ aclError InitBuffers(void* sendBuf, void* recvBuf, uint32_t mode)
     return aclrtMemcpy(recvBuf, kBufferBytes, recv, kBufferBytes, ACL_MEMCPY_HOST_TO_DEVICE);
 }
 
-// Builds the P2P channel to peer.rankId over kTargetCommProtocol and fills in peer.channel plus
-// the index of the remote buffer tagged kRecvBufTag in that channel's remote buffer table.
-//
-// The kernel resolves buffer base addresses through AscendC::simt::LocalBufferAddr and
-// RemoteBufferAddr, both of which take an index into the channel's buffer table. That table is
-// built from the memHandles handed to HcclChannelAcquire below. Local table index 0 is reserved
-// for the CCL buffer, so explicitly registered buffers start at index 1. The remote index is
-// looked up by tag because the remote table may hold entries this example did not register.
+// 与对端建链，并按 kRecvBufTag 查出对端接收 buffer 在远端内存表中的索引。
+// kernel 通过 AscendC::simt::Local/RemoteBufferAddr 按索引解析 buffer 基地址；本地表
+// index 0 保留给 CCL buffer，显式注册的内存从 1 开始。
 HcclResult AcquirePeerChannel(
     HcclComm comm, uint32_t rank, PeerRankCtx& peer, HcclMemHandle* memHandles, uint32_t memHandleNum)
 {
@@ -184,8 +172,7 @@ HcclResult AcquirePeerChannel(
         }
     }
     if (!linkFound) {
-        std::cout << "[rank " << rank << "] no UB_CTP link to peer " << peer.rankId
-                  << ", SIMT URMA interfaces require the URMA path" << std::endl;
+        std::cout << "[rank " << rank << "] no UB_CTP link to peer " << peer.rankId << std::endl;
         return HCCL_E_NOT_SUPPORT;
     }
 
@@ -230,14 +217,10 @@ bool CheckWords(void* deviceBuf, const uint64_t expected[kSlotCount], const char
     return pass;
 }
 
-// 环上每个 rank 都是发送方，因此每个 rank 都要校验自己取回的 fetch 值。
-//
-// 远端写入只落在 recvBuf：peer 的 remoteRecvIdx 是按 kRecvBufTag 查出来的，sendBuf 虽然也注册
-// 在通道上，但从不作为远端目标。环上每个 recvBuf 恰好只有一个写者（它的 prev），所以 FAA/CAS
-// 取回的旧值仍然精确等于 host 播种的初值，这项校验在环形拓扑下依然成立。
+// 环上每个 recvBuf 只有一个写者（它的 prev），FAA/CAS 取回的旧值仍精确等于 host 播种的
+// 初值，因此环形拓扑下 fetch 值校验依然成立。write 系列只把 sendBuf 当数据源，不校验。
 bool CheckSender(void* sendBuf, uint32_t mode)
 {
-    // write 系列不读回 sendBuf：它只是数据源，kernel 不往里写任何东西。
     if (IsWriteMode(mode)) {
         return true;
     }
@@ -258,8 +241,7 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
 {
     uint64_t expected[kSlotCount] = {};
 
-    // All four write modes land the same ascending sequence, whether the payload came from an
-    // SGE or inline in the WQE, so one expected table covers them.
+    // 四种 write 模式落地相同的递增序列（payload 无论走 SGE 还是 WQE 内联），一张期望表通用。
     if (IsWriteMode(mode)) {
         for (uint32_t i = 0; i < kWriteSlotCount; ++i) {
             expected[i] = SlotValue(i);
@@ -267,8 +249,7 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
         return CheckWords(recvBuf, expected, "receiver target");
     }
 
-    // notify_immediate_repeat posts the same Notify kNotifyImmediateRepeatCount times, so the
-    // landed state is indistinguishable from a single Notify.
+    // notify_immediate_repeat 重复投递同一个 Notify，落地状态与单次 Notify 相同。
     if (mode == kModeNotify || mode == kModeNotifyImmediateRepeat) {
         expected[kNotifyDataSlot] = kNotifyData;
         expected[kNotifySignalSlot] = kNotifySignal;
@@ -281,7 +262,7 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
         expected[kFaaTargetSlot] = kFaaInitial;
         expected[kCasTargetSlot] = kCasSwap;
     } else {
-        // single and batch_last both run all three operations, so both end in the same state.
+        // single 与 batch_last 都跑全部三种操作，终态相同。
         expected[kNotifyDataSlot] = kNotifyData;
         expected[kNotifySignalSlot] = kNotifySignal;
         expected[kFaaTargetSlot] = kFaaInitial + kFaaAdd;
@@ -296,8 +277,7 @@ bool CheckReceiver(void* recvBuf, uint32_t mode)
 constexpr uint32_t kTagReady = examples::kTagUserBase;
 constexpr uint32_t kTagSent = examples::kTagUserBase + 1U;
 
-// 单个rank的完整流程。由ProcessGroup在每个子进程中调用：rank 0 Listen绑定命令行传入
-// 的endpoint，其余rank Connect；root info交换与barrier都经该通道。
+// 单个rank的完整流程。由ProcessGroup在每个子进程中调用。
 int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpoint, const std::string& modeName)
 {
     uint32_t mode = kDefaultMode;
@@ -310,7 +290,7 @@ int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpo
     examples::RankSyncContext sync = rank == 0U ? examples::RankSyncContext::Listen(ctrlEndpoint, nranks) :
                                                   examples::RankSyncContext::Connect(rank, nranks, ctrlEndpoint);
     if (!sync.Ok()) {
-        std::cout << "rank " << rank << ": control channel setup failed" << std::endl;
+        std::cout << "[rank " << rank << "] control channel setup failed" << std::endl;
         return 1;
     }
 
@@ -328,33 +308,31 @@ int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpo
     EXAMPLES_ACLCHECK(aclrtMalloc(&recvBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
     EXAMPLES_ACLCHECK(InitBuffers(sendBuf, recvBuf, mode));
 
-    // Both ranks register both buffers under the same tags, so the sender can look up the
-    // receiver's recv buffer by tag and the buffer tables stay symmetric.
     CommMem sendMem{COMM_MEM_TYPE_DEVICE, sendBuf, kBufferBytes};
     CommMem recvMem{COMM_MEM_TYPE_DEVICE, recvBuf, kBufferBytes};
     HcclMemHandle memHandles[2] = {nullptr, nullptr};
-    // Position in the memHandles array handed to HcclChannelAcquire.
     constexpr uint32_t kSendMemHandleIdx = 0U;
     constexpr uint32_t kRecvMemHandleIdx = 1U;
-    // Index into the channel's local buffer table, which the kernel passes to
-    // AscendC::simt::LocalBufferAddr. Table index 0 is the CCL buffer, so this is the
-    // memHandles position plus one. Passing the memHandles position directly resolves to the
-    // CCL buffer instead: the post then reads the wrong source, yet the WQE, the remote address
-    // and the token are all valid, so the NIC completes it and returns a clean CQE while the
-    // receiver observes the CCL buffer's contents rather than the payload.
+    // 本地 buffer 表 index 0 是 CCL buffer，注册内存从 1 开始，见 AcquirePeerChannel 的注释。
     constexpr uint32_t kLocalSendIdx = kSendMemHandleIdx + 1U;
     EXAMPLES_HCCLCHECK(HcclCommMemReg(hcclComm, kSendBufTag, &sendMem, &memHandles[kSendMemHandleIdx]));
     EXAMPLES_HCCLCHECK(HcclCommMemReg(hcclComm, kRecvBufTag, &recvMem, &memHandles[kRecvMemHandleIdx]));
 
-    // 环形拓扑：每个 rank 向 next 发送，并校验从 prev 收到的数据，因此所有 rank 都参与收发。
+    // 环形拓扑：每个 rank 向 next 发送，并校验从 prev 收到的数据。
     PeerRankCtx prev;
     PeerRankCtx next;
     prev.rankId = (rank + nranks - 1U) % nranks;
     next.rankId = (rank + 1U) % nranks;
 
-    // 建链顺序按 rank 奇偶错开。两个 rank 若都先等对方作为 prev 的那条链，会形成环上的循环
-    // 等待；错开之后每一步都有一侧在主动应答。
-    if (rank % 2 == 0) {
+    // nranks==2 时 prev 与 next 是同一个对端：环形退化为点对点，两个方向复用同一条通道。
+    // 对同一对端用相同的desc重复建链，通道握手无法区分两条通道的配对关系。
+    if (prev.rankId == next.rankId) {
+        std::cout << "[rank " << rank << "] ring degenerates to point-to-point, reusing one channel" << std::endl;
+        EXAMPLES_HCCLCHECK(AcquirePeerChannel(hcclComm, rank, next, memHandles, 2U));
+        prev.channel = next.channel;
+        prev.remoteRecvIdx = next.remoteRecvIdx;
+    } else if (rank % 2 == 0) {
+        // 建链顺序按 rank 奇偶错开，避免环上循环等待。
         EXAMPLES_HCCLCHECK(AcquirePeerChannel(hcclComm, rank, prev, memHandles, 2U));
         EXAMPLES_HCCLCHECK(AcquirePeerChannel(hcclComm, rank, next, memHandles, 2U));
     } else {
@@ -363,44 +341,33 @@ int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpo
     }
 
     if (!sync.Barrier(kTagReady)) {
-        std::cout << "rank " << rank << ": ready barrier failed" << std::endl;
+        std::cout << "[rank " << rank << "] ready barrier failed" << std::endl;
         return HCCL_E_INTERNAL;
     }
 
-    // 每个 rank 都通过 next 通道发送。发送内容与 rank 无关，因此 prev 写进来的数据和本 rank
-    // 写出去的数据期望值相同，接收侧校验表不需要按来源 rank 区分。
-    // The write_value_* modes carry their payload inline in the WQE and never read the send
-    // buffer, so kLocalSendIdx is unused there. It is still registered on every rank to keep the
-    // buffer tables symmetric and the channel setup identical across modes.
-    std::cout << "[rank " << rank << "] simt_urma mode=" << ModeName(mode) << " sending to rank " << next.rankId
-              << std::endl;
     LaunchSimtUrma(stream, next.channel, kLocalSendIdx, next.remoteRecvIdx, mode);
     EXAMPLES_ACLCHECK(aclrtSynchronizeStream(stream));
 
-    // Separates each rank's own kernel from its read of what prev wrote. Every rank only arrives
-    // here after its own aclrtSynchronizeStream, so no rank samples its recv buffer while the
-    // WQEs targeting it are still in flight. Without this a rank races ahead straight from the
-    // "ready" barrier and reads the zeroed buffer, which looks like nothing landed.
+    // 本 rank 的 kernel 已同步完成，此 barrier 保证读到 prev 写入时所有 WQE 都已落地。
     if (!sync.Barrier(kTagSent)) {
-        std::cout << "rank " << rank << ": sent barrier failed" << std::endl;
+        std::cout << "[rank " << rank << "] sent barrier failed" << std::endl;
         return HCCL_E_INTERNAL;
     }
 
-    // 环上每个 rank 同时是发送方和接收方，两侧都要校验：sendBuf 里是本 rank 取回的 fetch 值，
-    // recvBuf 里是 prev 写进来的数据。
+    // sendBuf 是本 rank 取回的 fetch 值，recvBuf 是 prev 写进来的数据，两侧都要校验。
     const bool senderPass = CheckSender(sendBuf, mode);
     const bool receiverPass = CheckReceiver(recvBuf, mode);
     const bool pass = senderPass && receiverPass;
     if (!senderPass) {
-        std::cout << "[rank " << rank << "] simt_urma " << ModeName(mode) << " FAIL (sender fetch check)" << std::endl;
+        std::cout << "[rank " << rank << "] " << ModeName(mode) << " FAIL (sender fetch check)" << std::endl;
     }
     if (!receiverPass) {
-        std::cout << "[rank " << rank << "] simt_urma " << ModeName(mode)
-                  << " FAIL (receiver check) | received from rank " << prev.rankId << std::endl;
+        std::cout << "[rank " << rank << "] " << ModeName(mode) << " FAIL (receiver check) | received from rank "
+                  << prev.rankId << std::endl;
     }
     if (pass) {
-        std::cout << "[rank " << rank << "] simt_urma " << ModeName(mode) << " PASS | sent to rank " << next.rankId
-                  << ", received from rank " << prev.rankId << std::endl;
+        std::cout << "[rank " << rank << "] simt_urma " << ModeName(mode) << " | sent to rank " << next.rankId
+                  << ", received from rank " << prev.rankId << " | PASS" << std::endl;
     }
 
     EXAMPLES_ACLCHECK(aclrtFree(sendBuf));
@@ -412,7 +379,6 @@ int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpo
 }
 
 // 父进程流程：解析命令行（<tcp://ip:port> <nranks> [mode]），拉起全部rank进程并等待结果。
-// endpoint是rank 0的监听地址，由外部传入；并行运行多个实例时错开端口。
 int main(int argc, char* argv[])
 {
     if (argc < 3 || argc > 4) {
@@ -442,11 +408,11 @@ int main(int argc, char* argv[])
     const bool pass = group.WaitAll();
 
     if (group.Interrupted()) {
-        std::cout << "RESULT | Mode=" << (modeName.empty() ? "single" : modeName) << " | Status=INTERRUPTED"
-                  << std::endl;
+        std::cout << "RESULT | Example=simt_urma Mode=" << (modeName.empty() ? "single" : modeName)
+                  << " | Status=INTERRUPTED" << std::endl;
         return 1;
     }
-    std::cout << "RESULT | Mode=" << (modeName.empty() ? "single" : modeName)
+    std::cout << "RESULT | Example=simt_urma Mode=" << (modeName.empty() ? "single" : modeName)
               << " | Status=" << (pass ? "PASS" : "FAIL") << std::endl;
     return pass ? 0 : 1;
 }
