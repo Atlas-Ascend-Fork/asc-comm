@@ -63,9 +63,6 @@ public:
     template <typename Coop>
     __simt_callee__ __forceinline__ void AdvanceSq(
         const Coop& coop, uint32_t a, uint32_t b) const { impl_.AdvanceSq(coop, a, b); }
-    template <typename Coop>
-    __simt_callee__ __forceinline__ void AdvanceSqNoDoorbell(const Coop& coop) const
-    { impl_.AdvanceSqNoDoorbell(coop); }
     __simt_callee__ __forceinline__ void PublishSq() const { impl_.PublishSq(); }
 
     template <int64_t kTimeout>

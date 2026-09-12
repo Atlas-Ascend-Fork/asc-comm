@@ -370,7 +370,7 @@ __simt_vf__ __aicore__ __launch_bounds__(64) inline void SimtJettyWriteMixedWork
     group.sync();
     SimtJettyWriteDispatchWarpImpl<kConfiguredSgeNum, false>(
         channel, sendBufIdx, recvBufIdx, warp, peer, jetty, writeCycles);
-    jetty.AdvanceSqNoDoorbell(group);
+    jetty.AdvanceSq(group);
     if (group.thread_rank() == 0) {
         ub_layout->mixed_ready = 1U;
     }
