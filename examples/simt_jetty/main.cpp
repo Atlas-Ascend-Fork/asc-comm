@@ -60,7 +60,7 @@ constexpr const char* kRecvBufTag = "simtJettyRecvBuf";
 
 const char* ModeName(uint32_t mode)
 {
-    constexpr const char* kModeNames[] = {"thread", "warp-pad", "group", "dispatch", "warp", "mixed"};
+    constexpr const char* kModeNames[] = {"thread", "group", "dispatch", "warp", "mixed"};
     return mode < sizeof(kModeNames) / sizeof(kModeNames[0]) ? kModeNames[mode] : "unknown";
 }
 
@@ -259,12 +259,12 @@ int main(int argc, char* argv[])
         static_cast<uint32_t>(std::strtoul(argv[hasSgeNum ? 8 : 7], nullptr, 10)) : 0U;
     const bool deviceTiming = hasTiming && std::strtoul(argv[hasSgeNum ? 9 : 8], nullptr, 10) != 0U;
 
-    if (nranks < 2 || rank < 0 || rank >= nranks || syncDir.empty() || mode > 5U || iterations == 0U ||
+    if (nranks < 2 || rank < 0 || rank >= nranks || syncDir.empty() || mode > 4U || iterations == 0U ||
         sgeNum < 1U || sgeNum > simt_jetty::kSlotCount) {
         std::cout << "invalid rank/nranks/sync_dir/mode/iterations/sge_num" << std::endl;
         return 1;
     }
-    if (hasSgeNum && (mode == 0U || mode == 5U) && sgeNum != simt_jetty::kConfiguredSgeNum) {
+    if (hasSgeNum && (mode == 0U || mode == 4U) && sgeNum != simt_jetty::kConfiguredSgeNum) {
         std::cout << "--sge-num=" << sgeNum << " does not match the binary compile-time SGE count "
                   << simt_jetty::kConfiguredSgeNum << "; rebuild with SIMT_JETTY_SGE_NUM=" << sgeNum << std::endl;
         return 1;
@@ -374,13 +374,11 @@ int main(int argc, char* argv[])
             for (uint32_t slot = 0; slot < simt_jetty::kConfiguredSgeNum; ++slot) {
                 expected[slot] = simt_jetty::SlotValue(slot);
             }
-        } else if (mode == 3U || mode == 5U) {
-            const uint32_t expectedSgeNum = mode == 5U ? simt_jetty::kConfiguredSgeNum : simt_jetty::kSlotCount;
+        } else if (mode == 2U || mode == 4U) {
+            const uint32_t expectedSgeNum = mode == 4U ? simt_jetty::kConfiguredSgeNum : simt_jetty::kSlotCount;
             for (uint32_t slot = 0; slot < expectedSgeNum; ++slot) {
                 expected[slot] = simt_jetty::SlotValue(slot);
             }
-        } else if (mode == 1U) {
-            expected[0] = simt_jetty::SlotValue(0);
         } else {
             expected[0] = simt_jetty::SlotValue(0);
             expected[1] = simt_jetty::SlotValue(1);
