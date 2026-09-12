@@ -21,14 +21,14 @@ namespace AscendC::simt::jetty {
  */
 class HcommJetty {
 public:
-    static constexpr uint32_t kNumWQEBBLanes = HcommJettyImpl::kNumWQEBBLanes;
-    static constexpr uint32_t kNumWQEBBsPerSQESlot = HcommJettyImpl::kNumWQEBBsPerSQESlot;
-    static constexpr uint32_t kNumMaxSGEsPerWrite = HcommJettyImpl::kNumMaxSGEsPerWrite;
-    static constexpr uint32_t kNumWriteWqebbs = HcommJettyImpl::kNumWriteWqebbs;
-    static constexpr uint32_t kNumWriteWithNotifyWqebbs = HcommJettyImpl::kNumWriteWithNotifyWqebbs;
-    static constexpr uint32_t kNumMaxSQEBytes = HcommJettyImpl::kNumMaxSQEBytes;
-    static constexpr uint32_t kNumWQEBBsPerWrite = HcommJettyImpl::kNumWQEBBsPerWrite;
-    static constexpr uint32_t kNumDwqeWords = HcommJettyImpl::kNumDwqeWords;
+    static constexpr uint32_t kNumWQEBBLanes = JettyImpl::kNumWQEBBLanes;
+    static constexpr uint32_t kNumWQEBBsPerSQESlot = JettyImpl::kNumWQEBBsPerSQESlot;
+    static constexpr uint32_t kNumMaxSGEsPerWrite = JettyImpl::kNumMaxSGEsPerWrite;
+    static constexpr uint32_t kNumWriteWqebbs = JettyImpl::kNumWriteWqebbs;
+    static constexpr uint32_t kNumWriteWithNotifyWqebbs = JettyImpl::kNumWriteWithNotifyWqebbs;
+    static constexpr uint32_t kNumMaxSQEBytes = JettyImpl::kNumMaxSQEBytes;
+    static constexpr uint32_t kNumWQEBBsPerWrite = JettyImpl::kNumWQEBBsPerWrite;
+    static constexpr uint32_t kNumDwqeWords = JettyImpl::kNumDwqeWords;
 
     __simt_callee__ __forceinline__ HcommJetty() = default;
     __simt_callee__ __forceinline__ HcommJetty(
@@ -42,7 +42,7 @@ public:
 
     template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop = HcommCoopThread>
     __simt_callee__ __forceinline__ int32_t Write(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges, const Coop& coop = Coop{}) const
+        const HcommPeer& peer, __gm__ void* dst, const JettySge* sges, const Coop& coop = Coop{}) const
     { return impl_.template Write<kMaxSges, kDoCommit>(peer, dst, sges, coop); }
     template <int64_t kTimeout, typename T, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t WriteValue(
@@ -75,7 +75,7 @@ public:
     { return impl_.template Drain<kTimeout>(coop); }
 
 private:
-    HcommJettyImpl impl_;
+    JettyImpl impl_;
 };
 
 } // namespace AscendC::simt::jetty

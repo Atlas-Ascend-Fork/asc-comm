@@ -13,9 +13,9 @@
 
 namespace AscendC {
 
-class HcommJettyImpl {
+class JettyImpl {
 public:
-    __aicore__ __forceinline__ HcommJettyImpl(
+    __aicore__ __forceinline__ JettyImpl(
         __ubuf__ HcommJettyInfo* jettyInfo, __ubuf__ uint8_t* ubufSqe,
         __gm__ void* jettyTable, uint32_t jettyIdx);
     __aicore__ __forceinline__ void PublishSq();

@@ -99,7 +99,7 @@ public:
     __aicore__ __forceinline__ void PublishSq();
 
 private:
-    HcommJettyImpl impl_;
+    JettyImpl impl_;
 };
 
 } // namespace AscendC

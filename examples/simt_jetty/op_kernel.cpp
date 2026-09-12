@@ -66,7 +66,7 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
     __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
-    AscendC::simt::jetty::HcommSge sges[kConfiguredSgeNum] = {};
+    AscendC::simt::jetty::JettySge sges[kConfiguredSgeNum] = {};
 #pragma unroll
     for (uint32_t sge_idx = 0U; sge_idx < kConfiguredSgeNum; ++sge_idx) {
         sges[sge_idx].addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(sge_idx) * kSlotBytes;
@@ -110,7 +110,7 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
 {
     __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
-    AscendC::simt::jetty::HcommSge sge{};
+    AscendC::simt::jetty::JettySge sge{};
     const int laneIdx = coop.thread_rank();
     if (laneIdx < static_cast<int>(kSgeNum)) {
         sge.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx) * kSlotBytes;
@@ -157,7 +157,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchWarpImpl(
 {
     __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
-    AscendC::simt::jetty::HcommSge laneSge{};
+    AscendC::simt::jetty::JettySge laneSge{};
     const int laneIdx = warp.thread_rank();
     if (laneIdx < static_cast<int>(kSgeNum)) {
         laneSge.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx) * kSlotBytes;

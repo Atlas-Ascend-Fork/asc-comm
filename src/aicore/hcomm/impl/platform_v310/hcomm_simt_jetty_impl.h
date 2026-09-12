@@ -60,25 +60,25 @@ __simt_callee__ constexpr uint32_t PostSendPayloadWqebbs()
 }
 
 struct alignas(8) HcommPeerInfo {
-    uint64_t tpIdNumSgesRemoteTokenId = 0U;
-    uint64_t remoteEid[2] = {};
-    uint64_t remoteTokenValueUdf = 0U;
-    uint64_t remoteBaseAddr = 0U;
-    uint64_t remoteBufferSize = 0U;
+    uint64_t tpIdNumSgesRemoteTokenId;
+    uint64_t remoteEid[2];
+    uint64_t remoteTokenValueUdf;
+    uint64_t remoteBaseAddr;
+    uint64_t remoteBufferSize;
 };
 struct alignas(8) HcommJettyInfo {
-    uint64_t sqBaseAddr = 0U;
-    uint64_t sqHeadAddr = 0U;
-    uint64_t completionTailAddr = 0U;
-    uint64_t sqDoorbellAddr = 0U;
-    uint64_t cqBaseAddr = 0U;
-    uint64_t cqTailAddr = 0U;
-    uint64_t cqDoorbellAddr = 0U;
-    uint64_t packedHead = 0U;
-    uint32_t numWqebbBytes = 0U;
-    uint32_t numCqeBytes = 0U;
-    uint32_t sqDepth = 0U;
-    uint32_t cqDepth = 0U;
+    uint64_t sqBaseAddr;
+    uint64_t sqHeadAddr;
+    uint64_t completionTailAddr;
+    uint64_t sqDoorbellAddr;
+    uint64_t cqBaseAddr;
+    uint64_t cqTailAddr;
+    uint64_t cqDoorbellAddr;
+    uint64_t packedHead;
+    uint32_t numWqebbBytes;
+    uint32_t numCqeBytes;
+    uint32_t sqDepth;
+    uint32_t cqDepth;
 };
 static_assert(sizeof(HcommPeerInfo) == 48U, "SIMT/SIMD peer metadata ABI mismatch");
 static_assert(offsetof(HcommPeerInfo, remoteEid) == sizeof(uint64_t), "unexpected peer metadata layout");
@@ -87,7 +87,7 @@ static_assert(offsetof(HcommPeerInfo, remoteTokenValueUdf) == 3U * sizeof(uint64
 static_assert(sizeof(HcommJettyInfo) == 80U, "SIMT/SIMD Jetty metadata ABI mismatch");
 static_assert(offsetof(HcommJettyInfo, packedHead) == 56U, "SIMT/SIMD packed head offset mismatch");
 
-struct HcommSge {
+struct JettySge {
     uint64_t addr = 0U;
     int len = 0;
 };
@@ -174,7 +174,7 @@ private:
     uint64_t channel = 0U;
 };
 
-class HcommJettyImpl {
+class JettyImpl {
     struct BatchState {
         uint32_t wqebbCount;
         uint32_t lastOffset;
@@ -191,16 +191,20 @@ public:
     static constexpr uint32_t kNumWQEBBsPerWrite = kSlotWqebbs;
     static constexpr uint32_t kNumDwqeWords = 2U * kWqebbLanes;
 
-    __simt_callee__ __forceinline__ HcommJettyImpl() = default;
-    __simt_callee__ __forceinline__ HcommJettyImpl(
+    __simt_callee__ __forceinline__ JettyImpl() = default;
+    __simt_callee__ __forceinline__ JettyImpl(
         __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
     {
         Init(info, stage, table, index);
     }
-    __simt_callee__ __forceinline__ HcommJettyImpl(
+    __simt_callee__ __forceinline__ JettyImpl(
         __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
     {
         Attach(info, stage, channelAddr);
+    }
+    __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* Info() const
+    {
+        return reinterpret_cast<__ubuf__ HcommJettyInfo*>(infoAddr_);
     }
 
 private:
@@ -247,12 +251,6 @@ private:
         stageAddr_ = reinterpret_cast<uint64_t>(stage);
         channel_ = channelAddr;
     }
-public:
-    __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* Info() const
-    {
-        return reinterpret_cast<__ubuf__ HcommJettyInfo*>(infoAddr_);
-    }
-private:
     __simt_callee__ __forceinline__ __ubuf__ BatchState* Batch() const
     {
         return reinterpret_cast<__ubuf__ BatchState*>(stageAddr_);
@@ -261,23 +259,23 @@ private:
 public:
     template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop = HcommCoopThread>
     __simt_callee__ __forceinline__ int32_t Write(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges, const Coop& coop = Coop{}) const
+        const HcommPeer& peer, __gm__ void* dst, const JettySge* sges, const Coop& coop = Coop{}) const
     {
         if constexpr (HcommCoopTraits<Coop>::kWarpCapable) {
-            const HcommSge laneSge = sges[0];
+            const JettySge laneSge = sges[0];
             return PostSend<kMaxSges, HcommPostOpcode::kWrite, kDoCommit>(
                 coop, peer, dst, laneSge, nullptr, nullptr, 0U, nullptr, 0U, nullptr, 0U);
         }
         return PostSend<kMaxSges, HcommPostOpcode::kWrite, kDoCommit>(
-            coop, peer, dst, HcommSge{}, sges, nullptr, 0U, nullptr, 0U, nullptr, 0U);
+            coop, peer, dst, JettySge{}, sges, nullptr, 0U, nullptr, 0U, nullptr, 0U);
     }
 
 private:
     template <uint32_t kSgeNum, HcommPostOpcode kOpcode, bool kDoCommit, uint32_t kInlineBytes = 0U,
               typename Coop>
     __simt_callee__ __forceinline__ int32_t PostSend(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge,
-        const HcommSge* scalarSges, __gm__ void* src,
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const JettySge& laneSge,
+        const JettySge* scalarSges, __gm__ void* src,
         const uint64_t len, __gm__ void* notifyAddr, const uint64_t notifyValue,
         const uint8_t* inlineValue, const uint32_t inlineBytes) const
     {
@@ -405,7 +403,7 @@ public:
                       "inline value does not fit in a URMA WQEBB");
         HcommCoopThread thread;
         return PostSend<0U, HcommPostOpcode::kWriteValue, kDoCommit, sizeof(T)>(
-            thread, peer, dst, HcommSge{}, nullptr, nullptr, 0U, nullptr, 0U,
+            thread, peer, dst, JettySge{}, nullptr, nullptr, 0U, nullptr, 0U,
             reinterpret_cast<const uint8_t*>(&value), sizeof(T));
     }
 
@@ -416,7 +414,7 @@ public:
     {
         HcommCoopThread thread;
         return PostSend<0U, HcommPostOpcode::kWriteWithNotify, kDoCommit>(
-            thread, peer, dst, HcommSge{}, nullptr, src, len, notifyAddr, notifyValue, nullptr, 0U);
+            thread, peer, dst, JettySge{}, nullptr, src, len, notifyAddr, notifyValue, nullptr, 0U);
     }
 
 private:
@@ -528,10 +526,32 @@ public:
     __simt_callee__ __forceinline__ void PublishSq() const
     {
         auto* info = Info();
-        HCOMM_DEBUG_TRAP_IF(info == nullptr || info->sqHeadAddr == 0U || info->sqDoorbellAddr == 0U,
+        HCOMM_DEBUG_TRAP_IF(info == nullptr || info->sqHeadAddr == 0U || info->sqDoorbellAddr == 0U ||
+                                info->sqDepth == 0U,
                             "invalid SIMT HcommJetty publish state\n");
-        info->packedHead = *reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr);
-        *reinterpret_cast<__gm__ uint32_t*>(info->sqDoorbellAddr) = static_cast<uint32_t>(info->packedHead);
+        const uint64_t packedHead = *reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr);
+        info->packedHead = packedHead;
+        const uint32_t head = static_cast<uint32_t>(packedHead);
+        const uint32_t nextHead = head + 1U;
+        const uint64_t nop0 = kNopHeader |
+            (static_cast<uint64_t>(detail::Owner(head, info->sqDepth)) << 31U) | (head & 0xFFFFU);
+        const uint64_t nop1 = kNopHeader |
+            (static_cast<uint64_t>(detail::Owner(nextHead, info->sqDepth)) << 31U) | (nextHead & 0xFFFFU);
+
+        // Cache-locked Jetty doorbells consume a complete 128B DWQE. Both NOPs
+        // intentionally omit bit 21 (CQE), and all non-header words are cleared
+        // so stale data from a previous DWQE cannot be interpreted as payload.
+        auto* dwqe = reinterpret_cast<__gm__ ulonglong2*>(info->sqDoorbellAddr - kDwqeDbOffset);
+        asc_stwt(&dwqe[0], make_ulonglong2(nop0, 0U));
+        asc_stwt(&dwqe[1], make_ulonglong2(0U, 0U));
+        asc_stwt(&dwqe[2], make_ulonglong2(0U, 0U));
+        asc_stwt(&dwqe[3], make_ulonglong2(0U, 0U));
+        asc_stwt(&dwqe[4], make_ulonglong2(nop1, 0U));
+        asc_stwt(&dwqe[5], make_ulonglong2(0U, 0U));
+        asc_stwt(&dwqe[6], make_ulonglong2(0U, 0U));
+        asc_stwt(&dwqe[7], make_ulonglong2(0U, 0U));
+        asc_threadfence();
+        asc_stwt(reinterpret_cast<__gm__ uint32_t*>(info->sqDoorbellAddr), head);
     }
     template <int64_t kTimeout>
     __simt_callee__ __forceinline__ int32_t Drain() const
@@ -621,8 +641,8 @@ private:
     template <uint32_t kSgeNum, HcommPostOpcode kOpcode, uint32_t kInlineBytes, uint32_t kStaticPayloadWqebbs,
               typename Coop>
     __simt_callee__ __forceinline__ void FillSq(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge,
-        const HcommSge* scalarSges, __gm__ void* src, const uint64_t len, __gm__ void* notifyAddr,
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const JettySge& laneSge,
+        const JettySge* scalarSges, __gm__ void* src, const uint64_t len, __gm__ void* notifyAddr,
         const uint64_t notifyValue, const uint8_t* inlineValue, const uint32_t inlineBytes,
         const uint32_t head) const
     {
@@ -696,7 +716,7 @@ private:
     template <uint32_t kSgeNum, uint32_t kPayloadWords, typename Coop>
     __simt_callee__ __forceinline__ void FillSqWarpLane(
         const Coop& coop, const HcommPeer& peer, __gm__ void* dst,
-        const HcommSge& laneSge, const uint32_t head) const
+        const JettySge& laneSge, const uint32_t head) const
     {
         const uint32_t lane = static_cast<uint32_t>(coop.thread_rank());
         const uint32_t depth = Info()->sqDepth;
@@ -767,7 +787,7 @@ private:
     }
 
     __simt_callee__ __forceinline__ void StoreWriteSgePair(
-        const uint32_t sge, const HcommSge& value, const uint32_t head) const
+        const uint32_t sge, const JettySge& value, const uint32_t head) const
     {
         const uint32_t word = kSqeHeaderWords + sge * 2U;
         StoreSqePair(reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr), Info()->sqDepth, head, word,
@@ -841,8 +861,8 @@ namespace AscendC::simt {
 using jetty::HcommJettyInfo;
 using jetty::HcommPeer;
 using jetty::HcommPeerInfo;
-using jetty::HcommSge;
-using jetty::HcommJettyImpl;
+using jetty::JettySge;
+using jetty::JettyImpl;
 }
 
 #endif
