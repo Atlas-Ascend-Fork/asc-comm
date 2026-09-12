@@ -356,6 +356,27 @@ private:
             return coop.size() > kWarpSize ? 0 : -1;
         }
 
+        if constexpr (kOpcode == HcommPostOpcode::kWrite && !HcommCoopTraits<Coop>::kWarpCapable) {
+            // The scalar producer owns the whole fixed-size WQE. Emit each layout
+            // phase directly so SGE loads never need a runtime pair classification.
+            constexpr uint32_t kPairCount = kStaticPayloadWqebbs * 4U;
+            StoreWriteHeaderPair<0U, kSgeNum>(peer, dst, head);
+            StoreWriteHeaderPair<1U, kSgeNum>(peer, dst, head);
+            StoreWriteHeaderPair<2U, kSgeNum>(peer, dst, head);
+#pragma unroll
+            for (uint32_t sge = 0U; sge < kSgeNum; ++sge) {
+                StoreWriteSgePair(sge, scalarSges[sge], head);
+            }
+#pragma unroll
+            for (uint32_t pair = 3U + kSgeNum; pair < kPairCount; ++pair) {
+                StoreWriteZeroPair(pair * 2U, head);
+            }
+            asc_threadfence();
+            coop.sync();
+            if constexpr (kDoCommit) Commit(coop);
+            return 0;
+        }
+
         FillSq<kSgeNum, kOpcode, kInlineBytes, kStaticPayloadWqebbs>(
             coop, peer, dst, laneSge, scalarSges, src, len, notifyAddr, notifyValue,
             inlineValue, inlineBytes, head);
@@ -616,27 +637,24 @@ private:
             const uint32_t bbHead = head + word / kWqebbLanes;
             const uint32_t sqIdx = bbHead & (depth - 1U);
             const uint64_t owner = static_cast<uint64_t>(detail::Owner(bbHead, depth)) << 31U;
-            bool firstIsSge = false;
-            bool secondIsSge = false;
+            bool isSgePair = false;
             if constexpr (kOpcode == HcommPostOpcode::kWrite) {
-                firstIsSge = word >= kSqeHeaderWords && word < kStaticPayloadWords;
-                secondIsSge = word + 1U >= kSqeHeaderWords && word + 1U < kStaticPayloadWords;
+                // Pair boundaries and the SGE payload boundaries are both even,
+                // so one range check covers both words in the pair.
+                isSgePair = word >= kSqeHeaderWords && word < kStaticPayloadWords;
             }
             int firstLen = 0;
             uint64_t secondAddr = 0U;
             if constexpr (kOpcode == HcommPostOpcode::kWrite && HcommCoopTraits<Coop>::kWarpCapable) {
-                const int ordinal = firstIsSge ? static_cast<int>((word - kSqeHeaderWords) / 2U) : 0;
+                const int ordinal = isSgePair ? static_cast<int>((word - kSqeHeaderWords) / 2U) : 0;
                 const uint64_t packedAddr = asc_shfl(laneSge.addr, ordinal, kWarpSize);
                 const int packedLen = asc_shfl(laneSge.len, ordinal, kWarpSize);
-                secondAddr = firstIsSge ? packedAddr : 0U;
-                firstLen = firstIsSge ? packedLen : 0;
+                secondAddr = isSgePair ? packedAddr : 0U;
+                firstLen = isSgePair ? packedLen : 0;
             } else if constexpr (kOpcode == HcommPostOpcode::kWrite) {
-                if (firstIsSge) {
+                if (isSgePair) {
                     const uint32_t index = (word - kSqeHeaderWords) / 2U;
                     firstLen = scalarSges[index].len;
-                }
-                if (secondIsSge) {
-                    const uint32_t index = (word + 1U - kSqeHeaderWords) / 2U;
                     secondAddr = scalarSges[index].addr;
                 }
             }
@@ -682,6 +700,41 @@ private:
         }
         first = static_cast<uint64_t>(firstLen);
         second = secondAddr;
+    }
+
+    template <uint32_t kPair, uint32_t kSgeNum>
+    __simt_callee__ __forceinline__ void StoreWriteHeaderPair(
+        const HcommPeer& peer, __gm__ void* dst, const uint32_t head) const
+    {
+        constexpr uint32_t word = kPair * 2U;
+        const uint32_t depth = Info()->sqDepth;
+        const uint32_t bbHead = head + word / kWqebbLanes;
+        const uint32_t sqIdx = bbHead & (depth - 1U);
+        const uint64_t owner = static_cast<uint64_t>(detail::Owner(bbHead, depth)) << 31U;
+        uint64_t first = 0U;
+        uint64_t second = 0U;
+        if constexpr (kPair == 0U) {
+            first = kWriteHeader | owner | sqIdx;
+            second = detail::PeerWord(peer.Info(), 1U, kSgeNum, dst);
+        } else {
+            first = detail::PeerWord(peer.Info(), word, kSgeNum, dst);
+            second = detail::PeerWord(peer.Info(), word + 1U, kSgeNum, dst);
+        }
+        StoreSqePair(reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr), depth, head, word, first, second);
+    }
+
+    __simt_callee__ __forceinline__ void StoreWriteSgePair(
+        const uint32_t sge, const HcommSge& value, const uint32_t head) const
+    {
+        const uint32_t word = kSqeHeaderWords + sge * 2U;
+        StoreSqePair(reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr), Info()->sqDepth, head, word,
+                     static_cast<uint64_t>(value.len), value.addr);
+    }
+
+    __simt_callee__ __forceinline__ void StoreWriteZeroPair(
+        const uint32_t word, const uint32_t head) const
+    {
+        StoreSqePair(reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr), Info()->sqDepth, head, word, 0U, 0U);
     }
 
     template <uint32_t kPayloadWords, uint32_t kInlineBytes>
