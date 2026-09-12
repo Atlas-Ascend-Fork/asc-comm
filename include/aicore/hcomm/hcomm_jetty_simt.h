@@ -44,6 +44,11 @@ public:
     __simt_callee__ __forceinline__ int32_t Write(
         const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges, const Coop& coop = Coop{}) const
     { return impl_.template Write<kMaxSges, kDoCommit>(peer, dst, sges, coop); }
+    template <uint32_t kSgeNum, bool kDoCommit = false, typename Coop = HcommCoopWarp>
+    __simt_callee__ __forceinline__ int32_t WriteWarpLane(
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge* laneSge,
+        const Coop& coop = Coop{}) const
+    { return impl_.template WriteWarpLane<kSgeNum, kDoCommit>(peer, dst, laneSge, coop); }
     template <int64_t kTimeout, typename T, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t WriteValue(
         const HcommPeer& peer, __gm__ void* dst, T value)

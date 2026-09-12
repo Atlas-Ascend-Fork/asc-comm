@@ -14,7 +14,7 @@ group 同步；dispatch 样例中每个 warp 生成一个含 12 个有效
 SGE 的 4BB WQE，再由 group 统一 Commit 和 PublishSq。
 
 立即 `Write` 按 payload 大小生成对应数量的 WQEBB，并在一次调用内由同一份 WQE 数据双写 SQ 和
-DWQE，不从 SQ 回读。`thread / warp / group` 验证该路径；`dispatch` 单独验证多 warp 的
+DWQE，不从 SQ 回读。`thread / warp / warp-lane / group` 验证该路径；`dispatch` 单独验证多 warp 的
 `Write + Commit` 路径。
 
 `mixed` 使用 DeepEP 风格的 `__global__ __mix__` 入口：SIMT VF 只组织并完成 SQ，随后由 SIMD/AIV
@@ -62,12 +62,14 @@ SQ/CQ 状态：
 ```bash
 bash run.sh 2 thread
 bash run.sh 2 warp
+bash run.sh 2 warp-lane
 bash run.sh 2 group
 bash run.sh 2 dispatch
 ```
 
 `thread` 和 `mixed` 使用编译时配置的 SGE 数量；`warp` 发送两个有效 SGE，
-用于验证同一个 80B/2BB WQE；`dispatch` 验证
+用于验证同一个 80B/2BB WQE；`warp-lane` 使用编译期 SGE 数量，以 DeepEP 的 32-lane/64-bit
+映射写入固定 4BB slot；默认构建为 2 SGE 时可直接与 `warp` 对比；`dispatch` 验证
 12 SGE、4BB WQE。
 
 运行时 `--sge-num` 是可选的一致性检查；thread/mixed 必须与构建时的
@@ -87,6 +89,7 @@ bash run.sh 2 thread
 ```bash
 bash stress.sh 2
 bash stress.sh 2 warp 1000
+bash stress.sh 2 warp-lane 1000
 ```
 
 也可以直接通过通用脚本指定次数：

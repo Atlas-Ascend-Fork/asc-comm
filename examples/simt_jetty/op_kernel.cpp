@@ -285,6 +285,77 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteWarpVf(
     }
 }
 
+template <bool kMeasure, bool kStandaloneWrite = false>
+__simt_callee__ inline void SimtJettyWriteWarpLaneImpl(
+    uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
+    const AscendC::simt::jetty::HcommPeer& peer, AscendC::simt::jetty::HcommJetty& jetty,
+    uint64_t& writeCycles, uint64_t& commitCycles, uint64_t& completionCycles)
+{
+    constexpr uint32_t kSgeNum = kConfiguredSgeNum;
+    AscendC::simt::HcommCoopWarp warp;
+    __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
+    __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    AscendC::simt::jetty::HcommSge laneSge{};
+    const uint32_t lane = static_cast<uint32_t>(warp.thread_rank());
+    if (lane < kSgeNum) {
+        laneSge.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(lane) * kSlotBytes;
+        laneSge.len = static_cast<int>(kSlotBytes);
+    }
+    const uint64_t begin = kMeasure ? clock() : 0U;
+    jetty.template WriteWarpLane<kSgeNum, false>(peer, remoteDst, &laneSge, warp);
+    const uint64_t writeEnd = kMeasure ? clock() : 0U;
+    if constexpr (kStandaloneWrite) {
+        jetty.AdvanceSq(warp);
+        warp.sync();
+        if (warp.thread_rank() == 0) {
+            jetty.PublishSq();
+        }
+        warp.sync();
+    }
+    const uint64_t commitEnd = kMeasure ? clock() : writeEnd;
+    jetty.template Drain<1000000>(warp);
+    if constexpr (kMeasure) {
+        writeCycles += writeEnd - begin;
+        commitCycles += commitEnd - writeEnd;
+        completionCycles += clock() - begin;
+    }
+}
+
+__simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteWarpLaneVf(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ uint64_t* timing,
+    uint32_t iterations, uint32_t warmup)
+{
+    auto* ub_layout = GetSimtJettyUbLayout();
+    AscendC::simt::HcommCoopWarp warp;
+    AscendC::simt::jetty::HcommPeer peer;
+    AscendC::simt::jetty::HcommJetty jetty;
+    PrepareJetty(warp, channel, jettyPtrTable, ub_layout, peer, jetty);
+    uint64_t writeCycles = 0U;
+    uint64_t commitCycles = 0U;
+    uint64_t completionCycles = 0U;
+    for (uint32_t i = 0U; i < warmup; ++i) {
+        SimtJettyWriteWarpLaneImpl<false, true>(
+            channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
+    }
+    if (timing != nullptr) {
+        for (uint32_t i = 0U; i < iterations; ++i) {
+            SimtJettyWriteWarpLaneImpl<true, true>(
+                channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
+        }
+        if (warp.thread_rank() == 0U) {
+            timing[0] = writeCycles;
+            timing[1] = commitCycles;
+            timing[2] = completionCycles;
+            timing[3] = iterations;
+        }
+    } else {
+        for (uint32_t i = 0U; i < iterations; ++i) {
+            SimtJettyWriteWarpLaneImpl<false, true>(
+                channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
+        }
+    }
+}
+
 __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteGroupVf(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ uint64_t* timing,
     uint32_t iterations, uint32_t warmup)
@@ -396,6 +467,15 @@ extern "C" __global__ __vector__ void SimtJettyWriteWarp(
         warmup);
 }
 
+extern "C" __global__ __vector__ void SimtJettyWriteWarpLane(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ void* timing,
+    uint32_t iterations, uint32_t warmup)
+{
+    asc_vf_call<SimtJettyWriteWarpLaneVf>(
+        dim3(32), channel, jettyPtrTable, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),
+        iterations, warmup);
+}
+
 extern "C" __global__ __vector__ void SimtJettyWriteGroup(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ void* timing,
     uint32_t iterations, uint32_t warmup)
@@ -463,6 +543,10 @@ void LaunchSimtJetty(
             break;
         case 4U:
             SimtJettyWriteMixed<<<1, 0, stream>>>(channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+            break;
+        case 5U:
+            SimtJettyWriteWarpLane<<<1, 0, stream>>>(
+                channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup);
             break;
         default:
             std::printf("[simt_jetty] unhandled mode %u, no kernel launched\n", mode);

@@ -272,8 +272,23 @@ public:
             coop, peer, dst, HcommSge{}, sges, nullptr, 0U, nullptr, 0U, nullptr, 0U);
     }
 
+    // DeepEP-style warp writer: one lane owns one 64-bit WQE word in a fixed
+    // four-WQEBB slot. This is intended for warp-level throughput comparison.
+    template <uint32_t kSgeNum, bool kDoCommit = false, typename Coop = HcommCoopWarp>
+    __simt_callee__ __forceinline__ int32_t WriteWarpLane(
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge* laneSge,
+        const Coop& coop = Coop{}) const
+    {
+        static_assert(HcommCoopTraits<Coop>::kIsWarp, "WriteWarpLane requires a warp cooperative group");
+        static_assert(!kDoCommit, "WriteWarpLane requires deferred commit through AdvanceSq");
+        static_assert(kSgeNum > 0U && kSgeNum <= kMaxSges, "invalid warp-lane SGE count");
+        return PostSend<kSgeNum, HcommPostOpcode::kWrite, kDoCommit, 0U, true>(
+            coop, peer, dst, *laneSge, nullptr, nullptr, 0U, nullptr, 0U, nullptr, 0U);
+    }
+
 private:
     template <uint32_t kSgeNum, HcommPostOpcode kOpcode, bool kDoCommit, uint32_t kInlineBytes = 0U,
+              bool kFixedSlot = false,
               typename Coop>
     __simt_callee__ __forceinline__ int32_t PostSend(
         const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge,
@@ -309,7 +324,7 @@ private:
         // state when they defer publication.
         constexpr bool kScalarWrite = !HcommCoopTraits<Coop>::kWarpCapable &&
             kOpcode == HcommPostOpcode::kWrite;
-        constexpr uint32_t reserveWqebbs = kStaticPayloadWqebbs;
+        constexpr uint32_t reserveWqebbs = kFixedSlot ? kSlotWqebbs : kStaticPayloadWqebbs;
         uint32_t head = 0xFFFFFFFFU;
         if (laneRank == 0U) {
             auto* info = Info();
@@ -354,6 +369,14 @@ private:
         if (head == 0xFFFFFFFFU) {
             if (coop.size() > 1) coop.sync();
             return coop.size() > kWarpSize ? 0 : -1;
+        }
+
+        if constexpr (kFixedSlot) {
+            FillSqWarpLane<kSgeNum, kStaticPayloadWords>(coop, peer, dst, laneSge, head);
+            asc_threadfence();
+            coop.sync();
+            if constexpr (kDoCommit) Commit(coop);
+            return 0;
         }
 
         if constexpr (kOpcode == HcommPostOpcode::kWrite && !HcommCoopTraits<Coop>::kWarpCapable) {
@@ -463,7 +486,7 @@ public:
         if (payloadWqebbs == submittedWqebbs) {
             header = kWriteHeader | owner | (end & 0xFFFFU) | kFinalFlags;
         } else {
-            const uint32_t nopHead = end - 1U;
+            const uint32_t nopHead = begin + payloadWqebbs;
             const uint32_t nopIdx = nopHead & (info->sqDepth - 1U);
             const uint64_t nopOwner = static_cast<uint64_t>(detail::Owner(nopHead, info->sqDepth)) << 31U;
             const uint64_t nop = kNopHeader | nopOwner | (end & 0xFFFFU) | kNopFinalFlags;
@@ -680,6 +703,38 @@ private:
                 StoreSqePair(reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr), depth, head, word, first, second);
             }
         }
+    }
+
+    template <uint32_t kSgeNum, uint32_t kPayloadWords, typename Coop>
+    __simt_callee__ __forceinline__ void FillSqWarpLane(
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst,
+        const HcommSge& laneSge, const uint32_t head) const
+    {
+        const uint32_t lane = static_cast<uint32_t>(coop.thread_rank());
+        const uint32_t depth = Info()->sqDepth;
+        const uint32_t wqebbHead = head + lane / kWqebbLanes;
+        const uint32_t sqIdx = wqebbHead % depth;
+        const uint64_t owner = static_cast<uint64_t>(detail::Owner(wqebbHead, depth)) << 31U;
+        const uint32_t sge = lane < kSqeHeaderWords ? 0U :
+            ((lane - kSqeHeaderWords) / 2U < kSgeNum ?
+                (lane - kSqeHeaderWords) / 2U : kSgeNum - 1U);
+        // Keep the shuffle sequence uniform across the warp, including header and
+        // padding lanes. Only the SGE lanes consume the selected value.
+        const uint64_t sgeAddr = asc_shfl(laneSge.addr, static_cast<int>(sge), kWarpSize);
+        const int sgeLen = asc_shfl(laneSge.len, static_cast<int>(sge), kWarpSize);
+        uint64_t value = 0U;
+        if (lane == 0U) {
+            value = kWriteHeader | owner | sqIdx;
+        } else if (lane < kSqeHeaderWords) {
+            value = detail::PeerWord(peer.Info(), lane, kSgeNum, dst);
+        } else if (lane < kPayloadWords) {
+            value = (lane & 1U) == 0U ? static_cast<uint64_t>(sgeLen) : sgeAddr;
+        } else if (lane < kSlotWqebbs * kWqebbLanes && lane >= kPayloadWords &&
+                   lane % kWqebbLanes == 0U) {
+            value = kNopHeader | owner | sqIdx;
+        }
+        auto* sq = reinterpret_cast<__gm__ uint64_t*>(Info()->sqBaseAddr);
+        asc_stcg(sq + static_cast<uint64_t>(sqIdx) * kWqebbLanes + lane % kWqebbLanes, value);
     }
 
     template <uint32_t kSgeNum>
