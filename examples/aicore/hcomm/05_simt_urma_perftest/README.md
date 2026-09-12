@@ -27,8 +27,7 @@ simt_urma_perftest
 ├── op_kernel.cpp                // SIMT Kernel侧URMA接口调用
 ├── simt_urma_perftest_common.h  // Host与Kernel共享定义
 ├── README.md                    // 中文样例说明
-├── README_en.md                 // 英文样例说明
-└── run.sh                       // 多rank启动脚本
+└── README_en.md                 // 英文样例说明
 ```
 
 ## 样例描述
@@ -73,11 +72,13 @@ simt_urma_perftest
 
 ### 实现流程
 
-1. rank 0通过`HcclGetRootInfo`生成root info写入临时文件，其余rank读取后创建通信域。
+1. 可执行文件直接拉起全部rank进程（进程内fork，参见`examples/aicore/utils/process_manager.h`）；
+   rank间通过命令行指定的TCP控制通道（`examples/aicore/utils/rank_sync.h`）交换root info并
+   创建通信域；仅rank 0和rank 1加入通信域，其余rank直接退出。
 2. rank 0和rank 1各自注册内存、创建Channel并交换内存地址。
 3. rank 0下发warmup次接口后`Drain`，随后计时下发`iterations`次接口，再次`Drain`。
 4. rank 0记录`IssueTime`、`CompletionTime`和`Completed`，rank 1校验落地数据。
-5. 输出RESULT行；使用`--sweep`时对每个payload各起一轮独立进程。
+5. 输出RESULT行。
 
 ## 编译运行
 
@@ -103,7 +104,7 @@ simt_urma_perftest
 
 - 样例执行
 
-  在本样例目录下执行如下命令。
+  在本样例目录下执行如下命令。可执行文件内部fork出全部rank进程，直接运行即可：
 
   ```bash
   mkdir -p build
@@ -111,23 +112,23 @@ simt_urma_perftest
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
   cd ..
-  ./run.sh 2 write
+  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 write
   ```
 
 - 启动参数说明
 
   ```bash
-  ./run.sh <nranks> <write|write_value|notify|faa|cas> [options]
+  ./build/simt_urma_perftest <ip:port> <nranks> <write|write_value|notify|faa|cas> [options]
   ```
 
   | 参数 | 默认值 | 说明 |
   | --- | --- | --- |
+  | `<ip:port>` | 无默认 | rank 0监听的控制通道地址（`tcp://ip:port`格式），用于root info交换与Host侧barrier；并行运行多个实例时错开端口 |
+  | `<nranks>` | 无默认 | 拉起的rank进程数，必须 >= 2（仅rank 0/1参与测试） |
   | `--iterations` | `1024` | 计时的WQE数量 |
   | `--warmup` | `100` | 预热WQE数量 |
   | `--payload-bytes` | `4096` | `write`和`notify`的payload字节数，最小为2；`write_value`恒为8字节，`faa`和`cas`恒为8字节，三者忽略该选项 |
   | `--commit-mode` | `immediate` | `immediate`（每WQE一次doorbell）或`last`（除最后一条外全部延迟提交） |
-  | `--sweep` | 关闭 | payload扫描：`8 16 64 256 1024 4096 16384 65536`，仅对`write`和`notify`有效 |
-  | `--log` | 自动生成 | 输出日志文件路径 |
 
 - 编译选项说明
 
@@ -153,7 +154,6 @@ simt_urma_perftest
 - 接收侧只校验`write`和`write_value`：`notify`的signal word与payload共用同一个slot，两个原子
   接口每次迭代都会改写目标word，落地镜像取决于迭代次数，没有稳定的期望值。这两类用例依赖
   `DrainStatus`和`Completed`判断是否正确完成。
-- 对`write_value`、`faa`、`cas`使用`--sweep`会直接报错，而不是把同一个8字节用例重复跑八遍。
-- `--sweep`为每个payload起一轮新进程，并各自使用独立的同步目录和root info文件，避免上一轮的
-  barrier标记文件让下一轮直接通过；该目录通过命令行参数传给可执行文件而非环境变量。
+- 需要payload扫描时，在多个`--payload-bytes`取值（如`8 16 64 256 1024 4096 16384 65536`）上
+  各运行一次可执行文件即可。
 - 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。
