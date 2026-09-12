@@ -142,3 +142,17 @@ target_link_options(asccomm_aicpu PRIVATE
 )
 
 set_target_properties(asccomm_aicpu PROPERTIES SKIP_BUILD_RPATH TRUE)
+
+if(NOT INSTALL_LIBRARY_DIR)
+    set(INSTALL_LIBRARY_DIR lib64)
+endif()
+if(NOT INSTALL_PKG_INCLUDE_DIR)
+    set(INSTALL_PKG_INCLUDE_DIR pkg_inc)
+endif()
+install(TARGETS asccomm_aicpu
+    LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
+    COMPONENT hcomm)
+install(DIRECTORY ${ASCCOMM_ROOT}/include/aicpu/hcomm/
+    DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/asccomm
+    COMPONENT hcomm
+    FILES_MATCHING PATTERN "*.h")
