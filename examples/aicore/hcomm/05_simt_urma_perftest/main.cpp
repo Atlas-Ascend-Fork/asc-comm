@@ -57,9 +57,6 @@ constexpr uint32_t kMaxSlotCount = 64U;
 constexpr size_t kMaxBufferBytes = 64UL * 1024UL * 1024UL;
 constexpr size_t kSlotAlign = 128U;
 
-// Rank 0通过HcclGetRootInfo生成root info并写入文件，其余rank从文件读取后调用
-// HcclCommInitRootInfo创建通信域，从而摆脱rank table依赖。
-
 size_t AlignUp(size_t value, size_t alignment) { return (value + alignment - 1U) / alignment * alignment; }
 
 // Only WriteNbi and WriteWithNotifyNbi move a configurable payload; WriteValueNbi always
@@ -99,21 +96,16 @@ uint32_t SlotCount(uint32_t slotBytes)
     return affordable < kMaxSlotCount ? affordable : kMaxSlotCount;
 }
 
-// Fills the sender's payload and clears the receiver so an operation that never lands reads
-// back as 0. Both ranks call this: the sender needs the payload, the receiver a clean slate.
+// 发送侧填 payload、接收侧清零。WriteValue/atomic 系列不读 sendBuf，填不同字节以区分；
+// CAS 只在目标已是初值时交换，预置初值让首轮迭代执行真实交换。
 aclError InitBuffers(void* sendBuf, void* recvBuf, size_t bytes, uint32_t api)
 {
     std::vector<uint8_t> send(bytes, kPayloadByte);
     if (!ApiReadsSendBuffer(api)) {
-        // WriteValueNbi takes its payload from the WQE and the atomics only write a fetched value
-        // back, so the send buffer is never read as a source. Fill it with a different byte so a
-        // receive buffer that accidentally mirrors it is not mistaken for a correct write.
         std::fill(send.begin(), send.end(), static_cast<uint8_t>(0U));
     }
     std::vector<uint8_t> recv(bytes, 0U);
     if (api == kApiCas) {
-        // CAS only swaps when the target already holds kCasInitial. Seeding it means the first
-        // iteration performs a real swap rather than a no-op compare.
         const uint64_t initial = kCasInitial;
         std::memcpy(recv.data(), &initial, sizeof(initial));
     }
@@ -170,18 +162,15 @@ HcclResult AcquirePeerChannel(
     return HCCL_E_INTERNAL;
 }
 
-// 预热和正式计时是两轮独立的 SubmitSeries，slot 下标各自从 0 重新开始，因此被写过的连续前缀
-// 是两者的较大值，不是两者之和。用和会把没写过的 slot 也纳入校验（(1, 1) 只写了 slot 0 却会去
-// 检查 slot 1，把正确的运行判成 FAIL），相加还可能溢出 uint32_t 回绕成 0 而整体跳过校验。
-// 回归用例见 test_touched_slots.cpp。
+// 预热与正式计时各自从 slot 0 重新开始，被写过的前缀是两者的较大值；相加会把没写过的
+// slot 纳入校验，还可能溢出回绕成 0 而整体跳过校验。
 uint32_t TouchedSlotCount(uint32_t warmup, uint32_t iterations, uint32_t slotCount)
 {
     const uint32_t reach = warmup > iterations ? warmup : iterations;
     return reach < slotCount ? reach : slotCount;
 }
 
-// 按 slot 而不是按操作校验：slot 会被多轮迭代重复写入，而最后一次写入留下的字节与第一次相同。
-// 只有 ApiHasStableReceiverImage 为真的接口会走到实际比对。
+// 按 slot 而不是按操作校验：最后一次写入留下的字节与第一次相同。
 bool CheckReceiver(
     void* recvBuf, size_t bytes, uint32_t api, uint32_t payloadBytes, uint32_t slotBytes, uint32_t touchedSlots)
 {
@@ -216,8 +205,7 @@ bool CheckReceiver(
     return true;
 }
 
-// One table drives both parsing and printing so an api can never be accepted under a name the
-// RESULT line does not report back.
+// 一张表同时驱动解析和打印，保证 RESULT 行回报的名字与解析一致。
 struct ApiEntry {
     const char* name;
     uint32_t api;
@@ -238,15 +226,13 @@ bool ParseApi(const std::string& name, uint32_t& api)
     return false;
 }
 
-// A committed WriteNbi fills the 128-byte DWQE window (two basic blocks); a deferred one fits in
-// a single 64-byte block. Every other interface is a fixed 2-BB WQE either way.
+// 已提交的 WriteNbi 占满 128B DWQE（两个 BB），延迟提交只占一个 64B BB。
 uint32_t SqBlocksPerWqe(uint32_t api, bool commitEach) { return (api == kApiWrite && !commitEach) ? 1U : 2U; }
 
 } // namespace
 
 // 单个rank的基准流程。由ProcessGroup在每个子进程中调用：只有rank 0（发送方）和
-// rank 1（接收方）建链并计时，其余rank直接退出，不加入通信域。
-// 本样例两个host侧同步点的tag。
+// rank 1（接收方）建链并计时。本样例两个host侧同步点的tag。
 constexpr uint32_t kTagReady = examples::kTagUserBase;
 constexpr uint32_t kTagCompleted = examples::kTagUserBase + 1U;
 
@@ -254,8 +240,6 @@ int RunPerftestRank(
     uint32_t rank, uint32_t nranks, const std::string& ctrlEndpoint, const std::string& apiName, uint32_t iterations,
     uint32_t warmup, uint32_t payloadBytes, const std::string& commitMode)
 {
-    // 这是点对点基准测试：只有一个发送方计时，多方并发发送会互相争抢链路和 SQ 资源，
-    // 测出来的数字没有可比性。
     if (nranks < kBenchRanks) {
         std::cout << "nranks must be at least " << kBenchRanks
                   << ": this benchmark measures point-to-point latency and bandwidth between rank 0 (sender) and "
@@ -271,7 +255,7 @@ int RunPerftestRank(
     examples::RankSyncContext sync = rank == 0U ? examples::RankSyncContext::Listen(ctrlEndpoint, nranks) :
                                                   examples::RankSyncContext::Connect(rank, nranks, ctrlEndpoint);
     if (!sync.Ok()) {
-        std::cout << "rank " << rank << ": control channel setup failed" << std::endl;
+        std::cout << "[rank " << rank << "] control channel setup failed" << std::endl;
         return 1;
     }
 
@@ -284,7 +268,6 @@ int RunPerftestRank(
         std::cout << "iterations must be greater than 0." << std::endl;
         return 1;
     }
-    // Only the payload-carrying interfaces are constrained here; the others ignore the value.
     if (ApiUsesPayload(api) && payloadBytes < kMinPayloadBytes) {
         std::cout << "payload_bytes must be at least " << kMinPayloadBytes
                   << ": a committed WriteNbi splits its payload across two SGEs and an SGE length may not be 0."
@@ -331,14 +314,14 @@ int RunPerftestRank(
     uint32_t remoteRecvIdx = 0U;
     EXAMPLES_HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
     if (!sync.Barrier(kTagReady)) {
-        std::cout << "rank " << rank << ": ready barrier failed" << std::endl;
+        std::cout << "[rank " << rank << "] ready barrier failed" << std::endl;
         return 1;
     }
 
     void* timingBuf = nullptr;
     uint64_t timing[kTimingWords] = {};
     bool pass = true;
-    // Local table index 0 is the CCL buffer, so the explicitly registered send buffer is at 1.
+    // 本地 buffer 表 index 0 是 CCL buffer，注册内存从 1 开始。
     constexpr uint32_t kLocalSendIdx = 1U;
     if (rank == kSenderRank) {
         EXAMPLES_ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
@@ -369,14 +352,14 @@ int RunPerftestRank(
     }
 
     if (!sync.Barrier(kTagCompleted)) {
-        std::cout << "rank " << rank << ": completed barrier failed" << std::endl;
+        std::cout << "[rank " << rank << "] completed barrier failed" << std::endl;
         return 1;
     }
     if (rank == kReceiverRank) {
         const uint32_t touchedSlots = TouchedSlotCount(warmup, iterations, slotCount);
         pass = CheckReceiver(recvBuf, bufferBytes, api, payloadBytes, slotBytes, touchedSlots);
-        std::cout << "[rank " << rank << "] simt_urma_perftest " << apiName << " " << (pass ? "PASS" : "FAIL")
-                  << std::endl;
+        std::cout << "[rank " << rank << "] simt_urma_perftest " << apiName << " | received from rank " << peer << " | "
+                  << (pass ? "PASS" : "FAIL") << std::endl;
     }
 
     if (timingBuf != nullptr) {
@@ -390,8 +373,7 @@ int RunPerftestRank(
     return pass ? 0 : 2;
 }
 
-// 父进程流程：解析命令行（<nranks> <api> [options]，与原run.sh的参数一致），创建本次
-// 运行的临时目录，拉起全部rank进程并等待结果。
+// 父进程流程：解析命令行，拉起全部rank进程并等待结果。
 int main(int argc, char* argv[])
 {
     if (argc < 4) {
@@ -449,12 +431,10 @@ int main(int argc, char* argv[])
     const bool pass = group.WaitAll();
 
     if (group.Interrupted()) {
-        std::cout << "RESULT | API=" << apiName << " | Status=INTERRUPTED" << std::endl;
+        std::cout << "RESULT | Example=simt_urma_perftest API=" << apiName << " | Status=INTERRUPTED" << std::endl;
         return 1;
     }
-    if (!pass) {
-        std::cout << "RESULT | API=" << apiName << " | Status=FAIL" << std::endl;
-        return 1;
-    }
-    return 0;
+    std::cout << "RESULT | Example=simt_urma_perftest API=" << apiName << " | Status=" << (pass ? "PASS" : "FAIL")
+              << std::endl;
+    return pass ? 0 : 1;
 }
