@@ -34,6 +34,7 @@
 #include "hccl/hccl_types.h"
 
 #include "utils/check.h"
+#include "utils/hccl_comm_init.h"
 #include "utils/process_manager.h"
 #include "utils/rank_sync.h"
 
@@ -311,7 +312,7 @@ int RunPerftestRank(
     EXAMPLES_ACLCHECK(aclrtCreateStream(&stream));
     HcclComm comm = nullptr;
     // 通信域只包含参与测试的前两个 rank，其余 rank 已提前退出，不加入通信域。
-    EXAMPLES_HCCLCHECK(sync.InitCommByRootInfo(&comm));
+    EXAMPLES_HCCLCHECK(examples::InitCommByRootInfo(sync, &comm));
 
     void* sendBuf = nullptr;
     void* recvBuf = nullptr;

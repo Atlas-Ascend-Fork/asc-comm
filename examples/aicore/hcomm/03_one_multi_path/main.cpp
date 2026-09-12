@@ -33,6 +33,7 @@
 #include "hccl/hccl_types.h"
 
 #include "utils/check.h"
+#include "utils/hccl_comm_init.h"
 #include "utils/process_manager.h"
 #include "utils/rank_sync.h"
 
@@ -80,7 +81,7 @@ int TestDualPath(const Options& options, examples::RankSyncContext& sync)
     std::vector<uint32_t> peerRanks;
 
     // Initialize the communication domain and prepare data in the local HCCL Buffer.
-    int result = sync.InitCommByRootInfo(&resources.comm);
+    int result = examples::InitCommByRootInfo(sync, &resources.comm);
     if (result != HCCL_SUCCESS) {
         return CleanupCommRes(resources, ReportError(options.rank, "HcclCommInitRootInfo", result));
     }
