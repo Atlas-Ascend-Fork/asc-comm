@@ -52,8 +52,9 @@ __simt_callee__ __forceinline__ void PrepareJetty(
             &ub_layout->jetty_info, reinterpret_cast<__ubuf__ uint8_t*>(ub_layout->dwqe_stage), jettyPtrTable, 0);
     }
     coop.sync();
-    peer.Attach(&ub_layout->peer_info, channel);
-    jetty.Attach(&ub_layout->jetty_info, reinterpret_cast<__ubuf__ uint8_t*>(ub_layout->dwqe_stage), channel);
+    peer = AscendC::simt::jetty::HcommPeer(&ub_layout->peer_info, channel);
+    jetty = AscendC::simt::jetty::HcommJetty(
+        &ub_layout->jetty_info, reinterpret_cast<__ubuf__ uint8_t*>(ub_layout->dwqe_stage), channel);
 }
 
 template <bool kMeasure, bool kStandaloneWrite = false>
@@ -121,9 +122,9 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
         begin = clock();
     }
     if constexpr (kStandaloneWrite) {
-        jetty.template Write<2, false>(coop, peer, remoteDst, sge);
+        jetty.template Write<2, false>(peer, remoteDst, &sge, coop);
     } else {
-        jetty.template Write<2>(coop, peer, remoteDst, sge);
+        jetty.template Write<2>(peer, remoteDst, &sge, coop);
     }
     uint64_t writeEnd = 0U;
     if constexpr (kMeasure) {
@@ -166,7 +167,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchWarpImpl(
     if constexpr (kMeasure) {
         begin = clock();
     }
-    jetty.template Write<kSgeNum, false>(warp, peer, remoteDst, laneSge);
+    jetty.template Write<kSgeNum, false>(peer, remoteDst, &laneSge, warp);
     if constexpr (kMeasure) {
         writeCycles += clock() - begin;
     }

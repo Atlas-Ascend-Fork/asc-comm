@@ -42,10 +42,11 @@ SIMT_JETTY_SGE_NUM=12 bash build.sh
 CCE_RES_USAGE=1 bash build.sh
 ```
 
-调试时可打开 SIMT Jetty 的参数、地址和队列状态校验；Release 默认编译掉这些判断：
+调试构建使用 ASC-Comm 统一的 `ASCENDC_DEBUG` 宏启用 SIMT Jetty 参数、地址和队列状态校验；Release
+默认编译掉这些判断：
 
 ```bash
-cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug -DHCOMM_SIMT_JETTY_DEBUG_CHECKS=ON
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-debug --parallel 4
 ```
 

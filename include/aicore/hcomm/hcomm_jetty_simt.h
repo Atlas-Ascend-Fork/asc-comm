@@ -38,23 +38,12 @@ public:
         __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
         : impl_(info, stage, channelAddr) {}
 
-    __simt_callee__ __forceinline__ void Init(
-        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
-    { impl_.Init(info, stage, table, index); }
-    __simt_callee__ __forceinline__ void Attach(
-        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
-    { impl_.Attach(info, stage, channelAddr); }
     __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* Info() const { return impl_.Info(); }
-    __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* GetInfo() const { return impl_.GetInfo(); }
 
-    template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop>
+    template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop = HcommCoopThread>
     __simt_callee__ __forceinline__ int32_t Write(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge) const
-    { return impl_.template Write<kMaxSges, kDoCommit>(coop, peer, dst, laneSge); }
-    template <uint32_t kMaxSges, bool kDoCommit = true>
-    __simt_callee__ __forceinline__ int32_t Write(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge (&sges)[kMaxSges]) const
-    { return impl_.template Write<kMaxSges, kDoCommit>(peer, dst, sges); }
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges, const Coop& coop = Coop{}) const
+    { return impl_.template Write<kMaxSges, kDoCommit>(peer, dst, sges, coop); }
     template <int64_t kTimeout, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t Write(
         const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len)
