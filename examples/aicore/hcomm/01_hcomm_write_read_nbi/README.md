@@ -23,8 +23,6 @@ hcomm_write_read_nbi
 ├── hcomm_write_read_nbi.asc    // Host侧资源准备与Kernel调用
 ├── hcomm_write_read_nbi_kernel.cpp // AIV Kernel侧Hcomm调用
 ├── hcomm_rw_def.h              // Host与Kernel共享定义
-├── utils.cpp                   // 工具函数实现
-├── utils.h                     // 工具函数声明
 ├── README.md                   // 中文样例说明
 └── README_en.md                // 英文样例说明
 ```
@@ -52,22 +50,22 @@ Kernel执行完毕后，Host侧回读结果并校验seg1和seg2是否与对端pa
 |------|------|
 | 通信模式 | 环形拓扑AIV直驱URMA点对点通信 |
 | 调用方式 | AIV Kernel内`Hcomm::WriteNbi`/`ReadNbi` |
-| 进程启动 | 单进程自动fork多rank |
+| 进程启动 | 可执行文件直接拉起，内部fork多rank |
 | 支持rank数 | >= 2，且不超过当前可用NPU数量 |
 
 ### 实现流程
 
-1. Rank 0调用`HcclGetRootInfo`获取root信息，通过TCP发送给其他rank。
-2. 各rank调用`HcclCommInitRootInfoConfig`创建通信域。**注意：AIV直驱模式下，无需配置`hcclOpExpansionMode`。**
-3. 调用`HcclCommMemReg`向通信域注册本卡通信buffer，Channel创建时内存信息自动交换给对端。
-4. 建立TCP环形拓扑用于Host侧barrier，确保各rank在关键阶段同步推进。
-5. 通过`HcclRankGraphGetLayers`和`HcclRankGraphGetLinks`获取到`prev`和`next`的链路Endpoint。
-6. 调用`HcclChannelAcquire`创建P2P通道，指定引擎为`COMM_ENGINE_AIV`、协议为`COMM_PROTOCOL_UBC_CTP`（URMA协议）。
-7. 调用`HcclChannelGetRemoteMems`获取对端注册内存地址，作为Kernel侧`WriteNbi`/`ReadNbi`的远端目标地址。
-8. Host预初始化seg0，将`ChannelHandle`和buffer地址封装到`CommContext`下发到各卡GM。
-9. Kernel侧执行`Init()`分配UB工作空间后提交通信任务：将本卡seg0通过`WriteNbi`写入`next`的
+1. 可执行文件直接拉起全部rank进程（进程内fork，参见`examples/aicore/utils/process_manager.h`）；
+   rank间通过命令行指定的TCP控制通道（`examples/aicore/utils/rank_sync.h`）交换root info并
+   创建通信域。**注意：AIV直驱模式下，无需配置`hcclOpExpansionMode`。**
+2. 调用`HcclCommMemReg`向通信域注册本卡通信buffer，Channel创建时内存信息自动交换给对端。
+3. 通过`HcclRankGraphGetLayers`和`HcclRankGraphGetLinks`获取到`prev`和`next`的链路Endpoint。
+4. 调用`HcclChannelAcquire`创建P2P通道，指定引擎为`COMM_ENGINE_AIV`、协议为`COMM_PROTOCOL_UBC_CTP`（URMA协议）。
+5. 调用`HcclChannelGetRemoteMems`获取对端注册内存地址，作为Kernel侧`WriteNbi`/`ReadNbi`的远端目标地址。
+6. Host预初始化seg0，将`ChannelHandle`和buffer地址封装到`CommContext`下发到各卡GM。
+7. Kernel侧执行`Init()`分配UB工作空间后提交通信任务：将本卡seg0通过`WriteNbi`写入`next`的
    seg1，并通过`ReadNbi`从`next`的seg0读到本卡seg2，最后`Drain()`等待通信任务完成。
-10. Host侧通过TCP环形barrier同步后，回读结果并校验seg1和seg2的pattern。
+8. Host侧通过控制通道barrier同步后，回读结果并校验seg1和seg2的pattern。
 
 ```cpp
 // 单个rank上的AIV直驱URMA通信操作示例：
@@ -97,21 +95,23 @@ hcomm_.Drain(channel);
 
 - 样例执行
 
-  在本样例目录下执行如下命令。本样例使用自动fork多进程方式启动，不传参数时默认双卡。
+  在本样例目录下执行如下命令。可执行文件内部fork出全部rank进程，直接运行即可：
 
   ```bash
   mkdir -p build
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  ./demo [nranks]
+  cd ..
+  ./build/demo tcp://127.0.0.1:29623 <nranks>
   ```
 
 - 启动参数说明
 
   | 参数 | 默认值 | 说明 |
   |------|--------|------|
-  | `[nranks]` | `2` | 启动的rank数量，必须 >= 2，且不超过当前可用NPU数量 |
+  | `<ip:port>` | 无默认 | rank 0监听的控制通道地址（`tcp://ip:port`格式），用于root info交换与Host侧barrier；并行运行多个实例时错开端口 |
+  | `<nranks>` | 无默认 | 启动的rank数量，必须 >= 2，且不超过当前可用NPU数量 |
 
 - 编译选项说明
 
