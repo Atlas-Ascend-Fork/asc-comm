@@ -463,17 +463,6 @@ private:
     }
 
 public:
-    template <int64_t, bool kDoCommit = true>
-    __simt_callee__ __forceinline__ int32_t Write(
-        const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len)
-    {
-        HcommSge sge{reinterpret_cast<uint64_t>(src), static_cast<int>(len)};
-        HcommCoopThread thread;
-        return PostSend<1U, HcommPostOpcode::kWrite, kDoCommit>(
-            thread, peer, dst, HcommSge{}, &sge, 0U, detail::Valid(sge) ? 1U : 0U,
-            nullptr, 0U, nullptr, 0U, nullptr, 0U);
-    }
-
     template <int64_t, typename T, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t WriteValue(const HcommPeer& peer, __gm__ void* dst, T value)
     {

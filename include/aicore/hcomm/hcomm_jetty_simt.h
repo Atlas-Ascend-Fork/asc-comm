@@ -44,10 +44,6 @@ public:
     __simt_callee__ __forceinline__ int32_t Write(
         const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges, const Coop& coop = Coop{}) const
     { return impl_.template Write<kMaxSges, kDoCommit>(peer, dst, sges, coop); }
-    template <int64_t kTimeout, bool kDoCommit = true>
-    __simt_callee__ __forceinline__ int32_t Write(
-        const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len)
-    { return impl_.template Write<kTimeout, kDoCommit>(peer, dst, src, len); }
     template <int64_t kTimeout, typename T, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t WriteValue(
         const HcommPeer& peer, __gm__ void* dst, T value)
