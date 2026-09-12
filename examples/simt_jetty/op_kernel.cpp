@@ -167,7 +167,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchWarpImpl(
     if constexpr (kMeasure) {
         begin = clock();
     }
-    jetty.template Write<12, false>(warp, peer, remoteDst, laneSge);
+    jetty.template Write<kSlotCount, false>(warp, peer, remoteDst, laneSge);
     if constexpr (kMeasure) {
         writeCycles += clock() - begin;
     }
