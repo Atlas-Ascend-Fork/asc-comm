@@ -34,6 +34,7 @@
 #include "hccl/hccl_rank_graph.h"
 
 #include "utils/check.h"
+#include "utils/hccl_comm_init.h"
 #include "utils/process_manager.h"
 #include "utils/rank_sync.h"
 
@@ -319,7 +320,7 @@ int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpo
     EXAMPLES_ACLCHECK(aclrtCreateStream(&stream));
 
     HcclComm hcclComm = nullptr;
-    EXAMPLES_HCCLCHECK(sync.InitCommByRootInfo(&hcclComm));
+    EXAMPLES_HCCLCHECK(examples::InitCommByRootInfo(sync, &hcclComm));
 
     void* sendBuf = nullptr;
     EXAMPLES_ACLCHECK(aclrtMalloc(&sendBuf, kBufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
