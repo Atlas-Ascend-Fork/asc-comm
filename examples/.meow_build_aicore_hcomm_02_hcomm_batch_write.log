@@ -1,0 +1,31 @@
+-- System processor: aarch64
+-- CMAKE_ASC_COMPILER: /home/developer/Ascends/Ascend9.2/cann/bin/bisheng
+-- ASCEND_CANN_PACKAGE_LINUX_PATH: /home/developer/Ascends/Ascend9.2/cann/aarch64-linux
+-- CMAKE_ASC_LLD_LINKER: /home/developer/Ascends/Ascend9.2/cann/aarch64-linux/ccec_compiler/bin/ld.lld
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /mnt/workspace/repos/asc-comms/simt_urma_功能完整性确认/asc-comm/examples/aicore/hcomm/02_hcomm_batch_write/build
+[ 33%] Building ASC object CMakeFiles/hcomm_batch_write.dir/hcomm_batch_write.asc.o
+[ 66%] Building ASC object CMakeFiles/hcomm_batch_write.dir/hcomm_batch_write_kernel.cpp.o
+In file included from /mnt/workspace/repos/asc-comms/simt_urma_功能完整性确认/asc-comm/examples/aicore/hcomm/02_hcomm_batch_write/hcomm_batch_write.asc:30:
+In file included from /home/developer/Ascends/Ascend9.2/cann/asc/include/adv_api/hcomm/hcomm_host.h:26:
+/home/developer/Ascends/Ascend9.2/cann/asc/include/adv_api/hcomm/../../../impl/comm_api/aicore/hcomm/host/hcomm_host_impl.h:28:10: fatal error: 'hcomm/hcomm_res_entity_defs.h' file not found
+#include "hcomm/hcomm_res_entity_defs.h"
+         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 error generated.
+In file included from /mnt/workspace/repos/asc-comms/simt_urma_功能完整性确认/asc-comm/examples/aicore/hcomm/02_hcomm_batch_write/hcomm_batch_write.asc:30:
+In file included from /home/developer/Ascends/Ascend9.2/cann/asc/include/adv_api/hcomm/hcomm_host.h:26:
+/home/developer/Ascends/Ascend9.2/cann/asc/include/adv_api/hcomm/../../../impl/comm_api/aicore/hcomm/host/hcomm_host_impl.h:28:10: fatal error: 'hcomm/hcomm_res_entity_defs.h' file not found
+#include "hcomm/hcomm_res_entity_defs.h"
+         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1 error generated.
+gmake[2]: *** [CMakeFiles/hcomm_batch_write.dir/build.make:76: CMakeFiles/hcomm_batch_write.dir/hcomm_batch_write.asc.o] Error 1
+gmake[2]: *** Waiting for unfinished jobs....
+gmake[1]: *** [CMakeFiles/Makefile2:83: CMakeFiles/hcomm_batch_write.dir/all] Error 2
+gmake: *** [Makefile:91: all] Error 2

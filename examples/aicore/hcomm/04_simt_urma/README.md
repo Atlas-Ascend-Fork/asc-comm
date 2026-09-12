@@ -28,8 +28,7 @@ simt_urma
 ├── op_kernel.cpp           // SIMT Kernel侧URMA接口调用
 ├── simt_urma_common.h      // Host与Kernel共享定义
 ├── README.md               // 中文样例说明
-├── README_en.md            // 英文样例说明
-└── run.sh                  // 多rank启动脚本
+└── README_en.md            // 英文样例说明
 ```
 
 ## 样例描述
@@ -79,13 +78,14 @@ simt_urma
 
 ### 实现流程
 
-1. rank 0通过`HcclGetRootInfo`生成root info写入临时文件，其余rank读取后调用
-   `HcclCommInitRootInfo`创建通信域。
+1. 可执行文件直接拉起全部rank进程（进程内fork，参见`examples/aicore/utils/process_manager.h`）；
+   rank间通过命令行指定的TCP控制通道（`examples/aicore/utils/rank_sync.h`）交换root info
+   并创建通信域。
 2. 每个rank通过`HcclCommMemReg`注册`sendBuf`和`recvBuf`。
 3. 通过`HcclRankGraphGetLayers`/`HcclRankGraphGetLinks`获取到`next`的链路Endpoint，调用
    `HcclChannelAcquire`创建Channel，并通过`HcclChannelGetRemoteMems`获取对端内存地址。
 4. Kernel侧按选定模式提交URMA操作，最后调用`Drain`等待完成。
-5. Host侧通过两次文件barrier（`ready`、`sent`）保证所有rank完成注册和写入后再回读校验。
+5. Host侧通过控制通道的两次barrier（`ready`、`sent`）保证所有rank完成注册和写入后再回读校验。
 6. 校验`sendBuf`取回值和`recvBuf`落地数据，输出PASS/FAIL。
 
 ## 编译运行
@@ -112,7 +112,7 @@ simt_urma
 
 - 样例执行
 
-  在本样例目录下执行如下命令。
+  在本样例目录下执行如下命令。可执行文件内部fork出全部rank进程，直接运行即可：
 
   ```bash
   mkdir -p build
@@ -120,13 +120,14 @@ simt_urma
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
   cd ..
-  ./run.sh <nranks> [mode]
+  ./build/simt_urma tcp://127.0.0.1:29620 <nranks> [mode]
   ```
 
 - 启动参数说明
 
   | 参数 | 默认值 | 说明 |
   | --- | --- | --- |
+  | `<ip:port>` | 无默认 | rank 0监听的控制通道地址（`tcp://ip:port`格式），用于root info交换与Host侧barrier；并行运行多个实例时错开端口 |
   | `<nranks>` | 无默认 | 通信域rank数，必须为不小于2的整数 |
   | `[mode]` | `single` | 测试模式，取值见样例描述；无法识别的mode会直接报错，不会静默回退 |
 
@@ -149,7 +150,7 @@ simt_urma
   RESULT | Mode=write_single | Status=PASS
   ```
 
-  所有rank均输出PASS且脚本输出`Status=PASS`，表示样例执行成功。
+  所有rank均输出PASS且最终输出`Status=PASS`，表示样例执行成功。
 
 ## 注意事项
 
@@ -159,8 +160,7 @@ simt_urma
   缓冲区使用下标1；远端缓冲区下标通过`HcclChannelGetRemoteMems`按tag查找。直接传`memHandles`
   下标会解析到CCL buffer，此时CQE正常返回但接收方看到的是CCL buffer内容而非payload。
 - Host侧`sent` barrier是校验结果可信的关键：没有它，某rank会在写入方kernel尚未完成时读到清零的
-  缓冲区。barrier目录通过命令行参数传给可执行文件而非环境变量，避免在shell wrapper或调度器上
-  丢失后所有rank静默共用同一默认目录、被上一轮遗留的标记文件误通过。
-- `run.sh`捕获`SIGINT`/`SIGTERM`并杀掉它启动的rank进程，Ctrl+C不会留下阻塞在Host barrier上、
+  缓冲区。
+- 可执行文件捕获`SIGINT`/`SIGTERM`并终止全部rank进程，Ctrl+C不会留下阻塞在Host barrier上、
   仍占用设备的进程。
 - 编译依赖CANN ASC CMake能力，并在链接阶段依赖CANN `hcomm`库。
