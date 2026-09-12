@@ -60,15 +60,14 @@ template <bool kMeasure, bool kStandaloneWrite = false>
 __simt_callee__ inline void SimtJettyWriteThreadImpl(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, const AscendC::simt::jetty::HcommPeer& peer,
     AscendC::simt::jetty::HcommJetty& jetty, uint64_t& writeCycles, uint64_t& commitCycles,
-    uint64_t& completionCycles, uint32_t sgeNum)
+    uint64_t& completionCycles)
 {
     __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
 
-    AscendC::simt::jetty::HcommSge sges[kSlotCount] = {};
+    AscendC::simt::jetty::HcommSge sges[kConfiguredSgeNum] = {};
 #pragma unroll
-    for (uint32_t sge_idx = 0U; sge_idx < kSlotCount; ++sge_idx) {
-        if (sge_idx >= sgeNum) break;
+    for (uint32_t sge_idx = 0U; sge_idx < kConfiguredSgeNum; ++sge_idx) {
         sges[sge_idx].addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(sge_idx) * kSlotBytes;
         sges[sge_idx].len = static_cast<int>(kSlotBytes);
     }
@@ -78,9 +77,9 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
         begin = clock();
     }
     if constexpr (kStandaloneWrite) {
-        jetty.template Write<kSlotCount, false>(peer, remoteDst, sges);
+        jetty.template Write<kConfiguredSgeNum, false>(peer, remoteDst, sges);
     } else {
-        jetty.template Write<kSlotCount>(peer, remoteDst, sges);
+        jetty.template Write<kConfiguredSgeNum>(peer, remoteDst, sges);
     }
     uint64_t writeEnd = 0U;
     if constexpr (kMeasure) {
@@ -150,7 +149,7 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
     }
 }
 
-template <bool kMeasure>
+template <uint32_t kSgeNum, bool kMeasure>
 __simt_callee__ inline void SimtJettyWriteDispatchWarpImpl(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, const AscendC::simt::HcommCoopWarp& warp,
     const AscendC::simt::jetty::HcommPeer& peer, AscendC::simt::jetty::HcommJetty& jetty, uint64_t& writeCycles)
@@ -159,7 +158,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchWarpImpl(
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
     AscendC::simt::jetty::HcommSge laneSge{};
     const int laneIdx = warp.thread_rank();
-    if (laneIdx < static_cast<int>(kSlotCount)) {
+    if (laneIdx < static_cast<int>(kSgeNum)) {
         laneSge.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx) * kSlotBytes;
         laneSge.len = static_cast<int>(kSlotBytes);
     }
@@ -167,7 +166,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchWarpImpl(
     if constexpr (kMeasure) {
         begin = clock();
     }
-    jetty.template Write<kSlotCount, false>(warp, peer, remoteDst, laneSge);
+    jetty.template Write<kSgeNum, false>(warp, peer, remoteDst, laneSge);
     if constexpr (kMeasure) {
         writeCycles += clock() - begin;
     }
@@ -183,7 +182,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     AscendC::simt::HcommCoopWarp warp;
     group.sync();
     const uint64_t begin = kMeasure ? clock() : 0U;
-    SimtJettyWriteDispatchWarpImpl<kMeasure>(
+    SimtJettyWriteDispatchWarpImpl<kSlotCount, kMeasure>(
         channel, sendBufIdx, recvBufIdx, warp, peer, jetty, writeCycles);
     if constexpr (kPublish) {
         const uint64_t commitBegin = kMeasure ? clock() : 0U;
@@ -208,7 +207,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
 template <bool kMeasure>
 __simt_callee__ inline void SimtJettyWriteThreadVfImpl(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ uint64_t* timing,
-    uint32_t iterations, uint32_t warmup, uint32_t sgeNum)
+    uint32_t iterations, uint32_t warmup)
 {
     auto* ub_layout = reinterpret_cast<__ubuf__ SimtJettyUbLayout*>(0);
     AscendC::simt::HcommCoopThread thread;
@@ -220,12 +219,12 @@ __simt_callee__ inline void SimtJettyWriteThreadVfImpl(
     uint64_t completionCycles = 0U;
     for (uint32_t i = 0U; i < warmup; ++i) {
         SimtJettyWriteThreadImpl<false, true>(
-            channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles, sgeNum);
+            channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
     }
     if (timing != nullptr) {
         for (uint32_t i = 0U; i < iterations; ++i) {
             SimtJettyWriteThreadImpl<kMeasure, true>(
-                channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles, sgeNum);
+                channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
         }
         timing[0] = writeCycles;
         timing[1] = commitCycles;
@@ -234,20 +233,20 @@ __simt_callee__ inline void SimtJettyWriteThreadVfImpl(
     } else {
         for (uint32_t i = 0U; i < iterations; ++i) {
             SimtJettyWriteThreadImpl<false, true>(
-                channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles, sgeNum);
+                channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
         }
     }
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteThreadVf(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ uint64_t* timing,
-    uint32_t iterations, uint32_t warmup, uint32_t sgeNum)
+    uint32_t iterations, uint32_t warmup)
 {
     if (threadIdx.x != 0U || threadIdx.y != 0U || threadIdx.z != 0U) {
         return;
     }
     SimtJettyWriteThreadVfImpl<true>(
-        channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup, sgeNum);
+        channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup);
 }
 
 __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteWarpPadZeroVf(
@@ -403,7 +402,8 @@ __simt_vf__ __aicore__ __launch_bounds__(64) inline void SimtJettyWriteMixedWork
     uint64_t commitCycles = 0;
     uint64_t completionCycles = 0;
     group.sync();
-    SimtJettyWriteDispatchWarpImpl<false>(channel, sendBufIdx, recvBufIdx, warp, peer, jetty, writeCycles);
+    SimtJettyWriteDispatchWarpImpl<kConfiguredSgeNum, false>(
+        channel, sendBufIdx, recvBufIdx, warp, peer, jetty, writeCycles);
     jetty.AdvanceSqNoDoorbell(group);
     if (group.thread_rank() == 0) {
         ub_layout->mixed_ready = 1U;
@@ -414,11 +414,11 @@ __simt_vf__ __aicore__ __launch_bounds__(64) inline void SimtJettyWriteMixedWork
 
 extern "C" __global__ __vector__ void SimtJettyWriteThread(
     uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, __gm__ void* timing,
-    uint32_t iterations, uint32_t warmup, uint32_t sgeNum)
+    uint32_t iterations, uint32_t warmup)
 {
     asc_vf_call<SimtJettyWriteThreadVf>(
         dim3(1), channel, jettyPtrTable, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), iterations,
-        warmup, sgeNum);
+        warmup);
 }
 
 extern "C" __global__ __vector__ void SimtJettyWriteWarpPadZero(
@@ -485,12 +485,12 @@ extern "C" __global__ __mix__(1, 1) void SimtJettyWriteMixed(
 
 void LaunchSimtJetty(
     void* stream, uint64_t channel, void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode,
-    void* timing, uint32_t iterations, uint32_t warmup, uint32_t sgeNum)
+    void* timing, uint32_t iterations, uint32_t warmup)
 {
     switch (mode) {
         case 0U:
             SimtJettyWriteThread<<<1, 0, stream>>>(
-                channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup, sgeNum);
+                channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup);
             break;
         case 1U:
             SimtJettyWriteWarpPadZero<<<1, 0, stream>>>(

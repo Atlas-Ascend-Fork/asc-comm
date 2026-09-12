@@ -15,7 +15,7 @@ usage() {
 Usage: run.sh <nranks> [all|thread|warp|warp-pad|group|dispatch|mixed] [options]
 
 Options:
-  --sge-num N     Number of valid SGEs for thread mode, 1-12, default: 12
+  --sge-num N     SGE count for thread/mixed; must match the build, 1-12
   --iterations N  Number of correctness iterations, default: 1
   --warmup N      Warmup iterations for --timing, default: 0
   --timing        Run all iterations in one kernel and report device clock cycles
@@ -37,7 +37,7 @@ fi
 iterations=1
 warmup=0
 timing=0
-sge_num=12
+sge_num="${SIMT_JETTY_SGE_NUM:-}"
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --sge-num)
@@ -73,7 +73,7 @@ if ! [[ "$warmup" =~ ^[0-9]+$ ]]; then
     echo "--warmup must be a non-negative integer"
     exit 1
 fi
-if ! [[ "$sge_num" =~ ^[0-9]+$ ]] || [ "$sge_num" -lt 1 ] || [ "$sge_num" -gt 12 ]; then
+if [ -n "$sge_num" ] && ! [[ "$sge_num" =~ ^[1-9]$|^1[0-2]$ ]]; then
     echo "--sge-num must be an integer in [1, 12]" >&2
     exit 1
 fi
@@ -127,10 +127,16 @@ run_mode() {
     active_dirs=("$root_info_dir" "$sync_dir")
     local root_info_file="${root_info_dir}/root_info.bin"
 
-    echo "[Running] mode=${mode_name} sge_num=${sge_num} iterations=${iterations} warmup=${warmup} timing=${timing}"
+    local display_sge_num="${sge_num:-binary-config}"
+    echo "[Running] mode=${mode_name} sge_num=${display_sge_num} iterations=${iterations} warmup=${warmup} timing=${timing}"
     pids=()
     for ((rank = 0; rank < nranks; ++rank)); do
-        "$binary" "$rank" "$nranks" "$root_info_file" "$sync_dir" "$id" "$sge_num" "$iterations" "$warmup" "$timing" &
+        local args=("$binary" "$rank" "$nranks" "$root_info_file" "$sync_dir" "$id")
+        if [ -n "$sge_num" ]; then
+            args+=("$sge_num")
+        fi
+        args+=("$iterations" "$warmup" "$timing")
+        "${args[@]}" &
         pids+=("$!")
     done
 

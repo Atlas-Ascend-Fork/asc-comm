@@ -21,6 +21,10 @@ project(simt_jetty LANGUAGES ASC CXX)
 
 option(HCOMM_CCE_RES_USAGE "Print CCE stack and register usage" OFF)
 option(HCOMM_SIMT_JETTY_DEBUG_CHECKS "Enable SIMT Jetty runtime validation" OFF)
+set(SIMT_JETTY_SGE_NUM "12" CACHE STRING "Compile-time SGE count for thread and mixed modes (1 to 12)")
+if(NOT SIMT_JETTY_SGE_NUM MATCHES "^[1-9]$|^1[0-2]$")
+    message(FATAL_ERROR "SIMT_JETTY_SGE_NUM must be an integer in [1, 12]")
+endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,6 +39,7 @@ add_executable(simt_jetty
 
 target_compile_definitions(simt_jetty PRIVATE
     USE_SIMT
+    SIMT_JETTY_SGE_NUM=${SIMT_JETTY_SGE_NUM}
     $<$<OR:$<CONFIG:Debug>,$<BOOL:${HCOMM_SIMT_JETTY_DEBUG_CHECKS}>>:HCOMM_SIMT_JETTY_DEBUG>
 )
 

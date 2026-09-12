@@ -47,8 +47,7 @@
     } while (0)
 
 extern void LaunchSimtJetty(void* stream, uint64_t channel, void* jettyPtrTable, uint32_t sendBufIdx,
-                            uint32_t recvBufIdx, uint32_t mode, void* timing, uint32_t iterations, uint32_t warmup,
-                            uint32_t sgeNum);
+                            uint32_t recvBufIdx, uint32_t mode, void* timing, uint32_t iterations, uint32_t warmup);
 
 namespace {
 
@@ -252,7 +251,8 @@ int main(int argc, char* argv[])
     const uint32_t mode = static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10));
     const bool hasSgeNum = argc == 7 || argc == 10;
     const bool hasTiming = argc == 9 || argc == 10;
-    const uint32_t sgeNum = hasSgeNum ? static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10)) : 12U;
+    const uint32_t sgeNum = hasSgeNum ? static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10))
+                                      : simt_jetty::kConfiguredSgeNum;
     const uint32_t iterations = hasTiming ?
         static_cast<uint32_t>(std::strtoul(argv[hasSgeNum ? 7 : 6], nullptr, 10)) : 1U;
     const uint32_t warmup = hasTiming ?
@@ -262,6 +262,11 @@ int main(int argc, char* argv[])
     if (nranks < 2 || rank < 0 || rank >= nranks || syncDir.empty() || mode > 5U || iterations == 0U ||
         sgeNum < 1U || sgeNum > simt_jetty::kSlotCount) {
         std::cout << "invalid rank/nranks/sync_dir/mode/iterations/sge_num" << std::endl;
+        return 1;
+    }
+    if (hasSgeNum && (mode == 0U || mode == 5U) && sgeNum != simt_jetty::kConfiguredSgeNum) {
+        std::cout << "--sge-num=" << sgeNum << " does not match the binary compile-time SGE count "
+                  << simt_jetty::kConfiguredSgeNum << "; rebuild with SIMT_JETTY_SGE_NUM=" << sgeNum << std::endl;
         return 1;
     }
     if (rank >= 2) {
@@ -325,8 +330,7 @@ int main(int argc, char* argv[])
                 mode,
                 timingBuf,
                 iterations,
-                warmup,
-                sgeNum);
+                warmup);
             ACLCHECK(aclrtSynchronizeStream(stream));
             ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
             pass = timing[3] == iterations;
@@ -354,8 +358,7 @@ int main(int argc, char* argv[])
                     mode,
                     nullptr,
                     1U,
-                    0U,
-                    sgeNum);
+                    0U);
                 ACLCHECK(aclrtSynchronizeStream(stream));
                 HCCLCHECK(WriteMarkerFile(syncDir + "/done." + std::to_string(iteration)));
                 HCCLCHECK(WaitMarkerFile(syncDir + "/checked." + std::to_string(iteration), kIterationPollMs));
@@ -368,11 +371,12 @@ int main(int argc, char* argv[])
     } else {
         uint64_t expected[simt_jetty::kSlotCount] = {};
         if (mode == 0U) {
-            for (uint32_t slot = 0; slot < sgeNum; ++slot) {
+            for (uint32_t slot = 0; slot < simt_jetty::kConfiguredSgeNum; ++slot) {
                 expected[slot] = simt_jetty::SlotValue(slot);
             }
         } else if (mode == 3U || mode == 5U) {
-            for (uint32_t slot = 0; slot < simt_jetty::kSlotCount; ++slot) {
+            const uint32_t expectedSgeNum = mode == 5U ? simt_jetty::kConfiguredSgeNum : simt_jetty::kSlotCount;
+            for (uint32_t slot = 0; slot < expectedSgeNum; ++slot) {
                 expected[slot] = simt_jetty::SlotValue(slot);
             }
         } else if (mode == 1U) {

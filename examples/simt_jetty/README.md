@@ -4,17 +4,18 @@ SIMT 侧 Jetty / DWQE 样例，验证 `thread / warp / group` 三种协作方式
 并行生成 WQE、group 统一提交的 dispatch 模式。
 
 `HcommPeer` 和 `HcommJetty` 直接从 GM Jetty 表解析队列与远端信息，不需要静态或动态 UB
-workspace。固定 SGE 模板参数范围为 2 到 12；地址或长度为 0 的 SGE 不计入 WRITE，并将有效
+workspace。SGE 模板参数在编译时配置，范围为 1 到 12；地址或长度为 0 的 SGE 不计入 WRITE，并将有效
 SGE 压紧，未使用的 WQEBB 使用 NOP 对齐。
 
 同一个 channel 的并发 `Write` 必须在同一组同步中完成，并在所有参与 warp 完成后由 group leader
-统一调用 `Commit`。`Write` 默认立即提交；使用 `Write<12, false>` 时只构造 WQE，等待显式
+统一调用 `Commit`。`Write` 默认立即提交；使用 `Write<N, false>` 时只构造 WQE，等待显式
 `Commit`。所有 lane 构造 `HcommJetty` 后、任一 warp 开始 `Write` 前必须先做一次
 group 同步；dispatch 样例中每个 warp 生成一个含 12 个有效
 SGE 的 4BB WQE，再由 group 统一 Commit 和 PublishSq。
 
-固定 2BB 的立即 `Write` 在一次调用内由同一份 WQE 数据双写 SQ 和 DWQE，不从 SQ 回读。
-`thread / warp / warp-pad / group` 验证该路径；`dispatch` 单独验证多 warp 的 `Write + Commit` 路径。
+立即 `Write` 按 payload 大小生成对应数量的 WQEBB，并在一次调用内由同一份 WQE 数据双写 SQ 和
+DWQE，不从 SQ 回读。`thread / warp / warp-pad / group` 验证该路径；`dispatch` 单独验证多 warp 的
+`Write + Commit` 路径。
 
 `mixed` 使用 DeepEP 风格的 `__global__ __mix__` 入口：SIMT VF 只组织并完成 SQ，随后由 SIMD/AIV
 主体读取共享 SQ head 并通过普通 doorbell 发布。SIMD 和 SIMT 共享同一个 80B 元数据对象。
@@ -24,6 +25,15 @@ SGE 的 4BB WQE，再由 group 统一 Commit 和 PublishSq。
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
 bash build.sh
+```
+
+通过编译参数选择 thread/mixed 使用的 `Write<N>` 模板参数。每次构建只实例化一个 `Write<N>`，例如：
+
+```bash
+SIMT_JETTY_SGE_NUM=2 bash build.sh
+SIMT_JETTY_SGE_NUM=4 bash build.sh
+SIMT_JETTY_SGE_NUM=6 bash build.sh
+SIMT_JETTY_SGE_NUM=12 bash build.sh
 ```
 
 没有硬件时，可在编译阶段检查 SIMT VF 的栈和寄存器占用：
@@ -56,17 +66,17 @@ bash run.sh 2 group
 bash run.sh 2 dispatch
 ```
 
-`thread` 发送 12 个有效 SGE，验证标量线程构造的 4BB WQE；`warp` 发送两个有效 SGE，
+`thread` 和 `mixed` 使用编译时配置的 SGE 数量；`warp` 发送两个有效 SGE，
 用于验证同一个 80B/2BB WQE；`warp-pad` 验证 `1BB WRITE + 1BB NOP`；`dispatch` 验证
 12 SGE、4BB WQE。
 
-thread 模式可以指定有效 SGE 数量，用于逐个定位标量 WQE 的布局问题。前 N 个 SGE 始终填入
-有效地址和长度，不构造空 SGE：
+运行时 `--sge-num` 是可选的一致性检查；thread/mixed 必须与构建时的
+`SIMT_JETTY_SGE_NUM` 相同。不传时直接使用二进制中的编译配置：
 
 ```bash
-bash run.sh 2 thread --sge-num 1
 bash run.sh 2 thread --sge-num 6
-bash run.sh 2 thread --sge-num 12
+bash run.sh 2 mixed --sge-num 6
+bash run.sh 2 thread
 ```
 
 ## 正确性压测
