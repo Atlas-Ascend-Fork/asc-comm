@@ -355,11 +355,12 @@ private:
             kOpcode == HcommPostOpcode::kWriteValue ? kSqeHeaderWords + (inlineBytes + 7U) / 8U :
             2U * kWqebbLanes;
         const uint32_t payloadWqebbs = (payloadWords + kWqebbLanes - 1U) / kWqebbLanes;
-        // Scalar posts retain the four-BB slot layout used by the original scalar
-        // builder. Warp/group posts use their payload-sized range.
+        // Every WRITE uses the actual payload-sized SQ range. Scalar posts still use
+        // the single-producer implicit state, while cooperative posts use the batch
+        // state when they defer publication.
         constexpr bool kScalarWrite = !HcommCoopTraits<Coop>::kWarpCapable &&
             kOpcode == HcommPostOpcode::kWrite;
-        const uint32_t reserveWqebbs = kScalarWrite ? kSlotWqebbs : payloadWqebbs;
+        const uint32_t reserveWqebbs = payloadWqebbs;
         uint32_t head = 0xFFFFFFFFU;
         if (laneRank == 0U) {
             auto* info = Info();
