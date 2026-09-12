@@ -104,59 +104,6 @@ target_link_libraries(asccomm_ccu_dataplane PRIVATE
 # 链接期校验：数据面 SO 不允许存在未定义符号（防止无意识依赖 hcomm 内部符号）
 target_link_options(asccomm_ccu_dataplane PRIVATE -Wl,--no-undefined)
 
-# Keep the mainline host-launch wrapper as a separate compatibility library.
-# It uses the legacy HcommCcuKernel* registration ABI and must not be folded
-# into the data-plane SO, whose cross-SO interface is the POD-based API above.
-add_library(asccomm_ccu_host_obj OBJECT
-    ${ASCCOMM_CCU_ROOT}/ccu_host_launch.cpp
-)
-target_link_libraries(asccomm_ccu_host_obj PRIVATE
-    asccomm_ccu_headers
-    $<$<TARGET_EXISTS:intf_pub>:intf_pub>
-    $<$<TARGET_EXISTS:error_manager_headers>:error_manager_headers>
-    $<$<TARGET_EXISTS:acl_rt_headers>:acl_rt_headers>
-    $<$<TARGET_EXISTS:asc_host_headers>:asc_host_headers>
-    $<$<TARGET_EXISTS:ascend_hal_headers>:ascend_hal_headers>
-    $<$<TARGET_EXISTS:kernel_tiling_headers>:kernel_tiling_headers>
-    $<$<TARGET_EXISTS:atrace_headers>:atrace_headers>
-    $<$<TARGET_EXISTS:mmpa_headers>:mmpa_headers>
-    $<$<TARGET_EXISTS:runtime_headers>:runtime_headers>
-    $<$<TARGET_EXISTS:rdma_core_headers>:rdma_core_headers>
-    $<$<TARGET_EXISTS:hccl_legacy_headers>:hccl_legacy_headers>
-    $<$<TARGET_EXISTS:json>:json>
-    $<$<TARGET_EXISTS:c_sec_headers>:c_sec_headers>
-    $<$<TARGET_EXISTS:unified_dlog>:unified_dlog>
-)
-target_include_directories(asccomm_ccu_host_obj PRIVATE
-    ${ASCCOMM_CCU_ROOT}
-)
-target_include_directories(asccomm_ccu_host_obj SYSTEM PRIVATE
-    ${ASCCOMM_CANN_BASE_INCLUDE_DIRS}
-    ${ASCCOMM_CANN_HEADER_DIRS}
-)
-target_compile_definitions(asccomm_ccu_host_obj PRIVATE
-    BUILD_OPEN_PROJECT
-    CANN_VERSION_NUM=90100000
-)
-target_compile_features(asccomm_ccu_host_obj PUBLIC cxx_std_17)
-target_compile_options(asccomm_ccu_host_obj PRIVATE
-    -fPIC
-    -Wall
-    -Werror
-)
-
-add_library(asccomm_ccu SHARED
-    $<TARGET_OBJECTS:asccomm_ccu_host_obj>
-)
-if(NOT ASCCOMM_LIBRARY_OUTPUT_DIRECTORY)
-    set(ASCCOMM_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-endif()
-set_target_properties(asccomm_ccu PROPERTIES
-    OUTPUT_NAME asccomm_ccu
-    LIBRARY_OUTPUT_DIRECTORY ${ASCCOMM_LIBRARY_OUTPUT_DIRECTORY}
-)
-target_link_libraries(asccomm_ccu PRIVATE asccomm_ccu_headers)
-
 if(NOT INSTALL_LIBRARY_DIR)
     set(INSTALL_LIBRARY_DIR lib64)
 endif()
@@ -164,10 +111,10 @@ if(NOT INSTALL_PKG_INCLUDE_DIR)
     set(INSTALL_PKG_INCLUDE_DIR pkg_inc)
 endif()
 
-install(TARGETS asccomm_ccu
+install(TARGETS asccomm_ccu_dataplane
     LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
     COMPONENT hcomm)
-install(FILES ${ASCCOMM_ROOT}/include/ccu/ccu_host_launch.h
+install(FILES ${ASCCOMM_ROOT}/include/ccu/hcomm/ccu_host_launch.h
     DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/ccu
     COMPONENT hcomm)
 
@@ -196,4 +143,4 @@ endforeach()
 
 add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
 add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
-add_custom_target(asccomm_ccu_compile_check DEPENDS asccomm_ccu asccomm_ccu_dataplane)
+add_custom_target(asccomm_ccu_compile_check DEPENDS asccomm_ccu_dataplane)

@@ -45,12 +45,14 @@ CcuResult ccu_kernel_registry::init(int32_t device_logic_id)
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult ccu_kernel_registry::load_register_context(const HcommCcuRegisterContextPod& context)
+CcuResult ccu_kernel_registry::load_register_context(
+    const HcommCcuRegisterContextPod &context, bool &requires_configuration)
 {
+    requires_configuration = false;
     CCU_EXCEPTION_HANDLE_BEGIN
-    if (!res_snapshot_) {
-        res_snapshot_.reset(new (std::nothrow) asc_ccu_res_snapshot());
-        CCU_CHK_PTR_NULL(res_snapshot_);
+    std::lock_guard<std::mutex> lock(register_mutex_);
+    if (register_state_ != register_state::registering || register_owner_ != std::this_thread::get_id()) {
+        return CcuResult::CCU_E_INTERNAL;
     }
     // 上下文的设备号必须与创建时传入的一致，否则说明调用方把上下文用在了错误的实例上。
     if (context.deviceLogicId != dev_logic_id_) {
@@ -59,7 +61,23 @@ CcuResult ccu_kernel_registry::load_register_context(const HcommCcuRegisterConte
             __func__, context.deviceLogicId, dev_logic_id_);
         return CcuResult::CCU_E_PARA;
     }
-    CCU_CHK_RET(res_snapshot_->load(context));
+
+    std::unique_ptr<asc_ccu_res_snapshot> candidate(new (std::nothrow) asc_ccu_res_snapshot());
+    CCU_CHK_PTR_NULL(candidate);
+    CCU_CHK_RET(candidate->load(context));
+    if (res_snapshot_) {
+        if (res_snapshot_->get_generation() != candidate->get_generation() ||
+            res_snapshot_->get_ccu_version() != candidate->get_ccu_version() ||
+            res_snapshot_->get_valid_die_mask() != candidate->get_valid_die_mask()) {
+            HCCL_ERROR("[CcuKernelRegistry][%s] register context changed without releasing the instance.", __func__);
+            return CcuResult::CCU_E_PARA;
+        }
+        requires_configuration = !configured_;
+        return CcuResult::CCU_SUCCESS;
+    }
+
+    res_snapshot_ = std::move(candidate);
+    requires_configuration = true;
     CCU_EXCEPTION_HANDLE_END
     return CcuResult::CCU_SUCCESS;
 }
@@ -84,19 +102,73 @@ void ccu_kernel_registry::set_handle(CcuInsHandle ins_handle) { ins_handle_ = in
 
 CcuResult ccu_kernel_registry::save_kernel(const ccu_kernel_handle kernel_handle)
 {
-    kernel_handles_.push_back(kernel_handle);
-    untranslated_kernel_handles_.push_back(kernel_handle);
+    std::lock_guard<std::mutex> lock(register_mutex_);
+    if (register_state_ != register_state::registering || register_owner_ != std::this_thread::get_id()) {
+        return CcuResult::CCU_E_INTERNAL;
+    }
+    try {
+        kernel_handles_.push_back(kernel_handle);
+        try {
+            untranslated_kernel_handles_.push_back(kernel_handle);
+        } catch (...) {
+            kernel_handles_.pop_back();
+            throw;
+        }
+    } catch (...) {
+        return CcuResult::CCU_E_INTERNAL;
+    }
     return CcuResult::CCU_SUCCESS;
 }
 
-const std::vector<ccu_kernel_handle>& ccu_kernel_registry::get_untranslated_kernels()
+CcuResult ccu_kernel_registry::get_untranslated_kernels(std::vector<ccu_kernel_handle> &kernel_handles) const
 {
-    return untranslated_kernel_handles_;
+    std::lock_guard<std::mutex> lock(register_mutex_);
+    if (register_state_ != register_state::registering || register_owner_ != std::this_thread::get_id()) {
+        return CcuResult::CCU_E_INTERNAL;
+    }
+    try {
+        kernel_handles = untranslated_kernel_handles_;
+    } catch (...) {
+        return CcuResult::CCU_E_INTERNAL;
+    }
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_kernel_registry::checkpoint_register_resources()
+{
+    std::lock_guard<std::mutex> lock(register_mutex_);
+    if (register_state_ != register_state::registering || register_owner_ != std::this_thread::get_id() ||
+        !res_snapshot_) {
+        return CcuResult::CCU_E_INTERNAL;
+    }
+    CCU_EXCEPTION_HANDLE_BEGIN
+    register_resource_checkpoint_ = res_snapshot_->get_ccu_res_repo();
+    register_resource_checkpoint_valid_ = true;
+    CCU_EXCEPTION_HANDLE_END
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_kernel_registry::mark_configured()
+{
+    std::lock_guard<std::mutex> lock(register_mutex_);
+    if (register_state_ != register_state::registering || register_owner_ != std::this_thread::get_id() ||
+        !res_snapshot_) {
+        return CcuResult::CCU_E_INTERNAL;
+    }
+    configured_ = true;
+    return CcuResult::CCU_SUCCESS;
+}
+
+uint64_t ccu_kernel_registry::get_generation() const
+{
+    std::lock_guard<std::mutex> lock(register_mutex_);
+    return res_snapshot_ == nullptr ? 0 : res_snapshot_->get_generation();
 }
 
 CcuResult ccu_kernel_registry::begin_register()
 {
-    if (register_state_ == register_state::registering) {
+    std::lock_guard<std::mutex> lock(register_mutex_);
+    if (register_state_ != register_state::idle) {
         HCCL_ERROR(
             "[CcuKernelRegistry][%s] failed, previous register round is not ended, "
             "asccomm_ccu_kernel_register_end is missing before a new asccomm_ccu_kernel_register_start.",
@@ -104,12 +176,17 @@ CcuResult ccu_kernel_registry::begin_register()
         return CcuResult::CCU_E_INTERNAL;
     }
     register_state_ = register_state::registering;
+    register_owner_ = std::this_thread::get_id();
+    untranslated_kernel_handles_.clear();
+    register_resource_checkpoint_ = {};
+    register_resource_checkpoint_valid_ = false;
     return CcuResult::CCU_SUCCESS;
 }
 
 CcuResult ccu_kernel_registry::check_registering() const
 {
-    if (register_state_ != register_state::registering) {
+    std::lock_guard<std::mutex> lock(register_mutex_);
+    if (register_state_ != register_state::registering || register_owner_ != std::this_thread::get_id()) {
         HCCL_ERROR(
             "[CcuKernelRegistry][%s] failed, asccomm_ccu_kernel_register must be called between "
             "asccomm_ccu_kernel_register_start and asccomm_ccu_kernel_register_end.",
@@ -121,11 +198,16 @@ CcuResult ccu_kernel_registry::check_registering() const
 
 CcuResult ccu_kernel_registry::end_register()
 {
+    std::lock_guard<std::mutex> lock(register_mutex_);
     if (register_state_ == register_state::idle) {
         HCCL_ERROR(
             "[CcuKernelRegistry][%s] failed, asccomm_ccu_kernel_register_end is called without a matching "
             "asccomm_ccu_kernel_register_start.",
             __func__);
+        return CcuResult::CCU_E_INTERNAL;
+    }
+    if (register_owner_ != std::this_thread::get_id()) {
+        HCCL_ERROR("[CcuKernelRegistry][%s] failed, register round must be ended by its owner thread.", __func__);
         return CcuResult::CCU_E_INTERNAL;
     }
     if (register_state_ == register_state::register_aborted) {
@@ -134,24 +216,41 @@ CcuResult ccu_kernel_registry::end_register()
             "close it to keep Start/End paired, no kernel will be translated.",
             __func__);
     }
+    untranslated_kernel_handles_.clear();
+    register_resource_checkpoint_valid_ = false;
     register_state_ = register_state::idle;
+    register_owner_ = std::thread::id{};
     return CcuResult::CCU_SUCCESS;
 }
 
 void ccu_kernel_registry::abort_register()
 {
-    for (auto kernel_handle : untranslated_kernel_handles_) {
+    std::vector<ccu_kernel_handle> aborted_handles;
+    {
+        std::lock_guard<std::mutex> lock(register_mutex_);
+        if (register_state_ != register_state::registering || register_owner_ != std::this_thread::get_id()) {
+            return;
+        }
+        aborted_handles.swap(untranslated_kernel_handles_);
+        if (register_resource_checkpoint_valid_ && res_snapshot_) {
+            res_snapshot_->get_ccu_res_repo() = std::move(register_resource_checkpoint_);
+        }
+        for (auto kernel_handle : aborted_handles) {
+            auto it = std::find(kernel_handles_.begin(), kernel_handles_.end(), kernel_handle);
+            if (it != kernel_handles_.end()) {
+                kernel_handles_.erase(it);
+            }
+        }
+        register_resource_checkpoint_valid_ = false;
+        register_state_ = register_state::register_aborted;
+    }
+
+    for (auto kernel_handle : aborted_handles) {
         if (kernel_handle == 0) {
             continue;
         }
         (void)ccu_kernel_mgr::get_instance(dev_logic_id_).un_register(kernel_handle);
-        auto it = std::find(kernel_handles_.begin(), kernel_handles_.end(), kernel_handle);
-        if (it != kernel_handles_.end()) {
-            kernel_handles_.erase(it);
-        }
     }
-    untranslated_kernel_handles_.clear();
-    register_state_ = register_state::register_aborted;
 }
 
 } // namespace asc

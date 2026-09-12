@@ -63,16 +63,6 @@ CcuResult build_translator_resource_request(uint32_t die_id, uint32_t ccu_versio
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult clear_kernel_instruction_resource(ccu_kernel& kernel)
-{
-    HcommCcuResRangePod range{};
-    if (!kernel.get_instruction_resource(range)) {
-        return CcuResult::CCU_SUCCESS;
-    }
-    kernel.clear_instruction_resource();
-    return CcuResult::CCU_SUCCESS;
-}
-
 } // namespace
 
 ccu_kernel_mgr::~ccu_kernel_mgr()
@@ -120,6 +110,7 @@ HcclResult ccu_kernel_mgr::init()
 
 CcuResult ccu_kernel_mgr::configure(asc_ccu_res_snapshot& res_pack)
 {
+    std::unique_lock<std::mutex> translate_lock(translate_mutex_);
     std::unique_lock<std::mutex> lock(kernel_map_mutex_);
     dev_logic_id_ = res_pack.get_device_logic_id();
     translators_.clear();
@@ -150,22 +141,13 @@ const HcommCcuControlOpsPod& ccu_kernel_mgr::get_control_ops() const { return co
 
 HcclResult ccu_kernel_mgr::deinit()
 {
+    std::unique_lock<std::mutex> translate_lock(translate_mutex_);
     std::unique_lock<std::mutex> lock(kernel_map_mutex_);
-    HcclResult first_error = HcclResult::HCCL_SUCCESS;
-    for (auto& item : kernel_map_) {
-        if (item.second == nullptr) {
-            continue;
-        }
-        const CcuResult ret = clear_kernel_instruction_resource(*item.second);
-        if (first_error == HcclResult::HCCL_SUCCESS && ret != CcuResult::CCU_SUCCESS) {
-            first_error = static_cast<HcclResult>(ret);
-        }
-    }
     initialized_flag_ = false;
     kernel_map_.clear();
     translators_.clear();
     reference_mgrs_.clear();
-    return first_error;
+    return HcclResult::HCCL_SUCCESS;
 }
 
 CcuResult ccu_kernel_mgr::Register(
@@ -215,7 +197,7 @@ CcuResult ccu_kernel_mgr::Register(
     }
 
     kernel_id_++;
-    kernel_map_[kernel_id_] = std::move(curr_kernel_);
+    kernel_map_[kernel_id_] = std::shared_ptr<ccu_kernel>(std::move(curr_kernel_));
 
     kernel_handle = kernel_id_;
     return CcuResult::CCU_SUCCESS;
@@ -521,6 +503,7 @@ CcuResult ccu_kernel_mgr::translate(const std::vector<ccu_kernel_handle>& kernel
         return CcuResult::CCU_SUCCESS;
     }
 
+    std::vector<std::shared_ptr<ccu_kernel>> kernel_refs{};
     std::vector<ccu_kernel*> kernels{};
     std::unique_lock<std::mutex> map_lock(kernel_map_mutex_);
     for (const auto kernel_handle : kernel_handles) {
@@ -531,6 +514,7 @@ CcuResult ccu_kernel_mgr::translate(const std::vector<ccu_kernel_handle>& kernel
             return CcuResult::CCU_E_NOT_FOUND;
         }
 
+        kernel_refs.push_back(iter->second);
         kernels.push_back(iter->second.get());
     }
     map_lock.unlock();
@@ -560,7 +544,6 @@ CcuResult ccu_kernel_mgr::un_register(const ccu_kernel_handle kernel_handle)
         HCCL_ERROR("[CcuKernelMgr][%s] kernelHandle [%llu] does not exist", __func__, kernel_handle),
         CcuResult::CCU_E_NOT_FOUND);
 
-    CCU_CHK_RET(clear_kernel_instruction_resource(*it->second));
     kernel_map_.erase(kernel_handle);
     return CcuResult::CCU_SUCCESS;
 }
@@ -725,7 +708,7 @@ HcclResult ccu_kernel_mgr::trans_rep_sequence_to_microcode(const std::vector<ccu
     return HcclResult::HCCL_SUCCESS;
 }
 
-ccu_kernel* ccu_kernel_mgr::get_kernel(const ccu_kernel_handle kernel_handle)
+std::shared_ptr<ccu_kernel> ccu_kernel_mgr::get_kernel(const ccu_kernel_handle kernel_handle)
 {
     std::unique_lock<std::mutex> lock(kernel_map_mutex_);
     auto it = kernel_map_.find(kernel_handle);
@@ -734,7 +717,7 @@ ccu_kernel* ccu_kernel_mgr::get_kernel(const ccu_kernel_handle kernel_handle)
         return nullptr;
     }
 
-    return it->second.get();
+    return it->second;
 }
 
 CcuResult ccu_kernel_mgr::get_ccu_kernel_info(const ccu_kernel_handle kernel_handle, ccu_kernel_info& info)

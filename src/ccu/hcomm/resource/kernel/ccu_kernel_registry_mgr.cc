@@ -63,10 +63,10 @@ CcuResult ccu_kernel_registry_mgr::deinit()
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult ccu_kernel_registry_mgr::get_or_create(
-    int32_t device_logic_id, CcuInsHandle ins_handle, ccu_kernel_registry*& registry)
+CcuResult ccu_kernel_registry_mgr::get_or_create(int32_t device_logic_id, CcuInsHandle ins_handle,
+    std::shared_ptr<ccu_kernel_registry>& registry)
 {
-    registry = nullptr;
+    registry.reset();
     if (ins_handle == 0) {
         return CcuResult::CCU_E_PARA;
     }
@@ -74,20 +74,20 @@ CcuResult ccu_kernel_registry_mgr::get_or_create(
     std::unique_lock<std::shared_timed_mutex> lock(ins_map_mutex_);
     auto it = ins_map_.find(ins_handle);
     if (it != ins_map_.end()) {
-        registry = it->second.get();
+        registry = it->second;
         return CcuResult::CCU_SUCCESS;
     }
 
-    std::unique_ptr<ccu_kernel_registry> instance{nullptr};
-    EXCEPTION_CATCH(instance = std::make_unique<ccu_kernel_registry>(), return CcuResult::CCU_E_PTR);
+    std::shared_ptr<ccu_kernel_registry> instance{nullptr};
+    EXCEPTION_CATCH(instance = std::make_shared<ccu_kernel_registry>(), return CcuResult::CCU_E_PTR);
     CCU_CHK_RET(instance->init(device_logic_id));
     instance->set_handle(ins_handle);
-    registry = instance.get();
-    ins_map_.emplace(ins_handle, std::move(instance));
+    registry = instance;
+    ins_map_.emplace(ins_handle, instance);
     return CcuResult::CCU_SUCCESS;
 }
 
-ccu_kernel_registry* ccu_kernel_registry_mgr::get(CcuInsHandle ins_handle) const
+std::shared_ptr<ccu_kernel_registry> ccu_kernel_registry_mgr::get(CcuInsHandle ins_handle) const
 {
     std::shared_lock<std::shared_timed_mutex> lock(ins_map_mutex_);
     auto it = ins_map_.find(ins_handle);
@@ -96,7 +96,29 @@ ccu_kernel_registry* ccu_kernel_registry_mgr::get(CcuInsHandle ins_handle) const
         return nullptr;
     }
 
-    return it->second.get();
+    return it->second;
+}
+
+CcuResult ccu_kernel_registry_mgr::remove(CcuInsHandle ins_handle, uint64_t generation)
+{
+    if (ins_handle == 0 || generation == 0) {
+        return CcuResult::CCU_E_PARA;
+    }
+
+    std::shared_ptr<ccu_kernel_registry> removed;
+    {
+        std::unique_lock<std::shared_timed_mutex> lock(ins_map_mutex_);
+        auto it = ins_map_.find(ins_handle);
+        if (it == ins_map_.end()) {
+            return CcuResult::CCU_E_NOT_FOUND;
+        }
+        if (it->second->get_generation() != generation) {
+            return CcuResult::CCU_E_PARA;
+        }
+        removed = std::move(it->second);
+        ins_map_.erase(it);
+    }
+    return CcuResult::CCU_SUCCESS;
 }
 
 } // namespace asc
