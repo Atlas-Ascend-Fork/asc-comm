@@ -22,8 +22,7 @@ basic_ring
 ├── CMakeLists.txt    // 编译工程文件
 ├── basic_ring.asc    // Host侧资源准备、AICore侧AIN调用和共享定义
 ├── README.md         // 中文样例说明
-├── README_en.md      // 英文样例说明
-└── run.sh            // 多rank启动脚本
+└── README_en.md      // 英文样例说明
 ```
 
 ## 样例描述
@@ -49,13 +48,14 @@ basic_ring
 
 ### 实现流程
 
-1. Host侧调用`aclInit`、`aclrtSetDevice`、`aclrtCreateStream`初始化运行环境。
-2. 通过`HcclGetRootInfo`和`HcclCommInitRootInfo`创建多rank HCCL通信域。
-3. 配置`barrierCount`并调用`HcclWorldTeamCreate`创建world team。
-4. 分别将`sendBuf`和`recvBuf`通过`HcclTeamWindowRegister`注册为对称window。
-5. 调用`HcclTeamChannelsCreate`创建AIV + UBC_CTP通信channel。
-6. 下发`worldTeam`、`sendWin`、`recvWin`到Kernel。
-7. Kernel侧构造`AscendC::Ain`对象并初始化Hcomm UB临时工作区，执行`Put`和`Get`后调用`Flush`
+1. 可执行文件直接拉起全部rank进程（进程内fork，参见`examples/aicore/utils/process_manager.h`）；
+   rank间通过命令行指定的TCP控制通道（`examples/aicore/utils/rank_sync.h`）交换root info并
+   创建多rank HCCL通信域。
+2. 每个rank初始化ACL运行环境，配置`barrierCount`并调用`HcclWorldTeamCreate`创建world team。
+3. 分别将`sendBuf`和`recvBuf`通过`HcclTeamWindowRegister`注册为对称window。
+4. 调用`HcclTeamChannelsCreate`创建AIV + UBC_CTP通信channel。
+5. 下发`worldTeam`、`sendWin`、`recvWin`到Kernel。
+6. Kernel侧构造`AscendC::Ain`对象并初始化Hcomm UB临时工作区，执行`Put`和`Get`后调用`Flush`
    等待通信任务完成，最后通过`AinBarrierSession::Sync`完成rank间同步。
 
 ## 编译运行
@@ -74,7 +74,7 @@ basic_ring
 
 - 样例执行
 
-  在本样例目录下执行如下命令。
+  在本样例目录下执行如下命令。可执行文件内部fork出全部rank进程，直接运行即可：
 
   ```bash
   mkdir -p build
@@ -82,19 +82,14 @@ basic_ring
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
   cd ..
-  ./run.sh <nranks>
-  ```
-
-  例如两卡运行：
-
-  ```bash
-  ./run.sh 2
+  ./build/basic_ring_demo tcp://127.0.0.1:29622 <nranks>
   ```
 
 - 启动参数说明
 
   | 参数 | 默认值 | 说明 |
   | --- | --- | --- |
+  | `<ip:port>` | 无默认 | rank 0监听的控制通道地址（`tcp://ip:port`格式），用于root info交换；并行运行多个实例时错开端口 |
   | `<nranks>` | 无默认 | 启动的rank数量，必须为不小于2的整数，且不超过当前可用NPU数量 |
 
 - 编译选项说明

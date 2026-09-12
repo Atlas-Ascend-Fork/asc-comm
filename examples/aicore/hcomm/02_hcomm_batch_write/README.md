@@ -22,8 +22,7 @@ hcomm_batch_write
 ├── hcomm_batch_write_kernel.cpp // AIV Kernel侧批量写调用
 ├── hcomm_batch_write_def.h      // Host与Kernel共享定义
 ├── README.md                    // 中文样例说明
-├── README_en.md                 // 英文样例说明
-└── run.sh                       // 多rank启动脚本
+└── README_en.md                 // 英文样例说明
 ```
 
 ## 样例描述
@@ -45,8 +44,10 @@ rank 0将一段本端数据通过批量写接口同时写入其他所有rank的�
 
 ### 实现流程
 
-1. 每个rank初始化运行环境并创建通信域，rank 0准备待发送数据。
-2. 各rank注册通信内存，rank 0与每个peer建立共享Jetty的URMA Channel。
+1. 可执行文件直接拉起全部rank进程（进程内fork，参见`examples/aicore/utils/process_manager.h`）；
+   rank间通过命令行指定的TCP控制通道（`examples/aicore/utils/rank_sync.h`）交换root info并
+   创建通信域，rank 0准备待发送数据。
+2. 各rank注册通信内存并通过控制通道交换缓冲区地址，rank 0与每个peer建立共享Jetty的URMA Channel。
 3. Kernel侧构造batch handle，为每个peer填充一个写任务引用后统一`BatchCommit`。
 4. `Drain`等待整批任务完成。
 5. 各接收rank校验落地数据，主进程汇总所有rank的执行结果。
@@ -67,7 +68,7 @@ rank 0将一段本端数据通过批量写接口同时写入其他所有rank的�
 
 - 样例执行
 
-  在本样例目录下执行如下命令。默认使用两张NPU，也可以传入更多rank验证一次批量写入多个目标。
+  在本样例目录下执行如下命令。可执行文件内部fork出全部rank进程，直接运行即可。
 
   ```bash
   mkdir -p build
@@ -75,15 +76,15 @@ rank 0将一段本端数据通过批量写接口同时写入其他所有rank的�
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
   cd ..
-  ./run.sh          # 默认2 rank
-  ./run.sh 4        # 4 rank
+  ./build/hcomm_batch_write tcp://127.0.0.1:29624 <rank_num>
   ```
 
 - 启动参数说明
 
   | 参数 | 默认值 | 说明 |
   | --- | --- | --- |
-  | `[rank_num]` | `2` | 启动的rank数量，取值范围`2-16`，不能超过本机可用NPU数量 |
+  | `<ip:port>` | 无默认 | rank 0监听的控制通道地址（`tcp://ip:port`格式），用于root info交换与Host侧barrier；并行运行多个实例时错开端口 |
+  | `<rank_num>` | 无默认 | 启动的rank数量，取值范围`2-16`，不能超过本机可用NPU数量 |
 
 - 编译选项说明
 
