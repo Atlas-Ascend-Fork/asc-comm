@@ -16,12 +16,14 @@
 namespace AscendC {
 
 constexpr uint32_t HCOMM_DFX_CHANNEL_DUMP_MAGIC = 0x48434449U;
-constexpr uint32_t HCOMM_DFX_CHANNEL_DUMP_VERSION = 1U;
-constexpr uint32_t HCOMM_DFX_MAX_CHANNELS = 8U;
+constexpr uint32_t HCOMM_DFX_CHANNEL_DUMP_VERSION = 2U;
+// One snapshot contains one channel. Multi-channel callers invoke the API once per handle.
+constexpr uint32_t HCOMM_DFX_MAX_CHANNELS = 1U;
 constexpr uint32_t HCOMM_DFX_MAX_BUFFERS = 8U;
 constexpr uint32_t HCOMM_DFX_MAX_QUEUE_CONTEXTS = 8U;
-constexpr uint32_t HCOMM_DFX_MAX_QUEUE_ENTRIES = 16U;
-constexpr uint32_t HCOMM_DFX_QUEUE_ENTRY_BYTES = 256U;
+// Reserve space for up to 64 recent queue entries, with up to 4 KiB captured per entry.
+constexpr uint32_t HCOMM_DFX_MAX_QUEUE_ENTRIES = 64U;
+constexpr uint32_t HCOMM_DFX_QUEUE_ENTRY_BYTES = 4096U;
 constexpr uint32_t HCOMM_DFX_CHANNEL_ENTITY_BYTES = 256U;
 constexpr uint32_t HCOMM_DFX_BUFFER_BYTES = 64U;
 constexpr uint32_t HCOMM_DFX_CONTEXT_BYTES = 128U;

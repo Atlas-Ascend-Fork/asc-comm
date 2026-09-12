@@ -291,8 +291,10 @@ inline bool SampleSqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, ui
     const uint32_t sqOutstanding = sqHead - sqTail;
     const uint32_t outstanding = cqOutstanding != 0U ? cqOutstanding : sqOutstanding;
     const uint32_t count = std::min<uint32_t>(outstanding, std::min<uint32_t>(depth, HCOMM_DFX_MAX_QUEUE_ENTRIES));
+    // Keep the most recent entries when the outstanding range exceeds dump capacity.
+    const uint32_t firstCursor = sqHead - count;
     for (uint32_t idx = 0; idx < count; ++idx) {
-        const uint32_t cursor = sqTail + idx;
+        const uint32_t cursor = firstCursor + idx;
         const uint32_t slot = cursor % depth;
         if (!AppendQueueEntryWrapped(reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, slot, cursor,
                                      va, depth, wqeSize, readBytes, channel)) {
@@ -318,8 +320,10 @@ inline bool SampleCqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, ui
     // count. Wrap-safe subtraction, clamped to ring depth and dump capacity.
     const uint32_t outstanding = cqHead - cqTail;
     const uint32_t count = std::min<uint32_t>(outstanding, std::min<uint32_t>(depth, HCOMM_DFX_MAX_QUEUE_ENTRIES));
+    // Keep the most recent entries when the outstanding range exceeds dump capacity.
+    const uint32_t firstCursor = cqHead - count;
     for (uint32_t idx = 0; idx < count; ++idx) {
-        const uint32_t cursor = cqTail + idx;
+        const uint32_t cursor = firstCursor + idx;
         const uint32_t slot = cursor % depth;
         if (!AppendQueueEntryWrapped(reader, HCOMM_DFX_ENTRY_URMA_CQE, queueIndex, slot, cursor,
                                      va, depth, cqeSize, cqeSize, channel)) {
