@@ -12,7 +12,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: run.sh <nranks> [all|thread|group|dispatch|warp|warp-lane|mixed] [options]
+Usage: run.sh <nranks> [all|thread|group|dispatch|warp|mixed] [options]
 
 Options:
   --sge-num N     SGE count for thread/mixed; must match the build, 1-12
@@ -111,7 +111,6 @@ mode_id() {
         dispatch) echo 2 ;;
         warp) echo 3 ;;
         mixed) echo 4 ;;
-        warp-lane) echo 5 ;;
         *) return 1 ;;
     esac
 }
@@ -154,7 +153,7 @@ run_mode() {
 
 status=0
 if [ "$requested_mode" = "all" ]; then
-    modes=(thread group dispatch warp warp-lane mixed)
+    modes=(thread group dispatch warp mixed)
 else
     if ! mode_id "$requested_mode" >/dev/null; then
         usage

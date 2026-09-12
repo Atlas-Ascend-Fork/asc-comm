@@ -272,23 +272,8 @@ public:
             coop, peer, dst, HcommSge{}, sges, nullptr, 0U, nullptr, 0U, nullptr, 0U);
     }
 
-    // DeepEP-style warp writer: one lane owns one 64-bit WQE word in a fixed
-    // four-WQEBB slot. This is intended for warp-level throughput comparison.
-    template <uint32_t kSgeNum, bool kDoCommit = false, typename Coop = HcommCoopWarp>
-    __simt_callee__ __forceinline__ int32_t WriteWarpLane(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge* laneSge,
-        const Coop& coop = Coop{}) const
-    {
-        static_assert(HcommCoopTraits<Coop>::kIsWarp, "WriteWarpLane requires a warp cooperative group");
-        static_assert(!kDoCommit, "WriteWarpLane requires deferred commit through AdvanceSq");
-        static_assert(kSgeNum > 0U && kSgeNum <= kMaxSges, "invalid warp-lane SGE count");
-        return PostSend<kSgeNum, HcommPostOpcode::kWrite, kDoCommit, 0U, true>(
-            coop, peer, dst, *laneSge, nullptr, nullptr, 0U, nullptr, 0U, nullptr, 0U);
-    }
-
 private:
     template <uint32_t kSgeNum, HcommPostOpcode kOpcode, bool kDoCommit, uint32_t kInlineBytes = 0U,
-              bool kFixedSlot = false,
               typename Coop>
     __simt_callee__ __forceinline__ int32_t PostSend(
         const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& laneSge,
@@ -319,12 +304,14 @@ private:
             PostSendPayloadWords<kSgeNum, kOpcode, kInlineBytes>();
         constexpr uint32_t kStaticPayloadWqebbs =
             PostSendPayloadWqebbs<kSgeNum, kOpcode, kInlineBytes>();
+        constexpr bool kDeepEpWarpWrite = HcommCoopTraits<Coop>::kWarpCapable &&
+            kOpcode == HcommPostOpcode::kWrite && !kDoCommit;
         // Every WRITE uses the actual payload-sized SQ range. Scalar posts still use
         // the single-producer implicit state, while cooperative posts use the batch
         // state when they defer publication.
         constexpr bool kScalarWrite = !HcommCoopTraits<Coop>::kWarpCapable &&
             kOpcode == HcommPostOpcode::kWrite;
-        constexpr uint32_t reserveWqebbs = kFixedSlot ? kSlotWqebbs : kStaticPayloadWqebbs;
+        constexpr uint32_t reserveWqebbs = kDeepEpWarpWrite ? kSlotWqebbs : kStaticPayloadWqebbs;
         uint32_t head = 0xFFFFFFFFU;
         if (laneRank == 0U) {
             auto* info = Info();
@@ -371,7 +358,8 @@ private:
             return coop.size() > kWarpSize ? 0 : -1;
         }
 
-        if constexpr (kFixedSlot) {
+        if constexpr (kDeepEpWarpWrite) {
+            static_assert(kSgeNum > 0U, "warp WRITE requires at least one SGE");
             FillSqWarpLane<kSgeNum, kStaticPayloadWords>(coop, peer, dst, laneSge, head);
             asc_threadfence();
             coop.sync();

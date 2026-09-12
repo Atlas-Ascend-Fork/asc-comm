@@ -11,7 +11,7 @@
 set -euo pipefail
 
 if [ "$#" -lt 1 ] || [ "$#" -gt 3 ]; then
-    echo "Usage: $0 <nranks> [all|thread|group|dispatch|warp|warp-lane|mixed] [iterations]"
+    echo "Usage: $0 <nranks> [all|thread|group|dispatch|warp|mixed] [iterations]"
     exit 1
 fi
 
