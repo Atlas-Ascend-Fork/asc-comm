@@ -12,6 +12,8 @@
 #define CCU_KERNEL_REGISTRY_H
 
 #include <memory>
+#include <mutex>
+#include <thread>
 #include <vector>
 
 #include "ccu/hcomm/ccu_api_types.h"
@@ -34,11 +36,14 @@ public:
     // 计数器分配且各自从 0 起，跨设备会重号，实例必须落在指定设备的 handle table 上。
     // 该值在 LoadRegisterContext 之前即需就绪，析构时注销 kernel 依赖它定位 CcuKernelMgr。
     CcuResult init(int32_t device_logic_id);
-    CcuResult load_register_context(const HcommCcuRegisterContextPod& context);
+    CcuResult load_register_context(const HcommCcuRegisterContextPod &context, bool &requires_configuration);
     CcuResult reset();
     asc_ccu_res_snapshot* get_res_snapshot();
     CcuResult save_kernel(const ccu_kernel_handle kernel_handle);
-    const std::vector<ccu_kernel_handle>& get_untranslated_kernels();
+    CcuResult get_untranslated_kernels(std::vector<ccu_kernel_handle> &kernel_handles) const;
+    CcuResult checkpoint_register_resources();
+    CcuResult mark_configured();
+    uint64_t get_generation() const;
     void set_handle(CcuInsHandle ins_handle);
 
     CcuResult begin_register();
@@ -49,11 +54,16 @@ public:
 private:
     enum class register_state { idle, registering, register_aborted };
     register_state register_state_{register_state::idle};
+    std::thread::id register_owner_{};
+    mutable std::mutex register_mutex_{};
 
     int32_t dev_logic_id_{INT32_MAX};
     // CcuVarEventResMgr 按 handle 记账，析构时需以此调用 ReleaseByInstance。
     CcuInsHandle ins_handle_{0};
     std::unique_ptr<asc_ccu_res_snapshot> res_snapshot_{};
+    bool configured_{false};
+    asc_ccu_res_repository register_resource_checkpoint_{};
+    bool register_resource_checkpoint_valid_{false};
     std::vector<ccu_kernel_handle> kernel_handles_{};
     std::vector<ccu_kernel_handle> untranslated_kernel_handles_{};
 };

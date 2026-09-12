@@ -36,6 +36,12 @@ extern CcuResult asccomm_ccu_kernel_launch(
     const HcommCcuLaunchContextPod* launch_context, ccu_kernel_handle kernel_handle, const void* task_args,
     uint32_t arg_num);
 
+/**
+ * Release asc-comm resources after the control plane has stopped new launches and before the Instance becomes invalid.
+ */
+extern CcuResult asccomm_ccu_instance_release(
+    int32_t device_logic_id, CcuInsHandle ins_handle, uint64_t generation);
+
 #ifdef __cplusplus
 }
 #endif // __cplusplus

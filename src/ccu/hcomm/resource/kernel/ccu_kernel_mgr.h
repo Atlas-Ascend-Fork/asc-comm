@@ -12,6 +12,7 @@
 #define ASCCOMM_CCU_KERNEL_MGR_H
 
 #include <array>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 
@@ -42,7 +43,7 @@ public:
 
     CcuResult translate(const std::vector<ccu_kernel_handle>& kernel_handles);
 
-    ccu_kernel* get_kernel(ccu_kernel_handle kernel_handle);
+    std::shared_ptr<ccu_kernel> get_kernel(ccu_kernel_handle kernel_handle);
     CcuResult get_ccu_kernel_info(ccu_kernel_handle kernel_handle, ccu_kernel_info& info);
     CcuResult un_register(ccu_kernel_handle kernel_handle);
 
@@ -70,7 +71,7 @@ private:
     std::mutex kernel_map_mutex_{};
     std::mutex translate_mutex_{};
     ccu_kernel_handle kernel_id_ = 0;
-    std::unordered_map<ccu_kernel_handle, std::unique_ptr<ccu_kernel>> kernel_map_{};
+    std::unordered_map<ccu_kernel_handle, std::shared_ptr<ccu_kernel>> kernel_map_{};
     void* instruction_load_dev_mem_{nullptr};
     uint64_t instruction_load_dev_mem_size_{0};
 
