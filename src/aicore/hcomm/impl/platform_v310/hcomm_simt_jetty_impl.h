@@ -33,6 +33,7 @@ constexpr uint64_t HCOMM_SIMT_NOP_HEADER = 0x0000110000000000ULL;
 constexpr uint64_t HCOMM_SIMT_FINAL_FLAGS = (1ULL << 18U) | (1ULL << 19U) | (1ULL << 21U);
 constexpr uint64_t HCOMM_SIMT_NOP_CONTROL_FLAGS = (1ULL << 28U) | (1ULL << 29U);
 constexpr uint64_t HCOMM_SIMT_NOP_FINAL_FLAGS = (1ULL << 16U) | HCOMM_SIMT_FINAL_FLAGS | HCOMM_SIMT_NOP_CONTROL_FLAGS;
+constexpr uint64_t HCOMM_SIMT_NOP_PUBLISH_FLAGS = HCOMM_SIMT_NOP_FINAL_FLAGS & ~(1ULL << 21U);
 
 enum class HcommPostOpcode : uint8_t {
     kWrite,
@@ -326,17 +327,29 @@ public:
                                 info->sqDepth == 0U,
                             "invalid SIMT HcommJetty publish state\n");
         const uint64_t packedHead = *reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr);
-        info->packedHead = packedHead;
         const uint32_t head = static_cast<uint32_t>(packedHead);
         const uint32_t nextHead = head + 1U;
+        const uint32_t publishHead = head + HCOMM_URMA_DWQE_BB_CNT;
         const uint64_t nop0 = HCOMM_SIMT_NOP_HEADER |
             (static_cast<uint64_t>(detail::Owner(head, info->sqDepth)) << 31U) | (head & 0xFFFFU);
         const uint64_t nop1 = HCOMM_SIMT_NOP_HEADER |
-            (static_cast<uint64_t>(detail::Owner(nextHead, info->sqDepth)) << 31U) | (nextHead & 0xFFFFU);
+            (static_cast<uint64_t>(detail::Owner(nextHead, info->sqDepth)) << 31U) |
+            (publishHead & 0xFFFFU) | HCOMM_SIMT_NOP_PUBLISH_FLAGS;
+        auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
+        StoreSqePair(sq, info->sqDepth, head, 0U, nop0, 0U);
+        StoreSqePair(sq, info->sqDepth, head, 2U, 0U, 0U);
+        StoreSqePair(sq, info->sqDepth, head, 4U, 0U, 0U);
+        StoreSqePair(sq, info->sqDepth, head, 6U, 0U, 0U);
+        StoreSqePair(sq, info->sqDepth, head, HCOMM_SIMT_WQEBB_LANES, nop1, 0U);
+        StoreSqePair(sq, info->sqDepth, head, HCOMM_SIMT_WQEBB_LANES + 2U, 0U, 0U);
+        StoreSqePair(sq, info->sqDepth, head, HCOMM_SIMT_WQEBB_LANES + 4U, 0U, 0U);
+        StoreSqePair(sq, info->sqDepth, head, HCOMM_SIMT_WQEBB_LANES + 6U, 0U, 0U);
+        info->packedHead = (packedHead & 0xFFFFFFFF00000000ULL) | publishHead;
+        asc_stwt(reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr), info->packedHead);
 
         // Cache-locked Jetty doorbells consume a complete 128B DWQE. Both NOPs
-        // intentionally omit bit 21 (CQE), and all non-header words are cleared
-        // so stale data from a previous DWQE cannot be interpreted as payload.
+        // follow the SQ payload instead of aliasing it. The second NOP publishes
+        // their final PI but intentionally omits bit 21 (CQE).
         auto* dwqe = reinterpret_cast<__gm__ ulonglong2*>(info->sqDoorbellAddr - HCOMM_URMA_DWQE_DB_OFFSET);
         asc_threadfence();
         asc_stwt(&dwqe[0], make_ulonglong2(nop0, 0U));
@@ -488,6 +501,8 @@ private:
         constexpr bool kScalarWrite = !HcommCoopTraits<Coop>::kWarpCapable &&
             kOpcode == HcommPostOpcode::kWrite;
         constexpr uint32_t reserveWqebbs = kDeepEpWarpWrite ? HCOMM_SIMT_SLOT_WQEBBS : kStaticPayloadWqebbs;
+        constexpr uint32_t requiredFreeWqebbs =
+            reserveWqebbs + (kDoCommit ? 0U : HCOMM_URMA_DWQE_BB_CNT);
         uint32_t head = 0xFFFFFFFFU;
         if (laneRank == 0U) {
             auto* info = Info();
@@ -500,10 +515,10 @@ private:
                 const uint32_t depth = info->sqDepth;
                 const uint32_t oldHead = *sqHead;
                 uint32_t consumed = oldHead - *sqTail;
-                while ((consumed > depth || reserveWqebbs > depth - consumed) && PullCqOne()) {
+                while ((consumed > depth || requiredFreeWqebbs > depth - consumed) && PullCqOne()) {
                     consumed = oldHead - *sqTail;
                 }
-                if (consumed <= depth && reserveWqebbs <= depth - consumed) {
+                if (consumed <= depth && requiredFreeWqebbs <= depth - consumed) {
                     head = oldHead;
                     *sqHead = oldHead + reserveWqebbs;
                     implicitBeginHead_ = oldHead;
@@ -520,7 +535,7 @@ private:
                 const uint32_t consumed = base -
                     *reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
                 if (consumed <= info->sqDepth && offset <= info->sqDepth - consumed &&
-                    reserveWqebbs <= info->sqDepth - consumed - offset) {
+                    requiredFreeWqebbs <= info->sqDepth - consumed - offset) {
                     head = base + offset;
                     asc_atomic_max(&batch->lastOffset, offset);
                 } else {
