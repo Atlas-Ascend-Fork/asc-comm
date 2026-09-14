@@ -324,11 +324,11 @@ __aicore__ inline void HcommUrmaDumpCqeCtx(__ubuf__ HcommUrmaJfcCqeCtx* cqeCtx)
         cqeCtx->inlineData[1], cqeCtx->inlineData[2]);
 }
 
-__aicore__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::HcommImpl() {}
+__aicore__ inline HcommImpl<COMM_PROTOCOL_UB_CTP>::HcommImpl() {}
 
-__aicore__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::~HcommImpl() {}
+__aicore__ inline HcommImpl<COMM_PROTOCOL_UB_CTP>::~HcommImpl() {}
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ uint8_t* buff, uint32_t len)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Init(__ubuf__ uint8_t* buff, uint32_t len)
 {
     if (len < HCOMM_URMA_TMP_BUF_SIZE) {
         return HCOMM_FAILED;
@@ -348,7 +348,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ uint8_
 }
 
 template <typename T>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(const LocalTensor<T>& buff, uint32_t len)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Init(const LocalTensor<T>& buff, uint32_t len)
 {
     if (len < HCOMM_URMA_TMP_BUF_SIZE || len > buff.GetSize()) {
         return HCOMM_FAILED;
@@ -384,7 +384,7 @@ __aicore__ inline bool HcommUrmaResolveBatchRemote(
 }
 
 template <typename U>
-__aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+__aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBatchHandle(
     ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
 {
     (void)localAddr;
@@ -418,7 +418,7 @@ __aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHand
 }
 
 template <typename U>
-__aicore__ inline UbcMultiBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatchHandle(
+__aicore__ inline UbcMultiBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBatchHandle(
     MultiChannelHandle multiChannel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr,
     GM_ADDR localAddr)
 {
@@ -453,7 +453,7 @@ __aicore__ inline UbcMultiBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeBatc
     return multiBatchHandle;
 }
 
-__aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
+__aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UB_CTP>::GetHandleRef(
     UbcBatchHandle& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
 {
     (void)channelIndex;
@@ -461,7 +461,7 @@ __aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef
     return batchHandle;
 }
 
-__aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef(
+__aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UB_CTP>::GetHandleRef(
     UbcMultiBatchHandle& multiBatchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
 {
     multiBatchHandle.handle.remoteInfo = BatchRemoteInfo{};
@@ -487,7 +487,7 @@ __aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UBC_CTP>::GetHandleRef
 }
 
 template <HcommUrmaOpCode opCode, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchPostSend(
     UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t sgeNum, GM_ADDR notifyAddr,
     uint64_t notifyVal)
 {
@@ -548,7 +548,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchPostSend(
 }
 
 template <auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteNbi(
     UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     const BufDesc srcDesc{src, len};
@@ -556,14 +556,14 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
 }
 
 template <auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteNbi(
     UbcBatchHandle& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum)
 {
     return BatchPostSend<HcommUrmaOpCode::WRITE, config>(batchHandle, dst, srcDescs, srcNum);
 }
 
 template <auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::ReadNbi(
     UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     const BufDesc dstDesc{dst, len};
@@ -571,14 +571,14 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
 }
 
 template <auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::ReadNbi(
     UbcBatchHandle& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src)
 {
     return BatchPostSend<HcommUrmaOpCode::READ, config>(batchHandle, src, dstDescs, dstNum);
 }
 
 template <auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteWithNotifyNbi(
     UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
     const BufDesc srcDesc{src, len};
@@ -587,7 +587,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
 }
 
 template <auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteWithNotifyNbi(
     UbcBatchHandle& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr,
     uint64_t notifyVal)
 {
@@ -595,7 +595,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
         batchHandle, dst, srcDescs, srcNum, notifyAddr, notifyVal);
 }
 
-__aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenCqOverflow(
+__aicore__ inline void HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqWhenCqOverflow(
     ChannelHandle channel, const SqContext& sqCtx, const CqContext& cqCtx, uint32_t sqHead, uint32_t cqeCnt)
 {
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
@@ -613,7 +613,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenCqOverflow(
     }
 }
 
-__aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflow(
+__aicore__ inline void HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqWhenSqOverflow(
     ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead)
 {
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
@@ -626,7 +626,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqWhenSqOverflow(
     }
 }
 
-__aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::CommitImpl(
+__aicore__ inline void HcommImpl<COMM_PROTOCOL_UB_CTP>::CommitImpl(
     ChannelHandle channel, const SqContext& sqCtx, uint32_t sqHead, uint32_t cqeCnt)
 {
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
@@ -638,7 +638,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UBC_CTP>::CommitImpl(
 }
 
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, HcommUrmaOpCode opCode, auto const& config, typename T>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
     ChannelHandle channel, GM_ADDR remoteAddr, GM_ADDR localAddr, uint64_t len, GM_ADDR notifyAddr,
     const UdmaParams<T>& params)
 {
@@ -724,7 +724,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostSend(
 }
 
 template <bool sqSafeMode>
-__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqImpl(
+__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqImpl(
     uint64_t cqBaseAddr, uint32_t cqeSize, uint32_t cqDepth, uint32_t expectIdx, uint32_t& curTail,
     LocalTensor<uint32_t> cqeItem, uint32_t& sqTail, uint32_t sqHead, uint32_t sqDepth, uint32_t threshold)
 {
@@ -795,7 +795,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCqImpl(
 }
 
 template <bool sqSafeMode>
-__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
+__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
     ChannelHandle channel, uint32_t expectIdx, uint32_t sqHead, uint32_t sqDepth, uint32_t threshold)
 {
     if (expectIdx == 0) {
@@ -823,8 +823,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollBatchCq(
-    UbcBatchHandle& batchHandle, uint32_t expectIdx)
+__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollBatchCq(UbcBatchHandle& batchHandle, uint32_t expectIdx)
 {
     if (expectIdx == 0) {
         return HCOMM_SUCCESS;
@@ -848,14 +847,14 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollBatchCq(
 }
 
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     return PostSend<commit, commitPipe, reqPipe, HcommUrmaOpCode::WRITE, config>(channel, dst, src, len);
 }
 
 template <typename T, HcommUrmaReduceOp reduceOp, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteReduceNbi(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteReduceNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t count)
 {
     constexpr uint32_t reduceDataType = HCOMM_URMA_REDUCE_DATA_TYPE<T>;
@@ -875,14 +874,14 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteReduceNbi(
 }
 
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::ReadNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     return PostSend<commit, commitPipe, reqPipe, HcommUrmaOpCode::READ, config>(channel, src, dst, len);
 }
 
 template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value)
 {
     static_assert(config.inlineEn == 1, "WriteValueNbi requires inline data in WQE");
     UdmaParams<T> params{value, 0};
@@ -891,7 +890,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteValueNbi(Channe
 }
 
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteWithNotifyNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal)
 {
     UdmaParams<uint64_t> params{notifyVal, 0, 0, 0};
@@ -900,7 +899,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
 }
 
 template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicFAA(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::AtomicFAA(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T addVal)
 {
     static_assert(
@@ -913,7 +912,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicFAA(
 }
 
 template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::AtomicCAS(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR fetchAddr, T compareVal, T swapVal)
 {
     static_assert(
@@ -926,7 +925,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle channel)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Commit(ChannelHandle channel)
 {
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
@@ -935,7 +934,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Commit(ChannelHandle
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcBatchHandle& batchHandle)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcBatchHandle& batchHandle)
 {
     uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
     if (preSqCnt == 0 || preSqCnt > batchHandle.buffer.bufferCapacity) {
@@ -985,13 +984,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcBatch
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::BatchCommit(UbcMultiBatchHandle& batchHandle)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcMultiBatchHandle& batchHandle)
 {
     return BatchCommit(batchHandle.handle);
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle channel)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Drain(ChannelHandle channel)
 {
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
@@ -1004,7 +1003,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle 
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcBatchHandle& batchHandle)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Drain(UbcBatchHandle& batchHandle)
 {
     (void)pipe;
     static_assert(
@@ -1032,12 +1031,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcBatchHandle
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(UbcMultiBatchHandle& batchHandle)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Drain(UbcMultiBatchHandle& batchHandle)
 {
     return Drain<pipe>(batchHandle.handle);
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle channel)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Lock(ChannelHandle channel)
 {
     if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
         return HCOMM_FAILED;
@@ -1052,7 +1051,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Lock(ChannelHandle c
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Unlock(ChannelHandle channel)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Unlock(ChannelHandle channel)
 {
     if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
         return HCOMM_FAILED;

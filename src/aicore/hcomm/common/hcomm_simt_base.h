@@ -26,7 +26,7 @@
 
 namespace AscendC::simt {
 
-// Primary template: every protocol without a specialization fails. COMM_PROTOCOL_UBC_CTP is
+// Primary template: every protocol without a specialization fails. COMM_PROTOCOL_UB_CTP is
 // specialized in impl/hcomm_simt_urma_def.h.
 template <CommProtocol commProtocol>
 class HcommImpl {

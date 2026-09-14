@@ -84,7 +84,7 @@ constexpr CommProtocol MaskToCommProtocol(unsigned commEngineMask)
 {
     switch (commEngineMask) {
         case AIN_MASK_DEFAULT:
-            return COMM_PROTOCOL_UBC_CTP;
+            return COMM_PROTOCOL_UB_CTP;
         default:
             return COMM_PROTOCOL_RESERVED;
     }
