@@ -27,41 +27,41 @@ namespace AscendC {
 namespace ccu {
 
 // 主模板未实现：未特化的资源类型实例化 array<t> 时编译失败，
-// 当前期次仅 variable / event / Buffer 提供底层 CcuBlock*Alloc C 接口。
+// 当前期次仅 variable / event / ccu_buffer 提供底层 ccu_block_*_alloc C 接口。
 template <typename t>
 struct ccu_array_traits;
 
 template <>
 struct ccu_array_traits<variable> {
-    using Handle = ccu_variable_handle;
-    static CcuResult BlockAlloc(Handle* h, uint32_t n) { return ::asc::ccu_block_variable_alloc(h, n); }
-    static CcuResult CreateByAcquire(Handle acq_handle, uint32_t index, Handle* h)
+    using handle_t = ccu_variable_handle;
+    static CcuResult block_alloc(handle_t* h, uint32_t n) { return ::asc::ccu_block_variable_alloc(h, n); }
+    static CcuResult create_by_acquire(handle_t acq_handle, uint32_t index, handle_t* h)
     {
         return ::asc::ccu_variable_get_by_index(acq_handle, index, h);
     }
-    static void set_handle(variable& v, Handle h) { v.handle = h; }
+    static void set_handle(variable& v, handle_t h) { v.handle = h; }
 };
 
 template <>
 struct ccu_array_traits<event> {
-    using Handle = ccu_event_handle;
-    static CcuResult BlockAlloc(Handle* h, uint32_t n) { return ::asc::ccu_block_event_alloc(h, n); }
-    static CcuResult CreateByAcquire(Handle acq_handle, uint32_t index, Handle* h)
+    using handle_t = ccu_event_handle;
+    static CcuResult block_alloc(handle_t* h, uint32_t n) { return ::asc::ccu_block_event_alloc(h, n); }
+    static CcuResult create_by_acquire(handle_t acq_handle, uint32_t index, handle_t* h)
     {
         return ::asc::ccu_event_get_by_index(acq_handle, index, h);
     }
-    static void set_handle(event& e, Handle h) { e.handle = h; }
+    static void set_handle(event& e, handle_t h) { e.handle = h; }
 };
 
 template <>
 struct ccu_array_traits<ccu_buffer> {
-    using Handle = ccu_buffer_handle;
-    static CcuResult BlockAlloc(Handle* h, uint32_t n) { return ::asc::ccu_block_buffer_alloc(h, n); }
-    static void set_handle(ccu_buffer& b, Handle h) { b.handle = h; }
+    using handle_t = ccu_buffer_handle;
+    static CcuResult block_alloc(handle_t* h, uint32_t n) { return ::asc::ccu_block_buffer_alloc(h, n); }
+    static void set_handle(ccu_buffer& b, handle_t h) { b.handle = h; }
 };
 
-// 连续资源容器：在构造时一次性 BlockAlloc 出 count_ 个底层句柄并填充给占位元素。
-// 元素本身通过 no_alloc_tag 私有构造跳过单元 Alloc，避免与 BlockAlloc 双重分配。
+// 连续资源容器：在构造时一次性 block_alloc 出 count_ 个底层句柄并填充给占位元素。
+// 元素本身通过 no_alloc_tag 私有构造跳过单元 alloc，避免与 block_alloc 双重分配。
 template <typename t>
 class array final {
 public:
@@ -70,13 +70,13 @@ public:
         if (count_ == 0) {
             return;
         }
-        using H = typename ccu_array_traits<t>::Handle;
+        using H = typename ccu_array_traits<t>::handle_t;
         std::vector<H> handles(count_);
         elems_ = static_cast<t*>(::operator new(sizeof(t) * count_));
         for (uint32_t i = 0; i < count_; ++i) {
             ::new (static_cast<void*>(&elems_[i])) t(detail::no_alloc_tag{});
         }
-        auto ret = ccu_array_traits<t>::BlockAlloc(handles.data(), count_);
+        auto ret = ccu_array_traits<t>::block_alloc(handles.data(), count_);
         if (ret != CcuResult::CCU_SUCCESS) {
             for (uint32_t i = 0; i < count_; ++i) {
                 elems_[i].~t();
@@ -84,26 +84,26 @@ public:
             ::operator delete(elems_);
             elems_ = nullptr;
             count_ = 0;
-            throw ::AscendC::ccu::detail::ccu_exception(ret, "array BlockAlloc: failed");
+            throw ::AscendC::ccu::detail::ccu_exception(ret, "array block_alloc: failed");
         }
         for (uint32_t i = 0; i < count_; ++i) {
             ccu_array_traits<t>::set_handle(elems_[i], handles[i]);
         }
     }
 
-    array(typename ccu_array_traits<t>::Handle acq_handle, uint32_t count_) : count_(count_)
+    array(typename ccu_array_traits<t>::handle_t acq_handle, uint32_t count_) : count_(count_)
     {
         if (count_ == 0) {
             return;
         }
-        using H = typename ccu_array_traits<t>::Handle;
+        using H = typename ccu_array_traits<t>::handle_t;
         elems_ = static_cast<t*>(::operator new(sizeof(t) * count_));
         for (uint32_t i = 0; i < count_; ++i) {
             ::new (static_cast<void*>(&elems_[i])) t(detail::no_alloc_tag{});
         }
         for (uint32_t i = 0; i < count_; ++i) {
             H handle{};
-            auto ret = ccu_array_traits<t>::CreateByAcquire(acq_handle, i, &handle);
+            auto ret = ccu_array_traits<t>::create_by_acquire(acq_handle, i, &handle);
             if (ret != CcuResult::CCU_SUCCESS) {
                 std::string errMsg = "array creation failed at index " + std::to_string(i) +
                                      ", requested count_=" + std::to_string(count_) +
