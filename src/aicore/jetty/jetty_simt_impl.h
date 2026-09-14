@@ -144,7 +144,7 @@ public:
     }
     __simt_callee__ __forceinline__ HcommPeer(__ubuf__ HcommPeerInfo* info, uint64_t channelAddr)
     {
-        Attach(info, channelAddr);
+        Attach(info);
     }
     __simt_callee__ __forceinline__ __ubuf__ HcommPeerInfo* Info() const
     {
@@ -152,10 +152,9 @@ public:
     }
 
 private:
-    __simt_callee__ __forceinline__ void Attach(__ubuf__ HcommPeerInfo* info, uint64_t channelAddr)
+    __simt_callee__ __forceinline__ void Attach(__ubuf__ HcommPeerInfo* info)
     {
         infoAddr = reinterpret_cast<uint64_t>(info);
-        channel = channelAddr;
     }
     __simt_callee__ __forceinline__ void Init(
         __ubuf__ HcommPeerInfo* info, __gm__ void* jettyTable, uint32_t jettyIdx)
@@ -163,7 +162,7 @@ private:
         const uint64_t table = reinterpret_cast<uint64_t>(jettyTable);
         HCOMM_DEBUG_TRAP_IF(table == 0U || info == nullptr, "invalid SIMT HcommPeer initialization\n");
         const uint64_t channelAddr = *reinterpret_cast<__gm__ uint64_t*>(table + jettyIdx * sizeof(uint64_t));
-        Attach(info, channelAddr);
+        Attach(info);
         HCOMM_DEBUG_TRAP_IF(channelAddr == 0U, "invalid SIMT HcommPeer channel\n");
         const uint64_t sqCtxAddr = detail::Load<uint64_t>(channelAddr, offsetof(ChannelEntity, sqContextAddr));
         const uint64_t rbAddr = detail::Load<uint64_t>(channelAddr, offsetof(ChannelEntity, remoteBufferAddr));
@@ -189,7 +188,6 @@ private:
 
 private:
     uint64_t infoAddr = 0U;
-    uint64_t channel = 0U;
 };
 
 class JettyImpl {
