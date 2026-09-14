@@ -53,6 +53,20 @@ enum class HcommUrmaReduceOp : uint32_t {
     SUM = 0xAU,
 };
 
+namespace simt {
+
+// A batch stores one shared queue/Jetty context and one 128-byte publisher image in UB.
+constexpr uint32_t HCOMM_SIMT_BATCH_CONTEXT_BYTES = 128U;
+constexpr uint32_t HCOMM_SIMT_BATCH_ITEM_BYTES = 128U;
+
+constexpr uint32_t HcommSimtBatchBufferBytes(uint32_t itemCapacity)
+{
+    (void)itemCapacity;
+    return HCOMM_SIMT_BATCH_CONTEXT_BYTES + HCOMM_SIMT_BATCH_ITEM_BYTES;
+}
+
+} // namespace simt
+
 } // namespace AscendC
 
 #endif // INCLUDE_ADV_API_HCOMM_HCOMM_COMMON_H
