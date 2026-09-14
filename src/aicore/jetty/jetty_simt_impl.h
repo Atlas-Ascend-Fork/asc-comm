@@ -668,40 +668,11 @@ private:
         auto* info = Info();
         const uint32_t depth = info->sqDepth;
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
-        uint32_t activeSges = scalarSgeNum;
-        bool needsSgeCompaction = false;
-        uint32_t validMask = 0U;
-        uint64_t sgeIndexMap = 0U;
+        const uint32_t activeSges = scalarSgeNum;
         JettySge laneSge{};
         if constexpr (kOpcode == HcommPostOpcode::kWrite) {
             if constexpr (kWarpLane) {
                 laneSge = args.sges[0];
-                validMask = asc_ballot(
-                    lane < kSgeNum && IsValidSge(laneSge));
-                activeSges = static_cast<uint32_t>(__popc(validMask));
-                needsSgeCompaction = validMask != ((1U << kSgeNum) - 1U);
-                if (needsSgeCompaction) {
-                    uint32_t validOrdinal = 0U;
-#pragma unroll
-                    for (uint32_t i = 0U; i < kSgeNum; ++i) {
-                        if ((validMask & (1U << i)) != 0U) {
-                            sgeIndexMap |= static_cast<uint64_t>(i) << (validOrdinal * 4U);
-                            ++validOrdinal;
-                        }
-                    }
-                }
-            } else {
-                needsSgeCompaction = activeSges != kSgeNum;
-                if (needsSgeCompaction) {
-                    uint32_t validOrdinal = 0U;
-#pragma unroll
-                    for (uint32_t i = 0U; i < kSgeNum; ++i) {
-                        if (IsValidSge(args.sges[i])) {
-                            sgeIndexMap |= static_cast<uint64_t>(i) << (validOrdinal * 4U);
-                            ++validOrdinal;
-                        }
-                    }
-                }
             }
         }
         const uint32_t activePayloadWords = HCOMM_SIMT_SQE_HEADER_WORDS + activeSges * 2U;
@@ -727,16 +698,12 @@ private:
                 if constexpr (kWarpLane) {
                     // Every lane executes the shuffle, including header and padding
                     // lanes, so the warp follows one uniform data path.
-                    const uint32_t sourceLane = needsSgeCompaction
-                        ? static_cast<uint32_t>((sgeIndexMap >> (sge * 4U)) & 0xFU) : sge;
-                    sgeAddr = asc_shfl(laneSge.addr, static_cast<int>(sourceLane), HCOMM_SIMT_WARP_SIZE);
-                    sgeLen = asc_shfl(laneSge.len, static_cast<int>(sourceLane), HCOMM_SIMT_WARP_SIZE);
+                    sgeAddr = asc_shfl(laneSge.addr, static_cast<int>(sge), HCOMM_SIMT_WARP_SIZE);
+                    sgeLen = asc_shfl(laneSge.len, static_cast<int>(sge), HCOMM_SIMT_WARP_SIZE);
                 } else if (logicalWord >= HCOMM_SIMT_SQE_HEADER_WORDS &&
                            logicalWord < activePayloadWords) {
-                    const uint32_t sourceIndex = needsSgeCompaction
-                        ? static_cast<uint32_t>((sgeIndexMap >> (sge * 4U)) & 0xFU) : sge;
-                    sgeAddr = args.sges[sourceIndex].addr;
-                    sgeLen = args.sges[sourceIndex].len;
+                    sgeAddr = args.sges[sge].addr;
+                    sgeLen = args.sges[sge].len;
                 }
                 if (logicalWord == 0U) {
                     value = HCOMM_SIMT_WRITE_HEADER | sqIdx;
