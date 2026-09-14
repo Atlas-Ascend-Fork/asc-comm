@@ -97,7 +97,10 @@ public:
      * @return For ChannelHandle, the input handle itself. For MultiChannelHandle, its inner BatchHandle configured for
      *         the selected peer and remote registered-memory region.
      * @note For ChannelHandle, remote memory remains bound as selected by MakeBatchHandle. For MultiChannelHandle,
-     *       remote buffers used through the returned handle must use the token cached by this call.
+     *       repeated calls return the same inner handle and update its selected peer and remote-memory token. Add each
+     *       request immediately after its GetHandleRef call. Different requests in one batch may select different
+     *       logical channels, but all segments of one scatter/gather request use the selected channel and cannot span
+     *       channels.
      */
     template <typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline BatchHandle<T>& GetHandleRef(T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
@@ -136,6 +139,25 @@ public:
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+
+    /*!
+     * @brief Add a scatter/gather Write task to a batch handle. Data is gathered from srcDescs in array order and
+     *        written contiguously starting at dst.
+     * @tparam config: URMA task control config. Inline data is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
+     *                              one logical channel of a multi-channel batch.
+     * @param [out] dst: The remote destination base address. Source segments are written contiguously from this
+     *                   address in srcDescs order.
+     * @param [in] srcDescs: The local source buffer descriptor array.
+     * @param [in] srcNum: The number of elements in srcDescs.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note In multi-channel mode, the immediately preceding GetHandleRef call selects the logical channel for this
+     *       task. All source segments are sent through that channel and cannot span channels. The caller must provide
+     *       a valid descriptor array, payload addresses and lengths.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum);
 
     /*!
      * @class Hcomm
@@ -222,6 +244,28 @@ public:
         T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
 
     /*!
+     * @brief Add a scatter/gather Write-with-notify task to a batch handle. Data is gathered from srcDescs in array
+     *        order and written contiguously starting at dst.
+     * @tparam config: URMA task control config. Inline data is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
+     *                              one logical channel of a multi-channel batch.
+     * @param [out] dst: The remote destination base address. Source segments are written contiguously from this
+     *                   address in srcDescs order.
+     * @param [in] srcDescs: The local source buffer descriptor array.
+     * @param [in] srcNum: The number of elements in srcDescs.
+     * @param [in] notifyAddr: The remote notify address.
+     * @param [in] notifyVal: The remote notify value.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note In multi-channel mode, the immediately preceding GetHandleRef call selects the logical channel for this
+     *       task. All source segments and the notification use that channel and cannot span channels. The caller must
+     *       provide a valid descriptor array, payload/notify addresses and lengths.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t WriteWithNotifyNbi(
+        T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum, GM_ADDR notifyAddr, uint64_t notifyVal);
+
+    /*!
      * @class Hcomm
      * @brief @brief The task launching interface of the Fetch-and-add point-to-point communication operator.
      * @tparam T: The data type of the atomic operation. Only int32_t, uint32_t, int64_t, uint64_t is supported.
@@ -296,6 +340,25 @@ public:
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+
+    /*!
+     * @brief Add a scatter/gather Read task to a batch handle. Data is read contiguously starting at src and scattered
+     *        into dstDescs in array order.
+     * @tparam config: URMA task control config. Inline data is not supported.
+     * @tparam T: The protocol-specific batch handle type.
+     * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
+     *                              one logical channel of a multi-channel batch.
+     * @param [in] dstDescs: The local destination buffer descriptor array. The payload is scattered into these
+     *                       buffers in array order.
+     * @param [in] dstNum: The number of elements in dstDescs.
+     * @param [in] src: The remote source base address. The total payload is read contiguously from this address.
+     * @return 0 indicates success and -1 indicates failure.
+     * @note In multi-channel mode, the immediately preceding GetHandleRef call selects the logical channel for this
+     *       task. All destination segments receive data through that channel and cannot span channels. The caller must
+     *       provide a valid descriptor array, payload addresses and lengths.
+     */
+    template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
+    __aicore__ inline int32_t ReadNbi(T& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src);
 
     /*!
      * @class Hcomm

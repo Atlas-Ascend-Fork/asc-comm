@@ -17,8 +17,16 @@
 
 #include <cstdint>
 
+#include "kernel_basic_intf.h"
+
 namespace AscendC {
 using ChannelHandle = uint64_t;
+
+/** @brief Describes one local GM buffer segment for scatter/gather operations. */
+struct BufDesc {
+    GM_ADDR addr; ///< Start address of the local GM buffer segment.
+    uint32_t len; ///< Length of the segment in bytes.
+};
 
 /**
  * @brief 通信协议类型枚举
