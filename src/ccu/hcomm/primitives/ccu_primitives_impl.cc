@@ -183,6 +183,96 @@ CcuResult ccu_variable_shr_var_to_var(ccu_variable_handle res_var, ccu_variable_
     return CcuResult::CCU_SUCCESS;
 }
 
+CcuResult ccu_variable_sub_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_sub_var_to_var(res_var, var_a, var_b));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_mul_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_mul_var_to_var(res_var, var_a, var_b));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_add_imm_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, uint16_t immediate)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_add_imm_to_var(res_var, var_a, immediate));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_sub_imm_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, uint16_t immediate)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_sub_imm_to_var(res_var, var_a, immediate));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_mul_imm_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, uint16_t immediate)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_mul_imm_to_var(res_var, var_a, immediate));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_and_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_and_var_to_var(res_var, var_a, var_b));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_or_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_or_var_to_var(res_var, var_a, var_b));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_xor_var_to_var(ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_xor_var_to_var(res_var, var_a, var_b));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_variable_not_var(ccu_variable_handle res_var, ccu_variable_handle var_a)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->variable_not_var(res_var, var_a));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
 /*
 Address 相关接口
 */
@@ -568,6 +658,39 @@ CcuResult ccu_do_while_end(ccu_variable_handle var, uint64_t immediate, ccu_cond
     auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
     CCU_CHK_PTR_NULL(kernel);
     CCU_CHK_RET(kernel->do_while_end(var, immediate, cond_type, label));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_if_begin_var(
+    ccu_variable_handle lhs, ccu_variable_handle rhs, ccu_condition_type cond_type, const char* label)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->if_begin_var(lhs, rhs, cond_type, label));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_while_begin_var(
+    ccu_variable_handle lhs, ccu_variable_handle rhs, ccu_condition_type cond_type, const char* label)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->while_begin_var(lhs, rhs, cond_type, label));
+
+    return CcuResult::CCU_SUCCESS;
+}
+
+CcuResult ccu_do_while_end_var(
+    ccu_variable_handle lhs, ccu_variable_handle rhs, ccu_condition_type cond_type, const char* label)
+{
+    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    auto kernel = asc::ccu_kernel_mgr::get_instance(dev_logic_id).get_current_kernel();
+    CCU_CHK_PTR_NULL(kernel);
+    CCU_CHK_RET(kernel->do_while_end_var(lhs, rhs, cond_type, label));
 
     return CcuResult::CCU_SUCCESS;
 }

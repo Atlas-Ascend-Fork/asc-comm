@@ -56,6 +56,23 @@ extern CcuResult ccu_variable_assign_imm(ccu_variable_handle res_var, uint64_t i
 extern CcuResult ccu_variable_assign_var(ccu_variable_handle dst_var_handle, ccu_variable_handle src_var_handle);
 extern CcuResult ccu_variable_add_var_to_var(
     ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b);
+extern CcuResult ccu_variable_sub_var_to_var(
+    ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b);
+extern CcuResult ccu_variable_mul_var_to_var(
+    ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b);
+extern CcuResult ccu_variable_add_imm_to_var(
+    ccu_variable_handle res_var, ccu_variable_handle var_a, uint16_t immediate_);
+extern CcuResult ccu_variable_sub_imm_to_var(
+    ccu_variable_handle res_var, ccu_variable_handle var_a, uint16_t immediate_);
+extern CcuResult ccu_variable_mul_imm_to_var(
+    ccu_variable_handle res_var, ccu_variable_handle var_a, uint16_t immediate_);
+extern CcuResult ccu_variable_and_var_to_var(
+    ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b);
+extern CcuResult ccu_variable_or_var_to_var(
+    ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b);
+extern CcuResult ccu_variable_xor_var_to_var(
+    ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b);
+extern CcuResult ccu_variable_not_var(ccu_variable_handle res_var, ccu_variable_handle var_a);
 extern CcuResult ccu_variable_shl_var_to_var(
     ccu_variable_handle res_var, ccu_variable_handle var_a, ccu_variable_handle var_b);
 extern CcuResult ccu_variable_shr_var_to_var(
@@ -144,6 +161,13 @@ extern CcuResult ccu_while_end(const char* label_);
 extern CcuResult ccu_do_while_begin(const char* label_);
 extern CcuResult ccu_do_while_end(
     ccu_variable_handle var_, uint64_t immediate_, ccu_condition_type cond_type, const char* label_);
+
+extern CcuResult ccu_if_begin_var(
+    ccu_variable_handle lhs_, ccu_variable_handle rhs_, ccu_condition_type cond_type, const char* label_);
+extern CcuResult ccu_while_begin_var(
+    ccu_variable_handle lhs_, ccu_variable_handle rhs_, ccu_condition_type cond_type, const char* label_);
+extern CcuResult ccu_do_while_end_var(
+    ccu_variable_handle lhs_, ccu_variable_handle rhs_, ccu_condition_type cond_type, const char* label_);
 
 /* ========== 函数调用操作 ========== */
 extern CcuResult ccu_func_block_lookup(const void* func_ptr, uint64_t* out_handle);
