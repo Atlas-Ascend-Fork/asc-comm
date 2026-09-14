@@ -675,7 +675,9 @@ private:
                 laneSge = args.sges[0];
             }
         }
-        const uint32_t activePayloadWords = HCOMM_SIMT_SQE_HEADER_WORDS + activeSges * 2U;
+        constexpr uint32_t kWarpPayloadWords = HCOMM_SIMT_SQE_HEADER_WORDS + kSgeNum * 2U;
+        const uint32_t activePayloadWords = kWarpLane ? kWarpPayloadWords :
+            HCOMM_SIMT_SQE_HEADER_WORDS + activeSges * 2U;
 
         // A warp maps one lane to one SQE word. Scalar producers walk the same layout
         // serially because they have no cooperating lanes.
@@ -693,23 +695,20 @@ private:
                 const uint32_t sge = logicalWord >= HCOMM_SIMT_SQE_HEADER_WORDS &&
                         logicalWord < activePayloadWords
                     ? (logicalWord - HCOMM_SIMT_SQE_HEADER_WORDS) / 2U : 0U;
-                uint64_t sgeAddr = 0U;
-                int sgeLen = 0;
-                if constexpr (kWarpLane) {
-                    // Every lane executes the shuffle, including header and padding
-                    // lanes, so the warp follows one uniform data path.
-                    sgeAddr = asc_shfl(laneSge.addr, static_cast<int>(sge), HCOMM_SIMT_WARP_SIZE);
-                    sgeLen = asc_shfl(laneSge.len, static_cast<int>(sge), HCOMM_SIMT_WARP_SIZE);
-                } else if (logicalWord >= HCOMM_SIMT_SQE_HEADER_WORDS &&
-                           logicalWord < activePayloadWords) {
-                    sgeAddr = args.sges[sge].addr;
-                    sgeLen = args.sges[sge].len;
-                }
                 if (logicalWord == 0U) {
                     value = HCOMM_SIMT_WRITE_HEADER | sqIdx;
                 } else if (logicalWord < HCOMM_SIMT_SQE_HEADER_WORDS) {
                     value = detail::PeerWord(peer.Info(), logicalWord, activeSges, args.dst);
                 } else if (logicalWord < activePayloadWords) {
+                    uint64_t sgeAddr = 0U;
+                    int sgeLen = 0;
+                    if constexpr (kWarpLane) {
+                        sgeAddr = asc_shfl(laneSge.addr, static_cast<int>(sge), HCOMM_SIMT_WARP_SIZE);
+                        sgeLen = asc_shfl(laneSge.len, static_cast<int>(sge), HCOMM_SIMT_WARP_SIZE);
+                    } else {
+                        sgeAddr = args.sges[sge].addr;
+                        sgeLen = args.sges[sge].len;
+                    }
                     value = (logicalWord & 1U) == 0U
                         ? static_cast<uint64_t>(sgeLen) : sgeAddr;
                 } else if constexpr (kWarpLane) {
