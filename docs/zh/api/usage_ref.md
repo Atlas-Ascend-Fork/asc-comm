@@ -8,5 +8,5 @@
 
 ## 样例代码
 
-- [AIV直驱URMA WriteNbi/ReadNbi样例](../../../examples/hcomm_write_read_nbi/README.md)：展示如何在AIV Kernel中通过Hcomm的WriteNbi/ReadNbi接口实现NPU间低时延点对点通信，包含Host侧通信域创建、通道建立及Kernel侧Init → WriteNbi/ReadNbi → Drain的完整流程，支持Ascend 950PR/Ascend 950DT多卡环形拓扑。
-- [Ain Basic Ring样例](../../../examples/ain/basic_ring/README.md)：展示如何通过AIN接口在AIV Kernel中实现多rank环形通信，包括Put写入对端window、Get读取对端window、Flush等待通信完成及AinBarrierSession::Sync同步，支持Ascend 950PR/Ascend 950DT单机多卡场景。
+- [AIV直驱URMA WriteNbi/ReadNbi样例](../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)：展示如何在AIV Kernel中通过Hcomm的WriteNbi/ReadNbi接口实现NPU间低时延点对点通信，包含Host侧通信域创建、通道建立及Kernel侧Init → WriteNbi/ReadNbi → Drain的完整流程，支持Ascend 950PR/Ascend 950DT多卡环形拓扑。
+- [Ain Basic Ring样例](../../../examples/aicore/ain/01_basic_ring/README.md)：展示如何通过AIN接口在AIV Kernel中实现多rank环形通信，包括Put写入对端window、Get读取对端window、Flush等待通信完成及AinBarrierSession::Sync同步，支持Ascend 950PR/Ascend 950DT单机多卡场景。
