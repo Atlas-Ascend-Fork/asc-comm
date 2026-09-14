@@ -33,6 +33,7 @@ constexpr uint32_t HCOMM_URMA_DWQE_SIZE = 128U;
 constexpr uint32_t HCOMM_URMA_WQE_BB_SIZE = 64U;
 constexpr uint32_t HCOMM_URMA_WQE_BB_CNT = 1U;
 constexpr uint32_t HCOMM_URMA_DWQE_BB_CNT = HCOMM_URMA_DWQE_SIZE / HCOMM_URMA_WQE_BB_SIZE;
+// Shared bounded retry budget for SIMT CQ polling paths.
 constexpr uint32_t HCOMM_SIMT_MAX_CQ_RETRY = 1000000U;
 
 // The SQE fields one post needs, read from the channel and SQ contexts by ResolvePost.
