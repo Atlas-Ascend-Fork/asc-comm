@@ -133,11 +133,7 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
     uint64_t commitEnd = writeEnd;
     if constexpr (kStandaloneWrite) {
         jetty.AdvanceSq(coop);
-        coop.sync();
-        if (coop.thread_rank() == 0) {
-            jetty.PublishSq();
-        }
-        coop.sync();
+        jetty.PublishSq(coop);
         if constexpr (kMeasure) {
             commitEnd = clock();
         }
@@ -187,12 +183,8 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
         channel, sendBufIdx, recvBufIdx, warp, peer, jetty, writeCycles);
     if constexpr (kPublish) {
         const uint64_t commitBegin = kMeasure ? clock() : 0U;
-        jetty.Commit(group);
-        group.sync();
-        if (group.thread_rank() == 0) {
-            jetty.PublishSq();
-        }
-        group.sync();
+        jetty.AdvanceSq(group);
+        jetty.PublishSq(group);
         if constexpr (kMeasure) {
             commitCycles += clock() - commitBegin;
         }
@@ -433,11 +425,10 @@ extern "C" __global__ __mix__(1, 1) void SimtJettyWriteMixed(
         asm volatile("nop");
     }
 
-    const uint64_t doorbellAddr = ub_layout->jetty_info.sqDoorbellAddr;
-    const uint32_t publishedHead = static_cast<uint32_t>(ub_layout->jetty_info.packedHead);
-    if (doorbellAddr != 0U) {
-        AscendC::WriteGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(doorbellAddr), publishedHead);
-    }
+    AscendC::HcommJetty simd_jetty(
+        reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(&ub_layout->jetty_info),
+        nullptr, jettyPtrTable, 0);
+    simd_jetty.PublishSq();
 }
 
 void LaunchSimtJetty(

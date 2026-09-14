@@ -1,9 +1,8 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  *
- * Public SIMT Jetty entry point.  The device implementation lives under the
- * internal hcomm implementation tree so SIMD and SIMT public headers remain
- * separate while sharing the same UB metadata ABI.
+ * Public SIMT Jetty entry point. The device implementation is shared from the
+ * Jetty implementation tree while SIMD and SIMT public headers remain separate.
  */
 #ifndef INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_SIMT_H
 #define INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_SIMT_H
@@ -16,8 +15,8 @@
 namespace AscendC::simt::jetty {
 
 /**
- * Public SIMT Jetty API. A call to Write commits by default; use
- * kDoCommit=false for a group of posts followed by Commit or AdvanceSq.
+ * Public SIMT Jetty API. A call to Write publishes by default; use
+ * kDoCommit=false for a group of posts followed by AdvanceSq and PublishSq.
  */
 class HcommJetty {
 public:
@@ -40,10 +39,10 @@ public:
 
     __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* Info() const { return impl_.Info(); }
 
-    template <uint32_t kMaxSges, bool kDoCommit = true, typename Coop = HcommCoopThread>
+    template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
     __simt_callee__ __forceinline__ int32_t Write(
         const HcommPeer& peer, __gm__ void* dst, const JettySge* sges, const Coop& coop = Coop{}) const
-    { return impl_.template Write<kMaxSges, kDoCommit>(peer, dst, sges, coop); }
+    { return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, sges, coop); }
     template <int64_t kTimeout, typename T, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t WriteValue(
         const HcommPeer& peer, __gm__ void* dst, T value)
@@ -54,9 +53,6 @@ public:
         __gm__ void* notifyAddr, uint64_t notifyValue)
     { return impl_.template WriteWithNotify<kTimeout, kDoCommit>(peer, dst, src, len, notifyAddr, notifyValue); }
 
-    template <typename Coop>
-    __simt_callee__ __forceinline__ void Commit(const Coop& coop) const { impl_.Commit(coop); }
-    __simt_callee__ __forceinline__ void Commit() const { impl_.Commit(); }
     __simt_callee__ __forceinline__ void AdvanceSq() const { impl_.AdvanceSq(); }
     template <typename Coop>
     __simt_callee__ __forceinline__ void AdvanceSq(const Coop& coop) const { impl_.AdvanceSq(coop); }
@@ -64,6 +60,8 @@ public:
     __simt_callee__ __forceinline__ void AdvanceSq(
         const Coop& coop, uint32_t a, uint32_t b) const { impl_.AdvanceSq(coop, a, b); }
     __simt_callee__ __forceinline__ void PublishSq() const { impl_.PublishSq(); }
+    template <typename Coop>
+    __simt_callee__ __forceinline__ void PublishSq(const Coop& coop) const { impl_.PublishSq(coop); }
 
     template <int64_t kTimeout>
     __simt_callee__ __forceinline__ int32_t Drain() const { return impl_.template Drain<kTimeout>(); }

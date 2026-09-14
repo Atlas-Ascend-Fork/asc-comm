@@ -15,6 +15,6 @@
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_SIMT_JETTY_IMPL_H
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_SIMT_JETTY_IMPL_H
 
-#include "platform_v310/hcomm_simt_jetty_impl.h"
+#include "../../jetty/jetty_simt_impl.h"
 
 #endif

@@ -8,14 +8,14 @@ workspace。SGE 模板参数在编译时配置，范围为 1 到 12；地址或�
 SGE 压紧，未使用的 WQEBB 使用 NOP 对齐。
 
 同一个 channel 的并发 `Write` 必须在同一组同步中完成，并在所有参与 warp 完成后由 group leader
-统一调用 `Commit`。`Write` 默认立即提交；使用 `Write<N, false>` 时只构造 WQE，等待显式
-`Commit`。所有 lane 构造 `HcommJetty` 后、任一 warp 开始 `Write` 前必须先做一次
-group 同步；dispatch 样例中每个 warp 生成一个含 12 个有效
-SGE 的 4BB WQE，再由 group 统一 Commit 和 PublishSq。
+统一调用 `AdvanceSq` 和 `PublishSq`。`Write` 默认立即发布；使用 `Write<N, false>` 时只构造
+WQE，等待显式 `AdvanceSq` 和 `PublishSq`。所有 lane 构造 `HcommJetty` 后、任一 warp 开始
+`Write` 前必须先做一次 group 同步；dispatch 样例中每个 warp 生成一个含 12 个有效 SGE 的
+4BB WQE，再由 group 统一 AdvanceSq 和 PublishSq。
 
-立即 `Write` 按 payload 大小生成对应数量的 WQEBB，并在一次调用内由同一份 WQE 数据双写 SQ 和
-DWQE，不从 SQ 回读。`thread / warp / group` 验证该路径；`dispatch` 单独验证多 warp 的
-`Write + Commit` 路径。
+立即 `Write` 按 payload 大小生成对应数量的 WQEBB 写入 SQ，随后通过两 BB NOP DWQE 发布已
+完成的 SQ 内容。`thread / warp / group` 验证该路径；`dispatch` 单独验证多 warp 的 `Write +
+AdvanceSq + PublishSq` 路径。
 
 `mixed` 使用 DeepEP 风格的 `__global__ __mix__` 入口：SIMT VF 只组织并完成 SQ，随后由 SIMD/AIV
 主体读取共享 SQ head 并通过普通 doorbell 发布。SIMD 和 SIMT 共享同一个 80B 元数据对象。
@@ -97,7 +97,7 @@ bash run.sh 2 all --iterations 100
 ## 性能测试
 
 `perf.sh` 使用设备侧 `clock()` 打点。性能循环单独调用 `Write` 组 WQE，在 `Write` 返回后记录
-`write_cycles`，再调用 `Commit` 并单独记录 `commit_cycles`，最后在 `Drain` 返回后记录完整完成
+`write_cycles`，再调用 `AdvanceSq` 和 `PublishSq` 并单独记录 `commit_cycles`，最后在 `Drain` 返回后记录完整完成
 耗时 `completion_cycles`。因此 `average_write_us` 不包含 commit 时间。默认 warmup 100 次，随后
 计时 1000 次。每个 warmup/计时样本单独 launch 一个 kernel，与压力测试使用相同的执行边界；
 每轮都会 Drain，确保 SQ tail 持续推进。host launch 和同步时间不计入上述设备周期：
