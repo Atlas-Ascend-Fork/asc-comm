@@ -29,35 +29,40 @@
 
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 
-CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle, HcommCcuRegisterContextHandle context_handle)
+CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle, HcommCcuInstanceHandle instance_handle)
 {
-    CCU_CHK_PTR_NULL(context_handle);
-    const auto* context = reinterpret_cast<const HcommCcuRegisterContextPod*>(context_handle);
-    if (context->instanceHandle != 0 && context->instanceHandle != ins_handle) {
+    CCU_CHK_PTR_NULL(instance_handle);
+    const auto* instance = reinterpret_cast<const HcommCcuInstance*>(instance_handle);
+    if (ins_handle.ccuInsPtr != nullptr && ins_handle.ccuInsPtr != instance) {
         HCCL_ERROR(
-            "[%s] failed, context instanceHandle[%llu] mismatches input insHandle[%llu].", __func__,
-            static_cast<unsigned long long>(context->instanceHandle), static_cast<unsigned long long>(ins_handle));
+            "[%s] failed, insHandle.ccuInsPtr[%p] mismatches instance[%p].", __func__, ins_handle.ccuInsPtr,
+            static_cast<const void*>(instance));
         return CcuResult::CCU_E_PARA;
     }
+    // Instance 不再携带设备号（定档口径）：以当前线程设备定位 per-device registry/kernel mgr
+    const int32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    if (dev_logic_id < 0) {
+        HCCL_ERROR("[%s] failed, current thread has no device set.", __func__);
+        return CcuResult::CCU_E_UNAVAIL;
+    }
     asc::ccu_kernel_registry* ccu_ins = nullptr;
-    CCU_CHK_RET(asc::ccu_kernel_registry_mgr::get_instance(context->deviceLogicId)
-                    .get_or_create(context->deviceLogicId, ins_handle, ccu_ins));
+    CCU_CHK_RET(
+        asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get_or_create(dev_logic_id, ins_handle, ccu_ins));
     CCU_CHK_PTR_NULL(ccu_ins);
     CCU_CHK_RET(ccu_ins->begin_register());
 
-    CcuResult ret = ccu_ins->load_register_context(*context);
+    CcuResult ret = ccu_ins->load_register_context(*instance);
     if (ret == CcuResult::CCU_SUCCESS) {
         auto* res_snapshot = ccu_ins->get_res_snapshot();
         CCU_CHK_PTR_NULL(res_snapshot);
-        ret = asc::ccu_kernel_mgr::get_instance(context->deviceLogicId).configure(*res_snapshot);
+        ret = asc::ccu_kernel_mgr::get_instance(dev_logic_id).configure(*res_snapshot);
     }
     if (ret != CcuResult::CCU_SUCCESS) {
         (void)ccu_ins->end_register();
         HCCL_ERROR("[%s] failed to load register context, ret[%d].", __func__, ret);
         return ret;
     }
-    asc::set_current_ccu_device_logic_id(context->deviceLogicId);
-    asc::set_current_ccu_control_ops(ccu_ins->get_res_snapshot()->get_control_ops());
+    asc::set_current_ccu_control_ops(instance->ascCustom); // 定档槽位数组（槽 0-2）
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -400,8 +405,9 @@ static CcuResult ccu_alloc_var_event_res(
     auto* res_pack = ccu_ins->get_res_snapshot();
     CCU_CHK_PTR_NULL(res_pack);
 
-    CCU_CHK_RET(asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
-                    .acquire(ins_handle, res_pack->get_ccu_res_repo(), type, die_id, num, out_handle));
+    CCU_CHK_RET(
+        asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
+            .acquire(ins_handle, res_pack->get_ccu_res_repo(), type, die_id, num, out_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -427,8 +433,9 @@ CcuResult asccomm_ccu_variable_get_addr(ccu_variable_handle var_handle, uint32_t
     CCU_CHK_PTR_NULL(va);
 
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
-    CCU_CHK_RET(asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
-                    .get_saved_addr(asc::ccu_var_event_type::variable, var_handle, index, *va));
+    CCU_CHK_RET(
+        asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
+            .get_saved_addr(asc::ccu_var_event_type::variable, var_handle, index, *va));
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -438,8 +445,9 @@ CcuResult asccomm_ccu_event_get_addr(ccu_event_handle event_handle, uint32_t ind
     CCU_CHK_PTR_NULL(va);
 
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
-    CCU_CHK_RET(asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
-                    .get_saved_addr(asc::ccu_var_event_type::event, event_handle, index, *va));
+    CCU_CHK_RET(
+        asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
+            .get_saved_addr(asc::ccu_var_event_type::event, event_handle, index, *va));
 
     return CcuResult::CCU_SUCCESS;
 }
