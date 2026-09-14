@@ -112,15 +112,15 @@ CcuResult CcuLoadStoreDemoKernel(ccu_kernel_arg arg)
     srcAddr = 0x30000000;
     dst_addr = 0x40000000;
     ccu::load(0x10000000, var_a_);
-    ccu::Store(0x20000000, var_b_);
+    ccu::store(0x20000000, var_b_);
     ccu::load(srcAddr, var_a_);
-    ccu::Store(dst_addr, var_b_);
+    ccu::store(dst_addr, var_b_);
     ccu::array<ccu::variable> varArr(2);
     ccu::array<ccu::variable> varArr2(2);
     ccu::load(0x10000000, varArr, 2);
-    ccu::Store(0x20000000, varArr2, 2);
+    ccu::store(0x20000000, varArr2, 2);
     ccu::load(srcAddr, varArr, 2);
-    ccu::Store(dst_addr, varArr2, 2);
+    ccu::store(dst_addr, varArr2, 2);
     return CcuResult::CCU_SUCCESS;
 }
 CcuResult CcuNotifyDemoKernel(ccu_kernel_arg arg)
