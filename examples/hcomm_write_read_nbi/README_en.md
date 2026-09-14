@@ -44,7 +44,7 @@ On the Ascend 950 series, the communication domain must be created in a multi-pr
 3. **Register Communication Memory**: Call `HcclCommMemReg` to register the local communication buffer with the communication domain. This memory information is automatically exchanged with the peer during channel creation.
 4. **Build the TCP Ring Topology**: Each rank listens on `BASE_PORT + rank`, actively connects to `next = (rank + 1) % nranks`, and accepts the connection from `prev = (rank - 1 + nranks) % nranks`. This ring is used for Host-side barriers after RootInfo exchange, ensuring that all ranks advance through key phases together.
 5. **Obtain Link Endpoints**: Use `HcclRankGraphGetLayers` and `HcclRankGraphGetLinks` to obtain physical link endpoint information from the local rank to both `prev` and `next`.
-6. **Acquire P2P Channels (AIV Direct-Drive)**: Call `HcclChannelAcquire` to create P2P channels to neighboring ranks. Specify `COMM_ENGINE_AIV` as the engine and `COMM_PROTOCOL_UBC_CTP` as the URMA protocol, and pass the memory handles to be exchanged.
+6. **Acquire P2P Channels (AIV Direct-Drive)**: Call `HcclChannelAcquire` to create P2P channels to neighboring ranks. Specify `COMM_ENGINE_AIV` as the engine and `COMM_PROTOCOL_UB_CTP` as the URMA protocol, and pass the memory handles to be exchanged.
 7. **Obtain Remote Memory Address**: Call `HcclChannelGetRemoteMems` to retrieve the memory addresses registered by neighboring ranks, which serve as remote target addresses for `WriteNbi`/`ReadNbi` in the Kernel.
 8. **Download Context**: The Host pre-initializes seg0 (filling it with a pseudo-random pattern based on `rankId`), encapsulates the `ChannelHandle` and buffer addresses into `CommContext`, and downloads it to the GM of each card.
 
@@ -63,7 +63,7 @@ HcclRankGraphGetLinks(comm, layerId, rank, peerRank, &links, &linkNum);
 
 // 4. Acquire AIV Direct-Drive URMA P2P Channel
 channelDesc.remoteRank = peerRank;
-channelDesc.channelProtocol = COMM_PROTOCOL_UBC_CTP; // URMA protocol
+channelDesc.channelProtocol = COMM_PROTOCOL_UB_CTP; // URMA protocol
 channelDesc.memHandles = &memHandle;
 channelDesc.memHandleNum = 1;
 HcclChannelAcquire(comm, COMM_ENGINE_AIV, &channelDesc, 1, &channel); // Specify COMM_ENGINE_AIV

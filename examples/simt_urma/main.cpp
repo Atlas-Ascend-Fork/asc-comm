@@ -67,8 +67,8 @@ struct PeerRankCtx {
 constexpr uint32_t kBarrierWaitSeconds = 60;
 constexpr uint32_t kBarrierPollMs = 100;
 
-// SIMT接口只在UBC_CTP/URMA协议上实现，其余链路协议无对应实现。
-constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UBC_CTP;
+// SIMT接口只在UB_CTP/URMA协议上实现，其余链路协议无对应实现。
+constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UB_CTP;
 
 // 两块内存注册到通信域时使用的tag。两个rank使用相同tag，远端内存才能按tag查回。
 constexpr const char* kSendBufTag = "simtUrmaSendBuf";
@@ -333,7 +333,7 @@ HcclResult AcquirePeerChannel(
         }
     }
     if (!linkFound) {
-        std::cout << "[rank " << rank << "] no UBC_CTP link to peer " << peer.rankId
+        std::cout << "[rank " << rank << "] no UB_CTP link to peer " << peer.rankId
                   << ", SIMT URMA interfaces require the URMA path" << std::endl;
         return HCCL_E_NOT_SUPPORT;
     }
