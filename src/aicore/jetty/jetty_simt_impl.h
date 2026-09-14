@@ -668,7 +668,10 @@ private:
         auto* info = Info();
         const uint32_t depth = info->sqDepth;
         auto* sq = reinterpret_cast<__gm__ uint64_t*>(info->sqBaseAddr);
-        const uint32_t activeSges = scalarSgeNum;
+        uint32_t activeSges = scalarSgeNum;
+        if constexpr (kWarpLane) {
+            activeSges = kSgeNum;
+        }
         JettySge laneSge{};
         if constexpr (kOpcode == HcommPostOpcode::kWrite) {
             if constexpr (kWarpLane) {
@@ -695,26 +698,29 @@ private:
                 const uint32_t sge = logicalWord >= HCOMM_SIMT_SQE_HEADER_WORDS &&
                         logicalWord < activePayloadWords
                     ? (logicalWord - HCOMM_SIMT_SQE_HEADER_WORDS) / 2U : 0U;
+                uint64_t sgeAddr = 0U;
+                int sgeLen = 0;
+                if constexpr (kWarpLane) {
+                    // Every lane executes the shuffle, including header and padding
+                    // lanes, so the warp follows one uniform data path.
+                    sgeAddr = asc_shfl(laneSge.addr, static_cast<int>(sge), HCOMM_SIMT_WARP_SIZE);
+                    sgeLen = asc_shfl(laneSge.len, static_cast<int>(sge), HCOMM_SIMT_WARP_SIZE);
+                } else if (logicalWord >= HCOMM_SIMT_SQE_HEADER_WORDS &&
+                           logicalWord < activePayloadWords) {
+                    sgeAddr = args.sges[sge].addr;
+                    sgeLen = args.sges[sge].len;
+                }
                 if (logicalWord == 0U) {
                     value = HCOMM_SIMT_WRITE_HEADER | sqIdx;
                 } else if (logicalWord < HCOMM_SIMT_SQE_HEADER_WORDS) {
                     value = detail::PeerWord(peer.Info(), logicalWord, activeSges, args.dst);
                 } else if (logicalWord < activePayloadWords) {
-                    uint64_t sgeAddr = 0U;
-                    int sgeLen = 0;
-                    if constexpr (kWarpLane) {
-                        sgeAddr = asc_shfl(laneSge.addr, static_cast<int>(sge), HCOMM_SIMT_WARP_SIZE);
-                        sgeLen = asc_shfl(laneSge.len, static_cast<int>(sge), HCOMM_SIMT_WARP_SIZE);
-                    } else {
-                        sgeAddr = args.sges[sge].addr;
-                        sgeLen = args.sges[sge].len;
-                    }
                     value = (logicalWord & 1U) == 0U
                         ? static_cast<uint64_t>(sgeLen) : sgeAddr;
                 } else if constexpr (kWarpLane) {
                     if (logicalWord < kTotalWords &&
                         logicalWord % HCOMM_SIMT_WQEBB_LANES == 0U &&
-                        kWqebbCount > (activePayloadWords + HCOMM_SIMT_WQEBB_LANES - 1U) /
+                        kWqebbCount > (kWarpPayloadWords + HCOMM_SIMT_WQEBB_LANES - 1U) /
                             HCOMM_SIMT_WQEBB_LANES) {
                         value = HCOMM_SIMT_NOP_HEADER | sqIdx;
                     }
