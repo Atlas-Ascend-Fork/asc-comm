@@ -28,31 +28,43 @@
 
 #define CCU_WHILE_EXPAND(expr, uid) CCU_WHILE_IMPL(expr, uid)
 
-#define CCU_WHILE_IMPL(expr, uid)                                                                                      \
-    for (::AscendC::ccu::cond_expr uid##_ce = (expr), *uid##_p = &uid##_ce; uid##_p != nullptr; uid##_p = nullptr)     \
-        for (const char *uid##_dwLbl = ::asc::ccu_do_while_stack_pop_for_while(), *uid##_sen = (const char*)1;         \
-             uid##_sen != nullptr; uid##_sen = nullptr)                                                                \
-            for (int uid##_rc = (uid##_dwLbl != nullptr) ?                                                             \
-                                    (int)CCU_SUCCESS :                                                                 \
-                                    (int)::asc::ccu_while_begin(                                                       \
-                                        uid##_ce.var_->handle, uid##_ce.imm, uid##_ce.cond, CCU_LABEL(uid)),           \
-                     uid##_done = 0;                                                                                   \
-                 uid##_rc == (int)CCU_SUCCESS && !uid##_done;                                                          \
-                 uid##_done = 1, uid##_rc = (uid##_dwLbl != nullptr) ?                                                 \
-                                                (int)::asc::ccu_do_while_end(                                          \
-                                                    uid##_ce.var_->handle, uid##_ce.imm, uid##_ce.cond, uid##_dwLbl) : \
-                                                (int)::asc::ccu_while_end(CCU_LABEL(uid)))
+#define CCU_WHILE_IMPL(expr, uid)                                                                                     \
+    for (::AscendC::ccu::cond_expr uid##_ce = (expr), *uid##_p = &uid##_ce; uid##_p != nullptr; uid##_p = nullptr)    \
+        for (const char *uid##_dwLbl = ::asc::ccu_do_while_stack_pop_for_while(), *uid##_sen = (const char*)1;        \
+             uid##_sen != nullptr; uid##_sen = nullptr)                                                               \
+            for (int uid##_rc =                                                                                       \
+                     (uid##_dwLbl != nullptr) ?                                                                       \
+                         (int)CCU_SUCCESS :                                                                           \
+                         (uid##_ce.is_var_compare ?                                                                   \
+                              (int)::asc::ccu_while_begin_var(                                                        \
+                                  uid##_ce.var_->handle, uid##_ce.rhs_var_->handle, uid##_ce.cond, CCU_LABEL(uid)) :  \
+                              (int)::asc::ccu_while_begin(                                                            \
+                                  uid##_ce.var_->handle, uid##_ce.imm, uid##_ce.cond, CCU_LABEL(uid))),               \
+                     uid##_done = 0;                                                                                  \
+                 uid##_rc == (int)CCU_SUCCESS && !uid##_done;                                                         \
+                 uid##_done = 1,                                                                                      \
+                     uid##_rc =                                                                                       \
+                         (uid##_dwLbl != nullptr) ?                                                                   \
+                             (uid##_ce.is_var_compare ?                                                               \
+                                  (int)::asc::ccu_do_while_end_var(                                                   \
+                                      uid##_ce.var_->handle, uid##_ce.rhs_var_->handle, uid##_ce.cond, uid##_dwLbl) : \
+                                  (int)::asc::ccu_do_while_end(                                                       \
+                                      uid##_ce.var_->handle, uid##_ce.imm, uid##_ce.cond, uid##_dwLbl)) :             \
+                             (int)::asc::ccu_while_end(CCU_LABEL(uid)))
 
 #define CCU_IF(expr) CCU_IF_EXPAND(expr, CCU_CONCAT(__ccu_if_, __COUNTER__))
 
 #define CCU_IF_EXPAND(expr, uid) CCU_IF_IMPL(expr, uid)
 
-#define CCU_IF_IMPL(expr, uid)                                                                                     \
-    for (::AscendC::ccu::cond_expr uid##_ce = (expr), *uid##_p = &uid##_ce; uid##_p != nullptr; uid##_p = nullptr) \
-        for (int uid##_rc =                                                                                        \
-                 (int)::asc::ccu_if_begin(uid##_ce.var_->handle, uid##_ce.imm, uid##_ce.cond, CCU_LABEL(uid)),     \
-                 uid##_done = (uid##_rc == (int)CCU_SUCCESS ? (::asc::ccu_if_stack_push(CCU_LABEL(uid)), 0) : 1);  \
-             uid##_rc == (int)CCU_SUCCESS && uid##_done == 0;                                                      \
+#define CCU_IF_IMPL(expr, uid)                                                                                       \
+    for (::AscendC::ccu::cond_expr uid##_ce = (expr), *uid##_p = &uid##_ce; uid##_p != nullptr; uid##_p = nullptr)   \
+        for (int uid##_rc =                                                                                          \
+                 (uid##_ce.is_var_compare ?                                                                          \
+                      (int)::asc::ccu_if_begin_var(                                                                  \
+                          uid##_ce.var_->handle, uid##_ce.rhs_var_->handle, uid##_ce.cond, CCU_LABEL(uid)) :         \
+                      (int)::asc::ccu_if_begin(uid##_ce.var_->handle, uid##_ce.imm, uid##_ce.cond, CCU_LABEL(uid))), \
+                 uid##_done = (uid##_rc == (int)CCU_SUCCESS ? (::asc::ccu_if_stack_push(CCU_LABEL(uid)), 0) : 1);    \
+             uid##_rc == (int)CCU_SUCCESS && uid##_done == 0;                                                        \
              uid##_done = 1, ((void)::asc::ccu_flush_pending_ifs(), ::asc::ccu_if_stack_mark_body_done(), (void)0))
 
 #define CCU_ELSE CCU_ELSE_EXPAND(CCU_CONCAT(__ccu_el_, __COUNTER__))
