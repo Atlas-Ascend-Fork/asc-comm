@@ -79,18 +79,32 @@ public:
             "address::operator=(Var+Addr): ccu_address_add_var_to_addr failed");
     }
 
-    // addr_ + addr_
+    void operator=(detail::ccu_arithmetic_operator<address, uint16_t> op) const
+    {
+        CCU_THROW_IF_FAILED(
+            ::asc::ccu_address_add_imm_to_addr(this->handle, op.lhs.handle, op.rhs),
+            "address::operator=(Addr+Imm): ccu_address_add_imm_to_addr failed");
+    }
+
+    // address + address
     detail::ccu_arithmetic_operator<address, address> operator+(const address& that) const
     {
         return detail::ccu_arithmetic_operator<address, address>(
             *this, that, detail::ccu_arithmetic_operator_type::addition);
     }
 
-    // addr_ + variable
+    // address + variable
     detail::ccu_arithmetic_operator<address, variable> operator+(const variable& var_) const
     {
         return detail::ccu_arithmetic_operator<address, variable>(
             *this, var_, detail::ccu_arithmetic_operator_type::addition);
+    }
+
+    // address + immediate
+    detail::ccu_arithmetic_operator<address, uint16_t> operator+(const uint16_t imm_) const
+    {
+        return detail::ccu_arithmetic_operator<address, uint16_t>(
+            *this, imm_, detail::ccu_arithmetic_operator_type::addition);
     }
 
     void operator+=(const variable& var_) const
@@ -100,7 +114,7 @@ public:
             "address::operator+=(variable): ccu_address_add_assign_var failed");
     }
 
-    // addr_ += addr_
+    // address += address
     void operator+=(const address& other) const
     {
         CCU_THROW_IF_FAILED(
@@ -118,7 +132,7 @@ private:
     friend class remote_addr;
 };
 
-// variable + addr_（交换律）
+// variable + address（交换律）
 inline detail::ccu_arithmetic_operator<variable, address> operator+(const variable& var_, const address& addr_)
 {
     return detail::ccu_arithmetic_operator<variable, address>(
@@ -136,6 +150,9 @@ inline void AscendC::ccu::detail::ccu_arithmetic_operator<AscendC::ccu::address,
 {}
 template <>
 inline void AscendC::ccu::detail::ccu_arithmetic_operator<AscendC::ccu::variable, AscendC::ccu::address>::check() const
+{}
+template <>
+inline void AscendC::ccu::detail::ccu_arithmetic_operator<AscendC::ccu::address, uint16_t>::check() const
 {}
 
 #endif // CCU_ADDRESS_HPP
