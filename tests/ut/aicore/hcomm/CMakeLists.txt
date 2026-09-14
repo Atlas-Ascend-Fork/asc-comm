@@ -80,6 +80,14 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
             HcommRoCETestSuite.Init_WriteNbi_Drain
             HcommRoCETestSuite.Init_WriteWithNotifyNbi
         )
+    elseif(target_name MATCHES "jetty")
+        set(test_filters
+            HcommJettyTestSuite.Aiv_Jetty_PeerResolvesRemoteMetadata
+            HcommJettyTestSuite.Aiv_Jetty_InfoSplitsPackedHead
+            HcommJettyTestSuite.Aiv_Jetty_AdvanceSqAndRingDoorbell
+            HcommJettyTestSuite.Aiv_Jetty_AdvanceSqWrapsHead
+            HcommJettyTestSuite.Aiv_Jetty_DrainNoPendingCompletions
+        )
     elseif(target_name MATCHES "urma")
         set(test_filters
             HcommUrmaTestSuite.Aiv_Urma_LockUnlock
@@ -144,6 +152,12 @@ foreach(product_type ${PRODUCT_TYPE_LIST})
             ascend950pr_9599_AIV
             Ascend950PR_9599
             test_hcomm_urma_950.cpp
+        )
+        add_hcomm_ut(
+            asccomm_ut_hcomm_ascend950pr_9599_AIV_jetty
+            ascend950pr_9599_AIV
+            Ascend950PR_9599
+            test_hcomm_jetty_950.cpp
         )
     endif()
 endforeach()
