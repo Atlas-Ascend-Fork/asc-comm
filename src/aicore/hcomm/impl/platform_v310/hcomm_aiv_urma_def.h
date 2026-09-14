@@ -69,7 +69,7 @@ struct UdmaParams {
 };
 
 template <>
-class HcommImpl<COMM_PROTOCOL_UBC_CTP> {
+class HcommImpl<COMM_PROTOCOL_UB_CTP> {
 public:
     __aicore__ inline HcommImpl();
     __aicore__ inline ~HcommImpl();

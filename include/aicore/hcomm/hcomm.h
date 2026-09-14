@@ -40,10 +40,10 @@ namespace AscendC {
  *          4) If commit is false when launching task, call the Commit interface to notify the execution of the
  *             corresponding comm task.
  *          5) Call the Drain interface (blocking) to wait for the server to complete the corresponding comm task.
- * @tparam commProtocol: The communication protocol to use. COMM_PROTOCOL_UBC_CTP (implemented through URMA) is used
+ * @tparam commProtocol: The communication protocol to use. COMM_PROTOCOL_UB_CTP (implemented through URMA) is used
  *                       by default.
  */
-template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
+template <CommProtocol commProtocol = COMM_PROTOCOL_UB_CTP>
 class Hcomm {
 public:
     /*!
@@ -195,7 +195,7 @@ public:
      * @param [in] src: The local source address of the reduction.
      * @param [in] count: The number of elements to reduce.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Only the UBC_CTP/URMA path supports this interface.
+     * @note Only the UB_CTP/URMA path supports this interface.
      */
     template <
         typename T, HcommUrmaReduceOp reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,
@@ -384,7 +384,7 @@ public:
      * @brief Block Aicore and drain comm tasks submitted on channel until finish processing.
      * @tparam pipe: The pipe type to use for drain, PIPE_MTE3 supported as default.
      * @param [in] channel: The handle of the communication channel.
-     * @return 0 indicates success. A non-zero value indicates failure. For COMM_PROTOCOL_UBC_CTP, the underlying
+     * @return 0 indicates success. A non-zero value indicates failure. For COMM_PROTOCOL_UB_CTP, the underlying
      *         CQ polling error code is returned directly.
      */
     template <pipe_t pipe = PIPE_MTE3>
@@ -406,7 +406,7 @@ public:
      * @brief Acquire the cross-AI-Core lock of a channel.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
-     * @note This interface is supported only by COMM_PROTOCOL_UBC_CTP on Ascend 950. It blocks until the lock is
+     * @note This interface is supported only by COMM_PROTOCOL_UB_CTP on Ascend 950. It blocks until the lock is
      *       acquired and does not guarantee acquisition order among AI Cores. All accesses that update the channel
      *       state must be protected by Lock and Unlock.
      */
@@ -416,7 +416,7 @@ public:
      * @brief Flush the channel state and release its cross-AI-Core lock.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
-     * @note This interface is supported only by COMM_PROTOCOL_UBC_CTP on Ascend 950. It must be called by the AI Core
+     * @note This interface is supported only by COMM_PROTOCOL_UB_CTP on Ascend 950. It must be called by the AI Core
      *       that successfully acquired the channel lock, after the last operation that updates the channel state.
      */
     __aicore__ inline int32_t Unlock(ChannelHandle channel);
