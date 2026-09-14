@@ -141,9 +141,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::MakeWqe(
     FillDataSeg(wqePtr, src, len, lKey);
     __gm__ uint8_t* sqAddrNext = (__gm__ uint8_t*)(sqBaseAddr + ((sqHead + 1) & (sqDepth - 1)) * wqeSize);
     WriteInvalidWqebb(sqAddrNext, (sqHead + 1), sqDepth);
-
+    Mutex::Lock<PIPE_MTE3>(HCOMM_ROCE_MUTEX_ID);
     DataCopy(sqGlobal, wqeUB_, sizeof(RoceWqeEntry));
-    SyncAction<HardEvent::MTE3_S>();
+    Mutex::Unlock<PIPE_MTE3>(HCOMM_ROCE_MUTEX_ID);
 
     KERNEL_LOG(KERNEL_INFO, "Hcomm MakeWqe: set wqe to qp ok.\n");
     return HCOMM_SUCCESS;
@@ -155,31 +155,23 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
 {
     __gm__ ChannelEntity* chnlPtr = (__gm__ ChannelEntity*)(channel);
     if (chnlPtr == nullptr || chnlPtr->sqNum == 0 || chnlPtr->cqNum == 0 || chnlPtr->sqContextAddr == nullptr ||
-        chnlPtr->cqContextAddr == nullptr || dst == nullptr || src == nullptr) {
+        chnlPtr->cqContextAddr == nullptr || dst == nullptr || src == nullptr || len == 0) {
         KERNEL_LOG(
-            KERNEL_INFO, "Hcomm PostSend: chnlPtr = %llu, sqNum = %u, cqNum = %u, dst = %llu, src = %llu.\n", chnlPtr,
-            chnlPtr->sqNum, chnlPtr->cqNum, dst, src);
+            KERNEL_INFO, "Hcomm PostSend: chnlPtr = %llu, sqNum = %u, cqNum = %u, dst = %llu, src = %llu len = %llu\n",
+            chnlPtr, chnlPtr->sqNum, chnlPtr->cqNum, dst, src, len);
         return HCOMM_FAILED;
     }
     uint32_t sqDepth = chnlPtr->sqContextAddr[0].contextInfo.roceSq.depth;
-    uint32_t cqDepth = chnlPtr->cqContextAddr[0].contextInfo.roceCq.cqDepth;
-    auto sqPIAddr = reinterpret_cast<__gm__ uint32_t*>(chnlPtr->sqContextAddr[0].contextInfo.roceSq.headAddr);
-    uint32_t sqHead = static_cast<uint32_t>(ld_dev(sqPIAddr, 0));
-    auto sqCIAddr = reinterpret_cast<__gm__ uint32_t*>(chnlPtr->sqContextAddr[0].contextInfo.roceSq.tailAddr);
-    uint32_t sqTail = static_cast<uint32_t>(ld_dev(sqCIAddr, 0));
+    uint32_t sqHead = chnlPtr->sqHead;
+    uint32_t sqTail = chnlPtr->sqTail;
     KERNEL_LOG(
-        KERNEL_INFO, "Hcomm PostSend: opType = %u, sqHead = %u, sqTail = %u, sqDepth = %u, cqDepth = %u.\n", opType,
-        sqHead, sqTail, sqDepth, cqDepth);
+        KERNEL_INFO, "Hcomm PostSend: opType = %u, sqHead = %u, sqTail = %u, sqDepth = %u.\n", opType, sqHead, sqTail,
+        sqDepth);
 
-    constexpr uint32_t POLL_CQ_THRESHOLD = 10;
-    constexpr uint32_t NUM_CQE_PER_POLL_CQ = 100;
-    uint32_t minDepth = (sqDepth <= cqDepth) ? sqDepth : cqDepth;
-    if ((sqHead + POLL_CQ_THRESHOLD) % minDepth == sqTail % minDepth) {
-        uint32_t idx = (sqTail + NUM_CQE_PER_POLL_CQ) > sqHead ? sqHead : (sqTail + NUM_CQE_PER_POLL_CQ);
+    if ((sqHead - sqTail + ROCE_POLL_CQ_THRESHOLD) >= sqDepth) {
         KERNEL_LOG(
-            KERNEL_INFO, "Hcomm PostSend: RoCE SQ overflow sqHead=%u sqTail=%u idx=%u minDepth=%u\n", sqHead, sqTail,
-            idx, minDepth);
-        if (PollCq(chnlPtr, idx) != HCOMM_SUCCESS) {
+            KERNEL_INFO, "Hcomm PostSend: RoCE SQ overflow sqHead=%u sqTail=%u sqDepth=%u\n", sqHead, sqTail, sqDepth);
+        if (PollCq<true>(chnlPtr, chnlPtr->cqHead, ROCE_POLL_CQ_THRESHOLD) != HCOMM_SUCCESS) {
             KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend: RoCE SQ overflow, PollCq failed.\n");
             return HCOMM_FAILED;
         }
@@ -190,9 +182,15 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
         return HCOMM_FAILED;
     }
 
+    uint32_t cqHead = chnlPtr->cqHead;
+    if constexpr (config.cqe != 0) {
+        cqHead++;
+        chnlPtr->cqHead = cqHead;
+        KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend: update CQ PI cqHead = %u\n", cqHead);
+    }
     sqHead++;
-    st_dev(sqHead, sqPIAddr, 0);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend: update PI to GM sqHead = %u\n", sqHead);
+    chnlPtr->sqHead = sqHead;
+    KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend: update SQ PI sqHead = %u\n", sqHead);
 
     if constexpr (commit) {
         KnockDoorBell(chnlPtr, sqHead);
@@ -275,18 +273,33 @@ __aicore__ inline uint64_t HcommImpl<COMM_PROTOCOL_ROCE>::GetDbValue(uint32_t sq
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead)
 {
     __gm__ uint32_t* dbSwAddr = reinterpret_cast<__gm__ uint32_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbSwVa);
-    st_dev(HtoNL(sqHead), dbSwAddr, 0);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write sw db ok, swDbVal = %u\n", sqHead);
+    __gm__ uint64_t* dbHwAddr = reinterpret_cast<__gm__ uint64_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbHwVa);
 
     uint64_t dbValue = GetDbValue(
         sqHead, chnlPtr->sqContextAddr->contextInfo.roceSq.qpn,
         chnlPtr->sqContextAddr->contextInfo.roceSq.dbVendorSpecified);
-    KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: dbValue = %llu\n", dbValue);
-    __gm__ uint64_t* dbHwAddr = reinterpret_cast<__gm__ uint64_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbHwVa);
     uint64_t dbFinalVal =
         dbValue | ((((uint64_t)(sqHead) >> ROCE_1825_SQ_DB_PI_HIGH_SHIFT) & 0xffULL) << ROCE_1825_SQ_DB_PI_FIELD_SHIFT);
+    KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: dbValue = %llu, dbFinalVal = %llu\n", dbValue, dbFinalVal);
+    Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+    st_dev(HtoNL(sqHead), dbSwAddr, 0);
+    KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write sw db ok, swDbVal = %u\n", sqHead);
     st_dev(dbFinalVal, dbHwAddr, 0);
     KERNEL_LOG(KERNEL_INFO, "Hcomm KnockDoorBell: write hw db ok, hwDbVal = %llu\n", dbFinalVal);
+    Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+
+    uint32_t cqHead = chnlPtr->cqHead;
+    uint32_t cqTail = chnlPtr->cqTail;
+    uint32_t cqDepth = chnlPtr->cqContextAddr[0].contextInfo.roceCq.cqDepth;
+    uint32_t sqDepth = chnlPtr->sqContextAddr[0].contextInfo.roceSq.depth;
+    if ((cqHead + ROCE_POLL_CQ_THRESHOLD) % cqDepth == cqTail % cqDepth) {
+        uint32_t idx = (cqTail + ROCE_NUM_CQE_PER_POLL_CQ) > cqHead ? cqHead : cqTail + ROCE_NUM_CQE_PER_POLL_CQ;
+        KERNEL_LOG(
+            KERNEL_INFO,
+            "Hcomm KnockDoorBell: cq overflow sqHead=%u cqHead=%u cqTail=%u idx=%u sqDepth=%u cqDepth=%u\n", sqHead,
+            cqHead, cqTail, idx, sqDepth, cqDepth);
+        (void)PollCq(chnlPtr, idx);
+    }
 }
 
 template <pipe_t pipe>
@@ -311,7 +324,22 @@ __aicore__ inline bool HcommImpl<COMM_PROTOCOL_ROCE>::CheckCqeOwner(
     return (expectOwner ^ curOwner) != 0;
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(__gm__ ChannelEntity* chnlPtr, uint32_t expectIdx)
+template <bool sqSafeMode>
+__aicore__ inline bool HcommImpl<COMM_PROTOCOL_ROCE>::EnContinue(
+    uint32_t expectIdx, uint32_t cqTail, uint32_t sqHead, uint32_t sqTail, uint32_t sqDepth, uint32_t threshold)
+{
+    bool isContinue = false;
+    if constexpr (sqSafeMode) {
+        isContinue = ((sqHead - sqTail) + threshold >= sqDepth) && (cqTail != expectIdx);
+    } else {
+        isContinue = (cqTail != expectIdx);
+    }
+    return isContinue;
+}
+
+template <bool sqSafeMode>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(
+    __gm__ ChannelEntity* chnlPtr, uint32_t expectIdx, uint32_t threshold)
 {
     if (expectIdx == 0) {
         return HCOMM_SUCCESS;
@@ -319,8 +347,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(__gm__ ChannelEn
     auto cqContextInfo = chnlPtr->cqContextAddr[0].contextInfo;
     uint32_t cqeSize = cqContextInfo.roceCq.cqeSize;
     uint32_t cqDepth = cqContextInfo.roceCq.cqDepth;
-    auto cqCIAddr = reinterpret_cast<__gm__ uint32_t*>(cqContextInfo.roceCq.tailAddr);
-    uint32_t cqTail = static_cast<uint32_t>(ld_dev(cqCIAddr, 0));
+    uint32_t cqTail = chnlPtr->cqTail;
+    uint32_t sqDepth = chnlPtr->sqContextAddr[0].contextInfo.roceSq.depth;
     KERNEL_LOG(
         KERNEL_INFO, "Hcomm PollCq: cqeSize = %u cqDepth = %u cqTail= %u expectIdx = %u\n", cqeSize, cqDepth, cqTail,
         expectIdx);
@@ -329,13 +357,17 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(__gm__ ChannelEn
     AscendC::GlobalTensor<uint8_t> cqeGlobalTensor;
 
     while (cqTail < expectIdx) {
+        if (!EnContinue<sqSafeMode>(expectIdx, cqTail, chnlPtr->sqHead, chnlPtr->sqTail, sqDepth, threshold)) {
+            break;
+        }
         __gm__ uint8_t* cqeAddr = (__gm__ uint8_t*)(cqBaseBuf + cqeSize * (cqTail & (cqDepth - 1)));
         cqeGlobalTensor.SetGlobalBuffer(cqeAddr);
         uint32_t loop = 0;
         uint32_t cqeType = ROCE_1825_CQE_OPTYPE_INVALID;
         for (; loop < HCOMM_POLLCQ_MAX_RETRY_TIMES; loop++) {
+            Mutex::Lock<PIPE_MTE2>(HCOMM_ROCE_MUTEX_ID);
             DataCopy(cqeUB_, cqeGlobalTensor, sizeof(RoceCqeEntry));
-            SyncAction<HardEvent::MTE2_S>();
+            Mutex::Unlock<PIPE_MTE2>(HCOMM_ROCE_MUTEX_ID);
 #if defined(UT_TEST)
             cqTail = expectIdx - 1;
             break;
@@ -346,7 +378,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(__gm__ ChannelEn
             }
 #endif
         }
-        KERNEL_LOG(KERNEL_INFO, "Hcomm PollCq: cqeType = %u\n", cqeType);
         if (loop >= HCOMM_POLLCQ_MAX_RETRY_TIMES) {
             KERNEL_LOG(KERNEL_INFO, "Hcomm PollCq: failed, overtime and exit.\n");
             return HCOMM_FAILED;
@@ -360,11 +391,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(__gm__ ChannelEn
         cqTail += 1;
         KERNEL_LOG(KERNEL_INFO, "Hcomm PollCq: cqTail = %u\n", cqTail);
     }
-    st_dev(cqTail, cqCIAddr, 0);
-    auto sqCIAddr = reinterpret_cast<__gm__ uint32_t*>(chnlPtr->sqContextAddr[0].contextInfo.roceSq.tailAddr);
-    st_dev(cqTail, sqCIAddr, 0);
+    chnlPtr->cqTail = cqTail;
+    chnlPtr->sqTail = cqTail;
     __gm__ uint32_t* dbSwAddr = reinterpret_cast<__gm__ uint32_t*>(cqContextInfo.roceCq.dbSwVa);
+    Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
     st_dev(cqTail & ROCE_1825_CQE_UPDATE_CI_MASK, dbSwAddr, 0);
+    Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
     KERNEL_LOG(KERNEL_INFO, "Hcomm PollCq: knock cq doorbell ok, cqTail = %u, sqTail = %u\n", cqTail, cqTail);
     return HCOMM_SUCCESS;
 }
@@ -374,15 +406,24 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Drain(ChannelHandle cha
 {
     KERNEL_LOG(KERNEL_INFO, "Hcomm Drain: Enter\n");
     __gm__ ChannelEntity* chnlPtr = (__gm__ ChannelEntity*)(channel);
-    auto sqPIAddr = reinterpret_cast<__gm__ uint32_t*>(chnlPtr->sqContextAddr[0].contextInfo.roceSq.headAddr);
-    uint32_t sqHead = static_cast<uint32_t>(ld_dev(sqPIAddr, 0));
-    KERNEL_LOG(KERNEL_INFO, "Hcomm Drain: sqHead = %u\n", sqHead);
-    if (PollCq(chnlPtr, sqHead) != HCOMM_SUCCESS) {
+    uint32_t cqHead = chnlPtr->cqHead;
+    KERNEL_LOG(KERNEL_INFO, "Hcomm Drain: cqHead = %u\n", cqHead);
+    if (PollCq(chnlPtr, cqHead) != HCOMM_SUCCESS) {
         KERNEL_LOG(KERNEL_INFO, "Hcomm Drain: PollCq failed.\n");
         return HCOMM_FAILED;
     }
     KERNEL_LOG(KERNEL_INFO, "Hcomm Drain: Exit ok.\n");
     return HCOMM_SUCCESS;
+}
+
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Lock(ChannelHandle channel)
+{
+    return HcommChannelLock<COMM_PROTOCOL_ROCE>(channel);
+}
+
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Unlock(ChannelHandle channel)
+{
+    return HcommChannelUnlock<COMM_PROTOCOL_ROCE>(channel);
 }
 } // namespace AscendC
 

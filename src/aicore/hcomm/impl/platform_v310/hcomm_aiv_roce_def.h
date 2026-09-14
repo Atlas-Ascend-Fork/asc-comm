@@ -58,8 +58,16 @@ constexpr uint32_t ROCE_1825_CQE_OPTYPE_INVALID = 0x1f;
 constexpr uint32_t ROCE_1825_CQE_OPTYPE_ERROR = 0x1e;       // op_type = error coding
 constexpr uint32_t ROCE_1825_CQE_UPDATE_CI_MASK = 0xffffff; // CQ consumer index is 24-bit
 constexpr uint32_t ROCE_1825_CQE_OWNER_SHIFT = 31;          // owner bit at dw1[31]
+constexpr uint32_t ROCE_POLL_CQ_THRESHOLD = 10;
+constexpr uint32_t ROCE_NUM_CQE_PER_POLL_CQ = 100;
 
 enum class HCOMM_ROCE_OP_TYPE : uint32_t { WRITE = 4U, READ = 8U };
+
+#if defined(UT_TEST)
+constexpr uint32_t HCOMM_ROCE_MUTEX_ID = 27U;
+#else
+constexpr uint32_t HCOMM_ROCE_MUTEX_ID = 30U;
+#endif
 
 template <>
 class HcommImpl<COMM_PROTOCOL_ROCE> {
@@ -90,6 +98,8 @@ public:
     __aicore__ inline int32_t Commit(ChannelHandle channel);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
+    __aicore__ inline int32_t Lock(ChannelHandle channel);
+    __aicore__ inline int32_t Unlock(ChannelHandle channel);
 
 private:
     __aicore__ inline void FillCtrlSeg(
@@ -109,7 +119,11 @@ private:
     __aicore__ inline uint64_t GetDbValue(uint32_t sqHead, uint32_t qpn, uint64_t vendor);
     __aicore__ inline void KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead);
     __aicore__ inline bool CheckCqeOwner(__ubuf__ RoceCqeEntry* cqePtr, uint32_t cqTail, uint32_t depth);
-    __aicore__ inline int32_t PollCq(__gm__ ChannelEntity* chnlPtr, uint32_t expectIdx);
+    template <bool sqSafeMode = false>
+    __aicore__ inline int32_t PollCq(__gm__ ChannelEntity* chnlPtr, uint32_t expectIdx, uint32_t threshold = 0);
+    template <bool sqSafeMode = false>
+    __aicore__ inline bool EnContinue(
+        uint32_t expectIdx, uint32_t cqTail, uint32_t sqHead, uint32_t sqTail, uint32_t sqDepth, uint32_t threshold);
 
 private:
     LocalTensor<uint8_t> wqeUB_;
