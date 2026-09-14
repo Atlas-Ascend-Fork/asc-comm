@@ -26,14 +26,14 @@ class loop {
 public:
     loop(variable& loopCfg, const func& func)
     {
-        ComposeLoopBody(func);
+        compose_loop_body(func);
         isVarBased_ = true;
         loopParamVar_ = &loopCfg;
     }
 
     loop(const ccu_loop_config& loopCfg, const func& func)
     {
-        ComposeLoopBody(func);
+        compose_loop_body(func);
         isVarBased_ = false;
         config_ = loopCfg;
     }
@@ -47,7 +47,7 @@ public:
     const ccu_loop_config* config() const { return &config_; }
 
 private:
-    void ComposeLoopBody(const func& func)
+    void compose_loop_body(const func& func)
     {
         if (func.NumIn() != 0) {
             throw ::AscendC::ccu::detail::ccu_exception(
