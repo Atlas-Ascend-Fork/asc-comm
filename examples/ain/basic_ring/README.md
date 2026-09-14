@@ -12,7 +12,7 @@ Host侧负责内存申请/初始化HCCL通信域/创建HCCL Team/注册对称win
 | --- | --- |
 | 产品 | `Ascend 950PR / Ascend 950DT` |
 | NPU架构 | `dav-3510` |
-| 通信协议 | `COMM_PROTOCOL_UBC_CTP` |
+| 通信协议 | `COMM_PROTOCOL_UB_CTP` |
 | 通信引擎 | `COMM_ENGINE_AIV` |
 | 部署形态 | 单机多卡 |
 | CANN包 | 使用当前环境中`set_env.sh`指向的CANN包 |
@@ -38,7 +38,7 @@ basic_ring
 2. 通过`HcclGetRootInfo`和`HcclCommInitRootInfo`创建多rank HCCL通信域。
 3. 配置`barrierCount`并调用`HcclWorldTeamCreate`创建world team。
 4. 分别将`sendBuf`和`recvBuf`通过`HcclTeamWindowRegister`注册为对称window。
-5. 调用`HcclTeamChannelsCreate`创建AIV + UBC_CTP通信channel。
+5. 调用`HcclTeamChannelsCreate`创建AIV + UB_CTP通信channel。
 6. 下发`worldTeam`、`sendWin`、`recvWin`到Kernel。
 
 ### Kernel侧AIN通信
