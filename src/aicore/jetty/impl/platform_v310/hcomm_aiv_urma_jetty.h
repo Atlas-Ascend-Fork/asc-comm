@@ -12,7 +12,7 @@
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_JETTY_H
 
 #include <c_api/sync/sync.h>
-#include <c_api/sys_var/sys_var.h>
+#include <c_api/utils/sys_var.h>
 #include <c_api/vector_datamove/vector_datamove.h>
 
 #include "../../../hcomm/common/hcomm_inner_def.h"
@@ -28,19 +28,6 @@ static constexpr uint32_t HCOMM_JETTY_CQE_FIELD_MASK = 0xFFU;
 // The CQ doorbell only takes the low 24 bits of the CQ tail.
 static constexpr uint32_t HCOMM_JETTY_CQ_DOORBELL_MASK = 0xFFFFFFU;
 
-// GM access with dcache bypass. Newer basic_api renames ByPass to Bypass; fall back to the
-// deprecated spelling when the toolchain still ships the old name. Detection is by SFINAE on
-// the declared overload set through __cpp_lib detection is not available in kernel mode, so
-// the deprecated old name is used directly: it stays available until 2027/12/30 and works on
-// both old and new toolchains.
-__aicore__ inline uint64_t HcommJettyReadU64(__gm__ uint64_t* addr) { return ReadGmByPassDCache(addr); }
-
-__aicore__ inline uint32_t HcommJettyReadU32(__gm__ uint32_t* addr) { return ReadGmByPassDCache(addr); }
-
-__aicore__ inline void HcommJettyWriteU32(__gm__ uint32_t* addr, uint32_t value) { WriteGmByPassDCache(addr, value); }
-
-__aicore__ inline void HcommJettyWriteU64(__gm__ uint64_t* addr, uint64_t value) { WriteGmByPassDCache(addr, value); }
-
 __aicore__ inline uint32_t HcommJettyPackSqeFlag(const UrmaWqeEntry& config)
 {
     return (config.odr & 0x7U) | ((config.fence & 0x1U) << 3U) | ((config.se & 0x1U) << 4U) |
@@ -52,7 +39,7 @@ __aicore__ inline HcommPeer::HcommPeer(__ubuf__ HcommJettyPeerInfo* peerInfo, GM
 {
     HCOMM_DEBUG_TRAP_IF(peerInfo == nullptr || jettyTable == nullptr, "peerInfo or jettyTable is nullptr\n");
     auto* table = reinterpret_cast<__gm__ uint64_t*>(jettyTable);
-    uint64_t jettyValue = HcommJettyReadU64(table + jettyIdx);
+    uint64_t jettyValue = ReadGmBypassDCache(table + jettyIdx);
     HCOMM_DEBUG_TRAP_IF(jettyValue == 0U, "jettyTable[%u] is 0\n", jettyIdx);
     auto* jetty = reinterpret_cast<__gm__ ChannelEntity*>(jettyValue);
     HCOMM_DEBUG_TRAP_IF(
@@ -76,7 +63,7 @@ __aicore__ inline HcommJettyImpl::HcommJettyImpl(
 {
     HCOMM_DEBUG_TRAP_IF(jettyInfo == nullptr || jettyTable == nullptr, "jettyInfo or jettyTable is nullptr\n");
     auto* table = reinterpret_cast<__gm__ uint64_t*>(jettyTable);
-    uint64_t jettyValue = HcommJettyReadU64(table + jettyIdx);
+    uint64_t jettyValue = ReadGmBypassDCache(table + jettyIdx);
     HCOMM_DEBUG_TRAP_IF(jettyValue == 0U, "jettyTable[%u] is 0\n", jettyIdx);
     auto* jetty = reinterpret_cast<__gm__ ChannelEntity*>(jettyValue);
     HCOMM_DEBUG_TRAP_IF(jetty->sqContextAddr == nullptr || jetty->cqContextAddr == nullptr, "jetty info is nullptr\n");
@@ -89,7 +76,7 @@ __aicore__ inline HcommJettyImpl::HcommJettyImpl(
     jettyInfo_->cqBaseAddr = cqContext->contextInfo.ubJfc.scqVa;
     jettyInfo_->cqTailAddr = cqContext->contextInfo.ubJfc.tailAddr;
     jettyInfo_->cqDoorbellAddr = cqContext->contextInfo.ubJfc.dbVa;
-    uint64_t packedHead = HcommJettyReadU64(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
+    uint64_t packedHead = ReadGmBypassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
     jettyInfo_->sqHead = static_cast<uint32_t>(packedHead);
     jettyInfo_->expectedCqeCnt = static_cast<uint32_t>(packedHead >> 32U);
     jettyInfo_->numWqebbBytes = sqContext->contextInfo.ubJfs.wqeSize;
@@ -172,12 +159,12 @@ __aicore__ inline void HcommJettyImpl::AdvanceSq(uint32_t numWqebbs)
     ++jettyInfo_->expectedCqeCnt;
     uint64_t packedHead =
         static_cast<uint64_t>(jettyInfo_->sqHead) | (static_cast<uint64_t>(jettyInfo_->expectedCqeCnt) << 32U);
-    HcommJettyWriteU64(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr), packedHead);
+    WriteGmBypassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr), packedHead);
 }
 
 __aicore__ inline void HcommJettyImpl::RingDoorbell()
 {
-    HcommJettyWriteU32(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqDoorbellAddr), jettyInfo_->sqHead);
+    WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqDoorbellAddr), jettyInfo_->sqHead);
 }
 
 template <int64_t timeoutCycles>
@@ -189,7 +176,7 @@ __aicore__ inline void HcommJettyImpl::PollCqWhenSqOverflow()
     constexpr uint32_t nearFullThreshold = 10U;
     constexpr uint32_t reclaimBatch = 100U;
     uint32_t completions = jettyInfo_->expectedCqeCnt;
-    uint32_t tail = HcommJettyReadU32(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqTailAddr));
+    uint32_t tail = ReadGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqTailAddr));
     if (completions - tail + nearFullThreshold >= jettyInfo_->cqDepth) {
         PollCq<timeoutCycles>(tail + reclaimBatch < completions ? tail + reclaimBatch : completions);
     }
@@ -198,7 +185,7 @@ __aicore__ inline void HcommJettyImpl::PollCqWhenSqOverflow()
 template <int64_t timeoutCycles>
 __aicore__ inline int32_t HcommJettyImpl::PollCq(uint32_t expectedTail)
 {
-    uint32_t currentTail = HcommJettyReadU32(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqTailAddr));
+    uint32_t currentTail = ReadGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqTailAddr));
     while (currentTail != expectedTail) {
         auto* cqe = reinterpret_cast<__gm__ uint32_t*>(
             jettyInfo_->cqBaseAddr +
@@ -207,7 +194,7 @@ __aicore__ inline int32_t HcommJettyImpl::PollCq(uint32_t expectedTail)
         uint64_t start = static_cast<uint64_t>(asc_get_system_cycle());
         uint32_t header;
         do {
-            header = HcommJettyReadU32(cqe);
+            header = ReadGmBypassDCache(cqe);
             if (((header >> HCOMM_JETTY_CQE_OWNER_BIT) & 1U) != phase) {
                 break;
             }
@@ -225,10 +212,10 @@ __aicore__ inline int32_t HcommJettyImpl::PollCq(uint32_t expectedTail)
         }
         ++currentTail;
     }
-    HcommJettyWriteU32(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqTailAddr), currentTail);
-    HcommJettyWriteU32(
+    WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqTailAddr), currentTail);
+    WriteGmBypassDCache(
         reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqDoorbellAddr), currentTail & HCOMM_JETTY_CQ_DOORBELL_MASK);
-    HcommJettyWriteU32(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqTailAddr), currentTail);
+    WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqTailAddr), currentTail);
     return HCOMM_SUCCESS;
 }
 
@@ -274,7 +261,7 @@ template <int64_t timeoutCycles>
 __aicore__ inline int32_t HcommJettyImpl::Drain()
 {
     HCOMM_DEBUG_TRAP_IF(!Ready() || jettyInfo_->numCqeBytes == 0U, "HcommJetty Drain on an unready jetty\n");
-    uint64_t packedHead = HcommJettyReadU64(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
+    uint64_t packedHead = ReadGmBypassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
     return PollCq<timeoutCycles>(static_cast<uint32_t>(packedHead >> 32U));
 }
 
