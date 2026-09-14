@@ -260,6 +260,7 @@ build_package()
     [[ "${PACKAGE_VERSION}" =~ ^[0-9A-Za-z._+-]+$ ]] || fail "invalid package version: ${PACKAGE_VERSION}"
 
     arch=$(normalize_arch)
+    local arch_lib_dir="${arch}-linux/lib64"
     required_asc_devkit_version=$(read_package_compat_version "asc-devkit")
     required_hcomm_version=$(read_package_compat_version "hcomm")
     required_runtime_version=$(read_package_compat_version "runtime")
@@ -299,7 +300,7 @@ build_package()
         aicore/hcomm
     install -D -m 550 \
         "${dfx_build_dir}/libmc2_client_dfx.so" \
-        "${STAGING_DIR}/payload/lib64/libmc2_client_dfx.so"
+        "${STAGING_DIR}/payload/${arch_lib_dir}/libmc2_client_dfx.so"
     copy_headers \
         "${PROJECT_ROOT}/src" \
         "${STAGING_DIR}/payload/asc/impl/comm_api" \

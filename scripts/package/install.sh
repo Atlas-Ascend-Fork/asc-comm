@@ -381,6 +381,11 @@ normalize_arch()
     esac
 }
 
+arch_lib_dir()
+{
+    echo "$(normalize_arch)-linux/lib64"
+}
+
 read_info_value()
 {
     local key=$1
@@ -397,8 +402,10 @@ comm_log()
 is_allowed_path()
 {
     local path=$1
+    local arch_lib_path
+    arch_lib_path="$(arch_lib_dir)"
     case "${path}" in
-        lib64/libmc2_client_dfx.so|\
+        "${arch_lib_path}/libmc2_client_dfx.so"|\
         asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h|\
         asc/include/comm_api/*.h|asc/impl/comm_api/*.h)
             ;;
@@ -414,8 +421,10 @@ is_allowed_path()
 is_allowed_directory_path()
 {
     local path=$1
+    local arch_lib_path
+    arch_lib_path="$(arch_lib_dir)"
     case "${path}" in
-        lib64|lib64/*|\
+        "${arch_lib_path}"|"${arch_lib_path}"/*|\
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
         asc/include/comm_api|asc/include/comm_api/*|\
         asc/impl/comm_api|asc/impl/comm_api/*)
@@ -433,9 +442,11 @@ payload_file_mode()
 {
     local path=$1
     local mode
+    local arch_lib_path
+    arch_lib_path="$(arch_lib_dir)"
 
     case "${path}" in
-        lib64/*|\
+        "${arch_lib_path}"/*|\
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
         asc/include/comm_api/*|asc/impl/comm_api/*)
             mode=550
@@ -451,12 +462,14 @@ managed_directory_mode()
 {
     local path=$1
     local mode
+    local arch_lib_path
+    arch_lib_path="$(arch_lib_dir)"
 
     case "${path}" in
-        lib64)
+        "${arch_lib_path}")
             mode=750
             ;;
-        lib64/*|asc/include/adv_api/*|asc/impl/adv_api/detail/*)
+        "${arch_lib_path}"/*|asc/include/adv_api/*|asc/impl/adv_api/detail/*)
             mode=750
             ;;
         asc/include/comm_api|asc/include/comm_api/*|\
@@ -493,13 +506,15 @@ collect_managed_directories()
     local module
     local directory
     local managed_root
+    local arch_lib_path
+    arch_lib_path="$(arch_lib_dir)"
 
     : > "${output}"
     while IFS= read -r path; do
         is_allowed_path "${path}" || fail "unsafe managed path: ${path}"
         case "${path}" in
-            lib64/*)
-                managed_root="lib64"
+            "${arch_lib_path}"/*)
+                managed_root="${arch_lib_path}"
                 ;;
             asc/include/adv_api/*)
                 relative_path=${path#asc/include/adv_api/}

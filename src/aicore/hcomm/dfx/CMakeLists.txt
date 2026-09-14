@@ -17,6 +17,7 @@ ascendc_library(mc2_client_dfx SHARED hcomm_dfx.cpp)
 set_target_properties(mc2_client_dfx PROPERTIES OUTPUT_NAME mc2_client_dfx)
 target_include_directories(mc2_client_dfx PRIVATE
     ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/include/aicore
     ${ASCCOMM_ROOT}/src
     ${ASCCOMM_CANN_ARCH_DIR}/asc/include
     ${ASCCOMM_CANN_ARCH_DIR}/include
