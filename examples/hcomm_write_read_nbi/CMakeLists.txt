@@ -20,6 +20,8 @@ find_package(ASC REQUIRED)
 
 project(kernel_samples LANGUAGES ASC CXX)
 
+option(ASCENDC_DEBUG "Enable AscendC/Hcomm kernel debug logs" OFF)
+
 set_source_files_properties(
     hcomm_write_read_nbi_kernel.cpp
     utils.cpp
@@ -39,3 +41,9 @@ target_link_libraries(demo PRIVATE
 target_compile_options(demo PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
 )
+
+if(ASCENDC_DEBUG)
+    target_compile_definitions(demo PRIVATE
+        ASCENDC_DEBUG
+    )
+endif()
