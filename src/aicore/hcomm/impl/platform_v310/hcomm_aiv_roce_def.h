@@ -28,23 +28,29 @@ namespace AscendC {
 constexpr uint32_t ROCE_CQE_POS = 128;
 constexpr uint32_t ROCE_DB_POS = 192;
 
-constexpr uint32_t ROCE_1825_WQE_CTRL_VALUE = 0x40;           // owner_sl fixed part
-constexpr uint32_t ROCE_1825_WQE_VA_VALUE = 0x20;             // df_tsl VA bit
-constexpr uint32_t ROCE_1825_WQE_CQE_SIGNAL_SHIFT = 7;        // df_tsl CR bit
-constexpr uint32_t ROCE_1825_WQE_OWNER_SHIFT = 7;             // owner_sl owner bit
-constexpr uint32_t ROCE_1825_WQE_CMP_TASK_LEN_SHIFT = 28;     // cl_pi CL field
-constexpr uint32_t ROCE_1825_WQE_MSN_SHIFT = 12;              // wf_bdsl wqe_msn field
-constexpr uint32_t ROCE_1825_WQE_MSN_MASK = 0x3;              // low 2 bits of SQ WQE sequence number
-constexpr uint32_t ROCE_1825_SEG_LEN_UNIT = sizeof(uint64_t); // hardware section length unit = 8B
-constexpr uint32_t ROCE_1825_WQE_DATA_SEG_BDSL = sizeof(RoceWqeDataSeg) / ROCE_1825_SEG_LEN_UNIT;
-constexpr uint32_t ROCE_1825_RDMA_READ_LAST_EXT_LEN = 4;
+constexpr uint32_t ROCE_1825_WQE_OWNER_SHIFT = 7;    // owner_sl owner bit
+constexpr uint32_t ROCE_1825_WQE_CTRL_VALUE = 0x40;  // owner_sl fixed part
+constexpr uint32_t ROCE_1825_WQE_SQ_VA_VALUE = 0x20; // df_tsl VA bit
+constexpr uint32_t ROCE_1825_WQE_SQ_SIGNAL_SHIFT = 7;
+constexpr uint32_t ROCE_1825_WQE_CQE_SIGNAL_SHIFT = 7; // df_tsl CR bit
+constexpr uint32_t ROCE_1825_WQE_CMP_TASK_LEN1 = 1U;
+constexpr uint32_t ROCE_1825_WQE_CMP_TASK_LEN_SHIFT = 28; // cl_pi CL field
+constexpr uint32_t ROCE_1825_WQE_TASK_SEG_ALIGN = 8;
+constexpr uint32_t ROCE_1825_WQE_FAST_DMA_SHIFT = 10;
+constexpr uint32_t ROCE_1825_WQE_SSN_MASK = 0x3; // low 2 bits of SQ WQE sequence number
+constexpr uint32_t ROCE_1825_WQE_SSN_SHIFT = 12; // wf_bdsl wqe_msn field
+constexpr uint32_t ROCE_1825_WQE_DATA_SEG_SHIFT = 4;
+constexpr uint32_t ROCE_1825_WQE_SECTION_ALIGN_SHIFT = 3;
+constexpr uint32_t ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN = 4;
 constexpr uint32_t ROCE_1825_WQE_NEXT_SGE_INVALID = 1U << 31; // data seg le_key L bit
 
 constexpr uint32_t ROCE_1825_SQ_DB_PI_HIGH_SHIFT = 8;   // high 8 bits of the SQ producer index
 constexpr uint32_t ROCE_1825_SQ_DB_PI_FIELD_SHIFT = 32; // pi field offset in the 64-bit doorbell
 constexpr uint32_t ROCE_1825_SQ_DB_TYPE = 21;
 constexpr uint32_t ROCE_1825_SQ_DB_SGIT_IDX = 1;
-constexpr uint32_t ROCE_1825_SQ_DB_COS = 0x7;
+constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_COS_SHIFT = 24;
+constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_MTUSHIFT_SHIFT = 50;
+constexpr uint32_t ROCE_1825_SQ_DB_VENDOR_FIELD_MASK = 0x7;
 
 constexpr uint32_t ROCE_1825_CQE_OPCODE_SHIFT = 27;
 constexpr uint32_t ROCE_1825_CQE_OPCODE_MASK = 0x1f;
@@ -63,14 +69,21 @@ public:
     __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
     template <typename T>
     __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
-    template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3, auto const& config>
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = ROCE_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
-    template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3, auto const& config>
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = ROCE_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     template <
-        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3, auto const& config>
+        typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = ROCE_DEFAULT_CFG>
     __aicore__ inline int32_t WriteValueNbi(ChannelHandle channel, GM_ADDR dst, T value);
-    template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3, auto const& config>
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = ROCE_DEFAULT_CFG>
     __aicore__ inline int32_t WriteWithNotifyNbi(
         ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, GM_ADDR notifyAddr, uint64_t notifyVal);
     template <pipe_t pipe = PIPE_S>
@@ -79,17 +92,21 @@ public:
     __aicore__ inline int32_t Drain(ChannelHandle channel);
 
 private:
-    __aicore__ inline void FillCtrlSeg(__ubuf__ RoceWqeEntry* wqePtr, uint32_t sqHead, uint32_t sqDepth);
+    __aicore__ inline void FillCtrlSeg(
+        __ubuf__ RoceWqeEntry* wqePtr, uint32_t sqHead, uint32_t sqDepth, uint32_t enCqe);
     __aicore__ inline void FillTaskSeg(
-        __ubuf__ RoceWqeEntry* wqePtr, GM_ADDR dst, uint64_t len, uint32_t opType, uint32_t rKey, uint32_t lKey);
+        __ubuf__ RoceWqeEntry* wqePtr, GM_ADDR dst, uint64_t len, uint32_t opType, uint32_t rKey, uint32_t lKey,
+        uint32_t fence);
     __aicore__ inline void FillDataSeg(__ubuf__ RoceWqeEntry* wqePtr, GM_ADDR src, uint64_t len, uint32_t lKey);
     __aicore__ inline void WriteInvalidWqebb(__gm__ uint8_t* sqAddr, uint32_t sqHead, uint32_t sqDepth);
     __aicore__ inline int32_t MakeWqe(
         __gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType, uint32_t sqHead,
-        uint32_t sqDepth);
-    template <bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3>
+        uint32_t sqDepth, uint32_t enCqe, uint32_t fence);
+    template <
+        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        auto const& config = ROCE_DEFAULT_CFG>
     __aicore__ inline int32_t PostSend(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType);
-    __aicore__ inline uint64_t GetDbValue(uint32_t qpn, uint8_t mtuShift);
+    __aicore__ inline uint64_t GetDbValue(uint32_t sqHead, uint32_t qpn, uint64_t vendor);
     __aicore__ inline void KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead);
     __aicore__ inline bool CheckCqeOwner(__ubuf__ RoceCqeEntry* cqePtr, uint32_t cqTail, uint32_t depth);
     __aicore__ inline int32_t PollCq(__gm__ ChannelEntity* chnlPtr, uint32_t expectIdx);

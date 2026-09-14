@@ -61,6 +61,14 @@ static constexpr UrmaWqeEntry URMA_INLINE_CFG = {
     .inlineEn = 1,
 };
 
+static constexpr UrmaWqeEntry ROCE_DEFAULT_CFG = {
+    .odr = 0,
+    .fence = 1,
+    .se = 0,
+    .cqe = 1,
+    .inlineEn = 0,
+};
+
 typedef enum {
     COMM_ENGINE_RESERVED = -1, ///< 保留的通信引擎
     COMM_ENGINE_CPU = 0,       ///< HOST CPU引擎
@@ -192,7 +200,7 @@ typedef struct {
             uint32_t wqeSize;
             uint32_t depth;
             uint8_t sl;
-            uint8_t mtuShift;
+            uint64_t dbVendorSpecified;
         } roceSq;
         uint8_t raws[120];
     } contextInfo;
@@ -219,6 +227,7 @@ typedef struct {
             uint32_t cqn;
             uint32_t cqeSize;
             uint32_t cqDepth;
+            uint64_t dbVendorSpecified;
         } roceCq;
         uint8_t raws[120];
     } contextInfo;
@@ -352,7 +361,7 @@ typedef union {
         uint32_t signal : 1;   // [29]    request a CQE on completion
         uint32_t fence : 1;    // [30]    fence / ordering
         uint32_t se : 1;       // [31]    solicited event
-    } bs;
+    } dw0;
     uint32_t value;
 } RoceWqeTaskComSeg;
 
@@ -366,6 +375,7 @@ typedef struct {
             uint32_t cmdLen : 8;     // [15:8] command length, unused for this WQE
             uint32_t pi : 16;        // [31:16] producer index, unused for this WQE
         } bs;
+        uint32_t feth;
         uint32_t value; // dw3 is filled in host order, then byte-swapped before the NIC consumes it
     } dw3;
     uint64_t vaRemote; // remote virtual address
@@ -390,8 +400,16 @@ typedef struct {
     uint32_t opSrWqebb;  // dw2: op_type(31:27) + s_r(26) + inline(25) + merge(24) + fake(23) + wqebb_cnt(19:0)
     uint32_t byteCnt;    // dw3: transferred byte count
     uint32_t immData;    // dw4: immediate data / invalidate key (receive side)
-    uint32_t rsvdDw5;    // dw5: reserved for RC
-    uint32_t wqeNum;     // dw6: merged wr count (RQ merge only)
+    union {
+        struct {
+            uint8_t smac[2];
+            uint16_t vlanIdPri;
+        } macVlanId;
+    } dw4;
+    union {
+        uint8_t smac[4];
+        uint32_t wqeNum;
+    } dw5;
     uint32_t vlanQueueIndex; // dw7: srqn_rqpn (RC = SRQN, not read by SHMEM)
     uint8_t syndrome;        // dw8[7:0]: error syndrome, valid only when op_type = error(0x1e)
     uint8_t rsvd;            // dw8[15:8]

@@ -36,7 +36,7 @@ protected:
         sqCtx_.contextInfo.roceSq.headAddr = (uint64_t)(&head_);
         sqCtx_.contextInfo.roceSq.tailAddr = (uint64_t)(&tail_);
         sqCtx_.contextInfo.roceSq.sl = 1;
-        sqCtx_.contextInfo.roceSq.mtuShift = 1;
+        sqCtx_.contextInfo.roceSq.dbVendorSpecified = 1;
         channel_.sqContextAddr = &sqCtx_;
         cqCtx_.contextInfo.roceCq.cqVa = (uint64_t)sqVa_;
         cqCtx_.contextInfo.roceCq.dbHwVa = (uint64_t)dbVa_;
