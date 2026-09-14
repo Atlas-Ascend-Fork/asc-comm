@@ -424,8 +424,6 @@ __simt_callee__ inline void HcommSimtRingBatchDwqe(
         asc_stwt(&dstWords[i], make_ulonglong2(words[word], words[word + 1U]));
     }
     asc_threadfence();
-    asc_dcci_single(dwqeAddr);
-    asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
 }
 
 __simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::HcommImpl() {}
@@ -817,9 +815,6 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(
         if (status != 0U || subStatus != 0U) {
             constexpr uint8_t statusShift = 8U;
             return (status << statusShift) | subStatus;
-        }
-        if (sqDepth == 0U) {
-            return 0xFFU;
         }
         uint32_t sqTailSlot = sqTail & sqMask;
         uint32_t completedSlot = (cqeWords[1] & 0xFFFFU) & sqMask;

@@ -25,17 +25,22 @@ work_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_batch.XXXXXX")"
 root_info_file="${work_dir}/root_info.bin"
 pids=()
 cleanup() {
-    if [[ ${#pids[@]} -ne 0 ]]; then kill "${pids[@]}" 2>/dev/null || true; fi
+    if [[ ${#pids[@]} -ne 0 ]]; then
+        kill "${pids[@]}" 2>/dev/null || true;
+        for pid in "${pids[@]}"; do wait "$pid" 2>/dev/null || true; done
+    fi
     rm -rf -- "$work_dir"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 export SIMT_BATCH_SYNC_DIR="$work_dir"
 
 echo "TEST_INFO | Suite=simt_batch | Devices=${devices} | Pairs=$((devices / 2))"
 for ((rank = 0; rank < devices; ++rank)); do
-    timeout --signal=TERM "${SIMT_BATCH_TIMEOUT_SECONDS:-60}s" stdbuf -oL -eL \
+    timeout --signal=TERM --kill-after=5s "${SIMT_BATCH_TIMEOUT_SECONDS:-60}s" stdbuf -oL -eL \
         "$binary" "$rank" "$devices" "$root_info_file" \
-        | sed -u "s/^/[process rank ${rank}] /" &
+        > >(sed -u "s/^/[process rank ${rank}] /") &
     pids+=("$!")
 done
 
