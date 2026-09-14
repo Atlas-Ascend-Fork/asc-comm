@@ -92,16 +92,16 @@ inline CcuResult load(variable addr_var, variable v)
 {
     return ::asc::ccu_load_var_from_var_addr(addr_var.handle, v.handle, 1);
 }
-inline CcuResult Store(uint64_t addr_, array<variable>& vArr, uint32_t num_)
+inline CcuResult store(uint64_t addr_, array<variable>& vArr, uint32_t num_)
 {
     return ::asc::ccu_store_var(addr_, vArr[0].handle, num_);
 }
-inline CcuResult Store(uint64_t addr_, variable v) { return ::asc::ccu_store_var(addr_, v.handle, 1); }
-inline CcuResult Store(variable addr_var, array<variable>& vArr, uint32_t num_)
+inline CcuResult store(uint64_t addr_, variable v) { return ::asc::ccu_store_var(addr_, v.handle, 1); }
+inline CcuResult store(variable addr_var, array<variable>& vArr, uint32_t num_)
 {
     return ::asc::ccu_store_var_to_var_addr(addr_var.handle, vArr[0].handle, num_);
 }
-inline CcuResult Store(variable addr_var, variable v)
+inline CcuResult store(variable addr_var, variable v)
 {
     return ::asc::ccu_store_var_to_var_addr(addr_var.handle, v.handle, 1);
 }
