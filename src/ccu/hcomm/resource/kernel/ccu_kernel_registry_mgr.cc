@@ -67,12 +67,12 @@ CcuResult ccu_kernel_registry_mgr::get_or_create(
     int32_t device_logic_id, CcuInsHandle ins_handle, ccu_kernel_registry*& registry)
 {
     registry = nullptr;
-    if (ins_handle == 0) {
+    if (ins_handle.ccuInsKey == 0) {
         return CcuResult::CCU_E_PARA;
     }
 
     std::unique_lock<std::shared_timed_mutex> lock(ins_map_mutex_);
-    auto it = ins_map_.find(ins_handle);
+    auto it = ins_map_.find(ins_handle.ccuInsKey);
     if (it != ins_map_.end()) {
         registry = it->second.get();
         return CcuResult::CCU_SUCCESS;
@@ -83,16 +83,18 @@ CcuResult ccu_kernel_registry_mgr::get_or_create(
     CCU_CHK_RET(instance->init(device_logic_id));
     instance->set_handle(ins_handle);
     registry = instance.get();
-    ins_map_.emplace(ins_handle, std::move(instance));
+    ins_map_.emplace(ins_handle.ccuInsKey, std::move(instance));
     return CcuResult::CCU_SUCCESS;
 }
 
 ccu_kernel_registry* ccu_kernel_registry_mgr::get(CcuInsHandle ins_handle) const
 {
     std::shared_lock<std::shared_timed_mutex> lock(ins_map_mutex_);
-    auto it = ins_map_.find(ins_handle);
+    auto it = ins_map_.find(ins_handle.ccuInsKey);
     if (it == ins_map_.end()) {
-        HCCL_ERROR("[CcuKernelRegistryMgr][%s] handle[%llx] is not existed.", __func__, ins_handle);
+        HCCL_ERROR(
+            "[CcuKernelRegistryMgr][%s] handle key[%llx] is not existed.", __func__,
+            static_cast<unsigned long long>(ins_handle.ccuInsKey));
         return nullptr;
     }
 

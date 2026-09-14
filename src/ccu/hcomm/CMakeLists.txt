@@ -25,6 +25,7 @@ target_sources(asccomm_ccu_dataplane_obj PRIVATE
     resource/kernel/ccu_dfx.cc
     resource/kernel/ccu_kernel_res_allocator.cc
     resource/kernel/ccu_kernel_mgr.cc
+    resource/kernel/ccu_res_desc_c_adpt.cc
     resource/microcode/ccu_microcode.cc
     resource/microcode/ccu_assist.cc
     resource/microcode_opt/extract_operands.cc

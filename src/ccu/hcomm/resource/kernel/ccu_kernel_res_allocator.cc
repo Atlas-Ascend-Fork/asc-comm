@@ -17,40 +17,40 @@ namespace asc {
 namespace {
 
 bool take_contiguous(
-    std::vector<HcommCcuResRangePod>& source, uint32_t count, std::vector<HcommCcuResRangePod>& destination)
+    std::vector<asc_ccu_res_range>& source, uint32_t count, std::vector<asc_ccu_res_range>& destination)
 {
     if (count == 0) {
         return true;
     }
     auto iter = std::find_if(
-        source.begin(), source.end(), [count](const HcommCcuResRangePod& range) { return range.count >= count; });
+        source.begin(), source.end(), [count](const asc_ccu_res_range& range) { return range.count >= count; });
     if (iter == source.end()) {
         return false;
     }
 
-    destination.push_back({iter->resourceType, iter->dieId, iter->startId, count});
+    destination.push_back({iter->resource_type, iter->die_id, iter->start_id, count});
     if (iter->count == count) {
         source.erase(iter);
     } else {
-        iter->startId += count;
+        iter->start_id += count;
         iter->count -= count;
     }
     return true;
 }
 
 uint32_t take_any(
-    std::vector<HcommCcuResRangePod>& source, uint32_t count, uint32_t destination_type,
-    std::vector<HcommCcuResRangePod>& destination)
+    std::vector<asc_ccu_res_range>& source, uint32_t count, uint32_t destination_type,
+    std::vector<asc_ccu_res_range>& destination)
 {
     auto iter = source.begin();
     while (count > 0 && iter != source.end()) {
         const uint32_t take = std::min(count, iter->count);
-        destination.push_back({destination_type, iter->dieId, iter->startId, take});
+        destination.push_back({destination_type, iter->die_id, iter->start_id, take});
         count -= take;
         if (take == iter->count) {
             iter = source.erase(iter);
         } else {
-            iter->startId += take;
+            iter->start_id += take;
             iter->count -= take;
         }
     }
@@ -58,9 +58,9 @@ uint32_t take_any(
 }
 
 bool plan_resource_pair(
-    std::vector<HcommCcuResRangePod>& normal_pool, std::vector<HcommCcuResRangePod>& block_pool,
-    uint32_t normal_request, uint32_t block_request, uint32_t normal_type,
-    std::vector<HcommCcuResRangePod>& normal_allocated, std::vector<HcommCcuResRangePod>& block_allocated)
+    std::vector<asc_ccu_res_range>& normal_pool, std::vector<asc_ccu_res_range>& block_pool, uint32_t normal_request,
+    uint32_t block_request, uint32_t normal_type, std::vector<asc_ccu_res_range>& normal_allocated,
+    std::vector<asc_ccu_res_range>& block_allocated)
 {
     if (!take_contiguous(block_pool, block_request, block_allocated)) {
         return false;
@@ -103,15 +103,12 @@ CcuResult plan_kernel_resources(
                 planned_remaining.gsa[die_id], planned_remaining.block_gsa[die_id],
                 request.count[HCOMM_CCU_BATCH_RES_GSA][die_id], request.count[HCOMM_CCU_BATCH_RES_BLOCK_GSA][die_id],
                 HCOMM_CCU_BATCH_RES_GSA, planned_allocated.gsa[die_id], planned_allocated.block_gsa[die_id]);
-        if (!planned ||
-            take_any(
-                planned_remaining.mission[die_id], request.count[HCOMM_CCU_BATCH_RES_MISSION][die_id],
-                HCOMM_CCU_BATCH_RES_MISSION, planned_allocated.mission[die_id]) != 0 ||
-            !take_contiguous(
-                planned_remaining.instruction[die_id], request.instruction[die_id],
-                planned_allocated.instruction[die_id])) {
+        if (!planned || take_any(
+                            planned_remaining.mission[die_id], request.count[HCOMM_CCU_BATCH_RES_MISSION][die_id],
+                            HCOMM_CCU_BATCH_RES_MISSION, planned_allocated.mission[die_id]) != 0) {
             return CcuResult::CCU_E_UNAVAIL;
         }
+        // INS 不走 range 池：指令空间由 ascCustom.allocInstSpace 向 hcomm 按需申请，随 RegisterContext 归还。
     }
 
     remaining = std::move(planned_remaining);

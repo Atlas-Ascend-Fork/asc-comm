@@ -238,9 +238,9 @@ HcclResult RegisterCcuKernel(
     kernel_arg->channelCount = static_cast<uint32_t>(channels.size());
 
     resCtx.ccuKernels.resize(1);
-    CcuInsHandle ins_handle{0};
+    CcuInsHandle ins_handle{};
     RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, ins_handle));
-    HcommCcuRegisterContextHandle context_{nullptr};
+    HcommCcuInstanceHandle context_{nullptr};
     RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, context_));
     RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(asccomm_ccu_kernel_register_start(ins_handle, context_)));
 

@@ -41,7 +41,7 @@ enum {
  * header 标识该结构的 ABI 布局；cycle、任务位置和 kernelHandle 由 hcomm 转换后交给原 callback。
  */
 typedef struct {
-    HcommCcuAbiHeaderPod header; // ABI 头：version/magic/size 校验
+    CommAbiHeader header;        // ABI 头：version/magic/size 校验
     uint64_t beginCycle;         // task 起始 cycle（profiling 采集值）
     uint64_t endCycle;           // task 结束 cycle
     uint32_t dieId;              // 所在 die
@@ -59,19 +59,19 @@ typedef struct {
  * header 在读取名称和数组前完成 ABI 校验；定长字段仅用于跨动态库传值，不携带资源所有权。
  */
 typedef struct {
-    HcommCcuAbiHeaderPod header; // ABI 头：version/magic/size 校验
-    uint32_t nameLength;         // name 实际长度（必须 < HCOMM_CCU_PROFILE_NAME_CAPACITY）
-    uint32_t profilingType;      // profiling 类型（L0/L1 等）
-    uint32_t dieId;              // 所在 die
-    uint32_t missionId;          // mission id
-    uint32_t instructionId;      // 指令 id
-    uint32_t reduceOpType;       // 归约操作类型（非归约时为无效值）
-    uint32_t inputDataType;      // 输入数据类型
-    uint32_t outputDataType;     // 输出数据类型
-    uint64_t dataSize;           // 搬运/归约的数据量（字节或元素数）
-    uint32_t ckeId;              // 关联信号量 CKE id
-    uint32_t mask;               // 信号掩码
-    uint16_t channelId[HCOMM_CCU_PROFILE_CHANNEL_CAPACITY];     // 关联 channel id 数组
+    CommAbiHeader header;                                   // ABI 头：version/magic/size 校验
+    uint32_t nameLength;                                    // name 实际长度（必须 < HCOMM_CCU_PROFILE_NAME_CAPACITY）
+    uint32_t profilingType;                                 // profiling 类型（L0/L1 等）
+    uint32_t dieId;                                         // 所在 die
+    uint32_t missionId;                                     // mission id
+    uint32_t instructionId;                                 // 指令 id
+    uint32_t reduceOpType;                                  // 归约操作类型（非归约时为无效值）
+    uint32_t inputDataType;                                 // 输入数据类型
+    uint32_t outputDataType;                                // 输出数据类型
+    uint64_t dataSize;                                      // 搬运/归约的数据量（字节或元素数）
+    uint32_t ckeId;                                         // 关联信号量 CKE id
+    uint32_t mask;                                          // 信号掩码
+    uint16_t channelId[HCOMM_CCU_PROFILE_CHANNEL_CAPACITY]; // 关联 channel id 数组
     uint32_t remoteRankId[HCOMM_CCU_PROFILE_CHANNEL_CAPACITY];  // 远端 rank id 数组
     uint64_t channelHandle[HCOMM_CCU_PROFILE_CHANNEL_CAPACITY]; // 关联 channel 句柄数组
     char name[HCOMM_CCU_PROFILE_NAME_CAPACITY];                 // 任务名称
@@ -92,7 +92,7 @@ typedef int32_t (*HcommCcuReportTaskCallback)(
  * 返回前有效。其余字段描述线程所属设备、超时、主从属性和 profiling 开关，调用方不得接管任何资源。
  */
 typedef struct {
-    HcommCcuAbiHeaderPod header;                         // ABI 头：version/magic/size 校验
+    CommAbiHeader header;                                // ABI 头：version/magic/size 校验
     int32_t deviceLogicId;                               // 线程所在设备逻辑 id
     uint32_t timeoutSec;                                 // launch 超时秒数
     uint64_t runtimeStream;                              // runtime stream 句柄（借用，不发生所有权转移）
