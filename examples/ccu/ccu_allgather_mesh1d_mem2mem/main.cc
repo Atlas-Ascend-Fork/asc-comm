@@ -10,7 +10,7 @@
 
 #include <acl/acl.h>
 #include <acl/acl_rt.h>
-#include <hccl/hccl.h>
+#include <hccl/hccl_comm.h>
 #include <hccl/hccl_types.h>
 
 #include <algorithm>
@@ -175,7 +175,7 @@ static int RunRank(
             goto cleanup;
         }
 
-        if (AllGatherMesh1D(input, output, count_, comm, stream) != HCCL_SUCCESS) {
+        if (AllGatherMesh1D(input, output, count_, rankId, rankSize, comm, stream) != HCCL_SUCCESS) {
             std::cerr << "rank " << rankId << " AllGatherMesh1D failed\n";
             goto cleanup;
         }
