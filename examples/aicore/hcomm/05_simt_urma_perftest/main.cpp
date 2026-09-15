@@ -13,7 +13,6 @@
  * \brief Host side of the SIMT URMA performance example.
  */
 
-#include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -23,10 +22,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
-#include <tuple>
 #include <vector>
-
-#include <sys/stat.h>
 
 #include "hccl/hccl.h"
 #include "hccl/hccl_rank_graph.h"

@@ -8,7 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <chrono>
 #include <cerrno>
 #include <cstdio>
 #include <cstdint>
@@ -17,14 +16,7 @@
 #include <iostream>
 #include <limits>
 #include <string>
-#include <thread>
-#include <tuple>
 #include <vector>
-
-#include <netdb.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <unistd.h>
 
 #include "acl/acl.h"
 #include "hccl/hccl.h"

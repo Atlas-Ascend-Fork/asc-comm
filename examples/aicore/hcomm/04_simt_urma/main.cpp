@@ -13,7 +13,6 @@
  * \brief Hcomm SIMT URMA功能样例Host侧流程：通信域创建、内存注册、P2P通道创建与结果校验
  */
 
-#include <cerrno>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -22,11 +21,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
-#include <tuple>
 #include <vector>
-
-#include <sys/stat.h>
-#include <sys/types.h>
 
 #include "hccl/hccl.h"
 #include "hccl/hccl_res.h"
