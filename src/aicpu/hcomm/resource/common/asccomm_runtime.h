@@ -36,7 +36,13 @@ HcclResult asccomm_rtsq_rdma_db_send(HcommRtsqContext &context, uint64_t dbAddr,
 // RTSQ硬件属性(localDevId/sqBaseAddr/sqDepth/sqHead/sqTail)首用时在device侧解析：
 // drvGetLocalDevIDByHostDevID为device-only驱动接口(见ascend_hal_base.h)，
 // host控制面不查询硬件，仅填streamId/sqId/localSqeAddr，数据面在AICPU上自解析
+#ifdef __cplusplus
+extern "C" {
+#endif
 HcclResult asccomm_ensure_rtsq_resolved(HcommThreadEntity &thread);
+#ifdef __cplusplus
+}
+#endif
 
 HcclResult asccomm_task_launch(HcommThreadEntity **threads, uint32_t threadNum);
 HcclResult asccomm_try_launch(HcommThreadEntity **threads, uint32_t threadNum);

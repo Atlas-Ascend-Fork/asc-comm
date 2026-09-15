@@ -167,7 +167,7 @@ HcclResult query_sq_base(const HcommRtsqContext &context, uint64_t &baseAddr)
     return HCCL_SUCCESS;
 }
 
-HcclResult asccomm_ensure_rtsq_resolved(HcommThreadEntity &thread)
+HcclResult ensure_rtsq_resolved_impl(HcommThreadEntity &thread)
 {
     HcommRtsqContext &context = *thread.sqContextAddr;
     if (context.sqBaseAddr != 0) {
@@ -203,6 +203,14 @@ HcclResult validate_thread_entity(HcommThreadEntity *thread)
 }
 
 } // namespace
+
+// This entry point is called by the primitives adapter in another translation unit.
+// Keep the implementation helpers private, but export the ABI-facing function.
+extern "C" HcclResult __attribute__((visibility("default")))
+asccomm_ensure_rtsq_resolved(HcommThreadEntity &thread)
+{
+    return ensure_rtsq_resolved_impl(thread);
+}
 
 HcclResult asccomm_rtsq_launch(HcommRtsqContext &context)
 {
