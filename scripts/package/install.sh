@@ -407,7 +407,8 @@ is_allowed_path()
     case "${path}" in
         "${arch_lib_path}/libmc2_client_dfx.so"|\
         asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h|\
-        asc/include/comm_api/*.h|asc/impl/comm_api/*.h)
+        asc/include/comm_api/*.h|asc/impl/comm_api/*.h|\
+        lib64/libmc2_client_dfx.so)
             ;;
         *)
             return 1
