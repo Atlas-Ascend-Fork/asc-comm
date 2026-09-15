@@ -205,8 +205,8 @@ HcclResult validate_thread_entity(HcommThreadEntity *thread)
 } // namespace
 
 // This entry point is called by the primitives adapter in another translation unit.
-// Keep the implementation helpers private, but export the ABI-facing function.
-extern "C" HcclResult __attribute__((visibility("default")))
+// Keep it internal to libasccomm_aicpu; it is not a runtime cross-DSO API.
+extern "C" HcclResult
 asccomm_ensure_rtsq_resolved(HcommThreadEntity &thread)
 {
     return ensure_rtsq_resolved_impl(thread);
