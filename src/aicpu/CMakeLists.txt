@@ -163,3 +163,8 @@ if("${PROJECT_SOURCE_DIR}" STREQUAL "${ASCCOMM_ROOT}")
         COMPONENT hcomm
         FILES_MATCHING PATTERN "*.h")
 endif()
+
+# Keep an explicit aggregate target, matching the CCU CMake integration, so
+# superbuilds can depend on the AICPU data-plane project without knowing its
+# internal source layout.
+add_custom_target(asccomm_aicpu_compile_check DEPENDS asccomm_aicpu)
