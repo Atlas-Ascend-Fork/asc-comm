@@ -12,23 +12,10 @@ cmake_minimum_required(VERSION 3.16)
 
 set(CMAKE_ASC_ARCHITECTURES "dav-3510" CACHE STRING "NPU architecture: dav-3510")
 
-if(NOT CMAKE_ASC_ARCHITECTURES STREQUAL "dav-3510")
-    message(FATAL_ERROR "simt_urma only supports dav-3510, but got ${CMAKE_ASC_ARCHITECTURES}")
-endif()
-
 find_package(ASC REQUIRED)
-
 project(simt_urma LANGUAGES ASC CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-# Only the kernel is compiled as ASC. main.cpp remains on the host C++ toolchain.
-set_source_files_properties(
-    op_kernel.cpp
-    PROPERTIES LANGUAGE ASC
-)
+set_source_files_properties(op_kernel.cpp PROPERTIES LANGUAGE ASC)
 
 add_executable(simt_urma
     main.cpp
@@ -43,14 +30,12 @@ set_target_properties(simt_urma PROPERTIES
     LINKER_LANGUAGE ASC
 )
 
-target_include_directories(simt_urma BEFORE PRIVATE
+target_include_directories(simt_urma PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../..
     $ENV{ASCEND_HOME_PATH}/include
-    $<$<COMPILE_LANGUAGE:ASC>:$ENV{ASCEND_HOME_PATH}/asc/include/adv_api>
 )
 
-# Host-side communication-domain, memory-registration and channel APIs are provided by libhcomm.so.
 target_link_directories(simt_urma PRIVATE
     $ENV{ASCEND_HOME_PATH}/lib64
     $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/lib64
