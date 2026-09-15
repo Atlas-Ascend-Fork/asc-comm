@@ -12,30 +12,35 @@ cmake_minimum_required(VERSION 3.16)
 
 set(CMAKE_ASC_ARCHITECTURES "dav-3510" CACHE STRING "NPU architecture: dav-3510")
 
-if(NOT CMAKE_ASC_ARCHITECTURES STREQUAL "dav-3510")
-    message(FATAL_ERROR "hcomm_write_read_nbi only supports dav-3510, but got ${CMAKE_ASC_ARCHITECTURES}")
-endif()
-
 find_package(ASC REQUIRED)
-
-project(kernel_samples LANGUAGES ASC CXX)
+project(demo LANGUAGES ASC CXX)
 
 option(ASCENDC_DEBUG "Enable AscendC/Hcomm kernel debug logs" OFF)
 
-set_source_files_properties(
-    hcomm_write_read_nbi_kernel.cpp
-    utils.cpp
-    PROPERTIES LANGUAGE ASC
-)
+set_source_files_properties(hcomm_write_read_nbi_kernel.cpp PROPERTIES LANGUAGE ASC)
 
 add_executable(demo
     hcomm_write_read_nbi.asc
     hcomm_write_read_nbi_kernel.cpp
-    utils.cpp
+)
+
+set_target_properties(demo PROPERTIES
+    LINKER_LANGUAGE ASC
+)
+
+target_include_directories(demo PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../..
+)
+
+target_link_directories(demo PRIVATE
+    $ENV{ASCEND_HOME_PATH}/lib64
+    $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/lib64
 )
 
 target_link_libraries(demo PRIVATE
     hcomm
+    hccl
 )
 
 target_compile_options(demo PRIVATE
