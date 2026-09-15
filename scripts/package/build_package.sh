@@ -285,6 +285,10 @@ build_package()
         "${STAGING_DIR}/payload/asc/include/comm_api" \
         550 \
         aicore/hcomm
+    # ccu_host_launch.h is part of the asc-comm host-launch delivery and must
+    # remain available to host samples after installing this package.
+    [[ -f "${STAGING_DIR}/payload/asc/include/comm_api/ccu/ccu_host_launch.h" ]] || \
+        fail "host-launch wrapper header was not staged: ccu_host_launch.h"
     copy_headers \
         "${PROJECT_ROOT}/src" \
         "${STAGING_DIR}/payload/asc/impl/comm_api" \
