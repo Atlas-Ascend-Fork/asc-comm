@@ -160,6 +160,7 @@ __aicore__ inline void HcommJettyImpl::AdvanceSq(uint32_t numWqebbs)
     uint64_t packedHead =
         static_cast<uint64_t>(jettyInfo_->sqHead) | (static_cast<uint64_t>(jettyInfo_->expectedCqeCnt) << 32U);
     WriteGmBypassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr), packedHead);
+    AscendC::DataSyncBarrier<AscendC::MemDsbT::DDR>();
 }
 
 __aicore__ inline void HcommJettyImpl::RingDoorbell()
@@ -216,6 +217,7 @@ __aicore__ inline int32_t HcommJettyImpl::PollCq(uint32_t expectedTail)
     WriteGmBypassDCache(
         reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqDoorbellAddr), currentTail & HCOMM_JETTY_CQ_DOORBELL_MASK);
     WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqTailAddr), currentTail);
+    AscendC::DataSyncBarrier<AscendC::MemDsbT::DDR>();
     return HCOMM_SUCCESS;
 }
 
