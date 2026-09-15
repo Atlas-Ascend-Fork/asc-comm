@@ -174,3 +174,12 @@ foreach(_source IN LISTS _ASCCOMM_CCU_SOURCES)
         message(FATAL_ERROR "asccomm_ccu_obj source is outside asc-comm: ${_source_real}")
     endif()
 endforeach()
+
+# host-launch wrapper 由 asc-comm 自身交付；asc-devkit 只负责挂载并构建该目标，
+# 避免两个包分别维护同一份 wrapper 头文件。
+if(NOT INSTALL_PKG_INCLUDE_DIR)
+    set(INSTALL_PKG_INCLUDE_DIR pkg_inc)
+endif()
+install(FILES ${ASCCOMM_ROOT}/include/ccu/ccu_host_launch.h
+    DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/ccu
+    COMPONENT asc-comm)
