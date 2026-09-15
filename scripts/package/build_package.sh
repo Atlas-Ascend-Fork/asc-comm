@@ -133,6 +133,22 @@ find_version_checker_dir()
     fail "CANN package version compatibility scripts were not found under: ${CANN_PATH}/share/info"
 }
 
+find_ccu_library()
+{
+    local build_dir="${PROJECT_ROOT}/build/package-ccu"
+    local library="${build_dir}/libasccomm_ccu.so"
+
+    cmake -S "${PROJECT_ROOT}" -B "${build_dir}" > "${build_dir}.log" \
+        -Wno-dev \
+        -DASCEND_CANN_PACKAGE_PATH="${CANN_PATH}" \
+        -DCANN_3RD_LIB_PATH="${PROJECT_ROOT}/third_party" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DASCCOMM_BUILD_CCU=ON
+    cmake --build "${build_dir}" --target asccomm_ccu >> "${build_dir}.log"
+    [[ -f "${library}" ]] || fail "CCU library was not built: ${library}"
+    echo "${library}"
+}
+
 read_package_version()
 {
     local package=$1
@@ -197,7 +213,7 @@ write_manifest()
         cd "${STAGING_DIR}/payload"
         while IFS= read -r -d '' file; do
             sha256sum "${file}"
-        done < <(find asc -type f -name '*.h' -print0 | sort -z)
+        done < <(find asc -type f \( -name '*.h' -o -name '*.so' \) -print0 | sort -z)
     ) > "${STAGING_DIR}/manifest.sha256"
 }
 
@@ -250,6 +266,7 @@ build_package()
     local makeself_dir
     local version_checker_dir
     local run_file
+    local ccu_library
 
     [[ -n "${CANN_PATH}" ]] || fail "CANN path is not set; source set_env.sh or use --cann_path"
     [[ "${CANN_PATH}" = /* ]] || fail "CANN path must be absolute: ${CANN_PATH}"
@@ -264,6 +281,7 @@ build_package()
     required_runtime_version=$(read_package_compat_version "runtime")
     makeself_dir=$(find_makeself_dir)
     version_checker_dir=$(find_version_checker_dir)
+    ccu_library=$(find_ccu_library)
 
     mkdir -p "$(dirname -- "${STAGING_DIR}")" "${OUTPUT_DIR}"
     rm -rf -- "${STAGING_DIR}"
@@ -290,6 +308,8 @@ build_package()
         "${STAGING_DIR}/payload/asc/impl/comm_api" \
         550 \
         aicore/hcomm
+    install -D -m 550 "${ccu_library}" \
+        "${STAGING_DIR}/payload/asc/lib64/libasccomm_ccu.so"
     write_manifest
     write_link_manifest
     write_version_info \

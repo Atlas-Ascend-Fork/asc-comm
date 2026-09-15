@@ -399,7 +399,8 @@ is_allowed_path()
     local path=$1
     case "${path}" in
         asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h|\
-        asc/include/comm_api/*.h|asc/impl/comm_api/*.h)
+        asc/include/comm_api/*.h|asc/impl/comm_api/*.h|\
+        asc/lib64/libasccomm_ccu.so)
             ;;
         *)
             return 1
@@ -416,7 +417,8 @@ is_allowed_directory_path()
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
         asc/include/comm_api|asc/include/comm_api/*|\
-        asc/impl/comm_api|asc/impl/comm_api/*)
+        asc/impl/comm_api|asc/impl/comm_api/*|\
+        asc/lib64)
             ;;
         *)
             return 1
@@ -434,7 +436,7 @@ payload_file_mode()
 
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
-        asc/include/comm_api/*|asc/impl/comm_api/*)
+        asc/include/comm_api/*|asc/impl/comm_api/*|asc/lib64/*.so)
             mode=550
             ;;
         *)
@@ -454,7 +456,7 @@ managed_directory_mode()
             mode=750
             ;;
         asc/include/comm_api|asc/include/comm_api/*|\
-        asc/impl/comm_api|asc/impl/comm_api/*)
+        asc/impl/comm_api|asc/impl/comm_api/*|asc/lib64)
             mode=550
             ;;
         *)
