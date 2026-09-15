@@ -180,6 +180,12 @@ endforeach()
 if(NOT INSTALL_PKG_INCLUDE_DIR)
     set(INSTALL_PKG_INCLUDE_DIR pkg_inc)
 endif()
+if(NOT INSTALL_LIBRARY_DIR)
+    set(INSTALL_LIBRARY_DIR lib64)
+endif()
+install(TARGETS asccomm_ccu
+    LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
+    COMPONENT asc-comm)
 install(FILES ${ASCCOMM_ROOT}/include/ccu/ccu_host_launch.h
     DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/ccu
     COMPONENT asc-comm)
