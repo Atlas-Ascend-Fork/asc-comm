@@ -39,6 +39,9 @@ target_include_directories(demo PRIVATE
 target_compile_features(demo PRIVATE cxx_std_14)
 target_compile_options(demo PRIVATE
     -Werror
+    # CANN adv_api 头（devkit dev1 线）内部仍调用已废弃的 GmByPassDCache，
+    # 主线已修复；此处仅豁免该类告警，其余告警仍按错误处理。
+    -Wno-error=deprecated-declarations
     -fstack-protector-strong
     -fPIE
     -O2
@@ -65,9 +68,10 @@ target_link_directories(demo PRIVATE
 target_link_libraries(demo PRIVATE
     hcomm
     asccomm_ccu
-    asccomm_ccu_dataplane
+    asccomm_ccu
     c_sec
     ascendcl
     acl_rt
     ascendc_runtime
+    pthread
 )

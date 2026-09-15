@@ -43,7 +43,7 @@ asc-comm是面向昇腾AI处理器通信场景的开源仓，当前用于承载A
 
 ### 交付与构建方式
 
-asc-comm 数据面产物（`libasccomm_ccu_dataplane.so`、CCU DSL 头和其 hcomm ABI 头副本）由 asc-devkit run 包联合编译并交付；本仓以构建挂接方式成为 asc-devkit 的构建子工程（源码仓独立、同级放置）。编译期不依赖 hcomm 源码树或已安装 hcomm 头文件；跨 SO ABI 头原样保存在本仓 `include/hcomm` 下。本仓另提供开发期头文件热补丁包（`build.sh --pkg`，仅 aicore 头，不含 SO）。
+asc-comm 数据面产物由 asc-devkit run 包联合编译并交付；本仓以构建挂接方式成为 asc-devkit 的构建子工程（源码仓独立、同级放置）。编译期不依赖 hcomm 源码树或已安装 hcomm 头文件；跨 SO ABI 头原样保存在本仓 `include/hcomm` 下。本仓另提供开发期头文件热补丁包（`build.sh --pkg`，仅 aicore 头，不含 SO）。
 
 ### 数据面能力
 
