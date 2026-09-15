@@ -42,7 +42,7 @@ basic_ring
 | 项目 | 说明 |
 | --- | --- |
 | 通信模式 | 环形拓扑AIN点对点单边通信 |
-| 通信引擎 | `COMM_ENGINE_AIV`，协议`COMM_PROTOCOL_UBC_CTP` |
+| 通信引擎 | `COMM_ENGINE_AIV`，协议`COMM_PROTOCOL_UB_CTP` |
 | 部署形态 | 单机多卡 |
 | 支持rank数 | >= 2，且不超过当前可用NPU数量 |
 
@@ -53,7 +53,7 @@ basic_ring
    创建多rank HCCL通信域。
 2. 每个rank初始化ACL运行环境，配置`barrierCount`并调用`HcclWorldTeamCreate`创建world team。
 3. 分别将`sendBuf`和`recvBuf`通过`HcclTeamWindowRegister`注册为对称window。
-4. 调用`HcclTeamChannelsCreate`创建AIV + UBC_CTP通信channel。
+4. 调用`HcclTeamChannelsCreate`创建AIV + UB_CTP通信channel。
 5. 下发`worldTeam`、`sendWin`、`recvWin`到Kernel。
 6. Kernel侧构造`AscendC::Ain`对象并初始化Hcomm UB临时工作区，执行`Put`和`Get`后调用`Flush`
    等待通信任务完成，最后通过`AinBarrierSession::Sync`完成rank间同步。
