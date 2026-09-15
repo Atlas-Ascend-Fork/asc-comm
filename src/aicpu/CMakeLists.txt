@@ -23,25 +23,22 @@ if(NOT ASCEND_CANN_PACKAGE_PATH)
 endif()
 message(STATUS "ASCEND_CANN_PACKAGE_PATH = ${ASCEND_CANN_PACKAGE_PATH}")
 
-if(NOT DEFINED ASCCOMM_CANN_ARCH_DIR)
+if(NOT ASCCOMM_CANN_ARCH_DIR)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
         set(_ASCCOMM_CANN_ARCH "aarch64-linux")
     else()
         set(_ASCCOMM_CANN_ARCH "x86_64-linux")
     endif()
+    set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}")
 endif()
-set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}")
 message(STATUS "ASCCOMM_CANN_ARCH_DIR = ${ASCCOMM_CANN_ARCH_DIR}")
 
-# 查找 hcomm 代码(对齐PR129形态)：AICPU数据面自包含随仓契约头(include/aicpu/hcomm/)编译，
-# ASCCOMM_HCOMM_SOURCE_DIR/HCOMM_SOURCE_DIR存在时附加其pkg_inc包含路径(不校验内容，
-# devkit超构建的asc-comm.cmake会把ASCCOMM_HCOMM_SOURCE_DIR设为devkit内hccl/cc路径，
-# 该路径无pkg_inc，AICPU侧忽略即可)，不存在时自包含构建。
-if(ASCCOMM_HCOMM_SOURCE_DIR)
-    # 显式指定，直接使用
-elseif(HCOMM_SOURCE_DIR)
+# 查找 hcomm 代码：优先使用显式路径，其次兼容旧的 HCOMM_SOURCE_DIR，
+# 最后探测相邻源码仓；没有契约头时回退到随仓自包含头文件。
+if(NOT ASCCOMM_HCOMM_SOURCE_DIR AND HCOMM_SOURCE_DIR)
     set(ASCCOMM_HCOMM_SOURCE_DIR "${HCOMM_SOURCE_DIR}")
-else()
+endif()
+if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
     foreach(_candidate
         "${ASCCOMM_ROOT}/../hcomm_pkg_inc"
         "${ASCCOMM_ROOT}/../hcomm")
@@ -52,16 +49,11 @@ else()
     endforeach()
 endif()
 if(ASCCOMM_HCOMM_SOURCE_DIR AND NOT EXISTS "${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hcomm/hcomm_pod_resource.h")
-    # 指定路径无AICPU契约头(如devkit的hccl/cc)：退回自包含，不报错
+    # 指定路径无AICPU契约头(如devkit的hccl/cc)：退回自包含。
     set(ASCCOMM_HCOMM_SOURCE_DIR "")
 endif()
 set(ASCCOMM_HCOMM_SOURCE_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}" CACHE PATH "Original hcomm source tree")
-if(ASCCOMM_HCOMM_SOURCE_DIR)
-    message(STATUS "ASCCOMM_HCOMM_SOURCE_DIR = ${ASCCOMM_HCOMM_SOURCE_DIR}")
-else()
-    message(STATUS "ASCCOMM_HCOMM_SOURCE_DIR not set; "
-        "build AICPU data plane self-contained from in-repo contract headers")
-endif()
+message(STATUS "ASCCOMM_HCOMM_SOURCE_DIR = ${ASCCOMM_HCOMM_SOURCE_DIR}")
 
 add_library(asc_comm_dfx INTERFACE)
 target_include_directories(asc_comm_dfx INTERFACE ${ASCCOMM_DFX_SRC_DIR})
@@ -130,9 +122,6 @@ target_link_libraries(asccomm_aicpu PRIVATE
     pthread
 )
 
-if(NOT EXISTS "${ASCCOMM_ROOT}/cmake/asccomm_exports.map")
-    message(WARNING "version script not found: ${ASCCOMM_ROOT}/cmake/asccomm_exports.map")
-endif()
 target_link_options(asccomm_aicpu PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
