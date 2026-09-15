@@ -60,7 +60,7 @@ Kernel执行完毕后，Host侧回读结果并校验seg1和seg2是否与对端pa
    创建通信域。**注意：AIV直驱模式下，无需配置`hcclOpExpansionMode`。**
 2. 调用`HcclCommMemReg`向通信域注册本卡通信buffer，Channel创建时内存信息自动交换给对端。
 3. 通过`HcclRankGraphGetLayers`和`HcclRankGraphGetLinks`获取到`prev`和`next`的链路Endpoint。
-4. 调用`HcclChannelAcquire`创建P2P通道，指定引擎为`COMM_ENGINE_AIV`、协议为`COMM_PROTOCOL_UBC_CTP`（URMA协议）。
+4. 调用`HcclChannelAcquire`创建P2P通道，指定引擎为`COMM_ENGINE_AIV`、协议为`COMM_PROTOCOL_UB_CTP`（URMA协议）。
 5. 调用`HcclChannelGetRemoteMems`获取对端注册内存地址，作为Kernel侧`WriteNbi`/`ReadNbi`的远端目标地址。
 6. Host预初始化seg0，将`ChannelHandle`和buffer地址封装到`CommContext`下发到各卡GM。
 7. Kernel侧执行`Init()`分配UB工作空间后提交通信任务：将本卡seg0通过`WriteNbi`写入`next`的
