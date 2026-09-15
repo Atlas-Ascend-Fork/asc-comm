@@ -27,11 +27,10 @@
 
 namespace AscendC {
 
-AIN_DEVICE HcommMemHandle GetPeerPointer(HcommTeamHandle team, uint32_t peer, HcclCommSymWindow window, size_t offset)
+AIN_DEVICE HcommMemHandle GetPeerPointer(uint32_t peer, HcclCommSymWindow window, size_t offset)
 {
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
     auto hcommWindow = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window));
-    size_t peerOffset = hcommTeam->worldTeamIds[peer] * hcommWindow->lsaWin.stride + offset;
+    size_t peerOffset = peer * hcommWindow->lsaWin.stride + offset;
     HcommMemHandle ptr =
         reinterpret_cast<HcommMemHandle>(reinterpret_cast<uintptr_t>(hcommWindow->lsaWin.baseVa) + peerOffset);
     return ptr;
@@ -40,7 +39,7 @@ AIN_DEVICE HcommMemHandle GetPeerPointer(HcommTeamHandle team, uint32_t peer, Hc
 AIN_DEVICE ChannelHandle GetChannelHandle(const __gm__ HcommTeam* team, const uint32_t peer, const uint32_t index)
 {
     const auto channelCntAccumulatePerMember = team->channelCntAccumulatePerMember;
-    const auto channelIndexBase = ReadGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(
+    const auto channelIndexBase = ReadGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(
         reinterpret_cast<uintptr_t>(channelCntAccumulatePerMember) + peer * sizeof(uint32_t)));
     uint64_t channelIndex = index + channelIndexBase;
     ChannelHandle channel = team->channelsBaseAddr + channelIndex * sizeof(ChannelEntity);

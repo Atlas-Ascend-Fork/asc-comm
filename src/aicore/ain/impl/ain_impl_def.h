@@ -23,7 +23,7 @@
 #ifndef IMPL_COMM_API_AICORE_AIN_IMPL_AIN_IMPL_DEF_H
 #define IMPL_COMM_API_AICORE_AIN_IMPL_AIN_IMPL_DEF_H
 
-#include "../../hcomm/impl/hcomm_impl_def.h"
+#include "hcomm/hcomm.h"
 #include "hcomm_res_defs.h"
 #include "hcomm_team_defs.h"
 
