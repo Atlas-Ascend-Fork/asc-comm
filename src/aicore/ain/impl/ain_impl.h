@@ -27,11 +27,10 @@
 
 namespace AscendC {
 
-AIN_DEVICE HcommMemHandle GetPeerPointer(HcommTeamHandle team, uint32_t peer, HcclCommSymWindow window, size_t offset)
+AIN_DEVICE HcommMemHandle GetPeerPointer(uint32_t peer, HcclCommSymWindow window, size_t offset)
 {
-    auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
     auto hcommWindow = reinterpret_cast<__gm__ HcommWindow*>(reinterpret_cast<uint64_t>(window));
-    size_t peerOffset = hcommTeam->worldTeamIds[peer] * hcommWindow->lsaWin.stride + offset;
+    size_t peerOffset = peer * hcommWindow->lsaWin.stride + offset;
     HcommMemHandle ptr =
         reinterpret_cast<HcommMemHandle>(reinterpret_cast<uintptr_t>(hcommWindow->lsaWin.baseVa) + peerOffset);
     return ptr;
