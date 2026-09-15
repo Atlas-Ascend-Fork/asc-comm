@@ -26,8 +26,8 @@ constexpr uint64_t READ_RESULT_OFFSET = 2U * DATA_SIZE;
 constexpr uint32_t NRANKS = 2U;
 constexpr uint16_t BASE_PORT = 29620U;
 constexpr uint32_t ROOT_SERVER_RANK = 0U;
-constexpr CommProtocol HOST_COMM_PROTOCOL = COMM_PROTOCOL_UBC_CTP;
-constexpr AscendC::CommProtocol KERNEL_COMM_PROTOCOL = AscendC::COMM_PROTOCOL_UBC_CTP;
+constexpr CommProtocol HOST_COMM_PROTOCOL = COMM_PROTOCOL_UB_CTP;
+constexpr AscendC::CommProtocol KERNEL_COMM_PROTOCOL = AscendC::COMM_PROTOCOL_UB_CTP;
 static_assert(
     static_cast<int32_t>(HOST_COMM_PROTOCOL) == static_cast<int32_t>(KERNEL_COMM_PROTOCOL),
     "Host and Kernel communication protocols must match");

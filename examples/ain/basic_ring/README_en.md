@@ -12,7 +12,7 @@ The Host side allocates memory, initializes the HCCL communicator, creates the H
 | --- | --- |
 | Product | `Ascend 950PR / Ascend 950DT` |
 | NPU architecture | `dav-3510` |
-| Communication protocol | `COMM_PROTOCOL_UBC_CTP` |
+| Communication protocol | `COMM_PROTOCOL_UB_CTP` |
 | Communication engine | `COMM_ENGINE_AIV` |
 | Deployment mode | Single-node multi-card |
 | CANN package | The CANN package selected by the current `set_env.sh` environment |
@@ -38,7 +38,7 @@ basic_ring
 2. Create the multi-rank HCCL communicator through `HcclGetRootInfo` and `HcclCommInitRootInfo`.
 3. Configure `barrierCount` and call `HcclWorldTeamCreate` to create the world team.
 4. Register `sendBuf` and `recvBuf` as symmetric windows through `HcclTeamWindowRegister`.
-5. Call `HcclTeamChannelsCreate` to create AIV + UBC_CTP communication channels.
+5. Call `HcclTeamChannelsCreate` to create AIV + UB_CTP communication channels.
 6. Pass `worldTeam`, `sendWin`, and `recvWin` to the Kernel.
 
 ### Kernel-Side AIN Communication
