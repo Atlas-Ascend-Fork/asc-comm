@@ -40,6 +40,11 @@ public:
         asc_ccu_res_snapshot& res_pack, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
         const void** kernel_args, const uint32_t arg_num, ccu_kernel_handle& kernel_handle);
 
+    // ResDesc 查询链：执行 kernel func 统计资源需求，不分配资源、不注册 kernel
+    CcuResult get_kernel_resource_request(
+        uint32_t die_id, const char* kernel_func_name, const void* kernel_func, const void** kernel_args,
+        uint32_t arg_num, asc_ccu_res_request& res_req, uint32_t& instr_count);
+
     CcuResult translate(const std::vector<ccu_kernel_handle>& kernel_handles);
 
     ccu_kernel* get_kernel(ccu_kernel_handle kernel_handle);
@@ -47,7 +52,7 @@ public:
     CcuResult un_register(ccu_kernel_handle kernel_handle);
 
     ccu_kernel* get_current_kernel();
-    const HcommCcuControlOpsPod& get_control_ops() const;
+    const uint64_t* get_control_ops() const; // ascCustom 槽位数组
 
 private:
     explicit ccu_kernel_mgr() = default;
@@ -71,8 +76,6 @@ private:
     std::mutex translate_mutex_{};
     ccu_kernel_handle kernel_id_ = 0;
     std::unordered_map<ccu_kernel_handle, std::unique_ptr<ccu_kernel>> kernel_map_{};
-    void* instruction_load_dev_mem_{nullptr};
-    uint64_t instruction_load_dev_mem_size_{0};
 
     std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<ccu_rep::ccu_rep_translator>>>
         translators_;
@@ -82,7 +85,7 @@ private:
     std::shared_ptr<ccu_ins_generater_base> ins_gene_ptr_;
     uint32_t ccu_version_{HCOMM_CCU_VERSION_INVALID};
     std::array<uint32_t, HCOMM_CCU_MAX_DIE_NUM> mission_keys_{};
-    HcommCcuControlOpsPod control_ops_{};
+    uint64_t control_ops_[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]{};
 };
 }; // namespace asc
 #endif // HCOMM_CCU_KERNEL_MGR_IMP_H

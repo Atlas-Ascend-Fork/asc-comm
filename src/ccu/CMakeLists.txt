@@ -11,6 +11,13 @@
 set(ASCCOMM_CCU_ROOT ${CMAKE_CURRENT_LIST_DIR})
 get_filename_component(ASCCOMM_ROOT ${ASCCOMM_CCU_ROOT}/../.. ABSOLUTE)
 
+# 同一构建树内可能被多个上层各自 add_subdirectory 本目录（如 asc-devkit 构建脚本
+# 与本仓顶层 ASCOMM_BUILD_CCU 入口），target 只允许创建一次：已存在则直接复用，跳过重复定义。
+# 注：hcomm 已移除 asc-comm 联合编译（asccomm-ccu.cmake），仅通过 pkg_inc 引用跨 SO ABI 头。
+if(TARGET asccomm_ccu_dataplane)
+    return()
+endif()
+
 function(asccomm_collect_header_dirs out_var)
     set(_dirs)
     foreach(_root IN LISTS ARGN)

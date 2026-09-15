@@ -20,9 +20,8 @@
  *     -> asc-comm 逐条构造 HcommCcuDfxRecordPod，经 HcommCcuDfxEmitFn 同步回调返回 hcomm
  *     -> hcomm 在回调内按值复制，格式化、打印并补充 Channel/Rank/Jetty 信息
  *
- * 诊断过程中 asc-comm 还会调用 hcomm 注入的 mission/loop/资源查询函数
- * （见 hcomm_ccu_control.h 的 missionContextQuery/loopContextQuery/ckeQuery/xnQuery/gsaQuery）
- * 补充硬件现场。
+ * 硬件现场查询（mission/loop 上下文、CKE/XN/GSA 资源值）暂未挂入 ascCustom 槽位（3-7 预留），
+ * 当前诊断链降级：定位不到故障指令，HcommCcuDiagnoseFn 返回 CCU_E_NOT_SUPPORT。
  */
 #ifndef HCOMM_CCU_DFX_H
 #define HCOMM_CCU_DFX_H
