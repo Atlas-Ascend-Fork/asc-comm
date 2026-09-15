@@ -48,8 +48,8 @@ target_include_directories(asccomm_ccu_headers INTERFACE
     ${ASCCOMM_ROOT}/include
 )
 
-add_library(asccomm_ccu_dataplane_obj OBJECT)
-target_link_libraries(asccomm_ccu_dataplane_obj PRIVATE
+add_library(asccomm_ccu_obj OBJECT)
+target_link_libraries(asccomm_ccu_obj PRIVATE
     asccomm_ccu_headers
     $<BUILD_INTERFACE:intf_pub>
     $<BUILD_INTERFACE:error_manager_headers>
@@ -64,53 +64,27 @@ target_link_libraries(asccomm_ccu_dataplane_obj PRIVATE
     $<BUILD_INTERFACE:c_sec_headers>
     $<BUILD_INTERFACE:unified_dlog>
 )
-target_include_directories(asccomm_ccu_dataplane_obj PRIVATE
+target_include_directories(asccomm_ccu_obj PRIVATE
     ${ASCCOMM_CCU_ROOT}
     ${ASCCOMM_ROOT}/include
 )
-target_include_directories(asccomm_ccu_dataplane_obj SYSTEM PRIVATE
+target_include_directories(asccomm_ccu_obj SYSTEM PRIVATE
     ${ASCCOMM_CANN_BASE_INCLUDE_DIRS}
     ${ASCCOMM_CANN_HEADER_DIRS}
 )
-target_compile_definitions(asccomm_ccu_dataplane_obj PRIVATE
+target_compile_definitions(asccomm_ccu_obj PRIVATE
     ASCCOMM_CCU_LOCAL_LOGGING
     BUILD_OPEN_PROJECT
     CANN_VERSION_NUM=90100000
     _GLIBCXX_USE_CXX11_ABI=0
 )
-target_compile_options(asccomm_ccu_dataplane_obj PRIVATE -w -fPIC)
-target_compile_options(asccomm_ccu_dataplane_obj PRIVATE
+target_compile_options(asccomm_ccu_obj PRIVATE -w -fPIC)
+target_compile_options(asccomm_ccu_obj PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:-include ${ASCCOMM_CCU_ROOT}/hcomm/common/ccu_log.h>
 )
 add_subdirectory(hcomm)
 
-add_library(asccomm_ccu_dataplane SHARED
-    $<TARGET_OBJECTS:asccomm_ccu_dataplane_obj>
-)
-set_target_properties(asccomm_ccu_dataplane PROPERTIES
-    OUTPUT_NAME asccomm_ccu_dataplane
-)
-target_link_directories(asccomm_ccu_dataplane PRIVATE
-    ${ASCCOMM_CANN_ARCH_DIR}/lib64
-)
-target_link_libraries(asccomm_ccu_dataplane PRIVATE
-    asccomm_ccu_headers
-    acl_rt
-    runtime
-    unified_dlog
-    c_sec
-    pthread
-)
-# 链接期校验：数据面 SO 不允许存在未定义符号（防止无意识依赖 hcomm 内部符号）
-target_link_options(asccomm_ccu_dataplane PRIVATE
-    -Wl,--no-undefined
-    -Wl,-z,relro -Wl,-z,now
-    $<$<CONFIG:Release>:-s>
-    $<$<CONFIG:Release>:-Wl,--build-id=none>
-)
-
-# <<<>>> Host Launch 兼容层独立构建为 libasccomm_ccu.so，并通过数据面 C ABI
-# 调用 libasccomm_ccu_dataplane.so 完成内核注册与下发。
+# 单一交付物：libasccomm_ccu.so 同时承载 CCU 数据面实现与 host-launch 兼容 wrapper。
 add_library(asccomm_ccu_host_obj OBJECT
     ${ASCCOMM_CCU_ROOT}/ccu_host_launch.cpp
 )
@@ -150,6 +124,7 @@ target_compile_options(asccomm_ccu_host_obj PRIVATE
 )
 
 add_library(asccomm_ccu SHARED
+    $<TARGET_OBJECTS:asccomm_ccu_obj>
     $<TARGET_OBJECTS:asccomm_ccu_host_obj>
 )
 if(NOT ASCCOMM_LIBRARY_OUTPUT_DIRECTORY)
@@ -159,9 +134,17 @@ set_target_properties(asccomm_ccu PROPERTIES
     OUTPUT_NAME asccomm_ccu
     LIBRARY_OUTPUT_DIRECTORY ${ASCCOMM_LIBRARY_OUTPUT_DIRECTORY}
 )
+target_link_directories(asccomm_ccu PRIVATE
+    ${ASCCOMM_CANN_ARCH_DIR}/lib64
+)
 target_link_libraries(asccomm_ccu PRIVATE
     asccomm_ccu_headers
-    asccomm_ccu_dataplane
+    $<BUILD_INTERFACE:intf_pub>
+    acl_rt
+    runtime
+    unified_dlog
+    c_sec
+    pthread
 )
 target_link_options(asccomm_ccu PRIVATE
     -Wl,--no-undefined
@@ -172,13 +155,13 @@ target_link_options(asccomm_ccu PRIVATE
 
 # 源文件归属校验：强制数据面目标的所有源文件必须位于 asc-comm 仓内，
 # 避免误引用 hcomm 源（控制面/数据面边界），保证两仓可独立构建。
-get_target_property(_ASCCOMM_CCU_SOURCES asccomm_ccu_dataplane_obj SOURCES)
-get_target_property(_ASCCOMM_CCU_SOURCE_DIR asccomm_ccu_dataplane_obj SOURCE_DIR)
+get_target_property(_ASCCOMM_CCU_SOURCES asccomm_ccu_obj SOURCES)
+get_target_property(_ASCCOMM_CCU_SOURCE_DIR asccomm_ccu_obj SOURCE_DIR)
 get_filename_component(_ASCCOMM_ROOT_REAL "${ASCCOMM_ROOT}" REALPATH)
 foreach(_source IN LISTS _ASCCOMM_CCU_SOURCES)
     # 生成器表达式无法在配置期解析为真实路径，直接拒绝
     if(_source MATCHES "^\\$<")
-        message(FATAL_ERROR "asccomm_ccu_dataplane_obj source ownership cannot be verified: ${_source}")
+        message(FATAL_ERROR "asccomm_ccu_obj source ownership cannot be verified: ${_source}")
     endif()
     if(IS_ABSOLUTE "${_source}")
         set(_source_path "${_source}")
@@ -189,10 +172,10 @@ foreach(_source IN LISTS _ASCCOMM_CCU_SOURCES)
     string(FIND "${_source_real}" "${_ASCCOMM_ROOT_REAL}/" _source_prefix)
     # 解析后的真实路径必须位于 asc-comm 根目录下，否则视为越界源文件
     if(NOT _source_prefix EQUAL 0)
-        message(FATAL_ERROR "asccomm_ccu_dataplane_obj source is outside asc-comm: ${_source_real}")
+        message(FATAL_ERROR "asccomm_ccu_obj source is outside asc-comm: ${_source_real}")
     endif()
 endforeach()
 
-add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
-add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_ccu_dataplane)
-add_custom_target(asccomm_ccu_compile_check DEPENDS asccomm_ccu asccomm_ccu_dataplane)
+add_custom_target(asccomm_ccu_hcomm_dataplane_compile_check DEPENDS asccomm_ccu)
+add_custom_target(asccomm_ccu_dataplane_compile_check DEPENDS asccomm_ccu)
+add_custom_target(asccomm_ccu_compile_check DEPENDS asccomm_ccu)

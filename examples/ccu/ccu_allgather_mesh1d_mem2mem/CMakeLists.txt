@@ -63,7 +63,7 @@ target_link_directories(ccu_allgather_mesh1d_mem2mem PRIVATE
 target_link_libraries(ccu_allgather_mesh1d_mem2mem PRIVATE
     -Wl,--no-as-needed
     hcomm
-    asccomm_ccu_dataplane
+    asccomm_ccu
     hccl_v2
     -Wl,--as-needed
     c_sec
