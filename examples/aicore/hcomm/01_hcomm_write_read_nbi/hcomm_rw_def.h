@@ -12,11 +12,9 @@
 #define HCOMM_RW_DEF_H
 
 #include <cstdint>
-#include <cstdio>
 
 #include "adv_api/hcomm/hcomm.h"
 #include "hccl/hccl.h"
-#include "hccl/hccl_comm.h"
 
 // Host侧流程的返回值与错误检查宏（原TCP环工具utils.h中仅剩的被使用部分）。
 constexpr int32_t SUCCESS = 0;
