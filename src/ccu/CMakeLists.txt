@@ -174,5 +174,3 @@ foreach(_source IN LISTS _ASCCOMM_CCU_SOURCES)
         message(FATAL_ERROR "asccomm_ccu_obj source is outside asc-comm: ${_source_real}")
     endif()
 endforeach()
-
-add_custom_target(asccomm_ccu_compile_check DEPENDS asccomm_ccu)
