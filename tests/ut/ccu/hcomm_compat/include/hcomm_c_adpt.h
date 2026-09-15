@@ -15,6 +15,6 @@
 
 #include "hcomm_primitives.h"
 
-typedef HcclResult HcommResult;
+#include "hcomm/hcomm_ccu_channel.h" // 提供 HcommResult（hcomm_res_defs）与 Channel POD
 
 #endif

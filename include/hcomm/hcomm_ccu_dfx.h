@@ -21,7 +21,7 @@
  *     -> hcomm 在回调内按值复制，格式化、打印并补充 Channel/Rank/Jetty 信息
  *
  * 诊断过程中 asc-comm 还会调用 hcomm 注入的 mission/loop/资源查询函数
- * （见 hcomm_ccu_control.h 的 missionContextQuery/loopContextQuery/ckeQuery/xnQuery/gsaQuery）
+ * （见 hcomm_ccu_res.h 中 ascCustom 槽位的 missionContextQuery/loopContextQuery/ckeQuery/xnQuery/gsaQuery）
  * 补充硬件现场。
  */
 #ifndef HCOMM_CCU_DFX_H

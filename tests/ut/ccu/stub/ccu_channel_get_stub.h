@@ -16,9 +16,10 @@
 
 namespace asc {
 
-void SetHcommCcuChannelQueryStub(const HcommCcuChannelPod& channelPod);
-void SetHcommCcuChannelQueryStubResult(int32_t result);
-void ResetHcommCcuChannelQueryStub();
+// 定档 ascCustom 槽 0（getChannelEntity）的 stub：预置快照 + 可注入的失败返回
+void SetHcommCcuChannelGetPodStub(const HcommCcuChannelPod& channelPod);
+void SetHcommCcuChannelGetPodStubResult(HcommResult result);
+void ResetHcommCcuChannelGetPodStub();
 } // namespace asc
 
 #endif
