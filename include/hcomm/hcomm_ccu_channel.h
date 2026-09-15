@@ -1,10 +1,10 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
+ * This program is free software: you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the License).
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
@@ -15,10 +15,7 @@
 #include <stdint.h>
 
 #include "hcomm/hcomm_ccu_abi.h"
-
-// 旧版两阶段查询使用的魔数与版本（保留以兼容既有调用方）
-static const uint32_t HCOMM_CCU_CHANNEL_MAGIC_WORD = 0x0fcf0f0fU;
-static const uint32_t HCOMM_CCU_CHANNEL_VERSION = 3U;
+#include "hcomm/hcomm_res_entity_defs.h"
 
 #ifndef CHANNEL_HANDLE_DEFINED
 #define CHANNEL_HANDLE_DEFINED
@@ -32,52 +29,57 @@ extern "C" {
 #endif
 
 enum {
-    HCOMM_CCU_CHANNEL_ABI_VERSION = 3,              // 当前 POD ABI 版本
+    HCOMM_CCU_CHANNEL_ABI_VERSION = 4,              // 当前 POD ABI 版本（定档重构）
     HCOMM_CCU_CHANNEL_POD_MAGIC_WORD = 0x43435543U, // "CCUC"，标识 Channel POD 类型
-    HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY = 4,        // 每个 channel 固定持有的 XN/CKE 资源槽数量
+    HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY = 16,       // 每个 channel 持有的 XN/CKE 资源槽位数（定档）
 };
 
 /**
- * @brief CCU Channel 单次查询快照 POD（channel pop 优化后的定长结构）。
+ * @brief CCU Channel 单次查询快照 POD（定档口径：16 槽 + 计数 + 事件掩码 + 远端 buffer 数组）。
  *
- * 相比旧 ChannelEntity 的两阶段查询（先查数量再传缓冲区），本 POD 把
- * channel 的全部资源信息压缩为定长字段：本地/远端 XN、CKE id 各固定 4 槽，
- * 外加远端 CCU buffer 的基址/大小/token。调用方无需准备变长缓冲区，
- * hcomm 在持锁期间一次性填满快照，之后数据面只读该 POD。
+ * localVarIds/remoteVarIds 为本/远端 XN 槽，localEventIds/remoteEventIds 为本/远端 CKE 槽，
+ * 实际有效数量由 localVarNum/remoteVarNum/localEventNum/remoteEventNum 给出（<= 容量）。
+ * localEventMasks/remoteEventMasks 为定档预留槽位：当前 mask 是 kernel 构建期的按次参数，
+ * 非 channel 属性，hcomm 填 0，语义待后续定档补充。
+ * rmtCcuResBuffer 为对端 CCU 资源空间（RegedBufferEntity 口径，取代旧散字段）。
+ * remoteBuffers 为 hcomm channel 内部远端 buffer 列表的借用指针，channel 销毁后失效；
+ * 本批数据面未消费（翻译器仍按单 CCU 资源空间假设），仅为定档形状预留。
+ * 调用方提供 POD 存储并填好 ABI 头，hcomm 持锁一次填满快照，之后数据面只读该 POD。
  */
 typedef struct {
-    HcommCcuAbiHeaderPod header; // ABI 头：version/magic/size 校验
+    CommAbiHeader header; // ABI 头：version/magic/size 校验
 
     int32_t deviceLogicId; // 所在设备逻辑 id
     uint32_t ccuVersion;   // CCU 版本（V1/V2）
     uint32_t dieId;        // die id
     uint32_t channelId;    // channel id（DFX 记录用）
 
-    uint32_t localXnIds[HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY];   // 本端 XN id 槽
-    uint32_t remoteXnIds[HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY];  // 远端 XN id 槽
-    uint32_t localCkeIds[HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY];  // 本端 CKE id 槽
-    uint32_t remoteCkeIds[HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY]; // 远端 CKE id 槽
+    RegedBufferEntity rmtCcuResBuffer; // 对端 CCU 资源空间（基址/大小/token 折叠为 buffer 实体）
 
-    uint64_t rmtCcuBufAddr;       // 远端 CCU 资源 buffer 基址
-    uint32_t rmtCcuBufSize;       // 远端 CCU 资源 buffer 大小
-    uint32_t rmtCcuBufTokenId;    // 远端 CCU buffer 保护 token id
-    uint32_t rmtCcuBufTokenValue; // 远端 CCU buffer 保护 token value
-    uint32_t reserved[3];         // 预留扩展空间，当前必须清零
+    uint32_t localVarNum;                   // 本端 XN 有效数量（<= HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY）
+    uint32_t remoteVarNum;                  // 远端 XN 有效数量
+    uint32_t localEventNum;                 // 本端 CKE 有效数量
+    uint32_t remoteEventNum;                // 远端 CKE 有效数量
+    uint32_t remoteBufferNum;               // 远端 buffer 数量（remoteBuffers 数组长度）
+    uint32_t reserved0;                     // 对齐字段，当前必须为 0
+    const RegedBufferEntity* remoteBuffers; // 远端 buffer 数组借用指针（hcomm 持有，本批数据面不消费）
+
+    uint32_t localVarIds[HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY];      // 本端 XN id 槽
+    uint32_t remoteVarIds[HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY];     // 远端 XN id 槽
+    uint32_t localEventIds[HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY];    // 本端 CKE id 槽
+    uint32_t remoteEventIds[HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY];   // 远端 CKE id 槽
+    uint32_t localEventMasks[HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY];  // 本端 CKE 掩码槽（预留，填 0）
+    uint32_t remoteEventMasks[HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY]; // 远端 CKE 掩码槽（预留，填 0）
+
+    uint64_t reserved[4]; // 预留扩展空间，当前必须清零
 } HcommCcuChannelPod;
 
 #ifdef __cplusplus
-}
+} // extern "C"
 
 static_assert(std::is_standard_layout<HcommCcuChannelPod>::value, "HcommCcuChannelPod must be standard-layout");
 static_assert(std::is_trivially_copyable<HcommCcuChannelPod>::value, "HcommCcuChannelPod must be trivially copyable");
-static_assert(sizeof(HcommCcuChannelPod) == 128, "HcommCcuChannelPod ABI size changed");
-static_assert(offsetof(HcommCcuChannelPod, header) == 0, "HcommCcuChannelPod.header ABI offset changed");
-static_assert(offsetof(HcommCcuChannelPod, localXnIds) == 32, "HcommCcuChannelPod.localXnIds ABI offset changed");
-static_assert(offsetof(HcommCcuChannelPod, remoteXnIds) == 48, "HcommCcuChannelPod.remoteXnIds ABI offset changed");
-static_assert(offsetof(HcommCcuChannelPod, localCkeIds) == 64, "HcommCcuChannelPod.localCkeIds ABI offset changed");
-static_assert(offsetof(HcommCcuChannelPod, remoteCkeIds) == 80, "HcommCcuChannelPod.remoteCkeIds ABI offset changed");
-static_assert(offsetof(HcommCcuChannelPod, rmtCcuBufAddr) == 96, "HcommCcuChannelPod.rmtCcuBufAddr ABI offset changed");
-static_assert(offsetof(HcommCcuChannelPod, reserved) == 116, "HcommCcuChannelPod.reserved ABI offset changed");
+static_assert(sizeof(HcommCcuChannelPod) == 544, "HcommCcuChannelPod ABI size changed");
 #endif
 
 #endif // HCOMM_CCU_CHANNEL_H

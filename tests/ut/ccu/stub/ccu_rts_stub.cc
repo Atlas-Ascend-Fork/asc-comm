@@ -24,6 +24,17 @@ HcclResult RtsUbDevQueryInfo(const rtUbDevQueryCmd cmd, rtMemUbTokenInfo& devInf
 
 } // namespace asc
 
+// ccu_device_context.cc（POD 定档后）即时调用 aclrtGetDevice 取设备号，UT 环境无
+// runtime，补桩返回固定设备号 0。
+extern "C" int32_t aclrtGetDevice(uint32_t* deviceId)
+{
+    if (deviceId == nullptr) {
+        return 1;
+    }
+    *deviceId = 0;
+    return 0;
+}
+
 extern "C" int rtUbDevQueryInfo(int cmd, void* devInfo)
 {
     if (devInfo == nullptr) {
