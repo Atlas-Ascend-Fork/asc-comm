@@ -1,3 +1,5 @@
+include_guard(GLOBAL)
+
 set(ASCCOMM_AICPU_SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/../src/aicpu/hcomm/primitives/api_c_adpt/aicpu_ts_asccomm_primitives_c_adpt.cc
     ${CMAKE_CURRENT_LIST_DIR}/../src/aicpu/hcomm/primitives/launch/asccomm_launch.cc
