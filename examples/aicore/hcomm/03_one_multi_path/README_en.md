@@ -4,7 +4,7 @@
 
 This sample demonstrates how to query a `COMM_PROTOCOL_UB_MEM` link through HCCL Resource APIs and create two channels with `pathMode=1` and `pathMode=2` for every peer in one communication domain. Peers are processed serially; for each peer, separate data shards are copied concurrently on two streams.
 
-The sample uses one process per device. Each rank fills its local HCCL Buffer with its rank ID, reads 4 KB from every peer, and verifies the data. `run.sh` starts the local rank processes, and rank 0 distributes
+The sample uses one process per device. Each rank fills its local HCCL Buffer with its rank ID, reads 4 KB from every peer, and verifies the data. The executable forks all local rank processes internally, and rank 0 distributes
 `HcclRootInfo`.
 
 ## Supported Products and CANN Software Versions
@@ -21,7 +21,6 @@ one_multi_path
 ├── main.cpp                // Host-side communication domain, channel, and verification flow
 ├── README.md               // Chinese documentation
 ├── README_en.md            // English documentation
-├── run.sh                  // Multi-rank launch script
 └── ubmem_data_copy.asc     // Ascend C data copy kernel
 ```
 
@@ -45,14 +44,14 @@ For the same peer, the two channels use the same communication endpoints and are
 
 ### Implementation Flow
 
-1. Rank 0 creates and distributes one `HcclRootInfo`, and every rank initializes the same communication domain.
+1. The executable forks all rank processes (via `examples/aicore/utils/process_manager.h`); ranks exchange `HcclRootInfo` through a TCP control channel (`examples/aicore/utils/rank_sync.h`) and initialize the same communication domain.
 2. Each rank obtains its local HCCL Buffer, fills it with the rank ID, and registers the memory resource required by the channels through `HcclCommMemReg`.
 3. Each rank scans the RankGraph layers and selects one `COMM_PROTOCOL_UB_MEM` link for every peer.
 4. For every peer, the sample builds two descriptors with the same endpoints and `pathMode=1` and `pathMode=2`.
 5. All peer channel descriptors are passed to one `HcclChannelAcquire` call to create the channels in one batch.
 6. Peers are processed serially. For each peer, the two channels read the first and second 2 KB shards on separate streams, and both kernels are submitted before either stream is synchronized. Concurrency is limited to the two paths of that peer.
 7. The local verification buffer is copied to the host, where every byte is checked against the peer rank ID.
-8. After all peer data is verified, `HcclBarrier` ensures that every rank has completed its remote reads before communication resources are destroyed.
+8. After all peer data is verified, a barrier (via `RankSyncContext`) ensures that every rank has completed its remote reads before communication resources are destroyed.
 
 The `rank_graph_topo` log reports only the RankGraph layer containing the selected UB_MEM link. It does not
 select `pathMode`.
@@ -73,39 +72,48 @@ Perform the following steps in the sample root directory. This sample supports N
   > **Note:** `${install_path}` is the CANN installation directory. The default installation directory is
   > `/usr/local/Ascend`.
 
-- Run on Two Devices
+- Single-machine run
 
-  By default, the script starts two processes on devices 0 and 1.
+  The executable forks all rank processes internally; each rank is assigned to the corresponding NPU device:
 
   ```bash
-  cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510
-  cmake --build build -j
-  bash run.sh
+  mkdir -p build
+  cd build
+  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+  make -j
+  cd .. && ./build/one_multi_path tcp://127.0.0.1:29625 <nranks>
   ```
 
-- Launch Options
-
-  | Option | Default | Description |
+  | Parameter | Default | Description |
   | --- | --- | --- |
-  | `-pes` | `2` | Total number of ranks; it must be an integer greater than or equal to 2 |
-  | `-ipport` | `tcp://127.0.0.1:8899` | Address used by rank 0 to distribute `HcclRootInfo`; use `tcp://[address]:port` for IPv6 |
-  | `-gnpus` | `2` | Number of rank processes started on the current host |
-  | `-fpe` | `0` | First rank ID on the current host |
-  | `-fnpu` | `0` | First device ID on the current host |
+  | `<ip:port>` | Required | Control channel address that rank 0 listens on (`tcp://ip:port`); use different ports for parallel instances |
+  | `<nranks>` | Required | Total number of ranks; must be >= 2 and not exceed available NPU count |
 
-- Run on Multiple Hosts
+- Multi-machine run
 
-  For eight devices across two hosts, start the first command on the rank 0 host, followed by the second command on the other host:
+  Each host runs the executable with per-rank arguments:
+
+  ```bash
+  ./build/one_multi_path <tcp://ip:port> <rank_size> <rank> <device>
+  ```
+
+  For eight devices across two hosts:
 
   ```bash
   # Host A: ranks 0-3, devices 0-3
-  bash run.sh -pes 8 -ipport tcp://<host_A_IP>:8899 -gnpus 4 -fpe 0 -fnpu 0
+  ./build/one_multi_path tcp://<host_A_IP>:8899 8 0 0
+  ./build/one_multi_path tcp://<host_A_IP>:8899 8 1 1
+  ./build/one_multi_path tcp://<host_A_IP>:8899 8 2 2
+  ./build/one_multi_path tcp://<host_A_IP>:8899 8 3 3
 
   # Host B: ranks 4-7, devices 0-3
-  bash run.sh -pes 8 -ipport tcp://<host_A_IP>:8899 -gnpus 4 -fpe 4 -fnpu 0
+  ./build/one_multi_path tcp://<host_A_IP>:8899 8 4 0
+  ./build/one_multi_path tcp://<host_A_IP>:8899 8 5 1
+  ./build/one_multi_path tcp://<host_A_IP>:8899 8 6 2
+  ./build/one_multi_path tcp://<host_A_IP>:8899 8 7 3
   ```
 
-  For 16 devices with eight devices per host, set `-pes` to `16`, `-gnpus` to `8`, and use `-fpe 0` and `-fpe 8` on the two hosts.
+  `<ip:port>` must point to the rank 0 host on every machine; `<rank_size>` is the global rank count; `<rank>` is this process's global rank ID; `<device>` is the local device ID.
 
 - Build Options
 
@@ -119,20 +127,20 @@ Perform the following steps in the sample root directory. This sample supports N
   Log order can vary because the rank processes run concurrently. Every rank should validate every peer:
 
   ```text
-  rank 0/2: device=0, channels_per_peer=2, channel_descs=2
+  [rank 0] one_multi_path | channels_per_peer=2, channel_descs=2
   rank 0: peer=1, rank_graph_topo=5, protocol=UB_MEM, path_modes=1/2
   rank 0: dual-path data copy from remote rank 1 passed, bytes=4096
-  rank 0: dual-path validation passed
+  [rank 0] one_multi_path | dual-path validation | PASS
   ```
 
   The sample succeeds when every rank obtains two different channel handles for every peer, verifies the data,
-  and the script exits with 0.
+  and the final output is `RESULT | Example=one_multi_path | Status=PASS`.
 
 ## Notes
 
 - The default run requires devices 0 and 1 and a `COMM_PROTOCOL_UB_MEM` link between them.
-- For a multi-host run, every host must use the same `-pes`, and the rank ranges must be complete and unique.
-- `-ipport` distributes `HcclRootInfo` only. It does not select the HCCL data link.
+- For a multi-host run, every host must use the same `<rank_size>` and `<ip:port>` (pointing to rank 0), and the rank ranges must be complete and unique.
+- `<ip:port>` is used only for distributing `HcclRootInfo` and host-side synchronization. It does not select the HCCL data link.
 - If `HcclChannelAcquire` fails, use the preceding peer link-selection logs to narrow down the failing range.
 - `no UB_MEM link found` means that no `COMM_PROTOCOL_UB_MEM` link is available between the local and target
   ranks.

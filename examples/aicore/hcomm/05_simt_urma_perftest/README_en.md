@@ -60,51 +60,83 @@ latency between interfaces. `CompletionTime` runs from the start of the timed su
 of `Drain`, and is used only to compute `CompletionBandwidth`. `DrainStatus` and `Completed` confirm
 the run actually completed correctly.
 
-## Build
+## Build and Run
 
-```bash
-source /usr/local/Ascend/cann/set_env.sh
-bash examples/aicore/hcomm/05_simt_urma_perftest/build.sh
-```
+Perform the following steps in the sample root directory. This sample supports NPU run mode only.
 
-## Usage
+- Set Environment Variables
 
-The communicator is created with `HcclGetRootInfo` and `HcclCommInitRootInfo`, so no rank table is
-required. `run.sh` creates a temporary root info file for each round, written by rank 0 and read by
-the other ranks.
+  The sample builds against the asc-comm headers installed into the CANN directory. If not yet
+  installed, generate and install the development verification run package from the repository root
+  (see [`docs/en/guide/build_and_test.md`](../../../../docs/en/guide/build_and_test.md)):
 
-```bash
-# single point
-examples/aicore/hcomm/05_simt_urma_perftest/run.sh 2 write
+  ```bash
+  bash build.sh --pkg
+  ./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
+  ```
 
-# deferred publication
-examples/aicore/hcomm/05_simt_urma_perftest/run.sh 2 write --commit-mode last
+  Then load the CANN environment:
 
-# payload sweep: 8 16 64 256 1024 4096 16384 65536
-examples/aicore/hcomm/05_simt_urma_perftest/run.sh 2 write --sweep
+  ```bash
+  source ${install_path}/cann/set_env.sh
+  ```
 
-# inline write
-examples/aicore/hcomm/05_simt_urma_perftest/run.sh 2 write_value
+  > **Note:** `${install_path}` is the CANN installation directory. If not specified, the default is
+  > `/usr/local/Ascend`.
 
-# Notify and the atomics
-examples/aicore/hcomm/05_simt_urma_perftest/run.sh 2 notify --payload-bytes 4096
-examples/aicore/hcomm/05_simt_urma_perftest/run.sh 2 faa
-examples/aicore/hcomm/05_simt_urma_perftest/run.sh 2 cas
-```
+- Run the Sample
 
-Options: `--iterations` (default 1024), `--warmup` (default 100), `--payload-bytes` (default 4096),
-`--commit-mode` (default immediate), `--sweep`, `--log`.
+  The executable forks all rank processes internally. Only rank 0 and rank 1 participate in the
+  benchmark; other ranks print `SKIP` and exit.
 
-`--payload-bytes` only applies to `write` and `notify`; the other three interfaces always move 8
-bytes and ignore it. Using `--sweep` with those three is rejected outright rather than running the
-same 8-byte case eight times over.
+  ```bash
+  mkdir -p build
+  cd build
+  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+  make -j
+  cd .. && ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 write
+  ```
 
-`--sweep` starts a fresh round of processes for each payload, each with its own sync directory and
-root info file — otherwise the previous round's barrier markers would let the next round pass
-immediately, and the previous round's root info would be misread by the next. That directory is
-passed to the executable as a command-line argument rather than an environment variable: an exported
-variable is easy to lose across a shell wrapper or a scheduler, and once lost every round silently
-shares the same default directory.
+  ```text
+  ./build/simt_urma_perftest <ip:port> <nranks> <write|write_value|notify|faa|cas> [options]
+  ```
+
+  | Parameter | Default | Description |
+  | --- | --- | --- |
+  | `<ip:port>` | Required | Control channel address that rank 0 listens on (`tcp://ip:port`) |
+  | `<nranks>` | Required | Number of rank processes; must be >= 2 (only rank 0/1 participate) |
+  | `--iterations` | `1024` | Timed WQE count |
+  | `--warmup` | `100` | Warmup WQE count |
+  | `--payload-bytes` | `4096` | Payload bytes for `write` and `notify`; minimum 2; ignored by the other three interfaces |
+  | `--commit-mode` | `immediate` | `immediate` (one doorbell per WQE) or `last` (defer all but the last) |
+
+- Build Options
+
+  | Option | Values | Description |
+  | --- | --- | --- |
+  | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Run mode; this sample supports NPU execution only |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR/Ascend 950DT |
+
+- Example Commands
+
+  ```bash
+  # Single-point write
+  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 write
+
+  # Deferred publication
+  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 write --commit-mode last
+
+  # Inline write
+  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 write_value
+
+  # Notify and the atomics
+  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 notify --payload-bytes 4096
+  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 faa
+  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 cas
+  ```
+
+  For payload sweeps, run the executable multiple times with different `--payload-bytes` values
+  (e.g. `8 16 64 256 1024 4096 16384 65536`).
 
 ## Output
 

@@ -142,11 +142,9 @@ simt_urma
   以2卡运行`write_single`为例，每个rank打印一组结果：
 
   ```text
-  [rank 0] simt_urma mode=write_single sending to rank 1
-  [rank 1] simt_urma mode=write_single sending to rank 0
-  [rank 0] simt_urma write_single PASS | sent to rank 1, received from rank 1
-  [rank 1] simt_urma write_single PASS | sent to rank 0, received from rank 0
-  RESULT | Mode=write_single | Status=PASS
+  [rank 0] simt_urma write_single | sent to rank 1, received from rank 1 | PASS
+  [rank 1] simt_urma write_single | sent to rank 0, received from rank 0 | PASS
+  RESULT | Example=simt_urma Mode=write_single | Status=PASS
   ```
 
   所有rank均输出PASS且最终输出`Status=PASS`，表示样例执行成功。

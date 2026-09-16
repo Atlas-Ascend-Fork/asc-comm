@@ -124,9 +124,9 @@ hcomm_.Drain(channel);
   多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
 
   ```text
-  rank 0 test pass!
-  rank 1 test pass!
-  test pass!
+  [rank 0] hcomm_write_read_nbi | sent to rank 1, received from rank 1 | PASS
+  [rank 1] hcomm_write_read_nbi | sent to rank 0, received from rank 0 | PASS
+  RESULT | Example=hcomm_write_read_nbi | Status=PASS
   ```
 
 ## 注意事项

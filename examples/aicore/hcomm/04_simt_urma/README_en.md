@@ -72,71 +72,64 @@ sized to whichever layout is larger.
 SIMT has no `Commit` interface, so a deferred task can only be carried out by a later `commit=true`
 post. Every mode ends with `Drain` to make sure the CQ has been consumed before the kernel returns.
 
-## Preparing the Development Verification Environment
+## Build and Run
 
-The sample builds against the asc-comm headers installed into the CANN directory. Generate and
-install the development verification run package from the repository root first:
+Perform the following steps in the sample root directory. This sample supports NPU run mode only.
 
-```bash
-source /usr/local/Ascend/cann/set_env.sh
-bash build.sh --pkg
-./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
-```
+- Set Environment Variables
 
-Pass `--install-path=/path/to/cann` to select a different CANN directory. See
-[`docs/en/guide/build_and_test.md`](../../../../docs/en/guide/build_and_test.md) for the full option list.
+  The sample builds against the asc-comm headers installed into the CANN directory. If not yet
+  installed, generate and install the development verification run package from the repository root
+  (see [`docs/en/guide/build_and_test.md`](../../../../docs/en/guide/build_and_test.md)):
 
-## Build
+  ```bash
+  bash build.sh --pkg
+  ./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
+  ```
 
-```bash
-cd examples/aicore/hcomm/04_simt_urma
-bash build.sh
-```
+  Then load the CANN environment:
 
-`build.sh` removes the existing `build` directory before reconfiguring and rebuilding, so stale
-headers and object files are never reused.
+  ```bash
+  source ${install_path}/cann/set_env.sh
+  ```
 
-The output is `examples/aicore/hcomm/04_simt_urma/build/simt_urma`.
+  > **Note:** `${install_path}` is the CANN installation directory. If not specified, the default is
+  > `/usr/local/Ascend`.
 
-## Run
+- Run the Sample
 
-The communicator is created with `HcclGetRootInfo` and `HcclCommInitRootInfo`, so no rank table is
-required. `run.sh` creates a temporary root info file for each run, written by rank 0 and read by the
-other ranks. Rank `i` runs on device `i`.
+  The executable forks all rank processes internally:
 
-```bash
-examples/aicore/hcomm/04_simt_urma/run.sh <nranks> [mode]
-```
+  ```bash
+  mkdir -p build
+  cd build
+  cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+  make -j
+  cd .. && ./build/simt_urma tcp://127.0.0.1:29620 <nranks> [mode]
+  ```
 
-`nranks` may be any value >= 2: every rank sends and receives on the ring.
+  | Parameter | Default | Description |
+  | --- | --- | --- |
+  | `<ip:port>` | Required | Control channel address that rank 0 listens on (`tcp://ip:port`); use different ports for parallel instances |
+  | `<nranks>` | Required | Number of ranks; must be >= 2 |
+  | `[mode]` | `single` | Test mode; see Test Modes above; unrecognized modes are rejected outright |
 
-An unrecognized `mode` is rejected outright rather than silently falling back to the default.
+- Build Options
 
-```bash
-examples/aicore/hcomm/04_simt_urma/run.sh 2 write_single
-examples/aicore/hcomm/04_simt_urma/run.sh 2 write_batch_last
-examples/aicore/hcomm/04_simt_urma/run.sh 2 write_value_single
-examples/aicore/hcomm/04_simt_urma/run.sh 2 write_value_batch_last
-examples/aicore/hcomm/04_simt_urma/run.sh 2 notify
-examples/aicore/hcomm/04_simt_urma/run.sh 2 faa
-examples/aicore/hcomm/04_simt_urma/run.sh 2 cas
-examples/aicore/hcomm/04_simt_urma/run.sh 2 single
-examples/aicore/hcomm/04_simt_urma/run.sh 2 batch_last
-examples/aicore/hcomm/04_simt_urma/run.sh 2 notify_immediate_repeat
-```
+  | Option | Values | Description |
+  | --- | --- | --- |
+  | `CMAKE_ASC_RUN_MODE` | `npu` (default) | Run mode; this sample supports NPU execution only |
+  | `CMAKE_ASC_ARCHITECTURES` | `dav-3510` | NPU architecture for Ascend 950PR/Ascend 950DT |
 
-Expected output (two cards, one group printed per rank):
+- Expected Output
 
-```text
-[rank 0] simt_urma mode=<mode> sending to rank 1
-[rank 1] simt_urma mode=<mode> sending to rank 0
-[rank 0] simt_urma <mode> PASS | sent to rank 1, received from rank 1
-[rank 1] simt_urma <mode> PASS | sent to rank 0, received from rank 0
-RESULT | Mode=<mode> | Status=PASS
-```
+  ```text
+  [rank 0] simt_urma write_single | sent to rank 1, received from rank 1 | PASS
+  [rank 1] simt_urma write_single | sent to rank 0, received from rank 0 | PASS
+  RESULT | Example=simt_urma Mode=write_single | Status=PASS
+  ```
 
-`run.sh` traps `SIGINT`/`SIGTERM` and kills the rank processes it started, so Ctrl+C does not leave
-processes blocked on a host barrier still holding devices.
+  The sample succeeds when all ranks print `PASS` and the final status is `PASS`.
 
 ## Buffer Index Constraints
 
@@ -153,8 +146,8 @@ receiver observes the CCL buffer's contents rather than the payload.
 
 ## Host-side Synchronization
 
-Two host barriers make the verification trustworthy. They use marker files in a temporary directory
-created fresh for each run.
+Two host barriers make the verification trustworthy. They use the `RankSyncContext` barrier
+primitives over the TCP control channel.
 
 | Barrier | Purpose |
 |---|---|
@@ -165,14 +158,10 @@ The `sent` barrier is what makes the result trustworthy. Without it a rank runs 
 to `aclrtMemcpy` with no ordering constraint against the kernel of the rank writing into it, reads
 the zeroed buffer, and reports every slot as never landed even though all CQEs returned cleanly.
 
-The directory path is passed as a command-line argument rather than an environment variable: an
-exported variable is easy to lose across a shell wrapper or a scheduler, and once lost every rank
-silently falls back to the same default directory, where markers left by an earlier run can let a
-barrier pass immediately.
-
 ## Runtime Constraints
 
 - Supported chips: Ascend 950PR / Ascend 950DT. CANN version 9.1.0 or later is required.
-- At least two NPUs on the same host are required to run; single-NPU environments only support
-  compilation verification.
+- At least two NPUs are required to run; single-NPU environments only support compilation verification.
+- The executable captures `SIGINT`/`SIGTERM` and terminates all rank processes, so Ctrl+C does not
+  leave processes blocked on a host barrier still holding devices.
 - The build relies on CANN ASC CMake utilities and links against the CANN `hcomm` library.
