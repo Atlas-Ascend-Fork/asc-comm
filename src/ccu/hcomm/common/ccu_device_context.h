@@ -13,16 +13,20 @@
 
 #include <cstdint>
 
-#include "hcomm/hcomm_ccu_control.h"
+#include "hcomm/hcomm_ccu_resource.h"
 
 namespace asc {
 
 constexpr uint32_t ccu_max_device_num = 64;
 
-void set_current_ccu_device_logic_id(int32_t device_logic_id);
+/**
+ * 当前线程设备逻辑 id：直接取 runtime 的 aclrtGetDevice。
+ * 要求调用线程已设置设备（HCCL 数据面调用线程由上层保证）；未设置时返回 -1，调用方按错误处理。
+ */
 int32_t get_current_ccu_device_logic_id();
-void set_current_ccu_control_ops(const HcommCcuControlOpsPod& control_ops);
-const HcommCcuControlOpsPod& get_current_ccu_control_ops();
+// ascCustom 槽位数组的线程级借用快照（值按槽位含义强转对应 Fn 类型使用）
+void set_current_ccu_control_ops(const uint64_t (&asc_custom)[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]);
+const uint64_t* get_current_ccu_control_ops();
 
 } // namespace asc
 
