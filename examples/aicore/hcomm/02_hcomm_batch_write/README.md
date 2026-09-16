@@ -75,8 +75,7 @@ rank 0将一段本端数据通过批量写接口同时写入其他所有rank的�
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  cd ..
-  ./build/hcomm_batch_write tcp://127.0.0.1:29624 <rank_num>
+  cd .. && ./build/hcomm_batch_write tcp://127.0.0.1:29624 <rank_num>
   ```
 
 - 启动参数说明

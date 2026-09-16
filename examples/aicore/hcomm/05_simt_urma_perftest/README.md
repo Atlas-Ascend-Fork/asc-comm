@@ -111,8 +111,7 @@ simt_urma_perftest
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  cd ..
-  ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 write
+  cd .. && ./build/simt_urma_perftest tcp://127.0.0.1:29621 2 write
   ```
 
 - 启动参数说明
