@@ -151,22 +151,63 @@ make -j
 # 显式指定双卡
 ./demo 2
 
+# 指定本次通信长度，单位 MiB；len <= 256 正常执行，len > 256 用于触发异常 dump
+./demo 2 128
+./demo 2 516
+
 # 指定4卡环形拓扑
 ./demo 4
 ```
 
-### 4. 编译选项说明
+### 4. 异常自诊断（DFX 通道 Dump）演示
+
+样例支持通过第三个参数 `len` 注入异常，单位为 MiB，用于稳定复现一次 PollCq 异常路径上的 AIC Error，从而演示 HCOMM DFX 的「异常发生 → host 安全点采集通道现场 → 打印定位」能力，无需在核函数中手动添加 `trap()`。`len <= 256` 按纯通信路径运行；`len > 256` 直接传给 `WriteNbi/ReadNbi` 触发异常 dump。
+
+**接入维测能力只需两步**（见 `hcomm_write_read_nbi.asc` 中 `HcommRW`，默认已接入，正常路径零开销）：
+
+1. **注册**：launch 前调用 `AscendC::HcommChannelExceptionCallbackRegister(kernelSymbol)`，为目标 kernel 绑定异常回调。注册后正常路径（无异常记录）dump 会跳过执行、直接返回成功；缺此步则 dump 每次都会无条件执行完整采集。维测注册失败不应阻断业务主流程，样例直接调用，不检查返回值。
+2. **采集**：核函数执行后（`aclrtSynchronizeStream` 之后，无论成功与否），在 host 侧安全点调用 `AscendC::HcommChannelInfoDump(channel)`。`channel` 即算子持有的 `ChannelHandle`；接口仅当已注册异常回调且无pending异常时跳过执行并返回成功，其余情况都会执行采集与打印，因此**可无条件调用**、无需先判断 kernel 是否出错。样例只需打屏定位，故不传缓冲区；若需接收可读 dump 文本，可先用 `AscendC::HcommChannelGetDumpInfoSize()` 获取建议字节数、分配一段 `char` 缓冲区后传入 `HcommChannelInfoDump(channel, buf, len)`（跳过执行时缓冲区会写入空字符串；若缓冲区不足，文本会以 `\0` 结尾截断并返回失败）。
+
+**想触发异常看 dump 效果**：运行 `./demo 2 516`。PollCq 异常路径会触发 AIC Error，`aclrtSynchronizeStream` 返回错误码，随后打印 dump 出的 Channel / SQ / CQ / WQE / CQE 现场，终端最终打印 `test failed!`（异常被触发，属预期）。
+
+> **说明：** 真实算子无需主动注入异常——异常由业务自身缺陷自然触发，算子只需保留上面的注册与采集两步。
+
+### 5. 编译选项说明
 | 选项 | 可选值 | 说明 |
 |------|--------|------|
 | `CMAKE_ASC_ARCHITECTURES` | `dav-3510`（默认） | NPU架构：`dav-3510`对应Ascend 950PR / Ascend 950DT |
 
-### 5. 执行结果
-多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
+### 6. 执行结果
+
+样例默认走**纯通信路径**。多卡执行成功后，终端将输出如下信息，说明AIV直驱URMA通信成功（写入读出结果一致）：
 ```text
+[INFO] rank 0: devNum = 2
+[INFO] rank 1: devNum = 2
+[HcommDfxDump] exception callback registered
+[HcommDfxDump] exception callback registered
 rank 0 test pass!
 rank 1 test pass!
 test pass!
 ```
+> `exception callback registered` 表示 DFX 注册步骤生效（进程内各 rank 各打印一次）。正常路径无异常记录时，`HcommChannelInfoDump` 直接返回成功，不产生任何 dump 输出。若传入了 `char` 缓冲区，跳过执行时会写入空字符串。
+
+**运行 `./demo 2 516` 走异常路径**，rank 0 会打印 dump 出的通道现场并最终以 `test failed!` 结束（异常被触发，属预期，DFX dump 即演示重点）。一次 dump 的全部行会先拼成一整块再一次性写出，按 `Channel → SqContext/CqContext → WQE → CQE` 的字段顺序紧凑打印（示例值仅示意）：
+```text
+[HcommDfxDump] exception callback entered count=1 task=2 stream=61 device=0
+[CHECK ERROR][rank=0] aclrtSynchronizeStream ret=507035
+[HcommDfxDump] ==== channel dump: channelNum=1 ====
+[HcommDfxDump] Channel[0] handle=0x120066c00000 valid=1 engine=4 protocol=4 localBufNum=1 remoteBufNum=1 sqNum=1 cqNum=1 sqHead=2 sqTail=0 cqHead=2 cqTail=0
+[HcommDfxDump] SqContext[0] type=UB_JFS jfsID=0 sqVa=0x3fff0400000 depth=32768 wqeSize=64 dbVa=0x... head=2 tail=2
+[HcommDfxDump] CqContext[0] type=UB_JFC jfcID=0 cqVa=0x3fff0600000 depth=1024 cqeSize=64 dbVa=0x... head=0 tail=2
+[HcommDfxDump] WQE[sqHead=0 bb=0 addr=0x3fff0400000 size=64]: 0x...,0x...,0x...
+[HcommDfxDump] WQE[sqHead=1 bb=1 addr=0x3fff0400040 size=64]: 0x...,0x...,0x...
+[HcommDfxDump] CQE[cqHead=0 bb=0 addr=0x3fff0600000 size=64]: 0x...,0x...,0x...
+HcommChannelInfoDump ret=0 len=66896
+test failed!
+```
+
+> **说明（游标全为 0）** 若 `Channel[0]` 行的 `sqHead/sqTail/cqHead/cqTail` 全为 0，采样区间 `[sqTail, sqHead)` / `[cqTail, cqHead)` 为空，不会打印任何 WQE/CQE。这通常是 kernel 异常退出时未对 `ChannelEntity` 游标执行 `dcci` 刷 cache，host 从 DRAM 读回初始零值所致——属 kernel 侧 cache 一致性限制，DFX 采集层无法绕过，不打印误导性条目即为预期行为。若 `head/tail` 指针读取失败，则对应队列上下文会输出独立的 `ERROR` 行。
+
 > **注意：** 单卡环境仅支持编译验证，实际运行本样例需至少配备2张NPU。
 
 ## 开启 Hcomm 调试日志

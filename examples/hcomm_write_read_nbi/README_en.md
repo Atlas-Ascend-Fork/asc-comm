@@ -151,6 +151,10 @@ This sample starts ranks through automatic multi-process fork. The command forma
 # Explicit two-rank run
 ./demo 2
 
+# Explicit transfer length in MiB. len <= 256 runs normally; len > 256 injects an exception dump path.
+./demo 2 128
+./demo 2 516
+
 # Four-rank ring topology
 ./demo 4
 ```
