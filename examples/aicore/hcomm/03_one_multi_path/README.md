@@ -92,8 +92,7 @@ Host侧逐字节校验。
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  cd ..
-  ./build/one_multi_path tcp://127.0.0.1:29625 <nranks>
+  cd .. && ./build/one_multi_path tcp://127.0.0.1:29625 <nranks>
   ```
 
 - 启动参数说明
