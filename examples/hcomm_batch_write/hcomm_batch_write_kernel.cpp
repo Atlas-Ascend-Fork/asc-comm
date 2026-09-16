@@ -16,7 +16,7 @@
 namespace HcommBatchWriteExample {
 
 class KernelHcommBatchWrite {
-    using HcommType = AscendC::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP>;
+    using HcommType = AscendC::Hcomm<AscendC::COMM_PROTOCOL_UB_CTP>;
 
 public:
     __aicore__ inline void Init(GM_ADDR context, AscendC::TPipe* pipe)

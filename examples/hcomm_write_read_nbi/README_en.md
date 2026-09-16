@@ -44,7 +44,7 @@ On the Ascend 950 series, the communication domain must be created in a multi-pr
 3. **Register Communication Memory**: Call `HcclCommMemReg` to register the local communication buffer with the communication domain. This memory information is automatically exchanged with the peer during channel creation.
 4. **Build the TCP Ring Topology**: Each rank listens on `BASE_PORT + rank`, actively connects to `next = (rank + 1) % nranks`, and accepts the connection from `prev = (rank - 1 + nranks) % nranks`. This ring is used for Host-side barriers after RootInfo exchange, ensuring that all ranks advance through key phases together.
 5. **Obtain Link Endpoints**: Use `HcclRankGraphGetLayers` and `HcclRankGraphGetLinks` to obtain physical link endpoint information from the local rank to both `prev` and `next`.
-6. **Acquire P2P Channels (AIV Direct-Drive)**: Call `HcclChannelAcquire` to create P2P channels to neighboring ranks. Specify `COMM_ENGINE_AIV` as the engine and `COMM_PROTOCOL_UBC_CTP` as the URMA protocol, and pass the memory handles to be exchanged.
+6. **Acquire P2P Channels (AIV Direct-Drive)**: Call `HcclChannelAcquire` to create P2P channels to neighboring ranks. Specify `COMM_ENGINE_AIV` as the engine and `COMM_PROTOCOL_UB_CTP` as the URMA protocol, and pass the memory handles to be exchanged.
 7. **Obtain Remote Memory Address**: Call `HcclChannelGetRemoteMems` to retrieve the memory addresses registered by neighboring ranks, which serve as remote target addresses for `WriteNbi`/`ReadNbi` in the Kernel.
 8. **Download Context**: The Host pre-initializes seg0 (filling it with a pseudo-random pattern based on `rankId`), encapsulates the `ChannelHandle` and buffer addresses into `CommContext`, and downloads it to the GM of each card.
 
@@ -63,7 +63,7 @@ HcclRankGraphGetLinks(comm, layerId, rank, peerRank, &links, &linkNum);
 
 // 4. Acquire AIV Direct-Drive URMA P2P Channel
 channelDesc.remoteRank = peerRank;
-channelDesc.channelProtocol = COMM_PROTOCOL_UBC_CTP; // URMA protocol
+channelDesc.channelProtocol = COMM_PROTOCOL_UB_CTP; // URMA protocol
 channelDesc.memHandles = &memHandle;
 channelDesc.memHandleNum = 1;
 HcclChannelAcquire(comm, COMM_ENGINE_AIV, &channelDesc, 1, &channel); // Specify COMM_ENGINE_AIV
@@ -168,3 +168,31 @@ rank 1 test pass!
 test pass!
 ```
 > **Note:** A single-card environment only supports compilation verification. Running this sample requires at least 2 NPUs.
+
+## Enable Hcomm Debug Logging
+
+Debug logging is controlled by the compile-time `ASCENDC_DEBUG` macro and cannot be changed at runtime. It is disabled by default. When using your own sample, set this option and add the macro definition to the actual target in its `CMakeLists.txt`:
+
+```cmake
+option(ASCENDC_DEBUG "Enable AscendC/Hcomm kernel debug logs" OFF)
+
+if(ASCENDC_DEBUG)
+    target_compile_definitions(<your_target> PRIVATE ASCENDC_DEBUG)
+endif()
+```
+
+Replace `<your_target>` with the executable or library name used by your sample. Configure and rebuild:
+
+```bash
+rm -rf build
+cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DASCENDC_DEBUG=ON
+cmake --build build -j
+```
+
+When enabled, the runtime log contains Hcomm debug messages such as `PostSend`, WQE, CQE, and `PollCq`:
+
+```text
+[AIV Block 0/1] Hcomm URMA PostSend ...
+[AIV Block 0/1] Hcomm URMA WQE: ...
+[AIV Block 0/1] Hcomm URMA CQE: ...
+```

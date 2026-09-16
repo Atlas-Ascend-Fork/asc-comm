@@ -317,11 +317,11 @@ __simt_callee__ inline void HcommSimtRingDwqe(__gm__ uint8_t* dwqeAddr, const Hc
     asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
 }
 
-__simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::HcommImpl() {}
+__simt_callee__ inline HcommImpl<COMM_PROTOCOL_UB_CTP>::HcommImpl() {}
 
-__simt_callee__ inline HcommImpl<COMM_PROTOCOL_UBC_CTP>::~HcommImpl() {}
+__simt_callee__ inline HcommImpl<COMM_PROTOCOL_UB_CTP>::~HcommImpl() {}
 
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ uint8_t* buff, uint32_t len)
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Init(__ubuf__ uint8_t* buff, uint32_t len)
 {
     // Nothing to set up: the WQE is staged on the stack for the duration of a post and every
     // post resolves its channel from global memory, so there is no state to hand out, publish,
@@ -332,7 +332,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Init(__ubuf__ u
     return HCOMM_SUCCESS;
 }
 
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ResolvePost(
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::ResolvePost(
     ChannelHandle channel, __gm__ uint8_t* remoteAddr, uint64_t len, HcommSimtResolvedPost& post)
 {
     __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
@@ -471,7 +471,7 @@ struct HcommSimtAtomicDesc {
     }
 };
 
-__simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(ChannelHandle channel, uint32_t expectIdx)
+__simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(ChannelHandle channel, uint32_t expectIdx)
 {
     if (expectIdx == 0U) {
         return HCOMM_SUCCESS;
@@ -542,7 +542,7 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PollCq(Channel
 // after each. Waiting for every submitted WQE would be wrong: wqeCnt may include deferred WQEs
 // that no doorbell has published yet, so those completions never arrive.
 template <typename Desc>
-__simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReservePost(
+__simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UB_CTP>::ReservePost(
     ChannelHandle channel, const HcommSimtResolvedPost& post, uint64_t& headVal)
 {
     constexpr bool commit = Desc::commit;
@@ -584,7 +584,7 @@ __simt_callee__ inline bool HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReservePost(
 // task is committed, ring the doorbell. Every step is lane-local; a caller that needs several
 // lanes to post must serialize them itself.
 template <typename Desc>
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(ChannelHandle channel, const Desc& desc)
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostWqe(ChannelHandle channel, const Desc& desc)
 {
     constexpr uint32_t bbCnt = Desc::bbCnt;
     constexpr uint32_t wordCnt = bbCnt * HCOMM_SIMT_BB_WORDS;
@@ -636,7 +636,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::PostWqe(Channel
 }
 
 template <bool commit, auto const& config>
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
     return PostWqe(
@@ -645,7 +645,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteNbi(
 }
 
 template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteValueNbi(
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteValueNbi(
     ChannelHandle channel, __gm__ void* dst, T value)
 {
     return PostWqe(channel, HcommSimtInlineDesc<T, commit, config>{reinterpret_cast<__gm__ uint8_t*>(dst), value});
@@ -653,7 +653,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteValueNbi(
 
 // Read swaps dst/src relative to Write: src is the remote address, dst the local one.
 template <bool commit, auto const& config>
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::ReadNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
 {
     return PostWqe(
@@ -662,7 +662,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::ReadNbi(
 }
 
 template <bool commit, auto const& config>
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotifyNbi(
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::WriteWithNotifyNbi(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
     uint64_t notifyVal)
 {
@@ -673,7 +673,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::WriteWithNotify
 }
 
 template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicFAA(
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::AtomicFAA(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
 {
     return PostWqe(
@@ -683,7 +683,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicFAA(
 }
 
 template <typename T, bool commit, auto const& config>
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::AtomicCAS(
     ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
 {
     return PostWqe(
@@ -693,7 +693,7 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::AtomicCAS(
 }
 
 template <auto pipe>
-__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UBC_CTP>::Drain(ChannelHandle channel)
+__simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Drain(ChannelHandle channel)
 {
     (void)pipe;
     __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);

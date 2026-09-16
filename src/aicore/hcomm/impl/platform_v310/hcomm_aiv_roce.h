@@ -134,13 +134,16 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::MakeWqe(
     sqGlobal.SetGlobalBuffer(sqAddr);
 
     __ubuf__ RoceWqeEntry* wqePtr = (__ubuf__ RoceWqeEntry*)(wqeUB_.GetPhyAddr());
-    FillCtrlSeg(wqePtr, sqHead, sqDepth, enCqe);
     uint32_t rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
     uint32_t lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
+    __gm__ uint8_t* sqAddrNext = (__gm__ uint8_t*)(sqBaseAddr + ((sqHead + 1) & (sqDepth - 1)) * wqeSize);
+    Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+    FillCtrlSeg(wqePtr, sqHead, sqDepth, enCqe);
     FillTaskSeg(wqePtr, dst, len, opType, rKey, lKey, fence);
     FillDataSeg(wqePtr, src, len, lKey);
-    __gm__ uint8_t* sqAddrNext = (__gm__ uint8_t*)(sqBaseAddr + ((sqHead + 1) & (sqDepth - 1)) * wqeSize);
     WriteInvalidWqebb(sqAddrNext, (sqHead + 1), sqDepth);
+    Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+
     Mutex::Lock<PIPE_MTE3>(HCOMM_ROCE_MUTEX_ID);
     DataCopy(sqGlobal, wqeUB_, sizeof(RoceWqeEntry));
     Mutex::Unlock<PIPE_MTE3>(HCOMM_ROCE_MUTEX_ID);
@@ -372,8 +375,11 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(
             cqTail = expectIdx - 1;
             break;
 #else
+            Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
             cqeType = (cqePtr->opSrWqebb >> ROCE_1825_CQE_OPCODE_SHIFT) & ROCE_1825_CQE_OPCODE_MASK;
-            if (cqeType != ROCE_1825_CQE_OPTYPE_INVALID && CheckCqeOwner(cqePtr, cqTail, cqDepth)) {
+            bool cqeReady = cqeType != ROCE_1825_CQE_OPTYPE_INVALID && CheckCqeOwner(cqePtr, cqTail, cqDepth);
+            Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+            if (cqeReady) {
                 break;
             }
 #endif

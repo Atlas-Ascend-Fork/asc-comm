@@ -66,7 +66,7 @@ struct HcommSimtPackedSqeTemplate {
 };
 
 template <>
-class HcommImpl<COMM_PROTOCOL_UBC_CTP> {
+class HcommImpl<COMM_PROTOCOL_UB_CTP> {
 public:
     __simt_callee__ inline HcommImpl();
     __simt_callee__ inline ~HcommImpl();

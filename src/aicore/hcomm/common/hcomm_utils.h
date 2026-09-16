@@ -30,6 +30,7 @@ constexpr uint32_t BITS_1BYTE = 8;
 constexpr uint32_t BITS_3BYTE = 24;
 constexpr uint32_t BITS_5BYTE = 40;
 constexpr uint32_t BITS_7BYTE = 56;
+constexpr uint32_t HCOMM_DEFAULT_QP_IDX = 0;
 
 __aicore__ inline uint16_t HtoNS(uint16_t x)
 {
@@ -109,16 +110,15 @@ __aicore__ inline __gm__ uint32_t* HcommGetLockAddr(__gm__ ChannelEntity* channe
         reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, cqContextAddr));
     uint64_t cqContextsAddr = ld_dev(cqContextsAddrField, 0);
     uint64_t lockAddrValue;
+    __gm__ CqContext* cqContext = reinterpret_cast<__gm__ CqContext*>(cqContextsAddr) + HCOMM_DEFAULT_QP_IDX;
     if constexpr (protocol == COMM_PROTOCOL_ROCE) {
-        __gm__ CqContext* cqContext = reinterpret_cast<__gm__ CqContext*>(cqContextsAddr) + 0;
         lockAddrValue = cqContext->contextInfo.roceCq.headAddr;
-    } else if constexpr (protocol == COMM_PROTOCOL_UBC_CTP) {
-        __gm__ CqContext* cqContext = reinterpret_cast<__gm__ CqContext*>(cqContextsAddr) + HCOMM_URMA_DEFAULT_QP_IDX;
+    } else if constexpr (protocol == COMM_PROTOCOL_UB_CTP) {
         lockAddrValue = cqContext->contextInfo.ubJfc.headAddr;
     } else {
         static_assert(
-            protocol == COMM_PROTOCOL_ROCE || protocol == COMM_PROTOCOL_UBC_CTP,
-            "Invalid CommProtocol, it must be COMM_PROTOCOL_ROCE or COMM_PROTOCOL_UBC_CTP");
+            protocol == COMM_PROTOCOL_ROCE || protocol == COMM_PROTOCOL_UB_CTP,
+            "Invalid CommProtocol, it must be COMM_PROTOCOL_ROCE or COMM_PROTOCOL_UB_CTP");
     }
     return reinterpret_cast<__gm__ uint32_t*>(lockAddrValue);
 }
