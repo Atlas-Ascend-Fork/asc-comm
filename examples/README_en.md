@@ -16,19 +16,10 @@ This directory contains usage samples for asc-comm APIs.
 | [aicore/hcomm/05_simt_urma_perftest](./aicore/hcomm/05_simt_urma_perftest/README_en.md) | Measures issue latency and completion bandwidth for those five SIMT URMA interfaces under immediate and deferred publication. | Ascend 950PR / Ascend 950DT |
 | [ccu/ccu_direct](./ccu/ccu_direct/01_allgather/README_en.md) | Demonstrates AllGather and other collective communication operations using HCCL communicators and CCU dataplane interfaces with direct `<<<>>>` invocation. | Ascend 950PR/Ascend 950DT |
 
-## simt_urma
-
-`simt_urma` validates SIMT URMA `WriteNbi`, `WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`, covering isolated interface cases plus serialized and batch-last submission across ten modes.
-
-See [simt_urma/README_en.md](./aicore/hcomm/04_simt_urma/README_en.md) for build and run instructions.
-
-## simt_urma_perftest
-
-`simt_urma_perftest` measures those five interfaces, reporting issue latency and completion bandwidth, with payload sweeps for `write` and `notify`.
-
-See [simt_urma_perftest/README_en.md](./aicore/hcomm/05_simt_urma_perftest/README_en.md) for performance testing instructions.
+See the README in each sample directory for build and run instructions.
 
 ## Runtime Constraints
+
 - Supported chips: Ascend 950PR / Ascend 950DT. CANN version 9.1.0 or later is required.
 - At least two NPUs are required for runtime execution; single-NPU environments only support compilation verification.
-- Sample build relies on CANN ASC CMake utilities and links against the CANN `hcomm` library at link time.
+- Sample build relies on CANN ASC CMake utilities and links against the CANN `hcomm` library.
