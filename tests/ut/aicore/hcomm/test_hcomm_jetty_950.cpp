@@ -76,6 +76,8 @@ public:
 
     void SetCompletionTail(uint32_t tail) { completionTail_ = tail; }
 
+    void SetCqTail(uint32_t tail) { cqTail_ = tail; }
+
 private:
     ChannelEntity channel_ = {};
     SqContext sqCtx_ = {};
@@ -161,7 +163,7 @@ TEST_F(HcommJettyTestSuite, Aiv_Jetty_DrainNoPendingCompletions)
     channel_.SetPackedHead(2U, 4U);
     HcommJetty jetty = MakeJetty();
     // Set the hardware completion tail so no CQE needs to be polled.
-    channel_.SetCompletionTail(4U);
+    channel_.SetCqTail(4U);
 
     int32_t ret = jetty.Drain<1000>();
     EXPECT_EQ(ret, HCOMM_SUCCESS);

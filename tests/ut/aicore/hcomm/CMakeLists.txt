@@ -27,6 +27,14 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
     asccomm_add_product_definitions(${target_name} ${product_type})
     target_compile_definitions(${target_name} PRIVATE ASCENDC_CPU_DEBUG=1)
     target_include_directories(${target_name} PRIVATE ${HCOMM_UT_INCLUDE_DIRS})
+    if(target_name MATCHES "jetty")
+        # CANN 9.2.0 CPU-debug headers expose unsupported 3510 vector helpers while
+        # compiling the Jetty implementation. Use the focused UT shim for the
+        # UB-to-GM copy primitive required by this target.
+        target_include_directories(${target_name} BEFORE PRIVATE
+            ${ASCCOMM_UT_ROOT}/aicore/jetty
+        )
+    endif()
     target_compile_options(${target_name} PRIVATE
         -fno-access-control
         -Werror
