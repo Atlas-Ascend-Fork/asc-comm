@@ -55,9 +55,9 @@ using ArgsOf = typename FunctionTrait<F>::type;
 
 // 进程组配置。
 struct ProcessGroupOptions {
-    // 整组超时秒数；0表示不限时。超时后先向所有子进程发SIGTERM，宽限期后仍存活的
-    // 收到SIGKILL，WaitAll最终返回false。
-    uint32_t timeoutSeconds = 300;
+    // 整组超时秒数；0表示不限时（默认）。非零时，超时后先向所有子进程发SIGTERM，宽限期后
+    // 仍存活的收到SIGKILL，WaitAll最终返回false。
+    uint32_t timeoutSeconds = 0;
     // SIGTERM（超时、TerminateAll或Ctrl+C触发的终止）后等待子进程自行退出的宽限秒数。
     uint32_t graceSeconds = 5;
 };
@@ -292,7 +292,7 @@ private:
         while (HasRunningChild() && std::chrono::steady_clock::now() < deadline) {
             CollectOne(WaitMode::nonBlocking);
             if (HasRunningChild()) {
-                // 轮询间隔取宽限期的1/10，避免短宽限期下错过窗口。
+                // 轮询间隔为5ms（kPollInterval的1/10），避免短宽限期下错过窗口。
                 std::this_thread::sleep_for(kPollInterval / 10U);
             }
         }
@@ -309,7 +309,7 @@ private:
         struct sigaction action {};
         action.sa_handler = &ProcessGroup::OnSignal;
         sigemptyset(&action.sa_mask);
-        // SIGINT/SIGTERM到达父进程时先收割已退出的子进程再终止，防止重启interpretation。
+        // SA_RESTART使被信号中断的系统调用自动重启，避免waitpid等阻塞调用返回EINTR。
         action.sa_flags = SA_RESTART;
         sigaction(SIGINT, &action, &previousInt_);
         sigaction(SIGTERM, &action, &previousTerm_);
