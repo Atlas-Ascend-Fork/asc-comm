@@ -38,7 +38,7 @@ hcomm_write_read_nbi
 
 每个rank的通信缓冲区划分为三段，通过地址偏移区分：
 
-- **seg0** `[0, DATA_SIZE)`：本卡pattern（Host侧通过线性同余生成器预初始化，确保不同rank的数据来源可区分）
+- **seg0** `[0, DATA_SIZE)`：本卡pattern（Host侧以`rank + index`模式预初始化，首字节为rankId，确保不同rank的数据来源可区分）
 - **seg1** `[DATA_SIZE, 2*DATA_SIZE)`：接收`prev`通过`WriteNbi`写入的数据
 - **seg2** `[2*DATA_SIZE, 3*DATA_SIZE)`：接收本卡通过`ReadNbi`从`next`读回的数据
 
@@ -102,7 +102,7 @@ hcomm_.Drain(channel);
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  cd .. && ./build/demo tcp://127.0.0.1:29623 <nranks>
+  cd .. && ./build/hcomm_write_read_nbi tcp://127.0.0.1:29623 <nranks>
   ```
 
 - 启动参数说明

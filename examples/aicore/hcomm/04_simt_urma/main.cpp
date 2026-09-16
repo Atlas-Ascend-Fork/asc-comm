@@ -32,6 +32,7 @@
 #include "utils/hccl_comm_init.h"
 #include "utils/process_manager.h"
 #include "utils/rank_sync.h"
+#include "utils/arg_parser.h"
 
 #include "simt_urma_common.h"
 
@@ -376,18 +377,22 @@ int RunSimtUrmaRank(uint32_t rank, uint32_t nranks, const std::string& ctrlEndpo
 // 父进程流程：解析命令行（<tcp://ip:port> <nranks> [mode]），拉起全部rank进程并等待结果。
 int main(int argc, char* argv[])
 {
-    if (argc < 3 || argc > 4) {
+    if (argc > 4) {
         std::cout << "Usage: " << argv[0] << " <tcp://ip:port> <nranks> [mode]" << std::endl;
         PrintModes();
         return 1;
     }
-    const std::string endpoint = argv[1];
-    const int nranksValue = std::atoi(argv[2]);
-    if (nranksValue < 2) {
-        std::cout << "nranks must be at least 2." << std::endl;
+    if (argc < 3) {
+        std::cout << "Usage: " << argv[0] << " <tcp://ip:port> <nranks> [mode]" << std::endl;
+        PrintModes();
         return 1;
     }
-    const uint32_t nranks = static_cast<uint32_t>(nranksValue);
+    uint32_t nranks = 0;
+    if (!examples::ParseUint32(argv[2], nranks, 2)) {
+        std::cout << "invalid nranks: " << argv[2] << ", expected an integer >= 2" << std::endl;
+        return 1;
+    }
+    const std::string endpoint = argv[1];
     const std::string modeName = argc > 3 ? argv[3] : "";
 
     std::vector<examples::ArgsOf<decltype(RunSimtUrmaRank)>> perRankArgs;
