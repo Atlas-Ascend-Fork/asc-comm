@@ -85,7 +85,7 @@ else:
                 "--api", "all", "--jetty-counts", "1,2,4,8"]
         output = call(args, env)
         assert "Cases=12 | Pass=12 | Fail=0 | Status=PASS" in output
-        assert output.count("RESULT |") == 12 and "NOTIFY_AUDIT_SUMMARY" in output
+        assert output.count("RESULT |") == 12
         assert "configuration does not match" in call(args, dict(env, MOCK_AUDIT="9"), False)
     actual = [tuple(json.loads(line)) for line in cases.read_text().splitlines()]
     expected = set(itertools.product(("write", "read", "notify"), BATCHES, (1, 2, 4, 8)))

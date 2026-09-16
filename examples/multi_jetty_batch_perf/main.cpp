@@ -176,13 +176,11 @@ int main(int argc, char* argv[])
         PrintCompletionState(publishSummaries);
         pass = CheckCompletion(publishSummaries, warmup, operationCount, batchSize, api, jettysPerKernel) && pass;
         uint64_t issueCycles = 0U;
-        uint64_t completionCycles = 0U;
         uint64_t completed = 0U;
         for (uint32_t launch = 0U; launch < kernelLaunchCount; ++launch) {
             const uint64_t* result = timing.data() + static_cast<size_t>(launch) * kTimingWords;
             pass = pass && static_cast<int64_t>(result[kStatusIndex]) == 0;
             issueCycles += result[kIssueCyclesIndex];
-            completionCycles += result[kCompletionCyclesIndex];
             completed += result[kCompletedIndex];
         }
         const uint64_t totalOperations = static_cast<uint64_t>(iterations) * activeJettyCount;
@@ -194,18 +192,12 @@ int main(int argc, char* argv[])
         }
         const double issueTime = totalOperations == 0U ? 0.0 :
             static_cast<double>(issueCycles) / static_cast<double>(totalOperations);
-        const double bandwidth = completionCycles == 0U ? 0.0 :
-            static_cast<double>(payloadBytes) * static_cast<double>(totalOperations) /
-            static_cast<double>(completionCycles);
         std::cout << std::fixed << std::setprecision(6)
-                  << "PERF_DATA | API=" << apiName << " | DataSize/B=" << payloadBytes
-                  << " | Jettys=" << jettyCount << " | BatchSize=" << batchSize
-                  << " | LanesPerJetty=" << batchSize
-                  << " | KernelLaunches=" << kernelLaunchCount
-                  << " | MaxConcurrentJettys=" << std::min(jettyCount, jettysPerKernel)
-                  << " | Measurement=RawDeviceTicks"
-                  << " | IssueTicksPerRequest=" << issueTime
-                  << " | BytesPerCompletionTick=" << bandwidth << std::endl;
+                  << "PERF_DATA | API=" << apiName << " | Mode=MultiJetty"
+                  << " | DataSize/B=" << payloadBytes << " | BatchSize=" << batchSize
+                  << " | Jettys=" << jettyCount
+                  << " | ConcurrentJettys=" << std::min(jettyCount, jettysPerKernel)
+                  << " | IssueTicksPerRequest=" << issueTime << std::endl;
     }
     CHECK_HCCL(HostBarrier(rank, rankCount, "completed"));
     if (!sender && api != kApiRead) {
