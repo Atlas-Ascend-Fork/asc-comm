@@ -27,7 +27,7 @@ asc-comm当前仓内构建主要用于环境检查、AICore Hcomm接口UT验证�
 
 ## 样例运行依赖
 
-`examples/hcomm_write_read_nbi`样例支持Ascend 950PR/Ascend 950DT，运行时需要至少2张NPU。单卡环境可完成编译验证，但无法完成两卡点对点通信运行验证。该样例固定使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UBC_CTP`，不覆盖RoCE路径。
+`examples/hcomm_write_read_nbi`样例支持Ascend 950PR/Ascend 950DT，运行时需要至少2张NPU。单卡环境可完成编译验证，但无法完成两卡点对点通信运行验证。该样例固定使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UB_CTP`，不覆盖RoCE路径。
 
 样例编译命令如下：
 

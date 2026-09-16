@@ -26,8 +26,8 @@
 
 ### 📖 资料文档
 
-- 新增[快速开始](./docs/quick_start.md)、[构建与测试](./docs/zh/guide/build_and_test.md)、[三方依赖与兼容性](./docs/zh/guide/dependencies.md)说明。
-- 新增[Hcomm使用说明](./docs/zh/guide/hcomm_usage.md)和[API参考](./docs/zh/api/README.md)，覆盖当前公开的Hcomm接口。
+- 新增[快速开始](./docs/quick_start.md)、[构建与测试](./docs/build_and_test.md)、[三方依赖与兼容性](./docs/dependencies.md)说明。
+- 新增[API参考](./docs/zh/api/README.md)，覆盖当前公开的Hcomm接口。
 - 新增[样例目录](./examples/README.md)，提供Hcomm AIV直驱调用和端到端通信样例入口。
 
 有关所有历史版本及更新的详细信息，请参阅[CHANGELOG.md](./CHANGELOG.md)。
@@ -82,7 +82,7 @@ BatchHandle缓存创建时的SQ/CQ上下文和队列状态，使用期间调用�
 | `COMM_PROTOCOL_ROCE` | RoCE点对点通信路径，支持普通`ReadNbi`、`WriteNbi`、`Commit`、`Drain`，不支持`WriteWithNotifyNbi`和BatchHandle接口。 |
 | `COMM_PROTOCOL_UB_CTP` | UBC CTP/URMA点对点通信路径，支持普通`ReadNbi`、`WriteNbi`、`WriteWithNotifyNbi`、`AtomicFAA`、`AtomicCAS`、`Commit`、`Drain`；Ascend 950还支持BatchHandle批量接口。 |
 
-详细参数约束和返回值说明请参考[Hcomm使用说明](./docs/zh/guide/hcomm_usage.md)和[API参考](./docs/zh/api/README.md)。
+详细参数约束和返回值说明请参考[API参考](./docs/zh/api/README.md)。
 
 ### 如何使用Ain接口
 
@@ -168,7 +168,7 @@ bash build.sh --pkg
 ./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
 ```
 
-制包脚本会递归收集`include/`和`src/`中的头文件，其中Hcomm安装到`adv_api`，其他头文件按相对路径安装到`comm_api`。安装目录、命令参数、权限和卸载说明见[构建与测试](./docs/zh/guide/build_and_test.md)。
+制包脚本会递归收集`include/`和`src/`中的头文件，其中Hcomm安装到`adv_api`，其他头文件按相对路径安装到`comm_api`。安装目录、命令参数、权限和卸载说明见[构建与测试](./docs/build_and_test.md)。
 
 如需直接使用CMake构建UT，可指定CANN三方依赖目录：
 
@@ -177,7 +177,7 @@ cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<third_party_path>
 cmake --build build/ut-hcomm
 ```
 
-更多环境准备、Docker、CANN包安装和UT依赖说明请参考[快速开始](./docs/quick_start.md)和[构建与测试](./docs/zh/guide/build_and_test.md)。
+更多环境准备、Docker、CANN包安装和UT依赖说明请参考[快速开始](./docs/quick_start.md)和[构建与测试](./docs/build_and_test.md)。
 
 ## 🧰clangd/IDE支持
 
@@ -192,12 +192,10 @@ cmake --build build/ut-hcomm
 
   | 文档 | 说明 |
   | --- | --- |
-  | [文档入口](./docs/README.md) | asc-comm文档总入口。 |
   | [快速开始](./docs/quick_start.md) | 环境准备、源码编译和UT验证。 |
   | [API参考](./docs/zh/api/README.md) | asc-comm当前公开接口列表。 |
-  | [Hcomm使用说明](./docs/zh/guide/hcomm_usage.md) | Hcomm点对点通信接口的基本使用流程。 |
-  | [构建与测试](./docs/zh/guide/build_and_test.md) | CANN环境、开发验证run包、UT构建和样例构建说明。 |
-  | [三方依赖与兼容性](./docs/zh/guide/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
+  | [构建与测试](./docs/build_and_test.md) | CANN环境、开发验证run包、UT构建和样例构建说明。 |
+  | [三方依赖与兼容性](./docs/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
   | [样例目录](./examples/README.md) | asc-comm API样例入口。 |
 
 - **贡献指南**
