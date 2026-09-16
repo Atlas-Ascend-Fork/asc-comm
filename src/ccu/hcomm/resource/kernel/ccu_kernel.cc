@@ -517,8 +517,9 @@ CcuResult ccu_kernel::variable_create_by_acquire(
 {
     uint8_t die_id = 0;
     uint32_t xn_id = 0;
-    CCU_CHK_RET(ccu_var_event_res_mgr::get_instance(asc::get_current_ccu_device_logic_id())
-                    .get_variable_xn_id(acq_handle, index, die_id, xn_id));
+    CCU_CHK_RET(
+        ccu_var_event_res_mgr::get_instance(asc::get_current_ccu_device_logic_id())
+            .get_variable_xn_id(acq_handle, index, die_id, xn_id));
 
     ccu_rep::variable var(this);
     var.reset(static_cast<uint16_t>(xn_id), static_cast<uint16_t>(die_id));
@@ -533,8 +534,9 @@ CcuResult ccu_kernel::event_create_by_acquire(
 {
     uint8_t die_id = 0;
     uint32_t cke_id = 0;
-    CCU_CHK_RET(ccu_var_event_res_mgr::get_instance(asc::get_current_ccu_device_logic_id())
-                    .get_event_cke_id(acq_handle, index, die_id, cke_id));
+    CCU_CHK_RET(
+        ccu_var_event_res_mgr::get_instance(asc::get_current_ccu_device_logic_id())
+            .get_event_cke_id(acq_handle, index, die_id, cke_id));
 
     ccu_rep::completed_event event(this);
     event.reset(static_cast<uint16_t>(cke_id), static_cast<uint16_t>(die_id));
@@ -793,8 +795,9 @@ CcuResult ccu_kernel::local_notify_wait(const char* notify_tag, const uint32_t m
     }
 
     bool is_profiling = current_block()->type() != ccu_rep::ccu_rep_type::loop_block;
-    append(std::make_shared<ccu_rep::ccu_rep_loc_wait_notify>(
-        ins_generator_, exported_res_.shared_notifies.at(tag_key), mask, is_profiling));
+    append(
+        std::make_shared<ccu_rep::ccu_rep_loc_wait_notify>(
+            ins_generator_, exported_res_.shared_notifies.at(tag_key), mask, is_profiling));
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -838,8 +841,9 @@ CcuResult ccu_kernel::write_variable_with_notify(
     channels_.insert(channel);
     ccu_rep::variable* var{nullptr};
     CCU_CHK_RET(get_variable_by_handle(var_handle, &var));
-    append(std::make_shared<ccu_rep::ccu_rep_rem_post_var>(
-        ins_generator_, *var, channel, remote_var_idx, remote_notify_idx, mask));
+    append(
+        std::make_shared<ccu_rep::ccu_rep_rem_post_var>(
+            ins_generator_, *var, channel, remote_var_idx, remote_notify_idx, mask));
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -1654,8 +1658,9 @@ void ccu_kernel::if_label_stack_mark_body_done()
 const char* ccu_kernel::if_label_stack_pop_for_else()
 {
     if (iflabel_stack_.empty()) {
-        HCCL_ERROR("[CcuKernel::IfLabelStack][PopForElse] orphan CCU_ELSE: "
-                   "no matching CCU_IF on the stack");
+        HCCL_ERROR(
+            "[CcuKernel::IfLabelStack][PopForElse] orphan CCU_ELSE: "
+            "no matching CCU_IF on the stack");
         return nullptr;
     }
     if (!iflabel_stack_.back().body_done) {
@@ -2607,13 +2612,13 @@ void ccu_kernel::set_instr_id(uint32_t instr_id) { instr_info_.start_instr_id = 
 
 uint32_t ccu_kernel::get_instr_id() const { return instr_info_.start_instr_id; }
 
-void ccu_kernel::set_instruction_resource(const HcommCcuResRangePod& range)
+void ccu_kernel::set_instruction_resource(const asc_ccu_res_range& range)
 {
     instruction_resource_ = range;
     has_instruction_resource_ = true;
 }
 
-bool ccu_kernel::get_instruction_resource(HcommCcuResRangePod& range) const
+bool ccu_kernel::get_instruction_resource(asc_ccu_res_range& range) const
 {
     if (!has_instruction_resource_) {
         return false;

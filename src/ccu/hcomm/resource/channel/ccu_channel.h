@@ -13,13 +13,13 @@
 
 #include <cstdint>
 
-#include "hcomm/hcomm_ccu_control.h"
+#include "hcomm/hcomm_ccu_resource.h"
 #include "hcomm/hcomm_types.h"
 
 namespace asc {
 
 // CcuChannel：CCU Channel 在 asc-comm 数据面侧的本地值对象。
-// 构造时通过 hcomm 注入的 channelQuery 一次性获取定长 POD 快照（HcommCcuChannelPod），
+// 构造时通过 hcomm 注入的 channelQuery 一次性获取定长实体快照（HcommCcuChannelEntity），
 // 之后所有资源访问均基于该本地快照，不再触碰 hcomm 的 Channel 对象。
 // 该对象被设计为不可拷贝的包装语义：operator-> 直接解引用自身（保留迁移前 channel->GetXxx() 的调用形式）。
 class ccu_channel {
@@ -41,11 +41,11 @@ public:
 
 private:
     HcclResult init(ChannelHandle channel);
-    // 从 POD 定长数组安全读取第 index 个资源 id（含空指针/越界校验）
-    HcclResult get_id_by_array(const uint32_t* ids, uint32_t index, uint32_t& id) const;
+    // 从实体定长数组安全读取第 index 个资源 id（含空指针/越界校验）
+    HcclResult get_id_by_array(const uint32_t* ids, uint32_t valid_num, uint32_t index, uint32_t& id) const;
 
-    // 单次查询得到的完整 POD 快照；不再持有变长容器，CcuChannel 生命周期与 hcomm 完全解耦
-    HcommCcuChannelPod channel_pod_{};
+    // 单次查询得到的完整实体快照；不再持有变长容器，CcuChannel 生命周期与 hcomm 完全解耦
+    HcommCcuChannelEntity channel_entity_{};
     // Init 的结果缓存，初始为内部错误，避免未初始化即被使用
     HcclResult result_{HCCL_E_INTERNAL};
 };

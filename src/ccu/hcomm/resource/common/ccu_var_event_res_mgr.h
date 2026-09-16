@@ -27,11 +27,12 @@ enum class ccu_var_event_type {
 };
 
 struct ccu_var_event_res {
-    CcuInsHandle ins_handle{0};
+    // 仅保存实例身份；资源记录不需要持有 CcuInsHandle 中的借用指针。
+    uint64_t ins_key{0};
     int32_t dev_logic_id{-1};
     uint8_t die_id{0};
     ccu_var_event_type type{ccu_var_event_type::variable};
-    std::vector<HcommCcuResRangePod> res_ranges{};
+    std::vector<asc_ccu_res_range> res_ranges{};
     // 借用指针，指向发起预约的 CcuKernelRegistry 名下 AscCcuResSnapshot 持有的资源仓，本类不持有所有权。
     // 有效性依赖既定时序：~CcuKernelRegistry 中 ReleaseByInstance 先于 resSnapshot_ 置空执行，
     // CcuKernelRegistry::Reset 调 ExcludeAllocatedFromRepo 时资源仓亦仍存活。
@@ -95,8 +96,8 @@ private:
     CcuResult register_addrs(ccu_var_event_type type, uint64_t handle, uint32_t num);
 
     static CcuResult alloc_from_pool(
-        std::vector<HcommCcuResRangePod>& pool, uint32_t num, std::vector<HcommCcuResRangePod>& out);
-    static void return_to_pool(std::vector<HcommCcuResRangePod>& pool, const std::vector<HcommCcuResRangePod>& ranges);
+        std::vector<asc_ccu_res_range>& pool, uint32_t num, std::vector<asc_ccu_res_range>& out);
+    static void return_to_pool(std::vector<asc_ccu_res_range>& pool, const std::vector<asc_ccu_res_range>& ranges);
     // 释放资源前，将 Alloc 阶段映射的进程可访问 VA 逐个 unmap（仅处理已保存 VA 的资源）；
     // 返回首个 unmap 失败的错误码，失败不中断，其余资源继续 unmap
     static CcuResult unmap_saved_addrs(const ccu_var_event_res& res);
