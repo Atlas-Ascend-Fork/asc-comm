@@ -8,9 +8,9 @@ asc-comm资料体系包含仓库入口、快速开始、构建测试、API参考
 | --- | --- | --- |
 | 仓库入口 | 项目概述、目录结构、常用文档入口 | `README.md` |
 | 快速开始 | 环境准备、源码下载、构建和UT验证 | `docs/quick_start.md` |
-| 构建与依赖 | 构建脚本、CMake入口、三方依赖说明 | `docs/zh/guide/` |
+| 构建与依赖 | 构建脚本、CMake入口、三方依赖说明 | `docs/build_and_test.md`、`docs/dependencies.md` |
 | API参考 | 接口功能、原型、参数、返回值和约束 | `docs/zh/api/` |
-| 使用指南 | API调用流程、协议能力和注意事项 | `docs/zh/guide/` |
+| 使用指南 | API调用流程、协议能力和注意事项 | `docs/` |
 | 样例说明 | 样例目录入口、运行边界和验证说明 | `examples/README.md`、`examples/*/README.md` |
 
 ## 贡献场景
@@ -96,23 +96,16 @@ API行为相关资料应与 `include/` 下公开头文件保持一致。涉及�
 asc-comm资料通过入口文档、指南、API参考和样例说明形成导航关系。新增或修改文档时，应遵循“谁提到其他文档负责的内容，谁添加链接”的原则。
 
 ```text
-README.md ──文档入口──→ docs/README.md
-          ──快速上手──→ docs/quick_start.md
-          ──构建测试──→ docs/zh/guide/build_and_test.md
+README.md ──快速上手──→ docs/quick_start.md
+          ──构建测试──→ docs/build_and_test.md
+          ──依赖说明──→ docs/dependencies.md
           ──API参考───→ docs/zh/api/README.md
           ──样例入口──→ examples/README.md
 
-docs/README.md ──快速上手──→ docs/quick_start.md
-               ──使用指南──→ docs/zh/guide/hcomm_usage.md
-               ──构建测试──→ docs/zh/guide/build_and_test.md
-               ──API参考───→ docs/zh/api/README.md
-               ──样例入口──→ examples/README.md
+docs/quick_start.md ──样例说明──→ examples/hcomm_write_read_nbi/README.md
+docs/build_and_test.md ──依赖说明──→ docs/dependencies.md
 
-docs/zh/guide/ ──首次引入API──→ docs/zh/api/README.md
-                ──涉及样例────→ examples/README.md
-
-docs/zh/api/ ───使用流程──→ docs/zh/guide/hcomm_usage.md
-              ───调用示例──→ examples/hcomm_write_read_nbi/README.md
+docs/zh/api/ ───调用示例──→ examples/ain/basic_ring/README.md
 ```
 
 ## 更多信息
