@@ -34,6 +34,7 @@ typedef uint64_t MultiChannelHandle;
  * @param [out] multiChannel: The created Device-side multi-channel handle.
  * @return HCCL_SUCCESS indicates success. Other values indicate an HCCL error.
  * @note The returned handle is managed by comm. The communicator must remain valid while a Kernel uses the handle.
+ * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
  */
 static inline HcclResult MakeMultiChannelHandle(
     HcclComm comm, const char* sharedQueueTag, const HcclChannelDesc* channelDescs, uint32_t channelNum,
@@ -51,6 +52,7 @@ static inline HcclResult MakeMultiChannelHandle(
  * @param [out] multiChannel: The created Device-side multi-channel handle.
  * @return HCCL_SUCCESS indicates success. Other values indicate an Hcomm error.
  * @note Destroy the returned handle before destroying endpointHandle.
+ * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
  */
 static inline HcommResult MakeMultiChannelHandle(
     EndpointHandle endpointHandle, HcommChannelDesc* channelDescs, uint32_t channelNum,
@@ -65,6 +67,7 @@ static inline HcommResult MakeMultiChannelHandle(
  * @return HCCL_SUCCESS indicates success. Other values indicate an Hcomm error.
  * @note This is the destroy API corresponding to the MakeMultiChannelHandle overload without an HCCL communicator (the
  * EndpointHandle overload). Do not use it for a handle created by the HcclComm overload.
+ * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
  */
 static inline HcommResult DestroyMultiChannelHandle(MultiChannelHandle multiChannel)
 {
