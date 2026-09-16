@@ -66,17 +66,17 @@ private:
     __aicore__ inline void DoWrite()
     {
         GM_ADDR writeSrc = localBuffer_ + SEND_DATA_OFFSET;
-        GM_ADDR writeDst = remoteBuffer_ + WRITE_RESULT_OFFSET;
-        if (hcomm_.WriteNbi(channel_, writeDst, writeSrc, DATA_SIZE) != AscendC::HCOMM_SUCCESS) {
+        GM_ADDR writeDst = remoteBuffer_ + context_->dataSize;
+        if (hcomm_.WriteNbi(channel_, writeDst, writeSrc, context_->dataSize) != AscendC::HCOMM_SUCCESS) {
             context_->testResult = TEST_WRITE_FAILED;
         }
     }
 
     __aicore__ inline void DoRead()
     {
-        GM_ADDR readDst = localBuffer_ + READ_RESULT_OFFSET;
+        GM_ADDR readDst = localBuffer_ + 2U * context_->dataSize;
         GM_ADDR readSrc = remoteBuffer_ + SEND_DATA_OFFSET;
-        if (hcomm_.ReadNbi(channel_, readDst, readSrc, DATA_SIZE) != AscendC::HCOMM_SUCCESS) {
+        if (hcomm_.ReadNbi(channel_, readDst, readSrc, context_->dataSize) != AscendC::HCOMM_SUCCESS) {
             context_->testResult = TEST_READ_FAILED;
         }
     }
