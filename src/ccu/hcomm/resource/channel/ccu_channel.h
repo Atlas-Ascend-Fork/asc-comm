@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-#include "hcomm/hcomm_ccu_control.h"
+#include "hcomm/hcomm_ccu_resource.h"
 #include "hcomm/hcomm_types.h"
 
 namespace asc {
@@ -42,7 +42,7 @@ public:
 private:
     HcclResult init(ChannelHandle channel);
     // 从 POD 定长数组安全读取第 index 个资源 id（含空指针/越界校验）
-    HcclResult get_id_by_array(const uint32_t* ids, uint32_t index, uint32_t& id) const;
+    HcclResult get_id_by_array(const uint32_t* ids, uint32_t valid_num, uint32_t index, uint32_t& id) const;
 
     // 单次查询得到的完整 POD 快照；不再持有变长容器，CcuChannel 生命周期与 hcomm 完全解耦
     HcommCcuChannelPod channel_pod_{};

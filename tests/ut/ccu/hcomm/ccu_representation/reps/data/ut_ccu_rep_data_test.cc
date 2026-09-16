@@ -31,8 +31,6 @@
 #include <string>
 #include <vector>
 
-#include "ccu/hcomm/ccu_utils.hpp"
-
 using CcuUtException = ::AscendC::ccu::detail::ccu_exception;
 
 namespace asc {
@@ -48,14 +46,21 @@ protected:
         channelPod.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
         channelPod.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
         channelPod.header.size = sizeof(HcommCcuChannelPod);
-        channelPod.localXnIds[0] = 0;
-        channelPod.remoteXnIds[0] = 0;
-        channelPod.localCkeIds[0] = 0;
-        channelPod.remoteCkeIds[0] = 0;
-        channelPod.rmtCcuBufSize = 1;
-        SetHcommCcuChannelQueryStub(channelPod);
+        channelPod.localVarNum = 1;
+        channelPod.remoteVarNum = 1;
+        channelPod.localEventNum = 1;
+        channelPod.remoteEventNum = 1;
+        channelPod.localVarIds[0] = 0;
+        channelPod.remoteVarIds[0] = 0;
+        channelPod.localEventIds[0] = 0;
+        channelPod.remoteEventIds[0] = 0;
+        channelPod.rmtCcuResBuffer.type = REGED_BUFFER_RMA;
+        channelPod.rmtCcuResBuffer.bufferInfo.rma.addr = 0x1000;
+        channelPod.rmtCcuResBuffer.bufferInfo.rma.size = 1;
+        channelPod.rmtCcuResBuffer.bufferInfo.rma.protectionInfo.type = PROTECTION_TYPE_UB;
+        SetHcommCcuChannelGetPodStub(channelPod);
     }
-    void TearDown() override { ResetHcommCcuChannelQueryStub(); }
+    void TearDown() override { ResetHcommCcuChannelGetPodStub(); }
 };
 
 class CcuRepReadTest : public CcuRepChannelTest {};
@@ -660,7 +665,6 @@ TEST_F(CcuRepRemMemTest, translate)
     ccu_rep_rem_mem rep(&insGen, 0, rem_);
     EXPECT_EQ(rep.type(), ccu_rep_type::rem_mem);
 }
-
 TEST_F(CcuRepReadTest, TranslateReal_GeneratesInstr)
 {
     ccu_rep_context context_;

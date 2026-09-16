@@ -47,7 +47,7 @@ public:
     CcuResult un_register(ccu_kernel_handle kernel_handle);
 
     ccu_kernel* get_current_kernel();
-    const HcommCcuControlOpsPod& get_control_ops() const;
+    const uint64_t* get_control_ops() const; // ascCustom 槽位数组
 
 private:
     explicit ccu_kernel_mgr() = default;
@@ -71,8 +71,6 @@ private:
     std::mutex translate_mutex_{};
     ccu_kernel_handle kernel_id_ = 0;
     std::unordered_map<ccu_kernel_handle, std::unique_ptr<ccu_kernel>> kernel_map_{};
-    void* instruction_load_dev_mem_{nullptr};
-    uint64_t instruction_load_dev_mem_size_{0};
 
     std::unordered_map<uint16_t, std::unordered_map<uint16_t, std::shared_ptr<ccu_rep::ccu_rep_translator>>>
         translators_;
@@ -82,7 +80,7 @@ private:
     std::shared_ptr<ccu_ins_generater_base> ins_gene_ptr_;
     uint32_t ccu_version_{HCOMM_CCU_VERSION_INVALID};
     std::array<uint32_t, HCOMM_CCU_MAX_DIE_NUM> mission_keys_{};
-    HcommCcuControlOpsPod control_ops_{};
+    uint64_t control_ops_[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]{};
 };
 }; // namespace asc
 #endif // HCOMM_CCU_KERNEL_MGR_IMP_H

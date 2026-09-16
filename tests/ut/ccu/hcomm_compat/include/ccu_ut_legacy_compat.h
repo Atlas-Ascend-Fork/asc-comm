@@ -36,4 +36,26 @@ using u32 = uint32_t;
         }                                           \
     } while (0)
 
+#define CHK_RET(expression)                     \
+    do {                                        \
+        const HcclResult result = (expression); \
+        if (result != HCCL_SUCCESS) {           \
+            return result;                      \
+        }                                       \
+    } while (0)
+
+#define CHK_SAFETY_FUNC_RET(expression) \
+    do {                                \
+        if ((expression) != 0) {        \
+            return HCCL_E_INTERNAL;     \
+        }                               \
+    } while (0)
+
+#define CHK_PTR_NULL(pointer)       \
+    do {                            \
+        if ((pointer) == nullptr) { \
+            return HCCL_E_PTR;      \
+        }                           \
+    } while (0)
+
 #endif
