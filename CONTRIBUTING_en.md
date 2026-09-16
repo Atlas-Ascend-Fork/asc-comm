@@ -8,9 +8,11 @@ Please pay attention to the following key points when preparing local code and s
 2. If your changes are not simple bug fixes but involve new features, new APIs, new configuration parameters or modifications to code workflows, please initiate a design discussion via an Issue in advance to avoid PR rejection. If you are unsure whether your change qualifies as a "simple bug fix", you may also start a discussion by creating an Issue.
 
 ## API Development Guide
+
 Contributions related to APIs are accepted in this project. Before adding or modifying APIs, developers shall describe usage scenarios, interface design, compatibility impacts and test plans via an Issue. For changes introducing new features, new APIs or behavioral adjustments, PRs can only be submitted after the design discussion reaches consensus.
 
 Common API-related contributions include:
+
 - Adding new API capabilities
 - Fixing API defects
 - Optimizing API implementations
@@ -18,9 +20,11 @@ Common API-related contributions include:
 - Improving API usage documentation and samples
 
 ## Documentation Contribution Guide
+
 Developers are welcome to correct, supplement and optimize project documentation. Documentation updates shall maintain accurate descriptions, clear structure, and consistency with source code, samples and test behaviors.
 
 Typical documentation contribution scenarios include:
+
 - Correcting inaccurate descriptions in documents
 - Adding missing API constraints, parameter descriptions or return value explanations
 - Supplementing instructions for building, testing, dependencies or samples
@@ -30,6 +34,7 @@ When adding or updating API documentation, please refer to [API Documentation Co
 When adding or updating README, docs, examples and other materials, please refer to [Documentation Contribution Guide](./docs/doc_contributing_en.md).
 
 ## Main Contribution Scenarios for Developers
+
 - Bug Fixes
 If you discover bugs in this project and intend to fix them, feel free to create an Issue for tracking.
 
