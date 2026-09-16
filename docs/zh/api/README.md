@@ -1,31 +1,4 @@
-﻿# API参考
-
-## Host Hcomm
-
-| 文档 | 内容 |
-| --- | --- |
-| [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | 基于HCCL通信域或Hcomm Endpoint创建共享通信资源及Device侧多通道句柄。 |
-| [DestroyMultiChannelHandle](./host/hcomm/DestroyMultiChannelHandle.md) | 释放Hcomm Endpoint路径创建的多通道资源。 |
-
-## AICore Hcomm
-
-| 文档 | 内容 |
-| --- | --- |
-| [Hcomm](./aicore/hcomm/Hcomm.md) | AICore侧点对点通信接口模板总览、协议能力和使用约束。 |
-| [Init](./aicore/hcomm/Init.md) | 初始化普通Hcomm接口使用的临时工作区。 |
-| [MakeBatchHandle](./aicore/hcomm/MakeBatchHandle.md) | 创建批量句柄并绑定批量WQE的UB缓冲区。 |
-| [GetHandleRef](./aicore/hcomm/GetHandleRef.md) | 从共享Jetty多通道批量句柄中选择逻辑通道。 |
-| [Lock](./aicore/hcomm/Lock.md) | 获取通信通道的跨AI Core锁。 |
-| [Unlock](./aicore/hcomm/Unlock.md) | 释放通信通道的跨AI Core锁。 |
-| [ReadNbi](./aicore/hcomm/ReadNbi.md) | 提交普通读任务或在BatchHandle中准备读WQE。 |
-| [WriteNbi](./aicore/hcomm/WriteNbi.md) | 提交普通写任务或在BatchHandle中准备写WQE。 |
-| [WriteValueNbi](./aicore/hcomm/WriteValueNbi.md) | 提交点对点立即数写任务，将`value`内联携带在WQE中写入远端。 |
-| [WriteWithNotifyNbi](./aicore/hcomm/WriteWithNotifyNbi.md) | 提交普通写通知任务或在BatchHandle中准备写通知WQE。 |
-| [AtomicFAA](./aicore/hcomm/AtomicFAA.md) | 提交Fetch-and-add原子操作任务。 |
-| [AtomicCAS](./aicore/hcomm/AtomicCAS.md) | 提交Compare-and-swap原子操作任务。 |
-| [Commit](./aicore/hcomm/Commit.md) | 显式提交通道上的待执行通信任务。 |
-| [BatchCommit](./aicore/hcomm/BatchCommit.md) | 提交BatchHandle中已准备的全部WQE。 |
-| [Drain](./aicore/hcomm/Drain.md) | 等待普通通道或BatchHandle已提交的通信任务完成。 |
+# API参考
 
 ## AICore Ain
 
@@ -51,23 +24,18 @@
 | [AinBarrierSession](./aicore/ain/AinBarrierSession.md) | AICore侧AIN barrier同步会话总览。 |
 | [Sync](./aicore/ain/Sync.md) | 执行team内barrier同步。 |
 
+### 辅助接口
+
+| 文档 | 内容 |
+| --- | --- |
+| [GetPeerPointer](./aicore/ain/GetPeerPointer.md) | 获取对端rank在对称window中指定偏移处的内存句柄。 |
+
 ## 头文件
 
-Host侧：
-
 ```cpp
-#include "hcomm/hcomm_host.h"
-```
-
-AICore侧：
-
-```cpp
-#include "hcomm/hcomm.h"
 #include "ain/ain.h"
 ```
 
 ## 相关文档
 
-- [Hcomm使用说明](../guide/hcomm_usage.md)
-- [AIV直驱URMA WriteNbi/ReadNbi样例](../../../examples/hcomm_write_read_nbi/README.md)
 - [Ain Basic Ring样例](../../../examples/ain/basic_ring/README.md)
