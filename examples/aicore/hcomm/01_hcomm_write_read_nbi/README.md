@@ -102,8 +102,7 @@ hcomm_.Drain(channel);
   cd build
   cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
   make -j
-  cd ..
-  ./build/demo tcp://127.0.0.1:29623 <nranks>
+  cd .. && ./build/demo tcp://127.0.0.1:29623 <nranks>
   ```
 
 - 启动参数说明
