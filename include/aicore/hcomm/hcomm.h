@@ -52,6 +52,7 @@ public:
      * @param [in] len: The buffer length in bytes.
      * @return 0 indicates success and -1 indicates failure.
      * @note URMA uses buff as its temporary workspace after 32-byte alignment.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     __aicore__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
@@ -61,6 +62,7 @@ public:
      * @param [in] buff: The LocalTensor buffer provided by caller. Start address must be 32-byte aligned.
      * @param [in] len: The buffer length in bytes.
      * @return 0 indicates success and -1 indicates failure.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <typename T>
     __aicore__ inline int32_t Init(const LocalTensor<T>& buff, uint32_t len);
@@ -80,6 +82,7 @@ public:
      * @note For UBC CTP, remote memory is selected here for ChannelHandle. Call GetHandleRef to select a logical
      *       channel and remote registered-memory region for MultiChannelHandle. buffLen must be smaller than the SQ
      *       capacity in bytes.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <typename T, typename U>
     __aicore__ inline BatchHandle<T> MakeBatchHandle(
@@ -101,6 +104,7 @@ public:
      *       request immediately after its GetHandleRef call. Different requests in one batch may select different
      *       logical channels, but all segments of one scatter/gather request use the selected channel and cannot span
      *       channels.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline BatchHandle<T>& GetHandleRef(T& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr = nullptr);
@@ -112,13 +116,15 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
      * @param [in] len: The length of the data to write, using byte as the basic unit.
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
@@ -128,6 +134,7 @@ public:
     /*!
      * @brief Prepare a Write WQE in a protocol-specific batch handle.
      * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: The batch handle to append the WQE to.
      * @param [out] dst: The remote destination address. The caller must ensure that its access range matches the
@@ -136,6 +143,7 @@ public:
      * @param [in] len: The length of the data to write in bytes.
      * @return 0 indicates success and -1 indicates failure.
      * @note The destination range is not validated against the registration cached in batchHandle.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
@@ -144,6 +152,7 @@ public:
      * @brief Add a scatter/gather Write task to a batch handle. Data is gathered from srcDescs in array order and
      *        written contiguously starting at dst.
      * @tparam config: URMA task control config. Inline data is not supported.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
      *                              one logical channel of a multi-channel batch.
@@ -155,6 +164,7 @@ public:
      * @note In multi-channel mode, the immediately preceding GetHandleRef call selects the logical channel for this
      *       task. All source segments are sent through that channel and cannot span channels. The caller must provide
      *       a valid descriptor array, payload addresses and lengths.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteNbi(T& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum);
@@ -168,12 +178,13 @@ public:
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
      * @tparam config: URMA WQE control config, only used by URMA.
-     *         Default: strongly ordered + fence + CQE + inline enabled.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE + inline enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] value: The inline value to write.
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <
         typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
@@ -189,13 +200,15 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The remote destination address of the reduction.
      * @param [in] src: The local source address of the reduction.
      * @param [in] count: The number of elements to reduce.
      * @return 0 indicates success and -1 indicates failure.
      * @note Only the UB_CTP/URMA path supports this interface.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <
         typename T, HcommUrmaReduceOp reduceOp, bool commit = true, pipe_t commitPipe = PIPE_S,
@@ -208,7 +221,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
@@ -217,6 +231,7 @@ public:
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
@@ -227,6 +242,7 @@ public:
     /*!
      * @brief Prepare a Write-with-notify WQE in a protocol-specific batch handle.
      * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: The batch handle to append the WQE to.
      * @param [out] dst: The remote destination address. The caller must ensure that its access range matches the
@@ -238,6 +254,7 @@ public:
      * @param [in] notifyVal: The remote notify value.
      * @return 0 indicates success and -1 indicates failure.
      * @note The destination and notify ranges are not validated against the registration cached in batchHandle.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteWithNotifyNbi(
@@ -247,6 +264,7 @@ public:
      * @brief Add a scatter/gather Write-with-notify task to a batch handle. Data is gathered from srcDescs in array
      *        order and written contiguously starting at dst.
      * @tparam config: URMA task control config. Inline data is not supported.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
      *                              one logical channel of a multi-channel batch.
@@ -260,6 +278,7 @@ public:
      * @note In multi-channel mode, the immediately preceding GetHandleRef call selects the logical channel for this
      *       task. All source segments and the notification use that channel and cannot span channels. The caller must
      *       provide a valid descriptor array, payload/notify addresses and lengths.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t WriteWithNotifyNbi(
@@ -272,13 +291,15 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [out] fetchAddr: The address to store the old value before atomic add.
      * @param [in] addVal: The remote add value.
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <
         typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
@@ -292,7 +313,8 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [out] fetchAddr: The address to store the old value before atomic compare-and-swap.
@@ -300,6 +322,7 @@ public:
      * @param [in] swapVal: The value to swap into the destination address if comparison succeeds.
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <
         typename T, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
@@ -313,13 +336,15 @@ public:
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
      * @tparam commitPipe: The pipe type to use for commit, PIPE_S supported as default.
      * @tparam reqPipe: The pipe type to use for req, PIPE_MTE3 supported as default.
-     * @tparam config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam config: URMA WQE control config, only used by URMA.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @param [in] channel: The handle of the communication channel.
      * @param [out] dst: The destination address of the data.
      * @param [in] src: The source address of the data.
      * @param [in] len: The length of the data to read, using byte as the basic unit.
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called after channel initialization.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <
         bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
@@ -329,6 +354,7 @@ public:
     /*!
      * @brief Prepare a Read WQE in a protocol-specific batch handle.
      * @tparam config: URMA WQE control config. Inline WQE is not supported.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: The batch handle to append the WQE to.
      * @param [out] dst: The local destination address.
@@ -337,6 +363,7 @@ public:
      * @param [in] len: The length of the data to read in bytes.
      * @return 0 indicates success and -1 indicates failure.
      * @note The source range is not validated against the registration cached in batchHandle.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t ReadNbi(T& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
@@ -345,6 +372,7 @@ public:
      * @brief Add a scatter/gather Read task to a batch handle. Data is read contiguously starting at src and scattered
      *        into dstDescs in array order.
      * @tparam config: URMA task control config. Inline data is not supported.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: A single-channel batch handle, or the batch handle returned by GetHandleRef for
      *                              one logical channel of a multi-channel batch.
@@ -356,6 +384,7 @@ public:
      * @note In multi-channel mode, the immediately preceding GetHandleRef call selects the logical channel for this
      *       task. All destination segments receive data through that channel and cannot span channels. The caller must
      *       provide a valid descriptor array, payload addresses and lengths.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <auto const& config = URMA_DEFAULT_CFG, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t ReadNbi(T& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src);
@@ -366,6 +395,7 @@ public:
      * @tparam pipe: The pipe type to use for commit, PIPE_S supported as default.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <pipe_t pipe = PIPE_S>
     __aicore__ inline int32_t Commit(ChannelHandle channel);
@@ -375,6 +405,7 @@ public:
      * @tparam T: The protocol-specific batch handle type.
      * @param [in,out] batchHandle: The batch handle to submit. Its prepared WQEBB count is reset after success.
      * @return 0 indicates success and -1 indicates failure.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t BatchCommit(T& batchHandle);
@@ -386,6 +417,7 @@ public:
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success. A non-zero value indicates failure. For COMM_PROTOCOL_UB_CTP, the underlying
      *         CQ polling error code is returned directly.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(ChannelHandle channel);
@@ -398,6 +430,7 @@ public:
      * @return 0 indicates success. A non-zero value indicates failure.
      * @note This overload does not require Init. It must be called after BatchCommit. Multiple batches may be
      *       committed before one Drain if the caller prevents SQ/CQ overflow.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     template <pipe_t pipe = PIPE_MTE3, typename T, typename HandleTraits<T>::ChannelType* = nullptr>
     __aicore__ inline int32_t Drain(T& batchHandle);
@@ -409,6 +442,7 @@ public:
      * @note This interface is supported only by COMM_PROTOCOL_UB_CTP on Ascend 950. It blocks until the lock is
      *       acquired and does not guarantee acquisition order among AI Cores. All accesses that update the channel
      *       state must be protected by Lock and Unlock.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     __aicore__ inline int32_t Lock(ChannelHandle channel);
 
@@ -418,6 +452,7 @@ public:
      * @return 0 indicates success and -1 indicates failure.
      * @note This interface is supported only by COMM_PROTOCOL_UB_CTP on Ascend 950. It must be called by the AI Core
      *       that successfully acquired the channel lock, after the last operation that updates the channel state.
+     * @note This is a reserved interface. It may be changed in the future and is not yet supported for developer use.
      */
     __aicore__ inline int32_t Unlock(ChannelHandle channel);
 

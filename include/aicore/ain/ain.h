@@ -27,12 +27,13 @@
 namespace AscendC {
 /*!
  * @brief Get a pointer to a remote peer's memory location within a symmetric window.
+ * @param [in] team: The communication team handle.
  * @param [in] peer: Peer rank id within the team.
  * @param [in] window: Symmetric window handle.
  * @param [in] offset: Byte offset into the window.
  * @return An opaque memory handle pointing to the remote peer's location.
  */
-AIN_DEVICE HcommMemHandle GetPeerPointer(uint32_t peer, HcclCommSymWindow window, size_t offset);
+AIN_DEVICE HcommMemHandle GetPeerPointer(HcommTeamHandle team, uint32_t peer, HcclCommSymWindow window, size_t offset);
 
 /*!
  * @class Ain
@@ -79,7 +80,8 @@ public:
      * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
      * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
      *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
-     * @tparam Config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam Config: URMA WQE control config, only used by URMA.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
      * @param [in] dstWin: Destination symmetric window of the peer.
@@ -106,7 +108,7 @@ public:
      * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
      *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
      * @tparam Config: URMA WQE control config, only used by URMA.
-     *         Default: strongly ordered + fence + CQE + inline enabled.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE + inline enabled.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
      * @param [in] dstWin: Destination symmetric window of the peer.
@@ -127,7 +129,8 @@ public:
      * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
      * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
      *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
-     * @tparam Config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
+     * @tparam Config: URMA WQE control config, only used by URMA.
+     *         Default: odr = relax order (RO) with ordered completion + fence + CQE enabled.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
      * @param [in] dstWin: Destination symmetric window of the local rank.
