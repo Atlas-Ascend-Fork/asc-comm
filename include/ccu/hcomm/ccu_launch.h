@@ -22,7 +22,7 @@
 extern "C" {
 #endif // __cplusplus
 
-extern CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle, HcommCcuRegisterContextHandle context_);
+extern CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle);
 
 extern CcuResult asccomm_ccu_kernel_register(
     CcuInsHandle ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
