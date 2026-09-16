@@ -52,6 +52,18 @@
         }                                                                                                           \
     } while (0)
 
+// HCOMM接口检查：expr求值一次，非HCCL_SUCCESS时打印并return错误码。
+// HcommResult与HcclResult兼容，成功值同为HCCL_SUCCESS。
+#define EXAMPLES_HCOMMCHECK(expr)                                                                                    \
+    do {                                                                                                             \
+        const HcommResult _check_ret = (expr);                                                                       \
+        if (_check_ret != HCCL_SUCCESS) {                                                                            \
+            std::fprintf(                                                                                            \
+                stderr, "%s:%d: hcomm call failed, ret=%d\n", __FILE__, __LINE__, static_cast<int32_t>(_check_ret)); \
+            return _check_ret;                                                                                       \
+        }                                                                                                            \
+    } while (0)
+
 // 通用期望值检查：call求值一次，不等于expect时打印rank/表达式/实际/期望并return
 // EXAMPLES_CHECK_FAILED。用于返回类型为int32_t（或可容纳-1）的函数。
 #define EXAMPLES_CHECK(call, expect, rank)                                                     \
