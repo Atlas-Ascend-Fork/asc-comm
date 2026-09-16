@@ -177,7 +177,7 @@ cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<third_party_path>
 cmake --build build/ut-hcomm
 ```
 
-更多环境准备、Docker、CANN包安装和UT依赖说明请参考[快速开始](./docs/quick_start.md)和[构建与测试](./docs/zh/guide/build_and_test.md)。
+更多环境准备、Docker、CANN包安装和UT依赖说明请参考[快速开始](./docs/quick_start.md)和[构建与测试](./docs/zh/build_and_test.md)。
 
 ## 🧰clangd/IDE支持
 
@@ -195,9 +195,8 @@ cmake --build build/ut-hcomm
   | [文档入口](./docs/README.md) | asc-comm文档总入口。 |
   | [快速开始](./docs/quick_start.md) | 环境准备、源码编译和UT验证。 |
   | [API参考](./docs/zh/api/README.md) | asc-comm当前公开接口列表。 |
-  | [Hcomm使用说明](./docs/zh/guide/hcomm_usage.md) | Hcomm点对点通信接口的基本使用流程。 |
-  | [构建与测试](./docs/zh/guide/build_and_test.md) | CANN环境、开发验证run包、UT构建和样例构建说明。 |
-  | [三方依赖与兼容性](./docs/zh/guide/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
+  | [构建与测试](./docs/zh/build_and_test.md) | CANN环境、开发验证run包、UT构建和样例构建说明。 |
+  | [三方依赖与兼容性](./docs/zh/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
   | [样例目录](./examples/README.md) | asc-comm API样例入口。 |
 
 - **贡献指南**

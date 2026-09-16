@@ -153,7 +153,6 @@ CANN包分为CANN toolkit包和CANN ops包。
     > 安装说明
     > 当前[Hcomm AIV直驱URMA样例](../examples/hcomm_write_read_nbi/README.md)不依赖ops包；仅在后续使用依赖算子包的功能时按需安装。
 
-
 | 参数 | 说明 |
 | :--- | :--- |
 | `${cann_version}` | CANN包版本号 |
