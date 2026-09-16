@@ -22,6 +22,7 @@ constexpr uint64_t COMM_BUF_SIZE = 4096U;
 constexpr uint64_t SEND_DATA_OFFSET = 0U;
 constexpr uint64_t WRITE_RESULT_OFFSET = DATA_SIZE;
 constexpr uint64_t READ_RESULT_OFFSET = 2U * DATA_SIZE;
+constexpr uint64_t MIB_SIZE = 1024U * 1024U;
 
 constexpr uint32_t NRANKS = 2U;
 constexpr uint16_t BASE_PORT = 29620U;
@@ -52,6 +53,7 @@ struct CommContext {
     uint64_t channelHandle;
     uint64_t localBufferAddr;
     uint64_t remoteBufferAddr;
+    uint32_t dataSize;
     TestResult testResult;
 };
 

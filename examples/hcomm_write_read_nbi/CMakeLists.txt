@@ -22,6 +22,12 @@ project(kernel_samples LANGUAGES ASC CXX)
 
 option(ASCENDC_DEBUG "Enable AscendC/Hcomm kernel debug logs" OFF)
 
+find_library(MC2_CLIENT_DFX_LIBRARY mc2_client_dfx
+    PATHS "$ENV{ASCEND_HOME_PATH}/lib64"
+          "$ENV{ASCEND_HOME_PATH}/x86_64-linux/lib64"
+          "$ENV{ASCEND_HOME_PATH}/aarch64-linux/lib64"
+    REQUIRED)
+
 set_source_files_properties(
     hcomm_write_read_nbi_kernel.cpp
     utils.cpp
@@ -36,10 +42,7 @@ add_executable(demo
 
 target_link_libraries(demo PRIVATE
     hcomm
-)
-
-target_compile_options(demo PRIVATE
-    $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
+    ${MC2_CLIENT_DFX_LIBRARY}
 )
 
 if(ASCENDC_DEBUG)
@@ -47,3 +50,6 @@ if(ASCENDC_DEBUG)
         ASCENDC_DEBUG
     )
 endif()
+target_compile_options(demo PRIVATE
+    $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
+)
