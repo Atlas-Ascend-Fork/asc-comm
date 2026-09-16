@@ -13,7 +13,7 @@
 #include "hcomm/common/ccu_exception.h"
 #include "hcomm/resource/microcode/ccu_assist_v1.h"
 #include "hcomm/common/ccu_log.h"
-#include "hcomm/hcomm_ccu_res.h"
+#include "hcomm/hcomm_ccu_resource.h"
 
 namespace asc {
 namespace ccu_rep {

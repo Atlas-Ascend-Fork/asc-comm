@@ -15,13 +15,13 @@
 #include <cstdint>
 
 #include "ccu/hcomm/ccu_api_types.h"
-#include "hcomm/hcomm_ccu_res.h"
+#include "hcomm/hcomm_ccu_resource.h"
 #include "hcomm/resource/common/asc_ccu_resource_local.h"
 
 namespace asc {
 
 /**
- * @note 职责：RegisterContext 的 asc 侧本地快照。
+ * @note 职责：CCU Instance（Register Context）的 asc 侧本地快照。
  *
  * instance 资源实体由 hcomm 的 RegisterContext 持有与释放，本类只保存其快照，不持有任何跨 SO 句柄。
  * resRepo_ 是被 kernel 注册消耗的余量池（见 MoveResInfo）。
@@ -34,16 +34,14 @@ public:
     asc_ccu_res_snapshot() = default;
     ~asc_ccu_res_snapshot() = default;
 
-    CcuResult load(const HcommCcuRegisterContextPod& context);
+    CcuResult load(const HcommCcuInstance& instance);
     CcuResult reset();
 
     asc_ccu_res_repository& get_ccu_res_repo();
-    const HcommCcuDieMetadataPod* get_die_metadata(uint32_t die_id) const;
-    uint64_t get_generation() const;
-    int32_t get_device_logic_id() const;
+    const HcommCcuDieMetadata* get_die_metadata(uint32_t die_id) const;
     uint32_t get_ccu_version() const;
     uint32_t get_valid_die_mask() const;
-    const HcommCcuControlOpsPod& get_control_ops() const;
+    const uint64_t* get_control_ops() const; // ascCustom 槽位数组（值需按槽位含义强转）
 
 private:
     asc_ccu_res_snapshot(const asc_ccu_res_snapshot& that) = delete;
@@ -51,14 +49,12 @@ private:
     asc_ccu_res_snapshot(asc_ccu_res_snapshot&& that) = delete;
     asc_ccu_res_snapshot& operator=(asc_ccu_res_snapshot&& that) = delete;
 
-    uint64_t generation_{0};
-    int32_t device_logic_id_{0};
     uint32_t ccu_version_{0};
     uint32_t valid_die_mask_{0};
-    HcommCcuControlOpsPod control_ops_{};
+    uint64_t control_ops_[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]{};
     asc_ccu_res_repository initial_repo_{};
     asc_ccu_res_repository res_repo_{};
-    std::array<HcommCcuDieMetadataPod, HCOMM_CCU_MAX_DIE_NUM> die_metadata_{};
+    std::array<HcommCcuDieMetadata, HCOMM_CCU_MAX_DIE_NUM> die_metadata_{};
 };
 
 } // namespace asc
