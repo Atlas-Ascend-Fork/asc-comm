@@ -15,6 +15,8 @@ set(CMAKE_ASC_ARCHITECTURES "dav-3510" CACHE STRING "NPU architecture: dav-3510"
 find_package(ASC REQUIRED)
 project(simt_urma_perftest LANGUAGES ASC CXX)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 set_source_files_properties(op_kernel.cpp PROPERTIES LANGUAGE ASC)
 
 add_executable(simt_urma_perftest
