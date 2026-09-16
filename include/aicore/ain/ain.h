@@ -27,13 +27,12 @@
 namespace AscendC {
 /*!
  * @brief Get a pointer to a remote peer's memory location within a symmetric window.
- * @param [in] team: The communication team handle.
  * @param [in] peer: Peer rank id within the team.
  * @param [in] window: Symmetric window handle.
  * @param [in] offset: Byte offset into the window.
  * @return An opaque memory handle pointing to the remote peer's location.
  */
-AIN_DEVICE HcommMemHandle GetPeerPointer(HcommTeamHandle team, uint32_t peer, HcclCommSymWindow window, size_t offset);
+AIN_DEVICE HcommMemHandle GetPeerPointer(uint32_t peer, HcclCommSymWindow window, size_t offset);
 
 /*!
  * @class Ain
