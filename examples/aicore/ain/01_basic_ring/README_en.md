@@ -26,8 +26,7 @@ basic_ring
 ├── CMakeLists.txt          // Build project file
 ├── README.md               // Chinese README
 ├── README_en.md            // English README
-├── basic_ring.asc          // Host-side setup, AICore-side AIN calls, and shared definitions
-└── run.sh                  // Multi-rank launch script
+└── basic_ring.asc          // Host-side setup, AICore-side AIN calls, and shared definitions
 ```
 
 ## Sample Flow
@@ -35,11 +34,10 @@ basic_ring
 ### Host-Side Resource Setup
 
 1. Call `aclInit`, `aclrtSetDevice`, and `aclrtCreateStream` to initialize the runtime environment.
-2. Create the multi-rank HCCL communicator through `HcclGetRootInfo` and `HcclCommInitRootInfo`.
-3. Configure `barrierCount` and call `HcclWorldTeamCreate` to create the world team.
-4. Register `sendBuf` and `recvBuf` as symmetric windows through `HcclTeamWindowRegister`.
-5. Call `HcclTeamChannelsCreate` to create AIV + UB_CTP communication channels.
-6. Pass `worldTeam`, `sendWin`, and `recvWin` to the Kernel.
+2. Create the multi-rank HCCL communicator through the `RankSyncContext` helper (which exchanges root info over a TCP control channel) and `examples::InitCommByRootInfo`.
+3. Initialize a team descriptor via `HcclTeamCreateDescInit` (including `barrierCount`, `rankIds`, engine `COMM_ENGINE_AIV`, protocol `COMM_PROTOCOL_UB_CTP`, and `channelCnt`), then call `HcclTeamCreate` to create the team with AIV + UB_CTP communication channels.
+4. Register `sendBuf` and `recvBuf` as symmetric windows through `HcclCommSymWinRegister`.
+5. Pass `team`, `sendWin`, and `recvWin` to the Kernel.
 
 ### Kernel-Side AIN Communication
 
@@ -74,28 +72,28 @@ make -j
 After the build completes, run the following command in the sample directory:
 
 ```bash
-./run.sh <nranks>
+./build/basic_ring_demo tcp://127.0.0.1:29622 <nranks>
 ```
 
 For example, run with two cards:
 
 ```bash
-./run.sh 2
+./build/basic_ring_demo tcp://127.0.0.1:29622 2
 ```
 
-`run.sh` starts one `basic_ring_demo` process for each rank and uses a temporary file to exchange the HCCL root info. The default script timeout is 300 seconds.
+The executable forks all rank processes internally and uses a TCP control channel to exchange the HCCL root info.
 
 ## Expected Result
 
 Each rank reads back `recvBuf` and prints the `Put` and `Get` results, for example:
 
 ```text
-PUT RES rank 0 recvBuf[1]=1 expect=1
-GET RES rank 0 recvBuf[2]=1 expect=1
-rank 0 test pass
+[rank 0] basic_ring | PUT recvBuf[1]=1, GET recvBuf[2]=1 | PASS
+[rank 1] basic_ring | PUT recvBuf[0]=0, GET recvBuf[3]=0 | PASS
+RESULT | Example=basic_ring | Status=PASS
 ```
 
-The sample succeeds when all ranks print `test pass`.
+The sample succeeds when all ranks print `PASS` and the final status is `PASS`.
 
 ## Build Option
 

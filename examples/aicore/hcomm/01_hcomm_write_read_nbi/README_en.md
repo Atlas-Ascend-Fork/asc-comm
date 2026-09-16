@@ -19,9 +19,7 @@ This sample demonstrates low-latency point-to-point (P2P) communication between 
 │   ├── README_en.md                // English sample documentation
 │   ├── hcomm_write_read_nbi.asc         // Host resource setup and Kernel invocation
 │   ├── hcomm_write_read_nbi_kernel.cpp  // Hcomm calls from the AIV Kernel
-│   ├── hcomm_rw_def.h              // Definitions shared by Host and Kernel
-│   ├── utils.cpp                   // TCP helper implementation
-│   └── utils.h                     // TCP helper declarations
+│   └── hcomm_rw_def.h              // Definitions shared by Host and Kernel
 ```
 
 ## Sample Description
@@ -39,21 +37,21 @@ This sample focuses on P2P communication over the **AIV direct-drive URMA** path
 #### 1. Host-Side Communication Domain Preparation
 On the Ascend 950 series, the communication domain must be created in a multi-process manner (each process corresponds to one rank). The key steps are as follows, highlighting the AIV direct-drive configuration:
 
-1. **Exchange RootInfo**: Rank 0 calls `HcclGetRootInfo` to obtain root information and sends it to the other ranks via TCP.
-2. **Create Communication Domain**: Each rank calls `HcclCommInitRootInfoConfig` to create the communication domain. **Note: In AIV direct-drive mode, there is no need to configure `hcclOpExpansionMode`.**
+1. **Exchange RootInfo**: Rank 0 listens on a TCP control channel; other ranks connect to it. Root info is exchanged through the `RankSyncContext` helper.
+2. **Create Communication Domain**: Each rank calls `examples::InitCommByRootInfoConfig` to create the communication domain. **Note: In AIV direct-drive mode, there is no need to configure `hcclOpExpansionMode`.**
 3. **Register Communication Memory**: Call `HcclCommMemReg` to register the local communication buffer with the communication domain. This memory information is automatically exchanged with the peer during channel creation.
-4. **Build the TCP Ring Topology**: Each rank listens on `BASE_PORT + rank`, actively connects to `next = (rank + 1) % nranks`, and accepts the connection from `prev = (rank - 1 + nranks) % nranks`. This ring is used for Host-side barriers after RootInfo exchange, ensuring that all ranks advance through key phases together.
+4. **Host-Side Synchronization**: After RootInfo exchange, the `RankSyncContext` provides barrier primitives (`Barrier`, `Allgather`) over the same TCP control channel, ensuring that all ranks advance through key phases together.
 5. **Obtain Link Endpoints**: Use `HcclRankGraphGetLayers` and `HcclRankGraphGetLinks` to obtain physical link endpoint information from the local rank to both `prev` and `next`.
 6. **Acquire P2P Channels (AIV Direct-Drive)**: Call `HcclChannelAcquire` to create P2P channels to neighboring ranks. Specify `COMM_ENGINE_AIV` as the engine and `COMM_PROTOCOL_UB_CTP` as the URMA protocol, and pass the memory handles to be exchanged.
 7. **Obtain Remote Memory Address**: Call `HcclChannelGetRemoteMems` to retrieve the memory addresses registered by neighboring ranks, which serve as remote target addresses for `WriteNbi`/`ReadNbi` in the Kernel.
 8. **Download Context**: The Host pre-initializes seg0 (filling it with a pseudo-random pattern based on `rankId`), encapsulates the `ChannelHandle` and buffer addresses into `CommContext`, and downloads it to the GM of each card.
 
 ```cpp
-// 1. Each rank creates the communication domain (AIV direct-drive mode does NOT require hcclOpExpansionMode)
+// 1. Each rank creates the communication domain
 HcclCommConfig config;
 HcclCommConfigInit(&config);
 config.hcclWorldRankID = rank;
-HcclCommInitRootInfoConfig(nranks, &rootInfo, rank, &config, &comm);
+examples::InitCommByRootInfoConfig(sync, &config, &comm);
 
 // 2. Register communication memory
 HcclCommMemReg(comm, "shareBuf", &regMem, &memHandle);
@@ -101,7 +99,7 @@ The runtime rank count is `nranks`. Each rank computes its neighbors as follows:
 
 The Host prepares communication contexts for both `prev` and `next`. The current sample uses only the `next` direction in the data plane: during Kernel execution, each rank writes its local seg0 to `next`'s seg1 through `WriteNbi`, and reads `next`'s seg0 into its local seg2 through `ReadNbi`. Therefore, seg1 is written by `prev`, while seg2 is read from `next`. When `nranks == 2`, `prev` and `next` refer to the same peer rank, so seg1 and seg2 are validated against the same peer pattern.
 
-The Host runs TCP ring barriers before and after Kernel execution so that no rank validates data before all ranks have reached the same communication phase.
+The Host runs barriers (via `RankSyncContext`) before and after Kernel execution so that no rank validates data before all ranks have reached the same communication phase.
 
 #### 4. How to Extend to All-to-Neighbor
 The sample already establishes P2P channels in both the `prev` and `next` directions, but its default data plane only uses the `next` direction. To extend it into full all-to-neighbor communication, reuse the established `prev` channel so that each rank covers both "read from predecessor" and "write to successor" directions.
@@ -111,7 +109,7 @@ One direct implementation is to launch the Kernel twice: first use the `prev` ch
 Keep the Host-side barriers before and after Kernel execution when extending the sample. The pre-Kernel barrier ensures all ranks have completed memory registration, channel acquisition, and context initialization. The post-Kernel barrier ensures all ranks have completed `Drain` for the corresponding direction before the Host reads back `testResult` and validates data. If new data segment offsets are added or existing offsets are changed, update the Host-side expected rank and offset used by pattern validation accordingly.
 
 ### Validation Mechanism
-- During Host pre-initialization of seg0, a pseudo-random pattern is generated using a Linear Congruential Generator (LCG, utilizing Knuth's multiplicative hash constant `0x9E3779B9U` and other parameters) to ensure the data source is distinguishable.
+- During Host pre-initialization of seg0, a simple pattern is generated using `GetDataValue(rank, index) = rank + index` (with the first byte set to the rank ID) to ensure the data source is distinguishable.
 - After Kernel execution, the Host reads back `CommContext::testResult` via `aclrtMemcpy`.
 - The Host then checks that seg1 (written by `prev` through `WriteNbi`) and seg2 (read from `next` by the local `ReadNbi`) match the corresponding peer patterns. When `testResult` is 0, it prints `test pass!`.
 
@@ -139,20 +137,17 @@ make -j
 This sample starts ranks through automatic multi-process fork. The command format is:
 
 ```bash
-./demo [nranks]
+./build/demo tcp://127.0.0.1:29623 <nranks>
 ```
 
-`nranks` is the number of ranks to start. It must be greater than or equal to 2 and should not exceed the number of available NPUs. If omitted, the sample starts two ranks by default:
+`<tcp://ip:port>` is the control channel address that rank 0 listens on for root info exchange and Host-side barriers. `<nranks>` is the number of ranks to start; it must be greater than or equal to 2 and should not exceed the number of available NPUs.
 
 ```bash
-# Default two-rank run
-./demo
-
-# Explicit two-rank run
-./demo 2
+# Two-rank run
+./build/demo tcp://127.0.0.1:29623 2
 
 # Four-rank ring topology
-./demo 4
+./build/demo tcp://127.0.0.1:29623 4
 ```
 
 ### 4. Build Options Description
@@ -163,9 +158,9 @@ This sample starts ranks through automatic multi-process fork. The command forma
 ### 5. Expected Output
 For a successful multiple-rank run, the terminal will output the following, indicating that AIV Direct-Drive URMA communication completed successfully and the write/read results are consistent:
 ```text
-rank 0 test pass!
-rank 1 test pass!
-test pass!
+[rank 0] hcomm_write_read_nbi | sent to rank 1, received from rank 1 | PASS
+[rank 1] hcomm_write_read_nbi | sent to rank 0, received from rank 0 | PASS
+RESULT | Example=hcomm_write_read_nbi | Status=PASS
 ```
 > **Note:** A single-card environment only supports compilation verification. Running this sample requires at least 2 NPUs.
 

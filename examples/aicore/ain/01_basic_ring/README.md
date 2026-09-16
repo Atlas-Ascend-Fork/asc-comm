@@ -51,11 +51,12 @@ basic_ring
 1. 可执行文件直接拉起全部rank进程（进程内fork，参见`examples/aicore/utils/process_manager.h`）；
    rank间通过命令行指定的TCP控制通道（`examples/aicore/utils/rank_sync.h`）交换root info并
    创建多rank HCCL通信域。
-2. 每个rank初始化ACL运行环境，配置`barrierCount`并调用`HcclWorldTeamCreate`创建world team。
-3. 分别将`sendBuf`和`recvBuf`通过`HcclTeamWindowRegister`注册为对称window。
-4. 调用`HcclTeamChannelsCreate`创建AIV + UB_CTP通信channel。
-5. 下发`worldTeam`、`sendWin`、`recvWin`到Kernel。
-6. Kernel侧构造`AscendC::Ain`对象并初始化Hcomm UB临时工作区，执行`Put`和`Get`后调用`Flush`
+2. 每个rank初始化ACL运行环境，通过`HcclTeamCreateDescInit`配置team描述（包括`barrierCount`、
+   `rankIds`、通信引擎`COMM_ENGINE_AIV`、协议`COMM_PROTOCOL_UB_CTP`和`channelCnt`），
+   调用`HcclTeamCreate`创建team并自动建立AIV + UB_CTP通信channel。
+3. 分别将`sendBuf`和`recvBuf`通过`HcclCommSymWinRegister`注册为对称window。
+4. 下发`team`、`sendWin`、`recvWin`到Kernel。
+5. Kernel侧构造`AscendC::Ain`对象并初始化Hcomm UB临时工作区，执行`Put`和`Get`后调用`Flush`
    等待通信任务完成，最后通过`AinBarrierSession::Sync`完成rank间同步。
 
 ## 编译运行
@@ -103,12 +104,12 @@ basic_ring
   每个rank会回读`recvBuf`并打印`Put`和`Get`结果，例如：
 
   ```text
-  PUT RES rank 0 recvBuf[1]=1 expect=1
-  GET RES rank 0 recvBuf[2]=1 expect=1
-  rank 0 test pass
+  [rank 0] basic_ring | PUT recvBuf[1]=1, GET recvBuf[2]=1 | PASS
+  [rank 1] basic_ring | PUT recvBuf[0]=0, GET recvBuf[3]=0 | PASS
+  RESULT | Example=basic_ring | Status=PASS
   ```
 
-  所有rank均输出`test pass`表示样例执行成功。
+  所有rank均输出`PASS`且最终输出`Status=PASS`表示样例执行成功。
 
 ## 注意事项
 

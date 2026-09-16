@@ -23,17 +23,11 @@ source ${install_path}/cann/set_env.sh
 Build and run with two NPUs by default, or pass a rank count from `2` to `16`:
 
 ```bash
-bash examples/aicore/hcomm/02_hcomm_batch_write/run.sh
-bash examples/aicore/hcomm/02_hcomm_batch_write/run.sh 4
-```
-
-To build and run manually:
-
-```bash
-cmake -S examples/aicore/hcomm/02_hcomm_batch_write -B build/examples/aicore/hcomm/02_hcomm_batch_write \
-    -DCMAKE_ASC_ARCHITECTURES=dav-3510
-cmake --build build/examples/aicore/hcomm/02_hcomm_batch_write -j
-./build/examples/aicore/hcomm/02_hcomm_batch_write/hcomm_batch_write 4
+mkdir -p build
+cd build
+cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..
+make -j
+cd .. && ./build/hcomm_batch_write tcp://127.0.0.1:29624 4
 ```
 
 The final command starts four ranks. Before running, make sure the requested number of NPUs is available and that the current user can access them.
@@ -43,7 +37,10 @@ The final command starts four ranks. Before running, make sure the requested num
 Each receiving rank prints a verification message when its data is correct. A successful four-rank run ends with:
 
 ```text
-hcomm 4-rank grouped batch write test passed
+[rank 1] hcomm_batch_write | received and verified data from rank 0 | PASS
+[rank 2] hcomm_batch_write | received and verified data from rank 0 | PASS
+[rank 3] hcomm_batch_write | received and verified data from rank 0 | PASS
+RESULT | Example=hcomm_batch_write | Status=PASS
 ```
 
-`failed` in the parent-process summary or an error from any rank means that the batch write or data verification did not complete successfully.
+`Status=FAIL` in the parent-process summary or an error from any rank means that the batch write or data verification did not complete successfully.
