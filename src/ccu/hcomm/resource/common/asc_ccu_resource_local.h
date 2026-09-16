@@ -15,18 +15,24 @@
 #include <cstdint>
 #include <vector>
 
-#include "hcomm/hcomm_ccu_res.h"
+#include "hcomm/hcomm_ccu_resource.h"
 
 namespace asc {
 
-using asc_ccu_res_ranges = std::array<std::vector<HcommCcuResRangePod>, HCOMM_CCU_MAX_DIE_NUM>;
+/** asc 本地 range 记录：wire POD（HcommCcuResRange 只有 startId/count）加上归属的类型与 die */
+struct asc_ccu_res_range {
+    uint32_t resource_type{0}; // HcommCcuBatchResType
+    uint32_t die_id{0};
+    uint32_t start_id{0};
+    uint32_t count{0};
+};
+
+using asc_ccu_res_ranges = std::array<std::vector<asc_ccu_res_range>, HCOMM_CCU_MAX_DIE_NUM>;
 
 struct asc_ccu_res_request {
     uint32_t count[HCOMM_CCU_BATCH_RES_TYPE_COUNT][HCOMM_CCU_MAX_DIE_NUM]{};
-    uint32_t instruction[HCOMM_CCU_MAX_DIE_NUM]{};
 };
 
-// This aggregate is local to asc-comm. Cross-SO transfer only uses range POD elements, not std::vector.
 struct asc_ccu_res_repository {
     asc_ccu_res_ranges loop_engine{};
     asc_ccu_res_ranges block_loop_engine{};
@@ -39,7 +45,7 @@ struct asc_ccu_res_repository {
     asc_ccu_res_ranges gsa{};
     asc_ccu_res_ranges block_gsa{};
     asc_ccu_res_ranges mission{};
-    asc_ccu_res_ranges instruction{};
+    // INS 不再入本地资源池：指令空间经 ascCustom.allocInstSpace 向 hcomm 按需申请，随 RegisterContext 归还
 };
 
 } // namespace asc

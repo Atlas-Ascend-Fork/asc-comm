@@ -31,8 +31,6 @@
 #include <string>
 #include <vector>
 
-#include "ccu/hcomm/ccu_utils.hpp"
-
 using CcuUtException = ::AscendC::ccu::detail::ccu_exception;
 
 namespace asc {
@@ -44,18 +42,25 @@ protected:
     ccu_ins_generater_v1 insGen{};
     void SetUp() override
     {
-        HcommCcuChannelPod channelPod{};
-        channelPod.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
-        channelPod.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
-        channelPod.header.size = sizeof(HcommCcuChannelPod);
-        channelPod.localXnIds[0] = 0;
-        channelPod.remoteXnIds[0] = 0;
-        channelPod.localCkeIds[0] = 0;
-        channelPod.remoteCkeIds[0] = 0;
-        channelPod.rmtCcuBufSize = 1;
-        SetHcommCcuChannelQueryStub(channelPod);
+        HcommCcuChannelEntity channelEntity{};
+        channelEntity.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
+        channelEntity.header.magicWord = HCOMM_CCU_CHANNEL_MAGIC_WORD;
+        channelEntity.header.size = sizeof(HcommCcuChannelEntity);
+        channelEntity.localVarNum = 1;
+        channelEntity.remoteVarNum = 1;
+        channelEntity.localEventNum = 1;
+        channelEntity.remoteEventNum = 1;
+        channelEntity.localVarIds[0] = 0;
+        channelEntity.remoteVarIds[0] = 0;
+        channelEntity.localEventIds[0] = 0;
+        channelEntity.remoteEventIds[0] = 0;
+        channelEntity.rmtCcuResBuffer.type = REGED_BUFFER_RMA;
+        channelEntity.rmtCcuResBuffer.bufferInfo.rma.addr = 0x1000;
+        channelEntity.rmtCcuResBuffer.bufferInfo.rma.size = 1;
+        channelEntity.rmtCcuResBuffer.bufferInfo.rma.protectionInfo.type = PROTECTION_TYPE_UB;
+        SetHcommCcuChannelGetEntityStub(channelEntity);
     }
-    void TearDown() override { ResetHcommCcuChannelQueryStub(); }
+    void TearDown() override { ResetHcommCcuChannelGetEntityStub(); }
 };
 
 class CcuRepReadTest : public CcuRepChannelTest {};
@@ -660,7 +665,6 @@ TEST_F(CcuRepRemMemTest, translate)
     ccu_rep_rem_mem rep(&insGen, 0, rem_);
     EXPECT_EQ(rep.type(), ccu_rep_type::rem_mem);
 }
-
 TEST_F(CcuRepReadTest, TranslateReal_GeneratesInstr)
 {
     ccu_rep_context context_;

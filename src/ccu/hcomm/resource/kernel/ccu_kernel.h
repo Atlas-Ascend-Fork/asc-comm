@@ -32,8 +32,7 @@
 #include "hcomm/resource/representation/interface/ccu_loopcall_v1.h"
 
 // 类型（HcclResult 等）统一取自 hcomm 包内 hcomm_types.h，避免耦合 hccl 私有定义
-#include "hcomm/hcomm_ccu_channel.h"
-#include "hcomm/hcomm_ccu_res.h"
+#include "hcomm/hcomm_ccu_resource.h"
 #include "hcomm/hcomm_types.h"
 #include "hcomm/resource/representation/interface/ccu_datatype_v1.h"
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
@@ -91,8 +90,8 @@ public:
     uint32_t get_instr_count();
     uint32_t get_rep_need_to_add_latency() const;
     void set_ccu_instr_info(const ccu_rep::ccu_instr_info& instr_info);
-    void set_instruction_resource(const HcommCcuResRangePod& range);
-    bool get_instruction_resource(HcommCcuResRangePod& range) const;
+    void set_instruction_resource(const asc_ccu_res_range& range);
+    bool get_instruction_resource(asc_ccu_res_range& range) const;
     void clear_instruction_resource();
 
     CcuResult gene_task_params(const uint64_t* task_args, uint32_t arg_num, std::vector<ccu_task_param>& task_params);
@@ -493,7 +492,7 @@ private:
 
     ccu_rep::ccu_instr_info instr_info_{};
     bool has_instruction_resource_{false};
-    HcommCcuResRangePod instruction_resource_{};
+    asc_ccu_res_range instruction_resource_{};
 
     uint32_t load_arg_index_{0};
 
