@@ -97,10 +97,13 @@ rank 0将一段本端数据通过批量写接口同时写入其他所有rank的�
   4卡运行成功时，每个接收rank输出校验通过信息，主进程最终输出：
 
   ```text
-  hcomm 4-rank grouped batch write test passed
+  [rank 1] hcomm_batch_write | received and verified data from rank 0 | PASS
+  [rank 2] hcomm_batch_write | received and verified data from rank 0 | PASS
+  [rank 3] hcomm_batch_write | received and verified data from rank 0 | PASS
+  RESULT | Example=hcomm_batch_write | Status=PASS
   ```
 
-  主进程输出`failed`或任一rank报错时，表示本次批量写入或数据校验未通过。
+  主进程输出`Status=FAIL`或任一rank报错时，表示本次批量写入或数据校验未通过。
 
 ## 注意事项
 

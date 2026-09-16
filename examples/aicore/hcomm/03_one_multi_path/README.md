@@ -147,13 +147,13 @@ Host侧逐字节校验。
   日志顺序可能因多进程并发而不同。每个rank都应完成到其他rank的数据校验，例如：
 
   ```text
-  rank 0/2: device=0, channels_per_peer=2, channel_descs=2
+  [rank 0] one_multi_path | channels_per_peer=2, channel_descs=2
   rank 0: peer=1, rank_graph_topo=5, protocol=UB_MEM, path_modes=1/2
   rank 0: dual-path data copy from remote rank 1 passed, bytes=4096
-  rank 0: dual-path validation passed
+  [rank 0] one_multi_path | dual-path validation | PASS
   ```
 
-  所有rank均为每个peer取得两条不同的Channel Handle、完成数据校验且进程返回0，表示样例执行成功。
+  所有rank均输出`PASS`且最终输出`RESULT | Example=one_multi_path | Status=PASS`，表示样例执行成功。
 
 ## 注意事项
 
