@@ -28,6 +28,7 @@
 #include "utils/hccl_comm_init.h"
 #include "utils/process_manager.h"
 #include "utils/rank_sync.h"
+#include "utils/arg_parser.h"
 
 extern "C" aclError LaunchUbmemDataCopy(void* dst, void* src, uint32_t byteSize, aclrtStream stream);
 
@@ -345,23 +346,6 @@ int CleanupCommRes(CommResources& resources, int status)
     return status != HCCL_SUCCESS ? status : cleanupStatus;
 }
 
-bool ParseNonNegativeInt(const char* text, int& value)
-{
-    if (text == nullptr || *text == '\0') {
-        return false;
-    }
-
-    char* parseEnd = nullptr;
-    errno = 0;
-    const long parsed = std::strtol(text, &parseEnd, 10);
-    if (errno == ERANGE || parseEnd == text || *parseEnd != '\0' || parsed < 0 ||
-        parsed > std::numeric_limits<int>::max()) {
-        return false;
-    }
-    value = static_cast<int>(parsed);
-    return true;
-}
-
 } // namespace
 
 // 单个rank的完整流程，单机与多机模式共用。由ProcessGroup（单机）或main的5参数分支
@@ -412,13 +396,12 @@ int main(int argc, char* argv[])
 {
     // 单机：endpoint + nranks。
     if (argc == 3) {
-        const std::string endpoint = argv[1];
-        int rankSize = 0;
-        if (!ParseNonNegativeInt(argv[2], rankSize) || rankSize < 2) {
-            std::cerr << "invalid arguments: rank_size must be an integer of at least 2" << std::endl;
+        uint32_t uRankSize = 0;
+        if (!examples::ParseUint32(argv[2], uRankSize, 2)) {
+            std::cerr << "invalid nranks: " << argv[2] << ", expected an integer >= 2" << std::endl;
             return 1;
         }
-        const uint32_t uRankSize = static_cast<uint32_t>(rankSize);
+        const std::string endpoint = argv[1];
 
         std::vector<examples::ArgsOf<decltype(RunOneMultiPathRank)>> perRankArgs;
         perRankArgs.reserve(uRankSize);
@@ -447,16 +430,15 @@ int main(int argc, char* argv[])
         return 1;
     }
 
-    int rankSize = 0;
-    int rank = 0;
-    int device = 0;
-    if (!ParseNonNegativeInt(argv[2], rankSize) || !ParseNonNegativeInt(argv[3], rank) ||
-        !ParseNonNegativeInt(argv[4], device) || rankSize < 2 || rank >= rankSize) {
+    uint32_t uRankSize = 0;
+    uint32_t uRank = 0;
+    uint32_t uDevice = 0;
+    if (!examples::ParseUint32(argv[2], uRankSize, 2) || !examples::ParseUint32(argv[3], uRank) ||
+        !examples::ParseUint32(argv[4], uDevice) || uRank >= uRankSize) {
         std::cerr << "invalid arguments: rank_size must be at least 2, rank must be in [0, rank_size), and device "
                      "must be a non-negative integer"
                   << std::endl;
         return 1;
     }
-    return RunOneMultiPathRank(
-        static_cast<uint32_t>(rankSize), static_cast<uint32_t>(rank), argv[1], static_cast<uint32_t>(device));
+    return RunOneMultiPathRank(uRankSize, uRank, argv[1], uDevice);
 }

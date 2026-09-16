@@ -33,6 +33,7 @@
 #include "utils/hccl_comm_init.h"
 #include "utils/process_manager.h"
 #include "utils/rank_sync.h"
+#include "utils/arg_parser.h"
 
 #include "simt_urma_perftest_common.h"
 
@@ -384,13 +385,12 @@ int main(int argc, char* argv[])
                   << std::endl;
         return 1;
     }
-    const std::string endpoint = argv[1];
-    const int nranksValue = std::atoi(argv[2]);
-    if (nranksValue < 2) {
-        std::cout << "nranks must be at least 2." << std::endl;
+    uint32_t nranks = 0;
+    if (!examples::ParseUint32(argv[2], nranks, 2)) {
+        std::cout << "invalid nranks: " << argv[2] << ", expected an integer >= 2" << std::endl;
         return 1;
     }
-    const uint32_t nranks = static_cast<uint32_t>(nranksValue);
+    const std::string endpoint = argv[1];
     const std::string apiName = argv[3];
 
     uint32_t iterations = 1024U;
@@ -401,11 +401,20 @@ int main(int argc, char* argv[])
         const std::string option = argv[i];
         const bool hasValue = i + 1 < argc;
         if (option == "--iterations" && hasValue) {
-            iterations = static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 10));
+            if (!examples::ParseUint32(argv[++i], iterations, 1)) {
+                std::cout << "invalid --iterations value" << std::endl;
+                return 1;
+            }
         } else if (option == "--warmup" && hasValue) {
-            warmup = static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 10));
+            if (!examples::ParseUint32(argv[++i], warmup)) {
+                std::cout << "invalid --warmup value" << std::endl;
+                return 1;
+            }
         } else if (option == "--payload-bytes" && hasValue) {
-            payloadBytes = static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 10));
+            if (!examples::ParseUint32(argv[++i], payloadBytes, 2)) {
+                std::cout << "invalid --payload-bytes value (minimum 2)" << std::endl;
+                return 1;
+            }
         } else if (option == "--commit-mode" && hasValue) {
             commitMode = argv[++i];
         } else {
