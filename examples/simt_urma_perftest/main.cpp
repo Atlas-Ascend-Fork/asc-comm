@@ -60,7 +60,7 @@ using namespace simt_urma_perftest;
 
 constexpr uint32_t kBarrierWaitSeconds = 60U;
 constexpr uint32_t kBarrierPollMs = 100U;
-constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UBC_CTP;
+constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UB_CTP;
 constexpr const char* kSendBufTag = "simtUrmaPerfSendBuf";
 constexpr const char* kRecvBufTag = "simtUrmaPerfRecvBuf";
 
@@ -270,7 +270,7 @@ HcclResult AcquirePeerChannel(
         }
     }
     if (!found) {
-        std::cout << "no UBC_CTP link to peer " << peerRank << ", SIMT requires the URMA path" << std::endl;
+        std::cout << "no UB_CTP link to peer " << peerRank << ", SIMT requires the URMA path" << std::endl;
         return HCCL_E_NOT_SUPPORT;
     }
     HCCLCHECK(HcclChannelAcquire(comm, COMM_ENGINE_AIV, &desc, 1U, &channel));

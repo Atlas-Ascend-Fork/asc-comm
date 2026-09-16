@@ -20,11 +20,13 @@
 #include <cstdint>
 
 #include <acl/acl_rt.h>
-#include <hccl/hccl_types.h>
+#include <hcomm/hcomm_types.h>
 
 namespace CcuAgNhr1dMem2mem {
 
-HcclResult AllGatherNhr1D(void* sendBuf, void* recvBuf, uint64_t count_, HcclComm comm, aclrtStream stream);
+HcclResult AllGatherNhr1D(
+    void* sendBuf, void* recvBuf, uint64_t count_, uint32_t rankId, uint32_t rankSize, HcclComm comm,
+    aclrtStream stream);
 
 } // namespace CcuAgNhr1dMem2mem
 

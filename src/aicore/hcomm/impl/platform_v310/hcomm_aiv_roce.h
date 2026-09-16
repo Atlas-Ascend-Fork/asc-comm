@@ -134,13 +134,16 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::MakeWqe(
     sqGlobal.SetGlobalBuffer(sqAddr);
 
     __ubuf__ RoceWqeEntry* wqePtr = (__ubuf__ RoceWqeEntry*)(wqeUB_.GetPhyAddr());
-    FillCtrlSeg(wqePtr, sqHead, sqDepth, enCqe);
     uint32_t rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
     uint32_t lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
+    __gm__ uint8_t* sqAddrNext = (__gm__ uint8_t*)(sqBaseAddr + ((sqHead + 1) & (sqDepth - 1)) * wqeSize);
+    Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+    FillCtrlSeg(wqePtr, sqHead, sqDepth, enCqe);
     FillTaskSeg(wqePtr, dst, len, opType, rKey, lKey, fence);
     FillDataSeg(wqePtr, src, len, lKey);
-    __gm__ uint8_t* sqAddrNext = (__gm__ uint8_t*)(sqBaseAddr + ((sqHead + 1) & (sqDepth - 1)) * wqeSize);
     WriteInvalidWqebb(sqAddrNext, (sqHead + 1), sqDepth);
+    Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+
     Mutex::Lock<PIPE_MTE3>(HCOMM_ROCE_MUTEX_ID);
     DataCopy(sqGlobal, wqeUB_, sizeof(RoceWqeEntry));
     Mutex::Unlock<PIPE_MTE3>(HCOMM_ROCE_MUTEX_ID);
@@ -372,10 +375,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(
             cqTail = expectIdx - 1;
             break;
 #else
+            Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
             cqeType = (cqePtr->opSrWqebb >> ROCE_1825_CQE_OPCODE_SHIFT) & ROCE_1825_CQE_OPCODE_MASK;
             if (cqeType != ROCE_1825_CQE_OPTYPE_INVALID && CheckCqeOwner(cqePtr, cqTail, cqDepth)) {
                 break;
             }
+            Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
 #endif
         }
         if (loop >= HCOMM_POLLCQ_MAX_RETRY_TIMES) {
@@ -394,9 +399,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(
     chnlPtr->cqTail = cqTail;
     chnlPtr->sqTail = cqTail;
     __gm__ uint32_t* dbSwAddr = reinterpret_cast<__gm__ uint32_t*>(cqContextInfo.roceCq.dbSwVa);
-    Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
     st_dev(cqTail & ROCE_1825_CQE_UPDATE_CI_MASK, dbSwAddr, 0);
-    Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
     KERNEL_LOG(KERNEL_INFO, "Hcomm PollCq: knock cq doorbell ok, cqTail = %u, sqTail = %u\n", cqTail, cqTail);
     return HCOMM_SUCCESS;
 }

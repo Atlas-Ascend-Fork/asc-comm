@@ -44,7 +44,7 @@
 3. **注册通信内存**：调用`HcclCommMemReg`向通信域注册本卡的通信buffer，Channel创建时该内存信息会自动交换给对端。
 4. **建立TCP环形拓扑**：每个rank监听`BASE_PORT + rank`，主动连接`next = (rank + 1) % nranks`，同时接受来自`prev = (rank - 1 + nranks) % nranks`的连接。该环形连接用于RootInfo交换后的Host侧barrier，确保各rank在关键阶段同步推进。
 5. **获取链路Endpoint**：通过`HcclRankGraphGetLayers`和`HcclRankGraphGetLinks`分别获取本Rank到`prev`和`next`的物理链路Endpoint信息。
-6. **创建P2P通道（AIV直驱）**：调用`HcclChannelAcquire`创建到相邻rank的P2P通道。此处需明确指定引擎为`COMM_ENGINE_AIV`、协议为`COMM_PROTOCOL_UBC_CTP`（URMA协议），并传入待交换的内存句柄。
+6. **创建P2P通道（AIV直驱）**：调用`HcclChannelAcquire`创建到相邻rank的P2P通道。此处需明确指定引擎为`COMM_ENGINE_AIV`、协议为`COMM_PROTOCOL_UB_CTP`（URMA协议），并传入待交换的内存句柄。
 7. **获取对端内存地址**：调用`HcclChannelGetRemoteMems`获取相邻rank注册的内存地址，作为Kernel侧`WriteNbi`/`ReadNbi`的远端目标地址。
 8. **下发Context**：Host预初始化seg0（填充基于rankId的伪随机pattern），将`ChannelHandle`和buffer地址封装到`CommContext`并下发到各卡GM。
 
@@ -63,7 +63,7 @@ HcclRankGraphGetLinks(comm, layerId, rank, peerRank, &links, &linkNum);
 
 // 4. 创建AIV直驱URMA P2P通道
 channelDesc.remoteRank = peerRank;
-channelDesc.channelProtocol = COMM_PROTOCOL_UBC_CTP; // URMA协议
+channelDesc.channelProtocol = COMM_PROTOCOL_UB_CTP; // URMA协议
 channelDesc.memHandles = &memHandle;
 channelDesc.memHandleNum = 1;
 HcclChannelAcquire(comm, COMM_ENGINE_AIV, &channelDesc, 1, &channel); // 指定COMM_ENGINE_AIV
@@ -168,3 +168,31 @@ rank 1 test pass!
 test pass!
 ```
 > **注意：** 单卡环境仅支持编译验证，实际运行本样例需至少配备2张NPU。
+
+## 开启 Hcomm 调试日志
+
+调试日志通过编译宏 `ASCENDC_DEBUG` 控制，属于编译期选项，运行时不能切换。默认关闭。使用自己的用例时，除配置该选项外，还需要在用例的 `CMakeLists.txt` 中为实际的 target 添加宏定义：
+
+```cmake
+option(ASCENDC_DEBUG "Enable AscendC/Hcomm kernel debug logs" OFF)
+
+if(ASCENDC_DEBUG)
+    target_compile_definitions(<your_target> PRIVATE ASCENDC_DEBUG)
+endif()
+```
+
+将 `<your_target>` 替换为用例实际的可执行文件或库名称。配置并重新编译：
+
+```bash
+rm -rf build
+cmake -S . -B build -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DASCENDC_DEBUG=ON
+cmake --build build -j
+```
+
+开启后，运行日志中会出现 `PostSend`、WQE、CQE 和 `PollCq` 等 Hcomm 调试信息，例如：
+
+```text
+[AIV Block 0/1] Hcomm URMA PostSend ...
+[AIV Block 0/1] Hcomm URMA WQE: ...
+[AIV Block 0/1] Hcomm URMA CQE: ...
+```
