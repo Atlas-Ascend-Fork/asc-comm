@@ -17,10 +17,12 @@
  *   - allgather（Allgather，等长载荷按rank序收集）；
  *   - barrier（Barrier，allgather的4字节特例，尽量简单）。
  *
- * endpoint一律由外部（命令行）传入，格式"tcp://ip:port"：rank 0进程Listen绑定该地址，
- * 其余rank进程Connect连接。单机与跨机同一套代码（单机传127.0.0.1即可），并行运行多个
- * 实例时由用户显式错开端口。数据面同步（Drain/Flush/SynchronizeStream等设备侧语义）
- * 不在此处。
+ * endpoint一律由外部（命令行）传入，同时支持IPv4与IPv6：
+ *   - IPv4格式："tcp://ip:port"，如 "tcp://127.0.0.1:29623"
+ *   - IPv6格式："tcp://[ip]:port"，如 "tcp://[::1]:29623"
+ * rank 0进程Listen绑定该地址，其余rank进程Connect连接。单机与跨机同一套代码
+ * （单机传127.0.0.1或[::1]即可），并行运行多个实例时由用户显式错开端口。
+ * 数据面同步（Drain/Flush/SynchronizeStream等设备侧语义）不在此处。
  */
 
 #ifndef ASC_COMM_EXAMPLES_UTILS_RANK_SYNC_H
@@ -31,6 +33,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstring>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <string>
 #include <thread>
@@ -54,7 +57,8 @@ constexpr uint32_t kTagUserBase = 100U;
 
 class RankSyncContext {
 public:
-    // rank 0进程调用：绑定endpoint（"tcp://ip:port"）并接受其余rank的连接。
+    // rank 0进程调用：绑定endpoint并接受其余rank的连接。
+    // 支持IPv4（"tcp://ip:port"）和IPv6（"tcp://[ip]:port"）格式。
     // bind失败（地址被占/不可达）时Ok()为false。
     static RankSyncContext Listen(const std::string& endpoint, uint32_t nranks)
     {
@@ -70,6 +74,7 @@ public:
     }
 
     // 客户端：连接endpoint指向的rank 0（连接失败按固定间隔重试）。
+    // 支持IPv4（"tcp://ip:port"）和IPv6（"tcp://[ip]:port"）格式。
     static RankSyncContext Connect(uint32_t rank, uint32_t nranks, const std::string& endpoint)
     {
         RankSyncContext ctx(rank, nranks);
@@ -153,6 +158,9 @@ private:
     static constexpr uint32_t kConnectRetryTimes = 300U;
     static constexpr uint32_t kConnectRetryIntervalMs = 100U;
 
+    // 解析endpoint为host和port。支持两种格式：
+    //   IPv4: "tcp://host:port"
+    //   IPv6: "tcp://[host]:port"（RFC 3986方括号约定）
     static bool ParseEndpoint(const std::string& endpoint, std::string& host, uint16_t& port)
     {
         constexpr const char* kPrefix = "tcp://";
@@ -160,13 +168,41 @@ private:
         if (endpoint.rfind(kPrefix, 0) != 0) {
             return false;
         }
-        const size_t colon = endpoint.rfind(':');
-        if (colon == std::string::npos || colon < prefixLen) {
+        const std::string remainder = endpoint.substr(prefixLen);
+        if (remainder.empty()) {
             return false;
         }
-        host = endpoint.substr(prefixLen, colon - prefixLen);
-        const long value = std::strtol(endpoint.c_str() + colon + 1, nullptr, 10);
-        if (host.empty() || value <= 0 || value > 65535L) {
+
+        std::string portStr;
+        if (remainder[0] == '[') {
+            // IPv6格式：[host]:port
+            const size_t closeBracket = remainder.find(']');
+            if (closeBracket == std::string::npos || closeBracket < 2) {
+                return false;
+            }
+            host = remainder.substr(1, closeBracket - 1);
+            // ']'之后必须是':port'
+            if (closeBracket + 1 >= remainder.size() || remainder[closeBracket + 1] != ':') {
+                return false;
+            }
+            portStr = remainder.substr(closeBracket + 2);
+        } else {
+            // IPv4格式：host:port
+            const size_t colon = remainder.rfind(':');
+            if (colon == std::string::npos || colon == 0) {
+                return false;
+            }
+            host = remainder.substr(0, colon);
+            portStr = remainder.substr(colon + 1);
+        }
+
+        if (host.empty() || portStr.empty()) {
+            return false;
+        }
+        char* end = nullptr;
+        errno = 0;
+        const long value = std::strtol(portStr.c_str(), &end, 10);
+        if (errno != 0 || end == portStr.c_str() || *end != '\0' || value <= 0 || value > 65535L) {
             return false;
         }
         port = static_cast<uint16_t>(value);
@@ -215,52 +251,76 @@ private:
         return true;
     }
 
+    // 使用getaddrinfo解析地址并创建监听socket，同时支持IPv4和IPv6。
+    // 遍历解析结果，尝试每个地址直到bind+listen成功。
     static int CreateListenSocket(const std::string& host, uint16_t port)
     {
-        const int fd = socket(AF_INET, SOCK_STREAM, 0);
-        if (fd < 0) {
+        const std::string portStr = std::to_string(port);
+        struct addrinfo hints = {};
+        hints.ai_family = AF_UNSPEC; // 同时尝试IPv4和IPv6
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_flags = AI_PASSIVE; // 用于bind
+        struct addrinfo* result = nullptr;
+        if (getaddrinfo(host.c_str(), portStr.c_str(), &hints, &result) != 0) {
             return -1;
         }
-        const int reuse = 1;
-        (void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-        struct sockaddr_in addr = {};
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(port);
-        if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) {
+        int fd = -1;
+        for (struct addrinfo* rp = result; rp != nullptr; rp = rp->ai_next) {
+            fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+            if (fd < 0) {
+                continue;
+            }
+            const int reuse = 1;
+            (void)setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+            // IPv6时关闭IPv4映射，确保独立监听IPv6地址。
+            if (rp->ai_family == AF_INET6) {
+                const int v6only = 1;
+                (void)setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &v6only, sizeof(v6only));
+            }
+            if (bind(fd, rp->ai_addr, rp->ai_addrlen) == 0 && listen(fd, 64) == 0) {
+                break; // 成功
+            }
             close(fd);
-            return -1;
+            fd = -1;
         }
-        if (bind(fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) != 0 || listen(fd, 64) != 0) {
-            close(fd);
-            return -1;
-        }
+        freeaddrinfo(result);
         return fd;
     }
 
+    // 使用getaddrinfo解析地址并连接，同时支持IPv4和IPv6。
+    // rank 0可能尚未开始accept（逐rank部署时启动有先后），按固定间隔重试。
     static int ConnectWithRetry(const std::string& host, uint16_t port)
     {
-        struct sockaddr_in addr = {};
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(port);
-        if (inet_pton(AF_INET, host.c_str(), &addr.sin_addr) != 1) {
+        const std::string portStr = std::to_string(port);
+        struct addrinfo hints = {};
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+        struct addrinfo* result = nullptr;
+        if (getaddrinfo(host.c_str(), portStr.c_str(), &hints, &result) != 0) {
             return -1;
         }
+        int fd = -1;
         for (uint32_t attempt = 0U; attempt < kConnectRetryTimes; ++attempt) {
-            const int fd = socket(AF_INET, SOCK_STREAM, 0);
-            if (fd < 0) {
-                return -1;
-            }
-            if (connect(fd, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) == 0) {
-                if (SetSockTimeouts(fd)) {
-                    return fd;
+            for (struct addrinfo* rp = result; rp != nullptr; rp = rp->ai_next) {
+                fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+                if (fd < 0) {
+                    continue;
+                }
+                if (connect(fd, rp->ai_addr, rp->ai_addrlen) == 0) {
+                    if (SetSockTimeouts(fd)) {
+                        freeaddrinfo(result);
+                        return fd;
+                    }
+                    close(fd);
+                    freeaddrinfo(result);
+                    return -1;
                 }
                 close(fd);
-                return -1;
+                fd = -1;
             }
-            close(fd);
-            // rank 0可能尚未开始accept（逐rank部署时启动有先后），按固定间隔重试。
             std::this_thread::sleep_for(std::chrono::milliseconds(kConnectRetryIntervalMs));
         }
+        freeaddrinfo(result);
         return -1;
     }
 
