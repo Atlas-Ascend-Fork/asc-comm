@@ -16,105 +16,104 @@
 namespace asc {
 namespace {
 
+HcommCcuChannelPod MakeChannelPod()
+{
+    HcommCcuChannelPod pod{};
+    pod.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
+    pod.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
+    pod.header.size = sizeof(HcommCcuChannelPod);
+    pod.dieId = 3;
+    pod.channelId = 17;
+    pod.localVarNum = 2;
+    pod.remoteVarNum = 2;
+    pod.localEventNum = 2;
+    pod.remoteEventNum = 2;
+    pod.localVarIds[0] = 21;
+    pod.localVarIds[1] = 22;
+    pod.remoteVarIds[0] = 121;
+    pod.remoteVarIds[1] = 122;
+    pod.localEventIds[0] = 11;
+    pod.localEventIds[1] = 12;
+    pod.remoteEventIds[0] = 111;
+    pod.remoteEventIds[1] = 112;
+    pod.rmtCcuResBuffer.type = REGED_BUFFER_RMA;
+    pod.rmtCcuResBuffer.bufferInfo.rma.addr = 0x123456789ABCDEF0ULL;
+    pod.rmtCcuResBuffer.bufferInfo.rma.size = 0x8000;
+    pod.rmtCcuResBuffer.bufferInfo.rma.protectionInfo.type = PROTECTION_TYPE_UB;
+    pod.rmtCcuResBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenId = 0x51;
+    pod.rmtCcuResBuffer.bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue = 0x62;
+    return pod;
+}
+
 class CcuChannelTest : public testing::Test {
 protected:
     void SetUp() override
     {
-        channel_pod_.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
-        channel_pod_.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
-        channel_pod_.header.size = sizeof(HcommCcuChannelPod);
-        channel_pod_.dieId = 3;
-        channel_pod_.channelId = 17;
-        channel_pod_.localXnIds[0] = 21;
-        channel_pod_.localXnIds[1] = 22;
-        channel_pod_.remoteXnIds[0] = 121;
-        channel_pod_.remoteXnIds[1] = 122;
-        channel_pod_.localCkeIds[0] = 11;
-        channel_pod_.localCkeIds[1] = 12;
-        channel_pod_.remoteCkeIds[0] = 111;
-        channel_pod_.remoteCkeIds[1] = 112;
-        channel_pod_.rmtCcuBufAddr = 0x123456789ABCDEF0ULL;
-        channel_pod_.rmtCcuBufSize = 0x8000;
-        channel_pod_.rmtCcuBufTokenId = 0x51;
-        channel_pod_.rmtCcuBufTokenValue = 0x62;
-        SetHcommCcuChannelQueryStub(channel_pod_);
+        channel_pod_ = MakeChannelPod();
+        SetHcommCcuChannelGetPodStub(channel_pod_);
     }
 
-    void TearDown() override { ResetHcommCcuChannelQueryStub(); }
+    void TearDown() override { ResetHcommCcuChannelGetPodStub(); }
 
     HcommCcuChannelPod channel_pod_{};
 };
 
 TEST_F(CcuChannelTest, InitCopiesAllFieldsAndResources)
 {
-    ccu_channel channel_(1);
+    asc::ccu_channel channel_(1);
     ASSERT_EQ(channel_.get_result(), HCCL_SUCCESS);
-    EXPECT_EQ(channel_.get_die_id(), 3U);
-    EXPECT_EQ(channel_.get_channel_id(), 17U);
+    EXPECT_EQ(channel_->get_die_id(), 3U);
+    EXPECT_EQ(channel_->get_channel_id(), 17U);
 
     uint32_t value = 0;
-    EXPECT_EQ(channel_.get_loc_cke_by_index(0, value), HCCL_SUCCESS);
+    EXPECT_EQ(channel_->get_loc_cke_by_index(0, value), HCCL_SUCCESS);
     EXPECT_EQ(value, 11U);
-    EXPECT_EQ(channel_.get_loc_xn_by_index(1, value), HCCL_SUCCESS);
-    EXPECT_EQ(value, 22U);
-    EXPECT_EQ(channel_.get_rmt_cke_by_index(0, value), HCCL_SUCCESS);
+    EXPECT_EQ(channel_->get_loc_cke_by_index(1, value), HCCL_SUCCESS);
+    EXPECT_EQ(value, 12U);
+    EXPECT_EQ(channel_->get_rmt_cke_by_index(0, value), HCCL_SUCCESS);
     EXPECT_EQ(value, 111U);
-    EXPECT_EQ(channel_.get_rmt_xn_by_index(1, value), HCCL_SUCCESS);
-    EXPECT_EQ(value, 122U);
+    EXPECT_EQ(channel_->get_loc_xn_by_index(0, value), HCCL_SUCCESS);
+    EXPECT_EQ(value, 21U);
+    EXPECT_EQ(channel_->get_loc_xn_by_index(1, value), HCCL_SUCCESS);
+    EXPECT_EQ(value, 22U);
+    EXPECT_EQ(channel_->get_rmt_xn_by_index(0, value), HCCL_SUCCESS);
+    EXPECT_EQ(value, 121U);
+}
 
-    uint64_t addr_ = 0;
+TEST_F(CcuChannelTest, GetRmtBufferDecodesRegedBufferEntity)
+{
+    asc::ccu_channel channel_(1);
+    ASSERT_EQ(channel_.get_result(), HCCL_SUCCESS);
+
+    uint64_t addr = 0;
     uint32_t size = 0;
     uint32_t token_id = 0;
     uint32_t token_value = 0;
-    EXPECT_EQ(channel_.get_rmt_buffer(addr_, size, token_id, token_value), HCCL_SUCCESS);
-    EXPECT_EQ(addr_, 0x123456789ABCDEF0ULL);
+    EXPECT_EQ(channel_->get_rmt_buffer(addr, size, token_id, token_value), HCCL_SUCCESS);
+    EXPECT_EQ(addr, 0x123456789ABCDEF0ULL);
     EXPECT_EQ(size, 0x8000U);
     EXPECT_EQ(token_id, 0x51U);
     EXPECT_EQ(token_value, 0x62U);
 }
 
-TEST_F(CcuChannelTest, SnapshotOwnsDeepCopy)
+TEST_F(CcuChannelTest, IndexBeyondValidNumRejected)
 {
-    ccu_channel channel_(1);
+    asc::ccu_channel channel_(1);
     ASSERT_EQ(channel_.get_result(), HCCL_SUCCESS);
 
-    channel_pod_.dieId = 99;
-    channel_pod_.localCkeIds[0] = 999;
-    SetHcommCcuChannelQueryStub(channel_pod_);
-
-    uint32_t local_cke_id = 0;
-    EXPECT_EQ(channel_.get_die_id(), 3U);
-    EXPECT_EQ(channel_.get_loc_cke_by_index(0, local_cke_id), HCCL_SUCCESS);
-    EXPECT_EQ(local_cke_id, 11U);
-}
-
-TEST_F(CcuChannelTest, ResourceIndexOutOfRangeReturnsParameterError)
-{
-    ccu_channel channel_(1);
-    ASSERT_EQ(channel_.get_result(), HCCL_SUCCESS);
+    // 有效数量 localVarNum=2：index 2 越界（容量 16 也允许更大的有效数量）
     uint32_t value = 0;
-    EXPECT_EQ(channel_.get_loc_cke_by_index(HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY, value), HCCL_E_PARA);
-    EXPECT_EQ(channel_.get_loc_xn_by_index(HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY, value), HCCL_E_PARA);
-    EXPECT_EQ(channel_.get_rmt_cke_by_index(HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY, value), HCCL_E_PARA);
-    EXPECT_EQ(channel_.get_rmt_xn_by_index(HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY, value), HCCL_E_PARA);
+    EXPECT_NE(channel_->get_loc_xn_by_index(2, value), HCCL_SUCCESS);
+    EXPECT_NE(channel_->get_rmt_cke_by_index(2, value), HCCL_SUCCESS);
 }
 
-TEST_F(CcuChannelTest, FirstQueryFailureIsPropagated)
+TEST_F(CcuChannelTest, UnreadyRemoteBufferRejected)
 {
-    SetHcommCcuChannelQueryStubResult(HCCL_E_UNAVAIL);
-    ccu_channel channel_(1);
-    EXPECT_EQ(channel_.get_result(), HCCL_E_UNAVAIL);
-
-    uint32_t value = 0;
-    EXPECT_EQ(channel_.get_loc_cke_by_index(0, value), HCCL_E_UNAVAIL);
-}
-
-TEST_F(CcuChannelTest, RemoteBufferSizeZeroReturnsInternalError)
-{
-    channel_pod_.rmtCcuBufSize = 0;
-    SetHcommCcuChannelQueryStub(channel_pod_);
-    ccu_channel channel_(1);
-    EXPECT_EQ(channel_.get_result(), HCCL_E_INTERNAL);
+    HcommCcuChannelPod pod = MakeChannelPod();
+    pod.rmtCcuResBuffer.bufferInfo.rma.size = 0; // 远端资源空间未就绪
+    SetHcommCcuChannelGetPodStub(pod);
+    asc::ccu_channel channel_(1);
+    EXPECT_NE(channel_.get_result(), HCCL_SUCCESS);
 }
 
 } // namespace

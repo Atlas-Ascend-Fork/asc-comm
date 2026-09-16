@@ -17,7 +17,6 @@
 #include "ccu_kernel.h"
 #include "ccu/hcomm/ccu_launch.h"
 #include "../../../common/ccu_instance.h"
-#include "../../../common/ccu_register_context.h"
 #include <hccl/hccl_ccu_res.h>
 
 namespace ops_hccl_ar {
@@ -112,11 +111,9 @@ static HcclResult RegisterAllReduceKernel(
 
     resCtxHost.ccuKernels.resize(1); // 只注册一个 kernel
 
-    CcuInsHandle ins_handle{0};
+    CcuInsHandle ins_handle{};
     RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, ins_handle));
-    HcommCcuRegisterContextHandle context_{nullptr};
-    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, context_));
-    CcuResult regStartRet = asccomm_ccu_kernel_register_start(ins_handle, context_);
+    CcuResult regStartRet = asccomm_ccu_kernel_register_start(ins_handle);
     if (regStartRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
