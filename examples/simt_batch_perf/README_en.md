@@ -47,3 +47,21 @@ RESULT | API=write | Mode=GroupBatch | DataSize/B=64 | BatchSize=32 | Jettys=1 |
 IssueTicksPerRequest is the device clock() delta over submission divided by the request count. It includes construction, posting and posting synchronization, and excludes the following Drain wait. Lower is better. These are raw ticks, not nanoseconds; only PASS rows are valid. Do not calculate a SIMD speedup until clock units are aligned.
 
 BatchSize is requests per batch. Jettys is the configured count and ConcurrentJettys is the maximum concurrent count; both are 1 here. Pair identifies the ranks. All correctness checks remain; rank logs are printed on failure. Completion bandwidth, doorbell counts and diagnostic breakdowns are omitted from normal output.
+
+## RESULT fields
+
+| Field | Meaning |
+|---|---|
+| API | Communication operation, such as write, read or notify |
+| Mode | Immediate: single-lane direct posting; ExplicitBatch: single-lane explicit batch; GroupBatch: lanes cooperating on one Jetty; MultiJetty: concurrent-Jetty example |
+| DataSize/B | Data bytes per request, excluding Notify flags and control information |
+| BatchSize | Requests per Jetty per batch; GroupBatch/MultiJetty currently use one request per lane |
+| Jettys | Total configured Jettys for the rank pair |
+| ConcurrentJettys | Maximum Jettys participating in one kernel; J8/BS256 uses 4 per kernel and two kernels |
+| IssueTicksPerRequest | Total submission ticks divided by total requests; lower is better, raw clock() ticks, not ns |
+| Pair | Communicating rank pair; eight devices form four pairs |
+| Status | PASS/FAIL from process exits and applicable correctness checks |
+
+The metric measures average posting cost, not per-request end-to-end latency. It includes construction, publication and posting synchronization, excludes subsequent Drain waits and warmup, and sums submission intervals across kernels without host launch gaps.
+
+Successful builds are silent; normal runs print RESULT and existing summaries only. Compiler output stays in build-output.log under the build directory; run configuration stays in the summary log's `.metadata` companion file. Build failures print the last 40 compiler-log lines, and runtime failures show the relevant rank logs. Successful runs do not require these files to be relayed.

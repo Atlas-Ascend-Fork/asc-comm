@@ -29,9 +29,19 @@ build_dir="${script_dir}/build/${profile}"
 mkdir -p "$build_dir"
 rm -f -- "${build_dir}/build-ready.sha256"
 started_at=$SECONDS
-echo "BUILD_CONFIG | Profile=${profile} | Directory=${build_dir}"
-cmake -S "$script_dir" -B "$build_dir" -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DMULTI_JETTY_MATRIX_BATCH="$batch"
-timeout --signal=TERM --kill-after=10s 5m cmake --build "$build_dir" --verbose --parallel "${BUILD_JOBS:-2}" 2>&1 | tee "${build_dir}/build-output.log"
+# Keep successful compiler output in the build directory; show the useful tail on failure.
+compile_log="${build_dir}/build-output.log"
+if cmake -S "$script_dir" -B "$build_dir" -DCMAKE_ASC_ARCHITECTURES=dav-3510 \
+    -DMULTI_JETTY_MATRIX_BATCH="$batch" >"$compile_log" 2>&1 &&
+    timeout --signal=TERM --kill-after=10s 5m cmake --build "$build_dir" --verbose \
+        --parallel "${BUILD_JOBS:-2}" >>"$compile_log" 2>&1; then
+    :
+else
+    code=$?
+    tail -n 40 "$compile_log" >&2
+    echo "BUILD_ERROR | Exit=${code} | Log=${compile_log}" >&2
+    exit "$code"
+fi
 
 # Verify the selected VF. Register usage is recorded, not limited across different geometries.
 object="${build_dir}/CMakeFiles/multi_jetty_batch_perf.dir/simt_kernel.cpp.o"
@@ -57,10 +67,8 @@ else
     echo "BUILD_RESOURCE | VF=${batch},${capacity} | StackBytes=${stack} | Registers=${registers} | RegisterPolicy=record" > "${build_dir}/build-resource.txt"
     sha256sum "$object" > "${build_dir}/build-resource-object.sha256"
 fi
-cat "${build_dir}/build-resource.txt"
 binary="${build_dir}/multi_jetty_batch_perf"
 expected="BUILD_CONFIG | Backend=simt | Layout=matrix-v3 | CompletionVersion=1 | MatrixBatch=${batch}"
 [[ "$("$binary" --build-info)" == "$expected" ]] || { echo "BUILD_ERROR | stale binary configuration" >&2; exit 1; }
 sha256sum "$binary" > "${build_dir}/build-ready.sha256"
-echo "BUILD_COMPLETE | Profile=${profile} | Seconds=$((SECONDS - started_at))"
-echo "Run: bash run.sh --batch-size ${batch}"
+echo "BUILD_COMPLETE | Profile=${profile} | Seconds=$((SECONDS - started_at))" > "${build_dir}/build-complete.txt"

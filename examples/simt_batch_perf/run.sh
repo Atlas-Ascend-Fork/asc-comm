@@ -104,7 +104,7 @@ if [[ -z "$log_file" ]]; then
 fi
 mkdir -p "$(dirname "$log_file")"
 exec > >(tee "$log_file") 2>&1
-echo "TEST_INFO | Suite=simt_batch_perf | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | WarmupPolicy=FullGroup | PayloadBytes=${payload_bytes} | SingleLaneBatchSize=${batch_size} | GroupBatchSizes=${group_lanes} | LargeGroup=${large_group_enabled}"
+echo "TEST_INFO | Suite=simt_batch_perf | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | WarmupPolicy=FullGroup | PayloadBytes=${payload_bytes} | SingleLaneBatchSize=${batch_size} | GroupBatchSizes=${group_lanes} | LargeGroup=${large_group_enabled}" > "${log_file}.metadata"
 apis=(write read notify write_value faa cas)
 if [[ "$api" == "core" ]]; then
     apis=(write read notify)
@@ -191,5 +191,4 @@ for current_api in "${apis[@]}"; do
         status=1
     fi
 done
-echo "Log file: $log_file"
 exit "$status"

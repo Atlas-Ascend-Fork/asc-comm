@@ -60,6 +60,8 @@ if rank=='1':
 from pathlib import Path
 import os,shutil,sys
 a=sys.argv[1:]
+if os.environ.get('MOCK_COMPILE_FAIL')=='1':
+    print('compiler error: simulated configure failure');sys.exit(7)
 if a[0]=='-S':
     build=Path(a[a.index('-B')+1]);build.mkdir(parents=True,exist_ok=True)
     batch=int(next(x.split('=')[1] for x in a if x.startswith('-DMULTI_JETTY_MATRIX_BATCH=')))
@@ -80,12 +82,17 @@ else:
     for batch in BATCHES:
         build_args = ["bash", str(root / "build.sh"), "--batch-size", str(batch)]
         output = call(build_args, env)
-        assert f"VF={batch},{min(1024,max(32,batch*8))}" in output and "Registers=120" in output
+        resource = (root / f"build/simt-matrix-bs{batch}/build-resource.txt").read_text()
+        assert f"VF={batch},{min(1024,max(32,batch*8))}" in resource and "Registers=120" in resource
+        assert output.strip() == ""
         args = ["bash", str(root / "run.sh"), "--batch-size", str(batch),
                 "--api", "all", "--jetty-counts", "1,2,4,8"]
         output = call(args, env)
         assert "Cases=12 | Pass=12 | Fail=0 | Status=PASS" in output
         assert output.count("RESULT |") == 12
+        assert all(line.startswith(("RESULT |", "MATRIX_SUMMARY |")) for line in output.splitlines())
+        metadata = list((root / "results").glob("*.log.metadata"))
+        assert metadata and any("RUN_BINARY |" in p.read_text() for p in metadata)
         assert "configuration does not match" in call(args, dict(env, MOCK_AUDIT="9"), False)
     actual = [tuple(json.loads(line)) for line in cases.read_text().splitlines()]
     expected = set(itertools.product(("write", "read", "notify"), BATCHES, (1, 2, 4, 8)))
@@ -99,6 +106,9 @@ else:
     assert "Cases=1 | Pass=1 | Fail=0 | Status=PASS" in call(simple, env)
     assert "Duplicate Jetty count" in call(simple[:-1]+["1,1"], env, False)
     assert "exceeds 1152" in call(build_args, dict(env, MOCK_STACK="1153"), False)
+    assert "no matching successful build" in call(args, env, False)
+
+    assert "compiler error: simulated configure failure" in call(build_args, dict(env, MOCK_COMPILE_FAIL="1"), False)
     assert "no matching successful build" in call(args, env, False)
 
     # Exercise actual preprocessor selection: each artifact contains one VF call and no probe hook.

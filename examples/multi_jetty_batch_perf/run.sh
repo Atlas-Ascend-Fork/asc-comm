@@ -43,11 +43,14 @@ expected="BUILD_CONFIG | Backend=simt | Layout=matrix-v3 | CompletionVersion=1 |
 mkdir -p "$(dirname "$log_file")"
 log_dir="$(mktemp -d "${log_file}.ranks.XXXXXX")"
 exec > >(tee "$log_file") 2>&1
-echo "RUN_IDENTITY | Head=$(git -C "$script_dir" rev-parse HEAD 2>/dev/null || echo UNKNOWN) | Tree=$([[ -z "$(git -C "$script_dir" status --porcelain 2>/dev/null)" ]] && echo clean || echo dirty)"
-echo "$expected"
-echo "RUN_BINARY | Profile=${profile} | Path=${binary}"
-sha256sum "$binary"
-echo "RANK_LOGS | Directory=${log_dir}"
+# Identity and log locations remain available without cluttering normal results.
+{
+    echo "RUN_IDENTITY | Head=$(git -C "$script_dir" rev-parse HEAD 2>/dev/null || echo UNKNOWN) | Tree=$([[ -z "$(git -C "$script_dir" status --porcelain 2>/dev/null)" ]] && echo clean || echo dirty)"
+    echo "$expected"
+    echo "RUN_BINARY | Profile=${profile} | Path=${binary}"
+    sha256sum "$binary"
+    echo "RANK_LOGS | Directory=${log_dir}"
+} > "${log_file}.metadata"
 apis=(write read notify)
 [[ "$api" == all ]] || apis=("$api")
 pids=()

@@ -43,3 +43,21 @@ bash run.sh --batch-size 1 --api write --jetty-counts 4
 与simt_batch_perf统一输出API、Mode、DataSize/B、BatchSize、Jettys、ConcurrentJettys、IssueTicksPerRequest、Pair及Status。主要指标为每请求下发耗时IssueTicksPerRequest，采用原始clock() ticks，包含提交路径同步，不包含随后Drain等待；多kernel累加提交区间，不包含host launch间隙。正常不展开完成快照和校验明细，所有检查仍执行，详情保留在rank日志，失败时输出。未对齐时钟口径前，不与归档SIMD直接计算加速比。
 
 本地检查在tests/ut/aicore/hcomm：完成管理/72项几何回归、真实build/run脚本模拟、完整主机/设备源文件语法检查。SDK声明替代不等于目标CANN编译或NPU运行通过。
+
+## RESULT 字段
+
+| 字段 | 含义 |
+|---|---|
+| API | write、read、notify等通信操作 |
+| Mode | Immediate=单lane直接提交；ExplicitBatch=单lane显式Batch；GroupBatch=多lane协作一个Jetty；MultiJetty=多个Jetty并行用例 |
+| DataSize/B | 每个请求的数据字节数，不含Notify标志等控制信息 |
+| BatchSize | 每个Jetty每批请求数；当前GroupBatch/MultiJetty每lane构造一项，因此也等于每Jetty的lane数 |
+| Jettys | 该rank对配置的Jetty总数 |
+| ConcurrentJettys | 单次kernel最多参与提交的Jetty数；例如J8/BS256为4，需要两个kernel |
+| IssueTicksPerRequest | 提交计时区间总ticks除以总请求数，越小越好；原始clock()计数，未换算成ns |
+| Pair | 通信rank对，例如0-1；8卡时有四对 |
+| Status | 两端执行及该用例的正确性检查是否通过，PASS或FAIL |
+
+IssueTicksPerRequest衡量平均下发成本，不是单个请求的端到端延迟。它包括构造/发布和提交路径同步，不包含后续Drain等待；不计预热，多kernel累加提交区间后除以总请求数，也不计host launch间隙。
+
+成功构建不打印编译过程；正常运行只打印RESULT及已有汇总。编译输出保存在build目录的build-output.log，运行配置记录在汇总日志旁的`.metadata`文件。失败时自动显示编译日志末40行或对应rank日志；无需正常回传这些文件。
