@@ -232,8 +232,8 @@ __aicore__ inline int32_t HcommJettyImpl::PostSqe(uint32_t numWqebbs)
 {
     uint32_t head = jettyInfo_->sqHead;
     PollCqWhenSqOverflow<timeoutCycles>();
-    CopyWqeToSq(head, numWqebbs);
     AdvanceSq(numWqebbs);
+    CopyWqeToSq(head, numWqebbs);
     if constexpr (doCommit) {
         RingDoorbell();
     }
