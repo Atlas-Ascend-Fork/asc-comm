@@ -235,6 +235,42 @@ __simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Drain(UbcCtpBatchHand
     return impl_.template Drain<pipe>(batchHandle);
 }
 
+template <CommProtocol commProtocol, typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::InitCompletionSet(
+    UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count,
+    __gm__ uint8_t* workspace, uint64_t bytes)
+{
+    return impl_.InitCompletionSet(set, channels, count, workspace, bytes);
+}
+
+template <CommProtocol commProtocol, typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::PrepareCompletion(
+    UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t wqeCount, uint32_t bbCount)
+{
+    return impl_.PrepareCompletion(set, channelIndex, wqeCount, bbCount);
+}
+
+template <CommProtocol commProtocol, typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Progress(
+    UbcCtpCompletionSet& set, uint32_t budget, uint32_t& processed)
+{
+    return impl_.Progress(set, budget, processed);
+}
+
+template <CommProtocol commProtocol, typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::WaitCompletion(
+    UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t maxIdlePolls)
+{
+    return impl_.WaitCompletion(set, channelIndex, maxIdlePolls);
+}
+
+template <CommProtocol commProtocol, typename Group>
+__simt_callee__ inline int32_t Hcomm<commProtocol, Group>::Drain(
+    UbcCtpCompletionSet& set)
+{
+    return impl_.Drain(set);
+}
+
 __simt_callee__ inline __gm__ uint8_t* LocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
 {
     return HcommSimtLocalBufferAddr(channel, bufferIdx);

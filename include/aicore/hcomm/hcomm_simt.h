@@ -241,6 +241,42 @@ public:
     template <auto pipe = 0>
     __simt_callee__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
 
+    /*!
+     * @brief Completion ownership for channels sharing one or more CQs (version 1).
+     * @note Initialize once on fresh, unused channels with 128-byte-aligned, zeroed GM storage
+     *       sized by HcommSimtCompletionBufferBytes(count). Keep storage until all work finishes.
+     *       Register every user of each CQ. Exactly one lane owns ALL set operations; no legacy
+     *       Drain, automatic ReservePost polling, SIMD or other consumer may access these CQs.
+     * @note PrepareCompletion admits one window per channel BEFORE publishing, using its WQE
+     *       count and total SQ BB count. The previous window of this channel must have completed;
+     *       other channels need not finish. Insufficient capacity returns -1 without mutation.
+     *       Publish exactly this window using default CQE-enabled Write/Read/WriteWithNotify batches. Sparse CQEs,
+     *       deferred unpublished tails and unsignalled NOP tails are unsupported. Cumulative
+     *       WQE/BB counters must not wrap. Publication ordering remains the caller's responsibility.
+     *       If an existing batch's next reservation failed before reclamation, recreate its handle
+     *       with MakeBatchHandle after this window completes, following that group's contract.
+     *       CompletionSet does not mutate the publishing group's UB reservation context.
+     * @note Progress consumes at most budget ready CQEs without waiting for an unready CQE.
+     *       Completion/SQ space are attributed to their JFS. WaitCompletion waits only for the
+     *       selected channel's admitted target, while progressing all CQs. Drain waits for all
+     *       admitted targets and is optional. None of these functions is a collective barrier.
+     *       Other Jettys can publish their admitted windows concurrently; ownership of the set
+     *       itself must not be concurrent. There is no background progress or posting-path lock.
+     * @note A completed window releases its SQ up to its recorded BB endpoint. Known-safe CQ
+     *       prefixes are acknowledged even on failure; a fault poisons the set, requiring teardown.
+     *       Resource/identity/CQE/count/timeout evidence is retained in the workspace for diagnosis.
+     */
+    __simt_callee__ inline int32_t InitCompletionSet(
+        UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count,
+        __gm__ uint8_t* workspace, uint64_t bytes);
+    __simt_callee__ inline int32_t PrepareCompletion(
+        UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t wqeCount, uint32_t bbCount);
+    __simt_callee__ inline int32_t Progress(
+        UbcCtpCompletionSet& set, uint32_t budget, uint32_t& processed);
+    __simt_callee__ inline int32_t WaitCompletion(
+        UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t maxIdlePolls = 1000000U);
+    __simt_callee__ inline int32_t Drain(UbcCtpCompletionSet& set);
+
 private:
     Group group_;
     HcommImpl<commProtocol> impl_;
