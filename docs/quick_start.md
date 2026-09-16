@@ -25,7 +25,8 @@
   </tbody>
 </table>
 
-> [!TIP]选择建议
+> [!TIP]
+> 选择建议
 >
 > - 为了保障开发体验环境的质量，推荐用户基于**容器化技术**完成**环境准备**。
 > - 如不希望使用容器，也可在带NPU设备的主机上完成**环境准备**，请参考[CANN软件安装指南 - 在物理机上安装](https://www.hiascend.com/cann/download)。
@@ -38,7 +39,7 @@
 - **WebIDE**，提供网页版的便携开发体验。
 - **VSCode IDE**，支持远程连接**云开发环境**，提供VSCode强大插件市场的支持。
 
-1. 进入开源仓Gitcode页面，单击"`CANNLab > 云开发`"按钮，使用已认证过的华为云账号登录。若未注册或认证，请根据页面提示进行注册和认证。
+1. 进入开源仓GitCode页面，单击"`CANNLab > 云开发`"按钮，使用已认证过的华为云账号登录。若未注册或认证，请根据页面提示进行注册和认证。
 
    <p align="center"><img src="./figures/cloudIDE.png" alt="云平台" width="750px" height="90px"></p>
 
@@ -152,7 +153,6 @@ CANN包分为CANN toolkit包和CANN ops包。
     > [!IMPORTANT]
     > 安装说明
     > 当前[Hcomm AIV直驱URMA样例](../examples/hcomm_write_read_nbi/README.md)不依赖ops包；仅在后续使用依赖算子包的功能时按需安装。
-
 
 | 参数 | 说明 |
 | :--- | :--- |

@@ -12,9 +12,11 @@
 </div>
 
 ## 🔥 Latest News
+
 - [2026/07] Initial release of the asc-comm project
 
 ### 🚀 Current Capabilities
+
 - Exposes AICore-side Hcomm point-to-point communication interfaces, covering ordinary `Init`, `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, and `Drain`, as well as `MakeBatchHandle`, batch read/write, `BatchCommit`, and batch `Drain` on the Ascend 950 UB_CTP path.
 - Provides AIV direct-drive implementations for Hcomm RoCE and UB_CTP/URMA. Core implementations are located under `src/aicore/hcomm/`.
 - Exposes AICore-side Ain one-sided communication interfaces, covering `Put`, `PutValue`, `Get`, `Signal`, `ReadSignal`, `WaitSignal`, `Flush`, `FlushAsync`, `Wait`, and the `AinBarrierSession` collective synchronization primitive. Core implementations are located under `src/aicore/ain/`.
@@ -23,18 +25,21 @@
 - Supplies the `hcomm_write_read_nbi` sample, demonstrating the point-to-point communication workflow of `WriteNbi` and `ReadNbi` under the AIV direct-driven URMA scenario, including Host-side resource preparation required to run the sample.
 
 ### 📖 Documentation
-- Added [Quick Start](./docs/quick_start_en.md), [Build & Test](./docs/en/guide/build_and_test.md), [Third-party Dependencies & Compatibility](./docs/en/guide/dependencies.md).
-- Added [Hcomm Usage Guide](./docs/en/guide/hcomm_usage.md) and [API Reference](./docs/en/api/README.md), covering all currently published Hcomm interfaces.
+
+- Added [Quick Start](./docs/quick_start_en.md), [Build & Test](./docs/build_and_test_en.md), [Third-party Dependencies & Compatibility](./docs/dependencies_en.md).
+- Added [API Reference(Chinese)](./docs/zh/api/README.md), covering all currently published Hcomm interfaces.
 - Added [Samples Directory](./examples/README_en.md), serving as the entry for AIV direct-drive Hcomm invocations and end-to-end communication samples.
 
 For detailed information on all historical releases and updates, please refer to [CHANGELOG.md](./CHANGELOG_en.md).
 
 ## 🚀 Overview
+
 asc-comm is an open-source repository targeting communication scenarios on Ascend AI Processors. It hosts publicly exposed AICore APIs, AIV direct-drive device-side implementations, API documentation, samples and verification suites.
 
 The public capabilities include `AscendC::Hcomm` point-to-point communication and `AscendC::Ain` one-sided communication, targeting communication data paths on the operator Kernel side. For Hcomm, users select a communication protocol through the `AscendC::Hcomm` template. Ordinary interfaces submit tasks individually through a `ChannelHandle`; the Ascend 950 UB_CTP path can also use a BatchHandle to prepare WQEs in UB and submit them together through `BatchCommit`. The corresponding `Drain` overload manages completion for each workflow. For Ain, users issue one-sided `Put`/`Get`/`Signal` operations on symmetric windows via the `AscendC::Ain` template, and manage completion through `Flush` or `FlushAsync` + `Wait`.
 
 ### Data Plane Capabilities
+
 | Capability | Status |
 | --- | --- |
 | Public AICore Hcomm Interfaces | Ordinary Kernel-side `Init`, read/write, write-with-notify, atomic, `Commit`, and `Drain` interfaces are available. The Ascend 950 UB_CTP path also provides `MakeBatchHandle`, batch `ReadNbi`/`WriteNbi`/`WriteWithNotifyNbi`, `BatchCommit`, and batch `Drain`. |
@@ -46,12 +51,15 @@ The public capabilities include `AscendC::Hcomm` point-to-point communication an
 | AIV Direct-drive Samples | `hcomm_write_read_nbi` demonstrates symmetric two-card AIV direct-driven URMA `WriteNbi`/`ReadNbi` communication and result validation. |
 
 ### How to Use Hcomm Interfaces
+
 Include the following header when invoking Hcomm on the Kernel side:
+
 ```cpp
 #include "hcomm/hcomm.h"
 ```
 
 Ordinary interface workflow:
+
 1. Instantiate an `AscendC::Hcomm` object and select the communication protocol.
 2. Call `Init` to initialize temporary workspace.
 3. Submit communication tasks via `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA` or `AtomicCAS`.
@@ -68,20 +76,24 @@ Ascend 950 UB_CTP batch interface workflow:
 A BatchHandle caches SQ/CQ contexts and queue state when it is created. The caller must exclusively own the corresponding single channel or shared Jetty and must not mix ordinary interfaces. Single-channel `MakeBatchHandle` looks up and caches a remote MR token using `remoteAddr`; in shared-Jetty mode, `GetHandleRef` performs that lookup using the logical channel and `remoteAddr`. Subsequent batch reads and writes do not query the MR table again, so remote accesses must use the token cached by that call.
 
 Protocol capability matrix:
+
 | Protocol | Capability Description |
 | --- | --- |
 | `COMM_PROTOCOL_ROCE` | RoCE point-to-point path. Supports ordinary `ReadNbi`, `WriteNbi`, `Commit`, and `Drain`. `WriteWithNotifyNbi` and BatchHandle interfaces are not supported. |
 | `COMM_PROTOCOL_UB_CTP` | UBC CTP/URMA point-to-point path. Supports ordinary `ReadNbi`, `WriteNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, `AtomicCAS`, `Commit`, and `Drain`; BatchHandle interfaces are additionally supported on Ascend 950. |
 
-Refer to [Hcomm Usage Guide](./docs/en/guide/hcomm_usage.md) and [API Reference](./docs/en/api/README.md) for detailed parameter constraints and return value descriptions.
+Refer to [API Reference(Chinese)](./docs/zh/api/README.md) for detailed parameter constraints and return value descriptions.
 
 ### How to Use Ain Interfaces
+
 Include the following header when invoking Ain on the Kernel side:
+
 ```cpp
 #include "ain/ain.h"
 ```
 
 Basic invocation workflow:
+
 1. Instantiate an `AscendC::Ain` object, binding it to a communication context index.
 2. Issue one-sided read/write via `Put`/`PutValue`/`Get`, or a remote atomic signal operation via `Signal`.
 3. If `AIN_COMMIT_DELAYED` is set at submission, submission is deferred until a subsequent `AIN_COMMIT_IMMED` task rings the doorbell; otherwise the task is submitted immediately.
@@ -90,15 +102,18 @@ Basic invocation workflow:
 6. For collective synchronization, use `AinBarrierSession::Sync` to perform a team-level barrier.
 
 Commit mode matrix:
+
 | Mode | Behavior |
 | --- | --- |
 | `AIN_COMMIT_IMMED` | Assembles the communication task and rings the doorbell immediately, submitting it to the underlying engine. |
 | `AIN_COMMIT_DELAYED` | Only assembles the communication task without ringing the doorbell; submission is deferred until a subsequent `AIN_COMMIT_IMMED` task. |
 
-Refer to [API Reference](./docs/en/api/README.md) for detailed parameter constraints and return value descriptions.
+Refer to [API Reference(Chinese)](./docs/zh/api/README.md) for detailed parameter constraints and return value descriptions.
 
 ## 🔍 Directory Layout
+
 This repository contains AICore communication data plane APIs, device-side implementations, samples, documentation and UT cases for asc-comm. The structure is as follows:
+
 ```text
 ├── cmake                         # CMake helper modules for asc-comm
 ├── docs                          # Project documentation
@@ -121,12 +136,15 @@ This repository contains AICore communication data plane APIs, device-side imple
 ```
 
 ## ⚡️ Quick Start
+
 To quickly build the project and run UTs, configure the CANN environment first:
+
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
 ```
 
 Default build for basic environment validation. AICore Hcomm and Ain are header-only; no standalone library will be generated for non-UT builds:
+
 ```bash
 bash build.sh
 ```
@@ -138,6 +156,7 @@ bash build.sh --make_clean
 ```
 
 Build and execute Hcomm and Ain unit tests:
+
 ```bash
 bash build.sh -t
 ```
@@ -149,33 +168,34 @@ bash build.sh --pkg
 ./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
 ```
 
-The packaging script recursively collects headers under `include/` and `src/`. Hcomm is installed under `adv_api`; other headers preserve their relative paths under `comm_api`. See [Build & Test](./docs/en/guide/build_and_test.md) for installation paths, command options, permissions, and uninstallation instructions.
+The packaging script recursively collects headers under `include/` and `src/`. Hcomm is installed under `adv_api`; other headers preserve their relative paths under `comm_api`. See [Build & Test](./docs/build_and_test_en.md) for installation paths, command options, permissions, and uninstallation instructions.
 
 To build UTs directly via CMake, specify the CANN third-party library path:
+
 ```bash
 cmake -S tests/ut -B build/ut-hcomm -DCANN_3RD_LIB_PATH=<third_party_path>
 cmake --build build/ut-hcomm
 ```
 
-See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/en/guide/build_and_test.md) for more details about environment setup, Docker, CANN package installation and UT dependencies.
+See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/build_and_test_en.md) for more details about environment setup, Docker, CANN package installation and UT dependencies.
 
 ## 🧰 Clangd / IDE Support
+
 - Install clangd (version 15 or newer recommended).
 - When configuring local IDEs, add the CANN header directory and the repository `include/` directory to the index paths.
 - Before modifying Hcomm Kernel-side code, run `source /usr/local/Ascend/cann/set_env.sh` to ensure CANN environment variables are loaded.
 - For VS Code, combine C/C++ and clangd extensions to enable code navigation, static checking and header indexing.
 
 ## 📖 Related Resources
+
 - **Documentation**
 
   | Document | Description |
   | --- | --- |
-  | [Documentation Index](./docs/README_en.md) | Main entry for asc-comm documentation. |
   | [Quick Start](./docs/quick_start_en.md) | Environment setup, source compilation and UT verification. |
-  | [API Reference](./docs/en/api/README.md) | List of published asc-comm interfaces. |
-  | [Hcomm Usage Guide](./docs/en/guide/hcomm_usage.md) | Basic workflow for Hcomm point-to-point communication interfaces. |
-  | [Build & Test](./docs/en/guide/build_and_test.md) | CANN environment, development run package, UT and sample build instructions. |
-  | [Third-party Dependencies & Compatibility](./docs/en/guide/dependencies.md) | Direct dependencies, sample runtime dependencies, installation configuration and integration boundaries. |
+  | [API Reference(Chinese)](./docs/zh/api/README.md) | List of published asc-comm interfaces. |
+  | [Build & Test](./docs/build_and_test_en.md) | CANN environment, development run package, UT and sample build instructions. |
+  | [Third-party Dependencies & Compatibility](./docs/dependencies_en.md) | Direct dependencies, sample runtime dependencies, installation configuration and integration boundaries. |
   | [Samples Directory](./examples/README_en.md) | Entry point for asc-comm API samples. |
 
 - **Contribution Guides**
@@ -197,11 +217,13 @@ See [Quick Start](./docs/quick_start_en.md) and [Build & Test](./docs/en/guide/b
   | [Third_Party_Open_Source_Software_Notice](./Third_Party_Open_Source_Software_Notice) | Notices for third-party open-source software. |
 
 ## 📌 Roadmap
+
 - Continuously add end-to-end AIV direct-drive Hcomm samples covering more protocol paths and communication interfaces.
 - Improve build verification and UT coverage across different products and protocol paths.
 - Supplement API constraints, usage guidance and FAQs.
 
 ## 📝 Related Links
+
 - [Contribution Guide](./CONTRIBUTING_en.md)
 - [Security Statement](./SECURITY_en.md)
 - [License](./LICENSE)
