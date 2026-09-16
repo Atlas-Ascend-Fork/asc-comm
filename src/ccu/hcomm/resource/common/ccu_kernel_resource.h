@@ -20,17 +20,17 @@
 namespace asc {
 
 struct ccu_rep_resource {
-    std::array<std::vector<ccu_rep::ccu_buf>, ccu_max_iodie_num> ccubufs;
-    std::array<std::vector<ccu_rep::ccu_buf>, ccu_max_iodie_num> block_ccubufs;
-    std::array<std::vector<ccu_rep::executor>, ccu_max_iodie_num> executor;
-    std::array<std::vector<ccu_rep::executor>, ccu_max_iodie_num> block_executor;
-    std::array<std::vector<ccu_rep::completed_event>, ccu_max_iodie_num> completed_event;
-    std::array<std::vector<ccu_rep::completed_event>, ccu_max_iodie_num> block_completed_event;
-    std::array<std::vector<ccu_rep::address>, ccu_max_iodie_num> address;
-    std::array<std::vector<ccu_rep::address>, ccu_max_iodie_num> block_address;
-    std::array<std::vector<ccu_rep::variable>, ccu_max_iodie_num> continuous_variable;
-    std::array<std::vector<ccu_rep::variable>, ccu_max_iodie_num> variable;
-    std::array<std::vector<ccu_rep::local_notify>, ccu_max_iodie_num> local_notify;
+    std::array<std::vector<ccu_rep::ccu_buf>, CCU_MAX_IODIE_NUM> ccubufs;
+    std::array<std::vector<ccu_rep::ccu_buf>, CCU_MAX_IODIE_NUM> block_ccubufs;
+    std::array<std::vector<ccu_rep::executor>, CCU_MAX_IODIE_NUM> executor;
+    std::array<std::vector<ccu_rep::executor>, CCU_MAX_IODIE_NUM> block_executor;
+    std::array<std::vector<ccu_rep::completed_event>, CCU_MAX_IODIE_NUM> completed_event;
+    std::array<std::vector<ccu_rep::completed_event>, CCU_MAX_IODIE_NUM> block_completed_event;
+    std::array<std::vector<ccu_rep::address>, CCU_MAX_IODIE_NUM> address;
+    std::array<std::vector<ccu_rep::address>, CCU_MAX_IODIE_NUM> block_address;
+    std::array<std::vector<ccu_rep::variable>, CCU_MAX_IODIE_NUM> continuous_variable;
+    std::array<std::vector<ccu_rep::variable>, CCU_MAX_IODIE_NUM> variable;
+    std::array<std::vector<ccu_rep::local_notify>, CCU_MAX_IODIE_NUM> local_notify;
 };
 
 // Context共享资源

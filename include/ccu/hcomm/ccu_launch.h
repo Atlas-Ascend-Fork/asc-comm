@@ -16,13 +16,13 @@
 // 与 hccl 内部类型解耦，符合控制面/数据面 ABI 边界约束。
 #include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/hcomm_ccu_launch.h"
-#include "hcomm/hcomm_ccu_res.h"
+#include "hcomm/hcomm_ccu_resource.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
 
-extern CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle, HcommCcuRegisterContextHandle context_);
+extern CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle);
 
 extern CcuResult asccomm_ccu_kernel_register(
     CcuInsHandle ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,

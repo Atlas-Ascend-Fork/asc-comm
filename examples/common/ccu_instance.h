@@ -15,6 +15,7 @@
 
 #include <hccl/hccl_rank_graph.h>
 #include <ccu/hcomm/ccu_api_types.h>
+#include <hcomm/hcomm_ccu_resource.h>
 
 extern "C" HcclResult HcclCommQueryCcuIns(HcclComm comm, CcuInsHandle* insHandles, uint32_t* insNum);
 
