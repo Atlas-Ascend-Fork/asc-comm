@@ -15,6 +15,7 @@ This directory contains usage samples for asc-comm APIs.
 | [aicore/hcomm/04_simt_urma](./aicore/hcomm/04_simt_urma/README_en.md) | Demonstrates and validates every SIMT URMA interface: `WriteNbi`, `WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`, with immediate and batched submission. | Ascend 950PR / Ascend 950DT |
 | [aicore/hcomm/05_simt_urma_perftest](./aicore/hcomm/05_simt_urma_perftest/README_en.md) | Measures issue latency and completion bandwidth for those five SIMT URMA interfaces under immediate and deferred publication. | Ascend 950PR / Ascend 950DT |
 | [hcomm_jetty_write](./hcomm_jetty_write/README_en.md) | Demonstrates an AIV Kernel submitting WQEs directly to the Jetty SQ through `HcommJetty::Write` and `HcommJetty::WriteValue` in a multi-card scenario, with `Drain` used for completion and verification. | Ascend 950PR / Ascend 950DT |
+| [ccu/ccu_builtin/06_check_op_res_sufficient](./ccu/ccu_builtin/06_check_op_res_sufficient/README_en.md) | Demonstrates how to call `CheckOpResSufficient`: check resources before a CCU builtin operation, then continue with an AllGather flow for verification when the check passes. | Ascend 950PR / Ascend 950DT |
 | [ccu/ccu_direct](./ccu/ccu_direct/01_allgather/README_en.md) | Demonstrates AllGather and other collective communication operations using HCCL communicators and CCU dataplane interfaces with direct `<<<>>>` invocation. | Ascend 950PR/Ascend 950DT |
 
 See the README in each sample directory for build and run instructions.
