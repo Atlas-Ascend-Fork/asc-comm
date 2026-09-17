@@ -810,11 +810,6 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
         cqCtx.contextInfo.ubJfc.scqVa, cqCtx.contextInfo.ubJfc.cqeSize, cqCtx.contextInfo.ubJfc.cqDepth, expectIdx,
         curTail, cqeItem_, sqTail, sqHead, sqDepth, threshold);
     if (ret != HCOMM_SUCCESS) {
-        channelEntity->cqTail = curTail;
-        channelEntity->sqTail = sqTail;
-        __gm__ uint8_t* counterAddr = reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, sqHead);
-        // Flush the four contiguous channel counters: sqHead, sqTail, cqHead, and cqTail.
-        CacheWriteThrough<uint8_t>(counterAddr, 4U * sizeof(uint32_t));
         trap();
         return ret;
     }
@@ -842,11 +837,6 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollBatchCq(UbcBatch
         batchHandle.cqContext.contextInfo.ubJfc.cqDepth, expectIdx, curTail, batchHandle.buffer.buffer,
         batchHandle.cursor.sqTail);
     if (ret != HCOMM_SUCCESS) {
-        channelEntity->cqTail = curTail;
-        channelEntity->sqTail = batchHandle.cursor.sqTail;
-        __gm__ uint8_t* counterAddr = reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, sqHead);
-        // Flush the four contiguous channel counters: sqHead, sqTail, cqHead, and cqTail.
-        CacheWriteThrough<uint8_t>(counterAddr, 4U * sizeof(uint32_t));
         trap();
         return ret;
     }

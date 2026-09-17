@@ -19,6 +19,7 @@ namespace HcommDfx {
 constexpr uint64_t HCOMM_DFX_CHANNEL_CURSOR_OFFSET = 96U;
 constexpr uint64_t HCOMM_DFX_CHANNEL_CURSOR_BYTES = 4U * sizeof(uint32_t);
 constexpr uint64_t HCOMM_DFX_CACHE_LINE_SIZE = 64U;
+constexpr uint32_t HCOMM_DFX_URMA_MUTEX_ID = 29U;
 
 __aicore__ inline void FlushRange(uint64_t addr, uint64_t length)
 {
@@ -62,8 +63,10 @@ extern "C" __vector__ __global__ __aicore__ void hcomm_dfx_queue_read_kernel(Asc
     }
 
     if ((args.flags & AscendC::HCOMM_DFX_QUEUE_READ_FLAG_FLUSH_CHANNEL_CURSORS) != 0U) {
+        AscendC::Mutex::Lock<PIPE_MTE3>(AscendC::HcommDfx::HCOMM_DFX_URMA_MUTEX_ID);
         AscendC::HcommDfx::FlushRange(args.srcAddr + AscendC::HcommDfx::HCOMM_DFX_CHANNEL_CURSOR_OFFSET,
             AscendC::HcommDfx::HCOMM_DFX_CHANNEL_CURSOR_BYTES);
+        AscendC::Mutex::Unlock<PIPE_MTE3>(AscendC::HcommDfx::HCOMM_DFX_URMA_MUTEX_ID);
     }
 
     __gm__ uint8_t *src = reinterpret_cast<__gm__ uint8_t *>(args.srcAddr);
