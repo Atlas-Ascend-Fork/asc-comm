@@ -73,13 +73,13 @@ static CcuResult ExecuteTransfer(AllToAllVCMesh1DContext& ctx)
                 dst_.addr_ = ctx.localOutput;
                 dst_.addr_ += ctx.recvOffsets[rankIdx];
                 dst_.token = ctx.localOutputToken;
-                RETURN_IF_CCU_FAIL(ccu::LocalCopy(dst_, src_, ctx.sendBytes[rankIdx], ctx.event, mask_));
+                RETURN_IF_CCU_FAIL(ccu::local_copy(dst_, src_, ctx.sendBytes[rankIdx], ctx.event, mask_));
             } else {
                 ccu::remote_addr dst_;
                 dst_.addr_ = ctx.remoteOutput[rankIdx];
                 dst_.token = ctx.remoteOutputToken[rankIdx];
                 RETURN_IF_CCU_FAIL(
-                    ccu::Write(ctx.arg->channels[channelId], dst_, src_, ctx.sendBytes[rankIdx], ctx.event, mask_));
+                    ccu::write(ctx.arg->channels[channelId], dst_, src_, ctx.sendBytes[rankIdx], ctx.event, mask_));
             }
         }
         CCU_IF(ctx.sendBytes[rankIdx] == 0) { RETURN_IF_CCU_FAIL(ccu::event_record(ctx.event, mask_)); }

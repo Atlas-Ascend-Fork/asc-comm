@@ -9,6 +9,12 @@
 # ----------------------------------------------------------------------------------------------------------
 
 # 引入 CANN/cmake 库
+if(NOT DEFINED ENV{CCACHE_DIR})
+    set(ENV{CCACHE_DIR} "/tmp/asc-comm-ccache")
+endif()
+if(NOT DEFINED ENV{CCACHE_TEMPDIR})
+    set(ENV{CCACHE_TEMPDIR} "/tmp/asc-comm-ccache-tmp")
+endif()
 if(NOT PROJECT_SOURCE_DIR)
     if(CANN_3RD_LIB_PATH AND IS_DIRECTORY "${CANN_3RD_LIB_PATH}/cann-cmake")
         include("${CANN_3RD_LIB_PATH}/cann-cmake/function/prepare.cmake")

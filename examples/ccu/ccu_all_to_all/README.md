@@ -11,7 +11,7 @@ rank r sendBuf = [to_rank_0 | to_rank_1 | ... | to_rank_N-1]
 rank p recvBuf = [from_rank_0 | from_rank_1 | ... | from_rank_N-1]
 ```
 
-CCU kernel 使用 `GroupCopy` 完成本地段复制，并使用 `ccu::Write` 将其他输入段写入远端输出。AllToAll 不执行归约。
+CCU kernel 使用 `GroupCopy` 完成本地段复制，并使用 `ccu::write` 将其他输入段写入远端输出。AllToAll 不执行归约。
 
 样例约束：
 

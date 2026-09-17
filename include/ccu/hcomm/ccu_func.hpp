@@ -92,8 +92,8 @@ private:
 
 // ccu::CallFunc：global / static ccu::func 引用 NTTP（C++14 合法）。
 // 用法：static ccu::func MyAdd(lambda); ... ccu::CallFunc<MyAdd>(x, y);
-template <func& Obj, typename... args>
-inline CcuResult CallFunc(args... args_)
+template <func& Obj, typename... arg_types>
+inline CcuResult CallFunc(arg_types... args)
 {
     constexpr std::size_t kArgN = sizeof...(args);
     if (static_cast<uint32_t>(kArgN) != Obj.NumIn()) {
@@ -106,7 +106,7 @@ inline CcuResult CallFunc(args... args_)
         // 第一次进入：合成 func_block
         CCU_THROW_IF_FAILED(::asc::ccu_func_block_begin(Obj.Key(), &handle), "CallFunc: ccu_func_block_begin failed");
 
-        // 形参：按 lambda 形参个数 alloc，并注册为 func_block 的 in args_
+        // 形参：按 lambda 形参个数 alloc，并注册为 func_block 的 in args
         std::vector<variable> formals(Obj.NumIn());
         for (uint32_t i = 0; i < Obj.NumIn(); i++) {
             CCU_THROW_IF_FAILED(::asc::ccu_variable_alloc(&formals[i].handle), "CallFunc: ccu_variable_alloc failed");
@@ -126,7 +126,7 @@ inline CcuResult CallFunc(args... args_)
         std::size_t i = 0;
         // C++14 兼容的参数包展开
         using expand_t = int[];
-        (void)expand_t{0, ((void)(actuals[i++] = args_.handle), 0)...};
+        (void)expand_t{0, ((void)(actuals[i++] = args.handle), 0)...};
         (void)i;
     }
     return ::asc::ccu_func_call(handle, actuals.empty() ? nullptr : actuals.data(), static_cast<uint32_t>(kArgN));

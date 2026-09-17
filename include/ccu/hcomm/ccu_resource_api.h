@@ -21,49 +21,49 @@ extern "C" {
 
 /**
  * @brief Reserve contiguous variable (XN) resources on a CCU instance.
- * @param_[in] ins_handle CCU instance handle.
- * @param_[in] dieId IO die that owns the resources.
- * @param_[in] num_ Number of contiguous resources to reserve; must be greater than zero.
- * @param_[out] var_handle Reservation handle; set to zero on failure.
+ * @param[in] ins_handle CCU instance handle.
+ * @param[in] dieId IO die that owns the resources.
+ * @param[in] num Number of contiguous resources to reserve; must be greater than zero.
+ * @param[out] var_handle Reservation handle; set to zero on failure.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
 extern CcuResult asccomm_ccu_variable_alloc(
-    CcuInsHandle ins_handle, uint8_t die_id, uint32_t num_, ccu_variable_handle* var_handle);
+    CcuInsHandle ins_handle, uint8_t die_id, uint32_t num, ccu_variable_handle* var_handle);
 
 /**
  * @brief Reserve contiguous event (CKE) resources on a CCU instance.
- * @param_[in] ins_handle CCU instance handle.
- * @param_[in] dieId IO die that owns the resources.
- * @param_[in] num_ Number of contiguous resources to reserve; must be greater than zero.
- * @param_[out] event_handle Reservation handle; set to zero on failure.
+ * @param[in] ins_handle CCU instance handle.
+ * @param[in] dieId IO die that owns the resources.
+ * @param[in] num Number of contiguous resources to reserve; must be greater than zero.
+ * @param[out] event_handle Reservation handle; set to zero on failure.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
 extern CcuResult asccomm_ccu_event_alloc(
-    CcuInsHandle ins_handle, uint8_t die_id, uint32_t num_, ccu_event_handle* event_handle);
+    CcuInsHandle ins_handle, uint8_t die_id, uint32_t num, ccu_event_handle* event_handle);
 
 /**
  * @brief Query the process-accessible address of a reserved variable resource.
- * @param_[in] var_handle Handle returned by asccomm_ccu_variable_alloc.
- * @param_[in] index Index within the reserved range.
- * @param_[out] va Process-accessible virtual address.
+ * @param[in] var_handle Handle returned by asccomm_ccu_variable_alloc.
+ * @param[in] index Index within the reserved range.
+ * @param[out] va Process-accessible virtual address.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
 extern CcuResult asccomm_ccu_variable_get_addr(ccu_variable_handle var_handle, uint32_t index, uint64_t* va);
 
 /**
  * @brief Query the process-accessible address of a reserved event resource.
- * @param_[in] event_handle Handle returned by asccomm_ccu_event_alloc.
- * @param_[in] index Index within the reserved range.
- * @param_[out] va Process-accessible virtual address.
+ * @param[in] event_handle Handle returned by asccomm_ccu_event_alloc.
+ * @param[in] index Index within the reserved range.
+ * @param[out] va Process-accessible virtual address.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
 extern CcuResult asccomm_ccu_event_get_addr(ccu_event_handle event_handle, uint32_t index, uint64_t* va);
 
 /**
  * @brief Query the CCU access token for a local memory range.
- * @param_[in] src_va Start virtual address of a registered memory range.
- * @param_[in] size Size of the memory range in bytes; must be greater than zero.
- * @param_[out] token_info Calculated token.
+ * @param[in] src_va Start virtual address of a registered memory range.
+ * @param[in] size Size of the memory range in bytes; must be greater than zero.
+ * @param[out] token_info Calculated token.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
 extern CcuResult asccomm_ccu_get_mem_token(uint64_t src_va, uint64_t size, uint64_t* token_info);
