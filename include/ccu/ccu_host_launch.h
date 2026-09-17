@@ -82,9 +82,10 @@ typedef struct {
 typedef CcuResult ccu_result;
 
 extern ccu_result asccomm_ccu_host_kernel_launch(
-    const void* kernel_func, const asccomm_launch_kernel_cfg* cfg, void* args);
+    const void* kernel_func, const char* kernel_name, const asccomm_launch_kernel_cfg* cfg, void* args);
 
-extern CcuResult HcommCcuHostKernelLaunch(const void* kernel_func, const HcommLaunchKernelCfg* cfg, void* args);
+extern CcuResult HcommCcuHostKernelLaunch(
+    const void* kernel_func, const char* kernel_name, const HcommLaunchKernelCfg* cfg, void* args);
 
 extern uint64_t HcommCcuGetLaunchHashTag(const char* tag);
 extern uint64_t asccomm_ccu_get_launch_hash_tag(const char* tag);
