@@ -24,6 +24,7 @@ set(UT_COMMON_INCLUDE_LIST
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
     ${ASCCOMM_UT_ROOT}/ccu/stub
     ${ASCCOMM_CANN_INCLUDE_DIRS}
 )
@@ -191,6 +192,42 @@ target_link_libraries(hccl_utest_comms_ccu_features PRIVATE
 add_dependencies(hccl_utest_comms_ccu_features asccomm_ccu_llt_stub_abi0)
 
 add_test(NAME hccl_utest_comms_ccu_features COMMAND hccl_utest_comms_ccu_features)
+
+set(CCU_TRANSFER_TEST_SOURCES
+    main.cc
+    ut_ccu_primitives_transfer.cc
+)
+
+add_executable(hccl_utest_comms_ccu_primitives_transfer ${CCU_TRANSFER_TEST_SOURCES})
+target_include_directories(hccl_utest_comms_ccu_primitives_transfer PRIVATE
+    ${UT_COMMON_INCLUDE_LIST}
+)
+target_compile_definitions(hccl_utest_comms_ccu_primitives_transfer PRIVATE
+    ASCCOMM_CCU_LOCAL_LOGGING
+    _GLIBCXX_USE_CXX11_ABI=0
+    google=ascend_private
+    -DOPEN_HCCL_TEST
+    OPEN_BUILD_PROJECT
+)
+target_compile_options(hccl_utest_comms_ccu_primitives_transfer PRIVATE
+    -U_FORTIFY_SOURCE
+    -fno-var-tracking-assignments
+    -Os
+    -O0 -g --coverage -fprofile-arcs -ftest-coverage -fno-access-control
+    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address -fsanitize-recover=address,all -fno-omit-frame-pointer>
+)
+target_link_libraries(hccl_utest_comms_ccu_primitives_transfer PRIVATE
+    $<$<STREQUAL:${ENABLE_ASAN},true>:-fsanitize=address>
+    ${ASCEND_CANN_ARCH_DIR}/lib64/libasccomm_ccu.so
+    asccomm_gtest_abi0
+    -pthread
+    asccomm_ccu_llt_stub_abi0
+    -lgcov
+    -lrt
+    -ldl
+)
+add_dependencies(hccl_utest_comms_ccu_primitives_transfer asccomm_ccu_llt_stub_abi0)
+add_test(NAME hccl_utest_comms_ccu_primitives_transfer COMMAND hccl_utest_comms_ccu_primitives_transfer)
 
 add_executable(hccl_utest_comms_asc_ccu_res_snapshot
     resource/common/asc_ccu_res_snapshot_main.cc
