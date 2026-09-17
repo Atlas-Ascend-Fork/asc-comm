@@ -112,7 +112,7 @@ docs/en/guide/ ──First API reference──→ docs/en/api/README.md
                 ──Sample reference──→ examples/README_en.md
 
 docs/en/api/ ──Usage workflow──→ docs/en/guide/hcomm_usage.md
-             ──Invocation sample──→ examples/hcomm_write_read_nbi/README_en.md
+             ──Invocation sample──→ examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md
 ```
 
 ## More Information

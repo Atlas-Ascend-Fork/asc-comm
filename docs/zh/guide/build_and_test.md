@@ -201,11 +201,11 @@ bash build.sh -t --cann_3rd_lib_path=<path-to-third-party>
 
 ## 样例构建与运行
 
-`examples/hcomm_write_read_nbi`提供AIV直驱URMA `WriteNbi`和`ReadNbi`点对点通信样例。该样例使用独立CMake工程构建：
+`examples/aicore/hcomm/01_hcomm_write_read_nbi`提供AIV直驱URMA `WriteNbi`和`ReadNbi`点对点通信样例。该样例使用独立CMake工程构建：
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
-cd examples/hcomm_write_read_nbi
+cd examples/aicore/hcomm/01_hcomm_write_read_nbi
 mkdir -p build
 cd build
 cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..

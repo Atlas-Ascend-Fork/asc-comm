@@ -184,6 +184,6 @@ The lock is not reentrant. Every successful `Lock` must be followed by `Unlock` 
 
 ## Samples
 
-See [hcomm_write_read_nbi](../../../examples/hcomm_write_read_nbi/README_en.md) for the ordinary AIV Kernel-side API workflow and Host-side communication resource creation. See [hcomm_batch_write](../../../examples/hcomm_batch_write/README_en.md) for the multi-channel batch write workflow.
+See [hcomm_write_read_nbi](../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md) for the ordinary AIV Kernel-side API workflow and Host-side communication resource creation. See [hcomm_batch_write](../../../examples/aicore/hcomm/02_hcomm_batch_write/README_en.md) for the multi-channel batch write workflow.
 
 Both samples require Ascend 950PR/Ascend 950DT and at least two NPUs for runtime verification. A single-device environment supports compilation only.
