@@ -949,7 +949,7 @@ CcuResult ccu_kernel::local_copy_mem_to_buffer(
     ccu_event_handle event_handle, uint32_t mask)
 {
     HCCL_INFO(
-        "[LocalCopyMemToBuffer] dstHandle=%llu, srcHandle=%llu, lenHandle=%llu,"
+        "[local_copy_mem_to_buffer] dstHandle=%llu, srcHandle=%llu, lenHandle=%llu,"
         " eventHandle=%llu, mask=%u",
         dst_handle, src_handle, len_handle, event_handle, mask);
     ccu_rep::ccu_buf* dst{nullptr};
@@ -969,7 +969,7 @@ CcuResult ccu_kernel::local_copy_buffer_to_mem(
     ccu_event_handle event_handle, uint32_t mask)
 {
     HCCL_INFO(
-        "[LocalCopyBufferToMem] dstHandle=%llu, srcHandle=%llu, lenHandle=%llu,"
+        "[local_copy_buffer_to_mem] dstHandle=%llu, srcHandle=%llu, lenHandle=%llu,"
         " eventHandle=%llu, mask=%u",
         dst_handle, src_handle, len_handle, event_handle, mask);
     ccu_rep::local_addr* dst{nullptr};
@@ -989,7 +989,7 @@ CcuResult ccu_kernel::local_copy_mem_to_mem(
     ccu_event_handle event_handle, uint32_t mask)
 {
     HCCL_INFO(
-        "[LocalCopyMemToMem] dstHandle=%llu, srcHandle=%llu, lenHandle=%llu,"
+        "[local_copy_mem_to_mem] dstHandle=%llu, srcHandle=%llu, lenHandle=%llu,"
         " eventHandle=%llu, mask=%u",
         dst_handle, src_handle, len_handle, event_handle, mask);
     ccu_rep::local_addr* dst{nullptr};
@@ -1148,7 +1148,7 @@ CcuResult ccu_kernel::write_mem_to_mem(
     ccu_variable_handle len_handle, ccu_event_handle event_handle, uint32_t mask)
 {
     HCCL_INFO(
-        "[WriteMemToMem] channel=%llu, remoteHandle=%llu, localHandle=%llu,"
+        "[write_mem_to_mem] channel=%llu, remoteHandle=%llu, localHandle=%llu,"
         " lenHandle=%llu, eventHandle=%llu, mask=%u",
         channel, remote_handle, local_handle, len_handle, event_handle, mask);
     channels_.insert(channel);
@@ -1167,7 +1167,7 @@ CcuResult ccu_kernel::write_buffer_to_mem(
     ccu_variable_handle len_handle, ccu_event_handle event_handle, uint32_t mask)
 {
     HCCL_INFO(
-        "[WriteBufferToMem] channel=%llu, remoteHandle=%llu, bufHandle=%llu,"
+        "[write_buffer_to_mem] channel=%llu, remoteHandle=%llu, bufHandle=%llu,"
         " lenHandle=%llu, eventHandle=%llu, mask=%u",
         channel, remote_handle, local_handle, len_handle, event_handle, mask);
     channels_.insert(channel);
@@ -1187,7 +1187,7 @@ CcuResult ccu_kernel::write_mem_to_mem_reduce(
     uint32_t mask)
 {
     HCCL_INFO(
-        "[WriteMemToMemReduce] channel=%llu, lenHandle=%llu, dataType=%d, op=%d,"
+        "[write_mem_to_mem_reduce] channel=%llu, lenHandle=%llu, dataType=%d, op=%d,"
         " eventHandle=%llu, mask=%u",
         channel, len_handle, data_type, op_type, event_handle, mask);
     channels_.insert(channel);

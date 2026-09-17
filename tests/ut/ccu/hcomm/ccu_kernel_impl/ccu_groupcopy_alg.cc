@@ -24,9 +24,9 @@ CcuResult AgCreateMultiOpCopy(AllGatherContext& ctx)
         ccu::ccu_buffer& buf = ctx.moRes.ccuBuf[index * ctx.moConfig.ms_interleave];
 
         ctx.copyBody[index].reset(new ccu::func([&ctx, index, buf, loopEvt]() {
-            ccu::LocalCopy(buf, ctx.loopSrc[index], ctx.loopLen[index], loopEvt, 1);
+            ccu::local_copy(buf, ctx.loopSrc[index], ctx.loopLen[index], loopEvt, 1);
             ccu::event_wait(loopEvt, 1);
-            ccu::LocalCopy(ctx.loopDst[index], buf, ctx.loopLen[index], loopEvt, 1);
+            ccu::local_copy(ctx.loopDst[index], buf, ctx.loopLen[index], loopEvt, 1);
             ccu::event_wait(loopEvt, 1);
         }));
         ctx.copyLoops[index].reset(new ccu::loop(ctx.copyLoopParam[index], *ctx.copyBody[index]));

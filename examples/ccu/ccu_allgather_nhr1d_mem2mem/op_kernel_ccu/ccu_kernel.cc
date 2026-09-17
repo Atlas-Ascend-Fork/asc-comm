@@ -76,9 +76,9 @@ static void InitGroupCopyResources(
             const uint32_t bufBase = index * ctx.moConfig.ms_interleave;
             ccu::event loopEvt = ctx.moRes.completed_event[index];
             entity.body[index].reset(new ccu::func([&ctx, index, bufBase, loopEvt, loopSrc, loopDst, loopLen]() {
-                ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
+                ccu::local_copy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
                 ccu::event_wait(loopEvt, 1);
-                ccu::LocalCopy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
+                ccu::local_copy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
                 ccu::event_wait(loopEvt, 1);
             }));
             entity.loops[index].reset(new ccu::loop(entity.loop_param_[index], *entity.body[index]));
@@ -268,7 +268,7 @@ static CcuResult RunNhrStep(AllGatherNhr1DMem2MemContext& ctx, const NhrStepInfo
         }
         dst_.token = ctx.token[stepInfo.toRank];
 
-        ccu::Write(sendChannel, dst_, src_, ctx.chunkSize, ctx.transferEvent, TRANSFER_EVENT_MASK);
+        ccu::write(sendChannel, dst_, src_, ctx.chunkSize, ctx.transferEvent, TRANSFER_EVENT_MASK);
         ccu::event_wait(ctx.transferEvent, TRANSFER_EVENT_MASK);
     }
 
