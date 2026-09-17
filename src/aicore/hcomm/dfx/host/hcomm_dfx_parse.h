@@ -126,7 +126,6 @@ inline void AppendCqContext(std::string &out, uint32_t idx, const HcommDfxQueueC
 }
 
 constexpr uint32_t HCOMM_DFX_RAW_WORD_BYTES = 4U;
-constexpr uint32_t HCOMM_DFX_RAW_BB_BYTES = 64U;
 
 inline void AppendRawWords(std::string &out, const uint8_t *data, uint32_t size)
 {
@@ -144,7 +143,7 @@ inline void AppendRawWords(std::string &out, const uint8_t *data, uint32_t size)
 }
 
 inline void AppendRawQueueEntry(std::string &out, const char *tag, const char *cursorName,
-                                const char *tailName, const HcommDfxQueueEntry &entry, bool splitByBb)
+                                const char *tailName, const HcommDfxQueueEntry &entry)
 {
     if (entry.readStatus != HCOMM_DFX_READ_OK) {
         if (tailName != nullptr) {
@@ -158,32 +157,24 @@ inline void AppendRawQueueEntry(std::string &out, const char *tag, const char *c
         return;
     }
 
-    const uint32_t blockSize = splitByBb ? HCOMM_DFX_RAW_BB_BYTES : entry.size;
-    for (uint32_t offset = 0U, bb = 0U; offset < entry.size; offset += blockSize, ++bb) {
-        const uint32_t curSize = std::min<uint32_t>(blockSize, entry.size - offset);
-        if (tailName != nullptr) {
-            DfxAppend(out, "%s[%s=%u %s=%u bb=%u addr=0x%llx size=%u]: ",
-                tag, cursorName, entry.cursor + bb, tailName, entry.cursor + bb, bb,
-                static_cast<unsigned long long>(entry.addr + offset), curSize);
-        } else {
-            DfxAppend(out, "%s[%s=%u bb=%u addr=0x%llx size=%u]: ",
-                tag, cursorName, entry.cursor + bb, bb,
-                static_cast<unsigned long long>(entry.addr + offset), curSize);
-        }
-        AppendRawWords(out, entry.data + offset, curSize);
-        DfxAppend(out, "\n");
+    if (tailName != nullptr) {
+        DfxAppend(out, "%s[%s=%u %s=%u]: ", tag, cursorName, entry.cursor, tailName, entry.cursor);
+    } else {
+        DfxAppend(out, "%s[%s=%u]: ", tag, cursorName, entry.cursor);
     }
+    AppendRawWords(out, entry.data, entry.size);
+    DfxAppend(out, "\n");
 }
 
 // Compatibility helpers for the old non-group path.
 inline void AppendWqe(std::string &out, const HcommDfxQueueEntry &entry)
 {
-    AppendRawQueueEntry(out, "WQE", "sqHead", nullptr, entry, true);
+    AppendRawQueueEntry(out, "WQE", "sqHead", nullptr, entry);
 }
 
 inline void AppendCqe(std::string &out, const HcommDfxQueueEntry &entry)
 {
-    AppendRawQueueEntry(out, "CQE", "cqHead", "currentTail", entry, true);
+    AppendRawQueueEntry(out, "CQE", "cqHead", "currentTail", entry);
 }
 
 inline void AppendWqeGroup(std::string &out, const std::vector<const HcommDfxQueueEntry *> &entries)

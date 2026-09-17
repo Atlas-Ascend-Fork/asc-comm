@@ -64,41 +64,6 @@ inline bool CopyFromDevice(uint64_t src, T &dst, const char *tag)
     return CopyFromDevice(&dst, static_cast<uint32_t>(sizeof(T)), src, static_cast<uint32_t>(sizeof(T)));
 }
 
-inline uint32_t SqWqeReadBytes(uint32_t wqeSize)
-{
-    uint32_t bytes = wqeSize <= HCOMM_DFX_QUEUE_ENTRY_BYTES / 2U ? wqeSize * 2U : wqeSize;
-    return std::min<uint32_t>(bytes, HCOMM_DFX_QUEUE_ENTRY_BYTES);
-}
-
-inline uint32_t SqWqeContinuationBlocks(const HcommDfxQueueEntry &entry)
-{
-    if (entry.readStatus != HCOMM_DFX_READ_OK || entry.size < sizeof(HcommUrmaSqeCtx)) {
-        return 0U;
-    }
-    HcommUrmaSqeCtx wqe;
-    std::memset(&wqe, 0, sizeof(wqe));
-    std::memcpy(&wqe, entry.data, sizeof(wqe));
-    const auto opcode = static_cast<HcommUrmaOpCode>(wqe.opcode);
-    if (opcode == HcommUrmaOpCode::WRITE_WITH_NOTIFY || opcode == HcommUrmaOpCode::CAS ||
-        opcode == HcommUrmaOpCode::FAA) {
-        return 1U;
-    }
-    return 0U;
-}
-
-inline const HcommDfxQueueEntry *FindQueueEntry(const HcommDfxQueueEntryList &entries, uint32_t entryType,
-                                                uint32_t queueIndex, uint32_t entryIndex, uint32_t cursor,
-                                                uint64_t addr)
-{
-    for (auto it = entries.rbegin(); it != entries.rend(); ++it) {
-        if (it->entryType == entryType && it->queueIndex == queueIndex && it->entryIndex == entryIndex &&
-            it->cursor == cursor && it->addr == addr) {
-            return &(*it);
-        }
-    }
-    return nullptr;
-}
-
 inline void *CreateQueueReader()
 {
     auto *ctx = new (std::nothrow) QueueReadContext;
@@ -339,34 +304,21 @@ inline bool SampleSqEntries(uint32_t queueIndex, uint64_t va, uint32_t depth, ui
               static_cast<unsigned long long>(va), depth, wqeSize, sqHead, sqTail);
         return false;
     }
-    const uint32_t readBytes = SqWqeReadBytes(wqeSize);
-    // Prefer CQ-side outstanding entries so WQE/CQE samples line up for completion errors. If CQ is already drained
-    // but SQ still points at residual BBs, walk the SQ range directly to preserve timeout/failure context.
-    const uint32_t cqOutstanding = cqHead - cqTail;
-    const bool sampleSqResidual = (cqOutstanding == 0U && sqHead != sqTail);
-    const uint32_t countLimit = sampleSqResidual ? depth : std::min<uint32_t>(cqOutstanding, depth);
+    (void)cqHead;
+    (void)cqTail;
+    const uint32_t countLimit = std::min<uint32_t>(sqHead - sqTail, depth);
     uint32_t cursor = sqTail;
     for (uint32_t idx = 0; idx < countLimit; ++idx) {
-        if (sampleSqResidual && cursor == sqHead) {
-            break;
-        }
         const uint32_t slot = cursor % depth;
         if (!AppendQueueEntryWrapped(reader, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, slot, cursor,
-                                     va, depth, wqeSize, readBytes, entries)) {
+                                     va, depth, wqeSize, wqeSize, entries)) {
             LogError("sq sample stop queue=%u slot=%u cursor=%u base=0x%llx depth=%u wqeSize=%u readBytes=%u "
                   "sqHead=%u sqTail=%u cqHead=%u cqTail=%u",
-                  queueIndex, slot, cursor, static_cast<unsigned long long>(va), depth, wqeSize, readBytes,
+                  queueIndex, slot, cursor, static_cast<unsigned long long>(va), depth, wqeSize, wqeSize,
                   sqHead, sqTail, cqHead, cqTail);
             return false;
         }
-        const uint64_t addr = va + static_cast<uint64_t>(slot) * static_cast<uint64_t>(wqeSize);
-        const HcommDfxQueueEntry *entry = FindQueueEntry(entries, HCOMM_DFX_ENTRY_URMA_WQE, queueIndex, slot,
-                                                         cursor, addr);
-        cursor += 1U + (entry == nullptr ? 0U : SqWqeContinuationBlocks(*entry));
-    }
-    if (sampleSqResidual && cursor != sqHead) {
-        LogError("sq residual sample stopped queue=%u cursor=%u sqHead=%u sqTail=%u depth=%u",
-              queueIndex, cursor, sqHead, sqTail, depth);
+        cursor += 1U;
     }
     return true;
 }
