@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# -----------------------------------------------------------------------------------------------------------
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms of conditions of
+# CANN Open Software License Agreement Version 2.0 ("License").
+# Please refer to the License for details.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+# -----------------------------------------------------------------------------------------------------------
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCENARIO="${SCENARIO_NUM:-1}"
+BUILD_DIR="${SCRIPT_DIR}/build-${SCENARIO}"
+
+if [ "${ASCEND_HOME_PATH:-}" = "" ]; then
+    echo "ASCEND_HOME_PATH is not set. Please set environment before running this script." >&2
+    exit 1
+fi
+
+cmake -S "${SCRIPT_DIR}" -B "${BUILD_DIR}" \
+    -DASCEND_HOME_PATH="${ASCEND_HOME_PATH}" \
+    -DSCENARIO_NUM="${SCENARIO}"
+cmake --build "${BUILD_DIR}" -j"$(nproc)"
+exec "${BUILD_DIR}/ccu_transfer"
