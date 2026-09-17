@@ -810,6 +810,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
         cqCtx.contextInfo.ubJfc.scqVa, cqCtx.contextInfo.ubJfc.cqeSize, cqCtx.contextInfo.ubJfc.cqDepth, expectIdx,
         curTail, cqeItem_, sqTail, sqHead, sqDepth, threshold);
     if (ret != HCOMM_SUCCESS) {
+        trap();
         return ret;
     }
 
@@ -830,16 +831,17 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollBatchCq(UbcBatch
     }
 
     uint32_t curTail = batchHandle.cursor.cqTail;
+    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
     uint32_t ret = PollCqImpl<false>(
         batchHandle.cqContext.contextInfo.ubJfc.scqVa, batchHandle.cqContext.contextInfo.ubJfc.cqeSize,
         batchHandle.cqContext.contextInfo.ubJfc.cqDepth, expectIdx, curTail, batchHandle.buffer.buffer,
         batchHandle.cursor.sqTail);
     if (ret != HCOMM_SUCCESS) {
+        trap();
         return ret;
     }
 
     batchHandle.cursor.cqTail = curTail;
-    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
     channelEntity->sqTail = batchHandle.cursor.sqTail;
     channelEntity->cqTail = curTail;
     st_dev(curTail & 0xFFFFFFU, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.dbVa), 0);
