@@ -12,6 +12,7 @@
 | [hcomm_batch_write](./hcomm_batch_write/README.md) | 演示多个URMA Channel共享Jetty，并通过`MakeBatchHandle`、`GetHandleRef`、`BatchCommit`和`Drain`批量提交跨peer写任务。 | Ascend 950PR/Ascend 950DT |
 | [hcomm_write_read_nbi](./hcomm_write_read_nbi/README.md) | 演示多卡场景下AIV Kernel通过URMA路径调用`Hcomm::WriteNbi`和`Hcomm::ReadNbi`，并校验通信结果。 | Ascend 950PR/Ascend 950DT |
 | [one_multi_path](./one_multi_path/README.md) | 查询`UB_MEM`链路，为每个peer创建one path/multi path Channel，逐个处理peer，并通过双Stream并发搬运和校验该peer的远端数据。 | Ascend 950PR/Ascend 950DT |
+| [ccu/ccu_builtin/06_check_op_res](./ccu/ccu_builtin/06_check_op_res/README.md) | 调用AllGather前使用CheckOpResSufficient校验资源是否充足，再按builtin流程真实执行AllGather并逐元素校验结果。 | Ascend 950PR/Ascend 950DT |
 | [simt_urma](./simt_urma/README.md) | 演示并验证全部 SIMT URMA 接口：`WriteNbi`、`WriteValueNbi`、`WriteWithNotifyNbi`、`AtomicFAA` 和 `AtomicCAS`，覆盖立即提交与批量提交。 | Ascend 950PR / Ascend 950DT |
 | [simt_urma_perftest](./simt_urma_perftest/README.md) | 测量上述五个 SIMT URMA 接口的下发时延与完成带宽，覆盖立即提交/延迟提交两种发布策略。 | Ascend 950PR / Ascend 950DT |
 
