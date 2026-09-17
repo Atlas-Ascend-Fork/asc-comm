@@ -99,7 +99,7 @@ static CcuResult AgDoAllGather(
         if (rankIdx == arg->rankId) {
             CCU_CHK_RET(ccu::event_record(ctx.event, rankMask));
         } else {
-            CCU_CHK_RET(ccu::Write(arg->channels[channelId], dst_[rankIdx], src_, sliceSize, ctx.event, rankMask));
+            CCU_CHK_RET(ccu::write(arg->channels[channelId], dst_[rankIdx], src_, sliceSize, ctx.event, rankMask));
             channelId++;
         }
     }

@@ -51,7 +51,7 @@ static CcuResult BroadcastFromRoot(BroadcastMesh1DContext& ctx)
         ccu::remote_addr dst_;
         dst_.addr_ = ctx.remoteBuffer[rankIdx];
         dst_.token = ctx.remoteToken[rankIdx];
-        RETURN_IF_CCU_FAIL(ccu::Write(ctx.arg->channels[channelId], dst_, src_, ctx.data_size, ctx.event, mask_));
+        RETURN_IF_CCU_FAIL(ccu::write(ctx.arg->channels[channelId], dst_, src_, ctx.data_size, ctx.event, mask_));
         remoteMask |= mask_;
         channelId++;
     }

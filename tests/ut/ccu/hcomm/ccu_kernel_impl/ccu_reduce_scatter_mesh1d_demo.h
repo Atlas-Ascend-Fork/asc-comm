@@ -397,10 +397,10 @@ static CcuResult CreateReduceLoop(ReduceScatterContext& ctx)
             for (uint32_t i = 0; i < size; i++) {
                 const uint32_t copyMask = 1 << i;
                 if (i == arg->rankId) {
-                    ccu::LocalCopy(
+                    ccu::local_copy(
                         ctx.moRes.ccuBuf[bufBase + i], ctx.loopSrc[index], ctx.loopLen[index], loopEvt, copyMask);
                 } else {
-                    ccu::LocalCopy(
+                    ccu::local_copy(
                         ctx.moRes.ccuBuf[bufBase + i], ctx.loopScratch[index][i], ctx.loopLen[index], loopEvt,
                         copyMask);
                 }
@@ -414,7 +414,7 @@ static CcuResult CreateReduceLoop(ReduceScatterContext& ctx)
                 ccu::event_wait(loopEvt, 1);
             }
 
-            ccu::LocalCopy(ctx.loopDst[index], ctx.moRes.ccuBuf[bufBase], ctx.loopLenExp[index], loopEvt, 1);
+            ccu::local_copy(ctx.loopDst[index], ctx.moRes.ccuBuf[bufBase], ctx.loopLenExp[index], loopEvt, 1);
             ccu::event_wait(loopEvt, 1);
         }));
         ctx.reduceLoops[index].reset(new ccu::loop(ctx.reduceLoopParam[index], *ctx.reduceBody[index]));

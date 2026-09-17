@@ -84,9 +84,9 @@ static void InitGroupCopyResources(
             uint32_t bufBase = index * ctx.moConfig.ms_interleave;
             ccu::event loopEvt = ctx.moRes.completed_event[index];
             entity.body[index].reset(new ccu::func([&ctx, index, bufBase, loopEvt, loopSrc, loopDst, loopLen]() {
-                ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
+                ccu::local_copy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
                 ccu::event_wait(loopEvt, 1);
-                ccu::LocalCopy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
+                ccu::local_copy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
                 ccu::event_wait(loopEvt, 1);
             }));
             entity.loops[index].reset(new ccu::loop(entity.loop_param_[index], *entity.body[index]));
@@ -220,7 +220,7 @@ static CcuResult ExecuteReduceScatterTransfer(ReduceScatterMesh1DMem2MemContext&
                     remoteRankSrc.addr_ += ctx.rankSliceSize;
                 }
                 remoteRankSrc.token = ctx.inputToken;
-                RETURN_IF_CCU_FAIL(ccu::WriteReduce(
+                RETURN_IF_CCU_FAIL(ccu::write_reduce(
                     ctx.arg->channels[channelId], remoteDst[rankIdx], remoteRankSrc, ctx.sliceSize,
                     HcclDataType::HCCL_DATA_TYPE_FP32, HcclReduceOp::HCCL_REDUCE_SUM, ctx.event, mask_));
                 remoteMask |= mask_;

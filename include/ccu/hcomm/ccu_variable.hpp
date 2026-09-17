@@ -27,7 +27,7 @@ class remote_addr;
 template <typename u>
 class array;
 template <typename t>
-t GetResByChannel(ChannelHandle channel_, uint32_t index);
+t GetResByChannel(ChannelHandle channel, uint32_t index);
 
 struct cond_expr {
     variable* var_;
@@ -58,10 +58,10 @@ public:
 
     void operator=(variable&& other) { this->handle = other.handle; }
 
-    void operator=(uint64_t immediate_) const
+    void operator=(uint64_t immediate) const
     {
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_variable_assign_imm(this->handle, immediate_),
+            ::asc::ccu_variable_assign_imm(this->handle, immediate),
             "variable::operator=(uint64_t): ccu_variable_assign_imm failed");
     }
 
@@ -86,7 +86,7 @@ public:
                     "variable::operator=(Var>>Var): ccu_variable_shr_var_to_var failed");
                 break;
             default:
-                throw detail::ccu_exception(CcuResult::CCU_E_PARA, "variable::operator=: invalid shift operator type_");
+                throw detail::ccu_exception(CcuResult::CCU_E_PARA, "variable::operator=: invalid shift operator type");
         }
     }
 
@@ -127,9 +127,9 @@ public:
             "variable::operator>>=(variable): ccu_variable_shr_var_to_var failed");
     }
 
-    cond_expr operator==(uint64_t immediate_) { return cond_expr{this, immediate_, ccu_condition_eq}; }
+    cond_expr operator==(uint64_t immediate) { return cond_expr{this, immediate, ccu_condition_eq}; }
 
-    cond_expr operator!=(uint64_t immediate_) { return cond_expr{this, immediate_, ccu_condition_ne}; }
+    cond_expr operator!=(uint64_t immediate) { return cond_expr{this, immediate, ccu_condition_ne}; }
 
     ccu_variable_handle handle{0};
 
@@ -140,7 +140,7 @@ private:
     friend class local_addr;
     friend class remote_addr;
     template <typename t>
-    friend t GetResByChannel(ChannelHandle channel_, uint32_t index);
+    friend t GetResByChannel(ChannelHandle channel, uint32_t index);
 };
 
 } // namespace ccu

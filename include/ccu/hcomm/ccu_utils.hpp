@@ -67,8 +67,8 @@ public:
 template <typename lhs_t, typename rhs_t>
 class ccu_arithmetic_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    ccu_arithmetic_operator(lhs_t lhs, rhs_t rhs, ccu_arithmetic_operator_type type_)
-        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type_)
+    ccu_arithmetic_operator(lhs_t lhs, rhs_t rhs, ccu_arithmetic_operator_type type)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type)
     {
         check();
     }
@@ -81,12 +81,12 @@ public:
     ccu_arithmetic_operator_type type_{ccu_arithmetic_operator_type::invalid};
 };
 
-// Binary shift operators only support variable operands, not immediate_ values.
+// Binary shift operators only support variable operands, not immediate values.
 template <typename lhs_t, typename rhs_t>
 class ccu_shift_operator : public ccu_operator<lhs_t, rhs_t> {
 public:
-    ccu_shift_operator(lhs_t lhs, rhs_t rhs, ccu_shift_operator_type type_)
-        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type_)
+    ccu_shift_operator(lhs_t lhs, rhs_t rhs, ccu_shift_operator_type type)
+        : ccu_operator<lhs_t, rhs_t>(lhs, rhs), type_(type)
     {
         check();
     }

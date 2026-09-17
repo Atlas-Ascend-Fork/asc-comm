@@ -2,7 +2,7 @@
 
 ## 样例介绍
 
-本样例使用 HCCL 通信域、CCU full-mesh channel 和 `ccu::Write` 实现 Broadcast。
+本样例使用 HCCL 通信域、CCU full-mesh channel 和 `ccu::write` 实现 Broadcast。
 所有 rank 先交换本地 buffer 地址和 token，然后由 root rank 将完整数据直接写到其他 rank。
 
 该实现面向流程验证，没有使用生产 HCCL 中针对大数据优化的 scatter+allgather。
