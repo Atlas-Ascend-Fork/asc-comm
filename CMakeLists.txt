@@ -11,7 +11,13 @@
 cmake_minimum_required(VERSION 3.16)
 
 include(version.cmake)
+if(NOT CANN_3RD_LIB_PATH)
+    set(CANN_3RD_LIB_PATH "${CMAKE_CURRENT_SOURCE_DIR}/third_party" CACHE PATH "CANN third_party path")
+endif()
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/fetch_cann_cmake.cmake")
 project(asc_comm VERSION "${ASCCOMM_VERSION}" LANGUAGES C CXX)
+init_cann_project(PREPEND_MODULE_PATH)
+add_cann_target_options()
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
