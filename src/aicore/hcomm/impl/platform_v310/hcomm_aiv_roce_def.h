@@ -58,13 +58,11 @@ constexpr uint32_t ROCE_1825_CQE_OPTYPE_INVALID = 0x1f;
 constexpr uint32_t ROCE_1825_CQE_OPTYPE_ERROR = 0x1e;       // op_type = error coding
 constexpr uint32_t ROCE_1825_CQE_UPDATE_CI_MASK = 0xffffff; // CQ consumer index is 24-bit
 constexpr uint32_t ROCE_1825_CQE_OWNER_SHIFT = 31;          // owner bit at dw1[31]
-constexpr uint32_t ROCE_POLL_CQ_THRESHOLD = 10;
-constexpr uint32_t ROCE_NUM_CQE_PER_POLL_CQ = 100;
 
 enum class HCOMM_ROCE_OP_TYPE : uint32_t { WRITE = 4U, READ = 8U };
 
 #if defined(UT_TEST)
-constexpr uint32_t HCOMM_ROCE_MUTEX_ID = 27U;
+constexpr uint32_t HCOMM_ROCE_MUTEX_ID = 26U;
 #else
 constexpr uint32_t HCOMM_ROCE_MUTEX_ID = 30U;
 #endif
