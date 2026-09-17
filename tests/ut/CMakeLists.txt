@@ -254,6 +254,7 @@ target_include_directories(asccomm_ccu_host_launch
         ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
         ${ASCEND_CANN_ARCH_DIR}/include/hccl
         ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+        ${ASCEND_CANN_ARCH_DIR}/pkg_inc/profiling
         ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
 )
 target_compile_features(asccomm_ccu_host_launch PUBLIC cxx_std_17)
@@ -272,6 +273,7 @@ target_include_directories(asccomm_ut_ccu_host_launch PRIVATE
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
     ${ASCEND_CANN_ARCH_DIR}/include/hccl
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/profiling
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
 )
 target_compile_features(asccomm_ut_ccu_host_launch PRIVATE cxx_std_17)
@@ -283,6 +285,7 @@ target_compile_options(asccomm_ut_ccu_host_launch PRIVATE
 target_link_libraries(asccomm_ut_ccu_host_launch PRIVATE
     intf_llt_pub_basic
     asccomm_ccu_host_launch
+    ${CMAKE_DL_LIBS}
 )
 
 run_llt_test(
