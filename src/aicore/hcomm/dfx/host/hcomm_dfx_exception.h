@@ -18,7 +18,6 @@
 
 #include "acl/acl.h"
 #include "acl/acl_rt.h"
-#include "impl/adv_api/detail/host_log.h"
 
 namespace AscendC {
 namespace HcommDfx {
@@ -42,7 +41,8 @@ inline void LogError(const char *format, ...)
     const int ret = std::vsnprintf(message, sizeof(message), format, args);
     va_end(args);
     if (ret > 0) {
-        TILING_LOG_ERROR("[HcommDfxDump] %s", message);
+        std::printf("[HcommDfxDump] %s\n", message);
+        std::fflush(stdout);
     }
 }
 
@@ -54,23 +54,16 @@ inline void LogInfo(const char *format, ...)
     const int ret = std::vsnprintf(message, sizeof(message), format, args);
     va_end(args);
     if (ret > 0) {
-        TILING_LOG_INFO("[HcommDfxDump] %s", message);
+        std::printf("[HcommDfxDump] %s\n", message);
+        std::fflush(stdout);
     }
 }
 
 inline void LogDumpText(const std::string &text)
 {
-    size_t pos = 0U;
-    while (pos < text.size()) {
-        const size_t lineEnd = text.find('\n', pos);
-        const size_t lineLen = (lineEnd == std::string::npos) ? text.size() - pos : lineEnd - pos;
-        if (lineLen != 0U) {
-            TILING_LOG_INFO("%.*s", static_cast<int>(lineLen), text.data() + pos);
-        }
-        if (lineEnd == std::string::npos) {
-            break;
-        }
-        pos = lineEnd + 1U;
+    if (!text.empty()) {
+        (void)std::fwrite(text.data(), 1U, text.size(), stdout);
+        std::fflush(stdout);
     }
 }
 
