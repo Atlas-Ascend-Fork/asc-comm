@@ -13,6 +13,7 @@
 #include <cstdio>
 
 #include "asccomm_staged/hcomm/hcomm_simt.h"
+#include "asccomm_staged/jetty/hcomm_jetty.h"
 
 #include "simt_jetty_common.h"
 
@@ -24,7 +25,16 @@ struct alignas(16) SimtJettyUbLayout {
     AscendC::simt::jetty::HcommJettyInfo jetty_info;
     AscendC::simt::jetty::HcommPeerInfo peer_info;
     alignas(16) uint64_t dwqe_stage[2 * AscendC::simt::jetty::HcommJetty::kNumWQEBBLanes] = {};
+    uint32_t mixed_ready = 0U;
 };
+
+static_assert(sizeof(AscendC::simt::jetty::HcommJettyInfo) == sizeof(AscendC::HcommJettyInfo),
+              "SIMT and SIMD Jetty metadata must share an ABI");
+static_assert(offsetof(AscendC::simt::jetty::HcommJettyInfo, packedHead) ==
+                  offsetof(AscendC::HcommJettyInfo, packedHead),
+              "SIMT/SIMD packed head offset mismatch");
+static_assert(sizeof(AscendC::simt::jetty::HcommPeerInfo) == sizeof(AscendC::HcommJettyPeerInfo),
+              "SIMT and SIMD peer metadata must share an ABI");
 
 __simt_callee__ __forceinline__ __ubuf__ SimtJettyUbLayout* GetSimtJettyUbLayout()
 {
@@ -364,6 +374,33 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteDispatchVf(
     }
 }
 
+__simt_vf__ __aicore__ __launch_bounds__(64) inline void SimtJettyWriteMixedWorker(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    auto* ub_layout = GetSimtJettyUbLayout();
+    AscendC::simt::HcommCoopGroup group;
+    AscendC::simt::HcommCoopWarp warp;
+    AscendC::simt::jetty::HcommPeer peer;
+    AscendC::simt::jetty::HcommJetty jetty;
+    PrepareJetty(group, channel, jettyPtrTable, ub_layout, peer, jetty);
+
+    __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
+    __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
+    AscendC::simt::jetty::HcommSge laneSge{};
+    const int laneIdx = warp.thread_rank();
+    if (laneIdx < static_cast<int>(kConfiguredSgeNum)) {
+        laneSge.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx) * kSlotBytes;
+        laneSge.len = static_cast<int>(kSlotBytes);
+    }
+
+    group.sync();
+    jetty.template Write<kConfiguredSgeNum, false>(warp, peer, remoteDst, laneSge);
+    jetty.AdvanceSq(group);
+    if (group.thread_rank() == 0) {
+        ub_layout->mixed_ready = 1U;
+    }
+}
+
 } // namespace
 
 extern "C" __global__ __vector__ void SimtJettyWriteThread(
@@ -411,6 +448,31 @@ extern "C" __global__ __vector__ void SimtJettyWriteDispatch(
         warmup);
 }
 
+extern "C" __global__ __mix__(1, 1) void SimtJettyWriteMixed(
+    uint64_t channel, __gm__ void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx)
+{
+    AscendC::InitSocState();
+    if ASCEND_IS_AIC {
+        return;
+    }
+
+    auto* ub_layout = reinterpret_cast<__ubuf__ SimtJettyUbLayout*>(0);
+    ub_layout->mixed_ready = 0U;
+    asc_sync_notify(PIPE_S, PIPE_V, EVENT_ID0);
+    asc_sync_wait(PIPE_S, PIPE_V, EVENT_ID0);
+    AscendC::Simt::VF_CALL<SimtJettyWriteMixedWorker>(
+        AscendC::Simt::Dim3(64, 1, 1), channel, jettyPtrTable, sendBufIdx, recvBufIdx);
+
+    while (*reinterpret_cast<volatile __ubuf__ uint32_t*>(&ub_layout->mixed_ready) != 1U) {
+        asm volatile("nop");
+    }
+
+    AscendC::HcommJetty simd_jetty(
+        reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(&ub_layout->jetty_info),
+        nullptr, reinterpret_cast<__gm__ uint8_t*>(jettyPtrTable), 0);
+    simd_jetty.RingDoorbell();
+}
+
 void LaunchSimtJetty(
     void* stream, uint64_t channel, void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode,
     void* timing, uint32_t iterations, uint32_t warmup)
@@ -435,6 +497,9 @@ void LaunchSimtJetty(
         case 4U:
             SimtJettyWriteWarp<<<1, 0, stream>>>(
                 channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup);
+            break;
+        case 5U:
+            SimtJettyWriteMixed<<<1, 0, stream>>>(channel, jettyPtrTable, sendBufIdx, recvBufIdx);
             break;
         default:
             std::printf("[simt_jetty] unhandled mode %u, no kernel launched\n", mode);

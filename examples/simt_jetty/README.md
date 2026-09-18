@@ -1,7 +1,7 @@
 # simt_jetty
 
 SIMT 侧 Jetty / DWQE 样例，验证 `thread / warp / group` 三种协作方式，以及多个 warp
-并行生成 WQE、group 统一提交的 dispatch 模式。
+并行生成 WQE、group 统一提交的 dispatch 模式和 SIMT/SIMD 混合发布的 mixed 模式。
 
 `HcommPeer` 和 `HcommJetty` 直接从 GM Jetty 表解析队列与远端信息，不需要静态或动态 UB
 workspace。固定 SGE 模板参数范围为 2 到 12；地址或长度为 0 的 SGE 不计入 WRITE，并将有效
@@ -14,6 +14,10 @@ SQ 的路径。
 
 固定 2BB 的立即 `Put` 在一次调用内由同一份 WQE 数据双写 SQ 和 DWQE，不从 SQ 回读。
 `thread / warp / warp-pad / group` 验证该路径；`dispatch` 单独验证多 warp 的 `Write + Commit` 路径。
+
+`mixed` 使用 `__global__ __mix__` 入口：SIMT VF 构造并提交 SQ 内容，AIV 主体随后使用共享的
+80B Jetty 元数据调用 SIMD `RingDoorbell()` 发布队列。该模式保留了 SIMT/SIMD 共享 SQ 的场景。
+mixed 是 correctness 场景，不参与 `perf.sh` 的设备计时模式。
 
 ## 编译
 
@@ -43,6 +47,7 @@ bash run.sh 2 warp
 bash run.sh 2 warp-pad
 bash run.sh 2 group
 bash run.sh 2 dispatch
+bash run.sh 2 mixed
 ```
 
 `thread` 发送 12 个有效 SGE，验证标量线程构造的 4BB WQE；`warp` 发送两个有效 SGE，

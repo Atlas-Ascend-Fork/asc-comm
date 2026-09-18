@@ -12,7 +12,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: run.sh <nranks> [all|thread|warp|warp-pad|group|dispatch] [options]
+Usage: run.sh <nranks> [all|thread|warp|warp-pad|group|dispatch|mixed] [options]
 
 Options:
   --iterations N  Number of correctness iterations, default: 1
@@ -70,6 +70,10 @@ if [ "$timing" -eq 0 ] && [ "$warmup" -ne 0 ]; then
     echo "--warmup requires --timing"
     exit 1
 fi
+if [ "$timing" -eq 1 ] && [ "$requested_mode" = "mixed" ]; then
+    echo "mixed mode does not support device timing"
+    exit 1
+fi
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 binary="${script_dir}/build/simt_jetty"
@@ -100,6 +104,7 @@ mode_id() {
         group) echo 2 ;;
         dispatch) echo 3 ;;
         warp) echo 4 ;;
+        mixed) echo 5 ;;
         *) return 1 ;;
     esac
 }
@@ -137,6 +142,9 @@ run_mode() {
 status=0
 if [ "$requested_mode" = "all" ]; then
     modes=(thread warp warp-pad group dispatch)
+    if [ "$timing" -eq 0 ]; then
+        modes+=(mixed)
+    fi
 else
     if ! mode_id "$requested_mode" >/dev/null; then
         usage

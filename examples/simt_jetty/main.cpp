@@ -60,7 +60,7 @@ constexpr const char* kRecvBufTag = "simtJettyRecvBuf";
 
 const char* ModeName(uint32_t mode)
 {
-    constexpr const char* kModeNames[] = {"thread", "warp-pad", "group", "dispatch", "warp"};
+    constexpr const char* kModeNames[] = {"thread", "warp-pad", "group", "dispatch", "warp", "mixed"};
     return mode < sizeof(kModeNames) / sizeof(kModeNames[0]) ? kModeNames[mode] : "unknown";
 }
 
@@ -252,7 +252,7 @@ int main(int argc, char* argv[])
     const uint32_t warmup = argc == 9 ? static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10)) : 0U;
     const bool deviceTiming = argc == 9 && std::strtoul(argv[8], nullptr, 10) != 0U;
 
-    if (nranks < 2 || rank < 0 || rank >= nranks || syncDir.empty() || mode > 4U || iterations == 0U) {
+    if (nranks < 2 || rank < 0 || rank >= nranks || syncDir.empty() || mode > 5U || iterations == 0U) {
         std::cout << "invalid rank/nranks/sync_dir/mode/iterations" << std::endl;
         return 1;
     }
@@ -363,6 +363,10 @@ int main(int argc, char* argv[])
             }
         } else if (mode == 1U) {
             expected[0] = simt_jetty::SlotValue(0);
+        } else if (mode == 5U) {
+            for (uint32_t slot = 0; slot < simt_jetty::kConfiguredSgeNum; ++slot) {
+                expected[slot] = simt_jetty::SlotValue(slot);
+            }
         } else {
             expected[0] = simt_jetty::SlotValue(0);
             expected[1] = simt_jetty::SlotValue(1);
@@ -375,7 +379,10 @@ int main(int argc, char* argv[])
             pass = pass && iterationPass;
             if (!iterationPass) {
                 std::cout << "[rank 1] simt_jetty mode " << mode << " iteration " << iteration << " FAIL"
-                          << " checks=" << (mode == 0U || mode == 3U ? simt_jetty::kSlotCount : 2U) << std::endl;
+                          << " checks=" << (mode == 0U || mode == 3U ? simt_jetty::kSlotCount :
+                                               mode == 1U ? 1U :
+                                               mode == 5U ? simt_jetty::kConfiguredSgeNum : 2U)
+                          << std::endl;
             }
             if (!deviceTiming && iteration + 1U < checks) {
                 ACLCHECK(aclrtMemset(recvBuf, simt_jetty::kBufferBytes, 0, simt_jetty::kBufferBytes));
