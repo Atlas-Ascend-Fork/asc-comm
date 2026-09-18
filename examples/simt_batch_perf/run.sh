@@ -104,7 +104,7 @@ if [[ -z "$log_file" ]]; then
 fi
 mkdir -p "$(dirname "$log_file")"
 exec > >(tee "$log_file") 2>&1
-echo "TEST_INFO | Suite=simt_batch_perf | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | WarmupPolicy=FullGroup | PayloadBytes=${payload_bytes} | SingleLaneBatchSize=${batch_size} | GroupBatchSizes=${group_lanes} | LargeGroup=${large_group_enabled}"
+echo "TEST_INFO | Suite=simt_batch_perf | Devices=${devices} | Pairs=$((devices / 2)) | Iterations=${iterations} | Warmup=${warmup} | WarmupPolicy=FullGroup | PayloadBytes=${payload_bytes} | SingleLaneBatchSize=${batch_size} | GroupBatchSizes=${group_lanes} | LargeGroup=${large_group_enabled}" > "${log_file}.metadata"
 apis=(write read notify write_value faa cas)
 if [[ "$api" == "core" ]]; then
     apis=(write read notify)
@@ -156,9 +156,16 @@ run_case() {
         if ((rank_status[rank] != 0 || rank_status[rank + 1] != 0)); then pair_status=FAIL; fi
         perf_line="$(grep -m1 '^PERF_DATA |' "${work_dir}/rank_${rank}.log" || true)"
         if [[ -n "$perf_line" ]]; then
-            echo "${perf_line/PERF_DATA/RESULT} | Status=${pair_status}"
+            echo "${perf_line/PERF_DATA/RESULT} | Pair=${rank}-$((rank + 1)) | Status=${pair_status}"
         else
-            echo "RESULT | API=${case_api} | Status=FAIL"
+            pair_status=FAIL
+            status=1
+            local mode_label=Immediate result_bytes=$payload_bytes result_batch=1
+            [[ "$case_mode" != batch ]] || mode_label=ExplicitBatch
+            [[ "$case_mode" != group ]] || mode_label=GroupBatch
+            [[ "$case_mode" == immediate ]] || result_batch=$case_batch_size
+            [[ "$case_api" != write_value && "$case_api" != faa && "$case_api" != cas ]] || result_bytes=8
+            echo "RESULT | API=${case_api} | Mode=${mode_label} | DataSize/B=${result_bytes} | BatchSize=${result_batch} | Jettys=1 | ConcurrentJettys=1 | IssueTicksPerRequest=NA | Pair=${rank}-$((rank + 1)) | Status=FAIL"
         fi
         if [[ "$pair_status" == FAIL ]]; then
             cat "${work_dir}/rank_${rank}.log" "${work_dir}/rank_$((rank + 1)).log"
@@ -184,5 +191,4 @@ for current_api in "${apis[@]}"; do
         status=1
     fi
 done
-echo "Log file: $log_file"
 exit "$status"

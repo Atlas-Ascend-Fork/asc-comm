@@ -16,15 +16,14 @@ PROJECT_ROOT=$(cd -- "${SCRIPT_DIR}/../.." && pwd)
 
 CANN_PATH=${ASCEND_HOME_PATH:-}
 OUTPUT_DIR="${PROJECT_ROOT}/build_out"
-PACKAGE_VERSION=${ASCCOMM_PACKAGE_VERSION:-1.0.0}
+PACKAGE_VERSION=""
 STAGING_DIR="${PROJECT_ROOT}/build/package/asc-comm"
 PACKAGE_INPUT_PATHS=(
     build.sh
-    include/aicore/ain
-    include/aicore/hcomm
-    src/aicore/ain
-    src/aicore/hcomm
+    include
+    src
     scripts/package
+    version.cmake
 )
 
 usage()
@@ -33,9 +32,8 @@ usage()
 Usage: bash scripts/package/build_package.sh [OPTION]...
 
 Options:
-  --cann-path=<PATH>       CANN installation root. Default: ASCEND_HOME_PATH
+  --cann_path=<PATH>       CANN installation root. Default: ASCEND_HOME_PATH
   --output-dir=<PATH>      Output directory. Default: ${OUTPUT_DIR}
-  --package-version=<VER>  Package version. Default: ${PACKAGE_VERSION}
   -h, --help               Display this help
 EOF
 }
@@ -55,14 +53,11 @@ parse_args()
 {
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --cann-path=*)
+            --cann_path=*)
                 CANN_PATH=${1#*=}
                 ;;
             --output-dir=*)
                 OUTPUT_DIR=${1#*=}
-                ;;
-            --package-version=*)
-                PACKAGE_VERSION=${1#*=}
                 ;;
             -h|--help)
                 usage
@@ -74,6 +69,20 @@ parse_args()
         esac
         shift
     done
+}
+
+read_project_version()
+{
+    local version_file="${PROJECT_ROOT}/version.cmake"
+    local version
+
+    [[ -f "${version_file}" ]] || fail "project version file not found: ${version_file}"
+    version=$(sed -nE \
+        's/^[[:space:]]*set\(ASCCOMM_VERSION[[:space:]]+"([^"]+)"\)[[:space:]]*$/\1/p' \
+        "${version_file}")
+    [[ -n "${version}" && "${version}" != *$'\n'* ]] || \
+        fail "failed to read a unique ASCCOMM_VERSION from ${version_file}"
+    echo "${version}"
 }
 
 normalize_arch()
@@ -148,22 +157,37 @@ read_package_compat_version()
     echo "${compat_version}"
 }
 
+# Copy headers while preserving paths relative to source_root. Arguments after
+# mode are excluded relative path prefixes; a filtered source may copy no files.
 copy_headers()
 {
     local source_root=$1
     local destination_root=$2
     local mode=$3
+    shift 3
+    local excluded_path
     local source_file
     local relative_path
     local count=0
+    local skip
 
     while IFS= read -r -d '' source_file; do
         relative_path=${source_file#"${source_root}/"}
+        skip=false
+        for excluded_path in "$@"; do
+            case "${relative_path}" in
+                "${excluded_path}"|"${excluded_path}/"*)
+                    skip=true
+                    break
+                    ;;
+            esac
+        done
+        [[ "${skip}" == false ]] || continue
         install -D -m "${mode}" "${source_file}" "${destination_root}/${relative_path}"
         count=$((count + 1))
     done < <(find "${source_root}" -type f -name '*.h' -print0 | sort -z)
 
-    [[ ${count} -gt 0 ]] || fail "no header files found under ${source_root}"
+    [[ ${count} -gt 0 || $# -gt 0 ]] || fail "no header files found under ${source_root}"
 }
 
 write_manifest()
@@ -227,10 +251,11 @@ build_package()
     local version_checker_dir
     local run_file
 
-    [[ -n "${CANN_PATH}" ]] || fail "CANN path is not set; source set_env.sh or use --cann-path"
+    [[ -n "${CANN_PATH}" ]] || fail "CANN path is not set; source set_env.sh or use --cann_path"
     [[ "${CANN_PATH}" = /* ]] || fail "CANN path must be absolute: ${CANN_PATH}"
     CANN_PATH=$(readlink -f -- "${CANN_PATH}")
     [[ -d "${CANN_PATH}" ]] || fail "CANN path does not exist: ${CANN_PATH}"
+    PACKAGE_VERSION=$(read_project_version)
     [[ "${PACKAGE_VERSION}" =~ ^[0-9A-Za-z._+-]+$ ]] || fail "invalid package version: ${PACKAGE_VERSION}"
 
     arch=$(normalize_arch)
@@ -256,13 +281,15 @@ build_package()
         "${STAGING_DIR}/payload/asc/impl/adv_api/detail/hcomm" \
         550
     copy_headers \
-        "${PROJECT_ROOT}/include/aicore/ain" \
-        "${STAGING_DIR}/payload/asc/include/comm_api/aicore/ain" \
-        550
+        "${PROJECT_ROOT}/include" \
+        "${STAGING_DIR}/payload/asc/include/comm_api" \
+        550 \
+        aicore/hcomm
     copy_headers \
-        "${PROJECT_ROOT}/src/aicore/ain" \
-        "${STAGING_DIR}/payload/asc/impl/comm_api/aicore/ain" \
-        550
+        "${PROJECT_ROOT}/src" \
+        "${STAGING_DIR}/payload/asc/impl/comm_api" \
+        550 \
+        aicore/hcomm
     write_manifest
     write_link_manifest
     write_version_info \
