@@ -424,15 +424,12 @@ __simt_callee__ inline bool HcommSimtPlanBatchFromHead(__ubuf__ HcommSimtBatchSt
     return context->reservationStatus == HCOMM_SUCCESS;
 }
 
-// Rings the doorbell by copying the staged 128B WQE into the DWQE window. The fence orders the
-// preceding SQ write against the doorbell; the two cache invalidations cover both basic blocks
-// of the window.
+// Rings the doorbell with write-through stores of the staged 128B WQE. The fence orders
+// preceding SQ writes before publication; no cache maintenance follows the DWQE stores.
 __simt_callee__ inline void HcommSimtRingDwqe(__gm__ uint8_t* dwqeAddr, const HcommSimtWqeStage& stage)
 {
     asc_threadfence();
     HcommSimtCopyStageToDwqe(dwqeAddr, stage);
-    asc_dcci_single(dwqeAddr);
-    asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
 }
 
 __simt_callee__ inline void HcommSimtRingBatchDwqe(__gm__ uint8_t* dwqeAddr, const __ubuf__ uint64_t* words)
@@ -446,12 +443,6 @@ __simt_callee__ inline void HcommSimtRingBatchDwqe(__gm__ uint8_t* dwqeAddr, con
         const uint32_t word = i * 2U;
         asc_stwt(&dstWords[i], make_ulonglong2(words[word], words[word + 1U]));
     }
-    asc_threadfence();
-    asc_dcci_single(dwqeAddr);
-    asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
-    asc_threadfence();
-    asc_dcci_single(dwqeAddr);
-    asc_dcci_single(dwqeAddr + HCOMM_URMA_WQE_BB_SIZE);
     asc_threadfence();
 }
 
@@ -1174,9 +1165,6 @@ __simt_callee__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(ChannelH
         if (status != 0U || subStatus != 0U) {
             constexpr uint8_t statusShift = 8U;
             return (status << statusShift) | subStatus;
-        }
-        if (sqDepth == 0U) {
-            return 0xFFU;
         }
         uint32_t sqTailSlot = sqTail & sqMask;
         uint32_t completedSlot = (cqeWords[1] & 0xFFFFU) & sqMask;
