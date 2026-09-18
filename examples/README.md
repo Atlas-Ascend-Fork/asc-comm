@@ -16,21 +16,14 @@
 | [aicore/hcomm/05_simt_urma_perftest](./aicore/hcomm/05_simt_urma_perftest/README.md) | 测量上述五个 SIMT URMA 接口的下发时延与完成带宽，覆盖立即提交/延迟提交两种发布策略。 | Ascend 950PR / Ascend 950DT |
 | [hcomm_jetty_write](./hcomm_jetty_write/README.md) | 演示多卡场景下AIV Kernel通过`HcommJetty::Write`和`HcommJetty::WriteValue`直接向Jetty SQ提交WQE，并通过`Drain`等待完成与校验结果。 | Ascend 950PR/Ascend 950DT |
 | [ccu/ccu_direct](./ccu/ccu_direct/01_allgather/README.md) | 演示基于HCCL通信域和CCU数据面接口，以直调`<<<>>>`方式实现AllGather等集合通信操作。 | Ascend 950PR/Ascend 950DT |
-| [simt_batch](./simt_batch/README.md) | 提供SIMT URMA单Lane显式Batch的最小可执行`WriteNbi`示例。 | Ascend 950PR / Ascend 950DT |
-| [simt_batch_perf](./simt_batch_perf/README.md) | 对比SIMT URMA六类接口的Immediate与ExplicitBatch性能基线。 | Ascend 950PR / Ascend 950DT |
+| [simt_batch_perf](./simt_batch_perf/README.md) | 验证六类SIMT URMA接口，对比单次、单lane Batch与Group Batch的下发耗时。 | Ascend 950PR / Ascend 950DT |
 
 各样例的编译与运行方式参见对应目录下的README。
 
-## simt_batch
-
-`simt_batch`提供一次`WriteNbi → BatchCommit → Drain`的最小可执行路径，并校验远端数据。
-
-编译运行方式参见[simt_batch/README.md](./simt_batch/README.md)。
-
 ## simt_batch_perf
 
-`simt_batch_perf`逐接口对比Immediate与ExplicitBatch路径，报告发布次数、下发时延、包含Drain的完成时延
-与数据校验结果。
+`simt_batch_perf`统一承担功能验证和下发耗时测试，覆盖Immediate、ExplicitBatch和GroupBatch。
+多Jetty并行与共享CQ验收使用[multi_jetty_batch_perf](./multi_jetty_batch_perf/README.md)。
 
 编译运行方式参见[simt_batch_perf/README.md](./simt_batch_perf/README.md)。
 

@@ -387,19 +387,15 @@ int main(int argc, char* argv[])
         }
         pass = devicePass && localCheckPass;
         const uint32_t dataBytes = api == kApiWrite || api == kApiRead || api == kApiNotify ? payloadBytes : 8U;
-        const double issueNs = static_cast<double>(timing[kIssueCyclesIndex]) / iterations;
-        const double bandwidth = timing[kCompletionCyclesIndex] == 0U ?
-                                     0.0 :
-                                     static_cast<double>(dataBytes) * iterations / timing[kCompletionCyclesIndex];
-        const uint32_t lanes = mode == "group" ? groupLanes : 1U;
+        const double issueTicks = static_cast<double>(timing[kIssueCyclesIndex]) / iterations;
         const uint32_t batchItems = mode == "immediate" ? 1U : batchSize;
-        std::cout << std::fixed << std::setprecision(6) << "PERF_DATA | API=" << apiName
-                  << " | DataSize/B=" << dataBytes << " | BatchSize=" << batchItems << " | Lanes=" << lanes
-                  << " | DBCount=" << timing[kPublishCountIndex] << " | Mode="
+        std::cout << std::fixed << std::setprecision(6) << "PERF_DATA | API=" << apiName << " | Mode="
                   << (mode == "group" ? "GroupBatch" :
                       mode == "batch" ? "ExplicitBatch" :
                                         "Immediate")
-                  << " | Bandwidth/GB/s=" << bandwidth << " | IssueTime/ns=" << issueNs << std::endl;
+                  << " | DataSize/B=" << dataBytes << " | BatchSize=" << batchItems
+                  << " | Jettys=1 | ConcurrentJettys=1"
+                  << " | IssueTicksPerRequest=" << issueTicks << std::endl;
     }
 
     HCCLCHECK(HostBarrier(rank, nranks, "completed"));

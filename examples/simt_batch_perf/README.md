@@ -1,69 +1,75 @@
-# Hcomm SIMT Batch 性能用例
+# Hcomm SIMT Batch 功能与下发耗时用例
 
-该用例逐接口比较单Lane单次提交（`Immediate`）和多Lane协同批量提交（`GroupBatch`），覆盖
-`WriteNbi`、`ReadNbi`、`WriteWithNotifyNbi`、`WriteValueNbi`、`AtomicFAA` 和 `AtomicCAS`。
-两条路径使用相同的数据大小、WQE数量、预热次数及地址轮转方式。Group Batch中batch size等于
-Lane数，每Lane准备一项，每批只调用一次`BatchCommit`。`ExplicitBatch`模式只保留batch-size=1，
-用于验证单Lane Batch固定开销，不再表示单Lane聚合多项。
+覆盖 WriteNbi、ReadNbi、WriteWithNotifyNbi、WriteValueNbi、AtomicFAA、AtomicCAS，统一承担原 simt_batch 的功能验证和性能测试。
 
-每个rank pair最终只输出一条`RESULT`，包含`API`、`DataSize/B`、`Lanes`、`DBCount`、`Mode`、
-`Bandwidth/GB/s`、每操作`IssueTime/ns`和综合发送端/接收端校验的`Status`。
+- Immediate：单lane逐请求直接提交。
+- ExplicitBatch：单lane执行 Append → BatchCommit，batch size固定为1。
+- GroupBatch：多lane各构造一个请求，每批一次BatchCommit；batch size等于lane数。
 
-用例通过`HcclGetRootInfo`/`HcclCommInitRootInfo`创建2卡或8卡通信域，不依赖rank table。8卡时
-0→1、2→3、4→5和6→7四对并发执行相同配置，每对分别输出性能和校验结果。
+每项检查设备返回状态及数据；Read检查本地数据，Atomic检查fetch返回值及远端结果，Notify检查数据和通知值。支持2卡或8卡，8卡按0→1、2→3、4→5、6→7配对，每对分别输出结果。
 
-## 基线设计
-
-默认一键执行形成每个接口1组Immediate，以及`2/4/8/16/32/128 Lane`六组GroupBatch。
-每组重新初始化通信和数据，使用64个地址轮转、96次预热、
-1024次计时操作；RMA/Notify默认64B。预热完成后
-先 Drain，再开始计时，避免把初始化和预热混入结果。性能数据只有在设备状态、本地 Read/Atomic fetch、
-远端目标数据全部通过后才有效。
-
-基础验收先使用默认配置；单Lane边界使用`--mode batch --batch-size 1`；Lane扩展通过
-`--group-lanes`扫描，每组至少重复三次。
-
-## 当前提交路径
-
-`MakeBatchHandle`在共享UB保存一次稳定的队列地址和远端Jetty信息；Append在每个Lane的私有状态中
-生成位置无关的请求字段，不写共享UB。`BatchCommit`由Lane 0一次预留整批SQ范围，各Lane直接写
-最终SQ槽位；所有Lane完成后，尾Lane写DWQE发布整批。Write/Read/WriteValue为1BB批次，
-Notify/FAA/CAS为2BB批次；同一批不混合不同BB数的接口。
-
-## 构建
+## 构建与执行
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
 cd examples/simt_batch_perf
 bash build.sh
-```
 
-## 执行
-
-不带参数会依次运行Immediate和默认Lane数的GroupBatch：
-
-```bash
-bash run.sh
-```
-
-也可以只测试一个接口：
-
-```bash
-bash run.sh write --iterations 4096 --warmup 96 --payload-bytes 64 --group-lanes 2,4,8,16,32
-bash run.sh cas --iterations 4096 --mode group --group-lanes 16,32,128
+# 覆盖原最小功能用例：单lane Write → BatchCommit → Drain及远端数据校验。
 bash run.sh write --mode batch --batch-size 1
-bash run.sh all --devices 8
+# 单次提交与Group Batch对照；默认core只运行Write/Read/Notify。
+bash run.sh
+# 六类接口全部执行；默认compare包含Immediate与GroupBatch，不包含ExplicitBatch。
+bash run.sh all
+# 指定接口、分组和设备数。
+bash run.sh cas --mode group --group-lanes 16,32,128
+bash run.sh all --mode batch --batch-size 1 --devices 8
 ```
 
-使用`--mode immediate`、`--mode batch`或`--mode group`可只运行一条路径。GroupBatch的Lane数由
-`--group-lanes`中的当前值，默认扫描`2,4,8,16,32,128`；iterations/warmup必须能被每个Lane数整除。
-当前每Lane每批准备1项，因此Lane数增加时DB数也会下降，分析时必须同时观察`Lanes`和`DBCount`。
-建议至少重复三次，比较稳定的每操作`IssueTime/ns`和
-`Bandwidth/GB/s`。
+默认64个地址轮转、96次预热和1024次计时操作，RMA/Notify为64B。GroupBatch默认扫描2/4/8/16/32/128 lanes，计时请求数须整除lane数，预热向完整batch上取整。超过128 lanes需用 `bash build.sh --full` 编译。
 
-输出示例：
+## 最小调用流程
+
+```cpp
+constexpr uint32_t bytes = AscendC::simt::HcommSimtBatchBufferBytes(1U);
+alignas(128) __ubuf__ uint64_t workspace[bytes / sizeof(uint64_t)];
+AscendC::simt::Hcomm<> hcomm;
+if (hcomm.Init(nullptr, 0U) != 0) return;
+auto batch = hcomm.MakeBatchHandle(
+    channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, remote, 1U);
+if (hcomm.WriteNbi(batch, remote, local, 64U) != 0) return;
+if (hcomm.BatchCommit(batch) != 0) return;
+if (hcomm.Drain(batch) != 0) return;
+```
+
+BatchHandle绑定remote所在的远端注册区，后续目标地址必须位于同一区域。最后的1U表示普通Write的每项BB数。
+
+## 输出
+
+与multi_jetty_batch_perf使用同一格式，每个rank pair每项一行：
 
 ```text
-TEST_INFO | Suite=simt_batch_perf | Devices=2 | ...
-RESULT | API=write | DataSize/B=64 | Lanes=32 | DBCount=32 | Mode=GroupBatch | Bandwidth/GB/s=... | IssueTime/ns=... | Status=PASS
+RESULT | API=write | Mode=GroupBatch | DataSize/B=64 | BatchSize=32 | Jettys=1 | ConcurrentJettys=1 | IssueTicksPerRequest=123.456789 | Pair=0-1 | Status=PASS
 ```
+
+主要指标 `IssueTicksPerRequest` = 计时提交区间的设备 `clock()` 差值 / 请求数，越低越好。包含构造、提交及提交路径同步，不包含随后Drain的等待；单位为原始ticks，未换算为ns。只比较PASS行，不与未对齐时钟口径的SIMD数据直接算加速比。
+
+BatchSize是每批请求数；Jettys和ConcurrentJettys分别是配置数量和实际最大并行数量；Pair是rank对。单Jetty本例两者均为1。功能检查全部保留，正常仅汇总结果，失败才展开rank日志。默认不输出完成带宽、门铃计数或分项诊断。
+
+## RESULT 字段
+
+| 字段 | 含义 |
+|---|---|
+| API | write、read、notify等通信操作 |
+| Mode | Immediate=单lane直接提交；ExplicitBatch=单lane显式Batch；GroupBatch=多lane协作一个Jetty；MultiJetty=多个Jetty并行用例 |
+| DataSize/B | 每个请求的数据字节数，不含Notify标志等控制信息 |
+| BatchSize | 每个Jetty每批请求数；当前GroupBatch/MultiJetty每lane构造一项，因此也等于每Jetty的lane数 |
+| Jettys | 该rank对配置的Jetty总数 |
+| ConcurrentJettys | 单次kernel最多参与提交的Jetty数；例如J8/BS256为4，需要两个kernel |
+| IssueTicksPerRequest | 提交计时区间总ticks除以总请求数，越小越好；原始clock()计数，未换算成ns |
+| Pair | 通信rank对，例如0-1；8卡时有四对 |
+| Status | 两端执行及该用例的正确性检查是否通过，PASS或FAIL |
+
+IssueTicksPerRequest衡量平均下发成本，不是单个请求的端到端延迟。它包括构造/发布和提交路径同步，不包含后续Drain等待；不计预热，多kernel累加提交区间后除以总请求数，也不计host launch间隙。
+
+成功构建不打印编译过程；正常运行只打印RESULT及已有汇总。编译输出保存在build目录的build-output.log，运行配置记录在汇总日志旁的`.metadata`文件。失败时自动显示编译日志末40行或对应rank日志；无需正常回传这些文件。
