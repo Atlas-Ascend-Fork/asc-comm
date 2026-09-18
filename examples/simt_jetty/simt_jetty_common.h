@@ -19,6 +19,14 @@ constexpr uint64_t kSlotBytes = sizeof(uint64_t);
 constexpr uint32_t kSlotCount = 12U;
 constexpr uint64_t kBufferBytes = kSlotCount * kSlotBytes;
 
+#ifndef SIMT_JETTY_SGE_NUM
+#define SIMT_JETTY_SGE_NUM 12
+#endif
+
+static_assert(SIMT_JETTY_SGE_NUM >= 1 && SIMT_JETTY_SGE_NUM <= static_cast<int>(kSlotCount),
+              "SIMT_JETTY_SGE_NUM must be in the range [1, 12]");
+constexpr uint32_t kConfiguredSgeNum = static_cast<uint32_t>(SIMT_JETTY_SGE_NUM);
+
 #if defined(__CCE_KT_TEST__) || defined(__DAV_C310__) || defined(__NPU_ARCH__)
 #define SIMT_JETTY_DEVICE_FN __aicore__
 #else

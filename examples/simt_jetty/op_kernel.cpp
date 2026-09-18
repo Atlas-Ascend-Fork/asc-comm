@@ -80,7 +80,7 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
             sges[segment], sges[segment + 1]};
         __gm__ void* segmentDst = remoteDst + static_cast<uint64_t>(segment) * kSlotBytes;
         if constexpr (kStandaloneWrite) {
-            jetty.template Write<kSegmentSges>(peer, segmentDst, segmentSges);
+            jetty.template Write<kSegmentSges, false>(peer, segmentDst, segmentSges);
             jetty.AdvanceSq();
         } else {
             jetty.template Put<kSegmentSges>(peer, segmentDst, segmentSges);
@@ -103,7 +103,7 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
     }
 }
 
-template <typename Coop, bool kPadSecondSge, bool kMeasure, bool kStandaloneWrite = false>
+template <uint32_t kSgeNum, typename Coop, bool kPadSecondSge, bool kMeasure, bool kStandaloneWrite = false>
 __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
     const Coop& coop, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx,
     const AscendC::simt::jetty::HcommPeer& peer, AscendC::simt::jetty::HcommJetty& jetty, uint64_t& writeCycles,
@@ -113,7 +113,7 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
     AscendC::simt::jetty::HcommSge sge{};
     const int laneIdx = coop.thread_rank();
-    if (laneIdx < 2 && (!kPadSecondSge || laneIdx == 0)) {
+    if (laneIdx < static_cast<int>(kSgeNum) && (!kPadSecondSge || laneIdx != 1)) {
         sge.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx) * kSlotBytes;
         sge.len = static_cast<int>(kSlotBytes);
     }
@@ -123,9 +123,9 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
         begin = clock();
     }
     if constexpr (kStandaloneWrite) {
-        jetty.template Write<2>(coop, peer, remoteDst, sge);
+        jetty.template Write<kSgeNum, false>(coop, peer, remoteDst, sge);
     } else {
-        jetty.template Put<2>(coop, peer, remoteDst, sge);
+        jetty.template Put<kSgeNum>(coop, peer, remoteDst, sge);
     }
     uint64_t writeEnd = 0U;
     if constexpr (kMeasure) {
@@ -170,7 +170,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     if constexpr (kMeasure) {
         begin = clock();
     }
-    jetty.template Write<12>(warp, peer, remoteDst, sge);
+    jetty.template Write<kConfiguredSgeNum, false>(warp, peer, remoteDst, sge);
     uint64_t writeEnd = 0U;
     if constexpr (kMeasure) {
         writeEnd = clock();
@@ -237,12 +237,12 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteWarpPadZeroVf(
     uint64_t commitCycles = 0U;
     uint64_t completionCycles = 0U;
     for (uint32_t i = 0U; i < warmup; ++i) {
-        SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopWarp, true, false, true>(
+        SimtJettyWriteCooperativeImpl<kConfiguredSgeNum, AscendC::simt::HcommCoopWarp, true, false, true>(
             warp, channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
     }
     if (timing != nullptr) {
         for (uint32_t i = 0U; i < iterations; ++i) {
-            SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopWarp, true, true, true>(
+            SimtJettyWriteCooperativeImpl<kConfiguredSgeNum, AscendC::simt::HcommCoopWarp, true, true, true>(
                 warp, channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
         }
         if (warp.thread_rank() == 0) {
@@ -253,7 +253,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteWarpPadZeroVf(
         }
     } else {
         for (uint32_t i = 0U; i < iterations; ++i) {
-            SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopWarp, true, false>(
+            SimtJettyWriteCooperativeImpl<kConfiguredSgeNum, AscendC::simt::HcommCoopWarp, true, false>(
                 warp, channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
         }
     }
@@ -272,12 +272,12 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteWarpVf(
     uint64_t commitCycles = 0U;
     uint64_t completionCycles = 0U;
     for (uint32_t i = 0U; i < warmup; ++i) {
-        SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopWarp, false, false, true>(
+        SimtJettyWriteCooperativeImpl<kConfiguredSgeNum, AscendC::simt::HcommCoopWarp, false, false, true>(
             warp, channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
     }
     if (timing != nullptr) {
         for (uint32_t i = 0U; i < iterations; ++i) {
-            SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopWarp, false, true, true>(
+            SimtJettyWriteCooperativeImpl<kConfiguredSgeNum, AscendC::simt::HcommCoopWarp, false, true, true>(
                 warp, channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
         }
         if (warp.thread_rank() == 0) {
@@ -288,7 +288,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteWarpVf(
         }
     } else {
         for (uint32_t i = 0U; i < iterations; ++i) {
-            SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopWarp, false, false>(
+            SimtJettyWriteCooperativeImpl<kConfiguredSgeNum, AscendC::simt::HcommCoopWarp, false, false>(
                 warp, channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
         }
     }
@@ -307,12 +307,12 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteGroupVf(
     uint64_t commitCycles = 0U;
     uint64_t completionCycles = 0U;
     for (uint32_t i = 0U; i < warmup; ++i) {
-        SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopGroup, false, false, true>(
+        SimtJettyWriteCooperativeImpl<kConfiguredSgeNum, AscendC::simt::HcommCoopGroup, false, false, true>(
             group, channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
     }
     if (timing != nullptr) {
         for (uint32_t i = 0U; i < iterations; ++i) {
-            SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopGroup, false, true, true>(
+            SimtJettyWriteCooperativeImpl<kConfiguredSgeNum, AscendC::simt::HcommCoopGroup, false, true, true>(
                 group, channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
         }
         if (group.thread_rank() == 0) {
@@ -323,7 +323,7 @@ __simt_vf__ __launch_bounds__(1024) inline void SimtJettyWriteGroupVf(
         }
     } else {
         for (uint32_t i = 0U; i < iterations; ++i) {
-            SimtJettyWriteCooperativeImpl<AscendC::simt::HcommCoopGroup, false, false>(
+            SimtJettyWriteCooperativeImpl<kConfiguredSgeNum, AscendC::simt::HcommCoopGroup, false, false>(
                 group, channel, sendBufIdx, recvBufIdx, peer, jetty, writeCycles, commitCycles, completionCycles);
         }
     }
