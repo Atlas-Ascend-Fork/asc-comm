@@ -2,7 +2,7 @@
 
 ## 功能说明
 
-返回用于执行批量操作的BatchHandle引用。单通道时原样返回传入句柄；多通道时选择一个逻辑通道和远端注册内存。
+获取用于添加批量任务的BatchHandle引用。多通道模式下，本接口用于选择一个逻辑通道及其远端注册内存；单通道模式下返回传入的句柄本身。
 
 ## 函数原型
 
@@ -22,11 +22,7 @@ __aicore__ inline BatchHandle<T>& GetHandleRef(
 | --- | --- | --- |
 | `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的单通道或多通道批量句柄。 |
 | `channelIndex` | 输入 | 多通道逻辑通道索引；单通道时忽略。 |
-| `remoteAddr` | 输入 | 多通道远端已注册buffer内地址；为空时选择该通道的第一个远端已注册buffer。单通道时忽略。默认值为`nullptr`。 |
-
-## 返回值
-
-单通道返回输入句柄本身；多通道返回`BatchHandle<T>`类型的内层BatchHandle引用，且该引用已配置为所选逻辑通道和远端地址。
+| `remoteAddr` | 输入 | 多通道模式下用于选择远端注册内存。传入`nullptr`时选择该逻辑通道的第一个远端注册buffer；单通道时忽略。默认值为`nullptr`。 |
 
 ## 模板参数
 
@@ -34,15 +30,19 @@ __aicore__ inline BatchHandle<T>& GetHandleRef(
 | --- | --- |
 | `T` | 批量句柄类型，由`batchHandle`实参推导。 |
 
+## 返回值
+
+返回用于添加批量任务的BatchHandle引用。
+
 ## 约束说明
 
-- 单通道时`channelIndex`和`remoteAddr`不改变句柄，远端内存仍由`MakeBatchHandle`选择。
-- 多通道时，`channelIndex`必须小于创建`MultiChannelHandle`时传入的`channelNum`。
-- 多通道时，`remoteAddr`非空时必须落在所选逻辑通道的一个远端已注册buffer中；为空时选择该通道的第一个远端已注册buffer。
-- 本接口不返回状态码，调用方必须保证多通道的逻辑通道索引和远端MR地址有效。
-- 对同一个多通道批量句柄多次调用本接口时，返回的引用均指向同一个内层BatchHandle；每次调用会更新该内层句柄当前选择的逻辑通道和远端MR信息。
-- 多通道返回引用的批量操作必须使用本次调用缓存的token；访问使用不同token的远端buffer前需要再次调用本接口。
-- 多通道使用返回的内层引用调用批量读、写和写通知；将外层多通道批量句柄传入`BatchCommit`和批量`Drain`。
+- 多通道模式下，`channelIndex`必须小于创建`MultiChannelHandle`时指定的`channelNum`。
+- 多通道模式下，`remoteAddr`非空时必须位于所选逻辑通道的一个远端注册buffer内。通过返回句柄发起的批量操作必须访问该注册buffer。
+- 切换逻辑通道或远端注册buffer时，需要重新调用本接口。
+- 对同一个多通道批量句柄多次调用本接口时，返回的引用均指向同一个内层BatchHandle。每次调用都会更新该句柄当前选择的逻辑通道和远端注册内存；再次调用后，之前保存的引用也表示新的选择，不能继续按原选择使用。
+- 本接口不返回状态码，调用方必须保证逻辑通道索引和远端地址有效。
+- 多通道模式下，通过返回的句柄引用调用批量读、写和写通知接口；通过`MakeBatchHandle`返回的多通道批量句柄调用`BatchCommit`和批量`Drain`。
+- 单通道模式下，`channelIndex`和`remoteAddr`不起作用，远端注册内存由`MakeBatchHandle`选择。
 
 ## 相关接口
 

@@ -2,7 +2,7 @@
 
 ## Function Description
 
-Returns the BatchHandle reference used for batch operations. A single-channel handle is returned unchanged; for a multi-channel handle, the call selects a logical channel and remote registered-memory region.
+Returns a BatchHandle reference used to add batch tasks. In multi-channel mode, this API selects a logical channel and its remote registered memory. In single-channel mode, it returns the input handle itself.
 
 ## Function Prototype
 
@@ -21,12 +21,8 @@ __aicore__ inline BatchHandle<T>& GetHandleRef(
 | Parameter | Input/Output | Description |
 | --- | --- | --- |
 | `batchHandle` | Input/Output | Single-channel or multi-channel batch handle created by `MakeBatchHandle`. |
-| `channelIndex` | Input | Multi-channel logical channel index. Ignored for a single-channel handle. |
-| `remoteAddr` | Input | Address in a multi-channel remote registered buffer. When null, selects the first remote registered buffer of that channel. Ignored for a single-channel handle. Default: `nullptr`. |
-
-## Return Value
-
-Returns the input handle itself for a single channel, or the inner `BatchHandle<T>` reference configured for the selected logical channel and remote address for multiple channels.
+| `channelIndex` | Input | Logical channel index in multi-channel mode. Ignored in single-channel mode. |
+| `remoteAddr` | Input | Selects remote registered memory in multi-channel mode. If `nullptr`, the first remote registered buffer of the logical channel is selected. Ignored in single-channel mode. Default: `nullptr`. |
 
 ## Template Parameters
 
@@ -34,15 +30,19 @@ Returns the input handle itself for a single channel, or the inner `BatchHandle<
 | --- | --- |
 | `T` | Batch handle type deduced from `batchHandle`. |
 
+## Return Value
+
+Returns a BatchHandle reference used to add batch tasks.
+
 ## Constraints
 
-- For a single-channel handle, `channelIndex` and `remoteAddr` do not modify the handle; remote memory remains selected by `MakeBatchHandle`.
-- For a multi-channel handle, `channelIndex` must be smaller than the `channelNum` used to create the `MultiChannelHandle`.
-- For a multi-channel handle, a non-null `remoteAddr` must belong to a remote registered buffer of the selected logical channel. When null, the first remote registered buffer of that channel is selected.
-- This interface has no status return. The caller must provide a valid logical-channel index and remote address for a multi-channel handle.
-- Repeated calls on the same multi-channel batch handle return the same inner BatchHandle reference. Each call updates the logical-channel and remote address information currently selected in that inner handle.
-- Multi-channel remote buffers accessed through the returned reference must use the token cached by this call. Call this interface again before accessing a remote buffer that uses a different token.
-- For multiple channels, use the returned inner reference with batch read, write, and write-with-notify APIs. Pass the outer multi-channel batch handle to `BatchCommit` and batch `Drain`.
+- In multi-channel mode, `channelIndex` must be smaller than the `channelNum` specified when creating the `MultiChannelHandle`.
+- In multi-channel mode, a non-null `remoteAddr` must be within a remote registered buffer of the selected logical channel. Batch operations through the returned handle must access that buffer.
+- Call this API again when switching to another logical channel or remote registered buffer.
+- Repeated calls for the same multi-channel batch handle return references to the same inner BatchHandle. Each call updates the logical channel and remote registered memory currently selected by that handle. After another call, a previously saved reference also represents the new selection and must not be used as if it retained the old selection.
+- This API does not return a status code. The caller must ensure that the logical channel index and remote address are valid.
+- In multi-channel mode, use the returned handle reference with batch read, write, and write-with-notify APIs. Use the multi-channel batch handle returned by `MakeBatchHandle` with `BatchCommit` and batch `Drain`.
+- In single-channel mode, `channelIndex` and `remoteAddr` have no effect. Remote registered memory is selected by `MakeBatchHandle`.
 
 ## Related APIs
 

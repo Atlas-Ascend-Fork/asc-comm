@@ -42,7 +42,7 @@ struct HcommUnboundGroup {};
  *          1) Create Hcomm object.
  *          2) Launch comm tasks asynchronously through the corresponding interface.
  *          3) Call the Drain interface (blocking) to wait for completion of the comm tasks.
- * @tparam commProtocol: The communication protocol to use, UBC_CTP supported as default.
+ * @tparam commProtocol: The communication protocol to use, UB_CTP supported as default.
  * @note Unlike the SIMD path, the doorbell is rung by copying a 128-byte DWQE rather than writing
  *       a scalar register. A deferred Write/Read occupies one SQ basic block, while an immediate
  *       Write/Read and the two-BB Notify/atomic WQEs occupy two.
@@ -63,7 +63,7 @@ struct HcommUnboundGroup {};
  *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
  *       packs curHead and wqeCnt into the u64 at SqContext::ubJfs::headAddr.
  */
-template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP, typename Group = detail::HcommUnboundGroup>
+template <CommProtocol commProtocol = COMM_PROTOCOL_UB_CTP, typename Group = detail::HcommUnboundGroup>
 class Hcomm {
 public:
     __simt_callee__ inline Hcomm();
@@ -198,7 +198,7 @@ private:
 };
 
 template <typename Group>
-Hcomm(const Group&) -> Hcomm<COMM_PROTOCOL_UBC_CTP, Group>;
+Hcomm(const Group&) -> Hcomm<COMM_PROTOCOL_UB_CTP, Group>;
 
 /*!
  * @brief Resolve the base address of a locally registered buffer on the channel.

@@ -477,10 +477,9 @@ TEST_F(AinUrmaTestSuite, GetPeerPointerReturnsPeerAddressFromWorldTeamId)
     UrmaChannelResource channel;
     AinTeamResource ainResource(channel);
 
-    AscendC::HcommMemHandle ptr = GetPeerPointer(ainResource.GetTeam(), PEER, ainResource.GetWin(), 0x40);
+    AscendC::HcommMemHandle ptr = GetPeerPointer(PEER, ainResource.GetWin(), 0x40);
 
-    uint64_t expected = ainResource.GetLsaBaseVa() +
-                        static_cast<uint64_t>(ainResource.GetWorldTeamId(PEER)) * ainResource.GetLsaStride() + 0x40;
+    uint64_t expected = ainResource.GetLsaBaseVa() + PEER * ainResource.GetLsaStride() + 0x40;
     EXPECT_EQ(reinterpret_cast<uint64_t>(ptr), expected);
 }
 
@@ -489,7 +488,7 @@ TEST_F(AinUrmaTestSuite, GetPeerPointerReturnsSelfAddressWithoutStride)
     UrmaChannelResource channel;
     AinTeamResource ainResource(channel);
 
-    AscendC::HcommMemHandle ptr = GetPeerPointer(ainResource.GetTeam(), 0, ainResource.GetWin(), 0x80);
+    AscendC::HcommMemHandle ptr = GetPeerPointer(0, ainResource.GetWin(), 0x80);
 
     EXPECT_EQ(reinterpret_cast<uint64_t>(ptr), ainResource.GetLsaBaseVa() + 0x80);
 }
