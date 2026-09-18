@@ -731,16 +731,53 @@ collect_baseline_paths()
     [[ $(sort -u "${output}" | wc -l) -eq ${count} ]] || fail "duplicate path in ${manifest}"
 }
 
-validate_baseline_coverage()
+collect_missing_baseline_paths()
 {
     local active_paths=$1
     local baseline_paths=$2
+    local output=$3
     local path
 
+    : > "${output}"
     while IFS= read -r path; do
-        grep -Fqx -- "${path}" "${baseline_paths}" || \
-            fail "baseline does not cover installed patch path: ${path}"
+        grep -Fqx -- "${path}" "${baseline_paths}" || printf '%s\n' "${path}" >> "${output}"
     done < "${active_paths}"
+}
+
+validate_baseline_recovery()
+{
+    local missing_paths=$1
+    local path
+    local backup
+    local missing_count
+
+    [[ -s "${missing_paths}" ]] || return 0
+    path=$(head -n 1 "${missing_paths}")
+    [[ "${FORCE}" == true ]] || fail \
+        "baseline does not cover installed patch path: ${path}; use --force to recover from existing backups"
+
+    while IFS= read -r path; do
+        backup="${STATE_DIR}/baseline/files/${path}"
+        [[ -f "${backup}" && ! -L "${backup}" ]] || fail \
+            "baseline does not cover installed patch path and its backup is unavailable: ${path}"
+    done < "${missing_paths}"
+    missing_count=$(wc -l < "${missing_paths}")
+    log "WARNING" \
+        "baseline manifest is incomplete; --force will recover ${missing_count} entries from existing backups"
+}
+
+repair_baseline_manifest()
+{
+    local missing_paths=$1
+    local manifest="${STATE_DIR}/baseline/manifest.tsv"
+    local path
+
+    [[ -s "${missing_paths}" ]] || return 0
+    chmod 640 "${manifest}"
+    while IFS= read -r path; do
+        printf 'present\t%s\n' "${path}" >> "${manifest}"
+    done < "${missing_paths}"
+    chmod 440 "${manifest}"
 }
 
 verify_checksums()
@@ -1205,6 +1242,7 @@ install_patch()
     local package_paths
     local baseline_paths
     local active_paths
+    local missing_baseline_paths
     local touched_paths
     local package_directories
     local touched_directories
@@ -1217,6 +1255,7 @@ install_patch()
     package_paths="${WORK_DIR}/package.paths"
     baseline_paths="${WORK_DIR}/baseline.paths"
     active_paths="${WORK_DIR}/active.paths"
+    missing_baseline_paths="${WORK_DIR}/missing-baseline.paths"
     touched_paths="${WORK_DIR}/touched.paths"
     package_directories="${WORK_DIR}/package.directories"
     touched_directories="${WORK_DIR}/touched.directories"
@@ -1229,13 +1268,16 @@ install_patch()
     verify_checksums "${PAYLOAD_DIR}" "${PACKAGE_MANIFEST}" || fail "package payload checksum verification failed"
     : > "${baseline_paths}"
     : > "${active_paths}"
+    : > "${missing_baseline_paths}"
 
     if [[ -d "${STATE_DIR}" ]]; then
         validate_state_format
         collect_baseline_paths "${STATE_DIR}/baseline/manifest.tsv" "${baseline_paths}"
         collect_checksum_paths "${STATE_DIR}/active.manifest.sha256" "${active_paths}"
         validate_directory_mode_manifest "${directory_manifest}"
-        validate_baseline_coverage "${active_paths}" "${baseline_paths}"
+        collect_missing_baseline_paths \
+            "${active_paths}" "${baseline_paths}" "${missing_baseline_paths}"
+        validate_baseline_recovery "${missing_baseline_paths}"
         if ! verify_checksums "${CANN_ROOT}" "${STATE_DIR}/active.manifest.sha256"; then
             if [[ "${FORCE}" == true ]]; then
                 log "WARNING" "installed patch files were changed; --force will overwrite them"
@@ -1265,6 +1307,7 @@ install_patch()
     collect_managed_directories "${touched_paths}" "${touched_directories}"
     validate_target_paths "${touched_paths}"
     snapshot_transaction "${touched_paths}" "${touched_directories}"
+    repair_baseline_manifest "${missing_baseline_paths}"
     build_baseline_directory_manifest \
         "${package_directories}" \
         "${TRANSACTION_DIR}/directories.tsv" \
@@ -1325,6 +1368,7 @@ uninstall_patch()
 {
     local baseline_paths
     local active_paths
+    local missing_baseline_paths
     local touched_paths
     local touched_directories
     local directory_manifest="${STATE_DIR}/baseline/directories.tsv"
@@ -1333,6 +1377,7 @@ uninstall_patch()
     WORK_DIR=$(mktemp -d)
     baseline_paths="${WORK_DIR}/baseline.paths"
     active_paths="${WORK_DIR}/active.paths"
+    missing_baseline_paths="${WORK_DIR}/missing-baseline.paths"
     touched_paths="${WORK_DIR}/touched.paths"
     touched_directories="${WORK_DIR}/touched.directories"
 
@@ -1340,7 +1385,9 @@ uninstall_patch()
     collect_baseline_paths "${STATE_DIR}/baseline/manifest.tsv" "${baseline_paths}"
     collect_checksum_paths "${STATE_DIR}/active.manifest.sha256" "${active_paths}"
     validate_directory_mode_manifest "${directory_manifest}"
-    validate_baseline_coverage "${active_paths}" "${baseline_paths}"
+    collect_missing_baseline_paths \
+        "${active_paths}" "${baseline_paths}" "${missing_baseline_paths}"
+    validate_baseline_recovery "${missing_baseline_paths}"
     if ! verify_checksums "${CANN_ROOT}" "${STATE_DIR}/active.manifest.sha256"; then
         if [[ "${FORCE}" == true ]]; then
             log "WARNING" "installed patch files were changed; --force will discard those changes"
@@ -1366,6 +1413,7 @@ uninstall_patch()
     collect_managed_directories "${touched_paths}" "${touched_directories}"
     validate_target_paths "${touched_paths}"
     snapshot_transaction "${touched_paths}" "${touched_directories}"
+    repair_baseline_manifest "${missing_baseline_paths}"
     prepare_directories_for_install "${touched_directories}"
     restore_baseline "${active_paths}"
     if [[ "${STATE_FORMAT_VERSION}" == "3" ]]; then
