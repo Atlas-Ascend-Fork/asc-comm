@@ -122,12 +122,11 @@ private:
     template <bool sqSafeMode = false>
     __aicore__ inline bool EnContinue(
         uint32_t expectIdx, uint32_t cqTail, uint32_t sqHead, uint32_t sqTail, uint32_t sqDepth, uint32_t threshold);
-    __aicore__ inline bool CheckChannelParam(__gm__ ChannelEntity* chnlPtr);
+    __aicore__ inline bool CheckParam(__gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src);
 
 private:
     LocalTensor<uint8_t> wqeUB_;
     LocalTensor<uint8_t> cqeUB_;
-    bool paramValid_{false};
 };
 } // namespace AscendC
 
