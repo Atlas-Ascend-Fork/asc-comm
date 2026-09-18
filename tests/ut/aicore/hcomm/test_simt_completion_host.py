@@ -33,7 +33,7 @@ core = impl[
         "// End shared CQ completion implementation."
     )
 ]
-core = core.replace("HcommImpl<COMM_PROTOCOL_UBC_CTP>::", "CompletionEngine::")
+core = core.replace("HcommImpl<COMM_PROTOCOL_UB_CTP>::", "CompletionEngine::")
 definition = (
     ROOT / "src/aicore/hcomm/impl/platform_v310/hcomm_simt_urma_def.h"
 ).read_text(encoding="utf-8")

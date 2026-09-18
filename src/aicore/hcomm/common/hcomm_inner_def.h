@@ -30,8 +30,12 @@ enum class MultiChannelHandle : uint64_t {};
 
 constexpr int32_t HCOMM_FAILED = -1;
 constexpr int32_t HCOMM_SUCCESS = 0;
+constexpr uint32_t HCOMM_LOCK_FREE = 0U;
+constexpr uint32_t HCOMM_LOCK_HELD = 1U;
 constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
+constexpr uint32_t HCOMM_POLL_CQ_THRESHOLD = 10;
+constexpr uint32_t HCOMM_NUM_CQE_PER_POLL_CQ = 100;
 
 #pragma pack(push, 1)
 struct UrmaWqeEntry {
@@ -57,6 +61,14 @@ static constexpr UrmaWqeEntry URMA_INLINE_CFG = {
     .se = 0,
     .cqe = 1,
     .inlineEn = 1,
+};
+
+static constexpr UrmaWqeEntry ROCE_DEFAULT_CFG = {
+    .odr = 0,
+    .fence = 1,
+    .se = 0,
+    .cqe = 1,
+    .inlineEn = 0,
 };
 
 typedef enum {
@@ -190,7 +202,7 @@ typedef struct {
             uint32_t wqeSize;
             uint32_t depth;
             uint8_t sl;
-            uint8_t mtuShift;
+            uint64_t dbVendorSpecified;
         } roceSq;
         uint8_t raws[120];
     } contextInfo;
@@ -217,6 +229,7 @@ typedef struct {
             uint32_t cqn;
             uint32_t cqeSize;
             uint32_t cqDepth;
+            uint64_t dbVendorSpecified;
         } roceCq;
         uint8_t raws[120];
     } contextInfo;
@@ -291,42 +304,42 @@ typedef struct {
     BatchQueueCursor cursor;
     BatchRemoteInfo remoteInfo;
     BatchBuffer buffer;
-} UbcCtpBatchHandle;
+} UbcBatchHandle;
 
 typedef struct {
-    UbcCtpBatchHandle handle;
+    UbcBatchHandle handle;
     ChannelHandle channelHandle;
     uint32_t channelNum;
     uint32_t reserved;
     uint64_t remoteInfoAddr;
-} UbcCtpMultiBatchHandle;
+} UbcMultiBatchHandle;
 
 template <typename T>
-struct ChannelTraits;
+struct HandleTraits;
 
+// For channel types, BatchHandleType is the MakeBatchHandle result; for batch types, it is the execution handle.
 template <>
-struct ChannelTraits<ChannelHandle> {
-    using BatchHandleType = UbcCtpBatchHandle;
+struct HandleTraits<ChannelHandle> {
+    using BatchHandleType = UbcBatchHandle;
 };
 
 template <>
-struct ChannelTraits<MultiChannelHandle> {
-    using BatchHandleType = UbcCtpMultiBatchHandle;
+struct HandleTraits<MultiChannelHandle> {
+    using BatchHandleType = UbcMultiBatchHandle;
 };
 
 template <typename T>
-using BatchHandle = typename ChannelTraits<T>::BatchHandleType;
-
-template <typename T>
-struct BatchHandleTraits;
+using BatchHandle = typename HandleTraits<T>::BatchHandleType;
 
 template <>
-struct BatchHandleTraits<UbcCtpBatchHandle> {
+struct HandleTraits<UbcBatchHandle> {
+    using BatchHandleType = UbcBatchHandle;
     using ChannelType = ChannelHandle;
 };
 
 template <>
-struct BatchHandleTraits<UbcCtpMultiBatchHandle> {
+struct HandleTraits<UbcMultiBatchHandle> {
+    using BatchHandleType = UbcBatchHandle;
     using ChannelType = MultiChannelHandle;
 };
 
@@ -350,7 +363,7 @@ typedef union {
         uint32_t signal : 1;   // [29]    request a CQE on completion
         uint32_t fence : 1;    // [30]    fence / ordering
         uint32_t se : 1;       // [31]    solicited event
-    } bs;
+    } dw0;
     uint32_t value;
 } RoceWqeTaskComSeg;
 
@@ -364,6 +377,7 @@ typedef struct {
             uint32_t cmdLen : 8;     // [15:8] command length, unused for this WQE
             uint32_t pi : 16;        // [31:16] producer index, unused for this WQE
         } bs;
+        uint32_t feth;
         uint32_t value; // dw3 is filled in host order, then byte-swapped before the NIC consumes it
     } dw3;
     uint64_t vaRemote; // remote virtual address
@@ -388,8 +402,16 @@ typedef struct {
     uint32_t opSrWqebb;  // dw2: op_type(31:27) + s_r(26) + inline(25) + merge(24) + fake(23) + wqebb_cnt(19:0)
     uint32_t byteCnt;    // dw3: transferred byte count
     uint32_t immData;    // dw4: immediate data / invalidate key (receive side)
-    uint32_t rsvdDw5;    // dw5: reserved for RC
-    uint32_t wqeNum;     // dw6: merged wr count (RQ merge only)
+    union {
+        struct {
+            uint8_t smac[2];
+            uint16_t vlanIdPri;
+        } macVlanId;
+    } dw4;
+    union {
+        uint8_t smac[4];
+        uint32_t wqeNum;
+    } dw5;
     uint32_t vlanQueueIndex; // dw7: srqn_rqpn (RC = SRQN, not read by SHMEM)
     uint8_t syndrome;        // dw8[7:0]: error syndrome, valid only when op_type = error(0x1e)
     uint8_t rsvd;            // dw8[15:8]
