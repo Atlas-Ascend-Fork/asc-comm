@@ -12,7 +12,7 @@
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_AIV_URMA_JETTY_H
 
 #include <c_api/sync/sync.h>
-#include <c_api/utils/sys_var.h>
+#include <c_api/sys_var/sys_var.h>
 #include <c_api/vector_datamove/vector_datamove.h>
 
 #include "../../../hcomm/common/hcomm_inner_def.h"

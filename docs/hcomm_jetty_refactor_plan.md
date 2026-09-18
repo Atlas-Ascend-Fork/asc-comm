@@ -2,13 +2,20 @@
 
 ## 1. 当前状态
 
-`include/aicore/hcomm/hcomm_jetty.h` 已收编 DeepEP-Ascend-Nightly-main 的 handle.hpp，包含：
+SIMT Jetty 的实现统一位于 `src/aicore/jetty/jetty_simt_impl.h`，公开包装入口为
+`include/aicore/hcomm/hcomm_jetty_simt.h`。历史路径
+`include/aicore/hcomm/hcomm_jetty.h` 仅保留兼容 include，不再复制实现。SIMD Jetty
+继续使用 `include/aicore/jetty/hcomm_jetty.h`，两种执行模型分别维护自己的公开入口：
 
 | 类型 | 命名空间 | 执行模型 | 功能 |
 |------|----------|----------|------|
 | `HcommJetty` | `AscendC::simt::jetty` | `__simt_callee__` | warp 协作 WQE + DWQE doorbell + commit |
 | `HcommPeer` | `AscendC::simt::jetty` | `__simt_callee__` | GM Jetty 远端信息句柄 |
 | `HcommSge` | `AscendC::simt::jetty` | - | SGE 描述符 |
+
+SIMT 公开头通过 `hcomm_jetty_simt.h` 直接复用这套实现；`hcomm_simt.h` 也显式引用该
+文件，避免再次引入兼容头。未使用的 `src/aicore/hcomm/impl/*jetty*` 副本已删除，SIMD
+实现只保留在 `src/aicore/jetty/impl`。
 
 ---
 

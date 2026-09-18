@@ -14,6 +14,8 @@
 
 namespace AscendC::simt::jetty {
 
+using HcommSge = JettySge;
+
 /**
  * Public SIMT Jetty API. A call to Write publishes by default; use
  * kDoCommit=false for a group of posts followed by AdvanceSq and PublishSq.
@@ -39,10 +41,26 @@ public:
 
     __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* Info() const { return impl_.Info(); }
 
+    __simt_callee__ __forceinline__ void Attach(
+        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channel)
+    {
+        impl_.Attach(info, stage, channel);
+    }
+
     template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
     __simt_callee__ __forceinline__ int32_t Write(
         const HcommPeer& peer, __gm__ void* dst, const JettySge* sges, const Coop& coop = Coop{}) const
     { return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, sges, coop); }
+
+    template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
+    __simt_callee__ __forceinline__ int32_t Put(
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges, const Coop& coop = Coop{}) const
+    { return Write<kSgeNum, kDoCommit>(peer, dst, sges, coop); }
+
+    template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
+    __simt_callee__ __forceinline__ int32_t Put(
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
+    { return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, &sge, coop); }
     template <int64_t kTimeout, typename T, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t WriteValue(
         const HcommPeer& peer, __gm__ void* dst, T value)

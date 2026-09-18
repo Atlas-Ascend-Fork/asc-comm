@@ -151,6 +151,13 @@ public:
         return reinterpret_cast<__ubuf__ HcommPeerInfo*>(infoAddr);
     }
 
+    // Keep the two-argument attach form used by existing SIMT kernels. The
+    // channel is already represented by the cached peer metadata.
+    __simt_callee__ __forceinline__ void Attach(__ubuf__ HcommPeerInfo* info, uint64_t)
+    {
+        Attach(info);
+    }
+
 private:
     __simt_callee__ __forceinline__ void Attach(__ubuf__ HcommPeerInfo* info)
     {

@@ -12,8 +12,8 @@
  * \file hcomm_jetty.h
  * \brief Low-level AIV Jetty primitives for URMA point-to-point writes.
  */
-#ifndef INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_H
-#define INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_H
+#ifndef INCLUDE_ADV_API_JETTY_HCOMM_JETTY_H
+#define INCLUDE_ADV_API_JETTY_HCOMM_JETTY_H
 
 #include "kernel_basic_intf.h"
 #include "../hcomm/hcomm_common.h"
@@ -176,4 +176,4 @@ private:
 #undef HCOMM_UNDEF_INCLUDE_INTERNAL_HEADERS_HCOMM_JETTY_H
 #endif
 
-#endif // INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_H
+#endif // INCLUDE_ADV_API_JETTY_HCOMM_JETTY_H
