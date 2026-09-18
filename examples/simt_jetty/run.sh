@@ -12,10 +12,9 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: run.sh <nranks> [all|thread|group|dispatch|warp|mixed] [options]
+Usage: run.sh <nranks> [all|thread|warp|warp-pad|group|dispatch] [options]
 
 Options:
-  --sge-num N     SGE count for thread/mixed; must match the build, 1-12
   --iterations N  Number of correctness iterations, default: 1
   --warmup N      Warmup iterations for --timing, default: 0
   --timing        Run all iterations in one kernel and report device clock cycles
@@ -37,14 +36,8 @@ fi
 iterations=1
 warmup=0
 timing=0
-sge_num="${SIMT_JETTY_SGE_NUM:-}"
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --sge-num)
-            [ "$#" -ge 2 ] || { echo "--sge-num requires a value" >&2; exit 1; }
-            sge_num="$2"
-            shift 2
-            ;;
         --iterations)
             [ "$#" -ge 2 ] || { echo "--iterations requires a value" >&2; exit 1; }
             iterations="$2"
@@ -71,10 +64,6 @@ if ! [[ "$iterations" =~ ^[0-9]+$ ]] || [ "$iterations" -lt 1 ]; then
 fi
 if ! [[ "$warmup" =~ ^[0-9]+$ ]]; then
     echo "--warmup must be a non-negative integer"
-    exit 1
-fi
-if [ -n "$sge_num" ] && ! [[ "$sge_num" =~ ^[1-9]$|^1[0-2]$ ]]; then
-    echo "--sge-num must be an integer in [1, 12]" >&2
     exit 1
 fi
 if [ "$timing" -eq 0 ] && [ "$warmup" -ne 0 ]; then
@@ -107,10 +96,10 @@ trap 'exit 1' SIGINT SIGTERM
 mode_id() {
     case "$1" in
         thread) echo 0 ;;
-        group) echo 1 ;;
-        dispatch) echo 2 ;;
-        warp) echo 3 ;;
-        mixed) echo 4 ;;
+        warp-pad) echo 1 ;;
+        group) echo 2 ;;
+        dispatch) echo 3 ;;
+        warp) echo 4 ;;
         *) return 1 ;;
     esac
 }
@@ -126,16 +115,10 @@ run_mode() {
     active_dirs=("$root_info_dir" "$sync_dir")
     local root_info_file="${root_info_dir}/root_info.bin"
 
-    local display_sge_num="${sge_num:-binary-config}"
-    echo "[Running] mode=${mode_name} sge_num=${display_sge_num} iterations=${iterations} warmup=${warmup} timing=${timing}"
+    echo "[Running] mode=${mode_name} iterations=${iterations} warmup=${warmup} timing=${timing}"
     pids=()
     for ((rank = 0; rank < nranks; ++rank)); do
-        local args=("$binary" "$rank" "$nranks" "$root_info_file" "$sync_dir" "$id")
-        if [ -n "$sge_num" ]; then
-            args+=("$sge_num")
-        fi
-        args+=("$iterations" "$warmup" "$timing")
-        "${args[@]}" &
+        "$binary" "$rank" "$nranks" "$root_info_file" "$sync_dir" "$id" "$iterations" "$warmup" "$timing" &
         pids+=("$!")
     done
 
@@ -153,7 +136,7 @@ run_mode() {
 
 status=0
 if [ "$requested_mode" = "all" ]; then
-    modes=(thread group dispatch warp mixed)
+    modes=(thread warp warp-pad group dispatch)
 else
     if ! mode_id "$requested_mode" >/dev/null; then
         usage

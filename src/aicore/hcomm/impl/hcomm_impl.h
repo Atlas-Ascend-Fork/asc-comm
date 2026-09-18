@@ -29,6 +29,8 @@
 #include "platform_v310/hcomm_aiv_urma.h"
 #endif
 
+#include "../../../../include/aicore/hcomm/hcomm_jetty.h"
+
 namespace AscendC {
 
 template <CommProtocol commProtocol>

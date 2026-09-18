@@ -60,7 +60,7 @@ constexpr const char* kRecvBufTag = "simtJettyRecvBuf";
 
 const char* ModeName(uint32_t mode)
 {
-    constexpr const char* kModeNames[] = {"thread", "group", "dispatch", "warp", "mixed"};
+    constexpr const char* kModeNames[] = {"thread", "warp-pad", "group", "dispatch", "warp"};
     return mode < sizeof(kModeNames) / sizeof(kModeNames[0]) ? kModeNames[mode] : "unknown";
 }
 
@@ -237,10 +237,9 @@ bool CheckWords(void* deviceBuf, const uint64_t expected[simt_jetty::kSlotCount]
 
 int main(int argc, char* argv[])
 {
-    if (argc != 6 && argc != 7 && argc != 9 && argc != 10) {
+    if (argc != 6 && argc != 9) {
         std::cout << "Usage: " << argv[0]
-                  << " <rank> <nranks> <root_info_file> <sync_dir> <mode> [sge_num] [iterations warmup timing]"
-                  << std::endl;
+                  << " <rank> <nranks> <root_info_file> <sync_dir> <mode> [iterations warmup timing]" << std::endl;
         return 1;
     }
 
@@ -249,25 +248,12 @@ int main(int argc, char* argv[])
     const std::string rootInfoFile = argv[3];
     const std::string syncDir = argv[4];
     const uint32_t mode = static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10));
-    const bool hasSgeNum = argc == 7 || argc == 10;
-    const bool hasTiming = argc == 9 || argc == 10;
-    const uint32_t sgeNum = hasSgeNum ? static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10))
-                                      : simt_jetty::kConfiguredSgeNum;
-    const uint32_t iterations = hasTiming ?
-        static_cast<uint32_t>(std::strtoul(argv[hasSgeNum ? 7 : 6], nullptr, 10)) : 1U;
-    const uint32_t warmup = hasTiming ?
-        static_cast<uint32_t>(std::strtoul(argv[hasSgeNum ? 8 : 7], nullptr, 10)) : 0U;
-    const bool deviceTiming = hasTiming && std::strtoul(argv[hasSgeNum ? 9 : 8], nullptr, 10) != 0U;
+    const uint32_t iterations = argc == 9 ? static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10)) : 1U;
+    const uint32_t warmup = argc == 9 ? static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10)) : 0U;
+    const bool deviceTiming = argc == 9 && std::strtoul(argv[8], nullptr, 10) != 0U;
 
-    if (nranks < 2 || rank < 0 || rank >= nranks || syncDir.empty() || mode > 4U || iterations == 0U ||
-        sgeNum < 1U || sgeNum > simt_jetty::kSlotCount) {
-        std::cout << "invalid rank/nranks/sync_dir/mode/iterations/sge_num" << std::endl;
-        return 1;
-    }
-    if (hasSgeNum && (mode == 0U || mode == 1U || mode == 3U || mode == 4U) &&
-        sgeNum != simt_jetty::kConfiguredSgeNum) {
-        std::cout << "--sge-num=" << sgeNum << " does not match the binary compile-time SGE count "
-                  << simt_jetty::kConfiguredSgeNum << "; rebuild with SIMT_JETTY_SGE_NUM=" << sgeNum << std::endl;
+    if (nranks < 2 || rank < 0 || rank >= nranks || syncDir.empty() || mode > 4U || iterations == 0U) {
+        std::cout << "invalid rank/nranks/sync_dir/mode/iterations" << std::endl;
         return 1;
     }
     if (rank >= 2) {
@@ -371,15 +357,12 @@ int main(int argc, char* argv[])
         }
     } else {
         uint64_t expected[simt_jetty::kSlotCount] = {};
-        if (mode == 0U || mode == 1U || mode == 3U || mode == 4U) {
-            for (uint32_t slot = 0; slot < simt_jetty::kConfiguredSgeNum; ++slot) {
+        if (mode == 0U || mode == 3U) {
+            for (uint32_t slot = 0; slot < simt_jetty::kSlotCount; ++slot) {
                 expected[slot] = simt_jetty::SlotValue(slot);
             }
-        } else if (mode == 2U) {
-            const uint32_t expectedSgeNum = simt_jetty::kSlotCount;
-            for (uint32_t slot = 0; slot < expectedSgeNum; ++slot) {
-                expected[slot] = simt_jetty::SlotValue(slot);
-            }
+        } else if (mode == 1U) {
+            expected[0] = simt_jetty::SlotValue(0);
         } else {
             expected[0] = simt_jetty::SlotValue(0);
             expected[1] = simt_jetty::SlotValue(1);
@@ -392,7 +375,7 @@ int main(int argc, char* argv[])
             pass = pass && iterationPass;
             if (!iterationPass) {
                 std::cout << "[rank 1] simt_jetty mode " << mode << " iteration " << iteration << " FAIL"
-                          << std::endl;
+                          << " checks=" << (mode == 0U || mode == 3U ? simt_jetty::kSlotCount : 2U) << std::endl;
             }
             if (!deviceTiming && iteration + 1U < checks) {
                 ACLCHECK(aclrtMemset(recvBuf, simt_jetty::kBufferBytes, 0, simt_jetty::kBufferBytes));

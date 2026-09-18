@@ -20,10 +20,6 @@ find_package(ASC REQUIRED)
 project(simt_jetty LANGUAGES ASC CXX)
 
 option(HCOMM_CCE_RES_USAGE "Print CCE stack and register usage" OFF)
-set(SIMT_JETTY_SGE_NUM "12" CACHE STRING "Compile-time SGE count for thread and mixed modes (1 to 12)")
-if(NOT SIMT_JETTY_SGE_NUM MATCHES "^[1-9]$|^1[0-2]$")
-    message(FATAL_ERROR "SIMT_JETTY_SGE_NUM must be an integer in [1, 12]")
-endif()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -36,10 +32,7 @@ add_executable(simt_jetty
     op_kernel.cpp
 )
 
-target_compile_definitions(simt_jetty PRIVATE
-    USE_SIMT
-    SIMT_JETTY_SGE_NUM=${SIMT_JETTY_SGE_NUM}
-)
+target_compile_definitions(simt_jetty PRIVATE USE_SIMT)
 
 set_target_properties(simt_jetty PROPERTIES LINKER_LANGUAGE ASC)
 

@@ -20,14 +20,9 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 build_dir="${script_dir}/build"
 build_jobs="${BUILD_JOBS:-$(nproc)}"
 res_usage="${CCE_RES_USAGE:-0}"
-sge_num="${SIMT_JETTY_SGE_NUM:-12}"
 
 if [[ "${res_usage}" != "0" && "${res_usage}" != "1" ]]; then
     echo "CCE_RES_USAGE must be 0 or 1" >&2
-    exit 1
-fi
-if ! [[ "${sge_num}" =~ ^[1-9]$|^1[0-2]$ ]]; then
-    echo "SIMT_JETTY_SGE_NUM must be an integer in [1, 12]" >&2
     exit 1
 fi
 
@@ -37,7 +32,6 @@ cmake \
     -S "${script_dir}" \
     -B "${build_dir}" \
     -DCMAKE_ASC_ARCHITECTURES=dav-3510 \
-    -DHCOMM_CCE_RES_USAGE="${res_usage}" \
-    -DSIMT_JETTY_SGE_NUM="${sge_num}"
+    -DHCOMM_CCE_RES_USAGE="${res_usage}"
 
 cmake --build "${build_dir}" --verbose --parallel "${build_jobs}"
