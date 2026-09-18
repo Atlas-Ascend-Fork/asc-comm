@@ -12,7 +12,7 @@
 #include "simt_api/asc_simt.h"
 #include <cstdio>
 
-#include "hcomm/hcomm_simt.h"
+#include "asccomm_staged/hcomm/hcomm_simt.h"
 
 #include "simt_jetty_common.h"
 

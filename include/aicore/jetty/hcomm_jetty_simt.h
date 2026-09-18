@@ -10,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "../../../impl/comm_api/aicore/hcomm/impl/hcomm_simt_jetty_impl.h"
+#include "../../../impl/comm_api/aicore/jetty/impl/hcomm_jetty_simt_impl.h"
 
 namespace AscendC::simt::jetty {
 
@@ -50,6 +50,19 @@ public:
     template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
     __simt_callee__ __forceinline__ int32_t Write(
         const HcommPeer& peer, __gm__ void* dst, const JettySge* sges, const Coop& coop = Coop{}) const
+    { return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, sges, coop); }
+
+    // Cooperative-group-first spellings. The group leads the argument list to read like the
+    // cooperative_groups API; a single SGE is passed by reference because the warp path only
+    // consumes lane 0's descriptor.
+    template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
+    __simt_callee__ __forceinline__ int32_t Write(
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
+    { return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, &sge, coop); }
+
+    template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
+    __simt_callee__ __forceinline__ int32_t Write(
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges) const
     { return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, sges, coop); }
 
     template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>

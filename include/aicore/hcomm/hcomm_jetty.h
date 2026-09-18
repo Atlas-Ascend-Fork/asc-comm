@@ -11,15 +11,15 @@
 /*
  * Compatibility include for the SIMT Jetty API.
  *
- * The implementation lives in hcomm_jetty_simt.h. Keep this historical path
- * as a thin wrapper so existing SIMT kernels do not carry a second copy of the
- * Jetty implementation and so it cannot collide with jetty/hcomm_jetty.h.
+ * The implementation lives in jetty/hcomm_jetty_simt.h. Keep this historical
+ * path as a thin wrapper so existing SIMT kernels do not carry a second copy of
+ * the Jetty implementation and so it cannot collide with jetty/hcomm_jetty.h.
  */
 #ifndef INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_COMPAT_H
 #define INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_COMPAT_H
 
 #if defined(USE_SIMT)
-#include "hcomm_jetty_simt.h"
+#include "../jetty/hcomm_jetty_simt.h"
 #endif
 
 #endif // INCLUDE_ADV_API_HCOMM_HCOMM_JETTY_COMPAT_H

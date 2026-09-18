@@ -5,16 +5,16 @@
  * 48-byte header and active SGEs, up to four WQEBBs for twelve SGEs. SIMT
  * fills the SQ; publication can be performed by SIMD through PublishSq().
  */
-#ifndef INCLUDE_ADV_API_JETTY_JETTY_SIMT_IMPL_H
-#define INCLUDE_ADV_API_JETTY_JETTY_SIMT_IMPL_H
+#ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_SIMT_URMA_JETTY_H
+#define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_SIMT_URMA_JETTY_H
 
 #include <cstddef>
 #include <cstdint>
 
-#include "../hcomm/common/hcomm_inner_def.h"
-#include "../hcomm/common/hcomm_log.h"
-#include "../hcomm/impl/platform_v310/hcomm_simt_urma_def.h"
-#include "../../../impl/comm_api/aicore/utils/simt_utils.h"
+#include "../../../hcomm/common/hcomm_inner_def.h"
+#include "../../../hcomm/common/hcomm_log.h"
+#include "../../../hcomm/impl/platform_v310/hcomm_simt_urma_def.h"
+#include "../../../utils/simt_utils.h"
 #include <kernel_operator.h>
 #include <simt_api/device_atomic_functions.h>
 #include <simt_api/device_warp_functions.h>
@@ -387,6 +387,14 @@ public:
     }
 
 
+    __simt_callee__ __forceinline__ void Attach(
+        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
+    {
+        infoAddr_ = reinterpret_cast<uint64_t>(info);
+        stageAddr_ = reinterpret_cast<uint64_t>(stage);
+        channel_ = channelAddr;
+    }
+
 private:
     struct BatchState {
         uint32_t wqebbCount;
@@ -429,13 +437,6 @@ private:
         info->cqDepth = cq->contextInfo.ubJfc.cqDepth;
         HCOMM_DEBUG_TRAP_IF(info->sqHeadAddr == 0U, "invalid SIMT HcommJetty SQ head\n");
         info->packedHead = *reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr);
-    }
-    __simt_callee__ __forceinline__ void Attach(
-        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
-    {
-        infoAddr_ = reinterpret_cast<uint64_t>(info);
-        stageAddr_ = reinterpret_cast<uint64_t>(stage);
-        channel_ = channelAddr;
     }
     __simt_callee__ __forceinline__ __ubuf__ BatchState* Batch() const
     {

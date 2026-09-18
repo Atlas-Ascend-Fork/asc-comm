@@ -27,10 +27,58 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set_source_files_properties(op_kernel.cpp PROPERTIES LANGUAGE ASC)
 
+# The public headers reach their implementation through package-layout relative paths
+# (../../../impl/comm_api/...), which only resolve in an installed tree. Stage a
+# package-shaped header tree from the working copy so this sample builds against the
+# repository instead of whatever asc-comm version happens to be installed.
+set(ASCCOMM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+set(ASCCOMM_STAGE_ROOT "${CMAKE_BINARY_DIR}/package_layout")
+# Mirror the installed depth exactly. Installed, the public headers live at
+# asc/include/adv_api/<mod>/ and are also reachable via the asc/include/comm_api/aicore/<mod>
+# symlink; their "../../../impl/comm_api/..." includes resolve relative to the real adv_api
+# location, i.e. to asc/impl/. Staging the headers directly under comm_api/aicore would make
+# that same path resolve to asc/include/impl/ and fail, so replicate the adv_api layout.
+set(ASCCOMM_STAGE_INCLUDE_DIR "${ASCCOMM_STAGE_ROOT}/asc/include/adv_api")
+set(ASCCOMM_STAGE_IMPL_DIR "${ASCCOMM_STAGE_ROOT}/asc/impl/comm_api/aicore")
+set(ASCCOMM_STAGE_STAMP "${ASCCOMM_STAGE_ROOT}/.header_layout.stamp")
+
+file(GLOB_RECURSE ASCCOMM_STAGE_INPUTS CONFIGURE_DEPENDS
+    "${ASCCOMM_ROOT}/include/aicore/*"
+    "${ASCCOMM_ROOT}/src/aicore/*"
+)
+
+add_custom_command(
+    OUTPUT ${ASCCOMM_STAGE_STAMP}
+    COMMAND ${CMAKE_COMMAND} -E remove_directory "${ASCCOMM_STAGE_ROOT}/asc"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/include/aicore/hcomm" "${ASCCOMM_STAGE_INCLUDE_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/include/aicore/jetty" "${ASCCOMM_STAGE_INCLUDE_DIR}/jetty"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/hcomm" "${ASCCOMM_STAGE_IMPL_DIR}/hcomm"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/jetty" "${ASCCOMM_STAGE_IMPL_DIR}/jetty"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/utils" "${ASCCOMM_STAGE_IMPL_DIR}/utils"
+    # The ASC driver prepends its own search paths (including the installed asc/include/adv_api)
+    # ahead of every -I, so an "#include \"hcomm/...\"" always finds the installed copy first and
+    # no -I ordering can override it. Expose the staged headers under a prefix that exists
+    # nowhere in the driver's builtin paths. It is a symlink to the staged adv_api dir, so the
+    # public headers' "../../../impl/..." includes still resolve from the real location.
+    COMMAND ${CMAKE_COMMAND} -E create_symlink
+        "adv_api" "${ASCCOMM_STAGE_ROOT}/asc/include/asccomm_staged"
+    COMMAND ${CMAKE_COMMAND} -E touch ${ASCCOMM_STAGE_STAMP}
+    DEPENDS ${ASCCOMM_STAGE_INPUTS}
+    COMMENT "Preparing package-shaped asc-comm headers for simt_jetty"
+)
+add_custom_target(simt_jetty_header_layout DEPENDS ${ASCCOMM_STAGE_STAMP})
+
 add_executable(simt_jetty
     main.cpp
     op_kernel.cpp
 )
+
+add_dependencies(simt_jetty simt_jetty_header_layout)
 
 target_compile_definitions(simt_jetty PRIVATE USE_SIMT)
 
@@ -38,13 +86,14 @@ set_target_properties(simt_jetty PROPERTIES LINKER_LANGUAGE ASC)
 
 target_include_directories(simt_jetty BEFORE PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include/aicore
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../include
+    ${ASCCOMM_STAGE_ROOT}/asc/include
     $ENV{ASCEND_HOME_PATH}/include
     $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/asc
     $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/asc/include
     $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/asc/include/basic_api
-    $<$<COMPILE_LANGUAGE:ASC>:$ENV{ASCEND_HOME_PATH}/asc/include/adv_api>
+    # Deliberately NOT adding ${ASCEND_HOME_PATH}/asc/include/adv_api here: it carries an
+    # installed copy of the Hcomm/Jetty headers that shadows the staged tree above regardless
+    # of -I order. kernel_operator.h and friends resolve from asc/include instead.
 )
 
 target_link_directories(simt_jetty PRIVATE
