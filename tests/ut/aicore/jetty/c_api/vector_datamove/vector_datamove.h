@@ -17,7 +17,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "c_api/defs/defs.h"
+#include "c_api/utils/enum.h"
 
 // Avoid the unsupported 3510 vector helpers pulled in by the CANN 9.2.0
 // datamove header. Only the byte-copy overload used by Jetty is replaced.

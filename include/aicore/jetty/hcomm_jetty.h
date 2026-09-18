@@ -17,36 +17,9 @@
 
 #include "kernel_basic_intf.h"
 #include "../hcomm/hcomm_common.h"
+#include "../../../impl/comm_api/aicore/jetty/common/hcomm_jetty_inner_def.h"
 
 namespace AscendC {
-
-struct alignas(8) HcommJettyPeerInfo {
-    uint32_t tpId;
-    uint32_t remoteTokenId;
-    uint64_t remoteEid[2];
-    uint64_t remoteTokenValue;
-    uint64_t remoteBaseAddr;
-    uint64_t remoteBufferSize;
-};
-static_assert(sizeof(HcommJettyPeerInfo) == 48U, "HcommJettyPeerInfo must be 48 bytes");
-
-struct alignas(8) HcommJettyInfo {
-    uint64_t sqBaseAddr;     // SQ base address in device memory.
-    uint64_t sqHeadAddr;     // Address of the packed 64-bit SQ head: low 32 bits are the head in
-                             // WQEBBs, high 32 bits are the expected CQE count.
-    uint64_t sqTailAddr;     // Address of the 32-bit SQ completion tail published by the hardware.
-    uint64_t sqDoorbellAddr; // SQ doorbell address.
-    uint64_t cqBaseAddr;     // CQ base address in device memory.
-    uint64_t cqTailAddr;     // Address of the 32-bit CQ tail.
-    uint64_t cqDoorbellAddr; // CQ doorbell address.
-    uint32_t sqHead;         // SQ producer head in WQEBBs.
-    uint32_t expectedCqeCnt; // Number of CQEs expected from the submitted WQEs.
-    uint32_t numWqebbBytes;  // WQEBB size in bytes.
-    uint32_t numCqeBytes;    // CQE size in bytes.
-    uint32_t sqDepth;        // SQ depth in WQEBBs.
-    uint32_t cqDepth;        // CQ depth in CQEs.
-};
-static_assert(sizeof(HcommJettyInfo) == 80U, "HcommJettyInfo must be 80 bytes");
 
 struct HcommPeer {
     __ubuf__ HcommJettyPeerInfo* peerInfo = nullptr;

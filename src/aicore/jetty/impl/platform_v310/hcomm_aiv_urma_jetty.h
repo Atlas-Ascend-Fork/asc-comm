@@ -39,7 +39,7 @@ __aicore__ inline HcommPeer::HcommPeer(__ubuf__ HcommJettyPeerInfo* peerInfo, GM
 {
     HCOMM_DEBUG_TRAP_IF(peerInfo == nullptr || jettyTable == nullptr, "peerInfo or jettyTable is nullptr\n");
     auto* table = reinterpret_cast<__gm__ uint64_t*>(jettyTable);
-    uint64_t jettyValue = ReadGmBypassDCache(table + jettyIdx);
+    uint64_t jettyValue = ReadGmByPassDCache(table + jettyIdx);
     HCOMM_DEBUG_TRAP_IF(jettyValue == 0U, "jettyTable[%u] is 0\n", jettyIdx);
     auto* jetty = reinterpret_cast<__gm__ ChannelEntity*>(jettyValue);
     HCOMM_DEBUG_TRAP_IF(
@@ -47,10 +47,11 @@ __aicore__ inline HcommPeer::HcommPeer(__ubuf__ HcommJettyPeerInfo* peerInfo, GM
         "jetty info is nullptr\n");
     // The last registered buffer carries the shared remote token metadata.
     auto* remoteBuffer = jetty->remoteBufferAddr + (jetty->remoteBufferNum - 1U);
-    peerInfo->remoteTokenValue = remoteBuffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
-    peerInfo->remoteTokenId = remoteBuffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
+    peerInfo->remoteTokenValueUdf = remoteBuffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     auto* sqContext = jetty->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
-    peerInfo->tpId = sqContext->contextInfo.ubJfs.tpID;
+    // tpId occupies bits [23:0] and remoteTokenId bits [51:32]; numSges is OR-ed in per post.
+    peerInfo->tpIdNumSgesRemoteTokenId = static_cast<uint64_t>(sqContext->contextInfo.ubJfs.tpID) |
+        (static_cast<uint64_t>(remoteBuffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId) << 32U);
     auto* remoteEid = reinterpret_cast<const uint32_t*>(sqContext->contextInfo.ubJfs.remoteEID);
     peerInfo->remoteEid[0] = static_cast<uint64_t>(remoteEid[0]) | (static_cast<uint64_t>(remoteEid[1]) << 32U);
     peerInfo->remoteEid[1] = static_cast<uint64_t>(remoteEid[2]) | (static_cast<uint64_t>(remoteEid[3]) << 32U);
@@ -63,7 +64,7 @@ __aicore__ inline HcommJettyImpl::HcommJettyImpl(
 {
     HCOMM_DEBUG_TRAP_IF(jettyInfo == nullptr || jettyTable == nullptr, "jettyInfo or jettyTable is nullptr\n");
     auto* table = reinterpret_cast<__gm__ uint64_t*>(jettyTable);
-    uint64_t jettyValue = ReadGmBypassDCache(table + jettyIdx);
+    uint64_t jettyValue = ReadGmByPassDCache(table + jettyIdx);
     HCOMM_DEBUG_TRAP_IF(jettyValue == 0U, "jettyTable[%u] is 0\n", jettyIdx);
     auto* jetty = reinterpret_cast<__gm__ ChannelEntity*>(jettyValue);
     HCOMM_DEBUG_TRAP_IF(jetty->sqContextAddr == nullptr || jetty->cqContextAddr == nullptr, "jetty info is nullptr\n");
@@ -71,14 +72,12 @@ __aicore__ inline HcommJettyImpl::HcommJettyImpl(
     auto* cqContext = jetty->cqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
     jettyInfo_->sqBaseAddr = sqContext->contextInfo.ubJfs.sqVa;
     jettyInfo_->sqHeadAddr = sqContext->contextInfo.ubJfs.headAddr;
-    jettyInfo_->sqTailAddr = sqContext->contextInfo.ubJfs.tailAddr;
+    jettyInfo_->completionTailAddr = sqContext->contextInfo.ubJfs.tailAddr;
     jettyInfo_->sqDoorbellAddr = sqContext->contextInfo.ubJfs.dbVa;
     jettyInfo_->cqBaseAddr = cqContext->contextInfo.ubJfc.scqVa;
     jettyInfo_->cqTailAddr = cqContext->contextInfo.ubJfc.tailAddr;
     jettyInfo_->cqDoorbellAddr = cqContext->contextInfo.ubJfc.dbVa;
-    uint64_t packedHead = ReadGmBypassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
-    jettyInfo_->sqHead = static_cast<uint32_t>(packedHead);
-    jettyInfo_->expectedCqeCnt = static_cast<uint32_t>(packedHead >> 32U);
+    jettyInfo_->packedHead = ReadGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
     jettyInfo_->numWqebbBytes = sqContext->contextInfo.ubJfs.wqeSize;
     jettyInfo_->numCqeBytes = cqContext->contextInfo.ubJfc.cqeSize;
     jettyInfo_->sqDepth = sqContext->contextInfo.ubJfs.sqDepth;
@@ -91,17 +90,19 @@ __aicore__ inline void HcommJettyImpl::FillWriteSqeHeader(
     const HcommPeer& peer, GM_ADDR dstAddr, uint32_t inlineMsgLen, uint32_t sgeNum)
 {
     auto* info = peer.peerInfo;
-    const uint32_t owner = (jettyInfo_->sqHead & jettyInfo_->sqDepth) == 0U ? 1U : 0U;
+    const uint32_t owner =
+        (static_cast<uint32_t>(jettyInfo_->packedHead) & jettyInfo_->sqDepth) == 0U ? 1U : 0U;
     // Fill HcommUrmaSqeCtx with one 64-bit store per word: word0/1 pack the bitfields, word5 is rmtAddr.
     __ubuf__ uint64_t* sqeWords = reinterpret_cast<__ubuf__ uint64_t*>(ubufSqe_);
     sqeWords[0] = (static_cast<uint64_t>(HcommJettyPackSqeFlag(config) & 0xFFU) << 16U) | (1U << 28U) | (1U << 29U) |
                   (static_cast<uint64_t>(owner) << 31U) | (static_cast<uint64_t>(opCode) << 40U) |
                   (static_cast<uint64_t>(inlineMsgLen) << 54U);
-    sqeWords[1] = (static_cast<uint64_t>(info->tpId) & 0xFFFFFFU) | (static_cast<uint64_t>(sgeNum) << 24U) |
-                  ((static_cast<uint64_t>(info->remoteTokenId) & 0xFFFFFU) << 32U);
+    // tpId and remoteTokenId already share one word in the peer descriptor, so a single load
+    // covers both; numSges is not stored and is OR-ed in here.
+    sqeWords[1] = info->tpIdNumSgesRemoteTokenId | (static_cast<uint64_t>(sgeNum) << 24U);
     sqeWords[2] = info->remoteEid[0];
     sqeWords[3] = info->remoteEid[1];
-    sqeWords[4] = static_cast<uint64_t>(info->remoteTokenValue);
+    sqeWords[4] = info->remoteTokenValueUdf;
     sqeWords[5] = reinterpret_cast<uint64_t>(dstAddr);
 }
 
@@ -115,8 +116,8 @@ __aicore__ inline void HcommJettyImpl::BuildWriteSqe(
     __ubuf__ uint64_t* sgeWords = reinterpret_cast<__ubuf__ uint64_t*>(ubufSqe_ + sizeof(HcommUrmaSqeCtx));
     if constexpr (withNotify) {
         // Fill HcommUrmaNotifyCtx with one 64-bit store per word: word1 is notifyAddr, word2 is notifyData.
-        sgeWords[0] = (static_cast<uint64_t>(peer.peerInfo->remoteTokenId) & 0xFFFFFU) |
-                      (static_cast<uint64_t>(peer.peerInfo->remoteTokenValue) << 32U);
+        sgeWords[0] = ((peer.peerInfo->tpIdNumSgesRemoteTokenId >> 32U) & 0xFFFFFU) |
+                      ((peer.peerInfo->remoteTokenValueUdf & 0xFFFFFFFFULL) << 32U);
         sgeWords[1] = reinterpret_cast<uint64_t>(notifyAddr);
         sgeWords[2] = notifyValue;
         sgeWords[3] = 0U;
@@ -155,17 +156,22 @@ __aicore__ inline void HcommJettyImpl::CopyWqeToSq(uint32_t currentHead, uint32_
 
 __aicore__ inline void HcommJettyImpl::AdvanceSq(uint32_t numWqebbs)
 {
-    jettyInfo_->sqHead += numWqebbs;
-    ++jettyInfo_->expectedCqeCnt;
-    uint64_t packedHead =
-        static_cast<uint64_t>(jettyInfo_->sqHead) | (static_cast<uint64_t>(jettyInfo_->expectedCqeCnt) << 32U);
-    WriteGmBypassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr), packedHead);
+    // packedHead keeps the head in its low 32 bits and the expected CQE count in the high 32.
+    // The two counters wrap independently, so they cannot be advanced with one 64-bit add: a
+    // head wrapping past 0xFFFFFFFF would carry into the CQE count.
+    const uint32_t head = static_cast<uint32_t>(jettyInfo_->packedHead) + numWqebbs;
+    const uint32_t expectedCqeCnt = static_cast<uint32_t>(jettyInfo_->packedHead >> 32U) + 1U;
+    jettyInfo_->packedHead = static_cast<uint64_t>(head) | (static_cast<uint64_t>(expectedCqeCnt) << 32U);
+    WriteGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr), jettyInfo_->packedHead);
     AscendC::DataSyncBarrier<AscendC::MemDsbT::DDR>();
 }
 
 __aicore__ inline void HcommJettyImpl::RingDoorbell()
 {
-    WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqDoorbellAddr), jettyInfo_->sqHead);
+    // The doorbell only takes the head, which lives in the low 32 bits of packedHead.
+    WriteGmByPassDCache(
+        reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqDoorbellAddr),
+        static_cast<uint32_t>(jettyInfo_->packedHead));
 }
 
 template <int64_t timeoutCycles>
@@ -176,8 +182,8 @@ __aicore__ inline void HcommJettyImpl::PollCqWhenSqOverflow()
     // distance can jump past an exact value and an equality test would never fire.
     constexpr uint32_t nearFullThreshold = 10U;
     constexpr uint32_t reclaimBatch = 100U;
-    uint32_t completions = jettyInfo_->expectedCqeCnt;
-    uint32_t tail = ReadGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqTailAddr));
+    uint32_t completions = static_cast<uint32_t>(jettyInfo_->packedHead >> 32U);
+    uint32_t tail = ReadGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->completionTailAddr));
     if (completions - tail + nearFullThreshold >= jettyInfo_->cqDepth) {
         PollCq<timeoutCycles>(tail + reclaimBatch < completions ? tail + reclaimBatch : completions);
     }
@@ -186,7 +192,7 @@ __aicore__ inline void HcommJettyImpl::PollCqWhenSqOverflow()
 template <int64_t timeoutCycles>
 __aicore__ inline int32_t HcommJettyImpl::PollCq(uint32_t expectedTail)
 {
-    uint32_t currentTail = ReadGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqTailAddr));
+    uint32_t currentTail = ReadGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqTailAddr));
     while (currentTail != expectedTail) {
         auto* cqe = reinterpret_cast<__gm__ uint32_t*>(
             jettyInfo_->cqBaseAddr +
@@ -195,7 +201,7 @@ __aicore__ inline int32_t HcommJettyImpl::PollCq(uint32_t expectedTail)
         uint64_t start = static_cast<uint64_t>(asc_get_system_cycle());
         uint32_t header;
         do {
-            header = ReadGmBypassDCache(cqe);
+            header = ReadGmByPassDCache(cqe);
             if (((header >> HCOMM_JETTY_CQE_OWNER_BIT) & 1U) != phase) {
                 break;
             }
@@ -213,10 +219,10 @@ __aicore__ inline int32_t HcommJettyImpl::PollCq(uint32_t expectedTail)
         }
         ++currentTail;
     }
-    WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqTailAddr), currentTail);
-    WriteGmBypassDCache(
+    WriteGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqTailAddr), currentTail);
+    WriteGmByPassDCache(
         reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->cqDoorbellAddr), currentTail & HCOMM_JETTY_CQ_DOORBELL_MASK);
-    WriteGmBypassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqTailAddr), currentTail);
+    WriteGmByPassDCache(reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->completionTailAddr), currentTail);
     AscendC::DataSyncBarrier<AscendC::MemDsbT::DDR>();
     return HCOMM_SUCCESS;
 }
@@ -230,7 +236,7 @@ __aicore__ inline bool HcommJettyImpl::Ready()
 template <int64_t timeoutCycles, bool doCommit>
 __aicore__ inline int32_t HcommJettyImpl::PostSqe(uint32_t numWqebbs)
 {
-    uint32_t head = jettyInfo_->sqHead;
+    uint32_t head = static_cast<uint32_t>(jettyInfo_->packedHead);
     PollCqWhenSqOverflow<timeoutCycles>();
     AdvanceSq(numWqebbs);
     CopyWqeToSq(head, numWqebbs);
@@ -263,7 +269,7 @@ template <int64_t timeoutCycles>
 __aicore__ inline int32_t HcommJettyImpl::Drain()
 {
     HCOMM_DEBUG_TRAP_IF(!Ready() || jettyInfo_->numCqeBytes == 0U, "HcommJetty Drain on an unready jetty\n");
-    uint64_t packedHead = ReadGmBypassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
+    uint64_t packedHead = ReadGmByPassDCache(reinterpret_cast<__gm__ uint64_t*>(jettyInfo_->sqHeadAddr));
     return PollCq<timeoutCycles>(static_cast<uint32_t>(packedHead >> 32U));
 }
 

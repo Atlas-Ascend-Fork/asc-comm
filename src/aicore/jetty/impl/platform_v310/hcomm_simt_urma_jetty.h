@@ -1,9 +1,20 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file hcomm_simt_urma_jetty.h
+ * \brief SIMT Jetty implementation.
  *
- * SIMT Jetty implementation. A WRITE occupies the WQEBBs required by its
- * 48-byte header and active SGEs, up to four WQEBBs for twelve SGEs. SIMT
- * fills the SQ; publication can be performed by SIMD through PublishSq().
+ * A WRITE occupies the WQEBBs required by its 48-byte header and active SGEs,
+ * up to four WQEBBs for twelve SGEs. SIMT fills the SQ; publication can be
+ * performed by SIMD through PublishSq().
  */
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_SIMT_URMA_JETTY_H
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_PLATFORM_V310_HCOMM_SIMT_URMA_JETTY_H
@@ -11,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "../../common/hcomm_jetty_inner_def.h"
 #include "../../../hcomm/common/hcomm_inner_def.h"
 #include "../../../hcomm/common/hcomm_log.h"
 #include "../../../hcomm/impl/platform_v310/hcomm_simt_urma_def.h"
@@ -62,33 +74,11 @@ __simt_callee__ constexpr uint32_t PostSendPayloadWqebbs()
         HCOMM_SIMT_WQEBB_LANES;
 }
 
-struct alignas(8) HcommPeerInfo {
-    uint64_t tpIdNumSgesRemoteTokenId;
-    uint64_t remoteEid[2];
-    uint64_t remoteTokenValueUdf;
-    uint64_t remoteBaseAddr;
-    uint64_t remoteBufferSize;
-};
-struct alignas(8) HcommJettyInfo {
-    uint64_t sqBaseAddr;
-    uint64_t sqHeadAddr;
-    uint64_t completionTailAddr;
-    uint64_t sqDoorbellAddr;
-    uint64_t cqBaseAddr;
-    uint64_t cqTailAddr;
-    uint64_t cqDoorbellAddr;
-    uint64_t packedHead;
-    uint32_t numWqebbBytes;
-    uint32_t numCqeBytes;
-    uint32_t sqDepth;
-    uint32_t cqDepth;
-};
-static_assert(sizeof(HcommPeerInfo) == 48U, "SIMT/SIMD peer metadata ABI mismatch");
-static_assert(offsetof(HcommPeerInfo, remoteEid) == sizeof(uint64_t), "unexpected peer metadata layout");
-static_assert(offsetof(HcommPeerInfo, remoteTokenValueUdf) == 3U * sizeof(uint64_t),
-              "unexpected peer metadata layout");
-static_assert(sizeof(HcommJettyInfo) == 80U, "SIMT/SIMD Jetty metadata ABI mismatch");
-static_assert(offsetof(HcommJettyInfo, packedHead) == 56U, "SIMT/SIMD packed head offset mismatch");
+// SIMD and SIMT describe the same hardware queues and exchange these descriptors through UB,
+// so both use the single definition in jetty/common. HcommPeerInfo keeps the SIMT-side spelling
+// of the peer descriptor; the layout and the size/offset asserts live with the definition.
+using AscendC::HcommJettyInfo;
+using HcommPeerInfo = AscendC::HcommJettyPeerInfo;
 
 struct JettySge {
     uint64_t addr = 0U;
