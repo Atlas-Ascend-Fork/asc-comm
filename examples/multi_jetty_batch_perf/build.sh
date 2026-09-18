@@ -68,7 +68,7 @@ else
     sha256sum "$object" > "${build_dir}/build-resource-object.sha256"
 fi
 binary="${build_dir}/multi_jetty_batch_perf"
-expected="BUILD_CONFIG | Backend=simt | Layout=matrix-v3 | CompletionVersion=1 | MatrixBatch=${batch}"
+expected="BUILD_CONFIG | Backend=simt | Layout=matrix-v4 | CompletionVersion=1 | MatrixBatch=${batch}"
 [[ "$("$binary" --build-info)" == "$expected" ]] || { echo "BUILD_ERROR | stale binary configuration" >&2; exit 1; }
 sha256sum "$binary" > "${build_dir}/build-ready.sha256"
 echo "BUILD_COMPLETE | Profile=${profile} | Seconds=$((SECONDS - started_at))" > "${build_dir}/build-complete.txt"

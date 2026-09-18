@@ -35,7 +35,7 @@ for j in "${jettys[@]}"; do
     seen[$j]=1
 done
 binary="${script_dir}/build/${profile}/multi_jetty_batch_perf"
-expected="BUILD_CONFIG | Backend=simt | Layout=matrix-v3 | CompletionVersion=1 | MatrixBatch=${batch}"
+expected="BUILD_CONFIG | Backend=simt | Layout=matrix-v4 | CompletionVersion=1 | MatrixBatch=${batch}"
 [[ -x "$binary" && "$("$binary" --build-info)" == "$expected" ]] || { echo "Binary configuration does not match selected batch; build it first" >&2; exit 1; }
 [[ -f "${script_dir}/build/${profile}/build-ready.sha256" ]] &&
     sha256sum --check --status "${script_dir}/build/${profile}/build-ready.sha256" || { echo "Binary has no matching successful build" >&2; exit 1; }
