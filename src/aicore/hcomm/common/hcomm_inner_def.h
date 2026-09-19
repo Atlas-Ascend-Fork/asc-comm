@@ -307,6 +307,16 @@ typedef struct {
 } UbcBatchHandle;
 
 typedef struct {
+    ChannelHandle channelHandle;
+    SqContext sqContext;
+    CqContext cqContext;
+    BatchQueueCursor cursor;
+    BatchBuffer buffer;
+    uint32_t lKey;
+    uint32_t rKey;
+} RoceBatchHandle;
+
+typedef struct {
     UbcBatchHandle handle;
     ChannelHandle channelHandle;
     uint32_t channelNum;

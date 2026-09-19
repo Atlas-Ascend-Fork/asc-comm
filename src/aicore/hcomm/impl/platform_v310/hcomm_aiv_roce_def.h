@@ -26,7 +26,8 @@
 
 namespace AscendC {
 constexpr uint32_t ROCE_CQE_POS = 128;
-constexpr uint32_t ROCE_DB_POS = 192;
+constexpr uint32_t HCOMM_ROCE_WQEBB_SIZE = 64;
+constexpr uint32_t HCOMM_ROCE_WQEBB_U32_NUM = HCOMM_ROCE_WQEBB_SIZE / sizeof(uint32_t);
 
 constexpr uint32_t ROCE_1825_WQE_OWNER_SHIFT = 7;    // owner_sl owner bit
 constexpr uint32_t ROCE_1825_WQE_CTRL_VALUE = 0x40;  // owner_sl fixed part
@@ -125,8 +126,8 @@ private:
     __aicore__ inline bool CheckParam(__gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src);
 
 private:
-    LocalTensor<uint8_t> wqeUB_;
-    LocalTensor<uint8_t> cqeUB_;
+    LocalTensor<uint32_t> wqeUB_;
+    LocalTensor<uint32_t> cqeUB_;
 };
 } // namespace AscendC
 
