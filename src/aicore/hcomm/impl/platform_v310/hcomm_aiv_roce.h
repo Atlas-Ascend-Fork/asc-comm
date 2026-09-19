@@ -343,7 +343,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::KnockDoorBell(__gm__ Ch
                 KERNEL_INFO,
                 "Hcomm KnockDoorBell: cq overflow sqHead=%u cqHead=%u cqTail=%u idx=%u sqDepth=%u cqDepth=%u\n", sqHead,
                 cqHead, cqTail, idx, sqDepth, cqDepth);
-            if (PollCq(chnlPtr, idx) != HCOMM_SUCCESS) {
+            if (PollCq(chnlPtr, idx, cqeUB_) != HCOMM_SUCCESS) {
                 HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm KnockDoorBell: PollCq failed.\n");
                 return HCOMM_FAILED;
             }
@@ -499,21 +499,21 @@ template <typename U>
 __aicore__ inline RoceBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle(
     ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
 {
+    RoceBatchHandle batchHandle{};
     __gm__ ChannelEntity* chnlPtr = reinterpret_cast<__gm__ ChannelEntity*>(channel);
     int32_t remoteIdx = HcommFindBufferIdx(chnlPtr->remoteBufferAddr, chnlPtr->remoteBufferNum, remoteAddr, 1);
     if (remoteIdx < 0) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeBatchHandle: failed with invalid remote buffer addr %llu.\n", dst);
-        return HCOMM_FAILED;
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeBatchHandle: failed with invalid remote addr %llu.\n", remoteAddr);
+        return batchHandle;
     }
     int32_t localIdx = HcommFindBufferIdx(chnlPtr->localBufferAddr, chnlPtr->localBufferNum, localAddr, 1);
     if (localIdx < 0) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeBatchHandle: failed with invalid local buffer addr %llu.\n", src);
-        return HCOMM_FAILED;
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeBatchHandle: failed with invalid local addr %llu.\n", localAddr);
+        return batchHandle;
     }
     auto sqCtx = chnlPtr->sqContextAddr[HCOMM_DEFAULT_QP_IDX];
     auto cqCtx = chnlPtr->cqContextAddr[HCOMM_DEFAULT_QP_IDX];
     LocalTensor<uint32_t> wqeBuffer = buff.template ReinterpretCast<uint32_t>();
-    RoceBatchHandle batchHandle{};
     batchHandle.channelHandle = channel;
     batchHandle.sqContext = sqCtx;
     batchHandle.cqContext = cqCtx;
@@ -637,12 +637,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(RoceBatchHa
 __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollBatchCq(RoceBatchHandle& batchHandle, uint32_t expectIdx)
 {
     auto* chnlPtr = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-    uint32_t ret = PollCq<false>(chnlPtr, expectIdx, batchHandle.buffer.buffer);
+    uint32_t ret = PollCq(chnlPtr, expectIdx, batchHandle.buffer.buffer);
     if (ret != HCOMM_SUCCESS) {
         return ret;
     }
-    batchHandle.cursor.cqTail = chnlPtr.cqTail;
-    batchHandle.cursor.sqTail = chnlPtr.sqTail;
+    batchHandle.cursor.cqTail = chnlPtr->cqTail;
+    batchHandle.cursor.sqTail = chnlPtr->sqTail;
     return HCOMM_SUCCESS;
 }
 
