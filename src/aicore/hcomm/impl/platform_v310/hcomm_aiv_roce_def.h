@@ -100,6 +100,14 @@ public:
     __aicore__ inline int32_t Lock(ChannelHandle channel);
     __aicore__ inline int32_t Unlock(ChannelHandle channel);
 
+    template <auto const& config = ROCE_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    template <auto const& config = ROCE_DEFAULT_CFG>
+    __aicore__ inline int32_t ReadNbi(RoceBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    __aicore__ inline int32_t BatchCommit(RoceBatchHandle& batchHandle);
+    template <pipe_t pipe = PIPE_MTE3>
+    __aicore__ inline int32_t Drain(RoceBatchHandle& batchHandle);
+
 private:
     __aicore__ inline void FillCtrlSeg(
         __ubuf__ RoceWqeEntry* wqePtr, uint32_t sqHead, uint32_t sqDepth, uint32_t enCqe);
@@ -116,14 +124,20 @@ private:
         auto const& config = ROCE_DEFAULT_CFG>
     __aicore__ inline int32_t PostSend(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType);
     __aicore__ inline uint64_t GetDbValue(uint32_t sqHead, uint32_t qpn, uint64_t vendor);
+    template <bool withPoll = false>
     __aicore__ inline int32_t KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead);
     __aicore__ inline bool CheckCqeOwner(__ubuf__ RoceCqeEntry* cqePtr, uint32_t cqTail, uint32_t depth);
     template <bool sqSafeMode = false>
-    __aicore__ inline int32_t PollCq(__gm__ ChannelEntity* chnlPtr, uint32_t expectIdx, uint32_t threshold = 0);
+    __aicore__ inline int32_t PollCq(
+        __gm__ ChannelEntity* chnlPtr, uint32_t expectIdx, LocalTensor<uint32_t> cqeItem, uint32_t threshold = 0);
     template <bool sqSafeMode = false>
     __aicore__ inline bool EnContinue(
         uint32_t expectIdx, uint32_t cqTail, uint32_t sqHead, uint32_t sqTail, uint32_t sqDepth, uint32_t threshold);
-    __aicore__ inline bool CheckParam(__gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src);
+    __aicore__ inline bool CheckChannelParam(__gm__ ChannelEntity* chnlPtr);
+    template <HCOMM_ROCE_OP_TYPE opType, auto const& config>
+    __aicore__ inline int32_t BatchPostSend(
+        RoceBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t wqeNum);
+    __aicore__ inline uint32_t PollBatchCq(RoceBatchHandle& batchHandle, uint32_t expectIdx);
 
 private:
     LocalTensor<uint32_t> wqeUB_;
