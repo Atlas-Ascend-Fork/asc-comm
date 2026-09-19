@@ -490,6 +490,162 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Unlock(ChannelHandle ch
 {
     return HcommChannelUnlock<COMM_PROTOCOL_ROCE>(channel);
 }
+
+template <typename U>
+__aicore__ inline RoceBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle(
+    ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
+{
+    __gm__ ChannelEntity* chnlPtr = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    int32_t remoteIdx = HcommFindBufferIdx(chnlPtr->remoteBufferAddr, chnlPtr->remoteBufferNum, remoteAddr, 1);
+    if (remoteIdx < 0) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeBatchHandle: failed with invalid remote buffer addr %llu.\n", dst);
+        return HCOMM_FAILED;
+    }
+    int32_t localIdx = HcommFindBufferIdx(chnlPtr->localBufferAddr, chnlPtr->localBufferNum, localAddr, 1);
+    if (localIdx < 0) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeBatchHandle: failed with invalid local buffer addr %llu.\n", src);
+        return HCOMM_FAILED;
+    }
+    auto sqCtx = chnlPtr->sqContextAddr[HCOMM_DEFAULT_QP_IDX];
+    auto cqCtx = chnlPtr->cqContextAddr[HCOMM_DEFAULT_QP_IDX];
+    LocalTensor<uint32_t> wqeBuffer = buff.template ReinterpretCast<uint32_t>();
+    RoceBatchHandle batchHandle{};
+    batchHandle.channelHandle = channel;
+    batchHandle.sqContext = sqCtx;
+    batchHandle.cqContext = cqCtx;
+    batchHandle.cursor.sqHead = chnlPtr->sqHead;
+    batchHandle.cursor.sqTail = chnlPtr->sqTail;
+    batchHandle.cursor.cqHead = chnlPtr->cqHead;
+    batchHandle.cursor.cqTail = chnlPtr->cqTail;
+    batchHandle.cursor.preSqCnt = 0U;
+    batchHandle.buffer.buffer = wqeBuffer;
+    batchHandle.buffer.bufferCapacity = buffLen / HCOMM_ROCE_WQEBB_SIZE;
+    batchHandle.lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
+    batchHandle.rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
+
+    return batchHandle;
+}
+
+template <HCOMM_ROCE_OP_TYPE opType, auto const& config>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
+    RoceBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t wqeNum)
+{
+    static_assert(config.cqe == 0 || config.cqe == 1, "BatchPostSend only supports cqe values 0 and 1.");
+
+    uint32_t wqeBytes = wqeNum * sizeof(RoceWqeEntry);
+    uint32_t wqebbCount = (wqeBytes + HCOMM_ROCE_WQEBB_SIZE - 1U) / HCOMM_ROCE_WQEBB_SIZE;
+    uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
+    if (preSqCnt > batchHandle.buffer.bufferCapacity || wqebbCount > batchHandle.buffer.bufferCapacity - preSqCnt) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend: failed with insufficient buffer\n");
+        return HCOMM_FAILED;
+    }
+
+    LocalTensor<uint32_t> currentWqe = batchHandle.buffer.buffer[preSqCnt * HCOMM_ROCE_WQEBB_SIZE];
+    __ubuf__ RoceWqeEntry* wqeBasePtr = reinterpret_cast<__ubuf__ RoceWqeEntry*>(urrentWqe.GetPhyAddr());
+    uint32_t sqDepth = sqContext.contextInfo.roceSq.depth;
+    uint32_t baseHead = batchHandle.preSqCnt + batchHandle.cursor.sqHead;
+    Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+    for (uint32_t i = 0U; i < wqeNum; i++) {
+        FillCtrlSeg(wqeBasePtr + i, baseHead + i, sqDepth, enCqe);
+        FillTaskSeg(wqeBasePtr + i, remoteAddr, localDescs[i].len, opType, batchHandle.rKey, batchHandle.lKey, fence);
+        FillDataSeg(wqeBasePtr + i, localDescs[i].addr, localDescs[i].len, batchHandle.lKey);
+    }
+    Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+
+    batchHandle.cursor.preSqCnt = preSqCnt + wqebbCount;
+    if constexpr (config.cqe == 1) {
+        batchHandle.cursor.cqHead += wqebbCount;
+    }
+    return HCOMM_SUCCESS;
+}
+
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(RoceBatchHandle& batchHandle)
+{
+    uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
+    if (preSqCnt == 0 || preSqCnt > batchHandle.buffer.bufferCapacity) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit: failed with invalid WQEBB count\n");
+        return HCOMM_FAILED;
+    }
+    uint32_t sqDepth = batchHandle.sqContext.contextInfo.roceSq.depth;
+    if (sqDepth == 0 || preSqCnt >= sqDepth) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit: failed with batch must be smaller than SQ capacity\n");
+        return HCOMM_FAILED;
+    }
+    uint32_t sqHead = batchHandle.cursor.sqHead;
+    uint64_t sqBaseAddr = batchHandle.sqContext.contextInfo.roceSq.sqVa;
+    uint32_t newSqHead = sqHead + preSqCnt;
+    __gm__ uint8_t* sqAddrNext = (__gm__ uint8_t*)(sqBaseAddr + ((newSqHead) & (sqDepth - 1)) * HCOMM_ROCE_WQEBB_SIZE);
+    Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+    WriteInvalidWqebb(sqAddrNext, newSqHead, sqDepth);
+    Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+
+    uint32_t startSlot = sqHead % sqDepth;
+    uint32_t tailWqebbCount = sqDepth - startSlot;
+    uint32_t firstWqebbCount = preSqCnt < tailWqebbCount ? preSqCnt : tailWqebbCount;
+    uint32_t secondWqebbCount = preSqCnt - firstWqebbCount;
+    __gm__ uint8_t* firstWqeAddr =
+        reinterpret_cast<__gm__ uint8_t*>(sqBaseAddr + static_cast<uint64_t>(startSlot) * HCOMM_ROCE_WQEBB_SIZE);
+    GlobalTensor<uint32_t> firstDst;
+    firstDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(firstWqeAddr));
+
+    Mutex::Lock<PIPE_MTE3>(HCOMM_ROCE_MUTEX_ID);
+    // Copy the first segment from startSlot to the end of the circular SQ, or the whole batch if it does not wrap.
+    DataCopy(firstDst, batchHandle.buffer.buffer, firstWqebbCount * HCOMM_ROCE_WQEBB_U32_NUM);
+    if (secondWqebbCount != 0) {
+        GlobalTensor<uint32_t> secondDst;
+        secondDst.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t*>(sqBaseAddr));
+        LocalTensor<uint32_t> secondSrc = batchHandle.buffer.buffer[firstWqebbCount * HCOMM_ROCE_WQEBB_U32_NUM];
+        // The batch crosses the SQ boundary; copy the remaining WQEBBs to the beginning of the circular SQ.
+        DataCopy(secondDst, secondSrc, secondWqebbCount * HCOMM_ROCE_WQEBB_U32_NUM);
+    }
+    Mutex::Unlock<PIPE_MTE3>(HCOMM_ROCE_MUTEX_ID);
+
+    if (KnockDoorBell(chnlPtr, newSqHead) != HCOMM_SUCCESS) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit: failed to knock door bell\n");
+        return HCOMM_FAILED;
+    }
+    batchHandle.cursor.sqHead = newSqHead;
+    auto* chnlPtr = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+    chnlPtr->sqHead = newSqHead;
+    chnlPtr->cqHead = batchHandle.cursor.cqHead;
+    batchHandle.cursor.preSqCnt = 0;
+    return HCOMM_SUCCESS;
+}
+
+__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollBatchCq(
+    RoceBatchHandle& batchHandle, uint32_t expectIdx)
+{
+    if (expectIdx == 0) {
+        return HCOMM_SUCCESS;
+    }
+    auto* chnlPtr = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+    uint32_t ret = PollCq<false>(chnlPtr, expectIdx);
+    if (ret != HCOMM_SUCCESS) {
+        return ret;
+    }
+    batchHandle.cursor.cqTail = chnlPtr.cqTail;
+    batchHandle.cursor.sqTail = chnlPtr.sqTail;
+    return HCOMM_SUCCESS;
+}
+
+template <pipe_t pipe>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Drain(RoceBatchHandle& batchHandle)
+{
+    (void)pipe;
+    static_assert(sizeof(RoceCqeEntry) <= HCOMM_ROCE_WQEBB_SIZE, "Batch Drain CQE scratch space must fit in one WQEBB");
+    if (batchHandle.channelHandle == 0U || batchHandle.buffer.bufferCapacity == 0U ||
+        batchHandle.cursor.preSqCnt != 0U) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid batch handle\n");
+        return HCOMM_FAILED;
+    }
+
+    uint32_t ret = PollBatchCq(batchHandle, batchHandle.cursor.cqHead);
+    if (ret != HCOMM_SUCCESS) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Drain by batch handle failed pollRet=%u \n", ret);
+        return ret;
+    }
+    return HCOMM_SUCCESS;
+}
 } // namespace AscendC
 
 #endif
