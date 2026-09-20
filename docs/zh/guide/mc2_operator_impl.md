@@ -6,7 +6,7 @@ MC2（Massive Communication Computing）是代理模式在Ascend C通信编程�
 
 MC2通算算子的核心价值是通信与计算重叠。通信任务提交后，通信数据传输由AICPU_TS或CCU服务端执行，AICore可以继续执行与本轮通信结果没有依赖的计算；待通信结果就绪后，AICore再读取通信输出并执行依赖计算，从而将部分通信时间与计算时间重叠，减少串行等待，提高算子整体性能。
 
-本指南介绍MC2通算算子的通用开发流程。文中以AllGather作为通信接口示例，Host和Kernel代码按AICPU_TS Server路径展开；CCU同为MC2支持的Server路径，其高阶通信API的提交、等待和结束语义与AICPU_TS路径基本一致，差异主要体现在通信引擎、算法配置、Server启动接口和Client类型上。计算部分使用可替换的占位函数表示，实际算子可以替换为其他集合通信或点对点通信接口，并将计算阶段替换为Vector、Matrix或其他Ascend C计算逻辑。
+本指南介绍MC2通算算子的通用开发流程。文中以AllGather作为通信接口示例，Host和Kernel代码按AICPU_TS Server路径展开；CCU同为MC2支持的Server路径，可能在通信引擎、算法配置、Server启动接口和Client类型等方面存在差异，具体组合应以当前版本API参考和对应样例为准。计算部分使用可替换的占位函数表示，实际算子可以替换为其他集合通信或点对点通信接口，并将计算阶段替换为Vector、Matrix或其他Ascend C计算逻辑。
 
 ## 支持范围
 
@@ -22,46 +22,45 @@ MC2通算算子的核心价值是通信与计算重叠。通信任务提交后�
 
 ## 总体流程
 
-MC2通算算子开发分为控制面资源准备和数据面通信执行两阶段。
+MC2通算算子实现分为控制面资源准备和数据面通信与计算执行两阶段。
 
 控制面流程：
 
 1. 初始化ACL运行环境，绑定Device，创建任务流。
 2. 创建HCCL通信域。
 3. 分配通信输入、通信输出和计算缓冲区。
-4. 创建MC2参数对象并配置通信域、算法、数据类型和通信引擎。
-5. 申请MC2通信资源上下文。
-6. 启动AICPU_TS或CCU通信Server。
-7. 启动携带通信上下文的AICore Client Kernel。
-8. 同步任务流，回收结果并释放资源。
+4. 配置MC2通信参数并申请通信资源上下文。
+5. 启动AICPU_TS或CCU通信Server。
+6. 启动携带通信上下文的AICore Client Kernel。
+7. 同步任务流，回收结果并释放资源。
 
 数据面流程：
 
 1. AICore Client初始化HCCL客户端。
-2. 提交通信任务并发布执行条件。
-3. 执行与通信结果无依赖的计算。
-4. 调用`Wait`等待通信完成。
-5. 消费通信结果并执行依赖通信输入的计算。
-6. 所有参与核完成后执行核间同步，并通知Server结束。
+2. 在通信输入就绪后提交通信任务。
+3. 按数据依赖执行计算：与通信输出无关的计算可以和通信并行执行；依赖通信输出的计算，在对应通信结果就绪后读取通信输出并执行。
+4. 通信与计算完成后，执行核间同步，并结束与Server的通信协作。
 
 ```text
 Host控制面:
   HCCL domain -> MC2 args -> OpResCtx -> Server launch -> Client launch
 
 AICore Client:
-  InitV2 -> Prepare/Commit -> independent compute -> Wait -> consume result -> Finalize
+  InitV2 -> submit communication -> execute by data dependency -> consume result -> end
 
 AICPU_TS/CCU Server:
   receive request -> drive communication path -> publish completion
 ```
 
-Client和Server是两个独立的Device侧执行实体。Host负责任务下发和同步，本身不直接执行Device侧通信任务。AICPU_TS路径下，Server和Client通常提交到不同stream；CCU路径下，Server启动方式由MC2 CCU接口管理，具体以当前API契约为准。
+Client和Server是两个独立的Device侧执行实体。Host负责任务下发和同步，本身不直接执行Device侧通信任务。AICPU_TS路径下，Host通过`Mc2AicpuKernelLaunch`启动Server，并将Server与Client下发到不同stream。CCU路径的Server启动接口、Client类型和上下文传递方式需结合当前版本API参考及对应样例确定，本文不将单个CCU样例的配置推广为通用规则。
 
 ## 控制面资源准备
 
 ### 初始化ACL运行环境
 
-每个Rank绑定一个Device，并创建Host与Device交互所需的stream。AICPU_TS路径需要为Server和Client准备独立stream，避免Server阻塞等待Client消息时与Client形成同队列依赖。
+每个Rank先绑定对应的Device，再由Host通过ACL在该Device上创建用于下发Device任务的stream。AICPU_TS路径下，Server和AICore Client应分别使用独立的Server stream和Client stream，避免Server等待Client请求时与Client形成同一stream内的顺序依赖。
+
+【占位待确认】CCU路径下的stream或任务队列要求、Server启动方式以及Client与Server的调度关系，需结合当前版本接口和对应样例进一步确认。
 
   ```cpp
   uint32_t rankId;    // 当前Rank ID
@@ -78,23 +77,40 @@ Client和Server是两个独立的Device侧执行实体。Host负责任务下发�
 
 ### 创建HCCL通信域
 
-通信域内所有Rank必须使用同一份rootInfo建域。root Rank调用`HcclGetRootInfo`生成rootInfo，并通过外部控制通道、文件或框架rendezvous机制分发给所有Rank；所有Rank拿到同一份rootInfo后，分别调用`HcclCommInitRootInfo`。
+`rankId`表示当前Rank在通信域中的逻辑编号，`rankSize`表示通信域中的Rank总数。同一通信域中的每个Rank使用唯一的`rankId`，所有Rank使用相同的`rankSize`。
+
+约定`rankId == 0`的Rank为Root Rank。Root Rank调用`HcclGetRootInfo`生成`HcclRootInfo`结构体。该结构体包含各Rank初始化同一个HCCL通信域所需的信息。
+
+通信域中的所有Rank获得Root Rank生成的同一份`rootInfo`后，分别调用`HcclCommInitRootInfo`。该接口根据`rankSize`、`rankId`和`rootInfo`初始化当前Rank的`HcclComm`句柄。后续HCCL通信操作和MC2通信资源申请都使用这个句柄。
+
+通信域初始化完成后，调用`HcclGetCommName`获取当前`HcclComm`对应的通信域名称。在MC2参数配置阶段，将该名称传给`Mc2SetCcGroupName`，使MC2通信资源关联到前面创建的HCCL通信域。
+
+代码示例：
 
   ```cpp
+  uint32_t rankId;    // 当前Rank在通信域中的逻辑编号
+  uint32_t rankSize;  // 通信域中的Rank总数
+
   HcclRootInfo rootInfo;
+
   if (rankId == 0) {
-      HcclGetRootInfo(&rootInfo);
+      HCCL_CHECK(HcclGetRootInfo(&rootInfo));
   }
-  // 将rootInfo分发到所有Rank后，各Rank使用同一份数据建域。
+
+  // 将Root Rank生成的同一份rootInfo提供给通信域中的所有Rank。
 
   HcclComm comm = nullptr;
-  HCCL_CHECK(HcclCommInitRootInfo(rankSize, &rootInfo, rankId, &comm));
+  HCCL_CHECK(HcclCommInitRootInfo(
+      rankSize,
+      &rootInfo,
+      rankId,
+      &comm));
 
   char commName[COMM_NAME_MAX_LENGTH] = {0};
   HCCL_CHECK(HcclGetCommName(comm, commName));
-  ```
 
-rankId是通信域内的逻辑成员编号，可以与物理Device ID不同。实际部署时应由启动脚本或训练框架维护rank与device的映射关系。
+  HCCL_CHECK(Mc2SetCcGroupName(ccArgs, commName));
+  ```
 
 ### 分配通信和计算内存
 
@@ -168,7 +184,7 @@ AICPU_TS Server通过`Mc2AicpuKernelLaunch`下发。Server会等待AICore Client
       sendCount, HCCL_DATA_TYPE_FP16);
   ```
 
-CCU Server路径与AICPU_TS路径的Host流程一致，差异主要在于通信引擎和Server启动接口：Host侧将通信引擎设置为CCU调度引擎，并调用`Mc2CcKernelLaunch`。
+在当前CCU AllGather样例中，Host侧将通信引擎设置为CCU调度引擎，并调用`Mc2CcKernelLaunch`启动Server。其他CCU通信操作或配置应以对应样例和当前版本API参考为准。
 
   ```cpp
   // CCU调度引擎编号，具体优先使用当前头文件中的枚举定义。
@@ -183,7 +199,7 @@ CCU Server路径与AICPU_TS路径的Host流程一致，差异主要在于通信�
   Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize);
   ```
 
-CCU路径下，AICore Client需要使用与CCU Server匹配的HCCL客户端类型，例如当前CCU样例中使用`Hccl<AscendC::HcclServerType::HCCL_SERVER_TYPE_CCU>`。通信任务提交、`Wait`和`Finalize`的使用方式与AICPU_TS示例基本一致；接口模板和`InitV2`重载以当前头文件为准。
+当前CCU AllGather样例中的AICore Client使用`Hccl<AscendC::HcclServerType::HCCL_SERVER_TYPE_CCU>`，并将Host侧获取的同一资源上下文传入`InitV2`。其他CCU配置的Client类型、上下文传递方式以及通信任务接口，应以对应样例和当前头文件为准。
 
 ### 同步和销毁通信资源
 
@@ -212,7 +228,7 @@ CCU路径下，AICore Client需要使用与CCU Server匹配的HCCL客户端类�
   ACL_CHECK(aclFinalize());
   ```
 
-## Kernel侧通信执行
+## 数据面通信与计算执行
 
 ### Client Kernel入口
 
@@ -231,7 +247,7 @@ MC2通信Client在AIV上执行。Kernel入口接收通信GM、计算GM、MC2上�
       AscendC::Hccl<> hccl;
       hccl.InitV2(mc2Context, nullptr);
 
-      // 提交通信任务、等待完成、消费结果，见下文。
+      // 在通信输入就绪后提交通信任务，并按数据依赖执行计算，见下文。
   }
   ```
 
@@ -256,31 +272,31 @@ MC2通信Client在AIV上执行。Kernel入口接收通信GM、计算GM、MC2上�
 
 接口返回`HcclHandle`只表示通信请求已经提交，不表示目的GM数据已经可用。其他通信操作应替换为对应的HCCL高阶接口，并按该接口的参数定义设置数据类型、归约类型、偏移或重复次数。
 
-### 等待通信完成并消费结果
+### 按数据依赖执行计算
 
-`Wait`返回后，本轮通信目的内存才可被计算阶段读取。通信提交后、Wait之前，可以执行与目的内存无关的计算。
+通信任务提交后，与通信输出无关的计算可以继续执行；依赖通信输出的计算，必须在对应通信结果就绪后读取目的GM。具体完成条件由通信接口的`Wait`确认。
 
   ```cpp
-  // 与本轮通信结果无关的计算，可以放在Commit之后、Wait之前。
+  // 与通信输出无关的计算，可以放在通信提交之后、完成确认之前。
   ComputeIndependent(computeInGM, computeOutGM, count);
 
-  // 等待第1轮通信完成，然后才能读取dstGM中本轮结果。
+  // 确认通信完成后，才能读取dstGM中的通信输出。
   hccl.Wait(handleId);
   ConsumeCommunicatedData(dstGM, computeInGM, computeOutGM, count / repeat);
   ```
 
 `ConsumeCommunicatedData`是计算阶段占位函数。在AllGather+Add样例中，该函数读取AllGather输出并执行Add；在其他算子中，可以替换为任意依赖通信结果的Ascend C计算逻辑。计算实现细节参见Ascend C算子开发资料。
 
-多轮通信时，每个分片都应满足“源数据就绪 -> Commit -> Wait -> 结果消费 -> 缓冲区复用”的顺序。不要在所有轮次尚未Wait完成时，将整个目的缓冲区一次性交给计算阶段。
+多轮或分块通信时，按分片建立“源数据就绪 -> 通信提交 -> 通信完成 -> 结果消费 -> 缓冲区复用”的依赖。不要在对应分片尚未完成时，将整个目的缓冲区一次性交给计算阶段。
 
-### 核间同步和结束通信
+### 核间同步和结束通信协作
 
-多个AIV共同执行MC2 Client时，所有参与核必须保持相同的通信提交顺序、`Wait`次数和`Finalize`时机。部分核提前结束可能影响其他核的Wait或Server退出。
+多个AIV共同执行MC2 Client时，所有参与核必须保持相同的通信提交顺序、完成确认次数和结束通信协作的时机。部分核提前结束可能影响其他核的完成确认或Server退出。
 
   ```cpp
-  hccl.Wait(handleId);      // 每轮通信各调用一次。
-  AscendC::SyncAll<true>(); // 所有参与AIV完成通信和结果消费。
-  hccl.Finalize();          // 通知Server当前Client Kernel通信结束。
+  hccl.Wait(handleId);      // 按通信接口要求确认完成。
+  AscendC::SyncAll<true>(); // 所有参与AIV完成通信和计算。
+  hccl.Finalize();          // 结束当前Client Kernel与Server的通信协作。
   ```
 
 `Finalize`表示当前Kernel不再向Server提交通信任务。调用前必须确保所有AIV均已完成通信和结果消费。
@@ -291,7 +307,7 @@ MC2通信Client在AIV上执行。Kernel入口接收通信GM、计算GM、MC2上�
 - AICPU_TS路径下Server会阻塞等待Client请求，Server和Client应使用独立stream，避免同队列顺序依赖。
 - `HcclHandle`有效只代表任务提交成功，通信结果必须经过`Wait`确认后才可读取。
 - `Wait`前不能消费目的GM；通信完成前不能覆盖源GM或复用目的GM。
-- 多AIV场景下，通信调用顺序、Wait次数、核间同步和`Finalize`时机必须一致。
+- 多AIV场景下，通信调用顺序、完成确认次数、核间同步和结束通信协作的时机必须一致。
 - 分块或多轮通信时，按分片建立数据依赖，不能把未完成分片当作完整通信结果处理。
 - 通信地址、长度单位、数据类型、对齐和算法配置必须符合当前HCCL接口约束；MC2 Host API和AICore HCCL客户端签名以当前CANN版本为准。
 - CCU路径与AICPU_TS路径的通信引擎、算法配置、Server启动接口和客户端模板可能不同；两者的高阶通信API提交、等待和结束语义基本一致，切换路径时应同时核对Host与Kernel两侧配置。

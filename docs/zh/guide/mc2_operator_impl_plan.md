@@ -128,7 +128,7 @@ Mc2FreeCcArgs(ccArgs);
 
 ### 销毁通信资源
 
-通信任务和结果消费完成后，按依赖逆序销毁：同步 Client/Server、释放 Device 缓冲区、销毁通信域和 Stream、Reset Device、Finalize ACL。`OpResCtx` 的释放方式以当前 MC2 资源管理契约为准，在正式指南中单独标明由谁管理。
+通信任务和结果消费完成后，按依赖逆序销毁：同步 Client/Server、释放 Device 缓冲区、销毁通信域和 Stream、Reset Device、Finalize ACL。`OpResCtx` 的释放方式以当前 MC2 资源管理接口说明为准，在正式指南中单独标明由谁管理。
 
 ## 5. 数据面通信执行：Client 与 Server
 
@@ -166,7 +166,7 @@ hccl.InitV2(mc2Context, nullptr);
 
 - MC2 属于代理模式，Client 和 Server 是两个协作执行实体；通信上下文和 Server/Client 必须配对。
 - Server 与 Client 的执行队列需要满足代理通信的调度要求，避免因队列依赖破坏 Client/Server 协作。
-- 通信源/目的地址、长度单位、对齐、通信内存范围和访问授权必须符合当前协议契约。
+- 通信源/目的地址、长度单位、对齐、通信内存范围和访问授权必须符合当前通信接口的要求。
 - `Wait` 之前不能消费通信结果，通信完成前不能覆盖源数据或复用目的缓冲区。
 - 多 AIV 的通信调用顺序、事务序、核间同步和资源使用必须一致。
 - API 签名、通信引擎枚举、算法配置和产品支持范围以当前 CANN/asc-comm 版本为准。
@@ -183,4 +183,5 @@ hccl.InitV2(mc2Context, nullptr);
 
 ## 7. 遗留问题
 
-- `MC2` 的正式英文全称当前按 `Massive Communication Computing` 展开，仍需以产品命名规范或权威资料做最终确认；如确认结果不同，需要同步更新正式指南概述。
+- 【占位待确认】`MC2` 的正式英文全称当前按 `Massive Communication Computing` 展开，仍需以产品命名规范或权威资料做最终确认；如确认结果不同，需要同步更新正式指南概述。
+- 【占位待确认】CCU 路径在不同通信引擎、产品和算法配置下的 Server 启动接口、Client 类型、执行队列及资源上下文传递方式是否保持一致，仍需结合当前版本 API 参考和对应样例确认；在确认前，正式指南只描述已验证的 CCU 样例路径，不将其配置推广为通用规则。
