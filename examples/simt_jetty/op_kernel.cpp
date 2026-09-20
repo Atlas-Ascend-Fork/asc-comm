@@ -92,9 +92,11 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
         if constexpr (kStandaloneWrite) {
             jetty.template Write<kSegmentSges, false>(peer, segmentDst, segmentSges);
             jetty.AdvanceSq();
+            // Each split segment is its own implicit batch; publish it so the NIC
+            // fetches before the next segment overwrites the two-BB DWQE window.
+            jetty.PublishSq();
         } else {
             jetty.template Put<kSegmentSges>(peer, segmentDst, segmentSges);
-            jetty.AdvanceSq();
         }
     }
     uint64_t writeEnd = 0U;
@@ -123,7 +125,9 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
     AscendC::simt::jetty::HcommSge sge{};
     const int laneIdx = coop.thread_rank();
-    if (laneIdx < static_cast<int>(kSgeNum) && (!kPadSecondSge || laneIdx != 1)) {
+    // warp-pad keeps the original two-SGE padding contract: one valid SGE, the rest
+    // zero-length, so the WQE needs NOP padding to fill its fixed slot reservation.
+    if (laneIdx < static_cast<int>(kSgeNum) && (!kPadSecondSge || laneIdx == 0)) {
         sge.addr = reinterpret_cast<uint64_t>(localSrc) + static_cast<uint64_t>(laneIdx) * kSlotBytes;
         sge.len = static_cast<int>(kSlotBytes);
     }
@@ -143,7 +147,10 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
     }
     uint64_t commitEnd = writeEnd;
     if constexpr (kStandaloneWrite) {
+        // AdvanceSq finalizes the batch header but does not ring the DWQE doorbell;
+        // without PublishSq the NIC never fetches the WQEs and Drain hangs.
         jetty.AdvanceSq(coop);
+        jetty.PublishSq(coop);
         if constexpr (kMeasure) {
             commitEnd = clock();
         }
@@ -186,6 +193,7 @@ __simt_callee__ inline void SimtJettyWriteDispatchImpl(
         writeEnd = clock();
     }
     jetty.AdvanceSq(group, 4U, 4U);
+    jetty.PublishSq(group);
     uint64_t commitEnd = writeEnd;
     if constexpr (kMeasure) {
         commitEnd = clock();

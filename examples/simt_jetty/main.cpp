@@ -363,7 +363,8 @@ int main(int argc, char* argv[])
             }
         } else if (mode == 1U) {
             expected[0] = simt_jetty::SlotValue(0);
-        } else if (mode == 5U) {
+        } else if (mode == 2U || mode == 4U || mode == 5U) {
+            // group/warp/mixed posts carry kConfiguredSgeNum SGEs; warp-pad keeps slot 0 only.
             for (uint32_t slot = 0; slot < simt_jetty::kConfiguredSgeNum; ++slot) {
                 expected[slot] = simt_jetty::SlotValue(slot);
             }
@@ -381,7 +382,8 @@ int main(int argc, char* argv[])
                 std::cout << "[rank 1] simt_jetty mode " << mode << " iteration " << iteration << " FAIL"
                           << " checks=" << (mode == 0U || mode == 3U ? simt_jetty::kSlotCount :
                                                mode == 1U ? 1U :
-                                               mode == 5U ? simt_jetty::kConfiguredSgeNum : 2U)
+                                               mode == 2U || mode == 4U || mode == 5U
+                                                   ? simt_jetty::kConfiguredSgeNum : 2U)
                           << std::endl;
             }
             if (!deviceTiming && iteration + 1U < checks) {
