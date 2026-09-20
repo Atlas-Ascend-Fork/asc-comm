@@ -10,10 +10,7 @@
 
 /*!
  * \file hcomm_jetty_simt.h
- * \brief Public SIMT Jetty entry point.
- *
- * The device implementation is shared from the Jetty implementation tree while
- * the SIMD and SIMT public headers remain separate.
+ * \brief Low-level SIMT Jetty primitives for URMA point-to-point writes.
  */
 #ifndef INCLUDE_ADV_API_JETTY_HCOMM_JETTY_SIMT_H
 #define INCLUDE_ADV_API_JETTY_HCOMM_JETTY_SIMT_H
@@ -21,10 +18,11 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "../../../impl/comm_api/aicore/jetty/impl/hcomm_jetty_simt_impl.h"
+#include "../../../impl/comm_api/aicore/jetty/impl/hcomm_jetty_simt_impl_def.h"
 
 namespace AscendC::simt::jetty {
 
+using HcommPeerInfo = AscendC::HcommJettyPeerInfo;
 using HcommSge = JettySge;
 
 /**
@@ -33,83 +31,77 @@ using HcommSge = JettySge;
  */
 class HcommJetty {
 public:
+    // Number of 64-bit words in one WQEBB.
     static constexpr uint32_t kNumWQEBBLanes = JettyImpl::kNumWQEBBLanes;
+    // Number of WQEBBs in one SQE slot reservation.
     static constexpr uint32_t kNumWQEBBsPerSQESlot = JettyImpl::kNumWQEBBsPerSQESlot;
+    // Maximum number of SGEs one Write can carry.
     static constexpr uint32_t kNumMaxSGEsPerWrite = JettyImpl::kNumMaxSGEsPerWrite;
+    // Number of WQEBBs occupied by a Write WQE reservation.
     static constexpr uint32_t kNumWriteWqebbs = JettyImpl::kNumWriteWqebbs;
+    // Number of WQEBBs occupied by a WriteWithNotify WQE.
     static constexpr uint32_t kNumWriteWithNotifyWqebbs = JettyImpl::kNumWriteWithNotifyWqebbs;
+    // Size in bytes of the DWQE staging buffer callers must allocate.
     static constexpr uint32_t kNumMaxSQEBytes = JettyImpl::kNumMaxSQEBytes;
+    // Number of WQEBBs one Write spans in the SQ.
     static constexpr uint32_t kNumWQEBBsPerWrite = JettyImpl::kNumWQEBBsPerWrite;
+    // Number of 64-bit words in the two-BB DWQE window.
     static constexpr uint32_t kNumDwqeWords = JettyImpl::kNumDwqeWords;
 
-    __simt_callee__ __forceinline__ HcommJetty() = default;
+    __simt_callee__ __forceinline__ HcommJetty();
     __simt_callee__ __forceinline__ HcommJetty(
-        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
-        : impl_(info, stage, table, index) {}
+        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index);
     __simt_callee__ __forceinline__ HcommJetty(
-        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
-        : impl_(info, stage, channelAddr) {}
+        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr);
 
-    __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* Info() const { return impl_.Info(); }
+    __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* Info() const;
 
     __simt_callee__ __forceinline__ void Attach(
-        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channel)
-    {
-        impl_.Attach(info, stage, channel);
-    }
+        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channel);
 
     template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
     __simt_callee__ __forceinline__ int32_t Write(
-        const HcommPeer& peer, __gm__ void* dst, const JettySge* sges, const Coop& coop = Coop{}) const
-    { return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, sges, coop); }
+        const HcommPeer& peer, __gm__ void* dst, const JettySge* sges, const Coop& coop = Coop{}) const;
 
-    // Cooperative-group-first spellings. The group leads the argument list to read like the
-    // cooperative_groups API; a single SGE is passed by reference because the warp path only
-    // consumes lane 0's descriptor.
+    // Cooperative-group-first spellings, mirroring the cooperative_groups argument order.
     template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
     __simt_callee__ __forceinline__ int32_t Write(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
-    { return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, &sge, coop); }
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const;
 
     template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
     __simt_callee__ __forceinline__ int32_t Write(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges) const
-    { return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, sges, coop); }
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges) const;
 
     template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
     __simt_callee__ __forceinline__ int32_t Put(
-        const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges, const Coop& coop = Coop{}) const
-    { return Write<kSgeNum, kDoCommit>(peer, dst, sges, coop); }
+        const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges, const Coop& coop = Coop{}) const;
 
     template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
     __simt_callee__ __forceinline__ int32_t Put(
-        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
-    { return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, &sge, coop); }
+        const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const;
+
     template <int64_t kTimeout, typename T, bool kDoCommit = true>
-    __simt_callee__ __forceinline__ int32_t WriteValue(
-        const HcommPeer& peer, __gm__ void* dst, T value)
-    { return impl_.template WriteValue<kTimeout, T, kDoCommit>(peer, dst, value); }
+    __simt_callee__ __forceinline__ int32_t WriteValue(const HcommPeer& peer, __gm__ void* dst, T value);
+
     template <int64_t kTimeout, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t WriteWithNotify(
         const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len,
-        __gm__ void* notifyAddr, uint64_t notifyValue)
-    { return impl_.template WriteWithNotify<kTimeout, kDoCommit>(peer, dst, src, len, notifyAddr, notifyValue); }
+        __gm__ void* notifyAddr, uint64_t notifyValue);
 
-    __simt_callee__ __forceinline__ void AdvanceSq() const { impl_.AdvanceSq(); }
+    __simt_callee__ __forceinline__ void AdvanceSq() const;
     template <typename Coop>
-    __simt_callee__ __forceinline__ void AdvanceSq(const Coop& coop) const { impl_.AdvanceSq(coop); }
+    __simt_callee__ __forceinline__ void AdvanceSq(const Coop& coop) const;
     template <typename Coop>
-    __simt_callee__ __forceinline__ void AdvanceSq(
-        const Coop& coop, uint32_t a, uint32_t b) const { impl_.AdvanceSq(coop, a, b); }
-    __simt_callee__ __forceinline__ void PublishSq() const { impl_.PublishSq(); }
+    __simt_callee__ __forceinline__ void AdvanceSq(const Coop& coop, uint32_t a, uint32_t b) const;
+
+    __simt_callee__ __forceinline__ void PublishSq() const;
     template <typename Coop>
-    __simt_callee__ __forceinline__ void PublishSq(const Coop& coop) const { impl_.PublishSq(coop); }
+    __simt_callee__ __forceinline__ void PublishSq(const Coop& coop) const;
 
     template <int64_t kTimeout>
-    __simt_callee__ __forceinline__ int32_t Drain() const { return impl_.template Drain<kTimeout>(); }
+    __simt_callee__ __forceinline__ int32_t Drain() const;
     template <int64_t kTimeout, typename Coop>
-    __simt_callee__ __forceinline__ int32_t Drain(const Coop& coop) const
-    { return impl_.template Drain<kTimeout>(coop); }
+    __simt_callee__ __forceinline__ int32_t Drain(const Coop& coop) const;
 
 private:
     JettyImpl impl_;
@@ -117,4 +109,7 @@ private:
 
 } // namespace AscendC::simt::jetty
 
-#endif
+// Must stay after class HcommJetty: it defines the member functions declared above.
+#include "../../../impl/comm_api/aicore/jetty/impl/hcomm_jetty_simt_impl.h"
+
+#endif // INCLUDE_ADV_API_JETTY_HCOMM_JETTY_SIMT_H
