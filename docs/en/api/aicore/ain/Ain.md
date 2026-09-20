@@ -48,6 +48,6 @@ __aicore__ inline Ain(uint32_t contextIndex = 0);
 ## Usage Constraints
 
 - The Host side shall create the team and register symmetric windows before invocation.
-- The passed `HcommTeamHandle` and `HcommWindowHandle` must be valid device-side handles.
+- The passed `HcommTeamHandle` and `HcclCommSymWindow` must be valid device-side handles.
 - Currently, only the `COMM_PROTOCOL_UBC_CTP` protocol path is supported.
 - `Put`, `PutValue`, `Get` and `Signal` initialize the underlying Hcomm internally. A valid `AinDescriptorUbuf` must be provided when invoking these APIs.
