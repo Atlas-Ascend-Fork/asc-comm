@@ -16,7 +16,6 @@
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_JETTY_SIMT_IMPL_DEF_H
 #define IMPL_ADV_API_DETAIL_HCOMM_IMPL_HCOMM_JETTY_SIMT_IMPL_DEF_H
 
-#include "../common/hcomm_jetty_inner_def.h"
 #include "../../hcomm/common/hcomm_simt_utils.h"
 
 // SIMT Jetty is only available on v310. The ASC driver compiles each translation unit twice:

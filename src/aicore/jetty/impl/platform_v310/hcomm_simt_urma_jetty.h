@@ -22,7 +22,6 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "../../common/hcomm_jetty_inner_def.h"
 #include "hcomm_simt_urma_jetty_def.h"
 #include "../../../hcomm/common/hcomm_inner_def.h"
 #include "../../../hcomm/common/hcomm_log.h"

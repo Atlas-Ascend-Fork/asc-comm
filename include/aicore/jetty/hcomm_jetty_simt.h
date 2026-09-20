@@ -18,6 +18,9 @@
 #include <cstddef>
 #include <cstdint>
 
+// The Jetty metadata structs are defined once in the SIMD public header and shared by
+// both execution models; including it first makes them visible to the SIMT impl chain.
+#include "hcomm_jetty.h"
 #include "../../../impl/comm_api/aicore/jetty/impl/hcomm_jetty_simt_impl_def.h"
 
 namespace AscendC::simt::jetty {
