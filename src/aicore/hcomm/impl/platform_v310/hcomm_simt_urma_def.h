@@ -33,7 +33,6 @@ constexpr uint32_t HCOMM_URMA_DWQE_SIZE = 128U;
 constexpr uint32_t HCOMM_URMA_WQE_BB_SIZE = 64U;
 constexpr uint32_t HCOMM_URMA_WQE_BB_CNT = 1U;
 constexpr uint32_t HCOMM_URMA_DWQE_BB_CNT = HCOMM_URMA_DWQE_SIZE / HCOMM_URMA_WQE_BB_SIZE;
-// Shared bounded retry budget for SIMT CQ polling paths.
 constexpr uint32_t HCOMM_SIMT_MAX_CQ_RETRY = 1000000U;
 
 // The SQE fields one post needs, read from the channel and SQ contexts by ResolvePost.
@@ -102,9 +101,9 @@ private:
     // Claims SQ space for one submission, draining completed CQEs to release capacity when the
     // queue is full. commit selects how much free space the claim requires: a deferred post also
     // reserves room for the immediate DWQE that will publish it.
-    template <bool commit>
+    template <typename Desc>
     __simt_callee__ inline bool ReservePost(
-        ChannelHandle channel, const HcommSimtResolvedPost& post, uint32_t bbCnt, uint64_t& headVal);
+        ChannelHandle channel, const HcommSimtResolvedPost& post, uint64_t& headVal);
 
     // The one posting path shared by every operator. Desc describes what distinguishes them:
     // the SQ footprint (bbCnt/sgeNum) and how the WQE words are laid out. See the descriptors
