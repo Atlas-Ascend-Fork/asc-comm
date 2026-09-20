@@ -10,62 +10,35 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-set(CMAKE_ASC_ARCHITECTURES "dav-3510" CACHE STRING "NPU architecture")
-
-if(NOT CMAKE_ASC_ARCHITECTURES STREQUAL "dav-3510")
-    message(FATAL_ERROR "hcomm_jetty_write only supports dav-3510, but got ${CMAKE_ASC_ARCHITECTURES}")
-endif()
+set(CMAKE_ASC_ARCHITECTURES "dav-3510" CACHE STRING "NPU architecture: dav-3510")
 
 find_package(ASC REQUIRED)
-
 project(hcomm_jetty_write LANGUAGES ASC CXX)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-set_source_files_properties(
-    hcomm_jetty_write.asc
-    PROPERTIES LANGUAGE ASC
-)
 
 add_executable(hcomm_jetty_write
     hcomm_jetty_write.asc
 )
 
+set_target_properties(hcomm_jetty_write PROPERTIES
+    LINKER_LANGUAGE ASC
+)
+
 target_include_directories(hcomm_jetty_write PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
-    ${ASCEND_CANN_PACKAGE_PATH}/include
-    ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm
-    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api/aicore
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../..
+    $ENV{ASCEND_HOME_PATH}/asc/include/comm_api/aicore
 )
 
 target_link_directories(hcomm_jetty_write PRIVATE
-    ${ASCEND_CANN_PACKAGE_PATH}/lib64
+    $ENV{ASCEND_HOME_PATH}/lib64
+    $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/lib64
 )
 
 target_link_libraries(hcomm_jetty_write PRIVATE
-    -Wl,--no-as-needed
-    hccl
     hcomm
-    -Wl,--as-needed
-    ascendcl
-    acl_rt
-    runtime
-    stdc++
-    c_sec
-    dl
-    pthread
+    hccl
 )
-
 
 target_compile_options(hcomm_jetty_write PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${CMAKE_ASC_ARCHITECTURES}>
-    $<$<COMPILE_LANGUAGE:ASC>:--cce-auto-infer-kernel-type=false>
-)
-
-# ASC eager kernel registration contains absolute references to the embedded device binary.
-target_link_options(hcomm_jetty_write PRIVATE -no-pie)
-
-set_target_properties(hcomm_jetty_write PROPERTIES
-    BUILD_RPATH "${ASCEND_CANN_PACKAGE_PATH}/lib64;${ASCEND_CANN_PACKAGE_LINUX_PATH}/lib64"
 )
