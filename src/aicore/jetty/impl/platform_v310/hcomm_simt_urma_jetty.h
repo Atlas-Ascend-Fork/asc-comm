@@ -426,11 +426,13 @@ __simt_callee__ __forceinline__ uint32_t JettyImpl::ReserveBatchSq(const uint32_
         // Keep packedHead at the published base while warps claim batch offsets.
         const uint32_t offset = asc_atomic_add(&batch->wqebbCount, reserveWqebbs);
         const uint32_t base = static_cast<uint32_t>(info->packedHead);
-        // The completion tail only ever advances. Publish the freshest observation to
-        // the batch cache so later warps skip the GM read; a stale (smaller) value
-        // merely tightens the capacity check.
-        const uint32_t tail = asc_atomic_max(&batch->tailCache,
-            *reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr));
+        // The completion tail only ever advances. The first warp of a batch (offset 0)
+        // reads GM once and publishes the observation with a plain store; later warps
+        // reuse the cached value instead of re-reading GM. A stale (smaller) value can
+        // only tighten the capacity check, never admit an overcommit.
+        const uint32_t tail = offset == 0U
+            ? (batch->tailCache = *reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr))
+            : batch->tailCache;
         const uint32_t consumed = base - tail;
         const uint32_t requiredFreeWqebbs = reserveWqebbs + HCOMM_URMA_DWQE_BB_CNT;
         if (consumed <= info->sqDepth && offset <= info->sqDepth - consumed &&
