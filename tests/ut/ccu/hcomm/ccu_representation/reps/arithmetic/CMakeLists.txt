@@ -51,7 +51,6 @@ set(src_to_test_list
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/control/ccu_rep_funccall.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/common/ccu_device_context.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/interface/ccu_datatype.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_microcode.cc
 )
 
 add_executable(hccl_utest_comms_ccu_rep_arithmetic ${src_to_test_list})

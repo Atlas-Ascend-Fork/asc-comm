@@ -53,7 +53,6 @@ set(src_to_test_list
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode_opt/extract_operands.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode_opt/instruction_scheduler.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_block.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_nop.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/context/ccu_rep_context.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/interface/ccu_datatype.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/arithmetic/ccu_rep_add.cc
