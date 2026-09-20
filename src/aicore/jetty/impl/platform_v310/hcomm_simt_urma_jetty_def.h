@@ -135,6 +135,10 @@ private:
         uint32_t wqebbCount;
         uint32_t lastOffset;
         uint32_t failed;
+        // Newest SQ completion tail observed by any warp of this batch. Warps joining
+        // later reuse it instead of re-reading GM; a stale value can only make the
+        // capacity check stricter, never looser.
+        uint32_t tailCache;
     };
 
 __simt_callee__ __forceinline__ void Init(
