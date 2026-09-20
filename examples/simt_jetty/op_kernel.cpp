@@ -8,14 +8,14 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <cstdio>
+
 #include "kernel_operator.h"
 #include "simt_api/asc_simt.h"
-#include <cstdio>
 
 #include "asccomm_staged/hcomm/hcomm_simt.h"
 #include "asccomm_staged/jetty/hcomm_jetty.h"
 #include "asccomm_staged/jetty/hcomm_jetty_simt.h"
-
 #include "simt_jetty_common.h"
 
 namespace {

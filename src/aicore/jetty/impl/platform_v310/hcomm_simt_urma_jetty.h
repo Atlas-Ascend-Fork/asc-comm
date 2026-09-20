@@ -21,16 +21,16 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <kernel_operator.h>
+#include <simt_api/device_atomic_functions.h>
+#include <simt_api/device_warp_functions.h>
+#include <simt_api/cooperative_groups.h>
 
 #include "hcomm_simt_urma_jetty_def.h"
 #include "../../../hcomm/common/hcomm_inner_def.h"
 #include "../../../hcomm/common/hcomm_log.h"
 #include "../../../hcomm/impl/platform_v310/hcomm_simt_urma_def.h"
 #include "../../../utils/simt_utils.h"
-#include <kernel_operator.h>
-#include <simt_api/device_atomic_functions.h>
-#include <simt_api/device_warp_functions.h>
-#include <simt_api/cooperative_groups.h>
 
 namespace AscendC::simt {
 namespace jetty {
