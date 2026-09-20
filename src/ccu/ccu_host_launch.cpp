@@ -44,7 +44,7 @@ typedef void* CcuKernelArg;
 typedef uint64_t ThreadHandle;
 typedef int32_t CommEngine;
 typedef int32_t HcommResult;
-constexpr CommEngine COMM_ENGINE_CCU = static_cast<CommEngine>(1);
+constexpr CommEngine COMM_ENGINE_CCU = static_cast<CommEngine>(5);
 #endif
 
 extern "C" {
@@ -76,6 +76,62 @@ constexpr int32_t CCU_LOG_MODULE_ID = 5;
         }                                               \
     } while (0)
 
+// [DEBUG] launch链路追踪打印: 环境变量 ASCCOMM_CCU_LAUNCH_DEBUG=1 时输出到stderr, 不依赖dlog配置/级别
+void CcuLaunchDebugLog(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
+void CcuLaunchDebugLog(const char* fmt, ...)
+{
+    static const bool enabled = (std::getenv("ASCCOMM_CCU_LAUNCH_DEBUG") != nullptr);
+    if (!enabled) {
+        return;
+    }
+    va_list args;
+    va_start(args, fmt);
+    (void)fprintf(stderr, "[ASCCOMM_CCU_LAUNCH][tid=%ld] ", static_cast<long>(syscall(SYS_gettid)));
+    (void)vfprintf(stderr, fmt, args);
+    (void)fprintf(stderr, "\n");
+    va_end(args);
+}
+
+// 阶段出入口统一包装: 进入打印step, 退出打印step+结果, 失败时同时打dlog_error
+#define ASCCOMM_CCU_LAUNCH_TRACE_STEP(step, resultExpr)                       \
+    do {                                                                      \
+        CcuLaunchDebugLog("%s: enter.", (step));                              \
+        const CcuResult stepRet = (resultExpr);                               \
+        if (stepRet != CCU_SUCCESS) {                                         \
+            CcuLaunchDebugLog("%s: FAILED, ret[%d].", (step),                 \
+                static_cast<int32_t>(stepRet));                               \
+            ASCCOMM_CCU_LOG_ERROR("[%s] %s failed, ret[%d].", __func__,       \
+                (step), static_cast<int32_t>(stepRet));                       \
+            return stepRet;                                                   \
+        }                                                                     \
+        CcuLaunchDebugLog("%s: OK.", (step));                                 \
+    } while (0)
+
+// 把CcuResult数值翻译为可读名称, 便于日志排查
+const char* CcuResultToStr(CcuResult ret)
+{
+    switch (ret) {
+        case CCU_SUCCESS:
+            return "CCU_SUCCESS";
+        case CCU_E_PARA:
+            return "CCU_E_PARA";
+        case CCU_E_PTR:
+            return "CCU_E_PTR";
+        case CCU_E_INTERNAL:
+            return "CCU_E_INTERNAL";
+        case CCU_E_NOT_SUPPORT:
+            return "CCU_E_NOT_SUPPORT";
+        case CCU_E_NOT_FOUND:
+            return "CCU_E_NOT_FOUND";
+        case CCU_E_UNAVAIL:
+            return "CCU_E_UNAVAIL";
+        case CCU_E_RUNTIME:
+            return "CCU_E_RUNTIME";
+        default:
+            return "CCU_E_UNKNOWN";
+    }
+}
+
 bool IsCcuKernelLaunchApiAvailable()
 {
     auto registerStart = HcommCcuKernelRegisterStart;
@@ -83,8 +139,20 @@ bool IsCcuKernelLaunchApiAvailable()
     auto registerEnd = HcommCcuKernelRegisterEnd;
     auto getTaskArgsNum = HcommCcuGetTaskArgsNum;
     auto kernelLaunch = HcommCcuKernelLaunch;
-    return registerStart != nullptr && registerKernel != nullptr && registerEnd != nullptr &&
-           getTaskArgsNum != nullptr && kernelLaunch != nullptr;
+    // 逐符号打印解析结果: 任一为NULL即launch整体不可用, 便于定位是libhcomm副本缺哪个符号
+    CcuLaunchDebugLog(
+        "IsCcuKernelLaunchApiAvailable: RegisterStart[%p] Register[%p] RegisterEnd[%p] GetTaskArgsNum[%p] "
+        "KernelLaunch[%p], ThreadAllocWithStream(strong ref)[%p].",
+        reinterpret_cast<const void*>(registerStart), reinterpret_cast<const void*>(registerKernel),
+        reinterpret_cast<const void*>(registerEnd), reinterpret_cast<const void*>(getTaskArgsNum),
+        reinterpret_cast<const void*>(kernelLaunch), reinterpret_cast<const void*>(HcommThreadAllocWithStream));
+    const bool allAvailable = registerStart != nullptr && registerKernel != nullptr && registerEnd != nullptr
+        && getTaskArgsNum != nullptr && kernelLaunch != nullptr;
+    if (!allAvailable) {
+        CcuLaunchDebugLog("IsCcuKernelLaunchApiAvailable: UNAVAILABLE, some weak symbols are NULL, "
+                          "loaded libhcomm likely predates the CCU host-launch API set.");
+    }
+    return allAvailable;
 }
 
 bool IsSupportedSingleDieMask(uint64_t phyDieMask)
@@ -124,8 +192,21 @@ CcuResult RegisterCcuKernel(
     const void* kernelFunc, const char* kernelName, const asccomm_launch_kernel_cfg* cfg, void* args,
     CcuKernelHandle& kernelHandle)
 {
+    CcuLaunchDebugLog(
+        "RegisterCcuKernel: begin, kernelFunc[%p] kernelName[%s] insHandle[0x%llx] num_blocks[%u] phy_die_mask[0x%llx] "
+        "binary_cache_tag[0x%llx] args[%p].",
+        kernelFunc, kernelName != nullptr ? kernelName : "(null)",
+        static_cast<unsigned long long>(cfg->ccu_ins), cfg->ccu_schd.num_blocks,
+        static_cast<unsigned long long>(cfg->ccu_schd.phy_die_mask),
+        static_cast<unsigned long long>(cfg->ccu_schd.binary_cache_tag), args);
+
     CcuResult ret = HcommCcuKernelRegisterStart(cfg->ccu_ins);
+    CcuLaunchDebugLog("RegisterCcuKernel: HcommCcuKernelRegisterStart ins[0x%llx] ret[%d(%s)].",
+        static_cast<unsigned long long>(cfg->ccu_ins), static_cast<int32_t>(ret), CcuResultToStr(ret));
     if (ret != CCU_SUCCESS) {
+        ASCCOMM_CCU_LOG_ERROR(
+            "[%s] HcommCcuKernelRegisterStart failed, ret[%d], ins[0x%llx].", __func__, static_cast<int32_t>(ret),
+            static_cast<unsigned long long>(cfg->ccu_ins));
         return ret;
     }
 
@@ -142,12 +223,28 @@ CcuResult RegisterCcuKernel(
     ret = HcommCcuKernelRegister(
         cfg->ccu_ins, dieId, kernelName, reinterpret_cast<const void*>(VoidKernelTrampoline), kernelArgs, 1,
         &kernelHandle);
+    CcuLaunchDebugLog("RegisterCcuKernel: HcommCcuKernelRegister dieId[%u] kernelHandle[0x%llx] ret[%d(%s)].", dieId,
+        static_cast<unsigned long long>(kernelHandle), static_cast<int32_t>(ret), CcuResultToStr(ret));
     if (ret != CCU_SUCCESS) {
+        ASCCOMM_CCU_LOG_ERROR(
+            "[%s] HcommCcuKernelRegister failed, ret[%d], dieId[%u], kernelName[%s].", __func__, static_cast<int32_t>(ret),
+            dieId, kernelName != nullptr ? kernelName : "(null)");
         (void)HcommCcuKernelRegisterEnd(cfg->ccu_ins);
         return ret;
     }
 
-    return HcommCcuKernelRegisterEnd(cfg->ccu_ins);
+    ret = HcommCcuKernelRegisterEnd(cfg->ccu_ins);
+    CcuLaunchDebugLog("RegisterCcuKernel: HcommCcuKernelRegisterEnd ins[0x%llx] ret[%d(%s)].",
+        static_cast<unsigned long long>(cfg->ccu_ins), static_cast<int32_t>(ret), CcuResultToStr(ret));
+    if (ret != CCU_SUCCESS) {
+        ASCCOMM_CCU_LOG_ERROR(
+            "[%s] HcommCcuKernelRegisterEnd failed, ret[%d], kernelHandle[0x%llx].", __func__, static_cast<int32_t>(ret),
+            static_cast<unsigned long long>(kernelHandle));
+        return ret;
+    }
+    CcuLaunchDebugLog("RegisterCcuKernel: done, kernelHandle[0x%llx].",
+        static_cast<unsigned long long>(kernelHandle));
+    return CCU_SUCCESS;
 }
 
 class KernelHandleCache {
@@ -157,22 +254,41 @@ public:
         CcuKernelHandle& kernelHandle, uint32_t& taskArgsNum)
     {
         const uint64_t cacheTag = cfg->ccu_schd.binary_cache_tag;
+        CcuLaunchDebugLog("KernelHandleCache::Match: kernelName[%s] cacheTag[0x%llx].",
+            kernelName != nullptr ? kernelName : "(null)", static_cast<unsigned long long>(cacheTag));
         if (cacheTag == 0U) {
-            return RegisterAndGetTaskArgsNum(kernelFunc, kernelName, cfg, args, kernelHandle, taskArgsNum);
+            CcuLaunchDebugLog("KernelHandleCache::Match: cacheTag==0, register fresh kernel each launch.");
+            ASCCOMM_CCU_LAUNCH_TRACE_STEP("KernelHandleCache::Match->RegisterAndGetTaskArgsNum",
+                RegisterAndGetTaskArgsNum(kernelFunc, kernelName, cfg, args, kernelHandle, taskArgsNum));
+            CcuLaunchDebugLog("KernelHandleCache::Match: done (no-cache path), kernelHandle[0x%llx] taskArgsNum[%u].",
+                static_cast<unsigned long long>(kernelHandle), taskArgsNum);
+            return CCU_SUCCESS;
         }
 
         std::lock_guard<std::mutex> lock(mutex_);
         auto iter = cache_.find(cacheTag);
         if (iter != cache_.end()) {
             kernelHandle = iter->second;
+            CcuLaunchDebugLog("KernelHandleCache::Match: cache HIT tag[0x%llx] -> kernelHandle[0x%llx], re-querying "
+                              "taskArgsNum.",
+                static_cast<unsigned long long>(cacheTag), static_cast<unsigned long long>(kernelHandle));
             return HcommCcuGetTaskArgsNum(kernelHandle, &taskArgsNum);
         }
+        CcuLaunchDebugLog("KernelHandleCache::Match: cache MISS tag[0x%llx], registering new kernel.",
+            static_cast<unsigned long long>(cacheTag));
 
         CcuResult ret = RegisterAndGetTaskArgsNum(kernelFunc, kernelName, cfg, args, kernelHandle, taskArgsNum);
         if (ret != CCU_SUCCESS) {
+            CcuLaunchDebugLog("KernelHandleCache::Match: register FAILED ret[%d(%s)], tag[0x%llx].",
+                static_cast<int32_t>(ret), CcuResultToStr(ret), static_cast<unsigned long long>(cacheTag));
+            ASCCOMM_CCU_LOG_ERROR(
+                "[%s] kernel register failed, ret[%d], cacheTag[0x%llx].", __func__, static_cast<int32_t>(ret),
+                static_cast<unsigned long long>(cacheTag));
             return ret;
         }
         cache_[cacheTag] = kernelHandle;
+        CcuLaunchDebugLog("KernelHandleCache::Match: cached kernelHandle[0x%llx] taskArgsNum[%u] under tag[0x%llx].",
+            static_cast<unsigned long long>(kernelHandle), taskArgsNum, static_cast<unsigned long long>(cacheTag));
         return CCU_SUCCESS;
     }
 
@@ -181,12 +297,17 @@ private:
         const void* kernelFunc, const char* kernelName, const asccomm_launch_kernel_cfg* cfg, void* args,
         CcuKernelHandle& kernelHandle, uint32_t& taskArgsNum)
     {
-        CcuResult ret = RegisterCcuKernel(kernelFunc, kernelName, cfg, args, kernelHandle);
+        ASCCOMM_CCU_LAUNCH_TRACE_STEP(
+            "RegisterAndGetTaskArgsNum->RegisterCcuKernel", RegisterCcuKernel(kernelFunc, kernelName, cfg, args, kernelHandle));
+        CcuResult ret = HcommCcuGetTaskArgsNum(kernelHandle, &taskArgsNum);
+        CcuLaunchDebugLog("RegisterAndGetTaskArgsNum: HcommCcuGetTaskArgsNum kernelHandle[0x%llx] -> taskArgsNum[%u] "
+                          "ret[%d(%s)].",
+            static_cast<unsigned long long>(kernelHandle), taskArgsNum, static_cast<int32_t>(ret),
+            CcuResultToStr(ret));
         if (ret != CCU_SUCCESS) {
-            return ret;
-        }
-        ret = HcommCcuGetTaskArgsNum(kernelHandle, &taskArgsNum);
-        if (ret != CCU_SUCCESS) {
+            ASCCOMM_CCU_LOG_ERROR(
+                "[%s] HcommCcuGetTaskArgsNum failed, ret[%d], kernelHandle[0x%llx].", __func__, static_cast<int32_t>(ret),
+                static_cast<unsigned long long>(kernelHandle));
             return ret;
         }
         return CCU_SUCCESS;
@@ -246,14 +367,26 @@ public:
         auto iter = cache_.find(stream);
         if (iter != cache_.end()) {
             thread = iter->second;
+            CcuLaunchDebugLog("ThreadHandleCache::GetOrCreate: cache HIT stream[%p] -> threadHandle[0x%llx].", stream,
+                static_cast<unsigned long long>(thread));
             return CCU_SUCCESS;
         }
+        CcuLaunchDebugLog("ThreadHandleCache::GetOrCreate: cache MISS stream[%p], calling "
+                          "HcommThreadAllocWithStream(engine=%d, notifyNum=0)...",
+            stream, static_cast<int32_t>(COMM_ENGINE_CCU));
 
         ThreadHandle newThread = 0;
         const HcommResult allocRet = HcommThreadAllocWithStream(COMM_ENGINE_CCU, stream, 0, &newThread);
+        CcuLaunchDebugLog("ThreadHandleCache::GetOrCreate: HcommThreadAllocWithStream ret[%d] threadHandle[0x%llx] "
+                          "stream[%p].",
+            static_cast<int32_t>(allocRet), static_cast<unsigned long long>(newThread), stream);
         if (allocRet != 0) {
+            CcuLaunchDebugLog("ThreadHandleCache::GetOrCreate: FAILED ret[%d], engine[%d]. Check libhcomm "
+                              "HcommThreadAllocWithStream engine policy (e.g. PR5352 only-CPU/CPU_TS check).",
+                static_cast<int32_t>(allocRet), static_cast<int32_t>(COMM_ENGINE_CCU));
             ASCCOMM_CCU_LOG_ERROR(
-                "[%s] HcommThreadAllocWithStream failed, ret[%d], stream[%p].", __func__, allocRet, stream);
+                "[%s] HcommThreadAllocWithStream failed, ret[%d], stream[%p], engine[%d].", __func__, allocRet, stream,
+                static_cast<int32_t>(COMM_ENGINE_CCU));
             return ConvertHcommResult(allocRet);
         }
         if (newThread == 0) {
@@ -263,6 +396,8 @@ public:
 
         cache_.emplace(stream, newThread);
         thread = newThread;
+        CcuLaunchDebugLog("ThreadHandleCache::GetOrCreate: cached threadHandle[0x%llx] for stream[%p].",
+            static_cast<unsigned long long>(thread), stream);
         return CCU_SUCCESS;
     }
 
@@ -689,19 +824,40 @@ CcuResult LaunchCcuKernelWithStream(
     CcuKernelHandle kernelHandle, const void* taskArgs, uint32_t taskArgsNum, aclrtStream stream,
     const void* kernelFunc, const char* kernelName, uint64_t phyDieMask)
 {
+    CcuLaunchDebugLog(
+        "LaunchCcuKernelWithStream: begin, kernelHandle[0x%llx] kernelName[%s] taskArgsNum[%u] taskArgs[%p] "
+        "stream[%p] phy_die_mask[0x%llx] dieId[%u].",
+        static_cast<unsigned long long>(kernelHandle), kernelName != nullptr ? kernelName : "(null)", taskArgsNum,
+        taskArgs, stream, static_cast<unsigned long long>(phyDieMask), GetDieIdByMask(phyDieMask));
     if (stream == nullptr) {
         ASCCOMM_CCU_LOG_ERROR("[%s] stream is nullptr.", __func__);
         return CCU_E_PTR;
     }
     if (taskArgsNum > CCU_SQE_ARGS_LEN) {
+        CcuLaunchDebugLog("LaunchCcuKernelWithStream: FAILED, taskArgsNum[%u] > max[%u].", taskArgsNum,
+            CCU_SQE_ARGS_LEN);
         ASCCOMM_CCU_LOG_ERROR(
             "[%s] task argument count[%u] exceeds maximum[%u].", __func__, taskArgsNum, CCU_SQE_ARGS_LEN);
         return CCU_E_NOT_SUPPORT;
+    }
+    if (taskArgsNum > 0 && taskArgs == nullptr) {
+        ASCCOMM_CCU_LOG_ERROR("[%s] taskArgs is nullptr while taskArgsNum[%u] > 0.", __func__, taskArgsNum);
+        return CCU_E_PTR;
+    }
+    if (taskArgsNum > 0 && taskArgs != nullptr) {
+        // 打印前几个taskArgs, 便于和样例侧构造的taskArgs数组对账(全量逐条打过于冗长)
+        CcuLaunchDebugLog("LaunchCcuKernelWithStream: taskArgs[0..%u):", taskArgsNum);
+        for (uint32_t i = 0; i < taskArgsNum; i++) {
+            CcuLaunchDebugLog("  taskArgs[%u] = 0x%llx.", i,
+                static_cast<unsigned long long>(static_cast<const uint64_t*>(taskArgs)[i]));
+        }
     }
 
     ThreadHandle threadHandle = 0;
     CcuResult ret = GetThreadHandleCache().GetOrCreate(stream, threadHandle);
     if (ret != CCU_SUCCESS) {
+        CcuLaunchDebugLog("LaunchCcuKernelWithStream: FAILED at ThreadHandleCache, ret[%d(%s)].",
+            static_cast<int32_t>(ret), CcuResultToStr(ret));
         return ret;
     }
 
@@ -720,10 +876,23 @@ CcuResult LaunchCcuKernelWithStream(
     }
 #endif
 
+    CcuLaunchDebugLog("LaunchCcuKernelWithStream: calling HcommCcuKernelLaunch threadHandle[0x%llx] "
+                      "kernelHandle[0x%llx] argNum[%u]...",
+        static_cast<unsigned long long>(threadHandle), static_cast<unsigned long long>(kernelHandle), taskArgsNum);
     CcuResult launchRet = HcommCcuKernelLaunch(threadHandle, kernelHandle, taskArgs, taskArgsNum);
+    CcuLaunchDebugLog("LaunchCcuKernelWithStream: HcommCcuKernelLaunch ret[%d(%s)].", static_cast<int32_t>(launchRet),
+        CcuResultToStr(launchRet));
+    if (launchRet != CCU_SUCCESS) {
+        ASCCOMM_CCU_LOG_ERROR(
+            "[%s] HcommCcuKernelLaunch failed, ret[%d], threadHandle[0x%llx] kernelHandle[0x%llx] argNum[%u].",
+            __func__, static_cast<int32_t>(launchRet), static_cast<unsigned long long>(threadHandle),
+            static_cast<unsigned long long>(kernelHandle), taskArgsNum);
+        return launchRet;
+    }
+    CcuLaunchDebugLog("LaunchCcuKernelWithStream: done OK, task submitted to stream[%p].", stream);
 
 #ifdef ASCCOMM_CCU_HAS_PROFAPI
-    if (profEnabled && launchRet == CCU_SUCCESS) {
+    if (profEnabled) {
         profCtx.endTime = g_asccommCcuProfApi.msprofSysCycleTime();
         ReportCcuDataPlaneAfterLaunch(profCtx);
     }
@@ -745,14 +914,31 @@ extern "C" uint64_t asccomm_ccu_get_launch_hash_tag(const char* tag)
 extern "C" ccu_result asccomm_ccu_host_kernel_launch(
     const void* kernel_func, const char* kernel_name, const asccomm_launch_kernel_cfg* cfg, void* args)
 {
+    CcuLaunchDebugLog(
+        "asccomm_ccu_host_kernel_launch: ENTER kernel_func[%p] kernel_name[%s] ins[0x%llx] num_blocks[%u] "
+        "phy_die_mask[0x%llx] cache_tag[0x%llx] stream[%p] args[%p].",
+        kernel_func, kernel_name != nullptr ? kernel_name : "(null)",
+        cfg != nullptr ? static_cast<unsigned long long>(cfg->ccu_ins) : 0ULL,
+        cfg != nullptr ? cfg->ccu_schd.num_blocks : 0U,
+        cfg != nullptr ? static_cast<unsigned long long>(cfg->ccu_schd.phy_die_mask) : 0ULL,
+        cfg != nullptr ? static_cast<unsigned long long>(cfg->ccu_schd.binary_cache_tag) : 0ULL,
+        cfg != nullptr ? cfg->stream : nullptr, args);
     if (kernel_func == nullptr || cfg == nullptr || args == nullptr) {
+        CcuLaunchDebugLog("asccomm_ccu_host_kernel_launch: FAILED, nullptr arg (func/cfg/args).");
         return CCU_E_PTR;
     }
     CcuResult ret = ValidateLaunchCfg(cfg);
     if (ret != CCU_SUCCESS) {
+        CcuLaunchDebugLog("asccomm_ccu_host_kernel_launch: FAILED at ValidateLaunchCfg, ret[%d(%s)].",
+            static_cast<int32_t>(ret), CcuResultToStr(ret));
         return ret;
     }
     if (!IsCcuKernelLaunchApiAvailable()) {
+        CcuLaunchDebugLog("asccomm_ccu_host_kernel_launch: FAILED at IsCcuKernelLaunchApiAvailable -> "
+                          "CCU_E_NOT_SUPPORT (see per-symbol print above).");
+        ASCCOMM_CCU_LOG_ERROR(
+            "[%s] CCU launch API unavailable (some HcommCcu* weak symbols unresolved), return CCU_E_NOT_SUPPORT.",
+            __func__);
         return CCU_E_NOT_SUPPORT;
     }
 
@@ -760,11 +946,18 @@ extern "C" ccu_result asccomm_ccu_host_kernel_launch(
     uint32_t taskArgsNum = 0;
     ret = GetKernelHandleCache().Match(kernel_func, kernel_name, cfg, args, kernelHandle, taskArgsNum);
     if (ret != CCU_SUCCESS) {
+        CcuLaunchDebugLog("asccomm_ccu_host_kernel_launch: FAILED at KernelHandleCache::Match, ret[%d(%s)].",
+            static_cast<int32_t>(ret), CcuResultToStr(ret));
         return ret;
     }
+    CcuLaunchDebugLog("asccomm_ccu_host_kernel_launch: kernel ready, kernelHandle[0x%llx] taskArgsNum[%u].",
+        static_cast<unsigned long long>(kernelHandle), taskArgsNum);
 
-    return LaunchCcuKernelWithStream(kernelHandle, args, taskArgsNum, cfg->stream, kernel_func, kernel_name,
+    ret = LaunchCcuKernelWithStream(kernelHandle, args, taskArgsNum, cfg->stream, kernel_func, kernel_name,
         cfg->ccu_schd.phy_die_mask);
+    CcuLaunchDebugLog("asccomm_ccu_host_kernel_launch: EXIT ret[%d(%s)].", static_cast<int32_t>(ret),
+        CcuResultToStr(ret));
+    return ret;
 }
 
 extern "C" CcuResult HcommCcuHostKernelLaunch(
