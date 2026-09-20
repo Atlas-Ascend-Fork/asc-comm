@@ -50,7 +50,8 @@ __aicore__ inline HcommPeer::HcommPeer(__ubuf__ HcommJettyPeerInfo* peerInfo, GM
     peerInfo->remoteTokenValueUdf = remoteBuffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     auto* sqContext = jetty->sqContextAddr + HCOMM_URMA_DEFAULT_QP_IDX;
     // tpId occupies bits [23:0] and remoteTokenId bits [51:32]; numSges is OR-ed in per post.
-    peerInfo->tpIdNumSgesRemoteTokenId = static_cast<uint64_t>(sqContext->contextInfo.ubJfs.tpID) |
+    peerInfo->tpIdNumSgesRemoteTokenId =
+        static_cast<uint64_t>(sqContext->contextInfo.ubJfs.tpID) |
         (static_cast<uint64_t>(remoteBuffer->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId) << 32U);
     auto* remoteEid = reinterpret_cast<const uint32_t*>(sqContext->contextInfo.ubJfs.remoteEID);
     peerInfo->remoteEid[0] = static_cast<uint64_t>(remoteEid[0]) | (static_cast<uint64_t>(remoteEid[1]) << 32U);
@@ -90,8 +91,7 @@ __aicore__ inline void HcommJettyImpl::FillWriteSqeHeader(
     const HcommPeer& peer, GM_ADDR dstAddr, uint32_t inlineMsgLen, uint32_t sgeNum)
 {
     auto* info = peer.peerInfo;
-    const uint32_t owner =
-        (static_cast<uint32_t>(jettyInfo_->packedHead) & jettyInfo_->sqDepth) == 0U ? 1U : 0U;
+    const uint32_t owner = (static_cast<uint32_t>(jettyInfo_->packedHead) & jettyInfo_->sqDepth) == 0U ? 1U : 0U;
     // Fill HcommUrmaSqeCtx with one 64-bit store per word: word0/1 pack the bitfields, word5 is rmtAddr.
     __ubuf__ uint64_t* sqeWords = reinterpret_cast<__ubuf__ uint64_t*>(ubufSqe_);
     sqeWords[0] = (static_cast<uint64_t>(HcommJettyPackSqeFlag(config) & 0xFFU) << 16U) | (1U << 28U) | (1U << 29U) |
@@ -170,8 +170,7 @@ __aicore__ inline void HcommJettyImpl::RingDoorbell()
 {
     // The doorbell only takes the head, which lives in the low 32 bits of packedHead.
     WriteGmBypassDCache(
-        reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqDoorbellAddr),
-        static_cast<uint32_t>(jettyInfo_->packedHead));
+        reinterpret_cast<__gm__ uint32_t*>(jettyInfo_->sqDoorbellAddr), static_cast<uint32_t>(jettyInfo_->packedHead));
 }
 
 template <int64_t timeoutCycles>

@@ -37,8 +37,8 @@ struct alignas(8) HcommJettyPeerInfo {
 };
 static_assert(sizeof(HcommJettyPeerInfo) == 48U, "HcommJettyPeerInfo must be 48 bytes");
 static_assert(offsetof(HcommJettyPeerInfo, remoteEid) == sizeof(uint64_t), "unexpected peer metadata layout");
-static_assert(offsetof(HcommJettyPeerInfo, remoteTokenValueUdf) == 3U * sizeof(uint64_t),
-    "unexpected peer metadata layout");
+static_assert(
+    offsetof(HcommJettyPeerInfo, remoteTokenValueUdf) == 3U * sizeof(uint64_t), "unexpected peer metadata layout");
 
 struct alignas(8) HcommJettyInfo {
     uint64_t sqBaseAddr;         // SQ base address in device memory.

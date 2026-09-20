@@ -2,10 +2,10 @@
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. Please make sure you use this file only in compliance with the License.
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software directory for the full text of the License.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #include <chrono>
@@ -46,8 +46,9 @@
         }                                                                                         \
     } while (0)
 
-extern void LaunchSimtJetty(void* stream, uint64_t channel, void* jettyPtrTable, uint32_t sendBufIdx,
-                            uint32_t recvBufIdx, uint32_t mode, void* timing, uint32_t iterations, uint32_t warmup);
+extern void LaunchSimtJetty(
+    void* stream, uint64_t channel, void* jettyPtrTable, uint32_t sendBufIdx, uint32_t recvBufIdx, uint32_t mode,
+    void* timing, uint32_t iterations, uint32_t warmup);
 
 namespace {
 
@@ -278,8 +279,10 @@ int main(int argc, char* argv[])
         sendInit[slot] = simt_jetty::SlotValue(slot);
     }
     uint64_t recvInit[simt_jetty::kSlotCount] = {};
-    ACLCHECK(aclrtMemcpy(sendBuf, simt_jetty::kBufferBytes, sendInit, simt_jetty::kBufferBytes, ACL_MEMCPY_HOST_TO_DEVICE));
-    ACLCHECK(aclrtMemcpy(recvBuf, simt_jetty::kBufferBytes, recvInit, simt_jetty::kBufferBytes, ACL_MEMCPY_HOST_TO_DEVICE));
+    ACLCHECK(
+        aclrtMemcpy(sendBuf, simt_jetty::kBufferBytes, sendInit, simt_jetty::kBufferBytes, ACL_MEMCPY_HOST_TO_DEVICE));
+    ACLCHECK(
+        aclrtMemcpy(recvBuf, simt_jetty::kBufferBytes, recvInit, simt_jetty::kBufferBytes, ACL_MEMCPY_HOST_TO_DEVICE));
 
     CommMem sendMem{COMM_MEM_TYPE_DEVICE, sendBuf, simt_jetty::kBufferBytes};
     CommMem recvMem{COMM_MEM_TYPE_DEVICE, recvBuf, simt_jetty::kBufferBytes};
@@ -309,15 +312,8 @@ int main(int argc, char* argv[])
             ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
             ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
             LaunchSimtJetty(
-                stream,
-                static_cast<uint64_t>(channel),
-                jettyPtrTable,
-                kLocalSendIdx,
-                remoteRecvIdx,
-                mode,
-                timingBuf,
-                iterations,
-                warmup);
+                stream, static_cast<uint64_t>(channel), jettyPtrTable, kLocalSendIdx, remoteRecvIdx, mode, timingBuf,
+                iterations, warmup);
             ACLCHECK(aclrtSynchronizeStream(stream));
             ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
             pass = timing[3] == iterations;
@@ -325,27 +321,19 @@ int main(int argc, char* argv[])
             const double averageCommitCycles = static_cast<double>(timing[1]) / iterations;
             const double averageCompletionCycles = static_cast<double>(timing[2]) / iterations;
             std::cout << std::fixed << std::setprecision(3) << "PERF | mode=" << ModeName(mode)
-                      << " | iterations=" << iterations << " | warmup=" << warmup
-                      << " | write_cycles=" << timing[0] << " | average_write_cycles=" << averageWriteCycles
-                      << " | average_write_us=" << averageWriteCycles / 1000.0
-                      << " | commit_cycles=" << timing[1] << " | average_commit_cycles=" << averageCommitCycles
-                      << " | average_commit_us=" << averageCommitCycles / 1000.0
-                      << " | completion_cycles=" << timing[2]
+                      << " | iterations=" << iterations << " | warmup=" << warmup << " | write_cycles=" << timing[0]
+                      << " | average_write_cycles=" << averageWriteCycles
+                      << " | average_write_us=" << averageWriteCycles / 1000.0 << " | commit_cycles=" << timing[1]
+                      << " | average_commit_cycles=" << averageCommitCycles
+                      << " | average_commit_us=" << averageCommitCycles / 1000.0 << " | completion_cycles=" << timing[2]
                       << " | average_completion_cycles=" << averageCompletionCycles
-                      << " | average_completion_us=" << averageCompletionCycles / 1000.0
-                      << " | completed=" << timing[3] << std::endl;
+                      << " | average_completion_us=" << averageCompletionCycles / 1000.0 << " | completed=" << timing[3]
+                      << std::endl;
         } else {
             for (uint32_t iteration = 0U; iteration < iterations; ++iteration) {
                 LaunchSimtJetty(
-                    stream,
-                    static_cast<uint64_t>(channel),
-                    jettyPtrTable,
-                    kLocalSendIdx,
-                    remoteRecvIdx,
-                    mode,
-                    nullptr,
-                    1U,
-                    0U);
+                    stream, static_cast<uint64_t>(channel), jettyPtrTable, kLocalSendIdx, remoteRecvIdx, mode, nullptr,
+                    1U, 0U);
                 ACLCHECK(aclrtSynchronizeStream(stream));
                 HCCLCHECK(WriteMarkerFile(syncDir + "/done." + std::to_string(iteration)));
                 HCCLCHECK(WaitMarkerFile(syncDir + "/checked." + std::to_string(iteration), kIterationPollMs));
@@ -374,16 +362,17 @@ int main(int argc, char* argv[])
         }
         const uint32_t checks = deviceTiming ? 1U : iterations;
         for (uint32_t iteration = 0U; iteration < checks; ++iteration) {
-            HCCLCHECK(WaitMarkerFile(
-                syncDir + "/done." + std::to_string(deviceTiming ? 0U : iteration), kIterationPollMs));
+            HCCLCHECK(
+                WaitMarkerFile(syncDir + "/done." + std::to_string(deviceTiming ? 0U : iteration), kIterationPollMs));
             const bool iterationPass = CheckWords(recvBuf, expected);
             pass = pass && iterationPass;
             if (!iterationPass) {
                 std::cout << "[rank 1] simt_jetty mode " << mode << " iteration " << iteration << " FAIL"
-                          << " checks=" << (mode == 0U || mode == 3U ? simt_jetty::kSlotCount :
-                                               mode == 1U ? 1U :
-                                               mode == 2U || mode == 4U || mode == 5U
-                                                   ? simt_jetty::kConfiguredSgeNum : 2U)
+                          << " checks="
+                          << (mode == 0U || mode == 3U               ? simt_jetty::kSlotCount :
+                              mode == 1U                             ? 1U :
+                              mode == 2U || mode == 4U || mode == 5U ? simt_jetty::kConfiguredSgeNum :
+                                                                       2U)
                           << std::endl;
             }
             if (!deviceTiming && iteration + 1U < checks) {
@@ -391,8 +380,8 @@ int main(int argc, char* argv[])
             }
             HCCLCHECK(WriteMarkerFile(syncDir + "/checked." + std::to_string(deviceTiming ? 0U : iteration)));
         }
-        std::cout << "[rank 1] simt_jetty mode " << mode << " iterations " << checks
-                  << (pass ? " PASS" : " FAIL") << std::endl;
+        std::cout << "[rank 1] simt_jetty mode " << mode << " iterations " << checks << (pass ? " PASS" : " FAIL")
+                  << std::endl;
     }
 
     if (timingBuf != nullptr) {

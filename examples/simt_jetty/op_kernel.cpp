@@ -2,10 +2,10 @@
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. Please make sure you use this file only in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, EITHER EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. See
- * LICENSE in the root of the software directory for the full text of the License.
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #include "kernel_operator.h"
@@ -14,6 +14,7 @@
 
 #include "asccomm_staged/hcomm/hcomm_simt.h"
 #include "asccomm_staged/jetty/hcomm_jetty.h"
+#include "asccomm_staged/jetty/hcomm_jetty_simt.h"
 
 #include "simt_jetty_common.h"
 
@@ -28,13 +29,15 @@ struct alignas(16) SimtJettyUbLayout {
     uint32_t mixed_ready = 0U;
 };
 
-static_assert(sizeof(AscendC::simt::jetty::HcommJettyInfo) == sizeof(AscendC::HcommJettyInfo),
-              "SIMT and SIMD Jetty metadata must share an ABI");
-static_assert(offsetof(AscendC::simt::jetty::HcommJettyInfo, packedHead) ==
-                  offsetof(AscendC::HcommJettyInfo, packedHead),
-              "SIMT/SIMD packed head offset mismatch");
-static_assert(sizeof(AscendC::simt::jetty::HcommPeerInfo) == sizeof(AscendC::HcommJettyPeerInfo),
-              "SIMT and SIMD peer metadata must share an ABI");
+static_assert(
+    sizeof(AscendC::simt::jetty::HcommJettyInfo) == sizeof(AscendC::HcommJettyInfo),
+    "SIMT and SIMD Jetty metadata must share an ABI");
+static_assert(
+    offsetof(AscendC::simt::jetty::HcommJettyInfo, packedHead) == offsetof(AscendC::HcommJettyInfo, packedHead),
+    "SIMT/SIMD packed head offset mismatch");
+static_assert(
+    sizeof(AscendC::simt::jetty::HcommPeerInfo) == sizeof(AscendC::HcommJettyPeerInfo),
+    "SIMT and SIMD peer metadata must share an ABI");
 
 __simt_callee__ __forceinline__ __ubuf__ SimtJettyUbLayout* GetSimtJettyUbLayout()
 {
@@ -59,8 +62,7 @@ __simt_callee__ __forceinline__ void PrepareJetty(
 template <int kNumSGEs, bool kPadSecondSge, bool kMeasure, bool kStandaloneWrite = false>
 __simt_callee__ inline void SimtJettyWriteThreadImpl(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, const AscendC::simt::jetty::HcommPeer& peer,
-    AscendC::simt::jetty::HcommJetty& jetty, uint64_t& writeCycles, uint64_t& commitCycles,
-    uint64_t& completionCycles)
+    AscendC::simt::jetty::HcommJetty& jetty, uint64_t& writeCycles, uint64_t& commitCycles, uint64_t& completionCycles)
 {
     __gm__ uint8_t* localSrc = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remoteDst = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
@@ -86,8 +88,7 @@ __simt_callee__ inline void SimtJettyWriteThreadImpl(
     // remote layout expected by the sample.
     constexpr int kSegmentSges = 2;
     for (int segment = 0; segment < kNumSGEs; segment += kSegmentSges) {
-        AscendC::simt::jetty::HcommSge segmentSges[kSegmentSges] = {
-            sges[segment], sges[segment + 1]};
+        AscendC::simt::jetty::HcommSge segmentSges[kSegmentSges] = {sges[segment], sges[segment + 1]};
         __gm__ void* segmentDst = remoteDst + static_cast<uint64_t>(segment) * kSlotBytes;
         if constexpr (kStandaloneWrite) {
             jetty.template Write<kSegmentSges, false>(peer, segmentDst, segmentSges);
@@ -166,8 +167,7 @@ __simt_callee__ inline void SimtJettyWriteCooperativeImpl(
 template <bool kMeasure>
 __simt_callee__ inline void SimtJettyWriteDispatchImpl(
     uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, const AscendC::simt::jetty::HcommPeer& peer,
-    AscendC::simt::jetty::HcommJetty& jetty, uint64_t& writeCycles, uint64_t& commitCycles,
-    uint64_t& completionCycles)
+    AscendC::simt::jetty::HcommJetty& jetty, uint64_t& writeCycles, uint64_t& commitCycles, uint64_t& completionCycles)
 {
     AscendC::simt::HcommCoopGroup group;
     AscendC::simt::HcommCoopWarp warp;
@@ -434,8 +434,8 @@ extern "C" __global__ __vector__ void SimtJettyWriteWarp(
     uint32_t iterations, uint32_t warmup)
 {
     asc_vf_call<SimtJettyWriteWarpVf>(
-        dim3(32), channel, jettyPtrTable, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), iterations,
-        warmup);
+        dim3(32), channel, jettyPtrTable, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),
+        iterations, warmup);
 }
 
 extern "C" __global__ __vector__ void SimtJettyWriteGroup(
@@ -443,8 +443,8 @@ extern "C" __global__ __vector__ void SimtJettyWriteGroup(
     uint32_t iterations, uint32_t warmup)
 {
     asc_vf_call<SimtJettyWriteGroupVf>(
-        dim3(32), channel, jettyPtrTable, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), iterations,
-        warmup);
+        dim3(32), channel, jettyPtrTable, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),
+        iterations, warmup);
 }
 
 extern "C" __global__ __vector__ void SimtJettyWriteDispatch(
@@ -452,8 +452,8 @@ extern "C" __global__ __vector__ void SimtJettyWriteDispatch(
     uint32_t iterations, uint32_t warmup)
 {
     asc_vf_call<SimtJettyWriteDispatchVf>(
-        dim3(64), channel, jettyPtrTable, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing), iterations,
-        warmup);
+        dim3(64), channel, jettyPtrTable, sendBufIdx, recvBufIdx, reinterpret_cast<__gm__ uint64_t*>(timing),
+        iterations, warmup);
 }
 
 extern "C" __global__ __mix__(1, 1) void SimtJettyWriteMixed(
@@ -476,8 +476,8 @@ extern "C" __global__ __mix__(1, 1) void SimtJettyWriteMixed(
     }
 
     AscendC::HcommJetty simd_jetty(
-        reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(&ub_layout->jetty_info),
-        nullptr, reinterpret_cast<__gm__ uint8_t*>(jettyPtrTable), 0);
+        reinterpret_cast<__ubuf__ AscendC::HcommJettyInfo*>(&ub_layout->jetty_info), nullptr,
+        reinterpret_cast<__gm__ uint8_t*>(jettyPtrTable), 0);
     simd_jetty.RingDoorbell();
 }
 
@@ -495,8 +495,8 @@ void LaunchSimtJetty(
                 channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup);
             break;
         case 2U:
-            SimtJettyWriteGroup<<<1, 0, stream>>>(channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations,
-                                                  warmup);
+            SimtJettyWriteGroup<<<1, 0, stream>>>(
+                channel, jettyPtrTable, sendBufIdx, recvBufIdx, timing, iterations, warmup);
             break;
         case 3U:
             SimtJettyWriteDispatch<<<1, 0, stream>>>(
