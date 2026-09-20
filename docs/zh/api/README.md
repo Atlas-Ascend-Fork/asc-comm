@@ -27,6 +27,19 @@
 | [BatchCommit](./aicore/hcomm/BatchCommit.md) | 提交BatchHandle中的全部任务。 |
 | [Drain](./aicore/hcomm/Drain.md) | 等待普通通道或BatchHandle已提交的通信任务完成。 |
 
+## AICore Jetty
+
+| 文档 | 内容 |
+| --- | --- |
+| [Jetty](./aicore/jetty/Jetty.md) | AICore侧低层Jetty通信接口总览，覆盖SIMD与SIMT路径及混合发布模式。 |
+| [Write](./aicore/jetty/Write.md) | 提交URMA写WQE，SIMT路径支持协作组构造与多SGE。 |
+| [WriteValue](./aicore/jetty/WriteValue.md) | 提交内联立即数写WQE。 |
+| [WriteWithNotify](./aicore/jetty/WriteWithNotify.md) | 提交写WQE并在完成时向远端写入通知值。 |
+| [Drain](./aicore/jetty/Drain.md) | 轮询CQ等待已提交WQE完成。 |
+| [AdvanceSq](./aicore/jetty/AdvanceSq.md) | 推进SQ头，延迟提交路径的组成部分。 |
+| [PublishSq](./aicore/jetty/PublishSq.md) | 写入DWQE窗口发布队列，SIMT延迟提交路径的组成部分。 |
+| [RingDoorbell](./aicore/jetty/RingDoorbell.md) | 敲SQ门铃发布已入队WQE，支持SIMT构造/SIMD发布混合模式。 |
+
 ## AICore Ain
 
 ### Ain类
@@ -64,6 +77,8 @@ AICore侧：
 ```cpp
 #include "hcomm/hcomm.h"
 #include "ain/ain.h"
+#include "jetty/hcomm_jetty.h"
+#include "jetty/hcomm_jetty_simt.h"
 ```
 
 ## 相关文档
@@ -71,3 +86,5 @@ AICore侧：
 - [Hcomm使用说明](../guide/hcomm_usage.md)
 - [AIV直驱URMA WriteNbi/ReadNbi样例](../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)
 - [Ain Basic Ring样例](../../../examples/aicore/ain/01_basic_ring/README.md)
+- [SIMT Jetty WRITE样例](../../../examples/simt_jetty/README.md)
+- [AIV Jetty WRITE样例](../../../examples/hcomm_jetty_write/README.md)

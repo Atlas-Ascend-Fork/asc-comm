@@ -27,6 +27,19 @@
 | [BatchCommit](./aicore/hcomm/BatchCommit.md) | Submit all tasks in a BatchHandle. |
 | [Drain](./aicore/hcomm/Drain.md) | Wait for tasks submitted through an ordinary channel or BatchHandle to complete. |
 
+## AICore Jetty
+
+| Document | Content |
+| --- | --- |
+| [Jetty](./aicore/jetty/Jetty.md) | Overview of the low-level AICore-side Jetty interface, covering the SIMD and SIMT paths and the mixed publication mode. |
+| [Write](./aicore/jetty/Write.md) | Submits a URMA write WQE; the SIMT path supports cooperative construction with multiple SGEs. |
+| [WriteValue](./aicore/jetty/WriteValue.md) | Submits an inline immediate-value write WQE. |
+| [WriteWithNotify](./aicore/jetty/WriteWithNotify.md) | Submits a write WQE that stores a notify value on the remote side at completion. |
+| [Drain](./aicore/jetty/Drain.md) | Polls the CQ until the submitted WQEs complete. |
+| [AdvanceSq](./aicore/jetty/AdvanceSq.md) | Advances the SQ head; part of the deferred submission path. |
+| [PublishSq](./aicore/jetty/PublishSq.md) | Writes the DWQE window to publish the queue; part of the SIMT deferred path. |
+| [RingDoorbell](./aicore/jetty/RingDoorbell.md) | Rings the SQ doorbell to publish enqueued WQEs, supporting the SIMT-build/SIMD-publish mixed mode. |
+
 ## AICore Ain
 
 ### Ain Class
@@ -64,6 +77,8 @@ AICore side:
 ```cpp
 #include "hcomm/hcomm.h"
 #include "ain/ain.h"
+#include "jetty/hcomm_jetty.h"
+#include "jetty/hcomm_jetty_simt.h"
 ```
 
 ## Related Documents
@@ -71,3 +86,5 @@ AICore side:
 - [Hcomm Usage Guide](../guide/hcomm_usage.md)
 - [AIV Direct-driven URMA WriteNbi/ReadNbi Sample](../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md)
 - [Ain Basic Ring Sample](../../../examples/aicore/ain/01_basic_ring/README_en.md)
+- [SIMT Jetty WRITE Sample](../../../examples/simt_jetty/README_en.md)
+- [AIV Jetty WRITE Sample](../../../examples/hcomm_jetty_write/README_en.md)
