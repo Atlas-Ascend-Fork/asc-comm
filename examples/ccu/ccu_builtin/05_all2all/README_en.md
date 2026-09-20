@@ -7,9 +7,9 @@ builtin APIs, and then submit an AlltoAll Client communication request from an A
 HCCL high-level API.
 
 The sample creates one rank for each available NPU device. Each rank sends 256 FP32 elements to every
-destination rank. On the host, `Mc2AcquireCcResCtx` obtains the CCU resource context and
-`Mc2CcKernelLaunch` starts the CCU Server. On the AICore, the same `ccResCtx` is passed to `Hccl::InitV2`,
-and `Hccl::AlltoAll` performs the equal-size data exchange.
+destination rank. On the host, `CheckOpResSufficient` first pre-checks CCU resources, `Mc2AcquireCcResCtx`
+then obtains the CCU resource context, and `Mc2CcKernelLaunch` starts the CCU Server. On the AICore, the same
+`ccResCtx` is passed to `Hccl::InitV2`, and `Hccl::AlltoAll` performs the equal-size data exchange.
 
 ## Supported Products and CANN Software Versions
 
@@ -37,6 +37,7 @@ received by rank `j` should contain `i * 1000 + j`, which is used to validate th
 Host:
 HcclComm
   -> Mc2GetCcArgs/Mc2SetCc*
+  -> CheckOpResSufficient (pre-check CCU resource sufficiency)
   -> Mc2AcquireCcResCtx
   -> Mc2CcKernelLaunch (start CCU Server)
 
@@ -67,16 +68,21 @@ ccResCtx
 2. Create one rank for each device, create the AICore stream, and allocate the input and output buffers.
 3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `CCU_SCHED` communication engine, FP32
    source and destination data types, and the `CcuSchedAllToAllSoleMesh` algorithm configuration.
-4. Call `Mc2AcquireCcResCtx` to obtain the CCU resource context `ccResCtx` and its size.
-5. Release the MC2 argument object and call `Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)` to start the
+4. Call `CheckOpResSufficient` to pre-check whether CCU resources are sufficient. Error code 1043
+   means CCU resources are temporarily insufficient, in which case a non-CCU algorithm can be
+   selected; any other non-zero code indicates a parameter error or an internal HCCL error, which
+   can be logged for fault handling. CCU resources can be acquired only when the result is
+   `HCCL_SUCCESS`.
+5. Call `Mc2AcquireCcResCtx` to obtain the CCU resource context `ccResCtx` and its size.
+6. Release the MC2 argument object and call `Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)` to start the
    CCU Server. The `stream` parameter is reserved for the AICPU path and is currently ignored by the CCU path.
-6. Launch the AICore kernel through `all_to_all_kernel<<<1, nullptr, streamAiv>>>`. Inside the kernel,
+7. Launch the AICore kernel through `all_to_all_kernel<<<1, nullptr, streamAiv>>>`. Inside the kernel,
    `hccl.InitV2(contextGM, nullptr)` is called, where `contextGM` is the `ccResCtx` obtained on the host.
-7. The AICore side calls `Hccl::AlltoAll<true>` to submit the equal-size exchange, and calls `Wait` and
+8. The AICore side calls `Hccl::AlltoAll<true>` to submit the equal-size exchange, and calls `Wait` and
    `SyncAll` to wait for completion.
-8. Synchronize the AICore stream, copy `recvBuf` back to the host, and validate every block by source rank.
-9. Destroy the HCCL communication domain, stream, and device memory. `ccResCtx` is owned by the communication
-   domain and does not need to be freed separately.
+9. Synchronize the AICore stream, copy `recvBuf` back to the host, and validate every block by source rank.
+10. Destroy the HCCL communication domain, stream, and device memory. `ccResCtx` is owned by the communication
+    domain and does not need to be freed separately.
 
 ## Build and Run
 
@@ -106,6 +112,8 @@ rankId: 1, validation: PASS
 
 ## Notes
 
+- `CheckOpResSufficient` only pre-checks resources and does not consume them. This API applies only
+  to `CCU_SCHED` scenarios; otherwise it returns `HCCL_SUCCESS` directly.
 - At least two NPU devices are required to run the sample. Single-device environments support compilation only.
 - Pass the same `ccResCtx` returned by `Mc2AcquireCcResCtx` to both `Mc2CcKernelLaunch` and the AICore
   `all_to_all_kernel`.
