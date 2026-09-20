@@ -43,8 +43,6 @@ set(src_to_test_list
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loopblock.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loopcall.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_setloop.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/translator/ccu_rep_reference_manager.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/translator/ccu_rep_translator.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_microcode.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_assist.cc
 )

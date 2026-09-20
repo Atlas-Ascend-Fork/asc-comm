@@ -44,8 +44,6 @@ set(src_to_test_list
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loopcall.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_loop.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/loop/ccu_rep_setloop.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/translator/ccu_rep_reference_manager.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/translator/ccu_rep_translator.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/arithmetic/ccu_rep_add.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/arithmetic/ccu_rep_assign.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/arithmetic/ccu_operator.cc

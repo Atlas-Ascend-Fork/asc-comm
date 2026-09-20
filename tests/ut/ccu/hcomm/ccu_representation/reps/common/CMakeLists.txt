@@ -46,17 +46,10 @@ set(src_to_test_list
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode_opt/extract_operands.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode_opt/instruction_scheduler.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_block.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_load.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_loadarg.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_load_var.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_nop.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_store.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/common/ccu_rep_store_var.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/context/ccu_rep_context.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/interface/ccu_datatype.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/arithmetic/ccu_rep_add.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation/reps/arithmetic/ccu_rep_assign.cc
-    ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode/ccu_microcode.cc
 )
 
 add_executable(hccl_utest_comms_ccu_rep_common ${src_to_test_list})
