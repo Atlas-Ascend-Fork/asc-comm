@@ -32,20 +32,17 @@ namespace AscendC::simt::jetty {
 
 __simt_callee__ __forceinline__ HcommJetty::HcommJetty() = default;
 
-__simt_callee__ __forceinline__ HcommJetty::HcommJetty(
-    __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
+__simt_callee__ __forceinline__
+HcommJetty::HcommJetty(__ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index)
     : impl_(info, stage, table, index)
 {}
 
-__simt_callee__ __forceinline__ HcommJetty::HcommJetty(
-    __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
+__simt_callee__ __forceinline__
+HcommJetty::HcommJetty(__ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr)
     : impl_(info, stage, channelAddr)
 {}
 
-__simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* HcommJetty::Info() const
-{
-    return impl_.Info();
-}
+__simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* HcommJetty::Info() const { return impl_.Info(); }
 
 __simt_callee__ __forceinline__ void HcommJetty::Attach(
     __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channel)
@@ -54,59 +51,55 @@ __simt_callee__ __forceinline__ void HcommJetty::Attach(
 }
 
 template <uint32_t kSgeNum, bool kDoCommit, typename Coop>
-__simt_callee__ __forceinline__ int32_t HcommJetty::Write(
-    const HcommPeer& peer, __gm__ void* dst, const JettySge* sges, const Coop& coop) const
+__simt_callee__ __forceinline__ int32_t
+HcommJetty::Write(const HcommPeer& peer, __gm__ void* dst, const JettySge* sges, const Coop& coop) const
 {
     return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, sges, coop);
 }
 
 template <uint32_t kSgeNum, bool kDoCommit, typename Coop>
-__simt_callee__ __forceinline__ int32_t HcommJetty::Write(
-    const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
+__simt_callee__ __forceinline__ int32_t
+HcommJetty::Write(const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
 {
     return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, &sge, coop);
 }
 
 template <uint32_t kSgeNum, bool kDoCommit, typename Coop>
-__simt_callee__ __forceinline__ int32_t HcommJetty::Write(
-    const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges) const
+__simt_callee__ __forceinline__ int32_t
+HcommJetty::Write(const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges) const
 {
     return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, sges, coop);
 }
 
 template <uint32_t kSgeNum, bool kDoCommit, typename Coop>
-__simt_callee__ __forceinline__ int32_t HcommJetty::Put(
-    const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges, const Coop& coop) const
+__simt_callee__ __forceinline__ int32_t
+HcommJetty::Put(const HcommPeer& peer, __gm__ void* dst, const HcommSge* sges, const Coop& coop) const
 {
     return Write<kSgeNum, kDoCommit>(peer, dst, sges, coop);
 }
 
 template <uint32_t kSgeNum, bool kDoCommit, typename Coop>
-__simt_callee__ __forceinline__ int32_t HcommJetty::Put(
-    const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
+__simt_callee__ __forceinline__ int32_t
+HcommJetty::Put(const Coop& coop, const HcommPeer& peer, __gm__ void* dst, const HcommSge& sge) const
 {
     return impl_.template Write<kSgeNum, kDoCommit>(peer, dst, &sge, coop);
 }
 
 template <int64_t kTimeout, typename T, bool kDoCommit>
-__simt_callee__ __forceinline__ int32_t HcommJetty::WriteValue(
-    const HcommPeer& peer, __gm__ void* dst, T value)
+__simt_callee__ __forceinline__ int32_t HcommJetty::WriteValue(const HcommPeer& peer, __gm__ void* dst, T value)
 {
     return impl_.template WriteValue<kTimeout, T, kDoCommit>(peer, dst, value);
 }
 
 template <int64_t kTimeout, bool kDoCommit>
 __simt_callee__ __forceinline__ int32_t HcommJetty::WriteWithNotify(
-    const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len,
-    __gm__ void* notifyAddr, uint64_t notifyValue)
+    const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+    uint64_t notifyValue)
 {
     return impl_.template WriteWithNotify<kTimeout, kDoCommit>(peer, dst, src, len, notifyAddr, notifyValue);
 }
 
-__simt_callee__ __forceinline__ void HcommJetty::AdvanceSq() const
-{
-    impl_.AdvanceSq();
-}
+__simt_callee__ __forceinline__ void HcommJetty::AdvanceSq() const { impl_.AdvanceSq(); }
 
 template <typename Coop>
 __simt_callee__ __forceinline__ void HcommJetty::AdvanceSq(const Coop& coop) const
@@ -120,10 +113,7 @@ __simt_callee__ __forceinline__ void HcommJetty::AdvanceSq(const Coop& coop, uin
     impl_.AdvanceSq(coop, a, b);
 }
 
-__simt_callee__ __forceinline__ void HcommJetty::PublishSq() const
-{
-    impl_.PublishSq();
-}
+__simt_callee__ __forceinline__ void HcommJetty::PublishSq() const { impl_.PublishSq(); }
 
 template <typename Coop>
 __simt_callee__ __forceinline__ void HcommJetty::PublishSq(const Coop& coop) const

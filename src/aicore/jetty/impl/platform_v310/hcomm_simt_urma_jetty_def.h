@@ -69,65 +69,64 @@ class JettyImpl {
 public:
     static constexpr uint32_t kNumWQEBBLanes = HCOMM_SIMT_WQEBB_LANES;
 
-static constexpr uint32_t kNumWQEBBsPerSQESlot = HCOMM_SIMT_SLOT_WQEBBS;
+    static constexpr uint32_t kNumWQEBBsPerSQESlot = HCOMM_SIMT_SLOT_WQEBBS;
 
-static constexpr uint32_t kNumMaxSGEsPerWrite = HCOMM_SIMT_MAX_SGES;
+    static constexpr uint32_t kNumMaxSGEsPerWrite = HCOMM_SIMT_MAX_SGES;
 
-static constexpr uint32_t kNumWriteWqebbs = HCOMM_SIMT_SLOT_WQEBBS;
+    static constexpr uint32_t kNumWriteWqebbs = HCOMM_SIMT_SLOT_WQEBBS;
 
-static constexpr uint32_t kNumWriteWithNotifyWqebbs = 2U;
+    static constexpr uint32_t kNumWriteWithNotifyWqebbs = 2U;
 
-static constexpr uint32_t kNumMaxSQEBytes = HCOMM_SIMT_SLOT_WQEBBS * HCOMM_URMA_WQE_BB_SIZE;
+    static constexpr uint32_t kNumMaxSQEBytes = HCOMM_SIMT_SLOT_WQEBBS * HCOMM_URMA_WQE_BB_SIZE;
 
-static constexpr uint32_t kNumWQEBBsPerWrite = HCOMM_SIMT_SLOT_WQEBBS;
+    static constexpr uint32_t kNumWQEBBsPerWrite = HCOMM_SIMT_SLOT_WQEBBS;
 
-static constexpr uint32_t kNumDwqeWords = 2U * HCOMM_SIMT_WQEBB_LANES;
+    static constexpr uint32_t kNumDwqeWords = 2U * HCOMM_SIMT_WQEBB_LANES;
 
-__simt_callee__ __forceinline__ JettyImpl() = default;
+    __simt_callee__ __forceinline__ JettyImpl() = default;
 
-__simt_callee__ __forceinline__ JettyImpl(
-        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index);
+    __simt_callee__ __forceinline__
+    JettyImpl(__ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index);
 
-__simt_callee__ __forceinline__ JettyImpl(
-        __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr);
+    __simt_callee__ __forceinline__
+    JettyImpl(__ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr);
 
-__simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* Info() const;
+    __simt_callee__ __forceinline__ __ubuf__ HcommJettyInfo* Info() const;
 
-template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
-    __simt_callee__ __forceinline__ int32_t Write(
-        const HcommPeer& peer, __gm__ void* dst, const JettySge* sges, const Coop& coop = Coop{}) const;
+    template <uint32_t kSgeNum, bool kDoCommit = true, typename Coop = HcommCoopThread>
+    __simt_callee__ __forceinline__ int32_t
+    Write(const HcommPeer& peer, __gm__ void* dst, const JettySge* sges, const Coop& coop = Coop{}) const;
 
-template <int64_t, typename T, bool kDoCommit = true>
+    template <int64_t, typename T, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t WriteValue(const HcommPeer& peer, __gm__ void* dst, T value);
 
-template <int64_t, bool kDoCommit = true>
+    template <int64_t, bool kDoCommit = true>
     __simt_callee__ __forceinline__ int32_t WriteWithNotify(
-        const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len,
-        __gm__ void* notifyAddr, uint64_t notifyValue);
+        const HcommPeer& peer, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+        uint64_t notifyValue);
 
-__simt_callee__ __forceinline__ void AdvanceSq() const;
+    __simt_callee__ __forceinline__ void AdvanceSq() const;
 
-template <typename Coop>
+    template <typename Coop>
     __simt_callee__ __forceinline__ void AdvanceSq(const Coop& coop) const;
 
-template <typename Coop>
-    __simt_callee__ __forceinline__ void AdvanceSq(
-        const Coop& coop, uint32_t, uint32_t) const;
+    template <typename Coop>
+    __simt_callee__ __forceinline__ void AdvanceSq(const Coop& coop, uint32_t, uint32_t) const;
 
-__simt_callee__ __forceinline__ void AdvanceImplicitSq() const;
+    __simt_callee__ __forceinline__ void AdvanceImplicitSq() const;
 
-__simt_callee__ __forceinline__ void PublishSq() const;
+    __simt_callee__ __forceinline__ void PublishSq() const;
 
-template <typename Coop>
+    template <typename Coop>
     __simt_callee__ __forceinline__ void PublishSq(const Coop& coop) const;
 
-template <int64_t kTimeout>
+    template <int64_t kTimeout>
     __simt_callee__ __forceinline__ int32_t Drain() const;
 
-template <int64_t kTimeout, typename Coop>
+    template <int64_t kTimeout, typename Coop>
     __simt_callee__ __forceinline__ int32_t Drain(const Coop& coop) const;
 
-__simt_callee__ __forceinline__ void Attach(
+    __simt_callee__ __forceinline__ void Attach(
         __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, uint64_t channelAddr);
 
 private:
@@ -137,72 +136,71 @@ private:
         uint32_t failed;
     };
 
-__simt_callee__ __forceinline__ void Init(
+    __simt_callee__ __forceinline__ void Init(
         __ubuf__ HcommJettyInfo* info, __ubuf__ uint8_t* stage, __gm__ void* table, uint32_t index);
 
-__simt_callee__ __forceinline__ __ubuf__ BatchState* Batch() const;
+    __simt_callee__ __forceinline__ __ubuf__ BatchState* Batch() const;
 
-__simt_callee__ __forceinline__ uint32_t ReserveImplicitSq(const uint32_t reserveWqebbs) const;
+    __simt_callee__ __forceinline__ uint32_t ReserveImplicitSq(const uint32_t reserveWqebbs) const;
 
-__simt_callee__ __forceinline__ uint32_t ReserveBatchSq(const uint32_t reserveWqebbs) const;
+    __simt_callee__ __forceinline__ uint32_t ReserveBatchSq(const uint32_t reserveWqebbs) const;
 
-template <uint32_t kSgeNum, HcommPostOpcode kOpcode, bool kDoCommit, uint32_t kInlineBytes = 0U,
-              typename Coop, typename Args>
-    __simt_callee__ __forceinline__ int32_t PostSend(
-        const Coop& coop, const HcommPeer& peer, const Args& args) const;
+    template <
+        uint32_t kSgeNum, HcommPostOpcode kOpcode, bool kDoCommit, uint32_t kInlineBytes = 0U, typename Coop,
+        typename Args>
+    __simt_callee__ __forceinline__ int32_t PostSend(const Coop& coop, const HcommPeer& peer, const Args& args) const;
 
-__simt_callee__ __forceinline__ void AdvanceBatch() const;
+    __simt_callee__ __forceinline__ void AdvanceBatch() const;
 
-uint64_t infoAddr_ = 0U;
+    uint64_t infoAddr_ = 0U;
 
-uint64_t stageAddr_ = 0U;
+    uint64_t stageAddr_ = 0U;
 
-uint64_t channel_ = 0U;
+    uint64_t channel_ = 0U;
 
-mutable uint32_t implicitBeginHead_ = 0U;
+    mutable uint32_t implicitBeginHead_ = 0U;
 
-mutable uint32_t implicitWqebbs_ = 0U;
+    mutable uint32_t implicitWqebbs_ = 0U;
 
-mutable uint32_t implicitPayloadWqebbs_ = 0U;
+    mutable uint32_t implicitPayloadWqebbs_ = 0U;
 
-mutable bool implicitActive_ = false;
+    mutable bool implicitActive_ = false;
 
-static constexpr int32_t kPollCqSuccess = 0;
+    static constexpr int32_t kPollCqSuccess = 0;
 
-static constexpr int32_t kPollCqUnavailable = 1;
+    static constexpr int32_t kPollCqUnavailable = 1;
 
-// Poll one CQE and advance the local SQ completion tail. The caller owns CQ tail and
+    // Poll one CQE and advance the local SQ completion tail. The caller owns CQ tail and
     // doorbell updates so this helper can serve both Drain and the incremental reservation path.
     template <int64_t kTimeout = HCOMM_SIMT_MAX_CQ_RETRY>
     __simt_callee__ __forceinline__ int32_t PollCqEntry(const uint32_t current, uint32_t& released) const;
 
-// Reap one completed CQE, matching the SIMD PullCq behavior. This is used only by
+    // Reap one completed CQE, matching the SIMD PullCq behavior. This is used only by
     // the single-producer path, where no other producer can race the CQ tail update.
     __simt_callee__ __forceinline__ bool PullCqOne() const;
 
-__simt_callee__ __forceinline__ static bool IsValidSge(const JettySge& sge);
+    __simt_callee__ __forceinline__ static bool IsValidSge(const JettySge& sge);
 
-template <uint32_t kSgeNum>
+    template <uint32_t kSgeNum>
     __simt_callee__ __forceinline__ static uint32_t CountScalarSges(const JettySge* sges);
 
-template <uint32_t kSgeNum, HcommPostOpcode kOpcode, uint32_t kInlineBytes,
-              uint32_t kWqebbCount, typename Coop, typename Args>
+    template <
+        uint32_t kSgeNum, HcommPostOpcode kOpcode, uint32_t kInlineBytes, uint32_t kWqebbCount, typename Coop,
+        typename Args>
     __simt_callee__ __forceinline__ void FillSqWarpLane(
         const Coop& coop, const HcommPeer& peer, const Args& args, const uint32_t head,
         const uint32_t runtimeWqebbCount, const uint32_t scalarSgeNum) const;
 
-template <uint32_t kPayloadWords, uint32_t kInlineBytes>
+    template <uint32_t kPayloadWords, uint32_t kInlineBytes>
     __simt_callee__ __forceinline__ static uint64_t BuildValueWord(
-        const HcommPeer& peer, const detail::InlinePostSendArgs& args,
-        const uint32_t word, const uint32_t sqIdx);
+        const HcommPeer& peer, const detail::InlinePostSendArgs& args, const uint32_t word, const uint32_t sqIdx);
 
-__simt_callee__ __forceinline__ static uint64_t BuildNotifyWord(
-        const HcommPeer& peer, const detail::PostSendArgs<true>& args,
-        const uint32_t word, const uint32_t sqIdx);
+    __simt_callee__ __forceinline__ static uint64_t BuildNotifyWord(
+        const HcommPeer& peer, const detail::PostSendArgs<true>& args, const uint32_t word, const uint32_t sqIdx);
 
-__simt_callee__ __forceinline__ static void StoreSqePair(
-        __gm__ uint64_t* sq, const uint32_t depth, const uint32_t head, const uint32_t firstWord,
-        const uint64_t first, const uint64_t second);
+    __simt_callee__ __forceinline__ static void StoreSqePair(
+        __gm__ uint64_t* sq, const uint32_t depth, const uint32_t head, const uint32_t firstWord, const uint64_t first,
+        const uint64_t second);
 };
 
 } // namespace jetty
