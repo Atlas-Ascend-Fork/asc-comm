@@ -270,10 +270,7 @@ __simt_callee__ __forceinline__ void JettyImpl::PublishSq() const
         HCOMM_DEBUG_TRAP_IF(info == nullptr || info->sqHeadAddr == 0U || info->sqDoorbellAddr == 0U ||
                                 info->sqDepth == 0U,
                             "invalid SIMT HcommJetty publish state\n");
-        // Every producer-side path (AdvanceImplicitSq, AdvanceBatch) keeps info->packedHead
-        // up to date before storing it to sqHeadAddr, so the UB copy is current and the
-        // GM read-back is an avoidable uncached round trip on the publish path.
-        const uint64_t packedHead = info->packedHead;
+        const uint64_t packedHead = *reinterpret_cast<__gm__ uint64_t*>(info->sqHeadAddr);
         const uint32_t head = static_cast<uint32_t>(packedHead);
         // A publication DWQE consumes two BBs. Its NOP headers therefore encode
         // the post-DWQE PI and the following BB index, respectively.
@@ -364,7 +361,6 @@ __simt_callee__ __forceinline__ void JettyImpl::Init(
             batch->wqebbCount = 0U;
             batch->lastOffset = 0U;
             batch->failed = 0U;
-            batch->tailCache = 0U;
         }
         HCOMM_DEBUG_TRAP_IF(channelAddr == 0U, "invalid SIMT HcommJetty channel\n");
         const uint64_t sqCtxAddr = detail::Load<uint64_t>(channelAddr, offsetof(ChannelEntity, sqContextAddr));
@@ -426,14 +422,7 @@ __simt_callee__ __forceinline__ uint32_t JettyImpl::ReserveBatchSq(const uint32_
         // Keep packedHead at the published base while warps claim batch offsets.
         const uint32_t offset = asc_atomic_add(&batch->wqebbCount, reserveWqebbs);
         const uint32_t base = static_cast<uint32_t>(info->packedHead);
-        // The completion tail only ever advances. The first warp of a batch (offset 0)
-        // reads GM once and publishes the observation with a plain store; later warps
-        // reuse the cached value instead of re-reading GM. A stale (smaller) value can
-        // only tighten the capacity check, never admit an overcommit.
-        const uint32_t tail = offset == 0U
-            ? (batch->tailCache = *reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr))
-            : batch->tailCache;
-        const uint32_t consumed = base - tail;
+        const uint32_t consumed = base - *reinterpret_cast<__gm__ uint32_t*>(info->completionTailAddr);
         const uint32_t requiredFreeWqebbs = reserveWqebbs + HCOMM_URMA_DWQE_BB_CNT;
         if (consumed <= info->sqDepth && offset <= info->sqDepth - consumed &&
             requiredFreeWqebbs <= info->sqDepth - consumed - offset) {
@@ -508,15 +497,8 @@ template <uint32_t kSgeNum, HcommPostOpcode kOpcode, bool kDoCommit, uint32_t kI
         asc_threadfence();
         coop.sync();
         if constexpr (kDoCommit) {
-            // Single fused commit: the sync above already orders every lane's fill,
-            // so lane 0 runs advance and publish back to back and one trailing sync
-            // releases the warp. Calling AdvanceSq(coop)+PublishSq(coop) instead
-            // would add three redundant barriers between them.
-            if (coop.thread_rank() == 0U) {
-                AdvanceSq();
-                PublishSq();
-            }
-            coop.sync();
+            AdvanceSq(coop);
+            PublishSq(coop);
         }
         return 0;
     }
@@ -531,7 +513,6 @@ __simt_callee__ __forceinline__ void JettyImpl::AdvanceBatch() const
             batch->wqebbCount = 0U;
             batch->lastOffset = 0U;
             batch->failed = 0U;
-            batch->tailCache = 0U;
             return;
         }
         const uint32_t begin = static_cast<uint32_t>(info->packedHead);
@@ -552,7 +533,6 @@ __simt_callee__ __forceinline__ void JettyImpl::AdvanceBatch() const
         batch->wqebbCount = 0U;
         batch->lastOffset = 0U;
         batch->failed = 0U;
-        batch->tailCache = 0U;
     }
 
 // Poll one CQE and advance the local SQ completion tail. The caller owns CQ tail and
@@ -648,8 +628,6 @@ template <uint32_t kSgeNum, HcommPostOpcode kOpcode, uint32_t kInlineBytes,
         // A warp maps one lane to one SQE word. Scalar producers walk the same layout
         // serially because they have no cooperating lanes.
         const uint32_t totalWords = kWarpLane ? kTotalWords : runtimeWqebbCount * HCOMM_SIMT_WQEBB_LANES;
-        // Scalar staging: one word slot per SQ word of the largest slot reservation.
-        uint64_t stagedWords[HCOMM_SIMT_SLOT_WQEBBS * HCOMM_SIMT_WQEBB_LANES];
         const uint32_t roundCount = kWarpLane ? 1U : totalWords;
         for (uint32_t round = 0U; round < roundCount; ++round) {
             const uint32_t word = kWarpLane ? lane : round;
@@ -697,25 +675,8 @@ template <uint32_t kSgeNum, HcommPostOpcode kOpcode, uint32_t kInlineBytes,
                 value = BuildNotifyWord(peer, args, logicalWord, sqIdx);
             }
             if (active) {
-                if constexpr (kWarpLane) {
-                    asc_stcg(sq + static_cast<uint64_t>(sqIdx) * HCOMM_SIMT_WQEBB_LANES +
-                                 logicalWord % HCOMM_SIMT_WQEBB_LANES, value);
-                } else {
-                    stagedWords[logicalWord] = value;
-                }
-            }
-        }
-        if constexpr (!kWarpLane) {
-            // The scalar loop staged every word; a 16B pair store halves the GM store
-            // count versus per-word stores. totalWords is a multiple of the eight words
-            // per basic block, so no pair straddles a basic-block boundary.
-            auto* pairs = reinterpret_cast<__gm__ ulonglong2*>(sq);
-            for (uint32_t word = 0U; word < totalWords; word += 2U) {
-                const uint32_t bbHead = head + word / HCOMM_SIMT_WQEBB_LANES;
-                const uint32_t sqIdx = bbHead & (depth - 1U);
-                const uint32_t pairIdx = (word % HCOMM_SIMT_WQEBB_LANES) / 2U;
-                asc_stcg(&pairs[static_cast<uint64_t>(sqIdx) * (HCOMM_SIMT_WQEBB_LANES / 2U) + pairIdx],
-                    make_ulonglong2(stagedWords[word], stagedWords[word + 1U]));
+                asc_stcg(sq + static_cast<uint64_t>(sqIdx) * HCOMM_SIMT_WQEBB_LANES +
+                             logicalWord % HCOMM_SIMT_WQEBB_LANES, value);
             }
         }
     }
