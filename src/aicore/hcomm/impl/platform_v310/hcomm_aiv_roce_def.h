@@ -44,6 +44,7 @@ constexpr uint32_t ROCE_1825_WQE_DATA_SEG_SHIFT = 4;
 constexpr uint32_t ROCE_1825_WQE_SECTION_ALIGN_SHIFT = 3;
 constexpr uint32_t ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN = 4;
 constexpr uint32_t ROCE_1825_WQE_NEXT_SGE_INVALID = 1U << 31; // data seg le_key L bit
+constexpr uint64_t ROCE_1825_WQE_MAX_DATA_LEN = 1ULL << 31U;
 
 constexpr uint32_t ROCE_1825_SQ_DB_PI_HIGH_SHIFT = 8;   // high 8 bits of the SQ producer index
 constexpr uint32_t ROCE_1825_SQ_DB_PI_FIELD_SHIFT = 32; // pi field offset in the 64-bit doorbell
@@ -126,8 +127,7 @@ private:
         auto const& config = ROCE_DEFAULT_CFG>
     __aicore__ inline int32_t PostSend(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType);
     __aicore__ inline uint64_t GetDbValue(uint32_t sqHead, uint32_t qpn, uint64_t vendor);
-    template <bool withPoll = false>
-    __aicore__ inline int32_t KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead);
+    __aicore__ inline void KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead);
     __aicore__ inline bool CheckCqeOwner(__ubuf__ RoceCqeEntry* cqePtr, uint32_t cqTail, uint32_t depth);
     template <bool sqSafeMode = false>
     __aicore__ inline int32_t PollCq(
