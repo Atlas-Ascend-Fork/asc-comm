@@ -28,7 +28,7 @@ typedef void* CcuKernelArg;
 typedef uint64_t ThreadHandle;
 typedef int32_t CommEngine;
 typedef int32_t HcommResult;
-constexpr CommEngine COMM_ENGINE_CCU = static_cast<CommEngine>(5);
+constexpr CommEngine COMM_ENGINE_CCU = static_cast<CommEngine>(0);
 #endif
 
 extern "C" {
