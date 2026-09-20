@@ -353,6 +353,28 @@ struct HandleTraits<UbcMultiBatchHandle> {
     using ChannelType = MultiChannelHandle;
 };
 
+template <>
+struct HandleTraits<RoceBatchHandle> {
+    using BatchHandleType = RoceBatchHandle;
+    using ChannelType = ChannelHandle;
+};
+
+template <CommProtocol protocol, typename T>
+struct HcommBatchHandleTraits;
+
+template <typename T>
+struct HcommBatchHandleTraits<COMM_PROTOCOL_UB_CTP, T> {
+    using BatchHandleType = BatchHandle<T>;
+};
+
+template <>
+struct HcommBatchHandleTraits<COMM_PROTOCOL_ROCE, ChannelHandle> {
+    using BatchHandleType = RoceBatchHandle;
+};
+
+template <CommProtocol protocol, typename T>
+using HcommBatchHandle = typename HcommBatchHandleTraits<protocol, T>::BatchHandleType;
+
 // RoCE WQE, CQE, DB struct
 typedef struct {
     uint8_t ownerSl; // dw0[31:24]: owner(1) + ctrl_section_length(2) + csl(2) + difsl(3)
