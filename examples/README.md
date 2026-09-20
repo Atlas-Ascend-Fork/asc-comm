@@ -15,7 +15,7 @@
 | [aicore/hcomm/04_simt_urma](./aicore/hcomm/04_simt_urma/README.md) | 演示并验证全部 SIMT URMA 接口：`WriteNbi`、`WriteValueNbi`、`WriteWithNotifyNbi`、`AtomicFAA` 和 `AtomicCAS`，覆盖立即提交与批量提交。 | Ascend 950PR / Ascend 950DT |
 | [aicore/hcomm/05_simt_urma_perftest](./aicore/hcomm/05_simt_urma_perftest/README.md) | 测量上述五个 SIMT URMA 接口的下发时延与完成带宽，覆盖立即提交/延迟提交两种发布策略。 | Ascend 950PR / Ascend 950DT |
 | [simt_jetty](./simt_jetty/README.md) | 演示多卡场景下SIMT Kernel以thread/warp/group协作方式通过`HcommJetty::Write`直接构造并提交Jetty WQE，覆盖dispatch多warp批量提交与SIMT/SIMD混合发布模式，并附设备侧性能与压力测试脚本。 | Ascend 950PR / Ascend 950DT |
-| [hcomm_jetty_write](./hcomm_jetty_write/README.md) | 演示多卡场景下AIV Kernel通过`HcommJetty::Write`和`HcommJetty::WriteValue`直接向Jetty SQ提交WQE，并通过`Drain`等待完成与校验结果。 | Ascend 950PR/Ascend 950DT |
+| [aicore/jetty/01_hcomm_jetty_write](./aicore/jetty/01_hcomm_jetty_write/README.md) | 演示多卡场景下AIV Kernel通过`HcommJetty::Write`和`HcommJetty::WriteValue`直接向Jetty SQ提交WQE，并通过`Drain`等待完成与校验结果。 | Ascend 950PR/Ascend 950DT |
 | [ccu/ccu_direct](./ccu/ccu_direct/01_allgather/README.md) | 演示基于HCCL通信域和CCU数据面接口，以直调`<<<>>>`方式实现AllGather等集合通信操作。 | Ascend 950PR/Ascend 950DT |
 
 各样例的编译与运行方式参见对应目录下的README。
