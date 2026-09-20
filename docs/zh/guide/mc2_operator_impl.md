@@ -114,7 +114,9 @@ Client和Server是两个独立的Device侧执行实体。Host负责任务下发�
 
 ### 分配通信和计算内存
 
-通信输入和通信输出必须位于通信接口可访问的Device GM中。计算输入和计算输出也是Device GM缓冲区；计算需要读取通信输出时，必须先满足通信完成条件。
+为通信和计算分别分配Device GM缓冲区。通信输入缓冲区保存当前Rank待发送的数据，通信输出缓冲区保存通信操作写入的结果；这两个缓冲区都需要传递给通信接口。计算输入缓冲区保存计算阶段需要读取的数据，计算输出缓冲区保存计算结果，均由AICore访问。
+
+分配缓冲区时，根据通信和计算实际使用的元素数量、数据类型计算所需字节数，并满足通信接口要求的地址对齐和可访问范围。通信任务执行期间，通信输入缓冲区中的源数据必须保持不变，通信输出缓冲区在通信完成前不能被计算阶段读取或覆盖。只有对应通信结果写入完成后，计算阶段才能读取通信输出并继续执行依赖该结果的计算。
 
   ```cpp
   const uint64_t sendCount = 1024;              // 示例值，元素个数
@@ -136,8 +138,6 @@ Client和Server是两个独立的Device侧执行实体。Host负责任务下发�
   ACL_CHECK(aclrtMemcpy(sendBuf, sendSize, hostSendData, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
   ACL_CHECK(aclrtMemcpy(computeInBuf, recvSize, hostComputeData, recvSize, ACL_MEMCPY_HOST_TO_DEVICE));
   ```
-
-缓冲区大小、数据类型、对齐和地址范围必须与通信接口约束一致。通信完成前不能覆盖源数据，也不能将目的缓冲区交给计算阶段消费。
 
 ### 配置MC2通信资源
 
