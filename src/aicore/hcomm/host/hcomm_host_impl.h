@@ -24,6 +24,7 @@
 
 #include "acl/acl_rt.h"
 #include "hccl/hccl_res.h"
+#include "hcomm/hcomm_channel.h"
 #include "hcomm/hcomm_res.h"
 #include "hcomm/hcomm_res_entity_defs.h"
 
@@ -48,15 +49,6 @@ typedef struct {
     SqContext sqContext;
     MultiChannelRemoteInfo remoteInfo;
 } ChannelMetadata;
-
-typedef enum {
-    HCOMM_CHANNEL_STATUS_READY = 0,
-    HCOMM_CHANNEL_STATUS_CONNECTING = 1,
-    HCOMM_CHANNEL_STATUS_FAILED = 2,
-    HCOMM_CHANNEL_STATUS_TIMEOUT = 3,
-    HCOMM_CHANNEL_STATUS_RES_LOC_UNAVAIL = 4,
-    HCOMM_CHANNEL_STATUS_RES_RMT_UNAVAIL = 5,
-} HcommChannelStatus;
 
 static const uint32_t HCOMM_CHANNEL_READY_RETRY_COUNT = 120000U;
 static const uint32_t HCOMM_CHANNEL_READY_RETRY_INTERVAL_US = 1000U;
@@ -163,22 +155,10 @@ static inline HcommResult HcommWaitChannelsReady(const ChannelHandle* channels, 
 
         int allReady = 1;
         for (uint32_t i = 0U; i < channelNum; ++i) {
-            if (statuses[i] == HCOMM_CHANNEL_STATUS_FAILED) {
-                ASC_CPU_LOG_ERROR("[ERROR] [%s] channel[%u] connection failed.", __func__, i);
+            if (statuses[i] >= HCOMM_CHANNEL_STATUS_FAILED_INTERNAL) {
+                ASC_CPU_LOG_ERROR("[ERROR] [%s] channel[%u] connection failed, status[%d].", __func__, i, statuses[i]);
                 (void)aclrtFreeHost(statuses);
                 return HCCL_E_INTERNAL;
-            }
-            if (statuses[i] == HCOMM_CHANNEL_STATUS_TIMEOUT) {
-                ASC_CPU_LOG_ERROR("[ERROR] [%s] channel[%u] connection timed out.", __func__, i);
-                (void)aclrtFreeHost(statuses);
-                return HCCL_E_TIMEOUT;
-            }
-            if (statuses[i] == HCOMM_CHANNEL_STATUS_RES_LOC_UNAVAIL ||
-                statuses[i] == HCOMM_CHANNEL_STATUS_RES_RMT_UNAVAIL) {
-                ASC_CPU_LOG_ERROR(
-                    "[ERROR] [%s] channel[%u] resource unavailable, status[%d].", __func__, i, statuses[i]);
-                (void)aclrtFreeHost(statuses);
-                return HCCL_E_UNAVAIL;
             }
             if (statuses[i] != HCOMM_CHANNEL_STATUS_READY) {
                 allReady = 0;
