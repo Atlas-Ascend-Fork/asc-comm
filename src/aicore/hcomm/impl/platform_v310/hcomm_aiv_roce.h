@@ -116,16 +116,16 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::MakeWqe(
     __gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType, uint32_t sqHead,
     uint32_t sqDepth, uint32_t enCqe, uint32_t fence)
 {
-    if (!HcommCheckBuffer(chnlPtr->remoteBufferAddr, chnlPtr->remoteBufferNum, dst, len)) {
+    int32_t remoteIdx = HcommFindBufferIdx(chnlPtr->remoteBufferAddr, chnlPtr->remoteBufferNum, dst, len);
+    if (remoteIdx == HCOMM_FAILED) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeWqe: failed with invalid remote buffer addr %llu.\n", dst);
         return HCOMM_FAILED;
     }
-    if (!HcommCheckBuffer(chnlPtr->localBufferAddr, chnlPtr->localBufferNum, src, len)) {
+    int32_t localIdx = HcommFindBufferIdx(chnlPtr->localBufferAddr, chnlPtr->localBufferNum, src, len);
+    if (localIdx == HCOMM_FAILED) {
         KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeWqe: failed with invalid local buffer addr %llu.\n", src);
         return HCOMM_FAILED;
     }
-    constexpr int32_t remoteIdx = 0;
-    constexpr int32_t localIdx = 0;
     __gm__ uint8_t* sqBaseAddr = (__gm__ uint8_t*)(chnlPtr->sqContextAddr->contextInfo.roceSq.sqVa);
     uint32_t wqeSize = chnlPtr->sqContextAddr->contextInfo.roceSq.wqeSize;
     KERNEL_LOG(KERNEL_INFO, "Hcomm MakeWqe: Get wqeSize from channelEntiry, wqeSize = %u.\n", wqeSize);

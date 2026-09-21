@@ -369,7 +369,8 @@ __aicore__ inline bool HcommUrmaResolveBatchRemote(
 
     int32_t remoteIdx = 0;
     if (remoteAddr != nullptr) {
-        if (!HcommCheckBuffer(remoteBuffers, remoteInfo.remoteBufferNum, remoteAddr, 1U)) {
+        remoteIdx = HcommFindBufferIdx(remoteBuffers, remoteInfo.remoteBufferNum, remoteAddr, 1U);
+        if (remoteIdx == HCOMM_FAILED) {
             return false;
         }
     }
@@ -646,11 +647,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
     (void)reqPipe;
 
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
-    if (!HcommCheckBuffer(channelEntity->remoteBufferAddr, channelEntity->remoteBufferNum, remoteAddr, len)) {
+    int32_t remoteIdx = HcommFindBufferIdx(
+        channelEntity->remoteBufferAddr, channelEntity->remoteBufferNum, remoteAddr, len);
+    if (remoteIdx == HCOMM_FAILED) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA PostSend failed with invalid remote buffer \n");
         return HCOMM_FAILED;
     }
-    constexpr int32_t remoteIdx = 0;
 
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     uint32_t curHead = channelEntity->sqHead;
