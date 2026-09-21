@@ -44,6 +44,19 @@ if (hcomm.Drain(batch) != 0) return;
 
 BatchHandle绑定remote所在的远端注册区，后续目标地址必须位于同一区域。最后的1U表示普通Write的每项BB数。
 
+Group调用使用同一个不保存Group的Hcomm对象，并在每次批次操作末尾显式传入group：
+
+```cpp
+// 以下调用由group所有lane参与；每lane构造自己的一个请求。
+auto batch = hcomm.MakeBatchHandle(
+    channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, remote, 1U, group);
+if (hcomm.WriteNbi(batch, remoteForLane, localForLane, 64U, group) != 0) return;
+if (hcomm.BatchCommit(batch, group) != 0) return;
+// 所有posting lane返回后，由一个lane调用Drain；Drain不接收group。
+```
+
+同一handle从创建到提交必须使用同一Group（成员、rank及size保持一致），共享同一UB工作区。无group重载用于单lane handle；传入size=1的Group保留原单lane分派。Write/Read/Notify/WriteValue/FAA/CAS均提供末尾group入参，显式config模板参数的用法不变。旧的Hcomm<Protocol, Group>和hcomm(group)构造方式已移除。本次修改公共头文件及src转发层后，须重新生成并安装run包，再重编用例。
+
 ## 输出
 
 与multi_jetty_batch_perf使用同一格式，每个rank pair每项一行：

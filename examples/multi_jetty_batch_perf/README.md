@@ -2,6 +2,8 @@
 
 用例演示多个 Jetty 并行发布，以及由一个消费者统一处理共享 CQ、按 JFS 归属推进各 Jetty 的完成状态。支持 Write、Read 和 WriteWithNotify。
 
+Hcomm对象不再保存Group；MakeBatchHandle和每次批次Write/Read/Notify均显式传入group。每个handle沿用固定Group及私有工作区，当前三屏障发布流程和共享CQ管理不变。公共头文件及src转发层有改动，验证前需要重新生成并安装run包，再重编用例。
+
 ## 执行
 
 ```bash

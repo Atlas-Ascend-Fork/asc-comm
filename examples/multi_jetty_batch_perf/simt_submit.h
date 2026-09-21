@@ -12,22 +12,22 @@
 
 namespace multi_jetty_batch_perf {
 
-template <typename HcommT>
+template <typename HcommT, typename Group>
 __simt_callee__ inline int32_t AppendOne(
     HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, uint32_t api, __gm__ uint8_t* remote, __gm__ uint8_t* local,
-    uint32_t payloadBytes, uint32_t slotBytes, uint32_t operation, uint32_t jetty)
+    uint32_t payloadBytes, uint32_t slotBytes, uint32_t operation, uint32_t jetty, const Group& group)
 {
     const uint64_t offset = static_cast<uint64_t>(operation) * slotBytes;
     if (api == kApiWrite) {
-        return hcomm.WriteNbi(batch, remote + offset, local + offset, payloadBytes);
+        return hcomm.WriteNbi(batch, remote + offset, local + offset, payloadBytes, group);
     }
     if (api == kApiRead) {
-        return hcomm.ReadNbi(batch, local + offset, remote + offset, payloadBytes);
+        return hcomm.ReadNbi(batch, local + offset, remote + offset, payloadBytes, group);
     }
     const uint64_t notifyValue = kNotifyValueBase | (static_cast<uint64_t>(jetty) << 32U) | operation;
     return hcomm.WriteWithNotifyNbi(
         batch, remote + offset, local + offset, payloadBytes, remote + offset + slotBytes - sizeof(uint64_t),
-        notifyValue);
+        notifyValue, group);
 }
 
 template <typename Group>
@@ -98,7 +98,8 @@ __simt_callee__ inline int32_t SubmitPublisherCoreBatches(
         if (status == AscendC::HCOMM_SUCCESS) {
             if (!publisher) {
                 (void)AppendOne(
-                    hcomm, batch, api, remote, local, payloadBytes, slotBytes, operationBase + begin + rank, jetty);
+                    hcomm, batch, api, remote, local, payloadBytes, slotBytes, operationBase + begin + rank, jetty,
+                    group);
             }
             PrepareOrdinarySq(batch, group);
         }
@@ -106,7 +107,7 @@ __simt_callee__ inline int32_t SubmitPublisherCoreBatches(
         block.sync();
         if (publisher && status == AscendC::HCOMM_SUCCESS) {
             (void)AppendOne(
-                hcomm, batch, api, remote, local, payloadBytes, slotBytes, operationBase + begin + rank, jetty);
+                hcomm, batch, api, remote, local, payloadBytes, slotBytes, operationBase + begin + rank, jetty, group);
             PublishPreparedPublisherSq(batch, size);
         }
         block.sync();
