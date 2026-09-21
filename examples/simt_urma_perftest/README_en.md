@@ -60,6 +60,47 @@ latency between interfaces. `CompletionTime` runs from the start of the timed su
 of `Drain`, and is used only to compute `CompletionBandwidth`. `DrainStatus` and `Completed` confirm
 the run actually completed correctly.
 
+## Timing Units and Frequency Option
+
+This sample targets the SIMT URMA path on Ascend 950PR/950DT (`dav-3510`). Device `clock()` returns
+raw cycles, not nanoseconds. Time and bandwidth require a counter frequency; the frequency documented
+for `GetSystemCycle()` must not be assumed to apply to SIMT `clock()`.
+
+The optional `--clock-freq-mhz MHz` specifies the frequency of the **counter used by SIMT `clock()`**
+in MHz. It accepts finite positive decimal numbers such as `1000` or `1000.5` (not scientific notation).
+Omitting it preserves the historical **1000 MHz** conversion as a compatibility assumption, not a
+confirmed clock specification for 950. The program neither detects the frequency nor validates it
+against hardware. The us, ns and GB/s values represent physical time and effective bandwidth only
+when this frequency matches the actual counter timebase during measurement. A single frequency may
+be insufficient if that timebase changes with frequency scaling. The option only changes Host-side
+conversion: it does not set the device clock or change warmup, device timing boundaries, submission or `Drain`.
+
+Let `f` be the frequency in MHz, `N` the timed WQE count and `B = DataSize/B × N` the effective bytes:
+
+| Metric | Conversion |
+| --- | --- |
+| `IssueTime/us` | `IssueCycles / f` |
+| `AverageIssue/ns` | `IssueCycles / f × 1000 / N` |
+| `CompletionTime/us` | `CompletionCycles / f` |
+| `CompletionBandwidth/GB/s` | `B / CompletionTime/us / 1000` (decimal GB/s) |
+
+Results also include `ClockFreq/MHz`, `ClockFreqSource`, `IssueCycles` and `CompletionCycles`.
+`DefaultAssumption` means the option was omitted; `UserProvided` means it was supplied, including an
+explicit value of 1000. Neither source indicates hardware detection. `TIMING_NOTE` explains the
+conversion assumption. `DrainStatus` and `Completed` check communication completion, not frequency accuracy.
+
+```bash
+# 1000 only illustrates the option syntax; confirm the counter frequency before actual use.
+examples/simt_urma_perftest/run.sh 2 write --clock-freq-mhz 1000
+```
+
+When invoking the binary directly, append `--clock-freq-mhz MHz` after the existing positional
+arguments. Existing commands remain valid. The option applies to all five APIs, both commit modes
+and every payload in a `--sweep`.
+
+References: [clock](https://asc.gitcode.com/api/Utils-API/tuning_interface/clock.html),
+[GetSystemCycle](https://asc.gitcode.com/api/SIMD-API/basic_api/tool_interface/system_resources_and_variables/GetSystemCycle_ISASI.html).
+
 ## Build
 
 ```bash
@@ -93,7 +134,7 @@ examples/simt_urma_perftest/run.sh 2 cas
 ```
 
 Options: `--iterations` (default 1024), `--warmup` (default 100), `--payload-bytes` (default 4096),
-`--commit-mode` (default immediate), `--sweep`, `--log`.
+`--commit-mode` (default immediate), `--clock-freq-mhz` (assumed default 1000 MHz), `--sweep`, `--log`.
 
 `--payload-bytes` only applies to `write` and `notify`; the other three interfaces always move 8
 bytes and ignore it. Using `--sweep` with those three is rejected outright rather than running the
@@ -109,7 +150,8 @@ shares the same default directory.
 ## Output
 
 ```text
-RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
+TIMING_NOTE | SIMT clock() reports raw cycles. Time and bandwidth use 1000 MHz (default assumption); frequency is not auto-detected or validated against hardware.
+RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | ClockFreq/MHz=1000.000000 | ClockFreqSource=DefaultAssumption | IssueCycles=... | CompletionCycles=... | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
 [rank 1] simt_urma_perftest write PASS
 ```
 

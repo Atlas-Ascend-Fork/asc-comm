@@ -27,6 +27,8 @@ Options:
                       on one 8B word. Those three ignore this option.
   --commit-mode MODE  immediate (one doorbell per WQE) or last (defer all but
                       the last); default: immediate
+  --clock-freq-mhz MHz  Positive decimal SIMT clock counter frequency used for conversion.
+                      Default: 1000 MHz (assumed, not auto-detected or hardware-validated).
   --sweep             Run a payload sweep: 8 16 64 256 1024 4096 16384 65536.
                       Only meaningful for write and notify; ignores --payload-bytes.
   --log FILE          Output log file
@@ -45,6 +47,7 @@ iterations=1024
 warmup=100
 payload_bytes=4096
 commit_mode=immediate
+clock_args=()
 sweep=0
 log_file=""
 
@@ -54,6 +57,14 @@ while [[ $# -gt 0 ]]; do
         --warmup) warmup="$2"; shift 2 ;;
         --payload-bytes) payload_bytes="$2"; shift 2 ;;
         --commit-mode) commit_mode="$2"; shift 2 ;;
+        --clock-freq-mhz)
+            if [[ $# -lt 2 || ! "$2" =~ ^([0-9]+([.][0-9]*)?|[.][0-9]+)$ || ! "$2" =~ [1-9] ]]; then
+                echo "--clock-freq-mhz must be a positive decimal number in MHz" >&2
+                exit 1
+            fi
+            clock_args=(--clock-freq-mhz "$2")
+            shift 2
+            ;;
         --sweep) sweep=1; shift ;;
         --log) log_file="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
@@ -131,7 +142,7 @@ for payload in "${payloads[@]}"; do
     pids=()
     for ((rank = 0; rank < nranks; ++rank)); do
         "$binary" "$rank" "$nranks" "$root_info_file" "$run_dir" "$api" \
-            "$iterations" "$warmup" "$payload" "$commit_mode" \
+            "$iterations" "$warmup" "$payload" "$commit_mode" "${clock_args[@]}" \
             >"${run_dir}/rank_${rank}.log" 2>&1 &
         pids+=("$!")
     done
