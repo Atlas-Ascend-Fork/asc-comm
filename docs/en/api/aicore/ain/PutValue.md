@@ -18,7 +18,7 @@ template <
 __aicore__ inline void PutValue(
     AscendC::HcommTeamHandle team,
     uint32_t peer,
-    AscendC::HcommWindowHandle dstWin,
+    AscendC::HcclCommSymWindow dstWin,
     uint64_t dstOffset,
     T value,
     RemoteAction remoteAction = RemoteAction{},
