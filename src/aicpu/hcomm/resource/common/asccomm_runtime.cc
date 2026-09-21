@@ -150,47 +150,6 @@ uint8_t *get_current_sqe(HcommRtsqContext &context)
         context.pendingSqeCnt * HCOMM_POD_RTSQ_SQE_SIZE;
 }
 
-HcclResult query_sq_base(const HcommRtsqContext &context, uint64_t &baseAddr)
-{
-    halSqCqQueryInfo queryInfo{};
-    queryInfo.tsId = 0;
-    queryInfo.sqId = context.sqId;
-    queryInfo.cqId = 0;
-    queryInfo.type = DRV_NORMAL_TYPE;
-    queryInfo.prop = DRV_SQCQ_PROP_SQ_BASE;
-    drvError_t ret = halSqCqQuery(context.localDevId, &queryInfo);
-    CHK_PRT_RET(ret != 0,
-        HCCL_ERROR("[%s] halSqCqQuery SQ_BASE failed, localDevId[%u], sqId[%u], ret[%d].", __func__,
-            context.localDevId, context.sqId, ret),
-        HCCL_E_INTERNAL);
-    baseAddr = (static_cast<uint64_t>(queryInfo.value[1]) << 32U) | queryInfo.value[0];
-    return HCCL_SUCCESS;
-}
-
-HcclResult ensure_rtsq_resolved_impl(HcommThreadEntity &thread)
-{
-    HcommRtsqContext &context = *thread.sqContextAddr;
-    if (context.sqBaseAddr != 0) {
-        return HCCL_SUCCESS; // 已解析(幂等)
-    }
-    // device侧转换host物理设备id→localDevId(与RtsqBase构造同款路径)
-    drvError_t ret = drvGetLocalDevIDByHostDevID(thread.devInfo.devId, &context.localDevId);
-    CHK_PRT_RET(ret != 0,
-        HCCL_ERROR("[%s] drvGetLocalDevIDByHostDevID failed, hostPhyId[%u], ret[%d].", __func__,
-            thread.devInfo.devId, ret),
-        HCCL_E_INTERNAL);
-    uint64_t sqBaseAddr = 0;
-    CHK_RET(query_sq_base(context, sqBaseAddr));
-    context.sqBaseAddr = sqBaseAddr;
-    CHK_RET(query_sq_value(context, DRV_SQCQ_PROP_SQ_DEPTH, context.sqDepth));
-    CHK_RET(query_sq_value(context, DRV_SQCQ_PROP_SQ_HEAD, context.sqHead));
-    CHK_RET(query_sq_value(context, DRV_SQCQ_PROP_SQ_TAIL, context.sqTail));
-    HCCL_INFO("[%s] rtsq resolved, localDevId[%u], sqId[%u], sqBaseAddr[0x%llx], depth[%u], head[%u], tail[%u].",
-        __func__, context.localDevId, context.sqId, static_cast<unsigned long long>(context.sqBaseAddr),
-        context.sqDepth, context.sqHead, context.sqTail);
-    return HCCL_SUCCESS;
-}
-
 HcclResult validate_thread_entity(HcommThreadEntity *thread)
 {
     CHK_PTR_NULL(thread);
@@ -199,18 +158,16 @@ HcclResult validate_thread_entity(HcommThreadEntity *thread)
         thread->abiHeader.size < sizeof(HcommThreadEntity),
         HCCL_ERROR("[%s] invalid POD thread entity.", __func__), HCCL_E_PARA);
     CHK_PTR_NULL(thread->sqContextAddr);
+    const HcommRtsqContext &rtsq = *thread->sqContextAddr;
+    CHK_PRT_RET(rtsq.sqBaseAddr == 0 || rtsq.sqDepth == 0 || rtsq.sqHead >= rtsq.sqDepth ||
+        rtsq.sqTail >= rtsq.sqDepth,
+        HCCL_ERROR("[%s] RTSQ parameters were not populated by control plane, base[0x%llx], depth[%u], head[%u], "
+            "tail[%u].", __func__, static_cast<unsigned long long>(rtsq.sqBaseAddr), rtsq.sqDepth,
+            rtsq.sqHead, rtsq.sqTail), HCCL_E_PARA);
     return HCCL_SUCCESS;
 }
 
 } // namespace
-
-// This entry point is called by the primitives adapter in another translation unit.
-// Keep it internal to libasccomm_aicpu; it is not a runtime cross-DSO API.
-extern "C" HcclResult
-asccomm_ensure_rtsq_resolved(HcommThreadEntity &thread)
-{
-    return ensure_rtsq_resolved_impl(thread);
-}
 
 HcclResult asccomm_rtsq_launch(HcommRtsqContext &context)
 {
@@ -343,23 +300,26 @@ HcclResult asccomm_rtsq_rdma_db_send(HcommRtsqContext &context, uint64_t dbAddr,
     return refresh_rtsq(context);
 }
 
-// 契约(CHANNEL ABI=2)：参数为控制面预解析的POD实体，数据面零解析
-HcclResult asccomm_task_launch(HcommThreadEntity **threads, uint32_t threadNum)
+HcclResult asccomm_task_launch(ThreadHandle *threads, uint32_t threadNum)
 {
     CHK_PTR_NULL(threads);
     for (uint32_t index = 0; index < threadNum; ++index) {
-        CHK_RET(validate_thread_entity(threads[index]));
-        CHK_RET(asccomm_rtsq_launch(*threads[index]->sqContextAddr));
+        CHK_PRT_RET(threads[index] == 0, HCCL_ERROR("[%s] thread handle is 0.", __func__), HCCL_E_PTR);
+        HcommThreadEntity *thread = reinterpret_cast<HcommThreadEntity *>(static_cast<uintptr_t>(threads[index]));
+        CHK_RET(validate_thread_entity(thread));
+        CHK_RET(asccomm_rtsq_launch(*thread->sqContextAddr));
     }
     return HCCL_SUCCESS;
 }
 
-HcclResult asccomm_try_launch(HcommThreadEntity **threads, uint32_t threadNum)
+HcclResult asccomm_try_launch(ThreadHandle *threads, uint32_t threadNum)
 {
     CHK_PTR_NULL(threads);
     for (uint32_t index = 0; index < threadNum; ++index) {
-        CHK_RET(validate_thread_entity(threads[index]));
-        CHK_RET(asccomm_rtsq_try_launch(*threads[index]->sqContextAddr));
+        CHK_PRT_RET(threads[index] == 0, HCCL_ERROR("[%s] thread handle is 0.", __func__), HCCL_E_PTR);
+        HcommThreadEntity *thread = reinterpret_cast<HcommThreadEntity *>(static_cast<uintptr_t>(threads[index]));
+        CHK_RET(validate_thread_entity(thread));
+        CHK_RET(asccomm_rtsq_try_launch(*thread->sqContextAddr));
     }
     return HCCL_SUCCESS;
 }
