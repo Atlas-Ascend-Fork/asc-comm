@@ -121,10 +121,8 @@ HcclResult build_ub_remote_notify(const HcommChannelEntity &channel, uint32_t in
     return HCCL_SUCCESS;
 }
 
-void fill_ub_param(const HcommChannelEntity &channel, const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
+void fill_ub_param(const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
 {
-    param.dieId = channel.devInfo.dieId;
-    param.funcId = channel.devInfo.funcId;
     param.jettyId = jfs.jfsID;
     param.sqVa = jfs.sqVa;
     param.sqDepth = jfs.sqDepth;
@@ -184,7 +182,7 @@ HcclResult execute_ub_rma(HcommThreadEntity &thread, HcommChannelEntity &channel
     CHK_RET(build_ub_slices(channel, localAddr, remoteAddr, len, local, remote));
 
     Asc::UbConnLiteParam param{};
-    fill_ub_param(channel, *jfs, param);
+    fill_ub_param(*jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -529,7 +527,7 @@ HcclResult asccomm_notify_record(HcommThreadEntity &thread, HcommChannelEntity &
     Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
     CHK_RET(build_ub_remote_notify(channel, remoteNotifyIdx, notify));
     Asc::UbConnLiteParam param{};
-    fill_ub_param(channel, *jfs, param);
+    fill_ub_param(*jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -608,7 +606,7 @@ HcclResult asccomm_drain(HcommThreadEntity &thread, HcommChannelEntity &channel)
         remoteResource.protectionInfo.memInfo.ub.tokenValue,
         std::numeric_limits<uint32_t>::max());
     Asc::UbConnLiteParam param{};
-    fill_ub_param(channel, *jfs, param);
+    fill_ub_param(*jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -638,7 +636,7 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
     HcommJfsContext *jfs = nullptr;
     CHK_RET(get_ub_context(channel, jfs));
     Asc::UbConnLiteParam param{};
-    fill_ub_param(channel, *jfs, param);
+    fill_ub_param(*jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -650,7 +648,6 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
         cfg.cqeEn = index == transferDescNum - 1;
         cfg.placeOdr = cfg.cqeEn ? UB_STRONG_ORDER : UB_RELAX_ORDER;
         cfg.compOrder = cfg.cqeEn ? UB_COMPLETION : UB_NO_COMPLETION;
-        cfg.userConfig = true;
         if (desc.transType == HCOMM_TRANSFER_TYPE_NOTIFY_RECORD) {
             Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
             const uint32_t notifyIdx = desc.transferInfo.notifyRecord.notifyIdx;
