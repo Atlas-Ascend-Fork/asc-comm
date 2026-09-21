@@ -21,7 +21,7 @@ bash build.sh --batch-size 64 -O0 --clean
 bash run.sh --batch-size 64 -O0
 ```
 
-产物放在 `build/simt-matrix-bs64-o0`，默认构建不受影响。首次通过脚本构建使用 `--clean`，生成配套资源记录和SHA；此前直接用CMake编译过也一样，后续增量构建可不加。结果标记 `Optimization=O0`，不能作为优化版本的性能基线。
+产物放在 `build/simt-matrix-bs64-o0`，默认构建不受影响。首次通过脚本构建使用 `--clean`，生成配套资源记录和SHA；此前直接用CMake编译过也一样，后续增量构建可不加。结果标记 `Optimization=O0`，不能作为优化版本的性能基线。 `-O0` 编译成功但未输出资源报告时记录 `ResourceReport=unavailable`，不声称已检查栈上限；二进制身份和SHA校验仍保留。
 
 
 固定64B、每Jetty1024计时请求、warmup96按batch向上对齐、两设备。batch决定每Jetty的lane数；用户只指定batch，不再另配scope/control/lane参数。

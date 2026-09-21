@@ -19,7 +19,7 @@ bash build.sh --batch-size 64 -O0 --clean
 bash run.sh --batch-size 64 -O0
 ```
 
-This uses `build/simt-matrix-bs64-o0`; the default build is unchanged. The first scripted build uses `--clean` to generate its resource and SHA records, including after a direct CMake build. Subsequent builds may omit `--clean`. Results include `Optimization=O0` and must not be used as the optimized performance baseline.
+This uses `build/simt-matrix-bs64-o0`; the default build is unchanged. The first scripted build uses `--clean` to generate its resource and SHA records, including after a direct CMake build. Subsequent builds may omit `--clean`. Results include `Optimization=O0` and must not be used as the optimized performance baseline. A successful `-O0` build may omit the compiler resource report; this is recorded as `ResourceReport=unavailable`, without claiming a stack limit check. Binary identity and SHA checks still apply.
 
 
 Each Jetty uses batch-size lanes. Fixed geometry:64B,1024 timed requests,96 warmup requests rounded up to a batch,two ranks. No control or trace environment settings are required.

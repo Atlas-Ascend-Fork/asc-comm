@@ -46,10 +46,16 @@ object="${build_dir}/CMakeFiles/multi_jetty_batch_perf.dir/simt_kernel.cpp.o"
 mapfile -t reports < <(grep '^\[BISHENG\] SIMT VF Function properties for ' "${build_dir}/scope-build.log" || true)
 if [[ ${#reports[@]} == 0 ]]; then
     # Reuse an incremental resource report only for the identical object.
-    [[ -f "${build_dir}/scope-resource.txt" && -f "${build_dir}/scope-resource-object.sha256" ]] &&
-        sha256sum --check --status "${build_dir}/scope-resource-object.sha256" || {
+    if [[ -f "${build_dir}/scope-resource.txt" && -f "${build_dir}/scope-resource-object.sha256" ]] &&
+        sha256sum --check --status "${build_dir}/scope-resource-object.sha256"; then
+        :
+    elif [[ "$optimization" == -O0 ]]; then
+        # Some -O0 compiler builds omit the VF resource report even after a successful link.
+        echo "BUILD_RESOURCE | Optimization=O0 | ResourceReport=unavailable" > "${build_dir}/scope-resource.txt"
+        sha256sum "$object" > "${build_dir}/scope-resource-object.sha256"
+    else
         echo "BUILD_ERROR | missing resource report for current object" >&2; exit 1;
-    }
+    fi
 else
     capacity=$((batch * 8))
     ((capacity >= 32)) || capacity=32
