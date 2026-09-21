@@ -72,7 +72,7 @@ Perform the following steps in the sample root directory. This sample supports N
 
   ```bash
   bash build.sh --pkg
-  ./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
+  ./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
   ```
 
   Then load the CANN environment:
