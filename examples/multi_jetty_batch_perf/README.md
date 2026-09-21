@@ -17,18 +17,19 @@ bash run.sh --batch-size 1 --api write --jetty-counts 4
 需要显式使用 `-O0` 调测时，构建和运行都加同一个选项：
 
 ```bash
-bash build.sh --batch-size 64 -O0 --clean
+bash build.sh --batch-size 64 -O0
 bash run.sh --batch-size 64 -O0
 ```
 
-产物放在 `build/simt-matrix-bs64-o0`，默认构建不受影响。首次通过脚本构建使用 `--clean`，生成配套资源记录和SHA；此前直接用CMake编译过也一样，后续增量构建可不加。结果标记 `Optimization=O0`，不能作为优化版本的性能基线。 `-O0` 编译成功但未输出资源报告时记录 `ResourceReport=unavailable`，不声称已检查栈上限；二进制身份和SHA校验仍保留。
+产物放在 `build/simt-matrix-bs64-o0`，默认构建不受影响。结果标记 `Optimization=O0`，不能作为优化版本的性能基线。构建前移除旧可执行文件，编译失败后不会误跑旧版本。
 
 
 固定64B、每Jetty1024计时请求、warmup96按batch向上对齐、两设备。batch决定每Jetty的lane数；用户只指定batch，不再另配scope/control/lane参数。
 
-每组一个独立构建目录 `build/simt-matrix-bs<N>`；不编SIMD和串行VF。构建超时5分钟，检查单VF身份与stack≤1152B，寄存器按实际几何记录，不套用旧1024-lane单例的32门槛。`--clean`仅清理选中的产物。
+每组一个独立构建目录 `build/simt-matrix-bs<N>`；不编SIMD和串行VF。构建超时5分钟，失败直接退出；`--clean`仅清理选中的产物。运行前只要求对应可执行文件存在，不依赖资源报告、栈阈值、SHA或构建标记。
 
-运行前核对 `Layout=matrix-v2`、batch及构建生成的二进制SHA。`--matrix-batch`和以前矩阵命令的固定参数仍兼容；历史`--scope/--fast`改用diagnostics入口。增量构建只有对象SHA相同时才复用资源记录。
+`--matrix-batch`和以前矩阵命令的固定参数仍兼容；历史`--scope/--fast`改用diagnostics入口。用例中的完成计数、数据和Notify校验保持。
+
 
 ## 文件职责
 

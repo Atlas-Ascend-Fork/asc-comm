@@ -15,16 +15,16 @@ bash run.sh --batch-size 1 --api write --jetty-counts 4
 For an explicit `-O0` diagnostic build, use the same option on both scripts:
 
 ```bash
-bash build.sh --batch-size 64 -O0 --clean
+bash build.sh --batch-size 64 -O0
 bash run.sh --batch-size 64 -O0
 ```
 
-This uses `build/simt-matrix-bs64-o0`; the default build is unchanged. The first scripted build uses `--clean` to generate its resource and SHA records, including after a direct CMake build. Subsequent builds may omit `--clean`. Results include `Optimization=O0` and must not be used as the optimized performance baseline. A successful `-O0` build may omit the compiler resource report; this is recorded as `ResourceReport=unavailable`, without claiming a stack limit check. Binary identity and SHA checks still apply.
+This uses `build/simt-matrix-bs64-o0`; the default build is unchanged. Results include `Optimization=O0` and are not an optimized performance baseline. The build removes the previous executable first so a failed build cannot run an old binary.
 
 
 Each Jetty uses batch-size lanes. Fixed geometry:64B,1024 timed requests,96 warmup requests rounded up to a batch,two ranks. No control or trace environment settings are required.
 
-Each artifact contains one parallel VF. Build timeout is5min; stack stays<=1152B. Register usage is recorded per VF geometry rather than capped at the old1024-lane case's32 registers. Binary identity and SHA must match the completed build. --clean only removes the selected profile. Previous --matrix-batch and fixed matrix runner options remain supported.
+Each artifact contains one parallel VF. The build has a 5-minute timeout and exits on failure. `--clean` only removes the selected profile. The runner requires the corresponding executable, without resource-report, stack-limit, SHA or build-marker checks. Previous `--matrix-batch` and fixed matrix runner options remain supported. Completion, data and Notify validation stays in place.
 
 main.cpp owns host orchestration; host_setup.h owns rank/channel setup; simt_kernel.cpp owns the VF lifecycle; simt_submit.h owns publication; simt_completion.h owns completion windows/snapshots; validation.h owns complete data and completion checks. Public comm code, publication barriers and lane-owned SQ maintenance are unchanged.
 

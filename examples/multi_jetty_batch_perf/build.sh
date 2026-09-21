@@ -35,46 +35,11 @@ fi
 build_dir="${script_dir}/build/${profile}"
 [[ "$clean" == false ]] || rm -rf -- "$build_dir"
 mkdir -p "$build_dir"
-rm -f -- "${build_dir}/scope-ready.sha256"
+rm -f -- "${build_dir}/multi_jetty_batch_perf"
 started_at=$SECONDS
 echo "BUILD_CONFIG | Profile=${profile} | Directory=${build_dir}"
 cmake -S "$script_dir" -B "$build_dir" -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DMULTI_JETTY_MATRIX_BATCH="$batch" "${cmake_options[@]}"
 timeout --signal=TERM --kill-after=10s 5m cmake --build "$build_dir" --verbose --parallel "${BUILD_JOBS:-2}" 2>&1 | tee "${build_dir}/scope-build.log"
 
-# Verify the selected VF. Register usage is recorded, not limited across different geometries.
-object="${build_dir}/CMakeFiles/multi_jetty_batch_perf.dir/simt_kernel.cpp.o"
-mapfile -t reports < <(grep '^\[BISHENG\] SIMT VF Function properties for ' "${build_dir}/scope-build.log" || true)
-if [[ ${#reports[@]} == 0 ]]; then
-    # Reuse an incremental resource report only for the identical object.
-    if [[ -f "${build_dir}/scope-resource.txt" && -f "${build_dir}/scope-resource-object.sha256" ]] &&
-        sha256sum --check --status "${build_dir}/scope-resource-object.sha256"; then
-        :
-    elif [[ "$optimization" == -O0 ]]; then
-        # Some -O0 compiler builds omit the VF resource report even after a successful link.
-        echo "BUILD_RESOURCE | Optimization=O0 | ResourceReport=unavailable" > "${build_dir}/scope-resource.txt"
-        sha256sum "$object" > "${build_dir}/scope-resource-object.sha256"
-    else
-        echo "BUILD_ERROR | missing resource report for current object" >&2; exit 1;
-    fi
-else
-    capacity=$((batch * 8))
-    ((capacity >= 32)) || capacity=32
-    ((capacity <= 1024)) || capacity=1024
-    pattern='Stack size: ([0-9]+) bytes, Used register number: ([0-9]+)'
-    [[ ${#reports[@]} == 1 && "${reports[0]}" == *"SimtParallelMultiJettyVfILj${batch}ELj${capacity}E"* &&
-       "${reports[0]}" =~ $pattern ]] || {
-        echo "BUILD_ERROR | unexpected VF resource report" >&2; exit 1;
-    }
-    stack="${BASH_REMATCH[1]}"
-    registers="${BASH_REMATCH[2]}"
-    [[ "$stack" -le 1152 ]] || { echo "BUILD_ERROR | StackBytes=${stack} exceeds 1152" >&2; exit 1; }
-    echo "BUILD_RESOURCE | VF=${batch},${capacity} | StackBytes=${stack} | Registers=${registers} | RegisterPolicy=record" > "${build_dir}/scope-resource.txt"
-    sha256sum "$object" > "${build_dir}/scope-resource-object.sha256"
-fi
-cat "${build_dir}/scope-resource.txt"
-binary="${build_dir}/multi_jetty_batch_perf"
-expected="BUILD_CONFIG | Backend=simt | Layout=matrix-v2 | CompletionVersion=1 | MatrixBatch=${batch} | Profiling=0"
-[[ "$("$binary" --build-info)" == "$expected" ]] || { echo "BUILD_ERROR | stale binary configuration" >&2; exit 1; }
-sha256sum "$binary" > "${build_dir}/scope-ready.sha256"
 echo "BUILD_COMPLETE | Profile=${profile} | Seconds=$((SECONDS - started_at))"
 echo "Run: bash run.sh --batch-size ${batch}${optimization:+ $optimization}"

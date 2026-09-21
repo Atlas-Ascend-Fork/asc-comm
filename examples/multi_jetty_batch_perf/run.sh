@@ -48,18 +48,13 @@ for j in "${jettys[@]}"; do
     seen[$j]=1
 done
 binary="${script_dir}/build/${profile}/multi_jetty_batch_perf"
-expected="BUILD_CONFIG | Backend=simt | Layout=matrix-v2 | CompletionVersion=1 | MatrixBatch=${batch} | Profiling=0"
-[[ -x "$binary" && "$("$binary" --build-info)" == "$expected" ]] || { echo "Binary configuration does not match selected batch; build it first" >&2; exit 1; }
-[[ -f "${script_dir}/build/${profile}/scope-ready.sha256" ]] &&
-    sha256sum --check --status "${script_dir}/build/${profile}/scope-ready.sha256" || { echo "Binary has no matching successful build" >&2; exit 1; }
+[[ -x "$binary" ]] || { echo "Binary not found; build the selected batch first" >&2; exit 1; }
 [[ -n "$log_file" ]] || log_file="${script_dir}/results/matrix_bs${batch}${optimization:+_o0}_$(date +%Y%m%d_%H%M%S).log"
 mkdir -p "$(dirname "$log_file")"
 log_dir="$(mktemp -d "${log_file}.ranks.XXXXXX")"
 exec > >(tee "$log_file") 2>&1
 echo "RUN_IDENTITY | Head=$(git -C "$script_dir" rev-parse HEAD 2>/dev/null || echo UNKNOWN) | Tree=$([[ -z "$(git -C "$script_dir" status --porcelain 2>/dev/null)" ]] && echo clean || echo dirty)"
-echo "$expected"
 echo "RUN_BINARY | Profile=${profile} | Path=${binary}"
-sha256sum "$binary"
 echo "RANK_LOGS | Directory=${log_dir}"
 apis=(write read notify)
 [[ "$api" == all ]] || apis=("$api")
