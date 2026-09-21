@@ -218,7 +218,7 @@ std::string ccu_rep_add::describe()
         }
         case add_sub_type::addr_plus_immed_to_addr: {
             return asc::format_ccu_message(
-                "Address[%u] += Address[%u] + Immed[%hu]", addr_c_.id(), addr_a_.id(), immed_b_);
+                "Address[%u] = Address[%u] + Immed[%hu]", addr_c_.id(), addr_a_.id(), immed_b_);
         }
         case add_sub_type::var_plus_var_to_addr: {
             return asc::format_ccu_message(
@@ -228,7 +228,7 @@ std::string ccu_rep_add::describe()
             return asc::format_ccu_message("Address[%u] += Immed[%u]", addr_a_.id(), immed_b_);
         }
         case add_sub_type::var_plus_immed_to_addr: {
-            return asc::format_ccu_message("Address[%u] += varA[%u] + Immed[%hu]", addr_c_.id(), var_a_.id(), immed_b_);
+            return asc::format_ccu_message("Address[%u] = varA[%u] + Immed[%hu]", addr_c_.id(), var_a_.id(), immed_b_);
         }
         case add_sub_type::addr_plus_immed_to_var: {
             return asc::format_ccu_message(
