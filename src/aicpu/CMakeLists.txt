@@ -88,6 +88,7 @@ target_include_directories(asccomm_aicpu PRIVATE
     # CANN包公共依赖头(securec.h/dlog_pub.h/ascend_hal.h/acl头)，
     # 独立构建不依赖cann-cmake导入目标，直接取CANN包目录
     ${ASCCOMM_CANN_ARCH_DIR}/include
+    ${ASCCOMM_CANN_ARCH_DIR}/include/hcomm
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/base
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/driver
     ${ASCCOMM_AICPU_ROOT}/hcomm/primitives/api_c_adpt
@@ -104,6 +105,7 @@ target_include_directories(asccomm_aicpu PRIVATE
 # hcomm源码可用时附加其pkg_inc包含路径(可选依赖，自包含构建时跳过)
 if(ASCCOMM_HCOMM_SOURCE_DIR)
     target_include_directories(asccomm_aicpu PRIVATE
+        ${ASCCOMM_HCOMM_SOURCE_DIR}/include
         ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
         ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hcomm)
 endif()

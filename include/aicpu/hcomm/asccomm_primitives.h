@@ -12,7 +12,6 @@
 #define ASCCOMM_PRIMITIVES_H
 
 #include <hcomm/hcomm_primitives_types.h>
-#include <hcomm_primitives.h>
 
 #if defined(__GNUC__)
 #define ASCCOMM_API __attribute__((visibility("default")))
