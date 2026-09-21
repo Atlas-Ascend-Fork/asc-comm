@@ -14,6 +14,16 @@ bash run.sh --batch-size 1 --api write --jetty-counts 4
 # 对 8、32、64、128、256 分别重复上述两条，六组共72项。
 ```
 
+需要显式使用 `-O0` 调测时，构建和运行都加同一个选项：
+
+```bash
+bash build.sh --batch-size 64 -O0 --clean
+bash run.sh --batch-size 64 -O0
+```
+
+产物放在 `build/simt-matrix-bs64-o0`，默认构建不受影响。首次通过脚本构建使用 `--clean`，生成配套资源记录和SHA；此前直接用CMake编译过也一样，后续增量构建可不加。结果标记 `Optimization=O0`，不能作为优化版本的性能基线。
+
+
 固定64B、每Jetty1024计时请求、warmup96按batch向上对齐、两设备。batch决定每Jetty的lane数；用户只指定batch，不再另配scope/control/lane参数。
 
 每组一个独立构建目录 `build/simt-matrix-bs<N>`；不编SIMD和串行VF。构建超时5分钟，检查单VF身份与stack≤1152B，寄存器按实际几何记录，不套用旧1024-lane单例的32门槛。`--clean`仅清理选中的产物。

@@ -12,6 +12,16 @@ bash run.sh --batch-size 1 --api write --jetty-counts 4
 # Repeat build/run for batches 8,32,64,128,256 to cover all 72 cases.
 ```
 
+For an explicit `-O0` diagnostic build, use the same option on both scripts:
+
+```bash
+bash build.sh --batch-size 64 -O0 --clean
+bash run.sh --batch-size 64 -O0
+```
+
+This uses `build/simt-matrix-bs64-o0`; the default build is unchanged. The first scripted build uses `--clean` to generate its resource and SHA records, including after a direct CMake build. Subsequent builds may omit `--clean`. Results include `Optimization=O0` and must not be used as the optimized performance baseline.
+
+
 Each Jetty uses batch-size lanes. Fixed geometry:64B,1024 timed requests,96 warmup requests rounded up to a batch,two ranks. No control or trace environment settings are required.
 
 Each artifact contains one parallel VF. Build timeout is5min; stack stays<=1152B. Register usage is recorded per VF geometry rather than capped at the old1024-lane case's32 registers. Binary identity and SHA must match the completed build. --clean only removes the selected profile. Previous --matrix-batch and fixed matrix runner options remain supported.
