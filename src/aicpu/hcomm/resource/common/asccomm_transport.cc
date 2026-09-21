@@ -86,8 +86,10 @@ HcclResult build_ub_slices(const HcommChannelEntity &channel, uintptr_t localAdd
 {
     const HcommRegedBufferEntity *localBuffer = find_buffer(
         channel.localBufferAddr, channel.localBufferNum, localAddr, len, true);
+    const HcommRegedBufferEntity *remoteBuffers = channel.remoteBufferAddr != nullptr && channel.remoteBufferNum > 1 ?
+        channel.remoteBufferAddr + 1 : nullptr;
     const HcommRegedBufferEntity *remoteBuffer = find_buffer(
-        channel.remoteBufferAddr, channel.remoteBufferNum, remoteAddr, len, false);
+        remoteBuffers, channel.remoteBufferNum > 0 ? channel.remoteBufferNum - 1 : 0, remoteAddr, len, false);
     CHK_PTR_NULL(localBuffer);
     CHK_PTR_NULL(remoteBuffer);
     const auto &localResource = localBuffer->bufferInfo.rma;
@@ -119,14 +121,14 @@ HcclResult build_ub_remote_notify(const HcommChannelEntity &channel, uint32_t in
     return HCCL_SUCCESS;
 }
 
-// 契约(CHANNEL ABI=2)：jfs字段直取；remoteEID为硬件逆序形态(控制面已Reversed())，零转换透传
-void fill_ub_param(const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
+void fill_ub_param(const HcommChannelEntity &channel, const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
 {
+    param.dieId = channel.devInfo.dieId;
+    param.funcId = channel.devInfo.funcId;
     param.jettyId = jfs.jfsID;
     param.sqVa = jfs.sqVa;
     param.sqDepth = jfs.sqDepth;
     param.tpn = jfs.tpID;
-    param.dwqeCacheLocked = false; // 契约v2：恒按直写WQE处理
     param.maxReadSize = jfs.maxReadSize;
     param.maxWriteSize = jfs.maxWriteSize;
     (void)memcpy_sp(param.rmtEid, sizeof(param.rmtEid), jfs.remoteEID, sizeof(jfs.remoteEID));
@@ -134,21 +136,22 @@ void fill_ub_param(const HcommJfsContext &jfs, Asc::UbConnLiteParam &param)
 
 void import_ub_state(const HcommJfsContext &jfs, Asc::UbConnLite &connection)
 {
-    uint32_t detourDummy = 0; // 契约v2：piDetourCount已删除，哑元占位
-    connection.import_queue_state(static_cast<uint16_t>(jfs.sqHead), detourDummy);
+    uint32_t sqHead = jfs.sqHead;
+    uint32_t sqTail = jfs.sqTail;
+    connection.import_queue_state(sqHead, sqTail);
 }
 
 void export_ub_state(Asc::UbConnLite &connection, HcommJfsContext &jfs)
 {
-    uint16_t pi = 0;
-    uint32_t detourDummy = 0;
-    connection.export_queue_state(pi, detourDummy);
-    jfs.sqHead = pi;
+    uint32_t sqHead = 0;
+    uint32_t sqTail = 0;
+    connection.export_queue_state(sqHead, sqTail);
+    jfs.sqHead = sqHead;
+    jfs.sqTail = sqTail;
 }
 
-// 契约v2：dieId/funcId收敛到channel.devInfo(doorbell唯一来源)
-HcclResult ring_ub_doorbell(HcommThreadEntity &thread, const HcommChannelEntity &channel,
-    const HcommJfsContext &jfs, uint16_t pi)
+HcclResult ring_ub_doorbell(
+    HcommThreadEntity &thread, const HcommChannelEntity &channel, const HcommJfsContext &jfs, uint16_t pi)
 {
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
@@ -156,20 +159,16 @@ HcclResult ring_ub_doorbell(HcommThreadEntity &thread, const HcommChannelEntity 
     return asccomm_rtsq_ub_db_send(*rtsq, jettyId, pi);
 }
 
-// 契约v2：fence为HcommSqContext独立字段
 Asc::SqeConfigLite get_ub_config(HcommChannelEntity &channel)
 {
     Asc::SqeConfigLite cfg;
-    HcommJfsContext *jfs = nullptr;
-    if (get_ub_context(channel, jfs) == HCCL_SUCCESS && jfs != nullptr) {
-        HcommSqContext *sqContext = const_cast<HcommSqContext *>(
-            reinterpret_cast<const HcommSqContext *>(jfs));
-        if (sqContext->fence != 0) {
-            cfg.fence = 1;
-            cfg.placeOdr = UB_STRONG_ORDER;
-            cfg.compOrder = UB_COMPLETION;
-        }
-        sqContext->fence = 0;
+    if (channel.sqNum > 0 && channel.sqContextAddr != nullptr && channel.sqContextAddr[0].fence != 0) {
+        cfg.fence = 1;
+        cfg.placeOdr = UB_STRONG_ORDER;
+        cfg.compOrder = UB_COMPLETION;
+    }
+    if (channel.sqNum > 0 && channel.sqContextAddr != nullptr) {
+        channel.sqContextAddr[0].fence = 0;
     }
     return cfg;
 }
@@ -185,7 +184,7 @@ HcclResult execute_ub_rma(HcommThreadEntity &thread, HcommChannelEntity &channel
     CHK_RET(build_ub_slices(channel, localAddr, remoteAddr, len, local, remote));
 
     Asc::UbConnLiteParam param{};
-    fill_ub_param(*jfs, param);
+    fill_ub_param(channel, *jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -235,8 +234,10 @@ HcclResult build_rdma_slices(const HcommChannelEntity &channel, uintptr_t localA
 {
     const HcommRegedBufferEntity *localBuffer = find_buffer(
         channel.localBufferAddr, channel.localBufferNum, localAddr, len, true);
+    const HcommRegedBufferEntity *remoteBuffers = channel.remoteBufferAddr != nullptr && channel.remoteBufferNum > 1 ?
+        channel.remoteBufferAddr + 1 : nullptr;
     const HcommRegedBufferEntity *remoteBuffer = find_buffer(
-        channel.remoteBufferAddr, channel.remoteBufferNum, remoteAddr, len, false);
+        remoteBuffers, channel.remoteBufferNum > 0 ? channel.remoteBufferNum - 1 : 0, remoteAddr, len, false);
     CHK_PTR_NULL(localBuffer);
     CHK_PTR_NULL(remoteBuffer);
     const auto &localResource = localBuffer->bufferInfo.rma;
@@ -256,11 +257,8 @@ HcclResult build_rdma_notify_slices(const HcommChannelEntity &channel, uint32_t 
     CHK_PRT_RET(index >= channel.remoteNotifyNum || channel.remoteNotifyAddr == nullptr,
         HCCL_ERROR("[%s] remote notify index[%u] out of range[%u].", __func__, index,
             channel.remoteNotifyNum), HCCL_E_PARA);
-    // 契约v2：RoCE notify值缓冲约定为localBufferAddr的最后一个元素(无专门字段)
-    CHK_PRT_RET(channel.localBufferNum == 0 || channel.localBufferAddr == nullptr,
-        HCCL_ERROR("[%s] RoCE notify value buffer is missing.", __func__), HCCL_E_PARA);
     const HcommRegedBufferEntity *notifyValueBuffer =
-        &channel.localBufferAddr[channel.localBufferNum - 1];
+        channel.localBufferAddr != nullptr && channel.localBufferNum > 0 ? &channel.localBufferAddr[0] : nullptr;
     CHK_PTR_NULL(notifyValueBuffer);
     CHK_PRT_RET(notifyValueBuffer->type != HCOMM_REGED_BUFFER_RMA ||
         channel.remoteNotifyAddr[index].type != HCOMM_REGED_NOTIFY_RMA_RT,
@@ -334,9 +332,7 @@ HcclResult execute_rdma(HcommThreadEntity &thread, HcommChannelEntity &channel, 
 
     Asc::SqeConfigLite cfg;
     cfg.cqeEn = true;
-    // 契约v2：fence为HcommSqContext独立字段(RoCE场景取首个SQ上下文)
-    cfg.fence = (channel.sqNum > 0 && channel.sqContextAddr != nullptr &&
-        channel.sqContextAddr[0].fence != 0) ? 1 : 0;
+    cfg.fence = channel.sqNum > 0 && channel.sqContextAddr != nullptr && channel.sqContextAddr[0].fence != 0 ? 1 : 0;
     if (channel.sqNum > 0 && channel.sqContextAddr != nullptr) {
         channel.sqContextAddr[0].fence = 0;
     }
@@ -533,7 +529,7 @@ HcclResult asccomm_notify_record(HcommThreadEntity &thread, HcommChannelEntity &
     Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
     CHK_RET(build_ub_remote_notify(channel, remoteNotifyIdx, notify));
     Asc::UbConnLiteParam param{};
-    fill_ub_param(*jfs, param);
+    fill_ub_param(channel, *jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -553,21 +549,22 @@ HcclResult asccomm_notify_record(HcommThreadEntity &thread, HcommChannelEntity &
 HcclResult asccomm_notify_wait(HcommThreadEntity &thread, const HcommChannelEntity &channel,
                               uint32_t localNotifyIdx, uint32_t timeout)
 {
-    CHK_PRT_RET(localNotifyIdx >= channel.localNotifyNum || channel.localNotifyAddr == nullptr,
+    CHK_PRT_RET(channel.localNotifyAddr == nullptr || channel.localNotifyNum <= 1U ||
+        localNotifyIdx >= channel.localNotifyNum - 1U,
         HCCL_ERROR("[%s] local notify index[%u] out of range[%u].", __func__, localNotifyIdx,
-            channel.localNotifyNum), HCCL_E_PARA);
+            channel.localNotifyNum > 0 ? channel.localNotifyNum - 1U : 0U), HCCL_E_PARA);
     HcommRtsqContext *rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
-    CHK_PRT_RET(channel.localNotifyAddr[localNotifyIdx].type != HCOMM_REGED_NOTIFY_RMA_RT,
+    const HcommRegedNotifyEntity &notify = channel.localNotifyAddr[localNotifyIdx + 1U];
+    CHK_PRT_RET(notify.type != HCOMM_REGED_NOTIFY_RMA_RT,
         HCCL_ERROR("[%s] local notify is not RMA RT.", __func__), HCCL_E_PARA);
-    const int32_t notifyId = channel.localNotifyAddr[localNotifyIdx].notifyInfo.rmaRt.notifyId;
+    const int32_t notifyId = notify.notifyInfo.rmaRt.notifyId;
     CHK_PRT_RET(notifyId < 0, HCCL_ERROR("[%s] invalid notify id[%d].", __func__, notifyId), HCCL_E_PARA);
     return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(notifyId), timeout);
 }
 
 HcclResult asccomm_fence(HcommChannelEntity &channel)
 {
-    // 契约v2：fence为HcommSqContext独立字段
     CHK_PRT_RET(channel.sqNum == 0 || channel.sqContextAddr == nullptr,
         HCCL_ERROR("[%s] SQ context is empty.", __func__), HCCL_E_PARA);
     channel.sqContextAddr[0].fence = 1;
@@ -581,28 +578,24 @@ HcclResult asccomm_drain(HcommThreadEntity &thread, HcommChannelEntity &channel)
     }
     CHK_PRT_RET(!is_ub_protocol(channel.protocol),
         HCCL_ERROR("[%s] protocol[%d] is not supported.", __func__, channel.protocol), HCCL_E_NOT_SUPPORT);
-    // 契约v2：drain资源由显式索引指示(drainNotifyIdx/drainBufferIdx)
-    if (channel.drainNotifyIdx == HCOMM_POD_DRAIN_IDX_INVALID ||
-        channel.drainBufferIdx == HCOMM_POD_DRAIN_IDX_INVALID) {
-        HCCL_WARNING("[%s] drain resource is not configured; skip.", __func__);
+    if (channel.localNotifyNum == 0 || channel.remoteBufferNum == 0 ||
+        channel.localNotifyAddr == nullptr || channel.remoteBufferAddr == nullptr) {
+        HCCL_WARNING("[%s] drain resource is empty; skip.", __func__);
         return HCCL_SUCCESS;
     }
-    CHK_PRT_RET(channel.drainNotifyIdx >= channel.localNotifyNum || channel.localNotifyAddr == nullptr ||
-        channel.drainBufferIdx >= channel.remoteBufferNum || channel.remoteBufferAddr == nullptr,
-        HCCL_ERROR("[%s] drain index out of range, notifyIdx[%u/%u], bufferIdx[%u/%u].", __func__,
-            channel.drainNotifyIdx, channel.localNotifyNum, channel.drainBufferIdx, channel.remoteBufferNum),
-        HCCL_E_PARA);
-    const HcommRegedNotifyEntity *localDrainNotify = &channel.localNotifyAddr[channel.drainNotifyIdx];
-    const HcommRegedBufferEntity *remoteDrainBuffer = &channel.remoteBufferAddr[channel.drainBufferIdx];
+    const HcommRegedNotifyEntity *localDrainNotify = &channel.localNotifyAddr[0];
+    const HcommRegedBufferEntity *remoteDrainBuffer = &channel.remoteBufferAddr[0];
+    if (localDrainNotify->type != HCOMM_REGED_NOTIFY_RMA_RT ||
+        remoteDrainBuffer->type != HCOMM_REGED_BUFFER_RMA) {
+        HCCL_WARNING("[%s] drain resource is empty; skip.", __func__);
+        return HCCL_SUCCESS;
+    }
     if (localDrainNotify->notifyInfo.rmaRt.size == 0 || remoteDrainBuffer->bufferInfo.rma.size == 0) {
         HCCL_WARNING("[%s] drain resource is empty; skip.", __func__);
         return HCCL_SUCCESS;
     }
     HcommJfsContext *jfs = nullptr;
     CHK_RET(get_ub_context(channel, jfs));
-    CHK_PRT_RET(localDrainNotify->type != HCOMM_REGED_NOTIFY_RMA_RT ||
-        remoteDrainBuffer->type != HCOMM_REGED_BUFFER_RMA,
-        HCCL_ERROR("[%s] UB drain resource type is invalid.", __func__), HCCL_E_PARA);
     const auto &localResource = localDrainNotify->notifyInfo.rmaRt;
     const auto &remoteResource = remoteDrainBuffer->bufferInfo.rma;
     CHK_PRT_RET(localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA ||
@@ -615,7 +608,7 @@ HcclResult asccomm_drain(HcommThreadEntity &thread, HcommChannelEntity &channel)
         remoteResource.protectionInfo.memInfo.ub.tokenValue,
         std::numeric_limits<uint32_t>::max());
     Asc::UbConnLiteParam param{};
-    fill_ub_param(*jfs, param);
+    fill_ub_param(channel, *jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -645,7 +638,7 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
     HcommJfsContext *jfs = nullptr;
     CHK_RET(get_ub_context(channel, jfs));
     Asc::UbConnLiteParam param{};
-    fill_ub_param(*jfs, param);
+    fill_ub_param(channel, *jfs, param);
     Asc::UbConnLite connection;
     connection.import_context(param);
     import_ub_state(*jfs, connection);
@@ -657,9 +650,16 @@ HcclResult asccomm_batch_transfer(HcommThreadEntity &thread, HcommChannelEntity 
         cfg.cqeEn = index == transferDescNum - 1;
         cfg.placeOdr = cfg.cqeEn ? UB_STRONG_ORDER : UB_RELAX_ORDER;
         cfg.compOrder = cfg.cqeEn ? UB_COMPLETION : UB_NO_COMPLETION;
+        cfg.userConfig = true;
         if (desc.transType == HCOMM_TRANSFER_TYPE_NOTIFY_RECORD) {
             Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
-            CHK_RET(build_ub_remote_notify(channel, desc.transferInfo.notifyRecord.notifyIdx, notify));
+            const uint32_t notifyIdx = desc.transferInfo.notifyRecord.notifyIdx;
+            CHK_RET(build_ub_remote_notify(channel, notifyIdx, notify));
+            if (notifyIdx == 1) {
+                cfg.cqeEn = true;
+                cfg.placeOdr = UB_STRONG_ORDER;
+                cfg.compOrder = UB_COMPLETION;
+            }
             const uint32_t value = NOTIFY_VALUE;
             connection.inline_write(reinterpret_cast<const uint8_t *>(&value), NOTIFY_SIZE,
                 notify, cfg, out);

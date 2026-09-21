@@ -38,8 +38,8 @@ class UbConnLite {
 public:
     void import_context(const UbConnLiteParam &liteParam);
 
-    void import_queue_state(u16 queuePi, u32 queuePiDetourCount);
-    void export_queue_state(u16 &queuePi, u32 &queuePiDetourCount) const;
+    void import_queue_state(u32 sqHead, u32 sqTail);
+    void export_queue_state(u32 &sqHead, u32 &sqTail) const;
 
     void read(const RmaBufSliceLite &loc, const RmtRmaBufSliceLite &rmt, const SqeConfigLite &cfg,
                  ConnLiteOperationOut &out);

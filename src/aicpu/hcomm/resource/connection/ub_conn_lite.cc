@@ -474,16 +474,16 @@ void UbConnLite::import_context(const UbConnLiteParam &liteParam)
     (void)memcpy_sp(rmtEid_, sizeof(rmtEid_), liteParam.rmtEid, sizeof(liteParam.rmtEid));
 }
 
-void UbConnLite::import_queue_state(u16 queuePi, u32 queuePiDetourCount)
+void UbConnLite::import_queue_state(u32 sqHead, u32 sqTail)
 {
-    pi = queuePi;
-    piDetourCount = queuePiDetourCount;
+    pi = static_cast<u16>(sqHead);
+    piDetourCount = sqTail;
 }
 
-void UbConnLite::export_queue_state(u16 &queuePi, u32 &queuePiDetourCount) const
+void UbConnLite::export_queue_state(u32 &sqHead, u32 &sqTail) const
 {
-    queuePi = pi;
-    queuePiDetourCount = piDetourCount;
+    sqHead = static_cast<u32>(pi);
+    sqTail = piDetourCount;
 }
 
 } // namespace Asc
