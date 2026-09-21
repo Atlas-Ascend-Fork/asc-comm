@@ -18,7 +18,7 @@ constexpr uint32_t DEFAULT_NOTIFY_WAIT_TIMEOUT = 1836U;
 constexpr uint32_t DEFAULT_SQ_FULL_TIMEOUT = 1856U;
 
 struct LaunchState {
-    std::vector<HcommThreadEntity *> threads;
+    std::vector<ThreadHandle> threads;
     uint32_t notifyWaitTimeout{DEFAULT_NOTIFY_WAIT_TIMEOUT};
     uint32_t sqFullTimeout{0};
     bool sqFullTimeoutSet{false};
@@ -28,7 +28,7 @@ struct LaunchState {
 thread_local LaunchState g_launchState;
 }
 
-void asccomm_register_thread(HcommThreadEntity *thread)
+void asccomm_register_thread(ThreadHandle thread)
 {
     if (!g_launchState.batchMode) {
         return;

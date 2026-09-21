@@ -14,8 +14,8 @@
 #include "hcomm/asccomm_primitives.h"
 #include "hccl/hccl_types.h"
 
-// 契约(CHANNEL ABI=2)：登记batch模式批量launch的thread，参数为控制面预解析的POD实体
-void asccomm_register_thread(HcommThreadEntity *thread);
+// 登记batch模式批量launch的ThreadHandle；句柄值为控制面提供的POD实体地址。
+void asccomm_register_thread(ThreadHandle thread);
 bool asccomm_is_batch_launch_mode();
 uint32_t asccomm_get_notify_wait_timeout();
 void asccomm_set_notify_wait_timeout(uint32_t timeout);
