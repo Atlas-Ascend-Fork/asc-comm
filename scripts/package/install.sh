@@ -323,9 +323,10 @@ comm_log()
 is_allowed_path()
 {
     local path=$1
+    # Older payloads must also restore comm_api files managed by newer packages.
     case "${path}" in
         asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h|\
-        asc/include/comm_api/aicore/*/*.h|asc/impl/comm_api/aicore/*/*.h)
+        asc/include/comm_api/*.h|asc/impl/comm_api/*.h)
             ;;
         *)
             return 1
@@ -341,8 +342,8 @@ is_allowed_directory_path()
     local path=$1
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
-        asc/include/comm_api|asc/include/comm_api/aicore|asc/include/comm_api/aicore/*|\
-        asc/impl/comm_api|asc/impl/comm_api/aicore|asc/impl/comm_api/aicore/*)
+        asc/include/comm_api|asc/include/comm_api/*|\
+        asc/impl/comm_api|asc/impl/comm_api/*)
             ;;
         *)
             return 1
@@ -360,7 +361,7 @@ payload_file_mode()
 
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
-        asc/include/comm_api/aicore/*|asc/impl/comm_api/aicore/*)
+        asc/include/comm_api/*|asc/impl/comm_api/*)
             mode=550
             ;;
         *)
@@ -379,8 +380,8 @@ managed_directory_mode()
         asc/include/adv_api/*|asc/impl/adv_api/detail/*)
             mode=750
             ;;
-        asc/include/comm_api|asc/include/comm_api/aicore|asc/include/comm_api/aicore/*|\
-        asc/impl/comm_api|asc/impl/comm_api/aicore|asc/impl/comm_api/aicore/*)
+        asc/include/comm_api|asc/include/comm_api/*|\
+        asc/impl/comm_api|asc/impl/comm_api/*)
             mode=550
             ;;
         *)
@@ -428,10 +429,10 @@ collect_managed_directories()
                 module=${relative_path%%/*}
                 managed_root="asc/impl/adv_api/detail/${module}"
                 ;;
-            asc/include/comm_api/aicore/*)
+            asc/include/comm_api/*)
                 managed_root="asc/include/comm_api"
                 ;;
-            asc/impl/comm_api/aicore/*)
+            asc/impl/comm_api/*)
                 managed_root="asc/impl/comm_api"
                 ;;
         esac
