@@ -63,45 +63,47 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::FillCtrlSeg(
     __ubuf__ RoceWqeEntry* wqePtr, uint32_t sqHead, uint32_t sqDepth, uint32_t enCqe)
 {
     uint8_t owner = (sqHead & sqDepth) == 0 ? 0 : 1;
-    wqePtr->ctrl.ownerSl = (owner << ROCE_1825_WQE_OWNER_SHIFT) | ROCE_1825_WQE_CTRL_VALUE;
 
-    wqePtr->ctrl.dfTsl = ((enCqe == 1) ? (1U << ROCE_1825_WQE_SQ_SIGNAL_SHIFT) : 0) | ROCE_1825_WQE_SQ_VA_VALUE;
-    wqePtr->ctrl.dfTsl |= sizeof(RoceWqeTaskSeg) / ROCE_1825_WQE_TASK_SEG_ALIGN;
+    const uint8_t ownerSl = (owner << ROCE_1825_WQE_OWNER_SHIFT) | ROCE_1825_WQE_CTRL_VALUE;
+    const uint8_t dfTsl = ((enCqe == 1) ? (1U << ROCE_1825_WQE_SQ_SIGNAL_SHIFT) : 0) | ROCE_1825_WQE_SQ_VA_VALUE |
+                          (sizeof(RoceWqeTaskSeg) / ROCE_1825_WQE_TASK_SEG_ALIGN);
+    const uint16_t wfBdsl = HtoNS(static_cast<uint16_t>(
+        ((sqHead & ROCE_1825_WQE_SSN_MASK) << ROCE_1825_WQE_SSN_SHIFT) |
+        (static_cast<uint32_t>(1) << (ROCE_1825_WQE_DATA_SEG_SHIFT - ROCE_1825_WQE_SECTION_ALIGN_SHIFT))));
 
-    wqePtr->ctrl.wfBdsl = HtoNS(static_cast<uint16_t>(0 << ROCE_1825_WQE_FAST_DMA_SHIFT));
-    wqePtr->ctrl.wfBdsl |= HtoNS((sqHead & ROCE_1825_WQE_SSN_MASK) << ROCE_1825_WQE_SSN_SHIFT);
-    wqePtr->ctrl.wfBdsl |= HtoNS(static_cast<uint16_t>(
-        static_cast<uint32_t>(1) << (ROCE_1825_WQE_DATA_SEG_SHIFT - ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
+    wqePtr->ctrl.dw0.value = static_cast<uint32_t>(ownerSl) | (static_cast<uint32_t>(dfTsl) << BITS_1BYTE) |
+                             (static_cast<uint32_t>(wfBdsl) << (BITS_1BYTE * 2U));
 
-    wqePtr->ctrl.clPi = HtoNL(ROCE_1825_WQE_CMP_TASK_LEN1 << ROCE_1825_WQE_CMP_TASK_LEN_SHIFT);
+    wqePtr->ctrl.clPi = 0x00000010U; // HtoNL(ROCE_1825_WQE_CMP_TASK_LEN1 << ROCE_1825_WQE_CMP_TASK_LEN_SHIFT);
 }
 
+template <HCOMM_ROCE_OP_TYPE opType>
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::FillTaskSeg(
-    __ubuf__ RoceWqeEntry* wqePtr, GM_ADDR dst, uint64_t len, uint32_t opType, uint32_t rKey, uint32_t lKey,
-    uint32_t fence)
+    __ubuf__ RoceWqeEntry* wqePtr, GM_ADDR dst, uint32_t wireLen, uint32_t rKey, uint32_t lKey, uint32_t fence,
+    uint32_t signal)
 {
-    wqePtr->task.comTask.value = 0;
-    wqePtr->task.comTask.dw0.signal = !!((wqePtr->ctrl.dfTsl & (1U << ROCE_1825_WQE_CQE_SIGNAL_SHIFT)) > 0);
-    wqePtr->task.comTask.dw0.fence = fence;
-    wqePtr->task.comTask.dw0.opType = opType;
-    wqePtr->task.comTask.dw0.se = 0;
-    wqePtr->task.comTask.value = HtoNL(wqePtr->task.comTask.value);
+    const uint32_t comTask = (static_cast<uint32_t>(opType) << ROCE_1825_WQE_TASK_OPCODE_SHIFT) |
+                             (signal << ROCE_1825_WQE_TASK_SIGNAL_SHIFT) | (fence << ROCE_1825_WQE_TASK_FENCE_SHIFT);
+    wqePtr->task.comTask.value = HtoNL(comTask);
 
-    wqePtr->task.dataLen = HtoNL((uint32_t)len);
+    wqePtr->task.dataLen = wireLen;
     wqePtr->task.immData = 0;
-    wqePtr->task.dw3.value =
-        (opType == (uint32_t)HCOMM_ROCE_OP_TYPE::READ) ? HtoNL(ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN) : 0;
+    if constexpr (opType == HCOMM_ROCE_OP_TYPE::READ) {
+        wqePtr->task.dw3.value = 0x04000000U; // HtoNL(ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN);
+    } else {
+        wqePtr->task.dw3.value = 0;
+    }
     wqePtr->task.vaRemote = HtoNLL((uint64_t)dst);
     wqePtr->task.rKey = HtoNL(rKey);
     wqePtr->task.ulp = HtoNL(lKey & 0xffffU);
 }
 
 __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::FillDataSeg(
-    __ubuf__ RoceWqeEntry* wqePtr, GM_ADDR src, uint64_t len, uint32_t lKey)
+    __ubuf__ RoceWqeEntry* wqePtr, GM_ADDR src, uint32_t wireLen, uint32_t lKey)
 {
     wqePtr->data.vaLocal = HtoNLL((uint64_t)src);
-    wqePtr->data.rLen = HtoNL((uint32_t)len);
-    wqePtr->data.leKey = HtoNL((lKey & (~ROCE_1825_WQE_NEXT_SGE_INVALID)) | ROCE_1825_WQE_NEXT_SGE_INVALID);
+    wqePtr->data.rLen = wireLen;
+    wqePtr->data.leKey = HtoNL(lKey | ROCE_1825_WQE_NEXT_SGE_INVALID);
 }
 
 // Pre-mark the next WQEBB owner byte as invalid so the hardware stops there until the following WQE is posted.
@@ -109,13 +111,14 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::WriteInvalidWqebb(
     __gm__ uint8_t* sqAddr, uint32_t sqHead, uint32_t sqDepth)
 {
     __gm__ RoceWqeCtrlSeg* ctrl = (__gm__ RoceWqeCtrlSeg*)sqAddr;
-    ctrl->ownerSl = ((sqHead & sqDepth) == 0) ? 0xff : 0x7f;
+    ctrl->dw0.bs.ownerSl = ((sqHead & sqDepth) == 0) ? 0xff : 0x7f;
     CacheWriteThrough<uint8_t>(sqAddr, 1);
 }
 
+template <HCOMM_ROCE_OP_TYPE opType>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::MakeWqe(
-    __gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType, uint32_t sqHead,
-    uint32_t sqDepth, uint32_t enCqe, uint32_t fence)
+    __gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t sqHead, uint32_t sqDepth,
+    uint32_t enCqe, uint32_t fence)
 {
     int32_t remoteIdx = HcommFindBufferIdx(chnlPtr->remoteBufferAddr, chnlPtr->remoteBufferNum, dst, len);
     if (remoteIdx < 0) {
@@ -138,10 +141,11 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::MakeWqe(
     uint32_t rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
     uint32_t lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
     __gm__ uint8_t* sqAddrNext = (__gm__ uint8_t*)(sqBaseAddr + ((sqHead + 1) & (sqDepth - 1)) * HCOMM_ROCE_WQEBB_SIZE);
+    const uint32_t wireLen = HtoNL(static_cast<uint32_t>(len));
     Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
     FillCtrlSeg(wqePtr, sqHead, sqDepth, enCqe);
-    FillTaskSeg(wqePtr, dst, len, opType, rKey, lKey, fence);
-    FillDataSeg(wqePtr, src, len, lKey);
+    FillTaskSeg<opType>(wqePtr, dst, wireLen, rKey, lKey, fence, enCqe == 1 ? 1U : 0U);
+    FillDataSeg(wqePtr, src, wireLen, lKey);
     WriteInvalidWqebb(sqAddrNext, (sqHead + 1), sqDepth);
     Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
 
@@ -186,9 +190,9 @@ __aicore__ inline bool HcommImpl<COMM_PROTOCOL_ROCE>::CheckChannelParam(__gm__ C
     return true;
 }
 
-template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
+template <HCOMM_ROCE_OP_TYPE opType, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
-    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType)
+    ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
     (void)commitPipe;
     (void)reqPipe;
@@ -204,8 +208,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
     uint32_t sqTail = chnlPtr->sqTail;
     uint32_t sqDepth = chnlPtr->sqContextAddr[0].contextInfo.roceSq.depth;
     HCOMM_KERNEL_LOG(
-        KERNEL_INFO, "Hcomm PostSend: opType = %u, sqHead = %u, sqTail = %u, sqDepth = %u.\n", opType, sqHead, sqTail,
-        sqDepth);
+        KERNEL_INFO, "Hcomm PostSend: opType = %u, sqHead = %u, sqTail = %u, sqDepth = %u.\n",
+        static_cast<uint32_t>(opType), sqHead, sqTail, sqDepth);
     uint32_t outstanding = sqHead - sqTail;
     if (outstanding >= sqDepth || sqDepth - outstanding <= HCOMM_POLL_CQ_THRESHOLD) {
         HCOMM_KERNEL_LOG(
@@ -221,7 +225,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
         return HCOMM_FAILED;
     }
 
-    if (MakeWqe(chnlPtr, dst, src, len, opType, sqHead, sqDepth, config.cqe, config.fence) != HCOMM_SUCCESS) {
+    if (MakeWqe<opType>(chnlPtr, dst, src, len, sqHead, sqDepth, config.cqe, config.fence) != HCOMM_SUCCESS) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm PostSend: MakeWqe failed.\n");
         return HCOMM_FAILED;
     }
@@ -247,16 +251,14 @@ template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    return PostSend<commit, commitPipe, reqPipe, config>(
-        channel, dst, src, len, static_cast<uint32_t>(HCOMM_ROCE_OP_TYPE::WRITE));
+    return PostSend<HCOMM_ROCE_OP_TYPE::WRITE, commit, commitPipe, reqPipe, config>(channel, dst, src, len);
 }
 
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::ReadNbi(
     ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len)
 {
-    return PostSend<commit, commitPipe, reqPipe, config>(
-        channel, src, dst, len, static_cast<uint32_t>(HCOMM_ROCE_OP_TYPE::READ));
+    return PostSend<HCOMM_ROCE_OP_TYPE::READ, commit, commitPipe, reqPipe, config>(channel, src, dst, len);
 }
 
 template <typename T, bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
@@ -494,10 +496,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Unlock(ChannelHandle ch
 }
 
 template <typename U>
-__aicore__ inline RoceBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle(
+__aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle(
     ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
 {
-    RoceBatchHandle batchHandle{};
+    UbcBatchHandle batchHandle{};
     __gm__ ChannelEntity* chnlPtr = reinterpret_cast<__gm__ ChannelEntity*>(channel);
     if (!CheckChannelParam(chnlPtr) || buffLen < HCOMM_ROCE_WQEBB_SIZE || buff.GetSize() * sizeof(U) < buffLen) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeBatchHandle: failed with invalid channel or buffer.\n");
@@ -526,15 +528,15 @@ __aicore__ inline RoceBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle
     batchHandle.cursor.preSqCnt = 0U;
     batchHandle.buffer.buffer = wqeBuffer;
     batchHandle.buffer.bufferCapacity = buffLen / HCOMM_ROCE_WQEBB_SIZE;
-    batchHandle.lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
-    batchHandle.rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
+    batchHandle.mrKey.lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
+    batchHandle.mrKey.rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
 
     return batchHandle;
 }
 
 template <HCOMM_ROCE_OP_TYPE opType, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
-    RoceBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t wqeNum)
+    UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t wqeNum)
 {
     static_assert(config.cqe == 0 || config.cqe == 1, "BatchPostSend only supports cqe values 0 and 1.");
     static_assert(sizeof(RoceWqeEntry) == HCOMM_ROCE_WQEBB_SIZE, "One RoCE WQE must occupy one WQEBB.");
@@ -571,11 +573,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
     uint32_t baseHead = batchHandle.cursor.preSqCnt + batchHandle.cursor.sqHead;
     Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
     for (uint32_t i = 0U; i < wqeNum; i++) {
+        __gm__ uint8_t* localAddr = const_cast<__gm__ uint8_t*>(localDescs[i].addr);
+        const uint32_t wireLen = HtoNL(localDescs[i].len);
         FillCtrlSeg(wqeBasePtr + i, baseHead + i, sqDepth, config.cqe);
-        FillTaskSeg(
-            wqeBasePtr + i, remoteAddr, localDescs[i].len, static_cast<uint32_t>(opType), batchHandle.rKey,
-            batchHandle.lKey, config.fence);
-        FillDataSeg(wqeBasePtr + i, localDescs[i].addr, localDescs[i].len, batchHandle.lKey);
+        FillTaskSeg<opType>(
+            wqeBasePtr + i, remoteAddr, wireLen, batchHandle.mrKey.rKey, batchHandle.mrKey.lKey, config.fence,
+            config.cqe == 1 ? 1U : 0U);
+        FillDataSeg(wqeBasePtr + i, localAddr, wireLen, batchHandle.mrKey.lKey);
     }
     Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
 
@@ -588,7 +592,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
 
 template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteNbi(
-    RoceBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
+    UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     const BufDesc srcDesc{src, len};
     return BatchPostSend<HCOMM_ROCE_OP_TYPE::WRITE, config>(batchHandle, dst, &srcDesc, 1U);
@@ -596,13 +600,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteNbi(
 
 template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::ReadNbi(
-    RoceBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
+    UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     const BufDesc dstDesc{dst, len};
     return BatchPostSend<HCOMM_ROCE_OP_TYPE::READ, config>(batchHandle, src, &dstDesc, 1U);
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(RoceBatchHandle& batchHandle)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(UbcBatchHandle& batchHandle)
 {
     uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
     if (preSqCnt == 0 || preSqCnt > batchHandle.buffer.bufferCapacity) {
@@ -657,7 +661,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(RoceBatchHa
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollBatchCq(RoceBatchHandle& batchHandle, uint32_t expectIdx)
+__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollBatchCq(UbcBatchHandle& batchHandle, uint32_t expectIdx)
 {
     auto* chnlPtr = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
     uint32_t ret = PollCq(chnlPtr, expectIdx, batchHandle.buffer.buffer);
@@ -670,7 +674,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollBatchCq(RoceBatchH
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Drain(RoceBatchHandle& batchHandle)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Drain(UbcBatchHandle& batchHandle)
 {
     (void)pipe;
     static_assert(sizeof(RoceCqeEntry) <= HCOMM_ROCE_WQEBB_SIZE, "Batch Drain CQE scratch space must fit in one WQEBB");

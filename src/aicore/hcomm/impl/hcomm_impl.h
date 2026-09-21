@@ -46,11 +46,11 @@ __aicore__ inline int32_t Hcomm<commProtocol>::Init(const LocalTensor<T>& buff, 
 
 template <CommProtocol commProtocol>
 template <typename T, typename U>
-__aicore__ inline HcommBatchHandle<commProtocol, T> Hcomm<commProtocol>::MakeBatchHandle(
+__aicore__ inline BatchHandle<T> Hcomm<commProtocol>::MakeBatchHandle(
     T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
 {
     auto batchHandle = impl_.MakeBatchHandle(channel, buff, buffLen, remoteAddr, localAddr);
-    using ExpectedType = HcommBatchHandle<commProtocol, T>;
+    using ExpectedType = BatchHandle<T>;
     static_assert(
         IsSameType<decltype(batchHandle), ExpectedType>::value, "Channel type and BatchHandle type do not match");
     return batchHandle;

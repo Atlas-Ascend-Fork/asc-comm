@@ -293,6 +293,11 @@ typedef struct {
 } MultiChannelEntity;
 
 typedef struct {
+    uint32_t lKey;
+    uint32_t rKey;
+} RoceMrKey;
+
+typedef struct {
     LocalTensor<uint32_t> buffer;
     uint32_t bufferCapacity;
 } BatchBuffer;
@@ -302,19 +307,12 @@ typedef struct {
     SqContext sqContext;
     CqContext cqContext;
     BatchQueueCursor cursor;
-    BatchRemoteInfo remoteInfo;
+    union {
+        BatchRemoteInfo remoteInfo;
+        RoceMrKey mrKey;
+    };
     BatchBuffer buffer;
 } UbcBatchHandle;
-
-typedef struct {
-    ChannelHandle channelHandle;
-    SqContext sqContext;
-    CqContext cqContext;
-    BatchQueueCursor cursor;
-    BatchBuffer buffer;
-    uint32_t lKey;
-    uint32_t rKey;
-} RoceBatchHandle;
 
 typedef struct {
     UbcBatchHandle handle;
@@ -353,35 +351,18 @@ struct HandleTraits<UbcMultiBatchHandle> {
     using ChannelType = MultiChannelHandle;
 };
 
-template <>
-struct HandleTraits<RoceBatchHandle> {
-    using BatchHandleType = RoceBatchHandle;
-    using ChannelType = ChannelHandle;
-};
-
-template <CommProtocol protocol, typename T>
-struct HcommBatchHandleTraits;
-
-template <typename T>
-struct HcommBatchHandleTraits<COMM_PROTOCOL_UB_CTP, T> {
-    using BatchHandleType = BatchHandle<T>;
-};
-
-template <>
-struct HcommBatchHandleTraits<COMM_PROTOCOL_ROCE, ChannelHandle> {
-    using BatchHandleType = RoceBatchHandle;
-};
-
-template <CommProtocol protocol, typename T>
-using HcommBatchHandle = typename HcommBatchHandleTraits<protocol, T>::BatchHandleType;
-
 // RoCE WQE, CQE, DB struct
 typedef struct {
-    uint8_t ownerSl; // dw0[31:24]: owner(1) + ctrl_section_length(2) + csl(2) + difsl(3)
-    uint8_t dfTsl;   // dw0[23:16]: cr(1) + df(1) + va(1) + tsl(5); tsl = task section length / 8B
-    uint16_t wfBdsl; // dw0[15:0]: cf(1) + wf(1) + wqe_msn(2) + fde(1) + fast(1) + drv_sl(2) + bdsl(8)
-    uint32_t clPi;   // dw1: cl(4) + reserved(8) + mask_pi(20); mask_pi only used by direct WQE
-    uint64_t db;     // dw2-dw3: doorbell segment, not used by this path
+    union {
+        struct {
+            uint8_t ownerSl; // dw0[31:24]: owner(1) + ctrl_section_length(2) + csl(2) + difsl(3)
+            uint8_t dfTsl;   // dw0[23:16]: cr(1) + df(1) + va(1) + tsl(5); tsl = task section length / 8B
+            uint16_t wfBdsl; // dw0[15:0]: cf(1) + wf(1) + wqe_msn(2) + fde(1) + fast(1) + drv_sl(2) + bdsl(8)
+        } bs;
+        uint32_t value; // dw0, kept in NIC byte order
+    } dw0;
+    uint32_t clPi; // dw1: cl(4) + reserved(8) + mask_pi(20); mask_pi only used by direct WQE
+    uint64_t db;   // dw2-dw3: doorbell segment, not used by this path
 } RoceWqeCtrlSeg;
 
 typedef union {

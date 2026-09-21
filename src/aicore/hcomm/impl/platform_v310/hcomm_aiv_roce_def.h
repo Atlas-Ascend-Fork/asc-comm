@@ -42,6 +42,9 @@ constexpr uint32_t ROCE_1825_WQE_SSN_MASK = 0x3; // low 2 bits of SQ WQE sequenc
 constexpr uint32_t ROCE_1825_WQE_SSN_SHIFT = 12; // wf_bdsl wqe_msn field
 constexpr uint32_t ROCE_1825_WQE_DATA_SEG_SHIFT = 4;
 constexpr uint32_t ROCE_1825_WQE_SECTION_ALIGN_SHIFT = 3;
+constexpr uint32_t ROCE_1825_WQE_TASK_OPCODE_SHIFT = 24;
+constexpr uint32_t ROCE_1825_WQE_TASK_SIGNAL_SHIFT = 29;
+constexpr uint32_t ROCE_1825_WQE_TASK_FENCE_SHIFT = 30;
 constexpr uint32_t ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN = 4;
 constexpr uint32_t ROCE_1825_WQE_NEXT_SGE_INVALID = 1U << 31; // data seg le_key L bit
 constexpr uint64_t ROCE_1825_WQE_MAX_DATA_LEN = 1ULL << 31U;
@@ -101,31 +104,33 @@ public:
     __aicore__ inline int32_t Lock(ChannelHandle channel);
     __aicore__ inline int32_t Unlock(ChannelHandle channel);
     template <typename U>
-    __aicore__ inline RoceBatchHandle MakeBatchHandle(
+    __aicore__ inline UbcBatchHandle MakeBatchHandle(
         ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr);
     template <auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteNbi(RoceBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    __aicore__ inline int32_t WriteNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t ReadNbi(RoceBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
-    __aicore__ inline int32_t BatchCommit(RoceBatchHandle& batchHandle);
+    __aicore__ inline int32_t ReadNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    __aicore__ inline int32_t BatchCommit(UbcBatchHandle& batchHandle);
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t Drain(RoceBatchHandle& batchHandle);
+    __aicore__ inline int32_t Drain(UbcBatchHandle& batchHandle);
 
 private:
     __aicore__ inline void FillCtrlSeg(
         __ubuf__ RoceWqeEntry* wqePtr, uint32_t sqHead, uint32_t sqDepth, uint32_t enCqe);
+    template <HCOMM_ROCE_OP_TYPE opType>
     __aicore__ inline void FillTaskSeg(
-        __ubuf__ RoceWqeEntry* wqePtr, GM_ADDR dst, uint64_t len, uint32_t opType, uint32_t rKey, uint32_t lKey,
-        uint32_t fence);
-    __aicore__ inline void FillDataSeg(__ubuf__ RoceWqeEntry* wqePtr, GM_ADDR src, uint64_t len, uint32_t lKey);
+        __ubuf__ RoceWqeEntry* wqePtr, GM_ADDR dst, uint32_t wireLen, uint32_t rKey, uint32_t lKey, uint32_t fence,
+        uint32_t signal);
+    __aicore__ inline void FillDataSeg(__ubuf__ RoceWqeEntry* wqePtr, GM_ADDR src, uint32_t wireLen, uint32_t lKey);
     __aicore__ inline void WriteInvalidWqebb(__gm__ uint8_t* sqAddr, uint32_t sqHead, uint32_t sqDepth);
+    template <HCOMM_ROCE_OP_TYPE opType>
     __aicore__ inline int32_t MakeWqe(
-        __gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType, uint32_t sqHead,
-        uint32_t sqDepth, uint32_t enCqe, uint32_t fence);
+        __gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t sqHead, uint32_t sqDepth,
+        uint32_t enCqe, uint32_t fence);
     template <
-        bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
+        HCOMM_ROCE_OP_TYPE opType, bool commit = true, pipe_t commitPipe = PIPE_S, pipe_t reqPipe = PIPE_MTE3,
         auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t PostSend(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType);
+    __aicore__ inline int32_t PostSend(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len);
     __aicore__ inline uint64_t GetDbValue(uint32_t sqHead, uint32_t qpn, uint64_t vendor);
     __aicore__ inline void KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead);
     __aicore__ inline bool CheckCqeOwner(__ubuf__ RoceCqeEntry* cqePtr, uint32_t cqTail, uint32_t depth);
@@ -138,8 +143,8 @@ private:
     __aicore__ inline bool CheckChannelParam(__gm__ ChannelEntity* chnlPtr);
     template <HCOMM_ROCE_OP_TYPE opType, auto const& config>
     __aicore__ inline int32_t BatchPostSend(
-        RoceBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t wqeNum);
-    __aicore__ inline uint32_t PollBatchCq(RoceBatchHandle& batchHandle, uint32_t expectIdx);
+        UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t wqeNum);
+    __aicore__ inline uint32_t PollBatchCq(UbcBatchHandle& batchHandle, uint32_t expectIdx);
 
 private:
     LocalTensor<uint32_t> wqeUB_;
