@@ -311,32 +311,44 @@ AllGather接口返回`HcclHandle`，该句柄用于后续查询通信完成状�
 
 ### 按数据依赖执行计算
 
-通信任务提交后，与通信输出无关的计算可以继续执行；依赖通信输出的计算，必须在对应通信结果就绪后读取目的GM。具体完成条件由通信接口的`Wait`确认。
+AICore Client Kernel提交通信任务后，可以先执行不读取通信输出的计算。依赖通信结果的计算必须在对应通信任务或通信分片完成后，再读取目的GM。通信完成条件通过通信接口返回的`HcclHandle`和`Wait`确认。
 
   ```cpp
-  // 与通信输出无关的计算，可以放在通信提交之后、完成确认之前。
+  // 提交通信任务后，可以先执行不读取通信输出的计算。
   ComputeIndependent(computeInGM, computeOutGM, count);
 
-  // 确认通信完成后，才能读取dstGM中的通信输出。
+  // 确认当前通信任务或通信分片已经完成。
   hccl.Wait(handleId);
-  ConsumeCommunicatedData(dstGM, computeInGM, computeOutGM, count / repeat);
+
+  // 消费已完成的通信结果，并执行对应Add计算。
+  const uint32_t turn = 0;
+  AddOneTurn(dstGM, computeInGM, computeOutGM, count, turn);
   ```
 
-`ConsumeCommunicatedData`是计算阶段占位函数。在AllGather+Add样例中，该函数读取AllGather输出并执行Add；在其他算子中，可以替换为任意依赖通信结果的Ascend C计算逻辑。计算实现细节参见Ascend C算子开发资料。
+`AddOneTurn`表示示例中的Vector Add计算，用户可以根据算子功能替换为其他Ascend C计算逻辑。计算逻辑需要按照通信输出的实际布局读取数据，并将结果写入计算输出缓冲区。
 
-多轮或分块通信时，按分片建立“源数据就绪 -> 通信提交 -> 通信完成 -> 结果消费 -> 缓冲区复用”的依赖。不要在对应分片尚未完成时，将整个目的缓冲区一次性交给计算阶段。
+多轮或分块通信时，应为每个分片建立“源数据就绪、通信提交、通信完成、结果消费、缓冲区复用”的数据依赖。某个分片完成后即可消费该分片；未完成分片对应的目的GM不能提前读取或交给计算阶段，否则可能读取到不完整的数据。通信仍在使用的源缓冲区和目的缓冲区也不能提前覆盖或复用，否则会产生通信与计算之间的读写冲突。
+
+当前AllGather+Add样例将两轮通信结果全部确认后再执行Add，属于串行计算流程。两轮次数由通信接口的分轮配置决定，不是核间同步本身的要求。
 
 ### 核间同步和结束通信协作
 
-多个AIV共同执行MC2 Client时，所有参与核必须保持相同的通信提交顺序、完成确认次数和结束通信协作的时机。部分核提前结束可能影响其他核的完成确认或Server退出。
+当多个AIV共同参与同一个MC2通信任务时，参与通信的AIV需要按照相同顺序提交通信请求，并对对应通信任务完成相应的`Wait`。多轮通信时，各参与核需要处理匹配的通信轮次，保持对共享通信上下文的访问顺序一致。
+
+每个参与核完成自己负责的通信结果消费和计算后，调用`AscendC::SyncAll<true>`等待其他参与核。该同步用于协调参与核的执行进度，不替代通信接口的`Wait`。只有所有参与核都完成本轮通信确认和结果消费后，才能调用`hccl.Finalize()`结束Client与Server之间的通信协作。
 
   ```cpp
-  hccl.Wait(handleId);      // 按通信接口要求确认完成。
-  AscendC::SyncAll<true>(); // 所有参与AIV完成通信和计算。
-  hccl.Finalize();          // 结束当前Client Kernel与Server的通信协作。
+  // 当前AIV已完成自身通信任务的Wait和结果消费。
+  /* ... communication result consumption and computation ... */
+
+  // 等待所有参与AIV完成本轮通信结果消费和计算。
+  AscendC::SyncAll<true>();
+
+  // 结束Client与Server之间的通信协作。
+  hccl.Finalize();
   ```
 
-`Finalize`表示当前Kernel不再向Server提交通信任务。调用前必须确保所有AIV均已完成通信和结果消费。
+如果某个参与核在其他核仍然提交通信任务、等待通信结果或消费通信输出时提前调用`Finalize`或退出，可能导致通信协作提前结束，其他核继续访问通信上下文时无法完成。因此，所有参与核都应在本地通信和计算完成后，再统一进入核间同步和结束流程。
 
 ## 注意事项
 
