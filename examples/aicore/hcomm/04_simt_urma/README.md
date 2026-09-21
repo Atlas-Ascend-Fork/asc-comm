@@ -99,7 +99,7 @@ simt_urma
 
   ```bash
   bash build.sh --pkg
-  ./build_out/cann-asc-comm_1.0.0_linux-<arch>.run --full
+  ./build_out/cann-asc-comm_9.2.0_linux-<arch>.run --full
   ```
 
   然后加载CANN环境变量：
