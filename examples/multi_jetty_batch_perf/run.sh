@@ -103,6 +103,9 @@ for current_api in "${apis[@]}"; do
             failed=$((failed + 1))
             echo "CASE_ERROR | API=${current_api} | Jettys=${j} | RankExit=${codes[*]} | Logs=${dir}"
             cat "${dir}"/rank_*.log
+            # Do not start another communication instance after a failed case.
+            echo "MATRIX_SUMMARY | BatchSize=${batch} | Cases=${cases} | Pass=${passed} | Fail=${failed} | Status=ABORTED"
+            exit 1
         fi
         # Collect validation failures, stop after timeout, signal or setup error.
         if grep -qE '^(ACL failure|HCCL failure)' "${dir}"/rank_*.log; then
