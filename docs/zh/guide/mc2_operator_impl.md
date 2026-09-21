@@ -24,7 +24,7 @@ MC2通算算子的核心价值是通信与计算重叠。通信任务提交后�
 
 MC2通算算子实现分为控制面资源准备和数据面通信与计算执行两阶段。
 
-控制面流程：
+控制面：
 
 1. 初始化ACL运行环境，绑定Device，创建任务流。
 2. 创建HCCL通信域。
@@ -34,23 +34,12 @@ MC2通算算子实现分为控制面资源准备和数据面通信与计算执�
 6. 启动携带通信上下文的AICore Client Kernel。
 7. 同步任务流，回收结果并释放资源。
 
-数据面流程：
+数据面：
 
 1. AICore Client初始化HCCL客户端。
-2. 在通信输入就绪后提交通信任务。
-3. 按数据依赖执行计算：与通信输出无关的计算可以和通信并行执行；依赖通信输出的计算，在对应通信结果就绪后读取通信输出并执行。
-4. 通信与计算完成后，执行核间同步，并结束与Server的通信协作。
-
-```text
-Host控制面:
-  HCCL domain -> MC2 args -> OpResCtx -> Server launch -> Client launch
-
-AICore Client:
-  InitV2 -> submit communication -> execute by data dependency -> Wait -> consume result -> end
-
-AICPU_TS/CCU Server:
-  receive request -> drive communication path -> publish completion
-```
+2. Prepare通信任务；使用异步Commit时，在通信源数据就绪后调用 `Commit`。
+3. 按数据依赖执行计算：生成通信源数据的计算在 `Commit` 前执行；与通信输出无关的计算可以和通信并行执行；依赖通信输出的计算，在对应通信结果就绪后执行。
+4. 通信与计算完成后，执行核间同步，并调用 `Finalize` 结束与Server的通信协作。
 
 Client和Server是两个独立的Device侧执行实体。Host负责任务下发和同步，本身不直接执行Device侧通信任务。
 
@@ -115,22 +104,9 @@ CCU路径下，Client Kernel下发到 `streamAiv`；Server由 `Mc2CcKernelLaunch
 
 ### 分配通信和计算内存
 
-MC2算子需要为通信和计算分配Device GM缓冲区。
+MC2算子需要分配Device GM缓冲区：通信源缓冲区保存当前Rank发送的数据；通信目的缓冲区保存通信结果；计算输入和输出缓冲区由AICore访问。
 
-通信侧需要：
-
-- 通信源缓冲区：保存当前Rank发送的数据。
-- 通信目的缓冲区：保存通信操作写入的结果。
-
-计算侧需要：
-
-- 计算输入缓冲区：保存计算阶段读取的数据。
-- 计算输出缓冲区：保存计算结果。
-- 通信源临时缓冲区：当通信源数据由计算生成时，保存计算结果，并作为通信源传给通信接口。
-
-缓冲区大小根据实际元素数量和数据类型计算，并满足通信接口要求的地址对齐和可访问范围。
-
-通信源缓冲区在通信任务完成前不能被覆盖。通信目的缓冲区在对应通信结果写入完成前，不能被计算阶段读取或覆盖。通信完成后，计算阶段才能读取目的缓冲区中的结果。
+缓冲区大小根据元素数量和数据类型计算，并满足通信接口的地址对齐和可访问范围。通信源缓冲区在通信完成前不能覆盖；通信目的缓冲区在对应结果写入完成前不能读取或覆盖。
 
 以下示例使用FP32数据，通信源 `tmpBuf` 由 `x1Buf + x2Buf` 的计算结果生成：
 
@@ -255,13 +231,7 @@ AICPU_TS路径下，Server收到 `Finalize` 后退出，因此同步Client strea
       ACL_MEMCPY_DEVICE_TO_HOST));
   ```
 
-CCU路径下，Host侧同步Client stream：
-
-  ```cpp
-  ACL_CHECK(aclrtSynchronizeStream(streamAiv));
-  ```
-
-资源释放顺序与创建顺序相反：释放Device和Host缓冲区，销毁通信域，销毁stream，重置Device，最后执行ACL去初始化。
+资源释放顺序与创建顺序相反：释放缓冲区，销毁通信域，销毁stream，重置Device，最后执行ACL去初始化。
 
 `ccResCtx` 由 `Mc2AcquireCcResCtx` 返回，当前MC2接口没有单独提供对应的用户释放接口，用户不直接释放 `ccResCtx`。销毁HCCL通信域前，必须先完成Client Kernel同步，并按对应Server路径完成Server同步，确保通信域内的通信任务已经全部结束。
 
@@ -405,7 +375,7 @@ MC2算子中的计算需要按数据依赖划分：
   ConsumeCommunicationOutput((GM_ADDR)recvGM, ...);
   ```
 
-`AddCompute` 和 `ConsumeCommunicationOutput` 是示例中的计算函数，用户可以根据算子功能替换为其他Ascend C计算逻辑。计算逻辑需要按照通信输出的实际布局读取数据，并将结果写入计算输出缓冲区。
+`AddCompute`、`ComputeIndependent` 和 `ConsumeCommunicationOutput` 是示例中的计算函数，可以按算子功能替换为其他Ascend C计算逻辑。
 
 多轮或分块通信时，应为每个分片建立“源数据就绪、通信提交、通信完成、结果消费、缓冲区复用”的数据依赖。某个分片完成后即可消费该分片；未完成分片对应的目的GM不能提前读取或交给计算阶段，否则可能读取到不完整的数据。通信仍在使用的源缓冲区和目的缓冲区也不能提前覆盖或复用，否则会产生通信与计算之间的读写冲突。
 
