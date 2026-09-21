@@ -6,7 +6,8 @@ MC2（Massive Communication Computing）是代理模式在Ascend C通信编程�
 
 MC2通算算子的核心价值是通信与计算重叠。通信任务提交后，通信数据传输由AICPU_TS或CCU服务端执行，AICore可以继续执行与本轮通信结果没有依赖的计算；待通信结果就绪后，AICore再读取通信输出并执行依赖计算，从而将部分通信时间与计算时间重叠，减少串行等待，提高算子整体性能。
 
-本指南介绍MC2通算算子的通用开发流程。文中以AllGather作为通信接口示例，Host和Kernel代码按AICPU_TS Server路径展开；CCU同为MC2支持的Server路径，可能在通信引擎、算法配置、Server启动接口和Client类型等方面存在差异，具体组合应以当前版本API参考和对应样例为准。计算部分使用可替换的占位函数表示，实际算子可以替换为其他集合通信或点对点通信接口，并将计算阶段替换为Vector、Matrix或其他Ascend C计算逻辑。
+本指南介绍MC2通算算子的通用开发流程。文中以AllGather作为通信接口示例，Host和Kernel代码按AICPU_TS Server路径展开；
+【占位待确认】CCU同为MC2支持的Server路径，可能在通信引擎、算法配置、Server启动接口和Client类型等方面存在差异，具体组合应以当前版本API参考和对应样例为准。计算部分使用可替换的占位函数表示，实际算子可以替换为其他集合通信或点对点通信接口，并将计算阶段替换为Vector、Matrix或其他Ascend C计算逻辑。
 
 ## 支持范围
 
@@ -52,7 +53,8 @@ AICPU_TS/CCU Server:
   receive request -> drive communication path -> publish completion
 ```
 
-Client和Server是两个独立的Device侧执行实体。Host负责任务下发和同步，本身不直接执行Device侧通信任务。AICPU_TS路径下，Host通过`Mc2AicpuKernelLaunch`启动Server，并将Server与Client下发到不同stream。CCU路径的Server启动接口、Client类型和上下文传递方式需结合当前版本API参考及对应样例确定，本文不将单个CCU样例的配置推广为通用规则。
+Client和Server是两个独立的Device侧执行实体。Host负责任务下发和同步，本身不直接执行Device侧通信任务。AICPU_TS路径下，Host通过`Mc2AicpuKernelLaunch`启动Server，并将Server与Client下发到不同stream。
+【占位待确认】CCU路径的Server启动接口、Client类型和上下文传递方式需结合当前版本API参考及对应样例确定，本文不将单个CCU样例的配置推广为通用规则。
 
 ## 控制面资源准备
 
@@ -141,31 +143,48 @@ Client和Server是两个独立的Device侧执行实体。Host负责任务下发�
 
 ### 配置MC2通信资源
 
-MC2通过参数对象描述通信资源配置。`Mc2GetCcArgs`创建Host侧参数对象，`Mc2SetCc*`系列接口设置通信域、算法、数据类型和通信引擎，`Mc2AcquireCcResCtx`向HCCL申请Device侧通信资源上下文。
+Host侧需要先创建MC2通信参数对象，在参数对象中完成通信配置，再申请通信资源上下文。
+
+`ccArgs`用于保存MC2通信配置，由`Mc2GetCcArgs`创建，由`Mc2FreeCcArgs`释放。创建后，通过`Mc2SetCc*`系列接口设置通信域、通信算法、数据类型和通信执行引擎。
+
+`Mc2AcquireCcResCtx`接口用于申请本次通信的通信资源上下文，以HCCL通信句柄、通信命令类型和`ccArgs`为输入，输出通信资源上下文`opResCtx`及其大小`opResCtxSize`。`opResCtx`后续需要传给Server启动接口和AICore Kernel，用于访问本次通信所对应的通信资源。
 
   ```cpp
   // AICPU_TS引擎编号，具体优先使用当前头文件中的枚举定义。
   constexpr uint8_t MC2_COMM_ENGINE_AICPU_TS = 2;
-  constexpr uint8_t ccType = static_cast<uint8_t>(AscendC::HcclCMDType::HCCL_CMD_ALLGATHER);
+  constexpr uint8_t ccType = static_cast<uint8_t>(
+      AscendC::HcclCMDType::HCCL_CMD_ALLGATHER);
   char algConfig[] = "AllGather=level0:doublering";
 
   void* ccArgs = nullptr;
   void* opResCtx = nullptr;
   uint32_t opResCtxSize = 0;
 
+  // 创建Host侧MC2通信参数对象。
   HCCL_CHECK(Mc2GetCcArgs(&ccArgs));
+
+  // 绑定通信资源所属的HCCL通信域。
   HCCL_CHECK(Mc2SetCcGroupName(ccArgs, commName));
+
+  // 设置通信算法。
   HCCL_CHECK(Mc2SetCcAlgConfig(ccArgs, algConfig));
+
+  // 设置通信源数据类型。
   HCCL_CHECK(Mc2SetCcSrcDataType(ccArgs, HCCL_DATA_TYPE_FP16));
+
+  // 设置通信目标数据类型。
   HCCL_CHECK(Mc2SetCcDstDataType(ccArgs, HCCL_DATA_TYPE_FP16));
+
+  // 设置通信执行引擎。
   HCCL_CHECK(Mc2SetCcCommEngine(ccArgs, MC2_COMM_ENGINE_AICPU_TS));
-  HCCL_CHECK(Mc2AcquireCcResCtx(comm, ccType, ccArgs, &opResCtx, &opResCtxSize));
+
+  // 根据通信句柄、通信命令和通信配置，申请通信资源上下文。
+  HCCL_CHECK(Mc2AcquireCcResCtx(
+      comm, ccType, ccArgs, &opResCtx, &opResCtxSize));
+
+  // 释放Host侧通信参数对象。
   HCCL_CHECK(Mc2FreeCcArgs(ccArgs));
   ```
-
-`ccType`必须与AICore侧实际调用的通信命令一致；归约类通信还需要按当前API要求设置归约类型等参数。`algConfig`由通信命令、拓扑和算法策略决定，应使用当前HCCL版本支持的配置字符串。
-
-`opResCtx`是MC2通信资源上下文。该上下文必须同时传给Server启动接口和AICore Client Kernel；`Mc2FreeCcArgs`只释放Host侧参数对象，不释放`opResCtx`。`opResCtx`的生命周期由MC2/HCCL资源管理机制管理，销毁通信域前必须确保Server和Client均已完成。
 
 ### 启动Server和Client
 
