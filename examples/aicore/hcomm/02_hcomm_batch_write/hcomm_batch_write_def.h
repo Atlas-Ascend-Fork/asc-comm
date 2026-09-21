@@ -21,7 +21,8 @@ constexpr uint32_t MAX_CHANNEL_NUM = MAX_RANK_NUM - 1U;
 constexpr uint32_t DATA_SIZE = 256U;
 constexpr uint64_t SEND_OFFSET = 0U;
 constexpr uint64_t RECV_BASE_OFFSET = DATA_SIZE;
-constexpr uint32_t BATCH_BUFFER_SIZE = 2048U;
+// One extra WQEBB is reserved by MakeBatchHandle as the Batch CQE scratch space.
+constexpr uint32_t BATCH_BUFFER_SIZE = 2048U + 64U;
 constexpr char MEMORY_TAG[] = "asccomm_batch_write";
 constexpr char SHARED_QUEUE_TAG_PREFIX[] = "asccomm_batch_write_queue";
 

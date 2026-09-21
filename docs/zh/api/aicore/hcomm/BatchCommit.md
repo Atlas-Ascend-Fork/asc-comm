@@ -36,10 +36,11 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
 - 调用前需要通过批量`ReadNbi`、`WriteNbi`或`WriteWithNotifyNbi`至少添加一个任务。
 - 一个批次内可以混合添加读、写和写通知任务。
-- 当前批次使用的工作区不能超过创建BatchHandle时指定的`buffLen`，并且任务数量必须满足通道容量限制。
+- 当前批次使用的工作区不能超过创建BatchHandle时确定的可用任务空间，任务使用的WQEBB数量不能超过SQ深度。
 - 多通道模式下，通过`GetHandleRef`返回的句柄引用添加任务，通过`MakeBatchHandle`返回的多通道批量句柄调用本接口。
 - 提交成功后，可以复用BatchHandle和工作区添加并提交下一个批次。
-- 可以连续提交多个批次，再统一调用一次批量`Drain`。调用方必须保证累计未完成任务数量和完成记录数量不超过通道配置的相应容量。
+- 可以连续提交多个批次，再统一调用一次批量`Drain`。通道容量不足时，本接口保留当前尚未提交的批次并返回`-1`。
+- SQ和CQ允许恰好占满。`cqe=0/1`可以任意组合，但调用方需要合理设置CQE分布；连续不生成CQE的WQEBB过多时，可能因无法及时释放SQ空间而提交失败。
 - 使用BatchHandle期间必须独占其关联的通道资源，不能混用普通`ChannelHandle`提交流程。
 
 ## 相关接口

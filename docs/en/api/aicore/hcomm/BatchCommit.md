@@ -36,10 +36,11 @@ __aicore__ inline int32_t BatchCommit(T& batchHandle);
 
 - Add at least one task through batch `ReadNbi`, `WriteNbi`, or `WriteWithNotifyNbi` before calling this API.
 - Read, write, and write-with-notify tasks can be mixed in one batch.
-- The workspace used by the current batch must not exceed the `buffLen` specified when creating the BatchHandle, and the number of tasks must satisfy the channel capacity limit.
+- The workspace used by the current batch must not exceed the task capacity established when the BatchHandle was created, and its WQEBB count must not exceed the SQ depth.
 - In multi-channel mode, add tasks through the handle reference returned by `GetHandleRef` and call this API with the multi-channel batch handle returned by `MakeBatchHandle`.
 - After a successful submission, reuse the BatchHandle and workspace to add and submit another batch.
-- Multiple batches can be submitted before one batch `Drain`. The caller must ensure that accumulated incomplete tasks and completion records do not exceed their corresponding configured channel capacities.
+- Multiple batches can be submitted before one batch `Drain`. If channel capacity is insufficient, this API preserves the current unsubmitted batch and returns `-1`.
+- The SQ and CQ may be filled exactly. Any mix of `cqe=0` and `cqe=1` is accepted, but the caller must choose a suitable CQE distribution. Submission can fail when too many consecutive WQEBBs do not generate CQEs and SQ space cannot be released in time.
 - While using a BatchHandle, exclusively own its associated channel resources. Do not mix the ordinary `ChannelHandle` submission workflow.
 
 ## Related APIs
