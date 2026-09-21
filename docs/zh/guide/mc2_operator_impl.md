@@ -188,14 +188,17 @@ Host侧需要先创建MC2通信参数对象，在参数对象中完成通信配�
 
 ### 启动Server和Client
 
-AICPU_TS Server通过`Mc2AicpuKernelLaunch`下发。Server会等待AICore Client的通信请求，因此应在Client Kernel前下发，并使用独立Server stream。
+AICPU_TS路径下，Host侧应先下发Server任务，再下发AICore Client Kernel，并且两者使用不同的stream。
+
+Server任务通过`Mc2AicpuKernelLaunch`下发到`serverStream`。接口参数中的`opResCtx`必须使用`Mc2AcquireCcResCtx`返回的通信资源上下文。
 
   ```cpp
   // blockDim为0时，接口内部按1个block处理。
-  HCCL_CHECK(Mc2AicpuKernelLaunch(0, serverStream, opResCtx, opResCtxSize));
+  HCCL_CHECK(Mc2AicpuKernelLaunch(
+      0, serverStream, opResCtx, opResCtxSize));
   ```
 
-随后下发AICore Client Kernel。Kernel参数包括通信源/目的GM、计算缓冲区、`opResCtx`和通信规模等运行时参数。
+AICore Client Kernel下发到`clientStream`。Kernel参数包括通信源/目的GM地址、计算输入/输出缓冲区、`opResCtx`和通信规模等运行时参数。
 
   ```cpp
   mc2_operator_custom<<<blockDim, nullptr, clientStream>>>(
@@ -203,26 +206,31 @@ AICPU_TS Server通过`Mc2AicpuKernelLaunch`下发。Server会等待AICore Client
       sendCount, HCCL_DATA_TYPE_FP16);
   ```
 
-在当前CCU AllGather样例中，Host侧将通信引擎设置为CCU调度引擎，并调用`Mc2CcKernelLaunch`启动Server。其他CCU通信操作或配置应以对应样例和当前版本API参考为准。
+Server任务启动后会等待AICore Client提交通信请求。因此，Server任务需要先于Client Kernel下发；同时，Server任务和Client Kernel不能放在同一个stream中串行执行，否则Server在等待Client请求时可能阻塞后续Client Kernel的下发。使用独立的`serverStream`和`clientStream`后，Server可以先启动并等待请求，Client Kernel随后提交通信任务并继续执行。
+
+【占位待确认】CCU路径下，Host侧将通信引擎和算法配置设置为CCU路径支持的配置，调用`Mc2CcKernelLaunch`启动Server。AICore Client使用`Hccl<AscendC::HcclServerType::HCCL_SERVER_TYPE_CCU>`，并在调用`InitV2`时传入Host侧获取的同一个通信资源上下文。
 
   ```cpp
   // CCU调度引擎编号，具体优先使用当前头文件中的枚举定义。
   constexpr uint8_t MC2_COMM_ENGINE_CCU_SCHED = 6;
   char algConfig[] = "CcuSchedAllGatherSoleMesh";
 
+  // 配置CCU路径的通信引擎和算法，并申请通信资源上下文。
   HCCL_CHECK(Mc2SetCcCommEngine(ccArgs, MC2_COMM_ENGINE_CCU_SCHED));
   HCCL_CHECK(Mc2SetCcAlgConfig(ccArgs, algConfig));
-  HCCL_CHECK(Mc2AcquireCcResCtx(comm, ccType, ccArgs, &ccResCtx, &ccResCtxSize));
+  HCCL_CHECK(Mc2AcquireCcResCtx(
+      comm, ccType, ccArgs, &ccResCtx, &ccResCtxSize));
   HCCL_CHECK(Mc2FreeCcArgs(ccArgs));
 
+  // 启动CCU Server。
   Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize);
   ```
 
-当前CCU AllGather样例中的AICore Client使用`Hccl<AscendC::HcclServerType::HCCL_SERVER_TYPE_CCU>`，并将Host侧获取的同一资源上下文传入`InitV2`。其他CCU配置的Client类型、上下文传递方式以及通信任务接口，应以对应样例和当前头文件为准。
-
 ### 同步和销毁通信资源
 
-通信任务完成后，先同步Client stream，确认AICore Kernel已经完成`Wait`、结果消费和`Finalize`；AICPU_TS路径再同步Server stream，等待Server退出。
+通信和计算结果由AICore Client Kernel写出，Host侧先同步Client stream。Client Kernel同步完成表示通信结果消费和`Finalize`已经执行完成。
+
+AICPU_TS路径下，Server收到`Finalize`后退出，因此同步Client stream后还需要同步Server stream，确认Server任务已经退出。
 
   ```cpp
   ACL_CHECK(aclrtSynchronizeStream(clientStream));
@@ -232,13 +240,18 @@ AICPU_TS Server通过`Mc2AicpuKernelLaunch`下发。Server会等待AICore Client
   ACL_CHECK(aclrtMemcpy(hostResult, recvSize, computeOutBuf, recvSize, ACL_MEMCPY_DEVICE_TO_HOST));
   ```
 
-资源释放顺序与创建顺序相反：释放Device缓冲区，销毁通信域，销毁stream，重置Device，最后执行ACL去初始化。`opResCtx`不需要用户单独释放时，必须在其所属通信域销毁前确认Server/Client已完成。
+【占位待确认】CCU路径下，Server由`Mc2CcKernelLaunch`启动，Host侧同步Client stream。
+
+资源释放顺序与创建顺序相反：释放Device和Host缓冲区，销毁通信域，销毁stream，重置Device，最后执行ACL去初始化。`opResCtx`由`Mc2AcquireCcResCtx`返回，当前MC2接口没有单独提供对应的用户释放接口，用户不直接释放`opResCtx`；但销毁HCCL通信域前，必须先完成Client Kernel同步，并按对应Server路径完成Server同步，确保通信域内的通信任务已经全部结束。
 
   ```cpp
   ACL_CHECK(aclrtFree(sendBuf));
   ACL_CHECK(aclrtFree(recvBuf));
   ACL_CHECK(aclrtFree(computeInBuf));
   ACL_CHECK(aclrtFree(computeOutBuf));
+  ACL_CHECK(aclrtFreeHost(hostSendData));
+  ACL_CHECK(aclrtFreeHost(hostComputeData));
+  ACL_CHECK(aclrtFreeHost(hostResult));
 
   HCCL_CHECK(HcclCommDestroy(comm));
   ACL_CHECK(aclrtDestroyStream(clientStream));
@@ -251,13 +264,16 @@ AICPU_TS Server通过`Mc2AicpuKernelLaunch`下发。Server会等待AICore Client
 
 ### Client Kernel入口
 
-MC2通信Client在AIV上执行。Kernel入口接收通信GM、计算GM、MC2上下文和通信规模参数。AIC核不调用HCCL客户端接口，可直接返回。
+MC2 Client运行在AIV上。本指南以Vector计算场景为例，Kernel使用`__vector__`入口，通信Client和计算逻辑写在同一个Kernel中。
+
+Kernel入口参数由Host启动Kernel时传入，通常包括通信源GM地址、通信目的GM地址、计算输入/输出GM地址、MC2通信资源上下文和通信规模等。`mc2Context`使用Host侧`Mc2AcquireCcResCtx`返回的通信资源上下文地址，Client通过`InitV2`使用该上下文访问通信资源。
 
   ```cpp
   extern "C" __vector__ __global__ void mc2_operator_custom(
       GM_ADDR srcGM, GM_ADDR dstGM, GM_ADDR computeInGM, GM_ADDR computeOutGM,
       GM_ADDR mc2Context, uint64_t count, uint32_t dataType)
   {
+      // 本示例只下发AIV，非AIV直接返回。实际算子按自身AIC/AIV任务划分处理。
       if (g_coreType != AscendC::AIV) {
           return;
       }
@@ -270,16 +286,18 @@ MC2通信Client在AIV上执行。Kernel入口接收通信GM、计算GM、MC2上�
   }
   ```
 
-`mc2Context`必须使用Host侧`Mc2AcquireCcResCtx`返回的同一个上下文地址。不要将Host侧`ccArgs`指针或通信域句柄直接传入Kernel。
-
 ### 提交通信任务
 
-通信接口由具体算子决定。以两轮AllGather为例，每次通信搬`count/2`个元素，目的侧同一来源Rank的相邻轮次间隔`count`个元素，共执行2轮。
+Client完成`InitV2`初始化后，调用HCCL通信接口提交通信任务。通信接口由具体通信操作决定，本指南以AllGather为例。
+
+AllGather接口返回`HcclHandle`，该句柄用于后续查询通信完成状态。接口返回成功只表示通信任务已经提交，不表示目的GM中的数据已经可用。
 
   ```cpp
   constexpr uint32_t repeat = 2;
+  const uint64_t roundCount = count / repeat;
+
   AscendC::HcclHandle handleId = hccl.AllGather<true>(
-      srcGM, dstGM, count / repeat,
+      srcGM, dstGM, roundCount,
       static_cast<AscendC::HcclDataType>(dataType),
       count, repeat);
   if (handleId < 0) {
@@ -287,9 +305,9 @@ MC2通信Client在AIV上执行。Kernel入口接收通信GM、计算GM、MC2上�
   }
   ```
 
-模板参数`true`表示当前接口在Prepare阶段同步Commit，即源数据准备完成后立即向Server发布执行条件。若使用异步Commit或分批提交，必须保证最后一个任务已经Commit，Server才会开始执行。
+`AllGather<true>`中的模板参数表示Prepare阶段同步Commit，即源数据准备完成后，Client立即向Server发布该通信任务的执行条件。若使用异步Commit或分批提交，必须保证最后一个通信任务已经Commit，Server才会开始执行数据传输。
 
-接口返回`HcclHandle`只表示通信请求已经提交，不表示目的GM数据已经可用。其他通信操作应替换为对应的HCCL高阶接口，并按该接口的参数定义设置数据类型、归约类型、偏移或重复次数。
+`roundCount`表示单轮通信的元素个数，`repeat`表示通信轮数；本示例将`count`个元素分成两轮AllGather传输。执行其他通信操作时，应替换为对应的HCCL通信接口，并按该接口定义设置元素个数、数据类型、归约类型、偏移或重复次数等参数。
 
 ### 按数据依赖执行计算
 
