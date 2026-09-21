@@ -47,8 +47,8 @@
 
 extern void LaunchSimtBatchPerf(
     void* stream, uint64_t channel, uint32_t sendBufIdx, uint32_t recvBufIdx, void* timing, uint32_t payloadBytes,
-    uint32_t slotBytes, uint32_t iterations, uint32_t warmup, uint32_t api, bool explicitBatch, bool groupBatch,
-    uint32_t groupLanes);
+    uint32_t slotBytes, uint32_t iterations, uint32_t warmup, uint32_t api, bool explicitBatch,
+    bool groupBatch, uint32_t groupLanes);
 
 namespace {
 using namespace simt_batch_perf;
@@ -96,7 +96,7 @@ HcclResult ReadRootInfo(const std::string& path, HcclRootInfo* rootInfo)
 
 HcclResult InitComm(uint32_t rank, uint32_t nranks, const std::string& path, HcclComm* comm)
 {
-    HcclRootInfo rootInfo{};
+    HcclRootInfo rootInfo {};
     HcclResult ret = HCCL_SUCCESS;
     if (rank == kRootRank) {
         HCCLCHECK(HcclGetRootInfo(&rootInfo));
@@ -163,10 +163,14 @@ uint32_t ApiIndex(const std::string& api)
 
 bool ValidApi(const std::string& api)
 {
-    return api == "write" || api == "read" || api == "notify" || api == "write_value" || api == "faa" || api == "cas";
+    return api == "write" || api == "read" || api == "notify" || api == "write_value" || api == "faa" ||
+        api == "cas";
 }
 
-uint32_t AlignUp(uint32_t value, uint32_t alignment) { return (value + alignment - 1U) / alignment * alignment; }
+uint32_t AlignUp(uint32_t value, uint32_t alignment)
+{
+    return (value + alignment - 1U) / alignment * alignment;
+}
 
 uint32_t SlotBytes(uint32_t api, uint32_t payloadBytes)
 {
@@ -275,10 +279,8 @@ bool CheckBuffer(
         } else {
             uint64_t result = 0U;
             std::memcpy(&result, value, sizeof(result));
-            const uint64_t expected =
-                api == kApiWriteValue ?
-                    kInlineValue :
-                    (api == kApiFaa ? kFaaInitial + static_cast<uint64_t>(count) * kFaaAdd : kCasSwap);
+            const uint64_t expected = api == kApiWriteValue ? kInlineValue :
+                (api == kApiFaa ? kFaaInitial + static_cast<uint64_t>(count) * kFaaAdd : kCasSwap);
             if (result != expected) {
                 return false;
             }
@@ -301,8 +303,9 @@ bool CheckAtomicFetchBuffer(
         }
         uint64_t result = 0U;
         std::memcpy(&result, actual.data() + static_cast<size_t>(slot) * slotBytes, sizeof(result));
-        const uint64_t expected = api == kApiFaa ? kFaaInitial + static_cast<uint64_t>(count - 1U) * kFaaAdd :
-                                                   (count == 1U ? kCasInitial : kCasSwap);
+        const uint64_t expected = api == kApiFaa ?
+            kFaaInitial + static_cast<uint64_t>(count - 1U) * kFaaAdd :
+            (count == 1U ? kCasInitial : kCasSwap);
         if (result != expected) {
             return false;
         }
@@ -317,8 +320,7 @@ int main(int argc, char* argv[])
     if (argc != 11) {
         std::cout << "Usage: " << argv[0]
                   << " <rank> <nranks> <root_info_file> <api> <iterations> <warmup> <payload> <batch_size>"
-                     " <immediate|batch|group> <group_lanes>"
-                  << std::endl;
+                     " <immediate|batch|group> <group_lanes>" << std::endl;
         return 1;
     }
     const int rank = std::atoi(argv[1]);
@@ -333,9 +335,10 @@ int main(int argc, char* argv[])
     const uint32_t groupLanes = static_cast<uint32_t>(std::strtoul(argv[10], nullptr, 10));
     if ((nranks != 2 && nranks != 8) || rank < 0 || rank >= nranks || !ValidApi(apiName) || iterations == 0U ||
         payloadBytes < 2U || batchSize == 0U || batchSize > kMaxBatchSize ||
-        (mode != "immediate" && mode != "batch" && mode != "group") || (mode == "batch" && batchSize != 1U) ||
+        (mode != "immediate" && mode != "batch" && mode != "group") ||
+        (mode == "batch" && batchSize != 1U) ||
         (mode == "group" && (groupLanes <= 1U || groupLanes > kMaxGroupLanes || batchSize != groupLanes ||
-                             iterations % groupLanes != 0U || warmup % groupLanes != 0U)) ||
+         iterations % groupLanes != 0U || warmup % groupLanes != 0U)) ||
         (mode != "group" && groupLanes != 1U)) {
         return 1;
     }
@@ -372,30 +375,31 @@ int main(int argc, char* argv[])
         uint64_t timing[kTimingWords] = {};
         ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
         ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
-        LaunchSimtBatchPerf(
-            stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, payloadBytes, slotBytes, iterations, warmup, api,
-            mode != "immediate", mode == "group", groupLanes);
+        LaunchSimtBatchPerf(stream, channel, kLocalSendIdx, remoteRecvIdx, timingBuf, payloadBytes, slotBytes,
+            iterations, warmup, api, mode != "immediate", mode == "group", groupLanes);
         ACLCHECK(aclrtSynchronizeStream(stream));
         ACLCHECK(aclrtMemcpy(timing, sizeof(timing), timingBuf, sizeof(timing), ACL_MEMCPY_DEVICE_TO_HOST));
-        const bool devicePass =
-            static_cast<int64_t>(timing[kStatusIndex]) == 0 && timing[kCompletedIndex] == iterations;
+        const bool devicePass = static_cast<int64_t>(timing[kStatusIndex]) == 0 &&
+            timing[kCompletedIndex] == iterations;
         bool localCheckPass = true;
         if (devicePass && api == kApiRead) {
             localCheckPass = CheckBuffer(sendBuf, bufferBytes, api, payloadBytes, slotBytes, iterations, warmup);
         } else if (devicePass && (api == kApiFaa || api == kApiCas)) {
-            localCheckPass = CheckAtomicFetchBuffer(sendBuf, bufferBytes, api, slotBytes, iterations, warmup);
+            localCheckPass = CheckAtomicFetchBuffer(
+                sendBuf, bufferBytes, api, slotBytes, iterations, warmup);
         }
         pass = devicePass && localCheckPass;
         const uint32_t dataBytes = api == kApiWrite || api == kApiRead || api == kApiNotify ? payloadBytes : 8U;
-        const double issueTicks = static_cast<double>(timing[kIssueCyclesIndex]) / iterations;
+        const double issueNs = static_cast<double>(timing[kIssueCyclesIndex]) / iterations;
+        const double bandwidth = timing[kCompletionCyclesIndex] == 0U ? 0.0 :
+            static_cast<double>(dataBytes) * iterations / timing[kCompletionCyclesIndex];
+        const uint32_t lanes = mode == "group" ? groupLanes : 1U;
         const uint32_t batchItems = mode == "immediate" ? 1U : batchSize;
-        std::cout << std::fixed << std::setprecision(6) << "PERF_DATA | API=" << apiName << " | Mode="
-                  << (mode == "group" ? "GroupBatch" :
-                      mode == "batch" ? "ExplicitBatch" :
-                                        "Immediate")
-                  << " | DataSize/B=" << dataBytes << " | BatchSize=" << batchItems
-                  << " | Jettys=1 | ConcurrentJettys=1"
-                  << " | IssueTicksPerRequest=" << issueTicks << std::endl;
+        std::cout << std::fixed << std::setprecision(6) << "PERF_DATA | API=" << apiName
+                  << " | DataSize/B=" << dataBytes << " | BatchSize=" << batchItems << " | Lanes=" << lanes
+                  << " | DBCount=" << timing[kPublishCountIndex]
+                  << " | Mode=" << (mode == "group" ? "GroupBatch" : mode == "batch" ? "ExplicitBatch" : "Immediate")
+                  << " | Bandwidth/GB/s=" << bandwidth << " | IssueTime/ns=" << issueNs << std::endl;
     }
 
     HCCLCHECK(HostBarrier(rank, nranks, "completed"));

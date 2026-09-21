@@ -36,7 +36,7 @@ protected:
         sqCtx_.contextInfo.roceSq.headAddr = (uint64_t)(&head_);
         sqCtx_.contextInfo.roceSq.tailAddr = (uint64_t)(&tail_);
         sqCtx_.contextInfo.roceSq.sl = 1;
-        sqCtx_.contextInfo.roceSq.dbVendorSpecified = 1;
+        sqCtx_.contextInfo.roceSq.mtuShift = 1;
         channel_.sqContextAddr = &sqCtx_;
         cqCtx_.contextInfo.roceCq.cqVa = (uint64_t)sqVa_;
         cqCtx_.contextInfo.roceCq.dbHwVa = (uint64_t)dbVa_;
@@ -120,16 +120,4 @@ TEST_F(HcommRoCETestSuite, Init_WriteWithNotifyNbi)
         channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10,
         reinterpret_cast<GM_ADDR>(0x310), 10);
     EXPECT_EQ(ret, -1);
-}
-
-TEST_F(HcommRoCETestSuite, DrainWithoutNewCqeKeepsSqTail)
-{
-    Hcomm<COMM_PROTOCOL_ROCE> hcomm;
-    ASSERT_EQ(hcomm.Init(tempTensor_, 512), HCOMM_SUCCESS);
-    channel_.cqHead = 1;
-    channel_.cqTail = 1;
-    channel_.sqTail = 7;
-
-    EXPECT_EQ(hcomm.Drain(reinterpret_cast<ChannelHandle>(&channel_)), HCOMM_SUCCESS);
-    EXPECT_EQ(channel_.sqTail, 7U);
 }

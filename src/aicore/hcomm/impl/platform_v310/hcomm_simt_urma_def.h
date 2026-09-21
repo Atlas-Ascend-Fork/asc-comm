@@ -69,20 +69,21 @@ struct HcommSimtPackedSqeTemplate {
 };
 
 template <>
-class HcommImpl<COMM_PROTOCOL_UB_CTP> {
+class HcommImpl<COMM_PROTOCOL_UBC_CTP> {
 public:
     __simt_callee__ inline HcommImpl();
     __simt_callee__ inline ~HcommImpl();
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
     __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
-        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb = 1U);
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
+        uint32_t itemBb = 1U);
     __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
-        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb,
-        uint32_t groupRank, uint32_t groupSize);
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
+        uint32_t itemBb, uint32_t groupRank, uint32_t groupSize);
     template <typename Group>
     __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
-        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb,
-        const Group& group);
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
+        uint32_t itemBb, const Group& group);
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len);
     template <auto const& config = URMA_DEFAULT_CFG>
@@ -112,12 +113,12 @@ public:
         uint64_t notifyVal);
     template <auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteWithNotifyNbi(
-        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
-        uint64_t notifyVal);
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len,
+        __gm__ void* notifyAddr, uint64_t notifyVal);
     template <auto const& config, typename Group>
     __simt_callee__ inline int32_t WriteWithNotifyNbi(
-        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
-        uint64_t notifyVal, const Group& group);
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len,
+        __gm__ void* notifyAddr, uint64_t notifyVal, const Group& group);
     template <typename T, bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicFAA(ChannelHandle channel, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
     template <typename T, auto const& config = URMA_DEFAULT_CFG>
@@ -145,11 +146,12 @@ public:
     __simt_callee__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle);
 
     __simt_callee__ inline int32_t InitCompletionSet(
-        UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count, __gm__ uint8_t* workspace,
-        uint64_t bytes);
+        UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count,
+        __gm__ uint8_t* workspace, uint64_t bytes);
     __simt_callee__ inline int32_t PrepareCompletion(
         UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t wqeCount, uint32_t bbCount);
-    __simt_callee__ inline int32_t Progress(UbcCtpCompletionSet& set, uint32_t budget, uint32_t& processed);
+    __simt_callee__ inline int32_t Progress(
+        UbcCtpCompletionSet& set, uint32_t budget, uint32_t& processed);
     __simt_callee__ inline int32_t WaitCompletion(
         UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t maxIdlePolls = 1000000U);
     __simt_callee__ inline int32_t Drain(UbcCtpCompletionSet& set);
@@ -165,9 +167,9 @@ private:
     // Claims SQ space for one submission, draining completed CQEs to release capacity when the
     // queue is full. commit selects how much free space the claim requires: a deferred post also
     // reserves room for the immediate DWQE that will publish it.
-    template <typename Desc>
+    template <bool commit>
     __simt_callee__ inline bool ReservePost(
-        ChannelHandle channel, const HcommSimtResolvedPost& post, uint64_t& headVal);
+        ChannelHandle channel, const HcommSimtResolvedPost& post, uint32_t bbCnt, uint64_t& headVal);
 
     // The one posting path shared by every operator. Desc describes what distinguishes them:
     // the SQ footprint (bbCnt/sgeNum) and how the WQE words are laid out. See the descriptors
@@ -177,7 +179,8 @@ private:
     template <typename Desc>
     __simt_callee__ inline int32_t BatchPostWqe(UbcCtpBatchHandle& batchHandle, const Desc& desc);
     template <typename Desc, typename Group>
-    __simt_callee__ inline int32_t BatchPostWqe(UbcCtpBatchHandle& batchHandle, const Desc& desc, const Group& group);
+    __simt_callee__ inline int32_t BatchPostWqe(
+        UbcCtpBatchHandle& batchHandle, const Desc& desc, const Group& group);
     __simt_callee__ inline uint32_t PollCq(ChannelHandle channel, uint32_t expectIdx);
 };
 

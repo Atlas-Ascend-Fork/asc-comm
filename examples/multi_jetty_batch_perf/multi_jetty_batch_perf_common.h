@@ -39,12 +39,16 @@ struct CompletionSummary {
     uint32_t warmupCompleted, warmupCq, warmupSq;
     uint32_t completionFault, errorCq, errorJetty, errorSequence, errorWord0, errorWord1, errorWord2;
 };
-constexpr uint32_t kCompletionWorkspaceOffset = (kMaxJettyCount * sizeof(CompletionSummary) + 127U) / 128U * 128U;
+constexpr uint32_t kCompletionWorkspaceOffset =
+    (kMaxJettyCount * sizeof(CompletionSummary) + 127U) / 128U * 128U;
 constexpr uint32_t kCompletionWorkspaceBytes = 4096U;
 // Preserve the state region and reserved tail of the previous workspace layout.
 constexpr uint32_t kCompletionStateBytes = kCompletionWorkspaceBytes - 256U;
 constexpr uint32_t kCompletionAllocationBytes = kCompletionWorkspaceOffset + kCompletionWorkspaceBytes;
-inline uint32_t AlignUp(uint32_t value, uint32_t alignment) { return (value + alignment - 1U) / alignment * alignment; }
+inline uint32_t AlignUp(uint32_t value, uint32_t alignment)
+{
+    return (value + alignment - 1U) / alignment * alignment;
+}
 inline uint32_t SlotBytes(uint32_t api, uint32_t payloadBytes)
 {
     const uint32_t dataBytes = AlignUp(payloadBytes, sizeof(uint64_t));

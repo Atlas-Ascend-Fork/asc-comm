@@ -26,7 +26,7 @@
 
 namespace AscendC::simt {
 
-// Primary template: every protocol without a specialization fails. COMM_PROTOCOL_UB_CTP is
+// Primary template: every protocol without a specialization fails. COMM_PROTOCOL_UBC_CTP is
 // specialized in impl/hcomm_simt_urma_def.h.
 template <CommProtocol commProtocol>
 class HcommImpl {
@@ -41,29 +41,20 @@ public:
         return HCOMM_FAILED;
     }
 
-    __simt_callee__ inline int32_t InitCompletionSet(
-        UbcCtpCompletionSet& set, __gm__ ChannelHandle*, uint32_t, __gm__ uint8_t*, uint64_t)
-    {
-        set.workspace = nullptr;
-        return HCOMM_FAILED;
-    }
+    __simt_callee__ inline int32_t InitCompletionSet(UbcCtpCompletionSet& set,
+        __gm__ ChannelHandle*, uint32_t, __gm__ uint8_t*, uint64_t)
+    { set.workspace = nullptr; return HCOMM_FAILED; }
     __simt_callee__ inline int32_t PrepareCompletion(UbcCtpCompletionSet&, uint32_t, uint32_t, uint32_t)
-    {
-        return HCOMM_FAILED;
-    }
+    { return HCOMM_FAILED; }
     __simt_callee__ inline int32_t Progress(UbcCtpCompletionSet&, uint32_t, uint32_t& processed)
-    {
-        processed = 0U;
-        return HCOMM_FAILED;
-    }
+    { processed = 0U; return HCOMM_FAILED; }
     __simt_callee__ inline int32_t WaitCompletion(UbcCtpCompletionSet&, uint32_t, uint32_t = 1000000U)
-    {
-        return HCOMM_FAILED;
-    }
+    { return HCOMM_FAILED; }
     __simt_callee__ inline int32_t Drain(UbcCtpCompletionSet&) { return HCOMM_FAILED; }
 
     __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
-        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb = 1U)
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase,
+        uint32_t itemBb = 1U)
     {
         (void)channel;
         (void)buff;
@@ -149,8 +140,8 @@ public:
 
     template <auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteWithNotifyNbi(
-        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
-        uint64_t notifyVal)
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len,
+        __gm__ void* notifyAddr, uint64_t notifyVal)
     {
         (void)batchHandle;
         (void)dst;

@@ -88,12 +88,7 @@ struct UbcCtpBatchHandle {
 constexpr uint32_t HCOMM_SIMT_COMPLETION_VERSION = 1U;
 constexpr uint32_t HCOMM_SIMT_COMPLETION_NONE = 0xFFFFFFFFU;
 enum class HcommSimtCompletionFault : uint32_t {
-    NONE = 0U,
-    RESOURCE = 1U,
-    IDENTITY = 2U,
-    CQE = 3U,
-    COUNT = 4U,
-    TIMEOUT = 5U
+    NONE = 0U, RESOURCE = 1U, IDENTITY = 2U, CQE = 3U, COUNT = 4U, TIMEOUT = 5U
 };
 struct alignas(128) HcommSimtCompletionState {
     uint32_t version, channelCount, cqCount, nextCq;
@@ -123,7 +118,8 @@ struct UbcCtpCompletionSet {
 // Reserve enough CQ records for the worst case of one distinct CQ per channel.
 inline constexpr uint64_t HcommSimtCompletionBufferBytes(uint32_t channelCount)
 {
-    return channelCount == 0U || channelCount > 65535U ? 0ULL : 128ULL * (1ULL + 2ULL * channelCount);
+    return channelCount == 0U || channelCount > 65535U ? 0ULL :
+        128ULL * (1ULL + 2ULL * channelCount);
 }
 
 template <typename T>

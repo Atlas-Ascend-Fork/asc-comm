@@ -28,12 +28,7 @@ namespace AscendC {
 /*!
  * @brief Opaque handle to a symmetric communication window.
  */
-using HcclCommSymWindow = __gm__ void*;
-
-/*!
- * @brief Opaque handle to a symmetric communication virtual memory.
- */
-using HcommMemHandle = __gm__ void*;
+using HcommWindowHandle = __gm__ void*;
 
 /*!
  * @brief Opaque handle to a communication team.
@@ -83,7 +78,7 @@ enum AinMemoryOrder { AIN_MEMORY_ORDER_RELAX };
  * @brief Signal action that atomically adds a custom value to a remote signal.
  */
 typedef struct {
-    HcclCommSymWindow signalWindow; /*!< Target signal window. */
+    HcommWindowHandle signalWindow; /*!< Target signal window. */
     size_t signalOffset;            /*!< Target signal offset. */
     uint64_t value;                 /*!< Value to add. */
 } AinSignalAdd;
@@ -92,7 +87,7 @@ typedef struct {
  * @brief Signal action that atomically increments a remote signal by 1.
  */
 typedef struct {
-    HcclCommSymWindow signalWindow; /*!< Target signal window. */
+    HcommWindowHandle signalWindow; /*!< Target signal window. */
     size_t signalOffset;            /*!< Target signal offset. */
 } AinSignalInc;
 

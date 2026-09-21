@@ -15,7 +15,8 @@
 void LaunchSimtMultiJettyBatchPerf(
     void* stream, void* channels, void* remoteIndices, void* timing, uint32_t api, uint32_t payloadBytes,
     uint32_t slotBytes, uint32_t regionBytes, uint32_t iterations, uint32_t warmup, uint32_t batchSize,
-    uint32_t jettyCount, uint32_t firstJetty, uint32_t kernelJettyCount, void* completionBuffer);
+    uint32_t jettyCount, uint32_t firstJetty, uint32_t kernelJettyCount,
+    void* completionBuffer);
 
 namespace {
 using namespace multi_jetty_batch_perf;
@@ -28,17 +29,18 @@ aclError InitializeBuffers(
     std::vector<uint8_t> recv(bufferBytes, 0U);
     for (uint32_t jetty = 0U; jetty < jettyCount; ++jetty) {
         for (uint32_t operation = 0U; operation < operationCount; ++operation) {
-            const size_t offset = static_cast<size_t>(jetty) * regionBytes + static_cast<size_t>(operation) * slotBytes;
+            const size_t offset = static_cast<size_t>(jetty) * regionBytes +
+                static_cast<size_t>(operation) * slotBytes;
             for (uint32_t byte = 0U; byte < payloadBytes; ++byte) {
                 send[offset + byte] = IdentityByte(false, jetty, operation, byte);
                 recv[offset + byte] = IdentityByte(true, jetty, operation, byte);
             }
         }
     }
-    aclError result = aclrtMemcpy(sendBuffer, bufferBytes, send.data(), bufferBytes, ACL_MEMCPY_HOST_TO_DEVICE);
-    return result == ACL_SUCCESS ?
-               aclrtMemcpy(recvBuffer, bufferBytes, recv.data(), bufferBytes, ACL_MEMCPY_HOST_TO_DEVICE) :
-               result;
+    aclError result = aclrtMemcpy(
+        sendBuffer, bufferBytes, send.data(), bufferBytes, ACL_MEMCPY_HOST_TO_DEVICE);
+    return result == ACL_SUCCESS ? aclrtMemcpy(
+        recvBuffer, bufferBytes, recv.data(), bufferBytes, ACL_MEMCPY_HOST_TO_DEVICE) : result;
 }
 
 bool CheckBuffer(
@@ -49,8 +51,8 @@ bool CheckBuffer(
     if (aclrtMemcpy(actual.data(), bufferBytes, buffer, bufferBytes, ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
         return false;
     }
-    return CheckIdentityBuffer(
-        actual, expectRemotePattern, jettyCount, operationCount, payloadBytes, slotBytes, regionBytes, batchSize, api);
+    return CheckIdentityBuffer(actual, expectRemotePattern, jettyCount, operationCount,
+        payloadBytes, slotBytes, regionBytes, batchSize, api);
 }
 
 } // namespace
@@ -59,13 +61,13 @@ int main(int argc, char* argv[])
 {
     using namespace multi_jetty_batch_perf;
     if (argc == 2 && std::strcmp(argv[1], "--build-info") == 0) {
-        std::cout << "BUILD_CONFIG | Backend=simt | Layout=matrix-v4 | CompletionVersion=1 | MatrixBatch="
-                  << MULTI_JETTY_MATRIX_BATCH << std::endl;
+        std::cout << "BUILD_CONFIG | Backend=simt | Layout=matrix-v2 | CompletionVersion=1 | MatrixBatch="
+                  << MULTI_JETTY_MATRIX_BATCH << " | Profiling=0" << std::endl;
         return 0;
     }
-    if (argc != 10) {
+    if (argc != 11) {
         std::cerr << "Usage: " << argv[0]
-                  << " <rank> <nranks> <root_file>"
+                  << " <rank> <nranks> <root_file> <simt-parallel>"
                      " <write|read|notify> <iterations> <warmup> <payload> <batch_size> <jettys>"
                   << std::endl;
         return 1;
@@ -73,16 +75,18 @@ int main(int argc, char* argv[])
     const uint32_t rank = static_cast<uint32_t>(std::strtoul(argv[1], nullptr, 10));
     const uint32_t rankCount = static_cast<uint32_t>(std::strtoul(argv[2], nullptr, 10));
     const std::string rootFile = argv[3];
-    const std::string apiName = argv[4];
-    const uint32_t iterations = static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10));
-    const uint32_t warmup = static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10));
-    const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
-    const uint32_t batchSize = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
-    const uint32_t jettyCount = static_cast<uint32_t>(std::strtoul(argv[9], nullptr, 10));
-    if (rankCount != 2U || rank >= rankCount || (apiName != "write" && apiName != "read" && apiName != "notify") ||
+    const std::string modeName = argv[4];
+    const std::string apiName = argv[5];
+    const uint32_t iterations = static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10));
+    const uint32_t warmup = static_cast<uint32_t>(std::strtoul(argv[7], nullptr, 10));
+    const uint32_t payloadBytes = static_cast<uint32_t>(std::strtoul(argv[8], nullptr, 10));
+    const uint32_t batchSize = static_cast<uint32_t>(std::strtoul(argv[9], nullptr, 10));
+    const uint32_t jettyCount = static_cast<uint32_t>(std::strtoul(argv[10], nullptr, 10));
+    if (rankCount != 2U || rank >= rankCount || modeName != "simt-parallel" ||
+        (apiName != "write" && apiName != "read" && apiName != "notify") ||
         batchSize != MULTI_JETTY_MATRIX_BATCH ||
-        (jettyCount != 1U && jettyCount != 2U && jettyCount != 4U && jettyCount != 8U) || iterations != 1024U ||
-        warmup != AlignUp(96U, batchSize) || payloadBytes != 64U) {
+        (jettyCount != 1U && jettyCount != 2U && jettyCount != 4U && jettyCount != 8U) ||
+        iterations != 1024U || warmup != AlignUp(96U, batchSize) || payloadBytes != 64U) {
         std::cerr << "Expected selected batch, 64B, 1024 requests, warmup96 aligned, J1/2/4/8, two ranks" << std::endl;
         return 1;
     }
@@ -108,15 +112,16 @@ int main(int argc, char* argv[])
     CHECK_ACL(aclrtMalloc(&recvBuffer, bufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
     CHECK_ACL(InitializeBuffers(
         sendBuffer, recvBuffer, bufferBytes, jettyCount, operationCount, payloadBytes, slotBytes, regionBytes));
-    CommMem sendMemory{COMM_MEM_TYPE_DEVICE, sendBuffer, bufferBytes};
-    CommMem recvMemory{COMM_MEM_TYPE_DEVICE, recvBuffer, bufferBytes};
-    std::array<HcclMemHandle, 2U> handles{nullptr, nullptr};
+    CommMem sendMemory {COMM_MEM_TYPE_DEVICE, sendBuffer, bufferBytes};
+    CommMem recvMemory {COMM_MEM_TYPE_DEVICE, recvBuffer, bufferBytes};
+    std::array<HcclMemHandle, 2U> handles {nullptr, nullptr};
     std::vector<ChannelHandle> channels(jettyCount, 0U);
     std::vector<uint64_t> remoteRecvAddresses(jettyCount, 0U);
     std::vector<uint32_t> remoteRecvIndices(jettyCount, 0U);
     CHECK_HCCL(HcclCommMemReg(comm, kSendTag, &sendMemory, &handles[0]));
     CHECK_HCCL(HcclCommMemReg(comm, kRecvTag, &recvMemory, &handles[1]));
-    CHECK_HCCL(AcquireChannels(comm, rank, peer, handles.data(), channels, remoteRecvAddresses, remoteRecvIndices));
+    CHECK_HCCL(AcquireChannels(
+        comm, rank, peer, handles.data(), channels, remoteRecvAddresses, remoteRecvIndices));
     for (uint32_t lhs = 0U; lhs < jettyCount; ++lhs) {
         if (channels[lhs] == 0U) {
             std::cerr << "Jetty channel is invalid: " << lhs << std::endl;
@@ -142,20 +147,23 @@ int main(int argc, char* argv[])
         std::vector<uint64_t> timing(static_cast<size_t>(kernelLaunchCount) * kTimingWords, 0U);
         std::vector<uint64_t> channelValues(channels.begin(), channels.end());
         CHECK_ACL(aclrtMalloc(&timingDevice, timing.size() * sizeof(uint64_t), ACL_MEM_MALLOC_HUGE_FIRST));
-        CHECK_ACL(aclrtMemset(timingDevice, timing.size() * sizeof(uint64_t), 0, timing.size() * sizeof(uint64_t)));
-        CHECK_ACL(aclrtMalloc(&channelsDevice, channelValues.size() * sizeof(uint64_t), ACL_MEM_MALLOC_HUGE_FIRST));
+        CHECK_ACL(aclrtMemset(
+            timingDevice, timing.size() * sizeof(uint64_t), 0, timing.size() * sizeof(uint64_t)));
+        CHECK_ACL(aclrtMalloc(
+            &channelsDevice, channelValues.size() * sizeof(uint64_t), ACL_MEM_MALLOC_HUGE_FIRST));
         CHECK_ACL(aclrtMemcpy(
             channelsDevice, channelValues.size() * sizeof(uint64_t), channelValues.data(),
             channelValues.size() * sizeof(uint64_t), ACL_MEMCPY_HOST_TO_DEVICE));
-        CHECK_ACL(aclrtMalloc(&remoteDevice, remoteRecvIndices.size() * sizeof(uint32_t), ACL_MEM_MALLOC_HUGE_FIRST));
+        CHECK_ACL(aclrtMalloc(
+            &remoteDevice, remoteRecvIndices.size() * sizeof(uint32_t), ACL_MEM_MALLOC_HUGE_FIRST));
         CHECK_ACL(aclrtMemcpy(
             remoteDevice, remoteRecvIndices.size() * sizeof(uint32_t), remoteRecvIndices.data(),
             remoteRecvIndices.size() * sizeof(uint32_t), ACL_MEMCPY_HOST_TO_DEVICE));
         for (uint32_t launch = 0U; launch < kernelLaunchCount; ++launch) {
             const uint32_t firstJetty = launch * jettysPerKernel;
             const uint32_t kernelJettyCount = std::min(jettyCount - firstJetty, jettysPerKernel);
-            void* launchTiming =
-                static_cast<uint8_t*>(timingDevice) + static_cast<size_t>(launch) * kTimingWords * sizeof(uint64_t);
+            void* launchTiming = static_cast<uint8_t*>(timingDevice) +
+                static_cast<size_t>(launch) * kTimingWords * sizeof(uint64_t);
             LaunchSimtMultiJettyBatchPerf(
                 stream, channelsDevice, remoteDevice, launchTiming, api, payloadBytes, slotBytes, regionBytes,
                 iterations, warmup, batchSize, jettyCount, firstJetty, kernelJettyCount, completionDevice);
@@ -164,17 +172,18 @@ int main(int argc, char* argv[])
         CHECK_ACL(aclrtMemcpy(
             timing.data(), timing.size() * sizeof(uint64_t), timingDevice, timing.size() * sizeof(uint64_t),
             ACL_MEMCPY_DEVICE_TO_HOST));
-        CHECK_ACL(aclrtMemcpy(
-            publishSummaries.data(), publishSummaries.size() * sizeof(CompletionSummary), completionDevice,
-            publishSummaries.size() * sizeof(CompletionSummary), ACL_MEMCPY_DEVICE_TO_HOST));
+        CHECK_ACL(aclrtMemcpy(publishSummaries.data(), publishSummaries.size() * sizeof(CompletionSummary),
+            completionDevice, publishSummaries.size() * sizeof(CompletionSummary), ACL_MEMCPY_DEVICE_TO_HOST));
         PrintCompletionState(publishSummaries);
         pass = CheckCompletion(publishSummaries, warmup, operationCount, batchSize, api, jettysPerKernel) && pass;
         uint64_t issueCycles = 0U;
+        uint64_t completionCycles = 0U;
         uint64_t completed = 0U;
         for (uint32_t launch = 0U; launch < kernelLaunchCount; ++launch) {
             const uint64_t* result = timing.data() + static_cast<size_t>(launch) * kTimingWords;
             pass = pass && static_cast<int64_t>(result[kStatusIndex]) == 0;
             issueCycles += result[kIssueCyclesIndex];
+            completionCycles += result[kCompletionCyclesIndex];
             completed += result[kCompletedIndex];
         }
         const uint64_t totalOperations = static_cast<uint64_t>(iterations) * activeJettyCount;
@@ -184,18 +193,26 @@ int main(int argc, char* argv[])
                 sendBuffer, bufferBytes, true, api, activeJettyCount, operationCount, payloadBytes, slotBytes,
                 regionBytes, batchSize);
         }
-        const double issueTime =
-            totalOperations == 0U ? 0.0 : static_cast<double>(issueCycles) / static_cast<double>(totalOperations);
-        std::cout << std::fixed << std::setprecision(6) << "PERF_DATA | API=" << apiName << " | Mode=MultiJetty"
-                  << " | DataSize/B=" << payloadBytes << " | BatchSize=" << batchSize << " | Jettys=" << jettyCount
-                  << " | ConcurrentJettys=" << std::min(jettyCount, jettysPerKernel)
-                  << " | IssueTicksPerRequest=" << issueTime << std::endl;
+        const double issueTime = totalOperations == 0U ? 0.0 :
+            static_cast<double>(issueCycles) / static_cast<double>(totalOperations);
+        const double bandwidth = completionCycles == 0U ? 0.0 :
+            static_cast<double>(payloadBytes) * static_cast<double>(totalOperations) /
+            static_cast<double>(completionCycles);
+        std::cout << std::fixed << std::setprecision(6)
+                  << "PERF_DATA | API=" << apiName << " | DataSize/B=" << payloadBytes
+                  << " | Jettys=" << jettyCount << " | BatchSize=" << batchSize
+                  << " | LanesPerJetty=" << batchSize << " | Mode=SIMT-Parallel"
+                  << " | KernelLaunches=" << kernelLaunchCount
+                  << " | MaxConcurrentJettys=" << std::min(jettyCount, jettysPerKernel)
+                  << " | Measurement=RawDeviceTicks | Instrumented=0"
+                  << " | IssueTicksPerRequest=" << issueTime
+                  << " | BytesPerCompletionTick=" << bandwidth << std::endl;
     }
     CHECK_HCCL(HostBarrier(rank, rankCount, "completed"));
     if (!sender && api != kApiRead) {
         pass = CheckBuffer(
-            recvBuffer, bufferBytes, false, api, activeJettyCount, operationCount, payloadBytes, slotBytes, regionBytes,
-            batchSize);
+            recvBuffer, bufferBytes, false, api, activeJettyCount, operationCount, payloadBytes, slotBytes,
+            regionBytes, batchSize);
     }
     if (timingDevice != nullptr) {
         CHECK_ACL(aclrtFree(timingDevice));

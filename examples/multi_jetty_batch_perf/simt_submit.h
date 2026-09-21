@@ -14,8 +14,8 @@ namespace multi_jetty_batch_perf {
 
 template <typename HcommT, typename Group>
 __simt_callee__ inline int32_t AppendOne(
-    HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, uint32_t api, __gm__ uint8_t* remote, __gm__ uint8_t* local,
-    uint32_t payloadBytes, uint32_t slotBytes, uint32_t operation, uint32_t jetty, const Group& group)
+    HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, uint32_t api, __gm__ uint8_t* remote,
+    __gm__ uint8_t* local, uint32_t payloadBytes, uint32_t slotBytes, uint32_t operation, uint32_t jetty, const Group& group)
 {
     const uint64_t offset = static_cast<uint64_t>(operation) * slotBytes;
     if (api == kApiWrite) {
@@ -26,12 +26,13 @@ __simt_callee__ inline int32_t AppendOne(
     }
     const uint64_t notifyValue = kNotifyValueBase | (static_cast<uint64_t>(jetty) << 32U) | operation;
     return hcomm.WriteWithNotifyNbi(
-        batch, remote + offset, local + offset, payloadBytes, remote + offset + slotBytes - sizeof(uint64_t),
-        notifyValue, group);
+        batch, remote + offset, local + offset, payloadBytes,
+        remote + offset + slotBytes - sizeof(uint64_t), notifyValue, group);
 }
 
 template <typename Group>
-__simt_callee__ inline void PrepareOrdinarySq(AscendC::simt::UbcCtpBatchHandle& batch, const Group& group)
+__simt_callee__ inline void PrepareOrdinarySq(
+    AscendC::simt::UbcCtpBatchHandle& batch, const Group& group)
 {
     using namespace AscendC::simt;
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
@@ -54,7 +55,8 @@ __simt_callee__ inline void PrepareOrdinarySq(AscendC::simt::UbcCtpBatchHandle& 
     }
 }
 
-__simt_callee__ inline void PublishPreparedPublisherSq(AscendC::simt::UbcCtpBatchHandle& batch, uint32_t size)
+__simt_callee__ inline void PublishPreparedPublisherSq(
+    AscendC::simt::UbcCtpBatchHandle& batch, uint32_t size)
 {
     using namespace AscendC::simt;
     auto* context = reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batch.context);
@@ -65,7 +67,8 @@ __simt_callee__ inline void PublishPreparedPublisherSq(AscendC::simt::UbcCtpBatc
     // SQ maintenance is owned by the producing lanes; do not scan it a second time.
     asc_threadfence();
     asc_threadfence_block();
-    const uint64_t publishedHead = context->reservedHead + ((static_cast<uint64_t>(size) << 32U) | totalBb);
+    const uint64_t publishedHead = context->reservedHead +
+        ((static_cast<uint64_t>(size) << 32U) | totalBb);
     asc_dcci_single(post.headAddr);
     asc_threadfence();
     *post.headAddr = publishedHead;
@@ -79,9 +82,9 @@ __simt_callee__ inline void PublishPreparedPublisherSq(AscendC::simt::UbcCtpBatc
 
 template <typename HcommT, typename Group, typename Block>
 __simt_callee__ inline int32_t SubmitPublisherCoreBatches(
-    HcommT& hcomm, const Group& group, const Block& block, AscendC::simt::UbcCtpBatchHandle& batch, uint32_t api,
-    __gm__ uint8_t* remote, __gm__ uint8_t* local, uint32_t payloadBytes, uint32_t slotBytes, uint32_t operationBase,
-    uint32_t count, uint32_t jetty)
+    HcommT& hcomm, const Group& group, const Block& block, AscendC::simt::UbcCtpBatchHandle& batch,
+    uint32_t api, __gm__ uint8_t* remote, __gm__ uint8_t* local, uint32_t payloadBytes,
+    uint32_t slotBytes, uint32_t operationBase, uint32_t count, uint32_t jetty)
 {
     using namespace AscendC::simt;
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
@@ -97,26 +100,26 @@ __simt_callee__ inline int32_t SubmitPublisherCoreBatches(
         }
         if (status == AscendC::HCOMM_SUCCESS) {
             if (!publisher) {
-                (void)AppendOne(
-                    hcomm, batch, api, remote, local, payloadBytes, slotBytes, operationBase + begin + rank, jetty,
-                    group);
+                (void)AppendOne(hcomm, batch, api, remote, local, payloadBytes, slotBytes,
+                    operationBase + begin + rank, jetty, group);
             }
             PrepareOrdinarySq(batch, group);
         }
         // All groups arrive, including failed groups. Each Jetty publishes independently.
         block.sync();
         if (publisher && status == AscendC::HCOMM_SUCCESS) {
-            (void)AppendOne(
-                hcomm, batch, api, remote, local, payloadBytes, slotBytes, operationBase + begin + rank, jetty, group);
+            (void)AppendOne(hcomm, batch, api, remote, local, payloadBytes, slotBytes,
+                operationBase + begin + rank, jetty, group);
             PublishPreparedPublisherSq(batch, size);
         }
         block.sync();
         if (status == AscendC::HCOMM_SUCCESS) {
             if (publisher) {
                 const uint32_t totalBb = HcommSimtBatchTotalBb(size, context->itemBb);
-                const uint64_t publishedHead = context->reservedHead + ((static_cast<uint64_t>(size) << 32U) | totalBb);
+                const uint64_t publishedHead = context->reservedHead +
+                    ((static_cast<uint64_t>(size) << 32U) | totalBb);
                 // Other Jettys may finish their private reservation while the last one publishes.
-                // A failed next reservation is reported by the next Append/Commit.
+                // As in Q, failure to reserve the next batch is consumed on its next Append/Commit.
                 HcommSimtPlanBatchFromHead(context, publishedHead);
             }
             group.sync();

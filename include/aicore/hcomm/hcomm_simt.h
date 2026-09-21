@@ -56,7 +56,7 @@ namespace AscendC::simt {
  *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
  *       packs curHead and wqeCnt into the u64 at SqContext::ubJfs::headAddr.
  */
-template <CommProtocol commProtocol = COMM_PROTOCOL_UB_CTP>
+template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
 class Hcomm {
 public:
     __simt_callee__ inline Hcomm();
@@ -280,7 +280,7 @@ public:
      * @note PrepareCompletion admits one window per channel BEFORE publishing, using its WQE
      *       count and total SQ BB count. The previous window of this channel must have completed;
      *       other channels need not finish. Insufficient capacity returns -1 without mutation.
-     *       Publish exactly this window using default CQE-enabled Write/Read/WriteWithNotify batches. Sparse CQEs,
+     *       Publish exactly this window using default CQE-enabled Write batches. Sparse CQEs,
      *       deferred unpublished tails and unsignalled NOP tails are unsupported. Cumulative
      *       WQE/BB counters must not wrap. Publication ordering remains the caller's responsibility.
      *       If an existing batch's next reservation failed before reclamation, recreate its handle

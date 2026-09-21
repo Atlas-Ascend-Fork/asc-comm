@@ -151,13 +151,14 @@ CANN包分为CANN toolkit包和CANN ops包。
 
     > [!IMPORTANT]
     > 安装说明
-    > 当前[Hcomm AIV直驱URMA样例](../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)不依赖ops包；仅在后续使用依赖算子包的功能时按需安装。
+    > 当前[Hcomm AIV直驱URMA样例](../examples/hcomm_write_read_nbi/README.md)不依赖ops包；仅在后续使用依赖算子包的功能时按需安装。
+
 
 | 参数 | 说明 |
-| :--- | :-------------------------------- |
-| `${cann_version}` | CANN包版本号。 |
-| `${soc_name}` | NPU型号，如`910b`。 |
-| `${install_path}` | 安装路径，toolkit包和ops包需相同。root用户默认路径：`/usr/local/Ascend`，非root用户默认路径：`$HOME/Ascend`。|
+| :--- | :--- |
+| `${cann_version}` | CANN包版本号 |
+| `${soc_name}` | NPU型号，如`910b` |
+| `${install_path}` | 安装路径，toolkit包和ops包需相同。默认：root用户`/usr/local/Ascend`，非root用户`$HOME/Ascend` |
 
 ## ✅ 环境验证<a name="cann-verify"></a>
 
@@ -264,13 +265,13 @@ cmake --build build/ut-hcomm
 
 ### 🧩 样例验证<a name="sample-verify"></a>
 
-[hcomm_write_read_nbi](../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)提供AIV直驱URMA `WriteNbi`和`ReadNbi`点对点通信样例。样例支持Ascend 950PR/Ascend 950DT，要求CANN 9.1.0或以上版本。运行样例需要至少2张NPU；单卡环境仅支持编译验证。
+[hcomm_write_read_nbi](../examples/hcomm_write_read_nbi/README.md)提供AIV直驱URMA `WriteNbi`和`ReadNbi`点对点通信样例。样例支持Ascend 950PR/Ascend 950DT，要求CANN 9.1.0或以上版本。运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 
 进入样例目录后执行：
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
-cd examples/aicore/hcomm/01_hcomm_write_read_nbi
+cd examples/hcomm_write_read_nbi
 mkdir -p build
 cd build
 cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..

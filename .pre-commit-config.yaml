@@ -57,17 +57,20 @@ repos:
       - id: codespell
         args: [
             "-L",
-            "CANN,cann,NNAL,nnal,ASCEND,ascend,EnQue,CopyIn,ArchType,AND,ND,tbe,copyin,alog,Collet,Enque,Normale,OUTTER,OffsetT,REGIST,Te,ThirdParty,VOR,abl,ans,catched,commiter,devlop,dout,enque,ges,nIn,nd,outter,padd,parm,subtile,Clos",
+            "CANN,cann,NNAL,nnal,ASCEND,ascend,EnQue,CopyIn,ArchType,AND,ND,tbe,copyin,alog,Collet,Enque,Normale,OUTTER,OffsetT,REGIST,Te,ThirdParty,VOR,abl,ans,catched,commiter,devlop,dout,enque,ges,nIn,nd,outter,padd,parm,subtile",
             "--skip",
             "*.py,*.cpp,*.hpp,*.c,*.h,*.asc,*.cc",
           ]
 
   # OAT 合规性检查 (Open Source Audit Tool)
-  - repo: https://gitcode.com/HiAgent/Compliance
-    rev: v1.0.5
+  - repo: local
     hooks:
       - id: oat-check
+        name: OAT Compliance Check
+        entry: bash scripts/oat_check.sh
+        language: system
         pass_filenames: true
+        types: [file]
         stages: [pre-commit]
         verbose: true
 

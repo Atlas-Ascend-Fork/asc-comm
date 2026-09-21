@@ -28,23 +28,26 @@
 #include "hccl/hccl_types.h"
 #include "multi_jetty_batch_perf_common.h"
 
-#define CHECK_ACL(expression)                                                                                 \
-    do {                                                                                                      \
-        const aclError result = (expression);                                                                 \
-        if (result != ACL_SUCCESS) {                                                                          \
-            std::cerr << "ACL failure at " << __FILE__ << ':' << __LINE__ << ", ret=" << result << std::endl; \
-            return result;                                                                                    \
-        }                                                                                                     \
+#define CHECK_ACL(expression)                                                                    \
+    do {                                                                                         \
+        const aclError result = (expression);                                                    \
+        if (result != ACL_SUCCESS) {                                                             \
+            std::cerr << "ACL failure at " << __FILE__ << ':' << __LINE__ << ", ret=" << result \
+                      << std::endl;                                                              \
+            return result;                                                                       \
+        }                                                                                        \
     } while (0)
 
-#define CHECK_HCCL(expression)                                                                                 \
-    do {                                                                                                       \
-        const HcclResult result = (expression);                                                                \
-        if (result != HCCL_SUCCESS) {                                                                          \
-            std::cerr << "HCCL failure at " << __FILE__ << ':' << __LINE__ << ", ret=" << result << std::endl; \
-            return result;                                                                                     \
-        }                                                                                                      \
+#define CHECK_HCCL(expression)                                                                    \
+    do {                                                                                          \
+        const HcclResult result = (expression);                                                   \
+        if (result != HCCL_SUCCESS) {                                                             \
+            std::cerr << "HCCL failure at " << __FILE__ << ':' << __LINE__ << ", ret=" << result \
+                      << std::endl;                                                               \
+            return result;                                                                        \
+        }                                                                                         \
     } while (0)
+
 
 namespace multi_jetty_batch_perf {
 constexpr uint32_t kBarrierWaitSeconds = 60U, kBarrierPollMilliseconds = 100U;
@@ -87,7 +90,7 @@ HcclResult ReadRootInfo(const std::string& path, HcclRootInfo* rootInfo)
 
 HcclResult InitComm(uint32_t rank, uint32_t rankCount, const std::string& rootPath, HcclComm* comm)
 {
-    HcclRootInfo rootInfo{};
+    HcclRootInfo rootInfo {};
     HcclResult result = HCCL_SUCCESS;
     if (rank == kRootRank) {
         CHECK_HCCL(HcclGetRootInfo(&rootInfo));
@@ -131,7 +134,8 @@ HcclResult HostBarrier(uint32_t rank, uint32_t rankCount, const char* name)
     return HCCL_E_TIMEOUT;
 }
 
-HcclResult BuildChannelDesc(HcclComm comm, uint32_t rank, uint32_t peer, HcclMemHandle* handles, HcclChannelDesc& desc)
+HcclResult BuildChannelDesc(
+    HcclComm comm, uint32_t rank, uint32_t peer, HcclMemHandle* handles, HcclChannelDesc& desc)
 {
     CHECK_HCCL(HcclChannelDescInit(&desc, 1U));
     desc.remoteRank = peer;
@@ -175,21 +179,24 @@ HcclResult ResolveRemoteRecv(
 }
 
 HcclResult AcquireChannels(
-    HcclComm comm, uint32_t rank, uint32_t peer, HcclMemHandle* handles, std::vector<ChannelHandle>& channels,
-    std::vector<uint64_t>& remoteRecvAddresses, std::vector<uint32_t>& remoteRecvIndices)
+    HcclComm comm, uint32_t rank, uint32_t peer, HcclMemHandle* handles,
+    std::vector<ChannelHandle>& channels, std::vector<uint64_t>& remoteRecvAddresses,
+    std::vector<uint32_t>& remoteRecvIndices)
 {
     const uint32_t channelCount = static_cast<uint32_t>(channels.size());
-    if (channelCount == 0U || remoteRecvAddresses.size() != channelCount || remoteRecvIndices.size() != channelCount) {
+    if (channelCount == 0U || remoteRecvAddresses.size() != channelCount ||
+        remoteRecvIndices.size() != channelCount) {
         return HCCL_E_PARA;
     }
     std::vector<HcclChannelDesc> descs(channelCount);
     for (uint32_t channel = 0U; channel < channelCount; ++channel) {
         CHECK_HCCL(BuildChannelDesc(comm, rank, peer, handles, descs[channel]));
     }
-    CHECK_HCCL(HcclChannelAcquire(comm, COMM_ENGINE_AIV, descs.data(), channelCount, channels.data()));
+    CHECK_HCCL(HcclChannelAcquire(
+        comm, COMM_ENGINE_AIV, descs.data(), channelCount, channels.data()));
     for (uint32_t channel = 0U; channel < channelCount; ++channel) {
-        CHECK_HCCL(
-            ResolveRemoteRecv(comm, channels[channel], remoteRecvAddresses[channel], remoteRecvIndices[channel]));
+        CHECK_HCCL(ResolveRemoteRecv(
+            comm, channels[channel], remoteRecvAddresses[channel], remoteRecvIndices[channel]));
     }
     return HCCL_SUCCESS;
 }
