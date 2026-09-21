@@ -29,7 +29,7 @@
 extern "C" {
 #endif
 
-#define HCOMM_POD_CHANNEL_VERSION 2U             ///< Channel POD ABI版本号
+#define HCOMM_POD_CHANNEL_VERSION 0U             ///< Channel POD ABI版本号
 #define HCOMM_POD_CHANNEL_MAGIC_WORD 0x0fcf0f5fU ///< Channel POD合法性校验魔术字
 #define HCOMM_POD_THREAD_VERSION 0U              ///< Thread POD ABI版本号
 #define HCOMM_POD_THREAD_MAGIC_WORD 0x0fcf0f6fU  ///< Thread POD合法性校验魔术字
@@ -37,8 +37,7 @@ extern "C" {
 #define HCOMM_POD_RTSQ_BATCH_SIZE 128U           ///< 本地最多缓存的RTSQ SQE数量
 #define HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE 1024U  ///< 单次申请的RTSQ Task ID数量
 #define HCOMM_POD_CHANNEL_ENTITY_SIZE 256U       ///< Channel POD ABI固定大小
-#define HCOMM_POD_THREAD_ENTITY_SIZE 1024U       ///< Thread POD ABI固定大小
-#define HCOMM_POD_DRAIN_IDX_INVALID 0xFFFFFFFFU  ///< drain资源索引无效值
+#define HCOMM_POD_THREAD_ENTITY_SIZE 256U        ///< Thread POD ABI固定大小
 
 #pragma pack(push, 4)
 
@@ -232,16 +231,13 @@ typedef struct {
     HcommRegedBufferEntity* remoteBufferAddr;
     HcommSqContext* sqContextAddr;
     HcommCqContext* cqContextAddr;
-    uint32_t drainNotifyIdx;  ///< localNotifyAddr中drain notify的下标；HCOMM_POD_DRAIN_IDX_INVALID表示无drain资源
-    uint32_t drainBufferIdx;  ///< remoteBufferAddr中drain buffer的下标；HCOMM_POD_DRAIN_IDX_INVALID表示无drain资源
+    ChannelHandle originChannelHandle; ///< 控制面原始Channel句柄值；数据面只作关联信息，不解引用
 } HcommChannelEntity;
 
-// RTSQ硬件字段(localDevId/sqBaseAddr/sqDepth/sqHead/sqTail)由数据面在AICPU上
-// 首用时自解析(drvGetLocalDevIDByHostDevID为device-only驱动接口，host控制面
-// 不查询硬件)：host仅填streamId/sqId/localSqeAddr并清零硬件字段，
-// 数据面经asccomm_ensure_rtsq_resolved按devInfo.devId(host物理设备id)解析。
+// RTSQ硬件字段由HCOMM控制面在POD构造阶段查询并填充；数据面只消费初始快照，
+// 并在提交过程中维护运行态head/tail。
 typedef struct {
-    uint32_t localDevId;    ///< 调用halSqCqQuery/halSqCqConfig使用的本地设备ID(数据面device侧解析)
+    uint32_t localDevId;    ///< 调用halSqCqQuery/halSqCqConfig使用的本地设备ID(控制面填充)
     uint32_t streamId;      ///< RTSQ关联的Stream ID，写入部分SQE或用于诊断
     uint32_t sqId;          ///< 硬件RTSQ编号
     uint32_t sqDepth;       ///< 硬件RTSQ可容纳的SQE数量
@@ -257,16 +253,13 @@ typedef struct {
 } HcommRtsqContext;
 
 typedef struct {
-    union {
-        struct {
-            CommAbiHeader abiHeader;       ///< ABI版本、魔术字和结构大小，用于句柄合法性校验
-            HcommDevInfo devInfo;          ///< Thread所属设备信息
-            uint32_t localNotifyNum;       ///< localNotifyAddr数组元素个数
-            HcommRegedNotifyEntity* localNotifyAddr; ///< Thread本地Notify数组，用于线程间Record/Wait(type=IPC_RT)
-            HcommRtsqContext* sqContextAddr;         ///< Thread直接持有的POD RTSQ运行上下文
-        };
-        uint8_t raw[HCOMM_POD_THREAD_ENTITY_SIZE]; ///< Thread整块存储及ABI预留扩展空间
-    };
+    CommAbiHeader abiHeader;        ///< ABI版本、魔术字和结构大小，用于句柄合法性校验
+    HcommDevInfo devInfo;          ///< Thread所属设备信息
+    uint32_t localNotifyNum;       ///< localNotifyAddr数组元素个数
+    HcommRegedNotifyEntity* localNotifyAddr; ///< Thread本地Notify数组，用于线程间Record/Wait(type=IPC_RT)
+    HcommRtsqContext* sqContextAddr;         ///< Thread直接持有的POD RTSQ运行上下文
+    ThreadHandle originThreadHandle; ///< 控制面原始Thread句柄值；数据面只作关联信息，不解引用
+    uint8_t raw[172];               ///< Thread固定256字节中的ABI预留扩展空间
 } HcommThreadEntity;
 
 #pragma pack(pop)
@@ -290,9 +283,13 @@ static_assert(std::is_pod<HcommCqContext>::value, "HcommCqContext must be POD");
 static_assert(sizeof(HcommChannelEntity) <= HCOMM_POD_CHANNEL_ENTITY_SIZE,
     "HcommChannelEntity ABI size must not exceed 256 bytes");
 static_assert(sizeof(HcommThreadEntity) == HCOMM_POD_THREAD_ENTITY_SIZE,
-    "HcommThreadEntity ABI size must be 1024 bytes");
+    "HcommThreadEntity ABI size must be 256 bytes");
 static_assert(alignof(HcommChannelEntity) == 4, "HcommChannelEntity ABI alignment must be 4 bytes");
 static_assert(alignof(HcommThreadEntity) == 4, "HcommThreadEntity ABI alignment must be 4 bytes");
+static_assert(offsetof(HcommThreadEntity, originThreadHandle) + sizeof(ThreadHandle) <= HCOMM_POD_THREAD_ENTITY_SIZE,
+    "HcommThreadEntity origin handle must fit in the fixed ABI storage");
+static_assert(offsetof(HcommChannelEntity, originChannelHandle) + sizeof(ChannelHandle) <= HCOMM_POD_CHANNEL_ENTITY_SIZE,
+    "HcommChannelEntity origin handle must fit in the fixed ABI storage");
 #endif
 
 #endif // HCOMM_POD_RESOURCE_H
