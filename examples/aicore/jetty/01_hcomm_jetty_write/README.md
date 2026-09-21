@@ -16,7 +16,7 @@
 ## 目录结构介绍
 
 ```text
-06_hcomm_jetty_write
+01_hcomm_jetty_write
 ├── CMakeLists.txt          // 编译工程文件
 ├── hcomm_jetty_write.asc   // Host侧资源准备、AIV Kernel侧Jetty调用与共享定义
 ├── README.md               // 中文样例说明
