@@ -116,15 +116,35 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::MakeWqe(
     __gm__ ChannelEntity* chnlPtr, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType, uint32_t sqHead,
     uint32_t sqDepth, uint32_t enCqe, uint32_t fence)
 {
-    int32_t remoteIdx = HcommFindBufferIdx(chnlPtr->remoteBufferAddr, chnlPtr->remoteBufferNum, dst, len);
-    if (remoteIdx == HCOMM_FAILED) {
-        KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeWqe: failed with invalid remote buffer addr %llu.\n", dst);
-        return HCOMM_FAILED;
+    uint32_t rKey;
+    if (chnlPtr->remoteBufferNum == 1U) {
+        if (!HcommCheckSingleBuffer(chnlPtr->remoteBufferAddr, dst, len)) {
+            KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeWqe: failed with invalid remote buffer addr %llu.\n", dst);
+            return HCOMM_FAILED;
+        }
+        rKey = chnlPtr->remoteBufferAddr[0].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
+    } else {
+        int32_t remoteIdx = HcommFindBufferIdx(chnlPtr->remoteBufferAddr, chnlPtr->remoteBufferNum, dst, len);
+        if (remoteIdx == HCOMM_FAILED) {
+            KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeWqe: failed with invalid remote buffer addr %llu.\n", dst);
+            return HCOMM_FAILED;
+        }
+        rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
     }
-    int32_t localIdx = HcommFindBufferIdx(chnlPtr->localBufferAddr, chnlPtr->localBufferNum, src, len);
-    if (localIdx == HCOMM_FAILED) {
-        KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeWqe: failed with invalid local buffer addr %llu.\n", src);
-        return HCOMM_FAILED;
+    uint32_t lKey;
+    if (chnlPtr->localBufferNum == 1U) {
+        if (!HcommCheckSingleBuffer(chnlPtr->localBufferAddr, src, len)) {
+            KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeWqe: failed with invalid local buffer addr %llu.\n", src);
+            return HCOMM_FAILED;
+        }
+        lKey = chnlPtr->localBufferAddr[0].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
+    } else {
+        int32_t localIdx = HcommFindBufferIdx(chnlPtr->localBufferAddr, chnlPtr->localBufferNum, src, len);
+        if (localIdx == HCOMM_FAILED) {
+            KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeWqe: failed with invalid local buffer addr %llu.\n", src);
+            return HCOMM_FAILED;
+        }
+        lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
     }
     __gm__ uint8_t* sqBaseAddr = (__gm__ uint8_t*)(chnlPtr->sqContextAddr->contextInfo.roceSq.sqVa);
     uint32_t wqeSize = chnlPtr->sqContextAddr->contextInfo.roceSq.wqeSize;
@@ -134,8 +154,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::MakeWqe(
     sqGlobal.SetGlobalBuffer(sqAddr);
 
     __ubuf__ RoceWqeEntry* wqePtr = (__ubuf__ RoceWqeEntry*)(wqeUB_.GetPhyAddr());
-    uint32_t rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
-    uint32_t lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
     __gm__ uint8_t* sqAddrNext = (__gm__ uint8_t*)(sqBaseAddr + ((sqHead + 1) & (sqDepth - 1)) * wqeSize);
     Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
     FillCtrlSeg(wqePtr, sqHead, sqDepth, enCqe);

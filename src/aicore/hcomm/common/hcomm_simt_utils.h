@@ -58,6 +58,22 @@ __simt_callee__ inline int32_t HcommSimtFindBufferIdx(
     return HCOMM_FAILED;
 }
 
+__simt_callee__ inline bool HcommSimtCheckSingleBuffer(
+    __gm__ RegedBufferEntity* bufferAddr, __gm__ uint8_t* addr, uint64_t len)
+{
+    if (bufferAddr == nullptr) {
+        return false;
+    }
+    uint64_t targetAddr = reinterpret_cast<uint64_t>(addr);
+    uint64_t baseAddr = bufferAddr[0].bufferInfo.rma.addr;
+    uint64_t bufferSize = bufferAddr[0].bufferInfo.rma.size;
+    if (targetAddr < baseAddr) {
+        return false;
+    }
+    uint64_t offset = targetAddr - baseAddr;
+    return offset <= bufferSize && len <= bufferSize - offset;
+}
+
 __simt_callee__ inline uint32_t HcommSimtHeadIdx(uint64_t headVal)
 {
     return static_cast<uint32_t>(headVal & 0xFFFFFFFFU);

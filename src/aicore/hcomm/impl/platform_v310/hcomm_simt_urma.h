@@ -338,11 +338,22 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::ResolvePost(
     __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
     __gm__ RegedBufferEntity* remoteBuffers =
         reinterpret_cast<__gm__ RegedBufferEntity*>(channelEntity->remoteBufferAddr);
-    int32_t remoteIdx = HcommSimtFindBufferIdx(remoteBuffers, channelEntity->remoteBufferNum, remoteAddr, len);
-    if (remoteIdx == HCOMM_FAILED) {
-        return HCOMM_FAILED;
+    uint32_t remoteTokenId;
+    uint32_t remoteTokenValue;
+    if (channelEntity->remoteBufferNum == 1U) {
+        if (!HcommSimtCheckSingleBuffer(remoteBuffers, remoteAddr, len)) {
+            return HCOMM_FAILED;
+        }
+        remoteTokenId = remoteBuffers[0].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
+        remoteTokenValue = remoteBuffers[0].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    } else {
+        int32_t remoteIdx = HcommSimtFindBufferIdx(remoteBuffers, channelEntity->remoteBufferNum, remoteAddr, len);
+        if (remoteIdx == HCOMM_FAILED) {
+            return HCOMM_FAILED;
+        }
+        remoteTokenId = remoteBuffers[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
+        remoteTokenValue = remoteBuffers[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     }
-    __gm__ RegedBufferEntity* remoteMemInfo = &remoteBuffers[remoteIdx];
 
     // The 64-byte used range (offset 8..71) crosses a cache line, and bulk-reading it as an
     // indexed array costs more instructions than direct field access because the layout has holes.
@@ -369,8 +380,8 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::ResolvePost(
     post.meta.tpId = tpID;
     post.meta.remoteEidL = remoteEidL;
     post.meta.remoteEidH = remoteEidH;
-    post.meta.remoteTokenId = remoteMemInfo->bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
-    post.meta.remoteTokenValue = remoteMemInfo->bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    post.meta.remoteTokenId = remoteTokenId;
+    post.meta.remoteTokenValue = remoteTokenValue;
     return HCOMM_SUCCESS;
 }
 

@@ -99,6 +99,21 @@ __aicore__ inline int32_t HcommFindBufferIdx(
     return HCOMM_FAILED;
 }
 
+__aicore__ inline bool HcommCheckSingleBuffer(RegedBufferEntity* bufferAddr, GM_ADDR addr, uint64_t len)
+{
+    if (bufferAddr == nullptr) {
+        return false;
+    }
+    uint64_t targetAddr = reinterpret_cast<uint64_t>(addr);
+    uint64_t baseAddr = bufferAddr[0].bufferInfo.rma.addr;
+    uint64_t bufferSize = bufferAddr[0].bufferInfo.rma.size;
+    if (targetAddr < baseAddr) {
+        return false;
+    }
+    uint64_t offset = targetAddr - baseAddr;
+    return offset <= bufferSize && len <= bufferSize - offset;
+}
+
 template <typename T>
 __aicore__ inline void CacheWriteThrough(__gm__ T* sourceAddr, uint64_t length)
 {
