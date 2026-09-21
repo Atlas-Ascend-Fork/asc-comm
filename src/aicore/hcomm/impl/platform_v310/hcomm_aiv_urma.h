@@ -956,7 +956,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcBatchH
         "BatchCommit CQE scratch space must fit in one WQEBB");
 
     uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
-    if (batchHandle.channelHandle == 0U || preSqCnt == 0U) {
+    if (preSqCnt == 0U) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed with invalid handle or empty batch\n");
         return HCOMM_FAILED;
     }
@@ -971,21 +971,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcBatchH
 
     if (sqOverflow || cqOverflow) {
         uint32_t committedCqHead = channelEntity->cqHead;
-        if (batchHandle.cursor.cqTail != committedCqHead) {
-            uint32_t ret = PollBatchCq(batchHandle, committedCqHead);
-            if (ret != HCOMM_SUCCESS) {
-                return ret;
-            }
-        }
-    }
-
-    sqOutstanding = batchHandle.cursor.sqHead - batchHandle.cursor.sqTail;
-    sqOverflow = sqOutstanding > sqDepth || preSqCnt > sqDepth - sqOutstanding;
-    cqAfterCommit = batchHandle.cursor.cqHead - batchHandle.cursor.cqTail;
-    cqOverflow = cqAfterCommit > cqDepth;
-    if (sqOverflow || cqOverflow) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed with insufficient queue capacity\n");
-        return HCOMM_FAILED;
+        PollBatchCq(batchHandle, committedCqHead);
     }
 
     uint32_t sqHead = batchHandle.cursor.sqHead;
