@@ -75,14 +75,14 @@ public:
      * @param [in] remoteAddr: For ChannelHandle, an address in the remote registered memory to select. If it is null,
      *                         the first remote registered buffer is selected. Ignored for MultiChannelHandle.
      * @param [in] localAddr: Reserved parameter. Not used in the current version.
-     * @return A protocol-specific batch handle. COMM_PROTOCOL_UB_CTP returns UbcBatchHandle and COMM_PROTOCOL_ROCE
-     *         returns RoceBatchHandle. A zero-valued invalid handle is returned if selection fails.
+     * @return A batch handle for commProtocol. Returns a zero-valued invalid handle if the multi-channel handle is
+     *         invalid or remote registered-memory selection fails.
      * @note For MultiChannelHandle, call GetHandleRef to select a logical channel and remote registered memory.
      *       The 64-byte task slots used by one batch must be fewer than the channel task-submission capacity, which is
      *       determined when channel resources are created on the Host.
      */
     template <typename T, typename U>
-    __aicore__ inline HcommBatchHandle<commProtocol, T> MakeBatchHandle(
+    __aicore__ inline BatchHandle<T> MakeBatchHandle(
         T channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr = nullptr,
         GM_ADDR localAddr = nullptr);
 

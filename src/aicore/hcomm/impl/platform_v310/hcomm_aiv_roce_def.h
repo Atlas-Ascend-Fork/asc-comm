@@ -101,15 +101,15 @@ public:
     __aicore__ inline int32_t Lock(ChannelHandle channel);
     __aicore__ inline int32_t Unlock(ChannelHandle channel);
     template <typename U>
-    __aicore__ inline RoceBatchHandle MakeBatchHandle(
+    __aicore__ inline UbcBatchHandle MakeBatchHandle(
         ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr);
     template <auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t WriteNbi(RoceBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    __aicore__ inline int32_t WriteNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <auto const& config = ROCE_DEFAULT_CFG>
-    __aicore__ inline int32_t ReadNbi(RoceBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
-    __aicore__ inline int32_t BatchCommit(RoceBatchHandle& batchHandle);
+    __aicore__ inline int32_t ReadNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    __aicore__ inline int32_t BatchCommit(UbcBatchHandle& batchHandle);
     template <pipe_t pipe = PIPE_MTE3>
-    __aicore__ inline int32_t Drain(RoceBatchHandle& batchHandle);
+    __aicore__ inline int32_t Drain(UbcBatchHandle& batchHandle);
 
 private:
     __aicore__ inline void FillCtrlSeg(
@@ -138,8 +138,8 @@ private:
     __aicore__ inline bool CheckChannelParam(__gm__ ChannelEntity* chnlPtr);
     template <HCOMM_ROCE_OP_TYPE opType, auto const& config>
     __aicore__ inline int32_t BatchPostSend(
-        RoceBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t wqeNum);
-    __aicore__ inline uint32_t PollBatchCq(RoceBatchHandle& batchHandle, uint32_t expectIdx);
+        UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t wqeNum);
+    __aicore__ inline uint32_t PollBatchCq(UbcBatchHandle& batchHandle, uint32_t expectIdx);
 
 private:
     LocalTensor<uint32_t> wqeUB_;

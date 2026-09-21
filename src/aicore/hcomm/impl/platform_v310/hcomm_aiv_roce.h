@@ -494,10 +494,10 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Unlock(ChannelHandle ch
 }
 
 template <typename U>
-__aicore__ inline RoceBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle(
+__aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle(
     ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
 {
-    RoceBatchHandle batchHandle{};
+    UbcBatchHandle batchHandle{};
     __gm__ ChannelEntity* chnlPtr = reinterpret_cast<__gm__ ChannelEntity*>(channel);
     if (!CheckChannelParam(chnlPtr) || buffLen < HCOMM_ROCE_WQEBB_SIZE || buff.GetSize() * sizeof(U) < buffLen) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm MakeBatchHandle: failed with invalid channel or buffer.\n");
@@ -526,15 +526,15 @@ __aicore__ inline RoceBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle
     batchHandle.cursor.preSqCnt = 0U;
     batchHandle.buffer.buffer = wqeBuffer;
     batchHandle.buffer.bufferCapacity = buffLen / HCOMM_ROCE_WQEBB_SIZE;
-    batchHandle.lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
-    batchHandle.rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
+    batchHandle.mrKey.lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
+    batchHandle.mrKey.rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
 
     return batchHandle;
 }
 
 template <HCOMM_ROCE_OP_TYPE opType, auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
-    RoceBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t wqeNum)
+    UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t wqeNum)
 {
     static_assert(config.cqe == 0 || config.cqe == 1, "BatchPostSend only supports cqe values 0 and 1.");
     static_assert(sizeof(RoceWqeEntry) == HCOMM_ROCE_WQEBB_SIZE, "One RoCE WQE must occupy one WQEBB.");
@@ -573,9 +573,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
     for (uint32_t i = 0U; i < wqeNum; i++) {
         FillCtrlSeg(wqeBasePtr + i, baseHead + i, sqDepth, config.cqe);
         FillTaskSeg(
-            wqeBasePtr + i, remoteAddr, localDescs[i].len, static_cast<uint32_t>(opType), batchHandle.rKey,
-            batchHandle.lKey, config.fence);
-        FillDataSeg(wqeBasePtr + i, localDescs[i].addr, localDescs[i].len, batchHandle.lKey);
+            wqeBasePtr + i, remoteAddr, localDescs[i].len, static_cast<uint32_t>(opType), batchHandle.mrKey.rKey,
+            batchHandle.mrKey.lKey, config.fence);
+        FillDataSeg(wqeBasePtr + i, localDescs[i].addr, localDescs[i].len, batchHandle.mrKey.lKey);
     }
     Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
 
@@ -588,7 +588,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
 
 template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteNbi(
-    RoceBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
+    UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     const BufDesc srcDesc{src, len};
     return BatchPostSend<HCOMM_ROCE_OP_TYPE::WRITE, config>(batchHandle, dst, &srcDesc, 1U);
@@ -596,13 +596,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteNbi(
 
 template <auto const& config>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::ReadNbi(
-    RoceBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
+    UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len)
 {
     const BufDesc dstDesc{dst, len};
     return BatchPostSend<HCOMM_ROCE_OP_TYPE::READ, config>(batchHandle, src, &dstDesc, 1U);
 }
 
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(RoceBatchHandle& batchHandle)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(UbcBatchHandle& batchHandle)
 {
     uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
     if (preSqCnt == 0 || preSqCnt > batchHandle.buffer.bufferCapacity) {
@@ -657,7 +657,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(RoceBatchHa
     return HCOMM_SUCCESS;
 }
 
-__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollBatchCq(RoceBatchHandle& batchHandle, uint32_t expectIdx)
+__aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollBatchCq(UbcBatchHandle& batchHandle, uint32_t expectIdx)
 {
     auto* chnlPtr = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
     uint32_t ret = PollCq(chnlPtr, expectIdx, batchHandle.buffer.buffer);
@@ -670,7 +670,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollBatchCq(RoceBatchH
 }
 
 template <pipe_t pipe>
-__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Drain(RoceBatchHandle& batchHandle)
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Drain(UbcBatchHandle& batchHandle)
 {
     (void)pipe;
     static_assert(sizeof(RoceCqeEntry) <= HCOMM_ROCE_WQEBB_SIZE, "Batch Drain CQE scratch space must fit in one WQEBB");

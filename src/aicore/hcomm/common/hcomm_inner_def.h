@@ -293,6 +293,11 @@ typedef struct {
 } MultiChannelEntity;
 
 typedef struct {
+    uint32_t lKey;
+    uint32_t rKey;
+} RoceMrKey;
+
+typedef struct {
     LocalTensor<uint32_t> buffer;
     uint32_t bufferCapacity;
 } BatchBuffer;
@@ -302,19 +307,12 @@ typedef struct {
     SqContext sqContext;
     CqContext cqContext;
     BatchQueueCursor cursor;
-    BatchRemoteInfo remoteInfo;
+    union {
+        BatchRemoteInfo remoteInfo;
+        RoceMrKey mrKey;
+    };
     BatchBuffer buffer;
 } UbcBatchHandle;
-
-typedef struct {
-    ChannelHandle channelHandle;
-    SqContext sqContext;
-    CqContext cqContext;
-    BatchQueueCursor cursor;
-    BatchBuffer buffer;
-    uint32_t lKey;
-    uint32_t rKey;
-} RoceBatchHandle;
 
 typedef struct {
     UbcBatchHandle handle;
@@ -352,28 +350,6 @@ struct HandleTraits<UbcMultiBatchHandle> {
     using BatchHandleType = UbcBatchHandle;
     using ChannelType = MultiChannelHandle;
 };
-
-template <>
-struct HandleTraits<RoceBatchHandle> {
-    using BatchHandleType = RoceBatchHandle;
-    using ChannelType = ChannelHandle;
-};
-
-template <CommProtocol protocol, typename T>
-struct HcommBatchHandleTraits;
-
-template <typename T>
-struct HcommBatchHandleTraits<COMM_PROTOCOL_UB_CTP, T> {
-    using BatchHandleType = BatchHandle<T>;
-};
-
-template <>
-struct HcommBatchHandleTraits<COMM_PROTOCOL_ROCE, ChannelHandle> {
-    using BatchHandleType = RoceBatchHandle;
-};
-
-template <CommProtocol protocol, typename T>
-using HcommBatchHandle = typename HcommBatchHandleTraits<protocol, T>::BatchHandleType;
 
 // RoCE WQE, CQE, DB struct
 typedef struct {
