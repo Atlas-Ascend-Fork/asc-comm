@@ -102,7 +102,8 @@ struct AsccommCcuProfApi {       // ← dlopen("libprofapi.so")
     msprofRegisterCallback       // 注册开关回调
     msprofRegTypeInfo            // 注册上报类型（14/15/16）
     msprofReportAdditionalInfo   // 发送 payload
-    msprofReportApi              // 预留（API 耗时通道，当前未用）
+    msprofReportApi              // Node API 耗时条（type=LAUNCH）
+    msprofReportCompactInfo      // 节点基本信息（type=BASIC_INFO）
     msprofStr2Id                 // 字符串 → hash itemId
     msprofSysCycleTime           // 统一时钟（begin/end/时间戳）
 };
@@ -112,7 +113,7 @@ struct AsccommCcuRuntimeApi {    // ← dlopen("libruntime.so")
 };
 ```
 
-- `LoadCcuProfApi()`：`dlopen("libprofapi.so", RTLD_NOW | RTLD_GLOBAL)`，5 个符号必须
+- `LoadCcuProfApi()`：`dlopen("libprofapi.so", RTLD_NOW | RTLD_GLOBAL)`，7 个符号必须
   全部解析成功，否则整体返回 false；
 - `LoadCcuRuntimeApi()`：先 `RTLD_NOLOAD` 复用进程内已加载的 libruntime（训练进程必然
   已加载，避免重复 dlopen），失败再正常 dlopen；
@@ -262,12 +263,49 @@ itemId 回退标识）、`kernelName`（kernel 名字符串，itemId 首选来�
 ```text
 ReportCcuDataPlaneAfterLaunch(ctx)
   ├─ IsCcuProfReportReady() 再次确认（START/STOP 可能已切换）
+  ├─ ReportCcuNodeApiAndBasicInfo(ctx, gettid())   ← Node粒度, 不依赖taskId/streamId
   ├─ g_asccommCcuRuntimeApi.rtGetTaskIdAndStreamID == nullptr?
   │    └─ 首次: LoadCcuRuntimeApi()，失败 → skip（打日志）
   ├─ rtGetTaskIdAndStreamID(&taskId, &streamId)
   │    失败 → skip（打日志，不影响 launch 返回值）
-  └─ ReportCcuTaskInfo(ctx, streamId, taskId, gettid())
+  ├─ ReportCcuTaskInfo(ctx, streamId, taskId, gettid())        ← type 14
+  └─ ReportCcuWaitSignalInfo / ReportCcuGroupInfo               ← type 15/16, 空值填充
 ```
+
+### 6.2a `ReportCcuNodeApiAndBasicInfo(...)` —— Node 粒度 API 耗时条与节点基本信息
+
+对齐 hcomm `DfxProfilingHandler::ReportNodeApi` / `ReportNodeBasicInfo`（由
+`ReportHostApi` 统一触发的那对上报）。直驱路径的"API"即 `asccomm_ccu_host_kernel_launch`
+本身，`beginTime/endTime` 为 launch 前后采样值。**门控统一挂 L1**（与 type 14 同条件）；
+hcomm 侧 NodeApi 在仅 L0 时也上报，asc-comm 为复用现有采样条件收敛为 L1-only，仅开 L0
+时无此两类数据（已知口径差）。
+
+上报 1 —— Node API 耗时条（`MsprofApi` → `msprofReportApi`）：
+
+| 字段 | 取值 |
+| --- | --- |
+| `level` | `MSPROF_REPORT_NODE_LEVEL`(10000) |
+| `type` | `MSPROF_REPORT_NODE_LAUNCH_TYPE`(5) |
+| `threadId` | `syscall(SYS_gettid)` |
+| `beginTime` / `endTime` | launch 前后采样值（`msprofSysCycleTime`） |
+| `itemId` | 与 type 14 相同规则（kernel 名优先，空名回退地址 hash） |
+
+上报 2 —— 节点基本信息（`MsprofCompactInfo` → `msprofReportCompactInfo`）：
+
+| 字段 | 取值 |
+| --- | --- |
+| `level` | `MSPROF_REPORT_NODE_LEVEL`(10000) |
+| `type` | `MSPROF_REPORT_NODE_BASIC_INFO_TYPE`(0) |
+| `threadId` | `syscall(SYS_gettid)` |
+| `dataLen` | `sizeof(MsprofNodeBasicInfo)` |
+| `timeStamp` | `ctx.endTime` |
+| `nodeBasicInfo.opName` / `opType` | itemId（与 type 14 同规则） |
+| `nodeBasicInfo.taskType` | `MSPROF_GE_TASK_TYPE_HCCL` |
+| `nodeBasicInfo.blockDim` / `opFlag` | 0（与 hcomm 一致） |
+
+结构定义（`MsprofApi`/`MsprofCompactInfo`/`MsprofNodeBasicInfo`）全部来自公共头
+`aprof_pub.h`，无需本地复制；上报顺序 NodeApi → NodeBasicInfo → type 14（先画 API 条、
+再挂节点标识、最后补 task 详情）。失败只打日志，不影响 launch 返回值。
 
 ### 6.3 `ReportCcuTaskInfo(...)` —— type 14 payload 组装与发送
 
@@ -293,6 +331,34 @@ ReportCcuDataPlaneAfterLaunch(ctx)
 发送：`msprofReportAdditionalInfo(1, &reporterData, sizeof(MsprofAdditionalInfo))`，
 返回非 0 只打 `ASCCOMM_CCU_LOG_ERROR`，**不影响 launch 返回值**。
 
+### 6.3a `ReportCcuWaitSignalInfo / ReportCcuGroupInfo` —— type 15/16 payload 组装与发送
+
+两个 payload 的公共字段与 type 14 同源（`CcuAdditionalInfoCommonFields`：itemId =
+kernel 名 hash、streamId/taskId = runtime 查询值、dieId = die mask 换算、timeStamp =
+endTime、threadId = gettid），业务字段按需求以**默认空值**填充：
+
+**type 15 `ccu_wait_signal_info`（`MsprofCcuWaitSignalInfo`）独有字段：**
+
+| 字段 | 取值 | 说明 |
+| --- | --- | --- |
+| `ckeId` | `INVALID_UINT`(0xFFFFFFFF) | 无来源 → 非法值 |
+| `mask` | 0 | 无来源 → 空值 |
+| `channelId[16]` | 全 `INVALID_VALUE_CHANNELID`(0xFFFF) | 与 hcomm `CcuProfilingInfo` 初始化一致 |
+| `remoteRankId[16]` | 全 `INVALID_VALUE_RANKID`(0xFFFFFFFF) | 同上 |
+| `groupName/rankId/ranksize/missionId/instrId` | 与 type 14 相同非法值 | 无来源 |
+
+**type 16 `ccu_group_info`（`MsprofCcuGroupInfo`）独有字段：**
+
+| 字段 | 取值 | 说明 |
+| --- | --- | --- |
+| `reduceOpType` / `inputDataType` / `outputDataType` | `INVALID_TYPE_VALUE`(0xFF) | 无来源 → 非法值 |
+| `dataSize` | 0 | 无来源 → 空值 |
+| `channelId[16]` / `remoteRankId[16]` | 同 type 15 | 无来源 → 非法值 |
+| `groupName/rankId/ranksize/missionId/instrId` | 与 type 14 相同非法值 | 无来源 |
+
+发送通道与失败处理同 type 14（`msprofReportAdditionalInfo`，失败只记日志）。上报顺序：
+type 14 → type 15 → type 16，三条记录通过相同 itemId 关联为同一次 launch。
+
 **itemId 说明**：`asccomm_ccu_host_kernel_launch` 已扩展 `const char* kernel_name` 入参
 （编译器直调转义传入 kernel 函数名字符串）。`kernel_name` 非空时 itemId 为
 `msprofStr2Id(kernel_name)`——msprof 按 Str2Id 的字符串表呈现语义名，且与 hcomm 标准
@@ -300,9 +366,13 @@ ReportCcuDataPlaneAfterLaunch(ctx)
 为空（旧调用方 / 异常路径）时回退到 kernel 函数指针格式化字符串的 hash，此时 msprof
 界面呈现为地址形式的标识而非语义名。
 
-**type 15/16 暂不实现**：WaitCKE（ckeId/mask/channelId/remoteRankId）与 LoopGroup
-（reduceOpType/dataType/dataSize/channel 数组）在 asc-comm 直驱路径上均无数据来源
-（CCU kernel 的 taskArgs 协议中不含这些字段），按方案约定不伪造，第一版跳过。
+**type 15/16 以默认空值上报**：WaitCKE（`ccu_wait_signal_info`）与 LoopGroup
+（`ccu_group_info`）在 asc-comm 直驱路径上无业务字段来源（CCU kernel 的 taskArgs 协议中
+不含 ckeId/mask/reduceOp/dataType/dataSize/channel 等信息），按需求以**默认空值**填充上报
+——类型类字段填非法值（`INVALID_TYPE_VALUE`=0xFF、channelId=0xFFFF、remoteRankId=0xFFFFFFFF，
+与 hcomm `CcuProfilingInfo` 初始化约定一致），数值类字段填 0（dataSize/mask）。公共字段
+（itemId/streamId/taskId/dieId/threadId/timeStamp）与 type 14 同源。msprof 端这两个记录
+的业务明细呈现为 unknown/空，但记录本身存在且可与 type 14 通过相同 itemId 关联。
 
 ### 6.4 与 hcomm 路径的互斥关系
 
@@ -361,12 +431,18 @@ export ASCCOMM_CCU_PROF_DEBUG=1
 #   [ASCCOMM_CCU_PROF] StartCcuSubscribe: RegTypeInfo type=16(ccu_group_info) OK.
 #   [ASCCOMM_CCU_PROF] StartCcuSubscribe: ALL DONE, ..., CCU profiling ACTIVE.
 #   （每次 CCU kernel launch 成功后）
+#   [ASCCOMM_CCU_PROF] ReportCcuNodeApi: level=10000 type=5(MSPROF_REPORT_NODE_LAUNCH_TYPE) itemId=0x... beginTime=... endTime=... name=<kernel名>, ret=0.
+#   [ASCCOMM_CCU_PROF] ReportCcuNodeBasicInfo: level=10000 type=0(MSPROF_REPORT_NODE_BASIC_INFO_TYPE) itemId=0x... taskType=9(MSPROF_GE_TASK_TYPE_HCCL) timeStamp=... name=<kernel名>, ret=0.
 #   [ASCCOMM_CCU_PROF] ReportCcuTaskInfo: type=14 itemId=0x... streamId=N taskId=N dieId=N name=<kernel名>, ret=0.
+#   [ASCCOMM_CCU_PROF] ReportCcuWaitSignalInfo: type=15 itemId=0x... streamId=N taskId=N dieId=N name=<kernel名> (no-source fields filled with invalid defaults), ret=0.
+#   [ASCCOMM_CCU_PROF] ReportCcuGroupInfo: type=16 itemId=0x... streamId=N taskId=N dieId=N name=<kernel名> (no-source fields filled with invalid defaults), ret=0.
 #   （停止采集后）
 #   [ASCCOMM_CCU_PROF] StopCcuSubscribe: CCU profiling DEACTIVATED.
 ```
 
-**`ReportCcuTaskInfo ... ret=0` 出现即代表 payload 真正到达 profapi，链路闭环。**
+**`ReportCcuTaskInfo ... ret=0` 出现即代表 payload 真正到达 profapi，链路闭环**；
+NodeApi/NodeBasicInfo/WaitSignal/GroupInfo 各行同理，`ret=0` 即对应通道送达。
+启动阶段三条 `RegTypeInfo type=15/16` 的注册从此有了实际消费者。
 
 ### 7.4 日志异常排查对照表
 
@@ -375,6 +451,7 @@ export ASCCOMM_CCU_PROF_DEBUG=1
 | 只有 `Init OK`，无 `CommandHandle` | 注册成功但 profapi 未下发开关 | 采集是否真的开启；START 是否早于首次 launch（§4.2 时序） |
 | `CommandHandle` 有，`L1 not set` | 回调链路通，采集级别不含 L1 | 提高 msprof 采集级别 |
 | `Init FAILED: MsprofRegisterCallback ret=N` | 注册被拒 | 大概率 hcomm 已注册 moduleId=3，需确认 profapi 重复注册语义 |
+| `ReportCcuNodeApi / NodeBasicInfo ret!=0` | profapi 拒收 Node 通道 payload | 确认 libprofapi 版本含 `MsprofReportApi`/`MsprofReportCompactInfo`；检查 `MsprofApi`/`MsprofCompactInfo` 布局 |
 | `ReportCcuTaskInfo ... ret!=0` | profapi 拒收 payload | 检查 dataLen/结构布局与 SDK 版本匹配 |
 
 ## 8. 已知限制与后续演进
@@ -384,13 +461,19 @@ export ASCCOMM_CCU_PROF_DEBUG=1
 2. **`kernel_name` 为空时 itemId 回退为地址 hash**：launch 入参已支持 `kernel_name`
    （编译器直调自动传入），正常路径 msprof 可呈现语义名；旧调用方传 `nullptr` 时退化为
    地址 hash 标识；
-3. **type 15/16 未上报**：WaitCKE/LoopGroup 的字段在直驱路径无来源；后续若 kernel
-   参数协议扩展（携带 missionId/instrId/dataSize/channel 信息），可补充实现；
+3. **type 15/16 业务字段为默认空值**：WaitCKE/LoopGroup 的业务字段（ckeId/mask/
+   reduceOp/dataType/dataSize/channel 等）在直驱路径无来源，以非法值/0 填充上报（见
+   §6.3）；后续若 kernel 参数协议扩展（携带 missionId/instrId/dataSize/channel 信息），
+   可替换为真实值；
 4. **`missionId/instrId` 为非法值**：msprof 界面上 CCU task 无法按 mission/instr 细分；
 5. **模块级降级不可恢复**：`UNAVAILABLE` 后不再重试（避免每次 launch 都 dlopen）；
    若需要运行期重试语义，可将降级改为限频重试；
 6. **与 hcomm 的 moduleId 竞争**：同进程共存场景下 moduleId=3 的二次注册行为未定；
-   如确认冲突，需为 asc-comm 申请独立 moduleId。
+   如确认冲突，需为 asc-comm 申请独立 moduleId；
+7. **NodeApi/NodeBasicInfo 仅 L1 上报**：hcomm 侧 NodeApi 在仅开 L0 时也上报
+   （`enableHostApi_` 门控，任意 START 即开）；asc-comm 为复用现有 begin/end 采样条件
+   （仅 L1 时采样）统一挂 L1。仅开 L0 的场景 asc-comm 无 API 耗时条；如需对齐 hcomm
+   口径，需增加独立 `enableHostApi` 开关并把采样条件提前。
 
 ## 9. 代码位置索引
 
@@ -408,5 +491,6 @@ export ASCCOMM_CCU_PROF_DEBUG=1
 | 初始化注册 | `InitCcuProfilingOnce()` |
 | 开关处理 | `AsccommCcuProfiling::CommandHandle/StartCcuSubscribe/StopCcuSubscribe` |
 | 上报入口 | `IsCcuProfReportReady()` / `ReportCcuDataPlaneAfterLaunch()` |
-| payload 组装 | `ReportCcuTaskInfo()` |
+| Node 粒度上报 | `ReportCcuNodeApiAndBasicInfo()`（API 耗时条 + 节点基本信息） |
+| payload 组装 | `ReportCcuTaskInfo()`（type 14）/ `ReportCcuWaitSignalInfo()`（type 15，空值填充）/ `ReportCcuGroupInfo()`（type 16，空值填充）/ `CcuAdditionalInfoCommonFields`（15/16 公共字段） |
 | launch 埋点 | `LaunchCcuKernelWithStream()`（`HcommCcuKernelLaunch` 前后） |
