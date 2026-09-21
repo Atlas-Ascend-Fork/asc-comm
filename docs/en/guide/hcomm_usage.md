@@ -138,15 +138,15 @@ ret = hcomm.Drain(multiBatchHandle);
 
 - Only the `COMM_PROTOCOL_UBC_CTP` path on Ascend 950 is supported. `COMM_PROTOCOL_ROCE` is not supported.
 - The batch workflow does not require `Init`. Its UB workspace is bound by `MakeBatchHandle`.
-- The workspace start address must be 32-byte aligned. `batchBufferLen` must be at least 64 bytes and must not exceed the actual capacity of `batchBuffer`.
-- Each batch `ReadNbi` or `WriteNbi` task uses 64 bytes of workspace. Each batch `WriteWithNotifyNbi` task uses 128 bytes. The total workspace used by one batch must not exceed `batchBufferLen`, and the number of 64-byte task slots used must be smaller than the task-submission capacity determined when channel resources are created on the Host; otherwise, `BatchCommit` returns `-1`.
+- The workspace start address must be 32-byte aligned. `batchBufferLen` must be at least 128 bytes and must not exceed the actual capacity of `batchBuffer`. In addition to the workspace required by tasks, allocate an extra 64 bytes for CQE processing. The effective task capacity is therefore `batchBufferLen / 64 - 1`, rounded down.
+- Each batch `ReadNbi` or `WriteNbi` task uses 64 bytes of workspace. Each batch `WriteWithNotifyNbi` task uses 128 bytes. A batch must fit within both the effective task capacity and the SQ depth; filling the SQ exactly is allowed.
 - Batch interfaces require `config.inlineEn = 0`, and `config.cqe` must be `0` or `1`.
 - The default `URMA_DEFAULT_CFG` sets `cqe` to `1`, so every task produces a completion record. If all submitted tasks use `cqe = 0`, batch `Drain` returns directly and does not confirm that the tasks have completed.
 - If the ordering and fence settings ensure that the final task completes after all preceding tasks, only the final task needs `cqe = 1` before batch `Drain` is used to confirm completion of the batch.
 - Remote destination ranges for batch `WriteNbi` and `WriteWithNotifyNbi`, and remote source ranges for batch `ReadNbi`, must belong to the remote registered memory selected when creating or configuring the BatchHandle.
 - The remote destination range and `notifyAddr` of batch `WriteWithNotifyNbi` must belong to the same remote registered memory.
 - The current batch must contain at least one task before `BatchCommit`. All tasks in the current batch must be submitted before batch `Drain`.
-- Multiple `BatchCommit` calls can be followed by one batch `Drain`, but accumulated incomplete tasks and completion records must not exceed their corresponding configured channel capacities.
+- Multiple `BatchCommit` calls can be followed by one batch `Drain`. If channel capacity is insufficient, `BatchCommit` preserves the current unsubmitted batch and returns failure. The caller must choose a suitable CQE distribution and avoid too many consecutive WQEBBs that do not generate CQEs.
 - While using a BatchHandle, exclusively own its associated channel resources. Do not mix ordinary interfaces or use another BatchHandle concurrently.
 - The caller manages the lifetimes of the BatchHandle, channel resources, `MultiChannelHandle`, and batch workspace. Do not release or concurrently reuse them until all batch operations are complete.
 

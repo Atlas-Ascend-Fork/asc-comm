@@ -46,8 +46,9 @@ __aicore__ inline BatchHandle<T> MakeBatchHandle(
 - 单通道模式下，`remoteAddr`非空时必须位于一个远端注册buffer内。后续批量操作访问的远端地址必须属于该注册buffer。
 - 多通道模式下，通过`GetHandleRef`选择逻辑通道和远端注册内存。
 - `buff`起始地址必须按32字节对齐。
-- `buffLen`不能小于64字节，且不能超过`buff.GetSize() * sizeof(U)`。不能被64整除的剩余空间不可用。
-- 一个批次实际占用的64字节任务槽位数量必须小于通道的任务提交容量，否则`BatchCommit`返回`-1`。该容量在Host侧创建通道资源时确定。
+- `buffLen`不能小于128字节，且不能超过`buff.GetSize() * sizeof(U)`。不能被64整除的剩余空间不可用。
+- 除任务所需工作区外，`buffLen`还必须额外包含64字节供CQE处理使用。因此可用于任务的64字节槽位数为`buffLen / 64 - 1`（向下取整）。
+- 一个批次实际占用的64字节任务槽位数量不能大于通道的SQ深度，允许恰好占满。通道容量不足时，`BatchCommit`返回`-1`。
 - BatchHandle、通道资源、`MultiChannelHandle`和`buff`的生命周期由调用方负责。BatchHandle使用完成前，不得释放或并发复用这些资源。
 - 使用BatchHandle期间必须独占其关联的通道资源，不能交叉调用普通`ChannelHandle`接口，也不能并发使用其他BatchHandle。
 - BatchHandle应作为不透明句柄使用，调用方不应直接访问或修改其成员。

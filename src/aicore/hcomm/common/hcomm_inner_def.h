@@ -294,6 +294,7 @@ typedef struct {
 
 typedef struct {
     LocalTensor<uint32_t> buffer;
+    LocalTensor<uint32_t> cqeScratch;
     uint32_t bufferCapacity;
 } BatchBuffer;
 

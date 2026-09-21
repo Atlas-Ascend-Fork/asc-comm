@@ -46,8 +46,9 @@ Returns the `BatchHandle<T>` corresponding to `channel`. If the multi-channel ha
 - In single-channel mode, a non-null `remoteAddr` must be within a remote registered buffer. Remote addresses used by subsequent batch operations must belong to that buffer.
 - In multi-channel mode, use `GetHandleRef` to select a logical channel and remote registered memory.
 - The start address of `buff` must be 32-byte aligned.
-- `buffLen` must be at least 64 bytes and must not exceed `buff.GetSize() * sizeof(U)`. Any remainder smaller than 64 bytes is unusable.
-- The number of 64-byte task slots actually used by one batch must be smaller than the channel task-submission capacity; otherwise, `BatchCommit` returns `-1`. This capacity is determined when channel resources are created on the Host.
+- `buffLen` must be at least 128 bytes and must not exceed `buff.GetSize() * sizeof(U)`. Any remainder smaller than 64 bytes is unusable.
+- In addition to the workspace required by tasks, `buffLen` must include an extra 64 bytes for CQE processing. The number of 64-byte slots available to tasks is therefore `buffLen / 64 - 1`, rounded down.
+- The number of 64-byte task slots used by one batch must not exceed the SQ depth. Filling the SQ exactly is allowed. `BatchCommit` returns `-1` when channel capacity is insufficient.
 - The caller manages the lifetimes of the BatchHandle, channel resources, `MultiChannelHandle`, and `buff`. Do not release or concurrently reuse them before BatchHandle operations are complete.
 - While using a BatchHandle, exclusively own its associated channel resources. Do not mix ordinary `ChannelHandle` operations or use another BatchHandle concurrently.
 - Treat the BatchHandle as opaque. Do not access or modify its members directly.
