@@ -25,18 +25,11 @@ add_executable(multi_jetty_batch_perf main.cpp simt_kernel.cpp)
 set_target_properties(multi_jetty_batch_perf PROPERTIES LINKER_LANGUAGE ASC)
 target_compile_definitions(multi_jetty_batch_perf PRIVATE MULTI_JETTY_MATRIX_BATCH=${MULTI_JETTY_MATRIX_BATCH})
 set_property(SOURCE simt_kernel.cpp APPEND PROPERTY COMPILE_DEFINITIONS USE_SIMT)
-# Bind this repository's public and internal Hcomm headers explicitly.
-get_filename_component(comm_source_root "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
-set(comm_headers "${CMAKE_CURRENT_BINARY_DIR}/comm-headers")
-file(MAKE_DIRECTORY "${comm_headers}/include/adv_api" "${comm_headers}/impl/comm_api/aicore")
-file(COPY "${comm_source_root}/include/aicore/hcomm" DESTINATION "${comm_headers}/include/adv_api")
-file(COPY "${comm_source_root}/src/aicore/hcomm" DESTINATION "${comm_headers}/impl/comm_api/aicore")
-target_include_directories(multi_jetty_batch_perf BEFORE PRIVATE
-    "${comm_headers}/include/adv_api" "${CMAKE_CURRENT_SOURCE_DIR}"
+# Use the Hcomm headers installed by the asc-comm run package.
+target_include_directories(multi_jetty_batch_perf PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
     $ENV{ASCEND_HOME_PATH}/include
-    $<$<COMPILE_LANGUAGE:ASC>:$ENV{ASCEND_HOME_PATH}/asc/include/adv_api>)
-set_property(SOURCE simt_kernel.cpp APPEND PROPERTY COMPILE_DEFINITIONS
-    MULTI_JETTY_HCOMM_SIMT_HEADER="${comm_headers}/include/adv_api/hcomm/hcomm_simt.h")
+    $ENV{ASCEND_HOME_PATH}/asc/include/adv_api)
 target_link_directories(multi_jetty_batch_perf PRIVATE
     $ENV{ASCEND_HOME_PATH}/lib64
     $ENV{ASCEND_HOME_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/lib64

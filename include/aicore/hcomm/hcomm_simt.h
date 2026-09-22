@@ -17,7 +17,6 @@
 #define INCLUDE_ADV_API_HCOMM_HCOMM_SIMT_H
 
 #include <cstdint>
-#include <type_traits>
 
 #include "hcomm_common.h"
 
@@ -29,10 +28,6 @@
 
 namespace AscendC::simt {
 
-namespace detail {
-struct HcommUnboundGroup {};
-} // namespace detail
-
 /*!
  * @class Hcomm
  * @brief The SIMT counterpart of AscendC::Hcomm. It provides the same point-to-point
@@ -43,7 +38,7 @@ struct HcommUnboundGroup {};
  *          1) Create Hcomm object.
  *          2) Launch comm tasks asynchronously through the corresponding interface.
  *          3) Call the Drain interface (blocking) to wait for completion of the comm tasks.
- * @tparam commProtocol: The communication protocol to use, UBC_CTP supported as default.
+ * @tparam commProtocol: The communication protocol to use, UB_CTP supported as default.
  * @note Unlike the SIMD path, the doorbell is rung by copying a 128-byte DWQE rather than writing
  *       a scalar register. A deferred Write/Read occupies one SQ basic block, while an immediate
  *       Write/Read and the two-BB Notify/atomic WQEs occupy two.
@@ -51,7 +46,7 @@ struct HcommUnboundGroup {};
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
  * @note An Hcomm object remains lane-private. Non-batch interfaces are called by one lane. On a
- *       group-bound object, each batch posting API is collective: one lane plans the SQ range, every
+ *       batch overload with a Group argument, one lane plans the SQ range, every
  *       lane writes its final slot, and BatchCommit publishes after those writes are ready.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
  *       CQEs to release SQ space and retries the reservation. It returns -1 without changing the SQ
@@ -61,17 +56,11 @@ struct HcommUnboundGroup {};
  *       keep their queue state in different places: SIMD uses the counters in ChannelEntity, SIMT
  *       packs curHead and wqeCnt into the u64 at SqContext::ubJfs::headAddr.
  */
-template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP, typename Group = detail::HcommUnboundGroup>
+template <CommProtocol commProtocol = COMM_PROTOCOL_UBC_CTP>
 class Hcomm {
 public:
     __simt_callee__ inline Hcomm();
 
-    /*!
-     * @brief Construct Hcomm and bind it to a cooperative group.
-     * @param [in] group: The cooperative group used by collective batch submission.
-     * @note Binding a group does not change the behavior of non-batch per-lane APIs.
-     */
-    __simt_callee__ inline explicit Hcomm(const Group& group);
     __simt_callee__ inline ~Hcomm();
 
     /*!
@@ -79,7 +68,7 @@ public:
      * @param [in] buff: Shared UB workspace for a group batch, or nullptr for a single-lane object.
      * @param [in] len: Workspace length. A group batch needs at least three uint32_t words.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Every posting lane calls Init on its own Hcomm object. All lanes in a bound group pass
+     * @note Every posting lane calls Init on its own Hcomm object. All lanes in a group pass
      *       the same workspace because the collective batch posting call exchanges reservation state.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
@@ -102,6 +91,18 @@ public:
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb = 1U);
 
     /*!
+     * @brief Create a batch for the explicitly supplied cooperative group.
+     * @param [in] group: Group whose lanes own this batch; Hcomm does not retain it.
+     * @note Pass the same group to every posting call and BatchCommit for this handle.
+     *       The no-group overloads are for single-lane handles. Group size 1 retains that path.
+     *       Group membership, lane ranks and size must remain unchanged for the handle's lifetime.
+     */
+    template <typename Group>
+    __simt_callee__ inline BatchHandle<ChannelHandle> MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb,
+        const Group& group);
+
+    /*!
      * @brief The task launching interface of the Write point-to-point communication operator.
      *        (task content: Write data of length len from src to dst through the specified channel.)
      * @tparam commit: true/false true: commit the task immediately; false: do not commit immediately.
@@ -119,6 +120,10 @@ public:
     template <auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len);
+
+    template <auto const& config = URMA_DEFAULT_CFG, typename Group>
+    __simt_callee__ inline int32_t WriteNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group);
 
     /*!
      * @brief The task launching interface of the inline Write point-to-point communication operator.
@@ -140,6 +145,10 @@ public:
     template <typename T, auto const& config = URMA_INLINE_CFG>
     __simt_callee__ inline int32_t WriteValueNbi(UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value);
 
+    template <typename T, auto const& config = URMA_INLINE_CFG, typename Group>
+    __simt_callee__ inline int32_t WriteValueNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value, const Group& group);
+
     /*!
      * @brief The task launching interface of the Read point-to-point communication operator.
      *        (task content: Read data of length len from src to dst through the specified channel.)
@@ -158,6 +167,10 @@ public:
     template <auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t ReadNbi(
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len);
+
+    template <auto const& config = URMA_DEFAULT_CFG, typename Group>
+    __simt_callee__ inline int32_t ReadNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group);
 
     /*!
      * @brief The task launching interface of the Write-with-notify point-to-point communication operator.
@@ -181,6 +194,11 @@ public:
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
         uint64_t notifyVal);
 
+    template <auto const& config = URMA_DEFAULT_CFG, typename Group>
+    __simt_callee__ inline int32_t WriteWithNotifyNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+        uint64_t notifyVal, const Group& group);
+
     /*!
      * @brief The task launching interface of the Fetch-and-add point-to-point communication operator.
      * @tparam T: The data type of the atomic operation.
@@ -198,6 +216,10 @@ public:
     template <typename T, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t AtomicFAA(
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal);
+
+    template <typename T, auto const& config = URMA_DEFAULT_CFG, typename Group>
+    __simt_callee__ inline int32_t AtomicFAA(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal, const Group& group);
 
     /*!
      * @brief The task launching interface of the Compare-and-swap point-to-point communication operator.
@@ -219,14 +241,22 @@ public:
     __simt_callee__ inline int32_t AtomicCAS(
         UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal);
 
+    template <typename T, auto const& config = URMA_DEFAULT_CFG, typename Group>
+    __simt_callee__ inline int32_t AtomicCAS(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal,
+        const Group& group);
+
     /*!
      * @brief Publish the SQ range prepared by the preceding batch posting call.
-     * @note On a group-bound object this is collective: every group lane must call it, and the
+     * @note The overload with a Group argument is collective: every group lane must call it, and the
      *       current implementation requires exactly one prepared WQE per lane.
      * @note The final item must request a CQE. If the preceding posting call fails to reserve SQ
      *       space, the caller must not call BatchCommit for that batch.
      */
     __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle);
+
+    template <typename Group>
+    __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle, const Group& group);
 
     /*!
      * @brief Block and drain comm tasks submitted on channel until finish processing.
@@ -267,23 +297,18 @@ public:
      *       Resource/identity/CQE/count/timeout evidence is retained in the workspace for diagnosis.
      */
     __simt_callee__ inline int32_t InitCompletionSet(
-        UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count,
-        __gm__ uint8_t* workspace, uint64_t bytes);
+        UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count, __gm__ uint8_t* workspace,
+        uint64_t bytes);
     __simt_callee__ inline int32_t PrepareCompletion(
         UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t wqeCount, uint32_t bbCount);
-    __simt_callee__ inline int32_t Progress(
-        UbcCtpCompletionSet& set, uint32_t budget, uint32_t& processed);
+    __simt_callee__ inline int32_t Progress(UbcCtpCompletionSet& set, uint32_t budget, uint32_t& processed);
     __simt_callee__ inline int32_t WaitCompletion(
         UbcCtpCompletionSet& set, uint32_t channelIndex, uint32_t maxIdlePolls = 1000000U);
     __simt_callee__ inline int32_t Drain(UbcCtpCompletionSet& set);
 
 private:
-    Group group_;
     HcommImpl<commProtocol> impl_;
 };
-
-template <typename Group>
-Hcomm(const Group&) -> Hcomm<COMM_PROTOCOL_UBC_CTP, Group>;
 
 /*!
  * @brief Resolve the base address of a locally registered buffer on the channel.
