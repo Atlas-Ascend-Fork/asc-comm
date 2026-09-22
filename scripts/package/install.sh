@@ -325,7 +325,8 @@ is_allowed_path()
     local path=$1
     case "${path}" in
         asc/include/adv_api/*/*.h|asc/impl/adv_api/detail/*/*.h|\
-        asc/include/comm_api/aicore/*/*.h|asc/impl/comm_api/aicore/*/*.h)
+        asc/include/comm_api/aicore/*/*.h|asc/impl/comm_api/aicore/*/*.h|\
+        asc/include/comm_api/ccu/ccu_host_launch.h)
             ;;
         *)
             return 1
@@ -342,6 +343,7 @@ is_allowed_directory_path()
     case "${path}" in
         asc/include/adv_api/*|asc/impl/adv_api/detail/*|\
         asc/include/comm_api|asc/include/comm_api/aicore|asc/include/comm_api/aicore/*|\
+        asc/include/comm_api/ccu|\
         asc/impl/comm_api|asc/impl/comm_api/aicore|asc/impl/comm_api/aicore/*)
             ;;
         *)
@@ -429,6 +431,9 @@ collect_managed_directories()
                 managed_root="asc/impl/adv_api/detail/${module}"
                 ;;
             asc/include/comm_api/aicore/*)
+                managed_root="asc/include/comm_api"
+                ;;
+            asc/include/comm_api/ccu/ccu_host_launch.h)
                 managed_root="asc/include/comm_api"
                 ;;
             asc/impl/comm_api/aicore/*)

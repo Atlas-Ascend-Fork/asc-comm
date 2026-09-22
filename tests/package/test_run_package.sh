@@ -178,20 +178,21 @@ while IFS= read -r -d '' source_file; do
         "${EXTRACT_DIR}/payload/asc/impl/comm_api/aicore/ain/${relative_path}"
 done < <(find "${PROJECT_ROOT}/src/aicore/ain" -type f -name '*.h' -print0 | sort -z)
 
-RELATIVE_DETAIL_INCLUDE_COUNT=0
+RELATIVE_IMPL_INCLUDE_COUNT=0
 while IFS= read -r -d '' source_file; do
     relative_path=${source_file#"${PROJECT_ROOT}/include/aicore/hcomm/"}
     packaged_header="${EXTRACT_DIR}/payload/asc/include/adv_api/hcomm/${relative_path}"
     while IFS= read -r include_path; do
         case "${include_path}" in
-            ../../../impl/adv_api/detail/*)
-                [[ -f "$(dirname -- "${packaged_header}")/${include_path}" ]]
-                RELATIVE_DETAIL_INCLUDE_COUNT=$((RELATIVE_DETAIL_INCLUDE_COUNT + 1))
+            ../../../impl/comm_api/aicore/hcomm/*)
+                relative_path=${include_path#../../../impl/comm_api/aicore/hcomm/}
+                [[ -f "${EXTRACT_DIR}/payload/asc/impl/adv_api/detail/hcomm/${relative_path}" ]]
+                RELATIVE_IMPL_INCLUDE_COUNT=$((RELATIVE_IMPL_INCLUDE_COUNT + 1))
                 ;;
         esac
     done < <(awk -F '"' '/^[[:space:]]*#[[:space:]]*include[[:space:]]*"/ {print $2}' "${packaged_header}")
 done < <(find "${PROJECT_ROOT}/include/aicore/hcomm" -type f -name '*.h' -print0 | sort -z)
-[[ ${RELATIVE_DETAIL_INCLUDE_COUNT} -gt 0 ]]
+[[ ${RELATIVE_IMPL_INCLUDE_COUNT} -gt 0 ]]
 
 mkdir -p \
     "${FAKE_CANN}/asc/include/adv_api/hcomm" \
@@ -255,6 +256,20 @@ done < <(find \
 grep -qx 'FormatVersion=3' "${FAKE_CANN}/var/asc-comm-dev-patch/state.info"
 [[ -f "${FAKE_CANN}/var/asc-comm-dev-patch/baseline/directories.tsv" ]]
 [[ -f "${FAKE_CANN}/var/asc-comm-dev-patch/baseline/links.tsv" ]]
+
+# An incoming payload without a tracked CCU header removes it from the active patch.
+TRACKED_CCU_PATH="asc/include/comm_api/ccu/ccu_host_launch.h"
+PATCH_STATE="${FAKE_CANN}/var/asc-comm-dev-patch"
+chmod 750 "${FAKE_CANN}/asc/include/comm_api"
+mkdir -p "${FAKE_CANN}/asc/include/comm_api/ccu"
+printf 'tracked content\n' > "${FAKE_CANN}/${TRACKED_CCU_PATH}"
+chmod 640 "${PATCH_STATE}/active.manifest.sha256" "${PATCH_STATE}/baseline/manifest.tsv"
+(cd "${FAKE_CANN}" && sha256sum "${TRACKED_CCU_PATH}") >> "${PATCH_STATE}/active.manifest.sha256"
+printf 'absent\t%s\n' "${TRACKED_CCU_PATH}" >> "${PATCH_STATE}/baseline/manifest.tsv"
+chmod 440 "${PATCH_STATE}/active.manifest.sha256" "${PATCH_STATE}/baseline/manifest.tsv"
+run_package --full --install-path="${FAKE_CANN}"
+[[ ! -e "${FAKE_CANN}/${TRACKED_CCU_PATH}" ]]
+! grep -Fq "${TRACKED_CCU_PATH}" "${PATCH_STATE}/active.manifest.sha256"
 
 # Missing managed links are protected like modified managed files.
 chmod 750 "${FAKE_CANN}/asc/include/comm_api/aicore"
