@@ -12,6 +12,7 @@
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
 #include "hcomm/common/ccu_exception.h"
+#include "ccu/hcomm/ccu_utils.hpp"
 
 namespace asc {
 namespace ccu_rep {
@@ -21,7 +22,16 @@ condition::condition(ccu_rep_context* context, ccu_relational_operator<variable,
     std::string label = "Condition";
 }
 
-condition::~condition() { append_to_context(context_, end_label_); }
+condition::~condition()
+{
+    try {
+        append_to_context(context_, end_label_);
+    } catch (const ::AscendC::ccu::detail::ccu_exception& exception) {
+        HCCL_ERROR("condition dtor append to context failed: %s", exception.what());
+    } catch (...) {
+        HCCL_ERROR("condition dtor append to context failed: unknown exception");
+    }
+}
 
 bool condition::check() const { return !is_executed_; }
 

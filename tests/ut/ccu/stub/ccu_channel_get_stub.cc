@@ -12,59 +12,50 @@
 
 #include "hcomm/common/ccu_device_context.h"
 
-// 本文件底部提供的 stub 入口（ascCustom 槽 0：返回实体借用地址）
-extern "C" int32_t HcommCcuGetChannelEntity(ChannelHandle channel, uint64_t* channelEntityPtr);
-
 namespace asc {
 namespace {
 
-HcommCcuChannelEntity channelEntityStub{};
-HcommResult queryResultStub = HCCL_SUCCESS;
-bool channelEntityStubConfigured = false;
+HcommCcuChannelPod channelPodStub{};
+int32_t queryResultStub = HCCL_SUCCESS;
+bool channelPodStubConfigured = false;
+
+int32_t HcommCcuChannelQueryStubFn(ChannelHandle, HcommCcuChannelPod* channelPod)
+{
+    if (channelPod == nullptr || !channelPodStubConfigured) {
+        return HCCL_E_PTR;
+    }
+    if (queryResultStub != HCCL_SUCCESS) {
+        return queryResultStub;
+    }
+
+    *channelPod = channelPodStub;
+    return HCCL_SUCCESS;
+}
 
 } // namespace
 
-void SetHcommCcuChannelGetEntityStub(const HcommCcuChannelEntity& channelEntity)
+void SetHcommCcuChannelQueryStub(const HcommCcuChannelPod& channelPod)
 {
-    channelEntityStub = channelEntity;
+    channelPodStub = channelPod;
     queryResultStub = HCCL_SUCCESS;
-    channelEntityStubConfigured = true;
+    channelPodStubConfigured = true;
 
-    // 仅注入本 stub 关心的槽 0（getChannelEntity）
-    uint64_t ops[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]{};
-    ops[HCOMM_CCU_ASC_CUSTOM_CHANNEL_ENTITY] = reinterpret_cast<uint64_t>(HcommCcuGetChannelEntity);
-    asc::set_current_ccu_control_ops(ops);
+    HcommCcuControlOpsPod controlOps{};
+    controlOps.header.version = HCOMM_CCU_CONTROL_ABI_VERSION;
+    controlOps.header.magicWord = HCOMM_CCU_CONTROL_OPS_MAGIC_WORD;
+    controlOps.header.size = sizeof(HcommCcuControlOpsPod);
+    controlOps.channelQuery = &HcommCcuChannelQueryStubFn;
+    asc::set_current_ccu_control_ops(controlOps);
 }
 
-void SetHcommCcuChannelGetEntityStubResult(HcommResult result) { queryResultStub = result; }
+void SetHcommCcuChannelQueryStubResult(int32_t result) { queryResultStub = result; }
 
-void ResetHcommCcuChannelGetEntityStub()
+void ResetHcommCcuChannelQueryStub()
 {
-    channelEntityStub = {};
+    channelPodStub = {};
     queryResultStub = HCCL_SUCCESS;
-    channelEntityStubConfigured = false;
+    channelPodStubConfigured = false;
     asc::set_current_ccu_control_ops({});
 }
 
 } // namespace asc
-
-namespace asc {
-namespace {
-HcommCcuChannelEntity channelEntityStorage{}; // stub 的"实体"存储：借出该地址
-}
-} // namespace asc
-
-// 借用地址指向预置快照
-int32_t HcommCcuGetChannelEntity(ChannelHandle, uint64_t* channelEntityPtr)
-{
-    if (channelEntityPtr == nullptr || !asc::channelEntityStubConfigured) {
-        return static_cast<int32_t>(HCCL_E_PTR);
-    }
-    if (asc::queryResultStub != HCCL_SUCCESS) {
-        return static_cast<int32_t>(asc::queryResultStub);
-    }
-
-    asc::channelEntityStorage = asc::channelEntityStub;
-    *channelEntityPtr = reinterpret_cast<uint64_t>(&asc::channelEntityStorage);
-    return static_cast<int32_t>(HCCL_SUCCESS);
-}

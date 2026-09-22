@@ -12,13 +12,23 @@
 #include "hcomm/resource/representation/interface/ccu_interface_assist_v1.h"
 
 #include "hcomm/common/ccu_exception.h"
+#include "ccu/hcomm/ccu_utils.hpp"
 
 namespace asc {
 namespace ccu_rep {
 
 loop_block::loop_block(ccu_rep_context* context, std::string label) : context_(context), label_(label) {}
 
-loop_block::~loop_block() { set_current_block(context_, cur_active_block_); }
+loop_block::~loop_block()
+{
+    try {
+        set_current_block(context_, cur_active_block_);
+    } catch (const ::AscendC::ccu::detail::ccu_exception& exception) {
+        HCCL_ERROR("loop_block dtor set current block failed: %s", exception.what());
+    } catch (...) {
+        HCCL_ERROR("loop_block dtor set current block failed: unknown exception");
+    }
+}
 
 }; // namespace ccu_rep
 }; // namespace asc

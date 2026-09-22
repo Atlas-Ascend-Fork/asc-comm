@@ -503,7 +503,7 @@ void fix_references(
     const size_t instr_count = orig_vec.size();
     const uint16_t start_id = input.start_instr_id;
 
-    auto remap_global = [&](uint16_t global_id) -> uint16_t {
+    auto remap_global = [&input, &instr_count, &orig_to_out, &start_id](uint16_t global_id) -> uint16_t {
         // global_id 是"start_id + local_id" 编码的全局 id, 越界或未映射则原样返回.
         if (global_id < start_id)
             return global_id;

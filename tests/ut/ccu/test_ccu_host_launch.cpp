@@ -28,14 +28,11 @@ CcuKernelHandle g_observedLaunchKernel = 0;
 const void* g_observedLaunchArgs = nullptr;
 uint32_t g_observedLaunchArgNum = 0;
 uint32_t g_taskArgsNum = 3;
-const char* g_observedRegisterKernelName = nullptr;
 CcuResult g_kernelLaunchResult = CCU_SUCCESS;
 HcommResult g_threadAllocResult = HCCL_SUCCESS;
 HcommResult g_threadFreeResult = HCCL_SUCCESS;
 
 void DummyKernel(void*) {}
-
-constexpr const char* DUMMY_KERNEL_NAME = "DummyKernel";
 
 asccomm_launch_kernel_cfg MakeLaunchCfg()
 {
@@ -55,9 +52,8 @@ extern "C" CcuResult HcommCcuKernelRegisterStart(CcuInsHandle)
 }
 
 extern "C" CcuResult HcommCcuKernelRegister(
-    CcuInsHandle, uint32_t, const char* kernelName, const void*, const void**, uint32_t, CcuKernelHandle* kernelHandle)
+    CcuInsHandle, uint32_t, const char*, const void*, const void**, uint32_t, CcuKernelHandle* kernelHandle)
 {
-    g_observedRegisterKernelName = kernelName;
     if (kernelHandle == nullptr) {
         return CCU_E_PTR;
     }
@@ -118,7 +114,6 @@ protected:
         g_observedLaunchKernel = 0;
         g_observedLaunchArgs = nullptr;
         g_observedLaunchArgNum = 0;
-        g_observedRegisterKernelName = nullptr;
         g_taskArgsNum = 3;
         g_kernelLaunchResult = CCU_SUCCESS;
         g_threadAllocResult = HCCL_SUCCESS;
@@ -131,16 +126,10 @@ TEST_F(TestCcuHostLaunch, NullArgumentsReturnPtr)
     asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
     uint64_t args[] = {1, 2, 3};
 
-    EXPECT_EQ(asccomm_ccu_host_kernel_launch(nullptr, DUMMY_KERNEL_NAME, &cfg, args), CCU_E_PTR);
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, nullptr, args),
-        CCU_E_PTR);
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, nullptr),
-        CCU_E_PTR);
-    EXPECT_EQ(
-        HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, nullptr, args),
-        CCU_E_PTR);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(nullptr, &cfg, args), CCU_E_PTR);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), nullptr, args), CCU_E_PTR);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, nullptr), CCU_E_PTR);
+    EXPECT_EQ(HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), nullptr, args), CCU_E_PTR);
 }
 
 TEST_F(TestCcuHostLaunch, UnsupportedDieMaskReturnsPara)
@@ -149,14 +138,10 @@ TEST_F(TestCcuHostLaunch, UnsupportedDieMaskReturnsPara)
     uint64_t args[] = {1, 2, 3};
 
     cfg.ccu_schd.phy_die_mask = 0;
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_E_PARA);
 
     cfg.ccu_schd.phy_die_mask = 0x03;
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_E_PARA);
 
     HcommLaunchKernelCfg hcommCfg{};
     hcommCfg.ccuSchd.numBlocks = cfg.ccu_schd.num_blocks;
@@ -166,9 +151,7 @@ TEST_F(TestCcuHostLaunch, UnsupportedDieMaskReturnsPara)
     hcommCfg.ccuIns = cfg.ccu_ins;
     hcommCfg.stream = cfg.stream;
     hcommCfg.attrs = cfg.attrs;
-    EXPECT_EQ(
-        HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &hcommCfg, args),
-        CCU_E_PARA);
+    EXPECT_EQ(HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), &hcommCfg, args), CCU_E_PARA);
 }
 
 TEST_F(TestCcuHostLaunch, UnsupportedNumBlocksReturnsPara)
@@ -177,14 +160,10 @@ TEST_F(TestCcuHostLaunch, UnsupportedNumBlocksReturnsPara)
     uint64_t args[] = {1, 2, 3};
 
     cfg.ccu_schd.num_blocks = 0;
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_E_PARA);
 
     cfg.ccu_schd.num_blocks = 2;
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_E_PARA);
 }
 
 TEST_F(TestCcuHostLaunch, LaunchUsesAllocatedThreadAndHcommKernelLaunch)
@@ -192,9 +171,7 @@ TEST_F(TestCcuHostLaunch, LaunchUsesAllocatedThreadAndHcommKernelLaunch)
     asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
     uint64_t args[] = {1, 2, 3};
 
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_SUCCESS);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_SUCCESS);
     EXPECT_EQ(g_threadAllocCallCount, 1U);
     EXPECT_EQ(g_observedThreadEngine, COMM_ENGINE_CCU);
     EXPECT_EQ(g_observedThreadStream, cfg.stream);
@@ -203,19 +180,7 @@ TEST_F(TestCcuHostLaunch, LaunchUsesAllocatedThreadAndHcommKernelLaunch)
     EXPECT_NE(g_observedLaunchKernel, 0U);
     EXPECT_EQ(g_observedLaunchArgs, args);
     EXPECT_EQ(g_observedLaunchArgNum, 3U);
-    EXPECT_EQ(g_observedRegisterKernelName, DUMMY_KERNEL_NAME);
     EXPECT_EQ(g_threadFreeCallCount, 0U);
-}
-
-TEST_F(TestCcuHostLaunch, NullKernelNameIsForwardedToRegister)
-{
-    asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
-    uint64_t args[] = {1, 2, 3};
-
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), nullptr, &cfg, args), CCU_SUCCESS);
-    EXPECT_EQ(g_observedRegisterKernelName, nullptr);
-    EXPECT_EQ(g_kernelLaunchCallCount, 1U);
 }
 
 TEST_F(TestCcuHostLaunch, TooManyTaskArgsReturnsNotSupportBeforeThreadAllocation)
@@ -225,8 +190,7 @@ TEST_F(TestCcuHostLaunch, TooManyTaskArgsReturnsNotSupportBeforeThreadAllocation
     g_taskArgsNum = 14;
 
     EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_NOT_SUPPORT);
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_E_NOT_SUPPORT);
     EXPECT_EQ(g_threadAllocCallCount, 0U);
     EXPECT_EQ(g_kernelLaunchCallCount, 0U);
 }
@@ -238,9 +202,7 @@ TEST_F(TestCcuHostLaunch, ThreadAllocationFailureStopsLaunch)
     g_threadAllocResult = HCCL_E_UNAVAIL;
 
     // MakeLaunchCfg uses a fresh stream, so this test does not reuse a cached handle.
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_UNAVAIL);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_E_UNAVAIL);
     EXPECT_EQ(g_kernelLaunchCallCount, 0U);
     EXPECT_EQ(g_threadFreeCallCount, 0U);
 }
@@ -251,9 +213,7 @@ TEST_F(TestCcuHostLaunch, KernelLaunchFailureKeepsThreadAlive)
     uint64_t args[] = {1, 2, 3};
     g_kernelLaunchResult = CCU_E_RUNTIME;
 
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_RUNTIME);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_E_RUNTIME);
     EXPECT_EQ(g_kernelLaunchCallCount, 1U);
     EXPECT_EQ(g_threadFreeCallCount, 0U);
 }
@@ -263,12 +223,8 @@ TEST_F(TestCcuHostLaunch, RepeatedLaunchesAllocateAndFreeIndependentThreads)
     asccomm_launch_kernel_cfg cfg = MakeLaunchCfg();
     uint64_t args[] = {1, 2, 3};
 
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_SUCCESS);
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_SUCCESS);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_SUCCESS);
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &cfg, args), CCU_SUCCESS);
     EXPECT_EQ(g_threadAllocCallCount, 1U);
     EXPECT_EQ(g_kernelLaunchCallCount, 2U);
     EXPECT_EQ(g_threadFreeCallCount, 0U);
@@ -280,12 +236,9 @@ TEST_F(TestCcuHostLaunch, DifferentStreamsUseIndependentThreads)
     asccomm_launch_kernel_cfg secondCfg = MakeLaunchCfg();
     uint64_t args[] = {1, 2, 3};
 
+    EXPECT_EQ(asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &firstCfg, args), CCU_SUCCESS);
     EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &firstCfg, args),
-        CCU_SUCCESS);
-    EXPECT_EQ(
-        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &secondCfg, args),
-        CCU_SUCCESS);
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), &secondCfg, args), CCU_SUCCESS);
     EXPECT_EQ(g_threadAllocCallCount, 2U);
     EXPECT_EQ(g_kernelLaunchCallCount, 2U);
     EXPECT_EQ(g_threadFreeCallCount, 0U);

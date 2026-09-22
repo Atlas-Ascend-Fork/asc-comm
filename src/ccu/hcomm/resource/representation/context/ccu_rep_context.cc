@@ -64,7 +64,7 @@ void ccu_rep_context::append(std::shared_ptr<ccu_rep::ccu_rep_base> rep)
     current_block()->append(rep);
 }
 
-const std::vector<std::shared_ptr<ccu_rep::ccu_rep_base>>& ccu_rep_context::get_rep_sequence()
+const std::vector<std::shared_ptr<ccu_rep::ccu_rep_base>>& ccu_rep_context::get_rep_sequence() const
 {
     return main_block_->get_reps();
 }
@@ -72,7 +72,7 @@ const std::vector<std::shared_ptr<ccu_rep::ccu_rep_base>>& ccu_rep_context::get_
 // 按指令编号在任务的主 REP 列表里找它属于哪条 REP：每条 REP 占的指令条数
 // 不一样，编号落在某条的开始到结束范围内就是它；找不到返回 nullptr。
 // 找到 FUNC_BLOCK 这类壳 REP 时，调用方还要进壳里继续找
-std::shared_ptr<ccu_rep::ccu_rep_base> ccu_rep_context::get_rep_by_instr_id(uint16_t instr_id)
+std::shared_ptr<ccu_rep::ccu_rep_base> ccu_rep_context::get_rep_by_instr_id(uint16_t instr_id) const
 {
     for (const auto& rep : get_rep_sequence()) {
         CHK_PRT_RET(rep == nullptr, HCCL_ERROR("[%s]fail, rep is nullptr", __func__), nullptr);
@@ -91,7 +91,7 @@ std::shared_ptr<ccu_rep::ccu_rep_base> ccu_rep_context::get_rep_by_instr_id(uint
     return nullptr;
 }
 
-void ccu_rep_context::dump_represtation()
+void ccu_rep_context::dump_represtation() const
 {
     HCCL_INFO("Rep Count: %lu", get_rep_sequence().size());
     for (uint32_t index = 0; index < get_rep_sequence().size(); index++) {

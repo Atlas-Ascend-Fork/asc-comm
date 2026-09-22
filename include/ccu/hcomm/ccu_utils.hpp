@@ -15,7 +15,7 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "hcomm/hcomm_ccu_resource.h"
+#include "hcomm/hcomm_ccu_common.h"
 
 namespace AscendC {
 namespace ccu {

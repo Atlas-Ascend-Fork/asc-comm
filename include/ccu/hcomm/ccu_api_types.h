@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-#include "hcomm/hcomm_ccu_resource.h"
+#include "hcomm/hcomm_ccu_common.h"
 
 #ifdef __cplusplus
 extern "C" {
