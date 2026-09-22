@@ -14,14 +14,14 @@ bash run.sh --batch-size 1 --api write --jetty-counts 4
 # 对 8、32、64、128、256 分别重复上述两条，六组共72项。
 ```
 
-需要显式使用 `-O0` 调测时，构建和运行都加同一个选项：
+需要 `-O0` 时，只在编译命令中添加：
 
 ```bash
 bash build.sh --batch-size 64 -O0
-bash run.sh --batch-size 64 -O0
+bash run.sh --batch-size 64
 ```
 
-产物放在 `build/simt-matrix-bs64-o0`，默认构建不受影响。结果标记 `Optimization=O0`，不能作为优化版本的性能基线。构建前移除旧可执行文件，编译失败后不会误跑旧版本。
+共用 `build/simt-matrix-bs64`，运行最近一次成功构建的产物。不带 `-O0` 重新构建即恢复工具链默认选项；`-O0` 产物不用于性能验收。
 
 
 固定64B、每Jetty1024计时请求、warmup96按batch向上对齐、两设备。batch决定每Jetty的lane数；用户只指定batch，不再另配scope/control/lane参数。

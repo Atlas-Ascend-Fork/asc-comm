@@ -27,11 +27,9 @@ done
 [[ "$batch" =~ ^(1|8|32|64|128|256)$ ]] || { echo "Invalid batch size: $batch" >&2; exit 1; }
 : "${ASCEND_HOME_PATH:?Source the CANN set_env.sh first}"
 profile="simt-matrix-bs${batch}"
-cmake_options=()
-if [[ "$optimization" == -O0 ]]; then
-    profile+="-o0"
-    cmake_options+=(-DCMAKE_ASC_FLAGS=-O0)
-fi
+# Reset cached flags when returning to the toolchain default.
+cmake_options=(-U CMAKE_ASC_FLAGS)
+[[ -z "$optimization" ]] || cmake_options=(-DCMAKE_ASC_FLAGS="$optimization")
 build_dir="${script_dir}/build/${profile}"
 [[ "$clean" == false ]] || rm -rf -- "$build_dir"
 mkdir -p "$build_dir"
@@ -42,4 +40,4 @@ cmake -S "$script_dir" -B "$build_dir" -DCMAKE_ASC_ARCHITECTURES=dav-3510 -DMULT
 timeout --signal=TERM --kill-after=10s 5m cmake --build "$build_dir" --verbose --parallel "${BUILD_JOBS:-2}" 2>&1 | tee "${build_dir}/scope-build.log"
 
 echo "BUILD_COMPLETE | Profile=${profile} | Seconds=$((SECONDS - started_at))"
-echo "Run: bash run.sh --batch-size ${batch}${optimization:+ $optimization}"
+echo "Run: bash run.sh --batch-size ${batch}"

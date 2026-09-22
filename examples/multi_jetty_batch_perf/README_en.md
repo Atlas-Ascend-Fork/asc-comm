@@ -12,14 +12,14 @@ bash run.sh --batch-size 1 --api write --jetty-counts 4
 # Repeat build/run for batches 8,32,64,128,256 to cover all 72 cases.
 ```
 
-For an explicit `-O0` diagnostic build, use the same option on both scripts:
+Add `-O0` only to the build command:
 
 ```bash
 bash build.sh --batch-size 64 -O0
-bash run.sh --batch-size 64 -O0
+bash run.sh --batch-size 64
 ```
 
-This uses `build/simt-matrix-bs64-o0`; the default build is unchanged. Results include `Optimization=O0` and are not an optimized performance baseline. The build removes the previous executable first so a failed build cannot run an old binary.
+Both builds use `build/simt-matrix-bs64`; the runner uses the latest successful build. Rebuild without `-O0` to restore toolchain defaults. Do not use an `-O0` build for performance acceptance.
 
 
 Each Jetty uses batch-size lanes. Fixed geometry:64B,1024 timed requests,96 warmup requests rounded up to a batch,two ranks. No control or trace environment settings are required.
