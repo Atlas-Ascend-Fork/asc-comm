@@ -43,7 +43,7 @@ __simt_callee__ inline void PrepareOrdinarySq(AscendC::simt::UbcCtpBatchHandle& 
     }
     group.sync();
     if (!publisher) {
-        HcommSimtFlushBatchLaneSq(context, rank, size);
+        asc_threadfence();
     }
     group.sync();
     if (publisher) {
@@ -58,7 +58,6 @@ __simt_callee__ inline void PublishPreparedPublisherSq(AscendC::simt::UbcCtpBatc
 {
     using namespace AscendC::simt;
     auto* context = reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batch.context);
-    HcommSimtFlushBatchLaneSq(context, size - 1U, size);
     HcommSimtResolvedPost post;
     HcommSimtLoadBatchStaticPost(context, post);
     const uint32_t totalBb = HcommSimtBatchTotalBb(size, context->itemBb);
