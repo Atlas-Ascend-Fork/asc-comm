@@ -82,4 +82,4 @@ See [MakeMultiChannelHandle](../../host/hcomm/MakeMultiChannelHandle.md) for the
 
 ## Related Sample
 
-[hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README_en.md) demonstrates ordinary `WriteNbi` and `ReadNbi` calls over the `COMM_PROTOCOL_UBC_CTP` path in a two-card scenario. It does not cover the RoCE or BatchHandle workflow.
+[hcomm_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md) demonstrates ordinary `WriteNbi` and `ReadNbi` calls over the `COMM_PROTOCOL_UBC_CTP` path in a two-card scenario. It does not cover the RoCE or BatchHandle workflow.

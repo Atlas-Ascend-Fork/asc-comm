@@ -75,6 +75,17 @@ write_dependency_versions()
         "${cann_root}/share/info/runtime/version.info"
 }
 
+remove_baseline_entry()
+{
+    local manifest=$1
+    local path=$2
+
+    chmod 640 "${manifest}"
+    awk -F '\t' -v path="${path}" '$2 != path' "${manifest}" > "${manifest}.tmp"
+    mv "${manifest}.tmp" "${manifest}"
+    chmod 440 "${manifest}"
+}
+
 # build.sh must propagate packaging failures to CI and other callers.
 expect_failure env ASCEND_HOME_PATH="${TEST_ROOT}/missing-cann" \
     bash "${PROJECT_ROOT}/build.sh" --pkg
@@ -260,6 +271,26 @@ grep -qx 'FormatVersion=3' "${FAKE_CANN}/var/asc-comm-dev-patch/state.info"
 [[ -f "${FAKE_CANN}/var/asc-comm-dev-patch/baseline/directories.tsv" ]]
 [[ -f "${FAKE_CANN}/var/asc-comm-dev-patch/baseline/links.tsv" ]]
 
+# Recover an incomplete baseline manifest only when --force is used and the
+# original backup still provides an unambiguous baseline.
+INCOMPLETE_BASELINE_PATH="asc/impl/adv_api/detail/hcomm/common/hcomm_base.h"
+BASELINE_MANIFEST="${FAKE_CANN}/var/asc-comm-dev-patch/baseline/manifest.tsv"
+remove_baseline_entry "${BASELINE_MANIFEST}" "${INCOMPLETE_BASELINE_PATH}"
+expect_failure run_package --full --install-path="${FAKE_CANN}"
+grep -q 'use --force to recover from existing backups' "${ERROR_LOG}"
+run_package --full --force --install-path="${FAKE_CANN}"
+grep -Fqx $'present\t'"${INCOMPLETE_BASELINE_PATH}" "${BASELINE_MANIFEST}"
+
+UNRECOVERABLE_BASELINE_PATH="asc/impl/adv_api/detail/hcomm/common/hcomm_inner_def.h"
+UNRECOVERABLE_BACKUP="${FAKE_CANN}/var/asc-comm-dev-patch/baseline/files/${UNRECOVERABLE_BASELINE_PATH}"
+remove_baseline_entry "${BASELINE_MANIFEST}" "${UNRECOVERABLE_BASELINE_PATH}"
+rm -f -- "${UNRECOVERABLE_BACKUP}"
+expect_failure run_package --full --force --install-path="${FAKE_CANN}"
+grep -q 'backup is unavailable' "${ERROR_LOG}"
+mkdir -p "$(dirname -- "${UNRECOVERABLE_BACKUP}")"
+cp -a "${BASELINE_DIR}/${UNRECOVERABLE_BASELINE_PATH}" "${UNRECOVERABLE_BACKUP}"
+run_package --full --force --install-path="${FAKE_CANN}"
+
 # Missing managed links are protected like modified managed files.
 chmod 750 "${FAKE_CANN}/asc/include/comm_api/aicore"
 rm -f -- "${FAKE_CANN}/asc/include/comm_api/aicore/hcomm"
@@ -280,7 +311,9 @@ run_package --full --install-path="${FAKE_CANN}" --force
 
 # Reinstalling must retain the original baseline rather than backing up patched files.
 run_package --full --install-path="${FAKE_CANN}"
-run_package --uninstall --install-path="${FAKE_CANN}"
+remove_baseline_entry "${BASELINE_MANIFEST}" "${INCOMPLETE_BASELINE_PATH}"
+expect_failure run_package --uninstall --install-path="${FAKE_CANN}"
+run_package --uninstall --force --install-path="${FAKE_CANN}"
 
 while read -r _ path; do
     cmp "${BASELINE_DIR}/${path}" "${FAKE_CANN}/${path}"

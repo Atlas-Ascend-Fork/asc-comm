@@ -27,6 +27,14 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
     asccomm_add_product_definitions(${target_name} ${product_type})
     target_compile_definitions(${target_name} PRIVATE ASCENDC_CPU_DEBUG=1)
     target_include_directories(${target_name} PRIVATE ${HCOMM_UT_INCLUDE_DIRS})
+    if(target_name MATCHES "jetty")
+        # CANN 9.2.0 CPU-debug headers expose unsupported 3510 vector helpers while
+        # compiling the Jetty implementation. Use the focused UT shim for the
+        # UB-to-GM copy primitive required by this target.
+        target_include_directories(${target_name} BEFORE PRIVATE
+            ${ASCCOMM_UT_ROOT}/aicore/jetty
+        )
+    endif()
     target_compile_options(${target_name} PRIVATE
         -fno-access-control
         -Werror
@@ -79,6 +87,14 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
             HcommRoCETestSuite.Init_ReadNbi_Drain
             HcommRoCETestSuite.Init_WriteNbi_Drain
             HcommRoCETestSuite.Init_WriteWithNotifyNbi
+        )
+    elseif(target_name MATCHES "jetty")
+        set(test_filters
+            HcommJettyTestSuite.Aiv_Jetty_PeerResolvesRemoteMetadata
+            HcommJettyTestSuite.Aiv_Jetty_InfoSplitsPackedHead
+            HcommJettyTestSuite.Aiv_Jetty_AdvanceSqAndRingDoorbell
+            HcommJettyTestSuite.Aiv_Jetty_AdvanceSqWrapsHead
+            HcommJettyTestSuite.Aiv_Jetty_DrainNoPendingCompletions
         )
     elseif(target_name MATCHES "urma")
         set(test_filters
@@ -148,6 +164,12 @@ foreach(product_type ${PRODUCT_TYPE_LIST})
             ascend950pr_9599_AIV
             Ascend950PR_9599
             test_hcomm_urma_950.cpp
+        )
+        add_hcomm_ut(
+            asccomm_ut_hcomm_ascend950pr_9599_AIV_jetty
+            ascend950pr_9599_AIV
+            Ascend950PR_9599
+            test_hcomm_jetty_950.cpp
         )
     endif()
 endforeach()

@@ -30,6 +30,7 @@ constexpr uint32_t BITS_1BYTE = 8;
 constexpr uint32_t BITS_3BYTE = 24;
 constexpr uint32_t BITS_5BYTE = 40;
 constexpr uint32_t BITS_7BYTE = 56;
+constexpr uint32_t HCOMM_DEFAULT_QP_IDX = 0;
 
 __aicore__ inline uint16_t HtoNS(uint16_t x)
 {
@@ -50,17 +51,6 @@ __aicore__ inline uint64_t HtoNLL(uint64_t x)
            ((x & 0x00ff000000000000ULL) >> BITS_5BYTE) | ((x & 0xff00000000000000ULL) >> BITS_7BYTE);
 }
 
-template <HardEvent event>
-__aicore__ inline void SyncAction()
-{
-    auto tPipePtr = GetTPipePtr();
-    TEventID eventID = 0;
-    if (tPipePtr != nullptr) {
-        eventID = tPipePtr->FetchEventID(event);
-    }
-    SetFlag<event>(eventID);
-    WaitFlag<event>(eventID);
-}
 __aicore__ inline __ubuf__ uint8_t* AlignAddrTo32Bytes(__ubuf__ uint8_t* buff)
 {
     uintptr_t addr = reinterpret_cast<uintptr_t>(buff);
@@ -111,6 +101,58 @@ __aicore__ inline void CacheWriteThrough(__gm__ T* sourceAddr, uint64_t length)
     for (uint32_t i = 0; i <= end - start; i += CACHE_LINE_SIZE) {
         DataCacheCleanAndInvalid<T, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(global[i]);
     }
+}
+
+template <CommProtocol protocol>
+__aicore__ inline __gm__ uint32_t* HcommGetLockAddr(__gm__ ChannelEntity* channelEntity)
+{
+    __gm__ uint64_t* cqContextsAddrField = reinterpret_cast<__gm__ uint64_t*>(
+        reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, cqContextAddr));
+    uint64_t cqContextsAddr = ld_dev(cqContextsAddrField, 0);
+    uint64_t lockAddrValue;
+    __gm__ CqContext* cqContext = reinterpret_cast<__gm__ CqContext*>(cqContextsAddr) + HCOMM_DEFAULT_QP_IDX;
+    if constexpr (protocol == COMM_PROTOCOL_ROCE) {
+        lockAddrValue = cqContext->contextInfo.roceCq.headAddr;
+    } else if constexpr (protocol == COMM_PROTOCOL_UB_CTP) {
+        lockAddrValue = cqContext->contextInfo.ubJfc.headAddr;
+    } else {
+        static_assert(
+            protocol == COMM_PROTOCOL_ROCE || protocol == COMM_PROTOCOL_UB_CTP,
+            "Invalid CommProtocol, it must be COMM_PROTOCOL_ROCE or COMM_PROTOCOL_UB_CTP");
+    }
+    return reinterpret_cast<__gm__ uint32_t*>(lockAddrValue);
+}
+
+template <CommProtocol protocol>
+__aicore__ inline int32_t HcommChannelLock(ChannelHandle channel)
+{
+    if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+        return HCOMM_FAILED;
+    }
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    __gm__ uint32_t* lockAddr = HcommGetLockAddr<protocol>(channelEntity);
+    while (AtomicCas(lockAddr, HCOMM_LOCK_FREE, HCOMM_LOCK_HELD) != HCOMM_LOCK_FREE) {
+        // Back off for 800 cycles before retrying to reduce atomic contention.
+        Nop<800>();
+    }
+    return HCOMM_SUCCESS;
+}
+
+template <CommProtocol protocol>
+__aicore__ inline int32_t HcommChannelUnlock(ChannelHandle channel)
+{
+    if (channel == 0U || (channel & (alignof(ChannelEntity) - 1U)) != 0U) {
+        return HCOMM_FAILED;
+    }
+
+    __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
+    __gm__ uint8_t* counterAddr = reinterpret_cast<__gm__ uint8_t*>(channelEntity) + offsetof(ChannelEntity, sqHead);
+    // Flush the four contiguous channel counters: sqHead, sqTail, cqHead, and cqTail.
+    CacheWriteThrough<uint8_t>(counterAddr, 4U * sizeof(uint32_t));
+
+    __gm__ uint32_t* lockAddr = HcommGetLockAddr<protocol>(channelEntity);
+    uint32_t oldValue = AtomicCas(lockAddr, HCOMM_LOCK_HELD, HCOMM_LOCK_FREE);
+    return oldValue == HCOMM_LOCK_HELD ? HCOMM_SUCCESS : HCOMM_FAILED;
 }
 } // namespace AscendC
 

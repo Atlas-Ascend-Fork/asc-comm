@@ -57,7 +57,7 @@
 - 远端地址和访问长度用于描述对端内存中的目标范围。
 - 访问凭据用于表明本次操作获得了目标内存范围的访问授权。
 
-具体的通信内存注册、Channel创建和远端内存获取流程，可参考[Hcomm AIV直驱URMA样例](../../../examples/hcomm_write_read_nbi/README.md)。
+具体的通信内存注册、Channel创建和远端内存获取流程，可参考[Hcomm AIV直驱URMA样例](../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)。
 
 ### 访问凭据
 

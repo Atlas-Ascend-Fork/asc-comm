@@ -14,8 +14,8 @@ namespace asc {
 
 ccu_kernel::~ccu_kernel() = default;
 
-void ccu_kernel::append(std::shared_ptr<asc::ccu_rep::ccu_rep_base> rep) { asc::ccu_rep::append_to_context(this, rep); }
+void ccu_kernel::append(std::shared_ptr<ccu_rep::ccu_rep_base> rep) { ccu_rep_context::append(rep); }
 
-asc::ccu_rep::variable ccu_kernel::create_variable() { return asc::ccu_rep::variable(this); }
+ccu_rep::variable ccu_kernel::create_variable() { return ccu_rep::variable(this); }
 
 } // namespace asc

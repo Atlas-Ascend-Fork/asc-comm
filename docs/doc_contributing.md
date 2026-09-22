@@ -112,7 +112,7 @@ docs/zh/guide/ ──首次引入API──→ docs/zh/api/README.md
                 ──涉及样例────→ examples/README.md
 
 docs/zh/api/ ───使用流程──→ docs/zh/guide/hcomm_usage.md
-              ───调用示例──→ examples/hcomm_write_read_nbi/README.md
+              ───调用示例──→ examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md
 ```
 
 ## 更多信息

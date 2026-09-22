@@ -12,13 +12,13 @@
 #define ASCCOMM_EXAMPLES_CCU_REGISTER_CONTEXT_H
 
 #include <hccl/hccl_types.h>
-#include <hcomm/hcomm_ccu_res.h>
+#include <hcomm/hcomm_ccu_resource.h>
 
-extern "C" HcclResult HcclCommQueryCcuRegisterContext(HcclComm comm, HcommCcuRegisterContextHandle* context);
+extern "C" HcclResult HcclCommQueryCcuRegisterContext(HcclComm comm, HcommCcuInstanceHandle* context);
 
 namespace asccomm_examples {
 
-inline HcclResult QueryCcuRegisterContext(HcclComm comm, HcommCcuRegisterContextHandle& context)
+inline HcclResult QueryCcuRegisterContext(HcclComm comm, HcommCcuInstanceHandle& context)
 {
     context = nullptr;
     return HcclCommQueryCcuRegisterContext(comm, &context);

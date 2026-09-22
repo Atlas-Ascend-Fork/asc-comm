@@ -28,7 +28,7 @@ public:
     CcuResult init();
     CcuResult deinit();
 
-    // insHandle is hcomm-owned. asc-comm only uses it as an opaque key.
+    // insHandle is hcomm-owned. asc-comm only uses ccuInsKey as an opaque lookup key.
     CcuResult get_or_create(int32_t device_logic_id, CcuInsHandle ins_handle, ccu_kernel_registry*& registry);
     ccu_kernel_registry* get(CcuInsHandle ins_handle) const;
 
@@ -43,7 +43,7 @@ private:
     bool initialized_flag_{false};
     int32_t dev_logic_id_{-1};
     mutable std::shared_timed_mutex ins_map_mutex_;
-    std::unordered_map<CcuInsHandle, std::unique_ptr<ccu_kernel_registry>> ins_map_{};
+    std::unordered_map<uint64_t, std::unique_ptr<ccu_kernel_registry>> ins_map_{};
 };
 
 } // namespace asc

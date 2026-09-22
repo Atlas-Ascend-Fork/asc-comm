@@ -69,5 +69,5 @@ AICore侧：
 ## 相关文档
 
 - [Hcomm使用说明](../guide/hcomm_usage.md)
-- [AIV直驱URMA WriteNbi/ReadNbi样例](../../../examples/hcomm_write_read_nbi/README.md)
-- [Ain Basic Ring样例](../../../examples/ain/basic_ring/README.md)
+- [AIV直驱URMA WriteNbi/ReadNbi样例](../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)
+- [Ain Basic Ring样例](../../../examples/aicore/ain/01_basic_ring/README.md)

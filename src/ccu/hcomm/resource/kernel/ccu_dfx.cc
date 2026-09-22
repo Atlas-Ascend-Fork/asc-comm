@@ -16,6 +16,7 @@
 #include <memory>
 
 #include "hcomm/resource/representation/ccu_rep_v1.h"
+#include "hcomm/hcomm_ccu_dfx.h"
 
 namespace asc {
 namespace {
@@ -48,9 +49,8 @@ union loop_group_xn {
 // 再一条条通过 emit 回调发出去；数据面自己不直接碰驱动。
 class dfx_builder {
 public:
-    dfx_builder(
-        const HcommCcuDfxRequestPod& request, HcommCcuDfxEmitFn emit, void* context, const HcommCcuControlOpsPod& ops)
-        : request_(request), emit_(emit), context_(context), ops_(ops)
+    dfx_builder(const HcommCcuDfxRequest& request, HcommCcuDfxEmitFn emit, void* context, const uint64_t* asc_custom)
+        : request_(request), emit_(emit), context_(context), asc_custom_(asc_custom)
     {}
 
     // 诊断主流程：查任务现场 → 找到内核 → 先发一条 MISSION 记录，
@@ -58,55 +58,19 @@ public:
     // 指令的 REP 也逐条发出去；返回第一个错误码（没出错返回 0，找不到 REP 返回 CCU_E_NOT_FOUND）
     int32_t run()
     {
-        HcommCcuMissionContextPod mission{};
-        if (ops_.missionContextQuery == nullptr ||
-            ops_.missionContextQuery(request_.deviceId, request_.dieId, request_.execMissionId, &mission) != 0) {
-            return static_cast<int32_t>(CcuResult::CCU_E_INTERNAL);
-        }
-        ccu_kernel* kernel = ccu_kernel_mgr::get_instance(request_.deviceId).get_kernel(request_.kernelHandle);
-        if (kernel == nullptr) {
-            return static_cast<int32_t>(CcuResult::CCU_E_NOT_FOUND);
-        }
-        emit_mission(mission.currentInstructionId);
-        auto current = resolve_rep(*kernel, mission.currentInstructionId);
-        if (current == nullptr) {
-            return static_cast<int32_t>(CcuResult::CCU_E_NOT_FOUND);
-        }
-        auto previous =
-            mission.currentInstructionId == 0 ? nullptr : kernel->get_rep_by_instr_id(mission.currentInstructionId - 1);
-        if ((previous != nullptr && previous->type() == ccu_rep_type::loop_group) ||
-            current->type() == ccu_rep_type::loop_group) {
-            emit_loop_group(
-                *kernel, previous != nullptr && previous->type() == ccu_rep_type::loop_group ? previous : current);
-        } else {
-            emit_rep(current);
-        }
-
-        // 只回看故障前的 10 条指令，且不能越过本条任务开始的位置
-        const uint16_t distance = 10;
-        uint16_t begin = mission.currentInstructionId > distance ? mission.currentInstructionId - distance : 0;
-        begin = std::max(begin, mission.startInstructionId);
-        for (int32_t id = mission.currentInstructionId; id >= begin; --id) {
-            if (kernel->get_rep_by_instr_id(static_cast<uint16_t>(id)) == nullptr) {
-                // 这个编号没有对应的 REP（指令中间有空档），窗口就缩短到这里
-                begin = static_cast<uint16_t>(id + 1);
-                break;
-            }
-        }
-        for (uint32_t id = begin; id <= mission.currentInstructionId; ++id) {
-            auto rep = kernel->get_rep_by_instr_id(static_cast<uint16_t>(id));
-            if (rep != nullptr) {
-                emit_rep(rep);
-            }
-        }
-        return first_error_;
+        // 诊断链降级：定位不到故障指令，直接返回不支持（hcomm 侧打印 "diagnose failed" 即可）。
+        HCCL_WARNING(
+            "[CcuDfx][%s] mission context query is not available in ascCustom slots, hardware-fault "
+            "localization is degraded. devLogicId[%d] dieId[%u] kernelHandle[%llu].",
+            __func__, request_.deviceId, request_.dieId, static_cast<unsigned long long>(request_.kernelHandle));
+        return static_cast<int32_t>(CcuResult::CCU_E_NOT_SUPPORT);
     }
 
 private:
     // 填记录里公共的部分：记录类型、REP 类型、die/任务编号、指令编号（REP 第一条指令所在位置）
-    HcommCcuDfxRecordPod make_base_record(const std::shared_ptr<ccu_rep_base>& rep, uint32_t type) const
+    HcommCcuDfxRecord make_base_record(const std::shared_ptr<ccu_rep_base>& rep, uint32_t type) const
     {
-        HcommCcuDfxRecordPod record{};
+        HcommCcuDfxRecord record{};
         record.type = type;
         record.repType = static_cast<int32_t>(rep->type());
         record.dieId = static_cast<uint8_t>(request_.dieId);
@@ -116,40 +80,46 @@ private:
     }
 
     // 发一条记录；只记第一次失败，保证错误码稳定
-    void emit(HcommCcuDfxRecordPod& record)
+    void emit(HcommCcuDfxRecord& record)
     {
         if (first_error_ == 0) {
             first_error_ = emit_(context_, &record);
         }
     }
 
-    // 按编号查 XN/CKE/GSA 资源当时的数值；查不到返回 UINT64_MAX，并把错误记为内部错误
+    // 按编号查 XN/CKE/GSA 资源当时的数值；硬件现场查询未注入（定档槽 3-7 预留），恒返回 UINT64_MAX
     uint64_t resource(HcommCcuResourceQueryFn query, uint32_t id)
     {
-        uint64_t value = UINT64_MAX;
-        if (query == nullptr || query(request_.deviceId, request_.dieId, id, &value) != 0) {
-            first_error_ = first_error_ == 0 ? static_cast<int32_t>(CcuResult::CCU_E_INTERNAL) : first_error_;
-        }
-        return value;
+        (void)query;
+        (void)id;
+        return UINT64_MAX;
     }
 
-    // 单阶段查询 Channel POD 快照：先填充 ABI 头，再调用控制面注入的 channelQuery
-    bool query_channel(ChannelHandle handle, HcommCcuChannelPod& channel)
+    // 单阶段查询 Channel 实体：getChannelEntity 返回 hcomm 持有的借用指针，按值拷贝后使用
+    bool query_channel(ChannelHandle handle, HcommCcuChannelEntity& channel)
     {
-        channel.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
-        channel.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
-        channel.header.size = sizeof(HcommCcuChannelPod);
-        if (ops_.channelQuery == nullptr || ops_.channelQuery(handle, &channel) != 0) {
+        uint64_t entity_addr = 0;
+        const auto get_channel_entity =
+            reinterpret_cast<HcommCcuGetChannelEntityFn>(asc_custom_[HCOMM_CCU_ASC_CUSTOM_CHANNEL_ENTITY]);
+        if (get_channel_entity == nullptr || get_channel_entity(handle, &entity_addr) != 0 || entity_addr == 0) {
             first_error_ = first_error_ == 0 ? static_cast<int32_t>(CcuResult::CCU_E_INTERNAL) : first_error_;
             return false;
         }
+        const auto* entity = reinterpret_cast<const HcommCcuChannelEntity*>(entity_addr);
+        if (entity->header.version != HCOMM_CCU_CHANNEL_ABI_VERSION ||
+            entity->header.magicWord != HCOMM_CCU_CHANNEL_MAGIC_WORD ||
+            entity->header.size != sizeof(HcommCcuChannelEntity)) {
+            first_error_ = first_error_ == 0 ? static_cast<int32_t>(CcuResult::CCU_E_PARA) : first_error_;
+            return false;
+        }
+        channel = *entity;
         return true;
     }
 
     // 把通道句柄转成记录里要填的通道编号；解析失败就保持 UINT16_MAX（表示无效通道）
     void set_channel(ChannelHandle handle, uint16_t& id, ChannelHandle& record_handle)
     {
-        HcommCcuChannelPod channel{};
+        HcommCcuChannelEntity channel{};
         record_handle = handle;
         id = UINT16_MAX;
         // 查询失败时保留哨兵值 id=UINT16_MAX，交由上层按无效 channel 处理
@@ -164,11 +134,10 @@ private:
         id = static_cast<uint16_t>(channel.channelId);
     }
 
-    // 从 POD 定长数组取第 index 个资源 id，收窄为 uint16_t 前做指针/越界/溢出校验
-    uint16_t id_by_array(const uint32_t* ids, uint16_t index)
+    // 从实体数组取第 index 个资源 id：按有效数量（而非定长容量）校验下标，收窄 uint16_t 前做溢出校验
+    uint16_t id_by_array(const uint32_t* ids, uint32_t valid_num, uint16_t index)
     {
-        if (ids == nullptr || index >= HCOMM_CCU_CHANNEL_RESOURCE_CAPACITY ||
-            ids[index] > std::numeric_limits<uint16_t>::max()) {
+        if (ids == nullptr || index >= valid_num || ids[index] > std::numeric_limits<uint16_t>::max()) {
             first_error_ = first_error_ == 0 ? static_cast<int32_t>(CcuResult::CCU_E_PARA) : first_error_;
             return UINT16_MAX;
         }
@@ -178,21 +147,23 @@ private:
     // 取本端/远端 CKE（信号量）id：remote 为 true 时读远端数组，否则读本端数组
     uint16_t channel_signal(ChannelHandle handle, uint16_t index, bool remote)
     {
-        HcommCcuChannelPod channel{};
+        HcommCcuChannelEntity channel{};
         if (!query_channel(handle, channel)) {
             return UINT16_MAX;
         }
-        return id_by_array(remote ? channel.remoteCkeIds : channel.localCkeIds, index);
+        return id_by_array(
+            remote ? channel.remoteEventIds : channel.localEventIds,
+            remote ? channel.remoteEventNum : channel.localEventNum, index);
     }
 
     // 取远端 XN（变量槽）id，用于分析 RV 类远程 POST 的变量地址
     uint16_t channel_remote_xn(ChannelHandle handle, uint16_t index)
     {
-        HcommCcuChannelPod channel{};
+        HcommCcuChannelEntity channel{};
         if (!query_channel(handle, channel)) {
             return UINT16_MAX;
         }
-        return id_by_array(channel.remoteXnIds, index);
+        return id_by_array(channel.remoteVarIds, channel.remoteVarNum, index);
     }
 
     // 按指令编号找到这条指令属于哪条 REP：先在整个内核里找，
@@ -211,7 +182,7 @@ private:
     // 发 MISSION 记录：说明这次诊断的任务和当前指令编号
     void emit_mission(uint16_t instruction_id)
     {
-        HcommCcuDfxRecordPod record{};
+        HcommCcuDfxRecord record{};
         record.type = HCOMM_CCU_DFX_RECORD_MISSION;
         record.repType = static_cast<int32_t>(ccu_rep_type::base);
         record.dieId = static_cast<uint8_t>(request_.dieId);
@@ -226,7 +197,7 @@ private:
         auto record = make_base_record(base, HCOMM_CCU_DFX_RECORD_WAIT_SIGNAL);
         record.msg.waitSignal.signalId = signal;
         record.msg.waitSignal.signalMask = mask;
-        record.msg.waitSignal.signalValue = read_value ? static_cast<uint16_t>(resource(ops_.ckeQuery, signal)) : 0;
+        record.msg.waitSignal.signalValue = read_value ? static_cast<uint16_t>(resource(nullptr, signal)) : 0;
         // 用不到的通道位置先填无效值 UINT16_MAX，方便 hcomm 那边识别
         std::fill(std::begin(record.msg.waitSignal.channelId), std::end(record.msg.waitSignal.channelId), UINT16_MAX);
         emit(record);
@@ -243,7 +214,7 @@ private:
         record.msg.waitSignal.signalId = channel_signal(rep->get_channel(), rep->get_sem_index(), !read_value);
         record.msg.waitSignal.signalMask = rep->get_mask();
         record.msg.waitSignal.signalValue =
-            read_value ? static_cast<uint16_t>(resource(ops_.ckeQuery, record.msg.waitSignal.signalId)) : 0;
+            read_value ? static_cast<uint16_t>(resource(nullptr, record.msg.waitSignal.signalId)) : 0;
         std::fill(
             std::begin(record.msg.waitSignal.channelId) + 1, std::end(record.msg.waitSignal.channelId), UINT16_MAX);
         emit(record);
@@ -261,7 +232,7 @@ private:
         record.msg.waitSignal.signalMask = rep->get_mask();
         // 变量编号存在对端通道的 XN 数组里，变量的当前值再从 XN 里查出来
         record.msg.waitSignal.paramId = channel_remote_xn(rep->get_channel(), rep->get_param_index());
-        record.msg.waitSignal.paramValue = resource(ops_.xnQuery, rep->get_param().id());
+        record.msg.waitSignal.paramValue = resource(nullptr, rep->get_param().id());
         emit(record);
     }
 
@@ -271,11 +242,11 @@ private:
     {
         auto record = make_base_record(base, HCOMM_CCU_DFX_RECORD_TRANSFER);
         // 地址从 GSA 查、token 和长度从 XN 查，把资源编号还原成真正的数值
-        record.msg.transMem.locAddr = resource(ops_.gsaQuery, rep->get_loc_addr_id());
-        record.msg.transMem.locToken = resource(ops_.xnQuery, rep->get_loc_token_id());
-        record.msg.transMem.rmtAddr = resource(ops_.gsaQuery, rep->get_rem_addr_id());
-        record.msg.transMem.rmtToken = resource(ops_.xnQuery, rep->get_rem_token_id());
-        record.msg.transMem.len = resource(ops_.xnQuery, rep->get_len_id());
+        record.msg.transMem.locAddr = resource(nullptr, rep->get_loc_addr_id());
+        record.msg.transMem.locToken = resource(nullptr, rep->get_loc_token_id());
+        record.msg.transMem.rmtAddr = resource(nullptr, rep->get_rem_addr_id());
+        record.msg.transMem.rmtToken = resource(nullptr, rep->get_rem_token_id());
+        record.msg.transMem.len = resource(nullptr, rep->get_len_id());
         record.msg.transMem.signalId = rep->get_sem_id();
         record.msg.transMem.signalMask = rep->get_mask();
         set_channel(rep->get_channel(), record.msg.transMem.channelId, record.msg.transMem.channelHandle);
@@ -290,11 +261,11 @@ private:
         auto rep = std::static_pointer_cast<ccu_rep::ccu_rep_loc_cpy>(base);
         auto record = make_base_record(base, HCOMM_CCU_DFX_RECORD_TRANSFER);
         // 本地复制也复用 TRANSFER 记录的格式（所谓“对端”其实还是本端内存）
-        record.msg.transMem.locAddr = resource(ops_.gsaQuery, rep->get_src_addr_id());
-        record.msg.transMem.locToken = resource(ops_.xnQuery, rep->get_src_token_id());
-        record.msg.transMem.rmtAddr = resource(ops_.gsaQuery, rep->get_dst_addr_id());
-        record.msg.transMem.rmtToken = resource(ops_.xnQuery, rep->get_dst_token_id());
-        record.msg.transMem.len = resource(ops_.xnQuery, rep->get_len_id());
+        record.msg.transMem.locAddr = resource(nullptr, rep->get_src_addr_id());
+        record.msg.transMem.locToken = resource(nullptr, rep->get_src_token_id());
+        record.msg.transMem.rmtAddr = resource(nullptr, rep->get_dst_addr_id());
+        record.msg.transMem.rmtToken = resource(nullptr, rep->get_dst_token_id());
+        record.msg.transMem.len = resource(nullptr, rep->get_len_id());
         record.msg.transMem.signalId = rep->get_sem_id();
         record.msg.transMem.signalMask = rep->get_mask();
         record.msg.transMem.dataType = rep->get_data_type();
@@ -308,9 +279,9 @@ private:
         auto rep = std::static_pointer_cast<ccu_rep::ccu_rep_buf_read>(base);
         auto record = make_base_record(base, HCOMM_CCU_DFX_RECORD_BUFFER_TRANSFER);
         record.msg.bufTransMem.bufId = rep->get_dst_addr_id() & 0x7fffU; // 去掉 bit15（IO Die 标志位），只留缓冲区编号
-        record.msg.bufTransMem.addr = resource(ops_.gsaQuery, rep->get_src_addr_id());
-        record.msg.bufTransMem.token = resource(ops_.xnQuery, rep->get_src_token_id());
-        record.msg.bufTransMem.len = resource(ops_.xnQuery, rep->get_len_id());
+        record.msg.bufTransMem.addr = resource(nullptr, rep->get_src_addr_id());
+        record.msg.bufTransMem.token = resource(nullptr, rep->get_src_token_id());
+        record.msg.bufTransMem.len = resource(nullptr, rep->get_len_id());
         record.msg.bufTransMem.signalId = rep->get_sem_id();
         record.msg.bufTransMem.signalMask = rep->get_mask();
         set_channel(rep->get_channel(), record.msg.bufTransMem.channelId, record.msg.bufTransMem.channelHandle);
@@ -323,9 +294,9 @@ private:
         auto rep = std::static_pointer_cast<ccu_rep::ccu_rep_buf_write>(base);
         auto record = make_base_record(base, HCOMM_CCU_DFX_RECORD_BUFFER_TRANSFER);
         record.msg.bufTransMem.bufId = rep->get_src_id() & 0x7fffU; // 同上：去掉 bit15 标志位
-        record.msg.bufTransMem.addr = resource(ops_.gsaQuery, rep->get_dst_addr_id());
-        record.msg.bufTransMem.token = resource(ops_.xnQuery, rep->get_dst_token_id());
-        record.msg.bufTransMem.len = resource(ops_.xnQuery, rep->get_len_id());
+        record.msg.bufTransMem.addr = resource(nullptr, rep->get_dst_addr_id());
+        record.msg.bufTransMem.token = resource(nullptr, rep->get_dst_token_id());
+        record.msg.bufTransMem.len = resource(nullptr, rep->get_len_id());
         record.msg.bufTransMem.signalId = rep->get_sem_id();
         record.msg.bufTransMem.signalMask = rep->get_mask();
         set_channel(rep->get_channel(), record.msg.bufTransMem.channelId, record.msg.bufTransMem.channelHandle);
@@ -338,9 +309,9 @@ private:
         auto rep = std::static_pointer_cast<ccu_rep::ccu_rep_buf_loc_read>(base);
         auto record = make_base_record(base, HCOMM_CCU_DFX_RECORD_BUFFER_TRANSFER);
         record.msg.bufTransMem.bufId = rep->get_dst_id() & 0x7fffU; // 同上：去掉 bit15 标志位
-        record.msg.bufTransMem.addr = resource(ops_.gsaQuery, rep->get_src_addr_id());
-        record.msg.bufTransMem.token = resource(ops_.xnQuery, rep->get_src_token_id());
-        record.msg.bufTransMem.len = resource(ops_.xnQuery, rep->get_len_id());
+        record.msg.bufTransMem.addr = resource(nullptr, rep->get_src_addr_id());
+        record.msg.bufTransMem.token = resource(nullptr, rep->get_src_token_id());
+        record.msg.bufTransMem.len = resource(nullptr, rep->get_len_id());
         record.msg.bufTransMem.signalId = rep->get_sem_id();
         record.msg.bufTransMem.signalMask = rep->get_mask();
         record.msg.bufTransMem.channelId = UINT16_MAX;
@@ -353,9 +324,9 @@ private:
         auto rep = std::static_pointer_cast<ccu_rep::ccu_rep_buf_loc_write>(base);
         auto record = make_base_record(base, HCOMM_CCU_DFX_RECORD_BUFFER_TRANSFER);
         record.msg.bufTransMem.bufId = rep->get_src_addr_id() & 0x7fffU; // 同上：去掉 bit15 标志位
-        record.msg.bufTransMem.addr = resource(ops_.gsaQuery, rep->get_dst_addr_id());
-        record.msg.bufTransMem.token = resource(ops_.xnQuery, rep->get_dst_token_id());
-        record.msg.bufTransMem.len = resource(ops_.xnQuery, rep->get_len_id());
+        record.msg.bufTransMem.addr = resource(nullptr, rep->get_dst_addr_id());
+        record.msg.bufTransMem.token = resource(nullptr, rep->get_dst_token_id());
+        record.msg.bufTransMem.len = resource(nullptr, rep->get_len_id());
         record.msg.bufTransMem.signalId = rep->get_sem_id();
         record.msg.bufTransMem.signalMask = rep->get_mask();
         record.msg.bufTransMem.channelId = UINT16_MAX;
@@ -397,13 +368,9 @@ private:
             uint64_t value;
             loop_xm fields;
         } loop{};
-        loop.value = resource(ops_.xnQuery, rep->get_loop_param()->id());
-        HcommCcuLoopContextPod context{};
-        if (ops_.loopContextQuery == nullptr ||
-            ops_.loopContextQuery(request_.deviceId, request_.dieId, loop.fields.loop_ctx_id, &context) != 0) {
-            first_error_ = first_error_ == 0 ? static_cast<int32_t>(CcuResult::CCU_E_INTERNAL) : first_error_;
-            return;
-        }
+        loop.value = resource(nullptr, rep->get_loop_param()->id());
+        // loop 上下文硬件现场查询未注入（ascCustom 槽 3-7 预留），降级填零
+        HcommCcuLoopContext context{};
         auto record = make_base_record(base, HCOMM_CCU_DFX_RECORD_LOOP);
         record.msg.loop.startInstrId = rep->get_loop_block()->start_instr_id();
         record.msg.loop.endInstrId = record.msg.loop.startInstrId + rep->get_loop_block()->instr_count() - 1;
@@ -427,7 +394,7 @@ private:
         auto rep = std::static_pointer_cast<ccu_rep::ccu_rep_loop_group_bundle>(base);
         // 循环组参数也在 XN 变量里（组内循环数、展开偏移、展开次数）
         loop_group_xn group{};
-        group.value = resource(ops_.xnQuery, rep->get_offset_param().id());
+        group.value = resource(nullptr, rep->get_offset_param().id());
         auto record = make_base_record(base, HCOMM_CCU_DFX_RECORD_LOOP_GROUP);
         record.msg.loopGroup.startLoopInsId = rep->get_start_loop_instr_id();
         record.msg.loopGroup.loopInsCnt = group.fields.loop_ins_cnt;
@@ -454,7 +421,7 @@ private:
             }
             case ccu_rep_type::loc_wait_event: {
                 auto rep = std::static_pointer_cast<ccu_rep::ccu_rep_loc_wait_event>(base);
-                const uint16_t actual = static_cast<uint16_t>(resource(ops_.ckeQuery, rep->get_event_id()));
+                const uint16_t actual = static_cast<uint16_t>(resource(nullptr, rep->get_event_id()));
                 emit_wait(base, rep->get_event_id(), rep->get_mask(), true);
                 for (uint32_t bit = 1; bit != 0 && bit <= UINT16_MAX; bit <<= 1U) {
                     // 还有信号位没被置上，故障很可能就卡在等这些信号上，把它们依赖的 REP 也补发出来
@@ -518,10 +485,10 @@ private:
         }
     }
 
-    const HcommCcuDfxRequestPod& request_;
+    const HcommCcuDfxRequest& request_;
     HcommCcuDfxEmitFn emit_;
     void* context_;
-    const HcommCcuControlOpsPod& ops_;
+    const uint64_t* asc_custom_; // ascCustom 槽位数组（槽 0: getChannelEntity；硬件现场查询槽未注入）
     int32_t first_error_{0};
 };
 
@@ -530,7 +497,7 @@ private:
 // 诊断入口（hcomm 控制面在任务异常时跨 SO 调过来）：先校验参数，
 // 再取本设备的内核管理器和 hcomm 注入的查询接口，交给 DfxBuilder 生成全部记录，
 // 逐条经 emit 回调发出；出错一律返回内部错误，参数不对返回参数错误
-int32_t asccomm_ccu_diagnose(const HcommCcuDfxRequestPod* request, HcommCcuDfxEmitFn emit, void* context)
+int32_t asccomm_ccu_diagnose(const HcommCcuDfxRequest* request, HcommCcuDfxEmitFn emit, void* context)
 {
     if (request == nullptr || emit == nullptr || request->deviceId < 0 || request->kernelHandle == 0) {
         return static_cast<int32_t>(CcuResult::CCU_E_PARA);
