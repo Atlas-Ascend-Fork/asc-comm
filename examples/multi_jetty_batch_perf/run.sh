@@ -65,10 +65,12 @@ warmup=$(((96 + batch - 1) / batch * batch))
 for current_api in "${apis[@]}"; do
     for j in "${jettys[@]}"; do
         dir="${log_dir}/${current_api}_j${j}"
-        mkdir -p "$dir"
+        mkdir -p "$dir/ascend"
+        echo "CASE_BEGIN | API=${current_api} | Jettys=${j} | Time=$(date -Ins) | Logs=${dir}"
         pids=()
         for rank in 0 1; do
-            MULTI_JETTY_BATCH_PERF_SYNC_DIR="$dir" timeout --signal=TERM --kill-after=5s 180s \
+            ASCEND_GLOBAL_LOG_LEVEL=0 ASCEND_SLOG_PRINT_TO_STDOUT=0 ASCEND_PROCESS_LOG_PATH="$dir/ascend" \
+                MULTI_JETTY_BATCH_PERF_SYNC_DIR="$dir" timeout --signal=TERM --kill-after=5s 180s \
                 "$binary" "$rank" 2 "${dir}/root_info.bin" simt-parallel "$current_api" 1024 "$warmup" 64 "$batch" "$j" \
                 >"${dir}/rank_${rank}.log" 2>&1 &
             pids+=("$!")
@@ -103,8 +105,9 @@ for current_api in "${apis[@]}"; do
             passed=$((passed + 1))
         else
             failed=$((failed + 1))
-            echo "CASE_ERROR | API=${current_api} | Jettys=${j} | RankExit=${codes[*]} | Logs=${dir}"
-            cat "${dir}"/rank_*.log
+            echo "CASE_ERROR | API=${current_api} | Jettys=${j} | RankExit=${codes[*]} | Time=$(date -Ins) | Logs=${dir}"
+            echo "FAILURE_LOGS | CANN=${dir}/ascend"
+            tail -n +1 "${dir}"/rank_*.log
         fi
         # Collect validation failures, stop after timeout, signal or setup error.
         if grep -qE '^(ACL failure|HCCL failure)' "${dir}"/rank_*.log; then

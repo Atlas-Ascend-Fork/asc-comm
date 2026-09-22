@@ -48,7 +48,11 @@ bool CheckBuffer(
     uint32_t operationCount, uint32_t payloadBytes, uint32_t slotBytes, uint32_t regionBytes, uint32_t batchSize = 256U)
 {
     std::vector<uint8_t> actual(bufferBytes);
-    if (aclrtMemcpy(actual.data(), bufferBytes, buffer, bufferBytes, ACL_MEMCPY_DEVICE_TO_HOST) != ACL_SUCCESS) {
+    TraceHostCall("BEGIN", "CheckBuffer aclrtMemcpy D2H", __LINE__);
+    const aclError result = aclrtMemcpy(
+        actual.data(), bufferBytes, buffer, bufferBytes, ACL_MEMCPY_DEVICE_TO_HOST);
+    TraceHostCall("END", "CheckBuffer aclrtMemcpy D2H", __LINE__, result);
+    if (result != ACL_SUCCESS) {
         return false;
     }
     return CheckIdentityBuffer(actual, expectRemotePattern, jettyCount, operationCount,
@@ -90,6 +94,10 @@ int main(int argc, char* argv[])
         std::cerr << "Expected selected batch, 64B, 1024 requests, warmup96 aligned, J1/2/4/8, two ranks" << std::endl;
         return 1;
     }
+    std::cerr << "CASE_START | PID=" << getpid() << " | Rank=" << rank << " | Device=" << rank
+              << " | API=" << apiName << " | BatchSize=" << batchSize << " | Jettys=" << jettyCount
+              << " | Iterations=" << iterations << " | Warmup=" << warmup << " | Payload=" << payloadBytes
+              << " | SyncDir=" << SyncDirectory() << std::endl;
     const uint32_t api = apiName == "write" ? kApiWrite : apiName == "read" ? kApiRead : kApiNotify;
     const bool sender = (rank & 1U) == 0U;
     const uint32_t peer = rank ^ 1U;
@@ -164,9 +172,14 @@ int main(int argc, char* argv[])
             const uint32_t kernelJettyCount = std::min(jettyCount - firstJetty, jettysPerKernel);
             void* launchTiming = static_cast<uint8_t*>(timingDevice) +
                 static_cast<size_t>(launch) * kTimingWords * sizeof(uint64_t);
+            std::cerr << "KERNEL_LAUNCH | Index=" << launch << " | FirstJetty=" << firstJetty
+                      << " | Jettys=" << kernelJettyCount << " | Stream=" << stream << std::endl;
+            TraceHostCall("BEGIN", "LaunchSimtMultiJettyBatchPerf", __LINE__);
             LaunchSimtMultiJettyBatchPerf(
                 stream, channelsDevice, remoteDevice, launchTiming, api, payloadBytes, slotBytes, regionBytes,
                 iterations, warmup, batchSize, jettyCount, firstJetty, kernelJettyCount, completionDevice);
+            // This wrapper returns void: RETURN proves only that the host call returned.
+            TraceHostCall("RETURN", "LaunchSimtMultiJettyBatchPerf", __LINE__);
         }
         CHECK_ACL(aclrtSynchronizeStream(stream));
         CHECK_ACL(aclrtMemcpy(
@@ -231,5 +244,7 @@ int main(int argc, char* argv[])
     CHECK_HCCL(HcclCommDestroy(comm));
     CHECK_ACL(aclrtDestroyStream(stream));
     CHECK_ACL(aclFinalize());
+    std::cerr << "CASE_END | PID=" << getpid() << " | Rank=" << rank
+              << " | Status=" << (pass ? "PASS" : "FAIL") << std::endl;
     return pass ? 0 : 2;
 }

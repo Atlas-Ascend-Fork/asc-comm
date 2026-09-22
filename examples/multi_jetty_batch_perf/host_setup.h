@@ -21,6 +21,7 @@
 #include <thread>
 #include <vector>
 #include <sys/stat.h>
+#include <unistd.h>
 #include "acl/acl.h"
 #include "hccl/hccl.h"
 #include "hccl/hccl_rank_graph.h"
@@ -28,9 +29,28 @@
 #include "hccl/hccl_types.h"
 #include "multi_jetty_batch_perf_common.h"
 
+namespace multi_jetty_batch_perf {
+// Host-only diagnostics: flush before each potentially blocking call.
+inline void TraceHostCall(const char* phase, const char* call, int line, int result = 0)
+{
+    const auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    if (std::strcmp(phase, "END") == 0) {
+        std::fprintf(stderr, "HOST_CALL | EpochMs=%lld | PID=%ld | Phase=END | Line=%d | Ret=%d | Call=%s\n",
+            static_cast<long long>(milliseconds), static_cast<long>(getpid()), line, result, call);
+    } else {
+        std::fprintf(stderr, "HOST_CALL | EpochMs=%lld | PID=%ld | Phase=%s | Line=%d | Call=%s\n",
+            static_cast<long long>(milliseconds), static_cast<long>(getpid()), phase, line, call);
+    }
+    std::fflush(stderr);
+}
+} // namespace multi_jetty_batch_perf
+
 #define CHECK_ACL(expression)                                                                    \
     do {                                                                                         \
+        multi_jetty_batch_perf::TraceHostCall("BEGIN", #expression, __LINE__);                  \
         const aclError result = (expression);                                                    \
+        multi_jetty_batch_perf::TraceHostCall("END", #expression, __LINE__, result);            \
         if (result != ACL_SUCCESS) {                                                             \
             std::cerr << "ACL failure at " << __FILE__ << ':' << __LINE__ << ", ret=" << result \
                       << std::endl;                                                              \
@@ -40,7 +60,9 @@
 
 #define CHECK_HCCL(expression)                                                                    \
     do {                                                                                          \
+        multi_jetty_batch_perf::TraceHostCall("BEGIN", #expression, __LINE__);                  \
         const HcclResult result = (expression);                                                   \
+        multi_jetty_batch_perf::TraceHostCall("END", #expression, __LINE__, result);            \
         if (result != HCCL_SUCCESS) {                                                             \
             std::cerr << "HCCL failure at " << __FILE__ << ':' << __LINE__ << ", ret=" << result \
                       << std::endl;                                                               \
@@ -130,6 +152,12 @@ HcclResult HostBarrier(uint32_t rank, uint32_t rankCount, const char* name)
             return HCCL_SUCCESS;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMilliseconds));
+    }
+    for (uint32_t peer = 0U; peer < rankCount; ++peer) {
+        const std::string path = prefix + std::to_string(peer);
+        std::cerr << "HOST_BARRIER_TIMEOUT | Rank=" << rank << " | Barrier=" << name
+                  << " | Peer=" << peer << " | Present=" << FileReady(path)
+                  << " | Path=" << path << std::endl;
     }
     return HCCL_E_TIMEOUT;
 }
