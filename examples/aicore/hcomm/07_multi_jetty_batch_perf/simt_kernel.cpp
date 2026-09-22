@@ -77,9 +77,9 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtParallelMultiJettyVf
         if (threadIdx.x == 0U) {
             for (uint32_t i = firstJetty; i < firstJetty + kernelJettyCount; ++i)
                 statuses[i] = AscendC::HCOMM_FAILED;
-            CaptureCompletion(
+            CaptureCompletion<0U>(
                 channels, reinterpret_cast<__gm__ CompletionSummary*>(completionBuffer), kernelJettyCount,
-                warmup + iterations, 0U, statuses, firstJetty);
+                warmup + iterations, statuses, firstJetty);
         }
         return;
     }
@@ -112,9 +112,9 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtParallelMultiJettyVf
     block.sync();
     if (static_cast<int64_t>(timing[kStatusIndex]) != AscendC::HCOMM_SUCCESS) {
         if (threadIdx.x == 0U)
-            CaptureCompletion(
+            CaptureCompletion<1U>(
                 channels, reinterpret_cast<__gm__ CompletionSummary*>(completionBuffer), kernelJettyCount,
-                warmup + iterations, 1U, statuses, firstJetty);
+                warmup + iterations, statuses, firstJetty);
         return;
     }
     block.sync();
@@ -158,9 +158,9 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtParallelMultiJettyVf
         timing[kStatusIndex] = static_cast<uint64_t>(static_cast<int64_t>(finalStatus));
         timing[kCompletedIndex] = finalStatus == AscendC::HCOMM_SUCCESS ? totalOperations : 0U;
         timing[kDoorbellCountIndex] = iterations / batchSize * activeJettyCount;
-        CaptureCompletion(
+        CaptureCompletion<2U>(
             channels, reinterpret_cast<__gm__ CompletionSummary*>(completionBuffer), kernelJettyCount,
-            warmup + iterations, 2U, statuses, firstJetty);
+            warmup + iterations, statuses, firstJetty);
     }
 }
 

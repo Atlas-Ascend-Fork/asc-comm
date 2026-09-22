@@ -63,9 +63,10 @@ __simt_callee__ inline void CaptureWarmupCompletion(
     }
 }
 
+template <uint32_t phase>
 __simt_callee__ inline void CaptureCompletion(
     __gm__ uint64_t* channels, __gm__ CompletionSummary* summaries, uint32_t jettyCount, uint32_t operationCount,
-    uint32_t phase, __ubuf__ int32_t* statuses, uint32_t firstJetty = 0U)
+    __ubuf__ int32_t* statuses, uint32_t firstJetty = 0U)
 {
     for (uint32_t jetty = firstJetty; jetty < firstJetty + jettyCount; ++jetty) {
         auto* channel = reinterpret_cast<__gm__ AscendC::simt::HcommSimtChannelEntity*>(channels[jetty]);

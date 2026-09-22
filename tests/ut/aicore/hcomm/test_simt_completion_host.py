@@ -33,7 +33,7 @@ core = impl[
         "// End shared CQ completion implementation."
     )
 ]
-core = core.replace("HcommImpl<COMM_PROTOCOL_UBC_CTP>::", "CompletionEngine::")
+core = core.replace("HcommImpl<COMM_PROTOCOL_UB_CTP>::", "CompletionEngine::")
 definition = (
     ROOT / "src/aicore/hcomm/impl/platform_v310/hcomm_simt_urma_def.h"
 ).read_text(encoding="utf-8")
@@ -42,7 +42,7 @@ api = definition[
         "    __simt_callee__ inline int32_t InitCompletionSet("
     ) : definition.index("private:\n    bool initialized_")
 ]
-example = ROOT / "examples/multi_jetty_batch_perf"
+example = ROOT / "examples/aicore/hcomm/07_multi_jetty_batch_perf"
 common = (example / "multi_jetty_batch_perf_common.h").read_text(encoding="utf-8")
 summary_types = common.split("namespace multi_jetty_batch_perf {", 1)[1].split(
     "} // namespace multi_jetty_batch_perf"
@@ -173,7 +173,7 @@ int main() {
                     assert(f.engine.Drain(resumed)==0);
                     if(!phase) CaptureWarmupCompletion(resumed,summaries,count,first);
                 }
-                CaptureCompletion(f.handles,summaries,count,operations,2,statuses,first);
+                CaptureCompletion<2U>(f.handles,summaries,count,operations,statuses,first);
             }
             std::vector<CompletionSummary> copy(summaries,summaries+n);
             assert(CheckCompletion(copy,warm,operations,bs,api,perKernel));
