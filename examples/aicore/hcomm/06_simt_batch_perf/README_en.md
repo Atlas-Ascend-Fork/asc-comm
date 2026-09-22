@@ -1,14 +1,14 @@
 # Hcomm SIMT Batch validation and issue timing
 
-Validates WriteNbi, ReadNbi, WriteWithNotifyNbi, WriteValueNbi, AtomicFAA and AtomicCAS. This example also replaces the minimal simt_batch example.
+Validates WriteNbi, ReadNbi, WriteWithNotifyNbi, WriteValueNbi, AtomicFAA and AtomicCAS.
 
 Immediate posts individual requests from one lane. ExplicitBatch uses one lane and batch size 1. GroupBatch uses one request per lane and one BatchCommit per group; batch size equals lane count. Device status, remote data, local Read data, atomic fetch results and Notify flags are checked as applicable. Two or eight devices are supported; eight devices form four independent rank pairs.
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
-cd examples/simt_batch_perf
+cd examples/aicore/hcomm/06_simt_batch_perf
 bash build.sh
-# The former minimal single-lane Write/BatchCommit/Drain validation.
+# Single-lane Write/BatchCommit/Drain validation.
 bash run.sh write --mode batch --batch-size 1
 # Default core APIs: Write/Read/Notify, Immediate and GroupBatch.
 bash run.sh
@@ -29,6 +29,7 @@ AscendC::simt::Hcomm<> hcomm;
 if (hcomm.Init(nullptr, 0U) != 0) return;
 auto batch = hcomm.MakeBatchHandle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, remote, 1U);
+if (batch.context == nullptr) return;
 if (hcomm.WriteNbi(batch, remote, local, 64U) != 0) return;
 if (hcomm.BatchCommit(batch) != 0) return;
 if (hcomm.Drain(batch) != 0) return;
@@ -42,6 +43,7 @@ Group calls use Hcomm without storing a Group and pass group explicitly as the l
 // Every lane in group participates and prepares its own request.
 auto batch = hcomm.MakeBatchHandle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, remote, 1U, group);
+if (batch.context == nullptr) return;
 if (hcomm.WriteNbi(batch, remoteForLane, localForLane, 64U, group) != 0) return;
 if (hcomm.BatchCommit(batch, group) != 0) return;
 // After all posting lanes return, one lane calls Drain; Drain takes no group.
