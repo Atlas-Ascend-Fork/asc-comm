@@ -165,6 +165,9 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${ASCCOMM_ROOT}/src/aicore/jetty"
         "${ASCCOMM_UT_STAGE_COMM_API_IMPL_DIR}/jetty"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${ASCCOMM_ROOT}/src/aicore/utils"
+        "${ASCCOMM_UT_STAGE_COMM_API_IMPL_DIR}/utils"
     COMMAND ${CMAKE_COMMAND} -E touch ${ASCCOMM_UT_STAGE_STAMP}
     DEPENDS ${ASCCOMM_UT_LAYOUT_INPUTS}
     COMMENT "Preparing shared Ascend package-shaped headers for UT"

@@ -148,7 +148,7 @@ CANN packages include the CANN toolkit package and CANN ops package.
 
     > [!IMPORTANT]
     > Installation Note
-    > The [AIV direct-driven URMA Hcomm sample](../examples/hcomm_write_read_nbi/README_en.md) does not depend on the ops package. Install it later only when you require features relying on the operator package.
+    > The [AIV direct-driven URMA Hcomm sample](../examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md) does not depend on the ops package. Install it later only when you require features relying on the operator package.
 
 | Parameter | Description |
 | :--- | :-------------------------------- |
@@ -261,14 +261,14 @@ Third-party open-source software used for UT execution:
 
 ### 🧩 Sample Verification<a name="sample-verify"></a>
 
-[hcomm_write_read_nbi](../examples/hcomm_write_read_nbi/README_en.md) provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`.
+[hcomm_write_read_nbi](../examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md) provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`.
 The sample supports Ascend 950PR / Ascend 950DT and requires CANN 9.1.0 or newer. At least two NPUs are required for runtime; single-NPU environments only support compilation verification.
 
 Navigate to the sample directory and run:
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
-cd examples/hcomm_write_read_nbi
+cd examples/aicore/hcomm/01_hcomm_write_read_nbi
 mkdir -p build
 cd build
 cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..

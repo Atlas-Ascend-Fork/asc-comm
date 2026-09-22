@@ -109,9 +109,10 @@ TEST_F(HcommJettyTestSuite, Aiv_Jetty_PeerResolvesRemoteMetadata)
     HcommPeer peer(&peerInfo_, channel_.GetJettyTable(), 0U);
 
     EXPECT_TRUE(peer.valid);
-    EXPECT_EQ(peerInfo_.tpId, 77U);
-    EXPECT_EQ(peerInfo_.remoteTokenId, 0x123456U);
-    EXPECT_EQ(peerInfo_.remoteTokenValue, 0x654321U);
+    // tpId occupies bits [23:0] and remoteTokenId bits [51:32] of the packed word.
+    EXPECT_EQ(peerInfo_.tpIdNumSgesRemoteTokenId & 0xFFFFFFU, 77U);
+    EXPECT_EQ((peerInfo_.tpIdNumSgesRemoteTokenId >> 32U) & 0xFFFFFU, 0x123456U & 0xFFFFFU);
+    EXPECT_EQ(peerInfo_.remoteTokenValueUdf, 0x654321U);
     EXPECT_EQ(peerInfo_.remoteEid[0], 0x5566778811223344ULL);
     EXPECT_EQ(peerInfo_.remoteEid[1], 0xDDEEFF0099AABBCCULL);
 }
@@ -121,8 +122,8 @@ TEST_F(HcommJettyTestSuite, Aiv_Jetty_InfoSplitsPackedHead)
     channel_.SetPackedHead(5U, 9U);
     HcommJetty jetty = MakeJetty();
 
-    EXPECT_EQ(jettyInfo_.sqHead, 5U);
-    EXPECT_EQ(jettyInfo_.expectedCqeCnt, 9U);
+    EXPECT_EQ(static_cast<uint32_t>(jettyInfo_.packedHead), 5U);
+    EXPECT_EQ(static_cast<uint32_t>(jettyInfo_.packedHead >> 32U), 9U);
     EXPECT_EQ(jettyInfo_.sqDepth, JETTY_SQ_DEPTH);
     EXPECT_EQ(jettyInfo_.numWqebbBytes, JETTY_WQE_SIZE);
     EXPECT_EQ(jettyInfo_.cqDepth, JETTY_SQ_DEPTH);
@@ -139,8 +140,8 @@ TEST_F(HcommJettyTestSuite, Aiv_Jetty_AdvanceSqAndRingDoorbell)
     HcommJetty jetty = MakeJetty();
 
     jetty.AdvanceSq(2U);
-    EXPECT_EQ(jettyInfo_.sqHead, 5U);
-    EXPECT_EQ(jettyInfo_.expectedCqeCnt, 8U);
+    EXPECT_EQ(static_cast<uint32_t>(jettyInfo_.packedHead), 5U);
+    EXPECT_EQ(static_cast<uint32_t>(jettyInfo_.packedHead >> 32U), 8U);
     EXPECT_EQ(channel_.GetPackedHead(), (5U | (8ULL << 32U)));
 
     jetty.RingDoorbell();
@@ -153,8 +154,8 @@ TEST_F(HcommJettyTestSuite, Aiv_Jetty_AdvanceSqWrapsHead)
     HcommJetty jetty = MakeJetty();
 
     jetty.AdvanceSq(1U);
-    EXPECT_EQ(jettyInfo_.sqHead, 0U);
-    EXPECT_EQ(jettyInfo_.expectedCqeCnt, 2U);
+    EXPECT_EQ(static_cast<uint32_t>(jettyInfo_.packedHead), 0U);
+    EXPECT_EQ(static_cast<uint32_t>(jettyInfo_.packedHead >> 32U), 2U);
     EXPECT_EQ(channel_.GetPackedHead(), (0U | (2ULL << 32U)));
 }
 

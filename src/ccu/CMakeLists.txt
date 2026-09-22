@@ -102,7 +102,12 @@ target_link_libraries(asccomm_ccu_dataplane PRIVATE
     pthread
 )
 # 链接期校验：数据面 SO 不允许存在未定义符号（防止无意识依赖 hcomm 内部符号）
-target_link_options(asccomm_ccu_dataplane PRIVATE -Wl,--no-undefined)
+target_link_options(asccomm_ccu_dataplane PRIVATE
+    -Wl,--no-undefined
+    -Wl,-z,relro -Wl,-z,now
+    $<$<CONFIG:Release>:-s>
+    $<$<CONFIG:Release>:-Wl,--build-id=none>
+)
 
 # Keep the mainline host-launch wrapper as a separate compatibility library.
 # It uses the legacy HcommCcuKernel* registration ABI and must not be folded
@@ -157,19 +162,11 @@ set_target_properties(asccomm_ccu PROPERTIES
 )
 target_link_libraries(asccomm_ccu PRIVATE asccomm_ccu_headers)
 
-if(NOT INSTALL_LIBRARY_DIR)
-    set(INSTALL_LIBRARY_DIR lib64)
-endif()
-if(NOT INSTALL_PKG_INCLUDE_DIR)
-    set(INSTALL_PKG_INCLUDE_DIR pkg_inc)
-endif()
-
-install(TARGETS asccomm_ccu
-    LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
-    COMPONENT hcomm)
-install(FILES ${ASCCOMM_ROOT}/include/ccu/ccu_host_launch.h
-    DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/ccu
-    COMPONENT hcomm)
+target_link_options(asccomm_ccu PRIVATE
+    -Wl,-z,relro -Wl,-z,now
+    $<$<CONFIG:Release>:-s>
+    $<$<CONFIG:Release>:-Wl,--build-id=none>
+)
 
 # 源文件归属校验：强制数据面目标的所有源文件必须位于 asc-comm 仓内，
 # 避免误引用 hcomm 源（控制面/数据面边界），保证两仓可独立构建。

@@ -69,5 +69,5 @@ AICore side:
 ## Related Documents
 
 - [Hcomm Usage Guide](../guide/hcomm_usage.md)
-- [AIV Direct-driven URMA WriteNbi/ReadNbi Sample](../../../examples/hcomm_write_read_nbi/README_en.md)
-- [Ain Basic Ring Sample](../../../examples/ain/basic_ring/README_en.md)
+- [AIV Direct-driven URMA WriteNbi/ReadNbi Sample](../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README_en.md)
+- [Ain Basic Ring Sample](../../../examples/aicore/ain/01_basic_ring/README_en.md)

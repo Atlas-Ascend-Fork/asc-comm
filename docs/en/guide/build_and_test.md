@@ -201,11 +201,11 @@ bash build.sh -t --cann_3rd_lib_path=<path-to-third-party>
 
 ## Build and Run Samples
 
-`examples/hcomm_write_read_nbi` provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`. This sample adopts an independent CMake project for building:
+`examples/aicore/hcomm/01_hcomm_write_read_nbi` provides a point-to-point communication sample using AIV direct-driven URMA `WriteNbi` and `ReadNbi`. This sample adopts an independent CMake project for building:
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
-cd examples/hcomm_write_read_nbi
+cd examples/aicore/hcomm/01_hcomm_write_read_nbi
 mkdir -p build
 cd build
 cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..

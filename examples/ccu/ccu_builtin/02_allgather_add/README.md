@@ -6,7 +6,8 @@
 vector kernel通过HCCL高阶API提交AllGather Client通信任务，最后对AllGather结果执行Add计算。
 
 样例会根据当前环境中的NPU数量创建通信域，每个Device对应一个rank。每个rank输入一段FP32数据。
-Host侧通过`Mc2AcquireCcResCtx`获取CCU资源上下文，通过`Mc2CcKernelLaunch`启动CCU Server；
+Host侧先通过`CheckOpResSufficient`预检查CCU资源，再通过`Mc2AcquireCcResCtx`获取CCU资源上下文，
+并通过`Mc2CcKernelLaunch`启动CCU Server；
 AICore侧将同一个`ccResCtx`传入`Hccl::InitV2`，通过`Hccl::AllGather`与CCU Server交互完成通信，
 然后对聚合结果执行Add计算。
 
@@ -38,6 +39,7 @@ AICore侧将同一个`ccResCtx`传入`Hccl::InitV2`，通过`Hccl::AllGather`与
 Host:
 HcclComm
   -> Mc2GetCcArgs/Mc2SetCc*
+  -> CheckOpResSufficient (预检查CCU资源是否充足)
   -> Mc2AcquireCcResCtx
   -> Mc2CcKernelLaunch (start CCU Server)
 
@@ -70,16 +72,17 @@ ccResCtx
 2. 每个Device创建一个rank，创建AICore Stream并申请输入、接收和计算Buffer。
 3. 通过`Mc2GetCcArgs`创建MC2参数对象，设置`CCU_SCHED`通信引擎、FP32源/目标数据类型和
    `CcuSchedAllGatherSoleMesh`算法配置。
-4. 通过`Mc2AcquireCcResCtx`基于HCCL通信域申请CCU资源上下文`ccResCtx`及其大小。
-5. 释放MC2参数对象，并通过`Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)`启动CCU Server。
+4. 调用`CheckOpResSufficient`预检查CCU资源是否充足，返回错误码1043表示CCU资源暂时不足，可以选择非CCU算法；返回其他非0错误码表示参数错误或HCCL内部异常，可以记录错误码并进行故障处理。仅当返回`HCCL_SUCCESS`时才能继续申请CCU资源。
+5. 通过`Mc2AcquireCcResCtx`基于HCCL通信域申请CCU资源上下文`ccResCtx`及其大小。
+6. 释放MC2参数对象，并通过`Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)`启动CCU Server。
    CCU kernel资源已在资源申请阶段准备完成，launch阶段使用`ccResCtx`中的信息下发Server任务。
    `stream`参数为AICPU通路预留，当前CCU通路不使用。
-6. 通过`vector_add<<<1, nullptr, streamAiv>>>`启动AICore kernel。kernel内部调用
+7. 通过`vector_add<<<1, nullptr, streamAiv>>>`启动AICore kernel。kernel内部调用
    `hccl.InitV2(contextGM, nullptr)`，其中`contextGM`就是Host侧获取的`ccResCtx`。
-7. AICore侧调用`Hccl::AllGather<true>`提交通信Client任务，调用`Wait`和`SyncAll`等待通信完成，
+8. AICore侧调用`Hccl::AllGather<true>`提交通信Client任务，调用`Wait`和`SyncAll`等待通信完成，
    然后将`recvBuf`拷贝到UB，执行加8计算并将结果写入`computeBuf`。
-8. 同步AICore Stream，将`computeBuf`拷贝回Host侧并打印结果。
-9. 销毁HCCL通信域、Stream和Device侧内存。`ccResCtx`由通信域管理，不需要单独释放。
+9. 同步AICore Stream，将`computeBuf`拷贝回Host侧并打印结果。
+10. 销毁HCCL通信域、Stream和Device侧内存。`ccResCtx`由通信域管理，不需要单独释放。
 
 ## 编译运行
 
@@ -132,6 +135,7 @@ ccResCtx
 
 ## 注意事项
 
+- `CheckOpResSufficient`仅做资源预检查，不会占用通信资源；该接口仅支持`CCU_SCHED`场景，其他场景直接返回`HCCL_SUCCESS`。
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 - `Mc2AcquireCcResCtx`返回的`ccResCtx`同时传给`Mc2CcKernelLaunch`和AICore
   `vector_add` kernel，二者必须使用同一个资源上下文。

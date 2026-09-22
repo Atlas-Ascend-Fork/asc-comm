@@ -544,6 +544,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchPostSend(
     if constexpr (config.cqe == 1) {
         batchHandle.cursor.cqHead++;
     }
+    HCOMM_DEBUG_FUNC(HcommUrmaDumpWqeCtx, sqeCtx, sizeof(uint64_t));
     return HCOMM_SUCCESS;
 }
 

@@ -32,8 +32,9 @@ struct trans_dep {
     uint16_t reserve_xn_id;
     uint16_t reserve_gsa_id;
     uint16_t reserve_cke_id;
-    uint16_t reserve_channal_id[2]; //  0: selfLoopBack; 1: inter die, 0xffff为无效值，rep翻译时检查
-    uint64_t xn_base_addr[ccu_max_iodie_num];
+    uint16_t
+        reserve_channal_id[2]; // 环回 channel（die 内/间共用同一条）：0/1 两槽位同值，0xffff为无效值，rep翻译时检查
+    uint64_t xn_base_addr[CCU_MAX_IODIE_NUM];
     uint64_t ccu_res_space_token_info;
     uint64_t mem_token_info;
     uint16_t comm_xn[3];  // 3个Xn

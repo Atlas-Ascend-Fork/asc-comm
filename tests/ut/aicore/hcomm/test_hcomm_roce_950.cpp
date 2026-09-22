@@ -121,3 +121,15 @@ TEST_F(HcommRoCETestSuite, Init_WriteWithNotifyNbi)
         reinterpret_cast<GM_ADDR>(0x310), 10);
     EXPECT_EQ(ret, -1);
 }
+
+TEST_F(HcommRoCETestSuite, DrainWithoutNewCqeKeepsSqTail)
+{
+    Hcomm<COMM_PROTOCOL_ROCE> hcomm;
+    ASSERT_EQ(hcomm.Init(tempTensor_, 512), HCOMM_SUCCESS);
+    channel_.cqHead = 1;
+    channel_.cqTail = 1;
+    channel_.sqTail = 7;
+
+    EXPECT_EQ(hcomm.Drain(reinterpret_cast<ChannelHandle>(&channel_)), HCOMM_SUCCESS);
+    EXPECT_EQ(channel_.sqTail, 7U);
+}

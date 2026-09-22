@@ -6,8 +6,9 @@
 kernel通过HCCL高阶API提交AlltoAll Client通信任务。
 
 样例会根据当前环境中的NPU数量创建通信域，每个Device对应一个rank。每个rank向通信域内
-每个目标rank发送256个FP32元素。Host侧通过`Mc2AcquireCcResCtx`获取CCU资源上下文，
-通过`Mc2CcKernelLaunch`启动CCU Server；AICore侧将同一个`ccResCtx`传入`Hccl::InitV2`，
+每个目标rank发送256个FP32元素。Host侧先通过`CheckOpResSufficient`预检查CCU资源，再通过
+`Mc2AcquireCcResCtx`获取CCU资源上下文，并通过`Mc2CcKernelLaunch`启动CCU Server；
+AICore侧将同一个`ccResCtx`传入`Hccl::InitV2`，
 通过`Hccl::AlltoAll`完成等长数据交换。
 
 ## 本样例支持的产品及CANN软件版本
@@ -31,13 +32,16 @@ kernel通过HCCL高阶API提交AlltoAll Client通信任务。
 ### 功能说明
 
 每个rank的输入按目标rank划分为多个连续数据块，每个数据块包含256个FP32元素。
-发送rank `i`发往目标rank `j`的数据块初始化为`i * 1000 + j`。AlltoAll完成后，
-接收rank `j`的第`i`个数据块应为`i * 1000 + j`，用于验证数据交换结果。
+发送rank `i`发往目标rank `j`的数据块初始化为`i * CCU_MAX_RANK_SIZE + j`。
+AlltoAll完成后，接收rank `j`的第`i`个数据块应为相同的小整数值，用于验证数据交换结果。
+该取值方式最大为`CCU_MAX_RANK_SIZE * CCU_MAX_RANK_SIZE - 1`，切换为`int8_t`或`uint8_t`
+时不会发生数据截断。
 
 ```text
 Host:
 HcclComm
   -> Mc2GetCcArgs/Mc2SetCc*
+  -> CheckOpResSufficient (预检查CCU资源是否充足)
   -> Mc2AcquireCcResCtx
   -> Mc2CcKernelLaunch (start CCU Server)
 
@@ -68,14 +72,15 @@ ccResCtx
 2. 每个Device创建一个rank，创建AICore Stream，并申请输入和输出Buffer。
 3. 通过`Mc2GetCcArgs`创建MC2参数对象，设置`CCU_SCHED`通信引擎、FP32源/目标数据类型和
    `CcuSchedAllToAllSoleMesh`算法配置。
-4. 通过`Mc2AcquireCcResCtx`申请CCU资源上下文`ccResCtx`及其大小。
-5. 释放MC2参数对象，并通过`Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)`启动CCU Server。
+4. 调用`CheckOpResSufficient`预检查CCU资源是否充足，返回错误码1043表示CCU资源暂时不足，可以选择非CCU算法；返回其他非0错误码表示参数错误或HCCL内部异常，可以记录错误码并进行故障处理。仅当返回`HCCL_SUCCESS`时才能继续申请CCU资源。
+5. 通过`Mc2AcquireCcResCtx`申请CCU资源上下文`ccResCtx`及其大小。
+6. 释放MC2参数对象，并通过`Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)`启动CCU Server。
    `stream`参数为AICPU通路预留，当前CCU通路不使用。
-6. 通过`all_to_all_kernel<<<1, nullptr, streamAiv>>>`启动AICore kernel。kernel内部调用
+7. 通过`all_to_all_kernel<<<1, nullptr, streamAiv>>>`启动AICore kernel。kernel内部调用
    `hccl.InitV2(contextGM, nullptr)`，其中`contextGM`就是Host侧获取的`ccResCtx`。
-7. AICore侧调用`Hccl::AlltoAll<true>`提交等长数据交换Client任务，调用`Wait`和`SyncAll`等待完成。
-8. 同步AICore Stream，将`recvBuf`拷回Host侧，并按发送源rank和本地rank校验各数据块。
-9. 销毁HCCL通信域、Stream和Device侧内存。`ccResCtx`由通信域管理，不需要单独释放。
+8. AICore侧调用`Hccl::AlltoAll<true>`提交等长数据交换Client任务，调用`Wait`和`SyncAll`等待完成。
+9. 同步AICore Stream，将`recvBuf`拷回Host侧，并按发送源rank和本地rank校验各数据块。
+10. 销毁HCCL通信域、Stream和Device侧内存。`ccResCtx`由通信域管理，不需要单独释放。
 
 ## 编译运行
 
@@ -92,19 +97,20 @@ make -j
 
 其中`${install_path}`为CANN包安装目录，未指定安装目录时默认安装至`/usr/local/Ascend`。
 
-两卡场景下，rank `d`向目标rank `j`发送的块中每个元素为`d * 1000 + j`，
+两卡场景下，rank `d`向目标rank `j`发送的块中每个元素为`d * CCU_MAX_RANK_SIZE + j`，
 运行成功后每个rank的接收块应按源rank顺序排列：
 
 ```text
 Found 2 NPU device(s) available
-rankId: 0, recv blocks: [ 0 x 256] [1000 x 256]
+rankId: 0, recv blocks: [ 0 x 256] [8 x 256]
 rankId: 0, validation: PASS
-rankId: 1, recv blocks: [ 1 x 256] [1001 x 256]
+rankId: 1, recv blocks: [1 x 256] [9 x 256]
 rankId: 1, validation: PASS
 ```
 
 ## 注意事项
 
+- `CheckOpResSufficient`仅做资源预检查，不会占用通信资源；该接口仅支持`CCU_SCHED`场景，其他场景直接返回`HCCL_SUCCESS`。
 - 运行样例需要至少2张NPU；单卡环境仅支持编译验证。
 - `Mc2AcquireCcResCtx`返回的`ccResCtx`同时传给`Mc2CcKernelLaunch`和AICore
   `all_to_all_kernel`，二者必须使用同一个资源上下文。

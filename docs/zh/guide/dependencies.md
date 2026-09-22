@@ -19,7 +19,7 @@ asc-comm当前仓内构建主要用于环境检查、AICore Hcomm接口UT验证�
 | 场景 | 依赖 | 版本 | 获取或配置方式 |
 | --- | --- | --- | --- |
 | UT | googletest | 1.14.0 | 优先使用系统GTest；没有系统GTest时，通过`CANN_3RD_LIB_PATH`指向CANN third_party目录。 |
-| 样例 | CANN ASC CMake能力和hcomm库 | CANN 9.1.0或以上 | 执行`source ${install_path}/cann/set_env.sh`后，在`examples/hcomm_write_read_nbi`目录下使用CMake构建。 |
+| 样例 | CANN ASC CMake能力和hcomm库 | CANN 9.1.0或以上 | 执行`source ${install_path}/cann/set_env.sh`后，在`examples/aicore/hcomm/01_hcomm_write_read_nbi`目录下使用CMake构建。 |
 | 代码格式化 | clang-format | v18.1.8 | `pre-commit-config.yaml`从`pre-commit-clang/mirrors-clang-format`拉取。 |
 | 开源合规检查 | oat-py | >= 1.0.1 | `scripts/oat_check.sh`会尝试自动安装；失败时手动执行`pip install oat-py>=1.0.1`。 |
 
@@ -27,13 +27,13 @@ asc-comm当前仓内构建主要用于环境检查、AICore Hcomm接口UT验证�
 
 ## 样例运行依赖
 
-`examples/hcomm_write_read_nbi`样例支持Ascend 950PR/Ascend 950DT，运行时需要至少2张NPU。单卡环境可完成编译验证，但无法完成两卡点对点通信运行验证。该样例固定使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UBC_CTP`，不覆盖RoCE路径。
+`examples/aicore/hcomm/01_hcomm_write_read_nbi`样例支持Ascend 950PR/Ascend 950DT，运行时需要至少2张NPU。单卡环境可完成编译验证，但无法完成两卡点对点通信运行验证。该样例固定使用`COMM_ENGINE_AIV`和`COMM_PROTOCOL_UBC_CTP`，不覆盖RoCE路径。
 
 样例编译命令如下：
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
-cd examples/hcomm_write_read_nbi
+cd examples/aicore/hcomm/01_hcomm_write_read_nbi
 mkdir -p build
 cd build
 cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..

@@ -19,7 +19,7 @@ The in-repository build of asc-comm is mainly used for environment verification,
 | Scenario | Dependency | Version | Acquisition & Configuration |
 | --- | --- | --- | --- |
 | UT | googletest | 1.14.0 | System GTest is preferred. If unavailable, point `CANN_3RD_LIB_PATH` to the CANN third_party directory. |
-| Samples | CANN ASC CMake utilities and hcomm library | CANN 9.1.0 or later | After running `source ${install_path}/cann/set_env.sh`, build via CMake under `examples/hcomm_write_read_nbi`. |
+| Samples | CANN ASC CMake utilities and hcomm library | CANN 9.1.0 or later | After running `source ${install_path}/cann/set_env.sh`, build via CMake under `examples/aicore/hcomm/01_hcomm_write_read_nbi`. |
 | Code Formatting | clang-format | v18.1.8 | Pulled from `pre-commit-clang/mirrors-clang-format` defined in `pre-commit-config.yaml`. |
 | Open Source Compliance Check | oat-py | >= 1.0.1 | `scripts/oat_check.sh` attempts automatic installation. Run `pip install oat-py>=1.0.1` manually upon failure. |
 
@@ -27,14 +27,14 @@ The in-repository build of asc-comm is mainly used for environment verification,
 
 ## Sample Runtime Dependencies
 
-The `examples/hcomm_write_read_nbi` sample supports Ascend 950PR / Ascend 950DT and requires at least two NPUs for runtime. Compilation verification can be completed on single-NPU environments, whereas two-card point-to-point communication runtime verification is unavailable.
+The `examples/aicore/hcomm/01_hcomm_write_read_nbi` sample supports Ascend 950PR / Ascend 950DT and requires at least two NPUs for runtime. Compilation verification can be completed on single-NPU environments, whereas two-card point-to-point communication runtime verification is unavailable.
 This sample uses `COMM_ENGINE_AIV` and `COMM_PROTOCOL_UBC_CTP` exclusively and does not cover the RoCE path.
 
 Sample build commands:
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
-cd examples/hcomm_write_read_nbi
+cd examples/aicore/hcomm/01_hcomm_write_read_nbi
 mkdir -p build
 cd build
 cmake -DCMAKE_ASC_ARCHITECTURES=dav-3510 ..

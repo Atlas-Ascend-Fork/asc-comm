@@ -75,6 +75,6 @@ __aicore__ inline int32_t WriteNbi(
 
 ## 相关样例
 
-[hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README.md)演示普通接口的AIV直驱URMA两卡读写流程；[hcomm_batch_write](../../../../../examples/hcomm_batch_write/README.md)演示多通道批量写流程。BatchHandle基本流程见[Hcomm使用说明](../../../guide/hcomm_usage.md)。
+[hcomm_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)演示普通接口的AIV直驱URMA两卡读写流程；[hcomm_batch_write](../../../../../examples/aicore/hcomm/02_hcomm_batch_write/README.md)演示多通道批量写流程。BatchHandle基本流程见[Hcomm使用说明](../../../guide/hcomm_usage.md)。
 
 多通道接口见[GetHandleRef](./GetHandleRef.md)。

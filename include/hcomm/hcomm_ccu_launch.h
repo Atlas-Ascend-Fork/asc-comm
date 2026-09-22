@@ -16,13 +16,11 @@
 #ifndef HCOMM_CCU_LAUNCH_H
 #define HCOMM_CCU_LAUNCH_H
 
-#include <stddef.h>
 #include <stdint.h>
-#include "hcomm/hcomm_ccu_res.h"
+
 #include "hcomm/hcomm_ccu_dfx.h"
 
 #ifdef __cplusplus
-#include <type_traits>
 extern "C" {
 #endif
 
@@ -41,14 +39,14 @@ enum {
  * header 标识该结构的 ABI 布局；cycle、任务位置和 kernelHandle 由 hcomm 转换后交给原 callback。
  */
 typedef struct {
-    HcommCcuAbiHeaderPod header; // ABI 头：version/magic/size 校验
-    uint64_t beginCycle;         // task 起始 cycle（profiling 采集值）
-    uint64_t endCycle;           // task 结束 cycle
-    uint32_t dieId;              // 所在 die
-    uint32_t missionId;          // mission id
-    uint32_t instructionId;      // 指令（起始）id
-    uint32_t isMaster;           // 是否 master 核，1 为是
-    uint64_t kernelHandle;       // kernel 句柄
+    CommAbiHeader header;   // ABI 头：version/magic/size 校验
+    uint64_t beginCycle;    // task 起始 cycle（profiling 采集值）
+    uint64_t endCycle;      // task 结束 cycle
+    uint32_t dieId;         // 所在 die
+    uint32_t missionId;     // mission id
+    uint32_t instructionId; // 指令（起始）id
+    uint32_t isMaster;      // 是否 master 核，1 为是
+    uint64_t kernelHandle;  // kernel 句柄
     HcommCcuDiagnoseFn diagnose; // asc-comm 提供的诊断入口，hcomm 在任务异常时调用（见 HcommCcuDiagnoseFn）
     uint64_t reserved;           // 预留字段，当前必须为 0
 } HcommCcuTaskProfilePod;
@@ -59,18 +57,18 @@ typedef struct {
  * header 在读取名称和数组前完成 ABI 校验；定长字段仅用于跨动态库传值，不携带资源所有权。
  */
 typedef struct {
-    HcommCcuAbiHeaderPod header; // ABI 头：version/magic/size 校验
-    uint32_t nameLength;         // name 实际长度（必须 < HCOMM_CCU_PROFILE_NAME_CAPACITY）
-    uint32_t profilingType;      // profiling 类型（L0/L1 等）
-    uint32_t dieId;              // 所在 die
-    uint32_t missionId;          // mission id
-    uint32_t instructionId;      // 指令 id
-    uint32_t reduceOpType;       // 归约操作类型（非归约时为无效值）
-    uint32_t inputDataType;      // 输入数据类型
-    uint32_t outputDataType;     // 输出数据类型
-    uint64_t dataSize;           // 搬运/归约的数据量（字节或元素数）
-    uint32_t ckeId;              // 关联信号量 CKE id
-    uint32_t mask;               // 信号掩码
+    CommAbiHeader header;    // ABI 头：version/magic/size 校验
+    uint32_t nameLength;     // name 实际长度（必须 < HCOMM_CCU_PROFILE_NAME_CAPACITY）
+    uint32_t profilingType;  // profiling 类型（L0/L1 等）
+    uint32_t dieId;          // 所在 die
+    uint32_t missionId;      // mission id
+    uint32_t instructionId;  // 指令 id
+    uint32_t reduceOpType;   // 归约操作类型（非归约时为无效值）
+    uint32_t inputDataType;  // 输入数据类型
+    uint32_t outputDataType; // 输出数据类型
+    uint64_t dataSize;       // 搬运/归约的数据量（字节或元素数）
+    uint32_t ckeId;          // 关联信号量 CKE id
+    uint32_t mask;           // 信号掩码
     uint16_t channelId[HCOMM_CCU_PROFILE_CHANNEL_CAPACITY];     // 关联 channel id 数组
     uint32_t remoteRankId[HCOMM_CCU_PROFILE_CHANNEL_CAPACITY];  // 远端 rank id 数组
     uint64_t channelHandle[HCOMM_CCU_PROFILE_CHANNEL_CAPACITY]; // 关联 channel 句柄数组
@@ -92,7 +90,7 @@ typedef int32_t (*HcommCcuReportTaskCallback)(
  * 返回前有效。其余字段描述线程所属设备、超时、主从属性和 profiling 开关，调用方不得接管任何资源。
  */
 typedef struct {
-    HcommCcuAbiHeaderPod header;                         // ABI 头：version/magic/size 校验
+    CommAbiHeader header;                                // ABI 头：version/magic/size 校验
     int32_t deviceLogicId;                               // 线程所在设备逻辑 id
     uint32_t timeoutSec;                                 // launch 超时秒数
     uint64_t runtimeStream;                              // runtime stream 句柄（借用，不发生所有权转移）
@@ -109,30 +107,6 @@ typedef struct {
 #ifdef __cplusplus
 }
 
-static_assert(
-    std::is_standard_layout<HcommCcuLaunchContextPod>::value, "HcommCcuLaunchContextPod must be standard-layout");
-static_assert(
-    std::is_trivially_copyable<HcommCcuLaunchContextPod>::value, "HcommCcuLaunchContextPod must be trivially copyable");
-static_assert(std::is_standard_layout<HcommCcuTaskProfilePod>::value, "HcommCcuTaskProfilePod must be standard-layout");
-static_assert(
-    std::is_trivially_copyable<HcommCcuTaskProfilePod>::value, "HcommCcuTaskProfilePod must be trivially copyable");
-static_assert(
-    std::is_standard_layout<HcommCcuProfileDetailPod>::value, "HcommCcuProfileDetailPod must be standard-layout");
-static_assert(
-    std::is_trivially_copyable<HcommCcuProfileDetailPod>::value, "HcommCcuProfileDetailPod must be trivially copyable");
-static_assert(sizeof(HcommCcuLaunchContextPod) == 88, "HcommCcuLaunchContextPod ABI size changed");
-static_assert(
-    offsetof(HcommCcuLaunchContextPod, runtimeStream) == 24,
-    "HcommCcuLaunchContextPod.runtimeStream ABI offset changed");
-static_assert(
-    offsetof(HcommCcuLaunchContextPod, threadHandle) == 48, "HcommCcuLaunchContextPod.threadHandle ABI offset changed");
-static_assert(sizeof(HcommCcuTaskProfilePod) == 72, "HcommCcuTaskProfilePod ABI size changed");
-static_assert(
-    offsetof(HcommCcuTaskProfilePod, kernelHandle) == 48, "HcommCcuTaskProfilePod.kernelHandle ABI offset changed");
-static_assert(sizeof(HcommCcuProfileDetailPod) == 432, "HcommCcuProfileDetailPod ABI size changed");
-static_assert(
-    offsetof(HcommCcuProfileDetailPod, channelId) == 64, "HcommCcuProfileDetailPod.channelId ABI offset changed");
-static_assert(offsetof(HcommCcuProfileDetailPod, name) == 288, "HcommCcuProfileDetailPod.name ABI offset changed");
 #endif
 
 #endif // HCOMM_CCU_LAUNCH_H

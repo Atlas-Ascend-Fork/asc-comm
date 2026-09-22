@@ -10,6 +10,8 @@
 
 #include "hcomm_adapter_rts.h"
 
+#include "acl/acl_rt.h"
+
 namespace asc {
 
 HcclResult RtsUbDevQueryInfo(const rtUbDevQueryCmd cmd, rtMemUbTokenInfo& devInfo)
@@ -30,4 +32,14 @@ extern "C" int rtUbDevQueryInfo(int cmd, void* devInfo)
         return 0;
     }
     return 0;
+}
+
+// 桩：ccu_device_context.cc 经 runtime 取当前线程设备逻辑 id，UT 环境无真实 runtime，固定成功并返回设备 0
+extern "C" aclError aclrtGetDevice(int32_t* deviceId)
+{
+    if (deviceId == nullptr) {
+        return 1; // 非 0 即失败，与 ACL_SUCCESS 语义一致
+    }
+    *deviceId = 0;
+    return ACL_SUCCESS;
 }

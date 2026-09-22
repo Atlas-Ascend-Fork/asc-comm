@@ -84,4 +84,4 @@ class Hcomm;
 
 ## 相关样例
 
-[hcomm_write_read_nbi](../../../../../examples/hcomm_write_read_nbi/README.md)演示两卡场景下，AIV Kernel通过`COMM_PROTOCOL_UBC_CTP`路径调用普通`WriteNbi`和`ReadNbi`。该样例不覆盖RoCE路径和BatchHandle流程。
+[hcomm_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)演示两卡场景下，AIV Kernel通过`COMM_PROTOCOL_UBC_CTP`路径调用普通`WriteNbi`和`ReadNbi`。该样例不覆盖RoCE路径和BatchHandle流程。
