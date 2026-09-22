@@ -11,25 +11,55 @@
 Run locally with Python 3 and g++. No CANN/NPU or target helper files are needed.
 This checks accounting/ownership, not hardware cache or DMA semantics.
 """
+
 from pathlib import Path
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[4]
-inner = (ROOT / "src/aicore/hcomm/common/hcomm_simt_inner_def.h").read_text(encoding="utf-8")
-types = inner[inner.index("// Completion state is caller-owned"):inner.index("template <typename T>\nstruct ChannelTraits;")]
-impl = (ROOT / "src/aicore/hcomm/impl/platform_v310/hcomm_simt_urma.h").read_text(encoding="utf-8")
-core = impl[impl.index("// Shared CQ completion implementation."):impl.index("// End shared CQ completion implementation.")]
+inner = (ROOT / "src/aicore/hcomm/common/hcomm_simt_inner_def.h").read_text(
+    encoding="utf-8"
+)
+types = inner[
+    inner.index("// Completion state is caller-owned") : inner.index(
+        "template <typename T>\nstruct ChannelTraits;"
+    )
+]
+impl = (ROOT / "src/aicore/hcomm/impl/platform_v310/hcomm_simt_urma.h").read_text(
+    encoding="utf-8"
+)
+core = impl[
+    impl.index("// Shared CQ completion implementation.") : impl.index(
+        "// End shared CQ completion implementation."
+    )
+]
 core = core.replace("HcommImpl<COMM_PROTOCOL_UBC_CTP>::", "CompletionEngine::")
-definition = (ROOT / "src/aicore/hcomm/impl/platform_v310/hcomm_simt_urma_def.h").read_text(encoding="utf-8")
-api = definition[definition.index("    __simt_callee__ inline int32_t InitCompletionSet("):definition.index("private:\n    bool initialized_")]
+definition = (
+    ROOT / "src/aicore/hcomm/impl/platform_v310/hcomm_simt_urma_def.h"
+).read_text(encoding="utf-8")
+api = definition[
+    definition.index(
+        "    __simt_callee__ inline int32_t InitCompletionSet("
+    ) : definition.index("private:\n    bool initialized_")
+]
 example = ROOT / "examples/multi_jetty_batch_perf"
 common = (example / "multi_jetty_batch_perf_common.h").read_text(encoding="utf-8")
-summary_types = common.split("namespace multi_jetty_batch_perf {", 1)[1].split("} // namespace multi_jetty_batch_perf")[0]
+summary_types = common.split("namespace multi_jetty_batch_perf {", 1)[1].split(
+    "} // namespace multi_jetty_batch_perf"
+)[0]
 validation = (example / "validation.h").read_text(encoding="utf-8")
-identity_check = validation.split("namespace multi_jetty_batch_perf {", 1)[1].split("} // namespace multi_jetty_batch_perf")[0]
-completion_helpers = (example / "simt_completion.h").read_text(encoding="utf-8").split("namespace multi_jetty_batch_perf {", 1)[1].split("} // namespace multi_jetty_batch_perf")[0]
-completion_helpers = completion_helpers.replace("AscendC::simt::", "").replace("AscendC::", "")
+identity_check = validation.split("namespace multi_jetty_batch_perf {", 1)[1].split(
+    "} // namespace multi_jetty_batch_perf"
+)[0]
+completion_helpers = (
+    (example / "simt_completion.h")
+    .read_text(encoding="utf-8")
+    .split("namespace multi_jetty_batch_perf {", 1)[1]
+    .split("} // namespace multi_jetty_batch_perf")[0]
+)
+completion_helpers = completion_helpers.replace("AscendC::simt::", "").replace(
+    "AscendC::", ""
+)
 prefix = r"""
 #include <array>
 #include <cstring>
@@ -59,6 +89,10 @@ struct CqContext { int type=0; struct { struct {
 struct HcommSimtChannelEntity { uint32_t sqNum=1,cqNum=1; uint64_t sqContextAddr=0,cqContextAddr=0; };
 """
 harness = r"""
+// Preserve the validated snapshot/cache layout while deletion is investigated separately.
+static_assert(sizeof(CompletionSummary) == 192U && alignof(CompletionSummary) == 8U);
+static_assert(kCompletionWorkspaceOffset == 1536U && kCompletionAllocationBytes == 5632U);
+static_assert(kCompletionStateBytes == 3840U);
 struct Fixture {
     CompletionEngine engine;
     UbcCtpCompletionSet set;
@@ -139,7 +173,7 @@ int main() {
                     assert(f.engine.Drain(resumed)==0);
                     if(!phase) CaptureWarmupCompletion(resumed,summaries,count,first);
                 }
-                CaptureCompletion(f.handles,summaries,count,2,statuses,first);
+                CaptureCompletion(f.handles,summaries,count,operations,2,statuses,first);
             }
             std::vector<CompletionSummary> copy(summaries,summaries+n);
             assert(CheckCompletion(copy,warm,operations,bs,api,perKernel));
@@ -267,9 +301,35 @@ int main() {
 with tempfile.TemporaryDirectory(prefix="simt-completion-") as tmp:
     source = Path(tmp) / "completion.cpp"
     executable = Path(tmp) / "completion"
-    source.write_text(prefix + types + summary_types + "\nstruct CompletionEngine {\n" + api + "};\n" +
-        core + completion_helpers + identity_check + harness, encoding="utf-8")
-    subprocess.run(["g++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-O2", str(source), "-o", str(executable)], check=True)
+    source.write_text(
+        prefix
+        + types
+        + summary_types
+        + "\nstruct CompletionEngine {\n"
+        + api
+        + "};\n"
+        + core
+        + completion_helpers
+        + identity_check
+        + harness,
+        encoding="utf-8",
+    )
+    subprocess.run(
+        [
+            "g++",
+            "-std=c++17",
+            "-Wall",
+            "-Wextra",
+            "-Werror",
+            "-O2",
+            str(source),
+            "-o",
+            str(executable),
+        ],
+        check=True,
+    )
     result = subprocess.run([str(executable)], text=True, capture_output=True)
     assert result.returncode == 0, result.stdout + result.stderr
-    print("PASS: shared CQ ownership, capacity, wrap, faults, 72 matrix geometries and Read/Notify validation")
+    print(
+        "PASS: shared CQ ownership, capacity, wrap, faults, 72 matrix geometries and Read/Notify validation"
+    )

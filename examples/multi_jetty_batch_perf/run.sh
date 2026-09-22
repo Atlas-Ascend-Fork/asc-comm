@@ -35,7 +35,7 @@ for j in "${jettys[@]}"; do
     seen[$j]=1
 done
 binary="${script_dir}/build/${profile}/multi_jetty_batch_perf"
-expected="BUILD_CONFIG | Backend=simt | Layout=matrix-v3 | CompletionVersion=1 | MatrixBatch=${batch}"
+expected="BUILD_CONFIG | Backend=simt | Layout=matrix-v4 | CompletionVersion=1 | MatrixBatch=${batch}"
 [[ -x "$binary" && "$("$binary" --build-info)" == "$expected" ]] || { echo "Binary configuration does not match selected batch; build it first" >&2; exit 1; }
 [[ -f "${script_dir}/build/${profile}/build-ready.sha256" ]] &&
     sha256sum --check --status "${script_dir}/build/${profile}/build-ready.sha256" || { echo "Binary has no matching successful build" >&2; exit 1; }
@@ -43,11 +43,14 @@ expected="BUILD_CONFIG | Backend=simt | Layout=matrix-v3 | CompletionVersion=1 |
 mkdir -p "$(dirname "$log_file")"
 log_dir="$(mktemp -d "${log_file}.ranks.XXXXXX")"
 exec > >(tee "$log_file") 2>&1
-echo "RUN_IDENTITY | Head=$(git -C "$script_dir" rev-parse HEAD 2>/dev/null || echo UNKNOWN) | Tree=$([[ -z "$(git -C "$script_dir" status --porcelain 2>/dev/null)" ]] && echo clean || echo dirty)"
-echo "$expected"
-echo "RUN_BINARY | Profile=${profile} | Path=${binary}"
-sha256sum "$binary"
-echo "RANK_LOGS | Directory=${log_dir}"
+# Identity and log locations remain available without cluttering normal results.
+{
+    echo "RUN_IDENTITY | Head=$(git -C "$script_dir" rev-parse HEAD 2>/dev/null || echo UNKNOWN) | Tree=$([[ -z "$(git -C "$script_dir" status --porcelain 2>/dev/null)" ]] && echo clean || echo dirty)"
+    echo "$expected"
+    echo "RUN_BINARY | Profile=${profile} | Path=${binary}"
+    sha256sum "$binary"
+    echo "RANK_LOGS | Directory=${log_dir}"
+} > "${log_file}.metadata"
 apis=(write read notify)
 [[ "$api" == all ]] || apis=("$api")
 pids=()
@@ -86,13 +89,12 @@ for current_api in "${apis[@]}"; do
         if [[ "$current_api" == notify ]]; then
             grep -q '^NOTIFY_AUDIT_SUMMARY | BadNotifies=0$' "${dir}/rank_1.log" || status=FAIL
         fi
-        grep -hE '^(COMPLETION_|DATA_AUDIT_SUMMARY|NOTIFY_AUDIT_SUMMARY)' "${dir}"/rank_*.log || true
         perf="$(grep -m1 '^PERF_DATA |' "${dir}/rank_0.log" || true)"
         [[ -n "$perf" ]] || status=FAIL
         if [[ -n "$perf" ]]; then
-            echo "${perf/PERF_DATA/RESULT} | Status=${status}"
+            echo "${perf/PERF_DATA/RESULT} | Pair=0-1 | Status=${status}"
         else
-            echo "RESULT | API=${current_api} | BatchSize=${batch} | Jettys=${j} | Status=FAIL"
+            echo "RESULT | API=${current_api} | Mode=MultiJetty | DataSize/B=64 | BatchSize=${batch} | Jettys=${j} | ConcurrentJettys=$((j < 1024 / batch ? j : 1024 / batch)) | IssueTicksPerRequest=NA | Pair=0-1 | Status=FAIL"
         fi
         cases=$((cases + 1))
         if [[ "$status" == PASS ]]; then

@@ -520,7 +520,8 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
 {
     UbcCtpBatchHandle batchHandle;
     constexpr uint32_t workspaceBytes = HCOMM_SIMT_BATCH_CONTEXT_BYTES + HCOMM_SIMT_BATCH_ITEM_BYTES;
-    if (buff == nullptr || buffLen < workspaceBytes) {
+    if (buff == nullptr || buffLen < workspaceBytes ||
+        (itemBb != HCOMM_URMA_WQE_BB_CNT && itemBb != HCOMM_URMA_DWQE_BB_CNT)) {
         return batchHandle;
     }
     auto* workspaceWords = reinterpret_cast<__ubuf__ uint64_t*>(buff);
@@ -567,6 +568,13 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
     ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb,
     const Group& group)
 {
+    UbcCtpBatchHandle batchHandle;
+    constexpr uint32_t workspaceBytes = HCOMM_SIMT_BATCH_CONTEXT_BYTES + HCOMM_SIMT_BATCH_ITEM_BYTES;
+    // All lanes must supply the same arguments; reject invalid storage before any lane reads it.
+    if (buff == nullptr || buffLen < workspaceBytes ||
+        (itemBb != HCOMM_URMA_WQE_BB_CNT && itemBb != HCOMM_URMA_DWQE_BB_CNT)) {
+        return batchHandle;
+    }
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t size = static_cast<uint32_t>(group.size());
     if (rank == 0U) {
@@ -574,7 +582,6 @@ __simt_callee__ inline UbcCtpBatchHandle HcommImpl<COMM_PROTOCOL_UBC_CTP>::MakeB
     }
     group.sync();
 
-    UbcCtpBatchHandle batchHandle;
     __ubuf__ HcommSimtBatchStaticContext* context = reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(buff);
     if (context->headAddr == 0U) {
         return batchHandle;
