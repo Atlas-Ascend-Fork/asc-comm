@@ -1,5 +1,7 @@
 # 多 Jetty SIMT 验证
 
+本用例使用 `$ASCEND_HOME_PATH` 中已安装的 Hcomm 头文件。修改通信源码后，先在仓库根目录制包并安装到当前 CANN，再用 `--clean` 重编用例。
+
 用例演示多个 Jetty 并行发布，以及由一个消费者统一处理共享 CQ、按 JFS 归属推进各 Jetty 的完成状态。支持 Write、Read 和 WriteWithNotify。
 
 ## 执行

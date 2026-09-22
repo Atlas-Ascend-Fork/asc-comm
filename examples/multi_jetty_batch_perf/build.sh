@@ -13,11 +13,13 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 batch=256
 clean=false
+optimization=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --batch-size) batch="${2:?batch size required}"; shift 2 ;;
         --clean) clean=true; shift ;;
-        -h|--help) echo "Usage: build.sh [--batch-size 1|8|32|64|128|256] [--clean]"; exit 0 ;;
+        -O0) optimization=-O0; shift ;;
+        -h|--help) echo "Usage: build.sh [--batch-size 1|8|32|64|128|256] [--clean] [-O0]"; exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 1 ;;
     esac
 done
@@ -31,8 +33,10 @@ rm -f -- "${build_dir}/build-ready.sha256"
 started_at=$SECONDS
 # Keep successful compiler output in the build directory; show the useful tail on failure.
 compile_log="${build_dir}/build-output.log"
+cmake_options=(-U CMAKE_ASC_FLAGS)
+[[ -z "$optimization" ]] || cmake_options=(-DCMAKE_ASC_FLAGS="$optimization")
 if cmake -S "$script_dir" -B "$build_dir" -DCMAKE_ASC_ARCHITECTURES=dav-3510 \
-    -DMULTI_JETTY_MATRIX_BATCH="$batch" >"$compile_log" 2>&1 &&
+    -DMULTI_JETTY_MATRIX_BATCH="$batch" "${cmake_options[@]}" >"$compile_log" 2>&1 &&
     timeout --signal=TERM --kill-after=10s 5m cmake --build "$build_dir" --verbose \
         --parallel "${BUILD_JOBS:-2}" >>"$compile_log" 2>&1; then
     :
@@ -46,7 +50,9 @@ fi
 # Verify the selected VF. Register usage is recorded, not limited across different geometries.
 object="${build_dir}/CMakeFiles/multi_jetty_batch_perf.dir/simt_kernel.cpp.o"
 mapfile -t reports < <(grep '^\[BISHENG\] SIMT VF Function properties for ' "${build_dir}/build-output.log" || true)
-if [[ ${#reports[@]} == 0 ]]; then
+if [[ "$optimization" == -O0 ]]; then
+    : # O0 may not emit a VF resource report.
+elif [[ ${#reports[@]} == 0 ]]; then
     # Reuse an incremental resource report only for the identical object.
     [[ -f "${build_dir}/build-resource.txt" && -f "${build_dir}/build-resource-object.sha256" ]] &&
         sha256sum --check --status "${build_dir}/build-resource-object.sha256" || {
