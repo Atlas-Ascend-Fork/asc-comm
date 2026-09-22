@@ -257,19 +257,25 @@ protected:
 
     void SetUp() override
     {
-        HcommCcuChannelPod channelPod{};
-        channelPod.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
-        channelPod.header.magicWord = HCOMM_CCU_CHANNEL_POD_MAGIC_WORD;
-        channelPod.header.size = sizeof(HcommCcuChannelPod);
-        channelPod.localXnIds[0] = 0;
-        channelPod.remoteXnIds[0] = 0;
-        channelPod.localCkeIds[0] = 5;
-        channelPod.remoteCkeIds[0] = 6;
-        channelPod.rmtCcuBufSize = 1;
-        SetHcommCcuChannelQueryStub(channelPod);
+        HcommCcuChannelEntity channelEntity{};
+        channelEntity.header.version = HCOMM_CCU_CHANNEL_ABI_VERSION;
+        channelEntity.header.magicWord = HCOMM_CCU_CHANNEL_MAGIC_WORD;
+        channelEntity.header.size = sizeof(HcommCcuChannelEntity);
+        channelEntity.localVarNum = 1;
+        channelEntity.remoteVarNum = 1;
+        channelEntity.localEventNum = 1;
+        channelEntity.remoteEventNum = 1;
+        channelEntity.localVarIds[0] = 0;
+        channelEntity.remoteVarIds[0] = 0;
+        channelEntity.localEventIds[0] = 5;
+        channelEntity.remoteEventIds[0] = 6;
+        channelEntity.rmtCcuResBuffer.type = REGED_BUFFER_RMA;
+        channelEntity.rmtCcuResBuffer.bufferInfo.rma.addr = 0x1000;
+        channelEntity.rmtCcuResBuffer.bufferInfo.rma.size = 1;
+        SetHcommCcuChannelGetEntityStub(channelEntity);
     }
 
-    void TearDown() override { ResetHcommCcuChannelQueryStub(); }
+    void TearDown() override { ResetHcommCcuChannelGetEntityStub(); }
 };
 
 TEST_F(CcuRepContextProfilingTest, AddProfiling_WithChannel)
@@ -328,16 +334,9 @@ TEST_F(CcuRepContextTest, GetRepByInstrId_Found)
     EXPECT_EQ(context_.get_rep_by_instr_id(1000), nullptr);
 }
 
-TEST_F(CcuRepContextTest, DeviceLogicId_SetAndGet)
-{
-    set_current_ccu_device_logic_id(7);
-    EXPECT_EQ(get_current_ccu_device_logic_id(), 7);
-    set_current_ccu_device_logic_id(-1);
-}
-
 TEST_F(CcuRepContextProfilingTest, AddProfiling_WithChannel_StubFailure)
 {
-    SetHcommCcuChannelQueryStubResult(-1);
+    SetHcommCcuChannelGetEntityStubResult(-1);
     ccu_rep_context context_;
     ChannelHandle ch = 0;
     int32_t ret = context_.add_profiling(ch, std::string("wait_cke"), 0, 0xF);
