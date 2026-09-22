@@ -48,7 +48,7 @@ using ccu_rep::ccu_ins_generater_base;
 using ccu_rep::ccu_ins_generater_v1;
 
 template <typename t>
-t ccu_kernel::create_res_assist(std::array<std::vector<t>, ccu_max_iodie_num>& res_record)
+t ccu_kernel::create_res_assist(std::array<std::vector<t>, CCU_MAX_IODIE_NUM>& res_record)
 {
     // kernel确认die之前默认为0，需要刷新资源
     // 确认die之后按实际使用die分配资源
@@ -61,7 +61,7 @@ t ccu_kernel::create_res_assist(std::array<std::vector<t>, ccu_max_iodie_num>& r
 
 template <typename t>
 std::vector<t> ccu_kernel::create_block_res_assist(
-    const uint32_t count, std::array<std::vector<t>, ccu_max_iodie_num>& res_record)
+    const uint32_t count, std::array<std::vector<t>, CCU_MAX_IODIE_NUM>& res_record)
 {
     constexpr uint16_t ccu_block_res_id_base = 0x1000; // block 批量分配资源 id 基址，与单资源 id 区间隔离便于 DFX 定位
     std::vector<t> block;
@@ -90,7 +90,7 @@ static HcclResult get_die_id_by_channels(
     const std::unordered_set<ChannelHandle>& channels, uint32_t valid_die_mask, uint32_t& die_id)
 {
     if (channels.empty()) {
-        for (uint32_t die = 0; die < ccu_max_iodie_num; die++) {
+        for (uint32_t die = 0; die < CCU_MAX_IODIE_NUM; die++) {
             if ((valid_die_mask & (1U << die)) != 0) {
                 die_id = die;
                 return HcclResult::HCCL_SUCCESS;
@@ -204,8 +204,8 @@ HcclResult ccu_kernel::apply_die_from_channels(uint32_t valid_die_mask)
     uint32_t die_id{0};
     CHK_RET(get_die_id_by_channels(channels_, valid_die_mask, die_id));
     CHK_PRT_RET(
-        die_id >= ccu_max_iodie_num,
-        HCCL_ERROR("[CcuKernel][%s] failed, dieId[%u] should be less than [%u].", __func__, die_id, ccu_max_iodie_num),
+        die_id >= CCU_MAX_IODIE_NUM,
+        HCCL_ERROR("[CcuKernel][%s] failed, dieId[%u] should be less than [%u].", __func__, die_id, CCU_MAX_IODIE_NUM),
         HcclResult::HCCL_E_PARA);
     set_die_id(die_id);
     move_resources_to_die(res_, die_id);
@@ -217,9 +217,9 @@ HcclResult ccu_kernel::apply_die_from_channels(uint32_t valid_die_mask)
 HcclResult ccu_kernel::validate_and_apply_die(const uint32_t target_die_id, uint32_t valid_die_mask)
 {
     CHK_PRT_RET(
-        target_die_id >= ccu_max_iodie_num,
+        target_die_id >= CCU_MAX_IODIE_NUM,
         HCCL_ERROR(
-            "[CcuKernel][%s] failed, dieId[%u] should be less than [%u].", __func__, target_die_id, ccu_max_iodie_num),
+            "[CcuKernel][%s] failed, dieId[%u] should be less than [%u].", __func__, target_die_id, CCU_MAX_IODIE_NUM),
         HcclResult::HCCL_E_PARA);
 
     CHK_PRT_RET(
@@ -2607,13 +2607,13 @@ void ccu_kernel::set_instr_id(uint32_t instr_id) { instr_info_.start_instr_id = 
 
 uint32_t ccu_kernel::get_instr_id() const { return instr_info_.start_instr_id; }
 
-void ccu_kernel::set_instruction_resource(const HcommCcuResRangePod& range)
+void ccu_kernel::set_instruction_resource(const asc_ccu_res_range& range)
 {
     instruction_resource_ = range;
     has_instruction_resource_ = true;
 }
 
-bool ccu_kernel::get_instruction_resource(HcommCcuResRangePod& range) const
+bool ccu_kernel::get_instruction_resource(asc_ccu_res_range& range) const
 {
     if (!has_instruction_resource_) {
         return false;

@@ -17,7 +17,7 @@ namespace asc {
 
 #ifndef ASCCOMM_CCU_MAX_IODIE_NUM_DEFINED
 #define ASCCOMM_CCU_MAX_IODIE_NUM_DEFINED
-constexpr uint8_t ccu_max_iodie_num = 2;
+constexpr uint8_t CCU_MAX_IODIE_NUM = 2;
 #endif
 
 } // namespace asc
