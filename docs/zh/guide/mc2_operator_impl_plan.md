@@ -183,5 +183,5 @@ hccl.InitV2(mc2Context, nullptr);
 
 ## 7. 遗留问题
 
-- 【占位待确认】`MC2` 的正式英文全称当前按 `Massive Communication Computing` 展开，仍需以产品命名规范或权威资料做最终确认；如确认结果不同，需要同步更新正式指南概述。
+- `MC2` 的正式英文全称为 `Matrix Computation & Communication`，已在正式指南中采用。
 - 【占位待确认】CCU 路径在不同通信引擎、产品和算法配置下的 Server 启动接口、Client 类型、执行队列及资源上下文传递方式是否保持一致，仍需结合当前版本 API 参考和对应样例确认；在确认前，正式指南只描述已验证的 CCU 样例路径，不将其配置推广为通用规则。

@@ -2,7 +2,7 @@
 
 ## 概述
 
-MC2（Massive Communication Computing）是代理模式在Ascend C通信编程中的一类具体实现。Host侧初始化ACL运行时，创建HCCL通信域，并申请MC2通信资源上下文；AICore Kernel作为通信Client提交通信任务；AICPU_TS或CCU任务作为通信Server接收Client请求，驱动通信通路完成数据传输，并向Client发布完成状态。
+MC2（Matrix Computation & Communication）是代理模式在Ascend C通信编程中的一类具体实现。Host侧初始化ACL运行时，创建HCCL通信域，并申请MC2通信资源上下文；AICore Kernel作为通信Client提交通信任务；AICPU_TS或CCU任务作为通信Server接收Client请求，驱动通信通路完成数据传输，并向Client发布完成状态。
 
 MC2通算算子的核心价值是通信与计算重叠。通信任务提交后，通信数据传输由AICPU_TS或CCU服务端执行，AICore可以继续执行与本轮通信结果没有依赖的计算；待通信结果就绪后，AICore再读取通信输出并执行依赖计算，从而将部分通信时间与计算时间重叠，减少串行等待，提高算子整体性能。
 
@@ -82,17 +82,12 @@ CCU路径下，Client Kernel下发到 `streamAiv`；Server由 `Mc2CcKernelLaunch
 
 通信域中的所有Rank获得Root Rank生成的同一份 `rootInfo` 后，分别调用 `HcclCommInitRootInfo`。该接口根据 `rankSize`、`rankId` 和 `rootInfo` 初始化当前Rank的 `HcclComm` 句柄。后续MC2通信资源申请使用这个句柄。
 
+以下代码展示各Rank已经收到同一份 `rootInfo` 后，创建当前Rank `HcclComm` 句柄的过程：
+
   ```cpp
-  uint32_t rankId;
-  uint32_t rankSize;
-
-  HcclRootInfo rootInfo;
-
-  if (rankId == 0) {
-      HCCL_CHECK(HcclGetRootInfo(&rootInfo));
-  }
-
-  // 通信域中的所有Rank使用同一份rootInfo。
+  uint32_t rankId;        // 当前Rank在通信域中的编号
+  uint32_t rankSize;      // 通信域中的Rank总数
+  HcclRootInfo rootInfo;  // Root Rank生成并分发给当前Rank的同一份信息
 
   HcclComm comm = nullptr;
   HCCL_CHECK(HcclCommInitRootInfo(
@@ -104,7 +99,7 @@ CCU路径下，Client Kernel下发到 `streamAiv`；Server由 `Mc2CcKernelLaunch
 
 ### 分配通信和计算内存
 
-MC2算子需要分配Device GM缓冲区：通信源缓冲区保存当前Rank发送的数据；通信目的缓冲区保存通信结果；计算输入和输出缓冲区由AICore访问。
+MC2算子需要分配Device GM缓冲区：通信源缓冲区保存当前Rank发送的数据；通信目的缓冲区保存通信结果；计算输入和通信源临时缓冲区由AICore访问。
 
 缓冲区大小根据元素数量和数据类型计算，并满足通信接口的地址对齐和可访问范围。通信源缓冲区在通信完成前不能覆盖；通信目的缓冲区在对应结果写入完成前不能读取或覆盖。
 
@@ -121,13 +116,23 @@ MC2算子需要分配Device GM缓冲区：通信源缓冲区保存当前Rank发�
   void* tmpBuf = nullptr;
   void* recvBuf = nullptr;
 
-  ACL_CHECK(aclrtMalloc(&x1Buf, sendSize, ACL_MEM_MALLOC_HUGE_FIRST));
-  ACL_CHECK(aclrtMalloc(&x2Buf, sendSize, ACL_MEM_MALLOC_HUGE_FIRST));
-  ACL_CHECK(aclrtMalloc(&tmpBuf, sendSize, ACL_MEM_MALLOC_HUGE_FIRST));
-  ACL_CHECK(aclrtMalloc(&recvBuf, recvSize, ACL_MEM_MALLOC_HUGE_FIRST));
+  ACL_CHECK(aclrtMalloc(&x1Buf, sendSize, ACL_MEM_MALLOC_HUGE_ONLY));
+  ACL_CHECK(aclrtMalloc(&x2Buf, sendSize, ACL_MEM_MALLOC_HUGE_ONLY));
+  ACL_CHECK(aclrtMalloc(&tmpBuf, sendSize, ACL_MEM_MALLOC_HUGE_ONLY));
+  ACL_CHECK(aclrtMalloc(&recvBuf, recvSize, ACL_MEM_MALLOC_HUGE_ONLY));
 
-  ACL_CHECK(aclrtMemcpy(x1Buf, sendSize, hostX1, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
-  ACL_CHECK(aclrtMemcpy(x2Buf, sendSize, hostX2, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
+  // 申请Host输入缓冲区，并按算子输入初始化。
+  void* hostBuf = nullptr;
+  ACL_CHECK(aclrtMallocHost(&hostBuf, sendSize));
+  float* hostInput = static_cast<float*>(hostBuf);
+  for (uint64_t i = 0; i < sendCount; ++i) {
+      hostInput[i] = static_cast<float>(rankId) + 1;
+  }
+
+  // 示例中x1与x2使用同一份输入数据。
+  ACL_CHECK(aclrtMemcpy(x1Buf, sendSize, hostBuf, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
+  ACL_CHECK(aclrtMemcpy(x2Buf, sendSize, hostBuf, sendSize, ACL_MEMCPY_HOST_TO_DEVICE));
+  ACL_CHECK(aclrtFreeHost(hostBuf));
   ```
 
 ### 配置MC2通信资源
@@ -190,11 +195,10 @@ CCU路径将通信执行引擎设置为CCU调度引擎，并显式设置AllGathe
 
 AICPU_TS路径下，Host侧先下发Server任务，再下发AICore Client Kernel。
 
-Server任务通过 `Mc2CcKernelLaunch` 下发到 `aicpuStream`：
+Server任务通过 `Mc2CcKernelLaunch` 下发到 `aicpuStream`。
 
   ```cpp
-  HCCL_CHECK(Mc2CcKernelLaunch(
-      aicpuStream, ccResCtx, ccResCtxSize));
+  Mc2CcKernelLaunch(aicpuStream, ccResCtx, ccResCtxSize);
   ```
 
 AICore Client Kernel下发到 `streamAiv`。Kernel参数包括通信源/目的GM地址、计算输入/输出缓冲区、`ccResCtx` 和通信规模等运行时参数：
@@ -206,13 +210,13 @@ AICore Client Kernel下发到 `streamAiv`。Kernel参数包括通信源/目的GM
 
 Server任务启动后会等待AICore Client提交通信请求。因此，Server任务需要先于Client Kernel下发，并且两者使用不同的stream。
 
-CCU路径下，Host调用 `Mc2CcKernelLaunch(nullptr, ...)` 启动Server，再将AICore Client Kernel下发到 `streamAiv`：
+CCU路径下，Host调用 `Mc2CcKernelLaunch(nullptr, ...)` 启动Server，再将AICore Client Kernel下发到 `streamAiv`。以下示例使用通信源缓冲区 `tmpBuf`，通信结果和计算结果分别写入 `recvBuf` 和 `computeBuf`：
 
   ```cpp
   Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize);
 
   vector_add<<<1, nullptr, streamAiv>>>(
-      sendBuf, recvBuf, computeBuf, ccResCtx,
+      tmpBuf, recvBuf, computeBuf, ccResCtx,
       sendCount, recvCount);
   ```
 
@@ -226,6 +230,8 @@ AICPU_TS路径下，Server收到 `Finalize` 后退出，因此同步Client strea
   ACL_CHECK(aclrtSynchronizeStream(streamAiv));
   ACL_CHECK(aclrtSynchronizeStream(aicpuStream));
 
+  void* hostResult = nullptr;
+  ACL_CHECK(aclrtMallocHost(&hostResult, recvSize));
   ACL_CHECK(aclrtMemcpy(
       hostResult, recvSize, recvBuf, recvSize,
       ACL_MEMCPY_DEVICE_TO_HOST));
@@ -240,8 +246,6 @@ AICPU_TS路径下，Server收到 `Finalize` 后退出，因此同步Client strea
   ACL_CHECK(aclrtFree(x2Buf));
   ACL_CHECK(aclrtFree(tmpBuf));
   ACL_CHECK(aclrtFree(recvBuf));
-  ACL_CHECK(aclrtFreeHost(hostX1));
-  ACL_CHECK(aclrtFreeHost(hostX2));
   ACL_CHECK(aclrtFreeHost(hostResult));
 
   HCCL_CHECK(HcclCommDestroy(comm));
@@ -283,7 +287,7 @@ AICPU_TS路径使用AICPU Server类型：
   }
   ```
 
-CCU路径使用CCU Server类型：
+CCU路径使用CCU Server类型，Kernel入口可按以下形式定义：
 
   ```cpp
   AscendC::Hccl<AscendC::HcclServerType::HCCL_SERVER_TYPE_CCU> hccl;
@@ -294,7 +298,7 @@ CCU路径使用CCU Server类型：
 
 Client完成 `InitV2` 初始化后，调用HCCL通信接口创建通信任务。通信接口由具体通信操作决定，本指南以AllGather为例。
 
-通信接口返回 `HcclHandle`。该句柄用于后续 `Commit` 和 `Wait`。接口返回成功只表示通信任务已经完成Prepare，不表示目的GM中的数据已经可用。
+通信接口返回 `HcclHandle`，表示通信请求已被接受。`AllGather<true>` 在Prepare后立即Commit，`AllGather<false>` 仅完成Prepare。无论使用哪种Commit方式，返回句柄都不表示目的GM中的数据已经可用，通信结果必须经过 `Wait` 确认。
 
 HCCL通信接口支持两种Commit方式：
 
@@ -330,8 +334,8 @@ CCU示例中使用同步Commit：
   ```cpp
   AscendC::HcclHandle handleId =
       hccl.AllGather<true>(
-          (GM_ADDR)sendBuf,
-          (GM_ADDR)yGM,
+          (GM_ADDR)sendGM,
+          (GM_ADDR)recvGM,
           sendCount,
           AscendC::HcclDataType::HCCL_DATA_TYPE_FP32,
           0);
@@ -400,9 +404,9 @@ MC2算子中的计算需要按数据依赖划分：
 
 ## 注意事项
 
-- AICPU_TS路径下，Server会阻塞等待Client请求，Server和Client必须使用独立stream；
+- AICPU_TS路径下，Server会阻塞等待Client请求，Server和Client必须使用独立stream。
 - 使用`AllGather<false>`等异步Commit接口时，必须在通信源数据就绪后调用`Commit`；未Commit的通信任务不会执行数据传输。
-- `HcclHandle`有效只代表通信任务Prepare成功，通信结果必须经过对应`Wait`确认后才能读取。
+- `HcclHandle`有效只代表通信请求已被接受，是否已经Commit由接口模板参数决定，通信结果必须经过对应`Wait`确认后才能读取。
 - `Wait`返回前不能消费目的GM；通信完成前不能覆盖源GM或复用目的GM。
 - 多AIV共同参与通信时，各参与核的通信调用顺序、`Wait`次数、核间同步和`Finalize`时机必须一致。
 - AICPU_TS与CCU路径的通信引擎、算法配置、Server启动方式和Client模板类型不同，切换路径时必须同时修改Host配置与Kernel侧Client类型。
