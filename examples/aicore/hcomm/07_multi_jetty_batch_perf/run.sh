@@ -66,9 +66,10 @@ for current_api in "${apis[@]}"; do
         dir="${log_dir}/${current_api}_j${j}"
         mkdir -p "$dir"
         pids=()
+        control_endpoint="tcp://127.0.0.1:$((20000 + ($$ % 40000)))"
         for rank in 0 1; do
-            MULTI_JETTY_BATCH_PERF_SYNC_DIR="$dir" timeout --signal=TERM --kill-after=5s 180s \
-                "$binary" "$rank" 2 "${dir}/root_info.bin" "$current_api" 1024 "$warmup" 64 "$batch" "$j" \
+            timeout --signal=TERM --kill-after=5s 180s \
+                "$binary" "$rank" 2 "$control_endpoint" "$current_api" 1024 "$warmup" 64 "$batch" "$j" \
                 >"${dir}/rank_${rank}.log" 2>&1 &
             pids+=("$!")
         done
