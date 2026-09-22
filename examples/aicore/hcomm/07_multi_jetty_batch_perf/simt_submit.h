@@ -43,7 +43,7 @@ __simt_callee__ inline void PrepareOrdinarySq(AscendC::simt::UbcCtpBatchHandle& 
     }
     group.sync();
     if (!publisher) {
-        HcommSimtFlushBatchLaneSq(context, rank, size);
+        asc_threadfence();
     }
     group.sync();
     if (publisher) {
@@ -58,11 +58,19 @@ __simt_callee__ inline void PublishPreparedPublisherSq(AscendC::simt::UbcCtpBatc
 {
     using namespace AscendC::simt;
     auto* context = reinterpret_cast<__ubuf__ HcommSimtBatchStaticContext*>(batch.context);
-    HcommSimtFlushBatchLaneSq(context, size - 1U, size);
     HcommSimtResolvedPost post;
     HcommSimtLoadBatchStaticPost(context, post);
     const uint32_t totalBb = HcommSimtBatchTotalBb(size, context->itemBb);
-    // SQ maintenance is owned by the producing lanes; do not scan it a second time.
+    const uint32_t publisherHead = HcommSimtHeadIdx(context->reservedHead) + (size - 1U) * context->itemBb;
+    __gm__ uint8_t* firstBb = reinterpret_cast<__gm__ uint8_t*>(
+        post.sqBaseAddr + post.sqWqeSize * (publisherHead % post.meta.sqDepth));
+    __gm__ uint8_t* secondBb = (publisherHead % post.meta.sqDepth) + 1U == post.meta.sqDepth ?
+                                  reinterpret_cast<__gm__ uint8_t*>(post.sqBaseAddr) :
+                                  firstBb + AscendC::HCOMM_URMA_WQE_BB_SIZE;
+    asc_threadfence();
+    asc_dcci_single(firstBb);
+    asc_dcci_single(secondBb);
+    // The publisher's SQ cache lines must be visible before advancing head and ringing DWQE.
     asc_threadfence();
     asc_threadfence_block();
     const uint64_t publishedHead = context->reservedHead + ((static_cast<uint64_t>(size) << 32U) | totalBb);
