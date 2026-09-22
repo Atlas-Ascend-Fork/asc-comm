@@ -2,11 +2,11 @@
 
 ## 概述
 
-MC2（Matrix Computation & Communication）是代理模式在Ascend C通信编程中的一类具体实现。Host侧初始化ACL运行时，创建HCCL通信域，并申请MC2通信资源上下文；AICore Kernel作为通信Client提交通信任务；AICPU_TS或CCU任务作为通信Server接收Client请求，驱动通信通路完成数据传输，并向Client发布完成状态。
+MC2（Matrix Computation & Communication）是代理模式在Ascend C通信编程中的一类具体实现。Host侧初始化ACL运行时，创建HCCL通信域，并申请MC2通信资源上下文；AICore Kernel作为通信Client提交通信任务；AICPU_TS或CCU作为通信Server接收Client请求，驱动通信通路完成数据传输，并向Client发布完成状态。
 
 MC2通算算子的核心价值是通信与计算重叠。通信任务提交后，通信数据传输由AICPU_TS或CCU服务端执行，AICore可以继续执行与本轮通信结果没有依赖的计算；待通信结果就绪后，AICore再读取通信输出并执行依赖计算，从而将部分通信时间与计算时间重叠，减少串行等待，提高算子整体性能。
 
-本指南介绍MC2通算算子的通用开发流程。文中以AllGather作为通信接口示例，Host和Kernel代码按AICPU_TS Server路径展开，并补充CCU路径的关键差异。计算部分使用可替换的示例函数表示，可替换为其他的Vector、Matrix计算逻辑。
+本指南介绍MC2通算算子的通用开发流程。文中以AllGatherAdd样例作为通信接口示例，Host和Kernel代码按AICPU_TS Server路径展开，并补充CCU路径的关键差异。计算部分使用可替换的示例函数表示，可替换为其他的Vector、Matrix计算逻辑。
 
 ## 支持范围
 
