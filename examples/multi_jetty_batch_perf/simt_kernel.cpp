@@ -34,7 +34,7 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtParallelMultiJettyVf
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     const uint32_t jettyInKernel = static_cast<uint32_t>(threadIdx.x) / batchSize;
     const uint32_t jetty = firstJetty + jettyInKernel;
-    AscendC::simt::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP, decltype(group)> hcomm(group);
+    AscendC::simt::Hcomm<> hcomm;
     __gm__ uint8_t* remote = nullptr;
     __gm__ uint8_t* local = nullptr;
     AscendC::simt::UbcCtpBatchHandle batch{};
@@ -46,7 +46,7 @@ __simt_vf__ __launch_bounds__(laneCapacity) inline void SimtParallelMultiJettyVf
     (void)hcomm.Init(nullptr, 0U);
     batch = hcomm.MakeBatchHandle(
         channels[jetty], batchWorkspaces + jetty * kSimtBatchWorkspaceBytes, kSimtBatchWorkspaceBytes, remote,
-        api == kApiNotify ? 2U : 1U);
+        api == kApiNotify ? 2U : 1U, group);
     // Capture the request-sequence origin during initialization, before the existing block barrier.
     if (rank == 0U) {
         reinterpret_cast<__gm__ CompletionSummary*>(completionBuffer)[jetty].initialHead =

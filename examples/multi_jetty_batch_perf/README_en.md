@@ -26,6 +26,8 @@ Each batch reports12 RESULT rows and one MATRIX_SUMMARY. Full per-rank logs rema
 
 Host tests cover accounting, all72 geometries, script orchestration and full example syntax with SDK declarations substituted. Target CANN compilation and NPU behavior remain separately verified.
 
+Hcomm no longer stores a Group. MakeBatchHandle and every batch Write/Read/Notify call take group explicitly. Each handle keeps the same group membership and private workspace; the existing three-barrier publication flow and shared CQ management are unchanged. Rebuild and install the run package containing the public header and src forwarding changes before rebuilding the example.
+
 ## RESULT fields
 
 | Field | Meaning |

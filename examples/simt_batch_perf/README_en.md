@@ -36,6 +36,19 @@ if (hcomm.Drain(batch) != 0) return;
 
 All batch destinations must belong to the remote registration containing remote. The final 1U specifies the per-item BB count for ordinary Write.
 
+Group calls use Hcomm without storing a Group and pass group explicitly as the last argument of each batch operation:
+
+```cpp
+// Every lane in group participates and prepares its own request.
+auto batch = hcomm.MakeBatchHandle(
+    channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, remote, 1U, group);
+if (hcomm.WriteNbi(batch, remoteForLane, localForLane, 64U, group) != 0) return;
+if (hcomm.BatchCommit(batch, group) != 0) return;
+// After all posting lanes return, one lane calls Drain; Drain takes no group.
+```
+
+Use the same Group (membership, ranks and size) and shared UB workspace throughout a handle's lifetime. Overloads without group are for single-lane handles; a Group of size 1 keeps the existing single-lane dispatch. Write/Read/Notify/WriteValue/FAA/CAS all accept group as the last argument and retain explicit config template arguments. Hcomm<Protocol, Group> and the hcomm(group) constructor are removed. Rebuild and install the run package containing the public header and src forwarding changes before rebuilding examples.
+
 ## Output
 
 Both batch performance examples emit one RESULT per rank pair and case:
