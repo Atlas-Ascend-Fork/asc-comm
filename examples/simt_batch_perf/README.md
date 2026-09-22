@@ -37,6 +37,7 @@ AscendC::simt::Hcomm<> hcomm;
 if (hcomm.Init(nullptr, 0U) != 0) return;
 auto batch = hcomm.MakeBatchHandle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, remote, 1U);
+if (batch.context == nullptr) return;
 if (hcomm.WriteNbi(batch, remote, local, 64U) != 0) return;
 if (hcomm.BatchCommit(batch) != 0) return;
 if (hcomm.Drain(batch) != 0) return;
@@ -50,6 +51,7 @@ Group调用使用同一个不保存Group的Hcomm对象，并在每次批次操�
 // 以下调用由group所有lane参与；每lane构造自己的一个请求。
 auto batch = hcomm.MakeBatchHandle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, remote, 1U, group);
+if (batch.context == nullptr) return;
 if (hcomm.WriteNbi(batch, remoteForLane, localForLane, 64U, group) != 0) return;
 if (hcomm.BatchCommit(batch, group) != 0) return;
 // 所有posting lane返回后，由一个lane调用Drain；Drain不接收group。
