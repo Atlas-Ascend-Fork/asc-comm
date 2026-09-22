@@ -14,9 +14,9 @@
 namespace asc {
 namespace ccu_rep {
 
-void append_to_context(ccu_rep_context* context, std::shared_ptr<ccu_rep_base> rep) {}
+void append_to_context(ccu_rep_context* context_, std::shared_ptr<ccu_rep_base> rep) {}
 
-variable create_variable(ccu_rep_context* context) { return variable(context); }
+variable create_variable(ccu_rep_context* context_) { return variable(context_); }
 
 } // namespace ccu_rep
 } // namespace asc

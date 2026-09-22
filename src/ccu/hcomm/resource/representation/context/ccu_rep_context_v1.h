@@ -17,7 +17,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "hcomm/hcomm_ccu_channel.h"
+#include "hcomm/hcomm_ccu_resource.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_base_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 

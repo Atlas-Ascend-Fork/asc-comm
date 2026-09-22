@@ -10,6 +10,8 @@
 
 #include "hcomm/resource/kernel/ccu_kernel_registry.h"
 
+#include "hcomm/common/ccu_device_context.h"
+
 #include <algorithm>
 
 #include "hcomm/common/ccu_log.h"
@@ -45,21 +47,23 @@ CcuResult ccu_kernel_registry::init(int32_t device_logic_id)
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult ccu_kernel_registry::load_register_context(const HcommCcuRegisterContextPod& context)
+CcuResult ccu_kernel_registry::load_register_context(const HcommCcuInstance& instance)
 {
     CCU_EXCEPTION_HANDLE_BEGIN
     if (!res_snapshot_) {
         res_snapshot_.reset(new (std::nothrow) asc_ccu_res_snapshot());
         CCU_CHK_PTR_NULL(res_snapshot_);
     }
-    // 上下文的设备号必须与创建时传入的一致，否则说明调用方把上下文用在了错误的实例上。
-    if (context.deviceLogicId != dev_logic_id_) {
+    // 当前线程设备必须与创建 registry 时一致，否则说明上下文被用在了错误的设备上
+    // （Instance 不再携带设备号，定档口径：即时取 aclrtGetDevice）。
+    const int32_t current_device = asc::get_current_ccu_device_logic_id();
+    if (current_device != dev_logic_id_) {
         HCCL_ERROR(
-            "[CcuKernelRegistry][%s] failed, context deviceLogicId[%d] mismatches instance deviceLogicId[%d].",
-            __func__, context.deviceLogicId, dev_logic_id_);
+            "[CcuKernelRegistry][%s] failed, current device[%d] mismatches instance device[%d].", __func__,
+            current_device, dev_logic_id_);
         return CcuResult::CCU_E_PARA;
     }
-    CCU_CHK_RET(res_snapshot_->load(context));
+    CCU_CHK_RET(res_snapshot_->load(instance));
     CCU_EXCEPTION_HANDLE_END
     return CcuResult::CCU_SUCCESS;
 }
