@@ -20,7 +20,7 @@ import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[4]
-EXAMPLE = ROOT / "examples/multi_jetty_batch_perf"
+EXAMPLE = ROOT / "examples/aicore/hcomm/07_multi_jetty_batch_perf"
 BATCHES = (1, 8, 32, 64, 128, 256)
 
 

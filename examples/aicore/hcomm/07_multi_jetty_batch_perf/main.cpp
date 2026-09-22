@@ -10,6 +10,7 @@
 
 #include <iomanip>
 #include "host_setup.h"
+#include "utils/hccl_comm_init.h"
 #include "validation.h"
 
 void LaunchSimtMultiJettyBatchPerf(
@@ -19,6 +20,8 @@ void LaunchSimtMultiJettyBatchPerf(
 
 namespace {
 using namespace multi_jetty_batch_perf;
+constexpr uint32_t kTagReady = examples::kTagUserBase;
+constexpr uint32_t kTagCompleted = kTagReady + 1U;
 
 aclError InitializeBuffers(
     void* sendBuffer, void* recvBuffer, size_t bufferBytes, uint32_t jettyCount, uint32_t operationCount,
@@ -65,14 +68,14 @@ int main(int argc, char* argv[])
     }
     if (argc != 10) {
         std::cerr << "Usage: " << argv[0]
-                  << " <rank> <nranks> <root_file>"
+                  << " <rank> <nranks> <control_endpoint>"
                      " <write|read|notify> <iterations> <warmup> <payload> <batch_size> <jettys>"
                   << std::endl;
         return 1;
     }
     const uint32_t rank = static_cast<uint32_t>(std::strtoul(argv[1], nullptr, 10));
     const uint32_t rankCount = static_cast<uint32_t>(std::strtoul(argv[2], nullptr, 10));
-    const std::string rootFile = argv[3];
+    const std::string controlEndpoint = argv[3];
     const std::string apiName = argv[4];
     const uint32_t iterations = static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10));
     const uint32_t warmup = static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10));
@@ -96,12 +99,17 @@ int main(int argc, char* argv[])
     const uint32_t jettysPerKernel = std::max(1U, kMaxActiveLanes / batchSize);
     const uint32_t kernelLaunchCount = (jettyCount + jettysPerKernel - 1U) / jettysPerKernel;
     const uint32_t activeJettyCount = jettyCount;
+    examples::RankSyncContext sync = rank == 0U ? examples::RankSyncContext::Listen(controlEndpoint, rankCount) :
+                                                  examples::RankSyncContext::Connect(rank, rankCount, controlEndpoint);
+    if (!sync.Ok()) {
+        return 1;
+    }
     CHECK_ACL(aclInit(nullptr));
     CHECK_ACL(aclrtSetDevice(static_cast<int32_t>(rank)));
     aclrtStream stream = nullptr;
     CHECK_ACL(aclrtCreateStream(&stream));
     HcclComm comm = nullptr;
-    CHECK_HCCL(InitComm(rank, rankCount, rootFile, &comm));
+    CHECK_HCCL(examples::InitCommByRootInfo(sync, &comm));
     void* sendBuffer = nullptr;
     void* recvBuffer = nullptr;
     CHECK_ACL(aclrtMalloc(&sendBuffer, bufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
@@ -129,7 +137,9 @@ int main(int argc, char* argv[])
             }
         }
     }
-    CHECK_HCCL(HostBarrier(rank, rankCount, "ready"));
+    if (!sync.Barrier(kTagReady)) {
+        return 1;
+    }
     bool pass = true;
     void* timingDevice = nullptr;
     void* channelsDevice = nullptr;
@@ -191,7 +201,9 @@ int main(int argc, char* argv[])
                   << " | ConcurrentJettys=" << std::min(jettyCount, jettysPerKernel)
                   << " | IssueTicksPerRequest=" << issueTime << std::endl;
     }
-    CHECK_HCCL(HostBarrier(rank, rankCount, "completed"));
+    if (!sync.Barrier(kTagCompleted)) {
+        return 1;
+    }
     if (!sender && api != kApiRead) {
         pass = CheckBuffer(
             recvBuffer, bufferBytes, false, api, activeJettyCount, operationCount, payloadBytes, slotBytes, regionBytes,
