@@ -1,5 +1,7 @@
 # Multi-Jetty SIMT validation
 
+This example uses the Hcomm headers installed under `$ASCEND_HOME_PATH`. After changing communication sources, build and install the run package into the active CANN environment, then rebuild this example with `--clean`.
+
 This example publishes multiple Jettys concurrently and uses one consumer to attribute shared-CQ completions to their JFS owners. It supports Write, Read and WriteWithNotify.
 
 ```bash

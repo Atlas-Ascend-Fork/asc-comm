@@ -11,13 +11,7 @@
 #include "kernel_operator.h"
 #include "simt_api/asc_simt.h"
 #include "simt_api/cooperative_groups.h"
-#ifndef MULTI_JETTY_HCOMM_SIMT_HEADER
-#error "Build with this example's CMake to select the repository Hcomm headers"
-#endif
-#ifdef INCLUDE_ADV_API_HCOMM_HCOMM_SIMT_H
-#error "Hcomm was included before the example's private entry"
-#endif
-#include MULTI_JETTY_HCOMM_SIMT_HEADER
+#include "hcomm/hcomm_simt.h"
 #include "multi_jetty_batch_perf_common.h"
 #include "simt_submit.h"
 #include "simt_completion.h"
