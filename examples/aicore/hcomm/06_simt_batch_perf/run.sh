@@ -124,17 +124,16 @@ trap 'cleanup; exit 130' INT TERM
 run_case() {
     local case_api="$1" case_mode="$2" case_batch_size="$3" case_lanes="${4:-1}"
     local case_warmup="${5:-$warmup}"
-    local work_dir root_info_file status rank pair_status perf_line
+    local work_dir control_endpoint status rank pair_status perf_line
     if [[ "$case_mode" == "group" && "$case_warmup" -ne 0 ]]; then
         case_warmup=$(( (case_warmup + case_lanes - 1) / case_lanes * case_lanes ))
     fi
     work_dir="$(mktemp -d "${TMPDIR:-/tmp}/simt_batch_perf.XXXXXX")"
     active_dir="$work_dir"
-    root_info_file="${work_dir}/root_info.bin"
-    export SIMT_BATCH_PERF_SYNC_DIR="$work_dir"
+    control_endpoint="tcp://127.0.0.1:$((20000 + ($$ % 40000)))"
     active_pids=()
     for ((rank = 0; rank < devices; ++rank)); do
-        "$binary" "$rank" "$devices" "$root_info_file" "$case_api" "$iterations" "$case_warmup" \
+        "$binary" "$rank" "$devices" "$control_endpoint" "$case_api" "$iterations" "$case_warmup" \
             "$payload_bytes" "$case_batch_size" "$case_mode" "$case_lanes" \
             >"${work_dir}/rank_${rank}.log" 2>&1 &
         active_pids+=("$!")
