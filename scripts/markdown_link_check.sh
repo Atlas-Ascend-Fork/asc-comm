@@ -682,6 +682,7 @@ PY
 SCAN_FILES=()
 FULL_REASON=""
 while IFS= read -r item; do
+    item="${item%$'\r'}"
     case "$item" in
         "# full scan:"*)
             FULL_REASON="${item#"# full scan: "}"
