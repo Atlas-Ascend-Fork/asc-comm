@@ -12,8 +12,7 @@ This directory contains usage samples for asc-comm APIs.
 | [one_multi_path](./one_multi_path/README_en.md) | Queries a `UB_MEM` link, creates one path/multi path channels for every peer, processes peers serially, and concurrently moves and verifies each peer's remote data over two streams. | Ascend 950PR / Ascend 950DT |
 | [simt_urma](./simt_urma/README_en.md) | Demonstrates and validates every SIMT URMA interface: `WriteNbi`, `WriteValueNbi`, `WriteWithNotifyNbi`, `AtomicFAA`, and `AtomicCAS`, with immediate and batched submission. | Ascend 950PR / Ascend 950DT |
 | [simt_urma_perftest](./simt_urma_perftest/README_en.md) | Measures issue latency and completion bandwidth for those five SIMT URMA interfaces under immediate and deferred publication. | Ascend 950PR / Ascend 950DT |
-| [simt_batch](./simt_batch/README_en.md) | Provides a minimal runnable single-lane SIMT URMA explicit-batch `WriteNbi` example. | Ascend 950PR / Ascend 950DT |
-| [simt_batch_perf](./simt_batch_perf/README_en.md) | Compares Immediate and ExplicitBatch baselines for all six SIMT URMA operations. | Ascend 950PR / Ascend 950DT |
+| [simt_batch_perf](./simt_batch_perf/README_en.md) | Validates six SIMT URMA APIs and compares issue cost for Immediate, ExplicitBatch and GroupBatch. | Ascend 950PR / Ascend 950DT |
 
 ## simt_urma
 
@@ -27,16 +26,10 @@ See [simt_urma/README_en.md](./simt_urma/README_en.md) for build and run instruc
 
 See [simt_urma_perftest/README_en.md](./simt_urma_perftest/README_en.md) for performance testing instructions.
 
-## simt_batch
-
-`simt_batch` provides one minimal runnable `WriteNbi → BatchCommit → Drain` path and validates remote data.
-
-See [simt_batch/README_en.md](./simt_batch/README_en.md) for build and run instructions.
-
 ## simt_batch_perf
 
-`simt_batch_perf` compares Immediate and ExplicitBatch per API and reports publication count, issue latency,
-completion latency including Drain, and data-validation status.
+`simt_batch_perf` covers functional validation and issue timing for Immediate, ExplicitBatch and GroupBatch.
+See [multi_jetty_batch_perf](./multi_jetty_batch_perf/README_en.md) for concurrent Jettys and shared-CQ completion.
 
 See [simt_batch_perf/README_en.md](./simt_batch_perf/README_en.md) for build and run instructions.
 
