@@ -1,6 +1,6 @@
 # Hcomm SIMT Batch 功能与下发耗时用例
 
-覆盖 WriteNbi、ReadNbi、WriteWithNotifyNbi、WriteValueNbi、AtomicFAA、AtomicCAS，统一承担原 simt_batch 的功能验证和性能测试。
+覆盖 WriteNbi、ReadNbi、WriteWithNotifyNbi、WriteValueNbi、AtomicFAA、AtomicCAS 的功能验证和性能测试。
 
 - Immediate：单lane逐请求直接提交。
 - ExplicitBatch：单lane执行 Append → BatchCommit，batch size固定为1。
@@ -12,10 +12,10 @@
 
 ```bash
 source /usr/local/Ascend/cann/set_env.sh
-cd examples/simt_batch_perf
+cd examples/aicore/hcomm/06_simt_batch_perf
 bash build.sh
 
-# 覆盖原最小功能用例：单lane Write → BatchCommit → Drain及远端数据校验。
+# 单lane Write → BatchCommit → Drain及远端数据校验。
 bash run.sh write --mode batch --batch-size 1
 # 单次提交与Group Batch对照；默认core只运行Write/Read/Notify。
 bash run.sh
@@ -37,6 +37,7 @@ AscendC::simt::Hcomm<> hcomm;
 if (hcomm.Init(nullptr, 0U) != 0) return;
 auto batch = hcomm.MakeBatchHandle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, remote, 1U);
+if (batch.context == nullptr) return;
 if (hcomm.WriteNbi(batch, remote, local, 64U) != 0) return;
 if (hcomm.BatchCommit(batch) != 0) return;
 if (hcomm.Drain(batch) != 0) return;
@@ -50,6 +51,7 @@ Group调用使用同一个不保存Group的Hcomm对象，并在每次批次操�
 // 以下调用由group所有lane参与；每lane构造自己的一个请求。
 auto batch = hcomm.MakeBatchHandle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, remote, 1U, group);
+if (batch.context == nullptr) return;
 if (hcomm.WriteNbi(batch, remoteForLane, localForLane, 64U, group) != 0) return;
 if (hcomm.BatchCommit(batch, group) != 0) return;
 // 所有posting lane返回后，由一个lane调用Drain；Drain不接收group。
@@ -59,7 +61,7 @@ if (hcomm.BatchCommit(batch, group) != 0) return;
 
 ## 输出
 
-与multi_jetty_batch_perf使用同一格式，每个rank pair每项一行：
+与 `07_multi_jetty_batch_perf` 使用同一格式，每个rank pair每项一行：
 
 ```text
 RESULT | API=write | Mode=GroupBatch | DataSize/B=64 | BatchSize=32 | Jettys=1 | ConcurrentJettys=1 | IssueTicksPerRequest=123.456789 | Pair=0-1 | Status=PASS
