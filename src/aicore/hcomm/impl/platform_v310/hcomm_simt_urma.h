@@ -340,20 +340,11 @@ __simt_callee__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::ResolvePost(
         reinterpret_cast<__gm__ RegedBufferEntity*>(channelEntity->remoteBufferAddr);
     uint32_t remoteTokenId;
     uint32_t remoteTokenValue;
-    if (channelEntity->remoteBufferNum == 1U) {
-        if (!HcommSimtCheckSingleBuffer(remoteBuffers, remoteAddr, len)) {
-            return HCOMM_FAILED;
-        }
-        remoteTokenId = remoteBuffers[0].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
-        remoteTokenValue = remoteBuffers[0].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
-    } else {
-        int32_t remoteIdx = HcommSimtFindBufferIdx(remoteBuffers, channelEntity->remoteBufferNum, remoteAddr, len);
-        if (remoteIdx == HCOMM_FAILED) {
-            return HCOMM_FAILED;
-        }
-        remoteTokenId = remoteBuffers[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
-        remoteTokenValue = remoteBuffers[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    if (!HcommSimtCheckBuffer(remoteBuffers, channelEntity->remoteBufferNum, remoteAddr, len)) {
+        return HCOMM_FAILED;
     }
+    remoteTokenId = remoteBuffers[0].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
+    remoteTokenValue = remoteBuffers[0].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
 
     // The 64-byte used range (offset 8..71) crosses a cache line, and bulk-reading it as an
     // indexed array costs more instructions than direct field access because the layout has holes.

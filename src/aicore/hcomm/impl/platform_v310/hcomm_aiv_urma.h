@@ -367,22 +367,14 @@ __aicore__ inline bool HcommUrmaResolveBatchRemote(
         return false;
     }
 
-    int32_t remoteIdx = 0;
     if (remoteAddr != nullptr) {
-        if (remoteInfo.remoteBufferNum == 1U) {
-            if (!HcommCheckSingleBuffer(remoteBuffers, remoteAddr, 1U)) {
-                return false;
-            }
-        } else {
-            remoteIdx = HcommFindBufferIdx(remoteBuffers, remoteInfo.remoteBufferNum, remoteAddr, 1U);
-            if (remoteIdx == HCOMM_FAILED) {
-                return false;
-            }
+        if (!HcommCheckBuffer(remoteBuffers, remoteInfo.remoteBufferNum, remoteAddr, 1U)) {
+            return false;
         }
     }
 
-    resolvedRemoteInfo.tokenId = remoteBuffers[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
-    resolvedRemoteInfo.tokenValue = remoteBuffers[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
+    resolvedRemoteInfo.tokenId = remoteBuffers[0].bufferInfo.rma.protectionInfo.memInfo.ub.tokenId;
+    resolvedRemoteInfo.tokenValue = remoteBuffers[0].bufferInfo.rma.protectionInfo.memInfo.ub.tokenValue;
     resolvedRemoteInfo.tpId = remoteInfo.tpId;
     resolvedRemoteInfo.remoteEidLow = remoteInfo.remoteEidLow;
     resolvedRemoteInfo.remoteEidHigh = remoteInfo.remoteEidHigh;
@@ -654,21 +646,11 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
 
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     RegedBufferEntity remoteMemInfo;
-    if (channelEntity->remoteBufferNum == 1U) {
-        if (!HcommCheckSingleBuffer(channelEntity->remoteBufferAddr, remoteAddr, len)) {
-            HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA PostSend failed with invalid remote buffer \n");
-            return HCOMM_FAILED;
-        }
-        remoteMemInfo = channelEntity->remoteBufferAddr[0];
-    } else {
-        int32_t remoteIdx = HcommFindBufferIdx(
-            channelEntity->remoteBufferAddr, channelEntity->remoteBufferNum, remoteAddr, len);
-        if (remoteIdx == HCOMM_FAILED) {
-            HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA PostSend failed with invalid remote buffer \n");
-            return HCOMM_FAILED;
-        }
-        remoteMemInfo = channelEntity->remoteBufferAddr[remoteIdx];
+    if (!HcommCheckBuffer(channelEntity->remoteBufferAddr, channelEntity->remoteBufferNum, remoteAddr, len)) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA PostSend failed with invalid remote buffer \n");
+        return HCOMM_FAILED;
     }
+    remoteMemInfo = channelEntity->remoteBufferAddr[0];
 
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     uint32_t curHead = channelEntity->sqHead;
