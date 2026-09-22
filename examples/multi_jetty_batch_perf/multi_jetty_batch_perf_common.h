@@ -26,23 +26,24 @@ constexpr uint32_t kCompletedIndex = 3U;
 constexpr uint32_t kDoorbellCountIndex = 4U;
 constexpr uint32_t kTimingWords = 5U;
 constexpr uint64_t kNotifyValueBase = 0xA500000000000000ULL;
-// Per-Jetty validation snapshots, each occupying complete cache lines.
+// Per-Jetty completion snapshots use fixed field order and cache boundaries.
 constexpr uint64_t kCompletionSummaryMagic = 0x5055424155444954ULL;
-struct alignas(128) CompletionSummary {
-    uint64_t magic, publishedHead, cqBase;
-    uint32_t jfcId, cqTail, sqTail, phase, status;
+struct CompletionSummary {
+    uint64_t magic, initialHead, publishedHead;
+    uint64_t channel, sqContext, cqContext, sqBase, cqBase, sqTailAddr, cqTailAddr;
+    uint32_t jfsId, jfcId, cqeSize, sampleStart;
+    uint32_t cqDepth, sqDepth, cqTail, sqTail;
+    uint32_t captured, requested, phase, status;
     uint32_t completionVersion, completed, target, targetBb, acknowledged;
     uint32_t warmupCompleted, warmupCq, warmupSq;
     uint32_t completionFault, errorCq, errorJetty, errorSequence, errorWord0, errorWord1, errorWord2;
 };
-constexpr uint32_t kCompletionWorkspaceOffset =
-    (kMaxJettyCount * sizeof(CompletionSummary) + 127U) / 128U * 128U;
+constexpr uint32_t kCompletionWorkspaceOffset = (kMaxJettyCount * sizeof(CompletionSummary) + 127U) / 128U * 128U;
 constexpr uint32_t kCompletionWorkspaceBytes = 4096U;
+// Reserve 256 bytes after the completion state region.
+constexpr uint32_t kCompletionStateBytes = kCompletionWorkspaceBytes - 256U;
 constexpr uint32_t kCompletionAllocationBytes = kCompletionWorkspaceOffset + kCompletionWorkspaceBytes;
-inline uint32_t AlignUp(uint32_t value, uint32_t alignment)
-{
-    return (value + alignment - 1U) / alignment * alignment;
-}
+inline uint32_t AlignUp(uint32_t value, uint32_t alignment) { return (value + alignment - 1U) / alignment * alignment; }
 inline uint32_t SlotBytes(uint32_t api, uint32_t payloadBytes)
 {
     const uint32_t dataBytes = AlignUp(payloadBytes, sizeof(uint64_t));
