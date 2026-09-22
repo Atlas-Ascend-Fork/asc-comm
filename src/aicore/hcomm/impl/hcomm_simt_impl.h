@@ -57,8 +57,7 @@ __simt_callee__ inline BatchHandle<ChannelHandle> Hcomm<commProtocol>::MakeBatch
     const Group& group)
 {
     static_assert(commProtocol == COMM_PROTOCOL_UBC_CTP, "SIMT batch only supports COMM_PROTOCOL_UBC_CTP");
-    return group.size() == 1U ? impl_.MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb) :
-                                impl_.MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb, group);
+    return impl_.MakeBatchHandle(channel, buff, buffLen, remoteBase, itemBb, group);
 }
 
 template <CommProtocol commProtocol>
@@ -82,8 +81,7 @@ template <auto const& config, typename Group>
 __simt_callee__ inline int32_t Hcomm<commProtocol>::WriteNbi(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group)
 {
-    return group.size() == 1U ? impl_.template WriteNbi<config>(batchHandle, dst, src, len) :
-                                impl_.template WriteNbi<config>(batchHandle, dst, src, len, group);
+    return impl_.template WriteNbi<config>(batchHandle, dst, src, len, group);
 }
 
 template <CommProtocol commProtocol>
@@ -106,8 +104,7 @@ template <typename T, auto const& config, typename Group>
 __simt_callee__ inline int32_t Hcomm<commProtocol>::WriteValueNbi(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value, const Group& group)
 {
-    return group.size() == 1U ? impl_.template WriteValueNbi<T, config>(batchHandle, dst, value) :
-                                impl_.template WriteValueNbi<T, config>(batchHandle, dst, value, group);
+    return impl_.template WriteValueNbi<T, config>(batchHandle, dst, value, group);
 }
 
 template <CommProtocol commProtocol>
@@ -131,8 +128,7 @@ template <auto const& config, typename Group>
 __simt_callee__ inline int32_t Hcomm<commProtocol>::ReadNbi(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, const Group& group)
 {
-    return group.size() == 1U ? impl_.template ReadNbi<config>(batchHandle, dst, src, len) :
-                                impl_.template ReadNbi<config>(batchHandle, dst, src, len, group);
+    return impl_.template ReadNbi<config>(batchHandle, dst, src, len, group);
 }
 
 template <CommProtocol commProtocol>
@@ -159,9 +155,7 @@ __simt_callee__ inline int32_t Hcomm<commProtocol>::WriteWithNotifyNbi(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
     uint64_t notifyVal, const Group& group)
 {
-    return group.size() == 1U ?
-               impl_.template WriteWithNotifyNbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal) :
-               impl_.template WriteWithNotifyNbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal, group);
+    return impl_.template WriteWithNotifyNbi<config>(batchHandle, dst, src, len, notifyAddr, notifyVal, group);
 }
 
 template <CommProtocol commProtocol>
@@ -185,8 +179,7 @@ template <typename T, auto const& config, typename Group>
 __simt_callee__ inline int32_t Hcomm<commProtocol>::AtomicFAA(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal, const Group& group)
 {
-    return group.size() == 1U ? impl_.template AtomicFAA<T, config>(batchHandle, dst, fetchAddr, addVal) :
-                                impl_.template AtomicFAA<T, config>(batchHandle, dst, fetchAddr, addVal, group);
+    return impl_.template AtomicFAA<T, config>(batchHandle, dst, fetchAddr, addVal, group);
 }
 
 template <CommProtocol commProtocol>
@@ -211,9 +204,7 @@ __simt_callee__ inline int32_t Hcomm<commProtocol>::AtomicCAS(
     UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal,
     const Group& group)
 {
-    return group.size() == 1U ?
-               impl_.template AtomicCAS<T, config>(batchHandle, dst, fetchAddr, compareVal, swapVal) :
-               impl_.template AtomicCAS<T, config>(batchHandle, dst, fetchAddr, compareVal, swapVal, group);
+    return impl_.template AtomicCAS<T, config>(batchHandle, dst, fetchAddr, compareVal, swapVal, group);
 }
 
 template <CommProtocol commProtocol>
@@ -226,7 +217,7 @@ template <CommProtocol commProtocol>
 template <typename Group>
 __simt_callee__ inline int32_t Hcomm<commProtocol>::BatchCommit(UbcCtpBatchHandle& batchHandle, const Group& group)
 {
-    return group.size() == 1U ? impl_.BatchCommit(batchHandle) : impl_.BatchCommit(batchHandle, group);
+    return impl_.BatchCommit(batchHandle, group);
 }
 
 template <CommProtocol commProtocol>

@@ -55,14 +55,11 @@ enum class HcommUrmaReduceOp : uint32_t {
 
 namespace simt {
 
-// A batch stores one shared queue/Jetty context and one 128-byte publisher image in UB.
-constexpr uint32_t HCOMM_SIMT_BATCH_CONTEXT_BYTES = 128U;
-constexpr uint32_t HCOMM_SIMT_BATCH_ITEM_BYTES = 128U;
-
+// One request per lane uses a fixed-size shared workspace. itemCapacity must be 1.
 constexpr uint32_t HcommSimtBatchBufferBytes(uint32_t itemCapacity)
 {
     (void)itemCapacity;
-    return HCOMM_SIMT_BATCH_CONTEXT_BYTES + HCOMM_SIMT_BATCH_ITEM_BYTES;
+    return 256U;
 }
 
 } // namespace simt

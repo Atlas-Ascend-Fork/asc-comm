@@ -45,7 +45,7 @@ namespace AscendC::simt {
  * @note There is no Commit interface on SIMT. A task launched with commit set to false stays in the
  *       send queue until a later task launched with commit set to true carries it out, because that
  *       task's doorbell publishes a producer index covering the whole batch.
- * @note An Hcomm object remains lane-private. Non-batch interfaces are called by one lane. On a
+ * @note An Hcomm object is lane-private. Non-batch interfaces are called by one lane. On a
  *       batch overload with a Group argument, one lane plans the SQ range, every
  *       lane writes its final slot, and BatchCommit publishes after those writes are ready.
  * @note When the send queue has insufficient free basic blocks, a posting interface polls completed
@@ -65,11 +65,11 @@ public:
 
     /*!
      * @brief Initialize Hcomm.
-     * @param [in] buff: Shared UB workspace for a group batch, or nullptr for a single-lane object.
-     * @param [in] len: Workspace length. A group batch needs at least three uint32_t words.
+     * @param [in] buff: Not used. Pass nullptr.
+     * @param [in] len: Not used. Pass 0.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Every posting lane calls Init on its own Hcomm object. All lanes in a group pass
-     *       the same workspace because the collective batch posting call exchanges reservation state.
+     * @note Every posting lane calls Init on its own Hcomm object. The shared UB workspace for
+     *       a group batch is passed to MakeBatchHandle, not Init.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
@@ -80,22 +80,27 @@ public:
      * @param [in] buffLen: Size of buff in bytes.
      * @param [in] remoteBase: An address in the remote registration used by the batch.
      * @param [in] itemBb: Fixed WQEBB count of every request submitted through this handle (1 or 2).
-     * @note Use HcommSimtBatchBufferBytes(itemCapacity) to size buff. The current collective
-     *       contract prepares exactly one request per lane, so the workspace size is constant.
+     * @note Use HcommSimtBatchBufferBytes(itemCapacity) to size buff. The collective contract
+     *       prepares exactly one request per lane, so itemCapacity must be 1.
+     * @note On failure this function returns a zero-valued handle (context == nullptr). The
+     *       caller must check it before any batch posting, BatchCommit or Drain operation.
      * @note Every remote data and notify range appended through the returned handle must stay in
      *       the registration selected by remoteBase. The caller owns this contract.
      * @note The handle keeps itemBb and the group size fixed for its lifetime. Every batch contains
      *       exactly one request per lane. A channel is exclusively owned by one live batch handle.
+     *       itemBb must match the actual WQE width of each request; mixing widths is unsupported.
      */
     __simt_callee__ inline BatchHandle<ChannelHandle> MakeBatchHandle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb = 1U);
 
     /*!
      * @brief Create a batch for the explicitly supplied cooperative group.
-     * @param [in] group: Group whose lanes own this batch; Hcomm does not retain it.
+     * @param [in] group: Cooperative group whose lanes own this batch.
      * @note Pass the same group to every posting call and BatchCommit for this handle.
-     *       The no-group overloads are for single-lane handles. Group size 1 retains that path.
-     *       Group membership, lane ranks and size must remain unchanged for the handle's lifetime.
+     *       The no-group overloads are for single-lane handles. A supplied Group uses the
+     *       collective path, including when its current size is 1.
+     *       Use fixed group membership, lane ranks and size for the handle's lifetime.
+     *       Every lane must pass the same valid buff, buffLen and itemBb arguments.
      */
     template <typename Group>
     __simt_callee__ inline BatchHandle<ChannelHandle> MakeBatchHandle(
@@ -248,8 +253,8 @@ public:
 
     /*!
      * @brief Publish the SQ range prepared by the preceding batch posting call.
-     * @note The overload with a Group argument is collective: every group lane must call it, and the
-     *       current implementation requires exactly one prepared WQE per lane.
+     * @note The overload with a Group argument is collective: every group lane must call it and
+     *       prepare exactly one WQE.
      * @note The final item must request a CQE. If the preceding posting call fails to reserve SQ
      *       space, the caller must not call BatchCommit for that batch.
      */
@@ -260,7 +265,7 @@ public:
 
     /*!
      * @brief Block and drain comm tasks submitted on channel until finish processing.
-     * @tparam pipe: Unused on SIMT, kept for signature compatibility with the SIMD interface.
+     * @tparam pipe: Unused on SIMT.
      * @param [in] channel: The handle of the communication channel.
      * @return 0 indicates success and -1 indicates failure.
      * @note Must be called by a single lane, after every posting lane has returned.
@@ -275,14 +280,14 @@ public:
      * @brief Completion ownership for channels sharing one or more CQs (version 1).
      * @note Initialize once on fresh, unused channels with 128-byte-aligned, zeroed GM storage
      *       sized by HcommSimtCompletionBufferBytes(count). Keep storage until all work finishes.
-     *       Register every user of each CQ. Exactly one lane owns ALL set operations; no legacy
-     *       Drain, automatic ReservePost polling, SIMD or other consumer may access these CQs.
+     *       Register every user of each CQ. Exactly one lane owns ALL set operations. Drain,
+     *       automatic ReservePost polling, SIMD and other consumers must not access these CQs.
      * @note PrepareCompletion admits one window per channel BEFORE publishing, using its WQE
-     *       count and total SQ BB count. The previous window of this channel must have completed;
-     *       other channels need not finish. Insufficient capacity returns -1 without mutation.
+     *       count and total SQ BB count. Only one window per channel may be active; other channels
+     *       need not finish. Insufficient capacity returns -1 without mutation.
      *       Publish exactly this window using default CQE-enabled Write/Read/WriteWithNotify batches. Sparse CQEs,
      *       deferred unpublished tails and unsignalled NOP tails are unsupported. Cumulative
-     *       WQE/BB counters must not wrap. Publication ordering remains the caller's responsibility.
+     *       WQE/BB counters must not wrap. The caller is responsible for publication ordering.
      *       If an existing batch's next reservation failed before reclamation, recreate its handle
      *       with MakeBatchHandle after this window completes, following that group's contract.
      *       CompletionSet does not mutate the publishing group's UB reservation context.
@@ -294,7 +299,7 @@ public:
      *       itself must not be concurrent. There is no background progress or posting-path lock.
      * @note A completed window releases its SQ up to its recorded BB endpoint. Known-safe CQ
      *       prefixes are acknowledged even on failure; a fault poisons the set, requiring teardown.
-     *       Resource/identity/CQE/count/timeout evidence is retained in the workspace for diagnosis.
+     *       The workspace records resource, identity, CQE, count and timeout evidence for diagnosis.
      */
     __simt_callee__ inline int32_t InitCompletionSet(
         UbcCtpCompletionSet& set, __gm__ ChannelHandle* channels, uint32_t count, __gm__ uint8_t* workspace,

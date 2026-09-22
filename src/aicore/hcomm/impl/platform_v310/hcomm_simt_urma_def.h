@@ -33,9 +33,11 @@ constexpr uint32_t HCOMM_URMA_DWQE_SIZE = 128U;
 constexpr uint32_t HCOMM_URMA_WQE_BB_SIZE = 64U;
 constexpr uint32_t HCOMM_URMA_WQE_BB_CNT = 1U;
 constexpr uint32_t HCOMM_URMA_DWQE_BB_CNT = HCOMM_URMA_DWQE_SIZE / HCOMM_URMA_WQE_BB_SIZE;
+constexpr uint32_t HCOMM_SIMT_BATCH_CONTEXT_BYTES = 128U;
+constexpr uint32_t HCOMM_SIMT_BATCH_ITEM_BYTES = HCOMM_URMA_DWQE_SIZE;
 static_assert(
-    HCOMM_URMA_DWQE_SIZE == HCOMM_SIMT_BATCH_ITEM_BYTES,
-    "The public SIMT batch workspace contract must match the staged DWQE size");
+    HCOMM_SIMT_BATCH_CONTEXT_BYTES + HCOMM_SIMT_BATCH_ITEM_BYTES == HcommSimtBatchBufferBytes(1U),
+    "The public SIMT batch workspace contract must match the internal layout");
 constexpr uint32_t HCOMM_SIMT_MAX_CQ_RETRY = 1000000U;
 
 // The SQE fields one post needs, read from the channel and SQ contexts by ResolvePost.
