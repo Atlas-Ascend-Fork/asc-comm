@@ -102,7 +102,12 @@ target_link_libraries(asccomm_ccu_dataplane PRIVATE
     pthread
 )
 # 链接期校验：数据面 SO 不允许存在未定义符号（防止无意识依赖 hcomm 内部符号）
-target_link_options(asccomm_ccu_dataplane PRIVATE -Wl,--no-undefined)
+target_link_options(asccomm_ccu_dataplane PRIVATE
+    -Wl,--no-undefined
+    -Wl,-z,relro -Wl,-z,now
+    $<$<CONFIG:Release>:-s>
+    $<$<CONFIG:Release>:-Wl,--build-id=none>
+)
 
 # Keep the mainline host-launch wrapper as a separate compatibility library.
 # It uses the legacy HcommCcuKernel* registration ABI and must not be folded
@@ -156,6 +161,12 @@ set_target_properties(asccomm_ccu PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${ASCCOMM_LIBRARY_OUTPUT_DIRECTORY}
 )
 target_link_libraries(asccomm_ccu PRIVATE asccomm_ccu_headers)
+
+target_link_options(asccomm_ccu PRIVATE
+    -Wl,-z,relro -Wl,-z,now
+    $<$<CONFIG:Release>:-s>
+    $<$<CONFIG:Release>:-Wl,--build-id=none>
+)
 
 if(NOT INSTALL_LIBRARY_DIR)
     set(INSTALL_LIBRARY_DIR lib64)
