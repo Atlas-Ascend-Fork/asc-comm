@@ -8,20 +8,14 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <cerrno>
-#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string>
-#include <thread>
 #include <vector>
-
-#include <sys/stat.h>
 
 #include "hccl/hccl.h"
 #include "hccl/hccl_rank_graph.h"
@@ -29,6 +23,7 @@
 #include "hccl/hccl_types.h"
 
 #include "simt_batch_perf_common.h"
+#include "utils/hccl_comm_init.h"
 
 #define ACLCHECK(ret)                                                                          \
     do {                                                                                       \
@@ -53,93 +48,12 @@ extern void LaunchSimtBatchPerf(
 namespace {
 using namespace simt_batch_perf;
 
-constexpr uint32_t kBarrierWaitSeconds = 60U;
-constexpr uint32_t kBarrierPollMs = 100U;
 constexpr uint32_t kLocalSendIdx = 1U;
-constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UBC_CTP;
+constexpr uint32_t kTagReady = examples::kTagUserBase;
+constexpr uint32_t kTagCompleted = kTagReady + 1U;
+constexpr CommProtocol kTargetCommProtocol = COMM_PROTOCOL_UB_CTP;
 constexpr const char* kSendBufTag = "simtBatchPerfSendBuf";
 constexpr const char* kRecvBufTag = "simtBatchPerfRecvBuf";
-
-bool FileReady(const std::string& path, size_t minBytes = 1U)
-{
-    struct stat st {};
-    return stat(path.c_str(), &st) == 0 && st.st_size >= static_cast<off_t>(minBytes);
-}
-
-HcclResult WriteRootInfo(const std::string& path, const HcclRootInfo& rootInfo)
-{
-    const std::string tmp = path + ".tmp";
-    std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
-    out.write(reinterpret_cast<const char*>(&rootInfo), sizeof(rootInfo));
-    out.close();
-    if (!out || std::rename(tmp.c_str(), path.c_str()) != 0) {
-        return HCCL_E_SYSCALL;
-    }
-    return HCCL_SUCCESS;
-}
-
-HcclResult ReadRootInfo(const std::string& path, HcclRootInfo* rootInfo)
-{
-    const uint32_t maxPolls = kBarrierWaitSeconds * 1000U / kBarrierPollMs;
-    for (uint32_t poll = 0U; poll < maxPolls; ++poll) {
-        if (FileReady(path, sizeof(*rootInfo))) {
-            std::ifstream in(path, std::ios::binary);
-            in.read(reinterpret_cast<char*>(rootInfo), sizeof(*rootInfo));
-            if (in.gcount() == static_cast<std::streamsize>(sizeof(*rootInfo))) {
-                return HCCL_SUCCESS;
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
-    }
-    return HCCL_E_TIMEOUT;
-}
-
-HcclResult InitComm(uint32_t rank, uint32_t nranks, const std::string& path, HcclComm* comm)
-{
-    HcclRootInfo rootInfo{};
-    HcclResult ret = HCCL_SUCCESS;
-    if (rank == kRootRank) {
-        HCCLCHECK(HcclGetRootInfo(&rootInfo));
-        ret = WriteRootInfo(path, rootInfo);
-    } else {
-        ret = ReadRootInfo(path, &rootInfo);
-    }
-    if (ret != HCCL_SUCCESS) {
-        return ret;
-    }
-    HCCLCHECK(HcclCommInitRootInfo(nranks, &rootInfo, rank, comm));
-    return HCCL_SUCCESS;
-}
-
-std::string SyncDir()
-{
-    const char* value = std::getenv("SIMT_BATCH_PERF_SYNC_DIR");
-    return value == nullptr ? "/tmp/simt_batch_perf" : value;
-}
-
-HcclResult HostBarrier(int rank, int nranks, const char* name)
-{
-    const std::string dir = SyncDir();
-    if (mkdir(dir.c_str(), 0700) != 0 && errno != EEXIST) {
-        return HCCL_E_SYSCALL;
-    }
-    const std::string prefix = dir + "/" + name + ".";
-    std::ofstream marker(prefix + std::to_string(rank), std::ios::trunc);
-    marker << '1';
-    marker.close();
-    const uint32_t maxPolls = kBarrierWaitSeconds * 1000U / kBarrierPollMs;
-    for (uint32_t poll = 0U; poll < maxPolls; ++poll) {
-        bool ready = true;
-        for (int i = 0; i < nranks; ++i) {
-            ready = ready && FileReady(prefix + std::to_string(i));
-        }
-        if (ready) {
-            return HCCL_SUCCESS;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(kBarrierPollMs));
-    }
-    return HCCL_E_TIMEOUT;
-}
 
 uint32_t ApiIndex(const std::string& api)
 {
@@ -316,14 +230,14 @@ int main(int argc, char* argv[])
 {
     if (argc != 11) {
         std::cout << "Usage: " << argv[0]
-                  << " <rank> <nranks> <root_info_file> <api> <iterations> <warmup> <payload> <batch_size>"
+                  << " <rank> <nranks> <control_endpoint> <api> <iterations> <warmup> <payload> <batch_size>"
                      " <immediate|batch|group> <group_lanes>"
                   << std::endl;
         return 1;
     }
     const int rank = std::atoi(argv[1]);
     const int nranks = std::atoi(argv[2]);
-    const std::string rootInfoFile = argv[3];
+    const std::string controlEndpoint = argv[3];
     const std::string apiName = argv[4];
     const uint32_t iterations = static_cast<uint32_t>(std::strtoul(argv[5], nullptr, 10));
     const uint32_t warmup = static_cast<uint32_t>(std::strtoul(argv[6], nullptr, 10));
@@ -344,12 +258,19 @@ int main(int argc, char* argv[])
     const uint32_t slotBytes = SlotBytes(api, payloadBytes);
     const size_t bufferBytes = static_cast<size_t>(slotBytes) * kSlotCount;
 
+    examples::RankSyncContext sync =
+        rank == 0 ? examples::RankSyncContext::Listen(controlEndpoint, static_cast<uint32_t>(nranks)) :
+                    examples::RankSyncContext::Connect(
+                        static_cast<uint32_t>(rank), static_cast<uint32_t>(nranks), controlEndpoint);
+    if (!sync.Ok()) {
+        return 1;
+    }
     ACLCHECK(aclInit(nullptr));
     ACLCHECK(aclrtSetDevice(rank));
     aclrtStream stream = nullptr;
     ACLCHECK(aclrtCreateStream(&stream));
     HcclComm comm = nullptr;
-    HCCLCHECK(InitComm(rank, nranks, rootInfoFile, &comm));
+    HCCLCHECK(examples::InitCommByRootInfo(sync, &comm));
     void* sendBuf = nullptr;
     void* recvBuf = nullptr;
     ACLCHECK(aclrtMalloc(&sendBuf, bufferBytes, ACL_MEM_MALLOC_HUGE_FIRST));
@@ -364,7 +285,9 @@ int main(int argc, char* argv[])
     uint32_t remoteRecvIdx = 0U;
     const uint32_t peer = static_cast<uint32_t>(rank) ^ 1U;
     HCCLCHECK(AcquirePeerChannel(comm, rank, peer, handles, channel, remoteRecvIdx));
-    HCCLCHECK(HostBarrier(rank, nranks, "ready"));
+    if (!sync.Barrier(kTagReady)) {
+        return 1;
+    }
 
     void* timingBuf = nullptr;
     bool pass = true;
@@ -389,15 +312,18 @@ int main(int argc, char* argv[])
         const uint32_t dataBytes = api == kApiWrite || api == kApiRead || api == kApiNotify ? payloadBytes : 8U;
         const double issueTicks = static_cast<double>(timing[kIssueCyclesIndex]) / iterations;
         const uint32_t batchItems = mode == "immediate" ? 1U : batchSize;
-        std::cout << std::fixed << std::setprecision(6)
-                  << "PERF_DATA | API=" << apiName << " | Mode="
-                  << (mode == "group" ? "GroupBatch" : mode == "batch" ? "ExplicitBatch" : "Immediate")
+        std::cout << std::fixed << std::setprecision(6) << "PERF_DATA | API=" << apiName << " | Mode="
+                  << (mode == "group" ? "GroupBatch" :
+                      mode == "batch" ? "ExplicitBatch" :
+                                        "Immediate")
                   << " | DataSize/B=" << dataBytes << " | BatchSize=" << batchItems
                   << " | Jettys=1 | ConcurrentJettys=1"
                   << " | IssueTicksPerRequest=" << issueTicks << std::endl;
     }
 
-    HCCLCHECK(HostBarrier(rank, nranks, "completed"));
+    if (!sync.Barrier(kTagCompleted)) {
+        return 1;
+    }
     if (!isSender && api != kApiRead) {
         pass = CheckBuffer(recvBuf, bufferBytes, api, payloadBytes, slotBytes, iterations, warmup);
     }
