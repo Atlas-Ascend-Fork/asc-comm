@@ -424,6 +424,8 @@ namespace {
 constexpr uint32_t MSPROF_REPORT_CCU_TASK_INFO = 14U;
 constexpr uint32_t MSPROF_REPORT_CCU_WAIT_SIGNAL_INFO = 15U;
 constexpr uint32_t MSPROF_REPORT_CCU_GROUP_INFO = 16U;
+// hccl层(5500)hccl_info明细类型, 对齐hcomm ProfTaskType::TASK_HCCL_INFO
+constexpr uint32_t MSPROF_REPORT_HCCL_TASK_INFO_TYPE = 0U; // "hccl_info"
 constexpr uint16_t CCU_MAX_CHANNEL_NUM = 16U;
 constexpr uint8_t INVALID_TYPE_VALUE = 0xFF; // reduceOpType、inputDataType、outputDataType非法值
 
@@ -485,9 +487,37 @@ struct MsprofCcuWaitSignalInfo {
     uint32_t remoteRankId[CCU_MAX_CHANNEL_NUM]; // LoopGroup所包含的搬运指令的对端
 };
 
+// hccl层(5500)hccl_info明细payload, 与hcomm MsprofHcclInfo逐字一致(orion_adapter_rts.h);
+// 无来源字段的默认值与hcomm构造函数一致(0xFFFFFFFF/0), 不足部分在ReportCcuHcclInfo中补齐
+struct MsprofHcclInfo {
+    uint64_t itemId;
+    uint64_t cclTag;
+    uint64_t groupName;
+    uint32_t localRank;
+    uint32_t remoteRank;
+    uint32_t rankSize;
+    uint32_t workFlowMode;
+    uint32_t planeID;
+    uint32_t ctxId;
+    uint64_t notifyID;
+    uint32_t stage;
+    uint32_t role; // role {0: dst, 1:src}
+    double durationEstimated;
+    uint64_t srcAddr;
+    uint64_t dstAddr;
+    uint64_t dataSize;      // bytes
+    uint32_t opType;        // {0: sum, 1: mul, 2: max, 3: min}
+    uint32_t dataType;      // data type {0: INT8, 1: INT16, 2: INT32, 3: FP16, 4:FP32, 5:INT64, 6:UINT64}
+    uint32_t linkType;      // link type {0: 'OnChip', 1: 'HCCS', 2: 'PCIe', 3: 'RoCE'}
+    uint32_t transportType; // transport type {0: SDMA, 1: RDMA, 2:LOCAL}
+    uint32_t rdmaType;      // RDMA type {0: RDMASendNotify, 1:RDMASendPayload}
+    uint32_t reserve2;
+};
+
 static_assert(sizeof(MsprofCcuTaskInfo) <= MSPROF_ADDTIONAL_INFO_DATA_LENGTH);
 static_assert(sizeof(MsprofCcuGroupInfo) <= MSPROF_ADDTIONAL_INFO_DATA_LENGTH);
 static_assert(sizeof(MsprofCcuWaitSignalInfo) <= MSPROF_ADDTIONAL_INFO_DATA_LENGTH);
+static_assert(sizeof(MsprofHcclInfo) <= MSPROF_ADDTIONAL_INFO_DATA_LENGTH);
 
 // 数据面单条CCU任务描述, 由 CcuKernel 侧在 launch 前填充
 constexpr uint8_t CCU_PROF_TYPE_TASK = 0;
@@ -707,6 +737,9 @@ void AsccommCcuProfiling::StartCcuSubscribe(uint64_t profSwitch)
         {MSPROF_REPORT_CCU_TASK_INFO, "ccu_task_info"},
         {MSPROF_REPORT_CCU_WAIT_SIGNAL_INFO, "ccu_wait_signal_info"},
         {MSPROF_REPORT_CCU_GROUP_INFO, "ccu_group_info"},
+        // hccl层(5500)hccl_info明细类型, 对齐hcomm CallProfRegTaskTypeApi(仅注册hccl_info,
+        // 直驱路径无DPU任务, 不注册dpu_hccl_info)
+        {MSPROF_REPORT_HCCL_TASK_INFO_TYPE, "hccl_info"},
     };
     for (const auto& it : ccuInfoTypes) {
         const int32_t ret = g_asccommCcuProfApi.msprofRegTypeInfo(
@@ -967,6 +1000,78 @@ bool ReportCcuGroupInfo(const CcuProfReportContext& ctx, const CcuAdditionalInfo
     return true;
 }
 
+// hccl层(5500)通信任务画像: TaskApi耗时条 + hccl_info明细, 对齐hcomm ReportHcclTaskApi /
+// FillTaskAdditionInfo; itemId用hcomm同款任务类型名"Ccu"(方案A: 与hcomm标准路径同桶,
+// msprof通信视图中两路径CCU耗时聚合可比); type固定MASTER(直驱单stream无主从概念);
+// MsprofHcclInfo的业务字段(cclTag/rank/addr/dataSize等)在直驱路径无来源, 按hcomm构造
+// 函数默认值(0xFFFFFFFF/0)填充; 任何失败只记日志, 不影响launch结果
+void ReportCcuHcclTaskApiAndInfo(const CcuProfReportContext& ctx, uint32_t threadId)
+{
+    constexpr char CCU_TASK_OP_NAME[] = "Ccu"; // hcomm PROF_TASK_OP_NAME_V2中TASK_CCU的桶名
+    const size_t opNameLen = std::strlen(CCU_TASK_OP_NAME);
+    const uint64_t itemId = g_asccommCcuProfApi.msprofStr2Id(CCU_TASK_OP_NAME, opNameLen);
+
+    // 1. TaskApi耗时条: msprof通信视图中以"Ccu"类目呈现本次通信任务耗时
+    MsprofApi apiData{};
+    apiData.level = static_cast<uint16_t>(MSPROF_REPORT_HCCL_NODE_LEVEL);
+    apiData.type = MSPROF_REPORT_HCCL_MASTER_TYPE;
+    apiData.threadId = threadId;
+    apiData.beginTime = ctx.beginTime;
+    apiData.endTime = ctx.endTime;
+    apiData.itemId = itemId;
+    const int32_t apiRet = g_asccommCcuProfApi.msprofReportApi(1, &apiData);
+    CcuProfDebugLog(
+        "ReportCcuHcclTaskApi: level=%u type=0x%x(MASTER) itemId=0x%llx(Ccu) beginTime=%llu endTime=%llu, ret=%d.",
+        apiData.level, apiData.type, static_cast<unsigned long long>(apiData.itemId),
+        static_cast<unsigned long long>(apiData.beginTime), static_cast<unsigned long long>(apiData.endTime), apiRet);
+    if (apiRet != 0) {
+        ASCCOMM_CCU_LOG_ERROR("[CcuProfiling] MsprofReportApi(HcclTaskApi) failed, ret[%d].", apiRet);
+    }
+
+    // 2. hccl_info明细: 通信明细骨架(业务字段无来源按默认空值填充)
+    MsprofAdditionalInfo reporterData{};
+    reporterData.level = MSPROF_REPORT_HCCL_NODE_LEVEL;
+    reporterData.type = MSPROF_REPORT_HCCL_TASK_INFO_TYPE;
+    reporterData.threadId = threadId;
+    reporterData.dataLen = sizeof(MsprofHcclInfo);
+    reporterData.timeStamp = ctx.endTime;
+
+    auto* hcclInfo = reinterpret_cast<MsprofHcclInfo*>(reporterData.data);
+    hcclInfo->itemId = itemId;
+    hcclInfo->cclTag = DFX_INVALID_U64;        // 无通信算子上下文 → 非法值
+    hcclInfo->groupName = DFX_INVALID_U64;     // 无通信域上下文 → 非法值
+    hcclInfo->localRank = INVALID_VALUE_RANKID;
+    hcclInfo->remoteRank = INVALID_VALUE_RANKID;
+    hcclInfo->rankSize = INVALID_VALUE_RANKSIZE;
+    hcclInfo->workFlowMode = HCCL_WORKFLOW_MODE_OP_BASE;
+    hcclInfo->planeID = 0;                     // 无来源 → 空值
+    hcclInfo->ctxId = 0;                       // 无来源 → 空值
+    hcclInfo->notifyID = DFX_INVALID_U64;      // 无来源 → 非法值
+    hcclInfo->stage = 0;                       // 无来源 → 空值
+    hcclInfo->role = 0xFFFFFFFF;               // hcomm构造函数默认值
+    hcclInfo->durationEstimated = 0.0;         // 无来源 → 空值
+    hcclInfo->srcAddr = 0xFFFFFFFF;            // hcomm构造函数默认值
+    hcclInfo->dstAddr = 0xFFFFFFFF;            // hcomm构造函数默认值
+    hcclInfo->dataSize = 0;                    // hcomm构造函数默认值
+    hcclInfo->opType = 0xFFFFFFFF;             // hcomm构造函数默认值
+    hcclInfo->dataType = 0xFFFFFFFF;           // hcomm构造函数默认值
+    hcclInfo->linkType = 0xFFFFFFFF;           // hcomm构造函数默认值
+    hcclInfo->transportType = 0xFFFFFFFF;      // hcomm构造函数默认值
+    hcclInfo->rdmaType = 0xFFFFFFFF;           // hcomm构造函数默认值
+    hcclInfo->reserve2 = 0;
+
+    const int32_t infoRet
+        = g_asccommCcuProfApi.msprofReportAdditionalInfo(1, &reporterData, sizeof(MsprofAdditionalInfo));
+    CcuProfDebugLog(
+        "ReportCcuHcclInfo: level=%u type=%u(hccl_info) itemId=0x%llx(Ccu) timeStamp=%llu (no-source fields "
+        "filled with invalid defaults), ret=%d.",
+        reporterData.level, reporterData.type, static_cast<unsigned long long>(itemId),
+        static_cast<unsigned long long>(reporterData.timeStamp), infoRet);
+    if (infoRet != 0) {
+        ASCCOMM_CCU_LOG_ERROR("[CcuProfiling] MsprofReportAdditionalInfo(HcclInfo) failed, ret[%d].", infoRet);
+    }
+}
+
 // launch后上报入口: 查询taskId/streamId并发送type 14; 任何失败只记日志, 不影响launch结果
 void ReportCcuDataPlaneAfterLaunch(const CcuProfReportContext& ctx)
 {
@@ -976,7 +1081,10 @@ void ReportCcuDataPlaneAfterLaunch(const CcuProfReportContext& ctx)
     // 1. Node粒度API耗时条(launch的host侧耗时)与节点基本信息, 对齐hcomm ReportNodeApi/
     //    ReportNodeBasicInfo; 二者不依赖taskId/streamId, 放在runtime查询前发送
     ReportCcuNodeApiAndBasicInfo(ctx, static_cast<uint32_t>(syscall(SYS_gettid)));
-    // 2. type 14 ccu_task_info(依赖runtime查询刚提交task的taskId/streamId)
+    // 2. hccl层(5500)通信任务画像(TaskApi耗时条+hccl_info明细), 不依赖taskId/streamId,
+    //    紧随Node粒度之后发送
+    ReportCcuHcclTaskApiAndInfo(ctx, static_cast<uint32_t>(syscall(SYS_gettid)));
+    // 3. type 14 ccu_task_info(依赖runtime查询刚提交task的taskId/streamId)
     if (g_asccommCcuRuntimeApi.rtGetTaskIdAndStreamID == nullptr && !LoadCcuRuntimeApi()) {
         CcuProfDebugLog("ReportCcuDataPlaneAfterLaunch: rtGetTaskIdAndStreamID unavailable, skip.");
         return;
