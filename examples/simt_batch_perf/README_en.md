@@ -29,6 +29,7 @@ AscendC::simt::Hcomm<> hcomm;
 if (hcomm.Init(nullptr, 0U) != 0) return;
 auto batch = hcomm.MakeBatchHandle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, remote, 1U);
+if (batch.context == nullptr) return;
 if (hcomm.WriteNbi(batch, remote, local, 64U) != 0) return;
 if (hcomm.BatchCommit(batch) != 0) return;
 if (hcomm.Drain(batch) != 0) return;
@@ -42,6 +43,7 @@ Group calls use Hcomm without storing a Group and pass group explicitly as the l
 // Every lane in group participates and prepares its own request.
 auto batch = hcomm.MakeBatchHandle(
     channel, reinterpret_cast<__ubuf__ uint8_t*>(workspace), bytes, remote, 1U, group);
+if (batch.context == nullptr) return;
 if (hcomm.WriteNbi(batch, remoteForLane, localForLane, 64U, group) != 0) return;
 if (hcomm.BatchCommit(batch, group) != 0) return;
 // After all posting lanes return, one lane calls Drain; Drain takes no group.

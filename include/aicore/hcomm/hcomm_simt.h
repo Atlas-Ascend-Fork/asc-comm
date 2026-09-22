@@ -65,11 +65,11 @@ public:
 
     /*!
      * @brief Initialize Hcomm.
-     * @param [in] buff: Shared UB workspace for a group batch, or nullptr for a single-lane object.
-     * @param [in] len: Workspace length. A group batch needs at least three uint32_t words.
+     * @param [in] buff: Unused; retained for signature compatibility.
+     * @param [in] len: Unused; retained for signature compatibility.
      * @return 0 indicates success and -1 indicates failure.
-     * @note Every posting lane calls Init on its own Hcomm object. All lanes in a group pass
-     *       the same workspace because the collective batch posting call exchanges reservation state.
+     * @note Every posting lane calls Init on its own Hcomm object. The shared UB workspace for
+     *       a group batch is passed to MakeBatchHandle, not Init.
      */
     __simt_callee__ inline int32_t Init(__ubuf__ uint8_t* buff, uint32_t len);
 
@@ -81,11 +81,15 @@ public:
      * @param [in] remoteBase: An address in the remote registration used by the batch.
      * @param [in] itemBb: Fixed WQEBB count of every request submitted through this handle (1 or 2).
      * @note Use HcommSimtBatchBufferBytes(itemCapacity) to size buff. The current collective
-     *       contract prepares exactly one request per lane, so the workspace size is constant.
+     *       contract prepares exactly one request per lane, so the workspace size is constant
+     *       and itemCapacity is currently ignored.
+     * @note On failure this function returns a zero-valued handle (context == nullptr). The
+     *       caller must check it before any batch posting, BatchCommit or Drain operation.
      * @note Every remote data and notify range appended through the returned handle must stay in
      *       the registration selected by remoteBase. The caller owns this contract.
      * @note The handle keeps itemBb and the group size fixed for its lifetime. Every batch contains
      *       exactly one request per lane. A channel is exclusively owned by one live batch handle.
+     *       itemBb must match the actual WQE width of each request; mixing widths is unsupported.
      */
     __simt_callee__ inline BatchHandle<ChannelHandle> MakeBatchHandle(
         ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb = 1U);
@@ -96,6 +100,7 @@ public:
      * @note Pass the same group to every posting call and BatchCommit for this handle.
      *       The no-group overloads are for single-lane handles. Group size 1 retains that path.
      *       Group membership, lane ranks and size must remain unchanged for the handle's lifetime.
+     *       Every lane must pass the same valid buff, buffLen and itemBb arguments.
      */
     template <typename Group>
     __simt_callee__ inline BatchHandle<ChannelHandle> MakeBatchHandle(

@@ -48,6 +48,8 @@ namespace simt {
 constexpr uint32_t HCOMM_SIMT_BATCH_CONTEXT_BYTES = 128U;
 constexpr uint32_t HCOMM_SIMT_BATCH_ITEM_BYTES = 128U;
 
+// One request per lane uses a fixed shared context and publisher image. The capacity parameter
+// is retained for source compatibility and does not change the workspace size in this version.
 constexpr uint32_t HcommSimtBatchBufferBytes(uint32_t itemCapacity)
 {
     (void)itemCapacity;
