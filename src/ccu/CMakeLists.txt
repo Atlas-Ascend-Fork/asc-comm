@@ -157,20 +157,6 @@ set_target_properties(asccomm_ccu PROPERTIES
 )
 target_link_libraries(asccomm_ccu PRIVATE asccomm_ccu_headers)
 
-if(NOT INSTALL_LIBRARY_DIR)
-    set(INSTALL_LIBRARY_DIR lib64)
-endif()
-if(NOT INSTALL_PKG_INCLUDE_DIR)
-    set(INSTALL_PKG_INCLUDE_DIR pkg_inc)
-endif()
-
-install(TARGETS asccomm_ccu
-    LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
-    COMPONENT hcomm)
-install(FILES ${ASCCOMM_ROOT}/include/ccu/ccu_host_launch.h
-    DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/ccu
-    COMPONENT hcomm)
-
 # 源文件归属校验：强制数据面目标的所有源文件必须位于 asc-comm 仓内，
 # 避免误引用 hcomm 源（控制面/数据面边界），保证两仓可独立构建。
 get_target_property(_ASCCOMM_CCU_SOURCES asccomm_ccu_dataplane_obj SOURCES)

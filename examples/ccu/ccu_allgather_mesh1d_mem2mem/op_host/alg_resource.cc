@@ -28,7 +28,6 @@
 
 #include "ccu_kernel.h"
 #include <ccu/hcomm/ccu_launch.h>
-#include "../../../common/ccu_register_context.h"
 #include <ccu/hcomm/ccu_resource_api.h>
 #include <hccl/hccl_ccu_res.h>
 #include "../../../common/ccu_instance.h"
@@ -165,11 +164,9 @@ HcclResult RegisterCcuKernel(
     kernel_arg->channelCount = static_cast<uint32_t>(channels.size());
 
     resCtx.ccuKernels.resize(1);
-    CcuInsHandle ins_handle{0};
+    CcuInsHandle ins_handle{};
     RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, ins_handle));
-    HcommCcuRegisterContextHandle context_{nullptr};
-    RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuRegisterContext(comm, context_));
-    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(asccomm_ccu_kernel_register_start(ins_handle, context_)));
+    RETURN_IF_HCCL_FAIL(ConvertCcuToHccl(asccomm_ccu_kernel_register_start(ins_handle)));
 
     ccu_kernel_handle kernelHandle = 0;
     const void* kernel_args[] = {kernel_arg.get()};

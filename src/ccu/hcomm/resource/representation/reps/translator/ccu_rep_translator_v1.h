@@ -15,7 +15,7 @@
 #include <vector>
 #include <functional>
 
-#include "hcomm/hcomm_ccu_res.h"
+#include "hcomm/hcomm_ccu_resource.h"
 #include "hcomm/resource/microcode/ccu_instr_info_v1.h"
 #include "hcomm/resource/representation/reps/common/ccu_rep_block_v1.h"
 #include "hcomm/resource/representation/reps/translator/ccu_rep_reference_manager_v1.h"
