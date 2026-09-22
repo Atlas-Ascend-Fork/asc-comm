@@ -1,6 +1,6 @@
-# 多 Jetty SIMT 验证
+# 多 Jetty SIMT 工程验收用例
 
-本用例使用 `$ASCEND_HOME_PATH` 中已安装的 Hcomm 头文件。运行前安装与本仓库源码匹配的 run 包，并用 `--clean` 编译用例。
+本用例依赖 Hcomm 内部完成管理接口，用于工程验收，不作为用户 API 调用示例。它使用 `$ASCEND_HOME_PATH` 中已安装的 Hcomm 头文件；运行前安装与本仓库源码匹配的 run 包，并用 `--clean` 编译用例。
 
 用例演示多个 Jetty 并行发布，以及由一个消费者统一处理共享 CQ、按 JFS 归属推进各 Jetty 的完成状态。支持 Write、Read 和 WriteWithNotify。
 
@@ -20,7 +20,7 @@ bash run.sh --batch-size 1 --api write --jetty-counts 4
 
 固定64B、每Jetty1024计时请求、warmup96按batch向上对齐、两设备。`--batch-size` 同时指定每批请求数和每 Jetty 的 lane 数，每 lane 构造一个请求。`--jetty-counts` 指定 Jetty 数；lane 数和每 lane 请求数不能独立配置。
 
-每组一个独立构建目录 `build/simt-matrix-bs<N>`，仅编译一个并行VF。构建超时5分钟，检查单VF身份与stack≤1152B，寄存器按实际几何记录。`--clean`仅清理选中的产物。
+每组一个独立构建目录 `build/simt-matrix-bs<N>`，仅编译一个并行VF。`build.sh` 为 CMake 配置和编译设置300秒上限，超时即构建失败。构建成功后，脚本读取对应 batch/Jetty 几何的VF资源记录，要求stack不超过1152B，并记录寄存器用量。`--clean`仅清理选中的产物。
 
 运行前核对 `Layout=matrix-v4`、batch及构建生成的二进制SHA。增量构建只有对象SHA相同时才复用资源记录。构建和执行参数以各脚本 `--help` 为准。
 
@@ -29,7 +29,7 @@ bash run.sh --batch-size 1 --api write --jetty-counts 4
 | 文件 | 职责 |
 |---|---|
 | main.cpp | 分配缓冲、发起kernel、收集结果与释放资源 |
-| host_setup.h | 两rank初始化、Jetty创建、主机阶段同步 |
+| host_setup.h | Jetty创建和远端内存索引解析 |
 | simt_kernel.cpp | 单一并行VF与warmup/计时/Drain流程 |
 | simt_submit.h | 三屏障发布顺序与每lane SQ维护 |
 | simt_completion.h | CompletionSet初始化/接续、窗口登记、完成快照 |
@@ -46,7 +46,7 @@ bash run.sh --batch-size 1 --api write --jetty-counts 4
 
 与simt_batch_perf统一输出API、Mode、DataSize/B、BatchSize、Jettys、ConcurrentJettys、IssueTicksPerRequest、Pair及Status。主要指标为每请求下发耗时IssueTicksPerRequest，采用原始clock() ticks，包含提交路径同步，不包含随后Drain等待；多kernel累加提交区间，不包含host launch间隙。正常不展开完成快照和校验明细，所有检查仍执行，详情保留在rank日志，失败时输出。未对齐时钟口径前，不与归档SIMD直接计算加速比。
 
-本地检查在tests/ut/aicore/hcomm：完成管理/72项几何回归、真实build/run脚本模拟、完整主机/设备源文件语法检查。SDK声明替代不等于目标CANN编译或NPU运行通过。
+本地检查位于 `tests/ut/aicore/hcomm`：完成管理和72项几何回归、build/run脚本模拟、完整主机/设备源文件语法检查。SDK声明替代不等于目标CANN编译或NPU运行通过。
 
 ## RESULT 字段
 
