@@ -109,11 +109,10 @@ Perform the following steps in the sample root directory. This sample supports N
   | `--warmup` | `100` | Warmup WQE count |
   | `--payload-bytes` | `4096` | Payload bytes for `write` and `notify`; minimum 2; ignored by the other three interfaces |
   | `--commit-mode` | `immediate` | `immediate` (one doorbell per WQE) or `last` (defer all but the last) |
-  | `--clock-freq-mhz` | `1000` (assumed) | SIMT counter frequency in MHz; a finite positive decimal |
+  | `--clock-freq-mhz` | Not specified | SIMT counter frequency in MHz; a finite positive decimal; enables bandwidth output |
 
-  SIMT `clock()` returns cycles; time and bandwidth assume 1000 MHz by default for compatibility.
-  This is not a detected hardware frequency. Use `--clock-freq-mhz MHz` with a confirmed counter
-  frequency. The option only controls conversion; it does not set the device frequency.
+  By default, time is converted using 1000 MHz and bandwidth is omitted. Specify `--clock-freq-mhz MHz`
+  to convert time using that frequency and print `CompletionBandwidth/GB/s`, e.g. `--clock-freq-mhz 1000`.
 
 - Build Options
 
@@ -147,7 +146,7 @@ Perform the following steps in the sample root directory. This sample supports N
 
 ```text
 Timing assumes SIMT clock frequency 1000 MHz (default: 1000; override: --clock-freq-mhz).
-RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
+RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | DrainStatus=0 | Completed=1024
 [rank 1] simt_urma_perftest write PASS
 ```
 

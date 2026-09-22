@@ -128,10 +128,10 @@ simt_urma_perftest
   | `--warmup` | `100` | 预热WQE数量 |
   | `--payload-bytes` | `4096` | `write`和`notify`的payload字节数，最小为2；`write_value`恒为8字节，`faa`和`cas`恒为8字节，三者忽略该选项 |
   | `--commit-mode` | `immediate` | `immediate`（每WQE一次doorbell）或`last`（除最后一条外全部延迟提交） |
-  | `--clock-freq-mhz` | `1000`（假设值） | SIMT计数器频率，单位MHz，有限正十进制数 |
+  | `--clock-freq-mhz` | 未指定 | SIMT计数器频率，单位MHz，有限正十进制数；指定后输出带宽 |
 
-  SIMT `clock()`返回周期数，时间和带宽默认按1000 MHz换算，这是兼容历史行为的假设，并非自动获取的硬件频率。
-  可用`--clock-freq-mhz MHz`指定已确认的计数器频率；该参数仅用于换算，不设置设备频率。
+  时间默认按1000 MHz换算，不输出带宽。指定`--clock-freq-mhz MHz`后，按该频率换算时间并输出
+  `CompletionBandwidth/GB/s`，例如`--clock-freq-mhz 1000`。
 
 - 编译选项说明
 
@@ -144,7 +144,7 @@ simt_urma_perftest
 
   ```text
   Timing assumes SIMT clock frequency 1000 MHz (default: 1000; override: --clock-freq-mhz).
-  RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
+  RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | DrainStatus=0 | Completed=1024
   [rank 1] simt_urma_perftest write PASS
   ```
 
