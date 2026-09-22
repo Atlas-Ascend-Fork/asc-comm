@@ -63,7 +63,7 @@ bool ccu_rep_read::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_t
 std::string ccu_rep_read::describe()
 {
     return asc::format_ccu_message(
-        "Read LocalAddr[%u] To RemoteAddr[%u], length[%u], set sem[%u] with mask[%04x], dataType[%u], opType[%u]",
+        "Read RemoteAddr[%u] To LocalAddr[%u], length[%u], set sem[%u] with mask[%04x], dataType[%u], opType[%u]",
         rem_.addr.id(), loc_.addr.id(), len_.id(), sem_.id(), mask_, data_type_, op_type_);
 }
 

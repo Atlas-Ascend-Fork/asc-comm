@@ -63,7 +63,7 @@ bool ccu_rep_write::translate(ccu_kernel* ccu_kernel, ccu_instr*& instr, uint16_
 std::string ccu_rep_write::describe()
 {
     return asc::format_ccu_message(
-        "Write RemoteAddr[%u] to LocalAddr[%u], length[%u], set sem[%u] with mask[%04x], dataType[%u], opType[%u]",
+        "Write LocalAddr[%u] to RemoteAddr[%u], length[%u], set sem[%u] with mask[%04x], dataType[%u], opType[%u]",
         loc_.addr.id(), rem_.addr.id(), len_.id(), sem_.id(), mask_, data_type_, op_type_);
 }
 
