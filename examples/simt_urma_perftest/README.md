@@ -54,42 +54,6 @@ completionEnd = clock()
 下发开始统计到 `Drain` 结束，仅用于计算 `CompletionBandwidth`。`DrainStatus` 和 `Completed` 用于
 确认本次下发最终正确完成。
 
-## 计时单位与频率参数
-
-本样例面向 Ascend 950PR/950DT（`dav-3510`）的 SIMT URMA 路径。核内 `clock()` 返回原始周期数，
-不是直接返回 ns。时间和带宽均按计数频率换算；不能直接套用 `GetSystemCycle()` 的频率说明。
-
-可选参数 `--clock-freq-mhz MHz` 指定 **SIMT `clock()` 对应计数器**的频率，单位 MHz，支持有限正十进制数
-（例如 `1000` 或 `1000.5`，不接受科学计数法）。省略时保留历史换算值 **1000 MHz**，仅作为兼容默认假设，
-不代表已确认的 950 硬件时钟规格。程序不自动检测频率，也不验证指定值是否匹配硬件。
-只有频率与测量区间实际计数时基相符时，us、ns 和 GB/s 才能解释为物理时间和有效带宽；
-若计数时基会随调频改变，单次频率值不一定适用。该参数只影响 Host 换算，不设置设备频率，
-不改变预热、核内打点位置、提交或 `Drain` 流程。
-
-令 `f` 为 MHz，`N` 为计时 WQE 数，`B = DataSize/B × N` 为有效数据字节数：
-
-| 指标 | 换算公式 |
-| --- | --- |
-| `IssueTime/us` | `IssueCycles / f` |
-| `AverageIssue/ns` | `IssueCycles / f × 1000 / N` |
-| `CompletionTime/us` | `CompletionCycles / f` |
-| `CompletionBandwidth/GB/s` | `B / CompletionTime/us / 1000`（十进制 GB/s） |
-
-结果同时打印 `ClockFreq/MHz`、`ClockFreqSource`、`IssueCycles` 和 `CompletionCycles`。
-`DefaultAssumption` 表示省略参数，`UserProvided` 表示显式指定（包括显式指定 1000）。两者都不是硬件检测结果。
-`TIMING_NOTE` 会说明换算假设；`DrainStatus` 和 `Completed` 只验证通信完成，不验证计时频率。
-
-```bash
-# 1000 仅演示参数写法；实际使用前应确认对应计数器频率。
-examples/simt_urma_perftest/run.sh 2 write --clock-freq-mhz 1000
-```
-
-直接运行二进制时，也可在原有位置参数末尾追加 `--clock-freq-mhz MHz`；原有命令保持有效。
-该选项适用于全部五种 API、两种 commit 模式以及 `--sweep` 的每个数据点。
-
-参考：[clock](https://asc.gitcode.com/api/Utils-API/tuning_interface/clock.html)、
-[GetSystemCycle](https://asc.gitcode.com/api/SIMD-API/basic_api/tool_interface/system_resources_and_variables/GetSystemCycle_ISASI.html)。
-
 ## 编译
 
 ```bash
@@ -124,6 +88,10 @@ examples/simt_urma_perftest/run.sh 2 cas
 选项：`--iterations`（默认 1024）、`--warmup`（默认 100）、`--payload-bytes`（默认 4096）、
 `--commit-mode`（默认 immediate）、`--clock-freq-mhz`（默认假设 1000 MHz）、`--sweep`、`--log`。
 
+本样例适用于 Ascend 950PR/950DT。SIMT `clock()` 返回周期数，时间和带宽默认按 1000 MHz 换算；
+该值是兼容历史行为的假设，并非自动获取的硬件频率。可用 `--clock-freq-mhz MHz` 指定已确认的计数器频率
+（有限正十进制数，例如 `--clock-freq-mhz 1000`）；该参数仅用于换算，不设置设备频率。
+
 `--payload-bytes` 只对 `write` 和 `notify` 有效，其余三个接口恒为 8 字节并忽略该选项；对它们使用
 `--sweep` 会直接报错，而不是把同一个 8 字节用例重复跑八遍。
 
@@ -135,8 +103,8 @@ barrier 标记文件会让下一轮直接通过，上一轮的 root info 也会�
 ## 输出
 
 ```text
-TIMING_NOTE | SIMT clock() reports raw cycles. Time and bandwidth use 1000 MHz (default assumption); frequency is not auto-detected or validated against hardware.
-RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | ClockFreq/MHz=1000.000000 | ClockFreqSource=DefaultAssumption | IssueCycles=... | CompletionCycles=... | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
+Timing assumes SIMT clock frequency 1000 MHz (default: 1000; override: --clock-freq-mhz).
+RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
 [rank 1] simt_urma_perftest write PASS
 ```
 

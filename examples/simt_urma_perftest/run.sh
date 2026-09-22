@@ -27,8 +27,7 @@ Options:
                       on one 8B word. Those three ignore this option.
   --commit-mode MODE  immediate (one doorbell per WQE) or last (defer all but
                       the last); default: immediate
-  --clock-freq-mhz MHz  Positive decimal SIMT clock counter frequency used for conversion.
-                      Default: 1000 MHz (assumed, not auto-detected or hardware-validated).
+  --clock-freq-mhz MHz  SIMT clock counter frequency for conversion (positive decimal; default: 1000 MHz, assumed).
   --sweep             Run a payload sweep: 8 16 64 256 1024 4096 16384 65536.
                       Only meaningful for write and notify; ignores --payload-bytes.
   --log FILE          Output log file

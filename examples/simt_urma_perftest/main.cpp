@@ -361,9 +361,6 @@ bool ParseApi(const std::string& name, uint32_t& api)
 // a single 64-byte block. Every other interface is a fixed 2-BB WQE either way.
 uint32_t SqBlocksPerWqe(uint32_t api, bool commitEach) { return (api == kApiWrite && !commitEach) ? 1U : 2U; }
 
-// Preserve the historical conversion as an explicit assumption, not a detected device frequency.
-constexpr double kDefaultClockFreqMhz = 1000.0;
-
 bool ParseClockFreqMhz(const char* text, double& frequency)
 {
     if (*text == '\0' || std::strspn(text, "0123456789.") != std::strlen(text)) {
@@ -385,15 +382,10 @@ int main(int argc, char* argv[])
                      " <iterations> <warmup> <payload_bytes> <immediate|last> [--clock-freq-mhz MHz]"
                   << std::endl;
         std::cout << "  sync_dir: directory for host barrier marker files, shared by all ranks" << std::endl;
-        std::cout << "  --clock-freq-mhz: positive decimal SIMT clock counter frequency; default 1000 MHz"
-                     " is assumed, not detected."
-                  << std::endl;
         return 1;
     }
-    double clockFreqMhz = kDefaultClockFreqMhz;
-    const bool clockFreqProvided = argc == 12;
-    if (clockFreqProvided &&
-        (std::strcmp(argv[10], "--clock-freq-mhz") != 0 || !ParseClockFreqMhz(argv[11], clockFreqMhz))) {
+    double clockFreqMhz = 1000.0;
+    if (argc == 12 && (std::strcmp(argv[10], "--clock-freq-mhz") != 0 || !ParseClockFreqMhz(argv[11], clockFreqMhz))) {
         std::cerr << "--clock-freq-mhz must be a finite positive decimal number in MHz." << std::endl;
         return 1;
     }
@@ -493,9 +485,8 @@ int main(int argc, char* argv[])
     // Local table index 0 is the CCL buffer, so the explicitly registered send buffer is at 1.
     constexpr uint32_t kLocalSendIdx = 1U;
     if (rank == kSenderRank) {
-        std::cout << "TIMING_NOTE | SIMT clock() reports raw cycles. Time and bandwidth use " << clockFreqMhz
-                  << " MHz (" << (clockFreqProvided ? "user-provided" : "default assumption")
-                  << "); frequency is not auto-detected or validated against hardware." << std::endl;
+        std::cout << "Timing assumes SIMT clock frequency " << clockFreqMhz
+                  << " MHz (default: 1000; override: --clock-freq-mhz)." << std::endl;
         ACLCHECK(aclrtMalloc(&timingBuf, sizeof(timing), ACL_MEM_MALLOC_HUGE_FIRST));
         ACLCHECK(aclrtMemset(timingBuf, sizeof(timing), 0, sizeof(timing)));
         LaunchSimtUrmaPerf(
@@ -516,12 +507,8 @@ int main(int argc, char* argv[])
                   << " | API=" << apiName << " | DataSize/B=" << dataBytes << " | WqeCount=" << iterations
                   << " | Warmup=" << warmup << " | CommitMode=" << (commitEach ? "Immediate" : "Last")
                   << " | SqBlocksPerWqe=" << SqBlocksPerWqe(api, commitEach) << " | Slots=" << slotCount
-                  << " | ClockFreq/MHz=" << clockFreqMhz
-                  << " | ClockFreqSource=" << (clockFreqProvided ? "UserProvided" : "DefaultAssumption")
-                  << " | IssueCycles=" << timing[kIssueCyclesIndex]
-                  << " | CompletionCycles=" << timing[kCompletionCyclesIndex] << " | IssueTime/us=" << issueUs
-                  << " | AverageIssue/ns=" << averageIssueNs << " | CompletionTime/us=" << completionUs
-                  << " | CompletionBandwidth/GB/s=" << completionBandwidth
+                  << " | IssueTime/us=" << issueUs << " | AverageIssue/ns=" << averageIssueNs
+                  << " | CompletionTime/us=" << completionUs << " | CompletionBandwidth/GB/s=" << completionBandwidth
                   << " | DrainStatus=" << static_cast<int64_t>(timing[kDrainStatusIndex])
                   << " | Completed=" << timing[kCompletedIndex] << std::endl;
     }
