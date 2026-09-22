@@ -59,6 +59,7 @@ namespace simt {
 constexpr uint32_t HCOMM_SIMT_BATCH_CONTEXT_BYTES = 128U;
 constexpr uint32_t HCOMM_SIMT_BATCH_ITEM_BYTES = 128U;
 
+// One request per lane uses a fixed shared context and publisher image. itemCapacity must be 1.
 constexpr uint32_t HcommSimtBatchBufferBytes(uint32_t itemCapacity)
 {
     (void)itemCapacity;
