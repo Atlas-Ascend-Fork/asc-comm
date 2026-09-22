@@ -41,26 +41,27 @@ __simt_callee__ inline int32_t SubmitImmediate(
     }
 }
 
-template <uint32_t api, typename HcommT>
+template <uint32_t api, typename HcommT, typename... Groups>
 __simt_callee__ inline int32_t AppendOneWqe(
     HcommT& hcomm, AscendC::simt::UbcCtpBatchHandle& batch, __gm__ uint8_t* remote, __gm__ uint8_t* local,
-    uint32_t payloadBytes, uint32_t slotBytes, uint32_t slot)
+    uint32_t payloadBytes, uint32_t slotBytes, uint32_t slot, const Groups&... groups)
 {
     const uint64_t offset = static_cast<uint64_t>(slot) * slotBytes;
     if constexpr (api == kApiWrite) {
-        return hcomm.WriteNbi(batch, remote + offset, local + offset, payloadBytes);
+        return hcomm.WriteNbi(batch, remote + offset, local + offset, payloadBytes, groups...);
     } else if constexpr (api == kApiRead) {
-        return hcomm.ReadNbi(batch, local + offset, remote + offset, payloadBytes);
+        return hcomm.ReadNbi(batch, local + offset, remote + offset, payloadBytes, groups...);
     } else if constexpr (api == kApiNotify) {
         return hcomm.WriteWithNotifyNbi(
             batch, remote + offset, local + offset, payloadBytes, remote + offset + slotBytes - sizeof(uint64_t),
-            kNotifyValue);
+            kNotifyValue, groups...);
     } else if constexpr (api == kApiWriteValue) {
-        return hcomm.template WriteValueNbi<uint64_t>(batch, remote + offset, kInlineValue);
+        return hcomm.template WriteValueNbi<uint64_t>(batch, remote + offset, kInlineValue, groups...);
     } else if constexpr (api == kApiFaa) {
-        return hcomm.template AtomicFAA<uint64_t>(batch, remote + offset, local + offset, kFaaAdd);
+        return hcomm.template AtomicFAA<uint64_t>(batch, remote + offset, local + offset, kFaaAdd, groups...);
     } else {
-        return hcomm.template AtomicCAS<uint64_t>(batch, remote + offset, local + offset, kCasInitial, kCasSwap);
+        return hcomm.template AtomicCAS<uint64_t>(
+            batch, remote + offset, local + offset, kCasInitial, kCasSwap, groups...);
     }
 }
 
@@ -110,8 +111,8 @@ __simt_callee__ inline int32_t SubmitGroupBatches(
         const uint32_t operation = begin + rank;
         // One group lane prepares exactly one WQE for this batch.
         const int32_t appendStatus =
-            AppendOneWqe<api>(hcomm, batch, remote, local, payloadBytes, slotBytes, operation % kSlotCount);
-        int32_t commitStatus = appendStatus == 0 ? hcomm.BatchCommit(batch) : appendStatus;
+            AppendOneWqe<api>(hcomm, batch, remote, local, payloadBytes, slotBytes, operation % kSlotCount, group);
+        int32_t commitStatus = appendStatus == 0 ? hcomm.BatchCommit(batch, group) : appendStatus;
         if (appendStatus != 0 || commitStatus != 0) {
             return appendStatus != 0 ? appendStatus : commitStatus;
         }
@@ -218,10 +219,10 @@ __simt_vf__ __launch_bounds__(groupCapacity) inline void SimtGroupBatchPerfVf(
     const uint32_t rank = static_cast<uint32_t>(group.thread_rank());
     __gm__ uint8_t* local = AscendC::simt::LocalBufferAddr(channel, sendBufIdx);
     __gm__ uint8_t* remote = AscendC::simt::RemoteBufferAddr(channel, recvBufIdx);
-    AscendC::simt::Hcomm<AscendC::COMM_PROTOCOL_UBC_CTP, decltype(group)> hcomm(group);
+    AscendC::simt::Hcomm<> hcomm;
     int32_t status = hcomm.Init(nullptr, 0U);
     constexpr uint32_t itemBb = api == kApiNotify || api == kApiFaa || api == kApiCas ? 2U : 1U;
-    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, itemBb);
+    auto batch = hcomm.MakeBatchHandle(channel, batchBuffer, kBatchBufferBytes, remote, itemBb, group);
     uint32_t publishCount = 0U;
     if (status == 0) {
         status =
