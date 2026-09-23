@@ -22,6 +22,10 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     endif()
 endif()
 
+# asc-comm 仓内公开头（ccu/hcomm/*、ccu/ccu_host_launch.h、hcomm/*）：
+# 出包后位于 ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api，源码构建时直接引用仓内 include/
+get_filename_component(ASCCOMM_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../.." ABSOLUTE)
+
 add_executable(demo
     main.asc
 )
@@ -30,12 +34,12 @@ target_include_directories(demo PRIVATE
     # CANN Toolkit头文件
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
-    ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm
-    ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm/ccu
-    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api/ccu
+    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu
+    # asc-comm 仓内公开头（源码构建；出包环境由 asc/include/comm_api 提供）
+    ${ASCCOMM_SOURCE_DIR}/include
+    # 样例公共辅助头（ccu_instance.h）
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../common
 )
 
 target_compile_features(demo PRIVATE cxx_std_14)
@@ -59,13 +63,18 @@ target_link_options(demo PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
     -Wl,-z,noexecstack
+    -Wl,--copy-dt-needed-entries
+    -Wl,-rpath,${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 target_link_directories(demo PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 target_link_libraries(demo PRIVATE
+    -Wl,--no-as-needed
     hcomm
     asccomm_ccu
+    asccomm_ccu_dataplane
+    -Wl,--as-needed
     c_sec
     ascendcl
     acl_rt

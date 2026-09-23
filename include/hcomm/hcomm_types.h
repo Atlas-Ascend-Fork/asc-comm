@@ -23,6 +23,9 @@
 extern "C" {
 #endif
 
+/* 已包含 hccl/hccl_types.h 时复用其稳定定义，避免与已安装 HCCL 包重定义枚举 */
+#ifndef HCCL_TYPES_H_
+
 /** HCCL 接口返回码：0 成功，其余为错误码 */
 typedef enum {
     HCCL_SUCCESS = 0,
@@ -87,6 +90,8 @@ typedef enum {
     HCCL_DATA_TYPE_FP8E8M0 = 17,
     HCCL_DATA_TYPE_RESERVED = 255
 } HcclDataType;
+
+#endif // HCCL_TYPES_H_
 
 #ifdef __cplusplus
 }
