@@ -263,6 +263,18 @@ target_compile_options(asccomm_ccu_host_launch PRIVATE
     -Werror
 )
 
+# 数据面 C ABI stub：UT 环境不链接 libasccomm_ccu_dataplane.so，桩函数恒返回错误
+add_library(asccomm_ccu_host_launch_dataplane_stub STATIC
+    ${ASCCOMM_UT_ROOT}/ccu/ccu_host_launch_dataplane_stub.cc
+)
+target_include_directories(asccomm_ccu_host_launch_dataplane_stub PRIVATE
+    ${ASCCOMM_ROOT}/include
+    ${ASCEND_CANN_ARCH_DIR}/include
+)
+target_compile_options(asccomm_ccu_host_launch_dataplane_stub PRIVATE
+    -fPIC
+)
+
 add_executable(asccomm_ut_ccu_host_launch
     ${ASCCOMM_UT_ROOT}/ccu/test_ccu_host_launch.cpp
 )
@@ -283,6 +295,7 @@ target_compile_options(asccomm_ut_ccu_host_launch PRIVATE
 target_link_libraries(asccomm_ut_ccu_host_launch PRIVATE
     intf_llt_pub_basic
     asccomm_ccu_host_launch
+    asccomm_ccu_host_launch_dataplane_stub
 )
 
 run_llt_test(
