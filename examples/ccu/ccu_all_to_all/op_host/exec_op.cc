@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <ccu/hcomm/ccu_api_types.h>
 #include <hccl/hcomm_primitives.h>
-#include <hcomm/hcomm_ccu_launch_api.h>
 #include "ccu/hcomm/ccu_launch.h"
 #include "ccu/hcomm/ccu_resource_api.h"
 #include "alg_resource.h"
@@ -83,8 +82,8 @@ static std::vector<uint64_t> CalGoSize(uint64_t size, const loop_group_config& c
 }
 
 static HcclResult LaunchCcuKernelSlice(
-    const AlgResourceCtx& resCtx, uint64_t inputAddr, uint64_t outputAddr, uint64_t inputToken, uint64_t outputToken,
-    uint64_t rankSliceSize, uint64_t sliceCount, uint64_t dataTypeSize)
+    const OpParam& opParam, const AlgResourceCtx& resCtx, uint64_t inputAddr, uint64_t outputAddr, uint64_t inputToken,
+    uint64_t outputToken, uint64_t rankSliceSize, uint64_t sliceCount, uint64_t dataTypeSize)
 {
     uint64_t sliceSize = sliceCount * dataTypeSize;
 
@@ -99,12 +98,8 @@ static HcclResult LaunchCcuKernelSlice(
         sliceSize, goSize[0],  goSize[1],  goSize[2],   goSize[3],
     };
 
-    HcommCcuLaunchContextPod launch_context{};
-    if (HcommCcuGetLaunchContext(resCtx.threads[0], &launch_context) != HCCL_SUCCESS) {
-        return HCCL_E_INTERNAL;
-    }
     CcuResult launchRet =
-        asccomm_ccu_kernel_launch(&launch_context, resCtx.ccuKernels[0], task_args.data(), task_args.size());
+        asccomm_ccu_kernel_launch(opParam.stream, resCtx.ccuKernels[0], task_args.data(), task_args.size());
     if (launchRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
@@ -112,21 +107,21 @@ static HcclResult LaunchCcuKernelSlice(
     return HCCL_SUCCESS;
 }
 
-HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
+HcclResult ExecOp(const OpParam& opParam, const AlgResourceCtx& resCtx)
 {
     constexpr uint64_t dataTypeSize = sizeof(float);
-    const uint64_t rankSliceSize = param_.perCount * dataTypeSize;
-    const uint64_t inputSize = rankSliceSize * param_.rankSize;
+    const uint64_t rankSliceSize = opParam.perCount * dataTypeSize;
+    const uint64_t inputSize = rankSliceSize * opParam.rankSize;
     const uint64_t outputSize = inputSize;
-    const uint64_t count_ = param_.perCount;
+    const uint64_t count_ = opParam.perCount;
 
     if (count_ == 0) { // 数据量为 0，直接返回
         return HcclResult::HCCL_SUCCESS;
     }
 
-    if (param_.rankSize == 1) { // 单卡场景直接本地拷贝
+    if (opParam.rankSize == 1) { // 单卡场景直接本地拷贝
         RETURN_IF_HCCL_FAIL(static_cast<HcclResult>(
-            HcommLocalCopyOnThread(resCtx.threads[0], param_.outputPtr, param_.inputPtr, outputSize)));
+            HcommLocalCopyOnThread(resCtx.threads[0], opParam.outputPtr, opParam.inputPtr, outputSize)));
         return HCCL_SUCCESS;
     }
 
@@ -138,8 +133,8 @@ HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
 
     uint64_t inputToken = 0;
     uint64_t outputToken = 0;
-    uint64_t baseInputAddr = reinterpret_cast<uint64_t>(param_.inputPtr);
-    uint64_t baseOutputAddr = reinterpret_cast<uint64_t>(param_.outputPtr);
+    uint64_t baseInputAddr = reinterpret_cast<uint64_t>(opParam.inputPtr);
+    uint64_t baseOutputAddr = reinterpret_cast<uint64_t>(opParam.outputPtr);
     CcuResult tokenRet = asccomm_ccu_get_mem_token(baseInputAddr, inputSize, &inputToken);
     if (tokenRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
@@ -155,7 +150,7 @@ HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
         uint64_t outputAddr = baseOutputAddr + processedDataCount * dataTypeSize;
 
         RETURN_IF_HCCL_FAIL(LaunchCcuKernelSlice(
-            resCtx, inputAddr, outputAddr, inputToken, outputToken, rankSliceSize, sliceCount, dataTypeSize));
+            opParam, resCtx, inputAddr, outputAddr, inputToken, outputToken, rankSliceSize, sliceCount, dataTypeSize));
 
         processedDataCount += sliceCount;
     }

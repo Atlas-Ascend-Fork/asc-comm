@@ -109,9 +109,8 @@ target_link_options(asccomm_ccu_dataplane PRIVATE
     $<$<CONFIG:Release>:-Wl,--build-id=none>
 )
 
-# Keep the mainline host-launch wrapper as a separate compatibility library.
-# It uses the legacy HcommCcuKernel* registration ABI and must not be folded
-# into the data-plane SO, whose cross-SO interface is the POD-based API above.
+# <<<>>> Host Launch 兼容层独立构建为 libasccomm_ccu.so，并通过数据面 C ABI
+# 调用 libasccomm_ccu_dataplane.so 完成内核注册与下发。
 add_library(asccomm_ccu_host_obj OBJECT
     ${ASCCOMM_CCU_ROOT}/ccu_host_launch.cpp
 )
@@ -160,9 +159,12 @@ set_target_properties(asccomm_ccu PROPERTIES
     OUTPUT_NAME asccomm_ccu
     LIBRARY_OUTPUT_DIRECTORY ${ASCCOMM_LIBRARY_OUTPUT_DIRECTORY}
 )
-target_link_libraries(asccomm_ccu PRIVATE asccomm_ccu_headers)
-
+target_link_libraries(asccomm_ccu PRIVATE
+    asccomm_ccu_headers
+    asccomm_ccu_dataplane
+)
 target_link_options(asccomm_ccu PRIVATE
+    -Wl,--no-undefined
     -Wl,-z,relro -Wl,-z,now
     $<$<CONFIG:Release>:-s>
     $<$<CONFIG:Release>:-Wl,--build-id=none>
