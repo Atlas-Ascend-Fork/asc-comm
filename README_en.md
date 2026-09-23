@@ -110,7 +110,8 @@ Commit mode matrix:
 Refer to [API Reference](./docs/en/api/README.md) for detailed parameter constraints and return value descriptions.
 
 ## 🔍 Directory Layout
-This repository contains the asc-comm AICore data plane and AICPU POD data-plane implementation, samples, documentation, and unit tests. The structure is as follows:
+
+This repository contains AICore communication data plane APIs, device-side implementations, samples, documentation and UT cases for asc-comm. The structure is as follows:
 ```text
 ├── cmake                         # CMake helper modules for asc-comm
 ├── docs                          # Project documentation
@@ -119,12 +120,10 @@ This repository contains the asc-comm AICore data plane and AICPU POD data-plane
 │   ├── simt_urma                 # Hcomm SIMT URMA functional sample
 │   └── simt_urma_perftest        # Hcomm SIMT URMA performance sample
 ├── include                       # asc-comm API declarations
-│   ├── aicpu/hcomm               # Public AICPU POD data-plane primitives
 │   ├── aicore/hcomm              # Public AICore Hcomm interfaces
 │   └── aicore/ain                # Public AICore Ain one-sided communication interfaces
 ├── scripts                       # Utility scripts
 ├── src                           # asc-comm API implementations
-│   ├── aicpu/hcomm               # AICPU POD data-plane implementation
 │   ├── aicore/hcomm              # Internal implementation of AICore Hcomm
 │   │   ├── common                # Common definitions and utilities for Hcomm
 │   │   └── impl                  # Protocol implementations and platform-specific logic
@@ -143,21 +142,10 @@ To quickly build the project and run UTs, configure the CANN environment first:
 source /usr/local/Ascend/cann/set_env.sh
 ```
 
-The former `pod_only` project is now integrated directly at the repository root. The default build produces
-`build/aicpu-data-plane/libasccomm_aicpu.so`. HCOMM owns the control plane and resources; the POD
-implementation consumes the resource ABI and lookup APIs supplied by HCOMM. The repository no longer carries the
-legacy data plane, resource converters, or copies of HCOMM's public interfaces.
-
-By default, the build finds HCOMM in the `hcomm_pkg_inc` directory next to asc-comm. For another layout, use
-`--hcomm-source-dir`:
-
+Default build for basic environment validation. AICore Hcomm and Ain are header-only; no standalone library will be generated for non-UT builds:
 ```bash
 bash build.sh
-bash build.sh --hcomm-source-dir=/path/to/hcomm
 ```
-
-The POD API is declared in `include/aicpu/hcomm/asccomm_primitives.h` and consistently uses `asccomm_*` names. Base primitives and resource interfaces
-come from HCOMM's `include/` and `pkg_inc/` directories.
 
 The default build reuses the existing `build/` directory and does not remove build artifacts. To clean it, run:
 
