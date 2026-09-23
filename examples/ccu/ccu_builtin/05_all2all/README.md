@@ -32,8 +32,10 @@ AICore侧将同一个`ccResCtx`传入`Hccl::InitV2`，
 ### 功能说明
 
 每个rank的输入按目标rank划分为多个连续数据块，每个数据块包含256个FP32元素。
-发送rank `i`发往目标rank `j`的数据块初始化为`i * 1000 + j`。AlltoAll完成后，
-接收rank `j`的第`i`个数据块应为`i * 1000 + j`，用于验证数据交换结果。
+发送rank `i`发往目标rank `j`的数据块初始化为`i * CCU_MAX_RANK_SIZE + j`。
+AlltoAll完成后，接收rank `j`的第`i`个数据块应为相同的小整数值，用于验证数据交换结果。
+该取值方式最大为`CCU_MAX_RANK_SIZE * CCU_MAX_RANK_SIZE - 1`，切换为`int8_t`或`uint8_t`
+时不会发生数据截断。
 
 ```text
 Host:
@@ -95,14 +97,14 @@ make -j
 
 其中`${install_path}`为CANN包安装目录，未指定安装目录时默认安装至`/usr/local/Ascend`。
 
-两卡场景下，rank `d`向目标rank `j`发送的块中每个元素为`d * 1000 + j`，
+两卡场景下，rank `d`向目标rank `j`发送的块中每个元素为`d * CCU_MAX_RANK_SIZE + j`，
 运行成功后每个rank的接收块应按源rank顺序排列：
 
 ```text
 Found 2 NPU device(s) available
-rankId: 0, recv blocks: [ 0 x 256] [1000 x 256]
+rankId: 0, recv blocks: [ 0 x 256] [8 x 256]
 rankId: 0, validation: PASS
-rankId: 1, recv blocks: [ 1 x 256] [1001 x 256]
+rankId: 1, recv blocks: [1 x 256] [9 x 256]
 rankId: 1, validation: PASS
 ```
 

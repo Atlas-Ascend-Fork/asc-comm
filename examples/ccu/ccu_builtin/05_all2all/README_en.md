@@ -30,8 +30,10 @@ then obtains the CCU resource context, and `Mc2CcKernelLaunch` starts the CCU Se
 ## Sample Description
 
 Each rank stores one contiguous data block for every destination rank, with 256 FP32 elements per block.
-The block sent from rank `i` to rank `j` is initialized to `i * 1000 + j`. After AlltoAll, block `i`
-received by rank `j` should contain `i * 1000 + j`, which is used to validate the exchange.
+The block sent from rank `i` to rank `j` is initialized to `i * CCU_MAX_RANK_SIZE + j`. After AlltoAll,
+the block received by rank `j` from rank `i` should contain the same small integer, which is used to
+validate the exchange. The maximum value is `CCU_MAX_RANK_SIZE * CCU_MAX_RANK_SIZE - 1`, so switching
+to `int8_t` or `uint8_t` does not truncate the payload.
 
 ```text
 Host:
@@ -99,14 +101,14 @@ make -j
 
 `${install_path}` is the CANN installation directory. The default is `/usr/local/Ascend`.
 
-In a two-device run, rank `d` sends a block containing `d * 1000 + j` to destination rank `j`.
+In a two-device run, rank `d` sends a block containing `d * CCU_MAX_RANK_SIZE + j` to destination rank `j`.
 The received blocks are ordered by source rank:
 
 ```text
 Found 2 NPU device(s) available
-rankId: 0, recv blocks: [ 0 x 256] [1000 x 256]
+rankId: 0, recv blocks: [ 0 x 256] [8 x 256]
 rankId: 0, validation: PASS
-rankId: 1, recv blocks: [ 1 x 256] [1001 x 256]
+rankId: 1, recv blocks: [1 x 256] [9 x 256]
 rankId: 1, validation: PASS
 ```
 
