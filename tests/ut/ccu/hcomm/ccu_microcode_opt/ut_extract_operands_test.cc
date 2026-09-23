@@ -290,6 +290,9 @@ TEST(ExtractOperandsV2Test, Jmp_ReadsThreeXn)
 
     auto ops = extract_operands_v2(instr);
     EXPECT_EQ(ops.size(), 3u);
+    EXPECT_TRUE(contains(ops, make_read(reg_type::xn, 1)));
+    EXPECT_TRUE(contains(ops, make_read(reg_type::xn, 2)));
+    EXPECT_TRUE(contains(ops, make_read(reg_type::xn, 3)));
 }
 
 TEST(ExtractOperandsV2Test, Wait_ReadsTwoXn)
