@@ -1,4 +1,4 @@
-# Event
+# event
 
 ## 产品支持情况
 
@@ -11,33 +11,42 @@
 <!-- npu="910b" id3 -->
 - Atlas A2系列产品：不支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas训练系列产品：不支持
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
 <!-- end id4 -->
 <!-- npu="310p" id5 -->
 - Atlas推理系列产品：不支持
 <!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
 
 ## 功能说明
 
-`ccu::Event`是CCU kernel内完成事件单元的C++包装类。
+头文件为：`#include "ccu/ccu_primitives.hpp"`
 
-- 构造即分配：默认构造函数自动申请1个完成事件单元虚拟句柄。
-- 析构不释放：析构函数不释放硬件资源；虚拟句柄在翻译完成后失效，物理资源随CCU实例生命周期统一管理、回收。
+`ccu::event`是CCU kernel内同步寄存器槽位的C++包装类，用于标记异步操作（如数据搬运）的完成状态。
 
-Event用于标记异步操作（如数据搬运）的完成状态。数据搬运接口的末位参数`(event, mask)`由硬件在搬运完成时自动置位`event[mask]`，下游通过`EventWait(event, mask)`等待该位被置位。Event本身不持有`mask`字段，mask在每次`EventRecord`/`EventWait`调用时独立传入。
+- 构造即分配：默认构造只申请虚拟句柄。
+- 析构不释放：析构不释放硬件资源，物理资源随CCU实例生命周期统一管理，翻译完成后虚拟句柄失效。
+
+> [!NOTE]说明
+> 资源分配采用"先虚后实"两阶段模型：注册阶段的`event()`构造仅产生虚拟句柄，真正的物理event槽位分配在[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段（kernel函数执行完后）完成。
 
 ## 类声明
 
 ```cpp
 namespace AscendC {
 namespace ccu {
-class Event final {
+class event final {
 public:
-    Event();                    // 构造即Alloc
-    // 绑定Host侧已预约的第index个完成事件单元，不申请新的完成事件单元
-    explicit Event(CcuEventHandle acqHandle, uint32_t index = 0);
-    CcuEventHandle handle{0};  // 虚拟句柄
+    // 默认构造：申请1个event槽位虚拟句柄
+    event();     
+
+    // 预约构造：绑定Host侧已预约的第index个event槽位，不申请新的event槽位
+    explicit event(ccu_event_handle acq_handle, uint32_t index = 0);
+    
+    ccu_event_handle handle{0};  // 虚拟句柄
 };
 } // namespace ccu
 } // namespace AscendC
@@ -45,47 +54,43 @@ public:
 
 ## 构造函数说明
 
-| 构造形式 | 说明 |
-| --- | --- |
-| `Event e;` | 申请1个完成事件单元虚拟句柄。只能在kernel注册阶段（`HcommCcuKernelRegister`执行的kernel函数体内）调用。 |
-| `Event e(acqHandle, index);` | 绑定Host侧通过[HcommCcuEventAlloc](../../../control_plane_api/ccu_resource_mgmt/HcommCcuEventAlloc.md)预约的第`index`个完成事件单元，不申请新的完成事件单元。`index`默认值为`0`。 |
+- 默认构造
 
-### 绑定Host侧预约资源的构造
+    用`event e;`申请1个完成事件槽位虚拟句柄。
 
-`explicit Event(CcuEventHandle acqHandle, uint32_t index = 0)`中的`acqHandle`是Host侧[HcommCcuEventAlloc](../../../control_plane_api/ccu_resource_mgmt/HcommCcuEventAlloc.md)返回的**预约句柄**，不是另一个`Event`的`handle`。不能传入[Variable](Variable.md)的预约句柄。典型用法是把预约句柄通过`kernelArgs`传入kernel，再在kernel内绑定其中某个完成事件单元。
+- 预约构造
 
-绑定后的Event按普通Event使用`EventRecord`/`EventWait`。对同一预约句柄的同一`index`多次调用本构造函数，每次得到新的kernel内`handle`，指向同一个物理完成事件单元。这与copy/move不是一条路径：`Event e2 = e1;`只拷贝已有`handle`，不走本构造。
+    预约构造的参数如下：
 
-构造失败时抛出异常，会被[HcommCcuKernelRegister](../../../control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)统一接住，对外返回`CCU_E_INTERNAL`，本轮注册被中止。
+    | 参数名 | 输入/输出 | 描述 |
+    | --- | --- | --- |
+    | acq_handle | 输入 | 预约句柄，即Host侧调用[`HcommCcuEventAlloc`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_resource_mgmt/HcommCcuEventAlloc.md)预先从实例资源池划出一段物理event槽位后返回的句柄，通过`kernelArgs`传入kernel。 |
+    | index | 输入 | 要绑定的event槽位在预约段内的序号，从0起，默认值为`0`。 |
 
-> [!CAUTION]注意
-> copy/move构造函数只拷贝`handle`字段、不申请新的完成事件单元。`Event e2 = e1;`后两个对象是同一个kernel内句柄，对任一对象`EventRecord`/`EventWait`操作的是同一份硬件状态位。如需独立Event，使用默认构造、绑定其他`index`，或用[`Array<Event>`](Array.md)。
-
-## 返回值
-
-构造成功后，`e.handle`字段持有分配到的虚拟句柄。句柄值由框架在注册阶段分配（首个Event 的handle 为 `0`，后续递增），不要用"`handle != 0`"判断有效性。
+    多次用同一预约句柄和同一`index`构造，得到的多个`event`对象共享同一个物理event槽位。
 
 ## 约束说明
 
-- 只能在kernel注册阶段构造Event。
-- 析构不释放硬件资源，不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
-- Event没有`mask`字段，mask在`EventRecord`/`EventWait`及数据搬运接口中以参数形式传入（C++默认值为`1`）。同一Event的不同bit（mask）相互独立，可承载多组配对。
-- 默认构造只申请虚拟句柄，恒成功不抛异常；完成事件单元物理资源不足时，由`HcommCcuKernelRegister`阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。如需多个Event，可使用[`Array<Event>`](Array.md)批量申请。
-- 预约句柄构造`Event e(acqHandle, index);`同样只能在kernel注册阶段调用，会校验预约句柄与`index`，参数不合法时抛出异常，不再保证恒成功。
+- 只能在kernel注册阶段构造；注册阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在注册阶段内恒成功不抛异常；event槽位物理资源不足时，由[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 预约构造会校验预约句柄与`index`，参数不合法时抛出异常，由[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段返回`CCU_E_INTERNAL`，本轮注册被中止。
+- copy/move构造函数只拷贝`handle`字段、不申请新的event槽位，`event e2 = e1;`后两个对象是同一个kernel内句柄，对任一对象`event_record`/`event_wait`操作的是同一份硬件状态位；如需独立的`event`，使用默认构造或[`array<event>`](array.md)。
+- 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
+- `event`没有`mask`字段，`mask`在`event_record`/`event_wait`及数据搬运接口中以参数形式传入，C++默认值为`1`。同一个`event`的不同bit相互独立，可承载多组配对。
 
 ## 调用示例
 
 ```cpp
 using namespace AscendC::ccu;
 
-CcuResult MyKernel(CcuKernelArg arg) {
-    Event evt;    // 申请1个完成事件单元
+CcuResult my_kernel(ccu_kernel_arg arg) {
+    event evt;    // 申请1个event槽位
 
-    // 配合数据搬运接口使用：硬件搬运完成时自动置位evt[0x1]
-    LocalAddr src, dst;
-    Variable len;
-    LocalCopy(dst, src, len, evt);    // mask默认0x1
-    EventWait(evt);                    // 等待bit0置位
+    // 配合数据搬运接口使用：硬件搬运完成时自动将evt中mask对应的标志位设置为1
+    local_addr src, dst;
+    variable len;
+    local_copy(dst, src, len, evt);    // mask默认0x1
+    event_wait(evt);                    // 等待bit0被设置为1
 
     return CCU_SUCCESS;
 }
