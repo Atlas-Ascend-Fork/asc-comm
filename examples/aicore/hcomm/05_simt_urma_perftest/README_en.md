@@ -55,10 +55,9 @@ Drain
 completionEnd = clock()
 ```
 
-`IssueTime` and `AverageIssue` cover only the timed WQE submissions and are used to compare issue
-latency between interfaces. `CompletionTime` runs from the start of the timed submissions to the end
-of `Drain`, and is used only to compute `CompletionBandwidth`. `DrainStatus` and `Completed` confirm
-the run actually completed correctly.
+`IssueCycles` covers only the timed WQE submissions; `AverageIssue/cycle` is the average cycle count
+per WQE. `CompletionCycles` covers the interval from the start of the timed submissions to the end
+of `Drain`. `DrainStatus` and `Completed` confirm the run actually completed correctly.
 
 ## Build and Run
 
@@ -109,6 +108,11 @@ Perform the following steps in the sample root directory. This sample supports N
   | `--warmup` | `100` | Warmup WQE count |
   | `--payload-bytes` | `4096` | Payload bytes for `write` and `notify`; minimum 2; ignored by the other three interfaces |
   | `--commit-mode` | `immediate` | `immediate` (one doorbell per WQE) or `last` (defer all but the last) |
+  | `--clock-freq-mhz` | Not specified | SIMT counter frequency in MHz; a finite positive decimal; enables time and bandwidth output |
+
+  By default, results use cycles without conversion to time or bandwidth. Specify `--clock-freq-mhz MHz`
+  to output `IssueTime/us`, `AverageIssue/ns`, `CompletionTime/us` and `CompletionBandwidth/GB/s`
+  using that frequency, e.g. `--clock-freq-mhz 1000`.
 
 - Build Options
 
@@ -141,7 +145,7 @@ Perform the following steps in the sample root directory. This sample supports N
 ## Output
 
 ```text
-RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | CompletionBandwidth/GB/s=... | DrainStatus=0 | Completed=1024
+RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueCycles=... | AverageIssue/cycle=... | CompletionCycles=... | DrainStatus=0 | Completed=1024
 [rank 1] simt_urma_perftest write PASS
 ```
 

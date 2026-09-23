@@ -13,7 +13,9 @@
  * \brief Host side of the SIMT URMA performance example.
  */
 
+#include <cerrno>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -226,6 +228,17 @@ bool ParseApi(const std::string& name, uint32_t& api)
 // 已提交的 WriteNbi 占满 128B DWQE（两个 BB），延迟提交只占一个 64B BB。
 uint32_t SqBlocksPerWqe(uint32_t api, bool commitEach) { return (api == kApiWrite && !commitEach) ? 1U : 2U; }
 
+bool ParseClockFreqMhz(const char* text, double& frequency)
+{
+    if (*text == '\0' || std::strspn(text, "0123456789.") != std::strlen(text)) {
+        return false;
+    }
+    char* end = nullptr;
+    errno = 0;
+    frequency = std::strtod(text, &end);
+    return errno == 0 && end != text && *end == '\0' && std::isfinite(frequency) && frequency > 0.0;
+}
+
 } // namespace
 
 // 单个rank的基准流程。由ProcessGroup在每个子进程中调用：只有rank 0（发送方）和
@@ -235,7 +248,7 @@ constexpr uint32_t kTagCompleted = examples::kTagUserBase + 1U;
 
 int RunPerftestRank(
     uint32_t rank, uint32_t nranks, const std::string& ctrlEndpoint, const std::string& apiName, uint32_t iterations,
-    uint32_t warmup, uint32_t payloadBytes, const std::string& commitMode)
+    uint32_t warmup, uint32_t payloadBytes, const std::string& commitMode, double clockFreqMhz)
 {
     if (nranks < kBenchRanks) {
         std::cout << "nranks must be at least " << kBenchRanks
@@ -331,20 +344,26 @@ int RunPerftestRank(
 
         pass = static_cast<int64_t>(timing[kDrainStatusIndex]) == 0 && timing[kCompletedIndex] == iterations;
         const uint32_t dataBytes = DataBytes(api, payloadBytes);
-        const double issueUs = static_cast<double>(timing[kIssueCyclesIndex]) / 1000.0;
-        const double averageIssueNs = static_cast<double>(timing[kIssueCyclesIndex]) / iterations;
-        const double completionUs = static_cast<double>(timing[kCompletionCyclesIndex]) / 1000.0;
-        const double completionBandwidth =
-            timing[kCompletionCyclesIndex] == 0U ?
-                0.0 :
-                static_cast<double>(dataBytes) * iterations / timing[kCompletionCyclesIndex];
         std::cout << std::fixed << std::setprecision(6) << "RESULT | Path=SIMT-t1"
                   << " | API=" << apiName << " | DataSize/B=" << dataBytes << " | WqeCount=" << iterations
                   << " | Warmup=" << warmup << " | CommitMode=" << (commitEach ? "Immediate" : "Last")
-                  << " | SqBlocksPerWqe=" << SqBlocksPerWqe(api, commitEach) << " | Slots=" << slotCount
-                  << " | IssueTime/us=" << issueUs << " | AverageIssue/ns=" << averageIssueNs
-                  << " | CompletionTime/us=" << completionUs << " | CompletionBandwidth/GB/s=" << completionBandwidth
-                  << " | DrainStatus=" << static_cast<int64_t>(timing[kDrainStatusIndex])
+                  << " | SqBlocksPerWqe=" << SqBlocksPerWqe(api, commitEach) << " | Slots=" << slotCount;
+        if (clockFreqMhz > 0.0) {
+            const double issueUs = static_cast<double>(timing[kIssueCyclesIndex]) / clockFreqMhz;
+            const double averageIssueNs = issueUs * 1000.0 / iterations;
+            const double completionUs = static_cast<double>(timing[kCompletionCyclesIndex]) / clockFreqMhz;
+            const double completionBandwidth = timing[kCompletionCyclesIndex] == 0U ?
+                                                   0.0 :
+                                                   static_cast<double>(dataBytes) * iterations / completionUs / 1000.0;
+            std::cout << " | ClockFreq/MHz=" << clockFreqMhz << " | IssueTime/us=" << issueUs
+                      << " | AverageIssue/ns=" << averageIssueNs << " | CompletionTime/us=" << completionUs
+                      << " | CompletionBandwidth/GB/s=" << completionBandwidth;
+        } else {
+            std::cout << " | IssueCycles=" << timing[kIssueCyclesIndex]
+                      << " | AverageIssue/cycle=" << static_cast<double>(timing[kIssueCyclesIndex]) / iterations
+                      << " | CompletionCycles=" << timing[kCompletionCyclesIndex];
+        }
+        std::cout << " | DrainStatus=" << static_cast<int64_t>(timing[kDrainStatusIndex])
                   << " | Completed=" << timing[kCompletedIndex] << std::endl;
     }
 
@@ -383,6 +402,9 @@ int main(int argc, char* argv[])
         std::cout << "  --commit-mode MODE  immediate (one doorbell per WQE) or last (defer all but the last); "
                      "default: immediate"
                   << std::endl;
+        std::cout
+            << "  --clock-freq-mhz MHz  SIMT counter frequency; enables time and bandwidth output (positive decimal)."
+            << std::endl;
         return 1;
     }
     uint32_t nranks = 0;
@@ -397,6 +419,7 @@ int main(int argc, char* argv[])
     uint32_t warmup = 100U;
     uint32_t payloadBytes = 4096U;
     std::string commitMode = "immediate";
+    double clockFreqMhz = 0.0; // Unspecified: report cycles.
     for (int i = 4; i < argc; ++i) {
         const std::string option = argv[i];
         const bool hasValue = i + 1 < argc;
@@ -417,6 +440,11 @@ int main(int argc, char* argv[])
             }
         } else if (option == "--commit-mode" && hasValue) {
             commitMode = argv[++i];
+        } else if (option == "--clock-freq-mhz" && hasValue) {
+            if (!ParseClockFreqMhz(argv[++i], clockFreqMhz)) {
+                std::cout << "--clock-freq-mhz must be a finite positive decimal number in MHz." << std::endl;
+                return 1;
+            }
         } else {
             std::cout << "Unknown or incomplete option: " << option << std::endl;
             return 1;
@@ -426,7 +454,8 @@ int main(int argc, char* argv[])
     std::vector<examples::ArgsOf<decltype(RunPerftestRank)>> perRankArgs;
     perRankArgs.reserve(nranks);
     for (uint32_t rank = 0; rank < nranks; ++rank) {
-        perRankArgs.emplace_back(rank, nranks, endpoint, apiName, iterations, warmup, payloadBytes, commitMode);
+        perRankArgs.emplace_back(
+            rank, nranks, endpoint, apiName, iterations, warmup, payloadBytes, commitMode, clockFreqMhz);
     }
 
     examples::ProcessGroup group;
