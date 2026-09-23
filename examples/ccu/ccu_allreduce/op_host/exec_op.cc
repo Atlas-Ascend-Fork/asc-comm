@@ -12,7 +12,6 @@
 #include <algorithm>
 #include <ccu/hcomm/ccu_api_types.h>
 #include <hccl/hcomm_primitives.h>
-#include <hcomm/hcomm_ccu_launch_api.h>
 #include "ccu/hcomm/ccu_launch.h"
 #include "ccu/hcomm/ccu_resource_api.h"
 #include "alg_resource.h"
@@ -23,8 +22,8 @@ namespace ops_hccl_ar {
 constexpr uint64_t UB_MAX_DATA_SIZE = 256 * 1024 * 1024; // UB 协议单次传输最大字节数
 
 static HcclResult LaunchCcuKernelSlice(
-    const AlgResourceCtx& resCtx, uint64_t inputAddr, uint64_t outputAddr, uint64_t token, uint64_t sliceCount,
-    uint64_t dataTypeSize)
+    const OpParam& param_, const AlgResourceCtx& resCtx, uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
+    uint64_t sliceCount, uint64_t dataTypeSize)
 {
     uint64_t sliceSize = sliceCount * dataTypeSize;
 
@@ -35,12 +34,8 @@ static HcclResult LaunchCcuKernelSlice(
         sliceSize,
     };
 
-    HcommCcuLaunchContextPod launch_context{};
-    if (HcommCcuGetLaunchContext(resCtx.threads[0], &launch_context) != HCCL_SUCCESS) {
-        return HCCL_E_INTERNAL;
-    }
-    CcuResult launchRet =
-        asccomm_ccu_kernel_launch(&launch_context, resCtx.ccuKernels[0], task_args.data(), task_args.size());
+    CcuResult launchRet = asccomm_ccu_kernel_launch(
+        param_.stream, resCtx.ccuKernels[0], task_args.data(), task_args.size());
     if (launchRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
@@ -84,7 +79,8 @@ HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
         uint64_t inputAddr = baseInputAddr + processedDataCount * dataTypeSize;
         uint64_t outputAddr = baseOutputAddr + processedDataCount * dataTypeSize;
 
-        RETURN_IF_HCCL_FAIL(LaunchCcuKernelSlice(resCtx, inputAddr, outputAddr, token, sliceCount, dataTypeSize));
+        RETURN_IF_HCCL_FAIL(
+            LaunchCcuKernelSlice(param_, resCtx, inputAddr, outputAddr, token, sliceCount, dataTypeSize));
 
         processedDataCount += sliceCount;
     }
