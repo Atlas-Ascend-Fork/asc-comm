@@ -10,7 +10,6 @@
 
 #include <vector>
 #include <ccu/hcomm/ccu_api_types.h>
-#include <hcomm/hcomm_ccu_launch_api.h>
 #include "ccu/hcomm/ccu_launch.h"
 #include "ccu/hcomm/ccu_resource_api.h"
 #include "alg_resource.h"
@@ -35,12 +34,8 @@ HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
         return HCCL_E_INTERNAL;
     }
     std::vector<uint64_t> task_args = {bufferAddr, token, dataSize};
-    HcommCcuLaunchContextPod launch_context{};
-    if (HcommCcuGetLaunchContext(resCtx.threads[0], &launch_context) != HCCL_SUCCESS) {
-        return HCCL_E_INTERNAL;
-    }
-    CcuResult launchRet =
-        asccomm_ccu_kernel_launch(&launch_context, resCtx.ccuKernels[0], task_args.data(), task_args.size());
+    CcuResult launchRet = asccomm_ccu_kernel_launch(
+        param_.stream, resCtx.ccuKernels[0], task_args.data(), task_args.size());
     return launchRet == CCU_SUCCESS ? HCCL_SUCCESS : HCCL_E_INTERNAL;
 }
 
