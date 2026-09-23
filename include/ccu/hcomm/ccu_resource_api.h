@@ -25,6 +25,8 @@ extern "C" {
  * @param_[in] dieId IO die that owns the resources.
  * @param_[in] num_ Number of contiguous resources to reserve; must be greater than zero.
  * @param_[out] var_handle Reservation handle; set to zero on failure.
+ * The first allocation may precede the first kernel registration; the implementation lazily prepares
+ * the instance resource context and keeps the later `<<<>>>` registration path available.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
 extern CcuResult asccomm_ccu_variable_alloc(
@@ -36,6 +38,8 @@ extern CcuResult asccomm_ccu_variable_alloc(
  * @param_[in] dieId IO die that owns the resources.
  * @param_[in] num_ Number of contiguous resources to reserve; must be greater than zero.
  * @param_[out] event_handle Reservation handle; set to zero on failure.
+ * The first allocation may precede the first kernel registration; the implementation lazily prepares
+ * the instance resource context and keeps the later `<<<>>>` registration path available.
  * @return CCU_SUCCESS on success; otherwise a CcuResult error code.
  */
 extern CcuResult asccomm_ccu_event_alloc(
