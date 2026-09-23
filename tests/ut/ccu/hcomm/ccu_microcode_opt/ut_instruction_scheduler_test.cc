@@ -232,12 +232,13 @@ TEST_F(InstructionSchedulerTest, LoopStartEndRemappedAfterNopInsertion)
     constexpr int64_t latency = ccu_rep::ccu_cke_raw_latency;
     ccu_rep::ccu_instr_info input;
     input.start_instr_id = 10;
-    input.instr_vec.push_back(make_set_cke(5));
-    // 构造 latency-1 条无关指令, 使后续 loop 的引用被平移
-    for (int64_t i = 0; i + 2 < latency; ++i) {
-        input.instr_vec.push_back(make_load_imd(static_cast<uint16_t>(i)));
-    }
-    input.instr_vec.push_back(make_loop(/*start_id=*/10 + 1, /*end_id=*/10 + 2));
+    input.instr_vec = {
+        make_set_cke(5),
+        make_clear_cke(5),
+        make_load_imd(1),
+        make_load_imd(2),
+        make_loop(/*start_id=*/10 + 2, /*end_id=*/10 + 3),
+    };
     input.instr_count = static_cast<uint16_t>(input.instr_vec.size());
 
     auto out = sched_.schedule(input);
@@ -245,9 +246,11 @@ TEST_F(InstructionSchedulerTest, LoopStartEndRemappedAfterNopInsertion)
     const auto& last = out.instr_vec.back();
     ASSERT_EQ(last.header.type, code::ctrl_type);
     ASSERT_EQ(last.header.code, code::loop_code);
-    // 未插入 nop (间隔已满足), 引用原样保留
-    EXPECT_EQ(last.v2.loop.start_instr_id, 11u);
-    EXPECT_EQ(last.v2.loop.end_instr_id, 12u);
+    ASSERT_EQ(out.instr_vec.size(), 5u + static_cast<size_t>(latency - 1));
+    EXPECT_EQ(sched_.stats().nop_inserted, static_cast<uint32_t>(latency - 1));
+    // 原始 load 位于 clearcke 之后, 插入 latency-1 条 nop 后映射到全局 ID 25、26。
+    EXPECT_EQ(last.v2.loop.start_instr_id, 25u);
+    EXPECT_EQ(last.v2.loop.end_instr_id, 26u);
 }
 
 TEST_F(InstructionSchedulerTest, LoopGroupStartRemapped)
