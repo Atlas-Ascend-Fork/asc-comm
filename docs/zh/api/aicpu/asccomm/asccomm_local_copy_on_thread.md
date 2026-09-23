@@ -3,28 +3,33 @@
 ## 产品支持情况
 
 <!-- npu="950" id1 -->
-- Ascend 950PR&950DT系列产品：支持
+- Ascend 950PR/Ascend 950DT：支持
 <!-- end id1 -->
 <!-- npu="A3" id2 -->
-- Atlas A3系列产品：支持
+- Atlas A3 训练系列产品/Atlas A3 推理系列产品：支持
 <!-- end id2 -->
 <!-- npu="910b" id3 -->
-- Atlas A2系列产品：支持
+- Atlas A2 训练系列产品/Atlas A2 推理系列产品：支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas训练系列产品：不支持
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
 <!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas推理系列产品：不支持
+<!-- npu="910" id5 -->
+- Atlas 训练系列产品：不支持
 <!-- end id5 -->
+<!-- npu="310p" id6 -->
+- Atlas 推理系列产品：不支持
+<!-- end id6 -->
 
 ## 功能说明
+
+头文件路径：`"hcomm/asccomm_primitives.h"`。
 
 提供本地内存拷贝功能，将src指向的长度为len的内存数据，拷贝到dst所指向的相同长度的内存中。
 
 ## 函数原型
 
-```c
+```cpp
 int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void *dst, const void *src, uint64_t len)
 ```
 
@@ -32,12 +37,12 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void *dst, const void 
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为通过[HcclThreadAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle的类型的定义请参见[ThreadHandle](../../../datatype_definition/ThreadHandle.md)。 |
+| thread | 输入 | 通信线程句柄，为通过`HcclThreadAcquire`接口（声明于`"hccl/hccl_res.h"`）获取到的threads。<br>ThreadHandle类型的定义请参见`"hcomm/hcomm_primitives.h"`。 |
 | dst | 输出 | 目的内存地址，Device内存。 |
 | src | 输入 | 源内存地址，Device内存。 |
 | len | 输入 | 数据长度（字节）。 |
 
-## 返回值
+## 返回值说明
 
 int32_t：接口成功返回0，其他失败。
 
@@ -45,13 +50,13 @@ int32_t：接口成功返回0，其他失败。
 
 dst、src内存是申请的device内存。
 
-<!-- npu="950" id6 -->
-在Ascend 950PR&950DT系列产品上，仅支持AICPU_TS模式下、在Device侧调用该接口。
-<!-- end id6 -->
+<!-- npu="950" id7 -->
+在Ascend 950PR/Ascend 950DT系列产品上，仅支持AICPU_TS模式下、在Device侧调用该接口。
+<!-- end id7 -->
 
 ## 调用示例
 
-```c
+```cpp
 HcclComm comm;
 CommEngine engine = COMM_ENGINE_CPU_TS;
 aclrtStream stream;
@@ -75,9 +80,9 @@ aclrtMallocWithCfg(&outputMem, memSize, static_cast<aclrtMemMallocPolicy>(policy
 asccomm_local_copy_on_thread(thread, outputMem, inputMem, memSize);
 ```
 
-在Ascend 950PR&950DT系列产品上，该函数需要编译到Device侧使用：
+在Ascend 950PR/Ascend 950DT系列产品上，该函数需要编译到Device侧使用：
 
-```c
+```cpp
 HcclComm comm;
 CommEngine engine = COMM_ENGINE_AICPU_TS;
 
