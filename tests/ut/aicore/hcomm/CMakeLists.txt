@@ -116,13 +116,21 @@ function(add_hcomm_ut target_name product_type tikicpu_product_dir)
             HcommUrmaTestSuite.Aiv_Urma_BatchCommitDrain
             HcommUrmaTestSuite.Aiv_Urma_InitLocalTensor
             HcommUrmaTestSuite.Aiv_Urma_MakeBatchHandleLocalTensor
+            HcommUrmaTestSuite.Aiv_Urma_MakeBatchHandleReservesCqeScratch
             HcommUrmaTestSuite.Aiv_Urma_MultiChannelBatchUsesOuterHandleForCommitAndDrain
             HcommUrmaTestSuite.Aiv_Urma_BatchWriteNbi
             HcommUrmaTestSuite.Aiv_Urma_BatchReadNbi
             HcommUrmaTestSuite.Aiv_Urma_BatchWriteWithNotifyNbiMixed
             HcommUrmaTestSuite.Aiv_Urma_BatchWriteWithNotifyEncodes64BitAddresses
             HcommUrmaTestSuite.Aiv_Urma_BatchReadWriteNotifyMixedCommit
-            HcommUrmaTestSuite.Aiv_Urma_BatchCommitRejectsInvalidCounts
+            HcommUrmaTestSuite.Aiv_Urma_BatchCommitRejectsEmptyBatch
+            HcommUrmaTestSuite.Aiv_Urma_BatchCommitAllowsExactlyFullQueues
+            HcommUrmaTestSuite.Aiv_Urma_BatchCommitPollsOldCqOnceWhenNeeded
+            HcommUrmaTestSuite.Aiv_Urma_BatchCommitKeepsStagingWhenPollCannotFreeEnoughSq
+            HcommUrmaTestSuite.Aiv_Urma_BatchCommitNoCqeFailsSafelyWhenSqIsFull
+            HcommUrmaTestSuite.Aiv_Urma_PollBatchCqPreservesSuccessfulPrefixOnCqeError
+            HcommUrmaTestSuite.Aiv_Urma_PollBatchCqAdvancesPastWrappedMultiWqebb
+            HcommUrmaTestSuite.Aiv_Urma_PollBatchCqHandlesExpectedCounterWrapToZero
             HcommUrmaTestSuite.Aiv_Urma_BatchHandleCommitWrapAndReuse
             HcommUrmaTestSuite.Aiv_Urma_BatchWriteWithNotifyCommitWrapsSingleWqe
             HcommUrmaTestSuite.Aiv_Urma_BatchAllNoCqeCommitAndDrain

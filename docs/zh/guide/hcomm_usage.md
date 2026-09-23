@@ -138,15 +138,15 @@ ret = hcomm.Drain(multiBatchHandle);
 
 - 仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径，不支持`COMM_PROTOCOL_ROCE`。
 - 批量流程不需要调用`Init`，其UB工作区由`MakeBatchHandle`绑定。
-- 工作区起始地址必须按32字节对齐；`batchBufferLen`至少为64字节，且不能超过`batchBuffer`的实际容量。
-- 每个批量`ReadNbi`或`WriteNbi`任务占用64字节工作区，每个批量`WriteWithNotifyNbi`任务占用128字节。单批次任务占用的工作区总量不能超过`batchBufferLen`，占用的64字节任务槽位数量还必须小于Host侧创建通道资源时确定的任务提交容量，否则`BatchCommit`返回`-1`。
+- 工作区起始地址必须按32字节对齐；`batchBufferLen`至少为128字节，且不能超过`batchBuffer`的实际容量。除任务所需空间外，还需要额外申请64字节供CQE处理使用，因此有效任务容量为`batchBufferLen / 64 - 1`（向下取整）。
+- 每个批量`ReadNbi`或`WriteNbi`任务占用64字节工作区，每个批量`WriteWithNotifyNbi`任务占用128字节。单批次任务占用不能超过有效任务容量或SQ深度；SQ允许恰好占满。
 - 批量接口要求`config.inlineEn = 0`，`config.cqe`只能为`0`或`1`。
 - 默认`URMA_DEFAULT_CFG`的`cqe`为`1`，因此每个任务都会生成完成记录。若所有已提交任务均设置为`cqe = 0`，批量`Drain`会直接返回，但不能用于确认任务已经完成。
 - 在顺序和fence配置能够保证最后一个任务在之前任务之后完成时，可以只为最后一个任务设置`cqe = 1`，再通过批量`Drain`确认整批任务完成。
 - 批量`WriteNbi`和`WriteWithNotifyNbi`的远端目的区间、批量`ReadNbi`的远端源区间，必须属于创建或选择BatchHandle时指定的远端注册内存。
 - 批量`WriteWithNotifyNbi`的远端目的区间和`notifyAddr`必须属于同一远端注册内存。
 - 调用`BatchCommit`前，当前批次必须至少包含一个任务。调用批量`Drain`前，当前批次中的任务必须已全部提交。
-- 可以连续调用多次`BatchCommit`后统一调用一次批量`Drain`，但累计未完成任务数量和完成记录数量不能超过通道配置的相应容量。
+- 可以连续调用多次`BatchCommit`后统一调用一次批量`Drain`。通道容量不足时，`BatchCommit`保留当前尚未提交的批次并返回失败。调用方需要合理设置CQE分布，避免连续不生成CQE的WQEBB过多。
 - 使用BatchHandle期间必须独占其关联的通道资源，不能交叉调用普通接口，也不能并发使用其他BatchHandle。
 - BatchHandle、通道资源、`MultiChannelHandle`和批量工作区的生命周期由调用方负责。所有批量操作完成前不得释放或并发复用这些资源。
 

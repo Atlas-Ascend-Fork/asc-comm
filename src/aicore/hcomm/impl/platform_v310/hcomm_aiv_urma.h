@@ -388,6 +388,10 @@ __aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBatchHandl
     ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
 {
     (void)localAddr;
+    uint32_t totalWqebbCount = buffLen / HCOMM_URMA_WQEBB_SIZE;
+    if (channel == 0U || totalWqebbCount < 2U) {
+        return UbcBatchHandle{};
+    }
     __gm__ ChannelEntity* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(channel);
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
@@ -413,7 +417,9 @@ __aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBatchHandl
     batchHandle.cursor.cqTail = channelEntity->cqTail;
     batchHandle.cursor.preSqCnt = 0U;
     batchHandle.buffer.buffer = wqeBuffer;
-    batchHandle.buffer.bufferCapacity = buffLen / HCOMM_URMA_WQEBB_SIZE;
+    batchHandle.buffer.bufferCapacity = totalWqebbCount - 1U;
+    batchHandle.buffer.cqeScratch =
+        wqeBuffer[batchHandle.buffer.bufferCapacity * HCOMM_URMA_WQEBB_U32_NUM];
     return batchHandle;
 }
 
@@ -424,7 +430,8 @@ __aicore__ inline UbcMultiBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBatch
 {
     (void)remoteAddr;
     (void)localAddr;
-    if (multiChannel == MultiChannelHandle{}) {
+    uint32_t totalWqebbCount = buffLen / HCOMM_URMA_WQEBB_SIZE;
+    if (multiChannel == MultiChannelHandle{} || totalWqebbCount < 2U) {
         return UbcMultiBatchHandle{};
     }
 
@@ -446,7 +453,9 @@ __aicore__ inline UbcMultiBatchHandle HcommImpl<COMM_PROTOCOL_UB_CTP>::MakeBatch
     multiBatchHandle.handle.cursor.cqHead = channelEntity->cqHead;
     multiBatchHandle.handle.cursor.cqTail = channelEntity->cqTail;
     multiBatchHandle.handle.buffer.buffer = wqeBuffer;
-    multiBatchHandle.handle.buffer.bufferCapacity = buffLen / HCOMM_URMA_WQEBB_SIZE;
+    multiBatchHandle.handle.buffer.bufferCapacity = totalWqebbCount - 1U;
+    multiBatchHandle.handle.buffer.cqeScratch =
+        wqeBuffer[multiBatchHandle.handle.buffer.bufferCapacity * HCOMM_URMA_WQEBB_U32_NUM];
     multiBatchHandle.channelHandle = channel;
     multiBatchHandle.channelNum = multiChannelEntity->channelNum;
     multiBatchHandle.remoteInfoAddr = multiChannelEntity->remoteInfoAddr;
@@ -610,7 +619,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqWhenCqOverflow(
         HCOMM_KERNEL_LOG(
             KERNEL_INFO, "Hcomm URMA queue overflow sqHead=%u cqeCnt=%u cqTail=%u idx=%u sqDepth=%u cqDepth=%u \n",
             sqHead, cqeCnt, cqTail, idx, sqDepth, cqDepth);
-        (void)PollCq(channel, idx);
+        (void)PollCq(channel, idx, sqDepth);
     }
 }
 
@@ -621,9 +630,9 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqWhenSqOverflow(
     uint32_t sqTail = channelEntity->sqTail;
     constexpr uint32_t POLL_CQ_THRESHOLD = 10;
     uint32_t sqDepth = sqCtx.contextInfo.ubJfs.sqDepth;
-    uint16_t outstanding = (uint16_t)((uint16_t)(sqHead & 0xFFFFU) - (uint16_t)(sqTail & 0xFFFFU));
-    if ((uint32_t)outstanding + POLL_CQ_THRESHOLD >= sqDepth) {
-        (void)PollCq<true>(channel, channelEntity->cqHead, sqHead, sqDepth, POLL_CQ_THRESHOLD);
+    uint32_t outstanding = sqHead - sqTail;
+    if (outstanding + POLL_CQ_THRESHOLD >= sqDepth) {
+        (void)PollCq<true>(channel, channelEntity->cqHead, sqDepth, sqHead, POLL_CQ_THRESHOLD);
     }
 }
 
@@ -726,23 +735,20 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
 
 template <bool sqSafeMode>
 __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqImpl(
-    uint64_t cqBaseAddr, uint32_t cqeSize, uint32_t cqDepth, uint32_t expectIdx, uint32_t& curTail,
-    LocalTensor<uint32_t> cqeItem, uint32_t& sqTail, uint32_t sqHead, uint32_t sqDepth, uint32_t threshold)
+    uint64_t cqBaseAddr, uint32_t cqeSize, uint32_t cqDepth, uint32_t sqDepth, uint32_t expectIdx,
+    uint32_t& curTail, LocalTensor<uint32_t> cqeItem, uint32_t& sqTail, uint32_t sqHead, uint32_t threshold)
 {
     __ubuf__ HcommUrmaJfcCqeCtx* cqeUb = (__ubuf__ HcommUrmaJfcCqeCtx*)cqeItem.GetPhyAddr();
+    uint32_t sqMask = sqDepth - 1U;
     HCOMM_KERNEL_LOG(
         KERNEL_INFO, "Hcomm URMA PollCq enter expectIdx=%u curTail=%u cqDepth=%u \n", expectIdx, curTail, cqDepth);
 
-#if defined(UT_TEST)
-    curTail = expectIdx;
-    sqTail = expectIdx;
-#else
     while (true) {
         bool shouldContinue = false;
         if constexpr (sqSafeMode) {
-            uint16_t outstanding = (uint16_t)((uint16_t)(sqHead & 0xFFFFU) - (uint16_t)(sqTail & 0xFFFFU));
+            uint32_t outstanding = sqHead - sqTail;
             // Poll early when SQ is near-full, but only while CQEs remain un-consumed (curTail != expectIdx).
-            shouldContinue = (uint32_t)outstanding + threshold >= sqDepth && curTail != expectIdx;
+            shouldContinue = outstanding + threshold >= sqDepth && curTail != expectIdx;
         } else {
             // Keep polling while CQEs remain, until reaching expectIdx.
             shouldContinue = curTail != expectIdx;
@@ -788,16 +794,16 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqImpl(
         if (ret != HCOMM_SUCCESS) {
             return ret;
         }
+        // entryIdx identifies the last completed WQEBB; sqTail points to the next reusable WQEBB.
+        sqTail += ((cqeUb->entryIdx - sqTail) & sqMask) + 1U;
         curTail++;
-        sqTail = cqeUb->entryIdx;
     }
-#endif
     return HCOMM_SUCCESS;
 }
 
 template <bool sqSafeMode>
 __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
-    ChannelHandle channel, uint32_t expectIdx, uint32_t sqHead, uint32_t sqDepth, uint32_t threshold)
+    ChannelHandle channel, uint32_t expectIdx, uint32_t sqDepth, uint32_t sqHead, uint32_t threshold)
 {
     if (expectIdx == 0) {
         return HCOMM_SUCCESS;
@@ -807,9 +813,18 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
     uint32_t curTail = channelEntity->cqTail;
     uint32_t sqTail = channelEntity->sqTail;
 
+#if defined(UT_TEST)
+    (void)sqDepth;
+    (void)sqHead;
+    (void)threshold;
+    curTail = expectIdx;
+    sqTail = expectIdx;
+    uint32_t ret = HCOMM_SUCCESS;
+#else
     uint32_t ret = PollCqImpl<sqSafeMode>(
-        cqCtx.contextInfo.ubJfc.scqVa, cqCtx.contextInfo.ubJfc.cqeSize, cqCtx.contextInfo.ubJfc.cqDepth, expectIdx,
-        curTail, cqeItem_, sqTail, sqHead, sqDepth, threshold);
+        cqCtx.contextInfo.ubJfc.scqVa, cqCtx.contextInfo.ubJfc.cqeSize, cqCtx.contextInfo.ubJfc.cqDepth, sqDepth,
+        expectIdx, curTail, cqeItem_, sqTail, sqHead, threshold);
+#endif
     if (ret != HCOMM_SUCCESS) {
         return ret;
     }
@@ -826,25 +841,24 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
 
 __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollBatchCq(UbcBatchHandle& batchHandle, uint32_t expectIdx)
 {
-    if (expectIdx == 0) {
-        return HCOMM_SUCCESS;
-    }
-
+    uint32_t oldCqTail = batchHandle.cursor.cqTail;
     uint32_t curTail = batchHandle.cursor.cqTail;
+    uint32_t sqTail = batchHandle.cursor.sqTail;
     uint32_t ret = PollCqImpl<false>(
         batchHandle.cqContext.contextInfo.ubJfc.scqVa, batchHandle.cqContext.contextInfo.ubJfc.cqeSize,
-        batchHandle.cqContext.contextInfo.ubJfc.cqDepth, expectIdx, curTail, batchHandle.buffer.buffer,
-        batchHandle.cursor.sqTail);
-    if (ret != HCOMM_SUCCESS) {
-        return ret;
-    }
+        batchHandle.cqContext.contextInfo.ubJfc.cqDepth, batchHandle.sqContext.contextInfo.ubJfs.sqDepth, expectIdx,
+        curTail, batchHandle.buffer.cqeScratch, sqTail);
 
     batchHandle.cursor.cqTail = curTail;
+    batchHandle.cursor.sqTail = sqTail;
     auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-    channelEntity->sqTail = batchHandle.cursor.sqTail;
+    channelEntity->sqTail = sqTail;
     channelEntity->cqTail = curTail;
-    st_dev(curTail & 0xFFFFFFU, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.dbVa), 0);
-    return HCOMM_SUCCESS;
+    if (curTail != oldCqTail) {
+        st_dev(
+            curTail & 0xFFFFFFU, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.dbVa), 0);
+    }
+    return ret;
 }
 
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
@@ -937,20 +951,31 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Commit(ChannelHandle 
 
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcBatchHandle& batchHandle)
 {
+    static_assert(
+        sizeof(HcommUrmaJfcCqeCtx) <= HCOMM_URMA_WQEBB_SIZE,
+        "BatchCommit CQE scratch space must fit in one WQEBB");
+
     uint32_t preSqCnt = batchHandle.cursor.preSqCnt;
-    if (preSqCnt == 0 || preSqCnt > batchHandle.buffer.bufferCapacity) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed with invalid WQEBB count\n");
+    if (preSqCnt == 0U) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed with invalid handle or empty batch\n");
         return HCOMM_FAILED;
     }
 
     uint32_t sqDepth = batchHandle.sqContext.contextInfo.ubJfs.sqDepth;
-    if (sqDepth == 0 || preSqCnt >= sqDepth) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed because batch must be smaller than SQ capacity\n");
-        return HCOMM_FAILED;
+    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+    uint32_t cqDepth = batchHandle.cqContext.contextInfo.ubJfc.cqDepth;
+    uint32_t sqOutstanding = batchHandle.cursor.sqHead - batchHandle.cursor.sqTail;
+    bool sqOverflow = sqOutstanding > sqDepth || preSqCnt > sqDepth - sqOutstanding;
+    uint32_t cqAfterCommit = batchHandle.cursor.cqHead - batchHandle.cursor.cqTail;
+    bool cqOverflow = cqAfterCommit > cqDepth;
+
+    if (sqOverflow || cqOverflow) {
+        uint32_t committedCqHead = channelEntity->cqHead;
+        PollBatchCq(batchHandle, committedCqHead);
     }
 
     uint32_t sqHead = batchHandle.cursor.sqHead;
-    uint32_t startSlot = sqHead % sqDepth;
+    uint32_t startSlot = sqHead & (sqDepth - 1U);
     uint32_t tailWqebbCount = sqDepth - startSlot;
     uint32_t firstWqebbCount = preSqCnt < tailWqebbCount ? preSqCnt : tailWqebbCount;
     uint32_t secondWqebbCount = preSqCnt - firstWqebbCount;
@@ -974,14 +999,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcBatchH
 
     uint32_t newSqHead = sqHead + preSqCnt;
     batchHandle.cursor.sqHead = newSqHead;
-    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
     channelEntity->sqHead = newSqHead;
     channelEntity->cqHead = batchHandle.cursor.cqHead;
     Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
     st_dev(newSqHead, reinterpret_cast<__gm__ uint32_t*>(batchHandle.sqContext.contextInfo.ubJfs.dbVa), 0);
     Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
 
-    batchHandle.cursor.preSqCnt = 0;
+    batchHandle.cursor.preSqCnt = 0U;
     return HCOMM_SUCCESS;
 }
 
@@ -995,7 +1019,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Drain(ChannelHandle c
 {
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
-    uint32_t ret = PollCq(channel, channelEntity->cqHead);
+    uint32_t sqDepth = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX].contextInfo.ubJfs.sqDepth;
+    uint32_t ret = PollCq(channel, channelEntity->cqHead, sqDepth);
     if (ret != HCOMM_SUCCESS) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Drain by channel failed channel=%lu pollRet=%u \n", channel, ret);
         return ret;
@@ -1013,13 +1038,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Drain(UbcBatchHandle&
     if (batchHandle.channelHandle == 0U || batchHandle.buffer.bufferCapacity == 0U ||
         batchHandle.cursor.preSqCnt != 0U) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid batch handle\n");
-        return HCOMM_FAILED;
-    }
-
-    if (batchHandle.cqContext.contextInfo.ubJfc.cqeSize == 0U ||
-        batchHandle.cqContext.contextInfo.ubJfc.cqeSize > HCOMM_URMA_WQEBB_SIZE ||
-        batchHandle.cqContext.contextInfo.ubJfc.cqDepth == 0U) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid CQ context\n");
         return HCOMM_FAILED;
     }
 
