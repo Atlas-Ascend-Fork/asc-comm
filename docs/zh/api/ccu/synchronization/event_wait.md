@@ -1,4 +1,4 @@
-# EventWait
+# event_wait
 
 ## 产品支持情况
 
@@ -11,23 +11,31 @@
 <!-- npu="910b" id3 -->
 - Atlas A2系列产品：不支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas训练系列产品：不支持
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
 <!-- end id4 -->
 <!-- npu="310p" id5 -->
 - Atlas推理系列产品：不支持
 <!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
 
 ## 功能说明
 
-在CCU kernel内阻塞等待本地Event的指定掩码位被置位。硬件执行到此处会阻塞，直到对应Event位为1后继续执行。
+头文件为：`#include "ccu/ccu_primitives.hpp"`
+
+阻塞等待本端同步寄存器中`mask`对应的event标志位，直到其全部为1后继续执行，随后自动将这些标志位清零。该标志位由同kernel内的[event_record](event_record.md)或[数据搬运接口](../data_movement/README.md)置位。
+
+> [!NOTE]说明
+> `event_wait`每次等待成功后，对应的标志位会被自动清零。想再次等待同样的标志位，须先由生产侧重新置位。同一个`event`的不同标志位相互独立，各自置位、等待互不影响。
 
 ## 函数原型
 
 ```cpp
 namespace AscendC {
 namespace ccu {
-CcuResult EventWait(Event e, uint16_t mask = 1);
+CcuResult event_wait(event e, uint16_t mask = 1);
 } // namespace ccu
 } // namespace AscendC
 ```
@@ -36,28 +44,24 @@ CcuResult EventWait(Event e, uint16_t mask = 1);
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| e | 输入 | 本地Event对象，与生产侧`EventRecord`或数据搬运接口的`(event, mask)`参数对应同一对象。 |
-| mask | 输入 | 16位事件掩码，指定要等待的bit。默认值为`1`。支持多bit合并等待，如`mask = 0x3`等待bit0和bit1同时置位。 |
+| e | 输入 | 本地事件对象，对应CKE同步寄存器中的一个event槽位。默认构造时自动申请虚拟句柄，物理资源在[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段统一分配。 |
+| mask | 输入 | 16位事件掩码，指定要等待的`event`标志位。默认值为`1`，即bit0。支持多bit合并等待，例如`mask = 0x3`表示等待bit0和bit1全部置位。 |
 
-## 返回值
+## 返回值说明
 
-[CcuResult](../../../datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+[CcuResult](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 当前不存在处于注册中的kernel（接口在kernel注册阶段之外被调用）。 |
+| `CCU_E_PTR` | 当前不存在处于注册中的kernel，即接口在kernel注册阶段之外被调用。 |
 | `CCU_E_NOT_FOUND` | 传入的`e`句柄未在当前kernel注册。 |
-
-> [!NOTE]说明
-> 本接口不会返回`CCU_E_PARA`，且可在硬件Loop body内调用。
 
 ## 约束说明
 
-- `EventWait`可在硬件Loop body内调用。
-- 调用前必须已存在对应的`EventRecord`或以`(event, mask)`为末位参数的数据搬运调用，否则将永久阻塞导致硬件级死锁。
-- 等待的`mask`必须与生产侧`EventRecord`或搬运接口传入的`mask`一致。
-- 同一个`Event`对象可通过不同`mask`承载多组独立的生产-消费配对，各组互不影响。
+- `event_wait`可在硬件loop的循环体内调用。
+- 调用本接口前，对应的标志位须已被置位。可以是[数据搬运接口](../data_movement/README.md)在搬运完成时自动置位，也可以是显式调用[event_record](event_record.md)置位；否则本接口将永久阻塞，导致硬件级死锁。
+- 本接口的`mask`须与生产侧传入的`mask`一致，否则永远等不到信号。
 
 ## 调用示例
 
@@ -66,16 +70,16 @@ using namespace AscendC::ccu;
 
 // 场景：等待本端HBM→HBM拷贝完成后再继续
 // CCU kernel函数体内
-CcuResult MyKernel(CcuKernelArg arg) {
-    LocalAddr src, dst;
-    Variable len;
-    Event evt;
+CcuResult my_kernel(ccu_kernel_arg arg) {
+    local_addr src, dst;
+    variable len;
+    event evt;
 
-    // 发起异步拷贝，硬件完成时自动置位evt[0x1]
-    LocalCopy(dst, src, len, evt, 0x1);
+    // 发起异步拷贝，硬件完成时自动将evt中mask对应的标志位设置为1
+    local_copy(dst, src, len, evt, 0x1);
 
     // 阻塞等待拷贝完成
-    EventWait(evt, 0x1);
+    event_wait(evt, 0x1);
 
     // 此后可安全使用dst 指向的数据
     return CCU_SUCCESS;

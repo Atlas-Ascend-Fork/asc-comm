@@ -1,31 +1,34 @@
 # 简介
 
-本节提供CCU kernel内虚拟资源句柄的申请与绑定接口，以及对`Variable`/`Address`进行赋值与算术运算的接口。
+本节提供CCU kernel内的资源类，提供对虚拟资源句柄的申请与绑定接口，以及对`variable`、`address`进行赋值与算术运算的接口。资源类是硬件资源的C++封装，编程时操作的是C++对象，底层对应CCU的寄存器或存储单元。
 
-CCU资源分配采用"先虚后实"两阶段模型：用户在kernel注册阶段（kernel函数体内）调用`Variable()`/`Address()`/`Event()`等默认构造函数仅产生虚拟句柄（不消耗硬件资源、恒成功），真正的物理资源分配在`HcommCcuKernelRegister`阶段（kernel函数执行完后）完成。默认构造的C++包装类均遵循构造即虚拟分配、析构不释放的语义；物理资源随CCU实例生命周期统一管理，不由C++析构释放。
+获取资源有以下几种方式：
 
-按资源类型分为以下几类：
+- **默认构造**：新建一个对象。
+- **array批量构造**：一次新建物理连续的一批，满足loop_group复制场景对连续资源的要求。
+- **预约构造**：绑定Host侧预约的资源。
+- **引用channel预留**：复用channel建链时预留的共享槽位。
 
-| 资源类型 | 单元分配 | 批量分配 | 通道引用 | 绑定Host侧预约资源 |
-| --- | --- | --- | --- | --- |
-| 标量寄存器 | [Variable](Variable.md) | [Array\<Variable\>](Array.md) | [GetResByChannel](GetResByChannel.md) | [`Variable(varHandle, index)`](Variable.md)、[`Array<Variable>(acqHandle, count)`](Array.md) |
-| 地址寄存器 | [Address](Address.md) | — | — | — |
-| 完成事件单元 | [Event](Event.md) | [Array\<Event\>](Array.md) | — | [`Event(acqHandle, index)`](Event.md)、[`Array<Event>(acqHandle, count)`](Array.md) |
-| 片上CcuBuffer（4KB） | [CcuBuffer](CcuBuffer.md) | [Array\<CcuBuffer\>](Array.md) | — | — |
-| 本端HBM复合地址 | [LocalAddr](LocalAddr.md) | — | — | — |
-| 对端HBM复合地址 | [RemoteAddr](RemoteAddr.md) | — | — | — |
+各资源类支持的获取方式归纳如下：
 
-表中「通道引用」和「绑定Host侧预约资源」不走先虚后实：前者绑定channel建链时预留的槽位，后者绑定Host侧[HcommCcuVariableAlloc](../../../control_plane_api/ccu_resource_mgmt/HcommCcuVariableAlloc.md)、[HcommCcuEventAlloc](../../../control_plane_api/ccu_resource_mgmt/HcommCcuEventAlloc.md)预约的资源。二者都不申请新资源；参数不合法时抛出异常，不像默认构造那样恒成功。
+| 资源类型 | 编程对象 | 获取方式 |
+| --- | --- | --- |
+| Xn通用寄存器 | `variable` | 默认构造：[variable()](variable.md)<br>批量构造：[array\<variable\>](array.md)<br>预约构造[`variable(var_handle, index)`](variable.md)<br>引用channel预留：[get_res_by_channel](get_res_by_channel.md) |
+| CKE同步寄存器槽位 | `event` | 默认构造：[event()](event.md)<br>批量构造：[array\<event\>](array.md)<br>预约构造[`event(acq_handle, index)`](event.md) |
+| 片上缓存（CCU Buffer，4KB） | `ccu_buffer` | 默认构造：[ccu_buffer()](ccu_buffer.md)<br>批量构造：[array\<ccu_buffer\>](array.md) |
+| GSA地址寄存器 | `address` | 默认构造：[address()](address.md) |
+| 本端地址+token | `local_addr` | 默认构造：[local_addr()](local_addr.md) |
+| 对端地址+token | `remote_addr` | 默认构造：[remote_addr()](remote_addr.md) |
 
-[Variable](Variable.md)和[Address](Address.md)除资源分配外，还提供赋值与算术运算符；这些运算符描述的是device端执行的操作，在硬件执行时操作对应的寄存器，而非host端立即计算。
+[variable](variable.md)和[address](address.md)除资源获取外，还提供赋值与算术运算符，详见对应文档。
 
 ## 接口列表
 
-- [Variable](Variable.md)
-- [Address](Address.md)
-- [Event](Event.md)
-- [CcuBuffer](CcuBuffer.md)
-- [LocalAddr](LocalAddr.md)
-- [RemoteAddr](RemoteAddr.md)
-- [Array](Array.md)
-- [GetResByChannel](GetResByChannel.md)
+- [variable](variable.md)
+- [address](address.md)
+- [event](event.md)
+- [ccu_buffer](ccu_buffer.md)
+- [local_addr](local_addr.md)
+- [remote_addr](remote_addr.md)
+- [array](array.md)
+- [get_res_by_channel](get_res_by_channel.md)

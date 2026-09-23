@@ -24,6 +24,8 @@ docs/
 | [编程模型](./zh/programming_model/overview.md) | Ascend C通信编程范式、抽象硬件架构及通信方式的分类与选择。 |
 | [API参考](./zh/api/README.md) | asc-comm当前公开接口列表。 |
 | [Hcomm使用说明](./zh/guide/hcomm_usage.md) | Hcomm点对点通信接口的基本使用流程。 |
+| [基于CCU的通信算子开发指南](./zh/guide/ccu_comm_op_dev.md) | 以AllGather为例，介绍基于CCU数据面接口以直调`<<<>>>`方式开发通信算子的完整流程。 |
+| [CCU通算融合算子开发指南](./zh/guide/ccu_comm_compute_op_dev.md) | 以Add+AllGather为例，介绍AICore计算与CCU通信融合算子的开发与同步机制。 |
 | [构建与测试](./zh/guide/build_and_test.md) | CANN环境、开发验证run包、UT构建和样例构建说明。 |
 | [三方依赖与兼容性](./zh/guide/dependencies.md) | 本仓直接依赖、样例运行依赖、安装配置和集成依赖边界。 |
 | [API文档贡献指南](./api_contributing.md) | 新增或修改API文档时的结构、约束和检查要求。 |

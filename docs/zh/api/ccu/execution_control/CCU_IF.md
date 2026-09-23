@@ -11,31 +11,27 @@
 <!-- npu="910b" id3 -->
 - Atlas A2系列产品：不支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas训练系列产品：不支持
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
 <!-- end id4 -->
 <!-- npu="310p" id5 -->
 - Atlas推理系列产品：不支持
 <!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
 
 ## 功能说明
 
-在CCU kernel内开始一个软件条件分支块。条件在运行期由CCU硬件计算，条件不满足时跳转至`CCU_ELSE`分支或if块出口。
+头文件为：`#include "ccu/ccu_primitives.hpp"`
 
-`CCU_IF`是一个预处理器宏，可单独使用，也可紧跟一个可选的`CCU_ELSE`分支。`CCU_IF`与`CCU_ELSE`通过宏内部的状态管理自动配对，用户只需按宏语法书写。
+在CCU kernel内开始一个软件条件分支块。条件在执行阶段由CCU硬件计算，条件满足时执行then代码块，不满足时跳转至if块出口。
 
-## 宏语法
+## 函数原型
 
 ```cpp
-CCU_IF(condExpr) {
-    // then 分支 body
-}
-
-// 可选：紧跟 CCU_ELSE
-CCU_IF(condExpr) {
-    // then 分支 body
-} CCU_ELSE {
-    // else 分支 body
+CCU_IF(cond_expr) {
+    // then分支代码块
 }
 ```
 
@@ -43,50 +39,35 @@ CCU_IF(condExpr) {
 
 | 参数名 | 描述 |
 | --- | --- |
-| condExpr | 条件表达式，类型为`AscendC::ccu::CondExpr`。通过`ccu::Variable`的`operator==(uint64_t)`或`operator!=(uint64_t)`产生，例如`v == 0`或`v != limit`。条件在运行期由CCU硬件计算。 |
+| cond_expr | 条件表达式，类型为`AscendC::ccu::cond_expr`。通过`ccu::variable`的`operator==(uint64_t)`或`operator!=(uint64_t)`产生，例如`v == 0`或`v != limit`。 |
 
-## 返回值
+## 返回值说明
 
-`CCU_IF`为预处理器宏，本身不返回[CcuResult](../../../datatype_definition/CcuResult.md)。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`CCU_E_PARA`/`CCU_E_NOT_FOUND`，此时宏不抛异常、也不阻断注册：失败时body会被跳过，但注册仍然成功。这与"`CCU_ELSE`无法配对时body被跳过"属于同一类情况——错误不通过返回值反馈，调试时需留意。
+`CCU_IF`为预处理器宏，本身不返回[CcuResult](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)。宏展开后若发生内部错误（如label重复、句柄无效），可能产生`CCU_E_PARA`/`CCU_E_NOT_FOUND`。此时宏不抛异常、也不阻断注册：失败时代码块被跳过，注册仍然成功。错误不通过返回值反馈，调试时需留意。
 
 ## 约束说明
 
-- `CCU_IF（condExpr）`后必须紧跟{}包裹的then代码块
-- 针对Ascend 950PR&950DT系列产品，`CCU_IF`当前的`condExpr`只支持==和!=两种判断模式
-- `CCU_IF`可以单独使用（无`CCU_ELSE`），也可以配合`CCU_ELSE`使用，两种写法均合法。
-- 支持嵌套：`CCU_IF`内部可以再嵌套`CCU_IF`。
-- `CCU_IF`不建议在硬件Loop（`ccu::Loop`）的body lambda内部使用——硬件Loop body内不支持软件分支；框架不强制校验，但行为未定义。
-- `condExpr`中比较的立即数（`imm`）必须为`uint64_t`类型，Variable与Variable之间的比较不支持直接用于`CCU_IF`。
-
-### 为什么`CCU_IF`与`CCU_ELSE`之间不能插入其他调用
-
-`CCU_IF`的关闭并不在`CCU_IF { body }`的闭合花括号处立即发生，而是延迟到下面三种时机之一：
-
-1. 紧跟的`CCU_ELSE`；
-2. 其后第一个CCU API调用；
-3. `HcommCcuKernelRegister` 结束时兜底关闭。
-
-> 副作用：在`CCU_IF { body }`之后、`CCU_ELSE`之前如果插入任何CCU API调用，`CCU_IF`会被提前关闭，随后到达的`CCU_ELSE`找不到可配对的`CCU_IF`，其body会被跳过（注册仍然成功，不报错）。因此务必保持二者之间没有任何其他CCU API调用，详见[CCU_ELSE](CCU_ELSE.md)的约束说明。
+- `CCU_IF(cond_expr)`后须紧跟`{}`包裹的then代码块。
+- `cond_expr`仅支持`==`和`!=`两种比较运算。
+- 支持嵌套：`CCU_IF`代码块内可以再嵌套`CCU_IF`。
+- 不可在硬件Loop的循环体内使用。虽然代码不会报错，但硬件会发生未定义行为。
+- `cond_expr`中比较的立即数须为`uint64_t`类型，不支持`variable`与`variable`之间的比较。
 
 ## 调用示例
 
 ```cpp
 using namespace AscendC::ccu;
 
-// 场景：根据运行期变量值选择不同的数据搬运路径
-CcuResult MyKernel(CcuKernelArg arg) {
-    Variable flag;
-    LoadArg(flag, 0);   // 从taskArgs[0] 加载运行期标志
+// 场景：根据执行阶段变量值选择不同的执行路径
+CcuResult my_kernel(ccu_kernel_arg arg) {
+    variable flag;
+    load_arg(flag, 0);   // 每次下发时从task_args[0]加载标志值
 
     CCU_IF(flag == 0) {
-        // flag 为0 时执行此分支
-        Variable a, b;
+        // flag为0时执行此分支
+        variable a, b;
         a = 10;
         b = 20;
-    } CCU_ELSE {
-        // flag 非0 时执行此分支
-        Variable c;
-        c = 99;
     }
 
     return CCU_SUCCESS;
