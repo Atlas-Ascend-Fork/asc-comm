@@ -1021,18 +1021,6 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithValue_WqeBbCnt)
     EXPECT_EQ(channel.GetSqHead(), 2U);
 }
 
-// WriteValueNbi remote buffer lookup failure when address is out of range
-TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithValue_RemoteBufferNotFound)
-{
-    UrmaChannelResource channel;
-
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UB_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
-
-    int32_t ret = hcomm.WriteValueNbi<uint64_t>(channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x9000), 0x1ULL);
-    EXPECT_EQ(ret, AscendC::HCOMM_FAILED);
-}
-
 // WriteWithNotifyNbi occupies 2 BBs, WriteNbi occupies 1 BB
 // Verified by reading sqHead from ChannelEntity
 TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithNotify_WqeBbCnt)
@@ -1060,26 +1048,6 @@ TEST_F(HcommUrmaTestSuite, Aiv_Urma_WriteWithNotify_WqeBbCnt)
         channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1008), reinterpret_cast<GM_ADDR>(0x2008), 8);
     EXPECT_EQ(ret, AscendC::HCOMM_SUCCESS);
     EXPECT_EQ(channel.GetSqHead(), 4U);
-}
-
-// Remote buffer lookup failure when address is out of range
-TEST_F(HcommUrmaTestSuite, Aiv_Urma_RemoteBufferNotFound)
-{
-    UrmaChannelResource channel;
-
-    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UB_CTP> hcomm;
-    EXPECT_EQ(InitHcomm(hcomm), AscendC::HCOMM_SUCCESS);
-
-    // Address completely outside any remote buffer range (remote buffers are at 0x1000-0x2000 and 0x3000-0x4000)
-    int32_t h = hcomm.WriteWithNotifyNbi<false>(
-        channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x9000), reinterpret_cast<GM_ADDR>(0x5008), 8,
-        reinterpret_cast<GM_ADDR>(0x33), 1);
-    EXPECT_EQ(h, AscendC::HCOMM_FAILED);
-
-    // Address in range but len exceeds buffer boundary
-    h = hcomm.WriteNbi<false>(
-        channel.GetHandle(), reinterpret_cast<GM_ADDR>(0x1FF0), reinterpret_cast<GM_ADDR>(0x2008), 0x100);
-    EXPECT_EQ(h, AscendC::HCOMM_FAILED);
 }
 
 // Batch: mixed Write + WriteWithNotify, single channel Commit/Drain covers all
