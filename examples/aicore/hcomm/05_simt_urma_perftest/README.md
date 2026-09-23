@@ -53,9 +53,9 @@ simt_urma_perftest
 以填满128字节DWQE窗口，占2个；其余四个接口无论哪种策略都是固定2 BB。日志中的`SqBlocksPerWqe`
 给出实际占用。
 
-计时流程为：warmup次接口下发后`Drain`（不计时），随后正式下发`iterations`次并记录`IssueTime`
-（只统计正式WQE下发，用于比较接口提交时延），`Drain`结束记录`CompletionTime`（仅用于计算
-`CompletionBandwidth`）。`DrainStatus`和`Completed`用于确认本次下发最终正确完成。
+计时流程为：warmup次接口下发后`Drain`（不计时），随后正式下发`iterations`次并记录下发周期数
+`IssueCycles`，`Drain`结束记录完成周期数`CompletionCycles`。`AverageIssue/cycle`为平均每条WQE的
+下发周期数。`DrainStatus`和`Completed`用于确认本次下发最终正确完成。
 
 连续的WQE轮转多个slot，避免都落在同一条cache line上——否则测到的是远端内存系统而不是下发路径。
 两个原子接口是例外：它们必须打在同一个word上，累加才有意义，因此不轮转。
@@ -77,7 +77,7 @@ simt_urma_perftest
    创建通信域；仅rank 0和rank 1加入通信域，其余rank直接退出。
 2. rank 0和rank 1各自注册内存、创建Channel并交换内存地址。
 3. rank 0下发warmup次接口后`Drain`，随后计时下发`iterations`次接口，再次`Drain`。
-4. rank 0记录`IssueTime`、`CompletionTime`和`Completed`，rank 1校验落地数据。
+4. rank 0记录下发和完成周期数及`Completed`，rank 1校验落地数据。
 5. 输出RESULT行。
 
 ## 编译运行
@@ -128,10 +128,10 @@ simt_urma_perftest
   | `--warmup` | `100` | 预热WQE数量 |
   | `--payload-bytes` | `4096` | `write`和`notify`的payload字节数，最小为2；`write_value`恒为8字节，`faa`和`cas`恒为8字节，三者忽略该选项 |
   | `--commit-mode` | `immediate` | `immediate`（每WQE一次doorbell）或`last`（除最后一条外全部延迟提交） |
-  | `--clock-freq-mhz` | 未指定 | SIMT计数器频率，单位MHz，有限正十进制数；指定后输出带宽 |
+  | `--clock-freq-mhz` | 未指定 | SIMT计数器频率，单位MHz，有限正十进制数；指定后输出时间和带宽 |
 
-  时间默认按1000 MHz换算，不输出带宽。指定`--clock-freq-mhz MHz`后，按该频率换算时间并输出
-  `CompletionBandwidth/GB/s`，例如`--clock-freq-mhz 1000`。
+  默认输出周期数，不换算时间和带宽。指定`--clock-freq-mhz MHz`后，按该频率输出`IssueTime/us`、
+  `AverageIssue/ns`、`CompletionTime/us`和`CompletionBandwidth/GB/s`，例如`--clock-freq-mhz 1000`。
 
 - 编译选项说明
 
@@ -143,8 +143,7 @@ simt_urma_perftest
 - 执行结果
 
   ```text
-  Timing assumes SIMT clock frequency 1000 MHz (default: 1000; override: --clock-freq-mhz).
-  RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueTime/us=... | AverageIssue/ns=... | CompletionTime/us=... | DrainStatus=0 | Completed=1024
+  RESULT | Path=SIMT-t1 | API=write | DataSize/B=4096 | WqeCount=1024 | Warmup=100 | CommitMode=Immediate | SqBlocksPerWqe=2 | Slots=64 | IssueCycles=... | AverageIssue/cycle=... | CompletionCycles=... | DrainStatus=0 | Completed=1024
   [rank 1] simt_urma_perftest write PASS
   ```
 
