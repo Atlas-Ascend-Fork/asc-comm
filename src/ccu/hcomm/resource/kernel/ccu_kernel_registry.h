@@ -54,6 +54,9 @@ private:
     // CcuVarEventResMgr 按 handle 记账，析构时需以此调用 ReleaseByInstance。
     CcuInsHandle ins_handle_{};
     std::unique_ptr<asc_ccu_res_snapshot> res_snapshot_{};
+    // Resource APIs may load the instance before the first kernel registration.
+    // Keep the snapshot for the later <<<>>> registration round instead of reloading it.
+    bool context_loaded_{false};
     std::vector<ccu_kernel_handle> kernel_handles_{};
     std::vector<ccu_kernel_handle> untranslated_kernel_handles_{};
 };
