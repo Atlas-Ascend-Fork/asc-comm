@@ -61,6 +61,23 @@ HcclResult query_sq_value(const HcommRtsqContext &context, drvSqCqPropType_t pro
     return HCCL_SUCCESS;
 }
 
+HcclResult query_sq_base(const HcommRtsqContext &context, uint64_t &value)
+{
+    halSqCqQueryInfo queryInfo{};
+    queryInfo.tsId = 0;
+    queryInfo.sqId = context.sqId;
+    queryInfo.cqId = 0;
+    queryInfo.type = DRV_NORMAL_TYPE;
+    queryInfo.prop = DRV_SQCQ_PROP_SQ_BASE;
+    drvError_t ret = halSqCqQuery(context.localDevId, &queryInfo);
+    CHK_PRT_RET(ret != 0,
+        HCCL_ERROR("[%s] halSqCqQuery failed, localDevId[%u], sqId[%u], ret[%d].", __func__, context.localDevId,
+            context.sqId, ret),
+        HCCL_E_INTERNAL);
+    value = (static_cast<uint64_t>(queryInfo.value[1]) << 32U) | queryInfo.value[0];
+    return HCCL_SUCCESS;
+}
+
 HcclResult config_sq_tail(const HcommRtsqContext &context, uint32_t value)
 {
     halSqCqConfigInfo configInfo{};
@@ -161,13 +178,37 @@ HcclResult validate_thread_entity(HcommThreadEntity *thread)
     const HcommRtsqContext &rtsq = *thread->sqContextAddr;
     CHK_PRT_RET(rtsq.sqBaseAddr == 0 || rtsq.sqDepth == 0 || rtsq.sqHead >= rtsq.sqDepth ||
         rtsq.sqTail >= rtsq.sqDepth,
-        HCCL_ERROR("[%s] RTSQ parameters were not populated by control plane, base[0x%llx], depth[%u], head[%u], "
-            "tail[%u].", __func__, static_cast<unsigned long long>(rtsq.sqBaseAddr), rtsq.sqDepth,
-            rtsq.sqHead, rtsq.sqTail), HCCL_E_PARA);
+        HCCL_ERROR("[%s] invalid RTSQ parameters, base[0x%llx], depth[%u], head[%u], tail[%u].", __func__,
+            static_cast<unsigned long long>(rtsq.sqBaseAddr), rtsq.sqDepth, rtsq.sqHead, rtsq.sqTail), HCCL_E_PARA);
     return HCCL_SUCCESS;
 }
 
-} // namespace
+}
+
+HcclResult asccomm_resolve_thread_rtsq(HcommThreadEntity *thread)
+{
+    CHK_PTR_NULL(thread);
+    CHK_PTR_NULL(thread->sqContextAddr);
+    HcommRtsqContext &rtsq = *thread->sqContextAddr;
+    if (rtsq.sqBaseAddr != 0) {
+        return HCCL_SUCCESS;
+    }
+
+    drvError_t ret = drvGetLocalDevIDByHostDevID(thread->devInfo.devId, &rtsq.localDevId);
+    CHK_PRT_RET(ret != 0,
+        HCCL_ERROR("[%s] drvGetLocalDevIDByHostDevID failed, devicePhyId[%u], ret[%d].", __func__,
+            thread->devInfo.devId, ret),
+        HCCL_E_INTERNAL);
+    CHK_RET(query_sq_base(rtsq, rtsq.sqBaseAddr));
+    CHK_RET(query_sq_value(rtsq, DRV_SQCQ_PROP_SQ_DEPTH, rtsq.sqDepth));
+    CHK_RET(query_sq_value(rtsq, DRV_SQCQ_PROP_SQ_HEAD, rtsq.sqHead));
+    CHK_RET(query_sq_value(rtsq, DRV_SQCQ_PROP_SQ_TAIL, rtsq.sqTail));
+    CHK_PRT_RET(rtsq.sqBaseAddr == 0 || rtsq.sqDepth == 0,
+        HCCL_ERROR("[%s] invalid RTSQ resource, base[0x%llx], depth[%u].", __func__,
+            static_cast<unsigned long long>(rtsq.sqBaseAddr), rtsq.sqDepth),
+        HCCL_E_INTERNAL);
+    return HCCL_SUCCESS;
+}
 
 HcclResult asccomm_rtsq_launch(HcommRtsqContext &context)
 {
@@ -306,6 +347,7 @@ HcclResult asccomm_task_launch(ThreadHandle *threads, uint32_t threadNum)
     for (uint32_t index = 0; index < threadNum; ++index) {
         CHK_PRT_RET(threads[index] == 0, HCCL_ERROR("[%s] thread handle is 0.", __func__), HCCL_E_PTR);
         HcommThreadEntity *thread = reinterpret_cast<HcommThreadEntity *>(static_cast<uintptr_t>(threads[index]));
+        CHK_RET(asccomm_resolve_thread_rtsq(thread));
         CHK_RET(validate_thread_entity(thread));
         CHK_RET(asccomm_rtsq_launch(*thread->sqContextAddr));
     }
@@ -318,6 +360,7 @@ HcclResult asccomm_try_launch(ThreadHandle *threads, uint32_t threadNum)
     for (uint32_t index = 0; index < threadNum; ++index) {
         CHK_PRT_RET(threads[index] == 0, HCCL_ERROR("[%s] thread handle is 0.", __func__), HCCL_E_PTR);
         HcommThreadEntity *thread = reinterpret_cast<HcommThreadEntity *>(static_cast<uintptr_t>(threads[index]));
+        CHK_RET(asccomm_resolve_thread_rtsq(thread));
         CHK_RET(validate_thread_entity(thread));
         CHK_RET(asccomm_rtsq_try_launch(*thread->sqContextAddr));
     }
