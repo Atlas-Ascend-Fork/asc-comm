@@ -12,15 +12,17 @@
 #define CCU_LAUNCH_H
 
 // CCU kernel 注册与 launch 的 C ABI 头。
-// 依赖的 Register Context 不透明句柄和 Launch Context POD 来自 hcomm 包内 header，
-// 与 hccl 内部类型解耦，符合控制面/数据面 ABI 边界约束。
+// 依赖的 Register Context 不透明句柄来自 hcomm 包内 header，与 hccl 内部类型解耦，
+// 符合控制面/数据面 ABI 边界约束。
 #include "ccu/hcomm/ccu_api_types.h"
-#include "hcomm/hcomm_ccu_launch.h"
 #include "hcomm/hcomm_ccu_resource.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
+
+// stream 直接以 void* 传递（调用方传 aclrtStream），避免公共头依赖 acl 头文件
+typedef void* ccu_launch_stream;
 
 extern CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle);
 
@@ -33,8 +35,7 @@ extern CcuResult asccomm_ccu_kernel_register_end(CcuInsHandle ins_handle);
 extern CcuResult asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle, uint32_t* task_args_num);
 
 extern CcuResult asccomm_ccu_kernel_launch(
-    const HcommCcuLaunchContextPod* launch_context, ccu_kernel_handle kernel_handle, const void* task_args,
-    uint32_t arg_num);
+    ccu_launch_stream stream, ccu_kernel_handle kernel_handle, const void* task_args, uint32_t arg_num);
 
 #ifdef __cplusplus
 }

@@ -37,7 +37,7 @@ struct OpParam {
     uint32_t rankSize = 0;
 };
 
-HcclResult AllocAlgResource(HcclComm comm, const OpParam& param_, AlgResourceCtx& resCtxHost);
+HcclResult AllocAlgResource(HcclComm comm, const OpParam& opParam, AlgResourceCtx& resCtxHost);
 
 } // namespace ops_hccl_ag
 
