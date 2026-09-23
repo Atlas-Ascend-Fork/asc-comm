@@ -192,7 +192,16 @@ TEST_F(CcuRepTranslatorTest, Translate_LoadArgSortedByFullArgId_V1)
     rep_vec.push_back(load_lo);
 
     auto info = translator.translate(&kernel, rep_vec, /*start_instr_id=*/0);
-    EXPECT_GE(info.instr_count, 6u);
+
+    std::vector<const ccu_instr*> load_arg_instrs;
+    for (const auto& instr : info.instr_vec) {
+        if (instr.header.type == 0x0 && instr.header.code == 0x1) {
+            load_arg_instrs.push_back(&instr);
+        }
+    }
+    ASSERT_EQ(load_arg_instrs.size(), 2u);
+    EXPECT_EQ(load_arg_instrs[0]->v1.load_sqe_args_to_xn.xn_id, 2u);
+    EXPECT_EQ(load_arg_instrs[1]->v1.load_sqe_args_to_xn.xn_id, 1u);
 }
 
 TEST_F(CcuRepTranslatorTest, Translate_V2_RunsOptimizer)
@@ -245,14 +254,19 @@ TEST_F(CcuRepTranslatorTest, SetGetTransDep_RoundTrip)
 TEST_F(CcuRepTranslatorTest, BindResource_SetsReserveIds)
 {
     ccu_rep_translator translator(refMgr, dep);
+    ccu_rep_resource resources;
+    translator.get_res(resources);
+    resources.variable[dep.die_id][0].reset(11);
+    resources.address[dep.die_id][0].reset(22);
+    resources.completed_event[dep.die_id][0].reset(33);
+
     std::vector<std::shared_ptr<ccu_rep_base>> rep_vec;
     (void)translator.translate(&kernel, rep_vec, 0);
 
     const trans_dep& bound = translator.get_trans_dep();
-    // bind_resource 后 reserve id 取自 var_[0]/addr_[0]/signal_[0], id 从 0 编号合法,
-    // 仅断言与初始 dep 值(100/300)不同, 证明已被覆盖
-    EXPECT_NE(bound.reserve_xn_id, 100u);
-    EXPECT_NE(bound.reserve_cke_id, 300u);
+    EXPECT_EQ(bound.reserve_xn_id, 11u);
+    EXPECT_EQ(bound.reserve_gsa_id, 22u);
+    EXPECT_EQ(bound.reserve_cke_id, 33u);
 }
 
 TEST_F(CcuRepTranslatorTest, Translate_FuncBlock_IsFuncBlockFlag)
