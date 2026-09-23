@@ -134,6 +134,7 @@ target_link_libraries(asccomm_ccu_host_obj PRIVATE
 )
 target_include_directories(asccomm_ccu_host_obj PRIVATE
     ${ASCCOMM_CCU_ROOT}
+    ${ASCCOMM_ROOT}/include
 )
 target_include_directories(asccomm_ccu_host_obj SYSTEM PRIVATE
     ${ASCCOMM_CANN_BASE_INCLUDE_DIRS}
@@ -160,7 +161,28 @@ set_target_properties(asccomm_ccu PROPERTIES
     OUTPUT_NAME asccomm_ccu
     LIBRARY_OUTPUT_DIRECTORY ${ASCCOMM_LIBRARY_OUTPUT_DIRECTORY}
 )
-target_link_libraries(asccomm_ccu PRIVATE asccomm_ccu_headers)
+# host launch 兼容层通过数据面导出的 C ABI（asccomm_ccu_kernel_register* / asccomm_ccu_kernel_launch）
+# 完成注册与下发，运行期依赖 libasccomm_ccu_dataplane.so，不再依赖 hcomm.so。
+target_link_libraries(asccomm_ccu PRIVATE
+    asccomm_ccu_headers
+    asccomm_ccu_dataplane
+)
+# 保证链接顺序下数据面 SO 先于本目标产出
+add_dependencies(asccomm_ccu asccomm_ccu_dataplane)
+
+if(NOT INSTALL_LIBRARY_DIR)
+    set(INSTALL_LIBRARY_DIR lib64)
+endif()
+if(NOT INSTALL_PKG_INCLUDE_DIR)
+    set(INSTALL_PKG_INCLUDE_DIR pkg_inc)
+endif()
+
+install(TARGETS asccomm_ccu
+    LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
+    COMPONENT hcomm)
+install(FILES ${ASCCOMM_ROOT}/include/ccu/ccu_host_launch.h
+    DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/ccu
+    COMPONENT hcomm)
 
 target_link_options(asccomm_ccu PRIVATE
     -Wl,-z,relro -Wl,-z,now
