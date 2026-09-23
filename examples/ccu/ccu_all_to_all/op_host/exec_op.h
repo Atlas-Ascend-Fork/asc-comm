@@ -15,7 +15,7 @@
 
 namespace ops_hccl_a2a {
 
-HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx);
+HcclResult ExecOp(const OpParam& opParam, const AlgResourceCtx& resCtx);
 
 } // namespace ops_hccl_a2a
 
