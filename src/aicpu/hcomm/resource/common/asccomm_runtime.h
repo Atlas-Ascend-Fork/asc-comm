@@ -32,8 +32,9 @@ HcclResult asccomm_rtsq_sdma_reduce(HcommRtsqContext &context, uint64_t dstAddr,
 HcclResult asccomm_rtsq_ub_db_send(
     HcommRtsqContext &context, const Asc::UbJettyLiteId &jettyId, uint16_t piValue);
 HcclResult asccomm_rtsq_rdma_db_send(HcommRtsqContext &context, uint64_t dbAddr, uint64_t dbValue);
+HcclResult asccomm_resolve_thread_rtsq(HcommThreadEntity *thread);
 
-// RTSQ硬件属性由HCOMM控制面填充；数据面只提交控制面提供的POD句柄。
+// RTSQ硬件属性由数据面在首次使用Thread POD时懒解析。
 HcclResult asccomm_task_launch(ThreadHandle *threads, uint32_t threadNum);
 HcclResult asccomm_try_launch(ThreadHandle *threads, uint32_t threadNum);
 
