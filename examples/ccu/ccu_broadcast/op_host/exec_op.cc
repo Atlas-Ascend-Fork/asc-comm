@@ -10,7 +10,6 @@
 
 #include <vector>
 #include <ccu/hcomm/ccu_api_types.h>
-#include <hcomm/hcomm_ccu_launch_api.h>
 #include "ccu/hcomm/ccu_launch.h"
 #include "ccu/hcomm/ccu_resource_api.h"
 #include "alg_resource.h"
@@ -19,28 +18,24 @@ namespace ops_hccl_bcast {
 
 constexpr uint64_t MAX_TRANSFER_BYTES = 256ULL * 1024 * 1024;
 
-HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
+HcclResult ExecOp(const OpParam& opParam, const AlgResourceCtx& resCtx)
 {
-    const uint64_t dataSize = param_.count_ * sizeof(float);
-    if (dataSize == 0 || param_.rankSize == 1) {
+    const uint64_t dataSize = opParam.count_ * sizeof(float);
+    if (dataSize == 0 || opParam.rankSize == 1) {
         return HCCL_SUCCESS;
     }
     if (dataSize > MAX_TRANSFER_BYTES) {
         return HCCL_E_NOT_SUPPORT;
     }
 
-    const uint64_t bufferAddr = reinterpret_cast<uint64_t>(param_.buffer);
+    const uint64_t bufferAddr = reinterpret_cast<uint64_t>(opParam.buffer);
     uint64_t token = 0;
     if (asccomm_ccu_get_mem_token(bufferAddr, dataSize, &token) != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
     std::vector<uint64_t> task_args = {bufferAddr, token, dataSize};
-    HcommCcuLaunchContextPod launch_context{};
-    if (HcommCcuGetLaunchContext(resCtx.threads[0], &launch_context) != HCCL_SUCCESS) {
-        return HCCL_E_INTERNAL;
-    }
     CcuResult launchRet =
-        asccomm_ccu_kernel_launch(&launch_context, resCtx.ccuKernels[0], task_args.data(), task_args.size());
+        asccomm_ccu_kernel_launch(opParam.stream, resCtx.ccuKernels[0], task_args.data(), task_args.size());
     return launchRet == CCU_SUCCESS ? HCCL_SUCCESS : HCCL_E_INTERNAL;
 }
 

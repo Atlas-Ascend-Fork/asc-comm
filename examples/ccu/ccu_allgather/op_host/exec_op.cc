@@ -14,7 +14,6 @@
 
 #include <ccu/hcomm/ccu_api_types.h>
 #include <hccl/hcomm_primitives.h>
-#include <hcomm/hcomm_ccu_launch_api.h>
 
 #include "alg_resource.h"
 #include "ccu/hcomm/ccu_launch.h"
@@ -34,13 +33,13 @@ static HcclResult GetDataTypeSize(HcclDataType data_type_, uint32_t& dataTypeSiz
 }
 
 static HcclResult LaunchCcuKernelSlice(
-    const AlgResourceCtx& resCtx, uint64_t inputAddr, uint64_t outputAddr, uint64_t token, uint64_t dataSize,
-    uint32_t myRank, uint64_t sliceCount, uint64_t dataTypeSize)
+    const OpParam& opParam, const AlgResourceCtx& resCtx, uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
+    uint64_t dataSize, uint64_t sliceCount, uint64_t dataTypeSize)
 {
     uint64_t sliceSize = sliceCount * dataTypeSize;
 
     uint64_t currentRankSliceInputOffset = 0;
-    uint64_t currentRankSliceOutputOffset = dataSize * myRank;
+    uint64_t currentRankSliceOutputOffset = dataSize * opParam.myRank;
 
     loop_group_config config{};
     config.ms_interleave = ccu_ms_interleave;
@@ -61,12 +60,8 @@ static HcclResult LaunchCcuKernelSlice(
         goSize.residual,
     };
 
-    HcommCcuLaunchContextPod launch_context{};
-    if (HcommCcuGetLaunchContext(resCtx.threads[0], &launch_context) != HCCL_SUCCESS) {
-        return HCCL_E_INTERNAL;
-    }
     CcuResult launchRet =
-        asccomm_ccu_kernel_launch(&launch_context, resCtx.ccuKernels[0], task_args.data(), task_args.size());
+        asccomm_ccu_kernel_launch(opParam.stream, resCtx.ccuKernels[0], task_args.data(), task_args.size());
     if (launchRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
@@ -74,20 +69,20 @@ static HcclResult LaunchCcuKernelSlice(
     return HCCL_SUCCESS;
 }
 
-HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
+HcclResult ExecOp(const OpParam& opParam, const AlgResourceCtx& resCtx)
 {
     uint32_t dataTypeSize = 0;
-    RETURN_IF_HCCL_FAIL(GetDataTypeSize(param_.data_type_, dataTypeSize));
-    uint64_t dataSize = param_.count_ * dataTypeSize;
-    uint64_t count_ = param_.count_;
+    RETURN_IF_HCCL_FAIL(GetDataTypeSize(opParam.data_type_, dataTypeSize));
+    uint64_t dataSize = opParam.count_ * dataTypeSize;
+    uint64_t count_ = opParam.count_;
 
     if (count_ == 0) {
         return HCCL_SUCCESS;
     }
 
-    if (param_.rankSize == 1) {
+    if (opParam.rankSize == 1) {
         RETURN_IF_HCCL_FAIL(static_cast<HcclResult>(
-            HcommLocalCopyOnThread(resCtx.threads[0], param_.outputPtr, param_.inputPtr, dataSize)));
+            HcommLocalCopyOnThread(resCtx.threads[0], opParam.outputPtr, opParam.inputPtr, dataSize)));
         return HCCL_SUCCESS;
     }
 
@@ -96,11 +91,11 @@ HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
     uint64_t processedDataCount = 0;
 
     uint64_t token = 0;
-    uint64_t baseInputAddr = reinterpret_cast<uint64_t>(param_.inputPtr);
-    uint64_t baseOutputAddr = reinterpret_cast<uint64_t>(param_.outputPtr);
-    if (param_.inputPtr != nullptr) {
+    uint64_t baseInputAddr = reinterpret_cast<uint64_t>(opParam.inputPtr);
+    uint64_t baseOutputAddr = reinterpret_cast<uint64_t>(opParam.outputPtr);
+    if (opParam.inputPtr != nullptr) {
         asccomm_ccu_get_mem_token(baseInputAddr, static_cast<uint64_t>(dataSize), &token);
-    } else if (param_.outputPtr != nullptr) {
+    } else if (opParam.outputPtr != nullptr) {
         asccomm_ccu_get_mem_token(baseOutputAddr, static_cast<uint64_t>(dataSize), &token);
     }
 
@@ -109,8 +104,8 @@ HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
         uint64_t inputAddr = baseInputAddr + processedDataCount * dataTypeSize;
         uint64_t outputAddr = baseOutputAddr + processedDataCount * dataTypeSize;
 
-        RETURN_IF_HCCL_FAIL(LaunchCcuKernelSlice(
-            resCtx, inputAddr, outputAddr, token, dataSize, param_.myRank, sliceCount, dataTypeSize));
+        RETURN_IF_HCCL_FAIL(
+            LaunchCcuKernelSlice(opParam, resCtx, inputAddr, outputAddr, token, dataSize, sliceCount, dataTypeSize));
 
         processedDataCount += sliceCount;
     }
