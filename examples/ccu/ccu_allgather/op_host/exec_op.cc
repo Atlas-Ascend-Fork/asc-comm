@@ -14,7 +14,6 @@
 
 #include <ccu/hcomm/ccu_api_types.h>
 #include <hccl/hcomm_primitives.h>
-#include <hcomm/hcomm_ccu_launch_api.h>
 
 #include "alg_resource.h"
 #include "ccu/hcomm/ccu_launch.h"
@@ -34,13 +33,13 @@ static HcclResult GetDataTypeSize(HcclDataType data_type_, uint32_t& dataTypeSiz
 }
 
 static HcclResult LaunchCcuKernelSlice(
-    const AlgResourceCtx& resCtx, uint64_t inputAddr, uint64_t outputAddr, uint64_t token, uint64_t dataSize,
-    uint32_t myRank, uint64_t sliceCount, uint64_t dataTypeSize)
+    const OpParam& param_, const AlgResourceCtx& resCtx, uint64_t inputAddr, uint64_t outputAddr, uint64_t token,
+    uint64_t dataSize, uint64_t sliceCount, uint64_t dataTypeSize)
 {
     uint64_t sliceSize = sliceCount * dataTypeSize;
 
     uint64_t currentRankSliceInputOffset = 0;
-    uint64_t currentRankSliceOutputOffset = dataSize * myRank;
+    uint64_t currentRankSliceOutputOffset = dataSize * param_.myRank;
 
     loop_group_config config{};
     config.ms_interleave = ccu_ms_interleave;
@@ -61,12 +60,8 @@ static HcclResult LaunchCcuKernelSlice(
         goSize.residual,
     };
 
-    HcommCcuLaunchContextPod launch_context{};
-    if (HcommCcuGetLaunchContext(resCtx.threads[0], &launch_context) != HCCL_SUCCESS) {
-        return HCCL_E_INTERNAL;
-    }
-    CcuResult launchRet =
-        asccomm_ccu_kernel_launch(&launch_context, resCtx.ccuKernels[0], task_args.data(), task_args.size());
+    CcuResult launchRet = asccomm_ccu_kernel_launch(
+        param_.stream, resCtx.ccuKernels[0], task_args.data(), task_args.size());
     if (launchRet != CCU_SUCCESS) {
         return HCCL_E_INTERNAL;
     }
@@ -110,7 +105,7 @@ HcclResult ExecOp(const OpParam& param_, const AlgResourceCtx& resCtx)
         uint64_t outputAddr = baseOutputAddr + processedDataCount * dataTypeSize;
 
         RETURN_IF_HCCL_FAIL(LaunchCcuKernelSlice(
-            resCtx, inputAddr, outputAddr, token, dataSize, param_.myRank, sliceCount, dataTypeSize));
+            param_, resCtx, inputAddr, outputAddr, token, dataSize, sliceCount, dataTypeSize));
 
         processedDataCount += sliceCount;
     }

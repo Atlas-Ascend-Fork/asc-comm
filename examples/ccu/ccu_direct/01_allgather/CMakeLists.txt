@@ -22,6 +22,21 @@ if(NOT DEFINED ASCEND_CANN_PACKAGE_PATH)
     endif()
 endif()
 
+# asc-comm 仓内公开头（ccu/hcomm/*、ccu/ccu_host_launch.h、hcomm/*）：
+# 出包后位于 ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api，源码构建时直接引用仓内 include/
+get_filename_component(ASCCOMM_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/../../../.." ABSOLUTE)
+
+# 源码构建时 libasccomm_ccu*.so 产物目录（出包环境位于 ${ASCEND_CANN_PACKAGE_PATH}/lib64，
+# 此时保持 ASCOMM_LIBRARY_DIR 为空即可）；先构建：
+#   cmake -S ${ASCCOMM_SOURCE_DIR} -B ${ASCCOMM_SOURCE_DIR}/build \
+#       -DASCEND_CANN_PACKAGE_PATH=... -DCANN_3RD_LIB_PATH=${ASCCOMM_SOURCE_DIR}/third_party
+#   cmake --build ${ASCCOMM_SOURCE_DIR}/build --target asccomm_ccu asccomm_ccu_dataplane
+set(ASCCOMM_LIBRARY_DIR "" CACHE PATH "Directory containing libasccomm_ccu.so / libasccomm_ccu_dataplane.so")
+if(NOT ASCOMM_LIBRARY_DIR AND EXISTS "${ASCCOMM_SOURCE_DIR}/build/src/ccu/libasccomm_ccu_dataplane.so")
+    # 仓内源码构建产物分散两处：libasccomm_ccu.so 在 build/ 顶层，dataplane 在 build/src/ccu/
+    list(APPEND ASCOMM_LIBRARY_DIR "${ASCCOMM_SOURCE_DIR}/build" "${ASCCOMM_SOURCE_DIR}/build/src/ccu")
+endif()
+
 add_executable(demo
     main.asc
 )
@@ -30,12 +45,12 @@ target_include_directories(demo PRIVATE
     # CANN Toolkit头文件
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/include/hccl
-    ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm
-    ${ASCEND_CANN_PACKAGE_PATH}/include/hcomm/ccu
-    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api/ccu
+    ${ASCEND_CANN_PACKAGE_PATH}/asc/include/comm_api
     ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm
-    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm/ccu
+    # asc-comm 仓内公开头（源码构建；出包环境由 asc/include/comm_api 提供）
+    ${ASCCOMM_SOURCE_DIR}/include
+    # 样例公共辅助头（ccu_instance.h）
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../common
 )
 
 target_compile_features(demo PRIVATE cxx_std_14)
@@ -59,13 +74,24 @@ target_link_options(demo PRIVATE
     -Wl,-z,relro
     -Wl,-z,now
     -Wl,-z,noexecstack
+    -Wl,-rpath,${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
+foreach(_asccomm_lib_dir IN LISTS ASCOMM_LIBRARY_DIR)
+    target_link_options(demo PRIVATE
+        -Wl,-rpath,${_asccomm_lib_dir}
+    )
+    target_link_directories(demo PRIVATE
+        ${_asccomm_lib_dir}
+    )
+endforeach()
 target_link_directories(demo PRIVATE
     ${ASCEND_CANN_PACKAGE_PATH}/lib64
 )
 target_link_libraries(demo PRIVATE
+    -Wl,--no-as-needed
     hcomm
-    asccomm_ccu
+    asccomm_ccu_dataplane
+    -Wl,--as-needed
     c_sec
     ascendcl
     acl_rt
