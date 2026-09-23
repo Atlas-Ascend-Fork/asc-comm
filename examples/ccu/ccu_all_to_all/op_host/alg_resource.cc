@@ -22,33 +22,33 @@ namespace ops_hccl_a2a {
 constexpr uint32_t CHANNEL_NOTIFY_NUM = 3;
 
 static HcclResult AllocThreadAndChannelResource(
-    HcclComm comm, const OpParam& param_, AlgResourceCtx& resCtxHost, std::vector<ChannelHandle>& kernelChannels,
+    HcclComm comm, const OpParam& opParam, AlgResourceCtx& resCtxHost, std::vector<ChannelHandle>& kernelChannels,
     uint32_t& kernelDie)
 {
     ThreadHandle thread;
     constexpr uint32_t notifyNumOnMainThread = 0;
     RETURN_IF_HCCL_FAIL(
-        HcclThreadAcquireWithStream(comm, CommEngine::COMM_ENGINE_CCU, param_.stream, notifyNumOnMainThread, &thread));
+        HcclThreadAcquireWithStream(comm, CommEngine::COMM_ENGINE_CCU, opParam.stream, notifyNumOnMainThread, &thread));
     resCtxHost.threads.push_back(thread);
 
-    if (param_.rankSize == 1) {
+    if (opParam.rankSize == 1) {
         return HCCL_SUCCESS;
     }
 
-    uint32_t channel_num = param_.rankSize - 1;
+    uint32_t channel_num = opParam.rankSize - 1;
     kernelChannels.resize(channel_num);
 
     uint32_t channelIndex = 0;
     bool hasKernelDie = false;
-    for (uint32_t remoteRank = 0; remoteRank < param_.rankSize; remoteRank++) {
-        if (remoteRank == param_.myRank) {
+    for (uint32_t remoteRank = 0; remoteRank < opParam.rankSize; remoteRank++) {
+        if (remoteRank == opParam.myRank) {
             continue;
         }
 
         uint32_t netLayer = 0, listSize = 0;
         CommLink* linkList = nullptr;
         RETURN_IF_HCCL_FAIL(HcclRankGraphGetLinks(
-            comm, netLayer, param_.myRank, remoteRank, &linkList,
+            comm, netLayer, opParam.myRank, remoteRank, &linkList,
             &listSize)); // 获取 srcRank 和 dstRank 间的 link 信息
 
         HcclChannelDesc desc;
@@ -69,7 +69,7 @@ static HcclResult AllocThreadAndChannelResource(
                 desc.remoteEndpoint.loc = link.dstEndpointDesc.loc;
                 uint32_t channelDie = 0;
                 RETURN_IF_HCCL_FAIL(
-                    asccomm_examples::QueryEndpointDie(comm, param_.myRank, link.srcEndpointDesc, channelDie));
+                    asccomm_examples::QueryEndpointDie(comm, opParam.myRank, link.srcEndpointDesc, channelDie));
                 RETURN_IF_HCCL_FAIL(asccomm_examples::MergeKernelDie(channelDie, hasKernelDie, kernelDie));
                 protocolExists = true;
                 break;
@@ -88,7 +88,7 @@ static HcclResult AllocThreadAndChannelResource(
 }
 
 static HcclResult RegisterAllToAllKernel(
-    HcclComm comm, const OpParam& param_, AlgResourceCtx& resCtxHost, const std::vector<ChannelHandle>& kernelChannels,
+    HcclComm comm, const OpParam& opParam, AlgResourceCtx& resCtxHost, const std::vector<ChannelHandle>& kernelChannels,
     uint32_t kernelDie)
 {
     ccu_kernel_info kernelInfo;
@@ -99,8 +99,8 @@ static HcclResult RegisterAllToAllKernel(
     kernelInfo.kernel_func = reinterpret_cast<void*>(CcuAllToAllMesh1DMem2MemKernel);
 
     auto kernel_arg = std::make_shared<CcuKernelArgAllToAllMesh1DMem2Mem>();
-    kernel_arg->rankSize = param_.rankSize;
-    kernel_arg->rankId = param_.myRank;
+    kernel_arg->rankSize = opParam.rankSize;
+    kernel_arg->rankId = opParam.myRank;
     kernelInfo.setKernelArg(kernel_arg);
 
     for (uint32_t i = 0; i < kernelChannels.size(); ++i) {
@@ -139,17 +139,17 @@ static HcclResult RegisterAllToAllKernel(
     return HCCL_SUCCESS;
 }
 
-HcclResult AllocAlgResource(HcclComm comm, const OpParam& param_, AlgResourceCtx& resCtxHost)
+HcclResult AllocAlgResource(HcclComm comm, const OpParam& opParam, AlgResourceCtx& resCtxHost)
 {
     std::vector<ChannelHandle> kernelChannels;
     uint32_t kernelDie = 0;
-    RETURN_IF_HCCL_FAIL(AllocThreadAndChannelResource(comm, param_, resCtxHost, kernelChannels, kernelDie));
+    RETURN_IF_HCCL_FAIL(AllocThreadAndChannelResource(comm, opParam, resCtxHost, kernelChannels, kernelDie));
 
-    if (param_.rankSize == 1) {
+    if (opParam.rankSize == 1) {
         return HCCL_SUCCESS;
     }
 
-    RETURN_IF_HCCL_FAIL(RegisterAllToAllKernel(comm, param_, resCtxHost, kernelChannels, kernelDie));
+    RETURN_IF_HCCL_FAIL(RegisterAllToAllKernel(comm, opParam, resCtxHost, kernelChannels, kernelDie));
     return HCCL_SUCCESS;
 }
 
