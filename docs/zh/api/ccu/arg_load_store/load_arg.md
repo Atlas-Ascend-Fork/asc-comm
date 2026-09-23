@@ -1,4 +1,4 @@
-# LoadArg
+# load_arg
 
 ## 产品支持情况
 
@@ -11,28 +11,30 @@
 <!-- npu="910b" id3 -->
 - Atlas A2系列产品：不支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas训练系列产品：不支持
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
 <!-- end id4 -->
 <!-- npu="310p" id5 -->
 - Atlas推理系列产品：不支持
 <!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
 
 ## 功能说明
 
-在CCU kernel注册阶段，声明"在运行期将`HcommCcuKernelLaunch`的`taskArgs[argId]`加载到指定Variable"。注册时仅记录该声明，运行期由硬件完成实际加载。
+头文件为：`#include "ccu/ccu_primitives.hpp"`
 
-本接口是让同一份已注册kernel运行期可配置的核心机制：注册时只写入模板逻辑，由`LoadArg`声明哪些Variable的值在每次Launch时由host注入，从而避免重复注册。
+`load_arg`在kernel函数体内调用，将host下发的参数加载到`variable`。host每次通过`<<<>>>`下发Kernel时，通过`taskArgs`数组传入参数；Kernel开始执行前，由硬件将`taskArgs[arg_id]`的值写入目标`variable`对应的寄存器，作为其初值。
 
-> [!NOTE]说明
-> `LoadArg`在注册阶段并不执行实际加载。实际加载发生在`HcommCcuKernelLaunch`后、CCU kernel开始执行前，由硬件自动从`taskArgs[argId]`取值写入Variable对应的硬件寄存器。
+本接口在注册阶段仅记录声明，不执行加载，实际加载由硬件在每次下发时完成。由此，同一份已注册的Kernel每次下发可携带不同参数，无须重复注册。
 
 ## 函数原型
 
 ```cpp
 namespace AscendC {
 namespace ccu {
-CcuResult LoadArg(Variable v, uint32_t argId);
+CcuResult load_arg(variable v, uint32_t arg_id);
 } // namespace ccu
 } // namespace AscendC
 ```
@@ -41,32 +43,28 @@ CcuResult LoadArg(Variable v, uint32_t argId);
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| v | 输入 | 目标Variable对象。运行期硬件将`taskArgs[argId]`（`uint64_t`）写入该Variable对应的硬件寄存器。 |
-| argId | 输入 | `taskArgs`数组的索引（从0起）。同一kernel内所有`LoadArg`调用的`argId`须全局唯一且从0连续编号。 |
+| v | 输入 | 目标`variable`对象，接收`taskArgs[arg_id]`注入的值作为初值。 |
+| arg_id | 输入 | `taskArgs`数组的索引。 |
 
-## 返回值
+## 返回值说明
 
-[CcuResult](../../../datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+[CcuResult](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 当前不存在处于注册中的kernel（接口在kernel注册阶段之外被调用）。 |
+| `CCU_E_PTR` | 接口在注册阶段之外被调用。 |
 | `CCU_E_NOT_FOUND` | 传入的`v`句柄未在当前kernel注册。 |
 
 > [!NOTE]说明
-> 本接口不会返回 `CCU_E_PARA`。argId 相关的所有约束错误（重复、跳号、与 `argNum` 不匹配）不在本接口处返回，而是在 `HcommCcuKernelLaunch` 阶段统一校验后返回 `CCU_E_INTERNAL`，详见下节"约束说明"。
+> 本接口不会返回`CCU_E_PARA`。`arg_id`相关的约束错误不在本接口处返回，而是由`<<<>>>`统一校验后返回`CCU_E_INTERNAL`，详见[约束说明](#约束说明)。
 
 ## 约束说明
 
-> [!CAUTION]注意
-> 同一kernel内所有 `LoadArg` 调用使用的不同 `argId` 总数，必须与 `HcommCcuKernelLaunch` 的 `argNum` 参数严格相等；且 `argId` 必须覆盖 `0..argNum-1` 全部值。两条都在 `HcommCcuKernelLaunch` 阶段统一校验，违反时返回 `CCU_E_INTERNAL`。
-
-- `argId` 须从0 连续编号（0、1、2、…），不可跳过或乱序——Launch 阶段强校验。
-- 同一kernel 内不同 `LoadArg` 调用的 `argId` 不可重复——本接口处不会拦截重复，但重复会使有效 `argId` 总数小于 `argNum`，在 `HcommCcuKernelLaunch` 阶段报 `CCU_E_INTERNAL`。两个Variable 绑同一 `argId` 是危险错误，请自行避免。
-- `argNum` 的单位是 `uint64_t` 元素个数，而非字节数。例如有3 个 `LoadArg` 调用（argId 为0、1、2），则 `HcommCcuKernelLaunch` 的 `argNum` 须传 `3`，`taskArgs` 须有至少3 个元素。
-- `LoadArg` 不在调用处生效：翻译时所有 `LoadArg` 会被提到kernel 最前面执行，只负责给 `v` 设"进入body 时的初值"。因此若body 里又对同一个 `v` 用立即数（`v = 1024;`）或 `Load` 赋值，这些赋值都排在 `LoadArg` 之后，会覆盖掉注入的初值。混用同一个 `v` 时须先把注入值读走、再重新赋值，否则注入值还没用上就被覆盖，`LoadArg` 等于没生效（作用在不同Variable 上，如 `LoadArg(addrVar, 0); Load(addrVar, v);`，不受此影响）。
-- `LoadArg` 的 `argId` 必须小于13，即0，1, ..., 12，因为CCU下发算子时最大只能携带13个参数。
+- 同一kernel内所有`load_arg`调用的`arg_id`须从0连续编号（0、1、2、…），不可重复，且个数须与`<<<>>>`的`argNum`严格相等。加载指令按`arg_id`升序对应到任务参数槽位，跳号、乱序或重复会使参数无法与槽位正确对应——以上均由`<<<>>>`统一校验，违反时返回`CCU_E_INTERNAL`。
+- `argNum`表示元素个数，而非字节数。例如`arg_id`为0、1、2的3个`load_arg`调用，`argNum`须传`3`，`taskArgs`须有至少3个`uint64_t`元素。
+- `arg_id`取值范围为0~12，因为CCU任务描述符最多携带13个参数。
+- `load_arg`只负责给`v`设初值：若kernel函数体内又对同一个`v`赋值，赋值会覆盖注入的初值。混用时须先把注入值读走、再重新赋值。
 
 ## 调用示例
 
@@ -74,18 +72,18 @@ CcuResult LoadArg(Variable v, uint32_t argId);
 using namespace AscendC::ccu;
 
 // 场景：注册时声明循环次数n和起始偏移offset由host在Launch时传入
-CcuResult MyKernel(CcuKernelArg arg) {
-    Variable n, offset;
+CcuResult my_kernel(ccu_kernel_arg arg) {
+    variable n, offset;
 
-    LoadArg(n, 0);        // 运行期taskArgs[0] → n
-    LoadArg(offset, 1);   // 运行期taskArgs[1] → offset
+    load_arg(n, 0);        // 每次下发时taskArgs[0] → n
+    load_arg(offset, 1);   // 每次下发时taskArgs[1] → offset
 
     // 后续使用n和offset进行循环和地址计算
     // ...
     return CCU_SUCCESS;
 }
 
-// Host侧对应的Launch调用（示意）：
+// Host侧对应的`<<<>>>`（示意）：
 // uint64_t taskArgs[] = {100, 4096};   // n=100轮，offset=4096字节
-// HcommCcuKernelLaunch(..., taskArgs, /*argNum=*/2);
+// kernel_name<<<schd, insHandle, stream>>>(taskArgs[0], taskArgs[1]);
 ```

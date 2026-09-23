@@ -1,4 +1,4 @@
- Func
+# func
 
 ## 产品支持情况
 
@@ -11,33 +11,39 @@
 <!-- npu="910b" id3 -->
 - Atlas A2系列产品：不支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas训练系列产品：不支持
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
 <!-- end id4 -->
 <!-- npu="310p" id5 -->
 - Atlas推理系列产品：不支持
 <!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
 
 ## 功能说明
 
-`ccu::Func`用于封装一个lambda为可复用的FuncBlock定义，与调用点接口[CallFunc](CallFunc.md)共同构成CCU kernel内的FuncBlock机制，用于在kernel内将一段重复使用的逻辑只生成一份指令，多处调用均通过`Call`指令跳转，节省SRAM。
+头文件为：`#include "ccu/ccu_primitives.hpp"`
 
-`ccu::Func`的lambda形参为零个或多个`ccu::Variable`，返回`void`。定义好的`Func`对象通过[CallFunc](CallFunc.md)在kernel内调用。
+`ccu::func`将一个lambda封装为可复用的函数块（FuncBlock）：构造时仅记录lambda，不生成指令；首次通过[call_func](call_func.md)调用时执行lambda，把逻辑合成为一份指令块；后续每次调用只追加一条跳转指令，复用同一份指令块，从而节省指令空间。lambda形参为零个或多个`ccu::variable`，在调用时绑定实参，返回`void`。
 
-## 类定义
+> [!NOTE]说明
+> 本接口仅完成函数块的定义，调用方式参见[call_func](call_func.md)。
+
+## 类声明
 
 ```cpp
 namespace AscendC {
 namespace ccu {
 
-class Func {
+class func {
 public:
-    // Lambda 必须返回void，形参必须全部为ccu::Variable
+    // Lambda 必须返回void，形参必须全部为ccu::variable
     template <typename Lambda>
-    explicit Func(Lambda body);
+    explicit func(Lambda body);
 
-    Func(const Func &) = delete;             // 不可复制
-    Func &operator=(const Func &) = delete;  // 不可赋值
+    func(const func &) = delete;             // 不可复制
+    func &operator=(const func &) = delete;  // 不可赋值
 };
 
 } // namespace ccu
@@ -46,40 +52,30 @@ public:
 
 ## 参数说明
 
-| 参数名 | 描述 |
-| --- | --- |
-| body | lambda表达式，形参为零个或多个`ccu::Variable`，返回`void`。形参个数在编译期由lambda签名自动推导。 |
+| 参数名 | 输入/输出 | 描述 |
+| --- | --- | --- |
+| body | 输入 | lambda表达式，形参为零个或多个`ccu::variable`，返回`void`。形参个数在编译期由lambda签名自动推导。 |
+
+## 返回值说明
+
+无返回值。
 
 ## 约束说明
 
-- `ccu::Func`对象必须具有"链接性"：只能定义在namespace作用域（含`static`）或作为类的静态数据成员，不能是函数局部变量（即使加`static`也不行）。这是`template <Func& Obj, ...>`引用类型NTTP的C++语言要求，违反时编译期直接报错，与运行时无关。[CallFunc](CallFunc.md)内部还会用`&Obj`作为标识来复用同一个FuncBlock，这是该约束的副作用收益，不是约束的成因。
-- `ccu::Func`不可复制（拷贝构造和赋值运算符已`= delete`），每个Func对象有唯一身份。
-- `ccu::Func`lambda形参类型必须能从`ccu::Variable&`传入，实际可写为`ccu::Variable` / `ccu::Variable&` / `const ccu::Variable&`三者之一，其他类型（如`int`、`ccu::Address`）会因模板替换失败而编译报错（注：当前未对形参类型加`static_assert`，错误信息以深层模板诊断形式出现，可读性不如返回值类型那条）。
-- `ccu::Func`lambda必须返回`void`，否则编译期报错（由实现内显式`static_assert`给出可读诊断）。
-- 不同的`ccu::Func`对象即使lambda内容相同，也各自合成独立的FuncBlock（Key是`&Obj`，不是lambda内容的hash）。
+- `ccu::func`对象须具有链接性（linkage）：只能定义在namespace作用域或作为类的静态数据成员，不能是函数局部变量，加`static`也不行。这是[call_func](call_func.md)以`func`对象引用作模板参数的C++语言要求，违反时编译期直接报错。
+- `ccu::func`不可复制，拷贝构造和赋值运算符已`= delete`，每个`ccu::func`对象有唯一身份。
+- lambda形参类型须能从`ccu::variable&`传入，可写为`ccu::variable`、`ccu::variable&`或`const ccu::variable&`，其他类型如`int`、`ccu::address`会编译报错。
+- lambda必须返回`void`，否则编译期报错。
+- 不同的`ccu::func`对象即使lambda内容相同，也各自合成独立的FuncBlock。
 
 ## 调用示例
 
 ```cpp
 using namespace AscendC::ccu;
 
-// 声明为static，满足CallFunc NTTP 要求
-static Func MyAdd([](Variable x) {
-    Variable tmp;
-    tmp = x + x;   // 对x 翻倍
+// 声明为namespace作用域的static对象，满足链接性约束
+static func add_dbl([](variable x) {
+    variable tmp;
+    tmp = x + x;   // 对x翻倍
 });
-
-CcuResult MyKernel(CcuKernelArg arg) {
-    Variable a, b;
-    a = 2;
-    b = 5;
-
-    // 通过CallFunc 在kernel 内调用已定义的Func
-    CcuResult ret = CallFunc<MyAdd>(a);
-    if (ret != CCU_SUCCESS) { return ret; }
-
-    return CallFunc<MyAdd>(b);
-}
 ```
-
-`CallFunc`的调用语义、返回值与异常详见[CallFunc](CallFunc.md)。

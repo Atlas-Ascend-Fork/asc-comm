@@ -1,4 +1,4 @@
-# EventRecord
+# event_record
 
 ## 产品支持情况
 
@@ -11,26 +11,31 @@
 <!-- npu="910b" id3 -->
 - Atlas A2系列产品：不支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas训练系列产品：不支持
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
 <!-- end id4 -->
 <!-- npu="310p" id5 -->
 - Atlas推理系列产品：不支持
 <!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
 
 ## 功能说明
 
-在CCU kernel内显式标记本地Event的指定掩码位完成。
+头文件为：`#include "ccu/ccu_primitives.hpp"`
+
+将本端同步寄存器中`mask`对应的event标志位显式设置为1，表示当前操作或阶段已完成，供同kernel内的[event_wait](event_wait.md)读取完成信号。
 
 > [!NOTE]说明
-> 绝大多数场景下无需显式调用本接口。[数据搬运接口](../data_movement/README.md)（如`LocalCopy`、`Read`、`Write`等）末位的`(event, mask)`参数由硬件在搬运完成时自动置位，等价于隐式的`EventRecord`。仅在需要将控制流的某个分支结束或无搬运操作的位置作为同步点时，才需要显式调用本接口。
+> 绝大多数场景下无需显式调用本接口，仅当某位置未调用搬运接口时需要显式调用，如数据量为0而跳过搬运、或分支代码段内只有计算，此时本端`event`中对应的位不会被自动置位，须调用本接口补置，否则下游的`event_wait`将永久阻塞。
 
 ## 函数原型
 
 ```cpp
 namespace AscendC {
 namespace ccu {
-CcuResult EventRecord(Event e, uint16_t mask = 1);
+CcuResult event_record(event e, uint16_t mask = 1);
 } // namespace ccu
 } // namespace AscendC
 ```
@@ -39,44 +44,40 @@ CcuResult EventRecord(Event e, uint16_t mask = 1);
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| e | 输入 | 本地Event对象。`Event`类构造时申请CKE虚拟句柄（物理资源在`HcommCcuKernelRegister`阶段分配），无需手动分配。 |
-| mask | 输入 | 16位事件掩码，指定要置位的bit。默认值为`1`（即bit0）。同一个`Event`对象的不同bit相互独立，可承载多组配对。 |
+| e | 输入 | 本地事件对象，对应同步寄存器中的一个event槽位。默认构造时自动申请虚拟句柄，物理资源在注册阶段统一分配。 |
+| mask | 输入 | 16位事件掩码，指定要设置的`event`标志位。默认值为`1`，即bit0。同一个`event`对象的不同标志位相互独立，可分别用于多组`event_record`与`event_wait`的配对。 |
 
-## 返回值
+## 返回值说明
 
-[CcuResult](../../../datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
+[CcuResult](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)：接口成功返回`CCU_SUCCESS`，其他值表示失败。
 
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 当前不存在处于注册中的kernel（接口在kernel注册阶段之外被调用）。 |
+| `CCU_E_PTR` | 接口在注册阶段之外被调用。 |
 | `CCU_E_NOT_FOUND` | 传入的`e`句柄未在当前kernel注册。 |
-| `CCU_E_NOT_SUPPORT` | 在硬件Loop body内调用，不支持。 |
-
-> [!NOTE]说明
-> 本接口不会返回 `CCU_E_PARA`。
+| `CCU_E_NOT_SUPPORT` | 不支持在硬件loop的循环体内调用。 |
 
 ## 约束说明
 
-- 不可在硬件Loop body内调用，否则将返回`CCU_E_NOT_SUPPORT`。Loop body会被硬件并行展开为N 份，`EventRecord`语义在并行环境中不唯一。
-- 每次`EventRecord`必须有对应的`EventWait`在其之后出现，否则等待侧将永久阻塞，导致硬件级死锁。
-- `mask`指定的bit与`EventWait`的`mask`必须一致，否则`EventWait`永远等不到信号。
+- 不可在硬件loop的循环体内调用，否则返回`CCU_E_NOT_SUPPORT`。循环体会被复制为多份并行执行，每份都会执行一次`event_record`，置位语义不再明确。
+- 置位后须有[event_wait](event_wait.md)消费该信号，否则该次置位不被使用。
+- `event_record`和`event_wait`的`mask`必须一致，否则`event_wait`永远等不到信号。
 
 ## 调用示例
 
 ```cpp
 using namespace AscendC::ccu;
 
-// 场景：在没有数据搬运的位置手动插入同步点
 // CCU kernel函数体内
-CcuResult MyKernel(CcuKernelArg arg) {
-    Event evt;
+CcuResult my_kernel(ccu_kernel_arg arg) {
+    event evt;
 
     // 执行某些操作后，手动标记bit0 完成
-    EventRecord(evt, 0x1);
+    event_record(evt, 0x1);
 
     // 下游等待bit0 被置位
-    EventWait(evt, 0x1);
+    event_wait(evt, 0x1);
     return CCU_SUCCESS;
 }
 ```
