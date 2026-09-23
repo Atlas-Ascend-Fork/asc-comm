@@ -10,9 +10,7 @@
 
 #include "ccu/hcomm/ccu_launch.h"
 #include "ccu/hcomm/ccu_resource_api.h"
-#include "hcomm/hcomm_ccu_launch.h"
 
-#include <chrono>
 #include <vector>
 
 // 同步 launch 需要 acl 运行时接口（rt 相关 API），与 runtime 头配合使用
@@ -27,9 +25,10 @@
 #include "hcomm/resource/kernel/ccu_kernel_registry_mgr.h"
 #include "hcomm/resource/common/ccu_var_event_res_mgr.h"
 
-#include "hcomm/resource/microcode/ccu_assist_v1.h"
-
-CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle)
+// 在不进入内核注册流程的情况下准备单实例资源快照。
+// 变量/事件分配接口可能先于 <<<>>> 调用，因此需要执行此操作。
+static CcuResult ccu_prepare_instance(
+    CcuInsHandle ins_handle, asc::ccu_kernel_registry*& ccu_ins, int32_t& dev_logic_id)
 {
     if (ins_handle.ccuInsKey == 0 || ins_handle.ccuInsPtr == nullptr) {
         HCCL_ERROR(
@@ -37,31 +36,36 @@ CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle)
             static_cast<unsigned long long>(ins_handle.ccuInsKey), static_cast<const void*>(ins_handle.ccuInsPtr));
         return CcuResult::CCU_E_PARA;
     }
-    const auto* instance = ins_handle.ccuInsPtr;
-    // Instance 不再携带设备号：以当前线程设备定位 per-device registry/kernel mgr
-    const int32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+
+    dev_logic_id = asc::get_current_ccu_device_logic_id();
     if (dev_logic_id < 0) {
         HCCL_ERROR("[%s] failed, current thread has no device set.", __func__);
         return CcuResult::CCU_E_UNAVAIL;
     }
-    asc::ccu_kernel_registry* ccu_ins = nullptr;
+
     CCU_CHK_RET(
         asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get_or_create(dev_logic_id, ins_handle, ccu_ins));
     CCU_CHK_PTR_NULL(ccu_ins);
+    return ccu_ins->load_register_context(*ins_handle.ccuInsPtr);
+}
+
+CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle)
+{
+    // Instance 不再携带设备号：以当前线程设备定位 per-device registry/kernel mgr
+    int32_t dev_logic_id = -1;
+    asc::ccu_kernel_registry* ccu_ins = nullptr;
+    CCU_CHK_RET(ccu_prepare_instance(ins_handle, ccu_ins, dev_logic_id));
     CCU_CHK_RET(ccu_ins->begin_register());
 
-    CcuResult ret = ccu_ins->load_register_context(*instance);
-    if (ret == CcuResult::CCU_SUCCESS) {
-        auto* res_snapshot = ccu_ins->get_res_snapshot();
-        CCU_CHK_PTR_NULL(res_snapshot);
-        ret = asc::ccu_kernel_mgr::get_instance(dev_logic_id).configure(*res_snapshot);
-    }
+    auto* res_snapshot = ccu_ins->get_res_snapshot();
+    CCU_CHK_PTR_NULL(res_snapshot);
+    CcuResult ret = asc::ccu_kernel_mgr::get_instance(dev_logic_id).configure(*res_snapshot);
     if (ret != CcuResult::CCU_SUCCESS) {
         (void)ccu_ins->end_register();
         HCCL_ERROR("[%s] failed to load register context, ret[%d].", __func__, ret);
         return ret;
     }
-    asc::set_current_ccu_control_ops(instance->ascCustom);
+    asc::set_current_ccu_control_ops(ins_handle.ccuInsPtr->ascCustom);
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -84,7 +88,6 @@ CcuResult asccomm_ccu_kernel_register(
     const void** kernel_args, uint32_t arg_num, ccu_kernel_handle* kernel_handle)
 {
     HCCL_RUN_INFO("Entry-%s", __func__);
-    const auto start_time = std::chrono::steady_clock::now();
 
     CCU_CHK_PTR_NULL(kernel_func);
     CCU_CHK_PTR_NULL(kernel_handle);
@@ -118,9 +121,6 @@ CcuResult asccomm_ccu_kernel_register(
     }
 
     *kernel_handle = new_handle;
-    const auto duration =
-        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time);
-    HCCL_INFO("[%s] success, take time [%lld]us.", __func__, duration.count());
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -158,116 +158,10 @@ CcuResult asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle, uint32_
     return CcuResult::CCU_SUCCESS;
 }
 
-static CcuResult construct_ccu_detail_info(
-    const std::vector<asc::ccu_profiling_info>& all_ccu_profiling_info, bool is_save_profiling_data,
-    std::vector<HcommCcuProfileDetailPod>& converted)
-{
-    if (all_ccu_profiling_info.empty() || !is_save_profiling_data) {
-        return CcuResult::CCU_SUCCESS;
-    }
+// notifywait 默认等待时长，27*68=1836，沿用 hcomm NOTIFY_DEFAULT_WAIT_TIME 的 notifywait 默认等待时长
+constexpr uint32_t CCU_NOTIFY_DEFAULT_WAIT_TIME = 27U * 68U;
 
-    converted.resize(all_ccu_profiling_info.size());
-    // profiling 明细跨动态库时只传递 POD，hcomm 在 callback 前再还原为原有 C++ 类型。
-    for (uint32_t idx = 0; idx < all_ccu_profiling_info.size(); ++idx) {
-        const auto& src = all_ccu_profiling_info[idx];
-        auto& dst = converted[idx];
-        if (src.name.size() >= HCOMM_CCU_PROFILE_NAME_CAPACITY) {
-            HCCL_ERROR(
-                "[%s] profiling name length[%zu] exceeds maximum[%u].", __func__, src.name.size(),
-                HCOMM_CCU_PROFILE_NAME_CAPACITY - 1U);
-            return CcuResult::CCU_E_PARA;
-        }
-        dst.header = {HCOMM_CCU_LAUNCH_ABI_VERSION, HCOMM_CCU_PROFILE_DETAIL_MAGIC_WORD, sizeof(dst), 0};
-        dst.nameLength = static_cast<uint32_t>(src.name.size());
-        (void)memcpy_s(dst.name, sizeof(dst.name), src.name.data(), src.name.size());
-        dst.profilingType = src.type;
-        dst.dieId = src.die_id;
-        dst.missionId = src.mission_id;
-        dst.instructionId = src.instr_id;
-        dst.reduceOpType = src.reduce_op_type;
-        dst.inputDataType = src.input_data_type;
-        dst.outputDataType = src.output_data_type;
-        dst.dataSize = src.data_size;
-        dst.ckeId = src.cke_id;
-        dst.mask = src.mask;
-        (void)memcpy_s(dst.channelId, sizeof(dst.channelId), src.channel_id, sizeof(src.channel_id));
-        (void)memcpy_s(dst.remoteRankId, sizeof(dst.remoteRankId), src.remote_rank_id, sizeof(src.remote_rank_id));
-        (void)memcpy_s(dst.channelHandle, sizeof(dst.channelHandle), src.channel_handle, sizeof(src.channel_handle));
-    }
-    return CcuResult::CCU_SUCCESS;
-}
-
-static HcommCcuTaskProfilePod construct_ccu_task_profile(
-    const asc::ccu_task_param& ccu_param, const ccu_kernel_handle kernel_handle, uint64_t begin_time, uint64_t end_time,
-    bool is_master)
-{
-    // POD 头部固定携带版本、类型和大小，供 hcomm 在解释后续 profiling 字段前校验 ABI。
-    HcommCcuTaskProfilePod task{};
-    task.header = {HCOMM_CCU_LAUNCH_ABI_VERSION, HCOMM_CCU_TASK_PROFILE_MAGIC_WORD, sizeof(task), 0};
-    task.beginCycle = begin_time;
-    task.endCycle = end_time;
-    task.dieId = ccu_param.die_id;
-    task.missionId = ccu_param.mission_id;
-    task.instructionId = ccu_param.inst_start_id;
-    task.isMaster = is_master ? 1U : 0U;
-    task.kernelHandle = kernel_handle;
-    task.diagnose = asc::asccomm_ccu_diagnose;
-    task.reserved = 0;
-    return task;
-}
-
-static void log_ccu_task_info(
-    const std::vector<asc::ccu_task_param>& ccu_params, const ccu_kernel_handle kernel_handle,
-    uint32_t exec_time_out_sec)
-{
-    if (CheckLogLevel(asccomm_ccu_log_module_id, DLOG_INFO) != 1) {
-        return;
-    }
-    for (uint32_t idx = 0; idx < ccu_params.size(); idx++) {
-        const auto& param = ccu_params[idx];
-        HCCL_INFO(
-            "[%s] start ccu task, dieId[%u], missionId[%u], execMissionId[%u], instStartId[%u], instCnt[%u], "
-            "argSize[%u], timeout[%u]s, executeId[0x%llx], ccuKernelHandle[0x%llx]",
-            __func__, param.die_id, param.mission_id, param.mission_id, param.inst_start_id, param.inst_cnt,
-            param.arg_size, exec_time_out_sec, kernel_handle, kernel_handle);
-    }
-}
-
-static void construct_profiling_info_log(const std::vector<asc::ccu_profiling_info>& all_ccu_profiling_info)
-{
-    if (CheckLogLevel(asccomm_ccu_log_module_id, DLOG_INFO) != 1) {
-        return;
-    }
-    for (const asc::ccu_profiling_info& prof_info : all_ccu_profiling_info) {
-        for (int idx = 0; idx < asc::ccu_max_channel_num; idx++) {
-            if (prof_info.channel_id[idx] == asc::invalid_value_channelid) {
-                break;
-            }
-            HCCL_INFO(
-                "[%s]idx[%d]: channelId[%u], channelHandle[0x%llx]", __func__, idx, prof_info.channel_id[idx],
-                prof_info.channel_handle[idx]);
-        }
-    }
-}
-
-static CcuResult construct_profiling_info(
-    asc::ccu_kernel* kernel, const uint64_t* task_args, uint32_t arg_num,
-    std::vector<asc::ccu_profiling_info>& all_ccu_profiling_info, bool is_save_profiling_data)
-{
-    if (!is_save_profiling_data) {
-        return CcuResult::CCU_SUCCESS;
-    }
-
-    CCU_CHK_RET(kernel->get_ccu_profiling_info(task_args, arg_num, all_ccu_profiling_info));
-    if (all_ccu_profiling_info.empty()) {
-        return CcuResult::CCU_SUCCESS;
-    }
-    construct_profiling_info_log(all_ccu_profiling_info);
-    return CcuResult::CCU_SUCCESS;
-}
-
-static CcuResult launch_ccu_tasks(
-    const asc::ccu_task_param& param, const aclrtStream stream, uint32_t exec_time_out_sec)
+static CcuResult launch_ccu_tasks(const asc::ccu_task_param& param, const aclrtStream stream)
 {
     rtCcuTaskInfo_t task_info{};
     task_info.dieId = param.die_id;
@@ -276,7 +170,7 @@ static CcuResult launch_ccu_tasks(
     task_info.instCnt = param.inst_cnt;
     task_info.key = param.key;
     task_info.argSize = param.arg_size;
-    task_info.timeout = exec_time_out_sec;
+    task_info.timeout = CCU_NOTIFY_DEFAULT_WAIT_TIME;
     std::copy(std::begin(param.args), std::end(param.args), std::begin(task_info.args));
 
     auto ret = rtCCULaunch(&task_info, stream);
@@ -288,89 +182,42 @@ static CcuResult launch_ccu_tasks(
     return CcuResult::CCU_SUCCESS;
 }
 
-static bool is_launch_context_valid(const HcommCcuLaunchContextPod& context)
-{
-    const auto& header = context.header;
-    return header.version == HCOMM_CCU_LAUNCH_ABI_VERSION && header.magicWord == HCOMM_CCU_LAUNCH_CONTEXT_MAGIC_WORD &&
-           header.size == sizeof(context) && header.reserved == 0 && context.reserved[0] == 0 &&
-           context.reserved[1] == 0 && context.runtimeStream != 0 && context.threadHandle != 0;
-}
-
 CcuResult asccomm_ccu_kernel_launch(
-    const HcommCcuLaunchContextPod* launch_context, ccu_kernel_handle kernel_handle, const void* task_args,
-    uint32_t arg_num)
+    ccu_launch_stream stream, ccu_kernel_handle kernel_handle, const void* task_args, uint32_t arg_num)
 {
-    const auto start_time = std::chrono::steady_clock::now();
-
-    CCU_CHK_PTR_NULL(launch_context);
+    CCU_CHK_PTR_NULL(stream);
     CHK_PRT_RET(
         kernel_handle == 0, HCCL_ERROR("[%s] failed, kernel handle is empty.", __func__), CcuResult::CCU_E_PARA);
     CHK_PRT_RET(
         arg_num > 0 && task_args == nullptr,
         HCCL_ERROR("[%s] failed, taskArgs is nullptr while argNum[%u] > 0.", __func__, arg_num), CcuResult::CCU_E_PTR);
 
-    // 跨动态库边界先完整校验 POD，避免按不兼容布局读取 stream、设备号和 profiling 状态。
-    CHK_PRT_RET(
-        !is_launch_context_valid(*launch_context),
-        HCCL_ERROR("[%s] failed, launch context has an incompatible ABI header or runtime stream.", __func__),
-        CcuResult::CCU_E_PARA);
-    HCCL_INFO(
-        "[asccomm_ccu_kernel_launch] threadHandle[0x%llx] kernelHandle[0x%llx].", launch_context->threadHandle,
-        kernel_handle);
-    // runtimeStream 是 hcomm 借出的运行时 stream，且仅在本次同步 launch 返回前有效。
-    auto stream_ptr = reinterpret_cast<aclrtStream>(launch_context->runtimeStream);
-
-    // launch 使用线程实际所属设备，避免依赖 asc-comm 内部设备上下文与调用线程状态一致。
-    const int32_t dev_logic_id = launch_context->deviceLogicId;
+    // launch 使用调用线程实际所在设备，避免依赖数据面内部设备上下文与调用线程状态一致。
+    const int32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    if (dev_logic_id < 0) {
+        HCCL_ERROR("[%s] failed, current thread has no device set.", __func__);
+        return CcuResult::CCU_E_UNAVAIL;
+    }
     auto& kernel_mgr = asc::ccu_kernel_mgr::get_instance(dev_logic_id);
     auto* kernel = kernel_mgr.get_kernel(kernel_handle);
     CCU_CHK_PTR_NULL(kernel);
+
+    auto stream_ptr = reinterpret_cast<aclrtStream>(stream);
 
     CCU_EXCEPTION_HANDLE_BEGIN
     std::vector<asc::ccu_task_param> task_params{};
     auto ret = kernel->gene_task_params(static_cast<const uint64_t*>(task_args), arg_num, task_params);
     CHK_PRT_RET(
-        ret != CcuResult::CCU_SUCCESS,
-        HCCL_ERROR(
-            "[%s] failed, threadHandle[0x%llx] kernelHandle[0x%llx].", __func__, launch_context->threadHandle,
-            kernel_handle),
-        ret);
+        ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] failed, kernelHandle[0x%llx].", __func__, kernel_handle), ret);
 
     if (task_params.empty()) {
         HCCL_INFO("[%s] passed, ccu params are empty.", __func__);
         return CcuResult::CCU_SUCCESS;
     }
-    const bool is_save_profiling_data = launch_context->profilingL1Enabled != 0 ||
-                                        launch_context->profilingL0Enabled != 0 || launch_context->profilingCached != 0;
-
-    std::vector<asc::ccu_profiling_info> all_ccu_profiling_info;
-    CCU_CHK_RET(construct_profiling_info(
-        kernel, static_cast<const uint64_t*>(task_args), arg_num, all_ccu_profiling_info, is_save_profiling_data));
-    log_ccu_task_info(task_params, kernel_handle, launch_context->timeoutSec);
-    std::vector<HcommCcuProfileDetailPod> ccu_detail_info;
-    CCU_CHK_RET(construct_ccu_detail_info(all_ccu_profiling_info, is_save_profiling_data, ccu_detail_info));
     for (uint32_t idx = 0; idx < task_params.size(); idx++) {
-        uint64_t begin_time = 0;
-        uint64_t end_time = 0;
-        if (launch_context->getProfilingCycle != nullptr) {
-            CCU_CHK_RET(launch_context->getProfilingCycle(&begin_time));
-        }
-        CCU_CHK_RET(launch_ccu_tasks(task_params[idx], stream_ptr, launch_context->timeoutSec));
-        if (launch_context->getProfilingCycle != nullptr) {
-            CCU_CHK_RET(launch_context->getProfilingCycle(&end_time));
-        }
-        const HcommCcuTaskProfilePod task_profile = construct_ccu_task_profile(
-            task_params[idx], kernel_handle, begin_time, end_time, launch_context->isMaster != 0);
-        if (launch_context->reportTask != nullptr) {
-            CCU_CHK_RET(launch_context->reportTask(
-                launch_context->threadHandle, &task_profile, ccu_detail_info.empty() ? nullptr : ccu_detail_info.data(),
-                static_cast<uint32_t>(ccu_detail_info.size())));
-        }
+        CCU_CHK_RET(launch_ccu_tasks(task_params[idx], stream_ptr));
     }
     CCU_EXCEPTION_HANDLE_END
-    const auto duration =
-        std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - start_time);
-    HCCL_INFO("[%s] success, take time [%lld]us.", __func__, duration.count());
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -397,9 +244,9 @@ CcuResult asccomm_ccu_get_mem_token(uint64_t src_va, uint64_t size, uint64_t* to
 static CcuResult ccu_alloc_var_event_res(
     CcuInsHandle ins_handle, asc::ccu_var_event_type type, uint8_t die_id, uint32_t num, uint64_t& out_handle)
 {
-    const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
-    auto* ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(ins_handle);
-    CCU_CHK_PTR_NULL(ccu_ins);
+    int32_t dev_logic_id = -1;
+    asc::ccu_kernel_registry* ccu_ins = nullptr;
+    CCU_CHK_RET(ccu_prepare_instance(ins_handle, ccu_ins, dev_logic_id));
 
     auto* res_pack = ccu_ins->get_res_snapshot();
     CCU_CHK_PTR_NULL(res_pack);
