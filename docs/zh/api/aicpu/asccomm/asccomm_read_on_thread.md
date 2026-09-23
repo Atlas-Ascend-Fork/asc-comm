@@ -3,28 +3,33 @@
 ## 产品支持情况
 
 <!-- npu="950" id1 -->
-- Ascend 950PR&950DT系列产品：支持
+- Ascend 950PR/Ascend 950DT：支持
 <!-- end id1 -->
 <!-- npu="A3" id2 -->
-- Atlas A3系列产品：支持
+- Atlas A3 训练系列产品/Atlas A3 推理系列产品：支持
 <!-- end id2 -->
 <!-- npu="910b" id3 -->
-- Atlas A2系列产品：支持
+- Atlas A2 训练系列产品/Atlas A2 推理系列产品：支持
 <!-- end id3 -->
-<!-- npu="910" id4 -->
-- Atlas训练系列产品：不支持
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2 推理产品：不支持
 <!-- end id4 -->
-<!-- npu="310p" id5 -->
-- Atlas推理系列产品：不支持
+<!-- npu="910" id5 -->
+- Atlas 训练系列产品：不支持
 <!-- end id5 -->
+<!-- npu="310p" id6 -->
+- Atlas 推理系列产品：不支持
+<!-- end id6 -->
 
 ## 功能说明
+
+头文件路径：`"hcomm/asccomm_primitives.h"`。
 
 从channel上的指定内存读数据，从src中读取长度为len的内存数据，并写入dst。接口调用方为dst所在节点，为异步接口。
 
 ## 函数原型
 
-```c
+```cpp
 int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t len)
 ```
 
@@ -32,28 +37,28 @@ int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void 
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为通过[HcclThreadAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclThreadAcquire.md)接口获取到的threads。<br>ThreadHandle类型的定义可参见[ThreadHandle](../../../datatype_definition/ThreadHandle.md)。 |
-| channel | 输入 | 通信通道句柄，为通过[HcclChannelAcquire](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelAcquire.md)接口获取到的channels。<br>ChannelHandle类型的定义可参见[ChannelHandle](../../../datatype_definition/ChannelHandle.md)。 |
-| dst | 输出 | 目标内存地址，使用[HcclGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclGetHcclBuffer.md)或[HcclChannelGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的内存。 |
-| src | 输入 | 源内存地址，使用[HcclGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclGetHcclBuffer.md)或[HcclChannelGetHcclBuffer](../../../control_plane_api/comms_domain_resource_mgmt/HcclChannelGetHcclBuffer.md)获取到的内存。 |
+| thread | 输入 | 通信线程句柄，为通过`HcclThreadAcquire`接口（声明于`"hccl/hccl_res.h"`）获取到的threads。<br>ThreadHandle类型的定义请参见`"hcomm/hcomm_primitives.h"`。 |
+| channel | 输入 | 通信通道句柄，为通过`HcclChannelAcquire`接口（声明于`"hccl/hccl_channel.h"`）获取到的channels。<br>ChannelHandle类型的定义请参见`"hcomm/hcomm_primitives.h"`。 |
+| dst | 输出 | 目标内存地址，使用`HcclGetHcclBuffer`（声明于`"hccl/hccl_res.h"`）或`HcclChannelGetHcclBuffer`（声明于`"hccl/hccl_channel.h"`）获取到的内存。 |
+| src | 输入 | 源内存地址，使用`HcclGetHcclBuffer`（声明于`"hccl/hccl_res.h"`）或`HcclChannelGetHcclBuffer`（声明于`"hccl/hccl_channel.h"`）获取到的内存。 |
 | len | 输入 | 数据长度（字节）。 |
 
-## 返回值
+## 返回值说明
 
 int32_t：接口成功返回0，其他失败。
 
-<!-- npu="950" id6 -->
+<!-- npu="950" id7 -->
 ## 约束说明
 
-针对Ascend 950PR&950DT系列产品，仅支持通信协议UB_CTP、UBoE。
-<!-- end id6 -->
+针对Ascend 950PR/Ascend 950DT系列产品，仅支持通信协议UB_CTP、UBoE。
+<!-- end id7 -->
 
 ## 调用示例
 
-```c
+```cpp
 // 申请通信线程资源
-CommEngine engine = CommEngine::COMM_ENGINE_CPU_TS; // Atlas A3系列产品使用
-CommEngine engine = CommEngine::COMM_ENGINE_AICPU_TS; // Ascend 950PR&950DT系列产品使用
+// Atlas A3系列产品使用COMM_ENGINE_CPU_TS，Ascend 950PR/Ascend 950DT系列产品使用COMM_ENGINE_AICPU_TS。
+CommEngine engine = CommEngine::COMM_ENGINE_AICPU_TS;
 uint32_t threadNum = 1;
 uint32_t notifyNumPerThread = 1;
 ThreadHandle thread;
