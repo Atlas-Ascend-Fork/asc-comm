@@ -72,9 +72,9 @@ public:
     std::shared_ptr<ccu_rep::ccu_rep_block> current_block();
     void set_current_block(std::shared_ptr<ccu_rep::ccu_rep_block> rep_block);
     virtual void append(std::shared_ptr<ccu_rep::ccu_rep_base> rep);
-    const std::vector<std::shared_ptr<ccu_rep::ccu_rep_base>>& get_rep_sequence();
-    std::shared_ptr<ccu_rep::ccu_rep_base> get_rep_by_instr_id(uint16_t instr_id);
-    void dump_represtation();
+    const std::vector<std::shared_ptr<ccu_rep::ccu_rep_base>>& get_rep_sequence() const;
+    std::shared_ptr<ccu_rep::ccu_rep_base> get_rep_by_instr_id(uint16_t instr_id) const;
+    void dump_represtation() const;
 
     void set_die_id(uint32_t die_id);
     uint32_t get_die_id() const;
