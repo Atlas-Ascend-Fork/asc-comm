@@ -44,6 +44,7 @@
 #define HCOMM_DEBUG_TRAP_IF(condition, fmt, ...) ((void)0)
 #define HCOMM_KERNEL_LOG(level, fmt, ...) HCOMM_KERNEL_LOG_##level(fmt, ##__VA_ARGS__)
 #define HCOMM_KERNEL_LOG_KERNEL_INFO(fmt, ...) ((void)0)
+#define HCOMM_KERNEL_LOG_KERNEL_WARN(fmt, ...) KERNEL_LOG(KERNEL_WARN, fmt, ##__VA_ARGS__)
 #define HCOMM_KERNEL_LOG_KERNEL_ERROR(fmt, ...) KERNEL_LOG(KERNEL_ERROR, fmt, ##__VA_ARGS__)
 #endif
 
