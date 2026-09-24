@@ -7,6 +7,14 @@
 | [MakeMultiChannelHandle](./host/hcomm/MakeMultiChannelHandle.md) | 基于HCCL通信域或Hcomm Endpoint创建批量接口所需的多通道资源。 |
 | [DestroyMultiChannelHandle](./host/hcomm/DestroyMultiChannelHandle.md) | 释放Hcomm Endpoint路径创建的多通道资源。 |
 
+## AICPU Asccomm
+
+| 分类 | 内容 |
+| --- | --- |
+| [数据搬运](./aicpu/asccomm/data_movement/README.md) | 本地拷贝/归约，以及基于Channel的读写和归约读写接口。 |
+| [同步](./aicpu/asccomm/synchronization/README.md) | Thread、ACLRT Notify和Channel Notify同步，以及Fence、Drain和超时设置接口。 |
+| [批量操作](./aicpu/asccomm/batch_operations/README.md) | 批量模式控制和批量传输描述符提交接口。 |
+
 ## AICore Hcomm
 
 | 文档 | 内容 |

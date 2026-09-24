@@ -1,0 +1,9 @@
+# AICPU Asccomm接口简介
+
+AICPU Asccomm提供面向通信线程和通信通道的数据面C接口，用于描述本地内存操作、跨通道数据搬运、通知同步以及批量提交操作。接口声明位于`include/aicpu/hcomm/asccomm_primitives.h`，相关句柄和枚举类型由该头文件包含的类型定义提供。
+
+## 接口分类
+
+- [数据搬运](./data_movement/README.md)：本地拷贝/归约，以及基于Channel的读、写和归约读写操作。
+- [同步](./synchronization/README.md)：Thread、ACLRT Notify和Channel Notify同步，以及Fence、Drain和超时设置操作。
+- [批量操作](./batch_operations/README.md)：批量模式控制和批量传输描述符提交。
