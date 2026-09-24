@@ -15,7 +15,8 @@
 namespace asc {
 namespace {
 thread_local uint64_t current_ccu_control_ops[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]{};
-}
+thread_local uint64_t current_ccu_ins_key = 0;
+} // namespace
 
 int32_t get_current_ccu_device_logic_id()
 {
@@ -34,5 +35,9 @@ void set_current_ccu_control_ops(const uint64_t (&asc_custom)[HCOMM_CCU_ASC_CUST
 }
 
 const uint64_t* get_current_ccu_control_ops() { return current_ccu_control_ops; }
+
+void set_current_ccu_ins_key(uint64_t ins_key) { current_ccu_ins_key = ins_key; }
+
+uint64_t get_current_ccu_ins_key() { return current_ccu_ins_key; }
 
 } // namespace asc

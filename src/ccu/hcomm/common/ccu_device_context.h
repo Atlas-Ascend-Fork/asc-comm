@@ -27,6 +27,10 @@ int32_t get_current_ccu_device_logic_id();
 // ascCustom 槽位数组的线程级借用快照（值按槽位含义强转对应 Fn 类型使用）
 void set_current_ccu_control_ops(const uint64_t (&asc_custom)[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]);
 const uint64_t* get_current_ccu_control_ops();
+// 当前线程的 CCU Instance 键（HcommCcuInstanceHandle.ccuInsKey）：register_start 时设置，
+// ascCustom 槽 1（AllocInstSpace）按此键精确路由到本通信域的指令池
+void set_current_ccu_ins_key(uint64_t ins_key);
+uint64_t get_current_ccu_ins_key();
 
 } // namespace asc
 

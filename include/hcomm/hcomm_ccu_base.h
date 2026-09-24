@@ -28,7 +28,12 @@ enum {
     HCOMM_CCU_MAX_DIE_NUM = 2,
 };
 
-/** CCU C 接口返回码：异常不能穿过 C ABI */
+/**
+ * CCU C 接口返回码：异常不能穿过 C ABI。
+ * 0-15 段与 HcclResult（hcomm/hcomm_types.h）数值对齐：跨 SO 错误码可按值互转
+ * （hcomm/asc-comm 两侧 static_cast 依赖此契约，修改任一侧取值前须同步另一侧）；
+ * CCU_E_DRV_*（4096+）段无 HcclResult 对应值，禁止强转为 HcclResult。
+ */
 typedef enum {
     CCU_SUCCESS = 0,
     CCU_E_PARA = 1,
