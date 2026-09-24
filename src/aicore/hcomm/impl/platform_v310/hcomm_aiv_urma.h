@@ -761,7 +761,17 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqImpl(
         bool validOwner = (curTail / cqDepth) & 1;
         uint32_t times = 0;
         uint32_t ret = HCOMM_SUCCESS;
-        while ((validOwner ^ cqeUb->owner) == 0 && times < HCOMM_URMA_MAX_RETRY_TIMES) {
+        while ((validOwner ^ cqeUb->owner) == 0) {
+            if (times != 0 && times % HCOMM_URMA_MAX_RETRY_TIMES == 0) {
+                KERNEL_LOG(
+                    KERNEL_WARN,
+                    "Hcomm URMA Poll CQ retry exceeded threshold, keep polling times=%u curTail=%u expectIdx=%u \n",
+                    times, curTail, expectIdx);
+                if (times == HCOMM_URMA_MAX_RETRY_TIMES) {
+                    HCOMM_DEBUG_FUNC(HcommUrmaDumpCqeCtx, cqeUb);
+                }
+            }
+            AscendC::DataSyncBarrier<AscendC::MemDsbT::DDR>();
             Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
             Mutex::Lock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
             DataCopy(cqeItem, cqeGlobal, cqeSize / sizeof(uint32_t));
@@ -769,20 +779,14 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqImpl(
             Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
             times++;
         }
-        if (times >= HCOMM_URMA_MAX_RETRY_TIMES) {
-            HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Poll CQ timeout curTail=%u expectIdx=%u \n", curTail, expectIdx);
+        // check CQE status
+        uint8_t status = cqeUb->status & 0xFFU;
+        uint8_t subStatus = cqeUb->substatus & 0xFFU;
+        constexpr uint8_t statusShift = 8;
+        if (status != 0 || subStatus != 0) {
+            HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA CQE failed status=%u subStatus=%u \n", status, subStatus);
             HCOMM_DEBUG_FUNC(HcommUrmaDumpCqeCtx, cqeUb);
-            ret = 0xFFU;
-        } else {
-            // check CQE status
-            uint8_t status = cqeUb->status & 0xFFU;
-            uint8_t subStatus = cqeUb->substatus & 0xFFU;
-            constexpr uint8_t statusShift = 8;
-            if (status != 0 || subStatus != 0) {
-                HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA CQE failed status=%u subStatus=%u \n", status, subStatus);
-                HCOMM_DEBUG_FUNC(HcommUrmaDumpCqeCtx, cqeUb);
-                ret = (status << statusShift) | subStatus;
-            }
+            ret = (status << statusShift) | subStatus;
         }
         Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
         if (ret != HCOMM_SUCCESS) {
