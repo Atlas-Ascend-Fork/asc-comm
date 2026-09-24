@@ -50,7 +50,7 @@ int32_t asccomm_channel_notify_wait_on_thread(ThreadHandle thread, ChannelHandle
   针对Ascend 950PR/Ascend 950DT系列产品，CPU引擎RoCE场景下，“thread”参数无作用，传入0即可。CPU_TS/AICPU_TS场景下，“thread”参数为通过`HcclThreadAcquire`接口（声明于`"hccl/hccl_res.h"`）获取到的threads。
 
 - timeOut参数：
-  
+
   针对Ascend 950PR/Ascend 950DT系列产品的CPU引擎RoCE场景，需配置大于0的超时时间。
 <!-- end id7 -->
 
