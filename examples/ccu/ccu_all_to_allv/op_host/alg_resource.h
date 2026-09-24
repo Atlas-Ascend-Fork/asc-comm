@@ -13,7 +13,7 @@
 
 #include <vector>
 #include <acl/acl_rt.h>
-#include <hccl/hccl_types.h>
+#include <hcomm/hcomm_types.h>
 #include <hccl/hcomm_primitives.h>
 
 namespace ops_hccl_a2av {
