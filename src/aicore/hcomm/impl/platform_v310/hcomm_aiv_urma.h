@@ -655,8 +655,12 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
     }
 
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    Lock(channel);
+    
     uint32_t curHead = channelEntity->sqHead;
     uint32_t cqeCnt = channelEntity->cqHead;
+
+    // AscendC::printf("Hcomm URMA PostSend resolved remoteIdx=%d remoteAddr=%p curHead=%u\n", remoteIdx, remoteAddr, curHead);
     HCOMM_KERNEL_LOG(
         KERNEL_INFO, "Hcomm URMA PostSend resolved remoteIdx=%d curHead=%u sqDepth=%u \n", remoteIdx, curHead,
         sqCtx.contextInfo.ubJfs.sqDepth);
@@ -716,7 +720,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
     }
     curHead += wqeBbCnt;
     channelEntity->sqHead = curHead;
-
+    Unlock(channel);
     if constexpr (commit) {
         CommitImpl(channel, sqCtx, curHead, cqeCnt);
     }
@@ -755,20 +759,34 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqImpl(
         AscendC::GlobalTensor<uint32_t> cqeGlobal;
         cqeGlobal.SetGlobalBuffer((__gm__ uint32_t*)cqeAddr);
         Mutex::Lock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
+        DataCacheCleanAndInvalid<uint32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(cqeGlobal);
         DataCopy(cqeItem, cqeGlobal, cqeSize / sizeof(uint32_t));
         Mutex::Unlock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
         Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
         bool validOwner = (curTail / cqDepth) & 1;
         uint32_t times = 0;
         uint32_t ret = HCOMM_SUCCESS;
-        while ((validOwner ^ cqeUb->owner) == 0 && times < HCOMM_URMA_MAX_RETRY_TIMES) {
-            Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-            Mutex::Lock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
-            DataCopy(cqeItem, cqeGlobal, cqeSize / sizeof(uint32_t));
-            Mutex::Unlock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
-            Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
-            times++;
+        
+        uint32_t loop = 10;
+        while (loop) {
+            while ((validOwner ^ cqeUb->owner) == 0 && times < HCOMM_URMA_MAX_RETRY_TIMES) {
+                Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
+                Mutex::Lock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
+                DataCacheCleanAndInvalid<uint32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(cqeGlobal);
+                DataCopy(cqeItem, cqeGlobal, cqeSize / sizeof(uint32_t));
+                Mutex::Unlock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
+                Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
+                times++;
+            }
+            if (loop == 10 && times >= HCOMM_URMA_MAX_RETRY_TIMES) {
+                uint8_t status = cqeUb->status & 0xFFU;
+                uint8_t subStatus = cqeUb->substatus & 0xFFU;
+                AscendC::printf("Hcomm URMA Poll CQ timeout curTail=%u expectIdx=%u validOwner=%u owner=%u status=%u subStatus=%u blockIdx=%u\n",
+                    curTail, expectIdx, validOwner, cqeUb->owner, status, subStatus, GetBlockIdx());
+            }
+            loop--;
         }
+        
         if (times >= HCOMM_URMA_MAX_RETRY_TIMES) {
             HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Poll CQ timeout curTail=%u expectIdx=%u \n", curTail, expectIdx);
             HCOMM_DEBUG_FUNC(HcommUrmaDumpCqeCtx, cqeUb);
@@ -804,6 +822,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
     }
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    Lock(channel);
     uint32_t curTail = channelEntity->cqTail;
     uint32_t sqTail = channelEntity->sqTail;
 
@@ -821,6 +840,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
     // ring CQ doorbell
     st_dev(curTail & 0xFFFFFFU, (__gm__ uint32_t*)cqCtx.contextInfo.ubJfc.dbVa, 0);
 
+    Unlock(channel);
     return HCOMM_SUCCESS;
 }
 
@@ -995,6 +1015,9 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Drain(ChannelHandle c
 {
     (void)pipe;
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
+    auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    AscendC::printf("Hcomm URMA channel.addr=%p cqCtxAddr=%p sqCtxAddr=%p cqHead=%u cqTail=%u cqDepth=%u\n", 
+        channelEntity, channelEntity->cqContextAddr, channelEntity->sqContextAddr, channelEntity->cqHead, channelEntity->cqTail, cqCtx.contextInfo.ubJfc.cqDepth);
     uint32_t ret = PollCq(channel, channelEntity->cqHead);
     if (ret != HCOMM_SUCCESS) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Drain by channel failed channel=%lu pollRet=%u \n", channel, ret);
