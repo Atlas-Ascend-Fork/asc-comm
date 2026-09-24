@@ -54,10 +54,11 @@ bool extract_load_mem_ops(std::vector<reg_operand>& out, const ccu_rep::ccu_inst
             add_write(out, reg_type::xn, instr.v2.load_imd_to_x.xn_id);
             return true;
         case loadstorex_code:
-            // Xd = *Xs, *Xdo = Xso (读改写形式), 保守全部当作读写.
             add_read(out, reg_type::xn, instr.v2.load_store_x.xs_id);
-            add_read(out, reg_type::xn, instr.v2.load_store_x.xso_id);
-            add_read(out, reg_type::xn, instr.v2.load_store_x.xdo_id);
+            if (instr.v2.load_store_x.o_mode != 0) {
+                add_read(out, reg_type::xn, instr.v2.load_store_x.xso);
+                add_read(out, reg_type::xn, instr.v2.load_store_x.xdo);
+            }
             add_write(out, reg_type::xn, instr.v2.load_store_x.xd_id);
             return true;
         case clearx_code:

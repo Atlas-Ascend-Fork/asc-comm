@@ -507,8 +507,9 @@ void sync_xn_instr(
 // castEn: 输出是否截断
 // dataType: Reduce数据类型
 void add_instr(
-    ccu_instr* instr, uint16_t* ms_id, uint16_t count, uint16_t cast_en, uint16_t data_type, uint16_t set_cke_id,
-    uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t xn_id_length)
+    ccu_instr* instr, const uint16_t (&ms_id)[ccu_reduce_max_ms], uint16_t count, uint16_t cast_en,
+    uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask,
+    uint16_t clear_type, uint16_t xn_id_length)
 {
     count -= 2; // CCU指令中指定count数为实际参与运算的MS数减2
     instr->header = instr_header(reduce_type, add_code);
@@ -527,8 +528,9 @@ void add_instr(
 }
 
 void max_instr(
-    ccu_instr* instr, uint16_t* ms_id, uint16_t count, uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask,
-    uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t xn_id_length)
+    ccu_instr* instr, const uint16_t (&ms_id)[ccu_reduce_max_ms], uint16_t count, uint16_t data_type,
+    uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type,
+    uint16_t xn_id_length)
 {
     count -= 2; // CCU指令中指定count数为实际参与运算的MS数减2
     instr->header = instr_header(reduce_type, max_code);
@@ -546,8 +548,9 @@ void max_instr(
 }
 
 void min_instr(
-    ccu_instr* instr, uint16_t* ms_id, uint16_t count, uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask,
-    uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t xn_id_length)
+    ccu_instr* instr, const uint16_t (&ms_id)[ccu_reduce_max_ms], uint16_t count, uint16_t data_type,
+    uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type,
+    uint16_t xn_id_length)
 {
     count -= 2; // CCU指令中指定count数为实际参与运算的MS数减2
     instr->header = instr_header(reduce_type, min_code);

@@ -215,7 +215,7 @@ uint16_t get_ccu_data_type(HcclDataType data_type, HcclReduceOp reduce_op)
     return ccu_sum_data_type_map[data_type];
 }
 
-uint16_t get_ub_reduce_type(HcclReduceOp reduce_op)
+CcuResult get_ub_reduce_type(HcclReduceOp reduce_op, uint16_t& result)
 {
     static std::map<HcclReduceOp, uint16_t> ub_reduce_type_map = {
         {HCCL_REDUCE_SUM, 10},
@@ -224,13 +224,15 @@ uint16_t get_ub_reduce_type(HcclReduceOp reduce_op)
     };
 
     if (ub_reduce_type_map.find(reduce_op) == ub_reduce_type_map.end()) {
-        asc::throw_ccu_internal("Unsupported reduceOp[%s] for UB Reduce", describe_reduce_op(reduce_op).c_str());
+        HCCL_ERROR("Unsupported reduceOp[%s] for UB Reduce", describe_reduce_op(reduce_op).c_str());
+        return CcuResult::CCU_E_PARA;
     }
 
-    return ub_reduce_type_map[reduce_op];
+    result = ub_reduce_type_map[reduce_op];
+    return CcuResult::CCU_SUCCESS;
 }
 
-uint16_t get_ub_data_type(HcclDataType data_type)
+CcuResult get_ub_data_type(HcclDataType data_type, uint16_t& result)
 {
     static std::map<HcclDataType, uint16_t> ub_data_type_map = {
         {HCCL_DATA_TYPE_FP32, 7},  {HCCL_DATA_TYPE_FP16, 6},   {HCCL_DATA_TYPE_BFP16, 8},
@@ -238,9 +240,11 @@ uint16_t get_ub_data_type(HcclDataType data_type)
         {HCCL_DATA_TYPE_INT32, 2}, {HCCL_DATA_TYPE_UINT16, 4}, {HCCL_DATA_TYPE_UINT32, 5}};
 
     if (ub_data_type_map.find(data_type) == ub_data_type_map.end()) {
-        asc::throw_ccu_internal("Unsupported DataType[%s] for UB Reduce", describe_data_type(data_type).c_str());
+        HCCL_ERROR("Unsupported DataType[%s] for UB Reduce", describe_data_type(data_type).c_str());
+        return CcuResult::CCU_E_PARA;
     }
-    return ub_data_type_map[data_type];
+    result = ub_data_type_map[data_type];
+    return CcuResult::CCU_SUCCESS;
 }
 
 uint64_t get_token_info(uint64_t va, uint64_t size)

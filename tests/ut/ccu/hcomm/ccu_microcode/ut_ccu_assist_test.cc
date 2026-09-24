@@ -123,48 +123,56 @@ TEST_F(CcuAssistTest, GetCcuDataType_UnsupportedType_MAX)
 
 TEST_F(CcuAssistTest, GetUBReduceType_SUM)
 {
-    uint16_t result = get_ub_reduce_type(HCCL_REDUCE_SUM);
+    uint16_t result = 0;
+    EXPECT_EQ(get_ub_reduce_type(HCCL_REDUCE_SUM, result), CcuResult::CCU_SUCCESS);
     EXPECT_EQ(result, 10);
 }
 
 TEST_F(CcuAssistTest, GetUBReduceType_MAX)
 {
-    uint16_t result = get_ub_reduce_type(HCCL_REDUCE_MAX);
+    uint16_t result = 0;
+    EXPECT_EQ(get_ub_reduce_type(HCCL_REDUCE_MAX, result), CcuResult::CCU_SUCCESS);
     EXPECT_EQ(result, 8);
 }
 
 TEST_F(CcuAssistTest, GetUBReduceType_MIN)
 {
-    uint16_t result = get_ub_reduce_type(HCCL_REDUCE_MIN);
+    uint16_t result = 0;
+    EXPECT_EQ(get_ub_reduce_type(HCCL_REDUCE_MIN, result), CcuResult::CCU_SUCCESS);
     EXPECT_EQ(result, 9);
 }
 
 TEST_F(CcuAssistTest, GetUBReduceType_Unsupported)
 {
-    EXPECT_THROW(get_ub_reduce_type(HCCL_REDUCE_PROD), CcuUtException);
+    uint16_t result = 0;
+    EXPECT_NE(get_ub_reduce_type(HCCL_REDUCE_PROD, result), CcuResult::CCU_SUCCESS);
 }
 
 TEST_F(CcuAssistTest, GetUBDataType_FP32)
 {
-    uint16_t result = get_ub_data_type(HCCL_DATA_TYPE_FP32);
+    uint16_t result = 0;
+    EXPECT_EQ(get_ub_data_type(HCCL_DATA_TYPE_FP32, result), CcuResult::CCU_SUCCESS);
     EXPECT_EQ(result, 7);
 }
 
 TEST_F(CcuAssistTest, GetUBDataType_FP16)
 {
-    uint16_t result = get_ub_data_type(HCCL_DATA_TYPE_FP16);
+    uint16_t result = 0;
+    EXPECT_EQ(get_ub_data_type(HCCL_DATA_TYPE_FP16, result), CcuResult::CCU_SUCCESS);
     EXPECT_EQ(result, 6);
 }
 
 TEST_F(CcuAssistTest, GetUBDataType_INT32)
 {
-    uint16_t result = get_ub_data_type(HCCL_DATA_TYPE_INT32);
+    uint16_t result = 0;
+    EXPECT_EQ(get_ub_data_type(HCCL_DATA_TYPE_INT32, result), CcuResult::CCU_SUCCESS);
     EXPECT_EQ(result, 2);
 }
 
 TEST_F(CcuAssistTest, GetUBDataType_Unsupported)
 {
-    EXPECT_THROW(get_ub_data_type(HCCL_DATA_TYPE_RESERVED), CcuUtException);
+    uint16_t result = 0;
+    EXPECT_NE(get_ub_data_type(HCCL_DATA_TYPE_RESERVED, result), CcuResult::CCU_SUCCESS);
 }
 
 TEST_F(CcuAssistTest, GetParallelParamV2_EncodesFields)

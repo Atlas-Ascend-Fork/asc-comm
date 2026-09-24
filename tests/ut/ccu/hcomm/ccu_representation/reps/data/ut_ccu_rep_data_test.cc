@@ -903,10 +903,12 @@ TEST_F(CcuRepLocCpyTest, Constructor_WithBufs)
     ccu_rep_loc_cpy rep(&insGen, dst_, src_, len_, bufs, sem_, 0xF);
     EXPECT_EQ(rep.type(), ccu_rep_type::local_cpy);
     EXPECT_EQ(rep.get_used_buf_num(), 2U);
-    EXPECT_EQ(rep.get_first_buf_id(), bufs[0].id());
+    uint16_t first_buf_id = 0;
+    EXPECT_EQ(rep.get_first_buf_id(first_buf_id), CcuResult::CCU_SUCCESS);
+    EXPECT_EQ(first_buf_id, bufs[0].id());
 }
 
-TEST_F(CcuRepLocCpyTest, GetFirstBufId_EmptyBufsThrows)
+TEST_F(CcuRepLocCpyTest, GetFirstBufId_EmptyBufsReturnsError)
 {
     ccu_rep_context context_;
     variable len_(&context_);
@@ -918,7 +920,8 @@ TEST_F(CcuRepLocCpyTest, GetFirstBufId_EmptyBufsThrows)
     std::vector<ccu_buf> bufs;
 
     ccu_rep_loc_cpy rep(&insGen, dst_, src_, len_, bufs, sem_, 0xF);
-    EXPECT_ANY_THROW(rep.get_first_buf_id());
+    uint16_t first_buf_id = 0;
+    EXPECT_NE(rep.get_first_buf_id(first_buf_id), CcuResult::CCU_SUCCESS);
 }
 
 TEST_F(CcuRepLocCpyTest, Translate_WithBufs_V1GeneratorThrows)

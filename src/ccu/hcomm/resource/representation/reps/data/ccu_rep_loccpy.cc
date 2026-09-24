@@ -66,12 +66,14 @@ void ccu_rep_loc_cpy::validate_ins_generator_for_loc_cpy() const
     }
 }
 
-uint16_t ccu_rep_loc_cpy::get_first_buf_id()
+CcuResult ccu_rep_loc_cpy::get_first_buf_id(uint16_t& result)
 {
     if (bufs_.size() == 0) {
-        asc::throw_ccu_internal("The length of CcuBuffer is 0!");
+        HCCL_ERROR("The length of CcuBuffer is 0!");
+        return CcuResult::CCU_E_PARA;
     }
-    return bufs_[0].id();
+    result = bufs_[0].id();
+    return CcuResult::CCU_SUCCESS;
 }
 
 uint16_t ccu_rep_loc_cpy::get_used_buf_num() { return bufs_.size(); }
