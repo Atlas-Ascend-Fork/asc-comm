@@ -12,14 +12,14 @@
 // 现有用例均在前置校验即返回，不会触达真实注册流程。
 #include "ccu/hcomm/ccu_launch.h"
 
-extern "C" CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle)
+extern "C" CcuResult asccomm_ccu_kernel_register_start(HcommCcuInstanceHandle ins_handle)
 {
     (void)ins_handle;
     return CCU_E_PARA;
 }
 
 extern "C" CcuResult asccomm_ccu_kernel_register(
-    CcuInsHandle ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
+    HcommCcuInstanceHandle ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
     const void** kernel_args, uint32_t arg_num, ccu_kernel_handle* kernel_handle)
 {
     (void)ins_handle;
@@ -32,7 +32,7 @@ extern "C" CcuResult asccomm_ccu_kernel_register(
     return CCU_E_PARA;
 }
 
-extern "C" CcuResult asccomm_ccu_kernel_register_end(CcuInsHandle ins_handle)
+extern "C" CcuResult asccomm_ccu_kernel_register_end(HcommCcuInstanceHandle ins_handle)
 {
     (void)ins_handle;
     return CCU_E_PARA;

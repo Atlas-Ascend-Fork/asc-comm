@@ -24,13 +24,13 @@ extern "C" {
 // stream 直接以 void* 传递（调用方传 aclrtStream），避免公共头依赖 acl 头文件
 typedef void* ccu_launch_stream;
 
-extern CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle);
+extern CcuResult asccomm_ccu_kernel_register_start(HcommCcuInstanceHandle ins_handle);
 
 extern CcuResult asccomm_ccu_kernel_register(
-    CcuInsHandle ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
+    HcommCcuInstanceHandle ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
     const void** kernel_args, uint32_t arg_num, ccu_kernel_handle* kernel_handle);
 
-extern CcuResult asccomm_ccu_kernel_register_end(CcuInsHandle ins_handle);
+extern CcuResult asccomm_ccu_kernel_register_end(HcommCcuInstanceHandle ins_handle);
 
 extern CcuResult asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle, uint32_t* task_args_num);
 

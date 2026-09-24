@@ -95,8 +95,7 @@ CcuResult RegisterCcuKernel(
         cfg->ccu_ins, dieId, kernelName, reinterpret_cast<const void*>(VoidKernelTrampoline), kernelArgs, 1,
         &kernelHandle);
     if (ret != CCU_SUCCESS) {
-        ASCCOMM_CCU_LOG_ERROR(
-            "[%s] asccomm_ccu_kernel_register failed, ret[%d], dieId[%u].", __func__, ret, dieId);
+        ASCCOMM_CCU_LOG_ERROR("[%s] asccomm_ccu_kernel_register failed, ret[%d], dieId[%u].", __func__, ret, dieId);
         (void)asccomm_ccu_kernel_register_end(cfg->ccu_ins);
         return ret;
     }
@@ -200,8 +199,9 @@ extern "C" ccu_result asccomm_ccu_host_kernel_launch(
         const auto* raw = reinterpret_cast<const uint8_t*>(cfg);
         const size_t total = sizeof(asccomm_launch_kernel_cfg);
         ASCCOMM_CCU_LOG_ERROR(
-            "[TEMP-DBG] cfg[%p] sizeof(cfg)[%zu] sizeof(CcuInsHandle)[%zu] ccu_ins.off[%zu] key.off[%zu] ptr.off[%zu]",
-            static_cast<const void*>(cfg), total, sizeof(CcuInsHandle),
+            "[TEMP-DBG] cfg[%p] sizeof(cfg)[%zu] sizeof(HcommCcuInstanceHandle)[%zu] ccu_ins.off[%zu] key.off[%zu] "
+            "ptr.off[%zu]",
+            static_cast<const void*>(cfg), total, sizeof(HcommCcuInstanceHandle),
             static_cast<size_t>(offsetof(asccomm_launch_kernel_cfg, ccu_ins)),
             static_cast<size_t>(offsetof(asccomm_launch_kernel_cfg, ccu_ins.ccuInsKey)),
             static_cast<size_t>(offsetof(asccomm_launch_kernel_cfg, ccu_ins.ccuInsPtr)));
@@ -212,9 +212,8 @@ extern "C" ccu_result asccomm_ccu_host_kernel_launch(
         }
         ASCCOMM_CCU_LOG_ERROR(
             "[TEMP-DBG] ccu_ins.key[0x%llx] ccu_ins.ptr[%p] stream[%p] attrs[%p]",
-            static_cast<unsigned long long>(cfg->ccu_ins.ccuInsKey),
-            static_cast<const void*>(cfg->ccu_ins.ccuInsPtr), static_cast<void*>(cfg->stream),
-            static_cast<void*>(cfg->attrs));
+            static_cast<unsigned long long>(cfg->ccu_ins.ccuInsKey), static_cast<const void*>(cfg->ccu_ins.ccuInsPtr),
+            static_cast<void*>(cfg->stream), static_cast<void*>(cfg->attrs));
     }
 
     CcuResult ret = ValidateLaunchCfg(cfg);

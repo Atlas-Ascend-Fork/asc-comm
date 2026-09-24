@@ -84,7 +84,7 @@ CcuResult ccu_kernel_registry::reset()
 
 asc_ccu_res_snapshot* ccu_kernel_registry::get_res_snapshot() { return res_snapshot_.get(); }
 
-void ccu_kernel_registry::set_handle(CcuInsHandle ins_handle) { ins_handle_ = ins_handle; }
+void ccu_kernel_registry::set_handle(HcommCcuInstanceHandle ins_handle) { ins_handle_ = ins_handle; }
 
 CcuResult ccu_kernel_registry::save_kernel(const ccu_kernel_handle kernel_handle)
 {

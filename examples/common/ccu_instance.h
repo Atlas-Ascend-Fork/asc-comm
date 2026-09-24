@@ -14,20 +14,35 @@
 #include <cstdint>
 
 #include <hccl/hccl_rank_graph.h>
+#include <ccu/ccu_types.h>          // 对外 token 句柄（CcuInsHandle，安装包 hcomm 提供）
 #include <ccu/hcomm/ccu_api_types.h>
 #include <hcomm/hcomm_ccu_resource.h>
 
-extern "C" HcclResult HcclCommQueryCcuIns(HcclComm comm, CcuInsHandle* insHandles, uint32_t* insNum);
+extern "C" HcommResult HcommCommQueryCcuIns(HcclComm comm, HcommCcuInstanceHandle* insHandles, uint32_t* insNum);
+extern "C" HcommResult HcommCcuInsQueryInstance(uint64_t ccuInsKey, HcommCcuInstanceHandle* instanceHandle);
 
 namespace asccomm_examples {
 
 constexpr uint32_t CCU_MAX_DIE_NUM = 2;
 
-inline HcclResult QueryCcuInstance(HcclComm comm, CcuInsHandle& insHandle)
+/**
+ * 查询通信域 CCU 实例并兑换为原语链句柄（两步）：
+ * HcommCommQueryCcuIns 返回 HcommCcuInstanceHandle（含数据面 POD 借用，
+ * 供 asccomm_ccu_kernel_register* 原语与 ASC launch 使用，随通信域生命周期有效）。
+ */
+inline HcclResult QueryCcuInstance(HcclComm comm, HcommCcuInstanceHandle& insHandle)
 {
+    HcommCcuInstanceHandle instanceHandle{};
     uint32_t insNum = 0;
-    HcclResult ret = HcclCommQueryCcuIns(comm, &insHandle, &insNum);
-    return ret == HCCL_SUCCESS && insNum != 1 ? HCCL_E_INTERNAL : ret;
+    HcommResult ret = HcommCommQueryCcuIns(comm, &instanceHandle, &insNum);
+    if (ret != 0) {
+        return static_cast<HcclResult>(ret);
+    }
+    if (insNum != 1) {
+        return HCCL_E_INTERNAL;
+    }
+    insHandle = instanceHandle;
+    return HCCL_SUCCESS;
 }
 
 inline HcclResult QueryEndpointDie(HcclComm comm, uint32_t rankId, const EndpointDesc& endpoint, uint32_t& dieId)
