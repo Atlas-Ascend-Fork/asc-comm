@@ -23,7 +23,7 @@ New API documents are recommended to contain the following sections:
 - When describing protocol capabilities in documents, clearly state supported scope such as `COMM_PROTOCOL_ROCE` and `COMM_PROTOCOL_UBC_CTP`.
 - If an API involves communication channels, registered memory or operator capabilities, clarify resource preparation requirements in constraints.
 - Sample code shall reflect verifiable invocation patterns. Explicitly state prerequisites for code snippets that cannot run independently.
-- When changing API behaviors, synchronously update `docs/api/README.md`, relevant guides, examples and UT descriptions.
+- When changing API behaviors, synchronously update `docs/en/api/README.md`, relevant guides, examples and UT descriptions.
 
 ## Pre-submission Checklist
 
