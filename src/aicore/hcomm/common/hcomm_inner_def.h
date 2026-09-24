@@ -49,7 +49,7 @@ struct UrmaWqeEntry {
 
 static constexpr UrmaWqeEntry URMA_DEFAULT_CFG = {
     .odr = 5,
-    .fence = 1,
+    .fence = 0,
     .se = 0,
     .cqe = 1,
     .inlineEn = 0,
