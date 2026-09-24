@@ -655,6 +655,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
     }
 
     auto sqCtx = channelEntity->sqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    Lock(channel);
     uint32_t curHead = channelEntity->sqHead;
     uint32_t cqeCnt = channelEntity->cqHead;
     HCOMM_KERNEL_LOG(
@@ -716,7 +717,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PostSend(
     }
     curHead += wqeBbCnt;
     channelEntity->sqHead = curHead;
-
+    Unlock(channel);
     if constexpr (commit) {
         CommitImpl(channel, sqCtx, curHead, cqeCnt);
     }
@@ -804,6 +805,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
     }
     __gm__ ChannelEntity* channelEntity = (__gm__ ChannelEntity*)channel;
     auto cqCtx = channelEntity->cqContextAddr[HCOMM_URMA_DEFAULT_QP_IDX];
+    Lock(channel);
     uint32_t curTail = channelEntity->cqTail;
     uint32_t sqTail = channelEntity->sqTail;
 
@@ -821,6 +823,7 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
     // ring CQ doorbell
     st_dev(curTail & 0xFFFFFFU, (__gm__ uint32_t*)cqCtx.contextInfo.ubJfc.dbVa, 0);
 
+    Unlock(channel);
     return HCOMM_SUCCESS;
 }
 
