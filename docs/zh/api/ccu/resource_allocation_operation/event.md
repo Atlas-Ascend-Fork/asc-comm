@@ -52,7 +52,7 @@ public:
 } // namespace AscendC
 ```
 
-## 构造函数说明、
+## 构造函数说明
 
 - 默认构造
 

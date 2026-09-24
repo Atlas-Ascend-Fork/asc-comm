@@ -25,7 +25,7 @@
 
 头文件为：`#include "ccu/ccu_primitives.hpp"`
 
-`load_arg`在kernel函数体内调用，将host下发的参数加载到`variable`。host每次调用[HcommCcuKernelLaunch](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelLaunch.md)下发Kernel时，通过`taskArgs`数组传入参数；Kernel开始执行前，由硬件将`taskArgs[arg_id]`的值写入目标`variable`对应的寄存器，作为其初值。
+`load_arg`在kernel函数体内调用，将host下发的参数加载到`variable`。host每次调用[`HcommCcuKernelLaunch`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelLaunch.md)下发Kernel时，通过`taskArgs`数组传入参数；Kernel开始执行前，由硬件将`taskArgs[arg_id]`的值写入目标`variable`对应的寄存器，作为其初值。
 
 本接口在注册阶段仅记录声明，不执行加载，实际加载由硬件在每次下发时完成。由此，同一份已注册的Kernel每次下发可携带不同参数，无须重复注册。
 

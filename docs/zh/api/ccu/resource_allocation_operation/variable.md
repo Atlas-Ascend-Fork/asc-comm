@@ -86,7 +86,7 @@ public:
 多次用同一预约句柄和同一`index`构造，得到的多个`variable`对象共享同一个物理标量寄存器。
 
 > [!CAUTION]注意
-> copy/move构造函数只拷贝`handle`字段、不申请新的标量寄存器。`variable v2 = v1;`后两个对象是同一个kernel内句柄。如需独立的Variable，使用默认构造或[`array<variable>`](array.md)。
+> copy/move构造函数只拷贝`handle`字段、不申请新的标量寄存器。`variable v2 = v1;`后两个对象是同一个kernel内句柄。如需独立的variable，使用默认构造或[`array<variable>`](array.md)。
 
 ## 运算符说明
 

@@ -1,4 +1,4 @@
-# WriteReduce
+# write_reduce
 
 ## 产品支持情况
 
@@ -32,7 +32,7 @@
 ```cpp
 namespace AscendC {
 namespace ccu {
-CcuResult WriteReduce(ChannelHandle ch, remote_addr remote, local_addr local,
+CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
                       variable len, HcclDataType data_type, HcclReduceOp op_type,
                       event event, uint16_t mask = 1);
 } // namespace ccu
@@ -69,7 +69,7 @@ CcuResult WriteReduce(ChannelHandle ch, remote_addr remote, local_addr local,
 
 - 对端`remote`内存须在调用前已写入有效初值，否则归约结果未定义。
 - 参数顺序为目的端在前、源端在后：`write_reduce(ch, remote, local, ...)`，顺序写反会因类型不同在编译期报错。
-> 本接口不会返回`CCU_E_PARA`：同一kernel内所有channel须属于同一die，该约束由[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)统一校验，违反时由注册接口返回`CCU_E_PARA`，详见[约束说明](#约束说明)。
+> 本接口不会返回`CCU_E_PARA`：同一kernel内所有channel须属于同一die，该约束由[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)统一校验，违反时由注册接口返回`CCU_E_PARA`。
 - 本接口为异步操作，须通过`event_wait(event, mask)`等待归约完成，方可保证对端数据可见。
 
 ## 调用示例

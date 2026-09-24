@@ -61,9 +61,10 @@ CcuResult notify_wait(ChannelHandle channel, uint32_t local_notify_idx, uint16_t
 
 - `notify_wait`可在硬件loop的循环体内调用。
 - 同一kernel内所有channel须属于同一die，不同die的channel不可混入同一kernel。该约束由[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)统一校验，违反时返回`CCU_E_PARA`。
-- `notify_record`的`local_notify_idx`和`notify_wait`的`remote_notify_idx`数值相同。
-- 单个[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)可用的notify槽位最多8个，因此`remote_notify_idx`的取值范围为0~7。
-- 调用本接口前，应先调用`notify_record`将标志位置位，否则将永久阻塞导致硬件级死锁。
+- `notify_record`的`remote_notify_idx`和`notify_wait`的`local_notify_idx`数值相同。
+- `notify_record`和`notify_wait`的`mask`相同。
+- 单个[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)可用的notify槽位最多8个，因此`local_notify_idx`的取值范围为0~7。
+- 调用本接口前，应先调用`notify_record`将对端标志位置位，否则将永久阻塞导致硬件级死锁。
 
 ## 调用示例
 

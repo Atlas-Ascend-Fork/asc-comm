@@ -53,7 +53,7 @@
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
 | ch | 输入 | 跨rank通道句柄。 |
-| remote | 输出 | 目的地址，类型为`remote_addr`。 |
+| remote | 输入 | 目的地址，类型为`remote_addr`。 |
 | local | 输入 | 源地址，<br>&bull;本端HBM -> 对端HBM：类型为`local_addr`。<br>&bull;本端CCU Buffer -> 对端HBM：类型为`ccu_buffer`。 |
 | len | 输入 | 写入字节数，类型为`variable`，实际值在执行阶段取自对应的Xn寄存器。 |
 | event | 输入 | 完成事件对象，硬件写入完成时自动将`event`中`mask`对应的标志位设置为1，下游调用`event_wait(event, mask)`等待。 |
