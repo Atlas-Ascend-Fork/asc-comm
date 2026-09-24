@@ -23,7 +23,7 @@
 - 文档中涉及协议能力时，需要明确支持范围，例如`COMM_PROTOCOL_ROCE`、`COMM_PROTOCOL_UBC_CTP`。
 - 若接口涉及通信通道、注册内存或算子工程能力，需要在约束说明中写清资源准备要求。
 - 示例代码应能反映可验证的调用方式；无法独立运行的片段需要明确说明前置条件。
-- 修改API行为时，应同步更新`docs/api/README.md`、相关guide、examples和UT说明。
+- 修改API行为时，应同步更新`docs/zh/api/README.md`、相关guide、examples和UT说明。
 
 ## 检查建议
 
