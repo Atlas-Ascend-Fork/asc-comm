@@ -149,8 +149,6 @@ CcuResult asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle, uint32_
     return CcuResult::CCU_SUCCESS;
 }
 
-// notifywait 默认等待时长（沿用旧 host launch 路径口径；POD 时代的秒级 timeoutSec 已随
-// HcommCcuLaunchContextPod 一并废弃，如需可感知超时后续在 launch 签名上扩展参数）
 constexpr uint32_t CCU_NOTIFY_DEFAULT_WAIT_TIME = 27U * 68U;
 
 static CcuResult launch_ccu_tasks(const asc::ccu_task_param& param, const aclrtStream stream)

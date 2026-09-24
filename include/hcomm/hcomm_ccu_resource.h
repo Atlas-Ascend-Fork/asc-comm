@@ -288,16 +288,6 @@ typedef struct HcommCcuInstance {
                                                     // 预留
 } HcommCcuInstance;
 
-/**
- * @brief 查询 HCCL 通信域持有的 CCU Instance。
- * @param[in] comm HCCL 通信域句柄，不可为 nullptr。
- * @param[out] instance hcomm 持有的只读 CCU Instance 借用指针。
- * @return HcclResult。
- * @note instance 从通信域初始化成功后有效，到 HcclCommDestroy 开始销毁前失效；
- *       RegisterStart 不得与通信域销毁并发，RegisterStart 返回前由 asc-comm 深拷贝。
- */
-extern HcclResult HcclCommQueryCcuRegisterContext(HcclComm comm, HcommCcuInstanceHandle* instance);
-
 #ifdef __cplusplus
 } // extern "C"
 
