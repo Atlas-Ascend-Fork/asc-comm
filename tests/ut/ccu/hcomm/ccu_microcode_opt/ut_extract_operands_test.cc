@@ -64,10 +64,11 @@ TEST(ExtractOperandsV2Test, LoadImdToX_WritesXn)
 TEST(ExtractOperandsV2Test, LoadStoreX_ReadWriteXn)
 {
     ccu_instr instr = make_instr(code::load_type, code::loadstorex_code);
+    instr.v2.load_store_x.o_mode = 1;
     instr.v2.load_store_x.xd_id = 1;
     instr.v2.load_store_x.xs_id = 2;
-    instr.v2.load_store_x.xso_id = 3;
-    instr.v2.load_store_x.xdo_id = 4;
+    instr.v2.load_store_x.xso = 3;
+    instr.v2.load_store_x.xdo = 4;
 
     auto ops = extract_operands_v2(instr);
     EXPECT_EQ(ops.size(), 4u);
@@ -75,6 +76,23 @@ TEST(ExtractOperandsV2Test, LoadStoreX_ReadWriteXn)
     EXPECT_TRUE(contains(ops, make_read(reg_type::xn, 2)));
     EXPECT_TRUE(contains(ops, make_read(reg_type::xn, 3)));
     EXPECT_TRUE(contains(ops, make_read(reg_type::xn, 4)));
+}
+
+TEST(ExtractOperandsV2Test, LoadStoreX_ImmediateMode_IgnoresOffsets)
+{
+    ccu_instr instr = make_instr(code::load_type, code::loadstorex_code);
+    instr.v2.load_store_x.o_mode = 0;
+    instr.v2.load_store_x.xd_id = 1;
+    instr.v2.load_store_x.xs_id = 2;
+    instr.v2.load_store_x.xso = 3;
+    instr.v2.load_store_x.xdo = 4;
+
+    auto ops = extract_operands_v2(instr);
+    EXPECT_EQ(ops.size(), 2u);
+    EXPECT_TRUE(contains(ops, make_write(reg_type::xn, 1)));
+    EXPECT_TRUE(contains(ops, make_read(reg_type::xn, 2)));
+    EXPECT_FALSE(contains(ops, make_read(reg_type::xn, 3)));
+    EXPECT_FALSE(contains(ops, make_read(reg_type::xn, 4)));
 }
 
 TEST(ExtractOperandsV2Test, ClearX_WritesBoth)

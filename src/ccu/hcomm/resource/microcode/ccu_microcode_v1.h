@@ -33,6 +33,9 @@ constexpr uint16_t ccu_load_to_xn_sec_info = 1;
 // V2 CKE 写后读需要的最坏延迟，调度补 NOP 与指令空间预留必须共用该值。
 constexpr uint32_t ccu_cke_raw_latency = 14;
 
+// V2 XN 写后读需要的最坏延迟，调度补 NOP 与指令空间预留必须共用该值。
+constexpr uint32_t ccu_xn_raw_latency = 14;
+
 #pragma pack(push, 1)
 // instr common header
 union ccu_instr_header {
@@ -520,8 +523,8 @@ struct ccu_instr_load_imd_to_x {
 struct ccu_instr_load_store_x {
     uint16_t xd_id;
     uint16_t xs_id;
-    uint16_t xso_id;
-    uint16_t xdo_id;
+    uint16_t xso;
+    uint16_t xdo;
     uint16_t o_mode : 1;
     uint16_t reserved : 15;
     uint16_t reserved1[8];
@@ -919,14 +922,17 @@ void sync_xn_instr(
     uint16_t clear_type);
 
 void add_instr(
-    ccu_instr* instr, uint16_t* ms_id, uint16_t count, uint16_t cast_en, uint16_t data_type, uint16_t set_cke_id,
-    uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t xn_id_length);
+    ccu_instr* instr, const uint16_t (&ms_id)[ccu_reduce_max_ms], uint16_t count, uint16_t cast_en,
+    uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask,
+    uint16_t clear_type, uint16_t xn_id_length);
 void max_instr(
-    ccu_instr* instr, uint16_t* ms_id, uint16_t count, uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask,
-    uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t xn_id_length);
+    ccu_instr* instr, const uint16_t (&ms_id)[ccu_reduce_max_ms], uint16_t count, uint16_t data_type,
+    uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type,
+    uint16_t xn_id_length);
 void min_instr(
-    ccu_instr* instr, uint16_t* ms_id, uint16_t count, uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask,
-    uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type, uint16_t xn_id_length);
+    ccu_instr* instr, const uint16_t (&ms_id)[ccu_reduce_max_ms], uint16_t count, uint16_t data_type,
+    uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t wait_cke_id, uint16_t wait_cke_mask, uint16_t clear_type,
+    uint16_t xn_id_length);
 
 namespace ccu_v2 {
 void nop(ccu_instr* instr);
@@ -1036,14 +1042,14 @@ void sync_at_x(
     ccu_instr* instr, uint16_t dst_addr, uint16_t dst_token, uint16_t src_id, uint16_t channel_id, uint16_t set_cke_id,
     uint16_t set_cke_mask);
 void reduce_add(
-    ccu_instr* instr, uint16_t* ms, uint16_t count, uint16_t cast_en, uint16_t data_type, uint16_t set_cke_id,
-    uint16_t set_cke_mask, uint16_t xn_id_length);
+    ccu_instr* instr, const uint16_t (&ms)[ccu_reduce_max_ms], uint16_t count, uint16_t cast_en, uint16_t data_type,
+    uint16_t set_cke_id, uint16_t set_cke_mask, uint16_t xn_id_length);
 void reduce_max(
-    ccu_instr* instr, uint16_t* ms, uint16_t count, uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask,
-    uint16_t xn_id_length);
+    ccu_instr* instr, const uint16_t (&ms)[ccu_reduce_max_ms], uint16_t count, uint16_t data_type, uint16_t set_cke_id,
+    uint16_t set_cke_mask, uint16_t xn_id_length);
 void reduce_min(
-    ccu_instr* instr, uint16_t* ms, uint16_t count, uint16_t data_type, uint16_t set_cke_id, uint16_t set_cke_mask,
-    uint16_t xn_id_length);
+    ccu_instr* instr, const uint16_t (&ms)[ccu_reduce_max_ms], uint16_t count, uint16_t data_type, uint16_t set_cke_id,
+    uint16_t set_cke_mask, uint16_t xn_id_length);
 void rel_jmp(ccu_instr* instr, uint16_t target_xn_id, uint32_t jmp_instr_id, uint16_t xn0, uint16_t xn1);
 std::string parse_instr_v2(const ccu_instr* instr);
 }; // namespace ccu_v2

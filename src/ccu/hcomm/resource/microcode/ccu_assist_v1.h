@@ -29,8 +29,8 @@ uint64_t ccu_combine_token_info(uint64_t token_id, uint64_t token_value, uint64_
 
 uint16_t get_ccu_reduce_type(HcclReduceOp reduce_op);
 uint16_t get_ccu_data_type(HcclDataType data_type, HcclReduceOp reduce_op);
-uint16_t get_ub_reduce_type(HcclReduceOp reduce_op);
-uint16_t get_ub_data_type(HcclDataType data_type);
+CcuResult get_ub_reduce_type(HcclReduceOp reduce_op, uint16_t& result);
+CcuResult get_ub_data_type(HcclDataType data_type, uint16_t& result);
 
 uint64_t get_loop_param(uint64_t loop_ctx_id, uint64_t gsa_offset, uint64_t loop_iter_num);
 uint64_t get_parallel_param(uint64_t repeat_num, uint64_t repeat_loop_index, uint64_t total_loop_num);

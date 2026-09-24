@@ -1975,9 +1975,14 @@ HcclResult ccu_kernel::read_reduce_nb(
     uint32_t mask)
 {
     channels_.insert(channel);
+    uint16_t data_type_id = 0;
+    CcuResult ret = ccu_rep::get_ub_data_type(data_type, data_type_id);
+    CHK_PRT_RET(ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] get data type failed, ret[%d]", __func__, ret), HCCL_E_PARA);
+    uint16_t reduce_type_id = 0;
+    ret = ccu_rep::get_ub_reduce_type(op_type, reduce_type_id);
+    CHK_PRT_RET(ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] get reduce type failed, ret[%d]", __func__, ret), HCCL_E_PARA);
     auto rep = std::make_shared<ccu_rep::ccu_rep_read>(
-        ins_generator_, channel, loc, rem, len, ccu_rep::get_ub_data_type(data_type),
-        ccu_rep::get_ub_reduce_type(op_type), event, mask);
+        ins_generator_, channel, loc, rem, len, data_type_id, reduce_type_id, event, mask);
     append(rep);
     set_dependency_info(event.id(), mask, rep);
     return HCCL_SUCCESS;
@@ -2001,9 +2006,14 @@ HcclResult ccu_kernel::write_reduce_nb(
     uint32_t mask)
 {
     channels_.insert(channel);
+    uint16_t data_type_id = 0;
+    CcuResult ret = ccu_rep::get_ub_data_type(data_type, data_type_id);
+    CHK_PRT_RET(ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] get data type failed, ret[%d]", __func__, ret), HCCL_E_PARA);
+    uint16_t reduce_type_id = 0;
+    ret = ccu_rep::get_ub_reduce_type(op_type, reduce_type_id);
+    CHK_PRT_RET(ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] get reduce type failed, ret[%d]", __func__, ret), HCCL_E_PARA);
     auto rep = std::make_shared<ccu_rep::ccu_rep_write>(
-        ins_generator_, channel, rem, loc, len, ccu_rep::get_ub_data_type(data_type),
-        ccu_rep::get_ub_reduce_type(op_type), event, mask);
+        ins_generator_, channel, rem, loc, len, data_type_id, reduce_type_id, event, mask);
     append(rep);
     set_dependency_info(event.id(), mask, rep);
     return HCCL_SUCCESS;
@@ -2048,9 +2058,14 @@ HcclResult ccu_kernel::local_reduce_nb(
     const ccu_rep::local_addr& dst, const ccu_rep::local_addr& src, const ccu_rep::variable& len,
     HcclDataType data_type, HcclReduceOp op_type, ccu_rep::completed_event event, uint32_t mask)
 {
+    uint16_t data_type_id = 0;
+    CcuResult ret = ccu_rep::get_ub_data_type(data_type, data_type_id);
+    CHK_PRT_RET(ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] get data type failed, ret[%d]", __func__, ret), HCCL_E_PARA);
+    uint16_t reduce_type_id = 0;
+    ret = ccu_rep::get_ub_reduce_type(op_type, reduce_type_id);
+    CHK_PRT_RET(ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] get reduce type failed, ret[%d]", __func__, ret), HCCL_E_PARA);
     auto rep = std::make_shared<ccu_rep::ccu_rep_loc_cpy>(
-        ins_generator_, dst, src, len, ccu_rep::get_ub_data_type(data_type), ccu_rep::get_ub_reduce_type(op_type),
-        event, mask);
+        ins_generator_, dst, src, len, data_type_id, reduce_type_id, event, mask);
     append(rep);
     set_dependency_info(event.id(), mask, rep);
     return HCCL_SUCCESS;

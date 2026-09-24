@@ -51,7 +51,7 @@ public:
     uint16_t get_reduce_flag() const { return reduce_flag_; }
     bool get_use_ccu_buffer() const { return use_ccu_buffer_; }
 
-    uint16_t get_first_buf_id();
+    CcuResult get_first_buf_id(uint16_t& result);
     uint16_t get_used_buf_num();
 
 private:

@@ -214,7 +214,7 @@ HcclResult ccu_ins_generater_v1::ccu_rep_buf_reduce_translate(
     // 这里需要注意，在数据格式膨胀的情况下，需要传入用来存放输出的MSId
     // 特别是2P场景，输入MS的数目为2，但是在8bit进，32bit出的场景，输出MS的数目为4
     // 传入的MS中已经包含了需要使用的输入输出的最大量，因此，这里应该直接去MS的size
-    auto mem = ccu_rep_buf_reduce->get_mem();
+    const auto& mem = ccu_rep_buf_reduce->get_mem();
     uint16_t ms_id[ccu_reduce_max_ms] = {0};
     for (uint16_t i = 0; i < mem.size(); i++) {
         ms_id[i] = mem[i].id();
