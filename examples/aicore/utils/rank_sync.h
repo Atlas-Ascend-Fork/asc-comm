@@ -35,6 +35,7 @@
 #include <cstring>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <string>
 #include <thread>
 #include <unistd.h>
@@ -213,7 +214,11 @@ private:
     {
         struct timeval tv = {};
         tv.tv_sec = kSockTimeoutSec;
-        return setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) == 0 &&
+        // Headers and payloads are sent separately. Disable Nagle so delayed ACK
+        // does not hold a barrier reply and skew rank launch times by tens of ms.
+        const int noDelay = 1;
+        return setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &noDelay, sizeof(noDelay)) == 0 &&
+               setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) == 0 &&
                setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) == 0;
     }
 
