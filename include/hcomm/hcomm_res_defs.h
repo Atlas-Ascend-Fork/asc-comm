@@ -21,7 +21,7 @@
 extern "C" {
 #endif // __cplusplus
 
-static const uint32_t COMM_ADDR_EID_LEN = 16U;
+enum { COMM_ADDR_EID_LEN = 16U };
 
 typedef int32_t HcommResult;
 
