@@ -92,8 +92,9 @@ __simt_callee__ inline bool HcommSimtTryReserve(
         return false;
     }
 
-    uint64_t delta = (static_cast<uint64_t>(cqeCnt) << 32U) | static_cast<uint64_t>(bbCnt);
-    *headAddr = headVal + delta;
+    uint32_t nextHeadIdx = HcommSimtHeadIdx(headVal) + bbCnt;
+    uint32_t nextWqeCnt = HcommSimtWqeCnt(headVal) + cqeCnt;
+    *headAddr = (static_cast<uint64_t>(nextWqeCnt) << 32U) | static_cast<uint64_t>(nextHeadIdx);
     return true;
 }
 
