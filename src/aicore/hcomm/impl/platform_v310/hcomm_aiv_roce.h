@@ -538,6 +538,11 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
 {
     static_assert(config.cqe == 0 || config.cqe == 1, "BatchPostSend only supports cqe values 0 and 1.");
     static_assert(sizeof(RoceWqeEntry) == HCOMM_ROCE_WQEBB_SIZE, "One RoCE WQE must occupy one WQEBB.");
+    static_assert(
+        sizeof(RoceWqeCtrlSeg) == ROCE_1825_WQE_CTRL_SEG_SIZE &&
+            sizeof(RoceWqeTaskSeg) == ROCE_1825_WQE_TASK_SEG_SIZE &&
+            sizeof(RoceWqeDataSeg) == ROCE_1825_WQE_DATA_SEG_SIZE,
+        "RoCE WQE segments must keep their 64-bit word layout.");
 
     auto* chnlPtr = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
     if (batchHandle.channelHandle == 0U || remoteAddr == 0 || localDescs == nullptr || wqeNum == 0 ||
@@ -552,30 +557,50 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
         return HCOMM_FAILED;
     }
 
-    if (HcommFindBufferIdx(chnlPtr->remoteBufferAddr, chnlPtr->remoteBufferNum, remoteAddr, 1) < 0) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend: failed with invalid remote addr %llu.\n", remoteAddr);
-        return HCOMM_FAILED;
-    }
-    for (uint32_t i = 0; i < wqeNum; ++i) {
-        if (localDescs[i].addr == 0 || localDescs[i].len == 0 || localDescs[i].len >= ROCE_1825_WQE_MAX_DATA_LEN ||
-            HcommFindBufferIdx(
-                chnlPtr->localBufferAddr, chnlPtr->localBufferNum, localDescs[i].addr, localDescs[i].len) < 0) {
-            HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchPostSend: failed with invalid local desc.\n");
-            return HCOMM_FAILED;
-        }
-    }
-
     LocalTensor<uint32_t> currentWqe = batchHandle.buffer.buffer[preSqCnt * HCOMM_ROCE_WQEBB_U32_NUM];
-    __ubuf__ RoceWqeEntry* wqeBasePtr = reinterpret_cast<__ubuf__ RoceWqeEntry*>(currentWqe.GetPhyAddr());
+    __ubuf__ uint64_t* wqeBasePtr = reinterpret_cast<__ubuf__ uint64_t*>(currentWqe.GetPhyAddr());
     uint32_t sqDepth = batchHandle.sqContext.contextInfo.roceSq.depth;
     uint32_t baseHead = batchHandle.cursor.preSqCnt + batchHandle.cursor.sqHead;
+
+    const uint32_t remoteKeyBe = HtoNL(batchHandle.mrKey.rKey);
+    const uint32_t localKeyBe = HtoNL(batchHandle.mrKey.lKey & 0xffffU);
+    const uint32_t dataKeyBe =
+        HtoNL((batchHandle.mrKey.lKey & (~ROCE_1825_WQE_NEXT_SGE_INVALID)) | ROCE_1825_WQE_NEXT_SGE_INVALID);
+    const uint64_t remoteAddrBe = HtoNLL((uint64_t)remoteAddr);
+    const uint32_t taskCtrlBe = HtoNL(
+        ((config.cqe & 1U) << ROCE_1825_WQE_TASK_CQE_SIGNAL_SHIFT) |
+        ((config.fence & 1U) << ROCE_1825_WQE_TASK_FENCE_SHIFT) |
+        ((static_cast<uint32_t>(opType) & 0x1fU) << ROCE_1825_WQE_TASK_OPTYPE_SHIFT));
+    const uint32_t dw3Be = opType == HCOMM_ROCE_OP_TYPE::READ ? HtoNL(ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN) : 0U;
+    const uint32_t clPiBe = HtoNL(ROCE_1825_WQE_CMP_TASK_LEN1 << ROCE_1825_WQE_CMP_TASK_LEN_SHIFT);
+    const uint16_t wfBdslBaseBe = HtoNS(static_cast<uint16_t>(
+        static_cast<uint32_t>(1) << (ROCE_1825_WQE_DATA_SEG_SHIFT - ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
+    const uint8_t dfTsl = static_cast<uint8_t>(
+        (config.cqe == 1 ? (1U << ROCE_1825_WQE_SQ_SIGNAL_SHIFT) : 0U) | ROCE_1825_WQE_SQ_VA_VALUE |
+        (sizeof(RoceWqeTaskSeg) / ROCE_1825_WQE_TASK_SEG_ALIGN));
+
     Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
     for (uint32_t i = 0U; i < wqeNum; i++) {
-        FillCtrlSeg(wqeBasePtr + i, baseHead + i, sqDepth, config.cqe);
-        FillTaskSeg(
-            wqeBasePtr + i, remoteAddr, localDescs[i].len, static_cast<uint32_t>(opType), batchHandle.mrKey.rKey,
-            batchHandle.mrKey.lKey, config.fence);
-        FillDataSeg(wqeBasePtr + i, localDescs[i].addr, localDescs[i].len, batchHandle.mrKey.lKey);
+        uint32_t head = baseHead + i;
+        uint16_t wfBdslBe =
+            wfBdslBaseBe | HtoNS(static_cast<uint16_t>((head & ROCE_1825_WQE_SSN_MASK) << ROCE_1825_WQE_SSN_SHIFT));
+        uint8_t ownerSl = static_cast<uint8_t>(
+            (((head & sqDepth) == 0U ? 0U : 1U) << ROCE_1825_WQE_OWNER_SHIFT) | ROCE_1825_WQE_CTRL_VALUE);
+        uint32_t lenBe = HtoNL(localDescs[i].len);
+        __ubuf__ uint64_t* wqe = wqeBasePtr + i * HCOMM_ROCE_WQEBB_U64_NUM;
+
+        // RoceWqeEntry is laid out as eight 64-bit words. Values that are sent to the NIC
+        // remain in network byte order, matching FillCtrlSeg/FillTaskSeg/FillDataSeg.
+        wqe[0] = static_cast<uint64_t>(ownerSl) | (static_cast<uint64_t>(dfTsl) << ROCE_1825_WQE_BYTE_BITS) |
+                 (static_cast<uint64_t>(wfBdslBe) << ROCE_1825_WQE_HALFWORD_BITS) |
+                 (static_cast<uint64_t>(clPiBe) << ROCE_1825_WQE_WORD_BITS);
+        wqe[1] = 0;
+        wqe[2] = static_cast<uint64_t>(taskCtrlBe) | (static_cast<uint64_t>(lenBe) << ROCE_1825_WQE_WORD_BITS);
+        wqe[3] = static_cast<uint64_t>(dw3Be) << ROCE_1825_WQE_WORD_BITS;
+        wqe[4] = remoteAddrBe;
+        wqe[5] = static_cast<uint64_t>(remoteKeyBe) | (static_cast<uint64_t>(localKeyBe) << ROCE_1825_WQE_WORD_BITS);
+        wqe[6] = HtoNLL((uint64_t)localDescs[i].addr);
+        wqe[7] = static_cast<uint64_t>(lenBe) | (static_cast<uint64_t>(dataKeyBe) << ROCE_1825_WQE_WORD_BITS);
     }
     Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
 

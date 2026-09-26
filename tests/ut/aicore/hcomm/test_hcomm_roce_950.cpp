@@ -217,3 +217,44 @@ TEST_F(HcommRoCETestSuite, BatchPostSendUsesWqebbStride)
     EXPECT_EQ(secondWqe->task.dataLen, firstWqe->task.dataLen);
     EXPECT_NE(secondWqe->data.vaLocal, firstWqe->data.vaLocal);
 }
+
+TEST_F(HcommRoCETestSuite, BatchPostSendUses64BitWqeEncoding)
+{
+    Hcomm<COMM_PROTOCOL_ROCE> hcomm;
+    ASSERT_EQ(hcomm.Init(tempTensor_, 512), HCOMM_SUCCESS);
+    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
+    channel_.sqHead = 0;
+    channel_.sqTail = 0;
+    channel_.cqHead = 0;
+    channel_.cqTail = 0;
+    auto batchHandle = hcomm.MakeBatchHandle(
+        channelHandle, tempTensor_, 256, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
+    ASSERT_NE(batchHandle.channelHandle, 0U);
+
+    ASSERT_EQ(
+        hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
+        HCOMM_SUCCESS);
+    ASSERT_EQ(
+        hcomm.ReadNbi<kRoceNoCqeCfg>(
+            batchHandle, reinterpret_cast<GM_ADDR>(0x120), reinterpret_cast<GM_ADDR>(0x220), 11),
+        HCOMM_SUCCESS);
+
+    RoceWqeEntry expected[2]{};
+    hcomm.impl_.FillCtrlSeg(&expected[0], 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth, 1);
+    hcomm.impl_.FillTaskSeg(
+        &expected[0], reinterpret_cast<GM_ADDR>(0x200), 10, static_cast<uint32_t>(HCOMM_ROCE_OP_TYPE::WRITE),
+        batchHandle.mrKey.rKey, batchHandle.mrKey.lKey, ROCE_DEFAULT_CFG.fence);
+    hcomm.impl_.FillDataSeg(&expected[0], reinterpret_cast<GM_ADDR>(0x110), 10, batchHandle.mrKey.lKey);
+
+    hcomm.impl_.FillCtrlSeg(&expected[1], 1, channel_.sqContextAddr[0].contextInfo.roceSq.depth, 0);
+    hcomm.impl_.FillTaskSeg(
+        &expected[1], reinterpret_cast<GM_ADDR>(0x220), 11, static_cast<uint32_t>(HCOMM_ROCE_OP_TYPE::READ),
+        batchHandle.mrKey.rKey, batchHandle.mrKey.lKey, kRoceNoCqeCfg.fence);
+    hcomm.impl_.FillDataSeg(&expected[1], reinterpret_cast<GM_ADDR>(0x120), 11, batchHandle.mrKey.lKey);
+
+    auto* actualWords = reinterpret_cast<uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
+    auto* expectedWords = reinterpret_cast<uint64_t*>(expected);
+    for (uint32_t i = 0; i < 2 * HCOMM_ROCE_WQEBB_U64_NUM; ++i) {
+        EXPECT_EQ(actualWords[i], expectedWords[i]) << "word=" << i;
+    }
+}
