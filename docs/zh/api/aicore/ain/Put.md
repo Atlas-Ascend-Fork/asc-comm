@@ -97,7 +97,7 @@ __aicore__ inline void Put(
 - 批量提交场景（多次`AIN_COMMIT_DELAYED` + 最后一次`AIN_COMMIT_IMMED`）下，仅最后一次提交应产生CQE。
 - `Put`提交的是非阻塞通信任务；需要调用`Flush`等待team内所有peer通道任务完成，或通过`FlushAsync`获取指定peer通道后调用`Wait`等待完成。
 - `AinSignalInc`和`AinSignalAdd`通过底层Hcomm原子加实现，signal地址应按`uint64_t`访问要求准备。
-- 当前只支持`COMM_PROTOCOL_UB_CTP`协议路径。单次调用`Put`的入参`bytes`取值范围为`0 < bytes <= 256 * 1024 * 1024`。
+- 当前只支持`COMM_PROTOCOL_UB_CTP`协议路径。单次调用`Put`的入参`bytes`取值范围为`0 < bytes < 256 * 1024 * 1024`。
 
 ## 调用示例
 
