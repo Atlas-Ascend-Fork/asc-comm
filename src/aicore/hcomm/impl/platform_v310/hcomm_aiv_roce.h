@@ -567,15 +567,15 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
     const uint32_t dataKeyBe =
         HtoNL((batchHandle.mrKey.lKey & (~ROCE_1825_WQE_NEXT_SGE_INVALID)) | ROCE_1825_WQE_NEXT_SGE_INVALID);
     const uint64_t remoteAddrBe = HtoNLL((uint64_t)remoteAddr);
-    const uint32_t taskCtrlBe = HtoNL(
+    constexpr uint32_t taskCtrlBe = HtoNL(
         ((config.cqe & 1U) << ROCE_1825_WQE_TASK_CQE_SIGNAL_SHIFT) |
         ((config.fence & 1U) << ROCE_1825_WQE_TASK_FENCE_SHIFT) |
         ((static_cast<uint32_t>(opType) & 0x1fU) << ROCE_1825_WQE_TASK_OPTYPE_SHIFT));
-    const uint32_t dw3Be = opType == HCOMM_ROCE_OP_TYPE::READ ? HtoNL(ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN) : 0U;
-    const uint32_t clPiBe = HtoNL(ROCE_1825_WQE_CMP_TASK_LEN1 << ROCE_1825_WQE_CMP_TASK_LEN_SHIFT);
-    const uint16_t wfBdslBaseBe = HtoNS(static_cast<uint16_t>(
+    constexpr uint32_t dw3Be = opType == HCOMM_ROCE_OP_TYPE::READ ? HtoNL(ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN) : 0U;
+    constexpr uint32_t clPiBe = HtoNL(ROCE_1825_WQE_CMP_TASK_LEN1 << ROCE_1825_WQE_CMP_TASK_LEN_SHIFT);
+    constexpr uint16_t wfBdslBaseBe = HtoNS(static_cast<uint16_t>(
         static_cast<uint32_t>(1) << (ROCE_1825_WQE_DATA_SEG_SHIFT - ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
-    const uint8_t dfTsl = static_cast<uint8_t>(
+    constexpr uint8_t dfTsl = static_cast<uint8_t>(
         (config.cqe == 1 ? (1U << ROCE_1825_WQE_SQ_SIGNAL_SHIFT) : 0U) | ROCE_1825_WQE_SQ_VA_VALUE |
         (sizeof(RoceWqeTaskSeg) / ROCE_1825_WQE_TASK_SEG_ALIGN));
 
