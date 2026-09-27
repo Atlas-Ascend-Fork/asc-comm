@@ -51,6 +51,8 @@ constexpr uint32_t ROCE_1825_WQE_TASK_SEG_ALIGN = HCOMM_ROCE_WQEBB_U64_SIZE;
 constexpr uint32_t ROCE_1825_WQE_FAST_DMA_SHIFT = 10;
 constexpr uint32_t ROCE_1825_WQE_SSN_MASK = 0x3; // low 2 bits of SQ WQE sequence number
 constexpr uint32_t ROCE_1825_WQE_SSN_SHIFT = 12; // wf_bdsl wqe_msn field
+constexpr uint32_t ROCE_1825_WQE_SSN_BE_SHIFT =
+    ROCE_1825_WQE_HALFWORD_BITS - ROCE_1825_WQE_SSN_SHIFT; // SSN occupies bits 5:4 after byte swap
 constexpr uint32_t ROCE_1825_WQE_DATA_SEG_SHIFT = 4;
 constexpr uint32_t ROCE_1825_WQE_SECTION_ALIGN_SHIFT = 3;
 constexpr uint32_t ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN = 4;
