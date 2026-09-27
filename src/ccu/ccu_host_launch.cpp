@@ -13,8 +13,11 @@
 #include "base/dlog_pub.h"
 
 #include <cstring>
+#include <functional>
 #include <mutex>
+#include <type_traits>
 #include <unordered_map>
+#include <utility>
 
 #include "xxhash_impl.inc"
 
@@ -134,6 +137,52 @@ CcuResult RegisterCcuKernel(
     return HcommCcuKernelRegisterEnd(cfg->ccu_ins);
 }
 
+struct CcuInstanceCacheIdentity {
+    uint64_t handle;
+    uintptr_t instance;
+
+    bool operator==(const CcuInstanceCacheIdentity& other) const
+    {
+        return handle == other.handle && instance == other.instance;
+    }
+};
+
+template <typename T, typename = void>
+struct CcuInstanceCacheIdentityTraits {
+    static CcuInstanceCacheIdentity Get(const T& handle) { return {static_cast<uint64_t>(handle), 0U}; }
+};
+
+template <typename T>
+struct CcuInstanceCacheIdentityTraits<
+    T, std::void_t<decltype(std::declval<T>().ccuInsKey), decltype(std::declval<T>().ccuInsPtr)>> {
+    static CcuInstanceCacheIdentity Get(const T& handle)
+    {
+        return {handle.ccuInsKey, reinterpret_cast<uintptr_t>(handle.ccuInsPtr)};
+    }
+};
+
+struct KernelCacheKey {
+    uint64_t binaryCacheTag;
+    CcuInstanceCacheIdentity instance;
+    uint64_t phyDieMask;
+
+    bool operator==(const KernelCacheKey& other) const
+    {
+        return binaryCacheTag == other.binaryCacheTag && instance == other.instance && phyDieMask == other.phyDieMask;
+    }
+};
+
+struct KernelCacheKeyHash {
+    size_t operator()(const KernelCacheKey& key) const
+    {
+        size_t hash = std::hash<uint64_t>{}(key.binaryCacheTag);
+        hash ^= std::hash<uint64_t>{}(key.instance.handle) + 0x9e3779b9U + (hash << 6U) + (hash >> 2U);
+        hash ^= std::hash<uintptr_t>{}(key.instance.instance) + 0x9e3779b9U + (hash << 6U) + (hash >> 2U);
+        hash ^= std::hash<uint64_t>{}(key.phyDieMask) + 0x9e3779b9U + (hash << 6U) + (hash >> 2U);
+        return hash;
+    }
+};
+
 class KernelHandleCache {
 public:
     CcuResult Match(
@@ -145,8 +194,11 @@ public:
             return RegisterAndGetTaskArgsNum(kernelFunc, kernelName, cfg, args, kernelHandle, taskArgsNum);
         }
 
+        const KernelCacheKey cacheKey{
+            cacheTag, CcuInstanceCacheIdentityTraits<CcuInsHandle>::Get(cfg->ccu_ins), cfg->ccu_schd.phy_die_mask};
+
         std::lock_guard<std::mutex> lock(mutex_);
-        auto iter = cache_.find(cacheTag);
+        auto iter = cache_.find(cacheKey);
         if (iter != cache_.end()) {
             kernelHandle = iter->second;
             return HcommCcuGetTaskArgsNum(kernelHandle, &taskArgsNum);
@@ -156,7 +208,7 @@ public:
         if (ret != CCU_SUCCESS) {
             return ret;
         }
-        cache_[cacheTag] = kernelHandle;
+        cache_[cacheKey] = kernelHandle;
         return CCU_SUCCESS;
     }
 
@@ -177,7 +229,7 @@ private:
     }
 
     std::mutex mutex_;
-    std::unordered_map<uint64_t, CcuKernelHandle> cache_;
+    std::unordered_map<KernelCacheKey, CcuKernelHandle, KernelCacheKeyHash> cache_;
 };
 
 KernelHandleCache& GetKernelHandleCache()
