@@ -51,6 +51,8 @@ constexpr uint32_t ROCE_1825_WQE_TASK_SEG_ALIGN = HCOMM_ROCE_WQEBB_U64_SIZE;
 constexpr uint32_t ROCE_1825_WQE_FAST_DMA_SHIFT = 10;
 constexpr uint32_t ROCE_1825_WQE_SSN_MASK = 0x3; // low 2 bits of SQ WQE sequence number
 constexpr uint32_t ROCE_1825_WQE_SSN_SHIFT = 12; // wf_bdsl wqe_msn field
+constexpr uint32_t ROCE_1825_WQE_SSN_BE_SHIFT =
+    ROCE_1825_WQE_HALFWORD_BITS - ROCE_1825_WQE_SSN_SHIFT; // SSN occupies bits 5:4 after byte swap
 constexpr uint32_t ROCE_1825_WQE_DATA_SEG_SHIFT = 4;
 constexpr uint32_t ROCE_1825_WQE_SECTION_ALIGN_SHIFT = 3;
 constexpr uint32_t ROCE_1825_WQE_RDMA_READ_LAST_EXT_LEN = 4;
@@ -114,6 +116,8 @@ public:
     template <typename U>
     __aicore__ inline UbcBatchHandle MakeBatchHandle(
         ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr);
+    __aicore__ inline UbcBatchHandle& GetHandleRef(
+        UbcBatchHandle& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr);
     template <auto const& config = ROCE_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <auto const& config = ROCE_DEFAULT_CFG>
