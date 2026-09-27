@@ -186,6 +186,12 @@ set_target_properties(asccomm_ccu PROPERTIES
 )
 target_link_libraries(asccomm_ccu PRIVATE asccomm_ccu_headers)
 
+target_link_options(asccomm_ccu PRIVATE
+    -Wl,-z,relro -Wl,-z,now
+    $<$<CONFIG:Release>:-s>
+    $<$<CONFIG:Release>:-Wl,--build-id=none>
+)
+
 if(NOT INSTALL_LIBRARY_DIR)
     set(INSTALL_LIBRARY_DIR lib64)
 endif()
