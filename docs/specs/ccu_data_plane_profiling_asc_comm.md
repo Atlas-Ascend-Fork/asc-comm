@@ -270,7 +270,8 @@ ReportCcuDataPlaneAfterLaunch(ctx)
   ├─ rtGetTaskIdAndStreamID(&taskId, &streamId)
   │    失败 → skip（打日志，不影响 launch 返回值）
   ├─ ReportCcuTaskInfo(ctx, streamId, taskId, gettid())        ← type 14
-  └─ ReportCcuWaitSignalInfo / ReportCcuGroupInfo               ← type 15/16, 空值填充
+  ├─ ReportCcuWaitSignalInfo / ReportCcuGroupInfo               ← type 15/16, 空值填充
+  └─ ReportCcuRuntimeTrack(ctx, streamId, taskId, gettid())    ← task_track, kernel名入表
 ```
 
 ### 6.2a `ReportCcuNodeApiAndBasicInfo(...)` —— Node 粒度 API 耗时条与节点基本信息
@@ -398,11 +399,43 @@ endTime、threadId = gettid），业务字段按需求以**默认空值**填充�
 type 14 → type 15 → type 16，三条记录通过相同 itemId 关联为同一次 launch。
 
 **itemId 说明**：`asccomm_ccu_host_kernel_launch` 已扩展 `const char* kernel_name` 入参
-（编译器直调转义传入 kernel 函数名字符串）。`kernel_name` 非空时 itemId 为
-`msprofStr2Id(kernel_name)`——msprof 按 Str2Id 的字符串表呈现语义名，且与 hcomm 标准
-路径同名 kernel 的 itemId 一致；同一 kernel 的所有 launch 得到相同 itemId。`kernel_name`
-为空（旧调用方 / 异常路径）时回退到 kernel 函数指针格式化字符串的 hash，此时 msprof
-界面呈现为地址形式的标识而非语义名。
+（编译器直调转义传入 kernel 函数名字符串）。编译器传入的实际是 **C++ mangled 符号名**
+（如 `_ZN11ops_comm_ag31CcuAllG...EPv`），因此注册 hash 前统一经
+`ResolveKernelItemId()` → `__cxa_demangle` 转为可读名（如
+`ops_comm_ag::CcuAllGatherMesh1DMem2MemKernel(void*)`），demangle 失败（非 mangled 串）
+时原样使用。该函数收敛了全部 kernel 粒度上报（type 14/15/16、NodeApi/NodeBasicInfo、
+task_track）的 itemId 生成，保证各记录间 ID 一致。`kernel_name` 非空时 itemId 为
+`msprofStr2Id(可读名)`——msprof 按 Str2Id 的字符串表呈现语义名；同一 kernel 的所有
+launch 得到相同 itemId。`kernel_name` 为空（旧调用方 / 异常路径）时回退到 kernel
+函数指针格式化字符串的 hash，此时 msprof 界面呈现为地址形式的标识而非语义名。
+
+### 6.3b `ReportCcuRuntimeTrack(...)` —— task_track 上报（kernel 名进 TaskTrack 表）
+
+**背景**：kernel_name 列（`rts_track.db TaskTrack` 表）的唯一直驱数据源是
+`MsprofRuntimeTrack` compact 记录。AICore kernel 由编译器 stub（`__cce_rtLaunch`）自动
+上报；CCU 直调路径此前无此记录，导致 hash 已注册（op_name 可反解）但 kernel_name 列
+恒为 N/A。hcomm 的 DFX handler 也不报此类型——本上报为直驱路径原创实现，无 hcomm 参考。
+
+| 字段 | 取值 | 说明 |
+| --- | --- | --- |
+| `level` | `MSPROF_REPORT_NODE_LEVEL`(10000) | compact 通道 |
+| `type` | 7（`MSPROF_REPORT_NODE_TASK_TRACK_TYPE`，占位值） | **见下方待验证项** |
+| `threadId` / `timeStamp` | `gettid()` / `ctx.endTime` | 常规 |
+| `runtimeTrack.deviceId` | `rtGetDevice()` 查询 | 新增 runtime 符号（可缺省，缺失时 skip） |
+| `runtimeTrack.streamId` / `taskId` | runtime 查询值 | 与 type 14 同源 |
+| `runtimeTrack.taskType` | `msprofStr2Id("Ccu")` | 与 hccl 层同桶 |
+| `runtimeTrack.kernelName` | `ResolveKernelItemId(ctx)` | 与 type 14 共享（demangle 后） |
+| `extInfo.kernelInfo.*`（numBlocks/argsSize/...） | 0 | kernel 形态无来源 → 空值 |
+
+落盘：`aging.compact.task_track.slice_N` → `rts_track.db` `TaskTrack` 表（SDK
+`TaskTrackParser` 按 64 字节定长切分，字段索引已用 ctypes+struct 模拟对齐验证通过）。
+下游：时间线 kernel 详情与 `task_time.csv` Op Name 均按 `(task_id, stream_id)` 反查
+该表。
+
+**待真机验证项**：`aprof_pub.h` 未定义 task_track 的 type 值（NODE 层枚举 3/7 空闲），
+当前取 7。SDK 解析端按文件名分派、不校验 type；但 **profapi 落盘按 `(level, type)` 路由
+文件名**，type=7 是否映射到 `task_track` 文件名需真机确认（若落到了其他文件名，调整
+常量值即可，payload 布局不变）。
 
 **type 15/16 以默认空值上报**：WaitCKE（`ccu_wait_signal_info`）与 LoopGroup
 （`ccu_group_info`）在 asc-comm 直驱路径上无业务字段来源（CCU kernel 的 taskArgs 协议中
@@ -477,16 +510,18 @@ export ASCCOMM_CCU_PROF_DEBUG=1
 #   [ASCCOMM_CCU_PROF] ReportCcuTaskInfo: type=14 itemId=0x... streamId=N taskId=N dieId=N name=<kernel名>, ret=0.
 #   [ASCCOMM_CCU_PROF] ReportCcuWaitSignalInfo: type=15 itemId=0x... streamId=N taskId=N dieId=N name=<kernel名> (no-source fields filled with invalid defaults), ret=0.
 #   [ASCCOMM_CCU_PROF] ReportCcuGroupInfo: type=16 itemId=0x... streamId=N taskId=N dieId=N name=<kernel名> (no-source fields filled with invalid defaults), ret=0.
+#   [ASCCOMM_CCU_PROF] ReportCcuRuntimeTrack: level=10000 type=7(task_track) deviceId=N streamId=N taskId=N kernelItemId=0x..., ret=0.
 #   （停止采集后）
 #   [ASCCOMM_CCU_PROF] StopCcuSubscribe: CCU profiling DEACTIVATED.
 ```
 
 **`ReportCcuTaskInfo ... ret=0` 出现即代表 payload 真正到达 profapi，链路闭环**；
-NodeApi/NodeBasicInfo/HcclTaskApi/HcclInfo/WaitSignal/GroupInfo 各行同理，`ret=0` 即
-对应通道送达。启动阶段 `RegTypeInfo type=15/16/hccl_info` 的注册从此有了实际消费者。
-真机验证：msprof 通信视图应出现以 `Ccu` 类目呈现的 API 耗时条（原始文件
+NodeApi/NodeBasicInfo/HcclTaskApi/HcclInfo/WaitSignal/GroupInfo/RuntimeTrack 各行同理，
+`ret=0` 即对应通道送达。启动阶段 `RegTypeInfo type=15/16/hccl_info` 的注册从此有了
+实际消费者。真机验证：msprof 通信视图应出现以 `Ccu` 类目呈现的 API 耗时条（原始文件
 `(aging).additional.hccl_info.slice_N`、导出库 `hccl_info.db`，业务明细为
-unknown/默认值属预期）。
+unknown/默认值属预期）；task_track 送达后 `rts_track.db TaskTrack.kernel_name` 应为
+demangle 后的 kernel 可读名。
 
 ### 7.4 日志异常排查对照表
 
@@ -542,5 +577,6 @@ unknown/默认值属预期）。
 | 上报入口 | `IsCcuProfReportReady()` / `ReportCcuDataPlaneAfterLaunch()` |
 | Node 粒度上报 | `ReportCcuNodeApiAndBasicInfo()`（API 耗时条 + 节点基本信息） |
 | hccl 层上报 | `ReportCcuHcclTaskApiAndInfo()`（TaskApi 耗时条 + hccl_info 明细，itemId="Ccu"） |
+| task_track 上报 | `ReportCcuRuntimeTrack()`（kernel 名进 TaskTrack 表）/ `ResolveKernelItemId()`（统一 itemId：demangle + 回退） |
 | payload 组装 | `ReportCcuTaskInfo()`（type 14）/ `ReportCcuWaitSignalInfo()`（type 15，空值填充）/ `ReportCcuGroupInfo()`（type 16，空值填充）/ `CcuAdditionalInfoCommonFields`（15/16 公共字段） |
 | launch 埋点 | `LaunchCcuKernelWithStream()`（`HcommCcuKernelLaunch` 前后） |

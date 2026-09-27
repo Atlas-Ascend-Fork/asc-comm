@@ -18,10 +18,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
+#include <memory>
 #include <mutex>
 #include <sys/syscall.h>
 #include <unordered_map>
 #include <unistd.h>
+
+#include <cxxabi.h> // __cxa_demangle: kernel mangled名转可读名(profiling itemId用)
 
 #include "xxhash_impl.inc"
 
@@ -291,6 +294,11 @@ constexpr uint32_t MSPROF_REPORT_CCU_WAIT_SIGNAL_INFO = 15U;
 constexpr uint32_t MSPROF_REPORT_CCU_GROUP_INFO = 16U;
 // hccl层(5500)hccl_info明细类型, 对齐hcomm ProfTaskType::TASK_HCCL_INFO
 constexpr uint32_t MSPROF_REPORT_HCCL_TASK_INFO_TYPE = 0U; // "hccl_info"
+// task_track(NODE层compact记录, 落盘aging.compact.task_track.slice -> rts_track.db):
+// aprof_pub.h未定义该type值(枚举中3/7空闲), 此处取7(与设备侧RUNTIME_TRACK语义呼应);
+// SDK解析端按文件名分派不校验type值, profapi按(level,type)路由文件名, 该值需真机
+// 验证落盘文件名确为task_track, 若profapi版本映射不同需同步调整
+constexpr uint32_t MSPROF_REPORT_NODE_TASK_TRACK_TYPE = 7U;
 constexpr uint16_t CCU_MAX_CHANNEL_NUM = 16U;
 constexpr uint8_t INVALID_TYPE_VALUE = 0xFF; // reduceOpType、inputDataType、outputDataType非法值
 
@@ -419,9 +427,11 @@ struct AsccommCcuProfApi {
 AsccommCcuProfApi g_asccommCcuProfApi;
 
 // runtime侧函数(libruntime.so): 查询当前线程最近一次提交task的taskId/streamId,
-// 与hcomm hrtGetTaskIdAndStreamID等价(rtGetTaskIdAndStreamID的薄封装)
+// 与hcomm hrtGetTaskIdAndStreamID等价(rtGetTaskIdAndStreamID的薄封装);
+// rtGetDevice查询当前线程设备号(rtGetTaskIdAndStreamID同库, task_track的deviceId用)
 struct AsccommCcuRuntimeApi {
     int32_t (*rtGetTaskIdAndStreamID)(uint32_t* taskId, uint32_t* streamId) = nullptr;
+    int32_t (*rtGetDevice)(int32_t* devId) = nullptr;
 };
 
 AsccommCcuRuntimeApi g_asccommCcuRuntimeApi;
@@ -472,6 +482,8 @@ bool LoadCcuRuntimeApi()
     if (runtimeApi.rtGetTaskIdAndStreamID == nullptr) {
         return false;
     }
+    // rtGetDevice为task_track的deviceId来源, 缺失时仅影响task_track上报(可缺省)
+    runtimeApi.rtGetDevice = reinterpret_cast<decltype(runtimeApi.rtGetDevice)>(dlsym(handle, "rtGetDevice"));
     g_asccommCcuRuntimeApi = runtimeApi;
     return true;
 }
@@ -652,6 +664,41 @@ bool IsCcuProfReportReady()
            && AsccommCcuProfiling::GetInstance().ccuInfoTypesRegistered.load();
 }
 
+// kernel名预处理: 编译器传入的kernelName可能是C++ mangled符号名(如_ZN11ops_comm_ag31...),
+// 先经__cxa_demangle转为可读名再注册hash, 失败(非mangled/内存异常)时原样返回
+std::unique_ptr<char, void (*)(void*)> DemangleKernelName(const char* name)
+{
+    if (name == nullptr) {
+        return { nullptr, [](void*) {} };
+    }
+    int status = 0;
+    char* demangled = abi::__cxa_demangle(name, nullptr, nullptr, &status);
+    if (status == 0 && demangled != nullptr) {
+        return { demangled, [](void* p) { std::free(p); } };
+    }
+    std::free(demangled); // status!=0时demangled恒为nullptr, 防御性释放
+    // 非mangled字符串: 原样使用(拷贝无必要, 直接借用入参指针但生命周期由调用方保证)
+    return { nullptr, [](void*) {} };
+}
+
+// 统一的kernel级itemId解析: 可读名优先(经demangle), 失败回退原始名, 再回退函数地址hash。
+// 所有kernel粒度上报(type 14/15/16, NodeApi/NodeBasicInfo, task_track)共用本函数,
+// 保证各payload的itemId一致(demangle与否在所有记录间保持统一)
+uint64_t ResolveKernelItemId(const CcuProfReportContext& ctx)
+{
+    const char* nameToHash = ctx.kernelName;
+    auto demangled = DemangleKernelName(ctx.kernelName);
+    if (demangled != nullptr) {
+        nameToHash = demangled.get();
+    }
+    if (nameToHash != nullptr) {
+        return g_asccommCcuProfApi.msprofStr2Id(nameToHash, std::strlen(nameToHash));
+    }
+    char funcTag[sizeof(ctx.kernelFunc) * 2 + 1] = {0};
+    (void)snprintf(funcTag, sizeof(funcTag), "%p", ctx.kernelFunc);
+    return g_asccommCcuProfApi.msprofStr2Id(funcTag, static_cast<size_t>(std::strlen(funcTag)));
+}
+
 // 组装并上报一条type 14 ccu_task_info; 数据面无来源的字段按非法值填充
 // (协议约定: 非法值由解析端按unknown呈现, 不伪造合法值)
 bool ReportCcuTaskInfo(const CcuProfReportContext& ctx, uint32_t streamId, uint32_t taskId, uint32_t threadId)
@@ -668,14 +715,7 @@ bool ReportCcuTaskInfo(const CcuProfReportContext& ctx, uint32_t streamId, uint3
     ccuTaskInfo->workFlowMode = HCCL_WORKFLOW_MODE_OP_BASE;
     // itemId优先用kernel名字符串: msprof按Str2Id的字符串表呈现语义名, 且与hcomm标准路径
     // 同名kernel的itemId一致; kernelName为空时回退到函数地址hash(旧调用方/异常路径)
-    uint64_t itemId = 0;
-    if (ctx.kernelName != nullptr) {
-        itemId = g_asccommCcuProfApi.msprofStr2Id(ctx.kernelName, std::strlen(ctx.kernelName));
-    } else {
-        char funcTag[sizeof(ctx.kernelFunc) * 2 + 1] = {0};
-        (void)snprintf(funcTag, sizeof(funcTag), "%p", ctx.kernelFunc);
-        itemId = g_asccommCcuProfApi.msprofStr2Id(funcTag, static_cast<size_t>(std::strlen(funcTag)));
-    }
+    const uint64_t itemId = ResolveKernelItemId(ctx);
     ccuTaskInfo->itemId = itemId;
     // 数据面无通信域/rank上下文, 按协议填非法值, 不得伪造
     ccuTaskInfo->groupName = DFX_INVALID_U64;
@@ -709,15 +749,8 @@ bool ReportCcuTaskInfo(const CcuProfReportContext& ctx, uint32_t streamId, uint3
 // 二者统一挂L1门控(与type 14同条件), 任何失败只记日志, 不影响launch结果
 void ReportCcuNodeApiAndBasicInfo(const CcuProfReportContext& ctx, uint32_t threadId)
 {
-    // itemId生成规则与type 14保持一致: kernel名优先, 空名回退函数地址hash
-    uint64_t itemId = 0;
-    if (ctx.kernelName != nullptr) {
-        itemId = g_asccommCcuProfApi.msprofStr2Id(ctx.kernelName, std::strlen(ctx.kernelName));
-    } else {
-        char funcTag[sizeof(ctx.kernelFunc) * 2 + 1] = {0};
-        (void)snprintf(funcTag, sizeof(funcTag), "%p", ctx.kernelFunc);
-        itemId = g_asccommCcuProfApi.msprofStr2Id(funcTag, static_cast<size_t>(std::strlen(funcTag)));
-    }
+    // itemId生成规则与type 14保持一致: kernel名优先(demangle后), 空名回退函数地址hash
+    const uint64_t itemId = ResolveKernelItemId(ctx);
 
     // 1. Node API耗时条: msprof时间线上呈现为一次host API调用的起止区间
     MsprofApi apiData{};
@@ -893,6 +926,58 @@ bool ReportCcuGroupInfo(const CcuProfReportContext& ctx, const CcuAdditionalInfo
     return true;
 }
 
+// task_track上报(MsprofRuntimeTrack, compact通道): 携带deviceId/streamId/taskId/taskType/
+// kernelName(hash)的task级轨迹记录, 是msprof侧TaskTrack表(rts_track.db)的唯一数据来源,
+// 时间线kernel详情与task_time.csv的Op Name均按(task_id,stream_id)反查该表取kernel名。
+// AICore kernel由编译器stub(__cce_rtLaunch)自动上报同名记录; CCU直调路径此前无此记录,
+// 导致kernel_name列恒为N/A(hash已注册但无记录引用)。extInfo(blockDim/argsSize等kernel
+// 形态)在直驱路径无来源, 按空值约定填0; 失败只记日志, 不影响launch结果
+void ReportCcuRuntimeTrack(const CcuProfReportContext& ctx, uint32_t streamId, uint32_t taskId, uint32_t threadId)
+{
+    int32_t deviceId = -1;
+    if (g_asccommCcuRuntimeApi.rtGetDevice == nullptr || g_asccommCcuRuntimeApi.rtGetDevice(&deviceId) != 0
+        || deviceId < 0) {
+        CcuProfDebugLog("ReportCcuRuntimeTrack: get deviceId failed, skip.");
+        ASCCOMM_CCU_LOG_ERROR("[CcuProfiling] get deviceId failed, skip task_track report.");
+        return;
+    }
+
+    MsprofCompactInfo compactData{};
+    compactData.level = static_cast<uint16_t>(MSPROF_REPORT_NODE_LEVEL);
+    compactData.type = MSPROF_REPORT_NODE_TASK_TRACK_TYPE;
+    compactData.threadId = threadId;
+    compactData.dataLen = sizeof(MsprofRuntimeTrack);
+    compactData.timeStamp = ctx.endTime;
+
+    auto* track = &compactData.data.runtimeTrack;
+    track->deviceId = static_cast<uint16_t>(deviceId);
+    track->streamId = static_cast<uint16_t>(streamId);
+    track->taskId = taskId;
+    // taskType/kernelName均为hash id: taskType用与hccl层相同的"Ccu"桶, kernelName与
+    // type 14等共享demangle后的kernel名hash(同一Str2Id注册, 解析端可反解为可读名)
+    constexpr char CCU_TASK_OP_NAME[] = "Ccu";
+    track->taskType = g_asccommCcuProfApi.msprofStr2Id(CCU_TASK_OP_NAME, std::strlen(CCU_TASK_OP_NAME));
+    track->kernelName = ResolveKernelItemId(ctx);
+    track->extInfo.kernelInfo.numBlocks = 0;  // kernel形态无来源 → 空值
+    track->extInfo.kernelInfo.argsSize = 0;
+    track->extInfo.kernelInfo.ratio = 0;
+    track->extInfo.kernelInfo.schedMode = 0;
+    track->extInfo.kernelInfo.reserved[0] = 0;
+
+    const int32_t ret
+        = g_asccommCcuProfApi.msprofReportCompactInfo(1, &compactData, sizeof(MsprofCompactInfo));
+    CcuProfDebugLog(
+        "ReportCcuRuntimeTrack: level=%u type=%u(task_track) deviceId=%u streamId=%u taskId=%u "
+        "kernelItemId=0x%llx, ret=%d.",
+        compactData.level, compactData.type, track->deviceId, track->streamId, track->taskId,
+        static_cast<unsigned long long>(track->kernelName), ret);
+    if (ret != 0) {
+        ASCCOMM_CCU_LOG_ERROR("[CcuProfiling] MsprofReportCompactInfo(RuntimeTrack) failed, ret[%d].", ret);
+    }
+    ASCCOMM_CCU_LOG_ERROR(
+        "[CcuProfiling] ReportCcuRuntimeTrack end.");
+}
+
 // hccl层(5500)通信任务画像: TaskApi耗时条 + hccl_info明细, 对齐hcomm ReportHcclTaskApi /
 // FillTaskAdditionInfo; itemId用hcomm同款任务类型名"Ccu"(方案A: 与hcomm标准路径同桶,
 // msprof通信视图中两路径CCU耗时聚合可比); type固定MASTER(直驱单stream无主从概念);
@@ -996,19 +1081,16 @@ void ReportCcuDataPlaneAfterLaunch(const CcuProfReportContext& ctx)
 
     // 3. type 15/16 ccu_wait_signal_info / ccu_group_info: 三个payload共享的公共字段
     //    (itemId复用kernel名hash, streamId/taskId为runtime查询值, dieId来自die mask)
-    uint64_t itemId = 0;
-    if (ctx.kernelName != nullptr) {
-        itemId = g_asccommCcuProfApi.msprofStr2Id(ctx.kernelName, std::strlen(ctx.kernelName));
-    } else {
-        char funcTag[sizeof(ctx.kernelFunc) * 2 + 1] = {0};
-        (void)snprintf(funcTag, sizeof(funcTag), "%p", ctx.kernelFunc);
-        itemId = g_asccommCcuProfApi.msprofStr2Id(funcTag, static_cast<size_t>(std::strlen(funcTag)));
-    }
+    const uint64_t itemId = ResolveKernelItemId(ctx);
     const CcuAdditionalInfoCommonFields common{
         itemId, static_cast<uint16_t>(streamId), taskId, static_cast<uint8_t>(ctx.dieId)
     };
     (void)ReportCcuWaitSignalInfo(ctx, common, threadId);
     (void)ReportCcuGroupInfo(ctx, common, threadId);
+
+    // 4. task_track(MsprofRuntimeTrack): 让本task的kernel名进入TaskTrack表, 供时间线
+    //    kernel详情与task_time.csv的Op Name反查(此前kernel_name列为N/A的根因即缺此记录)
+    (void)ReportCcuRuntimeTrack(ctx, streamId, taskId, threadId);
 }
 
 } // namespace
