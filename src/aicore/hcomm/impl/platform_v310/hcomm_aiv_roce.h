@@ -493,6 +493,14 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Unlock(ChannelHandle ch
     return HcommChannelUnlock<COMM_PROTOCOL_ROCE>(channel);
 }
 
+__aicore__ inline UbcBatchHandle& HcommImpl<COMM_PROTOCOL_UB_CTP>::GetHandleRef(
+    UbcBatchHandle& batchHandle, uint32_t channelIndex, GM_ADDR remoteAddr)
+{
+    (void)channelIndex;
+    (void)remoteAddr;
+    return batchHandle;
+}
+
 template <typename U>
 __aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle(
     ChannelHandle channel, const LocalTensor<U>& buff, uint32_t buffLen, GM_ADDR remoteAddr, GM_ADDR localAddr)
@@ -528,6 +536,13 @@ __aicore__ inline UbcBatchHandle HcommImpl<COMM_PROTOCOL_ROCE>::MakeBatchHandle(
     batchHandle.buffer.bufferCapacity = buffLen / HCOMM_ROCE_WQEBB_SIZE;
     batchHandle.mrKey.lKey = chnlPtr->localBufferAddr[localIdx].bufferInfo.rma.protectionInfo.memInfo.roce.lkey;
     batchHandle.mrKey.rKey = chnlPtr->remoteBufferAddr[remoteIdx].bufferInfo.rma.protectionInfo.memInfo.roce.rkey;
+    const uint32_t remoteKeyBe = HtoNL(batchHandle.mrKey.rKey);
+    const uint32_t localKeyBe = HtoNL(batchHandle.mrKey.lKey & 0xffffU);
+    const uint32_t dataKeyBe =
+        HtoNL((batchHandle.mrKey.lKey & (~ROCE_1825_WQE_NEXT_SGE_INVALID)) | ROCE_1825_WQE_NEXT_SGE_INVALID);
+    batchHandle.mrKey.keyWord =
+        static_cast<uint64_t>(remoteKeyBe) | (static_cast<uint64_t>(localKeyBe) << ROCE_1825_WQE_WORD_BITS);
+    batchHandle.mrKey.dataKeyHighWord = static_cast<uint64_t>(dataKeyBe) << ROCE_1825_WQE_WORD_BITS;
 
     return batchHandle;
 }
@@ -562,10 +577,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
     uint32_t sqDepth = batchHandle.sqContext.contextInfo.roceSq.depth;
     uint32_t baseHead = batchHandle.cursor.preSqCnt + batchHandle.cursor.sqHead;
 
-    const uint32_t remoteKeyBe = HtoNL(batchHandle.mrKey.rKey);
-    const uint32_t localKeyBe = HtoNL(batchHandle.mrKey.lKey & 0xffffU);
-    const uint32_t dataKeyBe =
-        HtoNL((batchHandle.mrKey.lKey & (~ROCE_1825_WQE_NEXT_SGE_INVALID)) | ROCE_1825_WQE_NEXT_SGE_INVALID);
     const uint64_t remoteAddrBe = HtoNLL((uint64_t)remoteAddr);
     constexpr uint32_t taskCtrlBe = HtoNL(
         ((config.cqe & 1U) << ROCE_1825_WQE_TASK_CQE_SIGNAL_SHIFT) |
@@ -578,29 +589,34 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchPostSend(
     constexpr uint8_t dfTsl = static_cast<uint8_t>(
         (config.cqe == 1 ? (1U << ROCE_1825_WQE_SQ_SIGNAL_SHIFT) : 0U) | ROCE_1825_WQE_SQ_VA_VALUE |
         (sizeof(RoceWqeTaskSeg) / ROCE_1825_WQE_TASK_SEG_ALIGN));
+    constexpr uint64_t dw3Word = static_cast<uint64_t>(dw3Be) << ROCE_1825_WQE_WORD_BITS;
+    constexpr uint64_t ctrlBaseWord = (static_cast<uint64_t>(dfTsl) << ROCE_1825_WQE_BYTE_BITS) |
+                                      (static_cast<uint64_t>(clPiBe) << ROCE_1825_WQE_WORD_BITS) |
+                                      ROCE_1825_WQE_CTRL_VALUE |
+                                      (static_cast<uint64_t>(wfBdslBaseBe) << ROCE_1825_WQE_HALFWORD_BITS);
 
     Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
+    const BufDesc* desc = localDescs;
+    __ubuf__ uint64_t* wqe = wqeBasePtr;
     for (uint32_t i = 0U; i < wqeNum; i++) {
         uint32_t head = baseHead + i;
-        uint16_t wfBdslBe =
-            wfBdslBaseBe | HtoNS(static_cast<uint16_t>((head & ROCE_1825_WQE_SSN_MASK) << ROCE_1825_WQE_SSN_SHIFT));
-        uint8_t ownerSl = static_cast<uint8_t>(
-            (((head & sqDepth) == 0U ? 0U : 1U) << ROCE_1825_WQE_OWNER_SHIFT) | ROCE_1825_WQE_CTRL_VALUE);
-        uint32_t lenBe = HtoNL(localDescs[i].len);
-        __ubuf__ uint64_t* wqe = wqeBasePtr + i * HCOMM_ROCE_WQEBB_U64_NUM;
+        uint64_t ownerWord = static_cast<uint64_t>((head & sqDepth) != 0U) << ROCE_1825_WQE_OWNER_SHIFT;
+        uint64_t ssnWord = static_cast<uint64_t>(head & ROCE_1825_WQE_SSN_MASK)
+                           << (ROCE_1825_WQE_HALFWORD_BITS + ROCE_1825_WQE_SSN_BE_SHIFT);
+        uint32_t lenBe = HtoNL(desc->len);
 
         // RoceWqeEntry is laid out as eight 64-bit words. Values that are sent to the NIC
         // remain in network byte order, matching FillCtrlSeg/FillTaskSeg/FillDataSeg.
-        wqe[0] = static_cast<uint64_t>(ownerSl) | (static_cast<uint64_t>(dfTsl) << ROCE_1825_WQE_BYTE_BITS) |
-                 (static_cast<uint64_t>(wfBdslBe) << ROCE_1825_WQE_HALFWORD_BITS) |
-                 (static_cast<uint64_t>(clPiBe) << ROCE_1825_WQE_WORD_BITS);
+        wqe[0] = ctrlBaseWord | ownerWord | ssnWord;
         wqe[1] = 0;
         wqe[2] = static_cast<uint64_t>(taskCtrlBe) | (static_cast<uint64_t>(lenBe) << ROCE_1825_WQE_WORD_BITS);
-        wqe[3] = static_cast<uint64_t>(dw3Be) << ROCE_1825_WQE_WORD_BITS;
+        wqe[3] = dw3Word;
         wqe[4] = remoteAddrBe;
-        wqe[5] = static_cast<uint64_t>(remoteKeyBe) | (static_cast<uint64_t>(localKeyBe) << ROCE_1825_WQE_WORD_BITS);
-        wqe[6] = HtoNLL((uint64_t)localDescs[i].addr);
-        wqe[7] = static_cast<uint64_t>(lenBe) | (static_cast<uint64_t>(dataKeyBe) << ROCE_1825_WQE_WORD_BITS);
+        wqe[5] = batchHandle.mrKey.keyWord;
+        wqe[6] = HtoNLL((uint64_t)desc->addr);
+        wqe[7] = static_cast<uint64_t>(lenBe) | batchHandle.mrKey.dataKeyHighWord;
+        ++desc;
+        wqe += HCOMM_ROCE_WQEBB_U64_NUM;
     }
     Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
 
