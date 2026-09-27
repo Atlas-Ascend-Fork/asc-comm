@@ -237,7 +237,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PostSend(
     HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend: update SQ PI sqHead = %u\n", sqHead);
 
     if constexpr (commit) {
-        KnockDoorBell(chnlPtr, sqHead);
+        KnockDoorBell(chnlPtr, sqHead, cqeUB_);
         HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm PostSend: KnockDoorBell ok.\n");
     }
     return HCOMM_SUCCESS;
@@ -312,7 +312,8 @@ __aicore__ inline uint64_t HcommImpl<COMM_PROTOCOL_ROCE>::GetDbValue(uint32_t sq
     return dbEntry.dw0.value;
 }
 
-__aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead)
+__aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::KnockDoorBell(
+    __gm__ ChannelEntity* chnlPtr, uint32_t sqHead, LocalTensor<uint32_t> cqeItem)
 {
     __gm__ uint32_t* dbSwAddr = reinterpret_cast<__gm__ uint32_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbSwVa);
     __gm__ uint64_t* dbHwAddr = reinterpret_cast<__gm__ uint64_t*>(chnlPtr->sqContextAddr->contextInfo.roceSq.dbHwVa);
@@ -342,7 +343,7 @@ __aicore__ inline void HcommImpl<COMM_PROTOCOL_ROCE>::KnockDoorBell(__gm__ Chann
             KERNEL_INFO,
             "Hcomm KnockDoorBell: cq overflow sqHead=%u cqHead=%u cqTail=%u idx=%u sqDepth=%u cqDepth=%u\n", sqHead,
             cqHead, cqTail, idx, sqDepth, cqDepth);
-        if (PollCq(chnlPtr, idx, cqeUB_) != HCOMM_SUCCESS) {
+        if (PollCq(chnlPtr, idx, cqeItem) != HCOMM_SUCCESS) {
             HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm KnockDoorBell: PollCq failed.\n");
             // The doorbell has already been rung. Keep the submission successful and let Drain report
             // completion errors; treating this as a submission failure could cause callers to retry
@@ -360,7 +361,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::Commit(ChannelHandle ch
     uint32_t sqHead = chnlPtr->sqHead;
     HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm Commit: sqHead = %u\n", sqHead);
 
-    KnockDoorBell(chnlPtr, sqHead);
+    KnockDoorBell(chnlPtr, sqHead, cqeUB_);
     HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm Commit: Exit ok.\n");
     return HCOMM_SUCCESS;
 }
@@ -391,7 +392,7 @@ template <bool sqSafeMode>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(
     __gm__ ChannelEntity* chnlPtr, uint32_t expectIdx, LocalTensor<uint32_t> cqeItem, uint32_t threshold)
 {
-    if (expectIdx == 0) {
+    if (expectIdx == chnlPtr->cqTail) {
         return HCOMM_SUCCESS;
     }
     auto cqContextInfo = chnlPtr->cqContextAddr[0].contextInfo;
@@ -419,11 +420,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(
             Mutex::Lock<PIPE_MTE2>(HCOMM_ROCE_MUTEX_ID);
             DataCopy(cqeItem, cqeGlobalTensor, sizeof(RoceCqeEntry) / sizeof(uint32_t));
             Mutex::Unlock<PIPE_MTE2>(HCOMM_ROCE_MUTEX_ID);
-#if defined(UT_TEST)
-            cqTail = expectIdx - 1;
-            sqTail = expectIdx;
-            break;
-#else
             Mutex::Lock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
             cqeType = (cqePtr->opSrWqebb >> ROCE_1825_CQE_OPCODE_SHIFT) & ROCE_1825_CQE_OPCODE_MASK;
             uint32_t cqeQpn = cqePtr->ownerIdQpn & 0xfffffU;
@@ -433,14 +429,13 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::PollCq(
             uint32_t advance = cqeReady ? static_cast<uint16_t>(cqePtr->wqeCounter - static_cast<uint16_t>(sqTail)) : 0;
             Mutex::Unlock<PIPE_S>(HCOMM_ROCE_MUTEX_ID);
             if (cqeReady) {
-                if (advance > chnlPtr->sqHead - sqTail) {
+                if (advance >= chnlPtr->sqHead - sqTail) {
                     HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm PollCq: invalid SQ WQE counter = %u.\n", cqePtr->wqeCounter);
                     return HCOMM_FAILED;
                 }
                 sqTail += (advance + 1);
                 break;
             }
-#endif
         }
         if (loop >= HCOMM_POLLCQ_MAX_RETRY_TIMES) {
             HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm PollCq: failed, overtime and exit.\n");
@@ -658,7 +653,7 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(UbcBatchHan
     uint32_t sqTail = chnlPtr->sqTail;
     uint32_t newSqHead = batchHandle.cursor.sqHead + preSqCnt;
     // Keep one extra slot free for the next-slot invalid marker.
-    if (newSqHead - sqTail >= sqDepth - 1U) {
+    if (newSqHead - sqTail > sqDepth - 1U) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit: failed because batch num larger than SQ capacity\n");
         return HCOMM_FAILED;
     }
@@ -692,7 +687,8 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(UbcBatchHan
 
     chnlPtr->sqHead = newSqHead;
     chnlPtr->cqHead = batchHandle.cursor.cqHead;
-    KnockDoorBell(chnlPtr, newSqHead);
+    // The WQEs have been copied to SQ; their UB storage can now be reused for CQ polling.
+    KnockDoorBell(chnlPtr, newSqHead, batchHandle.buffer.buffer);
     batchHandle.cursor.sqHead = newSqHead;
     batchHandle.cursor.preSqCnt = 0;
     return HCOMM_SUCCESS;

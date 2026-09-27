@@ -142,7 +142,7 @@ private:
         auto const& config = ROCE_DEFAULT_CFG>
     __aicore__ inline int32_t PostSend(ChannelHandle channel, GM_ADDR dst, GM_ADDR src, uint64_t len, uint32_t opType);
     __aicore__ inline uint64_t GetDbValue(uint32_t sqHead, uint32_t qpn, uint64_t vendor);
-    __aicore__ inline void KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead);
+    __aicore__ inline void KnockDoorBell(__gm__ ChannelEntity* chnlPtr, uint32_t sqHead, LocalTensor<uint32_t> cqeItem);
     __aicore__ inline bool CheckCqeOwner(__ubuf__ RoceCqeEntry* cqePtr, uint32_t cqTail, uint32_t depth);
     template <bool sqSafeMode = false>
     __aicore__ inline int32_t PollCq(
