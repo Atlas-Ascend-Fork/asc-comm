@@ -775,6 +775,16 @@ struct CcuAdditionalInfoCommonFields {
     uint8_t dieId = 0;
 };
 
+// [TEST-ONLY] 伪造有效channel开关: 环境变量 ASCCOMM_CCU_PROF_FAKE_CHANNEL=1 时,
+// type 15/16 的首个channel槽位填入伪造的有效值(channelId=0, remoteRankId=0),
+// 用于验证msprof解析端的channel有效性过滤(全无效channel的记录会被解析器丢弃,
+// 参见解析端"no valid channel"告警)。仅测试用, 正式构建不得开启。
+bool IsFakeChannelEnabled()
+{
+    static const bool enabled = (std::getenv("ASCCOMM_CCU_PROF_FAKE_CHANNEL") != nullptr);
+    return enabled;
+}
+
 // type 15 ccu_wait_signal_info: WaitCKE粒度. 直驱路径无ckeId/mask/channel等来源,
 // 按要求以默认空值(非法值)填充上报; 结构中version/workFlowMode为协议常量
 bool ReportCcuWaitSignalInfo(const CcuProfReportContext& ctx, const CcuAdditionalInfoCommonFields& common,
@@ -805,6 +815,11 @@ bool ReportCcuWaitSignalInfo(const CcuProfReportContext& ctx, const CcuAdditiona
     for (uint32_t i = 0; i < CCU_MAX_CHANNEL_NUM; i++) {
         waitSignalInfo->channelId[i] = INVALID_VALUE_CHANNELID;
         waitSignalInfo->remoteRankId[i] = INVALID_VALUE_RANKID;
+    }
+    // [TEST-ONLY] 首槽位填伪造有效值, 绕过解析端"无有效channel即丢弃"的过滤
+    if (IsFakeChannelEnabled()) {
+        waitSignalInfo->channelId[0] = 0;
+        waitSignalInfo->remoteRankId[0] = 0;
     }
 
     const int32_t ret = g_asccommCcuProfApi.msprofReportAdditionalInfo(1, &reporterData, sizeof(MsprofAdditionalInfo));
@@ -856,6 +871,11 @@ bool ReportCcuGroupInfo(const CcuProfReportContext& ctx, const CcuAdditionalInfo
     for (uint32_t i = 0; i < CCU_MAX_CHANNEL_NUM; i++) {
         ccuGroupInfo->channelId[i] = INVALID_VALUE_CHANNELID;
         ccuGroupInfo->remoteRankId[i] = INVALID_VALUE_RANKID;
+    }
+    // [TEST-ONLY] 首槽位填伪造有效值, 绕过解析端"无有效channel即丢弃"的过滤
+    if (IsFakeChannelEnabled()) {
+        ccuGroupInfo->channelId[0] = 0;
+        ccuGroupInfo->remoteRankId[0] = 0;
     }
 
     const int32_t ret = g_asccommCcuProfApi.msprofReportAdditionalInfo(1, &reporterData, sizeof(MsprofAdditionalInfo));
