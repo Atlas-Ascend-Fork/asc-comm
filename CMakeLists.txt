@@ -19,6 +19,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ASCCOMM_BUILD_CCU "Build asc-comm CCU launch wrapper library" ON)
+option(ASCCOMM_BUILD_AICPU "Build asc-comm AICPU data plane library" ON)
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCCOMM_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
@@ -35,13 +36,15 @@ else()
 endif()
 set(ASCEND_CANN_PACKAGE_PATH "${_ASCCOMM_CANN_PACKAGE_PATH}" CACHE PATH "CANN package path")
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
-    set(_ASCCOMM_CANN_ARCH "aarch64-linux")
-else()
-    set(_ASCCOMM_CANN_ARCH "x86_64-linux")
+if(NOT ASCCOMM_CANN_ARCH_DIR)
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64|arm")
+        set(_ASCCOMM_CANN_ARCH "aarch64-linux")
+    else()
+        set(_ASCCOMM_CANN_ARCH "x86_64-linux")
+    endif()
+    set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}" CACHE PATH
+        "Architecture-specific CANN package path")
 endif()
-set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/${_ASCCOMM_CANN_ARCH}" CACHE PATH
-    "Architecture-specific CANN package path")
 if(ASCEND_CANN_PACKAGE_PATH AND NOT EXISTS "${ASCCOMM_CANN_ARCH_DIR}")
     set(ASCCOMM_CANN_ARCH_DIR "${ASCEND_CANN_PACKAGE_PATH}/aarch64-linux" CACHE PATH
         "Architecture-specific CANN package path" FORCE)
@@ -49,4 +52,7 @@ endif()
 
 if(ASCCOMM_BUILD_CCU)
     add_subdirectory(src/ccu)
+endif()
+if(ASCCOMM_BUILD_AICPU)
+    add_subdirectory(src/aicpu)
 endif()
