@@ -8,6 +8,7 @@ This directory contains usage samples for asc-comm APIs.
 
 | Sample | Description | Supported Products |
 | --- | --- | --- |
+| [aicpu/aicpu_builtin](./aicpu/aicpu_builtin/) | Demonstrates collective communication and compute-communication fusion using MC2 builtin APIs with AICPU. | Ascend 950PR / Ascend 950DT |
 | [aicore/ain/01_basic_ring](./aicore/ain/01_basic_ring/README_en.md) | Demonstrates AIV Kernel invoking `Put`/`Get` over the AIN interface for point-to-point one-sided communication in a multi-card ring scenario, with synchronization and result verification through `AinBarrierSession`. | Ascend 950PR / Ascend 950DT |
 | [aicore/hcomm/01_hcomm_write_read_nbi](./aicore/hcomm/01_hcomm_write_read_nbi/README_en.md) | Demonstrates AIV Kernel invoking `Hcomm::WriteNbi` and `Hcomm::ReadNbi` over the URMA path in a multi-card scenario, with communication result verification. | Ascend 950PR / Ascend 950DT |
 | [aicore/hcomm/02_hcomm_batch_write](./aicore/hcomm/02_hcomm_batch_write/README_en.md) | Demonstrates multiple URMA channels sharing a Jetty and submitting cross-peer writes through `MakeBatchHandle`, `GetHandleRef`, `BatchCommit`, and `Drain`. | Ascend 950PR / Ascend 950DT |
@@ -16,12 +17,13 @@ This directory contains usage samples for asc-comm APIs.
 | [aicore/hcomm/05_simt_urma_perftest](./aicore/hcomm/05_simt_urma_perftest/README_en.md) | Measures issue latency and completion bandwidth for those five SIMT URMA interfaces under immediate and deferred publication. | Ascend 950PR / Ascend 950DT |
 | [simt_jetty](./simt_jetty/README_en.md) | Demonstrates a SIMT Kernel building and submitting Jetty WQEs directly through `HcommJetty::Write` with thread/warp/group cooperation, covering the multi-warp dispatch batching mode and the mixed SIMT/SIMD publication mode, with device-side performance and stress scripts. | Ascend 950PR / Ascend 950DT |
 | [aicore/jetty/01_hcomm_jetty_write](./aicore/jetty/01_hcomm_jetty_write/README_en.md) | Demonstrates an AIV Kernel submitting WQEs directly to the Jetty SQ through `HcommJetty::Write` and `HcommJetty::WriteValue` in a multi-card scenario, with `Drain` used for completion and verification. | Ascend 950PR / Ascend 950DT |
+| [ccu/ccu_builtin](./ccu/ccu_builtin/) | Demonstrates collective communication and compute-communication fusion using MC2 builtin APIs with CCU. | Ascend 950PR / Ascend 950DT |
 | [ccu/ccu_direct](./ccu/ccu_direct/01_allgather/README_en.md) | Demonstrates AllGather and other collective communication operations using HCCL communicators and CCU dataplane interfaces with direct `<<<>>>` invocation. | Ascend 950PR/Ascend 950DT |
 
 See the README in each sample directory for build and run instructions.
 
 ## Runtime Constraints
 
-- Supported chips: Ascend 950PR / Ascend 950DT. CANN version 9.1.0 or later is required.
+- Supported chips: Ascend 950PR / Ascend 950DT. CANN version 9.1.0 or later is required; `aicpu/aicpu_builtin` and `ccu/ccu_builtin` samples require 9.2.0 or later. See each sample's README for specific version requirements.
 - At least two NPUs are required for runtime execution; single-NPU environments only support compilation verification.
 - Sample build relies on CANN ASC CMake utilities and links against the CANN `hcomm` library.
