@@ -28,7 +28,6 @@ THREAD_NUM="${CPU_CORES}"
 
 Ascend_CANN_PACKAGE_PATH=""
 CANN_3RD_LIB_PATH="${SCRIPT_DIR}/third_party"
-ASC_COMM_HCOMM_SOURCE_DIR="${HCOMM_SOURCE_DIR:-}"
 
 # 分割线，用于日志美化
 dotted_line="----------------------------------------"
@@ -94,8 +93,6 @@ usage() {
     echo "    --make_clean         Clean build artifacts"
     echo "    --cann_3rd_lib_path=<PATH>"
     echo "                         Set CANN third_party package install path, Default:./third_party"
-    echo "    --hcomm-source-dir=<PATH>"
-    echo "                         Set the HCOMM source directory providing include/ and pkg_inc/"
 }
 
 parse_args() {
@@ -125,10 +122,6 @@ parse_args() {
                 CANN_3RD_LIB_PATH="$(realpath "${1#*=}")"
                 shift
                 ;;
-            --hcomm-source-dir=*)
-                ASC_COMM_HCOMM_SOURCE_DIR="$(realpath "${1#*=}")"
-                shift
-                ;;
             *)
                 log "ERROR" "未知参数：$1"
                 usage
@@ -152,9 +145,6 @@ set_env() {
     Ascend_CANN_PACKAGE_PATH=${ASCEND_HOME_PATH}
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
     CUSTOM_OPTION+=("-DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
-    if [[ -n "${ASC_COMM_HCOMM_SOURCE_DIR}" ]]; then
-        CUSTOM_OPTION+=("-DHCOMM_SOURCE_DIR=${ASC_COMM_HCOMM_SOURCE_DIR}")
-    fi
 }
 
 clean_build() {
@@ -226,6 +216,7 @@ main(){
         TARGETS=""
     fi
 
+    local ut_build_dir="${BUILD_DIR}/ut-hcomm"
     cmake_config "${UT_DIR}" "${ut_build_dir}" "${CUSTOM_OPTION[@]}"
     build "${ut_build_dir}"
     run_ccu_ut "${ut_build_dir}"
