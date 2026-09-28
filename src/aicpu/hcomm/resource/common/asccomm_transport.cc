@@ -16,7 +16,7 @@
 #include "../connection/ub_jetty_lite.h"
 #include "../connection/rdma_vendor_1825_ops.h"
 #include "securec.h"
-#include "log/hcomm_log.h"
+#include "hcomm_log.h"
 
 namespace {
 

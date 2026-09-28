@@ -14,7 +14,7 @@
 #include <string>
 #include <vector>
 #include "securec.h"
-#include "log/hcomm_log.h"
+#include "hcomm_log.h"
 
 namespace Asc {
 
