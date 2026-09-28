@@ -8,7 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "ub_conn_lite.h"
-#include "log/hcomm_log.h"
+#include "hcomm_log.h"
 #include "../../common/utils/exception_util.h"
 #include "udma_data_struct.h"
 #include "../../common/exception/internal_exception.h"

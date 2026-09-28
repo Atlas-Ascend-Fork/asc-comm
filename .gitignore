@@ -2,8 +2,6 @@ build/
 build_out/
 oat_reports/
 log/
-!src/common/dfx/log/
-!src/common/dfx/log/hcomm_log.h
 AGENTS.md
 .claude/
 .opencode/

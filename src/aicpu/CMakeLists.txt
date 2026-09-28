@@ -10,7 +10,7 @@
 
 set(ASCCOMM_AICPU_ROOT ${CMAKE_CURRENT_LIST_DIR})
 get_filename_component(ASCCOMM_ROOT ${ASCCOMM_AICPU_ROOT}/../.. ABSOLUTE)
-set(ASCCOMM_DFX_SRC_DIR "${ASCCOMM_ROOT}/src/common/dfx")
+set(ASCCOMM_DFX_SRC_DIR "${ASCCOMM_ROOT}/src/common/dfx/logging")
 
 if(NOT ASCEND_CANN_PACKAGE_PATH)
     if(DEFINED ENV{ASCEND_HOME_PATH})
@@ -129,7 +129,6 @@ target_link_options(asccomm_aicpu PRIVATE
     -Wl,-z,now
     -Wl,-z,noexecstack
     -Wl,--gc-sections
-    -Wl,--version-script=${ASCCOMM_ROOT}/cmake/asccomm_exports.map
 )
 
 set_target_properties(asccomm_aicpu PROPERTIES SKIP_BUILD_RPATH TRUE)

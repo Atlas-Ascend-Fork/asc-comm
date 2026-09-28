@@ -15,7 +15,7 @@
 #include "../stream/sqe.h"
 #include "securec.h"
 #include "ascend_hal.h"
-#include "log/hcomm_log.h"
+#include "hcomm_log.h"
 
 namespace aicpu {
 void __attribute__((weak)) __attribute__((visibility("default")))

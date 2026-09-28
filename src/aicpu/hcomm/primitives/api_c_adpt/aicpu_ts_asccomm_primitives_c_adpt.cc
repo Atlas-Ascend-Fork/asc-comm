@@ -16,7 +16,7 @@
 #include "asccomm_runtime.h"
 #include "asccomm_transport.h"
 #include "../../common/utils/exception_util.h"
-#include "log/hcomm_log.h"
+#include "hcomm_log.h"
 
 namespace {
 

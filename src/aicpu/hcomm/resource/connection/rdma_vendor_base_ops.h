@@ -20,7 +20,7 @@
 
 #include "../../common/utils/exception_util.h"
 #include "../../common/exception/internal_exception.h"
-#include "log/hcomm_log.h"
+#include "hcomm_log.h"
 #include "../buffer/rma_buf_slice_lite.h"
 #include "../buffer/rmt_rma_buf_slice_lite.h"
 #include "asccomm_backend_types.h"
