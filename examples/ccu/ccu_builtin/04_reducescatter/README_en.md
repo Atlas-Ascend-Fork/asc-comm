@@ -62,7 +62,7 @@ ccResCtx
 | Data type | FP32 |
 | Input size per rank | `rankSize * 256` FP32 elements |
 | Output size per rank | 256 FP32 elements |
-| Algorithm configuration | `CcuSchedReduceScatterSoleMesh` |
+| Algorithm configuration | `sole[mesh]` |
 | Supported ranks | No more than `CCU_MAX_RANK_SIZE`, which is 8 in this sample |
 
 ### Implementation Flow
@@ -71,7 +71,7 @@ ccResCtx
 2. Create one rank for each device, create the AICore stream, and allocate the input and output buffers.
 3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `CCU_SCHED` communication engine, FP32
    source and destination data types, `HCCL_REDUCE_SUM`, and the
-   `CcuSchedReduceScatterSoleMesh` algorithm configuration.
+   `sole[mesh]` algorithm configuration.
 4. Call `CheckOpResSufficient` to pre-check whether CCU resources are sufficient. Error code 1043
    means CCU resources are temporarily insufficient, in which case a non-CCU algorithm can be
    selected; any other non-zero code indicates a parameter error or an internal HCCL error, which
