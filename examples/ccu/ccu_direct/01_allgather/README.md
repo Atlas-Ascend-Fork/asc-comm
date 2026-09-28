@@ -51,7 +51,7 @@ rank p recvBuf = [segment_0 | segment_1 | ... | segment_N-1]
 1. 初始化ACL和HCCL通信域，获取当前环境中的NPU数量。
 2. 每个Device创建一个rank，并初始化输入Buffer。
 3. 基于HCCL通信域申请CCU Channel和CCU实例资源。
-4. 通过`HcommCcuGetMemToken`获取输入内存Token，并准备CCU任务参数。
+4. 通过`asccomm_ccu_get_mem_token`获取输入内存Token，并准备CCU任务参数。
 5. 通过`CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, stream>>>`直调CCU Kernel。
 6. 同步Stream后将结果拷贝回Host侧并打印。
 7. 销毁HCCL通信域、Stream和Device侧内存。
