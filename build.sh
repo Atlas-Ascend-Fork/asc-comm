@@ -35,7 +35,6 @@ dotted_line="----------------------------------------"
 
 TEST=false
 COV=false
-AICPU_DATA_PLANE=true
 PACKAGE=false
 
 LOG_LEVEL=0
@@ -92,8 +91,6 @@ usage() {
     echo "    -t, --test           Build and run all unit tests"
     echo "    --pkg, --package     Build an asc-comm development run package"
     echo "    --cov                Enable code coverage for unit tests"
-    echo "    --no-aicpu-data-plane"
-    echo "                         Skip AICPU data-plane shared object build"
     echo "    --make_clean         Clean build artifacts"
     echo "    --cann_3rd_lib_path=<PATH>"
     echo "                         Set CANN third_party package install path, Default:./third_party"
@@ -130,10 +127,6 @@ parse_args() {
                 ;;
             --hcomm-source-dir=*)
                 ASC_COMM_HCOMM_SOURCE_DIR="$(realpath "${1#*=}")"
-                shift
-                ;;
-            --no-aicpu-data-plane)
-                AICPU_DATA_PLANE=false
                 shift
                 ;;
             *)
@@ -208,15 +201,11 @@ main(){
     parse_args "$@"
     set_env
     echo "${CUSTOM_OPTION[@]}"
-    if [[ "${AICPU_DATA_PLANE}" == true ]]; then
-        local aicpu_build_dir="${BUILD_DIR}/aicpu-data-plane"
-        # 根CMakeLists的ASCCOMM_BUILD_AICPU默认OFF(第三方嵌入只需CCU)，独立构建数据面时显式开启；
-        # CCU数据面(asccomm_ccu_dataplane)依赖cann-cmake提供的intf_pub等目标，仅能在UT/asc-devkit
-        # 超构建中编译，根级自包含构建需关闭CCU组件
-        cmake_config "${SCRIPT_DIR}" "${aicpu_build_dir}" "-DASCCOMM_BUILD_AICPU=ON" "-DASCCOMM_BUILD_CCU=OFF" \
-            "${CUSTOM_OPTION[@]}"
-        build "${aicpu_build_dir}"
-    fi
+    local aicpu_build_dir="${BUILD_DIR}/aicpu-data-plane"
+    # 根级自包含构建只需AICPU数据面；CCU组件依赖cann-cmake目标，留给UT/asc-devkit超构建。
+    cmake_config "${SCRIPT_DIR}" "${aicpu_build_dir}" "-DASCCOMM_BUILD_AICPU=ON" "-DASCCOMM_BUILD_CCU=OFF" \
+        "${CUSTOM_OPTION[@]}"
+    build "${aicpu_build_dir}"
 
     if [[ "${PACKAGE}" == true ]]; then
         bash "${SCRIPT_DIR}/scripts/package/build_package.sh" \
