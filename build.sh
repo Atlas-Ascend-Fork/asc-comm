@@ -160,7 +160,6 @@ set_env() {
     export TOOLCHAIN_DIR="${Ascend_CANN_PACKAGE_PATH}/toolkit/toolchain/hcc"
     CUSTOM_OPTION+=("-DASCEND_CANN_PACKAGE_PATH=${Ascend_CANN_PACKAGE_PATH}")
     CUSTOM_OPTION+=("-DCANN_3RD_LIB_PATH=${CANN_3RD_LIB_PATH}")
-    CUSTOM_OPTION+=("-DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/cmake/aarch64-hcc-toolchain.cmake")
     if [[ -n "${ASC_COMM_HCOMM_SOURCE_DIR}" ]]; then
         CUSTOM_OPTION+=("-DHCOMM_SOURCE_DIR=${ASC_COMM_HCOMM_SOURCE_DIR}")
     fi
