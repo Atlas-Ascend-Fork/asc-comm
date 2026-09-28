@@ -762,6 +762,12 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqImpl(
         uint32_t times = 0;
         uint32_t ret = HCOMM_SUCCESS;
         while ((validOwner ^ cqeUb->owner) == 0 && times < HCOMM_URMA_MAX_RETRY_TIMES) {
+            if (times != 0 && times % HCOMM_URMA_POLL_CQ_HEARTBEAT_TIMES == 0) {
+                KERNEL_LOG(
+                    KERNEL_WARN, "Hcomm URMA Poll CQ heartbeat times=%u curTail=%u expectIdx=%u \n", times, curTail,
+                    expectIdx);
+            }
+            AscendC::DataSyncBarrier<AscendC::MemDsbT::DDR>();
             Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
             Mutex::Lock<PIPE_MTE2>(HCOMM_URMA_MUTEX_ID);
             DataCopy(cqeItem, cqeGlobal, cqeSize / sizeof(uint32_t));
