@@ -61,7 +61,7 @@ ccResCtx
 | Data type | FP32 |
 | Data sent to each destination rank | `256 + local rank + destination rank` FP32 elements |
 | Input/output size | The sum of the per-peer variable data lengths |
-| Algorithm configuration | `CcuSchedAllToAllVSoleMesh` |
+| Algorithm configuration | `sole[mesh]` |
 | Supported ranks | No more than `CCU_MAX_RANK_SIZE`, which is 8 in this sample |
 
 ### Implementation Flow
@@ -70,7 +70,7 @@ ccResCtx
 2. Create one rank for each device, create the AICore stream, and allocate input and output buffers based on
    the per-peer data lengths.
 3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `CCU_SCHED` communication engine, FP32
-   source and destination data types, and the `CcuSchedAllToAllVSoleMesh` algorithm configuration.
+   source and destination data types, and the `sole[mesh]` algorithm configuration.
 4. Call `Mc2AcquireCcResCtx` to obtain the CCU resource context `ccResCtx` and its size.
 5. Release the MC2 argument object and call `Mc2CcKernelLaunch(nullptr, ccResCtx, ccResCtxSize)` to start the
    CCU Server. The `stream` parameter is reserved for the AICPU path and is currently ignored by the CCU path.

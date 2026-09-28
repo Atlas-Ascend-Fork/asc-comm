@@ -72,7 +72,7 @@ ccResCtx
 1. Initialize ACL and the HCCL communication domain, and query the number of NPU devices.
 2. Create one rank for each device, create the AICore stream, and allocate the input, receive, and compute buffers.
 3. Create an MC2 argument object through `Mc2GetCcArgs`, and set the `CCU_SCHED` communication engine, FP32 source
-   and destination data types, and the `CcuSchedAllGatherSoleMesh` algorithm configuration.
+   and destination data types, and the `sole[mesh]` algorithm configuration.
 4. Call `CheckOpResSufficient` to pre-check whether CCU resources are sufficient. Error code 1043
    means CCU resources are temporarily insufficient, in which case a non-CCU algorithm can be
    selected; any other non-zero code indicates a parameter error or an internal HCCL error, which
