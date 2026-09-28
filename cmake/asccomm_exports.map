@@ -1,0 +1,6 @@
+{
+    global:
+        asccomm_*;
+    local:
+        *;
+};
