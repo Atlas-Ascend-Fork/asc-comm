@@ -30,9 +30,11 @@ template <typename t>
 t GetResByChannel(ChannelHandle channel_, uint32_t index);
 
 struct cond_expr {
-    variable* var_;
-    uint64_t imm;
-    ccu_condition_type cond;
+    variable* var_{nullptr};
+    const variable* rhs_var_{nullptr};
+    uint64_t imm{0};
+    ccu_condition_type cond{ccu_condition_eq};
+    bool is_var_compare{false};
 };
 
 class variable final {
@@ -67,9 +69,165 @@ public:
 
     void operator=(detail::ccu_arithmetic_operator<variable, variable> op) const
     {
+        switch (op.type_) {
+            case detail::ccu_arithmetic_operator_type::addition:
+                CCU_THROW_IF_FAILED(
+                    ::asc::ccu_variable_add_var_to_var(this->handle, op.lhs.handle, op.rhs.handle),
+                    "variable::operator=(Var+Var): ccu_variable_add_var_to_var failed");
+                break;
+            case detail::ccu_arithmetic_operator_type::subtraction:
+                CCU_THROW_IF_FAILED(
+                    ::asc::ccu_variable_sub_var_to_var(this->handle, op.lhs.handle, op.rhs.handle),
+                    "variable::operator=(Var-Var): ccu_variable_sub_var_to_var failed");
+                break;
+            case detail::ccu_arithmetic_operator_type::multiplication:
+                CCU_THROW_IF_FAILED(
+                    ::asc::ccu_variable_mul_var_to_var(this->handle, op.lhs.handle, op.rhs.handle),
+                    "variable::operator=(Var*Var): ccu_variable_mul_var_to_var failed");
+                break;
+            default:
+                throw detail::ccu_exception(
+                    CcuResult::CCU_E_PARA, "variable::operator=: invalid arithmetic operator type_");
+        }
+    }
+
+    void operator=(detail::ccu_arithmetic_operator<variable, uint16_t> op) const
+    {
+        switch (op.type_) {
+            case detail::ccu_arithmetic_operator_type::addition:
+                CCU_THROW_IF_FAILED(
+                    ::asc::ccu_variable_add_imm_to_var(this->handle, op.lhs.handle, op.rhs),
+                    "variable::operator=(Var+Imm): ccu_variable_add_imm_to_var failed");
+                break;
+            case detail::ccu_arithmetic_operator_type::subtraction:
+                CCU_THROW_IF_FAILED(
+                    ::asc::ccu_variable_sub_imm_to_var(this->handle, op.lhs.handle, op.rhs),
+                    "variable::operator=(Var-Imm): ccu_variable_sub_imm_to_var failed");
+                break;
+            case detail::ccu_arithmetic_operator_type::multiplication:
+                CCU_THROW_IF_FAILED(
+                    ::asc::ccu_variable_mul_imm_to_var(this->handle, op.lhs.handle, op.rhs),
+                    "variable::operator=(Var*Imm): ccu_variable_mul_imm_to_var failed");
+                break;
+            default:
+                throw detail::ccu_exception(
+                    CcuResult::CCU_E_PARA, "variable::operator=: invalid arithmetic operator type_");
+        }
+    }
+
+    void operator+=(const variable& other) const
+    {
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_variable_add_var_to_var(this->handle, op.lhs.handle, op.rhs.handle),
-            "variable::operator=(Var+Var): ccu_variable_add_var_to_var failed");
+            ::asc::ccu_variable_add_var_to_var(this->handle, this->handle, other.handle),
+            "variable::operator+=(variable): ccu_variable_add_var_to_var failed");
+    }
+
+    void operator-=(const variable& other) const
+    {
+        CCU_THROW_IF_FAILED(
+            ::asc::ccu_variable_sub_var_to_var(this->handle, this->handle, other.handle),
+            "variable::operator-=(variable): ccu_variable_sub_var_to_var failed");
+    }
+
+    void operator*=(const variable& other) const
+    {
+        CCU_THROW_IF_FAILED(
+            ::asc::ccu_variable_mul_var_to_var(this->handle, this->handle, other.handle),
+            "variable::operator*=(variable): ccu_variable_mul_var_to_var failed");
+    }
+
+    void operator+=(uint16_t immediate_) const
+    {
+        CCU_THROW_IF_FAILED(
+            ::asc::ccu_variable_add_imm_to_var(this->handle, this->handle, immediate_),
+            "variable::operator+=(uint16_t): ccu_variable_add_imm_to_var failed");
+    }
+
+    void operator-=(uint16_t immediate_) const
+    {
+        CCU_THROW_IF_FAILED(
+            ::asc::ccu_variable_sub_imm_to_var(this->handle, this->handle, immediate_),
+            "variable::operator-=(uint16_t): ccu_variable_sub_imm_to_var failed");
+    }
+
+    void operator*=(uint16_t immediate_) const
+    {
+        CCU_THROW_IF_FAILED(
+            ::asc::ccu_variable_mul_imm_to_var(this->handle, this->handle, immediate_),
+            "variable::operator*=(uint16_t): ccu_variable_mul_imm_to_var failed");
+    }
+
+    detail::ccu_arithmetic_operator<variable, variable> operator+(const variable& that) const
+    {
+        return detail::ccu_arithmetic_operator<variable, variable>(
+            *this, that, detail::ccu_arithmetic_operator_type::addition);
+    }
+
+    detail::ccu_arithmetic_operator<variable, variable> operator-(const variable& that) const
+    {
+        return detail::ccu_arithmetic_operator<variable, variable>(
+            *this, that, detail::ccu_arithmetic_operator_type::subtraction);
+    }
+
+    detail::ccu_arithmetic_operator<variable, variable> operator*(const variable& that) const
+    {
+        return detail::ccu_arithmetic_operator<variable, variable>(
+            *this, that, detail::ccu_arithmetic_operator_type::multiplication);
+    }
+
+    detail::ccu_arithmetic_operator<variable, uint16_t> operator+(uint16_t immediate_) const
+    {
+        return detail::ccu_arithmetic_operator<variable, uint16_t>(
+            *this, immediate_, detail::ccu_arithmetic_operator_type::addition);
+    }
+
+    detail::ccu_arithmetic_operator<variable, uint16_t> operator-(uint16_t immediate_) const
+    {
+        return detail::ccu_arithmetic_operator<variable, uint16_t>(
+            *this, immediate_, detail::ccu_arithmetic_operator_type::subtraction);
+    }
+
+    detail::ccu_arithmetic_operator<variable, uint16_t> operator*(uint16_t immediate_) const
+    {
+        return detail::ccu_arithmetic_operator<variable, uint16_t>(
+            *this, immediate_, detail::ccu_arithmetic_operator_type::multiplication);
+    }
+
+    void operator=(detail::ccu_logic_operator<variable, variable> op) const
+    {
+        switch (op.type_) {
+            case detail::ccu_logic_operator_type::and_op:
+                CCU_THROW_IF_FAILED(
+                    ::asc::ccu_variable_and_var_to_var(this->handle, op.lhs.handle, op.rhs.handle),
+                    "variable::operator=(Var&Var): ccu_variable_and_var_to_var failed");
+                break;
+            case detail::ccu_logic_operator_type::or_op:
+                CCU_THROW_IF_FAILED(
+                    ::asc::ccu_variable_or_var_to_var(this->handle, op.lhs.handle, op.rhs.handle),
+                    "variable::operator=(Var|Var): ccu_variable_or_var_to_var failed");
+                break;
+            case detail::ccu_logic_operator_type::xor_op:
+                CCU_THROW_IF_FAILED(
+                    ::asc::ccu_variable_xor_var_to_var(this->handle, op.lhs.handle, op.rhs.handle),
+                    "variable::operator=(Var^Var): ccu_variable_xor_var_to_var failed");
+                break;
+            default:
+                throw detail::ccu_exception(CcuResult::CCU_E_PARA, "variable::operator=: invalid logic operator type_");
+        }
+    }
+
+    void operator=(detail::ccu_logic_unary_operator<variable> op) const
+    {
+        switch (op.type_) {
+            case detail::ccu_logic_operator_type::not_op:
+                CCU_THROW_IF_FAILED(
+                    ::asc::ccu_variable_not_var(this->handle, op.lhs.handle),
+                    "variable::operator=(~Var): ccu_variable_not_var failed");
+                break;
+            default:
+                throw detail::ccu_exception(
+                    CcuResult::CCU_E_PARA, "variable::operator=: invalid unary logic operator type_");
+        }
     }
 
     void operator=(detail::ccu_shift_operator<variable, variable> op) const
@@ -90,17 +248,45 @@ public:
         }
     }
 
-    void operator+=(const variable& other) const
+    detail::ccu_logic_operator<variable, variable> operator&(const variable& that) const
     {
-        CCU_THROW_IF_FAILED(
-            ::asc::ccu_variable_add_var_to_var(this->handle, this->handle, other.handle),
-            "variable::operator+=(variable): ccu_variable_add_var_to_var failed");
+        return detail::ccu_logic_operator<variable, variable>(*this, that, detail::ccu_logic_operator_type::and_op);
     }
 
-    detail::ccu_arithmetic_operator<variable, variable> operator+(const variable& that) const
+    detail::ccu_logic_operator<variable, variable> operator|(const variable& that) const
     {
-        return detail::ccu_arithmetic_operator<variable, variable>(
-            *this, that, detail::ccu_arithmetic_operator_type::addition);
+        return detail::ccu_logic_operator<variable, variable>(*this, that, detail::ccu_logic_operator_type::or_op);
+    }
+
+    detail::ccu_logic_operator<variable, variable> operator^(const variable& that) const
+    {
+        return detail::ccu_logic_operator<variable, variable>(*this, that, detail::ccu_logic_operator_type::xor_op);
+    }
+
+    detail::ccu_logic_unary_operator<variable> operator~() const
+    {
+        return detail::ccu_logic_unary_operator<variable>(*this, detail::ccu_logic_operator_type::not_op);
+    }
+
+    void operator&=(const variable& other) const
+    {
+        CCU_THROW_IF_FAILED(
+            ::asc::ccu_variable_and_var_to_var(this->handle, this->handle, other.handle),
+            "variable::operator&=(variable): ccu_variable_and_var_to_var failed");
+    }
+
+    void operator|=(const variable& other) const
+    {
+        CCU_THROW_IF_FAILED(
+            ::asc::ccu_variable_or_var_to_var(this->handle, this->handle, other.handle),
+            "variable::operator|=(variable): ccu_variable_or_var_to_var failed");
+    }
+
+    void operator^=(const variable& other) const
+    {
+        CCU_THROW_IF_FAILED(
+            ::asc::ccu_variable_xor_var_to_var(this->handle, this->handle, other.handle),
+            "variable::operator^=(variable): ccu_variable_xor_var_to_var failed");
     }
 
     detail::ccu_shift_operator<variable, variable> operator<<(const variable& that) const
@@ -127,9 +313,29 @@ public:
             "variable::operator>>=(variable): ccu_variable_shr_var_to_var failed");
     }
 
-    cond_expr operator==(uint64_t immediate_) { return cond_expr{this, immediate_, ccu_condition_eq}; }
+    cond_expr operator==(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_eq, false}; }
 
-    cond_expr operator!=(uint64_t immediate_) { return cond_expr{this, immediate_, ccu_condition_ne}; }
+    cond_expr operator!=(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_ne, false}; }
+
+    cond_expr operator<(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_lt, false}; }
+
+    cond_expr operator<=(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_le, false}; }
+
+    cond_expr operator>(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_gt, false}; }
+
+    cond_expr operator>=(uint64_t immediate_) { return cond_expr{this, nullptr, immediate_, ccu_condition_ge, false}; }
+
+    cond_expr operator==(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_eq, true}; }
+
+    cond_expr operator!=(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_ne, true}; }
+
+    cond_expr operator<(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_lt, true}; }
+
+    cond_expr operator<=(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_le, true}; }
+
+    cond_expr operator>(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_gt, true}; }
+
+    cond_expr operator>=(const variable& other) { return cond_expr{this, &other, 0, ccu_condition_ge, true}; }
 
     ccu_variable_handle handle{0};
 
@@ -148,6 +354,18 @@ private:
 
 template <>
 inline void AscendC::ccu::detail::ccu_arithmetic_operator<AscendC::ccu::variable, AscendC::ccu::variable>::check() const
+{}
+
+template <>
+inline void AscendC::ccu::detail::ccu_arithmetic_operator<AscendC::ccu::variable, uint16_t>::check() const
+{}
+
+template <>
+inline void AscendC::ccu::detail::ccu_logic_operator<AscendC::ccu::variable, AscendC::ccu::variable>::check() const
+{}
+
+template <>
+inline void AscendC::ccu::detail::ccu_logic_unary_operator<AscendC::ccu::variable>::check() const
 {}
 
 template <>
