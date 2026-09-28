@@ -38,6 +38,7 @@ Ascend C通信编程采用控制面与数据面分工的方式。控制面运行
 | [通信模型](./communication_model.md) | 介绍通信实体、Endpoint、Channel和通信内存等对象之间的关系。 |
 | [内存模型](./memory_model.md) | 介绍通信相关存储资源、通信内存的远端可见性、访问授权和寻址方式。 |
 | [执行模型](./execution_model.md) | 介绍通信任务从准备、提交、执行、同步到完成的过程。 |
+| [CCU编程](./ccu_programming.md) | 介绍CCU的架构和编程模型。 |
 
 ## 产品支持情况
 
