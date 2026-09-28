@@ -55,7 +55,7 @@ sendBuf -> AICore Add -> computeBuf -> CCU AllGather -> recvBuf
 3. Acquire CCU channels, a CCU instance, CCU variables, and CCU events from the HCCL communication domain.
 4. Directly launch the AICore vector kernel through `vector_add<<<1, nullptr, streamAiv>>>` to generate the local
    computation result.
-5. Obtain the `computeBuf` memory token through `HcommCcuGetMemToken` and prepare CCU task arguments.
+5. Obtain the `computeBuf` memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
 6. Directly launch the CCU kernel through `CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, streamCcu>>>`.
 7. Synchronize the AIV and CCU streams, copy `recvBuf` back to the host, and print it.
 8. Destroy the HCCL communication domain, streams, and device memory.

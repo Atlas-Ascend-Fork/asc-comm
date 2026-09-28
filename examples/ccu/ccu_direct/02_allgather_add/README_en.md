@@ -52,7 +52,7 @@ sendBuf -> CCU AllGather -> recvBuf -> AICore Add -> computeBuf
 1. Initialize ACL and the HCCL communication domain, and query the number of NPU devices.
 2. Create one rank for each device and initialize the input buffer.
 3. Acquire CCU channels, a CCU instance, CCU variables, and CCU events from the HCCL communication domain.
-4. Obtain the input memory token through `HcommCcuGetMemToken` and prepare CCU task arguments.
+4. Obtain the input memory token through `asccomm_ccu_get_mem_token` and prepare CCU task arguments.
 5. Directly launch the CCU kernel through `CcuAllGatherMesh1DMem2MemKernel<<<schd, insHandle, streamCcu>>>`.
 6. Directly launch the AICore vector kernel through `vector_add<<<1, nullptr, streamAiv>>>` to compute the
    AllGather result.
