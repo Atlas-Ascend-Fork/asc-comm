@@ -26,7 +26,8 @@
 
 namespace AscendC {
 
-constexpr uint32_t HCOMM_URMA_MAX_RETRY_TIMES = 1000000;
+constexpr uint32_t HCOMM_URMA_MAX_RETRY_TIMES = 100000000;
+constexpr uint32_t HCOMM_URMA_POLL_CQ_HEARTBEAT_TIMES = 1000000;
 constexpr uint32_t HCOMM_URMA_TMP_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_URMA_WQE_U32_NUM = 32;
 constexpr uint32_t HCOMM_URMA_CQE_U32_NUM = 16;
