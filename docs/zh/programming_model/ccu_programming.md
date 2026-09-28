@@ -2,7 +2,7 @@
 
 CCU是Ascend 950PR&950DT系列产品上用于集合通信的专用硬件引擎，下文介绍CCU的硬件架构和编程模型。
 
-## CCU硬件架构
+## CCU架构
 
 ### CCU系统架构
 
@@ -12,30 +12,27 @@ CCU是昇腾NPU中的专用集合通信协处理器。如[图1](#fig-ccu-system-
 
 ![CCU系统架构](./figures/ccu_system_architecture.png)
 
-### CCU详细硬件架构
+### 基础概念
 
-CCU详细硬件架构如[图2](#fig-ccu-detailed-hardware-architecture)所示。
+CCU内部包含多个关键组件，共同完成集合通信任务，如[图2](#fig-ccu-architecture)所示。
 
-**图2** CCU详细硬件架构<a id="fig-ccu-detailed-hardware-architecture"></a>
+**图2** CCU架构<a id="fig-ccu-architecture"></a>
 
-![CCU详细硬件架构](./figures/ccu_hardware_architecture.png)
+![CCU架构](./figures/ccu_architecture.png)
 
-硬件逻辑架构图中的资源及职责如[表1](#tab-ccu-hardware-resources)所示。
+CCU内部组件的参数规格及职责如[表1](#tab-ccu-components)所示，其中寄存器分为通用寄存器、同步寄存器和地址寄存器三类。
 
-**表1** CCU硬件资源及职责<a id="tab-ccu-hardware-resources"></a>
+**表1** CCU组件及职责<a id="tab-ccu-components"></a>
 
-| 硬件资源 | 参数规格 | 职责 |
+| 组件 | 参数规格 | 职责 |
 | --- | --- | --- |
-| SQE（Submission Queue Entry，提交队列描述符） | 最多支持13个64bit的参数 | 接收CCU任务描述：Host侧下发的执行配置与任务参数打包为SQE，经提交队列由CCU接收解析。 |
-| Instr | 32K条指令，单条32字节，共1MB | 指令空间，保存CCU执行的指令序列。 |
-| LoopEngine | 200个 | 并发执行引擎，执行指令并提供循环和并发控制。 |
-| Channel | 128个 | 保存映射到Jetty的通信通道上下文信息。 |
-| CCU Buffer（别名Memory Slice，MS） | 1536个，按4KB分片 | 片上数据缓存，以4KB分片为基础操作单元，支持多片的片上规约操作。 |
-| GSA | 3072个，位宽64bit | 地址寄存器，保存数据搬运地址。 |
-| Xn | 3072个，位宽64bit | 通用寄存器，用于存储SQE中的内容（长度和循环控制等参数）和`token`信息。 |
-| CKE | 1024个，位宽16bit | 同步寄存器，保存指令依赖和同步状态。 |
-
-上表中各资源的个数/大小为单个IO Die上一个CCU的规格，一个设备包含2个IO Die。
+| 片上缓存 | 1536个4KB分片，共6MB | 片上数据缓存，以4KB分片为基础操作单元，支持多片的片上规约操作。 |
+| 通用寄存器 | 3072个，位宽64bit | 存放CCU执行过程中的参数或数据（长度和循环控制等参数、`token`信息），支持赋值、加法和移位运算。 |
+| 同步寄存器 | 1024个，位宽16bit | 实现类似信号量的同步操作，支持Set和Wait操作，保存指令依赖和同步状态。 |
+| 地址寄存器 | 3072个，位宽64bit | 存放通信操作的内存地址；未来会取消，由通用寄存器替代。 |
+| 并发执行引擎 | 200个 | 提供CCU并发与循环执行指令的能力。 |
+| 指令空间 | 32K条指令，单条32字节，共1MB | 存储CCU执行的指令序列。 |
+| Channel表 | 128个表项 | 存放Channel表项，每个表项包含用于UB通信的上下文信息。 |
 
 ## CCU编程模型
 
@@ -57,10 +54,10 @@ CCU编程对象与硬件资源的对应关系如[表2](#tab-ccu-programming-reso
 
 | 编程对象 | 说明 | 对应硬件资源 |
 | --- | --- | --- |
-| `ccu::variable` | 变量 | Xn通用寄存器 |
-| `ccu::address` | 地址 | GSA地址寄存器 |
-| `ccu::event` | 事件 | CKE同步寄存器 |
-| `ccu::ccu_buffer` | 片上缓存分片 | CCU Buffer（MS） |
+| `ccu::variable` | 变量 | 通用寄存器 |
+| `ccu::address` | 地址 | 地址寄存器 |
+| `ccu::event` | 事件 | 同步寄存器 |
+| `ccu::ccu_buffer` | 片上缓存分片 | CCU Buffer |
 | `ccu::local_addr` | 本地地址 | 包含地址和`token`，分别由`address`和`variable`保存 |
 | `ccu::remote_addr` | 远端地址 | 包含地址和`token`，分别由`address`和`variable`保存 |
 
