@@ -11,6 +11,7 @@
 #include "utils/arg_parser.h"
 
 namespace ain_agmm {
+// 示例的 Host 配置：tileM/cores 为 0 表示自动选择，devices 保存 rank 到 ACL device 的映射。
 struct Options {
     std::string endpoint;
     std::string mode = "both";
@@ -22,6 +23,7 @@ struct Options {
     std::vector<uint32_t> devices;
 };
 
+// 统一解析无符号参数并检查最小值，避免负数或超范围值被静默截断。
 inline uint32_t Number(const char* text, uint32_t minimum = 0)
 {
     uint32_t result;
@@ -31,6 +33,7 @@ inline uint32_t Number(const char* text, uint32_t minimum = 0)
     return result;
 }
 
+// 解析 endpoint ranks M K N 及可选项，在 fork/设备分配前拒绝非法配置。
 inline Options ParseOptions(int argc, char** argv)
 {
     if (argc < 6) {
@@ -72,10 +75,12 @@ inline Options ParseOptions(int argc, char** argv)
     }
     const std::vector<std::string> modes{"both", "fused", "serial", "hccl", "comm", "matmul"};
     if (std::find(modes.begin(), modes.end(), o.mode) == modes.end()) { throw std::invalid_argument("invalid mode"); }
+    // 尚未查询硬件核数，先用占位核数检查 shape；RunRank 会按真实核数重新生成 tiling。
     (void)MakeTiling(o.m, o.n, o.k, o.ranks, o.cores ? o.cores : 1, o.tileM);
     if (o.devices.empty()) {
         for (uint32_t i = 0; i < o.ranks; ++i) { o.devices.push_back(i); }
     }
+    // 只排序副本检查重复，不改变用户指定的 rank->device 顺序；互联可达性需由运行者选择。
     auto sorted = o.devices;
     std::sort(sorted.begin(), sorted.end());
     if (sorted.size() != o.ranks || std::adjacent_find(sorted.begin(), sorted.end()) != sorted.end()) {
