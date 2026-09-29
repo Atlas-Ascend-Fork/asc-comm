@@ -245,6 +245,7 @@ target_include_directories(asccomm_ccu_host_launch
         ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
         ${ASCEND_CANN_ARCH_DIR}/include/hccl
         ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+        ${ASCEND_CANN_ARCH_DIR}/pkg_inc/profiling
         ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
 )
 target_compile_features(asccomm_ccu_host_launch PUBLIC cxx_std_17)
@@ -263,6 +264,7 @@ target_include_directories(asccomm_ut_ccu_host_launch PRIVATE
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
     ${ASCEND_CANN_ARCH_DIR}/include/hccl
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
+    ${ASCEND_CANN_ARCH_DIR}/pkg_inc/profiling
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/runtime
 )
 target_compile_features(asccomm_ut_ccu_host_launch PRIVATE cxx_std_17)
