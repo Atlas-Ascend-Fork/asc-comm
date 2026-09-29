@@ -638,6 +638,20 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::ReadNbi(
     return BatchPostSend<HCOMM_ROCE_OP_TYPE::READ, config>(batchHandle, src, &dstDesc, 1U);
 }
 
+template <auto const& config>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::WriteNbi(
+    UbcBatchHandle& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum)
+{
+    return BatchPostSend<HCOMM_ROCE_OP_TYPE::WRITE, config>(batchHandle, dst, srcDescs, srcNum);
+}
+
+template <auto const& config>
+__aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::ReadNbi(
+    UbcBatchHandle& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR srcn)
+{
+    return BatchPostSend<HCOMM_ROCE_OP_TYPE::READ, config>(batchHandle, src, dstDescs, dstNum);
+}
+
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_ROCE>::BatchCommit(UbcBatchHandle& batchHandle)
 {
     uint32_t preSqCnt = batchHandle.cursor.preSqCnt;

@@ -121,7 +121,13 @@ public:
     template <auto const& config = ROCE_DEFAULT_CFG>
     __aicore__ inline int32_t WriteNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
     template <auto const& config = ROCE_DEFAULT_CFG>
+    __aicore__ inline int32_t WriteNbi(
+        UbcBatchHandle& batchHandle, GM_ADDR dst, const BufDesc* srcDescs, uint32_t srcNum);
+    template <auto const& config = ROCE_DEFAULT_CFG>
     __aicore__ inline int32_t ReadNbi(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    template <auto const& config = ROCE_DEFAULT_CFG>
+    __aicore__ inline int32_t ReadNbi(
+        UbcBatchHandle& batchHandle, const BufDesc* dstDescs, uint32_t dstNum, GM_ADDR src);
     __aicore__ inline int32_t BatchCommit(UbcBatchHandle& batchHandle);
     template <pipe_t pipe = PIPE_MTE3>
     __aicore__ inline int32_t Drain(UbcBatchHandle& batchHandle);
