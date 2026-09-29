@@ -10,7 +10,7 @@
 
 set(ASCCOMM_AICPU_ROOT ${CMAKE_CURRENT_LIST_DIR})
 get_filename_component(ASCCOMM_ROOT ${ASCCOMM_AICPU_ROOT}/../.. ABSOLUTE)
-set(ASCCOMM_DFX_SRC_DIR "${ASCCOMM_ROOT}/src/common/dfx")
+set(ASCCOMM_DFX_SRC_DIR "${ASCCOMM_ROOT}/src/common/dfx/logging")
 
 if(NOT ASCEND_CANN_PACKAGE_PATH)
     if(DEFINED ENV{ASCEND_HOME_PATH})
@@ -33,33 +33,30 @@ if(NOT ASCCOMM_CANN_ARCH_DIR)
 endif()
 message(STATUS "ASCCOMM_CANN_ARCH_DIR = ${ASCCOMM_CANN_ARCH_DIR}")
 
-# 查找 hcomm 代码：优先使用显式路径，其次兼容旧的 HCOMM_SOURCE_DIR，
+# 查找控制面源码：优先使用显式路径，
 # 最后探测相邻源码仓；没有契约头时回退到随仓自包含头文件。
-if(NOT ASCCOMM_HCOMM_SOURCE_DIR AND HCOMM_SOURCE_DIR)
-    set(ASCCOMM_HCOMM_SOURCE_DIR "${HCOMM_SOURCE_DIR}")
-endif()
-if(NOT ASCCOMM_HCOMM_SOURCE_DIR)
+if(NOT ASCCOMM_CONTROL_PLANE_SOURCE_DIR)
     foreach(_candidate
         "${ASCCOMM_ROOT}/../hcomm_pkg_inc"
         "${ASCCOMM_ROOT}/../hcomm")
         if(EXISTS "${_candidate}/pkg_inc/hcomm/hcomm_pod_resource.h")
-            get_filename_component(ASCCOMM_HCOMM_SOURCE_DIR "${_candidate}" ABSOLUTE)
+            get_filename_component(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "${_candidate}" ABSOLUTE)
             break()
         endif()
     endforeach()
 endif()
-if(ASCCOMM_HCOMM_SOURCE_DIR AND NOT EXISTS "${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hcomm/hcomm_pod_resource.h")
+if(ASCCOMM_CONTROL_PLANE_SOURCE_DIR AND NOT EXISTS "${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc/hcomm/hcomm_pod_resource.h")
     # 指定路径无AICPU契约头(如devkit的hccl/cc)：退回自包含。
-    set(ASCCOMM_HCOMM_SOURCE_DIR "")
+    set(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "")
 endif()
-set(ASCCOMM_HCOMM_SOURCE_DIR "${ASCCOMM_HCOMM_SOURCE_DIR}" CACHE PATH "Original hcomm source tree")
-message(STATUS "ASCCOMM_HCOMM_SOURCE_DIR = ${ASCCOMM_HCOMM_SOURCE_DIR}")
+set(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}" CACHE PATH "Original control-plane source tree")
+message(STATUS "ASCCOMM_CONTROL_PLANE_SOURCE_DIR = ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}")
 
 add_library(asc_comm_dfx INTERFACE)
 target_include_directories(asc_comm_dfx INTERFACE ${ASCCOMM_DFX_SRC_DIR})
 
 add_library(asccomm_aicpu SHARED)
-add_subdirectory(hcomm)
+add_subdirectory(asccomm)
 
 target_compile_definitions(asccomm_aicpu PRIVATE
     HCCD
@@ -91,23 +88,23 @@ target_include_directories(asccomm_aicpu PRIVATE
     ${ASCCOMM_CANN_ARCH_DIR}/include/hcomm
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/base
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/driver
-    ${ASCCOMM_AICPU_ROOT}/hcomm/primitives/api_c_adpt
-    ${ASCCOMM_AICPU_ROOT}/hcomm/primitives/launch
-    ${ASCCOMM_AICPU_ROOT}/hcomm/common/compat/hcomm
-    ${ASCCOMM_AICPU_ROOT}/hcomm/common/compat/hcomm/hccl
-    ${ASCCOMM_AICPU_ROOT}/hcomm/common/exception
-    ${ASCCOMM_AICPU_ROOT}/hcomm/common/utils
-    ${ASCCOMM_AICPU_ROOT}/hcomm/resource/buffer
-    ${ASCCOMM_AICPU_ROOT}/hcomm/resource/common
-    ${ASCCOMM_AICPU_ROOT}/hcomm/resource/connection
-    ${ASCCOMM_AICPU_ROOT}/hcomm/resource/stream
+    ${ASCCOMM_AICPU_ROOT}/asccomm/primitives/api_c_adpt
+    ${ASCCOMM_AICPU_ROOT}/asccomm/primitives/launch
+    ${ASCCOMM_AICPU_ROOT}/asccomm/common/compat/control_plane
+    ${ASCCOMM_AICPU_ROOT}/asccomm/common/compat/control_plane/hccl
+    ${ASCCOMM_AICPU_ROOT}/asccomm/common/exception
+    ${ASCCOMM_AICPU_ROOT}/asccomm/common/utils
+    ${ASCCOMM_AICPU_ROOT}/asccomm/resource/buffer
+    ${ASCCOMM_AICPU_ROOT}/asccomm/resource/common
+    ${ASCCOMM_AICPU_ROOT}/asccomm/resource/connection
+    ${ASCCOMM_AICPU_ROOT}/asccomm/resource/stream
 )
-# hcomm源码可用时附加其pkg_inc包含路径(可选依赖，自包含构建时跳过)
-if(ASCCOMM_HCOMM_SOURCE_DIR)
+# 控制面源码可用时附加其pkg_inc包含路径(可选依赖，自包含构建时跳过)
+if(ASCCOMM_CONTROL_PLANE_SOURCE_DIR)
     target_include_directories(asccomm_aicpu PRIVATE
-        ${ASCCOMM_HCOMM_SOURCE_DIR}/include
-        ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc
-        ${ASCCOMM_HCOMM_SOURCE_DIR}/pkg_inc/hcomm)
+        ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/include
+        ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc
+        ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc/hcomm)
 endif()
 
 # 设备侧库：securec/dlog/驱动符号由设备运行环境(ccl_kernel/内核驱动)在加载期解析，
@@ -129,7 +126,6 @@ target_link_options(asccomm_aicpu PRIVATE
     -Wl,-z,now
     -Wl,-z,noexecstack
     -Wl,--gc-sections
-    -Wl,--version-script=${ASCCOMM_ROOT}/cmake/asccomm_exports.map
 )
 
 set_target_properties(asccomm_aicpu PROPERTIES SKIP_BUILD_RPATH TRUE)
@@ -148,10 +144,10 @@ if("${PROJECT_SOURCE_DIR}" STREQUAL "${ASCCOMM_ROOT}")
     endif()
     install(TARGETS asccomm_aicpu
         LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
-        COMPONENT hcomm)
+        COMPONENT asccomm)
     install(DIRECTORY ${ASCCOMM_ROOT}/include/aicpu/hcomm/
         DESTINATION ${INSTALL_PKG_INCLUDE_DIR}/asccomm
-        COMPONENT hcomm
+        COMPONENT asccomm
         FILES_MATCHING PATTERN "*.h")
 endif()
 
