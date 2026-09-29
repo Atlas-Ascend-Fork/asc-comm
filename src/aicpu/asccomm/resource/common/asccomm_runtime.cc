@@ -28,15 +28,15 @@ HcclResult acquire_task_id(HcommRtsqContext& context, uint32_t& taskId)
 {
     CHK_PRT_RET(context.localSqeAddr == 0, HCCL_ERROR("[%s] local SQE buffer address is 0.", __func__), HCCL_E_PTR);
     CHK_PRT_RET(
-        context.pendingSqeCnt >= HCOMM_POD_RTSQ_BATCH_SIZE,
+        context.pendingSqeCnt >= HCOMM_RESOURCE_RTSQ_BATCH_SIZE,
         HCCL_ERROR("[%s] pending SQE count[%u] exceeds buffer capacity.", __func__, context.pendingSqeCnt),
         HCCL_E_INTERNAL);
     if (context.taskId >= context.taskIdEnd) {
         CHK_PRT_RET(aicpu::GetSqeId == nullptr, HCCL_ERROR("[%s] GetSqeId is unavailable.", __func__), HCCL_E_INTERNAL);
-        aicpu::GetSqeId(HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE, context.taskId, context.taskIdEnd);
+        aicpu::GetSqeId(HCOMM_RESOURCE_RTSQ_TASK_ID_BATCH_SIZE, context.taskId, context.taskIdEnd);
         CHK_PRT_RET(
             context.taskId >= context.taskIdEnd ||
-                context.taskIdEnd - context.taskId > HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE,
+                context.taskIdEnd - context.taskId > HCOMM_RESOURCE_RTSQ_TASK_ID_BATCH_SIZE,
             HCCL_ERROR("[%s] invalid Task ID range[%u, %u).", __func__, context.taskId, context.taskIdEnd),
             HCCL_E_INTERNAL);
     }
@@ -139,12 +139,12 @@ HcclResult copy_pending_sqes(HcommRtsqContext& context)
 {
     CHK_PRT_RET(context.localSqeAddr == 0, HCCL_ERROR("[%s] local SQE buffer address is 0.", __func__), HCCL_E_PTR);
     auto* localSqeBuffer = reinterpret_cast<uint8_t*>(context.localSqeAddr);
-    const uint32_t byteCount = context.pendingSqeCnt * HCOMM_POD_RTSQ_SQE_SIZE;
-    uint8_t* sqCurrent = reinterpret_cast<uint8_t*>(context.sqBaseAddr) + context.sqTail * HCOMM_POD_RTSQ_SQE_SIZE;
+    const uint32_t byteCount = context.pendingSqeCnt * HCOMM_RESOURCE_RTSQ_SQE_SIZE;
+    uint8_t* sqCurrent = reinterpret_cast<uint8_t*>(context.sqBaseAddr) + context.sqTail * HCOMM_RESOURCE_RTSQ_SQE_SIZE;
     if (context.sqTail >= context.sqHead) {
         const uint32_t depthLeft = context.sqDepth - context.sqTail;
         const uint32_t firstCount = context.pendingSqeCnt < depthLeft ? context.pendingSqeCnt : depthLeft;
-        const uint32_t firstBytes = firstCount * HCOMM_POD_RTSQ_SQE_SIZE;
+        const uint32_t firstBytes = firstCount * HCOMM_RESOURCE_RTSQ_SQE_SIZE;
         CHK_PRT_RET(
             memcpy_sp(sqCurrent, firstBytes, localSqeBuffer, firstBytes) != EOK,
             HCCL_ERROR("[%s] first RTSQ memcpy failed.", __func__), HCCL_E_INTERNAL);
@@ -168,7 +168,7 @@ HcclResult refresh_rtsq(HcommRtsqContext& context)
 {
     ++context.pendingSqeCnt;
     if ((context.launchFlag != 0 && !asccomm_is_batch_launch_mode()) ||
-        context.pendingSqeCnt == HCOMM_POD_RTSQ_BATCH_SIZE) {
+        context.pendingSqeCnt == HCOMM_RESOURCE_RTSQ_BATCH_SIZE) {
         return asccomm_rtsq_launch(context);
     }
     return HCCL_SUCCESS;
@@ -176,17 +176,17 @@ HcclResult refresh_rtsq(HcommRtsqContext& context)
 
 uint8_t* get_current_sqe(HcommRtsqContext& context)
 {
-    return reinterpret_cast<uint8_t*>(context.localSqeAddr) + context.pendingSqeCnt * HCOMM_POD_RTSQ_SQE_SIZE;
+    return reinterpret_cast<uint8_t*>(context.localSqeAddr) + context.pendingSqeCnt * HCOMM_RESOURCE_RTSQ_SQE_SIZE;
 }
 
 HcclResult validate_thread_entity(HcommThreadEntity* thread)
 {
     CHK_PTR_NULL(thread);
     CHK_PRT_RET(
-        thread->abiHeader.version != HCOMM_POD_THREAD_VERSION ||
-            thread->abiHeader.magicWord != HCOMM_POD_THREAD_MAGIC_WORD ||
+        thread->abiHeader.version != HCOMM_RESOURCE_THREAD_VERSION ||
+            thread->abiHeader.magicWord != HCOMM_RESOURCE_THREAD_MAGIC_WORD ||
             thread->abiHeader.size < sizeof(HcommThreadEntity),
-        HCCL_ERROR("[%s] invalid POD thread entity.", __func__), HCCL_E_PARA);
+        HCCL_ERROR("[%s] invalid resource thread entity.", __func__), HCCL_E_PARA);
     CHK_PTR_NULL(thread->sqContextAddr);
     const HcommRtsqContext& rtsq = *thread->sqContextAddr;
     CHK_PRT_RET(
@@ -245,7 +245,7 @@ HcclResult asccomm_rtsq_launch(HcommRtsqContext& context)
     context.sqTail = newTail;
     context.pendingSqeCnt = 0;
     auto* localSqeBuffer = reinterpret_cast<uint8_t*>(context.localSqeAddr);
-    constexpr size_t LOCAL_SQE_BUFFER_SIZE = HCOMM_POD_RTSQ_SQE_SIZE * HCOMM_POD_RTSQ_BATCH_SIZE;
+    constexpr size_t LOCAL_SQE_BUFFER_SIZE = HCOMM_RESOURCE_RTSQ_SQE_SIZE * HCOMM_RESOURCE_RTSQ_BATCH_SIZE;
     CHK_PRT_RET(
         memset_s(localSqeBuffer, LOCAL_SQE_BUFFER_SIZE, 0, LOCAL_SQE_BUFFER_SIZE) != EOK,
         HCCL_ERROR("[%s] clear SQE buffer failed.", __func__), HCCL_E_INTERNAL);

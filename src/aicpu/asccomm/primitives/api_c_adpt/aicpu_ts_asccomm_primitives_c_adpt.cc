@@ -11,7 +11,7 @@
 #include <cmath>
 #include <limits>
 #include "asccomm_primitives.h"
-#include "hcomm_pod_resource.h"
+#include "hcomm_res_entity_defs.h"
 #include "asccomm_launch.h"
 #include "asccomm_runtime.h"
 #include "asccomm_transport.h"
@@ -32,13 +32,13 @@ HcclResult validate_entity(const Entity* entity, uint32_t version, uint32_t magi
     CHK_PRT_RET(
         entity->abiHeader.version != version || entity->abiHeader.magicWord != magicWord,
         HCCL_ERROR(
-            "[%s] invalid POD ABI header, version[%u], magicWord[0x%x].", __func__, entity->abiHeader.version,
+            "[%s] invalid resource ABI header, version[%u], magicWord[0x%x].", __func__, entity->abiHeader.version,
             entity->abiHeader.magicWord),
         HCCL_E_PARA);
     CHK_PRT_RET(
         entity->abiHeader.size < sizeof(Entity),
         HCCL_ERROR(
-            "[%s] POD entity size[%u] is less than expected size[%zu].", __func__, entity->abiHeader.size,
+            "[%s] resource entity size[%u] is less than expected size[%zu].", __func__, entity->abiHeader.size,
             sizeof(Entity)),
         HCCL_E_PARA);
     return HCCL_SUCCESS;
@@ -48,10 +48,10 @@ HcclResult get_thread_entity(
     ThreadHandle thread, bool registerThread, bool resolveRtsq, HcommThreadEntity*& threadEntity)
 {
     CHK_PRT_RET(thread == 0, HCCL_ERROR("[%s] thread handle is 0.", __func__), HCCL_E_PTR);
-    // The public ThreadHandle is the device POD entity address.  The control
-    // plane performs the original-handle -> POD conversion before launch.
+    // The public ThreadHandle is the device resource entity address.  The control
+    // plane performs the original-handle to resource conversion before launch.
     threadEntity = reinterpret_cast<HcommThreadEntity*>(static_cast<uintptr_t>(thread));
-    CHK_RET(validate_entity(threadEntity, HCOMM_POD_THREAD_VERSION, HCOMM_POD_THREAD_MAGIC_WORD));
+    CHK_RET(validate_entity(threadEntity, HCOMM_RESOURCE_THREAD_VERSION, HCOMM_RESOURCE_THREAD_MAGIC_WORD));
     CHK_PTR_NULL(threadEntity->sqContextAddr);
     if (resolveRtsq) {
         CHK_RET(asccomm_resolve_thread_rtsq(threadEntity));
@@ -66,9 +66,9 @@ HcclResult get_context(ThreadHandle thread, ChannelHandle channel, bool register
 {
     CHK_PRT_RET(channel == 0, HCCL_ERROR("[%s] channel handle is 0.", __func__), HCCL_E_PTR);
     CHK_RET(get_thread_entity(thread, registerThread, true, context.thread));
-    // ChannelHandle follows the same POD-address ABI as ThreadHandle.
+    // ChannelHandle follows the same resource-address ABI as ThreadHandle.
     context.channel = reinterpret_cast<HcommChannelEntity*>(static_cast<uintptr_t>(channel));
-    CHK_RET(validate_entity(context.channel, HCOMM_POD_CHANNEL_VERSION, HCOMM_POD_CHANNEL_MAGIC_WORD));
+    CHK_RET(validate_entity(context.channel, HCOMM_RESOURCE_CHANNEL_VERSION, HCOMM_RESOURCE_CHANNEL_MAGIC_WORD));
     return HCCL_SUCCESS;
 }
 

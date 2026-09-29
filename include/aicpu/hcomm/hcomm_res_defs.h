@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-// 数据面随仓副本：hcomm侧的hcomm_primitives_types.h复用include/hcomm_res_defs.h
+// 数据面随仓副本：hcomm侧的AICPU契约类型复用include/hcomm_res_defs.h
 // 权威定义(带guard宏)。数据面编译环境无该头，此副本提供同构定义。
 // 字段/枚举值必须与hcomm_res_defs.h保持一致(hcomm侧guard宏兼容两套包含)。
 #ifdef __cplusplus

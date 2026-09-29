@@ -11,9 +11,9 @@
 #ifndef ASCCOMM_RUNTIME_H
 #define ASCCOMM_RUNTIME_H
 
-// Internal POD RTSQ runtime. This header is not part of the public API.
+// Internal resource RTSQ runtime. This header is not part of the public API.
 
-#include "hcomm_pod_resource.h"
+#include "hcomm_res_entity_defs.h"
 #include "hccl/hccl_types.h"
 #include "../connection/asccomm_backend_types.h"
 
@@ -32,7 +32,7 @@ HcclResult asccomm_rtsq_ub_db_send(HcommRtsqContext& context, const Asc::UbJetty
 HcclResult asccomm_rtsq_rdma_db_send(HcommRtsqContext& context, uint64_t dbAddr, uint64_t dbValue);
 HcclResult asccomm_resolve_thread_rtsq(HcommThreadEntity* thread);
 
-// RTSQ硬件属性由数据面在首次使用Thread POD时懒解析。
+// RTSQ硬件属性由数据面在首次使用Thread资源时懒解析。
 HcclResult asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum);
 HcclResult asccomm_try_launch(ThreadHandle* threads, uint32_t threadNum);
 

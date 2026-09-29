@@ -39,13 +39,13 @@ if(NOT ASCCOMM_CONTROL_PLANE_SOURCE_DIR)
     foreach(_candidate
         "${ASCCOMM_ROOT}/../hcomm_pkg_inc"
         "${ASCCOMM_ROOT}/../hcomm")
-        if(EXISTS "${_candidate}/pkg_inc/hcomm/hcomm_pod_resource.h")
+        if(EXISTS "${_candidate}/pkg_inc/hcomm/hcomm_res_entity_defs.h")
             get_filename_component(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "${_candidate}" ABSOLUTE)
             break()
         endif()
     endforeach()
 endif()
-if(ASCCOMM_CONTROL_PLANE_SOURCE_DIR AND NOT EXISTS "${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc/hcomm/hcomm_pod_resource.h")
+if(ASCCOMM_CONTROL_PLANE_SOURCE_DIR AND NOT EXISTS "${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc/hcomm/hcomm_res_entity_defs.h")
     # 指定路径无AICPU契约头(如devkit的hccl/cc)：退回自包含。
     set(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "")
 endif()
