@@ -18,7 +18,7 @@ endif()
 
 include("${ASCCOMM_ROOT}/cmake/fetch_cann_cmake.cmake")
 
-project(asccomm_hcomm_ut LANGUAGES C CXX)
+project(asccomm_ut LANGUAGES C CXX)
 init_cann_project(PREPEND_MODULE_PATH)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -309,4 +309,5 @@ endfunction()
 
 add_subdirectory(aicore/hcomm)
 add_subdirectory(aicore/ain)
+add_subdirectory(aicpu/asccomm aicpu_asccomm)
 add_subdirectory(ccu/hcomm ccu_hcomm)
