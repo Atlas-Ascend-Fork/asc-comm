@@ -399,3 +399,45 @@ TEST_F(HcommRoCETestSuite, BatchPostSendUses64BitWqeEncoding)
         EXPECT_EQ(actualWords[i], expectedWords[i]) << "word=" << i;
     }
 }
+
+TEST_F(HcommRoCETestSuite, BatchPostSendSharesPublicHeaderAcrossSges)
+{
+    Hcomm<COMM_PROTOCOL_ROCE> hcomm;
+    ASSERT_EQ(hcomm.Init(tempTensor_, 512), HCOMM_SUCCESS);
+    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
+    auto batchHandle = hcomm.MakeBatchHandle(
+        channelHandle, tempTensor_, 256, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
+    ASSERT_NE(batchHandle.channelHandle, 0U);
+
+    BufDesc descs[2] = {
+        {reinterpret_cast<GM_ADDR>(0x110), 10},
+        {reinterpret_cast<GM_ADDR>(0x120), 11},
+    };
+    ASSERT_EQ(hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), descs, 2), HCOMM_SUCCESS);
+
+    auto* words = reinterpret_cast<uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
+    RoceWqeEntry expected{};
+    hcomm.impl_.FillCtrlSeg(&expected, 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth, 1);
+    expected.ctrl.wfBdsl &=
+        ~HtoNS(static_cast<uint16_t>(0xffU << (ROCE_1825_WQE_DATA_SEG_SHIFT - ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
+    expected.ctrl.wfBdsl |=
+        HtoNS(static_cast<uint16_t>(2U << (ROCE_1825_WQE_DATA_SEG_SHIFT - ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
+    hcomm.impl_.FillTaskSeg(
+        &expected, reinterpret_cast<GM_ADDR>(0x200), 21, static_cast<uint32_t>(HCOMM_ROCE_OP_TYPE::WRITE),
+        batchHandle.mrKey.rKey, batchHandle.mrKey.lKey, ROCE_DEFAULT_CFG.fence);
+    auto* expectedWords = reinterpret_cast<uint64_t*>(&expected);
+    for (uint32_t i = 0; i < 6; ++i) {
+        EXPECT_EQ(words[i], expectedWords[i]) << "public word=" << i;
+    }
+
+    constexpr uint32_t sgeWordNum = sizeof(RoceWqeDataSeg) / sizeof(uint64_t);
+    for (uint32_t i = 0; i < 2; ++i) {
+        const uint64_t* sge = words + 6 + i * sgeWordNum;
+        EXPECT_EQ(sge[0], HtoNLL(reinterpret_cast<uint64_t>(descs[i].addr))) << "SGE address=" << i;
+        EXPECT_EQ(sge[1] & 0xffffffffU, HtoNL(descs[i].len)) << "SGE length=" << i;
+        const uint64_t lastSgeBit = i == 1U ? 0x80U : 0U;
+        EXPECT_EQ((sge[1] >> 32U) & 0x80U, lastSgeBit) << "SGE last marker=" << i;
+    }
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 2U);
+    EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
+}

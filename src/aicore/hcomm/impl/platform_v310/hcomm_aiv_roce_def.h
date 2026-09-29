@@ -158,8 +158,10 @@ private:
         uint32_t expectIdx, uint32_t cqTail, uint32_t sqHead, uint32_t sqTail, uint32_t sqDepth, uint32_t threshold);
     __aicore__ inline bool CheckChannelParam(__gm__ ChannelEntity* chnlPtr);
     template <HCOMM_ROCE_OP_TYPE opType, auto const& config>
+    __aicore__ inline int32_t BatchPostSend(UbcBatchHandle& batchHandle, GM_ADDR dst, GM_ADDR src, uint32_t len);
+    template <HCOMM_ROCE_OP_TYPE opType, auto const& config>
     __aicore__ inline int32_t BatchPostSend(
-        UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t wqeNum);
+        UbcBatchHandle& batchHandle, GM_ADDR remoteAddr, const BufDesc* localDescs, uint32_t segNum);
     __aicore__ inline uint32_t PollBatchCq(UbcBatchHandle& batchHandle, uint32_t expectIdx);
 
 private:
