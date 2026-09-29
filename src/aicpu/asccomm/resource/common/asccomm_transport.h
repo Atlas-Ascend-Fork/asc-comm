@@ -11,7 +11,7 @@
 #ifndef ASCCOMM_TRANSPORT_H
 #define ASCCOMM_TRANSPORT_H
 
-#include "hcomm_pod_resource.h"
+#include "hcomm_res_entity_defs.h"
 #include "asccomm_primitives.h"
 #include "../connection/asccomm_backend_types.h"
 

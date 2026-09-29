@@ -8,12 +8,12 @@
  * See the License in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_POD_RESOURCE_H
-#define HCOMM_POD_RESOURCE_H
+#ifndef HCOMM_RES_ENTITY_DEFS_H
+#define HCOMM_RES_ENTITY_DEFS_H
 
-// POD ABI resource definitions shared by resource producers and POD primitives.
+// Resource ABI definitions shared by resource producers and AICPU primitives.
 // 契约总则：
-//   1. 控制面(hcomm)负责从活对象平铺填充本文件中的POD实体，字段一律填"最终消费值"，
+//   1. 控制面(hcomm)负责从活对象平铺填充本文件中的资源实体，字段一律填"最终消费值"，
 //      数据面(asc-comm)零转换直取。
 //   2. 所有内存单位为字节；sqDepth等需要换算的量由控制面完成换算(如UB sqDepth*4)。
 //   3. remoteEID 为硬件逆序形态(等价 hcomm UbConnLite::rmtReverseEid_，即WQE.rmtEid
@@ -23,21 +23,21 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "hcomm_primitives_types.h"
+#include "hcomm_res_defs.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define HCOMM_POD_CHANNEL_VERSION 0U             ///< Channel POD ABI版本号
-#define HCOMM_POD_CHANNEL_MAGIC_WORD 0x0fcf0f5fU ///< Channel POD合法性校验魔术字
-#define HCOMM_POD_THREAD_VERSION 0U              ///< Thread POD ABI版本号
-#define HCOMM_POD_THREAD_MAGIC_WORD 0x0fcf0f6fU  ///< Thread POD合法性校验魔术字
-#define HCOMM_POD_RTSQ_SQE_SIZE 64U              ///< 单个RTSQ SQE占用字节数
-#define HCOMM_POD_RTSQ_BATCH_SIZE 128U           ///< 本地最多缓存的RTSQ SQE数量
-#define HCOMM_POD_RTSQ_TASK_ID_BATCH_SIZE 1024U  ///< 单次申请的RTSQ Task ID数量
-#define HCOMM_POD_CHANNEL_ENTITY_SIZE 256U       ///< Channel POD ABI固定大小
-#define HCOMM_POD_THREAD_ENTITY_SIZE 256U        ///< Thread POD ABI固定大小
+#define HCOMM_RESOURCE_CHANNEL_VERSION 0U             ///< Channel resource ABI版本号
+#define HCOMM_RESOURCE_CHANNEL_MAGIC_WORD 0x0fcf0f5fU ///< Channel resource合法性校验魔术字
+#define HCOMM_RESOURCE_THREAD_VERSION 0U              ///< Thread resource ABI版本号
+#define HCOMM_RESOURCE_THREAD_MAGIC_WORD 0x0fcf0f6fU  ///< Thread resource合法性校验魔术字
+#define HCOMM_RESOURCE_RTSQ_SQE_SIZE 64U              ///< 单个RTSQ SQE占用字节数
+#define HCOMM_RESOURCE_RTSQ_BATCH_SIZE 128U           ///< 本地最多缓存的RTSQ SQE数量
+#define HCOMM_RESOURCE_RTSQ_TASK_ID_BATCH_SIZE 1024U  ///< 单次申请的RTSQ Task ID数量
+#define HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE 256U       ///< Channel resource ABI固定大小
+#define HCOMM_RESOURCE_THREAD_ENTITY_SIZE 256U        ///< Thread resource ABI固定大小
 
 #pragma pack(push, 4)
 
@@ -234,7 +234,7 @@ typedef struct {
     ChannelHandle originChannelHandle; ///< 控制面原始Channel句柄值；数据面只作关联信息，不解引用
 } HcommChannelEntity;
 
-// RTSQ硬件字段由HCOMM控制面在POD构造阶段查询并填充；数据面只消费初始快照，
+// RTSQ硬件字段由HCOMM控制面在资源构造阶段查询并填充；数据面只消费初始快照，
 // 并在提交过程中维护运行态head/tail。
 typedef struct {
     uint32_t localDevId;    ///< 调用halSqCqQuery/halSqCqConfig使用的本地设备ID(控制面填充)
@@ -242,7 +242,7 @@ typedef struct {
     uint32_t sqId;          ///< 硬件RTSQ编号
     uint32_t sqDepth;       ///< 硬件RTSQ可容纳的SQE数量
     uint32_t sqHead;        ///< 最近一次查询到的硬件RTSQ Head
-    uint32_t sqTail;        ///< POD运行时维护的硬件RTSQ Tail
+    uint32_t sqTail;        ///< 资源运行时维护的硬件RTSQ Tail
     uint64_t sqBaseAddr;    ///< 硬件RTSQ SQE环形缓冲区的CPU虚拟地址
     uint64_t localSqeAddr;  ///< 控制面申请、数据面维护的本地SQE缓存地址
     uint32_t taskId;        ///< 数据面下一次使用的Task ID，控制面创建资源时置0
@@ -257,7 +257,7 @@ typedef struct {
     HcommDevInfo devInfo;          ///< Thread所属设备信息
     uint32_t localNotifyNum;       ///< localNotifyAddr数组元素个数
     HcommRegedNotifyEntity* localNotifyAddr; ///< Thread本地Notify数组，用于线程间Record/Wait(type=IPC_RT)
-    HcommRtsqContext* sqContextAddr;         ///< Thread直接持有的POD RTSQ运行上下文
+    HcommRtsqContext* sqContextAddr;         ///< Thread直接持有的resource RTSQ运行上下文
     ThreadHandle originThreadHandle; ///< 控制面原始Thread句柄值；数据面只作关联信息，不解引用
     uint8_t raw[172];               ///< Thread固定256字节中的ABI预留扩展空间
 } HcommThreadEntity;
@@ -280,16 +280,16 @@ static_assert(std::is_pod<HcommRegedBufferEntity>::value, "HcommRegedBufferEntit
 static_assert(std::is_pod<HcommRegedNotifyEntity>::value, "HcommRegedNotifyEntity must be POD");
 static_assert(std::is_pod<HcommSqContext>::value, "HcommSqContext must be POD");
 static_assert(std::is_pod<HcommCqContext>::value, "HcommCqContext must be POD");
-static_assert(sizeof(HcommChannelEntity) <= HCOMM_POD_CHANNEL_ENTITY_SIZE,
+static_assert(sizeof(HcommChannelEntity) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE,
     "HcommChannelEntity ABI size must not exceed 256 bytes");
-static_assert(sizeof(HcommThreadEntity) == HCOMM_POD_THREAD_ENTITY_SIZE,
+static_assert(sizeof(HcommThreadEntity) == HCOMM_RESOURCE_THREAD_ENTITY_SIZE,
     "HcommThreadEntity ABI size must be 256 bytes");
 static_assert(alignof(HcommChannelEntity) == 4, "HcommChannelEntity ABI alignment must be 4 bytes");
 static_assert(alignof(HcommThreadEntity) == 4, "HcommThreadEntity ABI alignment must be 4 bytes");
-static_assert(offsetof(HcommThreadEntity, originThreadHandle) + sizeof(ThreadHandle) <= HCOMM_POD_THREAD_ENTITY_SIZE,
+static_assert(offsetof(HcommThreadEntity, originThreadHandle) + sizeof(ThreadHandle) <= HCOMM_RESOURCE_THREAD_ENTITY_SIZE,
     "HcommThreadEntity origin handle must fit in the fixed ABI storage");
-static_assert(offsetof(HcommChannelEntity, originChannelHandle) + sizeof(ChannelHandle) <= HCOMM_POD_CHANNEL_ENTITY_SIZE,
+static_assert(offsetof(HcommChannelEntity, originChannelHandle) + sizeof(ChannelHandle) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE,
     "HcommChannelEntity origin handle must fit in the fixed ABI storage");
 #endif
 
-#endif // HCOMM_POD_RESOURCE_H
+#endif // HCOMM_RES_ENTITY_DEFS_H

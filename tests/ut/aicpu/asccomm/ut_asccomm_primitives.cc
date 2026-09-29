@@ -21,7 +21,7 @@ namespace {
 HcommThreadEntity MakeThread()
 {
     HcommThreadEntity thread{};
-    thread.abiHeader = {HCOMM_POD_THREAD_VERSION, HCOMM_POD_THREAD_MAGIC_WORD, sizeof(HcommThreadEntity), 0};
+    thread.abiHeader = {HCOMM_RESOURCE_THREAD_VERSION, HCOMM_RESOURCE_THREAD_MAGIC_WORD, sizeof(HcommThreadEntity), 0};
     static HcommRtsqContext rtsq{};
     thread.sqContextAddr = &rtsq;
     return thread;
@@ -31,7 +31,7 @@ HcommChannelEntity MakeChannel()
 {
     HcommChannelEntity channel{};
     channel.abiHeader = {
-        HCOMM_POD_CHANNEL_VERSION, HCOMM_POD_CHANNEL_MAGIC_WORD, sizeof(HcommChannelEntity), 0};
+        HCOMM_RESOURCE_CHANNEL_VERSION, HCOMM_RESOURCE_CHANNEL_MAGIC_WORD, sizeof(HcommChannelEntity), 0};
     return channel;
 }
 

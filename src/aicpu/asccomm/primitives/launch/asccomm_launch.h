@@ -14,7 +14,7 @@
 #include "asccomm_primitives.h"
 #include "hccl/hccl_types.h"
 
-// 登记batch模式批量launch的ThreadHandle；句柄值为控制面提供的POD实体地址。
+// 登记batch模式批量launch的ThreadHandle；句柄值为控制面提供的资源实体地址。
 void asccomm_register_thread(ThreadHandle thread);
 bool asccomm_is_batch_launch_mode();
 uint32_t asccomm_get_notify_wait_timeout();

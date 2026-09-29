@@ -8,12 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCOMM_PRIMITIVES_TYPES_H
-#define HCOMM_PRIMITIVES_TYPES_H
+#ifndef HCOMM_RES_DEFS_H
+#define HCOMM_RES_DEFS_H
 
 #include <stdint.h>
 
-// 数据面随仓副本：hcomm侧的hcomm_primitives_types.h复用include/hcomm_res_defs.h
+// 数据面随仓副本：hcomm侧的hcomm_res_defs.h复用include/hcomm_res_defs.h
 // 权威定义(带guard宏)。数据面编译环境无该头，此副本提供同构定义。
 // 字段/枚举值必须与hcomm_res_defs.h保持一致(hcomm侧guard宏兼容两套包含)。
 #ifdef __cplusplus
@@ -170,4 +170,4 @@ typedef struct {
 }
 #endif
 
-#endif // HCOMM_PRIMITIVES_TYPES_H
+#endif // HCOMM_RES_DEFS_H
