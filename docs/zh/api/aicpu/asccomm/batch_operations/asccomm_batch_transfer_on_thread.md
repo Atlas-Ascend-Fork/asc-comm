@@ -23,9 +23,9 @@
 
 ## 功能说明
 
-头文件路径：`"hcomm/asccomm_primitives.h"`。
+头文件路径：`"asccomm/asccomm_primitives.h"`。
 
-在指定线程和通道上异步提交一组传输任务。每个传输任务由`HcommBatchTransferDesc`描述，定义位于`"hcomm/hcomm_primitives.h"`，支持单边写、单边读、写归约、带通知的写以及通知记录等操作类型。
+在指定线程和通道上异步提交一组传输任务。每个传输任务由`HcommBatchTransferDesc`描述，定义位于`"asccomm/hcomm_res_defs.h"`，支持单边写、单边读、写归约、归约读、带通知的写、带通知的归约写以及通知记录等操作类型。
 
 ## 函数原型
 
@@ -38,27 +38,22 @@ int32_t asccomm_batch_transfer_on_thread(ThreadHandle thread, ChannelHandle chan
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。<br>ThreadHandle类型的定义请参见`"hcomm/hcomm_primitives.h"`。 |
-| channel | 输入 | 通信通道句柄。<br>ChannelHandle类型的定义请参见`"hcomm/hcomm_primitives.h"`。 |
-| transferDescs | 输入 | 批量传输描述符数组，数组中每个元素描述一个传输任务，按数组顺序依次提交。描述符定义参见`"hcomm/hcomm_primitives.h"`。 |
+| thread | 输入 | 通信线程句柄，为控制面构造并随AICPU Kernel参数下发的有效Thread资源句柄，当前实现要求该参数不能为0。<br>ThreadHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
+| channel | 输入 | 通信通道句柄，为控制面构造并随AICPU Kernel参数下发的有效Channel资源句柄，当前实现要求该参数不能为0。<br>ChannelHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
+| transferDescs | 输入 | 批量传输描述符数组，数组中每个元素描述一个传输任务，按数组顺序依次提交。描述符定义参见`"asccomm/hcomm_res_defs.h"`。 |
 | transferDescNum | 输入 | 描述符数量，须大于0。 |
 
 ## 返回值说明
 
-int32_t：接口成功返回0，其他失败。
+int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
 
 ## 约束说明
 
-<!-- npu="A3,910b" id7 -->
-针对如下产品，该接口仅支持通信协议RoCE，且transType仅支持HCOMM_TRANSFER_TYPE_WRITE和HCOMM_TRANSFER_TYPE_READ类型，其他类型返回HCCL_E_NOT_SUPPORT。
-
-<!-- npu="A3" id8 -->
-- Atlas A3系列产品
-<!-- end id8 -->
-<!-- npu="910b" id9 -->
-- Atlas A2系列产品
-<!-- end id9 -->
-<!-- end id7 -->
+- 当前实现仅支持UB类协议通道；RoCE通道返回`ASCCOMM_E_NOT_SUPPORT`。
+- `transferDescNum`为0或`transferDescs`为NULL时返回`ASCCOMM_E_PARA`或`ASCCOMM_E_PTR`。
+- 除`HCOMM_TRANSFER_TYPE_NOTIFY_RECORD`外，每个描述符的源地址和目的地址均不能为NULL，且地址范围须落在通道已注册的RMA内存范围内。
+- 通知类描述符的`notifyIdx`必须小于通道远端Notify数量。
+- 不支持的`transType`返回`ASCCOMM_E_PARA`。
 
 ## 调用示例
 

@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"hcomm/asccomm_primitives.h"`。
+头文件路径：`"asccomm/asccomm_primitives.h"`。
 
 提供本地内存拷贝功能，将src指向的长度为len的内存数据，拷贝到dst所指向的相同长度的内存中。
 
@@ -37,68 +37,26 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void *dst, const void 
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为通过`HcclThreadAcquire`接口（声明于`"hccl/hccl_res.h"`）获取到的threads。<br>ThreadHandle类型的定义请参见`"hcomm/hcomm_primitives.h"`。 |
+| thread | 输入 | 通信线程句柄，为控制面构造并随AICPU Kernel参数下发的有效Thread资源句柄，当前实现要求该参数不能为0。<br>ThreadHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
 | dst | 输出 | 目的内存地址，Device内存。 |
 | src | 输入 | 源内存地址，Device内存。 |
 | len | 输入 | 数据长度（字节）。 |
 
 ## 返回值说明
 
-int32_t：接口成功返回0，其他失败。
+int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
 
 ## 约束说明
 
-dst、src内存是申请的device内存。
-
-<!-- npu="950" id7 -->
-在Ascend 950PR/Ascend 950DT系列产品上，仅支持AICPU_TS模式下、在Device侧调用该接口。
-<!-- end id7 -->
+- dst和src必须为AICPU执行环境可直接访问的有效Device地址。
+- len为0时当前不生成本地拷贝任务。
+- 当前实现按最大4GiB分片提交拷贝任务；单片大小最终转换为`uint32_t`，恰好4GiB的边界行为需以运行时校验为准。
+- 当前实现按最大4GiB分片提交拷贝任务；单片大小最终转换为`uint32_t`，恰好4GiB的边界行为需以运行时校验为准。
+- 当前实现按最大4GiB分片提交拷贝任务；单片大小最终转换为`uint32_t`，恰好4GiB的边界行为需以运行时校验为准。
 
 ## 调用示例
 
 ```cpp
-HcclComm comm;
-CommEngine engine = COMM_ENGINE_CPU_TS;
-aclrtStream stream;
-aclrtCreateStream(&stream);
-ThreadHandle thread;
-HcclResult result = HcclThreadAcquireWithStream(comm, engine, stream, 2, &thread);
-
-// 申请device内存
-uint64_t memSize = 256;
-s32 policy = static_cast<int>(ACL_MEM_TYPE_HIGH_BAND_WIDTH) | static_cast<int>(ACL_MEM_MALLOC_HUGE_FIRST);
-aclrtMallocAttrValue moduleIdValue;
-moduleIdValue.moduleId = HCCL;
-aclrtMallocAttribute attrs{.attr = ACL_RT_MEM_ATTR_MODULE_ID, .value = moduleIdValue};
-aclrtMallocConfig cfg{.attrs = &attrs, .numAttrs = 1};
-
-void* inputMem;
-void* outputMem;
-aclrtMallocWithCfg(&inputMem, memSize, static_cast<aclrtMemMallocPolicy>(policy), &cfg);
-aclrtMallocWithCfg(&outputMem, memSize, static_cast<aclrtMemMallocPolicy>(policy), &cfg);
-// 执行D2D拷贝
-asccomm_local_copy_on_thread(thread, outputMem, inputMem, memSize);
-```
-
-在Ascend 950PR/Ascend 950DT系列产品上，该函数需要编译到Device侧使用：
-
-```cpp
-HcclComm comm;
-CommEngine engine = COMM_ENGINE_AICPU_TS;
-
-void *cclBufferAddr = nullptr;
-uint64_t cclBufferSize = 0;
-HcclGetHcclBuffer(comm, &cclBufferAddr, &cclBufferSize);
-ThreadHandle thread;
-HcclThreadAcquire(comm, engine, 1, 1, &thread);
-
-// 其余资源申请
-// 拷贝参数并Launch Kernel
-
-// Device侧算法编排
-uint64_t len = 256;
-void *src = param.userIn;
-void *dst = param.cclBuf;
-// 执行D2D拷贝
-asccomm_local_copy_on_thread(thread, dst, src, len);
+// thread为控制面下发的有效Thread资源句柄；src和dst为AICPU可直接访问的Device地址。
+int32_t ret = asccomm_local_copy_on_thread(thread, dst, src, len);
 ```
