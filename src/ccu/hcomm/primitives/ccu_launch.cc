@@ -28,7 +28,7 @@
 // 在不进入内核注册流程的情况下准备单实例资源快照。
 // 变量/事件分配接口可能先于 <<<>>> 调用，因此需要执行此操作。
 static CcuResult ccu_prepare_instance(
-    CcuInsHandle ins_handle, asc::ccu_kernel_registry*& ccu_ins, int32_t& dev_logic_id)
+    HcommCcuInstanceHandle ins_handle, asc::ccu_kernel_registry*& ccu_ins, int32_t& dev_logic_id)
 {
     if (ins_handle.ccuInsKey == 0 || ins_handle.ccuInsPtr == nullptr) {
         HCCL_ERROR(
@@ -49,12 +49,14 @@ static CcuResult ccu_prepare_instance(
     return ccu_ins->load_register_context(*ins_handle.ccuInsPtr);
 }
 
-CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle)
+CcuResult asccomm_ccu_kernel_register_start(void* ins_handle)
 {
+    CCU_CHK_PTR_NULL(ins_handle);
+    HcommCcuInstanceHandle instanceHandle = *static_cast<HcommCcuInstanceHandle*>(ins_handle);
     // Instance 不再携带设备号：以当前线程设备定位 per-device registry/kernel mgr
     int32_t dev_logic_id = -1;
     asc::ccu_kernel_registry* ccu_ins = nullptr;
-    CCU_CHK_RET(ccu_prepare_instance(ins_handle, ccu_ins, dev_logic_id));
+    CCU_CHK_RET(ccu_prepare_instance(instanceHandle, ccu_ins, dev_logic_id));
     CCU_CHK_RET(ccu_ins->begin_register());
 
     auto* res_snapshot = ccu_ins->get_res_snapshot();
@@ -65,7 +67,7 @@ CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle ins_handle)
         HCCL_ERROR("[%s] failed to load register context, ret[%d].", __func__, ret);
         return ret;
     }
-    asc::set_current_ccu_control_ops(ins_handle.ccuInsPtr->ascCustom);
+    asc::set_current_ccu_control_ops(instanceHandle.ccuInsPtr->ascCustom);
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -84,9 +86,11 @@ static CcuResult ccu_kernel_try_register(
 }
 
 CcuResult asccomm_ccu_kernel_register(
-    CcuInsHandle ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
+    void* ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
     const void** kernel_args, uint32_t arg_num, ccu_kernel_handle* kernel_handle)
 {
+    CCU_CHK_PTR_NULL(ins_handle);
+    HcommCcuInstanceHandle instanceHandle = *static_cast<HcommCcuInstanceHandle*>(ins_handle);
     HCCL_RUN_INFO("Entry-%s", __func__);
 
     CCU_CHK_PTR_NULL(kernel_func);
@@ -97,7 +101,7 @@ CcuResult asccomm_ccu_kernel_register(
     }
 
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
-    auto* ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(ins_handle);
+    auto* ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(instanceHandle);
     CCU_CHK_PTR_NULL(ccu_ins);
 
     CCU_CHK_RET(ccu_ins->check_registering());
@@ -124,10 +128,12 @@ CcuResult asccomm_ccu_kernel_register(
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult asccomm_ccu_kernel_register_end(CcuInsHandle ins_handle)
+CcuResult asccomm_ccu_kernel_register_end(void* ins_handle)
 {
+    CCU_CHK_PTR_NULL(ins_handle);
+    HcommCcuInstanceHandle instanceHandle = *static_cast<HcommCcuInstanceHandle*>(ins_handle);
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
-    auto* ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(ins_handle);
+    auto* ccu_ins = asc::ccu_kernel_registry_mgr::get_instance(dev_logic_id).get(instanceHandle);
     CCU_CHK_PTR_NULL(ccu_ins);
 
     CCU_CHK_RET(ccu_ins->end_register());
@@ -209,6 +215,8 @@ CcuResult asccomm_ccu_kernel_launch(
     auto ret = kernel->gene_task_params(static_cast<const uint64_t*>(task_args), arg_num, task_params);
     CHK_PRT_RET(
         ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] failed, kernelHandle[0x%llx].", __func__, kernel_handle), ret);
+    CHK_PRT_RET(
+        ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] failed, kernelHandle[0x%llx].", __func__, kernel_handle), ret);
 
     if (task_params.empty()) {
         HCCL_INFO("[%s] passed, ccu params are empty.", __func__);
@@ -242,7 +250,7 @@ CcuResult asccomm_ccu_get_mem_token(uint64_t src_va, uint64_t size, uint64_t* to
 
 // 定位实例资源仓后转发给 CcuVarEventResMgr；预约、地址映射与失败回滚均由该类内部完成
 static CcuResult ccu_alloc_var_event_res(
-    CcuInsHandle ins_handle, asc::ccu_var_event_type type, uint8_t die_id, uint32_t num, uint64_t& out_handle)
+    HcommCcuInstanceHandle ins_handle, asc::ccu_var_event_type type, uint8_t die_id, uint32_t num, uint64_t& out_handle)
 {
     int32_t dev_logic_id = -1;
     asc::ccu_kernel_registry* ccu_ins = nullptr;
@@ -253,11 +261,13 @@ static CcuResult ccu_alloc_var_event_res(
 
     CCU_CHK_RET(asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
                     .acquire(ins_handle, res_pack->get_ccu_res_repo(), type, die_id, num, out_handle));
+    CCU_CHK_RET(asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
+                    .acquire(ins_handle, res_pack->get_ccu_res_repo(), type, die_id, num, out_handle));
     return CcuResult::CCU_SUCCESS;
 }
 
 CcuResult asccomm_ccu_variable_alloc(
-    CcuInsHandle ins_handle, uint8_t die_id, uint32_t num, ccu_variable_handle* var_handle)
+    HcommCcuInstanceHandle ins_handle, uint8_t die_id, uint32_t num, ccu_variable_handle* var_handle)
 {
     CCU_CHK_PTR_NULL(var_handle);
     *var_handle = 0;
@@ -265,7 +275,8 @@ CcuResult asccomm_ccu_variable_alloc(
     return CcuResult::CCU_SUCCESS;
 }
 
-CcuResult asccomm_ccu_event_alloc(CcuInsHandle ins_handle, uint8_t die_id, uint32_t num, ccu_event_handle* event_handle)
+CcuResult asccomm_ccu_event_alloc(
+    HcommCcuInstanceHandle ins_handle, uint8_t die_id, uint32_t num, ccu_event_handle* event_handle)
 {
     CCU_CHK_PTR_NULL(event_handle);
     *event_handle = 0;
@@ -280,6 +291,8 @@ CcuResult asccomm_ccu_variable_get_addr(ccu_variable_handle var_handle, uint32_t
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
     CCU_CHK_RET(asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
                     .get_saved_addr(asc::ccu_var_event_type::variable, var_handle, index, *va));
+    CCU_CHK_RET(asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
+                    .get_saved_addr(asc::ccu_var_event_type::variable, var_handle, index, *va));
 
     return CcuResult::CCU_SUCCESS;
 }
@@ -289,6 +302,8 @@ CcuResult asccomm_ccu_event_get_addr(ccu_event_handle event_handle, uint32_t ind
     CCU_CHK_PTR_NULL(va);
 
     const uint32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
+    CCU_CHK_RET(asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
+                    .get_saved_addr(asc::ccu_var_event_type::event, event_handle, index, *va));
     CCU_CHK_RET(asc::ccu_var_event_res_mgr::get_instance(dev_logic_id)
                     .get_saved_addr(asc::ccu_var_event_type::event, event_handle, index, *va));
 

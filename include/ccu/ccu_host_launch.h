@@ -32,7 +32,7 @@ typedef struct {
 
 typedef struct {
     asccomm_ccu_schd ccu_schd;
-    CcuInsHandle ccu_ins;
+    void* ccu_ins; // 指向 hcomm 持有的 HcommCcuInstanceHandle
     aclrtStream stream;
     void* attrs;
 } asccomm_launch_kernel_cfg;
@@ -46,7 +46,7 @@ typedef struct {
 
 typedef struct {
     HcommCcuSchd ccuSchd;
-    CcuInsHandle ccuIns;
+    void* ccuIns; // 指向 hcomm 持有的 HcommCcuInstanceHandle
     aclrtStream stream;
     void* attrs;
 } HcommLaunchKernelCfg;

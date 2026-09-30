@@ -110,7 +110,7 @@ static HcclResult RegisterAllToAllKernel(
 
     resCtxHost.ccuKernels.resize(1); // 只注册一个 kernel
 
-    CcuInsHandle ins_handle{};
+    void* ins_handle{};
     RETURN_IF_HCCL_FAIL(asccomm_examples::QueryCcuInstance(comm, ins_handle));
     CcuResult regStartRet = asccomm_ccu_kernel_register_start(ins_handle);
     if (regStartRet != CCU_SUCCESS) {

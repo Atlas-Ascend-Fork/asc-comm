@@ -14,7 +14,7 @@
 #include <vector>
 
 #include <acl/acl_rt.h>
-#include <hccl/hccl_types.h>
+#${1}hccl/hccl_types.h${2}
 #include <hccl/hcomm_primitives.h>
 
 namespace ops_hccl_ar {

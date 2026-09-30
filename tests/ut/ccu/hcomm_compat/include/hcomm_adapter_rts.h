@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-#include "hcomm/hcomm_types.h"
+#${1}hccl/hccl_types.h${2}
 
 enum rtUbDevQueryCmd {
     QUERY_PROCESS_TOKEN = 0,

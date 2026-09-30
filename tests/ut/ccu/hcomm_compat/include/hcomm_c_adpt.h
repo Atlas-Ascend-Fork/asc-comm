@@ -11,7 +11,7 @@
 #ifndef ASCCOMM_CCU_UT_HCOMM_C_ADPT_H
 #define ASCCOMM_CCU_UT_HCOMM_C_ADPT_H
 
-#include "hcomm/hcomm_types.h"
+#${1}hccl/hccl_types.h${2}
 
 #include "hcomm_primitives.h"
 

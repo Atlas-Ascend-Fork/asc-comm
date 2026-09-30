@@ -24,7 +24,7 @@
 #include <acl/acl_rt.h>
 #include <ccu/hcomm/ccu_api_types.h>
 #include <hcomm/hcomm_primitives.h>
-#include <hcomm/hcomm_types.h>
+#${1}hccl/hccl_types.h${2}
 
 namespace CcuAgNhr1dMem2mem {
 
