@@ -106,22 +106,22 @@ public:
     }
 
     // 上层接口，不关心具体vendor类型
-    HcclResult read(const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
+    AsccommResult read(const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
     {
         // read需要占用1个wr位置, 确定Sq存在空位
         constexpr int ReadWqeCount = 1;
         CHK_RET(wait_sq_free(ReadWqeCount));
 
-        // 进入vendor特有wqe组装接口, 组装完wqe直接下发, opCode不支持直接返回HCCL_E_NOT_SUPPORT
+        // 进入vendor特有wqe组装接口, 组装完wqe直接下发, opCode不支持直接返回ASCCOMM_E_NOT_SUPPORT
         CHK_RET(build_read_wqe(loc, rmt, cfg));
 
         // 更新Sq队列PI值
         CHK_RET(update_sq_pi());
 
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
-    HcclResult write(const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
+    AsccommResult write(const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
     {
         // write需要占用1个wr位置, 确定Sq存在空位
         constexpr int WriteWqeCount = 1;
@@ -133,10 +133,10 @@ public:
         // 更新Sq队列PI值
         CHK_RET(update_sq_pi());
 
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
-    HcclResult write_reduce(
+    AsccommResult write_reduce(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, DataType dataType,
         ReduceOp reduceOp)
     {
@@ -150,10 +150,10 @@ public:
         // 更新Sq队列PI值
         CHK_RET(update_sq_pi());
 
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
-    HcclResult poll_cq(int32_t numEntries, int32_t timeOut, std::vector<int32_t>& errList)
+    AsccommResult poll_cq(int32_t numEntries, int32_t timeOut, std::vector<int32_t>& errList)
     {
         auto timeLimit = std::chrono::milliseconds(timeOut);
         auto startTime = std::chrono::steady_clock::now();
@@ -165,8 +165,8 @@ public:
             // 逐一Poll Cq，并处理cqe
             ret = poll_cq_impl(numEntries - totalPollNum, errList);
             if (ret == static_cast<int32_t>(CqPollStatus::ERROR)) {
-                HCCL_ERROR("[RdmaBaseOps::%s][Poll cq] Poll Cq Error.", __func__);
-                return HCCL_E_REMOTE;
+                ASCCOMM_ERROR("[RdmaBaseOps::%s][Poll cq] Poll Cq Error.", __func__);
+                return ASCCOMM_E_REMOTE;
             }
 
             if (ret > 0) {
@@ -181,23 +181,23 @@ public:
             }
 
             if ((std::chrono::steady_clock::now() - startTime) > timeLimit) {
-                HCCL_ERROR(
+                ASCCOMM_ERROR(
                     "[RdmaBaseOps::%s][Poll cq] Poll Cq timeout, expected[%d], actual[%d], lastRet[%d]", __func__,
                     numEntries, totalPollNum, ret);
-                return HCCL_E_TIMEOUT;
+                return ASCCOMM_E_TIMEOUT;
             }
         }
 
-        HCCL_INFO(
+        ASCCOMM_INFO(
             "[RdmaBaseOps::%s][Poll cq] Poll Cq success, expected[%d], actual[%d]", __func__, numEntries, totalPollNum);
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
     // 准备Doorbell(厂商实现)
-    virtual HcclResult build_doorbell(u64& dbAddr, u64& dbValue) = 0;
+    virtual AsccommResult build_doorbell(u64& dbAddr, u64& dbValue) = 0;
 
     // 准备CqDoorbell(厂商实现)
-    virtual HcclResult build_cq_doorbell(u64& dbAddr, u64& dbValue) = 0;
+    virtual AsccommResult build_cq_doorbell(u64& dbAddr, u64& dbValue) = 0;
 
 protected:
     // 软件侧只维护Sq PI，Sq CI由硬件维护
@@ -216,27 +216,27 @@ protected:
 
     // vendor扩展点: 每个原子op一个虚函数
     // 默认 NOT_SUPPORT, 各个vendor 只重写自己支持的
-    virtual HcclResult build_read_wqe(
+    virtual AsccommResult build_read_wqe(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
     {
         (void)loc;
         (void)rmt;
         (void)cfg;
-        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support read Now.", __func__);
-        return HCCL_E_NOT_SUPPORT;
+        ASCCOMM_ERROR("[RdmaBaseOps::%s] This Backend Not support read Now.", __func__);
+        return ASCCOMM_E_NOT_SUPPORT;
     }
 
-    virtual HcclResult build_write_wqe(
+    virtual AsccommResult build_write_wqe(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg)
     {
         (void)loc;
         (void)rmt;
         (void)cfg;
-        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support write Now.", __func__);
-        return HCCL_E_NOT_SUPPORT;
+        ASCCOMM_ERROR("[RdmaBaseOps::%s] This Backend Not support write Now.", __func__);
+        return ASCCOMM_E_NOT_SUPPORT;
     }
 
-    virtual HcclResult build_write_reduce_wqe(
+    virtual AsccommResult build_write_reduce_wqe(
         const RmaBufSliceLite& locNotify, const RmtRmaBufSliceLite& notify, const SqeConfigLite& cfg, DataType dataType,
         ReduceOp reduceOp)
     {
@@ -245,34 +245,34 @@ protected:
         (void)cfg;
         (void)dataType;
         (void)reduceOp;
-        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support write_reduce Now.", __func__);
-        return HCCL_E_NOT_SUPPORT;
+        ASCCOMM_ERROR("[RdmaBaseOps::%s] This Backend Not support write_reduce Now.", __func__);
+        return ASCCOMM_E_NOT_SUPPORT;
     }
 
-    virtual HcclResult write_invalid_wqebb(uint32_t nextIdx)
+    virtual AsccommResult write_invalid_wqebb(uint32_t nextIdx)
     {
         (void)nextIdx;
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
     virtual int32_t poll_cq_impl(int32_t numEntries, std::vector<int32_t>& errList)
     {
         (void)numEntries;
-        HCCL_ERROR("[RdmaBaseOps::%s] This Backend Not support poll_cq Now.", __func__);
-        return HCCL_E_NOT_SUPPORT;
+        ASCCOMM_ERROR("[RdmaBaseOps::%s] This Backend Not support poll_cq Now.", __func__);
+        return ASCCOMM_E_NOT_SUPPORT;
     }
 
     // 搬运wqe(通用实现), 把 Wqe 写到 SQ
-    HcclResult commit_wqe(const void* wqe, uint32_t wqeSize)
+    AsccommResult commit_wqe(const void* wqe, uint32_t wqeSize)
     {
-        HCCL_INFO("[RdmaBaseOps::%s] Memcpy wqe start, Now SQ PI: [%u]", __func__, sqHead_);
+        ASCCOMM_INFO("[RdmaBaseOps::%s] Memcpy wqe start, Now SQ PI: [%u]", __func__, sqHead_);
 
         // 写wqe到va
         auto sqDepth = sqContext_->depth;
         uint32_t sqPIMask = sqDepth - 1;
         u8* va = reinterpret_cast<u8*>(sqContext_->sqVa + (sqHead_ & sqPIMask) * wqeSize);
 
-        HCCL_INFO(
+        ASCCOMM_INFO(
             "[RdmaBaseOps][Wqe write] before copy, sqHead[%u], slot[%u], sqVa[0x%llx], dst[0x%llx], size[%u]", sqHead_,
             sqHead_ & sqPIMask, static_cast<unsigned long long>(sqContext_->sqVa),
             reinterpret_cast<unsigned long long>(va), wqeSize);
@@ -289,38 +289,38 @@ protected:
         // write InValid Wqebb
         CHK_RET(write_invalid_wqebb(sqHead_));
 
-        HCCL_INFO("[RdmaBaseOps::%s] Memcpy wqe end, Now SQ PI: [%u]", __func__, sqHead_);
-        return HCCL_SUCCESS;
+        ASCCOMM_INFO("[RdmaBaseOps::%s] Memcpy wqe end, Now SQ PI: [%u]", __func__, sqHead_);
+        return ASCCOMM_SUCCESS;
     }
 
-    HcclResult wait_sq_free(uint32_t wqeNum)
+    AsccommResult wait_sq_free(uint32_t wqeNum)
     {
         // wq_overflow
         bool timeOutFlag = false;
         auto startTime = std::chrono::steady_clock::now();
 
-        HCCL_INFO("[RdmaBaseOps::%s] Operate: sqTail = %u", __func__, sqTail_);
+        ASCCOMM_INFO("[RdmaBaseOps::%s] Operate: sqTail = %u", __func__, sqTail_);
         while (!timeOutFlag) {
             // sq 队列能放下，直接成功返回
             if (static_cast<uint32_t>(sqHead_ - sqTail_ + wqeNum) <= sqContext_->depth) {
-                return HCCL_SUCCESS;
+                return ASCCOMM_SUCCESS;
             }
 
             timeOutFlag = (std::chrono::steady_clock::now() - startTime) > timeout_;
         }
 
         // 超时处理
-        HCCL_ERROR("[RdmaBaseOps::%s] Sq is Full !! Operate: sqTail = %u Failed. ", __func__, sqTail_);
-        return HCCL_E_TIMEOUT;
+        ASCCOMM_ERROR("[RdmaBaseOps::%s] Sq is Full !! Operate: sqTail = %u Failed. ", __func__, sqTail_);
+        return ASCCOMM_E_TIMEOUT;
     }
 
     // 将PI更新到硬件可见地址
-    HcclResult update_sq_pi()
+    AsccommResult update_sq_pi()
     {
         // 更新Sq PI指针
         uint32_t sqHeadNum = htonl32(sqHead_);
 
-        HCCL_INFO(
+        ASCCOMM_INFO(
             "[RdmaBaseOps][Wqe write] write soft PI, sqHead host[%u], dbSwVa[0x%llx]", sqHead_,
             static_cast<unsigned long long>(sqContext_->dbSwVa));
 
@@ -330,7 +330,7 @@ protected:
             throw_exception<InternalException>(
                 string_format("[RdmaBaseOps::%s] Ring Sw DB failed, ret = %d", __func__, status));
         }
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 };
 

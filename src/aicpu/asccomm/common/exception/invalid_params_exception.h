@@ -17,7 +17,7 @@ namespace Asc {
 class InvalidParamsException : public AsccommException {
 public:
     explicit InvalidParamsException(const std::string& userDefinedMsg)
-        : AsccommException(HCCL_E_PARA, "Invalid params exception: ", userDefinedMsg)
+        : AsccommException(ASCCOMM_E_PARA, "Invalid params exception: ", userDefinedMsg)
     {}
 };
 } // namespace Asc

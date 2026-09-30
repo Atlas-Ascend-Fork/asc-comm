@@ -57,18 +57,18 @@ void asccomm_set_sq_full_timeout(uint32_t timeout)
 
 void asccomm_set_batch_launch_mode(bool batchMode) { g_launchState.batchMode = batchMode; }
 
-HcclResult asccomm_launch_registered_threads()
+AsccommResult asccomm_launch_registered_threads()
 {
     if (g_launchState.threads.empty()) {
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
     return asccomm_task_launch(g_launchState.threads.data(), g_launchState.threads.size());
 }
 
-HcclResult asccomm_try_launch_registered_threads()
+AsccommResult asccomm_try_launch_registered_threads()
 {
     if (g_launchState.threads.empty()) {
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
     return asccomm_try_launch(g_launchState.threads.data(), g_launchState.threads.size());
 }

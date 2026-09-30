@@ -20,7 +20,7 @@ namespace Asc {
 template <typename Exception>
 [[noreturn]] inline void throw_exception(const std::string& message)
 {
-    HCCL_ERROR("%s", message.c_str());
+    ASCCOMM_ERROR("%s", message.c_str());
     throw Exception(message);
 }
 

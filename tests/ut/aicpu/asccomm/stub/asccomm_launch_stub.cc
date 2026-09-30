@@ -12,13 +12,13 @@
 
 LaunchStubState g_launchStubState{};
 
-HcclResult asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum)
+AsccommResult asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum)
 {
     g_launchStubState.lastThreads.assign(threads, threads + threadNum);
     return g_launchStubState.taskResult;
 }
 
-HcclResult asccomm_try_launch(ThreadHandle* threads, uint32_t threadNum)
+AsccommResult asccomm_try_launch(ThreadHandle* threads, uint32_t threadNum)
 {
     g_launchStubState.lastTryThreads.assign(threads, threads + threadNum);
     return g_launchStubState.tryResult;

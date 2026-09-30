@@ -85,7 +85,7 @@ void UbConnLite::fill_comm_sqe(
     sqe->rmtJettyType = 1; // 00 JFR  01:JETTY  10:jettyGroup 11:reserved
     s32 ret = memcpy_sp(sqe->rmtEid, RMT_EID_BYTE_SIZE, rmtEid_, RAW_SIZE);
     if (UNLIKELY(ret != 0)) {
-        HCCL_ERROR("UbConnLite::fill_comm_sqe fill_comm_sqe memcpy failed, ret=%d", ret);
+        ASCCOMM_ERROR("UbConnLite::fill_comm_sqe fill_comm_sqe memcpy failed, ret=%d", ret);
         throw_exception<InternalException>(string_format("UbConnLite::fill_comm_sqe memcpy_sp failed, ret = %d", ret));
     }
 
@@ -96,7 +96,7 @@ void UbConnLite::fill_comm_sqe(
     sqe->rmtTokenValue = rmt.get_token_value();
     sqe->rmtAddrLow = rmt.get_addr() & ADDR_BIT_LOW;
     sqe->rmtAddrHigh = rmt.get_addr() >> ADDR_BIT_OFFSET;
-    HCCL_INFO(
+    ASCCOMM_INFO(
         "UbConnLite fill_comm_sqe UdmaSqeCommon slicePos[%d] sqe->cqe = %u, sqe->owner = %u sqe->opcode = %u, "
         "sqe->tpn = %u, sqe->rmtObjId = %u, sqe->rmtAddrLow = %u, sqe->rmtAddrHigh = %u, sqe->placeOdr = %u, "
         "sqe->compOrder = %u, sqe->fence = %u",
@@ -107,7 +107,7 @@ void UbConnLite::fill_comm_sqe(
 void UbConnLite::fill_comm_sqe_reduce_info(
     UdmaSqeCommon& sqeComm, ReduceOp reduceOp, DataType dataType, u32 udfType) const
 {
-    HCCL_INFO("[UbConnLite::%s] start", __func__);
+    ASCCOMM_INFO("[UbConnLite::%s] start", __func__);
 
     sqeComm.inlinedata.udfData.udfType = udfType; // 0代表inline reduce
 
@@ -164,7 +164,7 @@ void UbConnLite::fill_comm_sqe_reduce_info(
     // udf字段是否有效
     sqeComm.udfFlag = 1;
 
-    HCCL_INFO(
+    ASCCOMM_INFO(
         "[UbConnLite::%s] end, reduceOp[%u], reduceType[%u]", __func__, static_cast<u32>(reduceOp),
         static_cast<u32>(dataType));
 }
@@ -192,7 +192,7 @@ void UbConnLite::process_slices(
         u64 locAddr = loc.get_addr() + offset;
         u64 rmtAddr = rmt.get_addr() + offset;
 
-        HCCL_INFO(
+        ASCCOMM_INFO(
             "[UbConnLite::%s] Slice[%llu]: offset=0x%llx, locAddr=0x%llx, rmtAddr=0x%llx, size=0x%llx", __func__,
             sliceIdx, offset, locAddr, rmtAddr, sliceSize);
 
@@ -220,7 +220,7 @@ void UbConnLite::process_slices(
         sliceNum++;
     }
 
-    HCCL_INFO(
+    ASCCOMM_INFO(
         "[UbConnLite::%s] end, locBufSize[%u], sliceNUm[%u], sliceSize[%u], lastSliceSize[%u]", __func__, locBufSize,
         sliceNum, sliceSize, lastSliceSize);
 }
@@ -231,7 +231,7 @@ void UbConnLite::process_slices_with_notify(
     std::function<void(const RmaBufSliceLite&, const RmtRmaBufSliceLite&, SlicePosition)> processOneSliceWithNotify,
     DataType dataType) const
 {
-    HCCL_INFO("[UbConnLite::%s] start", __func__);
+    ASCCOMM_INFO("[UbConnLite::%s] start", __func__);
 
     // reduce操作需要保证切片大小是数据类型大小的整数倍
     u32 sliceSize = maxSliceSize;
@@ -272,7 +272,7 @@ void UbConnLite::process_slices_with_notify(
         processOneSliceWithNotify(lastLocSlice, lastRmtSlice, slicePos);
     }
 
-    HCCL_INFO(
+    ASCCOMM_INFO(
         "[UbConnLite::%s] end, locBufSize[%u], sliceNUm[%u], sliceSize[%u], lastSliceSize[%u]", __func__, locBufSize,
         sliceNum, sliceSize, lastSliceSize);
 }
@@ -281,7 +281,7 @@ void UbConnLite::fill_one_sqe_write(
     const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, UdmaSqeWrite* sqe,
     UdmaSqOpcode opCode, SlicePosition slicePos)
 {
-    HCCL_INFO("[UbConnLite::%s] start, loc size[%llu]", __func__, loc.get_size());
+    ASCCOMM_INFO("[UbConnLite::%s] start, loc size[%llu]", __func__, loc.get_size());
 
     sqe->comm.inlineEn = 0;
     fill_comm_sqe(&(sqe->comm), rmt, cfg, opCode, slicePos);
@@ -290,12 +290,12 @@ void UbConnLite::fill_one_sqe_write(
         sqe->comm.sgeNum = 0;
     }
 
-    HCCL_INFO("[UbConnLite::%s] end", __func__);
+    ASCCOMM_INFO("[UbConnLite::%s] end", __func__);
 }
 
 void UbConnLite::process_one_wqe(UdmaSqeWrite* sqe, UdmaSqOpcode opCode)
 {
-    HCCL_INFO("[UbConnLite::%s] start, opCode[%u]", __func__, static_cast<u32>(opCode));
+    ASCCOMM_INFO("[UbConnLite::%s] start, opCode[%u]", __func__, static_cast<u32>(opCode));
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
     u32 sqOffset = pi % sqDepth_;
@@ -315,14 +315,14 @@ void UbConnLite::process_one_wqe(UdmaSqeWrite* sqe, UdmaSqOpcode opCode)
         }
     }
 
-    HCCL_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
+    ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
 }
 
 void UbConnLite::process_one_wqe_with_notify(
     const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, UdmaSqeWriteWithNotify* sqe,
     const RmtRmaBufSliceLite& notify, u64 notifyData, u32 opCode, SlicePosition slicePos)
 {
-    HCCL_INFO("[UbConnLite::%s] start, locSize[%u], opCode[%u]", __func__, loc.get_size(), opCode);
+    ASCCOMM_INFO("[UbConnLite::%s] start, locSize[%u], opCode[%u]", __func__, loc.get_size(), opCode);
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
     u32 sqOffset = pi % sqDepth_;
@@ -354,7 +354,7 @@ void UbConnLite::process_one_wqe_with_notify(
         }
     }
 
-    HCCL_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
+    ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
 }
 
 void UbConnLite::memory_set_and_copy(u8* va, u32 sqeSize, void* sqe)
@@ -377,7 +377,7 @@ void UbConnLite::fill_notify_sqe(struct UdmaSqeNotify* sqe, const RmtRmaBufSlice
     sqe->notifyAddrHigh = notify.get_addr() >> ADDR_BIT_OFFSET;
     sqe->notifyDataLow = notifyData & ADDR_BIT_LOW;
     sqe->notifyDataHigh = notifyData >> ADDR_BIT_OFFSET;
-    HCCL_INFO(
+    ASCCOMM_INFO(
         "UbConnLite fill_notify_sqe sqe->notifyAddrLow = %u "
         "sqe->notifyAddrHigh = %u, sqe->notifyDataLow = %u, sqe->notifyDataHigh = %u",
         sqe->notifyAddrLow, sqe->notifyAddrHigh, sqe->notifyDataLow, sqe->notifyDataHigh);
@@ -389,7 +389,7 @@ void UbConnLite::fill_local_sge_sqe(UdmaNormalSge* sqe, const RmaBufSliceLite& l
     sqe->tokenId = loc.get_token_id();
     sqe->dataAddrLow = loc.get_addr() & ADDR_BIT_LOW;
     sqe->dataAddrHigh = loc.get_addr() >> ADDR_BIT_OFFSET;
-    HCCL_INFO(
+    ASCCOMM_INFO(
         "UbConnLite fill_local_sge_sqe sqe->length = %u, sqe->dataAddrLow = %u "
         "sqe->dataAddrHigh = %u",
         sqe->length, sqe->dataAddrLow, sqe->dataAddrHigh);

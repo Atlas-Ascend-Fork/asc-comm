@@ -54,11 +54,11 @@ protected:
 
 TEST_F(AsccommPrimitivesTest, RejectsNullThreadAndInvalidResourceHeader)
 {
-    EXPECT_EQ(asccomm_write_on_thread(0, 0, nullptr, nullptr, 0), HCCL_E_PTR);
+    EXPECT_EQ(asccomm_write_on_thread(0, 0, nullptr, nullptr, 0), ASCCOMM_E_PTR);
 
     HcommThreadEntity invalid = MakeThread();
     invalid.abiHeader.magicWord = 0;
-    EXPECT_EQ(asccomm_write_on_thread(ThreadHandleOf(invalid), 0, nullptr, nullptr, 0), HCCL_E_PTR);
+    EXPECT_EQ(asccomm_write_on_thread(ThreadHandleOf(invalid), 0, nullptr, nullptr, 0), ASCCOMM_E_PTR);
 }
 
 TEST_F(AsccommPrimitivesTest, ValidatesChannelResourceBeforeTransport)
@@ -68,7 +68,7 @@ TEST_F(AsccommPrimitivesTest, ValidatesChannelResourceBeforeTransport)
     int value = 0;
     EXPECT_EQ(
         asccomm_write_on_thread(ThreadHandleOf(thread_), ChannelHandleOf(invalid), &value, &value, sizeof(value)),
-        HCCL_E_PARA);
+        ASCCOMM_E_PARA);
     EXPECT_TRUE(g_runtimeStubState.writeCalls.empty());
 }
 
@@ -76,7 +76,7 @@ TEST_F(AsccommPrimitivesTest, WritePassesResourceEntitiesAndAddresses)
 {
     int value = 123;
     const auto handle = ThreadHandleOf(thread_);
-    EXPECT_EQ(asccomm_write_on_thread(handle, ChannelHandleOf(channel_), &value, &value, sizeof(value)), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_write_on_thread(handle, ChannelHandleOf(channel_), &value, &value, sizeof(value)), ASCCOMM_SUCCESS);
 
     ASSERT_EQ(g_runtimeStubState.writeCalls.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.writeCalls[0].thread, &thread_);
@@ -90,34 +90,34 @@ TEST_F(AsccommPrimitivesTest, WritePassesResourceEntitiesAndAddresses)
 TEST_F(AsccommPrimitivesTest, BatchModeStartAndEndLaunchRegisteredThread)
 {
     const auto handle = ThreadHandleOf(thread_);
-    EXPECT_EQ(asccomm_batch_mode_start("ut"), HCCL_SUCCESS);
-    EXPECT_EQ(asccomm_write_on_thread(handle, ChannelHandleOf(channel_), nullptr, nullptr, 0), HCCL_E_PTR);
+    EXPECT_EQ(asccomm_batch_mode_start("ut"), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm_write_on_thread(handle, ChannelHandleOf(channel_), nullptr, nullptr, 0), ASCCOMM_E_PTR);
 
     int value = 1;
-    EXPECT_EQ(asccomm_write_on_thread(handle, ChannelHandleOf(channel_), &value, &value, sizeof(value)), HCCL_SUCCESS);
-    EXPECT_EQ(asccomm_batch_mode_end("ut"), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_write_on_thread(handle, ChannelHandleOf(channel_), &value, &value, sizeof(value)), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm_batch_mode_end("ut"), ASCCOMM_SUCCESS);
 
     ASSERT_EQ(g_runtimeStubState.launchThreads.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.launchThreads[0], handle);
-    EXPECT_EQ(asccomm_batch_mode_start("ut"), HCCL_SUCCESS);
-    EXPECT_EQ(asccomm_batch_mode_end("ut"), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_batch_mode_start("ut"), ASCCOMM_SUCCESS);
+    EXPECT_EQ(asccomm_batch_mode_end("ut"), ASCCOMM_SUCCESS);
     EXPECT_EQ(g_runtimeStubState.launchThreads.size(), 1U);
 }
 
 TEST_F(AsccommPrimitivesTest, TimeoutApisValidateAndPersistSeconds)
 {
-    EXPECT_EQ(asccomm_set_notify_wait_timeout(-1.0f), HCCL_E_PARA);
-    EXPECT_EQ(asccomm_set_notify_wait_timeout(std::numeric_limits<float>::quiet_NaN()), HCCL_E_PARA);
-    EXPECT_EQ(asccomm_set_notify_wait_timeout(2.9f), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_set_notify_wait_timeout(-1.0f), ASCCOMM_E_PARA);
+    EXPECT_EQ(asccomm_set_notify_wait_timeout(std::numeric_limits<float>::quiet_NaN()), ASCCOMM_E_PARA);
+    EXPECT_EQ(asccomm_set_notify_wait_timeout(2.9f), ASCCOMM_SUCCESS);
 
-    EXPECT_EQ(asccomm_thread_res_acquire_timeout(3.9f), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_thread_res_acquire_timeout(3.9f), ASCCOMM_SUCCESS);
     HcommRegedNotifyEntity notify{};
     notify.type = HCOMM_REGED_NOTIFY_IPC_RT;
     notify.notifyInfo.ipcRt.notifyId = 77;
     thread_.localNotifyAddr = &notify;
     thread_.localNotifyNum = 1;
 
-    EXPECT_EQ(asccomm_thread_notify_wait_on_thread_with_default_timeout(ThreadHandleOf(thread_), 0), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_thread_notify_wait_on_thread_with_default_timeout(ThreadHandleOf(thread_), 0), ASCCOMM_SUCCESS);
     ASSERT_EQ(g_runtimeStubState.notifyWaitCalls.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.notifyWaitCalls[0].notifyId, 77U);
     EXPECT_EQ(g_runtimeStubState.notifyWaitCalls[0].timeout, 2U);
@@ -132,23 +132,23 @@ TEST_F(AsccommPrimitivesTest, ThreadNotifyApisResolveNotifyAndPassIds)
     thread_.localNotifyNum = 1;
 
     EXPECT_EQ(
-        asccomm_thread_notify_record_on_thread(ThreadHandleOf(thread_), ThreadHandleOf(thread_), 0), HCCL_SUCCESS);
+        asccomm_thread_notify_record_on_thread(ThreadHandleOf(thread_), ThreadHandleOf(thread_), 0), ASCCOMM_SUCCESS);
     ASSERT_EQ(g_runtimeStubState.notifyRecordCalls.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.notifyRecordCalls[0].notifyId, 88U);
 
-    EXPECT_EQ(asccomm_thread_notify_wait_on_thread(ThreadHandleOf(thread_), 0, 9), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_thread_notify_wait_on_thread(ThreadHandleOf(thread_), 0, 9), ASCCOMM_SUCCESS);
     ASSERT_EQ(g_runtimeStubState.notifyWaitCalls.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.notifyWaitCalls[0].notifyId, 88U);
     EXPECT_EQ(g_runtimeStubState.notifyWaitCalls[0].timeout, 9U);
 
-    EXPECT_EQ(asccomm_thread_notify_wait_on_thread(ThreadHandleOf(thread_), 1, 9), HCCL_E_PARA);
+    EXPECT_EQ(asccomm_thread_notify_wait_on_thread(ThreadHandleOf(thread_), 1, 9), ASCCOMM_E_PARA);
 }
 
 TEST_F(AsccommPrimitivesTest, LocalCopyAndReducePassArguments)
 {
     uint64_t buffer[2] = {1, 2};
     const auto handle = ThreadHandleOf(thread_);
-    EXPECT_EQ(asccomm_local_copy_on_thread(handle, &buffer[1], &buffer[0], sizeof(uint64_t)), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_local_copy_on_thread(handle, &buffer[1], &buffer[0], sizeof(uint64_t)), ASCCOMM_SUCCESS);
     ASSERT_EQ(g_runtimeStubState.copyCalls.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.copyCalls[0].dst, reinterpret_cast<uintptr_t>(&buffer[1]));
     EXPECT_EQ(g_runtimeStubState.copyCalls[0].src, reinterpret_cast<uintptr_t>(&buffer[0]));
@@ -156,7 +156,7 @@ TEST_F(AsccommPrimitivesTest, LocalCopyAndReducePassArguments)
 
     EXPECT_EQ(
         asccomm_local_reduce_on_thread(handle, &buffer[1], &buffer[0], 2, HCOMM_DATA_TYPE_INT32, HCOMM_REDUCE_SUM),
-        HCCL_SUCCESS);
+        ASCCOMM_SUCCESS);
     ASSERT_EQ(g_runtimeStubState.reduceCalls.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.reduceCalls[0].size, 8U);
     EXPECT_EQ(g_runtimeStubState.reduceCalls[0].dataType, Asc::DataType::INT32);
@@ -169,11 +169,11 @@ TEST_F(AsccommPrimitivesTest, RejectsUnsupportedReduceParameters)
     EXPECT_EQ(
         asccomm_local_reduce_on_thread(
             ThreadHandleOf(thread_), &buffer, &buffer, 1, static_cast<HcommDataType>(999), HCOMM_REDUCE_SUM),
-        HCCL_E_PARA);
+        ASCCOMM_E_PARA);
     EXPECT_EQ(
         asccomm_local_reduce_on_thread(
             ThreadHandleOf(thread_), &buffer, &buffer, 1, HCOMM_DATA_TYPE_INT32, static_cast<HcommReduceOp>(999)),
-        HCCL_E_PARA);
+        ASCCOMM_E_PARA);
     EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
 }
 
@@ -181,16 +181,16 @@ TEST_F(AsccommPrimitivesTest, ChannelNotifyWaitAndFenceDrainPassArguments)
 {
     const auto threadHandle = ThreadHandleOf(thread_);
     const auto channelHandle = ChannelHandleOf(channel_);
-    EXPECT_EQ(asccomm_channel_notify_wait_on_thread(threadHandle, channelHandle, 3, 9), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_channel_notify_wait_on_thread(threadHandle, channelHandle, 3, 9), ASCCOMM_SUCCESS);
     ASSERT_EQ(g_runtimeStubState.channelNotifyWaitCalls.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.channelNotifyWaitCalls[0].notifyIdx, 3U);
     EXPECT_EQ(g_runtimeStubState.channelNotifyWaitCalls[0].timeout, 9U);
 
-    EXPECT_EQ(asccomm_channel_fence_on_thread(threadHandle, channelHandle), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_channel_fence_on_thread(threadHandle, channelHandle), ASCCOMM_SUCCESS);
     ASSERT_EQ(g_runtimeStubState.fenceCalls.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.fenceCalls[0], &channel_);
 
-    EXPECT_EQ(asccomm_channel_drain_on_thread(threadHandle, channelHandle), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_channel_drain_on_thread(threadHandle, channelHandle), ASCCOMM_SUCCESS);
     ASSERT_EQ(g_runtimeStubState.drainCalls.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.drainCalls[0].thread, &thread_);
     EXPECT_EQ(g_runtimeStubState.drainCalls[0].channel, &channel_);

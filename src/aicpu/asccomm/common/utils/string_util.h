@@ -26,7 +26,7 @@ inline std::string string_format(const char* format, Args... args)
     char buffer[bufSize];
     int result = snprintf_s(&buffer[0], bufSize, bufSize, format, args...);
     if (result < 0) {
-        HCCL_ERROR("[string_format] data snprintf_s failed.");
+        ASCCOMM_ERROR("[string_format] data snprintf_s failed.");
         return "";
     }
     size_t actualSize = static_cast<size_t>(result);
@@ -35,7 +35,7 @@ inline std::string string_format(const char* format, Args... args)
         std::vector<char> newbuffer(actualSize);
         auto ret = snprintf_s(newbuffer.data(), actualSize, actualSize, format, args...);
         if (ret != EOK) {
-            HCCL_ERROR("[string_format] data snprintf_s failed.");
+            ASCCOMM_ERROR("[string_format] data snprintf_s failed.");
             return "";
         }
         return newbuffer.data();

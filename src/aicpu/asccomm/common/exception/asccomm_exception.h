@@ -13,21 +13,21 @@
 
 #include <exception>
 #include <string>
-#include "hccl/hccl_types.h"
+#include "../utils/asccomm_result.h"
 
 namespace Asc {
 
 class AsccommException : public std::exception {
 public:
-    AsccommException(HcclResult errorCode, const char* prefix, const std::string& message)
+    AsccommException(AsccommResult errorCode, const char* prefix, const std::string& message)
         : errorCode_(errorCode), errorMessage_(std::string(prefix) + message)
     {}
 
     const char* what() const noexcept override { return errorMessage_.c_str(); }
-    HcclResult get_error_code() const { return errorCode_; }
+    AsccommResult get_error_code() const { return errorCode_; }
 
 private:
-    HcclResult errorCode_;
+    AsccommResult errorCode_;
     std::string errorMessage_;
 };
 

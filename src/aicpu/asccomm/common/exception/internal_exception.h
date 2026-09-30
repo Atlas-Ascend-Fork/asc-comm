@@ -17,7 +17,7 @@ namespace Asc {
 class InternalException : public AsccommException {
 public:
     explicit InternalException(const std::string& userDefinedMsg)
-        : AsccommException(HCCL_E_INTERNAL, "Internal exception: ", userDefinedMsg)
+        : AsccommException(ASCCOMM_E_INTERNAL, "Internal exception: ", userDefinedMsg)
     {}
 };
 } // namespace Asc

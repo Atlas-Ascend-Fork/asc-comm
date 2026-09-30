@@ -26,28 +26,28 @@ struct CommContext {
 };
 
 template <typename Entity>
-HcclResult validate_entity(const Entity* entity, uint32_t version, uint32_t magicWord)
+AsccommResult validate_entity(const Entity* entity, uint32_t version, uint32_t magicWord)
 {
     CHK_PTR_NULL(entity);
     CHK_PRT_RET(
         entity->abiHeader.version != version || entity->abiHeader.magicWord != magicWord,
-        HCCL_ERROR(
+        ASCCOMM_ERROR(
             "[%s] invalid resource ABI header, version[%u], magicWord[0x%x].", __func__, entity->abiHeader.version,
             entity->abiHeader.magicWord),
-        HCCL_E_PARA);
+        ASCCOMM_E_PARA);
     CHK_PRT_RET(
         entity->abiHeader.size < sizeof(Entity),
-        HCCL_ERROR(
+        ASCCOMM_ERROR(
             "[%s] resource entity size[%u] is less than expected size[%zu].", __func__, entity->abiHeader.size,
             sizeof(Entity)),
-        HCCL_E_PARA);
-    return HCCL_SUCCESS;
+        ASCCOMM_E_PARA);
+    return ASCCOMM_SUCCESS;
 }
 
-HcclResult get_thread_entity(
+AsccommResult get_thread_entity(
     ThreadHandle thread, bool registerThread, bool resolveRtsq, HcommThreadEntity*& threadEntity)
 {
-    CHK_PRT_RET(thread == 0, HCCL_ERROR("[%s] thread handle is 0.", __func__), HCCL_E_PTR);
+    CHK_PRT_RET(thread == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
     // The public ThreadHandle is the device resource entity address.  The control
     // plane performs the original-handle -> POD conversion before launch.
     threadEntity = reinterpret_cast<HcommThreadEntity*>(static_cast<uintptr_t>(thread));
@@ -59,36 +59,36 @@ HcclResult get_thread_entity(
     if (registerThread) {
         asccomm_register_thread(thread);
     }
-    return HCCL_SUCCESS;
+    return ASCCOMM_SUCCESS;
 }
 
-HcclResult get_context(ThreadHandle thread, ChannelHandle channel, bool registerThread, CommContext& context)
+AsccommResult get_context(ThreadHandle thread, ChannelHandle channel, bool registerThread, CommContext& context)
 {
-    CHK_PRT_RET(channel == 0, HCCL_ERROR("[%s] channel handle is 0.", __func__), HCCL_E_PTR);
+    CHK_PRT_RET(channel == 0, ASCCOMM_ERROR("[%s] channel handle is 0.", __func__), ASCCOMM_E_PTR);
     CHK_RET(get_thread_entity(thread, registerThread, true, context.thread));
     // ChannelHandle follows the same resource-address ABI as ThreadHandle.
     context.channel = reinterpret_cast<HcommChannelEntity*>(static_cast<uintptr_t>(channel));
     CHK_RET(validate_entity(context.channel, HCOMM_RESOURCE_CHANNEL_VERSION, HCOMM_RESOURCE_CHANNEL_MAGIC_WORD));
-    return HCCL_SUCCESS;
+    return ASCCOMM_SUCCESS;
 }
 
-HcclResult get_thread_notify_id(const HcommThreadEntity& thread, uint32_t notifyIdx, uint32_t& notifyId)
+AsccommResult get_thread_notify_id(const HcommThreadEntity& thread, uint32_t notifyIdx, uint32_t& notifyId)
 {
     CHK_PRT_RET(
         notifyIdx >= thread.localNotifyNum || thread.localNotifyAddr == nullptr,
-        HCCL_ERROR("[%s] local notify index[%u] out of range[%u].", __func__, notifyIdx, thread.localNotifyNum),
-        HCCL_E_PARA);
+        ASCCOMM_ERROR("[%s] local notify index[%u] out of range[%u].", __func__, notifyIdx, thread.localNotifyNum),
+        ASCCOMM_E_PARA);
     CHK_PRT_RET(
         thread.localNotifyAddr[notifyIdx].type != HCOMM_REGED_NOTIFY_IPC_RT,
-        HCCL_ERROR("[%s] local notify type[%u] is not IPC_RT.", __func__, thread.localNotifyAddr[notifyIdx].type),
-        HCCL_E_PARA);
+        ASCCOMM_ERROR("[%s] local notify type[%u] is not IPC_RT.", __func__, thread.localNotifyAddr[notifyIdx].type),
+        ASCCOMM_E_PARA);
     const int32_t resourceId = thread.localNotifyAddr[notifyIdx].notifyInfo.ipcRt.notifyId;
-    CHK_PRT_RET(resourceId < 0, HCCL_ERROR("[%s] invalid notify id[%d].", __func__, resourceId), HCCL_E_PARA);
+    CHK_PRT_RET(resourceId < 0, ASCCOMM_ERROR("[%s] invalid notify id[%d].", __func__, resourceId), ASCCOMM_E_PARA);
     notifyId = static_cast<uint32_t>(resourceId);
-    return HCCL_SUCCESS;
+    return ASCCOMM_SUCCESS;
 }
 
-HcclResult convert_reduce_in(
+AsccommResult convert_reduce_in(
     HcommDataType dataType, HcommReduceOp reduceOp, Asc::DataType& innerDataType, Asc::ReduceOp& innerReduceOp,
     uint32_t& typeSize)
 {
@@ -164,8 +164,8 @@ HcclResult convert_reduce_in(
             break;
 #endif
         default:
-            HCCL_ERROR("[%s] dataType[%u] is not supported.", __func__, dataType);
-            return HCCL_E_PARA;
+            ASCCOMM_ERROR("[%s] dataType[%u] is not supported.", __func__, dataType);
+            return ASCCOMM_E_PARA;
     }
     switch (reduceOp) {
         case HCOMM_REDUCE_SUM:
@@ -181,13 +181,13 @@ HcclResult convert_reduce_in(
             innerReduceOp = Asc::ReduceOp::MIN;
             break;
         default:
-            HCCL_ERROR("[%s] reduceOp[%u] is not supported.", __func__, reduceOp);
-            return HCCL_E_PARA;
+            ASCCOMM_ERROR("[%s] reduceOp[%u] is not supported.", __func__, reduceOp);
+            return ASCCOMM_E_PARA;
     }
-    return HCCL_SUCCESS;
+    return ASCCOMM_SUCCESS;
 }
 
-HcclResult get_reduce_params(
+AsccommResult get_reduce_params(
     HcommDataType dataType, HcommReduceOp reduceOp, uint64_t count, uint64_t& len, Asc::ReduceIn& reduceIn)
 {
     Asc::DataType innerDataType = Asc::DataType::INVALID;
@@ -195,29 +195,29 @@ HcclResult get_reduce_params(
     uint32_t typeSize = 0;
     CHK_RET(convert_reduce_in(dataType, reduceOp, innerDataType, innerReduceOp, typeSize));
     CHK_PRT_RET(
-        count > std::numeric_limits<uint64_t>::max() / typeSize, HCCL_ERROR("[%s] reduce length overflow.", __func__),
-        HCCL_E_PARA);
+        count > std::numeric_limits<uint64_t>::max() / typeSize, ASCCOMM_ERROR("[%s] reduce length overflow.", __func__),
+        ASCCOMM_E_PARA);
     len = count * typeSize;
     reduceIn = Asc::ReduceIn(innerDataType, innerReduceOp);
-    return HCCL_SUCCESS;
+    return ASCCOMM_SUCCESS;
 }
 
 template <typename Operation>
-HcclResult execute_api(Operation operation)
+AsccommResult execute_api(Operation operation)
 {
-    HcclResult ret = HCCL_SUCCESS;
-    EXCEPTION_CATCH(ret = operation(), ret = HCCL_E_INTERNAL);
+    AsccommResult ret = ASCCOMM_SUCCESS;
+    EXCEPTION_CATCH(ret = operation(), ret = ASCCOMM_E_INTERNAL);
     return ret;
 }
 
-HcclResult convert_timeout(float timeout, uint32_t& timeoutSeconds)
+AsccommResult convert_timeout(float timeout, uint32_t& timeoutSeconds)
 {
     if (std::isnan(timeout) || timeout < 0.0f || static_cast<double>(timeout) > static_cast<double>(UINT32_MAX)) {
-        HCCL_ERROR("[%s] timeout[%f] is invalid.", __func__, timeout);
-        return HCCL_E_PARA;
+        ASCCOMM_ERROR("[%s] timeout[%f] is invalid.", __func__, timeout);
+        return ASCCOMM_E_PARA;
     }
     timeoutSeconds = static_cast<uint32_t>(timeout);
-    return HCCL_SUCCESS;
+    return ASCCOMM_SUCCESS;
 }
 
 } // namespace
@@ -226,7 +226,7 @@ int32_t asccomm_batch_mode_start(const char* batchTag)
 {
     return execute_api([&]() {
         asccomm_set_batch_launch_mode(true);
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     });
 }
 
@@ -236,7 +236,7 @@ int32_t asccomm_batch_mode_end(const char* batchTag)
         asccomm_set_batch_launch_mode(false);
         CHK_RET(asccomm_launch_registered_threads());
         asccomm_clear_registered_threads();
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     });
 }
 
@@ -257,7 +257,7 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void* dst, const void*
                 reinterpret_cast<uintptr_t>(src) + offset, static_cast<uint32_t>(realSize)));
             offset += realSize;
         }
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     });
 }
 
@@ -282,7 +282,7 @@ int32_t asccomm_local_reduce_on_thread(
                 reinterpret_cast<uintptr_t>(src) + offset, static_cast<uint32_t>(realSize), reduceIn));
             offset += realSize;
         }
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     });
 }
 
@@ -488,7 +488,7 @@ int32_t asccomm_set_notify_wait_timeout(float timeOut)
         uint32_t timeoutSeconds = 0;
         CHK_RET(convert_timeout(timeOut, timeoutSeconds));
         asccomm_set_notify_wait_timeout(timeoutSeconds);
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     });
 }
 
@@ -498,7 +498,7 @@ int32_t asccomm_thread_res_acquire_timeout(float timeOut)
         uint32_t timeoutSeconds = 0;
         CHK_RET(convert_timeout(timeOut, timeoutSeconds));
         asccomm_set_sq_full_timeout(timeoutSeconds);
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     });
 }
 

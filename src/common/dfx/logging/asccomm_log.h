@@ -15,8 +15,7 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <dlog_pub.h>
-#include <hccl/base.h>
-#include <hccl/hccl_types.h>
+#include "asccomm_result.h"
 
 #ifndef LIKELY
 #define LIKELY(x) (static_cast<bool>(__builtin_expect(static_cast<bool>(x), 1)))
@@ -27,39 +26,39 @@ void DlogRecord(int32_t moduleId, int32_t level, const char* fmt, ...) __attribu
 bool HcclCheckLogLevel(int logType, int moduleId = HCCL);
 bool IsErrorToWarn();
 
-#define HCCL_LOG_PRINT(moduleId, logType, format, ...) \
+#define ASCCOMM_LOG_PRINT(moduleId, logType, format, ...) \
     DlogRecord(moduleId, logType, "[%s:%d] [%ld]" format, __FILE__, __LINE__, syscall(SYS_gettid), ##__VA_ARGS__)
 
-#define HCCL_INFO(format, ...)                                      \
+#define ASCCOMM_INFO(format, ...)                                   \
     do {                                                            \
         if (UNLIKELY(HcclCheckLogLevel(DLOG_INFO))) {               \
-            HCCL_LOG_PRINT(HCCL, DLOG_INFO, format, ##__VA_ARGS__); \
+            ASCCOMM_LOG_PRINT(HCCL, DLOG_INFO, format, ##__VA_ARGS__); \
         }                                                           \
     } while (0)
 
-#define HCCL_WARNING(format, ...)                                   \
+#define ASCCOMM_WARNING(format, ...)                                \
     do {                                                            \
         if (UNLIKELY(HcclCheckLogLevel(DLOG_WARN))) {               \
-            HCCL_LOG_PRINT(HCCL, DLOG_WARN, format, ##__VA_ARGS__); \
+            ASCCOMM_LOG_PRINT(HCCL, DLOG_WARN, format, ##__VA_ARGS__); \
         }                                                           \
     } while (0)
 
-#define HCCL_ERROR(format, ...)                                                                         \
+#define ASCCOMM_ERROR(format, ...)                                                                      \
     do {                                                                                                \
         if (LIKELY(HcclCheckLogLevel(DLOG_ERROR))) {                                                    \
             const bool errorToWarn = IsErrorToWarn();                                                   \
             const int32_t module =                                                                      \
                 errorToWarn ? (static_cast<int32_t>(HCCL) | static_cast<int32_t>(RUN_LOG_MASK)) : HCCL; \
             const int32_t level = errorToWarn ? DLOG_WARN : DLOG_ERROR;                                 \
-            HCCL_LOG_PRINT(module, level, format, ##__VA_ARGS__);                                       \
+            ASCCOMM_LOG_PRINT(module, level, format, ##__VA_ARGS__);                                    \
         }                                                                                               \
     } while (0)
 
 #define CHK_PTR_NULL(ptr)                                            \
     do {                                                             \
         if (UNLIKELY((ptr) == nullptr)) {                            \
-            HCCL_ERROR("[%s] ptr [%s] is nullptr.", __func__, #ptr); \
-            return HCCL_E_PTR;                                       \
+            ASCCOMM_ERROR("[%s] ptr [%s] is nullptr.", __func__, #ptr); \
+            return ASCCOMM_E_PTR;                                       \
         }                                                            \
     } while (0)
 
@@ -73,10 +72,10 @@ bool IsErrorToWarn();
 
 #define CHK_RET(call)                                                    \
     do {                                                                 \
-        HcclResult hcclRet = (call);                                     \
-        if (UNLIKELY(hcclRet != HCCL_SUCCESS)) {                         \
-            HCCL_ERROR("[%s] call failed, ret[%d].", __func__, hcclRet); \
-            return hcclRet;                                              \
+        AsccommResult asccommRet = (call);                                     \
+        if (UNLIKELY(asccommRet != ASCCOMM_SUCCESS)) {                         \
+            ASCCOMM_ERROR("[%s] call failed, ret[%d].", __func__, asccommRet); \
+            return asccommRet;                                              \
         }                                                                \
     } while (0)
 
@@ -85,7 +84,7 @@ bool IsErrorToWarn();
         try {                                                                    \
             expression;                                                          \
         } catch (std::exception & exception) {                                   \
-            HCCL_ERROR("[%s] exception caught: %s", __func__, exception.what()); \
+            ASCCOMM_ERROR("[%s] exception caught: %s", __func__, exception.what()); \
             retExpression;                                                       \
         }                                                                        \
     } while (0)
