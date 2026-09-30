@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/*!
+ * \file main.cpp
+ * \brief Host side of the Hcomm RoCE batch write/read example.
+ */
+
 #include <mpi.h>
 
 #include <cstdint>
