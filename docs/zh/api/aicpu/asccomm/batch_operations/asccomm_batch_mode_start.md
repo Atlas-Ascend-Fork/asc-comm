@@ -23,9 +23,9 @@
 
 ## 功能说明
 
-头文件路径：`"hcomm/asccomm_primitives.h"`。
+头文件路径：`"asccomm/asccomm_primitives.h"`。
 
-该接口用于开启批量模式，在[asccomm_batch_mode_start](asccomm_batch_mode_start.md)和[asccomm_batch_mode_end](asccomm_batch_mode_end.md)之间的所有数据面接口调用（如asccomm_local_copy_on_thread、asccomm_write_on_thread等）将被缓存，不会立即执行。所有操作将在调用[asccomm_batch_mode_end](asccomm_batch_mode_end.md)时统一提交并执行。
+该接口用于开启当前AICPU执行线程的批量提交模式。批量模式期间，需要下发的数据面通信任务会先缓存，调用[asccomm_batch_mode_end](asccomm_batch_mode_end.md)时统一提交。
 
 ## 函数原型
 
@@ -37,28 +37,34 @@ int32_t asccomm_batch_mode_start(const char *batchTag)
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| batchTag | 输入 | 批量任务标识符（可选）。若传入NULL或空字符串，表示该任务为临时批量任务，执行后不会被缓存；若传入非空字符串，则用于后续批量任务的标识与管理。<br>需要注意，在通信引擎为AI CPU+TS的场景下，当前暂未完全支持基于非空标识符的任务缓存管理功能。 |
+| batchTag | 输入 | 保留参数。当前实现不读取、不校验该参数，可传入NULL。 |
 
 ## 返回值说明
 
-int32_t：接口成功返回0，其他失败。
+返回值为`int32_t`，取值含义如下。
+
+| 返回值 | 说明 |
+| --- | --- |
+| `ASCCOMM_SUCCESS`（0） | 开启批量提交模式成功。 |
+| `ASCCOMM_E_INTERNAL` | 内部执行异常。 |
 
 ## 约束说明
 
-1. [asccomm_batch_mode_start](asccomm_batch_mode_start.md)和[asccomm_batch_mode_end](asccomm_batch_mode_end.md)必须成对调用，且需在同一线程中执行。
-2. 批量模式下缓存的操作需在[asccomm_batch_mode_end](asccomm_batch_mode_end.md)调用后才会实际执行。
-3. 仅Ascend 950PR/Ascend 950DT系列产品支持批量模式和立即执行模式（不调用批量接口），其他产品必须使用批量模式。
+- Start与End应成对调用，且需在同一AICPU执行线程中调用。
+- 批量状态仅作用于当前AICPU执行线程；End只提交当前执行线程在批量模式下缓存的任务。
+- 当前实现中，内部缓存满时会提前提交；当前缓存容量为128。
+- 本接口成功返回表示批量模式设置成功，不表示数据面任务已经提交或完成。
 
 ## 调用示例
 
 ```cpp
-char *tag = "";
-// 启动批量模式（临时批量任务）
-asccomm_batch_mode_start(tag);
+const char *batchTag = nullptr;
+// 开启批量模式
+asccomm_batch_mode_start(batchTag);
 
-// 在批量模式中调用数据面接口不会立即执行
+// 批量模式期间，通信任务会先缓存
 // ...
 
-// 结束批量模式并触发执行
-asccomm_batch_mode_end(tag);
+// 关闭批量模式并统一提交缓存任务
+asccomm_batch_mode_end(batchTag);
 ```

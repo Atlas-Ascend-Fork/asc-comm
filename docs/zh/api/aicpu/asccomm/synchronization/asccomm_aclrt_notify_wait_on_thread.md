@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"hcomm/asccomm_primitives.h"`。
+头文件路径：`"asccomm/asccomm_primitives.h"`。
 
 基于acl接口创建的Notify等待同步信号，须与[asccomm_aclrt_notify_record_on_thread](asccomm_aclrt_notify_record_on_thread.md)配对使用。
 
@@ -37,37 +37,21 @@ int32_t asccomm_aclrt_notify_wait_on_thread(ThreadHandle thread, uint64_t notify
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 线程句柄，为通过`HcclThreadAcquire`接口（声明于`"hccl/hccl_res.h"`）获取到的threads。<br>ThreadHandle类型的定义请参见`"hcomm/hcomm_primitives.h"`。 |
+| thread | 输入 | 通信线程句柄，为控制面构造并随AICPU Kernel参数下发的有效Thread资源句柄，当前实现要求该参数不能为0。<br>ThreadHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
 | notifyId | 输入 | 同步信号ID，为通过aclrtGetNotifyId接口获取到的notifyId。 |
 | timeOut | 输入 | 超时时间，单位：秒。<br>  - 0：表示永久等待。<br>  - >0：配置的具体超时时间。 |
 
 ## 返回值说明
 
-int32_t：接口成功返回0，其他失败。
+int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
 
 ## 约束说明
 
-无
+- `notifyId`会被转换为`uint32_t`使用，调用方须确保其可无损转换。
 
 ## 调用示例
 
 ```cpp
-HcclComm comm;
-CommEngine engine = COMM_ENGINE_CPU_TS;
-aclrtStream streams[2];
-ThreadHandle threads[2];
-// 申请2条流，每条流2个Notify
-aclrtCreateStream(&streams[0]);
-aclrtCreateStream(&streams[1]);
-HcclResult result = HcclThreadAcquireWithStream(comm, engine, streams[0], 2, &threads[0]);
-result = HcclThreadAcquireWithStream(comm, engine, streams[1], 2, &threads[1]);
-aclrtNotify notify;
-uint64_t notifyId;
-aclrtCreateNotify(&(notify), ACL_NOTIFY_DEFAULT);
-aclrtGetNotifyId(notify, &(notifyId));
-// 发送同步信号
-asccomm_aclrt_notify_record_on_thread(threads[0], notifyId);
-// 等待同步信号
-uint32_t timeout = 1;
-asccomm_aclrt_notify_wait_on_thread(threads[1], notifyId, timeout);
+uint32_t timeout = 1800;  // 单位：秒
+int32_t ret = asccomm_aclrt_notify_wait_on_thread(thread, notifyId, timeout);
 ```

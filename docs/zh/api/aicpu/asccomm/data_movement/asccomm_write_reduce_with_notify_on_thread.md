@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"hcomm/asccomm_primitives.h"`。
+头文件路径：`"asccomm/asccomm_primitives.h"`。
 
 向channel上的指定内存写数据，将src中长度为count\*sizeof\(dataType\)的内存数据，与dst所指向的相同长度的内存数据进行reduceOp操作，并将结果输出到dst中，并向dst所在节点发送同步信号。接口调用方为src所在节点，该接口为异步接口。
 
@@ -37,14 +37,14 @@ int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelH
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为通过`HcclThreadAcquire`接口（声明于`"hccl/hccl_res.h"`）获取到的threads。<br>ThreadHandle类型的定义请参见`"hcomm/hcomm_primitives.h"`。 |
-| channel | 输入 | 通信通道句柄，为通过`HcclChannelAcquire`接口（声明于`"hccl/hccl_channel.h"`）获取到的channels。<br>ChannelHandle类型的定义请参见`"hcomm/hcomm_primitives.h"`。 |
+| thread | 输入 | 通信线程句柄，为控制面构造并随AICPU Kernel参数下发的有效Thread资源句柄，当前实现要求该参数不能为0。<br>ThreadHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
+| channel | 输入 | 通信通道句柄，为控制面构造并随AICPU Kernel参数下发的有效Channel资源句柄，当前实现要求该参数不能为0。<br>ChannelHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
 | dst | 输出 | 目的内存地址，使用指定channel对端的HCCL通信内存。 |
 | src | 输入 | 源内存地址，使用通信域中本端rank的HCCL通信内存。 |
 | count | 输入 | 元素个数。 |
-| dataType | 输入 | 数据类型。<br>HcommDataType类型的定义请参见`"hcomm/hcomm_primitives.h"`。<br>不同产品型号支持的数据类型定义不同，详细请参见[dataType说明](#dataType说明)。|
-| reduceOp | 输入 | 归约操作类型，支持：sum、prod、max、min。<br>HcommReduceOp类型的定义请参见`"hcomm/hcomm_primitives.h"`。 |
-| remoteNotifyIdx | 输入 | 通信通道另一端的Notify索引。<br>取值范围：［0，notifyNum）。<br>notifyNum为`HcommChannelCreate`（声明于`"hcomm_channel.h"`）或`HcclChannelAcquire`（声明于`"hccl/hccl_channel.h"`）接口传入的channelDescs参数中的notifyNum。 |
+| dataType | 输入 | 数据类型。<br>HcommDataType类型的定义请参见`"asccomm/hcomm_res_defs.h"`。<br>不同产品型号支持的数据类型定义不同，详细请参见[dataType说明](#dataType说明)。|
+| reduceOp | 输入 | 归约操作类型，支持：sum、max、min。<br>HcommReduceOp类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
+| remoteNotifyIdx | 输入 | 通信通道另一端的Notify索引。<br>取值范围：［0，notifyNum）。<br>notifyNum为Channel资源中的对应Notify数量。 |
 
 ### dataType说明
 
@@ -54,57 +54,20 @@ int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelH
 
 ## 返回值说明
 
-int32_t：接口成功返回0，其他失败。
+int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
 
 ## 约束说明
 
-该接口需要配合[asccomm_channel_notify_wait_on_thread](../synchronization/asccomm_channel_notify_wait_on_thread.md)使用。
-
-在Ascend 950PR/Ascend 950DT系列产品上，仅支持AICPU_TS模式下、在Device侧调用该接口。
+- 本接口同时支持UB类协议和RoCE协议通道。
+- src和dst对应的地址范围须分别落在通道本端与远端已注册RMA内存范围内。
+- `remoteNotifyIdx`必须小于通道远端Notify数量。
+- RoCE inline归约当前不支持`HCOMM_REDUCE_PROD`，传入该取值时返回`ASCCOMM_E_NOT_SUPPORT`。
+- `count * sizeof(dataType)`溢出时返回`ASCCOMM_E_PARA`。
 
 ## 调用示例
 
 ```cpp
-// 申请通信线程资源
-CommEngine engine = CommEngine::COMM_ENGINE_AICPU_TS;
-uint32_t threadNum = 1;
-uint32_t notifyNumPerThread = 1;
-ThreadHandle thread;
-HcclComm comm;
-HcclThreadAcquire(comm, engine, threadNum, notifyNumPerThread, &thread);
-
-// 申请通信通道资源
-uint32_t channelNum = 1;
-HcclChannelDesc channelDesc;
-HcclChannelDescInit(&channelDesc, channelNum);
-ChannelHandle channel;
-HcclChannelAcquire(comm, engine, &channelDesc, channelNum, &channel);
-
-// 获取本端通信内存信息
-void * localBuffer;
-uint64_t localBufferSize;
-HcclGetHcclBuffer(comm, &localBuffer, &localBufferSize);
-
-// 获取对端通信内存信息
-void * remoteBuffer;
-uint64_t remoteBufferSize;
-HcclChannelGetHcclBuffer(comm, channel, &remoteBuffer, &remoteBufferSize);
-
-// 拷贝参数并Launch Kernel
-// Device侧算法编排
-uint64_t len = std::min(localBufferSize, remoteBufferSize);
-uint64_t sizeOfFP32 = 4;
-uint64_t count = len / sizeOfFP32;
-
-// 将本端内存的内容写到对端内存上并通知对端
-uint32_t rmtNotifyIdx = 0;
-asccomm_write_reduce_with_notify_on_thread(thread, channel, remoteBuffer, localBuffer, count, HCOMM_DATA_TYPE_FP32, HCOMM_REDUCE_SUM, rmtNotifyIdx);
-
-// 数据面操作
-// ...
-
-// 等待对端通知本端
-uint32_t lclNotifyIdx = 0;
-uint32_t notifyTimeout = 0;
-asccomm_channel_notify_wait_on_thread(thread, channel, lclNotifyIdx, notifyTimeout);
+uint32_t remoteNotifyIdx = 0;
+int32_t ret = asccomm_write_reduce_with_notify_on_thread(
+    thread, channel, dst, src, count, HCOMM_DATA_TYPE_FP32, HCOMM_REDUCE_SUM, remoteNotifyIdx);
 ```

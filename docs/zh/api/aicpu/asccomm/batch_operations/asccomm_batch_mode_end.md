@@ -23,9 +23,9 @@
 
 ## 功能说明
 
-头文件路径：`"hcomm/asccomm_primitives.h"`。
+头文件路径：`"asccomm/asccomm_primitives.h"`。
 
-该接口用于提交并触发批量模式下缓存的所有操作的执行。所有在[asccomm_batch_mode_start](asccomm_batch_mode_start.md)和[asccomm_batch_mode_end](asccomm_batch_mode_end.md)之间的数据面接口调用操作将在此时统一执行。
+该接口用于关闭当前执行线程的AICPU数据面批量提交模式，并统一提交批量模式期间已登记Thread的本地SQE。接口成功返回表示提交动作成功，不表示所有硬件通信任务已经完成。
 
 ## 函数原型
 
@@ -37,30 +37,28 @@ int32_t asccomm_batch_mode_end(const char *batchTag)
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| batchTag | 输入 | 批量任务标识符，需要与[asccomm_batch_mode_start](asccomm_batch_mode_start.md)中传入的batchTag保持一致。 |
+| batchTag | 输入 | 保留参数。当前实现不读取、不校验该参数，可传入NULL。 |
 
 ## 返回值说明
 
-int32_t：接口成功返回0，其他失败。
+int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
 
 ## 约束说明
 
-[asccomm_batch_mode_start](asccomm_batch_mode_start.md)和[asccomm_batch_mode_end](asccomm_batch_mode_end.md)必须成对调用，且需要在同一线程中执行。
-
-<!-- npu="950" id7 -->
-仅Ascend 950PR/Ascend 950DT系列产品支持批量模式和立即执行模式（不调用批量接口），其他产品必须使用批量模式。
-<!-- end id7 -->
+- Start与End应成对调用，且需在同一执行线程中调用。
+- 批量期间没有登记Thread时，本接口可能直接返回成功。
+- 本接口只负责提交SQE，不等待所有通信任务完成。
 
 ## 调用示例
 
 ```cpp
-char *tag = "";
-// 启动批量模式（临时批量任务）
-asccomm_batch_mode_start(tag);
+const char *batchTag = nullptr;
+// 启动批量模式
+asccomm_batch_mode_start(batchTag);
 
 // 在批量模式中调用数据面接口不会立即执行
 // ...
 
 // 结束批量模式并触发执行
-asccomm_batch_mode_end(tag);
+asccomm_batch_mode_end(batchTag);
 ```
