@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/*!
+ * \file main.cpp
+ * \brief Host side of the Hcomm RoCE batch write/read example.
+ */
+
 #include <mpi.h>
 
 #include <cstdint>
@@ -190,7 +195,7 @@ int32_t AcquireChannel(RankResources& resources, uint32_t peerRank)
     uint32_t linkCount = 0U;
     CHECK_EQ(
         HcclRankGraphGetLinks(
-            resources.comm, layers[0], static_cast<uint32_t>(resources.rank), peerRank, &links, &linkCount),
+            resources.comm, layers[1], static_cast<uint32_t>(resources.rank), peerRank, &links, &linkCount),
         HCCL_SUCCESS);
     if (links == nullptr || linkCount == 0U) {
         std::fprintf(

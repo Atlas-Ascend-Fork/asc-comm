@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/*!
+ * \file op_kernel.cpp
+ * \brief Device side of the Hcomm RoCE batch write/read example.
+ */
+
 #include "kernel_operator.h"
 #include "hcomm/hcomm.h"
 

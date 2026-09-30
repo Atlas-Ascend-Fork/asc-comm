@@ -4,8 +4,13 @@
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file main.cpp
+ * \brief Host side of the Hcomm RoCE normal write/read example.
  */
 
 #include <cstdint>
@@ -225,7 +230,7 @@ int32_t AcquireRoceChannel(RankResources& resources, uint32_t peerRank)
     CommLink* links = nullptr;
     uint32_t linkCount = 0;
     CHECK_EQ(
-        HcclRankGraphGetLinks(resources.comm, networkLayers[0], resources.rank, peerRank, &links, &linkCount),
+        HcclRankGraphGetLinks(resources.comm, networkLayers[1], resources.rank, peerRank, &links, &linkCount),
         HCCL_SUCCESS);
     if (links == nullptr || linkCount == 0U) {
         std::fprintf(
