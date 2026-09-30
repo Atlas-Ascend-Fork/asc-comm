@@ -83,6 +83,10 @@ public:
 
     uint32_t GetSqHead() const { return static_cast<uint32_t>(active_->sqHead); }
 
+    uint32_t GetCqHead() const { return static_cast<uint32_t>(active_->cqHead); }
+
+    uint32_t GetCqTail() const { return static_cast<uint32_t>(active_->cqTail); }
+
     uint32_t GetSqDoorbell() const { return sqDoorbell_; }
 
     uint32_t GetSqTail() const { return active_->cqTail; }
@@ -241,6 +245,41 @@ TEST_F(AinUrmaTestSuite, PutImmediateCommitsWrite)
 
     EXPECT_EQ(channel.GetSqHead(), 1U);
     EXPECT_EQ(channel.GetSqDoorbell(), 1U);
+}
+
+TEST_F(AinUrmaTestSuite, PutWithRemoteSignalTracksSignalCompletion)
+{
+    UrmaChannelResource channel;
+    AinTeamResource ainResource(channel);
+    AscendC::Ain<> ain(0);
+
+    ain.Put(
+        ainResource.GetTeam(), PEER, ainResource.GetWin(), 0x20, ainResource.GetWin(), 0x40, 8,
+        AscendC::AinSignalInc{ainResource.GetWin(), 0}, GetDescriptor());
+
+    EXPECT_EQ(channel.GetSqHead(), 3U);
+    EXPECT_EQ(channel.GetCqHead(), 2U);
+
+    ain.Flush(ainResource.GetTeam());
+
+    EXPECT_EQ(channel.GetCqTail(), 2U);
+}
+
+TEST_F(AinUrmaTestSuite, PutValueWithRemoteSignalTracksSignalCompletion)
+{
+    UrmaChannelResource channel;
+    AinTeamResource ainResource(channel);
+    AscendC::Ain<> ain(0);
+
+    ain.PutValue(
+        ainResource.GetTeam(), PEER, ainResource.GetWin(), 0x20, uint32_t{42},
+        AscendC::AinSignalInc{ainResource.GetWin(), 0}, GetDescriptor());
+
+    EXPECT_EQ(channel.GetCqHead(), 2U);
+
+    ain.Flush(ainResource.GetTeam());
+
+    EXPECT_EQ(channel.GetCqTail(), 2U);
 }
 
 TEST_F(AinUrmaTestSuite, GetImmediateCommitsRead)

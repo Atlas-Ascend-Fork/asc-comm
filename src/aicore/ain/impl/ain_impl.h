@@ -121,7 +121,7 @@ AIN_DEVICE void Ain<CommEngineMask>::Put(
     }
 
     if constexpr (IsSameType<RemoteAction, AinSignalInc>::value || IsSameType<RemoteAction, AinSignalAdd>::value) {
-        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, SIGNAL_WQE_CONFIG>(
+        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, SIGNAL_WQE_CONFIG_WITH_CQE<Config>>(
             team, peer, remoteAction, ubuf);
     }
 }
@@ -150,7 +150,7 @@ AIN_DEVICE void Ain<CommEngineMask>::PutValue(
     }
 
     if constexpr (IsSameType<RemoteAction, AinSignalInc>::value || IsSameType<RemoteAction, AinSignalAdd>::value) {
-        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, SIGNAL_WQE_CONFIG>(
+        this->template Signal<RemoteAction, DescriptorUbuf, CommitFlags, SIGNAL_WQE_CONFIG_WITH_CQE<Config>>(
             team, peer, remoteAction, ubuf);
     }
 }

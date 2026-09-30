@@ -72,11 +72,12 @@ typedef struct {
 
 namespace AscendC {
 
-static constexpr struct UrmaWqeEntry SIGNAL_WQE_CONFIG = {
+template <auto const& Config>
+inline constexpr UrmaWqeEntry SIGNAL_WQE_CONFIG_WITH_CQE = {
     .odr = 6,
     .fence = 1,
     .se = 0,
-    .cqe = 0,
+    .cqe = Config.cqe,
     .inlineEn = 0,
 };
 
