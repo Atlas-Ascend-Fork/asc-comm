@@ -481,8 +481,8 @@ AsccommResult convert_batch_reduce(
             return ASCCOMM_E_PARA;
     }
     CHK_PRT_RET(
-        count > std::numeric_limits<uint64_t>::max() / typeSize, ASCCOMM_ERROR("[%s] reduce length overflow.", __func__),
-        ASCCOMM_E_PARA);
+        count > std::numeric_limits<uint64_t>::max() / typeSize,
+        ASCCOMM_ERROR("[%s] reduce length overflow.", __func__), ASCCOMM_E_PARA);
     len = count * typeSize;
     reduceIn = Asc::ReduceIn(innerType, innerOp);
     return ASCCOMM_SUCCESS;
@@ -700,8 +700,8 @@ AsccommResult asccomm_drain(HcommThreadEntity& thread, HcommChannelEntity& chann
     HcommRtsqContext* rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
     CHK_PRT_RET(
-        localResource.notifyId < 0, ASCCOMM_ERROR("[%s] invalid drain notify id[%d].", __func__, localResource.notifyId),
-        ASCCOMM_E_PARA);
+        localResource.notifyId < 0,
+        ASCCOMM_ERROR("[%s] invalid drain notify id[%d].", __func__, localResource.notifyId), ASCCOMM_E_PARA);
     return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(localResource.notifyId), DEFAULT_TIMEOUT);
 }
 

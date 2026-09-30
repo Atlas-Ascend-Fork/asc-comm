@@ -76,7 +76,8 @@ TEST_F(AsccommPrimitivesTest, WritePassesResourceEntitiesAndAddresses)
 {
     int value = 123;
     const auto handle = ThreadHandleOf(thread_);
-    EXPECT_EQ(asccomm_write_on_thread(handle, ChannelHandleOf(channel_), &value, &value, sizeof(value)), ASCCOMM_SUCCESS);
+    EXPECT_EQ(
+        asccomm_write_on_thread(handle, ChannelHandleOf(channel_), &value, &value, sizeof(value)), ASCCOMM_SUCCESS);
 
     ASSERT_EQ(g_runtimeStubState.writeCalls.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.writeCalls[0].thread, &thread_);
@@ -94,7 +95,8 @@ TEST_F(AsccommPrimitivesTest, BatchModeStartAndEndLaunchRegisteredThread)
     EXPECT_EQ(asccomm_write_on_thread(handle, ChannelHandleOf(channel_), nullptr, nullptr, 0), ASCCOMM_E_PTR);
 
     int value = 1;
-    EXPECT_EQ(asccomm_write_on_thread(handle, ChannelHandleOf(channel_), &value, &value, sizeof(value)), ASCCOMM_SUCCESS);
+    EXPECT_EQ(
+        asccomm_write_on_thread(handle, ChannelHandleOf(channel_), &value, &value, sizeof(value)), ASCCOMM_SUCCESS);
     EXPECT_EQ(asccomm_batch_mode_end("ut"), ASCCOMM_SUCCESS);
 
     ASSERT_EQ(g_runtimeStubState.launchThreads.size(), 1U);

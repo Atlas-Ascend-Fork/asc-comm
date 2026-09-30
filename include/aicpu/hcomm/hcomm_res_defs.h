@@ -130,18 +130,18 @@ typedef struct {
         uint8_t raws[56];
         struct {
             uint64_t len;
-            void *dst;
-            void *src;
+            void* dst;
+            void* src;
         } write;
         struct {
             uint64_t len;
-            void *dst;
-            void *src;
+            void* dst;
+            void* src;
         } read;
         struct {
             uint64_t count;
-            void *dst;
-            void *src;
+            void* dst;
+            void* src;
             HcommReduceOp reduceOp;
             HcommDataType dataType;
         } reduce;
@@ -150,14 +150,14 @@ typedef struct {
         } notifyRecord;
         struct {
             uint64_t len;
-            void *dst;
-            void *src;
+            void* dst;
+            void* src;
             uint32_t notifyIdx;
         } writeWithNotify;
         struct {
             uint64_t count;
-            void *dst;
-            void *src;
+            void* dst;
+            void* src;
             HcommReduceOp reduceOp;
             HcommDataType dataType;
             uint32_t notifyIdx;

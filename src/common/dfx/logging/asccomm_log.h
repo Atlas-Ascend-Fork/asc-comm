@@ -29,18 +29,18 @@ bool IsErrorToWarn();
 #define ASCCOMM_LOG_PRINT(moduleId, logType, format, ...) \
     DlogRecord(moduleId, logType, "[%s:%d] [%ld]" format, __FILE__, __LINE__, syscall(SYS_gettid), ##__VA_ARGS__)
 
-#define ASCCOMM_INFO(format, ...)                                   \
-    do {                                                            \
-        if (UNLIKELY(HcclCheckLogLevel(DLOG_INFO))) {               \
+#define ASCCOMM_INFO(format, ...)                                      \
+    do {                                                               \
+        if (UNLIKELY(HcclCheckLogLevel(DLOG_INFO))) {                  \
             ASCCOMM_LOG_PRINT(HCCL, DLOG_INFO, format, ##__VA_ARGS__); \
-        }                                                           \
+        }                                                              \
     } while (0)
 
-#define ASCCOMM_WARNING(format, ...)                                \
-    do {                                                            \
-        if (UNLIKELY(HcclCheckLogLevel(DLOG_WARN))) {               \
+#define ASCCOMM_WARNING(format, ...)                                   \
+    do {                                                               \
+        if (UNLIKELY(HcclCheckLogLevel(DLOG_WARN))) {                  \
             ASCCOMM_LOG_PRINT(HCCL, DLOG_WARN, format, ##__VA_ARGS__); \
-        }                                                           \
+        }                                                              \
     } while (0)
 
 #define ASCCOMM_ERROR(format, ...)                                                                      \
@@ -54,12 +54,12 @@ bool IsErrorToWarn();
         }                                                                                               \
     } while (0)
 
-#define CHK_PTR_NULL(ptr)                                            \
-    do {                                                             \
-        if (UNLIKELY((ptr) == nullptr)) {                            \
+#define CHK_PTR_NULL(ptr)                                               \
+    do {                                                                \
+        if (UNLIKELY((ptr) == nullptr)) {                               \
             ASCCOMM_ERROR("[%s] ptr [%s] is nullptr.", __func__, #ptr); \
             return ASCCOMM_E_PTR;                                       \
-        }                                                            \
+        }                                                               \
     } while (0)
 
 #define CHK_PRT_RET(result, exeLog, retCode) \
@@ -70,23 +70,23 @@ bool IsErrorToWarn();
         }                                    \
     } while (0)
 
-#define CHK_RET(call)                                                    \
-    do {                                                                 \
+#define CHK_RET(call)                                                          \
+    do {                                                                       \
         AsccommResult asccommRet = (call);                                     \
         if (UNLIKELY(asccommRet != ASCCOMM_SUCCESS)) {                         \
             ASCCOMM_ERROR("[%s] call failed, ret[%d].", __func__, asccommRet); \
-            return asccommRet;                                              \
-        }                                                                \
+            return asccommRet;                                                 \
+        }                                                                      \
     } while (0)
 
-#define EXCEPTION_CATCH(expression, retExpression)                               \
-    do {                                                                         \
-        try {                                                                    \
-            expression;                                                          \
-        } catch (std::exception & exception) {                                   \
+#define EXCEPTION_CATCH(expression, retExpression)                                  \
+    do {                                                                            \
+        try {                                                                       \
+            expression;                                                             \
+        } catch (std::exception & exception) {                                      \
             ASCCOMM_ERROR("[%s] exception caught: %s", __func__, exception.what()); \
-            retExpression;                                                       \
-        }                                                                        \
+            retExpression;                                                          \
+        }                                                                           \
     } while (0)
 
 #endif // ASCCOMM_POD_LOG_H

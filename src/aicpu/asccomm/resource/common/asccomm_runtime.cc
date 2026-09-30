@@ -26,13 +26,15 @@ namespace {
 
 AsccommResult acquire_task_id(HcommRtsqContext& context, uint32_t& taskId)
 {
-    CHK_PRT_RET(context.localSqeAddr == 0, ASCCOMM_ERROR("[%s] local SQE buffer address is 0.", __func__), ASCCOMM_E_PTR);
+    CHK_PRT_RET(
+        context.localSqeAddr == 0, ASCCOMM_ERROR("[%s] local SQE buffer address is 0.", __func__), ASCCOMM_E_PTR);
     CHK_PRT_RET(
         context.pendingSqeCnt >= HCOMM_RESOURCE_RTSQ_BATCH_SIZE,
         ASCCOMM_ERROR("[%s] pending SQE count[%u] exceeds buffer capacity.", __func__, context.pendingSqeCnt),
         ASCCOMM_E_INTERNAL);
     if (context.taskId >= context.taskIdEnd) {
-        CHK_PRT_RET(aicpu::GetSqeId == nullptr, ASCCOMM_ERROR("[%s] GetSqeId is unavailable.", __func__), ASCCOMM_E_INTERNAL);
+        CHK_PRT_RET(
+            aicpu::GetSqeId == nullptr, ASCCOMM_ERROR("[%s] GetSqeId is unavailable.", __func__), ASCCOMM_E_INTERNAL);
         aicpu::GetSqeId(HCOMM_RESOURCE_RTSQ_TASK_ID_BATCH_SIZE, context.taskId, context.taskIdEnd);
         CHK_PRT_RET(
             context.taskId >= context.taskIdEnd ||
@@ -137,7 +139,8 @@ AsccommResult ensure_queue_space(HcommRtsqContext& context)
 
 AsccommResult copy_pending_sqes(HcommRtsqContext& context)
 {
-    CHK_PRT_RET(context.localSqeAddr == 0, ASCCOMM_ERROR("[%s] local SQE buffer address is 0.", __func__), ASCCOMM_E_PTR);
+    CHK_PRT_RET(
+        context.localSqeAddr == 0, ASCCOMM_ERROR("[%s] local SQE buffer address is 0.", __func__), ASCCOMM_E_PTR);
     auto* localSqeBuffer = reinterpret_cast<uint8_t*>(context.localSqeAddr);
     const uint32_t byteCount = context.pendingSqeCnt * HCOMM_RESOURCE_RTSQ_SQE_SIZE;
     uint8_t* sqCurrent = reinterpret_cast<uint8_t*>(context.sqBaseAddr) + context.sqTail * HCOMM_RESOURCE_RTSQ_SQE_SIZE;

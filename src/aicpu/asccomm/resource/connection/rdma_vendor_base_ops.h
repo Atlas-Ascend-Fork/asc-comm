@@ -96,7 +96,8 @@ public:
         cqDbFlush_ = cqDbFlush;
     }
 
-    void export_queue_state(uint32_t& sqHead, uint32_t& sqTail, uint32_t& cqHead, uint32_t& cqTail, bool& cqDbFlush) const
+    void export_queue_state(
+        uint32_t& sqHead, uint32_t& sqTail, uint32_t& cqHead, uint32_t& cqTail, bool& cqDbFlush) const
     {
         sqHead = sqHead_;
         sqTail = sqTail_;

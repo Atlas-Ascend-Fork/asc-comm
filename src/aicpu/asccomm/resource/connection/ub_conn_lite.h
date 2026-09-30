@@ -48,7 +48,8 @@ public:
     void write(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, ConnLiteOperationOut& out);
     void inline_write(
-        const uint8_t* data, uint16_t size, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, ConnLiteOperationOut& out);
+        const uint8_t* data, uint16_t size, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg,
+        ConnLiteOperationOut& out);
     void write_reduce(
         DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt,
         const SqeConfigLite& cfg, ConnLiteOperationOut& out);
@@ -91,7 +92,8 @@ private:
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg,
         UdmaSqeWriteWithNotify* sqe, const RmtRmaBufSliceLite& notify, uint64_t notifyData, uint32_t opCode,
         SlicePosition slicePos);
-    void fill_comm_sqe_reduce_info(UdmaSqeCommon& sqeComm, ReduceOp reduceOp, DataType dataType, uint32_t udfType = 0) const;
+    void fill_comm_sqe_reduce_info(
+        UdmaSqeCommon& sqeComm, ReduceOp reduceOp, DataType dataType, uint32_t udfType = 0) const;
     void fill_one_sqe_write(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, UdmaSqeWrite* sqe,
         UdmaSqOpcode opCode, SlicePosition slicePos);

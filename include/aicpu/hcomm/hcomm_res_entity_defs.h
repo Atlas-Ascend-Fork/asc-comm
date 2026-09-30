@@ -1,11 +1,11 @@
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software and you can redistribute it and/or modify it under the terms and conditions of
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
- * See the License in the root of the software repository for the full text of the License.
+ * See LICENSE in the root of the software repository for the full text of the License.
  */
 
 #ifndef HCOMM_RES_ENTITY_DEFS_H
@@ -141,18 +141,18 @@ typedef struct {
 
 typedef struct {
     HcommSqContextType type; ///< SQ上下文类型
-    uint8_t fence;           ///< 一次性Fence标志，由下一次相关传输消费并清零(独立字段，不与union重叠)
-    uint8_t reserved[3];     ///< 对齐保留
+    uint8_t fence; ///< 一次性Fence标志，由下一次相关传输消费并清零(独立字段，不与union重叠)
+    uint8_t reserved[3]; ///< 对齐保留
     union {
         struct {
-            uint64_t sqVa;         ///< UB SQ的CPU虚拟地址(WQE写入位置)
-            uint64_t headAddr;     ///< SQ硬件Head地址(预留)
-            uint64_t tailAddr;     ///< SQ CI地址(软件轮询预留，当前恒0)
-            uint64_t dbVa;         ///< Doorbell寄存器地址(预留，doorbell走RTSQ UBDMA SQE)
-            uint32_t jfsID;        ///< Jetty ID
-            uint32_t wqeSize;      ///< 单个WQE字节数(64)
-            uint32_t sqDepth;      ///< WQEBB深度(控制面已乘4，数据面直用)
-            uint32_t tpID;         ///< TP号
+            uint64_t sqVa;     ///< UB SQ的CPU虚拟地址(WQE写入位置)
+            uint64_t headAddr; ///< SQ硬件Head地址(预留)
+            uint64_t tailAddr; ///< SQ CI地址(软件轮询预留，当前恒0)
+            uint64_t dbVa;     ///< Doorbell寄存器地址(预留，doorbell走RTSQ UBDMA SQE)
+            uint32_t jfsID;    ///< Jetty ID
+            uint32_t wqeSize;  ///< 单个WQE字节数(64)
+            uint32_t sqDepth;  ///< WQEBB深度(控制面已乘4，数据面直用)
+            uint32_t tpID;     ///< TP号
             uint8_t remoteEID[16]; ///< 远端EID【硬件逆序形态】；控制面已Reversed()，数据面直取填入WQE.rmtEid
             uint32_t sqHead;       ///< 软件维护的SQ生产者索引(pi，数据面持续自增)
             uint32_t sqTail;       ///< 已完成WQE计数(ci，数据面维护；当前无消费方可恒0)
@@ -253,13 +253,13 @@ typedef struct {
 } HcommRtsqContext;
 
 typedef struct {
-    CommAbiHeader abiHeader;        ///< ABI版本、魔术字和结构大小，用于句柄合法性校验
-    HcommDevInfo devInfo;          ///< Thread所属设备信息
-    uint32_t localNotifyNum;       ///< localNotifyAddr数组元素个数
+    CommAbiHeader abiHeader;                 ///< ABI版本、魔术字和结构大小，用于句柄合法性校验
+    HcommDevInfo devInfo;                    ///< Thread所属设备信息
+    uint32_t localNotifyNum;                 ///< localNotifyAddr数组元素个数
     HcommRegedNotifyEntity* localNotifyAddr; ///< Thread本地Notify数组，用于线程间Record/Wait(type=IPC_RT)
     HcommRtsqContext* sqContextAddr;         ///< Thread直接持有的resource RTSQ运行上下文
     ThreadHandle originThreadHandle; ///< 控制面原始Thread句柄值；数据面只作关联信息，不解引用
-    uint8_t raw[172];               ///< Thread固定256字节中的ABI预留扩展空间
+    uint8_t raw[172];                ///< Thread固定256字节中的ABI预留扩展空间
 } HcommThreadEntity;
 
 #pragma pack(pop)
@@ -280,15 +280,18 @@ static_assert(std::is_pod<HcommRegedBufferEntity>::value, "HcommRegedBufferEntit
 static_assert(std::is_pod<HcommRegedNotifyEntity>::value, "HcommRegedNotifyEntity must be POD");
 static_assert(std::is_pod<HcommSqContext>::value, "HcommSqContext must be POD");
 static_assert(std::is_pod<HcommCqContext>::value, "HcommCqContext must be POD");
-static_assert(sizeof(HcommChannelEntity) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE,
+static_assert(
+    sizeof(HcommChannelEntity) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE,
     "HcommChannelEntity ABI size must not exceed 256 bytes");
-static_assert(sizeof(HcommThreadEntity) == HCOMM_RESOURCE_THREAD_ENTITY_SIZE,
-    "HcommThreadEntity ABI size must be 256 bytes");
+static_assert(
+    sizeof(HcommThreadEntity) == HCOMM_RESOURCE_THREAD_ENTITY_SIZE, "HcommThreadEntity ABI size must be 256 bytes");
 static_assert(alignof(HcommChannelEntity) == 4, "HcommChannelEntity ABI alignment must be 4 bytes");
 static_assert(alignof(HcommThreadEntity) == 4, "HcommThreadEntity ABI alignment must be 4 bytes");
-static_assert(offsetof(HcommThreadEntity, originThreadHandle) + sizeof(ThreadHandle) <= HCOMM_RESOURCE_THREAD_ENTITY_SIZE,
+static_assert(
+    offsetof(HcommThreadEntity, originThreadHandle) + sizeof(ThreadHandle) <= HCOMM_RESOURCE_THREAD_ENTITY_SIZE,
     "HcommThreadEntity origin handle must fit in the fixed ABI storage");
-static_assert(offsetof(HcommChannelEntity, originChannelHandle) + sizeof(ChannelHandle) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE,
+static_assert(
+    offsetof(HcommChannelEntity, originChannelHandle) + sizeof(ChannelHandle) <= HCOMM_RESOURCE_CHANNEL_ENTITY_SIZE,
     "HcommChannelEntity origin handle must fit in the fixed ABI storage");
 #endif
 

@@ -61,7 +61,8 @@ uint32_t get_data_type_size(DataType dataType)
 }
 
 void UbConnLite::fill_comm_sqe(
-    UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, uint32_t opCode, SlicePosition slicePos)
+    UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, uint32_t opCode,
+    SlicePosition slicePos)
 {
     uint32_t cqeEn = (cfg.cqeEn && (slicePos == SlicePosition::LAST || slicePos == SlicePosition::ONLY)) ? 1 : 0;
     sqe->cqe = cqeEn;
@@ -438,7 +439,8 @@ void UbConnLite::write(
 }
 
 void UbConnLite::inline_write(
-    const uint8_t* data, uint16_t size, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, ConnLiteOperationOut& out)
+    const uint8_t* data, uint16_t size, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg,
+    ConnLiteOperationOut& out)
 {
     UdmaSqeWrite sqe{};
     sqe.comm.inlineEn = 1;

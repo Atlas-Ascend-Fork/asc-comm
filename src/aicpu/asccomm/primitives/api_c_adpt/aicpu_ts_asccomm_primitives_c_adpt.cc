@@ -195,8 +195,8 @@ AsccommResult get_reduce_params(
     uint32_t typeSize = 0;
     CHK_RET(convert_reduce_in(dataType, reduceOp, innerDataType, innerReduceOp, typeSize));
     CHK_PRT_RET(
-        count > std::numeric_limits<uint64_t>::max() / typeSize, ASCCOMM_ERROR("[%s] reduce length overflow.", __func__),
-        ASCCOMM_E_PARA);
+        count > std::numeric_limits<uint64_t>::max() / typeSize,
+        ASCCOMM_ERROR("[%s] reduce length overflow.", __func__), ASCCOMM_E_PARA);
     len = count * typeSize;
     reduceIn = Asc::ReduceIn(innerDataType, innerReduceOp);
     return ASCCOMM_SUCCESS;

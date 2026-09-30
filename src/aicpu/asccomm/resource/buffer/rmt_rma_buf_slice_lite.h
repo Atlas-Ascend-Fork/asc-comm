@@ -15,7 +15,8 @@
 namespace Asc {
 class RmtRmaBufSliceLite {
 public:
-    constexpr RmtRmaBufSliceLite(uint64_t addr, uint64_t size, uint32_t rkey, uint32_t tokenId, uint32_t tokenValue, uint32_t notifyId)
+    constexpr RmtRmaBufSliceLite(
+        uint64_t addr, uint64_t size, uint32_t rkey, uint32_t tokenId, uint32_t tokenValue, uint32_t notifyId)
         : addr_(addr), size_(size), rkey_(rkey), tokenId_(tokenId), tokenValue_(tokenValue), notifyId_(notifyId)
     {}
 

@@ -25,7 +25,8 @@ struct UbJettyLiteId {
 
     uint32_t get_jetty_id() const { return jettyId_; }
 
-    UbJettyLiteId(uint32_t dieId, uint32_t funcId, uint32_t jettyId) : dieId_(dieId), funcId_(funcId), jettyId_(jettyId) {}
+    UbJettyLiteId(uint32_t dieId, uint32_t funcId, uint32_t jettyId) : dieId_(dieId), funcId_(funcId), jettyId_(jettyId)
+    {}
 };
 
 struct UbJettyLiteAttr {
@@ -37,7 +38,8 @@ struct UbJettyLiteAttr {
     const uint32_t jfcPollMode_; // 0代表STARS POLL， 1代表软件Poll
     const uint64_t sqCiAddr_;    // 预留给 软件poll CQ 的Jetty使用
     UbJettyLiteAttr(
-        uint64_t dbAddr, uint64_t sqVa, uint32_t sqDepth, uint32_t tpn, bool dwqeCacheLocked = false, uint32_t jfcPollMode = 0, uint64_t sqCiAddr = 0)
+        uint64_t dbAddr, uint64_t sqVa, uint32_t sqDepth, uint32_t tpn, bool dwqeCacheLocked = false,
+        uint32_t jfcPollMode = 0, uint64_t sqCiAddr = 0)
         : dbAddr_(dbAddr),
           sqVa_(sqVa),
           sqDepth_(sqDepth),

@@ -26,7 +26,8 @@ inline void set_sqe_header_task_fields(void* sqe, uint32_t taskId)
     header->taskId = static_cast<uint16_t>(taskId >> LOW_BITS);
 }
 
-inline void build_a5_sqe_notify_wait(uint32_t streamId, uint32_t taskId, uint32_t notifyId, uint32_t timeout, uint8_t* sqeIn)
+inline void build_a5_sqe_notify_wait(
+    uint32_t streamId, uint32_t taskId, uint32_t notifyId, uint32_t timeout, uint8_t* sqeIn)
 {
     (void)streamId;
     auto sqe = reinterpret_cast<Rt91095StarsNotifySqe*>(sqeIn);
@@ -54,7 +55,8 @@ inline void build_a5_sqe_notify_record(uint32_t streamId, uint32_t taskId, uint3
 }
 
 inline void build_a5_sqe_sdma_copy(
-    uint32_t streamId, uint32_t taskId, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, uint32_t partId, uint32_t opcode, uint8_t* sqeIn)
+    uint32_t streamId, uint32_t taskId, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, uint32_t partId,
+    uint32_t opcode, uint8_t* sqeIn)
 {
     (void)streamId;
     auto sqe = reinterpret_cast<Rt91095StarsMemcpySqe*>(sqeIn);
