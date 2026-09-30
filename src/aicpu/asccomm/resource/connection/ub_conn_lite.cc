@@ -16,19 +16,19 @@
 #include "../../common/utils/string_util.h"
 
 namespace Asc {
-constexpr u32 ADDR_BIT_OFFSET = 32;
-constexpr u32 SQE_SIZE_128 = 128;
-constexpr u32 SQE_SIZE_64 = 64;
-constexpr u32 SQE_INLINE_DATA_SIZE = 16;
-constexpr u32 RAW_SIZE = 16;
-constexpr u32 RMT_EID_BYTE_SIZE = 16;
-constexpr u32 PI_NUM_TWO = 2;
-constexpr u32 WRITE_WITH_NOTIFY_OPCODE = 0x5;
-constexpr u32 ADDR_BIT_LOW = 0xffffffff;
-constexpr u32 UB_RELAX_ORDER = 0x1; // Relax Order表示当前SQE与后续Strong Order SQE有保序要求
-constexpr u32 UB_STRONG_ORDER = 0x2; // Strong Order表示当前SQE有保序要求，该SQE不能超越前面的Relax Order SQE
+constexpr uint32_t ADDR_BIT_OFFSET = 32;
+constexpr uint32_t SQE_SIZE_128 = 128;
+constexpr uint32_t SQE_SIZE_64 = 64;
+constexpr uint32_t SQE_INLINE_DATA_SIZE = 16;
+constexpr uint32_t RAW_SIZE = 16;
+constexpr uint32_t RMT_EID_BYTE_SIZE = 16;
+constexpr uint32_t PI_NUM_TWO = 2;
+constexpr uint32_t WRITE_WITH_NOTIFY_OPCODE = 0x5;
+constexpr uint32_t ADDR_BIT_LOW = 0xffffffff;
+constexpr uint32_t UB_RELAX_ORDER = 0x1; // Relax Order表示当前SQE与后续Strong Order SQE有保序要求
+constexpr uint32_t UB_STRONG_ORDER = 0x2; // Strong Order表示当前SQE有保序要求，该SQE不能超越前面的Relax Order SQE
 
-u32 get_data_type_size(DataType dataType)
+uint32_t get_data_type_size(DataType dataType)
 {
     switch (dataType) {
         case DataType::INT8:
@@ -56,14 +56,15 @@ u32 get_data_type_size(DataType dataType)
             return 16;
         default:
             throw_exception<InvalidParamsException>(
-                string_format("unsupported data type[%u]", static_cast<u32>(dataType)));
+                string_format("unsupported data type[%u]", static_cast<uint32_t>(dataType)));
     }
 }
 
 void UbConnLite::fill_comm_sqe(
-    UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, u32 opCode, SlicePosition slicePos)
+    UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, uint32_t opCode,
+    SlicePosition slicePos)
 {
-    u32 cqeEn = (cfg.cqeEn && (slicePos == SlicePosition::LAST || slicePos == SlicePosition::ONLY)) ? 1 : 0;
+    uint32_t cqeEn = (cfg.cqeEn && (slicePos == SlicePosition::LAST || slicePos == SlicePosition::ONLY)) ? 1 : 0;
     sqe->cqe = cqeEn;
     sqe->owner = (pi == (sqDepth_ - 1)) ? 1 : 0;
     sqe->opcode = opCode;
@@ -83,9 +84,9 @@ void UbConnLite::fill_comm_sqe(
 
     sqe->se = 1;           // 表示是否使能solicited event
     sqe->rmtJettyType = 1; // 00 JFR  01:JETTY  10:jettyGroup 11:reserved
-    s32 ret = memcpy_sp(sqe->rmtEid, RMT_EID_BYTE_SIZE, rmtEid_, RAW_SIZE);
+    int32_t ret = memcpy_sp(sqe->rmtEid, RMT_EID_BYTE_SIZE, rmtEid_, RAW_SIZE);
     if (UNLIKELY(ret != 0)) {
-        HCCL_ERROR("UbConnLite::fill_comm_sqe fill_comm_sqe memcpy failed, ret=%d", ret);
+        ASCCOMM_ERROR("UbConnLite::fill_comm_sqe fill_comm_sqe memcpy failed, ret=%d", ret);
         throw_exception<InternalException>(string_format("UbConnLite::fill_comm_sqe memcpy_sp failed, ret = %d", ret));
     }
 
@@ -96,7 +97,7 @@ void UbConnLite::fill_comm_sqe(
     sqe->rmtTokenValue = rmt.get_token_value();
     sqe->rmtAddrLow = rmt.get_addr() & ADDR_BIT_LOW;
     sqe->rmtAddrHigh = rmt.get_addr() >> ADDR_BIT_OFFSET;
-    HCCL_INFO(
+    ASCCOMM_INFO(
         "UbConnLite fill_comm_sqe UdmaSqeCommon slicePos[%d] sqe->cqe = %u, sqe->owner = %u sqe->opcode = %u, "
         "sqe->tpn = %u, sqe->rmtObjId = %u, sqe->rmtAddrLow = %u, sqe->rmtAddrHigh = %u, sqe->placeOdr = %u, "
         "sqe->compOrder = %u, sqe->fence = %u",
@@ -105,9 +106,9 @@ void UbConnLite::fill_comm_sqe(
 }
 
 void UbConnLite::fill_comm_sqe_reduce_info(
-    UdmaSqeCommon& sqeComm, ReduceOp reduceOp, DataType dataType, u32 udfType) const
+    UdmaSqeCommon& sqeComm, ReduceOp reduceOp, DataType dataType, uint32_t udfType) const
 {
-    HCCL_INFO("[UbConnLite::%s] start", __func__);
+    ASCCOMM_INFO("[UbConnLite::%s] start", __func__);
 
     sqeComm.inlinedata.udfData.udfType = udfType; // 0代表inline reduce
 
@@ -123,7 +124,7 @@ void UbConnLite::fill_comm_sqe_reduce_info(
             break;
         default:
             throw_exception<InvalidParamsException>(
-                string_format("%s reduceOp[%u] is not supported.", __func__, static_cast<u32>(reduceOp)));
+                string_format("%s reduceOp[%u] is not supported.", __func__, static_cast<uint32_t>(reduceOp)));
     }
     switch (dataType) {
         case DataType::INT8:
@@ -158,41 +159,41 @@ void UbConnLite::fill_comm_sqe_reduce_info(
             break;
         default:
             throw_exception<InvalidParamsException>(
-                string_format("%s dataType[%u] is not supported.", __func__, static_cast<u32>(dataType)));
+                string_format("%s dataType[%u] is not supported.", __func__, static_cast<uint32_t>(dataType)));
     }
 
     // udf字段是否有效
     sqeComm.udfFlag = 1;
 
-    HCCL_INFO(
-        "[UbConnLite::%s] end, reduceOp[%u], reduceType[%u]", __func__, static_cast<u32>(reduceOp),
-        static_cast<u32>(dataType));
+    ASCCOMM_INFO(
+        "[UbConnLite::%s] end, reduceOp[%u], reduceType[%u]", __func__, static_cast<uint32_t>(reduceOp),
+        static_cast<uint32_t>(dataType));
 }
 
 void UbConnLite::process_slices(
-    const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, u32 maxSliceSize,
+    const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, uint32_t maxSliceSize,
     std::function<void(const RmaBufSliceLite&, const RmtRmaBufSliceLite&, SlicePosition)> processOneSlice,
     DataType dataType) const
 {
     (void)dataType;
     // reduce操作需要保证切片大小是数据类型大小的整数倍
-    u64 sliceSize = static_cast<u64>(maxSliceSize);
+    uint64_t sliceSize = static_cast<uint64_t>(maxSliceSize);
 
-    u64 locBufSize = loc.get_size();
-    u64 sliceNum = locBufSize / sliceSize;
-    u64 lastSliceSize = locBufSize % sliceSize;
+    uint64_t locBufSize = loc.get_size();
+    uint64_t sliceNum = locBufSize / sliceSize;
+    uint64_t lastSliceSize = locBufSize % sliceSize;
 
-    u64 totalSize = sliceNum * sliceSize;
+    uint64_t totalSize = sliceNum * sliceSize;
 
     if (UNLIKELY(loc.get_addr() > UINT64_MAX - totalSize || rmt.get_addr() > UINT64_MAX - totalSize)) {
         throw_exception<InternalException>("integer overflow occurs");
     }
-    for (u64 sliceIdx = 0; sliceIdx < sliceNum; sliceIdx++) {
-        u64 offset = sliceIdx * sliceSize;
-        u64 locAddr = loc.get_addr() + offset;
-        u64 rmtAddr = rmt.get_addr() + offset;
+    for (uint64_t sliceIdx = 0; sliceIdx < sliceNum; sliceIdx++) {
+        uint64_t offset = sliceIdx * sliceSize;
+        uint64_t locAddr = loc.get_addr() + offset;
+        uint64_t rmtAddr = rmt.get_addr() + offset;
 
-        HCCL_INFO(
+        ASCCOMM_INFO(
             "[UbConnLite::%s] Slice[%llu]: offset=0x%llx, locAddr=0x%llx, rmtAddr=0x%llx, size=0x%llx", __func__,
             sliceIdx, offset, locAddr, rmtAddr, sliceSize);
 
@@ -220,38 +221,38 @@ void UbConnLite::process_slices(
         sliceNum++;
     }
 
-    HCCL_INFO(
+    ASCCOMM_INFO(
         "[UbConnLite::%s] end, locBufSize[%u], sliceNUm[%u], sliceSize[%u], lastSliceSize[%u]", __func__, locBufSize,
         sliceNum, sliceSize, lastSliceSize);
 }
 
 void UbConnLite::process_slices_with_notify(
-    const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, u32 maxSliceSize,
+    const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, uint32_t maxSliceSize,
     std::function<void(const RmaBufSliceLite&, const RmtRmaBufSliceLite&, SlicePosition)> processOneSlice,
     std::function<void(const RmaBufSliceLite&, const RmtRmaBufSliceLite&, SlicePosition)> processOneSliceWithNotify,
     DataType dataType) const
 {
-    HCCL_INFO("[UbConnLite::%s] start", __func__);
+    ASCCOMM_INFO("[UbConnLite::%s] start", __func__);
 
     // reduce操作需要保证切片大小是数据类型大小的整数倍
-    u32 sliceSize = maxSliceSize;
+    uint32_t sliceSize = maxSliceSize;
     if (dataType != DataType::INVALID) {
-        u32 dataTypeSize = get_data_type_size(dataType);
+        uint32_t dataTypeSize = get_data_type_size(dataType);
         sliceSize = maxSliceSize / dataTypeSize * dataTypeSize;
     }
 
-    u32 locBufSize = loc.get_size();
-    u32 sliceNum = locBufSize / sliceSize;
-    u32 lastSliceSize = locBufSize % sliceSize;
+    uint32_t locBufSize = loc.get_size();
+    uint32_t sliceNum = locBufSize / sliceSize;
+    uint32_t lastSliceSize = locBufSize % sliceSize;
     if (sliceNum > 0 && lastSliceSize == 0) {
         sliceNum--;
         lastSliceSize = sliceSize;
     }
-    u64 totalSize = static_cast<u64>(sliceNum) * static_cast<u64>(sliceSize);
+    uint64_t totalSize = static_cast<uint64_t>(sliceNum) * static_cast<uint64_t>(sliceSize);
     if (UNLIKELY(loc.get_addr() > UINT64_MAX - totalSize || rmt.get_addr() > UINT64_MAX - totalSize)) {
         throw_exception<InternalException>("integer overflow occurs");
     }
-    for (u32 sliceIdx = 0; sliceIdx < sliceNum; sliceIdx++) {
+    for (uint32_t sliceIdx = 0; sliceIdx < sliceNum; sliceIdx++) {
         RmaBufSliceLite locSlice(loc.get_addr() + sliceIdx * sliceSize, sliceSize, 0, loc.get_token_id());
 
         RmtRmaBufSliceLite rmtSlice(
@@ -272,7 +273,7 @@ void UbConnLite::process_slices_with_notify(
         processOneSliceWithNotify(lastLocSlice, lastRmtSlice, slicePos);
     }
 
-    HCCL_INFO(
+    ASCCOMM_INFO(
         "[UbConnLite::%s] end, locBufSize[%u], sliceNUm[%u], sliceSize[%u], lastSliceSize[%u]", __func__, locBufSize,
         sliceNum, sliceSize, lastSliceSize);
 }
@@ -281,7 +282,7 @@ void UbConnLite::fill_one_sqe_write(
     const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, UdmaSqeWrite* sqe,
     UdmaSqOpcode opCode, SlicePosition slicePos)
 {
-    HCCL_INFO("[UbConnLite::%s] start, loc size[%llu]", __func__, loc.get_size());
+    ASCCOMM_INFO("[UbConnLite::%s] start, loc size[%llu]", __func__, loc.get_size());
 
     sqe->comm.inlineEn = 0;
     fill_comm_sqe(&(sqe->comm), rmt, cfg, opCode, slicePos);
@@ -290,23 +291,23 @@ void UbConnLite::fill_one_sqe_write(
         sqe->comm.sgeNum = 0;
     }
 
-    HCCL_INFO("[UbConnLite::%s] end", __func__);
+    ASCCOMM_INFO("[UbConnLite::%s] end", __func__);
 }
 
 void UbConnLite::process_one_wqe(UdmaSqeWrite* sqe, UdmaSqOpcode opCode)
 {
-    HCCL_INFO("[UbConnLite::%s] start, opCode[%u]", __func__, static_cast<u32>(opCode));
+    ASCCOMM_INFO("[UbConnLite::%s] start, opCode[%u]", __func__, static_cast<uint32_t>(opCode));
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
-    u32 sqOffset = pi % sqDepth_;
+    uint32_t sqOffset = pi % sqDepth_;
     if (sqOffset < sqDepth_ && (sqOffset + 1) >= sqDepth_) {
         piDetourCount++;
     }
-    // pi维护用于传入DB Send用于Rtsq 敲door bell，要求u16数据结构并且自然增长
+    // pi维护用于传入DB Send用于Rtsq 敲door bell，要求uint16_t数据结构并且自然增长
     pi = pi + 1;
 
     // 写wqe到va
-    u8* va = reinterpret_cast<u8*>(sqVa_ + sqOffset * SQE_SIZE_64);
+    uint8_t* va = reinterpret_cast<uint8_t*>(sqVa_ + sqOffset * SQE_SIZE_64);
     if (!dwqeCacheLocked_) {
         auto ret = memcpy_sp(va, SQE_SIZE_64, sqe, SQE_SIZE_64);
         if (UNLIKELY(ret != 0)) {
@@ -315,21 +316,21 @@ void UbConnLite::process_one_wqe(UdmaSqeWrite* sqe, UdmaSqOpcode opCode)
         }
     }
 
-    HCCL_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
+    ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
 }
 
 void UbConnLite::process_one_wqe_with_notify(
     const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, UdmaSqeWriteWithNotify* sqe,
-    const RmtRmaBufSliceLite& notify, u64 notifyData, u32 opCode, SlicePosition slicePos)
+    const RmtRmaBufSliceLite& notify, uint64_t notifyData, uint32_t opCode, SlicePosition slicePos)
 {
-    HCCL_INFO("[UbConnLite::%s] start, locSize[%u], opCode[%u]", __func__, loc.get_size(), opCode);
+    ASCCOMM_INFO("[UbConnLite::%s] start, locSize[%u], opCode[%u]", __func__, loc.get_size(), opCode);
 
     // sqOffset是用于计算Ubjetty中下wqe位置的偏移，小于sqDepth
-    u32 sqOffset = pi % sqDepth_;
+    uint32_t sqOffset = pi % sqDepth_;
     if (sqOffset < sqDepth_ && (sqOffset + PI_NUM_TWO) >= sqDepth_) {
         piDetourCount++;
     }
-    // pi维护用于传入DB Send用于Rtsq 敲door bell，要求u16数据结构并且自然增长
+    // pi维护用于传入DB Send用于Rtsq 敲door bell，要求uint16_t数据结构并且自然增长
     pi = pi + PI_NUM_TWO;
     // 填充sqe
     sqe->comm.inlineEn = 0;
@@ -342,22 +343,22 @@ void UbConnLite::process_one_wqe_with_notify(
     sqe->rsv1 = 0;
     sqe->rsv2 = 0;
 
-    u8* va = reinterpret_cast<u8*>((sqVa_) + sqOffset * SQE_SIZE_64);
+    uint8_t* va = reinterpret_cast<uint8_t*>((sqVa_) + sqOffset * SQE_SIZE_64);
     if (!dwqeCacheLocked_) {
         // 带notify的wqe是96字节, 需要占用两个wqebb, 实际占用128字节
         if (sqOffset == sqDepth_ - 1) {
             memory_set_and_copy(va, SQE_SIZE_64, sqe);
-            va = reinterpret_cast<u8*>(sqVa_);
-            memory_set_and_copy(va, SQE_SIZE_64, reinterpret_cast<u8*>(sqe) + SQE_SIZE_64);
+            va = reinterpret_cast<uint8_t*>(sqVa_);
+            memory_set_and_copy(va, SQE_SIZE_64, reinterpret_cast<uint8_t*>(sqe) + SQE_SIZE_64);
         } else {
             memory_set_and_copy(va, SQE_SIZE_128, sqe);
         }
     }
 
-    HCCL_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
+    ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, pi);
 }
 
-void UbConnLite::memory_set_and_copy(u8* va, u32 sqeSize, void* sqe)
+void UbConnLite::memory_set_and_copy(uint8_t* va, uint32_t sqeSize, void* sqe)
 {
     auto ret = memset_s(va, sqeSize, 0, sqeSize);
     if (UNLIKELY(ret != 0)) {
@@ -369,7 +370,7 @@ void UbConnLite::memory_set_and_copy(u8* va, u32 sqeSize, void* sqe)
     }
 }
 
-void UbConnLite::fill_notify_sqe(struct UdmaSqeNotify* sqe, const RmtRmaBufSliceLite& notify, u64 notifyData) const
+void UbConnLite::fill_notify_sqe(struct UdmaSqeNotify* sqe, const RmtRmaBufSliceLite& notify, uint64_t notifyData) const
 {
     sqe->notifyTokenId = notify.get_token_id();
     sqe->notifyTokenValue = notify.get_token_value();
@@ -377,7 +378,7 @@ void UbConnLite::fill_notify_sqe(struct UdmaSqeNotify* sqe, const RmtRmaBufSlice
     sqe->notifyAddrHigh = notify.get_addr() >> ADDR_BIT_OFFSET;
     sqe->notifyDataLow = notifyData & ADDR_BIT_LOW;
     sqe->notifyDataHigh = notifyData >> ADDR_BIT_OFFSET;
-    HCCL_INFO(
+    ASCCOMM_INFO(
         "UbConnLite fill_notify_sqe sqe->notifyAddrLow = %u "
         "sqe->notifyAddrHigh = %u, sqe->notifyDataLow = %u, sqe->notifyDataHigh = %u",
         sqe->notifyAddrLow, sqe->notifyAddrHigh, sqe->notifyDataLow, sqe->notifyDataHigh);
@@ -389,7 +390,7 @@ void UbConnLite::fill_local_sge_sqe(UdmaNormalSge* sqe, const RmaBufSliceLite& l
     sqe->tokenId = loc.get_token_id();
     sqe->dataAddrLow = loc.get_addr() & ADDR_BIT_LOW;
     sqe->dataAddrHigh = loc.get_addr() >> ADDR_BIT_OFFSET;
-    HCCL_INFO(
+    ASCCOMM_INFO(
         "UbConnLite fill_local_sge_sqe sqe->length = %u, sqe->dataAddrLow = %u "
         "sqe->dataAddrHigh = %u",
         sqe->length, sqe->dataAddrLow, sqe->dataAddrHigh);
@@ -438,7 +439,8 @@ void UbConnLite::write(
 }
 
 void UbConnLite::inline_write(
-    const u8* data, u16 size, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, ConnLiteOperationOut& out)
+    const uint8_t* data, uint16_t size, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg,
+    ConnLiteOperationOut& out)
 {
     UdmaSqeWrite sqe{};
     sqe.comm.inlineEn = 1;
@@ -470,7 +472,7 @@ void UbConnLite::write_reduce(
 
 void UbConnLite::write_with_notify(
     const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, ConnLiteOperationOut& out,
-    const RmtRmaBufSliceLite& notify, u64 notifyData)
+    const RmtRmaBufSliceLite& notify, uint64_t notifyData)
 {
     process_slices_with_notify(
         loc, rmt, maxWriteSize,
@@ -489,7 +491,7 @@ void UbConnLite::write_with_notify(
 
 void UbConnLite::write_reduce_with_notify(
     DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt,
-    const SqeConfigLite& cfg, ConnLiteOperationOut& out, const RmtRmaBufSliceLite& notify, u64 notifyData)
+    const SqeConfigLite& cfg, ConnLiteOperationOut& out, const RmtRmaBufSliceLite& notify, uint64_t notifyData)
 {
     process_slices_with_notify(
         loc, rmt, maxWriteSize,
@@ -521,15 +523,15 @@ void UbConnLite::import_context(const UbConnLiteParam& liteParam)
     (void)memcpy_sp(rmtEid_, sizeof(rmtEid_), liteParam.rmtEid, sizeof(liteParam.rmtEid));
 }
 
-void UbConnLite::import_queue_state(u32 sqHead, u32 sqTail)
+void UbConnLite::import_queue_state(uint32_t sqHead, uint32_t sqTail)
 {
-    pi = static_cast<u16>(sqHead);
+    pi = static_cast<uint16_t>(sqHead);
     piDetourCount = sqTail;
 }
 
-void UbConnLite::export_queue_state(u32& sqHead, u32& sqTail) const
+void UbConnLite::export_queue_state(uint32_t& sqHead, uint32_t& sqTail) const
 {
-    sqHead = static_cast<u32>(pi);
+    sqHead = static_cast<uint32_t>(pi);
     sqTail = piDetourCount;
 }
 

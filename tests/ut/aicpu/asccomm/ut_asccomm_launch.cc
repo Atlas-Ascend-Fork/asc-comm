@@ -44,22 +44,22 @@ TEST_F(AsccommLaunchTest, ManagesBatchModeAndTimeoutDefaults)
 TEST_F(AsccommLaunchTest, RegistersThreadsOnlyInBatchModeAndDeduplicates)
 {
     asccomm_register_thread(101U);
-    EXPECT_EQ(asccomm_launch_registered_threads(), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_launch_registered_threads(), ASCCOMM_SUCCESS);
     EXPECT_TRUE(g_launchStubState.lastThreads.empty());
 
     asccomm_set_batch_launch_mode(true);
     asccomm_register_thread(101U);
     asccomm_register_thread(102U);
     asccomm_register_thread(101U);
-    ASSERT_EQ(asccomm_launch_registered_threads(), HCCL_SUCCESS);
+    ASSERT_EQ(asccomm_launch_registered_threads(), ASCCOMM_SUCCESS);
     EXPECT_EQ(g_launchStubState.lastThreads, (std::vector<ThreadHandle>{101U, 102U}));
 
-    ASSERT_EQ(asccomm_try_launch_registered_threads(), HCCL_SUCCESS);
+    ASSERT_EQ(asccomm_try_launch_registered_threads(), ASCCOMM_SUCCESS);
     EXPECT_EQ(g_launchStubState.lastTryThreads, (std::vector<ThreadHandle>{101U, 102U}));
 
     asccomm_clear_registered_threads();
     g_launchStubState.lastThreads = {999U};
-    EXPECT_EQ(asccomm_launch_registered_threads(), HCCL_SUCCESS);
+    EXPECT_EQ(asccomm_launch_registered_threads(), ASCCOMM_SUCCESS);
     EXPECT_EQ(g_launchStubState.lastThreads, (std::vector<ThreadHandle>{999U}));
 }
 
@@ -67,9 +67,9 @@ TEST_F(AsccommLaunchTest, ReturnsLaunchResult)
 {
     asccomm_set_batch_launch_mode(true);
     asccomm_register_thread(201U);
-    g_launchStubState.taskResult = HCCL_E_INTERNAL;
-    g_launchStubState.tryResult = HCCL_E_AGAIN;
-    EXPECT_EQ(asccomm_launch_registered_threads(), HCCL_E_INTERNAL);
-    EXPECT_EQ(asccomm_try_launch_registered_threads(), HCCL_E_AGAIN);
+    g_launchStubState.taskResult = ASCCOMM_E_INTERNAL;
+    g_launchStubState.tryResult = ASCCOMM_E_AGAIN;
+    EXPECT_EQ(asccomm_launch_registered_threads(), ASCCOMM_E_INTERNAL);
+    EXPECT_EQ(asccomm_try_launch_registered_threads(), ASCCOMM_E_AGAIN);
 }
 } // namespace

@@ -196,7 +196,7 @@ public:
 
     ~Rdma1825Ops() override {}
 
-    HcclResult build_doorbell(u64& dbAddr, u64& dbValue) override
+    AsccommResult build_doorbell(uint64_t& dbAddr, uint64_t& dbValue) override
     {
         Roce3DbEntry dbEntry;
         dbEntry.dw0.db_value = 0;
@@ -217,13 +217,13 @@ public:
         dbAddr = sqContext_->dbHwVa;
         dbValue = dbEntry.dw0.db_value;
 
-        HCCL_INFO(
+        ASCCOMM_INFO(
             "[Rdma1825Ops::%s] SQ DB ready, qpn[%u], sqHead[%u], dbAddr[0x%llx], dbValue[0x%llx]", __func__,
             sqContext_->qpn, sqHead_, dbAddr, dbValue);
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
-    HcclResult build_cq_doorbell(u64& dbAddr, u64& dbValue) override
+    AsccommResult build_cq_doorbell(uint64_t& dbAddr, uint64_t& dbValue) override
     {
         if (cqDbFlush_) {
             dbAddr = cqContext_->dbSwVa;
@@ -237,7 +237,7 @@ public:
                 throw_exception<InternalException>(
                     string_format("[Rdma1825Ops::%s] write soft Cq DB failed, ret = %d", __func__, ret));
             }
-            HCCL_INFO(
+            ASCCOMM_INFO(
                 "[Rdma1825Ops::%s] CQ DB updated, cqTail[%u], dbAddr[0x%llx], dbValue[0x%llx]", __func__, cqTail_,
                 dbAddr, dbValue);
         } else {
@@ -247,11 +247,11 @@ public:
 
         cqDbFlush_ = false;
 
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
 protected:
-    HcclResult build_read_wqe(
+    AsccommResult build_read_wqe(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg) override
     {
         Roce3WqeEntry wqe{};
@@ -262,13 +262,13 @@ protected:
         CHK_RET(fill_data_seg(&wqe, params));
 
         CHK_RET(commit_wqe(&wqe, sizeof(Roce3WqeEntry)));
-        HCCL_INFO(
+        ASCCOMM_INFO(
             "[Rdma1825Ops::%s] WQE committed, qpn[%u], sqHead[%u], loc[0x%llx], rmt[0x%llx], size[%u]", __func__,
             sqContext_->qpn, sqHead_, loc.get_addr(), rmt.get_addr(), loc.get_size());
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
-    HcclResult build_write_wqe(
+    AsccommResult build_write_wqe(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg) override
     {
         Roce3WqeEntry wqe{};
@@ -279,13 +279,13 @@ protected:
         CHK_RET(fill_data_seg(&wqe, params));
 
         CHK_RET(commit_wqe(&wqe, sizeof(Roce3WqeEntry)));
-        HCCL_INFO(
+        ASCCOMM_INFO(
             "[Rdma1825Ops::%s] WQE committed, qpn[%u], sqHead[%u], loc[0x%llx], rmt[0x%llx], size[%u]", __func__,
             sqContext_->qpn, sqHead_, loc.get_addr(), rmt.get_addr(), loc.get_size());
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
-    HcclResult build_write_reduce_wqe(
+    AsccommResult build_write_reduce_wqe(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, DataType dataType,
         ReduceOp reduceOp) override
     {
@@ -298,15 +298,15 @@ protected:
         CHK_RET(fill_data_seg(&wqe, params));
 
         CHK_RET(commit_wqe(&wqe, sizeof(Roce3WqeEntry)));
-        HCCL_INFO(
+        ASCCOMM_INFO(
             "[Rdma1825Ops::%s] WQE committed, qpn[%u], sqHead[%u], loc[0x%llx], rmt[0x%llx], size[%u], "
             "dataType[%u], reduceOp[%u]",
             __func__, sqContext_->qpn, sqHead_, loc.get_addr(), rmt.get_addr(), loc.get_size(),
             static_cast<uint32_t>(dataType), static_cast<uint32_t>(reduceOp));
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
-    HcclResult write_invalid_wqebb(uint32_t nextIdx) override
+    AsccommResult write_invalid_wqebb(uint32_t nextIdx) override
     {
         const uint32_t sqDepth = sqContext_->depth;
         const uint32_t sqMask = sqDepth - 1U;
@@ -320,7 +320,7 @@ protected:
             throw_exception<InternalException>(
                 string_format("[Rdma1825Ops::%s] write invalid wqebb failed, ret = %d", __func__, ret));
         }
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
     int32_t poll_cq_impl(int32_t numEntries, std::vector<int32_t>& errList) override
@@ -332,7 +332,7 @@ protected:
             ret = poll_one(errList);
             if (ret != CqPollStatus::SUCCESS) {
                 if (ret != CqPollStatus::EMPTY && ret != CqPollStatus::ERROR) {
-                    HCCL_ERROR(
+                    ASCCOMM_ERROR(
                         "[Rdma1825Ops::%s][Poll cq] Poll CQ error, ret: %d", __func__, static_cast<int32_t>(ret));
                 }
                 break;
@@ -353,7 +353,7 @@ protected:
     }
 
 private:
-    HcclResult fill_ctrl_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
+    AsccommResult fill_ctrl_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
     {
         // 赋值本wqe的owner
         uint8_t owner = (sqHead_ & (sqContext_->depth)) == 0 ? 0 : 1;
@@ -372,10 +372,10 @@ private:
         // cl
         wqe->ctrl.cl_pi = htonl32(ROCE_WQE_CMP_TASK_LEN1 << ROCE_WQE_CMP_TASK_LEN_SHIFT);
 
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
-    HcclResult fill_task_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
+    AsccommResult fill_task_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
     {
         // ----- Task Seg -----
         wqe->task.tskSeg.value = 0;
@@ -395,33 +395,33 @@ private:
         wqe->task.rkey = htonl32(params.rmt.get_rkey());
         wqe->task.ulp = htonl32(params.loc.get_lkey() & 0xffff);
 
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
-    HcclResult fill_reduce_task_seg(
+    AsccommResult fill_reduce_task_seg(
         Roce3WqeEntry* wqe, const Roce3PostSendParams& params, DataType dataType, ReduceOp reduceOp) const
     {
         // Communication type to RoCE3 type
         uint32_t dataTypeIdx = static_cast<uint32_t>(dataType);
         if (dataTypeIdx >= sizeof(Roce3ReduceDataTypeMap) / sizeof(uint32_t)) {
-            HCCL_ERROR("[Rdma1825Ops::%s] invalid DataType %u", __func__, dataTypeIdx);
-            return HCCL_E_PARA;
+            ASCCOMM_ERROR("[Rdma1825Ops::%s] invalid DataType %u", __func__, dataTypeIdx);
+            return ASCCOMM_E_PARA;
         }
         uint32_t reduceDataType = Roce3ReduceDataTypeMap[dataTypeIdx];
         if (reduceDataType == DTYPE_INVALID) {
-            HCCL_ERROR("[Rdma1825Ops::%s] DataType %u not support by inline reduce", __func__, dataTypeIdx);
-            return HCCL_E_NOT_SUPPORT;
+            ASCCOMM_ERROR("[Rdma1825Ops::%s] DataType %u not support by inline reduce", __func__, dataTypeIdx);
+            return ASCCOMM_E_NOT_SUPPORT;
         }
 
         uint32_t reduceOpIdx = static_cast<uint32_t>(reduceOp);
         if (reduceOpIdx >= sizeof(Roce3ReduceOpTypeMap) / sizeof(uint32_t)) {
-            HCCL_ERROR("[Rdma1825Ops::%s] invalid ReduceOpType %u", __func__, reduceOpIdx);
-            return HCCL_E_PARA;
+            ASCCOMM_ERROR("[Rdma1825Ops::%s] invalid ReduceOpType %u", __func__, reduceOpIdx);
+            return ASCCOMM_E_PARA;
         }
         uint32_t reduceOpType = Roce3ReduceOpTypeMap[reduceOpIdx];
         if (reduceOpType == DTYPE_INVALID) {
-            HCCL_ERROR("[Rdma1825Ops::%s] ReduceOpType %u not support by inline reduce", __func__, reduceOpIdx);
-            return HCCL_E_NOT_SUPPORT;
+            ASCCOMM_ERROR("[Rdma1825Ops::%s] ReduceOpType %u not support by inline reduce", __func__, reduceOpIdx);
+            return ASCCOMM_E_NOT_SUPPORT;
         }
 
         // Reduce data
@@ -431,10 +431,10 @@ private:
         // ----- Task Reduce Seg -----
         wqe->task.ulp = htonl32(mptIndex | reduceOpInfo);
 
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
-    HcclResult fill_data_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
+    AsccommResult fill_data_seg(Roce3WqeEntry* wqe, const Roce3PostSendParams& params) const
     {
         // ----- Data Seg -----
         wqe->data.bufAddr = htonll64(static_cast<uint64_t>(params.loc.get_addr()));
@@ -442,7 +442,7 @@ private:
             (params.loc.get_lkey() & (~ROCE_WQE_NEXT_SGE_INVALID)) | ROCE_WQE_NEXT_SGE_INVALID); // 当前sge就是最后一个
         wqe->data.rLen = htonl32(params.loc.get_size());
 
-        return HCCL_SUCCESS;
+        return ASCCOMM_SUCCESS;
     }
 
     CqPollStatus poll_one(std::vector<int32_t>& errList)
@@ -465,7 +465,7 @@ private:
             if (cqeType == RoceCqeType::ERROR) {
                 const uint32_t cqeErrCode = (ownerIdQpn >> 20U) & 0xfU;
 
-                HCCL_ERROR(
+                ASCCOMM_ERROR(
                     "[Rdma1825Ops::%s][Poll cq] CQE error, qpn[%u], syndrome[%u], cqeErrCode[%u], "
                     "wqeCounter[%u]",
                     __func__, ownerIdQpn & ROCE_CQE_QPN_MASK, syndrome, cqeErrCode,
@@ -477,7 +477,7 @@ private:
                 return CqPollStatus::ERROR;
             }
 
-            HCCL_INFO(
+            ASCCOMM_INFO(
                 "[Rdma1825Ops::%s][Poll cq] CQE completed, cqHead[%u], qpn[%u], syndrome[%u], "
                 "wqeCounter[%u]",
                 __func__, cqHead_, ownerIdQpn & ROCE_CQE_QPN_MASK, syndrome, static_cast<uint32_t>(rcqe->wqe_counter));
@@ -510,7 +510,8 @@ private:
         uint32_t ownerIdQpn = cqeReadback_.owner_id_qpn;
         auto cqeType = static_cast<RoceCqeType>((opSrWqebb >> ROCE_CQE_OPCODE_SHIFT) & ROCE_CQE_OPCODE_MASK);
         if (cqeType == RoceCqeType::INVALID) {
-            HCCL_INFO("[Rdma1825Ops::%s][Poll cq] CQE invalid, consIndex[%u], slot[%u]", __func__, consIndex, cqeSlot);
+            ASCCOMM_INFO(
+                "[Rdma1825Ops::%s][Poll cq] CQE invalid, consIndex[%u], slot[%u]", __func__, consIndex, cqeSlot);
             return nullptr;
         }
 
@@ -518,7 +519,7 @@ private:
         uint32_t calHwOwner = static_cast<uint32_t>((consIndex & cqDepthReal) == 0);
         uint32_t curCqeOwner = !((ownerIdQpn & (1U << ROCE_CQE_OWNERBIT_SHIFT)) == 0);
         if ((calHwOwner ^ curCqeOwner) == 0) {
-            HCCL_INFO(
+            ASCCOMM_INFO(
                 "[Rdma1825Ops::%s][Poll cq] CQE owner not ready, consIndex[%u], slot[%u], "
                 "calHwOwner[%u], curCqeOwner[%u]",
                 __func__, consIndex, cqeSlot, calHwOwner, curCqeOwner);

@@ -7,37 +7,38 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef HCCLV2_RMT_RMA_BUF_SLICE_LITE_H
-#define HCCLV2_RMT_RMA_BUF_SLICE_LITE_H
+#ifndef ASCCOMM_RMT_RMA_BUF_SLICE_LITE_H
+#define ASCCOMM_RMT_RMA_BUF_SLICE_LITE_H
 
-#include "hccl/base.h"
+#include <stdint.h>
 
 namespace Asc {
 class RmtRmaBufSliceLite {
 public:
-    constexpr RmtRmaBufSliceLite(u64 addr, u64 size, u32 rkey, u32 tokenId, u32 tokenValue, u32 notifyId)
+    constexpr RmtRmaBufSliceLite(
+        uint64_t addr, uint64_t size, uint32_t rkey, uint32_t tokenId, uint32_t tokenValue, uint32_t notifyId)
         : addr_(addr), size_(size), rkey_(rkey), tokenId_(tokenId), tokenValue_(tokenValue), notifyId_(notifyId)
     {}
 
-    inline u64 get_addr() const { return addr_; }
+    inline uint64_t get_addr() const { return addr_; }
 
-    inline u64 get_size() const { return size_; }
+    inline uint64_t get_size() const { return size_; }
 
-    inline u32 get_rkey() const { return rkey_; }
+    inline uint32_t get_rkey() const { return rkey_; }
 
-    inline u32 get_token_id() const { return tokenId_; }
+    inline uint32_t get_token_id() const { return tokenId_; }
 
-    inline u32 get_token_value() const { return tokenValue_; }
+    inline uint32_t get_token_value() const { return tokenValue_; }
 
-    inline u32 get_notify_id() const { return notifyId_; }
+    inline uint32_t get_notify_id() const { return notifyId_; }
 
 private:
-    u64 addr_;
-    u64 size_;
-    u32 rkey_;
-    u32 tokenId_;
-    u32 tokenValue_;
-    u32 notifyId_{UINT32_MAX};
+    uint64_t addr_;
+    uint64_t size_;
+    uint32_t rkey_;
+    uint32_t tokenId_;
+    uint32_t tokenValue_;
+    uint32_t notifyId_{UINT32_MAX};
 };
 } // namespace Asc
 #endif

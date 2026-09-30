@@ -19,8 +19,8 @@
 struct LaunchStubState {
     std::vector<ThreadHandle> lastThreads;
     std::vector<ThreadHandle> lastTryThreads;
-    HcclResult taskResult{HCCL_SUCCESS};
-    HcclResult tryResult{HCCL_SUCCESS};
+    AsccommResult taskResult{ASCCOMM_SUCCESS};
+    AsccommResult tryResult{ASCCOMM_SUCCESS};
 };
 
 extern LaunchStubState g_launchStubState;

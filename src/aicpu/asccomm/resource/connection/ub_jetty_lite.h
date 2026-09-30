@@ -7,37 +7,39 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef HCCLV2_UB_JETTY_ID_LITE_H
-#define HCCLV2_UB_JETTY_ID_LITE_H
+#ifndef ASCCOMM_UB_JETTY_ID_LITE_H
+#define ASCCOMM_UB_JETTY_ID_LITE_H
 
-#include "hccl/base.h"
+#include <stdint.h>
 
 namespace Asc {
 
 struct UbJettyLiteId {
-    u32 dieId_;
-    u32 funcId_;
-    u32 jettyId_;
+    uint32_t dieId_;
+    uint32_t funcId_;
+    uint32_t jettyId_;
 
-    u32 get_die_id() const { return dieId_; }
+    uint32_t get_die_id() const { return dieId_; }
 
-    u32 get_func_id() const { return funcId_; }
+    uint32_t get_func_id() const { return funcId_; }
 
-    u32 get_jetty_id() const { return jettyId_; }
+    uint32_t get_jetty_id() const { return jettyId_; }
 
-    UbJettyLiteId(u32 dieId, u32 funcId, u32 jettyId) : dieId_(dieId), funcId_(funcId), jettyId_(jettyId) {}
+    UbJettyLiteId(uint32_t dieId, uint32_t funcId, uint32_t jettyId) : dieId_(dieId), funcId_(funcId), jettyId_(jettyId)
+    {}
 };
 
 struct UbJettyLiteAttr {
-    const u64 dbAddr_;
-    const u64 sqVa_;
-    const u32 sqDepth_;
-    const u32 tpn_;
+    const uint64_t dbAddr_;
+    const uint64_t sqVa_;
+    const uint32_t sqDepth_;
+    const uint32_t tpn_;
     const bool dwqeCacheLocked_;
-    const u32 jfcPollMode_; // 0代表STARS POLL， 1代表软件Poll
-    const u64 sqCiAddr_;    // 预留给 软件poll CQ 的Jetty使用
+    const uint32_t jfcPollMode_; // 0代表STARS POLL， 1代表软件Poll
+    const uint64_t sqCiAddr_;    // 预留给 软件poll CQ 的Jetty使用
     UbJettyLiteAttr(
-        u64 dbAddr, u64 sqVa, u32 sqDepth, u32 tpn, bool dwqeCacheLocked = false, u32 jfcPollMode = 0, u64 sqCiAddr = 0)
+        uint64_t dbAddr, uint64_t sqVa, uint32_t sqDepth, uint32_t tpn, bool dwqeCacheLocked = false,
+        uint32_t jfcPollMode = 0, uint64_t sqCiAddr = 0)
         : dbAddr_(dbAddr),
           sqVa_(sqVa),
           sqDepth_(sqDepth),

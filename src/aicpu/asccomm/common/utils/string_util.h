@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCLV2_STRING_UTIL_H
-#define HCCLV2_STRING_UTIL_H
+#ifndef ASCCOMM_STRING_UTIL_H
+#define ASCCOMM_STRING_UTIL_H
 
 #include <string>
 #include <vector>
@@ -26,7 +26,7 @@ inline std::string string_format(const char* format, Args... args)
     char buffer[bufSize];
     int result = snprintf_s(&buffer[0], bufSize, bufSize, format, args...);
     if (result < 0) {
-        HCCL_ERROR("[string_format] data snprintf_s failed.");
+        ASCCOMM_ERROR("[string_format] data snprintf_s failed.");
         return "";
     }
     size_t actualSize = static_cast<size_t>(result);
@@ -35,7 +35,7 @@ inline std::string string_format(const char* format, Args... args)
         std::vector<char> newbuffer(actualSize);
         auto ret = snprintf_s(newbuffer.data(), actualSize, actualSize, format, args...);
         if (ret != EOK) {
-            HCCL_ERROR("[string_format] data snprintf_s failed.");
+            ASCCOMM_ERROR("[string_format] data snprintf_s failed.");
             return "";
         }
         return newbuffer.data();
@@ -45,4 +45,4 @@ inline std::string string_format(const char* format, Args... args)
 
 } // namespace Asc
 
-#endif // HCCLV2_STRING_UTIL_H
+#endif // ASCCOMM_STRING_UTIL_H
