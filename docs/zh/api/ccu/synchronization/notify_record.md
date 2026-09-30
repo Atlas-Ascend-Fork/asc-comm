@@ -60,7 +60,7 @@ CcuResult notify_record(ChannelHandle channel, uint32_t remote_notify_idx, uint1
 ## 约束说明
 
 - 不可在硬件loop的循环体内调用。循环体会被复制为多份并行执行，每份都会执行一次`notify_record`，置位语义不再明确。
-- 同一kernel内所有channel须属于同一die，不同die的channel不可混入同一kernel。该约束由[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)统一校验，违反时返回`CCU_E_PARA`。
+- 同一kernel内所有channel须属于同一die，不同die的channel不可混入同一kernel。该约束由核函数注册统一校验，违反时返回`CCU_E_PARA`。
 - `notify_record`的`remote_notify_idx`和`notify_wait`的`local_notify_idx`数值相同。
 - `notify_record`和`notify_wait`的`mask`相同。
 - 单个[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)可用的notify槽位最多8个，因此`remote_notify_idx`的取值范围为0~7。

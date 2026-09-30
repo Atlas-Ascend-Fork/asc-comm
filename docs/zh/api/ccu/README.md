@@ -6,8 +6,8 @@ CCU编程API分为控制面和数据面两类：控制面接口在Host侧调用�
 
 数据面接口的执行分为两个阶段：
 
-- **注册阶段**：Host调用[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)注册Kernel时，Kernel函数体被执行一次，其中的数据面接口调用不触发硬件操作，仅被逐条记录并翻译为CCU硬件指令。
-- **执行阶段**：Host调用[`HcommCcuKernelLaunch`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelLaunch.md)下发Kernel后，Device侧的CCU硬件执行翻译出的指令序列，完成实际的数据搬运与同步。
+- **注册阶段**：Host通过`<<<>>>`直调Kernel时，Kernel函数体被执行一次，其中的数据面接口调用不触发硬件操作，仅被逐条记录并翻译为CCU硬件指令。
+- **执行阶段**：Host通过`<<<>>>`直调下发Kernel后，Device侧的CCU硬件执行翻译出的指令序列，完成实际的数据搬运与同步。
 
 ## 数据面接口分类
 
@@ -18,8 +18,3 @@ CCU数据面接口按功能分为以下几类：
 - [数据搬运](./data_movement/README.md)
 - [同步](./synchronization/README.md)
 - [流程控制](./execution_control/README.md)
-
-## 相关文档
-
-- [基于CCU的通信算子开发指南](../../guide/ccu_comm_op_dev.md)
-- [CCU通算融合算子开发指南](../../guide/ccu_comm_compute_op_dev.md)

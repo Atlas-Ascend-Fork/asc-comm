@@ -13,8 +13,8 @@
 
 | 资源类型 | 编程对象 | 获取方式 |
 | --- | --- | --- |
-| 通用寄存器 | `variable` | 默认构造：[variable()](variable.md)<br>批量构造：[array\<variable\>](array.md)<br>预约构造[`variable(var_handle, index)`](variable.md)<br>引用channel预留：[get_res_by_channel](get_res_by_channel.md) |
-| 同步寄存器槽位 | `event` | 默认构造：[event()](event.md)<br>批量构造：[array\<event\>](array.md)<br>预约构造[`event(acq_handle, index)`](event.md) |
+| 通用寄存器 | `variable` | 默认构造：[variable()](variable.md)<br>批量构造：[array\<variable\>](array.md)<br>预约构造[variable(var_handle, index)](variable.md)<br>引用channel预留：[get_res_by_channel](get_res_by_channel.md) |
+| 同步寄存器槽位 | `event` | 默认构造：[event()](event.md)<br>批量构造：[array\<event\>](array.md)<br>预约构造[event(acq_handle, index)](event.md) |
 | 片上缓存（CCU Buffer，4KB） | `ccu_buffer` | 默认构造：[ccu_buffer()](ccu_buffer.md)<br>批量构造：[array\<ccu_buffer\>](array.md) |
 | 地址寄存器 | `address` | 默认构造：[address()](address.md) |
 | 本端地址+token | `local_addr` | 默认构造：[local_addr()](local_addr.md) |
