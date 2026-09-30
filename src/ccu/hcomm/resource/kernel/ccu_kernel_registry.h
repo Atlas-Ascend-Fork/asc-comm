@@ -12,6 +12,7 @@
 #define CCU_KERNEL_REGISTRY_H
 
 #include <memory>
+#include <mutex>
 #include <vector>
 
 #include "ccu/hcomm/ccu_api_types.h"
@@ -54,6 +55,10 @@ private:
     // CcuVarEventResMgr 按 handle 记账，析构时需以此调用 ReleaseByInstance。
     CcuInsHandle ins_handle_{};
     std::unique_ptr<asc_ccu_res_snapshot> res_snapshot_{};
+    // 资源接口可能在首次 kernel 注册前加载 Instance；后续 <<<>>> 注册轮复用该快照，避免重复加载。
+    // 该锁仅串行化首次快照加载；同一实例的注册状态和资源申请状态仍要求调用方串行使用。
+    std::mutex load_mutex_{};
+    bool context_loaded_{false};
     std::vector<ccu_kernel_handle> kernel_handles_{};
     std::vector<ccu_kernel_handle> untranslated_kernel_handles_{};
 };

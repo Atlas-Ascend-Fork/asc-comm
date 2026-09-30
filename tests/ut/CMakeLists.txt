@@ -280,9 +280,19 @@ target_compile_options(asccomm_ut_ccu_host_launch PRIVATE
     -Wall
     -Werror
 )
+
+add_library(asccomm_ccu_launch_stub STATIC
+    ${ASCCOMM_UT_ROOT}/ccu/stub/ccu_launch_stub.cc
+)
+target_include_directories(asccomm_ccu_launch_stub PRIVATE
+    ${ASCCOMM_ROOT}/include
+    ${ASCEND_CANN_ARCH_DIR}/include
+)
+
 target_link_libraries(asccomm_ut_ccu_host_launch PRIVATE
     intf_llt_pub_basic
     asccomm_ccu_host_launch
+    asccomm_ccu_launch_stub
 )
 
 run_llt_test(
