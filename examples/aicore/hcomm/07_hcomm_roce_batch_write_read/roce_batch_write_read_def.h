@@ -8,6 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+/*!
+ * \file roce_batch_write_read_def.h
+ * \brief Constants shared by the Hcomm RoCE batch write/read example host and device code.
+ */
+
 #ifndef EXAMPLES_HCOMM_ROCE_BATCH_WRITE_READ_DEF_H
 #define EXAMPLES_HCOMM_ROCE_BATCH_WRITE_READ_DEF_H
 

@@ -62,7 +62,7 @@ RESULT | Example=hcomm_roce_normal_write_read | Status=PASS
 ## 注意事项
 
 - 运行需要至少2张NPU，且rank数不超过当前可用NPU数量。
-- 通道必须使用COMM_PROTOCOL_ROCE，与Kernel侧Hcomm<COMM_PROTOCOL_ROCE>保持一致。
+- 通道必须使用COMM_PROTOCOL_ROCE，与Kernel侧 `Hcomm<COMM_PROTOCOL_ROCE>` 保持一致。
 - HcclGetRootInfo生成的root info由MPI Bcast分发给所有rank。
 - WriteNbi和ReadNbi使用commit=false，因此Commit是必要的；Drain返回后才校验数据。
 - 当rank数为2时，prev和next是同一个对端，写结果和读结果校验同一个rank pattern。
