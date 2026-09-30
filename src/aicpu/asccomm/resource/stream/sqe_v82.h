@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCLV2_SQE_V82_H
-#define HCCLV2_SQE_V82_H
+#ifndef ASCCOMM_SQE_V82_H
+#define ASCCOMM_SQE_V82_H
 
 #include <cstdint>
 

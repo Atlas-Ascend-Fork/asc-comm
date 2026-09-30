@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCLV2_STRING_UTIL_H
-#define HCCLV2_STRING_UTIL_H
+#ifndef ASCCOMM_STRING_UTIL_H
+#define ASCCOMM_STRING_UTIL_H
 
 #include <string>
 #include <vector>
@@ -45,4 +45,4 @@ inline std::string string_format(const char* format, Args... args)
 
 } // namespace Asc
 
-#endif // HCCLV2_STRING_UTIL_H
+#endif // ASCCOMM_STRING_UTIL_H

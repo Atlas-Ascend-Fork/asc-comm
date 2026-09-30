@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef ASCCOMM_HCCL_TYPES_H
-#define ASCCOMM_HCCL_TYPES_H
+#ifndef ASCCOMM_COMPAT_TYPES_H
+#define ASCCOMM_COMPAT_TYPES_H
 
 #include <stdint.h>
 
@@ -43,4 +43,4 @@ typedef enum {
     HCCL_E_RESERVED
 } HcclResult;
 
-#endif // ASCCOMM_HCCL_TYPES_H
+#endif // ASCCOMM_COMPAT_TYPES_H

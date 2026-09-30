@@ -8,18 +8,18 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCLV2_INTERNAL_EXCEPTION_H
-#define HCCLV2_INTERNAL_EXCEPTION_H
+#ifndef ASCCOMM_INTERNAL_EXCEPTION_H
+#define ASCCOMM_INTERNAL_EXCEPTION_H
 
-#include "hccl_exception.h"
+#include "asccomm_exception.h"
 
 namespace Asc {
-class InternalException : public HcclException {
+class InternalException : public AsccommException {
 public:
     explicit InternalException(const std::string& userDefinedMsg)
-        : HcclException(HCCL_E_INTERNAL, "Internal exception: ", userDefinedMsg)
+        : AsccommException(HCCL_E_INTERNAL, "Internal exception: ", userDefinedMsg)
     {}
 };
 } // namespace Asc
 
-#endif // HCCLV2_INTERNAL_EXCEPTION_H
+#endif // ASCCOMM_INTERNAL_EXCEPTION_H

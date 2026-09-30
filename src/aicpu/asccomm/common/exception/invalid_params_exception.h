@@ -8,18 +8,18 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef HCCL_HCCL_PARA_EXCEPTION_H
-#define HCCL_HCCL_PARA_EXCEPTION_H
+#ifndef ASCCOMM_INVALID_PARAMS_EXCEPTION_H
+#define ASCCOMM_INVALID_PARAMS_EXCEPTION_H
 
-#include "hccl_exception.h"
+#include "asccomm_exception.h"
 
 namespace Asc {
-class InvalidParamsException : public HcclException {
+class InvalidParamsException : public AsccommException {
 public:
     explicit InvalidParamsException(const std::string& userDefinedMsg)
-        : HcclException(HCCL_E_PARA, "Invalid params exception: ", userDefinedMsg)
+        : AsccommException(HCCL_E_PARA, "Invalid params exception: ", userDefinedMsg)
     {}
 };
 } // namespace Asc
 
-#endif // HCCL_HCCL_PARA_EXCEPTION_H
+#endif // ASCCOMM_INVALID_PARAMS_EXCEPTION_H

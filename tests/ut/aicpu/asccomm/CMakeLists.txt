@@ -38,38 +38,38 @@ target_include_directories(asccomm_aicpu_runtime_stub PUBLIC
     ${AICPU_UT_INCLUDE_DIRS}
 )
 
-add_executable(hccl_utest_comms_aicpu_launch
+add_executable(asccomm_utest_comms_aicpu_launch
     main.cc
     ut_asccomm_launch.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch/asccomm_launch.cc
 )
-target_include_directories(hccl_utest_comms_aicpu_launch PRIVATE
+target_include_directories(asccomm_utest_comms_aicpu_launch PRIVATE
     ${AICPU_UT_INCLUDE_DIRS}
 )
-target_link_libraries(hccl_utest_comms_aicpu_launch PRIVATE
+target_link_libraries(asccomm_utest_comms_aicpu_launch PRIVATE
     intf_llt_pub_basic
     asccomm_aicpu_launch_stub
     pthread
 )
 
 enable_testing()
-add_test(NAME hccl_utest_comms_aicpu_launch COMMAND hccl_utest_comms_aicpu_launch)
+add_test(NAME asccomm_utest_comms_aicpu_launch COMMAND asccomm_utest_comms_aicpu_launch)
 
-add_executable(hccl_utest_comms_aicpu_primitives
+add_executable(asccomm_utest_comms_aicpu_primitives
     main.cc
     ut_asccomm_primitives.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch/asccomm_launch.cc
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/api_c_adpt/aicpu_ts_asccomm_primitives_c_adpt.cc
 )
-target_include_directories(hccl_utest_comms_aicpu_primitives PRIVATE
+target_include_directories(asccomm_utest_comms_aicpu_primitives PRIVATE
     ${AICPU_UT_INCLUDE_DIRS}
 )
-target_compile_definitions(hccl_utest_comms_aicpu_primitives PRIVATE
+target_compile_definitions(asccomm_utest_comms_aicpu_primitives PRIVATE
     OPEN_BUILD_PROJECT
 )
-target_link_libraries(hccl_utest_comms_aicpu_primitives PRIVATE
+target_link_libraries(asccomm_utest_comms_aicpu_primitives PRIVATE
     intf_llt_pub_basic
     asccomm_aicpu_runtime_stub
     pthread
 )
-add_test(NAME hccl_utest_comms_aicpu_primitives COMMAND hccl_utest_comms_aicpu_primitives)
+add_test(NAME asccomm_utest_comms_aicpu_primitives COMMAND asccomm_utest_comms_aicpu_primitives)

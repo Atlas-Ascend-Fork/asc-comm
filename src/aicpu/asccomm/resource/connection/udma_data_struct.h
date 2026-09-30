@@ -7,8 +7,8 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-#ifndef HCCLV2_AICPU_WQEMGR_WQE_H
-#define HCCLV2_AICPU_WQEMGR_WQE_H
+#ifndef ASCCOMM_AICPU_WQEMGR_WQE_H
+#define ASCCOMM_AICPU_WQEMGR_WQE_H
 
 #include "hccl/base.h"
 
@@ -147,4 +147,4 @@ struct UdmaSqeRead {
     union LocalValueU u;
 };
 } // namespace Asc
-#endif // HCCL_AICPU_RESOURCE_AI_CPU_RESOUCES_H_
+#endif // ASCCOMM_AICPU_RESOURCE_AI_CPU_RESOUCES_H_

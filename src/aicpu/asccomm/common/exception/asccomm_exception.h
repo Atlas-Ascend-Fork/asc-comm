@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef ASCCOMM_HCCL_EXCEPTION_H
-#define ASCCOMM_HCCL_EXCEPTION_H
+#ifndef ASCCOMM_EXCEPTION_H
+#define ASCCOMM_EXCEPTION_H
 
 #include <exception>
 #include <string>
@@ -17,9 +17,9 @@
 
 namespace Asc {
 
-class HcclException : public std::exception {
+class AsccommException : public std::exception {
 public:
-    HcclException(HcclResult errorCode, const char* prefix, const std::string& message)
+    AsccommException(HcclResult errorCode, const char* prefix, const std::string& message)
         : errorCode_(errorCode), errorMessage_(std::string(prefix) + message)
     {}
 
@@ -33,4 +33,4 @@ private:
 
 } // namespace Asc
 
-#endif // ASCCOMM_HCCL_EXCEPTION_H
+#endif // ASCCOMM_EXCEPTION_H
