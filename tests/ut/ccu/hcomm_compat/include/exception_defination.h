@@ -14,7 +14,7 @@
 #include <map>
 #include <string>
 
-#include "hcomm/hcomm_types.h"
+#include <hccl/hccl_types.h>
 
 namespace Hccl {
 
