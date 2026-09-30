@@ -40,7 +40,7 @@ Host:
 HcclComm
   -> Mc2GetCcArgs/Mc2SetCc*
   -> Mc2AcquireCcResCtx
-  -> HcclGetUnfoldThread/HcclStreamAcquireWithThread (获取通信域unfold线程及其展开流)
+  -> GetUnfoldThread/AcquireUnfoldStream (获取通信域unfold线程及其展开流)
   -> Mc2CcKernelLaunch (start AICPU KFC Server on unfoldStream)
 
 AICore:
@@ -74,8 +74,8 @@ ccResCtx
    AICPU KFC Server使用通信域unfold线程绑定的展开流，无需自建。
 3. 通过`Mc2GetCcArgs`创建MC2参数对象，设置`AICPU_TS`通信引擎和FP32源/目标数据类型。
 4. 通过`Mc2AcquireCcResCtx`基于HCCL通信域申请通信资源上下文`ccResCtx`及其大小。
-5. 释放MC2参数对象，通过`HcclGetUnfoldThread`获取（或复用）以`"%s_unfold"`为tag持久化在
-   `COMM_ENGINE_CPU_TS`引擎上下文中的unfold线程，再通过`HcclStreamAcquireWithThread`取得其
+5. 释放MC2参数对象，通过`GetUnfoldThread`获取（或复用）以`"%s_unfold"`为tag持久化在
+   `COMM_ENGINE_CPU_TS`引擎上下文中的unfold线程，再通过`AcquireUnfoldStream`取得其
    绑定的展开流，最后通过`Mc2CcKernelLaunch(unfoldStream, ccResCtx, ccResCtxSize)`在展开流上
    启动KFC Server。
 6. 通过`all_gather_add_kernel<<<1, nullptr, streamAiv>>>`启动AICore kernel。kernel内部调用
