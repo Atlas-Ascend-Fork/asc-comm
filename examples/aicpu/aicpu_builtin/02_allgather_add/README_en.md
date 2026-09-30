@@ -46,7 +46,7 @@ Host:
 HcclComm
   -> Mc2GetCcArgs/Mc2SetCc*
   -> Mc2AcquireCcResCtx
-  -> HcclGetUnfoldThread/HcclStreamAcquireWithThread (acquire the comm's unfold thread and its stream)
+  -> GetUnfoldThread/AcquireUnfoldStream (acquire the comm's unfold thread and its stream)
   -> Mc2CcKernelLaunch (start AICPU KFC Server on unfoldStream)
 
 AICore:
@@ -83,9 +83,9 @@ ccResCtx
    and the FP32 source and destination data types.
 4. Call `Mc2AcquireCcResCtx` to obtain the communication resource context `ccResCtx` and its size from
    the HCCL communication domain.
-5. Release the MC2 argument object. Call `HcclGetUnfoldThread` to obtain (or reuse) the unfold thread
+5. Release the MC2 argument object. Call `GetUnfoldThread` to obtain (or reuse) the unfold thread
    persisted in the `COMM_ENGINE_CPU_TS` engine context with the `"%s_unfold"` tag, and call
-   `HcclStreamAcquireWithThread` to get its bound unfold stream. Finally, call
+   `AcquireUnfoldStream` to get its bound unfold stream. Finally, call
    `Mc2CcKernelLaunch(unfoldStream, ccResCtx, ccResCtxSize)` to start the KFC Server on the unfold
    stream.
 6. Launch the AICore kernel through `all_gather_add_kernel<<<1, nullptr, streamAiv>>>`. Inside the
