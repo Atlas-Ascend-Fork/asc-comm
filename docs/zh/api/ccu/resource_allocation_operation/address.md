@@ -32,7 +32,7 @@
 - 运算符即device操作：赋值与算术运算符描述的是device端执行的操作，执行阶段操作对应的地址寄存器，而非host端立即计算。
 
 > [!NOTE]说明
-> 资源分配采用"先虚后实"两阶段模型：注册阶段的`address()`构造仅产生虚拟句柄，真正的物理地址寄存器分配在[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段，即kernel函数执行完后完成。
+> 资源分配采用"先虚后实"两阶段模型：注册阶段的`address()`构造仅产生虚拟句柄，真正的物理地址寄存器分配在注册阶段，即kernel函数执行完后完成。
 
 与[`variable`](variable.md)保存标量值不同，`address`专门保存地址值，即片上内存物理地址，承载的是device端地址值，不能在host端直接解引用；典型用法是将基地址与偏移量相加得到目标地址，供数据搬运接口使用。
 
@@ -94,8 +94,8 @@ public:
 
 ## 约束说明
 
-- 只能在kernel注册阶段构造；注册阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在注册阶段内恒成功不抛异常；`address`物理资源不足时，由[HcommCcuKernelRegister](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 只能在注册阶段构造；注册阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在注册阶段内恒成功不抛异常；`address`物理资源不足时，由注册阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
 - copy/move构造函数只拷贝`handle`字段、不申请新的`address`，`address a2 = a1;`后两个对象指向同一个地址寄存器；`operator=(const address&)`则会发出device端寄存器赋值指令。如需独立的`address`，必须显式默认构造。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - `address`不可被赋值到`variable`，即不提供`variable = address`操作。

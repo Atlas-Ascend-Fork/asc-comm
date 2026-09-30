@@ -25,7 +25,7 @@
 
 头文件为：`#include "ccu/ccu_primitives.hpp"`
 
-`load_arg`在kernel函数体内调用，将host下发的参数加载到`variable`。host每次调用[`HcommCcuKernelLaunch`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelLaunch.md)下发Kernel时，通过`taskArgs`数组传入参数；Kernel开始执行前，由硬件将`taskArgs[arg_id]`的值写入目标`variable`对应的寄存器，作为其初值。
+`load_arg`在kernel函数体内调用，将host下发的参数加载到`variable`。host每次通过`<<<>>>`下发Kernel时，通过`taskArgs`数组传入参数；Kernel开始执行前，由硬件将`taskArgs[arg_id]`的值写入目标`variable`对应的寄存器，作为其初值。
 
 本接口在注册阶段仅记录声明，不执行加载，实际加载由硬件在每次下发时完成。由此，同一份已注册的Kernel每次下发可携带不同参数，无须重复注册。
 
@@ -53,15 +53,15 @@ CcuResult load_arg(variable v, uint32_t arg_id);
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 当前不存在处于注册中的kernel，即接口在kernel注册阶段之外被调用。 |
+| `CCU_E_PTR` | 接口在注册阶段之外被调用。 |
 | `CCU_E_NOT_FOUND` | 传入的`v`句柄未在当前kernel注册。 |
 
 > [!NOTE]说明
-> 本接口不会返回`CCU_E_PARA`。`arg_id`相关的约束错误不在本接口处返回，而是在`HcommCcuKernelLaunch`阶段统一校验后返回`CCU_E_INTERNAL`，详见[约束说明](#约束说明)。
+> 本接口不会返回`CCU_E_PARA`。`arg_id`相关的约束错误不在本接口处返回，而是由`<<<>>>`统一校验后返回`CCU_E_INTERNAL`，详见[约束说明](#约束说明)。
 
 ## 约束说明
 
-- 同一kernel内所有`load_arg`调用的`arg_id`须从0连续编号（0、1、2、…）、不可重复，且个数须与`HcommCcuKernelLaunch`的`argNum`严格相等。加载指令按`arg_id`升序对应到任务参数槽位，跳号、乱序或重复会使参数无法与槽位正确对应——以上均在`HcommCcuKernelLaunch`阶段统一校验，违反时返回`CCU_E_INTERNAL`。
+- 同一kernel内所有`load_arg`调用的`arg_id`须从0连续编号（0、1、2、…），不可重复，且个数须与`<<<>>>`的`argNum`严格相等。加载指令按`arg_id`升序对应到任务参数槽位，跳号、乱序或重复会使参数无法与槽位正确对应——以上均由`<<<>>>`统一校验，违反时返回`CCU_E_INTERNAL`。
 - `argNum`表示元素个数，而非字节数。例如`arg_id`为0、1、2的3个`load_arg`调用，`argNum`须传`3`，`taskArgs`须有至少3个`uint64_t`元素。
 - `arg_id`取值范围为0~12，因为CCU任务描述符最多携带13个参数。
 - `load_arg`只负责给`v`设初值：若kernel函数体内又对同一个`v`赋值，赋值会覆盖注入的初值。混用时须先把注入值读走、再重新赋值。
@@ -83,7 +83,7 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
     return CCU_SUCCESS;
 }
 
-// Host侧对应的Launch调用（示意）：
+// Host侧对应的`<<<>>>`（示意）：
 // uint64_t taskArgs[] = {100, 4096};   // n=100轮，offset=4096字节
-// HcommCcuKernelLaunch(..., taskArgs, /*argNum=*/2);
+// kernel_name<<<schd, insHandle, stream>>>(taskArgs[0], taskArgs[1]);
 ```

@@ -59,7 +59,7 @@ CcuResult call_func(args... args_);
 | 其他 | 跳转指令下发失败时返回的对应错误码。 |
 
 > [!NOTE]说明
-> 其余失败情形会抛出异常（携带错误码），不通过返回值反馈，如在硬件Loop的循环体内调用、嵌套调用、在kernel注册阶段之外调用等，详见[约束说明](#约束说明)。
+> 其余失败情形会抛出异常（携带错误码），不通过返回值反馈，如在硬件Loop的循环体内调用、嵌套调用、在注册阶段之外调用等，详见[约束说明](#约束说明)。
 
 ## 约束说明
 
@@ -67,7 +67,7 @@ CcuResult call_func(args... args_);
 - 不可在硬件Loop的循环体内调用，否则抛出异常（错误码`CCU_E_INTERNAL`）。
 - 不可嵌套调用：lambda内不可再调用`call_func`，违反时抛出异常（错误码`CCU_E_INTERNAL`）。
 - 首次调用时合成函数块，对同一`obj`的后续调用复用已有函数块；不同的`ccu::func`对象即使lambda内容相同，也各自合成独立的函数块。
-- 抛出的异常会被[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)统一接住，对外返回`CCU_E_INTERNAL`，调用方无须自行捕获。
+- 抛出的异常会被`<<<>>>`统一接住，对外返回`CCU_E_INTERNAL`，调用方无须自行捕获。
 
 ## 调用示例
 

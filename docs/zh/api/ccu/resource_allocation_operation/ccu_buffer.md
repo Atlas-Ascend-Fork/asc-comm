@@ -31,7 +31,7 @@
 - 析构不释放：析构不释放硬件资源，物理资源随CCU实例生命周期统一管理，翻译完成后虚拟句柄失效。
 
 > [!NOTE]说明
-> 资源分配采用"先虚后实"两阶段模型：注册阶段的`ccu_buffer()`构造仅产生虚拟句柄，真正的物理CCU Buffer切片分配在`HcommCcuKernelRegister`阶段，即kernel函数执行完后完成。
+> 资源分配采用"先虚后实"两阶段模型：注册阶段的`ccu_buffer()`构造仅产生虚拟句柄，真正的物理CCU Buffer切片分配在注册阶段，即kernel函数执行完后完成。
 
 ## 类声明
 
@@ -55,8 +55,8 @@ public:
 
 ## 约束说明
 
-- 只能在kernel注册阶段构造；注册阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在注册阶段内恒成功不抛异常；CCU Buffer物理资源不足时，由[HcommCcuKernelRegister](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 只能在注册阶段构造；注册阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在注册阶段内恒成功不抛异常；CCU Buffer物理资源不足时，由注册阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
 - copy/move构造函数只拷贝`handle`字段、不申请新的CCU Buffer切片，`ccu_buffer b2 = b1;`后两个对象指向同一块切片；如需独立的`ccu_buffer`，必须显式默认构造或用[`array<ccu_buffer>`](array.md)。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 每个`ccu_buffer`固定代表4096字节的片上切片，大小不可配置。

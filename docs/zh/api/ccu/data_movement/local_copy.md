@@ -76,7 +76,7 @@
 | 返回值 | 说明 |
 | --- | --- |
 | `CCU_SUCCESS` | 操作成功。 |
-| `CCU_E_PTR` | 当前不存在处于注册中的kernel，即接口在kernel注册阶段之外被调用。 |
+| `CCU_E_PTR` | 接口在注册阶段之外被调用。 |
 | `CCU_E_NOT_FOUND` | 传入的`dst`/`src`/`len`/`event`句柄未在当前kernel注册。 |
 
 > [!NOTE]说明

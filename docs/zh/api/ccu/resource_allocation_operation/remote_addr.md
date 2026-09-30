@@ -31,7 +31,7 @@
 - 析构不释放：析构不释放硬件资源，物理资源随CCU实例生命周期统一管理，翻译完成后虚拟句柄失效。
 
 > [!NOTE]说明
-> 资源分配采用"先虚后实"两阶段模型：注册阶段的`remote_addr()`构造仅产生虚拟句柄，真正的物理资源分配在[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段，即kernel函数执行完后完成。
+> 资源分配采用"先虚后实"两阶段模型：注册阶段的`remote_addr()`构造仅产生虚拟句柄，真正的物理资源分配在注册阶段，即kernel函数执行完后完成。
 
 `remote_addr`专供跨rank写（`write`/`write_reduce`）使用，指向对端rank的目标内存。
 
@@ -61,7 +61,7 @@ public:
 
 | 参数名 | 类型 | 说明 |
 | --- | --- | --- |
-| `addr` | `address` | 对端片上内存目标地址。须由对端rank的VA与token（对端[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)结果）来填充，运算符语义见[address](address.md)。 |
+| `addr` | `address` | 对端片上内存目标地址。须由对端rank的VA与token（对端`asccomm_ccu_get_mem_token`结果）来填充，运算符语义见[address](address.md)。 |
 | `token` | `variable` | 对端安全token值。须与`addr`配对，来自对端rank，不可与本端token混用。运算符语义见[variable](variable.md)。 |
 
 ## 约束说明
@@ -69,8 +69,8 @@ public:
 > [!CAUTION]注意
 > `token`属于安全信息，host/device日志均不允许打印，禁止以明文形式跨rank透传。`addr`和`token`字段必须是对端rank目标内存的值，与本端`local_addr`字段来源完全不同。
 
-- 只能在kernel注册阶段构造；注册阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在注册阶段内恒成功不抛异常；`address/variable`物理资源不足时，由[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 只能在注册阶段构造；注册阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在注册阶段内恒成功不抛异常；`address/variable`物理资源不足时，由注册阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
 - copy/move构造函数只拷贝`handle`、`addr.handle`、`token.handle`三个字段、不申请新的`address/variable`，`remote_addr r2 = r1;`后两个对象指向同一组寄存器；`operator=(const remote_addr&)`则会执行device端寄存器赋值指令（语义与`local_addr`相同），两者不对称。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 不可对内嵌的`addr`/`token`字段再单独调用`address()`/`variable()`构造新对象——`remote_addr()`已一次性完成所有子字段的分配。

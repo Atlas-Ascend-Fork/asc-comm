@@ -37,7 +37,7 @@ namespace ccu {
 
 class loop_group {
 public:
-    // config-based：Group参数在kernel注册阶段确定
+    // config-based：Group参数在注册阶段确定
     loop_group(const ccu_loop_group_config &loopGroupCfg, uint32_t max_loop_num,
               const std::vector<loop> &loops);
 
@@ -94,7 +94,7 @@ config-based构造的`loop_group_cfg`类型，字段如下：
 
 ## 返回值说明
 
-无返回值。构造失败时抛出异常（携带[CcuResult](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)错误码），被`HcommCcuKernelRegister`统一捕获后以错误码返回。常见原因：
+无返回值。构造失败时抛出异常（携带[CcuResult](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/CcuResult.md)错误码），被`<<<>>>`统一捕获后以错误码返回。常见原因：
 
 | 原因 | 错误码 |
 | --- | --- |

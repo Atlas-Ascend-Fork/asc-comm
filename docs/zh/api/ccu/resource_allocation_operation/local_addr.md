@@ -31,9 +31,9 @@
 - 析构不释放：析构不释放硬件资源，物理资源随CCU实例生命周期统一管理，翻译完成后虚拟句柄失效。
 
 > [!NOTE]说明
-> 资源分配采用"先虚后实"两阶段模型：注册阶段的`local_addr()`构造仅产生虚拟句柄，真正的物理资源分配在[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段（kernel函数执行完后）完成。
+> 资源分配采用"先虚后实"两阶段模型：注册阶段的`local_addr()`构造仅产生虚拟句柄，真正的物理资源分配在注册阶段（kernel函数执行完后）完成。
 
-CCU硬件不接受进程虚拟地址，访问片上内存必须使用由[`HcommCcuGetMemToken`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuGetMemToken.md)换算后的token。`local_addr`的`addr`字段存储物理地址或token化后的VA（Virtual Address，虚拟地址），`token`字段存储配套的安全token值。
+CCU硬件不接受进程虚拟地址，访问片上内存必须使用由`asccomm_ccu_get_mem_token`换算后的token。`local_addr`的`addr`字段存储物理地址或token化后的VA（Virtual Address，虚拟地址），`token`字段存储配套的安全token值。
 
 ## 类声明
 
@@ -64,20 +64,20 @@ local_addr类的参数说明如下：
 | 参数名 | 类型 | 说明 |
 | --- | --- | --- |
 | `addr` | `address` | 本端片上内存地址。通过`la.addr = imm`（立即数）或`la.addr = var`（variable）赋值，运算符语义见[address](address.md)。 |
-| `token` | `variable` | 安全token值。由host端调用`HcommCcuGetMemToken`获取后，通过`kernelArgs`或`task_args`+`load_arg`传入kernel，再赋值给`la.token`。运算符语义见[variable](variable.md)。 |
+| `token` | `variable` | 安全token值。由host端调用`asccomm_ccu_get_mem_token`获取后，通过`kernelArgs`或`task_args`+`load_arg`传入kernel，再赋值给`la.token`。运算符语义见[variable](variable.md)。 |
 
 ## 约束说明
 
 > [!CAUTION]注意
 > `token`属于安全信息，host/device日志均不允许打印，禁止以明文形式跨rank透传。
 
-- 只能在kernel注册阶段构造；注册阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
-- 默认构造只申请虚拟句柄，在注册阶段内恒成功不抛异常；`address/variable`物理资源不足时，由[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- 只能在注册阶段构造；注册阶段之外构造时，抛出携带`CCU_E_PTR`的异常。
+- 默认构造只申请虚拟句柄，在注册阶段内恒成功不抛异常；`address/variable`物理资源不足时，由注册阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
 - copy/move构造函数只拷贝`handle`、`addr.handle`、`token.handle`三个字段、不申请新的`address/variable`，`local_addr l2 = l1;`后两个对象指向同一组寄存器；`operator=(const local_addr&)`则会发出两条device端寄存器赋值指令（把`other.addr`、`other.token`的值搬移过来），两者语义不对称。
 - 不应在kernel之外保存或比较`handle`值，翻译完成后句柄即失效。
 - 不可对内嵌的`addr`/`token`字段再单独调用`address()`/`variable()`构造新对象——`local_addr()`已一次性完成所有子字段的分配。
 - `addr`字段须赋值为CCU可访问的物理地址或经token化的VA，直接传入未经token化的进程虚拟地址将触发驱动错误。
-- `token`通常来自host端`HcommCcuGetMemToken`调用，须与`addr`配对，不可与对端token混用。
+- `token`通常来自host端`asccomm_ccu_get_mem_token`调用，须与`addr`配对，不可与对端token混用。
 
 ## 调用示例
 
@@ -90,9 +90,9 @@ struct my_kernel_arg {
     uint64_t src_token;  // 配套的安全token
 };
 
-// Host侧（kernel注册前）填充my_kernel_arg：
+// Host侧（`<<<>>>`直调前）填充my_kernel_arg：
 // uint64_t tokenInfo = 0;
-// HcommCcuGetMemToken(srcVa, size, &tokenInfo);
+// `asccomm_ccu_get_mem_token`(srcVa, size, &tokenInfo);
 // args.src_addr = srcVa;
 // args.src_token = tokenInfo;
 
