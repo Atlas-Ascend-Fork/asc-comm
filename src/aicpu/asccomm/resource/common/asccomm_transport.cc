@@ -382,8 +382,8 @@ AsccommResult execute_rdma(
         CHK_RET(ops.write(localNotify, remoteNotify, cfg));
     }
 
-    u64 dbAddr = 0;
-    u64 dbValue = 0;
+    uint64_t dbAddr = 0;
+    uint64_t dbValue = 0;
     CHK_RET(ops.build_doorbell(dbAddr, dbValue));
     bool cqDbFlush = false;
     ops.export_queue_state(resourceSq->sqHead, resourceSq->sqTail, resourceCq->cqHead, resourceCq->cqTail, cqDbFlush);

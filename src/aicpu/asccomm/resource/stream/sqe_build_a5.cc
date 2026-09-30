@@ -12,7 +12,7 @@
 
 namespace Asc {
 
-void build_a5_sqe_rdma_db_send(u32 streamId, u32 taskId, u64 dbAddr, u64 dbValue, uint8_t* sqeIn)
+void build_a5_sqe_rdma_db_send(uint32_t streamId, uint32_t taskId, uint64_t dbAddr, uint64_t dbValue, uint8_t* sqeIn)
 {
     auto sqe = reinterpret_cast<Rt91095StarsWriteValueSqe*>(sqeIn);
     set_sqe_header_task_fields(sqe, taskId);

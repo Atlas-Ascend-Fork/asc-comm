@@ -196,7 +196,7 @@ public:
 
     ~Rdma1825Ops() override {}
 
-    AsccommResult build_doorbell(u64& dbAddr, u64& dbValue) override
+    AsccommResult build_doorbell(uint64_t& dbAddr, uint64_t& dbValue) override
     {
         Roce3DbEntry dbEntry;
         dbEntry.dw0.db_value = 0;
@@ -223,7 +223,7 @@ public:
         return ASCCOMM_SUCCESS;
     }
 
-    AsccommResult build_cq_doorbell(u64& dbAddr, u64& dbValue) override
+    AsccommResult build_cq_doorbell(uint64_t& dbAddr, uint64_t& dbValue) override
     {
         if (cqDbFlush_) {
             dbAddr = cqContext_->dbSwVa;

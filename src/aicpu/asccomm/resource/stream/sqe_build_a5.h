@@ -11,22 +11,22 @@
 #ifndef ASCCOMM_SQE_BUILD_A5_H
 #define ASCCOMM_SQE_BUILD_A5_H
 
-#include "hccl/base.h"
+#include <stdint.h>
 #include "../connection/ub_jetty_lite.h"
 #include "sqe_v82.h"
 
 namespace Asc {
 
-constexpr u32 LOW_BITS = 16;
+constexpr uint32_t LOW_BITS = 16;
 
-inline void set_sqe_header_task_fields(void* sqe, u32 taskId)
+inline void set_sqe_header_task_fields(void* sqe, uint32_t taskId)
 {
     auto header = reinterpret_cast<Rt91095StarsSqeHeader*>(sqe);
     header->rtStreamId = static_cast<uint16_t>(taskId);
     header->taskId = static_cast<uint16_t>(taskId >> LOW_BITS);
 }
 
-inline void build_a5_sqe_notify_wait(u32 streamId, u32 taskId, u32 notifyId, u32 timeout, uint8_t* sqeIn)
+inline void build_a5_sqe_notify_wait(uint32_t streamId, uint32_t taskId, uint32_t notifyId, uint32_t timeout, uint8_t* sqeIn)
 {
     (void)streamId;
     auto sqe = reinterpret_cast<Rt91095StarsNotifySqe*>(sqeIn);
@@ -41,7 +41,7 @@ inline void build_a5_sqe_notify_wait(u32 streamId, u32 taskId, u32 notifyId, u32
     sqe->timeout = timeout;
 }
 
-inline void build_a5_sqe_notify_record(u32 streamId, u32 taskId, u32 notifyId, uint8_t* sqeIn)
+inline void build_a5_sqe_notify_record(uint32_t streamId, uint32_t taskId, uint32_t notifyId, uint8_t* sqeIn)
 {
     (void)streamId;
     auto sqe = reinterpret_cast<Rt91095StarsNotifySqe*>(sqeIn);
@@ -54,7 +54,7 @@ inline void build_a5_sqe_notify_record(u32 streamId, u32 taskId, u32 notifyId, u
 }
 
 inline void build_a5_sqe_sdma_copy(
-    u32 streamId, u32 taskId, u64 dstAddr, u64 srcAddr, u32 size, u32 partId, u32 opcode, uint8_t* sqeIn)
+    uint32_t streamId, uint32_t taskId, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, uint32_t partId, uint32_t opcode, uint8_t* sqeIn)
 {
     (void)streamId;
     auto sqe = reinterpret_cast<Rt91095StarsMemcpySqe*>(sqeIn);
@@ -76,7 +76,7 @@ inline void build_a5_sqe_sdma_copy(
 }
 
 inline void build_a5_sqe_ub_db_send(
-    u32 streamId, u32 taskId, const UbJettyLiteId& jettyLiteId, u16 piValue, uint8_t* sqeIn)
+    uint32_t streamId, uint32_t taskId, const UbJettyLiteId& jettyLiteId, uint16_t piValue, uint8_t* sqeIn)
 {
     (void)streamId;
     auto sqe = reinterpret_cast<Rt91095StarsUbdmaDBmodeSqe*>(sqeIn);
@@ -91,7 +91,7 @@ inline void build_a5_sqe_ub_db_send(
     sqe->dieId1 = jettyLiteId.get_die_id();
 }
 
-void build_a5_sqe_rdma_db_send(u32 streamId, u32 taskId, u64 dbAddr, u64 dbValue, uint8_t* sqeIn);
+void build_a5_sqe_rdma_db_send(uint32_t streamId, uint32_t taskId, uint64_t dbAddr, uint64_t dbValue, uint8_t* sqeIn);
 
 } // namespace Asc
 

@@ -21,24 +21,24 @@ namespace Asc {
 
 enum class SlicePosition { ONLY = 0, FIRST = 1, MIDDLE = 2, LAST = 3 };
 struct UbConnLiteParam {
-    u32 jettyId;
+    uint32_t jettyId;
 
-    u64 sqVa;
-    u32 sqDepth;
-    u32 tpn;
+    uint64_t sqVa;
+    uint32_t sqDepth;
+    uint32_t tpn;
     bool dwqeCacheLocked;
-    u8 rmtEid[16];
+    uint8_t rmtEid[16];
 
-    u32 maxReadSize;
-    u32 maxWriteSize;
+    uint32_t maxReadSize;
+    uint32_t maxWriteSize;
 };
 
 class UbConnLite {
 public:
     void import_context(const UbConnLiteParam& liteParam);
 
-    void import_queue_state(u32 sqHead, u32 sqTail);
-    void export_queue_state(u32& sqHead, u32& sqTail) const;
+    void import_queue_state(uint32_t sqHead, uint32_t sqTail);
+    void export_queue_state(uint32_t& sqHead, uint32_t& sqTail) const;
 
     void read(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, ConnLiteOperationOut& out);
@@ -48,54 +48,54 @@ public:
     void write(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, ConnLiteOperationOut& out);
     void inline_write(
-        const u8* data, u16 size, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, ConnLiteOperationOut& out);
+        const uint8_t* data, uint16_t size, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, ConnLiteOperationOut& out);
     void write_reduce(
         DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt,
         const SqeConfigLite& cfg, ConnLiteOperationOut& out);
     void write_with_notify(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, ConnLiteOperationOut& out,
-        const RmtRmaBufSliceLite& notify, u64 notifyData);
+        const RmtRmaBufSliceLite& notify, uint64_t notifyData);
     void write_reduce_with_notify(
         DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt,
-        const SqeConfigLite& cfg, ConnLiteOperationOut& out, const RmtRmaBufSliceLite& notify, u64 notifyData);
+        const SqeConfigLite& cfg, ConnLiteOperationOut& out, const RmtRmaBufSliceLite& notify, uint64_t notifyData);
 
     void fill_comm_sqe(
-        UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, u32 opCode,
+        UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, uint32_t opCode,
         SlicePosition slicePos = SlicePosition::ONLY);
 
-    void fill_notify_sqe(struct UdmaSqeNotify* sqe, const RmtRmaBufSliceLite& notify, u64 notifyData) const;
+    void fill_notify_sqe(struct UdmaSqeNotify* sqe, const RmtRmaBufSliceLite& notify, uint64_t notifyData) const;
     void fill_local_sge_sqe(UdmaNormalSge* sqe, const RmaBufSliceLite& loc) const;
 
 private:
-    u16 pi{0};
-    u32 piDetourCount{0};
-    u32 maxReadSize{0};
-    u32 maxWriteSize{0};
-    u32 jettyId_{0};
-    u64 sqVa_{0};
-    u32 sqDepth_{0};
+    uint16_t pi{0};
+    uint32_t piDetourCount{0};
+    uint32_t maxReadSize{0};
+    uint32_t maxWriteSize{0};
+    uint32_t jettyId_{0};
+    uint64_t sqVa_{0};
+    uint32_t sqDepth_{0};
     bool dwqeCacheLocked_{false};
-    u32 tpn_{0};
-    u8 rmtEid_[16]{};
+    uint32_t tpn_{0};
+    uint8_t rmtEid_[16]{};
     void process_slices(
-        const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, u32 maxSliceSize,
+        const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, uint32_t maxSliceSize,
         std::function<void(const RmaBufSliceLite&, const RmtRmaBufSliceLite&, SlicePosition)> processOneSlice,
         DataType dataType = DataType::INVALID) const;
     void process_slices_with_notify(
-        const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, u32 maxSliceSize,
+        const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, uint32_t maxSliceSize,
         std::function<void(const RmaBufSliceLite&, const RmtRmaBufSliceLite&, SlicePosition)> processOneSlice,
         std::function<void(const RmaBufSliceLite&, const RmtRmaBufSliceLite&, SlicePosition)> processOneSliceWithNotify,
         DataType dataType = DataType::INVALID) const;
     void process_one_wqe(UdmaSqeWrite* sqe, UdmaSqOpcode opCode);
     void process_one_wqe_with_notify(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg,
-        UdmaSqeWriteWithNotify* sqe, const RmtRmaBufSliceLite& notify, u64 notifyData, u32 opCode,
+        UdmaSqeWriteWithNotify* sqe, const RmtRmaBufSliceLite& notify, uint64_t notifyData, uint32_t opCode,
         SlicePosition slicePos);
-    void fill_comm_sqe_reduce_info(UdmaSqeCommon& sqeComm, ReduceOp reduceOp, DataType dataType, u32 udfType = 0) const;
+    void fill_comm_sqe_reduce_info(UdmaSqeCommon& sqeComm, ReduceOp reduceOp, DataType dataType, uint32_t udfType = 0) const;
     void fill_one_sqe_write(
         const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, UdmaSqeWrite* sqe,
         UdmaSqOpcode opCode, SlicePosition slicePos);
-    void memory_set_and_copy(u8* va, u32 sqeSize, void* sqe);
+    void memory_set_and_copy(uint8_t* va, uint32_t sqeSize, void* sqe);
 };
 } // namespace Asc
 

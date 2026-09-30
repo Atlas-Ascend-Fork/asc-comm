@@ -11,7 +11,7 @@
 #ifndef ASCCOMM_BACKEND_TYPES_H
 #define ASCCOMM_BACKEND_TYPES_H
 
-#include "hccl/base.h"
+#include <stdint.h>
 
 namespace Asc {
 
@@ -72,13 +72,13 @@ struct ReduceIn {
 struct SqeConfigLite {
     SqeConfigLite() : placeOdr(1), compOrder(1), fence(1) {}
     bool cqeEn{true};
-    u8 placeOdr : 2;
-    u8 compOrder : 1;
-    u8 fence : 1;
+    uint8_t placeOdr : 2;
+    uint8_t compOrder : 1;
+    uint8_t fence : 1;
 };
 
 struct ConnLiteOperationOut {
-    u16 pi{0};
+    uint16_t pi{0};
 };
 
 } // namespace Asc

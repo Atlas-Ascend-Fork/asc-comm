@@ -87,7 +87,7 @@ public:
     {}
     virtual ~RdmaBaseOps() = default;
 
-    void import_queue_state(u32 sqHead, u32 sqTail, u32 cqHead, u32 cqTail, bool cqDbFlush)
+    void import_queue_state(uint32_t sqHead, uint32_t sqTail, uint32_t cqHead, uint32_t cqTail, bool cqDbFlush)
     {
         sqHead_ = sqHead;
         sqTail_ = sqTail;
@@ -96,7 +96,7 @@ public:
         cqDbFlush_ = cqDbFlush;
     }
 
-    void export_queue_state(u32& sqHead, u32& sqTail, u32& cqHead, u32& cqTail, bool& cqDbFlush) const
+    void export_queue_state(uint32_t& sqHead, uint32_t& sqTail, uint32_t& cqHead, uint32_t& cqTail, bool& cqDbFlush) const
     {
         sqHead = sqHead_;
         sqTail = sqTail_;
@@ -194,18 +194,18 @@ public:
     }
 
     // 准备Doorbell(厂商实现)
-    virtual AsccommResult build_doorbell(u64& dbAddr, u64& dbValue) = 0;
+    virtual AsccommResult build_doorbell(uint64_t& dbAddr, uint64_t& dbValue) = 0;
 
     // 准备CqDoorbell(厂商实现)
-    virtual AsccommResult build_cq_doorbell(u64& dbAddr, u64& dbValue) = 0;
+    virtual AsccommResult build_cq_doorbell(uint64_t& dbAddr, uint64_t& dbValue) = 0;
 
 protected:
     // 软件侧只维护Sq PI，Sq CI由硬件维护
-    u32 sqHead_{0};
-    u32 sqTail_{0};
+    uint32_t sqHead_{0};
+    uint32_t sqTail_{0};
 
-    u32 cqHead_{0};
-    u32 cqTail_{0};
+    uint32_t cqHead_{0};
+    uint32_t cqTail_{0};
     bool cqDbFlush_ = false;
 
     RdmaSqContextLite* sqContext_;
@@ -270,7 +270,7 @@ protected:
         // 写wqe到va
         auto sqDepth = sqContext_->depth;
         uint32_t sqPIMask = sqDepth - 1;
-        u8* va = reinterpret_cast<u8*>(sqContext_->sqVa + (sqHead_ & sqPIMask) * wqeSize);
+        uint8_t* va = reinterpret_cast<uint8_t*>(sqContext_->sqVa + (sqHead_ & sqPIMask) * wqeSize);
 
         ASCCOMM_INFO(
             "[RdmaBaseOps][Wqe write] before copy, sqHead[%u], slot[%u], sqVa[0x%llx], dst[0x%llx], size[%u]", sqHead_,

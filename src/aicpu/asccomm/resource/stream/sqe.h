@@ -11,17 +11,17 @@
 #ifndef ASCCOMM_SQE_H
 #define ASCCOMM_SQE_H
 
-#include "hccl/base.h"
+#include <stdint.h>
 
 namespace Asc {
 
-constexpr u32 AC_SQE_SIZE = 64U;
-constexpr u8 RT_STARS_DEFAULT_KERNEL_CREDIT = 254U;
-constexpr u8 RT_STARS_NEVER_TIMEOUT_KERNEL_CREDIT = 255U;
+constexpr uint32_t AC_SQE_SIZE = 64U;
+constexpr uint8_t RT_STARS_DEFAULT_KERNEL_CREDIT = 254U;
+constexpr uint8_t RT_STARS_NEVER_TIMEOUT_KERNEL_CREDIT = 255U;
 
-constexpr u32 UINT32_BIT_NUM = 32U;
-constexpr u32 MASK_32_BIT = 0xFFFFFFFFU;
-constexpr u32 MASK_17_BIT = 0x0001FFFFU;
+constexpr uint32_t UINT32_BIT_NUM = 32U;
+constexpr uint32_t MASK_32_BIT = 0xFFFFFFFFU;
+constexpr uint32_t MASK_17_BIT = 0x0001FFFFU;
 
 enum RtStarsWriteValueSizeType : uint8_t {
     RT_STARS_WRITE_VALUE_SIZE_TYPE_8BIT,

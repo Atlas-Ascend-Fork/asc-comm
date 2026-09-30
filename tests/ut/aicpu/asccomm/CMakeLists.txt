@@ -15,7 +15,6 @@ set(AICPU_UT_INCLUDE_DIRS
     ${ASCEND_CANN_ARCH_DIR}/include/hccl
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/hccl
-    ${ASCCOMM_ROOT}/src/aicpu/asccomm/common/compat/control_plane
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/common/utils
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/api_c_adpt
     ${ASCCOMM_ROOT}/src/aicpu/asccomm/primitives/launch

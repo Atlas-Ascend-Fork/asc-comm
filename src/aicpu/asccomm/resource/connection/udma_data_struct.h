@@ -10,7 +10,7 @@
 #ifndef ASCCOMM_AICPU_WQEMGR_WQE_H
 #define ASCCOMM_AICPU_WQEMGR_WQE_H
 
-#include "hccl/base.h"
+#include <stdint.h>
 
 namespace Asc {
 
@@ -37,7 +37,7 @@ struct UdmaNormalSge {
 };
 
 struct UdmaInlineData {
-    u8 data[16];
+    uint8_t data[16];
 };
 
 struct UdfExtData { // UDF扩展数据

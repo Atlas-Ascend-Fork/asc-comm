@@ -90,8 +90,6 @@ target_include_directories(asccomm_aicpu PRIVATE
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/driver
     ${ASCCOMM_AICPU_ROOT}/asccomm/primitives/api_c_adpt
     ${ASCCOMM_AICPU_ROOT}/asccomm/primitives/launch
-    ${ASCCOMM_AICPU_ROOT}/asccomm/common/compat/control_plane
-    ${ASCCOMM_AICPU_ROOT}/asccomm/common/compat/control_plane/hccl
     ${ASCCOMM_AICPU_ROOT}/asccomm/common/exception
     ${ASCCOMM_AICPU_ROOT}/asccomm/common/utils
     ${ASCCOMM_AICPU_ROOT}/asccomm/resource/buffer
