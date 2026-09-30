@@ -72,7 +72,7 @@
 ## 约束说明
 
 - 参数顺序为目的端在前、源端在后：`write(ch, remote, local, ...)`，顺序写反会因类型不同在编译期报错。
-- 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)统一校验，不一致时返回`CCU_E_PARA`，而非本接口的返回值。
+- 同一kernel内所有[`ChannelHandle`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/datatype_definition/ChannelHandle.md)须属于同一die，不同die的channel不可混入同一kernel。die一致性由`<<<>>>`统一校验，不一致时返回`CCU_E_PARA`，而非本接口的返回值。
 - “本端CCU Buffer -> 对端片上内存”时，`len`不可超过`ccu_buffer`单片大小（4096字节）；该上限须由调用方自行保证，超出时硬件会发生未定义行为。
 - 本接口为异步操作，须通过`event_wait(event, mask)`等待写入完成，方可保证对端数据可见。
 
@@ -81,7 +81,7 @@
 ```cpp
 using namespace AscendC::ccu;
 
-// 用户自定义的kernel入参结构体，Host侧建链后通过HcommCcuKernelRegister的kernelArgs传入
+// 用户自定义的kernel入参结构体，Host侧建链后通过`<<<>>>`的kernelArgs传入
 struct my_kernel_arg {
     ChannelHandle channel_handle;
 };

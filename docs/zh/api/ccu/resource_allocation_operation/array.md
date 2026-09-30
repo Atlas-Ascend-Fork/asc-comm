@@ -86,10 +86,10 @@ public:
     | `array<event> evts(acq_handle, count);` | 绑定Host侧预约的前`count`个event单元，不申请新的event单元。 |
 
     构造函数中的`acq_handle`参数类型须与`T`对应：
-    - `array<variable>`用[HcommCcuVariableAlloc](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_resource_mgmt/HcommCcuVariableAlloc.md)返回的预约句柄；
-    - `array<event>`用[HcommCcuEventAlloc](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_resource_mgmt/HcommCcuEventAlloc.md)返回的预约句柄。
+    - `array<variable>`用`asccomm_ccu_variable_alloc`返回的预约句柄；
+    - `array<event>`用`asccomm_ccu_event_alloc`返回的预约句柄。
 
-    构造时依次绑定预约段内序号`0`到`count - 1`的资源，元素`arr[i]`对应预约段内的第`i`个资源，与[HcommCcuVariableGetAddr](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_resource_mgmt/HcommCcuVariableGetAddr.md)、[HcommCcuEventGetAddr](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_resource_mgmt/HcommCcuEventGetAddr.md)中的`index`一一对应。
+    构造时依次绑定预约段内序号`0`到`count - 1`的资源，元素`arr[i]`对应预约段内的第`i`个资源，与`asccomm_ccu_variable_get_addr`、`asccomm_ccu_event_get_addr`中的`index`一一对应。
 
 ## 成员函数说明
 
@@ -102,9 +102,9 @@ public:
 ## 约束说明
 
 - `array(count)`和`array(acq_handle, count)`只能在kernel注册阶段构造。
-- `array(count)`恒成功；资源池无法凑出`count`个连续物理资源时，由`HcommCcuKernelRegister`阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
+- `array(count)`恒成功；资源池无法凑出`count`个连续物理资源时，由注册阶段返回`CCU_E_UNAVAIL`，不是在构造时抛出。
 - `array<T>`仅特化`variable`、`event`、`ccu_buffer`三种类型；预约构造只对`variable`、`event`可用，其他类型实例化或使用预约构造会在编译期失败。
-- `array(acq_handle, count)`在`count > 0`时会校验预约句柄与`count`，参数不合法时抛出异常，被[HcommCcuKernelRegister](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)统一接住，对外返回`CCU_E_INTERNAL`，本轮注册被中止。
+- `array(acq_handle, count)`在`count > 0`时会校验预约句柄与`count`，参数不合法时抛出异常，被`<<<>>>`统一接住，对外返回`CCU_E_INTERNAL`，本轮注册被中止。
 - `count`须不大于预约句柄名下的资源个数；`count`为0时直接构造成空Array（`size() == 0`），不绑定资源，也不校验`acq_handle`。
 - 不应在kernel之外保存元素的`handle`值，翻译完成后句柄即失效。
 
@@ -132,7 +132,7 @@ CcuResult my_kernel(ccu_kernel_arg arg) {
 ```cpp
 using namespace AscendC::ccu;
 
-// Host侧通过HcommCcuVariableAlloc / HcommCcuEventAlloc预约资源后，
+// Host侧通过`asccomm_ccu_variable_alloc` / `asccomm_ccu_event_alloc`预约资源后，
 // 把预约句柄和个数放进kernelArgs传入kernel
 struct my_kernel_arg {
     ccu_variable_handle acq_handle;
