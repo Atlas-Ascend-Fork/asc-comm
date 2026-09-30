@@ -25,7 +25,7 @@
 
 头文件路径：`"asccomm/asccomm_primitives.h"`。
 
-该接口用于关闭当前执行线程的AICPU数据面批量提交模式，并统一提交批量模式期间已登记Thread的本地SQE。接口成功返回表示提交动作成功，不表示所有硬件通信任务已经完成。
+该接口用于结束[asccomm_batch_mode_start](asccomm_batch_mode_start.md)开启的批量提交模式。调用本接口时，当前AICPU执行线程在该模式下缓存的通信任务会被统一提交。接口成功返回表示提交动作成功，不表示硬件通信任务已经全部完成。
 
 ## 函数原型
 
@@ -41,24 +41,32 @@ int32_t asccomm_batch_mode_end(const char *batchTag)
 
 ## 返回值说明
 
-int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
+返回值为`int32_t`，取值含义如下。
+
+| 返回值 | 说明 |
+| --- | --- |
+| `ASCCOMM_SUCCESS`（0） | 结束批量提交模式并提交缓存任务成功；没有待提交任务时也返回此值。 |
+| `ASCCOMM_E_TIMEOUT` | 提交缓存任务时，通信队列空间不足且等待超时。 |
+| `ASCCOMM_E_INTERNAL` | 提交缓存任务时发生内部异常。 |
 
 ## 约束说明
 
-- Start与End应成对调用，且需在同一执行线程中调用。
-- 批量期间没有登记Thread时，本接口可能直接返回成功。
-- 本接口只负责提交SQE，不等待所有通信任务完成。
+- Start与End应成对调用，且需在同一AICPU执行线程中调用。
+- End只提交当前AICPU执行线程在批量模式下缓存的尚未提交任务。
+- 当前实现中，内部缓存满时会提前提交；当前缓存容量为128。
+- 批量模式期间没有需要提交的缓存任务时，本接口仍返回`ASCCOMM_SUCCESS`，例如未调用数据面接口或缓存任务已提前提交。
+- 本接口成功返回表示缓存任务提交成功，不表示硬件通信任务已经全部完成。
 
 ## 调用示例
 
 ```cpp
 const char *batchTag = nullptr;
-// 启动批量模式
+// 开启批量模式
 asccomm_batch_mode_start(batchTag);
 
-// 在批量模式中调用数据面接口不会立即执行
+// 批量模式期间，通信任务会先缓存
 // ...
 
-// 结束批量模式并触发执行
+// 结束批量模式并统一提交缓存任务
 asccomm_batch_mode_end(batchTag);
 ```

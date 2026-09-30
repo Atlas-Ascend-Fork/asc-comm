@@ -90,7 +90,13 @@ channel.localNotifyAddr[localNotifyIdx + 1U]
 2. 如果是纯兼容保留参数，是否应在公开头文件或接口说明中标注；
 3. 如果后续实现该语义，需同步更新参数说明、约束和调用示例。
 
-## 8. Timeout默认值的外部偏移
+## 8. End失败后的重试语义
+
+`asccomm_batch_mode_end()`当前实现会先结束批量模式，再提交已登记Thread的缓存任务；提交失败时提前返回，不会清空已登记的Thread列表。因此，失败后是否可以再次调用本接口重试，以及重试时会提交哪些任务，当前代码和测试未明确定义。
+
+需要代码负责人或产品侧确认失败后的推荐处理方式；确认前，API页面只描述成功路径和当前可确认的失败返回，不承诺失败后可重试。
+
+## 9. Timeout默认值的外部偏移
 
 当前`asc-comm_pd`实现中：
 
@@ -101,7 +107,7 @@ channel.localNotifyAddr[localNotifyIdx + 1U]
 
 确认前，文档仅描述当前可确认的1836秒和1856秒默认值。
 
-## 9. 错误码公开契约
+## 10. 错误码公开契约
 
 当前公开函数返回`int32_t`，内部使用`AsccommResult`。文档已使用`ASCCOMM_SUCCESS`、`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`、`ASCCOMM_E_INTERNAL`等错误码描述失败。
 
@@ -111,7 +117,7 @@ channel.localNotifyAddr[localNotifyIdx + 1U]
 2. 每个API的常见错误码是否需要逐项列表化；
 3. 底层驱动、RoCE和UB操作返回的其他错误码是否需要透传给用户说明。
 
-## 10. 控制面接口文档
+## 11. 控制面接口文档
 
 当前AICPU数据面文档中的`ThreadHandle`和`ChannelHandle`由控制面构造并随Kernel参数下发，但asc-comm仓尚未提供对应的AICPU控制面资源创建和使用文档。
 
