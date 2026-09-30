@@ -4,15 +4,20 @@
  * CANN Open Software License Agreement Version 2.0 (the "License").
  * Please refer to the License for details. You may not use this file except in compliance with the License.
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file roce_normal_write_read_kernel.cpp
+ * \brief Device side of the Hcomm RoCE normal write/read example.
  */
 
 #include <cstdint>
 
 #include "hcomm_roce_rw_def.h"
 #include "kernel_operator.h"
-#include "hcomm.h"
+#include "hcomm/hcomm.h"
 
 namespace HcommRoceExample {
 
