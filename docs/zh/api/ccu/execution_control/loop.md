@@ -79,11 +79,11 @@ var-based构造的`loop_cfg`有64个比特位，按位段定义：
 
 ## 返回值说明
 
-无返回值。构造失败时抛出异常，被`HcommCcuKernelRegister`统一捕获。
+无返回值。构造失败时抛出异常，被`<<<>>>`直调统一捕获。
 
 ## 约束说明
 
-- 循环体的lambda必须无入参，有入参时`HcommCcuKernelRegister`抛出异常`CCU_E_PARA`。
+- 循环体的lambda必须无入参，有入参时`<<<>>>`直调抛出异常`CCU_E_PARA`。
 - 构造完成后不可再向该Loop追加内容。
 - 循环体内的接口限制：
   - [event_record](../synchronization/event_record.md)不可调用，调用时返回`CCU_E_NOT_SUPPORT`。

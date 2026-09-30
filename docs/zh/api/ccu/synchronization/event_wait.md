@@ -44,7 +44,7 @@ CcuResult event_wait(event e, uint16_t mask = 1);
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| e | 输入 | 本地事件对象，对应同步寄存器中的一个event槽位。默认构造时自动申请虚拟句柄，物理资源在[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)阶段统一分配。 |
+| e | 输入 | 本地事件对象，对应同步寄存器中的一个event槽位。默认构造时自动申请虚拟句柄，物理资源在`<<<>>>`直调阶段统一分配。 |
 | mask | 输入 | 16位事件掩码，指定要等待的`event`标志位。默认值为`1`，即bit0。支持多bit合并等待，例如`mask = 0x3`表示等待bit0和bit1全部置位。 |
 
 ## 返回值说明

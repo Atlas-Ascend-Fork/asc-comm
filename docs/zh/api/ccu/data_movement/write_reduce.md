@@ -66,10 +66,10 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 
 - 对端`remote`内存须在调用前已写入有效初值，否则归约结果未定义。
 - 参数顺序为目的端在前、源端在后：`write_reduce(ch, remote, local, ...)`，顺序写反会因类型不同在编译期报错。
-- 同一kernel内所有channel须属于同一die，该约束由[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)统一校验，违反时由注册接口返回`CCU_E_PARA`。
+- 同一kernel内所有channel须属于同一die，该约束由`<<<>>>`直调统一校验，违反时返回`CCU_E_PARA`。
 - `data_type`仅支持`HCCL_DATA_TYPE_INT8`、`HCCL_DATA_TYPE_UINT8`、`HCCL_DATA_TYPE_INT16`、`HCCL_DATA_TYPE_UINT16`、`HCCL_DATA_TYPE_INT32`、`HCCL_DATA_TYPE_UINT32`、`HCCL_DATA_TYPE_FP16`、`HCCL_DATA_TYPE_BFP16`、`HCCL_DATA_TYPE_FP32`。
 - `op_type`仅支持`HCCL_REDUCE_SUM`、`HCCL_REDUCE_MAX`、`HCCL_REDUCE_MIN`。
-- `data_type`/`op_type`不在支持范围内时抛出异常（携带错误码），会被[`HcommCcuKernelRegister`](https://gitcode.com/cann/hcomm/blob/master/docs/zh/api_ref/comm_opdev/control_plane_api/ccu_kernel_launch_execution/HcommCcuKernelRegister.md)统一接住。
+- `data_type`/`op_type`不在支持范围内时抛出异常（携带错误码），会被`<<<>>>`直调统一接住。
 - 本接口为异步操作，须通过`event_wait(event, mask)`等待归约完成，方可保证对端数据可见。
 
 ## 调用示例
@@ -77,7 +77,7 @@ CcuResult write_reduce(ChannelHandle ch, remote_addr remote, local_addr local,
 ```cpp
 using namespace AscendC::ccu;
 
-// 用户自定义的kernel入参结构体，Host侧建链后通过HcommCcuKernelRegister的kernelArgs传入
+// 用户自定义的kernel入参结构体，Host侧建链后通过<<<>>>直调的kernelArgs传入
 struct my_kernel_arg {
     ChannelHandle channel_handle;
 };
