@@ -269,6 +269,50 @@ TEST_F(TestCcuHostLaunch, DifferentCacheTagsRegisterIndependently)
     EXPECT_EQ(observed.calls.kernelLaunch, 2U);
 }
 
+TEST_F(TestCcuHostLaunch, BinaryCacheTagIsScopedToCcuInstanceAndDie)
+{
+    asccomm_launch_kernel_cfg firstCfg = MakeLaunchCfg();
+    asccomm_launch_kernel_cfg secondCfg = MakeLaunchCfg();
+    uint64_t args[] = {1, 2, 3};
+    constexpr uint64_t SHARED_BINARY_TAG = 0x5701U;
+    int firstInstanceIdentity = 0;
+    int secondInstanceIdentity = 0;
+    firstCfg.ccu_schd.binary_cache_tag = SHARED_BINARY_TAG;
+    secondCfg.ccu_schd.binary_cache_tag = SHARED_BINARY_TAG;
+    firstCfg.ccu_ins.ccuInsKey = 0x11U;
+    firstCfg.ccu_ins.ccuInsPtr = reinterpret_cast<const HcommCcuInstance*>(&firstInstanceIdentity);
+    secondCfg.ccu_ins.ccuInsKey = 0x22U;
+    secondCfg.ccu_ins.ccuInsPtr = reinterpret_cast<const HcommCcuInstance*>(&secondInstanceIdentity);
+
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &firstCfg, args),
+        CCU_SUCCESS);
+    EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 1U);
+
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &firstCfg, args),
+        CCU_SUCCESS);
+    EXPECT_EQ(GetCcuLaunchStubObservations().calls.registerKernel, 1U);
+
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &secondCfg, args),
+        CCU_SUCCESS);
+    CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
+    EXPECT_EQ(observed.calls.registerKernel, 2U);
+    EXPECT_EQ(observed.lastInsHandle.ccuInsKey, secondCfg.ccu_ins.ccuInsKey);
+    EXPECT_EQ(observed.lastDieId, 0U);
+
+    asccomm_launch_kernel_cfg thirdCfg = firstCfg;
+    thirdCfg.ccu_schd.phy_die_mask = 0x02U;
+    EXPECT_EQ(
+        asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &thirdCfg, args),
+        CCU_SUCCESS);
+    observed = GetCcuLaunchStubObservations();
+    EXPECT_EQ(observed.calls.registerKernel, 3U);
+    EXPECT_EQ(observed.lastInsHandle.ccuInsKey, thirdCfg.ccu_ins.ccuInsKey);
+    EXPECT_EQ(observed.lastDieId, 1U);
+}
+
 TEST_F(TestCcuHostLaunch, HcompatCfgForwardsThroughNewLaunchChain)
 {
     HcommLaunchKernelCfg hcompatCfg{};

@@ -12,7 +12,10 @@
 
 #include "base/dlog_pub.h"
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
+#include <functional>
 #include <mutex>
 #include <unordered_map>
 
@@ -107,6 +110,38 @@ CcuResult RegisterCcuKernel(
     return CCU_SUCCESS;
 }
 
+struct CcuInstanceCacheIdentity {
+    uint64_t key;
+    std::uintptr_t instance;
+
+    bool operator==(const CcuInstanceCacheIdentity& other) const
+    {
+        return key == other.key && instance == other.instance;
+    }
+};
+
+struct KernelCacheKey {
+    uint64_t binaryCacheTag;
+    CcuInstanceCacheIdentity instance;
+    uint64_t phyDieMask;
+
+    bool operator==(const KernelCacheKey& other) const
+    {
+        return binaryCacheTag == other.binaryCacheTag && instance == other.instance && phyDieMask == other.phyDieMask;
+    }
+};
+
+struct KernelCacheKeyHash {
+    std::size_t operator()(const KernelCacheKey& key) const
+    {
+        std::size_t hash = std::hash<uint64_t>{}(key.binaryCacheTag);
+        hash ^= std::hash<uint64_t>{}(key.instance.key) + 0x9e3779b9U + (hash << 6U) + (hash >> 2U);
+        hash ^= std::hash<std::uintptr_t>{}(key.instance.instance) + 0x9e3779b9U + (hash << 6U) + (hash >> 2U);
+        hash ^= std::hash<uint64_t>{}(key.phyDieMask) + 0x9e3779b9U + (hash << 6U) + (hash >> 2U);
+        return hash;
+    }
+};
+
 class KernelHandleCache {
 public:
     CcuResult Match(
@@ -118,8 +153,13 @@ public:
             return RegisterAndGetTaskArgsNum(kernelFunc, kernelName, cfg, args, kernelHandle, taskArgsNum);
         }
 
+        const KernelCacheKey cacheKey{
+            cacheTag,
+            {cfg->ccu_ins.ccuInsKey, reinterpret_cast<std::uintptr_t>(cfg->ccu_ins.ccuInsPtr)},
+            cfg->ccu_schd.phy_die_mask};
+
         std::lock_guard<std::mutex> lock(mutex_);
-        auto iter = cache_.find(cacheTag);
+        auto iter = cache_.find(cacheKey);
         if (iter != cache_.end()) {
             kernelHandle = iter->second;
             return asccomm_ccu_get_task_args_num(kernelHandle, &taskArgsNum);
@@ -129,7 +169,7 @@ public:
         if (ret != CCU_SUCCESS) {
             return ret;
         }
-        cache_[cacheTag] = kernelHandle;
+        cache_[cacheKey] = kernelHandle;
         return CCU_SUCCESS;
     }
 
@@ -153,7 +193,7 @@ private:
     }
 
     std::mutex mutex_;
-    std::unordered_map<uint64_t, ccu_kernel_handle> cache_;
+    std::unordered_map<KernelCacheKey, ccu_kernel_handle, KernelCacheKeyHash> cache_;
 };
 
 KernelHandleCache& GetKernelHandleCache()
