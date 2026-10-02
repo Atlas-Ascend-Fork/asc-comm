@@ -25,7 +25,7 @@
 
 头文件路径：`"asccomm/asccomm_primitives.h"`。
 
-提供本地归约操作，将src指向的长度为count\*sizeof\(dataType\)的内存数据，与dst所指向的相同长度的内存数据进行reduceOp操作，并将结果输出到dst中。
+提供本地归约功能：将`src`中的`count`个`dataType`类型元素与`dst`中的对应元素按`reduceOp`进行计算，并将结果写回`dst`。
 
 ## 函数原型
 
@@ -37,30 +37,36 @@ int32_t asccomm_local_reduce_on_thread(ThreadHandle thread, void *dst, const voi
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为控制面构造并随AICPU Kernel参数下发的有效Thread资源句柄，当前实现要求该参数不能为0。<br>ThreadHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
 | dst | 输出 | 目的地址，Device内存。 |
 | src | 输入 | 源地址，Device内存。 |
-| count | 输入 | 元素个数。 |
-| dataType | 输入 | 数据类型，支持：int8、int16、int32、float16、float32、bfp16。<br>HcommDataType类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
-| reduceOp | 输入 | 归约操作类型，支持：sum、max、min。<br>HcommReduceOp类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
+| count | 输入 | 元素个数。`count`为0时不生成归约任务。 |
+| dataType | 输入 | 数据类型，当前支持：int8、int16、int32、float16、float32、bfp16。<br>HcommDataType类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
+| reduceOp | 输入 | 归约操作类型，当前支持：sum、max、min；<br>HcommReduceOp类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
 
 ## 返回值说明
 
-int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
+返回值为`int32_t`，取值含义如下。
+
+| 返回值 | 说明 |
+| --- | --- |
+| `ASCCOMM_SUCCESS`（0） | 归约任务已生成（`count`为0时不生成任务），不表示归约操作已经完成。 |
+| `ASCCOMM_E_PTR` | Thread句柄为0、源地址或目的地址为空，或Thread内部任务缓存地址为空。 |
+| `ASCCOMM_E_PARA` | 数据类型或归约操作非法、总数据长度计算溢出，或Thread/RTSQ参数不合法。 |
+| `ASCCOMM_E_NOT_SUPPORT` | 当前本地SDMA归约不支持指定的归约操作或数据类型。 |
+| `ASCCOMM_E_TIMEOUT` | RTSQ空间不足，等待队列空间超时。 |
+| `ASCCOMM_E_INTERNAL` | 获取任务ID、查询或配置RTSQ、归约任务提交等内部操作失败。 |
 
 ## 约束说明
 
-- dst和src必须为AICPU执行环境可直接访问的有效Device地址。
-- 本地SDMA归约当前不支持`HCOMM_REDUCE_PROD`，传入该取值时返回`ASCCOMM_E_NOT_SUPPORT`。
-- `count * sizeof(dataType)`溢出时返回`ASCCOMM_E_PARA`。
-- 当前实现按最大4GiB分片提交归约任务；单片大小最终转换为`uint32_t`，恰好4GiB的边界行为需以运行时校验为准。
-- 当前实现按最大4GiB分片提交归约任务；单片大小最终转换为`uint32_t`，恰好4GiB的边界行为需以运行时校验为准。
-- 当前实现按最大4GiB分片提交归约任务；单片大小最终转换为`uint32_t`，恰好4GiB的边界行为需以运行时校验为准。
+- dst和src必须为非NULL且可被AICPU直接访问的有效Device地址。
 
 ## 调用示例
 
 ```cpp
-// thread为控制面下发的有效Thread资源句柄；src和dst为AICPU可直接访问的Device地址。
+// thread、src和dst已由前置流程准备。
+// thread为控制面传入的有效Thread资源句柄；src和dst为AICPU可直接访问的Device地址。
+uint64_t count = 256;
 int32_t ret = asccomm_local_reduce_on_thread(
     thread, dst, src, count, HCOMM_DATA_TYPE_FP32, HCOMM_REDUCE_SUM);
 ```

@@ -111,6 +111,8 @@ channel.localNotifyAddr[localNotifyIdx + 1U]
 
 当前公开函数返回`int32_t`，内部使用`AsccommResult`。文档已使用`ASCCOMM_SUCCESS`、`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`、`ASCCOMM_E_INTERNAL`等错误码描述失败。
 
+当前各接口的返回值说明主要依据`asc-comm_pd`代码路径整理，尚未完成逐项人工校验和交叉核对。后续需要结合测试结果、运行时行为和产品约定复核返回值的可达性及含义。
+
 需要确认：
 
 1. `AsccommResult`完整错误码表是否作为公开资料发布；
