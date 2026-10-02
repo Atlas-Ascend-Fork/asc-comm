@@ -41,6 +41,8 @@ Hcomm is the AICore-side point-to-point communication interface provided by asc-
    ret = hcomm.Commit(channel);
    ```
 
+   For delayed commits, URMA SQ capacity is counted in WQE blocks. Each `AtomicFAA`, `AtomicCAS`, or `WriteWithNotifyNbi` call uses 2 blocks; an ordinary read or write uses 1. Include incomplete work on the channel and submit before reaching capacity or the polling watermark. Do not budget a batch as `sqDepth` atomic calls.
+
 6. Call ordinary `Drain` to wait for completion.
 
    ```cpp

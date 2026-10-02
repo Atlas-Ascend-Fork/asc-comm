@@ -56,3 +56,4 @@ __aicore__ inline int32_t AtomicCAS(
 - The passed `ChannelHandle` must correspond to a `COMM_PROTOCOL_UBC_CTP` channel.
 - `dst` must be within the range of the remote buffer registered for the channel. `fetchAddr` stores the original value with a size of `sizeof(T)`.
 - A single `AtomicCAS` task occupies 2 WQE blocks in the URMA SQ.
+- With `commit = false`, budget outstanding WQE blocks rather than calls: each atomic operation uses 2 blocks, and incomplete work on the same channel also consumes capacity. Submit accumulated tasks through `Commit` or `commit = true` before reaching the SQ capacity or polling watermark. `sqDepth` is not a limit on the number of atomic calls.
