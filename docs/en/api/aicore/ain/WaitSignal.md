@@ -40,6 +40,7 @@ No return value.
 - The address corresponding to `signalOffset` must fall within the registered memory range of the signal window corresponding to the local rank.
 - The signal address shall be prepared according to `uint64_t` access requirements.
 - `bits` is used to generate the low-order mask. Valid range: 1-64. When `bits` is 64, the complete 64-bit signal value is compared.
+- `least` must be representable in the low `bits` bits: for `bits < 64`, it must not exceed `2^bits - 1`; for `bits = 64`, the full `uint64_t` range is allowed. For example, `bits = 8` with `least = 256` is unreachable and waits forever even if the remote side keeps updating the signal.
 - Currently, only `AIN_MEMORY_ORDER_RELAX` is supported. This memory order only guarantees signal atomic read/write and threshold checking, and does not guarantee memory ordering for ordinary data accesses before and after signal operations.
 - `WaitSignal` keeps polling until the condition is satisfied. The caller must ensure that the remote side will update this signal to avoid permanent Kernel waiting.
 - Currently, only the `COMM_PROTOCOL_UBC_CTP` protocol path is supported.
