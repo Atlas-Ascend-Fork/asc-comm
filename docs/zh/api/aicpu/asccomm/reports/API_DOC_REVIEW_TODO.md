@@ -2,7 +2,7 @@
 
 本文记录 `docs/zh/api/aicpu/asccomm/` 下 23 个 API 文档的逐页检阅和确认修改进度。
 
-- 进度：**2/23**
+- 进度：**3/23**
 - 开始日期：2026-09-30
 - 评审约束：[API_DOC_REVIEW_CONSTRAINTS.md](API_DOC_REVIEW_CONSTRAINTS.md)
 
@@ -16,7 +16,7 @@
 
 - [x] [asccomm_batch_mode_start.md](../batch_operations/asccomm_batch_mode_start.md)
 - [x] [asccomm_batch_mode_end.md](../batch_operations/asccomm_batch_mode_end.md)
-- [ ] [asccomm_batch_transfer_on_thread.md](../batch_operations/asccomm_batch_transfer_on_thread.md)
+- [x] [asccomm_batch_transfer_on_thread.md](../batch_operations/asccomm_batch_transfer_on_thread.md)
 
 ## 数据搬运
 
@@ -50,3 +50,4 @@
 | --- | --- | --- |
 | [asccomm_batch_mode_start.md](../batch_operations/asccomm_batch_mode_start.md) | 2026-09-30 | 已按确认方案简化功能说明、收敛返回值、调整约束和示例注释。 |
 | [asccomm_batch_mode_end.md](../batch_operations/asccomm_batch_mode_end.md) | 2026-09-30 | 已按确认方案简化功能说明、收敛返回值、明确无待提交任务时的行为，并同步示例注释。 |
+| [asccomm_batch_transfer_on_thread.md](../batch_operations/asccomm_batch_transfer_on_thread.md) | 2026-10-02 | 保留原功能说明，更新句柄参数说明、返回值表和约束说明。 |
