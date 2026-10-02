@@ -37,26 +37,33 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void *dst, const void 
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为控制面构造并随AICPU Kernel参数下发的有效Thread资源句柄，当前实现要求该参数不能为0。<br>ThreadHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
 | dst | 输出 | 目的内存地址，Device内存。 |
 | src | 输入 | 源内存地址，Device内存。 |
 | len | 输入 | 数据长度（字节）。 |
 
 ## 返回值说明
 
-int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
+返回值为`int32_t`，取值含义如下。
+
+| 返回值 | 说明 |
+| --- | --- |
+| `ASCCOMM_SUCCESS`（0） | 任务已生成（`len`为0时不生成任务），不表示拷贝完成。 |
+| `ASCCOMM_E_PTR` | Thread句柄为0、源地址或目的地址为空，或Thread内部任务缓存地址为空。 |
+| `ASCCOMM_E_PARA` | Thread资源描述或RTSQ参数不合法。 |
+| `ASCCOMM_E_TIMEOUT` | RTSQ空间不足，等待队列空间超时。 |
+| `ASCCOMM_E_INTERNAL` | 获取任务ID、查询或配置RTSQ、拷贝任务提交等内部操作失败。 |
 
 ## 约束说明
 
-- dst和src必须为AICPU执行环境可直接访问的有效Device地址。
-- len为0时当前不生成本地拷贝任务。
-- 当前实现按最大4GiB分片提交拷贝任务；单片大小最终转换为`uint32_t`，恰好4GiB的边界行为需以运行时校验为准。
-- 当前实现按最大4GiB分片提交拷贝任务；单片大小最终转换为`uint32_t`，恰好4GiB的边界行为需以运行时校验为准。
-- 当前实现按最大4GiB分片提交拷贝任务；单片大小最终转换为`uint32_t`，恰好4GiB的边界行为需以运行时校验为准。
+- dst和src必须为非NULL且可被AICPU直接访问的有效Device地址。
+- len为0时不生成本地拷贝任务。
 
 ## 调用示例
 
 ```cpp
-// thread为控制面下发的有效Thread资源句柄；src和dst为AICPU可直接访问的Device地址。
+// thread、src和dst已由前置流程准备。
+// thread为控制面传入的有效Thread资源句柄；src和dst为AICPU可直接访问的Device地址。
+uint64_t len = 1024;
 int32_t ret = asccomm_local_copy_on_thread(thread, dst, src, len);
 ```
