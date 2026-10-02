@@ -129,14 +129,14 @@ channel.localNotifyAddr[localNotifyIdx + 1U]
 2. 如果继续引用hcomm，需要确定稳定的外部链接和版本；
 3. 如果迁移到asc-comm，需要补充对应控制面API页面后再从数据面页面链接。
 
-## 12. 单边读接口本端地址校验
+## 12. 单边通信内存接口本端地址校验
 
-`asccomm_read_on_thread()`和`asccomm_read_reduce_on_thread()`在UB和RoCE路径中查找本端RMA缓冲区时允许使用第一个本地RMA缓冲区作为保护信息兜底，即使`dst`地址范围未命中本地已注册缓冲区，见`asccomm_transport.cc`中的`find_buffer(..., true)`调用。远端`src`地址则必须命中远端已注册RMA缓冲区。
+`asccomm_read_on_thread()`、`asccomm_read_reduce_on_thread()`和`asccomm_write_on_thread()`在UB和RoCE路径中查找本端通信内存缓冲区时允许使用第一个本地通信内存缓冲区作为保护信息兜底，即使本端地址范围未命中本地已注册缓冲区，见`asccomm_transport.cc`中的`find_buffer(..., true)`调用。远端地址则必须命中远端已注册通信内存缓冲区。
 
 需要确认：
 
 1. 本端地址未命中注册范围时的兜底行为是否为兼容实现，还是应由代码改为直接返回错误；
-2. API文档是否应长期要求`dst`严格落在本端已注册RMA范围内；
+2. API文档是否应长期要求`dst`严格落在本端已注册通信内存范围内；
 3. 如果该行为保留，底层使用第一个缓冲区保护信息访问范围外地址是否有额外运行时保证。
 
 ## 13. `asccomm_read_reduce_on_thread()`归约参数支持范围

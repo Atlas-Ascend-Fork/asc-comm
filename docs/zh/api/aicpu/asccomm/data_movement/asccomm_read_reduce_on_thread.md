@@ -74,13 +74,13 @@ int32_t asccomm_read_reduce_on_thread(ThreadHandle thread, ChannelHandle channel
 
 - UB类协议通道支持归约读操作。
 - RoCE通道当前不执行归约读操作，直接返回成功；调用成功不代表目的内存被更新。
-- `dst`和`src`应使用该Channel对应的本端和远端RMA地址；`src`地址范围必须落在远端已注册的RMA内存范围内。
+- `dst`和`src`应使用该Channel对应的本端和远端通信内存地址；`src`地址范围必须落在远端已注册的通信内存范围内。
 - `count * sizeof(dataType)`溢出时返回`ASCCOMM_E_PARA`。
 
 ## 调用示例
 
 ```cpp
-// thread、channel、dst和src已由前置流程准备；src为远端RMA地址，dst为本端目标地址。
+// thread、channel、dst和src已由前置流程准备；src为远端通信内存地址，dst为本端目标地址。
 uint64_t count = 256;
 int32_t ret = asccomm_read_reduce_on_thread(
     thread, channel, dst, src, count, HCOMM_DATA_TYPE_FP32, HCOMM_REDUCE_SUM);

@@ -61,7 +61,7 @@ int32_t asccomm_batch_transfer_on_thread(ThreadHandle thread, ChannelHandle chan
 - `transferDescs`不能为NULL，`transferDescNum`必须大于0。
 - 当前实现仅支持UB类协议通道；RoCE通道返回`ASCCOMM_E_NOT_SUPPORT`。
 - `transType`仅支持写、读、写归约、读归约、带通知写、带通知写归约和通知记录。
-- 除`HCOMM_TRANSFER_TYPE_NOTIFY_RECORD`外，每个描述符的源地址和目的地址均不能为NULL，且地址范围须落在通道已注册的RMA内存范围内。
+- 除`HCOMM_TRANSFER_TYPE_NOTIFY_RECORD`外，每个描述符的源地址和目的地址均不能为NULL，且地址范围须落在通道已注册的通信内存范围内。
 - 带通知的传输任务和通知记录任务中的`notifyIdx`必须对应Channel的有效远端Notify资源。
 
 ## 调用示例
