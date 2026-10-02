@@ -59,7 +59,7 @@ int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、
 ## 约束说明
 
 - 本接口同时支持UB类协议和RoCE协议通道。
-- src和dst对应的地址范围须分别落在通道本端与远端已注册RMA内存范围内。
+- src和dst对应的地址范围须分别落在通道本端与远端已注册通信内存范围内。
 - `remoteNotifyIdx`必须小于通道远端Notify数量。
 - RoCE inline归约当前不支持`HCOMM_REDUCE_PROD`，传入该取值时返回`ASCCOMM_E_NOT_SUPPORT`。
 - `count * sizeof(dataType)`溢出时返回`ASCCOMM_E_PARA`。

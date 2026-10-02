@@ -60,13 +60,13 @@ int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void 
 ## 约束说明
 
 - 本接口同时支持UB类协议和RoCE协议通道。
-- `dst`和`src`应使用该Channel对应的本端和远端RMA地址。
-- `src`地址范围必须落在远端已注册的RMA内存范围内。
+- `dst`和`src`应使用该Channel对应的本端和远端通信内存地址。
+- `src`地址范围必须落在远端已注册的通信内存范围内。
 
 ## 调用示例
 
 ```cpp
-// thread、channel、dst和src已由前置流程准备；src为远端RMA地址，dst为本端目标地址。
+// thread、channel、dst和src已由前置流程准备；src为远端通信内存地址，dst为本端目标地址。
 uint64_t len = 1024;
 int32_t ret = asccomm_read_on_thread(thread, channel, dst, src, len);
 ```

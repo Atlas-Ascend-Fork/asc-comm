@@ -39,8 +39,8 @@ int32_t asccomm_write_reduce_on_thread(ThreadHandle thread, ChannelHandle channe
 | --- | --- | -------------------------------------- |
 | thread | 输入 | 通信线程句柄，为控制面构造并随AICPU Kernel参数下发的有效Thread资源句柄，当前实现要求该参数不能为0。<br>ThreadHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
 | channel | 输入 | 通信通道句柄，为控制面构造并随AICPU Kernel参数下发的有效Channel资源句柄，当前实现要求该参数不能为0。<br>ChannelHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
-| dst | 输出 | 目的内存地址，通道已注册RMA内存中的地址。 |
-| src | 输入 | 源内存地址，通道已注册RMA内存中的地址。 |
+| dst | 输出 | 目的内存地址，通道已注册通信内存中的地址。 |
+| src | 输入 | 源内存地址，通道已注册通信内存中的地址。 |
 | count | 输入 | 元素个数。 |
 | dataType | 输入 | 数据类型。<br>HcommDataType类型的定义请参见`"asccomm/hcomm_res_defs.h"`。<br>不同型号的产品支持的数据类型不同，详细请参见[dataType说明](#dataType说明)。|
 | reduceOp | 输入 | 归约操作类型，支持：sum、max、min。<br>HcommReduceOp类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
@@ -64,7 +64,7 @@ int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、
 ## 约束说明
 
 - 本接口同时支持UB类协议和RoCE协议通道。
-- src和dst对应的地址范围须分别落在通道本端与远端已注册RMA内存范围内。
+- src和dst对应的地址范围须分别落在通道本端与远端已注册通信内存范围内。
 - RoCE inline归约当前不支持`HCOMM_REDUCE_PROD`，传入该取值时返回`ASCCOMM_E_NOT_SUPPORT`。
 - `count * sizeof(dataType)`溢出时返回`ASCCOMM_E_PARA`。
 

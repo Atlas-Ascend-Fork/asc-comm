@@ -2,7 +2,7 @@
 
 本文记录 `docs/zh/api/aicpu/asccomm/` 下 23 个 API 文档的逐页检阅和确认修改进度。
 
-- 进度：**7/23**
+- 进度：**8/23**
 - 开始日期：2026-09-30
 - 评审约束：[API_DOC_REVIEW_CONSTRAINTS.md](API_DOC_REVIEW_CONSTRAINTS.md)
 
@@ -24,7 +24,7 @@
 - [x] [asccomm_local_reduce_on_thread.md](../data_movement/asccomm_local_reduce_on_thread.md)
 - [x] [asccomm_read_on_thread.md](../data_movement/asccomm_read_on_thread.md)
 - [x] [asccomm_read_reduce_on_thread.md](../data_movement/asccomm_read_reduce_on_thread.md)
-- [ ] [asccomm_write_on_thread.md](../data_movement/asccomm_write_on_thread.md)
+- [x] [asccomm_write_on_thread.md](../data_movement/asccomm_write_on_thread.md)
 - [ ] [asccomm_write_reduce_on_thread.md](../data_movement/asccomm_write_reduce_on_thread.md)
 - [ ] [asccomm_write_reduce_with_notify_on_thread.md](../data_movement/asccomm_write_reduce_with_notify_on_thread.md)
 - [ ] [asccomm_write_with_notify_on_thread.md](../data_movement/asccomm_write_with_notify_on_thread.md)
@@ -55,3 +55,4 @@
 | [asccomm_local_reduce_on_thread.md](../data_movement/asccomm_local_reduce_on_thread.md) | 2026-10-02 | 修正功能和参数说明，更新返回值表，删除重复的4GiB约束，并补充调用示例参数。 |
 | [asccomm_read_on_thread.md](../data_movement/asccomm_read_on_thread.md) | 2026-10-02 | 简化功能说明，统一句柄参数表述，按代码路径补充返回值表，调整地址约束和调用示例。 |
 | [asccomm_read_reduce_on_thread.md](../data_movement/asccomm_read_reduce_on_thread.md) | 2026-10-02 | 简化功能说明，统一句柄和地址参数表述，按UB/RoCE代码路径补充返回值表，明确协议约束并补充调用示例参数。 |
+| [asccomm_write_on_thread.md](../data_movement/asccomm_write_on_thread.md) | 2026-10-02 | 简化功能说明，统一句柄和地址参数表述，按UB/RoCE代码路径补充返回值表，调整地址约束并补充调用示例参数。 |
