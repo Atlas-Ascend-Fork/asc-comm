@@ -167,6 +167,7 @@ AllGather场景下，单个分片大小为一个`uint32_t`，接收缓冲区需�
   // 销毁team
   HcclTeamDestroy(team);
   // 注销window
+  HcclCommSymWinDeregister(signalWin);
   HcclCommSymWinDeregister(recvWin);
   HcclCommSymWinDeregister(sendWin);
   // 释放申请的内存
