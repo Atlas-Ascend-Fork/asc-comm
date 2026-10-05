@@ -3,29 +3,29 @@
 ## 产品支持情况
 
 <!-- npu="950" id1 -->
-- Ascend 950PR/Ascend 950DT：支持
+- Ascend 950PR&950DT系列产品：支持
 <!-- end id1 -->
 <!-- npu="A3" id2 -->
-- Atlas A3 训练系列产品/Atlas A3 推理系列产品：支持
+- Atlas A3系列产品：不支持
 <!-- end id2 -->
 <!-- npu="910b" id3 -->
-- Atlas A2 训练系列产品/Atlas A2 推理系列产品：支持
+- Atlas A2系列产品：不支持
 <!-- end id3 -->
 <!-- npu="310b" id4 -->
-- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 200I/500 A2推理产品：不支持
 <!-- end id4 -->
-<!-- npu="910" id5 -->
-- Atlas 训练系列产品：不支持
+<!-- npu="310p" id5 -->
+- Atlas推理系列产品：不支持
 <!-- end id5 -->
-<!-- npu="310p" id6 -->
-- Atlas 推理系列产品：不支持
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
 <!-- end id6 -->
 
 ## 功能说明
 
-头文件路径：`"asccomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
 
-等待同步信号，该接口会阻塞等待Thread的运行，直到指定的Notify被record完成。
+生成本地Notify等待任务，等待指定Thread上的同步信号。
 
 ## 函数原型
 
@@ -37,22 +37,33 @@ int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notif
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为控制面构造并随AICPU Kernel参数下发的有效Thread资源句柄，当前实现要求该参数不能为0。<br>ThreadHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
-| notifyIdx | 输入 | 需等待的Notify通知索引。<br>取值范围为：［0，目标Thread资源中的Notify数量）。 |
-| timeOut | 输入 | 超时时间，单位：秒。<br>  - 0：表示永久等待。<br>  - >0：配置的具体超时时间。<br> |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
+| notifyIdx | 输入 | 本地Notify索引。取值范围为`[0, Thread资源中的Notify数量)`。 |
+| timeOut | 输入 | 等待超时时间，单位：秒。0表示永久等待，大于0表示指定超时时间。 |
 
 ## 返回值说明
 
-int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
+返回值为`int32_t`，取值含义如下。
+
+| 返回值 | 说明 |
+| --- | --- |
+| `ASCCOMM_SUCCESS`（0） | 通知等待任务已生成；不表示同步信号已到达。 |
+| `ASCCOMM_E_PTR` | Thread句柄为0，或Thread资源、RTSQ本地缓存指针为空。 |
+| `ASCCOMM_E_PARA` | Thread资源ABI、RTSQ资源、Notify索引或Notify资源参数不合法。 |
+| `ASCCOMM_E_TIMEOUT` | 触发RTSQ提交时，等待队列空间超时；不表示Notify等待任务超时。 |
+| `ASCCOMM_E_INTERNAL` | 任务生成、驱动查询或配置、RTSQ缓存操作等内部执行失败。 |
 
 ## 约束说明
 
 - `notifyIdx`必须小于本端Thread资源的Notify数量。
 - 该接口需与[asccomm_thread_notify_record_on_thread](asccomm_thread_notify_record_on_thread.md)配合使用。
+- 通知等待任务提交时机与Thread资源的提交策略一致；普通模式可立即提交，批量模式或缓存满时按当前实现提交。
+- `timeOut`仅作用于Notify等待任务本身。本接口提交等待任务后立即返回，Notify等待超时不通过返回值反馈。
 
 ## 调用示例
 
 ```cpp
+// thread为控制面传入的有效ThreadHandle资源句柄；notifyIdx为本地Notify索引。
 uint32_t notifyIdx = 0;
 uint32_t timeout = 1800;  // 单位：秒
 int32_t ret = asccomm_thread_notify_wait_on_thread(thread, notifyIdx, timeout);
