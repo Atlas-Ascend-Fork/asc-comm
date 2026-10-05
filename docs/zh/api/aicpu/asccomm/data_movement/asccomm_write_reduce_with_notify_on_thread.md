@@ -3,54 +3,64 @@
 ## 产品支持情况
 
 <!-- npu="950" id1 -->
-- Ascend 950PR/Ascend 950DT：支持
+- Ascend 950PR&950DT系列产品：支持
 <!-- end id1 -->
 <!-- npu="A3" id2 -->
-- Atlas A3 训练系列产品/Atlas A3 推理系列产品：不支持
+- Atlas A3系列产品：不支持
 <!-- end id2 -->
 <!-- npu="910b" id3 -->
-- Atlas A2 训练系列产品/Atlas A2 推理系列产品：不支持
+- Atlas A2系列产品：不支持
 <!-- end id3 -->
 <!-- npu="310b" id4 -->
-- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 200I/500 A2推理产品：不支持
 <!-- end id4 -->
-<!-- npu="910" id5 -->
-- Atlas 训练系列产品：不支持
+<!-- npu="310p" id5 -->
+- Atlas推理系列产品：不支持
 <!-- end id5 -->
-<!-- npu="310p" id6 -->
-- Atlas 推理系列产品：不支持
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
 <!-- end id6 -->
 
 ## 功能说明
 
-头文件路径：`"asccomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
 
 在指定Channel上发起带通知的归约写：将本端`src`中的`count`个`dataType`类型元素写入远端`dst`，并与`dst`中的对应元素按`reduceOp`计算，将结果写回`dst`，同时向远端发送通知。接口调用方为`src`所在节点。
 
 ## 函数原型
 
 ```cpp
-int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp, uint32_t remoteNotifyIdx)
+int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelHandle channel, void *dst, const void *src, uint64_t count, AsccommDataType dataType, AsccommReduceOp reduceOp, uint32_t remoteNotifyIdx)
 ```
 
 ## 参数说明
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
-| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
+| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
 | dst | 输出 | 远端通信内存地址，用于保存归约结果。 |
 | src | 输入 | 本端通信内存地址，提供待写入的数据。 |
 | count | 输入 | 元素个数。 |
-| dataType | 输入 | 数据类型。<br>HcommDataType类型的定义请参见`"asccomm/hcomm_res_defs.h"`。<br>不同产品型号支持的数据类型定义不同，详细请参见[dataType说明](#datatype说明)。|
-| reduceOp | 输入 | 归约操作类型，支持：sum、max、min。<br>HcommReduceOp类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
+| dataType | 输入 | 数据类型。类型为`AsccommDataType`，定义见`"aicpu/hcomm/asccomm_res_defs.h"`。<br>当前仅Ascend 950PR&950DT系列产品支持本接口，支持的数据类型见[dataType说明](#datatype说明)。|
+| reduceOp | 输入 | 归约操作类型。类型为`AsccommReduceOp`，定义见`"aicpu/hcomm/asccomm_res_defs.h"`。<br>支持矩阵见[reduceOp说明](#reduceop说明)。 |
 | remoteNotifyIdx | 输入 | 远端Notify索引。取值范围为`[0, notifyNum)`，其中`notifyNum`为Channel资源中的远端Notify数量。 |
 
 ### dataType说明
 
-<!-- npu="950" id7 -->
-针对Ascend 950PR/Ascend 950DT系列产品，支持的数据类型：int8、int16、int32、uint8、uint16、uint32、float16、float32、bfp16。
-<!-- end id7 -->
+仅Ascend 950PR&950DT系列产品支持本接口，支持的数据类型：int8、int16、int32、uint8、uint16、uint32、fp16、fp32、bfp16。
+
+### reduceOp说明
+
+`AsccommReduceOp`包含`ASCCOMM_REDUCE_SUM`、`ASCCOMM_REDUCE_PROD`、`ASCCOMM_REDUCE_MAX`、`ASCCOMM_REDUCE_MIN`和`ASCCOMM_REDUCE_RESERVED`。当前各通道协议的支持情况如下。
+
+| reduceOp | UB类协议通道 | RoCE通道 |
+| --- | --- | --- |
+| `ASCCOMM_REDUCE_SUM` | 支持带通知的归约写。 | 支持带通知的归约写。 |
+| `ASCCOMM_REDUCE_PROD` | 不支持，当前实现返回`ASCCOMM_E_INTERNAL`。 | 不支持，返回`ASCCOMM_E_NOT_SUPPORT`。 |
+| `ASCCOMM_REDUCE_MAX` | 支持带通知的归约写。 | 支持带通知的归约写。 |
+| `ASCCOMM_REDUCE_MIN` | 支持带通知的归约写。 | 支持带通知的归约写。 |
+| `ASCCOMM_REDUCE_RESERVED` | 非法保留值，返回`ASCCOMM_E_PARA`。 | 非法保留值，返回`ASCCOMM_E_PARA`。 |
 
 ## 返回值说明
 
@@ -76,9 +86,10 @@ int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelH
 ## 调用示例
 
 ```cpp
-// thread、channel、src和dst已由前置流程准备；src为本端通信内存地址，dst为远端通信内存地址。
+// thread为控制面传入的有效ThreadHandle资源句柄；channel为控制面传入的有效ChannelHandle资源句柄。
+// src为本端通信内存地址；dst为远端通信内存地址；remoteNotifyIdx为远端Notify索引。
 uint64_t count = 256;
 uint32_t remoteNotifyIdx = 0;
 int32_t ret = asccomm_write_reduce_with_notify_on_thread(
-    thread, channel, dst, src, count, HCOMM_DATA_TYPE_FP32, HCOMM_REDUCE_SUM, remoteNotifyIdx);
+    thread, channel, dst, src, count, ASCCOMM_DATA_TYPE_FP32, ASCCOMM_REDUCE_SUM, remoteNotifyIdx);
 ```

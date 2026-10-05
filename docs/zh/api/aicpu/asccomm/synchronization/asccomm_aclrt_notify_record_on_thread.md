@@ -3,27 +3,27 @@
 ## 产品支持情况
 
 <!-- npu="950" id1 -->
-- Ascend 950PR/Ascend 950DT：不支持
+- Ascend 950PR&950DT系列产品：支持
 <!-- end id1 -->
 <!-- npu="A3" id2 -->
-- Atlas A3 训练系列产品/Atlas A3 推理系列产品：支持
+- Atlas A3系列产品：不支持
 <!-- end id2 -->
 <!-- npu="910b" id3 -->
-- Atlas A2 训练系列产品/Atlas A2 推理系列产品：支持
+- Atlas A2系列产品：不支持
 <!-- end id3 -->
 <!-- npu="310b" id4 -->
-- Atlas 200I/500 A2 推理产品：不支持
+- Atlas 200I/500 A2推理产品：不支持
 <!-- end id4 -->
-<!-- npu="910" id5 -->
-- Atlas 训练系列产品：不支持
+<!-- npu="310p" id5 -->
+- Atlas推理系列产品：不支持
 <!-- end id5 -->
-<!-- npu="310p" id6 -->
-- Atlas 推理系列产品：不支持
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
 <!-- end id6 -->
 
 ## 功能说明
 
-头文件路径：`"asccomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
 
 向acl接口创建的Notify发送同步信号，需与[asccomm_aclrt_notify_wait_on_thread](asccomm_aclrt_notify_wait_on_thread.md)配对使用。
 
@@ -37,7 +37,7 @@ int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstN
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，包含`"aicpu/hcomm/asccomm_primitives.h"`后即可使用。 |
 | dstNotifyId | 输入 | 目标Notify的ID，由ACL运行时的`aclrtGetNotifyId`接口获取。<br>当前实现按32位Notify ID下发，取值不能超过`UINT32_MAX`。 |
 
 ## 返回值说明
@@ -60,6 +60,6 @@ int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstN
 ## 调用示例
 
 ```cpp
-// dstNotifyId为ACL运行时Notify资源ID。
+// thread为控制面传入的有效ThreadHandle资源句柄；dstNotifyId为ACL运行时Notify资源ID。
 int32_t ret = asccomm_aclrt_notify_record_on_thread(thread, dstNotifyId);
 ```

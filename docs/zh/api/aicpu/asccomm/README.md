@@ -1,6 +1,6 @@
 # AICPU Asccomm接口简介
 
-AICPU Asccomm提供面向通信线程和通信通道的数据面C接口，用于描述本地内存操作、跨通道数据搬运、通知同步以及批量提交操作。安装后的公开头文件路径为`"asccomm/asccomm_primitives.h"`，相关句柄和枚举类型由该头文件包含的`"asccomm/hcomm_res_defs.h"`提供。
+AICPU Asccomm提供面向通信线程和通信通道的数据面C接口，用于描述本地内存操作、跨通道数据搬运、通知同步以及批量提交操作。安装后的公开头文件路径为`"aicpu/hcomm/asccomm_primitives.h"`。包含该头文件后，即可使用`ThreadHandle`、`ChannelHandle`以及本组件的枚举和批量传输描述符类型；其中`ThreadHandle`和`ChannelHandle`的基础定义由运行环境的`hcomm_res_defs.h`提供。
 
 ## 接口分类
 
