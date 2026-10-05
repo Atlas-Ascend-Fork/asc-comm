@@ -25,7 +25,7 @@
 
 头文件路径：`"asccomm/asccomm_primitives.h"`。
 
-基于acl接口创建的Notify发送同步信号，需与[asccomm_aclrt_notify_wait_on_thread](asccomm_aclrt_notify_wait_on_thread.md)配对使用。
+向acl接口创建的Notify发送同步信号，需与[asccomm_aclrt_notify_wait_on_thread](asccomm_aclrt_notify_wait_on_thread.md)配对使用。
 
 ## 函数原型
 
@@ -37,20 +37,29 @@ int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstN
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为控制面构造并随AICPU Kernel参数下发的有效Thread资源句柄，当前实现要求该参数不能为0。<br>ThreadHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
-| dstNotifyId | 输入 | 同步信号ID，为通过aclrtGetNotifyId接口获取到的notifyId。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
+| dstNotifyId | 输入 | 目标Notify的ID，由ACL运行时的`aclrtGetNotifyId`接口获取。<br>当前实现按32位Notify ID下发，取值不能超过`UINT32_MAX`。 |
 
 ## 返回值说明
 
-int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
+返回值为`int32_t`，取值含义如下。
+
+| 返回值 | 说明 |
+| --- | --- |
+| `ASCCOMM_SUCCESS`（0） | 通知任务处理成功。 |
+| `ASCCOMM_E_PTR` | Thread句柄为0，或Thread资源、RTSQ本地缓存指针为空。 |
+| `ASCCOMM_E_PARA` | Thread资源ABI或RTSQ资源参数不合法。 |
+| `ASCCOMM_E_TIMEOUT` | 触发RTSQ提交时，等待队列空间超时。 |
+| `ASCCOMM_E_INTERNAL` | 任务生成、驱动查询或配置、RTSQ缓存操作等内部执行失败。 |
 
 ## 约束说明
 
-- `dstNotifyId`会被转换为`uint32_t`使用，调用方须确保其可无损转换。
+- 本接口需与[asccomm_aclrt_notify_wait_on_thread](asccomm_aclrt_notify_wait_on_thread.md)配合使用。
+- 通知任务提交时机与Thread资源的提交策略一致；普通模式可立即提交，批量模式或缓存满时按当前实现提交。
 
 ## 调用示例
 
 ```cpp
-// dstNotifyId为ACLRT Notify资源ID。
+// dstNotifyId为ACL运行时Notify资源ID。
 int32_t ret = asccomm_aclrt_notify_record_on_thread(thread, dstNotifyId);
 ```
