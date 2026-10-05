@@ -25,7 +25,7 @@
 
 头文件路径：`"asccomm/asccomm_primitives.h"`。
 
-向channel上的指定内存写数据，将src中长度为count\*sizeof\(dataType\)的内存数据，与dst所指向的相同长度的内存数据进行reduceOp操作，并将结果输出到dst中，并向dst所在节点发送同步信号。接口调用方为src所在节点，该接口为异步接口。
+在指定Channel上发起带通知的归约写：将本端`src`中的`count`个`dataType`类型元素写入远端`dst`，并与`dst`中的对应元素按`reduceOp`计算，将结果写回`dst`，同时向远端发送通知。接口调用方为`src`所在节点。
 
 ## 函数原型
 
@@ -37,14 +37,14 @@ int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelH
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为控制面构造并随AICPU Kernel参数下发的有效Thread资源句柄，当前实现要求该参数不能为0。<br>ThreadHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
-| channel | 输入 | 通信通道句柄，为控制面构造并随AICPU Kernel参数下发的有效Channel资源句柄，当前实现要求该参数不能为0。<br>ChannelHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
-| dst | 输出 | 目的内存地址，使用指定channel对端的HCCL通信内存。 |
-| src | 输入 | 源内存地址，使用通信域中本端rank的HCCL通信内存。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
+| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
+| dst | 输出 | 远端通信内存地址，用于保存归约结果。 |
+| src | 输入 | 本端通信内存地址，提供待写入的数据。 |
 | count | 输入 | 元素个数。 |
-| dataType | 输入 | 数据类型。<br>HcommDataType类型的定义请参见`"asccomm/hcomm_res_defs.h"`。<br>不同产品型号支持的数据类型定义不同，详细请参见[dataType说明](#dataType说明)。|
+| dataType | 输入 | 数据类型。<br>HcommDataType类型的定义请参见`"asccomm/hcomm_res_defs.h"`。<br>不同产品型号支持的数据类型定义不同，详细请参见[dataType说明](#datatype说明)。|
 | reduceOp | 输入 | 归约操作类型，支持：sum、max、min。<br>HcommReduceOp类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
-| remoteNotifyIdx | 输入 | 通信通道另一端的Notify索引。<br>取值范围：［0，notifyNum）。<br>notifyNum为Channel资源中的对应Notify数量。 |
+| remoteNotifyIdx | 输入 | 远端Notify索引。取值范围为`[0, notifyNum)`，其中`notifyNum`为Channel资源中的远端Notify数量。 |
 
 ### dataType说明
 
@@ -54,19 +54,30 @@ int32_t asccomm_write_reduce_with_notify_on_thread(ThreadHandle thread, ChannelH
 
 ## 返回值说明
 
-int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
+返回值为`int32_t`，取值含义如下。
+
+| 返回值 | 说明 |
+| --- | --- |
+| `ASCCOMM_SUCCESS`（0） | 带通知的归约写请求处理成功。UB类协议通道表示任务已提交；RoCE通道在返回前检查归约写和通知操作完成结果。 |
+| `ASCCOMM_E_PTR` | `dst`或`src`为空、Thread或Channel句柄为0，或所需资源地址为空。 |
+| `ASCCOMM_E_PARA` | `dataType`或`reduceOp`非法，`count * sizeof(dataType)`溢出，或Thread/Channel资源、内存保护参数及远端Notify参数不合法。 |
+| `ASCCOMM_E_NOT_SUPPORT` | Channel协议不受支持，或RoCE inline归约不支持指定的数据类型或归约操作。 |
+| `ASCCOMM_E_TIMEOUT` | RTSQ或RoCE队列等待超时，或RoCE完成事件轮询超时。 |
+| `ASCCOMM_E_REMOTE` | RoCE完成事件报告远端通信错误。 |
+| `ASCCOMM_E_INTERNAL` | UB归约任务编码、任务提交或其他内部操作异常。 |
 
 ## 约束说明
 
-- 本接口同时支持UB类协议和RoCE协议通道。
-- src和dst对应的地址范围须分别落在通道本端与远端已注册通信内存范围内。
-- `remoteNotifyIdx`必须小于通道远端Notify数量。
-- RoCE inline归约当前不支持`HCOMM_REDUCE_PROD`，传入该取值时返回`ASCCOMM_E_NOT_SUPPORT`。
+- 当前实现支持UB类协议和RoCE协议通道；其他协议返回`ASCCOMM_E_NOT_SUPPORT`。
+- `src`和`dst`应分别使用通道本端和远端已注册通信内存中的地址。
+- `remoteNotifyIdx`必须小于通道远端Notify数量，并且对应的远端Notify资源类型须正确。
 - `count * sizeof(dataType)`溢出时返回`ASCCOMM_E_PARA`。
 
 ## 调用示例
 
 ```cpp
+// thread、channel、src和dst已由前置流程准备；src为本端通信内存地址，dst为远端通信内存地址。
+uint64_t count = 256;
 uint32_t remoteNotifyIdx = 0;
 int32_t ret = asccomm_write_reduce_with_notify_on_thread(
     thread, channel, dst, src, count, HCOMM_DATA_TYPE_FP32, HCOMM_REDUCE_SUM, remoteNotifyIdx);
