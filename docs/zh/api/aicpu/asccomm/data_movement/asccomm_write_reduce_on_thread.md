@@ -42,7 +42,7 @@ int32_t asccomm_write_reduce_on_thread(ThreadHandle thread, ChannelHandle channe
 | dst | 输出 | 远端目标地址，用于保存归约结果。 |
 | src | 输入 | 本端源地址，提供待写入的数据。 |
 | count | 输入 | 元素个数。 |
-| dataType | 输入 | 数据类型。<br>HcommDataType类型的定义请参见`"asccomm/hcomm_res_defs.h"`。<br>不同型号的产品支持的数据类型不同，详细请参见[dataType说明](#dataType说明)。|
+| dataType | 输入 | 数据类型。<br>HcommDataType类型的定义请参见`"asccomm/hcomm_res_defs.h"`。<br>不同型号的产品支持的数据类型不同，详细请参见[dataType说明](#datatype说明)。|
 | reduceOp | 输入 | 归约操作类型，支持：sum、max、min。<br>HcommReduceOp类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
 
 ### dataType说明

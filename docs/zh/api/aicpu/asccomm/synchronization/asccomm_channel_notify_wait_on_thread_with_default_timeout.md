@@ -25,7 +25,7 @@
 
 头文件路径：`"asccomm/asccomm_primitives.h"`。
 
-等待同步信号，阻塞等待指定Channel上的Notify完成。**使用通过[asccomm_set_notify_wait_timeout](asccomm_set_notify_wait_timeout.md)设置的默认超时时间**，无需手动传入超时参数。
+生成本地Notify等待任务，等待指定Channel上的同步信号，使用[asccomm_set_notify_wait_timeout](asccomm_set_notify_wait_timeout.md)设置的默认超时时间。
 
 ## 函数原型
 
@@ -37,30 +37,34 @@ int32_t asccomm_channel_notify_wait_on_thread_with_default_timeout(ThreadHandle 
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄，为控制面构造并随AICPU Kernel参数下发的有效Thread资源句柄，当前实现要求该参数不能为0。<br>ThreadHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
-| channel | 输入 | 通信通道句柄，为控制面构造并随AICPU Kernel参数下发的有效Channel资源句柄，当前实现要求该参数不能为0。<br>ChannelHandle类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
-| localNotifyIdx | 输入 | 本地Notify索引。<br>取值范围：［0，可用于等待的本地Notify数量）。 |
-
-<!-- npu="950" id7 -->
-**补充说明**：
-
-**thread参数**：当前实现要求“thread”参数为有效的Thread资源句柄，不能传入0。
-<!-- end id7 -->
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
+| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
+| localNotifyIdx | 输入 | 本地Notify索引。当前实现要求`localNotifyIdx < localNotifyNum - 1`，并使用本地Notify数组中`localNotifyIdx + 1`对应的Notify；第0项为内部保留项。 |
 
 ## 返回值说明
 
-int32_t：成功返回`ASCCOMM_SUCCESS`（0），失败返回`ASCCOMM_E_PARA`、`ASCCOMM_E_PTR`、`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_INTERNAL`等错误码。
+返回值为`int32_t`，取值含义如下。
+
+| 返回值 | 说明 |
+| --- | --- |
+| `ASCCOMM_SUCCESS`（0） | 通知等待任务已生成；不表示同步信号已到达。 |
+| `ASCCOMM_E_PTR` | Thread或Channel句柄为0，或Thread资源、RTSQ本地缓存指针为空。 |
+| `ASCCOMM_E_PARA` | Thread/Channel资源ABI、本地Notify索引或Notify资源参数不合法。 |
+| `ASCCOMM_E_TIMEOUT` | 触发RTSQ提交时，等待队列空间超时。 |
+| `ASCCOMM_E_INTERNAL` | 任务生成、驱动查询或配置、RTSQ缓存操作等内部执行失败。 |
 
 ## 约束说明
 
 - `localNotifyIdx`必须小于Channel资源中可用于等待的本地Notify数量。
-- 默认超时时间通过[asccomm_set_notify_wait_timeout](asccomm_set_notify_wait_timeout.md)设置；未设置时为1836秒。
+- 默认超时时间通过[asccomm_set_notify_wait_timeout](asccomm_set_notify_wait_timeout.md)在当前AICPU执行线程中设置；未设置时当前实现为1836秒。
 - 默认超时时间为0表示永久等待，大于0表示具体等待秒数。
+- 通知等待任务提交时机与Thread资源的提交策略一致；普通模式可立即提交，批量模式或缓存满时按当前实现提交。
 
 ## 调用示例
 
 ```cpp
 uint32_t localNotifyIdx = 0;
+// thread和channel已由前置流程准备。
 // 使用asccomm_set_notify_wait_timeout设置的默认超时时间等待。
 int32_t ret = asccomm_channel_notify_wait_on_thread_with_default_timeout(thread, channel, localNotifyIdx);
 ```
