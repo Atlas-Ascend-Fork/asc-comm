@@ -1,6 +1,6 @@
 # 简介
 
-本节提供AICPU Asccomm的同步接口：Thread Notify用于线程间同步，ACLRT Notify用于基于ACL Notify资源的同步，Channel Notify用于通信通道两端同步；Fence、Drain和超时设置接口用于控制通信操作的顺序和等待行为。
+本节提供AICPU Asccomm的同步接口：Thread Notify用于线程间同步，ACL运行时Notify用于基于ACL Notify资源的同步，Channel Notify用于通信通道两端同步；Fence、Drain和超时设置接口用于控制通信操作的顺序和等待行为。
 
 ## 接口列表
 
