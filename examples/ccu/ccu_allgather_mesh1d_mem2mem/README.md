@@ -77,10 +77,13 @@ env BUILD_ONLY=1 ./run.sh
 input/input_rank_<rank_id>.bin
 ```
 
+为保证每个 rank 和元素位置对应唯一且可精确表示的 FP32 标记，必须满足
+rank-size * count <= 16777216（2^24）；超出时 gen_data.py 会拒绝生成。
+
 每个 rank 的输入为：
 
 ```text
-input[i] = rank * 1000000 + i + 1
+input[i] = rank * count + i + 1
 ```
 
 Golden 数据按 source rank 顺序拼接并写入 `output/golden.bin`。C++ 程序将各
@@ -107,7 +110,7 @@ rank 1: launched, waiting for stream
 rank 0: launched, waiting for stream
 rank 0: stream completed
 rank 1: stream completed
-rank 1 input : [ 1000001 1000002 1000003 1000004 1000005 1000006 1000007 1000008 1000009 1000010 1000011 1000012 1000013 1000014 1000015 1000016 ...(256) ]
+rank 1 input : [ 257 258 259 260 261 262 263 264 265 266 267 268 269 270 271 272 ...(256) ]
 rank 1 output: [ 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 ...(512) ]
 rank 1: output saved to <sample_path>/output/output_rank_1.bin
 rank 0 input : [ 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 ...(256) ]
