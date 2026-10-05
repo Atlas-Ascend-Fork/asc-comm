@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"asccomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
 
 在指定Channel上发起归约写：将本端`src`中的`count`个`dataType`类型元素写入远端`dst`，并与`dst`中的对应元素按`reduceOp`计算，结果写回`dst`。接口调用方为`src`所在节点。
 
@@ -37,13 +37,13 @@ int32_t asccomm_write_reduce_on_thread(ThreadHandle thread, ChannelHandle channe
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | -------------------------------------- |
-| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
-| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"aicpu/hcomm/hcomm_res_defs.h"`。 |
+| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，定义见`"aicpu/hcomm/hcomm_res_defs.h"`。 |
 | dst | 输出 | 远端目标地址，用于保存归约结果。 |
 | src | 输入 | 本端源地址，提供待写入的数据。 |
 | count | 输入 | 元素个数。 |
-| dataType | 输入 | 数据类型。<br>HcommDataType类型的定义请参见`"asccomm/hcomm_res_defs.h"`。<br>不同型号的产品支持的数据类型不同，详细请参见[dataType说明](#dataType说明)。|
-| reduceOp | 输入 | 归约操作类型，支持：sum、max、min。<br>HcommReduceOp类型的定义请参见`"asccomm/hcomm_res_defs.h"`。 |
+| dataType | 输入 | 数据类型。<br>HcommDataType类型的定义请参见`"aicpu/hcomm/hcomm_res_defs.h"`。<br>不同型号的产品支持的数据类型不同，详细请参见[dataType说明](#datatype说明)。|
+| reduceOp | 输入 | 归约操作类型，支持：sum、max、min。<br>HcommReduceOp类型的定义请参见`"aicpu/hcomm/hcomm_res_defs.h"`。 |
 
 ### dataType说明
 

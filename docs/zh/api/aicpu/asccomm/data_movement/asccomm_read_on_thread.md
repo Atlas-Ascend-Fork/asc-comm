@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"asccomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
 
 在指定Channel上发起单边读，将远端`src`指向的`len`字节数据读取到本端`dst`指向的内存。接口调用方为`dst`所在节点。
 
@@ -37,8 +37,8 @@ int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void 
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
-| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"aicpu/hcomm/hcomm_res_defs.h"`。 |
+| channel | 输入 | 通信通道句柄。控制面创建Channel资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ChannelHandle`，定义见`"aicpu/hcomm/hcomm_res_defs.h"`。 |
 | dst | 输出 | 本端目标地址，用于接收读取的数据。 |
 | src | 输入 | 远端源地址，提供待读取的数据。 |
 | len | 输入 | 数据长度（字节）。 |

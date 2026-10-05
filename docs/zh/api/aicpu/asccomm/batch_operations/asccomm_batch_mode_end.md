@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"asccomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
 
 该接口用于结束[asccomm_batch_mode_start](asccomm_batch_mode_start.md)开启的批量提交模式。调用本接口时，当前AICPU执行线程在该模式下缓存的通信任务会被统一提交。接口成功返回表示提交动作成功，不表示硬件通信任务已经全部完成。
 

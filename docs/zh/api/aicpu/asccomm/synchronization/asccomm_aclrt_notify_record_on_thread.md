@@ -23,7 +23,7 @@
 
 ## 功能说明
 
-头文件路径：`"asccomm/asccomm_primitives.h"`。
+头文件路径：`"aicpu/hcomm/asccomm_primitives.h"`。
 
 向acl接口创建的Notify发送同步信号，需与[asccomm_aclrt_notify_wait_on_thread](asccomm_aclrt_notify_wait_on_thread.md)配对使用。
 
@@ -37,7 +37,7 @@ int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstN
 
 | 参数名 | 输入/输出 | 描述 |
 | --- | --- | --- |
-| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"asccomm/hcomm_res_defs.h"`。 |
+| thread | 输入 | 通信线程句柄。控制面创建Thread资源后，将该句柄作为AICPU Kernel参数传入；调用时不能为0。类型为`ThreadHandle`，定义见`"aicpu/hcomm/hcomm_res_defs.h"`。 |
 | dstNotifyId | 输入 | 目标Notify的ID，由ACL运行时的`aclrtGetNotifyId`接口获取。<br>当前实现按32位Notify ID下发，取值不能超过`UINT32_MAX`。 |
 
 ## 返回值说明
