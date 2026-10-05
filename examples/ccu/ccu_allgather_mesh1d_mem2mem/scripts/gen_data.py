@@ -17,6 +17,7 @@ import numpy as np
 
 
 MAX_RANKS = 16
+MAX_EXACT_FP32_INTEGER = 1 << 24
 
 
 def parse_args():
@@ -36,6 +37,11 @@ def main():
         raise ValueError(f"rank-size must be in [1, {MAX_RANKS}]")
     if args.count < 0:
         raise ValueError("count must be non-negative")
+    if args.rank_size * args.count > MAX_EXACT_FP32_INTEGER:
+        raise ValueError(
+            "rank-size * count must be at most "
+            f"{MAX_EXACT_FP32_INTEGER} for unique FP32 markers"
+        )
 
     args.input_dir.mkdir(parents=True, exist_ok=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -47,7 +53,7 @@ def main():
     rank_inputs = []
     indices = np.arange(args.count, dtype=np.uint64)
     for rank_id in range(args.rank_size):
-        data = (rank_id * 1000000 + indices + 1).astype(np.float32)
+        data = (rank_id * args.count + indices + 1).astype(np.float32)
         data.tofile(args.input_dir / f"input_rank_{rank_id}.bin")
         rank_inputs.append(data)
 
