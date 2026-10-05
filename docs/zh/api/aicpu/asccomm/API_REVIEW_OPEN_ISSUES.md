@@ -131,20 +131,20 @@ channel.localNotifyAddr[localNotifyIdx + 1U]
 
 ## 12. 单边通信内存接口本端地址校验
 
-`asccomm_read_on_thread()`、`asccomm_read_reduce_on_thread()`和`asccomm_write_on_thread()`在UB和RoCE路径中查找本端通信内存缓冲区时允许使用第一个本地通信内存缓冲区作为保护信息兜底，即使本端地址范围未命中本地已注册缓冲区，见`asccomm_transport.cc`中的`find_buffer(..., true)`调用。远端地址则必须命中远端已注册通信内存缓冲区。
+`asccomm_read_on_thread()`、`asccomm_read_reduce_on_thread()`、`asccomm_write_on_thread()`、`asccomm_write_with_notify_on_thread()`、`asccomm_write_reduce_on_thread()`和`asccomm_write_reduce_with_notify_on_thread()`在UB和RoCE路径中查找本端通信内存缓冲区时允许使用第一个本地通信内存缓冲区作为保护信息兜底，即使本端地址范围未命中本地已注册缓冲区，见`asccomm_transport.cc`中的`find_buffer(..., true)`调用。远端地址则必须命中远端已注册通信内存缓冲区。
 
 需要确认：
 
 1. 本端地址未命中注册范围时的兜底行为是否为兼容实现，还是应由代码改为直接返回错误；
-2. API文档是否应长期要求`dst`严格落在本端已注册通信内存范围内；
+2. API文档是否应长期要求读接口的`dst`、写接口的`src`严格落在本端已注册通信内存范围内；
 3. 如果该行为保留，底层使用第一个缓冲区保护信息访问范围外地址是否有额外运行时保证。
 
-## 13. `asccomm_read_reduce_on_thread()`归约参数支持范围
+## 13. 归约读写接口参数支持范围
 
-`asccomm_read_reduce_on_thread()`的适配层可以转换比UB归约指令编码更多的`dataType`和`reduceOp`取值，但UB编码当前仅处理有限的数据类型以及`SUM`、`MAX`、`MIN`。适配层接受、但UB编码不支持的组合可能在任务生成阶段抛出异常，最终返回`ASCCOMM_E_INTERNAL`。RoCE路径则在参数转换成功后直接返回`ASCCOMM_SUCCESS`，不执行归约读。
+`asccomm_read_reduce_on_thread()`、`asccomm_write_reduce_on_thread()`和`asccomm_write_reduce_with_notify_on_thread()`的适配层可以转换比UB归约指令编码更多的`dataType`和`reduceOp`取值，但UB编码当前仅处理有限的数据类型以及`SUM`、`MAX`、`MIN`。适配层接受、但UB编码不支持的组合可能在任务生成阶段抛出异常，最终返回`ASCCOMM_E_INTERNAL`。RoCE路径对读归约直接返回`ASCCOMM_SUCCESS`而不执行操作；对写归约和带通知写归约则按RoCE inline归约能力校验数据类型和归约操作。
 
 需要确认：
 
-1. 归约读公开支持的数据类型和操作范围是否应由适配层前置限制；
+1. 归约读写公开支持的数据类型和操作范围是否应由适配层前置限制；
 2. UB不支持的组合是否应返回`ASCCOMM_E_NOT_SUPPORT`或`ASCCOMM_E_PARA`；
-3. RoCE归约读直接成功但不执行操作是否为长期公开语义。
+3. RoCE归约读直接成功但不执行操作，以及RoCE归约写的类型和操作限制，是否为长期公开语义。

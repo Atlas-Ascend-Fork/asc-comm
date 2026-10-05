@@ -2,7 +2,7 @@
 
 本文记录 `docs/zh/api/aicpu/asccomm/` 下 23 个 API 文档的逐页检阅和确认修改进度。
 
-- 进度：**8/23**
+- 进度：**11/23**
 - 开始日期：2026-09-30
 - 评审约束：[API_DOC_REVIEW_CONSTRAINTS.md](API_DOC_REVIEW_CONSTRAINTS.md)
 
@@ -25,9 +25,9 @@
 - [x] [asccomm_read_on_thread.md](../data_movement/asccomm_read_on_thread.md)
 - [x] [asccomm_read_reduce_on_thread.md](../data_movement/asccomm_read_reduce_on_thread.md)
 - [x] [asccomm_write_on_thread.md](../data_movement/asccomm_write_on_thread.md)
-- [ ] [asccomm_write_reduce_on_thread.md](../data_movement/asccomm_write_reduce_on_thread.md)
-- [ ] [asccomm_write_reduce_with_notify_on_thread.md](../data_movement/asccomm_write_reduce_with_notify_on_thread.md)
-- [ ] [asccomm_write_with_notify_on_thread.md](../data_movement/asccomm_write_with_notify_on_thread.md)
+- [x] [asccomm_write_reduce_on_thread.md](../data_movement/asccomm_write_reduce_on_thread.md)
+- [x] [asccomm_write_reduce_with_notify_on_thread.md](../data_movement/asccomm_write_reduce_with_notify_on_thread.md)
+- [x] [asccomm_write_with_notify_on_thread.md](../data_movement/asccomm_write_with_notify_on_thread.md)
 
 ## 同步与控制
 
@@ -56,3 +56,6 @@
 | [asccomm_read_on_thread.md](../data_movement/asccomm_read_on_thread.md) | 2026-10-02 | 简化功能说明，统一句柄参数表述，按代码路径补充返回值表，调整地址约束和调用示例。 |
 | [asccomm_read_reduce_on_thread.md](../data_movement/asccomm_read_reduce_on_thread.md) | 2026-10-02 | 简化功能说明，统一句柄和地址参数表述，按UB/RoCE代码路径补充返回值表，明确协议约束并补充调用示例参数。 |
 | [asccomm_write_on_thread.md](../data_movement/asccomm_write_on_thread.md) | 2026-10-02 | 简化功能说明，统一句柄和地址参数表述，按UB/RoCE代码路径补充返回值表，调整地址约束并补充调用示例参数。 |
+| [asccomm_write_reduce_on_thread.md](../data_movement/asccomm_write_reduce_on_thread.md) | 2026-10-02 | 简化功能说明，统一句柄和地址参数表述，按UB/RoCE归约路径补充返回值表，明确归约约束并补充调用示例参数。 |
+| [asccomm_write_reduce_with_notify_on_thread.md](../data_movement/asccomm_write_reduce_with_notify_on_thread.md) | 2026-10-02 | 简化带通知归约写的功能说明，统一句柄和通信内存地址表述，按UB/RoCE归约与通知路径补充返回值表，明确Notify索引和归约约束并更新调用示例。 |
+| [asccomm_write_with_notify_on_thread.md](../data_movement/asccomm_write_with_notify_on_thread.md) | 2026-10-02 | 简化带通知单边写的功能说明，统一句柄和通信内存地址表述，按UB/RoCE通知路径补充返回值表，明确Notify索引约束并更新调用示例。 |
