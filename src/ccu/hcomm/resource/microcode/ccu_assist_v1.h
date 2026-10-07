@@ -14,8 +14,8 @@
 #include <string>
 
 #include "hcomm/resource/microcode/ccu_assist_pub.h"
-// 微码辅助层用到的公共类型统一来自 hcomm_types.h（ABI 边界约束）
-#include "hcomm/hcomm_types.h"
+// 微码辅助层用到的公共类型统一来自 HCCL 公共类型定义（ABI 边界约束）
+#include "hccl/hccl_types.h"
 
 namespace asc {
 namespace ccu_rep {
