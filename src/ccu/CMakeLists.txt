@@ -39,6 +39,7 @@ set(ASCCOMM_CANN_BASE_INCLUDE_DIRS
     ${ASCEND_CANN_PACKAGE_PATH}/include
     ${ASCEND_CANN_PACKAGE_PATH}/runtime/include
     ${ASCCOMM_CANN_ARCH_DIR}/include
+    ${ASCCOMM_ROOT}/include/hcomm
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc
 )
 asccomm_collect_header_dirs(ASCCOMM_CANN_HEADER_DIRS ${ASCCOMM_CANN_BASE_INCLUDE_DIRS})

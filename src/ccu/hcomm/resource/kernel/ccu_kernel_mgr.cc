@@ -268,7 +268,8 @@ static CcuResult set_kernel_instruction_resource(
         CcuResult::CCU_E_INTERNAL);
     uint32_t start_inst_id = 0;
     const int32_t dev_logic_id = asc::get_current_ccu_device_logic_id();
-    const int32_t ret = alloc_inst_space(dev_logic_id, die_id, static_cast<uint32_t>(instr_count), &start_inst_id);
+    const int32_t ret =
+        alloc_inst_space(dev_logic_id, die_id, static_cast<uint32_t>(instr_count), &start_inst_id);
     CHK_PRT_RET(
         ret != 0,
         HCCL_ERROR(

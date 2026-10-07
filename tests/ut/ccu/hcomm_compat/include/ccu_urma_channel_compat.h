@@ -13,7 +13,7 @@
 
 #include <memory>
 
-#include "hcomm/hcomm_types.h"
+#include <hccl/hccl_types.h>
 
 #include "hcomm_primitives.h"
 
