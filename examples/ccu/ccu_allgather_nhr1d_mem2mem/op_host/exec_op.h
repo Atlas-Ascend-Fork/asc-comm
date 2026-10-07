@@ -20,7 +20,7 @@
 #include <cstdint>
 
 #include <acl/acl_rt.h>
-#include <hcomm/hcomm_types.h>
+#include <hccl/hccl_types.h>
 
 namespace CcuAgNhr1dMem2mem {
 
