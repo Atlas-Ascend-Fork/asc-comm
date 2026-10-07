@@ -17,50 +17,57 @@
 #define HCOMM_CCU_RESOURCE_H
 
 #include <stdint.h>
-#include "hcomm/hcomm_ccu_base.h"
+#include "hcomm/hcomm_res_defs.h"
 #include "hcomm/hcomm_res_entity_defs.h"
-#include "hcomm/hcomm_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/** CCU Instance 类型：注册上下文申请的实例类型；hcomm 创建 RegisterContext 时校验，并据此分配资源句柄 */
-typedef enum { CCU_DEFAULT = 0, CCU_SCHED = 1, CCU_MS = 2, CCU_UNUSED = 254, CCU_RESERVED = 255 } CcuInstanceType;
+enum {
+    HCOMM_CCU_MAX_DIE_NUM = 2,
+};
 
 struct HcommCcuInstance;
 
 enum {
-    HCOMM_CCU_INSTANCE_HANDLE_ABI_VERSION = 1,          // CcuInsHandle ABI 版本
-    HCOMM_CCU_INSTANCE_HANDLE_MAGIC_WORD = 0x43435548U, // CcuInsHandle 类型魔数，值即 ASCII "CCUH"（CCU Handle），
-                                                        // 接收方校验 header.magicWord 确认传入 POD 类型正确
+    HCOMM_CCU_INSTANCE_HANDLE_ABI_VERSION = 1,          // HcommCcuInstanceHandle ABI 版本
+    HCOMM_CCU_INSTANCE_HANDLE_MAGIC_WORD = 0x43435548U, // HcommCcuInstanceHandle 类型魔数，值即 ASCII "CCUH"（CCU
+                                                        // Handle）， 接收方校验 header.magicWord 确认传入 POD 类型正确
 };
 
 /**
- * CCU Instance 句柄（CommAbiHeader + ccuInsKey + ccuInsPtr 三字段）：
+ * CCU Instance 句柄（CommAbiHeader + ccuInsKey + ccuInsPtr 三字段，跨 SO 契约专用）：
  * header 为 ABI 头：version/magic/size 校验，防两仓布局不一致时按值传递越界读；
- * ccuInsKey 为 hcomm 位编码的不透明键（generation<<32 | slot+1），用于跨 SO 传递与查找；
- * ccuInsPtr 指向 hcomm 持有的 HcommCcuInstance（只读借用，随 RegisterContext 生命周期有效）。
- * hcomm 负责编码、校验、销毁，asc-comm 只能按值保存和回传，不得解引用 ccuInsPtr 之外的成员。
+ * ccuInsKey 为 hcomm CcuInstanceMgr 分配的实例键，用于跨 SO 传递与查找；
+ * ccuInsPtr 指向 hcomm 持有的 HcommCcuInstance（只读借用，随实例生命周期有效）。
+ * hcomm 持有 POD，asc-comm 查询后深拷贝所需数据；调用方须保证拷贝期间实例存活。
+ * @note 本类型仅在 hcomm↔asc-comm 契约面与 hcomm 内部使用；对外 API（include/ccu、include/hccl）
+ * 的不透明实例句柄为 CcuInsHandle(uint64_t token)，asc-comm 通过包间查询获取完整句柄。
  */
 typedef struct {
     CommAbiHeader header;                     // ABI 头：version/magic/size 校验.
     uint64_t ccuInsKey;                       // 不透明实例键（0 为无效句柄哨兵）
     const struct HcommCcuInstance* ccuInsPtr; // hcomm 持有的 CCU Instance 借用指针
-} CcuInsHandle;
+} HcommCcuInstanceHandle;
 
-#ifdef __cplusplus
+/**
+ * 填充 HcommCcuInstanceHandle 的 ABI 头（version/magic/size 单源辅助）。
+ * 所有望产出/传递 HcommCcuInstanceHandle 的路径必须经本函数填头，禁止手抄四元组内联构造：
+ * ABI_VERSION bump 时保证全路径 header 一致，避免个别路径漏改造成跨 SO 校验失败。
+ */
+static inline void HcommCcuFillInsHandleHeader(HcommCcuInstanceHandle* handle)
+{
+    handle->header.version = HCOMM_CCU_INSTANCE_HANDLE_ABI_VERSION;
+    handle->header.magicWord = HCOMM_CCU_INSTANCE_HANDLE_MAGIC_WORD;
+    handle->header.size = sizeof(HcommCcuInstanceHandle);
+    handle->header.reserved = 0;
 }
-#endif
 
 #ifndef CHANNEL_HANDLE_DEFINED
 #define CHANNEL_HANDLE_DEFINED
 // 通道句柄：不透明唯一标识，跨 SO 以整型值传递
 typedef uint64_t ChannelHandle;
-#endif
-
-#ifdef __cplusplus
-extern "C" {
 #endif
 
 enum {
@@ -107,11 +114,6 @@ typedef struct {
 
 } HcommCcuChannelEntity;
 
-#ifdef __cplusplus
-} // extern "C"
-
-#endif
-
 /**
  * @brief CCU 资源描述符（ResDesc）跨 SO POD 定义。
  *
@@ -119,10 +121,6 @@ typedef struct {
  * HcommCcuResDesc 不对用户暴露，用户只感知 HcommCcuResDescHandle；
  * asc-comm 侧由 handle table 解析出实际 POD。
  */
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 enum {
     HCOMM_CCU_RES_DESC_ABI_VERSION = 1,          // ResDesc POD ABI 版本
     HCOMM_CCU_RES_DESC_MAGIC_WORD = 0x43524453U, // "CRDS"，ResDesc POD 魔数
@@ -153,23 +151,6 @@ typedef struct {
 typedef uint64_t HcommCcuResDescHandle;
 
 /**
- * @brief 反查资源描述符内容，hcomm 侧据此获取实际需要的 CCU 资源。
- *
- * 按 handle 值拷贝返回描述符当前内容（dieId + 各资源类型数量）。
- * 供 hcomm 按需建实例（HcommCcuInsCreate by ResDesc）等控制面消费；用户不直接调用。
- *
- * @param[in] resDesc 资源描述符句柄
- * @param[out] out 输出描述符内容（值拷贝，调用方持有存储）
- * @return CcuResult
- */
-extern CcuResult HcommCcuInsResDescQuery(HcommCcuResDescHandle resDesc, HcommCcuResDesc* out);
-
-#ifdef __cplusplus
-} // extern "C"
-
-#endif
-
-/**
  * @brief CCU 资源层跨 SO POD 定义（CCU Instance / Register Context）。
  *
  * 资源按 die × 资源类型两级嵌套组织，每类持多段连续 range；
@@ -177,12 +158,6 @@ extern CcuResult HcommCcuInsResDescQuery(HcommCcuResDescHandle resDesc, HcommCcu
  * 控制面注入 hcomm 实现的函数表 ascCustom（槽 0/1/2 + DFX 查询链）。
  * asc-comm 在 register_start 时对整个 Instance 做一次性深拷贝快照。
  */
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-struct HcommCcuInstance;
-typedef const struct HcommCcuInstance* HcommCcuInstanceHandle;
 enum {
     HCOMM_CCU_RES_ABI_VERSION = 8,               // 资源/CCU Instance POD ABI 版本
     HCOMM_CCU_INSTANCE_MAGIC_WORD = 0x43435549U, // HcommCcuInstance 类型魔数，值即 ASCII "CCUI"（CCU Instance），
@@ -195,12 +170,14 @@ enum {
     HCOMM_CCU_INSTR_WIDTH_BYTES = 32, // 单条 CCU 微码指令宽度（sizeof(asc ccu_instr)），SubmitInsts 换算用
     HCOMM_CCU_VERSION_V1 = 0,         // CCU V1 版本号（ABI 内透传）
     HCOMM_CCU_VERSION_V2 = 1,         // CCU V2 版本号
-    HCOMM_CCU_VERSION_INVALID = 0xFFFFFFFFU,   // 无效版本哨兵
-    HCOMM_CCU_RESOURCE_XN_PER_SIZE = 8,        // 单个 XN 资源占用的空间步长（地址换算用）
-    HCOMM_CCU_ASC_CUSTOM_CHANNEL_ENTITY = 0,   // ascCustom 槽 0：获取 ChannelEntity 接口
-    HCOMM_CCU_ASC_CUSTOM_ALLOC_INST_SPACE = 1, // ascCustom 槽 1：申请 CCU 指令空间资源的接口
-    HCOMM_CCU_ASC_CUSTOM_SUBMIT_INSTS = 2,     // ascCustom 槽 2：下发 CCU 指令接口
-    HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT = 8,       // ascCustom 槽位总数（3-7 预留）
+    HCOMM_CCU_VERSION_INVALID = 0xFFFFFFFFU, // 无效版本哨兵
+    HCOMM_CCU_RESOURCE_XN_PER_SIZE = 8,      // 单个 XN 资源占用的空间步长（地址换算用）
+    HCOMM_CCU_ASC_CUSTOM_CHANNEL_ENTITY = 0, // ascCustom 槽 0：获取 ChannelEntity 接口
+    HCOMM_CCU_ASC_CUSTOM_ALLOC_INST_SPACE
+    = 1, // ascCustom 槽 1：按设备和 die 申请 CCU 指令空间
+    HCOMM_CCU_ASC_CUSTOM_SUBMIT_INSTS = 2, // ascCustom 槽 2：下发 CCU 指令接口
+    HCOMM_CCU_ASC_CUSTOM_RELEASE_INST_SPACE = 3, // ascCustom 槽 3：归还 CCU 指令空间
+    HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT = 8,   // ascCustom 槽位总数（4-7 预留）
 };
 
 /** 批量资源的 range 类型枚举（resTypes 数组按该枚举值索引；block/非 block 在 range 视图分开，ResDesc 统计口径才合并）
@@ -230,7 +207,7 @@ typedef struct {
 
 /**
  * 一类资源的全部 range 段（按资源类型枚举值挂在 HcommCcuDieRes.resTypes[type] 上）。
- * resRanges 指向 hcomm RegisterContext 持有的只读数组，asc-comm 在 register_start 期间深拷贝。
+ * resRanges 指向 hcomm CcuInstance 持有的只读数组，asc-comm 在 register_start 期间深拷贝。
  */
 typedef struct {
     uint32_t resourceType;             // 资源类别（HcommCcuBatchResType）
@@ -264,19 +241,22 @@ typedef struct {
 
 // ascCustom 槽 0：获取 Channel Entity（返回 hcomm 持有的实体借用指针，调用方深拷贝后使用）
 typedef int32_t (*HcommCcuGetChannelEntityFn)(ChannelHandle channel, uint64_t* channelEntityPtr);
-// ascCustom 槽 1：申请 CCU 指令空间（从当前 Instance 的指令池切分）
+// ascCustom 槽 1：按设备和 die 申请指令空间
 typedef int32_t (*HcommCcuAllocInstSpaceFn)(
     int32_t deviceLogicId, uint32_t dieId, uint32_t instNum, uint32_t* startInstId);
 // ascCustom 槽 2：下发 CCU 指令（data 为 host 指针，hcomm 负责拷入设备内存并经驱动下发）
 typedef int32_t (*HcommCcuSubmitInstsFn)(
     int32_t deviceLogicId, uint32_t dieId, uint32_t startInstructionId, const void* data, uint32_t instNum);
+// ascCustom 槽 3：归还指令空间
+typedef int32_t (*HcommCcuReleaseInstSpaceFn)(
+    int32_t deviceLogicId, uint32_t dieId, uint32_t startInstId, uint32_t instNum);
 
 /**
  * CCU Instance（Register Context）：一次 Create 后快照的全部数据面所需信息。
  * 资源按 die × 类型嵌套组织；指令空间不再走 range 视图，改由 ascCustom.allocInstSpace 按需申请。
  * 不携带设备号（调用线程经 aclrtGetDevice 取）、die 启用位图（由 dieMetadata.enabled 推导）与
  * 句柄代际（由 ccuInsKey 槽位代际承担）；ccuVersion 为翻译器初始化所需的设备级版本（定稿 2026-09-10 修订：放 Instance
- * 顶层）。 ascCustom 为函数指针槽位数组（值按槽位含义强转对应 Fn 类型），由 hcomm 在创建时填充。
+ * 顶层）。 ascCustom 为函数指针槽位数组（值按槽位含义强转对应 Fn 类型），由 hcomm 在首次包间查询时填充。
  */
 typedef struct HcommCcuInstance {
     CommAbiHeader header; // ABI 头：version/magic/size 校验
@@ -284,19 +264,9 @@ typedef struct HcommCcuInstance {
     uint32_t ccuVersion;  // 当前设备的 CCU 版本（V1/V2）
     HcommCcuDieRes ccuDieReses[HCOMM_CCU_INSTANCE_DIE_CAPACITY]; // 按 die 组织的资源视图（预留 8 槽）
     uint64_t
-        ascCustom[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]; // 槽 0: 获取ChannelEntity接口；1：申请指令空间；2：下发指令；3-7
+        ascCustom[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]; // 槽 0: 获取ChannelEntity接口；1：申请指令空间；2：下发指令；3：归还指令空间；4-7
                                                     // 预留
 } HcommCcuInstance;
-
-/**
- * @brief 查询 HCCL 通信域持有的 CCU Instance。
- * @param[in] comm HCCL 通信域句柄，不可为 nullptr。
- * @param[out] instance hcomm 持有的只读 CCU Instance 借用指针。
- * @return HcclResult。
- * @note instance 从通信域初始化成功后有效，到 HcclCommDestroy 开始销毁前失效；
- *       RegisterStart 不得与通信域销毁并发，RegisterStart 返回前由 asc-comm 深拷贝。
- */
-extern HcclResult HcclCommQueryCcuRegisterContext(HcclComm comm, HcommCcuInstanceHandle* instance);
 
 #ifdef __cplusplus
 } // extern "C"

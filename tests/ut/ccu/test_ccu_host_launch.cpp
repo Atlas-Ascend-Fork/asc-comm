@@ -30,7 +30,7 @@ asccomm_launch_kernel_cfg MakeLaunchCfg()
 {
     asccomm_launch_kernel_cfg cfg{};
     cfg.ccu_schd = {1, 0, 0x01, 0};
-    cfg.ccu_ins = CcuInsHandle{};
+    cfg.ccu_ins = nullptr;
     cfg.stream = reinterpret_cast<aclrtStream>(0x22);
     cfg.attrs = nullptr;
     return cfg;
@@ -136,8 +136,7 @@ TEST_F(TestCcuHostLaunch, LaunchSuccessForwardsRegisterAndLaunchParameters)
     EXPECT_EQ(observed.calls.registerEnd, 1U);
     EXPECT_EQ(observed.calls.getTaskArgsNum, 1U);
     EXPECT_EQ(observed.calls.kernelLaunch, 1U);
-    EXPECT_EQ(observed.lastInsHandle.ccuInsKey, cfg.ccu_ins.ccuInsKey);
-    EXPECT_EQ(observed.lastInsHandle.ccuInsPtr, cfg.ccu_ins.ccuInsPtr);
+    EXPECT_EQ(observed.lastInsHandle, cfg.ccu_ins);
     EXPECT_EQ(observed.lastDieId, 0U);
     EXPECT_EQ(observed.lastKernelName, DUMMY_KERNEL_NAME);
     EXPECT_NE(observed.lastKernelHandle, 0U);
@@ -276,7 +275,7 @@ TEST_F(TestCcuHostLaunch, HcompatCfgForwardsThroughNewLaunchChain)
     hcompatCfg.ccuSchd.reserved = 0;
     hcompatCfg.ccuSchd.phyDieMask = 0x02;
     hcompatCfg.ccuSchd.binaryCacheTag = 0x5601U;
-    hcompatCfg.ccuIns = CcuInsHandle{};
+    hcompatCfg.ccuIns = nullptr;
     hcompatCfg.stream = reinterpret_cast<aclrtStream>(0x33);
     hcompatCfg.attrs = nullptr;
     uint64_t args[] = {1, 2, 3};

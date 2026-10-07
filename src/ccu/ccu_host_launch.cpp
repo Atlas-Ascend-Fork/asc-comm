@@ -75,8 +75,7 @@ CcuResult RegisterCcuKernel(
     CcuResult ret = asccomm_ccu_kernel_register_start(cfg->ccu_ins);
     if (ret != CCU_SUCCESS) {
         ASCCOMM_CCU_LOG_ERROR(
-            "[%s] asccomm_ccu_kernel_register_start failed, ret[%d], ccuInsKey[0x%llx].", __func__, ret,
-            static_cast<unsigned long long>(cfg->ccu_ins.ccuInsKey));
+            "[%s] asccomm_ccu_kernel_register_start failed, ret[%d], ccuIns[%p].", __func__, ret, cfg->ccu_ins);
         return ret;
     }
 

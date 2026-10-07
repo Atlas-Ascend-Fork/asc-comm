@@ -27,7 +27,7 @@ enum class ccu_var_event_type {
 };
 
 struct ccu_var_event_res {
-    // 仅保存实例身份；资源记录不需要持有 CcuInsHandle 中的借用指针。
+    // 仅保存实例身份；资源记录不需要持有 HcommCcuInstanceHandle 中的借用指针。
     uint64_t ins_key{0};
     int32_t dev_logic_id{-1};
     uint8_t die_id{0};
@@ -68,7 +68,7 @@ public:
 
     // 预约一段连续资源并在申请期完成地址映射；任一阶段失败均整笔回滚，仅全程成功才写 handle
     CcuResult acquire(
-        CcuInsHandle ins_handle, asc_ccu_res_repository& res_repo, ccu_var_event_type type, uint8_t die_id,
+        HcommCcuInstanceHandle ins_handle, asc_ccu_res_repository& res_repo, ccu_var_event_type type, uint8_t die_id,
         uint32_t num, uint64_t& handle);
     CcuResult get_variable_xn_id(uint64_t handle, uint32_t index, uint8_t& die_id, uint32_t& xn_id) const;
     CcuResult get_event_cke_id(uint64_t handle, uint32_t index, uint8_t& die_id, uint32_t& cke_id) const;
@@ -77,8 +77,8 @@ public:
     // 返回 Alloc 阶段已注册的第 index 个资源 VA
     CcuResult get_saved_addr(ccu_var_event_type type, uint64_t handle, uint32_t index, uint64_t& va) const;
     CcuResult release_by_handle(uint64_t handle);
-    CcuResult release_by_instance(CcuInsHandle ins_handle);
-    CcuResult exclude_allocated_from_repo(CcuInsHandle ins_handle) const;
+    CcuResult release_by_instance(HcommCcuInstanceHandle ins_handle);
+    CcuResult exclude_allocated_from_repo(HcommCcuInstanceHandle ins_handle) const;
 
 private:
     explicit ccu_var_event_res_mgr() = default;
@@ -89,7 +89,7 @@ private:
 
     // 校验参数、选池、切出连续块并登记到 resMap_，成功时经 newHandle 返回新句柄
     CcuResult alloc_and_record(
-        CcuInsHandle ins_handle, asc_ccu_res_repository& res_repo, ccu_var_event_type type, uint8_t die_id,
+        HcommCcuInstanceHandle ins_handle, asc_ccu_res_repository& res_repo, ccu_var_event_type type, uint8_t die_id,
         uint32_t num, uint64_t& new_handle);
     // 为 handle 名下 num 个资源逐个注册进程可访问 VA 并缓存；失败时解除本次已完成的映射，
     // 资源池的归还由 Acquire 与切池动作配对完成
