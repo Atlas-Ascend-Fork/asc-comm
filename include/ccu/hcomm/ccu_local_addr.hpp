@@ -45,8 +45,9 @@ public:
     }
     void operator=(const local_addr& other)
     {
-        this->addr_ = other.addr_;
-        this->token = other.token;
+        this->handle = other.handle;
+        this->addr_.handle = other.addr_.handle;
+        this->token.handle = other.token.handle;
     }
     void operator=(local_addr&& other)
     {

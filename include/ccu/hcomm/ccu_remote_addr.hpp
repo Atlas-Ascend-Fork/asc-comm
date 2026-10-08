@@ -45,8 +45,9 @@ public:
     }
     void operator=(const remote_addr& other)
     {
-        this->addr_ = other.addr_;
-        this->token = other.token;
+        this->handle = other.handle;
+        this->addr_.handle = other.addr_.handle;
+        this->token.handle = other.token.handle;
     }
     void operator=(remote_addr&& other)
     {
