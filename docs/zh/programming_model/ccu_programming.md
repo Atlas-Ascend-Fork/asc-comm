@@ -359,7 +359,7 @@ kernel_name<<<schd, insHandle, stream>>>(argument list)
 
 #### <<<>>> 函数签名
 
-CCU Kernel使用`__ccu_host__`限定符修饰，其中SQE参数`sqeArgs1`~`sqeArgs10`与Host侧taskArgs一一对应，通过`ccu::LoadArg`按序加载；`kernelArg`为编排上下文，随Kernel注册一次性下发。
+CCU Kernel使用`__ccu_host__`限定符修饰，其中SQE参数`sqeArgs1`~`sqeArgs10`与Host侧taskArgs一一对应，通过`ccu::load_arg`按序加载；`kernelArg`为编排上下文，随Kernel注册一次性下发。
 
 ## 编程约束与限制
 
