@@ -22,6 +22,7 @@
 #ifndef IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_SIMT_INNER_DEF_H
 #define IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_SIMT_INNER_DEF_H
 
+#include <cstddef>
 #include <cstdint>
 #include <cstddef>
 
@@ -73,6 +74,24 @@ struct HcommSimtChannelEntity {
 };
 
 static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");
+static_assert(
+    offsetof(HcommSimtChannelEntity, localBufferNum) == offsetof(ChannelEntity, localBufferNum),
+    "SIMT ChannelEntity localBufferNum offset mismatch");
+static_assert(
+    offsetof(HcommSimtChannelEntity, remoteBufferNum) == offsetof(ChannelEntity, remoteBufferNum),
+    "SIMT ChannelEntity remoteBufferNum offset mismatch");
+static_assert(
+    offsetof(HcommSimtChannelEntity, localBufferAddr) == offsetof(ChannelEntity, localBufferAddr),
+    "SIMT ChannelEntity localBufferAddr offset mismatch");
+static_assert(
+    offsetof(HcommSimtChannelEntity, remoteBufferAddr) == offsetof(ChannelEntity, remoteBufferAddr),
+    "SIMT ChannelEntity remoteBufferAddr offset mismatch");
+static_assert(
+    offsetof(HcommSimtChannelEntity, sqContextAddr) == offsetof(ChannelEntity, sqContextAddr),
+    "SIMT ChannelEntity sqContextAddr offset mismatch");
+static_assert(
+    offsetof(HcommSimtChannelEntity, cqContextAddr) == offsetof(ChannelEntity, cqContextAddr),
+    "SIMT ChannelEntity cqContextAddr offset mismatch");
 
 // The handle is lane-private, while context points at the shared reservation state and publisher
 // image. Append writes its final SQ slot directly; it does not retain a per-lane request image.

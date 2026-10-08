@@ -81,28 +81,68 @@ __simt_callee__ inline bool HcommSimtTryReserve(
     return true;
 }
 
+__simt_callee__ inline __gm__ HcommSimtChannelEntity* HcommSimtGetChannelEntity(ChannelHandle channel)
+{
+    if (channel == 0U || (channel & (alignof(HcommSimtChannelEntity) - 1U)) != 0U) {
+        return nullptr;
+    }
+    return reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
+}
+
+__simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtGetBufferTable(uint64_t bufferTableAddr)
+{
+    if (bufferTableAddr == 0U || (bufferTableAddr & (alignof(RegedBufferEntity) - 1U)) != 0U) {
+        return nullptr;
+    }
+    return reinterpret_cast<__gm__ RegedBufferEntity*>(bufferTableAddr);
+}
+
+__simt_callee__ inline __gm__ uint8_t* HcommSimtGetBufferAddr(
+    uint64_t bufferTableAddr, uint32_t bufferNum, uint32_t bufferIdx)
+{
+    __gm__ RegedBufferEntity* buffers = HcommSimtGetBufferTable(bufferTableAddr);
+    if (buffers == nullptr || bufferNum == 0U || bufferIdx >= bufferNum) {
+        return nullptr;
+    }
+
+    uint64_t bufferAddr = buffers[bufferIdx].bufferInfo.rma.addr;
+    return bufferAddr == 0U ? nullptr : reinterpret_cast<__gm__ uint8_t*>(bufferAddr);
+}
+
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtLocalBuffers(ChannelHandle channel)
 {
-    __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
-    return reinterpret_cast<__gm__ RegedBufferEntity*>(channelEntity->localBufferAddr);
+    __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
+    if (channelEntity == nullptr || channelEntity->localBufferNum == 0U) {
+        return nullptr;
+    }
+    return HcommSimtGetBufferTable(channelEntity->localBufferAddr);
 }
 
 __simt_callee__ inline __gm__ RegedBufferEntity* HcommSimtRemoteBuffers(ChannelHandle channel)
 {
-    __gm__ HcommSimtChannelEntity* channelEntity = reinterpret_cast<__gm__ HcommSimtChannelEntity*>(channel);
-    return reinterpret_cast<__gm__ RegedBufferEntity*>(channelEntity->remoteBufferAddr);
+    __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
+    if (channelEntity == nullptr || channelEntity->remoteBufferNum == 0U) {
+        return nullptr;
+    }
+    return HcommSimtGetBufferTable(channelEntity->remoteBufferAddr);
 }
 
 __simt_callee__ inline __gm__ uint8_t* HcommSimtLocalBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
 {
-    __gm__ RegedBufferEntity* localBuffers = HcommSimtLocalBuffers(channel);
-    return reinterpret_cast<__gm__ uint8_t*>(localBuffers[bufferIdx].bufferInfo.rma.addr);
+    __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
+    if (channelEntity == nullptr) {
+        return nullptr;
+    }
+    return HcommSimtGetBufferAddr(channelEntity->localBufferAddr, channelEntity->localBufferNum, bufferIdx);
 }
 
 __simt_callee__ inline __gm__ uint8_t* HcommSimtRemoteBufferAddr(ChannelHandle channel, uint32_t bufferIdx)
 {
-    __gm__ RegedBufferEntity* remoteBuffers = HcommSimtRemoteBuffers(channel);
-    return reinterpret_cast<__gm__ uint8_t*>(remoteBuffers[bufferIdx].bufferInfo.rma.addr);
+    __gm__ HcommSimtChannelEntity* channelEntity = HcommSimtGetChannelEntity(channel);
+    if (channelEntity == nullptr) {
+        return nullptr;
+    }
+    return HcommSimtGetBufferAddr(channelEntity->remoteBufferAddr, channelEntity->remoteBufferNum, bufferIdx);
 }
 
 } // namespace AscendC::simt
