@@ -53,6 +53,17 @@ enum class HcommUrmaReduceOp : uint32_t {
     SUM = 0xAU,
 };
 
+namespace simt {
+
+// One request per lane uses a fixed-size shared workspace. itemCapacity must be 1.
+constexpr uint32_t HcommSimtBatchBufferBytes(uint32_t itemCapacity)
+{
+    (void)itemCapacity;
+    return 256U;
+}
+
+} // namespace simt
+
 } // namespace AscendC
 
 #endif // INCLUDE_ADV_API_HCOMM_HCOMM_COMMON_H
