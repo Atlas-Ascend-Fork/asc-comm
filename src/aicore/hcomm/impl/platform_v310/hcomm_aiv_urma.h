@@ -27,6 +27,7 @@
 #include "../../common/hcomm_inner_def.h"
 #include "../../common/hcomm_log.h"
 #include "../../common/hcomm_utils.h"
+#include "utils/debug/asc_assert.h"
 
 typedef AscendC::HcommUrmaSqeCtx HcommUrmaSqeCtx;
 typedef AscendC::HcommUrmaSgeCtx HcommUrmaSgeCtx;
@@ -791,6 +792,14 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCqImpl(
         }
         Mutex::Unlock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
         if (ret != HCOMM_SUCCESS) {
+            if (times >= HCOMM_URMA_MAX_RETRY_TIMES) {
+                ascendc_assert(
+                    false, "Hcomm URMA Poll CQ timeout, curTail=%u, expectIdx=%u.\n", curTail, expectIdx);
+            } else {
+                ascendc_assert(
+                    false, "Hcomm URMA CQE failed, status=%u, subStatus=%u.\n", cqeUb->status & 0xFFU,
+                    cqeUb->substatus & 0xFFU);
+            }
             return ret;
         }
         curTail++;
