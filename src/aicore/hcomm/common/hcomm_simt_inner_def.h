@@ -23,6 +23,7 @@
 #define IMPL_ADV_API_DETAIL_HCOMM_COMMON_HCOMM_SIMT_INNER_DEF_H
 
 #include <cstdint>
+#include <cstddef>
 
 // SIMT intrinsics used throughout the SIMT implementation: asc_atomic_add (reserve),
 // asc_threadfence (ordering before the doorbell).
@@ -72,6 +73,69 @@ struct HcommSimtChannelEntity {
 };
 
 static_assert(sizeof(HcommSimtChannelEntity) == sizeof(ChannelEntity), "SIMT ChannelEntity view size mismatch");
+
+// The handle is lane-private, while context points at the shared reservation state and publisher
+// image. Append writes its final SQ slot directly; it does not retain a per-lane request image.
+struct UbcCtpBatchHandle {
+    ChannelHandle channel = 0U;
+    __ubuf__ uint64_t* context = nullptr;
+    uint32_t groupRank = 0U;
+    uint32_t groupSize = 1U;
+};
+
+// Completion state is caller-owned and separate from the HCCL channel ABI. One owner lane
+// operates a set; publishing lanes never modify this state. Each channel has its own window.
+constexpr uint32_t HCOMM_SIMT_COMPLETION_VERSION = 1U;
+constexpr uint32_t HCOMM_SIMT_COMPLETION_NONE = 0xFFFFFFFFU;
+enum class HcommSimtCompletionFault : uint32_t {
+    NONE = 0U,
+    RESOURCE = 1U,
+    IDENTITY = 2U,
+    CQE = 3U,
+    COUNT = 4U,
+    TIMEOUT = 5U
+};
+struct alignas(128) HcommSimtCompletionState {
+    uint32_t version, channelCount, cqCount, nextCq;
+    uint32_t fault, errorCq, errorChannel, errorSequence;
+    uint32_t errorWord0, errorWord1, errorWord2, reserved;
+};
+struct alignas(128) HcommSimtCompletionChannel {
+    uint64_t channel, sqBase, headAddr, tailAddr;
+    uint32_t jfsId, sqDepth, cqIndex, completed;
+    uint32_t target, targetBb;
+};
+struct alignas(128) HcommSimtCompletionCq {
+    uint64_t base, dbAddr;
+    uint32_t jfcId, depth, cqeSize, consumed, acknowledged;
+};
+static_assert(sizeof(HcommSimtCompletionState) == 128U);
+static_assert(sizeof(HcommSimtCompletionChannel) == 128U);
+static_assert(sizeof(HcommSimtCompletionCq) == 128U);
+static_assert(offsetof(HcommSimtCompletionState, reserved) + sizeof(uint32_t) <= 64U);
+static_assert(offsetof(HcommSimtCompletionChannel, targetBb) + sizeof(uint32_t) <= 64U);
+static_assert(offsetof(HcommSimtCompletionCq, acknowledged) + sizeof(uint32_t) <= 64U);
+
+struct UbcCtpCompletionSet {
+    __gm__ uint8_t* workspace = nullptr;
+};
+
+// Reserve enough CQ records for the worst case of one distinct CQ per channel.
+inline constexpr uint64_t HcommSimtCompletionBufferBytes(uint32_t channelCount)
+{
+    return channelCount == 0U || channelCount > 65535U ? 0ULL : 128ULL * (1ULL + 2ULL * channelCount);
+}
+
+template <typename T>
+struct ChannelTraits;
+
+template <>
+struct ChannelTraits<ChannelHandle> {
+    using BatchHandleType = UbcCtpBatchHandle;
+};
+
+template <typename T>
+using BatchHandle = typename ChannelTraits<T>::BatchHandleType;
 
 } // namespace AscendC::simt
 
