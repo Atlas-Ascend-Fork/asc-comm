@@ -13,7 +13,7 @@
 
 // Internal resource RTSQ runtime. This header is not part of the public API.
 
-#include "hcomm_res_entity_defs.h"
+#include "asccomm_res_defs.h"
 #include "../../common/utils/asccomm_result.h"
 #include "../connection/asccomm_backend_types.h"
 
@@ -30,7 +30,7 @@ AsccommResult asccomm_rtsq_sdma_reduce(
     HcommRtsqContext& context, uint64_t dstAddr, uint64_t srcAddr, uint32_t size, const Asc::ReduceIn& reduceIn);
 AsccommResult asccomm_rtsq_ub_db_send(HcommRtsqContext& context, const Asc::UbJettyLiteId& jettyId, uint16_t piValue);
 AsccommResult asccomm_rtsq_rdma_db_send(HcommRtsqContext& context, uint64_t dbAddr, uint64_t dbValue);
-AsccommResult asccomm_resolve_thread_rtsq(HcommThreadEntity* thread);
+AsccommResult asccomm_resolve_thread_rtsq(ThreadEntity* thread);
 
 // RTSQ硬件属性由数据面在首次使用Thread resource时懒解析。
 AsccommResult asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum);

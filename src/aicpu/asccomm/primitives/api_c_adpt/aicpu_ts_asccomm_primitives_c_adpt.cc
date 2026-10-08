@@ -11,7 +11,7 @@
 #include <cmath>
 #include <limits>
 #include "asccomm_primitives.h"
-#include "hcomm_res_entity_defs.h"
+#include "asccomm_res_defs.h"
 #include "asccomm_launch.h"
 #include "asccomm_runtime.h"
 #include "asccomm_transport.h"
@@ -21,8 +21,8 @@
 namespace {
 
 struct CommContext {
-    HcommThreadEntity* thread;
-    HcommChannelEntity* channel;
+    ThreadEntity* thread;
+    ChannelEntity* channel;
 };
 
 template <typename Entity>
@@ -45,12 +45,12 @@ AsccommResult validate_entity(const Entity* entity, uint32_t version, uint32_t m
 }
 
 AsccommResult get_thread_entity(
-    ThreadHandle thread, bool registerThread, bool resolveRtsq, HcommThreadEntity*& threadEntity)
+    ThreadHandle thread, bool registerThread, bool resolveRtsq, ThreadEntity*& threadEntity)
 {
     CHK_PRT_RET(thread == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
     // The public ThreadHandle is the device resource entity address.  The control
     // plane performs the original-handle -> POD conversion before launch.
-    threadEntity = reinterpret_cast<HcommThreadEntity*>(static_cast<uintptr_t>(thread));
+    threadEntity = reinterpret_cast<ThreadEntity*>(static_cast<uintptr_t>(thread));
     CHK_RET(validate_entity(threadEntity, HCOMM_RESOURCE_THREAD_VERSION, HCOMM_RESOURCE_THREAD_MAGIC_WORD));
     CHK_PTR_NULL(threadEntity->sqContextAddr);
     if (resolveRtsq) {
@@ -67,12 +67,12 @@ AsccommResult get_context(ThreadHandle thread, ChannelHandle channel, bool regis
     CHK_PRT_RET(channel == 0, ASCCOMM_ERROR("[%s] channel handle is 0.", __func__), ASCCOMM_E_PTR);
     CHK_RET(get_thread_entity(thread, registerThread, true, context.thread));
     // ChannelHandle follows the same resource-address ABI as ThreadHandle.
-    context.channel = reinterpret_cast<HcommChannelEntity*>(static_cast<uintptr_t>(channel));
+    context.channel = reinterpret_cast<ChannelEntity*>(static_cast<uintptr_t>(channel));
     CHK_RET(validate_entity(context.channel, HCOMM_RESOURCE_CHANNEL_VERSION, HCOMM_RESOURCE_CHANNEL_MAGIC_WORD));
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult get_thread_notify_id(const HcommThreadEntity& thread, uint32_t notifyIdx, uint32_t& notifyId)
+AsccommResult get_thread_notify_id(const ThreadEntity& thread, uint32_t notifyIdx, uint32_t& notifyId)
 {
     CHK_PRT_RET(
         notifyIdx >= thread.localNotifyNum || thread.localNotifyAddr == nullptr,
@@ -89,76 +89,76 @@ AsccommResult get_thread_notify_id(const HcommThreadEntity& thread, uint32_t not
 }
 
 AsccommResult convert_reduce_in(
-    HcommDataType dataType, HcommReduceOp reduceOp, Asc::DataType& innerDataType, Asc::ReduceOp& innerReduceOp,
+    AsccommDataType dataType, AsccommReduceOp reduceOp, Asc::DataType& innerDataType, Asc::ReduceOp& innerReduceOp,
     uint32_t& typeSize)
 {
     switch (dataType) {
-        case HCOMM_DATA_TYPE_INT8:
+        case ASCCOMM_DATA_TYPE_INT8:
             innerDataType = Asc::DataType::INT8;
             typeSize = 1;
             break;
-        case HCOMM_DATA_TYPE_INT16:
+        case ASCCOMM_DATA_TYPE_INT16:
             innerDataType = Asc::DataType::INT16;
             typeSize = 2;
             break;
-        case HCOMM_DATA_TYPE_INT32:
+        case ASCCOMM_DATA_TYPE_INT32:
             innerDataType = Asc::DataType::INT32;
             typeSize = 4;
             break;
-        case HCOMM_DATA_TYPE_FP16:
+        case ASCCOMM_DATA_TYPE_FP16:
             innerDataType = Asc::DataType::FP16;
             typeSize = 2;
             break;
-        case HCOMM_DATA_TYPE_FP32:
+        case ASCCOMM_DATA_TYPE_FP32:
             innerDataType = Asc::DataType::FP32;
             typeSize = 4;
             break;
-        case HCOMM_DATA_TYPE_INT64:
+        case ASCCOMM_DATA_TYPE_INT64:
             innerDataType = Asc::DataType::INT64;
             typeSize = 8;
             break;
-        case HCOMM_DATA_TYPE_UINT64:
+        case ASCCOMM_DATA_TYPE_UINT64:
             innerDataType = Asc::DataType::UINT64;
             typeSize = 8;
             break;
-        case HCOMM_DATA_TYPE_UINT8:
+        case ASCCOMM_DATA_TYPE_UINT8:
             innerDataType = Asc::DataType::UINT8;
             typeSize = 1;
             break;
-        case HCOMM_DATA_TYPE_UINT16:
+        case ASCCOMM_DATA_TYPE_UINT16:
             innerDataType = Asc::DataType::UINT16;
             typeSize = 2;
             break;
-        case HCOMM_DATA_TYPE_UINT32:
+        case ASCCOMM_DATA_TYPE_UINT32:
             innerDataType = Asc::DataType::UINT32;
             typeSize = 4;
             break;
-        case HCOMM_DATA_TYPE_FP64:
+        case ASCCOMM_DATA_TYPE_FP64:
             innerDataType = Asc::DataType::FP64;
             typeSize = 8;
             break;
-        case HCOMM_DATA_TYPE_BFP16:
+        case ASCCOMM_DATA_TYPE_BFP16:
             innerDataType = Asc::DataType::BFP16;
             typeSize = 2;
             break;
-        case HCOMM_DATA_TYPE_INT128:
+        case ASCCOMM_DATA_TYPE_INT128:
             innerDataType = Asc::DataType::INT128;
             typeSize = 16;
             break;
 #ifndef OPEN_BUILD_PROJECT
-        case HCOMM_DATA_TYPE_HIF8:
+        case ASCCOMM_DATA_TYPE_HIF8:
             innerDataType = Asc::DataType::HIF8;
             typeSize = 1;
             break;
-        case HCOMM_DATA_TYPE_FP8E4M3:
+        case ASCCOMM_DATA_TYPE_FP8E4M3:
             innerDataType = Asc::DataType::FP8E4M3;
             typeSize = 1;
             break;
-        case HCOMM_DATA_TYPE_FP8E5M2:
+        case ASCCOMM_DATA_TYPE_FP8E5M2:
             innerDataType = Asc::DataType::FP8E5M2;
             typeSize = 1;
             break;
-        case HCOMM_DATA_TYPE_FP8E8M0:
+        case ASCCOMM_DATA_TYPE_FP8E8M0:
             innerDataType = Asc::DataType::FP8E8M0;
             typeSize = 1;
             break;
@@ -168,16 +168,16 @@ AsccommResult convert_reduce_in(
             return ASCCOMM_E_PARA;
     }
     switch (reduceOp) {
-        case HCOMM_REDUCE_SUM:
+        case ASCCOMM_REDUCE_SUM:
             innerReduceOp = Asc::ReduceOp::SUM;
             break;
-        case HCOMM_REDUCE_PROD:
+        case ASCCOMM_REDUCE_PROD:
             innerReduceOp = Asc::ReduceOp::PROD;
             break;
-        case HCOMM_REDUCE_MAX:
+        case ASCCOMM_REDUCE_MAX:
             innerReduceOp = Asc::ReduceOp::MAX;
             break;
-        case HCOMM_REDUCE_MIN:
+        case ASCCOMM_REDUCE_MIN:
             innerReduceOp = Asc::ReduceOp::MIN;
             break;
         default:
@@ -188,7 +188,7 @@ AsccommResult convert_reduce_in(
 }
 
 AsccommResult get_reduce_params(
-    HcommDataType dataType, HcommReduceOp reduceOp, uint64_t count, uint64_t& len, Asc::ReduceIn& reduceIn)
+    AsccommDataType dataType, AsccommReduceOp reduceOp, uint64_t count, uint64_t& len, Asc::ReduceIn& reduceIn)
 {
     Asc::DataType innerDataType = Asc::DataType::INVALID;
     Asc::ReduceOp innerReduceOp = Asc::ReduceOp::INVALID;
@@ -245,7 +245,7 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void* dst, const void*
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
         CHK_PTR_NULL(src);
-        HcommThreadEntity* threadEntity = nullptr;
+        ThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         constexpr uint64_t SDMA_SEND_MAX_SIZE = 0x100000000ULL;
         uint64_t offset = 0;
@@ -262,7 +262,7 @@ int32_t asccomm_local_copy_on_thread(ThreadHandle thread, void* dst, const void*
 }
 
 int32_t asccomm_local_reduce_on_thread(
-    ThreadHandle thread, void* dst, const void* src, uint64_t count, HcommDataType dataType, HcommReduceOp reduceOp)
+    ThreadHandle thread, void* dst, const void* src, uint64_t count, AsccommDataType dataType, AsccommReduceOp reduceOp)
 {
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
@@ -270,7 +270,7 @@ int32_t asccomm_local_reduce_on_thread(
         Asc::ReduceIn reduceIn{Asc::DataType::INVALID, Asc::ReduceOp::INVALID};
         uint64_t len = 0;
         CHK_RET(get_reduce_params(dataType, reduceOp, count, len, reduceIn));
-        HcommThreadEntity* threadEntity = nullptr;
+        ThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         constexpr uint64_t SDMA_SEND_MAX_SIZE = 0x100000000ULL;
         uint64_t offset = 0;
@@ -289,8 +289,8 @@ int32_t asccomm_local_reduce_on_thread(
 int32_t asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle dstThread, uint32_t dstNotifyIdx)
 {
     return execute_api([&]() {
-        HcommThreadEntity* threadEntity = nullptr;
-        HcommThreadEntity* dstThreadEntity = nullptr;
+        ThreadEntity* threadEntity = nullptr;
+        ThreadEntity* dstThreadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         CHK_RET(get_thread_entity(dstThread, false, false, dstThreadEntity));
         uint32_t notifyId = 0;
@@ -302,7 +302,7 @@ int32_t asccomm_thread_notify_record_on_thread(ThreadHandle thread, ThreadHandle
 int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notifyIdx, uint32_t timeOut)
 {
     return execute_api([&]() {
-        HcommThreadEntity* threadEntity = nullptr;
+        ThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         uint32_t notifyId = 0;
         CHK_RET(get_thread_notify_id(*threadEntity, notifyIdx, notifyId));
@@ -313,7 +313,7 @@ int32_t asccomm_thread_notify_wait_on_thread(ThreadHandle thread, uint32_t notif
 int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstNotifyId)
 {
     return execute_api([&]() {
-        HcommThreadEntity* threadEntity = nullptr;
+        ThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         return asccomm_rtsq_notify_record(*threadEntity->sqContextAddr, static_cast<uint32_t>(dstNotifyId));
     });
@@ -322,7 +322,7 @@ int32_t asccomm_aclrt_notify_record_on_thread(ThreadHandle thread, uint64_t dstN
 int32_t asccomm_aclrt_notify_wait_on_thread(ThreadHandle thread, uint64_t notifyId, uint32_t timeOut)
 {
     return execute_api([&]() {
-        HcommThreadEntity* threadEntity = nullptr;
+        ThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         return asccomm_rtsq_notify_wait(*threadEntity->sqContextAddr, static_cast<uint32_t>(notifyId), timeOut);
     });
@@ -341,8 +341,8 @@ int32_t asccomm_write_on_thread(ThreadHandle thread, ChannelHandle channel, void
 }
 
 int32_t asccomm_write_reduce_on_thread(
-    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, HcommDataType dataType,
-    HcommReduceOp reduceOp)
+    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, AsccommDataType dataType,
+    AsccommReduceOp reduceOp)
 {
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
@@ -373,8 +373,8 @@ int32_t asccomm_write_with_notify_on_thread(
 }
 
 int32_t asccomm_write_reduce_with_notify_on_thread(
-    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, HcommDataType dataType,
-    HcommReduceOp reduceOp, uint32_t remoteNotifyIdx)
+    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, AsccommDataType dataType,
+    AsccommReduceOp reduceOp, uint32_t remoteNotifyIdx)
 {
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
@@ -403,8 +403,8 @@ int32_t asccomm_read_on_thread(ThreadHandle thread, ChannelHandle channel, void*
 }
 
 int32_t asccomm_read_reduce_on_thread(
-    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, HcommDataType dataType,
-    HcommReduceOp reduceOp)
+    ThreadHandle thread, ChannelHandle channel, void* dst, const void* src, uint64_t count, AsccommDataType dataType,
+    AsccommReduceOp reduceOp)
 {
     return execute_api([&]() {
         CHK_PTR_NULL(dst);
@@ -421,7 +421,7 @@ int32_t asccomm_read_reduce_on_thread(
 }
 
 int32_t asccomm_batch_transfer_on_thread(
-    ThreadHandle thread, ChannelHandle channel, const HcommBatchTransferDesc* transferDescs, uint32_t transferDescNum)
+    ThreadHandle thread, ChannelHandle channel, const AsccommBatchTransferDesc* transferDescs, uint32_t transferDescNum)
 {
     return execute_api([&]() {
         CHK_PTR_NULL(transferDescs);
@@ -474,7 +474,7 @@ int32_t asccomm_thread_notify_wait_on_thread_with_default_timeout(ThreadHandle t
 {
     const uint32_t timeout = asccomm_get_notify_wait_timeout();
     return execute_api([&]() {
-        HcommThreadEntity* threadEntity = nullptr;
+        ThreadEntity* threadEntity = nullptr;
         CHK_RET(get_thread_entity(thread, true, true, threadEntity));
         uint32_t notifyId = 0;
         CHK_RET(get_thread_notify_id(*threadEntity, notifyIdx, notifyId));
