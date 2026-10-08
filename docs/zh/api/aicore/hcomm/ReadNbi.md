@@ -1,8 +1,29 @@
 # ReadNbi
 
+## 产品支持情况
+
+<!-- npu="950" id1 -->
+- Ascend 950PR&950DT系列产品：支持
+<!-- end id1 -->
+<!-- npu="A3" id2 -->
+- Atlas A3系列产品：不支持
+<!-- end id2 -->
+<!-- npu="910b" id3 -->
+- Atlas A2系列产品：不支持
+<!-- end id3 -->
+<!-- npu="310b" id4 -->
+- Atlas 200I/500 A2推理产品：不支持
+<!-- end id4 -->
+<!-- npu="310p" id5 -->
+- Atlas推理系列产品：不支持
+<!-- end id5 -->
+<!-- npu="910" id6 -->
+- Atlas训练系列产品：不支持
+<!-- end id6 -->
+
 ## 功能说明
 
-将数据从远端`src`读取到本端`dst`。接口提供普通`ChannelHandle`重载和BatchHandle重载：普通重载直接向通道提交读任务；批量重载将读任务添加到当前批次，后续由`BatchCommit`统一提交。
+将数据从远端`src`读取到本端`dst`。接口提供普通`channel`重载和批量`batchHandle`重载：普通重载直接向通道提交读任务；批量重载将读任务添加到当前批次，后续由[BatchCommit](./BatchCommit.md)统一提交。
 
 ## 函数原型
 
@@ -31,17 +52,9 @@ __aicore__ inline int32_t ReadNbi(
 
 ## 参数说明
 
-| 参数 | 输入/输出 | 说明 |
-| --- | --- | --- |
-| `channel` | 输入 | 普通接口使用的通信通道句柄。 |
-| `batchHandle` | 输入/输出 | `MakeBatchHandle`创建的单通道批量句柄，或`GetHandleRef`返回的BatchHandle引用。 |
-| `dst` | 输出 | 本端目的GM绝对地址。 |
-| `src` | 输入 | 远端源GM绝对地址。 |
-| `len` | 输入 | 读取长度，单位为字节。必须小于 256 MB（256 * 1024 * 1024 字节）。 |
+**表1** 模板参数说明
 
-## 模板参数
-
-| 参数 | 说明 |
+| 参数名 | 描述 |
 | --- | --- |
 | `commit` | 普通接口是否在提交任务时立即commit。批量接口不提供该参数。 |
 | `commitPipe` | 普通接口commit使用的pipe，默认`PIPE_S`。 |
@@ -49,7 +62,17 @@ __aicore__ inline int32_t ReadNbi(
 | `config` | URMA任务配置。默认为`URMA_DEFAULT_CFG`。批量接口要求`inlineEn = 0`，且`cqe`只能为`0`或`1`。 |
 | `T` | 批量句柄类型，由`batchHandle`实参推导。 |
 
-## 返回值
+**表2** 接口参数说明
+
+| 参数名 | 输入/输出 | 描述 |
+| --- | --- | --- |
+| `channel` | 输入 | 普通接口使用的通信通道句柄。 |
+| `batchHandle` | 输入/输出 | [MakeBatchHandle](./MakeBatchHandle.md)创建的单通道批量句柄，或[GetHandleRef](./GetHandleRef.md)返回的BatchHandle引用。 |
+| `dst` | 输出 | 本端目的GM绝对地址。 |
+| `src` | 输入 | 远端源GM绝对地址。 |
+| `len` | 输入 | 读取长度，单位为字节。必须小于 256 MB（256 * 1024 * 1024 字节）。 |
+
+## 返回值说明
 
 | 返回值 | 说明 |
 | --- | --- |
@@ -58,23 +81,85 @@ __aicore__ inline int32_t ReadNbi(
 
 ## 约束说明
 
-### 普通接口
+**普通接口**
 
 - 调用前通信通道需已完成初始化，并通过`Init`提供临时工作区。
-- `COMM_PROTOCOL_UBC_CTP`路径下，`src`需要落在通道注册的远端buffer范围内，`dst`为本端目标地址。
+- `COMM_PROTOCOL_UB_CTP`协议路径下，`src`需要落在通道注册的远端buffer范围内，`dst`为本端目标地址。
 - 若`commit`模板参数设为`false`，连续积攒的任务槽位不得超过通道的任务提交容量；需在容量耗尽前通过`Commit`或自动commit提交，否则后续任务提交将失败。
 - 批量提交场景（多次延迟commit + 最后一次commit）下，仅最后一次commit应生成完成记录（即中间任务的`config.cqe`设为0，最后一次设为1）。
 
-### 批量接口
+**批量接口**
 
-- 当前仅支持Ascend 950上的`COMM_PROTOCOL_UBC_CTP`路径。
+- 当前仅支持`COMM_PROTOCOL_UB_CTP`协议路径。
 - 每个批量读任务占用64字节批量工作区。
 - 对批量句柄，`[src, src + len)`必须属于其选中的远端注册内存。
 - 批量工作区剩余空间不足时返回`-1`。
-- 添加完成后需要调用`BatchCommit`。多通道模式通过`GetHandleRef`返回的句柄引用添加任务，并通过`MakeBatchHandle`返回的多通道批量句柄提交。使用期间需要独占关联的通道资源。
+- 添加完成后需要调用[BatchCommit](./BatchCommit.md)。多通道模式通过[GetHandleRef](./GetHandleRef.md)返回的句柄引用添加任务，并通过[MakeBatchHandle](./MakeBatchHandle.md)返回的多通道批量句柄提交。使用期间需要独占关联的通道资源。
 
-## 相关样例
+## 调用示例
 
-[hcomm_write_read_nbi](../../../../../examples/aicore/hcomm/01_hcomm_write_read_nbi/README.md)演示普通接口的AIV直驱URMA两卡读写流程。BatchHandle基本流程见[Hcomm使用说明](../../../guide/hcomm_usage.md)。
+ReadNbi接口的调用示例如下。
 
-多通道接口见[GetHandleRef](./GetHandleRef.md)。
+普通接口：
+
+```cpp
+// 单次通信数据传输大小
+constexpr uint64_t BYTES = 1024U;
+// 初始化UB临时工作区大小：不得小于512B
+constexpr uint32_t HCOMM_BUF_SIZE = 512U;
+
+extern "C" __global__ __aicore__ void hcomm_read_nbi_kernel(
+    __gm__ void* channel, GM_ADDR localBuffer, GM_ADDR remoteBuffer)
+{
+    // 准备UB临时工作区
+    AscendC::TPipe pipe;
+    AscendC::TBuf<AscendC::TPosition::VECOUT> hcommBuf;
+    pipe.InitBuffer(hcommBuf, HCOMM_BUF_SIZE);
+    AscendC::LocalTensor<uint8_t> hcommLocal = hcommBuf.Get<uint8_t>();
+
+    // 创建Hcomm对象并初始化UB临时工作区
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UB_CTP> hcomm;
+    hcomm.Init(hcommLocal, HCOMM_BUF_SIZE);
+
+    // 远端remoteBuffer数据读取到本端localBuffer
+    hcomm.ReadNbi(channel, localBuffer, remoteBuffer, BYTES);
+
+    // 阻塞等待读任务完成
+    hcomm.Drain(channel);
+}
+```
+
+批量接口：
+
+```cpp
+// 单次通信数据传输大小
+constexpr uint64_t BYTES = 1024U;
+// 批量工作区大小：不得小于64B，起始地址需按32B对齐
+constexpr uint32_t BATCH_BUF_SIZE = 128U;
+
+extern "C" __global__ __aicore__ void hcomm_batch_read_nbi_kernel(
+    __gm__ void* channel, GM_ADDR localBuffer, GM_ADDR remoteBuffer)
+{
+    // 准备批量UB工作区，批量接口不依赖Init
+    AscendC::TPipe pipe;
+    AscendC::TBuf<AscendC::TPosition::VECOUT> batchBuf;
+    pipe.InitBuffer(batchBuf, BATCH_BUF_SIZE);
+    AscendC::LocalTensor<uint8_t> batchBuffer = batchBuf.Get<uint8_t>();
+
+    // 创建Hcomm对象
+    AscendC::Hcomm<AscendC::COMM_PROTOCOL_UB_CTP> hcomm;
+
+    // 创建单通道批量句柄并绑定批量工作区，remoteBuffer用于选择远端注册内存
+    auto batchHandle = hcomm.MakeBatchHandle(
+        channel, batchBuffer, BATCH_BUF_SIZE, remoteBuffer);
+
+    // 向当前批次添加读任务
+    hcomm.ReadNbi(batchHandle, localBuffer, remoteBuffer, BYTES);
+
+    // 提交当前批次中的全部任务
+    hcomm.BatchCommit(batchHandle);
+
+    // 等待已提交任务生成的完成记录
+    hcomm.Drain(batchHandle);
+}
+```
