@@ -182,13 +182,13 @@ uint8_t* get_current_sqe(HcommRtsqContext& context)
     return reinterpret_cast<uint8_t*>(context.localSqeAddr) + context.pendingSqeCnt * HCOMM_RESOURCE_RTSQ_SQE_SIZE;
 }
 
-AsccommResult validate_thread_entity(HcommThreadEntity* thread)
+AsccommResult validate_thread_entity(ThreadEntity* thread)
 {
     CHK_PTR_NULL(thread);
     CHK_PRT_RET(
         thread->abiHeader.version != HCOMM_RESOURCE_THREAD_VERSION ||
             thread->abiHeader.magicWord != HCOMM_RESOURCE_THREAD_MAGIC_WORD ||
-            thread->abiHeader.size < sizeof(HcommThreadEntity),
+            thread->abiHeader.size < sizeof(ThreadEntity),
         ASCCOMM_ERROR("[%s] invalid resource thread entity.", __func__), ASCCOMM_E_PARA);
     CHK_PTR_NULL(thread->sqContextAddr);
     const HcommRtsqContext& rtsq = *thread->sqContextAddr;
@@ -203,7 +203,7 @@ AsccommResult validate_thread_entity(HcommThreadEntity* thread)
 
 } // namespace
 
-AsccommResult asccomm_resolve_thread_rtsq(HcommThreadEntity* thread)
+AsccommResult asccomm_resolve_thread_rtsq(ThreadEntity* thread)
 {
     CHK_PTR_NULL(thread);
     CHK_PTR_NULL(thread->sqContextAddr);
@@ -367,7 +367,7 @@ AsccommResult asccomm_task_launch(ThreadHandle* threads, uint32_t threadNum)
     CHK_PTR_NULL(threads);
     for (uint32_t index = 0; index < threadNum; ++index) {
         CHK_PRT_RET(threads[index] == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
-        HcommThreadEntity* thread = reinterpret_cast<HcommThreadEntity*>(static_cast<uintptr_t>(threads[index]));
+        ThreadEntity* thread = reinterpret_cast<ThreadEntity*>(static_cast<uintptr_t>(threads[index]));
         CHK_RET(asccomm_resolve_thread_rtsq(thread));
         CHK_RET(validate_thread_entity(thread));
         CHK_RET(asccomm_rtsq_launch(*thread->sqContextAddr));
@@ -380,7 +380,7 @@ AsccommResult asccomm_try_launch(ThreadHandle* threads, uint32_t threadNum)
     CHK_PTR_NULL(threads);
     for (uint32_t index = 0; index < threadNum; ++index) {
         CHK_PRT_RET(threads[index] == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
-        HcommThreadEntity* thread = reinterpret_cast<HcommThreadEntity*>(static_cast<uintptr_t>(threads[index]));
+        ThreadEntity* thread = reinterpret_cast<ThreadEntity*>(static_cast<uintptr_t>(threads[index]));
         CHK_RET(asccomm_resolve_thread_rtsq(thread));
         CHK_RET(validate_thread_entity(thread));
         CHK_RET(asccomm_rtsq_try_launch(*thread->sqContextAddr));
