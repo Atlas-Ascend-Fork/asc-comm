@@ -64,15 +64,20 @@ __simt_callee__ inline bool HcommSimtTryReserve(
         return false;
     }
 
+    uint32_t curHead = HcommSimtHeadIdx(headVal);
+
     // Both counters are free-running, so the subtraction is done in modular arithmetic; the
     // usedBbCnt > sqDepth guard rejects a head/tail pair that cannot be consistent.
-    uint32_t usedBbCnt = HcommSimtHeadIdx(headVal) - *tailAddr;
+    uint32_t usedBbCnt = curHead - *tailAddr;
     if (usedBbCnt > sqDepth || requiredFreeBbCnt > sqDepth - usedBbCnt) {
         return false;
     }
 
-    uint64_t delta = (static_cast<uint64_t>(cqeCnt) << 32U) | static_cast<uint64_t>(bbCnt);
-    *headAddr = headVal + delta;
+    // The two halves of headAddr wrap independently. In particular, a 64-bit add would carry
+    // from a wrapping curHead into wqeCnt and make PollCq expect a completion that never occurs.
+    uint32_t nextHead = curHead + bbCnt;
+    uint32_t nextWqeCnt = HcommSimtWqeCnt(headVal) + cqeCnt;
+    *headAddr = static_cast<uint64_t>(nextHead) | (static_cast<uint64_t>(nextWqeCnt) << 32U);
     return true;
 }
 
