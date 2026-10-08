@@ -19,6 +19,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(ASCCOMM_BUILD_CCU "Build asc-comm CCU launch wrapper library" ON)
+option(ASCCOMM_BUILD_MC2 "Build MC2 communication client library (migrated from asc-devkit hccl)" OFF)
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)
     set(_ASCCOMM_CANN_PACKAGE_PATH "${CUSTOM_ASCEND_CANN_PACKAGE_PATH}")
@@ -49,4 +50,8 @@ endif()
 
 if(ASCCOMM_BUILD_CCU)
     add_subdirectory(src/ccu)
+endif()
+
+if(ASCCOMM_BUILD_MC2)
+    add_subdirectory(src/cc)
 endif()
