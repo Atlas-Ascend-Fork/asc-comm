@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-#include "hcomm/hcomm_types.h"
+#include "hcomm/hccl_types.h"
 
 namespace asc {
 class CcuDevMgrImp {
