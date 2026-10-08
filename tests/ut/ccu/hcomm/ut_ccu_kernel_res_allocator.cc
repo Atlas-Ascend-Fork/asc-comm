@@ -110,7 +110,7 @@ TEST(CcuKernelResAllocatorTest, NormalRequestPreservesReservedGap)
     EXPECT_EQ(remaining.block_gsa[0][0].start_id, 10);
 }
 
-// INS 不再走 range 池：指令空间由 ascCustom.allocInstSpace 向 hcomm 申请（见 ccu_kernel_mgr），
+// INS 不再走 range 池：指令空间由控制操作槽位向 hcomm 申请（见 ccu_kernel_mgr），
 // allocator 不再切分 instruction 池，原连续区间用例已随该机制移除。
 
 } // namespace
