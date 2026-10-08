@@ -17,15 +17,12 @@
 
 #include "hcomm/resource/kernel/ccu_kernel.h"
 #include "hcomm/resource/common/asc_ccu_res_snapshot.h"
-#include "hcomm/hcomm_ccu_dfx.h" // asccomm_ccu_diagnose 的请求/回调类型（DFX 诊断专用头）
 
 #include "hcomm/resource/representation/reps/translator/ccu_rep_translator_v1.h"
 
 #include "hcomm/resource/representation/reps/translator/ccu_ins_generater_base.h"
 
 namespace asc {
-
-int32_t asccomm_ccu_diagnose(const HcommCcuDfxRequest* request, HcommCcuDfxEmitFn emit, void* context);
 
 using namespace ccu_rep;
 

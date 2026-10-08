@@ -13,6 +13,7 @@
 
 #include <stdint.h>
 
+#include "hcomm/ccu/ccu_types.h"
 #include "hcomm/hcomm_ccu_resource.h"
 
 #ifdef __cplusplus

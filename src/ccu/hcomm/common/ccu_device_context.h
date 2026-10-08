@@ -27,7 +27,6 @@ int32_t get_current_ccu_device_logic_id();
 // ascCustom 槽位数组的线程级借用快照（值按槽位含义强转对应 Fn 类型使用）
 void set_current_ccu_control_ops(const uint64_t (&asc_custom)[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]);
 const uint64_t* get_current_ccu_control_ops();
-
 } // namespace asc
 
 #endif // ASCCOMM_CCU_DEVICE_CONTEXT_H

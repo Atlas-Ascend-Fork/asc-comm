@@ -14,7 +14,7 @@
 #include <cstdint>
 
 #include "hcomm/hcomm_ccu_resource.h"
-#include "hcomm/hcomm_types.h"
+#include "ccu/hcomm/hccl_types.h"
 
 namespace asc {
 
