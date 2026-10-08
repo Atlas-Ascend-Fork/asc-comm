@@ -13,7 +13,8 @@
 
 #include <stdint.h>
 
-#include "hcomm/hcomm_ccu_resource.h"
+#include "hcomm/ccu/ccu_types.h"
+#include "hcomm/ccu/hcomm_res_ccu_entity_defs.h"
 
 #ifndef ASCCOMM_CCU_HOST_LAUNCH_HAS_ACLRT_STREAM
 typedef void* aclrtStream; // 无 acl 头环境的最小兜底，实际为 aclrtStream（void*）
@@ -32,7 +33,7 @@ typedef struct {
 
 typedef struct {
     asccomm_ccu_schd ccu_schd;
-    CcuInsHandle ccu_ins;
+    void* ccu_ins; // 指向 hcomm 持有的 HcommCcuInstanceEntity
     aclrtStream stream;
     void* attrs;
 } asccomm_launch_kernel_cfg;
@@ -46,7 +47,7 @@ typedef struct {
 
 typedef struct {
     HcommCcuSchd ccuSchd;
-    CcuInsHandle ccuIns;
+    void* ccuIns; // 指向 hcomm 持有的 HcommCcuInstanceEntity
     aclrtStream stream;
     void* attrs;
 } HcommLaunchKernelCfg;

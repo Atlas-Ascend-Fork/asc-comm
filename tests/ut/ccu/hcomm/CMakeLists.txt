@@ -13,10 +13,14 @@ set(CCU_REP_DIR ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/representation)
 set(CCU_MICROCODE_DIR ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode)
 
 # CCU UT 公共头文件目录：仅限本仓、测试兼容层和 CANN 安装包。
+# include/hcomm：include/hcomm/ccu/hcomm_res_ccu_entity_defs.h 依赖 ccu_types.h（装在
+# ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu/）与 hcomm/hcomm_res_entity_defs.h（装在
+# pkg_inc/hcomm/），需补 CANN 侧 hcomm 头目录才能解析。
 set(UT_COMMON_INCLUDE_LIST
     ${ASCCOMM_UT_ROOT}/ccu/hcomm_compat/include
     ${ASCCOMM_ROOT}/include
     ${ASCCOMM_ROOT}/src/ccu
+    ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc/base
     ${ASCCOMM_UT_ROOT}/ccu/stub
