@@ -48,7 +48,7 @@ void SetCcuLaunchStubTaskArgsNum(uint32_t taskArgsNum) { g_taskArgsNum = taskArg
 
 CcuLaunchStubObservations GetCcuLaunchStubObservations() { return g_observations; }
 
-extern "C" CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle insHandle)
+extern "C" CcuResult asccomm_ccu_kernel_register_start(void* insHandle)
 {
     ++g_observations.calls.registerStart;
     g_observations.lastInsHandle = insHandle;
@@ -56,7 +56,7 @@ extern "C" CcuResult asccomm_ccu_kernel_register_start(CcuInsHandle insHandle)
 }
 
 extern "C" CcuResult asccomm_ccu_kernel_register(
-    CcuInsHandle insHandle, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
+    void* insHandle, uint32_t dieId, const char* kernelFuncName, const void* kernelFunc, const void** kernelArgs,
     uint32_t argNum, ccu_kernel_handle* kernelHandle)
 {
     ++g_observations.calls.registerKernel;
@@ -90,7 +90,7 @@ extern "C" CcuResult asccomm_ccu_kernel_register(
     return CcuResult::CCU_SUCCESS;
 }
 
-extern "C" CcuResult asccomm_ccu_kernel_register_end(CcuInsHandle insHandle)
+extern "C" CcuResult asccomm_ccu_kernel_register_end(void* insHandle)
 {
     ++g_observations.calls.registerEnd;
     g_observations.lastInsHandle = insHandle;

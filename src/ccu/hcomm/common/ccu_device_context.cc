@@ -15,7 +15,7 @@
 namespace asc {
 namespace {
 thread_local uint64_t current_ccu_control_ops[HCOMM_CCU_ASC_CUSTOM_SLOT_COUNT]{};
-}
+} // namespace
 
 int32_t get_current_ccu_device_logic_id()
 {

@@ -17,11 +17,10 @@
 #error "ccu/hcomm/ccu_primitives_impl.h 仅支持 C++：数据面 primitive 声明位于 namespace asc"
 #endif // __cplusplus
 
-// 控制面/数据面 ABI 边界：数据类型（HcclResult 等）改从 hcomm 包内 hcomm_types.h 获取，
-// 不再直接依赖 hccl/hccl_types.h，保证两仓按统一 POD ABI 演进
+// 控制面/数据面 ABI 边界：数据类型（HcclResult 等）取自 HCCL 公共类型定义
 #include "ccu/hcomm/ccu_api_types.h"
 #include "hcomm/hcomm_primitives.h"
-#include "hcomm/hcomm_types.h"
+#include "hccl_types.h"
 
 // 数据面 primitive 统一为 C++ linkage：声明与实现均位于 namespace asc，
 // 与 hcomm 仓保留 C ABI 的同名接口（pkg_inc/hcomm/ccu/ccu_primitives_impl.h）符号隔离，
