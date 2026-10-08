@@ -23,16 +23,16 @@ namespace {
 struct ContextStorage {
     HcommCcuInstance instance_{};
     HcommCcuDieMetadata dieMetadata[HCOMM_CCU_MAX_DIE_NUM]{};
-    std::vector<HcommCcuResRange> dieRanges[HCOMM_CCU_MAX_DIE_NUM][HCOMM_CCU_BATCH_RES_TYPE_COUNT]{};
+    std::vector<HcommCcuDieResRange> dieRanges[HCOMM_CCU_MAX_DIE_NUM][HCOMM_CCU_BATCH_RES_TYPE_COUNT]{};
 
     ContextStorage()
     {
         instance_.header = {HCOMM_CCU_RES_ABI_VERSION, HCOMM_CCU_INSTANCE_MAGIC_WORD, sizeof(HcommCcuInstance), 0};
         instance_.ccuDieNum = HCOMM_CCU_MAX_DIE_NUM;
         instance_.ccuVersion = HCOMM_CCU_VERSION_V1;
-        instance_.ascCustom[HCOMM_CCU_ASC_CUSTOM_CHANNEL_ENTITY] = 0x1;
-        instance_.ascCustom[HCOMM_CCU_ASC_CUSTOM_ALLOC_INST_SPACE] = 0x1;
-        instance_.ascCustom[HCOMM_CCU_ASC_CUSTOM_SUBMIT_INSTS] = 0x1;
+        instance_.ascCustom[HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY] = 0x1;
+        instance_.ascCustom[HCOMM_CCU_CONTROL_SLOT_ALLOC_INST_SPACE] = 0x1;
+        instance_.ascCustom[HCOMM_CCU_CONTROL_SLOT_SUBMIT_INSTS] = 0x1;
 
         dieMetadata[0].header = {
             HCOMM_CCU_RES_ABI_VERSION, HCOMM_CCU_DIE_METADATA_MAGIC_WORD, sizeof(HcommCcuDieMetadata), 0};
@@ -51,8 +51,8 @@ struct ContextStorage {
             dieRes.dieId = die;
             dieRes.resTypeNum = 0;
             for (uint32_t type = 0; type < HCOMM_CCU_BATCH_RES_TYPE_COUNT; ++type) {
-                HcommCcuResRanges& view = dieRes.resTypes[type];
-                view = HcommCcuResRanges{};
+                HcommCcuDieResRangePack& view = dieRes.resTypes[type];
+                view = HcommCcuDieResRangePack{};
                 view.resourceType = type;
                 if (!dieRanges[die][type].empty()) {
                     view.resRanges = dieRanges[die][type].data();

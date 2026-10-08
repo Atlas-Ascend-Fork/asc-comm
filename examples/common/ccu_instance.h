@@ -15,7 +15,7 @@
 
 #include <hccl/hccl_rank_graph.h>
 #include <ccu/hcomm/ccu_api_types.h>
-#include <hcomm/hcomm_ccu_resource.h>
+#include <hcomm/ccu/hcomm_res_ccu_entity_defs.h>
 
 extern "C" HcclResult HcclCommQueryCcuIns(HcclComm comm, CcuInsHandle* insHandles, uint32_t* insNum);
 
@@ -23,11 +23,23 @@ namespace asccomm_examples {
 
 constexpr uint32_t CCU_MAX_DIE_NUM = 2;
 
-inline HcclResult QueryCcuInstance(HcclComm comm, CcuInsHandle& insHandle)
+/**
+ * 查询通信域 CCU 实例并返回原语链句柄。直接调用 hcomm 对外接口；
+ * void* 请求地址由用户侧传入，返回 hcomm 持有的 HcommCcuInstanceHandle 稳定地址。
+ */
+inline HcclResult QueryCcuInstance(HcclComm comm, void*& insHandle)
 {
+    CcuInsHandle insPtr = reinterpret_cast<CcuInsHandle>(&insHandle);
     uint32_t insNum = 0;
-    HcclResult ret = HcclCommQueryCcuIns(comm, &insHandle, &insNum);
-    return ret == HCCL_SUCCESS && insNum != 1 ? HCCL_E_INTERNAL : ret;
+    HcclResult ret = HcclCommQueryCcuIns(comm, &insPtr, &insNum);
+    if (ret != HCCL_SUCCESS) {
+        return ret;
+    }
+    if (insNum != 1) {
+        return HCCL_E_INTERNAL;
+    }
+    insHandle = reinterpret_cast<void*>(insPtr);
+    return HCCL_SUCCESS;
 }
 
 inline HcclResult QueryEndpointDie(HcclComm comm, uint32_t rankId, const EndpointDesc& endpoint, uint32_t& dieId)
