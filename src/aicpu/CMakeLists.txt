@@ -33,24 +33,7 @@ if(NOT ASCCOMM_CANN_ARCH_DIR)
 endif()
 message(STATUS "ASCCOMM_CANN_ARCH_DIR = ${ASCCOMM_CANN_ARCH_DIR}")
 
-# 查找控制面源码：优先使用显式路径，
-# 最后探测相邻源码仓；没有契约头时回退到随仓自包含头文件。
-if(NOT ASCCOMM_CONTROL_PLANE_SOURCE_DIR)
-    foreach(_candidate
-        "${ASCCOMM_ROOT}/../hcomm_pkg_inc"
-        "${ASCCOMM_ROOT}/../hcomm")
-        if(EXISTS "${_candidate}/pkg_inc/hcomm/hcomm_res_entity_defs.h")
-            get_filename_component(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "${_candidate}" ABSOLUTE)
-            break()
-        endif()
-    endforeach()
-endif()
-if(ASCCOMM_CONTROL_PLANE_SOURCE_DIR AND NOT EXISTS "${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc/hcomm/hcomm_res_entity_defs.h")
-    # 指定路径无AICPU契约头(如devkit的cc包)：退回自包含。
-    set(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "")
-endif()
-set(ASCCOMM_CONTROL_PLANE_SOURCE_DIR "${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}" CACHE PATH "Original control-plane source tree")
-message(STATUS "ASCCOMM_CONTROL_PLANE_SOURCE_DIR = ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}")
+
 
 add_library(asc_comm_dfx INTERFACE)
 target_include_directories(asc_comm_dfx INTERFACE ${ASCCOMM_DFX_SRC_DIR})
@@ -80,12 +63,13 @@ target_compile_options(asccomm_aicpu PRIVATE
 )
 
 target_include_directories(asccomm_aicpu PRIVATE
-    ${ASCCOMM_ROOT}/include/aicpu
     ${ASCCOMM_ROOT}/include/aicpu/hcomm
     # CANN包公共依赖头(securec.h/dlog_pub.h/ascend_hal.h/acl头)，
     # 独立构建不依赖cann-cmake导入目标，直接取CANN包目录
     ${ASCCOMM_CANN_ARCH_DIR}/include
     ${ASCCOMM_CANN_ARCH_DIR}/include/hcomm
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm
+    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/hcomm
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/base
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/driver
     ${ASCCOMM_AICPU_ROOT}/asccomm/primitives/api_c_adpt
@@ -97,13 +81,6 @@ target_include_directories(asccomm_aicpu PRIVATE
     ${ASCCOMM_AICPU_ROOT}/asccomm/resource/connection
     ${ASCCOMM_AICPU_ROOT}/asccomm/resource/stream
 )
-# 控制面源码可用时附加其pkg_inc包含路径(可选依赖，自包含构建时跳过)
-if(ASCCOMM_CONTROL_PLANE_SOURCE_DIR)
-    target_include_directories(asccomm_aicpu PRIVATE
-        ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/include
-        ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc
-        ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc/hcomm)
-endif()
 
 # 设备侧库：securec/dlog/驱动符号由设备运行环境(ccl_kernel/内核驱动)在加载期解析，
 # 链接期不强制落地；cann-cmake导入目标存在时按需附加，避免独立构建缺目标报错

@@ -18,7 +18,7 @@
 #include "asccomm_transport.h"
 
 struct AicpuRuntimeStubState {
-    std::vector<HcommThreadEntity*> resolveCalls;
+    std::vector<ThreadEntity*> resolveCalls;
     struct CopyCall {
         HcommRtsqContext* context;
         uint64_t dst;
@@ -49,16 +49,16 @@ struct AicpuRuntimeStubState {
     std::vector<ThreadHandle> launchThreads;
     std::vector<ThreadHandle> tryLaunchThreads;
     struct WriteCall {
-        HcommThreadEntity* thread;
-        HcommChannelEntity* channel;
+        ThreadEntity* thread;
+        ChannelEntity* channel;
         uintptr_t local;
         uintptr_t remote;
         uint64_t len;
     };
     std::vector<WriteCall> writeCalls;
     struct WriteReduceCall {
-        HcommThreadEntity* thread;
-        HcommChannelEntity* channel;
+        ThreadEntity* thread;
+        ChannelEntity* channel;
         uintptr_t local;
         uintptr_t remote;
         uint64_t len;
@@ -67,8 +67,8 @@ struct AicpuRuntimeStubState {
     };
     std::vector<WriteReduceCall> writeReduceCalls;
     struct WriteNotifyCall {
-        HcommThreadEntity* thread;
-        HcommChannelEntity* channel;
+        ThreadEntity* thread;
+        ChannelEntity* channel;
         uintptr_t local;
         uintptr_t remote;
         uint64_t len;
@@ -76,8 +76,8 @@ struct AicpuRuntimeStubState {
     };
     std::vector<WriteNotifyCall> writeNotifyCalls;
     struct WriteReduceNotifyCall {
-        HcommThreadEntity* thread;
-        HcommChannelEntity* channel;
+        ThreadEntity* thread;
+        ChannelEntity* channel;
         uintptr_t local;
         uintptr_t remote;
         uint64_t len;
@@ -87,16 +87,16 @@ struct AicpuRuntimeStubState {
     };
     std::vector<WriteReduceNotifyCall> writeReduceNotifyCalls;
     struct ReadCall {
-        HcommThreadEntity* thread;
-        HcommChannelEntity* channel;
+        ThreadEntity* thread;
+        ChannelEntity* channel;
         uintptr_t dst;
         uintptr_t src;
         uint64_t len;
     };
     std::vector<ReadCall> readCalls;
     struct ReadReduceCall {
-        HcommThreadEntity* thread;
-        HcommChannelEntity* channel;
+        ThreadEntity* thread;
+        ChannelEntity* channel;
         uintptr_t dst;
         uintptr_t src;
         uint64_t len;
@@ -105,29 +105,29 @@ struct AicpuRuntimeStubState {
     };
     std::vector<ReadReduceCall> readReduceCalls;
     struct BatchTransferCall {
-        HcommThreadEntity* thread;
-        HcommChannelEntity* channel;
-        const HcommBatchTransferDesc* descs;
+        ThreadEntity* thread;
+        ChannelEntity* channel;
+        const AsccommBatchTransferDesc* descs;
         uint32_t descNum;
     };
     std::vector<BatchTransferCall> batchTransferCalls;
     struct ChannelNotifyRecordCall {
-        HcommThreadEntity* thread;
-        HcommChannelEntity* channel;
+        ThreadEntity* thread;
+        ChannelEntity* channel;
         uint32_t notifyIdx;
     };
     std::vector<ChannelNotifyRecordCall> channelNotifyRecordCalls;
     struct ChannelNotifyWaitCall {
-        HcommThreadEntity* thread;
-        const HcommChannelEntity* channel;
+        ThreadEntity* thread;
+        const ChannelEntity* channel;
         uint32_t notifyIdx;
         uint32_t timeout;
     };
     std::vector<ChannelNotifyWaitCall> channelNotifyWaitCalls;
-    std::vector<HcommChannelEntity*> fenceCalls;
+    std::vector<ChannelEntity*> fenceCalls;
     struct DrainCall {
-        HcommThreadEntity* thread;
-        HcommChannelEntity* channel;
+        ThreadEntity* thread;
+        ChannelEntity* channel;
     };
     std::vector<DrainCall> drainCalls;
 

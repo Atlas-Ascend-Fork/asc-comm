@@ -16,7 +16,7 @@ bool HcclCheckLogLevel(int, int) { return false; }
 
 bool IsErrorToWarn() { return false; }
 
-AsccommResult asccomm_resolve_thread_rtsq(HcommThreadEntity* thread)
+AsccommResult asccomm_resolve_thread_rtsq(ThreadEntity* thread)
 {
     g_runtimeStubState.resolveCalls.push_back(thread);
     return g_runtimeStubState.resolveResult;
@@ -60,14 +60,14 @@ AsccommResult asccomm_try_launch(ThreadHandle* threads, uint32_t threadNum)
 }
 
 AsccommResult asccomm_write(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
 {
     g_runtimeStubState.writeCalls.push_back({&thread, &channel, localAddr, remoteAddr, len});
     return g_runtimeStubState.writeResult;
 }
 
 AsccommResult asccomm_write_reduce(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn)
 {
     g_runtimeStubState.writeReduceCalls.push_back(
@@ -76,7 +76,7 @@ AsccommResult asccomm_write_reduce(
 }
 
 AsccommResult asccomm_write_with_notify(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     uint32_t remoteNotifyIdx)
 {
     g_runtimeStubState.writeNotifyCalls.push_back({&thread, &channel, localAddr, remoteAddr, len, remoteNotifyIdx});
@@ -84,7 +84,7 @@ AsccommResult asccomm_write_with_notify(
 }
 
 AsccommResult asccomm_write_reduce_with_notify(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn, uint32_t remoteNotifyIdx)
 {
     g_runtimeStubState.writeReduceNotifyCalls.push_back(
@@ -93,14 +93,14 @@ AsccommResult asccomm_write_reduce_with_notify(
 }
 
 AsccommResult asccomm_read(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
 {
     g_runtimeStubState.readCalls.push_back({&thread, &channel, localAddr, remoteAddr, len});
     return g_runtimeStubState.readResult;
 }
 
 AsccommResult asccomm_read_reduce(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn)
 {
     g_runtimeStubState.readReduceCalls.push_back(
@@ -109,33 +109,33 @@ AsccommResult asccomm_read_reduce(
 }
 
 AsccommResult asccomm_batch_transfer(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, const HcommBatchTransferDesc* transferDescs,
+    ThreadEntity& thread, ChannelEntity& channel, const AsccommBatchTransferDesc* transferDescs,
     uint32_t transferDescNum)
 {
     g_runtimeStubState.batchTransferCalls.push_back({&thread, &channel, transferDescs, transferDescNum});
     return g_runtimeStubState.batchTransferResult;
 }
 
-AsccommResult asccomm_notify_record(HcommThreadEntity& thread, HcommChannelEntity& channel, uint32_t remoteNotifyIdx)
+AsccommResult asccomm_notify_record(ThreadEntity& thread, ChannelEntity& channel, uint32_t remoteNotifyIdx)
 {
     g_runtimeStubState.channelNotifyRecordCalls.push_back({&thread, &channel, remoteNotifyIdx});
     return g_runtimeStubState.channelNotifyRecordResult;
 }
 
 AsccommResult asccomm_notify_wait(
-    HcommThreadEntity& thread, const HcommChannelEntity& channel, uint32_t localNotifyIdx, uint32_t timeout)
+    ThreadEntity& thread, const ChannelEntity& channel, uint32_t localNotifyIdx, uint32_t timeout)
 {
     g_runtimeStubState.channelNotifyWaitCalls.push_back({&thread, &channel, localNotifyIdx, timeout});
     return g_runtimeStubState.channelNotifyWaitResult;
 }
 
-AsccommResult asccomm_fence(HcommChannelEntity& channel)
+AsccommResult asccomm_fence(ChannelEntity& channel)
 {
     g_runtimeStubState.fenceCalls.push_back(&channel);
     return g_runtimeStubState.fenceResult;
 }
 
-AsccommResult asccomm_drain(HcommThreadEntity& thread, HcommChannelEntity& channel)
+AsccommResult asccomm_drain(ThreadEntity& thread, ChannelEntity& channel)
 {
     g_runtimeStubState.drainCalls.push_back({&thread, &channel});
     return g_runtimeStubState.drainResult;

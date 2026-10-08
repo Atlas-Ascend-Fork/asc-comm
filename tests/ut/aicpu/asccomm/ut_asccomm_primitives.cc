@@ -18,26 +18,26 @@
 
 namespace {
 
-HcommThreadEntity MakeThread()
+ThreadEntity MakeThread()
 {
-    HcommThreadEntity thread{};
-    thread.abiHeader = {HCOMM_RESOURCE_THREAD_VERSION, HCOMM_RESOURCE_THREAD_MAGIC_WORD, sizeof(HcommThreadEntity), 0};
+    ThreadEntity thread{};
+    thread.abiHeader = {HCOMM_RESOURCE_THREAD_VERSION, HCOMM_RESOURCE_THREAD_MAGIC_WORD, sizeof(ThreadEntity), 0};
     static HcommRtsqContext rtsq{};
     thread.sqContextAddr = &rtsq;
     return thread;
 }
 
-HcommChannelEntity MakeChannel()
+ChannelEntity MakeChannel()
 {
-    HcommChannelEntity channel{};
+    ChannelEntity channel{};
     channel.abiHeader = {
-        HCOMM_RESOURCE_CHANNEL_VERSION, HCOMM_RESOURCE_CHANNEL_MAGIC_WORD, sizeof(HcommChannelEntity), 0};
+        HCOMM_RESOURCE_CHANNEL_VERSION, HCOMM_RESOURCE_CHANNEL_MAGIC_WORD, sizeof(ChannelEntity), 0};
     return channel;
 }
 
-ThreadHandle ThreadHandleOf(HcommThreadEntity& thread) { return reinterpret_cast<ThreadHandle>(&thread); }
+ThreadHandle ThreadHandleOf(ThreadEntity& thread) { return reinterpret_cast<ThreadHandle>(&thread); }
 
-ChannelHandle ChannelHandleOf(HcommChannelEntity& channel) { return reinterpret_cast<ChannelHandle>(&channel); }
+ChannelHandle ChannelHandleOf(ChannelEntity& channel) { return reinterpret_cast<ChannelHandle>(&channel); }
 
 class AsccommPrimitivesTest : public testing::Test {
 protected:
@@ -48,22 +48,22 @@ protected:
         g_runtimeStubState = {};
     }
 
-    HcommThreadEntity thread_{MakeThread()};
-    HcommChannelEntity channel_{MakeChannel()};
+    ThreadEntity thread_{MakeThread()};
+    ChannelEntity channel_{MakeChannel()};
 };
 
 TEST_F(AsccommPrimitivesTest, RejectsNullThreadAndInvalidResourceHeader)
 {
     EXPECT_EQ(asccomm_write_on_thread(0, 0, nullptr, nullptr, 0), ASCCOMM_E_PTR);
 
-    HcommThreadEntity invalid = MakeThread();
+    ThreadEntity invalid = MakeThread();
     invalid.abiHeader.magicWord = 0;
     EXPECT_EQ(asccomm_write_on_thread(ThreadHandleOf(invalid), 0, nullptr, nullptr, 0), ASCCOMM_E_PTR);
 }
 
 TEST_F(AsccommPrimitivesTest, ValidatesChannelResourceBeforeTransport)
 {
-    HcommChannelEntity invalid = MakeChannel();
+    ChannelEntity invalid = MakeChannel();
     invalid.abiHeader.size = 0;
     int value = 0;
     EXPECT_EQ(

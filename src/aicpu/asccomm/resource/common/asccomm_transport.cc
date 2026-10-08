@@ -32,7 +32,7 @@ constexpr uint64_t RDMA_DMA_MAX_SIZE = 0x80000000ULL;
 bool is_ub_protocol(CommProtocol protocol)
 {
     return protocol == COMM_PROTOCOL_UBC_CTP || protocol == COMM_PROTOCOL_UBC_TP || protocol == COMM_PROTOCOL_UB_MEM ||
-           protocol == COMM_PROTOCOL_UBOE || protocol == COMM_PROTOCOL_UBG;
+           protocol == static_cast<CommProtocol>(7) || protocol == static_cast<CommProtocol>(9);
 }
 
 bool is_range_contained(uint64_t base, uint64_t capacity, uint64_t addr, uint64_t size)
@@ -61,14 +61,14 @@ const HcommRegedBufferEntity* find_buffer(
     return nullptr;
 }
 
-AsccommResult get_rtsq(HcommThreadEntity& thread, HcommRtsqContext*& rtsq)
+AsccommResult get_rtsq(ThreadEntity& thread, HcommRtsqContext*& rtsq)
 {
     CHK_PTR_NULL(thread.sqContextAddr);
     rtsq = thread.sqContextAddr;
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult get_ub_context(HcommChannelEntity& channel, HcommJfsContext*& jfs)
+AsccommResult get_ub_context(ChannelEntity& channel, HcommJfsContext*& jfs)
 {
     CHK_PRT_RET(
         !is_ub_protocol(channel.protocol), ASCCOMM_ERROR("[%s] protocol[%d] is not UB.", __func__, channel.protocol),
@@ -86,7 +86,7 @@ AsccommResult get_ub_context(HcommChannelEntity& channel, HcommJfsContext*& jfs)
 }
 
 AsccommResult build_ub_slices(
-    const HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    const ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     Asc::RmaBufSliceLite& local, Asc::RmtRmaBufSliceLite& remote)
 {
     const HcommRegedBufferEntity* localBuffer =
@@ -110,7 +110,7 @@ AsccommResult build_ub_slices(
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult build_ub_remote_notify(const HcommChannelEntity& channel, uint32_t index, Asc::RmtRmaBufSliceLite& notify)
+AsccommResult build_ub_remote_notify(const ChannelEntity& channel, uint32_t index, Asc::RmtRmaBufSliceLite& notify)
 {
     CHK_PRT_RET(
         index >= channel.remoteNotifyNum || channel.remoteNotifyAddr == nullptr,
@@ -157,7 +157,7 @@ void export_ub_state(Asc::UbConnLite& connection, HcommJfsContext& jfs)
 }
 
 AsccommResult ring_ub_doorbell(
-    HcommThreadEntity& thread, const HcommChannelEntity& channel, const HcommJfsContext& jfs, uint16_t pi)
+    ThreadEntity& thread, const ChannelEntity& channel, const HcommJfsContext& jfs, uint16_t pi)
 {
     HcommRtsqContext* rtsq = nullptr;
     CHK_RET(get_rtsq(thread, rtsq));
@@ -165,7 +165,7 @@ AsccommResult ring_ub_doorbell(
     return asccomm_rtsq_ub_db_send(*rtsq, jettyId, pi);
 }
 
-Asc::SqeConfigLite get_ub_config(HcommChannelEntity& channel)
+Asc::SqeConfigLite get_ub_config(ChannelEntity& channel)
 {
     Asc::SqeConfigLite cfg;
     if (channel.sqNum > 0 && channel.sqContextAddr != nullptr && channel.sqContextAddr[0].fence != 0) {
@@ -181,7 +181,7 @@ Asc::SqeConfigLite get_ub_config(HcommChannelEntity& channel)
 
 template <typename Operation>
 AsccommResult execute_ub_rma(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     Operation operation)
 {
     HcommJfsContext* jfs = nullptr;
@@ -202,7 +202,7 @@ AsccommResult execute_ub_rma(
     return ring_ub_doorbell(thread, channel, *jfs, out.pi);
 }
 
-AsccommResult get_rdma_contexts(HcommChannelEntity& channel, HcommRdmaSqContext*& sq, HcommRdmaCqContext*& cq)
+AsccommResult get_rdma_contexts(ChannelEntity& channel, HcommRdmaSqContext*& sq, HcommRdmaCqContext*& cq)
 {
     CHK_PRT_RET(
         channel.protocol != COMM_PROTOCOL_ROCE,
@@ -241,7 +241,7 @@ void build_rdma_context(
 }
 
 AsccommResult build_rdma_slices(
-    const HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    const ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     Asc::RmaBufSliceLite& local, Asc::RmtRmaBufSliceLite& remote)
 {
     const HcommRegedBufferEntity* localBuffer =
@@ -265,7 +265,7 @@ AsccommResult build_rdma_slices(
 }
 
 AsccommResult build_rdma_notify_slices(
-    const HcommChannelEntity& channel, uint32_t index, Asc::RmaBufSliceLite& local, Asc::RmtRmaBufSliceLite& remote)
+    const ChannelEntity& channel, uint32_t index, Asc::RmaBufSliceLite& local, Asc::RmtRmaBufSliceLite& remote)
 {
     CHK_PRT_RET(
         index >= channel.remoteNotifyNum || channel.remoteNotifyAddr == nullptr,
@@ -319,7 +319,7 @@ enum class RdmaOperation {
 };
 
 AsccommResult execute_rdma(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, RdmaOperation operation, uintptr_t localAddr,
+    ThreadEntity& thread, ChannelEntity& channel, RdmaOperation operation, uintptr_t localAddr,
     uintptr_t remoteAddr, uint64_t len, const Asc::ReduceIn* reduceIn, uint32_t notifyIndex)
 {
     HcommRdmaSqContext* resourceSq = nullptr;
@@ -403,60 +403,60 @@ AsccommResult execute_rdma(
 }
 
 AsccommResult convert_batch_reduce(
-    HcommDataType dataType, HcommReduceOp reduceOp, Asc::ReduceIn& reduceIn, uint64_t count, uint64_t& len)
+    AsccommDataType dataType, AsccommReduceOp reduceOp, Asc::ReduceIn& reduceIn, uint64_t count, uint64_t& len)
 {
     Asc::DataType innerType = Asc::DataType::INVALID;
     uint32_t typeSize = 0;
     switch (dataType) {
-        case HCOMM_DATA_TYPE_INT8:
+        case ASCCOMM_DATA_TYPE_INT8:
             innerType = Asc::DataType::INT8;
             typeSize = 1;
             break;
-        case HCOMM_DATA_TYPE_INT16:
+        case ASCCOMM_DATA_TYPE_INT16:
             innerType = Asc::DataType::INT16;
             typeSize = 2;
             break;
-        case HCOMM_DATA_TYPE_INT32:
+        case ASCCOMM_DATA_TYPE_INT32:
             innerType = Asc::DataType::INT32;
             typeSize = 4;
             break;
-        case HCOMM_DATA_TYPE_FP16:
+        case ASCCOMM_DATA_TYPE_FP16:
             innerType = Asc::DataType::FP16;
             typeSize = 2;
             break;
-        case HCOMM_DATA_TYPE_FP32:
+        case ASCCOMM_DATA_TYPE_FP32:
             innerType = Asc::DataType::FP32;
             typeSize = 4;
             break;
-        case HCOMM_DATA_TYPE_INT64:
+        case ASCCOMM_DATA_TYPE_INT64:
             innerType = Asc::DataType::INT64;
             typeSize = 8;
             break;
-        case HCOMM_DATA_TYPE_UINT64:
+        case ASCCOMM_DATA_TYPE_UINT64:
             innerType = Asc::DataType::UINT64;
             typeSize = 8;
             break;
-        case HCOMM_DATA_TYPE_UINT8:
+        case ASCCOMM_DATA_TYPE_UINT8:
             innerType = Asc::DataType::UINT8;
             typeSize = 1;
             break;
-        case HCOMM_DATA_TYPE_UINT16:
+        case ASCCOMM_DATA_TYPE_UINT16:
             innerType = Asc::DataType::UINT16;
             typeSize = 2;
             break;
-        case HCOMM_DATA_TYPE_UINT32:
+        case ASCCOMM_DATA_TYPE_UINT32:
             innerType = Asc::DataType::UINT32;
             typeSize = 4;
             break;
-        case HCOMM_DATA_TYPE_FP64:
+        case ASCCOMM_DATA_TYPE_FP64:
             innerType = Asc::DataType::FP64;
             typeSize = 8;
             break;
-        case HCOMM_DATA_TYPE_BFP16:
+        case ASCCOMM_DATA_TYPE_BFP16:
             innerType = Asc::DataType::BFP16;
             typeSize = 2;
             break;
-        case HCOMM_DATA_TYPE_INT128:
+        case ASCCOMM_DATA_TYPE_INT128:
             innerType = Asc::DataType::INT128;
             typeSize = 16;
             break;
@@ -465,16 +465,16 @@ AsccommResult convert_batch_reduce(
     }
     Asc::ReduceOp innerOp = Asc::ReduceOp::INVALID;
     switch (reduceOp) {
-        case HCOMM_REDUCE_SUM:
+        case ASCCOMM_REDUCE_SUM:
             innerOp = Asc::ReduceOp::SUM;
             break;
-        case HCOMM_REDUCE_PROD:
+        case ASCCOMM_REDUCE_PROD:
             innerOp = Asc::ReduceOp::PROD;
             break;
-        case HCOMM_REDUCE_MAX:
+        case ASCCOMM_REDUCE_MAX:
             innerOp = Asc::ReduceOp::MAX;
             break;
-        case HCOMM_REDUCE_MIN:
+        case ASCCOMM_REDUCE_MIN:
             innerOp = Asc::ReduceOp::MIN;
             break;
         default:
@@ -491,7 +491,7 @@ AsccommResult convert_batch_reduce(
 } // namespace
 
 AsccommResult asccomm_write(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
 {
     if (is_ub_protocol(channel.protocol)) {
         return execute_ub_rma(
@@ -504,7 +504,7 @@ AsccommResult asccomm_write(
 }
 
 AsccommResult asccomm_write_reduce(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn)
 {
     if (is_ub_protocol(channel.protocol)) {
@@ -520,7 +520,7 @@ AsccommResult asccomm_write_reduce(
 }
 
 AsccommResult asccomm_write_with_notify(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     uint32_t remoteNotifyIdx)
 {
     if (is_ub_protocol(channel.protocol)) {
@@ -539,7 +539,7 @@ AsccommResult asccomm_write_with_notify(
 }
 
 AsccommResult asccomm_write_reduce_with_notify(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn, uint32_t remoteNotifyIdx)
 {
     if (is_ub_protocol(channel.protocol)) {
@@ -560,7 +560,7 @@ AsccommResult asccomm_write_reduce_with_notify(
 }
 
 AsccommResult asccomm_read(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len)
 {
     if (is_ub_protocol(channel.protocol)) {
         return execute_ub_rma(
@@ -573,7 +573,7 @@ AsccommResult asccomm_read(
 }
 
 AsccommResult asccomm_read_reduce(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
     const Asc::ReduceIn& reduceIn)
 {
     if (is_ub_protocol(channel.protocol)) {
@@ -588,7 +588,7 @@ AsccommResult asccomm_read_reduce(
     return channel.protocol == COMM_PROTOCOL_ROCE ? ASCCOMM_SUCCESS : ASCCOMM_E_NOT_SUPPORT;
 }
 
-AsccommResult asccomm_notify_record(HcommThreadEntity& thread, HcommChannelEntity& channel, uint32_t remoteNotifyIdx)
+AsccommResult asccomm_notify_record(ThreadEntity& thread, ChannelEntity& channel, uint32_t remoteNotifyIdx)
 {
     if (!is_ub_protocol(channel.protocol)) {
         return execute_rdma(thread, channel, RdmaOperation::NOTIFY_RECORD, 0, 0, 0, nullptr, remoteNotifyIdx);
@@ -616,7 +616,7 @@ AsccommResult asccomm_notify_record(HcommThreadEntity& thread, HcommChannelEntit
 }
 
 AsccommResult asccomm_notify_wait(
-    HcommThreadEntity& thread, const HcommChannelEntity& channel, uint32_t localNotifyIdx, uint32_t timeout)
+    ThreadEntity& thread, const ChannelEntity& channel, uint32_t localNotifyIdx, uint32_t timeout)
 {
     CHK_PRT_RET(
         channel.localNotifyAddr == nullptr || channel.localNotifyNum <= 1U ||
@@ -636,7 +636,7 @@ AsccommResult asccomm_notify_wait(
     return asccomm_rtsq_notify_wait(*rtsq, static_cast<uint32_t>(notifyId), timeout);
 }
 
-AsccommResult asccomm_fence(HcommChannelEntity& channel)
+AsccommResult asccomm_fence(ChannelEntity& channel)
 {
     CHK_PRT_RET(
         channel.sqNum == 0 || channel.sqContextAddr == nullptr, ASCCOMM_ERROR("[%s] SQ context is empty.", __func__),
@@ -645,7 +645,7 @@ AsccommResult asccomm_fence(HcommChannelEntity& channel)
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult asccomm_drain(HcommThreadEntity& thread, HcommChannelEntity& channel)
+AsccommResult asccomm_drain(ThreadEntity& thread, ChannelEntity& channel)
 {
     if (channel.protocol == COMM_PROTOCOL_ROCE) {
         return ASCCOMM_SUCCESS;
@@ -706,7 +706,7 @@ AsccommResult asccomm_drain(HcommThreadEntity& thread, HcommChannelEntity& chann
 }
 
 AsccommResult asccomm_batch_transfer(
-    HcommThreadEntity& thread, HcommChannelEntity& channel, const HcommBatchTransferDesc* transferDescs,
+    ThreadEntity& thread, ChannelEntity& channel, const AsccommBatchTransferDesc* transferDescs,
     uint32_t transferDescNum)
 {
     CHK_PTR_NULL(transferDescs);
@@ -722,11 +722,11 @@ AsccommResult asccomm_batch_transfer(
     Asc::ConnLiteOperationOut out{};
 
     for (uint32_t index = 0; index < transferDescNum; ++index) {
-        const HcommBatchTransferDesc& desc = transferDescs[index];
+        const AsccommBatchTransferDesc& desc = transferDescs[index];
         cfg.cqeEn = index == transferDescNum - 1;
         cfg.placeOdr = cfg.cqeEn ? UB_STRONG_ORDER : UB_RELAX_ORDER;
         cfg.compOrder = cfg.cqeEn ? UB_COMPLETION : UB_NO_COMPLETION;
-        if (desc.transType == HCOMM_TRANSFER_TYPE_NOTIFY_RECORD) {
+        if (desc.transType == ASCCOMM_TRANSFER_TYPE_NOTIFY_RECORD) {
             Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
             const uint32_t notifyIdx = desc.transferInfo.notifyRecord.notifyIdx;
             CHK_RET(build_ub_remote_notify(channel, notifyIdx, notify));
@@ -745,31 +745,31 @@ AsccommResult asccomm_batch_transfer(
         uint64_t len = 0;
         uint32_t notifyIdx = 0;
         Asc::ReduceIn reduceIn{Asc::DataType::INVALID, Asc::ReduceOp::INVALID};
-        if (desc.transType == HCOMM_TRANSFER_TYPE_WRITE) {
+        if (desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE) {
             localAddr = reinterpret_cast<uintptr_t>(desc.transferInfo.write.src);
             remoteAddr = reinterpret_cast<uintptr_t>(desc.transferInfo.write.dst);
             len = desc.transferInfo.write.len;
-        } else if (desc.transType == HCOMM_TRANSFER_TYPE_READ) {
+        } else if (desc.transType == ASCCOMM_TRANSFER_TYPE_READ) {
             localAddr = reinterpret_cast<uintptr_t>(desc.transferInfo.read.dst);
             remoteAddr = reinterpret_cast<uintptr_t>(desc.transferInfo.read.src);
             len = desc.transferInfo.read.len;
-        } else if (desc.transType == HCOMM_TRANSFER_TYPE_WRITE_WITH_NOTIFY) {
+        } else if (desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_WITH_NOTIFY) {
             localAddr = reinterpret_cast<uintptr_t>(desc.transferInfo.writeWithNotify.src);
             remoteAddr = reinterpret_cast<uintptr_t>(desc.transferInfo.writeWithNotify.dst);
             len = desc.transferInfo.writeWithNotify.len;
             notifyIdx = desc.transferInfo.writeWithNotify.notifyIdx;
         } else if (
-            desc.transType == HCOMM_TRANSFER_TYPE_WRITE_REDUCE || desc.transType == HCOMM_TRANSFER_TYPE_READ_REDUCE) {
-            localAddr = desc.transType == HCOMM_TRANSFER_TYPE_WRITE_REDUCE ?
+            desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_REDUCE || desc.transType == ASCCOMM_TRANSFER_TYPE_READ_REDUCE) {
+            localAddr = desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_REDUCE ?
                             reinterpret_cast<uintptr_t>(desc.transferInfo.reduce.src) :
                             reinterpret_cast<uintptr_t>(desc.transferInfo.reduce.dst);
-            remoteAddr = desc.transType == HCOMM_TRANSFER_TYPE_WRITE_REDUCE ?
+            remoteAddr = desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_REDUCE ?
                              reinterpret_cast<uintptr_t>(desc.transferInfo.reduce.dst) :
                              reinterpret_cast<uintptr_t>(desc.transferInfo.reduce.src);
             CHK_RET(convert_batch_reduce(
                 desc.transferInfo.reduce.dataType, desc.transferInfo.reduce.reduceOp, reduceIn,
                 desc.transferInfo.reduce.count, len));
-        } else if (desc.transType == HCOMM_TRANSFER_TYPE_WRITE_REDUCE_WITH_NOTIFY) {
+        } else if (desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_REDUCE_WITH_NOTIFY) {
             localAddr = reinterpret_cast<uintptr_t>(desc.transferInfo.writeReduceWithNotify.src);
             remoteAddr = reinterpret_cast<uintptr_t>(desc.transferInfo.writeReduceWithNotify.dst);
             notifyIdx = desc.transferInfo.writeReduceWithNotify.notifyIdx;
@@ -786,18 +786,18 @@ AsccommResult asccomm_batch_transfer(
         Asc::RmaBufSliceLite local(0, 0, 0, 0);
         Asc::RmtRmaBufSliceLite remote(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
         CHK_RET(build_ub_slices(channel, localAddr, remoteAddr, len, local, remote));
-        if (desc.transType == HCOMM_TRANSFER_TYPE_WRITE) {
+        if (desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE) {
             connection.write(local, remote, cfg, out);
-        } else if (desc.transType == HCOMM_TRANSFER_TYPE_READ) {
+        } else if (desc.transType == ASCCOMM_TRANSFER_TYPE_READ) {
             connection.read(local, remote, cfg, out);
-        } else if (desc.transType == HCOMM_TRANSFER_TYPE_WRITE_REDUCE) {
+        } else if (desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_REDUCE) {
             connection.write_reduce(reduceIn.dataType, reduceIn.reduceOp, local, remote, cfg, out);
-        } else if (desc.transType == HCOMM_TRANSFER_TYPE_READ_REDUCE) {
+        } else if (desc.transType == ASCCOMM_TRANSFER_TYPE_READ_REDUCE) {
             connection.read_reduce(reduceIn, local, remote, cfg, out);
         } else {
             Asc::RmtRmaBufSliceLite notify(0, 0, 0, 0, 0, std::numeric_limits<uint32_t>::max());
             CHK_RET(build_ub_remote_notify(channel, notifyIdx, notify));
-            if (desc.transType == HCOMM_TRANSFER_TYPE_WRITE_WITH_NOTIFY) {
+            if (desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_WITH_NOTIFY) {
                 connection.write_with_notify(local, remote, cfg, out, notify, NOTIFY_VALUE);
             } else {
                 connection.write_reduce_with_notify(
