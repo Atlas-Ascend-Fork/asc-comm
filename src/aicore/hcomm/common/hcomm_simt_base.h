@@ -41,6 +41,38 @@ public:
         return HCOMM_FAILED;
     }
 
+    __simt_callee__ inline int32_t InitCompletionSet(
+        UbcCtpCompletionSet& set, __gm__ ChannelHandle*, uint32_t, __gm__ uint8_t*, uint64_t)
+    {
+        set.workspace = nullptr;
+        return HCOMM_FAILED;
+    }
+    __simt_callee__ inline int32_t PrepareCompletion(UbcCtpCompletionSet&, uint32_t, uint32_t, uint32_t)
+    {
+        return HCOMM_FAILED;
+    }
+    __simt_callee__ inline int32_t Progress(UbcCtpCompletionSet&, uint32_t, uint32_t& processed)
+    {
+        processed = 0U;
+        return HCOMM_FAILED;
+    }
+    __simt_callee__ inline int32_t WaitCompletion(UbcCtpCompletionSet&, uint32_t, uint32_t = 1000000U)
+    {
+        return HCOMM_FAILED;
+    }
+    __simt_callee__ inline int32_t Drain(UbcCtpCompletionSet&) { return HCOMM_FAILED; }
+
+    __simt_callee__ inline UbcCtpBatchHandle MakeBatchHandle(
+        ChannelHandle channel, __ubuf__ uint8_t* buff, uint32_t buffLen, __gm__ void* remoteBase, uint32_t itemBb = 1U)
+    {
+        (void)channel;
+        (void)buff;
+        (void)buffLen;
+        (void)remoteBase;
+        (void)itemBb;
+        return {};
+    }
+
     template <bool commit = true, auto const& config = URMA_DEFAULT_CFG>
     __simt_callee__ inline int32_t WriteNbi(ChannelHandle channel, __gm__ void* dst, __gm__ void* src, uint64_t len)
     {
@@ -55,6 +87,26 @@ public:
     __simt_callee__ inline int32_t WriteValueNbi(ChannelHandle channel, __gm__ void* dst, T value)
     {
         (void)channel;
+        (void)dst;
+        (void)value;
+        return HCOMM_FAILED;
+    }
+
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t WriteNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
+    {
+        (void)batchHandle;
+        (void)dst;
+        (void)src;
+        (void)len;
+        return HCOMM_FAILED;
+    }
+
+    template <typename T, auto const& config = URMA_INLINE_CFG>
+    __simt_callee__ inline int32_t WriteValueNbi(UbcCtpBatchHandle& batchHandle, __gm__ void* dst, T value)
+    {
+        (void)batchHandle;
         (void)dst;
         (void)value;
         return HCOMM_FAILED;
@@ -76,6 +128,31 @@ public:
         uint64_t notifyVal)
     {
         (void)channel;
+        (void)dst;
+        (void)src;
+        (void)len;
+        (void)notifyAddr;
+        (void)notifyVal;
+        return HCOMM_FAILED;
+    }
+
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t ReadNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len)
+    {
+        (void)batchHandle;
+        (void)dst;
+        (void)src;
+        (void)len;
+        return HCOMM_FAILED;
+    }
+
+    template <auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t WriteWithNotifyNbi(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* src, uint64_t len, __gm__ void* notifyAddr,
+        uint64_t notifyVal)
+    {
+        (void)batchHandle;
         (void)dst;
         (void)src;
         (void)len;
@@ -110,6 +187,42 @@ public:
     __simt_callee__ inline int32_t Drain(ChannelHandle channel)
     {
         (void)channel;
+        return HCOMM_FAILED;
+    }
+
+    template <typename T, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t AtomicFAA(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T addVal)
+    {
+        (void)batchHandle;
+        (void)dst;
+        (void)fetchAddr;
+        (void)addVal;
+        return HCOMM_FAILED;
+    }
+
+    template <typename T, auto const& config = URMA_DEFAULT_CFG>
+    __simt_callee__ inline int32_t AtomicCAS(
+        UbcCtpBatchHandle& batchHandle, __gm__ void* dst, __gm__ void* fetchAddr, T compareVal, T swapVal)
+    {
+        (void)batchHandle;
+        (void)dst;
+        (void)fetchAddr;
+        (void)compareVal;
+        (void)swapVal;
+        return HCOMM_FAILED;
+    }
+
+    __simt_callee__ inline int32_t BatchCommit(UbcCtpBatchHandle& batchHandle)
+    {
+        (void)batchHandle;
+        return HCOMM_FAILED;
+    }
+
+    template <auto pipe = 0>
+    __simt_callee__ inline int32_t Drain(UbcCtpBatchHandle& batchHandle)
+    {
+        (void)batchHandle;
         return HCOMM_FAILED;
     }
 };
