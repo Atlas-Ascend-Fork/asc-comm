@@ -136,13 +136,27 @@ list(APPEND ASCCOMM_MC2_INCLUDE_LIST
 )
 
 if(ASCCOMM_MC2_PRODUCT_SIDE STREQUAL "host")
-    # 源列表随后续模块（common/kfc/ops）迁入填充。骨架期源为空，CMake 禁止无源 add_library，
-    # 生成空占位 TU 保证 target 成立；设置 ASCCOMM_MC2_CLIENT_SOURCES 后自动替换。
-    set(ASCCOMM_MC2_CLIENT_SOURCES "")
+    # 源列表 PR#2 起填充。common 模块（M2）host 侧 .cc 加入 mc2_client；
+    # 源为空（骨架期占位）时用占位 TU 保证 add_library 成立。
+    # TODO(PR#4): hccl_mc2.cc / hccl_alloc_ctx_res.cc / mc2_comm_info_reporter.cc
+    # depend on ops/op_common headers (topo_host/alg_param/op_common/load_kernel etc),
+    # join with ops migration
+    set(ASCCOMM_MC2_CLIENT_SOURCES
+        ${HCCL_CC_DIR}/src/common/adapter_acl.cc
+        ${HCCL_CC_DIR}/src/common/alg_env_config.cc
+        ${HCCL_CC_DIR}/src/common/param_check.cc
+        ${HCCL_CC_DIR}/src/common/utils.cc
+        ${HCCL_CC_DIR}/src/common/alg_type.cc
+        ${HCCL_CC_DIR}/src/common/adapter_error_manager_pub.cc
+        ${HCCL_CC_DIR}/src/common/config_log.cc
+        ${HCCL_CC_DIR}/src/common/log.cc
+        ${HCCL_CC_DIR}/src/common/sal.cc
+        ${HCCL_CC_DIR}/src/common/compat.cc
+    )
     if(NOT ASCCOMM_MC2_CLIENT_SOURCES)
         set(_ASCCOMM_MC2_CLIENT_SKELETON_SRC ${CMAKE_CURRENT_BINARY_DIR}/mc2_client_skeleton.cc)
         file(WRITE ${_ASCCOMM_MC2_CLIENT_SKELETON_SRC}
-            "// mc2_client skeleton placeholder; real sources are wired by later migration PRs\n")
+            "// mc2_client skeleton placeholder; real source files wired from PR#2+\n")
         set(ASCCOMM_MC2_CLIENT_SOURCES ${_ASCCOMM_MC2_CLIENT_SKELETON_SRC})
     endif()
     # __FILE__ 注入：日志只带文件名不带路径（对齐 devkit cc/CMakeLists.txt:34-39）。
@@ -157,6 +171,58 @@ if(ASCCOMM_MC2_PRODUCT_SIDE STREQUAL "host")
             "<CMAKE_C_COMPILER> <DEFINES> -D__FILE__='\"$(notdir $(abspath <SOURCE>))\"' -Wno-builtin-macro-redefined <INCLUDES> <FLAGS> -o <OBJECT> -c <SOURCE>"
         )
     endif()
+
+    # mc2_compat：devkit 侧定义于 hcomm_dlsym/CMakeLists.txt:71（弱符号兜底兼容层）。
+    # 12 个 host 侧 dlsym 实现编译为独立 SHARED，链路为 hcomm-stub → mc2_compat → mc2_client；
+    # 其 weak 兜底符号必须不与真实 libhcomm 符号绑定期抢占（01/02 报告），故不得并入 mc2_client。
+    add_library(mc2_compat SHARED
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/hccl_rank_graph_dl.cc
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/hccl_res_dl.cc
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/hcomm_primitives_dl.cc
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/hcomm_dlsym.cc
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/hccl_inner_dl.cc
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/hcomm_host_profiling_dl.cc
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/ccu_primitives_impl_dl.cc
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/ccu_res_dl.cc
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/hccl_ccu_res_dl.cc
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/hccl_res_expt_dl.cc
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/hccl_host_comm_dl.cc
+        ${HCCL_CC_DIR}/src/common/hcomm_dlsym/ccu_launch_dl.cc
+    )
+    target_include_directories(mc2_compat PRIVATE ${ASCCOMM_MC2_INCLUDE_LIST})
+    target_compile_definitions(mc2_compat PRIVATE
+        OPEN_BUILD_PROJECT
+        HOST_COMPILE
+        _GLIBCXX_USE_CXX11_ABI=0
+    )
+    target_compile_options(mc2_compat PRIVATE
+        -Werror
+        -fno-common
+        -fno-strict-aliasing
+        -pipe
+        -O3
+        $<$<CONFIG:Debug>:-g>
+        -std=c++14
+        -fstack-protector-all
+    )
+    target_link_options(mc2_compat PRIVATE
+        -Wl,-z,relro
+        -Wl,-z,now
+        -Wl,-z,noexecstack
+        $<$<CONFIG:Release>:-s>
+    )
+    target_link_directories(mc2_compat PRIVATE
+        ${ASCCOMM_CANN_ARCH_DIR}/lib64
+    )
+    target_link_libraries(mc2_compat PRIVATE
+        -Wl,--no-as-needed
+        acl_rt
+        unified_dlog
+        -Wl,--no-as-needed
+    )
+    install(TARGETS mc2_compat
+        DESTINATION "${CMAKE_SYSTEM_PROCESSOR}-linux/lib64" COMPONENT asc-devkit
+    )
 
     add_library(mc2_client SHARED ${ASCCOMM_MC2_CLIENT_SOURCES})
 
@@ -204,6 +270,8 @@ if(ASCCOMM_MC2_PRODUCT_SIDE STREQUAL "host")
         $<$<CONFIG:Release>:-s>
     )
 
+    # mc2_compat 已在 host 分支上方定义（hcomm_dlsym 12 个 host 侧 .cc），
+    # 由 add_library 顺序保证依赖关系；此处仅兜底校验
     if(TARGET mc2_compat)
         add_dependencies(mc2_client mc2_compat)
     endif()
@@ -245,4 +313,6 @@ else()
 endif()
 
 # 后续 PR 按迁移进度接子目录（对齐 devkit cc/src/CMakeLists.txt:355-363）
-# 后续迁入顺序（跟踪于 Issue #66）：common → aicpu_kfc → ops
+# 注：PR#2 不 add_subdirectory——common（13 源）与 hcomm_dlsym（12 源 → mc2_compat）
+# 均已在根本文件源列表接线；树内 src/common/CMakeLists.txt 随树保留但不引用（PR#4 统一裁决去留）
+# PR#3: add_subdirectory(src/aicpu_kfc)；PR#4: add_subdirectory(src/ops)
