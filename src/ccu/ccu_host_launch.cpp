@@ -35,14 +35,14 @@ constexpr int32_t CCU_LOG_MODULE_ID = 5;
         }                                               \
     } while (0)
 
-bool IsSupportedSingleDieMask(uint64_t phyDieMask)
+bool is_supported_single_die_mask(uint64_t phy_die_mask)
 {
-    return phyDieMask == CCU_DIE0_MASK || phyDieMask == CCU_DIE1_MASK;
+    return phy_die_mask == CCU_DIE0_MASK || phy_die_mask == CCU_DIE1_MASK;
 }
 
-uint32_t GetDieIdByMask(uint64_t phyDieMask) { return phyDieMask == CCU_DIE1_MASK ? CCU_DIE1_ID : CCU_DIE0_ID; }
+uint32_t get_die_id_by_mask(uint64_t phy_die_mask) { return phy_die_mask == CCU_DIE1_MASK ? CCU_DIE1_ID : CCU_DIE0_ID; }
 
-CcuResult ValidateLaunchCfg(const asccomm_launch_kernel_cfg* cfg)
+CcuResult validate_launch_cfg(const asccomm_launch_kernel_cfg* cfg)
 {
     if (cfg->ccu_schd.num_blocks != CCU_SUPPORTED_NUM_BLOCKS) {
         ASCCOMM_CCU_LOG_ERROR(
@@ -50,7 +50,7 @@ CcuResult ValidateLaunchCfg(const asccomm_launch_kernel_cfg* cfg)
             CCU_SUPPORTED_NUM_BLOCKS);
         return CCU_E_PARA;
     }
-    if (!IsSupportedSingleDieMask(cfg->ccu_schd.phy_die_mask)) {
+    if (!is_supported_single_die_mask(cfg->ccu_schd.phy_die_mask)) {
         ASCCOMM_CCU_LOG_ERROR(
             "[%s] unsupported phy_die_mask[0x%llx], expected[0x1 or 0x2].", __func__,
             static_cast<unsigned long long>(cfg->ccu_schd.phy_die_mask));
@@ -62,38 +62,38 @@ CcuResult ValidateLaunchCfg(const asccomm_launch_kernel_cfg* cfg)
 using VoidPackedCcuKernel = void (*)(void*);
 
 struct VoidKernelRegisterCtx {
-    const void* kernelFunc;
-    void* packedArgs;
+    const void* kernel_func;
+    void* packed_args;
 };
 
-CcuResult VoidKernelTrampoline(ccu_kernel_arg arg);
+CcuResult void_kernel_trampoline(ccu_kernel_arg arg);
 
-CcuResult RegisterCcuKernel(
-    const void* kernelFunc, const char* kernelName, const asccomm_launch_kernel_cfg* cfg, void* args,
-    ccu_kernel_handle& kernelHandle)
+CcuResult register_ccu_kernel(
+    const void* kernel_func, const char* kernel_name, const asccomm_launch_kernel_cfg* cfg, void* args,
+    ccu_kernel_handle& kernel_handle)
 {
     CcuResult ret = asccomm_ccu_kernel_register_start(cfg->ccu_ins);
     if (ret != CCU_SUCCESS) {
         ASCCOMM_CCU_LOG_ERROR(
-            "[%s] asccomm_ccu_kernel_register_start failed, ret[%d], ccuIns[%p].", __func__, ret, cfg->ccu_ins);
+            "[%s] asccomm_ccu_kernel_register_start failed, ret[%d], ccu_ins[%p].", __func__, ret, cfg->ccu_ins);
         return ret;
     }
 
-    const uint32_t dieId = GetDieIdByMask(cfg->ccu_schd.phy_die_mask);
-    VoidKernelRegisterCtx registerCtx{
-        kernelFunc,
+    const uint32_t die_id = get_die_id_by_mask(cfg->ccu_schd.phy_die_mask);
+    VoidKernelRegisterCtx register_ctx{
+        kernel_func,
         args,
     };
 
-    const void* kernelArgs[] = {&registerCtx};
+    const void* kernel_args[] = {&register_ctx};
 
-    // kernelFunc do not support func that return void , only support return CcuResult
-    // kernelName非空时透传给注册侧(profiling名称等), 为空时注册侧使用默认名称
+    // kernel_func do not support func that return void , only support return CcuResult
+    // kernel_name非空时透传给注册侧(profiling名称等), 为空时注册侧使用默认名称
     ret = asccomm_ccu_kernel_register(
-        cfg->ccu_ins, dieId, kernelName, reinterpret_cast<const void*>(VoidKernelTrampoline), kernelArgs, 1,
-        &kernelHandle);
+        cfg->ccu_ins, die_id, kernel_name, reinterpret_cast<const void*>(void_kernel_trampoline), kernel_args, 1,
+        &kernel_handle);
     if (ret != CCU_SUCCESS) {
-        ASCCOMM_CCU_LOG_ERROR("[%s] asccomm_ccu_kernel_register failed, ret[%d], dieId[%u].", __func__, ret, dieId);
+        ASCCOMM_CCU_LOG_ERROR("[%s] asccomm_ccu_kernel_register failed, ret[%d], die_id[%u].", __func__, ret, die_id);
         (void)asccomm_ccu_kernel_register_end(cfg->ccu_ins);
         return ret;
     }
@@ -108,44 +108,45 @@ CcuResult RegisterCcuKernel(
 
 class KernelHandleCache {
 public:
-    CcuResult Match(
-        const void* kernelFunc, const char* kernelName, const asccomm_launch_kernel_cfg* cfg, void* args,
-        ccu_kernel_handle& kernelHandle, uint32_t& taskArgsNum)
+    CcuResult match(
+        const void* kernel_func, const char* kernel_name, const asccomm_launch_kernel_cfg* cfg, void* args,
+        ccu_kernel_handle& kernel_handle, uint32_t& task_args_num)
     {
-        const uint64_t cacheTag = cfg->ccu_schd.binary_cache_tag;
-        if (cacheTag == 0U) {
-            return RegisterAndGetTaskArgsNum(kernelFunc, kernelName, cfg, args, kernelHandle, taskArgsNum);
+        const uint64_t cache_tag = cfg->ccu_schd.binary_cache_tag;
+        if (cache_tag == 0U) {
+            return register_and_get_task_args_num(kernel_func, kernel_name, cfg, args, kernel_handle, task_args_num);
         }
 
         std::lock_guard<std::mutex> lock(mutex_);
-        auto iter = cache_.find(cacheTag);
+        auto iter = cache_.find(cache_tag);
         if (iter != cache_.end()) {
-            kernelHandle = iter->second;
-            return asccomm_ccu_get_task_args_num(kernelHandle, &taskArgsNum);
+            kernel_handle = iter->second;
+            return asccomm_ccu_get_task_args_num(kernel_handle, &task_args_num);
         }
 
-        CcuResult ret = RegisterAndGetTaskArgsNum(kernelFunc, kernelName, cfg, args, kernelHandle, taskArgsNum);
+        CcuResult ret =
+            register_and_get_task_args_num(kernel_func, kernel_name, cfg, args, kernel_handle, task_args_num);
         if (ret != CCU_SUCCESS) {
             return ret;
         }
-        cache_[cacheTag] = kernelHandle;
+        cache_[cache_tag] = kernel_handle;
         return CCU_SUCCESS;
     }
 
 private:
-    CcuResult RegisterAndGetTaskArgsNum(
-        const void* kernelFunc, const char* kernelName, const asccomm_launch_kernel_cfg* cfg, void* args,
-        ccu_kernel_handle& kernelHandle, uint32_t& taskArgsNum)
+    CcuResult register_and_get_task_args_num(
+        const void* kernel_func, const char* kernel_name, const asccomm_launch_kernel_cfg* cfg, void* args,
+        ccu_kernel_handle& kernel_handle, uint32_t& task_args_num)
     {
-        CcuResult ret = RegisterCcuKernel(kernelFunc, kernelName, cfg, args, kernelHandle);
+        CcuResult ret = register_ccu_kernel(kernel_func, kernel_name, cfg, args, kernel_handle);
         if (ret != CCU_SUCCESS) {
             return ret;
         }
-        ret = asccomm_ccu_get_task_args_num(kernelHandle, &taskArgsNum);
+        ret = asccomm_ccu_get_task_args_num(kernel_handle, &task_args_num);
         if (ret != CCU_SUCCESS) {
             ASCCOMM_CCU_LOG_ERROR(
-                "[%s] asccomm_ccu_get_task_args_num failed, ret[%d], kernelHandle[0x%llx].", __func__, ret,
-                static_cast<unsigned long long>(kernelHandle));
+                "[%s] asccomm_ccu_get_task_args_num failed, ret[%d], kernel_handle[0x%llx].", __func__, ret,
+                static_cast<unsigned long long>(kernel_handle));
             return ret;
         }
         return CCU_SUCCESS;
@@ -155,21 +156,21 @@ private:
     std::unordered_map<uint64_t, ccu_kernel_handle> cache_;
 };
 
-KernelHandleCache& GetKernelHandleCache()
+KernelHandleCache& get_kernel_handle_cache()
 {
     static KernelHandleCache cache;
     return cache;
 }
 
-CcuResult VoidKernelTrampoline(ccu_kernel_arg arg)
+CcuResult void_kernel_trampoline(ccu_kernel_arg arg)
 {
     auto* ctx = static_cast<VoidKernelRegisterCtx*>(arg);
-    if (ctx == nullptr || ctx->kernelFunc == nullptr || ctx->packedArgs == nullptr) {
+    if (ctx == nullptr || ctx->kernel_func == nullptr || ctx->packed_args == nullptr) {
         return CCU_E_PTR;
     }
 
-    auto fn = reinterpret_cast<VoidPackedCcuKernel>(const_cast<void*>(ctx->kernelFunc));
-    fn(ctx->packedArgs);
+    auto fn = reinterpret_cast<VoidPackedCcuKernel>(const_cast<void*>(ctx->kernel_func));
+    fn(ctx->packed_args);
     return CCU_SUCCESS;
 }
 
@@ -188,47 +189,27 @@ extern "C" ccu_result asccomm_ccu_host_kernel_launch(
 {
     if (kernel_func == nullptr || cfg == nullptr || args == nullptr) {
         ASCCOMM_CCU_LOG_ERROR(
-            "[%s] invalid input, kernelFunc[%p], cfg[%p], args[%p].", __func__, kernel_func, cfg, args);
+            "[%s] invalid input, kernel_func[%p], cfg[%p], args[%p].", __func__, kernel_func, cfg, args);
         return CCU_E_PTR;
     }
-    CcuResult ret = ValidateLaunchCfg(cfg);
+    CcuResult ret = validate_launch_cfg(cfg);
     if (ret != CCU_SUCCESS) {
         return ret;
     }
 
-    ccu_kernel_handle kernelHandle = 0;
-    uint32_t taskArgsNum = 0;
-    ret = GetKernelHandleCache().Match(kernel_func, kernel_name, cfg, args, kernelHandle, taskArgsNum);
+    ccu_kernel_handle kernel_handle = 0;
+    uint32_t task_args_num = 0;
+    ret = get_kernel_handle_cache().match(kernel_func, kernel_name, cfg, args, kernel_handle, task_args_num);
     if (ret != CCU_SUCCESS) {
         return ret;
     }
 
-    ret = asccomm_ccu_kernel_launch(cfg->stream, kernelHandle, args, taskArgsNum);
+    ret = asccomm_ccu_kernel_launch(cfg->stream, kernel_handle, args, task_args_num);
     if (ret != CCU_SUCCESS) {
         ASCCOMM_CCU_LOG_ERROR(
-            "[%s] asccomm_ccu_kernel_launch failed, ret[%d], kernelHandle[0x%llx], stream[%p].", __func__, ret,
-            static_cast<unsigned long long>(kernelHandle), cfg->stream);
+            "[%s] asccomm_ccu_kernel_launch failed, ret[%d], kernel_handle[0x%llx], stream[%p].", __func__, ret,
+            static_cast<unsigned long long>(kernel_handle), cfg->stream);
         return ret;
     }
     return CCU_SUCCESS;
 }
-
-extern "C" CcuResult HcommCcuHostKernelLaunch(
-    const void* kernel_func, const char* kernel_name, const HcommLaunchKernelCfg* cfg, void* args)
-{
-    if (cfg == nullptr) {
-        return asccomm_ccu_host_kernel_launch(kernel_func, kernel_name, nullptr, args);
-    }
-
-    asccomm_launch_kernel_cfg asccommCfg{};
-    asccommCfg.ccu_schd.num_blocks = cfg->ccuSchd.numBlocks;
-    asccommCfg.ccu_schd.reserved = cfg->ccuSchd.reserved;
-    asccommCfg.ccu_schd.phy_die_mask = cfg->ccuSchd.phyDieMask;
-    asccommCfg.ccu_schd.binary_cache_tag = cfg->ccuSchd.binaryCacheTag;
-    asccommCfg.ccu_ins = cfg->ccuIns;
-    asccommCfg.stream = cfg->stream;
-    asccommCfg.attrs = cfg->attrs;
-    return asccomm_ccu_host_kernel_launch(kernel_func, kernel_name, &asccommCfg, args);
-}
-
-extern "C" uint64_t HcommCcuGetLaunchHashTag(const char* tag) { return asccomm_ccu_get_launch_hash_tag(tag); }
