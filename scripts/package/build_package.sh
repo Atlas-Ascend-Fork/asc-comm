@@ -284,7 +284,19 @@ build_package()
         "${PROJECT_ROOT}/include" \
         "${STAGING_DIR}/payload/asc/include/comm_api" \
         550 \
-        aicore/hcomm
+        aicore/hcomm \
+        hcomm_primitives.h \
+        hcomm_res_defs.h \
+        hcomm_team_defs.h
+    copy_headers \
+        "${PROJECT_ROOT}/pkg_inc" \
+        "${STAGING_DIR}/payload/asc/include/comm_api" \
+        550
+    # 位于 include/ 根的 pod 头保持原有 comm_api/hcomm/ 装载布局（与 hcomm 仓源码树对齐后移动）
+    for pod_header in hcomm_primitives.h hcomm_res_defs.h hcomm_team_defs.h; do
+        install -D -m 550 "${PROJECT_ROOT}/include/${pod_header}" \
+            "${STAGING_DIR}/payload/asc/include/comm_api/hcomm/${pod_header}"
+    done
     copy_headers \
         "${PROJECT_ROOT}/src" \
         "${STAGING_DIR}/payload/asc/impl/comm_api" \
