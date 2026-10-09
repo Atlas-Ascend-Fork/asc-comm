@@ -265,6 +265,7 @@ add_library(asccomm_ccu_host_launch STATIC
 target_include_directories(asccomm_ccu_host_launch
     PUBLIC
         ${ASCCOMM_ROOT}/include
+        ${ASCCOMM_ROOT}/pkg_inc
     PRIVATE
         ${ASCEND_CANN_ARCH_DIR}/include
         ${ASCEND_CANN_ARCH_DIR}/include/hcomm
@@ -284,6 +285,7 @@ add_executable(asccomm_ut_ccu_host_launch
 )
 target_include_directories(asccomm_ut_ccu_host_launch PRIVATE
     ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm/ccu
@@ -302,6 +304,7 @@ add_library(asccomm_ccu_launch_stub STATIC
 )
 target_include_directories(asccomm_ccu_launch_stub PRIVATE
     ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/pkg_inc
     ${ASCEND_CANN_ARCH_DIR}/include
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc

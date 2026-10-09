@@ -19,6 +19,7 @@ set(CCU_MICROCODE_DIR ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/microcode)
 set(UT_COMMON_INCLUDE_LIST
     ${ASCCOMM_UT_ROOT}/ccu/hcomm_compat/include
     ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/pkg_inc
     ${ASCCOMM_ROOT}/src/ccu
     ${ASCEND_CANN_ARCH_DIR}/include/hcomm
     ${ASCEND_CANN_ARCH_DIR}/pkg_inc
