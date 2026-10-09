@@ -18,7 +18,7 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-option(ASCCOMM_BUILD_CCU "Build asc-comm CCU launch wrapper library" ON)
+option(ASCCOMM_BUILD_CCU "Build asc-comm CCU library" ON)
 option(ASCCOMM_BUILD_AICPU "Build asc-comm AICPU data plane library" ON)
 
 if(CUSTOM_ASCEND_CANN_PACKAGE_PATH)

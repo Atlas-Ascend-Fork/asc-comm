@@ -8,14 +8,14 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ----------------------------------------------------------------------------------------------------------
 
-target_sources(asccomm_ccu_dataplane_obj PRIVATE
+target_sources(asccomm_ccu_obj PRIVATE
     common/ccu_device_context.cc
     common/ccu_dev_mem.cc
     primitives/ccu_primitives_impl.cc
     primitives/ccu_launch.cc
 )
 
-target_sources(asccomm_ccu_dataplane_obj PRIVATE
+target_sources(asccomm_ccu_obj PRIVATE
     resource/channel/ccu_channel.cc
     resource/common/asc_ccu_res_snapshot.cc
     resource/common/ccu_var_event_res_mgr.cc
@@ -32,7 +32,7 @@ target_sources(asccomm_ccu_dataplane_obj PRIVATE
     resource/microcode_opt/microcode_optimizer.cc
 )
 
-target_sources(asccomm_ccu_dataplane_obj PRIVATE
+target_sources(asccomm_ccu_obj PRIVATE
     resource/representation/context/ccu_rep_context.cc
     resource/representation/interface/ccu_condition.cc
     resource/representation/interface/ccu_datatype.cc

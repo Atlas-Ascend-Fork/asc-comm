@@ -65,9 +65,9 @@ target_link_directories(demo PRIVATE
 target_link_libraries(demo PRIVATE
     hcomm
     asccomm_ccu
-    asccomm_ccu_dataplane
     c_sec
     ascendcl
     acl_rt
     ascendc_runtime
+    pthread
 )
