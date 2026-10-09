@@ -147,9 +147,9 @@ set(CCU_FEATURES_IMPL_SOURCES
 
 set(src_to_test_list
     main.cc
-    ut_ccu_microcode.cc
-    ut_ccu_kernel_res_allocator.cc
-    ./ccu_representation/interface/ut_ccu_interface_assist.cc
+    resource/microcode/ut_ccu_microcode.cc
+    resource/kernel/ut_ccu_kernel_res_allocator.cc
+    ./resource/representation/interface/ut_ccu_interface_assist.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/kernel/ccu_kernel_res_allocator.cc
     ${CCU_FEATURES_IMPL_SOURCES}
 )
@@ -192,8 +192,8 @@ add_dependencies(hccl_utest_comms_ccu_features asccomm_ccu_llt_stub_abi0)
 add_test(NAME hccl_utest_comms_ccu_features COMMAND hccl_utest_comms_ccu_features)
 
 add_executable(hccl_utest_comms_asc_ccu_res_snapshot
-    asc_ccu_res_snapshot_main.cc
-    ut_asc_ccu_res_snapshot.cc
+    resource/common/asc_ccu_res_snapshot_main.cc
+    resource/common/ut_asc_ccu_res_snapshot.cc
     ${ASCCOMM_ROOT}/src/ccu/hcomm/resource/common/asc_ccu_res_snapshot.cc
 )
 target_include_directories(hccl_utest_comms_asc_ccu_res_snapshot PRIVATE
@@ -204,18 +204,18 @@ target_link_libraries(hccl_utest_comms_asc_ccu_res_snapshot PRIVATE
 )
 add_test(NAME hccl_utest_comms_asc_ccu_res_snapshot COMMAND hccl_utest_comms_asc_ccu_res_snapshot)
 
-add_subdirectory(ccu_representation/reps/sync)
-add_subdirectory(ccu_representation/reps/control)
-add_subdirectory(ccu_representation/reps/common)
-add_subdirectory(ccu_representation/reps/data)
-add_subdirectory(ccu_representation/reps/arithmetic)
-add_subdirectory(ccu_representation/reps/loop)
-add_subdirectory(ccu_representation/reps/logical)
-add_subdirectory(ccu_representation/reps/shift)
-add_subdirectory(ccu_representation/context)
-add_subdirectory(ccu_representation/interface)
-add_subdirectory(ccu_representation/translator)
-add_subdirectory(ccu_microcode)
-add_subdirectory(ccu_microcode_opt)
+add_subdirectory(resource/representation/reps/sync)
+add_subdirectory(resource/representation/reps/control)
+add_subdirectory(resource/representation/reps/common)
+add_subdirectory(resource/representation/reps/data)
+add_subdirectory(resource/representation/reps/arithmetic)
+add_subdirectory(resource/representation/reps/loop)
+add_subdirectory(resource/representation/reps/logical)
+add_subdirectory(resource/representation/reps/shift)
+add_subdirectory(resource/representation/context)
+add_subdirectory(resource/representation/interface)
+add_subdirectory(resource/representation/translator)
+add_subdirectory(resource/microcode)
+add_subdirectory(resource/microcode_opt)
 add_subdirectory(resource/channel)
 add_subdirectory(ccu_variable)
