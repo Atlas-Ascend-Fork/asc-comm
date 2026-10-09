@@ -60,8 +60,14 @@ GetCommMemPtr(const __gm__ HcommTeam* team, const HcclCommSymWindow window, uint
 // ===================== Ain =====================
 
 template <unsigned CommEngineMask>
-AIN_DEVICE Ain<CommEngineMask>::Ain(uint32_t contextIndex) : contextIndex_(contextIndex)
-{}
+template <typename DescriptorUbuf>
+AIN_DEVICE Ain<CommEngineMask>::Ain(uint32_t contextIndex, const DescriptorUbuf& ubuf)
+    : contextIndex_(contextIndex)
+{
+    if constexpr (IsSameType<DescriptorUbuf, AinDescriptorUbuf>::value) {
+        hcomm_.Init(ubuf.addr, ubuf.bytes);
+    }
+}
 
 template <unsigned CommEngineMask>
 AIN_DEVICE Ain<CommEngineMask>::~Ain()
@@ -102,10 +108,9 @@ AIN_DEVICE void Ain<CommEngineMask>::Put(
     HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
     uint64_t srcOffset, uint64_t bytes, RemoteAction remoteAction, const DescriptorUbuf& ubuf)
 {
-    static_assert(
-        !IsSameType<DescriptorUbuf, AinDescriptorUbufNone>::value,
-        "put requires a valid DescriptorUbuf; AinDescriptorUbufNone is not allowed");
-    hcomm_.Init(ubuf.addr, ubuf.bytes);
+    if constexpr (IsSameType<DescriptorUbuf, AinDescriptorUbuf>::value) {
+        hcomm_.Init(ubuf.addr, ubuf.bytes);
+    }
 
     auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
 
@@ -132,10 +137,9 @@ AIN_DEVICE void Ain<CommEngineMask>::PutValue(
     HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, T value,
     RemoteAction remoteAction, const DescriptorUbuf& ubuf)
 {
-    static_assert(
-        !IsSameType<DescriptorUbuf, AinDescriptorUbufNone>::value,
-        "putValue requires a valid DescriptorUbuf; AinDescriptorUbufNone is not allowed");
-    hcomm_.Init(ubuf.addr, ubuf.bytes);
+    if constexpr (IsSameType<DescriptorUbuf, AinDescriptorUbuf>::value) {
+        hcomm_.Init(ubuf.addr, ubuf.bytes);
+    }
 
     auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
 
@@ -161,10 +165,9 @@ AIN_DEVICE void Ain<CommEngineMask>::Get(
     HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
     uint64_t srcOffset, uint64_t bytes, const DescriptorUbuf& ubuf)
 {
-    static_assert(
-        !IsSameType<DescriptorUbuf, AinDescriptorUbufNone>::value,
-        "get requires a valid DescriptorUbuf; AinDescriptorUbufNone is not allowed");
-    hcomm_.Init(ubuf.addr, ubuf.bytes);
+    if constexpr (IsSameType<DescriptorUbuf, AinDescriptorUbuf>::value) {
+        hcomm_.Init(ubuf.addr, ubuf.bytes);
+    }
 
     auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
 
@@ -195,10 +198,9 @@ template <typename RemoteAction, typename DescriptorUbuf, AinCommitFlags CommitF
 AIN_DEVICE void Ain<CommEngineMask>::Signal(
     HcommTeamHandle team, uint32_t peer, RemoteAction action, const DescriptorUbuf& ubuf)
 {
-    static_assert(
-        !IsSameType<DescriptorUbuf, AinDescriptorUbufNone>::value,
-        "signal requires a valid DescriptorUbuf; AinDescriptorUbufNone is not allowed");
-    hcomm_.Init(ubuf.addr, ubuf.bytes);
+    if constexpr (IsSameType<DescriptorUbuf, AinDescriptorUbuf>::value) {
+        hcomm_.Init(ubuf.addr, ubuf.bytes);
+    }
 
     auto hcommTeam = reinterpret_cast<__gm__ HcommTeam*>(reinterpret_cast<uint64_t>(team));
     ChannelHandle channel = GetChannelHandle(hcommTeam, peer, contextIndex_);
