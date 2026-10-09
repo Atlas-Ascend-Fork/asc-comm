@@ -51,7 +51,7 @@ static CcuResult BroadcastFromRoot(BroadcastMesh1DContext& ctx)
         ccu::remote_addr dst_;
         dst_.addr_ = ctx.remoteBuffer[rankIdx];
         dst_.token = ctx.remoteToken[rankIdx];
-        RETURN_IF_CCU_FAIL(ccu::Write(ctx.arg->channels[channelId], dst_, src_, ctx.data_size, ctx.event, mask_));
+        RETURN_IF_CCU_FAIL(ccu::write(ctx.arg->channels[channelId], dst_, src_, ctx.data_size, ctx.event, mask_));
         remoteMask |= mask_;
         channelId++;
     }
@@ -73,8 +73,8 @@ CcuResult CcuBroadcastMesh1DKernel(ccu_kernel_arg arg)
     uint32_t channelId = 0;
     for (uint32_t peerId = 0; peerId < ctx.arg->rankSize; peerId++) {
         if (peerId != ctx.arg->rankId) {
-            ctx.remoteBuffer[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelId], BUFFER_XN_ID);
-            ctx.remoteToken[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelId], TOKEN_XN_ID);
+            ctx.remoteBuffer[peerId] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelId], BUFFER_XN_ID);
+            ctx.remoteToken[peerId] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelId], TOKEN_XN_ID);
             channelId++;
         }
     }

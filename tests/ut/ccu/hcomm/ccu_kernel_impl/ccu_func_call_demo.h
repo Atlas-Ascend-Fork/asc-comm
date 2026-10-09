@@ -26,14 +26,14 @@ ccu::func CcuFuncCallNestedInnerFunc([](ccu::variable x) {
     tmp = x + x;
 });
 
-ccu::func CcuFuncCallNestedOuterFunc([](ccu::variable x) { (void)ccu::CallFunc<CcuFuncCallNestedInnerFunc>(x); });
+ccu::func CcuFuncCallNestedOuterFunc([](ccu::variable x) { (void)ccu::call_func<CcuFuncCallNestedInnerFunc>(x); });
 
 inline CcuResult CcuFuncCallBasicDemoKernel(ccu_kernel_arg arg)
 {
     (void)arg;
     ccu::variable x{};
     x = 1;
-    return ccu::CallFunc<CcuFuncCallBasicFunc>(x);
+    return ccu::call_func<CcuFuncCallBasicFunc>(x);
 }
 
 inline CcuResult CcuFuncCallReuseDemoKernel(ccu_kernel_arg arg)
@@ -41,9 +41,9 @@ inline CcuResult CcuFuncCallReuseDemoKernel(ccu_kernel_arg arg)
     (void)arg;
     ccu::variable x{};
     x = 2;
-    CCU_CHK_RET(ccu::CallFunc<CcuFuncCallBasicFunc>(x));
-    CCU_CHK_RET(ccu::CallFunc<CcuFuncCallNestedInnerFunc>(x));
-    return ccu::CallFunc<CcuFuncCallBasicFunc>(x);
+    CCU_CHK_RET(ccu::call_func<CcuFuncCallBasicFunc>(x));
+    CCU_CHK_RET(ccu::call_func<CcuFuncCallNestedInnerFunc>(x));
+    return ccu::call_func<CcuFuncCallBasicFunc>(x);
 }
 
 inline CcuResult CcuFuncCallInLoopInvalidDemoKernel(ccu_kernel_arg arg)
@@ -53,7 +53,7 @@ inline CcuResult CcuFuncCallInLoopInvalidDemoKernel(ccu_kernel_arg arg)
     x = 3;
 
     CcuResult bodyRet = CcuResult::CCU_SUCCESS;
-    ccu::func body([&]() { bodyRet = ccu::CallFunc<CcuFuncCallBasicFunc>(x); });
+    ccu::func body([&]() { bodyRet = ccu::call_func<CcuFuncCallBasicFunc>(x); });
     ccu::loop_config dummyCfg{};
     ccu::loop loop(dummyCfg, body);
     return bodyRet;
@@ -64,7 +64,7 @@ inline CcuResult CcuFuncCallNestedInvalidDemoKernel(ccu_kernel_arg arg)
     (void)arg;
     ccu::variable x{};
     x = 4;
-    return ccu::CallFunc<CcuFuncCallNestedOuterFunc>(x);
+    return ccu::call_func<CcuFuncCallNestedOuterFunc>(x);
 }
 
 ccu::func CcuFuncCallMultiArgFunc([](ccu::variable a, ccu::variable b, ccu::variable c) {
@@ -82,7 +82,7 @@ inline CcuResult CcuFuncCallMultiArgDemoKernel(ccu_kernel_arg arg)
     x = 1;
     y = 2;
     z = 3;
-    return ccu::CallFunc<CcuFuncCallMultiArgFunc>(x, y, z);
+    return ccu::call_func<CcuFuncCallMultiArgFunc>(x, y, z);
 }
 
 #endif // CCU_FUNC_CALL_DEMO_H

@@ -164,7 +164,7 @@ HcclResult ccu_kernel_mgr::deinit()
     return first_error;
 }
 
-CcuResult ccu_kernel_mgr::Register(
+CcuResult ccu_kernel_mgr::register_kernel(
     asc_ccu_res_snapshot& res_pack, const uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
     const void** kernel_args, const uint32_t arg_num, ccu_kernel_handle& kernel_handle)
 {
@@ -527,7 +527,7 @@ static HcclResult trans_rep_res_to_phy_res(const std::vector<ccu_kernel*>& kerne
 CcuResult ccu_kernel_mgr::translate(const std::vector<ccu_kernel_handle>& kernel_handles)
 {
     if (kernel_handles.empty()) {
-        HCCL_INFO("[CcuKernelMgr][%s] passed, kernelHandles are empty.", __func__);
+        HCCL_INFO("[CcuKernelMgr][%s] passed, kernel_handles are empty.", __func__);
         return CcuResult::CCU_SUCCESS;
     }
 
@@ -567,7 +567,7 @@ CcuResult ccu_kernel_mgr::un_register(const ccu_kernel_handle kernel_handle)
     auto it = kernel_map_.find(kernel_handle);
     CHK_PRT_RET(
         it == kernel_map_.end(),
-        HCCL_ERROR("[CcuKernelMgr][%s] kernelHandle [%llu] does not exist", __func__, kernel_handle),
+        HCCL_ERROR("[CcuKernelMgr][%s] kernel_handle [%llu] does not exist", __func__, kernel_handle),
         CcuResult::CCU_E_NOT_FOUND);
 
     CCU_CHK_RET(clear_kernel_instruction_resource(*it->second));

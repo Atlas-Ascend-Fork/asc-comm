@@ -24,39 +24,39 @@ namespace ccu {
 
 class loop {
 public:
-    loop(variable& loopCfg, const func& func)
+    loop(variable& loop_cfg, const func& func)
     {
         compose_loop_body(func);
-        isVarBased_ = true;
-        loopParamVar_ = &loopCfg;
+        is_var_based_ = true;
+        loop_param_var_ = &loop_cfg;
     }
 
-    loop(const ccu_loop_config& loopCfg, const func& func)
+    loop(const ccu_loop_config& loop_cfg, const func& func)
     {
         compose_loop_body(func);
-        isVarBased_ = false;
-        config_ = loopCfg;
+        is_var_based_ = false;
+        config_ = loop_cfg;
     }
 
     ccu_loop Handle() const { return handle_; }
 
-    bool IsVarBased() const { return isVarBased_; }
+    bool is_var_based() const { return is_var_based_; }
 
-    variable* LoopParamVar() const { return loopParamVar_; }
+    variable* loop_param_var() const { return loop_param_var_; }
 
     const ccu_loop_config* config() const { return &config_; }
 
 private:
     void compose_loop_body(const func& func)
     {
-        if (func.NumIn() != 0) {
+        if (func.num_in() != 0) {
             throw ::AscendC::ccu::detail::ccu_exception(
                 CcuResult::CCU_E_PARA, "ccu::loop requires a no-argument ccu::func");
         }
         CCU_THROW_IF_FAILED(::asc::ccu_loop_create(&handle_), "ccu_loop_create failed");
         CCU_THROW_IF_FAILED(::asc::ccu_loop_body_enter(handle_), "ccu_loop_body_enter failed");
         try {
-            func.RunBody(nullptr);
+            func.run_body(nullptr);
         } catch (...) {
             (void)::asc::ccu_loop_body_exit(handle_);
             throw;
@@ -65,37 +65,37 @@ private:
     }
 
     ccu_loop handle_{0};
-    bool isVarBased_{false};
-    variable* loopParamVar_{nullptr};
+    bool is_var_based_{false};
+    variable* loop_param_var_{nullptr};
     ccu_loop_config config_{};
 };
 
 class loop_group {
 public:
-    loop_group(variable& parallelCfg, variable& offsetCfg, uint32_t max_loop_num, const std::vector<loop>& loops)
+    loop_group(variable& parallel_cfg, variable& offset_cfg, uint32_t max_loop_num, const std::vector<loop>& loops)
     {
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_loop_group_create_from_var(&handle_, max_loop_num, parallelCfg.handle, offsetCfg.handle),
+            ::asc::ccu_loop_group_create_from_var(&handle_, max_loop_num, parallel_cfg.handle, offset_cfg.handle),
             "ccu_loop_group_create_from_var failed");
-        AddLoops(loops);
+        add_loops(loops);
     }
 
-    loop_group(const ccu_loop_group_config& loopGroupCfg, uint32_t max_loop_num, const std::vector<loop>& loops)
+    loop_group(const ccu_loop_group_config& loop_group_cfg, uint32_t max_loop_num, const std::vector<loop>& loops)
     {
-        ccu_loop_group_config localCfg = loopGroupCfg;
+        ccu_loop_group_config local_cfg = loop_group_cfg;
         CCU_THROW_IF_FAILED(
-            ::asc::ccu_loop_group_create(&handle_, max_loop_num, &localCfg), "ccu_loop_group_create failed");
-        AddLoops(loops);
+            ::asc::ccu_loop_group_create(&handle_, max_loop_num, &local_cfg), "ccu_loop_group_create failed");
+        add_loops(loops);
     }
 
     ccu_loop_group Handle() const { return handle_; }
 
 private:
-    void AddLoops(const std::vector<loop>& loops)
+    void add_loops(const std::vector<loop>& loops)
     {
         for (const auto& loop : loops) {
-            if (loop.IsVarBased()) {
-                auto* loop_param_var = loop.LoopParamVar();
+            if (loop.is_var_based()) {
+                auto* loop_param_var = loop.loop_param_var();
                 if (loop_param_var == nullptr) {
                     throw ::AscendC::ccu::detail::ccu_exception(
                         CcuResult::CCU_E_PARA, "ccu::loop var_-based loop has null loop parameter");
