@@ -84,6 +84,8 @@ target_include_directories(asccomm_aicpu PRIVATE
     ${ASCCOMM_ROOT}/include/aicpu/hcomm
     # CANN包公共依赖头(securec.h/dlog_pub.h/ascend_hal.h/acl头)，
     # 独立构建不依赖cann-cmake导入目标，直接取CANN包目录
+    ${ASCEND_CANN_PACKAGE_PATH}/pkg_inc/hcomm
+    ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/hcomm
     ${ASCCOMM_CANN_ARCH_DIR}/include
     ${ASCCOMM_CANN_ARCH_DIR}/include/hcomm
     ${ASCCOMM_CANN_ARCH_DIR}/pkg_inc/base

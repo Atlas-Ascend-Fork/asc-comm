@@ -30,8 +30,7 @@ ThreadEntity MakeThread()
 ChannelEntity MakeChannel()
 {
     ChannelEntity channel{};
-    channel.abiHeader = {
-        HCOMM_RESOURCE_CHANNEL_VERSION, HCOMM_RESOURCE_CHANNEL_MAGIC_WORD, sizeof(ChannelEntity), 0};
+    channel.abiHeader = {HCOMM_RESOURCE_CHANNEL_VERSION, HCOMM_RESOURCE_CHANNEL_MAGIC_WORD, sizeof(ChannelEntity), 0};
     return channel;
 }
 
@@ -157,7 +156,7 @@ TEST_F(AsccommPrimitivesTest, LocalCopyAndReducePassArguments)
     EXPECT_EQ(g_runtimeStubState.copyCalls[0].size, sizeof(uint64_t));
 
     EXPECT_EQ(
-        asccomm_local_reduce_on_thread(handle, &buffer[1], &buffer[0], 2, HCOMM_DATA_TYPE_INT32, HCOMM_REDUCE_SUM),
+        asccomm_local_reduce_on_thread(handle, &buffer[1], &buffer[0], 2, ASCCOMM_DATA_TYPE_INT32, ASCCOMM_REDUCE_SUM),
         ASCCOMM_SUCCESS);
     ASSERT_EQ(g_runtimeStubState.reduceCalls.size(), 1U);
     EXPECT_EQ(g_runtimeStubState.reduceCalls[0].size, 8U);
@@ -170,11 +169,11 @@ TEST_F(AsccommPrimitivesTest, RejectsUnsupportedReduceParameters)
     uint64_t buffer = 0;
     EXPECT_EQ(
         asccomm_local_reduce_on_thread(
-            ThreadHandleOf(thread_), &buffer, &buffer, 1, static_cast<HcommDataType>(999), HCOMM_REDUCE_SUM),
+            ThreadHandleOf(thread_), &buffer, &buffer, 1, static_cast<AsccommDataType>(999), ASCCOMM_REDUCE_SUM),
         ASCCOMM_E_PARA);
     EXPECT_EQ(
         asccomm_local_reduce_on_thread(
-            ThreadHandleOf(thread_), &buffer, &buffer, 1, HCOMM_DATA_TYPE_INT32, static_cast<HcommReduceOp>(999)),
+            ThreadHandleOf(thread_), &buffer, &buffer, 1, ASCCOMM_DATA_TYPE_INT32, static_cast<AsccommReduceOp>(999)),
         ASCCOMM_E_PARA);
     EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
 }
