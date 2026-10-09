@@ -19,7 +19,7 @@
 
 // 控制面/数据面 ABI 边界：数据类型（HcclResult 等）取自 HCCL 公共类型定义
 #include "ccu/hcomm/ccu_api_types.h"
-#include "hcomm/hcomm_primitives.h"
+#include "hcomm_primitives.h"
 #include "ccu/hcomm/hccl_types.h"
 
 // 数据面 primitive 统一为 C++ linkage：声明与实现均位于 namespace asc，
