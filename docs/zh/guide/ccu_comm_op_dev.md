@@ -182,7 +182,7 @@ Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第
     样例通过`HcclCommQueryCcuIns`查询通信域上绑定的CCU实例，公共辅助函数`QueryCcuInstance`封装了该调用，并校验通信域恰好绑定一个实例：
 
     ```cpp
-    CcuInsHandle insHandle{};
+    void* insHandle{};
     HCCLCHECK(asccomm_examples::QueryCcuInstance(comm, insHandle));
     ```
 
