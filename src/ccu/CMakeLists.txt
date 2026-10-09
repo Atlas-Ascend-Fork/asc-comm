@@ -47,6 +47,7 @@ asccomm_collect_header_dirs(ASCCOMM_CANN_HEADER_DIRS ${ASCCOMM_CANN_BASE_INCLUDE
 add_library(asccomm_ccu_headers INTERFACE)
 target_include_directories(asccomm_ccu_headers INTERFACE
     ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/pkg_inc
 )
 
 add_library(asccomm_ccu_obj OBJECT)
@@ -68,6 +69,7 @@ target_link_libraries(asccomm_ccu_obj PRIVATE
 target_include_directories(asccomm_ccu_obj PRIVATE
     ${ASCCOMM_CCU_ROOT}
     ${ASCCOMM_ROOT}/include
+    ${ASCCOMM_ROOT}/pkg_inc
 )
 target_include_directories(asccomm_ccu_obj SYSTEM PRIVATE
     ${ASCCOMM_CANN_BASE_INCLUDE_DIRS}
