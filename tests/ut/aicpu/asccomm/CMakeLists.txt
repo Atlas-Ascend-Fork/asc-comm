@@ -23,6 +23,12 @@ set(AICPU_UT_INCLUDE_DIRS
     ${ASCCOMM_ROOT}/src/common/dfx/logging
     ${CMAKE_CURRENT_SOURCE_DIR}/stub
 )
+if(ASCCOMM_CONTROL_PLANE_SOURCE_DIR)
+    list(APPEND AICPU_UT_INCLUDE_DIRS
+        ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/include
+        ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc
+        ${ASCCOMM_CONTROL_PLANE_SOURCE_DIR}/pkg_inc/hcomm)
+endif()
 
 add_library(asccomm_aicpu_launch_stub STATIC
     stub/asccomm_launch_stub.cc
