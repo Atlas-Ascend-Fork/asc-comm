@@ -47,9 +47,16 @@ class Ain {
 public:
     /*!
      * @brief Construct an Ain instance bound to a device communication context.
+     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbufNone by default.
+     *        Pass AinDescriptorUbuf to initialize the underlying Hcomm engine at construction;
+     *        with the default, initialization is deferred to the first communication call that
+     *        carries an explicit AinDescriptorUbuf.
      * @param [in] contextIndex: Index of the communication context to operate on.
+     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine; used only when
+     *        DescriptorUbuf is AinDescriptorUbuf.
      */
-    AIN_DEVICE Ain(uint32_t contextIndex = 0);
+    template <typename DescriptorUbuf = AinDescriptorUbufNone>
+    AIN_DEVICE Ain(uint32_t contextIndex, const DescriptorUbuf& ubuf = DescriptorUbuf{});
     AIN_DEVICE ~Ain();
 
     /*!
@@ -76,7 +83,9 @@ public:
     /*!
      * @brief Issue a one-sided write (put) from a local window to a remote peer's window.
      * @tparam RemoteAction: Optional remote-side action tag, AinRemoteNone by default.
-     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
+     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbufNone by default.
+     *        With the default, the Hcomm workspace initialized at construction is used;
+     *        pass AinDescriptorUbuf to re-initialize the Hcomm engine with the given workspace.
      * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
      *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
      * @tparam Config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
@@ -88,10 +97,11 @@ public:
      * @param [in] srcOffset: Byte offset into the source window.
      * @param [in] bytes: Number of bytes to transfer.
      * @param [in] remoteAction: Remote signal action fired after write; AinRemoteNone by default.
-     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
+     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine; used only when
+     *        DescriptorUbuf is AinDescriptorUbuf.
      */
     template <
-        typename RemoteAction = AinRemoteNone, typename DescriptorUbuf = AinDescriptorUbuf,
+        typename RemoteAction = AinRemoteNone, typename DescriptorUbuf = AinDescriptorUbufNone,
         AinCommitFlags CommitFlags = AIN_COMMIT_IMMED, auto const& Config = URMA_DEFAULT_CFG>
     AIN_DEVICE void Put(
         HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
@@ -102,7 +112,9 @@ public:
      * @brief Issue an inline one-sided write (put) of a typed value to a remote peer's window.
      * @tparam T: Value type to write.
      * @tparam RemoteAction: Signal action type, for example AinSignalInc, AinSignalAdd.
-     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
+     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbufNone by default.
+     *        With the default, the Hcomm workspace initialized at construction is used;
+     *        pass AinDescriptorUbuf to re-initialize the Hcomm engine with the given workspace.
      * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
      *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
      * @tparam Config: URMA WQE control config, only used by URMA.
@@ -113,10 +125,11 @@ public:
      * @param [in] dstOffset: Byte offset into the destination window.
      * @param [in] value: Typed value to write inline.
      * @param [in] remoteAction: Remote signal action fired after write; AinRemoteNone by default.
-     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
+     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine; used only when
+     *        DescriptorUbuf is AinDescriptorUbuf.
      */
     template <
-        typename T, typename RemoteAction = AinRemoteNone, typename DescriptorUbuf = AinDescriptorUbuf,
+        typename T, typename RemoteAction = AinRemoteNone, typename DescriptorUbuf = AinDescriptorUbufNone,
         AinCommitFlags CommitFlags = AIN_COMMIT_IMMED, auto const& Config = URMA_INLINE_CFG>
     AIN_DEVICE void PutValue(
         HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, T value,
@@ -124,7 +137,9 @@ public:
 
     /*!
      * @brief Issue a one-sided read (get) from a remote peer's window into a local window.
-     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
+     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbufNone by default.
+     *        With the default, the Hcomm workspace initialized at construction is used;
+     *        pass AinDescriptorUbuf to re-initialize the Hcomm engine with the given workspace.
      * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
      *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
      * @tparam Config: URMA WQE control config, only used by URMA. Default: strongly ordered + fence + CQE enabled.
@@ -135,10 +150,11 @@ public:
      * @param [in] srcWin: Source symmetric window of the peer.
      * @param [in] srcOffset: Byte offset into the source window.
      * @param [in] bytes: Number of bytes to transfer.
-     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
+     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine; used only when
+     *        DescriptorUbuf is AinDescriptorUbuf.
      */
     template <
-        typename DescriptorUbuf = AinDescriptorUbuf, AinCommitFlags CommitFlags = AIN_COMMIT_IMMED,
+        typename DescriptorUbuf = AinDescriptorUbufNone, AinCommitFlags CommitFlags = AIN_COMMIT_IMMED,
         auto const& Config = URMA_DEFAULT_CFG>
     AIN_DEVICE void Get(
         HcommTeamHandle team, uint32_t peer, HcclCommSymWindow dstWin, uint64_t dstOffset, HcclCommSymWindow srcWin,
@@ -147,16 +163,19 @@ public:
     /*!
      * @brief Atomically update a remote peer's signal via Fetch-and-Add.
      * @tparam RemoteAction: Signal action type, for example AinSignalInc, AinSignalAdd.
-     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbuf by default.
+     * @tparam DescriptorUbuf: UB workspace descriptor type, AinDescriptorUbufNone by default.
+     *        With the default, the Hcomm workspace initialized at construction is used;
+     *        pass AinDescriptorUbuf to re-initialize the Hcomm engine with the given workspace.
      * @tparam CommitFlags: AIN_COMMIT_IMMED rings the doorbell immediately;
      *                      AIN_COMMIT_DELAYED defers submission until a subsequent AIN_COMMIT_IMMED task.
      * @param [in] team: The communication team handle.
      * @param [in] peer: Peer rank id within the team.
      * @param [in] action: Signal action; AinSignalInc adds 1, AinSignalAdd adds a custom value.
-     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine.
+     * @param [in] ubuf: UB workspace descriptor for the underlying Hcomm engine; used only when
+     *        DescriptorUbuf is AinDescriptorUbuf.
      */
     template <
-        typename RemoteAction, typename DescriptorUbuf = AinDescriptorUbuf,
+        typename RemoteAction, typename DescriptorUbuf = AinDescriptorUbufNone,
         AinCommitFlags CommitFlags = AIN_COMMIT_IMMED, auto const& Config = URMA_DEFAULT_CFG>
     AIN_DEVICE void Signal(
         HcommTeamHandle team, uint32_t peer, RemoteAction action, const DescriptorUbuf& ubuf = DescriptorUbuf{});
