@@ -324,6 +324,38 @@ __aicore__ inline void HcommUrmaDumpCqeCtx(__ubuf__ HcommUrmaJfcCqeCtx* cqeCtx)
         cqeCtx->inlineData[1], cqeCtx->inlineData[2]);
 }
 
+__aicore__ inline void HcommUrmaDumpCqeGmCtx(__gm__ uint32_t* cqeWords)
+{
+    uint32_t dw0 = ld_dev(cqeWords, 0);
+    uint32_t dw1 = ld_dev(cqeWords + 1, 0);
+    uint32_t dw2 = ld_dev(cqeWords + 2, 0);
+    uint32_t dw3 = ld_dev(cqeWords + 3, 0);
+    HCOMM_KERNEL_LOG(
+        KERNEL_INFO,
+        "Hcomm URMA CQE: DW0 - sR: %d, isJetty: %d, owner: %d, inlineEn: %d, "
+        "opcode: %d, fd: %d, substatus: %d, status: %d \n",
+        dw0 & 1U, (dw0 >> 1U) & 1U, (dw0 >> 2U) & 1U, (dw0 >> 3U) & 1U, (dw0 >> 4U) & 0x7U,
+        (dw0 >> 7U) & 1U, (dw0 >> 16U) & 0xFFU, (dw0 >> 24U) & 0xFFU);
+    HCOMM_KERNEL_LOG(
+        KERNEL_INFO, "Hcomm URMA CQE: DW1 - entryIdx: %d, localNumL: %d \n", dw1 & 0xFFFFU, dw1 >> 16U);
+    HCOMM_KERNEL_LOG(
+        KERNEL_INFO, "Hcomm URMA CQE: DW2 - localNumH: %d, rmtIdx: %d \n", dw2 & 0xFU, (dw2 >> 4U) & 0xFFFFFU);
+    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm URMA CQE: DW3 - tpn: %d \n", dw3 & 0xFFFFFFU);
+    HCOMM_KERNEL_LOG(KERNEL_INFO, "Hcomm URMA CQE: DW4 - byteCnt: %d \n", ld_dev(cqeWords + 4, 0));
+    HCOMM_KERNEL_LOG(
+        KERNEL_INFO, "Hcomm URMA CQE: DW5-DW6 - userData: 0x%x%x \n", ld_dev(cqeWords + 6, 0),
+        ld_dev(cqeWords + 5, 0));
+    HCOMM_KERNEL_LOG(
+        KERNEL_INFO, "Hcomm URMA CQE: DW7-DW10 - rmtEid: [0x%x, 0x%x, 0x%x, 0x%x] \n",
+        ld_dev(cqeWords + 7, 0), ld_dev(cqeWords + 8, 0), ld_dev(cqeWords + 9, 0), ld_dev(cqeWords + 10, 0));
+    HCOMM_KERNEL_LOG(
+        KERNEL_INFO, "Hcomm URMA CQE: DW11-DW12 - data: 0x%x%x \n", ld_dev(cqeWords + 12, 0),
+        ld_dev(cqeWords + 11, 0));
+    HCOMM_KERNEL_LOG(
+        KERNEL_INFO, "Hcomm URMA CQE: DW13-DW15 - inlineData: [0x%x, 0x%x, 0x%x] \n",
+        ld_dev(cqeWords + 13, 0), ld_dev(cqeWords + 14, 0), ld_dev(cqeWords + 15, 0));
+}
+
 __aicore__ inline HcommImpl<COMM_PROTOCOL_UB_CTP>::HcommImpl() {}
 
 __aicore__ inline HcommImpl<COMM_PROTOCOL_UB_CTP>::~HcommImpl() {}
@@ -831,25 +863,60 @@ __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollCq(
 
 __aicore__ inline uint32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::PollBatchCq(UbcBatchHandle& batchHandle, uint32_t expectIdx)
 {
-    if (expectIdx == 0) {
-        return HCOMM_SUCCESS;
-    }
-
+    uint32_t oldCqTail = batchHandle.cursor.cqTail;
     uint32_t curTail = batchHandle.cursor.cqTail;
-    uint32_t ret = PollCqImpl<false>(
-        batchHandle.cqContext.contextInfo.ubJfc.scqVa, batchHandle.cqContext.contextInfo.ubJfc.cqeSize,
-        batchHandle.cqContext.contextInfo.ubJfc.cqDepth, expectIdx, curTail, batchHandle.buffer.buffer,
-        batchHandle.cursor.sqTail);
-    if (ret != HCOMM_SUCCESS) {
-        return ret;
+    uint32_t sqTail = batchHandle.cursor.sqTail;
+    uint64_t cqBaseAddr = batchHandle.cqContext.contextInfo.ubJfc.scqVa;
+    uint32_t cqeSize = batchHandle.cqContext.contextInfo.ubJfc.cqeSize;
+    uint32_t cqDepth = batchHandle.cqContext.contextInfo.ubJfc.cqDepth;
+    uint32_t sqMask = batchHandle.sqContext.contextInfo.ubJfs.sqDepth - 1U;
+    uint32_t ret = HCOMM_SUCCESS;
+    HCOMM_KERNEL_LOG(
+        KERNEL_INFO, "Hcomm URMA PollCq enter expectIdx=%u curTail=%u cqDepth=%u \n", expectIdx, curTail, cqDepth);
+
+    while (curTail != expectIdx) {
+        auto* cqeWords = reinterpret_cast<__gm__ uint32_t*>(cqBaseAddr + cqeSize * (curTail & (cqDepth - 1U)));
+        uint32_t validOwner = (curTail / cqDepth) & 1U;
+        uint32_t times = 0U;
+        // Read DW0 bypassing DataCache on every retry; owner is bit 2.
+        uint32_t cqeHead = ld_dev(cqeWords, 0);
+        while (((cqeHead >> 2U) & 1U) == validOwner && times < HCOMM_URMA_MAX_RETRY_TIMES) {
+            if (times != 0U && times % HCOMM_URMA_POLL_CQ_HEARTBEAT_TIMES == 0U) {
+                HCOMM_KERNEL_LOG(
+                    KERNEL_WARN, "Hcomm URMA Poll CQ heartbeat times=%u curTail=%u expectIdx=%u \n", times, curTail,
+                    expectIdx);
+            }
+            cqeHead = ld_dev(cqeWords, 0);
+            times++;
+        }
+        if (times >= HCOMM_URMA_MAX_RETRY_TIMES) {
+            HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA Poll CQ timeout curTail=%u expectIdx=%u \n", curTail, expectIdx);
+            HCOMM_DEBUG_FUNC(HcommUrmaDumpCqeGmCtx, cqeWords);
+            ret = 0xFFU;
+            break;
+        }
+
+        uint32_t status = (cqeHead >> 24U) & 0xFFU;
+        uint32_t subStatus = (cqeHead >> 16U) & 0xFFU;
+        if (status != 0U || subStatus != 0U) {
+            HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm URMA CQE failed status=%u subStatus=%u \n", status, subStatus);
+            HCOMM_DEBUG_FUNC(HcommUrmaDumpCqeGmCtx, cqeWords);
+            ret = (status << 8U) | subStatus;
+            break;
+        }
+        // Read DW1 only after owner is valid; entryIdx identifies the last completed WQEBB.
+        uint32_t entryIdx = ld_dev(cqeWords + 1, 0) & 0xFFFFU;
+        sqTail += ((entryIdx - sqTail) & sqMask) + 1U;
+        curTail++;
     }
 
     batchHandle.cursor.cqTail = curTail;
+    batchHandle.cursor.sqTail = sqTail;
     auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
-    channelEntity->sqTail = batchHandle.cursor.sqTail;
+    channelEntity->sqTail = sqTail;
     channelEntity->cqTail = curTail;
     st_dev(curTail & 0xFFFFFFU, reinterpret_cast<__gm__ uint32_t*>(batchHandle.cqContext.contextInfo.ubJfc.dbVa), 0);
-    return HCOMM_SUCCESS;
+    return ret;
 }
 
 template <bool commit, pipe_t commitPipe, pipe_t reqPipe, auto const& config>
@@ -949,9 +1016,21 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcBatchH
     }
 
     uint32_t sqDepth = batchHandle.sqContext.contextInfo.ubJfs.sqDepth;
-    if (sqDepth == 0 || preSqCnt >= sqDepth) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed because batch must be smaller than SQ capacity\n");
+    if (sqDepth == 0 || preSqCnt > sqDepth) {
+        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm BatchCommit failed because batch must not exceed SQ capacity\n");
         return HCOMM_FAILED;
+    }
+
+    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
+    uint32_t cqDepth = batchHandle.cqContext.contextInfo.ubJfc.cqDepth;
+    uint32_t sqOutstanding = batchHandle.cursor.sqHead - batchHandle.cursor.sqTail;
+    bool sqOverflow = sqOutstanding > sqDepth || preSqCnt > sqDepth - sqOutstanding;
+    uint32_t cqAfterCommit = batchHandle.cursor.cqHead - batchHandle.cursor.cqTail;
+    bool cqOverflow = cqAfterCommit > cqDepth;
+
+    if (sqOverflow || cqOverflow) {
+        uint32_t committedCqHead = channelEntity->cqHead;
+        PollBatchCq(batchHandle, committedCqHead);
     }
 
     uint32_t sqHead = batchHandle.cursor.sqHead;
@@ -979,7 +1058,6 @@ __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::BatchCommit(UbcBatchH
 
     uint32_t newSqHead = sqHead + preSqCnt;
     batchHandle.cursor.sqHead = newSqHead;
-    auto* channelEntity = reinterpret_cast<__gm__ ChannelEntity*>(batchHandle.channelHandle);
     channelEntity->sqHead = newSqHead;
     channelEntity->cqHead = batchHandle.cursor.cqHead;
     Mutex::Lock<PIPE_S>(HCOMM_URMA_MUTEX_ID);
@@ -1012,19 +1090,9 @@ template <pipe_t pipe>
 __aicore__ inline int32_t HcommImpl<COMM_PROTOCOL_UB_CTP>::Drain(UbcBatchHandle& batchHandle)
 {
     (void)pipe;
-    static_assert(
-        sizeof(HcommUrmaJfcCqeCtx) <= HCOMM_URMA_WQEBB_SIZE, "Batch Drain CQE scratch space must fit in one WQEBB");
-
     if (batchHandle.channelHandle == 0U || batchHandle.buffer.bufferCapacity == 0U ||
         batchHandle.cursor.preSqCnt != 0U) {
         HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid batch handle\n");
-        return HCOMM_FAILED;
-    }
-
-    if (batchHandle.cqContext.contextInfo.ubJfc.cqeSize == 0U ||
-        batchHandle.cqContext.contextInfo.ubJfc.cqeSize > HCOMM_URMA_WQEBB_SIZE ||
-        batchHandle.cqContext.contextInfo.ubJfc.cqDepth == 0U) {
-        HCOMM_KERNEL_LOG(KERNEL_ERROR, "Hcomm Batch Drain failed with invalid CQ context\n");
         return HCOMM_FAILED;
     }
 
