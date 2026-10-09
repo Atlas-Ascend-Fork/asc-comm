@@ -30,8 +30,7 @@ ThreadEntity MakeThread()
 ChannelEntity MakeChannel()
 {
     ChannelEntity channel{};
-    channel.abiHeader = {
-        HCOMM_RESOURCE_CHANNEL_VERSION, HCOMM_RESOURCE_CHANNEL_MAGIC_WORD, sizeof(ChannelEntity), 0};
+    channel.abiHeader = {HCOMM_RESOURCE_CHANNEL_VERSION, HCOMM_RESOURCE_CHANNEL_MAGIC_WORD, sizeof(ChannelEntity), 0};
     return channel;
 }
 

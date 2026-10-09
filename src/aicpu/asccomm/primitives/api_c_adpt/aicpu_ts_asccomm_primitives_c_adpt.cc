@@ -44,8 +44,7 @@ AsccommResult validate_entity(const Entity* entity, uint32_t version, uint32_t m
     return ASCCOMM_SUCCESS;
 }
 
-AsccommResult get_thread_entity(
-    ThreadHandle thread, bool registerThread, bool resolveRtsq, ThreadEntity*& threadEntity)
+AsccommResult get_thread_entity(ThreadHandle thread, bool registerThread, bool resolveRtsq, ThreadEntity*& threadEntity)
 {
     CHK_PRT_RET(thread == 0, ASCCOMM_ERROR("[%s] thread handle is 0.", __func__), ASCCOMM_E_PTR);
     // The public ThreadHandle is the device resource entity address.  The control

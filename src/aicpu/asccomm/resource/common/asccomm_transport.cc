@@ -86,8 +86,8 @@ AsccommResult get_ub_context(ChannelEntity& channel, HcommJfsContext*& jfs)
 }
 
 AsccommResult build_ub_slices(
-    const ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-    Asc::RmaBufSliceLite& local, Asc::RmtRmaBufSliceLite& remote)
+    const ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len, Asc::RmaBufSliceLite& local,
+    Asc::RmtRmaBufSliceLite& remote)
 {
     const HcommRegedBufferEntity* localBuffer =
         find_buffer(channel.localBufferAddr, channel.localBufferNum, localAddr, len, true);
@@ -241,8 +241,8 @@ void build_rdma_context(
 }
 
 AsccommResult build_rdma_slices(
-    const ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len,
-    Asc::RmaBufSliceLite& local, Asc::RmtRmaBufSliceLite& remote)
+    const ChannelEntity& channel, uintptr_t localAddr, uintptr_t remoteAddr, uint64_t len, Asc::RmaBufSliceLite& local,
+    Asc::RmtRmaBufSliceLite& remote)
 {
     const HcommRegedBufferEntity* localBuffer =
         find_buffer(channel.localBufferAddr, channel.localBufferNum, localAddr, len, true);
@@ -319,8 +319,8 @@ enum class RdmaOperation {
 };
 
 AsccommResult execute_rdma(
-    ThreadEntity& thread, ChannelEntity& channel, RdmaOperation operation, uintptr_t localAddr,
-    uintptr_t remoteAddr, uint64_t len, const Asc::ReduceIn* reduceIn, uint32_t notifyIndex)
+    ThreadEntity& thread, ChannelEntity& channel, RdmaOperation operation, uintptr_t localAddr, uintptr_t remoteAddr,
+    uint64_t len, const Asc::ReduceIn* reduceIn, uint32_t notifyIndex)
 {
     HcommRdmaSqContext* resourceSq = nullptr;
     HcommRdmaCqContext* resourceCq = nullptr;
@@ -759,7 +759,8 @@ AsccommResult asccomm_batch_transfer(
             len = desc.transferInfo.writeWithNotify.len;
             notifyIdx = desc.transferInfo.writeWithNotify.notifyIdx;
         } else if (
-            desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_REDUCE || desc.transType == ASCCOMM_TRANSFER_TYPE_READ_REDUCE) {
+            desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_REDUCE ||
+            desc.transType == ASCCOMM_TRANSFER_TYPE_READ_REDUCE) {
             localAddr = desc.transType == ASCCOMM_TRANSFER_TYPE_WRITE_REDUCE ?
                             reinterpret_cast<uintptr_t>(desc.transferInfo.reduce.src) :
                             reinterpret_cast<uintptr_t>(desc.transferInfo.reduce.dst);
