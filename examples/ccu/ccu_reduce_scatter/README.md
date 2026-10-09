@@ -10,7 +10,7 @@
 rank r recvBuf = SUM(所有 rank 的 segment_r)
 ```
 
-CCU kernel 先使用 `GroupCopy` 将本 rank 对应的输入段复制到本地输出，再使用 `ccu::WriteReduce` 将其他输入段归约到对应 rank 的输出。
+CCU kernel 先使用 `GroupCopy` 将本 rank 对应的输入段复制到本地输出，再使用 `ccu::write_reduce` 将其他输入段归约到对应 rank 的输出。
 
 
 ## 目录结构

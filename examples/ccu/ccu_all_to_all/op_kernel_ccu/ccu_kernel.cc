@@ -83,9 +83,9 @@ static void InitGroupCopyResources(
             uint32_t bufBase = index * ctx.moConfig.ms_interleave;
             ccu::event loopEvt = ctx.moRes.completed_event[index];
             entity.body[index].reset(new ccu::func([&ctx, index, bufBase, loopEvt, loopSrc, loopDst, loopLen]() {
-                ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
+                ccu::local_copy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
                 ccu::event_wait(loopEvt, 1);
-                ccu::LocalCopy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
+                ccu::local_copy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
                 ccu::event_wait(loopEvt, 1);
             }));
             entity.loops[index].reset(new ccu::loop(entity.loop_param_[index], *entity.body[index]));
@@ -217,7 +217,7 @@ static CcuResult ExecuteAllToAllTransfer(AllToAllMesh1DMem2MemContext& ctx)
                     remoteRankSrc.addr_ += ctx.rankSliceSize;
                 }
                 remoteRankSrc.token = ctx.inputToken;
-                RETURN_IF_CCU_FAIL(ccu::Write(
+                RETURN_IF_CCU_FAIL(ccu::write(
                     ctx.arg->channels[channelId], remoteDst[rankIdx], remoteRankSrc, ctx.sliceSize, ctx.event, mask_));
                 totalMask |= mask_;
                 channelId++;
@@ -247,8 +247,8 @@ CcuResult CcuAllToAllMesh1DMem2MemKernel(ccu_kernel_arg arg)
     uint32_t channelIdx = 0;
     for (uint64_t peerId = 0; peerId < ctx.arg->rankSize; peerId++) {
         if (peerId != ctx.arg->rankId) {
-            ctx.output[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelIdx], OUTPUT_XN_ID);
-            ctx.outputToken[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelIdx], TOKEN_XN_ID);
+            ctx.output[peerId] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelIdx], OUTPUT_XN_ID);
+            ctx.outputToken[peerId] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
     }

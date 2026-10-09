@@ -78,16 +78,16 @@ static CcuResult ccu_kernel_try_register(
 {
     CCU_EXCEPTION_HANDLE_BEGIN
     auto& kernel_mgr = asc::ccu_kernel_mgr::get_instance(dev_logic_id);
-    CCU_CHK_RET(
-        kernel_mgr.Register(*res_snapshot, die_id, kernel_func_name, kernel_func, kernel_args, arg_num, new_handle));
+    CCU_CHK_RET(kernel_mgr.register_kernel(
+        *res_snapshot, die_id, kernel_func_name, kernel_func, kernel_args, arg_num, new_handle));
     CCU_CHK_RET(ccu_ins->save_kernel(new_handle));
     CCU_EXCEPTION_HANDLE_END
     return CcuResult::CCU_SUCCESS;
 }
 
 CcuResult asccomm_ccu_kernel_register(
-    void* ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
-    const void** kernel_args, uint32_t arg_num, ccu_kernel_handle* kernel_handle)
+    void* ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func, const void** kernel_args,
+    uint32_t arg_num, ccu_kernel_handle* kernel_handle)
 {
     CCU_CHK_PTR_NULL(ins_handle);
     HcommCcuInstanceHandle instanceHandle = *static_cast<HcommCcuInstanceHandle*>(ins_handle);
@@ -160,7 +160,7 @@ CcuResult asccomm_ccu_get_task_args_num(ccu_kernel_handle kernel_handle, uint32_
     CCU_CHK_RET(kernel_mgr.get_ccu_kernel_info(kernel_handle, info));
 
     *task_args_num = info.max_task_args_num;
-    HCCL_INFO("[%s] success, kernelHandle[%llx], taskArgsNum[%u].", __func__, kernel_handle, *task_args_num);
+    HCCL_INFO("[%s] success, kernel_handle[%llx], task_args_num[%u].", __func__, kernel_handle, *task_args_num);
     return CcuResult::CCU_SUCCESS;
 }
 
@@ -214,7 +214,7 @@ CcuResult asccomm_ccu_kernel_launch(
     std::vector<asc::ccu_task_param> task_params{};
     auto ret = kernel->gene_task_params(static_cast<const uint64_t*>(task_args), arg_num, task_params);
     CHK_PRT_RET(
-        ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] failed, kernelHandle[0x%llx].", __func__, kernel_handle), ret);
+        ret != CcuResult::CCU_SUCCESS, HCCL_ERROR("[%s] failed, kernel_handle[0x%llx].", __func__, kernel_handle), ret);
 
     if (task_params.empty()) {
         HCCL_INFO("[%s] passed, ccu params are empty.", __func__);

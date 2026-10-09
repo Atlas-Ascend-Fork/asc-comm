@@ -28,8 +28,8 @@ typedef void* ccu_launch_stream;
 extern CcuResult asccomm_ccu_kernel_register_start(void* ins_handle);
 
 extern CcuResult asccomm_ccu_kernel_register(
-    void* ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
-    const void** kernel_args, uint32_t arg_num, ccu_kernel_handle* kernel_handle);
+    void* ins_handle, uint32_t die_id, const char* kernel_func_name, const void* kernel_func, const void** kernel_args,
+    uint32_t arg_num, ccu_kernel_handle* kernel_handle);
 
 extern CcuResult asccomm_ccu_kernel_register_end(void* ins_handle);
 
