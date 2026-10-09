@@ -39,7 +39,7 @@
 5. 后同步：通知对端搬运完成，并等待所有对端完成。
 6. 通知计算完成：AllGather完成后置位事件，通知AI Core退出轮询。
 
-Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第4、6步分别将AI Core与CCU Kernel直调下发到计算与通信两条Stream，并将Channel句柄、共享变量与事件句柄、任务参数（taskArgs、kernelArg）随任务下发；Kernel侧AI Core完成计算后将通信地址写入共享变量并置事件，CCU侧通过`ccu::load_arg`加载任务参数、`ccu::GetResByChannel`绑定Variable，再依次执行前同步、算子执行、后同步，完成后置事件通知AI Core退出轮询。其中第3步申请的共享变量与事件，以及第4、6步将计算与通信Kernel分别下发到两条Stream，是通算融合区别于纯通信算子的关键：AI Core计算与CCU通信由两条Stream承载，通过共享变量传递通信地址、通过事件完成双向同步。
+Host侧与Kernel侧的关联体现在：Host侧完成资源准备后，通过第4、6步分别将AI Core与CCU Kernel直调下发到计算与通信两条Stream，并将Channel句柄、共享变量与事件句柄、任务参数（taskArgs、kernelArg）随任务下发；Kernel侧AI Core完成计算后将通信地址写入共享变量并置事件，CCU侧通过`ccu::load_arg`加载任务参数、`ccu::get_res_by_channel`绑定Variable，再依次执行前同步、算子执行、后同步，完成后置事件通知AI Core退出轮询。其中第3步申请的共享变量与事件，以及第4、6步将计算与通信Kernel分别下发到两条Stream，是通算融合区别于纯通信算子的关键：AI Core计算与CCU通信由两条Stream承载，通过共享变量传递通信地址、通过事件完成双向同步。
 
 本章后续内容按此流程展开，代码关键片段均取自[add_allgather](../../../examples/ccu/ccu_direct/03_add_allgather/README.md)样例。
 

@@ -1968,7 +1968,7 @@ HcclResult ccu_kernel::read_nb(
     return HCCL_SUCCESS;
 }
 
-/* ReadReduce新接口 */
+/* read_reduce新接口 */
 HcclResult ccu_kernel::read_reduce_nb(
     const ChannelHandle channel, const ccu_rep::local_addr& loc, const ccu_rep::remote_addr& rem,
     const ccu_rep::variable& len, HcclDataType data_type, HcclReduceOp op_type, ccu_rep::completed_event event,
@@ -2154,7 +2154,7 @@ CcuResult ccu_kernel::func_block_lookup(const void* func_ptr, uint64_t* out_hand
         return CcuResult::CCU_E_PTR;
     }
     if (current_block()->type() == ccu_rep::ccu_rep_type::loop_block || in_func_body_) {
-        HCCL_ERROR("[CcuKernel::FuncBlockLookup] ccu::CallFunc only allowed at top level");
+        HCCL_ERROR("[CcuKernel::FuncBlockLookup] ccu::call_func only allowed at top level");
         return latch_body_error(CcuResult::CCU_E_INTERNAL);
     }
 
@@ -2171,7 +2171,7 @@ CcuResult ccu_kernel::func_block_begin(const void* func_ptr, uint64_t* out_handl
         return CcuResult::CCU_E_PTR;
     }
     if (current_block()->type() == ccu_rep::ccu_rep_type::loop_block || in_func_body_) {
-        HCCL_ERROR("[CcuKernel::FuncBlockBegin] ccu::CallFunc only allowed at top level");
+        HCCL_ERROR("[CcuKernel::FuncBlockBegin] ccu::call_func only allowed at top level");
         return latch_body_error(CcuResult::CCU_E_INTERNAL);
     }
 
@@ -2244,7 +2244,7 @@ CcuResult ccu_kernel::func_call(uint64_t handle, const ccu_variable_handle* in_a
 {
     HCCL_INFO("[FuncCall] handle=%llu, numIn=%u", handle, num_in);
     if (current_block()->type() == ccu_rep::ccu_rep_type::loop_block || in_func_body_) {
-        HCCL_ERROR("[CcuKernel::FuncCall] ccu::CallFunc only allowed at top level");
+        HCCL_ERROR("[CcuKernel::FuncCall] ccu::call_func only allowed at top level");
         return latch_body_error(CcuResult::CCU_E_INTERNAL);
     }
     if (num_in > 0 && in_args == nullptr) {
