@@ -42,7 +42,7 @@ static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext& ctx)
     CCU_IF(ctx.sliceSize != 0)
     {
         const uint16_t selfMask = 1 << ctx.arg->rankId;
-        RETURN_IF_CCU_FAIL(ccu::LocalCopy(localDst, src_, ctx.sliceSize, ctx.event, selfMask));
+        RETURN_IF_CCU_FAIL(ccu::local_copy(localDst, src_, ctx.sliceSize, ctx.event, selfMask));
         RETURN_IF_CCU_FAIL(ccu::event_wait(ctx.event, selfMask));
 
         for (uint32_t i = 0; i < ctx.arg->channelCount; i++) {
@@ -57,7 +57,7 @@ static CcuResult ExecuteAllReduceTransfer(AllReduceMesh1DMem2MemContext& ctx)
         for (uint64_t rankIdx = 0; rankIdx < ctx.arg->rankSize; rankIdx++) {
             const uint16_t mask_ = 1 << rankIdx;
             if (rankIdx != ctx.arg->rankId) {
-                RETURN_IF_CCU_FAIL(ccu::WriteReduce(
+                RETURN_IF_CCU_FAIL(ccu::write_reduce(
                     ctx.arg->channels[channelId], dst_[rankIdx], src_, ctx.sliceSize, HcclDataType::HCCL_DATA_TYPE_FP32,
                     HcclReduceOp::HCCL_REDUCE_SUM, ctx.event, mask_));
                 remoteMask |= mask_;
@@ -88,8 +88,8 @@ CcuResult CcuAllReduceMesh1DMem2MemKernel(ccu_kernel_arg arg)
     uint32_t channelIdx = 0;
     for (uint64_t peerId = 0; peerId < ctx.arg->rankSize; peerId++) {
         if (peerId != ctx.arg->rankId) {
-            ctx.output[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelIdx], OUTPUT_XN_ID);
-            ctx.token[peerId] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelIdx], TOKEN_XN_ID);
+            ctx.output[peerId] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelIdx], OUTPUT_XN_ID);
+            ctx.token[peerId] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelIdx], TOKEN_XN_ID);
             channelIdx++;
         }
     }

@@ -17,7 +17,7 @@
 1. 每个 rank 按 allgather 样例的方式获取一个 CCU token。
 2. 每个 rank 将本地 input 复制到本地 output，作为本 rank 对结果的初始贡献。
 3. 所有 rank 同步，确保每个 output 都已经初始化。
-4. 每个 rank 使用 `ccu::WriteReduce(..., HCCL_REDUCE_SUM, ...)` 将本地 input 累加写入其它 rank 的 output。
+4. 每个 rank 使用 `ccu::write_reduce(..., HCCL_REDUCE_SUM, ...)` 将本地 input 累加写入其它 rank 的 output。
 5. 所有 rank 同步完成后，每个 rank 的 output 都是所有 rank 输入的逐元素和。
 
 ## 目录结构

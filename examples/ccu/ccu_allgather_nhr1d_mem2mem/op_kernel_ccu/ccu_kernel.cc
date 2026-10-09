@@ -76,9 +76,9 @@ static void InitGroupCopyResources(
             const uint32_t bufBase = index * ctx.moConfig.ms_interleave;
             ccu::event loopEvt = ctx.moRes.completed_event[index];
             entity.body[index].reset(new ccu::func([&ctx, index, bufBase, loopEvt, loopSrc, loopDst, loopLen]() {
-                ccu::LocalCopy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
+                ccu::local_copy(ctx.moRes.ccuBuf[bufBase], loopSrc[index], loopLen[index], loopEvt, 1);
                 ccu::event_wait(loopEvt, 1);
-                ccu::LocalCopy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
+                ccu::local_copy(loopDst[index], ctx.moRes.ccuBuf[bufBase], loopLen[index], loopEvt, 1);
                 ccu::event_wait(loopEvt, 1);
             }));
             entity.loops[index].reset(new ccu::loop(entity.loop_param_[index], *entity.body[index]));
@@ -171,8 +171,8 @@ static CcuResult InitResource(AllGatherNhr1DMem2MemContext& ctx)
         if (peerRank >= ctx.arg->rankSize || channelIdx >= ctx.arg->channelCount) {
             return CcuResult::CCU_E_PARA;
         }
-        ctx.output[peerRank] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelIdx], OUTPUT_XN_ID);
-        ctx.token[peerRank] = ccu::GetResByChannel<ccu::variable>(ctx.arg->channels[channelIdx], TOKEN_XN_ID);
+        ctx.output[peerRank] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelIdx], OUTPUT_XN_ID);
+        ctx.token[peerRank] = ccu::get_res_by_channel<ccu::variable>(ctx.arg->channels[channelIdx], TOKEN_XN_ID);
     }
     return CcuResult::CCU_SUCCESS;
 }
@@ -268,7 +268,7 @@ static CcuResult RunNhrStep(AllGatherNhr1DMem2MemContext& ctx, const NhrStepInfo
         }
         dst_.token = ctx.token[stepInfo.toRank];
 
-        ccu::Write(sendChannel, dst_, src_, ctx.chunkSize, ctx.transferEvent, TRANSFER_EVENT_MASK);
+        ccu::write(sendChannel, dst_, src_, ctx.chunkSize, ctx.transferEvent, TRANSFER_EVENT_MASK);
         ccu::event_wait(ctx.transferEvent, TRANSFER_EVENT_MASK);
     }
 

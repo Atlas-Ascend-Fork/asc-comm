@@ -60,9 +60,6 @@ TEST_F(TestCcuHostLaunch, NullArgumentsReturnPtr)
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, nullptr),
         CCU_E_PTR);
-    EXPECT_EQ(
-        HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, nullptr, args),
-        CCU_E_PTR);
 }
 
 TEST_F(TestCcuHostLaunch, UnsupportedDieMaskReturnsPara)
@@ -78,18 +75,6 @@ TEST_F(TestCcuHostLaunch, UnsupportedDieMaskReturnsPara)
     cfg.ccu_schd.phy_die_mask = 0x03;
     EXPECT_EQ(
         asccomm_ccu_host_kernel_launch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &cfg, args),
-        CCU_E_PARA);
-
-    HcommLaunchKernelCfg hcommCfg{};
-    hcommCfg.ccuSchd.numBlocks = cfg.ccu_schd.num_blocks;
-    hcommCfg.ccuSchd.reserved = cfg.ccu_schd.reserved;
-    hcommCfg.ccuSchd.phyDieMask = cfg.ccu_schd.phy_die_mask;
-    hcommCfg.ccuSchd.binaryCacheTag = cfg.ccu_schd.binary_cache_tag;
-    hcommCfg.ccuIns = cfg.ccu_ins;
-    hcommCfg.stream = cfg.stream;
-    hcommCfg.attrs = cfg.attrs;
-    EXPECT_EQ(
-        HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &hcommCfg, args),
         CCU_E_PARA);
 }
 
@@ -117,7 +102,6 @@ TEST_F(TestCcuHostLaunch, LaunchHashTagReturnsStableNonZeroValue)
     EXPECT_NE(tag, 0U);
     EXPECT_EQ(tag, asccomm_ccu_get_launch_hash_tag("CcuAllGatherMesh1DMem2MemKernel"));
     EXPECT_NE(tag, asccomm_ccu_get_launch_hash_tag("CcuAllGatherMesh1DMem2MemKernel_rank_1"));
-    EXPECT_EQ(tag, HcommCcuGetLaunchHashTag("CcuAllGatherMesh1DMem2MemKernel"));
 }
 
 TEST_F(TestCcuHostLaunch, LaunchSuccessForwardsRegisterAndLaunchParameters)
@@ -266,29 +250,6 @@ TEST_F(TestCcuHostLaunch, DifferentCacheTagsRegisterIndependently)
     EXPECT_EQ(observed.calls.registerEnd, 2U);
     EXPECT_EQ(observed.calls.getTaskArgsNum, 2U);
     EXPECT_EQ(observed.calls.kernelLaunch, 2U);
-}
-
-TEST_F(TestCcuHostLaunch, HcompatCfgForwardsThroughNewLaunchChain)
-{
-    HcommLaunchKernelCfg hcompatCfg{};
-    hcompatCfg.ccuSchd.numBlocks = 1;
-    hcompatCfg.ccuSchd.reserved = 0;
-    hcompatCfg.ccuSchd.phyDieMask = 0x02;
-    hcompatCfg.ccuSchd.binaryCacheTag = 0x5601U;
-    hcompatCfg.ccuIns = nullptr;
-    hcompatCfg.stream = reinterpret_cast<aclrtStream>(0x33);
-    hcompatCfg.attrs = nullptr;
-    uint64_t args[] = {1, 2, 3};
-
-    EXPECT_EQ(
-        HcommCcuHostKernelLaunch(reinterpret_cast<const void*>(DummyKernel), DUMMY_KERNEL_NAME, &hcompatCfg, args),
-        CCU_SUCCESS);
-
-    const CcuLaunchStubObservations observed = GetCcuLaunchStubObservations();
-    EXPECT_EQ(observed.lastDieId, 1U);
-    EXPECT_EQ(observed.lastStream, hcompatCfg.stream);
-    EXPECT_EQ(observed.lastTaskArgs, args);
-    EXPECT_EQ(observed.lastLaunchArgNum, 3U);
 }
 
 int main(int argc, char** argv)
