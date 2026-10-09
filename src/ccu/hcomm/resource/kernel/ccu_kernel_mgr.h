@@ -34,7 +34,7 @@ public:
     HcclResult deinit();
     CcuResult configure(asc_ccu_res_snapshot& res_pack);
 
-    CcuResult Register(
+    CcuResult register_kernel(
         asc_ccu_res_snapshot& res_pack, uint32_t die_id, const char* kernel_func_name, const void* kernel_func,
         const void** kernel_args, const uint32_t arg_num, ccu_kernel_handle& kernel_handle);
 
