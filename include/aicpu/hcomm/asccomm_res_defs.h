@@ -16,9 +16,6 @@
 #include "hcomm_res_defs.h"
 #include "hcomm_res_entity_defs.h"
 
-typedef HcommThreadEntity ThreadEntity;
-typedef HcommChannelEntity ChannelEntity;
-
 // ASCCOMM AICPU公共类型定义；基础ABI类型由CANN包pkg_inc/hcomm/hcomm_res_defs.h提供。
 #ifdef __cplusplus
 extern "C" {
