@@ -1,0 +1,9 @@
+{
+    "AsccommSendWithImmKernel": {
+        "opInfo": {
+            "functionName": "AsccommSendWithImmKernel",
+            "kernelSo": "@SEND_WITH_IMM_AICPU_SO@",
+            "opKernelLib": "CUSTAICPUKernel"
+        }
+    }
+}

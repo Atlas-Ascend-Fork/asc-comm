@@ -104,6 +104,21 @@ struct AicpuRuntimeStubState {
         Asc::ReduceOp reduceOp;
     };
     std::vector<ReadReduceCall> readReduceCalls;
+    struct SendCall {
+        HcommThreadEntity* thread;
+        ChannelEntity* channel;
+        uintptr_t local;
+        uint64_t len;
+    };
+    std::vector<SendCall> sendCalls;
+    struct SendWithImmCall {
+        HcommThreadEntity* thread;
+        ChannelEntity* channel;
+        uintptr_t local;
+        uint64_t len;
+        uint32_t immData;
+    };
+    std::vector<SendWithImmCall> sendWithImmCalls;
     struct BatchTransferCall {
         HcommThreadEntity* thread;
         ChannelEntity* channel;
@@ -144,6 +159,8 @@ struct AicpuRuntimeStubState {
     AsccommResult writeReduceNotifyResult{ASCCOMM_SUCCESS};
     AsccommResult readResult{ASCCOMM_SUCCESS};
     AsccommResult readReduceResult{ASCCOMM_SUCCESS};
+    AsccommResult sendResult{ASCCOMM_SUCCESS};
+    AsccommResult sendWithImmResult{ASCCOMM_SUCCESS};
     AsccommResult batchTransferResult{ASCCOMM_SUCCESS};
     AsccommResult channelNotifyRecordResult{ASCCOMM_SUCCESS};
     AsccommResult channelNotifyWaitResult{ASCCOMM_SUCCESS};
