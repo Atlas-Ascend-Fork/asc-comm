@@ -133,20 +133,25 @@ find_version_checker_dir()
     fail "CANN package version compatibility scripts were not found under: ${CANN_PATH}/share/info"
 }
 
-find_ccu_library()
+find_dataplane_libraries()
 {
-    local build_dir="${PROJECT_ROOT}/build/package-ccu"
+    local build_dir="${PROJECT_ROOT}/build/package-dataplane"
     local library="${build_dir}/libasccomm_ccu.so"
+    local aicpu_library="${build_dir}/src/aicpu/libasccomm_aicpu.so"
 
+    mkdir -p "${build_dir}"
     cmake -S "${PROJECT_ROOT}" -B "${build_dir}" \
         -Wno-dev \
         -DASCEND_CANN_PACKAGE_PATH="${CANN_PATH}" \
         -DCANN_3RD_LIB_PATH="${PROJECT_ROOT}/third_party" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DASCCOMM_BUILD_CCU=ON
-    cmake --build "${build_dir}" --target asccomm_ccu
+        -DASCCOMM_BUILD_CCU=ON \
+        -DASCCOMM_BUILD_AICPU=ON
+    cmake --build "${build_dir}" --target asccomm_ccu --target asccomm_aicpu
     [[ -f "${library}" ]] || fail "CCU library was not built: ${library}"
+    [[ -f "${aicpu_library}" ]] || fail "AICPU library was not built: ${aicpu_library}"
     CCU_LIBRARY="${library}"
+    AICPU_LIBRARY="${aicpu_library}"
 }
 
 read_package_version()
@@ -284,7 +289,7 @@ build_package()
     required_runtime_version=$(read_package_compat_version "runtime")
     makeself_dir=$(find_makeself_dir)
     version_checker_dir=$(find_version_checker_dir)
-    find_ccu_library
+    find_dataplane_libraries
 
     mkdir -p "$(dirname -- "${STAGING_DIR}")" "${OUTPUT_DIR}"
     rm -rf -- "${STAGING_DIR}"
@@ -318,6 +323,8 @@ build_package()
         aicore/hcomm
     install -D -m 550 "${CCU_LIBRARY}" \
         "${STAGING_DIR}/payload/asc/lib64/libasccomm_ccu.so"
+    install -D -m 550 "${AICPU_LIBRARY}" \
+        "${STAGING_DIR}/payload/asc/lib64/libasccomm_aicpu.so"
     write_manifest
     write_link_manifest
     write_version_info \
