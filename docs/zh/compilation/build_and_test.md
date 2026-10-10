@@ -51,7 +51,8 @@ bash build.sh --pkg
 cann-asc-comm_9.2.0_linux-<arch>.run
 ```
 
-其中`<arch>`为`aarch64`或`x86_64`。制包时会递归扫描以下目录中的全部`.h`文件：
+其中`<arch>`为`aarch64`或`x86_64`。制包时会递归扫描以下目录中的全部`.h`文件，并打包
+`libasccomm_ccu.so`和`libasccomm_aicpu.so`两个数据面动态库：
 
 | 仓库扫描目录 | CANN安装目录 |
 | --- | --- |
@@ -67,7 +68,7 @@ asc/include/comm_api/aicore/hcomm -> ../../adv_api/hcomm
 asc/impl/comm_api/aicore/hcomm    -> ../../adv_api/detail/hcomm
 ```
 
-例如，`include/aicore/ain/`安装到`asc/include/comm_api/aicore/ain/`，`include/ccu/`安装到`asc/include/comm_api/ccu/`。run包仅收集上述目录中制包时存在的`.h`文件；`.cpp`、`.inc`等其他类型的文件不会进入包。在这些目录中新增头文件后重新制包，新文件会自动进入run包。
+例如，`include/aicpu/ain/`安装到`asc/include/comm_api/aicpu/ain/`，`include/ccu/`安装到`asc/include/comm_api/ccu/`。run包仅收集上述目录中制包时存在的`.h`文件和两个固定数据面动态库；`.cpp`、`.inc`等其他类型的文件不会进入包。在这些目录中新增头文件后重新制包，新文件会自动进入run包。
 
 > 注意：run包不会清理目标CANN中未列入包清单的文件。验证头文件删除或重命名时，需要先清理目标CANN中的对应旧文件。
 
