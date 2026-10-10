@@ -95,14 +95,14 @@ void UbConnLite::fill_comm_sqe(
     sqe->rmtObjId = rmt.get_token_id();
     sqe->tokenEn = 1;
     sqe->rmtTokenValue = rmt.get_token_value();
-    sqe->rmtAddrLow = rmt.get_addr() & ADDR_BIT_LOW;
-    sqe->rmtAddrHigh = rmt.get_addr() >> ADDR_BIT_OFFSET;
+    sqe->rmtAddr.rmtAddrLow = rmt.get_addr() & ADDR_BIT_LOW;
+    sqe->rmtAddr.rmtAddrHigh = rmt.get_addr() >> ADDR_BIT_OFFSET;
     ASCCOMM_INFO(
         "UbConnLite fill_comm_sqe UdmaSqeCommon slicePos[%d] sqe->cqe = %u, sqe->owner = %u sqe->opcode = %u, "
         "sqe->tpn = %u, sqe->rmtObjId = %u, sqe->rmtAddrLow = %u, sqe->rmtAddrHigh = %u, sqe->placeOdr = %u, "
         "sqe->compOrder = %u, sqe->fence = %u",
-        slicePos, sqe->cqe, sqe->owner, sqe->opcode, sqe->tpn, sqe->rmtObjId, sqe->rmtAddrLow, sqe->rmtAddrHigh,
-        sqe->placeOdr, sqe->compOrder, sqe->fence);
+        slicePos, sqe->cqe, sqe->owner, sqe->opcode, sqe->tpn, sqe->rmtObjId, sqe->rmtAddr.rmtAddrLow,
+        sqe->rmtAddr.rmtAddrHigh, sqe->placeOdr, sqe->compOrder, sqe->fence);
 }
 
 void UbConnLite::fill_comm_sqe_reduce_info(
@@ -509,6 +509,31 @@ void UbConnLite::write_reduce_with_notify(
         },
         dataType);
     out.pi = pi;
+}
+
+void UbConnLite::send_with_imm(
+    const RmaBufSliceLite& loc, uint32_t immData, const SqeConfigLite& cfg, ConnLiteOperationOut& out)
+{
+    ASCCOMM_INFO("[UbConnLite::%s] start, loc size[%llu], immData[%u]", __func__, loc.get_size(), immData);
+
+    // 双边语义无需远端地址，构造全0的dummyRmt仅为满足process_slices函数签名
+    // 【Todo】【需确认】多切片时 immData 在每个分片上重复下发
+    // len > maxWriteSize 时 process_slices 会发多个 UDMA_OPC_SEND_WITH_IMM SQE，每个都带同一份
+    // immData，对端会收到多个携带立即数的CQE
+    const RmtRmaBufSliceLite dummyRmt(0, 0, 0, 0, 0, UINT32_MAX);
+    process_slices(
+        loc, dummyRmt, maxWriteSize,
+        [&](const RmaBufSliceLite& locSlice, const RmtRmaBufSliceLite& rmtSlice, SlicePosition slicePos) {
+            UdmaSqeWrite sqe{};
+            fill_one_sqe_write(locSlice, rmtSlice, cfg, &sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM, slicePos);
+            // 将32位立即数填入immData字段，供硬件组装CQE使用
+            sqe.comm.immData.immDataLow = immData;
+            sqe.comm.immData.immDataHigh = 0;
+            process_one_wqe(&sqe, UdmaSqOpcode::UDMA_OPC_SEND_WITH_IMM);
+        });
+    out.pi = pi;
+
+    ASCCOMM_INFO("[UbConnLite::%s] end, pi[%u]", __func__, out.pi);
 }
 
 void UbConnLite::import_context(const UbConnLiteParam& liteParam)

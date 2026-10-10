@@ -178,6 +178,30 @@ TEST_F(AsccommPrimitivesTest, RejectsUnsupportedReduceParameters)
     EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
 }
 
+TEST_F(AsccommPrimitivesTest, SendWithImmPassesLocalBufferAndImmediate)
+{
+    int value = 7;
+    const auto threadHandle = ThreadHandleOf(thread_);
+    const auto channelHandle = ChannelHandleOf(channel_);
+    EXPECT_EQ(
+        asccomm_send_with_imm_on_thread(threadHandle, channelHandle, nullptr, sizeof(value), 0xa5), ASCCOMM_E_PTR);
+    EXPECT_TRUE(g_runtimeStubState.sendWithImmCalls.empty());
+
+    EXPECT_EQ(
+        asccomm_send_with_imm_on_thread(threadHandle, channelHandle, &value, sizeof(value), 0xa5), ASCCOMM_SUCCESS);
+    ASSERT_EQ(g_runtimeStubState.sendWithImmCalls.size(), 1U);
+    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].thread, &thread_);
+    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].channel, &channel_);
+    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].local, reinterpret_cast<uintptr_t>(&value));
+    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].len, sizeof(value));
+    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].immData, 0xa5U);
+
+    g_runtimeStubState.sendWithImmResult = ASCCOMM_E_NOT_SUPPORT;
+    EXPECT_EQ(
+        asccomm_send_with_imm_on_thread(threadHandle, channelHandle, &value, sizeof(value), 0xa5),
+        ASCCOMM_E_NOT_SUPPORT);
+}
+
 TEST_F(AsccommPrimitivesTest, ChannelNotifyWaitAndFenceDrainPassArguments)
 {
     const auto threadHandle = ThreadHandleOf(thread_);

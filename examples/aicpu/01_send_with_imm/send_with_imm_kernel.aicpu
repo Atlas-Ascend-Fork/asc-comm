@@ -1,0 +1,169 @@
+/**
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
+
+/*!
+ * \file send_with_imm_kernel.aicpu
+ * \brief asccomm_send_with_imm_on_thread 真机样例的 AICPU 侧实现。
+ *
+ * 逐个执行 Host 侧准备好的用例：调用数据面接口，记录返回码，并从真实 UB SQ 内存回读
+ * 最后一个 WQE，供 Host 侧断言 opcode/immData/SGE/pi 是否符合预期。
+ */
+
+#include <cstdint>
+
+#include "aicpu_api.h"
+
+#include "asccomm_primitives.h"
+#include "hcomm_res_entity_defs.h"
+
+#include "send_with_imm_def.h"
+
+namespace {
+
+using namespace SendWithImmExample;
+
+void CopyWords(uint32_t* dst, const uint32_t* src, uint32_t wordNum)
+{
+    for (uint32_t i = 0; i < wordNum; ++i) {
+        dst[i] = src[i];
+    }
+}
+
+uint64_t ToHandle(const void* entity) { return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(entity)); }
+
+// 从真实 ChannelEntity 取 UB JFS 上下文；负向用例改写的是副本，观测点始终取自原始句柄。
+const HcommJfsContext* GetUbJfs(uint64_t channelHandle)
+{
+    if (channelHandle == 0U) {
+        return nullptr;
+    }
+    const ChannelEntity* channel = reinterpret_cast<const ChannelEntity*>(static_cast<uintptr_t>(channelHandle));
+    if (channel->abiHeader.magicWord != HCOMM_RESOURCE_CHANNEL_MAGIC_WORD || channel->sqNum == 0U ||
+        channel->sqContextAddr == nullptr || channel->sqContextAddr[0].type != HCOMM_SQ_CONTEXT_TYPE_UB_JFS) {
+        return nullptr;
+    }
+    return &channel->sqContextAddr[0].contextInfo.ubJfs;
+}
+
+// 复制真实 ThreadEntity 后破坏魔术字，用于校验数据面的 ABI 头合法性检查。
+uint64_t BuildBadThread(KernelContext* ctx, uint64_t threadHandle)
+{
+    const ThreadEntity* thread = reinterpret_cast<const ThreadEntity*>(static_cast<uintptr_t>(threadHandle));
+    CopyWords(ctx->scratchThread, reinterpret_cast<const uint32_t*>(thread), ENTITY_WORD_NUM);
+    ThreadEntity* bad = reinterpret_cast<ThreadEntity*>(ctx->scratchThread);
+    bad->abiHeader.magicWord = ~HCOMM_RESOURCE_THREAD_MAGIC_WORD;
+    return ToHandle(bad);
+}
+
+// 复制真实 ChannelEntity 后把协议改成 RoCE，用于校验非 UB 协议返回 NOT_SUPPORT。
+uint64_t BuildNonUbChannel(KernelContext* ctx, uint64_t channelHandle)
+{
+    const ChannelEntity* channel = reinterpret_cast<const ChannelEntity*>(static_cast<uintptr_t>(channelHandle));
+    CopyWords(ctx->scratchChannel, reinterpret_cast<const uint32_t*>(channel), ENTITY_WORD_NUM);
+    ChannelEntity* nonUb = reinterpret_cast<ChannelEntity*>(ctx->scratchChannel);
+    nonUb->protocol = COMM_PROTOCOL_ROCE;
+    return ToHandle(nonUb);
+}
+
+// 回读 pi 指向的 64 字节 WQE，按 32 位小端字解码关键字段。
+void SnapshotWqe(const HcommJfsContext* jfs, uint32_t pi, WqeSnapshot& snap)
+{
+    if (jfs->sqVa == 0U || jfs->sqDepth == 0U) {
+        return;
+    }
+    const uint64_t offset = static_cast<uint64_t>(pi % jfs->sqDepth) * WQE_SIZE;
+    const uint32_t* wqe = reinterpret_cast<const uint32_t*>(static_cast<uintptr_t>(jfs->sqVa) + offset);
+    snap.wqeValid = 1U;
+    snap.opcode = WqeOpcode(wqe);
+    snap.sgeNum = WqeSgeNum(wqe);
+    snap.cqe = WqeCqe(wqe);
+    snap.inlineEn = WqeInlineEn(wqe);
+    snap.immDataLow = wqe[WQE_IDX_IMM_LOW];
+    snap.immDataHigh = wqe[WQE_IDX_IMM_HIGH];
+    snap.sgeLength = wqe[WQE_IDX_SGE_LEN];
+    snap.sgeTokenId = wqe[WQE_IDX_SGE_TOKEN];
+    snap.sgeAddr = WqeSgeAddr(wqe);
+}
+
+void ResetResult(CaseResult& out)
+{
+    out.apiRet = RET_NOT_CALLED;
+    out.wqe.jfsValid = 0U;
+    out.wqe.wqeValid = 0U;
+    out.wqe.opcode = 0U;
+    out.wqe.sgeNum = 0U;
+    out.wqe.cqe = 0U;
+    out.wqe.inlineEn = 0U;
+    out.wqe.immDataLow = 0U;
+    out.wqe.immDataHigh = 0U;
+    out.wqe.sgeLength = 0U;
+    out.wqe.sgeTokenId = 0U;
+    out.wqe.sgeAddr = 0U;
+    out.wqe.piBefore = 0U;
+    out.wqe.piAfter = 0U;
+    out.wqe.maxWriteSize = 0U;
+    out.wqe.sqDepth = 0U;
+}
+
+void RunCase(KernelContext* ctx, uint32_t index)
+{
+    const CaseArgs in = ctx->args[index];
+    CaseResult& out = ctx->results[index];
+    ResetResult(out);
+
+    uint64_t thread = in.threadHandle;
+    uint64_t channel = in.channelHandle;
+    if (in.caseType == CASE_BAD_THREAD) {
+        thread = BuildBadThread(ctx, in.threadHandle);
+    } else if (in.caseType == CASE_NON_UB) {
+        channel = BuildNonUbChannel(ctx, in.channelHandle);
+    }
+
+    const HcommJfsContext* jfs = GetUbJfs(in.channelHandle);
+    if (jfs != nullptr) {
+        out.wqe.jfsValid = 1U;
+        out.wqe.piBefore = jfs->sqHead;
+        out.wqe.piAfter = jfs->sqHead;
+        out.wqe.maxWriteSize = jfs->maxWriteSize;
+        out.wqe.sqDepth = jfs->sqDepth;
+    }
+
+    out.apiRet = asccomm_send_with_imm_on_thread(
+        thread, channel, reinterpret_cast<const void*>(static_cast<uintptr_t>(in.srcAddr)), in.len, in.immData);
+
+    if (jfs != nullptr) {
+        out.wqe.piAfter = jfs->sqHead;
+        if (out.apiRet == RET_SUCCESS && out.wqe.piAfter != out.wqe.piBefore) {
+            SnapshotWqe(jfs, out.wqe.piBefore, out.wqe);
+        }
+    }
+}
+
+} // namespace
+
+/*!
+ * \brief AICPU 侧用例入口，由 Host 侧以 <<<1, 0, stream>>> 下发。
+ * \param[in] args 仅包含指向设备侧 KernelContext 的指针。
+ * \return uint32_t 0 表示全部用例已执行完毕。
+ */
+extern "C" __global__ __aicpu__ uint32_t send_with_imm_case_kernel(SendWithImmExample::KernelArgs args)
+{
+    SendWithImmExample::KernelContext* ctx = args.context;
+    if (ctx == nullptr) {
+        return 1U;
+    }
+    const uint32_t caseNum =
+        ctx->caseNum < SendWithImmExample::MAX_CASE_NUM ? ctx->caseNum : SendWithImmExample::MAX_CASE_NUM;
+    for (uint32_t i = 0; i < caseNum; ++i) {
+        RunCase(ctx, i);
+    }
+    AscendC::DataStoreBarrier();
+    return 0U;
+}
