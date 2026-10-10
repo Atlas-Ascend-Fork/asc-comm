@@ -22,7 +22,7 @@ namespace asc {
 
 /**
  * @brief CCU 控制操作槽位枚举。
- * @note HcommCcuInstance.ascCustom 数组中函数槽位的固定含义，仅 hcomm 与 asc-comm 内部约定。
+ * @note HcommCcuInstanceEntity.ascCustom 数组中函数槽位的固定含义，仅 hcomm 与 asc-comm 内部约定。
  */
 enum HcommCcuControlSlot {
     HCOMM_CCU_CONTROL_SLOT_CHANNEL_ENTITY = 0,     /**< 槽 0：获取 ChannelEntity 接口 */
@@ -45,7 +45,7 @@ public:
     asc_ccu_res_snapshot() = default;
     ~asc_ccu_res_snapshot() = default;
 
-    CcuResult load(const HcommCcuInstance& instance);
+    CcuResult load(const HcommCcuInstanceEntity& instance);
     CcuResult reset();
 
     asc_ccu_res_repository& get_ccu_res_repo();
