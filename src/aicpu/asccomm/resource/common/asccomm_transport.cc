@@ -110,6 +110,20 @@ AsccommResult build_ub_slices(
     return ASCCOMM_SUCCESS;
 }
 
+AsccommResult build_ub_local_slice(
+    const ChannelEntity& channel, uintptr_t localAddr, uint64_t len, Asc::RmaBufSliceLite& local)
+{
+    const HcommRegedBufferEntity* localBuffer =
+        find_buffer(channel.localBufferAddr, channel.localBufferNum, localAddr, len, true);
+    CHK_PTR_NULL(localBuffer);
+    const auto& localResource = localBuffer->bufferInfo.rma;
+    CHK_PRT_RET(
+        localResource.protectionInfo.type != HCOMM_PROTECTION_TYPE_URMA,
+        ASCCOMM_ERROR("[%s] UB buffer requires URMA protection.", __func__), ASCCOMM_E_PARA);
+    local = Asc::RmaBufSliceLite(localAddr, len, 0, localResource.protectionInfo.memInfo.ub.tokenId);
+    return ASCCOMM_SUCCESS;
+}
+
 AsccommResult build_ub_remote_notify(const ChannelEntity& channel, uint32_t index, Asc::RmtRmaBufSliceLite& notify)
 {
     CHK_PRT_RET(
@@ -586,6 +600,28 @@ AsccommResult asccomm_read_reduce(
     }
     // The original RoCE transport does not override ReadReduce and therefore performs no operation.
     return channel.protocol == COMM_PROTOCOL_ROCE ? ASCCOMM_SUCCESS : ASCCOMM_E_NOT_SUPPORT;
+}
+
+AsccommResult asccomm_send_with_imm(
+    ThreadEntity& thread, ChannelEntity& channel, uintptr_t localAddr, uint64_t len, uint32_t immData)
+{
+    CHK_PRT_RET(
+        !is_ub_protocol(channel.protocol),
+        ASCCOMM_ERROR("[%s] protocol[%d] is not supported.", __func__, channel.protocol), ASCCOMM_E_NOT_SUPPORT);
+    HcommJfsContext* jfs = nullptr;
+    CHK_RET(get_ub_context(channel, jfs));
+    Asc::RmaBufSliceLite local(0, 0, 0, 0);
+    CHK_RET(build_ub_local_slice(channel, localAddr, len, local));
+    Asc::UbConnLiteParam param{};
+    fill_ub_param(*jfs, param);
+    Asc::UbConnLite connection;
+    connection.import_context(param);
+    import_ub_state(*jfs, connection);
+    Asc::ConnLiteOperationOut out{};
+    Asc::SqeConfigLite cfg = get_ub_config(channel);
+    connection.send_with_imm(local, immData, cfg, out);
+    export_ub_state(connection, *jfs);
+    return ring_ub_doorbell(thread, channel, *jfs, out.pi);
 }
 
 AsccommResult asccomm_notify_record(ThreadEntity& thread, ChannelEntity& channel, uint32_t remoteNotifyIdx)
