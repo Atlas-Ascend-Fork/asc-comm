@@ -178,6 +178,83 @@ TEST_F(AsccommPrimitivesTest, RejectsUnsupportedReduceParameters)
     EXPECT_TRUE(g_runtimeStubState.reduceCalls.empty());
 }
 
+TEST_F(AsccommPrimitivesTest, SendPassesLocalBuffer)
+{
+    int value = 7;
+    const auto threadHandle = ThreadHandleOf(thread_);
+    const auto channelHandle = ChannelHandleOf(channel_);
+    EXPECT_EQ(asccomm_send_on_thread(threadHandle, channelHandle, nullptr, sizeof(value)), ASCCOMM_E_PTR);
+    EXPECT_TRUE(g_runtimeStubState.sendCalls.empty());
+
+    EXPECT_EQ(asccomm_send_on_thread(threadHandle, channelHandle, &value, sizeof(value)), ASCCOMM_SUCCESS);
+    ASSERT_EQ(g_runtimeStubState.sendCalls.size(), 1U);
+    EXPECT_EQ(g_runtimeStubState.sendCalls[0].thread, &thread_);
+    EXPECT_EQ(g_runtimeStubState.sendCalls[0].channel, &channel_);
+    EXPECT_EQ(g_runtimeStubState.sendCalls[0].local, reinterpret_cast<uintptr_t>(&value));
+    EXPECT_EQ(g_runtimeStubState.sendCalls[0].len, sizeof(value));
+
+    g_runtimeStubState.sendResult = ASCCOMM_E_NOT_SUPPORT;
+    EXPECT_EQ(asccomm_send_on_thread(threadHandle, channelHandle, &value, sizeof(value)), ASCCOMM_E_NOT_SUPPORT);
+}
+
+TEST_F(AsccommPrimitivesTest, SendWithImmPassesLocalBufferAndImmediate)
+{
+    int value = 7;
+    const auto threadHandle = ThreadHandleOf(thread_);
+    const auto channelHandle = ChannelHandleOf(channel_);
+    EXPECT_EQ(
+        asccomm_send_with_imm_on_thread(threadHandle, channelHandle, nullptr, sizeof(value), 0xa5), ASCCOMM_E_PTR);
+    EXPECT_TRUE(g_runtimeStubState.sendWithImmCalls.empty());
+
+    EXPECT_EQ(
+        asccomm_send_with_imm_on_thread(threadHandle, channelHandle, &value, sizeof(value), 0xa5), ASCCOMM_SUCCESS);
+    ASSERT_EQ(g_runtimeStubState.sendWithImmCalls.size(), 1U);
+    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].thread, &thread_);
+    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].channel, &channel_);
+    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].local, reinterpret_cast<uintptr_t>(&value));
+    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].len, sizeof(value));
+    EXPECT_EQ(g_runtimeStubState.sendWithImmCalls[0].immData, 0xa5U);
+
+    g_runtimeStubState.sendWithImmResult = ASCCOMM_E_NOT_SUPPORT;
+    EXPECT_EQ(
+        asccomm_send_with_imm_on_thread(threadHandle, channelHandle, &value, sizeof(value), 0xa5),
+        ASCCOMM_E_NOT_SUPPORT);
+}
+
+TEST_F(AsccommPrimitivesTest, RecvPassesLocalBufferAndOptionalImmediate)
+{
+    int value = 0;
+    uint32_t immData = 0;
+    const auto threadHandle = ThreadHandleOf(thread_);
+    const auto channelHandle = ChannelHandleOf(channel_);
+
+    EXPECT_EQ(asccomm_recv_on_thread(threadHandle, channelHandle, nullptr, sizeof(value)), ASCCOMM_E_PTR);
+    EXPECT_EQ(
+        asccomm_recv_with_imm_on_thread(threadHandle, channelHandle, nullptr, sizeof(value), &immData), ASCCOMM_E_PTR);
+    EXPECT_EQ(
+        asccomm_recv_with_imm_on_thread(threadHandle, channelHandle, &value, sizeof(value), nullptr), ASCCOMM_E_PTR);
+    EXPECT_TRUE(g_runtimeStubState.recvCalls.empty());
+
+    // 正例：传输层桩默认成功，参数逐项透传
+    EXPECT_EQ(asccomm_recv_on_thread(threadHandle, channelHandle, &value, sizeof(value)), ASCCOMM_SUCCESS);
+    ASSERT_EQ(g_runtimeStubState.recvCalls.size(), 1U);
+    EXPECT_EQ(g_runtimeStubState.recvCalls[0].thread, &thread_);
+    EXPECT_EQ(g_runtimeStubState.recvCalls[0].channel, &channel_);
+    EXPECT_EQ(g_runtimeStubState.recvCalls[0].local, reinterpret_cast<uintptr_t>(&value));
+    EXPECT_EQ(g_runtimeStubState.recvCalls[0].len, sizeof(value));
+    EXPECT_EQ(g_runtimeStubState.recvCalls[0].immData, nullptr);
+
+    EXPECT_EQ(
+        asccomm_recv_with_imm_on_thread(threadHandle, channelHandle, &value, sizeof(value), &immData), ASCCOMM_SUCCESS);
+    ASSERT_EQ(g_runtimeStubState.recvCalls.size(), 2U);
+    EXPECT_EQ(g_runtimeStubState.recvCalls[1].immData, &immData);
+
+    // 传输层失败码透传(如未预投recv ring的通道)
+    g_runtimeStubState.recvResult = ASCCOMM_E_NOT_SUPPORT;
+    EXPECT_EQ(asccomm_recv_on_thread(threadHandle, channelHandle, &value, sizeof(value)), ASCCOMM_E_NOT_SUPPORT);
+    g_runtimeStubState.recvResult = ASCCOMM_SUCCESS;
+}
+
 TEST_F(AsccommPrimitivesTest, ChannelNotifyWaitAndFenceDrainPassArguments)
 {
     const auto threadHandle = ThreadHandleOf(thread_);

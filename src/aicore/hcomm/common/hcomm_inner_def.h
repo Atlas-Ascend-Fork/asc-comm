@@ -36,6 +36,7 @@ constexpr uint32_t HCOMM_UB_BUF_SIZE = 512;
 constexpr uint32_t HCOMM_POLLCQ_MAX_RETRY_TIMES = 1000000;
 constexpr uint32_t HCOMM_POLL_CQ_THRESHOLD = 10;
 constexpr uint32_t HCOMM_NUM_CQE_PER_POLL_CQ = 100;
+constexpr uint32_t HCOMM_RESOURCE_CHANNEL_VERSION = 1U;
 
 #pragma pack(push, 1)
 struct UrmaWqeEntry {
@@ -219,6 +220,15 @@ typedef struct {
             uint32_t jfcID;
             uint32_t cqeSize;
             uint32_t cqDepth;
+            uint32_t cqHead;
+            uint32_t cqTail;
+            uint64_t ringVa;
+            uint64_t remoteRingVa;
+            uint32_t ringDepth;
+            uint32_t ringSlotSize;
+            uint32_t sendSeq;
+            uint32_t recvSeq;
+            uint32_t remoteRecvSeq;
         } ubJfc;
         struct {
             uint64_t cqVa;

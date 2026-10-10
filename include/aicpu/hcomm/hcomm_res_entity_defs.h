@@ -168,7 +168,7 @@ typedef struct {
     } contextInfo;
 } CqContext;
 
-#define HCOMM_RESOURCE_CHANNEL_VERSION 0U             ///< Channel resource ABI版本号
+#define HCOMM_RESOURCE_CHANNEL_VERSION 1U             ///< Channel resource ABI版本号
 #define HCOMM_RESOURCE_CHANNEL_MAGIC_WORD 0x0fcf0f5fU ///< Channel 资源合法性校验魔术字
 #define HCOMM_RESOURCE_THREAD_VERSION 0U              ///< Thread resource ABI版本号
 #define HCOMM_RESOURCE_THREAD_MAGIC_WORD 0x0fcf0f6fU  ///< Thread 资源合法性校验魔术字
@@ -327,6 +327,12 @@ typedef struct {
             uint32_t jfcID;
             uint32_t cqeSize;
             uint32_t cqDepth;
+            uint32_t cqHead;       ///< 软件轮询的下一个CQE索引(数据面持续自增)
+            uint32_t cqTail;       ///< 已消费CQE计数(数据面维护)
+            uint64_t ringVa;       ///< 预投recv环形缓冲基地址(host预投，数据面只读拷出)
+            uint32_t ringDepth;    ///< 预投recv环形缓冲槽位个数
+            uint32_t ringSlotSize; ///< 预投recv环形缓冲单槽字节数
+            uint32_t ringConsIdx;  ///< recv环消费索引(数据面维护，模ringDepth)
         } ubJfc;
         struct {
             uint64_t cqVa;
