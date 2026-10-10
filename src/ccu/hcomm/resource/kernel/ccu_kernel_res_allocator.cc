@@ -108,7 +108,7 @@ CcuResult plan_kernel_resources(
                             HCOMM_CCU_BATCH_RES_MISSION, planned_allocated.mission[die_id]) != 0) {
             return CcuResult::CCU_E_UNAVAIL;
         }
-        // INS 不走 range 池：指令空间由 ascCustom.allocInstSpace 向 hcomm 按需申请，随 RegisterContext 归还。
+        // INS 不走 range 池：指令空间由控制操作槽位向 hcomm 按需申请，随 RegisterContext 归还。
     }
 
     remaining = std::move(planned_remaining);

@@ -177,7 +177,7 @@ enum {
     catch (const std::runtime_error& exception)                              \
     {                                                                        \
         HCCL_ERROR("[%s] runtime error: %s", (func_name), exception.what()); \
-        return CcuResult::CCU_E_RUNTIME;                                     \
+        return CcuResult::CCU_E_INTERNAL;                                    \
     }                                                                        \
     catch (const std::logic_error& exception)                                \
     {                                                                        \
