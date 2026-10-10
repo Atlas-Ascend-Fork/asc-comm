@@ -92,7 +92,7 @@ protected:
         hcommBuf_.FreeTensor(tempTensor_);
     }
 
-    void SetCqe(uint32_t cqIndex, uint32_t sqIndex)
+    void SetCqe(uint32_t cqIndex, uint32_t wqeIndex, uint32_t wqebbIndex)
     {
         uint32_t cqDepth = cqCtx_.contextInfo.roceCq.cqDepth;
         auto& cqe = cqEntries_[cqIndex & (cqDepth - 1U)];
@@ -100,7 +100,8 @@ protected:
         cqe.ownerIdQpn = sqCtx_.contextInfo.roceSq.qpn |
                          (static_cast<uint32_t>((cqIndex & cqDepth) != 0U) << ROCE_1825_CQE_OWNER_SHIFT);
         cqe.opSrWqebb = static_cast<uint32_t>(HCOMM_ROCE_OP_TYPE::WRITE) << ROCE_1825_CQE_OPCODE_SHIFT;
-        cqe.wqeCounter = static_cast<uint16_t>(sqIndex);
+        cqe.opSrWqebb |= wqebbIndex & ROCE_SQ_INDEX_MASK;
+        cqe.wqeCounter = static_cast<uint16_t>(wqeIndex);
     }
 
 private:
@@ -129,7 +130,7 @@ TEST_F(HcommRoCETestSuite, Init_ReadNbi_Drain)
     ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
     int32_t ret = hcomm.ReadNbi(channelHandle, reinterpret_cast<GM_ADDR>(0x110), reinterpret_cast<GM_ADDR>(0x220), 10);
     EXPECT_EQ(ret, 0);
-    SetCqe(0, 0);
+    SetCqe(0, 0, 1);
     ret = hcomm.Drain(channelHandle);
     EXPECT_EQ(ret, 0);
 }
@@ -147,8 +148,8 @@ TEST_F(HcommRoCETestSuite, Init_WriteNbi_Drain)
     EXPECT_EQ(ret, 0);
     ret = hcomm.Commit(channelHandle);
     EXPECT_EQ(ret, 0);
-    SetCqe(0, 0);
-    SetCqe(1, 1);
+    SetCqe(0, 0, 1);
+    SetCqe(1, 1, 2);
     ret = hcomm.Drain(channelHandle);
     EXPECT_EQ(ret, 0);
 }
@@ -170,10 +171,10 @@ TEST_F(HcommRoCETestSuite, DrainWithoutNewCqeKeepsSqTail)
     ASSERT_EQ(hcomm.Init(tempTensor_, 512), HCOMM_SUCCESS);
     channel_.cqHead = 1;
     channel_.cqTail = 1;
-    channel_.sqTail = 7;
+    channel_.sqTail = RocePackSqIndex(7U, 7U);
 
     EXPECT_EQ(hcomm.Drain(reinterpret_cast<ChannelHandle>(&channel_)), HCOMM_SUCCESS);
-    EXPECT_EQ(channel_.sqTail, 7U);
+    EXPECT_EQ(channel_.sqTail, RocePackSqIndex(7U, 7U));
 }
 
 TEST_F(HcommRoCETestSuite, DrainConsumesCqeWhenTargetWrapsToZero)
@@ -184,7 +185,7 @@ TEST_F(HcommRoCETestSuite, DrainConsumesCqeWhenTargetWrapsToZero)
     channel_.sqTail = UINT32_MAX;
     channel_.cqHead = 0;
     channel_.cqTail = UINT32_MAX;
-    SetCqe(UINT32_MAX, UINT32_MAX);
+    SetCqe(UINT32_MAX, UINT32_MAX, 0U);
 
     EXPECT_EQ(hcomm.Drain(reinterpret_cast<ChannelHandle>(&channel_)), HCOMM_SUCCESS);
     EXPECT_EQ(channel_.cqTail, 0U);
@@ -195,16 +196,16 @@ TEST_F(HcommRoCETestSuite, DrainRejectsCounterAtOrBeyondProducer)
 {
     Hcomm<COMM_PROTOCOL_ROCE> hcomm;
     ASSERT_EQ(hcomm.Init(tempTensor_, 512), HCOMM_SUCCESS);
-    channel_.sqHead = 10;
-    channel_.sqTail = 9;
+    channel_.sqHead = RocePackSqIndex(10U, 10U);
+    channel_.sqTail = RocePackSqIndex(9U, 9U);
     channel_.cqHead = 1;
     channel_.cqTail = 0;
 
     for (uint32_t counter : {10U, 11U}) {
         SCOPED_TRACE(counter);
-        SetCqe(0, counter);
+        SetCqe(0, counter, counter);
         EXPECT_EQ(hcomm.Drain(reinterpret_cast<ChannelHandle>(&channel_)), HCOMM_FAILED);
-        EXPECT_EQ(channel_.sqTail, 9U);
+        EXPECT_EQ(channel_.sqTail, RocePackSqIndex(9U, 9U));
         EXPECT_EQ(channel_.cqTail, 0U);
     }
 }
@@ -213,14 +214,14 @@ TEST_F(HcommRoCETestSuite, DrainAcceptsLastOutstandingWqe)
 {
     Hcomm<COMM_PROTOCOL_ROCE> hcomm;
     ASSERT_EQ(hcomm.Init(tempTensor_, 512), HCOMM_SUCCESS);
-    channel_.sqHead = 10;
-    channel_.sqTail = 7;
+    channel_.sqHead = RocePackSqIndex(10U, 10U);
+    channel_.sqTail = RocePackSqIndex(7U, 7U);
     channel_.cqHead = 1;
     channel_.cqTail = 0;
-    SetCqe(0, 9);
+    SetCqe(0, 9, 10);
 
     EXPECT_EQ(hcomm.Drain(reinterpret_cast<ChannelHandle>(&channel_)), HCOMM_SUCCESS);
-    EXPECT_EQ(channel_.sqTail, 10U);
+    EXPECT_EQ(channel_.sqTail, RocePackSqIndex(10U, 10U));
     EXPECT_EQ(channel_.cqTail, 1U);
 }
 
@@ -228,11 +229,11 @@ TEST_F(HcommRoCETestSuite, DrainHandles16BitWqeCounterWrap)
 {
     Hcomm<COMM_PROTOCOL_ROCE> hcomm;
     ASSERT_EQ(hcomm.Init(tempTensor_, 512), HCOMM_SUCCESS);
-    channel_.sqHead = UINT16_MAX + 2U;
-    channel_.sqTail = UINT16_MAX - 1U;
+    channel_.sqHead = RocePackSqIndex(UINT16_MAX + 2U, UINT16_MAX + 2U);
+    channel_.sqTail = RocePackSqIndex(UINT16_MAX - 1U, UINT16_MAX - 1U);
     channel_.cqHead = 1;
     channel_.cqTail = 0;
-    SetCqe(0, UINT16_MAX + 1U);
+    SetCqe(0, UINT16_MAX + 1U, 1U);
 
     EXPECT_EQ(hcomm.Drain(reinterpret_cast<ChannelHandle>(&channel_)), HCOMM_SUCCESS);
     EXPECT_EQ(channel_.sqTail, channel_.sqHead);
@@ -252,7 +253,7 @@ TEST_F(HcommRoCETestSuite, WriteNbiWithoutCqeDoesNotAdvanceCqHead)
     int32_t ret = hcomm.WriteNbi<false, PIPE_S, PIPE_MTE3, kRoceNoCqeCfg>(
         channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, HCOMM_SUCCESS);
-    EXPECT_EQ(channel_.sqHead, 1U);
+    EXPECT_EQ(channel_.sqHead, RocePackSqIndex(1U, 1U));
     EXPECT_EQ(channel_.cqHead, 0U);
 }
 
@@ -261,7 +262,7 @@ TEST_F(HcommRoCETestSuite, PostSendKeepsOneSqSlotForInvalidMarker)
     Hcomm<COMM_PROTOCOL_ROCE> hcomm;
     ASSERT_EQ(hcomm.Init(tempTensor_, 512), HCOMM_SUCCESS);
     ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
-    channel_.sqHead = 14;
+    channel_.sqHead = RocePackSqIndex(14U, 14U);
     channel_.sqTail = 0;
     channel_.cqHead = 14;
     channel_.cqTail = 14;
@@ -269,7 +270,7 @@ TEST_F(HcommRoCETestSuite, PostSendKeepsOneSqSlotForInvalidMarker)
     int32_t ret = hcomm.WriteNbi<false, PIPE_S, PIPE_MTE3, kRoceNoCqeCfg>(
         channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, HCOMM_SUCCESS);
-    EXPECT_EQ(channel_.sqHead, 15U);
+    EXPECT_EQ(channel_.sqHead, RocePackSqIndex(15U, 15U));
     ret = hcomm.WriteNbi<false, PIPE_S, PIPE_MTE3, kRoceNoCqeCfg>(
         channelHandle, reinterpret_cast<GM_ADDR>(0x220), reinterpret_cast<GM_ADDR>(0x110), 10);
     EXPECT_EQ(ret, HCOMM_FAILED);
@@ -280,7 +281,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitChecksAccumulatedSqCapacity)
     Hcomm<COMM_PROTOCOL_ROCE> hcomm;
     ASSERT_EQ(hcomm.Init(tempTensor_, 512), HCOMM_SUCCESS);
     ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
-    channel_.sqHead = 14;
+    channel_.sqHead = RocePackSqIndex(14U, 14U);
     channel_.sqTail = 0;
     auto batchHandle = hcomm.MakeBatchHandle(
         channelHandle, tempTensor_, 128, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
@@ -291,7 +292,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitChecksAccumulatedSqCapacity)
             batchHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         HCOMM_SUCCESS);
     ASSERT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
-    EXPECT_EQ(channel_.sqHead, 15U);
+    EXPECT_EQ(channel_.sqHead, RocePackSqIndex(15U, 15U));
     EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
 
     ASSERT_EQ(
@@ -299,7 +300,7 @@ TEST_F(HcommRoCETestSuite, BatchCommitChecksAccumulatedSqCapacity)
             batchHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
         HCOMM_SUCCESS);
     EXPECT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_FAILED);
-    EXPECT_EQ(channel_.sqHead, 15U);
+    EXPECT_EQ(channel_.sqHead, RocePackSqIndex(15U, 15U));
     EXPECT_EQ(batchHandle.cursor.preSqCnt, 1U);
 }
 
@@ -319,21 +320,21 @@ TEST_F(HcommRoCETestSuite, BatchCommitPollsAndReusesWorkspaceWithoutInit)
             HCOMM_SUCCESS);
         RoceWqeEntry expectedWqe;
         std::memcpy(&expectedWqe, batchHandle.buffer.buffer.GetPhyAddr(), sizeof(expectedWqe));
-        SetCqe(i, i);
+        SetCqe(i, i, i + 1U);
         ASSERT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
         EXPECT_EQ(std::memcmp(sqVa_ + i * HCOMM_ROCE_WQEBB_SIZE, &expectedWqe, sizeof(expectedWqe)), 0);
         EXPECT_EQ(batchHandle.cursor.preSqCnt, 0U);
         if (i + 1U == pollCount) {
             // This completion was consumed by BatchCommit, before any explicit Drain.
             EXPECT_EQ(channel_.cqTail, pollCount);
-            EXPECT_EQ(channel_.sqTail, pollCount);
+            EXPECT_EQ(channel_.sqTail, RocePackSqIndex(pollCount, pollCount));
             EXPECT_EQ(std::memcmp(batchHandle.buffer.buffer.GetPhyAddr(), &cqEntries_[i], sizeof(RoceCqeEntry)), 0);
         }
     }
 
     EXPECT_EQ(hcomm.Drain(batchHandle), HCOMM_SUCCESS);
     EXPECT_EQ(channel_.cqTail, pollCount + 1U);
-    EXPECT_EQ(channel_.sqTail, pollCount + 1U);
+    EXPECT_EQ(channel_.sqTail, RocePackSqIndex(pollCount + 1U, pollCount + 1U));
     EXPECT_EQ(batchHandle.cursor.sqTail, channel_.sqTail);
 }
 
@@ -381,13 +382,13 @@ TEST_F(HcommRoCETestSuite, BatchPostSendUses64BitWqeEncoding)
         HCOMM_SUCCESS);
 
     RoceWqeEntry expected[2]{};
-    hcomm.impl_.FillCtrlSeg(&expected[0], 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth, 1);
+    hcomm.impl_.FillCtrlSeg(&expected[0], 0, 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth, 1);
     hcomm.impl_.FillTaskSeg(
         &expected[0], reinterpret_cast<GM_ADDR>(0x200), 10, static_cast<uint32_t>(HCOMM_ROCE_OP_TYPE::WRITE),
         batchHandle.mrKey.rKey, batchHandle.mrKey.lKey, ROCE_DEFAULT_CFG.fence);
     hcomm.impl_.FillDataSeg(&expected[0], reinterpret_cast<GM_ADDR>(0x110), 10, batchHandle.mrKey.lKey);
 
-    hcomm.impl_.FillCtrlSeg(&expected[1], 1, channel_.sqContextAddr[0].contextInfo.roceSq.depth, 0);
+    hcomm.impl_.FillCtrlSeg(&expected[1], 1, 1, channel_.sqContextAddr[0].contextInfo.roceSq.depth, 0);
     hcomm.impl_.FillTaskSeg(
         &expected[1], reinterpret_cast<GM_ADDR>(0x220), 11, static_cast<uint32_t>(HCOMM_ROCE_OP_TYPE::READ),
         batchHandle.mrKey.rKey, batchHandle.mrKey.lKey, kRoceNoCqeCfg.fence);
@@ -417,7 +418,7 @@ TEST_F(HcommRoCETestSuite, BatchPostSendSharesPublicHeaderAcrossSges)
 
     auto* words = reinterpret_cast<uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
     RoceWqeEntry expected{};
-    hcomm.impl_.FillCtrlSeg(&expected, 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth, 1);
+    hcomm.impl_.FillCtrlSeg(&expected, 0, 0, channel_.sqContextAddr[0].contextInfo.roceSq.depth, 1);
     expected.ctrl.wfBdsl &=
         ~HtoNS(static_cast<uint16_t>(0xffU << (ROCE_1825_WQE_DATA_SEG_SHIFT - ROCE_1825_WQE_SECTION_ALIGN_SHIFT)));
     expected.ctrl.wfBdsl |=
@@ -440,4 +441,78 @@ TEST_F(HcommRoCETestSuite, BatchPostSendSharesPublicHeaderAcrossSges)
     }
     EXPECT_EQ(batchHandle.cursor.preSqCnt, 2U);
     EXPECT_EQ(batchHandle.cursor.cqHead, 1U);
+}
+
+TEST_F(HcommRoCETestSuite, BatchPostSendIndexesSsnByWqeNotWqebb)
+{
+    Hcomm<COMM_PROTOCOL_ROCE> hcomm;
+    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
+    channel_.sqHead = RocePackSqIndex(20U, 14U);
+    auto batchHandle = hcomm.MakeBatchHandle(
+        channelHandle, tempTensor_, 256, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
+    ASSERT_NE(batchHandle.channelHandle, 0U);
+
+    BufDesc descs[4] = {
+        {reinterpret_cast<GM_ADDR>(0x110), 10},
+        {reinterpret_cast<GM_ADDR>(0x120), 11},
+        {reinterpret_cast<GM_ADDR>(0x130), 12},
+        {reinterpret_cast<GM_ADDR>(0x140), 13},
+    };
+    ASSERT_EQ(
+        hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
+        HCOMM_SUCCESS);
+    ASSERT_EQ(hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), descs, 4), HCOMM_SUCCESS);
+    ASSERT_EQ(
+        hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x150), 10),
+        HCOMM_SUCCESS);
+
+    const auto* words = reinterpret_cast<const uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
+    constexpr uint32_t firstWqeWqebb = 1;
+    constexpr uint32_t multiWqeWqebb = 2;
+    constexpr uint32_t ssnShift = ROCE_1825_WQE_HALFWORD_BITS + ROCE_1825_WQE_SSN_BE_SHIFT;
+    constexpr uint64_t ssnMask = static_cast<uint64_t>(ROCE_1825_WQE_SSN_MASK) << ssnShift;
+    constexpr uint64_t ownerMask = 1ULL << ROCE_1825_WQE_OWNER_SHIFT;
+    EXPECT_EQ(words[0] & ssnMask, 0U) << "first WQE SSN";
+    EXPECT_EQ(words[firstWqeWqebb * HCOMM_ROCE_WQEBB_U64_NUM] & ssnMask, 1ULL << ssnShift) << "multi-SGE WQE SSN";
+    EXPECT_EQ(words[(firstWqeWqebb + multiWqeWqebb) * HCOMM_ROCE_WQEBB_U64_NUM] & ssnMask, 2ULL << ssnShift)
+        << "WQE after multi-SGE SSN";
+    EXPECT_EQ(words[0] & ownerMask, 0U) << "owner before SQ wrap";
+    EXPECT_EQ(words[(firstWqeWqebb + multiWqeWqebb) * HCOMM_ROCE_WQEBB_U64_NUM] & ownerMask, ownerMask)
+        << "owner after SQ wrap";
+    EXPECT_EQ(batchHandle.cursor.sqHead, RocePackSqIndex(23U, 14U));
+    EXPECT_EQ(batchHandle.cursor.preSqCnt, 4U);
+}
+
+TEST_F(HcommRoCETestSuite, BatchCommitPreservesPackedWqeAndWqebbCounters)
+{
+    Hcomm<COMM_PROTOCOL_ROCE> hcomm;
+    ChannelHandle channelHandle = reinterpret_cast<ChannelHandle>(&channel_);
+    auto batchHandle = hcomm.MakeBatchHandle(
+        channelHandle, tempTensor_[128], 128, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110));
+    ASSERT_NE(batchHandle.channelHandle, 0U);
+
+    BufDesc descs[2] = {
+        {reinterpret_cast<GM_ADDR>(0x110), 10},
+        {reinterpret_cast<GM_ADDR>(0x120), 11},
+    };
+    ASSERT_EQ(hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), descs, 2), HCOMM_SUCCESS);
+    ASSERT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
+    EXPECT_EQ(channel_.sqHead, RocePackSqIndex(1U, 2U));
+    SetCqe(0, 0, 2);
+    ASSERT_EQ(hcomm.Drain(channelHandle), HCOMM_SUCCESS);
+    EXPECT_EQ(channel_.sqTail, RocePackSqIndex(1U, 2U));
+
+    ASSERT_EQ(
+        hcomm.WriteNbi(batchHandle, reinterpret_cast<GM_ADDR>(0x200), reinterpret_cast<GM_ADDR>(0x110), 10),
+        HCOMM_SUCCESS);
+    constexpr uint32_t ssnShift = ROCE_1825_WQE_HALFWORD_BITS + ROCE_1825_WQE_SSN_BE_SHIFT;
+    constexpr uint64_t ssnMask = static_cast<uint64_t>(ROCE_1825_WQE_SSN_MASK) << ssnShift;
+    const auto* words = reinterpret_cast<const uint64_t*>(batchHandle.buffer.buffer.GetPhyAddr());
+    EXPECT_EQ(words[0] & ssnMask, 1ULL << ssnShift);
+    EXPECT_EQ(batchHandle.cursor.sqHead, RocePackSqIndex(2U, 2U));
+    ASSERT_EQ(hcomm.BatchCommit(batchHandle), HCOMM_SUCCESS);
+    EXPECT_EQ(channel_.sqHead, RocePackSqIndex(2U, 3U));
+    SetCqe(1, 1, 3);
+    ASSERT_EQ(hcomm.Drain(channelHandle), HCOMM_SUCCESS);
+    EXPECT_EQ(channel_.sqTail, RocePackSqIndex(2U, 3U));
 }
