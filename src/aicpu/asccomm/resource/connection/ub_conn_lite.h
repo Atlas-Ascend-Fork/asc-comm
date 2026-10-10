@@ -59,6 +59,8 @@ public:
     void write_reduce_with_notify(
         DataType dataType, ReduceOp reduceOp, const RmaBufSliceLite& loc, const RmtRmaBufSliceLite& rmt,
         const SqeConfigLite& cfg, ConnLiteOperationOut& out, const RmtRmaBufSliceLite& notify, uint64_t notifyData);
+    void send_with_imm(
+        const RmaBufSliceLite& loc, uint32_t immData, const SqeConfigLite& cfg, ConnLiteOperationOut& out);
 
     void fill_comm_sqe(
         UdmaSqeCommon* sqe, const RmtRmaBufSliceLite& rmt, const SqeConfigLite& cfg, uint32_t opCode,

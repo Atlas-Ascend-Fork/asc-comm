@@ -419,6 +419,17 @@ int32_t asccomm_read_reduce_on_thread(
     });
 }
 
+int32_t asccomm_send_with_imm_on_thread(
+    ThreadHandle thread, ChannelHandle channel, const void* src, uint64_t len, uint32_t immData)
+{
+    return execute_api([&]() {
+        CHK_PTR_NULL(src);
+        CommContext context{};
+        CHK_RET(get_context(thread, channel, true, context));
+        return asccomm_send_with_imm(*context.thread, *context.channel, reinterpret_cast<uintptr_t>(src), len, immData);
+    });
+}
+
 int32_t asccomm_batch_transfer_on_thread(
     ThreadHandle thread, ChannelHandle channel, const AsccommBatchTransferDesc* transferDescs, uint32_t transferDescNum)
 {
